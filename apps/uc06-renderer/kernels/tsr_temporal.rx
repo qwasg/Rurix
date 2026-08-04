@@ -1,0 +1,348 @@
+// G7.6 PR-1 TSR 时域臂 device 内核(设计案 §2「One True Device Frame」;
+// RD-038「TAA-TSR」时域余项孤立腿)。
+//
+// host oracle(逐字蓝本)= `rurix_render::temporal::tsr::TsrUpscaler::upscale`
+// 的时域臂(tsr.rs L270-376)+ `temporal::common::{reproject_sample,
+// validate_history_with_mv, rgb_to_ycocg, ycocg_to_rgb, neighborhood_aabb}`:
+//   1. 当前帧已由上游 `tsr_resample` 产成 `tsr_cur`(输出分辨率 RGB);
+//   2. depth/mv 在输入分辨率,按 `image::sample_nearest` 最近邻上采样到输出
+//      (`u=(ox+0.5)/ow` → `floor(u·iw).clamp`);
+//   3. reset/首帧:final = tsr_cur 逐字节拷贝;prev_sign/flicker_score 置 0;
+//      hist_depth_out = depth_hi;prev_luma = cur_luma(YCoCg Y);
+//   4. 非 reset:闪烁 EMA(亮度差分→死区符号→翻转→score·(1−k)+flip·k;
+//      s≠0 时写 sign)+ 历史重投影(输出分辨率双线性,uv+mv 出屏 → 拒)+
+//      深度相对容差验证(法线恒 [0,0,1] → normal 判据恒过,与 host 冻结接口
+//      无法线输入时填均匀常量同构)+ 当前帧 3×3 YCoCg AABB + 闪烁松弛钳制
+//      + α 混合(reactive 本孤立腿恒 0)+ YCoCg→RGB.max(0);
+//   5. 双缓冲:hist_color/hist_depth 的 ping/pong 由 harness 经
+//      `FrameUpdate.binding_overrides` 逐帧交换;本核只见 in/out 各一。
+//
+// 编码器纪律(沿 `vsm_sample.rx` 实测边界):无 while 体内「intrinsic 后并列 if」;
+// 3×3 AABB 与双线性 4-tap **完全展开**(镜像 `taa.rx`),禁私改语义。
+//
+// 绑定序(set0 storage,声明序 = binding 号):
+//   0 tsr_cur  1 depth_lo  2 mv_lo  3 hist_color_in  4 hist_depth_in
+//   5 prev_luma  6 prev_sign  7 flicker_score  8 final_out  9 hist_depth_out
+kernel fn tsr_temporal(
+    t: ThreadCtx<1>,
+    tsr_cur: View<global, f32>,
+    depth_lo: View<global, f32>,
+    mv_lo: View<global, f32>,
+    hist_color: View<global, f32>,
+    hist_depth: View<global, f32>,
+    prev_luma: ViewMut<global, f32>,
+    prev_sign: ViewMut<global, f32>,
+    flicker_score: ViewMut<global, f32>,
+    final_out: ViewMut<global, f32>,
+    hist_depth_out: ViewMut<global, f32>,
+    iw: usize,
+    ih: usize,
+    ow: usize,
+    oh: usize,
+    reset: usize,
+    base_alpha: f32,
+    min_alpha: f32,
+    ema_k: f32,
+    flicker_tighten: f32,
+    flicker_deadzone_abs: f32,
+    flicker_deadzone_rel: f32,
+    depth_rel_tol: f32,
+) {
+    let i = t.global_id();
+    if i < ow * oh {
+        let ox = i % ow;
+        let oy = i / ow;
+        let base = i * 3;
+        let cr = tsr_cur[base];
+        let cg = tsr_cur[base + 1];
+        let cb = tsr_cur[base + 2];
+        // cur_luma = rgb_to_ycocg(cur)[0]
+        let lc = 0.25 * cr + 0.5 * cg + 0.25 * cb;
+
+        // sample_nearest depth/mv(输入分辨率 → 输出像素)
+        let u0 = (ox as f32 + 0.5) / ow as f32;
+        let v0 = (oy as f32 + 0.5) / oh as f32;
+        let mut sx = (u0 * iw as f32).floor() as i32;
+        let mut sy = (v0 * ih as f32).floor() as i32;
+        let last_x = iw as i32 - 1i32;
+        let last_y = ih as i32 - 1i32;
+        if sx < 0i32 {
+            sx = 0i32;
+        }
+        if sy < 0i32 {
+            sy = 0i32;
+        }
+        if sx > last_x {
+            sx = last_x;
+        }
+        if sy > last_y {
+            sy = last_y;
+        }
+        let sidx = (sy as usize) * iw + sx as usize;
+        let dc = depth_lo[sidx];
+        let mbase = sidx * 2;
+        let mvx = mv_lo[mbase];
+        let mvy = mv_lo[mbase + 1];
+        hist_depth_out[i] = dc;
+
+        if reset != 0 {
+            final_out[base] = cr;
+            final_out[base + 1] = cg;
+            final_out[base + 2] = cb;
+            prev_luma[i] = lc;
+            prev_sign[i] = 0.0;
+            flicker_score[i] = 0.0;
+        } else {
+            // 闪烁时域分析(tsr.rs L282-311)
+            let lp = prev_luma[i];
+            let d = lc - lp;
+            let mut dead = flicker_deadzone_abs;
+            let mut amax = lc.abs();
+            if lp.abs() > amax {
+                amax = lp.abs();
+            }
+            let drel = flicker_deadzone_rel * amax;
+            if drel > dead {
+                dead = drel;
+            }
+            let mut s = cr * 0.0;
+            if d > dead {
+                s = 1.0;
+            } else {
+                if d < (0.0 - dead) {
+                    s = 0.0 - 1.0;
+                }
+            }
+            let ps = prev_sign[i];
+            let mut flip = cr * 0.0;
+            if s != 0.0 {
+                if ps != 0.0 {
+                    if s != ps {
+                        flip = 1.0;
+                    }
+                }
+            }
+            let sc0 = flicker_score[i];
+            flicker_score[i] = sc0 * (1.0 - ema_k) + flip * ema_k;
+            if s != 0.0 {
+                prev_sign[i] = s;
+            }
+            let flick = flicker_score[i];
+
+            // reproject + validate(common.rs;法线恒 [0,0,1] → normal_ok 恒真)
+            let su = u0 + mvx;
+            let sv = v0 + mvy;
+            let mut inside = cr * 0.0;
+            if su >= 0.0 {
+                if su <= 1.0 {
+                    if sv >= 0.0 {
+                        if sv <= 1.0 {
+                            inside = 1.0;
+                        }
+                    }
+                }
+            }
+
+            // 双线性重投影历史色/深(taa.rx 同形 4-tap;出屏时值不被消费)
+            let xf = su * ow as f32 - 0.5;
+            let yf = sv * oh as f32 - 0.5;
+            let x0 = xf.floor() as i32;
+            let y0 = yf.floor() as i32;
+            let fx = xf - x0 as f32;
+            let fy = yf - y0 as f32;
+            let mut xa = x0;
+            let mut xb = x0 + 1i32;
+            let mut ya = y0;
+            let mut yb = y0 + 1i32;
+            let ow_i = ow as i32;
+            let oh_i = oh as i32;
+            if xa < 0i32 {
+                xa = 0i32;
+            }
+            if xb < 0i32 {
+                xb = 0i32;
+            }
+            if ya < 0i32 {
+                ya = 0i32;
+            }
+            if yb < 0i32 {
+                yb = 0i32;
+            }
+            if xa >= ow_i {
+                xa = ow_i - 1i32;
+            }
+            if xb >= ow_i {
+                xb = ow_i - 1i32;
+            }
+            if ya >= oh_i {
+                ya = oh_i - 1i32;
+            }
+            if yb >= oh_i {
+                yb = oh_i - 1i32;
+            }
+            let a = (ya as usize * ow + xa as usize) * 3;
+            let b = (ya as usize * ow + xb as usize) * 3;
+            let c = (yb as usize * ow + xa as usize) * 3;
+            let d4 = (yb as usize * ow + xb as usize) * 3;
+            let hr = (hist_color[a] * (1.0 - fx) + hist_color[b] * fx) * (1.0 - fy)
+                + (hist_color[c] * (1.0 - fx) + hist_color[d4] * fx) * fy;
+            let hg = (hist_color[a + 1] * (1.0 - fx) + hist_color[b + 1] * fx) * (1.0 - fy)
+                + (hist_color[c + 1] * (1.0 - fx) + hist_color[d4 + 1] * fx) * fy;
+            let hb = (hist_color[a + 2] * (1.0 - fx) + hist_color[b + 2] * fx) * (1.0 - fy)
+                + (hist_color[c + 2] * (1.0 - fx) + hist_color[d4 + 2] * fx) * fy;
+            let ad = ya as usize * ow + xa as usize;
+            let bd = ya as usize * ow + xb as usize;
+            let cd = yb as usize * ow + xa as usize;
+            let dd = yb as usize * ow + xb as usize;
+            let dp = (hist_depth[ad] * (1.0 - fx) + hist_depth[bd] * fx) * (1.0 - fy)
+                + (hist_depth[cd] * (1.0 - fx) + hist_depth[dd] * fx) * fy;
+
+            let mut dmax = dc;
+            if dp > dmax {
+                dmax = dp;
+            }
+            if dmax < 0.000001 {
+                dmax = 0.000001;
+            }
+            let mut depth_ok = cr * 0.0;
+            let ddiff = (dc - dp).abs();
+            if ddiff <= depth_rel_tol * dmax {
+                depth_ok = 1.0;
+            }
+            let validity = inside * depth_ok;
+
+            if validity < 0.5 {
+                final_out[base] = cr;
+                final_out[base + 1] = cg;
+                final_out[base + 2] = cb;
+            } else {
+                // 3×3 邻域 AABB(YCoCg;边界钳制;完全展开)
+                let mut xm = ox as i32 - 1i32;
+                let mut xp = ox as i32 + 1i32;
+                let mut ym = oy as i32 - 1i32;
+                let mut yp = oy as i32 + 1i32;
+                if xm < 0i32 {
+                    xm = 0i32;
+                }
+                if ym < 0i32 {
+                    ym = 0i32;
+                }
+                if xp >= ow_i {
+                    xp = ow_i - 1i32;
+                }
+                if yp >= oh_i {
+                    yp = oh_i - 1i32;
+                }
+                let n00 = (ym as usize * ow + xm as usize) * 3;
+                let n01 = (ym as usize * ow + ox) * 3;
+                let n02 = (ym as usize * ow + xp as usize) * 3;
+                let n10 = (oy * ow + xm as usize) * 3;
+                let n11 = base;
+                let n12 = (oy * ow + xp as usize) * 3;
+                let n20 = (yp as usize * ow + xm as usize) * 3;
+                let n21 = (yp as usize * ow + ox) * 3;
+                let n22 = (yp as usize * ow + xp as usize) * 3;
+                let y00 = 0.25 * tsr_cur[n00] + 0.5 * tsr_cur[n00 + 1] + 0.25 * tsr_cur[n00 + 2];
+                let y01 = 0.25 * tsr_cur[n01] + 0.5 * tsr_cur[n01 + 1] + 0.25 * tsr_cur[n01 + 2];
+                let y02 = 0.25 * tsr_cur[n02] + 0.5 * tsr_cur[n02 + 1] + 0.25 * tsr_cur[n02 + 2];
+                let y10 = 0.25 * tsr_cur[n10] + 0.5 * tsr_cur[n10 + 1] + 0.25 * tsr_cur[n10 + 2];
+                let y11 = lc;
+                let y12 = 0.25 * tsr_cur[n12] + 0.5 * tsr_cur[n12 + 1] + 0.25 * tsr_cur[n12 + 2];
+                let y20 = 0.25 * tsr_cur[n20] + 0.5 * tsr_cur[n20 + 1] + 0.25 * tsr_cur[n20 + 2];
+                let y21 = 0.25 * tsr_cur[n21] + 0.5 * tsr_cur[n21 + 1] + 0.25 * tsr_cur[n21 + 2];
+                let y22 = 0.25 * tsr_cur[n22] + 0.5 * tsr_cur[n22 + 1] + 0.25 * tsr_cur[n22 + 2];
+                let co00 = 0.5 * tsr_cur[n00] - 0.5 * tsr_cur[n00 + 2];
+                let co01 = 0.5 * tsr_cur[n01] - 0.5 * tsr_cur[n01 + 2];
+                let co02 = 0.5 * tsr_cur[n02] - 0.5 * tsr_cur[n02 + 2];
+                let co10 = 0.5 * tsr_cur[n10] - 0.5 * tsr_cur[n10 + 2];
+                let co11 = 0.5 * cr - 0.5 * cb;
+                let co12 = 0.5 * tsr_cur[n12] - 0.5 * tsr_cur[n12 + 2];
+                let co20 = 0.5 * tsr_cur[n20] - 0.5 * tsr_cur[n20 + 2];
+                let co21 = 0.5 * tsr_cur[n21] - 0.5 * tsr_cur[n21 + 2];
+                let co22 = 0.5 * tsr_cur[n22] - 0.5 * tsr_cur[n22 + 2];
+                let cg00 = (0.0 - 0.25) * tsr_cur[n00] + 0.5 * tsr_cur[n00 + 1] - 0.25 * tsr_cur[n00 + 2];
+                let cg01 = (0.0 - 0.25) * tsr_cur[n01] + 0.5 * tsr_cur[n01 + 1] - 0.25 * tsr_cur[n01 + 2];
+                let cg02 = (0.0 - 0.25) * tsr_cur[n02] + 0.5 * tsr_cur[n02 + 1] - 0.25 * tsr_cur[n02 + 2];
+                let cg10 = (0.0 - 0.25) * tsr_cur[n10] + 0.5 * tsr_cur[n10 + 1] - 0.25 * tsr_cur[n10 + 2];
+                let cg11 = (0.0 - 0.25) * cr + 0.5 * cg - 0.25 * cb;
+                let cg12 = (0.0 - 0.25) * tsr_cur[n12] + 0.5 * tsr_cur[n12 + 1] - 0.25 * tsr_cur[n12 + 2];
+                let cg20 = (0.0 - 0.25) * tsr_cur[n20] + 0.5 * tsr_cur[n20 + 1] - 0.25 * tsr_cur[n20 + 2];
+                let cg21 = (0.0 - 0.25) * tsr_cur[n21] + 0.5 * tsr_cur[n21 + 1] - 0.25 * tsr_cur[n21 + 2];
+                let cg22 = (0.0 - 0.25) * tsr_cur[n22] + 0.5 * tsr_cur[n22 + 1] - 0.25 * tsr_cur[n22 + 2];
+                let lo_y = y00.min(y01).min(y02).min(y10).min(y11).min(y12).min(y20).min(y21).min(y22);
+                let hi_y = y00.max(y01).max(y02).max(y10).max(y11).max(y12).max(y20).max(y21).max(y22);
+                let lo_co = co00.min(co01).min(co02).min(co10).min(co11).min(co12).min(co20).min(co21).min(co22);
+                let hi_co = co00.max(co01).max(co02).max(co10).max(co11).max(co12).max(co20).max(co21).max(co22);
+                let lo_cg = cg00.min(cg01).min(cg02).min(cg10).min(cg11).min(cg12).min(cg20).min(cg21).min(cg22);
+                let hi_cg = cg00.max(cg01).max(cg02).max(cg10).max(cg11).max(cg12).max(cg20).max(cg21).max(cg22);
+
+                // hist YCoCg + 闪烁松弛(reactive=0 → relax = flick.clamp(0,1))
+                let hy0 = 0.25 * hr + 0.5 * hg + 0.25 * hb;
+                let hco0 = 0.5 * hr - 0.5 * hb;
+                let hcg0 = (0.0 - 0.25) * hr + 0.5 * hg - 0.25 * hb;
+                let mut relax = flick;
+                if relax < 0.0 {
+                    relax = 0.0;
+                }
+                if relax > 1.0 {
+                    relax = 1.0;
+                }
+                let mut hy_c = hy0;
+                if hy_c < lo_y {
+                    hy_c = lo_y;
+                }
+                if hy_c > hi_y {
+                    hy_c = hi_y;
+                }
+                let mut hco_c = hco0;
+                if hco_c < lo_co {
+                    hco_c = lo_co;
+                }
+                if hco_c > hi_co {
+                    hco_c = hi_co;
+                }
+                let mut hcg_c = hcg0;
+                if hcg_c < lo_cg {
+                    hcg_c = lo_cg;
+                }
+                if hcg_c > hi_cg {
+                    hcg_c = hi_cg;
+                }
+                let hy_u = hy_c * (1.0 - relax) + hy0 * relax;
+                let hco_u = hco_c * (1.0 - relax) + hco0 * relax;
+                let hcg_u = hcg_c * (1.0 - relax) + hcg0 * relax;
+
+                // alpha = max(base·(1 − tighten·flick), reactive=0).clamp(min, 1)
+                let mut alpha = base_alpha * (1.0 - flicker_tighten * flick);
+                if alpha < min_alpha {
+                    alpha = min_alpha;
+                }
+                if alpha > 1.0 {
+                    alpha = 1.0;
+                }
+                let by = alpha * y11 + (1.0 - alpha) * hy_u;
+                let bco = alpha * co11 + (1.0 - alpha) * hco_u;
+                let bcg = alpha * cg11 + (1.0 - alpha) * hcg_u;
+                let tmp = by - bcg;
+                let mut or = tmp + bco;
+                let mut og = by + bcg;
+                let mut ob = tmp - bco;
+                if or < 0.0 {
+                    or = 0.0;
+                }
+                if og < 0.0 {
+                    og = 0.0;
+                }
+                if ob < 0.0 {
+                    ob = 0.0;
+                }
+                final_out[base] = or;
+                final_out[base + 1] = og;
+                final_out[base + 2] = ob;
+            }
+            prev_luma[i] = lc;
+        }
+    }
+}
+
+fn main() {}

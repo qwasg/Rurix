@@ -19,6 +19,8 @@ const KERNELS: &[&str] = &[
     "vsm_depth_raster",
     "vsm_sample",
     "tsr_resample",
+    // G7.6 PR-1:TSR 时域臂孤立腿(闪烁 EMA / 重投影 / YCoCg AABB / 混合 / 五件套)。
+    "tsr_temporal",
 ];
 
 /// G7.5b HW 光栅图形着色对(RXS-0301~0303;门 G-G7-7):源 = conformance accept

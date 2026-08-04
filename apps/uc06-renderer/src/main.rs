@@ -16,6 +16,8 @@
 //! `--json` 输出单行 JSON(smoke 脚本消费,字段集冻结);exit 0 仅当全部断言过。
 
 #[cfg(feature = "vulkan")]
+mod device_frame_temporal;
+#[cfg(feature = "vulkan")]
 mod device_g75;
 #[cfg(feature = "vulkan")]
 mod device_g75_hw;
@@ -285,6 +287,59 @@ fn run_g75_hw_raster_mode(cli: &Cli) -> i32 {
     0
 }
 
+/// G7.6 PR-1 `--g76-tsr-temporal` 模式:TSR 时域臂孤立腿 32 帧对拍
+/// (`DeviceFrameSession` + hist ping-pong vs `TsrUpscaler::upscale`)。
+#[cfg(feature = "vulkan")]
+fn run_g76_tsr_temporal_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+
+    if cli.g76_red_history {
+        return match device_frame_temporal::red_wrong_history() {
+            None => {
+                println!("G76: SKIP RED-history 轴无 device(dev-env degrade)");
+                i32::from(require_real)
+            }
+            Some(true) => {
+                println!("G76: RED-OK wrong-history(不轮换 ping-pong → 时域对拍红)");
+                0
+            }
+            Some(false) => {
+                eprintln!("G76: FAIL RED-history 失效(错绑后对拍仍通过 = 双缓冲未真实生效)");
+                1
+            }
+        };
+    }
+
+    let Some(res) = device_frame_temporal::run_g76_tsr_temporal() else {
+        println!("G76: SKIP 无 Vulkan device / W1 能力链缺失(dev-env degrade)");
+        return i32::from(require_real);
+    };
+    let r = match res {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("G76: FAIL TSR 时域臂 device 执行: {e}");
+            return 1;
+        }
+    };
+    println!("{}", r.json());
+    if !r.history_red_ok {
+        eprintln!("G76: FAIL 历史错绑 RED 轴未触发");
+        return 1;
+    }
+    if !r.all_pass() {
+        eprintln!("G76: FAIL 时域臂对拍/专项断言未全过(见 JSON)");
+        return 1;
+    }
+    println!(
+        "G76: PASS temporal={:.3e} frame0_bitexact={} flicker_mono={} history_red={}",
+        r.measured_temporal_max_abs,
+        r.frame0_passthrough_bitexact,
+        r.flicker_monotone_converged,
+        r.history_red_ok,
+    );
+    0
+}
+
 /// CLI 参数(解析确定性;未知参数 = Err)。
 #[derive(Debug, Clone)]
 struct Cli {
@@ -312,6 +367,10 @@ struct Cli {
     g75_hw_red_varying: bool,
     /// `--g75-hw-raster` 的 RED 轴:篡改 winner 三角形 ids 一元 → diff 必非零。
     g75_hw_red_ids: bool,
+    /// G7.6 PR-1:TSR 时域臂孤立腿 32 帧对拍(`DeviceFrameSession` + ping-pong)。
+    g76_tsr_temporal: bool,
+    /// `--g76-tsr-temporal` 的 RED 轴:故意不轮换历史绑定 → 时域对拍必红。
+    g76_red_history: bool,
 }
 
 impl Default for Cli {
@@ -331,6 +390,8 @@ impl Default for Cli {
             g75_hw_raster: false,
             g75_hw_red_varying: false,
             g75_hw_red_ids: false,
+            g76_tsr_temporal: false,
+            g76_red_history: false,
         }
     }
 }
@@ -382,6 +443,11 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--g75-hw-red-tamper-ids" => {
                 c.g75_hw_raster = true;
                 c.g75_hw_red_ids = true;
+            }
+            "--g76-tsr-temporal" => c.g76_tsr_temporal = true,
+            "--g76-red-history" => {
+                c.g76_tsr_temporal = true;
+                c.g76_red_history = true;
             }
             "--dump-graph" => {
                 i += 1;
@@ -438,9 +504,14 @@ fn main() {
     };
 
     #[cfg(not(feature = "vulkan"))]
-    if cli.device || cli.w3_effects || cli.g75_residuals || cli.g75_hw_raster {
+    if cli.device
+        || cli.w3_effects
+        || cli.g75_residuals
+        || cli.g75_hw_raster
+        || cli.g76_tsr_temporal
+    {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
         );
         std::process::exit(2);
     }
@@ -462,6 +533,11 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.g75_hw_raster {
         std::process::exit(run_g75_hw_raster_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.g76_tsr_temporal {
+        std::process::exit(run_g76_tsr_temporal_mode(&cli));
     }
 
     match run(&cli) {
