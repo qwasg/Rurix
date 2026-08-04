@@ -286,3 +286,6 @@
 | RXS-0298 | spec/shader_stages.md | 3 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0299 | spec/shader_stages.md | 5 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/rayquery/reject/committed_unguarded.rx` …(+2) |
 | RXS-0300 | spec/vulkan_backend.md | 5 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/vulkan/accept/vk_vec_component.rx` …(+2) |
+| RXS-0301 | spec/vulkan_backend.md | 4 | `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx`, `conformance/vulkan/reject/vk_hw_raster_devfn_call_reject.rx`, `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` …(+1) |
+| RXS-0302 | spec/vulkan_backend.md | 1 | `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` |
+| RXS-0303 | spec/vulkan_backend.md | 1 | `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` |

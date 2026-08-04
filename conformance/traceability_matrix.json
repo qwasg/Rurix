@@ -1555,6 +1555,18 @@
       "conformance/vulkan/accept/vk_vec_component.rx",
       "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0301": [
+      "conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx",
+      "conformance/vulkan/reject/vk_hw_raster_devfn_call_reject.rx",
+      "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx",
+      "conformance/vulkan/reject/vk_hw_raster_loop_reject.rx"
+    ],
+    "RXS-0302": [
+      "conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx"
+    ],
+    "RXS-0303": [
+      "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx"
     ]
   }
 }

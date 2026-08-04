@@ -1,0 +1,26 @@
+//@ spec: RXS-0301
+//@ expect-error: RX6026
+// G7.5b HW 光栅负面清单探针 —— **用户 device fn 调用轴**(RXS-0301 负面清单;
+// RFC-0018 §E3)。单一违规轴 = fragment body 调用用户自定义 `device fn`(非
+// intrinsic、非 GLSL.std.450 已知内建);其余构造(乘法、输出聚合)均在 RXS-0301
+// 放行面内,故本语料在扩展 lowerer 落地**之后也必须仍红**(负面清单机器锁)。
+// 当前(扩展前)同样红:RXS-0171 L4 最小切片仅支持 straight-line Goto/Return,
+// MIR `Call` 终结子不可映射 → RX6026。
+device fn scale_half(x: f32) -> f32 {
+    x * 0.5
+}
+
+struct P {
+    #[interpolate(flat)] s: f32,
+}
+
+struct O {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn hw_raster_devfn_probe(inp: P) -> O {
+    let v = scale_half(inp.s);
+    O { color: (v, v, v, 1.0) }
+}
+
+fn main() {}

@@ -742,6 +742,94 @@ Vulkan RHI 通道 device 见证 = compute 图（saxpy 级）+ 图形图（章A d
 
 > 锚定测试:`conformance/rayquery/accept/ray_query_basic.rx`(合法 compute RayQuery 骨架 = 升 1.4 + `RayQueryKHR`/`SPV_KHR_ray_query` 声明的 RED 锚定语料,G7.2 转正);实现期锚定计划(RFC-0018 §4.B4):[`vulkan_codegen::tests`](../src/rurixc/src/vulkan_codegen.rs)(1.4 分叉 + compute 1.0 零漂移锚点)+ golden 反汇编 + `spirv-val` vulkan1.2/spv1.4 accept 集成测试。
 
+### RXS-0301 Vulkan 原生图形 body 扩展白名单（target-conditional 加性放行；RFC-0018 §E3，G7.5b）
+
+> **编号续号说明**:RXS-0301~0303 三条由 **RFC-0018 v1.1 修订行 §E**(HW 光栅 VisBuffer 对拍裁定,2026-08-04,G7.5b)新增,承 RXS-0300 后连续顺位消费(number_ledger `reserved_in_flight[G7]`「RXS-0297 起按需」claim,v1.44 校准;条款号连续不跳号,0295/0296 burned 跳号口径与 shadow_reserved 181~184 维持)。**本期 = 条款先行(spec-first,G7.5b PR-1,硬规则 7)**:扩展 lowerer 实现归 PR-3,负面清单四枚 RED 语料随本条款 PR 同落机器锁定拒绝面。
+>
+> **RX6026 修订注(加性;不新增 RX 码、registry entry 0-byte)**:自本条(RXS-0301)起,Vulkan 原生图形 body(`emit_spirv_body_vulkan`,provenance=false)的 RX6026 拒绝面**收窄至本条 L3 负面清单**——RX6026 码语义(`codegen.vulkan_unsupported`)不变,registry/error_codes.json entry 不动(只加类别不改语义,07 §5;RXS-0246/RXS-0300 类别扩充先例从不触 entry);诊断分类文案随 PR-3 实现收窄为负面清单命中项。
+
+#### Syntax
+
+无新增用户面语法(既有表达式/控制流/属性文法在 vertex/fragment body 的**放行面**扩展;codegen 内部条款)。
+
+#### Legality
+
+- **L1(target-conditional 分叉边界)**:本条仅限 `emit_spirv_body_vulkan`(provenance=false,`--target vulkan` 图形入口)路径。**DXIL 路(provenance=true)RXS-0171 L4 最小 rvalue 白名单冻结 0-byte**——同一语料以 dxil target 编译必须仍拒(机器锚归 PR-3 rurixc 单测);同一发射器按 target/provenance 条件分叉语义的合法形态先例 = RXS-0210 provenance 装饰分叉 / RXS-0249 DXIL 腿条件分支。
+- **L2(加性放行面)**:图形入口(vertex/fragment)body 在 RXS-0171 L4 最小白名单基础上加性放行下表六项能力面(步骤 95 `missing_toolchain_caps` 逐项兑现,RFC-0018 §E3 映射):
+
+| 放行项 | 对应 missing_toolchain_cap |
+|---|---|
+| 多层字段/向量分量投影(如 `inp.frag.0`) | `graphics_vector_component_projection` |
+| f32/整数比较(`<` `>` `<=` `>=` `==` `!=`)与逻辑短路(lower 为嵌套 SwitchBool) | `graphics_comparison_ops` |
+| 结构化 `if`/`if-else`(OpSelectionMerge)、可变局部与分支内赋值、GLSL.std.450 内建调用(首批仅 `round`→`RoundEven`,与 compute 路 `glsl_ext_op` 同表) | `graphics_control_flow_and_calls` |
+| `as` 数值 cast(与 compute `cast_opcode` 同表)、`usize` 索引、SSBO 动态索引读 | `graphics_buffer_indexing`(资源分类见 RXS-0302) |
+| 标量→向量聚合构造(输出装配) | `graphics_output_assembly` |
+| u64 SSBO 原子(`fetch_max`,Scope::Gpu) | `graphics_ssbo_atomic_u64`(本体见 RXS-0302) |
+
+- **L3(负面清单,恒拒 RX6026,拒绝面 grow-only)**:循环(`while`/`for`)、用户自定义 device fn 调用、f64(含 `as f64`——cast 与 compute `cast_opcode` 同表,f64 目标恒拒,承 RXS-0203 L1)、RayQuery(RXS-0297~0300 为 compute 面,图形 body 不放行)、共享内存(`shared`/Workgroup 存储)、`Scope::Block`(CTA 级)原子(fragment 无 workgroup 语义,仅 `Scope::Gpu` 合法,RXS-0302 L2)、纹理采样以外的图像原子。机器锁 = `conformance/vulkan/reject/` 四枚 RED 语料(`vk_hw_raster_loop_reject.rx` / `vk_hw_raster_devfn_call_reject.rx` / `vk_hw_raster_cta_atomic_reject.rx` / `vk_hw_raster_f64_reject.rx`,恒跑步 `ci/vulkan_codegen_smoke.py` reject 段目录驱动纳管,**扩展落地前后均必红**)。
+
+#### Dynamic Semantics
+
+- **两遍编译(实现形态,RFC-0018 §E3 授权)**:第一遍 = 现行最小 BodyLowerer(RXS-0171 L4)——成功即原样输出,**既有全部图形 accept 语料/RHI demo 输出字节零漂移 by construction**(旧路径不经新代码);第一遍 Unmappable 且 provenance=false → 第二遍 ExtendedBodyLowerer(本条 L2 白名单)全新 Builder 纯函数式重发射;仍失败 → RX6026(L3 负面清单诊断)。两遍均确定性(同源 ×N 字节全等,承 RXS-0200 恒跑判据)。
+- **表级复用语义中性**:`binop_opcode`(含比较/位运算)/ `cast_opcode` / `glsl_ext_op` / 原子发射段自 [`vulkan_codegen`](../src/rurixc/src/vulkan_codegen.rs) 提升为 `pub(crate)` 双路共享——仅改可见性不改 compute 发射序,**W1/W2 compute `.spv` manifest 零字节漂移门维持**(步骤 95 步骤 6,严禁 rebless)。
+
+#### Implementation Requirements
+
+落 [`dxil_spirv`](../src/rurixc/src/dxil_spirv.rs) 两遍编译重构 + ExtendedBodyLowerer(结构化 `if` 复用 vulkan_codegen 前向可达交汇算法;内存式 local 判据 = MIR 预扫描「多次赋值或跨分支活跃」,单赋值直线 local 维持 SSA);RX6026 诊断收窄 + 全 accept 语料编译输出 hash 前后对比一次性证据;归 **PR-3**。本期(PR-1)为条款先行。
+
+> 锚定测试:`conformance/vulkan/reject/vk_hw_raster_loop_reject.rx` + `vk_hw_raster_devfn_call_reject.rx` + `vk_hw_raster_cta_atomic_reject.rx` + `vk_hw_raster_f64_reject.rx`(L3 负面清单四轴 RED,头部 `//@ expect-error: RX6026`,当前实测红于 RXS-0171 L4 最小切片、扩展后红于负面清单,两阶段同码);实现期锚定计划(PR-3):`vk_hw_raster_visbuffer_fs.rx` 迁 accept + spirv-val + caps 集合断言 + dxil-target 必拒单测。
+
+### RXS-0302 图形阶段 SSBO 与 push constant 资源面 + u64 原子（RFC-0018 §E3，G7.5b）
+
+#### Syntax
+
+无新增用户面语法(`View`/`ViewMut`/`AtomicView` 与标量形参的既有文法在 vertex/fragment 签名位置的分类与降级条款)。
+
+#### Legality
+
+- **L1(与 compute 同一分配律,RXS-0203/0208 同构)**:图形入口(vertex/fragment)签名中 `View/ViewMut/AtomicView<global,...>` buffer 形参按**声明序** → `set=0, binding=n`(StorageBuffer,std430;RuntimeArray 或定长数组按签名 shape);标量形参按声明序聚合为单 push constant 块(`Offset` 4 字节对齐顺排)。set0-flat 绑定序与 [`render_exec`](../src/rurix-rt/src/render_exec.rs) `Bindings` 既有布局(storage_buffers 自 binding 0 起)字面对齐——运行时供给面(descriptor/push constant 已 `SHADER_STAGE_RFX` fragment 可见)0 字节可用。
+- **L2(u64 原子)**:`AtomicView<_,u64,_>.fetch_max(idx, val, Scope::Gpu)` 在 fragment body 合法,lower 为 `OpAtomicUMax`(**Device scope,Relaxed semantics**——scope/semantics 常量与 compute 路发射段逐字同值);**scope 仅 `Scope::Gpu`**:`Scope::Block`(CTA 级)在 fragment 无 workgroup 语义 → RX6026(RXS-0301 L3 负面清单;语言 scoped-atomics 封闭枚举 `Scope ∈ {Block,Gpu,System}`,RXS-0080),`Scope::System` 首期不放行(不为假想需求预开面,P-12)。
+- **L3(capability 按需声明)**:body 触 u64 类型 → `Int64`;触 u64 原子 → 追加 `Int64Atomics`(与 vulkan_codegen `CAP_INT64`/`CAP_INT64_ATOMICS` 同值常量;**不用不发**,既有图形语料头部零漂移,承「capability 只按真实使用声明」既有先例)。
+- **L4(SPIR-V 版本)**:图形入口**维持 1.0**——u64 原子不需要 1.4;RayQuery 的 1.4 per-entry 政策(RXS-0300)不牵连本路(图形入口无 RayQuery/AS 面,升版判定并集不触发)。
+
+#### Dynamic Semantics
+
+- 原子语义与 compute 路同构:`OpAtomicUMax` 幂等/交换/结合,对相同地址相同值集合的竞争结果与 fragment 派发顺序无关;helper invocation 的存储/原子按 Vulkan 规范**无可见副作用**(RFC-0018 §E2 论证依赖项)。
+- push constant 值语义:draw 时按声明序写入,与 RXS-0208 marshalling「同源于形参出现序」单一事实源同构(不另立第二套分配律)。
+
+#### Implementation Requirements
+
+ExtendedBodyLowerer 在 emit 期直接消费图形入口签名做资源分类(StorageBuffer std430 + push constant 块),与 [`mir_build`](../src/rurixc/src/mir_build.rs) `dxil_io::resources_for` 既有图形分类互不侵入(DXIL 路 IoSig 收集 **0-byte**);set/binding/push-constant 布局断言单测归 **PR-3**;运行时装配(RasterPass bindings/push)归 PR-2/PR-4。本期(PR-1)为条款先行。
+
+> 锚定测试:`conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx`(L2 原子 scope 负面轴 RED:签名资源面/`fetch_max` 本体均在放行面,唯 `Scope::Block` 违例);实现期锚定计划(PR-3):FS 语料 caps == {Shader,Int64,Int64Atomics} + VS 语料 caps == {Shader} + set/binding/push-constant 布局断言。
+
+### RXS-0303 HW 光栅 VisBuffer 对拍执行语义（保守光栅超集 + FS 复刻判定 + diff=0；RFC-0018 §E1/E2/E4，G7.5b）
+
+#### Syntax
+
+无用户面语法(运行时/CI 执行语义条款,先例 RXS-0248 类 vk 运行时条款;消费 RXS-0301/0302 编码面与 RFC-0018 §E 裁定)。
+
+#### Legality
+
+- **L1(覆盖规则唯一权威)**:VisBuffer 覆盖规则语义权威 = **SW 侧规则字面**——精确 f32 边函数(像素中心 `k+0.5`)+ top-left 补边 + 绕向归一(`area<0` 交换 b/c)+ reverse-Z depth30 量化(RFC-0018 §E1;事实源 [`visbuffer_sw_u64.rx`](../apps/uc06-renderer/kernels/visbuffer_sw_u64.rx) 与 host [`VisBufferCpu`](../src/rurix-render/src/geometry/visbuffer.rs),G5 冻结面)。HW 腿**不得引入第二套覆盖语义**;硬件定点吸附/共享边归属分歧不以容差掩盖、不改判权威。
+- **L2(HW 腿形态)**:HW 腿必须 = **保守光栅 OVERESTIMATE 超集 + FS 内逐字复刻 SW 判定**——graphics pipeline 光栅状态必须 `pNext` 链 `VkPipelineRasterizationConservativeStateCreateInfoEXT{ conservativeRasterizationMode = OVERESTIMATE }`(`VK_EXT_conservative_rasterization`);FS 判定/量化/pack 表达式序列与 SW kernel 源文本**逐字同构**(拷贝而非重写,精确 f32 字面权威——**禁升 f64 改写**,f64 恒拒〔RXS-0301 L3〕即其编译期护栏);`inside` 不成立不执行 `fetch_max`(无 discard,helper invocation 无可见副作用);写入 = 同 u64 pack(`depth30<<34 | cluster27<<7 | tri7`)+ 同 `atomicMax`(RXS-0302 L2)+ 同冻结清屏值。
+- **L3(fail-closed 与降级臂)**:DeviceCaps 探测无 `VK_EXT_conservative_rasterization` → **确定性拒绝**(P-01,不静默降级、不静默跳过);降级臂(host 侧每三角形三边各外扩 ≥1px 几何膨胀后送普通光栅,FS 复刻判定不变)**仅经显式 CLI 开关启用**且 evidence `pipeline` 字段如实标注区分,默认 CI 不启用。
+- **L4(判据字面,G-G7-7)**:HW 腿输出 **9216 词 u64**(128×72,G7_SCENE_FREEZE 冻结场景/相机/同一投影输入)与 SW 腿逐词相等,**diff = 0**,整数域零容差、无 epsilon、无感知门替代物;反空转判据 `hw_covered_words == sw_covered_words > 0` + `oracle_bitexact == true`(SW==host oracle);RED 双轴(篡改 flat varying / 篡改 ids 一元 → diff 必非零)证判据杀伤力。
+
+#### Dynamic Semantics
+
+- **输入同源**:同一份 `triangles: Vec<[f32;9]>` / `ids: Vec<[u32;2]>` 缓冲喂 SW compute 腿与 HW raster 腿(输入同源是 diff=0 前提);两腿写互斥 buffer,单帧内无跨 pass 依赖,readback 后 host 逐词比较。
+- **确定性**:`atomicMax` 对相同集合相同值的竞争与顺序无关 → 两腿各自确定性;清屏值 = 冻结常量(`pack(0, CLUSTER_INVALID, TRI_INVALID) = 2^34 − 1`,RXS 步骤 95 VisBuffer ABI 审计同源)。
+- **status 翻转语义**:步骤 95 `hw_raster_diff.status` 由 `blocked-frozen-graphics-body-slice` 翻 `verified-diff-zero` 为 schema 既有双臂枚举内的**预授权翻转**(`escalation` 字段预埋兑现;判据演进带 = G7 自建步骤 93~95,非冻结带 41~92 改判);实装后 diff ≠ 0 且归因为原理性分歧 → 回 RFC-0018 二次修订行裁定,**不得引入容差**。
+
+#### Implementation Requirements
+
+- IR1(rurix-rt,PR-2):`probe_device_caps` 增查 `VK_EXT_conservative_rasterization` + `vkGetPhysicalDeviceProperties2` 链 `VkPhysicalDeviceConservativeRasterizationPropertiesEXT` 全字段(`primitive_overestimation_size / max_extra / granularity / degenerate_triangles_rasterized` 四项进证据);`RasterPass` 加性字段 `conservative: Option<ConservativeRasterDesc>`(`None` = 既有行为 0-byte);`validate_frame`「pass 要求 conservative 而 caps 无扩展」→ 确定性 Err。
+- IR2(uc06 装配 + 步骤 95,PR-4):`--g75-hw-raster` 单帧双腿对拍 + RED 双轴 CLI;evidence schema 加性字段 `hw_side.conservative_props{...} / hw_side.spirv_caps[] / red_axes[] / capability_probes[]`(既有必填字段与 blocked 分支定义一字不动);本机探测快照先行锚于 RFC-0018 §E2(2026-08-04 vulkaninfo,RTX 4070 Ti:扩展 rev 1 在位,`primitiveOverestimationSize = 0.00195312`,`degenerateTrianglesRasterized = true` 等九字段,运行时重采归 PR-4)。
+- IR3(本期,PR-1):**条款先行(spec-first,硬规则 7)**;负面清单 RED 语料机器锁已同 PR 落(RXS-0301 L3)。
+
+> 锚定测试:`conformance/vulkan/reject/vk_hw_raster_f64_reject.rx`(L2「精确 f32 字面权威,禁升 f64 改写」的编译期护栏轴 RED);实现期锚定计划(PR-2~PR-4):rurix-rt DeviceCaps/RasterPass 单测 + 步骤 95 device 段 diff=0 + RED 双轴 + `conservative_props` evidence 重采。
+
 
 ## 3. 修订记录
 
@@ -769,3 +857,4 @@ Vulkan RHI 通道 device 见证 = compute 图（saxpy 级）+ 图形图（章A d
 | v1.19 | 2026-07-23 | **G4.2 PR-B 图形 RHI 主面(SPIR-V 编码腿):落带编号条款体 `### RXS-0275`(spec-first)**。承 RFC-0015(Agent Approved 2026-07-23,§4.A5 + §9 Q-MeshScope 修订;G4_CONTRACT G-G4-3)。**RXS-0275**(MIR→SPIR-V mesh/task 编码兑现深化,RXS-0246 兑现深化):**mesh body 类型面新建**——`mesh_vertex[i].position/color` per-vertex 输出数组 + `mesh_triangle[p].indices` per-primitive 索引 + `mesh_set_outputs` 已知函数终结子,零新文法产生式,越界编译期拒(零新码);**MIR lowering**——MeshEXT/TaskEXT + MeshShadingEXT + SPV_EXT_mesh_shader + LocalSize/OutputVertices/OutputPrimitivesEXT/OutputTrianglesEXT + per-vertex 输出 Block + PrimitiveTriangleIndicesEXT + OpSetMeshOutputsEXT(witness 发射器为 golden 参照,语义等价结构对照);task payload 条件臂同 Q-RTArm 评估窗;mesh 入口 emit 1.4 + interface 全量,compute/vertex/fragment 维持 1.0 字节零漂移;DXIL 腿 B 链 probe 判据 0-byte。FLS 分节 **严禁 UB 节**。诚实标注:G3.6 的「从真实 .rx MIR 体的 intrinsic 降级接线归后续 PR」由本条兑现。每条 ≥1 `//@ spec` 测试锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015)。无体例变更 | **Full RFC**（RFC-0015） |
 | v1.20 | 2026-07-24 | **G4.4 PR-F Vulkan RHI 通道:落带编号条款体 `### RXS-0293` / `### RXS-0294`(spec-first)**。承 RFC-0015(Agent Approved 2026-07-23,§4.C4;G4_CONTRACT G-G4-5)。**RXS-0293**(.rx 单源 Vulkan RHI 通道:compute + graphics 双腿,`Rhi::create_vk(&ctx)` 显式后端构造 strict 无回退,Vulkan 不可用 → 确定性 Err RXS-0193 口径;compute 腿 = `rxrt_rhi_*` Vulkan 变体〔pipeline 自 SPIR-V 模块 + descriptor set + dispatch + 计划同步点回放,承 RXS-0272 桥接 graph.rs 单源〕;graphics 腿复用 G4.2 章A 执行面 A7 同一通道;feature 门控 `vulkan-backend`)。**RXS-0294**(device 见证判据:compute 图 saxpy 级 + 图形图章A demo 各经 Vulkan 通道 device 真跑,数值对照 vs host 参考 + vs CUDA 腿同图同参交叉对照 + spirv-val 全模块校验 + `RURIX_REQUIRE_REAL=1`,三段闭合任一段失败 → CI 红)。FLS 分节 **严禁 UB 节**。条款 commit 先行(spec-only),实现 commit 随后(硬规则 7;每条 ≥1 `//@ spec` 测试锚定随实现 commit 同 PR 落)。档位 **Full RFC**(RFC-0015)。无体例变更 | **Full RFC**（RFC-0015） |
 | v1.21 | 2026-08-01 | **RFC-0018 章 B compute RayQuery 编码面落库 + RXS-0300 条款体(spec-first,G7.1 PR-1 条款先行)**。承 RFC-0018(Agent Approved 2026-08-01,G7 伞形章 B;与章 A spec/shader_stages.md RXS-0297~0299 共享 RXS-0297 起顺位,number_ledger `reserved_in_flight[G7]` claim 兑现;条款号连续不跳号,0295/0296 burned 跳号口径维持)。新增 `### RXS-0300`(MIR→SPIR-V compute RayQuery 编码 + SPIR-V 1.4 per-entry 升版):**per-entry 升版判定并集钉死**(§9.1 V-1:使用 RayQuery〔MIR 体存在 RayQuery local/intrinsic〕∪ compute 签名含 AccelStruct 形参 → 该入口模块升 SPIR-V 1.4〔`SPIRV_VERSION_1_4` header + `OpEntryPoint` interface 全量枚举全部被引用全局变量,与 mesh/RT 同律 RXS-0247〕;`OpTypeAccelerationStructureKHR` 在 compute 模块的 capability 承载 = **RayQueryKHR**〔SPV_KHR_ray_query rev 17,compute 面唯一〕,仅看 RayQuery local 会致 AS-形参-only kernel 无 capability 承载 spirv-val 必拒,并集判定封闭);**capability/extension 按需声明**(RayQueryKHR + `OpExtension "SPV_KHR_ray_query"` 当且仅当模块含 OpTypeRayQueryKHR 或 OpTypeAccelerationStructureKHR;均不含维持 1.0 零新 capability,承 Int64 先例;不引入 SPV_KHR_physical_storage_buffer);**指令面编码约束**(OpTypeRayQueryKHR Function 存储类自觉〔RXS-0297 Function-only 收窄〕+ OpRayQueryInitializeKHR〔flags 恒 Opaque/mask 恒 0xFF〕+ OpRayQueryProceedKHR/OpRayQueryTerminateKHR + committed 查询族按真实使用;RayQuery 类型指针禁用 OpStore/OpLoad/OpCopyMemory 族 by-construction);**升版依据如实归因**(SPV_KHR_ray_query requires SPIR-V 1.0,1.4 非扩展强制;依据 = Vulkan 依赖链〔VK_KHR_ray_query→VK_KHR_spirv_1_4 或 1.2 核心〕+ 调研报告 §1.3 有效性规则 + RXS-0247 同源口径,rurix 自觉沿 1.4 per-entry 冻结);**W1/W2 零漂移门**(既有 compute/vertex/fragment 1.0 emit 字节零漂移,五 W1/W2 kernel golden + 全部既有 vulkan golden diff 空不重 bless,既有 `assemble` 0-byte,RayQuery compute 走新增发射路径,分叉落发射函数级);校验轴 spirv-val 退出码 + vulkan1.2/spv1.4 双口径(承 RXS-0247/RXS-0212);反汇编 golden 最小集锚定(G-G7-4)。子集外/emit 失败/spirv-val 拒 → **RX6026 扩或 RX6034 起新类别**(只追加不预造,RFC-0018 §7.4)。FLS 分节 **严禁 UB 节**。既有 RT 面(RXS-0247/0248)**只增量不矛盾** 0-byte。**本期 = 条款先行(硬规则 7)**:编码实现、golden 锚定与 RED 语料转正归 G7.2(W3a);device 段真跑归 CI 步骤 93(`RURIX_REQUIRE_REAL=1`)。RED 语料(conformance/rayquery/)同 PR 落盘,`//@ spec: RXS-0300` 锚定经 accept 语料 | **Full RFC**（RFC-0018） |
+| v1.22 | 2026-08-04 | **RFC-0018 §E(v1.1 修订行)HW 光栅语言面/执行语义落库 + RXS-0301~0303 条款体(spec-first,G7.5b PR-1 条款先行)**。承 RFC-0018 v1.1 修订行 §E「HW 光栅 VisBuffer 对拍裁定」(2026-08-04,G7.5b;步骤 95 evidence `escalation` 预埋前置兑现);编号承 RXS-0300 后连续顺位消费(number_ledger v1.44,`reserved_in_flight[G7]` claim;0295/0296 burned 跳号口径与 shadow_reserved 181~184 维持)。新增 `### RXS-0301`(Vulkan 原生图形 body 扩展白名单,target-conditional):**仅限 `emit_spirv_body_vulkan`(provenance=false)路径**,vertex/fragment body 在 RXS-0171 L4 基础上加性放行六项能力面(多层字段/向量分量投影、f32/整数比较与逻辑短路、结构化 if/可变局部/GLSL.std.450 内建〔首批 round→RoundEven 同表〕、`as` 数值 cast/usize 索引/SSBO 动态索引读、标量→向量输出装配、u64 SSBO 原子〔本体 RXS-0302〕,步骤 95 `missing_toolchain_caps` 六项逐一映射);**负面清单恒拒 RX6026 grow-only**(循环/用户 device fn 调用/f64/RayQuery/共享内存/`Scope::Block`(CTA)原子/纹理采样以外图像原子),**DXIL 路(provenance=true)RXS-0171 L4 冻结 0-byte**(分叉先例 RXS-0210/0249);两遍编译语义(第一遍最小切片成功即原样输出字节零漂移 by construction,Unmappable 才进 ExtendedBodyLowerer;表级复用仅改可见性,W1/W2 manifest 零漂移门维持);**RX6026 修订注**(拒绝面自 RXS-0301 起收窄至负面清单,码语义与 registry entry 0-byte,只加类别不改语义 07 §5)。新增 `### RXS-0302`(图形阶段 SSBO 与 push constant 资源面 + u64 原子):buffer 形参按声明序 set=0/binding=n(StorageBuffer std430)、标量按声明序 push constant 块 4 字节对齐(与 compute RXS-0203/0208 同一分配律,`render_exec::Bindings` 布局字面对齐);`AtomicView<_,u64,_>.fetch_max(idx,val,Scope::Gpu)` fragment 合法 → `OpAtomicUMax`(Device scope/Relaxed,与 compute 逐字同值),scope 仅 Gpu(`Scope::Block`=CTA 级 → RX6026,`Scope::System` 首期不放行 P-12);capability 按需(Int64/Int64Atomics 不用不发);**SPIR-V 版本维持 1.0**(u64 原子不需 1.4,RayQuery 1.4 政策不牵连)。新增 `### RXS-0303`(HW 光栅 VisBuffer 对拍执行语义,先例 RXS-0248 类运行时条款):覆盖规则唯一权威 = SW 精确 f32 边函数 + top-left + 绕向归一 + depth30 量化(`visbuffer_sw_u64.rx`/`VisBufferCpu` 双源);HW 腿必须 = 保守光栅 OVERESTIMATE 超集(pipeline 必挂 `VkPipelineRasterizationConservativeStateCreateInfoEXT`)+ FS 内逐字复刻判定(f32 字面权威禁升 f64 改写);DeviceCaps 无扩展 fail-closed(降级臂 = host 三边外扩 ≥1px 几何膨胀,仅显式开关 + evidence `pipeline` 如实标注);判据 = 9216 词 u64 逐词相等 **diff=0 整数域零容差** + 反空转 + RED 双轴;status 翻转为 schema 双臂预授权(diff≠0 原理性分歧回 RFC-0018 二次修订行,不得引入容差);本机保守光栅探测快照锚 RFC-0018 §E2(2026-08-04 vulkaninfo,RTX 4070 Ti,扩展 rev 1,`primitiveOverestimationSize=0.00195312`,`degenerateTrianglesRasterized=true`)。FLS 分节 **严禁 UB 节**。**既有条款 0-byte 纯追加**;零新 RX 码(RX6026 收窄注不触 entry)。**本期 = 条款先行(硬规则 7)**:四枚负面清单 RED 语料(`conformance/vulkan/reject/vk_hw_raster_{loop,devfn_call,cta_atomic,f64}_reject.rx`,`//@ expect-error: RX6026`,恒跑步 reject 段纳管,扩展前后均必红)同 PR 落盘并承载 `//@ spec` 锚定;扩展 lowerer/资源分类/运行时底座/uc06 装配/步骤 95 翻绿归 G7.5b PR-2~PR-4 | **Full RFC**（RFC-0018） |

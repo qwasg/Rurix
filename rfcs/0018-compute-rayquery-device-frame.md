@@ -361,9 +361,43 @@ schema 与 `ci/check_schemas.py` 路由必须和对应 smoke **同 PR 落**,避�
 
 ---
 
+## 11. 章 E — HW 光栅 VisBuffer 对拍裁定(G7.5b 修订增补)
+
+> **增补性质**(修订行体例;先例 = RXS-0242→RXS-0153 加性修订行 / 本 RFC v1.0 评审后正文实改):本章为 **v1.1 纯加性增补**,§1~§10 既有冻结文本 **0-byte 不动**。兑现步骤 95 evidence `hw_raster_diff.escalation` 字段预埋的「扩展须先经 RFC-0018 修订行裁定」前置条件([`ci/renderer_raster_diff_smoke.py`](../ci/renderer_raster_diff_smoke.py) 步骤 5 blocked-honest 机验 + [RD038_LITERAL_MATRIX](../milestones/g7/RD038_LITERAL_MATRIX.md)「须 RFC 裁定」决策点;§6.D5「HW raster diff 先经 RFC 修订裁定、不扩大容差」处置口径同源)。裁定事实源 = 本机真实探测(§E2,换机重采)+ W2 SW kernel 源文本;**不改判 G-G7-7 字面判据**(diff=0 零容差维持,§E4)。
+
+### E1 覆盖规则唯一权威(冻结)
+
+- **语义权威 = SW 侧规则字面,唯一且不新增第二套**:精确 f32 边函数(`e = (bx-ax)*(py-ay) - (by-ay)*(px-ax)`,采样点 = 像素中心 `k+0.5`)+ top-left 补边规则 + 绕向归一(`area < 0.0` 时交换 b/c)+ reverse-Z depth30 量化(`((1.0-z)*1073741823.0).round() as u32`,下钳 `≥1`)。事实源 = [`visbuffer_sw_u64.rx`](../apps/uc06-renderer/kernels/visbuffer_sw_u64.rx)(W2 device 腿,manifest 冻结)与 host oracle [`visbuffer.rs::VisBufferCpu`](../src/rurix-render/src/geometry/visbuffer.rs)(G5 冻结面),两者已逐位互证(步骤 95 SW 基准侧 9216 词 u64 bit-exact)。
+- Vulkan 固定功能光栅仅承诺 `subPixelPrecisionBits ≥ 4` 定点吸附,共享边像素归属为实现定义——与 SW 规则在边界像素上**原则性不可比**。裁定:该分歧**不以容差掩盖**(整数域零容差红线,G7_PLAN G7.5 逐字),**不以硬件规则改判权威**;HW 光栅在本案中的唯一角色 = 产生覆盖**超集**(§E2),覆盖裁决权全部收归 FS 内逐字复刻的 SW 判定。
+
+### E2 HW 腿形态裁定:保守光栅超集 + FS 复刻判定(冻结)+ 本机探测事实
+
+- **裁定 = 方案 A(保守光栅超集 + fragment 内逐字复刻 SW 判定)**:uc06 HW 腿以真实 Vulkan graphics pipeline(VS+FS+固定功能光栅)光栅化真实三角形,pipeline 光栅状态 `pNext` 链 `VkPipelineRasterizationConservativeStateCreateInfoEXT{ conservativeRasterizationMode = OVERESTIMATE }`(`VK_EXT_conservative_rasterization`)。Khronos 规范:overestimate 模式下「像素矩形任一部分被生成图元覆盖即为整像素生成 fragment」,且 `primitiveOverestimationSize = 0.0` 时该规则依然成立——像素中心 inside(SW 判定)⇒ 像素矩形与三角形相交 ⇒ HW 必生成该 fragment,故 **SW-inside ⊆ HW-fragment 集**(超集方向是唯一需要硬件担保的性质)。
+- **FS 内裁决**:FS 收逐三角形 `flat` 传递的三顶点屏幕坐标(`va/vb/vc`,原始 f32 位型)与 `ids`,**逐字复刻**(拷贝而非重写)SW kernel 的边函数/绕向归一/top-left 布尔/`inside` 判定/depth30 量化表达式序列;`inside` 不成立则不执行 `fetch_max`(**无需 discard**——不写即无副作用;helper invocation 的存储/原子按 Vulkan 规范无可见副作用)。写入路径与 SW 完全同构:同 u64 pack(`depth30<<34 | cluster27<<7 | tri7`,VisBuffer ABI 冻结面)、同 `atomicMax`(Device scope)、同冻结清屏值。
+- **diff=0 成立论证**(逐项):① 覆盖不漏 = overestimate 超集担保;② 覆盖不多 = HW 多生成的 fragment 被 FS 复刻判定过滤,写入集 = SW-inside 集;③ 值逐位相等 = pack 输入(flat 整数/f32 varying + 同一 f32 表达式序列)与 SW 源文本逐字同构,`atomicMax` 对相同集合相同值的竞争结果与顺序无关(max 幂等/交换/结合);④ 插值零风险 = FS 全部输入 `flat`(不经透视插值),`frag_coord.xy` 在标准光栅化下恒为像素中心 `k+0.5`(精确可表示 f32),与 SW 的 `px+0.5` 逐位一致;⑤ provoking vertex 无关 = 每三角形 3 顶点携带**完全相同**的 `va/vb/vc/ids` 属性,flat 取任一 provoking vertex 结果相同,guard-band 裁剪新顶点场景一并免疫。
+- **否决**:方案 B(普通光栅 + FS 复刻)——普通光栅在共享边/细长三角形上可能**漏掉** SW-inside 像素(定点吸附后判不覆盖),超集方向无保证且 FS 不可补救;方案 C(容差比较)——违「整数域零容差」红线且 G-G7-7 判据字面 diff=0 不可议。
+- **降级臂(fail-closed,方案 D)**:DeviceCaps 探测无 `VK_EXT_conservative_rasterization` 时**确定性拒绝**(P-01,不静默降级);仅经显式 CLI 开关可启用 host 几何膨胀降级臂(每三角形三边各外扩 ≥1px 后送普通光栅,仍为真实 graphics 光栅路径,FS 复刻判定不变),evidence `pipeline` 字段如实标注区分,默认 CI 不启用。
+- **本机探测事实**(2026-08-04,`vulkaninfo` 一次性只读探测;NVIDIA GeForce RTX 4070 Ti,Vulkan apiVersion **1.4.351**,driver **620.02**〔driverVersion 620.2.0.0〕):设备扩展表含 **`VK_EXT_conservative_rasterization`(extension revision 1)**;`VkPhysicalDeviceConservativeRasterizationPropertiesEXT` 全字段快照——`primitiveOverestimationSize = 0.00195312`(= 1/512 px;设计预期「NVIDIA 典型 0.0」与本机实测**不符,如实登记**:过估尺寸 > 0 仅使 HW fragment 集更大,超集方向与 FS 过滤后的 diff=0 论证**不受影响**)/ `maxExtraPrimitiveOverestimationSize = 0.75` / `extraPrimitiveOverestimationSizeGranularity = 0.25` / `primitiveUnderestimation = true` / `conservativePointAndLineRasterization = true` / **`degenerateTrianglesRasterized = true`**(量化后零面积的 sliver 三角形不被剔除——细长三角形超集性质额外加固,§8.1 风险 #3 在本机不触发,豁免预扫描不需启用)/ `degenerateLinesRasterized = true` / `fullyCoveredFragmentShaderInputVariable = true` / `conservativeRasterizationPostDepthCoverage = true`。
+- **证据纪律**:以上数值来自本机真实探测输出(非公开数据库口径);机器证据以 `hw_side.conservative_props{primitive_overestimation_size, max_extra, granularity, degenerate_triangles_rasterized}` 加性字段归步骤 95 evidence schema(随 PR-4 以 `vkGetPhysicalDeviceProperties2` 运行时重采落盘,换机重采);本节文本为裁定依据快照。
+
+### E3 语言面加性放行授权(六项 missing_toolchain_caps → RXS-0301~0303)
+
+- **授权**:步骤 95 `hw_raster_diff.missing_toolchain_caps` 六项经本修订行裁定后,以 **spec 条款加性扩展**放行,条款 = [spec/vulkan_backend.md](../spec/vulkan_backend.md) **RXS-0301**(Vulkan 原生图形 body 扩展白名单,target-conditional)/ **RXS-0302**(图形阶段 SSBO 与 push constant 资源面 + u64 原子)/ **RXS-0303**(HW 光栅 VisBuffer 对拍执行语义),台账顺位自 RXS-0301 消费(number_ledger v1.44)。映射:`graphics_vector_component_projection` / `graphics_comparison_ops` / `graphics_control_flow_and_calls` / `graphics_output_assembly` → RXS-0301;`graphics_buffer_indexing` → RXS-0301/0302;`graphics_ssbo_atomic_u64` → RXS-0302。
+- **分叉边界**:扩展仅限 `emit_spirv_body_vulkan`(provenance=false)Vulkan 原生路;**DXIL 路(provenance=true)RXS-0171 L4 最小白名单冻结 0-byte**(同一发射器按 target/provenance 条件分叉语义的合法形态先例 = RXS-0210 provenance 装饰分叉 / RXS-0249 DXIL 腿条件分支);同一 FS 语料以 dxil target 编译必须仍拒(机器锚归 PR-3 rurixc 单测)。
+- **负面清单恒拒**(RX6026,拒绝面 grow-only):循环(`while`/`for`)、用户自定义 device fn 调用、f64、RayQuery、共享内存、`Scope::Block`(CTA 级)原子、纹理采样以外的图像原子。机器锁 = [conformance/vulkan/reject/](../conformance/vulkan/reject/) 四枚 RED 语料(`vk_hw_raster_loop_reject.rx` / `vk_hw_raster_devfn_call_reject.rx` / `vk_hw_raster_cta_atomic_reject.rx` / `vk_hw_raster_f64_reject.rx`,恒跑步 reject 段目录驱动纳管,扩展落地前后均必红)。
+- **实现形态授权**(语义边界本章冻结,实现归 PR-3):两遍编译——第一遍现行最小 BodyLowerer(RXS-0171 L4)成功即原样输出(既有全部图形语料输出字节零漂移 **by construction**);第一遍 Unmappable 且 provenance=false 才进第二遍 ExtendedBodyLowerer(RXS-0301 白名单),仍失败 → RX6026 收窄诊断。W1/W2 compute `.spv` manifest 零字节漂移恒跑门维持(步骤 95 步骤 6,**严禁 rebless**)。
+
+### E4 判据字面(冻结,不改判)
+
+- **G-G7-7 字面判据维持**:HW 腿输出 **9216 词 u64**(128×72,G7_SCENE_FREEZE 764 三角形冻结场景/冻结相机/同一投影输入)与 SW 腿(`visbuffer_sw_u64`)**逐词相等,diff = 0**——整数域零容差、无 epsilon、无感知门替代物。配套反空转判据:`hw_covered_words == sw_covered_words > 0`(排除双侧全空假绿)+ `oracle_bitexact == true`(SW==host oracle 三方对拍锚)+ RED 双轴(篡改 flat varying / 篡改 ids 一元 → diff 必非零,数据流反证)。
+- **翻转授权**:步骤 95 `hw_raster_diff.status` 由 `blocked-frozen-graphics-body-slice` 翻 `verified-diff-zero` 为 schema 既有双臂枚举内的**预授权翻转**(`escalation` 字段预埋兑现,判据演进带 = G7 自建步骤 93~95,非 G-G7-9 冻结带 41~92 改判);实装后若 diff ≠ 0 且经调试归因为原理性分歧 → 回本 RFC **二次修订行**裁定,**不得**引入容差(§8.1 风险 #1 止损同源)。
+
+---
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-08-01 | AI 起草初版(G7.1 波次;起草 provenance A = `trae-ide:kimi-k3`,**只起草不批准**;四章冻结 + §7 证据矩阵 + §8 风险备选 + §9.1 对抗性评审记录留空待独立 provenance 填写) | Full RFC |
 | v1.0 | 2026-08-01 | **对抗性评审第 1 轮完成,状态 Draft → Agent Approved**(评审 provenance B = `trae-ide:kimi-k3 reviewer-session` ≠ 起草 session A,D-409/G-G7-2):10 findings(0 blocker + 5 major + 5 minor)全部采纳并修——§A1(S-1 SPIR-V 存储类收窄 + 禁用指令引证;V-4 补 `OpCopyMemorySized`)/ §A0(S-2 `trace_ray` 未接线如实标注)/ §A3(S-3 健全性前提钉死)/ §A5-S3(C-1 守卫形态枚举钉死)/ §B1(V-1 判定点并集钉死封闭 AS-only 情形;V-2 capability 承载 = RayQueryKHR 升级规范事实 + 升版依据精确化)/ §C5(V-3 依赖链 VK_KHR_spirv_1_4/VK_KHR_shader_float_controls 钉死)/ §1.2·§D0(A-1 validation 零报错 G-G7-3 审计限定)/ §7.1(A-2 指向已落 RD038_LITERAL_MATRIX 审计件);§9 Q1~Q6 与首要裁决点(§A5-S3 主设计维持、§8.2-E 备选保留止损)逐条裁决;13_DECISION_LOG 不改(D-410 自由池 G7 冻结不占,处置说明见 §9.1 末) | Full RFC |
+| v1.1 | 2026-08-04 | **增补 §E(章 E,§11):HW 光栅 VisBuffer 对拍裁定(G7.5b PR-0,纯加性,§1~§10 既有文本 0-byte)**——兑现步骤 95 evidence `hw_raster_diff.escalation` 预埋的「扩展须先经 RFC-0018 修订行裁定」前置条件(§6.D5 处置口径同源)。E1 覆盖规则唯一权威 = SW 规则字面(精确 f32 边函数 + top-left + 绕向归一 + depth30 量化,`visbuffer_sw_u64.rx`/`VisBufferCpu` 双源已互证;HW 定点吸附分歧不以容差掩盖、不改判权威);E2 HW 腿裁定 = 方案 A 保守光栅 OVERESTIMATE 超集 + FS 内逐字复刻 SW 判定(diff=0 五项论证:超集不漏/FS 过滤不多/pack 逐位同构/flat+frag_coord 像素中心零插值风险/三顶点同属性 provoking-vertex 免疫),方案 B(普通光栅超集无保证)/方案 C(容差)否决,方案 D(host 三边外扩 ≥1px 几何膨胀)降格为 fail-closed 显式开关降级臂;**本机保守光栅探测事实入文**(2026-08-04 vulkaninfo,RTX 4070 Ti,Vulkan 1.4.351,driver 620.02:`VK_EXT_conservative_rasterization` rev 1 在位,`primitiveOverestimationSize = 0.00195312`〔1/512 px,设计预期 0.0 与实测不符如实登记,超集论证不受影响〕,`maxExtraPrimitiveOverestimationSize = 0.75`,`granularity = 0.25`,**`degenerateTrianglesRasterized = true`**〔sliver 风险 #3 本机不触发〕,全九字段快照);E3 语言面六项 `missing_toolchain_caps` 加性放行授权 → spec/vulkan_backend.md RXS-0301/0302/0303(台账 v1.44 顺位消费;DXIL 路 RXS-0171 L4 冻结 0-byte;负面清单〔循环/device fn 调用/f64/`Scope::Block`(CTA)原子/RayQuery/共享内存/图像原子〕恒拒 RX6026,四枚新 RED 语料机器锁);E4 判据字面维持 G-G7-7 diff=0 零容差(9216 词 u64 逐词相等 + 反空转判据 + RED 双轴;status 翻转为 schema 双臂预授权,diff≠0 原理性分歧回二次修订行、不得引入容差)。头部字段/既有章节 0-byte;实现(rurixc 两遍编译/rurix-rt 保守光栅底座/uc06 装配/步骤 95 翻绿)归 G7.5b PR-2~PR-4 | Full RFC |

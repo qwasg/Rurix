@@ -1,0 +1,29 @@
+//@ spec: RXS-0301
+//@ expect-error: RX6026
+// G7.5b HW 光栅负面清单探针 —— **循环轴**(RXS-0301 负面清单;RFC-0018 §E3)。
+// 单一违规轴 = fragment body 内 `while` 结构化循环;其余构造(可变局部 `let mut`、
+// f32 比较、分支内赋值)均在 RXS-0301 加性放行面内,故本语料在扩展 lowerer 落地
+// **之后也必须仍红**(拒绝面 grow-only 的机器锁,与恒跑步 reject 段双锁)。
+// 当前(扩展前)同样红:RXS-0171 L4 最小切片先在循环条件的比较运算(`Lt/U32`)
+// 处 unmappable → RX6026;扩展后比较放行,循环本体(back edge/重复进入 basic
+// block)成为被诊断轴,仍 RX6026——两阶段同码,语义轴恒为「循环不放行」。
+// Vulkan 原生图形路复用同一编码器(`dxil_spirv::emit_spirv_body_vulkan`)。
+struct P {
+    #[interpolate(flat)] s: f32,
+}
+
+struct O {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn hw_raster_loop_probe(inp: P) -> O {
+    let mut acc = inp.s;
+    let mut i = 0u32;
+    while i < 4u32 {
+        acc = acc * 0.5;
+        i = i + 1u32;
+    }
+    O { color: (acc, acc, acc, 1.0) }
+}
+
+fn main() {}

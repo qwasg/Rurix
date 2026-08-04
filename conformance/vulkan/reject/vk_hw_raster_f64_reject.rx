@@ -1,0 +1,26 @@
+//@ spec: RXS-0301, RXS-0303
+//@ expect-error: RX6026
+// G7.5b HW 光栅负面清单探针 —— **f64 轴**(RXS-0301 负面清单;RFC-0018 §E3)。
+// 单一违规轴 = fragment body 内 f64 运算(`as f64` 升宽 + f64 乘法);`as` 数值
+// cast 本身在 RXS-0301 放行面内(与 compute `cast_opcode` 同表),但该表 f64 目标
+// 恒拒(承 RXS-0203 L1「F64 需 Float64 capability → RX6026」),故本语料在扩展
+// lowerer 落地**之后也必须仍红**(负面清单机器锁)。
+// f64 恒拒同时是 RXS-0303 覆盖规则字面权威的护栏:FS 内逐字复刻的 SW 边函数/
+// 量化链为**精确 f32 表达式序列**,升 f64 改写即破坏 SW/HW 逐位同构(diff=0 判据
+// 的成立前提),不得以「更高精度」为由绕行。
+// 当前(扩展前)同样红:RXS-0171 L4 最小切片不支持 rvalue `Cast` → RX6026。
+struct P {
+    #[interpolate(flat)] s: f32,
+}
+
+struct O {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn hw_raster_f64_probe(inp: P) -> O {
+    let wide = inp.s as f64;
+    let v = (wide * 2.0) as f32;
+    O { color: (v, v, v, 1.0) }
+}
+
+fn main() {}

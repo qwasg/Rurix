@@ -1,0 +1,29 @@
+//@ spec: RXS-0301, RXS-0302
+//@ expect-error: RX6026
+// G7.5b HW 光栅负面清单探针 —— **CTA 级原子轴**(RXS-0301 负面清单 + RXS-0302
+// 资源面;RFC-0018 §E3)。单一违规轴 = fragment body 内 `Scope::Block`(= CTA 级,
+// 语言 scoped-atomics 封闭枚举 `Scope ∈ {Block,Gpu,System}`,RXS-0080——设计名
+// 「Cta」在语言面即 `Block`)的 `fetch_max`;RXS-0302 仅放行 `Scope::Gpu`(lower 为
+// `OpAtomicUMax` Device scope):fragment 无 workgroup 语义,CTA/Block 级原子恒拒。
+// 签名形态(AtomicView<global,u64> + usize 标量)与 `fetch_max` 本体均为 RXS-0302
+// 放行面,故本语料在扩展 lowerer 落地**之后也必须仍红**(负面清单机器锁)。
+// 当前(扩展前)同样红:RXS-0171 L4 最小切片不支持 rvalue `Atomic`(FetchMax)
+// → RX6026;扩展后 `Scope::Gpu` 原子放行,本语料因 scope 违例仍 RX6026。
+struct P {
+    #[interpolate(flat)] s: f32,
+}
+
+struct O {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn hw_raster_cta_atomic_probe(
+    inp: P,
+    vis: AtomicView<global, u64, (16,)>,
+    width: usize,
+) -> O {
+    let _old = vis.fetch_max(width, 1u64, Scope::Block);
+    O { color: (inp.s, 0.0, 0.0, 1.0) }
+}
+
+fn main() {}
