@@ -15,6 +15,8 @@
 //! CLI:`uc06-renderer [--frames N=8] [--size WxH=256x144] [--device] [--dump-graph p] [--json]`
 //! `--json` 输出单行 JSON(smoke 脚本消费,字段集冻结);exit 0 仅当全部断言过。
 
+#[cfg(feature = "device-frame")]
+mod device_frame;
 #[cfg(feature = "vulkan")]
 mod device_frame_temporal;
 #[cfg(feature = "vulkan")]
@@ -340,6 +342,65 @@ fn run_g76_tsr_temporal_mode(cli: &Cli) -> i32 {
     0
 }
 
+/// G7.6 PR-2 `--device-frame` 模式:15-pass One True Device Frame
+/// (`DeviceFrameSession` + `execute_with_frame_update`;禁 `execute_frame`)。
+#[cfg(feature = "device-frame")]
+fn run_device_frame_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let red = if cli.frame_red_visbuffer {
+        Some(device_frame::RedAxis::Visbuffer)
+    } else if cli.frame_red_history {
+        Some(device_frame::RedAxis::History)
+    } else if cli.frame_red_jitter {
+        Some(device_frame::RedAxis::Jitter)
+    } else if cli.frame_red_provenance {
+        Some(device_frame::RedAxis::Provenance)
+    } else {
+        None
+    };
+    let opts = device_frame::DeviceFrameOptions {
+        frames: cli.frames,
+        soak: cli.soak,
+        min_minutes: cli.min_minutes,
+        red,
+        json: cli.json,
+    };
+    let Some(res) = device_frame::run_device_frame(&opts) else {
+        println!("FRAME: SKIP 无 Vulkan device / W3 能力链缺失(dev-env degrade)");
+        return i32::from(require_real);
+    };
+    let r = match res {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("FRAME: FAIL device frame 执行: {e}");
+            return 1;
+        }
+    };
+    println!("{}", r.json());
+    if let Some(ok) = r.red_ok {
+        if ok {
+            println!("FRAME: RED-OK {}", r.red_axis.unwrap_or("?"));
+            return 0;
+        }
+        eprintln!("FRAME: FAIL RED 轴未触发({})", r.red_axis.unwrap_or("?"));
+        return 1;
+    }
+    if !r.all_pass() {
+        eprintln!("FRAME: FAIL 帧链对拍/非退化/provenance 未全过(见 JSON)");
+        return 1;
+    }
+    println!(
+        "FRAME: PASS frames={} covered={} mv_nz={} xform_changed={} val={} lost={}",
+        r.frames,
+        r.covered_pixels,
+        r.mv_nonzero_count,
+        r.instance_transform_changed,
+        r.validation_error_count,
+        r.device_lost_count,
+    );
+    0
+}
+
 /// CLI 参数(解析确定性;未知参数 = Err)。
 #[derive(Debug, Clone)]
 struct Cli {
@@ -371,6 +432,16 @@ struct Cli {
     g76_tsr_temporal: bool,
     /// `--g76-tsr-temporal` 的 RED 轴:故意不轮换历史绑定 → 时域对拍必红。
     g76_red_history: bool,
+    /// G7.6 PR-2:15-pass One True Device Frame。
+    device_frame: bool,
+    /// soak 取证(帧数与分钟双下界)。
+    soak: bool,
+    /// soak 最小分钟数。
+    min_minutes: f64,
+    frame_red_visbuffer: bool,
+    frame_red_history: bool,
+    frame_red_jitter: bool,
+    frame_red_provenance: bool,
 }
 
 impl Default for Cli {
@@ -392,6 +463,13 @@ impl Default for Cli {
             g75_hw_red_ids: false,
             g76_tsr_temporal: false,
             g76_red_history: false,
+            device_frame: false,
+            soak: false,
+            min_minutes: 0.0,
+            frame_red_visbuffer: false,
+            frame_red_history: false,
+            frame_red_jitter: false,
+            frame_red_provenance: false,
         }
     }
 }
@@ -448,6 +526,32 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--g76-red-history" => {
                 c.g76_tsr_temporal = true;
                 c.g76_red_history = true;
+            }
+            "--device-frame" => c.device_frame = true,
+            "--soak" => c.soak = true,
+            "--min-minutes" => {
+                i += 1;
+                c.min_minutes = args
+                    .get(i)
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&n: &f64| n >= 0.0)
+                    .ok_or("--min-minutes 需要 ≥0 浮点")?;
+            }
+            "--frame-red-visbuffer" => {
+                c.device_frame = true;
+                c.frame_red_visbuffer = true;
+            }
+            "--frame-red-history" => {
+                c.device_frame = true;
+                c.frame_red_history = true;
+            }
+            "--frame-red-jitter" => {
+                c.device_frame = true;
+                c.frame_red_jitter = true;
+            }
+            "--frame-red-provenance" => {
+                c.device_frame = true;
+                c.frame_red_provenance = true;
             }
             "--dump-graph" => {
                 i += 1;
@@ -516,6 +620,20 @@ fn main() {
         std::process::exit(2);
     }
 
+    #[cfg(not(feature = "device-frame"))]
+    if cli.device_frame
+        || cli.soak
+        || cli.frame_red_visbuffer
+        || cli.frame_red_history
+        || cli.frame_red_jitter
+        || cli.frame_red_provenance
+    {
+        eprintln!(
+            "uc06-renderer: --device-frame/--soak/--frame-red-* 需要 feature device-frame(cargo run -p uc06-renderer --features device-frame)"
+        );
+        std::process::exit(2);
+    }
+
     // G7.4 W3c 模式:三效果核共用同一真实 TLAS device 对拍(独立通道;不跑 host 全管线,
     // 不产 `--device` JSON,故 `--device` 既有字段集 0-byte)。
     #[cfg(feature = "vulkan")]
@@ -538,6 +656,11 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.g76_tsr_temporal {
         std::process::exit(run_g76_tsr_temporal_mode(&cli));
+    }
+
+    #[cfg(feature = "device-frame")]
+    if cli.device_frame {
+        std::process::exit(run_device_frame_mode(&cli));
     }
 
     match run(&cli) {

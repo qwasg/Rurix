@@ -10,11 +10,15 @@ license.workspace = true
 rurix-render = { path = "../../src/rurix-render" }
 rurix-geom-build = { path = "../../src/rurix-geom-build" }
 rurix-rt = { path = "../../src/rurix-rt", optional = true }
+# G7.6 PR-2:帧链物理桥(仅 `device-frame` feature 拉入,隔离步骤 84~95 构建面)。
+rurix-physics = { path = "../../src/rurix-physics", optional = true }
 
 [features]
 default = []
 # device 真跑腿(uc04-demo real-shim 先例:默认关闭,host 常驻回归网)。
 vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
+# G7.6 PR-2:One True Device Frame(15-pass 帧链 + G6 物理桥)。
+device-frame = ["vulkan", "dep:rurix-physics"]
 
 [build-dependencies]
 rurixc = { path = "../../src/rurixc", features = ["vulkan-backend"] }

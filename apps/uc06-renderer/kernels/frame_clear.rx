@@ -1,0 +1,30 @@
+// G7.6 PR-2 glue:帧首清屏(设计 §1.2 pass 0)。
+// vis 按 u32 双字写 VISBUFFER_CLEAR = 0x3_FFFF_FFFF(lo=0xFFFFFFFF, hi=0x3);
+// material_counts / stats 写 0。全 ViewMut,无原子。
+kernel fn frame_clear(
+    t: ThreadCtx<1>,
+    vis_words: ViewMut<global, u32>,
+    material_counts: ViewMut<global, u32>,
+    stats: ViewMut<global, u32>,
+    vis_word_count: usize,
+    material_slot_count: usize,
+    stats_count: usize,
+) {
+    let i = t.global_id();
+    if i < vis_word_count {
+        // 偶下标 = lo,奇下标 = hi。
+        if (i & 1usize) == 0usize {
+            vis_words[i] = 4294967295u32;
+        } else {
+            vis_words[i] = 3u32;
+        }
+    }
+    if i < material_slot_count {
+        material_counts[i] = 0u32;
+    }
+    if i < stats_count {
+        stats[i] = 0u32;
+    }
+}
+
+fn main() {}

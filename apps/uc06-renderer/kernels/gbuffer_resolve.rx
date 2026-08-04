@@ -1,0 +1,190 @@
+// G7.6 PR-2 glue:自 device VisBuffer 派生 GBuffer(设计 §1.2 pass 5 / 裁决 5)。
+// 解码 pack → depth30 反量化 NDC z → inv_VP 反投影世界位置;
+// cluster27+tri7 查静态面法线;实例 prev/cur 3×4 算逐像素 MV。
+// 天空(cluster==INVALID)写哨兵:pos=0,nrm=0,depth=1,mv=0,validity=0。
+kernel fn gbuffer_resolve(
+    t: ThreadCtx<1>,
+    vis: View<global, u64>,
+    face_nrm: View<global, f32>,
+    tri_instance: View<global, u32>,
+    params: View<global, f32>,
+    pos: ViewMut<global, f32>,
+    nrm: ViewMut<global, f32>,
+    depth: ViewMut<global, f32>,
+    mv: ViewMut<global, f32>,
+    validity: ViewMut<global, f32>,
+    pixel_count: usize,
+    width: usize,
+    height: usize,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        let pb = i * 3;
+        let mb = i * 2;
+        // 天空哨兵:法线给非零上向,避免下游 rtao 对零法线除零(deferred 仍走 sky 色)。
+        pos[pb] = params[24];
+        pos[pb + 1] = params[25];
+        pos[pb + 2] = params[26];
+        nrm[pb] = 0.0;
+        nrm[pb + 1] = 1.0;
+        nrm[pb + 2] = 0.0;
+        depth[i] = 1.0;
+        mv[mb] = 0.0;
+        mv[mb + 1] = 0.0;
+        validity[i] = 0.0;
+        let packed = vis[i];
+        let cluster = ((packed >> 7u64) & 134217727u64) as u32;
+        let tri = (packed & 127u64) as u32;
+        if cluster != 134217727u32 {
+            let depth30 = (packed >> 34u64) as u32;
+            let z_ndc = 1.0 - (depth30 as f32) / 1073741823.0;
+            let x = i % width;
+            let y = i / width;
+            let ndc_x = (x as f32 + 0.5) / (width as f32) * 2.0 - 1.0;
+            let ndc_y = 1.0 - (y as f32 + 0.5) / (height as f32) * 2.0;
+            // inv_VP @92..108
+            let i00 = params[92];
+            let i01 = params[93];
+            let i02 = params[94];
+            let i03 = params[95];
+            let i10 = params[96];
+            let i11 = params[97];
+            let i12 = params[98];
+            let i13 = params[99];
+            let i20 = params[100];
+            let i21 = params[101];
+            let i22 = params[102];
+            let i23 = params[103];
+            let i30 = params[104];
+            let i31 = params[105];
+            let i32 = params[106];
+            let i33 = params[107];
+            let clip_x = ndc_x;
+            let clip_y = ndc_y;
+            let clip_z = z_ndc;
+            let clip_w = 1.0;
+            let hx = i00 * clip_x + i01 * clip_y + i02 * clip_z + i03 * clip_w;
+            let hy = i10 * clip_x + i11 * clip_y + i12 * clip_z + i13 * clip_w;
+            let hz = i20 * clip_x + i21 * clip_y + i22 * clip_z + i23 * clip_w;
+            let hw = i30 * clip_x + i31 * clip_y + i32 * clip_z + i33 * clip_w;
+            if hw > 0.00000000000000000001 || hw < (0.0 - 0.00000000000000000001) {
+                let inv_h = 1.0 / hw;
+                let wx = hx * inv_h;
+                let wy = hy * inv_h;
+                let wz = hz * inv_h;
+                pos[pb] = wx;
+                pos[pb + 1] = wy;
+                pos[pb + 2] = wz;
+                depth[i] = z_ndc;
+                validity[i] = 1.0;
+                // 面法线:静态表按全局 tri 槽(cluster 段内 tri 已展平为全局下标表)。
+                // face_nrm 按下标 = 全局三角形号;tri_instance 同。
+                // 此处 cluster/tri 编码 → 查表用 harness 预计算的 flat 下标缓冲
+                // `face_nrm` 以 (cluster<<7)|tri 稀疏不可行;改由 tri_lookup 缓冲。
+                // 简化:face_nrm 按像素不直接索引——用单独 tri_flat 表。
+                // 本 kernel 约定 face_nrm / tri_instance 以「全局三角形槽」索引,
+                // 另需 tri_flat[cluster*128+tri] → 全局槽。为控绑定数,把
+                // tri_flat 并入 face 表不可行。改:harness 把 face_nrm 做成
+                // 按 pack 的 cluster/tri 可查的紧凑「每簇最多 128 tri」表:
+                // index = cluster * 128 + tri。
+                let flat = (cluster as usize) * 128usize + (tri as usize);
+                let nb = flat * 3;
+                let nx0 = face_nrm[nb];
+                let ny0 = face_nrm[nb + 1];
+                let nz0 = face_nrm[nb + 2];
+                // 用法线随实例线性部旋转(cur 3×4 @40)。
+                let inst = tri_instance[flat] as usize;
+                let tb = 40usize + inst * 12;
+                let m00 = params[tb];
+                let m01 = params[tb + 1];
+                let m02 = params[tb + 2];
+                let m10 = params[tb + 4];
+                let m11 = params[tb + 5];
+                let m12 = params[tb + 6];
+                let m20 = params[tb + 8];
+                let m21 = params[tb + 9];
+                let m22 = params[tb + 10];
+                let nnx = m00 * nx0 + m01 * ny0 + m02 * nz0;
+                let nny = m10 * nx0 + m11 * ny0 + m12 * nz0;
+                let nnz = m20 * nx0 + m21 * ny0 + m22 * nz0;
+                let nlen = (nnx * nnx + nny * nny + nnz * nnz).sqrt();
+                if nlen > 0.000000000001 {
+                    nrm[pb] = nnx / nlen;
+                    nrm[pb + 1] = nny / nlen;
+                    nrm[pb + 2] = nnz / nlen;
+                }
+                // MV:cur/prev 变换同一对象空间点的屏幕差。
+                // 对象空间点 ≈ 用 inv(cur)*world 回代;刚体逆 = R^T。
+                let t00 = m00;
+                let t01 = m01;
+                let t02 = m02;
+                let t03 = params[tb + 3];
+                let t10 = m10;
+                let t11 = m11;
+                let t12 = m12;
+                let t13 = params[tb + 7];
+                let t20 = m20;
+                let t21 = m21;
+                let t22 = m22;
+                let t23 = params[tb + 11];
+                // R^T * (world - t)
+                let rx = wx - t03;
+                let ry = wy - t13;
+                let rz = wz - t23;
+                let ox = t00 * rx + t10 * ry + t20 * rz;
+                let oy = t01 * rx + t11 * ry + t21 * rz;
+                let oz = t02 * rx + t12 * ry + t22 * rz;
+                // prev 3×4 @108+inst*12(在 inv_VP 之后)。
+                let pb0 = 108usize + inst * 12;
+                let p00 = params[pb0];
+                let p01 = params[pb0 + 1];
+                let p02 = params[pb0 + 2];
+                let p03 = params[pb0 + 3];
+                let p10 = params[pb0 + 4];
+                let p11 = params[pb0 + 5];
+                let p12 = params[pb0 + 6];
+                let p13 = params[pb0 + 7];
+                let p20 = params[pb0 + 8];
+                let p21 = params[pb0 + 9];
+                let p22 = params[pb0 + 10];
+                let p23 = params[pb0 + 11];
+                let pwx = p00 * ox + p01 * oy + p02 * oz + p03;
+                let pwy = p10 * ox + p11 * oy + p12 * oz + p13;
+                let pwz = p20 * ox + p21 * oy + p22 * oz + p23;
+                // prev VP @144..160
+                let vp00 = params[144];
+                let vp01 = params[145];
+                let vp02 = params[146];
+                let vp03 = params[147];
+                let vp10 = params[148];
+                let vp11 = params[149];
+                let vp12 = params[150];
+                let vp13 = params[151];
+                let vp20 = params[152];
+                let vp21 = params[153];
+                let vp22 = params[154];
+                let vp23 = params[155];
+                let vp30 = params[156];
+                let vp31 = params[157];
+                let vp32 = params[158];
+                let vp33 = params[159];
+                let cx = vp00 * pwx + vp01 * pwy + vp02 * pwz + vp03;
+                let cy = vp10 * pwx + vp11 * pwy + vp12 * pwz + vp13;
+                let cw = vp30 * pwx + vp31 * pwy + vp32 * pwz + vp33;
+                if cw > 0.00000000000000000001 {
+                    let inv_w = 1.0 / cw;
+                    let pnx = cx * inv_w;
+                    let pny = cy * inv_w;
+                    let prev_sx = (pnx + 1.0) * 0.5 * (width as f32);
+                    let prev_sy = (1.0 - pny) * 0.5 * (height as f32);
+                    let cur_sx = x as f32 + 0.5;
+                    let cur_sy = y as f32 + 0.5;
+                    mv[mb] = prev_sx - cur_sx;
+                    mv[mb + 1] = prev_sy - cur_sy;
+                }
+            }
+        }
+    }
+}
+
+fn main() {}

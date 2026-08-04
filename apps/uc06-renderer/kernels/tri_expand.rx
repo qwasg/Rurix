@@ -1,0 +1,176 @@
+// G7.6 PR-2 glue:三角形展开(设计 §1.2 pass 2 / 裁决 3)。
+// 全局三角形槽位静态(764);不可见簇写退化零三角形。
+// 投影公式逐字复刻 visbuffer.rs::raster_clusters L200-223。
+//
+// 输入:visible_flags / obj_tris[9f/tri 对象空间] / tri_cluster / tri_local /
+//       instance_of / params(含 VP@76 + cur 3×4@40)。
+// params 追加:VP 行主 4×4 落在 [76..92)(见 device_frame::params)。
+kernel fn tri_expand(
+    t: ThreadCtx<1>,
+    visible_flags: View<global, u32>,
+    obj_tris: View<global, f32>,
+    tri_cluster: View<global, u32>,
+    tri_local: View<global, u32>,
+    instance_of: View<global, u32>,
+    params: View<global, f32>,
+    triangles: ViewMut<global, f32>,
+    ids: ViewMut<global, u32>,
+    triangle_count: usize,
+    width: usize,
+    height: usize,
+) {
+    let i = t.global_id();
+    if i < triangle_count {
+        let ob = i * 9;
+        let out_b = i * 9;
+        let id_b = i * 2;
+        triangles[out_b] = 0.0;
+        triangles[out_b + 1] = 0.0;
+        triangles[out_b + 2] = 0.0;
+        triangles[out_b + 3] = 0.0;
+        triangles[out_b + 4] = 0.0;
+        triangles[out_b + 5] = 0.0;
+        triangles[out_b + 6] = 0.0;
+        triangles[out_b + 7] = 0.0;
+        triangles[out_b + 8] = 0.0;
+        ids[id_b] = 0u32;
+        ids[id_b + 1] = 0u32;
+        let cl = tri_cluster[i] as usize;
+        if visible_flags[cl] != 0u32 {
+            let inst = instance_of[cl] as usize;
+            let tb = 40usize + inst * 12;
+            let m00 = params[tb];
+            let m01 = params[tb + 1];
+            let m02 = params[tb + 2];
+            let m03 = params[tb + 3];
+            let m10 = params[tb + 4];
+            let m11 = params[tb + 5];
+            let m12 = params[tb + 6];
+            let m13 = params[tb + 7];
+            let m20 = params[tb + 8];
+            let m21 = params[tb + 9];
+            let m22 = params[tb + 10];
+            let m23 = params[tb + 11];
+            // VP 行主 @76。
+            let vp00 = params[76];
+            let vp01 = params[77];
+            let vp02 = params[78];
+            let vp03 = params[79];
+            let vp10 = params[80];
+            let vp11 = params[81];
+            let vp12 = params[82];
+            let vp13 = params[83];
+            let vp20 = params[84];
+            let vp21 = params[85];
+            let vp22 = params[86];
+            let vp23 = params[87];
+            let vp30 = params[88];
+            let vp31 = params[89];
+            let vp32 = params[90];
+            let vp33 = params[91];
+            let w_px = width as f32;
+            let h_px = height as f32;
+            let mut valid = 1u32;
+            let mut sx0 = 0.0;
+            let mut sy0 = 0.0;
+            let mut sz0 = 0.0;
+            let mut sx1 = 0.0;
+            let mut sy1 = 0.0;
+            let mut sz1 = 0.0;
+            let mut sx2 = 0.0;
+            let mut sy2 = 0.0;
+            let mut sz2 = 0.0;
+            // 顶点 0
+            {
+                let ox = obj_tris[ob];
+                let oy = obj_tris[ob + 1];
+                let oz = obj_tris[ob + 2];
+                let wx = m00 * ox + m01 * oy + m02 * oz + m03;
+                let wy = m10 * ox + m11 * oy + m12 * oz + m13;
+                let wz = m20 * ox + m21 * oy + m22 * oz + m23;
+                let clip_x = vp00 * wx + vp01 * wy + vp02 * wz + vp03;
+                let clip_y = vp10 * wx + vp11 * wy + vp12 * wz + vp13;
+                let clip_z = vp20 * wx + vp21 * wy + vp22 * wz + vp23;
+                let clip_w = vp30 * wx + vp31 * wy + vp32 * wz + vp33;
+                if clip_w <= 0.00000000000000000001 {
+                    valid = 0u32;
+                } else {
+                    let inv_w = 1.0 / clip_w;
+                    let nx = clip_x * inv_w;
+                    let ny = clip_y * inv_w;
+                    let mut nz = clip_z * inv_w;
+                    if nz < 0.0 { nz = 0.0; }
+                    if nz > 1.0 { nz = 1.0; }
+                    sx0 = (nx + 1.0) * 0.5 * w_px;
+                    sy0 = (1.0 - ny) * 0.5 * h_px;
+                    sz0 = nz;
+                }
+            }
+            if valid != 0u32 {
+                let ox = obj_tris[ob + 3];
+                let oy = obj_tris[ob + 4];
+                let oz = obj_tris[ob + 5];
+                let wx = m00 * ox + m01 * oy + m02 * oz + m03;
+                let wy = m10 * ox + m11 * oy + m12 * oz + m13;
+                let wz = m20 * ox + m21 * oy + m22 * oz + m23;
+                let clip_x = vp00 * wx + vp01 * wy + vp02 * wz + vp03;
+                let clip_y = vp10 * wx + vp11 * wy + vp12 * wz + vp13;
+                let clip_z = vp20 * wx + vp21 * wy + vp22 * wz + vp23;
+                let clip_w = vp30 * wx + vp31 * wy + vp32 * wz + vp33;
+                if clip_w <= 0.00000000000000000001 {
+                    valid = 0u32;
+                } else {
+                    let inv_w = 1.0 / clip_w;
+                    let nx = clip_x * inv_w;
+                    let ny = clip_y * inv_w;
+                    let mut nz = clip_z * inv_w;
+                    if nz < 0.0 { nz = 0.0; }
+                    if nz > 1.0 { nz = 1.0; }
+                    sx1 = (nx + 1.0) * 0.5 * w_px;
+                    sy1 = (1.0 - ny) * 0.5 * h_px;
+                    sz1 = nz;
+                }
+            }
+            if valid != 0u32 {
+                let ox = obj_tris[ob + 6];
+                let oy = obj_tris[ob + 7];
+                let oz = obj_tris[ob + 8];
+                let wx = m00 * ox + m01 * oy + m02 * oz + m03;
+                let wy = m10 * ox + m11 * oy + m12 * oz + m13;
+                let wz = m20 * ox + m21 * oy + m22 * oz + m23;
+                let clip_x = vp00 * wx + vp01 * wy + vp02 * wz + vp03;
+                let clip_y = vp10 * wx + vp11 * wy + vp12 * wz + vp13;
+                let clip_z = vp20 * wx + vp21 * wy + vp22 * wz + vp23;
+                let clip_w = vp30 * wx + vp31 * wy + vp32 * wz + vp33;
+                if clip_w <= 0.00000000000000000001 {
+                    valid = 0u32;
+                } else {
+                    let inv_w = 1.0 / clip_w;
+                    let nx = clip_x * inv_w;
+                    let ny = clip_y * inv_w;
+                    let mut nz = clip_z * inv_w;
+                    if nz < 0.0 { nz = 0.0; }
+                    if nz > 1.0 { nz = 1.0; }
+                    sx2 = (nx + 1.0) * 0.5 * w_px;
+                    sy2 = (1.0 - ny) * 0.5 * h_px;
+                    sz2 = nz;
+                }
+            }
+            if valid != 0u32 {
+                triangles[out_b] = sx0;
+                triangles[out_b + 1] = sy0;
+                triangles[out_b + 2] = sz0;
+                triangles[out_b + 3] = sx1;
+                triangles[out_b + 4] = sy1;
+                triangles[out_b + 5] = sz1;
+                triangles[out_b + 6] = sx2;
+                triangles[out_b + 7] = sy2;
+                triangles[out_b + 8] = sz2;
+                ids[id_b] = tri_cluster[i];
+                ids[id_b + 1] = tri_local[i];
+            }
+        }
+    }
+}
+
+fn main() {}

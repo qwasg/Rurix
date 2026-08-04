@@ -1,0 +1,74 @@
+// G7.6 PR-2 glue:延迟着色(设计 §1.2 pass 11)。
+// shadow = min(vsm, hard);天空像素(resolved==65535)写 sky。
+// 朗伯:`albedo/π × (sun×shadow×ndl + gi) × ao + emissive`(对齐 shading::shade_pixel)。
+kernel fn deferred_shade(
+    t: ThreadCtx<1>,
+    resolved: View<global, u32>,
+    nrm: View<global, f32>,
+    shadow_vsm: View<global, f32>,
+    vis_hard: View<global, f32>,
+    radiance: View<global, f32>,
+    ao: View<global, f32>,
+    albedo: View<global, f32>,
+    emissive: View<global, f32>,
+    hdr: ViewMut<global, f32>,
+    pixel_count: usize,
+    sun_x: f32,
+    sun_y: f32,
+    sun_z: f32,
+    sun_r: f32,
+    sun_g: f32,
+    sun_b: f32,
+    sky_r: f32,
+    sky_g: f32,
+    sky_b: f32,
+    inv_pi: f32,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        let ob = i * 3;
+        let mid = resolved[i];
+        if mid == 65535u32 {
+            hdr[ob] = sky_r;
+            hdr[ob + 1] = sky_g;
+            hdr[ob + 2] = sky_b;
+        } else {
+            let mut shadow = shadow_vsm[i];
+            let hard = vis_hard[i];
+            if hard < shadow { shadow = hard; }
+            let nx = nrm[ob];
+            let ny = nrm[ob + 1];
+            let nz = nrm[ob + 2];
+            // to_light = -SUN_DIR(光线传播方向的反向)。
+            let lx = 0.0 - sun_x;
+            let ly = 0.0 - sun_y;
+            let lz = 0.0 - sun_z;
+            let llen = (lx * lx + ly * ly + lz * lz).sqrt();
+            let mut ndl = 0.0;
+            if llen > 0.000000000001 {
+                let il = 1.0 / llen;
+                let d = nx * (lx * il) + ny * (ly * il) + nz * (lz * il);
+                if d > 0.0 { ndl = d; }
+            }
+            let mb = (mid as usize) * 3;
+            let ar = albedo[mb];
+            let ag = albedo[mb + 1];
+            let ab = albedo[mb + 2];
+            let er = emissive[mb];
+            let eg = emissive[mb + 1];
+            let eb = emissive[mb + 2];
+            let gi_r = radiance[ob];
+            let gi_g = radiance[ob + 1];
+            let gi_b = radiance[ob + 2];
+            let aov = ao[i];
+            let direct_r = sun_r * ndl * shadow;
+            let direct_g = sun_g * ndl * shadow;
+            let direct_b = sun_b * ndl * shadow;
+            hdr[ob] = ar * inv_pi * (direct_r + gi_r) * aov + er;
+            hdr[ob + 1] = ag * inv_pi * (direct_g + gi_g) * aov + eg;
+            hdr[ob + 2] = ab * inv_pi * (direct_b + gi_b) * aov + eb;
+        }
+    }
+}
+
+fn main() {}

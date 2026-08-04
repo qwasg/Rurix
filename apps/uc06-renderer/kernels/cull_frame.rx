@@ -1,0 +1,260 @@
+// G7.6 PR-2 glue:帧链剔除(设计 §1.2 pass 1 / 裁决 1)。
+// 输出 visible_flags[cluster] ∈ {0,1},另原子累加 visible_count——**无紧凑追加**。
+// 三关对齐 geometry/cull.rs:`intersects_aabb` / `contains_sphere` / 背面锥 / LOD cut。
+//
+// params 布局(f32 下标,与 device_frame::params 冻结一致):
+//   [0..24)  6 平面 × 4(Gribb-Hartmann,host 自 VP 提取)
+//   [24..27) cam_pos
+//   [27]     proj_factor = m11 * H * 0.5
+//   [28]     error_threshold_px
+//   [29..40) pad
+//   [40..40+12*N) 实例 cur 3×4(行主)
+kernel fn cull_frame(
+    t: ThreadCtx<1>,
+    instance_of: View<global, u32>,
+    instance_aabb: View<global, f32>,
+    cluster_center: View<global, f32>,
+    cluster_radius: View<global, f32>,
+    cone_axis: View<global, f32>,
+    cone_cutoff: View<global, f32>,
+    cluster_error: View<global, f32>,
+    parent_error: View<global, f32>,
+    params: View<global, f32>,
+    visible_flags: ViewMut<global, u32>,
+    visible_count: AtomicView<global, u32, (1,)>,
+    cluster_count: usize,
+    instance_count: usize,
+) {
+    let i = t.global_id();
+    if i < cluster_count {
+        visible_flags[i] = 0u32;
+        let inst = instance_of[i] as usize;
+        if inst < instance_count {
+            let ib = inst * 6;
+            let ilo_x = instance_aabb[ib];
+            let ilo_y = instance_aabb[ib + 1];
+            let ilo_z = instance_aabb[ib + 2];
+            let ihi_x = instance_aabb[ib + 3];
+            let ihi_y = instance_aabb[ib + 4];
+            let ihi_z = instance_aabb[ib + 5];
+            let mut inst_ok = 1u32;
+            // 平面 0
+            {
+                let nx = params[0];
+                let ny = params[1];
+                let nz = params[2];
+                let nd = params[3];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            {
+                let nx = params[4];
+                let ny = params[5];
+                let nz = params[6];
+                let nd = params[7];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            {
+                let nx = params[8];
+                let ny = params[9];
+                let nz = params[10];
+                let nd = params[11];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            {
+                let nx = params[12];
+                let ny = params[13];
+                let nz = params[14];
+                let nd = params[15];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            {
+                let nx = params[16];
+                let ny = params[17];
+                let nz = params[18];
+                let nd = params[19];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            {
+                let nx = params[20];
+                let ny = params[21];
+                let nz = params[22];
+                let nd = params[23];
+                let mut px = ilo_x;
+                let mut py = ilo_y;
+                let mut pz = ilo_z;
+                if nx >= 0.0 { px = ihi_x; }
+                if ny >= 0.0 { py = ihi_y; }
+                if nz >= 0.0 { pz = ihi_z; }
+                if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+            }
+            if inst_ok != 0u32 {
+                let tb = 40usize + inst * 12;
+                let m00 = params[tb];
+                let m01 = params[tb + 1];
+                let m02 = params[tb + 2];
+                let m03 = params[tb + 3];
+                let m10 = params[tb + 4];
+                let m11 = params[tb + 5];
+                let m12 = params[tb + 6];
+                let m13 = params[tb + 7];
+                let m20 = params[tb + 8];
+                let m21 = params[tb + 9];
+                let m22 = params[tb + 10];
+                let m23 = params[tb + 11];
+                let cb = i * 3;
+                let ox = cluster_center[cb];
+                let oy = cluster_center[cb + 1];
+                let oz = cluster_center[cb + 2];
+                let cx = m00 * ox + m01 * oy + m02 * oz + m03;
+                let cy = m10 * ox + m11 * oy + m12 * oz + m13;
+                let cz = m20 * ox + m21 * oy + m22 * oz + m23;
+                let s0 = (m00 * m00 + m10 * m10 + m20 * m20).sqrt();
+                let s1 = (m01 * m01 + m11 * m11 + m21 * m21).sqrt();
+                let s2 = (m02 * m02 + m12 * m12 + m22 * m22).sqrt();
+                let mut scale = s0;
+                if s1 > scale { scale = s1; }
+                if s2 > scale { scale = s2; }
+                let radius = cluster_radius[i] * scale;
+                let mut sph_ok = 1u32;
+                {
+                    let nx = params[0];
+                    let ny = params[1];
+                    let nz = params[2];
+                    let nd = params[3];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                {
+                    let nx = params[4];
+                    let ny = params[5];
+                    let nz = params[6];
+                    let nd = params[7];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                {
+                    let nx = params[8];
+                    let ny = params[9];
+                    let nz = params[10];
+                    let nd = params[11];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                {
+                    let nx = params[12];
+                    let ny = params[13];
+                    let nz = params[14];
+                    let nd = params[15];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                {
+                    let nx = params[16];
+                    let ny = params[17];
+                    let nz = params[18];
+                    let nd = params[19];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                {
+                    let nx = params[20];
+                    let ny = params[21];
+                    let nz = params[22];
+                    let nd = params[23];
+                    if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                }
+                if sph_ok != 0u32 {
+                    let cam_x = params[24];
+                    let cam_y = params[25];
+                    let cam_z = params[26];
+                    let proj_factor = params[27];
+                    let err_thr = params[28];
+                    let cutoff = cone_cutoff[i];
+                    let mut cone_ok = 1u32;
+                    if cutoff < 1.0 {
+                        let vx = cx - cam_x;
+                        let vy = cy - cam_y;
+                        let vz = cz - cam_z;
+                        let dist = (vx * vx + vy * vy + vz * vz).sqrt();
+                        if dist > 0.000001 {
+                            let ax = cone_axis[cb];
+                            let ay = cone_axis[cb + 1];
+                            let az = cone_axis[cb + 2];
+                            let wx = m00 * ax + m01 * ay + m02 * az;
+                            let wy = m10 * ax + m11 * ay + m12 * az;
+                            let wz = m20 * ax + m21 * ay + m22 * az;
+                            let alen = (wx * wx + wy * wy + wz * wz).sqrt();
+                            if alen >= 0.000000000001 {
+                                let inv = 1.0 / alen;
+                                let view_x = vx / dist;
+                                let view_y = vy / dist;
+                                let view_z = vz / dist;
+                                let dota = view_x * (wx * inv) + view_y * (wy * inv) + view_z * (wz * inv);
+                                if dota >= cutoff {
+                                    cone_ok = 0u32;
+                                }
+                            }
+                        }
+                    }
+                    if cone_ok != 0u32 {
+                        let dx = cx - cam_x;
+                        let dy = cy - cam_y;
+                        let dz = cz - cam_z;
+                        let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+                        let self_e = cluster_error[i] * scale;
+                        let parent_e = parent_error[i] * scale;
+                        let mut self_px = 0.0;
+                        if self_e > 0.0 {
+                            if dist > self_e {
+                                self_px = self_e * proj_factor / dist;
+                            } else {
+                                self_px = 1000000000.0;
+                            }
+                        }
+                        let mut parent_px = 0.0;
+                        if parent_e > 0.0 {
+                            if dist > parent_e {
+                                parent_px = parent_e * proj_factor / dist;
+                            } else {
+                                parent_px = 1000000000.0;
+                            }
+                        }
+                        if self_px < err_thr {
+                            if parent_px >= err_thr {
+                                visible_flags[i] = 1u32;
+                                let _old = visible_count.fetch_add(0, 1u32, Scope::Gpu);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn main() {}
