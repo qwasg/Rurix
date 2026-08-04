@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_raster_diff_smoke",
+  "milestone": "G7.5 HW raster diff 与 RD-038 余项 / G-G7-7",
+  "step": 95,
+  "spec_clauses": [
+    "RXS-0171",
+    "RXS-0203",
+    "RXS-0205",
+    "RXS-0223"
+  ],
+  "host_section_pass": false,
+  "device_section_rc": 1,
+  "checks": {
+    "literal_matrix_pass": true,
+    "oracle_tests_pass": true,
+    "visbuffer_abi_freeze_pass": true,
+    "kernel_emit_pass": true,
+    "hw_raster_blocked_honest_pass": false
+  },
+  "device_pass": null,
+  "device_skip_reason": null,
+  "device_name": null,
+  "validation_enabled": false,
+  "device_red": {},
+  "toolchain_skip": null,
+  "dev_env_degrade": true,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-03T14:04:36+08:00",
+  "literal_rows": [
+    "两级剔除",
+    "VisBuffer SW(u64 atomicMax)",
+    "HW 光栅",
+    "classify-resolve",
+    "VSM 深度",
+    "屏幕探针 GI",
+    "RTAO 硬阴影",
+    "TAA-TSR"
+  ],
+  "visbuffer_abi": {
+    "depth_bits": 30,
+    "cluster_bits": 27,
+    "tri_bits": 7,
+    "depth_shift": 34,
+    "clear_value": 17179869183,
+    "sw_kernel": "apps/uc06-renderer/kernels/visbuffer_sw_u64.rx"
+  },
+  "kernels": {
+    "vsm_depth_raster": {
+      "spirv_version": "1.0",
+      "sha256": "71b21693caeecaf677aa6321e864d5f3d21cf7a68925fa0d36157498f45b5f7f",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "vsm_sample": {
+      "spirv_version": "1.0",
+      "sha256": "c2a23190e71fadc6bdf8cc5d54b500df50565941565612af19cd2243dd7d40f2",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "tsr_resample": {
+      "spirv_version": "1.0",
+      "sha256": "2f7086b19a9ec2424ce145c032fe5fc8f419c6f4672bb676c228ff1397abbfa3",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    }
+  },
+  "hw_raster_diff": {
+    "status": "blocked-frozen-graphics-body-slice",
+    "hw_side": null,
+    "diff_pixels": null,
+    "missing_toolchain_caps": [
+      "graphics_buffer_indexing",
+      "graphics_comparison_ops",
+      "graphics_control_flow_and_calls",
+      "graphics_output_assembly",
+      "graphics_ssbo_atomic_u64"
+    ],
+    "blocking_probes": {
+      "vector_component": {
+        "missing_capability": "graphics_vector_component_projection",
+        "rc": 0,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持单层 Field 投影",
+        "matched": false
+      },
+      "comparison_op": {
+        "missing_capability": "graphics_comparison_ops",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 f32/i32/u32 加减乘除",
+        "matched": true
+      },
+      "control_flow_and_call": {
+        "missing_capability": "graphics_control_flow_and_calls",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 straight-line Goto/Return",
+        "matched": true
+      },
+      "buffer_indexing": {
+        "missing_capability": "graphics_buffer_indexing",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 f32/i32/u32 常量",
+        "matched": true
+      },
+      "output_assembly": {
+        "missing_capability": "graphics_output_assembly",
+        "rc": 1,
+        "expected_diagnostic": "仅允许声明的输出 I/O 聚合返回值机械分解",
+        "matched": true
+      },
+      "ssbo_atomic_resource_face": {
+        "missing_capability": "graphics_ssbo_atomic_u64",
+        "rc": null,
+        "expected_diagnostic": "structured buffer SPIR-V 降级为后续扩展",
+        "matched": true
+      }
+    },
+    "target_corpus": "conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx",
+    "spec_anchor": "spec/dxil_backend.md RXS-0171 L4(最小 rvalue 白名单;Vulkan 原生图形路复用 dxil_spirv::emit_spirv_body_vulkan 同一编码器)",
+    "escalation": "RFC-0018 修订行(图形阶段 body 面加性扩展 + Vulkan 覆盖规则裁定);在裁定前禁止放宽整数域容差,亦禁止以容差型替代物冒充 diff=0"
+  }
+}

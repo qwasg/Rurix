@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_w3_smoke",
+  "milestone": "G7.4 W3c / G-G7-6 (RFC-0018 章 A/C/D)",
+  "step": 94,
+  "spec_clauses": [
+    "RXS-0297",
+    "RXS-0298",
+    "RXS-0299",
+    "RXS-0300"
+  ],
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "oracle_tests_pass": true,
+    "as_lifetime_audit_pass": true,
+    "kernel_emit_pass": true,
+    "single_tlas_discipline_pass": true,
+    "w1w2_zero_drift_pass": true,
+    "red_tamper_spv_pass": true
+  },
+  "device_pass": true,
+  "device_skip_reason": null,
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "validation_enabled": true,
+  "device_red": {
+    "tamper_geometry": true,
+    "stale_tlas": true,
+    "wrong_barrier": true,
+    "missing_capability": null
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-03T12:51:14+08:00",
+  "kernels": {
+    "gi_probe": {
+      "spirv_version": "1.4",
+      "sha256": "38b29b9f6c24404e301e939ab6594bf0e19d2725c6d54db8c3ba4f2b4642a3da",
+      "spirv_val": {
+        "vulkan1.2": "accepted",
+        "spv1.4": "accepted"
+      },
+      "accel_struct_params": 1,
+      "golden_mnemonics": [
+        "OpRayQueryGetIntersectionBarycentricsKHR",
+        "OpRayQueryGetIntersectionGeometryIndexKHR",
+        "OpRayQueryGetIntersectionInstanceIdKHR",
+        "OpRayQueryGetIntersectionPrimitiveIndexKHR",
+        "OpRayQueryGetIntersectionTKHR",
+        "OpRayQueryGetIntersectionTypeKHR",
+        "OpRayQueryInitializeKHR",
+        "OpRayQueryProceedKHR",
+        "OpTypeAccelerationStructureKHR",
+        "OpTypeRayQueryKHR"
+      ]
+    },
+    "rtao": {
+      "spirv_version": "1.4",
+      "sha256": "4edee105d3ca4dd3ad6ca4c49f21160ed889f60e774cce2aaafabd8c48e5b2b1",
+      "spirv_val": {
+        "vulkan1.2": "accepted",
+        "spv1.4": "accepted"
+      },
+      "accel_struct_params": 1,
+      "golden_mnemonics": [
+        "OpRayQueryGetIntersectionTypeKHR",
+        "OpRayQueryInitializeKHR",
+        "OpRayQueryProceedKHR",
+        "OpTypeAccelerationStructureKHR",
+        "OpTypeRayQueryKHR"
+      ]
+    },
+    "hard_shadow": {
+      "spirv_version": "1.4",
+      "sha256": "bd18a56ccc18700ca6e718db69fb69e6dcd01a448d2ac350593e61afa9e639d2",
+      "spirv_val": {
+        "vulkan1.2": "accepted",
+        "spv1.4": "accepted"
+      },
+      "accel_struct_params": 1,
+      "golden_mnemonics": [
+        "OpRayQueryGetIntersectionTypeKHR",
+        "OpRayQueryInitializeKHR",
+        "OpRayQueryProceedKHR",
+        "OpTypeAccelerationStructureKHR",
+        "OpTypeRayQueryKHR"
+      ]
+    }
+  },
+  "device_capability_snapshot": "device_name=NVIDIA GeForce RTX 4070 Ti wave=W3(七能力链 require_wave 通过)",
+  "shared_tlas": {
+    "tlas_identity": "14635709228489113627",
+    "dispatch_tlas": [
+      "14635709228489113627",
+      "14635709228489113627",
+      "14635709228489113627"
+    ],
+    "identical": true
+  },
+  "scene": {
+    "blas_count": 3,
+    "instance_count": 3,
+    "triangle_count": 764,
+    "probe_rays": 2304,
+    "gbuffer_pixels": 1706
+  },
+  "geometry_parity": {
+    "hit_mismatches": 0,
+    "instance_mismatches": 0,
+    "primitive_mismatches": 0,
+    "geometry_index_nonzero": 0,
+    "measured_t_max_abs": 1.430511475e-06,
+    "tol_t": 9.999999747e-06,
+    "measured_bary_max_abs": 1.257658005e-05,
+    "tol_bary": 9.999999747e-05
+  },
+  "effect_parity": {
+    "measured_radiance_max_abs": 1.192092896e-07,
+    "tol_radiance": 9.999999747e-06,
+    "measured_ao_max_abs": 0.0,
+    "tol_ao": 9.999999975e-07,
+    "measured_visibility_max_abs": 0.0,
+    "tol_visibility": 0.0,
+    "gi_probe_pass": true,
+    "rtao_pass": true,
+    "hard_shadow_pass": true
+  },
+  "effect_stats": {
+    "ao_mean_device": 0.988057,
+    "ao_occluded_pixels": 118,
+    "shadowed_ratio_device": 0.067995,
+    "radiance_nonzero_ratio_device": 0.971354
+  },
+  "input_provenance": {
+    "rtao_dirs": "host-same-source-input(Pcg32 seed=W3_SEED + rt::ref_tracer::cosine_sample_hemisphere;与 rtao_reference 同消费序;device 真做遍历与遮蔽判定)",
+    "rtao_seed": "0x5255525855430006(uc06 冻结默认种子)",
+    "rtao_samples_per_pixel": 8,
+    "rtao_radius": 2.0,
+    "gbuffer_source": "冻结相机 64x36 针孔探针网格对冻结 TLAS 求交后的命中点压实(位置 + 世界法线;全有效)",
+    "invalid_pixel_arm": "不在 device kernel 表达(NaN/inf 位置、零长法线/光方向由 host oracle 单测覆盖);miss 轴由探针网格未命中光线在 device 真实覆盖"
+  }
+}

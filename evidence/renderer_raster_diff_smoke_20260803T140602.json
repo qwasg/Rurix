@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_raster_diff_smoke",
+  "milestone": "G7.5 HW raster diff 与 RD-038 余项 / G-G7-7",
+  "step": 95,
+  "spec_clauses": [
+    "RXS-0171",
+    "RXS-0203",
+    "RXS-0205",
+    "RXS-0223"
+  ],
+  "host_section_pass": true,
+  "device_section_rc": 1,
+  "checks": {
+    "literal_matrix_pass": true,
+    "oracle_tests_pass": true,
+    "visbuffer_abi_freeze_pass": true,
+    "kernel_emit_pass": true,
+    "hw_raster_blocked_honest_pass": true,
+    "w1w2_zero_drift_pass": true,
+    "red_tamper_spv_pass": true
+  },
+  "device_pass": false,
+  "device_skip_reason": null,
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "validation_enabled": true,
+  "device_red": {
+    "tamper_vsm_depth": null,
+    "tamper_tsr_jitter": null
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-03T14:06:02+08:00",
+  "literal_rows": [
+    "两级剔除",
+    "VisBuffer SW(u64 atomicMax)",
+    "HW 光栅",
+    "classify-resolve",
+    "VSM 深度",
+    "屏幕探针 GI",
+    "RTAO 硬阴影",
+    "TAA-TSR"
+  ],
+  "visbuffer_abi": {
+    "depth_bits": 30,
+    "cluster_bits": 27,
+    "tri_bits": 7,
+    "depth_shift": 34,
+    "clear_value": 17179869183,
+    "sw_kernel": "apps/uc06-renderer/kernels/visbuffer_sw_u64.rx"
+  },
+  "kernels": {
+    "vsm_depth_raster": {
+      "spirv_version": "1.0",
+      "sha256": "71b21693caeecaf677aa6321e864d5f3d21cf7a68925fa0d36157498f45b5f7f",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "vsm_sample": {
+      "spirv_version": "1.0",
+      "sha256": "c2a23190e71fadc6bdf8cc5d54b500df50565941565612af19cd2243dd7d40f2",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "tsr_resample": {
+      "spirv_version": "1.0",
+      "sha256": "2f7086b19a9ec2424ce145c032fe5fc8f419c6f4672bb676c228ff1397abbfa3",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    }
+  },
+  "hw_raster_diff": {
+    "status": "blocked-frozen-graphics-body-slice",
+    "hw_side": null,
+    "diff_pixels": null,
+    "missing_toolchain_caps": [
+      "graphics_buffer_indexing",
+      "graphics_comparison_ops",
+      "graphics_control_flow_and_calls",
+      "graphics_output_assembly",
+      "graphics_ssbo_atomic_u64",
+      "graphics_vector_component_projection"
+    ],
+    "blocking_probes": {
+      "control_green_arm": {
+        "missing_capability": "n/a(绿对照臂:图形直通形态可编译)",
+        "rc": 0,
+        "expected_diagnostic": "",
+        "matched": true
+      },
+      "vector_component": {
+        "missing_capability": "graphics_vector_component_projection",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持单层 Field 投影",
+        "matched": true
+      },
+      "comparison_op": {
+        "missing_capability": "graphics_comparison_ops",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 f32/i32/u32 加减乘除",
+        "matched": true
+      },
+      "control_flow_and_call": {
+        "missing_capability": "graphics_control_flow_and_calls",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 straight-line Goto/Return",
+        "matched": true
+      },
+      "buffer_indexing": {
+        "missing_capability": "graphics_buffer_indexing",
+        "rc": 1,
+        "expected_diagnostic": "RXS-0171 最小切片仅支持 f32/i32/u32 常量",
+        "matched": true
+      },
+      "output_assembly": {
+        "missing_capability": "graphics_output_assembly",
+        "rc": 1,
+        "expected_diagnostic": "仅允许声明的输出 I/O 聚合返回值机械分解",
+        "matched": true
+      },
+      "ssbo_atomic_resource_face": {
+        "missing_capability": "graphics_ssbo_atomic_u64",
+        "rc": null,
+        "expected_diagnostic": "structured buffer SPIR-V 降级为后续扩展",
+        "matched": true
+      }
+    },
+    "target_corpus": "conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx",
+    "spec_anchor": "spec/dxil_backend.md RXS-0171 L4(最小 rvalue 白名单;Vulkan 原生图形路复用 dxil_spirv::emit_spirv_body_vulkan 同一编码器)",
+    "escalation": "RFC-0018 修订行(图形阶段 body 面加性扩展 + Vulkan 覆盖规则裁定);在裁定前禁止放宽整数域容差,亦禁止以容差型替代物冒充 diff=0"
+  },
+  "device_capability_snapshot": "device_name=NVIDIA GeForce RTX 4070 Ti wave=W1(require_wave 通过;余项三核仅用 f32/u32 SSBO,不触 W2/W3 能力面)",
+  "residual_parity": {
+    "measured_vsm_depth_max_abs": 3.576278687e-07,
+    "tol_vsm_depth": 9.999999975e-07,
+    "measured_vsm_sample_max_abs": 0.0,
+    "tol_vsm_sample": 0.0,
+    "vsm_sample_mismatches": 0,
+    "measured_tsr_max_abs": 1.490116119e-08,
+    "tol_tsr": 1.000000012e-07,
+    "vsm_depth_pass": true,
+    "vsm_sample_pass": true,
+    "tsr_pass": true
+  },
+  "residual_stats": {
+    "vsm_pages": 64,
+    "vsm_depth_texels": 1048576,
+    "vsm_triangles": 764,
+    "vsm_depth_bitexact_texels": 347689,
+    "vsm_depth_covered_texels": 1048192,
+    "vsm_samples": 764,
+    "vsm_shadowed_ratio_device": 0.039267,
+    "tsr_in_w": 64,
+    "tsr_in_h": 36,
+    "tsr_out_w": 128,
+    "tsr_out_h": 72,
+    "tsr_channels": 27648,
+    "tsr_bitexact_channels": 15340,
+    "tsr_clamped_channels": 1921
+  },
+  "input_provenance": {
+    "summary": "vsm:host-light-space-tris+page-state|tsr:frozen-scene-gbuffer+halton-jitter",
+    "vsm_light_space": "灯空间三角形由 host LightBasis::to_light 预变换(场景装配面);逐页 origin/page_world/z_range 为 host 页表窗口状态快照(配置面)",
+    "vsm_device_work": "device 真做逐纹素 × 逐三角形边函数覆盖、重心深度插值与 min 归约;采样侧真做距离/选级/回退环/页表寻址解包/纹素定位/深度比较",
+    "tsr_color_source": "冻结场景 GBuffer(世界法线 × 前景深度权重,含真实轮廓硬边)",
+    "tsr_jitter": "冻结 Halton 序列首项(temporal::common::jitter_sequence)",
+    "residual_note": "device 与 host 表达式及求值序逐字一致;残差唯一来源 = SPIR-V 侧未加 NoContraction 装饰时驱动可做 FMA 收缩(实测量级为 f32 ULP 数倍),故按 measured→冻结口径设容差,未改 host oracle 数值语义",
+    "temporal_arm_boundary": "TSR 时域臂(history 双缓冲 / 闪烁 EMA / reproject+validity)为跨帧状态机,归 G7.6 步骤 96;本波只兑现空间超分核"
+  }
+}
