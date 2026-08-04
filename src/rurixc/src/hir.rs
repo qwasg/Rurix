@@ -1108,3 +1108,229 @@ pub struct Arm {
     pub guard: Option<Expr>,
     pub body: Expr,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---- PrimTy ----
+
+    #[test]
+    fn prim_ty_from_name_all_builtin_types() {
+        let cases = [
+            ("i8", PrimTy::I8), ("i16", PrimTy::I16), ("i32", PrimTy::I32),
+            ("i64", PrimTy::I64), ("u8", PrimTy::U8), ("u16", PrimTy::U16),
+            ("u32", PrimTy::U32), ("u64", PrimTy::U64), ("usize", PrimTy::Usize),
+            ("f32", PrimTy::F32), ("f64", PrimTy::F64), ("bool", PrimTy::Bool),
+            ("char", PrimTy::Char), ("str", PrimTy::Str),
+        ];
+        for (name, expected) in cases {
+            assert_eq!(PrimTy::from_name(name), Some(expected), "from_name({name:?})");
+        }
+    }
+
+    #[test]
+    fn prim_ty_from_name_unknown_returns_none() {
+        assert_eq!(PrimTy::from_name("Vec"), None);
+        assert_eq!(PrimTy::from_name(""), None);
+        assert_eq!(PrimTy::from_name("I32"), None); // case sensitive
+    }
+
+    // ---- Builtin ----
+
+    #[test]
+    fn builtin_name_roundtrip() {
+        assert_eq!(Builtin::Println.name(), "println");
+    }
+
+    // ---- DeviceIntrinsic ----
+
+    #[test]
+    fn device_intrinsic_from_method_aliases() {
+        // 多别名映射到同一 intrinsic
+        assert_eq!(
+            DeviceIntrinsic::from_method("thread_index"),
+            Some(DeviceIntrinsic::ThreadIndexX)
+        );
+        assert_eq!(
+            DeviceIntrinsic::from_method("thread_idx"),
+            Some(DeviceIntrinsic::ThreadIndexX)
+        );
+        assert_eq!(
+            DeviceIntrinsic::from_method("thread_id"),
+            Some(DeviceIntrinsic::ThreadIndexX)
+        );
+        assert_eq!(
+            DeviceIntrinsic::from_method("thread_index_x"),
+            Some(DeviceIntrinsic::ThreadIndexX)
+        );
+    }
+
+    #[test]
+    fn device_intrinsic_from_method_unknown() {
+        assert_eq!(DeviceIntrinsic::from_method("nonexistent"), None);
+        assert_eq!(DeviceIntrinsic::from_method(""), None);
+    }
+
+    #[test]
+    fn device_intrinsic_min_dim_boundaries() {
+        // DIM=1 组
+        assert_eq!(DeviceIntrinsic::ThreadIndexX.min_dim(), 1);
+        assert_eq!(DeviceIntrinsic::BlockIndexX.min_dim(), 1);
+        assert_eq!(DeviceIntrinsic::GlobalIdX.min_dim(), 1);
+        assert_eq!(DeviceIntrinsic::Barrier.min_dim(), 1);
+        // DIM=2 组
+        assert_eq!(DeviceIntrinsic::ThreadIndexY.min_dim(), 2);
+        assert_eq!(DeviceIntrinsic::BlockDimY.min_dim(), 2);
+        assert_eq!(DeviceIntrinsic::GlobalIdY.min_dim(), 2);
+        // DIM=3 组
+        assert_eq!(DeviceIntrinsic::ThreadIndexZ.min_dim(), 3);
+        assert_eq!(DeviceIntrinsic::BlockIndexZ.min_dim(), 3);
+        assert_eq!(DeviceIntrinsic::GlobalIdZ.min_dim(), 3);
+    }
+
+    #[test]
+    fn device_intrinsic_returns_unit_only_for_barrier() {
+        assert!(DeviceIntrinsic::Barrier.returns_unit());
+        assert!(!DeviceIntrinsic::ThreadIndexX.returns_unit());
+        assert!(!DeviceIntrinsic::GlobalIdZ.returns_unit());
+    }
+
+    // ---- RayQueryOp ----
+
+    #[test]
+    fn ray_query_op_from_method_and_name() {
+        let ops = [
+            ("proceed", RayQueryOp::Proceed),
+            ("terminate", RayQueryOp::Terminate),
+            ("has_committed", RayQueryOp::HasCommitted),
+            ("committed_t", RayQueryOp::CommittedT),
+            ("committed_barycentric", RayQueryOp::CommittedBarycentric),
+            ("committed_instance_index", RayQueryOp::CommittedInstanceIndex),
+            ("committed_primitive_index", RayQueryOp::CommittedPrimitiveIndex),
+            ("committed_geometry_index", RayQueryOp::CommittedGeometryIndex),
+        ];
+        for (name, expected) in ops {
+            assert_eq!(RayQueryOp::from_method(name), Some(expected));
+            assert_eq!(expected.name(), name);
+        }
+        // Initialize 不由方法名产生
+        assert_eq!(RayQueryOp::from_method("ray_query_initialize"), None);
+        assert_eq!(RayQueryOp::from_method("unknown"), None);
+    }
+
+    #[test]
+    fn ray_query_op_is_committed_query_boundary() {
+        // 非 committed
+        assert!(!RayQueryOp::Initialize.is_committed_query());
+        assert!(!RayQueryOp::Proceed.is_committed_query());
+        assert!(!RayQueryOp::Terminate.is_committed_query());
+        assert!(!RayQueryOp::HasCommitted.is_committed_query());
+        // committed
+        assert!(RayQueryOp::CommittedT.is_committed_query());
+        assert!(RayQueryOp::CommittedBarycentric.is_committed_query());
+        assert!(RayQueryOp::CommittedInstanceIndex.is_committed_query());
+        assert!(RayQueryOp::CommittedPrimitiveIndex.is_committed_query());
+        assert!(RayQueryOp::CommittedGeometryIndex.is_committed_query());
+    }
+
+    // ---- DeviceMathFn ----
+
+    #[test]
+    fn device_math_fn_from_method_aliases() {
+        assert_eq!(DeviceMathFn::from_method("ln"), Some(DeviceMathFn::Ln));
+        assert_eq!(DeviceMathFn::from_method("log"), Some(DeviceMathFn::Ln));
+        assert_eq!(DeviceMathFn::from_method("abs"), Some(DeviceMathFn::Abs));
+        assert_eq!(DeviceMathFn::from_method("fabs"), Some(DeviceMathFn::Abs));
+        assert_eq!(DeviceMathFn::from_method("powf"), Some(DeviceMathFn::Powf));
+        assert_eq!(DeviceMathFn::from_method("pow"), Some(DeviceMathFn::Powf));
+        assert_eq!(DeviceMathFn::from_method("unknown_fn"), None);
+    }
+
+    #[test]
+    fn device_math_fn_arity() {
+        // 一元
+        assert_eq!(DeviceMathFn::Sqrt.arity(), 1);
+        assert_eq!(DeviceMathFn::Abs.arity(), 1);
+        // 二元
+        assert_eq!(DeviceMathFn::Powf.arity(), 2);
+        assert_eq!(DeviceMathFn::Min.arity(), 2);
+        assert_eq!(DeviceMathFn::Max.arity(), 2);
+        // 三元
+        assert_eq!(DeviceMathFn::Fma.arity(), 3);
+    }
+
+    #[test]
+    fn device_math_fn_nv_symbol_f32_and_f64() {
+        assert_eq!(DeviceMathFn::Sqrt.nv_symbol(true), "__nv_sqrtf");
+        assert_eq!(DeviceMathFn::Sqrt.nv_symbol(false), "__nv_sqrt");
+        assert_eq!(DeviceMathFn::Fma.nv_symbol(true), "__nv_fmaf");
+        assert_eq!(DeviceMathFn::Fma.nv_symbol(false), "__nv_fma");
+    }
+
+    // ---- ViewOp ----
+
+    #[test]
+    fn view_op_from_method_and_name() {
+        assert_eq!(ViewOp::from_method("split_at"), Some(ViewOp::SplitAt));
+        assert_eq!(ViewOp::from_method("chunks"), Some(ViewOp::Chunks));
+        assert_eq!(ViewOp::from_method("windows"), Some(ViewOp::Windows));
+        assert_eq!(ViewOp::from_method("unknown"), None);
+        assert_eq!(ViewOp::SplitAt.name(), "split_at");
+    }
+
+    // ---- MeshIntrinsic / TaskIntrinsic ----
+
+    #[test]
+    fn mesh_intrinsic_roundtrip() {
+        assert_eq!(
+            MeshIntrinsic::from_method("mesh_set_outputs"),
+            Some(MeshIntrinsic::SetMeshOutputs)
+        );
+        assert_eq!(MeshIntrinsic::from_method("unknown"), None);
+        assert_eq!(MeshIntrinsic::SetMeshOutputs.name(), "mesh_set_outputs");
+        assert!(MeshIntrinsic::SetMeshOutputs.returns_unit());
+    }
+
+    #[test]
+    fn task_intrinsic_roundtrip() {
+        assert_eq!(
+            TaskIntrinsic::from_method("emit_mesh_tasks"),
+            Some(TaskIntrinsic::EmitMeshTasks)
+        );
+        assert_eq!(TaskIntrinsic::from_method("unknown"), None);
+        assert_eq!(TaskIntrinsic::EmitMeshTasks.name(), "emit_mesh_tasks");
+        assert!(TaskIntrinsic::EmitMeshTasks.returns_unit());
+    }
+
+    // ---- AtomicOp ----
+
+    #[test]
+    fn atomic_op_from_method_all_variants() {
+        let cases = [
+            ("fetch_add", AtomicOp::FetchAdd),
+            ("fetch_sub", AtomicOp::FetchSub),
+            ("fetch_max", AtomicOp::FetchMax),
+            ("fetch_min", AtomicOp::FetchMin),
+            ("fetch_and", AtomicOp::FetchAnd),
+            ("fetch_or", AtomicOp::FetchOr),
+            ("fetch_xor", AtomicOp::FetchXor),
+            ("exchange", AtomicOp::Exchange),
+            ("compare_exchange", AtomicOp::CompareExchange),
+        ];
+        for (name, expected) in cases {
+            assert_eq!(AtomicOp::from_method(name), Some(expected));
+        }
+        assert_eq!(AtomicOp::from_method("load"), None);
+    }
+
+    // ---- DefId / HirId equality ----
+
+    #[test]
+    fn def_id_and_hir_id_equality() {
+        assert_eq!(DefId(0), DefId(0));
+        assert_ne!(DefId(0), DefId(1));
+        assert_eq!(HirId(42), HirId(42));
+        assert_ne!(HirId(42), HirId(43));
+    }
+}
