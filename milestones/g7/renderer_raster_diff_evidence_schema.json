@@ -54,7 +54,7 @@
         },
         "hw_raster_blocked_honest_pass": {
           "type": "boolean",
-          "description": "HW 光栅目标形态语料必红 RX6026 且零 .spv,且逐轴隔离探针落到各自真实诊断(missing_toolchain_caps 由此机器产出,非人工声明)。"
+          "description": "HW 光栅 capability 机验(G7.5b 翻转:目标 FS/VS 必绿 + 六探针必绿 + 四 reject 必红 RX6026 + DXIL 冻结锁;原 blocked-honest 语义演进为正向 capability 锁)。"
         },
         "w1w2_zero_drift_pass": {
           "type": "boolean",
@@ -118,7 +118,23 @@
             "pipeline": { "type": "string" },
             "pixels": { "type": "integer" },
             "covered_pixels": { "type": "integer" },
-            "coverage_rule": { "type": "string" }
+            "coverage_rule": { "type": "string" },
+            "conservative_props": {
+              "type": "object",
+              "description": "加性(G7.5b):本机 VkPhysicalDeviceConservativeRasterizationPropertiesEXT 快照。",
+              "additionalProperties": false,
+              "properties": {
+                "primitive_overestimation_size": { "type": "number" },
+                "max_extra": { "type": "number" },
+                "granularity": { "type": "number" },
+                "degenerate_triangles_rasterized": { "type": "boolean" }
+              }
+            },
+            "spirv_caps": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "加性(G7.5b):FS SPIR-V OpCapability 集合。"
+            }
           }
         },
         "diff_pixels": {
@@ -128,7 +144,7 @@
         "missing_toolchain_caps": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "机器产出的缺失能力清单(blocked-* 时非空)。"
+          "description": "机器产出的缺失能力清单(blocked-* 时非空;verified 时空集)。"
         },
         "blocking_probes": {
           "type": "object",
@@ -141,6 +157,34 @@
               "rc": { "type": ["integer", "null"] },
               "expected_diagnostic": { "type": "string" },
               "matched": { "type": "boolean" }
+            }
+          }
+        },
+        "capability_probes": {
+          "type": "object",
+          "description": "加性(G7.5b):六探针翻绿后的正向机证(与 blocking_probes 同形,语义由必红翻必绿)。",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "missing_capability": { "type": "string" },
+              "rc": { "type": ["integer", "null"] },
+              "expected_diagnostic": { "type": "string" },
+              "matched": { "type": "boolean" }
+            }
+          }
+        },
+        "red_axes": {
+          "type": "array",
+          "description": "加性(G7.5b):HW 腿两 RED 轴的 diff 计数(篡改顶点流 → diff>0)。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "axis": { "type": "string" },
+              "flag": { "type": "string" },
+              "diff_pixels": { "type": ["integer", "null"] },
+              "pass": { "type": "boolean" }
             }
           }
         },
@@ -157,7 +201,10 @@
           },
           "then": {
             "required": ["hw_side", "diff_pixels"],
-            "properties": { "diff_pixels": { "const": 0 } }
+            "properties": {
+              "diff_pixels": { "const": 0 },
+              "missing_toolchain_caps": { "maxItems": 0 }
+            }
           }
         },
         {
@@ -265,11 +312,13 @@
     },
     "device_red": {
       "type": "object",
-      "description": "RED 轴。tamper_vsm_depth = 篡改 device 侧灯空间三角形(host oracle 不动)-> 深度对拍必红的数据流反证;tamper_tsr_jitter = 篡改 device jitter -> 重采样相位错位必红。",
+      "description": "RED 轴。tamper_vsm_depth / tamper_tsr_jitter = 余项两轴;tamper_hw_* = G7.5b HW 腿两轴(加性)。",
       "additionalProperties": false,
       "properties": {
         "tamper_vsm_depth": { "type": ["boolean", "null"] },
-        "tamper_tsr_jitter": { "type": ["boolean", "null"] }
+        "tamper_tsr_jitter": { "type": ["boolean", "null"] },
+        "tamper_hw_varying": { "type": ["boolean", "null"] },
+        "tamper_hw_ids": { "type": ["boolean", "null"] }
       }
     },
     "toolchain_skip": { "type": ["string", "null"] },

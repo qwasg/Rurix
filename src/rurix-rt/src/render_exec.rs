@@ -514,6 +514,10 @@ pub struct DeviceCaps {
     pub shader_buffer_int64_atomics: bool,
     /// 核心 `shaderInt64` feature；u64 SSBO 标量读取/位运算所需。
     pub shader_int64: bool,
+    /// 核心 `fragmentStoresAndAtomics` feature(G7.5b,RXS-0303:fragment stage 写
+    /// SSBO/原子的 Vulkan 前提〔VUID-RuntimeSpirv-NonWritable-06340〕;HW 光栅
+    /// VisBuffer 腿 FS `OpAtomicUMax` 依赖,探测到即启用)。
+    pub fragment_stores_and_atomics: bool,
     /// `VK_KHR_ray_query` 扩展 + `rayQuery` feature。
     pub ray_query: bool,
     /// `VK_KHR_acceleration_structure` 扩展 + `accelerationStructure` feature。
@@ -3813,6 +3817,7 @@ unsafe fn read_physical_caps(
         synchronization2: sync2_ext && sync2_feat.synchronization2 != 0,
         shader_buffer_int64_atomics: int64_ext && int64_feat.shader_buffer_int64_atomics != 0,
         shader_int64: feat2.features[40] != 0,
+        fragment_stores_and_atomics: feat2.features[26] != 0,
         ray_query: ray_query_ext && ray_query_feat.ray_query != 0,
         acceleration_structure: acceleration_structure_ext
             && acceleration_structure_feat.acceleration_structure != 0,
@@ -5074,6 +5079,9 @@ unsafe fn execute_frame_inner(
         };
         let mut core_features = [0u32; 55];
         core_features[40] = u32::from(caps.shader_int64);
+        // fragmentStoresAndAtomics(下标 26,G7.5b):FS 写 SSBO/原子的 core feature,
+        // 探测到即启用(HW 光栅 VisBuffer 腿依赖;VUID-RuntimeSpirv-NonWritable-06340)。
+        core_features[26] = u32::from(caps.fragment_stores_and_atomics);
         let dci = DeviceCreateInfo {
             s_type: ST_DEVICE_CREATE_INFO,
             p_next: (&sync2_feat as *const PhysicalDeviceSynchronization2Features).cast::<c_void>(),
@@ -6475,6 +6483,8 @@ unsafe fn create_persistent_frame(
         get_mem(pd, &mut memprops);
         let mut core_features = [0u32; 55];
         core_features[40] = u32::from(caps.shader_int64);
+        // fragmentStoresAndAtomics 机会性启用(同 execute_frame 路;字段序注同上)。
+        core_features[26] = u32::from(caps.fragment_stores_and_atomics);
         let dci = DeviceCreateInfo {
             s_type: ST_DEVICE_CREATE_INFO,
             p_next: if as_count > 0 {
@@ -7287,6 +7297,7 @@ mod tests {
             synchronization2: false,
             shader_buffer_int64_atomics: false,
             shader_int64: false,
+            fragment_stores_and_atomics: false,
             ray_query: false,
             acceleration_structure: false,
             buffer_device_address: false,

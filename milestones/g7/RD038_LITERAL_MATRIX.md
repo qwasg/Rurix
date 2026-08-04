@@ -219,3 +219,47 @@ W2 VisBuffer 之所以能逐位相等,是因为其判据落在**量化后的 30 
 本波把行 5「VSM 深度」与行 8 的 TSR 腿推入 **closed 候选**(连同 G7.4 的行 6/7,
 现 closed 候选 = 行 5/6/7/8;行 1/2/4 的帧链余项归 G7.6)。**本波不动
 `registry/deferred.json`**;status 由 G7.7 逐字审计裁决。
+
+### 6.3 G7.5b(2026-08-04;门 G-G7-7 轴一补全;CI 步骤 95 翻全绿)
+
+**分项状态迁移**:§1 行 3「HW 光栅」自 **无** → **已兑现**。
+
+- **语言面裁定留痕**:RFC-0018 修订行 **v1.1**(§E:HW 光栅 VisBuffer 对拍裁定;
+  兑现 §6.2 承诺的「语言面加性扩展 + 覆盖规则唯一权威定义」双裁定)。spec 面 =
+  `spec/vulkan_backend.md` **RXS-0301**(图形 body 扩展白名单)/ **RXS-0302**(SSBO +
+  push constant + u64 原子)/ **RXS-0303**(保守光栅执行语义);台账 ledger v1.44
+  (RXS on_tree_max 300→303)。DXIL 路 **RXS-0171 L4 一字不动**(FS dxil-target 必拒锁)。
+- **kernel/管线本体**:
+  - 语料:`conformance/vulkan/accept/vk_hw_raster_visbuffer_{vs,fs}.rx`(FS = SW
+    判定段逐字同构);负面清单 reject ×4(`loop`/`devfn_call`/`cta_atomic`/`f64`)。
+  - 装配:`apps/uc06-renderer/src/device_g75_hw.rs` + CLI `--g75-hw-raster`;
+    `build.rs` 图形编译腿(VS/FS → `.spv`);rurix-rt `RasterPass.conservative=Some`
+    + `VK_EXT_conservative_rasterization` DeviceCaps 探测/fail-closed。
+- **diff=0 机器判据**:同场景同投影同 VisBuffer ABI(`depth30|cluster27|tri7` 冻结面
+  0-byte),真实 graphics raster(保守光栅 OVERESTIMATE + FS 复刻 SW 判定)输出 vs
+  真实 W2 SW compute 输出逐词整数域 **diff_pixels = 0**;覆盖
+  `hw_covered_words == sw_covered_words = 7442`(非退化);evidence
+  `hw_raster_diff.status` 自 `blocked-frozen-graphics-body-slice` 翻
+  **`verified-diff-zero`**。
+- **覆盖规则分歧处置**:RFC-0018 §E1/E2 裁定 —— 覆盖语义唯一权威 = SW 精确 f32
+  边函数 + top-left;HW = 保守光栅超集派发 + FS 内逐字复刻过滤;**未放宽整数域容差**。
+- **RED 反证轴**:`--g75-hw-red-tamper-varying`(交换 winner 三角形 flat vb/vc)与
+  `--g75-hw-red-tamper-ids`(ids.cluster+1)均 `diff_pixels > 0`(数据流反证)。
+- **W1/W2 零漂移**:`tests/vulkan/w1w2_spv_manifest.json` 五 kernel 逐字节零漂移
+  (步骤 95 步骤 6 复跑;**不重 bless**)。
+- **evidence**:`evidence/renderer_raster_diff_smoke_*.json`(本波新采;
+  `hw_raster_diff.status=verified-diff-zero`,`diff_pixels=0`,
+  `hw_side.pipeline=vk-graphics-conservative-raster`);采集机 = NVIDIA GeForce
+  RTX 4070 Ti / driver 620.02(`G7_SCENE_FREEZE.md` §4.3 绑定口径)。
+
+**诚实边界(不充绿)**:
+1. 冻结场景重叠加盖下,host `VisBufferCpu` 与 device SW 的 packed 全屏逐位可因驱动
+   FMA 收缩差数 ULP depth30 并改写 atomicMax 胜者(G7.5 残差归因同构);G-G7-7 本体
+   = **同 GPU** 的 HW==SW(`diff_pixels=0`)。SW↔host packed 全屏逐位锚由 W2 合成
+   80 三角形场景(`sw_baseline` / `device_w2_visbuffer_u64_bitexact_host`)承担;
+   冻结场景侧 `oracle_bitexact` = **覆盖集合**对齐。
+2. 降级臂(host 三边外扩几何膨胀)本波**未启用**;DeviceCaps 无保守光栅 → fail-closed。
+
+**RD-038 status 结论**:**维持 open**(帧链并入余项行 1/2/4/8 归 G7.6;
+本波把行 3 推入 closed 候选——至此 §1 八行中 closed 候选 = 行 3/5/6/7/8)。
+本波不动 registry/deferred.json;status 由 G7.7 逐字审计裁决。

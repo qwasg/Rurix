@@ -20,8 +20,8 @@ host 段(**恒跑**,需 Vulkan SDK 的 `spirv-val`/`spirv-dis`;缺工具 → SKI
      断言方向翻转)= 六项 capability 的正向机器锁;目标形态 FS/VS 语料(已迁
      `conformance/vulkan/accept/`)必绿 + 版本 1.0 + caps 集合断言;§2.4 四枚
      reject 语料必红 `RX6026`(负面清单双锁);FS dxil-target 必拒(**RXS-0171
-     L4 冻结锁**,经 rurixc 单测子进程)。uc06 HW device 装配腿未在树 →
-     `hw_raster_diff.status` 维持 blocked,缺项机器产出(不伪造 device 条目)。
+     L4 冻结锁**,经 rurixc 单测子进程)。uc06 HW device 装配腿探测字面在树时
+     host 段只锁 capability 面;device 段真跑后翻 `verified-diff-zero`。
   6. W1/W2 零漂移门:五 kernel 逐件对 `tests/vulkan/w1w2_spv_manifest.json` 的
      sha256 + SPIR-V 版本 + capability 集合比对(**不重 bless**)。
   7. RED 反证:篡改 `.spv` 单字节 → `spirv-val` 必拒。
@@ -34,14 +34,19 @@ device 段(**gate real**,`RURIX_REQUIRE_REAL=1` + `RURIX_VK_VALIDATION=1`;门 G-
      measured 与**冻结**容差成对机验(measured ≤ tol),并带非退化统计
      (覆盖纹素 / 遮蔽比 / 钳制通道数)防判据空转。
      同段复跑 **SW/HW diff 的 SW 基准侧**(`device_w2_visbuffer_u64_bitexact_host`,
-     9216 词 u64 逐位相等)—— 记录「diff 的一侧已在位,缺的只有 HW 侧」。
+     9216 词 u64 逐位相等)—— W2 合成场景锚定 SW↔host packed 逐位。
   9. RED 两轴:`--g75-red-vsm`(篡改 device 侧灯空间三角形 → 深度对拍必红的
      **数据流反证**)+ `--g75-red-tsr`(篡改 device jitter → 重采样相位错位必红)。
+ 10. **HW 光栅腿**(G7.5b):`uc06-renderer --g75-hw-raster` 真跑 →
+     `diff_pixels == 0` + `hw_covered_words == sw_covered_words > 0` +
+     `oracle_bitexact`(覆盖集合对齐);两 RED 轴 `--g75-hw-red-tamper-varying` /
+     `--g75-hw-red-tamper-ids` 均须 `diff_pixels > 0`。evidence
+     `hw_raster_diff.status` = `verified-diff-zero`。
   无 Vulkan 设备 → SKIP=dev-env degrade;`RURIX_REQUIRE_REAL=1` 翻硬红。
 
 **零容差纪律**:SW/HW VisBuffer 的整数域 `diff = 0` 是 G-G7-7 字面判据,本步骤
-**不以任何容差型替代物冒充**;HW 侧未在树时 `hw_raster_diff.status` 记
-`blocked-frozen-graphics-body-slice`,由 schema 强制附机器可核的缺失能力清单。
+**不以任何容差型替代物冒充**;capability 面与 uc06 装配腿均在树后
+`hw_raster_diff.status` 翻 `verified-diff-zero`。
 """
 from __future__ import annotations
 
@@ -586,21 +591,24 @@ def hw_raster_capability_section(results: dict, work: Path) -> bool:
     if rc != 0:
         ok = False
         print(f"[{TAG}] DXIL 冻结锁单测失败(rc={rc}):\n{(o + e)[-900:]}", file=sys.stderr)
-    # ⑤ blocked-honest 余项:uc06 device 装配腿(PR-4)在树与否的机器探测。
+    # ⑤ host 段只锁 capability 面;device 装配腿在树与否机器探测。真跑翻
+    #    verified-diff-zero 归 device 段 `hw_raster_device_section`(设计 §5.3)。
     device_leg = any(
         HW_DEVICE_FLAG in p.read_text(encoding="utf-8", errors="replace")
         for p in sorted(UC06_SRC.rglob("*.rs"))
     )
-    missing = [] if device_leg else [
-        f"uc06_g75_hw_raster_device_assembly({HW_DEVICE_FLAG} CLI 装配腿未在树,设计 §4/PR-4)"
-    ]
     results["hw_raster_blocked_honest_pass"] = ok
     results["hw_raster_diff"] = {
+        # device 段未跑前暂记 blocked 壳;装配腿在树时 missing 空(capability 已翻绿)。
+        # device 段成功后整表替换为 verified-diff-zero。
         "status": "blocked-frozen-graphics-body-slice",
         "hw_side": None,
         "diff_pixels": None,
-        "missing_toolchain_caps": missing,
+        "missing_toolchain_caps": [] if device_leg else [
+            f"uc06_g75_hw_raster_device_assembly({HW_DEVICE_FLAG} CLI 装配腿未在树,设计 §4/PR-4)"
+        ],
         "blocking_probes": probes,
+        "capability_probes": probes,
         "target_corpus": str(HW_ACCEPT_FS.relative_to(ROOT)).replace("\\", "/"),
         "spec_anchor": "spec/vulkan_backend.md RXS-0301/0302/0303(两遍编译扩展白名单 + "
                        "资源绑定/原子语义 + 保守光栅执行语义);spec/dxil_backend.md "
@@ -608,6 +616,17 @@ def hw_raster_capability_section(results: dict, work: Path) -> bool:
         "escalation": "capability 面已翻绿(RFC-0018 §E 裁定兑现);余项 = uc06 device "
                       "装配腿真跑 diff=0(设计 §4/PR-4);仍禁止以容差型替代物冒充 diff=0",
     }
+    if not device_leg:
+        # blocked 分支 schema 要求 missing 非空;装配腿不在树时保留缺项字面。
+        pass
+    else:
+        # 装配腿在树:host 段不再伪造 blocked 终态——把 status 留作 device 段填充前的
+        # 中间态。为过 schema(host-only 跑仍可能写 evidence),若随后 device 段未跑
+        # 成功,main 会以失败收场;此处先写一个「capability-only」中间记录。
+        results["hw_raster_diff"]["status"] = "blocked-frozen-graphics-body-slice"
+        results["hw_raster_diff"]["missing_toolchain_caps"] = [
+            "pending_device_hw_raster_run(host 段 capability 已绿;等待 --g75-hw-raster 真跑)"
+        ]
     if ok:
         # 六项 capability = 五枚隔离探针 + graphics_ssbo_atomic_u64(由目标 FS 语料
         # 编译绿 + caps 含 Int64Atomics 正向机证,见步骤 ①)。
@@ -615,7 +634,8 @@ def hw_raster_capability_section(results: dict, work: Path) -> bool:
         print(
             f"[{TAG}] 步骤 5 PASS(capability 翻转): 目标 FS/VS 必绿 + 版本 1.0 + caps 集合;"
             f"{len(green_caps)}/6 capability 翻绿 = {sorted(green_caps)};"
-            f"4 reject 恒红 RX6026;dxil 冻结锁绿;device 装配腿余项 = {missing or '在树'}"
+            f"4 reject 恒红 RX6026;dxil 冻结锁绿;device 装配腿 = "
+            f"{'在树(待 device 段真跑)' if device_leg else '未在树'}"
         )
     return ok
 
@@ -708,8 +728,8 @@ def sw_baseline(results: dict, env: dict) -> bool:
         "triangles": int(m.group(3)),
         "bitexact_vs_host": True,
         "tolerance": 0,
-        "note": "SW/HW 整数域 diff 的 SW 侧基准已在树且逐位相等;缺的只有 HW 侧"
-                "(见 hw_raster_diff.missing_toolchain_caps)",
+        "note": "SW/HW 整数域 diff 的 SW 侧基准(W2 合成 80 三角形)已在树且逐位相等;"
+                "冻结场景 HW 腿见 hw_raster_diff(verified-diff-zero)",
     }
     print(
         f"[{TAG}] SW 基准侧 PASS: visbuffer_sw_u64 {m.group(1)} 词 u64 对 host 逐位相等"
@@ -871,7 +891,134 @@ def device_section(results: dict) -> int:
         f"tsr={doc['measured_tsr_max_abs']:.3e}/{doc['tol_tsr']:.3e})"
         f"+ SW 基准侧逐位 + RED 两轴全过;validation 零错误"
     )
+
+    # ── 步骤 10:HW 光栅 SW/HW 整数域 diff=0(G7.5b;设计 §5.3)──
+    if not hw_raster_device_section(results, env):
+        results["device_pass"] = False
+        return fail("[device] HW 光栅腿(--g75-hw-raster)未兑现 diff=0 / RED 轴")
     return 0
+
+
+def hw_raster_device_section(results: dict, env: dict) -> bool:
+    """步骤 10(G7.5b):真实 graphics raster VisBuffer 对 W2 SW 整数域 diff=0。
+
+    判据(设计 §5.3,零容差):`diff_pixels == 0`、`hw_covered == sw_covered > 0`、
+    `oracle_bitexact == true`;两 RED 轴篡改 HW 顶点流 → `diff_pixels > 0`。
+    成功后 `hw_raster_diff.status` 翻 `verified-diff-zero`(schema if/then 兑现)。
+    """
+    code, out, err = run(
+        ["cargo", "run", "-q", "-p", "uc06-renderer", "--features", "vulkan",
+         "--bin", "uc06-renderer", "--", "--g75-hw-raster"],
+        env=env,
+    )
+    blob = out + err
+    if "G75HW: SKIP" in blob:
+        reason = next(
+            (ln.split("G75HW: SKIP", 1)[1].strip() for ln in blob.splitlines()
+             if "G75HW: SKIP" in ln),
+            "unknown",
+        )
+        print(f"[{TAG}] HW 光栅 SKIP({reason})", file=sys.stderr)
+        return False
+    if code != 0 or "G75HW: PASS" not in blob:
+        print(blob[-3000:], file=sys.stderr)
+        print(f"[{TAG}] --g75-hw-raster 未 PASS(rc={code})", file=sys.stderr)
+        return False
+    doc = None
+    for line in blob.splitlines():
+        line = line.strip()
+        if line.startswith("{") and "uc06_g75_hw_raster" in line:
+            try:
+                doc = json.loads(line)
+            except json.JSONDecodeError:
+                doc = None
+    if doc is None:
+        print(f"[{TAG}] --g75-hw-raster 未产可解析的单行 JSON", file=sys.stderr)
+        return False
+    if doc.get("diff_pixels") != 0:
+        print(f"[{TAG}] HW diff_pixels={doc.get('diff_pixels')} != 0(零容差)", file=sys.stderr)
+        return False
+    hw_cov = doc.get("hw_covered_words")
+    sw_cov = doc.get("sw_covered_words")
+    if hw_cov is None or sw_cov is None or hw_cov != sw_cov or hw_cov <= 0:
+        print(
+            f"[{TAG}] HW 覆盖退化/不等: hw={hw_cov} sw={sw_cov}",
+            file=sys.stderr,
+        )
+        return False
+    if not doc.get("oracle_bitexact"):
+        print(f"[{TAG}] oracle_bitexact 未过(覆盖集合须对齐)", file=sys.stderr)
+        return False
+    if doc.get("pipeline") != "vk-graphics-conservative-raster":
+        print(f"[{TAG}] pipeline={doc.get('pipeline')} 非保守光栅标识", file=sys.stderr)
+        return False
+
+    red_axes = []
+    for flag, axis in (
+        ("--g75-hw-red-tamper-varying", "tamper-varying"),
+        ("--g75-hw-red-tamper-ids", "tamper-ids"),
+    ):
+        rc, o2, e2 = run(
+            ["cargo", "run", "-q", "-p", "uc06-renderer", "--features", "vulkan",
+             "--bin", "uc06-renderer", "--", flag],
+            env=env,
+        )
+        blob2 = o2 + e2
+        m = re.search(r"diff_pixels=(\d+)", blob2)
+        diff = int(m.group(1)) if m else None
+        ok_red = rc == 0 and "G75HW: RED-OK" in blob2 and diff is not None and diff > 0
+        red_axes.append({"axis": axis, "flag": flag, "diff_pixels": diff, "pass": ok_red})
+        if not ok_red:
+            print(blob2[-2400:], file=sys.stderr)
+            print(f"[{TAG}] HW RED 轴 {flag} 失效(篡改后 diff 须 > 0)", file=sys.stderr)
+            return False
+
+    cons = doc.get("conservative_props") or {}
+    prev = results.get("hw_raster_diff") or {}
+    results["hw_raster_diff"] = {
+        "status": "verified-diff-zero",
+        "hw_side": {
+            "pipeline": doc["pipeline"],
+            "pixels": doc.get("pixels"),
+            "covered_pixels": hw_cov,
+            "coverage_rule": (
+                "sw-topleft-exact-f32-replicated-in-fs + conservative-overestimate-superset"
+            ),
+            "conservative_props": {
+                "primitive_overestimation_size": cons.get("primitive_overestimation_size"),
+                "max_extra": cons.get("max_extra_primitive_overestimation_size"),
+                "granularity": cons.get("extra_primitive_overestimation_size_granularity"),
+                "degenerate_triangles_rasterized": cons.get(
+                    "degenerate_triangles_rasterized"
+                ),
+            },
+            "spirv_caps": doc.get("spirv_caps") or [],
+        },
+        "diff_pixels": 0,
+        "missing_toolchain_caps": [],
+        "blocking_probes": prev.get("blocking_probes") or prev.get("capability_probes") or {},
+        "capability_probes": prev.get("capability_probes") or prev.get("blocking_probes") or {},
+        "red_axes": red_axes,
+        "target_corpus": prev.get("target_corpus")
+        or str(HW_ACCEPT_FS.relative_to(ROOT)).replace("\\", "/"),
+        "spec_anchor": prev.get("spec_anchor")
+        or (
+            "spec/vulkan_backend.md RXS-0301/0302/0303; RFC-0018 §E; "
+            "spec/dxil_backend.md RXS-0171 L4 冻结"
+        ),
+        "escalation": "G7.5b 已兑现:capability 翻绿 + uc06 HW 装配腿 diff=0 + RED 两轴",
+    }
+    # device_red 加性扩展(既有 VSM/TSR 键保留)。
+    dred = results.setdefault("device_red", {})
+    dred["tamper_hw_varying"] = True
+    dred["tamper_hw_ids"] = True
+    print(
+        f"[{TAG}] 步骤 10 PASS: HW 光栅 diff_pixels=0 covered={hw_cov}/{doc.get('pixels')} "
+        f"oracle_bitexact + RED 两轴"
+        f"(varying={red_axes[0]['diff_pixels']}, ids={red_axes[1]['diff_pixels']});"
+        f"status=verified-diff-zero"
+    )
+    return True
 
 
 def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
@@ -882,7 +1029,8 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
         "subject": "renderer_raster_diff_smoke",
         "milestone": "G7.5 HW raster diff 与 RD-038 余项 / G-G7-7",
         "step": 95,
-        "spec_clauses": ["RXS-0171", "RXS-0203", "RXS-0205", "RXS-0223"],
+        "spec_clauses": ["RXS-0171", "RXS-0203", "RXS-0205", "RXS-0223",
+                         "RXS-0301", "RXS-0302", "RXS-0303"],
         "host_section_pass": host_ok,
         "device_section_rc": device_rc,
         "checks": {
@@ -960,9 +1108,9 @@ def main() -> int:
     if device_rc != 0:
         return device_rc
     print(
-        f"[{TAG}] PASS(host 恒跑全绿;device 段 RD-038 余项真跑全绿)。"
-        f"**G-G7-7 未全绿**:HW 光栅 SW/HW 整数域 diff=0 仍 blocked-honest"
-        f"(见 evidence hw_raster_diff),RD-038 维持 open。"
+        f"[{TAG}] PASS(host 恒跑全绿;device 段 RD-038 余项 + HW 光栅 diff=0 全绿)。"
+        f"G-G7-7 **全绿**:hw_raster_diff.status=verified-diff-zero(diff_pixels=0);"
+        f"RD-038 维持 open(帧链归 G7.6)。"
     )
     return 0
 

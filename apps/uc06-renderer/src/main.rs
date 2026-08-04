@@ -18,6 +18,8 @@
 #[cfg(feature = "vulkan")]
 mod device_g75;
 #[cfg(feature = "vulkan")]
+mod device_g75_hw;
+#[cfg(feature = "vulkan")]
 mod device_kernels;
 #[cfg(feature = "vulkan")]
 mod device_w3;
@@ -208,6 +210,81 @@ fn run_g75_residuals_mode(cli: &Cli) -> i32 {
     0
 }
 
+/// G7.5b `--g75-hw-raster` 模式(CI 步骤 95 device 段 HW 腿;三态口径镜像
+/// `--g75-residuals`:`G75HW: PASS` / `G75HW: SKIP`(dev-env degrade,退 0)/
+/// `G75HW: FAIL`(退 1))。
+///
+/// 判据 = SW/HW VisBuffer **整数域逐词 diff = 0**(零容差)+ 覆盖非退化
+/// (hw==sw covered>0)+ SW 与 host oracle 覆盖集合对齐。保守光栅扩展缺失 → fail-closed
+/// **FAIL**(非 SKIP:本机已探明支持〔RFC-0018 §E〕,不启用降级臂)。
+/// 两 RED 轴(`--g75-hw-red-tamper-varying` / `--g75-hw-red-tamper-ids`)
+/// 篡改仅落 HW 顶点流 → diff 必非零(数据流反证)。
+#[cfg(feature = "vulkan")]
+fn run_g75_hw_raster_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let scene = scene::build_scene();
+
+    type RedAxis = fn(&scene::Uc06Scene) -> Option<Result<u32, String>>;
+    let red_axes: [(bool, &str, RedAxis); 2] = [
+        (
+            cli.g75_hw_red_varying,
+            "tamper-varying",
+            device_g75_hw::red_tamper_varying,
+        ),
+        (
+            cli.g75_hw_red_ids,
+            "tamper-ids",
+            device_g75_hw::red_tamper_ids,
+        ),
+    ];
+    for (on, axis, run) in red_axes {
+        if !on {
+            continue;
+        }
+        return match run(&scene) {
+            None => {
+                println!("G75HW: SKIP RED-{axis} 轴无 device(dev-env degrade)");
+                i32::from(require_real)
+            }
+            Some(Err(e)) => {
+                eprintln!("G75HW: FAIL RED-{axis} device 执行: {e}");
+                1
+            }
+            Some(Ok(diff)) if diff > 0 => {
+                println!("G75HW: RED-OK {axis}(diff_pixels={diff};篡改 HW 顶点流 → 对拍红)");
+                0
+            }
+            Some(Ok(_)) => {
+                eprintln!("G75HW: FAIL RED-{axis} 失效(篡改后 diff 仍为 0 = 数据流未真实生效)");
+                1
+            }
+        };
+    }
+
+    let Some(res) = device_g75_hw::run_g75_hw_raster(&scene) else {
+        println!("G75HW: SKIP 无 Vulkan device / W2 能力链缺失(dev-env degrade)");
+        return i32::from(require_real);
+    };
+    let r = match res {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("G75HW: FAIL HW 光栅 device 执行(含保守光栅 fail-closed): {e}");
+            return 1;
+        }
+    };
+    println!("{}", r.json());
+    if !r.all_pass() {
+        eprintln!("G75HW: FAIL SW/HW 整数域对拍未过(见 JSON diff_pixels/covered/oracle)");
+        return 1;
+    }
+    println!(
+        "G75HW: PASS diff_pixels={} covered={}/{} words(sw==hw) oracle_bitexact={} \
+         triangles={} pipeline={}(保守光栅 OVERESTIMATE + FS 复刻 SW 判定,整数域零容差)",
+        r.diff_pixels, r.hw_covered_words, r.pixels, r.oracle_bitexact, r.triangles, r.pipeline,
+    );
+    0
+}
+
 /// CLI 参数(解析确定性;未知参数 = Err)。
 #[derive(Debug, Clone)]
 struct Cli {
@@ -228,6 +305,13 @@ struct Cli {
     g75_red_vsm: bool,
     /// `--g75-residuals` 的 RED 轴:篡改 device jitter → TSR 对拍必红。
     g75_red_tsr: bool,
+    /// G7.5b:HW 光栅 SW/HW VisBuffer 整数域 diff=0 对拍模式(真实 graphics
+    /// pipeline + 保守光栅 OVERESTIMATE + FS 复刻判定;CI 步骤 95 device 段消费)。
+    g75_hw_raster: bool,
+    /// `--g75-hw-raster` 的 RED 轴:篡改 winner 三角形 flat varying → diff 必非零。
+    g75_hw_red_varying: bool,
+    /// `--g75-hw-raster` 的 RED 轴:篡改 winner 三角形 ids 一元 → diff 必非零。
+    g75_hw_red_ids: bool,
 }
 
 impl Default for Cli {
@@ -244,6 +328,9 @@ impl Default for Cli {
             g75_residuals: false,
             g75_red_vsm: false,
             g75_red_tsr: false,
+            g75_hw_raster: false,
+            g75_hw_red_varying: false,
+            g75_hw_red_ids: false,
         }
     }
 }
@@ -286,6 +373,15 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--g75-red-tsr" => {
                 c.g75_residuals = true;
                 c.g75_red_tsr = true;
+            }
+            "--g75-hw-raster" => c.g75_hw_raster = true,
+            "--g75-hw-red-tamper-varying" => {
+                c.g75_hw_raster = true;
+                c.g75_hw_red_varying = true;
+            }
+            "--g75-hw-red-tamper-ids" => {
+                c.g75_hw_raster = true;
+                c.g75_hw_red_ids = true;
             }
             "--dump-graph" => {
                 i += 1;
@@ -342,9 +438,9 @@ fn main() {
     };
 
     #[cfg(not(feature = "vulkan"))]
-    if cli.device || cli.w3_effects || cli.g75_residuals {
+    if cli.device || cli.w3_effects || cli.g75_residuals || cli.g75_hw_raster {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects/--g75-residuals 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
         );
         std::process::exit(2);
     }
@@ -360,6 +456,12 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.g75_residuals {
         std::process::exit(run_g75_residuals_mode(&cli));
+    }
+
+    // G7.5b HW 光栅 diff=0 模式:同为独立通道,既有模式字段集 0-byte。
+    #[cfg(feature = "vulkan")]
+    if cli.g75_hw_raster {
+        std::process::exit(run_g75_hw_raster_mode(&cli));
     }
 
     match run(&cli) {
