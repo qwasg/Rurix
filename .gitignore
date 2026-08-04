@@ -33,3 +33,14 @@ genesis/
 showcase/
 .workbuddy/
 .writing/
+
+# 宣传片与第三方工具工作目录不入库（2026-08-04 G7.7 前置清场）
+# promo/ = 宣传片制作工作目录（媒体件与产物）
+# apps/ruridrop/src/promo.rx = promo/tools/gen_promo_rx.py 机械生成的取帧入口（可再生，非 CI 面）
+# .qoder/ / .better-harness/ = 第三方 IDE/harness 工具目录
+# .tmp/ = 本地临时工作目录（含 agent 设计案落盘）
+promo/
+apps/ruridrop/src/promo.rx
+.qoder/
+.better-harness/
+.tmp/
