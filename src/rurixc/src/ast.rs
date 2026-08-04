@@ -785,42 +785,73 @@ mod tests {
     fn block_like_exprs() {
         assert!(make_expr(ExprKind::Block(dummy_block())).is_block_like());
         assert!(make_expr(ExprKind::Unsafe(dummy_block())).is_block_like());
-        assert!(make_expr(ExprKind::If {
-            cond: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-            then: dummy_block(),
-            else_: None,
-        }).is_block_like());
-        assert!(make_expr(ExprKind::While {
-            cond: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-            body: dummy_block(),
-        }).is_block_like());
-        assert!(make_expr(ExprKind::For {
-            pat: Pat { kind: PatKind::Wild, span: dummy_span() },
-            iter: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-            body: dummy_block(),
-        }).is_block_like());
-        assert!(make_expr(ExprKind::Loop { body: dummy_block() }).is_block_like());
-        assert!(make_expr(ExprKind::Match {
-            scrutinee: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-            arms: Vec::new(),
-        }).is_block_like());
+        assert!(
+            make_expr(ExprKind::If {
+                cond: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+                then: dummy_block(),
+                else_: None,
+            })
+            .is_block_like()
+        );
+        assert!(
+            make_expr(ExprKind::While {
+                cond: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+                body: dummy_block(),
+            })
+            .is_block_like()
+        );
+        assert!(
+            make_expr(ExprKind::For {
+                pat: Pat {
+                    kind: PatKind::Wild,
+                    span: dummy_span()
+                },
+                iter: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+                body: dummy_block(),
+            })
+            .is_block_like()
+        );
+        assert!(
+            make_expr(ExprKind::Loop {
+                body: dummy_block()
+            })
+            .is_block_like()
+        );
+        assert!(
+            make_expr(ExprKind::Match {
+                scrutinee: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+                arms: Vec::new(),
+            })
+            .is_block_like()
+        );
     }
 
     #[test]
     fn non_block_like_exprs() {
         assert!(!make_expr(ExprKind::Lit(dummy_lit())).is_block_like());
         assert!(!make_expr(ExprKind::Path(dummy_path())).is_block_like());
-        assert!(!make_expr(ExprKind::Binary {
-            op: BinOp::Add,
-            lhs: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-            rhs: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
-        }).is_block_like());
-        assert!(!make_expr(ExprKind::Call {
-            callee: Box::new(make_expr(ExprKind::Path(dummy_path()))),
-            args: Vec::new(),
-        }).is_block_like());
+        assert!(
+            !make_expr(ExprKind::Binary {
+                op: BinOp::Add,
+                lhs: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+                rhs: Box::new(make_expr(ExprKind::Lit(dummy_lit()))),
+            })
+            .is_block_like()
+        );
+        assert!(
+            !make_expr(ExprKind::Call {
+                callee: Box::new(make_expr(ExprKind::Path(dummy_path()))),
+                args: Vec::new(),
+            })
+            .is_block_like()
+        );
         assert!(!make_expr(ExprKind::Tuple(Vec::new())).is_block_like());
-        assert!(!make_expr(ExprKind::Paren(Box::new(make_expr(ExprKind::Lit(dummy_lit()))))).is_block_like());
+        assert!(
+            !make_expr(ExprKind::Paren(Box::new(make_expr(ExprKind::Lit(
+                dummy_lit()
+            )))))
+            .is_block_like()
+        );
         assert!(!make_expr(ExprKind::Err).is_block_like());
     }
 
@@ -841,7 +872,11 @@ mod tests {
         ];
         for (i, a) in variants.iter().enumerate() {
             for (j, b) in variants.iter().enumerate() {
-                if i == j { assert_eq!(a, b); } else { assert_ne!(a, b); }
+                if i == j {
+                    assert_eq!(a, b);
+                } else {
+                    assert_ne!(a, b);
+                }
             }
         }
     }

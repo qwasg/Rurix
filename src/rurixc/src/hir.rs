@@ -1118,14 +1118,27 @@ mod tests {
     #[test]
     fn prim_ty_from_name_all_builtin_types() {
         let cases = [
-            ("i8", PrimTy::I8), ("i16", PrimTy::I16), ("i32", PrimTy::I32),
-            ("i64", PrimTy::I64), ("u8", PrimTy::U8), ("u16", PrimTy::U16),
-            ("u32", PrimTy::U32), ("u64", PrimTy::U64), ("usize", PrimTy::Usize),
-            ("f32", PrimTy::F32), ("f64", PrimTy::F64), ("bool", PrimTy::Bool),
-            ("char", PrimTy::Char), ("str", PrimTy::Str),
+            ("i8", PrimTy::I8),
+            ("i16", PrimTy::I16),
+            ("i32", PrimTy::I32),
+            ("i64", PrimTy::I64),
+            ("u8", PrimTy::U8),
+            ("u16", PrimTy::U16),
+            ("u32", PrimTy::U32),
+            ("u64", PrimTy::U64),
+            ("usize", PrimTy::Usize),
+            ("f32", PrimTy::F32),
+            ("f64", PrimTy::F64),
+            ("bool", PrimTy::Bool),
+            ("char", PrimTy::Char),
+            ("str", PrimTy::Str),
         ];
         for (name, expected) in cases {
-            assert_eq!(PrimTy::from_name(name), Some(expected), "from_name({name:?})");
+            assert_eq!(
+                PrimTy::from_name(name),
+                Some(expected),
+                "from_name({name:?})"
+            );
         }
     }
 
@@ -1206,9 +1219,18 @@ mod tests {
             ("has_committed", RayQueryOp::HasCommitted),
             ("committed_t", RayQueryOp::CommittedT),
             ("committed_barycentric", RayQueryOp::CommittedBarycentric),
-            ("committed_instance_index", RayQueryOp::CommittedInstanceIndex),
-            ("committed_primitive_index", RayQueryOp::CommittedPrimitiveIndex),
-            ("committed_geometry_index", RayQueryOp::CommittedGeometryIndex),
+            (
+                "committed_instance_index",
+                RayQueryOp::CommittedInstanceIndex,
+            ),
+            (
+                "committed_primitive_index",
+                RayQueryOp::CommittedPrimitiveIndex,
+            ),
+            (
+                "committed_geometry_index",
+                RayQueryOp::CommittedGeometryIndex,
+            ),
         ];
         for (name, expected) in ops {
             assert_eq!(RayQueryOp::from_method(name), Some(expected));
