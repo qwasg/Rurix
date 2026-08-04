@@ -304,6 +304,12 @@ def check_evidence_files() -> None:
     renderer_w3_schema = load(
         ROOT / "milestones/g7/renderer_w3_evidence_schema.json"
     )
+    renderer_device_frame_schema = load(
+        ROOT / "milestones/g7/renderer_device_frame_evidence_schema.json"
+    )
+    renderer_soak_schema = load(
+        ROOT / "milestones/g7/renderer_soak_evidence_schema.json"
+    )
     g8_perf_baseline_schema = load(
         ROOT / "milestones/g8/g8_perf_baseline_evidence_schema.json"
     )
@@ -536,6 +542,16 @@ def check_evidence_files() -> None:
     renderer_w3_validator = (
         jsonschema.Draft7Validator(renderer_w3_schema)
         if renderer_w3_schema is not None
+        else None
+    )
+    renderer_device_frame_validator = (
+        jsonschema.Draft7Validator(renderer_device_frame_schema)
+        if renderer_device_frame_schema is not None
+        else None
+    )
+    renderer_soak_validator = (
+        jsonschema.Draft7Validator(renderer_soak_schema)
+        if renderer_soak_schema is not None
         else None
     )
     ray_query_codegen_validator = (
@@ -1023,6 +1039,28 @@ def check_evidence_files() -> None:
             # capability 零漂移、篡改 .spv 的 RED 反证;device 段最小 hit/miss kernel
             # 真跑 gate real,硬前置 G7.3 W3b 未在树时 device_blocked 记 blocked-honest)。
             validator = ray_query_codegen_validator
+        elif (
+            f.name.startswith("renderer_device_frame_smoke")
+            and renderer_device_frame_validator is not None
+        ):
+            # G7.6 One True Device Frame 冒烟(步骤 96;G-G7-8)→
+            # milestones/g7/renderer_device_frame_evidence_schema.json(host 段:
+            # schema 自检 + SCENE_FREEZE 960×540→1080p 锚 + RD-038 行 1/2/4/8 与
+            # §6.4 帧链并入留痕 + host oracle 过滤 + 既有 kernel manifest 零漂移 +
+            # 6 glue kernel 排放 + 静态 provenance 审计〔禁 execute_frame 单发〕;
+            # device 段 gate real:--device-frame 8 帧对拍/非退化/provenance + RED 四轴)。
+            # 前缀长于 renderer_w3_smoke / renderer_raster_diff_smoke 互不包含;置于
+            # 二者之前以遵守「长前缀先匹配」纪律。
+            validator = renderer_device_frame_validator
+        elif (
+            f.name.startswith("renderer_soak_")
+            and renderer_soak_validator is not None
+        ):
+            # G7.6 soak 取证(不占步骤号;CI_GATES §3)→
+            # milestones/g7/renderer_soak_evidence_schema.json(≥30min/≥10000 帧;
+            # validation/lost/tdr/leak 全 0;schema 本 PR 预置,真跑归 PR-4)。
+            # 前缀 renderer_soak_ 与 renderer_device_frame_smoke_ 互不包含。
+            validator = renderer_soak_validator
         elif (
             f.name.startswith("renderer_w3_smoke")
             and renderer_w3_validator is not None

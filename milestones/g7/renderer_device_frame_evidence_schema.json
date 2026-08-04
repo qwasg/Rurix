@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rurix.dev/schemas/g7/renderer_device_frame_evidence.json",
+  "title": "G7.6 One True Device Frame evidence(CI 步骤 96;门 G-G7-8)",
+  "description": "15-pass 连续真实设备帧链(cull→VisBuffer→classify/resolve→VSM/lighting→TAA/TSR→readback)的 host/device 双段证据。host 段(恒跑)= 冻结锚 + RD-038 行 1/2/4/8 状态字面 + host oracle 过滤 + 既有 kernel manifest 零漂移 + 新 glue kernel 排放 + 静态 provenance 审计(禁 execute_frame 单发入口);device 段(gate real,RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)= --device-frame 正轴 8 帧对拍/非退化/provenance + RED 四轴。mock / host substitution / isolated nonzero 不充绿;RD-038 status 维持 open(归 G7.7)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "spec_clauses",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "require_real",
+    "run_url",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_device_frame_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 96 },
+    "spec_clauses": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^RXS-\\d{4}$" },
+      "minItems": 1
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "description": "host 段逐项判据(恒跑)。",
+      "additionalProperties": false,
+      "properties": {
+        "schema_self_check_pass": {
+          "type": "boolean",
+          "description": "两 evidence schema(device_frame + soak)可加载且 Draft7 可构造。"
+        },
+        "freeze_and_matrix_pass": {
+          "type": "boolean",
+          "description": "G7_SCENE_FREEZE 锚(含 960×540→1920×1080)+ RD-038 行 1/2/4/8 字面与 §6.4 帧链并入留痕在位;RD-038 维持 open。"
+        },
+        "oracle_tests_pass": {
+          "type": "boolean",
+          "description": "host oracle 过滤单测 geometry:: + shadow:: + temporal:: + rt:: + gi:: 全量恒绿(数值语义 0-byte 回归网)。"
+        },
+        "existing_manifest_zero_drift_pass": {
+          "type": "boolean",
+          "description": "帧链复用既有 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256/版本/capability 零漂移(不重 bless)。"
+        },
+        "glue_kernel_emit_pass": {
+          "type": "boolean",
+          "description": "6 个新 glue kernel 真实 .rx→.spv:spirv-val --target-env vulkan1.0 + SPIR-V 1.0 + 同源 ×2 确定性 + 零 ray query 误声明。"
+        },
+        "static_provenance_audit_pass": {
+          "type": "boolean",
+          "description": "device_frame.rs 静态审计:禁 execute_frame( 单发入口、唯一入口 execute_with_frame_update、15 pass 名与关键边表字面在位。"
+        }
+      }
+    },
+    "literal_rows_frame_chain": {
+      "type": "array",
+      "description": "RD-038 §1 行 1/2/4/8 字面分项(帧链并入余项)。",
+      "items": { "type": "string" }
+    },
+    "scene_freeze_anchors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assembly_notes": {
+      "type": ["string", "null"],
+      "description": "装配层诚实口径(如 cluster27 = 全局簇表下标)。"
+    },
+    "glue_kernels": {
+      "type": "object",
+      "description": "新 glue kernel 编译面观测(键 = kernel 名)。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "spirv_val": { "type": "object", "additionalProperties": { "type": "string" } },
+          "deterministic": { "type": "boolean" },
+          "capabilities": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "existing_chain_kernels": {
+      "type": "object",
+      "description": "帧链复用既有 kernel 的零漂移/排放观测摘要。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "manifest_matched": { "type": ["boolean", "null"] },
+          "capabilities": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "static_audit": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "forbid_execute_frame_call": { "type": "boolean" },
+        "execute_with_frame_update_present": { "type": "boolean" },
+        "pass_names_ok": { "type": "boolean" },
+        "expected_edges_ok": { "type": "boolean" },
+        "pass_names": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "device_pass": { "type": ["boolean", "null"] },
+    "device_skip_reason": { "type": ["string", "null"] },
+    "device_name": { "type": ["string", "null"] },
+    "validation_enabled": { "type": "boolean" },
+    "device_capability_snapshot": { "type": ["string", "null"] },
+    "stage_parity": {
+      "type": ["object", "null"],
+      "description": "阶段转移对拍块(measured/tol/pass;整数域 bitexact 为布尔)。",
+      "additionalProperties": false,
+      "properties": {
+        "cull_bitexact": { "type": "boolean" },
+        "tri_expand_bitexact": { "type": "boolean" },
+        "tri_expand_max_abs": { "type": "number" },
+        "visbuffer_bitexact": { "type": "boolean" },
+        "classify_bitexact": { "type": "boolean" },
+        "gbuffer_max_abs": { "type": "number" },
+        "tol_gbuffer": { "type": "number" },
+        "gbuffer_pass": { "type": "boolean" },
+        "vsm_sample_max_abs": { "type": "number" },
+        "tol_vsm_sample": { "type": "number" },
+        "vsm_sample_pass": { "type": "boolean" },
+        "gi_max_abs": { "type": "number" },
+        "tol_gi": { "type": "number" },
+        "gi_pass": { "type": "boolean" },
+        "ao_max_abs": { "type": "number" },
+        "tol_ao": { "type": "number" },
+        "ao_pass": { "type": "boolean" },
+        "hard_max_abs": { "type": "number" },
+        "tol_hard": { "type": "number" },
+        "hard_pass": { "type": "boolean" },
+        "taa_max_abs": { "type": "number" },
+        "tol_taa": { "type": "number" },
+        "taa_pass": { "type": "boolean" },
+        "tsr_resample_max_abs": { "type": "number" },
+        "tol_tsr_resample": { "type": "number" },
+        "tsr_resample_pass": { "type": "boolean" },
+        "tsr_temporal_max_abs": { "type": "number" },
+        "tol_tsr_temporal": { "type": "number" },
+        "tsr_temporal_pass": { "type": "boolean" }
+      }
+    },
+    "non_degen": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "covered_pixels": { "type": "integer" },
+        "material_counts": { "type": "array", "items": { "type": "integer" } },
+        "mv_nonzero_count": { "type": "integer" },
+        "mv_nonzero_changed": { "type": "boolean" },
+        "instance_transform_changed": { "type": "boolean" },
+        "non_degen_ok": { "type": "boolean" }
+      }
+    },
+    "provenance": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "edges_ok": { "type": "boolean" },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "producer": { "type": "string" },
+              "consumer": { "type": "string" },
+              "resource": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "telemetry": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "validation_error_count": { "type": "integer" },
+        "leaked_object_count": { "type": "integer" },
+        "leaked_allocation_count": { "type": "integer" },
+        "device_lost_count": { "type": "integer" },
+        "all_pass_gpu_ns_positive": { "type": "boolean" },
+        "pass_gpu_timings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pass": { "type": "string" },
+              "gpu_ns": { "type": "number" }
+            }
+          }
+        },
+        "frames": { "type": "integer" },
+        "elapsed_seconds": { "type": "number" },
+        "in_w": { "type": "integer" },
+        "in_h": { "type": "integer" },
+        "out_w": { "type": "integer" },
+        "out_h": { "type": "integer" }
+      }
+    },
+    "device_red": {
+      "type": "object",
+      "description": "RED 四轴:每轴独立进程,绿即 FAIL;期望 FRAME: RED-OK。",
+      "additionalProperties": false,
+      "properties": {
+        "visbuffer": { "type": ["boolean", "null"] },
+        "history": { "type": ["boolean", "null"] },
+        "jitter": { "type": ["boolean", "null"] },
+        "provenance": { "type": ["boolean", "null"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "require_real": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "description": "device 段真跑(非 SKIP)时:对拍块/非退化/provenance/telemetry/RED/capability 必须在位。",
+      "if": {
+        "properties": { "device_pass": { "const": true } },
+        "required": ["device_pass"]
+      },
+      "then": {
+        "required": [
+          "stage_parity",
+          "non_degen",
+          "provenance",
+          "telemetry",
+          "device_red",
+          "validation_enabled",
+          "device_capability_snapshot"
+        ]
+      }
+    }
+  ]
+}

@@ -1027,6 +1027,29 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/renderer_raster_diff_smoke.py
 
+      # 步骤 96（G-G7-8;G7 CI_GATES §2）:One True Device Frame 冒烟。
+      # host 段**恒跑**(需 Vulkan SDK 的 spirv-val/spirv-dis;缺工具 SKIP=dev-env degrade
+      # 退 0 不充绿):① 两 evidence schema(device_frame + soak)Draft7 自检;② G7_SCENE_FREEZE
+      # 锚(含 960×540→1920×1080)+ RD-038 行 1/2/4/8 字面 + §6.4 帧链并入留痕(RD 维持 open);
+      # ③ host oracle 过滤 geometry::+shadow::+temporal::+rt::+gi::(步骤 94/95 过滤集之并,
+      # 数值语义 0-byte);④ 既有 kernel 对 w1w2_spv_manifest 零漂移 + 帧链复用既有核排放审计;
+      # ⑤ 6 glue kernel(frame_clear/cull_frame/tri_expand/gbuffer_resolve/deferred_shade/
+      # tsr_temporal)真实 .rx→.spv:spirv-val vulkan1.0 + SPIR-V 1.0 + 同源 ×2 确定性 +
+      # 零 ray query 误声明;⑥ device_frame.rs 静态 provenance 审计(禁 execute_frame( 单发
+      # 入口,唯一入口 execute_with_frame_update;15 pass 名与关键边表字面)。
+      # device 段 gate real(门 G-G7-8):uc06-renderer --features device-frame --device-frame
+      # --frames 8 --json(RURIX_VK_VALIDATION=1 由脚本置)——15-pass 单 submit 帧链阶段转移
+      # 对拍 + 非退化(covered/MV 非零且逐帧变化/实例位姿变化)+ provenance 边表机验 +
+      # telemetry(validation/leak/lost=0,逐 pass GPU timestamp 非零);RED 四轴 =
+      # --frame-red-visbuffer / --frame-red-history / --frame-red-jitter /
+      # --frame-red-provenance(每轴独立进程,绿即 FAIL)。soak 不进 workflow(CI_GATES §3
+      # 人工取证)。**RURIX_REQUIRE_REAL=1**,缺设备 SKIP 翻硬红。失败即红。
+      - name: renderer One True Device Frame smoke (G7 CI_GATES §2.96, G-G7-8)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/renderer_device_frame_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

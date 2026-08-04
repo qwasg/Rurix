@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rurix.dev/schemas/g7/renderer_soak_evidence.json",
+  "title": "G7.6 One True Device Frame soak evidence(不占 PR smoke 步骤号;CI_GATES §3)",
+  "description": "≥30 分钟/≥10000 帧 soak 取证 schema(字段按设计预置;真跑归 B4/PR-4)。短跑 smoke(步骤 96)开验证层;soak 关闭 RURIX_VK_VALIDATION,validation_layers_enabled=false 如实记录。判定:validation/lost/tdr/leak 全 0、actual_frames≥10000、elapsed≥30min、锚点 digest 非空、逐 pass timestamp 覆盖完整。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "actual_frames",
+    "elapsed_minutes",
+    "fps_mean",
+    "health",
+    "performance",
+    "reproducibility",
+    "environment",
+    "validation_layers_enabled",
+    "ok",
+    "require_real",
+    "run_url",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_soak" },
+    "milestone": { "type": "string" },
+    "actual_frames": { "type": "integer", "minimum": 0 },
+    "elapsed_minutes": { "type": "number", "minimum": 0 },
+    "fps_mean": { "type": "number" },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validation_error_count",
+        "device_lost_count",
+        "tdr_suspected_count",
+        "leaked_object_count",
+        "leaked_allocation_count",
+        "vsm_page_overflow_count"
+      ],
+      "properties": {
+        "validation_error_count": { "type": "integer" },
+        "device_lost_count": { "type": "integer" },
+        "tdr_suspected_count": {
+          "type": "integer",
+          "description": "单帧 GPU 时间 > 2s 或 fence 超时计入。"
+        },
+        "leaked_object_count": { "type": "integer" },
+        "leaked_allocation_count": { "type": "integer" },
+        "vsm_page_overflow_count": { "type": "integer" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame_gpu_p50_ms",
+        "frame_gpu_p95_ms",
+        "frame_gpu_p99_ms",
+        "cpu_submit_p50_ms",
+        "cpu_submit_p95_ms",
+        "cpu_submit_p99_ms",
+        "pass_gpu_timestamps",
+        "peak_vram_mb"
+      ],
+      "properties": {
+        "frame_gpu_p50_ms": { "type": "number" },
+        "frame_gpu_p95_ms": { "type": "number" },
+        "frame_gpu_p99_ms": { "type": "number" },
+        "cpu_submit_p50_ms": { "type": "number" },
+        "cpu_submit_p95_ms": { "type": "number" },
+        "cpu_submit_p99_ms": { "type": "number" },
+        "pass_gpu_timestamps": {
+          "type": "array",
+          "description": "15 pass 全列:每 pass 的 GPU timestamp p50/p95。",
+          "minItems": 15,
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pass", "gpu_p50_ms", "gpu_p95_ms"],
+            "properties": {
+              "pass": { "type": "string" },
+              "gpu_p50_ms": { "type": "number" },
+              "gpu_p95_ms": { "type": "number" }
+            }
+          }
+        },
+        "peak_vram_mb": { "type": "number" }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene_digest", "visual_digest", "anchor_ppm"],
+      "properties": {
+        "scene_digest": {
+          "type": "string",
+          "description": "场景构造参数 + WorldDesc + 冲量调度常量 + 逐帧 3×4 变换流的 sha256 增量摘要。"
+        },
+        "visual_digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "anchor_color_sha256": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            },
+            "luma_mean_series": { "type": "array", "items": { "type": "number" } },
+            "luma_var_series": { "type": "array", "items": { "type": "number" } }
+          }
+        },
+        "anchor_ppm": {
+          "type": "array",
+          "description": "锚点三帧(首/中/末)PPM 路径(内部分辨率 960×540)。",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_name", "device_caps"],
+      "properties": {
+        "device_name": { "type": "string" },
+        "driver_version": { "type": ["string", "null"] },
+        "device_caps": {
+          "type": "object",
+          "description": "DeviceCaps 全量快照。",
+          "additionalProperties": true
+        }
+      }
+    },
+    "validation_layers_enabled": {
+      "type": "boolean",
+      "description": "soak 关闭验证层(开销与误报噪声);短跑 smoke 才开。须如实 = false。"
+    },
+    "ok": {
+      "type": "boolean",
+      "description": "判定全绿:health 四类计数 0 + actual_frames≥10000 + elapsed≥30 + digest 非空 + pass timestamps 完整。"
+    },
+    "fail_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "require_real": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

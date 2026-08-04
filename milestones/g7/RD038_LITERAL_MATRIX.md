@@ -263,3 +263,28 @@ W2 VisBuffer 之所以能逐位相等,是因为其判据落在**量化后的 30 
 **RD-038 status 结论**:**维持 open**(帧链并入余项行 1/2/4/8 归 G7.6;
 本波把行 3 推入 closed 候选——至此 §1 八行中 closed 候选 = 行 3/5/6/7/8)。
 本波不动 registry/deferred.json;status 由 G7.7 逐字审计裁决。
+
+### 6.4 G7.6(2026-08-04;门 G-G7-8;CI 步骤 96 materialize + soak schema)
+
+**分项状态迁移**:§1 行 1「两级剔除」/行 2「VisBuffer SW」/行 4「classify-
+resolve」/行 8「TAA-TSR」的**帧链并入余项**全部关闭;§6.2 诚实边界 2 所列
+TSR **时域臂**(history 双缓冲/reproject+validity/YCoCg AABB)兑现。
+
+- **帧链 provenance 机验**:cull→VisBuffer→classify/resolve→VSM/lighting→
+  TAA/TSR→readback 每一箭头的 input/output resource identity 逐 pass 记录,
+  evidence 字段化;isolated nonzero 拼装的 RED 反证轴
+  (`--frame-red-visbuffer` / `--frame-red-history` / `--frame-red-jitter` /
+  `--frame-red-provenance`)。
+- **步骤 96 materialize**:`ci/renderer_device_frame_smoke.py` + workflow 步骤
+  96 + 两 schema + `check_schemas.py` 前缀路由;**ledger v1.45 校准**(CI_step
+  `on_tree_max` 95→96 / `next_free` 96→97;v1.44 RXS-0301~0303 0-byte 保留)。
+- **soak(close-out 专用取证,不占步骤号,CI_GATES §3)**:
+  `--soak --frames 10000 --min-minutes 30` → `actual_frames ≥ 10000` 且
+  `elapsed_minutes ≥ 30`;validation/device-loss/TDR/resource-leak 全 0;
+  schema `renderer_soak_evidence_schema.json` 本波预置,真跑归 PR-4。
+- **预算追加**:g7_budget.json 追加归 PR-4;本波 0-byte。
+- **evidence**:`evidence/renderer_device_frame_smoke_<ts>.json`(本波);
+  soak evidence 归后续。
+
+**RD-038 status 结论**:八行全部推入 closed 候选;**本波仍不动
+registry/deferred.json**;**RD-038 维持 open**,status flip 唯一归 G7.7 逐字终审。
