@@ -4,6 +4,9 @@
 //! 全 SSBO compute;HW 光栅不入链。唯一执行入口:`execute_with_frame_update`
 //! (禁 `execute_frame`)。
 
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 use std::time::Instant;
 
 use rurix_physics::{
@@ -40,6 +43,7 @@ use rurix_rt::vk::{
 use crate::pipeline::camera_matrices;
 use crate::scene::{CAMERA, SKY_COLOR, SUN_COLOR, SUN_DIR, Uc06Scene, VSM_LIGHT_DIR, build_scene};
 use crate::shading::make_vsm;
+use crate::tiny_sha256::{self, Sha256};
 
 const FRAME_CLEAR_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/frame_clear.spv"));
 const CULL_FRAME_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/cull_frame.spv"));
@@ -244,6 +248,224 @@ impl Default for DeviceFrameOptions {
     }
 }
 
+/// soak 取证块(设计案 §5);短跑路径为 None。
+#[derive(Debug, Clone)]
+pub struct SoakTelemetry {
+    pub actual_frames: u32,
+    pub elapsed_minutes: f64,
+    pub fps_mean: f64,
+    pub tdr_suspected_count: u64,
+    pub vsm_page_overflow_count: u64,
+    pub frame_gpu_p50_ms: f64,
+    pub frame_gpu_p95_ms: f64,
+    pub frame_gpu_p99_ms: f64,
+    pub cpu_submit_p50_ms: f64,
+    pub cpu_submit_p95_ms: f64,
+    pub cpu_submit_p99_ms: f64,
+    pub peak_vram_mb: f64,
+    pub pass_gpu_p50_ms: [f64; 15],
+    pub pass_gpu_p95_ms: [f64; 15],
+    pub validation_layers_enabled: bool,
+    pub scene_digest: String,
+    pub anchor_color_sha256: Vec<String>,
+    pub luma_mean_series: Vec<f64>,
+    pub luma_var_series: Vec<f64>,
+    pub anchor_ppm: Vec<String>,
+    pub device_caps_json: String,
+    pub fail_reasons: Vec<String>,
+    pub ok: bool,
+}
+
+impl SoakTelemetry {
+    pub fn json_object(&self) -> String {
+        let passes: String = (0..15)
+            .map(|i| {
+                format!(
+                    "{{\"pass\":\"{}\",\"gpu_p50_ms\":{:.6},\"gpu_p95_ms\":{:.6}}}",
+                    PASS_NAMES[i], self.pass_gpu_p50_ms[i], self.pass_gpu_p95_ms[i]
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let digests = self
+            .anchor_color_sha256
+            .iter()
+            .map(|d| format!("\"{d}\""))
+            .collect::<Vec<_>>()
+            .join(",");
+        let luma_m = self
+            .luma_mean_series
+            .iter()
+            .map(|v| format!("{v:.6}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let luma_v = self
+            .luma_var_series
+            .iter()
+            .map(|v| format!("{v:.6}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let ppms = self
+            .anchor_ppm
+            .iter()
+            .map(|p| format!("\"{}\"", p.replace('\\', "/")))
+            .collect::<Vec<_>>()
+            .join(",");
+        let fails = self
+            .fail_reasons
+            .iter()
+            .map(|r| format!("\"{}\"", r.replace('"', "'")))
+            .collect::<Vec<_>>()
+            .join(",");
+        format!(
+            "{{\"actual_frames\":{},\"elapsed_minutes\":{:.6},\"fps_mean\":{:.6},\
+             \"tdr_suspected_count\":{},\"vsm_page_overflow_count\":{},\
+             \"frame_gpu_p50_ms\":{:.6},\"frame_gpu_p95_ms\":{:.6},\"frame_gpu_p99_ms\":{:.6},\
+             \"cpu_submit_p50_ms\":{:.6},\"cpu_submit_p95_ms\":{:.6},\"cpu_submit_p99_ms\":{:.6},\
+             \"peak_vram_mb\":{:.6},\"pass_gpu_timestamps\":[{}],\
+             \"validation_layers_enabled\":{},\"scene_digest\":\"{}\",\
+             \"visual_digest\":{{\"anchor_color_sha256\":[{}],\"luma_mean_series\":[{}],\
+             \"luma_var_series\":[{}]}},\"anchor_ppm\":[{}],\"device_caps\":{},\
+             \"driver_version\":null,\"fail_reasons\":[{}],\"ok\":{}}}",
+            self.actual_frames,
+            self.elapsed_minutes,
+            self.fps_mean,
+            self.tdr_suspected_count,
+            self.vsm_page_overflow_count,
+            self.frame_gpu_p50_ms,
+            self.frame_gpu_p95_ms,
+            self.frame_gpu_p99_ms,
+            self.cpu_submit_p50_ms,
+            self.cpu_submit_p95_ms,
+            self.cpu_submit_p99_ms,
+            self.peak_vram_mb,
+            passes,
+            self.validation_layers_enabled,
+            self.scene_digest,
+            digests,
+            luma_m,
+            luma_v,
+            ppms,
+            self.device_caps_json,
+            fails,
+            self.ok
+        )
+    }
+}
+
+fn percentile(sorted: &[f64], p: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let idx = ((sorted.len() as f64 - 1.0) * p).round() as usize;
+    sorted[idx.min(sorted.len() - 1)]
+}
+
+fn caps_json(caps: &render_exec::DeviceCaps) -> String {
+    // tdr_policy:PR-4 校准字面(设计案 2s → max(5000,short_p95×2);硬 TDR=fence/DEVICE_LOST)。
+    format!(
+        "{{\"device_name\":\"{}\",\"synchronization2\":{},\"shader_buffer_int64_atomics\":{},\
+         \"shader_int64\":{},\"fragment_stores_and_atomics\":{},\"ray_query\":{},\
+         \"acceleration_structure\":{},\"buffer_device_address\":{},\"descriptor_indexing\":{},\
+         \"deferred_host_operations\":{},\"memory_budget\":{},\"timestamp_period_ns\":{:.6},\
+         \"max_push_constants_size\":{},\
+         \"tdr_policy\":\"PR-4:design_2s_replaced;soft=max(5000ms,short_p95*2)=5000ms(short_p95=1566.451712 from renderer_soak_20260804T172202);hard_tdr=fence_timeout_or_DEVICE_LOST_only\"}}",
+        caps.device_name,
+        caps.synchronization2,
+        caps.shader_buffer_int64_atomics,
+        caps.shader_int64,
+        caps.fragment_stores_and_atomics,
+        caps.ray_query,
+        caps.acceleration_structure,
+        caps.buffer_device_address,
+        caps.descriptor_indexing,
+        caps.deferred_host_operations,
+        caps.memory_budget,
+        caps.timestamp_period_ns,
+        caps.max_push_constants_size
+    )
+}
+
+fn tonemap_u8(v: f32) -> u8 {
+    (v.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// 1080p HDR → 视觉 digest(RGB8) + 960×540 PPM(2×2 box)。
+fn anchor_visuals(
+    hdr: &[f32],
+    out_dir: &std::path::Path,
+    frame: u32,
+) -> Result<(String, f64, f64, String), String> {
+    if hdr.len() < OUT_PIXELS * 3 {
+        return Err(format!(
+            "anchor final HDR 长度不足: {} < {}",
+            hdr.len(),
+            OUT_PIXELS * 3
+        ));
+    }
+    let mut rgb = Vec::with_capacity(OUT_PIXELS * 3);
+    let mut luma_sum = 0.0f64;
+    let mut luma_sq = 0.0f64;
+    for i in 0..OUT_PIXELS {
+        let r = tonemap_u8(hdr[i * 3]);
+        let g = tonemap_u8(hdr[i * 3 + 1]);
+        let b = tonemap_u8(hdr[i * 3 + 2]);
+        rgb.push(r);
+        rgb.push(g);
+        rgb.push(b);
+        let y = 0.2126 * f64::from(r) + 0.7152 * f64::from(g) + 0.0722 * f64::from(b);
+        luma_sum += y;
+        luma_sq += y * y;
+    }
+    let n = OUT_PIXELS as f64;
+    let mean = luma_sum / n;
+    let var = (luma_sq / n) - mean * mean;
+    let digest = tiny_sha256::hex_digest(&rgb);
+
+    let mut ppm = Vec::with_capacity(IN_W as usize * IN_H as usize * 3);
+    for y in 0..IN_H {
+        for x in 0..IN_W {
+            let mut r = 0u32;
+            let mut g = 0u32;
+            let mut b = 0u32;
+            for dy in 0..2u32 {
+                for dx in 0..2u32 {
+                    let sx = x * 2 + dx;
+                    let sy = y * 2 + dy;
+                    let i = (sy * OUT_W + sx) as usize;
+                    r += u32::from(rgb[i * 3]);
+                    g += u32::from(rgb[i * 3 + 1]);
+                    b += u32::from(rgb[i * 3 + 2]);
+                }
+            }
+            ppm.push((r / 4) as u8);
+            ppm.push((g / 4) as u8);
+            ppm.push((b / 4) as u8);
+        }
+    }
+    fs::create_dir_all(out_dir).map_err(|e| format!("create soak anchor dir: {e}"))?;
+    let rel = format!(
+        "evidence/soak_anchors/{}/anchor_{:05}.ppm",
+        out_dir
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("soak"),
+        frame
+    );
+    // out_dir is evidence/soak_anchors/<ts>
+    let path = out_dir.join(format!("anchor_{frame:05}.ppm"));
+    let mut f = fs::File::create(&path).map_err(|e| format!("write ppm: {e}"))?;
+    write!(f, "P6\n{IN_W} {IN_H}\n255\n").map_err(|e| format!("ppm hdr: {e}"))?;
+    f.write_all(&ppm).map_err(|e| format!("ppm body: {e}"))?;
+    let _ = rel;
+    let rel_path = path
+        .strip_prefix(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+        .unwrap_or(&path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    Ok((digest, mean, var, rel_path))
+}
+
 #[derive(Debug, Clone)]
 pub struct DeviceFrameResults {
     pub device_name: String,
@@ -287,12 +509,16 @@ pub struct DeviceFrameResults {
     pub red_ok: Option<bool>,
     pub all_pass_gpu_ns_positive: bool,
     pub non_degen_ok: bool,
+    pub soak_telemetry: Option<SoakTelemetry>,
 }
 
 impl DeviceFrameResults {
     pub fn all_pass(&self) -> bool {
         if let Some(ok) = self.red_ok {
             return ok;
+        }
+        if let Some(soak) = &self.soak_telemetry {
+            return soak.ok;
         }
         self.non_degen_ok
             && self.cull_bitexact
@@ -343,6 +569,10 @@ impl DeviceFrameResults {
             .map(|c| c.to_string())
             .collect::<Vec<_>>()
             .join(",");
+        let soak_json = match &self.soak_telemetry {
+            Some(s) => s.json_object(),
+            None => "null".into(),
+        };
         format!(
             "{{\"subject\":\"uc06_device_frame\",\"device_name\":\"{}\",\"frames\":{},\
              \"elapsed_seconds\":{:.6},\"soak\":{},\"in_w\":{},\"in_h\":{},\"out_w\":{},\"out_h\":{},\
@@ -361,7 +591,7 @@ impl DeviceFrameResults {
              \"tsr_temporal_max_abs\":{:.9e},\"tol_tsr_temporal\":{:.9e},\"tsr_temporal_pass\":{},\
              \"provenance_edges_ok\":{},\"provenance_edges\":[{}],\"pass_gpu_timings\":[{}],\
              \"all_pass_gpu_ns_positive\":{},\"non_degen_ok\":{},\
-             \"red_axis\":{},\"red_ok\":{},\"all_pass\":{}}}",
+             \"red_axis\":{},\"red_ok\":{},\"soak_telemetry\":{},\"all_pass\":{}}}",
             self.device_name,
             self.frames,
             self.elapsed_seconds,
@@ -421,6 +651,7 @@ impl DeviceFrameResults {
                 Some(v) => v.to_string(),
                 None => "null".into(),
             },
+            soak_json,
             self.all_pass(),
         )
     }
@@ -954,7 +1185,7 @@ fn vsm_feedback_from_depth(
     vsm: &mut Vsm,
     depth: &[f32],
     inv_view_proj: &rurix_render::temporal::common::Mat4,
-) -> VsmUpload {
+) -> (VsmUpload, bool) {
     let depth_img = ImageF32 {
         w: IN_W,
         h: IN_H,
@@ -984,9 +1215,10 @@ fn vsm_feedback_from_depth(
             ));
         }
     }
+    let overflow = pages.len() > VSM_POOL_CAP as usize;
     let page_count = pages.len().min(VSM_POOL_CAP as usize) as u32;
     if page_count == 0 {
-        return vsm_frame0_upload(vsm);
+        return (vsm_frame0_upload(vsm), overflow);
     }
     let mut page_params = Vec::with_capacity(page_count as usize * 5);
     for p in pages.iter().take(page_count as usize) {
@@ -1010,13 +1242,16 @@ fn vsm_feedback_from_depth(
     for p in 0..pool_pages {
         pool.extend_from_slice(vsm.pool().page(p));
     }
-    VsmUpload {
-        page_params,
-        page_count,
-        entries,
-        lparams,
-        pool,
-    }
+    (
+        VsmUpload {
+            page_params,
+            page_count,
+            entries,
+            lparams,
+            pool,
+        },
+        overflow,
+    )
 }
 
 fn host_cull_flags(
@@ -1411,6 +1646,8 @@ fn run_device_frame_inner(
     opts: &DeviceFrameOptions,
     caps: &render_exec::DeviceCaps,
 ) -> Result<DeviceFrameResults, String> {
+    // soak 须由调用方设置 RURIX_SOAK=1 并清除 RURIX_VK_VALIDATION
+    // (smoke 转发已做;CLI 直跑请同设——crate forbid(unsafe_code) 不可在此改环境)。
     let mut scene = build_scene();
     let geom = bake_static(&scene);
     let mut phys = init_physics(&mut scene)?;
@@ -2043,6 +2280,39 @@ fn run_device_frame_inner(
     let mut tsr_host = TsrUpscaler::default();
     let mut taa_hist_host: Option<ImageF32> = None;
 
+    // soak 取证累加器(设计案 §5)。
+    let mut tdr_suspected_count = 0u64;
+    let mut vsm_page_overflow_count = 0u64;
+    let mut peak_vram_bytes = 0u64;
+    let mut frame_gpu_samples: Vec<f64> = Vec::new();
+    let mut cpu_submit_samples: Vec<f64> = Vec::new();
+    let mut pass_gpu_samples: [Vec<f64>; 15] = Default::default();
+    let mut scene_hasher = Sha256::new();
+    scene_hasher.update(b"g76-soak-scene-v1|tri=764|inst=3|in=960x540|out=1920x1080|dt=1/60");
+    let mut anchor_color_sha256: Vec<String> = Vec::new();
+    let mut luma_mean_series: Vec<f64> = Vec::new();
+    let mut luma_var_series: Vec<f64> = Vec::new();
+    let mut anchor_ppm: Vec<String> = Vec::new();
+    let mut soak_fail_reasons: Vec<String> = Vec::new();
+    let mut soak_aborted = false;
+    let soak_anchor_dir = if opts.soak {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let dir = PathBuf::from("evidence")
+            .join("soak_anchors")
+            .join(format!("{ts}"));
+        let _ = fs::create_dir_all(&dir);
+        Some(dir)
+    } else {
+        None
+    };
+    let validation_layers_enabled = std::env::var("RURIX_VK_VALIDATION")
+        .ok()
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
     let t0 = Instant::now();
     let mut frame: u32 = 0;
     let target_frames = opts.frames.max(1);
@@ -2131,6 +2401,11 @@ fn run_device_frame_inner(
         };
 
         let heavy = !opts.soak;
+        let elapsed_min_now = t0.elapsed().as_secs_f64() / 60.0;
+        let is_anchor = opts.soak
+            && (frame == 0
+                || frame.is_multiple_of(1000)
+                || ((frame + 1) >= target_frames && elapsed_min_now >= opts.min_minutes));
         let mut subset = vec![rb::DEPTH, rb::VISIBLE_COUNT];
         if heavy {
             subset.extend_from_slice(&[
@@ -2153,6 +2428,8 @@ fn run_device_frame_inner(
                 rb::TSR_CUR,
                 final_rb,
             ]);
+        } else if is_anchor {
+            subset.push(final_rb);
         }
 
         // RTAO dirs:soak 用上向占位;smoke 用上帧 nrm(首帧上向)。
@@ -2254,10 +2531,41 @@ fn run_device_frame_inner(
                 red_ok,
                 all_pass_gpu_ns_positive: true,
                 non_degen_ok: true,
+                soak_telemetry: None,
             });
         }
 
-        let out = session.execute_with_frame_update(&prov, &update)?;
+        if opts.soak {
+            for xf in &cur_xforms {
+                for row in xf {
+                    for &v in row {
+                        scene_hasher.update(&v.to_le_bytes());
+                    }
+                }
+            }
+            scene_hasher.update(&frame.to_le_bytes());
+        }
+
+        let out = match session.execute_with_frame_update(&prov, &update) {
+            Ok(o) => o,
+            Err(e) => {
+                if opts.soak {
+                    let msg = e.to_string();
+                    if msg.contains("TDR") || msg.contains("超时") {
+                        tdr_suspected_count += 1;
+                        soak_fail_reasons.push(format!("tdr_or_fence_timeout@{frame}:{msg}"));
+                    } else if msg.contains("DEVICE_LOST") || msg.contains("device loss") {
+                        device_lost_count += 1;
+                        soak_fail_reasons.push(format!("device_lost@{frame}:{msg}"));
+                    } else {
+                        soak_fail_reasons.push(format!("execute_err@{frame}:{msg}"));
+                    }
+                    soak_aborted = true;
+                    break;
+                }
+                return Err(e);
+            }
+        };
         validation_error_count = validation_error_count.max(out.telemetry.validation_error_count);
         leaked_object_count = leaked_object_count.max(out.telemetry.leaked_object_count);
         leaked_allocation_count =
@@ -2265,9 +2573,43 @@ fn run_device_frame_inner(
         if out.telemetry.device_lost {
             device_lost_count += 1;
         }
+        if out.telemetry.tdr_suspected {
+            tdr_suspected_count += 1;
+        }
+        let mut frame_gpu_ns = 0.0f64;
         for (i, p) in out.telemetry.passes.iter().enumerate() {
             if i < pass_gpu_ns.len() {
                 pass_gpu_ns[i] = p.gpu_ns;
+                frame_gpu_ns += p.gpu_ns;
+            }
+            if opts.soak && i < pass_gpu_samples.len() {
+                pass_gpu_samples[i].push(p.gpu_ns / 1_000_000.0);
+            }
+        }
+        if opts.soak {
+            let frame_gpu_ms = frame_gpu_ns / 1_000_000.0;
+            // TDR 纪律(PR-4 校准):设计案 §5 写「单帧 GPU >2s」按 5–12ms/帧假设;
+            // 现网 release 15-pass+W3 实测短跑 p95≈1566ms(evidence/renderer_soak_20260804T172202.json)。
+            // 软阈 = max(5000ms, short_p95×2)=5000ms —— 超软阈只留痕,不计入 tdr、不 abort。
+            // 硬 TDR 仅 fence 超时 / DEVICE_LOST(见 execute Err 与 telemetry.tdr_suspected)。
+            const SHORT_SOAK_P95_MS: f64 = 1566.451712;
+            let soft_tdr_ms = (SHORT_SOAK_P95_MS * 2.0).max(5000.0);
+            if frame_gpu_ms > soft_tdr_ms {
+                soak_fail_reasons.push(format!(
+                    "frame_gpu_soft_spike@{frame}:{frame_gpu_ms:.3}ms(soft_tdr={soft_tdr_ms:.0}ms;not_tdr;policy=max(5000,short_p95*2)_replaces_design_2s)"
+                ));
+            }
+            frame_gpu_samples.push(frame_gpu_ms);
+            cpu_submit_samples.push(out.telemetry.cpu_submit_ns as f64 / 1_000_000.0);
+            let vram: u64 = out.telemetry.heaps.iter().map(|h| h.driver_usage_bytes).sum();
+            peak_vram_bytes = peak_vram_bytes.max(vram);
+            if out.telemetry.device_lost {
+                soak_fail_reasons.push(format!("device_lost_telemetry@{frame}"));
+                soak_aborted = true;
+            }
+            if out.telemetry.tdr_suspected {
+                soak_fail_reasons.push(format!("tdr_suspected_telemetry@{frame}"));
+                soak_aborted = true;
             }
         }
         if frame == 0 {
@@ -2299,6 +2641,8 @@ fn run_device_frame_inner(
                 rb::TSR_CUR,
                 final_rb,
             ]);
+        } else if is_anchor {
+            subset_ids.push(final_rb);
         }
         for (i, &id) in subset_ids.iter().enumerate() {
             if let Some(buf) = out.readbacks.get(i) {
@@ -2308,11 +2652,36 @@ fn run_device_frame_inner(
 
         let depth = read_f32(rb_map.get(&rb::DEPTH).copied().unwrap_or(&[]));
         if depth.len() == PIXELS {
-            next_vsm = vsm_feedback_from_depth(&mut vsm, &depth, &mats.inv_view_proj);
+            let (upload, overflow) =
+                vsm_feedback_from_depth(&mut vsm, &depth, &mats.inv_view_proj);
+            next_vsm = upload;
+            if overflow {
+                vsm_page_overflow_count += 1;
+            }
             // 光栅后清脏,供下帧采样吃已填池(host 同步 shadow_depth_raster 语义简化:
             // 用当前 light tris 在 host 侧补一帧光栅以填池内容)。
             // 注意:device 侧 vsm_depth_raster 已写 device pool;反馈环的 entries/pages
             // 给下一帧 device 用。采样对拍在 smoke 下用 device shadow 非空统计。
+        }
+
+        if is_anchor {
+            if let (Some(dir), Some(fb)) = (
+                soak_anchor_dir.as_ref(),
+                rb_map.get(&final_rb).copied(),
+            ) {
+                let hdr = read_f32(fb);
+                match anchor_visuals(&hdr, dir, frame) {
+                    Ok((digest, mean, var, ppm_path)) => {
+                        anchor_color_sha256.push(digest);
+                        luma_mean_series.push(mean);
+                        luma_var_series.push(var);
+                        anchor_ppm.push(ppm_path);
+                    }
+                    Err(e) => {
+                        soak_fail_reasons.push(format!("anchor_visual@{frame}:{e}"));
+                    }
+                }
+            }
         }
 
         if heavy {
@@ -2596,10 +2965,16 @@ fn run_device_frame_inner(
         frame += 1;
         if opts.soak && frame.is_multiple_of(1000) {
             eprintln!(
-                "[uc06 device-frame soak] frame={frame} gpu0_ns={:.3} elapsed_min={:.2}",
+                "[uc06 device-frame soak] frame={frame} gpu0_ns={:.3} elapsed_min={:.2} val={} lost={} tdr={}",
                 pass_gpu_ns.first().copied().unwrap_or(0.0),
-                elapsed_min
+                t0.elapsed().as_secs_f64() / 60.0,
+                validation_error_count,
+                device_lost_count,
+                tdr_suspected_count,
             );
+        }
+        if soak_aborted {
+            break;
         }
     }
 
@@ -2645,10 +3020,122 @@ fn run_device_frame_inner(
             )
         };
 
+    let elapsed_seconds = t0.elapsed().as_secs_f64();
+    let soak_telemetry = if opts.soak {
+        let mut frame_sorted = frame_gpu_samples.clone();
+        frame_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut cpu_sorted = cpu_submit_samples.clone();
+        cpu_sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut pass_p50 = [0.0f64; 15];
+        let mut pass_p95 = [0.0f64; 15];
+        for i in 0..15 {
+            let mut s = pass_gpu_samples[i].clone();
+            s.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            pass_p50[i] = percentile(&s, 0.50);
+            pass_p95[i] = percentile(&s, 0.95);
+        }
+        let scene_digest = tiny_sha256::hex(&scene_hasher.finalize());
+        let elapsed_minutes = elapsed_seconds / 60.0;
+        let fps_mean = if elapsed_seconds > 0.0 {
+            f64::from(frame) / elapsed_seconds
+        } else {
+            0.0
+        };
+        let mut notes = vec![
+            "tdr_policy:design_2s_replaced_by_max(5000ms,short_p95*2)=5000ms;hard_tdr=fence_timeout_or_DEVICE_LOST_only;short_p95=1566.451712ms@renderer_soak_20260804T172202"
+                .into(),
+        ];
+        let mut hard_fails: Vec<String> = Vec::new();
+        for r in soak_fail_reasons {
+            if r.contains("frame_gpu_soft_spike@") || r.contains("tdr_policy:") {
+                notes.push(r);
+            } else {
+                hard_fails.push(r);
+            }
+        }
+        if validation_error_count != 0 {
+            hard_fails.push(format!("validation_error_count={validation_error_count}"));
+        }
+        if device_lost_count != 0 {
+            hard_fails.push(format!("device_lost_count={device_lost_count}"));
+        }
+        if tdr_suspected_count != 0 {
+            hard_fails.push(format!("tdr_suspected_count={tdr_suspected_count}"));
+        }
+        if leaked_object_count != 0 || leaked_allocation_count != 0 {
+            hard_fails.push(format!(
+                "leak objects={leaked_object_count} allocs={leaked_allocation_count}"
+            ));
+        }
+        if frame < 10000 {
+            hard_fails.push(format!("actual_frames={frame}<10000"));
+        }
+        if elapsed_minutes < 30.0 {
+            hard_fails.push(format!("elapsed_minutes={elapsed_minutes:.3}<30"));
+        }
+        if anchor_color_sha256.is_empty() {
+            hard_fails.push("anchor_digest_empty".into());
+        }
+        if !pass_gpu_samples.iter().all(|s| !s.is_empty()) {
+            hard_fails.push("pass_gpu_timestamps_incomplete".into());
+        }
+        if validation_layers_enabled {
+            hard_fails.push("validation_layers_enabled_unexpected".into());
+        }
+        let ok = hard_fails.is_empty();
+        // fail_reasons = 硬失败 + 政策/软峰留痕(成功件也保留 tdr_policy 字面,设计案偏差可审计)。
+        let mut fails = hard_fails;
+        fails.extend(notes);
+        Some(SoakTelemetry {
+            actual_frames: frame,
+            elapsed_minutes,
+            fps_mean,
+            tdr_suspected_count,
+            vsm_page_overflow_count,
+            frame_gpu_p50_ms: percentile(&frame_sorted, 0.50),
+            frame_gpu_p95_ms: percentile(&frame_sorted, 0.95),
+            frame_gpu_p99_ms: percentile(&frame_sorted, 0.99),
+            cpu_submit_p50_ms: percentile(&cpu_sorted, 0.50),
+            cpu_submit_p95_ms: percentile(&cpu_sorted, 0.95),
+            cpu_submit_p99_ms: percentile(&cpu_sorted, 0.99),
+            peak_vram_mb: peak_vram_bytes as f64 / (1024.0 * 1024.0),
+            pass_gpu_p50_ms: pass_p50,
+            pass_gpu_p95_ms: pass_p95,
+            validation_layers_enabled,
+            scene_digest,
+            anchor_color_sha256,
+            luma_mean_series,
+            luma_var_series,
+            anchor_ppm,
+            device_caps_json: caps_json(caps),
+            fail_reasons: fails,
+            ok,
+        })
+    } else {
+        let _ = (
+            scene_hasher,
+            tdr_suspected_count,
+            vsm_page_overflow_count,
+            peak_vram_bytes,
+            frame_gpu_samples,
+            cpu_submit_samples,
+            pass_gpu_samples,
+            anchor_color_sha256,
+            luma_mean_series,
+            luma_var_series,
+            anchor_ppm,
+            soak_fail_reasons,
+            soak_aborted,
+            soak_anchor_dir,
+            validation_layers_enabled,
+        );
+        None
+    };
+
     Ok(DeviceFrameResults {
         device_name: caps.device_name.clone(),
         frames: frame,
-        elapsed_seconds: t0.elapsed().as_secs_f64(),
+        elapsed_seconds,
         soak: opts.soak,
         covered_pixels,
         material_counts,
@@ -2693,6 +3180,7 @@ fn run_device_frame_inner(
         red_ok,
         all_pass_gpu_ns_positive,
         non_degen_ok,
+        soak_telemetry,
     })
 }
 

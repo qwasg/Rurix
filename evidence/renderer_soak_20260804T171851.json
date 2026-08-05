@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_soak",
+  "milestone": "G7.6 One True Device Frame soak / G-G7-8",
+  "actual_frames": 0,
+  "elapsed_minutes": 0.0,
+  "fps_mean": 0.0,
+  "health": {
+    "validation_error_count": 1,
+    "device_lost_count": 1,
+    "tdr_suspected_count": 1,
+    "leaked_object_count": 1,
+    "leaked_allocation_count": 1,
+    "vsm_page_overflow_count": 0
+  },
+  "performance": {
+    "frame_gpu_p50_ms": 0.0,
+    "frame_gpu_p95_ms": 0.0,
+    "frame_gpu_p99_ms": 0.0,
+    "cpu_submit_p50_ms": 0.0,
+    "cpu_submit_p95_ms": 0.0,
+    "cpu_submit_p99_ms": 0.0,
+    "pass_gpu_timestamps": [
+      {"pass": "frame_clear", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "cull_frame", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "tri_expand", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "visbuffer_sw_u64", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "classify_resolve", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "gbuffer_resolve", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "vsm_depth_raster", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "vsm_sample", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "gi_probe", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "rtao", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "hard_shadow", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "deferred_shade", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "taa", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "tsr_resample", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0},
+      {"pass": "tsr_temporal", "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0}
+    ],
+    "peak_vram_mb": 0.0
+  },
+  "reproducibility": {
+    "scene_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "visual_digest": {
+      "anchor_color_sha256": [],
+      "luma_mean_series": [],
+      "luma_var_series": []
+    },
+    "anchor_ppm": [
+      "evidence/soak_anchors/missing.ppm"
+    ]
+  },
+  "environment": {
+    "device_name": "unknown",
+    "driver_version": null,
+    "device_caps": {
+      "device_name": "unknown"
+    }
+  },
+  "validation_layers_enabled": false,
+  "ok": false,
+  "fail_reasons": [
+    "cli_json_missing",
+    "soak_telemetry_missing",
+    "validation=1",
+    "lost=1",
+    "tdr=1",
+    "leak!=0",
+    "frames=0<10000",
+    "minutes=0.0<30",
+    "anchor_digest_empty",
+    "pass_timestamps!=15"
+  ],
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-04T17:18:51+08:00"
+}

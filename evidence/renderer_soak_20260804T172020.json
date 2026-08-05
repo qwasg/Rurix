@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_soak",
+  "milestone": "G7.6 One True Device Frame soak / G-G7-8",
+  "actual_frames": 4,
+  "elapsed_minutes": 0.45199,
+  "fps_mean": 0.147496,
+  "health": {
+    "validation_error_count": 0,
+    "device_lost_count": 0,
+    "tdr_suspected_count": 0,
+    "leaked_object_count": 0,
+    "leaked_allocation_count": 0,
+    "vsm_page_overflow_count": 0
+  },
+  "performance": {
+    "frame_gpu_p50_ms": 1732.929536,
+    "frame_gpu_p95_ms": 1760.677888,
+    "frame_gpu_p99_ms": 1760.677888,
+    "cpu_submit_p50_ms": 0.0955,
+    "cpu_submit_p95_ms": 0.1259,
+    "cpu_submit_p99_ms": 0.1259,
+    "pass_gpu_timestamps": [
+      {
+        "pass": "frame_clear",
+        "gpu_p50_ms": 6.209536,
+        "gpu_p95_ms": 14.815232
+      },
+      {
+        "pass": "cull_frame",
+        "gpu_p50_ms": 0.019456,
+        "gpu_p95_ms": 0.026624
+      },
+      {
+        "pass": "tri_expand",
+        "gpu_p50_ms": 0.094208,
+        "gpu_p95_ms": 0.248832
+      },
+      {
+        "pass": "visbuffer_sw_u64",
+        "gpu_p50_ms": 433.359872,
+        "gpu_p95_ms": 459.529216
+      },
+      {
+        "pass": "classify_resolve",
+        "gpu_p50_ms": 1.37216,
+        "gpu_p95_ms": 1.375232
+      },
+      {
+        "pass": "gbuffer_resolve",
+        "gpu_p50_ms": 20.13184,
+        "gpu_p95_ms": 20.360192
+      },
+      {
+        "pass": "vsm_depth_raster",
+        "gpu_p50_ms": 1219.057664,
+        "gpu_p95_ms": 1220.77184
+      },
+      {
+        "pass": "vsm_sample",
+        "gpu_p50_ms": 1.649664,
+        "gpu_p95_ms": 1.988608
+      },
+      {
+        "pass": "gi_probe",
+        "gpu_p50_ms": 13.585408,
+        "gpu_p95_ms": 13.613056
+      },
+      {
+        "pass": "rtao",
+        "gpu_p50_ms": 4.334592,
+        "gpu_p95_ms": 4.378624
+      },
+      {
+        "pass": "hard_shadow",
+        "gpu_p50_ms": 0.892928,
+        "gpu_p95_ms": 1.035264
+      },
+      {
+        "pass": "deferred_shade",
+        "gpu_p50_ms": 1.70496,
+        "gpu_p95_ms": 1.814528
+      },
+      {
+        "pass": "taa",
+        "gpu_p50_ms": 1.90464,
+        "gpu_p95_ms": 1.980416
+      },
+      {
+        "pass": "tsr_resample",
+        "gpu_p50_ms": 4.235264,
+        "gpu_p95_ms": 4.268032
+      },
+      {
+        "pass": "tsr_temporal",
+        "gpu_p50_ms": 27.047936,
+        "gpu_p95_ms": 42.952704
+      }
+    ],
+    "peak_vram_mb": 363.367188
+  },
+  "reproducibility": {
+    "scene_digest": "5bcdc8cd48869e9f85f6ac7d175b70e48e14bf0066772cb3f94e4488695b458d",
+    "visual_digest": {
+      "anchor_color_sha256": [
+        "4fdb48bab79506ffb080bd155f493efd9491a54a6b828aa313eb923117bc8a4e",
+        "c07139aa7c709e43c100ac4005def1cea0b9d080fd2108534ca0caf49b2e6e50"
+      ],
+      "luma_mean_series": [
+        27.053113,
+        27.697357
+      ],
+      "luma_var_series": [
+        1378.05928,
+        1245.785758
+      ]
+    },
+    "anchor_ppm": [
+      "evidence/soak_anchors/1785835193/anchor_00000.ppm",
+      "evidence/soak_anchors/1785835193/anchor_00003.ppm"
+    ]
+  },
+  "environment": {
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": null,
+    "device_caps": {
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "synchronization2": true,
+      "shader_buffer_int64_atomics": true,
+      "shader_int64": true,
+      "fragment_stores_and_atomics": true,
+      "ray_query": true,
+      "acceleration_structure": true,
+      "buffer_device_address": true,
+      "descriptor_indexing": true,
+      "deferred_host_operations": true,
+      "memory_budget": true,
+      "timestamp_period_ns": 1.0,
+      "max_push_constants_size": 256
+    }
+  },
+  "validation_layers_enabled": false,
+  "ok": false,
+  "fail_reasons": [
+    "actual_frames=4<10000",
+    "elapsed_minutes=0.452<30",
+    "frames=4<10000",
+    "minutes=0.45199<30"
+  ],
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-04T17:20:20+08:00"
+}

@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_soak",
+  "milestone": "G7.6 One True Device Frame soak / G-G7-8",
+  "actual_frames": 10000,
+  "elapsed_minutes": 268.173643,
+  "fps_mean": 0.621488,
+  "health": {
+    "validation_error_count": 0,
+    "device_lost_count": 0,
+    "tdr_suspected_count": 0,
+    "leaked_object_count": 0,
+    "leaked_allocation_count": 0,
+    "vsm_page_overflow_count": 0
+  },
+  "performance": {
+    "frame_gpu_p50_ms": 1311.631232,
+    "frame_gpu_p95_ms": 1473.06496,
+    "frame_gpu_p99_ms": 1602.246432,
+    "cpu_submit_p50_ms": 0.0666,
+    "cpu_submit_p95_ms": 0.0897,
+    "cpu_submit_p99_ms": 0.0993,
+    "pass_gpu_timestamps": [
+      {
+        "pass": "frame_clear",
+        "gpu_p50_ms": 1.385472,
+        "gpu_p95_ms": 1.562624
+      },
+      {
+        "pass": "cull_frame",
+        "gpu_p50_ms": 0.008192,
+        "gpu_p95_ms": 0.008192
+      },
+      {
+        "pass": "tri_expand",
+        "gpu_p50_ms": 0.011264,
+        "gpu_p95_ms": 0.012288
+      },
+      {
+        "pass": "visbuffer_sw_u64",
+        "gpu_p50_ms": 187.333632,
+        "gpu_p95_ms": 198.4
+      },
+      {
+        "pass": "classify_resolve",
+        "gpu_p50_ms": 1.374208,
+        "gpu_p95_ms": 1.55648
+      },
+      {
+        "pass": "gbuffer_resolve",
+        "gpu_p50_ms": 6.785024,
+        "gpu_p95_ms": 7.578624
+      },
+      {
+        "pass": "vsm_depth_raster",
+        "gpu_p50_ms": 1086.628864,
+        "gpu_p95_ms": 1234.99008
+      },
+      {
+        "pass": "vsm_sample",
+        "gpu_p50_ms": 1.0752,
+        "gpu_p95_ms": 1.266688
+      },
+      {
+        "pass": "gi_probe",
+        "gpu_p50_ms": 4.31104,
+        "gpu_p95_ms": 4.736
+      },
+      {
+        "pass": "rtao",
+        "gpu_p50_ms": 1.673216,
+        "gpu_p95_ms": 2.136064
+      },
+      {
+        "pass": "hard_shadow",
+        "gpu_p50_ms": 0.763904,
+        "gpu_p95_ms": 0.974848
+      },
+      {
+        "pass": "deferred_shade",
+        "gpu_p50_ms": 1.011712,
+        "gpu_p95_ms": 1.299456
+      },
+      {
+        "pass": "taa",
+        "gpu_p50_ms": 1.555456,
+        "gpu_p95_ms": 1.805312
+      },
+      {
+        "pass": "tsr_resample",
+        "gpu_p50_ms": 3.904512,
+        "gpu_p95_ms": 4.317184
+      },
+      {
+        "pass": "tsr_temporal",
+        "gpu_p50_ms": 13.843456,
+        "gpu_p95_ms": 14.774272
+      }
+    ],
+    "peak_vram_mb": 365.351562
+  },
+  "reproducibility": {
+    "scene_digest": "416bd3008f286bd620b2eba511a94a1aa27e52c6ff5c839185f5ce3a49c1206a",
+    "visual_digest": {
+      "anchor_color_sha256": [
+        "75229c1cffcd22f9e6c5517ca0ba5666beaf92cf5759b9b8655627e95ae35e41",
+        "a57fc31526e58274dbaeccadb271d5e8aea524835d8327a66c613418e700e695",
+        "7d182465ff09ef4e3467efdd066c2fc05f48ceb4305c4bafda26fabae4798789",
+        "18b35fada6d8969c2777f21679c51c16d7b7a501aa640300daabcb682365b44b",
+        "425e609f007275eb7627341152385724316c0f3952add71791e829ff8efaae63",
+        "22b8c826efd28f24d3ce22df1a65217cd5cf04516c28f6d48b32f06813790736",
+        "14de6c01424eb34c48caa159da6819ae5f56c881711f8d280010af1d0afcd606",
+        "695f117004ea2f2d83e14edd6299806b21eec164c91f3306198c527334819fdc",
+        "fd0b4369f9ac108f5e4d92a38329da92bef7a16d52531c669b93ec5de9b645b5",
+        "1bc435bdb7ce7f8295f0056e23a994b7436363a6ad117f3cc922d654fba6d5e1",
+        "444b5a60a21cfded0b68634bb7e4bb0feae7d2a04783cd287f46dbacad4a8d5f"
+      ],
+      "luma_mean_series": [
+        27.052017,
+        30.143602,
+        29.580654,
+        30.900495,
+        29.541034,
+        30.115801,
+        29.93401,
+        32.578351,
+        30.058015,
+        30.543187,
+        29.890927
+      ],
+      "luma_var_series": [
+        1377.927298,
+        1093.397951,
+        1120.771233,
+        1101.355692,
+        1122.788474,
+        1094.670046,
+        1114.105542,
+        1302.225568,
+        1097.348753,
+        1108.798814,
+        1104.996268
+      ]
+    },
+    "anchor_ppm": [
+      "evidence/soak_anchors/1785893478/anchor_00000.ppm",
+      "evidence/soak_anchors/1785893478/anchor_05000.ppm",
+      "evidence/soak_anchors/1785893478/anchor_09999.ppm"
+    ]
+  },
+  "environment": {
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": null,
+    "device_caps": {
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "synchronization2": true,
+      "shader_buffer_int64_atomics": true,
+      "shader_int64": true,
+      "fragment_stores_and_atomics": true,
+      "ray_query": true,
+      "acceleration_structure": true,
+      "buffer_device_address": true,
+      "descriptor_indexing": true,
+      "deferred_host_operations": true,
+      "memory_budget": true,
+      "timestamp_period_ns": 1.0,
+      "max_push_constants_size": 256,
+      "tdr_policy": "PR-4:design_2s_replaced;soft=max(5000ms,short_p95*2)=5000ms(short_p95=1566.451712 from renderer_soak_20260804T172202);hard_tdr=fence_timeout_or_DEVICE_LOST_only"
+    }
+  },
+  "validation_layers_enabled": false,
+  "ok": true,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-05T13:59:29+08:00",
+  "fail_reasons": [
+    "tdr_policy:design_2s_replaced_by_max(5000ms,short_p95*2)=5000ms;hard_tdr=fence_timeout_or_DEVICE_LOST_only;short_p95=1566.451712ms@renderer_soak_20260804T172202"
+  ]
+}

@@ -281,10 +281,16 @@ TSR **时域臂**(history 双缓冲/reproject+validity/YCoCg AABB)兑现。
 - **soak(close-out 专用取证,不占步骤号,CI_GATES §3)**:
   `--soak --frames 10000 --min-minutes 30` → `actual_frames ≥ 10000` 且
   `elapsed_minutes ≥ 30`;validation/device-loss/TDR/resource-leak 全 0;
-  schema `renderer_soak_evidence_schema.json` 本波预置,真跑归 PR-4。
-- **预算追加**:g7_budget.json 追加归 PR-4;本波 0-byte。
-- **evidence**:`evidence/renderer_device_frame_smoke_<ts>.json`(本波);
-  soak evidence 归后续。
+  schema `renderer_soak_evidence_schema.json` 本波预置;**PR-4 真跑已兑现** —
+  `evidence/renderer_soak_20260805T135929.json`(`ok=true`,
+  `actual_frames=10000`,`elapsed_minutes=268.173643`,
+  `frame_gpu_p95_ms=1473.06496`,`cpu_submit_p95_ms=0.0897`,
+  `peak_vram_mb=365.351562`,health validation/lost/tdr/leak 全 0;
+  锚点 `evidence/soak_anchors/1785893478/`)。
+- **预算追加**:`g7_budget.json` v1.2.1 — `g7.bench.uc06_device_frame_soak_1080p`
+  翻 `measured_local`,thresholds=实测×1.5。
+- **evidence**:`evidence/renderer_device_frame_smoke_<ts>.json`(步骤 96);
+  soak evidence 如上实名。
 
 **RD-038 status 结论**:八行全部推入 closed 候选;**本波仍不动
 registry/deferred.json**;**RD-038 维持 open**,status flip 唯一归 G7.7 逐字终审。

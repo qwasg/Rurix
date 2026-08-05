@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_soak",
+  "milestone": "G7.6 One True Device Frame soak / G-G7-8",
+  "actual_frames": 3,
+  "elapsed_minutes": 0.075172,
+  "fps_mean": 0.665142,
+  "health": {
+    "validation_error_count": 0,
+    "device_lost_count": 0,
+    "tdr_suspected_count": 0,
+    "leaked_object_count": 0,
+    "leaked_allocation_count": 0,
+    "vsm_page_overflow_count": 0
+  },
+  "performance": {
+    "frame_gpu_p50_ms": 1424.787456,
+    "frame_gpu_p95_ms": 1425.705984,
+    "frame_gpu_p99_ms": 1425.705984,
+    "cpu_submit_p50_ms": 0.0736,
+    "cpu_submit_p95_ms": 0.083,
+    "cpu_submit_p99_ms": 0.083,
+    "pass_gpu_timestamps": [
+      {
+        "pass": "frame_clear",
+        "gpu_p50_ms": 1.379328,
+        "gpu_p95_ms": 1.59232
+      },
+      {
+        "pass": "cull_frame",
+        "gpu_p50_ms": 0.006144,
+        "gpu_p95_ms": 0.006144
+      },
+      {
+        "pass": "tri_expand",
+        "gpu_p50_ms": 0.197632,
+        "gpu_p95_ms": 0.422912
+      },
+      {
+        "pass": "visbuffer_sw_u64",
+        "gpu_p50_ms": 192.840704,
+        "gpu_p95_ms": 201.647104
+      },
+      {
+        "pass": "classify_resolve",
+        "gpu_p50_ms": 1.349632,
+        "gpu_p95_ms": 1.349632
+      },
+      {
+        "pass": "gbuffer_resolve",
+        "gpu_p50_ms": 16.130048,
+        "gpu_p95_ms": 16.876544
+      },
+      {
+        "pass": "vsm_depth_raster",
+        "gpu_p50_ms": 1159.550976,
+        "gpu_p95_ms": 1159.867392
+      },
+      {
+        "pass": "vsm_sample",
+        "gpu_p50_ms": 1.49504,
+        "gpu_p95_ms": 1.504256
+      },
+      {
+        "pass": "gi_probe",
+        "gpu_p50_ms": 13.32736,
+        "gpu_p95_ms": 13.433856
+      },
+      {
+        "pass": "rtao",
+        "gpu_p50_ms": 3.997696,
+        "gpu_p95_ms": 4.059136
+      },
+      {
+        "pass": "hard_shadow",
+        "gpu_p50_ms": 0.900096,
+        "gpu_p95_ms": 1.086464
+      },
+      {
+        "pass": "deferred_shade",
+        "gpu_p50_ms": 1.570816,
+        "gpu_p95_ms": 1.613824
+      },
+      {
+        "pass": "taa",
+        "gpu_p50_ms": 1.99168,
+        "gpu_p95_ms": 2.0992
+      },
+      {
+        "pass": "tsr_resample",
+        "gpu_p50_ms": 3.90656,
+        "gpu_p95_ms": 4.204544
+      },
+      {
+        "pass": "tsr_temporal",
+        "gpu_p50_ms": 27.201536,
+        "gpu_p95_ms": 43.29472
+      }
+    ],
+    "peak_vram_mb": 363.351562
+  },
+  "reproducibility": {
+    "scene_digest": "ac9d266b769175dec28c345ee291ec2f0a8171f189229bd4a0d12c825a51a5c1",
+    "visual_digest": {
+      "anchor_color_sha256": [
+        "f81c62ae8b5459453abfedc5eecdf382b47a38c6656c687df2d10179a906e372",
+        "a9e68664259b2f614feb500040b1b8b193059b82190ea882bec837b25e02aef4"
+      ],
+      "luma_mean_series": [
+        27.049872,
+        28.375705
+      ],
+      "luma_var_series": [
+        1377.888109,
+        1316.386962
+      ]
+    },
+    "anchor_ppm": [
+      "evidence/soak_anchors/1785841337/anchor_00000.ppm",
+      "evidence/soak_anchors/1785841337/anchor_00002.ppm"
+    ]
+  },
+  "environment": {
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": null,
+    "device_caps": {
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "synchronization2": true,
+      "shader_buffer_int64_atomics": true,
+      "shader_int64": true,
+      "fragment_stores_and_atomics": true,
+      "ray_query": true,
+      "acceleration_structure": true,
+      "buffer_device_address": true,
+      "descriptor_indexing": true,
+      "deferred_host_operations": true,
+      "memory_budget": true,
+      "timestamp_period_ns": 1.0,
+      "max_push_constants_size": 256,
+      "tdr_policy": "PR-4:design_2s_replaced;soft=max(5000ms,short_p95*2)=5000ms(short_p95=1566.451712 from renderer_soak_20260804T172202);hard_tdr=fence_timeout_or_DEVICE_LOST_only"
+    }
+  },
+  "validation_layers_enabled": false,
+  "ok": false,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-04T19:02:22+08:00",
+  "fail_reasons": [
+    "actual_frames=3<10000",
+    "elapsed_minutes=0.075<30",
+    "tdr_policy:design_2s_replaced_by_max(5000ms,short_p95*2)=5000ms;hard_tdr=fence_timeout_or_DEVICE_LOST_only;short_p95=1566.451712ms@renderer_soak_20260804T172202",
+    "frames=3<10000",
+    "minutes=0.075172<30"
+  ]
+}

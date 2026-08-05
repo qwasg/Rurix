@@ -83,6 +83,49 @@ def eval_lsp_latency(entry: dict) -> None:
             err(f"{eid}.{name}: FAIL — {value:.3f} 违反 {direction} {thr}")
 
 
+def eval_device_frame_soak(entry: dict) -> None:
+    """G7.6 soak 多阈值(设计案 §7):frame_gpu_p95 / cpu_submit_p95 / peak_vram。
+
+    证据 performance.{frame_gpu_p95_ms,cpu_submit_p95_ms,peak_vram_mb} 逐一对
+    entry.thresholds[name] 校验(direction=max,阈值=实测×1.5)。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    if doc.get("ok") is not True:
+        err(f"{eid}: soak evidence ok 非 true(不可作达标依据)")
+        return
+    perf = doc.get("performance", {})
+    thresholds = entry.get("thresholds")
+    if not thresholds:
+        err(f"{eid}: measured_local 缺 thresholds(frame_gpu_p95_ms/cpu_submit_p95_ms/peak_vram_mb)")
+        return
+    direction = entry.get("direction", "max")
+    key_map = {
+        "frame_gpu_p95_ms": ("frame_gpu_p95_ms", "ms"),
+        "cpu_submit_p95_ms": ("cpu_submit_p95_ms", "ms"),
+        "peak_vram_mb": ("peak_vram_mb", "MB"),
+    }
+    for name, thr in thresholds.items():
+        mapped = key_map.get(name)
+        if not mapped:
+            err(f"{eid}.{name}: 未知 threshold 键")
+            continue
+        field, unit = mapped
+        if field not in perf:
+            err(f"{eid}.{name}: evidence performance 缺 {field}")
+            continue
+        value = perf[field]
+        ok = value <= thr if direction == "max" else value >= thr
+        if ok:
+            PASSES.append(f"{eid}.{name}: PASS — {value:.3f} {unit} vs {direction} {thr}")
+        else:
+            err(f"{eid}.{name}: FAIL — {value:.3f} 违反 {direction} {thr}")
+
+
 def eval_cold_start(entry: dict) -> None:
     """EA1 冷启动两段式(契约 G-EA1-6/G-EA1-8;RXS-0219,裁决 C):evidence 为
     install_e2e 档(segment/pass/duration_s 字段面),非 BENCH_PROTOCOL results 形
@@ -128,6 +171,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if eid == "m6.bench.lsp_interaction_latency_ms":
         eval_lsp_latency(entry)
+        return
+    if eid == "g7.bench.uc06_device_frame_soak_1080p":
+        eval_device_frame_soak(entry)
         return
     if eid.startswith("ea1.bench.cold_start_"):
         eval_cold_start(entry)
@@ -840,6 +886,50 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-06 device 像素对拍 + validation clean 见证",
                       "G7.1 baseline device 见证回填前为正常状态,契约 G-G7-3", strict)
+    elif eid == "g7.counter.uc06_device_frame_chain":
+        # G7.6 步骤 96:device 段全绿 + RED 四轴全红反证(设计案 §7)。
+        n = 0
+        for f in (ROOT / "evidence").glob("renderer_device_frame_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("device_pass") is not True:
+                continue
+            red = doc.get("device_red") or {}
+            if all(red.get(k) is True for k in ("visbuffer", "history", "jitter", "provenance")):
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 device-frame 帧链 + RED 四轴见证",
+            "G7.6 步骤 96 device 见证回填前为正常状态,契约 G-G7-8",
+            strict,
+        )
+    elif eid == "g7.counter.uc06_soak_passed":
+        # G7.6 soak:validation/lost/tdr/leak 全 0 + frames≥10000 + elapsed≥30(设计案 §5/§7)。
+        n = 0
+        for f in (ROOT / "evidence").glob("renderer_soak_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("ok") is not True:
+                continue
+            health = doc.get("health") or {}
+            if (
+                health.get("validation_error_count", 1) == 0
+                and health.get("device_lost_count", 1) == 0
+                and health.get("tdr_suspected_count", 1) == 0
+                and health.get("leaked_object_count", 1) == 0
+                and health.get("leaked_allocation_count", 1) == 0
+                and int(doc.get("actual_frames", 0)) >= 10000
+                and float(doc.get("elapsed_minutes", 0)) >= 30.0
+            ):
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 soak PASS 见证(≥10000 帧且 ≥30 分钟)",
+            "G7.6 soak 取证回填前为正常状态,契约 G-G7-8",
+            strict,
+        )
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "namespace": "g7",
-  "description": "G7 Production Frame Closure 预算。G7.0 脚手架阶段三组为空，表示尚未建立目标 GPU baseline，不构成性能通过；此空态只允许存活至 G-G7-3。G7.1 必须在首个语义实现 PR 前根据 RTX 4070 Ti 代表性 1080p 场景的真实输出追加至少一项 measured_local 性能 entry 与一项 correctness counter，并与 ci/budget_eval.py evaluator 同 PR 落。严禁 estimated、严禁预造阈值、严禁以空数组通过 G-G7-9。候选度量族仅作计划提示而非已登记 id：frame GPU p95、CPU submit p95、peak VRAM、pipeline stall、device pass count、validation errors、soak frames。",
+  "description": "G7 Production Frame Closure 预算。G7.0 脚手架阶段三组为空，表示尚未建立目标 GPU baseline，不构成性能通过；此空态只允许存活至 G-G7-3。G7.1 必须在首个语义实现 PR 前根据 RTX 4070 Ti 代表性 1080p 场景的真实输出追加至少一项 measured_local 性能 entry 与一项 correctness counter，并与 ci/budget_eval.py evaluator 同 PR 落。严禁 estimated、严禁预造阈值、严禁以空数组通过 G-G7-9。候选度量族仅作计划提示而非已登记 id：frame GPU p95、CPU submit p95、peak VRAM、pipeline stall、device pass count、validation errors、soak frames。G7.6 PR-4:soak 多阈值 entry 已由完整 soak ok:true evidence 回填为 measured_local(thresholds=实测×1.5),counters 已挂接 evaluator。",
   "source_docs": [
     "milestones/g7/G7_CONTRACT.md",
     "milestones/g7/G7_PLAN.md",
@@ -19,6 +19,26 @@
       "threshold": 1425.578,
       "evidence_file": "evidence/g7_perf_baseline_20260801T105318Z.json",
       "measured_value": 950.3853
+    },
+    {
+      "id": "g7.bench.uc06_device_frame_soak_1080p",
+      "description": "G7.6 One True Device Frame soak 多阈值(设计案 §7;契约 G-G7-8/G-G7-9)。keys = frame_gpu_p95_ms / cpu_submit_p95_ms / peak_vram_mb;evaluator = ci/budget_eval.py eval_device_frame_soak(抄 m6.bench.lsp_interaction_latency_ms 多阈值先例)。阈值纪律 = 完整 soak evidence(ok:true, actual_frames≥10000 且 elapsed_minutes≥30) performance 实测 ×1.5。短跑/失败 soak(ok:false)不得作达标依据、不得预造阈值。本条 measured_local 锚 = evidence/renderer_soak_20260805T135929.json(10000帧/268.173643min,health 全 0)。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 2209.59744,
+      "thresholds": {
+        "frame_gpu_p95_ms": 2209.59744,
+        "cpu_submit_p95_ms": 0.13455,
+        "peak_vram_mb": 548.027343
+      },
+      "evidence_file": "evidence/renderer_soak_20260805T135929.json",
+      "measured": {
+        "frame_gpu_p95_ms": 1473.06496,
+        "cpu_submit_p95_ms": 0.0897,
+        "peak_vram_mb": 365.351562
+      }
     }
   ],
   "ratio_assertions": [],
@@ -27,6 +47,20 @@
       "id": "g7.counter.uc06_device_pixel_parity",
       "description": "UC-06 device 腿像素对拍 + validation clean 见证数 >=1(契约 G-G7-3;G7.1 baseline 非空化,CI_GATES §5)。计数源 = evidence/g7_perf_baseline_*.json 中 correctness.device_pixel_parity_pass=true 且 correctness.validation_clean=true 的报告数(机器事实:RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 下 uc06-renderer --features vulkan --device 真跑 exit 0,RTX 4070 Ti 上 wave_w1/wave_w2/cull/visbuffer/classify_resolve/vsm_page_mark/taa 七项对拍全 true + triangle_pixels=4096 + compute_write/mixed_pass=true + validation layer 开启在位;ci/uc06_renderer_smoke.py 步骤 87 device 段同款命令)。device evidence 计数(非静态语料计数):须有 Vulkan 驱动 + GPU 才能成立,缺 provisioning 不产本证据 -> 0 -> 建设期 normal SKIP / close-out strict FAIL,对齐 g5.counter.render_exec_device_tests 先例。",
       "evidence_file": "evidence/g7_perf_baseline_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
+      "id": "g7.counter.uc06_device_frame_chain",
+      "description": "G7.6 步骤 96 device 帧链见证数 ≥1(设计案 §7;契约 G-G7-8)。计数源 = evidence/renderer_device_frame_smoke_*.json 中 device_pass=true 且 device_red.{visbuffer,history,jitter,provenance} 四轴全 true(正轴全绿 + RED 四轴反证成立)。建设期无见证 → 0 → normal SKIP / close-out strict FAIL。",
+      "evidence_file": "evidence/renderer_device_frame_smoke_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
+      "id": "g7.counter.uc06_soak_passed",
+      "description": "G7.6 soak PASS 见证数 ≥1(设计案 §5/§7;契约 G-G7-8)。计数源 = evidence/renderer_soak_*.json 中 ok=true 且 health(validation/lost/tdr/leak objects+allocs)全 0 且 actual_frames≥10000 且 elapsed_minutes≥30。短跑/失败 soak(ok:false)不计。建设期无完整 soak → 0 → normal SKIP / close-out strict FAIL。",
+      "evidence_file": "evidence/renderer_soak_*.json",
       "direction": "min",
       "threshold": 1
     }
@@ -42,6 +76,16 @@
       "version": "v1.1",
       "date": "2026-08-01",
       "change": "G7.1 baseline 实测非空化(G-G7-3 兑现,首个语义实现 PR 前):entries 追加 g7.bench.uc06_host_frame_cpu_ms_1080p(measured_local,实测 950.3853 ms = UC-06 host 软件参照管线 1080p 末帧 12 阶段 CPU 合计,release 三 trial trimmed_mean,阈值 x1.5 = 1425.578 ms,evidence/g7_perf_baseline_20260801T105318Z.json 经 milestones/g7/g7_perf_baseline_evidence_schema.json 校验、ci/check_schemas.py 前缀路由 g7_perf_baseline_ 纯追加);counter_assertions 追加 g7.counter.uc06_device_pixel_parity(>=1,同 evidence 族 correctness.device_pixel_parity_pass+validation_clean 双真计数,ci/budget_eval.py eval_counter 新分支同 PR 落;m0~g6 既有判定 0 改动)。零 estimated,阈值只来自本次 baseline 命令真实输出。诚实边界:RD-038 存续,1080p GPU 帧耗时度量面待 G7.2+ 步骤 96,本条为 host CPU 软件管线口径锚点。"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-08-04",
+      "change": "G7.6 PR-4 预算结构就绪(设计案 §7):entries 追加 g7.bench.uc06_device_frame_soak_1080p(多阈值 keys=frame_gpu_p95_ms/cpu_submit_p95_ms/peak_vram_mb;ci/budget_eval.py eval_device_frame_soak 已挂接);counter_assertions 追加 g7.counter.uc06_device_frame_chain(glob renderer_device_frame_smoke_*.json,device_pass+RED 四轴)与 g7.counter.uc06_soak_passed(glob renderer_soak_*.json,ok:true+健康/规模双下界)。**阈值待 soak 回填**:soak bench 本版暂 estimated(skip_reason 字面),完整 soak ok:true evidence 产出后由主 agent 翻 measured_local、填 thresholds/measured=实测×1.5、登记 evidence_file;禁止以短跑/失败 soak 伪造阈值。既有 g7.bench.uc06_host_frame_cpu_ms_1080p / g7.counter.uc06_device_pixel_parity 0-byte。"
+    },
+    {
+      "version": "v1.2.1",
+      "date": "2026-08-05",
+      "change": "G7.6 PR-4 soak 阈值回填:g7.bench.uc06_device_frame_soak_1080p estimated→measured_local;skip_reason=null;evidence_file=evidence/renderer_soak_20260805T135929.json(ok:true,actual_frames=10000,elapsed_minutes=268.173643,health validation/lost/tdr/leak 全 0)。measured={frame_gpu_p95_ms:1473.06496,cpu_submit_p95_ms:0.0897,peak_vram_mb:365.351562};thresholds=实测×1.5={2209.59744,0.13455,548.027343};标量 threshold=最坏项 frame_gpu_p95 上界 2209.59744(对齐 m6.bench.lsp_interaction_latency_ms 多阈值先例)。失败短跑 soak evidence 四份只增不删。既有 host baseline entry / counters 0-byte。"
     }
   ]
 }

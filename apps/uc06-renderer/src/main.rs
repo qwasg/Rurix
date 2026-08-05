@@ -17,6 +17,8 @@
 
 #[cfg(feature = "device-frame")]
 mod device_frame;
+#[cfg(feature = "device-frame")]
+mod tiny_sha256;
 #[cfg(feature = "vulkan")]
 mod device_frame_temporal;
 #[cfg(feature = "vulkan")]
@@ -383,6 +385,24 @@ fn run_device_frame_mode(cli: &Cli) -> i32 {
             return 0;
         }
         eprintln!("FRAME: FAIL RED 轴未触发({})", r.red_axis.unwrap_or("?"));
+        return 1;
+    }
+    if let Some(soak) = &r.soak_telemetry {
+        if soak.ok {
+            println!(
+                "FRAME: SOAK-PASS frames={} minutes={:.2} gpu_p95={:.3}ms cpu_p95={:.3}ms vram={:.1}MB",
+                soak.actual_frames,
+                soak.elapsed_minutes,
+                soak.frame_gpu_p95_ms,
+                soak.cpu_submit_p95_ms,
+                soak.peak_vram_mb,
+            );
+            return 0;
+        }
+        eprintln!(
+            "FRAME: SOAK-FAIL frames={} minutes={:.2} reasons={:?}",
+            soak.actual_frames, soak.elapsed_minutes, soak.fail_reasons
+        );
         return 1;
     }
     if !r.all_pass() {

@@ -16,12 +16,12 @@ host 段(**恒跑**,需 Vulkan SDK 的 `spirv-val`/`spirv-dis`;缺工具 → SKI
      唯一入口 `execute_with_frame_update`;15 pass 名与关键边表字面在位。
 
 device 段(**gate real**,`RURIX_REQUIRE_REAL=1` + `RURIX_VK_VALIDATION=1`;门 G-G7-8):
-  7. `uc06-renderer --features device-frame --device-frame --frames 8 --json`
+  7. `uc06-renderer --release --features device-frame --device-frame --frames 8 --json`
      正轴:阶段转移对拍 + 非退化 + provenance + telemetry。
-  8. RED 四轴(独立进程):`--frame-red-visbuffer` / `--frame-red-history` /
+  8. RED 四轴(独立进程,同 release):`--frame-red-visbuffer` / `--frame-red-history` /
      `--frame-red-jitter` / `--frame-red-provenance` → 期望 `FRAME: RED-OK`。
 
-soak(`--soak`,不进 PR workflow):转发 CLI 取证,真跑归 PR-4;本脚本默认短跑 8 帧。
+soak(`--soak`,不进 PR workflow):release 转发 CLI 取证(stdout 实时泵出),真跑归 PR-4;本脚本默认短跑 8 帧。
 
 证据 → `evidence/renderer_device_frame_smoke_<ts>.json`。
 """
@@ -35,6 +35,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -531,24 +532,26 @@ def static_provenance_audit(results: dict) -> bool:
 
 
 def device_section(results: dict, frames: int) -> int:
+    # 短跑与 soak 同走 release:debug 帧耗时量级不可用,且与后台 soak 共用
+    # target/release 产物避免并行 cargo 锁死/重复编译(设计案 §4/§5)。
     code, o, e = run(
         [
-            "cargo", "build", "-p", "uc06-renderer", "--features", "device-frame",
-            "--bin", "uc06-renderer", "--quiet",
+            "cargo", "build", "-p", "uc06-renderer", "--release",
+            "--features", "device-frame", "--bin", "uc06-renderer", "--quiet",
         ],
         timeout=7200,
     )
     if code != 0:
         print((o + e)[-3000:], file=sys.stderr)
         results["device_pass"] = False
-        return fail("[device] cargo build uc06-renderer --features device-frame 失败")
+        return fail("[device] cargo build uc06-renderer --release --features device-frame 失败")
 
     env = dict(os.environ, RURIX_VK_VALIDATION="1")
     results["validation_enabled"] = True
     code, out, err = run(
         [
-            "cargo", "run", "-q", "-p", "uc06-renderer", "--features", "device-frame",
-            "--bin", "uc06-renderer", "--",
+            "cargo", "run", "-q", "-p", "uc06-renderer", "--release",
+            "--features", "device-frame", "--bin", "uc06-renderer", "--",
             "--device-frame", "--frames", str(frames), "--json",
         ],
         env=env,
@@ -711,7 +714,7 @@ def device_section(results: dict, frames: int) -> int:
     for key, flag, red_frames in red_flags:
         rc, o2, e2 = run(
             [
-                "cargo", "run", "-q", "-p", "uc06-renderer",
+                "cargo", "run", "-q", "-p", "uc06-renderer", "--release",
                 "--features", "device-frame", "--bin", "uc06-renderer", "--",
                 flag, "--frames", str(red_frames), "--json",
             ],
@@ -808,13 +811,70 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
     print(f"[{TAG}] 写 evidence {ev.relative_to(ROOT)}; run_url={doc['run_url']}")
 
 
+def run_soak_streaming(cmd: list[str], env: dict, timeout: int) -> tuple[int, str, str]:
+    """soak 实时转发 stdout/stderr(供 Tee-Object / soak_run.log),同时收集供 JSON 解析。
+
+    不可用 capture_output=True:整段 soak(≥30min)期间父壳 Tee 收不到任何字节,
+    `.tmp/soak_run.log` 会一直不出现/为空,进度行也被吞掉。
+    """
+    # 强制子进程行缓冲,避免 cargo/CRT 块缓冲导致进度延迟。
+    env = dict(env)
+    env.setdefault("PYTHONUNBUFFERED", "1")
+    env.setdefault("RUST_LOG_STYLE", "always")
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(ROOT),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    out_chunks: list[str] = []
+    err_chunks: list[str] = []
+    assert proc.stdout is not None and proc.stderr is not None
+
+    def _pump(stream, sink: list[str], dest) -> None:
+        for line in stream:
+            sink.append(line)
+            dest.write(line)
+            dest.flush()
+
+    t_out = threading.Thread(
+        target=_pump, args=(proc.stdout, out_chunks, sys.stdout), daemon=True
+    )
+    t_err = threading.Thread(
+        target=_pump, args=(proc.stderr, err_chunks, sys.stderr), daemon=True
+    )
+    t_out.start()
+    t_err.start()
+    try:
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        t_out.join(timeout=5)
+        t_err.join(timeout=5)
+        raise
+    t_out.join(timeout=30)
+    t_err.join(timeout=30)
+    return code, "".join(out_chunks), "".join(err_chunks)
+
+
 def run_soak_forward(frames: int, min_minutes: float) -> int:
-    """人工 soak 转发(不进 PR workflow);真跑归 PR-4。"""
+    """人工 soak 转发 + evidence 落盘(不进 PR workflow;设计案 §5)。"""
     env = dict(os.environ)
     env.pop("RURIX_VK_VALIDATION", None)  # soak 关闭验证层
-    code, o, e = run(
+    env["RURIX_REQUIRE_REAL"] = "1"
+    env["RURIX_SOAK"] = "1"  # 放行 REQUIRE_REAL 而无 validation(设计案 §5)
+    # 双下界:分钟下界 + 帧数×3s 余量(本机 release soak ~1.5s/帧实测)。
+    timeout = max(int(min_minutes * 60) + 3600, int(frames) * 3 + 3600, 7200)
+    code, o, e = run_soak_streaming(
         [
-            "cargo", "run", "-q", "-p", "uc06-renderer", "--features", "device-frame",
+            "cargo", "run", "-q", "-p", "uc06-renderer",
+            "--release", "--features", "device-frame",
             "--bin", "uc06-renderer", "--",
             "--device-frame", "--soak",
             "--frames", str(frames),
@@ -822,11 +882,194 @@ def run_soak_forward(frames: int, min_minutes: float) -> int:
             "--json",
         ],
         env=env,
-        timeout=max(int(min_minutes * 60) + 3600, 7200),
+        timeout=timeout,
     )
-    sys.stdout.write(o)
-    sys.stderr.write(e)
-    return code
+
+    doc_cli = None
+    for line in o.splitlines():
+        line = line.strip()
+        if line.startswith("{") and '"subject":"uc06_device_frame"' in line.replace(" ", ""):
+            try:
+                doc_cli = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+        elif line.startswith("{") and "uc06_device_frame" in line:
+            try:
+                doc_cli = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+    ts = _dt.datetime.now().astimezone().replace(microsecond=0)
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    fail_reasons: list[str] = []
+    soak = (doc_cli or {}).get("soak_telemetry") if doc_cli else None
+
+    if doc_cli is None:
+        fail_reasons.append("cli_json_missing")
+    if soak is None:
+        fail_reasons.append("soak_telemetry_missing")
+        soak = {}
+
+    health = {
+        "validation_error_count": int(
+            soak.get("validation_error_count", doc_cli.get("validation_error_count", 1) if doc_cli else 1)
+        ),
+        "device_lost_count": int(
+            soak.get("device_lost_count", doc_cli.get("device_lost_count", 1) if doc_cli else 1)
+        ),
+        "tdr_suspected_count": int(soak.get("tdr_suspected_count", 1)),
+        "leaked_object_count": int(
+            soak.get("leaked_object_count", doc_cli.get("leaked_object_count", 1) if doc_cli else 1)
+        ),
+        "leaked_allocation_count": int(
+            soak.get(
+                "leaked_allocation_count",
+                doc_cli.get("leaked_allocation_count", 1) if doc_cli else 1,
+            )
+        ),
+        "vsm_page_overflow_count": int(soak.get("vsm_page_overflow_count", 0)),
+    }
+    # soak_telemetry JSON 未重复 validation/lost/leak(在顶栏);用顶栏覆盖。
+    if doc_cli is not None:
+        health["validation_error_count"] = int(doc_cli.get("validation_error_count", 1))
+        health["device_lost_count"] = int(doc_cli.get("device_lost_count", 1))
+        health["leaked_object_count"] = int(doc_cli.get("leaked_object_count", 1))
+        health["leaked_allocation_count"] = int(doc_cli.get("leaked_allocation_count", 1))
+
+    actual_frames = int(soak.get("actual_frames", doc_cli.get("frames", 0) if doc_cli else 0))
+    elapsed_minutes = float(
+        soak.get(
+            "elapsed_minutes",
+            (doc_cli.get("elapsed_seconds", 0) / 60.0) if doc_cli else 0,
+        )
+    )
+    fps_mean = float(
+        soak.get(
+            "fps_mean",
+            (actual_frames / (elapsed_minutes * 60.0)) if elapsed_minutes > 0 else 0.0,
+        )
+    )
+    pass_ts = list(soak.get("pass_gpu_timestamps") or [])
+    # schema 要求恰好 15 项;CLI 未产 telemetry 时垫零占位(ok 仍由 hard_fails 判红)。
+    if len(pass_ts) != 15:
+        pass_ts = [
+            {"pass": name, "gpu_p50_ms": 0.0, "gpu_p95_ms": 0.0} for name in PASS_NAMES
+        ]
+    performance = {
+        "frame_gpu_p50_ms": float(soak.get("frame_gpu_p50_ms", 0)),
+        "frame_gpu_p95_ms": float(soak.get("frame_gpu_p95_ms", 0)),
+        "frame_gpu_p99_ms": float(soak.get("frame_gpu_p99_ms", 0)),
+        "cpu_submit_p50_ms": float(soak.get("cpu_submit_p50_ms", 0)),
+        "cpu_submit_p95_ms": float(soak.get("cpu_submit_p95_ms", 0)),
+        "cpu_submit_p99_ms": float(soak.get("cpu_submit_p99_ms", 0)),
+        "pass_gpu_timestamps": pass_ts,
+        "peak_vram_mb": float(soak.get("peak_vram_mb", 0)),
+    }
+    visual = soak.get("visual_digest") or {
+        "anchor_color_sha256": soak.get("anchor_color_sha256", []),
+        "luma_mean_series": soak.get("luma_mean_series", []),
+        "luma_var_series": soak.get("luma_var_series", []),
+    }
+    # 锚点 PPM 取首/中/末(控制体积;全量 digest 仍在 visual_digest)。
+    all_ppm = list(soak.get("anchor_ppm") or [])
+    if len(all_ppm) >= 3:
+        mid = len(all_ppm) // 2
+        anchor_ppm = [all_ppm[0], all_ppm[mid], all_ppm[-1]]
+    else:
+        anchor_ppm = all_ppm
+
+    fail_reasons.extend(list(soak.get("fail_reasons") or []))
+    if health["validation_error_count"] != 0:
+        fail_reasons.append(f"validation={health['validation_error_count']}")
+    if health["device_lost_count"] != 0:
+        fail_reasons.append(f"lost={health['device_lost_count']}")
+    if health["tdr_suspected_count"] != 0:
+        fail_reasons.append(f"tdr={health['tdr_suspected_count']}")
+    if health["leaked_object_count"] != 0 or health["leaked_allocation_count"] != 0:
+        fail_reasons.append("leak!=0")
+    if actual_frames < 10000:
+        fail_reasons.append(f"frames={actual_frames}<10000")
+    if elapsed_minutes < 30.0:
+        fail_reasons.append(f"minutes={elapsed_minutes}<30")
+    if not visual.get("anchor_color_sha256"):
+        fail_reasons.append("anchor_digest_empty")
+    if len(performance["pass_gpu_timestamps"]) != 15:
+        fail_reasons.append("pass_timestamps!=15")
+    validation_layers_enabled = bool(soak.get("validation_layers_enabled", False))
+    if validation_layers_enabled:
+        fail_reasons.append("validation_layers_enabled")
+
+    def _is_note(r: str) -> bool:
+        return (
+            r.startswith("tdr_policy:")
+            or "frame_gpu_soft_spike@" in r
+            or "design_2s_replaced" in r
+            or "not_tdr" in r
+        )
+
+    # 去重保序;政策/软峰留痕不构成硬失败。
+    seen = set()
+    uniq_all = []
+    hard_fails = []
+    for r in fail_reasons:
+        if r in seen:
+            continue
+        seen.add(r)
+        uniq_all.append(r)
+        if not _is_note(r):
+            hard_fails.append(r)
+
+    # 优先信任 CLI soak_telemetry.ok;否则按硬失败判定。
+    if "ok" in soak and isinstance(soak.get("ok"), bool):
+        ok = bool(soak["ok"]) and code == 0 and not hard_fails
+    else:
+        ok = len(hard_fails) == 0 and code == 0
+    device_caps = soak.get("device_caps") or {
+        "device_name": (doc_cli or {}).get("device_name", "unknown")
+    }
+    # 成功件也保留 tdr_policy 字面(设计案 2s 偏差可审计)。
+    evidence = {
+        "schema_version": 1,
+        "subject": "renderer_soak",
+        "milestone": "G7.6 One True Device Frame soak / G-G7-8",
+        "actual_frames": actual_frames,
+        "elapsed_minutes": elapsed_minutes,
+        "fps_mean": fps_mean,
+        "health": health,
+        "performance": performance,
+        "reproducibility": {
+            "scene_digest": soak.get("scene_digest") or ("0" * 64),
+            "visual_digest": visual,
+            "anchor_ppm": anchor_ppm if anchor_ppm else ["evidence/soak_anchors/missing.ppm"],
+        },
+        "environment": {
+            "device_name": (doc_cli or {}).get("device_name")
+            or device_caps.get("device_name", "unknown"),
+            "driver_version": soak.get("driver_version"),
+            "device_caps": device_caps,
+        },
+        "validation_layers_enabled": validation_layers_enabled,
+        "ok": ok,
+        "require_real": True,
+        "run_url": github_run_url(),
+        "timestamp": ts.isoformat(),
+    }
+    if uniq_all:
+        evidence["fail_reasons"] = uniq_all
+    elif not ok:
+        evidence["fail_reasons"] = ["cli_exit_nonzero" if code else "unknown"]
+
+    ev = EVIDENCE_DIR / f"renderer_soak_{ts.strftime('%Y%m%dT%H%M%S')}.json"
+    ev.write_text(
+        json.dumps(evidence, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(
+        f"[{TAG}] 写 soak evidence {ev.relative_to(ROOT)}; ok={ok}; "
+        f"frames={actual_frames} minutes={elapsed_minutes:.2f}"
+    )
+    return 0 if ok else 1
 
 
 def main() -> int:

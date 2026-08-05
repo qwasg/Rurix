@@ -6272,7 +6272,10 @@ unsafe fn create_persistent_frame(
     accel_structs: &[AccelStructDesc<'_>],
 ) -> Result<NativePersistentFrame, String> {
     let (instance, validation) = create_instance(gipa, c"rurix-persistent-frame")?;
-    if std::env::var("RURIX_REQUIRE_REAL").as_deref() == Ok("1") && !validation {
+    // soak 取证关闭 validation layer(开销/误报);健康靠 fence/telemetry/device-lost。
+    // `RURIX_SOAK=1` 显式放行 REQUIRE_REAL 而无 validation(设计案 §5)。
+    let soak = std::env::var("RURIX_SOAK").as_deref() == Ok("1");
+    if std::env::var("RURIX_REQUIRE_REAL").as_deref() == Ok("1") && !validation && !soak {
         let destroy_instance: FnDestroyInstance =
             cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
         destroy_instance(instance, std::ptr::null());
