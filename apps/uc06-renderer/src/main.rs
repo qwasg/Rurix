@@ -17,8 +17,6 @@
 
 #[cfg(feature = "device-frame")]
 mod device_frame;
-#[cfg(feature = "device-frame")]
-mod tiny_sha256;
 #[cfg(feature = "vulkan")]
 mod device_frame_temporal;
 #[cfg(feature = "vulkan")]
@@ -33,6 +31,8 @@ mod graph_setup;
 mod pipeline;
 mod scene;
 mod shading;
+#[cfg(feature = "device-frame")]
+mod tiny_sha256;
 
 use rurix_render::gi::probe::GiCamera;
 use rurix_render::temporal::common::Mat4;

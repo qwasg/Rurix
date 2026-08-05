@@ -1059,8 +1059,8 @@
       "title": "渲染器效果 kernel device 化——两级剔除/VisBuffer SW(u64 atomicMax)+HW 光栅/classify-resolve/VSM 深度/屏幕探针 GI/RTAO 硬阴影/TAA-TSR 的 GPU compute/raster kernel 化 + device 对拍(host 参考已全量锚定)",
       "reason": "G5 RFC-0016 §9.1 R-3 条件臂:rayQueryEXT/u64 atomic 等 SPIR-V 编码依赖 rurixc vulkan_codegen 供给面(现为 emit_*_min 见证形态),效果 kernel 的 .rx 表达通道未通;W2 六面已交付全量 host 参考实现(239 单测,含逐位对拍金标准),device 腿到真实证据边界 honest 存续,不伪造 device 绿",
       "raised_in": "G5.3 W2 六面交付(RFC-0016 §4.E3 device 腿条件臂/§9 Q-A 着色器供给面拟裁)",
-      "owner_milestone": "G5.3(登记;device 腿条件臂)",
-      "status": "open",
+      "owner_milestone": "G5.3(登记;device 腿条件臂)→ G7.7(close-out 逐字终审兑现)",
+      "status": "closed",
       "backfill_condition": "rurixc vulkan_codegen 效果 kernel 编码通道就位(ray query/u64 atomic/storage image 写等,条款按需自 RXS-0297 顺位)后逐效果兑现:GPU 剔除与 CPU 蛮力逐簇一致对拍/VisBuffer SW-HW 逐像素 diff 容差 0/VSM device 深度对拍/GI 方向一致性对拍/RTAO 同 TLAS 对拍——host 参考器(geometry::cull/visbuffer,shadow::vsm,gi::pipeline,rt::ref_tracer,temporal::taa/tsr)即金标准,判据已在 G5 CI_GATES §2 步骤 84~86 device 段 blocked 探针占位恒跑",
       "history": [
         {
@@ -1072,6 +1072,11 @@
           "date": "2026-07-30",
           "event": "W1+W2 分波部分兑现(降级方案优化,设备化调研报告 2026-07-29 波次裁决):① rurixc vulkan_codegen compute 通道落地 32 位 SSBO 原子(Rvalue::Atomic→OpAtomicIAdd/UMin/UMax/Or 等,Device+Relaxed)+ compute TextureRw2D 存储图像写读(format-qualified,SPIR-V 1.0 零新能力)+ Int64/Int64Atomics(u64 算术+OpAtomicUMax,capability 按需声明,SPIR-V 维持 1.0);② render_exec 能力位框架:DeviceCaps 扩 ray query 五件链探测 + KernelWave W1/W2/W3 fail-closed require_wave 路由(RFC-0016 §4.0-2 口径,降级仅编排层显式);③ 五效果内核 .rx→SPIR-V device 真跑对拍全绿(cull 72/120 簇集合一致/VisBuffer 9216 词 u64 逐位一致容差 0/classify-resolve 一致/VSM 页位图一致/TAA 最大误差 1.2e-7;RTX 4070 Ti,validation 零报错);④ 步骤 84~86 device 段自一刀切 blocked 探针细化为 W1/W2 gate-real 真跑 + W3 blocked-honest(missing_toolchain_caps 逐项留痕),uc06 device 腿写内核对拍与能力快照入 evidence。W3(ray query,需 SPIR-V 1.4 升级)与 HW 光栅 diff 腿维持 blocked 存续,status 维持 open",
           "evidence": "src/rurixc/src/vulkan_codegen.rs / src/rurix-rt/src/render_exec.rs / apps/uc06-renderer/{build.rs,kernels/,src/device_kernels.rs} / evidence/renderer_{visbuffer,lighting,temporal}_smoke_20260730T*.json / evidence/uc06_renderer_smoke_20260730T120711.json"
+        },
+        {
+          "date": "2026-08-05",
+          "event": "G7.7 close-out 逐字终审关闭(agent 完全自主签署,D-406 v2.0):按 title 八行斜切段 × backfill_condition 十子句 × history 三轴逐字核对全部兑现——① W3 编码通道(RXS-0297~0300 + 步骤 93)② GI/RTAO/硬阴影三核共用同一真实 TLAS device 真跑对拍(G7.4 步骤 94)③ VSM 页内深度光栅+采样与 TSR 空间超分核(G7.5 步骤 95)④ HW 光栅 VisBuffer 整数域逐像素 diff=0(G7.5b 步骤 95 翻全绿,verified-diff-zero,未放宽容差)⑤ 帧链并入 + TSR 时域臂 + One True Device Frame(G7.6 步骤 96,provenance 逐 pass 资源 identity)⑥ ≥30min/≥10000 帧 soak 零 validation/device-loss/TDR/泄漏。§5-3 未证实项两条全部补锚。终审全文 = milestones/g7/G7_CONTRACT.md §8.1;矩阵指针 = RD038_LITERAL_MATRIX.md §7。status open→closed",
+          "evidence": "milestones/g7/G7_CONTRACT.md §8.1 / evidence/ray_query_codegen_smoke_20260804T170953.json / evidence/renderer_w3_smoke_20260804T170950.json / evidence/renderer_raster_diff_smoke_20260804T170945.json / evidence/renderer_device_frame_smoke_20260805T140247.json / evidence/renderer_soak_20260805T135929.json / evidence/soak_anchors/1785893478/ / registry/number_ledger.json v1.36~v1.46"
         }
       ]
     },
@@ -1548,6 +1553,11 @@
       "version": "v1.73",
       "date": "2026-08-01",
       "change": "G6.6 close-out P3+/研究轨登记(agent 完全自主 D-406 v2.0,G6.6 close-out 蜂群 RD/SG 处置登记切片;Assisted-by: Kimi Code CLI (Kimi)):追加 RD-042(物理研究轨观察存续——Newton/Genesis/MuJoCo Warp 合入主仓 CI,研究隔离维持:独立仓库或 feature 永不默认,观察上游可微/机器人批仿生态成熟度)/ RD-043(wgrapier GPU 刚体观察存续——GPU 主刚体否决线维持,不作验收依赖与生产默认,观察纯 Rust GPU 刚体生态)/ RD-044(物理 P3+ 长线——Jolt 软体/布料/流体生产化、Taichi MPM·体积场副轨由 spike 走向生产 external-import 面、Rapier 快路径深造,均不进 G6 硬门),全部 status=open。编号自 number_ledger reserved_in_flight[G6].RD claim(RD-042 起)顺位消费——G6.5 Taichi spike 成功臂 §4.E3 四段闭合未消费失败登记位(v1.72 后 RD 零消费),RD-042~044 全三号由 G6.6 close-out P3+/研究轨登记消费(claim 行 0-byte 不改写,G5/v1.29 先例)。RD-016/028 跳号永不复用维持。既有条目、既有 history 行与 revision_log v1.0~v1.72 行 0-byte 只追加。"
+    },
+    {
+      "version": "v1.74",
+      "date": "2026-08-05",
+      "change": "G7.7 close-out RD-038 逐字终审关闭(agent 完全自主 D-406 v2.0;Assisted-by: cursor:cursor-grok-4.5-high-fast):RD-038 status open→closed;owner_milestone 箭头留痕 G5.3(登记;device 腿条件臂)→ G7.7(close-out 逐字终审兑现);history 尾追加第 3 条(title 八行 × backfill 十子句 × history 三轴全兑现)。id/title/reason/backfill_condition 四字段 0-byte;既有 history 两行 0-byte 只尾追加;其余 43 条 entry 与 revision_log v1.0~v1.73 行 0-byte。终审全文 = milestones/g7/G7_CONTRACT.md §8.1;矩阵指针 = RD038_LITERAL_MATRIX.md §7。"
     }
   ]
 }

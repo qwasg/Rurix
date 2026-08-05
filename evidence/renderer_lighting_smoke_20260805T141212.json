@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_lighting_smoke",
+  "milestone": "G5.3-D/E/F / G-G5-6 (RFC-0016 章 D/E/F)",
+  "step": 85,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": "RD-038",
+  "device_probe_note": "W3 gi_probe/rtao/hard_shadow blocked-honest；设备 ray query 五件链非阻塞项",
+  "device_wave_w1_pass": true,
+  "device_wave_tests": [
+    "device_w1_vsm_page_mark_matches_host"
+  ],
+  "device_blocked_w3": "RD-038-W3",
+  "blocked_reason": "工具链 rurixc compute ray query SPIR-V 编码通道未通，且须跨越 SPIR-V 1.4 升级门槛；设备能力非阻塞项",
+  "missing_toolchain_caps": [
+    "ray_query_codegen",
+    "spirv_1_4"
+  ],
+  "checks": {
+    "shadow_pass": true,
+    "shadow_count": 26,
+    "gi_pass": true,
+    "gi_count": 20,
+    "rt_pass": true,
+    "rt_count": 49
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-08-05T14:12:12+08:00"
+}

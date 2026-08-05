@@ -1,6 +1,7 @@
 # G7_PLAN — Production Frame Closure 主线分解
 
-> 契约：[G7_CONTRACT.md](G7_CONTRACT.md) · 门：[CI_GATES.md](CI_GATES.md) · 唯一主 deferred：[`RD-038`](../../registry/deferred.json)
+> **状态**:**closed**(G7.7 close-out 已完成 2026-08-05:门终审表 G-G7-1~9 全过 + RD-038 逐字终审 closed(deferred.json v1.74)+ G7_CONTRACT §8.1 终审追加与 status flip closed + number_ledger v1.46 纯留痕 + check_guardrails 默认基准切 g7-closed;全量回归冻结真实输出待 C2 回填)——契约 [G7_CONTRACT.md](G7_CONTRACT.md) · 门 [CI_GATES.md](CI_GATES.md) · 唯一主 deferred [`RD-038`](../../registry/deferred.json)(closed) · 预算 g7_budget.json v1.2.1 · 编号 claim `number_ledger` reserved_in_flight[G7](v1.35 起;步骤 93~96 / RXS-0297~0303 / RFC-0018 已 materialize)。
+>
 > 推进形态：**严格波次**。G7.0 基线 → G7.1 RFC/审计/预算 → G7.2 codegen → G7.3 runtime → G7.4 effects → G7.5 raster/residuals → G7.6 frame/evidence → G7.7 close-out。前波未绿，后波不得用 stub/mock/host substitution 抢跑。
 
 ---
@@ -101,7 +102,7 @@ RFC-0018 至少冻结四章：
 
 退出门：G-G7-8。
 
-### G7.7 — Close-out
+### G7.7 — Close-out · **已完成(2026-08-05:G-G7-9 收口门绿)**
 
 - `budget_eval.py --strict` 非空、零 estimated、零 skip。
 - 全量回归与步骤 93+ 真跑，既有步骤 41~92 判据不改写。
@@ -109,6 +110,8 @@ RFC-0018 至少冻结四章：
 - 契约 §8 只追加终审表、真实输出和 evidence 路径，最后 status flip。
 
 退出门：G-G7-9。
+
+**实施留痕(2026-08-05)**:门终审表 G-G7-1~9 全过落 [G7_CONTRACT.md](G7_CONTRACT.md) §8.1;RD-038 open→closed(deferred v1.74);G7_CONTRACT status active→closed(洁净独行);number_ledger v1.46 纯留痕;CI_GATES v1.6;矩阵 §7 指针节;README 三处镜像;`resolve_base`→`g7-closed`。全量回归冻结输出骨架已落 §8.1,**待 C2 回填**真实命令摘要。
 
 ## 2. 主要 PR 栈
 
@@ -145,4 +148,5 @@ RFC-0018 至少冻结四章：
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.1 | 2026-08-05 | G7.7 close-out 完成(agent 完全自主 D-406 v2.0):状态行翻 closed;§1 G7.7 节追加完成留痕;门终审表 G-G7-1~9 全过 + RD-038 逐字终审 closed(deferred v1.74)+ G7_CONTRACT §8.1 + status flip(洁净独行)+ ledger v1.46 纯留痕 + 基准切换 g7-closed;全量回归冻结真实输出待 C2 回填。§0/§2/§3/§4 既有裁决 0-byte。 |
 | v1.0 | 2026-08-01 | G7.0 初版；单一主题 Production Frame Closure。 |

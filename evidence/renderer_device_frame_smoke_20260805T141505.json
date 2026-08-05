@@ -1,0 +1,611 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_device_frame_smoke",
+  "milestone": "G7.6 One True Device Frame / G-G7-8",
+  "step": 96,
+  "spec_clauses": [
+    "RXS-0297",
+    "RXS-0298",
+    "RXS-0299",
+    "RXS-0300"
+  ],
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "schema_self_check_pass": true,
+    "freeze_and_matrix_pass": true,
+    "oracle_tests_pass": true,
+    "existing_manifest_zero_drift_pass": true,
+    "glue_kernel_emit_pass": true,
+    "static_provenance_audit_pass": true
+  },
+  "literal_rows_frame_chain": [
+    "两级剔除",
+    "VisBuffer SW(u64 atomicMax)",
+    "classify-resolve",
+    "TAA-TSR"
+  ],
+  "scene_freeze_anchors": [
+    "764",
+    "实例数 = 3",
+    "[0.0, 2.2, 3.4]",
+    "[0.0, 0.35, 0.0]",
+    "960×540",
+    "1920×1080"
+  ],
+  "assembly_notes": "cluster27 id 域 = 全局簇表下标(装配层选择;VisBuffer 64-bit 位布局 30|27|7 冻结面 0-byte);c2m 会话期静态;`classify_resolve.rx` 零改动复用。",
+  "device_pass": true,
+  "device_skip_reason": null,
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "validation_enabled": true,
+  "device_red": {
+    "visbuffer": true,
+    "history": true,
+    "jitter": true,
+    "provenance": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-05T14:15:05+08:00",
+  "glue_kernels": {
+    "frame_clear": {
+      "spirv_version": "1.0",
+      "sha256": "21968e3788ed6c46227da4b295ea9cdee46905789eee4aebb21bbbb1049047ca",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "cull_frame": {
+      "spirv_version": "1.0",
+      "sha256": "03debd8bc4911f6c04cec64fc35eb5984acdd2f72852431ec1da2e0bd729b5eb",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "tri_expand": {
+      "spirv_version": "1.0",
+      "sha256": "8cf2d4546a4bd5e28eb59583eeb0ac9c76b6ab880af7e07652dbe2f558931df7",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "gbuffer_resolve": {
+      "spirv_version": "1.0",
+      "sha256": "e79864296520dcfcd09df08c4509f9e5d90e9e7f52b770d9a8cbac11eb1e6f39",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Int64",
+        "Shader"
+      ]
+    },
+    "deferred_shade": {
+      "spirv_version": "1.0",
+      "sha256": "b6aced6102eeec5f06746a6f3632fe24d4579875ed04e6ebbda6cb945ea78619",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "tsr_temporal": {
+      "spirv_version": "1.0",
+      "sha256": "6b5ea102bf8a9c44308b58085d34c862dd29eed910d7091ca0b04e9d875e679a",
+      "spirv_val": {
+        "vulkan1.0": "accepted"
+      },
+      "deterministic": true,
+      "capabilities": [
+        "Shader"
+      ]
+    }
+  },
+  "existing_chain_kernels": {
+    "classify_resolve": {
+      "spirv_version": "1.0",
+      "sha256": "ff29609a303417b168e7be58d5ab08b50481605c15ce6ada54b8fc406298781c",
+      "manifest_matched": true,
+      "capabilities": [
+        "Int64",
+        "Shader"
+      ]
+    },
+    "taa": {
+      "spirv_version": "1.0",
+      "sha256": "46f18f063d99a78a10c473f2bb0845467824d5cbfefde2a2b31098165ea861dd",
+      "manifest_matched": true,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "visbuffer_sw_u64": {
+      "spirv_version": "1.0",
+      "sha256": "80cf4343aff13d6947cb73b1afe86dd05ffc998e88a4b24d393fc282650e4fc6",
+      "manifest_matched": true,
+      "capabilities": [
+        "Int64",
+        "Int64Atomics",
+        "Shader"
+      ]
+    },
+    "vsm_depth_raster": {
+      "spirv_version": "1.0",
+      "sha256": "71b21693caeecaf677aa6321e864d5f3d21cf7a68925fa0d36157498f45b5f7f",
+      "manifest_matched": null,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "vsm_sample": {
+      "spirv_version": "1.0",
+      "sha256": "c2a23190e71fadc6bdf8cc5d54b500df50565941565612af19cd2243dd7d40f2",
+      "manifest_matched": null,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "tsr_resample": {
+      "spirv_version": "1.0",
+      "sha256": "2f7086b19a9ec2424ce145c032fe5fc8f419c6f4672bb676c228ff1397abbfa3",
+      "manifest_matched": null,
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "gi_probe": {
+      "spirv_version": "1.4",
+      "sha256": "38b29b9f6c24404e301e939ab6594bf0e19d2725c6d54db8c3ba4f2b4642a3da",
+      "manifest_matched": null,
+      "capabilities": [
+        "RayQueryKHR",
+        "Shader"
+      ]
+    },
+    "rtao": {
+      "spirv_version": "1.4",
+      "sha256": "4edee105d3ca4dd3ad6ca4c49f21160ed889f60e774cce2aaafabd8c48e5b2b1",
+      "manifest_matched": null,
+      "capabilities": [
+        "RayQueryKHR",
+        "Shader"
+      ]
+    },
+    "hard_shadow": {
+      "spirv_version": "1.4",
+      "sha256": "bd18a56ccc18700ca6e718db69fb69e6dcd01a448d2ac350593e61afa9e639d2",
+      "manifest_matched": null,
+      "capabilities": [
+        "RayQueryKHR",
+        "Shader"
+      ]
+    }
+  },
+  "static_audit": {
+    "forbid_execute_frame_call": true,
+    "execute_with_frame_update_present": true,
+    "pass_names_ok": true,
+    "expected_edges_ok": true,
+    "pass_names": [
+      "frame_clear",
+      "cull_frame",
+      "tri_expand",
+      "visbuffer_sw_u64",
+      "classify_resolve",
+      "gbuffer_resolve",
+      "vsm_depth_raster",
+      "vsm_sample",
+      "gi_probe",
+      "rtao",
+      "hard_shadow",
+      "deferred_shade",
+      "taa",
+      "tsr_resample",
+      "tsr_temporal"
+    ]
+  },
+  "device_capability_snapshot": "device_name=NVIDIA GeForce RTX 4070 Ti wave=W3+device-frame (require_wave 通过;validation=0 lost=0)",
+  "stage_parity": {
+    "cull_bitexact": true,
+    "tri_expand_bitexact": true,
+    "tri_expand_max_abs": 6.103515625e-05,
+    "visbuffer_bitexact": true,
+    "classify_bitexact": true,
+    "gbuffer_max_abs": 0.002301931381,
+    "tol_gbuffer": 0.003500000108,
+    "gbuffer_pass": true,
+    "vsm_sample_max_abs": 0.0,
+    "tol_vsm_sample": 0.0,
+    "vsm_sample_pass": true,
+    "gi_max_abs": 0.0,
+    "tol_gi": 9.999999747e-06,
+    "gi_pass": true,
+    "ao_max_abs": 0.0,
+    "tol_ao": 9.999999975e-07,
+    "ao_pass": true,
+    "hard_max_abs": 0.0,
+    "tol_hard": 0.0,
+    "hard_pass": true,
+    "taa_max_abs": 2.402812243e-05,
+    "tol_taa": 9.999999747e-05,
+    "taa_pass": true,
+    "tsr_resample_max_abs": 4.377216101e-07,
+    "tol_tsr_resample": 9.999999975e-07,
+    "tsr_resample_pass": true,
+    "tsr_temporal_max_abs": 0.0002212524414,
+    "tol_tsr_temporal": 0.0005000000237,
+    "tsr_temporal_pass": true
+  },
+  "non_degen": {
+    "covered_pixels": 369698,
+    "material_counts": [
+      360964,
+      8734,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "mv_nonzero_count": 369610,
+    "mv_nonzero_changed": true,
+    "instance_transform_changed": true,
+    "non_degen_ok": true
+  },
+  "provenance": {
+    "edges_ok": true,
+    "edges": [
+      {
+        "producer": "classify_resolve",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "classify_resolve",
+        "consumer": "gbuffer_resolve",
+        "resource": "vis"
+      },
+      {
+        "producer": "cull_frame",
+        "consumer": "tri_expand",
+        "resource": "other"
+      },
+      {
+        "producer": "cull_frame",
+        "consumer": "tri_expand",
+        "resource": "visible_flags"
+      },
+      {
+        "producer": "deferred_shade",
+        "consumer": "taa",
+        "resource": "hdr"
+      },
+      {
+        "producer": "frame_clear",
+        "consumer": "classify_resolve",
+        "resource": "other"
+      },
+      {
+        "producer": "frame_clear",
+        "consumer": "cull_frame",
+        "resource": "other"
+      },
+      {
+        "producer": "frame_clear",
+        "consumer": "visbuffer_sw_u64",
+        "resource": "vis"
+      },
+      {
+        "producer": "gbuffer_resolve",
+        "consumer": "rtao",
+        "resource": "nrm"
+      },
+      {
+        "producer": "gbuffer_resolve",
+        "consumer": "taa",
+        "resource": "mv"
+      },
+      {
+        "producer": "gbuffer_resolve",
+        "consumer": "taa",
+        "resource": "other"
+      },
+      {
+        "producer": "gbuffer_resolve",
+        "consumer": "tsr_temporal",
+        "resource": "depth"
+      },
+      {
+        "producer": "gbuffer_resolve",
+        "consumer": "vsm_sample",
+        "resource": "pos"
+      },
+      {
+        "producer": "gi_probe",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "hard_shadow",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "rtao",
+        "consumer": "deferred_shade",
+        "resource": "nrm"
+      },
+      {
+        "producer": "rtao",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "rtao",
+        "consumer": "hard_shadow",
+        "resource": "pos"
+      },
+      {
+        "producer": "taa",
+        "consumer": "tsr_resample",
+        "resource": "taa_out"
+      },
+      {
+        "producer": "taa",
+        "consumer": "tsr_temporal",
+        "resource": "mv"
+      },
+      {
+        "producer": "tri_expand",
+        "consumer": "gbuffer_resolve",
+        "resource": "other"
+      },
+      {
+        "producer": "tri_expand",
+        "consumer": "visbuffer_sw_u64",
+        "resource": "other"
+      },
+      {
+        "producer": "tri_expand",
+        "consumer": "visbuffer_sw_u64",
+        "resource": "triangles"
+      },
+      {
+        "producer": "tsr_resample",
+        "consumer": "tsr_temporal",
+        "resource": "tsr_cur"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "classify_resolve",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "cull_frame",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "cull_frame",
+        "resource": "visible_flags"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "deferred_shade",
+        "resource": "hdr"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "frame_clear",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "frame_clear",
+        "resource": "vis"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gbuffer_resolve",
+        "resource": "depth"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gbuffer_resolve",
+        "resource": "mv"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gbuffer_resolve",
+        "resource": "nrm"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gbuffer_resolve",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gbuffer_resolve",
+        "resource": "pos"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "gi_probe",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "hard_shadow",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "rtao",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "taa",
+        "resource": "taa_out"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "tri_expand",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "tri_expand",
+        "resource": "triangles"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "tsr_resample",
+        "resource": "tsr_cur"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "tsr_temporal",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "vsm_depth_raster",
+        "resource": "other"
+      },
+      {
+        "producer": "upload_or_init",
+        "consumer": "vsm_sample",
+        "resource": "other"
+      },
+      {
+        "producer": "visbuffer_sw_u64",
+        "consumer": "classify_resolve",
+        "resource": "vis"
+      },
+      {
+        "producer": "vsm_depth_raster",
+        "consumer": "vsm_sample",
+        "resource": "other"
+      },
+      {
+        "producer": "vsm_sample",
+        "consumer": "deferred_shade",
+        "resource": "other"
+      },
+      {
+        "producer": "vsm_sample",
+        "consumer": "rtao",
+        "resource": "pos"
+      }
+    ]
+  },
+  "telemetry": {
+    "validation_error_count": 0,
+    "leaked_object_count": 0,
+    "leaked_allocation_count": 0,
+    "device_lost_count": 0,
+    "all_pass_gpu_ns_positive": true,
+    "pass_gpu_timings": [
+      {
+        "pass": "frame_clear",
+        "gpu_ns": 4163584.0
+      },
+      {
+        "pass": "cull_frame",
+        "gpu_ns": 12288.0
+      },
+      {
+        "pass": "tri_expand",
+        "gpu_ns": 45056.0
+      },
+      {
+        "pass": "visbuffer_sw_u64",
+        "gpu_ns": 392113152.0
+      },
+      {
+        "pass": "classify_resolve",
+        "gpu_ns": 1550336.0
+      },
+      {
+        "pass": "gbuffer_resolve",
+        "gpu_ns": 18914304.0
+      },
+      {
+        "pass": "vsm_depth_raster",
+        "gpu_ns": 1139652608.0
+      },
+      {
+        "pass": "vsm_sample",
+        "gpu_ns": 1551360.0
+      },
+      {
+        "pass": "gi_probe",
+        "gpu_ns": 12606464.0
+      },
+      {
+        "pass": "rtao",
+        "gpu_ns": 3440640.0
+      },
+      {
+        "pass": "hard_shadow",
+        "gpu_ns": 905216.0
+      },
+      {
+        "pass": "deferred_shade",
+        "gpu_ns": 1162240.0
+      },
+      {
+        "pass": "taa",
+        "gpu_ns": 1940480.0
+      },
+      {
+        "pass": "tsr_resample",
+        "gpu_ns": 4374528.0
+      },
+      {
+        "pass": "tsr_temporal",
+        "gpu_ns": 17350656.0
+      }
+    ],
+    "frames": 8,
+    "elapsed_seconds": 28.680658,
+    "in_w": 960,
+    "in_h": 540,
+    "out_w": 1920,
+    "out_h": 1080
+  }
+}

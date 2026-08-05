@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_visbuffer_smoke",
+  "milestone": "G5.2-C+G5.3-C / G-G5-5 (RFC-0016 章 C)",
+  "step": 84,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": null,
+  "device_probe_note": null,
+  "device_wave_w1_pass": true,
+  "device_wave_w2_pass": true,
+  "device_wave_tests": [
+    "device_w1_cull_matches_host",
+    "device_w2_visbuffer_u64_bitexact_host",
+    "device_w1_classify_resolve_matches_host"
+  ],
+  "checks": {
+    "geom_build_pass": true,
+    "geom_build_count": 22,
+    "geometry_pass": true,
+    "geometry_count": 29
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-08-05T14:12:06+08:00"
+}

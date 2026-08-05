@@ -23,7 +23,7 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 
 完整论证见 [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) 与 [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md)。
 
-## 项目状态:语言 1.0 已发行(`v1.0.0`),G5/G6 已收口,G7 Production Frame Closure 进行中,G8 仅治理波立项
+## 项目状态:语言 1.0 已发行(`v1.0.0`),G5/G6/G7 已收口,G8 仅治理波立项
 
 第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)、工业渲染期(G3)、引擎集成期(EI1)、引擎渲染期(G4)、分发与门面期(EA1)、原生渲染器期(G5)、渲染物理双轨期(G6)相继收口。从 MVP 到 1.0 再到使命期/多后端期/渲染主线,20 个里程碑契约按各自验收门收口;既有性能阈值均以 `measured_local` 留证且零 estimated（G6 明确未设置性能硬门）,预设资源生命周期错误类别 100% 编译期拦截:
 
@@ -41,8 +41,8 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 | EA1 | 2026-07-28 `ea1-closed` | 分发与门面期:rurixup 真实分发(RD-025 兑现)+ 预编译工具链 bundle(`v1.0.1-dist` 系列,pre-release)+ 文档门面 + 冷启动验收 |
 | G5 | 2026-07-29 收口(契约 §8.1) | 原生渲染器期:声明式 render graph(`rurix-render`)+ RHI 图形派发桥 + 虚拟化几何(meshlet/GPU 两级剔除/VisBuffer)+ VSM 阴影 + 屏幕探针 GI + 光追效果 + 材质流送 + 时域重建(TAA/TSR);UC-06 全管线 demo device 真跑(P3+ 长线项登记 RD-037+ 存续,RD-038 分波兑现推进) |
 | G6 | 2026-08-01 收口(契约 §8.2) | 渲染物理双轨期:Jolt 生产默认物理库 + Rapier 默认关闭快路径 + Physics→GpuScene 单向桥 + uc08 合流 demo + Taichi Vulkan AOT 特效副轨;性能数字留 evidence 但不设硬门 |
-| G7 | 2026-08-01 active | Production Frame Closure:收口 RD-038 的 compute SPIR-V 1.4/RayQuery、W3 GI/RTAO/硬阴影、VisBuffer SW/HW 对拍、RD-038 字面余项与 One True Device Frame;见 [`milestones/g7/G7_CONTRACT.md`](milestones/g7/G7_CONTRACT.md) |
-| G8 | 2026-08-02 `status: active` / **`implementation_status: blocked`** | UE5 级前置能力完成期,**当前只有 G8.1 治理波获授权**:契约四件套 + 候选决策表 + 18 个 P0 验收映射 + RFC-0019/0020/0021(均 Agent Approved,D-409 独立 provenance 评审)+ RTX 4070 Ti measured baseline + 三个治理 validator。**G8.2+ 实现门仍 blocked**:硬前置为 G7 `status: closed` 且 RD-038 `closed`（或 G7 closed 后六行接入表终态全填 + RD-038 独立 override），机器判读见 `py -3 ci/check_g8_implementation_interlock.py`（当前诚实输出 `BLOCKED`）。治理波完成**不表示**任何 G8 能力已实现或已绿;见 [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) |
+| G7 | 2026-08-05 `g7-closed` | Production Frame Closure 收口:RD-038 closed(compute SPIR-V 1.4/RayQuery、W3 GI/RTAO/硬阴影、VisBuffer SW/HW diff=0、字面余项与 One True Device Frame + soak);见 [`milestones/g7/G7_CONTRACT.md`](milestones/g7/G7_CONTRACT.md) §8.1 |
+| G8 | 2026-08-02 `status: active` / **`implementation_status: blocked`** | UE5 级前置能力完成期,**当前只有 G8.1 治理波获授权**:契约四件套 + 候选决策表 + 18 个 P0 验收映射 + RFC-0019/0020/0021(均 Agent Approved,D-409 独立 provenance 评审)+ RTX 4070 Ti measured baseline + 三个治理 validator。**G8.2+ 实现门仍 blocked**:硬前置为 G7 `status: closed` 且 RD-038 `closed`（或 G7 closed 后六行接入表终态全填 + RD-038 独立 override），机器判读见 `py -3 ci/check_g8_implementation_interlock.py`（G7 收口后输出 `READY`;READY ≠ 已开工/已通过）。治理波完成**不表示**任何 G8 能力已实现或已绿;见 [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) |
 
 旗舰用例与关键交付(全部端到端真机验收):
 

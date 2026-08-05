@@ -2601,7 +2601,12 @@ fn run_device_frame_inner(
             }
             frame_gpu_samples.push(frame_gpu_ms);
             cpu_submit_samples.push(out.telemetry.cpu_submit_ns as f64 / 1_000_000.0);
-            let vram: u64 = out.telemetry.heaps.iter().map(|h| h.driver_usage_bytes).sum();
+            let vram: u64 = out
+                .telemetry
+                .heaps
+                .iter()
+                .map(|h| h.driver_usage_bytes)
+                .sum();
             peak_vram_bytes = peak_vram_bytes.max(vram);
             if out.telemetry.device_lost {
                 soak_fail_reasons.push(format!("device_lost_telemetry@{frame}"));
@@ -2652,8 +2657,7 @@ fn run_device_frame_inner(
 
         let depth = read_f32(rb_map.get(&rb::DEPTH).copied().unwrap_or(&[]));
         if depth.len() == PIXELS {
-            let (upload, overflow) =
-                vsm_feedback_from_depth(&mut vsm, &depth, &mats.inv_view_proj);
+            let (upload, overflow) = vsm_feedback_from_depth(&mut vsm, &depth, &mats.inv_view_proj);
             next_vsm = upload;
             if overflow {
                 vsm_page_overflow_count += 1;
@@ -2665,10 +2669,9 @@ fn run_device_frame_inner(
         }
 
         if is_anchor {
-            if let (Some(dir), Some(fb)) = (
-                soak_anchor_dir.as_ref(),
-                rb_map.get(&final_rb).copied(),
-            ) {
+            if let (Some(dir), Some(fb)) =
+                (soak_anchor_dir.as_ref(), rb_map.get(&final_rb).copied())
+            {
                 let hdr = read_f32(fb);
                 match anchor_visuals(&hdr, dir, frame) {
                     Ok((digest, mean, var, ppm_path)) => {

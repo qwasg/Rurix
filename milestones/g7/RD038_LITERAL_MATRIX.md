@@ -294,3 +294,21 @@ TSR **时域臂**(history 双缓冲/reproject+validity/YCoCg AABB)兑现。
 
 **RD-038 status 结论**:八行全部推入 closed 候选;**本波仍不动
 registry/deferred.json**;**RD-038 维持 open**,status flip 唯一归 G7.7 逐字终审。
+
+## 7. G7.7 逐字终审(指针节)
+
+> 终审正文唯一落点 = [`G7_CONTRACT.md`](G7_CONTRACT.md) **§8.1**(2026-08-05)。本节只放八行终态一览 + 指针,**不复制** §8.1 三轴正文。
+> registry 事实源 = [`deferred.json`](../../registry/deferred.json) **v1.74**(RD-038 status open→closed)。
+
+| # | title 字面分项 | 终态 |
+|---|---|---|
+| 1 | 两级剔除 | ✅ 帧链并入(G7.6) |
+| 2 | VisBuffer SW(u64 atomicMax) | ✅ diff 基准侧 + 帧链 |
+| 3 | HW 光栅 | ✅ G7.5b(`verified-diff-zero`) |
+| 4 | classify-resolve | ✅ 帧链并入(G7.6) |
+| 5 | VSM 深度 | ✅ G7.5 |
+| 6 | 屏幕探针 GI | ✅ G7.4 |
+| 7 | RTAO 硬阴影 | ✅ G7.4 |
+| 8 | TAA-TSR | ✅ G7.5 空间核 + G7.6 时域臂/帧链 |
+
+**指针**:契约终审 = [G7_CONTRACT.md §8.1](G7_CONTRACT.md);registry = deferred.json v1.74 RD-038 history 尾条;波次兑现留痕 = 本文 §6.1~§6.4(0-byte 维持)。

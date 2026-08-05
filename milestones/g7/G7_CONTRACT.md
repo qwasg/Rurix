@@ -2,7 +2,8 @@
 # 里程碑契约(14 §1 四要素;g7 = 生产帧闭环期,承 TEMPLATE_CONTRACT.md 体例)
 contract: G7
 title: G7 生产帧闭环期——收口 RD-038:compute SPIR-V 1.4 + RayQuery、真实 TLAS descriptor 链、GI/RTAO/硬阴影 W3 设备核、VisBuffer SW/HW 光栅零容差对拍、RD-038 字面余项审计与 One True Device Frame 生产证据
-status: active
+status: closed
+# active(2026-08-01 开工:G6 close-out + 用户指令〔§7〕)→ closed(2026-08-05 G7.7 close-out:G-G7-1~9 全过,§8.1 终审追加,上方条款 0-byte);行内注释禁用——ci/check_g8_implementation_interlock.py front_matter 正则要求 status 行尾洁净
 version: v1.0
 date: 2026-08-01
 timebox: "约 10–14 周(G7.0→G7.7 严格波次推进,见 G7_PLAN.md;周为相对刻度,非日历承诺)"
@@ -153,3 +154,147 @@ G7 结束时应获得：① compute SPIR-V 1.4 RayQuery 完整编译与诊断通
 ## 8. Close-out（只追加区 — 开工时为空）
 
 <!-- 验收记录、真实命令输出、预算/evidence 路径、RD-038 逐字审计与 status flip 只追加于此。 -->
+
+### §8.1 G7 收口终审(2026-08-05)
+
+**验收门终审表**(acceptance_gates G-G7-1 ~ G-G7-9 全过):
+
+| 门 | 判据 | 结果 | 证据锚 |
+|---|---|---|---|
+| G-G7-1 治理/基线门 | milestones/g7 四件套与 number_ledger reserved_in_flight[G7] 合入;g5-closed/g6-closed 不可变 ref;干净基线记录 | ✅ | milestones/g7/ 四件 + ledger v1.35 claim + `evidence/g7_baseline_20260801T101923Z.json` |
+| G-G7-2 RFC 门 | RFC-0018 Agent Approved 先于实现;D-409 对抗性评审 provenance ≠ 起草 | ✅ | rfcs/0018-compute-rayquery-device-frame.md(Agent Approved 2026-08-01)+ 修订行 v1.1 §E(G7.5b HW 光栅裁定) |
+| G-G7-3 基线/预算激活门 | RD-038 字面矩阵 + 场景冻结 + measured baseline + g7_budget 非空 measured | ✅ | RD038_LITERAL_MATRIX.md §1~§5 + G7_SCENE_FREEZE + `evidence/g7_perf_baseline_20260801T105318Z.json` + g7_budget v1.2.1 |
+| G-G7-4 W3a 编译门 | 真实 .rx compute RayQuery → SPIR-V 1.4 + spirv-val + golden + W1/W2 零漂移 | ✅ | 步骤 93:`evidence/ray_query_codegen_smoke_20260804T170953.json` |
+| G-G7-5 W3b 执行门 | 同一真实 TLAS 经 compute descriptor;KernelWave::W3 fail-closed;validation 零错误 | ✅ | 步骤 93 device 段(CI_GATES v1.1;同 evidence 上列) |
+| G-G7-6 W3c 效果门 | gi_probe/rtao/hard_shadow 共用真实 TLAS device 真跑对拍 | ✅ | 步骤 94:`evidence/renderer_w3_smoke_20260804T170950.json` |
+| G-G7-7 光栅/余项门 | VisBuffer SW/HW 整数域 diff=0;VSM 深度/GI/RTAO/TAA-TSR 逐项 device evidence | ✅ | 步骤 95:`evidence/renderer_raster_diff_smoke_20260804T170945.json`(`hw_raster_diff.status=verified-diff-zero`,`diff_pixels=0`) |
+| G-G7-8 真实帧门 | 连续设备帧 provenance + ≥30min/≥10000 帧 soak 四类计数全 0 | ✅ | 步骤 96:`evidence/renderer_device_frame_smoke_20260805T140247.json` + soak:`evidence/renderer_soak_20260805T135929.json`(ok=true,10000 帧/268.173643 min,health0;锚点 `evidence/soak_anchors/1785893478/`) |
+| G-G7-9 收口门 | budget_eval --strict 全 PASS 0 skip;全量回归冻结;RD-038 逐字终审 closed;status active→closed | ✅ | g7_budget v1.2.1 measured_local + budget_eval --strict 104/0 + deferred v1.74 + 本节终审 + 下方全量回归冻结输出 |
+
+**RD-038 逐字终审**(三轴;矩阵基线 §1~§5 0-byte,波次兑现见矩阵 §6.1~§6.4):
+
+**轴一:title 八行斜切段**
+
+| # | title 字面分项 | 基线(§1,2026-08-01) | 终态 | device 证据锚(文件+关键字段) |
+|---|---|---|---|---|
+| 1 | 两级剔除 | 已兑现(孤立) | ✅ 帧链并入 | `renderer_device_frame_smoke_20260805T140247.json`:provenance |
+| 2 | VisBuffer SW(u64 atomicMax) | 已兑现(孤立) | ✅ diff 基准侧+帧链 | `renderer_raster_diff_smoke_20260804T170945.json` + 96 provenance |
+| 3 | HW 光栅 | 无 | ✅ G7.5b | 同上:`hw_raster_diff.status=verified-diff-zero`,`diff_pixels=0` |
+| 4 | classify-resolve | 已兑现(孤立) | ✅ 帧链并入 | 96 evidence:provenance |
+| 5 | VSM 深度 | 部分(page-mark) | ✅ G7.5 | raster_diff:`vsm_depth`+`vsm_sample` |
+| 6 | 屏幕探针 GI | 无 | ✅ G7.4 | `renderer_w3_smoke_20260804T170950.json`:`gi_radiance`+`shared_tlas` |
+| 7 | RTAO 硬阴影 | 无 | ✅ G7.4 | 同上:`rtao_ao`/`visibility` 零容差 |
+| 8 | TAA-TSR | 部分(仅 TAA) | ✅ G7.5(空间核)+G7.6(时域臂+帧链) | raster_diff:tsr + 96 evidence |
+| 尾句 | 「GPU compute/raster kernel 化 + device 对拍」谓语 | compute 5/8·raster 0 | ✅ compute 8/8 + raster 1/1 | 上列全部 |
+
+**轴二:backfill_condition 十子句**(复用矩阵 §3 拆分;终态相对基线)
+
+| 原文子句 | 基线结论 | 终态 | 锚 |
+|---|---|---|---|
+| 编码通道:u64 atomic | 部分就位(已兑现) | ✅ 维持 | vulkan_codegen Atomic→OpAtomic*;步骤 84/95 恒绿 |
+| 编码通道:storage image 写 | 部分就位(已兑现) | ✅ 维持 | TextureRw2D format-qualified;W1 路径 |
+| 编码通道:ray query | 未就位 | ✅ G7.2/G7.3 | RXS-0297~0300(ledger v1.36)+ 步骤 93 |
+| GPU 剔除对拍 | 已兑现 | ✅ + 帧链 | 步骤 84 + 96 provenance |
+| VisBuffer SW-HW diff 容差 0 | 未兑现 | ✅ G7.5b | `verified-diff-zero`,diff_pixels=0;**未放宽容差** |
+| VSM device 深度对拍 | 未兑现 | ✅ G7.5 | vsm_depth_raster + vsm_sample |
+| GI 方向一致性对拍 | 未兑现 | ✅ G7.4 | gi_probe + shared_tlas |
+| RTAO 同 TLAS 对拍 | 未兑现 | ✅ G7.4 | rtao/hard_shadow + shared_tlas |
+| host 参考器即金标准 | 属实 | ✅ 维持 | geometry/shadow/gi/rt/temporal 模块在位;数值语义 0-byte |
+| 步骤 84~86 blocked 探针占位 | 属实且已细化 | ✅ 维持(只增) | 既有判据 0-byte;W1/W2 gate-real 延续 |
+
+**§5-3 未证实项销账**:
+1. **validation 零报错**——步骤 94/95/96 与 soak 均以 `RURIX_VK_VALIDATION=1` fail-closed 真跑;GREEN 路径零 ERROR 级消息(W3c/余项/帧链/soak 全链补锚)。
+2. **RXS-0297 顺位条款兑现**——ledger **v1.36** 逐字引用 RXS-0297~0300 materialize;后续 v1.44 续 RXS-0301~0303(HW 光栅语言面)。
+
+**轴三:history 逐条**(终审时共 3 条;前 2 条 0-byte 维持,第 3 条为本 close-out 追加)
+1. 2026-07-29 G5.3 W2 交付登记——host 六面与 blocked-honest 探针陈述与终态**零矛盾**(device 腿已由后续波次兑现,登记陈述仍属实)。
+2. 2026-07-30 W1+W2 分波部分兑现——「W3 与 HW 光栅 diff 腿维持 blocked 存续,status 维持 open」为**当时**事实;本条 close-out history 第 3 条翻 closed,不回改本行。
+3. 2026-08-05 G7.7 close-out 逐字终审关闭——见 deferred.json RD-038 history 尾条(v1.74)。
+
+**结论**:title 八行 × backfill 十子句 × history 三轴全部兑现 → `registry/deferred.json` **v1.74** status **open→closed**;矩阵指针 = `RD038_LITERAL_MATRIX.md` §7。
+
+**全量回归冻结真实输出**(2026-08-05,收口时点):
+
+```
+# === §4.1-A Cargo 三件 ===
+cargo fmt --check                                → PASS(rc=0;收口前对 device_frame.rs/main.rs 做 rustfmt 纯排版)
+cargo clippy --workspace --all-targets -- -D warnings → PASS(rc=0)
+cargo test --workspace                           → PASS(rc=0;合计 ≥1222 passed,0 failed)
+
+# === §4.1-B 治理检查面板 ===
+py -3 ci/check_structure.py                      → PASS(11 dirs, 6 files)
+py -3 ci/check_number_ledger.py                  → PASS(+ADVISORY:off_tree grx 两行存在性)
+py -3 ci/check_schemas.py                        → PASS
+py -3 ci/trace_matrix.py --check                 → PASS(285/285 clauses,628 test files)
+py -3 ci/budget_eval.py                          → PASS(104 pass, 0 skip)
+py -3 ci/budget_eval.py --strict                 → PASS(104 pass, 0 skip;禁 --allow-pending)
+py -3 ci/check_guardrails.py ea1-closed          → PASS(+ADVISORY 3 条历史面,不阻断)
+py -3 ci/check_guardrails.py g7-base             → PASS(+ADVISORY 2 条历史面,不阻断)
+py -3 ci/check_guardrails.py                     → tag 前预期 FAIL「g7-closed ref 不存在」(§7.3);C3 打 tag 后复跑须 0 changed paths
+py -3 ci/check_contribution.py                   → PASS(+ADVISORY 历史 commit/RFC 建议项;本波加 errors=replace 防 PPM 二进制 diff 崩门)
+py -3 ci/vulkan_codegen_smoke.py                 → PASS(13 accept + 5 reject)
+```
+
+**新步骤真跑**(步骤 93~96 + 84~87 复跑 + soak;`RURIX_REQUIRE_REAL=1` / `RURIX_VK_VALIDATION=1`):
+
+```
+# === §4.1-C 步骤 84~87 复跑(2026-08-05 close-out) ===
+py -3 ci/renderer_visbuffer_smoke.py             → PASS;evidence/renderer_visbuffer_smoke_20260805T141206.json
+py -3 ci/renderer_lighting_smoke.py              → PASS;evidence/renderer_lighting_smoke_20260805T141212.json(W3 blocked-honest 探针维持)
+py -3 ci/renderer_temporal_smoke.py              → PASS;evidence/renderer_temporal_smoke_20260805T141217.json
+py -3 ci/uc06_renderer_smoke.py                  → PASS;evidence/uc06_renderer_smoke_20260805T141243.json(vis_words=9216,taa_max_err=1.2e-07)
+
+# === §4.1-D 步骤 93~96 + 66/67 ===
+py -3 ci/ray_query_codegen_smoke.py              → PASS;evidence/ray_query_codegen_smoke_20260805T141258.json(G-G7-4/5)
+py -3 ci/renderer_w3_smoke.py                    → PASS;evidence/renderer_w3_smoke_20260805T141310.json(G-G7-6;validation 0)
+py -3 ci/renderer_raster_diff_smoke.py           → PASS;evidence/renderer_raster_diff_smoke_20260805T141336.json(hw_raster_diff.status=verified-diff-zero,diff_pixels=0,covered=7442/9216)
+py -3 ci/renderer_device_frame_smoke.py          → PASS;evidence/renderer_device_frame_smoke_20260805T141505.json(8 帧+RED 四轴;covered=369698,val=0)
+py -3 ci/meshrt_device_smoke.py                  → PASS(步骤 66/67;mesh covered=968 + RT center hit)
+```
+
+**soak**(close-out 专用取证,不占步骤号):
+
+裁定:**采自 commit `ff44030c`**(G7.6 PR-4 soak 收官),`evidence/renderer_soak_20260805T135929.json`——`ok=true`,`actual_frames=10000`,`elapsed_minutes=268.173643`,validation/device-loss/TDR/resource-leak 全 0;`frame_gpu_p95_ms=1473.06496`,`cpu_submit_p95_ms=0.0897`,`peak_vram_mb=365.351562`;锚点 `evidence/soak_anchors/1785893478/`。与收口 HEAD 间隔 = 纯文书/registry + rustfmt 排版 + `ci/check_contribution.py` 二进制 diff 容错;**零** `apps/*/kernels/` 与帧链/pass 语义改动 → 按设计 §4.1-E 允许引用,不完整重跑。
+
+```
+py -3 ci/renderer_device_frame_smoke.py --soak --frames 10000 --min-minutes 30
+  → 引用既有绿件 evidence/renderer_soak_20260805T135929.json(上列);失败短跑四份只增不删
+```
+
+**G8 互锁**(§4.1-F;读文件系统不读 git):
+
+```
+py -3 ci/check_g8_implementation_interlock.py    → VERDICT=READY(rc=0;事实门①② + 一致性门全 PASS)
+```
+
+**既有步骤 41~92 零回归**:dxil 套件恒定 / vulkan 套件 grow-only / 既有判据 0-byte 只增(步骤 69 RD-034 blocked 探针与步骤 70 永久 gap 维持;W1/W2 五 kernel `tests/vulkan/w1w2_spv_manifest.json` 逐字节零漂移——步骤 93/94/95/96 host 段复跑均复验零漂移)。
+
+**RD 处置表**(registry/deferred.json v1.74):
+
+| 编号 | 处置 | 依据 |
+|---|---|---|
+| RD-038 | **closed**(唯一主线,逐字终审全兑现) | 本节逐字终审 + v1.74 history |
+| RD-034 | open 维持 | DXIL RT upstream blocked,非 G7 依赖 |
+| RD-037 | open 维持 | gfx submit 真派发,候选 G8 |
+| RD-039~041 | open 维持 | 渲染 P3+ 不触发 |
+| RD-044 | open 维持 | 物理 P3+;G6 physics 仅作动态场景输入 |
+| RD-045+ | **零消费声明**:G7 全期未出现新真实阻塞 | reserved_in_flight[G7].RD「RD-045 起」未 materialize |
+
+spike_gating.json **0-byte**:G7 零新 SG,SG-010 软保留维持。number_ledger **v1.46** 收口纯留痕(各 namespace 字段 0-byte;步骤 96 已由 v1.45 消费)。
+
+**guardrail 核对**(逐条对 YAML `guardrails` 十条):
+
+| # | guardrail 摘要 | 核对结论 |
+|---|---|---|
+| 1 | m0~g6 CONTRACT/measured 0-byte;g7_budget g7. 前缀;零 estimated | ✅ g7_budget v1.2.1 全 measured_local;既有预算不回改 |
+| 2 | deferred/spike_gating/ledger 只追加;RD-038 主线;RD-045+ 顺位;SG-010 软保留 | ✅ deferred v1.74 只改 RD-038 status/owner/history 尾;spike 0-byte;ledger v1.46 纯留痕 |
+| 3 | evidence 只增不删不改;00~14 0-byte;README 可校准不冒充 | ✅ evidence 只增;00 本 commit 0-byte;README 三处镜像校准 |
+| 4 | spec 先于实现;RayQuery=RFC-0018+gate+RXS+conformance/UI | ✅ G7.1/G7.5b spec-first 已兑现 |
+| 5 | 新 unsafe // SAFETY: + U44 起;优先 U30/U32;rurix-render forbid | ✅ U44 全期未消费(复用 U30/U32);rurix-render forbid 维持 |
+| 6 | RURIX_REQUIRE_REAL=1;SKIP≠充绿;禁 mock/host sub/isolated nonzero | ✅ 步骤 93~96/soak device 段 gate real;provenance RED 轴在位 |
+| 7 | G5 冻结面 0-byte(MaterialClosure/VisBuffer/Barrier/PageRequest/oracle) | ✅ VisBuffer ABI 与 host oracle 数值语义未为过门漂移 |
+| 8 | 主线只做 RD-038;RD-037/039~041/044 等 out-of-scope | ✅ 见上表;零新特效/物理/operator |
+| 9 | 既有零回归:dxil 恒定/vulkan grow-only/41~92 判据只增;69/70 维持 | ✅ 步骤 84~87/93~96 host 复跑 + W1/W2 manifest 零漂移复验;判据行未触 |
+| 10 | 新文件 LF+尾换行;本契约既有条款 0-byte,close-out 只追加 §8 | ✅ 本 §8.1 纯尾部追加;status 洁净独行翻转 |
+
+**status 翻转裁决**(agent 自主签署,D-406 v2.0):G7 验收门 G-G7-1 ~ G-G7-9 全过,close-out §8.1 追加完毕,status active → **closed**(front-matter `status: closed` 洁净独行,禁行内注释——互锁正则陷阱封死)。annotated tag `g7-closed` 由本 close-out commit(C3)后立即签署创建。`check_guardrails` 默认基准 `ea1-closed` → `g7-closed`(恢复单线性基准链 mb1→g3→ei1→g4→ea1→**g7**;G5/G6 未切系当时 close tag 未落的权宜)。tag 创建前默认基准核对预期 FAIL「ref 不存在」,属 EA1 先例预期;退回口径 = `py -3 ci/check_guardrails.py ea1-closed`。

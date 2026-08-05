@@ -215,8 +215,15 @@ def changed_full_rfcs(base: str) -> list[str]:
 
 
 def git(*args: str) -> subprocess.CompletedProcess:
+    # errors=replace:soak/PPM 等二进制 diff 不得使 utf-8 严格解码把门打崩(G7.7 close-out)。
     return subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
     )
 
 
