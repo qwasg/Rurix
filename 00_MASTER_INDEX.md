@@ -3,6 +3,7 @@
 > 版本：v1.0（2026-06-11）
 > 状态：实现期——本文档集已按 §6.4 转历史规划档案（只受勘误）。语言 1.0 已发行（tag v1.0.0，2026-07-14；`v1.0.1-dist` 系列预编译工具链分发自 EA1.2 起，pre-release）；MVP(M0–M8)/G1/G2/V1/MS1(2026-07-15)/MB1(2026-07-16，基准 mb1-closed)/G3(2026-07-19)/EI1(2026-07-23)/G4(2026-07-24)/EA1(2026-07-28，基准 ea1-closed)/G5(2026-07-29，契约 §8.1) 里程碑相继收官；当前 RD-038 渲染器降级分波兑现推进、G6 期（渲染物理双轨）计划已定稿待立项（milestones/g6/G6_PLAN.md）；仓库 2026-06-17 已开源（MIT OR Apache-2.0）。
 > **勘误（2026-08-02，仅状态镜像，不改本文档集条款）**：上行状态描述停在「G6 计划待立项」，实际已推进至——G6 于 2026-08-01 收口（契约 §8.2）；**G7**（Production Frame Closure，收口 RD-038）自 2026-08-01 起 `status: active`，当前处于 G7.2 波次，RD-038 维持 `open`；**G8**（UE5 级前置能力完成期，`milestones/g8/`）自 2026-08-02 起 `status: active` 但 `implementation_status: blocked`，**只有 G8.1 治理波获授权**（契约四件套 + 候选决策表 + 18 个 P0 验收映射 + RFC-0019/0020/0021 Agent Approved + measured baseline + 三个治理 validator），G8.2+ 由 G-G8-3 事实互锁硬阻断（机器判读：`py -3 ci/check_g8_implementation_interlock.py`，当前 `BLOCKED`）。里程碑事实源恒为各 `milestones/` 下的 `*_CONTRACT.md` 与 `registry/`，本行只作索引镜像。
+> **勘误（2026-08-05，仅状态镜像，不改本文档集条款）**：上一勘误行状态停在「G7.2 波次」，实际已推进至——G7 于 2026-08-05 收口（契约 §8.1，tag `g7-closed`），RD-038 closed（deferred v1.74）；G8 维持 G8.1 治理波，G8.2 互锁事实门 `READY`（READY ≠ 已开工/已通过）。里程碑事实源恒为 `milestones/` 与 `registry/`，本行只作索引镜像。
 >
 > 本文档集是 Rurix 项目设计期的**唯一事实源**。任何与本文档集冲突的口头约定、聊天记录、AI 输出均以本文档集为准。
 
