@@ -592,3 +592,15 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：G8.4 按 RFC-0019 §4.8.3 **单队列 fallback** 过门；多队列实现留待 measured 需求判档（G8.7 或 G9+）；M40/SVT 零实现、零空 baker。
 
 **验收**：M37 10/10 + GeomPage 8/8 device PASS；wave4.exit 聚合 PASS。
+
+### 8.19 G8.5a M19 + wave5a.exit（2026-08-06）
+
+**触发**：wave4.exit 解锁后阴影/页缓存波（设计 `G8.5_RENDERING_COMPLETION_DESIGN` §2）。
+
+**交付物**：
+- M19：`rurix-render::shadow::{events,local,page_cache}` + `uc06 --m19-vsm-page-cache` + `ci/g8_vsm_page_cache_smoke.py`（步骤 **115**，`RURIX_REQUIRE_REAL=1`）
+- wave5a.exit：`ci/g8_wave5a_exit_check.py`（步骤 **116**；RD-038 raster/VSM 接入=`empty_set`；retained-open 锚）
+
+**诚实边界**：RD-038 已由 G7 closed，本波接入表为空集，不代绿、不放宽 16 腿判据。
+
+**验收**：M19 16/16 device PASS；wave5a.exit 聚合 PASS。

@@ -1211,6 +1211,25 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M80 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.vsm_page_cache_checks":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m19_vsm_page_cache_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 16:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 vsm_page_cache 16 腿 device 全绿见证",
+            "G8.5a M19 实现回填前为正常状态",
+            strict,
+        )
     elif eid == "g8.counter.streaming_io_legs":
         n = 0
         for f in (ROOT / "evidence").glob("g8_m37_streaming_io_*.json"):

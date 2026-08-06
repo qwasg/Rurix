@@ -17,6 +17,7 @@ const KERNELS: &[&str] = &[
     "hard_shadow",
     // G7.5 RD-038 余项(「VSM 深度」页内光栅 + 采样;「TAA-TSR」的 TSR 腿)。
     "vsm_depth_raster",
+    "vsm_depth_raster_mv",
     "vsm_sample",
     "tsr_resample",
     // G7.6 PR-1:TSR 时域臂孤立腿(闪烁 EMA / 重投影 / YCoCg AABB / 混合 / 五件套)。

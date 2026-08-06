@@ -105,6 +105,18 @@ pub struct RasterStats {
     pub pages: u32,
 }
 
+/// 脏且驻留页引用(M19 multi-view batch / device 装配)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DirtyPageRef {
+    pub view_id: u32,
+    pub level: u8,
+    pub slot: (u8, u8),
+    pub phys: u16,
+    pub origin: [f32; 2],
+    pub page_world: f32,
+    pub z_range: [f32; 2],
+}
+
 /// VSM host 系统(单方向光;页表/物理池跨帧持久)。
 #[derive(Debug, Clone)]
 pub struct Vsm {
@@ -148,7 +160,7 @@ impl Vsm {
             pool: PhysicalPagePool::new(cfg.pool_pages),
             windows_valid: false,
         };
-        vsm.update_windows();
+        let _ = vsm.update_windows();
         vsm
     }
 
@@ -181,7 +193,10 @@ impl Vsm {
     }
 
     /// 帧推进:驻留页帧龄 +1(饱和)、相机重排窗口(环形更新带标脏)。
-    pub fn begin_frame(&mut self, camera: [f32; 3]) {
+    ///
+    /// 返回值 = 本帧因 clipmap scroll(环形更新带)新标脏的槽位数
+    /// (G8.5a M19 加性;既有忽略返回值的调用方 0-byte)。
+    pub fn begin_frame(&mut self, camera: [f32; 3]) -> u32 {
         self.frame += 1;
         self.camera = camera;
         for t in &mut self.tables {
@@ -193,12 +208,80 @@ impl Vsm {
                 }
             }
         }
-        self.update_windows();
+        self.update_windows()
+    }
+
+    /// 白盒帧标记(M19 fixture / 单测夹具;与 `page_mark` 写入同一 `mark_stamp`)。
+    pub fn mark_slot(&mut self, level: u8, x: u8, y: u8) {
+        let idx = usize::from(y) * DIM + usize::from(x);
+        self.mark_stamp[usize::from(level)][idx] = self.frame;
+        let mut e = self.tables[usize::from(level)].get(x, y);
+        if e.resident && e.age != 0 {
+            e.age = 0;
+            self.tables[usize::from(level)].set(x, y, e);
+        }
+    }
+
+    /// 清页表槽(跨灯共享池驱逐时由 page_cache 回调)。
+    pub fn clear_slot(&mut self, level: u8, x: u8, y: u8) {
+        self.tables[usize::from(level)].set(x, y, PageTableEntry::EMPTY);
+    }
+
+    /// 强制标脏(M19 NonVirtual caster / fixture;不改 phys/resident/age)。
+    pub fn dirty_slot(&mut self, level: u8, x: u8, y: u8) -> bool {
+        let mut e = self.tables[usize::from(level)].get(x, y);
+        if !e.resident || e.dirty {
+            return false;
+        }
+        e.dirty = true;
+        self.tables[usize::from(level)].set(x, y, e);
+        true
+    }
+
+    /// 共享物理页池(可写;M19 local light 跨灯竞争)。
+    pub fn pool_mut(&mut self) -> &mut PhysicalPagePool {
+        &mut self.pool
+    }
+
+    /// LRU 驱逐候选(公开给跨灯分配器;语义同私有 `find_victim`)。
+    pub fn find_lru_victim(&self) -> Option<(PageId, u16)> {
+        self.find_victim()
+    }
+
+    /// 脏且驻留页枚举(级×槽行主序;device multi-view batch 装配契约)。
+    pub fn dirty_resident_pages(&self) -> Vec<DirtyPageRef> {
+        let mut out = Vec::new();
+        for l in 0..self.cfg.clip.levels {
+            let li = usize::from(l);
+            let pw = self.cfg.clip.page_world(l);
+            let zr = self.z_range[li];
+            for idx in 0..SLOTS {
+                let e = PageTableEntry::unpack(self.tables[li].entries[idx]);
+                if !(e.resident && e.dirty) {
+                    continue;
+                }
+                let sx = (idx % DIM) as u8;
+                let sy = (idx / DIM) as u8;
+                let wp = self.slot_wp[li][idx];
+                out.push(DirtyPageRef {
+                    view_id: u32::from(l),
+                    level: l,
+                    slot: (sx, sy),
+                    phys: e.phys,
+                    origin: [wp[0] as f32 * pw, wp[1] as f32 * pw],
+                    page_world: pw,
+                    z_range: zr,
+                });
+            }
+        }
+        out
     }
 
     /// 按当前相机/灯基重排各级窗口:原点页粒度 snap;窗口平移时仅世界页
     /// 坐标发生变化的槽位(环形更新带)标脏,留在窗口内的页槽位与内容不变。
-    fn update_windows(&mut self) {
+    /// 返回本帧新标脏槽位数。
+    fn update_windows(&mut self) -> u32 {
+        let mut newly_dirty = 0u32;
         let cl = self.basis.to_light(self.camera);
         for l in 0..self.cfg.clip.levels {
             let li = usize::from(l);
@@ -232,6 +315,7 @@ impl Vsm {
                             if !e.dirty {
                                 e.dirty = true;
                                 self.tables[li].entries[idx] = e.pack();
+                                newly_dirty += 1;
                             }
                             self.slot_wp[li][idx] = nwp;
                         }
@@ -243,6 +327,7 @@ impl Vsm {
             self.z_range[li] = [cl[2] - ext, cl[2] + ext];
         }
         self.windows_valid = true;
+        newly_dirty
     }
 
     /// 灯平面坐标 → (槽位, 世界页坐标);出当前窗口返回 None。
@@ -471,7 +556,7 @@ impl Vsm {
                 }
             }
         }
-        self.update_windows();
+        let _ = self.update_windows();
     }
 
     /// 多视图描述(每 clipmap 级一视图;device W3 接线契约)。

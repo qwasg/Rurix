@@ -26,6 +26,8 @@ mod device_g75_hw;
 #[cfg(feature = "vulkan")]
 mod device_kernels;
 #[cfg(feature = "vulkan")]
+mod device_m19;
+#[cfg(feature = "vulkan")]
 mod device_m37;
 #[cfg(feature = "vulkan")]
 mod device_w3;
@@ -198,6 +200,32 @@ fn run_geom_page_mode(cli: &Cli) -> i32 {
         }
         Some(Err(e)) => {
             eprintln!("GeomPage: FAIL {e}");
+            1
+        }
+    }
+}
+
+/// G8.5a M19 `--m19-vsm-page-cache` 模式(device 必需;`RURIX_REQUIRE_REAL=1`)。
+#[cfg(feature = "vulkan")]
+fn run_m19_vsm_page_cache_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    match device_m19::run_m19_device(cli.m19_red_stale, cli.m19_red_missing_local) {
+        None => {
+            println!("M19: SKIP 无 Vulkan device(dev-env degrade)");
+            i32::from(require_real)
+        }
+        Some(Ok(json)) => {
+            println!("{json}");
+            if json.contains("\"pass\":true") || json.contains("\"red_ok\":true") {
+                println!("M19: PASS");
+                0
+            } else {
+                eprintln!("M19: FAIL device 对拍未过");
+                1
+            }
+        }
+        Some(Err(e)) => {
+            eprintln!("M19: FAIL {e}");
             1
         }
     }
@@ -514,6 +542,12 @@ struct Cli {
     g75_hw_red_ids: bool,
     /// G7.6 PR-1:TSR 时域臂孤立腿 32 帧对拍(`DeviceFrameSession` + ping-pong)。
     g76_tsr_temporal: bool,
+    /// G8.5a M19:VSM 跨帧页缓存 multi-view depth device 对拍。
+    m19_vsm_page_cache: bool,
+    /// M19 RED:stale z_range 上传。
+    m19_red_stale: bool,
+    /// M19 RED:local 页不入批。
+    m19_red_missing_local: bool,
     /// G8.4 M37:流送 I/O 全链 device 对拍。
     stream_io: bool,
     /// G8.4 门-GeomPage:按需驻留 + LRU + 迟到页。
@@ -553,6 +587,9 @@ impl Default for Cli {
             g75_hw_red_ids: false,
             g76_tsr_temporal: false,
             g76_red_history: false,
+            m19_vsm_page_cache: false,
+            m19_red_stale: false,
+            m19_red_missing_local: false,
             stream_io: false,
             geom_page: false,
             golden_dir: None,
@@ -619,6 +656,15 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--g76-red-history" => {
                 c.g76_tsr_temporal = true;
                 c.g76_red_history = true;
+            }
+            "--m19-vsm-page-cache" => c.m19_vsm_page_cache = true,
+            "--m19-red-stale" => {
+                c.m19_vsm_page_cache = true;
+                c.m19_red_stale = true;
+            }
+            "--m19-red-missing-local" => {
+                c.m19_vsm_page_cache = true;
+                c.m19_red_missing_local = true;
             }
             "--stream-io" => c.stream_io = true,
             "--geom-page" => c.geom_page = true,
@@ -712,11 +758,12 @@ fn main() {
         || cli.g75_residuals
         || cli.g75_hw_raster
         || cli.g76_tsr_temporal
+        || cli.m19_vsm_page_cache
         || cli.stream_io
         || cli.geom_page
     {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal/--stream-io/--geom-page 需要 feature vulkan"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal/--m19-vsm-page-cache/--stream-io/--geom-page 需要 feature vulkan"
         );
         std::process::exit(2);
     }
@@ -757,6 +804,11 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.g76_tsr_temporal {
         std::process::exit(run_g76_tsr_temporal_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.m19_vsm_page_cache {
+        std::process::exit(run_m19_vsm_page_cache_mode(&cli));
     }
 
     #[cfg(feature = "vulkan")]

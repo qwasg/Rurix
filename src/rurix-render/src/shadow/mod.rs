@@ -13,8 +13,13 @@
 //! - [`vsm`][]:host 系统——page_mark/page_alloc/invalidate 三 pass、多视图
 //!   CPU 深度光栅、投影采样、帧流程与增量语义;device 侧 W3 统一接线,
 //!   本模块为对拍金标准。
+//! - [`events`][] / [`local`][] / [`page_cache`][]:G8.5a M19 跨帧页缓存
+//!   事件模型、local spot 页空间、16 帧 fixture 金标准(加性,既有 API 0-byte)。
 
 pub mod clipmap;
+pub mod events;
+pub mod local;
+pub mod page_cache;
 pub mod page_table;
 pub mod pool;
 pub mod vsm;

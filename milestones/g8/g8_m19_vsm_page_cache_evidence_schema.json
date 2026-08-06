@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.5a M19 vsm_page_cache evidence",
+  "description": "evidence/g8_m19_vsm_page_cache_<UTC>.json。G8.5a P0 硬门 g8.p0.m19.vsm_page_cache:VSM 跨帧页缓存/失效分类/clipmap scroll/local light/non-virtual caster/multi-view batch device 对拍。device 必需;RURIX_REQUIRE_REAL=1。CI 步骤 115。RD-038 raster/VSM 接入空集(closed 指针)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "rd038_raster_vsm_ingress",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m19_vsm_page_cache" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m19.vsm_page_cache" },
+    "matrix_row": { "type": "string", "const": "M19" },
+    "wave": { "type": "string", "const": "G8.5a" },
+    "numeric_step": { "type": "integer", "const": 115 },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_oracle_regression",
+        "event_sequence_matches_golden",
+        "cross_frame_cache_hit",
+        "invalidation_reasons_exhaustive",
+        "clipmap_scroll_hit",
+        "local_light_page_hit",
+        "non_virtual_caster_hit",
+        "multi_view_batch",
+        "page_table_digest_match",
+        "depth_readback_digest_match",
+        "sample_digest_match",
+        "red_stale_page",
+        "red_wrong_eviction",
+        "red_missing_local_page",
+        "validation_zero",
+        "not_satisfiable_by_g7"
+      ],
+      "properties": {
+        "host_oracle_regression": { "type": "boolean" },
+        "event_sequence_matches_golden": { "type": "boolean" },
+        "cross_frame_cache_hit": { "type": "boolean" },
+        "invalidation_reasons_exhaustive": { "type": "boolean" },
+        "clipmap_scroll_hit": { "type": "boolean" },
+        "local_light_page_hit": { "type": "boolean" },
+        "non_virtual_caster_hit": { "type": "boolean" },
+        "multi_view_batch": { "type": "boolean" },
+        "page_table_digest_match": { "type": "boolean" },
+        "depth_readback_digest_match": { "type": "boolean" },
+        "sample_digest_match": { "type": "boolean" },
+        "red_stale_page": { "type": "boolean" },
+        "red_wrong_eviction": { "type": "boolean" },
+        "red_missing_local_page": { "type": "boolean" },
+        "validation_zero": { "type": "boolean" },
+        "not_satisfiable_by_g7": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "rd038_raster_vsm_ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "closed_evidence_pointers"],
+      "properties": {
+        "status": { "type": "string", "const": "empty_set" },
+        "reason": { "type": "string", "minLength": 1 },
+        "closed_evidence_pointers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

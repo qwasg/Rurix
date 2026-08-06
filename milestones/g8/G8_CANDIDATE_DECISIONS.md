@@ -114,9 +114,23 @@
 | RD-043 | open-观察 | GPU 主刚体否决线维持 |
 | RD-044 | open | Cloth 目标 closed；Continuum/Fluid 观察，Rapier 深造留 G8.7 |
 
+## 10. 矩阵 P1 未判行补裁决（G8.5a retained-open）
+
+> **加性修订（v1.2）**：下列六行不在 §1–§8 的 41 行集合内，但出现在 `G8_CAPABILITY_MATRIX` P1。G8.5 不实现；`g8.wave.5a.exit` / `5b.exit` 机器核 `retained_open`。M05 维持 §3/§5 既判 no-go，不重复。
+
+| M## | 分项名 | 决策 | backfill 触发条件 | 最终期望状态 |
+|---|---|---|---|---|
+| M07 | RT fallback/proxy | no-go | RT 与主几何误差联动需求出现（M50 消费侧真实资产）时判档 | open-留 G8.7 |
+| M08 | programmable raster/binning | no-go | 材质数规模使 dispatch 分桶成为 measured 瓶颈时；classify/resolve 部分在树不代绿全量 binning | open-留 G8.7 |
+| M17 | Path Tracer 参照器 | no-go | GI/材质画质门需要跨路径 golden 时（G9+ 建造期前置）；G8.7 复审 | open-留 G8.7/G9+ |
+| M45 | HDR 管线 | no-go | HDR 显示设备资产/产品需求出现时 | open-留 G8.7/G9+ |
+| M46 | 后处理栈 | no-go | 产品级后处理需求（bloom/DOF/曝光分级）随 G9+ 建造期出现时 | open-留 G9+ |
+| M47 | 透明/OIT | no-go | 透明资产面出现时；OIT 策略选型需 measured 对照。M24 `transparent_velocity` 最小合成面不冒充本行 | open-留 G8.7 |
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | 首版：覆盖 RD-037~044 全部可辨分项与 RD-038 六个接入面；登记 M50 单独 strategic_override；M04/M25/M72/M83 与 RD-037/M89 go；其余按 backfill 无证据 no-go/open。明确 G8.1 governance-only 可并行、G8.2+ 互锁维持。 |
 | v1.1 | 2026-08-05 | **RD-038 终态落地（裁决字面 0-byte，只追加）**：G7 已 `closed`（close-out `5269f96a` / tag `g7-closed`）且 `registry/deferred.json` 的 **RD-038 = `closed`**（G7.7 逐字审计路径）。因此 §2 六行的「open-观察（待 G7 终态）」预期**已由 G7 自行兑现**：G8 侧不接管这六个分项，`G8_PLAN` §1.0 六行「互锁终态」列维持 `unresolved`（RD-038 未走 override 路径，回填即伪造），§9 的 `RD-038 | open-观察（当前）` 行同为当时快照不回写；当前有效事实以 `registry/deferred.json` 为唯一事实源。连带效果：`G-G8-4` 的「接入本波的 RD-038 分项逐字兑现」在 G8.2 为**空集**（无 G8.2 腿），G8.2 退出门 = M50/M89/M29/M30/M31/M32/M85 七个独立断言 + RD-037 三件套，不因空集而放宽任何一条。M50 strategic_override（§4.1）与全部 go/no-go 裁决**逐字不改**；本次零号消费、零判据改动。 |
+| v1.2 | 2026-08-06 | **§10 矩阵 P1 未判行补裁决**：加性六行 M07/M08/M17/M45/M46/M47（均 no-go + open 留痕 + backfill 触发）；供 G8.5a/5b wave exit `retained_open` 机核。M05 引用既有 no-go 不重复。零号消费。 |

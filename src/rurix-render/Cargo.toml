@@ -17,5 +17,9 @@ default = []
 # `cargo build --workspace` 仍全绿(uc04-demo real-shim 先例,host 逻辑常驻回归网)。
 vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
 
+[[bin]]
+name = "g8_m19_probe"
+path = "src/bin/g8_m19_probe.rs"
+
 [lints]
 workspace = true

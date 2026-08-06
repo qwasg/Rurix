@@ -61,7 +61,7 @@
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
 | M18 | VSM 页表 + page-mark | R1 §3.4 | ✅ G5 `shadow::vsm` host 全量 + W1 page-mark device；VSM depth/sample device 化 = G7.5 在途（RD-038 字面矩阵分项） | — | — | 承 G7 | ✔ | 承 G7 |
-| M19 | VSM 完整页缓存（跨帧 cache/失效分类/clipmap scroll/local light pages/非虚拟几何 caster） | R1 §3.4（16K 虚拟/128×128 页） | ⬜（G5 clipmap 骨架在 `shadow/clipmap.rs`，页缓存/失效/local lights 未做） | 物理页池 LRU/age、失效原因分类、multi-view 批量 | B/C | P0 | ✔ | G8.5a |
+| M19 | VSM 完整页缓存（跨帧 cache/失效分类/clipmap scroll/local light pages/非虚拟几何 caster） | R1 §3.4（16K 虚拟/128×128 页） | ✅ G8.5a `shadow::{events,local,page_cache}` + `uc06 --m19-vsm-page-cache`（16 腿 device） | 物理页池 LRU/age、失效原因分类、multi-view 批量 | B/C | P0 | ✔ | G8.5a |
 | M20 | SMRT 软阴影完整版 | R1 §3.4 | ⬜ RD-040（backfill：VSM device 化后可独立 Mini） | 采样端沿光线多采样 | C | P1 | ✔ | G8.5a（依赖 M19/RD-038 VSM device；决策表） |
 | M21 | ray query 硬阴影 | — | ✅→G7.4 `hard_shadow.rx` 在途 | — | — | 承 G7 | ✔ | 承 G7 |
 | M22 | 海量灯阴影（MegaLights 配套 RT/VSM 阴影统一接口） | R1 §3.3 | ⬜ | 统一阴影查询接口 | C | P2 | ✔ | G8.7（随 M15） |

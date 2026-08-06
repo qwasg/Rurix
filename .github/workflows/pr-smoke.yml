@@ -1210,6 +1210,20 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave4_exit_check.py --gate g8.wave.4.exit
 
+      # 步骤 115（G8.5a P0 硬门 g8.p0.m19.vsm_page_cache）:跨帧 VSM 页缓存 +
+      # multi-view depth device 对拍。device 门。
+      - name: G8.5a M19 VSM page cache smoke (G8 CI_GATES §4.115, g8.p0.m19.vsm_page_cache)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_vsm_page_cache_smoke.py --gate g8.p0.m19.vsm_page_cache
+
+      # 步骤 116（G8.5a 波次聚合 g8.wave.5a.exit）:M19 + RD-038 空集 + retained-open。
+      - name: G8.5a wave5a.exit aggregate (G8 CI_GATES §5.116, g8.wave.5a.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave5a_exit_check.py --gate g8.wave.5a.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

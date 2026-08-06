@@ -1,0 +1,64 @@
+// G8.5a M19 multi-view VSM 深度 gather 核(加性;G7 `vsm_depth_raster.rx` 0-byte)。
+//
+// pages = 5 f32/页(origin.xy, page_world, zmin, zmax)——与 G7 同布局;
+// meta  = 2 u32/页(tri_offset, tri_count)——避开 f32→usize 编码器陷阱。
+// 单 dispatch 覆盖方向光多级 + local 视图的脏页批次。
+kernel fn vsm_depth_raster_mv(
+    t: ThreadCtx<1>,
+    tris: View<global, f32>,
+    pages: View<global, f32>,
+    meta: View<global, u32>,
+    out: ViewMut<global, f32>,
+    page_count: usize,
+) {
+    let gid = t.global_id();
+    if gid < page_count * 16384 {
+        let p = gid / 16384;
+        let texel = gid % 16384;
+        let px = (texel % 128) as f32 + 0.5;
+        let py = (texel / 128) as f32 + 0.5;
+        let pb = p * 5;
+        let ox = pages[pb];
+        let oy = pages[pb + 1];
+        let pw = pages[pb + 2];
+        let zmin = pages[pb + 3];
+        let zmax = pages[pb + 4];
+        let mb = p * 2;
+        let tri_off = meta[mb] as usize;
+        let tri_count = meta[mb + 1] as usize;
+        let mut best = 1.0;
+        let mut k = 0usize;
+        while k < tri_count {
+            let b = (tri_off + k) * 9;
+            let tx0 = (tris[b] - ox) / pw * 128.0;
+            let ty0 = (tris[b + 1] - oy) / pw * 128.0;
+            let dep0 = (tris[b + 2] - zmin) / (zmax - zmin);
+            let tx1 = (tris[b + 3] - ox) / pw * 128.0;
+            let ty1 = (tris[b + 4] - oy) / pw * 128.0;
+            let dep1 = (tris[b + 5] - zmin) / (zmax - zmin);
+            let tx2 = (tris[b + 6] - ox) / pw * 128.0;
+            let ty2 = (tris[b + 7] - oy) / pw * 128.0;
+            let dep2 = (tris[b + 8] - zmin) / (zmax - zmin);
+            let area = (tx1 - tx0) * (ty2 - ty0) - (ty1 - ty0) * (tx2 - tx0);
+            if area.abs() >= 1e-12 {
+                let w0 = ((tx2 - tx1) * (py - ty1) - (ty2 - ty1) * (px - tx1)) / area;
+                let w1 = ((tx0 - tx2) * (py - ty2) - (ty0 - ty2) * (px - tx2)) / area;
+                let w2 = ((tx1 - tx0) * (py - ty0) - (ty1 - ty0) * (px - tx0)) / area;
+                if w0 >= 0.0 {
+                    if w1 >= 0.0 {
+                        if w2 >= 0.0 {
+                            let d = w0 * dep0 + w1 * dep1 + w2 * dep2;
+                            if d < best {
+                                best = d;
+                            }
+                        }
+                    }
+                }
+            }
+            k = k + 1;
+        }
+        out[gid] = best;
+    }
+}
+
+fn main() {}
