@@ -1,0 +1,11 @@
+//@ capability: reject
+//@ expect-error: RX3021
+//@ spec: RXS-0312
+//@ profile: profiles/low.json
+// profile forbidden 集含 rt.ray_query,entry 有效 requirement 集 ∩ forbidden ≠ ∅
+// → 构建期选择律分支一确定性拒:RX3021 `capability.forbidden_used`
+// (消息携带违禁 ID = rt.ray_query)。
+#[requires("rt.ray_query")]
+kernel fn kmain() {}
+
+fn main() {}

@@ -1,0 +1,39 @@
+//@ capability: accept
+//@ spec: RXS-0311, RXS-0312
+//@ profile: profiles/high.json, profiles/low_with_fallback.json
+// RayQuery 主 entry + SSBO fallback entry 对(fallback 腿判据 fixture):
+// - profiles/high.json:kmain 有效集 {rt.ray_query}(AccelStruct compute 签名
+//   形参 + ray_query_initialize,RXS-0311 隐式推导)⊆ required → 照常发射,0 诊断;
+// - profiles/low_with_fallback.json:缺 rt.ray_query + fallbacks 映射
+//   kmain → kmain_fallback → 选中 fallback,主 variant 不发射(「低 profile
+//   只生成允许的 specialization」):0 诊断、五 symbolic key 零出现、选中产物
+//   OpRayQuery* 指令数与 SPV_KHR_ray_query 扩展声明计数为 0。
+// 接口契约(RXS-0312 v1.3):stage 相同(compute);io 均空表;push_constants
+// 相等(n: u32 member0);execution_modes 均空;resources 仅差 AccelStruct 条目
+// (class == accel 且缺失能力 = rt.ray_query → 允许 fallback 缺席)。
+kernel fn kmain(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    geom: ViewMut<global, f32>,
+    n: u32,
+) {
+    let i = t.global_id();
+    let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+    while rq.proceed() {
+        if rq.has_committed() {
+            geom[i] = rq.committed_t();
+        }
+    }
+    rq.terminate();
+}
+
+kernel fn kmain_fallback(
+    t: ThreadCtx<1>,
+    geom: ViewMut<global, f32>,
+    n: u32,
+) {
+    let i = t.global_id();
+    geom[i] = 0.0;
+}
+
+fn main() {}

@@ -45,6 +45,7 @@ fn main() -> ExitCode {
     let mut error_format: Option<String> = None;
     let mut permutation_budget: Option<u32> = None;
     let mut permutation_select: Option<String> = None;
+    let mut profile: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -58,6 +59,13 @@ fn main() -> ExitCode {
                 target = args.get(i).cloned();
             }
             s if s.starts_with("--target=") => target = Some(s["--target=".len()..].to_owned()),
+            "--profile" => {
+                i += 1;
+                profile = args.get(i).cloned();
+            }
+            s if s.starts_with("--profile=") => {
+                profile = Some(s["--profile=".len()..].to_owned());
+            }
             s if s.starts_with("--self-profile=") => {
                 profile_out = Some(PathBuf::from(&s["--self-profile=".len()..]));
             }
@@ -89,7 +97,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|permutations|llvm-ir] [--permutation-budget=N] [--permutation-select=KEY] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|permutations|capabilities|llvm-ir] [--profile <profile.json>] [--permutation-budget=N] [--permutation-select=KEY] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
         );
         return ExitCode::from(2);
     };
@@ -103,6 +111,7 @@ fn main() -> ExitCode {
         target,
         permutation_budget,
         permutation_select,
+        profile: profile.map(PathBuf::from),
     }))
 }
 

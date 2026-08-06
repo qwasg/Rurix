@@ -930,6 +930,28 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G7.6 soak 取证回填前为正常状态,契约 G-G7-8",
             strict,
         )
+    elif eid == "g8.counter.capability_profile_legs":
+        # G8.2 M32 capability_profile 硬门判据通过数 >=14(契约 G-G8-4 / CI_GATES §4
+        # M32 行;RFC-0019 §4.5 / RXS-0311~0313)。计数源 = evidence/
+        # g8_m32_capability_profile_*.json 中 checks.* 全 true 的字段数(14 个独立断言,
+        # 三腿缺一 FAIL)。host/compile 纯 host 门,device 段 not_applicable,host 恒跑不 SKIP。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m32_capability_profile_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 14:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 capability_profile 判据全绿见证(checks.* 14/14 true)",
+            "G8.2 M32 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.shader_permutation_legs":
         # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
         # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/

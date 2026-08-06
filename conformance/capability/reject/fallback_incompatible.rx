@@ -1,0 +1,31 @@
+//@ capability: reject
+//@ expect-error: RX3022
+//@ spec: RXS-0312
+//@ profile: profiles/low_with_fallback.json
+// fallbacks 映射 kmain → kmain_fallback 存在,但接口契约不兼容:push_constants
+// 不等(主 n: u32 member0 size4 vs fallback n: u64 member0 size8)→ 构建期选择律
+// 分支三确定性拒:RX3022 `capability.fallback_incompatible`(消息给出不兼容字段
+// = `push_constants`,RXS-0312 v1.3)。
+kernel fn kmain(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    geom: ViewMut<global, f32>,
+    n: u32,
+) {
+    let i = t.global_id();
+    let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+    while rq.proceed() {
+        geom[i] = 1.0;
+    }
+    rq.terminate();
+}
+
+kernel fn kmain_fallback(
+    t: ThreadCtx<1>,
+    geom: ViewMut<global, f32>,
+    n: u64,
+) {
+    geom[0] = 0.0;
+}
+
+fn main() {}

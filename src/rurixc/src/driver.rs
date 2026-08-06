@@ -72,6 +72,11 @@ pub struct CompileOptions {
     /// reflection `variant_key = KEY`、`permutation_domain_digest` 真值化;KEY ∉
     /// 合法集 = RX3019 类确定性错误(禁最接近回退)。
     pub permutation_select: Option<String>,
+    /// `--profile <path.json>`(G8.2 M32,RXS-0312):capability profile v1 构建
+    /// manifest;给定后执行构建期选择律(RX3020~3022)并真值化 reflection
+    /// `selected_profile_digest`、按 selection 过滤 codegen 收集根(fallback
+    /// 选中 → 主 variant 不进产物)。未给 = 行为与 M32 前逐字节一致(0 漂移)。
+    pub profile: Option<PathBuf>,
 }
 
 /// 端到端编译(单一前端,07 §2)。返回退出码(`u8`,供调用方 [`std::process::ExitCode::from`]
@@ -244,6 +249,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                                     | Some("dll")
                                     | Some("reflection")
                                     | Some("permutations")
+                                    | Some("capabilities")
                             ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
@@ -270,6 +276,27 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         return 1;
     }
     let mir_bodies = mir_bodies.expect("无错误则 MIR 存在");
+
+    // ── G8.2 M32 capability profile(RXS-0311~0313;RFC-0019 §4.5)──
+    // `#[requires]` 闭集/附着校验(RX3023)已在 shader_stages 关卡完成。此处:
+    // `--profile` 装载(闭集外 ID → RX3023;形态非法 → RX7001)+ 调用图并集
+    // 有效 requirement 集 + 构建期选择律(RX3020~3022,fail-closed,退出非零)。
+    // 选择结果供三处消费:`--emit=capabilities` selection manifest、reflection
+    // v1.2 真值化(required_capabilities/selected_profile_digest)、codegen
+    // 收集根过滤(fallback 选中 → 主 variant 不发射)。无 --profile 时选择律
+    // 不触发,行为与 M32 前逐字节一致(0 漂移)。
+    #[cfg(feature = "shader-stages")]
+    let cap_ctx = match prepare_capability(
+        &diag,
+        &sm,
+        &cx,
+        &src,
+        opts.profile.as_deref(),
+        emit.as_deref(),
+    ) {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
 
     // --emit=dll:`#[export(c)]` 导出 host fn 为 MIR 收集根(不依赖 `main`,RXS-0252),
     // 导出根 body.symbol 改未 mangle 导出符号名(C ABI 保名,单一事实源与 /EXPORT:·
@@ -315,6 +342,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             out.as_deref(),
             opts.permutation_select.as_deref(),
             opts.permutation_budget,
+            cap_ctx.as_ref(),
         );
     }
 
@@ -331,6 +359,14 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             out.as_deref(),
             opts.permutation_budget,
         );
+    }
+
+    // --emit=capabilities(G8.2 M32,RXS-0312;RFC-0019 §4.5):capability 选择律
+    // selection manifest(per-entry effective_requirements/status/selected_entry/
+    // missing/forbidden_hits),确定性 canonical JSON,纯 host/compile 面。
+    #[cfg(feature = "shader-stages")]
+    if emit.as_deref() == Some("capabilities") {
+        return emit_capabilities(&diag, &sm, cap_ctx.as_ref(), out.as_deref());
     }
 
     if emit.as_deref() == Some("mir") {
@@ -510,6 +546,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                 | "mir"
                 | "reflection"
                 | "permutations"
+                | "capabilities"
                 | "nvptx-ir"
                 | "ptx"
                 | "llvm-ir"
@@ -521,7 +558,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             &diag,
             &sm,
             format!(
-                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/permutations/llvm-ir/nvptx-ir/ptx/pyd/dll)"
+                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/permutations/capabilities/llvm-ir/nvptx-ir/ptx/pyd/dll)"
             ),
         );
         return 1;
@@ -1025,7 +1062,9 @@ fn toolchain_err(diag: &DiagCtxt, sm: &SourceMap, reason: String) {
 /// 编译期确定性诊断(fail-closed,不产部分产物,RXS-0307)。错误码映射:
 /// `Unmappable` → RX6013 / `Unsupported` → RX6026(与 `reflection::ReflectError`
 /// 同口径);M29 真值化输入面(RXS-0304 v1.1):permutation 域违例 / select KEY 非法
-/// → RX3019,select 求解预算超限 → RX7023。
+/// → RX3019,select 求解预算超限 → RX7023。M32 真值化输入面(RXS-0304 v1.2):
+/// `required_capabilities`(RXS-0311 有效集)/ `selected_profile_digest`(RXS-0312)
+/// / fallback 选中主 variant 记录抑制;空路径(无 --profile)与 M31 基线 0 漂移。
 #[cfg(feature = "shader-stages")]
 #[allow(clippy::too_many_arguments)]
 fn emit_reflection(
@@ -1037,13 +1076,19 @@ fn emit_reflection(
     out: Option<&Path>,
     permutation_select: Option<&str>,
     permutation_budget: Option<u32>,
+    cap_ctx: Option<&CapabilityRun>,
 ) -> u8 {
     let file = cx.ast();
     let plan = crate::reflection::ReflectionPermPlan {
         select: permutation_select,
         budget_override: permutation_budget,
     };
-    let doc = match crate::reflection::build_reflection(file, src, main_file, &plan) {
+    let cap_plan = crate::reflection::ReflectionCapPlan {
+        unit_caps: cap_ctx.map(|c| &c.unit),
+        profile_digest: cap_ctx.and_then(|c| c.selection.as_ref().map(|s| s.profile_digest)),
+        selection: cap_ctx.and_then(|c| c.selection.as_ref()),
+    };
+    let doc = match crate::reflection::build_reflection(file, src, main_file, &plan, &cap_plan) {
         Ok(d) => d,
         Err(e) => {
             let code = crate::diag::ErrorCode(e.error_code());
@@ -1150,6 +1195,128 @@ fn emit_permutations(
         render_diagnostics(&diag.emitted(), sm, diag.messages())
     );
     1
+}
+
+/// G8.2 M32 capability profile 管线挂接(RXS-0311~0313;RFC-0019 §4.5):
+/// `--profile` 装载 + 调用图并集 + 构建期选择律。返回 capability 运行上下文
+/// (reflection 真值化 / `--emit=capabilities` manifest 消费);选择律违例
+/// (RX3020~3022)与 profile 闭集违例(RX3023)/ 形态非法(RX7001)在此发射
+/// 诊断并 fail-closed(退出非零,不产部分产物)。
+///
+/// 计算触发面 = `--profile` 给定 或 `--emit=reflection|capabilities`(其余
+/// emit 路径零开销零行为面)。无 `--profile`:选择律不触发,unit caps 仅供
+/// reflection `required_capabilities` 真值化(空 requirement 恒空表 0 漂移)。
+#[cfg(feature = "shader-stages")]
+struct CapabilityRun {
+    /// 编译单元调用图并集 capability 事实(RXS-0311)。
+    unit: crate::capability_check::UnitCapabilities,
+    /// 构建期选择律结果(codegen 根过滤已注入 QueryCtx)。
+    selection: Option<crate::capability_check::SelectionOutcome>,
+}
+
+/// profile 装载 + 选择律判定(见 [`CapabilityRun`] 文档)。
+#[cfg(feature = "shader-stages")]
+fn prepare_capability(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    src: &str,
+    profile_path: Option<&Path>,
+    emit: Option<&str>,
+) -> Result<Option<CapabilityRun>, u8> {
+    let need = profile_path.is_some() || matches!(emit, Some("reflection") | Some("capabilities"));
+    if !need {
+        return Ok(None);
+    }
+    let unit = crate::capability_check::build_unit_caps(cx.ast(), src, &cx.resolutions());
+    let profile = match profile_path {
+        Some(p) => match crate::capability_check::load_profile(p) {
+            Ok(pr) => Some(pr),
+            Err(crate::capability_check::ProfileError::UnknownId(detail)) => {
+                diag.struct_error(
+                    crate::capability_check::E_CAP_UNKNOWN_ID,
+                    "capability.unknown_id",
+                )
+                .arg("detail", detail)
+                .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), sm, diag.messages())
+                );
+                return Err(1);
+            }
+            Err(crate::capability_check::ProfileError::Malformed(detail)) => {
+                toolchain_err(diag, sm, detail);
+                return Err(1);
+            }
+        },
+        None => None,
+    };
+    let selection = match &profile {
+        Some(pr) => {
+            match crate::capability_check::select_entries(&unit, pr, cx.ast(), src) {
+                Ok(sel) => {
+                    // codegen 收集根过滤(RXS-0312「主 variant 不发射」):fallback
+                    // 选中的主 variant entry DefId 集注入 QueryCtx;device MIR
+                    // 收集(mir_build::build_device_crate)按此排除收集根。
+                    cx.set_capability_excluded(sel.suppressed_defs.clone());
+                    Some(sel)
+                }
+                Err(errs) => {
+                    for e in &errs {
+                        diag.struct_error(ErrorCode(e.code), e.key)
+                            .arg("detail", e.detail.clone())
+                            .span_label(e.span, "capability selection")
+                            .emit();
+                    }
+                    eprint!(
+                        "{}",
+                        render_diagnostics(&diag.emitted(), sm, diag.messages())
+                    );
+                    return Err(1);
+                }
+            }
+        }
+        None => None,
+    };
+    Ok(Some(CapabilityRun { unit, selection }))
+}
+
+/// `--emit=capabilities`(G8.2 M32,RXS-0312):selection manifest 确定性 canonical
+/// JSON 落盘或 stdout。选择律违例已在 [`prepare_capability`] fail-closed;无
+/// `--profile` 时全 entry emitted、digest 恒既有常量(0 漂移)。
+#[cfg(feature = "shader-stages")]
+fn emit_capabilities(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cap_ctx: Option<&CapabilityRun>,
+    out: Option<&Path>,
+) -> u8 {
+    let Some(run) = cap_ctx else {
+        toolchain_err(
+            diag,
+            sm,
+            "internal: --emit=capabilities 缺 capability 上下文".to_owned(),
+        );
+        return 1;
+    };
+    let manifest = crate::capability_check::build_manifest(&run.unit, run.selection.as_ref());
+    let json = crate::capability_check::to_manifest_json(&manifest);
+    match out {
+        Some(p) => {
+            if let Err(e) = std::fs::write(p, json.as_bytes()) {
+                toolchain_err(diag, sm, format!("capabilities manifest 写入失败: {e}"));
+                return 1;
+            }
+            eprintln!(
+                "rurixc: --emit=capabilities: {} ({} entries)",
+                p.display(),
+                manifest.records.len()
+            );
+        }
+        None => print!("{json}"),
+    }
+    0
 }
 
 fn run_tool(cmd: &mut Command, name: &str) -> Result<(), String> {

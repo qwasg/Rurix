@@ -1,0 +1,11 @@
+//@ capability: reject
+//@ expect-error: RX3023
+//@ spec: RXS-0311
+//@ profile: profiles/high.json
+// `#[requires]` 引用 v1 闭集十项外的 capability ID(`rt.magic_boost`)→ 编译期
+// 确定性拒:RX3023 `capability.unknown_id`(RFC-0019 §4.5.1 四键之外加性冻结的
+// 第五 key;本违例与 --profile 无关,shader_stages 关卡恒跑)。
+#[requires("rt.magic_boost")]
+kernel fn kmain() {}
+
+fn main() {}

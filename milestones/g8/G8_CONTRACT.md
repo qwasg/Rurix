@@ -352,3 +352,36 @@ py -3 ci/check_schemas.py / check_g8_acceptance_map.py / check_number_ledger.py 
 ```
 
 `Assisted-by: kimi-k3 subagent g8-m29-shader-permutation`（实现/语料/smoke/schema/错误码登记；中断后由主 agent 复核接手治理接线。影响范围：本节 + CI_GATES §4 M29 行 v1.4 + ledger v1.48/v1.49 + g8_budget v1.2 + pr-smoke.yml 步骤 98 + check_schemas.py 路由 + budget_eval.py 分支；验证方式：上述验收命令全绿）
+
+### 8.4 M32 capability_profile materialize（2026-08-06）
+
+**触发**：G8.2 七个 P0 之一 M32 `g8.p0.m32.capability_profile` 实现 PR（host 轨第二门，G8.2 设计案 §7 PR-2）。
+
+**交付物**（spec-first 三 commit：条款 `bec06980` + 兼容判定精确化 `138897c0` 先行,实现+治理接线随后,硬规则 7）：
+
+- **spec 条款**：`spec/shader_stages.md` v1.7 RXS-0311（`#[requires]` 声明/ID 闭集 v1 十项/隐式推导映射表/调用图并集律/第五 key `capability.unknown_id`）+ `spec/rendering_platform.md` v1.2 RXS-0312（profile 闭集/构建期选择律/fallback,`--emit=capabilities` selection manifest）与 RXS-0313（运行期 snapshot 核验 fail-closed,`verify_profile_snapshot` host 原语）+ v1.3（兼容判定精确化：resources 允许缺失 capability 对应资源类〔accel↔{rt.ray_query,rt.pipeline}〕在 fallback 缺席——修复 v1.2 从严口径与 fallback 腿判据不可同时满足的条款矛盾）+ RXS-0304 修订（capability 二字段真值化）。ledger v1.50（RXS 310/311→313/314）。
+- **实现**：`src/rurixc/src/capability_check.rs`（ID 闭集/attr 解析/隐式推导/DefId 级调用图并集/profile 装载与 digest/选择律四分支/兼容判定/`verify_profile_snapshot`,15 单测）；`driver.rs` `--profile`/`--emit=capabilities`；`mir_build.rs` 收集根按 selection 过滤（fallback 选中主 variant 不发射）；`reflection.rs` 二字段真值化（空路径与 M31/M29 基线逐字节 0 漂移,常量实测不动）。
+- **错误码**：RX3020~RX3023（typeck 段四枚,en/zh 成对,bilingual 117/117）；`capability.runtime_snapshot_mismatch` 库层 typed Err 不占 RX 码。
+- **RED 语料**：`conformance/capability/accept/{requires_supported,implicit_propagation,fallback_low_profile}.rx` + `reject/{missing_required,forbidden_used,fallback_incompatible,unknown_capability_id}.rx`（RX3020~3023）+ `profiles/{high,low,low_with_fallback}.json`。
+- **CI 脚本**：`ci/g8_capability_profile_smoke.py`（`--gate`/`--selftest`/14 项 checks,三腿缺一 FAIL）。
+- **evidence schema**：`milestones/g8/g8_m32_capability_profile_evidence_schema.json`（Draft-07,14 checks,device `not_applicable`）。
+- **治理接线**：check_schemas 路由 + pr-smoke.yml 步骤 99 + CI_GATES v1.5 回填 99 + g8_budget v1.3 `g8.counter.capability_profile_legs`（≥14）+ budget_eval 分支 + ledger v1.51（CI_step 98→99/100;RX3020~3023 < RX_error on_tree_max 小号不 bump）。
+
+**判据三腿**（G8_ACCEPTANCE_MAP §2 M32 行逐字）：accept 腿——支持 profile 的 fixture 类型检查 0 诊断；reject 腿——同一 fixture 移除必需 capability 后以 RFC-0019 冻结 symbolic key 确定性拒录（`capability.missing_required` 消息携带缺失 ID + 首个引入 callee,实测 `requires_supported.rx` high 绿/low 红）；fallback 腿——低 profile 只生成允许的 specialization,选中产物 OpRayQuery* 指令数与 SPV_KHR_ray_query 扩展计数 == 0（高 profile 正对照指令在场,spirv-val 双腿 accept）。三腿缺一即 FAIL。
+
+**device 段**：`not_applicable`（host/compile 纯 host 门,CI_GATES §6 host-only 行）。
+
+**验收命令**（实测全绿,2026-08-06;主 agent 独立复核时发现并行跑多 smoke 会因 cargo 二进制互覆盖假红,串行复跑 PASS,假红 evidence 已删）：
+```
+cargo test -p rurixc --lib capability       # 15 passed
+cargo test -p rurixc                        # 全套件 0 failed
+py -3 ci/g8_capability_profile_smoke.py --gate g8.p0.m32.capability_profile   # PASS 14/14
+py -3 ci/g8_capability_profile_smoke.py --selftest                            # PASS
+py -3 ci/g8_shader_permutation_smoke.py --gate ...   # M29 零回归 PASS
+py -3 ci/g8_reflection_hash_smoke.py --gate ...      # M31 零回归 PASS
+py -3 ci/bilingual_coverage.py              # 117/117
+```
+
+**诚实边界**（实现模块头注释同文）：① 调用图为 DefId 级直调路径调用;固有 impl 方法接收者类型解析在 TBIR 期,不在 AST 调用事实面（v1 加性演进面）。② 四个 RT intrinsic（trace_ray/report_intersection/execute_callable/ignore_intersection）当前未注册可调 lang item（RT 体 lowering 归 M50）,识别 = 单段名 + 「解析到用户 DefId 则不推导」守卫,用户遮蔽零误判;`ray_query_initialize` 为 DefId 级识别。
+
+`Assisted-by: kimi-k3 subagent g8-m32-capability-profile (47c8905d)`（实现/语料/smoke/schema/错误码；主 agent 独立复核 + 治理接线。影响范围：本节 + CI_GATES §4 M32 行 v1.5 + ledger v1.50/v1.51 + g8_budget v1.3 + pr-smoke.yml 步骤 99 + check_schemas.py 路由 + budget_eval.py 分支；验证方式：上述验收命令全绿）

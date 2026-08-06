@@ -105,6 +105,12 @@ shader.ray_query_state_invalid = invalid RayQuery traversal state: {detail}
 shader.permutation_domain_invalid = invalid shader permutation domain: {detail}
 toolchain.permutation_budget_exceeded = shader permutation budget exceeded: {detail}
 #
+# capability profile 诊断(RX3020 ~ RX3023,spec/shader_stages.md RXS-0311 + spec/rendering_platform.md RXS-0312;G8.2 M32 分配)
+capability.missing_required = required capability missing for shader entry: {detail}
+capability.forbidden_used = forbidden capability used by shader entry: {detail}
+capability.fallback_incompatible = capability fallback interface contract incompatible: {detail}
+capability.unknown_id = unknown capability id or invalid `#[requires]` usage: {detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}

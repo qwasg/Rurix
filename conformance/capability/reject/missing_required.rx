@@ -1,0 +1,11 @@
+//@ capability: reject
+//@ expect-error: RX3020
+//@ spec: RXS-0311, RXS-0312
+//@ profile: profiles/low.json
+// profile required 集不含 rt.pipeline 且无 fallback 映射 → 构建期选择律分支三
+// 确定性拒:RX3020 `capability.missing_required`(消息携带缺失 ID = rt.pipeline
+// + 首个引入 callee = entry 自身 `kmain`,RXS-0311 诊断形态判据字面)。
+#[requires("rt.pipeline")]
+kernel fn kmain() {}
+
+fn main() {}

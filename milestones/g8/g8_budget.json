@@ -24,6 +24,13 @@
   "ratio_assertions": [],
   "counter_assertions": [
     {
+      "id": "g8.counter.capability_profile_legs",
+      "description": "G8.2 M32 capability_profile 硬门判据通过数 >=14(契约 G-G8-4 / CI_GATES §4 M32 行;RFC-0019 §4.5 / RXS-0311~0313)。计数源 = evidence/g8_m32_capability_profile_*.json 中 checks.* 全 true 的字段数(14 个独立断言:accept 腿 0 诊断 / reject 腿精确 symbolic key + 确定性 + forbidden·fallback_incompatible·unknown_id 各红 / fallback 腿仅发射 fallback + 禁用指令·扩展计数 0 + 五 key 零出现 / profile digest 确定性 / 无 profile 0 漂移 / snapshot 原语 fail-closed / accept·reject 语料批跑;三腿缺一 FAIL)。host/compile 纯 host 门,device 段 not_applicable,无 GPU 依赖,host 恒跑不 SKIP。",
+      "evidence_file": "evidence/g8_m32_capability_profile_*.json",
+      "direction": "min",
+      "threshold": 14
+    },
+    {
       "id": "g8.counter.shader_permutation_legs",
       "description": "G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4 M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/g8_m29_shader_permutation_*.json 中 checks.* 全 true 的字段数(13 个独立断言:双次 key 逐字节 / 合法集==golden / 裁剪全缺席 / 声明序不变 / 预算 GREEN·RED 两腿 / enumerated==pruned+emitted 恒等式 / 超限 axis contribution report / select 合法填 variant_key+pipeline_key 分裂·非法确定性错 / 空域 reflection 0 漂移 / accept 语料绿 / reject 语料红+码)。host/compile 纯 host 门,device 段 not_applicable,无 GPU 依赖,host 恒跑不 SKIP。",
       "evidence_file": "evidence/g8_m29_shader_permutation_*.json",
@@ -40,6 +47,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.3",
+      "date": "2026-08-06",
+      "change": "G8.2 M32 capability_profile materialize:counter_assertions 追加 g8.counter.capability_profile_legs(>=14,evidence/g8_m32_capability_profile_*.json checks.* 全 true 计数,ci/budget_eval.py eval_counter 新分支同 PR 落)。host/compile 纯 host 门,device 段 not_applicable。既有三条 0-byte。"
+    },
     {
       "version": "v1.2",
       "date": "2026-08-06",

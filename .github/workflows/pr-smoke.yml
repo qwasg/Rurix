@@ -1072,6 +1072,18 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_shader_permutation_smoke.py --gate g8.p0.m29.shader_permutation
 
+      # 步骤 99（G8.2 P0 硬门 g8.p0.m32.capability_profile;RFC-0019 §4.5;
+      # spec/shader_stages.md RXS-0311 + spec/rendering_platform.md RXS-0312~0313）:
+      # capability 声明/调用图并集/profile 选择律/fallback/snapshot 原语冒烟。
+      # host/compile 纯 host 门（host 恒跑,device 段 not_applicable）。14 项判据
+      # 三腿（accept/reject/fallback）缺一 FAIL,经 rurixc --profile +
+      # --emit=capabilities/--emit=check + --target vulkan 产物指令/扩展计数 +
+      # cargo test capability 15 单测前置 + conformance/capability 语料批跑。
+      # 失败即红,evidence 落盘 evidence/g8_m32_capability_profile_<UTC>.json。
+      - name: G8.2 M32 capability profile smoke (G8 CI_GATES §4.99, g8.p0.m32.capability_profile)
+        shell: powershell
+        run: py -3 ci/g8_capability_profile_smoke.py --gate g8.p0.m32.capability_profile
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

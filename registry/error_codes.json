@@ -881,6 +881,38 @@
       "spec_clauses": ["RXS-0308"]
     },
     {
+      "id": "RX3020",
+      "title": "着色 capability 必需能力缺失(编译期 strict:entry 有效 requirement 集〔显式 `#[requires]` ∪ 隐式推导 ∪ DefId 级直调可达 callee 并集,RXS-0311〕含 profile 未提供的 capability 且无兼容 fallback 映射;诊断消息携带缺失 capability ID + 首个引入它的可达 callee〔自身引入时为 entry 自身名,判据字面〕;symbolic key `capability.missing_required`,RFC-0019 §4.5.1 冻结;RXS-0312 构建期选择律分支三,capability_check.rs 经 driver `--profile` 挂接,fail-closed 不产部分产物)",
+      "message_key": "capability.missing_required",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0312"]
+    },
+    {
+      "id": "RX3021",
+      "title": "着色 capability 违禁能力使用(编译期 strict:entry 有效 requirement 集 ∩ profile `forbidden` ≠ ∅;symbolic key `capability.forbidden_used`,RFC-0019 §4.5.1 冻结;RXS-0312 构建期选择律分支一,capability_check.rs 经 driver `--profile` 挂接,fail-closed)",
+      "message_key": "capability.forbidden_used",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0312"]
+    },
+    {
+      "id": "RX3022",
+      "title": "着色 capability fallback 接口契约不兼容(编译期 strict:profile `fallbacks` 有映射但主/fallback entry 接口契约不兼容——stage 不同 / io·push_constants·execution_modes 结构不等 / resources 声明序比对失败〔缺失 capability 对应 accel 类条目允许 fallback 缺席,其余逐项相等相对序一致,fallback 不得多出条目,RXS-0312 v1.3〕;诊断消息给出不兼容字段;symbolic key `capability.fallback_incompatible`,RFC-0019 §4.5.1 冻结;capability_check.rs 经 driver `--profile` 挂接,fail-closed)",
+      "message_key": "capability.fallback_incompatible",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0312"]
+    },
+    {
+      "id": "RX3023",
+      "title": "着色 capability ID 闭集外引用(编译期 strict:`#[requires(\"id\", ...)]` 引用 v1 闭集十项外 capability ID〔rt.pipeline / rt.sbt_user_data / rt.any_hit / rt.intersection.procedural / rt.callable / rt.ray_query / mesh.task / sync.timeline_semaphore / queue.dedicated_transfer / queue.dedicated_compute〕/ 实参形态非法〔非字符串字面量列表、空列表〕/ `#[requires]` 附着非函数 item 或 host-only 函数〔host/const 着色、非 device 关联函数〕同类拒;profile 三集引用闭集外 ID 装载期同码;symbolic key `capability.unknown_id`——RFC-0019 §4.5.1 四键之外加性冻结的第五 key,RXS-0311;capability_check.rs 经 shader_stages typeck 段挂接)",
+      "message_key": "capability.unknown_id",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0311"]
+    },
+    {
       "id": "RX7023",
       "title": "着色 permutation 预算超限(工具段 strict:`enumerated = ∏|axis|` 整数算术先算不物化,超有效 budget〔CLI `--permutation-budget=N` 覆盖 > attr `budget(N)` 声明;上限含等号〕硬失败,退出非零且照常产出 axis contribution report〔逐 axis |axis| 与占比,报告不泄漏部分组合表〕;RXS-0310,driver `--emit=permutations` 求解律与 `--permutation-select` 求解路径)",
       "message_key": "toolchain.permutation_budget_exceeded",
@@ -890,6 +922,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.35",
+      "date": "2026-08-06",
+      "change": "G8.2 M32 capability_profile 硬门(g8.p0.m32.capability_profile,RFC-0019 §4.5 RP-CAP-PROFILE 行,spec/shader_stages.md RXS-0311 + spec/rendering_platform.md RXS-0312/0313 配套;实现真实可达类别只追加)分配 RX3020 + RX3021 + RX3022 + RX3023。RX3020 着色 capability 必需能力缺失(3xxx 着色/typeck 段续接 RX3019;spec 条款以 RFC-0019 §4.5.1 冻结 symbolic key `capability.missing_required` 兑现、数字码按实现 commit 当时实测 next_free 顺位领取;诊断消息携带缺失 capability ID + 首个引入它的可达 callee〔自身引入时为 entry 自身名〕,RXS-0312 选择律分支三)。RX3021 着色 capability 违禁能力使用(有效 requirement 集 ∩ profile forbidden ≠ ∅;`capability.forbidden_used`,分支一)。RX3022 着色 capability fallback 接口契约不兼容(stage/io/push_constants/execution_modes 结构相等 + resources 声明序比对〔accel 类条目允许缺席 v1.3〕,消息给出不兼容字段;`capability.fallback_incompatible`,分支三)。RX3023 着色 capability ID 闭集外引用(v1 闭集十项外 ID / `#[requires]` 实参形态非法 / 附着非函数或 host-only 函数同类拒;RFC 四键之外加性冻结的第五 symbolic key `capability.unknown_id`,RXS-0311)。运行期 snapshot 核验失败 `capability.runtime_snapshot_mismatch` 为库层 typed Err 文本携带 key 字面,**不占 RX 数字码**(RXS-0313,镜像 RX6029/6030 口径)。message_key capability.missing_required / capability.forbidden_used / capability.fallback_incompatible / capability.unknown_id 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)。RX3020~3023 消费 typeck 段 3020~3023 四枚 next_free,number_ledger RX_error on_tree_max/next_free 校准由同 PR 治理接线 commit 完成。RX3019/RX7023 既有 entries 不动"
+    },
     {
       "version": "v1.34",
       "date": "2026-08-06",

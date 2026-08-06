@@ -1621,6 +1621,26 @@
       "conformance/permutation/accept/int_axis.rx",
       "conformance/permutation/reject/budget_exceeded.rx",
       "src/rurixc/src/permutation.rs"
+    ],
+    "RXS-0311": [
+      "conformance/capability/accept/fallback_low_profile.rx",
+      "conformance/capability/accept/implicit_propagation.rx",
+      "conformance/capability/accept/requires_supported.rx",
+      "conformance/capability/reject/missing_required.rx",
+      "conformance/capability/reject/unknown_capability_id.rx",
+      "src/rurixc/src/capability_check.rs"
+    ],
+    "RXS-0312": [
+      "conformance/capability/accept/fallback_low_profile.rx",
+      "conformance/capability/accept/implicit_propagation.rx",
+      "conformance/capability/accept/requires_supported.rx",
+      "conformance/capability/reject/fallback_incompatible.rx",
+      "conformance/capability/reject/forbidden_used.rx",
+      "conformance/capability/reject/missing_required.rx",
+      "src/rurixc/src/capability_check.rs"
+    ],
+    "RXS-0313": [
+      "src/rurixc/src/capability_check.rs"
     ]
   }
 }

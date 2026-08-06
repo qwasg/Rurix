@@ -178,12 +178,19 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     //   (B 路 DXIL codegen 入口),并携 AST 层 I/O 意图签名进 MIR。mesh/task/RT
     //   不在此收集(deferred,任务 15 stub);compute 阶段沿用排除(走既有 A 路)。
     // 收集判定见 [`collectable_stage`](feature 门控,零漂移)。
+    // G8.2 M32(RXS-0312):capability 选择律排除集在场时,fallback 选中的主
+    // variant entry 不作收集根(「主 variant 不发射」判据字面;`--profile`
+    // 未给 / 空集 = 行为 0 漂移)。
+    let excluded = cx.capability_excluded();
     for item in &krate.items {
         if let hir::ItemKind::Fn(decl) = &item.kind
             && decl.color == crate::ast::FnColor::Kernel
             && collectable_stage(decl.stage)
             && decl.body.is_some()
             && decl.generic_params.is_empty()
+            && !excluded
+                .as_ref()
+                .is_some_and(|set| set.contains(&item.def_id))
             && visited.insert(mangle(&item.name, item.def_id, &[]))
         {
             worklist.push((item.def_id, Vec::new()));

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m32_capability_profile",
+  "symbolic_gate_key": "g8.p0.m32.capability_profile",
+  "matrix_row": "M32",
+  "wave": "G8.2",
+  "numeric_step": 99,
+  "source_ref": "RFC-0019 §4.5;spec/shader_stages.md RXS-0311;spec/rendering_platform.md RXS-0312~0313",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "accept_leg_zero_diagnostics": true,
+    "reject_leg_exact_symbolic_key": true,
+    "reject_leg_deterministic": true,
+    "forbidden_used_red": true,
+    "fallback_incompatible_red": true,
+    "unknown_id_red": true,
+    "fallback_leg_selects_fallback_only": true,
+    "fallback_leg_zero_forbidden_instructions": true,
+    "fallback_leg_no_diagnostic_keys": true,
+    "profile_digest_deterministic": true,
+    "no_profile_zero_drift": true,
+    "runtime_snapshot_verify_fail_closed": true,
+    "accept_corpus_green": true,
+    "reject_corpus_red_with_codes": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T041453Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "host/compile 纯 host 门;device 段 not_applicable(CI_GATES §6 host-only 行)。14 项判据经 rurixc --emit=check/--emit=capabilities/--emit=reflection --profile <profile.json> fixture×profile 矩阵端到端 + --target vulkan 产物字节扫描(OpRayQuery* 指令/SPV_KHR_ray_query 扩展计数)+ cargo test capability 15 单测前置(verify_profile_snapshot 负样本锚定)。「移除一项必需 capability 后确定性拒录」= requires_supported.rx × high(绿)/low(红 RX3020,key+缺失 ID+引入 callee 精确匹配)。"
+}

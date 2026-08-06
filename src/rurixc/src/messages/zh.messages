@@ -106,6 +106,12 @@ shader.ray_query_state_invalid = 非法的 RayQuery 遍历状态:{detail}
 shader.permutation_domain_invalid = 非法的着色 permutation 域:{detail}
 toolchain.permutation_budget_exceeded = 着色 permutation 预算超限:{detail}
 #
+# capability profile 诊断(RX3020 ~ RX3023,spec/shader_stages.md RXS-0311 + spec/rendering_platform.md RXS-0312;G8.2 M32 分配)
+capability.missing_required = 着色入口缺失必需 capability:{detail}
+capability.forbidden_used = 着色入口使用了 profile 禁用的 capability:{detail}
+capability.fallback_incompatible = capability fallback 接口契约不兼容:{detail}
+capability.unknown_id = 未知 capability ID 或非法 `#[requires]` 用法:{detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
 link.libdevice_failure = libdevice 链接失败:{reason}

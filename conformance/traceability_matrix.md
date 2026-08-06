@@ -296,3 +296,6 @@
 | RXS-0308 | spec/rendering_platform.md | 7 | `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx`, `conformance/permutation/accept/int_axis.rx` …(+4) |
 | RXS-0309 | spec/rendering_platform.md | 5 | `conformance/permutation/accept/axis_order_permuted.rx`, `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx` …(+2) |
 | RXS-0310 | spec/rendering_platform.md | 5 | `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx`, `conformance/permutation/accept/int_axis.rx` …(+2) |
+| RXS-0311 | spec/shader_stages.md | 6 | `conformance/capability/accept/fallback_low_profile.rx`, `conformance/capability/accept/implicit_propagation.rx`, `conformance/capability/accept/requires_supported.rx` …(+3) |
+| RXS-0312 | spec/rendering_platform.md | 7 | `conformance/capability/accept/fallback_low_profile.rx`, `conformance/capability/accept/implicit_propagation.rx`, `conformance/capability/accept/requires_supported.rx` …(+4) |
+| RXS-0313 | spec/rendering_platform.md | 1 | `src/rurixc/src/capability_check.rs` |

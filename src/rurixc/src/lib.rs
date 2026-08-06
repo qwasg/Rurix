@@ -11,7 +11,11 @@ pub mod ast;
 // 默认构建)与 dxil/vulkan 编码路复用同一推导事实源(`infer_spirv_bindings_vk_native`);
 // 默认 codegen 路径对本模块的调用面零漂移(仅 dxil/vulkan/ reflection 消费)。
 pub mod binding_layout;
+// G8.2 M32(RXS-0311~0313):capability ID 闭集/`#[requires]`/调用图并集/profile
+// 选择律与 fallback(`--profile` + `--emit=capabilities`)+ `verify_profile_snapshot`。
 pub mod borrow_check;
+#[cfg(feature = "shader-stages")]
+pub mod capability_check;
 pub mod codegen;
 pub mod coloring;
 pub mod const_eval;

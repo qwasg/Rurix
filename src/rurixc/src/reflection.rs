@@ -227,7 +227,10 @@ pub struct EntryReflection {
     pub push_constants: PushConstants,
     /// mesh 执行模式(其余阶段空编码)。
     pub execution_modes: ExecutionModes,
-    /// 「未选择 profile」规范 digest(M32 空编码)。
+    /// entry 有效 requirement 集的排序 ID 表(M32 真值化,RXS-0304 v1.2 /
+    /// RXS-0311;无任何 requirement 或未计算恒空表)。
+    pub required_capabilities: Vec<String>,
+    /// 「未选择 profile」规范 digest 或 `--profile` 真值化 digest(M32,RXS-0312)。
     pub selected_profile_digest: [u8; 32],
     /// 空 permutation 域规范 digest(M29 空编码)。
     pub permutation_domain_digest: [u8; 32],
@@ -609,18 +612,46 @@ pub struct ReflectionPermPlan<'a> {
     pub budget_override: Option<u32>,
 }
 
-/// 构建单条 entry 记录。
-#[allow(clippy::too_many_arguments)]
-fn build_entry(
+/// `--profile` / capability 选择律的 reflection 输入面(M32,RXS-0304 v1.2 /
+/// RXS-0311 / RXS-0312)。默认(无 profile + 无 capability 上下文)下空路径与
+/// M31/M29 基线产物**逐字节 0 漂移**。
+#[derive(Clone, Copy, Default)]
+pub struct ReflectionCapPlan<'a> {
+    /// 编译单元调用图并集 capability 事实(RXS-0311);`required_capabilities`
+    /// 真值化源。None = 未计算(恒空表)。
+    pub unit_caps: Option<&'a crate::capability_check::UnitCapabilities>,
+    /// `--profile` 的规范 digest(RXS-0312);None = 恒既有常量
+    /// `SHA-256("rurix.profile-none.v1\0")`(0 漂移)。
+    pub profile_digest: Option<[u8; 32]>,
+    /// 构建期选择律结果(RXS-0312);fallback 选中的逻辑 entry 记录取 fallback
+    /// 实体(主 variant 不发射——其记录不进文档;逻辑名→实体映射在
+    /// capabilities 报告中可查)。
+    pub selection: Option<&'a crate::capability_check::SelectionOutcome>,
+}
+
+/// entry 的接口契约事实(RXS-0312 v1.3 fallback 兼容判定面;与 [`build_entry`]
+/// 同一提取律——单一事实源,reflection 产物与本判定不各说各话)。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub(crate) struct InterfaceFacts {
+    /// 阶段名闭集(`stage_name`)。
+    pub(crate) stage: &'static str,
+    /// stage I/O 表(声明序)。
+    pub(crate) io: Vec<IoField>,
+    /// 资源绑定表(声明序)。
+    pub(crate) resources: Vec<ResourceEntry>,
+    /// push-constant 块。
+    pub(crate) push_constants: PushConstants,
+    /// mesh 执行模式(其余阶段空编码)。
+    pub(crate) execution_modes: ExecutionModes,
+}
+
+/// 提取单 entry 的接口契约事实(与 `build_entry` 同一提取律;调用方须先按
+/// [`enumerable_stage`] 口径确认可枚举)。
+pub(crate) fn extract_interface_facts(
     file: &ast::SourceFile,
     src: &str,
-    main_file: SourceId,
-    name_path: &str,
     f: &ast::FnItem,
-    attrs: &[ast::Attr],
-    span: Span,
-    perm_plan: &ReflectionPermPlan<'_>,
-) -> Result<EntryReflection, ReflectError> {
+) -> Result<InterfaceFacts, ReflectError> {
     let stage = enumerable_stage(f.stage, f.color).expect("枚举口径已过滤");
     let bare = f.name.name.as_str();
     let stage_tag = crate::codegen::stage_tag(stage);
@@ -729,6 +760,41 @@ fn build_entry(
         _ => unreachable!("v1 枚举口径仅 vertex/fragment/compute/mesh"),
     }
 
+    Ok(InterfaceFacts {
+        stage: stage_name(stage),
+        io,
+        resources,
+        push_constants: pc,
+        execution_modes: exec,
+    })
+}
+
+/// 构建单条 entry 记录。
+#[allow(clippy::too_many_arguments)]
+fn build_entry(
+    file: &ast::SourceFile,
+    src: &str,
+    main_file: SourceId,
+    name_path: &str,
+    f: &ast::FnItem,
+    attrs: &[ast::Attr],
+    span: Span,
+    perm_plan: &ReflectionPermPlan<'_>,
+    cap_plan: &ReflectionCapPlan<'_>,
+) -> Result<EntryReflection, ReflectError> {
+    let stage = enumerable_stage(f.stage, f.color).expect("枚举口径已过滤");
+    let stage_tag = crate::codegen::stage_tag(stage);
+    let visibility = 1u32 << stage_tag;
+
+    // 接口事实 = 单一提取律(RXS-0312 v1.3 兼容判定同面)。
+    let InterfaceFacts {
+        io,
+        resources,
+        push_constants: pc,
+        execution_modes: exec,
+        ..
+    } = extract_interface_facts(file, src, f)?;
+
     // ── canonical 接口字节(RXS-0305;字段序即本闭集声明序)──
     let mut w = CanonW::new();
     w.u32v(SCHEMA_VERSION);
@@ -778,11 +844,27 @@ fn build_entry(
         }
         _ => w.u32v(0),
     }
-    // M50/M32/M29 保留位的确定性空编码(7 个 RT/库字段 + capabilities 恒计数 0)。
-    for _ in 0..8 {
+    // M50 保留位的确定性空编码(7 个 RT/库字段恒计数 0)。
+    for _ in 0..7 {
         w.u32v(0);
     }
-    let profile_digest = sha256::digest(PROFILE_NONE_DOMAIN);
+    // M32 真值化(RXS-0304 v1.2 / RXS-0311):`required_capabilities` = entry 有效
+    // requirement 集的排序 ID 表(字节序);无 requirement 或未计算恒空表——
+    // 计数 0 编码与既有空编码逐字节一致(0 漂移)。
+    let required_capabilities: Vec<String> = cap_plan
+        .unit_caps
+        .and_then(|u| u.entries.iter().find(|e| e.name == name_path))
+        .map(|e| e.effective.iter().map(|c| c.name().to_owned()).collect())
+        .unwrap_or_default();
+    w.u32v(required_capabilities.len() as u32);
+    for c in &required_capabilities {
+        w.strv(c);
+    }
+    // M32 真值化(RXS-0304 v1.2 / RXS-0312):`--profile` 给定时 =
+    // 该 profile 规范 digest;未给定恒既有常量(0 漂移)。
+    let profile_digest = cap_plan
+        .profile_digest
+        .unwrap_or_else(|| sha256::digest(PROFILE_NONE_DOMAIN));
     // M29 真值化(RXS-0304 v1.1 / RXS-0309/0310):entry 声明了非空 permutation
     // 域 → 真 domain digest;`--permutation-select` 选中 → `variant_key = KEY`
     // (KEY ∉ 合法集 = RX3019 类确定性错误,禁最接近回退)。无 `#[permutation]`
@@ -877,6 +959,7 @@ fn build_entry(
         resources,
         push_constants: pc,
         execution_modes: exec,
+        required_capabilities,
         selected_profile_digest: profile_digest,
         permutation_domain_digest: perm_digest,
         variant_key,
@@ -893,11 +976,15 @@ fn build_entry(
 /// (绑定不可映射 / 超出闭集 / 同名 entry 冲突 / permutation 域违例或 select
 /// KEY 非法)→ `ReflectError`,fail-closed,不产部分产物。`perm_plan` = M29
 /// `--permutation-select`/`--permutation-budget` 输入面(默认 → 空域路径 0 漂移)。
+/// `cap_plan` = M32 `--profile`/capability 选择律输入面(RXS-0304 v1.2;默认 →
+/// `required_capabilities` 恒空表、`selected_profile_digest` 恒既有常量、无
+/// 主 variant 抑制,空路径与 M31/M29 基线逐字节 0 漂移)。
 pub fn build_reflection(
     file: &ast::SourceFile,
     src: &str,
     main_file: SourceId,
     perm_plan: &ReflectionPermPlan<'_>,
+    cap_plan: &ReflectionCapPlan<'_>,
 ) -> Result<ReflectionDoc, ReflectError> {
     let mut raw: Vec<(String, &ast::FnItem, &[ast::Attr], Span)> = Vec::new();
     collect_entries(&file.items, "", &mut raw);
@@ -920,11 +1007,19 @@ pub fn build_reflection(
     let mut entries = Vec::with_capacity(raw.len());
     let mut select_applied = false;
     for (path, f, attrs, span) in &raw {
-        let e = build_entry(file, src, main_file, path, f, attrs, *span, perm_plan)?;
+        let e = build_entry(
+            file, src, main_file, path, f, attrs, *span, perm_plan, cap_plan,
+        )?;
         if !e.variant_key.is_empty() {
             select_applied = true;
         }
         entries.push(e);
+    }
+    // M32(RXS-0312):fallback 选中的逻辑 entry 主 variant 不发射——其记录不
+    // 进文档(名字段 = fallback entry 的 entry identity 的记录由 fallback
+    // entry 自身承担;逻辑名→实体映射在 capabilities 报告中可查)。
+    if let Some(sel) = cap_plan.selection {
+        entries.retain(|e| !sel.suppressed_names.contains(&e.name));
     }
     // `--permutation-select` 给出但单元内无任何非空 permutation 域可应用 →
     // 确定性错误(RX3019 类;静默忽略属「最接近」式回退的变体,禁)。
@@ -1133,8 +1228,18 @@ fn entry_json(e: &EntryReflection, ind: &str) -> String {
     s.push_str(&format!("{i2}\"shader_records\": [],\n"));
     s.push_str(&format!("{i2}\"rt_group_membership\": [],\n"));
     s.push_str(&format!("{i2}\"library_exports\": [],\n"));
-    // M32/M29 空编码。
-    s.push_str(&format!("{i2}\"required_capabilities\": [],\n"));
+    // M32 真值化(RXS-0304 v1.2):有效 requirement 集排序 ID 表(空 = 恒空表)。
+    if e.required_capabilities.is_empty() {
+        s.push_str(&format!("{i2}\"required_capabilities\": [],\n"));
+    } else {
+        let caps = e
+            .required_capabilities
+            .iter()
+            .map(|c| format!("\"{}\"", json_escape(c)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        s.push_str(&format!("{i2}\"required_capabilities\": [{caps}],\n"));
+    }
     s.push_str(&format!(
         "{i2}\"selected_profile_digest\": \"{}\",\n",
         hex_of(&e.selected_profile_digest)
@@ -1224,8 +1329,14 @@ mod tests {
 
     fn reflect(src: &str) -> ReflectionDoc {
         let (file, id) = parse_src(src);
-        build_reflection(&file, src, id, &ReflectionPermPlan::default())
-            .expect("reflection 推导须成功")
+        build_reflection(
+            &file,
+            src,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+        )
+        .expect("reflection 推导须成功")
     }
 
     /// 覆盖 compute 族(View/ViewMut/Atomic/AccelStruct/标量/ThreadCtx)与
@@ -1504,8 +1615,14 @@ fn main() {}
     fn duplicate_bare_entry_name_fails_closed() {
         let src = "mod a { vertex fn dup() {} }\nmod b { vertex fn dup() {} }\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
-            .expect_err("同名 entry 须 fail-closed");
+        let err = build_reflection(
+            &file,
+            src,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+        )
+        .expect_err("同名 entry 须 fail-closed");
         assert_eq!(err.error_code(), 6026);
     }
 
@@ -1515,8 +1632,14 @@ fn main() {}
     fn unbounded_sampler_table_is_unmappable() {
         let src = "vertex fn v(samps: [Sampler]) {}\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
-            .expect_err("无界 Sampler 表须 fail-closed");
+        let err = build_reflection(
+            &file,
+            src,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+        )
+        .expect_err("无界 Sampler 表须 fail-closed");
         assert_eq!(err.error_code(), 6013);
     }
 
@@ -1526,8 +1649,14 @@ fn main() {}
     fn compute_param_outside_closed_set_fails() {
         let src = "struct S { x: f32 }\nkernel fn k(t: ThreadCtx<1>, s: S) {}\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
-            .expect_err("超闭集形参须 fail-closed");
+        let err = build_reflection(
+            &file,
+            src,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+        )
+        .expect_err("超闭集形参须 fail-closed");
         assert_eq!(err.error_code(), 6026);
     }
 

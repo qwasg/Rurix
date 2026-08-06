@@ -67,6 +67,10 @@ pub struct QueryCtx<'a> {
     /// const 求值强制检查已跑标记(RXS-0065;memo 防重复诊断)。
     checked_consteval: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
+    /// G8.2 M32(RXS-0312):capability 选择律排除集(fallback 选中 → 主 variant
+    /// 的 entry DefId 不进 device codegen 收集根;`--profile` 未给 = None,
+    /// 行为 0 漂移)。driver 于选择律判定后、codegen 前注入。
+    capability_excluded: RefCell<Option<std::collections::HashSet<DefId>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
@@ -109,6 +113,7 @@ impl<'a> QueryCtx<'a> {
             const_in_progress: RefCell::new(std::collections::HashSet::new()),
             checked_consteval: Cell::new(false),
             mir: OnceCell::new(),
+            capability_excluded: RefCell::new(None),
             hits: Cell::new(0),
             misses: Cell::new(0),
             tbir_bodies: Cell::new(0),
@@ -463,6 +468,18 @@ impl<'a> QueryCtx<'a> {
     /// codegen 单次消费;host `main` 可达性收集与之独立)。
     pub fn device_mir_crate(&self) -> Vec<crate::mir::Body> {
         crate::mir_build::build_device_crate(self)
+    }
+
+    /// G8.2 M32(RXS-0312):注入 capability 选择律排除集(driver 于选择律判定
+    /// 后、codegen 前调用;fallback 选中 → 主 variant 不进 device 收集根)。
+    pub fn set_capability_excluded(&self, excluded: std::collections::HashSet<DefId>) {
+        *self.capability_excluded.borrow_mut() = Some(excluded);
+    }
+
+    /// capability 选择律排除集(`--profile` 未给 / 无 suppress = None 或空集,
+    /// device 收集根行为 0 漂移)。
+    pub fn capability_excluded(&self) -> Option<std::collections::HashSet<DefId>> {
+        self.capability_excluded.borrow().clone()
     }
 
     /// 模块/函数级失效:清除指定 body 的类型检查 memo(RXS-0098)。

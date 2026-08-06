@@ -1,0 +1,20 @@
+{
+  "schema": "rurix.profile.v1",
+  "name": "high",
+  "version": "1.0.0",
+  "required": [
+    "rt.pipeline",
+    "rt.sbt_user_data",
+    "rt.any_hit",
+    "rt.intersection.procedural",
+    "rt.callable",
+    "rt.ray_query",
+    "mesh.task",
+    "sync.timeline_semaphore",
+    "queue.dedicated_transfer",
+    "queue.dedicated_compute"
+  ],
+  "optional": [],
+  "forbidden": [],
+  "fallbacks": {}
+}

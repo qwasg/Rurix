@@ -222,6 +222,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
             target: b.target.clone(),
             permutation_budget: None,
             permutation_select: None,
+            profile: None,
         }));
     }
 
@@ -244,6 +245,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
         target: b.target.clone(),
         permutation_budget: None,
         permutation_select: None,
+        profile: None,
     }))
 }
 
@@ -290,6 +292,7 @@ fn build_pyd(b: &BuildArgs) -> ExitCode {
         target: None,
         permutation_budget: None,
         permutation_select: None,
+        profile: None,
     });
     if rc != 0 {
         return ExitCode::from(rc);
@@ -627,6 +630,7 @@ fn cmd_test(args: &[String]) -> ExitCode {
             target: None,
             permutation_budget: None,
             permutation_select: None,
+            profile: None,
         });
         if compile_code != 0 {
             report_rx_test_exec_failure(&format!(
@@ -717,6 +721,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
         target: None,
         permutation_budget: None,
         permutation_select: None,
+        profile: None,
     }))
 }
 
@@ -741,6 +746,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
         target: None,
         permutation_budget: None,
         permutation_select: None,
+        profile: None,
     });
     if build_code != 0 {
         return ExitCode::from(build_code);

@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2 M32 capability_profile evidence",
+  "description": "evidence/g8_m32_capability_profile_<UTC>.json。G8.2 P0 硬门 g8.p0.m32.capability_profile:host/compile 纯 host 门,capability ID 闭集/`#[requires]`/调用图并集/profile 闭集与构建期选择律/fallback 接口契约兼容/运行期 snapshot 核验原语(spec/shader_stages.md RXS-0311 + spec/rendering_platform.md RXS-0312~0313;RFC-0019 §4.5)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m32_capability_profile" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m32.capability_profile" },
+    "matrix_row": { "type": "string", "const": "M32" },
+    "wave": { "type": "string", "const": "G8.2" },
+    "numeric_step": { "type": "integer", "const": 99 },
+    "source_ref": { "type": "string", "const": "RFC-0019 §4.5;spec/shader_stages.md RXS-0311;spec/rendering_platform.md RXS-0312~0313" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accept_leg_zero_diagnostics",
+        "reject_leg_exact_symbolic_key",
+        "reject_leg_deterministic",
+        "forbidden_used_red",
+        "fallback_incompatible_red",
+        "unknown_id_red",
+        "fallback_leg_selects_fallback_only",
+        "fallback_leg_zero_forbidden_instructions",
+        "fallback_leg_no_diagnostic_keys",
+        "profile_digest_deterministic",
+        "no_profile_zero_drift",
+        "runtime_snapshot_verify_fail_closed",
+        "accept_corpus_green",
+        "reject_corpus_red_with_codes"
+      ],
+      "properties": {
+        "accept_leg_zero_diagnostics": { "type": "boolean" },
+        "reject_leg_exact_symbolic_key": { "type": "boolean" },
+        "reject_leg_deterministic": { "type": "boolean" },
+        "forbidden_used_red": { "type": "boolean" },
+        "fallback_incompatible_red": { "type": "boolean" },
+        "unknown_id_red": { "type": "boolean" },
+        "fallback_leg_selects_fallback_only": { "type": "boolean" },
+        "fallback_leg_zero_forbidden_instructions": { "type": "boolean" },
+        "fallback_leg_no_diagnostic_keys": { "type": "boolean" },
+        "profile_digest_deterministic": { "type": "boolean" },
+        "no_profile_zero_drift": { "type": "boolean" },
+        "runtime_snapshot_verify_fail_closed": { "type": "boolean" },
+        "accept_corpus_green": { "type": "boolean" },
+        "reject_corpus_red_with_codes": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

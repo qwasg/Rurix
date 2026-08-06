@@ -112,6 +112,10 @@ pub fn check(file: &SourceFile, src: &str, diag: &DiagCtxt) {
     // RXS-0308(G8.2 M29):permutation 域声明闭集校验(重名 axis/空值域/forbid
     // 引用未知 axis 或域外值/budget 非正或重复/未知子句/附着非着色入口 → RX3019)。
     crate::permutation::check_domains(file, src, diag);
+
+    // RXS-0311(G8.2 M32):`#[requires]` capability 声明面校验(闭集外 ID / 空
+    // 列表 / 非字符串实参 / 附着非函数或 host-only 函数 → RX3023)。
+    crate::capability_check::check_requires(file, src, diag);
 }
 
 /// span → 源切片(标注字面量值读取;越界 / 非主文件 → 空串,保守不误报)。

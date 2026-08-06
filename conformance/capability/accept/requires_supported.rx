@@ -1,0 +1,12 @@
+//@ capability: accept
+//@ spec: RXS-0311, RXS-0312
+//@ profile: profiles/high.json
+// 显式 `#[requires("rt.pipeline")]` + profile 提供 → 0 诊断(RXS-0311 显式声明面)。
+// 本头 `//@ profile:` 仅声明 GREEN 配套(accept 批跑矩阵);RED 对照由 smoke
+// reject 腿以 profiles/low.json 硬编码驱动(required 集移除 rt.pipeline 且无
+// fallback 映射 → RX3020 `capability.missing_required`,缺失 ID = rt.pipeline,
+// 首个引入 callee = entry 自身 `kmain`,RXS-0311 诊断形态判据字面)。
+#[requires("rt.pipeline")]
+kernel fn kmain() {}
+
+fn main() {}

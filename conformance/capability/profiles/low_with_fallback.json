@@ -1,0 +1,19 @@
+{
+  "schema": "rurix.profile.v1",
+  "name": "low_with_fallback",
+  "version": "1.0.0",
+  "required": [
+    "rt.any_hit",
+    "rt.intersection.procedural",
+    "rt.callable",
+    "mesh.task",
+    "sync.timeline_semaphore",
+    "queue.dedicated_transfer",
+    "queue.dedicated_compute"
+  ],
+  "optional": [],
+  "forbidden": [],
+  "fallbacks": {
+    "kmain": "kmain_fallback"
+  }
+}
