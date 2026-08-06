@@ -360,7 +360,7 @@ def write_evidence(
         "matrix_row": "M85",
         "wave": wave,
         "numeric_step": NUMERIC_STEP,
-        "source_ref": "RFC-0019 §4.1;RFC-0020 §4.3;RXS-0317~0318/0343",
+        "source_ref": "RFC-0019 §4.1;spec/rendering_platform.md RXS-0317~0318",
         "phase": phase,
         "phase_g8_2_pass": phase_g82,
         "phase_g8_3_pass": phase_g83,
