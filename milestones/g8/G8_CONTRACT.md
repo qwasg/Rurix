@@ -2,8 +2,8 @@
 contract: G8
 title: G8 UE5 级渲染器与物理引擎前置能力完成期
 status: active
-implementation_status: blocked
-active_scope: G8.1_governance_only
+implementation_status: unblocked
+active_scope: G8.2_implementation
 version: v1.0
 date: 2026-08-02
 timebox: "G8.1 治理波可与 G7 active 并行；G8.2~G8.8 严格波次，工期在实现互锁开放后由 measured baseline 校准"
@@ -232,6 +232,47 @@ G-G8-1~11 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚�
 
 ---
 
-## 8. Implementation activation / Close-out（只追加区；当前为空）
+## 8. Implementation activation / Close-out（只追加区）
 
 <!-- 首条未来记录只能是 G-G8-3 互锁实测与 implementation_status 解锁凭据；其后追加逐波验收与 close-out。当前不得写 PASS、不得预填 run URL。 -->
+
+### 8.1 G-G8-3 实现互锁实测与 implementation_status 解锁（2026-08-05）
+
+**触发**：用户指令「帮我完成G8.2」。依 10 §7 / P-13 / D-406，agent 自主执行 G8.2 入场，但**不以指令替代机器事实**——本节的解锁凭据全部来自命令输出。
+
+**事实源实测**：
+
+| 事实 | 实测值 | 来源 |
+|---|---|---|
+| G7 收口 | `G7_CONTRACT.md` front matter `status: closed`；close-out 提交 `5269f96a`，annotated tag `g7-closed`（tag 对象 `41d937f6`） | `git rev-parse g7-closed` / 契约 front matter |
+| RD-038 | `registry/deferred.json` `RD-038.status = closed`（G7.7 close-out 逐字审计路径，非六行 override 路径） | 互锁 validator 事实门 ② |
+| 六行接入表 | 终态列仍为 `unresolved` ×6 —— **诚实登记**：RD-038 走 `closed` 路径，六行 override 路径未被使用，故终态列不回填、不伪造 | `G8_PLAN` §1.0 |
+| G8.1 治理交付 | 七件齐备（PLAN/CONTRACT/CI_GATES/budget/CANDIDATE_DECISIONS/ACCEPTANCE_MAP/CAPABILITY_MATRIX） | 互锁 validator 事实门 ④ |
+| RFC-0019~0021 | 三份均 Agent Approved 且独立评审 provenance `Kiro:claude-opus-5 rfc-review-session` ≠ 起草 `Codex:gpt-5` | 互锁 validator 事实门 ⑤ |
+| 入场基线 | `6c80dcf0`（本 PR base commit） | `git rev-parse HEAD` |
+
+**验证命令与逐字输出**（`py -3 ci/check_g8_implementation_interlock.py --require-ready`，exit 0）：
+
+```text
+[check_g8_implementation_interlock] 事实门（当前可为红）：
+  PASS ① G7_CONTRACT status = 'closed'（要求 closed）
+  PASS ② RD-038 status = 'closed'；六行接入表终态 = ['unresolved', 'unresolved', 'unresolved', 'unresolved', 'unresolved', 'unresolved']；history 独立 override = False（要求 closed，或 G7 closed 后终态全填 + override）
+  PASS ③ G8_PLAN §1.0 接入表行数 = 6（要求 6 行逐行可判）
+  PASS ④ G8.1 治理交付齐备（缺 无）
+  PASS ⑤ rfcs/0019-rendering-platform.md：Agent Approved；独立评审 provenance ['Kiro:claude-opus-5 rfc-review-session']
+  PASS ⑤ rfcs/0020-asset-pipeline.md：Agent Approved；独立评审 provenance ['Kiro:claude-opus-5 rfc-review-session']
+  PASS ⑤ rfcs/0021-physics-platform.md：Agent Approved；独立评审 provenance ['Kiro:claude-opus-5 rfc-review-session']
+[check_g8_implementation_interlock] 一致性门（红即脚本失败）：
+  PASS C1 ledger RFC on_tree_max/next_free = 21/22；rfcs/ 实际末号 = 21（要求台账随 materialize 校准，v1.13/v1.28/v1.29/v1.38 先例）
+  PASS C2 ledger reserved_in_flight[G8] claim 在位
+  PASS C3 G8_CONTRACT implementation_status = 'blocked'；事实门全绿 = True（事实未全绿时必须保持 blocked，禁止治理完成冒充实现开工）
+[check_g8_implementation_interlock] VERDICT = READY
+```
+
+**裁决**：G-G8-3 = **PASS**。front matter 由 `implementation_status: blocked` → `unblocked`、`active_scope: G8.1_governance_only` → `G8.2_implementation`。C3 断言在翻转后仍为绿（事实门全绿时允许非 blocked）。§1 状态表与 §2.1/§3 的 G8.1 期叙述是**当时快照**，按只追加纪律不回写；当前有效状态以本节与 front matter 为准。
+
+**本次解锁**不改任何 P0/P1 判据、不改波次结构、不动 G7 车道、不预分配任何数字 CI 步骤或 RXS 号。共享编号的 post-G7 实测基线（`registry/number_ledger.json` v1.46 校准）：`RXS.next_free = 304`、`CI_step.next_free = 97`、`RD.next_free = 45`、`U.next_free = 44`、`RX_error.next_free = 7023`。按 CI_GATES §1.2，数字步骤与 RXS 条款号只能在各自 materialize 的那个 PR 里按当时实测 `next_free` 领取；本节记录的基线不构成预占。
+
+**G8.2 交付顺序（spec-first + RED 先行，G8_PLAN §3）**：spec 条款 PR 先行 → RED 语料 → 实现 + 脚本 + evidence schema + workflow 真步骤 + ledger 校准同 PR。七个 P0（M50/M89/M29/M30/M31/M32/M85）各自独立断言，聚合门 `g8.wave.2.exit` 只汇总不代绿。
+
+`Assisted-by: Kiro:claude-opus-5 g82-entry-session`（影响范围：G8 契约双状态 front matter + 本节 + PLAN/CI_GATES/README 状态镜像 + ledger revision_log；验证方式：本节逐字输出 + §8.1 末列回归命令）

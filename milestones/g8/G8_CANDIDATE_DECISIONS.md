@@ -119,3 +119,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | 首版：覆盖 RD-037~044 全部可辨分项与 RD-038 六个接入面；登记 M50 单独 strategic_override；M04/M25/M72/M83 与 RD-037/M89 go；其余按 backfill 无证据 no-go/open。明确 G8.1 governance-only 可并行、G8.2+ 互锁维持。 |
+| v1.1 | 2026-08-05 | **RD-038 终态落地（裁决字面 0-byte，只追加）**：G7 已 `closed`（close-out `5269f96a` / tag `g7-closed`）且 `registry/deferred.json` 的 **RD-038 = `closed`**（G7.7 逐字审计路径）。因此 §2 六行的「open-观察（待 G7 终态）」预期**已由 G7 自行兑现**：G8 侧不接管这六个分项，`G8_PLAN` §1.0 六行「互锁终态」列维持 `unresolved`（RD-038 未走 override 路径，回填即伪造），§9 的 `RD-038 | open-观察（当前）` 行同为当时快照不回写；当前有效事实以 `registry/deferred.json` 为唯一事实源。连带效果：`G-G8-4` 的「接入本波的 RD-038 分项逐字兑现」在 G8.2 为**空集**（无 G8.2 腿），G8.2 退出门 = M50/M89/M29/M30/M31/M32/M85 七个独立断言 + RD-037 三件套，不因空集而放宽任何一条。M50 strategic_override（§4.1）与全部 go/no-go 裁决**逐字不改**；本次零号消费、零判据改动。 |

@@ -1,7 +1,7 @@
 # G8 CI_GATES — UE5 级前置能力完成期机器门
 
 > 契约：[G8_CONTRACT.md](G8_CONTRACT.md) · 计划：[G8_PLAN.md](G8_PLAN.md) v1.2 · 能力矩阵：[G8_CAPABILITY_MATRIX.md](G8_CAPABILITY_MATRIX.md) v1.1。
-> 当前状态：**G8.1 governance-only active；G8.2+ implementation blocked**。本文冻结未来门，不表示脚本、schema 或 workflow 已落地，更不表示任何实现门已绿。
+> 当前状态（v1.2，2026-08-05 更新）：**G8.2 implementation 门已开**（`implementation_status: unblocked`，凭据 [G8_CONTRACT §8.1](G8_CONTRACT.md#81-g-g8-3-实现互锁实测与-implementation_status-解锁2026-08-05)）。上一行 v1.0/v1.1 的「G8.2+ blocked」是当时快照，不回写。**门已开 ≠ 门已绿**：本文 §4/§4.0/§5 的 21 个 P0/P1 key 与聚合门当前仍全部未 materialize，脚本、schema、workflow 步骤一件未落；任何「G8.2 开工」叙述都不得当作 PASS。
 
 ---
 
@@ -16,7 +16,7 @@
 3. G8.1 的三 RFC、候选决策、验收映射、非空 measured budget 是否齐备；
 4. workflow 与 ledger 的实际末号/`next_free` 是否一致。
 
-当前 G7 active、RD-038 open，因此 validator 的正确结论是 `BLOCKED`。禁止把 `--expect-blocked` 一类测试模式当成 G-G8-3 PASS；它只能证明 validator 能识别阻断。
+当前（2026-08-05）G7 `closed`、RD-038 `closed`，validator 输出 `VERDICT = READY`（`--require-ready` exit 0），凭据逐字见 G8_CONTRACT §8.1。在此之前 G7 active / RD-038 open 时 `BLOCKED` 是唯一正确结论——该结论不因 READY 而追溯改写。禁止把 `--expect-blocked` 一类测试模式当成 G-G8-3 PASS；它只能证明 validator 能识别阻断。G8.2 起每个实现 PR 必须把 `--require-ready` 作为前置 required check。
 
 ### 1.2 数字步骤延迟分配
 
@@ -185,4 +185,5 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.2 | 2026-08-05 | **实现门状态镜像（判据 0-byte）**：G-G8-3 互锁实测 READY（G7 closed + RD-038 closed），头部与 §1.1 由「blocked / 正确结论是 BLOCKED」更新为「门已开、当前仍全部未 materialize」；显式登记「门已开 ≠ 门已绿」与「每个实现 PR 前置 `--require-ready`」。§4/§4.0/§5 的 21 个 key、脚本名、判据、`post-G7 actual-next-free allocation` 文字与 §6~§8 纪律全部 0-byte；本次零 workflow 步骤、零脚本、零 schema。 |
 | v1.1 | 2026-08-02 | **命名空间与 P1 勘误**：补 §4.0 三行已 go P1 独立断言（M25/M72/M83）；§6 evidence schema 命名规则由 `<script-stem>_` 改为与 `G8_ACCEPTANCE_MAP.md` 一致的 `g8_m##_<slug>_`；显式登记 key/脚本单一命名空间并交由 `ci/check_g8_acceptance_map.py` 三向比对。§3 三个治理 validator 已 materialize（含 `--selftest` 负样本自检），实现互锁当前诚实输出 `BLOCKED`。既有 18 行 P0 key/脚本/判据 0-byte。 |
