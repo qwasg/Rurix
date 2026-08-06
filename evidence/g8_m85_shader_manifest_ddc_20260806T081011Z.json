@@ -5,7 +5,7 @@
   "matrix_row": "M85",
   "wave": "G8.3",
   "numeric_step": 101,
-  "source_ref": "RFC-0019 §4.1;RFC-0020 §4.3;RXS-0317~0318/0343",
+  "source_ref": "RFC-0019 §4.1;spec/rendering_platform.md RXS-0317~0318",
   "phase": "g8.3",
   "phase_g8_2_pass": true,
   "phase_g8_3_pass": true,
