@@ -325,6 +325,9 @@ def check_evidence_files() -> None:
     g8_m30_pso_cache_schema = load(
         ROOT / "milestones/g8/g8_m30_pso_cache_evidence_schema.json"
     )
+    g8_m85_shader_manifest_ddc_schema = load(
+        ROOT / "milestones/g8/g8_m85_shader_manifest_ddc_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -594,6 +597,11 @@ def check_evidence_files() -> None:
     g8_m30_pso_cache_validator = (
         jsonschema.Draft7Validator(g8_m30_pso_cache_schema)
         if g8_m30_pso_cache_schema is not None
+        else None
+    )
+    g8_m85_shader_manifest_ddc_validator = (
+        jsonschema.Draft7Validator(g8_m85_shader_manifest_ddc_schema)
+        if g8_m85_shader_manifest_ddc_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1173,6 +1181,14 @@ def check_evidence_files() -> None:
             # binary/cache 诚实律 14 项 checks。device 段 gate real
             # (RURIX_REQUIRE_REAL=1)。供 g8.counter.pso_cache_legs 判读。
             validator = g8_m30_pso_cache_validator
+        elif (
+            f.name.startswith("g8_m85_shader_manifest_ddc_")
+            and g8_m85_shader_manifest_ddc_validator is not None
+        ):
+            # G8.2/3 M85 shader_manifest_ddc 硬门(RXS-0317~0318;RFC-0019):
+            # host 门,--phase g8.2 merge/dedup/coverage 腿;phase_g8_3_pass
+            # 字段位冻结、g8.2 期恒 false。供 g8.counter.shader_manifest_phase_g82_legs。
+            validator = g8_m85_shader_manifest_ddc_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

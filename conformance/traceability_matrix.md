@@ -302,3 +302,5 @@
 | RXS-0314 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/pso_cache.rs` |
 | RXS-0315 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/pso_cache.rs` |
 | RXS-0316 | spec/vulkan_backend.md | 2 | `src/rurix-rt/src/pso_cache.rs`, `src/rurix-rt/src/vk.rs` |
+| RXS-0317 | spec/rendering_platform.md | 1 | `src/rurixc/src/manifest.rs` |
+| RXS-0318 | spec/rendering_platform.md | 1 | `src/rurixc/src/manifest.rs` |

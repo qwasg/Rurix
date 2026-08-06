@@ -1,0 +1,19 @@
+{
+  "schema": "rurix.shader-manifest-coverage.v1",
+  "shaders": [
+    {
+      "entry": "vs_main",
+      "variant_key": "",
+      "pipeline_key": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "entry": "fs_main",
+      "variant_key": "",
+      "pipeline_key": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "pso_keys": [
+    "6666666666666666666666666666666666666666666666666666666666666666",
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  ]
+}

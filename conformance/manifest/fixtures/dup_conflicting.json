@@ -1,0 +1,17 @@
+{
+  "schema": "rurix.shader-manifest.v1",
+  "manifest_digest": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+  "shaders": [
+    {
+      "entry": "vs_main",
+      "stage": "vertex",
+      "interface_hash": "9999999999999999999999999999999999999999999999999999999999999999",
+      "source_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "selected_profile_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "permutation_domain_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "variant_key": "",
+      "pipeline_key": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "psos": []
+}

@@ -1651,6 +1651,12 @@
     "RXS-0316": [
       "src/rurix-rt/src/pso_cache.rs",
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0317": [
+      "src/rurixc/src/manifest.rs"
+    ],
+    "RXS-0318": [
+      "src/rurixc/src/manifest.rs"
     ]
   }
 }

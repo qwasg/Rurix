@@ -1,0 +1,19 @@
+{
+  "schema": "rurix.pso-keys.v1",
+  "compiler": "rurixc",
+  "compiler_version": "1.0.0",
+  "edition": "Rx0",
+  "target": "vulkan",
+  "keyset_digest": "00000000000000000000000000000000000000000000000000000000000000bb",
+  "records": [
+    {
+      "name": "unit_b_graphics",
+      "pso_key": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kind_tag": 1,
+      "stage_digests": [
+        { "stage_tag": 0, "digest": "0000000000000000000000000000000000000000000000000000000000000000" }
+      ],
+      "fixed_function_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ]
+}

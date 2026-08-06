@@ -1,0 +1,22 @@
+{
+  "schema": "rurix.reflection.v1",
+  "schema_version": 1,
+  "compiler": "rurixc",
+  "compiler_version": "0.0.0",
+  "edition": "Rx0",
+  "target": "vulkan",
+  "backend": "spirv",
+  "unit_digest": "0000000000000000000000000000000000000000000000000000000000000002",
+  "entries": [
+    {
+      "name": "fs_main",
+      "stage": "fragment",
+      "interface_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "selected_profile_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "permutation_domain_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "variant_key": "",
+      "pipeline_key": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ]
+}

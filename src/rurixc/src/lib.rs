@@ -42,6 +42,10 @@ pub mod launch_check;
 pub mod lexer;
 pub mod lossless;
 pub mod lower;
+// G8.2 M85(RXS-0317~0318):shader/PSO manifest v1 canonical merge/dedup/coverage
+// (`--merge-manifests` / `--assemble-manifest`;`--phase g8.2` host 门)。
+#[cfg(feature = "shader-stages")]
+pub mod manifest;
 pub mod messages;
 pub mod mir;
 pub mod mir_build;

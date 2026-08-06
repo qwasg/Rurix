@@ -976,6 +976,30 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.2 M30 实现回填前为正常状态,契约 G-G8-4",
             strict,
         )
+    elif eid == "g8.counter.shader_manifest_phase_g82_legs":
+        # G8.2 M85 shader_manifest_ddc --phase g8.2 硬门判据 >=9(契约 G-G8-4 /
+        # CI_GATES §4 M85 行;RXS-0317~0318)。计数源 = evidence/
+        # g8_m85_shader_manifest_ddc_*.json 中 phase_g8_2_pass=true 且 checks.*
+        # 全 true(≥9)的见证数。host 门;phase_g8_3_pass 不得代绿。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m85_shader_manifest_ddc_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("phase_g8_2_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 9:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 shader_manifest --phase g8.2 判据全绿见证(checks.* ≥9 true)",
+            "G8.2 M85 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.shader_permutation_legs":
         # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
         # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/

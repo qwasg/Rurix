@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2/G8.3 M85 shader_manifest_ddc evidence",
+  "description": "evidence/g8_m85_shader_manifest_ddc_<UTC>.json。G8 P0 硬门 g8.p0.m85.shader_manifest_ddc:host 门 --phase g8.2(merge/dedup/coverage;RXS-0317~0318)+资产波 --phase g8.3(DDC put/get;字段位本期冻结)。任一腿不代另一腿充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "phase",
+    "phase_g8_2_pass",
+    "phase_g8_3_pass",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m85_shader_manifest_ddc" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m85.shader_manifest_ddc" },
+    "matrix_row": { "type": "string", "const": "M85" },
+    "wave": {
+      "type": "string",
+      "enum": ["G8.2", "G8.3", "G8.2 + G8.3"]
+    },
+    "numeric_step": { "type": "integer", "const": 101 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0019 §4.1;spec/rendering_platform.md RXS-0317~0318"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["g8.2", "g8.3"]
+    },
+    "phase_g8_2_pass": { "type": "boolean" },
+    "phase_g8_3_pass": { "type": "boolean" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "merged_key_set_equals_golden",
+        "duplicates_deduped_exactly_once",
+        "conflicting_key_fail_closed",
+        "coverage_no_gap",
+        "coverage_gap_red",
+        "merge_input_order_invariant",
+        "merge_deterministic_double_run",
+        "manifest_digest_stable_and_flips_on_any_key_change",
+        "pipeline_key_fields_sourced_from_reflection",
+        "phase_g8_2_pass"
+      ],
+      "properties": {
+        "merged_key_set_equals_golden": { "type": "boolean" },
+        "duplicates_deduped_exactly_once": { "type": "boolean" },
+        "conflicting_key_fail_closed": { "type": "boolean" },
+        "coverage_no_gap": { "type": "boolean" },
+        "coverage_gap_red": { "type": "boolean" },
+        "merge_input_order_invariant": { "type": "boolean" },
+        "merge_deterministic_double_run": { "type": "boolean" },
+        "manifest_digest_stable_and_flips_on_any_key_change": { "type": "boolean" },
+        "pipeline_key_fields_sourced_from_reflection": { "type": "boolean" },
+        "phase_g8_2_pass": { "type": "boolean" },
+        "phase_g8_3_ddc_put_get_byte_identical": { "type": "boolean" },
+        "phase_g8_3_key_flip_on_interface_or_pso_change": { "type": "boolean" },
+        "phase_g8_3_old_artifact_no_false_hit": { "type": "boolean" },
+        "phase_g8_3_pass": { "type": "boolean" }
+      }
+    },
+    "manifest_digest": { "type": "string" },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

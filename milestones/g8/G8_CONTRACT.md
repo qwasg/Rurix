@@ -412,3 +412,26 @@ py -3 ci/g8_pso_cache_smoke.py --selftest                    # PASS
 **诚实边界**：① binary 缺 blob 时驱动磁盘缓存仍可能让 FAIL_ON 返回 SUCCESS——记本 store miss/stall，不得记 hit（RXS-0316 能红字面）。② vendor blob 非 stable，不入 golden。③ pipelineCreationCacheControl 缺位 = fail-closed dev-env degrade，不降级判据。
 
 `Assisted-by: cursor-grok-4.5-high-fast`（实现初稿 + smoke/schema；主 agent 复核 stall 语义修复 + 治理接线。影响范围：本节 + CI_GATES §4 M30 行 v1.6 + ledger v1.52/v1.53 + g8_budget v1.4 + pr-smoke.yml 步骤 100 + check_schemas.py 路由 + budget_eval.py 分支 + unsafe-audit U27 扩注；验证方式：上述验收命令全绿）
+
+### 8.6 M85 shader_manifest_ddc `--phase g8.2` materialize（2026-08-06）
+
+**触发**：G8.2/3 共担 P0 M85 `g8.p0.m85.shader_manifest_ddc` 的 G8.2 腿（host 轨收尾；硬依赖 M29/M30，软依赖 M32）。
+
+**交付物**（spec-first：条款 `0905a8b6` 先行，实现+治理接线随后）：
+
+- **spec**：`spec/rendering_platform.md` v1.4 RXS-0317（manifest v1 字段闭集/canonical digest）+ RXS-0318（merge/dedup/冲突/coverage/phase 纪律）。ledger v1.54（RXS 316/317→318/319）。
+- **实现**：`src/rurixc/src/manifest.rs`（from_parts/merge/coverage/digest；9 单测）+ `rurixc --merge-manifests`/`--assemble-manifest` + `conformance/manifest/{fixtures,golden}`。
+- **CI**：`ci/g8_shader_manifest_ddc_smoke.py --phase g8.2`（10 checks）+ evidence schema（双 phase 字段位；`phase_g8_3_pass` 恒 false）。
+- **治理**：check_schemas 路由 + pr-smoke 步骤 101 + CI_GATES v1.7 回填 101 + g8_budget v1.5 `g8.counter.shader_manifest_phase_g82_legs` + budget_eval + ledger v1.55（CI_step 100→101/102）。
+
+**判据**：merged key 集 == golden；重复恰好去重；冲突 fail-closed；coverage 无缺口 + 缺口 RED；输入乱序 digest 不变；双跑确定性；改 interface_hash/pso_key digest 必变；pipeline_key 字段源自 reflection；`phase_g8_2_pass=true` 且不代 `phase_g8_3_pass`。
+
+**验收**（2026-08-06）：
+```
+cargo test -p rurixc --lib manifest::   # 9 passed
+py -3 ci/g8_shader_manifest_ddc_smoke.py --gate g8.p0.m85.shader_manifest_ddc --phase g8.2  # PASS
+py -3 ci/g8_shader_manifest_ddc_smoke.py --selftest
+```
+实测 merged digest=`8eb511bf7357f6f2de895edb052d8a48ce991b63454c5b7ca5daee0a3dc8d32a`。
+
+`Assisted-by: cursor-grok-4.5-high-fast`（实现/fixtures/smoke/schema；主 agent 治理接线。影响范围：本节 + CI_GATES v1.7 + ledger v1.54/v1.55 + g8_budget v1.5 + pr-smoke 步骤 101）

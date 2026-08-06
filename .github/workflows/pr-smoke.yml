@@ -1097,6 +1097,15 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/g8_pso_cache_smoke.py --gate g8.p0.m30.pso_cache
 
+      # 步骤 101（G8.2/3 P0 硬门 g8.p0.m85.shader_manifest_ddc;RFC-0019;
+      # spec/rendering_platform.md RXS-0317~0318）:shader/PSO manifest
+      # canonical merge/dedup/coverage。本步跑 --phase g8.2（host 恒跑,
+      # device 段 not_applicable;phase_g8_3_pass 诚实 false）。10 项判据
+      # 缺一 FAIL;evidence 落盘 evidence/g8_m85_shader_manifest_ddc_<UTC>.json。
+      - name: G8.2 M85 shader manifest ddc smoke (G8 CI_GATES §4.101, g8.p0.m85.shader_manifest_ddc)
+        shell: powershell
+        run: py -3 ci/g8_shader_manifest_ddc_smoke.py --gate g8.p0.m85.shader_manifest_ddc --phase g8.2
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

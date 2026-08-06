@@ -24,6 +24,13 @@
   "ratio_assertions": [],
   "counter_assertions": [
     {
+      "id": "g8.counter.shader_manifest_phase_g82_legs",
+      "description": "G8.2 M85 shader_manifest_ddc --phase g8.2 硬门判据通过数 >=9(契约 G-G8-4 / CI_GATES §4 M85 行;RFC-0019 / RXS-0317~0318)。计数源 = evidence/g8_m85_shader_manifest_ddc_*.json 中 host_section_pass=true 且 phase_g8_2_pass=true 且 checks.* 全 true 达 ≥9 的见证文件数(merge/dedup/冲突/coverage/乱序不变/双跑确定性/digest 翻转/reflection 字段同源/phase_g8_2_pass;phase_g8_3_pass 诚实 false 不代绿)。host/compile 纯 host 门。",
+      "evidence_file": "evidence/g8_m85_shader_manifest_ddc_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
       "id": "g8.counter.pso_cache_legs",
       "description": "G8.2 M30 pso_cache 硬门判据通过数 >=14 且 device 见证 >=1(契约 G-G8-4 / CI_GATES §4 M30 行;RFC-0019 §4.1.4 / RXS-0314~0316)。计数源 = evidence/g8_m30_pso_cache_*.json 中 host_section_pass=true 且 device_section_state=executed 且 checks.* 全 true 的字段数达 14 的见证文件数(collector/golden + cold/warm 零 stall + 删 blob stall 能红 + tamper 四轴 fail-closed + binary/fallback 诚实律 + validation 零错)。driver/device 门,RURIX_REQUIRE_REAL=1 翻硬红。",
       "evidence_file": "evidence/g8_m30_pso_cache_*.json",
@@ -54,6 +61,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.5",
+      "date": "2026-08-06",
+      "change": "G8.2 M85 shader_manifest_ddc --phase g8.2 materialize:counter_assertions 追加 g8.counter.shader_manifest_phase_g82_legs(>=9 checks 全绿见证 ≥1,evidence/g8_m85_shader_manifest_ddc_*.json phase_g8_2_pass=true,ci/budget_eval.py eval_counter 新分支同 PR 落)。host 门。既有五条 0-byte。"
+    },
     {
       "version": "v1.4",
       "date": "2026-08-06",

@@ -6,6 +6,8 @@
 //!
 //! M6.4:`--tooling-server` 常驻 LSP 进程;`--tooling-smoke` 能力面冒烟(JSON stdout)。
 //!
+//! G8.2 M85:工具模式 `--merge-manifests` / `--assemble-manifest`(不走编译管线)。
+//!
 //! 工具链定位:
 //! - clang:`RURIXC_CLANG` 环境变量 > `C:\Program Files\LLVM\bin\clang.exe` > PATH;
 //!   版本断言 22.1.x(违例 = RX7001,pin 纪律)。
@@ -15,6 +17,8 @@
 //! - `rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|llvm-ir|nvptx-ir|ptx] [--error-format=json] [--self-profile=<file.json>]`
 //! - `rurixc --tooling-server [--stdio]`
 //! - `rurixc --tooling-smoke <sample.rx>`
+//! - `rurixc --merge-manifests -o <merged.json> <a.json> <b.json> ...`
+//! - `rurixc --assemble-manifest -o <unit.json> --reflection <r.json> [--permutations <p.json>] [--collector <c.json>]`
 
 use std::fs;
 use std::io::Write;
@@ -35,6 +39,12 @@ fn main() -> ExitCode {
     }
     if args.first().is_some_and(|a| a == "--tooling-smoke") {
         return tooling_smoke(&args[1..]);
+    }
+    if args.first().is_some_and(|a| a == "--merge-manifests") {
+        return merge_manifests_cli(&args[1..]);
+    }
+    if args.first().is_some_and(|a| a == "--assemble-manifest") {
+        return assemble_manifest_cli(&args[1..]);
     }
 
     let mut input: Option<String> = None;
@@ -97,7 +107,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|permutations|capabilities|llvm-ir] [--profile <profile.json>] [--permutation-budget=N] [--permutation-select=KEY] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|permutations|capabilities|llvm-ir] [--profile <profile.json>] [--permutation-budget=N] [--permutation-select=KEY] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>\n       rurixc --merge-manifests -o <merged.json> <a.json> <b.json> ...\n       rurixc --assemble-manifest -o <unit.json> --reflection <r.json> [--permutations <p.json>] [--collector <c.json>]"
         );
         return ExitCode::from(2);
     };
@@ -113,6 +123,137 @@ fn main() -> ExitCode {
         permutation_select,
         profile: profile.map(PathBuf::from),
     }))
+}
+
+fn merge_manifests_cli(args: &[String]) -> ExitCode {
+    #[cfg(not(feature = "shader-stages"))]
+    {
+        let _ = args;
+        eprintln!("rurixc: --merge-manifests 需要 feature `shader-stages`");
+        return ExitCode::from(2);
+    }
+    #[cfg(feature = "shader-stages")]
+    {
+        let mut out: Option<PathBuf> = None;
+        let mut inputs: Vec<PathBuf> = Vec::new();
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "-o" => {
+                    i += 1;
+                    match args.get(i) {
+                        Some(p) => out = Some(PathBuf::from(p)),
+                        None => {
+                            eprintln!("rurixc: --merge-manifests `-o` 缺路径");
+                            return ExitCode::from(2);
+                        }
+                    }
+                }
+                s if !s.starts_with('-') => inputs.push(PathBuf::from(s)),
+                s => {
+                    eprintln!("rurixc: --merge-manifests unknown argument `{s}`");
+                    return ExitCode::from(2);
+                }
+            }
+            i += 1;
+        }
+        let Some(out) = out else {
+            eprintln!(
+                "usage: rurixc --merge-manifests -o <merged.json> <a.json> <b.json> ..."
+            );
+            return ExitCode::from(2);
+        };
+        match rurixc::manifest::merge_manifest_files(&inputs, &out) {
+            Ok(m) => {
+                eprintln!(
+                    "rurixc: --merge-manifests: {} (manifest_digest={})",
+                    out.display(),
+                    m.digest_hex()
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("rurixc: --merge-manifests: {e}");
+                ExitCode::from(1)
+            }
+        }
+    }
+}
+
+fn assemble_manifest_cli(args: &[String]) -> ExitCode {
+    #[cfg(not(feature = "shader-stages"))]
+    {
+        let _ = args;
+        eprintln!("rurixc: --assemble-manifest 需要 feature `shader-stages`");
+        return ExitCode::from(2);
+    }
+    #[cfg(feature = "shader-stages")]
+    {
+        let mut out: Option<PathBuf> = None;
+        let mut reflection: Option<PathBuf> = None;
+        let mut permutations: Option<PathBuf> = None;
+        let mut collector: Option<PathBuf> = None;
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "-o" => {
+                    i += 1;
+                    out = args.get(i).map(PathBuf::from);
+                }
+                "--reflection" => {
+                    i += 1;
+                    reflection = args.get(i).map(PathBuf::from);
+                }
+                s if s.starts_with("--reflection=") => {
+                    reflection = Some(PathBuf::from(&s["--reflection=".len()..]));
+                }
+                "--permutations" => {
+                    i += 1;
+                    permutations = args.get(i).map(PathBuf::from);
+                }
+                s if s.starts_with("--permutations=") => {
+                    permutations = Some(PathBuf::from(&s["--permutations=".len()..]));
+                }
+                "--collector" => {
+                    i += 1;
+                    collector = args.get(i).map(PathBuf::from);
+                }
+                s if s.starts_with("--collector=") => {
+                    collector = Some(PathBuf::from(&s["--collector=".len()..]));
+                }
+                s => {
+                    eprintln!("rurixc: --assemble-manifest unknown argument `{s}`");
+                    return ExitCode::from(2);
+                }
+            }
+            i += 1;
+        }
+        let (Some(out), Some(reflection)) = (out, reflection) else {
+            eprintln!(
+                "usage: rurixc --assemble-manifest -o <unit.json> --reflection <r.json> [--permutations <p.json>] [--collector <c.json>]"
+            );
+            return ExitCode::from(2);
+        };
+        match rurixc::manifest::assemble_manifest_files(
+            &reflection,
+            permutations.as_deref(),
+            collector.as_deref(),
+            &out,
+        ) {
+            Ok(m) => {
+                eprintln!(
+                    "rurixc: --assemble-manifest: {} (manifest_digest={})",
+                    out.display(),
+                    m.digest_hex()
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("rurixc: --assemble-manifest: {e}");
+                ExitCode::from(1)
+            }
+        }
+    }
 }
 
 fn tooling_smoke(args: &[String]) -> ExitCode {

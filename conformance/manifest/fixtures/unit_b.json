@@ -1,0 +1,26 @@
+{
+  "schema": "rurix.shader-manifest.v1",
+  "manifest_digest": "a62268c7a6727d79bbf41166ea1cd4db788b674fa9e73703d156768b44b82786",
+  "shaders": [
+    {
+      "entry": "fs_main",
+      "stage": "fragment",
+      "interface_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "selected_profile_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "permutation_domain_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "variant_key": "",
+      "pipeline_key": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "psos": [
+    {
+      "pso_key": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "kind_tag": 1,
+      "stage_digests": [
+        { "stage_tag": 0, "digest": "0000000000000000000000000000000000000000000000000000000000000000" }
+      ],
+      "fixed_function_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ]
+}
