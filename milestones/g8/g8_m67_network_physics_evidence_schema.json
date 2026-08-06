@@ -111,6 +111,14 @@
         "measured_max_angle_rad": { "type": "number" }
       }
     },
+    "character_state_canonical_ok": {
+      "type": "boolean",
+      "description": "可选;wave6b.m71 subject 取证(不构成独立 P0)"
+    },
+    "physics_asset_cook_deterministic": {
+      "type": "boolean",
+      "description": "可选;wave6b.m69 subject 取证(不构成独立 P0)"
+    },
     "evidence_level": { "type": "string", "const": "measured_local" },
     "run_url": { "type": "string" },
     "timestamp": { "type": "string" },

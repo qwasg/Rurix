@@ -28,7 +28,7 @@ use scenarios::{run_scenario, InjectionSpec};
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: g8-physics-gates <record|replay|inject|ab|net> ...");
+        eprintln!("usage: g8-physics-gates <record|replay|inject|ab|net|fracture> ...");
         std::process::exit(2);
     }
     let result = match args[1].as_str() {
@@ -39,6 +39,7 @@ fn main() {
         "ab" => cmd_ab(&args[2..]),
         "canon-float" => cmd_canon_float(&args[2..]),
         "net" => cmd_net(&args[2..]),
+        "fracture" => cmd_fracture(&args[2..]),
         other => Err(CaptureError::Rejected(format!("unknown subcommand {other}"))),
     };
     match result {
@@ -261,6 +262,72 @@ fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
         util::json_bool(char_ok),
         util::json_bool(asset_ok),
         util::json_bool(det),
+    ))
+}
+
+fn cmd_fracture(args: &[String]) -> Result<String, CaptureError> {
+    use rurix_physics::destruction::{
+        parse_golden_json, parse_source_json, run_fracture_pipeline,
+    };
+
+    let source_path = arg_value(args, "--source").ok_or_else(|| {
+        CaptureError::Rejected("--source <path> required".into())
+    })?;
+    let golden_path = arg_value(args, "--golden").ok_or_else(|| {
+        CaptureError::Rejected("--golden <path> required".into())
+    })?;
+    let source_text = fs::read_to_string(&source_path)
+        .map_err(|e| CaptureError::Io(e.to_string()))?;
+    let golden_text = fs::read_to_string(&golden_path)
+        .map_err(|e| CaptureError::Io(e.to_string()))?;
+    let source = parse_source_json(&source_text)
+        .map_err(|e| CaptureError::Rejected(e))?;
+    let golden = parse_golden_json(&golden_text)
+        .map_err(|e| CaptureError::Rejected(e))?;
+    let report = run_fracture_pipeline(&source, &golden)
+        .map_err(|e| CaptureError::Rejected(e))?;
+
+    let activated = report
+        .activated_cluster_ids
+        .iter()
+        .map(|s| format!("\"{}\"", util::json_escape(s)))
+        .collect::<Vec<_>>()
+        .join(",");
+    Ok(format!(
+        "{{\"ok\":{},\"cook_deterministic_double_byte_equal\":{},\"cook_counts_and_digests_match_golden\":{},\"unknown_schema_fails_closed\":{},\"dangling_edge_or_nontree_cluster_fails_closed\":{},\"below_threshold_no_break\":{},\"above_threshold_breaks_specified_edge_at_tick\":{},\"cluster_activation_hierarchy_matches_golden\":{},\"activated_bodies_enter_journal_and_capture\":{},\"cache_roundtrip_event_sequence_identical\":{},\"cache_roundtrip_state_hash_identical\":{},\"vfx_exactly_once_per_fracture_event\":{},\"vfx_no_duplicate_across_rollback_or_cache_replay\":{},\"chunk_count\":{},\"edge_count\":{},\"interior_face_count\":{},\"anchor_count\":{},\"cooked_digest\":\"{}\",\"broken_edge_id\":{},\"break_tick\":{},\"activated_cluster_ids\":[{}],\"activated_body_count\":{},\"vfx_commit_count\":{},\"event_sequence_digest\":\"{}\",\"state_hash\":\"{}\",\"detail\":\"{}\"}}",
+        util::json_bool(report.ok),
+        util::json_bool(report.cook_deterministic_double_byte_equal),
+        util::json_bool(report.cook_counts_and_digests_match_golden),
+        util::json_bool(report.unknown_schema_fails_closed),
+        util::json_bool(report.dangling_edge_or_nontree_cluster_fails_closed),
+        util::json_bool(report.below_threshold_no_break),
+        util::json_bool(report.above_threshold_breaks_specified_edge_at_tick),
+        util::json_bool(report.cluster_activation_hierarchy_matches_golden),
+        util::json_bool(report.activated_bodies_enter_journal_and_capture),
+        util::json_bool(report.cache_roundtrip_event_sequence_identical),
+        util::json_bool(report.cache_roundtrip_state_hash_identical),
+        util::json_bool(report.vfx_exactly_once_per_fracture_event),
+        util::json_bool(report.vfx_no_duplicate_across_rollback_or_cache_replay),
+        report.chunk_count,
+        report.edge_count,
+        report.interior_face_count,
+        report.anchor_count,
+        util::json_escape(&report.cooked_digest),
+        report
+            .broken_edge_id
+            .as_ref()
+            .map(|s| format!("\"{}\"", util::json_escape(s)))
+            .unwrap_or_else(|| "null".into()),
+        report
+            .break_tick
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "null".into()),
+        activated,
+        report.activated_body_count,
+        report.vfx_commit_count,
+        util::json_escape(&report.event_sequence_digest),
+        util::json_escape(&report.state_hash),
+        util::json_escape(&report.detail),
     ))
 }
 

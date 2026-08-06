@@ -1,6 +1,6 @@
 [package]
 name = "g8-physics-gates"
-description = "G8.6 physics gate runner(M66 record/replay/inject/ab + M67 net JSON stdout)"
+description = "G8.6 physics gate runner(M66 record/replay/inject/ab + M67 net + M68 fracture JSON stdout)"
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
@@ -11,7 +11,7 @@ name = "g8-physics-gates"
 path = "src/main.rs"
 
 [dependencies]
-rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character"] }
+rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character", "physics-destruction"] }
 rurix-pkg = { path = "../../src/rurix-pkg" }
 
 [lints]

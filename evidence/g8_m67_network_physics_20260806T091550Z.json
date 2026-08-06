@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m67_network_physics",
+  "symbolic_gate_key": "g8.p0.m67.network_physics",
+  "matrix_row": "M67",
+  "wave": "G8.6b",
+  "numeric_step": 122,
+  "source_ref": "RFC-0021 §4.B1;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §3;G8_ACCEPTANCE_MAP M67",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "trace_fixture_deterministic": true,
+    "prediction_divergence_observed_at_golden": true,
+    "correction_received_at_golden_frame": true,
+    "rollback_start_and_input_sequence_match_expected": true,
+    "resim_final_hash_equals_server": true,
+    "contact_event_committed_exactly_once": true,
+    "event_dedup_across_repeated_rollbacks": true,
+    "smoothing_authoritative_state_untouched": true,
+    "smoothing_within_frozen_bound_per_frame": true,
+    "history_ring_overflow_hard_correction_explicit": true,
+    "incompatible_schema_or_build_digest_rejected": true,
+    "profile_match_recorded": true,
+    "frame_domain_map_recorded": true
+  },
+  "map_five": {
+    "correction_received": true,
+    "rollback_resim_sequence": true,
+    "resim_hash_equals_server": true,
+    "event_commit_exactly_once": true,
+    "smoothing_bound_and_auth_untouched": true
+  },
+  "smoothing_bound": {
+    "frozen": true,
+    "reference": "RFC-0021 §6.5.1",
+    "max_position_m": 0.26868,
+    "max_angle_rad": 0.0384475,
+    "measured_max_position_m": 0.214944,
+    "measured_max_angle_rad": 0.030758
+  },
+  "character_state_canonical_ok": true,
+  "physics_asset_cook_deterministic": true,
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T091550Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "correction_frame=20 rollback_start=18 committed=20"
+}

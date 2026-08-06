@@ -79,7 +79,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | 117 |
 | `g8.p0.m66.physics_replay` | M66 | G8.6a | `ci/g8_physics_replay_smoke.py` | 120 |
 | `g8.p0.m67.network_physics` | M67 | G8.6b | `ci/g8_network_physics_smoke.py` | 122 |
-| `g8.p0.m68.fracture_pipeline` | M68 | G8.6c | `ci/g8_fracture_pipeline_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m68.fracture_pipeline` | M68 | G8.6c | `ci/g8_fracture_pipeline_smoke.py` | 124 |
 
 ### 4.0 已 go 的 P1 独立断言（3 行，v1.1 补齐）
 
@@ -129,8 +129,8 @@ py -3 ci/budget_eval.py
 | `g8.wave.5a.exit` | `ci/g8_wave5a_exit_check.py` | 116 | M19 PASS；go 的几何/阴影项与 RD-038 raster/VSM 接入各自有 PASS evidence |
 | `g8.wave.5b.exit` | `ci/g8_wave5b_exit_check.py` | 119 | M24 PASS；go 的材质/GI/显示项与 RD-038 GI/TSR/真帧接入各自有 PASS evidence |
 | `g8.wave.6a.exit` | `ci/g8_wave6a_exit_check.py` | 121 | M66 PASS；Jolt 5.3 corpus 先完成；5.6 A/B 结果诚实判档 |
-| `g8.wave.6b.exit` | `ci/g8_wave6b_exit_check.py` | `post-G7 actual-next-free allocation` | M67 PASS；网络全链、CharacterVirtual、PhysicsAsset/ragdoll/physical animation 闭环 |
-| `g8.wave.6c.exit` | `ci/g8_wave6c_exit_check.py` | `post-G7 actual-next-free allocation` | M68 PASS；破坏全链闭环 |
+| `g8.wave.6b.exit` | `ci/g8_wave6b_exit_check.py` | 123 | M67 PASS；网络全链、CharacterVirtual、PhysicsAsset/ragdoll/physical animation 闭环 |
+| `g8.wave.6c.exit` | `ci/g8_wave6c_exit_check.py` | 125 | M68 PASS；破坏全链闭环 |
 | `g8.wave.6d.exit` | `ci/g8_wave6d_exit_check.py` | `post-G7 actual-next-free allocation` | 布料 schema/import/collision/LOD/timeline 与载具产品层独立闭环 |
 | `g8.wave.7.decisions` | `ci/g8_p2_decisions_check.py` | `post-G7 actual-next-free allocation` | G8_PLAN §2.7 全部 P2 有 go/no-go/defer-to-G9+，零空行；非 go 不冒充 PASS |
 | `g8.wave.8a.soak` | `ci/g8_stabilization_soak.py` | `post-G7 actual-next-free allocation` | 18 P0 + go P1 回归；≥30 分钟且 ≥10000 帧；strict budget 非空零 estimated/skip；零 validation/device-loss/TDR/leak |
@@ -186,6 +186,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.22 | 2026-08-06 | **G8.6b wave6b.exit + G8.6c M68**：§5 wave6b→`123`；§4 M68→`124`；§5 wave6c→`125`；m71/m69 subjects + fracture 12 腿。 |
 | v1.21 | 2026-08-06 | **G8.6b M67 network_physics**：§4 M67→`122`；RFC-0021 §6.5.1 smoothing bound 冻结；13 腿 + MAP 五项。host 门（wave6b.exit 待 M69/M71 subject）。 |
 | v1.20 | 2026-08-06 | **G8.6a M66 + wave6a.exit**：§4 M66→`120`；§5 `g8.wave.6a.exit`→`121`；Jolt 5.3 corpus + M73 `pin_5_3_honest_stop_loss`；U47~U53。host 门 + 聚合。 |
 | v1.19 | 2026-08-06 | **G8.5b M24 + M25 + wave5b.exit**：§4 M24→`117`、§4.0 M25→`118`；§5 `g8.wave.5b.exit`→`119`；RFC-0019 §4.6.4 tolerance 冻结；RD-038 GI/TSR 接入空集。device 两门 + host 聚合。 |

@@ -49,6 +49,8 @@ pub mod capture;
 pub mod asset;
 #[cfg(feature = "physics-character")]
 pub mod character;
+#[cfg(feature = "physics-destruction")]
+pub mod destruction;
 mod error;
 mod events;
 mod id;

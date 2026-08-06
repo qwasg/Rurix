@@ -1,0 +1,15 @@
+{
+  "chunk_count": 4,
+  "edge_count": 3,
+  "interior_face_count": 2,
+  "anchor_count": 1,
+  "cooked_digest": "518c3a9408436835f382fe17c4be651a0311661249b46ef8eaa7b9a8b7c15b1d",
+  "below_threshold_ticks": 5,
+  "below_damage_magnitude": 0.1,
+  "above_damage_magnitude": 10.0,
+  "damage_point": [0.0, 1.0, 0.0],
+  "damage_radius": 1.5,
+  "break_tick": 3,
+  "break_edge_id": "e01",
+  "activated_cluster_ids": ["cluster_upper"]
+}

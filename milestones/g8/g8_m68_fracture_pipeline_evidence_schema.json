@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.6c M68 fracture_pipeline evidence",
+  "description": "evidence/g8_m68_fracture_pipeline_<UTC>.json。12 checks 全链。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m68_fracture_pipeline" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m68.fracture_pipeline" },
+    "matrix_row": { "type": "string", "const": "M68" },
+    "wave": { "type": "string", "const": "G8.6c" },
+    "numeric_step": { "type": "integer", "minimum": 0 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0021 §4.C;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §4;G8_ACCEPTANCE_MAP M68"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cook_deterministic_double_byte_equal",
+        "cook_counts_and_digests_match_golden",
+        "unknown_schema_fails_closed",
+        "dangling_edge_or_nontree_cluster_fails_closed",
+        "below_threshold_no_break",
+        "above_threshold_breaks_specified_edge_at_tick",
+        "cluster_activation_hierarchy_matches_golden",
+        "activated_bodies_enter_journal_and_capture",
+        "cache_roundtrip_event_sequence_identical",
+        "cache_roundtrip_state_hash_identical",
+        "vfx_exactly_once_per_fracture_event",
+        "vfx_no_duplicate_across_rollback_or_cache_replay"
+      ],
+      "properties": {
+        "cook_deterministic_double_byte_equal": { "type": "boolean" },
+        "cook_counts_and_digests_match_golden": { "type": "boolean" },
+        "unknown_schema_fails_closed": { "type": "boolean" },
+        "dangling_edge_or_nontree_cluster_fails_closed": { "type": "boolean" },
+        "below_threshold_no_break": { "type": "boolean" },
+        "above_threshold_breaks_specified_edge_at_tick": { "type": "boolean" },
+        "cluster_activation_hierarchy_matches_golden": { "type": "boolean" },
+        "activated_bodies_enter_journal_and_capture": { "type": "boolean" },
+        "cache_roundtrip_event_sequence_identical": { "type": "boolean" },
+        "cache_roundtrip_state_hash_identical": { "type": "boolean" },
+        "vfx_exactly_once_per_fracture_event": { "type": "boolean" },
+        "vfx_no_duplicate_across_rollback_or_cache_replay": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

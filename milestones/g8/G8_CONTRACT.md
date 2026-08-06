@@ -644,3 +644,12 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：`g8.wave.6b.exit` 未落——须待 `g8.wave6b.m69.physics_asset` / `g8.wave6b.m71.character_virtual` subject 闭环后再聚合。
 
 **验收**：M67 13/13 + MAP 五项 host PASS；smoothing ≤ §6.5.1 bound。
+
+### 8.23 G8.6b wave6b.exit + G8.6c M68（2026-08-06）
+
+**交付物**：
+- wave6b.exit：步骤 **123**（M67 + subjects `g8.wave6b.m71.character_virtual` / `g8.wave6b.m69.physics_asset`）
+- M68：`physics-destruction` + `ci/g8_fracture_pipeline_smoke.py`（步骤 **124**，12 腿）
+- wave6c.exit：步骤 **125**
+
+**验收**：wave6b/wave6c 聚合 PASS；M68 12/12 host PASS。

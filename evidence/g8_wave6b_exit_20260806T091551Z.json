@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "subject": "g8_wave6b_exit",
+  "symbolic_gate_key": "g8.wave.6b.exit",
+  "matrix_row": "G8.6b",
+  "wave": "G8.6b",
+  "numeric_step": 123,
+  "source_ref": "CI_GATES §5;G8_CONTRACT G-G8-8B;RFC-0021 §6.4 F-14;M67 PASS + m71 character_virtual + m69 physics_asset subjects",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g8.p0.m67.network_physics",
+      "subject_prefix": "g8_m67_network_physics",
+      "evidence_path": "evidence/g8_m67_network_physics_20260806T091550Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T091550Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "character_asset_fact_source",
+      "status": "PASS",
+      "detail": "source=m67_evidence"
+    }
+  ],
+  "subjects": [
+    {
+      "id": "g8.wave6b.m71.character_virtual",
+      "status": "PASS",
+      "detail": "character_state_canonical_ok=True via m67_evidence",
+      "evidence_path": "evidence/g8_m67_network_physics_20260806T091550Z.json"
+    },
+    {
+      "id": "g8.wave6b.m69.physics_asset",
+      "status": "PASS",
+      "detail": "physics_asset_cook_deterministic=True via m67_evidence",
+      "evidence_path": "evidence/g8_m67_network_physics_20260806T091550Z.json"
+    }
+  ],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T091551Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "wave6b: M67 PASS + m71/m69 wave subjects (no independent P0/P1; RFC §6.4 F-14)"
+}

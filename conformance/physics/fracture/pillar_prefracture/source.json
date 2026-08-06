@@ -1,0 +1,97 @@
+{
+  "schema_id": "rurix.physics.destruction",
+  "schema_version": 1,
+  "producer_tool_version": "g8-m68-fixture",
+  "asset_id": "pillar_prefracture_v1",
+  "cook_profile": "v1",
+  "chunks": [
+    {
+      "chunk_id": "c0",
+      "mass": 10.0,
+      "half_extents": [0.5, 0.5, 0.5],
+      "center": [0.0, 0.5, 0.0]
+    },
+    {
+      "chunk_id": "c1",
+      "mass": 10.0,
+      "half_extents": [0.5, 0.5, 0.5],
+      "center": [0.0, 1.5, 0.0]
+    },
+    {
+      "chunk_id": "c2",
+      "mass": 10.0,
+      "half_extents": [0.5, 0.5, 0.5],
+      "center": [0.0, 2.5, 0.0]
+    },
+    {
+      "chunk_id": "c3",
+      "mass": 10.0,
+      "half_extents": [0.5, 0.5, 0.5],
+      "center": [0.0, 3.5, 0.0]
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e01",
+      "chunk_a": "c0",
+      "chunk_b": "c1",
+      "strength": 1.0,
+      "contact_area": 1.0
+    },
+    {
+      "edge_id": "e12",
+      "chunk_a": "c1",
+      "chunk_b": "c2",
+      "strength": 5.0,
+      "contact_area": 1.0
+    },
+    {
+      "edge_id": "e23",
+      "chunk_a": "c2",
+      "chunk_b": "c3",
+      "strength": 5.0,
+      "contact_area": 1.0
+    }
+  ],
+  "clusters": [
+    {
+      "cluster_id": "root",
+      "parent": null,
+      "children": ["cluster_base", "cluster_upper"],
+      "leaf_chunks": [],
+      "activation_depth": 0
+    },
+    {
+      "cluster_id": "cluster_base",
+      "parent": "root",
+      "children": [],
+      "leaf_chunks": ["c0"],
+      "activation_depth": 0
+    },
+    {
+      "cluster_id": "cluster_upper",
+      "parent": "root",
+      "children": [],
+      "leaf_chunks": ["c1", "c2", "c3"],
+      "activation_depth": 1
+    }
+  ],
+  "anchors": [
+    {
+      "chunk_id": "c0",
+      "world_static": true
+    }
+  ],
+  "interior_faces": [
+    {
+      "face_id": "f01a",
+      "chunk_id": "c0",
+      "material": "concrete_interior"
+    },
+    {
+      "face_id": "f01b",
+      "chunk_id": "c1",
+      "material": "concrete_interior"
+    }
+  ]
+}

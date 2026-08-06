@@ -37,6 +37,8 @@ physics-capture = ["jolt", "dep:rurix-pkg"]
 network-physics = ["physics-capture"]
 # physics-character:M71 CharacterVirtual + M69 PhysicsAsset 产品层(RFC-0021 §6.2)。
 physics-character = ["physics-capture"]
+# physics-destruction:M68 cooked graph/cache/VFX event(RFC-0021 §6.2 冻结名)。
+physics-destruction = ["physics-capture"]
 # rapier:G6.4 快路径第二后端(默认 off,cargo metadata 可机验;G-G6-5)。
 # 纯 Rust 零 CMake(default-features = false,=0.33.0 pin,RFC-0017 §4.D1
 # 调研锚 2026-07-31);「快路径 ≠ 性能/稳定性默认」(§4.D4)。

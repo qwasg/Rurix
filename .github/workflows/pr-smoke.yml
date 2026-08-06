@@ -1263,6 +1263,21 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_network_physics_smoke.py --gate g8.p0.m67.network_physics
 
+      # 步骤 123（G8.6b 波次聚合 g8.wave.6b.exit）:M67 + m71/m69 subjects。
+      - name: G8.6b wave6b.exit aggregate (G8 CI_GATES §5.123, g8.wave.6b.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave6b_exit_check.py --gate g8.wave.6b.exit
+
+      # 步骤 124（G8.6c P0 硬门 g8.p0.m68.fracture_pipeline）。host 门。
+      - name: G8.6c M68 fracture pipeline smoke (G8 CI_GATES §4.124, g8.p0.m68.fracture_pipeline)
+        shell: powershell
+        run: py -3 ci/g8_fracture_pipeline_smoke.py --gate g8.p0.m68.fracture_pipeline
+
+      # 步骤 125（G8.6c 波次聚合 g8.wave.6c.exit）。
+      - name: G8.6c wave6c.exit aggregate (G8 CI_GATES §5.125, g8.wave.6c.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave6c_exit_check.py --gate g8.wave.6c.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

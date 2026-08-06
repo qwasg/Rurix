@@ -162,8 +162,10 @@ def run_gate() -> int:
     take("profile_match_recorded")
     take("frame_domain_map_recorded")
 
-    check(bool(doc.get("character_state_canonical_ok")), "character state canonical failed")
-    check(bool(doc.get("physics_asset_cook_deterministic")), "physics asset cook failed")
+    character_state_canonical_ok = bool(doc.get("character_state_canonical_ok"))
+    physics_asset_cook_deterministic = bool(doc.get("physics_asset_cook_deterministic"))
+    check(character_state_canonical_ok, "character state canonical failed")
+    check(physics_asset_cook_deterministic, "physics asset cook failed")
 
     map_five = {
         "correction_received": checks["correction_received_at_golden_frame"],
@@ -213,6 +215,9 @@ def run_gate() -> int:
         "checks": checks,
         "map_five": map_five,
         "smoothing_bound": smoothing_bound,
+        # wave6b subject 取证字段(可选;不改 NUMERIC_STEP / 不升格 P0)
+        "character_state_canonical_ok": character_state_canonical_ok,
+        "physics_asset_cook_deterministic": physics_asset_cook_deterministic,
         "evidence_level": "measured_local",
         "run_url": "",
         "timestamp": stamp,
