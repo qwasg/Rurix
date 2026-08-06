@@ -80,8 +80,8 @@ entry 记录字段(闭集;RFC-0019 §4.4「至少含」清单逐字落地):
 | `rt_group_membership` / `library_exports` | 同上:恒空表(M50 保留位) |
 | `required_capabilities` | **M32 未实现,确定性空编码**:恒空表(空集) |
 | `selected_profile_digest` | **M32 未实现**:恒为「未选择 profile」的规范 digest = `SHA-256("rurix.profile-none.v1\0")`(hex) |
-| `permutation_domain_digest` | **M29 未实现**:恒为空域的规范 digest = `SHA-256("rurix.permutation-domain-empty.v1\0")`(hex) |
-| `variant_key` | **M29 未实现**:恒空串 |
+| `permutation_domain_digest` | **M29 已实现(v1.1 真值化,RXS-0309)**:entry 声明了非空 permutation 域时 = 该域的规范 digest(RXS-0309);无 `#[permutation]` 标注(空域)恒为既有常量 `SHA-256("rurix.permutation-domain-empty.v1\0")`(hex)——空域路径 0 字节漂移 |
+| `variant_key` | **M29 已实现(v1.1 真值化,RXS-0310)**:`--permutation-select=KEY` 选中合法组合时 = 该组合的字符串形态 key(RXS-0309);未选择或空域恒空串——0 字节漂移 |
 | `interface_hash` | RXS-0306 定义(不含 entry 函数体的接口 digest) |
 | `source_digest` | RXS-0306 定义(含函数体的内容 digest) |
 | `pipeline_key` | RXS-0306 定义的下游 key 组装见证(DDC/PSO/RT pipeline key 组成项) |
@@ -235,6 +235,108 @@ interface_hash = SHA-256("rurix.shader-interface.v1\0" || canonical_interface_by
 - 核验失败的归因信息只携带**字段名级**事实(如 `"interface_hash"`,
   `"schema_version"`),不携带布局猜测值。
 
+### RXS-0308 Permutation 域声明闭集(M29)
+
+**Legality**
+
+permutation 域为 **entry 级**声明(附着于着色入口函数的 `#[permutation(...)]`
+属性;不引入跨 entry 命名域)。属性实参闭集——以下三形态即全部合法形态:
+
+1. `axis(NAME, 值域)`:声明一根轴。值域三类(闭集,RFC-0019 §4.3 冻结面):
+   - `bool` —— 组合值 ∈ {`false`, `true`}(规范序);
+   - `enum(id0, id1, ...)` —— identifier 枚举,≥1 个成员,组合值 = 成员名;
+   - `int(LO, HI)` —— 闭区间整数枚举,`LO <= HI`,组合值 = 区间内每个整数。
+2. `forbid(NAME = 值, ...)`:禁组合行 = **等式合取**——组合同时满足行内全部
+   等式即被裁剪。这是「无副作用编译期布尔式」的封闭子集(第一期冻结;`!`/`&&`/
+   `||` 一般式与 capability 引用为加性演进面,须走本条款加性修订)。
+3. `budget(N)`:声明合法组合数上限,`N` 为正整数。每 entry 至多一条。
+
+合法性校验(违例 = 编译期确定性诊断,symbolic key
+`shader.permutation_domain_invalid`,typeck 段数字码按实现 commit 当时实测
+`next_free` 顺位领取;fail-closed,不产部分报告/反射产物):
+
+- axis 重名(同 entry 内 NAME 重复);
+- 空值域(`enum()` 零成员 / `int(LO, HI)` 且 `LO > HI`);
+- `forbid` 引用未知 axis 名或该 axis 值域外的值;
+- `budget` 非正整数或重复声明;
+- 属性形态非上述闭集(未知子句/实参形态错误)。
+
+`#[permutation]` 附着于非着色入口函数 = 同类违例(编译期拒)。
+
+**Implementation Requirements**
+
+- 属性提取与 `#[numthreads]` 家族同一机械(AST attr 面),校验在 reflection /
+  permutation 求解前完成;任何违例都不得进入组合枚举。
+- 泛型着色函数不产 entry(RXS-0304 口径),其上的 `#[permutation]` 不参与求解。
+
+### RXS-0309 Canonical key 与 domain digest(M29)
+
+**Legality**
+
+- **规范域字节** `canonical_domain_bytes`:`"rurix.permutation-domain.v1\0"`
+  起始;axis 按**名字节序**排列,每 axis 编码为 `(name 长度前缀字符串, type_tag
+  u32 LE, 值域规范编码)`(`bool`=0 / `enum`=1 / `int`=2;enum 成员按声明序
+  length-prefix 逐一编码——成员序是值域语义的一部分;int 编码 `LO`/`HI` 各
+  `i64 LE`);随后 forbid 行按「行内等式按 axis 名字节序排序后整行字节」字节序
+  排列逐行编码;budget 以 `u32 LE` 编码(未声明 = `0xFFFF_FFFF` 哨兵)。整数/
+  字符串编码沿 RXS-0305 CanonW 律。
+- `permutation_domain_digest = SHA-256("rurix.permutation-domain.v1\0" ||
+  canonical_domain_bytes 去前缀段)`;**空域**(无 `#[permutation]`)恒为既有常量
+  `SHA-256("rurix.permutation-domain-empty.v1\0")`——RXS-0304 空编码 0 漂移。
+- **组合的 canonical key**(二进制形态):`"rurix.permutation-key.v1\0"` +
+  按 axis 名字节序的 `(name, type_tag u32 LE, 组合值规范编码)` 序列(`bool` =
+  `u32 LE` 0/1;`enum` = 成员名 length-prefix 字符串;`int` = `i64 LE`)。
+- **字符串形态 key**(展示/`variant_key`/golden 比对):按 axis 名字节序拼接
+  `NAME=值`,以 `;` 连接(如 `FOG=false;QUALITY=high`);`bool` 渲染
+  `false`/`true`,`int` 渲染十进制,`enum` 渲染成员名。二进制 key 与字符串 key
+  一一对应(同一排序、同一组合)。
+- **确定性律**:axis/forbid 的**声明序**、编译单元路径/文件名、进程/机器因素
+  不得影响任何 key 或 digest;两不同组合不得产生同一 key(单射,by
+  construction——全轴覆盖 + 定界编码);同一组合跨 clean build 逐字节相等。
+
+**Implementation Requirements**
+
+- SHA-256 复用 `rurix-pkg` 手写实现(RXS-0306 同源);排序为字节序字典序,禁
+  哈希迭代序泄漏。
+- key/digest 计算为纯函数;digest 原始 32 字节进 canonical bytes,hex 仅展示面
+  (RXS-0305 §6 同律)。
+
+### RXS-0310 裁剪、预算与报告(M29)
+
+**Legality**
+
+- **求解律**:组合全集 = 各 axis 值域的笛卡尔积,`enumerated = ∏|axis|`;逐
+  `forbid` 行裁剪,`pruned` = 被至少一行匹配的组合数;`emitted` = 余集(合法
+  组合)。恒等式 `enumerated == pruned + emitted` 是结构保证,也是报告的强制
+  断言字段。
+- **预算律**:求解前先算 `enumerated`(整数算术,不物化组合表);`enumerated >
+  budget` = **硬失败**——工具段确定性诊断(symbolic key
+  `toolchain.permutation_budget_exceeded`,数字码按实现 commit 当时实测
+  `next_free` 顺位领取),退出非零,且必须同时产出 **axis contribution
+  report**(逐 axis 的 `|axis|` 与占比,JSON 报告面;供指认爆炸来源)。CLI
+  `--permutation-budget=N` 覆盖 attr 声明值(RED 腿注入口)。`emitted == budget`
+  为 GREEN(上限含等号)。
+- **报告律**:`--emit=permutations` 产出确定性 JSON(无绝对路径/文件名/时间戳/
+  进程因素,RXS-0305 禁用面同律):per-entry `{domain_digest, axes[],
+  enumerated, pruned, emitted, keys[](字符串形态,字节序), axis_contribution[]}`。
+  双次运行逐字节相等。
+- **选择律**:`--permutation-select=KEY`(字符串形态):`KEY` ∉ 合法组合集 =
+  确定性错误(同 `shader.permutation_domain_invalid` 类;**禁**「最接近」回退/
+  模糊匹配);选中后该 entry 的 reflection `variant_key = KEY`、
+  `permutation_domain_digest` 为真值化 digest(RXS-0304 v1.1 行),`pipeline_key`
+  preimage 既含二字段(RXS-0306)故随之分裂——零新接缝。
+- 空域 entry 与非空域 entry 可共存于同一编译单元;空域 entry 的 reflection
+  产物必须与 M31 基线逐字节一致(0 漂移见证)。
+
+**Implementation Requirements**
+
+- 报告 JSON 键序固定、UTF-8、LF(RXS-0305 实现要求同律);`keys[]` 按字符串
+  字节序排列。
+- 预算判定在组合物化前完成;超预算路径不得有部分组合表泄漏进报告(报告只含
+  axis 元数据与三计数)。
+- per-variant body specialization codegen **不在本条款范围**(v1 判据不要求;
+  capability 约束裁剪归 M32 条款族,二者合入后的交叉接线走加性修订)。
+
 ---
 
 ## 3. 与其他 spec 文件的关系
@@ -251,4 +353,5 @@ interface_hash = SHA-256("rurix.shader-interface.v1\0" || canonical_interface_by
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.1 | 2026-08-06 | §2 追加 **RXS-0308 ~ RXS-0310**(G8.2 M29 shader permutation 硬门 `g8.p0.m29.shader_permutation`,RP-PERMUTATION materialize,spec-first 条款先行):RXS-0308 permutation 域声明闭集(entry 级 `#[permutation(axis/forbid/budget)]`,axis 三类值域,forbid = 等式合取封闭子集,违例编译期确定性拒)/ RXS-0309 canonical key 与 domain digest(axis 名字节序 + 带类型标签规范编码,CanonW 律,声明序/路径不影响 key,组合→key 单射,空域恒既有常量 0 漂移)/ RXS-0310 裁剪·预算·报告·选择律(`enumerated == pruned + emitted` 恒等式,预算先算不物化、超限硬失败 + axis contribution report,`--emit=permutations` 确定性 JSON,`--permutation-select` 缺 variant 确定性错误禁最接近回退)。**RXS-0304 加性修订**:`permutation_domain_digest`/`variant_key` 两行由「M29 未实现恒空编码」真值化(非空域→真 digest/真 variant_key;空域路径恒既有常量,0 字节漂移见证进 smoke)。编号自 ledger 实测 `RXS.next_free` 顺位领取(RXS-0308~0310;同 PR 校准 M31 滞后 on_tree_max 303→310/next_free 304→311,v1.48);typeck/工具段数字错误码按实现 commit 实测领取,条款先以 symbolic key 冻结(`shader.permutation_domain_invalid` / `toolchain.permutation_budget_exceeded`)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md)(Agent Approved 2026-08-02,§4.3/§5 RP-PERMUTATION 行)+ G8_ACCEPTANCE_MAP §2 M29 行 + G8.2 设计案 §1。既有条款 RXS-0304 其余行/RXS-0305~0307 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.0 | 2026-08-05 | 新建(G8.2 M31 实现 PR,RP-REFLECTION materialize):RXS-0304 reflection v1 schema 与字段闭集(含 M29/M32/M50 未实现字段的确定性空编码与 RT 枚举诚实边界)/ RXS-0305 canonical serialization 规则(版本前缀 + length-prefix + 规范键排序 + 禁用面 + 声明序扰动精确边界)/ RXS-0306 interface_hash 定义与 source/artifact digest 分离 + pipeline key 组成见证 / RXS-0307 装配期核验与 fail-closed。实现锚定 `src/rurixc/src/reflection.rs` + `--emit=reflection` + conformance/reflection 语料同 PR。依据 RFC-0019 §4.4/§5(RP-REFLECTION 行)/§6.2 M31 行。 | **Full RFC**(RFC-0019) |

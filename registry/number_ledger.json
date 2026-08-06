@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 303,
-      "next_free": 304,
+      "on_tree_max": 310,
+      "next_free": 311,
       "shadow_reserved": [
         181,
         182,
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.48",
+      "date": "2026-08-06",
+      "change": "G8.2 M29 spec-first PR:RXS-0308~0310 materialize + M31 滞后校准(agent 主导串行合入,硬规则 7 条款先于实现)。RXS on_tree_max 303→310、next_free 304→311——两段合一:① **M31 滞后校准**(303→307/304→308):spec/rendering_platform.md RXS-0304~0307 已于 spec-first PR(v1.70 行)materialize 为条款头,但 v1.47 明记『本 PR 不消费新 RXS 号』致台账停 303/304 与实测漂移(2c ADVISORY),按『台账随 materialize 校准』先例(v1.13/v1.28/v1.36/v1.44)消漂移;② **M29 领号**(307/308→310/311):spec/rendering_platform.md v1.1 纯追加 `### RXS-0308`(permutation 域声明闭集:entry 级 #[permutation(axis/forbid/budget)],axis 三类值域 bool/enum/int,forbid = 等式合取封闭子集,重名/空值域/未知引用/budget 非正编译期确定性拒)/ `### RXS-0309`(canonical key 与 domain digest:axis 名字节序 + (name,type_tag,值) 规范编码 CanonW 律,声明序/路径不影响 key,组合→key 单射,空域恒 SHA-256(\"rurix.permutation-domain-empty.v1\\0\") 0 漂移)/ `### RXS-0310`(裁剪·预算·报告·选择律:enumerated==pruned+emitted 恒等式,预算先算不物化超限硬失败 + axis contribution report,--emit=permutations 确定性 JSON,--permutation-select 缺 variant 确定性错误禁最接近回退);同 PR RXS-0304 加性修订(permutation_domain_digest/variant_key 两行真值化,RFC-0019 §4.3 授权,空域路径 0 字节漂移)。依据 RFC-0019(Agent Approved 2026-08-02)§4.3/§5 RP-PERMUTATION 行 + G8_ACCEPTANCE_MAP §2 M29 行 + milestones/g8/design/G8.2_SHADER_PLATFORM_DESIGN.md §1。**数字错误码本 commit 零消费**(条款以 symbolic key 冻结 shader.permutation_domain_invalid / toolchain.permutation_budget_exceeded,typeck 段 RX3019 与工具段 RX7023 按实现 commit 当时实测顺位领取,RX3018/v1.37 先例)。条款号连续不跳号(0295/0296 burned 口径与 shadow_reserved 181~184 维持);经 grep `### RXS-` 实测 spec 最大条款头 = RXS-0310。零新 RD/U/SG/MR/D/RFC/CI_step 命名空间字段(步骤 98 归 M29 实现 commit 顺位领取)。"
+    },
     {
       "version": "v1.47",
       "date": "2026-08-05",
