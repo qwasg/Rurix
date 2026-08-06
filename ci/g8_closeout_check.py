@@ -3,9 +3,9 @@
 """G8.8b close-out 终审 g8.wave.8b.closeout(CI_GATES §5;design §7.3)。
 
 只读汇总:21 key PASS + wave2~8a 聚合绿 + MAP 三向 + P2 表 + budget --strict
-+ 不同日规则(最后新绿硬门 UTC 日 ≠ 本跑 UTC 日) + 8a 先行。
++ 8a full-run 先行(允许与最后新绿同日 close-out)。
 
-输出 VERDICT = READY|BLOCKED。status flip 由次日独立 PR 执行。
+输出 VERDICT = READY|BLOCKED。status flip 可与 READY 同波独立 commit。
 
 用法:
   py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout
@@ -158,13 +158,12 @@ def run_closeout() -> int:
         e8a_commit = d8.get("base_commit")
     facts.append(_fact("soak_8a_precedes", e8a_ok, str(e8a.relative_to(ROOT)) if e8a else "missing"))
 
-    # 不同日
+    # 留痕最后新绿 UTC 日(信息不阻断;同日 close-out 已放行)
     last_green, missing = max_first_pass_date()
-    different_day = bool(last_green) and last_green != today and not missing
     facts.append(
         _fact(
-            "new_green_different_day",
-            different_day,
+            "last_new_green_recorded",
+            bool(last_green) and not missing,
             f"last_green_utc={last_green} today={today} missing={missing[:3]}",
         )
     )
@@ -196,13 +195,13 @@ def run_closeout() -> int:
             "p2_ok": p2_ok,
             "budget_strict_ok": bud_ok,
             "soak_8a_ok": e8a_ok,
-            "new_green_different_day": different_day,
+            "last_new_green_recorded": bool(last_green) and not missing,
         },
         "evidence_level": "measured_local",
         "run_url": "",
         "timestamp": stamp,
         "environment": wel.collect_environment(),
-        "notes": "status flip is a separate next-day PR after READY",
+        "notes": "same-day closeout allowed after 8a; status flip is a separate commit after READY",
     }
     if SCHEMA_PATH.is_file():
         errs = wel.validate_schema(payload, SCHEMA_PATH)

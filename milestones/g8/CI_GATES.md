@@ -134,7 +134,7 @@ py -3 ci/budget_eval.py
 | `g8.wave.6d.exit` | `ci/g8_wave6d_exit_check.py` | 127 | 布料 schema/import/collision/LOD/timeline 与载具产品层独立闭环 |
 | `g8.wave.7.decisions` | `ci/g8_p2_decisions_check.py` | 128 | G8_PLAN §2.7 全部 P2 有 go/no-go/defer-to-G9+，零空行；非 go 不冒充 PASS |
 | `g8.wave.8a.soak` | `ci/g8_stabilization_soak.py` | 129 | 18 P0 + go P1 回归；≥30 分钟且 ≥10000 帧；strict budget 非空零 estimated/skip；零 validation/device-loss/TDR/leak；pr-smoke=`--verify-latest` |
-| `g8.wave.8b.closeout` | `ci/g8_closeout_check.py` | 130 | map/decision/RD/evidence 全等；最后一个新增或修复硬门 PASS 与 8b 不得同日，且 8a 完整先行；status flip 前全部硬门 PASS |
+| `g8.wave.8b.closeout` | `ci/g8_closeout_check.py` | 130 | map/decision/RD/evidence 全等；8a full-run 完整先行即可同日 close-out；status flip 前全部硬门 PASS |
 
 ## 6. Evidence schema
 

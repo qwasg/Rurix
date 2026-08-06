@@ -1298,7 +1298,7 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_stabilization_soak.py --verify-latest
 
-      # 步骤 130（G8.8b closeout；不同日规则 + status flip 次日独立 PR）。
+      # 步骤 130（G8.8b closeout；8a 先行即可同日；status flip 独立 commit）。
       - name: G8.8b closeout check (G8 CI_GATES §5.130, g8.wave.8b.closeout)
         shell: powershell
         run: py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout

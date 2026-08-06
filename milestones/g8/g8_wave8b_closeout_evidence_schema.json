@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "G8.8b closeout evidence",
-  "description": "evidence/g8_wave8b_closeout_<UTC>.json。VERDICT READY|BLOCKED；status flip 次日独立 PR。",
+  "description": "evidence/g8_wave8b_closeout_<UTC>.json。VERDICT READY|BLOCKED；8a 先行即可同日 close-out；status flip 独立 commit。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -53,7 +53,7 @@
         "p2_ok",
         "budget_strict_ok",
         "soak_8a_ok",
-        "new_green_different_day"
+        "last_new_green_recorded"
       ],
       "properties": {
         "twenty_one_keys_pass": { "type": "boolean" },
@@ -62,7 +62,7 @@
         "p2_ok": { "type": "boolean" },
         "budget_strict_ok": { "type": "boolean" },
         "soak_8a_ok": { "type": "boolean" },
-        "new_green_different_day": { "type": "boolean" }
+        "last_new_green_recorded": { "type": "boolean" }
       }
     },
     "evidence_level": { "type": "string", "const": "measured_local" },

@@ -98,7 +98,7 @@ acceptance_gates:
   - id: G-G8-9
     check: "G8.7 决策门：G8_PLAN §2.7 所列 P2 全部逐行 go/no-go/defer-to-G9+，零空行；no-go/defer 如实保持 open，不阻塞 soak 且不得写进全绿叙述"
   - id: G-G8-10
-    check: "G8.8a 稳定门：18 个 P0 与所有 go 的 P1 全量回归；既有步骤 41~92 与 G7 最终 materialize 判据 0-byte；RURIX_REQUIRE_REAL=1 零 mock/host substitution；soak 不低于 30 分钟且 10000 帧；strict budget 非空、零 estimated/skip；新绿不得当日 close"
+    check: "G8.8a 稳定门：18 个 P0 与所有 go 的 P1 全量回归；既有步骤 41~92 与 G7 最终 materialize 判据 0-byte；RURIX_REQUIRE_REAL=1 零 mock/host substitution；soak 不低于 30 分钟且 10000 帧；strict budget 非空、零 estimated/skip；8a full-run 先行后允许同日进入 8b close-out"
   - id: G-G8-11
     check: "G8.8b 收口门：验收映射、候选决策、RD 最终状态逐字一致；所有 P0 独立断言均 PASS；evidence/schema/预算终审；§8 只追加后 status active→closed"
 guardrails:
@@ -661,6 +661,21 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 - wave6d.exit：步骤 **127**（+ `g8.wave6d.m70.vehicle`）
 - G8.7 P2：步骤 **128**
 - G8.8a soak：步骤 **129**（pr-smoke=`--verify-latest`；full soak 本地产 evidence）
-- G8.8b closeout：步骤 **130**（不同日规则；status flip 次日独立 PR）
+- G8.8b closeout：步骤 **130**（8a 先行即可同日 READY；status flip 独立 commit）
 
-**验收**：M72 8/8；wave6d PASS；P2 31 行；8a four legs；8b READY 后次日 flip。
+**验收**：M72 8/8；wave6d PASS；P2 31 行；8a four legs；8b READY 后同波独立 commit flip。
+
+### 8.25 G8.8b closeout READY（2026-08-06）
+
+**触发**：用户明确放行同日 close-out；撤销「新绿不得当日 close / 不同日规则」。
+
+**约束修订**：
+- `G-G8-10`：8a full-run 先行后允许同日 8b
+- `CI_GATES` §5 `g8.wave.8b.closeout`、`ci/g8_closeout_check.py`、`g8_wave8b_closeout_evidence_schema.json`、设计案 §7.2/§7.3：删除不同日硬断言；保留 `last_new_green_utc_date` 留痕
+
+**终审 facts**（`evidence/g8_wave8b_closeout_20260806T122001Z.json`）：
+- 21/21 P0+go-P1 PASS；wave2~8a 聚合 11/11 PASS
+- acceptance map 三向、P2 31 行、budget `--strict`、8a soak 先行全 PASS
+- `VERDICT = READY`（`last_green_utc=20260806` 与运行日相同，不阻断）
+
+**status flip**：见紧随其后的独立 commit（front matter `active`→`closed` + 本条 0-byte 维持）。
