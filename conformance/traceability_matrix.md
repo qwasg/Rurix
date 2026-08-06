@@ -243,8 +243,8 @@
 | RXS-0241 | spec/render_graph.md | 2 | `src/rurix-rt-cabi/src/lib.rs`, `src/uc04-demo/tests/d6_crosscheck.rs` |
 | RXS-0242 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
 | RXS-0243 | spec/shader_stages.md | 2 | `conformance/reflection/accept/mesh_reflection.rx`, `src/rurixc/src/shader_stages.rs` |
-| RXS-0244 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
-| RXS-0245 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0244 | spec/shader_stages.md | 2 | `conformance/rt_pipeline/accept/multi_miss.rx`, `src/rurixc/src/shader_stages.rs` |
+| RXS-0245 | spec/shader_stages.md | 2 | `conformance/rt_pipeline/reject/trace_dynamic_sbt_offset.rx`, `src/rurixc/src/shader_stages.rs` |
 | RXS-0246 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0247 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0248 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
@@ -307,3 +307,9 @@
 | RXS-0319 | spec/rhi.md | 3 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/accept/vb_only_draw.rx`, `src/rurix-rt-cabi/src/lib.rs` |
 | RXS-0320 | spec/rhi.md | 6 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/reject/draw_ib_oob.rx`, `conformance/gfx_submit/reject/draw_vb_range_oob.rx` …(+3) |
 | RXS-0321 | spec/rhi.md | 4 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/accept/vb_only_draw.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+1) |
+| RXS-0322 | spec/shader_stages.md | 4 | `conformance/rt_pipeline/accept/two_hit_groups.rx`, `conformance/rt_pipeline/reject/record_outside_rt_stage.rx`, `conformance/rt_pipeline/reject/record_recursive.rx` …(+1) |
+| RXS-0323 | spec/shader_stages.md | 5 | `conformance/rt_pipeline/accept/multi_miss.rx`, `conformance/rt_pipeline/accept/procedural_group.rx`, `conformance/rt_pipeline/accept/two_hit_groups.rx` …(+2) |
+| RXS-0324 | spec/shader_stages.md | 6 | `conformance/rt_pipeline/accept/anyhit_ignore.rx`, `conformance/rt_pipeline/accept/callable_basic.rx`, `conformance/rt_pipeline/accept/procedural_group.rx` …(+3) |
+| RXS-0325 | spec/vulkan_backend.md | 4 | `conformance/rt_pipeline/accept/anyhit_ignore.rx`, `conformance/rt_pipeline/accept/callable_basic.rx`, `conformance/rt_pipeline/accept/procedural_group.rx` …(+1) |
+| RXS-0326 | spec/vulkan_backend.md | 2 | `conformance/rt_pipeline/accept/callable_basic.rx`, `conformance/rt_pipeline/accept/two_hit_groups.rx` |
+| RXS-0327 | spec/vulkan_backend.md | 1 | `conformance/rt_pipeline/accept/two_hit_groups.rx` |

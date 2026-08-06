@@ -1,0 +1,4 @@
+//@ spec: RXS-0322, RXS-0323, RXS-0325, RXS-0326, RXS-0327
+// G8.2 M50 accept:双 triangles hit group + 不同 #[shader_record] material id。
+// 实现前为条款锚定 + RED-first 占位;materialize 后 device GREEN。
+// expect: compile+device PASS (post-impl)

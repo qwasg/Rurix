@@ -1,0 +1,3 @@
+//@ spec: RXS-0323, RXS-0324, RXS-0325
+// G8.2 M50 accept:procedural hit group (intersection+closesthit)。
+// expect: compile+device PASS (post-impl)

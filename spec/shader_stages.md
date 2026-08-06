@@ -302,7 +302,7 @@ TaskPayloadParam  ::= "#[task_payload]" Ident ":" "&" Type          // mesh(承 
 
 **Legality**（编译期逐字段比对，错配 → `RX3012` 扩类别）:
 
-- **payload 声明形态**:closesthit/anyhit/miss 以 `#[payload] p: &mut P` 标注式形参声明;raygen 在 `trace_ray` 调用点以 `&mut P` 实参给定（body 层,见 RXS-0245 实现要求）。**编译期比对**:同编译单元内每类契约（`#[payload]` / `#[hit_attribute]` / `#[callable_data]` / `#[task_payload]`）**逐字段一致**（名/类型/序）;错配 → **`RX3012`**。首期配对域 = **单编译单元 + 单 RT 管线三件套**（raygen×1 + miss×1 + closesthit×1，Q-M-PairingDomain）;多 payload / 多 hit group 的 SBT 序配对越出首期 → 编译期拒。
+- **payload 声明形态**:closesthit/anyhit/miss 以 `#[payload] p: &mut P` 标注式形参声明;raygen 在 `trace_ray` 调用点以 `&mut P` 实参给定（body 层,见 RXS-0245 实现要求）。**编译期比对**:同编译单元内每类契约（`#[payload]` / `#[hit_attribute]` / `#[callable_data]` / `#[task_payload]`）**逐字段一致**（名/类型/序）;错配 → **`RX3012`**。配对域 = **单编译单元 + 单 RT pipeline manifest 全域**（RFC-0019 §4.1.6 修订行;G8.2 M50）:单一 payload schema 仍逐字段一致，miss/hit group 可多条，每 group 独立 attribute/record schema 全域静态比对；越出 manifest 域或 schema 不一致仍 → **`RX3012`**。既有单三件套判据（`rt_payload_pair_is_clean` / `rt_payload_mismatch_is_rx3012`）**0-byte 恒跑**；多 group 语料只加不改。
 - **attribute 契约**:intersection 经 `report_intersection(t, attr)` 产 hit attribute,closesthit/anyhit 以 `#[hit_attribute] a: &A` 消费;固定三角形几何的内建 attribute（重心坐标 `vec2<f32>`）为已知类型。首期 device 语料不含 intersection（accept-only,§8）。
 - **callable data 契约**:`execute_callable(index, data: &mut D)` ↔ `#[callable_data] d: &mut D`;首期 accept-only。
 - **🔒 类型面承诺边界**:本契约只承诺**类型等价面**（字段名/类型/序编译期一致性）;payload 在管线间的**字节布局/寄存器承载不属承诺**（由 SPIR-V 存储类降级自然承载,镜像 RXS-0159 🔒 布局禁区口径）。
@@ -325,7 +325,7 @@ TraceRay    ::= "trace_ray" "(" AccelStruct "," Vec3 "," F32 "," Vec3 "," F32 ",
 **Legality**（位置纪律 + 阶段合法性 + 固定签名，违例 → `RX3013` 扩类别）:
 
 - **`AccelStruct`**:不透明资源句柄,**仅可作 RT 阶段签名形参**（raygen 为主）;返回位置 / 结构体字段 / 非 RT 阶段签名 → **`RX3013`**（位置纪律同 RXS-0156;绑定轴 = **SRV**,`OpTypeAccelerationStructureKHR` descriptor,承 RXS-0163/0164）。
-- **`trace_ray` 已知签名**（首期固定,收窄即显式）:`trace_ray(tlas, origin: vec3<f32>, t_min: f32, dir: vec3<f32>, t_max: f32, payload: &mut P)`。ray flags 恒 opaque、cull mask 恒 0xFF、SBT offset/stride/miss index 恒 0（单三件套唯一确定）;扩展参数越出首期 → 编译期拒。**递归深度恒 1**:`trace_ray` 仅在 `raygen` 可达域合法（含经调用图可达 closesthit/anyhit/miss/callable 的 device fn 体内亦拒）——把运行期递归上限整体前移为编译期结构约束,**不存在越界递归运行期路径**（无 UB 措辞）。
+- **`trace_ray` 已知签名**（首期固定,收窄即显式）:`trace_ray(tlas, origin: vec3<f32>, t_min: f32, dir: vec3<f32>, t_max: f32, payload: &mut P)`。ray flags 恒 opaque、cull mask 恒 0xFF（首期仍恒定不变）；SBT 寻址由装配期 `(instance, geometry) → group_index` 静态映射确定，**不再恒 0**（RFC-0019 §4.1.6 修订行;G8.2 M50）；trace 调用点仍**不接受运行期动态** offset/stride/miss index 实参（动态实参 → 编译期拒，`RX3013` 扩类别）；扩展参数越出首期 → 编译期拒。**递归深度恒 1**:`trace_ray` 仅在 `raygen` 可达域合法（含经调用图可达 closesthit/anyhit/miss/callable 的 device fn 体内亦拒）——把运行期递归上限整体前移为编译期结构约束,**不存在越界递归运行期路径**（无 UB 措辞）。
 - **RT builtins**（阶段×合法性矩阵,阶段不符 → 编译期拒）:`launch_id`/`launch_size`（全 RT 阶段）、`world_ray_origin`/`world_ray_direction`/`ray_t_min`（intersection/anyhit/closesthit/miss）、`hit_t`（anyhit/closesthit）、`primitive_index`/`instance_id`（intersection/anyhit/closesthit）、`hit_kind`（anyhit/closesthit）。命名沿 compute builtins snake_case 谱系（RXS-0202）;本条类型面承认名字合法,阶段维度矩阵落 body/coloring 层。
 - **anyhit 调用次数纪律**:对同一 ray 的调用次数与序为**实现定义但有界**（Vulkan/DXR 双规范一致遍历自由度）,如实登记该自由度,**不写成「未定义」**。
 
@@ -476,6 +476,91 @@ RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
 - reflection v1 的 `required_capabilities` 字段 = 本条款有效 requirement 集的
   排序 ID 表（RXS-0304 v1.2 修订行真值化;无任何 requirement 时恒空表 0 漂移）。
 
+
+### RXS-0322 `#[shader_record]` 类型面与 record schema hash（G8.2 M50，RFC-0019 RP-SBT-RECORD）
+
+**Syntax**
+
+```
+ShaderRecordParam ::= "#[shader_record]" Ident ":" "&" Type   // 六 RT 阶段签名形参
+```
+
+**Legality**
+
+- **位置纪律**:`#[shader_record] record: &R` **仅**对 raygen / miss / closesthit /
+  anyhit / intersection / callable 入口签名形参合法；他处 → **`RX3013` 扩类别**。
+- **`R` POD 闭集**:标量 / 定长向量 / 定长数组 / 由其组成的 struct；
+  **禁止**资源句柄 / 裸指针 / 引用字段 / runtime array / 递归类型 → **`RX3012` 扩类别**。
+- **布局律**（与 runtime packer 同律冻结）:顺序布局；标量沿 push-constant 律
+  （i64/u64 8 对齐、余 4）；`vecN<T>` 对齐 = 分量对齐×(N==3?4:N)；数组元素紧排。
+- **schema hash**:
+  `record_schema_hash = SHA-256("rurix.shader-record.v1\0" || canonical_fields)`。
+- **隐式 capability**:出现 `#[shader_record]` → 推导 `rt.sbt_user_data`（RXS-0311 映射表）。
+
+**Dynamic Semantics**
+
+纯类型/布局面；device 侧 `ShaderRecordBufferKHR` 编码见 RXS-0325；
+SBT 铺设与 packer 见 RXS-0326。**严禁 UB**:类型/位置违例全部编译期拒。
+
+**Implementation Requirements**
+
+- 沿 `#[payload]` 家族机械扩 `shader_stages.rs`；零新 RX 码。
+- ≥1 `//@ spec: RXS-0322` 锚定（`conformance/rt_pipeline/`）。
+
+### RXS-0323 `#[hit_group]` 声明与 RT pipeline manifest 语义（G8.2 M50，RFC-0019 RP-RT-GROUPS）
+
+**Syntax**
+
+```
+HitGroupAttr ::= "#[hit_group(" Ident ")]"   // 附着 closesthit/anyhit/intersection
+```
+
+**Legality**
+
+- 同名 `#[hit_group(NAME)]` 入口聚为一组；`group_index` = 组首现声明序（manifest-local）。
+- **组形态冻结表**（RFC-0019 §4.1.1）:
+
+| 形态 | 必选 | 可选 | 非法 |
+|---|---|---|---|
+| triangles | closesthit | anyhit | 带 intersection |
+| procedural | intersection + closesthit | anyhit | 无 intersection |
+
+- 非法组合 → **`RX3017` 扩类别**（RT 入口标注契约族）。
+- **manifest 域**（单编译单元）:`raygen` 恰一；`miss[]` ≥1 按声明序；
+  `hit_groups[]` ≥1；`callables[]` 可空按声明序；
+  单一 payload schema + 逐组 attr/record schema hash + required capabilities +
+  recursion=1 + interface hash。
+- 产物:`--emit=rt-manifest` → JSON `rurix.rt-pipeline-manifest.v1`
+  （不动 reflection v1 文档级闭集；entry 级 RT 空表真值化承 RXS-0304 预授权）。
+
+**Dynamic Semantics**
+
+manifest 是 runtime 装配单一事实源；`(instance, geometry) → group_index` 为装配期
+静态映射（越界/漏映射/不一致 → 装配期 typed Err，见 RXS-0326/0327）。
+
+**Implementation Requirements**
+
+- ≥1 `//@ spec: RXS-0323` 锚定。M62 task 评估窗本波**维持不开放**
+  （`mesh.task` 闭集位保留，无 task 入口放宽）。
+
+### RXS-0324 冻结子集动态语义（any-hit / intersection / callable；G8.2 M50，RFC-0019 §4.1.3）
+
+**Legality / Dynamic Semantics**
+
+- **`ignore_intersection() -> !`**:仅 `anyhit` 合法（他处 → 编译期拒）；
+  语义 = 丢弃当前候选并立即终结本次 any-hit 调用；不改「最终最近未忽略交点」确定语义。
+- **`report_intersection(t, attr)`**:仅 procedural intersection；`t` 须在当前 ray 合法区间；
+  attr 类型与 group reflection 精确一致；无报告 = miss；非法区间 → 确定性拒（无 UB）。
+- **`execute_callable(INDEX, data)`**:仅 raygen / closesthit；`INDEX` 须编译期常量且
+  `< manifest.callables.len`（typeck 证明在域）；禁 callable 嵌套；禁 callable 内 `trace_ray`。
+- **不开放**:`terminate_ray`、运行期动态改写 SBT 寻址、递归 trace、callable nesting。
+- **递归**:沿 RXS-0245，`trace_ray` 仅 raygen 可达域，max recursion = 1。
+- 违例 → `RX3012`/`RX3013` 扩类别（零新码优先）。
+
+**Implementation Requirements**
+
+- accept/reject 语料见 `conformance/rt_pipeline/`；≥1 `//@ spec: RXS-0324` 锚定。
+
 ## 3. 错误码引用汇总（RX3011 ~ RX3017）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
@@ -507,6 +592,7 @@ RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.8 | 2026-08-06 | **G8.2 M50 spec-first:RXS-0244/0245 修订行 + RXS-0322~0324 条款体**(硬规则 7;设计案规划参考号 0319~0324 **不预占**,按 ledger 实测 next_free=322 顺位领取)。RXS-0244 配对域扩为单编译单元+manifest 全域(RFC-0019 §4.1.6);RXS-0245 SBT 寻址改装配期静态映射、trace 调用点拒运行期动态实参;新增 RXS-0322(`#[shader_record]` POD/布局/schema hash)/RXS-0323(`#[hit_group]`+manifest)/RXS-0324(冻结子集 ignore/report/execute_callable)。零新 RX 码(扩 RX3012/3013/3017)。M62 task 维持不开放。vulkan 腿见 vulkan_backend.md RXS-0325~0327。RED 语料 `conformance/rt_pipeline/` 同落。既有条款 0-byte 纯追加 | **Full RFC**（RFC-0019） |
 | v1.7 | 2026-08-06 | **RFC-0019 §4.5.1 capability 声明面落库 + RXS-0311 条款体(spec-first,G8.2 M32 条款先行,硬规则 7)**。承 RFC-0019(Agent Approved 2026-08-02;number_ledger v1.50 校准 RXS 310/311→313/314,RXS-0311 归本文件、RXS-0312/0313 归 spec/rendering_platform.md v1.2)。新增 `### RXS-0311`(`#[requires]` capability 声明、ID 闭集与调用图并集律):fn 级 `#[requires("capability.id", ...)]` 字符串字面量列表;**capability ID 闭集 v1 十项冻结**(rt.pipeline / rt.sbt_user_data / rt.any_hit / rt.intersection.procedural / rt.callable / rt.ray_query / mesh.task / sync.timeline_semaphore / queue.dedicated_transfer / queue.dedicated_compute;backend extension 名不作 ID,mapping 归 target profile,RFC §4.5.1 逐字);**隐式推导映射表冻结**(intrinsic 五项 + stage 五项 + 形参类型两项,漏推导即实现 bug);**调用图并集律**(有效集 = 显式 ∪ 隐式 ∪ 全部静态可达 device callee 并集,DefId 级 call facts 禁名字匹配,泛型不产 entry 随单态化并入);诊断消息携带缺失 ID + 首个引入 callee(判据字面);闭集外 ID → 加性冻结第五 symbolic key `capability.unknown_id`(RFC 四键 0-byte 不改)。数字错误码零消费(RFC 四键 + unknown_id 的 typeck 段实号按实现 commit 实测 next_free 顺位领取,RX3018/RX3019 先例;§3 表 0-byte)。profile 闭集/选择律/fallback/运行期 snapshot 核验见 spec/rendering_platform.md RXS-0312/0313。每条 ≥1 `//@ spec` 锚定随实现 commit 同落。既有条款 RXS-0153~0299 0-byte。 | **Full RFC**（RFC-0019） |
 | v1.5 | 2026-07-19 | **RFC-0013 §4.E mesh-task-RT 章类型面落库 + RXS-0242~RXS-0245 条款体(spec-first,G3.6 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0242`(intersection/callable 阶段全集补齐,RXS-0153 加性修订行不占新号):前缀式 `intersection fn`/`callable fn` 入 `<stage>` 集,取 kernel 入口着色,直接调用复用 RX3001,PTX 收集根排除维持(D-207);ast.rs ShaderStage 补 Intersection/Callable + parser 前瞻。新增 `### RXS-0243`(mesh/task 入口契约):mesh 须 `#[numthreads(x,y,z)]`(三正整数字面量)+ `#[outputs(topology="triangles", max_vertices=N, max_primitives=M)]`(triangles-only,Q-M-MeshTopology),task 须 `#[numthreads]`;缺任一/未知拓扑/非正字面量 → **新码 RX3017**(`shader.mesh_entry_invalid` en/zh 成对,3xxx typeck 段续接 RX3016);task→mesh payload 逐字段比对 → RX3012 扩类别。新增 `### RXS-0244`(RT payload/attribute/callable data 显式类型契约,RXS-0155 加性修订行,SC-3):`#[payload]`/`#[hit_attribute]`/`#[callable_data]`/`#[task_payload]` 标注式形参逐字段比对(单三件套配对域,Q-M-PairingDomain),错配 → **RX3012 扩类别**(阶段间数据契约超集,插值维度对 RT/callable N/A,只加类别不改语义);🔒 字节布局非承诺。新增 `### RXS-0245`(AccelStruct 句柄 + trace_ray 已知签名 + RT builtins):AccelStruct 仅 RT 阶段签名形参(SRV 轴承 RXS-0163)违例 → **RX3013 扩类别**;trace_ray 固定签名 + 递归恒 1 编译期结构约束;RT builtins 阶段矩阵(launch_id/world_ray_*/hit_t/hit_kind/primitive_index 等,名入 KNOWN_BUILTINS)。§3 错误码表回填 RX3017 + RX3012/RX3013 扩覆盖。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(递归深度=编译期结构约束,越界写=静态上限,无运行期未定义;anyhit 调用次数「实现定义但有界」非「未定义」)。mesh/task SPIR-V 编码见 spec/vulkan_backend.md RXS-0246;RT 六模型编码+1.4 分叉见 RXS-0247;DXIL 腿条件分支见 spec/dxil_backend.md RXS-0249。每条 ≥1 `//@ spec` 测试锚定(shader_stages.rs typeck 单测 accept+reject)。**类型面首期**:trace_ray 调用点签名核对 + RT builtin 阶段矩阵 + raygen↔hit/miss payload body 层比对归后续 mir_build/coloring 接线(诚实标注);intersection/callable device 语料 accept-only(§8) | **Full RFC**（RFC-0013） |
 | v1.4 | 2026-07-19 | **RFC-0013 §4.C bindless 章类型面落库 + RXS-0231/RXS-0232 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0231`(无界资源句柄数组类型面):`[Texture2D<F>]` 切片样式文法**无新 token**,**仅着色阶段签名形参**(返回/字段/非阶段/嵌套/有界混写 → RX3013 扩类别);首期无界仅 SRV 纹理(无界 Sampler/CBV/UAV 维持 RX6013,binding_layout RXS-0233);句柄非值承 RXS-0156/0174。新增 `### RXS-0232`(动态索引 + `nonuniform` 标注 strict-only):`table[idx]`(`idx:u32`)产临时句柄**仅立即 receiver**(逃逸 → RX3014 扩类别);索引须 `nonuniform(expr)` 包裹(唯一豁免整型字面量常量),缺失 → **新码 RX3016**(3xxx typeck 段自 RX3016 续号,`shader.nonuniform_annotation_missing` en/zh 成对,number_ledger v1.5 校准避 EI1 撞号);**不做 uniformity 推断**(保守全标,Q-B-Uniformity)。§3 错误码表回填 RX3016 + RX3014 扩覆盖(逃逸);`nonuniform` 为值位置兜底 lang-item 自由函数(可用户遮蔽)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(越界索引实现定义但有界,clamp 至已注册段,无 UB;RXS-0234)。绑定推导独占 set/space 见 spec/binding_layout.md RXS-0233;codegen 双腿见 spec/dxil_backend.md RXS-0234;宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。每条 ≥1 `//@ spec` 测试锚定(conformance/shader accept+reject + UI golden + binding_layout/dxil_spirv 单测)随实现 commit 同落(条款 PR 先于实现 PR) | **Full RFC**（RFC-0013） |

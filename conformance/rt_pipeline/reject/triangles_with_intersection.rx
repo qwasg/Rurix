@@ -1,0 +1,3 @@
+//@ spec: RXS-0323
+//@ expect-error: RX3017
+// G8.2 M50 reject:triangles group 带 intersection → RX3017 扩。

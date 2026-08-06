@@ -1,0 +1,3 @@
+//@ spec: RXS-0324, RXS-0325, RXS-0326
+// G8.2 M50 accept:raygen execute_callable 写 callable data 回读。
+// expect: compile+device PASS (post-impl)

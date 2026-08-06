@@ -1,0 +1,3 @@
+//@ spec: RXS-0324
+//@ expect-error: RX3013
+// G8.2 M50 reject:callable 内再 execute_callable / trace_ray → 编译期拒。

@@ -1,0 +1,3 @@
+//@ spec: RXS-0322
+//@ expect-error: RX3013
+// G8.2 M50 reject:#[shader_record] 出现在非 RT 阶段 → RX3013 扩。

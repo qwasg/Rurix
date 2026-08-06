@@ -1343,9 +1343,11 @@
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0244": [
+      "conformance/rt_pipeline/accept/multi_miss.rx",
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0245": [
+      "conformance/rt_pipeline/reject/trace_dynamic_sbt_offset.rx",
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0246": [
@@ -1676,6 +1678,40 @@
       "conformance/gfx_submit/accept/vb_only_draw.rx",
       "src/rurix-rt-cabi/src/lib.rs",
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0322": [
+      "conformance/rt_pipeline/accept/two_hit_groups.rx",
+      "conformance/rt_pipeline/reject/record_outside_rt_stage.rx",
+      "conformance/rt_pipeline/reject/record_recursive.rx",
+      "conformance/rt_pipeline/reject/record_with_handle.rx"
+    ],
+    "RXS-0323": [
+      "conformance/rt_pipeline/accept/multi_miss.rx",
+      "conformance/rt_pipeline/accept/procedural_group.rx",
+      "conformance/rt_pipeline/accept/two_hit_groups.rx",
+      "conformance/rt_pipeline/reject/procedural_missing_intersection.rx",
+      "conformance/rt_pipeline/reject/triangles_with_intersection.rx"
+    ],
+    "RXS-0324": [
+      "conformance/rt_pipeline/accept/anyhit_ignore.rx",
+      "conformance/rt_pipeline/accept/callable_basic.rx",
+      "conformance/rt_pipeline/accept/procedural_group.rx",
+      "conformance/rt_pipeline/reject/callable_index_oob.rx",
+      "conformance/rt_pipeline/reject/callable_nesting.rx",
+      "conformance/rt_pipeline/reject/trace_dynamic_sbt_offset.rx"
+    ],
+    "RXS-0325": [
+      "conformance/rt_pipeline/accept/anyhit_ignore.rx",
+      "conformance/rt_pipeline/accept/callable_basic.rx",
+      "conformance/rt_pipeline/accept/procedural_group.rx",
+      "conformance/rt_pipeline/accept/two_hit_groups.rx"
+    ],
+    "RXS-0326": [
+      "conformance/rt_pipeline/accept/callable_basic.rx",
+      "conformance/rt_pipeline/accept/two_hit_groups.rx"
+    ],
+    "RXS-0327": [
+      "conformance/rt_pipeline/accept/two_hit_groups.rx"
     ]
   }
 }

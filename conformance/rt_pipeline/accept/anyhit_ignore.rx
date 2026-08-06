@@ -1,0 +1,3 @@
+//@ spec: RXS-0324, RXS-0325
+// G8.2 M50 accept:anyhit ignore_intersection → 像素落 miss 色。
+// expect: compile+device PASS (post-impl)

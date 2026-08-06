@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 321,
-      "next_free": 322,
+      "on_tree_max": 327,
+      "next_free": 328,
       "shadow_reserved": [
         181,
         182,
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.58",
+      "date": "2026-08-06",
+      "change": "G8.2 M50 spec-first PR:RXS-0322~0327 materialize(agent 主导串行合入,硬规则 7;设计案规划参考号 0319~0324 **不预占**,按 ledger 实测 next_free=322 顺位领取——M89 已占 0319~0321)。RXS on_tree_max 321→327、next_free 322→328——spec/shader_stages.md v1.8:RXS-0244/0245 修订行 + RXS-0322~0324;spec/vulkan_backend.md v1.24:RXS-0248 修订行 + RXS-0325~0327;conformance/rt_pipeline/{accept×5,reject×8} RED 语料同落锚定。依据 RFC-0019 RP-RT-GROUPS/RP-SBT-RECORD/RP-RT-STACK-LIB + G8_ACCEPTANCE_MAP M50 + 设计案 §5 + RD-040/M50 strategic_override。零新 RX 码/U;CI_step 字段 0-byte(步骤号归实现 commit 顺位,现 next_free=103)。条款号连续;grep 实测最大条款头 = RXS-0327。M62 task 维持不开放。"
+    },
     {
       "version": "v1.57",
       "date": "2026-08-06",

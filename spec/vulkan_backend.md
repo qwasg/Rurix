@@ -512,7 +512,7 @@ Vulkan 运行时绑定与 SPIR-V codegen 的**供应链纪律**:运行时绑定 
 - **mesh pipeline**（[`run_mesh_offscreen`](../src/rurix-rt/src/vk.rs)）:offscreen render pass + graphics pipeline((task?)+mesh+fragment) → `vkCmdDrawMeshTasksEXT(x,y,z)` → `vkCmdCopyImageToBuffer` 回读像素。与 `run_graphics_offscreen`（U27）同构复用其骨架。
 - **BLAS/TLAS 两段构建**（[`run_ray_tracing_offscreen`](../src/rurix-rt/src/vk.rs)）:单三角形 geometry → `vkGetAccelerationStructureBuildSizesKHR` 定尺寸 → device-local buffer(usage 含 `ACCELERATION_STRUCTURE_STORAGE`/`SHADER_DEVICE_ADDRESS`)→ `vkCmdBuildAccelerationStructuresKHR`（**BLAS→内存屏障→TLAS 两段,单 queue 全序**）;TLAS instance 经 `vkGetAccelerationStructureDeviceAddressKHR` 取 BLAS 地址。**🔒 device address 为原始 GPU 指针面,切细审计 U30**（AS/SBT/device-address,§6.4;仅作 build/SBT/instance 引用,不解引用为 host 指针）。
 - **RT 管线**:`vkCreateRayTracingPipelinesKHR`,shader groups = raygen(GENERAL) + miss(GENERAL) + hit(TRIANGLES_HIT_GROUP, closesthit);`maxPipelineRayRecursionDepth = 1`（与 E4 编译期递归约束同源）。
-- **🔒 SBT 三 region 对齐律**:`vkGetRayTracingShaderGroupHandlesKHR` 取 handles;按 `shaderGroupHandleSize`/`shaderGroupHandleAlignment`/`shaderGroupBaseAlignment` 对齐铺三 region（raygen/miss/hit 各单条目）——**raygen size == stride**(VUID-vkCmdTraceRaysKHR-size-04023),region offset 恒 baseAlignment 对齐,record stride ≥ handleSize 且 handleAlignment 整数倍;host-visible buffer + device address 填 `VkStridedDeviceAddressRegionKHR`。SBT 内**不嵌用户数据**（§8）;对齐算术为**纯 host 可单测面**（[`plan_sbt`](../src/rurix-rt/src/vk.rs) / [`align_up`](../src/rurix-rt/src/vk.rs),镜像 RXS-0210 协商 helper 先例）。
+- **🔒 SBT 三 region 对齐律**（RFC-0019 §4.1.6 修订行;G8.2 M50）:`vkGetRayTracingShaderGroupHandlesKHR` 取 handles;按 `shaderGroupHandleSize`/`shaderGroupHandleAlignment`/`shaderGroupBaseAlignment` 对齐铺三 region（raygen/miss/hit）——**raygen size == stride**(VUID-vkCmdTraceRaysKHR-size-04023),region offset 恒 baseAlignment 对齐,record stride ≥ handleSize 且 handleAlignment 整数倍;host-visible buffer + device address 填 `VkStridedDeviceAddressRegionKHR`。**region 数仍为三**；miss/hit region 允许**多条 record**；record 内允许 typed `#[shader_record]` 只读 POD（RXS-0322/0326）。既有 `plan_sbt`/`align_up` 单测与 RXS-0248 最小见证入口 `run_ray_tracing_offscreen` **0-byte 恒跑**；多 record/user-data 铺设走加性 `plan_sbt_v2`（RXS-0326）。对齐算术为**纯 host 可单测面**。
 - **执行**:descriptor 布局沿 set-per-class(TLAS SRV / storage image UAV)→ `vkCmdTraceRaysKHR(W,H,1)` → 回读 storage image 像素。
 
 #### Implementation Requirements
@@ -939,6 +939,76 @@ ExtendedBodyLowerer 在 emit 期直接消费图形入口签名做资源分类(St
   符号族 + repr(C) 结构),unsafe 归 U27/U31 既有 vk FFI 边界扩注;确需新
   审计边界按当时实测顺位领 U 号,不预占。
 
+
+### RXS-0325 RT 六模型真实体 SPIR-V 编码（G8.2 M50，RFC-0019 RP-RT-GROUPS）
+
+#### Syntax
+
+无用户面语法（消费 RXS-0322~0324 类型面 + RXS-0247 六模型接口）。
+
+#### Legality
+
+- **真实体 lowering**（取代首期 `emit_*_min` 固定最小模块对 M50 判据的充绿）:
+  存储类 `(Incoming)RayPayloadKHR` / `HitAttributeKHR` /
+  `(Incoming)CallableDataKHR` / `ShaderRecordBufferKHR` block；
+  `#[shader_record]` → ShaderRecordBufferKHR（布局与 packer 同律）；
+  `trace_ray` → `OpTraceRayKHR`（SBT offset/stride/miss 编译期恒定——寻址由 TLAS
+  instance `instanceShaderBindingTableRecordOffset` 装配期承载）；
+  `report_intersection` → `OpReportIntersectionKHR`；
+  `ignore_intersection` → `OpIgnoreIntersectionKHR` 终结；
+  `execute_callable` → `OpExecuteCallableKHR`。
+- **SPIR-V 1.4 per-entry** 律沿 RXS-0247；compute/vertex/fragment 1.0 零漂移。
+- 既有步骤 66/67 `emit_*_min` 见证语料与 `run_ray_tracing_offscreen` **不得**代绿本门。
+
+#### Implementation Requirements
+
+- `vulkan_codegen.rs` / `mir_build.rs` RT 根；≥1 `//@ spec: RXS-0325` 锚定。
+
+### RXS-0326 SBT v2 四 region 布局与 record packer（G8.2 M50，RFC-0019 RP-SBT-RECORD）
+
+#### Legality / Dynamic Semantics
+
+- **`plan_sbt_v2`**（加性；既有 `plan_sbt` 0-byte）:region = raygen / miss / hit /
+  **callable（可空）**；callable 非空时第四 region 铺设（对 RXS-0248 三 region 修订的
+  callable 加性扩容，对齐 Vulkan TraceRays 四区模型）。
+- region stride = `align_up(handle_size + region 内最大 record 尺寸, handle_alignment)`；
+  region base 对齐 `base_alignment`；record 数据紧随 handle。
+- **packer 唯一编码入口**:输入 = record schema（rt-manifest/reflection）+ 字段值 → bytes；
+  schema_hash 与目标 group **精确匹配** fail-closed；**禁止** `repr(C)` memcpy 充当契约。
+- record 在 pipeline 生命周期内**不可变**；更新 → 新 buffer / 新 generation。
+
+#### Implementation Requirements
+
+- 纯 host 单测 + device readback memcmp；≥1 `//@ spec: RXS-0326` 锚定。
+- unsafe 归 **U30 扩注**（0 新 U）。
+
+### RXS-0327 stack sizing 与 pipeline library（G8.2 M50，RFC-0019 RP-RT-STACK-LIB）
+
+#### Legality / Dynamic Semantics
+
+- **stack 三段律**:① `vkGetRayTracingShaderGroupStackSizeKHR` 逐组查询；
+  ② 保守公式（版本号进 evidence）:
+  `raygen + max(chit_max, miss_max, intersection_max + anyhit_max) × 1 + callable_max`
+  （递归 1、callable 深度 1、禁嵌套）；
+  ③ pipeline 带 `VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR` →
+  `vkCmdSetRayTracingPipelineStackSizeKHR(configured)`；
+  trace 前 host 复核 `configured >= required`（人为缩小 → 确定性拒 RED，不触 UB）。
+- **pipeline library**:扩展 `VK_KHR_pipeline_library`；每库 = 完整 group/callable 子集；
+  `VK_PIPELINE_CREATE_LIBRARY_BIT_KHR` +
+  `VkRayTracingPipelineInterfaceCreateInfoKHR{maxPayloadSize,maxAttributeSize}`；
+  final link 按主 manifest 声明序；link 后重查 stack；
+  schema/interface hash 不符 → typed Err。
+- **分库 ≡ 单体**:同场景同 SBT 输出逐像素相等（允许不等仅 stack 值/handle；RFC F14）。
+- **新入口** `run_rt_pipeline_offscreen`；既有 `run_ray_tracing_offscreen` 0-byte 保留。
+- AS 建面复用 `VkAsManager` 单所有者；加性
+  `instanceShaderBindingTableRecordOffset` + procedural AABB 支。
+
+#### Implementation Requirements
+
+- harness `bin/vk_rt_incremental` + smoke `ci/g8_rt_pipeline_incremental_smoke.py`；
+  device 段 `RURIX_REQUIRE_REAL=1`；≥1 `//@ spec: RXS-0327` 锚定。
+- unsafe 归 **U30 扩注**（0 新 U）。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
@@ -966,4 +1036,5 @@ ExtendedBodyLowerer 在 emit 期直接消费图形入口签名做资源分类(St
 | v1.20 | 2026-07-24 | **G4.4 PR-F Vulkan RHI 通道:落带编号条款体 `### RXS-0293` / `### RXS-0294`(spec-first)**。承 RFC-0015(Agent Approved 2026-07-23,§4.C4;G4_CONTRACT G-G4-5)。**RXS-0293**(.rx 单源 Vulkan RHI 通道:compute + graphics 双腿,`Rhi::create_vk(&ctx)` 显式后端构造 strict 无回退,Vulkan 不可用 → 确定性 Err RXS-0193 口径;compute 腿 = `rxrt_rhi_*` Vulkan 变体〔pipeline 自 SPIR-V 模块 + descriptor set + dispatch + 计划同步点回放,承 RXS-0272 桥接 graph.rs 单源〕;graphics 腿复用 G4.2 章A 执行面 A7 同一通道;feature 门控 `vulkan-backend`)。**RXS-0294**(device 见证判据:compute 图 saxpy 级 + 图形图章A demo 各经 Vulkan 通道 device 真跑,数值对照 vs host 参考 + vs CUDA 腿同图同参交叉对照 + spirv-val 全模块校验 + `RURIX_REQUIRE_REAL=1`,三段闭合任一段失败 → CI 红)。FLS 分节 **严禁 UB 节**。条款 commit 先行(spec-only),实现 commit 随后(硬规则 7;每条 ≥1 `//@ spec` 测试锚定随实现 commit 同 PR 落)。档位 **Full RFC**(RFC-0015)。无体例变更 | **Full RFC**（RFC-0015） |
 | v1.21 | 2026-08-01 | **RFC-0018 章 B compute RayQuery 编码面落库 + RXS-0300 条款体(spec-first,G7.1 PR-1 条款先行)**。承 RFC-0018(Agent Approved 2026-08-01,G7 伞形章 B;与章 A spec/shader_stages.md RXS-0297~0299 共享 RXS-0297 起顺位,number_ledger `reserved_in_flight[G7]` claim 兑现;条款号连续不跳号,0295/0296 burned 跳号口径维持)。新增 `### RXS-0300`(MIR→SPIR-V compute RayQuery 编码 + SPIR-V 1.4 per-entry 升版):**per-entry 升版判定并集钉死**(§9.1 V-1:使用 RayQuery〔MIR 体存在 RayQuery local/intrinsic〕∪ compute 签名含 AccelStruct 形参 → 该入口模块升 SPIR-V 1.4〔`SPIRV_VERSION_1_4` header + `OpEntryPoint` interface 全量枚举全部被引用全局变量,与 mesh/RT 同律 RXS-0247〕;`OpTypeAccelerationStructureKHR` 在 compute 模块的 capability 承载 = **RayQueryKHR**〔SPV_KHR_ray_query rev 17,compute 面唯一〕,仅看 RayQuery local 会致 AS-形参-only kernel 无 capability 承载 spirv-val 必拒,并集判定封闭);**capability/extension 按需声明**(RayQueryKHR + `OpExtension "SPV_KHR_ray_query"` 当且仅当模块含 OpTypeRayQueryKHR 或 OpTypeAccelerationStructureKHR;均不含维持 1.0 零新 capability,承 Int64 先例;不引入 SPV_KHR_physical_storage_buffer);**指令面编码约束**(OpTypeRayQueryKHR Function 存储类自觉〔RXS-0297 Function-only 收窄〕+ OpRayQueryInitializeKHR〔flags 恒 Opaque/mask 恒 0xFF〕+ OpRayQueryProceedKHR/OpRayQueryTerminateKHR + committed 查询族按真实使用;RayQuery 类型指针禁用 OpStore/OpLoad/OpCopyMemory 族 by-construction);**升版依据如实归因**(SPV_KHR_ray_query requires SPIR-V 1.0,1.4 非扩展强制;依据 = Vulkan 依赖链〔VK_KHR_ray_query→VK_KHR_spirv_1_4 或 1.2 核心〕+ 调研报告 §1.3 有效性规则 + RXS-0247 同源口径,rurix 自觉沿 1.4 per-entry 冻结);**W1/W2 零漂移门**(既有 compute/vertex/fragment 1.0 emit 字节零漂移,五 W1/W2 kernel golden + 全部既有 vulkan golden diff 空不重 bless,既有 `assemble` 0-byte,RayQuery compute 走新增发射路径,分叉落发射函数级);校验轴 spirv-val 退出码 + vulkan1.2/spv1.4 双口径(承 RXS-0247/RXS-0212);反汇编 golden 最小集锚定(G-G7-4)。子集外/emit 失败/spirv-val 拒 → **RX6026 扩或 RX6034 起新类别**(只追加不预造,RFC-0018 §7.4)。FLS 分节 **严禁 UB 节**。既有 RT 面(RXS-0247/0248)**只增量不矛盾** 0-byte。**本期 = 条款先行(硬规则 7)**:编码实现、golden 锚定与 RED 语料转正归 G7.2(W3a);device 段真跑归 CI 步骤 93(`RURIX_REQUIRE_REAL=1`)。RED 语料(conformance/rayquery/)同 PR 落盘,`//@ spec: RXS-0300` 锚定经 accept 语料 | **Full RFC**（RFC-0018） |
 | v1.22 | 2026-08-04 | **RFC-0018 §E(v1.1 修订行)HW 光栅语言面/执行语义落库 + RXS-0301~0303 条款体(spec-first,G7.5b PR-1 条款先行)**。承 RFC-0018 v1.1 修订行 §E「HW 光栅 VisBuffer 对拍裁定」(2026-08-04,G7.5b;步骤 95 evidence `escalation` 预埋前置兑现);编号承 RXS-0300 后连续顺位消费(number_ledger v1.44,`reserved_in_flight[G7]` claim;0295/0296 burned 跳号口径与 shadow_reserved 181~184 维持)。新增 `### RXS-0301`(Vulkan 原生图形 body 扩展白名单,target-conditional):**仅限 `emit_spirv_body_vulkan`(provenance=false)路径**,vertex/fragment body 在 RXS-0171 L4 基础上加性放行六项能力面(多层字段/向量分量投影、f32/整数比较与逻辑短路、结构化 if/可变局部/GLSL.std.450 内建〔首批 round→RoundEven 同表〕、`as` 数值 cast/usize 索引/SSBO 动态索引读、标量→向量输出装配、u64 SSBO 原子〔本体 RXS-0302〕,步骤 95 `missing_toolchain_caps` 六项逐一映射);**负面清单恒拒 RX6026 grow-only**(循环/用户 device fn 调用/f64/RayQuery/共享内存/`Scope::Block`(CTA)原子/纹理采样以外图像原子),**DXIL 路(provenance=true)RXS-0171 L4 冻结 0-byte**(分叉先例 RXS-0210/0249);两遍编译语义(第一遍最小切片成功即原样输出字节零漂移 by construction,Unmappable 才进 ExtendedBodyLowerer;表级复用仅改可见性,W1/W2 manifest 零漂移门维持);**RX6026 修订注**(拒绝面自 RXS-0301 起收窄至负面清单,码语义与 registry entry 0-byte,只加类别不改语义 07 §5)。新增 `### RXS-0302`(图形阶段 SSBO 与 push constant 资源面 + u64 原子):buffer 形参按声明序 set=0/binding=n(StorageBuffer std430)、标量按声明序 push constant 块 4 字节对齐(与 compute RXS-0203/0208 同一分配律,`render_exec::Bindings` 布局字面对齐);`AtomicView<_,u64,_>.fetch_max(idx,val,Scope::Gpu)` fragment 合法 → `OpAtomicUMax`(Device scope/Relaxed,与 compute 逐字同值),scope 仅 Gpu(`Scope::Block`=CTA 级 → RX6026,`Scope::System` 首期不放行 P-12);capability 按需(Int64/Int64Atomics 不用不发);**SPIR-V 版本维持 1.0**(u64 原子不需 1.4,RayQuery 1.4 政策不牵连)。新增 `### RXS-0303`(HW 光栅 VisBuffer 对拍执行语义,先例 RXS-0248 类运行时条款):覆盖规则唯一权威 = SW 精确 f32 边函数 + top-left + 绕向归一 + depth30 量化(`visbuffer_sw_u64.rx`/`VisBufferCpu` 双源);HW 腿必须 = 保守光栅 OVERESTIMATE 超集(pipeline 必挂 `VkPipelineRasterizationConservativeStateCreateInfoEXT`)+ FS 内逐字复刻判定(f32 字面权威禁升 f64 改写);DeviceCaps 无扩展 fail-closed(降级臂 = host 三边外扩 ≥1px 几何膨胀,仅显式开关 + evidence `pipeline` 如实标注);判据 = 9216 词 u64 逐词相等 **diff=0 整数域零容差** + 反空转 + RED 双轴;status 翻转为 schema 双臂预授权(diff≠0 原理性分歧回 RFC-0018 二次修订行,不得引入容差);本机保守光栅探测快照锚 RFC-0018 §E2(2026-08-04 vulkaninfo,RTX 4070 Ti,扩展 rev 1,`primitiveOverestimationSize=0.00195312`,`degenerateTrianglesRasterized=true`)。FLS 分节 **严禁 UB 节**。**既有条款 0-byte 纯追加**;零新 RX 码(RX6026 收窄注不触 entry)。**本期 = 条款先行(硬规则 7)**:四枚负面清单 RED 语料(`conformance/vulkan/reject/vk_hw_raster_{loop,devfn_call,cta_atomic,f64}_reject.rx`,`//@ expect-error: RX6026`,恒跑步 reject 段纳管,扩展前后均必红)同 PR 落盘并承载 `//@ spec` 锚定;扩展 lowerer/资源分类/运行时底座/uc06 装配/步骤 95 翻绿归 G7.5b PR-2~PR-4 | **Full RFC**（RFC-0018） |
+| v1.24 | 2026-08-06 | **G8.2 M50 spec-first:RXS-0248 修订行 + RXS-0325~0327 条款体**(硬规则 7;设计案规划参考号不预占,按 ledger 实测 next_free=322 顺位——与 shader_stages RXS-0322~0324 同批领取)。RXS-0248:三 region 数不变、miss/hit 允许多 record + typed shader-record POD、对齐律 0-byte 保留;新增 RXS-0325(六模型真实体编码)/RXS-0326(SBT v2+packer+可选 callable 第四 region)/RXS-0327(stack sizing+pipeline library+分库≡单体)。零新 RX 码;unsafe 归 U30 扩注。既有 `plan_sbt`/`run_ray_tracing_offscreen` 0-byte 恒跑。类型面见 shader_stages.md RXS-0322~0324。RED 语料 `conformance/rt_pipeline/` 同落 | **Full RFC**（RFC-0019） |
 | v1.23 | 2026-08-06 | **RFC-0019 §4.1.4 PSO cache 语义面落库 + RXS-0314~0316 条款体(spec-first,G8.2 M30 条款先行,硬规则 7)**。承 RFC-0019(Agent Approved 2026-08-02;number_ledger v1.52 校准 RXS 313/314→316/317)。新增 `### RXS-0314`(PSO key preimage 闭集与规范编码:pso_key=SHA-256("rurix.pso-key.v1\0"||preimage),preimage 七段闭集〔种类 tag/stage artifact digests/interface_hash/selected_profile_digest/variant_key/固定功能状态/compiler·edition·target〕沿 CanonW 律;**device identity 不入 pso_key**〔跨机 golden 可比对〕单独构成 cache artifact identity;collector 输出 JSON 字段位 {pso_key,kind_tag,stage_digests[],fixed_function_digest} 一并冻结供 M85 消费)/ `### RXS-0315`(cache artifact 磁盘格式与 fail-closed:单文件 rurix_pso_cache.bin,header=magic RXPSOC\x01+schema_version+device identity 段〔pipelineCacheUUID[16]+vendorID+deviceID+driverVersion 实测自 VkPhysicalDeviceProperties〕+key-set digest+分支 tag;装载核验序 ①magic/version→②device identity 逐字段→③keyset digest,任一不符丢弃全量重建绝不部分命中,rebuild_reason 枚举进 evidence;vendor blob 非 stable 不入 golden;解析层纯 safe 长度前置校验)/ `### RXS-0316`(precache/warm/stall 语义:cold 构建数==key 集合大小;warm 全新进程全部 create 带 FAIL_ON_PIPELINE_COMPILE_REQUIRED〔pipelineCreationCacheControl 实测协商,缺位 fail-closed 记 dev-env degrade 不降级判据〕,COMPILE_REQUIRED 即 stall+=1,判据 warm stalls==0 且全 key 命中;stall 计数器两分支同一定义+能红反证腿〔删单 key blob→必记 stall〕;**binary 分支强制律** = VK_KHR_pipeline_binary 在位必走 binary〔vkGetPipelineKeyKHR+vkCreatePipelineBinariesKHR+vkGetPipelineBinaryDataKHR〕,缺位走 VkPipelineCache 冻结 fallback 且 evidence 明记 capability=false;分支 tag 不符 keyset 前即拒;validation=0 + RURIX_REQUIRE_REAL=1)。FLS 分节 **严禁 UB 节**。零新 RX 码(cache 失配/重建 = 库层确定性行为+evidence 登记,非诊断面)。**本期 = 条款先行(硬规则 7)**:pso_cache.rs/vk.rs FFI append/harness vk_pso_cache/步骤 100 翻绿归 M30 实现 commit;每条 ≥1 `//@ spec` 锚定随实现 commit 同落。依据 G8_ACCEPTANCE_MAP §2 M30 行 + G8.2 设计案 §3。既有条款 0-byte 纯追加 | **Full RFC**（RFC-0019） |
