@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 316,
-      "next_free": 317,
+      "on_tree_max": 318,
+      "next_free": 319,
       "shadow_reserved": [
         181,
         182,
@@ -67,8 +67,8 @@
       "scope": "shared",
       "pattern": "RX#### (段位 0-7,07 §5)",
       "main_fact_source": "registry/error_codes.json entries + en/zh.messages",
- "on_tree_max": 7023,
- "next_free": 7024,
+      "on_tree_max": 7023,
+      "next_free": 7024,
       "shadow_reserved": [],
       "notes": "错误码(分配制,07 §5,段位 0-7)。main 最高 RX7022。GRX 影子分支未新增错误码(evidence/v1.1-stabilization 记『registry/error_codes.json 零触碰』)。下一个 7 段可用 RX7023(注:spec/release.md §3 旧文『RX7021 起』已过期两号,EA1_CONTRACT §7 记须自 RX7023,条款 PR 顺修)。"
     },
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.54",
+      "date": "2026-08-06",
+      "change": "G8.2 M85 spec-first PR:RXS-0317~0318 materialize(agent 主导串行合入,硬规则 7 条款先于实现)。RXS on_tree_max 316→318、next_free 317→319——spec/rendering_platform.md v1.4 纯追加 ### RXS-0317(shader/PSO manifest v1 字段闭集与 canonical digest:schema=rurix.shader-manifest.v1;shader 记录八字段来自 reflection v1、PSO 记录四字段来自 M30 collector RXS-0314;记录键 pipeline_key/pso_key;canonical 沿 RXS-0305 CanonW;manifest_digest 为 G8.3 DDC key 组成项字段位冻结)/ ### RXS-0318(merge/dedup/冲突/coverage 律:同键同值恰好去重、同键异值 typed Err fail-closed 零新 RX 码、coverage 以输入侧声明表为准、输入乱序 digest 不变、改 interface_hash/pso_key digest 必变、phase 纪律 phase_g8_2_pass/phase_g8_3_pass 互不代绿)。依据 RFC-0019 + G8_ACCEPTANCE_MAP §2 M85 行 + 设计案 §4。条款号连续不跳号;经 grep ### RXS- 实测 spec 最大条款头 = RXS-0318。零新 RD/U/SG/MR/D/RFC/CI_step/RX_error 命名空间字段(步骤 101 归 M85 实现 commit 顺位领取)。"
+    },
     {
       "version": "v1.53",
       "date": "2026-08-06",
