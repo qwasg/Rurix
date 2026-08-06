@@ -368,9 +368,18 @@ permutation 域为 **entry 级**声明(附着于着色入口函数的 `#[permuta
        (消息携带缺失 ID + 首个引入 callee,RXS-0311);
      - 有映射但不兼容 → **编译期 RED**,symbolic key
        **`capability.fallback_incompatible`**(消息给出不兼容字段)。
-- **接口契约兼容判定**(v1 从严,宽松化走加性修订):两 entry 的 `io`、
-  `resources`、`push_constants`、`execution_modes` 四字段**结构相等**
-  (reflection v1 同一提取律的内部比较;stage 必须相同)。
+- **接口契约兼容判定**(v1.3 精确化;reflection v1 同一提取律的内部比较):
+  1. stage 相同,且 `io`、`push_constants`、`execution_modes` 三字段**结构
+     相等**;
+  2. `resources` 按声明序比对:主 entry 资源表中 **class 属于「缺失
+     capability 对应资源类」**(v1 冻结映射 = `accel` ↔ {`rt.ray_query`,
+     `rt.pipeline`})的条目**允许在 fallback 表缺席**——低 profile 环境无此类
+     资源可绑,fallback 缺席恰为正确外部接口;其余条目逐项结构相等且相对序
+     一致;fallback 表**不得**含主表没有的条目。缺席条目之后的 `binding`
+     号按 fallback 自身声明序独立推导(RXS-0304 绑定推导律的自然结果,不构成
+     不兼容;runtime 装配以 fallback 的 reflection 为准,P-11 单源)。
+  任一不满足 → `capability.fallback_incompatible`。宽松化/收紧走本条款加性
+  修订。
 - **选择结果落报告**:`--emit=capabilities` 产出确定性 JSON(RXS-0305 禁用面
   同律):per-entry `{effective_requirements[], status(emitted/fallback/...),
   selected_entry, missing[], forbidden_hits[]}`——selection manifest 是
@@ -424,6 +433,7 @@ permutation 域为 **entry 级**声明(附着于着色入口函数的 `#[permuta
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.3 | 2026-08-06 | **RXS-0312 接口契约兼容判定精确化**(实现前发现的条款矛盾修复,加性修订,同日 spec-first 序列内):v1.2 的「resources 结构相等」从严口径与 M32 fallback 腿判据(「低 profile 只生成允许的 specialization,禁止能力对应指令/扩展计数为 0」,G8_ACCEPTANCE_MAP §2 M32 行)**不可同时满足**——主 entry 用 RayQuery 必带 `AccelStruct` 签名形参(RXS-0297 `ray_query_initialize` 需 tlas 实参),而 fallback 模块一旦声明 accel descriptor,SPIR-V 必须声明 RayQueryKHR capability + SPV_KHR_ray_query 扩展(OpTypeAccelerationStructureKHR 能力要求),扩展计数必非 0;故 fallback **不能**带 accel 形参,而这在「resources 结构相等」下恒被拒为 `capability.fallback_incompatible`,v1.2 口径下不存在任何合法 fallback fixture。修复 = resources 比对允许「缺失 capability 对应资源类」条目在 fallback 缺席(v1 冻结映射 accel ↔ {rt.ray_query, rt.pipeline};低 profile 环境无 TLAS 可绑,缺席恰为正确外部接口),其余条目逐项相等且相对序一致,fallback 不得多出条目;binding 号按 fallback 自身声明序独立推导(P-11 runtime 以 fallback reflection 为准)。io/push_constants/execution_modes/stage 判定 0-byte;其余条款 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.2 | 2026-08-06 | §2 追加 **RXS-0312 ~ RXS-0313**(G8.2 M32 capability_profile 硬门 `g8.p0.m32.capability_profile`,RP-CAP-PROFILE materialize,spec-first 条款先行,硬规则 7;`#[requires]`/ID 闭集/调用图并集律 = spec/shader_stages.md v1.7 RXS-0311 同 PR):RXS-0312 profile 闭集、构建期选择律与 fallback(profile v1 JSON 闭集 schema=rurix.profile.v1 + required/optional/forbidden 两两不相交 + fallbacks 映射;canonical bytes/digest 沿 CanonW 律,无 --profile 恒 rurix.profile-none.v1 常量 0 漂移;选择律四分支绑定 RFC-0019 §4.5.1 冻结 symbolic key `capability.forbidden_used`/`capability.missing_required`/`capability.fallback_incompatible`;fallback 接口契约兼容 = io/resources/push_constants/execution_modes 结构相等 v1 从严,选中 fallback 主 variant 不发射,fallback 链深度 1;`--emit=capabilities` selection manifest 确定性 JSON;--profile 未给 0-byte)/ RXS-0313 运行期 capability snapshot 核验 fail-closed(`capability.runtime_snapshot_mismatch` 装载期 RED,禁临时重编/静默换 profile/尽力而为;库层 typed Err 不占 RX 码;`verify_profile_snapshot` host 纯函数原语镜像 RXS-0307 体例,device 腿归 M50/M89)。**RXS-0304 加性修订**:`required_capabilities`/`selected_profile_digest` 两行由「M32 未实现空编码」真值化(空集/无 profile 路径恒既有常量,0 字节漂移见证进 smoke)。编号自 ledger 实测 next_free 顺位领取(RXS-0311~0313,v1.50 校准 310/311→313/314);typeck 段数字错误码按实现 commit 实测领取(条款以 RFC 四键 + `capability.unknown_id` 五个 symbolic key 冻结)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md)(§4.5.1/§4.5.2/§5 RP-CAP-PROFILE 行)+ G8_ACCEPTANCE_MAP §2 M32 行 + G8.2 设计案 §2。既有条款 RXS-0304 其余行/0305~0310 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.1 | 2026-08-06 | §2 追加 **RXS-0308 ~ RXS-0310**(G8.2 M29 shader permutation 硬门 `g8.p0.m29.shader_permutation`,RP-PERMUTATION materialize,spec-first 条款先行):RXS-0308 permutation 域声明闭集(entry 级 `#[permutation(axis/forbid/budget)]`,axis 三类值域,forbid = 等式合取封闭子集,违例编译期确定性拒)/ RXS-0309 canonical key 与 domain digest(axis 名字节序 + 带类型标签规范编码,CanonW 律,声明序/路径不影响 key,组合→key 单射,空域恒既有常量 0 漂移)/ RXS-0310 裁剪·预算·报告·选择律(`enumerated == pruned + emitted` 恒等式,预算先算不物化、超限硬失败 + axis contribution report,`--emit=permutations` 确定性 JSON,`--permutation-select` 缺 variant 确定性错误禁最接近回退)。**RXS-0304 加性修订**:`permutation_domain_digest`/`variant_key` 两行由「M29 未实现恒空编码」真值化(非空域→真 digest/真 variant_key;空域路径恒既有常量,0 字节漂移见证进 smoke)。编号自 ledger 实测 `RXS.next_free` 顺位领取(RXS-0308~0310;同 PR 校准 M31 滞后 on_tree_max 303→310/next_free 304→311,v1.48);typeck/工具段数字错误码按实现 commit 实测领取,条款先以 symbolic key 冻结(`shader.permutation_domain_invalid` / `toolchain.permutation_budget_exceeded`)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md)(Agent Approved 2026-08-02,§4.3/§5 RP-PERMUTATION 行)+ G8_ACCEPTANCE_MAP §2 M29 行 + G8.2 设计案 §1。既有条款 RXS-0304 其余行/RXS-0305~0307 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.0 | 2026-08-05 | 新建(G8.2 M31 实现 PR,RP-REFLECTION materialize):RXS-0304 reflection v1 schema 与字段闭集(含 M29/M32/M50 未实现字段的确定性空编码与 RT 枚举诚实边界)/ RXS-0305 canonical serialization 规则(版本前缀 + length-prefix + 规范键排序 + 禁用面 + 声明序扰动精确边界)/ RXS-0306 interface_hash 定义与 source/artifact digest 分离 + pipeline key 组成见证 / RXS-0307 装配期核验与 fail-closed。实现锚定 `src/rurixc/src/reflection.rs` + `--emit=reflection` + conformance/reflection 语料同 PR。依据 RFC-0019 §4.4/§5(RP-REFLECTION 行)/§6.2 M31 行。 | **Full RFC**(RFC-0019) |
