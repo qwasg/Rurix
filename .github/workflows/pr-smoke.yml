@@ -1278,6 +1278,31 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave6c_exit_check.py --gate g8.wave.6c.exit
 
+      # 步骤 126（G8.6d P1 硬门 g8.p1.m72.cloth_product_chain）。host 门。
+      - name: G8.6d M72 cloth product chain smoke (G8 CI_GATES §4.0.126, g8.p1.m72.cloth_product_chain)
+        shell: powershell
+        run: py -3 ci/g8_cloth_product_chain_smoke.py --gate g8.p1.m72.cloth_product_chain
+
+      # 步骤 127（G8.6d 波次聚合 g8.wave.6d.exit）:M72 + m70.vehicle。
+      - name: G8.6d wave6d.exit aggregate (G8 CI_GATES §5.127, g8.wave.6d.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave6d_exit_check.py --gate g8.wave.6d.exit
+
+      # 步骤 128（G8.7 P2 穷举决策 g8.wave.7.decisions）。
+      - name: G8.7 P2 decisions check (G8 CI_GATES §5.128, g8.wave.7.decisions)
+        shell: powershell
+        run: py -3 ci/g8_p2_decisions_check.py --gate g8.wave.7.decisions
+
+      # 步骤 129（G8.8a soak verify-latest；full soak 本地/workflow_dispatch 产 evidence）。
+      - name: G8.8a soak verify-latest (G8 CI_GATES §5.129, g8.wave.8a.soak)
+        shell: powershell
+        run: py -3 ci/g8_stabilization_soak.py --verify-latest
+
+      # 步骤 130（G8.8b closeout；不同日规则 + status flip 次日独立 PR）。
+      - name: G8.8b closeout check (G8 CI_GATES §5.130, g8.wave.8b.closeout)
+        shell: powershell
+        run: py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

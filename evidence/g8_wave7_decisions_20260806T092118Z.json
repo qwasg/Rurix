@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "subject": "g8_wave7_decisions",
+  "symbolic_gate_key": "g8.wave.7.decisions",
+  "matrix_row": "G8.7",
+  "wave": "G8.7",
+  "numeric_step": 128,
+  "source_ref": "G8_PLAN §2.7;CI_GATES §5;G8_P2_DECISIONS.md",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_31",
+      "status": "PASS",
+      "detail": "got ['M06', 'M09', 'M12', 'M14', 'M15', 'M16', 'M22', 'M33', 'M34', 'M41', 'M42', 'M43', 'M48', 'M49', 'M49a', 'M49b', 'M52', 'M53', 'M54', 'M55', 'M56', 'M59', 'M61', 'M62', 'M63', 'M65b', 'M74', 'M75', 'M77', 'M86', 'M87'] (n=31); expect 31 frozen"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M06",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M09",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M12",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M14",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M15",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M16",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M22",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M33",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M34",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M41",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M42",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M43",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M48",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M49",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M49a",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M49b",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M53",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M54",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M55",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M56",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M59",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M62",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M63",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M65b",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M74",
+      "status": "PASS",
+      "detail": "defer-to-G9+"
+    },
+    {
+      "id": "row_M75",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M77",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M86",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_M87",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "candidate_conflict",
+      "status": "PASS",
+      "detail": "no go rows"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092118Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G8.7 P2 decisions exhaustive check"
+}

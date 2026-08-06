@@ -24,7 +24,7 @@ import g8_wave_exit_lib as wel  # noqa: E402
 
 ROOT = wel.ROOT
 GATE_KEY = "g8.wave.8b.closeout"
-NUMERIC_STEP = 0
+NUMERIC_STEP = 130
 SUBJECT = "g8_wave8b_closeout"
 WAVE = "G8.8b"
 SOURCE_REF = "CI_GATES §5;G8_CONTRACT close-out;design G8.6…§7.3"

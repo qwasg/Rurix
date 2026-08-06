@@ -28,7 +28,7 @@ import g8_wave_exit_lib as wel  # noqa: E402
 
 ROOT = wel.ROOT
 GATE_KEY = "g8.wave.8a.soak"
-NUMERIC_STEP = 0  # Gov materialize 回填
+NUMERIC_STEP = 129
 SUBJECT = "g8_wave8a_soak"
 WAVE = "G8.8a"
 SOURCE_REF = (

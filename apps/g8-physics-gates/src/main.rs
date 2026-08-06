@@ -28,7 +28,7 @@ use scenarios::{run_scenario, InjectionSpec};
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: g8-physics-gates <record|replay|inject|ab|net|fracture> ...");
+        eprintln!("usage: g8-physics-gates <record|replay|inject|ab|net|fracture|cloth|vehicle> ...");
         std::process::exit(2);
     }
     let result = match args[1].as_str() {
@@ -40,6 +40,8 @@ fn main() {
         "canon-float" => cmd_canon_float(&args[2..]),
         "net" => cmd_net(&args[2..]),
         "fracture" => cmd_fracture(&args[2..]),
+        "cloth" => cmd_cloth(&args[2..]),
+        "vehicle" => cmd_vehicle(&args[2..]),
         other => Err(CaptureError::Rejected(format!("unknown subcommand {other}"))),
     };
     match result {
@@ -328,6 +330,37 @@ fn cmd_fracture(args: &[String]) -> Result<String, CaptureError> {
         util::json_escape(&report.event_sequence_digest),
         util::json_escape(&report.state_hash),
         util::json_escape(&report.detail),
+    ))
+}
+
+fn cmd_cloth(_args: &[String]) -> Result<String, CaptureError> {
+    use rurix_physics::cloth::run_cloth_pipeline;
+    let r = run_cloth_pipeline();
+    Ok(format!(
+        "{{\"ok\":{},\"schema_pass\":{},\"import_pass\":{},\"collision_pass\":{},\"lod_pass\":{},\"timeline_pass\":{},\"solver_double_run_deterministic\":{},\"bound_frozen_reference_present\":{},\"cloth_capture_scene_appended\":{},\"measured_max_penetration_m\":{:.6},\"penetration_bound_m\":{:.6},\"detail\":\"{}\"}}",
+        util::json_bool(r.ok),
+        util::json_bool(r.schema_pass),
+        util::json_bool(r.import_pass),
+        util::json_bool(r.collision_pass),
+        util::json_bool(r.lod_pass),
+        util::json_bool(r.timeline_pass),
+        util::json_bool(r.solver_double_run_deterministic),
+        util::json_bool(r.bound_frozen_reference_present),
+        util::json_bool(r.cloth_capture_scene_appended),
+        r.measured_max_penetration_m,
+        r.penetration_bound_m,
+        util::json_escape(&r.detail),
+    ))
+}
+
+fn cmd_vehicle(_args: &[String]) -> Result<String, CaptureError> {
+    use rurix_physics::vehicle::vehicle_subject_pass;
+    let (ok, detail) = vehicle_subject_pass();
+    Ok(format!(
+        "{{\"ok\":{},\"vehicle_subject_pass\":{},\"detail\":\"{}\"}}",
+        util::json_bool(ok),
+        util::json_bool(ok),
+        util::json_escape(&detail),
     ))
 }
 

@@ -1269,6 +1269,26 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.6c M68 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.cloth_product_chain_checks":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m72_cloth_product_chain_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            pb = doc.get("penetration_bound") or {}
+            if pb.get("frozen") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 8:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 cloth_product_chain 8 腿 host 全绿见证",
+            "G8.6d M72 实现回填前为正常状态",
+            strict,
+        )
     elif eid == "g8.counter.tsr_contract_checks":
         n = 0
         for f in (ROOT / "evidence").glob("g8_m24_tsr_contract_*.json"):

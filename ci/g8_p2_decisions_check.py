@@ -22,7 +22,7 @@ import g8_wave_exit_lib as wel  # noqa: E402
 
 ROOT = wel.ROOT
 GATE_KEY = "g8.wave.7.decisions"
-NUMERIC_STEP = 0  # 合入时由 Gov 回填；schema 用 integer 不 const 步骤时放宽
+NUMERIC_STEP = 128
 SUBJECT = "g8_wave7_decisions"
 WAVE = "G8.7"
 DECISIONS = ROOT / "milestones" / "g8" / "G8_P2_DECISIONS.md"

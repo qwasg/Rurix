@@ -400,6 +400,18 @@ def check_evidence_files() -> None:
     g8_wave6c_exit_schema = load(
         ROOT / "milestones/g8/g8_wave6c_exit_evidence_schema.json"
     )
+    g8_m72_cloth_product_chain_schema = load(
+        ROOT / "milestones/g8/g8_m72_cloth_product_chain_evidence_schema.json"
+    )
+    g8_wave6d_exit_schema = load(
+        ROOT / "milestones/g8/g8_wave6d_exit_evidence_schema.json"
+    )
+    g8_wave8a_soak_schema = load(
+        ROOT / "milestones/g8/g8_wave8a_soak_evidence_schema.json"
+    )
+    g8_wave8b_closeout_schema = load(
+        ROOT / "milestones/g8/g8_wave8b_closeout_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -797,6 +809,26 @@ def check_evidence_files() -> None:
     g8_wave6c_exit_validator = (
         jsonschema.Draft7Validator(g8_wave6c_exit_schema)
         if g8_wave6c_exit_schema is not None
+        else None
+    )
+    g8_m72_cloth_product_chain_validator = (
+        jsonschema.Draft7Validator(g8_m72_cloth_product_chain_schema)
+        if g8_m72_cloth_product_chain_schema is not None
+        else None
+    )
+    g8_wave6d_exit_validator = (
+        jsonschema.Draft7Validator(g8_wave6d_exit_schema)
+        if g8_wave6d_exit_schema is not None
+        else None
+    )
+    g8_wave8a_soak_validator = (
+        jsonschema.Draft7Validator(g8_wave8a_soak_schema)
+        if g8_wave8a_soak_schema is not None
+        else None
+    )
+    g8_wave8b_closeout_validator = (
+        jsonschema.Draft7Validator(g8_wave8b_closeout_schema)
+        if g8_wave8b_closeout_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1537,10 +1569,29 @@ def check_evidence_files() -> None:
         ):
             validator = g8_wave6c_exit_validator
         elif (
+            f.name.startswith("g8_m72_cloth_product_chain_")
+            and g8_m72_cloth_product_chain_validator is not None
+        ):
+            validator = g8_m72_cloth_product_chain_validator
+        elif (
+            f.name.startswith("g8_wave6d_exit_")
+            and g8_wave6d_exit_validator is not None
+        ):
+            validator = g8_wave6d_exit_validator
+        elif (
+            f.name.startswith("g8_wave8a_soak_")
+            and g8_wave8a_soak_validator is not None
+        ):
+            validator = g8_wave8a_soak_validator
+        elif (
+            f.name.startswith("g8_wave8b_closeout_")
+            and g8_wave8b_closeout_validator is not None
+        ):
+            validator = g8_wave8b_closeout_validator
+        elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None
         ):
-            # G8.7 P2 穷举决策聚合(早开表;步骤号待领取)。
             validator = g8_wave7_decisions_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")

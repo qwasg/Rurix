@@ -653,3 +653,14 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 - wave6c.exit：步骤 **125**
 
 **验收**：wave6b/wave6c 聚合 PASS；M68 12/12 host PASS。
+
+### 8.24 G8.6d~G8.8 收口接线（2026-08-06）
+
+**交付物**：
+- M72：`physics-cloth` + 步骤 **126**；RFC-0021 §6.5.1 cloth 穿透 ≤0.0125 m
+- wave6d.exit：步骤 **127**（+ `g8.wave6d.m70.vehicle`）
+- G8.7 P2：步骤 **128**
+- G8.8a soak：步骤 **129**（pr-smoke=`--verify-latest`；full soak 本地产 evidence）
+- G8.8b closeout：步骤 **130**（不同日规则；status flip 次日独立 PR）
+
+**验收**：M72 8/8；wave6d PASS；P2 31 行；8a four legs；8b READY 后次日 flip。

@@ -11,7 +11,7 @@ name = "g8-physics-gates"
 path = "src/main.rs"
 
 [dependencies]
-rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character", "physics-destruction"] }
+rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character", "physics-destruction", "physics-cloth", "physics-vehicle"] }
 rurix-pkg = { path = "../../src/rurix-pkg" }
 
 [lints]

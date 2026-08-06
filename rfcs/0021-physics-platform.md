@@ -459,6 +459,8 @@ bound 一经冻结即为 0-byte 面，放宽须新修订行 + 说明理由；收
 
 判据：`smoothing_within_frozen_bound_per_frame` 逐帧 ≤ bound；`smoothing_authoritative_state_untouched` 权威状态不被 presentation 修正改写。放宽须新修订行。
 
+**Cloth 穿透 bound（M72）**：demo_garment XPBD 平面投影采样；ceiling = measured × 1.25（实测 max 穿透 0.001 m → bound **0.0125 m**）。判据：`collision_pass` = 缝约束不断裂且逐帧穿透 ≤ bound。与 `g8.counter.cloth_product_chain_checks` 同 PR。
+
 ## 7. 风险、止损与备选
 
 | 风险 | 预警 | 止损 |
@@ -563,3 +565,4 @@ bound 一经冻结即为 0-byte 面，放宽须新修订行 + 说明理由；收
 | v1.0 | 2026-08-02 | **Agent Approved**：D-409 独立 provenance（`Kiro:claude-opus-5` ≠ 起草 `Codex:gpt-5`）三镜头评审完成，20 findings 全 disposition。正文实改要点：§2.1.1 JoltC ABI 缺口与三选一处置（M66/M71 开工前置）、§3.1 五纪律逐字引用 + §3.1.1 附加约束分离、头部认领 RFC-γ 身份 + §6.5 bound 三步冻结程序、§6.2 feature 名即日冻结、Q2/Q4 由本 RFC 裁决（cloth = 自有 XPBD）、删除 GPU 可选副求解器授权、§4.A1 补 determinism/预算画像、§4.A3 注入点与字段白名单、§4.A4 补 5.6 采纳臂三件事与 v5.6.0 锚、§4.B1 hash 收敛画像、§6.4 统一 canonical key 并登记 M69/M70/M71/M73 的波次级 subject、§4.D2 五项逐字与 RD-044 授权来源、§2.4 out-of-scope RD 归属。零 RXS/CI/RD/U/RX 数字 claim；批准不解锁实现。 | Full RFC（Agent Approved） |
 | v1.1 | 2026-08-06 | **G8.6 PR-0：§2.1.1 三选一处置书面选定全线 (c)**（加性；既有表字面 0-byte）。新增 §2.1.1.1：M66 恢复层 = `semantic_journal_rebuild_v1`；M71 = 自研 `RurixCharacter`（Jolt CharacterVirtual 降候选）；**新登记** M70 VehicleConstraint 零导出缺口并选 (c) 自研悬挂载具；M69 走已导出约束五件套路线；新 FFI 仅消费既有符号、零 vendor 补丁。未落本选定前 M66/M71/M70 不得开工。零 RXS/CI/RD/U/RX 数字 claim。 | Full RFC（Agent Approved） |
 | v1.2 | 2026-08-06 | **§6.5.1 M67 smoothing bound 冻结**（加性）：mispredict_impulse_delay measured → position ≤0.268680 m / angle ≤0.0384475 rad（1.25× ceiling）；与 `g8.counter.network_physics_checks` 同 PR。CI 步骤号由 ledger materialize，本文不猜号。 | Full RFC（Agent Approved） |
+| v1.3 | 2026-08-06 | **§6.5.1 cloth 穿透 bound 冻结**（加性）：M72 demo_garment → ≤0.0125 m；与 `g8.counter.cloth_product_chain_checks` 同 PR。 | Full RFC（Agent Approved） |

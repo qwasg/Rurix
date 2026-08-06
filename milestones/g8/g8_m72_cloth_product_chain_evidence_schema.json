@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.6d M72 cloth_product_chain evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","subject","symbolic_gate_key","matrix_row","wave","numeric_step","source_ref","host_section_pass","device_section_state","checks","penetration_bound","evidence_level","run_url","timestamp","environment","notes"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m72_cloth_product_chain" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p1.m72.cloth_product_chain" },
+    "matrix_row": { "type": "string", "const": "M72" },
+    "wave": { "type": "string", "const": "G8.6d" },
+    "numeric_step": { "type": "integer", "minimum": 0 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_pass","import_pass","collision_pass","lod_pass","timeline_pass","solver_double_run_deterministic","bound_frozen_reference_present","cloth_capture_scene_appended"],
+      "properties": {
+        "schema_pass": { "type": "boolean" },
+        "import_pass": { "type": "boolean" },
+        "collision_pass": { "type": "boolean" },
+        "lod_pass": { "type": "boolean" },
+        "timeline_pass": { "type": "boolean" },
+        "solver_double_run_deterministic": { "type": "boolean" },
+        "bound_frozen_reference_present": { "type": "boolean" },
+        "cloth_capture_scene_appended": { "type": "boolean" }
+      }
+    },
+    "penetration_bound": { "type": "object", "additionalProperties": true },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": { "type": "object", "additionalProperties": true },
+    "notes": { "type": "string" }
+  }
+}

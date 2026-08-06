@@ -45,6 +45,13 @@
       "threshold": 1
     },
     {
+      "id": "g8.counter.cloth_product_chain_checks",
+      "description": "G8.6d M72 cloth_product_chain 硬门判据通过数 >=8 且 host 见证 >=1(契约 §8.24 / CI_GATES §4.0 M72;RFC-0021 §6.5.1 cloth)。计数源 = evidence/g8_m72_cloth_product_chain_*.json 中 host_section_pass=true 且 checks.* ≥8 全 true 且 penetration_bound.frozen=true 的见证文件数。host 门。",
+      "evidence_file": "evidence/g8_m72_cloth_product_chain_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
       "id": "g8.counter.tsr_contract_checks",
       "description": "G8.5b M24 tsr_contract 硬门判据通过数 >=13 且 device 见证 >=1(契约 §8.20 / CI_GATES §4 M24;RFC-0019 §4.6.4)。计数源 = evidence/g8_m24_tsr_contract_*.json 中 host_section_pass=true 且 device_section_state in {pass,executed} 且 checks.* ≥13 全 true 的见证文件数。tolerance 事实源 = tests/tsr_contract/freeze.json(rfc_budget_frozen)+RFC §4.6.4。device 门。",
       "evidence_file": "evidence/g8_m24_tsr_contract_*.json",
@@ -173,6 +180,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.18",
+      "date": "2026-08-06",
+      "change": "G8.6d M72 materialize:counter_assertions 追加 g8.counter.cloth_product_chain_checks(>=8 host)+RFC §6.5.1 cloth bound;budget_eval 分支同落。"
+    },
     {
       "version": "v1.17",
       "date": "2026-08-06",

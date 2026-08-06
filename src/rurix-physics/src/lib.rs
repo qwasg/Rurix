@@ -51,6 +51,10 @@ pub mod asset;
 pub mod character;
 #[cfg(feature = "physics-destruction")]
 pub mod destruction;
+#[cfg(feature = "physics-cloth")]
+pub mod cloth;
+#[cfg(feature = "physics-vehicle")]
+pub mod vehicle;
 mod error;
 mod events;
 mod id;
