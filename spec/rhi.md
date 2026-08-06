@@ -886,6 +886,78 @@ rhi.graph::<CAP>() -> Graph<C>        // CAP = const 泛型实参(turbofish 语�
 > strict 拒 non-static construction)+ rurix-rt rhi.rs `rejects_transient_capacity_overflow` 库单测
 > (host 侧装配期防御)+ 步骤 79 `ci/uc05_exec_face_gate.py` reject 语料逐条断言。
 
+### RXS-0319 VB/IB 声明算子与布局推导律（G8.2 M89，RFC-0019 RP-GFX-SUBMIT）
+
+#### Syntax
+
+`rhi.vertex_data(&VERTS)` / `rhi.index_data(&INDICES)` / `pass.draw(&vb, vertex_count)` /
+`pass.draw_indexed(&vb, &ib, index_count)`——RHI 库面已知方法（builder 风格，沿
+`RhiRasterPass` 机械全套）。
+
+#### Legality
+
+- **`vertex_data`**:`VERTS` 为 host 侧定长数组（`[f32; N]` 等）；cabi
+  `rxrt_rhi_vb_create(rhi, ptr, bytes, stride)` 拷贝入设备缓冲。
+- **VB 布局单源律（P-11）**:`stride` 与顶点属性布局**不由用户声明**——由该 pass
+  vertex shader 的 io **输入表**推导（`iface_extract::io_sig_for` 同一提取律）：声明序
+  紧凑交错，location/format/offset 全部来自 reflection；与用户手写 stride 不符 =
+  seal 拒（RXS-0326）。
+- **`index_data`**:首期索引类型冻结为 **u32**；cabi `rxrt_rhi_ib_create`。
+- **`draw` / `draw_indexed`**:登记进 `GfxPassRecord`；cabi
+  `rxrt_rhi_gfx_draw(pass, vb, ib_or_0, count)`。
+- **`rxrt_rhi_raster_pass` vs/fs 符号**:必须登记进 pass 记录并按名索引 artifacts v2
+  入口表（`spirv_entries`）；**禁止忽略符号**（RD-037 历史洞关闭面）。
+- builder sig 违例走既有 typeck（RX2010/RX4001 等），**零新 RX 码**。
+
+#### Implementation Requirements
+
+- 实现锚定：`hir`/`typeck`/`mir_build` 加性 Op + cabi 三符号只追加；每条款 ≥1
+  `//@ spec: RXS-0319` 锚定。
+
+### RXS-0320 装配核验与越界拒（G8.2 M89）
+
+#### Legality
+
+- **范围核验**（submit 前 fail-closed，库层状态值，零新 RX 码）：
+  - `draw_indexed`：`index_count * 4 ≤ ib.bytes`；索引引用的最大顶点号 × stride
+    `≤ vb.bytes`（host 可核部分）。
+  - `draw`：`vertex_count * stride ≤ vb.bytes`。
+- **声明集 ↔ reflection 双向精确相等**（既有 seal 骨架扩面）：VS io 输入表 ↔ VB
+  stride/attrs 一致；FS 输出 ↔ color target 在位；任一失配 → 装配拒。
+- **artifact 绑定**：vs/fs 名必须命中 artifacts v2 入口；篡改符号 → 装配拒 RED。
+- 越界/失配在 **submit 前**拒；禁止提交部分装配状态。
+
+#### Implementation Requirements
+
+- reject 语料：`conformance/gfx_submit/reject/{draw_ib_oob,draw_vb_range_oob,
+  draw_without_vb,vs_io_vb_mismatch}.rx`（EXE RED，库层 [structure]/[capacity]）。
+- ≥1 `//@ spec: RXS-0320` 锚定。
+
+### RXS-0321 gfx 派发臂与 readback provenance（G8.2 M89）
+
+#### Dynamic Semantics
+
+- **`rxrt_rhi_submit` gfx 派发臂**（Vk 分支）：gfx pass 若绑定了 draw + vs/fs →
+  组扩展 raster 描述（含可选 IB）→ `run_rhi_graphics_offscreen_v2`（U31 扩注：IB 绑定 +
+  `vkCmdBindIndexBuffer` + `vkCmdDrawIndexed`；barrier plan 逐字重放）→ 输出写回 host
+  镜像 → `rxrt_rhi_readback` 消费。
+- **未绑 draw** 的 gfx pass 维持「仅参 barrier 推导」（既有语料 0 回归）。
+- **真实 artifacts 消费**：SPIR-V 必须来自 artifacts v2 按名索引；**禁止**固定最小
+  SPIR-V 模块替身、**禁止** host 填像素替身（RD-037 字面）。
+- **readback provenance**：仅在图完成点后、指向**同一 submit generation** 的 color
+  target；device 不满足 profile → fail-closed（不静默降级）。
+- **通用 dump**：运行时 env `RURIX_RHI_READBACK_DUMP=<path>`（通用特性，非
+  workload 专用 `.rs`）供 smoke 与 checked-in golden 逐字节对拍。
+- **零 Rust 宿主判据**：fixture/启动链 `rust_host_source_count == 0`；编译成功或仅
+  非零像素**不算 PASS**（须像素 golden + validation=0）。
+
+#### Implementation Requirements
+
+- accept：`conformance/gfx_submit/accept/m89_two_tri_quad.rx`（两直角三角形拼满屏
+  quad，flat 色，整数域零容差）+ `vb_only_draw.rx`。
+- smoke：`ci/g8_single_source_gfx_smoke.py`；device 段 `RURIX_REQUIRE_REAL=1`。
+- ≥1 `//@ spec: RXS-0321` 锚定。RD-037 三件套齐绿后一次 close。
+
 ## 3. 错误码引用汇总(**Part B 零新 RX 码全复用**)
 
 | 码 / 状态面 | 段 | 语义 | 条款 |
@@ -922,6 +994,7 @@ const / 类型诊断;运行期 / 环境失败(device 分配 / launch / sync)走 
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.8 | 2026-08-06 | **G8.2 M89 spec-first:落带编号条款体 `### RXS-0319` ~ `### RXS-0321`**(RP-GFX-SUBMIT,硬规则 7 条款先行;设计案规划参考号 0325~0327 **不预占**,按 ledger 实测 next_free=319 顺位领取)。RXS-0319 VB/IB 声明算子与布局推导律(`vertex_data`/`index_data`/`draw(_indexed)`;VB 布局 = VS io 输入表单源推导 P-11;u32 索引首期冻结;raster_pass vs/fs 符号必须登记)/ RXS-0320 装配核验与越界拒(draw↔VB/IB 范围、声明↔reflection 双向相等、artifact 按名绑定,submit 前 fail-closed,库层状态值零新 RX 码)/ RXS-0321 gfx 派发臂与 readback provenance(真实 artifacts v2 消费禁固定最小 SPIR-V/host 像素替身;readback 同 submit generation;`RURIX_RHI_READBACK_DUMP` 通用 dump;零 Rust 宿主;`compile_only_not_pass`)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md) RP-GFX-SUBMIT + G8_ACCEPTANCE_MAP §2 M89 行 + 设计案 §6 + RD-037。既有 RXS-0256~0283 0-byte;零新 RX 码零新 U(U31 扩注方向)。 | **Full RFC**(RFC-0019) |
 | v1.2 | 2026-07-20 | EI1.4 实现落地:**RHI compute dispatch + I4 编译器反射喂入**(兑现 EI1.3 诚实归到 EI1.4 的两项收窄)。①**pass 绑 kernel**(RXS-0257):`rhi.pass(kernel, GridDim(..), BlockDim(..), (args..))`,形态与 `Stream::launch` **逐位同构**——tbir `RhiPassBind` 与 `GpuLaunch` 共用形态判据 `kernel_binding_form`、mir_build 共用 marshalling 物化 `gpu_marshal_args`、契约裁决共用 `launch_check::check_kernel_binding`(着色 RX3004 / 维度 RX3005 / 实参 RX2001 / brand RX3006,**零新码**);`launch_check::ty_compat` 补 `Ty::Const` 自反臂(缺之则同 `Rhi` 实例资源被误判跨 brand,镜像 typeck unify 同修)。②**I4 反射喂入接线兑现**(RXS-0257):编译器自 kernel 签名与绑定实参**静态提取**反射集(实参中的 `Res<C, T>`,由 launch_check 核对确落在 `View`/`ViewMut` 形参位)→ marshalling **kind-2 槽**(0=Buffer/1=标量/2=RHI 资源,`rxrt_launch` 槽契约只追加扩展)→ 新符号 `rxrt_rhi_bind` → `PassSpec::with_reflection` → `seal()` 双向精确相等核验;新语料 `conformance/uc05/assembly/pass_undeclared_read.rx`(kernel 触碰 {a,b} 只声明 `writes(&b)`)**真触发**库层 `ReflectionMismatch` → `rxrt_trap`(device EXE RED 真跑见证 `rhi_submit [reflection]`)。**I4 自 `lib_tested` 迁 `assembly_time` / 证据级 `ci_checked`**(矩阵 / 报告 / 步骤 73 门同步迁档;LIB_TESTED 档遂为空集)。③**真 compute dispatch**(RXS-0261):`rxrt_rhi_submit` 在 seal + `derive_syncs` **之后**按推导序真派发——推导计划**逐字重放**(每条 `PlannedSync` 令执行器在派发该 pass 前于本图 stream 落显式同步点,执行器禁二次推导),全部派发后收尾同步;派发本体复用 `rxrt_launch` 抽出的单一事实源 `launch_prepared`。`Res<C, T>` 获元素类型参数(镜像 `Buffer<C, T>`,元素经使用点推断 + RX2010 定型)并为**真设备分配**(`n * sizeof(T)`,`rxrt_rhi_resource(r, bytes)`;`rhi_destroy` 连带释放,释放前 ctx sync 封口)。④**真 D2H + 读回点迁 `Queue`**(RXS-0259):`queue.readback(res, &mut pinned)`(`rxrt_rhi_readback(r, src, dst, bytes)`)——readback 自 `Rhi` 迁 `Queue<C>` 使**「先派发、后读回」执行序由类型强制**(submit 前无 `Queue`,submit 后 `Rhi` 已消费),move-out affine 语义(I1/I2 → RX4001)不变。⑤**I9 device 落地**(RXS-0263):`apps/uc05-rhi/src/demo.rx` 升为两 pass 真算 + readback 求和 vs 闭式参考,机器可核 token `UC05_SUM` / `UC05_REF`,步骤 72 独立复核相等;**I9 仍留 report_only**(一次观测非全域证明)。⑥**诚实标注未兑现面**:pass 重排 / 依赖驱动并行调度(多 stream)未实现——声明全序即执行序,`PlannedSync` 作用是插同步点非重排;**I10 未完全兑现**——每 transient `Res` 生命期 = 图生命期故峰值恒等于声明容量(「≤ 声明容量」平凡成立而非因复用收紧),别名复用与执行期峰值计数器均未实现,随后续期。⑦步骤 72 RED 断言改为**按语料头 `//@ assembly-reject: <category>` 逐例核类别**(`structure` / `reflection`),GREEN 增 I9 数值对照;evidence schema 增 `demo_numeric`。零新 RX 码维持(全复用 + 库层状态值);零新 lang item。 | **Full RFC**(RFC-0014 / §4.B / EI1.4) |
 | v1.1 | 2026-07-19 | EI1.3 PR-B2 实现落地 + **对抗性验证 disposition 诚实收窄**:①**readback 接线兑现**(RXS-0259):hir `Op::RhiReadback` + typeck(`rhi.readback(res)` 资源实参按值消费)+ mir_build(实参 `Operand::Move` → move 检查 RX4001)+ cabi `rxrt_rhi_readback(r, src)` affine 消费;readback 后再用 / 二次 readback → **RX4001**(I1/I2 真兑现,conformance/uc05/reject/res_use_after_move.rx + res_double_move.rx)。②**I4 诚实收窄**(RXS-0257/0263):I4 未声明访问核验机制(`with_reflection` 声明-反射相等)已实现 + 库测(`rejects_reflection_mismatch_i4`);`.rx` 编译器反射喂入(pass 绑 kernel)与 compute dispatch 耦合、随 **EI1.4** 落地——EI1.3 不宣称 I4 `.rx` 路 ci_checked,不锚 pass_undeclared_read.rx;矩阵 I4 证据级 = `lib_tested(EI1.3) / .rx_wiring:EI1.4`。③**I3/I5 装配期分档**(RXS-0263):I1/I2/I6/I7/I8 = **编译期**(typeck / --emit=check 即拦);I3/I5 = **装配期(图装配期)**(`submit()` 时 host 侧确定性拦,--emit=check CLEAN,submit 确定性 rxrt_trap);I4 = lib_tested;叙事改「I1~I8 = 100% **确定性**检测(编译期 OR 装配期确定性 / 库测机制),对照上一项目运行期概率性计数器可漏」,删对 I3/I4/I5 的「编译期即不可构造」过强表述。④**RXS-0262 诚实收窄**:EI1.3 兑现 host 侧容量记账(rhi.rs `transient_resource_capacity_accounting`),const 泛型定长数组编译期越界拒的 `.rx` 接线随后续期落地(Vec 承载 runtime-bounded)。⑤**RXS-0261 诚实收窄**:EI1.3 demo host 图 submit 装配核验通过 device 真跑(`UC05_RHI_OK`),pass 绑 kernel compute dispatch + 数值对照(I9)归 EI1.4。⑥语料迁 `conformance/uc05/{accept,reject,assembly}`(4 accept + 5 编译期 reject + 3 装配期,tests/uc05_corpus.rs 批跑)+ apps/uc05-rhi 零 .rs demo + 步骤 72(ci/uc05_rhi_smoke.py:host 恒跑 corpus/审计/--emit=check + device 段 EXE red-green)+ 步骤 73(ci/uc05_invariant_gate.py:I1~I8 逐条 + 三方一致)+ evidence/uc05_invariant_matrix.json(schema 字段全 string/null 硬拦 I9/I10 数值)+ comparison_report.md。零新 RX 码维持;trace_matrix 全锚定;stable 快照重 bless(spec_clauses 251→261,RXS-0180 L2 加性)。budget `ei1.counter.uc05_invariant_cases`(≥8)。 | **Full RFC**(RFC-0014 / §4.B / PR-B2) |
 | v1.0 | 2026-07-19 | 新建 spec/rhi.md(EI1.3,PR-B1 条款先行):带编号条款体 `### RXS-0256 ~ ### RXS-0265`(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements,**严禁 UB 节**;镜像 spec/render_graph.md 体例)——RXS-0256 RHI 类型面与 brand(Rhi / Queue / Res / Pass 薄映射 std::gpu lang items,per-instance 新鲜 opaque brand,方法所有权 reads / writes 取 &Res 借用、submit move-out、readback 为 Res move-out 锚,跨 brand → RX3006〔非 RX2001〕,kernel 体内 → RX3015,显式排除 RXS-0189 line 61 单-brand 运行期降级)/ RXS-0257 pass 声明与资源访问集(read / write 封闭枚举,未声明访问 I4 由编译器喂反射集核验、库层状态 Err 镜像 RX6030)/ RXS-0258 graph 构建与依赖推导(RAW / WAW 建序,依赖环 I3 / 写写冲突 I5 纯库层定长数组状态值构建期拒、镜像 RX6029)/ RXS-0259 资源生命周期 affine 拦截(I1 / I2 → RX4001 复用)/ RXS-0260 submit typestate(Graph → Submitted 消费式 1-submit,镜像 RXS-0197,二次 submit → RX4001)/ RXS-0261 执行语义(顺序调度 + 显式 sync + RXS-0193 诊断封口 + device 数值确定 I9)/ RXS-0262 transient 资源(const 泛型定长容量 RD-026,超界编译期拒,I10 峰值观测源)/ RXS-0263 I1~I10 不变量矩阵(裁决 1 划界:I1~I8 编译 / 构建期 100% 拦截入 G-EI1-3 步骤 73、I9 / I10 报告项入 G-EI1-5 步骤 75,documented_historical 无数字定性历史陈述、schema 禁无 in-repo 出处数值)/ RXS-0264 对照报告证据形态(uc05_invariant_matrix.json + schema check_schemas 硬拦 + comparison_report.md 顶部标注、三方一致性机核)/ RXS-0265 采纳判据操作化(C ABI 成熟 G-EI1-4 + check <5s 双口径 cold / warm、warm = 全量重析非 LSP 增量,阈 5000ms)。**Part B 零新 RX 码全复用**(RX4001 / RX4003 / RX3006 / RX3015 / RX2001 / RX2003 / RX2004 + 库层状态值镜像 RX6029 / RX6030 口径,§3 / §5.1);零新借用码。每条 ≥1 `//@ spec` 测试锚定(conformance/uc05/{accept,reject} + apps/uc05-rhi/src/demo.rx + 步骤 72 / 73 / 75 + evidence/uc05_* + schema)随实现 commit 同 PR 落,trace_matrix 全锚定;stable 快照同 PR 重 bless(RXS-0180 L2)。承 [RFC-0014](../rfcs/0014-engine-integration.md)(Agent Approved 2026-07-19,§4.B Part B 参考级设计)。 | **Full RFC**(RFC-0014 / §4.B / PR-B1) |

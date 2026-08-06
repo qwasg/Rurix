@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 318,
-      "next_free": 319,
+      "on_tree_max": 321,
+      "next_free": 322,
       "shadow_reserved": [
         181,
         182,
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.56",
+      "date": "2026-08-06",
+      "change": "G8.2 M89 spec-first PR:RXS-0319~0321 materialize(agent 主导串行合入,硬规则 7;设计案规划参考号 0325~0327 **不预占**,按 ledger 实测 next_free=319 顺位领取)。RXS on_tree_max 318→321、next_free 319→322——spec/rhi.md v1.8 纯追加 RXS-0319(VB/IB 声明算子与布局推导律)/RXS-0320(装配核验与越界拒)/RXS-0321(gfx 派发臂与 readback provenance)。依据 RFC-0019 RP-GFX-SUBMIT + G8_ACCEPTANCE_MAP M89 + 设计案 §6 + RD-037。零新 RX 码/U;CI_step 字段 0-byte(步骤号归实现 commit 顺位,现 next_free=102)。条款号连续;grep 实测最大条款头 = RXS-0321。"
+    },
     {
       "version": "v1.55",
       "date": "2026-08-06",
