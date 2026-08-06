@@ -228,6 +228,75 @@ impl SysWorld {
         self.inner.is_active(token)
     }
 
+    /// 线速度 + 角速度(世界系)。
+    pub fn body_velocities(&self, token: u64) -> Result<([f32; 3], [f32; 3]), SysError> {
+        self.inner.body_velocities(token)
+    }
+
+    /// 写线速度(不附带激活)。
+    pub fn set_linear_velocity(&mut self, token: u64, linear: [f32; 3]) -> Result<(), SysError> {
+        self.inner.set_linear_velocity(token, linear)
+    }
+
+    /// 写角速度(不附带激活)。
+    pub fn set_angular_velocity(&mut self, token: u64, angular: [f32; 3]) -> Result<(), SysError> {
+        self.inner.set_angular_velocity(token, angular)
+    }
+
+    /// 写位姿且 DontActivate(注入白名单面)。
+    pub fn set_position_rotation_dont_activate(
+        &mut self,
+        token: u64,
+        transform: &SysTransform,
+    ) -> Result<(), SysError> {
+        self.inner
+            .set_position_rotation_dont_activate(token, transform)
+    }
+
+    /// 写位姿 + 速度。
+    pub fn set_position_rotation_and_velocity(
+        &mut self,
+        token: u64,
+        transform: &SysTransform,
+        linear: [f32; 3],
+        angular: [f32; 3],
+    ) -> Result<(), SysError> {
+        self.inner
+            .set_position_rotation_and_velocity(token, transform, linear, angular)
+    }
+
+    /// 世界空间铰链约束;返回 constraint token。
+    pub fn add_hinge_constraint(
+        &mut self,
+        body_a: u64,
+        body_b: u64,
+        point: [f32; 3],
+        hinge_axis: [f32; 3],
+        normal_axis: [f32; 3],
+    ) -> Result<u64, SysError> {
+        self.inner
+            .add_hinge_constraint(body_a, body_b, point, hinge_axis, normal_axis)
+    }
+
+    pub fn remove_constraint(&mut self, token: u64) -> Result<(), SysError> {
+        self.inner.remove_constraint(token)
+    }
+
+    pub fn set_hinge_motor(
+        &mut self,
+        token: u64,
+        state: u32,
+        target_angular_velocity: f32,
+    ) -> Result<(), SysError> {
+        self.inner
+            .set_hinge_motor(token, state, target_angular_velocity)
+    }
+
+    /// `(token, body_a, body_b, enabled, motor_state)` 按 token 升序。
+    pub fn constraint_snapshot(&self) -> Vec<(u64, u64, u64, bool, u32)> {
+        self.inner.constraint_snapshot()
+    }
+
     /// 当前 body 数。
     pub fn num_bodies(&self) -> u32 {
         self.inner.num_bodies()
@@ -598,5 +667,37 @@ mod tests {
             world.body_transform(ball).unwrap_err().code,
             SysErrorCode::InvalidBody
         );
+    }
+
+    #[test]
+    fn hinge_constraint_step_smoke() {
+        fn box_desc(kind: SysBodyKind, x: f32, y: f32, z: f32, half: [f32; 3]) -> SysBodyDesc {
+            SysBodyDesc {
+                kind,
+                shape: SysShapeParams::Box { half_extents: half },
+                layer: if kind == SysBodyKind::Static { 0 } else { 1 },
+                mass: if kind == SysBodyKind::Dynamic { 1.0 } else { 0.0 },
+                friction: 0.5,
+                restitution: 0.0,
+                ccd: false,
+                allow_sleep: true,
+                translation: [x, y, z],
+                rotation: identity(),
+            }
+        }
+        let mut world = SysWorld::create(&desc(1)).unwrap();
+        let _ground = world
+            .add_bodies_batch(&[ground_desc()])
+            .unwrap()[0];
+        let anchor = world
+            .add_bodies_batch(&[box_desc(SysBodyKind::Static, 0.0, 4.0, 0.0, [0.3, 0.3, 0.3])])
+            .unwrap()[0];
+        let bar = world
+            .add_bodies_batch(&[box_desc(SysBodyKind::Dynamic, 0.0, 2.0, 0.0, [0.25, 0.25, 0.25])])
+            .unwrap()[0];
+        let token = world
+            .add_hinge_constraint(anchor, bar, [0.0, 4.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0])
+            .unwrap();
+        assert!(token > 0);
     }
 }

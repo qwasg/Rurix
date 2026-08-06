@@ -43,9 +43,17 @@
 mod arena;
 pub mod bridge;
 mod budget;
+#[cfg(feature = "physics-capture")]
+pub mod capture;
+#[cfg(feature = "physics-character")]
+pub mod asset;
+#[cfg(feature = "physics-character")]
+pub mod character;
 mod error;
 mod events;
 mod id;
+#[cfg(feature = "network-physics")]
+pub mod net;
 mod order;
 #[cfg(feature = "rapier")]
 mod rapier;
@@ -60,7 +68,7 @@ pub use budget::SyncBudget;
 pub use error::PhysicsError;
 pub use id::{BodyId, ShapeId};
 pub use types::{
-    BackendKind, BodyDesc, BodyKind, ContactEvent, ContactPhase, MassProps, OverlapHit,
-    PhysicsTransform, QueryHit, QueryRay, QueryShape, ShapeDesc, StepStats, WorldDesc,
+    BackendKind, BodyDesc, BodyKind, BodySemantic, ContactEvent, ContactPhase, MassProps,
+    OverlapHit, PhysicsTransform, QueryHit, QueryRay, QueryShape, ShapeDesc, StepStats, WorldDesc,
 };
 pub use world::{BudgetSaturation, PhysicsWorld};

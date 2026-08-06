@@ -112,6 +112,19 @@ pub enum BodyKind {
     Dynamic,
 }
 
+/// 单 body 语义快照(M66 canonical hash 白名单字段;RFC-0021 §4.A1)。
+#[derive(Debug, Clone, PartialEq)]
+pub struct BodySemantic {
+    pub body_id: BodyId,
+    pub kind: BodyKind,
+    pub is_active: bool,
+    pub layer: u32,
+    pub shape_id: ShapeId,
+    pub transform: PhysicsTransform,
+    pub linvel: [f32; 3],
+    pub angvel: [f32; 3],
+}
+
 /// 质量与材质参数(§4.A2 `mass_props`;sys 投影按字段摊平)。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MassProps {

@@ -34,6 +34,11 @@ macro_rules! opaque_id {
             pub fn to_bits(self) -> u64 {
                 self.0
             }
+
+            /// 自持久化/journal 位表示还原(失效 generation 仍由 arena 门禁)。
+            pub fn from_bits(bits: u64) -> Self {
+                Self(bits)
+            }
         }
 
         impl fmt::Display for $name {

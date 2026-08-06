@@ -24,6 +24,13 @@
   "ratio_assertions": [],
   "counter_assertions": [
     {
+      "id": "g8.counter.physics_replay_checks",
+      "description": "G8.6a M66 physics_replay 硬门判据通过数 >=15 且 host 见证 >=1(契约 §8.21 / CI_GATES §4 M66)。计数源 = evidence/g8_m66_physics_replay_*.json 中 host_section_pass=true 且 device_section_state=not_applicable 且 checks.* ≥15 全 true 的见证文件数。jolt_ab 诚实钉 5.3(ab_pass=false)。host 门。",
+      "evidence_file": "evidence/g8_m66_physics_replay_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
       "id": "g8.counter.tsr_contract_checks",
       "description": "G8.5b M24 tsr_contract 硬门判据通过数 >=13 且 device 见证 >=1(契约 §8.20 / CI_GATES §4 M24;RFC-0019 §4.6.4)。计数源 = evidence/g8_m24_tsr_contract_*.json 中 host_section_pass=true 且 device_section_state in {pass,executed} 且 checks.* ≥13 全 true 的见证文件数。tolerance 事实源 = tests/tsr_contract/freeze.json(rfc_budget_frozen)+RFC §4.6.4。device 门。",
       "evidence_file": "evidence/g8_m24_tsr_contract_*.json",
@@ -152,6 +159,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.15",
+      "date": "2026-08-06",
+      "change": "G8.6a M66+wave6a.exit materialize:counter_assertions 追加 g8.counter.physics_replay_checks(>=15 host);budget_eval 分支同落。"
+    },
     {
       "version": "v1.14",
       "date": "2026-08-06",

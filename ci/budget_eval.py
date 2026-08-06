@@ -1211,6 +1211,25 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M80 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.physics_replay_checks":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m66_physics_replay_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") != "not_applicable":
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 15:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 physics_replay 15 腿 host 全绿见证",
+            "G8.6a M66 实现回填前为正常状态",
+            strict,
+        )
     elif eid == "g8.counter.tsr_contract_checks":
         n = 0
         for f in (ROOT / "evidence").glob("g8_m24_tsr_contract_*.json"):

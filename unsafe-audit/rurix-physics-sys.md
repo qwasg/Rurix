@@ -5,7 +5,8 @@
 > 纪律章,Agent Approved 2026-07-31;R-G6-1 裁决:自维护薄 FFI 子 crate 绑定
 > SecondHalfGames/JoltC C API,rolt/jolt-rust 停滞否决)。
 > 编号:number_ledger v1.28 `reserved_in_flight[G6]` claim——**U33 起续号**(main
-> on_tree_max U32,next_free 33;U29 = EA1 预留显式跳让不回收)。
+> on_tree_max U32 时代基线;本文件已登记至 **U53**,U43~U46 跳号不回收;Gov materialize
+> 时按实测 `U.next_free` 回填 ledger,本稿不预占)。
 > vendor pin / 构建策略 / C-3 缺口审计:[`src/rurix-physics-sys/VENDOR.md`](../src/rurix-physics-sys/VENDOR.md)。
 
 ## 范围与豁免
@@ -38,10 +39,18 @@
 | U40 | `BodyLockRead` 配对(cast_ray 命中法线回填:`JPC_Body_GetWorldSpaceSurfaceNormal`;JoltC CastRay 结果不含法线,VENDOR.md §3 计划外缺口处置) | world.rs `surface_normal` | lock `new`/`delete` 配对;`GetBody` 仅在 `Succeeded` 后调用,返回指针锁期内有效、不持出锁;锁失败 → `[0,0,0]` 确定性回填(登记,不 panic);目标 body 刚被同射线查询命中(存活) |
 | U41 | `SysWorld` 的 `unsafe impl Send` / `unsafe impl Sync`(相位门,§4.A4 Q-B / §4.C3) | lib.rs 尾部 | `SysWorld` 独占拥有全部 JoltC 句柄(所有权单向);**变更路径**(`step`/`add_*`/`remove_*`/`drain_contacts`/`set_kinematic_target`/`apply_impulse`)= `&mut self`,Rust 借用规则编译期保证独占,step 相位内 Jolt job 线程只活在 `Update` 调用内;**只读查询路径**(`cast_*`/`overlap_*`/`body_transform`/`active_transforms`/`is_active`)= `&self`,对应 Jolt `NarrowPhaseQuery`/`BodyInterface` 只读面(step 外多线程并发安全,Jolt 上游文档口径),与 step 相位类型面互斥;contact 回调经 `Mutex` 收集,与并发查询无共享可变状态;body 注册表(`HashMap`)在 `&self` 相位不可变 |
 | U42 | `mem::zeroed` + `*_default` 初始化模式(settings 结构先 `zeroed::<T>()` 再由 JoltC `JPC_Xxx_default` 填充合法默认值,后覆写消费字段) | world.rs `build_shape` / `cast_shape` / `overlap_shape` / `make_body_settings` | 目标类型为全 POD `#[repr(C)]`(数值 + 裸指针 + u8,无 `bool`/引用/枚举陷阱——`bool` 已按 U35 纪律以 u8 过境),`zeroed` 位模式合法(指针 = null,u8 = 0);`zeroed` 后**必经**对应 `JPC_*_default` 填充再使用(不依赖 Rust 侧对默认值的假设,上游默认值变更随 pin 升级自动跟进);锚定布局见 U35 |
+| U47 | `BodyInterface` 速度只读(`JPC_BodyInterface_GetLinearVelocity` / `GetAngularVelocity`) | world.rs `body_velocities` | token 经 `validate_token` 在册;只读路径 step 外线程安全(§4.A4 Q-B);返回 POD `JpcVec3` 分量拷贝进 Rust 数组,不持出 FFI 指针;无效 token → 确定性 `Err(InvalidBody)` |
+| U48 | 线速度/角速度写入(`JPC_BodyInterface_SetLinearVelocity` / `SetAngularVelocity`) | world.rs `set_linear_velocity` / `set_angular_velocity` | `&mut self` step 相位独占;有限性 Rust 侧前置校验;不附带激活副作用(M66 注入/F-12 纪律);id 在册 |
+| U49 | 位姿写入且不激活(`JPC_BodyInterface_SetPositionAndRotation` + `JPC_ACTIVATION_DONT_ACTIVATE`) | world.rs `set_position_rotation_dont_activate` | 同 U48;`SysTransform` POD 按值过境;DontActivate 禁止求解器激活副作用;M66 注入白名单入口 |
+| U50 | 位姿+速度原子写入(`JPC_BodyInterface_SetPositionAndRotationAndVelocity`) | world.rs `set_position_rotation_and_velocity` | 同 U49;四元数/平移/速度均有限性校验;单 body 单锁窗口内连续调用,无中间可观测态泄漏 |
+| U51 | `BodyLockWrite` 配对(铰链约束创建取 `Body*`) | world.rs `add_hinge_constraint` | `JPC_BodyLockWrite_new/delete` 严格配对;两 body 均 `Succeeded` 后才读 `GetBody`;锁内仅读 position/rotation 构造 `JPC_HingeConstraintSettings`;失败路径逐锁 delete,无泄漏 |
+| U52 | 约束生命周期(`JPC_Constraint_AddRef` / `AddConstraint` / `RemoveConstraint` / `Release`) | world.rs `add_hinge_constraint` / `remove_constraint` / `Inner::drop` | Create 后 refcount=0;registry `AddRef` 持一份 + `AddConstraint` 经 `Ref<>` 再持一份;Remove/Drop 序 = `RemoveConstraint` 后 `Release`(双释放曾致堆损坏,已修);token 在册门禁 |
+| U53 | 铰链 motor 面(`JPC_HingeConstraint_SetMotorState` / `SetTargetAngularVelocity`) | world.rs `set_hinge_motor` / `constraint_snapshot` | constraint token(u64) 在册;motor state u32 直映射 Jolt `MotorState`;snapshot 只读枚举已注册约束,不回写 Rust 可变别名 |
 
 ## 销毁纪律
 
-`Inner::drop`(U34)为唯一销毁出口,固定序:摘除监听器 → `PhysicsSystem_delete`(连带
+`Inner::drop`(U34)为唯一销毁出口,固定序:摘除监听器 → 逐约束
+`RemoveConstraint`+`Constraint_Release`(U52)→ `PhysicsSystem_delete`(连带
 全部 body)→ 逐 body `JPC_Shape_Release`(U38)→ 过滤器/层接口 delete → job delete →
 temp delete。创建失败路径由 `CreateGuard` 逆序兜底(U34)。body 个体移除经
 `remove_bodies_batch`(U39)+ shape 引用单次释放(U38)。进程级 Jolt 注册不卸载(U33)。

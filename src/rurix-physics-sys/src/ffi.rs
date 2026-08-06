@@ -34,6 +34,13 @@ pub const JPC_MOTION_QUALITY_LINEAR_CAST: u8 = 1;
 // JPC_Activation(u32)
 pub const JPC_ACTIVATION_ACTIVATE: u32 = 0;
 pub const JPC_ACTIVATION_DONT_ACTIVATE: u32 = 1;
+// JPC_ConstraintSpace(u32)
+pub const JPC_CONSTRAINT_SPACE_LOCAL_TO_BODY_COM: u32 = 0;
+pub const JPC_CONSTRAINT_SPACE_WORLD_SPACE: u32 = 1;
+// JPC_MotorState(u32)
+pub const JPC_MOTOR_STATE_OFF: u32 = 0;
+pub const JPC_MOTOR_STATE_VELOCITY: u32 = 1;
+pub const JPC_MOTOR_STATE_POSITION: u32 = 2;
 // JPC_OverrideMassProperties(u8)
 pub const JPC_OVERRIDE_MASS_PROPS_CALC_MASS_INERTIA: u8 = 0;
 // JPC_PhysicsUpdateError(u32 位掩码)
@@ -466,6 +473,8 @@ opaque!(
     JpcBodyInterface,
     JpcBodyLockInterface,
     JpcBodyLockRead,
+    JpcBodyLockWrite,
+    JpcBodyLockMultiWrite,
     JpcNarrowPhaseQuery,
     JpcTempAllocatorImpl,
     JpcJobSystem,
@@ -479,8 +488,66 @@ opaque!(
     JpcContactListener,
     JpcCastShapeCollector,
     JpcCollideShapeCollector,
-    JpcString
+    JpcString,
+    JpcConstraint,
+    JpcHingeConstraint
 );
+
+/// JPC_ConstraintSettings(32B,align 8;layout_dump 2026-08-06)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JpcConstraintSettings {
+    pub enabled: u8,
+    pub _pad0: [u8; 3],
+    pub constraint_priority: u32,
+    pub num_velocity_steps_override: u32,
+    pub num_position_steps_override: u32,
+    pub draw_constraint_size: f32,
+    pub _pad1: u32,
+    pub user_data: u64,
+}
+
+/// JPC_SpringSettings(12B)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JpcSpringSettings {
+    pub mode: u8,
+    pub _pad0: [u8; 3],
+    pub frequency_or_stiffness: f32,
+    pub damping: f32,
+}
+
+/// JPC_MotorSettings(28B)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JpcMotorSettings {
+    pub spring_settings: JpcSpringSettings,
+    pub min_force_limit: f32,
+    pub max_force_limit: f32,
+    pub min_torque_limit: f32,
+    pub max_torque_limit: f32,
+}
+
+/// JPC_HingeConstraintSettings(208B,align 16;layout_dump 2026-08-06)。
+#[repr(C, align(16))]
+#[derive(Clone, Copy)]
+pub struct JpcHingeConstraintSettings {
+    pub constraint_settings: JpcConstraintSettings, // 0
+    pub space: u32,                                 // 32
+    pub _pad_space: [u8; 12],                       // 36 → Point1@48
+    pub point1: JpcVec3,                            // 48
+    pub hinge_axis1: JpcVec3,                       // 64
+    pub normal_axis1: JpcVec3,                      // 80
+    pub point2: JpcVec3,                            // 96
+    pub hinge_axis2: JpcVec3,                       // 112
+    pub normal_axis2: JpcVec3,                      // 128
+    pub limits_min: f32,                            // 144
+    pub limits_max: f32,                            // 148
+    pub limits_spring_settings: JpcSpringSettings,  // 152
+    pub max_friction_torque: f32,                   // 164
+    pub motor_settings: JpcMotorSettings,           // 168
+    pub _pad_end: [u8; 12],                         // 196 → size 208
+}
 
 // ---------------------------------------------------------------------------
 // extern "C" 函数声明(逐签名对齐 Functions.h;仅声明本切片消费子集)
@@ -618,11 +685,45 @@ unsafe extern "C" {
     pub fn JPC_BodyInterface_IsAdded(self_: *const JpcBodyInterface, body_id: JpcBodyId) -> bool;
     pub fn JPC_BodyInterface_IsActive(self_: *const JpcBodyInterface, body_id: JpcBodyId) -> bool;
     pub fn JPC_BodyInterface_ActivateBody(self_: *mut JpcBodyInterface, body_id: JpcBodyId);
+    pub fn JPC_BodyInterface_DeactivateBody(self_: *mut JpcBodyInterface, body_id: JpcBodyId);
     pub fn JPC_BodyInterface_GetPositionAndRotation(
         self_: *const JpcBodyInterface,
         body_id: JpcBodyId,
         out_position: *mut JpcVec3,
         out_rotation: *mut JpcQuat,
+    );
+    pub fn JPC_BodyInterface_SetPositionAndRotation(
+        self_: *mut JpcBodyInterface,
+        body_id: JpcBodyId,
+        position: JpcVec3,
+        rotation: JpcQuat,
+        activation_mode: u32, // JPC_Activation
+    );
+    pub fn JPC_BodyInterface_SetPositionRotationAndVelocity(
+        self_: *mut JpcBodyInterface,
+        body_id: JpcBodyId,
+        position: JpcVec3,
+        rotation: JpcQuat,
+        linear_velocity: JpcVec3,
+        angular_velocity: JpcVec3,
+    );
+    pub fn JPC_BodyInterface_GetLinearVelocity(
+        self_: *const JpcBodyInterface,
+        body_id: JpcBodyId,
+    ) -> JpcVec3;
+    pub fn JPC_BodyInterface_SetLinearVelocity(
+        self_: *mut JpcBodyInterface,
+        body_id: JpcBodyId,
+        linear_velocity: JpcVec3,
+    );
+    pub fn JPC_BodyInterface_GetAngularVelocity(
+        self_: *const JpcBodyInterface,
+        body_id: JpcBodyId,
+    ) -> JpcVec3;
+    pub fn JPC_BodyInterface_SetAngularVelocity(
+        self_: *mut JpcBodyInterface,
+        body_id: JpcBodyId,
+        angular_velocity: JpcVec3,
     );
     pub fn JPC_BodyInterface_MoveKinematic(
         self_: *mut JpcBodyInterface,
@@ -645,6 +746,52 @@ unsafe extern "C" {
     pub fn JPC_BodyLockRead_delete(self_: *mut JpcBodyLockRead);
     pub fn JPC_BodyLockRead_Succeeded(self_: *mut JpcBodyLockRead) -> bool;
     pub fn JPC_BodyLockRead_GetBody(self_: *mut JpcBodyLockRead) -> *const JpcBody;
+
+    // BodyLockWrite(约束 Create 取 Body*)
+    pub fn JPC_BodyLockWrite_new(
+        interface: *const JpcBodyLockInterface,
+        body_id: JpcBodyId,
+    ) -> *mut JpcBodyLockWrite;
+    pub fn JPC_BodyLockWrite_delete(self_: *mut JpcBodyLockWrite);
+    pub fn JPC_BodyLockWrite_Succeeded(self_: *mut JpcBodyLockWrite) -> bool;
+    pub fn JPC_BodyLockWrite_GetBody(self_: *mut JpcBodyLockWrite) -> *mut JpcBody;
+
+    // BodyLockMultiWrite(两体约束 Create 必须成对加锁,避免双 BodyLockWrite 未定义序)
+    pub fn JPC_BodyLockMultiWrite_new(
+        interface: *const JpcBodyLockInterface,
+        body_ids: *const JpcBodyId,
+        number: i32,
+    ) -> *mut JpcBodyLockMultiWrite;
+    pub fn JPC_BodyLockMultiWrite_delete(self_: *mut JpcBodyLockMultiWrite);
+    pub fn JPC_BodyLockMultiWrite_GetBody(
+        self_: *mut JpcBodyLockMultiWrite,
+        body_index: i32,
+    ) -> *mut JpcBody;
+
+    // Constraint / Hinge(M66 capture journal;消费既有导出,零 vendor 补丁)
+    pub fn JPC_HingeConstraintSettings_default(settings: *mut JpcHingeConstraintSettings);
+    pub fn JPC_HingeConstraintSettings_Create(
+        self_: *const JpcHingeConstraintSettings,
+        body1: *mut JpcBody,
+        body2: *mut JpcBody,
+    ) -> *mut JpcHingeConstraint;
+    pub fn JPC_PhysicsSystem_AddConstraint(
+        self_: *mut JpcPhysicsSystem,
+        constraint: *mut JpcConstraint,
+    );
+    pub fn JPC_PhysicsSystem_RemoveConstraint(
+        self_: *mut JpcPhysicsSystem,
+        constraint: *mut JpcConstraint,
+    );
+    pub fn JPC_Constraint_AddRef(self_: *const JpcConstraint);
+    pub fn JPC_Constraint_Release(self_: *const JpcConstraint);
+    pub fn JPC_Constraint_GetEnabled(self_: *const JpcConstraint) -> bool;
+    pub fn JPC_HingeConstraint_SetMotorState(self_: *mut JpcHingeConstraint, state: u32);
+    pub fn JPC_HingeConstraint_GetMotorState(self_: *const JpcHingeConstraint) -> u32;
+    pub fn JPC_HingeConstraint_SetTargetAngularVelocity(
+        self_: *mut JpcHingeConstraint,
+        angular_velocity: f32,
+    );
 
     // 形状(default 填充 + Create;Create 成功 → shape 引用计数 1,调用方持有)
     pub fn JPC_SphereShapeSettings_default(object: *mut JpcSphereShapeSettings);
@@ -793,6 +940,23 @@ mod ffi_layout_anchors {
         assert!(offset_of!(JpcCollideShapeArgs, base_offset) == 144);
         assert!(offset_of!(JpcCollideShapeArgs, collector) == 160);
         assert!(offset_of!(JpcCollideShapeArgs, shape_filter) == 192);
+
+        // Constraint / Hinge settings(layout_dump 2026-08-06)
+        assert!(size_of::<JpcConstraintSettings>() == 32 && align_of::<JpcConstraintSettings>() == 8);
+        assert!(offset_of!(JpcConstraintSettings, enabled) == 0);
+        assert!(offset_of!(JpcConstraintSettings, constraint_priority) == 4);
+        assert!(offset_of!(JpcConstraintSettings, user_data) == 24);
+        assert!(size_of::<JpcSpringSettings>() == 12);
+        assert!(size_of::<JpcMotorSettings>() == 28);
+        assert!(
+            size_of::<JpcHingeConstraintSettings>() == 208
+                && align_of::<JpcHingeConstraintSettings>() == 16
+        );
+        assert!(offset_of!(JpcHingeConstraintSettings, space) == 32);
+        assert!(offset_of!(JpcHingeConstraintSettings, point1) == 48);
+        assert!(offset_of!(JpcHingeConstraintSettings, point2) == 96);
+        assert!(offset_of!(JpcHingeConstraintSettings, limits_min) == 144);
+        assert!(offset_of!(JpcHingeConstraintSettings, motor_settings) == 168);
 
         // BodyCreationSettings
         assert!(

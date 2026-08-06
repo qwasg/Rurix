@@ -617,3 +617,17 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：M28 维持 no-go；vendor FSR FFI 不入本波；RD-038 GI/TSR/真帧接入空集。
 
 **验收**：M24 13/13 + M25 12/12 device PASS；wave5b.exit 聚合 PASS。
+
+### 8.21 G8.6a M66 + wave6a.exit（2026-08-06）
+
+**触发**：G8.6 PR-0（RFC-0021 §2.1.1.1 全线 (c)）+ wave5b.exit 解锁后 replay-first 物理波。
+
+**交付物**：
+- M66：`rurix-physics::capture` + `g8-physics-gates` record/replay/inject/ab + `ci/g8_physics_replay_smoke.py`（步骤 **120**）
+- M73 诚实判档：无 JoltC-next → `pin_5_3_honest_stop_loss`（`ab_pass=false`，不伪绿 5.6）
+- wave6a.exit：`ci/g8_wave6a_exit_check.py`（步骤 **121**；subject `g8.wave6a.m73.jolt_ab`）
+- unsafe-audit：**U47~U53**（velocity/pose/hinge/constraint 面）
+
+**诚实边界**：5.6 双二进制 A/B 未跑；钉 5.3 为止损成功臂，非升级 PASS。
+
+**验收**：M66 15/15 host PASS；wave6a.exit 聚合 PASS。

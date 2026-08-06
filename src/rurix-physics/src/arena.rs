@@ -85,6 +85,15 @@ impl<T> GenArena<T> {
         slot.value.as_mut()
     }
 
+    /// 遍历存活槽位`(index, generation, &T)`(槽位序 = 确定性面)。
+    pub(crate) fn iter_live(&self) -> impl Iterator<Item = (u32, u32, &T)> {
+        self.slots.iter().enumerate().filter_map(|(i, slot)| {
+            slot.value
+                .as_ref()
+                .map(|v| (i as u32, slot.generation, v))
+        })
+    }
+
     /// 移除并取回负载;失效句柄 → `None`。generation 达 `u32::MAX` 的槽位退休。
     pub(crate) fn remove(&mut self, index: u32, generation: u32) -> Option<T> {
         let slot = self.slots.get_mut(index as usize)?;

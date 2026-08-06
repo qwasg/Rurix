@@ -382,6 +382,12 @@ def check_evidence_files() -> None:
     g8_wave5b_exit_schema = load(
         ROOT / "milestones/g8/g8_wave5b_exit_evidence_schema.json"
     )
+    g8_m66_physics_replay_schema = load(
+        ROOT / "milestones/g8/g8_m66_physics_replay_evidence_schema.json"
+    )
+    g8_wave6a_exit_schema = load(
+        ROOT / "milestones/g8/g8_wave6a_exit_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -749,6 +755,16 @@ def check_evidence_files() -> None:
     g8_wave5b_exit_validator = (
         jsonschema.Draft7Validator(g8_wave5b_exit_schema)
         if g8_wave5b_exit_schema is not None
+        else None
+    )
+    g8_m66_physics_replay_validator = (
+        jsonschema.Draft7Validator(g8_m66_physics_replay_schema)
+        if g8_m66_physics_replay_schema is not None
+        else None
+    )
+    g8_wave6a_exit_validator = (
+        jsonschema.Draft7Validator(g8_wave6a_exit_schema)
+        if g8_wave6a_exit_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1455,6 +1471,18 @@ def check_evidence_files() -> None:
         ):
             # G8.5b 波次聚合门 g8.wave.5b.exit(步骤 119)。
             validator = g8_wave5b_exit_validator
+        elif (
+            f.name.startswith("g8_m66_physics_replay_")
+            and g8_m66_physics_replay_validator is not None
+        ):
+            # G8.6a M66 physics_replay(步骤 120)。
+            validator = g8_m66_physics_replay_validator
+        elif (
+            f.name.startswith("g8_wave6a_exit_")
+            and g8_wave6a_exit_validator is not None
+        ):
+            # G8.6a 波次聚合门 g8.wave.6a.exit(步骤 121)。
+            validator = g8_wave6a_exit_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

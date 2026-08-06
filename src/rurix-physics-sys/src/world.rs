@@ -378,6 +378,14 @@ struct BodyRec {
     kinematic_target: Option<SysTransform>,
 }
 
+struct ConstraintRec {
+    /// `JPC_HingeConstraint*` 作 `JPC_Constraint*` 使用(JoltC 继承布局)。
+    ptr: *mut JpcConstraint,
+    body_a: JpcBodyId,
+    body_b: JpcBodyId,
+    motor_state: u32,
+}
+
 pub(crate) struct Inner {
     ps: *mut JpcPhysicsSystem,
     bi: *mut JpcBodyInterface,
@@ -391,6 +399,9 @@ pub(crate) struct Inner {
     listener: *mut JpcContactListener,
     cb: Box<ContactSink>,
     bodies: HashMap<JpcBodyId, BodyRec>,
+    /// constraint token(u64 自增键,从 1 起)→ 句柄。
+    constraints: HashMap<u64, ConstraintRec>,
+    next_constraint_token: u64,
     layer_count: u32,
     max_bodies: u32,
 }
@@ -452,12 +463,16 @@ impl Drop for CreateGuard {
 impl Drop for Inner {
     fn drop(&mut self) {
         // SAFETY: 全部 JoltC 句柄为本 Inner 独占拥有、未提前释放;此时无 Update 在飞
-        // (Rust 借用规则:drop 需独占 &mut)。销毁序 = 摘除监听器(此后回调不再触发,
-        // cb 堆地址不再被引用)→ PhysicsSystem(连带 body 管理器内全部 body)→
-        // 逐 body 释放 shape 引用(Jolt Body 不持 shape 引用,world 代为持有)→
-        // 过滤器/层接口 → job → temp。
+        // (Rust 借用规则:drop 需独占 &mut)。销毁序 = 摘除监听器 → 摘除/释放约束 →
+        // PhysicsSystem(连带 body)→ 逐 body 释放 shape → 过滤器/层接口 → job → temp。
         unsafe {
             JPC_PhysicsSystem_SetContactListener(self.ps, std::ptr::null_mut());
+            for rec in self.constraints.values() {
+                // RemoveConstraint 释放 manager 的 Ref;再 Release 本 registry 的 AddRef(U52)。
+                JPC_PhysicsSystem_RemoveConstraint(self.ps, rec.ptr);
+                JPC_Constraint_Release(rec.ptr);
+            }
+            self.constraints.clear();
             JPC_PhysicsSystem_delete(self.ps);
             for rec in self.bodies.values() {
                 JPC_Shape_Release(rec.shape);
@@ -621,6 +636,8 @@ impl Inner {
                 listener: g.listener,
                 cb,
                 bodies: HashMap::new(),
+                constraints: HashMap::new(),
+                next_constraint_token: 1,
                 layer_count: desc.layer_count,
                 max_bodies: desc.max_bodies,
             };
@@ -952,6 +969,276 @@ impl Inner {
         let id = self.validate_token(token)?;
         // SAFETY: id 在册;只读路径。
         Ok(unsafe { JPC_BodyInterface_IsActive(self.bi, id) })
+    }
+
+    pub(crate) fn body_velocities(&self, token: u64) -> Result<([f32; 3], [f32; 3]), SysError> {
+        let id = self.validate_token(token)?;
+        // SAFETY: id 在册;BodyInterface 速度只读路径 step 外线程安全。
+        unsafe {
+            let lin = JPC_BodyInterface_GetLinearVelocity(self.bi, id);
+            let ang = JPC_BodyInterface_GetAngularVelocity(self.bi, id);
+            Ok(([lin.x, lin.y, lin.z], [ang.x, ang.y, ang.z]))
+        }
+    }
+
+    pub(crate) fn set_linear_velocity(
+        &mut self,
+        token: u64,
+        linear: [f32; 3],
+    ) -> Result<(), SysError> {
+        let id = self.validate_token(token)?;
+        if !linear.iter().all(|v| v.is_finite()) {
+            return Err(err(SysErrorCode::InvalidDesc, "linear velocity 必须有限"));
+        }
+        // SAFETY: id 在册;step 相位 &mut 独占;不附带激活(与 injection 纪律一致)。
+        unsafe {
+            JPC_BodyInterface_SetLinearVelocity(
+                self.bi,
+                id,
+                JpcVec3::new(linear[0], linear[1], linear[2]),
+            );
+        }
+        Ok(())
+    }
+
+    pub(crate) fn set_angular_velocity(
+        &mut self,
+        token: u64,
+        angular: [f32; 3],
+    ) -> Result<(), SysError> {
+        let id = self.validate_token(token)?;
+        if !angular.iter().all(|v| v.is_finite()) {
+            return Err(err(SysErrorCode::InvalidDesc, "angular velocity 必须有限"));
+        }
+        // SAFETY: 同 set_linear_velocity。
+        unsafe {
+            JPC_BodyInterface_SetAngularVelocity(
+                self.bi,
+                id,
+                JpcVec3::new(angular[0], angular[1], angular[2]),
+            );
+        }
+        Ok(())
+    }
+
+    /// 写入位姿且不激活(注入面;`JPC_ACTIVATION_DONT_ACTIVATE`)。
+    pub(crate) fn set_position_rotation_dont_activate(
+        &mut self,
+        token: u64,
+        transform: &SysTransform,
+    ) -> Result<(), SysError> {
+        let id = self.validate_token(token)?;
+        if !transform.translation.iter().all(|v| v.is_finite())
+            || !transform.rotation.iter().all(|v| v.is_finite())
+        {
+            return Err(err(SysErrorCode::InvalidDesc, "transform 必须有限"));
+        }
+        // SAFETY: id 在册;DontActivate 不附带激活副作用(F-12)。
+        unsafe {
+            JPC_BodyInterface_SetPositionAndRotation(
+                self.bi,
+                id,
+                JpcVec3::new(
+                    transform.translation[0],
+                    transform.translation[1],
+                    transform.translation[2],
+                ),
+                JpcQuat::new(
+                    transform.rotation[0],
+                    transform.rotation[1],
+                    transform.rotation[2],
+                    transform.rotation[3],
+                ),
+                JPC_ACTIVATION_DONT_ACTIVATE,
+            );
+        }
+        Ok(())
+    }
+
+    pub(crate) fn set_position_rotation_and_velocity(
+        &mut self,
+        token: u64,
+        transform: &SysTransform,
+        linear: [f32; 3],
+        angular: [f32; 3],
+    ) -> Result<(), SysError> {
+        let id = self.validate_token(token)?;
+        if !transform.translation.iter().all(|v| v.is_finite())
+            || !transform.rotation.iter().all(|v| v.is_finite())
+            || !linear.iter().all(|v| v.is_finite())
+            || !angular.iter().all(|v| v.is_finite())
+        {
+            return Err(err(SysErrorCode::InvalidDesc, "pose/velocity 必须有限"));
+        }
+        // SAFETY: id 在册;step 相位 &mut 独占。
+        unsafe {
+            JPC_BodyInterface_SetPositionRotationAndVelocity(
+                self.bi,
+                id,
+                JpcVec3::new(
+                    transform.translation[0],
+                    transform.translation[1],
+                    transform.translation[2],
+                ),
+                JpcQuat::new(
+                    transform.rotation[0],
+                    transform.rotation[1],
+                    transform.rotation[2],
+                    transform.rotation[3],
+                ),
+                JpcVec3::new(linear[0], linear[1], linear[2]),
+                JpcVec3::new(angular[0], angular[1], angular[2]),
+            );
+        }
+        Ok(())
+    }
+
+    /// 世界空间铰链约束(两体 + 铰链点/轴);返回 constraint token。
+    pub(crate) fn add_hinge_constraint(
+        &mut self,
+        body_a: u64,
+        body_b: u64,
+        point: [f32; 3],
+        hinge_axis: [f32; 3],
+        normal_axis: [f32; 3],
+    ) -> Result<u64, SysError> {
+        let id_a = self.validate_token(body_a)?;
+        let id_b = self.validate_token(body_b)?;
+        if id_a == id_b {
+            return Err(err(SysErrorCode::InvalidDesc, "hinge 两体不得相同"));
+        }
+        if !point
+            .iter()
+            .chain(hinge_axis.iter())
+            .chain(normal_axis.iter())
+            .all(|v| v.is_finite())
+        {
+            return Err(err(SysErrorCode::InvalidDesc, "hinge 参数必须有限"));
+        }
+        // SAFETY: BodyLockMultiWrite 成对加锁;GetBody 仅锁期内用于 Create;
+        // Create 后 refcount=0 → AddRef(registry) → AddConstraint(系统 AddRef);
+        // Drop/remove: RemoveConstraint + Release。
+        unsafe {
+            use crate::ffi::{
+                JPC_BodyLockMultiWrite_GetBody, JPC_BodyLockMultiWrite_delete,
+                JPC_BodyLockMultiWrite_new,
+            };
+            let mut ids = [id_a, id_b];
+            if ids[0] > ids[1] {
+                ids.swap(0, 1);
+            }
+            let multi = JPC_BodyLockMultiWrite_new(self.bli, ids.as_ptr(), 2);
+            if multi.is_null() {
+                return Err(err(
+                    SysErrorCode::BackendUnavailable,
+                    "BodyLockMultiWrite_new 失败",
+                ));
+            }
+            let body_lo = JPC_BodyLockMultiWrite_GetBody(multi, 0);
+            let body_hi = JPC_BodyLockMultiWrite_GetBody(multi, 1);
+            if body_lo.is_null() || body_hi.is_null() {
+                JPC_BodyLockMultiWrite_delete(multi);
+                return Err(err(SysErrorCode::InvalidBody, "hinge body 锁定失败"));
+            }
+            let (body_ptr_a, body_ptr_b) = if id_a <= id_b {
+                (body_lo, body_hi)
+            } else {
+                (body_hi, body_lo)
+            };
+            let mut settings = std::mem::zeroed::<JpcHingeConstraintSettings>();
+            JPC_HingeConstraintSettings_default(&mut settings);
+            settings.space = JPC_CONSTRAINT_SPACE_WORLD_SPACE;
+            settings.point1 = JpcVec3::new(point[0], point[1], point[2]);
+            settings.point2 = JpcVec3::new(point[0], point[1], point[2]);
+            settings.hinge_axis1 = JpcVec3::new(hinge_axis[0], hinge_axis[1], hinge_axis[2]);
+            settings.hinge_axis2 = JpcVec3::new(hinge_axis[0], hinge_axis[1], hinge_axis[2]);
+            settings.normal_axis1 = JpcVec3::new(normal_axis[0], normal_axis[1], normal_axis[2]);
+            settings.normal_axis2 = JpcVec3::new(normal_axis[0], normal_axis[1], normal_axis[2]);
+            let hinge = JPC_HingeConstraintSettings_Create(&settings, body_ptr_a, body_ptr_b);
+            JPC_BodyLockMultiWrite_delete(multi);
+            if hinge.is_null() {
+                return Err(err(
+                    SysErrorCode::BackendUnavailable,
+                    "HingeConstraintSettings_Create 返回 null",
+                ));
+            }
+            let constraint = hinge as *mut JpcConstraint;
+            JPC_Constraint_AddRef(constraint);
+            JPC_PhysicsSystem_AddConstraint(self.ps, constraint);
+            let token = self.next_constraint_token;
+            self.next_constraint_token = self.next_constraint_token.saturating_add(1);
+            self.constraints.insert(
+                token,
+                ConstraintRec {
+                    ptr: constraint,
+                    body_a: id_a,
+                    body_b: id_b,
+                    motor_state: JPC_MOTOR_STATE_OFF,
+                },
+            );
+            Ok(token)
+        }
+    }
+
+    pub(crate) fn remove_constraint(&mut self, token: u64) -> Result<(), SysError> {
+        let Some(rec) = self.constraints.remove(&token) else {
+            return Err(err(
+                SysErrorCode::InvalidDesc,
+                format!("无效 constraint token {token:#x}"),
+            ));
+        };
+        // SAFETY: ptr 为本 world 创建并 AddConstraint 过;Remove 释 manager Ref,
+        // Release 释 registry AddRef(Create 后 AddRef 配对,缺一则泄漏或双重释放)。
+        unsafe {
+            JPC_PhysicsSystem_RemoveConstraint(self.ps, rec.ptr);
+            JPC_Constraint_Release(rec.ptr);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn set_hinge_motor(
+        &mut self,
+        token: u64,
+        state: u32,
+        target_angular_velocity: f32,
+    ) -> Result<(), SysError> {
+        let Some(rec) = self.constraints.get_mut(&token) else {
+            return Err(err(
+                SysErrorCode::InvalidDesc,
+                format!("无效 constraint token {token:#x}"),
+            ));
+        };
+        if !target_angular_velocity.is_finite() {
+            return Err(err(SysErrorCode::InvalidDesc, "motor target 必须有限"));
+        }
+        // SAFETY: ptr 为有效 HingeConstraint*;step 相位 &mut 独占。
+        unsafe {
+            let hinge = rec.ptr as *mut JpcHingeConstraint;
+            JPC_HingeConstraint_SetMotorState(hinge, state);
+            JPC_HingeConstraint_SetTargetAngularVelocity(hinge, target_angular_velocity);
+        }
+        rec.motor_state = state;
+        Ok(())
+    }
+
+    pub(crate) fn constraint_snapshot(&self) -> Vec<(u64, u64, u64, bool, u32)> {
+        let mut out: Vec<(u64, u64, u64, bool, u32)> = self
+            .constraints
+            .iter()
+            .map(|(&token, rec)| {
+                // SAFETY: ptr 在册;GetEnabled 只读。
+                let enabled = unsafe { JPC_Constraint_GetEnabled(rec.ptr) };
+                (
+                    token,
+                    rec.body_a as u64,
+                    rec.body_b as u64,
+                    enabled,
+                    rec.motor_state,
+                )
+            })
+            .collect();
+        out.sort_by_key(|(t, _, _, _, _)| *t);
+        out
     }
 
     pub(crate) fn num_bodies(&self) -> u32 {

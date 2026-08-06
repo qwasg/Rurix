@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.6a M66 physics_replay evidence",
+  "description": "evidence/g8_m66_physics_replay_<UTC>.json。G8.6a P0 硬门 g8.p0.m66.physics_replay:Jolt 5.3 capture/replay 逐 tick hash + journal 全消费 + divergence 定位(RFC-0021 §4.A1;design §2.7)。host 恒跑,device not_applicable。numeric_step 由 Gov materialize 回填(本稿不预占 ledger)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "jolt_ab",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m66_physics_replay" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m66.physics_replay" },
+    "matrix_row": { "type": "string", "const": "M66" },
+    "wave": { "type": "string", "const": "G8.6a" },
+    "numeric_step": { "type": "integer", "minimum": 0 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0021 §4.A1;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §2;G8_ACCEPTANCE_MAP M66"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_header_complete",
+        "recovery_layer_registered",
+        "capture_artifact_persisted",
+        "corpus_scene_count_min",
+        "per_tick_hash_equal_all_scenes",
+        "event_digest_equal_all_scenes",
+        "journal_fully_consumed",
+        "journal_leftover_fails_closed",
+        "journal_missing_fails_closed",
+        "generation_reuse_stable",
+        "streaming_receipt_order_journaled",
+        "float_canonicalization_enforced",
+        "injection_divergence_exact_all",
+        "injection_report_fields_complete",
+        "non_whitelist_injection_rejected"
+      ],
+      "properties": {
+        "capture_header_complete": { "type": "boolean" },
+        "recovery_layer_registered": { "type": "boolean" },
+        "capture_artifact_persisted": { "type": "boolean" },
+        "corpus_scene_count_min": { "type": "boolean" },
+        "per_tick_hash_equal_all_scenes": { "type": "boolean" },
+        "event_digest_equal_all_scenes": { "type": "boolean" },
+        "journal_fully_consumed": { "type": "boolean" },
+        "journal_leftover_fails_closed": { "type": "boolean" },
+        "journal_missing_fails_closed": { "type": "boolean" },
+        "generation_reuse_stable": { "type": "boolean" },
+        "streaming_receipt_order_journaled": { "type": "boolean" },
+        "float_canonicalization_enforced": { "type": "boolean" },
+        "injection_divergence_exact_all": { "type": "boolean" },
+        "injection_report_fields_complete": { "type": "boolean" },
+        "non_whitelist_injection_rejected": { "type": "boolean" }
+      }
+    },
+    "jolt_ab": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe",
+        "jolt_version_pinned",
+        "ab_pass",
+        "verdict",
+        "honest_boundary"
+      ],
+      "properties": {
+        "probe": { "type": "string" },
+        "jolt_version_pinned": { "type": "string" },
+        "ab_pass": { "type": "boolean" },
+        "verdict": { "type": "string" },
+        "honest_boundary": { "type": "string" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_id": "rurix.physics.capture",
+  "schema_version": 1,
+  "jolt_version": "5.3.0",
+  "joltc_commit": "2982004387a9e36ca89525a87d983709d3666da7",
+  "joltc_abi_digest": "957b68c405ec6511eccd091c25201376f86f7a9bb05195230cd72b201a606465",
+  "rurix_build_fingerprint": "rurix-physics/1.0.0 rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "platform": "x86_64-windows-msvc",
+  "fixed_step_rational": {"num": 1, "den": 60},
+  "world_desc": {
+    "backend": "Jolt",
+    "gravity": ["00000000", "c11cf5c3", "00000000"],
+    "layer_count": 8,
+    "max_bodies": 4096,
+    "job_threads": 1,
+    "dt_fixed": "3c888889",
+    "contact_capacity": 4096
+  },
+  "id_domain_start": 0,
+  "determinism_profile": {
+    "job_threads": 1,
+    "job_system": "ThreadPool",
+    "cross_platform_deterministic": false,
+    "double_precision": false,
+    "object_layer_bits": 16
+  },
+  "budget_profile": {
+    "contact_capacity": 4096,
+    "max_query_casts": 4096,
+    "max_contact_events": 4096,
+    "max_body_writes": 65536
+  },
+  "recovery_layer": "semantic_journal_rebuild_v1",
+  "scenario_id": "box_stack_settle",
+  "tick_count": 300
+}

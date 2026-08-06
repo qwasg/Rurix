@@ -32,12 +32,10 @@ use crate::id::{BodyId, ShapeId};
 use crate::order::{sort_overlap_hits, sort_query_hits};
 #[cfg(feature = "rapier")]
 use crate::rapier::RapierBackend;
-#[cfg(feature = "jolt")]
-use crate::types::BodyKind;
 #[cfg(any(feature = "jolt", feature = "rapier"))]
 use crate::types::ContactPhase;
 use crate::types::{
-    BackendKind, BodyDesc, ContactEvent, OverlapHit, PhysicsTransform, QueryHit, QueryRay,
+    BackendKind, BodyDesc, BodyKind, ContactEvent, OverlapHit, PhysicsTransform, QueryHit, QueryRay,
     QueryShape, ShapeDesc, StepStats, WorldDesc,
 };
 
@@ -52,11 +50,13 @@ pub struct BudgetSaturation {
     pub body_writes: u64,
 }
 
-/// body 槽位负载:后端 token(safe ↔ 后端映射键)+ body→shape 记录。
+/// body 槽位负载:后端 token(safe ↔ 后端映射键)+ body→shape 记录 + 语义元数据。
 #[derive(Debug)]
 struct BodyEntry {
     token: u64,
     shape: ShapeId,
+    kind: BodyKind,
+    layer: u32,
 }
 
 /// 一对已占槽位:(body (index, generation), shape (index, generation))。
@@ -255,8 +255,8 @@ impl PhysicsWorld {
         }
         // 先占槽(句柄不外泄),后端成功后回填 token;任一失败整批回滚。
         let mut slots = Vec::with_capacity(descs.len());
-        for _ in descs {
-            match alloc_body_slots(&mut self.bodies, &mut self.shapes) {
+        for d in descs {
+            match alloc_body_slots(&mut self.bodies, &mut self.shapes, d.kind, d.layer) {
                 Ok(parts) => slots.push(parts),
                 Err(e) => {
                     rollback_body_slots(&mut self.bodies, &mut self.shapes, &slots);
@@ -618,6 +618,242 @@ impl PhysicsWorld {
         }
     }
 
+    /// 接触 ring 当前 backlog(tick 末未 drain 条数;capture journal 画像)。
+    pub fn contact_ring_len(&self) -> usize {
+        self.ring.len()
+    }
+
+    /// 运动学体目标变换(下一固定步生效;Jolt MoveKinematic)。
+    pub fn set_kinematic_target(
+        &mut self,
+        body: BodyId,
+        target: PhysicsTransform,
+    ) -> Result<(), PhysicsError> {
+        if !target
+            .translation
+            .iter()
+            .chain(target.rotation.iter())
+            .all(|c| c.is_finite())
+        {
+            return Err(PhysicsError::InvalidDesc("kinematic target 须有限".into()));
+        }
+        let token = self.body_token(body)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .set_kinematic_target(token, &sys_transform(target))
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 set_kinematic_target(M66 门走 Jolt)".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    /// 线速度 + 角速度。
+    pub fn body_velocities(&self, body: BodyId) -> Result<([f32; 3], [f32; 3]), PhysicsError> {
+        let token = self.body_token(body)?;
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys.body_velocities(token).map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 body_velocities(M66 门走 Jolt)".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    pub fn set_linear_velocity(
+        &mut self,
+        body: BodyId,
+        linear: [f32; 3],
+    ) -> Result<(), PhysicsError> {
+        if !linear.iter().all(|c| c.is_finite()) {
+            return Err(PhysicsError::InvalidDesc("linear velocity 须有限".into()));
+        }
+        let token = self.body_token(body)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .set_linear_velocity(token, linear)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 set_linear_velocity(M66 门走 Jolt)".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    pub fn set_angular_velocity(
+        &mut self,
+        body: BodyId,
+        angular: [f32; 3],
+    ) -> Result<(), PhysicsError> {
+        if !angular.iter().all(|c| c.is_finite()) {
+            return Err(PhysicsError::InvalidDesc("angular velocity 须有限".into()));
+        }
+        let token = self.body_token(body)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .set_angular_velocity(token, angular)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 set_angular_velocity(M66 门走 Jolt)".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    /// 写位姿且不激活(注入白名单;`DontActivate`)。
+    pub fn set_position_rotation_dont_activate(
+        &mut self,
+        body: BodyId,
+        transform: PhysicsTransform,
+    ) -> Result<(), PhysicsError> {
+        if !transform
+            .translation
+            .iter()
+            .chain(transform.rotation.iter())
+            .all(|c| c.is_finite())
+        {
+            return Err(PhysicsError::InvalidDesc("transform 须有限".into()));
+        }
+        let token = self.body_token(body)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .set_position_rotation_dont_activate(token, &sys_transform(transform))
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 set_position_rotation_dont_activate".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    /// 世界空间铰链;返回 constraint token(u64)。
+    pub fn add_hinge_constraint(
+        &mut self,
+        body_a: BodyId,
+        body_b: BodyId,
+        point: [f32; 3],
+        hinge_axis: [f32; 3],
+        normal_axis: [f32; 3],
+    ) -> Result<u64, PhysicsError> {
+        let ta = self.body_token(body_a)?;
+        let tb = self.body_token(body_b)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .add_hinge_constraint(ta, tb, point, hinge_axis, normal_axis)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 hinge constraint".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    pub fn remove_constraint(&mut self, constraint: u64) -> Result<(), PhysicsError> {
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .remove_constraint(constraint)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 remove_constraint".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    pub fn set_hinge_motor(
+        &mut self,
+        constraint: u64,
+        state: u32,
+        target_angular_velocity: f32,
+    ) -> Result<(), PhysicsError> {
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .set_hinge_motor(constraint, state, target_angular_velocity)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
+                "Rapier 路径暂未暴露 set_hinge_motor".into(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
+    }
+
+    /// `(constraint_token, body_a_bits, body_b_bits, enabled, motor_state)`。
+    pub fn constraint_snapshot(&self) -> Vec<(u64, u64, u64, bool, u32)> {
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                let mut out = Vec::new();
+                for (token, a, b, enabled, motor) in sys.constraint_snapshot() {
+                    let a_bits = self
+                        .token_map
+                        .get(&a)
+                        .map(|id| id.to_bits())
+                        .unwrap_or(0);
+                    let b_bits = self
+                        .token_map
+                        .get(&b)
+                        .map(|id| id.to_bits())
+                        .unwrap_or(0);
+                    out.push((token, a_bits, b_bits, enabled, motor));
+                }
+                out
+            }
+            #[allow(unreachable_patterns)]
+            _ => Vec::new(),
+        }
+    }
+
+    /// 存活 body 语义快照(BodyId 升序;capture canonical 前像源)。
+    pub fn body_semantic_snapshot(&self) -> Result<Vec<crate::types::BodySemantic>, PhysicsError> {
+        let mut out = Vec::new();
+        for (index, generation, entry) in self.bodies.iter_live() {
+            let id = BodyId::new(index, generation);
+            let transform = self.body_transform(id)?;
+            let (linvel, angvel) = match self.body_velocities(id) {
+                Ok(v) => v,
+                Err(_) => ([0.0; 3], [0.0; 3]),
+            };
+            let active = self.is_active(id).unwrap_or(false);
+            out.push(crate::types::BodySemantic {
+                body_id: id,
+                kind: entry.kind,
+                is_active: active,
+                layer: entry.layer,
+                shape_id: entry.shape,
+                transform,
+                linvel,
+                angvel,
+            });
+        }
+        out.sort_by_key(|b| b.body_id);
+        Ok(out)
+    }
+
     /// 查询预算消耗(&self 并发面:耗尽可能多线程同时发生,计数走原子)。
     fn consume_query_budget(&self, budget: &mut SyncBudget) -> bool {
         if budget.try_consume_query_cast() {
@@ -642,11 +878,15 @@ impl PhysicsWorld {
 fn alloc_body_slots(
     bodies: &mut GenArena<BodyEntry>,
     shapes: &mut GenArena<()>,
+    kind: BodyKind,
+    layer: u32,
 ) -> Result<BodyShapeSlots, PhysicsError> {
     let shape_parts = shapes.alloc(())?;
     match bodies.alloc(BodyEntry {
         token: 0,
         shape: ShapeId::new(shape_parts.0, shape_parts.1),
+        kind,
+        layer,
     }) {
         Ok(body_parts) => Ok((body_parts, shape_parts)),
         Err(e) => {

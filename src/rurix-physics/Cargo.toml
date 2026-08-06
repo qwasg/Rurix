@@ -16,6 +16,8 @@ rurix-physics-sys = { path = "../rurix-physics-sys", optional = true }
 # 仅消费 host 侧类型面(GpuScene 变换写口 + DirtyRange),不启用 render 的
 # device feature(vulkan 默认 off);后端无关,`--no-default-features` 档同编译。
 rurix-render = { path = "../rurix-render" }
+# M66 capture semantic_state_hash(RFC-0021 §4.A1):复用 M31 先例手写 SHA-256。
+rurix-pkg = { path = "../rurix-pkg", optional = true }
 # Rapier 快路径第二后端(G6.4,RFC-0017 §4.D):纯 Rust 零 CMake,经 feature
 # `rapier` 启用(默认 off);消费收敛于 src/rapier.rs 单模块(§4.C4 grep
 # 判据 v1.4 收窄),crate 维持 forbid(unsafe_code)。feature 面(RFC 修订
@@ -29,6 +31,12 @@ rapier3d = { version = "=0.33.0", default-features = false, features = ["dim3", 
 [features]
 default = ["jolt"]
 jolt = ["dep:rurix-physics-sys"]
+# physics-capture:M66 capture/replay(RFC-0021 §6.2 冻结名);依赖 jolt + sha256。
+physics-capture = ["jolt", "dep:rurix-pkg"]
+# network-physics:M67 history/rollback/correction/event dedup/smoothing(RFC-0021 §6.2)。
+network-physics = ["physics-capture"]
+# physics-character:M71 CharacterVirtual + M69 PhysicsAsset 产品层(RFC-0021 §6.2)。
+physics-character = ["physics-capture"]
 # rapier:G6.4 快路径第二后端(默认 off,cargo metadata 可机验;G-G6-5)。
 # 纯 Rust 零 CMake(default-features = false,=0.33.0 pin,RFC-0017 §4.D1
 # 调研锚 2026-07-31);「快路径 ≠ 性能/稳定性默认」(§4.D4)。

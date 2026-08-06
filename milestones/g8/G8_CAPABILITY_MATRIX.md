@@ -141,14 +141,14 @@
 | M64 | 刚体底座（多核/睡眠/批插/CCD/并发查询/接触事件/SyncBudget） | R2 §2.2~2.4 | ✅ G6 `rurix-physics`（Jolt 5.3.0 自维护 JoltC FFI，U33~U43 审计，CI 步骤 88~92） | — | — | ✅ | ✔ | — |
 | M65 | Rapier 快路径对拍 | — | ✅ G6.4（parity 七判据，默认 off） | — | — | ✅ | ✔ | — |
 | M65b | Rapier 快路径**深造**（真实 workload 采用面） | RD-044 backfill | ⬜ G6.4 仅为对拍见证；生产 workload 未采用 | parity 扩展场景、性能/功能差距闭环 | C | P2 | ✔ | G8.7 穷举（**仅**决策表 go；默认 no-go；RD-044 四拆之一） |
-| M66 | physics capture/replay + 状态哈希 + divergence 定位 | R2 §2.13 / §3.1 | 🟡 Jolt `SaveState`/determinism 原语存在但**未包装**；G6 有固定步确定性烟测（N=100 逐位）无 capture/replay 面 | B/C：snapshot delta、body lifecycle journal、重演比对器 | B/C | P0 | ✔ | **G8.6a**（replay corpus 建成后再评估 Jolt 升级） |
+| M66 | physics capture/replay + 状态哈希 + divergence 定位 | R2 §2.13 / §3.1 | ✅ G8.6a materialize：`physics-capture` + 10 场景 corpus + 15 腿 smoke（步骤 120）；divergence 注入定位 | B/C：snapshot delta、body lifecycle journal、重演比对器 | B/C | P0 | ✔ | **G8.6a**（已绿；M73 钉 5.3） |
 | M67 | 网络物理层（input/state history、prediction、rollback/resimulation、事件去重、平滑） | R2 §2.12 | ⬜ | C：physics frame ID、快照环、server correction | C | P0 | ✔ | **G8.6b** |
 | M68 | 破坏生产链（预破碎资产/connection graph/strain 断键/层级 cluster 激活/cache/VFX 事件桥） | R2 §2.5 | ⬜ Jolt 无内建 fracture；**未被 RD-044 覆盖的新缺口面** | C：GeometryCollection 等价运行时；D：Voronoi/plane fracture cook、interior face、anchor | C/D | P0 | ✔ | **G8.6c** |
 | M69 | PhysicsAsset / ragdoll / physical animation | R2 §2.8 | ⬜（§0 核对：rurix-physics 零 character/ragdoll 包装；Jolt Ragdoll/motor 原语在 vendor 内未暴露） | C：骨骼刚体映射、pose motor、partial simulation；D：collider/joint authoring | C/D | P1 | ✔ | G8.6b |
 | M70 | 载具产品层 | R2 §2.7 | ⬜（Jolt `VehicleConstraint` 未包装） | C：drivetrain/tire 包装与状态序列化；D：调参资产/telemetry | C/D | P1 | ✔ | G8.6d |
 | M71 | 角色控制器（CharacterVirtual 包装） | R2 §3.1 | ⬜ | C：包装 + 状态保存（网络联动） | C | P1 | ✔ | G8.6b |
 | M72 | 布料（开放 panel/seam/fabric schema、DCC 导入、碰撞/LOD、独立求解时间线） | R2 §2.6 | ⬜ Jolt soft body 未包装（且官方限制：无 self-collision 等，R2 §3.1）；RD-044 分项 | C：XPBD cloth 或 Jolt soft body 扩展；D：资产 schema + USD 导入验证 | C/D | P1 | ✔ | **G8.6d**（RD-044 Cloth；决策表） |
-| M73 | Jolt 5.3→5.6 升级评估（GPU compute 抽象/新摩擦模型/ragdoll motor） | R2 §3.2 | ⬜（vendor 钉在 5.3.0） | B：replay/perf/CCD 回归 + 资产重烘焙规则 | B/D | P1 | ✔ | **G8.6a**（**须**在 M66 replay corpus 建成后 A/B） |
+| M73 | Jolt 5.3→5.6 升级评估（GPU compute 抽象/新摩擦模型/ragdoll motor） | R2 §3.2 | 🟡 wave6a subject：`pin_5_3_honest_stop_loss`（无 JoltC-next，不伪绿 5.6） | B：replay/perf/CCD 回归 + 资产重烘焙规则 | B/D | P1 | ✔ | **G8.6a**（诚实钉 5.3；双二进制 A/B 后置） |
 | M74 | Physics Field 等价（统一空间影响） | R2 §2.14 | ⬜ | field evaluator + 资产化 | C/D | P2 | ✔ | G8.7 评估 |
 | M75 | 异步物理 tick / physics thread 时间域 | R2 §2.11 | 🟡 固定步 + accumulator 在宿主（RFC-0017 冻结面）；独立 physics thread/异步 tick 未做 | frame-domain 契约、回调时序 | B/C | P2 | ✔ | G8.7 评估 |
 | M76 | 软体 Flesh / MPM / FLIP / 神经布料 / 可微物理 | R2 §4 | 🔬 Continuum/Fluid → RD-044 P3 观察；**Differentiable → RD-042**（不进 RD-044 四拆）；RD-043 维持 | — | — | P3 | 部分 | 不进 G8 硬门（见 G8_PLAN §1.4） |
@@ -241,6 +241,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.0 | 2026-08-02 | 初版：基于 R1/R2/R3 三份深度调研 + 仓内实况核对建立能力矩阵；P0/RD 映射、成功判据草案、门控重审条件。零编号占用。 |
-| v1.1 | 2026-08-02 | **对齐 G8_PLAN v1.1 评审修订（暂不定稿）**：承 G7/条件型 RD 纪律；M01/M04→G8.3；M28→RFC-α+5b；M40 SVT 门槛；M50 增量退出门；M59 多队列 RFC-α；M65b Rapier 深造；P0 波次与成功判据防假绿；Differentiable→RD-042。 |
+| v1.3 | 2026-08-06 | **G8.6a M66 materialize**：M66→✅；M73→🟡 `pin_5_3_honest_stop_loss`。 |
 | v1.2 | 2026-08-02 | 对齐 G8_PLAN v1.2 双门解耦：G8.1 governance-only active、G8.2+ blocked；“承 G7”全记 unresolved；编号仅 RFC-0019~0021，其他共享在途空间零占用；RFC-α 具体化为 RFC-0019；M50 单独 strategic_override，M28 no-go 不实现。 |
+| v1.1 | 2026-08-02 | **对齐 G8_PLAN v1.1 评审修订（暂不定稿）**：承 G7/条件型 RD 纪律；M01/M04→G8.3；M28→RFC-α+5b；M40 SVT 门槛；M50 增量退出门；M59 多队列 RFC-α；M65b Rapier 深造；P0 波次与成功判据防假绿；Differentiable→RD-042。 |
+| v1.0 | 2026-08-02 | 初版：基于 R1/R2/R3 三份深度调研 + 仓内实况核对建立能力矩阵；P0/RD 映射、成功判据草案、门控重审条件。零编号占用。 |
