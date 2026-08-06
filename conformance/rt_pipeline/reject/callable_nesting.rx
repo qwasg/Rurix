@@ -1,3 +1,20 @@
 //@ spec: RXS-0324
 //@ expect-error: RX3013
-// G8.2 M50 reject:callable 内再 execute_callable / trace_ray → 编译期拒。
+// G8.2 M50 reject:callable 内再 execute_callable → RX3013 扩。
+struct CallData {
+    tag: u32,
+}
+
+fn execute_callable(index: u32, data: &mut CallData) {
+    let _ = (index, data);
+}
+
+callable fn cb_outer(#[callable_data] d: &mut CallData) {
+    execute_callable(0, d);
+}
+
+callable fn cb_inner(#[callable_data] d: &mut CallData) {
+    d.tag = 1;
+}
+
+fn main() {}

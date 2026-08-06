@@ -1,3 +1,33 @@
 //@ spec: RXS-0323, RXS-0324, RXS-0325
-// G8.2 M50 accept:procedural hit group (intersection+closesthit)。
-// expect: compile+device PASS (post-impl)
+// G8.2 M50 accept:procedural hit group(intersection + closesthit)编译面 GREEN。
+struct RayPayload {
+    hit_id: u32,
+}
+
+struct HitAttr {
+    u: f32,
+    v: f32,
+}
+
+raygen fn rg(tlas: AccelStruct, #[payload] p: &mut RayPayload) {
+    let _ = tlas;
+    let _ = p;
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+#[hit_group(proc_aabb)]
+intersection fn isect(#[hit_attribute] attr: &mut HitAttr) {
+    attr.u = 0.5;
+    attr.v = 0.5;
+}
+
+#[hit_group(proc_aabb)]
+closesthit fn ch(#[payload] p: &mut RayPayload, #[hit_attribute] attr: &HitAttr) {
+    let _ = p;
+    let _ = attr;
+}
+
+fn main() {}

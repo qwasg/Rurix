@@ -34,6 +34,10 @@ pub mod pipeline;
 /// (U27/U31 同一 vk FFI 边界扩注)。
 #[cfg(feature = "vulkan")]
 pub mod pso_cache;
+/// G8.2 M50 RT pipeline 增量(RXS-0326/0327;`plan_sbt_v2`/packer/stack/
+/// `run_rt_pipeline_offscreen`;既有 `plan_sbt`/`run_ray_tracing_offscreen` 0-byte)。
+#[cfg(feature = "vulkan")]
+pub mod rt_incremental;
 /// Rust 级多 pass 图形执行器(RFC-0016 章 B 主通道;G5 门 G-G5-4 前置;U32)。feature
 /// `vulkan` gate:资源描述 + raster/compute 混合 pass + 屏障计划逐字回放 + readback,
 /// 内建 pipeline cache 与 `VK_KHR_shader_atomic_int64` 能力探测面。引擎渲染器库

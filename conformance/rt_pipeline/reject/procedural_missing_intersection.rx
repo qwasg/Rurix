@@ -1,3 +1,14 @@
 //@ spec: RXS-0323
 //@ expect-error: RX3017
 // G8.2 M50 reject:procedural group 缺 intersection → RX3017 扩。
+struct P {
+    c: f32,
+}
+
+raygen fn rg() {}
+miss fn ms(#[payload] p: &mut P) { let _ = p; }
+
+#[hit_group(procedural_main)]
+closesthit fn ch(#[payload] p: &mut P) { let _ = p; }
+
+fn main() {}

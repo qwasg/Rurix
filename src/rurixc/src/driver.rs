@@ -250,6 +250,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                                     | Some("reflection")
                                     | Some("permutations")
                                     | Some("capabilities")
+                                    | Some("rt-manifest")
                             ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
@@ -367,6 +368,14 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     #[cfg(feature = "shader-stages")]
     if emit.as_deref() == Some("capabilities") {
         return emit_capabilities(&diag, &sm, cap_ctx.as_ref(), out.as_deref());
+    }
+
+    // --emit=rt-manifest(G8.2 M50,RXS-0323;RFC-0019 §4.1):RT pipeline manifest
+    // `rurix.rt-pipeline-manifest.v1`(raygen/miss/hit_groups/callables + schema
+    // hash + interface hash),纯 host/compile 面。
+    #[cfg(feature = "shader-stages")]
+    if emit.as_deref() == Some("rt-manifest") {
+        return emit_rt_manifest(&diag, &sm, &cx, &src, out.as_deref());
     }
 
     if emit.as_deref() == Some("mir") {
@@ -547,6 +556,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                 | "reflection"
                 | "permutations"
                 | "capabilities"
+                | "rt-manifest"
                 | "nvptx-ir"
                 | "ptx"
                 | "llvm-ir"
@@ -558,7 +568,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             &diag,
             &sm,
             format!(
-                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/permutations/capabilities/llvm-ir/nvptx-ir/ptx/pyd/dll)"
+                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/permutations/capabilities/rt-manifest/llvm-ir/nvptx-ir/ptx/pyd/dll)"
             ),
         );
         return 1;
@@ -1195,6 +1205,38 @@ fn emit_permutations(
         render_diagnostics(&diag.emitted(), sm, diag.messages())
     );
     1
+}
+
+/// `--emit=rt-manifest`(G8.2 M50,RXS-0323):产 `rurix.rt-pipeline-manifest.v1`。
+#[cfg(feature = "shader-stages")]
+fn emit_rt_manifest(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    src: &str,
+    out: Option<&Path>,
+) -> u8 {
+    let file = cx.ast();
+    match crate::rt_pipeline::build_rt_manifest_json(file, src) {
+        Ok(json) => match out {
+            Some(p) => {
+                if let Err(e) = std::fs::write(p, json.as_bytes()) {
+                    toolchain_err(diag, sm, format!("rt-manifest 写入失败: {e}"));
+                    return 1;
+                }
+                eprintln!("rurixc: --emit=rt-manifest: {}", p.display());
+                0
+            }
+            None => {
+                print!("{json}");
+                0
+            }
+        },
+        Err(e) => {
+            toolchain_err(diag, sm, format!("rt-manifest: {e}"));
+            1
+        }
+    }
 }
 
 /// G8.2 M32 capability profile 管线挂接(RXS-0311~0313;RFC-0019 §4.5):

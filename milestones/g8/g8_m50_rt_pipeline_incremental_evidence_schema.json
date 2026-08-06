@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2 M50 rt_pipeline_incremental evidence",
+  "description": "evidence/g8_m50_rt_pipeline_incremental_<UTC>.json。G8.2 P0 硬门 g8.p0.m50.rt_pipeline_incremental:device 门,多 hit group/SBT user data/stack/pipeline library 同场景真跑 + RFC-0019 冻结子集 RED-GREEN + RXS-0248 最小见证不得代绿(RFC-0019 §4.1;spec/shader_stages.md RXS-0322~0324;spec/vulkan_backend.md RXS-0325~0327)。counter 名 g8.counter.rt_pipeline_incremental_features(只记 notes,budget 接线归主 agent)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "incremental_features",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m50_rt_pipeline_incremental" },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g8.p0.m50.rt_pipeline_incremental"
+    },
+    "matrix_row": { "type": "string", "const": "M50" },
+    "wave": { "type": "string", "const": "G8.2" },
+    "numeric_step": { "type": "integer", "const": 103 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0019 §4.1;spec/shader_stages.md RXS-0322~0324;spec/vulkan_backend.md RXS-0325~0327"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "multi_hit_group_distinct_golden_hit_ids",
+        "sbt_user_data_readback_byte_identical",
+        "record_packer_is_sole_encoder",
+        "stack_size_configured_from_query",
+        "stack_configured_ge_required",
+        "stack_undersize_red",
+        "library_link_equals_monolithic_pixels",
+        "library_hash_mismatch_red",
+        "anyhit_ignore_green_and_red",
+        "procedural_intersection_green_and_red",
+        "callable_green_and_red",
+        "rxs0248_minimal_witness_not_sufficient",
+        "group_oob_mapping_rejected",
+        "validation_zero_errors",
+        "accept_corpus_green",
+        "reject_corpus_red_with_codes"
+      ],
+      "properties": {
+        "multi_hit_group_distinct_golden_hit_ids": { "type": "boolean" },
+        "sbt_user_data_readback_byte_identical": { "type": "boolean" },
+        "record_packer_is_sole_encoder": { "type": "boolean" },
+        "stack_size_configured_from_query": { "type": "boolean" },
+        "stack_configured_ge_required": { "type": "boolean" },
+        "stack_undersize_red": { "type": "boolean" },
+        "library_link_equals_monolithic_pixels": { "type": "boolean" },
+        "library_hash_mismatch_red": { "type": "boolean" },
+        "anyhit_ignore_green_and_red": { "type": "boolean" },
+        "procedural_intersection_green_and_red": { "type": "boolean" },
+        "callable_green_and_red": { "type": "boolean" },
+        "rxs0248_minimal_witness_not_sufficient": { "type": "boolean" },
+        "group_oob_mapping_rejected": { "type": "boolean" },
+        "validation_zero_errors": { "type": "boolean" },
+        "accept_corpus_green": { "type": "boolean" },
+        "reject_corpus_red_with_codes": { "type": "boolean" }
+      }
+    },
+    "incremental_features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "multi_hit_group",
+        "sbt_user_data",
+        "stack_sizing",
+        "pipeline_library",
+        "frozen_subset"
+      ],
+      "properties": {
+        "multi_hit_group": { "type": "boolean" },
+        "sbt_user_data": { "type": "boolean" },
+        "stack_sizing": { "type": "boolean" },
+        "pipeline_library": { "type": "boolean" },
+        "frozen_subset": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

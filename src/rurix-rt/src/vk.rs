@@ -308,6 +308,7 @@ struct PipelineLayoutCreateInfo {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 struct PipelineShaderStageCreateInfo {
     s_type: u32,
     p_next: *const c_void,
@@ -10524,8 +10525,26 @@ const ST_MEMORY_ALLOCATE_FLAGS_INFO: u32 = 1_000_060_000;
 const SHADER_STAGE_TASK_EXT: u32 = 0x40;
 const SHADER_STAGE_MESH_EXT: u32 = 0x80;
 const SHADER_STAGE_RAYGEN_KHR: u32 = 0x100;
+const SHADER_STAGE_ANY_HIT_KHR: u32 = 0x200;
 const SHADER_STAGE_CLOSEST_HIT_KHR: u32 = 0x400;
 const SHADER_STAGE_MISS_KHR: u32 = 0x800;
+const SHADER_STAGE_INTERSECTION_KHR: u32 = 0x1000;
+const SHADER_STAGE_CALLABLE_KHR: u32 = 0x2000;
+/// `VK_PIPELINE_CREATE_LIBRARY_BIT_KHR`(M50 pipeline library;RXS-0327)。
+const PIPELINE_CREATE_LIBRARY_BIT_KHR: u32 = 0x0000_0800;
+/// `VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR`。
+const DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR: u32 = 1_000_347_000;
+/// `VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO`(=27;勿与 LAYOUT=30 混淆)。
+const ST_PIPELINE_DYNAMIC_STATE_CREATE_INFO: u32 = 27;
+/// `VK_STRUCTURE_TYPE_PIPELINE_LIBRARY_CREATE_INFO_KHR`(=1000290000)。
+const ST_PIPELINE_LIBRARY_CREATE_INFO_KHR: u32 = 1_000_290_000;
+/// `VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_INTERFACE_CREATE_INFO_KHR`(=1000150018;
+/// SDK 1.3.296 与 RT pipeline sType 同族,非 1000347002)。
+const ST_RAY_TRACING_PIPELINE_INTERFACE_CREATE_INFO_KHR: u32 = 1_000_150_018;
+const SHADER_GROUP_SHADER_GENERAL_KHR: u32 = 0;
+const SHADER_GROUP_SHADER_CLOSEST_HIT_KHR: u32 = 1;
+const SHADER_GROUP_SHADER_ANY_HIT_KHR: u32 = 2;
+const SHADER_GROUP_SHADER_INTERSECTION_KHR: u32 = 3;
 
 const BUFFER_USAGE_SHADER_DEVICE_ADDRESS: u32 = 0x0002_0000;
 const BUFFER_USAGE_ACCEL_STRUCTURE_STORAGE: u32 = 0x0010_0000;
@@ -10757,6 +10776,7 @@ pub(crate) struct WriteDescriptorSetAccelStructure {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 struct RayTracingShaderGroupCreateInfo {
     s_type: u32,
     p_next: *const c_void,
@@ -10784,6 +10804,34 @@ struct RayTracingPipelineCreateInfo {
     layout: VkPipelineLayout,
     base_pipeline_handle: VkPipeline,
     base_pipeline_index: i32,
+}
+
+/// `VkPipelineDynamicStateCreateInfo`(M50 stack dynamic state;RXS-0327)。
+#[repr(C)]
+struct PipelineDynamicStateCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+    dynamic_state_count: u32,
+    p_dynamic_states: *const u32,
+}
+
+/// `VkPipelineLibraryCreateInfoKHR`(M50 pipeline library link)。
+#[repr(C)]
+struct PipelineLibraryCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    library_count: u32,
+    p_libraries: *const VkPipeline,
+}
+
+/// `VkRayTracingPipelineInterfaceCreateInfoKHR`。
+#[repr(C)]
+struct RayTracingPipelineInterfaceCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    max_pipeline_ray_payload_size: u32,
+    max_pipeline_ray_hit_attribute_size: u32,
 }
 
 #[repr(C)]
@@ -10844,6 +10892,9 @@ type FnCmdTraceRays = unsafe extern "system" fn(
     u32,
     u32,
 );
+type FnGetRayTracingShaderGroupStackSize =
+    unsafe extern "system" fn(VkDevice, VkPipeline, u32, u32) -> u64;
+type FnCmdSetRayTracingPipelineStackSize = unsafe extern "system" fn(VkCommandBuffer, u32);
 
 // ── 🔒 SBT 三 region 对齐律（纯 host,可单测;镜像 RXS-0210 协商 helper 先例,§4.E8）──
 
@@ -12328,6 +12379,8 @@ pub struct RayQueryInstanceDesc {
     pub custom_index: u32,
     /// 实例掩码(ray mask 首期恒 `0xFF`,故 `mask & 0xFF != 0` 即可见)。
     pub mask: u8,
+    /// M50 加性:`instanceShaderBindingTableRecordOffset`(24 位;RXS-0248 路径恒 0)。
+    pub sbt_record_offset: u32,
 }
 
 /// 冻结调用方使用的显式 identity 行主 3×4 transform。
@@ -12347,6 +12400,8 @@ pub struct RayQueryTransformedInstanceDesc {
     pub custom_index: u32,
     /// 实例 mask。
     pub mask: u8,
+    /// M50 加性:`instanceShaderBindingTableRecordOffset`(24 位;缺省 0)。
+    pub sbt_record_offset: u32,
     /// Vulkan `VkTransformMatrixKHR` 行主 3×4 矩阵。
     pub transform: [f32; 12],
 }
@@ -12550,6 +12605,7 @@ impl VkAsManager {
             blas: 0,
             custom_index: 0,
             mask: 0xFF,
+            sbt_record_offset: 0,
         }];
         Self::create_scene(
             fns,
@@ -12857,11 +12913,12 @@ impl VkAsManager {
                     // 0xFF00_0000（与 G7.3 形态逐位一致）。
                     instance_custom_index_and_mask: (inst.custom_index & 0x00FF_FFFF)
                         | ((inst.mask as u32) << 24),
-                    // sbtOffset(24)=0 | flags(8)=cull_disable → (cull_disable << 24)。
+                    // sbtOffset(24)=inst.sbt_record_offset | flags(8)=cull_disable。
                     // cull-disable 为**对拍必需**:host `rt::bvh` 三角形相交双面
                     // (Möller–Trumbore 无 front-face 剔除),device 须同口径。
-                    instance_sbt_offset_and_flags: GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE
-                        << 24,
+                    // M50:非零 sbt_record_offset 承载 (instance→hit group) 装配期映射。
+                    instance_sbt_offset_and_flags: (inst.sbt_record_offset & 0x00FF_FFFF)
+                        | (GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE << 24),
                     acceleration_structure_reference: blas_addrs[inst.blas as usize],
                 };
                 let p = &instance as *const AccelInstance as *const u8;
@@ -13085,7 +13142,8 @@ impl VkAsManager {
                 transform: instance.transform,
                 instance_custom_index_and_mask: (instance.custom_index & 0x00FF_FFFF)
                     | ((instance.mask as u32) << 24),
-                instance_sbt_offset_and_flags: GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE << 24,
+                instance_sbt_offset_and_flags: (instance.sbt_record_offset & 0x00FF_FFFF)
+                    | (GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE << 24),
                 // BLAS address/reference is immutable for transform-only refit；从现有 instance
                 // buffer 重建该字段需要 manager 保留地址表，首波禁止变更 BLAS 引用。
                 acceleration_structure_reference: self.instance_blas_address(instance.blas)?,
@@ -14229,6 +14287,7 @@ pub fn run_ray_query_effects_transformed(
             blas: instance.blas,
             custom_index: instance.custom_index,
             mask: instance.mask,
+            sbt_record_offset: instance.sbt_record_offset,
         })
         .collect::<Vec<_>>();
     let transforms = scene
@@ -14302,6 +14361,7 @@ pub fn run_ray_query_compute_probed(
         blas: 0,
         custom_index: 0,
         mask: 0xFF,
+        sbt_record_offset: 0,
     }];
     let out_bytes = out_len.max(1) * 4;
     let buffers = [RayQueryBufferDesc::Output(out_bytes)];
@@ -16669,6 +16729,32 @@ unsafe fn rhi_graphics_body(
 
     Ok(pixels)
 }
+
+
+/// G8.2 M50 增量 SPIR-V 嵌入(非 emit_*_min;RXS-0325)。
+//@ spec: RXS-0325
+pub struct M50IncrementalSpv {
+    pub raygen: &'static [u8],
+    pub miss: &'static [u8],
+    pub closesthit: &'static [u8],
+    pub anyhit: &'static [u8],
+    pub intersection: &'static [u8],
+    pub callable: &'static [u8],
+}
+
+//@ spec: RXS-0325
+pub fn m50_incremental_spv() -> M50IncrementalSpv {
+    M50IncrementalSpv {
+        raygen: include_bytes!(concat!(env!("OUT_DIR"), "/m50_raygen.spv")),
+        miss: include_bytes!(concat!(env!("OUT_DIR"), "/m50_miss.spv")),
+        closesthit: include_bytes!(concat!(env!("OUT_DIR"), "/m50_closesthit.spv")),
+        anyhit: include_bytes!(concat!(env!("OUT_DIR"), "/m50_anyhit.spv")),
+        intersection: include_bytes!(concat!(env!("OUT_DIR"), "/m50_intersection.spv")),
+        callable: include_bytes!(concat!(env!("OUT_DIR"), "/m50_callable.spv")),
+    }
+}
+
+include!("vk_m50_rt_body.rs");
 
 #[cfg(test)]
 mod tests {

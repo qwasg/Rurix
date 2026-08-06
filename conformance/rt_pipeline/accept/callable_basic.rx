@@ -1,3 +1,30 @@
 //@ spec: RXS-0324, RXS-0325, RXS-0326
-// G8.2 M50 accept:raygen execute_callable 写 callable data 回读。
-// expect: compile+device PASS (post-impl)
+// G8.2 M50 accept:callable 入口 + 组形态编译面 GREEN(execute_callable 动态语义
+// 由 device harness 腿证明)。
+struct RayPayload {
+    hit_id: u32,
+}
+
+struct CallData {
+    tag: u32,
+}
+
+raygen fn rg(tlas: AccelStruct, #[payload] p: &mut RayPayload) {
+    let _ = tlas;
+    let _ = p;
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+#[hit_group(tri_main)]
+closesthit fn ch(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+callable fn cb(#[callable_data] d: &mut CallData) {
+    d.tag = 42;
+}
+
+fn main() {}

@@ -109,6 +109,10 @@ pub fn check(file: &SourceFile, src: &str, diag: &DiagCtxt) {
     // (单编译单元三件套配对域;错配 → RX3012 扩类别)。
     check_payload_contracts(&file.items, &structs, diag);
 
+    // RXS-0322~0324(G8.2 M50):`#[shader_record]` POD/位置纪律、`#[hit_group]`
+    // 组形态冻结表、ignore/report/execute_callable 冻结子集(扩 RX3012/3013/3017)。
+    crate::rt_pipeline::check(file, src, diag);
+
     // RXS-0308(G8.2 M29):permutation 域声明闭集校验(重名 axis/空值域/forbid
     // 引用未知 axis 或域外值/budget 非正或重复/未知子句/附着非着色入口 → RX3019)。
     crate::permutation::check_domains(file, src, diag);
@@ -219,6 +223,15 @@ fn collect_stage_io(
                 // 非插值 varying——不参与 RXS-0154 字段标注校验(RXS-0244 逐字段比对另走)。
                 for p in &f.params {
                     if param_payload_kind(&p.attrs).is_some() {
+                        continue;
+                    }
+                    // RXS-0322:`#[shader_record]` 亦为 POD 数据契约,非插值 varying。
+                    if p.attrs.iter().any(|a| {
+                        matches!(
+                            a.meta.path.segments.as_slice(),
+                            [seg] if seg.ident.name.as_str() == "shader_record"
+                        )
+                    }) {
                         continue;
                     }
                     if let crate::ast::ParamKind::Typed { ty, .. } = &p.kind

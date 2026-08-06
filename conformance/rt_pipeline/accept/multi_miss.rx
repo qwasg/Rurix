@@ -1,3 +1,26 @@
 //@ spec: RXS-0323, RXS-0244
-// G8.2 M50 accept:多 miss 按声明序 + manifest 全域 payload 配对。
-// expect: compile+device PASS (post-impl)
+// G8.2 M50 accept:多 miss 声明序 + manifest 全域单一 payload 配对。
+struct RayPayload {
+    hit_id: u32,
+    color: f32,
+}
+
+raygen fn rg(tlas: AccelStruct, #[payload] p: &mut RayPayload) {
+    let _ = tlas;
+    let _ = p;
+}
+
+miss fn ms0(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+miss fn ms1(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+#[hit_group(tri_main)]
+closesthit fn ch(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+fn main() {}

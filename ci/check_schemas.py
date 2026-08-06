@@ -331,6 +331,9 @@ def check_evidence_files() -> None:
     g8_m89_single_source_gfx_submit_schema = load(
         ROOT / "milestones/g8/g8_m89_single_source_gfx_submit_evidence_schema.json"
     )
+    g8_m50_rt_pipeline_incremental_schema = load(
+        ROOT / "milestones/g8/g8_m50_rt_pipeline_incremental_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -610,6 +613,11 @@ def check_evidence_files() -> None:
     g8_m89_single_source_gfx_submit_validator = (
         jsonschema.Draft7Validator(g8_m89_single_source_gfx_submit_schema)
         if g8_m89_single_source_gfx_submit_schema is not None
+        else None
+    )
+    g8_m50_rt_pipeline_incremental_validator = (
+        jsonschema.Draft7Validator(g8_m50_rt_pipeline_incremental_schema)
+        if g8_m50_rt_pipeline_incremental_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1205,6 +1213,14 @@ def check_evidence_files() -> None:
             # device 门,单源 gfx VB/IB/draw + artifacts v2 真派发 + golden;
             # 零 Rust 宿主像素替身。供 g8.counter.single_source_gfx_checks。
             validator = g8_m89_single_source_gfx_submit_validator
+        elif (
+            f.name.startswith("g8_m50_rt_pipeline_incremental_")
+            and g8_m50_rt_pipeline_incremental_validator is not None
+        ):
+            # G8.2 M50 rt_pipeline_incremental 硬门(RXS-0322~0327;RD-040/M50):
+            # device 门,多 hit group/SBT user data/stack/library + 冻结子集;
+            # RXS-0248 最小见证不得代绿。供 g8.counter.rt_pipeline_incremental_features。
+            validator = g8_m50_rt_pipeline_incremental_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

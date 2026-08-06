@@ -1118,6 +1118,18 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/g8_single_source_gfx_smoke.py --gate g8.p0.m89.single_source_gfx_submit
 
+      # 步骤 103（G8.2 P0 硬门 g8.p0.m50.rt_pipeline_incremental;RFC-0019
+      # §4.1;RXS-0322~0327;RD-040/M50 strategic_override）:多 hit group +
+      # SBT user data + stack sizing + pipeline library 同场景 device 真跑;
+      # 冻结子集 RED-GREEN;RXS-0248 最小见证不得代绿。RURIX_REQUIRE_REAL=1
+      # 翻硬红。16 checks + incremental_features 全真;evidence 落盘
+      # evidence/g8_m50_rt_pipeline_incremental_<UTC>.json。
+      - name: G8.2 M50 RT pipeline incremental smoke (G8 CI_GATES §4.103, g8.p0.m50.rt_pipeline_incremental)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/g8_rt_pipeline_incremental_smoke.py --gate g8.p0.m50.rt_pipeline_incremental
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

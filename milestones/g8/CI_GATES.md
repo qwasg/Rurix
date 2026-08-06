@@ -62,7 +62,7 @@ py -3 ci/budget_eval.py
 
 | symbolic_gate_key | M## | 波次 | script | numeric_step |
 |---|---:|---|---|---|
-| `g8.p0.m50.rt_pipeline_incremental` | M50 | G8.2 | `ci/g8_rt_pipeline_incremental_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m50.rt_pipeline_incremental` | M50 | G8.2 | `ci/g8_rt_pipeline_incremental_smoke.py` | 103 |
 | `g8.p0.m89.single_source_gfx_submit` | M89 | G8.2 | `ci/g8_single_source_gfx_smoke.py` | 102 |
 | `g8.p0.m29.shader_permutation` | M29 | G8.2 | `ci/g8_shader_permutation_smoke.py` | 98 |
 | `g8.p0.m30.pso_cache` | M30 | G8.2 | `ci/g8_pso_cache_smoke.py` | 100 |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.9 | 2026-08-06 | **M50 materialize**：§4 M50 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `103`（ledger next_free=103 实际分配）；`ci/g8_rt_pipeline_incremental_smoke.py` + `milestones/g8/g8_m50_rt_pipeline_incremental_evidence_schema.json` + rt_pipeline/rt_incremental/vk_m50_rt_body + `pr-smoke.yml` 步骤 103（`RURIX_REQUIRE_REAL=1`）同 PR 落。device 门；RD-040 总体维持 open、M50 分项 history 关闭留痕。spec-first：RXS-0322~0327 先行（commit 5d2ba225，ledger v1.58）。零新 RX 码；unsafe 归 U30 扩注（0 新 U）。其余 14 个 P0/P1 行 0-byte。 |
 | v1.8 | 2026-08-06 | **M89 materialize**：§4 M89 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `102`（ledger next_free=102 实际分配）；`ci/g8_single_source_gfx_smoke.py` + `milestones/g8/g8_m89_single_source_gfx_submit_evidence_schema.json` + cabi VB/IB/draw + vk gfx 派发臂 + `pr-smoke.yml` 步骤 102（`RURIX_REQUIRE_REAL=1`）同 PR 落。device 门；RD-037 三件套同 commit 关闭。spec-first：RXS-0319~0321 先行（commit acaa31e3，ledger v1.56）。零新 RX 码；unsafe 归 U31 扩注（0 新 U）。其余 15 个 P0/P1 行 0-byte。 |
 | v1.7 | 2026-08-06 | **M85 `--phase g8.2` materialize**：§4 M85 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `101`（ledger next_free=101 实际分配）；`ci/g8_shader_manifest_ddc_smoke.py --phase g8.2` + `milestones/g8/g8_m85_shader_manifest_ddc_evidence_schema.json` + `src/rurixc/src/manifest.rs` + fixtures/golden + `pr-smoke.yml` 步骤 101 同 PR 落。host 门，`phase_g8_3_pass` 诚实 false。spec-first：RXS-0317~0318 先行（commit 0905a8b6，ledger v1.54）。零新 RX 码。其余 16 个 P0/P1 行 0-byte（G8.3 DDC 腿仍待）。 |
 | v1.6 | 2026-08-06 | **M30 materialize**：§4 M30 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `100`（ledger next_free=100 实际分配）；`ci/g8_pso_cache_smoke.py` + `milestones/g8/g8_m30_pso_cache_evidence_schema.json` + `src/rurix-rt` PSO cache 实现 + `bin/vk_pso_cache` + `pr-smoke.yml` 步骤 100 同 PR 落。driver/device 门，`RURIX_REQUIRE_REAL=1` 翻硬红。spec-first：RXS-0314~0316 先行（commit 988dcefe，ledger v1.52）。零新 RX 码；unsafe 归 U27/U31 扩注（0 新 U）。其余 17 个 P0/P1 行 0-byte。 |

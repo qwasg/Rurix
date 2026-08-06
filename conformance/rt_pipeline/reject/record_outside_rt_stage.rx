@@ -1,3 +1,10 @@
 //@ spec: RXS-0322
 //@ expect-error: RX3013
 // G8.2 M50 reject:#[shader_record] 出现在非 RT 阶段 → RX3013 扩。
+struct Rec {
+    w: f32,
+}
+
+fragment fn fs(#[shader_record] r: &Rec) {}
+
+fn main() {}

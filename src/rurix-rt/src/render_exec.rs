@@ -8600,6 +8600,7 @@ mod tests {
             blas: 0,
             custom_index: 0,
             mask: 0xFF,
+            sbt_record_offset: 0,
         }];
         let zero4 = [0u8; 4];
         let zero32 = [0u8; 32];
@@ -8730,6 +8731,7 @@ mod tests {
             blas: 0,
             custom_index: 0,
             mask: 0xFF,
+            sbt_record_offset: 0,
             // 行主 3×4:平移 +10 x(同三角形移出射线 → 遍历穷尽 → 哨兵 −1.0)。
             transform: [
                 1.0, 0.0, 0.0, 10.0, //

@@ -1,3 +1,11 @@
 //@ spec: RXS-0322
 //@ expect-error: RX3012
 // G8.2 M50 reject:#[shader_record] 递归类型 → RX3012 扩。
+struct Node {
+    next: Node,
+    tag: u32,
+}
+
+raygen fn rg(#[shader_record] r: &Node) {}
+
+fn main() {}

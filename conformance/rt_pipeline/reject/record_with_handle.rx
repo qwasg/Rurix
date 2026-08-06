@@ -1,3 +1,10 @@
 //@ spec: RXS-0322
 //@ expect-error: RX3012
 // G8.2 M50 reject:#[shader_record] 含资源句柄字段 → RX3012 扩。
+struct BadRec {
+    tex: Texture2D<f32>,
+}
+
+raygen fn rg(#[shader_record] r: &BadRec) {}
+
+fn main() {}

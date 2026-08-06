@@ -119,7 +119,7 @@
 
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
-| M50 | **完整 RT pipeline + SBT**（raygen/miss/closest-hit/any-hit/intersection/callable、payload ABI、递归/栈管理、pipeline library） | R1 §5.2 / R3 §2.2 | 🟡 RXS-0242~0248 + `vk_rt` **最小**三角形 raygen/miss/closest-hit+SBT 见证已有（**不得充绿 G8**）；全量 = RD-040 open；DXIL 腿 = RD-034 blocked；RHI RT pass 条件臂未立（RXS-0270） | **G8 退出门 = RXS-0248 增量面**：多 hit group/材质记录、SBT 用户数据、any-hit/intersection/callable（RFC-0019 子集）、stack sizing、pipeline library；非最小见证复述 | A/B | **P0** | ✔ | **G8.2**（G8.1 strategic_override 已单独裁决；DXIL 不强攻；不替代 RD-038 互锁） |
+| M50 | **完整 RT pipeline + SBT**（raygen/miss/closest-hit/any-hit/intersection/callable、payload ABI、递归/栈管理、pipeline library） | R1 §5.2 / R3 §2.2 | ✅ **G8.2 M50 增量面 closed**（步骤 103；RXS-0322~0327）：多 hit group + SBT user data + stack + pipeline library device 真跑；冻结子集 RED-GREEN；`vk_rt`/RXS-0248 最小见证不得代绿。RD-040 **总体仍 open**（SER/OMM 等分项未兑现）；DXIL 腿 = RD-034 blocked | G8 退出门增量面已兑现；其余 RD-040 分项留 G8.7 | A/B | **P0** | ✔ | **G8.2**（strategic_override 已兑现；DXIL 不强攻） |
 | M51 | inline RayQuery（compute） | — | 🟡 RXS-0297~0300 条款冻结（RFC-0018）+ 前端检查在树；codegen/AS descriptor/三效果核 = G7.2~G7.4 在途 | — | — | 承 G7 | ✔ | 承 G7（受「承 G7」警告；遗留→G8.2） |
 | M52 | SER / hit-object 重排 | R3 §2.2 | ⬜ RD-040 分项「SER 与 OMM」 | hit-object intrinsic（依赖 M50） | A/B | P2 | ✔ | G8.7 条件消费 |
 | M53 | Opacity Micromap（OMM） | R3 §2.2 | ⬜ RD-040 分项 | B：micromap build/BLAS attach；D：离线烘焙 | A/B/D | P2 | ✔ | G8.7 条件消费 |

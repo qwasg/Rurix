@@ -1,3 +1,31 @@
 //@ spec: RXS-0245, RXS-0324
 //@ expect-error: RX3013
 // G8.2 M50 reject:trace_ray 运行期动态 SBT offset 实参 → RX3013 扩（RXS-0245 修订行 RED）。
+struct RayPayload {
+    hit_id: u32,
+}
+
+fn trace_ray(
+    tlas: AccelStruct,
+    origin: (f32, f32, f32),
+    t_min: f32,
+    dir: (f32, f32, f32),
+    t_max: f32,
+    sbt_offset: u32,
+) {
+    let _ = (tlas, origin, t_min, dir, t_max, sbt_offset);
+}
+
+raygen fn rg(tlas: AccelStruct, #[payload] p: &mut RayPayload) {
+    let _ = p;
+    let dynamic_offset = 1u32;
+    // 超出固定五参签名的第 6 参 = 运行期动态 SBT 寻址(拒)。
+    trace_ray(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0, dynamic_offset);
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) { let _ = p; }
+
+#[hit_group(tri_main)]
+closesthit fn ch(#[payload] p: &mut RayPayload) { let _ = p; }
+
+fn main() {}

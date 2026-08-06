@@ -173,6 +173,13 @@ fn main() {
         let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write meshrt_{name}.spv: {e}"));
     }
+
+    // G8.2 M50(RXS-0325):增量 RT SPIR-V(非 emit_*_min)嵌入 vk_rt_incremental。
+    for (name, words) in rurixc::vulkan_codegen::m50_incremental_corpus() {
+        let spv_out = out_dir.join(format!("{name}.spv"));
+        let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {name}.spv: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

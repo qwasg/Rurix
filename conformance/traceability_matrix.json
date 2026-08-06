@@ -1683,14 +1683,16 @@
       "conformance/rt_pipeline/accept/two_hit_groups.rx",
       "conformance/rt_pipeline/reject/record_outside_rt_stage.rx",
       "conformance/rt_pipeline/reject/record_recursive.rx",
-      "conformance/rt_pipeline/reject/record_with_handle.rx"
+      "conformance/rt_pipeline/reject/record_with_handle.rx",
+      "src/rurixc/src/rt_pipeline.rs"
     ],
     "RXS-0323": [
       "conformance/rt_pipeline/accept/multi_miss.rx",
       "conformance/rt_pipeline/accept/procedural_group.rx",
       "conformance/rt_pipeline/accept/two_hit_groups.rx",
       "conformance/rt_pipeline/reject/procedural_missing_intersection.rx",
-      "conformance/rt_pipeline/reject/triangles_with_intersection.rx"
+      "conformance/rt_pipeline/reject/triangles_with_intersection.rx",
+      "src/rurixc/src/rt_pipeline.rs"
     ],
     "RXS-0324": [
       "conformance/rt_pipeline/accept/anyhit_ignore.rx",
@@ -1698,20 +1700,26 @@
       "conformance/rt_pipeline/accept/procedural_group.rx",
       "conformance/rt_pipeline/reject/callable_index_oob.rx",
       "conformance/rt_pipeline/reject/callable_nesting.rx",
-      "conformance/rt_pipeline/reject/trace_dynamic_sbt_offset.rx"
+      "conformance/rt_pipeline/reject/trace_dynamic_sbt_offset.rx",
+      "src/rurixc/src/rt_pipeline.rs"
     ],
     "RXS-0325": [
       "conformance/rt_pipeline/accept/anyhit_ignore.rx",
       "conformance/rt_pipeline/accept/callable_basic.rx",
       "conformance/rt_pipeline/accept/procedural_group.rx",
-      "conformance/rt_pipeline/accept/two_hit_groups.rx"
+      "conformance/rt_pipeline/accept/two_hit_groups.rx",
+      "src/rurix-rt/src/vk.rs",
+      "src/rurixc/src/vulkan_codegen.rs"
     ],
     "RXS-0326": [
       "conformance/rt_pipeline/accept/callable_basic.rx",
-      "conformance/rt_pipeline/accept/two_hit_groups.rx"
+      "conformance/rt_pipeline/accept/two_hit_groups.rx",
+      "src/rurix-rt/src/rt_incremental.rs"
     ],
     "RXS-0327": [
-      "conformance/rt_pipeline/accept/two_hit_groups.rx"
+      "conformance/rt_pipeline/accept/two_hit_groups.rx",
+      "src/rurix-rt/src/rt_incremental.rs",
+      "src/rurix-rt/src/vk_m50_rt_body.rs"
     ]
   }
 }

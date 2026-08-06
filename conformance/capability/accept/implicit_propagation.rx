@@ -1,11 +1,12 @@
 //@ capability: accept
 //@ spec: RXS-0311, RXS-0312
 //@ profile: profiles/high.json
-// callee 隐式 requirement 上浮 entry(RXS-0311 调用图并集律):device fn
-// `record_weight` 的 `#[shader_record]` 形参按隐式推导映射表(M50 行)产
-// rt.sbt_user_data,经 DefId 级直调可达边并入 `kmain` 有效 requirement 集
-// (kmain 自身零声明零隐式)。本头 `//@ profile:` 仅声明 GREEN 配套(accept
-// 批跑矩阵);RED 对照由 smoke reject 腿以 profiles/low.json 硬编码驱动
+// callee 隐式/显式 requirement 上浮 entry(RXS-0311 调用图并集律):device fn
+// `record_weight` 以 `#[requires("rt.sbt_user_data")]` 声明(M50 落地后
+// `#[shader_record]` 仅合法于六 RT 入口签名,RXS-0322;本腿改测 requires 上浮,
+// shader_record→rt.sbt_user_data 映射由 M50 `conformance/rt_pipeline/` 承载)。
+// 经 DefId 级直调可达边并入 `kmain` 有效 requirement 集(kmain 自身零声明
+// 零隐式)。RED 对照由 smoke reject 腿以 profiles/low.json 硬编码驱动
 // (缺 rt.sbt_user_data → RX3020,消息携带缺失 ID + 首个引入 callee =
 // `record_weight`,非 entry 自身)。
 struct Rec {
@@ -13,7 +14,8 @@ struct Rec {
     tag: u32,
 }
 
-device fn record_weight(#[shader_record] rec: &Rec) -> f32 {
+#[requires("rt.sbt_user_data")]
+device fn record_weight(rec: &Rec) -> f32 {
     rec.weight * 2.0
 }
 

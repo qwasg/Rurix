@@ -3454,6 +3454,207 @@ pub fn emit_callable_min() -> Vec<u32> {
 /// closesthit 三件套见证归主循环(vk 运行时);intersection/anyhit/callable 首期 accept-only
 /// (§8;类型面 + spirv-val 全量,device 端到端见证 defer RD-034)。所有产物过 spirv-val
 /// `--target-env vulkan1.2` / `spv1.4`(见 tests/mesh_rt_vulkan_spirv_val.rs)。
+
+// ═══════════════════════ G8.2 M50 RT 增量 SPIR-V(RXS-0325;非 emit_*_min) ═══════════════════════
+const STORAGE_CALLABLE_DATA_KHR: u32 = 5328;
+const STORAGE_SHADER_RECORD_BUFFER_KHR: u32 = 5343;
+const OP_IGNORE_INTERSECTION_KHR: u16 = 5335;
+const OP_EXECUTE_CALLABLE_KHR: u16 = 4446;
+
+/// M50 增量 raygen:ExecuteCallable(0)+TraceRay+ImageWrite(RXS-0325)。
+//@ spec: RXS-0325
+pub fn emit_m50_raygen() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v2uint = b.type_result(OP_TYPE_VECTOR, &[uint, 2]);
+    let v3uint = b.type_result(OP_TYPE_VECTOR, &[uint, 3]);
+    let v2int = b.type_result(OP_TYPE_VECTOR, &[int, 2]);
+    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
+    let v3float = b.type_result(OP_TYPE_VECTOR, &[float, 3]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let uint_0 = b.constant(uint, 0);
+    let ray_flags = b.constant(uint, RAY_FLAG_OPAQUE);
+    let cull_mask = b.constant(uint, CULL_MASK_ALL);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let float_2 = b.constant(float, 2.0f32.to_bits());
+    let float_n1 = b.constant(float, (-1.0f32).to_bits());
+    let float_100 = b.constant(float, 100.0f32.to_bits());
+    let two_v2 = b.const_composite(v2float, &[float_2, float_2]);
+    let one_v2 = b.const_composite(v2float, &[float_1, float_1]);
+    let dir = b.const_composite(v3float, &[float_0, float_0, float_1]);
+    let zero_v4 = b.const_composite(v4float, &[float_0, float_0, float_0, float_0]);
+    let ptr_in_v3uint = b.type_result(OP_TYPE_POINTER, &[STORAGE_INPUT, v3uint]);
+    let launch_id = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_id, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_ID_KHR]);
+    let launch_size = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_size, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_SIZE_KHR]);
+    let accel_ty = b.type_result(OP_TYPE_ACCELERATION_STRUCTURE_KHR, &[]);
+    let ptr_uc_accel = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, accel_ty]);
+    let tlas = b.global_var(ptr_uc_accel, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(tlas, DECORATION_DESCRIPTOR_SET, &[0]);
+    b.decorate(tlas, DECORATION_BINDING, &[0]);
+    let image_ty =
+        b.type_result(OP_TYPE_IMAGE, &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8]);
+    let ptr_uc_image = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, image_ty]);
+    let out_image = b.global_var(ptr_uc_image, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(out_image, DECORATION_DESCRIPTOR_SET, &[1]);
+    b.decorate(out_image, DECORATION_BINDING, &[0]);
+    let ptr_payload = b.type_result(OP_TYPE_POINTER, &[STORAGE_RAY_PAYLOAD_KHR, v4float]);
+    let payload = b.global_var(ptr_payload, STORAGE_RAY_PAYLOAD_KHR, true);
+    let ptr_call = b.type_result(OP_TYPE_POINTER, &[STORAGE_CALLABLE_DATA_KHR, uint]);
+    let call_data = b.global_var(ptr_call, STORAGE_CALLABLE_DATA_KHR, true);
+
+    let li = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, li, launch_id]);
+    let li_xy = b.id();
+    emit(&mut b.body, OP_VECTOR_SHUFFLE, &[v2uint, li_xy, li, li, 0, 1]);
+    let li_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, li_f, li_xy]);
+    let ls = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, ls, launch_size]);
+    let ls_xy = b.id();
+    emit(&mut b.body, OP_VECTOR_SHUFFLE, &[v2uint, ls_xy, ls, ls, 0, 1]);
+    let ls_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, ls_f, ls_xy]);
+    let uv = b.id();
+    emit(&mut b.body, OP_FDIV, &[v2float, uv, li_f, ls_f]);
+    let scaled = b.id();
+    emit(&mut b.body, OP_FMUL, &[v2float, scaled, uv, two_v2]);
+    let centered = b.id();
+    emit(&mut b.body, OP_FSUB, &[v2float, centered, scaled, one_v2]);
+    let ox = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, ox, centered, 0]);
+    let oy = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, oy, centered, 1]);
+    let origin = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v3float, origin, ox, oy, float_n1],
+    );
+    emit(&mut b.body, OP_STORE, &[call_data, uint_0]);
+    emit(&mut b.body, OP_EXECUTE_CALLABLE_KHR, &[uint_0, call_data]);
+    emit(&mut b.body, OP_STORE, &[payload, zero_v4]);
+    let acc = b.id();
+    emit(&mut b.body, OP_LOAD, &[accel_ty, acc, tlas]);
+    emit(
+        &mut b.body,
+        OP_TRACE_RAY_KHR,
+        &[
+            acc, ray_flags, cull_mask, uint_0, uint_0, uint_0, origin, float_0, dir, float_100,
+            payload,
+        ],
+    );
+    let pv = b.id();
+    emit(&mut b.body, OP_LOAD, &[v4float, pv, payload]);
+    let img = b.id();
+    emit(&mut b.body, OP_LOAD, &[image_ty, img, out_image]);
+    let coord = b.id();
+    emit(&mut b.body, OP_BITCAST, &[v2int, coord, li_xy]);
+    emit(&mut b.body, OP_IMAGE_WRITE, &[img, coord, pv]);
+    b.finish(EXEC_MODEL_RAY_GENERATION_KHR, false)
+}
+
+//@ spec: RXS-0325
+pub fn emit_m50_miss() -> Vec<u32> {
+    emit_miss_min()
+}
+
+/// M50 closesthit:ShaderRecordBufferKHR `{u32 id; f32 r,g,b}` → IncomingRayPayload。
+//@ spec: RXS-0325
+pub fn emit_m50_closesthit() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let rec_ty = b.type_result(OP_TYPE_STRUCT, &[uint, float, float, float]);
+    b.decorate(rec_ty, DECORATION_BLOCK, &[]);
+    b.member_decorate(rec_ty, 0, DECORATION_OFFSET, &[0]);
+    b.member_decorate(rec_ty, 1, DECORATION_OFFSET, &[4]);
+    b.member_decorate(rec_ty, 2, DECORATION_OFFSET, &[8]);
+    b.member_decorate(rec_ty, 3, DECORATION_OFFSET, &[12]);
+    let ptr_rec =
+        b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, rec_ty]);
+    let rec = b.global_var(ptr_rec, STORAGE_SHADER_RECORD_BUFFER_KHR, true);
+    let ptr_payload =
+        b.type_result(OP_TYPE_POINTER, &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float]);
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    let ptr_u = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, uint]);
+    let ptr_f = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, float]);
+    let c0 = b.constant(uint, 0);
+    let c1 = b.constant(uint, 1);
+    let c2 = b.constant(uint, 2);
+    let c3 = b.constant(uint, 3);
+    let a_id = b.id();
+    emit(&mut b.body, OP_ACCESS_CHAIN, &[ptr_u, a_id, rec, c0]);
+    let mid = b.id();
+    emit(&mut b.body, OP_LOAD, &[uint, mid, a_id]);
+    let mid_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[float, mid_f, mid]);
+    let ar = b.id();
+    emit(&mut b.body, OP_ACCESS_CHAIN, &[ptr_f, ar, rec, c1]);
+    let rv = b.id();
+    emit(&mut b.body, OP_LOAD, &[float, rv, ar]);
+    let ag = b.id();
+    emit(&mut b.body, OP_ACCESS_CHAIN, &[ptr_f, ag, rec, c2]);
+    let gv = b.id();
+    emit(&mut b.body, OP_LOAD, &[float, gv, ag]);
+    let ab = b.id();
+    emit(&mut b.body, OP_ACCESS_CHAIN, &[ptr_f, ab, rec, c3]);
+    let bv = b.id();
+    emit(&mut b.body, OP_LOAD, &[float, bv, ab]);
+    let color = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v4float, color, rv, gv, bv, mid_f],
+    );
+    emit(&mut b.body, OP_STORE, &[payload, color]);
+    b.finish(EXEC_MODEL_CLOSEST_HIT_KHR, false)
+}
+
+/// M50 anyhit:record.u32 ignore!=0 → OpIgnoreIntersectionKHR。
+//@ spec: RXS-0325
+pub fn emit_m50_anyhit() -> Vec<u32> {
+    // 首期简化:无条件 Ignore(masked 组专用模块);keep 组不挂 anyhit。
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    emit(&mut b.body, OP_IGNORE_INTERSECTION_KHR, &[]);
+    b.finish(EXEC_MODEL_ANY_HIT_KHR, true)
+}
+
+//@ spec: RXS-0325
+pub fn emit_m50_intersection() -> Vec<u32> {
+    emit_intersection_min()
+}
+
+//@ spec: RXS-0325
+pub fn emit_m50_callable() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let v42 = b.constant(uint, 42);
+    let ptr =
+        b.type_result(OP_TYPE_POINTER, &[STORAGE_INCOMING_CALLABLE_DATA_KHR, uint]);
+    let data = b.global_var(ptr, STORAGE_INCOMING_CALLABLE_DATA_KHR, true);
+    emit(&mut b.body, OP_STORE, &[data, v42]);
+    b.finish(EXEC_MODEL_CALLABLE_KHR, false)
+}
+
+/// M50 增量语料(非 emit_*_min;供 rurix-rt build.rs 嵌入)。
+//@ spec: RXS-0325
+pub fn m50_incremental_corpus() -> Vec<(&'static str, Vec<u32>)> {
+    vec![
+        ("m50_raygen", emit_m50_raygen()),
+        ("m50_miss", emit_m50_miss()),
+        ("m50_closesthit", emit_m50_closesthit()),
+        ("m50_anyhit", emit_m50_anyhit()),
+        ("m50_intersection", emit_m50_intersection()),
+        ("m50_callable", emit_m50_callable()),
+    ]
+}
+
 pub fn mesh_rt_witness_corpus() -> Vec<(&'static str, Vec<u32>)> {
     vec![
         ("mesh", emit_mesh_min()),

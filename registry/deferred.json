@@ -1106,7 +1106,7 @@
       "title": "光照 P3+ 长线评估——SMRT 软阴影完整版/世界辐射缓存(GI P2)/自适应探针(GI P3)/SDF 软追踪(GI P4)/ReSTIR GI-DI 与 MegaLights/RT pipeline+SBT/SER 与 OMM/NRD 类 vendor 降噪接入",
       "reason": "调研报告2/3/4 自身分期建议:GI-VSM-RT 的 P0–P1 主线(屏幕探针+ray query 单反弹+SH+时域累积/VSM clipmap 硬阴影/RTAO+硬阴影+AS 管理)已由 G5 落地;SMRT 采样端算法零新数据结构可独立承接(RFC-0016 §9 Q-C 降档);RT pipeline/SBT 为十倍级工程量且 ray query 覆盖本期全部需求(§7-4 否决)",
       "raised_in": "G5 RFC-0016 §8 范围红线表(报告2/3/4 P2+/§9 Q-C SMRT 降档/Q-F NRD 留口)",
-      "owner_milestone": "G5(登记;长线评估存续)",
+      "owner_milestone": "G5(登记;长线评估存续)→ G8.2(M50 RT pipeline/SBT 增量分项兑现;其余分项存续)",
       "status": "open",
       "backfill_condition": "逐项独立判档(10 §3):SMRT 在 VSM device 化(RD-038)后可独立 Mini 兑现(采样端沿光线多采样);世界辐射缓存在屏幕探针远场缺失成为画质 measured 问题时;ReSTIR/MegaLights 在多灯场景需求出现时;RT pipeline/SBT 在『命中点需多样化材质着色』真实出现时(与 GI hit lighting 同步评估);NRD/vendor 降噪经 UpscaleBackend 同构输入契约接入(MV/深度/法线),接入时不改 temporal 底座",
       "history": [
@@ -1114,6 +1114,11 @@
           "date": "2026-07-29",
           "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;光照主线 P0–P1 已落地(shadow::vsm + gi::pipeline + rt::effects,白炉守恒/逐位对拍/收敛单测全量)",
           "evidence": "rfcs/0016-native-renderer.md §8/§9 Q-C Q-F / 渲染器调研/调研报告2~4 各 §7"
+        },
+        {
+          "date": "2026-08-06",
+          "event": "G8.2 M50 materialize:RT pipeline/SBT **增量分项**按 G8_CANDIDATE_DECISIONS §4.1 strategic_override 兑现(多 hit group/SBT user data/stack sizing/pipeline library + RFC-0019 冻结子集 RED-GREEN;ci/g8_rt_pipeline_incremental_smoke.py 16/16 PASS,evidence/g8_m50_rt_pipeline_incremental_20260806T072320Z.json,RTX 4070 Ti)。**RD-040 总体 status 维持 open**(SER/OMM/SMRT/世界辐射缓存/ReSTIR/NRD 等分项未兑现);本行仅关闭 M50 目标分项,不替代其余 backfill 判档。",
+          "evidence": "milestones/g8/G8_CONTRACT.md §8.8 / milestones/g8/G8_CANDIDATE_DECISIONS.md §4.1 / ci/g8_rt_pipeline_incremental_smoke.py / evidence/g8_m50_rt_pipeline_incremental_20260806T072320Z.json / spec RXS-0322~0327 / unsafe-audit U30"
         }
       ]
     },
@@ -1568,6 +1573,11 @@
       "version": "v1.75",
       "date": "2026-08-06",
       "change": "G8.2 M89 single_source_gfx_submit materialize 关闭 RD-037(agent 完全自主 D-406 v2.0;Assisted-by: cursor-grok-4.5-high-fast):RD-037 status open→closed;owner_milestone 箭头留痕 G5.2(登记;条件臂存续)→ G8.2(M89 single_source_gfx_submit 三件套兑现);history 尾追加第 2 条(backfill 三件套字面全兑现:lowering+cabi VB/IB+gfx 派发臂 + 零 Rust 宿主像素断言)。id/title/reason/backfill_condition 四字段 0-byte;既有 history 一行 0-byte 只尾追加;其余 entry 与 revision_log v1.0~v1.74 行 0-byte。"
+    },
+    {
+      "version": "v1.76",
+      "date": "2026-08-06",
+      "change": "G8.2 M50 rt_pipeline_incremental materialize:RD-040 history 追加 M50 RT pipeline/SBT 增量分项兑现行(agent 完全自主 D-406 v2.0;Assisted-by: cursor-grok-4.5-high-fast)。RD-040 status **维持 open**(SER/OMM 等其余分项未兑现);owner_milestone 箭头留痕 G5→G8.2(M50 分项);id/title/reason/backfill_condition 四字段 0-byte;既有 history 一行 0-byte 只尾追加;其余 entry 与 revision_log v1.0~v1.75 行 0-byte。"
     }
   ]
 }

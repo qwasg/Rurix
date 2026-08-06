@@ -458,3 +458,28 @@ py -3 ci/g8_single_source_gfx_smoke.py --gate g8.p0.m89.single_source_gfx_submit
 ```
 
 `Assisted-by: cursor-grok-4.5-high-fast`（实现/语料/smoke/schema；主 agent 治理接线与 RD-037 关闭。影响范围：本节 + CI_GATES v1.8 + ledger v1.57 + g8_budget v1.6 + pr-smoke 步骤 102 + deferred RD-037）
+
+### 8.8 M50 rt_pipeline_incremental materialize（2026-08-06）
+
+**触发**：G8.2 P0 M50 `g8.p0.m50.rt_pipeline_incremental`（device 门；RD-040/M50 strategic_override 增量面，非 RXS-0248 最小见证复述）。
+
+**交付物**（spec-first：条款 `5d2ba225` 先行，实现+治理接线随后）：
+
+- **spec**：`shader_stages.md` v1.8 RXS-0244/0245 修订 + RXS-0322~0324；`vulkan_backend.md` v1.24 RXS-0248 修订 + RXS-0325~0327。ledger v1.58（RXS 321/322→327/328）。
+- **实现**：`rt_pipeline.rs`（shader_record/hit_group/冻结子集/rt-manifest）+ `emit_m50_*` 真实体编码 + `rt_incremental.rs`（plan_sbt_v2/packer/stack）+ `vk_m50_rt_body.rs` / `run_rt_pipeline_offscreen` + `bin/vk_rt_incremental` + `conformance/rt_pipeline/`。
+- **CI**：`ci/g8_rt_pipeline_incremental_smoke.py`（16 checks + incremental_features 五键）+ evidence schema（`numeric_step=103`）。
+- **治理**：check_schemas 路由 + pr-smoke 步骤 103（`RURIX_REQUIRE_REAL=1`）+ CI_GATES v1.9 回填 103 + g8_budget v1.7 `g8.counter.rt_pipeline_incremental_features` + budget_eval + ledger v1.59（CI_step 102→103/104）+ RD-040 history 追加 M50 分项兑现（总体 status 维持 open）+ U30 扩注。
+
+**判据**：多 hit-group golden hit-id / SBT user-data 逐字节 readback / stack configured≥required + undersize RED / library≡monolithic 逐像素 / anyhit·procedural·callable GREEN+RED / RXS-0248 最小见证不得代绿 / group oob 拒 / validation=0 / accept·reject 语料。**不以 M89/M29/M30/M31/M32/M85 任一结果代替**。
+
+**验收**（2026-08-06，本机 RTX 4070 Ti）：
+```
+$env:RURIX_REQUIRE_REAL=1; $env:RURIX_VK_VALIDATION=1
+py -3 ci/g8_rt_pipeline_incremental_smoke.py --gate g8.p0.m50.rt_pipeline_incremental
+# PASS；evidence/g8_m50_rt_pipeline_incremental_20260806T072320Z.json
+# checks.* 16/16 true；incremental_features 全真；device_section_state=executed；validation_errors=0
+```
+
+**诚实边界**（实现注释同文）：accept 侧重签名/组形态 GREEN；动态语义主要靠 `emit_m50_*` + harness；MIR 全量 `lower_rt` 未接线（非 `emit_*_min` 充绿；步骤 66/67 min 保留）；stack query 走 library 管线；本机 stack 数值可为 0 仍满足 `configured >= required`。
+
+`Assisted-by: cursor-grok-4.5-high-fast`（实现/语料/smoke/schema；主 agent 治理接线。影响范围：本节 + CI_GATES v1.9 + ledger v1.59 + g8_budget v1.7 + pr-smoke 步骤 103 + deferred RD-040 history）

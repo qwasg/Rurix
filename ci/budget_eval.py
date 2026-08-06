@@ -1026,6 +1026,43 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.2 M89 实现回填前为正常状态,契约 G-G8-4",
             strict,
         )
+    elif eid == "g8.counter.rt_pipeline_incremental_features":
+        # G8.2 M50 rt_pipeline_incremental 硬门:checks.* ≥16 全 true 且
+        # incremental_features 五键全 true 且 device 见证 ≥1
+        # (契约 G-G8-4 / CI_GATES §4 M50 行;RXS-0322~0327;RD-040/M50)。
+        # 计数源 = evidence/g8_m50_rt_pipeline_incremental_*.json。
+        # device 门;RURIX_REQUIRE_REAL=1 翻硬红。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m50_rt_pipeline_incremental_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            feats = doc.get("incremental_features") or {}
+            if not all(
+                feats.get(k) is True
+                for k in (
+                    "multi_hit_group",
+                    "sbt_user_data",
+                    "stack_sizing",
+                    "pipeline_library",
+                    "frozen_subset",
+                )
+            ):
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 16:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 rt_pipeline_incremental device 判据全绿见证(checks.* 16/16 + features 全真)",
+            "G8.2 M50 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.shader_permutation_legs":
         # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
         # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/

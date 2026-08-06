@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m50_rt_pipeline_incremental",
+  "symbolic_gate_key": "g8.p0.m50.rt_pipeline_incremental",
+  "matrix_row": "M50",
+  "wave": "G8.2",
+  "numeric_step": 103,
+  "source_ref": "RFC-0019 §4.1;spec/shader_stages.md RXS-0322~0324;spec/vulkan_backend.md RXS-0325~0327",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "multi_hit_group_distinct_golden_hit_ids": true,
+    "sbt_user_data_readback_byte_identical": true,
+    "record_packer_is_sole_encoder": true,
+    "stack_size_configured_from_query": true,
+    "stack_configured_ge_required": true,
+    "stack_undersize_red": true,
+    "library_link_equals_monolithic_pixels": true,
+    "library_hash_mismatch_red": true,
+    "anyhit_ignore_green_and_red": true,
+    "procedural_intersection_green_and_red": true,
+    "callable_green_and_red": true,
+    "rxs0248_minimal_witness_not_sufficient": true,
+    "group_oob_mapping_rejected": true,
+    "validation_zero_errors": true,
+    "accept_corpus_green": true,
+    "reject_corpus_red_with_codes": true
+  },
+  "incremental_features": {
+    "multi_hit_group": true,
+    "sbt_user_data": true,
+    "stack_sizing": true,
+    "pipeline_library": true,
+    "frozen_subset": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T072320Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "reject record_with_handle.rx: RX3012 ok | reject record_recursive.rx: RX3012 ok | reject record_outside_rt_stage.rx: RX3013 ok | reject triangles_with_intersection.rx: RX3017 ok | reject procedural_missing_intersection.rx: RX3017 ok | reject callable_index_oob.rx: RX3012 ok | reject callable_nesting.rx: RX3013 ok | reject trace_dynamic_sbt_offset.rx: RX3013 ok | counter=g8.counter.rt_pipeline_incremental_features(接线归主 agent)"
+}

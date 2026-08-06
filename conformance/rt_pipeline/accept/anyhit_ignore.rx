@@ -1,3 +1,33 @@
 //@ spec: RXS-0324, RXS-0325
-// G8.2 M50 accept:anyhit ignore_intersection → 像素落 miss 色。
-// expect: compile+device PASS (post-impl)
+// G8.2 M50 accept:anyhit 组形态合法(ignore_intersection 动态语义由 device harness
+// SPIR-V 腿证明;本语料锚定 anyhit+record 编译面 GREEN)。
+struct RayPayload {
+    hit_id: u32,
+}
+
+struct MaskRec {
+    ignore: u32,
+}
+
+raygen fn rg(tlas: AccelStruct, #[payload] p: &mut RayPayload) {
+    let _ = tlas;
+    let _ = p;
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) {
+    let _ = p;
+}
+
+#[hit_group(tri_masked)]
+closesthit fn ch(#[payload] p: &mut RayPayload, #[shader_record] rec: &MaskRec) {
+    let _ = p;
+    let _ = rec;
+}
+
+#[hit_group(tri_masked)]
+anyhit fn ah(#[payload] p: &mut RayPayload, #[shader_record] rec: &MaskRec) {
+    let _ = p;
+    let _ = rec;
+}
+
+fn main() {}

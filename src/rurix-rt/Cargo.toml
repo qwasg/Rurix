@@ -118,6 +118,14 @@ required-features = ["vulkan"]
 name = "vk_pso_cache"
 required-features = ["vulkan"]
 
+# G8.2 M50 RT pipeline 增量 device 门 harness(RXS-0325~0327;门
+# g8.p0.m50.rt_pipeline_incremental):多 hit group + SBT user data + stack +
+# pipeline library;`run_rt_pipeline_offscreen`(既有 vk_rt / run_ray_tracing_offscreen
+# 不得代绿)。
+[[bin]]
+name = "vk_rt_incremental"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

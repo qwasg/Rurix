@@ -1,3 +1,33 @@
 //@ spec: RXS-0324
 //@ expect-error: RX3012
 // G8.2 M50 reject:execute_callable 常量 index 越域 → RX3012 扩。
+struct RayPayload {
+    hit_id: u32,
+}
+
+struct CallData {
+    tag: u32,
+}
+
+// resolve 占位(名识别在 shader_stages 冻结子集面;用户 DefId 遮蔽 capability 推导)。
+fn execute_callable(index: u32, data: &mut CallData) {
+    let _ = (index, data);
+}
+
+raygen fn rg(#[payload] p: &mut RayPayload) {
+    let _ = p;
+    let mut d = CallData { tag: 0 };
+    // 仅声明 1 个 callable(index 0);index 1 越域。
+    execute_callable(1, &mut d);
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) { let _ = p; }
+
+#[hit_group(tri_main)]
+closesthit fn ch(#[payload] p: &mut RayPayload) { let _ = p; }
+
+callable fn cb(#[callable_data] d: &mut CallData) {
+    d.tag = 1;
+}
+
+fn main() {}
