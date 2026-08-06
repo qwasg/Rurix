@@ -462,6 +462,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-asset"
+version = "1.0.0"
+dependencies = [
+ "rurix-basis-sys",
+ "rurix-geom-build",
+ "rurix-geom-pages",
+ "rurix-pkg",
+ "rurix-render",
+]
+
+[[package]]
+name = "rurix-basis-sys"
+version = "1.0.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "rurix-cublas"
 version = "1.0.0"
 dependencies = [
@@ -487,6 +505,13 @@ name = "rurix-geom-build"
 version = "1.0.0"
 dependencies = [
  "rurix-render",
+]
+
+[[package]]
+name = "rurix-geom-pages"
+version = "1.0.0"
+dependencies = [
+ "rurix-pkg",
 ]
 
 [[package]]

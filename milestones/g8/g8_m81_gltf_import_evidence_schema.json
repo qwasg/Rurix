@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.3 M81 gltf_import evidence",
+  "description": "evidence/g8_m81_gltf_import_<UTC>.json。G8.3 P0 硬门 g8.p0.m81.gltf_import:host 纯 host 门,锁定扩展集 glTF 2.0 严格导入与 canonical 六表(RXS-0332~0333;RFC-0020 §4.1/§4.6)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m81_gltf_import" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m81.gltf_import" },
+    "matrix_row": { "type": "string", "const": "M81" },
+    "wave": { "type": "string", "const": "G8.3" },
+    "numeric_step": { "type": "integer", "const": 106 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0020 §4.1/§4.6;spec/asset_pipeline.md RXS-0332~0333"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cargo_gltf_tests_green",
+        "accept_all_import_green",
+        "counts_equal_golden",
+        "digests_equal_golden",
+        "double_import_digest_stable",
+        "reject_extension_fail_closed",
+        "reject_accessor_fail_closed",
+        "reject_missing_buffer_fail_closed",
+        "reject_extras_fail_closed",
+        "no_silent_field_drop",
+        "not_json_parse_only"
+      ],
+      "properties": {
+        "cargo_gltf_tests_green": { "type": "boolean" },
+        "accept_all_import_green": { "type": "boolean" },
+        "counts_equal_golden": { "type": "boolean" },
+        "digests_equal_golden": { "type": "boolean" },
+        "double_import_digest_stable": { "type": "boolean" },
+        "reject_extension_fail_closed": { "type": "boolean" },
+        "reject_accessor_fail_closed": { "type": "boolean" },
+        "reject_missing_buffer_fail_closed": { "type": "boolean" },
+        "reject_extras_fail_closed": { "type": "boolean" },
+        "no_silent_field_drop": { "type": "boolean" },
+        "not_json_parse_only": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

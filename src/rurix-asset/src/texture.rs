@@ -1,0 +1,386 @@
+//! M83 纹理 cook 节点(`rurix.texture.cook.v1`)。
+//!
+//! source RGBA → 四腿产物(KTX2 / Basis / BCn / ASTC)。
+//! Basis 过渡腿 = RXBS + ETC1S-via-BC1(完整 basis_universal 待合入)。
+//! //@ spec: RXS-0334
+
+use crate::bcdec::{
+    alpha_coverage_delta, decode_bc7_rgba8, max_channel_delta, normal_length_mean_abs_dev,
+};
+use crate::ktx2::{
+    RXAS_MAGIC, RXBC_FMT_BC7, RXBC_MAGIC, RXBS_FMT_ETC1S_VIA_BC1,
+    VK_FORMAT_ASTC_4X4_UNORM_BLOCK, VK_FORMAT_BC7_UNORM_BLOCK, write_ktx2_uncompressed,
+    write_rxas, write_rxbc, write_rxbs, KTX2_MAGIC,
+};
+use rurix_basis_sys::{self as basis, VENDOR_VERSION};
+use rurix_pkg::sha256::Sha256;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+/// AP-TEX 冻结 tolerance(首批 measured 后字面冻结;RXS-0334)。
+pub const COLOR_MAX_CHANNEL_DELTA: u8 = 48;
+pub const NORMAL_LENGTH_MEAN_ABS_DEV: f64 = 0.15;
+pub const ALPHA_COVERAGE_DELTA: f64 = 0.08;
+pub const ALPHA_COVERAGE_THRESHOLD: u8 = 128;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextureSemantics {
+    Color,
+    Normal,
+    Mask,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CookProfile {
+    /// win-vulkan-bcn-v1:BC7 color / 同路径 normal·mask(过渡期未分 BC5/BC4)。
+    WinVulkanBcnV1,
+    /// mobile-astc-v1:ASTC 4×4。
+    MobileAstcV1,
+}
+
+impl CookProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CookProfile::WinVulkanBcnV1 => "win-vulkan-bcn-v1",
+            CookProfile::MobileAstcV1 => "mobile-astc-v1",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "win-vulkan-bcn-v1" => Some(Self::WinVulkanBcnV1),
+            "mobile-astc-v1" => Some(Self::MobileAstcV1),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CookReport {
+    pub codec_version: String,
+    pub width: u32,
+    pub height: u32,
+    pub ktx2_path: PathBuf,
+    pub basis_path: Option<PathBuf>,
+    pub bcn_path: PathBuf,
+    pub astc_path: PathBuf,
+    pub ktx2_digest: String,
+    pub bcn_digest: String,
+    pub astc_digest: String,
+    pub basis_present: bool,
+    pub gpu_format_bcn: String,
+    pub gpu_format_astc: String,
+    pub color_max_delta: u8,
+    pub normal_length_mad: f64,
+    pub alpha_coverage_delta: f64,
+}
+
+#[derive(Debug)]
+pub enum CookError {
+    Io(String),
+    Codec(String),
+    Parse(String),
+}
+
+impl std::fmt::Display for CookError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CookError::Io(s) | CookError::Codec(s) | CookError::Parse(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+impl std::error::Error for CookError {}
+
+fn digest_hex(bytes: &[u8]) -> String {
+    let mut h = Sha256::new();
+    h.update(bytes);
+    let d = h.finalize();
+    let mut s = String::with_capacity(64);
+    for b in d {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
+}
+
+/// 程序化 checker 16×16 RGBA(确定性 fixture)。
+pub fn fixture_checker_rgba16() -> (u32, u32, Vec<u8>) {
+    let w = 16u32;
+    let h = 16u32;
+    let mut v = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let on = ((x / 4) + (y / 4)) % 2 == 0;
+            if on {
+                v.extend_from_slice(&[220, 40, 40, 255]);
+            } else {
+                v.extend_from_slice(&[40, 40, 220, 200]);
+            }
+        }
+    }
+    (w, h, v)
+}
+
+/// 半球 normal map 16×16。
+pub fn fixture_normal_rgba16() -> (u32, u32, Vec<u8>) {
+    let w = 16u32;
+    let h = 16u32;
+    let mut v = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let fx = (x as f64 + 0.5) / w as f64 * 2.0 - 1.0;
+            let fy = (y as f64 + 0.5) / h as f64 * 2.0 - 1.0;
+            let z2 = (1.0 - fx * fx - fy * fy).max(0.0);
+            let fz = z2.sqrt();
+            let r = ((fx * 0.5 + 0.5) * 255.0).round().clamp(0.0, 255.0) as u8;
+            let g = ((fy * 0.5 + 0.5) * 255.0).round().clamp(0.0, 255.0) as u8;
+            let b = ((fz * 0.5 + 0.5) * 255.0).round().clamp(0.0, 255.0) as u8;
+            v.extend_from_slice(&[r, g, b, 255]);
+        }
+    }
+    (w, h, v)
+}
+
+/// 解码 PPM P6(镜像 image-io 编码布局;本切片不引第二解码器依赖面之外的路径)。
+pub fn decode_ppm_p6(bytes: &[u8]) -> Result<(u32, u32, Vec<u8>), CookError> {
+    if !bytes.starts_with(b"P6\n") {
+        return Err(CookError::Parse("PPM: magic 非 P6".into()));
+    }
+    let mut i = 3usize;
+    // skip comments
+    while i < bytes.len() && bytes[i] == b'#' {
+        while i < bytes.len() && bytes[i] != b'\n' {
+            i += 1;
+        }
+        i += 1;
+    }
+    let rest = std::str::from_utf8(&bytes[i..]).map_err(|e| CookError::Parse(e.to_string()))?;
+    let mut parts = rest.split_whitespace();
+    let w: u32 = parts
+        .next()
+        .ok_or_else(|| CookError::Parse("PPM: 缺 width".into()))?
+        .parse()
+        .map_err(|e| CookError::Parse(format!("{e}")))?;
+    let h: u32 = parts
+        .next()
+        .ok_or_else(|| CookError::Parse("PPM: 缺 height".into()))?
+        .parse()
+        .map_err(|e| CookError::Parse(format!("{e}")))?;
+    let maxv: u32 = parts
+        .next()
+        .ok_or_else(|| CookError::Parse("PPM: 缺 maxval".into()))?
+        .parse()
+        .map_err(|e| CookError::Parse(format!("{e}")))?;
+    if maxv != 255 {
+        return Err(CookError::Parse("PPM: 仅支持 maxval=255".into()));
+    }
+    // binary payload starts after the header newline following maxval.
+    let header_prefix = format!("P6\n{w} {h}\n255\n");
+    // Robust: find last header newline by scanning for "\n255\n"
+    let Some(pos) = find_ppm_payload(bytes) else {
+        return Err(CookError::Parse("PPM: 无法定位 payload".into()));
+    };
+    let rgb = &bytes[pos..];
+    let need = (w as usize) * (h as usize) * 3;
+    if rgb.len() < need {
+        return Err(CookError::Parse("PPM: payload 截断".into()));
+    }
+    let mut rgba = Vec::with_capacity(need / 3 * 4);
+    for pix in rgb[..need].chunks_exact(3) {
+        rgba.extend_from_slice(&[pix[0], pix[1], pix[2], 255]);
+    }
+    let _ = header_prefix;
+    Ok((w, h, rgba))
+}
+
+fn find_ppm_payload(bytes: &[u8]) -> Option<usize> {
+    // After "P6\n", parse ASCII header until a single whitespace-separated maxval then one newline.
+    if !bytes.starts_with(b"P6\n") {
+        return None;
+    }
+    let mut i = 3;
+    let mut vals = 0u8;
+    while i < bytes.len() {
+        if bytes[i] == b'#' {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i += 1;
+            }
+            i += 1;
+            continue;
+        }
+        if bytes[i].is_ascii_whitespace() {
+            i += 1;
+            continue;
+        }
+        // number
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        vals += 1;
+        if vals == 3 {
+            // maxval consumed; expect single newline then payload
+            if i < bytes.len() && bytes[i] == b'\n' {
+                return Some(i + 1);
+            }
+            // skip spaces then newline
+            while i < bytes.len() && bytes[i].is_ascii_whitespace() && bytes[i] != b'\n' {
+                i += 1;
+            }
+            if i < bytes.len() && bytes[i] == b'\n' {
+                return Some(i + 1);
+            }
+            return None;
+        }
+    }
+    None
+}
+
+pub fn encode_ppm_p6(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
+    let header = format!("P6\n{width} {height}\n255\n");
+    let mut out = Vec::with_capacity(header.len() + (width * height * 3) as usize);
+    out.extend_from_slice(header.as_bytes());
+    for pix in rgba.chunks_exact(4) {
+        out.extend_from_slice(&pix[..3]);
+    }
+    out
+}
+
+/// Cook 纹理到 `out_dir`,写四腿文件名约定:`texture.ktx2` / `texture.basis`(可选) /
+/// `texture.bcn` / `texture.astc` + `cook_report.json`。
+pub fn cook_texture(
+    rgba: &[u8],
+    width: u32,
+    height: u32,
+    semantics: TextureSemantics,
+    profile: CookProfile,
+    out_dir: &Path,
+) -> Result<CookReport, CookError> {
+    fs::create_dir_all(out_dir).map_err(|e| CookError::Io(e.to_string()))?;
+    let ver = basis::version_string();
+    if ver != VENDOR_VERSION {
+        return Err(CookError::Codec(format!(
+            "codec version drift: got {ver}, want {VENDOR_VERSION}"
+        )));
+    }
+
+    let bc7 = basis::encode_bc7_rgba8(rgba, width, height)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+    if bc7.iter().all(|&b| b == 0) {
+        return Err(CookError::Codec("BC7 encoder produced all-zero placeholder".into()));
+    }
+    let bc1 = basis::encode_bc1_rgba8(rgba, width, height)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+    if bc1.iter().all(|&b| b == 0) {
+        return Err(CookError::Codec("BC1 transitional encoder all-zero".into()));
+    }
+    let astc = basis::encode_astc4x4_rgba8(rgba, width, height)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+
+    let ktx2 = write_ktx2_uncompressed(VK_FORMAT_BC7_UNORM_BLOCK, width, height, &bc7);
+    let bcn = write_rxbc(RXBC_FMT_BC7, width, height, &bc7);
+    let basis_file = write_rxbs(RXBS_FMT_ETC1S_VIA_BC1, width, height, &bc1);
+    let astc_file = write_rxas(width, height, &astc);
+    let _astc_ktx2 =
+        write_ktx2_uncompressed(VK_FORMAT_ASTC_4X4_UNORM_BLOCK, width, height, &astc);
+    let _ = (_astc_ktx2, profile, semantics);
+
+    let ktx2_path = out_dir.join("texture.ktx2");
+    let bcn_path = out_dir.join("texture.bcn");
+    let astc_path = out_dir.join("texture.astc");
+    let basis_path = out_dir.join("texture.basis");
+    fs::write(&ktx2_path, &ktx2).map_err(|e| CookError::Io(e.to_string()))?;
+    fs::write(&bcn_path, &bcn).map_err(|e| CookError::Io(e.to_string()))?;
+    fs::write(&astc_path, &astc_file).map_err(|e| CookError::Io(e.to_string()))?;
+    fs::write(&basis_path, &basis_file).map_err(|e| CookError::Io(e.to_string()))?;
+    let basis_present = true;
+
+    let decoded = decode_bc7_rgba8(&bc7, width, height);
+    let color_max_delta = max_channel_delta(rgba, &decoded);
+    let normal_length_mad = normal_length_mean_abs_dev(&decoded);
+    let alpha_coverage_delta =
+        alpha_coverage_delta(rgba, &decoded, ALPHA_COVERAGE_THRESHOLD);
+
+    let report = CookReport {
+        codec_version: ver.to_string(),
+        width,
+        height,
+        ktx2_path: ktx2_path.clone(),
+        basis_path: Some(basis_path.clone()),
+        bcn_path: bcn_path.clone(),
+        astc_path: astc_path.clone(),
+        ktx2_digest: digest_hex(&ktx2),
+        bcn_digest: digest_hex(&bcn),
+        astc_digest: digest_hex(&astc_file),
+        basis_present,
+        gpu_format_bcn: "BC7_UNORM".into(),
+        gpu_format_astc: "ASTC_4x4_UNORM".into(),
+        color_max_delta,
+        normal_length_mad,
+        alpha_coverage_delta,
+    };
+
+    let json = format!(
+        "{{\n  \"codec_version\": \"{}\",\n  \"width\": {},\n  \"height\": {},\n  \"ktx2_digest\": \"{}\",\n  \"bcn_digest\": \"{}\",\n  \"astc_digest\": \"{}\",\n  \"basis_present\": {},\n  \"gpu_format_bcn\": \"{}\",\n  \"gpu_format_astc\": \"{}\",\n  \"color_max_delta\": {},\n  \"normal_length_mad\": {:.6},\n  \"alpha_coverage_delta\": {:.6},\n  \"ktx2_magic_ok\": {},\n  \"bcn_magic_ok\": {},\n  \"astc_magic_ok\": {},\n  \"supercompression\": 0\n}}\n",
+        report.codec_version,
+        report.width,
+        report.height,
+        report.ktx2_digest,
+        report.bcn_digest,
+        report.astc_digest,
+        report.basis_present,
+        report.gpu_format_bcn,
+        report.gpu_format_astc,
+        report.color_max_delta,
+        report.normal_length_mad,
+        report.alpha_coverage_delta,
+        ktx2.starts_with(KTX2_MAGIC),
+        bcn.starts_with(RXBC_MAGIC),
+        astc_file.starts_with(RXAS_MAGIC),
+    );
+    fs::write(out_dir.join("cook_report.json"), json).map_err(|e| CookError::Io(e.to_string()))?;
+    Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn cook_twice_byte_equal() {
+        let (w, h, rgba) = fixture_checker_rgba16();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("rurix_m83_cook_{nanos}"));
+        let a = root.join("a");
+        let b = root.join("b");
+        let ra = cook_texture(
+            &rgba,
+            w,
+            h,
+            TextureSemantics::Color,
+            CookProfile::WinVulkanBcnV1,
+            &a,
+        )
+        .unwrap();
+        let rb = cook_texture(
+            &rgba,
+            w,
+            h,
+            TextureSemantics::Color,
+            CookProfile::WinVulkanBcnV1,
+            &b,
+        )
+        .unwrap();
+        assert_eq!(ra.ktx2_digest, rb.ktx2_digest);
+        assert_eq!(ra.bcn_digest, rb.bcn_digest);
+        assert_eq!(
+            fs::read(&ra.bcn_path).unwrap(),
+            fs::read(&rb.bcn_path).unwrap()
+        );
+        assert!(ra.color_max_delta <= COLOR_MAX_CHANNEL_DELTA);
+        let _ = fs::remove_dir_all(&root);
+    }
+}

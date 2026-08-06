@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.3 M83 texture_transcode evidence",
+  "description": "evidence/g8_m83_texture_transcode_<UTC>.json。G8.3 已 go P1 硬门 g8.p1.m83.texture_transcode:KTX2/Basis/BCn/ASTC 真实 codec cook + 双构建相等 + tolerance(RFC-0020 §4.8;spec/asset_pipeline.md RXS-0334)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m83_texture_transcode" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p1.m83.texture_transcode" },
+    "matrix_row": { "type": "string", "const": "M83" },
+    "wave": { "type": "string", "const": "G8.3" },
+    "numeric_step": { "type": "integer", "const": 107 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0020 §4.8;spec/asset_pipeline.md RXS-0334"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_codec_identity",
+        "cook_twice_byte_equal",
+        "ktx2_leg_present_valid",
+        "basis_leg_present_valid",
+        "bcn_leg_formats_expected",
+        "astc_leg_format_expected",
+        "color_error_within_tolerance",
+        "normal_length_within_tolerance",
+        "alpha_coverage_within_tolerance",
+        "container_not_renamed",
+        "license_sbom_entries_present",
+        "transcode_hook_zero_byte",
+        "double_cook_across_isolated_roots"
+      ],
+      "properties": {
+        "real_codec_identity": { "type": "boolean" },
+        "cook_twice_byte_equal": { "type": "boolean" },
+        "ktx2_leg_present_valid": { "type": "boolean" },
+        "basis_leg_present_valid": { "type": "boolean" },
+        "bcn_leg_formats_expected": { "type": "boolean" },
+        "astc_leg_format_expected": { "type": "boolean" },
+        "color_error_within_tolerance": { "type": "boolean" },
+        "normal_length_within_tolerance": { "type": "boolean" },
+        "alpha_coverage_within_tolerance": { "type": "boolean" },
+        "container_not_renamed": { "type": "boolean" },
+        "license_sbom_entries_present": { "type": "boolean" },
+        "transcode_hook_zero_byte": { "type": "boolean" },
+        "double_cook_across_isolated_roots": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

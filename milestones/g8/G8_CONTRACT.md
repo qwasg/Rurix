@@ -521,3 +521,29 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **裁决**：全线 **(c)**——零 vendor 补丁；见 `rfcs/0021-physics-platform.md` v1.1 §2.1.1.1。M66=`semantic_journal_rebuild_v1`；M71=自研 `RurixCharacter`；M70=自研悬挂载具；M69=约束五件套。**(a)/(b) 本波不启用**。
 
 **编号**：零 RXS/CI/RD/U/RX 消费。解锁 G8.6a M66 实现开工资格（仍受波次合入序与 G-G8-3 READY 约束）。
+
+### 8.11 M01 meshlet_page_builder materialize（2026-08-06）
+
+**触发**：G8.3 P0 M01（host；RFC-0020 §4.9）。
+
+**交付物**：`spec/geometry_pages.md` RXS-0328~0331；`src/rurix-geom-pages` + `rurix-asset::geom_build`；`ci/g8_meshlet_page_builder_smoke.py`（步骤 **105**）；schema/budget/CI_GATES v1.12。
+
+**验收**：smoke PASS 12 腿；`evidence/g8_m01_meshlet_page_builder_*.json`。
+
+### 8.12 M83 texture_transcode materialize（2026-08-06）
+
+**触发**：G8.3 P1 M83（host；RFC-0020 AP-TEX）。
+
+**交付物**：`spec/asset_pipeline.md` RXS-0334；`src/rurix-basis-sys`（过渡 codec + U44~U46）+ `rurix-asset::texture`；`ci/g8_texture_transcode_smoke.py`（步骤 **107**；**106 预留 M81**）。
+
+**诚实边界**：Basis 腿为 RXBS + ETC1S-via-BC1 过渡容器；完整 basis_universal vendor 待升级；禁 zstd。
+
+**验收**：smoke PASS 13/13。
+
+### 8.13 M81 gltf_import materialize（2026-08-06）
+
+**触发**：G8.3 P0 M81（host；RFC-0020 AP-SCHEMA/AP-GLTF）。
+
+**交付物**：`spec/asset_pipeline.md` RXS-0332~0333；`rurix-asset::gltf`；`ci/g8_gltf_import_smoke.py`（步骤 **106**）；conformance/asset/gltf。
+
+**验收**：smoke PASS 11/11。

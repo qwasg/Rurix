@@ -1,0 +1,25 @@
+[package]
+name = "rurix-asset"
+description = "Rurix 资产管线（G8.3；RFC-0020）——M01 逻辑页装箱、M81 glTF/schema、M83 纹理 cook 增量；rxcook CLI"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+rurix-pkg = { path = "../rurix-pkg" }
+rurix-geom-pages = { path = "../rurix-geom-pages" }
+rurix-geom-build = { path = "../rurix-geom-build" }
+rurix-render = { path = "../rurix-render" }
+rurix-basis-sys = { path = "../rurix-basis-sys" }
+
+[[bin]]
+name = "g8_m01_probe"
+path = "src/bin/g8_m01_probe.rs"
+
+[[bin]]
+name = "rxcook"
+path = "src/bin/rxcook.rs"
+
+[lints]
+workspace = true

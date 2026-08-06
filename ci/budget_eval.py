@@ -1107,6 +1107,57 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.2 M31 实现回填前为正常状态,契约 G-G8-4",
             strict,
         )
+    elif eid == "g8.counter.meshlet_page_builder_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m01_meshlet_page_builder_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 12:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 meshlet_page_builder 12 腿全绿见证",
+            "G8.3 M01 实现回填前为正常状态",
+            strict,
+        )
+    elif eid == "g8.counter.texture_transcode_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m83_texture_transcode_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 13:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 texture_transcode 13 腿全绿见证",
+            "G8.3 M83 实现回填前为正常状态",
+            strict,
+        )
+    elif eid == "g8.counter.gltf_import_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m81_gltf_import_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 10:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 gltf_import ≥10 腿全绿见证",
+            "G8.3 M81 实现回填前为正常状态",
+            strict,
+        )
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

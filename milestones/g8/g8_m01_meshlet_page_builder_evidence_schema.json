@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.3 M01 meshlet_page_builder evidence",
+  "description": "evidence/g8_m01_meshlet_page_builder_<UTC>.json。G8.3 P0 硬门 g8.p0.m01.meshlet_page_builder:host 纯 host 门,逻辑页 RXPL builder 确定性/header golden/解码参照全等/未知版本拒录(RXS-0328~0331;RFC-0020 §4.9)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m01_meshlet_page_builder" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m01.meshlet_page_builder" },
+    "matrix_row": { "type": "string", "const": "M01" },
+    "wave": { "type": "string", "const": "G8.3" },
+    "numeric_step": { "type": "integer", "const": 105 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0020 §4.9;spec/geometry_pages.md RXS-0328~0331;G8_ACCEPTANCE_MAP §2 M01"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builder_double_run_byte_equal",
+        "header_magic_version_golden",
+        "header_schema_digest_golden",
+        "decoded_dag_nodes_equal_reference",
+        "decoded_dag_edges_equal_reference",
+        "decoded_bounds_equal_reference",
+        "decoded_lod_parent_equal_reference",
+        "page_size_within_contract",
+        "unknown_version_rejected_pre_consume",
+        "rxgb_converter_explicit",
+        "rxgb_reader_zero_byte",
+        "not_substituted_by_m04"
+      ],
+      "properties": {
+        "builder_double_run_byte_equal": { "type": "boolean" },
+        "header_magic_version_golden": { "type": "boolean" },
+        "header_schema_digest_golden": { "type": "boolean" },
+        "decoded_dag_nodes_equal_reference": { "type": "boolean" },
+        "decoded_dag_edges_equal_reference": { "type": "boolean" },
+        "decoded_bounds_equal_reference": { "type": "boolean" },
+        "decoded_lod_parent_equal_reference": { "type": "boolean" },
+        "page_size_within_contract": { "type": "boolean" },
+        "unknown_version_rejected_pre_consume": { "type": "boolean" },
+        "rxgb_converter_explicit": { "type": "boolean" },
+        "rxgb_reader_zero_byte": { "type": "boolean" },
+        "not_substituted_by_m04": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

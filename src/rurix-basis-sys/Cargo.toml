@@ -1,0 +1,19 @@
+[package]
+name = "rurix-basis-sys"
+description = "G8.3 M83 纹理转码 FFI 边界(RFC-0020 §4.8):过渡真实 BCn/ASTC 编码器经 cc 编 C++ shim(非 cmake);完整 basis_universal vendor 待合入(见 VENDOR.md)。unsafe 唯一集中地(unsafe-audit/rurix-basis-sys.md,U44 起)。对外只露 safe Rust API。"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[build-dependencies]
+cc = "1"
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):本 crate 是纹理 codec FFI
+# 唯一 unsafe 集中地,块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-basis-sys.md,
+# U44 起续号),仍强制每个 unsafe 块携 `// SAFETY:` 注释。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

@@ -149,14 +149,21 @@ pub fn build_face_adjacency(tris: &[[u32; 3]]) -> Vec<Vec<u32>> {
         }
     }
     let mut adj: Vec<Vec<u32>> = vec![Vec::new(); tris.len()];
-    for faces in edge_map.values() {
-        for &f in faces {
-            for &g in faces {
+    // 按边键排序遍历,避免 HashMap 迭代序导致跨进程非确定性
+    // (邻接序影响簇化前沿序,同分决胜依赖前沿先入者)。
+    let mut edges: Vec<((u32, u32), Vec<u32>)> = edge_map.into_iter().collect();
+    edges.sort_unstable_by_key(|(e, _)| *e);
+    for (_, faces) in edges {
+        for &f in &faces {
+            for &g in &faces {
                 if f != g && !adj[f as usize].contains(&g) {
                     adj[f as usize].push(g);
                 }
             }
         }
+    }
+    for nbrs in &mut adj {
+        nbrs.sort_unstable();
     }
     adj
 }

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "input": "TriMesh::uv_sphere(1.0,24,24)",
+  "header_size": 136,
+  "schema_digest_hex": "5bee3fef0a62fd26ba885368e191dae182fd423d73ecff5413e40499a99da48e",
+  "pages_concat_sha256": "6dc792b12c658edf7f2dde804471d672a7d557ecb5606d54af184ebabc0b71a2",
+  "page_count": 1,
+  "stream_page_size": 131072
+}

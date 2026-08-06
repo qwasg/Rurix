@@ -1,0 +1,8 @@
+{
+  "scenes": {"count": 1, "digest": "a22808952309325f4cbfb6c242e755afccaeeeb2f1033deaba59500901d5d21e"},
+  "nodes": {"count": 1, "digest": "9a1e706540a340869375db4ba479e67ab5fdc3bb7ae3539e3ca7ac94846f5428"},
+  "meshes": {"count": 1, "digest": "7e8d45bf50d6820f49fee8f3cdf04f769a2f23c741078c1f1f800f2a802dcf15"},
+  "primitives": {"count": 1, "digest": "c1a7b5e7536a5671a98e4a4a80051c8d844b63bd84957515df7b16848279d78a"},
+  "materials": {"count": 0, "digest": "b85b1289bb004341890a0043325c5305987f49c621e001d570c27321f80aa6a4"},
+  "textures": {"count": 0, "digest": "5a060a74114c43bbb39189083037f2cc7afc19347684bd5c656d702bf6e9ab2b"}
+}

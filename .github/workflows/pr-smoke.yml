@@ -1139,6 +1139,27 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 
+      # 步骤 105（G8.3 P0 硬门 g8.p0.m01.meshlet_page_builder;RFC-0020;
+      # spec/geometry_pages.md RXS-0328~0331）:逻辑页 RXPL builder 确定性/
+      # header golden/解码参照/未知版本拒。host 纯 host 门。
+      - name: G8.3 M01 meshlet page builder smoke (G8 CI_GATES §4.105, g8.p0.m01.meshlet_page_builder)
+        shell: powershell
+        run: py -3 ci/g8_meshlet_page_builder_smoke.py --gate g8.p0.m01.meshlet_page_builder
+
+      # 步骤 106（G8.3 P0 硬门 g8.p0.m81.gltf_import;RFC-0020;
+      # spec/asset_pipeline.md RXS-0332~0333）:严格 glTF 导入 + canonical 六表。
+      # host 纯 host 门。
+      - name: G8.3 M81 glTF import smoke (G8 CI_GATES §4.106, g8.p0.m81.gltf_import)
+        shell: powershell
+        run: py -3 ci/g8_gltf_import_smoke.py --gate g8.p0.m81.gltf_import
+
+      # 步骤 107（G8.3 P1 硬门 g8.p1.m83.texture_transcode;RFC-0020;
+      # spec/asset_pipeline.md RXS-0334）:KTX2/Basis/BCn/ASTC 四腿真实 codec
+      # + 双 cook 确定性。host 门。
+      - name: G8.3 M83 texture transcode smoke (G8 CI_GATES §4.107, g8.p1.m83.texture_transcode)
+        shell: powershell
+        run: py -3 ci/g8_texture_transcode_smoke.py --gate g8.p1.m83.texture_transcode
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

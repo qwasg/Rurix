@@ -337,6 +337,18 @@ def check_evidence_files() -> None:
     g8_wave2_exit_schema = load(
         ROOT / "milestones/g8/g8_wave2_exit_evidence_schema.json"
     )
+    g8_m01_meshlet_page_builder_schema = load(
+        ROOT / "milestones/g8/g8_m01_meshlet_page_builder_evidence_schema.json"
+    )
+    g8_m83_texture_transcode_schema = load(
+        ROOT / "milestones/g8/g8_m83_texture_transcode_evidence_schema.json"
+    )
+    g8_m81_gltf_import_schema = load(
+        ROOT / "milestones/g8/g8_m81_gltf_import_evidence_schema.json"
+    )
+    g8_wave7_decisions_schema = load(
+        ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -626,6 +638,26 @@ def check_evidence_files() -> None:
     g8_wave2_exit_validator = (
         jsonschema.Draft7Validator(g8_wave2_exit_schema)
         if g8_wave2_exit_schema is not None
+        else None
+    )
+    g8_m01_meshlet_page_builder_validator = (
+        jsonschema.Draft7Validator(g8_m01_meshlet_page_builder_schema)
+        if g8_m01_meshlet_page_builder_schema is not None
+        else None
+    )
+    g8_m83_texture_transcode_validator = (
+        jsonschema.Draft7Validator(g8_m83_texture_transcode_schema)
+        if g8_m83_texture_transcode_schema is not None
+        else None
+    )
+    g8_m81_gltf_import_validator = (
+        jsonschema.Draft7Validator(g8_m81_gltf_import_schema)
+        if g8_m81_gltf_import_schema is not None
+        else None
+    )
+    g8_wave7_decisions_validator = (
+        jsonschema.Draft7Validator(g8_wave7_decisions_schema)
+        if g8_wave7_decisions_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1237,6 +1269,30 @@ def check_evidence_files() -> None:
             # 只读汇总七 P0 + RFC-0019 Approved + RD-037 closed + RD-038
             # 本波接入空集;不重跑、不代绿;host 聚合门 device=not_applicable。
             validator = g8_wave2_exit_validator
+        elif (
+            f.name.startswith("g8_m01_meshlet_page_builder_")
+            and g8_m01_meshlet_page_builder_validator is not None
+        ):
+            # G8.3 M01 meshlet_page_builder(RXS-0328~0331):host 门,逻辑页 RXPL。
+            validator = g8_m01_meshlet_page_builder_validator
+        elif (
+            f.name.startswith("g8_m83_texture_transcode_")
+            and g8_m83_texture_transcode_validator is not None
+        ):
+            # G8.3 M83 texture_transcode(RXS-0334):host 门,四腿真实 codec。
+            validator = g8_m83_texture_transcode_validator
+        elif (
+            f.name.startswith("g8_m81_gltf_import_")
+            and g8_m81_gltf_import_validator is not None
+        ):
+            # G8.3 M81 gltf_import(RXS-0332~0333):host 门,严格 glTF 六表。
+            validator = g8_m81_gltf_import_validator
+        elif (
+            f.name.startswith("g8_wave7_decisions_")
+            and g8_wave7_decisions_validator is not None
+        ):
+            # G8.7 P2 穷举决策聚合(早开表;步骤号待领取)。
+            validator = g8_wave7_decisions_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

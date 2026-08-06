@@ -1,0 +1,13 @@
+[package]
+name = "rurix-geom-pages"
+description = "Rurix 几何页格式 crate（G8.3 M01/M04）——逻辑页 RXPL encode/decode；依赖仅 rurix-pkg；#![forbid(unsafe_code)]"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+rurix-pkg = { path = "../rurix-pkg" }
+
+[lints]
+workspace = true
