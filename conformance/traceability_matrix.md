@@ -299,3 +299,6 @@
 | RXS-0311 | spec/shader_stages.md | 6 | `conformance/capability/accept/fallback_low_profile.rx`, `conformance/capability/accept/implicit_propagation.rx`, `conformance/capability/accept/requires_supported.rx` …(+3) |
 | RXS-0312 | spec/rendering_platform.md | 7 | `conformance/capability/accept/fallback_low_profile.rx`, `conformance/capability/accept/implicit_propagation.rx`, `conformance/capability/accept/requires_supported.rx` …(+4) |
 | RXS-0313 | spec/rendering_platform.md | 1 | `src/rurixc/src/capability_check.rs` |
+| RXS-0314 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/pso_cache.rs` |
+| RXS-0315 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/pso_cache.rs` |
+| RXS-0316 | spec/vulkan_backend.md | 2 | `src/rurix-rt/src/pso_cache.rs`, `src/rurix-rt/src/vk.rs` |

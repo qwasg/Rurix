@@ -385,3 +385,30 @@ py -3 ci/bilingual_coverage.py              # 117/117
 **诚实边界**（实现模块头注释同文）：① 调用图为 DefId 级直调路径调用;固有 impl 方法接收者类型解析在 TBIR 期,不在 AST 调用事实面（v1 加性演进面）。② 四个 RT intrinsic（trace_ray/report_intersection/execute_callable/ignore_intersection）当前未注册可调 lang item（RT 体 lowering 归 M50）,识别 = 单段名 + 「解析到用户 DefId 则不推导」守卫,用户遮蔽零误判;`ray_query_initialize` 为 DefId 级识别。
 
 `Assisted-by: kimi-k3 subagent g8-m32-capability-profile (47c8905d)`（实现/语料/smoke/schema/错误码；主 agent 独立复核 + 治理接线。影响范围：本节 + CI_GATES §4 M32 行 v1.5 + ledger v1.50/v1.51 + g8_budget v1.3 + pr-smoke.yml 步骤 99 + check_schemas.py 路由 + budget_eval.py 分支；验证方式：上述验收命令全绿）
+
+### 8.5 M30 pso_cache materialize（2026-08-06）
+
+**触发**：G8.2 七个 P0 之一 M30 `g8.p0.m30.pso_cache` 实现 PR（cache 轨，G8.2 设计案 §7 PR-3；硬依赖 M31 interface_hash 已在树，与 M29/M32 无硬序）。
+
+**交付物**（spec-first：条款 `988dcefe` 先行，实现+治理接线随后，硬规则 7）：
+
+- **spec 条款**：`spec/vulkan_backend.md` v1.23 RXS-0314（PSO key preimage 七段闭集/collector JSON 字段位）+ RXS-0315（`rurix_pso_cache.bin` 磁盘格式/核验序 fail-closed/rebuild_reason）+ RXS-0316（cold/warm/stall/binary 强制律/VkPipelineCache fallback）。ledger v1.52（RXS 313/314→316/317）。
+- **实现**：`src/rurix-rt/src/pso_cache.rs`（key/collector/store/manager；host ≥17 单测）+ `bin/vk_pso_cache`（`--collector-only`/`--cold`/`--warm [--drop-key N]`/`--tamper <schema|version|driver_uuid|keyset>`）+ `vk.rs` FFI append（PipelineCache + `VK_KHR_pipeline_binary` + flags2；unsafe 归 U27/U31 扩注，0 新 U）+ `tests/pso/pso_keys.golden.json`。
+- **CI 脚本**：`ci/g8_pso_cache_smoke.py`（`--gate`/`--selftest`/14 项 checks；host collector + device 串行腿，各腿独立 temp dir）。
+- **evidence schema**：`milestones/g8/g8_m30_pso_cache_evidence_schema.json`（Draft-07，14 checks，`device_section_state` 含 `executed`/`skipped_dev_env`）。
+- **治理接线**：check_schemas 路由 + pr-smoke.yml 步骤 100（`RURIX_REQUIRE_REAL=1`）+ CI_GATES v1.6 回填 100 + g8_budget v1.4 `g8.counter.pso_cache_legs`（device 见证 ≥1）+ budget_eval 分支 + ledger v1.53（CI_step 99→100/101；RXS/RX_error/U 字段 0-byte）。
+
+**判据**（G8_ACCEPTANCE_MAP §2 M30 行逐字 + 设计案 14 checks）：collector key 集 == golden；cold 构建数 == keyset；全新进程 warm `runtime_compile_stalls==0` 且全 key 命中已持久化；篡改 schema/version/driver identity/keyset fail-closed 重建且无误命中；删单 blob 能红（stalls≥1）；扩展在位必走 binary，否则 capability=false + VkPipelineCache fallback；validation=0。
+
+**device 段**：gate real（`RURIX_REQUIRE_REAL=1` 翻硬红；缺 provisioning SKIP=dev-env-degrade 不充绿）。
+
+**验收命令**（实测全绿，2026-08-06，本机 RTX 4070 Ti；branch=binary，warm_stalls=0，drop_stalls=1，validation_errors=0）：
+```
+cargo test -p rurix-rt --features vulkan --lib pso   # 17 passed
+py -3 ci/g8_pso_cache_smoke.py --gate g8.p0.m30.pso_cache   # PASS 14/14
+py -3 ci/g8_pso_cache_smoke.py --selftest                    # PASS
+```
+
+**诚实边界**：① binary 缺 blob 时驱动磁盘缓存仍可能让 FAIL_ON 返回 SUCCESS——记本 store miss/stall，不得记 hit（RXS-0316 能红字面）。② vendor blob 非 stable，不入 golden。③ pipelineCreationCacheControl 缺位 = fail-closed dev-env degrade，不降级判据。
+
+`Assisted-by: cursor-grok-4.5-high-fast`（实现初稿 + smoke/schema；主 agent 复核 stall 语义修复 + 治理接线。影响范围：本节 + CI_GATES §4 M30 行 v1.6 + ledger v1.52/v1.53 + g8_budget v1.4 + pr-smoke.yml 步骤 100 + check_schemas.py 路由 + budget_eval.py 分支 + unsafe-audit U27 扩注；验证方式：上述验收命令全绿）

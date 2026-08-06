@@ -322,6 +322,9 @@ def check_evidence_files() -> None:
     g8_m32_capability_profile_schema = load(
         ROOT / "milestones/g8/g8_m32_capability_profile_evidence_schema.json"
     )
+    g8_m30_pso_cache_schema = load(
+        ROOT / "milestones/g8/g8_m30_pso_cache_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -586,6 +589,11 @@ def check_evidence_files() -> None:
     g8_m32_capability_profile_validator = (
         jsonschema.Draft7Validator(g8_m32_capability_profile_schema)
         if g8_m32_capability_profile_schema is not None
+        else None
+    )
+    g8_m30_pso_cache_validator = (
+        jsonschema.Draft7Validator(g8_m30_pso_cache_schema)
+        if g8_m30_pso_cache_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1156,6 +1164,15 @@ def check_evidence_files() -> None:
             # fallback/snapshot 原语 14 项 checks(三腿缺一 FAIL)。device 段
             # not_applicable。供 g8.counter.capability_profile_legs 判读。
             validator = g8_m32_capability_profile_validator
+        elif (
+            f.name.startswith("g8_m30_pso_cache_")
+            and g8_m30_pso_cache_validator is not None
+        ):
+            # G8.2 M30 pso_cache 硬门(RXS-0314~0316;RFC-0019 §4.1.4):
+            # driver/device 门,collector/golden + cold/warm/stall/tamper 四轴 +
+            # binary/cache 诚实律 14 项 checks。device 段 gate real
+            # (RURIX_REQUIRE_REAL=1)。供 g8.counter.pso_cache_legs 判读。
+            validator = g8_m30_pso_cache_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

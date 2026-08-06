@@ -1,0 +1,58 @@
+{
+  "schema": "rurix.pso-keys.v1",
+  "compiler": "rurixc",
+  "compiler_version": "1.0.0",
+  "edition": "Rx0",
+  "target": "vulkan",
+  "keyset_digest": "2970fd64603301333f61d3c24a4b96115ad0254be45744ff549ab66418c6c079",
+  "records": [
+    {
+      "name": "vk_saxpy",
+      "pso_key": "192e6c7d11730916199ed29d5a817546f871fd72ea282c0c216e79b5ab313abc",
+      "kind_tag": 0,
+      "stage_digests": [
+        { "stage_tag": 2, "digest": "2377339c569bb99f67cc6b6393b1b7c1a213788cab7e3d951e99966ab379fe49" }
+      ],
+      "fixed_function_digest": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+    },
+    {
+      "name": "vk_fill",
+      "pso_key": "311e259a0a1df5d227a2ecc25051497353e9c541211b4d8ba0594b9e47028abc",
+      "kind_tag": 0,
+      "stage_digests": [
+        { "stage_tag": 2, "digest": "99c4532a6f25346c5c0c613f2b0289b25221a3c1d17121b6400caf4b49cf173b" }
+      ],
+      "fixed_function_digest": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+    },
+    {
+      "name": "vk_atomics_w1",
+      "pso_key": "2584a6e4e7545862630f79795f4617c108b37a0b0d44991ea6e9000e2d4e428f",
+      "kind_tag": 0,
+      "stage_digests": [
+        { "stage_tag": 2, "digest": "55dcbebc519f1afbcccea92d678ae90b0f56455cfcfde3b595867d99116f5251" }
+      ],
+      "fixed_function_digest": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+    },
+    {
+      "name": "vk_tri",
+      "pso_key": "dd366a63a511e5060151579e78c715cd11ae69b293ef65a538de2407e3b7f90f",
+      "kind_tag": 1,
+      "stage_digests": [
+        { "stage_tag": 0, "digest": "4a1077a1332feb270750b011a531022020b9359e7fa40e429f2fb46aea04de85" },
+        { "stage_tag": 1, "digest": "be68099179067f6265ab292b6b94c26037b39bbcc9bbd04e18bb4c3166469b22" }
+      ],
+      "fixed_function_digest": "ed316a7f56fabd5ba5e50b92df8d0d4f547c5fef0e63cfdbbff16f2c68748228"
+    },
+    {
+      "name": "vk_rt_min",
+      "pso_key": "c505466cae9af2bf45a3ed7464128ed6cdeef72cbf4b89190749b0e63c8cab65",
+      "kind_tag": 2,
+      "stage_digests": [
+        { "stage_tag": 5, "digest": "4dd11d6f0040afcd3526c18d83163d226da09f9a24cfebb15524a4b2a555668a" },
+        { "stage_tag": 6, "digest": "700254d78dff33889d327a61596de68875d498dcc0864e86c929beb82c6eb0bd" },
+        { "stage_tag": 8, "digest": "5b23e172f2f5a96c906e8c8b3f8d58cb1a8db5d2d29f5e584c83cb7e4b9f16a6" }
+      ],
+      "fixed_function_digest": "46ab70816b877f480845501ce6d618de020b590a0d0816a624e9db41939f7f13"
+    }
+  ]
+}

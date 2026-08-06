@@ -12,6 +12,10 @@ license.workspace = true
 # G1.1 CUDA–D3D12 互操作(feature d3d12-interop)的 D3D12/DXGI 薄 C/C++ shim 边界:
 # 可选依赖,默认关闭(RFC-0001 §4.2;D3D12 侧不进语言,D-130)。
 rurix-d3d12 = { path = "../rurix-d3d12", optional = true }
+# G8.2 M30 PSO cache(RXS-0314):pso_key 的 SHA-256 复用 rurix-pkg 手写实现(RXS-0306
+# 同源;workspace path 依赖,零外部 crate)。optional + 随 feature vulkan 启用——
+# default(CUDA-only)构建依赖面 0-byte 不动。
+rurix-pkg = { path = "../rurix-pkg", optional = true }
 
 [features]
 default = []
@@ -19,7 +23,7 @@ default = []
 # Vulkan compute 后端经手写 `vulkan-1.dll` 薄 FFI loader(RFC §9 Q-Binding 默认:零外部
 # 绑定,对齐 sys.rs 无依赖纪律);运行需 Vulkan 驱动(本机 NVIDIA / AMD 桌面 / Android
 # libvulkan.so)。gated on 红线 3 解除 + RFC-0011 批准。
-vulkan = []
+vulkan = ["dep:rurix-pkg"]
 # d3d12-interop:G1.1 CUDA–D3D12 互操作呈现 Rust 类型面(RXS-0140~0143,RFC-0001):
 # 生成式 brand + ExternalBuffer/ExternalSemaphore + Ready→Acquired→Presentable typestate
 # + CUDA external-resource FFI。依赖 rurix-d3d12 的 **stub**(纯 Rust,无 C++)——故
@@ -105,6 +109,13 @@ required-features = ["vulkan"]
 # rurixc .spv + 单所有者 VkAsManager 真实 TLAS + hit/miss 数据流红绿 + 三 RED 注入轴)。
 [[bin]]
 name = "vk_ray_query"
+required-features = ["vulkan"]
+
+# G8.2 M30 PSO cache device 门 harness(RXS-0314~0316;RFC-0019 §4.1.4;门 g8.p0.m30.pso_cache):
+# --collector-only(纯 host key 集合)/ --cold / --warm(全新进程)/ --tamper 四轴 +
+# --drop-key stall 能红反证腿;三模式独立进程,JSON stdout 供 ci/g8_pso_cache_smoke.py 消费。
+[[bin]]
+name = "vk_pso_cache"
 required-features = ["vulkan"]
 
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API

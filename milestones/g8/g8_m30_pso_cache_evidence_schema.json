@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2 M30 pso_cache evidence",
+  "description": "evidence/g8_m30_pso_cache_<UTC>.json。G8.2 P0 硬门 g8.p0.m30.pso_cache:driver/device 门,PSO key collector/golden、cold precache、全新进程 warm 零 stall、tamper 四轴 fail-closed、binary/cache 分支诚实律与 validation 零错(RFC-0019 §4.1.4;spec/vulkan_backend.md RXS-0314~0316)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m30_pso_cache" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m30.pso_cache" },
+    "matrix_row": { "type": "string", "const": "M30" },
+    "wave": { "type": "string", "const": "G8.2" },
+    "numeric_step": { "type": "integer", "const": 100 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0019 §4.1.4;spec/vulkan_backend.md RXS-0314~0316"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collector_key_set_equals_golden",
+        "key_generation_deterministic",
+        "cold_build_count_equals_keyset_size",
+        "warm_fresh_process_zero_stalls",
+        "warm_all_keys_hit_persisted",
+        "stall_counter_can_be_nonzero",
+        "tamper_schema_fail_closed_rebuild",
+        "tamper_version_fail_closed_rebuild",
+        "tamper_driver_identity_fail_closed_rebuild",
+        "tamper_keyset_fail_closed_rebuild",
+        "no_false_hit_after_tamper",
+        "binary_branch_taken_when_capable",
+        "fallback_branch_honest_when_incapable",
+        "validation_zero_errors"
+      ],
+      "properties": {
+        "collector_key_set_equals_golden": { "type": "boolean" },
+        "key_generation_deterministic": { "type": "boolean" },
+        "cold_build_count_equals_keyset_size": { "type": "boolean" },
+        "warm_fresh_process_zero_stalls": { "type": "boolean" },
+        "warm_all_keys_hit_persisted": { "type": "boolean" },
+        "stall_counter_can_be_nonzero": { "type": "boolean" },
+        "tamper_schema_fail_closed_rebuild": { "type": "boolean" },
+        "tamper_version_fail_closed_rebuild": { "type": "boolean" },
+        "tamper_driver_identity_fail_closed_rebuild": { "type": "boolean" },
+        "tamper_keyset_fail_closed_rebuild": { "type": "boolean" },
+        "no_false_hit_after_tamper": { "type": "boolean" },
+        "binary_branch_taken_when_capable": { "type": "boolean" },
+        "fallback_branch_honest_when_incapable": { "type": "boolean" },
+        "validation_zero_errors": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -27,6 +27,13 @@ pub mod graph;
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;
 pub mod pipeline;
+/// G8.2 M30 PSO cache(RXS-0314~0316;RFC-0019 §4.1.4;门 g8.p0.m30.pso_cache)。feature
+/// `vulkan` gate:pso_key 七段 preimage 规范编码(纯 host 可单测)+ 固定场景 collector
+/// (golden checked-in)+ RXS-0315 单文件 store fail-closed 装载 + 双分支(binary/
+/// VkPipelineCache fallback)manager + compile-stall 计数器。device 会话经 `vk` append 段
+/// (U27/U31 同一 vk FFI 边界扩注)。
+#[cfg(feature = "vulkan")]
+pub mod pso_cache;
 /// Rust 级多 pass 图形执行器(RFC-0016 章 B 主通道;G5 门 G-G5-4 前置;U32)。feature
 /// `vulkan` gate:资源描述 + raster/compute 混合 pass + 屏障计划逐字回放 + readback,
 /// 内建 pipeline cache 与 `VK_KHR_shader_atomic_int64` 能力探测面。引擎渲染器库

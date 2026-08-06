@@ -952,6 +952,30 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.2 M32 实现回填前为正常状态,契约 G-G8-4",
             strict,
         )
+    elif eid == "g8.counter.pso_cache_legs":
+        # G8.2 M30 pso_cache 硬门判据通过数 >=14(契约 G-G8-4 / CI_GATES §4 M30 行;
+        # RFC-0019 §4.1.4 / RXS-0314~0316)。计数源 = evidence/g8_m30_pso_cache_*.json
+        # 中 checks.* 全 true 且 device_section_state=executed 的见证数(device 见证 ≥1)。
+        # driver/device 门;RURIX_REQUIRE_REAL=1 翻硬红。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m30_pso_cache_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") != "executed":
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 14:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 pso_cache device 判据全绿见证(checks.* 14/14 true,executed)",
+            "G8.2 M30 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.shader_permutation_legs":
         # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
         # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/

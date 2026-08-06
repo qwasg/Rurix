@@ -65,7 +65,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m50.rt_pipeline_incremental` | M50 | G8.2 | `ci/g8_rt_pipeline_incremental_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m89.single_source_gfx_submit` | M89 | G8.2 | `ci/g8_single_source_gfx_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m29.shader_permutation` | M29 | G8.2 | `ci/g8_shader_permutation_smoke.py` | 98 |
-| `g8.p0.m30.pso_cache` | M30 | G8.2 | `ci/g8_pso_cache_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m30.pso_cache` | M30 | G8.2 | `ci/g8_pso_cache_smoke.py` | 100 |
 | `g8.p0.m31.reflection_hash` | M31 | G8.2 | `ci/g8_reflection_hash_smoke.py` | 97 |
 | `g8.p0.m32.capability_profile` | M32 | G8.2 | `ci/g8_capability_profile_smoke.py` | 99 |
 | `g8.p0.m85.shader_manifest_ddc` | M85 | G8.2/3 | `ci/g8_shader_manifest_ddc_smoke.py` | `post-G7 actual-next-free allocation` |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.6 | 2026-08-06 | **M30 materialize**：§4 M30 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `100`（ledger next_free=100 实际分配）；`ci/g8_pso_cache_smoke.py` + `milestones/g8/g8_m30_pso_cache_evidence_schema.json` + `src/rurix-rt` PSO cache 实现 + `bin/vk_pso_cache` + `pr-smoke.yml` 步骤 100 同 PR 落。driver/device 门，`RURIX_REQUIRE_REAL=1` 翻硬红。spec-first：RXS-0314~0316 先行（commit 988dcefe，ledger v1.52）。零新 RX 码；unsafe 归 U27/U31 扩注（0 新 U）。其余 17 个 P0/P1 行 0-byte。 |
 | v1.5 | 2026-08-06 | **M32 materialize**：§4 M32 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `99`（ledger next_free=99 实际分配）；`ci/g8_capability_profile_smoke.py` + `milestones/g8/g8_m32_capability_profile_evidence_schema.json` + `conformance/capability/{accept,reject,profiles}` 语料 + `pr-smoke.yml` 步骤 99 同 PR 落。host/compile 纯 host 门，device 段 `not_applicable`。spec-first：RXS-0311~0313 + RXS-0304 修订先行（commits bec06980 + 138897c0 兼容判定 v1.3 精确化，ledger v1.50）。新错误码 RX3020~RX3023（typeck 段四枚：missing_required/forbidden_used/fallback_incompatible/unknown_id）；`capability.runtime_snapshot_mismatch` 为库层 typed Err 不占 RX 码。其余 18 个 P0/P1 行 0-byte。 |
 | v1.4 | 2026-08-06 | **M29 materialize**：§4 M29 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `98`（ledger next_free=98 实际分配）；`ci/g8_shader_permutation_smoke.py` + `milestones/g8/g8_m29_shader_permutation_evidence_schema.json` + `conformance/permutation/{accept,reject,golden}` 语料 + `pr-smoke.yml` 步骤 98 同 PR 落。host/compile 纯 host 门，device 段 `not_applicable`。spec-first：RXS-0308~0310 + RXS-0304 修订已先行（commit c53a3c2c，ledger v1.48 含 M31 滞后校准 303/304→307/308）。新错误码 RX3019（typeck `shader.permutation_domain_invalid`）+ RX7023（工具段 `toolchain.permutation_budget_exceeded`）按实现 commit 实测顺位领取。其余 19 个 P0/P1 行 0-byte。 |
 | v1.3 | 2026-08-05 | **M31 materialize**：§4 M31 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `97`（ledger next_free=97 实际分配）；`ci/g8_reflection_hash_smoke.py` + `milestones/g8/g8_m31_reflection_hash_evidence_schema.json` + `conformance/reflection/{accept,reject}` 语料 + `pr-smoke.yml` 步骤 97 同 PR 落。host/compile 纯 host 门，device 段 `not_applicable`。其余 20 个 P0/P1 行 0-byte。 |

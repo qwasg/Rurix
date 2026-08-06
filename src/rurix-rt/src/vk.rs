@@ -17550,3 +17550,1594 @@ mod tests {
         assert_eq!(flag_word & 0x00FF_FFFF, 0, "sbtOffset 低 24 位 0");
     }
 }
+
+// ──────────────────────── G8.2 M30 PSO cache FFI append 段 ─────────────────────────
+// （RXS-0314~0316，RFC-0019 §4.1.4；门 g8.p0.m30.pso_cache；**纯 append，既有函数体 0-byte**）
+// 内容：VkPipelineCache 三命令 + VK_KHR_pipeline_binary 五符号 + VkPipelineCreateFlags2CreateInfoKHR
+// （VK_KHR_maintenance5）等 repr(C) 结构 + pipelineCreationCacheControl 特性协商 +
+// `pso_cache_session` device 会话（compute/graphics/RT 三管线种类的 cold 构建捕获 /
+// warm 全新进程命中判定 / FAIL_ON_PIPELINE_COMPILE_REQUIRED stall 计数）。
+// unsafe 归 U27/U31 既有 vk FFI 边界**扩注**（unsafe-audit/rurix-rt.md，0 新 U 号）：
+// 同一 loader/instance/device/messenger(fail-closed) 骨架；磁盘 blob 为不可信输入但
+// 解析在 safe 层（pso_cache.rs）完成，本段只把已核验 payload 喂驱动。
+
+/// instance apiVersion 1.3（pipelineCreationCacheControl = 1.3 core 可选特性;镜像
+/// render_exec 1.3 实例先例——实测 1.1 实例下本机 loader 不填 1.3 feature 链）。
+const API_VERSION_1_3: u32 = (1 << 22) | (3 << 12); // VK_MAKE_API_VERSION(0,1,3,0)
+
+// ── M30 sType / 结果码 / flag（自 VULKAN_SDK 1.3.296.0 vulkan_core.h 逐值核对,measured-first）──
+const ST_PIPELINE_CACHE_CREATE_INFO: u32 = 17;
+const ST_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES: u32 = 1_000_297_000;
+const ST_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR: u32 = 1_000_470_000;
+const ST_PIPELINE_CREATE_FLAGS_2_CREATE_INFO_KHR: u32 = 1_000_470_005;
+const ST_PHYSICAL_DEVICE_PIPELINE_BINARY_FEATURES_KHR: u32 = 1_000_483_000;
+const ST_PIPELINE_BINARY_CREATE_INFO_KHR: u32 = 1_000_483_001;
+const ST_PIPELINE_BINARY_INFO_KHR: u32 = 1_000_483_002;
+const ST_PIPELINE_BINARY_KEY_KHR: u32 = 1_000_483_003;
+const ST_PIPELINE_BINARY_DATA_INFO_KHR: u32 = 1_000_483_006;
+const ST_PIPELINE_CREATE_INFO_KHR: u32 = 1_000_483_007;
+const ST_PIPELINE_BINARY_HANDLES_INFO_KHR: u32 = 1_000_483_009;
+/// `VK_PIPELINE_COMPILE_REQUIRED`（VkResult 正码;FAIL_ON bit 下需编译即返回,RXS-0316 stall 信号）。
+pub const VK_PIPELINE_COMPILE_REQUIRED: VkResult = 1_000_297_000;
+/// `VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT`（32 位 flags 域;cache 分支路径）。
+const PIPELINE_CREATE_FAIL_ON_COMPILE_REQUIRED: u32 = 0x100;
+/// `VK_PIPELINE_CREATE_2_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT_KHR`（64 位 flags2 域同值位）。
+const PIPELINE_CREATE_2_FAIL_ON_COMPILE_REQUIRED: u64 = 0x100;
+/// `VK_PIPELINE_CREATE_2_CAPTURE_DATA_BIT_KHR`（64 位 flags2;cold binary 捕获位）。
+const PIPELINE_CREATE_2_CAPTURE_DATA_BIT_KHR: u64 = 0x8000_0000;
+/// `VK_MAX_PIPELINE_BINARY_KEY_SIZE_KHR`。
+pub const MAX_PIPELINE_BINARY_KEY_SIZE: usize = 32;
+
+/// M30 分支 tag（RXS-0315 header 段;0=binary / 1=cache,与 pso_cache.rs store 同源）。
+pub const PSO_BRANCH_BINARY: u32 = 0;
+/// fallback 分支 tag（VkPipelineCache 冻结 fallback,RXS-0316）。
+pub const PSO_BRANCH_CACHE: u32 = 1;
+
+// ── M30 #[repr(C)] 结构（布局与 vulkan_core.h 1.3.296 逐字节对齐;布局锚见 pso_cache 单测）──
+
+/// `VkPhysicalDeviceProperties` 超集承载 blob（2048 字节 align(8),U32 bindless 先例同律;
+/// 只读头部已核对偏移字段:apiVersion@0/driverVersion@4/vendorID@8/deviceID@12/
+/// deviceType@16/deviceName[256]@20/pipelineCacheUUID[16]@276——RXS-0315 device identity 段
+/// **实测自本结构,禁手写**;余量防驱动越界写,limits@296 align8 兼容）。
+#[repr(C, align(8))]
+pub(crate) struct PsoPropertiesBlob {
+    pub(crate) api_version: u32,
+    pub(crate) driver_version: u32,
+    pub(crate) vendor_id: u32,
+    pub(crate) device_id: u32,
+    pub(crate) device_type: u32,
+    pub(crate) device_name: [u8; 256],
+    pub(crate) pipeline_cache_uuid: [u8; 16],
+    pub(crate) _rest: [u8; 2048 - 292],
+}
+
+/// `VkPipelineCacheCreateInfo`（core 1.0;sType 17）。
+#[repr(C)]
+pub(crate) struct PipelineCacheCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+    initial_data_size: usize,
+    p_initial_data: *const c_void,
+}
+
+/// `VkPhysicalDevicePipelineCreationCacheControlFeatures`（1.3 core;sType 1000297000;
+/// EXT 别名同值——SDK 头 `..._EXT = ..._FEATURES`）。
+#[repr(C)]
+pub(crate) struct PhysicalDevicePipelineCreationCacheControlFeatures {
+    s_type: u32,
+    p_next: *mut c_void,
+    pipeline_creation_cache_control: u32,
+}
+
+/// `VkPhysicalDeviceMaintenance5FeaturesKHR`（sType 1000470000;flags2 结构使用前提）。
+#[repr(C)]
+pub(crate) struct PhysicalDeviceMaintenance5FeaturesKHR {
+    s_type: u32,
+    p_next: *mut c_void,
+    maintenance5: u32,
+}
+
+/// `VkPipelineCreateFlags2CreateInfoKHR`（VK_KHR_maintenance5,sType 1000470005;
+/// 链入 pipeline create info pNext 时**覆盖** 32 位 `flags` 域）。
+#[repr(C)]
+pub(crate) struct PipelineCreateFlags2CreateInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) flags: u64,
+}
+
+/// `VkPhysicalDevicePipelineBinaryFeaturesKHR`（VK_KHR_pipeline_binary,sType 1000483000）。
+#[repr(C)]
+pub(crate) struct PhysicalDevicePipelineBinaryFeaturesKHR {
+    s_type: u32,
+    p_next: *mut c_void,
+    pipeline_binaries: u32,
+}
+
+/// `VkPipelineBinaryKeyKHR`（sType 1000483003;keySize + key[32]）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryKeyKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *mut c_void,
+    pub(crate) key_size: u32,
+    pub(crate) key: [u8; MAX_PIPELINE_BINARY_KEY_SIZE],
+}
+
+/// `VkPipelineBinaryDataKHR`（**纯数据对,无 sType/pNext**——1.3.296 正式版布局）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryDataKHR {
+    pub(crate) data_size: usize,
+    pub(crate) p_data: *mut c_void,
+}
+
+/// `VkPipelineBinaryKeysAndDataKHR`（**纯数据,无 sType/pNext**;warm 重建 binary 输入）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryKeysAndDataKHR {
+    pub(crate) binary_count: u32,
+    pub(crate) p_pipeline_binary_keys: *const PipelineBinaryKeyKHR,
+    pub(crate) p_pipeline_binary_data: *const PipelineBinaryDataKHR,
+}
+
+/// `VkPipelineCreateInfoKHR`（sType 1000483007;pNext 链实际 create info）。
+#[repr(C)]
+pub(crate) struct PipelineCreateInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+}
+
+/// `VkPipelineBinaryCreateInfoKHR`（sType 1000483001;三选一:keysAndData / pipeline /
+/// pPipelineCreateInfo,字段序 = SDK 头逐字）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryCreateInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) p_keys_and_data_info: *const PipelineBinaryKeysAndDataKHR,
+    pub(crate) pipeline: u64,
+    pub(crate) p_pipeline_create_info: *const PipelineCreateInfoKHR,
+}
+
+/// `VkPipelineBinaryInfoKHR`（sType 1000483002;warm 链入 pipeline create 免编译）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) binary_count: u32,
+    pub(crate) p_pipeline_binaries: *const u64,
+}
+
+/// `VkPipelineBinaryDataInfoKHR`（sType 1000483006;vkGetPipelineBinaryDataKHR 输入）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryDataInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) pipeline_binary: u64,
+}
+
+/// `VkPipelineBinaryHandlesInfoKHR`（sType 1000483009;vkCreatePipelineBinariesKHR 出参）。
+#[repr(C)]
+pub(crate) struct PipelineBinaryHandlesInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *mut c_void,
+    pub(crate) pipeline_binary_count: u32,
+    pub(crate) p_pipeline_binaries: *mut u64,
+}
+
+/// `VkReleaseCapturedPipelineDataInfoKHR`（sType 1000483005;FFI 面备位——捕获经
+/// vkCreatePipelineBinariesKHR(from pipeline) 提取,无需 release,符号仍加载备查）。
+#[repr(C)]
+pub(crate) struct ReleaseCapturedPipelineDataInfoKHR {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) pipeline: u64,
+}
+
+// ── M30 函数指针类型（loader 运行时解析,零链接期符号;镜像 U26/U27 loader 纪律）──
+type FnPsoGetPhysicalDeviceProperties =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PsoPropertiesBlob);
+type FnCreatePipelineCache = unsafe extern "system" fn(
+    VkDevice,
+    *const PipelineCacheCreateInfo,
+    *const c_void,
+    *mut u64,
+) -> VkResult;
+type FnGetPipelineCacheData =
+    unsafe extern "system" fn(VkDevice, u64, *mut usize, *mut c_void) -> VkResult;
+type FnDestroyPipelineCache = unsafe extern "system" fn(VkDevice, u64, *const c_void);
+type FnCreatePipelineBinariesKHR = unsafe extern "system" fn(
+    VkDevice,
+    *const PipelineBinaryCreateInfoKHR,
+    *const c_void,
+    *mut PipelineBinaryHandlesInfoKHR,
+) -> VkResult;
+type FnDestroyPipelineBinaryKHR = unsafe extern "system" fn(VkDevice, u64, *const c_void);
+type FnGetPipelineKeyKHR = unsafe extern "system" fn(
+    VkDevice,
+    *const PipelineCreateInfoKHR,
+    *mut PipelineBinaryKeyKHR,
+) -> VkResult;
+type FnGetPipelineBinaryDataKHR = unsafe extern "system" fn(
+    VkDevice,
+    *const PipelineBinaryDataInfoKHR,
+    *mut PipelineBinaryKeyKHR,
+    *mut usize,
+    *mut c_void,
+) -> VkResult;
+type FnReleaseCapturedPipelineDataKHR = unsafe extern "system" fn(
+    VkDevice,
+    *const ReleaseCapturedPipelineDataInfoKHR,
+    *const c_void,
+) -> VkResult;
+
+// ── M30 device 会话公共面（safe;pso_cache.rs / harness 消费）─────────────────────
+
+/// 单着色阶段创建计划（`stage_bit` = VK_SHADER_STAGE_* 位;pso_cache.rs 由 fixture 备出）。
+pub struct PsoStagePlan<'a> {
+    pub stage_bit: u32,
+    pub spv: &'a [u32],
+    pub entry: &'a str,
+}
+
+/// descriptor set layout 单 binding 计划（按 (set, binding) 聚合创建;纯创建面——
+/// M30 只建 pipeline 不 dispatch/draw/trace,无需实际 descriptor set）。
+pub struct PsoBindingPlan {
+    pub set: u32,
+    pub binding: u32,
+    pub descriptor_type: u32,
+    pub stage_flags: u32,
+}
+
+/// RT shader group 拓扑（`group_type` 0=GENERAL / 1=TRIANGLES_HIT_GROUP;
+/// 未用槽 = `SHADER_UNUSED_KHR`(u32::MAX)）。
+pub struct PsoRtGroupPlan {
+    pub group_type: u32,
+    pub general_shader: u32,
+    pub closest_hit_shader: u32,
+}
+
+/// 管线种类创建参数（`kind_tag` = RXS-0314 段 1:0=compute / 1=graphics / 2=rt）。
+pub enum PsoPlanKind<'a> {
+    Compute,
+    Graphics {
+        vertex_stride: u32,
+        vertex_attrs: &'a [(u32, u32, u32)],
+        color_format: u32,
+        extent: (u32, u32),
+    },
+    Rt {
+        groups: &'a [PsoRtGroupPlan],
+        max_recursion: u32,
+    },
+}
+
+/// 单条 pipeline 的完整创建计划（host 备出,device 会话只逐字重放,P-11）。
+pub struct PsoPipelinePlan<'a> {
+    pub name: &'a str,
+    pub kind_tag: u32,
+    pub stages: &'a [PsoStagePlan<'a>],
+    pub bindings: &'a [PsoBindingPlan],
+    pub push_constant_size: u32,
+    pub kind: PsoPlanKind<'a>,
+}
+
+/// warm 输入的 vendor binary blob（**N 个 (key, data) 对**/pipeline——VK_KHR_pipeline_binary
+/// 一条 pipeline 可产 N 个 binary〔NVIDIA graphics 实测 >1〕,`VkPipelineBinaryInfoKHR.
+/// binaryCount` 与创建/捕获序必须匹配;RXS-0315 payload 非 stable 容器）。
+#[derive(Clone, Copy)]
+pub struct PsoBinaryBlobRef<'a> {
+    pub binaries: &'a [(&'a [u8], &'a [u8])],
+}
+
+/// warm payload（binary 分支 = 逐 key Option〔None = drop-key 能红反证腿〕;
+/// cache 分支 = 整 blob〔空切片 = drop 反证腿〕）。
+pub enum PsoWarmPayload<'a> {
+    Binary(Vec<Option<PsoBinaryBlobRef<'a>>>),
+    Cache(&'a [u8]),
+}
+
+/// 会话模式:cold = precache 构建 + 捕获落盘输入;warm = 全新进程命中判定（全部 create
+/// 带 FAIL_ON_PIPELINE_COMPILE_REQUIRED,COMPILE_REQUIRED 即 stall,RXS-0316）。
+pub enum PsoSessionMode<'a> {
+    Cold,
+    Warm(PsoWarmPayload<'a>),
+}
+
+/// 单 key 结果（`hit` = 持久化数据免编译命中;`stalled` = COMPILE_REQUIRED 计数;
+/// cold binary 附 N 个 vendor (key, data) 捕获回传〔顺序与 vkCreatePipelineBinariesKHR
+/// 返回序一致,warm 重建必须同序〕）。
+pub struct PsoKeyOutcome {
+    pub built: bool,
+    pub hit: bool,
+    pub stalled: bool,
+    pub vendor_binaries: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+/// device identity（RXS-0315 header 段;**全部实测自 VkPhysicalDeviceProperties**）。
+pub struct PsoDeviceIdentity {
+    pub api_version: u32,
+    pub driver_version: u32,
+    pub vendor_id: u32,
+    pub device_id: u32,
+    pub pipeline_cache_uuid: [u8; 16],
+    pub device_name: String,
+}
+
+/// 会话报告（branch 实测协商;validation_error 由 messenger fail-closed 汇总）。
+pub struct PsoSessionReport {
+    pub identity: PsoDeviceIdentity,
+    pub pipeline_binary_capability: bool,
+    pub maintenance5: bool,
+    pub pipeline_creation_cache_control: bool,
+    pub branch: u32,
+    pub outcomes: Vec<PsoKeyOutcome>,
+    pub cache_blob: Option<Vec<u8>>,
+    pub validation_error: bool,
+}
+
+//@ spec: RXS-0316
+/// M30 PSO cache device 会话（**单进程单会话**:harness 三模式各自独立进程）。
+/// 只**创建** pipeline（cold 捕获 / warm 命中判定）,从不 dispatch/draw/trace;
+/// instance apiVersion 1.3 + RT 四扩展协商 + pipelineCreationCacheControl fail-closed +
+/// VK_KHR_pipeline_binary 在位**必走 binary 分支**（RXS-0316 强制律）,缺位走
+/// VkPipelineCache 冻结 fallback 且 `pipeline_binary_capability=false` 如实记。
+pub fn pso_cache_session(
+    plans: &[PsoPipelinePlan<'_>],
+    mode: PsoSessionMode<'_>,
+) -> Result<PsoSessionReport, String> {
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    // SAFETY: 见 U27/U31 契约（M30 pso_cache FFI append,同一 vk FFI 边界扩注）——
+    // 句柄(instance/device/messenger/renderPass/shaderModule×N/dsl×N/pipelineLayout/
+    // pipeline/pipelineCache/pipelineBinary×N)线性配对 create/destroy,逐 plan 逆序销毁;
+    // 每个 #[repr(C)] 结构与 vulkan_core.h 1.3.296 逐字节对齐（布局锚单测
+    // `pso_cache::tests::pso_ffi_layout_anchors`）;messenger p_user_data 栈上 AtomicBool
+    // 生命周期严格长于 messenger;warm payload 为 safe 层（RXS-0315 核验序）已核验字节,
+    // 本段不解引用其内容、仅喂驱动;单 device 同步创建,无 queue 提交、无数据竞争。
+    unsafe { pso_session_inner(gipa, plans, mode) }
+}
+
+#[allow(clippy::too_many_lines)]
+unsafe fn pso_session_inner(
+    gipa: FnGetInstanceProcAddr,
+    plans: &[PsoPipelinePlan<'_>],
+    mode: PsoSessionMode<'_>,
+) -> Result<PsoSessionReport, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-pso-cache".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_3,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let get_pd_props: FnPsoGetPhysicalDeviceProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let get_pd_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+    macro_rules! bail {
+        ($e:expr) => {{
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err($e);
+        }};
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        bail!("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // ── device identity(RXS-0315:实测 VkPhysicalDeviceProperties,2048 字节 align(8) blob)──
+    let mut props = PsoPropertiesBlob {
+        api_version: 0,
+        driver_version: 0,
+        vendor_id: 0,
+        device_id: 0,
+        device_type: 0,
+        device_name: [0; 256],
+        pipeline_cache_uuid: [0; 16],
+        _rest: [0; 2048 - 292],
+    };
+    get_pd_props(pd, &mut props);
+    let device_name = {
+        // SAFETY: device_name 为驱动写入的 NUL 结尾 C 串（定长 256 缓冲内）。
+        CStr::from_ptr(props.device_name.as_ptr() as *const c_char)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let identity = PsoDeviceIdentity {
+        api_version: props.api_version,
+        driver_version: props.driver_version,
+        vendor_id: props.vendor_id,
+        device_id: props.device_id,
+        pipeline_cache_uuid: props.pipeline_cache_uuid,
+        device_name,
+    };
+
+    // ── 扩展协商:RT 四件硬需（fixture 含 RT pipeline）+ binary 两件实测 ──
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut ext_props = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+    let avail: Vec<String> = ext_props
+        .iter()
+        .map(|e| {
+            // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串（≤256 字节）。
+            CStr::from_ptr(e.extension_name.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let avail_refs: Vec<&str> = avail.iter().map(|s| s.as_str()).collect();
+    if let Err(e) = negotiate_device_extensions(&avail_refs, RT_DEVICE_EXTENSIONS) {
+        bail!(e);
+    }
+    let has_ext = |n: &str| avail_refs.contains(&n);
+    let binary_exts_advertised =
+        has_ext("VK_KHR_maintenance5") && has_ext("VK_KHR_pipeline_binary");
+    let cc_struct_ok = props.api_version >= API_VERSION_1_3
+        || has_ext("VK_EXT_pipeline_creation_cache_control");
+
+    // ── feature 探测链（仅链扩展在位的结构,validation 合法性;逐 bit fail-closed）──
+    let mut cc_feat = PhysicalDevicePipelineCreationCacheControlFeatures {
+        s_type: ST_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES,
+        p_next: std::ptr::null_mut(),
+        pipeline_creation_cache_control: 0,
+    };
+    let mut pb_feat = PhysicalDevicePipelineBinaryFeaturesKHR {
+        s_type: ST_PHYSICAL_DEVICE_PIPELINE_BINARY_FEATURES_KHR,
+        p_next: if cc_struct_ok {
+            &mut cc_feat as *mut _ as *mut c_void
+        } else {
+            std::ptr::null_mut()
+        },
+        pipeline_binaries: 0,
+    };
+    let mut m5_feat = PhysicalDeviceMaintenance5FeaturesKHR {
+        s_type: ST_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR,
+        p_next: if binary_exts_advertised {
+            &mut pb_feat as *mut _ as *mut c_void
+        } else if cc_struct_ok {
+            &mut cc_feat as *mut _ as *mut c_void
+        } else {
+            std::ptr::null_mut()
+        },
+        maintenance5: 0,
+    };
+    let mut bda_feat = PhysicalDeviceBufferDeviceAddressFeatures {
+        s_type: ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        p_next: if binary_exts_advertised {
+            &mut m5_feat as *mut _ as *mut c_void
+        } else if cc_struct_ok {
+            &mut cc_feat as *mut _ as *mut c_void
+        } else {
+            std::ptr::null_mut()
+        },
+        buffer_device_address: 0,
+        buffer_device_address_capture_replay: 0,
+        buffer_device_address_multi_device: 0,
+    };
+    let mut rtp_feat = PhysicalDeviceRayTracingPipelineFeatures {
+        s_type: ST_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+        p_next: &mut bda_feat as *mut _ as *mut c_void,
+        ray_tracing_pipeline: 0,
+        ray_tracing_pipeline_shader_group_handle_capture_replay: 0,
+        ray_tracing_pipeline_shader_group_handle_capture_replay_mixed: 0,
+        ray_tracing_pipeline_trace_rays_indirect: 0,
+        ray_traversal_primitive_culling: 0,
+    };
+    let mut as_feat = PhysicalDeviceAccelerationStructureFeatures {
+        s_type: ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        p_next: &mut rtp_feat as *mut _ as *mut c_void,
+        acceleration_structure: 0,
+        acceleration_structure_capture_replay: 0,
+        acceleration_structure_indirect_build: 0,
+        acceleration_structure_host_commands: 0,
+        descriptor_binding_acceleration_structure_update_after_bind: 0,
+    };
+    let mut feats2 = PhysicalDeviceFeatures2 {
+        s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+        p_next: &mut as_feat as *mut _ as *mut c_void,
+        features: std::mem::zeroed(),
+    };
+    get_pd_features2(pd, &mut feats2);
+    let mut missing: Vec<&str> = Vec::new();
+    if as_feat.acceleration_structure == 0 {
+        missing.push("accelerationStructure");
+    }
+    if rtp_feat.ray_tracing_pipeline == 0 {
+        missing.push("rayTracingPipeline");
+    }
+    if bda_feat.buffer_device_address == 0 {
+        missing.push("bufferDeviceAddress");
+    }
+    if !missing.is_empty() {
+        bail!(format!(
+            "device 缺 RT feature: {}（确定性 Err,RXS-0248/RXS-0210 L3,无静默降级）",
+            missing.join(", ")
+        ));
+    }
+    if !cc_struct_ok || cc_feat.pipeline_creation_cache_control == 0 {
+        // RXS-0316:pipelineCreationCacheControl 特性缺位 = fail-closed 记 dev-env degrade,
+        // 不降级判据（warm 无法置 FAIL_ON bit,stall 语义无从谈起）。
+        bail!(
+            "pipelineCreationCacheControl 特性缺位（fail-closed dev-env degrade,RXS-0316;不降级判据）"
+                .into()
+        );
+    }
+    // RXS-0316 binary 分支强制律:扩展在位 + feature 在位 ⇒ 必走 binary;扩展缺位 ⇒
+    // VkPipelineCache 冻结 fallback,evidence 明记 capability=false。扩展在位而 feature
+    // 缺位 = 诚实记 false 走 fallback（不伪造 capability）。
+    let binary_capable =
+        binary_exts_advertised && m5_feat.maintenance5 != 0 && pb_feat.pipeline_binaries != 0;
+    let branch = if binary_capable {
+        PSO_BRANCH_BINARY
+    } else {
+        PSO_BRANCH_CACHE
+    };
+
+    // ── queue family(graphics;只建 pipeline 不提交,任选一家族满足 device 创建)──
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & (QUEUE_GRAPHICS_BIT | QUEUE_COMPUTE_BIT) != 0)
+    {
+        Some(i) => i as u32,
+        None => bail!("无 graphics/compute queue family".into()),
+    };
+
+    // ── device:RT 四件 +（binary 在位时）maintenance5+pipeline_binary;feature 链按分支挂 ──
+    as_feat.acceleration_structure = 1;
+    rtp_feat.ray_tracing_pipeline = 1;
+    bda_feat.buffer_device_address = 1;
+    cc_feat.pipeline_creation_cache_control = 1;
+    let mut dev_exts: Vec<*const c_char> = RT_DEVICE_EXTENSIONS.iter().map(|e| e.as_ptr()).collect();
+    if binary_capable {
+        m5_feat.maintenance5 = 1;
+        pb_feat.pipeline_binaries = 1;
+        dev_exts.push(c"VK_KHR_maintenance5".as_ptr());
+        dev_exts.push(c"VK_KHR_pipeline_binary".as_ptr());
+    }
+    // 重挂 pNext 链（enable bit 写入后再取址）:binary 分支 = as→rtp→bda→m5→pb→cc;
+    // fallback 分支 = as→rtp→bda→cc（未启用的扩展其 feature 结构不入链,VUID 合法性）。
+    cc_feat.p_next = std::ptr::null_mut();
+    pb_feat.p_next = &mut cc_feat as *mut _ as *mut c_void;
+    m5_feat.p_next = &mut pb_feat as *mut _ as *mut c_void;
+    bda_feat.p_next = if binary_capable {
+        &mut m5_feat as *mut _ as *mut c_void
+    } else {
+        &mut cc_feat as *mut _ as *mut c_void
+    };
+    rtp_feat.p_next = &mut bda_feat as *mut _ as *mut c_void;
+    as_feat.p_next = &mut rtp_feat as *mut _ as *mut c_void;
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: &as_feat as *const _ as *const c_void,
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: dev_exts.len() as u32,
+        pp_enabled_extension_names: dev_exts.as_ptr(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    if vk_create_device(pd, &dci, std::ptr::null(), &mut device) != VK_SUCCESS {
+        bail!("vkCreateDevice 失败（RT/binary 扩展 + feature 链启用）".into());
+    }
+
+    let body_out = pso_session_body(vk_get_device_proc, device, plans, mode, branch);
+    let mut out = body_out.map(|(outcomes, cache_blob)| PsoSessionReport {
+        identity,
+        pipeline_binary_capability: binary_capable,
+        maintenance5: binary_capable,
+        pipeline_creation_cache_control: cc_feat.pipeline_creation_cache_control != 0,
+        branch,
+        outcomes,
+        cache_blob,
+        validation_error: false,
+    });
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        if let Ok(rep) = &mut out {
+            rep.validation_error = true;
+        }
+        out = Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误（fail-closed,L3）".into());
+    }
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+/// body:逐 plan 创建 pipeline（cold 捕获 / warm 命中判定）;逐 plan 句柄即建即销
+/// （plan 内逆序）,cross-plan 句柄仅 cache 分支的 VkPipelineCache（body 级线性配对）。
+/// 返回 (逐 key outcome, cold cache 分支整 blob);identity/能力位由 inner 装配。
+unsafe fn pso_session_body(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    plans: &[PsoPipelinePlan<'_>],
+    mode: PsoSessionMode<'_>,
+    branch: u32,
+) -> Result<(Vec<PsoKeyOutcome>, Option<Vec<u8>>), String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout =
+        dp!(c"vkDestroyDescriptorSetLayout", FnDestroyDescriptorSetLayout);
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let create_cp: FnCreateComputePipelines =
+        dp!(c"vkCreateComputePipelines", FnCreateComputePipelines);
+    let create_gp: FnCreateGraphicsPipelines =
+        dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
+    let create_rt: FnCreateRayTracingPipelines =
+        dp!(c"vkCreateRayTracingPipelinesKHR", FnCreateRayTracingPipelines);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
+    let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
+    let create_pc: FnCreatePipelineCache = dp!(c"vkCreatePipelineCache", FnCreatePipelineCache);
+    let get_pc_data: FnGetPipelineCacheData =
+        dp!(c"vkGetPipelineCacheData", FnGetPipelineCacheData);
+    let destroy_pc: FnDestroyPipelineCache =
+        dp!(c"vkDestroyPipelineCache", FnDestroyPipelineCache);
+    // VK_KHR_pipeline_binary 五符号:binary 分支必载;fallback 分支符号可缺（分支不上路）。
+    let create_bins: Option<FnCreatePipelineBinariesKHR> =
+        cast_fn(gdpa(device, c"vkCreatePipelineBinariesKHR".as_ptr()));
+    let destroy_bin: Option<FnDestroyPipelineBinaryKHR> =
+        cast_fn(gdpa(device, c"vkDestroyPipelineBinaryKHR".as_ptr()));
+    let get_pipe_key: Option<FnGetPipelineKeyKHR> =
+        cast_fn(gdpa(device, c"vkGetPipelineKeyKHR".as_ptr()));
+    let get_bin_data: Option<FnGetPipelineBinaryDataKHR> =
+        cast_fn(gdpa(device, c"vkGetPipelineBinaryDataKHR".as_ptr()));
+    let _release_captured: Option<FnReleaseCapturedPipelineDataKHR> =
+        cast_fn(gdpa(device, c"vkReleaseCapturedPipelineDataKHR".as_ptr()));
+    if branch == PSO_BRANCH_BINARY
+        && (create_bins.is_none()
+            || destroy_bin.is_none()
+            || get_pipe_key.is_none()
+            || get_bin_data.is_none())
+    {
+        return Err(
+            "VK_KHR_pipeline_binary 扩展在位但符号缺失（驱动不一致,fail-closed;不走静默 fallback)"
+                .into(),
+        );
+    }
+
+    // ── cache 分支:body 级单 VkPipelineCache(cold 空建 / warm initialData)──
+    let mut cache: u64 = VK_NULL_HANDLE;
+    let mut cache_blob: Option<Vec<u8>> = None;
+    let warm_cache_data: Option<&[u8]> = match &mode {
+        PsoSessionMode::Warm(PsoWarmPayload::Cache(data)) => Some(*data),
+        _ => None,
+    };
+    let need_cache = branch == PSO_BRANCH_CACHE;
+    if need_cache {
+        let (idata_size, pidata) = match warm_cache_data {
+            Some(d) if !d.is_empty() => (d.len(), d.as_ptr() as *const c_void),
+            _ => (0usize, std::ptr::null()),
+        };
+        let pcci = PipelineCacheCreateInfo {
+            s_type: ST_PIPELINE_CACHE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            initial_data_size: idata_size,
+            p_initial_data: pidata,
+        };
+        if create_pc(device, &pcci, std::ptr::null(), &mut cache) != VK_SUCCESS {
+            return Err("vkCreatePipelineCache 失败".into());
+        }
+    }
+
+    let body_result: Result<Vec<PsoKeyOutcome>, String> = 'body: {
+        let warm_blobs: Option<&[Option<PsoBinaryBlobRef<'_>>]> = match &mode {
+            PsoSessionMode::Warm(PsoWarmPayload::Binary(blobs)) => Some(blobs.as_slice()),
+            _ => None,
+        };
+        let mut outcomes: Vec<PsoKeyOutcome> = Vec::with_capacity(plans.len());
+        for (pi, plan) in plans.iter().enumerate() {
+            let blob: Option<PsoBinaryBlobRef<'_>> =
+                warm_blobs.and_then(|b| b.get(pi).copied().flatten());
+            let ctx = PsoCreateCtx {
+                mode_cold: matches!(mode, PsoSessionMode::Cold),
+                branch,
+                cache,
+                warm_blob: blob,
+                create_shader: &create_shader,
+                destroy_shader: &destroy_shader,
+                create_dsl: &create_dsl,
+                destroy_dsl: &destroy_dsl,
+                create_pl: &create_pl,
+                destroy_pl: &destroy_pl,
+                create_cp: &create_cp,
+                create_gp: &create_gp,
+                create_rt: &create_rt,
+                destroy_pipe: &destroy_pipe,
+                create_rp: &create_rp,
+                destroy_rp: &destroy_rp,
+                create_bins,
+                destroy_bin,
+                get_pipe_key,
+                get_bin_data,
+            };
+            match pso_one_plan(device, plan, &ctx) {
+                Ok(o) => outcomes.push(o),
+                Err(e) => break 'body Err(format!("plan `{}`: {e}", plan.name)),
+            }
+        }
+        Ok(outcomes)
+    };
+    let outcomes = match body_result {
+        Ok(o) => o,
+        Err(e) => {
+            if cache != VK_NULL_HANDLE {
+                destroy_pc(device, cache, std::ptr::null());
+            }
+            return Err(e);
+        }
+    };
+
+    // cold cache:整 blob 回读（两调用律;RXS-0315 cache 分支 payload）。
+    if need_cache && matches!(mode, PsoSessionMode::Cold) {
+        let mut sz: usize = 0;
+        if get_pc_data(device, cache, &mut sz, std::ptr::null_mut()) != VK_SUCCESS || sz == 0 {
+            destroy_pc(device, cache, std::ptr::null());
+            return Err("vkGetPipelineCacheData(size) 失败".into());
+        }
+        let mut blob = vec![0u8; sz];
+        if get_pc_data(device, cache, &mut sz, blob.as_mut_ptr() as *mut c_void) != VK_SUCCESS {
+            destroy_pc(device, cache, std::ptr::null());
+            return Err("vkGetPipelineCacheData(data) 失败".into());
+        }
+        blob.truncate(sz);
+        cache_blob = Some(blob);
+    }
+    if cache != VK_NULL_HANDLE {
+        destroy_pc(device, cache, std::ptr::null());
+    }
+    Ok((outcomes, cache_blob))
+}
+
+/// 三种类 pipeline create info 的栈上合一承载（Graphics 六子结构 / Rt group 表**仅为保活**
+/// （create info 持其指针,随元组同生命期,从不读取）;`p_next`/`flags` 首填后 stall 重试
+/// 原地清位,指针链不变）。
+#[allow(dead_code)]
+enum AnyCreateInfo {
+    Compute(ComputePipelineCreateInfo),
+    Graphics(
+        GraphicsPipelineCreateInfo,
+        PipelineVertexInputStateCreateInfo,
+        PipelineInputAssemblyStateCreateInfo,
+        PipelineViewportStateCreateInfo,
+        PipelineRasterizationStateCreateInfo,
+        PipelineMultisampleStateCreateInfo,
+        PipelineColorBlendStateCreateInfo,
+    ),
+    Rt(RayTracingPipelineCreateInfo, Vec<RayTracingShaderGroupCreateInfo>),
+}
+
+impl AnyCreateInfo {
+    /// `VkPipelineCreateInfoKHR.pNext` 链头 = 实际 create info 首址（vkGetPipelineKeyKHR 用）。
+    fn head_ptr(&self) -> *const c_void {
+        match self {
+            AnyCreateInfo::Compute(c) => c as *const _ as *const c_void,
+            AnyCreateInfo::Graphics(g, ..) => g as *const _ as *const c_void,
+            AnyCreateInfo::Rt(r, _) => r as *const _ as *const c_void,
+        }
+    }
+
+    /// 单次 create 调用（结果码 + 句柄原样回传;COMPILE_REQUIRED 由调用方判 stall）。
+    unsafe fn create(&self, device: VkDevice, ctx: &PsoCreateCtx<'_>) -> (VkResult, u64) {
+        let mut pipe: u64 = VK_NULL_HANDLE;
+        let r = match self {
+            AnyCreateInfo::Compute(c) => {
+                (ctx.create_cp)(device, ctx.cache, 1, c, std::ptr::null(), &mut pipe)
+            }
+            AnyCreateInfo::Graphics(g, ..) => {
+                (ctx.create_gp)(device, ctx.cache, 1, g, std::ptr::null(), &mut pipe)
+            }
+            AnyCreateInfo::Rt(rt, _) => (ctx.create_rt)(
+                device,
+                VK_NULL_HANDLE,
+                ctx.cache,
+                1,
+                rt,
+                std::ptr::null(),
+                &mut pipe,
+            ),
+        };
+        (r, pipe)
+    }
+
+    /// stall 重试:摘除整条 pNext 链（flags2 清零位会触 VUID-requiredbitmask,且 stall 只
+    /// 可能发生在无 binary 的创建上）+ 32 位 flags 清 0,其余字段不动。
+    fn set_plain_flags(&mut self) {
+        match self {
+            AnyCreateInfo::Compute(c) => {
+                c.p_next = std::ptr::null();
+                c.flags = 0;
+            }
+            AnyCreateInfo::Graphics(g, ..) => {
+                g.p_next = std::ptr::null();
+                g.flags = 0;
+            }
+            AnyCreateInfo::Rt(r, _) => {
+                r.p_next = std::ptr::null();
+                r.flags = 0;
+            }
+        }
+    }
+}
+
+/// `pso_one_plan` 的创建上下文（device 符号 + 分支/模式 + warm blob;纯借用,零所有权）。
+struct PsoCreateCtx<'a> {
+    mode_cold: bool,
+    branch: u32,
+    cache: u64,
+    warm_blob: Option<PsoBinaryBlobRef<'a>>,
+    create_shader: &'a FnCreateShaderModule,
+    destroy_shader: &'a FnDestroyShaderModule,
+    create_dsl: &'a FnCreateDescriptorSetLayout,
+    destroy_dsl: &'a FnDestroyDescriptorSetLayout,
+    create_pl: &'a FnCreatePipelineLayout,
+    destroy_pl: &'a FnDestroyPipelineLayout,
+    create_cp: &'a FnCreateComputePipelines,
+    create_gp: &'a FnCreateGraphicsPipelines,
+    create_rt: &'a FnCreateRayTracingPipelines,
+    destroy_pipe: &'a FnDestroyPipeline,
+    create_rp: &'a FnCreateRenderPass,
+    destroy_rp: &'a FnDestroyRenderPass,
+    create_bins: Option<FnCreatePipelineBinariesKHR>,
+    destroy_bin: Option<FnDestroyPipelineBinaryKHR>,
+    get_pipe_key: Option<FnGetPipelineKeyKHR>,
+    get_bin_data: Option<FnGetPipelineBinaryDataKHR>,
+}
+
+/// 逐 plan 创建一条 pipeline（cold 捕获 / warm FAIL_ON 命中判定）;plan 级全部句柄
+/// 线性配对、末尾逆序销毁（labeled block + null-init + 统一销毁段,镜像 rt_body 纪律）。
+#[allow(clippy::too_many_lines)]
+unsafe fn pso_one_plan(
+    device: VkDevice,
+    plan: &PsoPipelinePlan<'_>,
+    ctx: &PsoCreateCtx<'_>,
+) -> Result<PsoKeyOutcome, String> {
+    let mut outcome = PsoKeyOutcome {
+        built: false,
+        hit: false,
+        stalled: false,
+        vendor_binaries: Vec::new(),
+    };
+    let mut modules: Vec<VkShaderModule> = Vec::new();
+    let mut dsls: Vec<VkDescriptorSetLayout> = Vec::new();
+    let mut layout: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut render_pass: VkRenderPass = VK_NULL_HANDLE;
+    let mut pipeline: u64 = VK_NULL_HANDLE;
+    let mut binaries: Vec<u64> = Vec::new();
+
+    let result: Result<(), String> = 'plan: {
+        // ── shader modules(逐 stage;pName = plan entry)──
+        let mut entry_cs: Vec<std::ffi::CString> = Vec::with_capacity(plan.stages.len());
+        for s in plan.stages {
+            let c = match std::ffi::CString::new(s.entry) {
+                Ok(c) => c,
+                Err(_) => break 'plan Err(format!("stage entry `{}` 含 NUL", s.entry)),
+            };
+            entry_cs.push(c);
+            let smci = ShaderModuleCreateInfo {
+                s_type: ST_SHADER_MODULE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                code_size: s.spv.len() * 4,
+                p_code: s.spv.as_ptr(),
+            };
+            let mut m: VkShaderModule = VK_NULL_HANDLE;
+            if (ctx.create_shader)(device, &smci, std::ptr::null(), &mut m) != VK_SUCCESS {
+                break 'plan Err("vkCreateShaderModule 失败".into());
+            }
+            modules.push(m);
+        }
+
+        // ── descriptor set layouts(按 set 升序聚合,binding 升序)──
+        let mut sets: Vec<u32> = plan.bindings.iter().map(|b| b.set).collect();
+        sets.sort_unstable();
+        sets.dedup();
+        for set_no in &sets {
+            let mut lbs: Vec<DescriptorSetLayoutBinding> = plan
+                .bindings
+                .iter()
+                .filter(|b| b.set == *set_no)
+                .map(|b| DescriptorSetLayoutBinding {
+                    binding: b.binding,
+                    descriptor_type: b.descriptor_type,
+                    descriptor_count: 1,
+                    stage_flags: b.stage_flags,
+                    p_immutable_samplers: std::ptr::null(),
+                })
+                .collect();
+            lbs.sort_by_key(|b| b.binding);
+            let dslci = DescriptorSetLayoutCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                binding_count: lbs.len() as u32,
+                p_bindings: lbs.as_ptr(),
+            };
+            let mut h: VkDescriptorSetLayout = VK_NULL_HANDLE;
+            if (ctx.create_dsl)(device, &dslci, std::ptr::null(), &mut h) != VK_SUCCESS {
+                break 'plan Err("vkCreateDescriptorSetLayout 失败".into());
+            }
+            dsls.push(h);
+        }
+
+        // ── pipeline layout(+ push constant range,stage_flags = 全 stage 位并集)──
+        let stage_union = plan.stages.iter().fold(0u32, |a, s| a | s.stage_bit);
+        let pcr = PushConstantRange {
+            stage_flags: stage_union,
+            offset: 0,
+            size: plan.push_constant_size,
+        };
+        let plci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: dsls.len() as u32,
+            p_set_layouts: if dsls.is_empty() {
+                std::ptr::null()
+            } else {
+                dsls.as_ptr()
+            },
+            push_constant_range_count: if plan.push_constant_size > 0 { 1 } else { 0 },
+            p_push_constant_ranges: if plan.push_constant_size > 0 {
+                &pcr
+            } else {
+                std::ptr::null()
+            },
+        };
+        if (ctx.create_pl)(device, &plci, std::ptr::null(), &mut layout) != VK_SUCCESS {
+            break 'plan Err("vkCreatePipelineLayout 失败".into());
+        }
+
+        // ── graphics:render pass(单 color attachment;镜像 run_graphics_offscreen)──
+        if let PsoPlanKind::Graphics { color_format, .. } = &plan.kind {
+            let att = AttachmentDescription {
+                flags: 0,
+                format: *color_format,
+                samples: SAMPLE_COUNT_1,
+                load_op: ATTACHMENT_LOAD_OP_CLEAR,
+                store_op: ATTACHMENT_STORE_OP_STORE,
+                stencil_load_op: ATTACHMENT_LOAD_OP_DONT_CARE,
+                stencil_store_op: ATTACHMENT_STORE_OP_DONT_CARE,
+                initial_layout: IMAGE_LAYOUT_UNDEFINED,
+                final_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            };
+            let att_ref = AttachmentReference {
+                attachment: 0,
+                layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            };
+            let subpass = SubpassDescription {
+                flags: 0,
+                pipeline_bind_point: PIPELINE_BIND_POINT_GRAPHICS,
+                input_attachment_count: 0,
+                p_input_attachments: std::ptr::null(),
+                color_attachment_count: 1,
+                p_color_attachments: &att_ref,
+                p_resolve_attachments: std::ptr::null(),
+                p_depth_stencil_attachment: std::ptr::null(),
+                preserve_attachment_count: 0,
+                p_preserve_attachments: std::ptr::null(),
+            };
+            let rpci = RenderPassCreateInfo {
+                s_type: ST_RENDER_PASS_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                attachment_count: 1,
+                p_attachments: &att,
+                subpass_count: 1,
+                p_subpasses: &subpass,
+                dependency_count: 0,
+                p_dependencies: std::ptr::null(),
+            };
+            if (ctx.create_rp)(device, &rpci, std::ptr::null(), &mut render_pass) != VK_SUCCESS {
+                break 'plan Err("vkCreateRenderPass 失败".into());
+            }
+        }
+
+        // ── warm binary:先从 keys+data 重建 VkPipelineBinaryKHR ──
+        let mut bin_info = PipelineBinaryInfoKHR {
+            s_type: ST_PIPELINE_BINARY_INFO_KHR,
+            p_next: std::ptr::null(),
+            binary_count: 0,
+            p_pipeline_binaries: std::ptr::null(),
+        };
+        if !ctx.mode_cold && ctx.branch == PSO_BRANCH_BINARY && ctx.warm_blob.is_some() {
+            let blob = ctx.warm_blob.expect("warm_blob Some 已判定");
+            if blob.binaries.is_empty() {
+                break 'plan Err("warm vendor binaries 为空(safe 层已核验,防御)".into());
+            }
+            let mut keys: Vec<PipelineBinaryKeyKHR> = Vec::with_capacity(blob.binaries.len());
+            for (k, _) in blob.binaries {
+                if k.is_empty() || k.len() > MAX_PIPELINE_BINARY_KEY_SIZE {
+                    break 'plan Err("warm vendor key 长度非法(safe 层已核验,防御)".into());
+                }
+                let mut key = PipelineBinaryKeyKHR {
+                    s_type: ST_PIPELINE_BINARY_KEY_KHR,
+                    p_next: std::ptr::null_mut(),
+                    key_size: k.len() as u32,
+                    key: [0; MAX_PIPELINE_BINARY_KEY_SIZE],
+                };
+                key.key[..k.len()].copy_from_slice(k);
+                keys.push(key);
+            }
+            let datas: Vec<PipelineBinaryDataKHR> = blob
+                .binaries
+                .iter()
+                .map(|(_, d)| PipelineBinaryDataKHR {
+                    data_size: d.len(),
+                    p_data: d.as_ptr() as *mut c_void,
+                })
+                .collect();
+            let kad = PipelineBinaryKeysAndDataKHR {
+                binary_count: keys.len() as u32,
+                p_pipeline_binary_keys: keys.as_ptr(),
+                p_pipeline_binary_data: datas.as_ptr(),
+            };
+            let bci = PipelineBinaryCreateInfoKHR {
+                s_type: ST_PIPELINE_BINARY_CREATE_INFO_KHR,
+                p_next: std::ptr::null(),
+                p_keys_and_data_info: &kad,
+                pipeline: VK_NULL_HANDLE,
+                p_pipeline_create_info: std::ptr::null(),
+            };
+            binaries = vec![VK_NULL_HANDLE; keys.len()];
+            let mut handles = PipelineBinaryHandlesInfoKHR {
+                s_type: ST_PIPELINE_BINARY_HANDLES_INFO_KHR,
+                p_next: std::ptr::null_mut(),
+                pipeline_binary_count: binaries.len() as u32,
+                p_pipeline_binaries: binaries.as_mut_ptr(),
+            };
+            let cb = ctx.create_bins.expect("binary 分支符号在位(body 已判)");
+            let rc = cb(device, &bci, std::ptr::null(), &mut handles);
+            if rc != VK_SUCCESS
+                || handles.pipeline_binary_count as usize != binaries.len()
+                || binaries.iter().any(|b| *b == VK_NULL_HANDLE)
+            {
+                break 'plan Err(format!(
+                    "vkCreatePipelineBinariesKHR(keys+data 重建) 失败: {rc}"
+                ));
+            }
+            bin_info.binary_count = binaries.len() as u32;
+            bin_info.p_pipeline_binaries = binaries.as_ptr();
+        }
+
+        // ── create info pNext 链装配（VUID 双约束,本机 validation 实测）:
+        //    ① VUID-...-binaryCount-09622:binaryCount > 0 时禁置 FAIL_ON bit(binary 满足性
+        //       本身即免编译保证,RXS-0316 命中语义由其承载;FAIL_ON 只挂**无 binary** 的
+        //       创建——删 key 反证腿 / 空 store 面 / cache 分支 warm 全部创建)。
+        //    ② VUID-VkPipelineCreateFlags2CreateInfoKHR-flags-requiredbitmask:flags2 链入
+        //       时 flags **不得为 0**——故携 binary 的 warm 创建**不链 flags2**,binary info
+        //       直挂 create info pNext;stall 重试清位时整条链摘除（p_next=null,flags=0）。
+        let use_flags2 = ctx.branch == PSO_BRANCH_BINARY
+            && (ctx.mode_cold || bin_info.binary_count == 0);
+        let flags2_bits: u64 = if !use_flags2 {
+            0
+        } else if ctx.mode_cold {
+            PIPELINE_CREATE_2_CAPTURE_DATA_BIT_KHR
+        } else {
+            PIPELINE_CREATE_2_FAIL_ON_COMPILE_REQUIRED
+        };
+        let flags2 = PipelineCreateFlags2CreateInfoKHR {
+            s_type: ST_PIPELINE_CREATE_FLAGS_2_CREATE_INFO_KHR,
+            p_next: std::ptr::null(),
+            flags: flags2_bits,
+        };
+        let base_flags: u32 = if ctx.branch == PSO_BRANCH_CACHE && !ctx.mode_cold {
+            PIPELINE_CREATE_FAIL_ON_COMPILE_REQUIRED
+        } else {
+            0
+        };
+        let chain_head: *const c_void = if use_flags2 {
+            &flags2 as *const _ as *const c_void
+        } else if bin_info.binary_count > 0 {
+            &bin_info as *const _ as *const c_void
+        } else {
+            std::ptr::null()
+        };
+
+        // ── 三种类 create info 单点构造（向量化子结构先行,指针全程有效）──
+        let stages: Vec<PipelineShaderStageCreateInfo> = plan
+            .stages
+            .iter()
+            .enumerate()
+            .map(|(i, s)| PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: s.stage_bit,
+                module: modules[i],
+                p_name: entry_cs[i].as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            })
+            .collect();
+        // 各 kind 的栈上 create info（p_next/flags 首填 warm/cold 值,stall 重试原地改）。
+        let mut ci = match &plan.kind {
+            PsoPlanKind::Compute => AnyCreateInfo::Compute(ComputePipelineCreateInfo {
+                s_type: ST_COMPUTE_PIPELINE_CREATE_INFO,
+                p_next: chain_head,
+                flags: base_flags,
+                stage: PipelineShaderStageCreateInfo {
+                    s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    stage: plan.stages[0].stage_bit,
+                    module: modules[0],
+                    p_name: entry_cs[0].as_ptr(),
+                    p_specialization_info: std::ptr::null(),
+                },
+                layout,
+                base_pipeline_handle: VK_NULL_HANDLE,
+                base_pipeline_index: -1,
+            }),
+            PsoPlanKind::Graphics {
+                vertex_stride,
+                vertex_attrs,
+                extent,
+                ..
+            } => {
+                let vbind = VkVertexInputBindingDescription {
+                    binding: 0,
+                    stride: *vertex_stride,
+                    input_rate: VERTEX_INPUT_RATE_VERTEX,
+                };
+                let vattrs: Vec<VkVertexInputAttributeDescription> = vertex_attrs
+                    .iter()
+                    .map(|&(location, format, offset)| VkVertexInputAttributeDescription {
+                        location,
+                        binding: 0,
+                        format,
+                        offset,
+                    })
+                    .collect();
+                let vin = PipelineVertexInputStateCreateInfo {
+                    s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    vertex_binding_description_count: 1,
+                    p_vertex_binding_descriptions: &vbind,
+                    vertex_attribute_description_count: vattrs.len() as u32,
+                    p_vertex_attribute_descriptions: vattrs.as_ptr(),
+                };
+                let ia = PipelineInputAssemblyStateCreateInfo {
+                    s_type: ST_PIPELINE_INPUT_ASSEMBLY_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    topology: PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                    primitive_restart_enable: 0,
+                };
+                let viewport = VkViewport {
+                    x: 0.0,
+                    y: 0.0,
+                    width: extent.0 as f32,
+                    height: extent.1 as f32,
+                    min_depth: 0.0,
+                    max_depth: 1.0,
+                };
+                let scissor = VkRect2D {
+                    offset: VkOffset2D { x: 0, y: 0 },
+                    extent: VkExtent2D {
+                        width: extent.0,
+                        height: extent.1,
+                    },
+                };
+                let vp = PipelineViewportStateCreateInfo {
+                    s_type: ST_PIPELINE_VIEWPORT_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    viewport_count: 1,
+                    p_viewports: &viewport,
+                    scissor_count: 1,
+                    p_scissors: &scissor,
+                };
+                let rs = PipelineRasterizationStateCreateInfo {
+                    s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    depth_clamp_enable: 0,
+                    rasterizer_discard_enable: 0,
+                    polygon_mode: POLYGON_MODE_FILL,
+                    cull_mode: CULL_MODE_NONE,
+                    front_face: FRONT_FACE_COUNTER_CLOCKWISE,
+                    depth_bias_enable: 0,
+                    depth_bias_constant_factor: 0.0,
+                    depth_bias_clamp: 0.0,
+                    depth_bias_slope_factor: 0.0,
+                    line_width: 1.0,
+                };
+                let ms = PipelineMultisampleStateCreateInfo {
+                    s_type: ST_PIPELINE_MULTISAMPLE_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    rasterization_samples: SAMPLE_COUNT_1,
+                    sample_shading_enable: 0,
+                    min_sample_shading: 0.0,
+                    p_sample_mask: std::ptr::null(),
+                    alpha_to_coverage_enable: 0,
+                    alpha_to_one_enable: 0,
+                };
+                let blend_att = PipelineColorBlendAttachmentState {
+                    blend_enable: 0,
+                    src_color_blend_factor: 0,
+                    dst_color_blend_factor: 0,
+                    color_blend_op: 0,
+                    src_alpha_blend_factor: 0,
+                    dst_alpha_blend_factor: 0,
+                    alpha_blend_op: 0,
+                    color_write_mask: COLOR_COMPONENT_RGBA,
+                };
+                let cb = PipelineColorBlendStateCreateInfo {
+                    s_type: ST_PIPELINE_COLOR_BLEND_STATE_CI,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    logic_op_enable: 0,
+                    logic_op: 0,
+                    attachment_count: 1,
+                    p_attachments: &blend_att,
+                    blend_constants: [0.0; 4],
+                };
+                AnyCreateInfo::Graphics(
+                    GraphicsPipelineCreateInfo {
+                        s_type: ST_GRAPHICS_PIPELINE_CREATE_INFO,
+                        p_next: chain_head,
+                        flags: base_flags,
+                        stage_count: stages.len() as u32,
+                        p_stages: stages.as_ptr(),
+                        p_vertex_input_state: &vin,
+                        p_input_assembly_state: &ia,
+                        p_tessellation_state: std::ptr::null(),
+                        p_viewport_state: &vp,
+                        p_rasterization_state: &rs,
+                        p_multisample_state: &ms,
+                        p_depth_stencil_state: std::ptr::null(),
+                        p_color_blend_state: &cb,
+                        p_dynamic_state: std::ptr::null(),
+                        layout,
+                        render_pass,
+                        subpass: 0,
+                        base_pipeline_handle: VK_NULL_HANDLE,
+                        base_pipeline_index: -1,
+                    },
+                    vin,
+                    ia,
+                    vp,
+                    rs,
+                    ms,
+                    cb,
+                )
+            }
+            PsoPlanKind::Rt {
+                groups,
+                max_recursion,
+            } => {
+                let gs: Vec<RayTracingShaderGroupCreateInfo> = groups
+                    .iter()
+                    .map(|g| RayTracingShaderGroupCreateInfo {
+                        s_type: ST_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+                        p_next: std::ptr::null(),
+                        ty: g.group_type,
+                        general_shader: g.general_shader,
+                        closest_hit_shader: g.closest_hit_shader,
+                        any_hit_shader: SHADER_UNUSED_KHR,
+                        intersection_shader: SHADER_UNUSED_KHR,
+                        p_shader_group_capture_replay_handle: std::ptr::null(),
+                    })
+                    .collect();
+                AnyCreateInfo::Rt(
+                    RayTracingPipelineCreateInfo {
+                        s_type: ST_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,
+                        p_next: chain_head,
+                        flags: base_flags,
+                        stage_count: stages.len() as u32,
+                        p_stages: stages.as_ptr(),
+                        group_count: gs.len() as u32,
+                        p_groups: gs.as_ptr(),
+                        max_pipeline_ray_recursion_depth: *max_recursion,
+                        p_library_info: std::ptr::null(),
+                        p_library_interface: std::ptr::null(),
+                        p_dynamic_state: std::ptr::null(),
+                        layout,
+                        base_pipeline_handle: VK_NULL_HANDLE,
+                        base_pipeline_index: -1,
+                    },
+                    gs,
+                )
+            }
+        };
+
+        // ── cold binary ①:vkGetPipelineKeyKHR（VkPipelineCreateInfoKHR.pNext 链**实际
+        //    create info**〔其自身 pNext 链 flags2 捕获位〕,RXS-0316 捕获序列逐字）──
+        if ctx.mode_cold && ctx.branch == PSO_BRANCH_BINARY {
+            let gpk = ctx.get_pipe_key.expect("binary 分支符号在位(body 已判)");
+            let pci_khr = PipelineCreateInfoKHR {
+                s_type: ST_PIPELINE_CREATE_INFO_KHR,
+                p_next: ci.head_ptr(),
+            };
+            let mut probe = PipelineBinaryKeyKHR {
+                s_type: ST_PIPELINE_BINARY_KEY_KHR,
+                p_next: std::ptr::null_mut(),
+                key_size: 0,
+                key: [0; MAX_PIPELINE_BINARY_KEY_SIZE],
+            };
+            if gpk(device, &pci_khr, &mut probe) != VK_SUCCESS {
+                break 'plan Err("vkGetPipelineKeyKHR 失败".into());
+            }
+        }
+
+        // ── 首次 create;COMPILE_REQUIRED = stall 计数后清位重试（真实编译保输出正确）──
+        let (mut r, mut pipe) = ci.create(device, ctx);
+        if r == VK_PIPELINE_COMPILE_REQUIRED {
+            // RXS-0316:warm FAIL_ON 下 COMPILE_REQUIRED 即 stall += 1(cold 不置 FAIL_ON,
+            // 此分支只可能在 warm 无 binary 创建触发);重试摘链清位真实编译保输出正确。
+            outcome.stalled = true;
+            if pipe != VK_NULL_HANDLE {
+                (ctx.destroy_pipe)(device, pipe, std::ptr::null());
+            }
+            ci.set_plain_flags();
+            let (r2, p2) = ci.create(device, ctx);
+            r = r2;
+            pipe = p2;
+        } else if r == VK_SUCCESS && !ctx.mode_cold {
+            // warm 命中定义 = **本 store 持久化数据**满足(binary 链入 / cache initialData)。
+            // binary 缺 blob 时驱动磁盘缓存仍可能让 FAIL_ON 返回 SUCCESS——不得记 hit;
+            // RXS-0316 能红反证腿字面「删单 key 持久化数据 → 该 key 必须记 stall」。
+            if ctx.branch == PSO_BRANCH_BINARY && ctx.warm_blob.is_none() {
+                outcome.stalled = true;
+                outcome.hit = false;
+            } else {
+                outcome.hit = true;
+            }
+        }
+        if r != VK_SUCCESS {
+            break 'plan Err(format!("vkCreate*Pipelines 失败: {r}"));
+        }
+        if pipe == VK_NULL_HANDLE {
+            break 'plan Err("vkCreate*Pipelines 返回 SUCCESS 但句柄为空".into());
+        }
+        pipeline = pipe;
+        outcome.built = true;
+
+        // ── cold binary 捕获:vkGetPipelineKeyKHR + vkCreatePipelineBinariesKHR(from
+        //    pipeline) + vkGetPipelineBinaryDataKHR 两段调用(RXS-0316 捕获序列逐字)──
+        if ctx.mode_cold && ctx.branch == PSO_BRANCH_BINARY {
+            let gpk = ctx.get_pipe_key.expect("binary 分支符号在位");
+            let cbd = ctx.create_bins.expect("binary 分支符号在位");
+            let gbd = ctx.get_bin_data.expect("binary 分支符号在位");
+            let _ = gpk; // ① vkGetPipelineKeyKHR 已在 create 前以**实际 create info 链**完成（VUID-09604）
+            // ② vkCreatePipelineBinariesKHR(from pipeline;捕获 CAPTURE_DATA 位数据)。
+            //    **两调用律**:先 pPipelineBinaries=NULL 查 binary 个数（一条 pipeline 可产
+            //    N 个——NVIDIA graphics 实测 >1,数组过小 = VK_INCOMPLETE),再足额创建。
+            let bci = PipelineBinaryCreateInfoKHR {
+                s_type: ST_PIPELINE_BINARY_CREATE_INFO_KHR,
+                p_next: std::ptr::null(),
+                p_keys_and_data_info: std::ptr::null(),
+                pipeline,
+                p_pipeline_create_info: std::ptr::null(),
+            };
+            let mut count_query = PipelineBinaryHandlesInfoKHR {
+                s_type: ST_PIPELINE_BINARY_HANDLES_INFO_KHR,
+                p_next: std::ptr::null_mut(),
+                pipeline_binary_count: 0,
+                p_pipeline_binaries: std::ptr::null_mut(),
+            };
+            if cbd(device, &bci, std::ptr::null(), &mut count_query) != VK_SUCCESS {
+                break 'plan Err("vkCreatePipelineBinariesKHR(count 查询) 失败".into());
+            }
+            let n = count_query.pipeline_binary_count as usize;
+            if n == 0 || n > 64 {
+                break 'plan Err(format!("pipeline binary 个数非法 {n}(fail-closed)"));
+            }
+            binaries = vec![VK_NULL_HANDLE; n];
+            let mut handles = PipelineBinaryHandlesInfoKHR {
+                s_type: ST_PIPELINE_BINARY_HANDLES_INFO_KHR,
+                p_next: std::ptr::null_mut(),
+                pipeline_binary_count: n as u32,
+                p_pipeline_binaries: binaries.as_mut_ptr(),
+            };
+            let rc = cbd(device, &bci, std::ptr::null(), &mut handles);
+            if rc != VK_SUCCESS
+                || handles.pipeline_binary_count as usize != n
+                || binaries.iter().any(|b| *b == VK_NULL_HANDLE)
+            {
+                break 'plan Err(format!(
+                    "vkCreatePipelineBinariesKHR(from pipeline,{n} 个) 失败: {rc}"
+                ));
+            }
+            // ③ vkGetPipelineBinaryDataKHR(size → data;key 出参为权威 vendor key。
+            //    pPipelineBinaryKey 两调用**均须有效指针**〔VUID-...-parameter,禁 NULL〕)。
+            for b in &binaries {
+                let bdii = PipelineBinaryDataInfoKHR {
+                    s_type: ST_PIPELINE_BINARY_DATA_INFO_KHR,
+                    p_next: std::ptr::null(),
+                    pipeline_binary: *b,
+                };
+                let mut sz: usize = 0;
+                let mut key = PipelineBinaryKeyKHR {
+                    s_type: ST_PIPELINE_BINARY_KEY_KHR,
+                    p_next: std::ptr::null_mut(),
+                    key_size: 0,
+                    key: [0; MAX_PIPELINE_BINARY_KEY_SIZE],
+                };
+                if gbd(device, &bdii, &mut key, &mut sz, std::ptr::null_mut()) != VK_SUCCESS {
+                    break 'plan Err("vkGetPipelineBinaryDataKHR(size) 失败".into());
+                }
+                let mut data = vec![0u8; sz];
+                if gbd(device, &bdii, &mut key, &mut sz, data.as_mut_ptr() as *mut c_void)
+                    != VK_SUCCESS
+                {
+                    break 'plan Err("vkGetPipelineBinaryDataKHR(data) 失败".into());
+                }
+                data.truncate(sz);
+                let klen = (key.key_size as usize).min(MAX_PIPELINE_BINARY_KEY_SIZE);
+                outcome
+                    .vendor_binaries
+                    .push((key.key[..klen].to_vec(), data));
+            }
+        }
+        Ok(())
+    };
+
+    // ── plan 级逆序统一销毁(binary×N → pipeline → renderPass → layout → dsl×N → module×N)──
+    if let Some(db) = ctx.destroy_bin {
+        for b in binaries.iter().rev() {
+            db(device, *b, std::ptr::null());
+        }
+    }
+    if pipeline != VK_NULL_HANDLE {
+        (ctx.destroy_pipe)(device, pipeline, std::ptr::null());
+    }
+    if render_pass != VK_NULL_HANDLE {
+        (ctx.destroy_rp)(device, render_pass, std::ptr::null());
+    }
+    if layout != VK_NULL_HANDLE {
+        (ctx.destroy_pl)(device, layout, std::ptr::null());
+    }
+    for h in dsls.into_iter().rev() {
+        (ctx.destroy_dsl)(device, h, std::ptr::null());
+    }
+    for m in modules.into_iter().rev() {
+        (ctx.destroy_shader)(device, m, std::ptr::null());
+    }
+    result.map(|()| outcome)
+}

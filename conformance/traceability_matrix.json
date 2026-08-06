@@ -1641,6 +1641,16 @@
     ],
     "RXS-0313": [
       "src/rurixc/src/capability_check.rs"
+    ],
+    "RXS-0314": [
+      "src/rurix-rt/src/pso_cache.rs"
+    ],
+    "RXS-0315": [
+      "src/rurix-rt/src/pso_cache.rs"
+    ],
+    "RXS-0316": [
+      "src/rurix-rt/src/pso_cache.rs",
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }
