@@ -410,6 +410,72 @@ RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
 
 > 锚定测试:`conformance/rayquery/reject/ray_query_after_terminate.rx`(S2 terminate 后使用，RED 语料）+ `conformance/rayquery/reject/committed_unguarded.rx`(S3 未支配 committed 查询，RED 语料）；实现期锚定计划（RFC-0018 §3.A6):reject 语料接入 harness + UI golden + 诊断码锚定（G7.2 转正）。
 
+### RXS-0311 `#[requires]` capability 声明、ID 闭集与调用图并集律（G8.2 M32,RFC-0019 §4.5.1）
+
+**Syntax**
+
+- `#[requires("capability.id", ...)]`:fn 级属性，实参为 ≥1 个字符串字面量
+  （capability ID）。可附着于着色入口函数与 device function;多条可叠加，语义
+  为并集。附着于 host-only 函数或非函数 item = 编译期拒（见 Legality）。
+
+**Legality**
+
+- **capability ID 闭集**（v1 冻结,加性演进走本条款修订行;backend extension
+  名**不作为** ID——mapping 归 target profile,RFC-0019 §4.5.1 逐字）:
+
+| ID | 语义 |
+|---|---|
+| `rt.pipeline` | RT pipeline 六执行模型（raygen/miss/closesthit 阶段与 `trace_ray`） |
+| `rt.sbt_user_data` | SBT typed shader-record 用户数据（`#[shader_record]`,M50） |
+| `rt.any_hit` | any-hit 阶段与 `ignore_intersection` |
+| `rt.intersection.procedural` | procedural intersection 阶段与 `report_intersection` |
+| `rt.callable` | callable 阶段与 `execute_callable` |
+| `rt.ray_query` | compute 内联遍历（`RayQuery`/`ray_query_initialize`,RXS-0297~0299） |
+| `mesh.task` | task 阶段（mesh 前置放大） |
+| `sync.timeline_semaphore` | timeline semaphore 同步原语（M59 多队列前置） |
+| `queue.dedicated_transfer` | 独立 transfer queue class |
+| `queue.dedicated_compute` | 独立 compute queue class |
+
+- 引用闭集外 ID = 编译期确定性拒，symbolic diagnostic key
+  **`capability.unknown_id`**（本条款加性冻结的第五 key——RFC-0019 §4.5.1 四键
+  之外的闭集违例类别，不改 RFC 四键字面;数字码按实现 commit 实测 `next_free`
+  顺位领取）。
+- **隐式推导映射表**（编译器强制推导,与显式声明并集;映射表 = 本条款冻结面,
+  漏推导即实现 bug）:
+
+| 来源 | 推导出的 requirement |
+|---|---|
+| intrinsic `trace_ray` 调用 | `rt.pipeline` |
+| `RayQuery` 局部变量 / `ray_query_initialize` 调用 | `rt.ray_query` |
+| intrinsic `report_intersection` 调用 | `rt.intersection.procedural` |
+| intrinsic `execute_callable` 调用 | `rt.callable` |
+| intrinsic `ignore_intersection` 调用 | `rt.any_hit` |
+| stage = raygen / miss / closesthit | `rt.pipeline` |
+| stage = anyhit | `rt.any_hit` |
+| stage = intersection | `rt.intersection.procedural` |
+| stage = callable | `rt.callable` |
+| stage = task | `mesh.task` |
+| `#[shader_record]` 形参（M50） | `rt.sbt_user_data` |
+| `AccelStruct` compute 签名形参 | `rt.ray_query` |
+
+- **调用图并集律**:entry `e` 的**有效 requirement 集** = `e` 自身显式 ∪ 隐式
+  ∪ 全部静态可达 device callee 的有效集之并（RFC-0019 §4.5.1 逐字）。device
+  函数无函数指针/间接调用（RXS-0066 系），直调可达图静态可算;可达性以
+  resolve 的 DefId 级 call facts 为准（禁名字匹配）。泛型着色函数不产 entry
+  （RXS-0304 口径），其 requirement 随单态化实例并入调用方。
+- **诊断消息形态**（判据字面,RFC-0019 §4.5.1）:缺失能力诊断必须携带**缺失
+  capability ID** 与**首个引入它的可达 callee**（自身引入时为 entry 自身名）。
+
+**Implementation Requirements**
+
+- 四个 RFC 冻结 symbolic key 的触发条件绑定见 RXS-0312/RXS-0313
+  （`capability.missing_required` / `capability.forbidden_used` /
+  `capability.fallback_incompatible` / `capability.runtime_snapshot_mismatch`）;
+  本条款承载 `capability.unknown_id`。全部 key 的数字码（typeck 段）按实现
+  commit 当时实测 `next_free` 顺位领取，en/zh message 成对。
+- reflection v1 的 `required_capabilities` 字段 = 本条款有效 requirement 集的
+  排序 ID 表（RXS-0304 v1.2 修订行真值化;无任何 requirement 时恒空表 0 漂移）。
+
 ## 3. 错误码引用汇总（RX3011 ~ RX3017）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
@@ -441,6 +507,7 @@ RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.7 | 2026-08-06 | **RFC-0019 §4.5.1 capability 声明面落库 + RXS-0311 条款体(spec-first,G8.2 M32 条款先行,硬规则 7)**。承 RFC-0019(Agent Approved 2026-08-02;number_ledger v1.50 校准 RXS 310/311→313/314,RXS-0311 归本文件、RXS-0312/0313 归 spec/rendering_platform.md v1.2)。新增 `### RXS-0311`(`#[requires]` capability 声明、ID 闭集与调用图并集律):fn 级 `#[requires("capability.id", ...)]` 字符串字面量列表;**capability ID 闭集 v1 十项冻结**(rt.pipeline / rt.sbt_user_data / rt.any_hit / rt.intersection.procedural / rt.callable / rt.ray_query / mesh.task / sync.timeline_semaphore / queue.dedicated_transfer / queue.dedicated_compute;backend extension 名不作 ID,mapping 归 target profile,RFC §4.5.1 逐字);**隐式推导映射表冻结**(intrinsic 五项 + stage 五项 + 形参类型两项,漏推导即实现 bug);**调用图并集律**(有效集 = 显式 ∪ 隐式 ∪ 全部静态可达 device callee 并集,DefId 级 call facts 禁名字匹配,泛型不产 entry 随单态化并入);诊断消息携带缺失 ID + 首个引入 callee(判据字面);闭集外 ID → 加性冻结第五 symbolic key `capability.unknown_id`(RFC 四键 0-byte 不改)。数字错误码零消费(RFC 四键 + unknown_id 的 typeck 段实号按实现 commit 实测 next_free 顺位领取,RX3018/RX3019 先例;§3 表 0-byte)。profile 闭集/选择律/fallback/运行期 snapshot 核验见 spec/rendering_platform.md RXS-0312/0313。每条 ≥1 `//@ spec` 锚定随实现 commit 同落。既有条款 RXS-0153~0299 0-byte。 | **Full RFC**（RFC-0019） |
 | v1.5 | 2026-07-19 | **RFC-0013 §4.E mesh-task-RT 章类型面落库 + RXS-0242~RXS-0245 条款体(spec-first,G3.6 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0242`(intersection/callable 阶段全集补齐,RXS-0153 加性修订行不占新号):前缀式 `intersection fn`/`callable fn` 入 `<stage>` 集,取 kernel 入口着色,直接调用复用 RX3001,PTX 收集根排除维持(D-207);ast.rs ShaderStage 补 Intersection/Callable + parser 前瞻。新增 `### RXS-0243`(mesh/task 入口契约):mesh 须 `#[numthreads(x,y,z)]`(三正整数字面量)+ `#[outputs(topology="triangles", max_vertices=N, max_primitives=M)]`(triangles-only,Q-M-MeshTopology),task 须 `#[numthreads]`;缺任一/未知拓扑/非正字面量 → **新码 RX3017**(`shader.mesh_entry_invalid` en/zh 成对,3xxx typeck 段续接 RX3016);task→mesh payload 逐字段比对 → RX3012 扩类别。新增 `### RXS-0244`(RT payload/attribute/callable data 显式类型契约,RXS-0155 加性修订行,SC-3):`#[payload]`/`#[hit_attribute]`/`#[callable_data]`/`#[task_payload]` 标注式形参逐字段比对(单三件套配对域,Q-M-PairingDomain),错配 → **RX3012 扩类别**(阶段间数据契约超集,插值维度对 RT/callable N/A,只加类别不改语义);🔒 字节布局非承诺。新增 `### RXS-0245`(AccelStruct 句柄 + trace_ray 已知签名 + RT builtins):AccelStruct 仅 RT 阶段签名形参(SRV 轴承 RXS-0163)违例 → **RX3013 扩类别**;trace_ray 固定签名 + 递归恒 1 编译期结构约束;RT builtins 阶段矩阵(launch_id/world_ray_*/hit_t/hit_kind/primitive_index 等,名入 KNOWN_BUILTINS)。§3 错误码表回填 RX3017 + RX3012/RX3013 扩覆盖。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(递归深度=编译期结构约束,越界写=静态上限,无运行期未定义;anyhit 调用次数「实现定义但有界」非「未定义」)。mesh/task SPIR-V 编码见 spec/vulkan_backend.md RXS-0246;RT 六模型编码+1.4 分叉见 RXS-0247;DXIL 腿条件分支见 spec/dxil_backend.md RXS-0249。每条 ≥1 `//@ spec` 测试锚定(shader_stages.rs typeck 单测 accept+reject)。**类型面首期**:trace_ray 调用点签名核对 + RT builtin 阶段矩阵 + raygen↔hit/miss payload body 层比对归后续 mir_build/coloring 接线(诚实标注);intersection/callable device 语料 accept-only(§8) | **Full RFC**（RFC-0013） |
 | v1.4 | 2026-07-19 | **RFC-0013 §4.C bindless 章类型面落库 + RXS-0231/RXS-0232 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0231`(无界资源句柄数组类型面):`[Texture2D<F>]` 切片样式文法**无新 token**,**仅着色阶段签名形参**(返回/字段/非阶段/嵌套/有界混写 → RX3013 扩类别);首期无界仅 SRV 纹理(无界 Sampler/CBV/UAV 维持 RX6013,binding_layout RXS-0233);句柄非值承 RXS-0156/0174。新增 `### RXS-0232`(动态索引 + `nonuniform` 标注 strict-only):`table[idx]`(`idx:u32`)产临时句柄**仅立即 receiver**(逃逸 → RX3014 扩类别);索引须 `nonuniform(expr)` 包裹(唯一豁免整型字面量常量),缺失 → **新码 RX3016**(3xxx typeck 段自 RX3016 续号,`shader.nonuniform_annotation_missing` en/zh 成对,number_ledger v1.5 校准避 EI1 撞号);**不做 uniformity 推断**(保守全标,Q-B-Uniformity)。§3 错误码表回填 RX3016 + RX3014 扩覆盖(逃逸);`nonuniform` 为值位置兜底 lang-item 自由函数(可用户遮蔽)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(越界索引实现定义但有界,clamp 至已注册段,无 UB;RXS-0234)。绑定推导独占 set/space 见 spec/binding_layout.md RXS-0233;codegen 双腿见 spec/dxil_backend.md RXS-0234;宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。每条 ≥1 `//@ spec` 测试锚定(conformance/shader accept+reject + UI golden + binding_layout/dxil_spirv 单测)随实现 commit 同落(条款 PR 先于实现 PR) | **Full RFC**（RFC-0013） |
 | v1.0 | 2026-06-23 | 新建 spec/shader_stages.md(G2.1 着色阶段类型面起始文件):登记编号区间 RXS-0153 起续号预留(**已锁定 4 条 RXS-0153 ~ RXS-0156**,RFC-0002 §9 Q5)+ 文件级前言 / 范围(着色阶段函数着色扩展 RXS-0066 / 阶段专属 I/O 语义类型属性式标注 / 阶段间接口类型契约 vertex out→fragment in / 资源句柄·纹理采样器参数化类型面 `Texture2D<F>`+`Sampler` 平行 View;复用 kernel 子语言+views、device⊂host 单向可达、trait 单态化子集、PTX-only、🔒 纹理内存模型映射禁区不落笔)/ 依据与授权(RFC-0002 agent 批准 + 06 §8.2/§4.2 + 05 §1/§2.2 + spec/device.md RXS-0066/0067/0074/0078;G2_CONTRACT D-G2-1/D-G2-6 / G-G2-1/G-G2-6 + G2_PLAN G2.1)/ 计划条款骨架(§2 预留,非裸条款头,照搬 RFC-0002 §5 表:RXS-0153 着色阶段函数着色规则 / RXS-0154 阶段专属 I/O 语义类型 / RXS-0155 阶段间接口类型契约 / RXS-0156 资源句柄·纹理采样器参数化类型面)/ 错误码新段位说明(§3:着色阶段语义诊断归 3xxx 段 RX3011+ 续号,脚手架不预造、不预留;纯 Rust 错误走 rustc 原生零新码)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0002、🔒 纹理内存模型映射禁区、G2.2 D-131、G2.3 P-11、多后端/红线1/SG、UB 节禁区)。**沿 README v1.32 / v1.33 先例:本轮不落带编号裸条款头**——条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定 152/152),无体例变更 | **Full RFC**(RFC-0002) |

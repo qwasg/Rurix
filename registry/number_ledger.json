@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 310,
-      "next_free": 311,
+      "on_tree_max": 313,
+      "next_free": 314,
       "shadow_reserved": [
         181,
         182,
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.50",
+      "date": "2026-08-06",
+      "change": "G8.2 M32 spec-first PR:RXS-0311~0313 materialize(agent 主导串行合入,硬规则 7 条款先于实现)。RXS on_tree_max 310→313、next_free 311→314——spec/shader_stages.md v1.7 纯追加 `### RXS-0311`(`#[requires]` capability 声明/ID 闭集 v1 十项冻结〔rt.pipeline/rt.sbt_user_data/rt.any_hit/rt.intersection.procedural/rt.callable/rt.ray_query/mesh.task/sync.timeline_semaphore/queue.dedicated_transfer/queue.dedicated_compute,backend extension 名不作 ID〕/隐式推导映射表〔intrinsic 五项+stage 五项+形参类型两项〕/调用图并集律〔DefId 级 call facts 禁名字匹配〕/诊断携带缺失 ID+首个引入 callee/第五 symbolic key capability.unknown_id 加性冻结)+ spec/rendering_platform.md v1.2 纯追加 `### RXS-0312`(profile v1 闭集 schema=rurix.profile.v1/required·optional·forbidden 两两不相交/fallbacks 映射/canonical digest CanonW 律/无 --profile 恒 rurix.profile-none.v1 0 漂移/构建期选择律四分支绑定 RFC 冻结 key capability.forbidden_used·missing_required·fallback_incompatible/fallback 接口契约兼容 = io·resources·push_constants·execution_modes 结构相等 v1 从严/选中 fallback 主 variant 不发射 fallback 链深度 1/--emit=capabilities selection manifest)+ `### RXS-0313`(运行期 snapshot 核验 fail-closed:capability.runtime_snapshot_mismatch 装载期 RED 禁临时重编/静默换 profile,库层 typed Err 不占 RX 码,verify_profile_snapshot host 纯函数原语镜像 RXS-0307 体例,device 腿归 M50/M89);同 PR RXS-0304 加性修订(required_capabilities/selected_profile_digest 真值化,空路径 0 漂移)。依据 RFC-0019(Agent Approved 2026-08-02)§4.5.1/§4.5.2/§5 RP-CAP-PROFILE 行 + G8_ACCEPTANCE_MAP §2 M32 行 + 设计案 §2。**数字错误码本 commit 零消费**(五 symbolic key 冻结,typeck 段实号按实现 commit 实测顺位领取,v1.48 先例)。条款号连续不跳号;经 grep `### RXS-` 实测 spec 最大条款头 = RXS-0313。零新 RD/U/SG/MR/D/RFC/CI_step 命名空间字段(步骤 99 归 M32 实现 commit 顺位领取)。"
+    },
     {
       "version": "v1.49",
       "date": "2026-08-06",
