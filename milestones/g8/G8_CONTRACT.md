@@ -483,3 +483,33 @@ py -3 ci/g8_rt_pipeline_incremental_smoke.py --gate g8.p0.m50.rt_pipeline_increm
 **诚实边界**（实现注释同文）：accept 侧重签名/组形态 GREEN；动态语义主要靠 `emit_m50_*` + harness；MIR 全量 `lower_rt` 未接线（非 `emit_*_min` 充绿；步骤 66/67 min 保留）；stack query 走 library 管线；本机 stack 数值可为 0 仍满足 `configured >= required`。
 
 `Assisted-by: cursor-grok-4.5-high-fast`（实现/语料/smoke/schema；主 agent 治理接线。影响范围：本节 + CI_GATES v1.9 + ledger v1.59 + g8_budget v1.7 + pr-smoke 步骤 103 + deferred RD-040 history）
+
+### 8.9 wave2.exit 聚合门 materialize（2026-08-06）
+
+**触发**：G8.2 七个 P0 均已独立绿（步骤 97–103），按 CI_GATES §5 / G-G8-4 落地波次聚合门 `g8.wave.2.exit`（只汇总、不代绿）。
+
+**交付物**：
+
+- **共享库**：`ci/g8_wave_exit_lib.py`（`load_latest_evidence` / `validate_schema` / `require_gate_pass` / `emit_wave_evidence`；设计案 G8.6…§7.1 首落）。
+- **薄壳**：`ci/g8_wave2_exit_check.py` + `milestones/g8/g8_wave2_exit_evidence_schema.json`（`numeric_step=104`）。
+- **治理**：check_schemas 路由 `g8_wave2_exit_` + pr-smoke 步骤 104（host 聚合，**不加** `RURIX_REQUIRE_REAL`）+ CI_GATES v1.10 回填 104 + ledger v1.60（CI_step 103→104/105）。
+
+**聚合条件**（缺一即红）：
+
+1. 七 key 最新 evidence 全 PASS：`m50` / `m89` / `m29` / `m30` / `m31` / `m32` / `m85`；
+2. RFC-0019 正文含 Agent Approved；
+3. `RD-037.status=closed`；
+4. 本波 RD-038 接入 = 空集（`G8_CANDIDATE_DECISIONS` v1.1 字面；不因空集放宽七门）；
+5. `RD-040` 总体维持 `open`（M50 分项 history 已留痕，本门不翻 closed）。
+
+**验收**（2026-08-06）：
+```
+py -3 ci/g8_wave2_exit_check.py --selftest
+# 负样本:缺 evidence → FAIL；正样本:真树七门+RFC+RD → PASS
+py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
+# VERDICT = PASS；evidence/g8_wave2_exit_<UTC>.json
+```
+
+**诚实边界**：聚合门不重跑七 smoke；任一子门 FAIL/SKIP/缺失均可见且聚合红；零新 RXS/RX/U/budget counter。
+
+`Assisted-by: cursor-grok-4.5`（主 agent Gov；影响范围：本节 + CI_GATES v1.10 + ledger v1.60 + pr-smoke 步骤 104 + wave_exit_lib）
