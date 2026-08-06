@@ -571,3 +571,11 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **交付物**：`spec/asset_pipeline.md` RXS-0343；`rurix-asset::ddc`；`rxcook ddc-selftest`；`ci/g8_ddc_content_address_smoke.py`（步骤 **110**）。
 
 **验收**：smoke PASS 19/19。
+
+### 8.17 M85 `--phase g8.3` + wave3.exit（2026-08-06）
+
+**触发**：G8.3 收尾（M85 DDC 腿 + 波次聚合）。
+
+**交付物**：`ci/g8_shader_manifest_ddc_smoke.py --phase g8.3`（DDC put/get/key flip，`phase_g8_2_pass`+`phase_g8_3_pass` 双真）；`ci/g8_wave3_exit_check.py`（步骤 **111**）。
+
+**验收**：M85 g8.3 PASS；wave3.exit PASS（五 P0 + M83 + ABI 锚）。

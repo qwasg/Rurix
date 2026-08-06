@@ -337,6 +337,9 @@ def check_evidence_files() -> None:
     g8_wave2_exit_schema = load(
         ROOT / "milestones/g8/g8_wave2_exit_evidence_schema.json"
     )
+    g8_wave3_exit_schema = load(
+        ROOT / "milestones/g8/g8_wave3_exit_evidence_schema.json"
+    )
     g8_m01_meshlet_page_builder_schema = load(
         ROOT / "milestones/g8/g8_m01_meshlet_page_builder_evidence_schema.json"
     )
@@ -647,6 +650,11 @@ def check_evidence_files() -> None:
     g8_wave2_exit_validator = (
         jsonschema.Draft7Validator(g8_wave2_exit_schema)
         if g8_wave2_exit_schema is not None
+        else None
+    )
+    g8_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g8_wave3_exit_schema)
+        if g8_wave3_exit_schema is not None
         else None
     )
     g8_m01_meshlet_page_builder_validator = (
@@ -1293,6 +1301,12 @@ def check_evidence_files() -> None:
             # 只读汇总七 P0 + RFC-0019 Approved + RD-037 closed + RD-038
             # 本波接入空集;不重跑、不代绿;host 聚合门 device=not_applicable。
             validator = g8_wave2_exit_validator
+        elif (
+            f.name.startswith("g8_wave3_exit_")
+            and g8_wave3_exit_validator is not None
+        ):
+            # G8.3 波次聚合门 g8.wave.3.exit(步骤 111)。
+            validator = g8_wave3_exit_validator
         elif (
             f.name.startswith("g8_m01_meshlet_page_builder_")
             and g8_m01_meshlet_page_builder_validator is not None

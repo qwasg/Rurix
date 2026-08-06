@@ -20,7 +20,7 @@ use std::process::ExitCode;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture --fixture checker|normal --out <dir> [--profile win-vulkan-bcn-v1]\n  rxcook cook-texture --input <file.ppm> --out <dir> [--profile ...] [--semantics color|normal|mask]\n  rxcook decode-page --disk <p.rxpd> [--emit-expanded-digest] [--emit-rxpm <path>]\n  rxcook verify --double-build [--workspace <root>] [--scratch <dir>]\n  rxcook canon-check --accept <dir> --reject <dir>\n  rxcook ddc-selftest [--scratch <dir>]"
+        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture ...\n  rxcook decode-page ...\n  rxcook verify --double-build ...\n  rxcook canon-check ...\n  rxcook ddc-selftest [--scratch <dir>]\n  rxcook ddc-manifest-phase --digest <hex> --flip-digest <hex> [--scratch <dir>]"
     );
     std::process::exit(2);
 }
@@ -484,9 +484,83 @@ fn main() -> ExitCode {
         "verify" => cmd_verify(args),
         "canon-check" => cmd_canon_check(args),
         "ddc-selftest" => cmd_ddc_selftest(args),
+        "ddc-manifest-phase" => cmd_ddc_manifest_phase(args),
         _ => {
             eprintln!("unknown command: {cmd}");
             usage();
         }
+    }
+}
+
+fn cmd_ddc_manifest_phase(args: Vec<String>) -> ExitCode {
+    use rurix_asset::canon::Value;
+    let mut digest = None;
+    let mut flip = None;
+    let mut scratch = env::temp_dir().join(format!("ddc_m85_{}", std::process::id()));
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--digest" => {
+                i += 1;
+                digest = Some(args.get(i).unwrap_or_else(|| usage()).clone());
+            }
+            "--flip-digest" => {
+                i += 1;
+                flip = Some(args.get(i).unwrap_or_else(|| usage()).clone());
+            }
+            "--scratch" => {
+                i += 1;
+                scratch = PathBuf::from(args.get(i).unwrap_or_else(|| usage()));
+            }
+            other => {
+                eprintln!("unknown ddc-manifest-phase flag: {other}");
+                usage();
+            }
+        }
+        i += 1;
+    }
+    let digest = digest.unwrap_or_else(|| usage());
+    let flip = flip.unwrap_or_else(|| usage());
+    let _ = fs::remove_dir_all(&scratch);
+    let mut store = match Ddc::open(&scratch) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::from(1);
+        }
+    };
+    let segs = |d: &str| {
+        ddc::PreimageSegments {
+            source_set: Value::map_of([(1, Value::text_ascii("shader.manifest").unwrap())]).unwrap(),
+            dependency_keys: Value::Array(vec![Value::text_ascii(d).unwrap()]),
+            import_recipe: Value::map_of([(1, Value::text_ascii(d).unwrap())]).unwrap(),
+            cook_profile: Value::map_of([(1, Value::text_ascii("g8.3").unwrap())]).unwrap(),
+            tool_chain: Value::map_of([(1, Value::text_ascii("rurixc").unwrap())]).unwrap(),
+            schema_set: Value::Array(vec![Value::text_ascii("shader-manifest.v1").unwrap()]),
+            abi_set: Value::Array(vec![Value::text_ascii("abi.v1").unwrap()]),
+            artifact_kind: Value::text_ascii("shader.manifest").unwrap(),
+            output_id: Value::text_ascii("merged").unwrap(),
+        }
+    };
+    let s0 = segs(&digest);
+    let k0 = ddc::compute_key(&s0).unwrap();
+    let payload = digest.as_bytes();
+    let meta = ddc::make_meta_envelope(payload).unwrap();
+    store.put(&k0, payload, &meta).unwrap();
+    let got = store.get(&k0).unwrap();
+    let put_get = got == payload;
+    let s1 = segs(&flip);
+    let k1 = ddc::compute_key(&s1).unwrap();
+    let key_flip = k1 != k0;
+    let old_hit = store.get(&k0).unwrap() == payload;
+    let new_miss = matches!(store.get(&k1), Err(GetMiss::Absent));
+    println!("preimage_covers_digest=true");
+    println!("put_get={put_get}");
+    println!("key_flip={key_flip}");
+    println!("old_hit={}", old_hit && new_miss);
+    if put_get && key_flip && old_hit && new_miss {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
     }
 }

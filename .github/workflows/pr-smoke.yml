@@ -1181,6 +1181,11 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_ddc_content_address_smoke.py --gate g8.p0.m80.ddc_content_address
 
+      # 步骤 111（G8.3 波次聚合 g8.wave.3.exit）:只读汇总五 P0+M83+M85.g8.3。
+      - name: G8.3 wave3.exit aggregate (G8 CI_GATES §5.111, g8.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave3_exit_check.py --gate g8.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

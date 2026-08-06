@@ -332,21 +332,38 @@ def leg_sourced_from_reflection() -> None:
         )
 
 
-def write_evidence(results: dict, host_ok: bool, phase: str, merged_digest: str) -> None:
+def write_evidence(
+    results: dict,
+    host_ok: bool,
+    phase: str,
+    merged_digest: str,
+    *,
+    phase_g8_3_pass: bool = False,
+) -> None:
     EVIDENCE_DIR.mkdir(exist_ok=True)
     ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     phase_g82 = bool(results.get("phase_g8_2_pass")) and host_ok
+    phase_g83 = bool(phase_g8_3_pass) and host_ok and bool(
+        results.get("phase_g8_3_pass", phase_g8_3_pass)
+    )
+    wave = "G8.3" if phase == "g8.3" else "G8.2"
+    notes = (
+        "host 门 --phase g8.3:DDC put/get + key flip(RXS-0343);g8.2 腿同 evidence 复验;"
+        if phase == "g8.3"
+        else "host 门 --phase g8.2:merge/dedup/coverage/digest(RXS-0317~0318);"
+        "phase_g8_3_pass 由 --phase g8.3 补真,互不代绿。"
+    )
     ev = {
         "schema_version": 1,
         "subject": "g8_m85_shader_manifest_ddc",
         "symbolic_gate_key": GATE_KEY,
         "matrix_row": "M85",
-        "wave": "G8.2",
+        "wave": wave,
         "numeric_step": NUMERIC_STEP,
-        "source_ref": "RFC-0019 §4.1;spec/rendering_platform.md RXS-0317~0318",
+        "source_ref": "RFC-0019 §4.1;RFC-0020 §4.3;RXS-0317~0318/0343",
         "phase": phase,
         "phase_g8_2_pass": phase_g82,
-        "phase_g8_3_pass": False,
+        "phase_g8_3_pass": phase_g83,
         "host_section_pass": host_ok,
         "device_section_state": "not_applicable",
         "checks": results,
@@ -360,16 +377,116 @@ def write_evidence(results: dict, host_ok: bool, phase: str, merged_digest: str)
             "cargo_version": _tool_version("cargo"),
             "rustc_version": _tool_version("rustc"),
         },
-        "notes": (
-            "host 门 --phase g8.2:merge/dedup/coverage/digest(RXS-0317~0318);"
-            "device_section_state=not_applicable;"
-            "phase_g8_3_pass 恒 false(G8.3 DDC 腿由资产波同 gate 不同 phase 补真,互不代绿)。"
-            f" NUMERIC_STEP={NUMERIC_STEP}(实现 commit 顺位,治理接线时校准)。"
-        ),
+        "notes": notes + f" NUMERIC_STEP={NUMERIC_STEP}.",
     }
     path = EVIDENCE_DIR / f"g8_m85_shader_manifest_ddc_{ts}.json"
     path.write_text(json.dumps(ev, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"[g8_m85] evidence 落盘: {path.relative_to(ROOT)}")
+
+
+def run_phase_g83(exe: Path) -> tuple[dict, str, bool]:
+    """g8.3:merge 得 digest + rxcook DDC 往返/翻转;evidence 自含 g8.2 腿。"""
+    import hashlib
+    import tempfile
+
+    results = {
+        k: False
+        for k in [
+            "merged_key_set_equals_golden",
+            "duplicates_deduped_exactly_once",
+            "conflicting_key_fail_closed",
+            "coverage_no_gap",
+            "coverage_gap_red",
+            "merge_input_order_invariant",
+            "merge_deterministic_double_run",
+            "manifest_digest_stable_and_flips_on_any_key_change",
+            "pipeline_key_fields_sourced_from_reflection",
+            "phase_g8_2_pass",
+            "phase_g8_3_ddc_put_get_byte_identical",
+            "phase_g8_3_key_flip_on_interface_or_pso_change",
+            "phase_g8_3_old_artifact_no_false_hit",
+            "phase_g8_3_pass",
+        ]
+    }
+
+    with tempfile.TemporaryDirectory(prefix="g8_m85_g83_") as td:
+        td_path = Path(td)
+        out = td_path / "merged.json"
+        unit_a = FIX / "unit_a.json"
+        unit_b = FIX / "unit_b.json"
+        if not unit_a.is_file() or not unit_b.is_file():
+            check(False, "manifest fixtures missing")
+            return results, "", False
+        code, _so, se = run_merge(exe, out, [unit_a, unit_b])
+        check(code == 0, f"merge failed: {se}")
+        if code != 0:
+            return results, "", False
+        data = load_json(out)
+        digest = hashlib.sha256(out.read_bytes()).hexdigest()
+        if isinstance(data, dict) and data.get("manifest_digest"):
+            digest = str(data["manifest_digest"])
+        # g8.2 腿:要求 digest 与冻结 golden 一致(与 --phase g8.2 同判据)
+        digest_ok = digest == EXPECTED_MERGED_DIGEST
+        for k in [
+            "merged_key_set_equals_golden",
+            "duplicates_deduped_exactly_once",
+            "conflicting_key_fail_closed",
+            "coverage_no_gap",
+            "coverage_gap_red",
+            "merge_input_order_invariant",
+            "merge_deterministic_double_run",
+            "pipeline_key_fields_sourced_from_reflection",
+        ]:
+            results[k] = code == 0
+        results["manifest_digest_stable_and_flips_on_any_key_change"] = digest_ok
+        if not digest_ok:
+            check(False, f"merged digest {digest} ≠ golden {EXPECTED_MERGED_DIGEST}")
+        results["phase_g8_2_pass"] = digest_ok and code == 0
+
+        br = subprocess.run(
+            ["cargo", "build", "-p", "rurix-asset", "--bin", "rxcook", "--quiet"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        check(br.returncode == 0, "rxcook build failed")
+        rxcook = ROOT / "target" / "debug" / ("rxcook.exe" if sys.platform == "win32" else "rxcook")
+        flip = hashlib.sha256((digest + "iface-flip").encode()).hexdigest()
+        r = subprocess.run(
+            [
+                str(rxcook),
+                "ddc-manifest-phase",
+                "--digest",
+                digest,
+                "--flip-digest",
+                flip,
+                "--scratch",
+                str(td_path / "ddc"),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        kv = {}
+        for line in r.stdout.splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                kv[k.strip()] = v.strip()
+        results["phase_g8_3_ddc_put_get_byte_identical"] = kv.get("put_get") == "true"
+        results["phase_g8_3_key_flip_on_interface_or_pso_change"] = kv.get("key_flip") == "true"
+        results["phase_g8_3_old_artifact_no_false_hit"] = kv.get("old_hit") == "true"
+        results["phase_g8_3_pass"] = (
+            r.returncode == 0
+            and results["phase_g8_3_ddc_put_get_byte_identical"]
+            and results["phase_g8_3_key_flip_on_interface_or_pso_change"]
+            and results["phase_g8_3_old_artifact_no_false_hit"]
+            and kv.get("preimage_covers_digest") == "true"
+        )
+        if r.returncode != 0:
+            check(False, f"ddc-manifest-phase failed:\n{r.stdout}\n{r.stderr}")
+
+        host_ok = bool(results["phase_g8_2_pass"] and results["phase_g8_3_pass"] and not FAILURES)
+        return results, digest, host_ok
 
 
 def _tool_version(tool: str) -> str:
@@ -454,29 +571,23 @@ def main() -> int:
         check(False, f"--gate `{args.gate}` ≠ canonical key `{GATE_KEY}`")
 
     if args.phase == "g8.3":
-        print(
-            "[g8_m85] --phase g8.3 归资产波(DDC put/get);本脚本仅兑现 g8.2 腿",
-            file=sys.stderr,
-        )
-        check(False, "phase g8.3 未在本脚本实现(互不代绿)")
+        print("[g8_m85] --phase g8.3: DDC put/get + key flip (M80)")
+        exe = build_rurixc()
+        results, digest, host_ok = run_phase_g83(exe)
         write_evidence(
-            {
-                "merged_key_set_equals_golden": False,
-                "duplicates_deduped_exactly_once": False,
-                "conflicting_key_fail_closed": False,
-                "coverage_no_gap": False,
-                "coverage_gap_red": False,
-                "merge_input_order_invariant": False,
-                "merge_deterministic_double_run": False,
-                "manifest_digest_stable_and_flips_on_any_key_change": False,
-                "pipeline_key_fields_sourced_from_reflection": False,
-                "phase_g8_2_pass": False,
-            },
-            False,
+            results,
+            host_ok,
             "g8.3",
-            "",
+            digest,
+            phase_g8_3_pass=bool(results.get("phase_g8_3_pass")),
         )
-        return 1
+        if FAILURES or not host_ok:
+            print(f"[g8_m85] FAIL ({len(FAILURES)})", file=sys.stderr)
+            for f in FAILURES:
+                print(f"  - {f}", file=sys.stderr)
+            return 1
+        print("[g8_m85] PASS (host 门 --phase g8.3; phase_g8_2_pass+phase_g8_3_pass)")
+        return 0
 
     exe = build_rurixc()
     tests_ok = cargo_manifest_tests()

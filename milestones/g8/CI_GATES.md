@@ -123,7 +123,7 @@ py -3 ci/budget_eval.py
 | Symbolic gate key | script | numeric_step | 聚合条件 |
 |---|---|---|---|
 | `g8.wave.2.exit` | `ci/g8_wave2_exit_check.py` | 104 | 七个 G8.2 P0 全 PASS；RFC-0019 Approved；RD-037 与本波 RD-038 接入逐字通过 |
-| `g8.wave.3.exit` | `ci/g8_wave3_exit_check.py` | `post-G7 actual-next-free allocation` | 五个 G8.3 P0 全 PASS；M01/M04 ABI 已冻结；资产/纹理/打包 go 项独立绿 |
+| `g8.wave.3.exit` | `ci/g8_wave3_exit_check.py` | 111 | 五个 G8.3 P0 全 PASS；M01/M04 ABI 已冻结；资产/纹理/打包 go 项独立绿 |
 | `g8.wave.4.exit` | `ci/g8_wave4_exit_check.py` | `post-G7 actual-next-free allocation` | M37 PASS；GeomPage 必过；VT go 时独立过、no-go 时 not-triggered；MQ 三断言或单队列 fallback 事实 |
 | `g8.wave.5a.exit` | `ci/g8_wave5a_exit_check.py` | `post-G7 actual-next-free allocation` | M19 PASS；go 的几何/阴影项与 RD-038 raster/VSM 接入各自有 PASS evidence |
 | `g8.wave.5b.exit` | `ci/g8_wave5b_exit_check.py` | `post-G7 actual-next-free allocation` | M24 PASS；go 的材质/GI/显示项与 RD-038 GI/TSR/真帧接入各自有 PASS evidence |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.16 | 2026-08-06 | **M85 `--phase g8.3` + wave3.exit**：§5 `g8.wave.3.exit`→`111`；M85 DDC 腿 + 聚合五 P0+M83+ABI 锚。host。 |
 | v1.15 | 2026-08-06 | **M80 materialize**：§4 M80 行 `numeric_step` 回填为 `110`；`ci/g8_ddc_content_address_smoke.py` + RXS-0343 + `pr-smoke` 步骤 110。host 门。零新 RX/U。 |
 | v1.14 | 2026-08-06 | **M04 materialize**：§4 M04 行 `numeric_step` 回填为 `109`；`ci/g8_page_format_abi_smoke.py` + RXS-0338~0342 + `vk_geom_page_decode` + `pr-smoke` 步骤 109（`RURIX_REQUIRE_REAL=1`）。device 门。零新 RX/U。 |
 | v1.13 | 2026-08-06 | **M79 materialize**：§4 M79 行 `numeric_step` 回填为 `108`；`ci/g8_asset_determinism_smoke.py` + schema + RXS-0335~0337 + `pr-smoke` 步骤 108。host 门。零新 RX/U。 |

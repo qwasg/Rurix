@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m85_shader_manifest_ddc",
+  "symbolic_gate_key": "g8.p0.m85.shader_manifest_ddc",
+  "matrix_row": "M85",
+  "wave": "G8.3",
+  "numeric_step": 101,
+  "source_ref": "RFC-0019 §4.1;RFC-0020 §4.3;RXS-0317~0318/0343",
+  "phase": "g8.3",
+  "phase_g8_2_pass": true,
+  "phase_g8_3_pass": true,
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "merged_key_set_equals_golden": true,
+    "duplicates_deduped_exactly_once": true,
+    "conflicting_key_fail_closed": true,
+    "coverage_no_gap": true,
+    "coverage_gap_red": true,
+    "merge_input_order_invariant": true,
+    "merge_deterministic_double_run": true,
+    "manifest_digest_stable_and_flips_on_any_key_change": true,
+    "pipeline_key_fields_sourced_from_reflection": true,
+    "phase_g8_2_pass": true,
+    "phase_g8_3_ddc_put_get_byte_identical": true,
+    "phase_g8_3_key_flip_on_interface_or_pso_change": true,
+    "phase_g8_3_old_artifact_no_false_hit": true,
+    "phase_g8_3_pass": true
+  },
+  "manifest_digest": "8eb511bf7357f6f2de895edb052d8a48ce991b63454c5b7ca5daee0a3dc8d32a",
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T081011Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "host 门 --phase g8.3:DDC put/get + key flip(RXS-0343);g8.2 腿同 evidence 复验; NUMERIC_STEP=101."
+}

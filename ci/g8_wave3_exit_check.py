@@ -23,7 +23,7 @@ import g8_wave_exit_lib as wel  # noqa: E402
 ROOT = wel.ROOT
 GATE_KEY = "g8.wave.3.exit"
 # 合入时按 ledger next_free 回填;脚手架先占位,Gov materialize 校准。
-NUMERIC_STEP = 0
+NUMERIC_STEP = 111
 SUBJECT = "g8_wave3_exit"
 WAVE = "G8.3"
 SOURCE_REF = (
