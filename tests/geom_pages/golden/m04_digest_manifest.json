@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "input": "TriMesh::uv_sphere(1.0,24,24) page0",
+  "expanded_digest_hex": "857f35a126853e25980cfd02b119d15c5ad4560a874e0bdfc97bf6a4971c00b8",
+  "expanded_u32_count": 7099,
+  "rxpd_sha256": "ad7894ee0803d7149c175152f1beb0a923f432d06747c1a0ebc7c26a7c7e0d16",
+  "compressed_payload_sha256": "58b64c2b6ae5d3aa4b690c6f567ca048f3d7953e8830b8b15c1c14abcf8d9a8d",
+  "rxpd_len": 7623,
+  "rxpm_len": 8368
+}

@@ -73,7 +73,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m80.ddc_content_address` | M80 | G8.3 | `ci/g8_ddc_content_address_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m81.gltf_import` | M81 | G8.3 | `ci/g8_gltf_import_smoke.py` | 106 |
 | `g8.p0.m01.meshlet_page_builder` | M01 | G8.3 | `ci/g8_meshlet_page_builder_smoke.py` | 105 |
-| `g8.p0.m04.page_format_abi` | M04 | G8.3 | `ci/g8_page_format_abi_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m04.page_format_abi` | M04 | G8.3 | `ci/g8_page_format_abi_smoke.py` | 109 |
 | `g8.p0.m37.streaming_io` | M37 | G8.4 | `ci/g8_streaming_io_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m19.vsm_page_cache` | M19 | G8.5a | `ci/g8_vsm_page_cache_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | `post-G7 actual-next-free allocation` |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.14 | 2026-08-06 | **M04 materialize**：§4 M04 行 `numeric_step` 回填为 `109`；`ci/g8_page_format_abi_smoke.py` + RXS-0338~0342 + `vk_geom_page_decode` + `pr-smoke` 步骤 109（`RURIX_REQUIRE_REAL=1`）。device 门。零新 RX/U。 |
 | v1.13 | 2026-08-06 | **M79 materialize**：§4 M79 行 `numeric_step` 回填为 `108`；`ci/g8_asset_determinism_smoke.py` + schema + RXS-0335~0337 + `pr-smoke` 步骤 108。host 门。零新 RX/U。 |
 | v1.12 | 2026-08-06 | **M01+M81+M83 materialize**：§4 M01→`105`、M81→`106`；§4.0 M83→`107`。`rurix-geom-pages`/`rurix-asset`/`rurix-basis-sys` + RXS-0328~0334 + smokes + schemas 同波落。host 门。零新 RX 码；M83 U44~U46。 |
 | v1.10 | 2026-08-06 | **wave2.exit materialize**：§5 `g8.wave.2.exit` 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `104`（ledger next_free=104 实际分配）；`ci/g8_wave_exit_lib.py` 共享库首落 + `ci/g8_wave2_exit_check.py` 薄壳 + `milestones/g8/g8_wave2_exit_evidence_schema.json` + `pr-smoke.yml` 步骤 104（host 聚合，**不加** `RURIX_REQUIRE_REAL`）同 PR 落。只读汇总七 P0 + RFC-0019 Approved + RD-037 closed + 本波 RD-038 接入空集；RD-040 总体维持 open。零新 RXS/RX/U/budget counter。其余聚合门行 0-byte。 |

@@ -1166,6 +1166,15 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_asset_determinism_smoke.py --gate g8.p0.m79.asset_determinism
 
+      # 步骤 109（G8.3 P0 硬门 g8.p0.m04.page_format_abi;RFC-0020;
+      # RXS-0338~0342）:RXPD/RXPM + RXPZ-LZ1 + device 展开 digest。device 门。
+      - name: G8.3 M04 page format ABI smoke (G8 CI_GATES §4.109, g8.p0.m04.page_format_abi)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_page_format_abi_smoke.py --gate g8.p0.m04.page_format_abi
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

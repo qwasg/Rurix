@@ -24,6 +24,13 @@
   "ratio_assertions": [],
   "counter_assertions": [
     {
+      "id": "g8.counter.page_format_abi_legs",
+      "description": "G8.3 M04 page_format_abi 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4 M04 行;RFC-0020 / RXS-0338~0342)。计数源 = evidence/g8_m04_page_format_abi_*.json 中 host_section_pass=true 且 device_section_state in {pass,executed} 且 checks.* ≥13 全 true 的见证文件数。device 门。",
+      "evidence_file": "evidence/g8_m04_page_format_abi_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
       "id": "g8.counter.asset_determinism_legs",
       "description": "G8.3 M79 asset_determinism 硬门判据通过数 >=12(契约 G-G8-4 / CI_GATES §4 M79 行;RFC-0020 / RXS-0335~0337)。计数源 = evidence/g8_m79_asset_determinism_*.json 中 host_section_pass=true 且 checks.* ≥12 全 true 的见证文件数。host 门。",
       "evidence_file": "evidence/g8_m79_asset_determinism_*.json",
@@ -103,6 +110,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.10",
+      "date": "2026-08-06",
+      "change": "G8.3 M04 page_format_abi materialize:counter_assertions 追加 g8.counter.page_format_abi_legs(>=13,device 见证);budget_eval 分支同落。"
+    },
     {
       "version": "v1.9",
       "date": "2026-08-06",

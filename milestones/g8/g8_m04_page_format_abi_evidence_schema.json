@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.3 M04 page_format_abi evidence",
+  "description": "evidence/g8_m04_page_format_abi_<UTC>.json。G8.3 P0 硬门 g8.p0.m04.page_format_abi:磁盘/内存双 ABI + RXPZ-LZ1 + CPU/device 展开 digest 逐位等(RXS-0338~0342;RFC-0020 §4.9)。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m04_page_format_abi" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m04.page_format_abi" },
+    "matrix_row": { "type": "string", "const": "M04" },
+    "wave": { "type": "string", "const": "G8.3" },
+    "numeric_step": { "type": "integer", "const": 109 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0020 §4.9;spec/geometry_pages.md RXS-0338~0342;G8_ACCEPTANCE_MAP §2 M04"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abi_ids_distinct_and_frozen",
+        "encode_decode_records_byte_equal",
+        "compress_twice_byte_equal",
+        "corrupt_truncation_fail_closed",
+        "corrupt_checksum_fail_closed",
+        "corrupt_unknown_codec_fail_closed",
+        "corrupt_unknown_version_fail_closed",
+        "section_overlap_oob_fail_closed",
+        "reject_before_allocation",
+        "disk_memory_mapping_frozen",
+        "cpu_decode_digest_stable",
+        "device_decode_digest_equals_cpu",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "abi_ids_distinct_and_frozen": { "type": "boolean" },
+        "encode_decode_records_byte_equal": { "type": "boolean" },
+        "compress_twice_byte_equal": { "type": "boolean" },
+        "corrupt_truncation_fail_closed": { "type": "boolean" },
+        "corrupt_checksum_fail_closed": { "type": "boolean" },
+        "corrupt_unknown_codec_fail_closed": { "type": "boolean" },
+        "corrupt_unknown_version_fail_closed": { "type": "boolean" },
+        "section_overlap_oob_fail_closed": { "type": "boolean" },
+        "reject_before_allocation": { "type": "boolean" },
+        "disk_memory_mapping_frozen": { "type": "boolean" },
+        "cpu_decode_digest_stable": { "type": "boolean" },
+        "device_decode_digest_equals_cpu": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -126,6 +126,12 @@ required-features = ["vulkan"]
 name = "vk_rt_incremental"
 required-features = ["vulkan"]
 
+# G8.3 M04 几何页 device 解码 harness(RXS-0342;门 g8.p0.m04.page_format_abi):
+# 消费 rurixc 产 geom_page_decode.spv + RXPM image,compute 整数域展开回读 digest。
+[[bin]]
+name = "vk_geom_page_decode"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

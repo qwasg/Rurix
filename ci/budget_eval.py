@@ -1175,6 +1175,25 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M79 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.page_format_abi_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m04_page_format_abi_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 13:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 page_format_abi 13 腿 device 全绿见证",
+            "G8.3 M04 实现回填前为正常状态",
+            strict,
+        )
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -1,13 +1,14 @@
-# geometry_pages.md — 几何页逻辑 ABI（G8.3 M01）
+# geometry_pages.md — 几何页逻辑/磁盘/内存 ABI（G8.3 M01 + M04）
 
-> **地位**：几何流送页格式语义事实源之一（RFC-0020 §4.9；G8_ACCEPTANCE_MAP §2 M01）。
-> 本文件首批冻结 **逻辑页（未压缩 builder artifact）** ABI；磁盘/内存双 ABI（M04）
-> 条款另批追加。
+> **地位**：几何流送页格式语义事实源之一（RFC-0020 §4.9；G8_ACCEPTANCE_MAP §2 M01/M04）。
+> 本文件冻结 **逻辑页（未压缩 builder artifact）** ABI（M01）与 **磁盘/内存双 ABI +
+> RXPZ-LZ1**（M04）。G8.4 只消费本文件冻结字面，变更走新 major。
 >
 > **档位**：Full RFC / RFC-0020（字面值与逐字段偏移由本文件一次性冻结并同 PR 落
 > byte golden；评审 F7）。
 >
-> **编号**：RXS-0328 ~ RXS-0331（主 agent 预留区间；合入时 ledger 校准）。
+> **编号**：RXS-0328 ~ RXS-0331（M01）；RXS-0338 ~ RXS-0342（M04；ledger 实测
+> next_free 曾为 335，0335~0337 让并行门，本批自 **0338** 起）。
 
 ---
 
@@ -182,8 +183,192 @@ header 的 136 字节必须逐字节等于 `tests/geom_pages/golden/m01_header.b
 
 ---
 
-## 4. 修订记录
+## 5. M04 条款（RXS-0338 ~ RXS-0342）— 磁盘/内存双 ABI
+
+### RXS-0338 内存页 RXPM ABI 布局与 section 表
+
+**Legality**
+
+内存页是 **device decoder 消费面**（magic `"RXPM"`）。全部多字节整型与 `f32` **小端**；
+编码手写 LE，禁止 host struct memcpy。
+
+**固定 header（48 字节）**：
+
+| 偏移 | 宽度 | 类型 | 字段 | 字面/语义 |
+|---:|---:|---|---|---|
+| 0 | 4 | `[u8;4]` | `magic` | `"RXPM"` |
+| 4 | 4 | `u32` LE | `format_id` | `2`（≠ RXPL=`1`、≠ RXPD=`3`） |
+| 8 | 2 | `u16` LE | `major` | `1` |
+| 10 | 2 | `u16` LE | `minor` | `0` |
+| 12 | 1 | `u8` | `endian` | `1` |
+| 13 | 1 | `u8` | `flags` | bit0=`ROOT`；其余位必须 0 |
+| 14 | 2 | `u16` LE | `header_size` | `48`（固定头；不含 section 目录） |
+| 16 | 8 | `u64` LE | `logical_page_id` | 对应逻辑页 `page_id` |
+| 24 | 4 | `u32` LE | `section_count` | section 目录项数（v1 恒 =4） |
+| 28 | 4 | `u32` LE | `reserved` | `0` |
+| 32 | 16 | `[u8;16]` | `schema_digest_prefix` | `schema_digest` 前 16 字节 |
+
+其后紧接 `section_count × 16B` **section 目录**（按 `kind` **升序**），再接段体。
+目录项：
+
+| 偏移 | 宽度 | 字段 |
+|---:|---:|---|
+| 0 | 4 | `kind:u32` |
+| 4 | 4 | `byte_offset:u32`（自文件起点；必须 ≥ header+目录 且对齐 `align`） |
+| 8 | 4 | `byte_size:u32` |
+| 12 | 4 | `align:u32` |
+
+**section kind 闭集（v1）**：
+
+| kind | 名 | 元素 | 段对齐 | 说明 |
+|---:|---|---|---:|---|
+| 1 | `POS_Q16` | 8B：`qx:u16\|qy:u16\|qz:u16\|pad:u16(=0)` | 16 | 每簇一条量化中心 |
+| 2 | `INDICES_U8` | `u8` 局部索引；`byte_size` 填至 4B 倍数（尾填 0） | 4 | |
+| 3 | `CLUSTER_META` | 32B/簇：`cluster_id,vertex_offset,triangle_offset,vertex_count,triangle_count,level,group,reserved(=0)` 全 `u32` | 16 | |
+| 4 | `QUANT_PARAMS` | 32B：`bounds` 六 `f32` 按位 + `pad u32×2(=0)` | 16 | 零浮点运算消费 |
+
+空洞字节恒 0；section 不得重叠；`byte_offset+byte_size` 不得越出文件；未知 `kind`/`major≠1` 拒录。
+
+**schema preimage**（SHA-256 全 32B；header 仅存前 16B 前缀，解码时复核全 digest）：
+
+```
+b"RXPM-SCHEMA-V1\0" || major:u16 || minor:u16 || format_id:u32(=2)
+|| header_size:u16(=48) || section_count:u32(=4)
+```
+
+**Implementation Requirements**：`rurix-geom-pages::memory::{encode,decode}`；
+`tests/geom_pages/golden/*.rxpd` 往返后 records 与 expand digest 锚定。
+
+---
+
+### RXS-0339 磁盘页 RXPD envelope 与 codec 注册
+
+**Legality**
+
+磁盘页 magic `"RXPD"`；payload = **RXPZ-LZ1 压缩后的完整 RXPM image**。
+
+**定长 envelope（`header_size = 148`）**：
+
+| 偏移 | 宽度 | 字段 | 字面 |
+|---:|---:|---|---|
+| 0 | 4 | `magic` | `"RXPD"` |
+| 4 | 4 | `format_id:u32` | `3` |
+| 8 | 2 | `major:u16` | `1` |
+| 10 | 2 | `minor:u16` | `0` |
+| 12 | 1 | `endian:u8` | `1` |
+| 13 | 1 | `reserved0:u8` | `0` |
+| 14 | 2 | `header_size:u16` | `148` |
+| 16 | 4 | `section_dir_count:u32` | `0`（v1：段目录仅在解压后 RXPM 内） |
+| 20 | 4 | `codec_id:u32` | `1` = RXPZ-LZ1 |
+| 24 | 4 | `codec_version:u32` | `1` |
+| 28 | 8 | `uncompressed_size:u64` | 解压后 RXPM 字节数 |
+| 36 | 8 | `compressed_size:u64` | payload 字节数 |
+| 44 | 8 | `logical_page_id:u64` | |
+| 52 | 32 | `schema_digest` | RXPD schema SHA-256 |
+| 84 | 32 | `payload_checksum` | SHA-256(compressed payload) |
+| 116 | 32 | `dependency_digest` | SHA-256(升序 `u64` 依赖页 id 串；无依赖则空输入 digest) |
+
+payload 自偏移 148 起，长度 = `compressed_size`；禁止尾随字节。
+
+**RXPD schema preimage**：
+
+```
+b"RXPD-SCHEMA-V1\0" || major:u16 || minor:u16 || format_id:u32(=3)
+|| header_size:u16(=148) || codec_id:u32(=1) || codec_version:u32(=1)
+```
+
+**codec 注册表**：`codec_id=1` → RXPZ-LZ1（见 RXS-0340）；未知 `codec_id` fail-closed。
+
+**Implementation Requirements**：`rurix-geom-pages::disk::{encode,decode}`。
+
+---
+
+### RXS-0340 RXPZ-LZ1 字节向 LZ77 流格式
+
+**Legality**
+
+RXPZ-LZ1（`codec_id=1`，`codec_version=1`）为 **手写确定性**字节向 LZ77，语义对齐
+LZ4-block 序列（非 zstd；本仓禁引入 zstd/flate2）。
+
+**流布局**：连续 sequences，直至输入耗尽。每 sequence：
+
+1. `token:u8`：高 4 位 = 字面长度基值；低 4 位 = 匹配长度基值（匹配侧 +`MINMATCH=4`）。
+2. 若字面基值 =15：附加长度字节串（每字节 0..255 累加；255 表示继续）。
+3. 字面字节（可为 0）。
+4. 若非最后 sequence：`offset:u16` LE（∈`[1,65535]`；`0` 非法）+ 匹配附加长度
+   （低 4 位=15 时同字面附加规则）；自 `当前写位 - offset` 起拷贝 `match_len` 字节
+   （允许重叠拷贝）。
+5. **最后 sequence**：仅字面、无 match；编码器在尾部至少保留 `LASTLITERALS=5` 字节作纯字面
+  （输入更短则整块纯字面）。
+
+**编码器确定性**：窗口 64KiB；贪心最长匹配；hash 链桶数 4096、链深上限 64；
+同输入两次压缩流 **逐字节相等**。解码全程边界检查，零分配越界路径。
+
+**Implementation Requirements**：`rurix-geom-pages::codec::{compress,decompress}`。
+
+---
+
+### RXS-0341 disk↔memory 映射表与四类拒录
+
+**Legality**
+
+**版本映射表（G8.3 冻结）**：仅允许
+
+```
+(RXPD, major=1) → (RXPM, major=1)
+```
+
+未列组合（含未知 major、format_id 不符）→ 拒。解码流程严格序：
+
+1. 校验 RXPD envelope（magic/format_id/major/header_size/endian/schema）；
+2. 校验 `compressed_size` 与缓冲余量（**截断在任何大分配前拒录**）；
+3. 校验 `payload_checksum`；
+4. 按 `codec_id` 解压，断言输出长度 = `uncompressed_size`；
+5. 按映射表校验并 `decode` RXPM（含 section overlap/OOB）。
+
+**拒录轴（各至少一件 RED 语料）**：截断 payload、checksum 位翻转、未知 codec、
+未知 major、section overlap、section OOB。
+
+**Implementation Requirements**：`disk::decode_to_memory`；
+`conformance/geom_pages/reject/{truncated_payload,checksum_flip,unknown_codec,unknown_major}.rxpd`、
+`{section_overlap,section_oob}.rxpm`。
+
+---
+
+### RXS-0342 整数域展开流与 CPU/device digest 逐位等
+
+**Legality**
+
+对已校验 RXPM，CPU 与 device compute kernel 必须产出 **同一展开流**（全 `u32` 整数域；
+kernel 内零浮点运算；`f32` 量化参数按位搬运）。
+
+**展开流字段序**（LE `u32` 序列）：
+
+```
+cluster_count
+for c in 0..cluster_count:
+  cluster_id
+  qx, qy, qz          # u16 零扩展
+  triangle_count
+  for t in 0..triangle_count:
+    i0, i1, i2        # 自 INDICES_U8，按 meta.triangle_offset+3*t 取 u8 零扩展
+  vertex_offset, triangle_offset, vertex_count, triangle_count, level, group
+bound0_bits .. bound5_bits   # QUANT_PARAMS 前 6×f32 的 to_bits
+```
+
+`expanded_digest = SHA-256(展开流原始字节)`。device harness 回读展开流后由 smoke 侧
+算 SHA-256，必须与 CPU digest **逐位相等**。device 腿 `RURIX_REQUIRE_REAL=1`；
+validation ERROR 数必须为 0；缺设备 → `SKIP=dev-env`（不得充绿）。
+
+**Implementation Requirements**：`rurix-geom-pages::expand::{expand_memory_page,expanded_digest}`；
+`rxcook decode-page --emit-expanded-digest`；`.rx` kernel `geom_page_decode.rx`（经
+rurixc→SPIR-V，禁手写 SPIR-V 替身）；`vk_geom_page_decode` harness。
+
+---
+
+## 6. 修订记录
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
 | v1.0 | 2026-08-06 | 初版：RXS-0328~0331 逻辑页 ABI + 装箱/依赖/converter；M01 host 门 |
+| v1.1 | 2026-08-06 | M04：RXS-0338~0342 RXPM/RXPD/RXPZ-LZ1/映射拒录/展开 digest；device 腿 |

@@ -1,0 +1,121 @@
+//@ spec: RXS-0342
+// G8.3 M04 device 解码腿：结构性解包 RXPM → 整数域展开流（零浮点运算）。
+// binding0 = RXPM image（u32 字视图）；binding1 = 展开输出 u32 流；
+// push：page_bytes:u32 @0, out_cap:u32 @4。仅 global_id==0 写。
+// 输入由 host 保证为合法 RXPM（smoke 先 CPU 校验）；kernel 遍历 section 表展开。
+// Vulkan compute 首期禁提前 return——结构对齐 sr_binning 收敛 if/while。
+
+kernel fn geom_page_decode(
+    page: View<global, u32>,
+    out: ViewMut<global, u32>,
+    page_bytes: u32,
+    out_cap: u32,
+    t: ThreadCtx<1>,
+) {
+    let gid = t.global_id();
+    if gid == 0 {
+        let _pb = page_bytes;
+        let cap = out_cap as usize;
+        // section dir @ word 12; kind 1..4
+        let mut pos_off: u32 = 0u32;
+        let mut pos_size: u32 = 0u32;
+        let mut idx_off: u32 = 0u32;
+        let mut meta_off: u32 = 0u32;
+        let mut quant_off: u32 = 0u32;
+        let mut si: usize = 0;
+        while si < 4 {
+            let base = 12 + si * 4;
+            let kind = page[base];
+            let off = page[base + 1];
+            let size = page[base + 2];
+            if kind == 1u32 {
+                pos_off = off;
+                pos_size = size;
+            }
+            if kind == 2u32 {
+                idx_off = off;
+            }
+            if kind == 3u32 {
+                meta_off = off;
+            }
+            if kind == 4u32 {
+                quant_off = off;
+            }
+            si = si + 1;
+        }
+        let cluster_count = pos_size / 8u32;
+        let mut ow: usize = 0;
+        out[ow] = cluster_count;
+        ow = ow + 1;
+        let mut ci: u32 = 0u32;
+        while ci < cluster_count {
+            let po = pos_off + ci * 8u32;
+            let mo = meta_off + ci * 32u32;
+            let pwi = (po / 4u32) as usize;
+            let pword0 = page[pwi];
+            let pword1 = page[pwi + 1];
+            let qx = pword0 & 65535u32;
+            let qy = (pword0 >> 16u32) & 65535u32;
+            let qz = pword1 & 65535u32;
+            let mwi = (mo / 4u32) as usize;
+            let cluster_id = page[mwi];
+            let vertex_offset = page[mwi + 1];
+            let triangle_offset = page[mwi + 2];
+            let vertex_count = page[mwi + 3];
+            let triangle_count = page[mwi + 4];
+            let level = page[mwi + 5];
+            let group = page[mwi + 6];
+            if ow + 5 <= cap {
+                out[ow] = cluster_id;
+                out[ow + 1] = qx;
+                out[ow + 2] = qy;
+                out[ow + 3] = qz;
+                out[ow + 4] = triangle_count;
+                ow = ow + 5;
+            }
+            let mut ti: u32 = 0u32;
+            while ti < triangle_count {
+                let byte_i = idx_off + triangle_offset + ti * 3u32;
+                let w = page[(byte_i / 4u32) as usize];
+                let shift0 = (byte_i & 3u32) * 8u32;
+                let i0 = (w >> shift0) & 255u32;
+                let byte_i1 = byte_i + 1u32;
+                let w1 = page[(byte_i1 / 4u32) as usize];
+                let shift1 = (byte_i1 & 3u32) * 8u32;
+                let i1 = (w1 >> shift1) & 255u32;
+                let byte_i2 = byte_i + 2u32;
+                let w2 = page[(byte_i2 / 4u32) as usize];
+                let shift2 = (byte_i2 & 3u32) * 8u32;
+                let i2 = (w2 >> shift2) & 255u32;
+                if ow + 3 <= cap {
+                    out[ow] = i0;
+                    out[ow + 1] = i1;
+                    out[ow + 2] = i2;
+                    ow = ow + 3;
+                }
+                ti = ti + 1u32;
+            }
+            if ow + 6 <= cap {
+                out[ow] = vertex_offset;
+                out[ow + 1] = triangle_offset;
+                out[ow + 2] = vertex_count;
+                out[ow + 3] = triangle_count;
+                out[ow + 4] = level;
+                out[ow + 5] = group;
+                ow = ow + 6;
+            }
+            ci = ci + 1u32;
+        }
+        if ow + 6 <= cap {
+            let qw = (quant_off / 4u32) as usize;
+            out[ow] = page[qw];
+            out[ow + 1] = page[qw + 1];
+            out[ow + 2] = page[qw + 2];
+            out[ow + 3] = page[qw + 3];
+            out[ow + 4] = page[qw + 4];
+            out[ow + 5] = page[qw + 5];
+        }
+    }
+}
+
+fn main() {}
