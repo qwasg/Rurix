@@ -579,3 +579,16 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **交付物**：`ci/g8_shader_manifest_ddc_smoke.py --phase g8.3`（DDC put/get/key flip，`phase_g8_2_pass`+`phase_g8_3_pass` 双真）；`ci/g8_wave3_exit_check.py`（步骤 **111**）。
 
 **验收**：M85 g8.3 PASS；wave3.exit PASS（五 P0 + M83 + ABI 锚）。
+
+### 8.18 G8.4 M37 + GeomPage + wave4.exit（2026-08-06）
+
+**触发**：wave3.exit 解锁后流送波（设计 `G8.3_G8.4_ASSET_STREAMING_DESIGN` §4）。
+
+**交付物**：
+- M37：`apps/uc06-renderer --stream-io` + `ci/g8_streaming_io_smoke.py`（步骤 **112**，`RURIX_REQUIRE_REAL=1`）
+- GeomPage：`--geom-page` + `ci/g8_geom_page_gate.py`（步骤 **113**；消费冻结 M04 ABI，禁止重定格式）
+- wave4.exit：`ci/g8_wave4_exit_check.py`（步骤 **114**；VT=`SKIP=not-triggered`；`queue_mode=single`）
+
+**诚实边界**：G8.4 按 RFC-0019 §4.8.3 **单队列 fallback** 过门；多队列实现留待 measured 需求判档（G8.7 或 G9+）；M40/SVT 零实现、零空 baker。
+
+**验收**：M37 10/10 + GeomPage 8/8 device PASS；wave4.exit 聚合 PASS。

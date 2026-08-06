@@ -1211,6 +1211,46 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M80 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.streaming_io_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m37_streaming_io_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            if doc.get("queue_mode") != "single":
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 10:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 streaming_io 10 腿 device 全绿见证",
+            "G8.4 M37 实现回填前为正常状态",
+            strict,
+        )
+    elif eid == "g8.counter.geom_page_gate_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_gate_geom_page_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 8:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 geom_page 8 腿 device 全绿见证",
+            "G8.4 GeomPage 门实现回填前为正常状态",
+            strict,
+        )
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

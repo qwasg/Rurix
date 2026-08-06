@@ -27,6 +27,8 @@ const KERNELS: &[&str] = &[
     "tri_expand",
     "gbuffer_resolve",
     "deferred_shade",
+    // G8.4 M37:驻留页 FNV-1a(u32 word) digest。
+    "stream_consume_digest",
 ];
 
 /// G7.5b HW 光栅图形着色对(RXS-0301~0303;门 G-G7-7):源 = conformance accept

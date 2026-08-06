@@ -1186,6 +1186,30 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave3_exit_check.py --gate g8.wave.3.exit
 
+      # 步骤 112（G8.4 P0 硬门 g8.p0.m37.streaming_io）:真实磁盘 async I/O→解压→
+      # upload→GPU FNV；迟到页 fallback；queue_mode=single。device 门。
+      - name: G8.4 M37 streaming_io smoke (G8 CI_GATES §4.112, g8.p0.m37.streaming_io)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_streaming_io_smoke.py --gate g8.p0.m37.streaming_io
+
+      # 步骤 113（G8.4 独立门 g8.gate.geom_page）:消费冻结 M04 ABI + 按需驻留 +
+      # 迟到页独立证据。device 门。
+      - name: G8.4 GeomPage gate (G8 CI_GATES §5.113, g8.gate.geom_page)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_geom_page_gate.py --gate g8.gate.geom_page
+
+      # 步骤 114（G8.4 波次聚合 g8.wave.4.exit）:M37+GeomPage+VT not-triggered+
+      # queue_mode=single。host 聚合,不加 REQUIRE_REAL。
+      - name: G8.4 wave4.exit aggregate (G8 CI_GATES §5.114, g8.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave4_exit_check.py --gate g8.wave.4.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -26,6 +26,8 @@ mod device_g75_hw;
 #[cfg(feature = "vulkan")]
 mod device_kernels;
 #[cfg(feature = "vulkan")]
+mod device_m37;
+#[cfg(feature = "vulkan")]
 mod device_w3;
 mod graph_setup;
 mod pipeline;
@@ -137,6 +139,68 @@ fn run_w3_effects_mode(cli: &Cli) -> i32 {
         r.measured_visibility_max_abs,
     );
     0
+}
+
+/// G8.4 M37 `--stream-io` 模式(device 必需;`RURIX_REQUIRE_REAL=1`)。
+#[cfg(feature = "vulkan")]
+fn run_stream_io_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let golden = std::path::PathBuf::from(
+        cli.golden_dir
+            .as_deref()
+            .unwrap_or("tests/geom_pages/golden"),
+    );
+    match device_m37::run_stream_io(&golden) {
+        None => {
+            println!("M37: SKIP 无 Vulkan device(dev-env degrade)");
+            i32::from(require_real)
+        }
+        Some(Ok(json)) => {
+            println!("{json}");
+            if json.contains("\"pass\":true") {
+                println!("M37: PASS");
+                0
+            } else {
+                eprintln!("M37: FAIL checks 未全绿");
+                1
+            }
+        }
+        Some(Err(e)) => {
+            eprintln!("M37: FAIL {e}");
+            1
+        }
+    }
+}
+
+/// G8.4 门-GeomPage `--geom-page` 模式(device 必需;`RURIX_REQUIRE_REAL=1`)。
+#[cfg(feature = "vulkan")]
+fn run_geom_page_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let golden = std::path::PathBuf::from(
+        cli.golden_dir
+            .as_deref()
+            .unwrap_or("tests/geom_pages/golden"),
+    );
+    match device_m37::run_geom_page(&golden) {
+        None => {
+            println!("GeomPage: SKIP 无 Vulkan device(dev-env degrade)");
+            i32::from(require_real)
+        }
+        Some(Ok(json)) => {
+            println!("{json}");
+            if json.contains("\"pass\":true") {
+                println!("GeomPage: PASS");
+                0
+            } else {
+                eprintln!("GeomPage: FAIL checks 未全绿");
+                1
+            }
+        }
+        Some(Err(e)) => {
+            eprintln!("GeomPage: FAIL {e}");
+            1
+        }
+    }
 }
 
 /// G7.5 `--g75-residuals` 模式(CI 步骤 95 device 段驱动;三态口径镜像
@@ -450,6 +514,12 @@ struct Cli {
     g75_hw_red_ids: bool,
     /// G7.6 PR-1:TSR 时域臂孤立腿 32 帧对拍(`DeviceFrameSession` + ping-pong)。
     g76_tsr_temporal: bool,
+    /// G8.4 M37:流送 I/O 全链 device 对拍。
+    stream_io: bool,
+    /// G8.4 门-GeomPage:按需驻留 + LRU + 迟到页。
+    geom_page: bool,
+    /// M37/GeomPage golden 目录(默认 tests/geom_pages/golden)。
+    golden_dir: Option<String>,
     /// `--g76-tsr-temporal` 的 RED 轴:故意不轮换历史绑定 → 时域对拍必红。
     g76_red_history: bool,
     /// G7.6 PR-2:15-pass One True Device Frame。
@@ -483,6 +553,9 @@ impl Default for Cli {
             g75_hw_red_ids: false,
             g76_tsr_temporal: false,
             g76_red_history: false,
+            stream_io: false,
+            geom_page: false,
+            golden_dir: None,
             device_frame: false,
             soak: false,
             min_minutes: 0.0,
@@ -546,6 +619,12 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--g76-red-history" => {
                 c.g76_tsr_temporal = true;
                 c.g76_red_history = true;
+            }
+            "--stream-io" => c.stream_io = true,
+            "--geom-page" => c.geom_page = true,
+            "--golden-dir" => {
+                i += 1;
+                c.golden_dir = Some(args.get(i).ok_or("--golden-dir 需要路径")?.clone());
             }
             "--device-frame" => c.device_frame = true,
             "--soak" => c.soak = true,
@@ -633,9 +712,11 @@ fn main() {
         || cli.g75_residuals
         || cli.g75_hw_raster
         || cli.g76_tsr_temporal
+        || cli.stream_io
+        || cli.geom_page
     {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal/--stream-io/--geom-page 需要 feature vulkan"
         );
         std::process::exit(2);
     }
@@ -676,6 +757,16 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.g76_tsr_temporal {
         std::process::exit(run_g76_tsr_temporal_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.stream_io {
+        std::process::exit(run_stream_io_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.geom_page {
+        std::process::exit(run_geom_page_mode(&cli));
     }
 
     #[cfg(feature = "device-frame")]

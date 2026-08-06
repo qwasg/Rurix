@@ -9,6 +9,7 @@ license.workspace = true
 [dependencies]
 rurix-render = { path = "../../src/rurix-render" }
 rurix-geom-build = { path = "../../src/rurix-geom-build" }
+rurix-geom-pages = { path = "../../src/rurix-geom-pages" }
 rurix-rt = { path = "../../src/rurix-rt", optional = true }
 # G7.6 PR-2:帧链物理桥(仅 `device-frame` feature 拉入,隔离步骤 84~95 构建面)。
 rurix-physics = { path = "../../src/rurix-physics", optional = true }

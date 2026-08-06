@@ -358,6 +358,18 @@ def check_evidence_files() -> None:
     g8_m80_ddc_content_address_schema = load(
         ROOT / "milestones/g8/g8_m80_ddc_content_address_evidence_schema.json"
     )
+    g8_m37_streaming_io_schema = load(
+        ROOT / "milestones/g8/g8_m37_streaming_io_evidence_schema.json"
+    )
+    g8_gate_geom_page_schema = load(
+        ROOT / "milestones/g8/g8_gate_geom_page_evidence_schema.json"
+    )
+    g8_wave4_exit_schema = load(
+        ROOT / "milestones/g8/g8_wave4_exit_evidence_schema.json"
+    )
+    g8_m19_vsm_page_cache_schema = load(
+        ROOT / "milestones/g8/g8_m19_vsm_page_cache_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -685,6 +697,26 @@ def check_evidence_files() -> None:
     g8_m80_ddc_content_address_validator = (
         jsonschema.Draft7Validator(g8_m80_ddc_content_address_schema)
         if g8_m80_ddc_content_address_schema is not None
+        else None
+    )
+    g8_m37_streaming_io_validator = (
+        jsonschema.Draft7Validator(g8_m37_streaming_io_schema)
+        if g8_m37_streaming_io_schema is not None
+        else None
+    )
+    g8_gate_geom_page_validator = (
+        jsonschema.Draft7Validator(g8_gate_geom_page_schema)
+        if g8_gate_geom_page_schema is not None
+        else None
+    )
+    g8_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g8_wave4_exit_schema)
+        if g8_wave4_exit_schema is not None
+        else None
+    )
+    g8_m19_vsm_page_cache_validator = (
+        jsonschema.Draft7Validator(g8_m19_vsm_page_cache_schema)
+        if g8_m19_vsm_page_cache_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1343,6 +1375,30 @@ def check_evidence_files() -> None:
         ):
             # G8.3 M80 ddc_content_address(RXS-0343):host 门,九段 CAS。
             validator = g8_m80_ddc_content_address_validator
+        elif (
+            f.name.startswith("g8_m37_streaming_io_")
+            and g8_m37_streaming_io_validator is not None
+        ):
+            # G8.4 M37 streaming_io(步骤 112):device 门,磁盘→解压→upload→GPU。
+            validator = g8_m37_streaming_io_validator
+        elif (
+            f.name.startswith("g8_gate_geom_page_")
+            and g8_gate_geom_page_validator is not None
+        ):
+            # G8.4 门-GeomPage(步骤 113):独立 evidence,消费冻结 M04 ABI。
+            validator = g8_gate_geom_page_validator
+        elif (
+            f.name.startswith("g8_wave4_exit_")
+            and g8_wave4_exit_validator is not None
+        ):
+            # G8.4 波次聚合门 g8.wave.4.exit(步骤 114)。
+            validator = g8_wave4_exit_validator
+        elif (
+            f.name.startswith("g8_m19_vsm_page_cache_")
+            and g8_m19_vsm_page_cache_validator is not None
+        ):
+            # G8.5a M19 vsm_page_cache:device 门,跨帧页缓存对拍;CI_step 待领。
+            validator = g8_m19_vsm_page_cache_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

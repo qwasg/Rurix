@@ -74,7 +74,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m81.gltf_import` | M81 | G8.3 | `ci/g8_gltf_import_smoke.py` | 106 |
 | `g8.p0.m01.meshlet_page_builder` | M01 | G8.3 | `ci/g8_meshlet_page_builder_smoke.py` | 105 |
 | `g8.p0.m04.page_format_abi` | M04 | G8.3 | `ci/g8_page_format_abi_smoke.py` | 109 |
-| `g8.p0.m37.streaming_io` | M37 | G8.4 | `ci/g8_streaming_io_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m37.streaming_io` | M37 | G8.4 | `ci/g8_streaming_io_smoke.py` | 112 |
 | `g8.p0.m19.vsm_page_cache` | M19 | G8.5a | `ci/g8_vsm_page_cache_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m66.physics_replay` | M66 | G8.6a | `ci/g8_physics_replay_smoke.py` | `post-G7 actual-next-free allocation` |
@@ -124,7 +124,8 @@ py -3 ci/budget_eval.py
 |---|---|---|---|
 | `g8.wave.2.exit` | `ci/g8_wave2_exit_check.py` | 104 | 七个 G8.2 P0 全 PASS；RFC-0019 Approved；RD-037 与本波 RD-038 接入逐字通过 |
 | `g8.wave.3.exit` | `ci/g8_wave3_exit_check.py` | 111 | 五个 G8.3 P0 全 PASS；M01/M04 ABI 已冻结；资产/纹理/打包 go 项独立绿 |
-| `g8.wave.4.exit` | `ci/g8_wave4_exit_check.py` | `post-G7 actual-next-free allocation` | M37 PASS；GeomPage 必过；VT go 时独立过、no-go 时 not-triggered；MQ 三断言或单队列 fallback 事实 |
+| `g8.gate.geom_page` | `ci/g8_geom_page_gate.py` | 113 | 消费冻结 M04 ABI；按需驻留/root 钉住/LRU/迟到页独立 evidence；device 必需；不入 21 行 P0 集合 |
+| `g8.wave.4.exit` | `ci/g8_wave4_exit_check.py` | 114 | M37 PASS；GeomPage 必过；VT go 时独立过、no-go 时 not-triggered；MQ 三断言或单队列 fallback 事实 |
 | `g8.wave.5a.exit` | `ci/g8_wave5a_exit_check.py` | `post-G7 actual-next-free allocation` | M19 PASS；go 的几何/阴影项与 RD-038 raster/VSM 接入各自有 PASS evidence |
 | `g8.wave.5b.exit` | `ci/g8_wave5b_exit_check.py` | `post-G7 actual-next-free allocation` | M24 PASS；go 的材质/GI/显示项与 RD-038 GI/TSR/真帧接入各自有 PASS evidence |
 | `g8.wave.6a.exit` | `ci/g8_wave6a_exit_check.py` | `post-G7 actual-next-free allocation` | M66 PASS；Jolt 5.3 corpus 先完成；5.6 A/B 结果诚实判档 |
@@ -185,6 +186,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.17 | 2026-08-06 | **G8.4 M37 + GeomPage + wave4.exit**：§4 M37→`112`；§5 `g8.gate.geom_page`→`113`、`g8.wave.4.exit`→`114`；queue_mode=single；VT=SKIP=not-triggered（M40 no-go）。device 两门 + host 聚合。 |
 | v1.16 | 2026-08-06 | **M85 `--phase g8.3` + wave3.exit**：§5 `g8.wave.3.exit`→`111`；M85 DDC 腿 + 聚合五 P0+M83+ABI 锚。host。 |
 | v1.15 | 2026-08-06 | **M80 materialize**：§4 M80 行 `numeric_step` 回填为 `110`；`ci/g8_ddc_content_address_smoke.py` + RXS-0343 + `pr-smoke` 步骤 110。host 门。零新 RX/U。 |
 | v1.14 | 2026-08-06 | **M04 materialize**：§4 M04 行 `numeric_step` 回填为 `109`；`ci/g8_page_format_abi_smoke.py` + RXS-0338~0342 + `vk_geom_page_decode` + `pr-smoke` 步骤 109（`RURIX_REQUIRE_REAL=1`）。device 门。零新 RX/U。 |

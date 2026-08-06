@@ -94,7 +94,7 @@
 |---|---|---|---|---|---|---|---|---|
 | M35 | GPU 场景实例表 + 物理单向同步 | — | ✅ G5 `GpuScene` + G6 `PhysicsBridge`（单向事实源五纪律） | — | — | ✅ | ✔ | — |
 | M36 | 页式流送预算模型（内存内） | R1 §4.2 | ✅ G5 `streaming::`（`PageRequest`/`StreamingBudget`/128KB 页/反馈驱动）+ G6 页驻留驱动 body 批插移除 | — | — | ✅ | ✔ | — |
-| M37 | 磁盘异步 I/O + 解压 + 上传流送链 | R3 §2.5 | ⬜（§0 核对：streaming/material 零磁盘 I/O——页驻留为内存内模型） | I/O、解压、copy、tile map 分离 timeline；迟到页处理；预算与优先级 | B/C | P0 | ✔ | G8.4 |
+| M37 | 磁盘异步 I/O + 解压 + 上传流送链 | R3 §2.5 | ✅ G8.4 `uc06 --stream-io`（StreamIoPool 真盘读 + 冻结 RXPD decoder + GPU FNV；`queue_mode=single`；迟到页 fallback） | I/O、解压、copy、tile map 分离 timeline；迟到页处理；预算与优先级 | B/C | P0 | ✔ | G8.4 |
 | M38 | DirectStorage/GDeflate 与 CPU fallback | R3 §2.5 | ⬜ | D：GDeflate/Zstd packer（GDeflate 参考实现 Apache-2.0 可 vendor）；B：解压调度与 GPU 竞争预算 | B/D | P1 | ✔ | G8.4 |
 | M39 | sparse residency / tiled resources | R3 §2.6 | ⬜（`vk.rs` 零 sparse 命中） | sparse binding/residency 通道 | B | P1 | ✔ | G8.4 |
 | M40 | SVT 虚拟纹理（运行时 + 烘焙） | R1 §4.2 / R3 §4.4 | ⬜ RD-041 **标题**含 SVT，但 backfill **无独立 SVT 门槛**（G8.1 须补「真实大纹理资产管线」或 strategic_override） | A：虚拟采样；B：residency；C：页表/atlas；D：VT baker | A/B/C/D | P1 | ✔ | G8.4 门-VT（**仅**决策表 go/override；与门-GeomPage 独立，禁止二选一充绿） |

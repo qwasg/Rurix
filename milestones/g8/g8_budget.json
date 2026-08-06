@@ -24,6 +24,20 @@
   "ratio_assertions": [],
   "counter_assertions": [
     {
+      "id": "g8.counter.streaming_io_legs",
+      "description": "G8.4 M37 streaming_io 硬门判据通过数 >=10 且 device 见证 >=1(契约 G-G8-6 / CI_GATES §4 M37 行;queue_mode=single)。计数源 = evidence/g8_m37_streaming_io_*.json 中 host_section_pass=true 且 device_section_state in {pass,executed} 且 queue_mode=single 且 checks.* ≥10 全 true 的见证文件数。device 门。",
+      "evidence_file": "evidence/g8_m37_streaming_io_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
+      "id": "g8.counter.geom_page_gate_legs",
+      "description": "G8.4 门-GeomPage 硬门判据通过数 >=8 且 device 见证 >=1(契约 G-G8-6 / CI_GATES §5;消费冻结 M04 ABI)。计数源 = evidence/g8_gate_geom_page_*.json 中 host_section_pass=true 且 device_section_state in {pass,executed} 且 checks.* ≥8 全 true 的见证文件数。device 门。",
+      "evidence_file": "evidence/g8_gate_geom_page_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
       "id": "g8.counter.ddc_content_address_legs",
       "description": "G8.3 M80 ddc_content_address 硬门判据通过数 >=19(契约 G-G8-4 / CI_GATES §4 M80 行;RFC-0020 / RXS-0343)。计数源 = evidence/g8_m80_ddc_content_address_*.json 中 host_section_pass=true 且 checks.* ≥19 全 true 的见证文件数。host 门。",
       "evidence_file": "evidence/g8_m80_ddc_content_address_*.json",
@@ -117,6 +131,11 @@
   ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.12",
+      "date": "2026-08-06",
+      "change": "G8.4 M37+GeomPage+wave4.exit materialize:counter_assertions 追加 g8.counter.streaming_io_legs(>=10,device)+ g8.counter.geom_page_gate_legs(>=8,device);budget_eval 分支同落。"
+    },
     {
       "version": "v1.11",
       "date": "2026-08-06",

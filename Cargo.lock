@@ -532,6 +532,7 @@ version = "1.0.0"
 dependencies = [
  "rapier3d",
  "rurix-physics-sys",
+ "rurix-pkg",
  "rurix-render",
 ]
 
@@ -783,6 +784,7 @@ name = "uc06-renderer"
 version = "1.0.0"
 dependencies = [
  "rurix-geom-build",
+ "rurix-geom-pages",
  "rurix-physics",
  "rurix-render",
  "rurix-rt",

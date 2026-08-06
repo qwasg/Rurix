@@ -1,0 +1,26 @@
+// G8.4 M37:驻留页 buffer 顺序 FNV-1a(u32 整数域)→ 单字 digest。
+// binding0 = page words;binding1 = out[0]=digest;
+// push: word_count:u32 @0。仅 global_id==0 写(与 geom_page_decode 同纪律)。
+// Vulkan compute 首期禁提前 return——收敛 if/while。
+
+kernel fn stream_consume_digest(
+    page: View<global, u32>,
+    out: ViewMut<global, u32>,
+    word_count: u32,
+    t: ThreadCtx<1>,
+) {
+    let gid = t.global_id();
+    if gid == 0 {
+        let mut h: u32 = 2166136261u32;
+        let mut i: u32 = 0u32;
+        while i < word_count {
+            let w = page[i as usize];
+            h = h ^ w;
+            h = h * 16777619u32;
+            i = i + 1u32;
+        }
+        out[0] = h;
+    }
+}
+
+fn main() {}

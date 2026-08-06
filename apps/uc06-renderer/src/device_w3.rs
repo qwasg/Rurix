@@ -265,6 +265,7 @@ pub fn run_w3_matches(
             blas: i as u32,
             custom_index: i as u32,
             mask: masks[i.min(2)],
+            sbt_record_offset: 0,
         })
         .collect();
     let scene_desc = RayQuerySceneDesc {

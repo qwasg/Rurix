@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.4 M37 streaming_io evidence",
+  "description": "evidence/g8_m37_streaming_io_<UTC>.json。G8.4 P0 硬门 g8.p0.m37.streaming_io：真实磁盘 async read → 冻结 decoder 解压 → host-visible upload → GPU FNV consume；迟到页 fallback/恢复；queue_mode=single。device 必需；RURIX_REQUIRE_REAL=1。CI 步骤 112。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "queue_mode",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m37_streaming_io" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m37.streaming_io" },
+    "matrix_row": { "type": "string", "const": "M37" },
+    "wave": { "type": "string", "const": "G8.4" },
+    "numeric_step": { "type": "integer", "const": 112 },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "queue_mode": { "type": "string", "const": "single" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_disk_file_read",
+        "per_page_stage_order_monotonic",
+        "decompress_via_frozen_decoder",
+        "final_device_digest_equals_golden",
+        "late_page_fallback_frame_present",
+        "late_page_recovers_correct",
+        "fault_injection_deterministic",
+        "budgets_metered",
+        "queue_mode_single_registered",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "real_disk_file_read": { "type": "boolean" },
+        "per_page_stage_order_monotonic": { "type": "boolean" },
+        "decompress_via_frozen_decoder": { "type": "boolean" },
+        "final_device_digest_equals_golden": { "type": "boolean" },
+        "late_page_fallback_frame_present": { "type": "boolean" },
+        "late_page_recovers_correct": { "type": "boolean" },
+        "fault_injection_deterministic": { "type": "boolean" },
+        "budgets_metered": { "type": "boolean" },
+        "queue_mode_single_registered": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

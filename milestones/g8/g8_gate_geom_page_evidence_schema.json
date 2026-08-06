@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.4 gate GeomPage evidence",
+  "description": "evidence/g8_gate_geom_page_<UTC>.json。独立门 g8.gate.geom_page：消费冻结 M04 ABI + 按需驻留 + root 钉住 + LRU + 迟到页独立证据。device 必需；RURIX_REQUIRE_REAL=1。CI 步骤 113。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "queue_mode",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_gate_geom_page" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.gate.geom_page" },
+    "matrix_row": { "type": "string", "const": "GeomPage" },
+    "wave": { "type": "string", "const": "G8.4" },
+    "numeric_step": { "type": "integer", "const": 113 },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "queue_mode": { "type": "string", "const": "single" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumes_frozen_m04_abi",
+        "on_demand_residency",
+        "unreferenced_pages_not_loaded",
+        "root_pages_pinned",
+        "late_page_independent_evidence",
+        "lru_eviction_under_pressure",
+        "device_digest_matches_cpu",
+        "validation_zero"
+      ],
+      "properties": {
+        "consumes_frozen_m04_abi": { "type": "boolean" },
+        "on_demand_residency": { "type": "boolean" },
+        "unreferenced_pages_not_loaded": { "type": "boolean" },
+        "root_pages_pinned": { "type": "boolean" },
+        "late_page_independent_evidence": { "type": "boolean" },
+        "lru_eviction_under_pressure": { "type": "boolean" },
+        "device_digest_matches_cpu": { "type": "boolean" },
+        "validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
