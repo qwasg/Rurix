@@ -10,6 +10,8 @@ license.workspace = true
 # device 执行底座(可选):rurix-rt vk 执行器 + graph 双后端映射。host 逻辑(图编译/
 # 屏障推导/transient/几何/时域数学/页表)零外部依赖、default 不拉 GPU 面。
 rurix-rt = { path = "../rurix-rt", optional = true }
+# M25 ABI hash 与 M31 同源 SHA-256(rurix-pkg)。
+rurix-pkg = { path = "../rurix-pkg" }
 
 [features]
 default = []
@@ -20,6 +22,10 @@ vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
 [[bin]]
 name = "g8_m19_probe"
 path = "src/bin/g8_m19_probe.rs"
+
+[[bin]]
+name = "g8_m25_probe"
+path = "src/bin/g8_m25_probe.rs"
 
 [lints]
 workspace = true

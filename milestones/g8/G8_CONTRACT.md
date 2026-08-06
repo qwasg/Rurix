@@ -604,3 +604,16 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：RD-038 已由 G7 closed，本波接入表为空集，不代绿、不放宽 16 腿判据。
 
 **验收**：M19 16/16 device PASS；wave5a.exit 聚合 PASS。
+
+### 8.20 G8.5b M24 + M25 + wave5b.exit（2026-08-06）
+
+**触发**：wave5a.exit 解锁后时域/超分波（设计 `G8.5_RENDERING_COMPLETION_DESIGN` §3–4）。
+
+**交付物**：
+- M24：`temporal/contract` + `uc06 --m24-tsr-contract` + `ci/g8_tsr_contract_smoke.py`（步骤 **117**）；RFC-0019 **§4.6.4** + `tests/tsr_contract/freeze.json`=`rfc_budget_frozen`
+- M25：`UpscalerInputAbi` + TSR/CAS 双非 no-op + `ci/g8_upscaler_input_abi_smoke.py`（步骤 **118**）
+- wave5b.exit：`ci/g8_wave5b_exit_check.py`（步骤 **119**）
+
+**诚实边界**：M28 维持 no-go；vendor FSR FFI 不入本波；RD-038 GI/TSR/真帧接入空集。
+
+**验收**：M24 13/13 + M25 12/12 device PASS；wave5b.exit 聚合 PASS。

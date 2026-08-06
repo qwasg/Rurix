@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "stage": "rfc_budget_frozen",
+  "resurrection_age_max": 6,
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "rfc_anchor": "RFC-0019 §4.6.4",
+  "budget_namespace": "g8.bench.m24_tsr_*",
+  "cases": [
+    {
+      "name": "history_resurrection",
+      "digest": "7dfc2c73598795a373ead4484d4c91488594e7eed246dcb56481d402d42daeea",
+      "measured_max_abs": 0.8336084485,
+      "tolerance": 1.667216897
+    },
+    {
+      "name": "pixel_animation_velocity",
+      "digest": "c216629b3ca1c4228a722817fd436efa6678bff12d1fb20223ceed6685c8f451",
+      "measured_max_abs": 0.1715340018,
+      "tolerance": 0.3430680036
+    },
+    {
+      "name": "thin_geometry",
+      "digest": "f713aa759438e93ad72916e733981fb8be2a72f09bfd4b6314a9a6cb484fd64b",
+      "measured_max_abs": 0.6948260069,
+      "tolerance": 1.3896520138
+    },
+    {
+      "name": "dynamic_resolution",
+      "digest": "f76f35d9ccc6ee87a39f6338ed7a152d3b19f82a9d7066dafc19aa2807af00bd",
+      "measured_max_abs": 0.01392835379,
+      "tolerance": 0.02785670758
+    },
+    {
+      "name": "transparent_velocity",
+      "digest": "014072e8d0d7b0593f29fa7f190354a3b9fb792b20b9b4a62405199477e7d802",
+      "measured_max_abs": 0.7903104424,
+      "tolerance": 1.5806208848
+    }
+  ],
+  "notes": "Gov 2026-08-06: RFC-0019 §4.6.4 + g8_budget measured 同 PR → stage=rfc_budget_frozen"
+}

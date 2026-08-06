@@ -373,6 +373,15 @@ def check_evidence_files() -> None:
     g8_wave5a_exit_schema = load(
         ROOT / "milestones/g8/g8_wave5a_exit_evidence_schema.json"
     )
+    g8_m24_tsr_contract_schema = load(
+        ROOT / "milestones/g8/g8_m24_tsr_contract_evidence_schema.json"
+    )
+    g8_m25_upscaler_input_abi_schema = load(
+        ROOT / "milestones/g8/g8_m25_upscaler_input_abi_evidence_schema.json"
+    )
+    g8_wave5b_exit_schema = load(
+        ROOT / "milestones/g8/g8_wave5b_exit_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -725,6 +734,21 @@ def check_evidence_files() -> None:
     g8_wave5a_exit_validator = (
         jsonschema.Draft7Validator(g8_wave5a_exit_schema)
         if g8_wave5a_exit_schema is not None
+        else None
+    )
+    g8_m24_tsr_contract_validator = (
+        jsonschema.Draft7Validator(g8_m24_tsr_contract_schema)
+        if g8_m24_tsr_contract_schema is not None
+        else None
+    )
+    g8_m25_upscaler_input_abi_validator = (
+        jsonschema.Draft7Validator(g8_m25_upscaler_input_abi_schema)
+        if g8_m25_upscaler_input_abi_schema is not None
+        else None
+    )
+    g8_wave5b_exit_validator = (
+        jsonschema.Draft7Validator(g8_wave5b_exit_schema)
+        if g8_wave5b_exit_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1413,6 +1437,24 @@ def check_evidence_files() -> None:
         ):
             # G8.5a 波次聚合门 g8.wave.5a.exit(步骤 116)。
             validator = g8_wave5a_exit_validator
+        elif (
+            f.name.startswith("g8_m24_tsr_contract_")
+            and g8_m24_tsr_contract_validator is not None
+        ):
+            # G8.5b M24 tsr_contract(步骤 117)。
+            validator = g8_m24_tsr_contract_validator
+        elif (
+            f.name.startswith("g8_m25_upscaler_input_abi_")
+            and g8_m25_upscaler_input_abi_validator is not None
+        ):
+            # G8.5b M25 upscaler_input_abi(步骤 118)。
+            validator = g8_m25_upscaler_input_abi_validator
+        elif (
+            f.name.startswith("g8_wave5b_exit_")
+            and g8_wave5b_exit_validator is not None
+        ):
+            # G8.5b 波次聚合门 g8.wave.5b.exit(步骤 119)。
+            validator = g8_wave5b_exit_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

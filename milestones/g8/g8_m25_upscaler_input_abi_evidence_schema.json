@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.5b M25 upscaler_input_abi evidence",
+  "description": "evidence/g8_m25_upscaler_input_abi_<UTC>.json。G8.5b P1 硬门 g8.p1.m25.upscaler_input_abi:UpscalerInputAbi v1 十项闭集 + 双非 no-op backend(TSR 主 + CAS 副);device CAS 对拍。CI 步骤 118。悬置七行见 retained_open。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "abi_hash",
+    "backends",
+    "retained_open",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m25_upscaler_input_abi" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p1.m25.upscaler_input_abi" },
+    "matrix_row": { "type": "string", "const": "M25" },
+    "wave": { "type": "string", "const": "G8.5b" },
+    "numeric_step": { "type": "integer", "const": 118 },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abi_ten_inputs_enumerated",
+        "abi_layout_hash_stable",
+        "abi_hash_sensitive",
+        "missing_input_fail_closed",
+        "hash_mismatch_fail_closed",
+        "backend_tsr_consumes_all",
+        "backend_cas_consumes_all",
+        "output_extent_and_finite",
+        "sequence_digest_match",
+        "backend_switch_abi_identical",
+        "not_stub",
+        "validation_zero"
+      ],
+      "properties": {
+        "abi_ten_inputs_enumerated": { "type": "boolean" },
+        "abi_layout_hash_stable": { "type": "boolean" },
+        "abi_hash_sensitive": { "type": "boolean" },
+        "missing_input_fail_closed": { "type": "boolean" },
+        "hash_mismatch_fail_closed": { "type": "boolean" },
+        "backend_tsr_consumes_all": { "type": "boolean" },
+        "backend_cas_consumes_all": { "type": "boolean" },
+        "output_extent_and_finite": { "type": "boolean" },
+        "sequence_digest_match": { "type": "boolean" },
+        "backend_switch_abi_identical": { "type": "boolean" },
+        "not_stub": { "type": "boolean" },
+        "validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "abi_hash": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "backends": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "secondary", "vendor_fsr_ffi"],
+      "properties": {
+        "primary": { "type": "string", "const": "tsr" },
+        "secondary": { "type": "string", "const": "cas_easu" },
+        "vendor_fsr_ffi": {
+          "type": "string",
+          "const": "open_rd041_observe"
+        }
+      }
+    },
+    "retained_open": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["matrix_row", "decision", "status", "trigger"],
+        "properties": {
+          "matrix_row": { "type": "string" },
+          "decision": { "type": "string" },
+          "status": { "type": "string" },
+          "trigger": { "type": "string" }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

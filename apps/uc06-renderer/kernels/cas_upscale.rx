@@ -1,0 +1,223 @@
+// G8.5b M25 副 backend device 核:CAS 级空间超分。
+// host oracle = rurix_render::temporal::cas::CasUpscaler::upscale_frame
+//
+// 权重 = Catmull-Rom(Keys a=-0.5) 内联(与 tsr_resample 同形态;禁独立 host fn /
+// 禁 sin——RXS-0081)。尺寸参数用 usize(与 tsr_resample 对齐)。
+//
+// bindings:
+//   0 color f32 RGB flat (iw*ih*3)
+//   1 depth f32 1ch
+//   2 motion f32 2ch
+//   3 reactive f32 1ch
+//   4 transparent f32 1ch
+//   5 out f32 RGB (ow*oh*3)
+// push: iw/ih/ow/oh/reset_u32/pad(u32) + jx/jy/exposure(f32)
+
+kernel fn cas_upscale(
+    t: ThreadCtx<1>,
+    color: View<global, f32>,
+    depth: View<global, f32>,
+    motion: View<global, f32>,
+    reactive: View<global, f32>,
+    transparent: View<global, f32>,
+    out: ViewMut<global, f32>,
+    iw: usize,
+    ih: usize,
+    ow: usize,
+    oh: usize,
+    reset_u32: u32,
+    _pad: u32,
+    jx: f32,
+    jy: f32,
+    exposure: f32,
+) {
+    let i = t.global_id();
+    if i < ow * oh {
+        let ox = i % ow;
+        let oy = i / ow;
+        let sx = iw as f32 / ow as f32;
+        let sy = ih as f32 / oh as f32;
+        let px = (ox as f32 + 0.5) * sx - 0.5 - jx;
+        let py = (oy as f32 + 0.5) * sy - 0.5 - jy;
+        let u_nn = (ox as f32 + 0.5) / ow as f32;
+        let v_nn = (oy as f32 + 0.5) / oh as f32;
+        let mut mxi = (u_nn * iw as f32).floor() as i32;
+        let mut myi = (v_nn * ih as f32).floor() as i32;
+        let last_x = iw as i32 - 1i32;
+        let last_y = ih as i32 - 1i32;
+        if mxi < 0i32 {
+            mxi = 0i32;
+        }
+        if mxi > last_x {
+            mxi = last_x;
+        }
+        if myi < 0i32 {
+            myi = 0i32;
+        }
+        if myi > last_y {
+            myi = last_y;
+        }
+        let midx = (myi as usize) * iw + (mxi as usize);
+        let mv0 = motion[midx * 2];
+        let mv1 = motion[midx * 2 + 1];
+        let gx = px + mv0 * (iw as f32) * 0.25;
+        let gy = py + mv1 * (ih as f32) * 0.25;
+        let bx = gx.floor() as i32;
+        let by = gy.floor() as i32;
+        let fx = gx - bx as f32;
+        let fy = gy - by as f32;
+
+        let mut bxc = bx;
+        if bxc < 0i32 {
+            bxc = 0i32;
+        }
+        if bxc > last_x {
+            bxc = last_x;
+        }
+        let mut byc = by;
+        if byc < 0i32 {
+            byc = 0i32;
+        }
+        if byc > last_y {
+            byc = last_y;
+        }
+        let cidx = (byc as usize) * iw + (bxc as usize);
+        let center_d = depth[cidx];
+
+        let mut acc0 = 0.0;
+        let mut acc1 = 0.0;
+        let mut acc2 = 0.0;
+        let mut wsum = 0.0;
+        let mut edge = 0.0;
+        let mut dy = 0i32 - 1i32;
+        while dy <= 1i32 {
+            let mut dx = 0i32 - 1i32;
+            while dx <= 1i32 {
+                let mut tx = bx + dx;
+                if tx < 0i32 {
+                    tx = 0i32;
+                }
+                if tx > last_x {
+                    tx = last_x;
+                }
+                let mut ty = by + dy;
+                if ty < 0i32 {
+                    ty = 0i32;
+                }
+                if ty > last_y {
+                    ty = last_y;
+                }
+                let tidx = (ty as usize) * iw + (tx as usize);
+                let d = depth[tidx];
+                let dd = d - center_d;
+                let mut ad = dd;
+                if ad < 0.0 {
+                    ad = 0.0 - ad;
+                }
+                if ad > edge {
+                    edge = ad;
+                }
+                // cas_weight(fx-dx) / cas_weight(fy-dy) = Catmull-Rom 内联
+                let ax = (fx - dx as f32).abs();
+                let mut wx = 0.0;
+                if ax <= 1.0 {
+                    wx = 1.5 * ax * ax * ax - 2.5 * ax * ax + 1.0;
+                } else {
+                    if ax < 2.0 {
+                        wx = (0.0 - 0.5) * ax * ax * ax + 2.5 * ax * ax - 4.0 * ax + 2.0;
+                    }
+                }
+                let ay = (fy - dy as f32).abs();
+                let mut wy = 0.0;
+                if ay <= 1.0 {
+                    wy = 1.5 * ay * ay * ay - 2.5 * ay * ay + 1.0;
+                } else {
+                    if ay < 2.0 {
+                        wy = (0.0 - 0.5) * ay * ay * ay + 2.5 * ay * ay - 4.0 * ay + 2.0;
+                    }
+                }
+                let w = wx * wy;
+                let base = tidx * 3;
+                acc0 = acc0 + w * color[base];
+                acc1 = acc1 + w * color[base + 1];
+                acc2 = acc2 + w * color[base + 2];
+                wsum = wsum + w;
+                dx = dx + 1i32;
+            }
+            dy = dy + 1i32;
+        }
+        let mut denom = wsum;
+        if denom < 0.000001 {
+            denom = 0.000001;
+        }
+        let mut rgb0 = acc0 / denom;
+        let mut rgb1 = acc1 / denom;
+        let mut rgb2 = acc2 / denom;
+        let nbase = cidx * 3;
+        let n0 = color[nbase];
+        let n1 = color[nbase + 1];
+        let n2 = color[nbase + 2];
+        let mut sharpen = edge * 4.0;
+        if sharpen < 0.0 {
+            sharpen = 0.0;
+        }
+        if sharpen > 0.65 {
+            sharpen = 0.65;
+        }
+        let ridx = (myi as usize) * iw + (mxi as usize);
+        let mut rv = reactive[ridx];
+        if rv < 0.0 {
+            rv = 0.0;
+        }
+        if rv > 1.0 {
+            rv = 1.0;
+        }
+        let mut tv = transparent[ridx];
+        if tv < 0.0 {
+            tv = 0.0;
+        }
+        if tv > 1.0 {
+            tv = 1.0;
+        }
+        let mut soft = rv;
+        if tv > soft {
+            soft = tv;
+        }
+        sharpen = sharpen * (1.0 - soft);
+        rgb0 = rgb0 * (1.0 - sharpen) + n0 * sharpen;
+        rgb1 = rgb1 * (1.0 - sharpen) + n1 * sharpen;
+        rgb2 = rgb2 * (1.0 - sharpen) + n2 * sharpen;
+        rgb0 = rgb0 * exposure;
+        rgb1 = rgb1 * exposure;
+        rgb2 = rgb2 * exposure;
+        if rgb0 < 0.0 {
+            rgb0 = 0.0;
+        }
+        if rgb1 < 0.0 {
+            rgb1 = 0.0;
+        }
+        if rgb2 < 0.0 {
+            rgb2 = 0.0;
+        }
+        if reset_u32 != 0u32 {
+            rgb0 = rgb0 * 0.98 + n0 * exposure * 0.02;
+            rgb1 = rgb1 * 0.98 + n1 * exposure * 0.02;
+            rgb2 = rgb2 * 0.98 + n2 * exposure * 0.02;
+            if rgb0 < 0.0 {
+                rgb0 = 0.0;
+            }
+            if rgb1 < 0.0 {
+                rgb1 = 0.0;
+            }
+            if rgb2 < 0.0 {
+                rgb2 = 0.0;
+            }
+        }
+        let obase = i * 3;
+        out[obase] = rgb0;
+        out[obase + 1] = rgb1;
+        out[obase + 2] = rgb2;
+    }
+}
+
+fn main() {}

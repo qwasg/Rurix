@@ -1,0 +1,423 @@
+// G8.5b M24 TSR 生产契约主核(设计 §3.2;`tsr_temporal` 超集)。
+// host oracle = `rurix_render::temporal::contract::TsrContract::process` 时域臂。
+// 增量:reactive/coverage、confidence、thin coverage 有效性、resurrection ring 读、
+// identity/reset/cut 闸门。空间超分仍由上游 `tsr_resample` 提供 tsr_cur。
+//
+// 绑定序:
+//   0 tsr_cur  1 depth_lo  2 mv_lo  3 reactive_lo  4 coverage_lo
+//   5 hist_color_in  6 hist_depth_in  7 hist_conf_in
+//   8 prev_luma  9 prev_sign  10 flicker
+//   11 retired_rgb  12 retired_meta
+//   13 final_out  14 hist_depth_out  15 hist_conf_out  16 reject_mask
+kernel fn tsr_contract(
+    t: ThreadCtx<1>,
+    tsr_cur: View<global, f32>,
+    depth_lo: View<global, f32>,
+    mv_lo: View<global, f32>,
+    reactive_lo: View<global, f32>,
+    coverage_lo: View<global, f32>,
+    hist_color: View<global, f32>,
+    hist_depth: View<global, f32>,
+    hist_conf: View<global, f32>,
+    prev_luma: ViewMut<global, f32>,
+    prev_sign: ViewMut<global, f32>,
+    flicker_score: ViewMut<global, f32>,
+    retired_rgb: View<global, f32>,
+    retired_meta: View<global, f32>,
+    final_out: ViewMut<global, f32>,
+    hist_depth_out: ViewMut<global, f32>,
+    hist_conf_out: ViewMut<global, f32>,
+    reject_mask: ViewMut<global, f32>,
+    iw: usize,
+    ih: usize,
+    ow: usize,
+    oh: usize,
+    reset: usize,
+    identity_ok: usize,
+    age_max: usize,
+    base_alpha: f32,
+    min_alpha: f32,
+    ema_k: f32,
+    flicker_tighten: f32,
+    flicker_deadzone_abs: f32,
+    flicker_deadzone_rel: f32,
+    depth_rel_tol: f32,
+    key_f32: f32,
+) {
+    let i = t.global_id();
+    if i < ow * oh {
+        let ox = i % ow;
+        let oy = i / ow;
+        let base = i * 3;
+        let cr = tsr_cur[base];
+        let cg = tsr_cur[base + 1];
+        let cb = tsr_cur[base + 2];
+        let lc = 0.25 * cr + 0.5 * cg + 0.25 * cb;
+
+        let u0 = (ox as f32 + 0.5) / ow as f32;
+        let v0 = (oy as f32 + 0.5) / oh as f32;
+        let mut sx = (u0 * iw as f32).floor() as i32;
+        let mut sy = (v0 * ih as f32).floor() as i32;
+        let last_x = iw as i32 - 1i32;
+        let last_y = ih as i32 - 1i32;
+        if sx < 0i32 {
+            sx = 0i32;
+        }
+        if sy < 0i32 {
+            sy = 0i32;
+        }
+        if sx > last_x {
+            sx = last_x;
+        }
+        if sy > last_y {
+            sy = last_y;
+        }
+        let sidx = (sy as usize) * iw + sx as usize;
+        let dc = depth_lo[sidx];
+        let mbase = sidx * 2;
+        let mvx = mv_lo[mbase];
+        let mvy = mv_lo[mbase + 1];
+        let reactive_v = reactive_lo[sidx];
+        let cov = coverage_lo[sidx];
+        hist_depth_out[i] = dc;
+        reject_mask[i] = 0.0;
+
+        let force = reset + (1usize - identity_ok);
+        if force != 0 {
+            final_out[base] = cr;
+            final_out[base + 1] = cg;
+            final_out[base + 2] = cb;
+            prev_luma[i] = lc;
+            prev_sign[i] = 0.0;
+            flicker_score[i] = 0.0;
+            hist_conf_out[i] = 1.0;
+        } else {
+            let lp = prev_luma[i];
+            let d = lc - lp;
+            let mut dead = flicker_deadzone_abs;
+            let mut amax = lc.abs();
+            if lp.abs() > amax {
+                amax = lp.abs();
+            }
+            let drel = flicker_deadzone_rel * amax;
+            if drel > dead {
+                dead = drel;
+            }
+            let mut s = cr * 0.0;
+            if d > dead {
+                s = 1.0;
+            } else {
+                if d < (0.0 - dead) {
+                    s = 0.0 - 1.0;
+                }
+            }
+            let ps = prev_sign[i];
+            let mut flip = cr * 0.0;
+            if s != 0.0 {
+                if ps != 0.0 {
+                    if s != ps {
+                        flip = 1.0;
+                    }
+                }
+            }
+            let sc0 = flicker_score[i];
+            flicker_score[i] = sc0 * (1.0 - ema_k) + flip * ema_k;
+            if s != 0.0 {
+                prev_sign[i] = s;
+            }
+            let flick = flicker_score[i];
+
+            let su = u0 + mvx;
+            let sv = v0 + mvy;
+            let mut inside = cr * 0.0;
+            if su >= 0.0 {
+                if su <= 1.0 {
+                    if sv >= 0.0 {
+                        if sv <= 1.0 {
+                            inside = 1.0;
+                        }
+                    }
+                }
+            }
+
+            let xf = su * ow as f32 - 0.5;
+            let yf = sv * oh as f32 - 0.5;
+            let x0 = xf.floor() as i32;
+            let y0 = yf.floor() as i32;
+            let fx = xf - x0 as f32;
+            let fy = yf - y0 as f32;
+            let mut xa = x0;
+            let mut xb = x0 + 1i32;
+            let mut ya = y0;
+            let mut yb = y0 + 1i32;
+            let ow_i = ow as i32;
+            let oh_i = oh as i32;
+            if xa < 0i32 {
+                xa = 0i32;
+            }
+            if xb < 0i32 {
+                xb = 0i32;
+            }
+            if ya < 0i32 {
+                ya = 0i32;
+            }
+            if yb < 0i32 {
+                yb = 0i32;
+            }
+            if xa >= ow_i {
+                xa = ow_i - 1i32;
+            }
+            if xb >= ow_i {
+                xb = ow_i - 1i32;
+            }
+            if ya >= oh_i {
+                ya = oh_i - 1i32;
+            }
+            if yb >= oh_i {
+                yb = oh_i - 1i32;
+            }
+            let a = (ya as usize * ow + xa as usize) * 3;
+            let b = (ya as usize * ow + xb as usize) * 3;
+            let c = (yb as usize * ow + xa as usize) * 3;
+            let d4 = (yb as usize * ow + xb as usize) * 3;
+            let hr = (hist_color[a] * (1.0 - fx) + hist_color[b] * fx) * (1.0 - fy)
+                + (hist_color[c] * (1.0 - fx) + hist_color[d4] * fx) * fy;
+            let hg = (hist_color[a + 1] * (1.0 - fx) + hist_color[b + 1] * fx) * (1.0 - fy)
+                + (hist_color[c + 1] * (1.0 - fx) + hist_color[d4 + 1] * fx) * fy;
+            let hb = (hist_color[a + 2] * (1.0 - fx) + hist_color[b + 2] * fx) * (1.0 - fy)
+                + (hist_color[c + 2] * (1.0 - fx) + hist_color[d4 + 2] * fx) * fy;
+            let ad = ya as usize * ow + xa as usize;
+            let bd = ya as usize * ow + xb as usize;
+            let cd = yb as usize * ow + xa as usize;
+            let dd = yb as usize * ow + xb as usize;
+            let dp = (hist_depth[ad] * (1.0 - fx) + hist_depth[bd] * fx) * (1.0 - fy)
+                + (hist_depth[cd] * (1.0 - fx) + hist_depth[dd] * fx) * fy;
+            let hc = (hist_conf[ad] * (1.0 - fx) + hist_conf[bd] * fx) * (1.0 - fy)
+                + (hist_conf[cd] * (1.0 - fx) + hist_conf[dd] * fx) * fy;
+
+            let mut dmax = dc;
+            if dp > dmax {
+                dmax = dp;
+            }
+            if dmax < 0.000001 {
+                dmax = 0.000001;
+            }
+            let mut depth_ok = cr * 0.0;
+            let ddiff = (dc - dp).abs();
+            if ddiff <= depth_rel_tol * dmax {
+                depth_ok = 1.0;
+            }
+
+            // thin:coverage/confidence 路径,深度不单独否决
+            let thin = cov < 0.999;
+            let mut validity = inside * depth_ok;
+            if thin {
+                validity = inside;
+                if cov < 0.35 {
+                    validity = 0.0;
+                } else {
+                    if hc < 0.25 {
+                        validity = 0.0;
+                    }
+                }
+            }
+
+            if cov < 0.35 {
+                final_out[base] = cr;
+                final_out[base + 1] = cg;
+                final_out[base + 2] = cb;
+                hist_conf_out[i] = 0.15;
+                reject_mask[i] = 1.0;
+            } else {
+                if reactive_v >= 0.5 {
+                    final_out[base] = cr;
+                    final_out[base + 1] = cg;
+                    final_out[base + 2] = cb;
+                    hist_conf_out[i] = 0.0;
+                    reject_mask[i] = 1.0;
+                } else {
+                    if validity < 0.5 {
+                        // resurrection 读臂
+                        let rm = i * 4;
+                        let rvalid = retired_meta[rm + 3];
+                        let rage = retired_meta[rm + 1];
+                        let rkey = retired_meta[rm + 2];
+                        let rdepth = retired_meta[rm];
+                        let mut can = rvalid;
+                        if rage > age_max as f32 {
+                            can = 0.0;
+                        }
+                        if rkey != key_f32 {
+                            can = 0.0;
+                        }
+                        let mut rdmax = dc;
+                        if rdepth > rdmax {
+                            rdmax = rdepth;
+                        }
+                        if rdmax < 0.000001 {
+                            rdmax = 0.000001;
+                        }
+                        if (dc - rdepth).abs() > depth_rel_tol * rdmax * 1.5 {
+                            can = 0.0;
+                        }
+                        if can > 0.5 {
+                            let rb = i * 3;
+                            let rr = retired_rgb[rb];
+                            let rg = retired_rgb[rb + 1];
+                            let rbb = retired_rgb[rb + 2];
+                            // 简化混合:偏低 alpha 加速收敛
+                            let alpha = min_alpha;
+                            let or = alpha * cr + (1.0 - alpha) * rr;
+                            let og = alpha * cg + (1.0 - alpha) * rg;
+                            let ob = alpha * cb + (1.0 - alpha) * rbb;
+                            final_out[base] = or;
+                            final_out[base + 1] = og;
+                            final_out[base + 2] = ob;
+                            hist_conf_out[i] = 0.5;
+                            reject_mask[i] = 0.0;
+                        } else {
+                            final_out[base] = cr;
+                            final_out[base + 1] = cg;
+                            final_out[base + 2] = cb;
+                            hist_conf_out[i] = 0.35;
+                            reject_mask[i] = 1.0;
+                        }
+                    } else {
+                        // 正常 AABB 混合(镜像 tsr_temporal;含 reactive)
+                        let mut xm = ox as i32 - 1i32;
+                        let mut xp = ox as i32 + 1i32;
+                        let mut ym = oy as i32 - 1i32;
+                        let mut yp = oy as i32 + 1i32;
+                        if xm < 0i32 {
+                            xm = 0i32;
+                        }
+                        if ym < 0i32 {
+                            ym = 0i32;
+                        }
+                        if xp >= ow_i {
+                            xp = ow_i - 1i32;
+                        }
+                        if yp >= oh_i {
+                            yp = oh_i - 1i32;
+                        }
+                        let n00 = (ym as usize * ow + xm as usize) * 3;
+                        let n01 = (ym as usize * ow + ox) * 3;
+                        let n02 = (ym as usize * ow + xp as usize) * 3;
+                        let n10 = (oy * ow + xm as usize) * 3;
+                        let n11 = base;
+                        let n12 = (oy * ow + xp as usize) * 3;
+                        let n20 = (yp as usize * ow + xm as usize) * 3;
+                        let n21 = (yp as usize * ow + ox) * 3;
+                        let n22 = (yp as usize * ow + xp as usize) * 3;
+                        let y00 = 0.25 * tsr_cur[n00] + 0.5 * tsr_cur[n00 + 1] + 0.25 * tsr_cur[n00 + 2];
+                        let y01 = 0.25 * tsr_cur[n01] + 0.5 * tsr_cur[n01 + 1] + 0.25 * tsr_cur[n01 + 2];
+                        let y02 = 0.25 * tsr_cur[n02] + 0.5 * tsr_cur[n02 + 1] + 0.25 * tsr_cur[n02 + 2];
+                        let y10 = 0.25 * tsr_cur[n10] + 0.5 * tsr_cur[n10 + 1] + 0.25 * tsr_cur[n10 + 2];
+                        let y11 = lc;
+                        let y12 = 0.25 * tsr_cur[n12] + 0.5 * tsr_cur[n12 + 1] + 0.25 * tsr_cur[n12 + 2];
+                        let y20 = 0.25 * tsr_cur[n20] + 0.5 * tsr_cur[n20 + 1] + 0.25 * tsr_cur[n20 + 2];
+                        let y21 = 0.25 * tsr_cur[n21] + 0.5 * tsr_cur[n21 + 1] + 0.25 * tsr_cur[n21 + 2];
+                        let y22 = 0.25 * tsr_cur[n22] + 0.5 * tsr_cur[n22 + 1] + 0.25 * tsr_cur[n22 + 2];
+                        let co00 = 0.5 * tsr_cur[n00] - 0.5 * tsr_cur[n00 + 2];
+                        let co01 = 0.5 * tsr_cur[n01] - 0.5 * tsr_cur[n01 + 2];
+                        let co02 = 0.5 * tsr_cur[n02] - 0.5 * tsr_cur[n02 + 2];
+                        let co10 = 0.5 * tsr_cur[n10] - 0.5 * tsr_cur[n10 + 2];
+                        let co11 = 0.5 * cr - 0.5 * cb;
+                        let co12 = 0.5 * tsr_cur[n12] - 0.5 * tsr_cur[n12 + 2];
+                        let co20 = 0.5 * tsr_cur[n20] - 0.5 * tsr_cur[n20 + 2];
+                        let co21 = 0.5 * tsr_cur[n21] - 0.5 * tsr_cur[n21 + 2];
+                        let co22 = 0.5 * tsr_cur[n22] - 0.5 * tsr_cur[n22 + 2];
+                        let cg00 = (0.0 - 0.25) * tsr_cur[n00] + 0.5 * tsr_cur[n00 + 1] - 0.25 * tsr_cur[n00 + 2];
+                        let cg01 = (0.0 - 0.25) * tsr_cur[n01] + 0.5 * tsr_cur[n01 + 1] - 0.25 * tsr_cur[n01 + 2];
+                        let cg02 = (0.0 - 0.25) * tsr_cur[n02] + 0.5 * tsr_cur[n02 + 1] - 0.25 * tsr_cur[n02 + 2];
+                        let cg10 = (0.0 - 0.25) * tsr_cur[n10] + 0.5 * tsr_cur[n10 + 1] - 0.25 * tsr_cur[n10 + 2];
+                        let cg11 = (0.0 - 0.25) * cr + 0.5 * cg - 0.25 * cb;
+                        let cg12 = (0.0 - 0.25) * tsr_cur[n12] + 0.5 * tsr_cur[n12 + 1] - 0.25 * tsr_cur[n12 + 2];
+                        let cg20 = (0.0 - 0.25) * tsr_cur[n20] + 0.5 * tsr_cur[n20 + 1] - 0.25 * tsr_cur[n20 + 2];
+                        let cg21 = (0.0 - 0.25) * tsr_cur[n21] + 0.5 * tsr_cur[n21 + 1] - 0.25 * tsr_cur[n21 + 2];
+                        let cg22 = (0.0 - 0.25) * tsr_cur[n22] + 0.5 * tsr_cur[n22 + 1] - 0.25 * tsr_cur[n22 + 2];
+                        let lo_y = y00.min(y01).min(y02).min(y10).min(y11).min(y12).min(y20).min(y21).min(y22);
+                        let hi_y = y00.max(y01).max(y02).max(y10).max(y11).max(y12).max(y20).max(y21).max(y22);
+                        let lo_co = co00.min(co01).min(co02).min(co10).min(co11).min(co12).min(co20).min(co21).min(co22);
+                        let hi_co = co00.max(co01).max(co02).max(co10).max(co11).max(co12).max(co20).max(co21).max(co22);
+                        let lo_cg = cg00.min(cg01).min(cg02).min(cg10).min(cg11).min(cg12).min(cg20).min(cg21).min(cg22);
+                        let hi_cg = cg00.max(cg01).max(cg02).max(cg10).max(cg11).max(cg12).max(cg20).max(cg21).max(cg22);
+
+                        let hy0 = 0.25 * hr + 0.5 * hg + 0.25 * hb;
+                        let hco0 = 0.5 * hr - 0.5 * hb;
+                        let hcg0 = (0.0 - 0.25) * hr + 0.5 * hg - 0.25 * hb;
+                        let mut relax = flick * (1.0 - reactive_v);
+                        if relax < 0.0 {
+                            relax = 0.0;
+                        }
+                        if relax > 1.0 {
+                            relax = 1.0;
+                        }
+                        let mut hy_c = hy0;
+                        if hy_c < lo_y {
+                            hy_c = lo_y;
+                        }
+                        if hy_c > hi_y {
+                            hy_c = hi_y;
+                        }
+                        let mut hco_c = hco0;
+                        if hco_c < lo_co {
+                            hco_c = lo_co;
+                        }
+                        if hco_c > hi_co {
+                            hco_c = hi_co;
+                        }
+                        let mut hcg_c = hcg0;
+                        if hcg_c < lo_cg {
+                            hcg_c = lo_cg;
+                        }
+                        if hcg_c > hi_cg {
+                            hcg_c = hi_cg;
+                        }
+                        let hy_u = hy_c * (1.0 - relax) + hy0 * relax;
+                        let hco_u = hco_c * (1.0 - relax) + hco0 * relax;
+                        let hcg_u = hcg_c * (1.0 - relax) + hcg0 * relax;
+
+                        let mut alpha = base_alpha * (1.0 - flicker_tighten * flick * (1.0 - reactive_v));
+                        if alpha < reactive_v {
+                            alpha = reactive_v;
+                        }
+                        if alpha < min_alpha {
+                            alpha = min_alpha;
+                        }
+                        if alpha > 1.0 {
+                            alpha = 1.0;
+                        }
+                        let by = alpha * y11 + (1.0 - alpha) * hy_u;
+                        let bco = alpha * co11 + (1.0 - alpha) * hco_u;
+                        let bcg = alpha * cg11 + (1.0 - alpha) * hcg_u;
+                        let tmp = by - bcg;
+                        let mut or = tmp + bco;
+                        let mut og = by + bcg;
+                        let mut ob = tmp - bco;
+                        if or < 0.0 {
+                            or = 0.0;
+                        }
+                        if og < 0.0 {
+                            og = 0.0;
+                        }
+                        if ob < 0.0 {
+                            ob = 0.0;
+                        }
+                        final_out[base] = or;
+                        final_out[base + 1] = og;
+                        final_out[base + 2] = ob;
+                        let mut nc = hc * 0.85 + 0.15;
+                        if nc > 1.0 {
+                            nc = 1.0;
+                        }
+                        hist_conf_out[i] = nc;
+                    }
+                }
+            }
+            prev_luma[i] = lc;
+        }
+    }
+}
+
+fn main() {}

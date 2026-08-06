@@ -1224,6 +1224,28 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave5a_exit_check.py --gate g8.wave.5a.exit
 
+      # 步骤 117（G8.5b P0 硬门 g8.p0.m24.tsr_contract）:TSR 五 case + RFC §4.6.4
+      # tolerance 冻结。device 门。
+      - name: G8.5b M24 TSR contract smoke (G8 CI_GATES §4.117, g8.p0.m24.tsr_contract)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_tsr_contract_smoke.py --gate g8.p0.m24.tsr_contract
+
+      # 步骤 118（G8.5b P1 硬门 g8.p1.m25.upscaler_input_abi）:双非 no-op backend。
+      - name: G8.5b M25 upscaler input ABI smoke (G8 CI_GATES §4.0.118, g8.p1.m25.upscaler_input_abi)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g8_upscaler_input_abi_smoke.py --gate g8.p1.m25.upscaler_input_abi
+
+      # 步骤 119（G8.5b 波次聚合 g8.wave.5b.exit）。
+      - name: G8.5b wave5b.exit aggregate (G8 CI_GATES §5.119, g8.wave.5b.exit)
+        shell: powershell
+        run: py -3 ci/g8_wave5b_exit_check.py --gate g8.wave.5b.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

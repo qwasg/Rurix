@@ -71,8 +71,8 @@
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
 | M23 | TAA/TSR 底座（MV/jitter/历史验证） | R1 §3.5 | ✅ G5 `temporal::` host 全量 + G6 物理 MV 供给；TSR device 化审计 = G7.5 在途（RD-038 分项「TSR 是否仍只有 host reference」） | — | — | 承 G7 | ✔ | 承 G7 |
-| M24 | TSR 生产契约（history resurrection / pixel animation 材质语义 / thin geometry / 动态分辨率 / 透明 velocity） | R1 §3.5 | ⬜ | A：时域材质语义；C：rejection/resurrection；D：序列回归 | A/C/D | P0 | ✔ | 语义→RFC-0019；实现→G8.5b |
-| M25 | vendor 超分插件面（FSR/DirectSR/DLSS 输入 ABI） | R1 §6.4 | ⬜ RD-041（`UpscaleBackend` 留口已冻结） | 标准输入 ABI | B/C | P1 | ✔ | G8.5b（接口不改底座） |
+| M24 | TSR 生产契约（history resurrection / pixel animation 材质语义 / thin geometry / 动态分辨率 / 透明 velocity） | R1 §3.5 | ✅ G8.5b `temporal/contract` + RFC-0019 §4.6.4 `rfc_budget_frozen`（13 腿 device） | A：时域材质语义；C：rejection/resurrection；D：序列回归 | A/C/D | P0 | ✔ | 语义→RFC-0019；实现→G8.5b |
+| M25 | vendor 超分插件面（FSR/DirectSR/DLSS 输入 ABI） | R1 §6.4 | ✅ G8.5b UpscalerInputAbi v1 + TSR/CAS 双非 no-op（12 腿；vendor FSR FFI 仍 open 观察） | 标准输入 ABI | B/C | P1 | ✔ | G8.5b（接口不改底座） |
 | M26 | 帧生成 FG/MFG | R1 §6.4 | ⬜ RD-041 分项「FG/MFG 为独立层另判」；G7 out_of_scope 字面 | — | — | P3 | 部分 | 不进 G8（RD-041 观察维持） |
 
 ## 5. 材质与着色器工程体系

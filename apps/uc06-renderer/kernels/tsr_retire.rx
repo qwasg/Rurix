@@ -1,0 +1,59 @@
+// G8.5b M24:retired ring 维护核(设计 §3.2)。
+// 与主核分核,规避编码器「并列 if」边界;逐像素 age++/cut 清空/reject 写入。
+//
+// 绑定:
+//   0 retired_rgb (ow*oh*3)  1 retired_meta (ow*oh*4: depth,age,key_f32,valid)
+//   2 reject_mask (ow*oh: >0.5 → 本帧 reject,写入 hist 快照)
+//   3 hist_color (ow*oh*3)   4 hist_depth (ow*oh)  5 hist_conf (ow*oh)
+kernel fn tsr_retire(
+    t: ThreadCtx<1>,
+    retired_rgb: ViewMut<global, f32>,
+    retired_meta: ViewMut<global, f32>,
+    reject_mask: View<global, f32>,
+    hist_color: View<global, f32>,
+    hist_depth: View<global, f32>,
+    hist_conf: View<global, f32>,
+    ow: usize,
+    oh: usize,
+    age_max: usize,
+    camera_cut: usize,
+    key_f32: f32,
+) {
+    let i = t.global_id();
+    if i < ow * oh {
+        let mbase = i * 4;
+        let mut age = retired_meta[mbase + 1];
+        let mut valid = retired_meta[mbase + 3];
+        if camera_cut != 0 {
+            valid = 0.0;
+            age = 0.0;
+        } else {
+            if valid > 0.5 {
+                age = age + 1.0;
+                if age > age_max as f32 {
+                    valid = 0.0;
+                    age = 0.0;
+                }
+            }
+            // 空槽且 reject:写入历史快照(禁覆盖未过期槽)
+            if reject_mask[i] > 0.5 {
+                if valid < 0.5 {
+                    if hist_conf[i] > 0.2 {
+                        let b = i * 3;
+                        retired_rgb[b] = hist_color[b];
+                        retired_rgb[b + 1] = hist_color[b + 1];
+                        retired_rgb[b + 2] = hist_color[b + 2];
+                        retired_meta[mbase] = hist_depth[i];
+                        age = 0.0;
+                        retired_meta[mbase + 2] = key_f32;
+                        valid = 1.0;
+                    }
+                }
+            }
+        }
+        retired_meta[mbase + 1] = age;
+        retired_meta[mbase + 3] = valid;
+    }
+}
+
+fn main() {}

@@ -76,7 +76,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m04.page_format_abi` | M04 | G8.3 | `ci/g8_page_format_abi_smoke.py` | 109 |
 | `g8.p0.m37.streaming_io` | M37 | G8.4 | `ci/g8_streaming_io_smoke.py` | 112 |
 | `g8.p0.m19.vsm_page_cache` | M19 | G8.5a | `ci/g8_vsm_page_cache_smoke.py` | 115 |
-| `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | 117 |
 | `g8.p0.m66.physics_replay` | M66 | G8.6a | `ci/g8_physics_replay_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m67.network_physics` | M67 | G8.6b | `ci/g8_network_physics_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m68.fracture_pipeline` | M68 | G8.6c | `ci/g8_fracture_pipeline_smoke.py` | `post-G7 actual-next-free allocation` |
@@ -87,7 +87,7 @@ py -3 ci/budget_eval.py
 
 | symbolic_gate_key | M## | 波次 | script | numeric_step |
 |---|---:|---|---|---|
-| `g8.p1.m25.upscaler_input_abi` | M25 | G8.5b | `ci/g8_upscaler_input_abi_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p1.m25.upscaler_input_abi` | M25 | G8.5b | `ci/g8_upscaler_input_abi_smoke.py` | 118 |
 | `g8.p1.m72.cloth_product_chain` | M72 | G8.6d | `ci/g8_cloth_product_chain_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p1.m83.texture_transcode` | M83 | G8.3 | `ci/g8_texture_transcode_smoke.py` | 107 |
 
@@ -127,7 +127,7 @@ py -3 ci/budget_eval.py
 | `g8.gate.geom_page` | `ci/g8_geom_page_gate.py` | 113 | 消费冻结 M04 ABI；按需驻留/root 钉住/LRU/迟到页独立 evidence；device 必需；不入 21 行 P0 集合 |
 | `g8.wave.4.exit` | `ci/g8_wave4_exit_check.py` | 114 | M37 PASS；GeomPage 必过；VT go 时独立过、no-go 时 not-triggered；MQ 三断言或单队列 fallback 事实 |
 | `g8.wave.5a.exit` | `ci/g8_wave5a_exit_check.py` | 116 | M19 PASS；go 的几何/阴影项与 RD-038 raster/VSM 接入各自有 PASS evidence |
-| `g8.wave.5b.exit` | `ci/g8_wave5b_exit_check.py` | `post-G7 actual-next-free allocation` | M24 PASS；go 的材质/GI/显示项与 RD-038 GI/TSR/真帧接入各自有 PASS evidence |
+| `g8.wave.5b.exit` | `ci/g8_wave5b_exit_check.py` | 119 | M24 PASS；go 的材质/GI/显示项与 RD-038 GI/TSR/真帧接入各自有 PASS evidence |
 | `g8.wave.6a.exit` | `ci/g8_wave6a_exit_check.py` | `post-G7 actual-next-free allocation` | M66 PASS；Jolt 5.3 corpus 先完成；5.6 A/B 结果诚实判档 |
 | `g8.wave.6b.exit` | `ci/g8_wave6b_exit_check.py` | `post-G7 actual-next-free allocation` | M67 PASS；网络全链、CharacterVirtual、PhysicsAsset/ragdoll/physical animation 闭环 |
 | `g8.wave.6c.exit` | `ci/g8_wave6c_exit_check.py` | `post-G7 actual-next-free allocation` | M68 PASS；破坏全链闭环 |
@@ -186,6 +186,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.19 | 2026-08-06 | **G8.5b M24 + M25 + wave5b.exit**：§4 M24→`117`、§4.0 M25→`118`；§5 `g8.wave.5b.exit`→`119`；RFC-0019 §4.6.4 tolerance 冻结；RD-038 GI/TSR 接入空集。device 两门 + host 聚合。 |
 | v1.18 | 2026-08-06 | **G8.5a M19 + wave5a.exit**：§4 M19→`115`；§5 `g8.wave.5a.exit`→`116`；RD-038 raster/VSM 接入空集；retained-open 清单锚。device + host 聚合。 |
 | v1.17 | 2026-08-06 | **G8.4 M37 + GeomPage + wave4.exit**：§4 M37→`112`；§5 `g8.gate.geom_page`→`113`、`g8.wave.4.exit`→`114`；queue_mode=single；VT=SKIP=not-triggered（M40 no-go）。device 两门 + host 聚合。 |
 | v1.16 | 2026-08-06 | **M85 `--phase g8.3` + wave3.exit**：§5 `g8.wave.3.exit`→`111`；M85 DDC 腿 + 聚合五 P0+M83+ABI 锚。host。 |

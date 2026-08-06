@@ -19,6 +19,7 @@
 //! - `jitter` 为**输入分辨率像素单位**的亚像素抖动(相机投影 jitter 的等价
 //!   采样口径,见 [`crate::temporal::common::jitter_sequence`] 文档)。
 
+use crate::temporal::abi::{ConsumeReport, UpscalerInputAbi};
 use crate::temporal::image::ImageF32;
 
 /// 时域超分统一输入(冻结接口,RFC-0016 §4.0-3)。
@@ -101,6 +102,21 @@ impl<'a> UpscaleInputs<'a> {
     }
 }
 
+/// M25 加性扩展输入(冻结 `UpscaleInputs` 0-byte;transparent 独立槽)。
+///
+/// `None` 等价无透明贡献;`upscale_ext` default 委托 `upscale` 忽略本结构。
+#[derive(Debug, Clone, Copy, Default)]
+pub struct UpscaleInputsExt<'a> {
+    /// 透明/coverage 先验(1 通道,输入分辨率;RFC-0019 §4.6.3 provenance)。
+    pub transparent: Option<&'a ImageF32>,
+}
+
+impl<'a> UpscaleInputsExt<'a> {
+    pub fn empty() -> Self {
+        Self { transparent: None }
+    }
+}
+
 /// 时域超分后端 trait(冻结接口,RFC-0016 §4.0-3)。
 ///
 /// 实现义务(接口契约,仿 UE `ITemporalUpscaler`,报告7 §2.4):
@@ -108,6 +124,8 @@ impl<'a> UpscaleInputs<'a> {
 /// - 历史状态内置、双缓冲轮换(见模块文档);reset/首帧直接上采样当前帧;
 /// - 重投影/历史验证一律经 [`crate::temporal::common`] 公共底座,
 ///   **禁私写重投影**(G-G5-7 代码审计点)。
+///
+/// M25 加性默认方法(`abi_hash`/`upscale_ext`/`consumed_slots`)不改原三方法签名。
 pub trait UpscaleBackend {
     /// 后端名(诊断/日志;vendor 后端返回 SDK 标识)。
     fn name(&self) -> &str;
@@ -116,6 +134,22 @@ pub trait UpscaleBackend {
     /// 丢弃全部历史状态(下一帧按首帧处理;输出分辨率变化的自动重置
     /// 不替代本方法——外部跳切仍应显式调用或置 `inputs.reset`)。
     fn reset_history(&mut self);
+
+    /// 本 backend 宣称的 UpscalerInputAbi v1 hash(默认 = 冻结 v1)。
+    fn abi_hash(&self) -> [u8; 32] {
+        UpscalerInputAbi::v1().hash()
+    }
+
+    /// 加性扩展入口:默认委托 [`Self::upscale`](忽略 ext)。
+    fn upscale_ext(&mut self, inputs: &UpscaleInputs, ext: &UpscaleInputsExt) -> ImageF32 {
+        let _ = ext;
+        self.upscale(inputs)
+    }
+
+    /// 最近一次 `upscale`/`upscale_ext` 消费的 ABI 槽位(evidence 逐项见证)。
+    fn consumed_slots(&self) -> ConsumeReport {
+        ConsumeReport { slots: Vec::new() }
+    }
 }
 
 #[cfg(test)]

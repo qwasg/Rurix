@@ -16,7 +16,10 @@
 //! 输出分辨率常驻历史 + jitter 对齐 Catmull-Rom 重采样 + 闪烁时域分析 +
 //! reactive mask 双通道,不做锐化)+ [`ssim`](G-G5-7 静态收敛 SSIM 门禁)。
 
+pub mod abi;
+pub mod cas;
 pub mod common;
+pub mod contract;
 pub mod image;
 pub mod ssim;
 pub mod taa;

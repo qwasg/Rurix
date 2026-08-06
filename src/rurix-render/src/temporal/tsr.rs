@@ -41,12 +41,13 @@
 //! 收敛加速(Resurrection)/拒绝抗锯齿质量档分档(报告7 §2.2 机制 3)归后续
 //! 波次,本期旋钮面以 [`TsrParams`] 为限。
 
+use crate::temporal::abi::ConsumeReport;
 use crate::temporal::common::{
     neighborhood_aabb, reproject_sample, rgb_image_to_ycocg, rgb_to_ycocg,
     validate_history_with_mv, ycocg_to_rgb,
 };
 use crate::temporal::image::ImageF32;
-use crate::temporal::upscale::{UpscaleBackend, UpscaleInputs};
+use crate::temporal::upscale::{UpscaleBackend, UpscaleInputs, UpscaleInputsExt};
 
 /// TSR 旋钮(报告7 §2.2 公开旋钮体系的 host 参考实现子集;默认值即验收口径)。
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -154,6 +155,8 @@ pub struct TsrUpscaler {
     prev_luma: Option<ImageF32>,
     prev_sign: Option<ImageF32>,
     flicker_score: Option<ImageF32>,
+    /// M25:最近一次 ABI 消费槽位。
+    last_consumed: Vec<&'static str>,
 }
 
 impl TsrUpscaler {
@@ -166,6 +169,7 @@ impl TsrUpscaler {
             prev_luma: None,
             prev_sign: None,
             flicker_score: None,
+            last_consumed: Vec::new(),
         }
     }
 
@@ -255,16 +259,37 @@ impl UpscaleBackend for TsrUpscaler {
     }
 
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
+        self.upscale_ext(inputs, &UpscaleInputsExt::empty())
+    }
+
+    fn upscale_ext(&mut self, inputs: &UpscaleInputs, ext: &UpscaleInputsExt) -> ImageF32 {
         let (_, _, ow, oh) = inputs.validated();
         // 输出分辨率变化 → 自动丢弃历史(接口契约,模块文档)
         if self.output_size != Some((ow, oh)) {
             self.clear_state();
             self.output_size = Some((ow, oh));
         }
-        let cur = Self::resample_current_frame(inputs);
-        let depth_hi = upsample_nearest(inputs.depth, ow, oh);
-        let mv_hi = upsample_nearest(inputs.mv, ow, oh);
-        let reactive_hi = inputs.reactive.map(|r| upsample_bilinear(r, ow, oh));
+        // M25:transparent 并入 reactive(取 max),证明独立槽被消费。
+        let merged_reactive;
+        let reactive_ref = match (inputs.reactive, ext.transparent) {
+            (Some(r), Some(t)) => {
+                merged_reactive = ImageF32::from_fn(r.w, r.h, 1, |x, y, _| {
+                    r.get(x, y, 0).max(t.get(x, y, 0)).clamp(0.0, 1.0)
+                });
+                Some(&merged_reactive)
+            }
+            (Some(r), None) => Some(r),
+            (None, Some(t)) => Some(t),
+            (None, None) => None,
+        };
+        let inputs_merged = UpscaleInputs {
+            reactive: reactive_ref,
+            ..*inputs
+        };
+        let cur = Self::resample_current_frame(&inputs_merged);
+        let depth_hi = upsample_nearest(inputs_merged.depth, ow, oh);
+        let mv_hi = upsample_nearest(inputs_merged.mv, ow, oh);
+        let reactive_hi = inputs_merged.reactive.map(|r| upsample_bilinear(r, ow, oh));
         let cur_luma = luma_image(&cur);
 
         let out = if inputs.reset || self.history.is_none() {
@@ -373,11 +398,33 @@ impl UpscaleBackend for TsrUpscaler {
         self.history = Some(out.clone());
         self.history_depth = Some(depth_hi);
         self.prev_luma = Some(cur_luma);
+        self.last_consumed = vec![
+            "color",
+            "depth",
+            "motion",
+            "exposure",
+            "jitter",
+            "render_extent",
+            "output_extent",
+            "reset",
+        ];
+        if inputs.reactive.is_some() || ext.transparent.is_some() {
+            self.last_consumed.push("reactive");
+        }
+        if ext.transparent.is_some() {
+            self.last_consumed.push("transparent");
+        }
         out
     }
 
     fn reset_history(&mut self) {
         self.clear_state();
+    }
+
+    fn consumed_slots(&self) -> ConsumeReport {
+        ConsumeReport {
+            slots: self.last_consumed.clone(),
+        }
     }
 }
 

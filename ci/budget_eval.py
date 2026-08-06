@@ -1211,6 +1211,44 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M80 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.tsr_contract_checks":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m24_tsr_contract_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 13:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 tsr_contract 13 腿 device 全绿见证",
+            "G8.5b M24 实现回填前为正常状态",
+            strict,
+        )
+    elif eid == "g8.counter.upscaler_input_abi_checks":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m25_upscaler_input_abi_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 12:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 upscaler_input_abi 12 腿 device 全绿见证",
+            "G8.5b M25 实现回填前为正常状态",
+            strict,
+        )
     elif eid == "g8.counter.vsm_page_cache_checks":
         n = 0
         for f in (ROOT / "evidence").glob("g8_m19_vsm_page_cache_*.json"):

@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.5b M24 tsr_contract evidence",
+  "description": "evidence/g8_m24_tsr_contract_<UTC>.json。G8.5b P0 硬门 g8.p0.m24.tsr_contract:TSR 五 case device 序列对拍。device 必需;RURIX_REQUIRE_REAL=1。CI 步骤 117。tolerance=RFC-0019 §4.6.4 rfc_budget_frozen。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "case_set",
+    "tolerance_stage",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m24_tsr_contract" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m24.tsr_contract" },
+    "matrix_row": { "type": "string", "const": "M24" },
+    "wave": { "type": "string", "const": "G8.5b" },
+    "numeric_step": { "type": "integer", "const": 117 },
+    "source_ref": { "type": "string", "minLength": 1 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_oracle_regression",
+        "case_set_exact",
+        "case_history_resurrection",
+        "case_pixel_animation_velocity",
+        "case_thin_geometry",
+        "case_dynamic_resolution",
+        "case_transparent_velocity",
+        "tolerance_frozen",
+        "red_wrong_history_identity",
+        "red_cross_cut_resurrection",
+        "red_missing_previous_zero_motion",
+        "not_satisfiable_by_taa",
+        "validation_zero"
+      ],
+      "properties": {
+        "host_oracle_regression": { "type": "boolean" },
+        "case_set_exact": { "type": "boolean" },
+        "case_history_resurrection": { "type": "boolean" },
+        "case_pixel_animation_velocity": { "type": "boolean" },
+        "case_thin_geometry": { "type": "boolean" },
+        "case_dynamic_resolution": { "type": "boolean" },
+        "case_transparent_velocity": { "type": "boolean" },
+        "tolerance_frozen": { "type": "boolean" },
+        "red_wrong_history_identity": { "type": "boolean" },
+        "red_cross_cut_resurrection": { "type": "boolean" },
+        "red_missing_previous_zero_motion": { "type": "boolean" },
+        "not_satisfiable_by_taa": { "type": "boolean" },
+        "validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "case_set": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "type": "string" }
+    },
+    "tolerance_stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "freeze_path", "rfc_budget_gov_pending"],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": ["measured_local_freeze", "rfc_budget_frozen", "unfrozen"]
+        },
+        "freeze_path": { "type": "string" },
+        "rfc_budget_gov_pending": { "type": "boolean" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

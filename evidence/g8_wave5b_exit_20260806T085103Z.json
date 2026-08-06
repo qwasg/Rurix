@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "subject": "g8_wave5b_exit",
+  "symbolic_gate_key": "g8.wave.5b.exit",
+  "matrix_row": "G8.5b",
+  "wave": "G8.5b",
+  "numeric_step": 119,
+  "source_ref": "CI_GATES §5;G8.5_RENDERING_COMPLETION_DESIGN §6;M24+M25 PASS + RD-038 empty-set + retained-open + RFC-0019 §4.6.4",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g8.p0.m24.tsr_contract",
+      "subject_prefix": "g8_m24_tsr_contract",
+      "evidence_path": "evidence/g8_m24_tsr_contract_20260806T085057Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T085057Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p1.m25.upscaler_input_abi",
+      "subject_prefix": "g8_m25_upscaler_input_abi",
+      "evidence_path": "evidence/g8_m25_upscaler_input_abi_20260806T085102Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T085102Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rd038_gi_tsr_frame_ingress_empty_set",
+      "status": "PASS",
+      "detail": "RD-038 G7 closed → G8.5b 接入空集(不放宽 M24/M25)"
+    },
+    {
+      "id": "retained_open_listed",
+      "status": "PASS",
+      "detail": "G8_CANDIDATE_DECISIONS §10 矩阵 P1 未判行补裁决"
+    },
+    {
+      "id": "m24_tolerance_rfc_frozen",
+      "status": "PASS",
+      "detail": "tolerance_stage='rfc_budget_frozen'; RFC §4.6.4=yes"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T085103Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "wave5b aggregate"
+}

@@ -28,6 +28,10 @@ mod device_kernels;
 #[cfg(feature = "vulkan")]
 mod device_m19;
 #[cfg(feature = "vulkan")]
+mod device_m24;
+#[cfg(feature = "vulkan")]
+mod device_m25;
+#[cfg(feature = "vulkan")]
 mod device_m37;
 #[cfg(feature = "vulkan")]
 mod device_w3;
@@ -226,6 +230,58 @@ fn run_m19_vsm_page_cache_mode(cli: &Cli) -> i32 {
         }
         Some(Err(e)) => {
             eprintln!("M19: FAIL {e}");
+            1
+        }
+    }
+}
+
+/// G8.5b M24 `--m24-tsr-contract` 模式(device 必需;`RURIX_REQUIRE_REAL=1`)。
+#[cfg(feature = "vulkan")]
+fn run_m24_tsr_contract_mode(_cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    match device_m24::run_m24(None) {
+        None => {
+            println!("M24: SKIP 无 Vulkan device(dev-env degrade)");
+            i32::from(require_real)
+        }
+        Some(Ok(res)) => {
+            println!("{}", res.json());
+            if res.all_pass {
+                println!("M24: PASS");
+                0
+            } else {
+                eprintln!("M24: FAIL device/host 契约未过");
+                1
+            }
+        }
+        Some(Err(e)) => {
+            eprintln!("M24: FAIL {e}");
+            1
+        }
+    }
+}
+
+/// G8.5b M25 `--m25-upscaler-abi` 模式(device 必需;`RURIX_REQUIRE_REAL=1`)。
+#[cfg(feature = "vulkan")]
+fn run_m25_upscaler_abi_mode(_cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    match device_m25::run_m25_upscaler_abi() {
+        None => {
+            println!("M25: SKIP 无 Vulkan device(dev-env degrade)");
+            i32::from(require_real)
+        }
+        Some(Ok(json)) => {
+            println!("{json}");
+            if json.contains("\"pass\":true") {
+                println!("M25: PASS");
+                0
+            } else {
+                eprintln!("M25: FAIL device ABI/CAS 对拍未过");
+                1
+            }
+        }
+        Some(Err(e)) => {
+            eprintln!("M25: FAIL {e}");
             1
         }
     }
@@ -548,6 +604,10 @@ struct Cli {
     m19_red_stale: bool,
     /// M19 RED:local 页不入批。
     m19_red_missing_local: bool,
+    /// G8.5b M24:TSR 生产契约五 case device 序列对拍。
+    m24_tsr_contract: bool,
+    /// G8.5b M25:UpscalerInputAbi 双后端 + CAS device 对拍。
+    m25_upscaler_abi: bool,
     /// G8.4 M37:流送 I/O 全链 device 对拍。
     stream_io: bool,
     /// G8.4 门-GeomPage:按需驻留 + LRU + 迟到页。
@@ -590,6 +650,8 @@ impl Default for Cli {
             m19_vsm_page_cache: false,
             m19_red_stale: false,
             m19_red_missing_local: false,
+            m24_tsr_contract: false,
+            m25_upscaler_abi: false,
             stream_io: false,
             geom_page: false,
             golden_dir: None,
@@ -666,6 +728,8 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
                 c.m19_vsm_page_cache = true;
                 c.m19_red_missing_local = true;
             }
+            "--m24-tsr-contract" => c.m24_tsr_contract = true,
+            "--m25-upscaler-abi" => c.m25_upscaler_abi = true,
             "--stream-io" => c.stream_io = true,
             "--geom-page" => c.geom_page = true,
             "--golden-dir" => {
@@ -759,11 +823,13 @@ fn main() {
         || cli.g75_hw_raster
         || cli.g76_tsr_temporal
         || cli.m19_vsm_page_cache
+        || cli.m24_tsr_contract
+        || cli.m25_upscaler_abi
         || cli.stream_io
         || cli.geom_page
     {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal/--m19-vsm-page-cache/--stream-io/--geom-page 需要 feature vulkan"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals/--g75-hw-raster/--g76-tsr-temporal/--m19-vsm-page-cache/--m24-tsr-contract/--m25-upscaler-abi/--stream-io/--geom-page 需要 feature vulkan"
         );
         std::process::exit(2);
     }
@@ -809,6 +875,16 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.m19_vsm_page_cache {
         std::process::exit(run_m19_vsm_page_cache_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.m24_tsr_contract {
+        std::process::exit(run_m24_tsr_contract_mode(&cli));
+    }
+
+    #[cfg(feature = "vulkan")]
+    if cli.m25_upscaler_abi {
+        std::process::exit(run_m25_upscaler_abi_mode(&cli));
     }
 
     #[cfg(feature = "vulkan")]

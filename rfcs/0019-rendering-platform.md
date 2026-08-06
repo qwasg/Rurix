@@ -305,6 +305,20 @@ history sample 只可在以下 provenance 相容时复用：view identity、reso
 - **thin geometry（评审 F12 补齐）**：单像素或亚像素宽度的几何（细线、栏杆、发丝、薄片）在 input resolution 下可能在相邻帧间完全丢失覆盖。规范要求：① 该类像素的 history 复用必须以 coverage/confidence 而非单一 depth 比较判定，depth 判据在覆盖不连续时不得单独否决 history；② 丢失覆盖的帧必须写显式 low-confidence 而非零 velocity；③ 禁止用邻域 motion 外插填补 thin geometry 的 velocity。对应 `g8.p0.m24.tsr_contract` 的 `thin_geometry` case。
 - **tolerance 冻结程序（评审 F12）**：本 RFC 不预造数字，但必须给出冻结路径——五个 TSR case 的 golden digest 与逐 case 误差 tolerance 由 G8.5b 的首批 measured corpus 采样后，以**本 RFC 的加性修订行**冻结（与 `g8_budget.json` 的 measured 条目同 PR），此后 `g8.p0.m24.tsr_contract` 才可判 GREEN。冻结前该门只能是 RED/未实现，不得以「tolerance 待定」为由跳过；最大 age 等 tuning 参数仍属 budget/evidence，不入语言 stable 面。
 
+#### 4.6.4 G8.5b M24 measured→frozen（加性修订行；2026-08-06）
+
+首批 corpus = RTX 4070 Ti local freeze（`tests/tsr_contract/freeze.json`；`resurrection_age_max=6`）。逐 case **max_abs ≤ tolerance**（tolerance = measured×2）；digest 为 device 末帧 SHA-256。与 `g8_budget.json` measured 条目同 PR 提升为 `rfc_budget_frozen`。
+
+| case | golden digest (SHA-256 hex) | tolerance (max_abs) |
+|---|---|---:|
+| `history_resurrection` | `7dfc2c73598795a373ead4484d4c91488594e7eed246dcb56481d402d42daeea` | 1.667216897 |
+| `pixel_animation_velocity` | `c216629b3ca1c4228a722817fd436efa6678bff12d1fb20223ceed6685c8f451` | 0.3430680036 |
+| `thin_geometry` | `f713aa759438e93ad72916e733981fb8be2a72f09bfd4b6314a9a6cb484fd64b` | 1.3896520138 |
+| `dynamic_resolution` | `f76f35d9ccc6ee87a39f6338ed7a152d3b19f82a9d7066dafc19aa2807af00bd` | 0.02785670758 |
+| `transparent_velocity` | `014072e8d0d7b0593f29fa7f190354a3b9fb792b20b9b4a62405199477e7d802` | 1.5806208848 |
+
+异机/驱动分歧须另开 RFC 加性修订行，禁止静默放宽容差。
+
 ### 4.7 M28 — 多层 closure 抽象语义（实现条件臂）
 
 RFC 层冻结一个 backend-neutral、acyclic closure graph：
@@ -546,3 +560,4 @@ G8.2 互锁前不得在 workflow 放空步骤，也不得为 no-go 项预建 gat
 |---|---|---|---|
 | Draft v0.1 | 2026-08-02 | 初稿：冻结 M50/M89/M29/M31/M32/M24/M28/M59/M62 语义、spec diff/RED-GREEN 计划、G5 EB 0-byte 边界与 G7/RD-038 双门；§9.1 留给独立 provenance 对抗性评审 | Full RFC（Draft） |
 | v1.0 | 2026-08-02 | **Agent Approved**：D-409 独立 provenance（`Kiro:claude-opus-5` ≠ 起草 `Codex:gpt-5`）三镜头评审完成，17 findings 全 disposition。正文实改要点：新增 §4.1.6 RXS-0244/0245/0248 冻结面逐句修订行（F6 blocker）、§4.1.5 分库≡单体等价、§4.5.1 四个 symbolic diagnostic key、§4.6.3 thin geometry 与 tolerance 冻结程序、§6.1 改为引用统一 canonical gate key（不新造命名空间）、§4.2 回到 RD-037 字面、§2.2 补全 RD-040 逐字条件、§4.9 澄清 task 条件臂事实、§8 补 `GpuScene`/物理五纪律/`MaterialClosure` 预留位口径。零 RXS/CI/RD/U/RX 数字 claim；批准不解锁实现，G8.2 互锁仍为独立硬门。 | Full RFC（Agent Approved） |
+| v1.1 | 2026-08-06 | **§4.6.4 加性**：G8.5b M24 五 case golden digest + 逐 case tolerance 自 measured local freeze 提升为 RFC/budget 冻结（`rfc_budget_frozen`）；`resurrection_age_max=6`。零语言语义改动。 | Full RFC（Agent Approved；加性修订） |
