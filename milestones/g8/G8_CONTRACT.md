@@ -1,7 +1,7 @@
 ---
 contract: G8
 title: G8 UE5 级渲染器与物理引擎前置能力完成期
-status: active
+status: closed
 implementation_status: unblocked
 active_scope: G8.2_implementation
 version: v1.0
@@ -679,3 +679,8 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 - `VERDICT = READY`（`last_green_utc=20260806` 与运行日相同，不阻断）
 
 **status flip**：见紧随其后的独立 commit（front matter `active`→`closed` + 本条 0-byte 维持）。
+
+### 8.26 G8 status flip（2026-08-06）
+
+**裁决**：G-G8-1~11 对应波次与硬门已 materialize；8a soak PASS；8b `VERDICT=READY`（`4190f81b`）。  
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-039/040/041/044 总体维持 open（分项 closed 已由候选决策表留痕）。本条为 close-out 终审签署块。
