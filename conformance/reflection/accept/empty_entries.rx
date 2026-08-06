@@ -1,0 +1,4 @@
+//@ reflection: accept
+//@ spec: RXS-0304
+// 无 entry 语料:reflection 产空 entries 表(确定性),不报错。
+fn main() {}

@@ -313,6 +313,9 @@ def check_evidence_files() -> None:
     g8_perf_baseline_schema = load(
         ROOT / "milestones/g8/g8_perf_baseline_evidence_schema.json"
     )
+    g8_m31_reflection_hash_schema = load(
+        ROOT / "milestones/g8/g8_m31_reflection_hash_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -562,6 +565,11 @@ def check_evidence_files() -> None:
     g8_perf_baseline_validator = (
         jsonschema.Draft7Validator(g8_perf_baseline_schema)
         if g8_perf_baseline_schema is not None
+        else None
+    )
+    g8_m31_reflection_hash_validator = (
+        jsonschema.Draft7Validator(g8_m31_reflection_hash_schema)
+        if g8_m31_reflection_hash_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1105,6 +1113,15 @@ def check_evidence_files() -> None:
             # host 计时与 device 见证在 schema 中分栏，禁止把 host cpu_ms 冒充 GPU
             # frame time；供 g8_budget.json 通用 measured entry 判读。
             validator = g8_perf_baseline_validator
+        elif (
+            f.name.startswith("g8_m31_reflection_hash_")
+            and g8_m31_reflection_hash_validator is not None
+        ):
+            # G8.2 M31 reflection_hash 硬门(RXS-0304~0307;RFC-0019 §4.4):
+            # host/compile 纯 host 门,canonical reflection v1 序列化与 interface hash
+            # 稳定性六腿判据。device 段 not_applicable(CI_GATES §6 host-only 行)。
+            # 供 g8_budget.json g8.counter.reflection_hash_legs 判读。
+            validator = g8_m31_reflection_hash_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

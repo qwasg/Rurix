@@ -2,8 +2,10 @@
 //! 承 [RFC-0005](../../../rfcs/0005-binding-layout-inference.md),owner Approved
 //! 2026-06-28)。
 //!
-//! 本模块 gate 于 cargo feature `dxil-backend`(复用,RFC-0005 §9 Q-Gate=A);
-//! 未启用时整模块不编入 rurixc,PTX 路径(D-207)与默认构建零漂移。
+//! 本模块原 gate 于 cargo feature `dxil-backend`(复用,RFC-0005 §9 Q-Gate=A);
+//! G8.2 M31(RXS-0304)起**恒编入**——reflection v1(`--emit=reflection`,默认构建)
+//! 与 dxil/vulkan 编码路复用本模块为绑定推导单一事实源;默认 codegen 路径不调用
+//! 本模块,PTX 路径(D-207)行为零漂移。
 //!
 //! # 职责(PR-E2a:条款体 + host 侧 safe 推导 + 单测锚定)
 //! 从着色阶段签名的资源句柄使用([`crate::mir::ResourceBinding`],承 RXS-0156

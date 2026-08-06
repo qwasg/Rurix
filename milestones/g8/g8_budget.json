@@ -22,9 +22,22 @@
     }
   ],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g8.counter.reflection_hash_legs",
+      "description": "G8.2 M31 reflection_hash 硬门六腿判据通过数 >=16(契约 G-G8-4 / CI_GATES §4 M31 行;RFC-0019 §4.4 / RXS-0304~0307)。计数源 = evidence/g8_m31_reflection_hash_*.json 中 checks.* 全 true 的字段数(16 个独立断言:双次构建确定性 / 声明序不变 / 函数体分离 / ABI 四轴 / 空编码稳定 + fail-closed 三路 / JSON 确定性 + 路径无关 + 装配核验 / accept 语料绿 / reject 语料红+码)。host/compile 纯 host 门,device 段 not_applicable,无 GPU 依赖,host 恒跑不 SKIP。",
+      "evidence_file": "evidence/g8_m31_reflection_hash_*.json",
+      "direction": "min",
+      "threshold": 16
+    }
+  ],
   "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
   "revision_log": [
+    {
+      "version": "v1.1",
+      "date": "2026-08-05",
+      "change": "G8.2 M31 reflection_hash materialize:counter_assertions 追加 g8.counter.reflection_hash_legs(>=16,evidence/g8_m31_reflection_hash_*.json checks.* 全 true 计数,ci/budget_eval.py eval_counter 新分支同 PR 落)。host/compile 纯 host门,device 段 not_applicable,无 GPU 依赖。既有 g8.bench.uc06_host_frame_cpu_ms_1080p 0-byte。"
+    },
     {
       "version": "v1.0",
       "date": "2026-08-02",

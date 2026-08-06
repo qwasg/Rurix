@@ -1,0 +1,18 @@
+//@ reflection: reject
+//@ expect-error: RX6026
+//@ spec: RXS-0304
+// 同名 entry 跨 mod → 推导确定性失败(RX6026 codegen.vulkan_unsupported;
+// v1 不裁决跨 mod 同名归属,fail-closed)。
+mod a {
+    vertex fn dup() -> f32 {
+        0.0
+    }
+}
+
+mod b {
+    vertex fn dup() -> f32 {
+        0.0
+    }
+}
+
+fn main() {}

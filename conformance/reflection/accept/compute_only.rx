@@ -1,0 +1,12 @@
+//@ reflection: accept
+//@ spec: RXS-0304
+// 纯 compute 语料(无 graphics):验证 compute 族形参分类闭集
+// (ThreadCtx/AccelStruct/ViewMut/标量 push-constant)与 binding 分配。
+kernel fn fill(t: ThreadCtx<1>, buf: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        buf[i] = 1.0;
+    }
+}
+
+fn main() {}

@@ -1,0 +1,14 @@
+//@ reflection: reject
+//@ expect-error: RX6026
+//@ spec: RXS-0304
+// compute 族形参超闭集(命名结构体形参)→ Unsupported(RX6026;
+// compute 形参分类闭集 = ThreadCtx/AccelStruct/View/ViewMut/Atomic/TextureRw2D/标量)。
+struct S {
+    x: f32,
+}
+
+kernel fn k(t: ThreadCtx<1>, s: S) {
+    let _ = s.x;
+}
+
+fn main() {}

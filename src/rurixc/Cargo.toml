@@ -9,6 +9,10 @@ license.workspace = true
 [dependencies]
 # M1.1 起消息表为自有行格式;M6.4 RD-004 接通 rowan 式无损语法树(07 §9)
 rowan = "0.15.1"
+# G8.2 M31(RXS-0306):SHA-256 复用 rurix-pkg 的零依赖手写实现(RXS-0093 系)——
+# 不引外部 crate(全仓供应链纪律),也不在 rurixc 再造第三份拷贝(仓内既有第二份
+# 在 apps/uc06-renderer/src/tiny_sha256.rs,属 app 侧历史重复,本次不扩大)。
+rurix-pkg = { path = "../rurix-pkg" }
 
 [features]
 # G2.1 着色阶段类型面(RFC-0002 §6;RXS-0153~0156)。默认启用以使标准

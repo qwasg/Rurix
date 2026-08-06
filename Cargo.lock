@@ -549,6 +549,7 @@ name = "rurixc"
 version = "1.0.0"
 dependencies = [
  "rowan",
+ "rurix-pkg",
 ]
 
 [[package]]

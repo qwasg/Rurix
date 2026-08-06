@@ -7,7 +7,9 @@
 //! M1.4 范围:诊断渲染/UI golden 通道/rx fmt 雏形(契约 D-M1-4 / D-M1-5)。
 
 pub mod ast;
-#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+// G8.2 M31(RXS-0304):绑定推导律上提为恒编入——reflection v1(`--emit=reflection`,
+// 默认构建)与 dxil/vulkan 编码路复用同一推导事实源(`infer_spirv_bindings_vk_native`);
+// 默认 codegen 路径对本模块的调用面零漂移(仅 dxil/vulkan/ reflection 消费)。
 pub mod binding_layout;
 pub mod borrow_check;
 pub mod codegen;
@@ -28,6 +30,10 @@ pub mod export_c;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;
+// G8.2 M31(RXS-0304):AST 签名面无损提取层(自 mir_build::dxil_io 机械搬迁),
+// 供 device MIR 附着与 reflection v1 复用同一提取律。
+#[cfg(feature = "shader-stages")]
+pub mod iface_extract;
 pub mod launch_check;
 pub mod lexer;
 pub mod lossless;
@@ -42,6 +48,9 @@ pub mod profile;
 pub mod ptxas;
 pub mod query;
 pub mod ray_query_check;
+// G8.2 M31(RXS-0304~0307):reflection v1 与 interface hash(`--emit=reflection`)。
+#[cfg(feature = "shader-stages")]
+pub mod reflection;
 pub mod render;
 pub mod resolve;
 #[cfg(feature = "shader-stages")]

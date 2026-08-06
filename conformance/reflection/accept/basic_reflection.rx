@@ -1,0 +1,26 @@
+//@ reflection: accept
+//@ spec: RXS-0304, RXS-0305, RXS-0306
+// 基准 reflection v1 语料:vertex+fragment(graphics I/O 结构体 + Texture2D/Sampler)
+// + compute(AccelStruct/ViewMut/标量 push-constant)。覆盖四腿判据的 accept 面。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+    #[interpolate(perspective)] uv: f32,
+    #[interpolate(flat)] mat_id: u32,
+}
+
+vertex fn vs_main(inp: VsOut, tex: Texture2D<f32>, samp: Sampler) -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0, mat_id: 0 }
+}
+
+fragment fn fs_main(inp: VsOut, tex_b: Texture2D<f32>, samp: Sampler) -> VsOut {
+    inp
+}
+
+kernel fn kmain(t: ThreadCtx<1>, tlas: AccelStruct, buf: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        buf[i] = 1.0;
+    }
+}
+
+fn main() {}

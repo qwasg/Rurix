@@ -1,0 +1,10 @@
+//@ reflection: reject
+//@ expect-error: RX6013
+//@ spec: RXS-0304, RXS-0305
+// 无界 Sampler 数组 → 绑定推导不可映射(RX6013 codegen.dxil_unmappable;
+// 与 Vk-native 图形编码路同一裁决,strict-only fail-closed)。
+vertex fn v(samps: [Sampler]) -> f32 {
+    0.0
+}
+
+fn main() {}

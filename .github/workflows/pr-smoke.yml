@@ -1050,6 +1050,17 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/renderer_device_frame_smoke.py
 
+      # 步骤 97（G8.2 P0 硬门 g8.p0.m31.reflection_hash;RFC-0019 §4.4;
+      # spec/rendering_platform.md RXS-0304~0307）:reflection v1 canonical 序列化与
+      # interface hash 稳定性冒烟。host/compile 纯 host 门（host 恒跑,device 段
+      # not_applicable）。六腿判据经 rurixc --emit=reflection CLI 端到端 + cargo test
+      # reflection 15 单测前置 + conformance/reflection/{accept,reject} 语料批跑。
+      # 前置 interlock check:check_g8_acceptance_map.py --selftest（G8.1 治理守卫）。
+      # 失败即红,evidence 落盘 evidence/g8_m31_reflection_hash_<UTC>.json。
+      - name: G8.2 M31 reflection hash smoke (G8 CI_GATES §4.97, g8.p0.m31.reflection_hash)
+        shell: powershell
+        run: py -3 ci/g8_reflection_hash_smoke.py --gate g8.p0.m31.reflection_hash
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

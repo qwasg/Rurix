@@ -1339,6 +1339,7 @@
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0243": [
+      "conformance/reflection/accept/mesh_reflection.rx",
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0244": [
@@ -1575,6 +1576,28 @@
       "conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx",
       "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx",
       "src/rurixc/tests/hw_raster_vulkan_spirv_val.rs"
+    ],
+    "RXS-0304": [
+      "conformance/reflection/accept/basic_reflection.rx",
+      "conformance/reflection/accept/compute_only.rx",
+      "conformance/reflection/accept/empty_entries.rx",
+      "conformance/reflection/accept/mesh_reflection.rx",
+      "conformance/reflection/reject/compute_struct_param.rx",
+      "conformance/reflection/reject/duplicate_entry_name.rx",
+      "conformance/reflection/reject/unbounded_sampler_table.rx",
+      "src/rurixc/src/reflection.rs"
+    ],
+    "RXS-0305": [
+      "conformance/reflection/accept/basic_reflection.rx",
+      "conformance/reflection/reject/unbounded_sampler_table.rx",
+      "src/rurixc/src/reflection.rs"
+    ],
+    "RXS-0306": [
+      "conformance/reflection/accept/basic_reflection.rx",
+      "src/rurixc/src/reflection.rs"
+    ],
+    "RXS-0307": [
+      "src/rurixc/src/reflection.rs"
     ]
   }
 }

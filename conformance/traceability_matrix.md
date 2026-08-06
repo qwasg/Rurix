@@ -242,7 +242,7 @@
 | RXS-0240 | spec/render_graph.md | 2 | `src/rurix-rt/src/graph.rs`, `src/rurix-rt/src/vk.rs` |
 | RXS-0241 | spec/render_graph.md | 2 | `src/rurix-rt-cabi/src/lib.rs`, `src/uc04-demo/tests/d6_crosscheck.rs` |
 | RXS-0242 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
-| RXS-0243 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0243 | spec/shader_stages.md | 2 | `conformance/reflection/accept/mesh_reflection.rx`, `src/rurixc/src/shader_stages.rs` |
 | RXS-0244 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
 | RXS-0245 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
 | RXS-0246 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
@@ -289,3 +289,7 @@
 | RXS-0301 | spec/vulkan_backend.md | 7 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` …(+4) |
 | RXS-0302 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` …(+1) |
 | RXS-0303 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` …(+1) |
+| RXS-0304 | spec/rendering_platform.md | 8 | `conformance/reflection/accept/basic_reflection.rx`, `conformance/reflection/accept/compute_only.rx`, `conformance/reflection/accept/empty_entries.rx` …(+5) |
+| RXS-0305 | spec/rendering_platform.md | 3 | `conformance/reflection/accept/basic_reflection.rx`, `conformance/reflection/reject/unbounded_sampler_table.rx`, `src/rurixc/src/reflection.rs` |
+| RXS-0306 | spec/rendering_platform.md | 2 | `conformance/reflection/accept/basic_reflection.rx`, `src/rurixc/src/reflection.rs` |
+| RXS-0307 | spec/rendering_platform.md | 1 | `src/rurixc/src/reflection.rs` |

@@ -276,3 +276,43 @@ G-G8-1~11 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚�
 **G8.2 交付顺序（spec-first + RED 先行，G8_PLAN §3）**：spec 条款 PR 先行 → RED 语料 → 实现 + 脚本 + evidence schema + workflow 真步骤 + ledger 校准同 PR。七个 P0（M50/M89/M29/M30/M31/M32/M85）各自独立断言，聚合门 `g8.wave.2.exit` 只汇总不代绿。
 
 `Assisted-by: Kiro:claude-opus-5 g82-entry-session`（影响范围：G8 契约双状态 front matter + 本节 + PLAN/CI_GATES/README 状态镜像 + ledger revision_log；验证方式：本节逐字输出 + §8.1 末列回归命令）
+
+### 8.2 M31 reflection_hash materialize（2026-08-05）
+
+**触发**：G8.2 七个 P0 之一 M31 `g8.p0.m31.reflection_hash` 实现 PR。
+
+**交付物**（同 PR 落，spec-first + RED 先行）：
+
+- **spec 条款**：`spec/rendering_platform.md` RXS-0304~0307（reflection v1 字段闭集 / canonical 序列化 / hash 计算 / 装配期核验）+ `spec/README.md` §4 行与修订行。
+- **实现**：`src/rurixc/src/reflection.rs`（reflection v1 模块：canonical bytes + SHA-256 interface hash + JSON 产物 + 装配期核验原语）；`src/rurixc/src/iface_extract.rs`（自 `mir_build::dxil_io` 机械搬迁,I/O 签名 / 资源句柄 / mesh_meta 提取,reflection 与 device MIR 附着同一提取律）；`driver.rs` `--emit=reflection` 接线；`rurixc` CLI `--emit=reflection` 支持。
+- **SHA-256**：复用 `rurix-pkg::sha256`（零依赖手写,无循环依赖,不造第三份实现）。
+- **RED 语料**：`conformance/reflection/accept/{basic_reflection,mesh_reflection,compute_only,empty_entries}.rx`（4 件）+ `conformance/reflection/reject/{unbounded_sampler_table,duplicate_entry_name,compute_struct_param}.rx`（3 件,头部 `//@ expect-error: RX####` 声明）。
+- **CI 脚本**：`ci/g8_reflection_hash_smoke.py`（`--gate` / `--selftest` / 六腿判据 + 语料批跑 + evidence 落盘）。
+- **evidence schema**：`milestones/g8/g8_m31_reflection_hash_evidence_schema.json`（Draft-07,16 个 `checks.*` 独立断言,`device_section_state` enum `["not_applicable"]`）。
+- **check_schemas.py 路由**：`g8_m31_reflection_hash_` 前缀 → 新 schema。
+- **pr-smoke.yml 步骤 97**：`py -3 ci/g8_reflection_hash_smoke.py --gate g8.p0.m31.reflection_hash`。
+- **CI_GATES.md §4 M31 行**：`numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `97`。
+- **g8_budget.json**：`g8.counter.reflection_hash_legs` counter + `budget_eval.py` evaluator 分支。
+- **number_ledger.json v1.47**：`CI_step.on_tree_max` 96→97、`next_free` 97→98。
+
+**判据六腿**（RFC-0019 §4.4 逐字 + RXS-0304~0307）：
+
+1. 双次构建 canonical bytes 与 digest 逐字节相等（确定性）。
+2. 声明序置换 / 语义无关路径扰动 → canonical 与 hash 不变。
+3. 仅改函数体 → interface_hash 不变、source_digest 必变。
+4. ABI 四轴（binding / resource kind / stage visibility / value type）任一改变 → interface_hash 必变。
+5. 空/未实现字段（M29/M32/M50）确定性空编码 + 同名 entry 跨 mod fail-closed + 无界非-SRV 纹理表 fail-closed + compute 形参超闭集 fail-closed。
+6. JSON 产物确定性 + 不含路径/文件名/时间戳 + 装配期核验 fail-closed。
+
+**device 段**：`not_applicable`（host/compile 纯 host 门,CI_GATES §6 host-only 行）。
+
+**验收命令**：
+```
+cargo test -p rurixc --lib reflection
+py -3 ci/g8_reflection_hash_smoke.py --gate g8.p0.m31.reflection_hash
+py -3 ci/g8_reflection_hash_smoke.py --selftest
+py -3 ci/check_schemas.py
+py -3 ci/check_g8_acceptance_map.py
+```
+
+`Assisted-by: Devin g8-m31-reflection-hash`（影响范围：本节 + CI_GATES §4 M31 行 + ledger v1.47 + g8_budget.json + pr-smoke.yml 步骤 97 + check_schemas.py 路由；验证方式：上述验收命令全绿）

@@ -12,7 +12,7 @@
 //! - link.exe:`RURIXC_LINK` > vswhere 定位 VS BuildTools;MSVC/SDK 库目录自动发现。
 //!
 //! 用法:
-//! - `rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir|nvptx-ir|ptx] [--error-format=json] [--self-profile=<file.json>]`
+//! - `rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|llvm-ir|nvptx-ir|ptx] [--error-format=json] [--self-profile=<file.json>]`
 //! - `rurixc --tooling-server [--stdio]`
 //! - `rurixc --tooling-smoke <sample.rx>`
 
@@ -72,7 +72,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|llvm-ir] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
         );
         return ExitCode::from(2);
     };

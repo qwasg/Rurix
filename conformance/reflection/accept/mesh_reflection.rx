@@ -1,0 +1,16 @@
+//@ reflection: accept
+//@ spec: RXS-0304, RXS-0243
+// mesh 阶段 reflection v1:execution_modes(numthreads/max_vertices/max_primitives)
+// + 输出结构体 I/O 签名(topology="triangles")。
+struct MeshOut {
+    #[builtin(position)] pos: f32,
+    #[interpolate(perspective)] uv: f32,
+}
+
+#[numthreads(1, 1, 1)]
+#[outputs(topology = "triangles", max_vertices = 3, max_primitives = 1)]
+mesh fn ms_main(t: ThreadCtx<1>) -> MeshOut {
+    MeshOut { pos: 0.0, uv: 0.0 }
+}
+
+fn main() {}

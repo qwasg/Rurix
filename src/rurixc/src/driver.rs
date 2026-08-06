@@ -223,10 +223,16 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                         }
                         // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
                         // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
+                        // `--emit=reflection`(G8.2 M31)同样不要求 `main`——着色入口(v/f/compute/mesh)
+                        // 即反射根,纯 host/compile 面不依赖 host EXE 入口。
                         let device_emit =
                             matches!(
                                 emit.as_deref(),
-                                Some("nvptx-ir") | Some("ptx") | Some("pyd") | Some("dll")
+                                Some("nvptx-ir")
+                                    | Some("ptx")
+                                    | Some("pyd")
+                                    | Some("dll")
+                                    | Some("reflection")
                             ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
@@ -281,6 +287,15 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             return 1;
         }
         return 0;
+    }
+
+    // --emit=reflection(G8.2 M31,RXS-0304~0307;RFC-0019 §4.4):reflection v1 产物
+    // (确定性 canonical JSON:per-entry canonical bytes/interface_hash/source_digest/
+    // pipeline key),纯 host/compile 面,不产 codegen/link 产物。全量静态检查已在
+    // 上方阶段化关卡通过(与 --emit=check 同口径);反射推导失败 = 编译期确定性
+    // 诊断(fail-closed,不产部分产物,RXS-0307)。
+    if emit.as_deref() == Some("reflection") {
+        return emit_reflection(&diag, &sm, &cx, &src, id, out.as_deref());
     }
 
     if emit.as_deref() == Some("mir") {
@@ -456,13 +471,15 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     if let Some(target) = emit.as_deref()
         && !matches!(
             target,
-            "check" | "mir" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd" | "dll"
+            "check" | "mir" | "reflection" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd" | "dll"
         )
     {
         toolchain_err(
             &diag,
             &sm,
-            format!("未知 --emit 目标 `{target}`(合法:check/mir/llvm-ir/nvptx-ir/ptx/pyd/dll)"),
+            format!(
+                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/llvm-ir/nvptx-ir/ptx/pyd/dll)"
+            ),
         );
         return 1;
     }
@@ -958,6 +975,57 @@ fn toolchain_err(diag: &DiagCtxt, sm: &SourceMap, reason: String) {
         "{}",
         render_diagnostics(&diag.emitted(), sm, diag.messages())
     );
+}
+
+/// `--emit=reflection`(G8.2 M31,RXS-0304~0307;RFC-0019 §4.4):反射 v1 canonical JSON
+/// 产物落盘或 stdout。纯 host/compile 面,不产 codegen/link 产物;反射推导失败 =
+/// 编译期确定性诊断(fail-closed,不产部分产物,RXS-0307)。错误码复用既有类别(零新码):
+/// `Unmappable` → RX6013 / `Unsupported` → RX6026(与 `reflection::ReflectError` 同口径)。
+#[cfg(feature = "shader-stages")]
+fn emit_reflection(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    src: &str,
+    main_file: crate::span::SourceId,
+    out: Option<&Path>,
+) -> u8 {
+    let file = cx.ast();
+    let doc = match crate::reflection::build_reflection(file, src, main_file) {
+        Ok(d) => d,
+        Err(e) => {
+            let code = crate::diag::ErrorCode(e.error_code());
+            let label = if e.error_code() == 6013 {
+                "codegen.dxil_unmappable"
+            } else {
+                "codegen.vulkan_unsupported"
+            };
+            diag.struct_error(code, label)
+                .arg("detail", e.detail().to_owned())
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            return 1;
+        }
+    };
+    let json = crate::reflection::to_json(&doc);
+    match out {
+        Some(p) => {
+            if let Err(e) = std::fs::write(p, json.as_bytes()) {
+                toolchain_err(diag, sm, format!("reflection 产物写入失败: {e}"));
+                return 1;
+            }
+            eprintln!(
+                "rurixc: --emit=reflection: {} ({})",
+                p.display(),
+                doc.entries.len()
+            );
+        }
+        None => print!("{json}"),
+    }
+    0
 }
 
 fn run_tool(cmd: &mut Command, name: &str) -> Result<(), String> {
