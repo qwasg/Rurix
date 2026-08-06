@@ -5,7 +5,7 @@
 | RFC 编号 | RFC-0021（4 位制，编号永不复用，10 §9.5） |
 | 标题 | G8 replay-first 物理平台：capture/replay、网络物理、破坏与角色资产链 |
 | 档位 | **Full RFC**（10 §3：新增引擎运行时语义、持久化资产 ABI、网络 rollback 边界与多时间域身份；Jolt FFI/unsafe 消费只能在实现期按真实顺位登记） |
-| 状态 | **Agent Approved**（2026-08-02）；§9.1 独立 provenance 对抗性评审完成，20 findings 逐条 disposition（4 blocker + 12 major 正文实改）。**批准不开放实现** |
+| 状态 | **Agent Approved**（2026-08-02）；§9.1 独立 provenance 对抗性评审完成，20 findings 逐条 disposition（4 blocker + 12 major 正文实改）。**批准不开放实现**。**v1.1（2026-08-06）**：§2.1.1.1 书面选定全线 (c)（G8.6 PR-0） |
 | RFC 身份 | 本 RFC 即 `G8_ACCEPTANCE_MAP.md` 中所称的 **RFC-γ**（M67 smoothing bound、M72 碰撞穿透 bound 的冻结载体，冻结程序见 §6.5） |
 | 承接里程碑 | G8.1 治理交付 D-G8-4；未来实现波次 G8.6a~G8.6d，均受 G-G8-3 事实互锁 |
 | 关联条款 | **预期零新语言 spec 条款**（物理仍是引擎库，06 §8.3 / RFC-0017 五纪律不变）；资产 schema 与运行时契约见 §5，待实现互锁开放后落结构化事实源 |
@@ -73,6 +73,19 @@ RFC-0017 / G6 已冻结并实现以下底座：
 | CharacterVirtual 函数 | `Enums.h` 仅剩 `JPC_GroundState` 枚举，`Functions.h` 无 CharacterVirtual 导出；soft-body create 在上游被注释 | §4.B2 的 safe wrapper 无底层可包 | **M71 前置任务**：同上三选一；未落定前 M71 不得开工，也不得以「wrapper 已设计」记任何绿 |
 
 纪律：无论选 (a)(b)(c)，都不得在 `rurix-physics` safe 层泄露原生指针，不得绕过绑定 crate 集中 unsafe 的纪律；(a)(b) 均须先更新 `VENDOR.md` 的 pin/许可/SBOM/补丁 digest。
+
+##### 2.1.1.1 处置选定（v1.1，2026-08-06）— 全线 (c)
+
+> **加性修订**（既有三选一表字面 0-byte）：G8.6 实现前置 PR-0 书面选定 **全线走 (c)，零 vendor 补丁**，与 G6 七面审计先例及本 RFC Q4 布料裁决同构。未完成本选定前 M66/M71/M70 不得开工。
+
+| 面 | 选定 | 落定形态 |
+|---|---|---|
+| M66 恢复层 | **(c) 已选定** | capture header 登记 `restore_strategy=semantic_journal_rebuild_v1`；由 canonical 语义层 + journal 从 tick 0 完整重建；**放弃**不透明 `PhysicsSnapshotBlob`；corpus 必须显式登记该替代（§4.A1 可得性前置兑现） |
+| M71 CharacterVirtual | **(c) 已选定** | 自研 safe `RurixCharacter`（collide-and-slide，基于既有 `cast_shape`/`overlap` 冻结查询面）；Jolt CharacterVirtual 降为**候选后端**，不得以「wrapper 已设计」记绿 |
+| M70 VehicleConstraint（**新发现缺口**） | **(c) 已选定** | pin 的 JoltC **零** `VehicleConstraint`/`Wheel` 导出（超出上表既有两行，本修订登记）；自研 raycast/shapecast 悬挂载具产品层（drivetrain 纯 Rust 确定性 + 既有 `cast_ray`/`AddForceAtPoint`）；Jolt VehicleConstraint 降为候选后端 |
+| M69 ragdoll | 约束面路线（非新缺口行） | 不依赖 Jolt `Ragdoll` 辅助类；用已导出约束五件套 + motor 面在 safe 层组装；新增 FFI 仅为消费既有导出符号 |
+
+新 FFI 范围收窄为「消费既有导出符号」（速度读写、`SetPositionRotationAndVelocity`、Activate/Deactivate、AddForce/Torque/ImpulseAtPoint、约束五件套 + motor）；每块 `// SAFETY:` 并按合入时 `U.next_free` 顺位登记；`rurix-physics` 维持 `forbid(unsafe_code)`。**(a)/(b) 路线本波不启用**；若未来改判须新修订行 + `VENDOR.md` 更新，不得静默切换。
 
 ### 2.2 为何需要 Full RFC
 
@@ -537,3 +550,4 @@ bound 一经冻结即为 0-byte 面，放宽须新修订行 + 说明理由；收
 |---|---|---|---|
 | Draft v0.1 | 2026-08-02 | G8.1 governance-only 初稿：冻结 M66 replay-first、M73 5.3↔5.6 A/B 止损、M67 network physics、M68 destruction、M69/M70/M71/M72 产品层、五条 G6 纪律、多时间域 identity 与 CPU 权威/GPU 禁止线；§9.1 留空待独立 provenance 评审；零实现编号 claim。起草 provenance `Codex:gpt-5 rfc21-drafter-session`。 | Full RFC（Draft） |
 | v1.0 | 2026-08-02 | **Agent Approved**：D-409 独立 provenance（`Kiro:claude-opus-5` ≠ 起草 `Codex:gpt-5`）三镜头评审完成，20 findings 全 disposition。正文实改要点：§2.1.1 JoltC ABI 缺口与三选一处置（M66/M71 开工前置）、§3.1 五纪律逐字引用 + §3.1.1 附加约束分离、头部认领 RFC-γ 身份 + §6.5 bound 三步冻结程序、§6.2 feature 名即日冻结、Q2/Q4 由本 RFC 裁决（cloth = 自有 XPBD）、删除 GPU 可选副求解器授权、§4.A1 补 determinism/预算画像、§4.A3 注入点与字段白名单、§4.A4 补 5.6 采纳臂三件事与 v5.6.0 锚、§4.B1 hash 收敛画像、§6.4 统一 canonical key 并登记 M69/M70/M71/M73 的波次级 subject、§4.D2 五项逐字与 RD-044 授权来源、§2.4 out-of-scope RD 归属。零 RXS/CI/RD/U/RX 数字 claim；批准不解锁实现。 | Full RFC（Agent Approved） |
+| v1.1 | 2026-08-06 | **G8.6 PR-0：§2.1.1 三选一处置书面选定全线 (c)**（加性；既有表字面 0-byte）。新增 §2.1.1.1：M66 恢复层 = `semantic_journal_rebuild_v1`；M71 = 自研 `RurixCharacter`（Jolt CharacterVirtual 降候选）；**新登记** M70 VehicleConstraint 零导出缺口并选 (c) 自研悬挂载具；M69 走已导出约束五件套路线；新 FFI 仅消费既有符号、零 vendor 补丁。未落本选定前 M66/M71/M70 不得开工。零 RXS/CI/RD/U/RX 数字 claim。 | Full RFC（Agent Approved） |

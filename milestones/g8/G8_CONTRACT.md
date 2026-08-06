@@ -513,3 +513,11 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：聚合门不重跑七 smoke；任一子门 FAIL/SKIP/缺失均可见且聚合红；零新 RXS/RX/U/budget counter。
 
 `Assisted-by: cursor-grok-4.5`（主 agent Gov；影响范围：本节 + CI_GATES v1.10 + ledger v1.60 + pr-smoke 步骤 104 + wave_exit_lib）
+
+### 8.10 G8.6 PR-0：RFC-0021 JoltC 缺口处置选定（2026-08-06）
+
+**触发**：RFC-0021 §2.1.1 字面要求 M66/M71 开工前书面选定 (a)/(b)/(c)；设计案另发现 M70 VehicleConstraint 零导出。
+
+**裁决**：全线 **(c)**——零 vendor 补丁；见 `rfcs/0021-physics-platform.md` v1.1 §2.1.1.1。M66=`semantic_journal_rebuild_v1`；M71=自研 `RurixCharacter`；M70=自研悬挂载具；M69=约束五件套。**(a)/(b) 本波不启用**。
+
+**编号**：零 RXS/CI/RD/U/RX 消费。解锁 G8.6a M66 实现开工资格（仍受波次合入序与 G-G8-3 READY 约束）。
