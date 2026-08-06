@@ -563,3 +563,11 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **交付物**：`spec/geometry_pages.md` RXS-0338~0342；`rurix-geom-pages::{disk,memory,codec,expand}`；`vk_geom_page_decode` + `geom_page_decode.rx`；`ci/g8_page_format_abi_smoke.py`（步骤 **109**，`RURIX_REQUIRE_REAL=1`）。
 
 **验收**：smoke PASS 13/13（device digest == CPU；validation=0）。ABI 自此冻结，G8.4 只消费不重定。
+
+### 8.16 M80 ddc_content_address materialize（2026-08-06）
+
+**触发**：G8.3 P0 M80（host；RFC-0020 AP-DDC）。
+
+**交付物**：`spec/asset_pipeline.md` RXS-0343；`rurix-asset::ddc`；`rxcook ddc-selftest`；`ci/g8_ddc_content_address_smoke.py`（步骤 **110**）。
+
+**验收**：smoke PASS 19/19。

@@ -29,6 +29,8 @@ pub enum ErrorKind {
     GraphInvalid,
     /// M79 双构建/mutation 校验失败。
     VerifyFailed,
+    /// M80 DDC 失败。
+    Ddc,
     /// 其它合法性失败。
     Invalid,
     /// IO。
@@ -50,6 +52,7 @@ impl ErrorKind {
             ErrorKind::CanonInvalid => "canon_invalid",
             ErrorKind::GraphInvalid => "graph_invalid",
             ErrorKind::VerifyFailed => "verify_failed",
+            ErrorKind::Ddc => "ddc",
             ErrorKind::Invalid => "invalid",
             ErrorKind::Io => "io",
         }

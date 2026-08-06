@@ -352,6 +352,9 @@ def check_evidence_files() -> None:
     g8_m04_page_format_abi_schema = load(
         ROOT / "milestones/g8/g8_m04_page_format_abi_evidence_schema.json"
     )
+    g8_m80_ddc_content_address_schema = load(
+        ROOT / "milestones/g8/g8_m80_ddc_content_address_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -669,6 +672,11 @@ def check_evidence_files() -> None:
     g8_m04_page_format_abi_validator = (
         jsonschema.Draft7Validator(g8_m04_page_format_abi_schema)
         if g8_m04_page_format_abi_schema is not None
+        else None
+    )
+    g8_m80_ddc_content_address_validator = (
+        jsonschema.Draft7Validator(g8_m80_ddc_content_address_schema)
+        if g8_m80_ddc_content_address_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1315,6 +1323,12 @@ def check_evidence_files() -> None:
         ):
             # G8.3 M04 page_format_abi(RXS-0338~0342):device 门,双 ABI+LZ1。
             validator = g8_m04_page_format_abi_validator
+        elif (
+            f.name.startswith("g8_m80_ddc_content_address_")
+            and g8_m80_ddc_content_address_validator is not None
+        ):
+            # G8.3 M80 ddc_content_address(RXS-0343):host 门,九段 CAS。
+            validator = g8_m80_ddc_content_address_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

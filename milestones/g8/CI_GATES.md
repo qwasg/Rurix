@@ -70,7 +70,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m32.capability_profile` | M32 | G8.2 | `ci/g8_capability_profile_smoke.py` | 99 |
 | `g8.p0.m85.shader_manifest_ddc` | M85 | G8.2/3 | `ci/g8_shader_manifest_ddc_smoke.py` | 101 |
 | `g8.p0.m79.asset_determinism` | M79 | G8.3 | `ci/g8_asset_determinism_smoke.py` | 108 |
-| `g8.p0.m80.ddc_content_address` | M80 | G8.3 | `ci/g8_ddc_content_address_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m80.ddc_content_address` | M80 | G8.3 | `ci/g8_ddc_content_address_smoke.py` | 110 |
 | `g8.p0.m81.gltf_import` | M81 | G8.3 | `ci/g8_gltf_import_smoke.py` | 106 |
 | `g8.p0.m01.meshlet_page_builder` | M01 | G8.3 | `ci/g8_meshlet_page_builder_smoke.py` | 105 |
 | `g8.p0.m04.page_format_abi` | M04 | G8.3 | `ci/g8_page_format_abi_smoke.py` | 109 |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.15 | 2026-08-06 | **M80 materialize**：§4 M80 行 `numeric_step` 回填为 `110`；`ci/g8_ddc_content_address_smoke.py` + RXS-0343 + `pr-smoke` 步骤 110。host 门。零新 RX/U。 |
 | v1.14 | 2026-08-06 | **M04 materialize**：§4 M04 行 `numeric_step` 回填为 `109`；`ci/g8_page_format_abi_smoke.py` + RXS-0338~0342 + `vk_geom_page_decode` + `pr-smoke` 步骤 109（`RURIX_REQUIRE_REAL=1`）。device 门。零新 RX/U。 |
 | v1.13 | 2026-08-06 | **M79 materialize**：§4 M79 行 `numeric_step` 回填为 `108`；`ci/g8_asset_determinism_smoke.py` + schema + RXS-0335~0337 + `pr-smoke` 步骤 108。host 门。零新 RX/U。 |
 | v1.12 | 2026-08-06 | **M01+M81+M83 materialize**：§4 M01→`105`、M81→`106`；§4.0 M83→`107`。`rurix-geom-pages`/`rurix-asset`/`rurix-basis-sys` + RXS-0328~0334 + smokes + schemas 同波落。host 门。零新 RX 码；M83 U44~U46。 |

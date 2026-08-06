@@ -142,6 +142,22 @@
 - `//@ spec: RXS-0337` 锚定于 `rurix-asset::verify`
 - `ci/g8_asset_determinism_smoke.py --gate g8.p0.m79.asset_determinism`(numeric_step 合入时回填)
 
+### RXS-0343 AP-DDC 九段 preimage 与不可变 CAS(G8.3 M80)
+
+**依据**:RFC-0020 §4.3;设计案 §3.2;`g8.p0.m80.ddc_content_address`。
+
+**义务**(`rurix-asset::ddc`):
+
+- key = `SHA-256("rurix-ddc-artifact-v1\0" || (len_u64_le || canonical(seg)) × 9)`；段序:source_set / dependency_keys / import_recipe / cook_profile / tool_chain / schema_set / abi_set / artifact_kind / output_id。
+- CAS:`objects/<aa>/<64hex>` + `meta/<aa>/<64hex>.rxap`；tmp 原子 rename。
+- get 复核 byte_len + payload SHA-256；不符 → Corruption 拒脏对象。
+- put 同 key 异 payload → KeyCollision；evict 后可重建同 key。
+
+**测试要求**:
+
+- `//@ spec: RXS-0343` 锚定于 `rurix-asset::ddc`
+- `ci/g8_ddc_content_address_smoke.py --gate g8.p0.m80.ddc_content_address`(numeric_step=110)
+
 ## 修订历史
 
 | 版本 | 日期 | 说明 | 状态 |
@@ -149,3 +165,5 @@
 | v1.0 | 2026-08-06 | M83:`### RXS-0334` AP-TEX。并行避撞:为 M81 落 `### RXS-0332`(AP-SCHEMA)+ `### RXS-0333`(AP-GLTF)条款头要点(M81 可加性扩写)。实测号 **0332/0333/0334**。 | Draft |
 | v1.1 | 2026-08-06 | M81 加性扩写:`### RXS-0332`/`### RXS-0333` 补测试要求、conformance 语料目录与 fail-closed 必达类;挂钩 `ci/g8_gltf_import_smoke.py`(numeric_step=106)。**未改** `### RXS-0334`。 | Draft |
 | v1.2 | 2026-08-06 | M79:`### RXS-0335` AP-CANON + `### RXS-0336` AP-GRAPH + `### RXS-0337` 双构建 mutation。 | Draft |
+| v1.3 | 2026-08-06 | M80:`### RXS-0343` AP-DDC。 | Draft |
+

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "segments": [
+    "source_set",
+    "dependency_keys",
+    "import_recipe",
+    "cook_profile",
+    "tool_chain",
+    "schema_set",
+    "abi_set",
+    "artifact_kind",
+    "output_id"
+  ],
+  "expectation": "each single-segment mutation must flip DDC key"
+}

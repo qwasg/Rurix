@@ -8,6 +8,7 @@ use rurix_asset::texture::{
     fixture_checker_rgba16, fixture_normal_rgba16,
 };
 use rurix_asset::canon;
+use rurix_asset::ddc::{self, Ddc, GetMiss, PutError};
 use rurix_asset::verify;
 use rurix_geom_pages::{
     decode_disk_page, expand_memory_page, expand_u32_count, expanded_digest, encode_memory_page,
@@ -19,9 +20,144 @@ use std::process::ExitCode;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture --fixture checker|normal --out <dir> [--profile win-vulkan-bcn-v1]\n  rxcook cook-texture --input <file.ppm> --out <dir> [--profile ...] [--semantics color|normal|mask]\n  rxcook decode-page --disk <p.rxpd> [--emit-expanded-digest] [--emit-rxpm <path>]\n  rxcook verify --double-build [--workspace <root>] [--scratch <dir>]\n  rxcook canon-check --accept <dir> --reject <dir>"
+        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture --fixture checker|normal --out <dir> [--profile win-vulkan-bcn-v1]\n  rxcook cook-texture --input <file.ppm> --out <dir> [--profile ...] [--semantics color|normal|mask]\n  rxcook decode-page --disk <p.rxpd> [--emit-expanded-digest] [--emit-rxpm <path>]\n  rxcook verify --double-build [--workspace <root>] [--scratch <dir>]\n  rxcook canon-check --accept <dir> --reject <dir>\n  rxcook ddc-selftest [--scratch <dir>]"
     );
     std::process::exit(2);
+}
+
+fn cmd_ddc_selftest(args: Vec<String>) -> ExitCode {
+    let mut scratch = env::temp_dir().join(format!("rxcook_ddc_{}", std::process::id()));
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--scratch" => {
+                i += 1;
+                scratch = PathBuf::from(args.get(i).unwrap_or_else(|| usage()));
+            }
+            other => {
+                eprintln!("unknown ddc-selftest flag: {other}");
+                usage();
+            }
+        }
+        i += 1;
+    }
+    let _ = fs::remove_dir_all(&scratch);
+    let mut checks: Vec<(&str, bool)> = Vec::new();
+
+    let base = match ddc::demo_segments("base") {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::from(1);
+        }
+    };
+    let k0 = ddc::compute_key(&base).unwrap();
+    let k0b = ddc::compute_key(&base).unwrap();
+    checks.push(("same_preimage_same_key", k0 == k0b));
+    checks.push((
+        "preimage_covers_source_digest",
+        ddc::compute_key(&ddc::mutate_segment(&base, 0).unwrap()).unwrap() != k0,
+    ));
+    checks.push((
+        "preimage_covers_dependency_keys",
+        ddc::compute_key(&ddc::mutate_segment(&base, 1).unwrap()).unwrap() != k0,
+    ));
+    checks.push((
+        "preimage_covers_tool_version",
+        ddc::compute_key(&ddc::mutate_segment(&base, 4).unwrap()).unwrap() != k0,
+    ));
+    checks.push((
+        "preimage_covers_cook_profile",
+        ddc::compute_key(&ddc::mutate_segment(&base, 3).unwrap()).unwrap() != k0,
+    ));
+
+    let names = [
+        "mutation_source_flips_key",
+        "mutation_dependency_flips_key",
+        "mutation_recipe_flips_key",
+        "mutation_profile_flips_key",
+        "mutation_toolchain_flips_key",
+        "mutation_schema_set_flips_key",
+        "mutation_abi_set_flips_key",
+        "mutation_artifact_kind_flips_key",
+        "mutation_output_id_flips_key",
+    ];
+    for (i, name) in names.iter().enumerate() {
+        let m = ddc::mutate_segment(&base, i).unwrap();
+        checks.push((name, ddc::compute_key(&m).unwrap() != k0));
+    }
+
+    let mut ddc_store = Ddc::open(&scratch).unwrap();
+    let payload = b"ddc-payload-v1";
+    let meta = ddc::make_meta_envelope(payload).unwrap();
+    ddc_store.put(&k0, payload, &meta).unwrap();
+    let got = ddc_store.get(&k0).unwrap();
+    checks.push(("put_get_byte_equal", got == payload));
+
+    // bitflip
+    let obj = scratch
+        .join("objects")
+        .join(&k0.hex()[..2])
+        .join(k0.hex());
+    let mut bytes = fs::read(&obj).unwrap();
+    bytes[0] ^= 0xff;
+    fs::write(&obj, &bytes).unwrap();
+    checks.push((
+        "bitflip_rejected_as_corruption",
+        matches!(ddc_store.get(&k0), Err(GetMiss::Corruption { .. })),
+    ));
+    // restore + truncate
+    fs::write(&obj, payload).unwrap();
+    // rewrite meta for restore
+    let meta2 = ddc::make_meta_envelope(payload).unwrap();
+    let meta_p = scratch
+        .join("meta")
+        .join(&k0.hex()[..2])
+        .join(format!("{}.rxap", k0.hex()));
+    fs::write(&meta_p, &meta2).unwrap();
+    fs::write(&obj, &payload[..4]).unwrap();
+    checks.push((
+        "truncation_rejected",
+        matches!(ddc_store.get(&k0), Err(GetMiss::Corruption { .. })),
+    ));
+
+    // rebuild clean
+    let _ = fs::remove_dir_all(&scratch);
+    let mut ddc_store = Ddc::open(&scratch).unwrap();
+    ddc_store.put(&k0, payload, &meta).unwrap();
+    // collision
+    let coll = matches!(
+        ddc_store.put(&k0, b"other-payload!!", &meta),
+        Err(PutError::KeyCollision)
+    );
+    checks.push(("concurrent_same_key_put_safe", {
+        // same payload put ok
+        ddc_store.put(&k0, payload, &meta).is_ok() && coll
+    }));
+
+    ddc_store.evict(&k0).unwrap();
+    let miss = matches!(ddc_store.get(&k0), Err(GetMiss::Absent));
+    ddc_store.put(&k0, payload, &meta).unwrap();
+    let again = ddc_store.get(&k0).unwrap();
+    checks.push((
+        "evict_then_rebuild_key_stable",
+        miss && again == payload && ddc::compute_key(&base).unwrap() == k0,
+    ));
+
+    println!("{{");
+    for (i, (k, v)) in checks.iter().enumerate() {
+        let comma = if i + 1 == checks.len() { "" } else { "," };
+        println!("  \"{k}\": {v}{comma}");
+    }
+    println!("}}");
+    let ok = checks.iter().all(|(_, v)| *v);
+    println!("ok={ok}");
+    println!("check_count={}", checks.len());
+    if ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
 }
 
 fn hex32(d: &[u8; 32]) -> String {
@@ -347,6 +483,7 @@ fn main() -> ExitCode {
         "decode-page" => cmd_decode_page(args),
         "verify" => cmd_verify(args),
         "canon-check" => cmd_canon_check(args),
+        "ddc-selftest" => cmd_ddc_selftest(args),
         _ => {
             eprintln!("unknown command: {cmd}");
             usage();

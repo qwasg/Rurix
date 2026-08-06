@@ -12,6 +12,7 @@
 pub mod bcdec;
 pub mod canon;
 pub mod cook;
+pub mod ddc;
 pub mod error;
 pub mod geom_build;
 pub mod gltf;
