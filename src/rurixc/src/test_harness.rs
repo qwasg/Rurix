@@ -162,6 +162,9 @@ fn test_attr_kind(meta: &MetaItem) -> Result<Option<TestKind>, TestHarnessError>
         MetaKind::NameValue(_) => Err(TestHarnessError::new(
             "仅支持 #[test] 与 #[test(gpu)] 两种测试属性",
         )),
+        MetaKind::NameValuePath(_) => Err(TestHarnessError::new(
+            "仅支持 #[test] 与 #[test(gpu)] 两种测试属性",
+        )),
     }
 }
 

@@ -1,0 +1,12 @@
+//@ permutation: accept
+//@ spec: RXS-0309
+// 与 basic_domain.rx 同域、声明序置换(axis 序 / attr 序 / forbid 行内等式序全换):
+// canonical key 集合与 domain_digest 必须与 basic_domain 全等(声明序不影响
+// 任何 key/digest,RXS-0309 确定性律)。
+#[permutation(axis(QUALITY, enum(low, med, high)))]
+#[permutation(forbid(QUALITY = low, FOG = true))]
+#[permutation(budget(6))]
+#[permutation(axis(FOG, bool))]
+kernel fn kmain() {}
+
+fn main() {}

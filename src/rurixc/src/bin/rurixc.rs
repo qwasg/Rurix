@@ -43,6 +43,8 @@ fn main() -> ExitCode {
     let mut target: Option<String> = None;
     let mut profile_out: Option<PathBuf> = None;
     let mut error_format: Option<String> = None;
+    let mut permutation_budget: Option<u32> = None;
+    let mut permutation_select: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -62,6 +64,21 @@ fn main() -> ExitCode {
             s if s.starts_with("--error-format=") => {
                 error_format = Some(s["--error-format=".len()..].to_owned());
             }
+            s if s.starts_with("--permutation-budget=") => {
+                let text = &s["--permutation-budget=".len()..];
+                match text.parse::<u32>() {
+                    Ok(v) if v > 0 => permutation_budget = Some(v),
+                    _ => {
+                        eprintln!(
+                            "rurixc: invalid --permutation-budget=`{text}`(须为正整数 u32,RXS-0310)"
+                        );
+                        return ExitCode::from(2);
+                    }
+                }
+            }
+            s if s.starts_with("--permutation-select=") => {
+                permutation_select = Some(s["--permutation-select=".len()..].to_owned());
+            }
             s if !s.starts_with('-') && input.is_none() => input = Some(s.to_owned()),
             s => {
                 eprintln!("rurixc: unknown argument `{s}`");
@@ -72,7 +89,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|llvm-ir] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|reflection|permutations|llvm-ir] [--permutation-budget=N] [--permutation-select=KEY] [--error-format=json] [--self-profile=<file.json>]\n       rurixc --tooling-server\n       rurixc --tooling-smoke <sample.rx>"
         );
         return ExitCode::from(2);
     };
@@ -84,6 +101,8 @@ fn main() -> ExitCode {
         reproducible: false,
         error_format,
         target,
+        permutation_budget,
+        permutation_select,
     }))
 }
 

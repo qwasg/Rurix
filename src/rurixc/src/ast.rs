@@ -47,6 +47,9 @@ pub enum MetaKind {
     List(Vec<MetaInner>),
     /// `#[key = "value"]`
     NameValue(Lit),
+    /// `#[key = ident]`(G8.2 M29,RXS-0308:permutation forbid 等式的 enum 成员值
+    /// 为标识符——`forbid(QUALITY = low)`;最小加性扩展,此前该形态为解析错误)。
+    NameValuePath(Path),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

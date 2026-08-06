@@ -316,6 +316,9 @@ def check_evidence_files() -> None:
     g8_m31_reflection_hash_schema = load(
         ROOT / "milestones/g8/g8_m31_reflection_hash_evidence_schema.json"
     )
+    g8_m29_shader_permutation_schema = load(
+        ROOT / "milestones/g8/g8_m29_shader_permutation_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -570,6 +573,11 @@ def check_evidence_files() -> None:
     g8_m31_reflection_hash_validator = (
         jsonschema.Draft7Validator(g8_m31_reflection_hash_schema)
         if g8_m31_reflection_hash_schema is not None
+        else None
+    )
+    g8_m29_shader_permutation_validator = (
+        jsonschema.Draft7Validator(g8_m29_shader_permutation_schema)
+        if g8_m29_shader_permutation_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1122,6 +1130,15 @@ def check_evidence_files() -> None:
             # 稳定性六腿判据。device 段 not_applicable(CI_GATES §6 host-only 行)。
             # 供 g8_budget.json g8.counter.reflection_hash_legs 判读。
             validator = g8_m31_reflection_hash_validator
+        elif (
+            f.name.startswith("g8_m29_shader_permutation_")
+            and g8_m29_shader_permutation_validator is not None
+        ):
+            # G8.2 M29 shader_permutation 硬门(RXS-0308~0310;RFC-0019 §4.3):
+            # host/compile 纯 host 门,permutation 域求解/canonical key/裁剪预算
+            # 报告 13 项 checks。device 段 not_applicable(CI_GATES §6 host-only 行)。
+            # 供 g8_budget.json g8.counter.shader_permutation_legs 判读。
+            validator = g8_m29_shader_permutation_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

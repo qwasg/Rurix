@@ -102,6 +102,10 @@ shader.nonuniform_annotation_missing = bindless 无界表动态索引须以 nonu
 shader.mesh_entry_invalid = 非法的 mesh/task 入口标注:{detail}
 shader.ray_query_state_invalid = 非法的 RayQuery 遍历状态:{detail}
 #
+# shader permutation 域/预算诊断(RX3019 / RX7023,spec/rendering_platform.md RXS-0308~0310;G8.2 M29 分配)
+shader.permutation_domain_invalid = 非法的着色 permutation 域:{detail}
+toolchain.permutation_budget_exceeded = 着色 permutation 预算超限:{detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
 link.libdevice_failure = libdevice 链接失败:{reason}

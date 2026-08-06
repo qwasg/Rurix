@@ -316,3 +316,39 @@ py -3 ci/check_g8_acceptance_map.py
 ```
 
 `Assisted-by: Devin g8-m31-reflection-hash`（影响范围：本节 + CI_GATES §4 M31 行 + ledger v1.47 + g8_budget.json + pr-smoke.yml 步骤 97 + check_schemas.py 路由；验证方式：上述验收命令全绿）
+
+### 8.3 M29 shader_permutation materialize（2026-08-06）
+
+**触发**：G8.2 七个 P0 之一 M29 `g8.p0.m29.shader_permutation` 实现 PR（host 轨第一门，G8.2 设计案 §7 PR-1）。
+
+**交付物**（spec-first 两 commit：条款 commit `c53a3c2c` 先行,实现+治理接线 commit 随后,硬规则 7）：
+
+- **spec 条款**：`spec/rendering_platform.md` v1.1 RXS-0308~0310（permutation 域声明闭集 / canonical key 与 domain digest / 裁剪·预算·报告·选择律）+ **RXS-0304 加性修订**（`permutation_domain_digest`/`variant_key` 真值化,空域路径 0 字节漂移）+ `spec/README.md` v1.71 行。**ledger v1.48 同 commit 校准 M31 滞后**（RXS 303/304→307/308）并领号 0308~0310（→310/311）。
+- **实现**：`src/rurixc/src/permutation.rs`（域模型/合法性校验/求解 canonical key/domain digest,纯 host safe）；`#[permutation(axis/forbid/budget)]` attr 解析（parser 加性扩展嵌套 attr 实参）；`driver.rs` `--emit=permutations` + `--permutation-budget=N` + `--permutation-select=KEY`；`reflection.rs` 二字段真值化（空域恒既有常量）。
+- **错误码**：RX3019（typeck `shader.permutation_domain_invalid`,RXS-0308/0310）+ RX7023（工具段 `toolchain.permutation_budget_exceeded`,RXS-0310）,error_codes.json + en/zh messages 成对,`bilingual_coverage.py` 113/113 对齐。
+- **RED 语料**：`conformance/permutation/accept/{basic_domain,axis_order_permuted,int_axis,empty_domain_entry}.rx`（4 件）+ `reject/{duplicate_axis,empty_value_domain,forbid_unknown_axis}.rx`（RX3019）+ `reject/budget_exceeded.rx`（RX7023）+ `golden/basic_domain_keys.json`。
+- **CI 脚本**：`ci/g8_shader_permutation_smoke.py`（`--gate`/`--selftest`/13 项 checks + 语料批跑 + evidence 落盘）。
+- **evidence schema**：`milestones/g8/g8_m29_shader_permutation_evidence_schema.json`（Draft-07,13 个 `checks.*` 独立断言,`device_section_state` enum `["not_applicable"]`）。
+- **check_schemas.py 路由**：`g8_m29_shader_permutation_` 前缀 → 新 schema。
+- **pr-smoke.yml 步骤 98**：`py -3 ci/g8_shader_permutation_smoke.py --gate g8.p0.m29.shader_permutation`。
+- **CI_GATES.md §4 M29 行**：`numeric_step` 回填 `98`（v1.4 行）。
+- **g8_budget.json v1.2**：`g8.counter.shader_permutation_legs`（≥13）+ `budget_eval.py` evaluator 分支。
+- **number_ledger.json v1.49**：`CI_step.on_tree_max` 97→98、`next_free` 98→99；`RX_error.on_tree_max` 7022→7023、`next_free` 7023→7024（RX7023 消费;RX3019 < on_tree_max 小号不 bump,v1.37 先例）。
+
+**判据 13 项**（G8_ACCEPTANCE_MAP §2 M29 行逐字 + RXS-0308~0310）：双次 key 逐字节相等 / 合法集==golden 全等 / 静态不可能组合全部裁剪 / 声明序不变 / 预算 `limit==legal_count` GREEN / `limit==legal_count-1` RED / `enumerated==pruned+emitted` 恒等式 / 超限 axis contribution report / select 合法填 variant_key 且 pipeline_key 分裂 / select 非法确定性错误禁最接近回退 / 空域 reflection 0 漂移 / accept 语料绿 / reject 语料红+码。**不以 M30/M31/M32/M85 任一结果代替**。
+
+**device 段**：`not_applicable`（host/compile 纯 host 门,CI_GATES §6 host-only 行）。
+
+**验收命令**（实测全绿,2026-08-06）：
+```
+cargo test -p rurixc --lib permutation      # 14 passed
+cargo test -p rurixc --lib reflection       # 15 passed(M31 零回归)
+cargo test -p rurixc                        # 全套件 0 failed(lib 433)
+py -3 ci/g8_shader_permutation_smoke.py --gate g8.p0.m29.shader_permutation   # PASS 13/13
+py -3 ci/g8_shader_permutation_smoke.py --selftest                            # PASS
+py -3 ci/g8_reflection_hash_smoke.py --gate g8.p0.m31.reflection_hash         # PASS(M31 smoke 零回归)
+py -3 ci/bilingual_coverage.py              # 113/113
+py -3 ci/check_schemas.py / check_g8_acceptance_map.py / check_number_ledger.py / budget_eval.py
+```
+
+`Assisted-by: kimi-k3 subagent g8-m29-shader-permutation`（实现/语料/smoke/schema/错误码登记；中断后由主 agent 复核接手治理接线。影响范围：本节 + CI_GATES §4 M29 行 v1.4 + ledger v1.48/v1.49 + g8_budget v1.2 + pr-smoke.yml 步骤 98 + check_schemas.py 路由 + budget_eval.py 分支；验证方式：上述验收命令全绿）

@@ -220,6 +220,8 @@ fn cmd_build(args: &[String]) -> ExitCode {
             reproducible: b.locked && b.offline,
             error_format: None,
             target: b.target.clone(),
+            permutation_budget: None,
+            permutation_select: None,
         }));
     }
 
@@ -240,6 +242,8 @@ fn cmd_build(args: &[String]) -> ExitCode {
         reproducible: false,
         error_format: None,
         target: b.target.clone(),
+        permutation_budget: None,
+        permutation_select: None,
     }))
 }
 
@@ -284,6 +288,8 @@ fn build_pyd(b: &BuildArgs) -> ExitCode {
         reproducible: false,
         error_format: None,
         target: None,
+        permutation_budget: None,
+        permutation_select: None,
     });
     if rc != 0 {
         return ExitCode::from(rc);
@@ -619,6 +625,8 @@ fn cmd_test(args: &[String]) -> ExitCode {
             reproducible: false,
             error_format: None,
             target: None,
+            permutation_budget: None,
+            permutation_select: None,
         });
         if compile_code != 0 {
             report_rx_test_exec_failure(&format!(
@@ -707,6 +715,8 @@ fn cmd_check(args: &[String]) -> ExitCode {
         reproducible: false,
         error_format: None,
         target: None,
+        permutation_budget: None,
+        permutation_select: None,
     }))
 }
 
@@ -729,6 +739,8 @@ fn cmd_run(args: &[String]) -> ExitCode {
         reproducible: false,
         error_format: None,
         target: None,
+        permutation_budget: None,
+        permutation_select: None,
     });
     if build_code != 0 {
         return ExitCode::from(build_code);

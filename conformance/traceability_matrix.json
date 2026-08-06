@@ -1598,6 +1598,29 @@
     ],
     "RXS-0307": [
       "src/rurixc/src/reflection.rs"
+    ],
+    "RXS-0308": [
+      "conformance/permutation/accept/basic_domain.rx",
+      "conformance/permutation/accept/empty_domain_entry.rx",
+      "conformance/permutation/accept/int_axis.rx",
+      "conformance/permutation/reject/duplicate_axis.rx",
+      "conformance/permutation/reject/empty_value_domain.rx",
+      "conformance/permutation/reject/forbid_unknown_axis.rx",
+      "src/rurixc/src/permutation.rs"
+    ],
+    "RXS-0309": [
+      "conformance/permutation/accept/axis_order_permuted.rx",
+      "conformance/permutation/accept/basic_domain.rx",
+      "conformance/permutation/accept/empty_domain_entry.rx",
+      "conformance/permutation/accept/int_axis.rx",
+      "src/rurixc/src/permutation.rs"
+    ],
+    "RXS-0310": [
+      "conformance/permutation/accept/basic_domain.rx",
+      "conformance/permutation/accept/empty_domain_entry.rx",
+      "conformance/permutation/accept/int_axis.rx",
+      "conformance/permutation/reject/budget_exceeded.rx",
+      "src/rurixc/src/permutation.rs"
     ]
   }
 }

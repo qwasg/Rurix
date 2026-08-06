@@ -1,0 +1,12 @@
+//@ permutation: accept
+//@ spec: RXS-0308, RXS-0309, RXS-0310
+// 基准 permutation 域:bool 轴 + enum 轴 + forbid 等式合取 + attr budget。
+// enumerated = 2*3 = 6;forbid(FOG = true, QUALITY = low) 裁 1 → emitted 5。
+// 合法 key 集合见 golden/basic_domain_keys.json(checked-in golden 比对面)。
+#[permutation(axis(FOG, bool))]
+#[permutation(axis(QUALITY, enum(low, med, high)))]
+#[permutation(forbid(FOG = true, QUALITY = low))]
+#[permutation(budget(6))]
+kernel fn kmain() {}
+
+fn main() {}

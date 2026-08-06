@@ -930,6 +930,28 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G7.6 soak 取证回填前为正常状态,契约 G-G7-8",
             strict,
         )
+    elif eid == "g8.counter.shader_permutation_legs":
+        # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
+        # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/
+        # g8_m29_shader_permutation_*.json 中 checks.* 全 true 的字段数(13 个独立断言)。
+        # host/compile 纯 host 门,device 段 not_applicable,无 GPU 依赖,host 恒跑不 SKIP。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m29_shader_permutation_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 13:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 shader_permutation 判据全绿见证(checks.* 13/13 true)",
+            "G8.2 M29 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.reflection_hash_legs":
         # G8.2 M31 reflection_hash 硬门六腿判据通过数 >=16(契约 G-G8-4 / CI_GATES §4
         # M31 行;RFC-0019 §4.4 / RXS-0304~0307)。计数源 = evidence/

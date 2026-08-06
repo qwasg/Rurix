@@ -44,6 +44,10 @@ pub mod mir_build;
 pub mod mod_assembly;
 pub mod move_check;
 pub mod parser;
+// G8.2 M29(RXS-0308~0310):permutation 域/canonical key/裁剪预算报告
+// (`--emit=permutations` + `--permutation-budget`/`--permutation-select`)。
+#[cfg(feature = "shader-stages")]
+pub mod permutation;
 pub mod profile;
 pub mod ptxas;
 pub mod query;

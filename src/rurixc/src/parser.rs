@@ -525,7 +525,7 @@ impl<'a> Parser<'a> {
 
     fn parse_meta_item(&mut self) -> MetaItem {
         let lo = self.lo();
-        let path = self.parse_plain_path("an attribute path");
+        let path = self.parse_meta_path();
         let kind = if self.at(Tk::OpenParen) {
             let open = self.peek().span;
             self.bump();
@@ -537,7 +537,7 @@ impl<'a> Parser<'a> {
                 }
                 if let Some(lit) = self.try_parse_lit() {
                     inner.push(MetaInner::Lit(lit));
-                } else if self.at_ident() {
+                } else if self.at_ident() || self.at(Tk::Kw(Kw::Enum)) {
                     inner.push(MetaInner::Meta(self.parse_meta_item()));
                 } else {
                     self.error_expected("a meta item or literal");
@@ -553,6 +553,11 @@ impl<'a> Parser<'a> {
         } else if self.eat(Tk::Eq) {
             if let Some(lit) = self.try_parse_lit() {
                 MetaKind::NameValue(lit)
+            } else if self.at_ident() {
+                // G8.2 M29(RXS-0308):`key = ident` 名值形态(permutation forbid
+                // 等式的 enum 成员值)。最小加性扩展——此前该形态为「期待字面量」
+                // 解析错误;既有 attr 行为 0-byte(消费方均按变体精确匹配)。
+                MetaKind::NameValuePath(self.parse_plain_path("an attribute value path"))
             } else {
                 self.error_expected("a literal");
                 MetaKind::Path
@@ -1279,6 +1284,27 @@ impl<'a> Parser<'a> {
     // -- 路径(RXS-0013) ----------------------------------------------------
 
     /// 不带泛型实参的纯路径(use / 属性 / 模式)。
+    /// attr meta 路径(G8.2 M29,RXS-0308):permutation axis 值域子句 `enum(...)`
+    /// 以关键字 `enum` 为元路径首段——仅 attr meta 面加性接受该关键字(此前为
+    /// 「期待标识符」解析错误;类型/项路径的 `parse_plain_path` 不受影响)。
+    fn parse_meta_path(&mut self) -> Path {
+        if self.at(Tk::Kw(Kw::Enum)) {
+            let lo = self.lo();
+            let tok = self.bump();
+            return Path {
+                segments: vec![PathSegment {
+                    ident: Ident {
+                        name: "enum".to_owned(),
+                        span: tok.span,
+                    },
+                    args: None,
+                }],
+                span: self.span_from(lo),
+            };
+        }
+        self.parse_plain_path("an attribute path")
+    }
+
     fn parse_plain_path(&mut self, expected: &str) -> Path {
         let lo = self.lo();
         let mut segments = Vec::new();

@@ -1,0 +1,11 @@
+//@ permutation: reject
+//@ expect-error: RX7023
+//@ spec: RXS-0310
+// attr 声明 budget(2) < enumerated(2*3 = 6)→ 求解前硬失败 RX7023
+// (预算判定在组合物化前完成;退出非零且照常产出 axis contribution report)。
+#[permutation(axis(FOG, bool))]
+#[permutation(axis(QUALITY, enum(low, med, high)))]
+#[permutation(budget(2))]
+kernel fn kmain() {}
+
+fn main() {}

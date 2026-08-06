@@ -108,6 +108,10 @@ pub fn check(file: &SourceFile, src: &str, diag: &DiagCtxt) {
     // RXS-0244:RT payload / hit attribute / callable data 显式类型契约逐字段比对
     // (单编译单元三件套配对域;错配 → RX3012 扩类别)。
     check_payload_contracts(&file.items, &structs, diag);
+
+    // RXS-0308(G8.2 M29):permutation 域声明闭集校验(重名 axis/空值域/forbid
+    // 引用未知 axis 或域外值/budget 非正或重复/未知子句/附着非着色入口 → RX3019)。
+    crate::permutation::check_domains(file, src, diag);
 }
 
 /// span → 源切片(标注字面量值读取;越界 / 非主文件 → 空串,保守不误报)。

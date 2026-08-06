@@ -79,21 +79,38 @@ pub enum ReflectError {
         /// 诊断上下文。
         detail: String,
     },
+    /// permutation 域声明违例 / `--permutation-select` KEY 不在合法集(M29,
+    /// RXS-0308/0310)→ RX3019 `shader.permutation_domain_invalid`(禁最接近回退)。
+    Permutation {
+        /// 诊断上下文。
+        detail: String,
+    },
+    /// permutation 求解预算超限(M29,RXS-0310)→ RX7023
+    /// `toolchain.permutation_budget_exceeded`。
+    PermutationBudget {
+        /// 诊断上下文。
+        detail: String,
+    },
 }
 
 impl ReflectError {
-    /// 映射到既有诊断码(零新码;见枚举级注释)。
+    /// 映射到诊断码(前两变体复用既有类别;M29 两变体 = RXS-0308/0310 配套新码)。
     pub fn error_code(&self) -> u16 {
         match self {
             ReflectError::Unmappable { .. } => 6013,
             ReflectError::Unsupported { .. } => 6026,
+            ReflectError::Permutation { .. } => 3019,
+            ReflectError::PermutationBudget { .. } => 7023,
         }
     }
 
     /// 诊断上下文文本。
     pub fn detail(&self) -> &str {
         match self {
-            ReflectError::Unmappable { detail } | ReflectError::Unsupported { detail } => detail,
+            ReflectError::Unmappable { detail }
+            | ReflectError::Unsupported { detail }
+            | ReflectError::Permutation { detail }
+            | ReflectError::PermutationBudget { detail } => detail,
         }
     }
 }
@@ -105,6 +122,12 @@ impl std::fmt::Display for ReflectError {
                 write!(f, "reflection binding unmappable: {detail}")
             }
             ReflectError::Unsupported { detail } => write!(f, "reflection unsupported: {detail}"),
+            ReflectError::Permutation { detail } => {
+                write!(f, "permutation domain invalid: {detail}")
+            }
+            ReflectError::PermutationBudget { detail } => {
+                write!(f, "permutation budget exceeded: {detail}")
+            }
         }
     }
 }
@@ -337,11 +360,12 @@ fn enumerable_stage(stage: Option<ShaderStage>, color: FnColor) -> Option<Shader
 
 /// 递归枚举 entry(含嵌套 `mod`,路径以 `::` 连接);泛型着色函数不产 entry
 /// (与 `mir_build` device 根收集口径一致)。保持 AST 声明序返回(文档级排序在
-/// canonical 组装时按规范键完成)。
+/// canonical 组装时按规范键完成)。M29 起同车携带 item 属性表(permutation 域
+/// 声明面,RXS-0308)。
 fn collect_entries<'a>(
     items: &'a [ast::Item],
     prefix: &str,
-    out: &mut Vec<(String, &'a ast::FnItem, Span)>,
+    out: &mut Vec<(String, &'a ast::FnItem, &'a [ast::Attr], Span)>,
 ) {
     for it in items {
         match &it.kind {
@@ -350,7 +374,12 @@ fn collect_entries<'a>(
                     continue;
                 }
                 if enumerable_stage(f.stage, f.color).is_some() {
-                    out.push((format!("{prefix}{}", f.name.name), f, it.span));
+                    out.push((
+                        format!("{prefix}{}", f.name.name),
+                        f,
+                        it.attrs.as_slice(),
+                        it.span,
+                    ));
                 }
             }
             ast::ItemKind::Mod(m) => {
@@ -568,14 +597,29 @@ fn graphics_resources(
         .collect())
 }
 
+/// `--permutation-select` / `--permutation-budget` 的 reflection 输入面(M29,
+/// RXS-0304 v1.1 / RXS-0310)。默认(未选择 + 无 CLI 覆盖)下空域路径与 M31
+/// 产物**逐字节 0 漂移**。
+#[derive(Clone, Copy, Default)]
+pub struct ReflectionPermPlan<'a> {
+    /// `--permutation-select=KEY`(字符串形态;选中后 `variant_key = KEY`、
+    /// 非空域 `permutation_domain_digest` 真值化)。
+    pub select: Option<&'a str>,
+    /// `--permutation-budget=N`(CLI 覆盖 attr 声明值;select 求解路径生效)。
+    pub budget_override: Option<u32>,
+}
+
 /// 构建单条 entry 记录。
+#[allow(clippy::too_many_arguments)]
 fn build_entry(
     file: &ast::SourceFile,
     src: &str,
     main_file: SourceId,
     name_path: &str,
     f: &ast::FnItem,
+    attrs: &[ast::Attr],
     span: Span,
+    perm_plan: &ReflectionPermPlan<'_>,
 ) -> Result<EntryReflection, ReflectError> {
     let stage = enumerable_stage(f.stage, f.color).expect("枚举口径已过滤");
     let bare = f.name.name.as_str();
@@ -739,10 +783,43 @@ fn build_entry(
         w.u32v(0);
     }
     let profile_digest = sha256::digest(PROFILE_NONE_DOMAIN);
-    let perm_digest = sha256::digest(PERM_EMPTY_DOMAIN);
+    // M29 真值化(RXS-0304 v1.1 / RXS-0309/0310):entry 声明了非空 permutation
+    // 域 → 真 domain digest;`--permutation-select` 选中 → `variant_key = KEY`
+    // (KEY ∉ 合法集 = RX3019 类确定性错误,禁最接近回退)。无 `#[permutation]`
+    // 标注(空域)→ 既有常量 + 空串,与 M31 产物逐字节 0 漂移。
+    let (perm_digest, variant_key) = match crate::permutation::extract_domain(attrs, src) {
+        Ok(Some(domain)) => {
+            let digest = domain.digest();
+            let variant = match perm_plan.select {
+                Some(key) => domain
+                    .validate_select_key(key, perm_plan.budget_override)
+                    .map_err(|e| match e {
+                        crate::permutation::SelectError::InvalidKey { detail } => {
+                            ReflectError::Permutation { detail }
+                        }
+                        crate::permutation::SelectError::Budget(b) => {
+                            ReflectError::PermutationBudget {
+                                detail: format!(
+                                    "entry `{name_path}` permutation 预算超限:enumerated {} > budget {}(RXS-0310)",
+                                    b.enumerated, b.budget
+                                ),
+                            }
+                        }
+                    })?,
+                None => String::new(),
+            };
+            (digest, variant)
+        }
+        Ok(None) => (sha256::digest(PERM_EMPTY_DOMAIN), String::new()),
+        Err(inv) => {
+            return Err(ReflectError::Permutation {
+                detail: format!("entry `{name_path}`: {}", inv.detail),
+            });
+        }
+    };
     w.bytes(&profile_digest);
     w.bytes(&perm_digest);
-    w.strv(""); // variant_key 空编码
+    w.strv(&variant_key);
     let canonical = w.buf;
 
     let mut h = sha256::Sha256::new();
@@ -780,7 +857,7 @@ fn build_entry(
     kw.bytes(&source_digest);
     kw.bytes(&profile_digest);
     kw.bytes(&perm_digest);
-    kw.strv(""); // variant_key
+    kw.strv(&variant_key);
     kw.strv(COMPILER);
     kw.strv(&compiler_version);
     kw.strv(EDITION_RX0);
@@ -802,7 +879,7 @@ fn build_entry(
         execution_modes: exec,
         selected_profile_digest: profile_digest,
         permutation_domain_digest: perm_digest,
-        variant_key: String::new(),
+        variant_key,
         canonical,
         interface_hash,
         source_digest,
@@ -813,19 +890,21 @@ fn build_entry(
 /// 构建编译单元的 reflection v1 文档(RXS-0304~0306;纯函数,同输入恒同输出)。
 ///
 /// `src` 为主文件源文本(entry 源切片用),`main_file` 为其 SourceId。推导失败
-/// (绑定不可映射 / 超出闭集 / 同名 entry 冲突)→ `ReflectError`,fail-closed,
-/// 不产部分产物。
+/// (绑定不可映射 / 超出闭集 / 同名 entry 冲突 / permutation 域违例或 select
+/// KEY 非法)→ `ReflectError`,fail-closed,不产部分产物。`perm_plan` = M29
+/// `--permutation-select`/`--permutation-budget` 输入面(默认 → 空域路径 0 漂移)。
 pub fn build_reflection(
     file: &ast::SourceFile,
     src: &str,
     main_file: SourceId,
+    perm_plan: &ReflectionPermPlan<'_>,
 ) -> Result<ReflectionDoc, ReflectError> {
-    let mut raw: Vec<(String, &ast::FnItem, Span)> = Vec::new();
+    let mut raw: Vec<(String, &ast::FnItem, &[ast::Attr], Span)> = Vec::new();
     collect_entries(&file.items, "", &mut raw);
     // 同名 entry(裸名)跨 mod 冲突 → fail-closed(提取层按裸名首个匹配,
     // 不猜测归属;RXS-0304 诚实边界)。
-    for (i, (path_a, _, _)) in raw.iter().enumerate() {
-        for (path_b, _, _) in &raw[i + 1..] {
+    for (i, (path_a, _, _, _)) in raw.iter().enumerate() {
+        for (path_b, _, _, _) in &raw[i + 1..] {
             let bare_a = path_a.rsplit("::").next().unwrap_or(path_a);
             let bare_b = path_b.rsplit("::").next().unwrap_or(path_b);
             if bare_a == bare_b {
@@ -839,8 +918,20 @@ pub fn build_reflection(
     }
 
     let mut entries = Vec::with_capacity(raw.len());
-    for (path, f, span) in &raw {
-        entries.push(build_entry(file, src, main_file, path, f, *span)?);
+    let mut select_applied = false;
+    for (path, f, attrs, span) in &raw {
+        let e = build_entry(file, src, main_file, path, f, attrs, *span, perm_plan)?;
+        if !e.variant_key.is_empty() {
+            select_applied = true;
+        }
+        entries.push(e);
+    }
+    // `--permutation-select` 给出但单元内无任何非空 permutation 域可应用 →
+    // 确定性错误(RX3019 类;静默忽略属「最接近」式回退的变体,禁)。
+    if perm_plan.select.is_some() && !select_applied {
+        return Err(ReflectError::Permutation {
+            detail: "`--permutation-select` 给出,但编译单元内无任何 entry 声明 permutation 域(无可选对象,RXS-0310)".to_owned(),
+        });
     }
     // 规范键排序(字节序字典序;与源文件声明序无关,RXS-0305)。
     entries.sort_by(|a, b| (a.name.as_str(), a.stage_tag).cmp(&(b.name.as_str(), b.stage_tag)));
@@ -1133,7 +1224,8 @@ mod tests {
 
     fn reflect(src: &str) -> ReflectionDoc {
         let (file, id) = parse_src(src);
-        build_reflection(&file, src, id).expect("reflection 推导须成功")
+        build_reflection(&file, src, id, &ReflectionPermPlan::default())
+            .expect("reflection 推导须成功")
     }
 
     /// 覆盖 compute 族(View/ViewMut/Atomic/AccelStruct/标量/ThreadCtx)与
@@ -1412,7 +1504,8 @@ fn main() {}
     fn duplicate_bare_entry_name_fails_closed() {
         let src = "mod a { vertex fn dup() {} }\nmod b { vertex fn dup() {} }\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id).expect_err("同名 entry 须 fail-closed");
+        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
+            .expect_err("同名 entry 须 fail-closed");
         assert_eq!(err.error_code(), 6026);
     }
 
@@ -1422,7 +1515,8 @@ fn main() {}
     fn unbounded_sampler_table_is_unmappable() {
         let src = "vertex fn v(samps: [Sampler]) {}\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id).expect_err("无界 Sampler 表须 fail-closed");
+        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
+            .expect_err("无界 Sampler 表须 fail-closed");
         assert_eq!(err.error_code(), 6013);
     }
 
@@ -1432,7 +1526,8 @@ fn main() {}
     fn compute_param_outside_closed_set_fails() {
         let src = "struct S { x: f32 }\nkernel fn k(t: ThreadCtx<1>, s: S) {}\n";
         let (file, id) = parse_src(src);
-        let err = build_reflection(&file, src, id).expect_err("超闭集形参须 fail-closed");
+        let err = build_reflection(&file, src, id, &ReflectionPermPlan::default())
+            .expect_err("超闭集形参须 fail-closed");
         assert_eq!(err.error_code(), 6026);
     }
 

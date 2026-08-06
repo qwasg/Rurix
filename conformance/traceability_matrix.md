@@ -293,3 +293,6 @@
 | RXS-0305 | spec/rendering_platform.md | 3 | `conformance/reflection/accept/basic_reflection.rx`, `conformance/reflection/reject/unbounded_sampler_table.rx`, `src/rurixc/src/reflection.rs` |
 | RXS-0306 | spec/rendering_platform.md | 2 | `conformance/reflection/accept/basic_reflection.rx`, `src/rurixc/src/reflection.rs` |
 | RXS-0307 | spec/rendering_platform.md | 1 | `src/rurixc/src/reflection.rs` |
+| RXS-0308 | spec/rendering_platform.md | 7 | `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx`, `conformance/permutation/accept/int_axis.rx` …(+4) |
+| RXS-0309 | spec/rendering_platform.md | 5 | `conformance/permutation/accept/axis_order_permuted.rx`, `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx` …(+2) |
+| RXS-0310 | spec/rendering_platform.md | 5 | `conformance/permutation/accept/basic_domain.rx`, `conformance/permutation/accept/empty_domain_entry.rx`, `conformance/permutation/accept/int_axis.rx` …(+2) |

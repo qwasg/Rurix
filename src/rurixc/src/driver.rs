@@ -34,6 +34,7 @@ const E_TOOLCHAIN: ErrorCode = ErrorCode(7001); // RX7001
 const E_LINK_ATTR: ErrorCode = ErrorCode(7022); // RX7022
 const E_GPU_EMBED: ErrorCode = ErrorCode(6025); // RX6025(RXS-0192)
 const E_RT_CABI: ErrorCode = ErrorCode(7021); // RX7021(RXS-0195)
+const E_PERM_BUDGET: ErrorCode = ErrorCode(7023); // RX7023(RXS-0310)
 
 /// 最小 PTX 占位(G4.2,RXS-0270/0291):无 compute kernel 但有图形 shader SPIR-V
 /// 模块的编译单元用此作为 artifacts PTX fallback。非空 UTF-8 文本通过 `parse` 的
@@ -63,6 +64,14 @@ pub struct CompileOptions {
     /// 第二后端(MIR 之后 target 分叉,gate `dxil-backend`);`None`/`Some("ptx")`
     /// 维持现状默认 host/PTX 通道(零语义漂移)。
     pub target: Option<String>,
+    /// `--permutation-budget=N`(G8.2 M29,RXS-0310):CLI 覆盖 attr 声明的
+    /// permutation 预算上限(`--emit=permutations` 报告面与 `--permutation-select`
+    /// 求解面生效;RED 腿注入口)。
+    pub permutation_budget: Option<u32>,
+    /// `--permutation-select=KEY`(G8.2 M29,RXS-0310):选择合法组合,选中后
+    /// reflection `variant_key = KEY`、`permutation_domain_digest` 真值化;KEY ∉
+    /// 合法集 = RX3019 类确定性错误(禁最接近回退)。
+    pub permutation_select: Option<String>,
 }
 
 /// 端到端编译(单一前端,07 §2)。返回退出码(`u8`,供调用方 [`std::process::ExitCode::from`]
@@ -223,8 +232,9 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                         }
                         // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
                         // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
-                        // `--emit=reflection`(G8.2 M31)同样不要求 `main`——着色入口(v/f/compute/mesh)
-                        // 即反射根,纯 host/compile 面不依赖 host EXE 入口。
+                        // `--emit=reflection`(G8.2 M31)/`--emit=permutations`(G8.2 M29)
+                        // 同样不要求 `main`——着色入口(v/f/compute/mesh)即反射/求解根,
+                        // 纯 host/compile 面不依赖 host EXE 入口。
                         let device_emit =
                             matches!(
                                 emit.as_deref(),
@@ -233,6 +243,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                                     | Some("pyd")
                                     | Some("dll")
                                     | Some("reflection")
+                                    | Some("permutations")
                             ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
@@ -295,7 +306,31 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     // 上方阶段化关卡通过(与 --emit=check 同口径);反射推导失败 = 编译期确定性
     // 诊断(fail-closed,不产部分产物,RXS-0307)。
     if emit.as_deref() == Some("reflection") {
-        return emit_reflection(&diag, &sm, &cx, &src, id, out.as_deref());
+        return emit_reflection(
+            &diag,
+            &sm,
+            &cx,
+            &src,
+            id,
+            out.as_deref(),
+            opts.permutation_select.as_deref(),
+            opts.permutation_budget,
+        );
+    }
+
+    // --emit=permutations(G8.2 M29,RXS-0308~0310;RFC-0019 §4.3):permutation 域
+    // 求解与确定性 JSON 报告(per-entry domain_digest/axes/enumerated/pruned/emitted/
+    // keys/axis_contribution),纯 host/compile 面。预算超限 = RX7023 硬失败(退出
+    // 非零)且 axis contribution report 照常产出。
+    if emit.as_deref() == Some("permutations") {
+        return emit_permutations(
+            &diag,
+            &sm,
+            &cx,
+            &src,
+            out.as_deref(),
+            opts.permutation_budget,
+        );
     }
 
     if emit.as_deref() == Some("mir") {
@@ -471,14 +506,22 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     if let Some(target) = emit.as_deref()
         && !matches!(
             target,
-            "check" | "mir" | "reflection" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd" | "dll"
+            "check"
+                | "mir"
+                | "reflection"
+                | "permutations"
+                | "nvptx-ir"
+                | "ptx"
+                | "llvm-ir"
+                | "pyd"
+                | "dll"
         )
     {
         toolchain_err(
             &diag,
             &sm,
             format!(
-                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/llvm-ir/nvptx-ir/ptx/pyd/dll)"
+                "未知 --emit 目标 `{target}`(合法:check/mir/reflection/permutations/llvm-ir/nvptx-ir/ptx/pyd/dll)"
             ),
         );
         return 1;
@@ -979,9 +1022,12 @@ fn toolchain_err(diag: &DiagCtxt, sm: &SourceMap, reason: String) {
 
 /// `--emit=reflection`(G8.2 M31,RXS-0304~0307;RFC-0019 §4.4):反射 v1 canonical JSON
 /// 产物落盘或 stdout。纯 host/compile 面,不产 codegen/link 产物;反射推导失败 =
-/// 编译期确定性诊断(fail-closed,不产部分产物,RXS-0307)。错误码复用既有类别(零新码):
-/// `Unmappable` → RX6013 / `Unsupported` → RX6026(与 `reflection::ReflectError` 同口径)。
+/// 编译期确定性诊断(fail-closed,不产部分产物,RXS-0307)。错误码映射:
+/// `Unmappable` → RX6013 / `Unsupported` → RX6026(与 `reflection::ReflectError`
+/// 同口径);M29 真值化输入面(RXS-0304 v1.1):permutation 域违例 / select KEY 非法
+/// → RX3019,select 求解预算超限 → RX7023。
 #[cfg(feature = "shader-stages")]
+#[allow(clippy::too_many_arguments)]
 fn emit_reflection(
     diag: &DiagCtxt,
     sm: &SourceMap,
@@ -989,16 +1035,23 @@ fn emit_reflection(
     src: &str,
     main_file: crate::span::SourceId,
     out: Option<&Path>,
+    permutation_select: Option<&str>,
+    permutation_budget: Option<u32>,
 ) -> u8 {
     let file = cx.ast();
-    let doc = match crate::reflection::build_reflection(file, src, main_file) {
+    let plan = crate::reflection::ReflectionPermPlan {
+        select: permutation_select,
+        budget_override: permutation_budget,
+    };
+    let doc = match crate::reflection::build_reflection(file, src, main_file, &plan) {
         Ok(d) => d,
         Err(e) => {
             let code = crate::diag::ErrorCode(e.error_code());
-            let label = if e.error_code() == 6013 {
-                "codegen.dxil_unmappable"
-            } else {
-                "codegen.vulkan_unsupported"
+            let label = match e.error_code() {
+                6013 => "codegen.dxil_unmappable",
+                3019 => "shader.permutation_domain_invalid",
+                7023 => "toolchain.permutation_budget_exceeded",
+                _ => "codegen.vulkan_unsupported",
             };
             diag.struct_error(code, label)
                 .arg("detail", e.detail().to_owned())
@@ -1026,6 +1079,77 @@ fn emit_reflection(
         None => print!("{json}"),
     }
     0
+}
+
+/// `--emit=permutations`(G8.2 M29,RXS-0308~0310;RFC-0019 §4.3):permutation 域求解
+/// 报告(确定性 canonical JSON;无路径/时间戳)。预算超限 = RX7023 工具段确定性
+/// 诊断(退出非零)+ **axis contribution report 照常产出**(报告只含 axis 元数据
+/// 与计数,不泄漏部分组合表,RXS-0310 实现要求)。域声明违例已在上方阶段化关卡
+/// 以 RX3019 拦截(与 `--emit=check` 同口径),此面保守 fail-closed。
+#[cfg(feature = "shader-stages")]
+fn emit_permutations(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    src: &str,
+    out: Option<&Path>,
+    permutation_budget: Option<u32>,
+) -> u8 {
+    let file = cx.ast();
+    let report = match crate::permutation::build_report(file, src, permutation_budget) {
+        Ok(r) => r,
+        Err(inv) => {
+            diag.struct_error(
+                crate::permutation::E_PERMUTATION_DOMAIN,
+                "shader.permutation_domain_invalid",
+            )
+            .arg("detail", inv.detail)
+            .span_label(inv.span, "invalid permutation domain")
+            .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            return 1;
+        }
+    };
+    let json = crate::permutation::to_report_json(&report);
+    let write_rc = match out {
+        Some(p) => {
+            if let Err(e) = std::fs::write(p, json.as_bytes()) {
+                toolchain_err(diag, sm, format!("permutations 报告写入失败: {e}"));
+                return 1;
+            }
+            eprintln!(
+                "rurixc: --emit=permutations: {} ({} entries)",
+                p.display(),
+                report.entries.len()
+            );
+            0
+        }
+        None => {
+            print!("{json}");
+            0
+        }
+    };
+    if report.exceeded.is_empty() {
+        return write_rc;
+    }
+    // 预算超限硬失败(RX7023):报告已在上方照常产出(axis contribution 在位)。
+    diag.struct_error(E_PERM_BUDGET, "toolchain.permutation_budget_exceeded")
+        .arg(
+            "detail",
+            format!(
+                "permutation 预算超限:entry `{}` 的 enumerated(∏|axis|)> 有效 budget(CLI --permutation-budget 覆盖 > attr budget(N) 声明;上限含等号,RXS-0310);axis contribution report 见产物",
+                report.exceeded.join("`, `")
+            ),
+        )
+        .emit();
+    eprint!(
+        "{}",
+        render_diagnostics(&diag.emitted(), sm, diag.messages())
+    );
+    1
 }
 
 fn run_tool(cmd: &mut Command, name: &str) -> Result<(), String> {

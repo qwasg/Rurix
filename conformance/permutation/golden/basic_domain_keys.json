@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.permutation-golden.v1",
+  "domain": "conformance/permutation/accept/basic_domain.rx",
+  "spec": ["RXS-0309", "RXS-0310"],
+  "enumerated": 6,
+  "pruned": 1,
+  "emitted": 5,
+  "pruned_keys": [
+    "FOG=true;QUALITY=low"
+  ],
+  "keys": [
+    "FOG=false;QUALITY=high",
+    "FOG=false;QUALITY=low",
+    "FOG=false;QUALITY=med",
+    "FOG=true;QUALITY=high",
+    "FOG=true;QUALITY=med"
+  ]
+}

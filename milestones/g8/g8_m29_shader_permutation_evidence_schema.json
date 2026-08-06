@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2 M29 shader_permutation evidence",
+  "description": "evidence/g8_m29_shader_permutation_<UTC>.json。G8.2 P0 硬门 g8.p0.m29.shader_permutation:host/compile 纯 host 门,permutation 域声明闭集/canonical key 与 domain digest/裁剪·预算·报告·选择律(RXS-0308~0310;RFC-0019 §4.3)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m29_shader_permutation" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m29.shader_permutation" },
+    "matrix_row": { "type": "string", "const": "M29" },
+    "wave": { "type": "string", "const": "G8.2" },
+    "numeric_step": { "type": "integer", "const": 98 },
+    "source_ref": { "type": "string", "const": "RFC-0019 §4.3;spec/rendering_platform.md RXS-0308~0310" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "double_key_generation_byte_identical",
+        "legal_set_equals_golden",
+        "pruned_combinations_all_absent",
+        "axis_declaration_order_invariant",
+        "budget_equal_green",
+        "budget_minus_one_red",
+        "report_identity_enumerated_eq_pruned_plus_emitted",
+        "axis_contribution_report_on_red",
+        "select_valid_key_fills_variant_key",
+        "select_missing_key_deterministic_error",
+        "empty_domain_reflection_zero_drift",
+        "accept_corpus_green",
+        "reject_corpus_red_with_codes"
+      ],
+      "properties": {
+        "double_key_generation_byte_identical": { "type": "boolean" },
+        "legal_set_equals_golden": { "type": "boolean" },
+        "pruned_combinations_all_absent": { "type": "boolean" },
+        "axis_declaration_order_invariant": { "type": "boolean" },
+        "budget_equal_green": { "type": "boolean" },
+        "budget_minus_one_red": { "type": "boolean" },
+        "report_identity_enumerated_eq_pruned_plus_emitted": { "type": "boolean" },
+        "axis_contribution_report_on_red": { "type": "boolean" },
+        "select_valid_key_fills_variant_key": { "type": "boolean" },
+        "select_missing_key_deterministic_error": { "type": "boolean" },
+        "empty_domain_reflection_zero_drift": { "type": "boolean" },
+        "accept_corpus_green": { "type": "boolean" },
+        "reject_corpus_red_with_codes": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

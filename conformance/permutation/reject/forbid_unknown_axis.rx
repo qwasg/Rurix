@@ -1,0 +1,9 @@
+//@ permutation: reject
+//@ expect-error: RX3019
+//@ spec: RXS-0308
+// forbid 引用未知 axis 名 → 编译期确定性拒 RX3019。
+#[permutation(axis(FOG, bool))]
+#[permutation(forbid(SHADOWS = true))]
+kernel fn kmain() {}
+
+fn main() {}

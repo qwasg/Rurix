@@ -871,9 +871,30 @@
       "status": "active",
       "introduced_in": "EI1.2",
       "spec_clauses": ["RXS-0250"]
+    },
+    {
+      "id": "RX3019",
+      "title": "着色 permutation 域声明违例(编译期 strict:axis 重名 / 空值域〔`enum()` 零成员、`int(LO, HI)` 且 LO > HI〕/ forbid 引用未知 axis 或该 axis 值域外的值 / budget 非正整数或重复声明 / 未知子句或实参形态错误 / `#[permutation]` 附着非着色入口函数;泛型着色函数标注不参与求解;RXS-0308,permutation.rs 域校验经 shader_stages typeck 段挂接,`--permutation-select` KEY 不在合法集同码〔禁最接近回退,RXS-0310〕)",
+      "message_key": "shader.permutation_domain_invalid",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0308"]
+    },
+    {
+      "id": "RX7023",
+      "title": "着色 permutation 预算超限(工具段 strict:`enumerated = ∏|axis|` 整数算术先算不物化,超有效 budget〔CLI `--permutation-budget=N` 覆盖 > attr `budget(N)` 声明;上限含等号〕硬失败,退出非零且照常产出 axis contribution report〔逐 axis |axis| 与占比,报告不泄漏部分组合表〕;RXS-0310,driver `--emit=permutations` 求解律与 `--permutation-select` 求解路径)",
+      "message_key": "toolchain.permutation_budget_exceeded",
+      "status": "active",
+      "introduced_in": "G8.2",
+      "spec_clauses": ["RXS-0310"]
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.34",
+      "date": "2026-08-06",
+      "change": "G8.2 M29 shader permutation 硬门(g8.p0.m29.shader_permutation,RFC-0019 §4.3 RP-PERMUTATION 行,spec/rendering_platform.md RXS-0308~0310 配套;实现真实可达类别只追加)分配 RX3019 + RX7023。RX3019 着色 permutation 域声明违例(3xxx 着色/typeck 段续接 RX3018;spec 条款以 symbolic key `shader.permutation_domain_invalid` 冻结、数字码按实现 commit 当时实测 next_free 顺位领取兑现;违例闭集 = axis 重名/空值域/forbid 引用未知 axis 或域外值/budget 非正或重复/未知子句,`#[permutation]` 附着非着色入口与 `--permutation-select` KEY 不在合法集〔禁最接近回退〕同码,RXS-0308/0310)。RX7023 着色 permutation 预算超限(7xxx 链接/工具链段续接 RX7022;条款 symbolic key `toolchain.permutation_budget_exceeded` 兑现;`enumerated = ∏|axis|` 超有效 budget 硬失败 + axis contribution report 照常产出,上限含等号 GREEN,RXS-0310)。message_key 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)。RX3019/RX7023 消费 typeck 段 3019 与工具段 7023 两枚 next_free,number_ledger RX_error on_tree_max/next_free 校准由同 PR 治理接线 commit 完成。RX6031~6033 既有 entries 不动"
+    },
     {
       "version": "v1.33",
       "date": "2026-07-19",

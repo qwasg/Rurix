@@ -101,6 +101,10 @@ shader.nonuniform_annotation_missing = bindless table dynamic index must be anno
 shader.mesh_entry_invalid = invalid mesh/task entry annotation: {detail}
 shader.ray_query_state_invalid = invalid RayQuery traversal state: {detail}
 #
+# shader permutation 域/预算诊断(RX3019 / RX7023,spec/rendering_platform.md RXS-0308~0310;G8.2 M29 分配)
+shader.permutation_domain_invalid = invalid shader permutation domain: {detail}
+toolchain.permutation_budget_exceeded = shader permutation budget exceeded: {detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}

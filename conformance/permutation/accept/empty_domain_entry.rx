@@ -1,0 +1,12 @@
+//@ permutation: accept
+//@ spec: RXS-0308, RXS-0309, RXS-0310
+// 空域 entry(无 #[permutation] 标注)与非空域 entry 共存于同一编译单元:
+// `plain` 的 reflection 产物(permutation_domain_digest / variant_key /
+// pipeline_key)必须与 M31 基线逐字节一致(空域路径 0 字节漂移);
+// `tagged` 的 domain_digest 真值化(RXS-0304 v1.1)。
+kernel fn plain() {}
+
+#[permutation(axis(FOG, bool))]
+kernel fn tagged() {}
+
+fn main() {}

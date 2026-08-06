@@ -1061,6 +1061,17 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_reflection_hash_smoke.py --gate g8.p0.m31.reflection_hash
 
+      # 步骤 98（G8.2 P0 硬门 g8.p0.m29.shader_permutation;RFC-0019 §4.3;
+      # spec/rendering_platform.md RXS-0308~0310）:shader permutation 域求解/
+      # canonical key/裁剪预算报告冒烟。host/compile 纯 host 门（host 恒跑,device 段
+      # not_applicable）。13 项判据经 rurixc --emit=permutations/--emit=reflection +
+      # --permutation-budget/--permutation-select CLI 端到端 + cargo test permutation
+      # 14 单测前置 + conformance/permutation/{accept,reject} 语料批跑 + golden 集合
+      # 全等。失败即红,evidence 落盘 evidence/g8_m29_shader_permutation_<UTC>.json。
+      - name: G8.2 M29 shader permutation smoke (G8 CI_GATES §4.98, g8.p0.m29.shader_permutation)
+        shell: powershell
+        run: py -3 ci/g8_shader_permutation_smoke.py --gate g8.p0.m29.shader_permutation
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

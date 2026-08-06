@@ -1,0 +1,10 @@
+//@ permutation: accept
+//@ spec: RXS-0308, RXS-0309, RXS-0310
+// int 闭区间轴 + bool 轴,无 forbid:enumerated = 2*5 = 10 = emitted。
+// smoke 预算边界腿固定域:legal_count == 10(--permutation-budget=10 GREEN、
+// =9 RED;上限含等号,RXS-0310)。
+#[permutation(axis(LIGHTS, int(0, 4)))]
+#[permutation(axis(BUMP, bool))]
+kernel fn kmain() {}
+
+fn main() {}
