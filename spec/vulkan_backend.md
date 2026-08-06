@@ -830,6 +830,114 @@ ExtendedBodyLowerer 在 emit 期直接消费图形入口签名做资源分类(St
 
 > 锚定测试:`conformance/vulkan/reject/vk_hw_raster_f64_reject.rx`(L2「精确 f32 字面权威,禁升 f64 改写」的编译期护栏轴 RED);实现期锚定计划(PR-2~PR-4):rurix-rt DeviceCaps/RasterPass 单测 + 步骤 95 device 段 diff=0 + RED 双轴 + `conservative_props` evidence 重采。
 
+### RXS-0314 PSO key preimage 闭集与规范编码（G8.2 M30,RFC-0019 §4.1.4）
+
+#### Syntax
+
+无用户面语法(运行时/缓存键语义条款,先例 RXS-0248/0303 类)。
+
+#### Legality
+
+- **pso_key 定义**:`pso_key = SHA-256("rurix.pso-key.v1\0" || preimage)`。
+  preimage 为规范编码字节串(整数 u32 LE、字符串 length-prefix、digest 原始
+  32 字节,沿 RXS-0305 CanonW 律),字段闭集**依次**:
+  1. pipeline 种类 tag(`u32`:0=compute / 1=graphics / 2=rt);
+  2. 每 stage 的 SPIR-V blob SHA-256(**artifact digest**,按 stage_tag 升序,
+     计数前缀);
+  3. 每 stage 对应 entry 的 `interface_hash`(RXS-0306,同序);
+  4. `selected_profile_digest`(RXS-0312;无 profile 恒既有常量);
+  5. permutation `variant_key` 字符串(RXS-0309;未选择恒空串);
+  6. 固定功能状态规范编码:graphics = attachment format/blend/depth 状态/
+     顶点布局的规范序列;compute = 空(计数 0);rt = group 拓扑摘要
+     (group 数 + 逐 group kind tag 序列);
+  7. `compiler`/`compiler_version`/`edition`/`target`(RXS-0306 同源字串)。
+- **device identity 不入 pso_key**(RFC-0019 §4.1.4「driver query 值不影响
+  interface hash,但影响 pipeline cache device key」的落地拆分):跨机同源
+  构建的 pso_key 集合逐字节可比对(golden 可 check-in);device identity
+  单独构成 **cache artifact identity**(RXS-0315)。
+- 两个不同 pipeline 配置不得产生同一 pso_key(域分离 + 定界编码 by
+  construction);同配置跨 clean build 逐字节相等(确定性)。
+
+#### Implementation Requirements
+
+- key 计算为纯 host 函数(可单测,无 GPU 依赖);SHA-256 复用 `rurix-pkg`
+  实现(RXS-0306 同源)。
+- 固定场景 collector:消费**冻结 workload 描述表**(确定性 SPIR-V fixture
+  集)产 key 集合,golden checked-in;collector 输出 JSON 供 M85 manifest
+  的 PSO 记录段消费(键 = `pso_key`,字段位 = `{pso_key, kind_tag,
+  stage_digests[], fixed_function_digest}`,本条款一并冻结)。
+
+### RXS-0315 Cache artifact 磁盘格式与 fail-closed 装载（G8.2 M30）
+
+#### Syntax
+
+无用户面语法(磁盘格式条款)。
+
+#### Legality
+
+- **单文件格式** `<dir>/rurix_pso_cache.bin`:
+  - header(定长序):magic `"RXPSOC\x01"`(7 字节)→ `schema_version u32 LE`
+    → **device identity 段**(`pipelineCacheUUID[16]` + `vendorID u32` +
+    `deviceID u32` + `driverVersion u32`,全部实测自
+    `VkPhysicalDeviceProperties`,禁手写)→ key-set digest(全部 pso_key
+    按字节序排序拼接的 SHA-256)→ 分支 tag(`u32`:0=binary / 1=cache);
+  - payload:binary 分支 = per-pso_key blob 表(key 32 字节 + `u32 LE` 长度
+    前缀 blob,按 key 字节序);cache 分支 = `vkGetPipelineCacheData` 整
+    blob(`u32 LE` 长度前缀)。
+- **装载核验顺序**(强制,任一不符 = **丢弃全量重建**,绝不部分命中,evidence
+  记 `rebuild_reason` 枚举 `{schema, version, device_identity, keyset,
+  none}`):① magic/schema_version → ② device identity 逐字段 → ③ key-set
+  digest。
+- vendor blob(pipeline binary data / pipeline cache data)内容**非 stable**:
+  不入 golden、不做跨机比对;判据只考核命中行为(RXS-0316)与 fail-closed。
+- 解析层为纯 safe 代码(长度前置校验,越界/截断 = 确定性 `Err` → 重建),
+  磁盘 blob 视作不可信输入。
+
+#### Implementation Requirements
+
+- 篡改注入面(测试用):对 header 四轴(schema/version/driver identity/
+  keyset)各提供确定性篡改开关,篡改后装载必须走重建路径且输出仍正确
+  (`no_false_hit`)。
+
+### RXS-0316 Precache / warm / compile-stall 语义（G8.2 M30）
+
+#### Syntax
+
+无用户面语法(运行时执行语义条款)。
+
+#### Legality
+
+- **cold run**(precache 构建):对冻结 workload 的每个 pso_key 恰好创建一次
+  pipeline,`precache_build_count == |key 集合|`;binary 分支同时逐 pipeline
+  捕获 binary 数据并落盘(RXS-0315 格式)。
+- **warm run**(**全新进程**,判据字面):从磁盘 store 装载 → 逐 key 重建
+  pipeline;全部 create 调用带
+  `VK_PIPELINE_CREATE_FAIL_ON_PIPELINE_COMPILE_REQUIRED_BIT`
+  (`pipelineCreationCacheControl` 特性,实测协商;特性缺位 = fail-closed
+  记 dev-env degrade,不降级判据);返回 `VK_PIPELINE_COMPILE_REQUIRED` 即
+  `runtime_compile_stalls += 1`。判据:warm run `runtime_compile_stalls == 0`
+  且每个所需 key 均命中持久化数据。
+- **stall 计数器语义**(两分支同一定义):计数器为 manager 公开字段,进
+  evidence;必须存在**能红**采集路径(warm 前删除单条 key 的持久化数据 →
+  该 key 必须记 stall,反证腿)。
+- **binary 分支强制律**:`VK_KHR_pipeline_binary` 扩展在位时**必须**走
+  binary 分支(`vkGetPipelineKeyKHR` + `vkCreatePipelineBinariesKHR` +
+  `vkGetPipelineBinaryDataKHR` 捕获;warm 经 `VkPipelineBinaryInfoKHR` 链入
+  create);扩展缺位时走 **`VkPipelineCache` 冻结 fallback**
+  (`vkCreatePipelineCache(initialData)` / `vkGetPipelineCacheData`),
+  evidence 明记 `pipeline_binary_capability = false`。两分支不得混用同一
+  store 文件(分支 tag 不符 = keyset 前即拒,走重建)。
+- validation error = 0(device 门恒定判据);`RURIX_REQUIRE_REAL=1` 缺设备
+  翻硬红,缺 provisioning 仅 SKIP=dev-env degrade 不充绿。
+
+#### Implementation Requirements
+
+- harness 三模式独立进程:`--cold <dir>` / `--warm <dir>` /
+  `--tamper <schema|version|driver_uuid|keyset>`,输出 JSON 供 smoke 消费。
+- 新增 vk.rs FFI 一律 append 段(`vkCreatePipelineCache`/
+  `vkGetPipelineCacheData`/`vkDestroyPipelineCache` + `VK_KHR_pipeline_binary`
+  符号族 + repr(C) 结构),unsafe 归 U27/U31 既有 vk FFI 边界扩注;确需新
+  审计边界按当时实测顺位领 U 号,不预占。
 
 ## 3. 修订记录
 
@@ -858,3 +966,4 @@ ExtendedBodyLowerer 在 emit 期直接消费图形入口签名做资源分类(St
 | v1.20 | 2026-07-24 | **G4.4 PR-F Vulkan RHI 通道:落带编号条款体 `### RXS-0293` / `### RXS-0294`(spec-first)**。承 RFC-0015(Agent Approved 2026-07-23,§4.C4;G4_CONTRACT G-G4-5)。**RXS-0293**(.rx 单源 Vulkan RHI 通道:compute + graphics 双腿,`Rhi::create_vk(&ctx)` 显式后端构造 strict 无回退,Vulkan 不可用 → 确定性 Err RXS-0193 口径;compute 腿 = `rxrt_rhi_*` Vulkan 变体〔pipeline 自 SPIR-V 模块 + descriptor set + dispatch + 计划同步点回放,承 RXS-0272 桥接 graph.rs 单源〕;graphics 腿复用 G4.2 章A 执行面 A7 同一通道;feature 门控 `vulkan-backend`)。**RXS-0294**(device 见证判据:compute 图 saxpy 级 + 图形图章A demo 各经 Vulkan 通道 device 真跑,数值对照 vs host 参考 + vs CUDA 腿同图同参交叉对照 + spirv-val 全模块校验 + `RURIX_REQUIRE_REAL=1`,三段闭合任一段失败 → CI 红)。FLS 分节 **严禁 UB 节**。条款 commit 先行(spec-only),实现 commit 随后(硬规则 7;每条 ≥1 `//@ spec` 测试锚定随实现 commit 同 PR 落)。档位 **Full RFC**(RFC-0015)。无体例变更 | **Full RFC**（RFC-0015） |
 | v1.21 | 2026-08-01 | **RFC-0018 章 B compute RayQuery 编码面落库 + RXS-0300 条款体(spec-first,G7.1 PR-1 条款先行)**。承 RFC-0018(Agent Approved 2026-08-01,G7 伞形章 B;与章 A spec/shader_stages.md RXS-0297~0299 共享 RXS-0297 起顺位,number_ledger `reserved_in_flight[G7]` claim 兑现;条款号连续不跳号,0295/0296 burned 跳号口径维持)。新增 `### RXS-0300`(MIR→SPIR-V compute RayQuery 编码 + SPIR-V 1.4 per-entry 升版):**per-entry 升版判定并集钉死**(§9.1 V-1:使用 RayQuery〔MIR 体存在 RayQuery local/intrinsic〕∪ compute 签名含 AccelStruct 形参 → 该入口模块升 SPIR-V 1.4〔`SPIRV_VERSION_1_4` header + `OpEntryPoint` interface 全量枚举全部被引用全局变量,与 mesh/RT 同律 RXS-0247〕;`OpTypeAccelerationStructureKHR` 在 compute 模块的 capability 承载 = **RayQueryKHR**〔SPV_KHR_ray_query rev 17,compute 面唯一〕,仅看 RayQuery local 会致 AS-形参-only kernel 无 capability 承载 spirv-val 必拒,并集判定封闭);**capability/extension 按需声明**(RayQueryKHR + `OpExtension "SPV_KHR_ray_query"` 当且仅当模块含 OpTypeRayQueryKHR 或 OpTypeAccelerationStructureKHR;均不含维持 1.0 零新 capability,承 Int64 先例;不引入 SPV_KHR_physical_storage_buffer);**指令面编码约束**(OpTypeRayQueryKHR Function 存储类自觉〔RXS-0297 Function-only 收窄〕+ OpRayQueryInitializeKHR〔flags 恒 Opaque/mask 恒 0xFF〕+ OpRayQueryProceedKHR/OpRayQueryTerminateKHR + committed 查询族按真实使用;RayQuery 类型指针禁用 OpStore/OpLoad/OpCopyMemory 族 by-construction);**升版依据如实归因**(SPV_KHR_ray_query requires SPIR-V 1.0,1.4 非扩展强制;依据 = Vulkan 依赖链〔VK_KHR_ray_query→VK_KHR_spirv_1_4 或 1.2 核心〕+ 调研报告 §1.3 有效性规则 + RXS-0247 同源口径,rurix 自觉沿 1.4 per-entry 冻结);**W1/W2 零漂移门**(既有 compute/vertex/fragment 1.0 emit 字节零漂移,五 W1/W2 kernel golden + 全部既有 vulkan golden diff 空不重 bless,既有 `assemble` 0-byte,RayQuery compute 走新增发射路径,分叉落发射函数级);校验轴 spirv-val 退出码 + vulkan1.2/spv1.4 双口径(承 RXS-0247/RXS-0212);反汇编 golden 最小集锚定(G-G7-4)。子集外/emit 失败/spirv-val 拒 → **RX6026 扩或 RX6034 起新类别**(只追加不预造,RFC-0018 §7.4)。FLS 分节 **严禁 UB 节**。既有 RT 面(RXS-0247/0248)**只增量不矛盾** 0-byte。**本期 = 条款先行(硬规则 7)**:编码实现、golden 锚定与 RED 语料转正归 G7.2(W3a);device 段真跑归 CI 步骤 93(`RURIX_REQUIRE_REAL=1`)。RED 语料(conformance/rayquery/)同 PR 落盘,`//@ spec: RXS-0300` 锚定经 accept 语料 | **Full RFC**（RFC-0018） |
 | v1.22 | 2026-08-04 | **RFC-0018 §E(v1.1 修订行)HW 光栅语言面/执行语义落库 + RXS-0301~0303 条款体(spec-first,G7.5b PR-1 条款先行)**。承 RFC-0018 v1.1 修订行 §E「HW 光栅 VisBuffer 对拍裁定」(2026-08-04,G7.5b;步骤 95 evidence `escalation` 预埋前置兑现);编号承 RXS-0300 后连续顺位消费(number_ledger v1.44,`reserved_in_flight[G7]` claim;0295/0296 burned 跳号口径与 shadow_reserved 181~184 维持)。新增 `### RXS-0301`(Vulkan 原生图形 body 扩展白名单,target-conditional):**仅限 `emit_spirv_body_vulkan`(provenance=false)路径**,vertex/fragment body 在 RXS-0171 L4 基础上加性放行六项能力面(多层字段/向量分量投影、f32/整数比较与逻辑短路、结构化 if/可变局部/GLSL.std.450 内建〔首批 round→RoundEven 同表〕、`as` 数值 cast/usize 索引/SSBO 动态索引读、标量→向量输出装配、u64 SSBO 原子〔本体 RXS-0302〕,步骤 95 `missing_toolchain_caps` 六项逐一映射);**负面清单恒拒 RX6026 grow-only**(循环/用户 device fn 调用/f64/RayQuery/共享内存/`Scope::Block`(CTA)原子/纹理采样以外图像原子),**DXIL 路(provenance=true)RXS-0171 L4 冻结 0-byte**(分叉先例 RXS-0210/0249);两遍编译语义(第一遍最小切片成功即原样输出字节零漂移 by construction,Unmappable 才进 ExtendedBodyLowerer;表级复用仅改可见性,W1/W2 manifest 零漂移门维持);**RX6026 修订注**(拒绝面自 RXS-0301 起收窄至负面清单,码语义与 registry entry 0-byte,只加类别不改语义 07 §5)。新增 `### RXS-0302`(图形阶段 SSBO 与 push constant 资源面 + u64 原子):buffer 形参按声明序 set=0/binding=n(StorageBuffer std430)、标量按声明序 push constant 块 4 字节对齐(与 compute RXS-0203/0208 同一分配律,`render_exec::Bindings` 布局字面对齐);`AtomicView<_,u64,_>.fetch_max(idx,val,Scope::Gpu)` fragment 合法 → `OpAtomicUMax`(Device scope/Relaxed,与 compute 逐字同值),scope 仅 Gpu(`Scope::Block`=CTA 级 → RX6026,`Scope::System` 首期不放行 P-12);capability 按需(Int64/Int64Atomics 不用不发);**SPIR-V 版本维持 1.0**(u64 原子不需 1.4,RayQuery 1.4 政策不牵连)。新增 `### RXS-0303`(HW 光栅 VisBuffer 对拍执行语义,先例 RXS-0248 类运行时条款):覆盖规则唯一权威 = SW 精确 f32 边函数 + top-left + 绕向归一 + depth30 量化(`visbuffer_sw_u64.rx`/`VisBufferCpu` 双源);HW 腿必须 = 保守光栅 OVERESTIMATE 超集(pipeline 必挂 `VkPipelineRasterizationConservativeStateCreateInfoEXT`)+ FS 内逐字复刻判定(f32 字面权威禁升 f64 改写);DeviceCaps 无扩展 fail-closed(降级臂 = host 三边外扩 ≥1px 几何膨胀,仅显式开关 + evidence `pipeline` 如实标注);判据 = 9216 词 u64 逐词相等 **diff=0 整数域零容差** + 反空转 + RED 双轴;status 翻转为 schema 双臂预授权(diff≠0 原理性分歧回 RFC-0018 二次修订行,不得引入容差);本机保守光栅探测快照锚 RFC-0018 §E2(2026-08-04 vulkaninfo,RTX 4070 Ti,扩展 rev 1,`primitiveOverestimationSize=0.00195312`,`degenerateTrianglesRasterized=true`)。FLS 分节 **严禁 UB 节**。**既有条款 0-byte 纯追加**;零新 RX 码(RX6026 收窄注不触 entry)。**本期 = 条款先行(硬规则 7)**:四枚负面清单 RED 语料(`conformance/vulkan/reject/vk_hw_raster_{loop,devfn_call,cta_atomic,f64}_reject.rx`,`//@ expect-error: RX6026`,恒跑步 reject 段纳管,扩展前后均必红)同 PR 落盘并承载 `//@ spec` 锚定;扩展 lowerer/资源分类/运行时底座/uc06 装配/步骤 95 翻绿归 G7.5b PR-2~PR-4 | **Full RFC**（RFC-0018） |
+| v1.23 | 2026-08-06 | **RFC-0019 §4.1.4 PSO cache 语义面落库 + RXS-0314~0316 条款体(spec-first,G8.2 M30 条款先行,硬规则 7)**。承 RFC-0019(Agent Approved 2026-08-02;number_ledger v1.52 校准 RXS 313/314→316/317)。新增 `### RXS-0314`(PSO key preimage 闭集与规范编码:pso_key=SHA-256("rurix.pso-key.v1\0"||preimage),preimage 七段闭集〔种类 tag/stage artifact digests/interface_hash/selected_profile_digest/variant_key/固定功能状态/compiler·edition·target〕沿 CanonW 律;**device identity 不入 pso_key**〔跨机 golden 可比对〕单独构成 cache artifact identity;collector 输出 JSON 字段位 {pso_key,kind_tag,stage_digests[],fixed_function_digest} 一并冻结供 M85 消费)/ `### RXS-0315`(cache artifact 磁盘格式与 fail-closed:单文件 rurix_pso_cache.bin,header=magic RXPSOC\x01+schema_version+device identity 段〔pipelineCacheUUID[16]+vendorID+deviceID+driverVersion 实测自 VkPhysicalDeviceProperties〕+key-set digest+分支 tag;装载核验序 ①magic/version→②device identity 逐字段→③keyset digest,任一不符丢弃全量重建绝不部分命中,rebuild_reason 枚举进 evidence;vendor blob 非 stable 不入 golden;解析层纯 safe 长度前置校验)/ `### RXS-0316`(precache/warm/stall 语义:cold 构建数==key 集合大小;warm 全新进程全部 create 带 FAIL_ON_PIPELINE_COMPILE_REQUIRED〔pipelineCreationCacheControl 实测协商,缺位 fail-closed 记 dev-env degrade 不降级判据〕,COMPILE_REQUIRED 即 stall+=1,判据 warm stalls==0 且全 key 命中;stall 计数器两分支同一定义+能红反证腿〔删单 key blob→必记 stall〕;**binary 分支强制律** = VK_KHR_pipeline_binary 在位必走 binary〔vkGetPipelineKeyKHR+vkCreatePipelineBinariesKHR+vkGetPipelineBinaryDataKHR〕,缺位走 VkPipelineCache 冻结 fallback 且 evidence 明记 capability=false;分支 tag 不符 keyset 前即拒;validation=0 + RURIX_REQUIRE_REAL=1)。FLS 分节 **严禁 UB 节**。零新 RX 码(cache 失配/重建 = 库层确定性行为+evidence 登记,非诊断面)。**本期 = 条款先行(硬规则 7)**:pso_cache.rs/vk.rs FFI append/harness vk_pso_cache/步骤 100 翻绿归 M30 实现 commit;每条 ≥1 `//@ spec` 锚定随实现 commit 同落。依据 G8_ACCEPTANCE_MAP §2 M30 行 + G8.2 设计案 §3。既有条款 0-byte 纯追加 | **Full RFC**（RFC-0019） |

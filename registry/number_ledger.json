@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 313,
-      "next_free": 314,
+      "on_tree_max": 316,
+      "next_free": 317,
       "shadow_reserved": [
         181,
         182,
@@ -336,6 +336,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.52",
+      "date": "2026-08-06",
+      "change": "G8.2 M30 spec-first PR:RXS-0314~0316 materialize(agent 主导串行合入,硬规则 7 条款先于实现)。RXS on_tree_max 313→316、next_free 314→317——spec/vulkan_backend.md v1.23 纯追加 `### RXS-0314`(PSO key preimage 七段闭集与规范编码:pso_key=SHA-256(rurix.pso-key.v1\\0||preimage),种类 tag/stage artifact digests/interface_hash/selected_profile_digest/variant_key/固定功能状态/compiler·edition·target 沿 CanonW 律;device identity 不入 pso_key 跨机 golden 可比对,单独构成 cache artifact identity;collector 输出 {pso_key,kind_tag,stage_digests[],fixed_function_digest} 字段位冻结供 M85 消费)/ `### RXS-0315`(cache artifact 磁盘格式与 fail-closed:rurix_pso_cache.bin header=magic+schema_version+device identity 段〔pipelineCacheUUID/vendorID/deviceID/driverVersion 实测〕+keyset digest+分支 tag;核验序三段任一不符全量重建绝不部分命中,rebuild_reason 枚举;vendor blob 非 stable 不入 golden;解析纯 safe fail-closed)/ `### RXS-0316`(precache/warm/stall 语义:cold 构建数==keyset 大小;warm 全新进程 FAIL_ON_PIPELINE_COMPILE_REQUIRED〔pipelineCreationCacheControl 实测协商〕判定 stalls==0 且全 key 命中;stall 计数器两分支同一定义+删单 blob 能红反证腿;VK_KHR_pipeline_binary 在位必走 binary 分支,缺位 VkPipelineCache 冻结 fallback evidence 明记 capability=false;validation=0+RURIX_REQUIRE_REAL=1)。依据 RFC-0019(Agent Approved 2026-08-02)§4.1.4 + G8_ACCEPTANCE_MAP §2 M30 行 + 设计案 §3。零新 RX 码(cache 失配=库层确定性行为非诊断面);零新 U(vk FFI append 归 U27/U31 扩注方向,确需新边界实现期顺位)。条款号连续不跳号;经 grep `### RXS-` 实测 spec 最大条款头 = RXS-0316。零新 RD/SG/MR/D/RFC/CI_step 命名空间字段(步骤 100 归 M30 实现 commit 顺位领取)。"
+    },
     {
       "version": "v1.51",
       "date": "2026-08-06",
