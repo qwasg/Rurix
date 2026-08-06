@@ -448,6 +448,17 @@ key/脚本的唯一事实源是 `G8_ACCEPTANCE_MAP.md` §2/§3 与 `CI_GATES.md`
 
 bound 一经冻结即为 0-byte 面，放宽须新修订行 + 说明理由；收紧允许追加。
 
+#### 6.5.1 M67 smoothing bound（measured_local 冻结）
+
+首批 corpus：`conformance/physics/network/mispredict_impulse_delay/trace.json`，经 `g8-physics-gates net --trace … --force-freeze-bound` 在冻结 determinism 画像下采样 presentation transform 逐帧偏移；ceiling = measured × 1.25。与 `g8_budget.json` `g8.counter.network_physics_checks` 同 PR 生效。
+
+| 量 | measured | bound（ceiling） | 单位 |
+|---|---:|---:|---|
+| max presentation position offset | 0.214944 | 0.268680 | m |
+| max presentation angle offset | 0.030758 | 0.0384475 | rad |
+
+判据：`smoothing_within_frozen_bound_per_frame` 逐帧 ≤ bound；`smoothing_authoritative_state_untouched` 权威状态不被 presentation 修正改写。放宽须新修订行。
+
 ## 7. 风险、止损与备选
 
 | 风险 | 预警 | 止损 |
@@ -551,3 +562,4 @@ bound 一经冻结即为 0-byte 面，放宽须新修订行 + 说明理由；收
 | Draft v0.1 | 2026-08-02 | G8.1 governance-only 初稿：冻结 M66 replay-first、M73 5.3↔5.6 A/B 止损、M67 network physics、M68 destruction、M69/M70/M71/M72 产品层、五条 G6 纪律、多时间域 identity 与 CPU 权威/GPU 禁止线；§9.1 留空待独立 provenance 评审；零实现编号 claim。起草 provenance `Codex:gpt-5 rfc21-drafter-session`。 | Full RFC（Draft） |
 | v1.0 | 2026-08-02 | **Agent Approved**：D-409 独立 provenance（`Kiro:claude-opus-5` ≠ 起草 `Codex:gpt-5`）三镜头评审完成，20 findings 全 disposition。正文实改要点：§2.1.1 JoltC ABI 缺口与三选一处置（M66/M71 开工前置）、§3.1 五纪律逐字引用 + §3.1.1 附加约束分离、头部认领 RFC-γ 身份 + §6.5 bound 三步冻结程序、§6.2 feature 名即日冻结、Q2/Q4 由本 RFC 裁决（cloth = 自有 XPBD）、删除 GPU 可选副求解器授权、§4.A1 补 determinism/预算画像、§4.A3 注入点与字段白名单、§4.A4 补 5.6 采纳臂三件事与 v5.6.0 锚、§4.B1 hash 收敛画像、§6.4 统一 canonical key 并登记 M69/M70/M71/M73 的波次级 subject、§4.D2 五项逐字与 RD-044 授权来源、§2.4 out-of-scope RD 归属。零 RXS/CI/RD/U/RX 数字 claim；批准不解锁实现。 | Full RFC（Agent Approved） |
 | v1.1 | 2026-08-06 | **G8.6 PR-0：§2.1.1 三选一处置书面选定全线 (c)**（加性；既有表字面 0-byte）。新增 §2.1.1.1：M66 恢复层 = `semantic_journal_rebuild_v1`；M71 = 自研 `RurixCharacter`（Jolt CharacterVirtual 降候选）；**新登记** M70 VehicleConstraint 零导出缺口并选 (c) 自研悬挂载具；M69 走已导出约束五件套路线；新 FFI 仅消费既有符号、零 vendor 补丁。未落本选定前 M66/M71/M70 不得开工。零 RXS/CI/RD/U/RX 数字 claim。 | Full RFC（Agent Approved） |
+| v1.2 | 2026-08-06 | **§6.5.1 M67 smoothing bound 冻结**（加性）：mispredict_impulse_delay measured → position ≤0.268680 m / angle ≤0.0384475 rad（1.25× ceiling）；与 `g8.counter.network_physics_checks` 同 PR。CI 步骤号由 ledger materialize，本文不猜号。 | Full RFC（Agent Approved） |

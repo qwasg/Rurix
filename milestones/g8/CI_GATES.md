@@ -78,7 +78,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m19.vsm_page_cache` | M19 | G8.5a | `ci/g8_vsm_page_cache_smoke.py` | 115 |
 | `g8.p0.m24.tsr_contract` | M24 | G8.5b | `ci/g8_tsr_contract_smoke.py` | 117 |
 | `g8.p0.m66.physics_replay` | M66 | G8.6a | `ci/g8_physics_replay_smoke.py` | 120 |
-| `g8.p0.m67.network_physics` | M67 | G8.6b | `ci/g8_network_physics_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m67.network_physics` | M67 | G8.6b | `ci/g8_network_physics_smoke.py` | 122 |
 | `g8.p0.m68.fracture_pipeline` | M68 | G8.6c | `ci/g8_fracture_pipeline_smoke.py` | `post-G7 actual-next-free allocation` |
 
 ### 4.0 已 go 的 P1 独立断言（3 行，v1.1 补齐）
@@ -186,6 +186,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.21 | 2026-08-06 | **G8.6b M67 network_physics**：§4 M67→`122`；RFC-0021 §6.5.1 smoothing bound 冻结；13 腿 + MAP 五项。host 门（wave6b.exit 待 M69/M71 subject）。 |
 | v1.20 | 2026-08-06 | **G8.6a M66 + wave6a.exit**：§4 M66→`120`；§5 `g8.wave.6a.exit`→`121`；Jolt 5.3 corpus + M73 `pin_5_3_honest_stop_loss`；U47~U53。host 门 + 聚合。 |
 | v1.19 | 2026-08-06 | **G8.5b M24 + M25 + wave5b.exit**：§4 M24→`117`、§4.0 M25→`118`；§5 `g8.wave.5b.exit`→`119`；RFC-0019 §4.6.4 tolerance 冻结；RD-038 GI/TSR 接入空集。device 两门 + host 聚合。 |
 | v1.18 | 2026-08-06 | **G8.5a M19 + wave5a.exit**：§4 M19→`115`；§5 `g8.wave.5a.exit`→`116`；RD-038 raster/VSM 接入空集；retained-open 清单锚。device + host 聚合。 |

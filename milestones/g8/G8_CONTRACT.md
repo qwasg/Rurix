@@ -631,3 +631,16 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **诚实边界**：5.6 双二进制 A/B 未跑；钉 5.3 为止损成功臂，非升级 PASS。
 
 **验收**：M66 15/15 host PASS；wave6a.exit 聚合 PASS。
+
+### 8.22 G8.6b M67 network_physics（2026-08-06）
+
+**触发**：wave6a.exit 解锁后网络物理硬门（设计 §3；RFC-0021 §4.B1）。
+
+**交付物**：
+- M67：`rurix-physics::net` + `g8-physics-gates net --trace` + `ci/g8_network_physics_smoke.py`（步骤 **122**）
+- RFC-0021 **§6.5.1** smoothing bound 与 `g8.counter.network_physics_checks` 同 PR 冻结
+- Character/PhysicsAsset 最小可 capture 状态块（wave6b subject 闭环另门）
+
+**诚实边界**：`g8.wave.6b.exit` 未落——须待 `g8.wave6b.m69.physics_asset` / `g8.wave6b.m71.character_virtual` subject 闭环后再聚合。
+
+**验收**：M67 13/13 + MAP 五项 host PASS；smoothing ≤ §6.5.1 bound。

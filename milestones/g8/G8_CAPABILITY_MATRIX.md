@@ -142,7 +142,7 @@
 | M65 | Rapier 快路径对拍 | — | ✅ G6.4（parity 七判据，默认 off） | — | — | ✅ | ✔ | — |
 | M65b | Rapier 快路径**深造**（真实 workload 采用面） | RD-044 backfill | ⬜ G6.4 仅为对拍见证；生产 workload 未采用 | parity 扩展场景、性能/功能差距闭环 | C | P2 | ✔ | G8.7 穷举（**仅**决策表 go；默认 no-go；RD-044 四拆之一） |
 | M66 | physics capture/replay + 状态哈希 + divergence 定位 | R2 §2.13 / §3.1 | ✅ G8.6a materialize：`physics-capture` + 10 场景 corpus + 15 腿 smoke（步骤 120）；divergence 注入定位 | B/C：snapshot delta、body lifecycle journal、重演比对器 | B/C | P0 | ✔ | **G8.6a**（已绿；M73 钉 5.3） |
-| M67 | 网络物理层（input/state history、prediction、rollback/resimulation、事件去重、平滑） | R2 §2.12 | ⬜ | C：physics frame ID、快照环、server correction | C | P0 | ✔ | **G8.6b** |
+| M67 | 网络物理层（input/state history、prediction、rollback/resimulation、事件去重、平滑） | R2 §2.12 | ✅ G8.6b materialize：`network-physics` + 13 腿 smoke（步骤 122）；§6.5.1 bound 冻结 | C：physics frame ID、快照环、server correction | C | P0 | ✔ | **G8.6b**（硬门已绿；wave6b.exit 待 M69/M71） |
 | M68 | 破坏生产链（预破碎资产/connection graph/strain 断键/层级 cluster 激活/cache/VFX 事件桥） | R2 §2.5 | ⬜ Jolt 无内建 fracture；**未被 RD-044 覆盖的新缺口面** | C：GeometryCollection 等价运行时；D：Voronoi/plane fracture cook、interior face、anchor | C/D | P0 | ✔ | **G8.6c** |
 | M69 | PhysicsAsset / ragdoll / physical animation | R2 §2.8 | ⬜（§0 核对：rurix-physics 零 character/ragdoll 包装；Jolt Ragdoll/motor 原语在 vendor 内未暴露） | C：骨骼刚体映射、pose motor、partial simulation；D：collider/joint authoring | C/D | P1 | ✔ | G8.6b |
 | M70 | 载具产品层 | R2 §2.7 | ⬜（Jolt `VehicleConstraint` 未包装） | C：drivetrain/tire 包装与状态序列化；D：调参资产/telemetry | C/D | P1 | ✔ | G8.6d |
@@ -241,6 +241,7 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4 | 2026-08-06 | **G8.6b M67 materialize**：M67→✅（步骤 122；RFC §6.5.1）；wave6b.exit 待 M69/M71。 |
 | v1.3 | 2026-08-06 | **G8.6a M66 materialize**：M66→✅；M73→🟡 `pin_5_3_honest_stop_loss`。 |
 | v1.2 | 2026-08-02 | 对齐 G8_PLAN v1.2 双门解耦：G8.1 governance-only active、G8.2+ blocked；“承 G7”全记 unresolved；编号仅 RFC-0019~0021，其他共享在途空间零占用；RFC-α 具体化为 RFC-0019；M50 单独 strategic_override，M28 no-go 不实现。 |
 | v1.1 | 2026-08-02 | **对齐 G8_PLAN v1.1 评审修订（暂不定稿）**：承 G7/条件型 RD 纪律；M01/M04→G8.3；M28→RFC-α+5b；M40 SVT 门槛；M50 增量退出门；M59 多队列 RFC-α；M65b Rapier 深造；P0 波次与成功判据防假绿；Differentiable→RD-042。 |

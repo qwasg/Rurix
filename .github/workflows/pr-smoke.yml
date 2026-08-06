@@ -1257,6 +1257,12 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_wave6a_exit_check.py --gate g8.wave.6a.exit
 
+      # 步骤 122（G8.6b P0 硬门 g8.p0.m67.network_physics）:prediction→correction→
+      # rollback/resim→dedup→smooth；RFC-0021 §6.5.1 冻结 bound。host 门。
+      - name: G8.6b M67 network physics smoke (G8 CI_GATES §4.122, g8.p0.m67.network_physics)
+        shell: powershell
+        run: py -3 ci/g8_network_physics_smoke.py --gate g8.p0.m67.network_physics
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

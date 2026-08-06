@@ -388,6 +388,9 @@ def check_evidence_files() -> None:
     g8_wave6a_exit_schema = load(
         ROOT / "milestones/g8/g8_wave6a_exit_evidence_schema.json"
     )
+    g8_m67_network_physics_schema = load(
+        ROOT / "milestones/g8/g8_m67_network_physics_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -765,6 +768,11 @@ def check_evidence_files() -> None:
     g8_wave6a_exit_validator = (
         jsonschema.Draft7Validator(g8_wave6a_exit_schema)
         if g8_wave6a_exit_schema is not None
+        else None
+    )
+    g8_m67_network_physics_validator = (
+        jsonschema.Draft7Validator(g8_m67_network_physics_schema)
+        if g8_m67_network_physics_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1483,6 +1491,12 @@ def check_evidence_files() -> None:
         ):
             # G8.6a 波次聚合门 g8.wave.6a.exit(步骤 121)。
             validator = g8_wave6a_exit_validator
+        elif (
+            f.name.startswith("g8_m67_network_physics_")
+            and g8_m67_network_physics_validator is not None
+        ):
+            # G8.6b M67 network_physics(步骤 122)。
+            validator = g8_m67_network_physics_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

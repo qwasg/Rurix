@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.6b M67 network_physics evidence",
+  "description": "evidence/g8_m67_network_physics_<UTC>.json。G8.6b P0 硬门 g8.p0.m67.network_physics:固定丢包/延迟 NetTrace 上 prediction→correction→rollback/resim→event dedup→smoothing 全链(RFC-0021 §4.B1;design §3.5)。host 恒跑,device not_applicable。numeric_step 由 Gov materialize 回填(本稿不预占 ledger)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "map_five",
+    "smoothing_bound",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m67_network_physics" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m67.network_physics" },
+    "matrix_row": { "type": "string", "const": "M67" },
+    "wave": { "type": "string", "const": "G8.6b" },
+    "numeric_step": { "type": "integer", "minimum": 0 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0021 §4.B1;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §3;G8_ACCEPTANCE_MAP M67"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trace_fixture_deterministic",
+        "prediction_divergence_observed_at_golden",
+        "correction_received_at_golden_frame",
+        "rollback_start_and_input_sequence_match_expected",
+        "resim_final_hash_equals_server",
+        "contact_event_committed_exactly_once",
+        "event_dedup_across_repeated_rollbacks",
+        "smoothing_authoritative_state_untouched",
+        "smoothing_within_frozen_bound_per_frame",
+        "history_ring_overflow_hard_correction_explicit",
+        "incompatible_schema_or_build_digest_rejected",
+        "profile_match_recorded",
+        "frame_domain_map_recorded"
+      ],
+      "properties": {
+        "trace_fixture_deterministic": { "type": "boolean" },
+        "prediction_divergence_observed_at_golden": { "type": "boolean" },
+        "correction_received_at_golden_frame": { "type": "boolean" },
+        "rollback_start_and_input_sequence_match_expected": { "type": "boolean" },
+        "resim_final_hash_equals_server": { "type": "boolean" },
+        "contact_event_committed_exactly_once": { "type": "boolean" },
+        "event_dedup_across_repeated_rollbacks": { "type": "boolean" },
+        "smoothing_authoritative_state_untouched": { "type": "boolean" },
+        "smoothing_within_frozen_bound_per_frame": { "type": "boolean" },
+        "history_ring_overflow_hard_correction_explicit": { "type": "boolean" },
+        "incompatible_schema_or_build_digest_rejected": { "type": "boolean" },
+        "profile_match_recorded": { "type": "boolean" },
+        "frame_domain_map_recorded": { "type": "boolean" }
+      }
+    },
+    "map_five": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correction_received",
+        "rollback_resim_sequence",
+        "resim_hash_equals_server",
+        "event_commit_exactly_once",
+        "smoothing_bound_and_auth_untouched"
+      ],
+      "properties": {
+        "correction_received": { "type": "boolean" },
+        "rollback_resim_sequence": { "type": "boolean" },
+        "resim_hash_equals_server": { "type": "boolean" },
+        "event_commit_exactly_once": { "type": "boolean" },
+        "smoothing_bound_and_auth_untouched": { "type": "boolean" }
+      }
+    },
+    "smoothing_bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frozen",
+        "reference",
+        "max_position_m",
+        "max_angle_rad",
+        "measured_max_position_m",
+        "measured_max_angle_rad"
+      ],
+      "properties": {
+        "frozen": { "type": "boolean" },
+        "reference": { "type": "string" },
+        "max_position_m": { "type": "number" },
+        "max_angle_rad": { "type": "number" },
+        "measured_max_position_m": { "type": "number" },
+        "measured_max_angle_rad": { "type": "number" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
