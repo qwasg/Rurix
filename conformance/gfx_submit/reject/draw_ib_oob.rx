@@ -1,0 +1,52 @@
+//@ spec: RXS-0320
+// G8.2 M89 reject:draw_indexed index_count 越界 → 装配期 [capacity] 库层状态值(EXE RED)。
+
+struct VsIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct VsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+vertex fn vs(inp: VsIn) -> VsOut {
+    VsOut { pos: inp.pos, color: inp.color }
+}
+
+struct FsIn {
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create_vk(&ctx);
+    let back = rhi.color_target(4u32, 4u32);
+
+    let mut verts = ctx.alloc_pinned(32);
+    let mut i: usize = 0;
+    while i < 32 {
+        verts.set(i, 0.0f32);
+        i = i + 1;
+    }
+    // 仅 3 个索引(=12 字节);请求 count=6 → index_count*4 > ib.bytes。
+    let mut inds = ctx.alloc_pinned(3);
+    inds.set(0, 0u32);
+    inds.set(1, 1u32);
+    inds.set(2, 2u32);
+
+    let vb = rhi.vertex_data(&verts);
+    let ib = rhi.index_data(&inds);
+    rhi.raster_pass(vs, fs).writes_rt(&back).draw_indexed(&vb, &ib, 6u32);
+    rhi.submit();
+    0
+}

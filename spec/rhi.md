@@ -901,7 +901,7 @@ rhi.graph::<CAP>() -> Graph<C>        // CAP = const 泛型实参(turbofish 语�
 - **VB 布局单源律（P-11）**:`stride` 与顶点属性布局**不由用户声明**——由该 pass
   vertex shader 的 io **输入表**推导（`iface_extract::io_sig_for` 同一提取律）：声明序
   紧凑交错，location/format/offset 全部来自 reflection；与用户手写 stride 不符 =
-  seal 拒（RXS-0326）。
+  seal 拒（RXS-0320）。
 - **`index_data`**:首期索引类型冻结为 **u32**；cabi `rxrt_rhi_ib_create`。
 - **`draw` / `draw_indexed`**:登记进 `GfxPassRecord`；cabi
   `rxrt_rhi_gfx_draw(pass, vb, ib_or_0, count)`。

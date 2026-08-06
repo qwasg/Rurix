@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.2 M89 single_source_gfx_submit evidence",
+  "description": "evidence/g8_m89_single_source_gfx_submit_<UTC>.json。G8.2 P0 硬门 g8.p0.m89.single_source_gfx_submit:device 门,单源 gfx submit(VB/IB/draw + artifacts v2 真派发 + readback/golden,零 Rust 宿主像素替身;RFC-0019 §4;spec/rhi.md RXS-0319~0321;RD-037)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m89_single_source_gfx_submit" },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g8.p0.m89.single_source_gfx_submit"
+    },
+    "matrix_row": { "type": "string", "const": "M89" },
+    "wave": { "type": "string", "const": "G8.2" },
+    "numeric_step": { "type": "integer", "const": 102 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0019;spec/rhi.md RXS-0319~0321;RD-037;G8.2_SHADER_PLATFORM_DESIGN §6"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rx_exe_green_readback_selfassert",
+        "readback_equals_checked_in_golden",
+        "rust_host_source_count_zero",
+        "no_host_pixel_substitution",
+        "artifacts_v2_real_consumption",
+        "vb_ib_binding_via_cabi",
+        "assembly_reject_legs_red",
+        "seal_reflection_bidirectional_verify",
+        "compile_only_not_pass",
+        "validation_zero_errors",
+        "accept_corpus_green"
+      ],
+      "properties": {
+        "rx_exe_green_readback_selfassert": { "type": "boolean" },
+        "readback_equals_checked_in_golden": { "type": "boolean" },
+        "rust_host_source_count_zero": { "type": "boolean" },
+        "no_host_pixel_substitution": { "type": "boolean" },
+        "artifacts_v2_real_consumption": { "type": "boolean" },
+        "vb_ib_binding_via_cabi": { "type": "boolean" },
+        "assembly_reject_legs_red": { "type": "boolean" },
+        "seal_reflection_bidirectional_verify": { "type": "boolean" },
+        "compile_only_not_pass": { "type": "boolean" },
+        "validation_zero_errors": { "type": "boolean" },
+        "accept_corpus_green": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

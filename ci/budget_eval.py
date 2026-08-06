@@ -1000,6 +1000,32 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.2 M85 实现回填前为正常状态,契约 G-G8-4",
             strict,
         )
+    elif eid == "g8.counter.single_source_gfx_checks":
+        # G8.2 M89 single_source_gfx_submit 硬门判据 >=11 且 device 见证 >=1
+        # (契约 G-G8-4 / CI_GATES §4 M89 行;RXS-0319~0321;RD-037)。
+        # 计数源 = evidence/g8_m89_single_source_gfx_submit_*.json 中
+        # host_section_pass=true 且 device_section_state in {pass,executed}
+        # 且 checks.* 全 true 达 ≥11 的见证文件数。device 门;
+        # RURIX_REQUIRE_REAL=1 翻硬红。
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m89_single_source_gfx_submit_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            if doc.get("device_section_state") not in ("pass", "executed"):
+                continue
+            checks = doc.get("checks") or {}
+            true_count = sum(1 for v in checks.values() if v is True)
+            if true_count >= 11:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 single_source_gfx device 判据全绿见证(checks.* 11/11 true,pass|executed)",
+            "G8.2 M89 实现回填前为正常状态,契约 G-G8-4",
+            strict,
+        )
     elif eid == "g8.counter.shader_permutation_legs":
         # G8.2 M29 shader_permutation 硬门判据通过数 >=13(契约 G-G8-4 / CI_GATES §4
         # M29 行;RFC-0019 §4.3 / RXS-0308~0310)。计数源 = evidence/

@@ -1,0 +1,50 @@
+//@ spec: RXS-0320
+// G8.2 M89 reject:raster pass 的 draw 引用「非本 rhi」VB。
+// 语言面 brand 隔离使跨 `Rhi` 的 `&VertexBuffer` 在 typeck 即拒(RX2001)——
+// 强于运行期装配拒,同属 fail-closed;smoke 认编译期红为本腿 RED(非假绿)。
+// 若未来 brand 合并,运行期 cross-rhi `[structure]` 仍为兜底。
+
+struct VsIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct VsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+vertex fn vs(inp: VsIn) -> VsOut {
+    VsOut { pos: inp.pos, color: inp.color }
+}
+
+struct FsIn {
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi_a = Rhi::create_vk(&ctx);
+    let rhi_b = Rhi::create_vk(&ctx);
+    let back = rhi_a.color_target(4u32, 4u32);
+
+    let mut verts = ctx.alloc_pinned(32);
+    let mut i: usize = 0;
+    while i < 32 {
+        verts.set(i, 0.0f32);
+        i = i + 1;
+    }
+    // VB 属 brand B;draw 挂在 brand A 的 pass → cross-rhi / 未知 VB 装配拒。
+    let vb_b = rhi_b.vertex_data(&verts);
+    rhi_a.raster_pass(vs, fs).writes_rt(&back).draw(&vb_b, 3u32);
+    rhi_a.submit();
+    0
+}

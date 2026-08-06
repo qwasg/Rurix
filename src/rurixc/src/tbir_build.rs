@@ -587,6 +587,12 @@ impl Builder<'_> {
                             // `&mut PinnedBuffer` 剥壳为句柄表达式(镜像 download);`res`
                             // 非借用形态,剥壳对其为恒等(autoderef 不动非引用值)。
                             | crate::hir::GpuHostOp::RhiReadback
+                            // G8.2 M89(RXS-0319):`vertex_data`/`index_data` 的 `&PinnedBuffer`
+                            // 与 `draw`/`draw_indexed` 的 `&VertexBuffer`/`&IndexBuffer` 剥壳。
+                            | crate::hir::GpuHostOp::RhiVertexData
+                            | crate::hir::GpuHostOp::RhiIndexData
+                            | crate::hir::GpuHostOp::RhiGfxDraw
+                            | crate::hir::GpuHostOp::RhiGfxDrawIndexed
                     );
                     for a in args {
                         let lowered = if unborrow {

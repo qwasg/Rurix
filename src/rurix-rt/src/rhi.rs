@@ -259,6 +259,9 @@ pub enum GfxPassStage {
 /// 资源状态访问声明(`writes_rt`/`writes_depth`/`reads`/`reads_writes_uav`/`present`)经
 /// [`crate::graph::AccessKind`] 单源表达(封闭枚举镜像 RXS-0236);sampler/table 绑定声明
 /// 另记 [`GfxPassRecord::bindings`](无资源状态,RXS-0273)。seal 时桥接 `graph.rs::Graph`。
+///
+/// G8.2 M89(RXS-0319):`vs_name`/`fs_name` 为 artifacts v2 按名索引键(禁止忽略符号);
+/// `vs_stride`/`vs_attrs` 由 VS io 输入表单源推导(P-11),供 VB 装配核验与 Vk 顶点输入。
 #[derive(Debug, Clone)]
 pub struct GfxPassRecord {
     /// pass 诊断名。
@@ -273,6 +276,14 @@ pub struct GfxPassRecord {
     pub reflection: Option<Vec<ResourceId>>,
     /// present 终端声明(RXS-0272:每图 ≤1,且必须为声明序末 pass)。
     pub present: Option<ResourceId>,
+    /// vertex 着色 mangle 名(RXS-0319;raster 必填;mesh 可空)。
+    pub vs_name: Option<String>,
+    /// fragment 着色 mangle 名(RXS-0319;按名索引 artifacts v2)。
+    pub fs_name: Option<String>,
+    /// VS io 输入表推导的顶点 stride(字节;0 = 未登记 layout)。
+    pub vs_stride: u32,
+    /// `(location, vk_format, offset)` 顶点属性(单 binding 0;VS io 声明序紧凑交错)。
+    pub vs_attrs: Vec<(u32, u32, u32)>,
 }
 
 impl GfxPassRecord {
@@ -286,6 +297,10 @@ impl GfxPassRecord {
             bindings: Vec::new(),
             reflection: None,
             present: None,
+            vs_name: None,
+            fs_name: None,
+            vs_stride: 0,
+            vs_attrs: Vec::new(),
         }
     }
 

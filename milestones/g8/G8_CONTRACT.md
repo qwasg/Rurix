@@ -435,3 +435,26 @@ py -3 ci/g8_shader_manifest_ddc_smoke.py --selftest
 实测 merged digest=`8eb511bf7357f6f2de895edb052d8a48ce991b63454c5b7ca5daee0a3dc8d32a`。
 
 `Assisted-by: cursor-grok-4.5-high-fast`（实现/fixtures/smoke/schema；主 agent 治理接线。影响范围：本节 + CI_GATES v1.7 + ledger v1.54/v1.55 + g8_budget v1.5 + pr-smoke 步骤 101）
+
+### 8.7 M89 single_source_gfx_submit materialize（2026-08-06）
+
+**触发**：G8.2 P0 M89 `g8.p0.m89.single_source_gfx_submit`（device 门；正式兑现 RD-037 三件套）。
+
+**交付物**（spec-first：条款 `acaa31e3` 先行，实现+治理接线随后）：
+
+- **spec**：`spec/rhi.md` v1.8 RXS-0319（VB/IB 声明算子与布局推导）+ RXS-0320（装配核验与越界拒）+ RXS-0321（gfx 派发臂与 readback provenance）。ledger v1.56（RXS 318/319→321/322）。
+- **实现**：语言面 `vertex_data`/`index_data`/`draw`/`draw_indexed` + cabi `rxrt_rhi_vb_create`/`ib_create`/`gfx_draw`/`gfx_vs_layout` + `rhi_submit_vk` gfx 派发臂 + vk `run_rhi_graphics_offscreen_v2`（IB + `DrawIndexed`，`INDEX_TYPE_UINT32=1`）+ `conformance/gfx_submit/{accept,reject}` + `tests/gfx/m89_golden.rgba8`。
+- **CI**：`ci/g8_single_source_gfx_smoke.py`（11 checks）+ evidence schema（`numeric_step=102`）。
+- **治理**：check_schemas 路由 + pr-smoke 步骤 102（`RURIX_REQUIRE_REAL=1`）+ CI_GATES v1.8 回填 102 + g8_budget v1.6 `g8.counter.single_source_gfx_checks` + budget_eval + ledger v1.57（CI_step 101→102/103）+ RD-037 `open→closed`（deferred v1.75）+ U31 扩注。
+
+**判据 11 项**（G8_ACCEPTANCE_MAP §2 M89 行逐字 + RXS-0319~0321）：EXE 像素自断言 / dump==checked-in golden / fixture+启动链零 `.rs` / 无 host 填像素替身 / artifacts v2 真消费 / cabi VB/IB 绑定 / reject 装配腿红 / seal 双向 / 仅编译不算 PASS / validation=0 / accept 语料绿。**不以 M50/M29/M30/M31/M32/M85 任一结果代替**。
+
+**验收**（2026-08-06，本机 RTX 4070 Ti）：
+```
+$env:RURIX_REQUIRE_REAL=1
+py -3 ci/g8_single_source_gfx_smoke.py --gate g8.p0.m89.single_source_gfx_submit
+# PASS；evidence/g8_m89_single_source_gfx_submit_20260806T062455Z.json
+# checks.* 11/11 true；device_section_state=pass
+```
+
+`Assisted-by: cursor-grok-4.5-high-fast`（实现/语料/smoke/schema；主 agent 治理接线与 RD-037 关闭。影响范围：本节 + CI_GATES v1.8 + ledger v1.57 + g8_budget v1.6 + pr-smoke 步骤 102 + deferred RD-037）

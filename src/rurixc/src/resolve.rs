@@ -149,6 +149,12 @@ pub struct LangItems {
     /// `reads_writes_uav`/`binds_sampler` 方法接收者识别)。与 `Pass<C>` 平行的不同
     /// lang item(compute-pass 面 vs 图形 pass 面,RFC-0015 §4.A1)。
     pub rhi_gfx_pass: Option<DefId>,
+    /// `VertexBuffer<C>` VB 句柄(G8.2 M89,RXS-0319;`rhi.vertex_data` 产物;
+    /// 非 Copy affine;`draw`/`draw_indexed` 取 `&VertexBuffer` 借用)。
+    pub rhi_vertex_buffer: Option<DefId>,
+    /// `IndexBuffer<C>` IB 句柄(G8.2 M89,RXS-0319;`rhi.index_data` 产物;
+    /// 非 Copy affine;首期 u32 索引;`draw_indexed` 取 `&IndexBuffer` 借用)。
+    pub rhi_index_buffer: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -236,6 +242,9 @@ impl LangItems {
             "Queue" => self.rhi_queue,
             // G4.2 RHI 图形 pass 句柄(RXS-0270):类型位置兜底(可被用户遮蔽)。
             "GfxPass" => self.rhi_gfx_pass,
+            // G8.2 M89 VB/IB 句柄(RXS-0319):类型位置兜底(可被用户遮蔽)。
+            "VertexBuffer" => self.rhi_vertex_buffer,
+            "IndexBuffer" => self.rhi_index_buffer,
             // RayQuery device 不透明遍历器类型(G7.2 W3a,RXS-0297):类型位置
             // 兜底(可被用户遮蔽)。
             "RayQuery" => self.ray_query,
@@ -440,6 +449,18 @@ impl LangItems {
             || self.is_rhi_pass(d)
             || self.is_rhi_gfx_pass(d)
             || self.is_rhi_queue(d)
+            || self.is_rhi_vertex_buffer(d)
+            || self.is_rhi_index_buffer(d)
+    }
+
+    /// `VertexBuffer` VB 句柄判定(G8.2 M89,RXS-0319)。
+    pub fn is_rhi_vertex_buffer(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_vertex_buffer
+    }
+
+    /// `IndexBuffer` IB 句柄判定(G8.2 M89,RXS-0319)。
+    pub fn is_rhi_index_buffer(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_index_buffer
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -597,6 +618,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             rhi_create: None,
             rhi_create_vk: None,
             rhi_gfx_pass: None,
+            rhi_vertex_buffer: None,
+            rhi_index_buffer: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -755,6 +778,12 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             Some(r.new_def(DefKind::Struct, "RayQuery", Vis::Pub, span, 0));
         r.out.lang_items.ray_query_initialize =
             Some(r.new_def(DefKind::Fn, "ray_query_initialize", Vis::Pub, span, 0));
+        // G8.2 M89 VB/IB 句柄(RXS-0319):`VertexBuffer<C>` / `IndexBuffer<C>`。
+        // **追加于全部既有 lang items 之后**,不动摇既有 DefId 编号。
+        r.out.lang_items.rhi_vertex_buffer =
+            Some(r.new_def(DefKind::Struct, "VertexBuffer", Vis::Pub, span, 0));
+        r.out.lang_items.rhi_index_buffer =
+            Some(r.new_def(DefKind::Struct, "IndexBuffer", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

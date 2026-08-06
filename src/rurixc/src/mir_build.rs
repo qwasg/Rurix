@@ -32,6 +32,31 @@ use crate::ty::Ty;
 
 pub const E_UNSUPPORTED: ErrorCode = ErrorCode(6001); // RX6001
 
+/// G8.2 M89(RXS-0319):MIR I/O 类型 → `(VkFormat, 字节数)`。紧凑交错布局用;
+/// 与 Vk 顶点输入 format 表对齐(R32_* / R32G32_* / R32G32B32_* / R32G32B32A32_*)。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn mir_io_vk_format_size(ty: crate::mir::MirIoType) -> (u32, u32) {
+    use crate::mir::MirIoType;
+    // VkFormat 数值(Vulkan 1.0 spec):R32_UINT=98,R32G32_UINT=99,R32_SFLOAT=100,
+    // R32G32_SFLOAT=103,R32G32B32_UINT=104,R32G32B32_SFLOAT=106,
+    // R32G32B32A32_UINT=107,R32G32B32A32_SFLOAT=109。
+    match ty {
+        MirIoType::Scalar(PrimTy::F32) => (100, 4),
+        MirIoType::Scalar(PrimTy::U32) | MirIoType::Scalar(PrimTy::I32) => (98, 4),
+        MirIoType::Vector(PrimTy::F32, 2) => (103, 8),
+        MirIoType::Vector(PrimTy::F32, 3) => (106, 12),
+        MirIoType::Vector(PrimTy::F32, 4) => (109, 16),
+        MirIoType::Vector(PrimTy::U32, 2) | MirIoType::Vector(PrimTy::I32, 2) => (99, 8),
+        MirIoType::Vector(PrimTy::U32, 3) | MirIoType::Vector(PrimTy::I32, 3) => (104, 12),
+        MirIoType::Vector(PrimTy::U32, 4) | MirIoType::Vector(PrimTy::I32, 4) => (107, 16),
+        MirIoType::Scalar(_) => (100, 4),
+        MirIoType::Vector(p, n) => {
+            let (base, _) = mir_io_vk_format_size(MirIoType::Scalar(p));
+            (base, 4u32.saturating_mul(n as u32))
+        }
+    }
+}
+
 /// 单态化收集中发现的被调用实例 (DefId, 泛型实参)。
 type Callees = Vec<(DefId, Vec<Ty>)>;
 /// [`build_body`] 产物:(body, 被调用实例, const 引用求值首错)。
@@ -2150,7 +2175,9 @@ impl Builder<'_, '_> {
             // `rxrt_rhi_mesh_pass(rhi, ms_sym, fs_sym)`。着色函数引用经 mangle → Str 字面量
             // 下发(镜像 `lower_gpu_launch` 符号纪律:`Const::Str` → `@.str.N` 字节常量全局,
             // 自包含不需外部 define;运行期形参 `*const u8` 指 NUL 终止 mangle 名字符串,
-            // 供未来 gfx pass 按名索引 `spirv_entry(name)`)。非消费接收者。产 `GfxPass<C>` 句柄。
+            // 供 gfx pass 按名索引 `spirv_entry(name)`——G8.2 M89 RXS-0319 关闭「忽略符号」洞)。
+            // raster 另下发 `rxrt_rhi_gfx_vs_layout`(VS io 输入表 → stride/attrs,P-11 单源)。
+            // 非消费接收者。产 `GfxPass<C>` 句柄。
             Op::RhiRasterPass | Op::RhiMeshPass => {
                 let rhi = self.gpu_handle_op(&args[0]);
                 let ret = self.ty_of(e);
@@ -2160,8 +2187,12 @@ impl Builder<'_, '_> {
                     "rxrt_rhi_mesh_pass"
                 };
                 let mut call_args = vec![rhi];
-                for a in &args[1..3] {
+                let mut vs_def: Option<DefId> = None;
+                for (i, a) in args[1..3].iter().enumerate() {
                     let sym = if let tbir::ExprKind::Def(d) = &a.kind {
+                        if i == 0 {
+                            vs_def = Some(*d);
+                        }
                         Const::Str(mangle(&self.krate.item(*d).name, *d, &[]))
                     } else {
                         Const::Str(String::new())
@@ -2170,6 +2201,12 @@ impl Builder<'_, '_> {
                 }
                 let dest = self.emit_rt_call(symbol, call_args, ret.clone(), span);
                 self.guard_handle_zero(dest, span);
+                // G8.2 M89:raster pass 登记 VS io 推导布局(mesh 无 VB 输入表,跳过)。
+                if op == Op::RhiRasterPass
+                    && let Some(vs) = vs_def
+                {
+                    self.emit_gfx_vs_layout(dest, vs, span);
+                }
                 self.consume(Place::local(dest), &ret)
             }
             // G4.2 RHI 图形资源构造(RXS-0271,RFC-0015 §4.A2):`color_target(w,h)` /
@@ -2267,7 +2304,162 @@ impl Builder<'_, '_> {
                 self.guard_rc_negative(rc, span);
                 self.consume(Place::local(carried), &ret)
             }
+            // G8.2 M89(RXS-0319):`rhi.vertex_data(&pinned)` /
+            // `rhi.index_data(&pinned)` → `rxrt_rhi_vb_create` / `rxrt_rhi_ib_create`。
+            // 取 pinned ptr+len(字节);VB stride 形参传 0——真实 stride 由 VS layout 登记面
+            // 单源推导(P-11),submit 装配核验对照。
+            Op::RhiVertexData | Op::RhiIndexData => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let pinned = match &args[1].kind {
+                    tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                    _ => self.gpu_handle_op(&args[1]),
+                };
+                let ptr = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![pinned.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), false),
+                    span,
+                );
+                let bytes = self.emit_rt_call(
+                    "rxrt_pinned_len",
+                    vec![pinned],
+                    Ty::Prim(PrimTy::U64),
+                    span,
+                );
+                let dest = if op == Op::RhiVertexData {
+                    self.emit_rt_call(
+                        "rxrt_rhi_vb_create",
+                        vec![
+                            rhi,
+                            Operand::Copy(Place::local(ptr)),
+                            Operand::Copy(Place::local(bytes)),
+                            Operand::Const(Const::Int(0, PrimTy::U32)),
+                        ],
+                        ret.clone(),
+                        span,
+                    )
+                } else {
+                    self.emit_rt_call(
+                        "rxrt_rhi_ib_create",
+                        vec![
+                            rhi,
+                            Operand::Copy(Place::local(ptr)),
+                            Operand::Copy(Place::local(bytes)),
+                        ],
+                        ret.clone(),
+                        span,
+                    )
+                };
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // G8.2 M89(RXS-0319):`gfx.draw(&vb, count)` /
+            // `gfx.draw_indexed(&vb, &ib, count)` → `rxrt_rhi_gfx_draw`。
+            // 接收者 gfx 消费并返回(builder 链);ib=0 表示非索引路径。
+            Op::RhiGfxDraw | Op::RhiGfxDrawIndexed => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let vb = match &args[1].kind {
+                    tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                    _ => self.gpu_handle_op(&args[1]),
+                };
+                let (ib, count) = if op == Op::RhiGfxDraw {
+                    (
+                        Operand::Const(Const::Int(0, PrimTy::U64)),
+                        self.op_of(&args[2]),
+                    )
+                } else {
+                    let ib = match &args[2].kind {
+                        tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                        _ => self.gpu_handle_op(&args[2]),
+                    };
+                    (ib, self.op_of(&args[3]))
+                };
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_gfx_draw",
+                    vec![Operand::Copy(Place::local(carried)), vb, ib, count],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
+        }
+    }
+
+    /// G8.2 M89(RXS-0319):自 VS 函数 AST io 输入表推导紧凑交错布局,下发
+    /// `rxrt_rhi_gfx_vs_layout(pass, stride, nattrs, attrs_ptr)`。attrs 为
+    /// `[loc, format, offset]×n` 的 u32 元组(栈上物化,cabi 调用内拷贝)。
+    fn emit_gfx_vs_layout(&mut self, pass: LocalIdx, vs: DefId, span: Span) {
+        #[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+        {
+            use crate::ast::ShaderStage;
+            use crate::mir::{IoDir, IoSigKind};
+            let name = &self.krate.item(vs).name;
+            let sig = dxil_io::io_sig_for(self.cx.ast(), name, ShaderStage::Vertex);
+            let mut attrs: Vec<(u32, u32, u32)> = Vec::new();
+            let mut offset: u32 = 0;
+            let mut loc: u32 = 0;
+            for elem in &sig {
+                if elem.dir != IoDir::In {
+                    continue;
+                }
+                if matches!(elem.kind, IoSigKind::Builtin(_)) {
+                    continue;
+                }
+                let (fmt, nbytes) = mir_io_vk_format_size(elem.ty);
+                attrs.push((loc, fmt, offset));
+                offset = offset.saturating_add(nbytes);
+                loc = loc.saturating_add(1);
+            }
+            let stride = offset;
+            let n = attrs.len();
+            let flat: Vec<Operand> = attrs
+                .iter()
+                .flat_map(|(l, f, o)| {
+                    [
+                        Operand::Const(Const::Int(*l as i128, PrimTy::U32)),
+                        Operand::Const(Const::Int(*f as i128, PrimTy::U32)),
+                        Operand::Const(Const::Int(*o as i128, PrimTy::U32)),
+                    ]
+                })
+                .collect();
+            let slot_count = (n * 3).max(1);
+            let mut flat_ops = flat;
+            while flat_ops.len() < slot_count {
+                flat_ops.push(Operand::Const(Const::Int(0, PrimTy::U32)));
+            }
+            let attrs_ty = Ty::Tuple(vec![Ty::Prim(PrimTy::U32); slot_count]);
+            let attrs_local = self.temp(attrs_ty.clone(), span);
+            self.assign(
+                Place::local(attrs_local),
+                Rvalue::Aggregate(attrs_ty.clone(), flat_ops),
+                span,
+            );
+            let attrs_ref = self.temp(Ty::Ref(Box::new(attrs_ty), false), span);
+            self.assign(
+                Place::local(attrs_ref),
+                Rvalue::Ref(BorrowKind::Shared, Place::local(attrs_local)),
+                span,
+            );
+            let rc = self.emit_rt_call(
+                "rxrt_rhi_gfx_vs_layout",
+                vec![
+                    Operand::Copy(Place::local(pass)),
+                    Operand::Const(Const::Int(stride as i128, PrimTy::U32)),
+                    Operand::Const(Const::Int(n as i128, PrimTy::U32)),
+                    Operand::Copy(Place::local(attrs_ref)),
+                ],
+                Ty::Prim(PrimTy::I32),
+                span,
+            );
+            self.guard_rc_negative(rc, span);
+        }
+        #[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
+        {
+            let _ = (pass, vs, span);
         }
     }
 

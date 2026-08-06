@@ -109,6 +109,11 @@ const IMAGE_USAGE_TRANSFER_SRC: u32 = 0x1;
 const IMAGE_USAGE_COLOR_ATTACHMENT: u32 = 0x10;
 const BUFFER_USAGE_TRANSFER_DST: u32 = 0x2;
 const BUFFER_USAGE_VERTEX: u32 = 0x80;
+/// `VK_BUFFER_USAGE_INDEX_BUFFER_BIT`(G8.2 M89 U31 扩注)。
+const BUFFER_USAGE_INDEX: u32 = 0x40;
+/// `VK_INDEX_TYPE_UINT32`(G8.2 M89;首期索引类型冻结 u32)。
+/// Vulkan 枚举:`UINT16=0`,`UINT32=1`(误写 0 → 按 16-bit 解读索引 → 退化三角)。
+const INDEX_TYPE_UINT32: u32 = 1;
 const FORMAT_R8G8B8A8_UNORM: u32 = 37;
 // 注:顶点属性格式(如 R32G32B32A32_SFLOAT=109)由调用方(demo)按 Vulkan 枚举给定,
 // 经 `attrs` 传入 run_graphics_offscreen,不在本模块常量化(避未用常量)。
@@ -901,6 +906,11 @@ type FnCmdEndRenderPass = unsafe extern "system" fn(VkCommandBuffer);
 type FnCmdBindVertexBuffers =
     unsafe extern "system" fn(VkCommandBuffer, u32, u32, *const VkBuffer, *const VkDeviceSize);
 type FnCmdDraw = unsafe extern "system" fn(VkCommandBuffer, u32, u32, u32, u32);
+/// `vkCmdBindIndexBuffer`(G8.2 M89 U31 扩注:IB 绑定)。
+type FnCmdBindIndexBuffer =
+    unsafe extern "system" fn(VkCommandBuffer, VkBuffer, VkDeviceSize, u32);
+/// `vkCmdDrawIndexed`(G8.2 M89 U31 扩注:索引绘制)。
+type FnCmdDrawIndexed = unsafe extern "system" fn(VkCommandBuffer, u32, u32, u32, i32, u32);
 type FnCmdPipelineBarrier = unsafe extern "system" fn(
     VkCommandBuffer,
     VkFlags,
@@ -15303,6 +15313,26 @@ pub struct RhiGfxRasterPass<'a> {
     pub attrs: &'a [(u32, u32, u32)],
     /// 清屏色 RGBA(f32)。
     pub clear: [f32; 4],
+    /// 可选索引字节(G8.2 M89 U31 扩注;空 = 非索引 `vkCmdDraw`)。
+    pub indices: &'a [u8],
+    /// 索引个数(u32 元素数;`indices` 非空时走 `vkCmdDrawIndexed`)。
+    pub index_count: u32,
+    /// 非索引路径的顶点个数(`indices` 空时走 `vkCmdDraw`;0 = 自 stride 推导)。
+    pub vertex_count: u32,
+}
+
+/// G8.2 M89(RXS-0321):`run_rhi_graphics_offscreen` 的加性别名入口——语义同
+/// [`run_rhi_graphics_offscreen`],显式承接 IB + DrawIndexed 扩注面(U31)。
+//@ spec: RXS-0321
+pub fn run_rhi_graphics_offscreen_v2(
+    plan: &[crate::graph::PlannedBarrier],
+    pass: &RhiGfxRasterPass<'_>,
+    resources: &[RhiGfxResource<'_>],
+    color_target_idx: u32,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    run_rhi_graphics_offscreen(plan, pass, resources, color_target_idx, width, height)
 }
 
 /// RHI present 终端 handoff 执行（G4.2 PR-C,RXS-0274;headless readback 判据 RXS-0222）。
@@ -15706,6 +15736,10 @@ unsafe fn rhi_graphics_body(
     let cmd_bind_vbuf: FnCmdBindVertexBuffers =
         dp!(c"vkCmdBindVertexBuffers", FnCmdBindVertexBuffers);
     let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
+    // G8.2 M89 U31 扩注:IB 绑定 + DrawIndexed(既有 U31 图形 FFI 边界加性扩注,0 新 U)。
+    let cmd_bind_ibuf: FnCmdBindIndexBuffer =
+        dp!(c"vkCmdBindIndexBuffer", FnCmdBindIndexBuffer);
+    let cmd_draw_indexed: FnCmdDrawIndexed = dp!(c"vkCmdDrawIndexed", FnCmdDrawIndexed);
     let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
     let cmd_copy_img_to_buf: FnCmdCopyImageToBuffer =
         dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer);
@@ -15724,7 +15758,8 @@ unsafe fn rhi_graphics_body(
     let mut queue: VkQueue = std::ptr::null_mut();
     get_queue(device, qfi, 0, &mut queue);
 
-    // memory type 查找(host-visible + coherent)。
+    // memory type:既有 `pick_mem_type`(type_bits ∩ required flags);禁把 type_bits
+    // 当 property_flags 用(会选到 image 不允许的 type → VUID-vkBindImageMemory-memory-01047)。
     let mut mem_props: PhysicalDeviceMemoryProperties = PhysicalDeviceMemoryProperties {
         memory_type_count: 0,
         memory_types: [MemoryType {
@@ -15735,26 +15770,6 @@ unsafe fn rhi_graphics_body(
         memory_heaps: [MemoryHeap { size: 0, flags: 0 }; 16],
     };
     vk_get_mem(pd, &mut mem_props);
-    const MEMORY_PROPERTY_HOST_VISIBLE_BIT: u32 = 0x2;
-    const MEMORY_PROPERTY_HOST_COHERENT_BIT: u32 = 0x4;
-    let host_mem_ty = mem_props
-        .memory_types
-        .iter()
-        .take(mem_props.memory_type_count as usize)
-        .position(|m| {
-            (m.property_flags
-                & (MEMORY_PROPERTY_HOST_VISIBLE_BIT | MEMORY_PROPERTY_HOST_COHERENT_BIT))
-                == (MEMORY_PROPERTY_HOST_VISIBLE_BIT | MEMORY_PROPERTY_HOST_COHERENT_BIT)
-        })
-        .map(|i| i as u32);
-    let find_mem_ty = |req_flags: u32| -> Option<u32> {
-        mem_props
-            .memory_types
-            .iter()
-            .take(mem_props.memory_type_count as usize)
-            .position(|m| (m.property_flags & req_flags) == req_flags)
-            .map(|i| i as u32)
-    };
 
     // ── color target image(RGBA8,COLOR_ATTACHMENT | TRANSFER_SRC)──
     let color_usage: u32 = IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC;
@@ -15790,8 +15805,12 @@ unsafe fn rhi_graphics_body(
         memory_type_bits: 0,
     };
     img_mem_req(device, color_image, &mut color_mem_req);
-    let color_mem_ty =
-        find_mem_ty(color_mem_req.memory_type_bits).ok_or("无合适 memory type (color image)")?;
+    let color_mem_ty = pick_mem_type(
+        &mem_props,
+        color_mem_req.memory_type_bits,
+        MEM_DEVICE_LOCAL,
+    )
+    .ok_or("无 DEVICE_LOCAL memory type (color image)")?;
     let color_alloc = MemoryAllocateInfo {
         s_type: ST_MEMORY_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -15865,9 +15884,12 @@ unsafe fn rhi_graphics_body(
         memory_type_bits: 0,
     };
     buf_mem_req(device, vbuf, &mut vbuf_req);
-    let vbuf_mem_ty = host_mem_ty
-        .or_else(|| find_mem_ty(vbuf_req.memory_type_bits))
-        .ok_or("无 host-visible memory type (vertex)")?;
+    let vbuf_mem_ty = pick_mem_type(
+        &mem_props,
+        vbuf_req.memory_type_bits,
+        MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+    )
+    .ok_or("无 host-visible+coherent memory type (vertex)")?;
     let vbuf_alloc = MemoryAllocateInfo {
         s_type: ST_MEMORY_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -16245,9 +16267,12 @@ unsafe fn rhi_graphics_body(
         memory_type_bits: 0,
     };
     buf_mem_req(device, rbuf, &mut rbuf_req);
-    let rbuf_mem_ty = host_mem_ty
-        .or_else(|| find_mem_ty(rbuf_req.memory_type_bits))
-        .ok_or("无 host-visible memory type (readback)")?;
+    let rbuf_mem_ty = pick_mem_type(
+        &mem_props,
+        rbuf_req.memory_type_bits,
+        MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+    )
+    .ok_or("无 host-visible+coherent memory type (readback)")?;
     let rbuf_alloc = MemoryAllocateInfo {
         s_type: ST_MEMORY_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -16385,12 +16410,80 @@ unsafe fn rhi_graphics_body(
     let voff: VkDeviceSize = 0;
     cmd_bind_vbuf(cmd, 0, 1, &vbuf, &voff);
 
-    let vcount = if pass.vertex_stride > 0 {
-        pass.vertices.len() as u32 / pass.vertex_stride
+    // G8.2 M89 U31 扩注:可选 IB + DrawIndexed;空 indices → 既有 vkCmdDraw。
+    let use_indexed = !pass.indices.is_empty() && pass.index_count > 0;
+    let mut ibuf: VkBuffer = VK_NULL_HANDLE;
+    let mut ibuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    if use_indexed {
+        let ib_size = pass.indices.len() as VkDeviceSize;
+        let ibci = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            size: ib_size.max(4),
+            usage: BUFFER_USAGE_INDEX,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 1,
+            p_queue_family_indices: &qfi,
+        };
+        let r = create_buffer(device, &ibci, std::ptr::null(), &mut ibuf);
+        if r != VK_SUCCESS {
+            return Err(format!("vkCreateBuffer (index) 失败: {r}"));
+        }
+        let mut ib_req = MemoryRequirements {
+            size: 0,
+            alignment: 0,
+            memory_type_bits: 0,
+        };
+        buf_mem_req(device, ibuf, &mut ib_req);
+        let ib_mem_ty = pick_mem_type(
+            &mem_props,
+            ib_req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        )
+        .ok_or("无 host-visible+coherent memory type (index)")?;
+        let ib_alloc = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: ib_req.size,
+            memory_type_index: ib_mem_ty,
+        };
+        let r = alloc_mem(device, &ib_alloc, std::ptr::null(), &mut ibuf_mem);
+        if r != VK_SUCCESS {
+            destroy_buffer(device, ibuf, std::ptr::null());
+            return Err(format!("vkAllocateMemory (index) 失败: {r}"));
+        }
+        let r = bind_buf(device, ibuf, ibuf_mem, 0);
+        if r != VK_SUCCESS {
+            free_mem(device, ibuf_mem, std::ptr::null());
+            destroy_buffer(device, ibuf, std::ptr::null());
+            return Err(format!("vkBindBufferMemory (index) 失败: {r}"));
+        }
+        let mut ib_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let r = map_mem(device, ibuf_mem, 0, ib_req.size, 0, &mut ib_ptr);
+        if r != VK_SUCCESS {
+            free_mem(device, ibuf_mem, std::ptr::null());
+            destroy_buffer(device, ibuf, std::ptr::null());
+            return Err(format!("vkMapMemory (index) 失败: {r}"));
+        }
+        std::ptr::copy_nonoverlapping(
+            pass.indices.as_ptr(),
+            ib_ptr.cast::<u8>(),
+            pass.indices.len(),
+        );
+        unmap_mem(device, ibuf_mem);
+        cmd_bind_ibuf(cmd, ibuf, 0, INDEX_TYPE_UINT32);
+        cmd_draw_indexed(cmd, pass.index_count, 1, 0, 0, 0);
     } else {
-        0
-    };
-    cmd_draw(cmd, vcount, 1, 0, 0);
+        let vcount = if pass.vertex_count > 0 {
+            pass.vertex_count
+        } else if pass.vertex_stride > 0 {
+            pass.vertices.len() as u32 / pass.vertex_stride
+        } else {
+            0
+        };
+        cmd_draw(cmd, vcount, 1, 0, 0);
+    }
     cmd_end_rp(cmd);
 
     // ── barrier plan 逐字重放（RXS-0272,P-11 禁二次推导）──
@@ -16562,6 +16655,12 @@ unsafe fn rhi_graphics_body(
     destroy_pl(device, pipeline_layout, std::ptr::null());
     destroy_shader(device, fs_mod, std::ptr::null());
     destroy_shader(device, vs_mod, std::ptr::null());
+    if ibuf_mem != VK_NULL_HANDLE {
+        free_mem(device, ibuf_mem, std::ptr::null());
+    }
+    if ibuf != VK_NULL_HANDLE {
+        destroy_buffer(device, ibuf, std::ptr::null());
+    }
     free_mem(device, vbuf_mem, std::ptr::null());
     destroy_buffer(device, vbuf, std::ptr::null());
     destroy_img_view(device, color_view, std::ptr::null());

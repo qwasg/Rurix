@@ -1,0 +1,48 @@
+//@ spec: RXS-0320
+// G8.2 M89 reject:VS io 输入表 stride 与 VB 字节不整除 → seal/派发前 [structure]。
+
+struct VsIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct VsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+vertex fn vs(inp: VsIn) -> VsOut {
+    VsOut { pos: inp.pos, color: inp.color }
+}
+
+struct FsIn {
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create_vk(&ctx);
+    let back = rhi.color_target(4u32, 4u32);
+
+    // VS stride=32;VB = 20 字节(5×f32)——不整除 stride → mismatch。
+    let mut verts = ctx.alloc_pinned(5);
+    verts.set(0, 0.0f32);
+    verts.set(1, 0.0f32);
+    verts.set(2, 0.0f32);
+    verts.set(3, 0.0f32);
+    verts.set(4, 0.0f32);
+
+    let vb = rhi.vertex_data(&verts);
+    // count=0 绕过 draw 期 vertex_count*stride 核验,把失配留到 submit gfx 臂。
+    rhi.raster_pass(vs, fs).writes_rt(&back).draw(&vb, 0u32);
+    rhi.submit();
+    0
+}

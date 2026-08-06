@@ -1106,6 +1106,18 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_shader_manifest_ddc_smoke.py --gate g8.p0.m85.shader_manifest_ddc --phase g8.2
 
+      # 步骤 102（G8.2 P0 硬门 g8.p0.m89.single_source_gfx_submit;RFC-0019
+      # RP-GFX-SUBMIT;spec/rhi.md RXS-0319~0321;RD-037）:单源 .rx gfx 图经
+      # artifacts v2 + cabi VB/IB/draw + rxrt_rhi_submit gfx 派发臂 device
+      # readback/golden。零 Rust 宿主像素替身;RURIX_REQUIRE_REAL=1 翻硬红。
+      # 11 项判据缺一 FAIL;evidence 落盘
+      # evidence/g8_m89_single_source_gfx_submit_<UTC>.json。
+      - name: G8.2 M89 single-source gfx submit smoke (G8 CI_GATES §4.102, g8.p0.m89.single_source_gfx_submit)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/g8_single_source_gfx_smoke.py --gate g8.p0.m89.single_source_gfx_submit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

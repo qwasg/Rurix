@@ -1,0 +1,88 @@
+//@ spec: RXS-0319, RXS-0320, RXS-0321
+// G8.2 M89 判据 fixture(RD-037):两直角三角形拼满屏 quad,flat 红,整数域零容差。
+// 零 Rust 宿主;启动链 = `rx build` → EXE;readback 自断言角点像素 + 退出码。
+// golden 对拍经通用 env `RURIX_RHI_READBACK_DUMP`(非 workload `.rs`)。
+
+struct VsIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct VsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+vertex fn m89_vs(inp: VsIn) -> VsOut {
+    VsOut { pos: inp.pos, color: inp.color }
+}
+
+struct FsIn {
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn m89_fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create_vk(&ctx);
+
+    // 8x8 RGBA8 color target(整数域 flat 红 → 全帧同一像素)。
+    let w: u32 = 8;
+    let h: u32 = 8;
+    let n: usize = 64;
+    let back = rhi.color_target(w, h);
+
+    // 4 顶点 × (pos4 + color4) = 32 f32;两三角形索引 6×u32。
+    let mut verts = ctx.alloc_pinned(32);
+    // v0 (-1,-1)
+    verts.set(0, -1.0f32); verts.set(1, -1.0f32); verts.set(2, 0.0f32); verts.set(3, 1.0f32);
+    verts.set(4, 1.0f32); verts.set(5, 0.0f32); verts.set(6, 0.0f32); verts.set(7, 1.0f32);
+    // v1 (1,-1)
+    verts.set(8, 1.0f32); verts.set(9, -1.0f32); verts.set(10, 0.0f32); verts.set(11, 1.0f32);
+    verts.set(12, 1.0f32); verts.set(13, 0.0f32); verts.set(14, 0.0f32); verts.set(15, 1.0f32);
+    // v2 (1,1)
+    verts.set(16, 1.0f32); verts.set(17, 1.0f32); verts.set(18, 0.0f32); verts.set(19, 1.0f32);
+    verts.set(20, 1.0f32); verts.set(21, 0.0f32); verts.set(22, 0.0f32); verts.set(23, 1.0f32);
+    // v3 (-1,1)
+    verts.set(24, -1.0f32); verts.set(25, 1.0f32); verts.set(26, 0.0f32); verts.set(27, 1.0f32);
+    verts.set(28, 1.0f32); verts.set(29, 0.0f32); verts.set(30, 0.0f32); verts.set(31, 1.0f32);
+
+    let mut inds = ctx.alloc_pinned(6);
+    inds.set(0, 0u32);
+    inds.set(1, 1u32);
+    inds.set(2, 2u32);
+    inds.set(3, 0u32);
+    inds.set(4, 2u32);
+    inds.set(5, 3u32);
+
+    let vb = rhi.vertex_data(&verts);
+    let ib = rhi.index_data(&inds);
+
+    rhi.raster_pass(m89_vs, m89_fs)
+        .writes_rt(&back)
+        .draw_indexed(&vb, &ib, 6u32);
+
+    let q = rhi.submit();
+    let mut host = ctx.alloc_pinned(n);
+    q.readback(back, &mut host);
+    ctx.sync();
+
+    // RGBA8 LE:`[R,G,B,A]=[255,0,0,255]` → u32 0xFF0000FF。
+    let want: u32 = 0xFF0000FFu32;
+    let c0 = host.get(0);
+    let c7 = host.get(7);
+    let c56 = host.get(56);
+    let c63 = host.get(63);
+    if c0 != want { return 1; }
+    if c7 != want { return 2; }
+    if c56 != want { return 3; }
+    if c63 != want { return 4; }
+    0
+}

@@ -621,6 +621,19 @@ pub enum GpuHostOp {
     /// `gfx.present(&res)` → `rxrt_rhi_gfx_present(gfx, res)`(G4.2 PR-C,RXS-0274;
     /// 呈现终端 handoff 声明,每图 ≤1 且末位;消费接收者并返回,资源实参 `&Res` 借用非消费)。
     RhiGfxPresent,
+    /// `rhi.vertex_data(&pinned)` → `rxrt_rhi_vb_create(rhi, ptr, bytes, stride)`(G8.2 M89,
+    /// RXS-0319;VB 句柄;`PinnedBuffer` 字节经 cabi 拷贝;stride 由 VS io 输入表推导后
+    /// 在 raster_pass layout 登记面核验,P-11 单源)。
+    RhiVertexData,
+    /// `rhi.index_data(&pinned)` → `rxrt_rhi_ib_create(rhi, ptr, bytes)`(G8.2 M89,RXS-0319;
+    /// IB 句柄;首期索引类型冻结 u32)。
+    RhiIndexData,
+    /// `gfx.draw(&vb, vertex_count)` → `rxrt_rhi_gfx_draw(pass, vb, 0, count)`(G8.2 M89,
+    /// RXS-0319;非索引绘制;消费接收者并返回〔builder 链〕,`&VertexBuffer` 借用非消费)。
+    RhiGfxDraw,
+    /// `gfx.draw_indexed(&vb, &ib, index_count)` → `rxrt_rhi_gfx_draw(pass, vb, ib, count)`
+    /// (G8.2 M89,RXS-0319;索引绘制;消费接收者并返回,`&VertexBuffer`/`&IndexBuffer` 借用非消费)。
+    RhiGfxDrawIndexed,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

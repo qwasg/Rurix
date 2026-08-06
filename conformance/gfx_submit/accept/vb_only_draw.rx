@@ -1,0 +1,68 @@
+//@ spec: RXS-0319, RXS-0321
+// G8.2 M89 accept:非索引 `draw` 路径(两三角形展开 6 顶点,无 IB)。
+
+struct VsIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct VsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+vertex fn vb_vs(inp: VsIn) -> VsOut {
+    VsOut { pos: inp.pos, color: inp.color }
+}
+
+struct FsIn {
+    #[interpolate(flat)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn vb_fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create_vk(&ctx);
+    let w: u32 = 4;
+    let h: u32 = 4;
+    let n: usize = 16;
+    let back = rhi.color_target(w, h);
+
+    // 6 顶点展开两三角形(无索引);flat 绿。
+    let mut verts = ctx.alloc_pinned(48);
+    // tri0: (-1,-1),(1,-1),(1,1)
+    verts.set(0, -1.0f32); verts.set(1, -1.0f32); verts.set(2, 0.0f32); verts.set(3, 1.0f32);
+    verts.set(4, 0.0f32); verts.set(5, 1.0f32); verts.set(6, 0.0f32); verts.set(7, 1.0f32);
+    verts.set(8, 1.0f32); verts.set(9, -1.0f32); verts.set(10, 0.0f32); verts.set(11, 1.0f32);
+    verts.set(12, 0.0f32); verts.set(13, 1.0f32); verts.set(14, 0.0f32); verts.set(15, 1.0f32);
+    verts.set(16, 1.0f32); verts.set(17, 1.0f32); verts.set(18, 0.0f32); verts.set(19, 1.0f32);
+    verts.set(20, 0.0f32); verts.set(21, 1.0f32); verts.set(22, 0.0f32); verts.set(23, 1.0f32);
+    // tri1: (-1,-1),(1,1),(-1,1)
+    verts.set(24, -1.0f32); verts.set(25, -1.0f32); verts.set(26, 0.0f32); verts.set(27, 1.0f32);
+    verts.set(28, 0.0f32); verts.set(29, 1.0f32); verts.set(30, 0.0f32); verts.set(31, 1.0f32);
+    verts.set(32, 1.0f32); verts.set(33, 1.0f32); verts.set(34, 0.0f32); verts.set(35, 1.0f32);
+    verts.set(36, 0.0f32); verts.set(37, 1.0f32); verts.set(38, 0.0f32); verts.set(39, 1.0f32);
+    verts.set(40, -1.0f32); verts.set(41, 1.0f32); verts.set(42, 0.0f32); verts.set(43, 1.0f32);
+    verts.set(44, 0.0f32); verts.set(45, 1.0f32); verts.set(46, 0.0f32); verts.set(47, 1.0f32);
+
+    let vb = rhi.vertex_data(&verts);
+    rhi.raster_pass(vb_vs, vb_fs).writes_rt(&back).draw(&vb, 6u32);
+
+    let q = rhi.submit();
+    let mut host = ctx.alloc_pinned(n);
+    q.readback(back, &mut host);
+    ctx.sync();
+
+    // 绿 RGBA8 LE → 0xFF00FF00。
+    let want: u32 = 0xFF00FF00u32;
+    if host.get(0) != want { return 1; }
+    if host.get(15) != want { return 2; }
+    0
+}

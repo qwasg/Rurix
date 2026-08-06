@@ -206,6 +206,45 @@ struct RhiEntry {
     /// 不触 `cuMemAlloc`,改记 host `Vec<u8>`;submit 期 upload/download 经 `vk::run_compute`
     /// 原位回写)。下标与 [`RhiEntry::resources`] **平行同序**——CUDA 路此槽恒空且不读。
     vk_resources: Vec<Vec<u8>>,
+    /// G8.2 M89(RXS-0319):VB 记录表(`rxrt_rhi_vb_create` 拷贝入;stride 0 = 用 pass VS layout)。
+    vbs: Vec<VbRecord>,
+    /// G8.2 M89(RXS-0319):IB 记录表(`rxrt_rhi_ib_create` 拷贝入;首期 u32 索引)。
+    ibs: Vec<IbRecord>,
+    /// G8.2 M89(RXS-0319):与 [`RhiEntry::gfx_passes`] 平行同序的 draw 绑定。
+    gfx_draws: Vec<Option<GfxDrawBinding>>,
+    /// G8.2 M89:与 [`RhiEntry::resources`] 平行同序的 image 尺寸(`(0,0)` = 非 image)。
+    image_dims: Vec<(u32, u32)>,
+}
+
+/// G8.2 M89 VB 记录(RXS-0319)。
+#[derive(Clone)]
+struct VbRecord {
+    data: Vec<u8>,
+    /// 创建时传入的 stride(0 = 未声明,submit 用 pass.vs_stride)。
+    stride: u32,
+}
+
+/// G8.2 M89 IB 记录(RXS-0319;u32 索引字节)。
+#[derive(Clone)]
+struct IbRecord {
+    data: Vec<u8>,
+}
+
+/// G8.2 M89 draw 绑定(RXS-0319;`ib = None` → 非索引 `draw`)。
+#[derive(Clone)]
+struct GfxDrawBinding {
+    vb: u32,
+    ib: Option<u32>,
+    count: u32,
+}
+
+/// G8.2 M89:submit 前 gfx 派发快照(drain 后仍可消费)。
+struct GfxSubmitSnap {
+    passes: Vec<GfxPassRecord>,
+    draws: Vec<Option<GfxDrawBinding>>,
+    vbs: Vec<VbRecord>,
+    ibs: Vec<IbRecord>,
+    image_dims: Vec<(u32, u32)>,
 }
 
 /// RHI 后端标识(RXS-0293;构造点决定,运行期不变)。`Rhi::create` = Cuda(既有 0-byte);
@@ -255,6 +294,10 @@ struct Tables {
     /// G4.2(RXS-0270):gfx pass 句柄 → (所属 rhi 句柄, gfx pass 下标):
     /// `GfxPass<C>` u64 affine 句柄映射(builder 链消费/返回同句柄)。
     rhi_gfx_passes: HashMap<u64, (u64, u32)>,
+    /// G8.2 M89(RXS-0319):VB 句柄 → (所属 rhi 句柄, VB 下标)。
+    rhi_vbs: HashMap<u64, (u64, u32)>,
+    /// G8.2 M89(RXS-0319):IB 句柄 → (所属 rhi 句柄, IB 下标)。
+    rhi_ibs: HashMap<u64, (u64, u32)>,
 }
 
 impl Tables {
@@ -276,6 +319,8 @@ impl Tables {
         self.rhi_resources.retain(|_, (owner, _)| *owner != r);
         self.rhi_passes.retain(|_, (owner, _)| *owner != r);
         self.rhi_gfx_passes.retain(|_, (owner, _)| *owner != r);
+        self.rhi_vbs.retain(|_, (owner, _)| *owner != r);
+        self.rhi_ibs.retain(|_, (owner, _)| *owner != r);
     }
 }
 
@@ -1206,6 +1251,10 @@ pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
             stream: None,
             backend: Backend::Cuda,
             vk_resources: Vec::new(),
+            vbs: Vec::new(),
+            ibs: Vec::new(),
+            gfx_draws: Vec::new(),
+            image_dims: Vec::new(),
         },
     );
     h
@@ -1259,6 +1308,10 @@ pub extern "C" fn rxrt_rhi_create_vk(ctx: u64) -> u64 {
                 stream: None,
                 backend: Backend::Vk,
                 vk_resources: Vec::new(),
+                vbs: Vec::new(),
+                ibs: Vec::new(),
+                gfx_draws: Vec::new(),
+                image_dims: Vec::new(),
             },
         );
         h
@@ -1378,6 +1431,7 @@ pub extern "C" fn rxrt_rhi_resource(r: u64, bytes: u64) -> u64 {
             };
             re.resources.push(0); // Vulkan 无 CUDA buf 句柄;占位保持下标对齐
             re.vk_resources.push(vec![0u8; bytes as usize]);
+            re.image_dims.push((0, 0));
             re.graph.resource_count() as u32 - 1
         };
         let h = t.alloc_handle();
@@ -1416,6 +1470,7 @@ pub extern "C" fn rxrt_rhi_resource(r: u64, bytes: u64) -> u64 {
         re.resources.push(bh);
         // CUDA 后端 vk_resources 槽位保持空(平行同序占位;非 Vk 路不读)。
         re.vk_resources.push(Vec::new());
+        re.image_dims.push((0, 0));
         re.graph.resource_count() as u32 - 1
     };
     let h = t.alloc_handle();
@@ -1625,25 +1680,45 @@ pub extern "C" fn rxrt_rhi_declare(pass: u64, res: u64, access: u32) -> i32 {
 // `rxrt_rhi_gfx_*` 调用(mir_build.rs:RhiRasterPass/RhiMeshPass/RhiColorTarget/…/
 // RhiGfxReadsTable/RhiGfxPresent lowering)。gfx 资源不触 cuMemAlloc(transient image,
 // 设备分配归 vk.rs 执行期);gfx pass 增量建面 → submit 时 `add_gfx_pass` 注入 graph。
+//
+// G8.2 M89 追加:`rxrt_rhi_vb_create` / `rxrt_rhi_ib_create` / `rxrt_rhi_gfx_draw` /
+// `rxrt_rhi_gfx_vs_layout`(RXS-0319~0321)。
+
+/// NUL 终止 C 字符串 → owned String;null / 非 UTF-8 → 空串(装配期再拒)。
+fn cstr_to_string(p: *const u8) -> String {
+    if p.is_null() {
+        return String::new();
+    }
+    // SAFETY: 调用方 codegen 保证 NUL 终止且调用期存活(RFC-0009 §4.3 指针契约)。
+    let c = unsafe { CStr::from_ptr(p.cast()) };
+    c.to_string_lossy().into_owned()
+}
 
 /// C ABI:向 `Rhi` 追加一个**图形** pass(RXS-0270;raster_pass(vs,fs))。返回 gfx pass
 /// u64 句柄(`GfxPass<C>` affine 句柄;builder 链消费/返回同句柄)。`vs` / `fs` 为着色函数
-/// mangle 符号名 NUL 终止 C 字符串指针(codegen `GlobalAddr`)。未知 rhi / ctx 已销毁 /
-/// poisoned → 诊断 + handle-0。
-//@ spec: RXS-0270
+/// mangle 符号名 NUL 终止 C 字符串指针(codegen `Const::Str`)。
+///
+/// G8.2 M89(RXS-0319):**必须登记** vs/fs 名进 [`GfxPassRecord`]——禁止忽略符号
+/// (RD-037 历史洞关闭面);submit 按名索引 artifacts v2 `spirv_entries`。
+/// 未知 rhi / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0270, RXS-0319
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[unsafe(no_mangle)]
-pub extern "C" fn rxrt_rhi_raster_pass(r: u64, _vs: *const u8, _fs: *const u8) -> u64 {
+pub extern "C" fn rxrt_rhi_raster_pass(r: u64, vs: *const u8, fs: *const u8) -> u64 {
     const OP: &str = "rhi_raster_pass";
     let mut guard = lock();
     let t = &mut *guard;
+    let vs_name = cstr_to_string(vs);
+    let fs_name = cstr_to_string(fs);
     let Some(re) = rhi_entry(t, OP, r) else {
         return 0;
     };
     let idx = re.gfx_passes.len() as u32;
-    re.gfx_passes.push(GfxPassRecord::new(
-        &format!("gfx{idx}"),
-        GfxPassStage::Raster,
-    ));
+    let mut rec = GfxPassRecord::new(&format!("gfx{idx}"), GfxPassStage::Raster);
+    rec.vs_name = Some(vs_name);
+    rec.fs_name = Some(fs_name);
+    re.gfx_passes.push(rec);
+    re.gfx_draws.push(None);
     let h = t.alloc_handle();
     t.rhi_gfx_passes.insert(h, (r, idx));
     h
@@ -1651,18 +1726,24 @@ pub extern "C" fn rxrt_rhi_raster_pass(r: u64, _vs: *const u8, _fs: *const u8) -
 
 /// C ABI:向 `Rhi` 追加一个**图形** pass(RXS-0270;mesh_pass(ms,fs))。语义同
 /// [`rxrt_rhi_raster_pass`],阶段 = Mesh(RXS-0243 入口契约)。
-//@ spec: RXS-0270
+//@ spec: RXS-0270, RXS-0319
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[unsafe(no_mangle)]
-pub extern "C" fn rxrt_rhi_mesh_pass(r: u64, _ms: *const u8, _fs: *const u8) -> u64 {
+pub extern "C" fn rxrt_rhi_mesh_pass(r: u64, ms: *const u8, fs: *const u8) -> u64 {
     const OP: &str = "rhi_mesh_pass";
     let mut guard = lock();
     let t = &mut *guard;
+    let ms_name = cstr_to_string(ms);
+    let fs_name = cstr_to_string(fs);
     let Some(re) = rhi_entry(t, OP, r) else {
         return 0;
     };
     let idx = re.gfx_passes.len() as u32;
-    re.gfx_passes
-        .push(GfxPassRecord::new(&format!("gfx{idx}"), GfxPassStage::Mesh));
+    let mut rec = GfxPassRecord::new(&format!("gfx{idx}"), GfxPassStage::Mesh);
+    rec.vs_name = Some(ms_name); // mesh 入口名占 vs_name 槽(按名索引 artifacts)
+    rec.fs_name = Some(fs_name);
+    re.gfx_passes.push(rec);
+    re.gfx_draws.push(None);
     let h = t.alloc_handle();
     t.rhi_gfx_passes.insert(h, (r, idx));
     h
@@ -1721,6 +1802,7 @@ pub extern "C" fn rxrt_rhi_gfx_resource(r: u64, class: u32, w: u32, h: u32) -> u
             Vec::new()
         };
         re.vk_resources.push(vk_buf);
+        re.image_dims.push(if is_image { (w, h) } else { (0, 0) });
         rid.0
     };
     let h = t.alloc_handle();
@@ -1820,6 +1902,227 @@ pub extern "C" fn rxrt_rhi_gfx_present(pass: u64, res: u64) -> i32 {
     0
 }
 
+/// C ABI:登记 VS io 推导的顶点布局(G8.2 M89,RXS-0319)。`attrs` 指向
+/// `[loc, format, offset]×nattrs` 的 u32 数组(codegen 栈上物化,本函数内拷贝)。
+/// stride=0 / nattrs=0 合法(空输入表)。未知 pass → [`RXRT_FAIL`]。
+//@ spec: RXS-0319
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_gfx_vs_layout(
+    pass: u64,
+    stride: u32,
+    nattrs: u32,
+    attrs: *const u32,
+) -> i32 {
+    const OP: &str = "rhi_gfx_vs_layout";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_gfx_passes.get(&pass) else {
+        diag(OP, format!("unknown gfx pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let mut parsed: Vec<(u32, u32, u32)> = Vec::with_capacity(nattrs as usize);
+    if nattrs > 0 {
+        if attrs.is_null() {
+            diag(OP, "null attrs pointer");
+            return RXRT_FAIL;
+        }
+        // SAFETY: codegen 保证 `attrs` 指向至少 `nattrs*3` 个 u32 且调用期存活。
+        let flat = unsafe { core::slice::from_raw_parts(attrs, (nattrs as usize) * 3) };
+        for i in 0..nattrs as usize {
+            parsed.push((flat[i * 3], flat[i * 3 + 1], flat[i * 3 + 2]));
+        }
+    }
+    let Some(re) = rhi_entry(t, OP, pr) else {
+        return RXRT_FAIL;
+    };
+    let Some(gp) = re.gfx_passes.get_mut(pass_idx as usize) else {
+        diag(
+            OP,
+            format!("gfx pass index {pass_idx} out of range (rhi {pr})"),
+        );
+        return RXRT_FAIL;
+    };
+    gp.vs_stride = stride;
+    gp.vs_attrs = parsed;
+    0
+}
+
+/// C ABI:创建 VB 并拷贝主机字节(G8.2 M89,RXS-0319)。`stride` 0 = 未声明,
+/// submit 时用 pass VS layout stride 核验。返回 VB u64 句柄;失败 → 0。
+//@ spec: RXS-0319
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_vb_create(r: u64, ptr: *const u8, bytes: u64, stride: u32) -> u64 {
+    const OP: &str = "rhi_vb_create";
+    if ptr.is_null() || bytes == 0 {
+        diag(OP, "null/empty vertex data");
+        return 0;
+    }
+    // SAFETY: codegen 保证 `ptr` 指向 `bytes` 可读主机内存且调用期存活。
+    let data = unsafe { core::slice::from_raw_parts(ptr, bytes as usize) }.to_vec();
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return 0;
+    };
+    let idx = re.vbs.len() as u32;
+    re.vbs.push(VbRecord { data, stride });
+    let h = t.alloc_handle();
+    t.rhi_vbs.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:创建 IB 并拷贝主机字节(G8.2 M89,RXS-0319;首期 u32 索引)。
+/// `bytes` 须为 4 的倍数。返回 IB u64 句柄;失败 → 0。
+//@ spec: RXS-0319
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_ib_create(r: u64, ptr: *const u8, bytes: u64) -> u64 {
+    const OP: &str = "rhi_ib_create";
+    if ptr.is_null() || bytes == 0 || bytes % 4 != 0 {
+        diag(OP, "null/empty/misaligned index data (need u32 multiples)");
+        return 0;
+    }
+    // SAFETY: codegen 保证 `ptr` 指向 `bytes` 可读主机内存且调用期存活。
+    let data = unsafe { core::slice::from_raw_parts(ptr, bytes as usize) }.to_vec();
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return 0;
+    };
+    let idx = re.ibs.len() as u32;
+    re.ibs.push(IbRecord { data });
+    let h = t.alloc_handle();
+    t.rhi_ibs.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 gfx pass 登记 draw / draw_indexed(G8.2 M89,RXS-0319/0320)。
+/// `ib == 0` → 非索引 `draw`;否则 `draw_indexed`。范围核验在本调用 + submit 前
+/// fail-closed(库层状态值,零新 RX 码)。成功 0 / 失败 [`RXRT_FAIL`]。
+//@ spec: RXS-0319, RXS-0320
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_gfx_draw(pass: u64, vb: u64, ib: u64, count: u32) -> i32 {
+    const OP: &str = "rhi_gfx_draw";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_gfx_passes.get(&pass) else {
+        diag(OP, format!("unknown gfx pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let Some(&(vr, vb_idx)) = t.rhi_vbs.get(&vb) else {
+        diag(OP, format!("unknown vertex buffer handle {vb} [structure]"));
+        return RXRT_FAIL;
+    };
+    if vr != pr {
+        diag(
+            OP,
+            format!("cross-rhi misuse: vb belongs to {vr}, pass to {pr}"),
+        );
+        return RXRT_FAIL;
+    }
+    let ib_idx = if ib == 0 {
+        None
+    } else {
+        let Some(&(ir, ii)) = t.rhi_ibs.get(&ib) else {
+            diag(OP, format!("unknown index buffer handle {ib} [structure]"));
+            return RXRT_FAIL;
+        };
+        if ir != pr {
+            diag(
+                OP,
+                format!("cross-rhi misuse: ib belongs to {ir}, pass to {pr}"),
+            );
+            return RXRT_FAIL;
+        }
+        Some(ii)
+    };
+    // 范围核验(RXS-0320):越界在登记点 fail-closed。
+    let Some(re) = t.rhis.get(&pr) else {
+        diag(OP, format!("unknown rhi handle {pr}"));
+        return RXRT_FAIL;
+    };
+    let Some(vb_rec) = re.vbs.get(vb_idx as usize) else {
+        diag(OP, format!("vb index {vb_idx} out of range [capacity]"));
+        return RXRT_FAIL;
+    };
+    let stride = {
+        let gp = re.gfx_passes.get(pass_idx as usize);
+        let vs_stride = gp.map(|g| g.vs_stride).unwrap_or(0);
+        if vb_rec.stride != 0 {
+            vb_rec.stride
+        } else {
+            vs_stride
+        }
+    };
+    if let Some(ii) = ib_idx {
+        let Some(ib_rec) = re.ibs.get(ii as usize) else {
+            diag(OP, format!("ib index {ii} out of range [capacity]"));
+            return RXRT_FAIL;
+        };
+        let need = (count as u64).saturating_mul(4);
+        if need > ib_rec.data.len() as u64 {
+            diag(
+                OP,
+                format!(
+                    "draw_indexed index_count*4={need} > ib.bytes={} [capacity]",
+                    ib_rec.data.len()
+                ),
+            );
+            return RXRT_FAIL;
+        }
+        if stride > 0 {
+            let mut max_v: u32 = 0;
+            for chunk in ib_rec.data.chunks_exact(4).take(count as usize) {
+                let v = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                if v > max_v {
+                    max_v = v;
+                }
+            }
+            let need_vb = (max_v as u64 + 1).saturating_mul(stride as u64);
+            if need_vb > vb_rec.data.len() as u64 {
+                diag(
+                    OP,
+                    format!(
+                        "draw_indexed max_vertex*{stride}={need_vb} > vb.bytes={} [capacity]",
+                        vb_rec.data.len()
+                    ),
+                );
+                return RXRT_FAIL;
+            }
+        }
+    } else if stride > 0 {
+        let need = (count as u64).saturating_mul(stride as u64);
+        if need > vb_rec.data.len() as u64 {
+            diag(
+                OP,
+                format!(
+                    "draw vertex_count*{stride}={need} > vb.bytes={} [capacity]",
+                    vb_rec.data.len()
+                ),
+            );
+            return RXRT_FAIL;
+        }
+    } else if count == 0 {
+        diag(OP, "draw without vb layout / zero count [structure]");
+        return RXRT_FAIL;
+    }
+    let Some(re) = t.rhis.get_mut(&pr) else {
+        return RXRT_FAIL;
+    };
+    if pass_idx as usize >= re.gfx_draws.len() {
+        diag(OP, format!("gfx draw slot {pass_idx} missing [structure]"));
+        return RXRT_FAIL;
+    }
+    re.gfx_draws[pass_idx as usize] = Some(GfxDrawBinding {
+        vb: vb_idx,
+        ib: ib_idx,
+        count,
+    });
+    0
+}
+
 /// C ABI:装配、推导并**派发** `Rhi`(RXS-0258/0260/0261)——组装增量 pass → seal(装配核验
 /// I3/I4/I5,库层状态值)→ 纯函数 hazard 推导 → **按推导序真派发 compute pass**(1-submit)。
 ///
@@ -1844,9 +2147,17 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
         return RXRT_FAIL;
     }
     // ── 阶段 1:装配核验 + 纯函数 hazard 推导(本体归 rhi.rs,P-11)。
-    let plan = {
+    // G8.2 M89:drain 前快照 gfx 派发元数据(vs/fs/layout/draw + VB/IB),供 Vk gfx 臂消费。
+    let (plan, gfx_barriers, gfx_snap) = {
         let Some(re) = rhi_entry(t, OP, r) else {
             return RXRT_FAIL;
+        };
+        let gfx_snap = GfxSubmitSnap {
+            passes: re.gfx_passes.clone(),
+            draws: re.gfx_draws.clone(),
+            vbs: re.vbs.clone(),
+            ibs: re.ibs.clone(),
+            image_dims: re.image_dims.clone(),
         };
         // 增量 pass 注入 graph(声明序 = 提交序)。
         for ps in re.passes.drain(..) {
@@ -1864,7 +2175,10 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
             }
         }
         match re.graph.execute() {
-            Ok(plan) => plan,
+            Ok(plan) => {
+                let gfx_barriers = re.graph.derive_gfx_barriers().to_vec();
+                (plan, gfx_barriers, gfx_snap)
+            }
             Err(e) => {
                 diag(OP, format!("[{}] {e}", e.category()));
                 return RXRT_FAIL;
@@ -1879,14 +2193,13 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
     };
     // G4.4 PR-F(RXS-0293):Vulkan 后端 compute 腿分流——`vk::run_compute` 自 SPIR-V 模块
     // (按 kernel 名索引 artifacts v2 入口表)+ StorageBuffer 顺排自 `vk_resources` host
-    // 缓冲 + push constants 自标量槽 + dispatch。CUDA 后端维持既有路(0-byte)。graphics
-    // 腿复用 G4.2 `run_rhi_graphics_offscreen`(A7,同一通道);gfx pass 派发要 vs/fs SPIR-V
-    // + 顶点数据,`.rx` RHI 声明式库面未承载 → gfx pass 仅参 barrier 推导(同 CUDA 路口径),
-    // compute pass 派发照常。
+    // 缓冲 + push constants 自标量槽 + dispatch。CUDA 后端维持既有路(0-byte)。
+    // G8.2 M89(RXS-0321):graphics 腿 `run_rhi_graphics_offscreen_v2`——gfx pass 若绑定
+    // draw + vs/fs → 真派发;未绑 draw 维持「仅参 barrier 推导」(既有语料 0 回归)。
     if backend == Backend::Vk {
         #[cfg(not(feature = "vulkan"))]
         {
-            let _ = (ctx, pass_count);
+            let _ = (ctx, pass_count, gfx_snap, gfx_barriers);
             diag(
                 OP,
                 "Vulkan backend not compiled in (feature rurix-rt/vulkan off)",
@@ -1895,9 +2208,10 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
         }
         #[cfg(feature = "vulkan")]
         {
-            return rhi_submit_vk(t, OP, r, ctx, pass_count);
+            return rhi_submit_vk(t, OP, r, ctx, pass_count, &gfx_barriers, &gfx_snap);
         }
     }
+    let _ = (gfx_snap, gfx_barriers);
     for pass_idx in 0..pass_count {
         // 该 pass 边界的推导同步点:计划驱动,逐条落显式 stream 同步(禁二次推导)。
         let syncs = plan.iter().filter(|s| s.at_pass == pass_idx).count();
@@ -2007,7 +2321,15 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
 /// (RXS-0292);缺席/畸形 → 确定性失败(RXS-0193 口径)。回写:`run_compute` 原位回写 device
 /// 数据到 host `buffers`,逐槽写回 `vk_resources` 使 [`rxrt_rhi_readback`] 自此读。
 #[cfg(feature = "vulkan")]
-fn rhi_submit_vk(t: &mut Tables, op: &str, r: u64, ctx: u64, pass_count: usize) -> i32 {
+fn rhi_submit_vk(
+    t: &mut Tables,
+    op: &str,
+    r: u64,
+    ctx: u64,
+    pass_count: usize,
+    gfx_barriers: &[rurix_rt::graph::PlannedBarrier],
+    gfx: &GfxSubmitSnap,
+) -> i32 {
     for pass_idx in 0..pass_count {
         // ── 收集本 pass 绑定 + SPIR-V + buffers/pc(单一 &Tables 不可变借用,拷出局部,
         //    避免跨 `run_compute` 持表锁借用)。
@@ -2122,6 +2444,218 @@ fn rhi_submit_vk(t: &mut Tables, op: &str, r: u64, ctx: u64, pass_count: usize) 
             }
         }
     }
+    // G8.2 M89(RXS-0321):gfx 派发臂——绑 draw + vs/fs 的 raster pass 真派发;
+    // 未绑 draw 维持「仅参 barrier 推导」(既有语料 0 回归)。
+    if rhi_submit_vk_gfx(t, op, r, ctx, gfx_barriers, gfx) != 0 {
+        return RXRT_FAIL;
+    }
+    0
+}
+
+/// G8.2 M89(RXS-0321):Vulkan gfx 派发臂。按名索引 artifacts v2 取 vs/fs SPIR-V,
+/// 组 [`RhiGfxRasterPass`](+可选 IB)→ `run_rhi_graphics_offscreen_v2` → 写回
+/// `vk_resources` color target host 镜像。禁止固定最小 SPIR-V / host 像素替身。
+#[cfg(feature = "vulkan")]
+fn rhi_submit_vk_gfx(
+    t: &mut Tables,
+    op: &str,
+    r: u64,
+    ctx: u64,
+    gfx_barriers: &[rurix_rt::graph::PlannedBarrier],
+    gfx: &GfxSubmitSnap,
+) -> i32 {
+    use rurix_rt::graph::AccessKind;
+    use rurix_rt::vk::{RhiGfxRasterPass, RhiGfxResource, run_rhi_graphics_offscreen_v2};
+
+    for (pass_idx, gp) in gfx.passes.iter().enumerate() {
+        let Some(Some(draw)) = gfx.draws.get(pass_idx) else {
+            continue; // 未绑 draw:仅参 barrier 推导。
+        };
+        if !matches!(gp.stage, GfxPassStage::Raster) {
+            continue;
+        }
+        let Some(vs_name) = gp.vs_name.as_deref() else {
+            diag(op, format!("gfx pass {pass_idx}: missing vs symbol [structure]"));
+            return RXRT_FAIL;
+        };
+        let Some(fs_name) = gp.fs_name.as_deref() else {
+            diag(op, format!("gfx pass {pass_idx}: missing fs symbol [structure]"));
+            return RXRT_FAIL;
+        };
+        if vs_name.is_empty() || fs_name.is_empty() {
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: empty vs/fs symbol (artifacts bind required)"),
+            );
+            return RXRT_FAIL;
+        }
+        let Some(vb) = gfx.vbs.get(draw.vb as usize) else {
+            diag(op, format!("gfx pass {pass_idx}: vb missing [structure]"));
+            return RXRT_FAIL;
+        };
+        let stride = if gp.vs_stride > 0 {
+            gp.vs_stride
+        } else if vb.stride > 0 {
+            vb.stride
+        } else {
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: vs/vb stride unset [structure]"),
+            );
+            return RXRT_FAIL;
+        };
+        // RXS-0320:声明集 ↔ VB stride 核验。
+        if vb.stride != 0 && vb.stride != stride {
+            diag(
+                op,
+                format!(
+                    "gfx pass {pass_idx}: VS io stride {stride} != VB stride {} [structure]",
+                    vb.stride
+                ),
+            );
+            return RXRT_FAIL;
+        }
+        if stride == 0 || vb.data.len() as u64 % stride as u64 != 0 {
+            diag(
+                op,
+                format!(
+                    "gfx pass {pass_idx}: VB bytes {} not multiple of stride {stride} [structure]",
+                    vb.data.len()
+                ),
+            );
+            return RXRT_FAIL;
+        }
+        let (indices, index_count, vertex_count) = if let Some(ii) = draw.ib {
+            let Some(ib) = gfx.ibs.get(ii as usize) else {
+                diag(op, format!("gfx pass {pass_idx}: ib missing [structure]"));
+                return RXRT_FAIL;
+            };
+            (ib.data.as_slice(), draw.count, 0u32)
+        } else {
+            (&[][..], 0u32, draw.count)
+        };
+
+        // color target:首个 ColorAttachmentWrite。
+        let Some(color_idx) = gp
+            .accesses
+            .iter()
+            .find(|a| a.kind == AccessKind::ColorAttachmentWrite)
+            .map(|a| a.resource.0)
+        else {
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: no color target (writes_rt) [structure]"),
+            );
+            return RXRT_FAIL;
+        };
+        let (width, height) = gfx
+            .image_dims
+            .get(color_idx as usize)
+            .copied()
+            .unwrap_or((0, 0));
+        if width == 0 || height == 0 {
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: color target dims unset [structure]"),
+            );
+            return RXRT_FAIL;
+        }
+
+        // SPIR-V 按名索引 artifacts v2(RXS-0321:真实 artifacts 消费,禁替身)。
+        // 先拷出字节再放掉 ctx 借用,避免与后续 `rhis.get_mut` 冲突。
+        let (vs_raw, fs_raw) = {
+            let Some(ce) = t.ctxs.get(&ctx) else {
+                diag(op, format!("ctx of rhi {r} already destroyed"));
+                return RXRT_FAIL;
+            };
+            let load = |name: &str| -> Result<Vec<u8>, i32> {
+                let Some(entry) = ce.artifacts.spirv_entry(name) else {
+                    diag(
+                        op,
+                        format!(
+                            "gfx pass {pass_idx}: SPIR-V entry `{name}` absent (artifacts v2)"
+                        ),
+                    );
+                    return Err(RXRT_FAIL);
+                };
+                let raw = entry.spv().to_vec();
+                if raw.len() < 4 || raw.len() % 4 != 0 {
+                    diag(
+                        op,
+                        format!(
+                            "gfx pass {pass_idx}: SPIR-V entry `{name}` malformed (len={})",
+                            raw.len()
+                        ),
+                    );
+                    return Err(RXRT_FAIL);
+                }
+                Ok(raw)
+            };
+            match (load(vs_name), load(fs_name)) {
+                (Ok(v), Ok(f)) => (v, f),
+                _ => return RXRT_FAIL,
+            }
+        };
+        let vs_spv: Vec<u32> = vs_raw
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let fs_spv: Vec<u32> = fs_raw
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+
+        // 资源表:仅 color target 槽需尺寸(Phase 1)。
+        let mut resources: Vec<RhiGfxResource<'_>> = Vec::new();
+        for (i, &(w, h)) in gfx.image_dims.iter().enumerate() {
+            if w > 0 && h > 0 {
+                resources.push(RhiGfxResource::ColorTarget {
+                    width: w,
+                    height: h,
+                });
+            } else {
+                // 占位:非 image 用 1x1 ColorTarget 不会被选为回读目标。
+                let _ = i;
+                resources.push(RhiGfxResource::ColorTarget {
+                    width: 1,
+                    height: 1,
+                });
+            }
+        }
+
+        let pass = RhiGfxRasterPass {
+            vs_spv: &vs_spv,
+            fs_spv: &fs_spv,
+            vertices: &vb.data,
+            vertex_stride: stride,
+            attrs: &gp.vs_attrs,
+            clear: [0.0, 0.0, 0.0, 1.0],
+            indices,
+            index_count,
+            vertex_count,
+        };
+        let pixels = match run_rhi_graphics_offscreen_v2(
+            gfx_barriers,
+            &pass,
+            &resources,
+            color_idx,
+            width,
+            height,
+        ) {
+            Ok(p) => p,
+            Err(e) => {
+                diag(op, format!("gfx pass {pass_idx} run_rhi_graphics: {e}"));
+                return RXRT_FAIL;
+            }
+        };
+        let Some(re) = t.rhis.get_mut(&r) else {
+            return RXRT_FAIL;
+        };
+        if let Some(slot) = re.vk_resources.get_mut(color_idx as usize) {
+            // 派发后非清色:数据流反证(禁 host 填像素替身——此处仅写回 device readback)。
+            *slot = pixels;
+        }
+    }
     0
 }
 
@@ -2152,13 +2686,30 @@ fn rhi_stream_sync(t: &mut Tables, op: &str, r: u64) -> bool {
     true
 }
 
+/// G8.2 M89(RXS-0321):若环境变量 `RURIX_RHI_READBACK_DUMP=<path>` 已设,将 readback
+/// 字节原样写入该路径(通用运行时特性,供 smoke 与 checked-in golden 逐字节对拍)。
+fn rhi_readback_dump(bytes: &[u8]) {
+    let Ok(path) = std::env::var("RURIX_RHI_READBACK_DUMP") else {
+        return;
+    };
+    if path.is_empty() {
+        return;
+    }
+    if let Err(e) = std::fs::write(&path, bytes) {
+        // 诊断不翻红(dump 为观测通道);调用方仍以 readback rc 为准。
+        eprintln!("RXRT: warn op=rhi_readback_dump detail=write {path}: {e}");
+    }
+}
+
 /// C ABI:资源 readback(RXS-0259;`Res` 消费式 move-out 点)。`src` = 资源 u64 句柄。校验
 /// rhi + 资源归属(跨 rhi 误用纵深防御)后**消费句柄**(affine 释放语义:自 `rhi_resources`
 /// 表移除 → 运行期二次 readback 亦 fail-closed with 未知句柄;编译期首道防线 = RX4001
 /// use-after-move,I1/I2)。device 侧真实 copy-back(GPU → pinned)归 EI1.4 compute-pass 落地,
 /// 本 host 面为已校验消费(纯 host 图安全,无 GPU 依赖)。未知句柄 / ctx 已销毁 / poisoned /
 /// 跨 rhi → 诊断 + [`RXRT_FAIL`](编译器注入检查 → `rxrt_trap` 终止,RXS-0193)。
-//@ spec: RXS-0259
+///
+/// G8.2 M89(RXS-0321):可选 `RURIX_RHI_READBACK_DUMP` 通用 dump。
+//@ spec: RXS-0259, RXS-0321
 #[allow(clippy::not_unsafe_ptr_arg_deref)] // C ABI 入口:指针契约由调用方 codegen 保证(U25)
 #[unsafe(no_mangle)]
 pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64, dst: *mut u8, bytes: u64) -> i32 {
@@ -2217,6 +2768,8 @@ pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64, dst: *mut u8, bytes: u64) 
         // 调用期存活且无别名并发访问(RFC-0009 §4.3 指针契约);借用不越出本函数。
         let host = unsafe { core::slice::from_raw_parts_mut(dst, bytes as usize) };
         host.copy_from_slice(vk_buf);
+        // G8.2 M89(RXS-0321):通用 readback dump(非 workload 专用 `.rs`)。
+        rhi_readback_dump(host);
         t.rhi_resources.remove(&src);
         return 0;
     }
@@ -2699,6 +3252,10 @@ mod tests {
             // G4.4 PR-F:默认 CUDA 后端(本测纯 host 装配,backend 不分流)。
             backend: Backend::Cuda,
             vk_resources: Vec::new(),
+            vbs: Vec::new(),
+            ibs: Vec::new(),
+            gfx_draws: Vec::new(),
+            image_dims: Vec::new(),
         };
         let a = re.graph.resource("res0");
         let b = re.graph.resource("res1");
@@ -2765,6 +3322,10 @@ mod tests {
                     stream: None,
                     backend: Backend::Cuda,
                     vk_resources: Vec::new(),
+                    vbs: Vec::new(),
+                    ibs: Vec::new(),
+                    gfx_draws: Vec::new(),
+                    image_dims: Vec::new(),
                 },
             );
             t.rhi_resources.insert(RHI_RES, (RHI, 0));

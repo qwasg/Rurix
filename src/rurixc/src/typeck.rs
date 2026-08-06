@@ -406,6 +406,9 @@ fn gpu_host_method(
             "texture2d" => Some(Op::RhiTexture2d),
             "sampler" => Some(Op::RhiSampler),
             "texture_table" => Some(Op::RhiTextureTable),
+            // G8.2 M89(RXS-0319):VB/IB 声明算子。
+            "vertex_data" => Some(Op::RhiVertexData),
+            "index_data" => Some(Op::RhiIndexData),
             _ => None,
         };
     }
@@ -437,6 +440,9 @@ fn gpu_host_method(
             "binds_sampler" => Some(Op::RhiGfxBindsSampler),
             "reads_table" => Some(Op::RhiGfxReadsTable),
             "present" => Some(Op::RhiGfxPresent),
+            // G8.2 M89(RXS-0319):draw / draw_indexed。
+            "draw" => Some(Op::RhiGfxDraw),
+            "draw_indexed" => Some(Op::RhiGfxDrawIndexed),
             _ => None,
         };
     }
@@ -3290,6 +3296,93 @@ impl Tck<'_, '_> {
                     }
                 }
                 Ty::Adt(gfx_pass, vec![pass_brand])
+            }
+            // G8.2 M89(RXS-0319):`rhi.vertex_data(&pinned)` → `VertexBuffer<C>`;
+            // `rhi.index_data(&pinned)` → `IndexBuffer<C>`。实参 = `&PinnedBuffer<Ctx, T>`
+            // (字节经 cabi 拷贝;host 定长数组 RX6001 作用面外,首期以 PinnedBuffer 兑现
+            // ptr+bytes 面;T ∈ {f32,i32,u32})。brand `C` 与 `Rhi` 同源。
+            Op::RhiVertexData | Op::RhiIndexData => {
+                let vb = self
+                    .res
+                    .lang_items
+                    .rhi_vertex_buffer
+                    .expect("VertexBuffer lang item 在 resolve 入口注入");
+                let ib = self
+                    .res
+                    .lang_items
+                    .rhi_index_buffer
+                    .expect("IndexBuffer lang item 在 resolve 入口注入");
+                let pinned = self
+                    .res
+                    .lang_items
+                    .pinned_buffer
+                    .expect("PinnedBuffer lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                // PinnedBuffer brand = Context brand(与 Rhi brand 独立);元素经使用点推断。
+                let ctx_brand = self.infcx.fresh(None);
+                let elem = self.infcx.fresh(None);
+                let expected =
+                    Ty::Ref(Box::new(Ty::Adt(pinned, vec![ctx_brand, elem])), false);
+                let ret = if matches!(op, Op::RhiVertexData) {
+                    Ty::Adt(vb, vec![b])
+                } else {
+                    Ty::Adt(ib, vec![b])
+                };
+                self.check_args(span, &[expected], args, ret)
+            }
+            // G8.2 M89(RXS-0319):`gfx.draw(&vb, count)` / `gfx.draw_indexed(&vb, &ib, count)`
+            // → `GfxPass<C>`(builder 链)。`&VertexBuffer`/`&IndexBuffer` 借用非消费;count:u32。
+            Op::RhiGfxDraw => {
+                let gfx_pass = self
+                    .res
+                    .lang_items
+                    .rhi_gfx_pass
+                    .expect("GfxPass lang item 在 resolve 入口注入");
+                let vb = self
+                    .res
+                    .lang_items
+                    .rhi_vertex_buffer
+                    .expect("VertexBuffer lang item 在 resolve 入口注入");
+                let pass_brand = adt_args.first().cloned().unwrap_or(brand.clone());
+                let expected = [
+                    Ty::Ref(Box::new(Ty::Adt(vb, vec![pass_brand.clone()])), false),
+                    Ty::Prim(PrimTy::U32),
+                ];
+                self.check_args(
+                    span,
+                    &expected,
+                    args,
+                    Ty::Adt(gfx_pass, vec![pass_brand]),
+                )
+            }
+            Op::RhiGfxDrawIndexed => {
+                let gfx_pass = self
+                    .res
+                    .lang_items
+                    .rhi_gfx_pass
+                    .expect("GfxPass lang item 在 resolve 入口注入");
+                let vb = self
+                    .res
+                    .lang_items
+                    .rhi_vertex_buffer
+                    .expect("VertexBuffer lang item 在 resolve 入口注入");
+                let ib = self
+                    .res
+                    .lang_items
+                    .rhi_index_buffer
+                    .expect("IndexBuffer lang item 在 resolve 入口注入");
+                let pass_brand = adt_args.first().cloned().unwrap_or(brand.clone());
+                let expected = [
+                    Ty::Ref(Box::new(Ty::Adt(vb, vec![pass_brand.clone()])), false),
+                    Ty::Ref(Box::new(Ty::Adt(ib, vec![pass_brand.clone()])), false),
+                    Ty::Prim(PrimTy::U32),
+                ];
+                self.check_args(
+                    span,
+                    &expected,
+                    args,
+                    Ty::Adt(gfx_pass, vec![pass_brand]),
+                )
             }
             Op::CtxCreate
             | Op::Launch

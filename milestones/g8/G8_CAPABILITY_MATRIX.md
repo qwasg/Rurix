@@ -174,7 +174,7 @@
 
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
-| M89 | `.rx` 单源 gfx submit 真派发（声明式 gfx 图零 Rust 宿主出图） | —（Rurix 自有目标：单语言双层模型兑现面） | ⬜ **RD-037 open**（G7_CONTRACT 字面「候选 G8」）：rurixc lowering gfx pass vs/fs SPIR-V 入 artifacts v2 + cabi VB/IB 绑定面 + `rxrt_rhi_submit` gfx 派发臂 | 判据 = RD-037 backfill 字面：`.rx` gfx 图零 Rust 宿主 device 真跑 readback 像素断言 | A/B | P0 | ✔ | **G8.2**（正式承接 RD-037；UE5 级渲染器要以 `.rx` 为主语言书写，此为硬前置） |
+| M89 | `.rx` 单源 gfx submit 真派发（声明式 gfx 图零 Rust 宿主出图） | —（Rurix 自有目标：单语言双层模型兑现面） | ✅ **RD-037 closed**（G8.2 M89 materialize）：rurixc lowering gfx pass vs/fs SPIR-V 入 artifacts v2 + cabi VB/IB 绑定面 + `rxrt_rhi_submit` gfx 派发臂；device 真跑 readback/golden（步骤 102） | 判据 = RD-037 backfill 字面已兑现：`.rx` gfx 图零 Rust 宿主 device 真跑 readback 像素断言 | A/B | P0 | ✔ | **G8.2**（正式承接 RD-037；UE5 级渲染器要以 `.rx` 为主语言书写，此为硬前置） |
 
 ---
 

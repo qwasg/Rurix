@@ -1657,6 +1657,25 @@
     ],
     "RXS-0318": [
       "src/rurixc/src/manifest.rs"
+    ],
+    "RXS-0319": [
+      "conformance/gfx_submit/accept/m89_two_tri_quad.rx",
+      "conformance/gfx_submit/accept/vb_only_draw.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0320": [
+      "conformance/gfx_submit/accept/m89_two_tri_quad.rx",
+      "conformance/gfx_submit/reject/draw_ib_oob.rx",
+      "conformance/gfx_submit/reject/draw_vb_range_oob.rx",
+      "conformance/gfx_submit/reject/draw_without_vb.rx",
+      "conformance/gfx_submit/reject/vs_io_vb_mismatch.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0321": [
+      "conformance/gfx_submit/accept/m89_two_tri_quad.rx",
+      "conformance/gfx_submit/accept/vb_only_draw.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }

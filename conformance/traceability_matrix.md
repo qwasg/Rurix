@@ -304,3 +304,6 @@
 | RXS-0316 | spec/vulkan_backend.md | 2 | `src/rurix-rt/src/pso_cache.rs`, `src/rurix-rt/src/vk.rs` |
 | RXS-0317 | spec/rendering_platform.md | 1 | `src/rurixc/src/manifest.rs` |
 | RXS-0318 | spec/rendering_platform.md | 1 | `src/rurixc/src/manifest.rs` |
+| RXS-0319 | spec/rhi.md | 3 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/accept/vb_only_draw.rx`, `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0320 | spec/rhi.md | 6 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/reject/draw_ib_oob.rx`, `conformance/gfx_submit/reject/draw_vb_range_oob.rx` …(+3) |
+| RXS-0321 | spec/rhi.md | 4 | `conformance/gfx_submit/accept/m89_two_tri_quad.rx`, `conformance/gfx_submit/accept/vb_only_draw.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+1) |

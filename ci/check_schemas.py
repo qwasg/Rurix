@@ -328,6 +328,9 @@ def check_evidence_files() -> None:
     g8_m85_shader_manifest_ddc_schema = load(
         ROOT / "milestones/g8/g8_m85_shader_manifest_ddc_evidence_schema.json"
     )
+    g8_m89_single_source_gfx_submit_schema = load(
+        ROOT / "milestones/g8/g8_m89_single_source_gfx_submit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -602,6 +605,11 @@ def check_evidence_files() -> None:
     g8_m85_shader_manifest_ddc_validator = (
         jsonschema.Draft7Validator(g8_m85_shader_manifest_ddc_schema)
         if g8_m85_shader_manifest_ddc_schema is not None
+        else None
+    )
+    g8_m89_single_source_gfx_submit_validator = (
+        jsonschema.Draft7Validator(g8_m89_single_source_gfx_submit_schema)
+        if g8_m89_single_source_gfx_submit_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1189,6 +1197,14 @@ def check_evidence_files() -> None:
             # host 门,--phase g8.2 merge/dedup/coverage 腿;phase_g8_3_pass
             # 字段位冻结、g8.2 期恒 false。供 g8.counter.shader_manifest_phase_g82_legs。
             validator = g8_m85_shader_manifest_ddc_validator
+        elif (
+            f.name.startswith("g8_m89_single_source_gfx_submit_")
+            and g8_m89_single_source_gfx_submit_validator is not None
+        ):
+            # G8.2 M89 single_source_gfx_submit 硬门(RXS-0319~0321;RD-037):
+            # device 门,单源 gfx VB/IB/draw + artifacts v2 真派发 + golden;
+            # 零 Rust 宿主像素替身。供 g8.counter.single_source_gfx_checks。
+            validator = g8_m89_single_source_gfx_submit_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None
