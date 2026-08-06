@@ -96,9 +96,56 @@
 - `ci/g8_texture_transcode_smoke.py --gate g8.p1.m83.texture_transcode`
 - ≥1 `//@ spec: RXS-0334` 锚定(`rurix-asset::texture`)
 
+### RXS-0335 AP-CANON deterministic CBOR 与 RXAP envelope(G8.3 M79)
+
+**依据**:RFC-0020 §4.2;设计案 §3.1;`g8.p0.m79.asset_determinism`。
+
+**义务**(`rurix-asset::canon`):
+
+- 冻结子集:map key = 非负整数 field-ID(严格递增);整数最短编码;禁 indefinite-length;禁浮点;用户字符串限 ASCII 可打印。
+- envelope:`magic "RXAP" | schema_id u32 | major u16 | minor u16 | canonicalizer_version u32 | payload_len u64 | schema_digest 32B | payload_digest 32B | payload`(全 LE)。
+- `canonicalizer_version` 进 schema digest;`Unicode/NFC` 与浮点面未开放(开放前须条款修订)。
+
+**测试要求**:
+
+- `//@ spec: RXS-0335` 锚定于 `rurix-asset::canon`
+- `conformance/asset/canon/{accept,reject}` + `rxcook canon-check`
+
+### RXS-0336 AP-GRAPH 声明式工具 DAG(G8.3 M79)
+
+**依据**:RFC-0020 §4.4;设计案 §3.1。
+
+**义务**(`rurix-asset::graph`):
+
+- 节点五元组:`tool_id + tool_digest + typed_inputs + typed_outputs + canonical_params`。
+- 无环;未注册 tool fail-closed;类型系统无 shell/`build.rs`/网络节点。
+- 首批注册工具:`rurix.gltf.import.v1` / `rurix.geom.pages.v1` / `rurix.texture.cook.v1`。
+- 调度序不进签名输出。
+
+**测试要求**:
+
+- `//@ spec: RXS-0336` 锚定于 `rurix-asset::graph`
+- `conformance/asset/graph/reject` + graph 单测环/未注册工具
+
+### RXS-0337 AP-GRAPH 双构建与单变量 mutation(G8.3 M79)
+
+**依据**:RFC-0020 §4.6;设计案 §3.1。
+
+**义务**(`rurix-asset::verify` + `rxcook verify --double-build`):
+
+- 两隔离绝对路径根 + 起始空产物目录;同 plan 双构建 → DAG/artifact/manifest digest 逐字节相等。
+- 四类单变量 mutation(依赖内容 / recipe / profile / tool version)翻转受影响 key,无关节点 key 稳定。
+- 签名字节扫描:零绝对路径/时间戳/PID 字面。
+
+**测试要求**:
+
+- `//@ spec: RXS-0337` 锚定于 `rurix-asset::verify`
+- `ci/g8_asset_determinism_smoke.py --gate g8.p0.m79.asset_determinism`(numeric_step 合入时回填)
+
 ## 修订历史
 
 | 版本 | 日期 | 说明 | 状态 |
 |---|---|---|---|
 | v1.0 | 2026-08-06 | M83:`### RXS-0334` AP-TEX。并行避撞:为 M81 落 `### RXS-0332`(AP-SCHEMA)+ `### RXS-0333`(AP-GLTF)条款头要点(M81 可加性扩写)。实测号 **0332/0333/0334**。 | Draft |
 | v1.1 | 2026-08-06 | M81 加性扩写:`### RXS-0332`/`### RXS-0333` 补测试要求、conformance 语料目录与 fail-closed 必达类;挂钩 `ci/g8_gltf_import_smoke.py`(numeric_step=106)。**未改** `### RXS-0334`。 | Draft |
+| v1.2 | 2026-08-06 | M79:`### RXS-0335` AP-CANON + `### RXS-0336` AP-GRAPH + `### RXS-0337` 双构建 mutation。 | Draft |

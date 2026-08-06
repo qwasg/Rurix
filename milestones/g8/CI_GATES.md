@@ -69,7 +69,7 @@ py -3 ci/budget_eval.py
 | `g8.p0.m31.reflection_hash` | M31 | G8.2 | `ci/g8_reflection_hash_smoke.py` | 97 |
 | `g8.p0.m32.capability_profile` | M32 | G8.2 | `ci/g8_capability_profile_smoke.py` | 99 |
 | `g8.p0.m85.shader_manifest_ddc` | M85 | G8.2/3 | `ci/g8_shader_manifest_ddc_smoke.py` | 101 |
-| `g8.p0.m79.asset_determinism` | M79 | G8.3 | `ci/g8_asset_determinism_smoke.py` | `post-G7 actual-next-free allocation` |
+| `g8.p0.m79.asset_determinism` | M79 | G8.3 | `ci/g8_asset_determinism_smoke.py` | 108 |
 | `g8.p0.m80.ddc_content_address` | M80 | G8.3 | `ci/g8_ddc_content_address_smoke.py` | `post-G7 actual-next-free allocation` |
 | `g8.p0.m81.gltf_import` | M81 | G8.3 | `ci/g8_gltf_import_smoke.py` | 106 |
 | `g8.p0.m01.meshlet_page_builder` | M01 | G8.3 | `ci/g8_meshlet_page_builder_smoke.py` | 105 |
@@ -185,6 +185,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.13 | 2026-08-06 | **M79 materialize**：§4 M79 行 `numeric_step` 回填为 `108`；`ci/g8_asset_determinism_smoke.py` + schema + RXS-0335~0337 + `pr-smoke` 步骤 108。host 门。零新 RX/U。 |
 | v1.12 | 2026-08-06 | **M01+M81+M83 materialize**：§4 M01→`105`、M81→`106`；§4.0 M83→`107`。`rurix-geom-pages`/`rurix-asset`/`rurix-basis-sys` + RXS-0328~0334 + smokes + schemas 同波落。host 门。零新 RX 码；M83 U44~U46。 |
 | v1.10 | 2026-08-06 | **wave2.exit materialize**：§5 `g8.wave.2.exit` 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `104`（ledger next_free=104 实际分配）；`ci/g8_wave_exit_lib.py` 共享库首落 + `ci/g8_wave2_exit_check.py` 薄壳 + `milestones/g8/g8_wave2_exit_evidence_schema.json` + `pr-smoke.yml` 步骤 104（host 聚合，**不加** `RURIX_REQUIRE_REAL`）同 PR 落。只读汇总七 P0 + RFC-0019 Approved + RD-037 closed + 本波 RD-038 接入空集；RD-040 总体维持 open。零新 RXS/RX/U/budget counter。其余聚合门行 0-byte。 |
 | v1.9 | 2026-08-06 | **M50 materialize**：§4 M50 行 `numeric_step` 由 `post-G7 actual-next-free allocation` 回填为 `103`（ledger next_free=103 实际分配）；`ci/g8_rt_pipeline_incremental_smoke.py` + `milestones/g8/g8_m50_rt_pipeline_incremental_evidence_schema.json` + rt_pipeline/rt_incremental/vk_m50_rt_body + `pr-smoke.yml` 步骤 103（`RURIX_REQUIRE_REAL=1`）同 PR 落。device 门；RD-040 总体维持 open、M50 分项 history 关闭留痕。spec-first：RXS-0322~0327 先行（commit 5d2ba225，ledger v1.58）。零新 RX 码；unsafe 归 U30 扩注（0 新 U）。其余 14 个 P0/P1 行 0-byte。 |

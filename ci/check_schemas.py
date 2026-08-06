@@ -346,6 +346,9 @@ def check_evidence_files() -> None:
     g8_m81_gltf_import_schema = load(
         ROOT / "milestones/g8/g8_m81_gltf_import_evidence_schema.json"
     )
+    g8_m79_asset_determinism_schema = load(
+        ROOT / "milestones/g8/g8_m79_asset_determinism_evidence_schema.json"
+    )
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
@@ -653,6 +656,11 @@ def check_evidence_files() -> None:
     g8_m81_gltf_import_validator = (
         jsonschema.Draft7Validator(g8_m81_gltf_import_schema)
         if g8_m81_gltf_import_schema is not None
+        else None
+    )
+    g8_m79_asset_determinism_validator = (
+        jsonschema.Draft7Validator(g8_m79_asset_determinism_schema)
+        if g8_m79_asset_determinism_schema is not None
         else None
     )
     g8_wave7_decisions_validator = (
@@ -1287,6 +1295,12 @@ def check_evidence_files() -> None:
         ):
             # G8.3 M81 gltf_import(RXS-0332~0333):host 门,严格 glTF 六表。
             validator = g8_m81_gltf_import_validator
+        elif (
+            f.name.startswith("g8_m79_asset_determinism_")
+            and g8_m79_asset_determinism_validator is not None
+        ):
+            # G8.3 M79 asset_determinism(RXS-0335~0337):host 门,canon+双构建。
+            validator = g8_m79_asset_determinism_validator
         elif (
             f.name.startswith("g8_wave7_decisions_")
             and g8_wave7_decisions_validator is not None

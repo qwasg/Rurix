@@ -18,8 +18,16 @@ name = "g8_m01_probe"
 path = "src/bin/g8_m01_probe.rs"
 
 [[bin]]
+name = "g8_m04_probe"
+path = "src/bin/g8_m04_probe.rs"
+
+[[bin]]
 name = "rxcook"
 path = "src/bin/rxcook.rs"
+
+[[bin]]
+name = "g8_m79_write_fixtures"
+path = "src/bin/g8_m79_write_fixtures.rs"
 
 [lints]
 workspace = true

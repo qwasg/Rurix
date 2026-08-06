@@ -547,3 +547,11 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 **交付物**：`spec/asset_pipeline.md` RXS-0332~0333；`rurix-asset::gltf`；`ci/g8_gltf_import_smoke.py`（步骤 **106**）；conformance/asset/gltf。
 
 **验收**：smoke PASS 11/11。
+
+### 8.14 M79 asset_determinism materialize（2026-08-06）
+
+**触发**：G8.3 P0 M79（host；RFC-0020 AP-CANON/AP-GRAPH）。
+
+**交付物**：`spec/asset_pipeline.md` RXS-0335~0337；`rurix-asset::{canon,graph,cook,verify}`；`rxcook verify --double-build` / `canon-check`；`ci/g8_asset_determinism_smoke.py`（步骤 **108**）；`conformance/asset/canon` + `graph/reject`。
+
+**验收**：smoke PASS 12/12（隔离双构建 + 四类 mutation + canon corpus）。

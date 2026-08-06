@@ -23,6 +23,12 @@ pub enum ErrorKind {
     MissingBuffer,
     /// schema/logical_uri/未知字段等。
     SchemaInvalid,
+    /// AP-CANON 非确定性/非子集编码。
+    CanonInvalid,
+    /// AP-GRAPH 环/未注册工具/未声明 env 等。
+    GraphInvalid,
+    /// M79 双构建/mutation 校验失败。
+    VerifyFailed,
     /// 其它合法性失败。
     Invalid,
     /// IO。
@@ -41,6 +47,9 @@ impl ErrorKind {
             ErrorKind::DanglingReference => "dangling_reference",
             ErrorKind::MissingBuffer => "missing_buffer",
             ErrorKind::SchemaInvalid => "schema_invalid",
+            ErrorKind::CanonInvalid => "canon_invalid",
+            ErrorKind::GraphInvalid => "graph_invalid",
+            ErrorKind::VerifyFailed => "verify_failed",
             ErrorKind::Invalid => "invalid",
             ErrorKind::Io => "io",
         }

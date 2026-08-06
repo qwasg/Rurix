@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.3 M79 asset_determinism evidence",
+  "description": "evidence/g8_m79_asset_determinism_<UTC>.json。g8.p0.m79.asset_determinism host 门;12 checks。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_m79_asset_determinism" },
+    "symbolic_gate_key": { "type": "string", "const": "g8.p0.m79.asset_determinism" },
+    "matrix_row": { "type": "string", "const": "G8.3" },
+    "wave": { "type": "string", "const": "G8.3" },
+    "numeric_step": { "type": "integer", "minimum": 1 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canon_golden_byte_equal",
+        "canon_reject_corpus_fail_closed",
+        "double_build_isolated_roots",
+        "double_build_dag_byte_equal",
+        "double_build_artifacts_byte_equal",
+        "double_build_manifest_digest_equal",
+        "mutate_dependency_flips_key",
+        "mutate_recipe_flips_key",
+        "mutate_profile_flips_key",
+        "mutate_tool_version_flips_key",
+        "unrelated_nodes_keys_stable",
+        "no_env_time_path_in_signed_bytes"
+      ],
+      "properties": {
+        "canon_golden_byte_equal": { "type": "boolean" },
+        "canon_reject_corpus_fail_closed": { "type": "boolean" },
+        "double_build_isolated_roots": { "type": "boolean" },
+        "double_build_dag_byte_equal": { "type": "boolean" },
+        "double_build_artifacts_byte_equal": { "type": "boolean" },
+        "double_build_manifest_digest_equal": { "type": "boolean" },
+        "mutate_dependency_flips_key": { "type": "boolean" },
+        "mutate_recipe_flips_key": { "type": "boolean" },
+        "mutate_profile_flips_key": { "type": "boolean" },
+        "mutate_tool_version_flips_key": { "type": "boolean" },
+        "unrelated_nodes_keys_stable": { "type": "boolean" },
+        "no_env_time_path_in_signed_bytes": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

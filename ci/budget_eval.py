@@ -1158,6 +1158,23 @@ def eval_counter(entry: dict, strict: bool) -> None:
             "G8.3 M81 实现回填前为正常状态",
             strict,
         )
+    elif eid == "g8.counter.asset_determinism_legs":
+        n = 0
+        for f in (ROOT / "evidence").glob("g8_m79_asset_determinism_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("host_section_pass") is not True:
+                continue
+            checks = doc.get("checks") or {}
+            if sum(1 for v in checks.values() if v is True) >= 12:
+                n += 1
+        count_or_gate(
+            eid,
+            n,
+            1,
+            "份 asset_determinism 12 腿全绿见证",
+            "G8.3 M79 实现回填前为正常状态",
+            strict,
+        )
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

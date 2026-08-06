@@ -1160,6 +1160,12 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_texture_transcode_smoke.py --gate g8.p1.m83.texture_transcode
 
+      # 步骤 108（G8.3 P0 硬门 g8.p0.m79.asset_determinism;RFC-0020;
+      # RXS-0335~0337）:canon + DAG + 隔离双构建 + 四类 mutation。host 门。
+      - name: G8.3 M79 asset determinism smoke (G8 CI_GATES §4.108, g8.p0.m79.asset_determinism)
+        shell: powershell
+        run: py -3 ci/g8_asset_determinism_smoke.py --gate g8.p0.m79.asset_determinism
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

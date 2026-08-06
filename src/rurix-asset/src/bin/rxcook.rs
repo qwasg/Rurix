@@ -1,10 +1,16 @@
 //! rxcook — G8.3 资产 cook CLI(设计案 §1.2)。
-//! 子命令:`import-gltf`(M81) / `cook-texture`(M83) / `coverage-list`。
+//! 子命令:`import-gltf`(M81) / `cook-texture`(M83) / `decode-page`(M04) /
+//! `verify --double-build`(M79) / `coverage-list`。
 
 use rurix_asset::gltf::{self, validate::ImportOptions};
 use rurix_asset::texture::{
     CookProfile, TextureSemantics, cook_texture, decode_ppm_p6, encode_ppm_p6,
     fixture_checker_rgba16, fixture_normal_rgba16,
+};
+use rurix_asset::canon;
+use rurix_asset::verify;
+use rurix_geom_pages::{
+    decode_disk_page, expand_memory_page, expand_u32_count, expanded_digest, encode_memory_page,
 };
 use std::env;
 use std::fs;
@@ -13,9 +19,178 @@ use std::process::ExitCode;
 
 fn usage() -> ! {
     eprintln!(
-        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture --fixture checker|normal --out <dir> [--profile win-vulkan-bcn-v1]\n  rxcook cook-texture --input <file.ppm> --out <dir> [--profile ...] [--semantics color|normal|mask]"
+        "usage:\n  rxcook import-gltf <path> [--emit-digest]\n  rxcook coverage-list\n  rxcook cook-texture --fixture checker|normal --out <dir> [--profile win-vulkan-bcn-v1]\n  rxcook cook-texture --input <file.ppm> --out <dir> [--profile ...] [--semantics color|normal|mask]\n  rxcook decode-page --disk <p.rxpd> [--emit-expanded-digest] [--emit-rxpm <path>]\n  rxcook verify --double-build [--workspace <root>] [--scratch <dir>]\n  rxcook canon-check --accept <dir> --reject <dir>"
     );
     std::process::exit(2);
+}
+
+fn hex32(d: &[u8; 32]) -> String {
+    let mut s = String::with_capacity(64);
+    for b in d {
+        s.push_str(&format!("{b:02x}"));
+    }
+    s
+}
+
+fn cmd_decode_page(args: Vec<String>) -> ExitCode {
+    let mut disk: Option<PathBuf> = None;
+    let mut emit_digest = false;
+    let mut emit_rxpm: Option<PathBuf> = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--disk" => {
+                i += 1;
+                disk = Some(PathBuf::from(args.get(i).unwrap_or_else(|| usage())));
+            }
+            "--emit-expanded-digest" | "--emit-digest" => emit_digest = true,
+            "--emit-rxpm" => {
+                i += 1;
+                emit_rxpm = Some(PathBuf::from(args.get(i).unwrap_or_else(|| usage())));
+            }
+            other => {
+                eprintln!("unknown decode-page flag: {other}");
+                usage();
+            }
+        }
+        i += 1;
+    }
+    let disk = disk.unwrap_or_else(|| usage());
+    let bytes = fs::read(&disk).unwrap_or_else(|e| {
+        eprintln!("read {}: {e}", disk.display());
+        std::process::exit(1);
+    });
+    match decode_disk_page(&bytes) {
+        Ok(page) => {
+            if let Some(p) = emit_rxpm {
+                let img = encode_memory_page(&page);
+                if let Err(e) = fs::write(&p, &img) {
+                    eprintln!("write rxpm: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+            if emit_digest {
+                let d = expanded_digest(&page);
+                let n = expand_u32_count(&page);
+                let stream = expand_memory_page(&page);
+                println!(
+                    "{{\"ok\":true,\"expanded_digest\":\"{}\",\"expanded_u32_count\":{},\"expanded_bytes\":{}}}",
+                    hex32(&d),
+                    n,
+                    stream.len()
+                );
+            } else {
+                println!(
+                    "ok clusters={} indices={}",
+                    page.clusters.len(),
+                    page.indices.len()
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("decode-page failed: {e}");
+            println!("{{\"ok\":false,\"error\":\"{e}\"}}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn cmd_canon_check(args: Vec<String>) -> ExitCode {
+    let mut accept = None;
+    let mut reject = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--accept" => {
+                i += 1;
+                accept = Some(PathBuf::from(args.get(i).unwrap_or_else(|| usage())));
+            }
+            "--reject" => {
+                i += 1;
+                reject = Some(PathBuf::from(args.get(i).unwrap_or_else(|| usage())));
+            }
+            other => {
+                eprintln!("unknown canon-check flag: {other}");
+                usage();
+            }
+        }
+        i += 1;
+    }
+    let accept = accept.unwrap_or_else(|| usage());
+    let reject = reject.unwrap_or_else(|| usage());
+    match canon::check_canon_corpus(&accept, &reject) {
+        Ok((a, r)) => {
+            println!("canon_accept={a}");
+            println!("canon_reject={r}");
+            println!("ok=true");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("canon-check failed: {e}");
+            println!("ok=false");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn workspace_root() -> PathBuf {
+    let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // src/rurix-asset → repo root
+    p.pop();
+    p.pop();
+    p
+}
+
+fn cmd_verify(args: Vec<String>) -> ExitCode {
+    let mut double = false;
+    let mut workspace = workspace_root();
+    let mut scratch = env::temp_dir().join(format!(
+        "rxcook_verify_{}",
+        std::process::id()
+    ));
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--double-build" => double = true,
+            "--workspace" => {
+                i += 1;
+                workspace = PathBuf::from(args.get(i).unwrap_or_else(|| usage()));
+            }
+            "--scratch" => {
+                i += 1;
+                scratch = PathBuf::from(args.get(i).unwrap_or_else(|| usage()));
+            }
+            other => {
+                eprintln!("unknown verify flag: {other}");
+                usage();
+            }
+        }
+        i += 1;
+    }
+    if !double {
+        eprintln!("verify requires --double-build");
+        usage();
+    }
+    let _ = fs::create_dir_all(&scratch);
+    match verify::verify_double_build(&workspace, &scratch) {
+        Ok(r) => {
+            print!("{}", r.to_checks_json());
+            println!("ok={}", r.all_pass());
+            println!("left_manifest={}", r.left_manifest);
+            println!("right_manifest={}", r.right_manifest);
+            if r.all_pass() {
+                ExitCode::SUCCESS
+            } else {
+                eprintln!("verify failed: {:?}", r.notes);
+                ExitCode::from(1)
+            }
+        }
+        Err(e) => {
+            eprintln!("verify error: {e}");
+            ExitCode::from(1)
+        }
+    }
 }
 
 fn cmd_import_gltf(args: Vec<String>) -> ExitCode {
@@ -169,6 +344,9 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "cook-texture" => cmd_cook_texture(args),
+        "decode-page" => cmd_decode_page(args),
+        "verify" => cmd_verify(args),
+        "canon-check" => cmd_canon_check(args),
         _ => {
             eprintln!("unknown command: {cmd}");
             usage();
