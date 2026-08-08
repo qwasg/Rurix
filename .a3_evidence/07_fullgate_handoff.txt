@@ -1,0 +1,18 @@
+07 全量门交接（2026-08-08T03:08Z 启动）
+
+后台任务 bash-c0bj6k3d: py -3 ci/g8_stabilization_soak.py --gate g8.wave.8a.soak
+- 03:06:43~03:08:05 已完成 21 门回归重跑（evidence/g8_*_20260808T030*.json，全 PASS）。
+- soak 段：uc08-physics --soak --min-seconds 1800 --min-frames 10000（新诚实语义，
+  无 sleep；实测 ~103ms/帧 → 1800s 约 17500 真实帧），预计 ~03:38Z 完成。
+- 完成后自动写 evidence/g8_wave8a_soak_<新UTC>.json（PASS 或诚实 FAIL 都会写）。
+
+主 agent 收集方式：
+1. 等任务 bash-c0bj6k3d 完成通知（或 TaskOutput 查看）。
+2. 确认新 evidence 落盘：ls evidence/g8_wave8a_soak_20260808T*.json（取 0308 之后时间戳）。
+3. py -3 ci/g8_stabilization_soak.py --verify-latest  → 应走「honest soak」分支 PASS。
+4. py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout → 应 READY。
+5. 若 soak 段因并行 agent GPU/cargo 争抢出现诚实 FAIL：直接重跑第 1 步命令即可
+   （无假绿风险——FAIL evidence 不会充绿，verify-latest 会红到重跑绿为止）。
+
+注意：verify-latest 在新 evidence 落盘前读 legacy（20260806T095945Z，真实超时兼容）PASS；
+落盘后即切换严格 honesty 分支。

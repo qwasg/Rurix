@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "G8.8a wave8a.soak aggregate evidence",
-  "description": "evidence/g8_wave8a_soak_<UTC>.json。四腿:回归+soak+budget strict+日期锚。",
+  "description": "evidence/g8_wave8a_soak_<UTC>.json。四腿:回归+soak+budget strict+日期锚。2026-08-08 诚实语义:soak 墙钟=真实帧循环(sleep_seconds 恒 0,active_frame_seconds 佐证);host-soak 不再有 validation/device_lost 字面量 0 硬门(两键降为可选遗留,新 evidence 不写);新增可选 soak_subject/active_frame_seconds/sleep_seconds 与 checks.soak_no_sleep_padding。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -55,7 +55,8 @@
         "regression_all_pass": { "type": "boolean" },
         "soak_dual_threshold": { "type": "boolean" },
         "budget_strict_pass": { "type": "boolean" },
-        "date_anchor_recorded": { "type": "boolean" }
+        "date_anchor_recorded": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" }
       }
     },
     "soak": {
@@ -65,9 +66,7 @@
         "frames",
         "seconds",
         "min_frames",
-        "min_seconds",
-        "validation_messages",
-        "device_lost_count"
+        "min_seconds"
       ],
       "properties": {
         "frames": { "type": "integer", "minimum": 0 },
@@ -75,7 +74,10 @@
         "min_frames": { "type": "integer", "const": 10000 },
         "min_seconds": { "type": "integer", "const": 1800 },
         "validation_messages": { "type": "integer", "minimum": 0 },
-        "device_lost_count": { "type": "integer", "minimum": 0 }
+        "device_lost_count": { "type": "integer", "minimum": 0 },
+        "soak_subject": { "type": "string" },
+        "active_frame_seconds": { "type": "number", "minimum": 0 },
+        "sleep_seconds": { "type": "number", "minimum": 0 }
       }
     },
     "evidence_level": { "type": "string", "const": "measured_local" },

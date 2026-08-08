@@ -1,0 +1,12 @@
+[selftest] A1 judge ok=False problems=["soak_subject=None ≠ 'host-soak'(缺 honesty 字段)", '缺 sleep_seconds 字段(旧二进制/伪造 → 红)', '缺 active_frame_seconds 字段', 'frames=100 < min_frames=10000', '外测墙钟 20.0s < 自称 seconds=1800.0s(谎报时长)']
+[selftest] A2 judge ok=False problems=['sleep_seconds=770.0 ≠ 0(sleep 充墙钟)', 'active_frame_seconds=1030.0 与 soak_seconds=1800.0 偏差 >1s(墙钟非帧循环产出)']
+[selftest] A3 judge ok=False problems=['外测墙钟 25.0s < 自称 seconds=2079.5s(谎报时长)']
+[selftest] A4 judge ok=True problems=[]
+[selftest] A5 legacy 2079.47→True 1800.000→False
+[selftest] PASS  A1 baseline_fake(100帧/sleep凑1800s/字面量0)→红
+[selftest] PASS  A2 sleep_seconds>0(sleep充墙钟)→红
+[selftest] PASS  A3 外测墙钟25s<自称2079s(谎报)→红
+[selftest] PASS  A4 诚实 soak(10000帧/2079.5s/sleep=0)→绿
+[selftest] PASS  A5a legacy 真实超时→兼容接受
+[selftest] PASS  A5b legacy sleep凑1800.000→红
+[selftest] PASS: 反假绿臂全部符合预期(3 红臂 + 1 绿臂 + 2 legacy 臂)

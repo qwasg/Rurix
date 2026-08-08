@@ -174,6 +174,7 @@ environment
 4. **多队列不抢跑**：RFC-0019 多队列章未 Approved 时只准单队列；单队列 evidence 不能声称跨队列 timeline 通过。
 5. **物理升级不倒置**：M66 replay corpus 未绿前不得跑 Jolt 5.6 升级结论；升级失败时钉 5.3 是诚实判档，不是 5.6 PASS。
 6. **soak 不省略**：条件实现刚绿不得当日 close；8a 必须先完成规定时长/帧数与 strict budget，再进入 8b。
+7. **soak 墙钟不充时（2026-08-08 追加）**：8a soak 的 seconds 必须全部来自真实帧循环（`active_frame_seconds` 佐证、`sleep_seconds=0`、smoke 外测墙钟交叉核验，缺一判红）；host-only soak 不得用字面量 0 充 validation/device-lost 零错门（标 `subject=host-soak`）；RSS 未门禁并在 notes 声明。见 `G8_8A_SOAK_SEMANTICS_NOTES.md`。
 
 ## 8. 预算门
 
@@ -186,6 +187,7 @@ environment
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-02 | G8.1 初版：冻结治理/实现双门、18 个 P0 独立 key 与脚本、G8.2~8.8 聚合门；全部 numeric_step 延迟为 `post-G7 actual-next-free allocation`；零 workflow/script/schema 预放，当前实现门诚实 blocked。 |
+| v1.24 | 2026-08-08 | **G8.8a soak 语义假绿清零（只追加澄清，不改旧行）**：8a soak 墙钟=真实帧循环实测（禁 sleep 充时，`sleep_seconds` 恒 0、`active_frame_seconds` 佐证、smoke 外测墙钟交叉核验）；host-only soak 明确 `subject=host-soak`，不再以字面量 0 充 validation/device-lost 零错门（§5 8a 行「零 validation/device-loss」对 host soak 无 device 面，自本版起不作判据）；RSS 未门禁。细则见 `G8_8A_SOAK_SEMANTICS_NOTES.md`。 |
 | v1.23 | 2026-08-06 | **G8.6d~8b 收口接线**：§4.0 M72→`126`；§5 wave6d→`127`、decisions→`128`、8a→`129`(verify-latest)、8b→`130`。 |
 | v1.22 | 2026-08-06 | **G8.6b wave6b.exit + G8.6c M68**：§5 wave6b→`123`；§4 M68→`124`；§5 wave6c→`125`；m71/m69 subjects + fracture 12 腿。 |
 | v1.21 | 2026-08-06 | **G8.6b M67 network_physics**：§4 M67→`122`；RFC-0021 §6.5.1 smoothing bound 冻结；13 腿 + MAP 五项。host 门（wave6b.exit 待 M69/M71 subject）。 |

@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""G8.8a soak 聚合门 g8.wave.8a.soak(CI_GATES §5;design §7.2)。
+"""G8.8a soak 聚合门 g8.wave.8a.soak(CI_GATES §5;design §7.2;G8_8A_SOAK_SEMANTICS_NOTES.md)。
 
-四腿:全量回归(18 P0 + 3 go P1)→ uc08 soak(≥30min 且 ≥10000 帧)→
-budget --strict → 纪律日期锚。
+四腿:全量回归(18 P0 + 3 go P1)→ uc08 soak(≥30min 且 ≥10000 帧,全程真实帧
+循环,禁 sleep 充墙钟)→ budget --strict → 纪律日期锚。
+
+诚实语义(2026-08-08 清零假绿后):
+- soak 墙钟=真实帧循环实测(active_frame_seconds),sleep_seconds 恒 0;
+  smoke 侧用外测墙钟交叉核验,谎报 seconds 判红。
+- subject=host-soak:host soak 无 Vulkan validation/device-lost 面,
+  不再以字面量 0 充 device 零错门。
+- RSS 未门禁(Windows 无采样器),evidence notes 声明。
+- 旧格式 evidence(无 honesty 字段)仅当 seconds ≥ min_seconds+30(sleep 凑时
+  造不出的真实超时)才兼容接受,否则判红。
 
 pr-smoke 默认 --verify-latest(秒级核最新 full-run evidence);
 本地/workflow_dispatch 用 --gate 产 full-run。
@@ -152,12 +161,72 @@ def run_regression(*, skip_rerun: bool = False) -> tuple[bool, list[dict], str]:
     return all_ok, rows, commit
 
 
+def judge_soak(
+    doc: dict,
+    *,
+    outer_elapsed: float | None,
+    min_seconds: int,
+    min_frames: int,
+) -> tuple[bool, list[str]]:
+    """诚实判定 soak 输出。返回 (ok, problems)。
+
+    反假绿(基线 .a3_evidence/01:100 帧 + sleep 凑墙钟 + 字面量 0):
+    - 必须带 honesty 字段(soak_subject=host-soak / sleep_seconds /
+      active_frame_seconds);缺字段 = 旧二进制或伪造 → 红。
+    - sleep_seconds 必须 == 0(禁 sleep 充墙钟)。
+    - active_frame_seconds ≈ soak_seconds(墙钟只能来自真实帧循环)。
+    - 外测墙钟(非 None 时)不得小于自称 seconds - 2s(谎报时长 → 红)。
+    - 双阈值:frames ≥ min_frames 且 seconds ≥ min_seconds。
+    host-soak 无 device 面:不以 validation_messages/device_lost_count 作门。
+    """
+    problems: list[str] = []
+    frames = int(doc.get("soak_frames") or doc.get("frames") or 0)
+    # 二进制 raw 输出键为 soak_seconds;gate 落盘的 evidence soak 块键为 seconds——
+    # 同一判定函数服务两种来源,秒数取键需兼容(否则 verify-latest 把诚实证据误判红)。
+    seconds = float(doc.get("soak_seconds") or doc.get("seconds") or 0.0)
+    if doc.get("soak_subject") != "host-soak":
+        problems.append(f"soak_subject={doc.get('soak_subject')!r} ≠ 'host-soak'(缺 honesty 字段)")
+    sleep_s = doc.get("sleep_seconds")
+    if sleep_s is None:
+        problems.append("缺 sleep_seconds 字段(旧二进制/伪造 → 红)")
+    elif float(sleep_s) != 0.0:
+        problems.append(f"sleep_seconds={sleep_s} ≠ 0(sleep 充墙钟)")
+    active = doc.get("active_frame_seconds")
+    if active is None:
+        problems.append("缺 active_frame_seconds 字段")
+    elif abs(float(active) - seconds) > 1.0:
+        problems.append(
+            f"active_frame_seconds={active} 与 soak_seconds={seconds} 偏差 >1s(墙钟非帧循环产出)"
+        )
+    if frames < min_frames:
+        problems.append(f"frames={frames} < min_frames={min_frames}")
+    if seconds < min_seconds:
+        problems.append(f"seconds={seconds:.1f} < min_seconds={min_seconds}")
+    if outer_elapsed is not None and outer_elapsed + 2.0 < seconds:
+        problems.append(
+            f"外测墙钟 {outer_elapsed:.1f}s < 自称 seconds={seconds:.1f}s(谎报时长)"
+        )
+    return (not problems), problems
+
+
+def legacy_soak_acceptable(soak: dict) -> bool:
+    """旧格式 evidence(2026-08-08 前,无 honesty 字段)的兼容判据。
+
+    旧二进制 sleep 凑时只会把 seconds 顶到 min_seconds 整值附近;
+    seconds ≥ min_seconds + 30 是 sleep 造不出的真实超时(如 20260806 那份
+    10000 帧实测 2079.5s)。不满足即疑似 sleep 凑时 → 红,需重跑 --gate。
+    """
+    frames = int(soak.get("frames") or 0)
+    seconds = float(soak.get("seconds") or 0.0)
+    return frames >= MIN_FRAMES and seconds >= MIN_SECONDS + 30
+
+
 def run_uc08_soak(
     *,
     min_seconds: int = MIN_SECONDS,
     min_frames: int = MIN_FRAMES,
 ) -> tuple[bool, dict]:
-    """驱动 uc08-physics --soak；双阈值同时满足。"""
+    """驱动 uc08-physics --soak；双阈值同时满足且墙钟诚实(无 sleep 充时)。"""
     cmd = [
         "cargo",
         "run",
@@ -188,20 +257,20 @@ def run_uc08_soak(
             except json.JSONDecodeError:
                 continue
     frames = int(doc.get("soak_frames") or doc.get("frames") or 0)
-    seconds = float(doc.get("soak_seconds") or elapsed)
-    validation = int(doc.get("validation_messages") or 0)
-    device_lost = int(doc.get("device_lost_count") or 0)
-    ok = (
-        r.returncode == 0
-        and frames >= min_frames
-        and seconds >= min_seconds
-        and validation == 0
-        and device_lost == 0
+    seconds = float(doc.get("soak_seconds") or 0.0)
+    ok, problems = judge_soak(
+        doc, outer_elapsed=elapsed, min_seconds=min_seconds, min_frames=min_frames
     )
+    if r.returncode != 0:
+        ok = False
+        problems.append(f"exit={r.returncode} ≠ 0")
     detail = (
         f"exit={r.returncode} frames={frames} seconds={seconds:.1f} "
-        f"validation={validation} device_lost={device_lost}"
+        f"outer_wall={elapsed:.1f} sleep={doc.get('sleep_seconds')} "
+        f"subject={doc.get('soak_subject')!r}"
     )
+    if problems:
+        detail += f" problems={problems}"
     if r.returncode != 0:
         err = (r.stderr or "")[-500:]
         detail += f" stderr={err!r}"
@@ -209,8 +278,6 @@ def run_uc08_soak(
         "ok": ok,
         "frames": frames,
         "seconds": seconds,
-        "validation_messages": validation,
-        "device_lost_count": device_lost,
         "detail": detail,
         "raw": doc,
     }
@@ -258,7 +325,30 @@ def verify_latest() -> int:
     if int(soak.get("frames") or 0) < MIN_FRAMES or float(soak.get("seconds") or 0) < MIN_SECONDS:
         print("[8a] FAIL: soak thresholds not met in evidence", file=sys.stderr)
         return 1
-    print(f"[8a] verify-latest PASS ← {path.relative_to(ROOT)}")
+    # 诚实语义:新格式(带 honesty 字段)严判;旧格式走 legacy 兼容(sleep 凑时 → 红)。
+    if "sleep_seconds" in soak or "active_frame_seconds" in soak or "soak_subject" in soak:
+        if checks.get("soak_no_sleep_padding") is not True:
+            print("[8a] FAIL: checks.soak_no_sleep_padding≠true", file=sys.stderr)
+            return 1
+        ok, problems = judge_soak(
+            soak, outer_elapsed=None, min_seconds=MIN_SECONDS, min_frames=MIN_FRAMES
+        )
+        if not ok:
+            print(f"[8a] FAIL soak honesty: {problems}", file=sys.stderr)
+            return 1
+        print(f"[8a] verify-latest PASS(honest soak)← {path.relative_to(ROOT)}")
+        return 0
+    if not legacy_soak_acceptable(soak):
+        print(
+            "[8a] FAIL: 旧格式 soak evidence 且 seconds 疑似 sleep 凑时"
+            "(seconds < min_seconds+30)→ 需重跑 --gate 产 honesty evidence",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"[8a] verify-latest PASS(legacy 兼容:10000 帧实测超时,sleep 凑时造不出)← "
+        f"{path.relative_to(ROOT)}"
+    )
     return 0
 
 
@@ -276,21 +366,29 @@ def run_full_gate() -> int:
     stamp = wel.utc_stamp()
     utc_date = stamp[:8]
 
+    overall = reg_ok and soak_ok and bud_ok
+    raw_soak = soak_info.get("raw") or {}
+    no_sleep_ok, _ = judge_soak(
+        raw_soak, outer_elapsed=None, min_seconds=0, min_frames=0
+    )
     facts = [
         _fact("regression_18p0_3p1", reg_ok, f"gates={len(reg_rows)} base_commit={commit}"),
         _fact("soak_dual_threshold", soak_ok, soak_info["detail"]),
         _fact("budget_strict", bud_ok, bud_detail),
         _fact("date_anchor", True, f"utc_date={utc_date}"),
     ]
-    overall = reg_ok and soak_ok and bud_ok
-    checks = {
-        "regression_all_pass": reg_ok,
-        "soak_dual_threshold": soak_ok,
-        "budget_strict_pass": bud_ok,
-        "date_anchor_recorded": True,
-        "aggregate_read_only": False,
+    # 手写 evidence(字段比 wave_exit 更丰富);host-soak 无 device 面,
+    # validation/device_lost 不再作门亦不写实(见 G8_8A_SOAK_SEMANTICS_NOTES.md)。
+    soak_block = {
+        "frames": soak_info.get("frames", 0),
+        "seconds": soak_info.get("seconds", 0.0),
+        "min_frames": MIN_FRAMES,
+        "min_seconds": MIN_SECONDS,
+        "soak_subject": "host-soak",
     }
-    # 手写 evidence(字段比 wave_exit 更丰富)
+    for k in ("active_frame_seconds", "sleep_seconds"):
+        if k in raw_soak:
+            soak_block[k] = raw_soak[k]
     payload = {
         "schema_version": 1,
         "subject": SUBJECT,
@@ -309,22 +407,21 @@ def run_full_gate() -> int:
         "checks": {
             "regression_all_pass": reg_ok,
             "soak_dual_threshold": soak_ok,
+            "soak_no_sleep_padding": no_sleep_ok,
             "budget_strict_pass": bud_ok,
             "date_anchor_recorded": True,
         },
-        "soak": {
-            "frames": soak_info.get("frames", 0),
-            "seconds": soak_info.get("seconds", 0.0),
-            "min_frames": MIN_FRAMES,
-            "min_seconds": MIN_SECONDS,
-            "validation_messages": soak_info.get("validation_messages", 0),
-            "device_lost_count": soak_info.get("device_lost_count", 0),
-        },
+        "soak": soak_block,
         "evidence_level": "measured_local",
         "run_url": "",
         "timestamp": stamp,
         "environment": wel.collect_environment(),
-        "notes": "G8.8a full soak; four legs",
+        "notes": (
+            "G8.8a full soak; four legs; honest semantics 2026-08-08: "
+            "soak 墙钟=真实帧循环实测(禁 sleep 充时,sleep_seconds 恒 0, "
+            "smoke 外测墙钟交叉核验);subject=host-soak 无 device 零错字面量门; "
+            "rss 未门禁(Windows 无采样器)"
+        ),
     }
     errs = wel.validate_schema(payload, SCHEMA_PATH)
     if errs:
@@ -341,6 +438,75 @@ def run_full_gate() -> int:
     return 0 if overall else 1
 
 
+def selftest() -> int:
+    """反假绿臂:复现 .a3_evidence/01 基线假绿样式,必须判红。"""
+    arms: list[tuple[str, bool]] = []
+
+    # A1 基线假绿:100 帧 + sleep 凑 1800s + 字面量 0 + 假 RSS(旧二进制输出样式)。
+    baseline_fake = {
+        "ok": True, "soak": True, "soak_frames": 100, "frames": 100,
+        "soak_seconds": 1800.0, "validation_messages": 0,
+        "device_lost_count": 0, "rss_samples": 20, "rss_final": 0,
+    }
+    ok, probs = judge_soak(
+        baseline_fake, outer_elapsed=20.0, min_seconds=1800, min_frames=10000
+    )
+    arms.append(("A1 baseline_fake(100帧/sleep凑1800s/字面量0)→红", not ok))
+    print(f"[selftest] A1 judge ok={ok} problems={probs}")
+
+    # A2 honesty 字段齐但 sleep_seconds>0(sleep 充墙钟)→ 红。
+    sleep_padded = {
+        "soak_subject": "host-soak", "soak_frames": 10000, "frames": 10000,
+        "soak_seconds": 1800.0, "active_frame_seconds": 1030.0,
+        "sleep_seconds": 770.0,
+    }
+    ok, probs = judge_soak(
+        sleep_padded, outer_elapsed=1801.0, min_seconds=1800, min_frames=10000
+    )
+    arms.append(("A2 sleep_seconds>0(sleep充墙钟)→红", not ok))
+    print(f"[selftest] A2 judge ok={ok} problems={probs}")
+
+    # A3 外测墙钟戳穿谎报:自称 2079s 但外测只有 25s → 红。
+    wall_lie = {
+        "soak_subject": "host-soak", "soak_frames": 10000, "frames": 10000,
+        "soak_seconds": 2079.5, "active_frame_seconds": 2079.5,
+        "sleep_seconds": 0.0,
+    }
+    ok, probs = judge_soak(
+        wall_lie, outer_elapsed=25.0, min_seconds=1800, min_frames=10000
+    )
+    arms.append(("A3 外测墙钟25s<自称2079s(谎报)→红", not ok))
+    print(f"[selftest] A3 judge ok={ok} problems={probs}")
+
+    # A4 诚实样本:10000 真实帧 / 实测 2079.5s / sleep=0 → 绿(正臂)。
+    honest = {
+        "soak_subject": "host-soak", "soak_frames": 10000, "frames": 10000,
+        "soak_seconds": 2079.5, "active_frame_seconds": 2079.5,
+        "sleep_seconds": 0.0,
+    }
+    ok, probs = judge_soak(
+        honest, outer_elapsed=2082.0, min_seconds=1800, min_frames=10000
+    )
+    arms.append(("A4 诚实 soak(10000帧/2079.5s/sleep=0)→绿", ok))
+    print(f"[selftest] A4 judge ok={ok} problems={probs}")
+
+    # A5 legacy 兼容:真实超时(2079.47)可接受;sleep 凑整值(1800.000)→ 红。
+    leg_ok = legacy_soak_acceptable({"frames": 10000, "seconds": 2079.47})
+    leg_bad = legacy_soak_acceptable({"frames": 10000, "seconds": 1800.0})
+    arms.append(("A5a legacy 真实超时→兼容接受", leg_ok))
+    arms.append(("A5b legacy sleep凑1800.000→红", not leg_bad))
+    print(f"[selftest] A5 legacy 2079.47→{leg_ok} 1800.000→{leg_bad}")
+
+    failed = [name for name, good in arms if not good]
+    for name, good in arms:
+        print(f"[selftest] {'PASS' if good else 'FAIL'}  {name}")
+    if failed:
+        print(f"[selftest] FAIL arms: {failed}", file=sys.stderr)
+        return 1
+    print("[selftest] PASS: 反假绿臂全部符合预期(3 红臂 + 1 绿臂 + 2 legacy 臂)")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="G8.8a stabilization soak")
     g = ap.add_mutually_exclusive_group(required=True)
@@ -349,18 +515,15 @@ def main() -> int:
     g.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     if args.selftest:
-        if NUMERIC_STEP != 0:
-            # materialize 后自检只断言步骤号
-            assert NUMERIC_STEP > 0
-            print("[8a] selftest OK (materialized)")
+        if NUMERIC_STEP <= 0:
+            print("[8a] selftest: NUMERIC_STEP=0 draft → expect red on --gate")
+            code = run_full_gate()
+            if code == 0:
+                print("[selftest] FAIL: draft still green", file=sys.stderr)
+                return 1
+            print("[selftest] PASS: draft NUMERIC_STEP=0 → red")
             return 0
-        print("[8a] selftest: NUMERIC_STEP=0 draft → expect red on --gate")
-        code = run_full_gate()
-        if code == 0:
-            print("[selftest] FAIL: draft still green", file=sys.stderr)
-            return 1
-        print("[selftest] PASS: draft NUMERIC_STEP=0 → red")
-        return 0
+        return selftest()
     if args.verify_latest:
         return verify_latest()
     return run_full_gate()

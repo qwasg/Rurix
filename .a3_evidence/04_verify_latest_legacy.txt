@@ -1,0 +1,1 @@
+[8a] verify-latest PASS(legacy 兼容:10000 帧实测超时,sleep 凑时造不出)← evidence\g8_wave8a_soak_20260806T095945Z.json

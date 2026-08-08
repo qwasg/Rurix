@@ -16,7 +16,8 @@
 //! 对拍/断言失败永远硬红。
 //!
 //! CLI:`uc08-physics [--frames N=96] [--size WxH=128x72] [--device] [--json]`
-//! G8.8a soak:`--soak --min-seconds S --min-frames F`(双阈值同时满足;host 循环 + 墙钟等待)。
+//! G8.8a soak:`--soak --min-seconds S --min-frames F`(双阈值同时满足;全程真实帧循环,
+//! 禁 sleep 充墙钟,subject=host-soak 无 device 零错字面量,RSS 未门禁)。
 //! `--json` 输出单行 JSON(smoke 脚本消费,字段集冻结);exit 0 仅当全部断言过;
 //! exit 1 = 断言红/运行错;exit 2 = CLI 错或无 vulkan feature 传 --device。
 
@@ -134,10 +135,16 @@ fn run(cli: &Cli) -> Result<Uc08Summary, String> {
     Ok(summary)
 }
 
-/// G8.8a soak:跑满 min_frames 后若墙钟未满 min_seconds 则 sleep 补齐(诚实墙钟双阈值)。
+/// G8.8a soak(诚实语义,见 milestones/g8/G8_8A_SOAK_SEMANTICS_NOTES.md):
+/// 双阈值(frames ≥ min_frames 且墙钟 ≥ min_seconds)全部由真实帧循环产出——
+/// 帧数不够补真实帧、墙钟不够继续跑真实帧,本函数无任何 sleep(sleep_seconds 恒 0,
+/// 构造保证)。host soak 无 Vulkan validation/device-lost 面:不输出字面量 0 充
+/// device 零错门,改标 soak_subject="host-soak";RSS 未门禁(Windows 无采样器,
+/// notes 声明,不再报恒 0 假采样)。
 fn run_soak(cli: &Cli) -> Result<String, String> {
     let t0 = Instant::now();
     let target_frames = cli.min_frames.max(1);
+    let need = Duration::from_secs(cli.min_seconds);
     let cfg = RenderConfig {
         out_w: cli.width,
         out_h: cli.height,
@@ -146,41 +153,22 @@ fn run_soak(cli: &Cli) -> Result<String, String> {
     };
     let scene = scene::build_scene();
     let mut st = pipeline::PipelineState::new(&scene, &cfg);
-    let sample_every = (target_frames / 20).max(1);
-    let mut rss_samples: Vec<u64> = Vec::new();
-    for frame in 0..target_frames {
-        let _ = run_frame(&scene, &mut st, &cfg, frame);
-        if frame % sample_every == 0 {
-            rss_samples.push(process_rss_bytes());
+    let mut frames: u64 = 0;
+    loop {
+        // 帧索引按 target_frames 回绕:超 min_frames 的补帧仍是每帧真实物理步+
+        // 全管线,只是剧本事件(K/M 阈值)按周期重演。
+        let frame_idx = (frames % u64::from(target_frames)) as u32;
+        let _ = run_frame(&scene, &mut st, &cfg, frame_idx);
+        frames += 1;
+        if frames >= u64::from(target_frames) && t0.elapsed() >= need {
+            break;
         }
     }
-    let mut elapsed = t0.elapsed();
-    let need = Duration::from_secs(cli.min_seconds);
-    if elapsed < need {
-        std::thread::sleep(need - elapsed);
-        elapsed = t0.elapsed();
-    }
-    let seconds = elapsed.as_secs_f64();
-    let frames = target_frames;
-    // host soak:无 Vulkan validation/device-lost 面 → 记 0
+    let seconds = t0.elapsed().as_secs_f64();
     Ok(format!(
-        "{{\"ok\":true,\"soak\":true,\"soak_frames\":{frames},\"frames\":{frames},\"soak_seconds\":{seconds:.3},\"validation_messages\":0,\"device_lost_count\":0,\"rss_samples\":{},\"rss_final\":{}}}",
-        rss_samples.len(),
-        rss_samples.last().copied().unwrap_or(0)
+        "{{\"ok\":true,\"soak\":true,\"soak_subject\":\"host-soak\",\"soak_frames\":{frames},\"frames\":{frames},\"soak_seconds\":{seconds:.3},\"active_frame_seconds\":{seconds:.3},\"sleep_seconds\":0.0,\"min_frames\":{},\"min_seconds\":{}}}",
+        cli.min_frames, cli.min_seconds
     ))
-}
-
-fn process_rss_bytes() -> u64 {
-    // Windows:尽力读取;失败返回 0(不充绿泄漏判据——soak 硬门是双阈值+validation=0)
-    #[cfg(windows)]
-    {
-        // 避免引入 winapi 依赖:占位 0;泄漏阈值由后续 budget measured 冻结
-        0
-    }
-    #[cfg(not(windows))]
-    {
-        0
-    }
 }
 
 fn main() {
@@ -292,5 +280,27 @@ mod tests {
         assert!(parse_cli(&["--size".into(), "10".into()]).is_err());
         assert!(parse_cli(&["--bogus".into()]).is_err());
         assert!(parse_cli(&["--frames".into()]).is_err());
+    }
+
+    #[test]
+    fn soak_reports_honest_fields_no_sleep_no_device_literals() {
+        // 小阈值 soak:输出必须带 honesty 字段,且无 sleep/无 device 字面量 0/无假 RSS。
+        let cli = parse_cli(&[
+            "--soak".into(),
+            "--min-seconds".into(),
+            "1".into(),
+            "--min-frames".into(),
+            "2".into(),
+        ])
+        .unwrap();
+        let json = run_soak(&cli).unwrap();
+        assert!(json.contains("\"soak_subject\":\"host-soak\""), "{json}");
+        assert!(json.contains("\"sleep_seconds\":0.0"), "{json}");
+        assert!(json.contains("\"active_frame_seconds\":"), "{json}");
+        assert!(!json.contains("validation_messages"), "{json}");
+        assert!(!json.contains("device_lost_count"), "{json}");
+        assert!(!json.contains("rss"), "{json}");
+        // 双阈值真实满足:墙钟 ≥1s 由帧循环产出(无 sleep,故帧数随时间自然增长)。
+        assert!(json.contains("\"min_seconds\":1"), "{json}");
     }
 }

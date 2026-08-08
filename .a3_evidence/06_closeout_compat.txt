@@ -1,0 +1,17 @@
+closeout 兼容性验证（2026-08-08T03:06Z，schema/smoke 改后）
+
+1) py -3 ci/g8_closeout_check.py --verify-latest
+   → argparse 拒绝（closeout 无 --verify-latest 模式，该模式属于 g8_stabilization_soak.py），exit=2。
+   任务书的「closeout --verify-latest」实为 g8_stabilization_soak.py --verify-latest，已另跑（04 件）PASS。
+
+2) py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout
+  FACT  PASS  twenty_one_keys_pass  (pass=21/21)
+  FACT  PASS  wave_exits_2_to_8a  (pass=11/11)
+  FACT  PASS  acceptance_map_triple  (exit=0)
+  FACT  PASS  p2_decisions_pass  (evidence\g8_wave7_decisions_20260806T124013Z.json)
+  FACT  PASS  budget_strict  (exit=0)
+  FACT  PASS  soak_8a_precedes  (evidence\g8_wave8a_soak_20260806T095945Z.json)
+  FACT  PASS  last_new_green_recorded  (last_green_utc=20260808 today=20260808 missing=[])
+  → evidence evidence\g8_wave8b_closeout_20260808T030607Z.json
+  VERDICT = READY
+  exit=0（不炸；legacy 8a evidence 被 require_gate_pass 正常接受——gate_pass_reason 不做 schema 校验）
