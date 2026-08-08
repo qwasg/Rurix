@@ -1,0 +1,1 @@
+﻿[g8_m19] selftest PASS checks=18 digest-falsify=5/5 mark-falsify=8/8

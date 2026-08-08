@@ -1,0 +1,89 @@
+// G8.5a M19 local spot 采样 device 核(设计 §2.3 第三行)。
+//
+// host oracle(逐字蓝本)= `rurix_render::shadow::local::LocalLightPages::sample`
+// (local.rs L205-234):
+//   1. `wp = floor(light_xy / page_world)`;出 `[0,128)` → 保守 lit = 1.0
+//      (**注意与方向光不同**:local 单级页表无 toroidal 取模,越界即出窗);
+//   2. slot = `(wp.x, wp.y)`(直接用,不取模);页表项 32 位布局同源;
+//   3. 未驻留或脏 → 保守 lit = 1.0;
+//   4. 最近邻纹素 `floor((lp - slot*pw) / pw * 128)` clamp 到 [0,127];
+//   5. `dp = (lp.z - zmin) / (zmax - zmin)`;`dp <= stored + bias` → 1.0 否则 0.0。
+//
+// 输入 `samples` = 3 f32/点,**已在 host 侧变换到 spot 灯空间**(与 host 调用侧
+// `loc.sample(pool, [x, y, 1.0], bias)` 同口径:装配面非效果面,同 gi_probe 纪律)。
+// `entries` = 16384 u32 单级页表;`pool` = pool_pages × 16384 f32 共享物理池。
+//
+// 形态纪律同 `vsm_sample.rx`:无循环,单链嵌套 if;`phys` 以 `% pool_pages` 收进
+// 池内(仅在 resident∧非脏时被消费,与 host 同值)。
+kernel fn vsm_sample_local(
+    t: ThreadCtx<1>,
+    samples: View<global, f32>,
+    entries: View<global, u32>,
+    pool: View<global, f32>,
+    out: ViewMut<global, f32>,
+    sample_count: usize,
+    pool_pages: usize,
+    page_world: f32,
+    zmin: f32,
+    zmax: f32,
+    depth_bias: f32,
+) {
+    let i = t.global_id();
+    if i < sample_count {
+        let sb = i * 3;
+        let lx = samples[sb];
+        let ly = samples[sb + 1];
+        let lz = samples[sb + 2];
+        let pages = pool_pages as u32;
+        let wp_x = (lx / page_world).floor() as i32;
+        let wp_y = (ly / page_world).floor() as i32;
+        // 出窗钳制仅为让下方寻址恒合法;真实出窗由 in_window 门控回 1.0。
+        let mut sx = wp_x;
+        if sx < 0i32 {
+            sx = 0i32;
+        }
+        if sx > 127i32 {
+            sx = 127i32;
+        }
+        let mut sy = wp_y;
+        if sy < 0i32 {
+            sy = 0i32;
+        }
+        if sy > 127i32 {
+            sy = 127i32;
+        }
+        let ent = entries[(sy as usize) * 128 + sx as usize];
+        let phys = (ent & 65535u32) % pages;
+        let tx = ((lx - sx as f32 * page_world) / page_world * 128.0)
+            .floor()
+            .max(0.0)
+            .min(127.0) as i32;
+        let ty = ((ly - sy as f32 * page_world) / page_world * 128.0)
+            .floor()
+            .max(0.0)
+            .min(127.0) as i32;
+        let stored = pool[(phys as usize) * 16384 + (ty as usize) * 128 + tx as usize];
+        let dp = (lz - zmin) / (zmax - zmin);
+        // 保守缺省 = lit;仅「在窗 ∧ 驻留 ∧ 非脏」才做深度比较。
+        let mut result = 1.0;
+        if wp_x >= 0i32 {
+            if wp_x < 128i32 {
+                if wp_y >= 0i32 {
+                    if wp_y < 128i32 {
+                        if ent & 65536u32 != 0u32 {
+                            if ent & 131072u32 == 0u32 {
+                                result = 0.0;
+                                if dp <= stored + depth_bias {
+                                    result = 1.0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out[i] = result;
+    }
+}
+
+fn main() {}

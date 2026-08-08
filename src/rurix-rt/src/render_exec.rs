@@ -3275,6 +3275,32 @@ struct DebugUtilsMessengerCallbackDataEXT {
     p_objects: *const c_void,
 }
 
+/// 进程内 validation ERROR 累计数(本模块**全部** messenger 回调共同累加)。
+///
+/// `execute_frame` 的 fail-closed 判据用的是栈上 `AtomicBool`(一帧内有无 ERROR),
+/// 但调用方(门/证据 JSON)需要**真实计数**而不是写死的 0 —— 故此处再记一份进程级
+/// 计数,经 [`validation_error_total`] 暴露。
+static VALIDATION_ERROR_TOTAL: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// 本进程是否**确实**装上了 validation layer + debug messenger。
+///
+/// 无此位,`validation_error_total() == 0` 无法区分「真跑零 ERROR」与「layer 没装
+/// 上,压根没人报」—— 后者是假绿。门须同时要求本位为真。
+static VALIDATION_MESSENGER_INSTALLED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// 进程内 validation ERROR 累计数(messenger 回调实数;未装 messenger 恒 0)。
+#[must_use]
+pub fn validation_error_total() -> u64 {
+    VALIDATION_ERROR_TOTAL.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// 本进程是否成功创建过 debug messenger(= ERROR 计数可信)。
+#[must_use]
+pub fn validation_messenger_installed() -> bool {
+    VALIDATION_MESSENGER_INSTALLED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// ERROR 级校验消息 → 置栈上 `AtomicBool` + stderr(U27 回调同律;返回 VK_FALSE 不中断)。
 unsafe extern "system" fn debug_messenger_cb(
     severity: u32,
@@ -3283,6 +3309,7 @@ unsafe extern "system" fn debug_messenger_cb(
     user_data: *mut c_void,
 ) -> u32 {
     if severity & DEBUG_UTILS_SEVERITY_ERROR != 0 {
+        VALIDATION_ERROR_TOTAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if !user_data.is_null() {
             // SAFETY: user_data 指向 execute_frame_inner 栈上 AtomicBool;messenger 生命周期
             // 严格短于该栈变量(末尾 instance destroy 前销毁)。原子写经共享引用合法。
@@ -3309,6 +3336,7 @@ unsafe extern "system" fn persistent_debug_messenger_cb(
     user_data: *mut c_void,
 ) -> u32 {
     if severity & DEBUG_UTILS_SEVERITY_ERROR != 0 {
+        VALIDATION_ERROR_TOTAL.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if !user_data.is_null() {
             // SAFETY: create_persistent_frame 在 messenger 前分配 Box<AtomicU64>，Box 内容地址
             // 跨 NativePersistentFrame 移动稳定，Drop 在销毁 messenger 后才释放 Box。
@@ -4983,6 +5011,10 @@ unsafe fn execute_frame_inner(
                     .cast::<c_void>(),
             };
             let _ = create_messenger(instance, &mci, std::ptr::null(), &mut messenger);
+            if messenger != VK_NULL_HANDLE {
+                // ERROR 计数自此可信(见 VALIDATION_MESSENGER_INSTALLED 注释)。
+                VALIDATION_MESSENGER_INSTALLED.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
         }
     }
     // messenger 拆除宏(U27 同律:每个 early-return 前与末尾正常路径均拆除,先于 instance)。
@@ -6313,6 +6345,7 @@ unsafe fn create_persistent_frame(
                 destroy_instance(instance, std::ptr::null());
                 return Err(format!("vkCreateDebugUtilsMessengerEXT 失败: {r}"));
             }
+            VALIDATION_MESSENGER_INSTALLED.store(true, std::sync::atomic::Ordering::Relaxed);
         }
     }
     let destroy_msgr = |messenger: VkDebugUtilsMessengerEXT| {

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m19_vsm_page_cache",
+  "symbolic_gate_key": "g8.p0.m19.vsm_page_cache",
+  "matrix_row": "M19",
+  "wave": "G8.5a",
+  "numeric_step": 115,
+  "source_ref": "G8_ACCEPTANCE_MAP §2 M19;G8.5_RENDERING_COMPLETION_DESIGN §2;RD-038 closed → G8.5a 接入空集(evidence/renderer_raster_diff_smoke_20260804T170945.json)",
+  "host_section_pass": true,
+  "device_section_state": "pass",
+  "checks": {
+    "host_oracle_regression": true,
+    "event_sequence_matches_golden": true,
+    "cross_frame_cache_hit": true,
+    "invalidation_reasons_exhaustive": true,
+    "clipmap_scroll_hit": true,
+    "local_light_page_hit": true,
+    "non_virtual_caster_hit": true,
+    "multi_view_batch": true,
+    "page_table_digest_match": true,
+    "depth_readback_digest_match": true,
+    "sample_digest_match": true,
+    "red_stale_page": true,
+    "red_wrong_eviction": true,
+    "red_missing_local_page": true,
+    "validation_zero": true,
+    "not_satisfiable_by_g7": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092121Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "rd038_raster_vsm_ingress": {
+    "status": "empty_set",
+    "reason": "RD-038 closed on G7.7 path; G8.5a ingress empty-set (design §5)",
+    "closed_evidence_pointers": [
+      "milestones/g7/G7_CONTRACT.md §8.1",
+      "evidence/renderer_raster_diff_smoke_20260804T170945.json",
+      "milestones/g7/RD038_LITERAL_MATRIX.md §7"
+    ]
+  },
+  "notes": "events_sha256=d48955c168d6fe38bf4de0e417881d9f364fe5814e6599b4ff113c3c39ba47ec; max_view_count=5; device pages=3 bitexact=27069; RD-038 closed empty-set for G8.5a;closed-ptr=evidence/renderer_raster_diff_smoke_20260804T170945.json"
+}

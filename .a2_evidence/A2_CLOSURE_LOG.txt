@@ -1,0 +1,66 @@
+A2 收口日志 — M19 g8.p0.m19.vsm_page_cache 去 host 代绿
+=======================================================
+时间 2026-08-07(本机 measured_local,Windows + 4070 类设备,RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)
+HEAD b4189e79 脏树,未 commit。未碰任何治理热点文件。
+
+一、清零前的三处假绿(已证伪记录在 01/02/03_*.txt)
+  1) device JSON 的 page_table_digest / sample_digest = host `run_m19_fixture` digest 直填;
+     smoke 侧判据是 `bool(doc.get("page_table_digest"))` —— truthiness,灌垃圾串仍 16/16 绿。
+  2) host probe 的 page_table_digest_match / depth_readback_digest_match / sample_digest_match
+     是自指臂:`digests.len()==16` / `d.depth_pool.len()==64`,恒真。
+  3) red_wrong_eviction 是恒真式:`real != "0"*64 and checks[event_sequence_matches_golden]`。
+  另发现(A2 复查):被 digest 的数据本身退化 —— 核心驻留槽硬编码 (64,64)/(65,64)/(32,32)
+  = 世界 xy ≈ (−16, 16),离几何 16 单位,故 F0–F11 物理池全清(0/98304 非清空纹素)、
+  80 个采样值恒 1.0。即三条 digest 判据在对常量做 sha256(绿但空转)。
+
+二、清零后的判据链
+  device 段(apps/uc06-renderer/src/device_m19.rs):
+    * 16 帧逐帧上传该帧页表 + 物理池,`vsm_sample`(F12 起加 `vsm_sample_local`)真消费;
+      readback 出 out/entries/pool 三块 device 内存,在其**上**算 sha256;
+    * 三个 digest 原像与 host `digest_tables` / `digest_pool` / `digest_samples` 同源同序
+      (不变式由 host 测试 device_snapshot_is_digest_preimage_per_frame 钉死);
+    * 21 dispatch(16 dir + 4 local + 1 mv depth),measured depth max_abs 1.192092896e-07 ≤ 1e-6。
+  smoke 段(ci/g8_vsm_page_cache_smoke.py):
+    * 逐帧 device digest 与 golden tests/vsm_page_cache/golden/m19_digests.json **逐字**比对;
+      device 自报的匹配计数须与 smoke 独立比对一致(防 device 自说自话);
+    * host probe 逐帧 digest 亦须等于 golden 文件(golden 漂移检测);
+    * probe 若再冒出三个 host 代绿位则直接判红(防回流)。
+  fixture 段(src/rurix-render/src/shadow/page_cache.rs):
+    * 核心槽改为盖住真实几何 (0,0)/(1,0)/level1(0,0)/level2(0,0);
+    * 采样点跨立方体投影体两侧,local 查询 z 由 local z_range 归一化导出;
+    * 结果:12+ 帧物理池有真实光栅内容,19/80 采样判遮蔽,方向光臂与 local 臂各自非退化;
+    * 新测试 digested_data_is_not_degenerate 把该退化钉死。
+  RED 三轴(全部真扰动,逐臂判红):
+    * red_stale        = 上传上一帧物理池(抑制一次失效)+ mv 段 z 偏移 → depth_pool digest 红 7 帧
+    * red_missing_local= local 页表段清零 + mv 段 local tri_count=0 → page_table 红 4 帧、sample 红 4 帧
+    * red_wrong_eviction= 池预算 6→12 改 LRU 受害者集合(evict 4→2)→ 事件序列 sha 必红(host 臂)
+
+三、证伪矩阵(清零后)
+  F1 device 三 digest 灌 FALSIFY 串        → 11/16 device=fail  RC=1  (30_falsify_garbage_digest.txt)
+     ——同一注入在清零前是 16/16 PASS(02_falsify_garbage_digest.txt)
+  F3 device digest 改用 host digest 覆写   → 14/16 RC=1,报「RED stale/missing-local 未翻红」
+     ——这是「digest 非 host 代填」的结构性证据(31_falsify_host_copy.txt)
+  F2 golden 单帧 digest 篡改 1 字符        → 15/16 RC=1,报 golden 漂移 + 自报 16 ≠ 独立比对 15
+     (32_falsify_golden_tamper.txt)
+
+四、最终状态(41_final_green.txt / evidence/g8_m19_vsm_page_cache_20260807T132952Z.json)
+  selftest PASS checks=16 digest-falsify=5/5
+  gate     checks 16/16 device=pass RC=0
+  cargo test -p rurix-render shadow:: → 33 passed
+  py -3 ci/check_schemas.py → PASS
+  回归抽检:m83 texture_transcode VERDICT=PASS;m79 asset_determinism VERDICT=PASS
+
+五、遗留(未做,需下轮裁决)
+  apps/uc06-renderer/kernels/vsm_page_mark_project.rx 已由 build.rs 编译但**无腿消费**:
+  M19 fixture 用 `mark_slot` 直接标页,没有主相机深度缓冲,故「反投影/选级/回退上 device」
+  这条设计 §2.3 行仍是 host 决策。要接必须给 fixture 加深度驱动的 page_mark 帧 →
+  事件序列与 golden 再变一次。属独立 scope,未擅自扩。
+
+六、本轮改动文件(均非治理热点)
+  M src/rurix-render/src/shadow/page_cache.rs        (删自指臂 + 池参数化 + 非退化 fixture + 2 新测试)
+  M src/rurix-render/src/bin/g8_m19_probe.rs         (--red-wrong-eviction 真扰动臂 + evict_count)
+  M apps/uc06-renderer/src/device_m19.rs             (逐帧 device digest 段 + RED 上传面扰动)
+  M ci/g8_vsm_page_cache_smoke.py                    (golden 逐帧对拍 + 逐臂 RED + 反假绿 selftest)
+  M milestones/g8/g8_m19_vsm_page_cache_evidence_schema.json (device_digest_section / red_axes)
+  M tests/vsm_page_cache/golden/{m19_digests.json,m19_events.jsonl,m19_events.sha256} (fixture 非退化后重生成)
+  备份:device_m19.rs.a2final / m19_digests.json.a2final(证伪注入前后逐字校验用)

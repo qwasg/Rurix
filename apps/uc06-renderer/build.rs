@@ -19,6 +19,9 @@ const KERNELS: &[&str] = &[
     "vsm_depth_raster",
     "vsm_depth_raster_mv",
     "vsm_sample",
+    // G8.5a M19:mark 段反投影/选级/回退上 device + local spot 采样臂(设计 §2.3)。
+    "vsm_page_mark_project",
+    "vsm_sample_local",
     "tsr_resample",
     // G7.6 PR-1:TSR 时域臂孤立腿(闪烁 EMA / 重投影 / YCoCg AABB / 混合 / 五件套)。
     "tsr_temporal",

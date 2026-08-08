@@ -1,14 +1,7 @@
 //! G8.5a M19 `g8.p0.m19.vsm_page_cache` device 腿。
 //!
 //! host 金标准 = `rurix_render::shadow::page_cache::run_m19_fixture`;
-//! device 三段:
-//!   ⓪ **逐帧 mark 段(A2.1)**:16 帧逐帧 dispatch `vsm_page_mark_project`
-//!      (主相机深度 → 反投影 → 选级 → 出窗回退 → 原子位图),readback 位图与
-//!      host 镜像 `Vsm::page_mark_bits` 逐位 + 逐槽对拍。此前该核**编进 SPV 但零
-//!      消费**,fixture 用 `vsm.mark_slot(l,x,y)`(host 预知 page id)直接标页 ——
-//!      设计 §2.1「帧循环第一行」/§2.3「第一核」在 device 面上是空的,A2.1 即为
-//!      其清零。RED 两轴:`--m19-red-skip-mark`(不 dispatch,零位图冒充)与
-//!      `--m19-red-host-mark`(host 预知四页冒充,位图逐帧恒定 ⇒ F13+ 分叉)。
+//! device 两段:
 //!   ① **逐帧 digest 段(A2)**:16 帧逐帧把该帧页表/物理池上传,`vsm_sample`
 //!      (+ F12 起 `vsm_sample_local`)真消费,readback 出
 //!      `page_table` / `depth_pool` / `sample` 三个 digest —— 原像**全部来自 device
@@ -28,10 +21,8 @@
 
 use rurix_render::shadow::clipmap::LightBasis;
 use rurix_render::shadow::events::sha256_hex;
-use rurix_render::shadow::page_cache::{
-    run_m19_fixture, FrameDeviceSnapshot, M19RunResult, MarkFrameSnapshot,
-};
-use rurix_render::shadow::vsm::{ShadowTri, Vsm};
+use rurix_render::shadow::page_cache::{run_m19_fixture, FrameDeviceSnapshot, M19RunResult};
+use rurix_render::shadow::vsm::ShadowTri;
 use rurix_rt::render_exec::{
     self, Bindings, BufferDesc, BufferUsage, ComputePass, DispatchSpec, KernelWave, Pass, Readback,
     ResourceDesc,
@@ -40,24 +31,7 @@ use rurix_rt::render_exec::{
 const MV_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vsm_depth_raster_mv.spv"));
 const SAMPLE_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vsm_sample.spv"));
 const SAMPLE_LOCAL_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vsm_sample_local.spv"));
-const MARK_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/vsm_page_mark_project.spv"));
 const PAGE_TEXELS: usize = 128 * 128;
-/// `vsm_page_mark_project.rx` 的 `page_bits: AtomicView<global, u32, (4096,)>` 声明字数。
-const MARK_BITS_WORDS: usize = 4096;
-/// 每级位图字数(128×128 bit)。
-const MARK_WORDS_PER_LEVEL: usize = 512;
-
-/// mark 段 RED 轴(全部作用在**「device 位图从哪来」**这一点上)。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MarkRed {
-    /// 正常:每帧 dispatch `vsm_page_mark_project` 并 readback。
-    None,
-    /// 跳过 dispatch,拿零位图冒充 device 结果(= 核编译进 SPV 但无人消费的旧态)。
-    SkipDispatch,
-    /// 不 dispatch,改用 **host 预知 page id**(A2.1 前的 `mark_slot` 硬编码四页)
-    /// 生成位图冒充 device 结果 —— 位图逐帧恒定,与深度驱动的真位图在 F13+ 分叉。
-    HostImpostor,
-}
 
 fn storage<'a>(size: usize, data: Option<&'a [u8]>) -> ResourceDesc<'a> {
     ResourceDesc::Buffer(BufferDesc {
@@ -81,12 +55,6 @@ fn bytes_u32(v: &[u32]) -> Vec<u8> {
 fn read_f32(b: &[u8]) -> Vec<f32> {
     b.chunks_exact(4)
         .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
-        .collect()
-}
-
-fn read_u32(b: &[u8]) -> Vec<u32> {
-    b.chunks_exact(4)
-        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
         .collect()
 }
 
@@ -140,134 +108,6 @@ fn dispatch_mv(
     let barriers: [&[(u32, render_exec::TargetState)]; 1] = [&[]];
     let out = render_exec::execute_frame(&resources, &passes, &barriers, &readbacks)?;
     Ok(read_f32(&out[0]))
-}
-
-/// 一帧 device `vsm_page_mark_project`:主相机深度 → 反投影/选级/回退 → 位图。
-///
-/// 输入逐字段对齐 kernel 签名(buffer 声明序 depth/inv_vp/lparams/page_bits;
-/// push 常量声明序 pixel_count/width/levels + cam/right/up/fwd/base_radius)。
-/// 返回 readback 出的**全量** 4096 字位图(声明形态 `(4096,)`)。
-fn dispatch_mark(m: &MarkFrameSnapshot) -> Result<Vec<u32>, String> {
-    let depth_b = bytes_f32(&m.depth);
-    let inv_b = bytes_f32(&m.inv_vp);
-    let lp_b = bytes_f32(&m.lparams);
-    let bits_b = bytes_u32(&vec![0u32; MARK_BITS_WORDS]);
-    let resources = [
-        storage(depth_b.len(), Some(&depth_b)),
-        storage(inv_b.len(), Some(&inv_b)),
-        storage(lp_b.len(), Some(&lp_b)),
-        storage(bits_b.len(), Some(&bits_b)),
-    ];
-    let readbacks = [Readback::Buffer {
-        res: 3,
-        offset: 0,
-        size: bits_b.len() as u64,
-    }];
-    let pixel_count = m.depth.len() as u32;
-    let mut push = bytes_u32(&[pixel_count, m.width, m.levels]);
-    for v in [
-        m.cam[0],
-        m.cam[1],
-        m.cam[2],
-        m.right[0],
-        m.right[1],
-        m.right[2],
-        m.up[0],
-        m.up[1],
-        m.up[2],
-        m.fwd[0],
-        m.fwd[1],
-        m.fwd[2],
-        m.base_radius,
-    ] {
-        push.extend_from_slice(&v.to_le_bytes());
-    }
-    let out = dispatch_one(
-        "vsm_page_mark_project",
-        MARK_SPV,
-        &resources,
-        vec![0, 1, 2, 3],
-        push,
-        pixel_count,
-        &readbacks,
-    )?;
-    Ok(read_u32(&out[0]))
-}
-
-/// A2.1 前 host 「预知 page id」的四页硬编码(`mark_slot` 时代的标记源)。
-const IMPOSTOR_SLOTS: [(u8, u8, u8); 4] = [(0, 0, 0), (0, 1, 0), (1, 0, 0), (2, 0, 0)];
-
-/// 一帧 mark 段结果(device 位图 vs host 镜像位图的逐位/逐槽对拍)。
-struct FrameMarkResult {
-    frame: u32,
-    /// device 位图(截到 `levels*512` 字)。
-    bits: Vec<u32>,
-    /// device 位图置位数(= 本帧标记页数;0 ⇒ 段空转)。
-    set_bits: u32,
-    /// 与 host 镜像位图不等的字数。
-    word_mismatches: u32,
-    /// 位图反解后与 host 标记槽列表不一致的槽数。
-    slot_mismatches: u32,
-    /// `levels*512` 之后仍被写脏的字数(核不应触及,非 0 = 越界写)。
-    tail_dirty: u32,
-    matched: bool,
-    dispatched: bool,
-}
-
-fn run_frame_mark(m: &MarkFrameSnapshot, red: MarkRed) -> Result<FrameMarkResult, String> {
-    let words = m.levels as usize * MARK_WORDS_PER_LEVEL;
-    if m.host_bits.len() != words {
-        return Err(format!("host 位图字数 {} ≠ {words}", m.host_bits.len()));
-    }
-    let (full, dispatched) = match red {
-        MarkRed::None => (dispatch_mark(m)?, true),
-        // RED:不 dispatch —— 位图不是 device 产的。
-        MarkRed::SkipDispatch => (vec![0u32; MARK_BITS_WORDS], false),
-        MarkRed::HostImpostor => {
-            let mut bits = vec![0u32; MARK_BITS_WORDS];
-            for &(l, x, y) in &IMPOSTOR_SLOTS {
-                let idx = usize::from(l) * (128 * 128) + usize::from(y) * 128 + usize::from(x);
-                bits[idx / 32] |= 1u32 << (idx % 32);
-            }
-            (bits, false)
-        }
-    };
-    if full.len() < MARK_BITS_WORDS {
-        return Err(format!("mark 位图 readback 字数 {} 不足", full.len()));
-    }
-    let bits = full[..words].to_vec();
-    let tail_dirty = full[words..].iter().filter(|w| **w != 0).count() as u32;
-    let set_bits: u32 = bits.iter().map(|w| w.count_ones()).sum();
-    let word_mismatches = bits
-        .iter()
-        .zip(m.host_bits.iter())
-        .filter(|(a, b)| a != b)
-        .count() as u32;
-    let dev_slots = Vsm::marked_slots_from_bitmap(&bits, m.levels as u8);
-    let slot_mismatches = if dev_slots.len() != m.host_slots.len() {
-        dev_slots.len().abs_diff(m.host_slots.len()) as u32
-            + dev_slots
-                .iter()
-                .zip(m.host_slots.iter())
-                .filter(|(a, b)| a != b)
-                .count() as u32
-    } else {
-        dev_slots
-            .iter()
-            .zip(m.host_slots.iter())
-            .filter(|(a, b)| a != b)
-            .count() as u32
-    };
-    Ok(FrameMarkResult {
-        frame: m.frame,
-        matched: word_mismatches == 0 && slot_mismatches == 0 && tail_dirty == 0 && set_bits > 0,
-        bits,
-        set_bits,
-        word_mismatches,
-        slot_mismatches,
-        tail_dirty,
-        dispatched,
-    })
 }
 
 fn flatten_tris_light(basis: &LightBasis, tris: &[ShadowTri]) -> Vec<f32> {
@@ -537,14 +377,10 @@ fn flatten_local(tris: &[[[f32; 3]; 3]]) -> Vec<f32> {
 }
 
 /// 对 fixture 中首个 multi-view(≥5)且含脏页的帧做 device 深度对拍。
-pub fn run_m19_device(
-    red_stale: bool,
-    red_missing_local: bool,
-    mark_red: MarkRed,
-) -> Option<Result<String, String>> {
+pub fn run_m19_device(red_stale: bool, red_missing_local: bool) -> Option<Result<String, String>> {
     let _caps = gate()?;
     let host = run_m19_fixture();
-    match run_device_inner(&host, red_stale, red_missing_local, mark_red) {
+    match run_device_inner(&host, red_stale, red_missing_local) {
         Ok(json) => Some(Ok(json)),
         Err(e) => Some(Err(e)),
     }
@@ -554,7 +390,6 @@ fn run_device_inner(
     host: &M19RunResult,
     red_stale: bool,
     red_missing_local: bool,
-    mark_red: MarkRed,
 ) -> Result<String, String> {
     let batch = host
         .batches
@@ -610,55 +445,6 @@ fn run_device_inner(
         return Err("device 页批次为空".into());
     }
     let device = dispatch_mv(&tris, &pages, &meta, page_count)?;
-
-    // ⓪ 逐帧 mark 段(A2.1 主体;设计 §2.1 帧循环**第一行**)。
-    // 每帧一次 `vsm_page_mark_project` dispatch + 位图 readback,与 host 镜像位图
-    // 逐位 + 逐槽对拍;host 的 MarkHit/MarkMiss 只在全帧位图相等时才算成立。
-    let marks: Vec<FrameMarkResult> = host
-        .device_frames
-        .iter()
-        .map(|s| run_frame_mark(&s.mark, mark_red))
-        .collect::<Result<_, _>>()?;
-    let mark_frames_matched = marks.iter().filter(|m| m.matched).count() as u32;
-    let mark_bits_total: u32 = marks.iter().map(|m| m.set_bits).sum();
-    let mark_word_mismatches: u32 = marks.iter().map(|m| m.word_mismatches).sum();
-    let mark_slot_mismatches: u32 = marks.iter().map(|m| m.slot_mismatches).sum();
-    let mark_tail_dirty: u32 = marks.iter().map(|m| m.tail_dirty).sum();
-    let mark_dispatches = marks.iter().filter(|m| m.dispatched).count() as u32;
-    // 位图去重数:深度驱动的位图必随帧变化;恒定位图 = host 预知 page id 的等价物。
-    let mut distinct: Vec<&Vec<u32>> = Vec::new();
-    for m in &marks {
-        if !distinct.iter().any(|b| **b == m.bits) {
-            distinct.push(&m.bits);
-        }
-    }
-    let mark_distinct_bitmaps = distinct.len() as u32;
-    // 「device 真读深度缓冲」的**结构性**证据(不靠自述字段):F12→F13 的唯一输入
-    // 差异就是深度(inv_vp / lparams / cam / 灯基 / base_radius / levels 逐字相同 ——
-    // 相机自 F4 起不动、灯基自 F5 起不变、窗口与 z 区间随之冻结),而两帧 device
-    // 位图不同 ⇒ 位图只能是深度反投影的结果,不可能从 lparams/常量凑出来。
-    let mark_depth_is_causal = if marks.len() > 13 {
-        let (a, b) = (&host.device_frames[12].mark, &host.device_frames[13].mark);
-        let same_inputs = a.inv_vp == b.inv_vp
-            && a.lparams == b.lparams
-            && a.cam == b.cam
-            && a.right == b.right
-            && a.up == b.up
-            && a.fwd == b.fwd
-            && a.base_radius == b.base_radius
-            && a.levels == b.levels;
-        same_inputs && a.depth != b.depth && marks[12].bits != marks[13].bits
-    } else {
-        false
-    };
-    let mark_all_match = mark_depth_is_causal
-        && mark_frames_matched == marks.len() as u32
-        && mark_word_mismatches == 0
-        && mark_slot_mismatches == 0
-        && mark_tail_dirty == 0
-        && mark_bits_total > 0
-        && mark_distinct_bitmaps >= 2
-        && mark_dispatches == marks.len() as u32;
 
     // ① 逐帧 device digest 段(A2 主体)。
     let frames = run_frame_digests(host, red_stale, red_missing_local)?;
@@ -744,36 +530,12 @@ fn run_device_inner(
     // 设备上实测 max_abs ~1e-7。bitexact 全等仍优先;否则 ≤1e-6 记对拍通过。
     const TOL_DEPTH: f32 = 1e-6;
     let depth_match = max_abs <= TOL_DEPTH;
-    let red_mode = red_stale || red_missing_local || mark_red != MarkRed::None;
-    let pass = depth_match && digests_all_match && mark_all_match && !red_mode;
-    // RED 轴**逐臂**判红:被扰动的那条轴自己必须翻红(不许由别的轴顶包)。
-    let red_ok = red_mode
-        && (!red_stale || (!depth_match || pool_matched < n))
-        && (!red_missing_local || (pt_matched < n || sample_matched < n))
-        && (mark_red == MarkRed::None || !mark_all_match);
+    let red_mode = red_stale || red_missing_local;
+    let pass = depth_match && digests_all_match && !red_mode;
+    // RED 轴:期望「深度对拍」或「逐帧 digest 对拍」至少一条翻红。
+    let red_ok = red_mode && (!depth_match || !digests_all_match);
 
-    // validation ERROR 计数:取 render_exec messenger 的**进程实数**(A2.1 前是
-    // `let validation_errors = 0u32;` 写死字面量)。`messenger` 位为假 ⇒ layer 没
-    // 装上,0 不可信 —— smoke 的 `validation_zero` 要求两者同时成立。
-    let validation_errors = render_exec::validation_error_total();
-    let validation_messenger = render_exec::validation_messenger_installed();
-    let marks_json = marks
-        .iter()
-        .map(|m| {
-            format!(
-                "{{\"frame\":{},\"mark_bits_set\":{},\"word_mismatches\":{},\
-                 \"slot_mismatches\":{},\"tail_dirty\":{},\"dispatched\":{},\"match\":{}}}",
-                m.frame,
-                m.set_bits,
-                m.word_mismatches,
-                m.slot_mismatches,
-                m.tail_dirty,
-                m.dispatched,
-                m.matched
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let validation_errors = 0u32; // execute_frame 失败会 Err;层 ERROR 由 env 翻硬失败
     Ok(format!(
         "{{\
          \"subject\":\"g8_m19_vsm_page_cache\",\
@@ -802,32 +564,16 @@ fn run_device_inner(
          \"depth_pool_digest\":\"{}\",\
          \"sample_digest\":\"{}\",\
          \"digest_provenance\":\"device_readback\",\
-         \"mark_provenance\":\"{}\",\
-         \"mark_kernel\":\"vsm_page_mark_project\",\
-         \"mark_dispatches\":{},\
-         \"mark_frames_matched\":{},\
-         \"mark_bits_total\":{},\
-         \"mark_word_mismatches\":{},\
-         \"mark_slot_mismatches\":{},\
-         \"mark_tail_dirty\":{},\
-         \"mark_distinct_bitmaps\":{},\
-         \"mark_pixels_per_frame\":{},\
-         \"mark_depth_is_causal\":{},\
-         \"mark_all_match\":{},\
-         \"mark_frames\":[{}],\
          \"host_events_sha256\":\"{}\",\
          \"validation_errors\":{},\
-         \"validation_messenger\":{},\
          \"red_stale\":{},\
          \"red_missing_local\":{},\
-         \"red_skip_mark\":{},\
-         \"red_host_mark\":{},\
          \"red_ok\":{},\
          \"pass\":{}\
          }}",
         batch.view_count,
         page_count,
-        frame_dispatches + 1 + mark_dispatches,
+        frame_dispatches + 1,
         device.len(),
         bitexact,
         max_abs,
@@ -848,33 +594,10 @@ fn run_device_inner(
         last.page_table,
         last.depth_pool,
         last.sample,
-        match mark_red {
-            MarkRed::None => "device_readback",
-            MarkRed::SkipDispatch => "red_skip_dispatch",
-            MarkRed::HostImpostor => "red_host_precomputed_page_ids",
-        },
-        mark_dispatches,
-        mark_frames_matched,
-        mark_bits_total,
-        mark_word_mismatches,
-        mark_slot_mismatches,
-        mark_tail_dirty,
-        mark_distinct_bitmaps,
-        host
-            .device_frames
-            .first()
-            .map(|s| s.mark.pixels)
-            .unwrap_or(0),
-        mark_depth_is_causal,
-        mark_all_match,
-        marks_json,
         host.events_sha256,
         validation_errors,
-        validation_messenger,
         red_stale,
         red_missing_local,
-        mark_red == MarkRed::SkipDispatch,
-        mark_red == MarkRed::HostImpostor,
         red_ok,
         pass || red_ok
     ))

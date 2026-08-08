@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m19_vsm_page_cache",
+  "symbolic_gate_key": "g8.p0.m19.vsm_page_cache",
+  "matrix_row": "M19",
+  "wave": "G8.5a",
+  "numeric_step": 115,
+  "source_ref": "G8_ACCEPTANCE_MAP §2 M19;G8.5_RENDERING_COMPLETION_DESIGN §2;RD-038 closed → G8.5a 接入空集(evidence/renderer_raster_diff_smoke_20260804T170945.json)",
+  "host_section_pass": true,
+  "device_section_state": "pass",
+  "checks": {
+    "host_oracle_regression": true,
+    "event_sequence_matches_golden": true,
+    "cross_frame_cache_hit": true,
+    "invalidation_reasons_exhaustive": true,
+    "clipmap_scroll_hit": true,
+    "local_light_page_hit": true,
+    "non_virtual_caster_hit": true,
+    "multi_view_batch": true,
+    "page_table_digest_match": true,
+    "depth_readback_digest_match": true,
+    "sample_digest_match": true,
+    "red_stale_page": true,
+    "red_wrong_eviction": true,
+    "red_missing_local_page": true,
+    "validation_zero": true,
+    "not_satisfiable_by_g7": true
+  },
+  "device_digest_section": {
+    "provenance": "device_readback",
+    "golden_ref": "tests/vsm_page_cache/golden/m19_digests.json",
+    "frames_checked": 16,
+    "frames_with_local": 4,
+    "page_table_frames_matched": 16,
+    "depth_pool_frames_matched": 16,
+    "sample_frames_matched": 16,
+    "sample_value_mismatches": 0,
+    "device_dispatches": 21,
+    "measured_depth_max_abs": 1.192092896e-07,
+    "tol_depth": 9.999999975e-07
+  },
+  "red_axes": {
+    "stale_page": "device 上传面改上传**上一帧**物理池(抑制一次失效 ⇒ 页内容 stale)+ mv 段 z 区间偏移;depth_pool digest 红 7 帧",
+    "missing_local_page": "device 上传面 local 页表段清零(local 页不入批)+ mv 段 local tri_count=0;page_table digest 红 4 帧,sample digest 红 4 帧",
+    "wrong_eviction": "池预算 6→12 改 LRU 受害者集合;evict 4→2;事件序列 sha 变"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260807T132952Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "rd038_raster_vsm_ingress": {
+    "status": "empty_set",
+    "reason": "RD-038 closed on G7.7 path; G8.5a ingress empty-set (design §5)",
+    "closed_evidence_pointers": [
+      "milestones/g7/G7_CONTRACT.md §8.1",
+      "evidence/renderer_raster_diff_smoke_20260804T170945.json",
+      "milestones/g7/RD038_LITERAL_MATRIX.md §7"
+    ]
+  },
+  "notes": "events_sha256=0de33a681bb6779acf79c9a69188ac37f02e051c989f0f828edf32a0b2cc36c6; max_view_count=5; evict_count=4 pool_pages=6; red_evict pool 6→12 evict 4→2; device pages=3 bitexact=24217/49152 depth_max_abs=1.192092896e-07; device dispatches=21 frames=16; red_stale pool_digest_red=7帧; red_missing_local pt_red=4帧 smp_red=4帧; RD-038 closed empty-set for G8.5a;closed-ptr=evidence/renderer_raster_diff_smoke_20260804T170945.json"
+}

@@ -1,0 +1,103 @@
+A2.1 闭环记录(G8 降级清零 · vsm_page_mark_project 接线 + validation_errors 实数化)
+=================================================================================
+日期 2026-08-07(UTC)  机器:本机 4070 Ti,RURIX_REQUIRE_REAL=1 RURIX_VK_VALIDATION=1
+
+1. 做了什么
+---------------------------------------------------------------------------------
+1.1 mark 段真上 device(设计 §2.1 帧循环第一行 / §2.3 第一核)
+  * fixture 标记源从「host 预知 page id 的 vsm.mark_slot(l,x,y)」换成
+    「主相机深度 → 反投影 → 选级 → 出窗回退 → 页位图」:
+      - 深度网格 64×64(`MARK_DIM`),1.0 = 天空(page_mark 剔除);
+      - 反投影矩阵行主序 [[2,0,0,2],[0,-2,0,2],[0,0,-64,0],[0,0,0,1]]
+        ⇒ world = (0.0625·px+0.03125, 0.0625·py+0.03125, −64·d),w≡1;
+      - 深度三档 D_L0=0.5/64(dc≈7.5 ⇒ 0 级)、D_L1=13/64(dc≈20 ⇒ 1 级)、
+        D_L2=33/64(dc≈40 ⇒ 2 级);离级/页边界均 ≥3 / ≥0.03 世界单位,
+        host f32 与 device f32 的 log2/ceil/floor 不在边界分叉;
+      - F0–F12 四块 ⇒ L0(0,0)/L0(1,0)/L1(0,0)/L2(0,0)(= 旧 core_slots,故
+        F0–F12 的事件/digest 逐字不变);F13–F15 压力块 ⇒ L0(2,0)…(9,0) 8 页。
+  * `Vsm` 加性拆分:`page_mark_bits`(纯函数,device 核的 host 镜像)+
+    `apply_mark_bitmap`(host 消费位图:帧标记戳 + 帧龄归零)+
+    `marked_slots_from_bitmap`(位图 → 分类/alloc 的输入序);`page_mark` 改为
+    两者的组合 ⇒ 既有调用方(uc06/uc08/单测)语义 0-byte。
+  * device 段每帧 dispatch `vsm_page_mark_project`(4096 线程)+ readback
+    4096 字位图,与 host 镜像逐位(word)+ 逐槽(slot 列表)对拍;`levels*512`
+    之后的字必须全零(越界写检测)。
+  * local spot 的 mark 仍走 host 白盒槽:`vsm_page_mark_project` 的输入布局是
+    方向光 clipmap 栈(逐级 lparams + 选级/回退环),不覆盖 spot 单级透视页表
+    (设计 §2.3 第一核只列方向光 mark)⇒ 显式记账,不计入 device 判据。
+
+1.2 validation_errors 去字面量
+  * 删 `let validation_errors = 0u32;`。
+  * `rurix_rt::render_exec` 加进程级 `VALIDATION_ERROR_TOTAL`(两个 messenger
+    回调共同累加)+ `VALIDATION_MESSENGER_INSTALLED`,经
+    `validation_error_total()` / `validation_messenger_installed()` 暴露。
+  * smoke 的 `validation_zero` = errors==0 **且** messenger 装上
+    (否则 0 分不清「真跑零 ERROR」与「layer 没装、没人报」)。
+
+2. 反假绿(证伪矩阵)
+---------------------------------------------------------------------------------
+2.1 device 真跑臂(gate 内)
+  --m19-red-skip-mark   不 dispatch,零位图冒充 device
+      ⇒ mark_dispatches 0、bits 0、frames_matched 0/16、word_mism 42、slot_mism 76
+        red_ok=true(证据 .a21_evidence/06_red_skip_mark.txt)
+  --m19-red-host-mark   host 预知 page id(A2.1 前 mark_slot 四页硬编码)冒充
+      ⇒ distinct_bitmaps 1(位图逐帧恒定)、frames_matched 13/16(F0–F12 与真位图
+        **完全一致**,只有 F13+ 压力页分叉)、slot_mism 24、red_ok=true
+        (证据 .a21_evidence/07_red_host_mark.txt)
+        ← 这是关键一枪:只有「深度真被 device 消费」才抓得住。
+  既有 A2 三轴(stale / missing-local / wrong-eviction)全部保留,digest 仍是
+  逐帧硬比对 vs golden,未回退成 bool(非空)。
+
+2.2 结构性证据(不靠自述字段)
+  mark_depth_is_causal:F12→F13 的**唯一**输入差异是深度缓冲
+  (inv_vp/lparams/cam/灯基/base_radius/levels 逐字段相同 —— 相机自 F4 起不动、
+  灯基自 F5 起不变、窗口与 z 区间随之冻结),而两帧 device readback 位图不同
+  ⇒ 位图只能是深度反投影的产物,不可能从 lparams/常量凑出。此位进 mark_all_match。
+
+2.3 smoke selftest
+  digest-falsify 5/5 + mark-falsify 9/9(不 dispatch / host 冒充 / 全零位图 /
+  逐位失配 / 逐槽失配 / provenance 被改 / 越界写 / 逐帧明细有假 / 深度无因果)。
+
+3. golden 重生成(F13–F15 变,F0–F12 逐字不变)
+---------------------------------------------------------------------------------
+  m19_events.sha256  0de33a68…cc36c6  →  4402d721…974b3c
+  m19_digests.json   F13/F14/F15 三帧 page_table/depth_pool/sample/dirty_depth 变
+  m19_events.jsonl   同步重写
+  旧件留档:.a21_evidence/m19_{events.sha256,digests.json,events.jsonl}.before
+
+4. 结果
+---------------------------------------------------------------------------------
+  M19 gate            18/18 PASS(新增 device_page_mark_project / red_fake_page_mark)
+    evidence          evidence/g8_m19_vsm_page_cache_20260807T140650Z.json
+    mark 段            dispatch 16/16、frames_matched 16/16、bits 76、
+                      word/slot/tail 失配 0/0/0、distinct 2、px/frame 64、
+                      depth_is_causal true
+    validation        errors 0、messenger_installed true
+    dispatch_count    37(16 mark + 20 采样/local + 1 mv)
+  cargo test -p rurix-render shadow::   34 passed(新增
+                      mark_bitmap_is_depth_driven_and_resolves_expected_pages)
+  g8.wave.5a.exit     PASS(evidence/g8_wave5a_exit_20260807T140739Z.json)
+  m83 texture_transcode  VERDICT=PASS
+  m79 asset_determinism  VERDICT=PASS
+  ci/check_schemas.py    PASS
+
+  注:中途一份 M19 evidence(140201Z)产于 depth_is_causal 字段落地之前,
+  被同任务 140650Z 取代;为免 evidence/ 留 schema 不合的记录,已移到
+  .a21_evidence/09_m19_gate_intermediate_evidence.json 留档。
+
+5. 改动文件
+---------------------------------------------------------------------------------
+  src/rurix-render/src/shadow/vsm.rs           page_mark 拆分 + 位图 API(加性)
+  src/rurix-render/src/shadow/page_cache.rs    深度驱动 fixture + MarkFrameSnapshot
+  apps/uc06-renderer/src/device_m19.rs         mark dispatch/对拍 + validation 实数
+  apps/uc06-renderer/src/main.rs               --m19-red-skip-mark / --m19-red-host-mark
+  src/rurix-rt/src/render_exec.rs              validation ERROR 进程计数 + messenger 位
+  ci/g8_vsm_page_cache_smoke.py                mark 段判据 + 两条 RED + selftest
+  milestones/g8/g8_m19_vsm_page_cache_evidence_schema.json  新增字段(仅 properties)
+  tests/vsm_page_cache/golden/m19_*            重生成
+
+  未碰:治理热点(number_ledger / deferred / pr-smoke.yml / budget_eval /
+  check_schemas.py / g8_budget.json / CI_GATES.md / G8_CONTRACT.md /
+  G8_CAPABILITY_MATRIX.md / traceability_matrix)、G7 旧核 vsm_page_mark.rx /
+  vsm_depth_raster.rx / vsm_sample.rx、旁路脏(physics / basis vendor / M79 cook)。
+  未 commit / 未 push。

@@ -1,0 +1,8 @@
+[g8_m19] cargo test -p rurix-render shadow::
+[g8_m19] cargo run -p rurix-render --bin g8_m19_probe
+[g8_m19] device: --features vulkan -- --m19-vsm-page-cache
+[g8_m19] device: vulkan -- --m19-vsm-page-cache --m19-red-stale
+[g8_m19] device: vulkan -- --m19-vsm-page-cache --m19-red-missing-local
+[g8_m19] evidence → H:\rurix\evidence\g8_m19_vsm_page_cache_20260807T090754Z.json
+[g8_m19] checks 16/16 device=pass
+[g8_m19] PASS

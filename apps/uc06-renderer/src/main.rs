@@ -213,7 +213,14 @@ fn run_geom_page_mode(cli: &Cli) -> i32 {
 #[cfg(feature = "vulkan")]
 fn run_m19_vsm_page_cache_mode(cli: &Cli) -> i32 {
     let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
-    match device_m19::run_m19_device(cli.m19_red_stale, cli.m19_red_missing_local) {
+    let mark_red = if cli.m19_red_skip_mark {
+        device_m19::MarkRed::SkipDispatch
+    } else if cli.m19_red_host_mark {
+        device_m19::MarkRed::HostImpostor
+    } else {
+        device_m19::MarkRed::None
+    };
+    match device_m19::run_m19_device(cli.m19_red_stale, cli.m19_red_missing_local, mark_red) {
         None => {
             println!("M19: SKIP 无 Vulkan device(dev-env degrade)");
             i32::from(require_real)
@@ -604,6 +611,10 @@ struct Cli {
     m19_red_stale: bool,
     /// M19 RED:local 页不入批。
     m19_red_missing_local: bool,
+    /// M19 RED(A2.1):跳过 `vsm_page_mark_project` dispatch,零位图冒充 device。
+    m19_red_skip_mark: bool,
+    /// M19 RED(A2.1):host 预知 page id 生成位图冒充 device。
+    m19_red_host_mark: bool,
     /// G8.5b M24:TSR 生产契约五 case device 序列对拍。
     m24_tsr_contract: bool,
     /// G8.5b M25:UpscalerInputAbi 双后端 + CAS device 对拍。
@@ -650,6 +661,8 @@ impl Default for Cli {
             m19_vsm_page_cache: false,
             m19_red_stale: false,
             m19_red_missing_local: false,
+            m19_red_skip_mark: false,
+            m19_red_host_mark: false,
             m24_tsr_contract: false,
             m25_upscaler_abi: false,
             stream_io: false,
@@ -727,6 +740,14 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--m19-red-missing-local" => {
                 c.m19_vsm_page_cache = true;
                 c.m19_red_missing_local = true;
+            }
+            "--m19-red-skip-mark" => {
+                c.m19_vsm_page_cache = true;
+                c.m19_red_skip_mark = true;
+            }
+            "--m19-red-host-mark" => {
+                c.m19_vsm_page_cache = true;
+                c.m19_red_host_mark = true;
             }
             "--m24-tsr-contract" => c.m24_tsr_contract = true,
             "--m25-upscaler-abi" => c.m25_upscaler_abi = true,

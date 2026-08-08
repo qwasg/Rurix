@@ -75,6 +75,8 @@
         "page_table_digest_match": { "type": "boolean" },
         "depth_readback_digest_match": { "type": "boolean" },
         "sample_digest_match": { "type": "boolean" },
+        "device_page_mark_project": { "type": "boolean" },
+        "red_fake_page_mark": { "type": "boolean" },
         "red_stale_page": { "type": "boolean" },
         "red_wrong_eviction": { "type": "boolean" },
         "red_missing_local_page": { "type": "boolean" },
@@ -108,6 +110,95 @@
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "device_digest_section": {
+      "description": "A2:三条 digest 判据的 provenance 记账。digest 原像取自 device readback(kernel 真消费该帧页表/物理池),与 golden 逐帧比对;此前为 host fixture digest 直填 + smoke truthiness 判定(假绿),已清零。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provenance",
+        "golden_ref",
+        "frames_checked",
+        "frames_with_local",
+        "page_table_frames_matched",
+        "depth_pool_frames_matched",
+        "sample_frames_matched",
+        "sample_value_mismatches",
+        "device_dispatches",
+        "measured_depth_max_abs",
+        "tol_depth"
+      ],
+      "properties": {
+        "provenance": { "type": "string", "const": "device_readback" },
+        "golden_ref": { "type": "string", "minLength": 1 },
+        "frames_checked": { "type": "integer" },
+        "frames_with_local": { "type": "integer" },
+        "page_table_frames_matched": { "type": "integer" },
+        "depth_pool_frames_matched": { "type": "integer" },
+        "sample_frames_matched": { "type": "integer" },
+        "sample_value_mismatches": { "type": "integer" },
+        "device_dispatches": { "type": "integer" },
+        "measured_depth_max_abs": { "type": "number" },
+        "tol_depth": { "type": "number" }
+      }
+    },
+    "device_mark_section": {
+      "description": "A2.1:mark 段(设计 §2.1 帧循环第一行 / §2.3 第一核)的 provenance 记账。device 逐帧 dispatch `vsm_page_mark_project`(主相机深度 → 反投影 → 选级 → 出窗回退 → 原子位图),readback 位图与 host 镜像 `Vsm::page_mark_bits` 逐位 + 逐槽对拍;此前该核编进 SPV 但零消费,fixture 用 host 预知 page id 的 `mark_slot` 直接标页(已清零)。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kernel",
+        "provenance",
+        "host_mirror",
+        "dispatches",
+        "frames_matched",
+        "bits_set_total",
+        "word_mismatches",
+        "slot_mismatches",
+        "tail_dirty_words",
+        "distinct_bitmaps",
+        "pixels_per_frame",
+        "depth_is_causal"
+      ],
+      "properties": {
+        "kernel": { "type": "string", "const": "vsm_page_mark_project" },
+        "provenance": { "type": "string", "const": "device_readback" },
+        "host_mirror": { "type": "string", "minLength": 1 },
+        "dispatches": { "type": "integer" },
+        "frames_matched": { "type": "integer" },
+        "bits_set_total": { "type": "integer" },
+        "word_mismatches": { "type": "integer" },
+        "slot_mismatches": { "type": "integer" },
+        "tail_dirty_words": { "type": "integer" },
+        "distinct_bitmaps": { "type": "integer" },
+        "pixels_per_frame": { "type": "integer" },
+        "depth_is_causal": { "type": "boolean" },
+        "depth_is_causal_basis": { "type": "string", "minLength": 1 },
+        "local_spot_mark_scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "validation_section": {
+      "description": "A2.1:`validation_errors` 的来源记账。此前 device 侧是写死的 `0u32` 字面量;现取 `rurix_rt::render_exec` messenger 的进程实数,并附 messenger 是否真装上(未装上时 0 不可信)。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errors", "messenger_installed", "source"],
+      "properties": {
+        "errors": { "type": "integer" },
+        "messenger_installed": { "type": "boolean" },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    },
+    "red_axes": {
+      "description": "RED 轴的可观测量(恒真臂已删)。",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stale_page", "missing_local_page", "wrong_eviction"],
+      "properties": {
+        "stale_page": { "type": "string", "minLength": 1 },
+        "missing_local_page": { "type": "string", "minLength": 1 },
+        "wrong_eviction": { "type": "string", "minLength": 1 },
+        "fake_page_mark": { "type": "string", "minLength": 1 }
       }
     },
     "notes": { "type": "string" }

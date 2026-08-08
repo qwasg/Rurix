@@ -1,0 +1,5 @@
+page_table_digest = 'FALSIFY_page_table_digest_not_a_real_hash'
+sample_digest = 'FALSIFY_sample_digest_not_a_real_hash'
+validation_errors = 0
+depth_match = True
+pass = True

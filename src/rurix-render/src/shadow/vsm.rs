@@ -351,13 +351,22 @@ impl Vsm {
         Some((sx, sy, wp))
     }
 
-    /// pass a — `shadow_page_mark`(报告3 §5.1;RFC-0016 §4.D2):主相机深度
-    /// 缓冲逐像素反投影到世界 → 选级(按到相机距离)→ 投影出窗逐级向粗级
-    /// 回退 → 标记所需页(帧标记戳 + 帧龄归零)。
-    pub fn page_mark(&mut self, depth: &ImageF32, inv_view_proj: &Mat4) -> MarkStats {
+    /// mark 位图每级字数(128×128 bit = 512 u32)。bit 序 `l*16384 + y*128 + x`
+    /// 与 device 核 `vsm_page_mark_project.rx` 的 `page_bits` 逐位对齐。
+    pub const MARK_WORDS_PER_LEVEL: usize = SLOTS / 32;
+
+    /// pass a 的**纯函数内核**(device `vsm_page_mark_project` 的 host 镜像;
+    /// 报告3 §5.1;RFC-0016 §4.D2;G8.5 设计 §2.3 第一核):主相机深度逐像素
+    /// 反投影到世界 → 选级(按到相机距离)→ 投影出窗逐级向粗级回退 → 置位图 bit。
+    ///
+    /// 不改自身状态,返回 `(位图, 有效像素数)`。位图是 host/device 的**唯一对拍面**
+    /// (A2.1:device readback 位图与本位图逐位相等,才允许据此记 MarkHit/MarkMiss)。
+    pub fn page_mark_bits(&self, depth: &ImageF32, inv_view_proj: &Mat4) -> (Vec<u32>, u32) {
         assert_eq!(depth.c, 1, "深度图必须单通道");
+        let levels = usize::from(self.cfg.clip.levels);
+        let mut bits = vec![0u32; levels * Self::MARK_WORDS_PER_LEVEL];
         let (w, h) = (depth.w as f32, depth.h as f32);
-        let mut st = MarkStats::default();
+        let mut pixels = 0u32;
         for y in 0..depth.h {
             for x in 0..depth.w {
                 let d = depth.get(x, y, 0);
@@ -376,7 +385,7 @@ impl Vsm {
                     continue;
                 }
                 let world = [w4[0] / w4[3], w4[1] / w4[3], w4[2] / w4[3]];
-                st.pixels += 1;
+                pixels += 1;
                 let dc = ((world[0] - self.camera[0]).powi(2)
                     + (world[1] - self.camera[1]).powi(2)
                     + (world[2] - self.camera[2]).powi(2))
@@ -384,24 +393,78 @@ impl Vsm {
                 let lp = self.basis.to_light(world);
                 for l in self.cfg.clip.select_level(dc)..self.cfg.clip.levels {
                     if let Some((sx, sy, _)) = self.page_at(l, lp[0], lp[1]) {
-                        let li = usize::from(l);
-                        let idx = usize::from(sy) * DIM + usize::from(sx);
-                        if self.mark_stamp[li][idx] != self.frame {
-                            self.mark_stamp[li][idx] = self.frame;
-                            st.pages += 1;
-                        }
-                        // 标记即刷新帧龄(0 = 本帧,驱逐保护)
-                        let mut e = self.tables[li].get(sx, sy);
-                        if e.resident && e.age != 0 {
-                            e.age = 0;
-                            self.tables[li].set(sx, sy, e);
-                        }
+                        let bidx =
+                            usize::from(l) * SLOTS + usize::from(sy) * DIM + usize::from(sx);
+                        bits[bidx / 32] |= 1u32 << (bidx % 32);
                         break;
                     }
                 }
             }
         }
-        st
+        (bits, pixels)
+    }
+
+    /// host **消费页标记位图**:置帧标记戳 + 驻留页帧龄归零(驱逐保护)。
+    ///
+    /// 位图来源可为 device `vsm_page_mark_project` readback 或 host 镜像
+    /// [`Self::page_mark_bits`](两者逐位相等是 M19 门的判据)。返回本帧新标记页数。
+    pub fn apply_mark_bitmap(&mut self, bits: &[u32]) -> u32 {
+        let levels = usize::from(self.cfg.clip.levels);
+        assert_eq!(
+            bits.len(),
+            levels * Self::MARK_WORDS_PER_LEVEL,
+            "mark 位图字数须 = levels*512"
+        );
+        let mut pages = 0u32;
+        for l in 0..self.cfg.clip.levels {
+            let li = usize::from(l);
+            for idx in 0..SLOTS {
+                let bidx = li * SLOTS + idx;
+                if (bits[bidx / 32] >> (bidx % 32)) & 1 == 0 {
+                    continue;
+                }
+                if self.mark_stamp[li][idx] != self.frame {
+                    self.mark_stamp[li][idx] = self.frame;
+                    pages += 1;
+                }
+                let (sx, sy) = ((idx % DIM) as u8, (idx / DIM) as u8);
+                let mut e = self.tables[li].get(sx, sy);
+                if e.resident && e.age != 0 {
+                    e.age = 0;
+                    self.tables[li].set(sx, sy, e);
+                }
+            }
+        }
+        pages
+    }
+
+    /// 位图 → 标记槽列表 `(level, x, y)`(级升序、级内槽行主序)。
+    ///
+    /// = host 分类(MarkHit/MarkMiss)与紧凑请求列表的输入序;device 位图经同一
+    /// 函数反解后与 host 序列逐槽对拍。
+    pub fn marked_slots_from_bitmap(bits: &[u32], levels: u8) -> Vec<(u8, u8, u8)> {
+        let mut out = Vec::new();
+        for l in 0..levels {
+            let li = usize::from(l);
+            for idx in 0..SLOTS {
+                let bidx = li * SLOTS + idx;
+                if bidx / 32 >= bits.len() {
+                    break;
+                }
+                if (bits[bidx / 32] >> (bidx % 32)) & 1 == 1 {
+                    out.push((l, (idx % DIM) as u8, (idx / DIM) as u8));
+                }
+            }
+        }
+        out
+    }
+
+    /// pass a — `shadow_page_mark`:反投影内核 + host 消费位图(等价于 G7 起
+    /// 的原语义,拆成「产位图 / 消费位图」两段以便 device 对拍)。
+    pub fn page_mark(&mut self, depth: &ImageF32, inv_view_proj: &Mat4) -> MarkStats {
+        let (bits, pixels) = self.page_mark_bits(depth, inv_view_proj);
+        let pages = self.apply_mark_bitmap(&bits);
+        MarkStats { pixels, pages }
     }
 
     /// pass b — `shadow_page_alloc`(报告3 §5.3 分配策略;RFC-0016 §4.D2):
