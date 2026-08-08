@@ -9,7 +9,9 @@ use rurix_geom_pages::memory::{
     self, HEADER_SIZE as MEM_HDR, SECTION_DIR_ENTRY_SIZE, decode_memory_page, encode_memory_page,
     from_logical,
 };
-use rurix_geom_pages::{DISK_MAJOR, FORMAT_ID as LOGICAL_FID, MEMORY_MAJOR, RXPD_MAGIC, RXPM_MAGIC};
+use rurix_geom_pages::{
+    DISK_MAJOR, FORMAT_ID as LOGICAL_FID, MEMORY_MAJOR, RXPD_MAGIC, RXPM_MAGIC,
+};
 use rurix_pkg::sha256;
 use std::env;
 use std::fs;
@@ -77,10 +79,7 @@ fn main() {
     // reject axes
     let mut trunc = rxpd.clone();
     trunc.truncate(DISK_HDR as usize + 3);
-    let trunc_rej = matches!(
-        decode_disk_page(&trunc),
-        Err(disk::DiskError::Truncated(_))
-    );
+    let trunc_rej = matches!(decode_disk_page(&trunc), Err(disk::DiskError::Truncated(_)));
 
     let mut chk = rxpd.clone();
     if chk.len() > DISK_HDR as usize + 1 {
@@ -106,7 +105,11 @@ fn main() {
     // section overlap / oob on RXPM
     let mut overlap = rxpm.clone();
     let dir1 = MEM_HDR as usize + SECTION_DIR_ENTRY_SIZE;
-    let pos_off = u32::from_le_bytes(overlap[MEM_HDR as usize + 4..MEM_HDR as usize + 8].try_into().unwrap());
+    let pos_off = u32::from_le_bytes(
+        overlap[MEM_HDR as usize + 4..MEM_HDR as usize + 8]
+            .try_into()
+            .unwrap(),
+    );
     overlap[dir1 + 4..dir1 + 8].copy_from_slice(&pos_off.to_le_bytes());
     let overlap_rej = decode_memory_page(&overlap) == Err(memory::MemoryError::SectionOverlap);
 
@@ -119,9 +122,8 @@ fn main() {
     // （实现上 Truncated 在 decompress 前返回）
     let reject_before = trunc_rej;
 
-    let mapping_frozen = disk::mapping_allows(1, 1)
-        && !disk::mapping_allows(1, 2)
-        && !disk::mapping_allows(2, 1);
+    let mapping_frozen =
+        disk::mapping_allows(1, 1) && !disk::mapping_allows(1, 2) && !disk::mapping_allows(2, 1);
 
     if write_fixtures {
         fs::create_dir_all(&golden_dir).ok();

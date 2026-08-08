@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "subject": "g8_wave3_exit",
+  "symbolic_gate_key": "g8.wave.3.exit",
+  "matrix_row": "G8.3",
+  "wave": "G8.3",
+  "numeric_step": 111,
+  "source_ref": "CI_GATES §5;G8_CONTRACT G-G8-5;G8.3_G8.4 design §4.5;five P0 + M83 + M85 phase_g8_3; M01/M04 ABI frozen anchors",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g8.p0.m79.asset_determinism",
+      "subject_prefix": "g8_m79_asset_determinism",
+      "evidence_path": "evidence/g8_m79_asset_determinism_20260807T064649Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260807T064649Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m80.ddc_content_address",
+      "subject_prefix": "g8_m80_ddc_content_address",
+      "evidence_path": "evidence/g8_m80_ddc_content_address_20260806T080742Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T080742Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m81.gltf_import",
+      "subject_prefix": "g8_m81_gltf_import",
+      "evidence_path": "evidence/g8_m81_gltf_import_20260807T064651Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260807T064651Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m01.meshlet_page_builder",
+      "subject_prefix": "g8_m01_meshlet_page_builder",
+      "evidence_path": "evidence/g8_m01_meshlet_page_builder_20260806T075344Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T075344Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m04.page_format_abi",
+      "subject_prefix": "g8_m04_page_format_abi",
+      "evidence_path": "evidence/g8_m04_page_format_abi_20260806T080542Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T080542Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p1.m83.texture_transcode",
+      "subject_prefix": "g8_m83_texture_transcode",
+      "evidence_path": "evidence/g8_m83_texture_transcode_20260806T075442Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T075442Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m85_phase_g8_3_pass",
+      "status": "PASS",
+      "detail": "m85 both phases pass (g8_m85_shader_manifest_ddc_20260806T081011Z.json)"
+    },
+    {
+      "id": "m01_m04_abi_frozen_anchors",
+      "status": "PASS",
+      "detail": "ABI anchors + 5 golden path(s)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260807T064651Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: M79/M80/M81/M01/M04 + M83 + M85.g8.3; aggregate read-only; ABI freeze anchors required"
+}

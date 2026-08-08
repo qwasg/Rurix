@@ -1,0 +1,394 @@
+{
+  "schema_version": 1,
+  "subject": "g8_wave8b_closeout",
+  "symbolic_gate_key": "g8.wave.8b.closeout",
+  "matrix_row": "G8.8b",
+  "wave": "G8.8b",
+  "numeric_step": 130,
+  "source_ref": "CI_GATES §5;G8_CONTRACT close-out;design G8.6…§7.3",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "verdict": "READY",
+  "utc_date": "20260808",
+  "last_new_green_utc_date": "20260808",
+  "base_commit_8a": "b4189e7950e08ee64f0823f1e2d900b83fd400b7",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g8.p0.m50.rt_pipeline_incremental",
+      "subject_prefix": "g8_m50_rt_pipeline_incremental",
+      "evidence_path": "evidence/g8_m50_rt_pipeline_incremental_20260808T030643Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030643Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m89.single_source_gfx_submit",
+      "subject_prefix": "g8_m89_single_source_gfx_submit",
+      "evidence_path": "evidence/g8_m89_single_source_gfx_submit_20260808T030704Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030704Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m29.shader_permutation",
+      "subject_prefix": "g8_m29_shader_permutation",
+      "evidence_path": "evidence/g8_m29_shader_permutation_20260808T030707Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030707Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m30.pso_cache",
+      "subject_prefix": "g8_m30_pso_cache",
+      "evidence_path": "evidence/g8_m30_pso_cache_20260808T030713Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030713Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m31.reflection_hash",
+      "subject_prefix": "g8_m31_reflection_hash",
+      "evidence_path": "evidence/g8_m31_reflection_hash_20260808T030714Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030714Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m32.capability_profile",
+      "subject_prefix": "g8_m32_capability_profile",
+      "evidence_path": "evidence/g8_m32_capability_profile_20260808T030716Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030716Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m85.shader_manifest_ddc",
+      "subject_prefix": "g8_m85_shader_manifest_ddc",
+      "evidence_path": "evidence/g8_m85_shader_manifest_ddc_20260808T030717Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030717Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m79.asset_determinism",
+      "subject_prefix": "g8_m79_asset_determinism",
+      "evidence_path": "evidence/g8_m79_asset_determinism_20260808T030718Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030718Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m80.ddc_content_address",
+      "subject_prefix": "g8_m80_ddc_content_address",
+      "evidence_path": "evidence/g8_m80_ddc_content_address_20260808T030719Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030719Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m81.gltf_import",
+      "subject_prefix": "g8_m81_gltf_import",
+      "evidence_path": "evidence/g8_m81_gltf_import_20260808T030720Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030720Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m01.meshlet_page_builder",
+      "subject_prefix": "g8_m01_meshlet_page_builder",
+      "evidence_path": "evidence/g8_m01_meshlet_page_builder_20260808T030724Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030724Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m04.page_format_abi",
+      "subject_prefix": "g8_m04_page_format_abi",
+      "evidence_path": "evidence/g8_m04_page_format_abi_20260808T030728Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030728Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m37.streaming_io",
+      "subject_prefix": "g8_m37_streaming_io",
+      "evidence_path": "evidence/g8_m37_streaming_io_20260808T030730Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030730Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m19.vsm_page_cache",
+      "subject_prefix": "g8_m19_vsm_page_cache",
+      "evidence_path": "evidence/g8_m19_vsm_page_cache_20260808T030751Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030751Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m24.tsr_contract",
+      "subject_prefix": "g8_m24_tsr_contract",
+      "evidence_path": "evidence/g8_m24_tsr_contract_20260808T030757Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030757Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m66.physics_replay",
+      "subject_prefix": "g8_m66_physics_replay",
+      "evidence_path": "evidence/g8_m66_physics_replay_20260808T034258Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T034258Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m67.network_physics",
+      "subject_prefix": "g8_m67_network_physics",
+      "evidence_path": "evidence/g8_m67_network_physics_20260808T030800Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030800Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p0.m68.fracture_pipeline",
+      "subject_prefix": "g8_m68_fracture_pipeline",
+      "evidence_path": "evidence/g8_m68_fracture_pipeline_20260808T030800Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030800Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p1.m25.upscaler_input_abi",
+      "subject_prefix": "g8_m25_upscaler_input_abi",
+      "evidence_path": "evidence/g8_m25_upscaler_input_abi_20260808T030804Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030804Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p1.m72.cloth_product_chain",
+      "subject_prefix": "g8_m72_cloth_product_chain",
+      "evidence_path": "evidence/g8_m72_cloth_product_chain_20260808T030955Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030955Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.p1.m83.texture_transcode",
+      "subject_prefix": "g8_m83_texture_transcode",
+      "evidence_path": "evidence/g8_m83_texture_transcode_20260808T030805Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T030805Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.2.exit",
+      "subject_prefix": "g8_wave2_exit",
+      "evidence_path": "evidence/g8_wave2_exit_20260806T073734Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T073734Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.3.exit",
+      "subject_prefix": "g8_wave3_exit",
+      "evidence_path": "evidence/g8_wave3_exit_20260807T080506Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260807T080506Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.4.exit",
+      "subject_prefix": "g8_wave4_exit",
+      "evidence_path": "evidence/g8_wave4_exit_20260806T083627Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T083627Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.5a.exit",
+      "subject_prefix": "g8_wave5a_exit",
+      "evidence_path": "evidence/g8_wave5a_exit_20260808T025136Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T025136Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.5b.exit",
+      "subject_prefix": "g8_wave5b_exit",
+      "evidence_path": "evidence/g8_wave5b_exit_20260806T085103Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T085103Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.6a.exit",
+      "subject_prefix": "g8_wave6a_exit",
+      "evidence_path": "evidence/g8_wave6a_exit_20260806T090613Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T090613Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.6b.exit",
+      "subject_prefix": "g8_wave6b_exit",
+      "evidence_path": "evidence/g8_wave6b_exit_20260806T091551Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T091551Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.6c.exit",
+      "subject_prefix": "g8_wave6c_exit",
+      "evidence_path": "evidence/g8_wave6c_exit_20260806T091553Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T091553Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.6d.exit",
+      "subject_prefix": "g8_wave6d_exit",
+      "evidence_path": "evidence/g8_wave6d_exit_20260808T031010Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T031010Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.7.decisions",
+      "subject_prefix": "g8_wave7_decisions",
+      "evidence_path": "evidence/g8_wave7_decisions_20260806T124013Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260806T124013Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g8.wave.8a.soak",
+      "subject_prefix": "g8_wave8a_soak",
+      "evidence_path": "evidence/g8_wave8a_soak_20260808T033806Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260808T033806Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "twenty_one_keys_pass",
+      "status": "PASS",
+      "detail": "pass=21/21"
+    },
+    {
+      "id": "wave_exits_2_to_8a",
+      "status": "PASS",
+      "detail": "pass=11/11"
+    },
+    {
+      "id": "acceptance_map_triple",
+      "status": "PASS",
+      "detail": "exit=0"
+    },
+    {
+      "id": "p2_decisions_pass",
+      "status": "PASS",
+      "detail": "evidence\\g8_wave7_decisions_20260806T124013Z.json"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0"
+    },
+    {
+      "id": "soak_8a_precedes",
+      "status": "PASS",
+      "detail": "evidence\\g8_wave8a_soak_20260808T033806Z.json"
+    },
+    {
+      "id": "last_new_green_recorded",
+      "status": "PASS",
+      "detail": "last_green_utc=20260808 today=20260808 missing=[]"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "twenty_one_keys_pass": true,
+    "wave_exits_pass": true,
+    "acceptance_map_ok": true,
+    "p2_ok": true,
+    "budget_strict_ok": true,
+    "soak_8a_ok": true,
+    "last_new_green_recorded": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260808T035206Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "same-day closeout allowed after 8a; status flip is a separate commit after READY"
+}

@@ -1,18 +1,28 @@
 //! M83 纹理 cook 节点(`rurix.texture.cook.v1`)。
 //!
-//! source RGBA → 四腿产物(KTX2 / Basis / BCn / ASTC)。
-//! Basis 过渡腿 = RXBS + ETC1S-via-BC1(完整 basis_universal 待合入)。
+//! source RGBA → 四腿产物(KTX2 / Basis / BCn / ASTC),全部由真实
+//! `basis_universal`(BinomialLLC 1.16.4)驱动:
+//!
+//! - `texture.ktx2` = 真实 UASTC 4×4 KTX2 容器(supercompressionScheme=0);
+//! - `texture.basis` = 真实 ETC1S `.basis` 码流(签名 `sB`;**不再**由 RXBS 冒充);
+//! - `texture.bcn`  = KTX2 → 真 transcode → BC7(color)/BC5(normal)/BC4(mask),装 `RXBC`;
+//! - `texture.astc` = KTX2 → 真 transcode → ASTC 4×4 实块,装 `RXAS`。
+//!
+//! `RXBC`/`RXAS` 是 Rurix 自有的 **GPU 块容器**(非 `.basis`/非 KTX2),
+//! 承担「块字节 + 格式标注」的落盘角色,合法保留(RXS-0334 产物表)。
 //! //@ spec: RXS-0334
 
 use crate::bcdec::{
-    alpha_coverage_delta, decode_bc7_rgba8, max_channel_delta, normal_length_mean_abs_dev,
+    alpha_coverage_delta, astc4x4_block_stats, decode_bc4_r8, decode_bc5_rg8, decode_bc7_rgba8,
+    max_channel_delta, max_channel_delta_channels, normal_length_mean_abs_dev,
 };
 use crate::ktx2::{
-    RXAS_MAGIC, RXBC_FMT_BC7, RXBC_MAGIC, RXBS_FMT_ETC1S_VIA_BC1,
-    VK_FORMAT_ASTC_4X4_UNORM_BLOCK, VK_FORMAT_BC7_UNORM_BLOCK, write_ktx2_uncompressed,
-    write_rxas, write_rxbc, write_rxbs, KTX2_MAGIC,
+    KTX2_MAGIC, RXAS_MAGIC, RXBC_FMT_BC4, RXBC_FMT_BC5, RXBC_FMT_BC7, RXBC_MAGIC, write_rxas,
+    write_rxbc,
 };
-use rurix_basis_sys::{self as basis, VENDOR_VERSION};
+use rurix_basis_sys::{
+    self as basis, BASIS_SIG, ContainerMode, SrcKind, TargetFormat, VENDOR_VERSION,
+};
 use rurix_pkg::sha256::Sha256;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -73,6 +83,17 @@ pub struct CookReport {
     pub color_max_delta: u8,
     pub normal_length_mad: f64,
     pub alpha_coverage_delta: f64,
+    /// BCn 腿块数(== ceil(w/4)*ceil(h/4);防"改扩展名/截断"假腿)。
+    pub bcn_block_count: u32,
+    /// ASTC 腿块数与 void-extent 块数(void-extent 全覆盖 = 常色 fudge,判 FAIL)。
+    pub astc_block_count: u32,
+    pub astc_void_extent_blocks: u32,
+    /// ASTC 真实权重块数(weighted > 0 证明非全 void-extent 常色 fudge)。
+    pub astc_weighted_blocks: u32,
+    /// `.basis` 腿真 transcode 回环:ETC1S → BC7 的块数与 digest
+    /// (证 `.basis` 是可解码码流,而非仅 magic 对的空壳)。
+    pub basis_transcode_block_count: u32,
+    pub basis_transcode_digest: String,
 }
 
 #[derive(Debug)]
@@ -103,6 +124,37 @@ fn digest_hex(bytes: &[u8]) -> String {
     s
 }
 
+/// 源图每个 4×4 分块是否都是常色。
+///
+/// 用途:ASTC 全 void-extent 只有在源图**逐块常色**时才是合法结果
+/// (如 16×16 checker 的 4×4 单元);否则即为常色 fudge → FAIL。
+fn all_blocks_constant_color(rgba: &[u8], width: u32, height: u32) -> bool {
+    let bw = width.div_ceil(4);
+    let bh = height.div_ceil(4);
+    for by in 0..bh {
+        for bx in 0..bw {
+            let mut first: Option<[u8; 4]> = None;
+            for ty in 0..4u32 {
+                for tx in 0..4u32 {
+                    let x = (bx * 4 + tx).min(width - 1);
+                    let y = (by * 4 + ty).min(height - 1);
+                    let i = (y as usize * width as usize + x as usize) * 4;
+                    if i + 4 > rgba.len() {
+                        return false;
+                    }
+                    let px = [rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]];
+                    match first {
+                        None => first = Some(px),
+                        Some(f) if f != px => return false,
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    true
+}
+
 /// 程序化 checker 16×16 RGBA(确定性 fixture)。
 pub fn fixture_checker_rgba16() -> (u32, u32, Vec<u8>) {
     let w = 16u32;
@@ -116,6 +168,42 @@ pub fn fixture_checker_rgba16() -> (u32, u32, Vec<u8>) {
             } else {
                 v.extend_from_slice(&[40, 40, 220, 200]);
             }
+        }
+    }
+    (w, h, v)
+}
+
+/// 程序化渐变色图 32×32(设计案 §6 fixture 清单)。
+///
+/// 非常色块 —— 使 ASTC 腿必须产出**非 void-extent** 实块,
+/// 是「禁 void-extent/均值敷衍」的判据载体。
+pub fn fixture_gradient_rgba32() -> (u32, u32, Vec<u8>) {
+    let w = 32u32;
+    let h = 32u32;
+    let mut v = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let r = (x * 255 / (w - 1)) as u8;
+            let g = (y * 255 / (h - 1)) as u8;
+            let b = ((x + y) * 255 / (w + h - 2)) as u8;
+            v.extend_from_slice(&[r, g, b, 255]);
+        }
+    }
+    (w, h, v)
+}
+
+/// alpha mask 16×16(设计案 §6 fixture 清单;圆形覆盖)。
+pub fn fixture_mask_rgba16() -> (u32, u32, Vec<u8>) {
+    let w = 16u32;
+    let h = 16u32;
+    let mut v = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let fx = (x as f64 + 0.5) / w as f64 * 2.0 - 1.0;
+            let fy = (y as f64 + 0.5) / h as f64 * 2.0 - 1.0;
+            let inside = fx * fx + fy * fy <= 0.64;
+            let m = if inside { 255u8 } else { 0u8 };
+            v.extend_from_slice(&[m, m, m, m]);
         }
     }
     (w, h, v)
@@ -263,26 +351,50 @@ pub fn cook_texture(
         )));
     }
 
-    let bc7 = basis::encode_bc7_rgba8(rgba, width, height)
-        .map_err(|e| CookError::Codec(e.to_string()))?;
-    if bc7.iter().all(|&b| b == 0) {
-        return Err(CookError::Codec("BC7 encoder produced all-zero placeholder".into()));
-    }
-    let bc1 = basis::encode_bc1_rgba8(rgba, width, height)
-        .map_err(|e| CookError::Codec(e.to_string()))?;
-    if bc1.iter().all(|&b| b == 0) {
-        return Err(CookError::Codec("BC1 transitional encoder all-zero".into()));
-    }
-    let astc = basis::encode_astc4x4_rgba8(rgba, width, height)
-        .map_err(|e| CookError::Codec(e.to_string()))?;
+    // normal 语义按 XY 流铺陈(R→RGB、G→A),使 BC5 腿 X=R / Y=G 成立。
+    let swizzle_rg = semantics == TextureSemantics::Normal;
 
-    let ktx2 = write_ktx2_uncompressed(VK_FORMAT_BC7_UNORM_BLOCK, width, height, &bc7);
-    let bcn = write_rxbc(RXBC_FMT_BC7, width, height, &bc7);
-    let basis_file = write_rxbs(RXBS_FMT_ETC1S_VIA_BC1, width, height, &bc1);
-    let astc_file = write_rxas(width, height, &astc);
-    let _astc_ktx2 =
-        write_ktx2_uncompressed(VK_FORMAT_ASTC_4X4_UNORM_BLOCK, width, height, &astc);
-    let _ = (_astc_ktx2, profile, semantics);
+    // ① 真实 UASTC 4×4 KTX2 容器(无 supercompression)。
+    let ktx2 = basis::encode_container(rgba, width, height, ContainerMode::UastcKtx2, swizzle_rg)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+    if !ktx2.starts_with(KTX2_MAGIC) {
+        return Err(CookError::Codec(
+            "KTX2 容器 magic 非法(非真实 basisu 产物)".into(),
+        ));
+    }
+
+    // ② 真实 ETC1S `.basis` 码流。
+    let basis_file =
+        basis::encode_container(rgba, width, height, ContainerMode::Etc1sBasis, swizzle_rg)
+            .map_err(|e| CookError::Codec(e.to_string()))?;
+    if !basis_file.starts_with(&BASIS_SIG) {
+        return Err(CookError::Codec(
+            "`.basis` 签名非法:必须为真实 basis_universal 码流(禁 RXBS 冒充)".into(),
+        ));
+    }
+
+    // ③ BCn 腿:按语义选目标格式,真 transcode(非重打包)。
+    let (bcn_target, bcn_fmt_id, bcn_format_name) = match semantics {
+        TextureSemantics::Color => (TargetFormat::Bc7Rgba, RXBC_FMT_BC7, "BC7_UNORM"),
+        TextureSemantics::Normal => (TargetFormat::Bc5Rg, RXBC_FMT_BC5, "BC5_UNORM"),
+        TextureSemantics::Mask => (TargetFormat::Bc4R, RXBC_FMT_BC4, "BC4_UNORM"),
+    };
+    let bcn_blocks = basis::transcode(&ktx2, SrcKind::Ktx2, bcn_target)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+    if bcn_blocks.blocks.iter().all(|&b| b == 0) {
+        return Err(CookError::Codec("BCn transcode 全零占位".into()));
+    }
+
+    // ④ ASTC 4×4 腿:真 transcode 实块。
+    let astc = basis::transcode(&ktx2, SrcKind::Ktx2, TargetFormat::Astc4x4)
+        .map_err(|e| CookError::Codec(e.to_string()))?;
+    if astc.blocks.iter().all(|&b| b == 0) {
+        return Err(CookError::Codec("ASTC transcode 全零占位".into()));
+    }
+
+    let bcn = write_rxbc(bcn_fmt_id, width, height, &bcn_blocks.blocks);
+    let astc_file = write_rxas(width, height, &astc.blocks);
+    let _ = profile;
 
     let ktx2_path = out_dir.join("texture.ktx2");
     let bcn_path = out_dir.join("texture.bcn");
@@ -294,11 +406,70 @@ pub fn cook_texture(
     fs::write(&basis_path, &basis_file).map_err(|e| CookError::Io(e.to_string()))?;
     let basis_present = true;
 
-    let decoded = decode_bc7_rgba8(&bc7, width, height);
-    let color_max_delta = max_channel_delta(rgba, &decoded);
+    // 独立解码对拍(bcdec 不引 rurix-basis-sys):按腿的真实格式解码。
+    // color → BC7 全通道;normal → BC5 的 XY;mask → BC4 的 R。
+    let decoded = match semantics {
+        TextureSemantics::Color => decode_bc7_rgba8(&bcn_blocks.blocks, width, height),
+        TextureSemantics::Normal => decode_bc5_rg8(&bcn_blocks.blocks, width, height),
+        TextureSemantics::Mask => decode_bc4_r8(&bcn_blocks.blocks, width, height),
+    };
+    let color_max_delta = match semantics {
+        // normal/mask 腿只承载 XY / R 通道,整幅 RGBA 比对无意义:
+        // 仅对参与编码的通道计误差。
+        TextureSemantics::Color => max_channel_delta(rgba, &decoded),
+        TextureSemantics::Normal => max_channel_delta_channels(rgba, &decoded, &[0, 1]),
+        TextureSemantics::Mask => max_channel_delta_channels(rgba, &decoded, &[0]),
+    };
     let normal_length_mad = normal_length_mean_abs_dev(&decoded);
-    let alpha_coverage_delta =
-        alpha_coverage_delta(rgba, &decoded, ALPHA_COVERAGE_THRESHOLD);
+    let alpha_coverage_delta = alpha_coverage_delta(rgba, &decoded, ALPHA_COVERAGE_THRESHOLD);
+
+    // 块计量:BCn/ASTC 各腿块数须 == ceil(w/4)*ceil(h/4)。
+    let expect_blocks = width.div_ceil(4) * height.div_ceil(4);
+    // 每块字节数按格式区分:BC4 = 8B/块(单通道),BC5/BC7/ASTC 4×4 = 16B/块。
+    let bcn_bytes_per_block: usize = match bcn_target {
+        TargetFormat::Bc4R => 8,
+        TargetFormat::Bc5Rg | TargetFormat::Bc7Rgba | TargetFormat::Astc4x4 => 16,
+    };
+    let bcn_block_count = (bcn_blocks.blocks.len() / bcn_bytes_per_block) as u32;
+    let astc_block_count = (astc.blocks.len() / 16) as u32;
+    if bcn_block_count != expect_blocks || astc_block_count != expect_blocks {
+        return Err(CookError::Codec(format!(
+            "块数不符: bcn={bcn_block_count} astc={astc_block_count} expect={expect_blocks}"
+        )));
+    }
+    let astc_stats = astc4x4_block_stats(&astc.blocks);
+    let astc_void_extent_blocks = astc_stats.void_extent as u32;
+    let astc_weighted_blocks = astc_stats.weighted as u32;
+    if astc_stats.all_zero > 0 {
+        return Err(CookError::Codec(format!(
+            "ASTC 出现全零占位块: {} 块",
+            astc_stats.all_zero
+        )));
+    }
+    if astc_block_count > 0 && astc_void_extent_blocks == astc_block_count {
+        // 全 void-extent = 常色 fudge,设计案 §3.6 显式禁止。
+        // 例外:源本身每个 4×4 分块皆为常色时,void-extent 是**正确**编码结果
+        // (16×16 checker 的 4×4 单元恰属此类),不构成 fudge。
+        if !all_blocks_constant_color(rgba, width, height) {
+            return Err(CookError::Codec(
+                "ASTC 全块 void-extent 但源非常色分块:疑常色 fudge".into(),
+            ));
+        }
+    }
+
+    // `.basis` 腿真 transcode 回环:证其为可解码 ETC1S 码流。
+    let basis_rt = basis::transcode(&basis_file, SrcKind::Basis, TargetFormat::Bc7Rgba)
+        .map_err(|e| CookError::Codec(format!("`.basis` 回环 transcode 失败: {e}")))?;
+    let basis_transcode_block_count = (basis_rt.blocks.len() / 16) as u32;
+    if basis_transcode_block_count != expect_blocks {
+        return Err(CookError::Codec(format!(
+            "`.basis` 回环块数不符: {basis_transcode_block_count} != {expect_blocks}"
+        )));
+    }
+    if basis_rt.blocks.iter().all(|&b| b == 0) {
+        return Err(CookError::Codec("`.basis` 回环产出全零".into()));
+    }
+    let basis_transcode_digest = digest_hex(&basis_rt.blocks);
 
     let report = CookReport {
         codec_version: ver.to_string(),
@@ -312,24 +483,41 @@ pub fn cook_texture(
         bcn_digest: digest_hex(&bcn),
         astc_digest: digest_hex(&astc_file),
         basis_present,
-        gpu_format_bcn: "BC7_UNORM".into(),
+        gpu_format_bcn: bcn_format_name.to_string(),
         gpu_format_astc: "ASTC_4x4_UNORM".into(),
         color_max_delta,
         normal_length_mad,
         alpha_coverage_delta,
+        bcn_block_count,
+        astc_block_count,
+        astc_void_extent_blocks,
+        astc_weighted_blocks,
+        basis_transcode_block_count,
+        basis_transcode_digest,
     };
 
     let json = format!(
-        "{{\n  \"codec_version\": \"{}\",\n  \"width\": {},\n  \"height\": {},\n  \"ktx2_digest\": \"{}\",\n  \"bcn_digest\": \"{}\",\n  \"astc_digest\": \"{}\",\n  \"basis_present\": {},\n  \"gpu_format_bcn\": \"{}\",\n  \"gpu_format_astc\": \"{}\",\n  \"color_max_delta\": {},\n  \"normal_length_mad\": {:.6},\n  \"alpha_coverage_delta\": {:.6},\n  \"ktx2_magic_ok\": {},\n  \"bcn_magic_ok\": {},\n  \"astc_magic_ok\": {},\n  \"supercompression\": 0\n}}\n",
+        "{{\n  \"codec_version\": \"{}\",\n  \"upstream_tag\": \"{}\",\n  \"upstream_commit\": \"{}\",\n  \"width\": {},\n  \"height\": {},\n  \"ktx2_digest\": \"{}\",\n  \"bcn_digest\": \"{}\",\n  \"astc_digest\": \"{}\",\n  \"basis_present\": {},\n  \"basis_signature\": \"{}\",\n  \"basis_transcode_block_count\": {},\n  \"basis_transcode_digest\": \"{}\",\n  \"gpu_format_bcn\": \"{}\",\n  \"gpu_format_astc\": \"{}\",\n  \"bcn_block_count\": {},\n  \"astc_block_count\": {},\n  \"astc_void_extent_blocks\": {},\n  \"astc_weighted_blocks\": {},\n  \"expected_block_count\": {},\n  \"color_max_delta\": {},\n  \"normal_length_mad\": {:.6},\n  \"alpha_coverage_delta\": {:.6},\n  \"ktx2_magic_ok\": {},\n  \"bcn_magic_ok\": {},\n  \"astc_magic_ok\": {},\n  \"supercompression\": 0\n}}\n",
         report.codec_version,
+        basis::UPSTREAM_TAG,
+        basis::UPSTREAM_COMMIT,
         report.width,
         report.height,
         report.ktx2_digest,
         report.bcn_digest,
         report.astc_digest,
         report.basis_present,
+        // `.basis` 签名字面(ASCII);真实上游 = "sB"(packed_uint<2> LE of 0x4273)。
+        String::from_utf8_lossy(&basis_file[..2]),
+        report.basis_transcode_block_count,
+        report.basis_transcode_digest,
         report.gpu_format_bcn,
         report.gpu_format_astc,
+        report.bcn_block_count,
+        report.astc_block_count,
+        report.astc_void_extent_blocks,
+        report.astc_weighted_blocks,
+        expect_blocks,
         report.color_max_delta,
         report.normal_length_mad,
         report.alpha_coverage_delta,

@@ -124,9 +124,8 @@ pub fn parse_glb(bytes: &[u8]) -> Result<GlbDocument> {
             "trailing bytes after final chunk",
         ));
     }
-    let json_bytes = json_chunk.ok_or_else(|| {
-        AssetError::new(ErrorKind::GlbContainer, "GLB missing JSON chunk")
-    })?;
+    let json_bytes = json_chunk
+        .ok_or_else(|| AssetError::new(ErrorKind::GlbContainer, "GLB missing JSON chunk"))?;
     // JSON 必须是第一 chunk(glTF 2.0 §2.1)。
     let first_ty = read_u32(bytes, 12 + 4)?;
     if first_ty != CHUNK_JSON {
@@ -157,14 +156,7 @@ pub fn build_glb(json_text: &str, bin: Option<&[u8]>) -> Result<Vec<u8>> {
         }
     }
     let mut out = Vec::new();
-    let total = 12
-        + 8
-        + json_bytes.len()
-        + if has_bin {
-            8 + bin_bytes.len()
-        } else {
-            0
-        };
+    let total = 12 + 8 + json_bytes.len() + if has_bin { 8 + bin_bytes.len() } else { 0 };
     out.extend_from_slice(&GLB_MAGIC.to_le_bytes());
     out.extend_from_slice(&GLB_VERSION.to_le_bytes());
     out.extend_from_slice(&(total as u32).to_le_bytes());

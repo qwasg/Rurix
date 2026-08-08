@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m80_ddc_content_address",
+  "symbolic_gate_key": "g8.p0.m80.ddc_content_address",
+  "matrix_row": "G8.3",
+  "wave": "G8.3",
+  "numeric_step": 110,
+  "source_ref": "RFC-0020 §4.3; design §3.2; RXS-0343",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "preimage_covers_source_digest": true,
+    "preimage_covers_dependency_keys": true,
+    "preimage_covers_tool_version": true,
+    "preimage_covers_cook_profile": true,
+    "same_preimage_same_key": true,
+    "put_get_byte_equal": true,
+    "mutation_source_flips_key": true,
+    "mutation_dependency_flips_key": true,
+    "mutation_recipe_flips_key": true,
+    "mutation_profile_flips_key": true,
+    "mutation_toolchain_flips_key": true,
+    "mutation_schema_set_flips_key": true,
+    "mutation_abi_set_flips_key": true,
+    "mutation_artifact_kind_flips_key": true,
+    "mutation_output_id_flips_key": true,
+    "bitflip_rejected_as_corruption": true,
+    "truncation_rejected": true,
+    "concurrent_same_key_put_safe": true,
+    "evict_then_rebuild_key_stable": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092051Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M80 host DDC CAS; 19 legs"
+}

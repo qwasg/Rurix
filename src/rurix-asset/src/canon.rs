@@ -177,9 +177,8 @@ fn decode_one(bytes: &[u8]) -> Result<(Value, &[u8])> {
             if rest.len() < len {
                 return Err(AssetError::new(ErrorKind::CanonInvalid, "text truncated"));
             }
-            let s = std::str::from_utf8(&rest[..len]).map_err(|_| {
-                AssetError::new(ErrorKind::CanonInvalid, "text not utf-8")
-            })?;
+            let s = std::str::from_utf8(&rest[..len])
+                .map_err(|_| AssetError::new(ErrorKind::CanonInvalid, "text not utf-8"))?;
             validate_ascii_printable(s)?;
             Ok((Value::Text(s.to_string()), &rest[len..]))
         }
@@ -241,7 +240,10 @@ fn decode_one(bytes: &[u8]) -> Result<(Value, &[u8])> {
 
 fn decode_uint_key(bytes: &[u8]) -> Result<(u64, &[u8])> {
     if bytes.is_empty() {
-        return Err(AssetError::new(ErrorKind::CanonInvalid, "truncated map key"));
+        return Err(AssetError::new(
+            ErrorKind::CanonInvalid,
+            "truncated map key",
+        ));
     }
     let b0 = bytes[0];
     if b0 >> 5 != 0 {
@@ -433,7 +435,10 @@ pub fn schema_digest_for(name: &str, schema_id: u32, major: u16, minor: u16) -> 
 }
 
 /// 校验 accept/*.rxap 可解码且 payload 可 roundtrip；reject/* 必须失败。
-pub fn check_canon_corpus(accept_dir: &std::path::Path, reject_dir: &std::path::Path) -> Result<(usize, usize)> {
+pub fn check_canon_corpus(
+    accept_dir: &std::path::Path,
+    reject_dir: &std::path::Path,
+) -> Result<(usize, usize)> {
     let mut accept_n = 0usize;
     for ent in std::fs::read_dir(accept_dir)? {
         let p = ent?.path();
@@ -491,11 +496,7 @@ mod tests {
 
     #[test]
     fn roundtrip_map_sorted() {
-        let v = Value::map_of([
-            (2, Value::Int(7)),
-            (1, Value::text_ascii("hi").unwrap()),
-        ])
-        .unwrap();
+        let v = Value::map_of([(2, Value::Int(7)), (1, Value::text_ascii("hi").unwrap())]).unwrap();
         let enc = encode_cbor(&v).unwrap();
         let dec = decode_cbor(&enc).unwrap();
         assert_eq!(v, dec);

@@ -2,16 +2,16 @@
 //! 子命令:`import-gltf`(M81) / `cook-texture`(M83) / `decode-page`(M04) /
 //! `verify --double-build`(M79) / `coverage-list`。
 
+use rurix_asset::canon;
+use rurix_asset::ddc::{self, Ddc, GetMiss, PutError};
 use rurix_asset::gltf::{self, validate::ImportOptions};
 use rurix_asset::texture::{
     CookProfile, TextureSemantics, cook_texture, decode_ppm_p6, encode_ppm_p6,
-    fixture_checker_rgba16, fixture_normal_rgba16,
+    fixture_checker_rgba16, fixture_gradient_rgba32, fixture_mask_rgba16, fixture_normal_rgba16,
 };
-use rurix_asset::canon;
-use rurix_asset::ddc::{self, Ddc, GetMiss, PutError};
 use rurix_asset::verify;
 use rurix_geom_pages::{
-    decode_disk_page, expand_memory_page, expand_u32_count, expanded_digest, encode_memory_page,
+    decode_disk_page, encode_memory_page, expand_memory_page, expand_u32_count, expanded_digest,
 };
 use std::env;
 use std::fs;
@@ -95,10 +95,7 @@ fn cmd_ddc_selftest(args: Vec<String>) -> ExitCode {
     checks.push(("put_get_byte_equal", got == payload));
 
     // bitflip
-    let obj = scratch
-        .join("objects")
-        .join(&k0.hex()[..2])
-        .join(k0.hex());
+    let obj = scratch.join("objects").join(&k0.hex()[..2]).join(k0.hex());
     let mut bytes = fs::read(&obj).unwrap();
     bytes[0] ^= 0xff;
     fs::write(&obj, &bytes).unwrap();
@@ -281,10 +278,7 @@ fn workspace_root() -> PathBuf {
 fn cmd_verify(args: Vec<String>) -> ExitCode {
     let mut double = false;
     let mut workspace = workspace_root();
-    let mut scratch = env::temp_dir().join(format!(
-        "rxcook_verify_{}",
-        std::process::id()
-    ));
+    let mut scratch = env::temp_dir().join(format!("rxcook_verify_{}", std::process::id()));
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -423,9 +417,14 @@ fn cmd_cook_texture(args: Vec<String>) -> ExitCode {
     let (w, h, rgba) = if let Some(name) = fixture {
         match name.as_str() {
             "checker" => fixture_checker_rgba16(),
+            "gradient" => fixture_gradient_rgba32(),
             "normal" => {
                 semantics = TextureSemantics::Normal;
                 fixture_normal_rgba16()
+            }
+            "mask" => {
+                semantics = TextureSemantics::Mask;
+                fixture_mask_rgba16()
             }
             _ => {
                 eprintln!("unknown fixture: {name}");
@@ -529,18 +528,16 @@ fn cmd_ddc_manifest_phase(args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    let segs = |d: &str| {
-        ddc::PreimageSegments {
-            source_set: Value::map_of([(1, Value::text_ascii("shader.manifest").unwrap())]).unwrap(),
-            dependency_keys: Value::Array(vec![Value::text_ascii(d).unwrap()]),
-            import_recipe: Value::map_of([(1, Value::text_ascii(d).unwrap())]).unwrap(),
-            cook_profile: Value::map_of([(1, Value::text_ascii("g8.3").unwrap())]).unwrap(),
-            tool_chain: Value::map_of([(1, Value::text_ascii("rurixc").unwrap())]).unwrap(),
-            schema_set: Value::Array(vec![Value::text_ascii("shader-manifest.v1").unwrap()]),
-            abi_set: Value::Array(vec![Value::text_ascii("abi.v1").unwrap()]),
-            artifact_kind: Value::text_ascii("shader.manifest").unwrap(),
-            output_id: Value::text_ascii("merged").unwrap(),
-        }
+    let segs = |d: &str| ddc::PreimageSegments {
+        source_set: Value::map_of([(1, Value::text_ascii("shader.manifest").unwrap())]).unwrap(),
+        dependency_keys: Value::Array(vec![Value::text_ascii(d).unwrap()]),
+        import_recipe: Value::map_of([(1, Value::text_ascii(d).unwrap())]).unwrap(),
+        cook_profile: Value::map_of([(1, Value::text_ascii("g8.3").unwrap())]).unwrap(),
+        tool_chain: Value::map_of([(1, Value::text_ascii("rurixc").unwrap())]).unwrap(),
+        schema_set: Value::Array(vec![Value::text_ascii("shader-manifest.v1").unwrap()]),
+        abi_set: Value::Array(vec![Value::text_ascii("abi.v1").unwrap()]),
+        artifact_kind: Value::text_ascii("shader.manifest").unwrap(),
+        output_id: Value::text_ascii("merged").unwrap(),
     };
     let s0 = segs(&digest);
     let k0 = ddc::compute_key(&s0).unwrap();

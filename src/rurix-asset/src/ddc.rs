@@ -25,9 +25,8 @@ impl DdcKey {
         }
         let mut out = [0u8; 32];
         for i in 0..32 {
-            out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16).map_err(|_| {
-                AssetError::new(ErrorKind::Invalid, "ddc key hex parse")
-            })?;
+            out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
+                .map_err(|_| AssetError::new(ErrorKind::Invalid, "ddc key hex parse"))?;
         }
         Ok(DdcKey(out))
     }
@@ -119,7 +118,12 @@ impl Ddc {
             .join(format!("{hx}.rxap"))
     }
 
-    pub fn put(&mut self, key: &DdcKey, payload: &[u8], meta_envelope: &[u8]) -> std::result::Result<(), PutError> {
+    pub fn put(
+        &mut self,
+        key: &DdcKey,
+        payload: &[u8],
+        meta_envelope: &[u8],
+    ) -> std::result::Result<(), PutError> {
         let obj = self.object_path(key);
         let meta = self.meta_path(key);
         if obj.exists() {
@@ -137,11 +141,10 @@ impl Ddc {
             fs::create_dir_all(parent).map_err(|e| PutError::Io(e.into()))?;
         }
         self.seq += 1;
-        let tmp = self.root.join("tmp").join(format!(
-            "{}_{}",
-            std::process::id(),
-            self.seq
-        ));
+        let tmp = self
+            .root
+            .join("tmp")
+            .join(format!("{}_{}", std::process::id(), self.seq));
         {
             let mut f = fs::File::create(&tmp).map_err(|e| PutError::Io(e.into()))?;
             f.write_all(payload).map_err(|e| PutError::Io(e.into()))?;
@@ -231,7 +234,10 @@ pub fn demo_segments(tag: &str) -> Result<PreimageSegments> {
         dependency_keys: Value::Array(vec![Value::text_ascii("dep0")?]),
         import_recipe: Value::map_of([(1, Value::text_ascii("recipe")?)])?,
         cook_profile: Value::map_of([(1, Value::text_ascii("profile")?)])?,
-        tool_chain: Value::map_of([(1, Value::text_ascii("tool")?), (2, Value::text_ascii("1.0.0")?)])?,
+        tool_chain: Value::map_of([
+            (1, Value::text_ascii("tool")?),
+            (2, Value::text_ascii("1.0.0")?),
+        ])?,
         schema_set: Value::Array(vec![Value::text_ascii("schema.v1")?]),
         abi_set: Value::Array(vec![Value::text_ascii("abi.v1")?]),
         artifact_kind: Value::text_ascii("demo.payload")?,

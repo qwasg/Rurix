@@ -136,12 +136,7 @@ impl ToolGraph {
             items.push((id, bytes));
         }
         items.sort_by(|a, b| a.0.cmp(&b.0));
-        let arr = Value::Array(
-            items
-                .into_iter()
-                .map(|(_, b)| Value::Bytes(b))
-                .collect(),
-        );
+        let arr = Value::Array(items.into_iter().map(|(_, b)| Value::Bytes(b)).collect());
         canon::encode_cbor(&arr)
     }
 

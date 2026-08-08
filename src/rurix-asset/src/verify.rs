@@ -80,6 +80,35 @@ fn temp_pair(base: &Path) -> Result<(PathBuf, PathBuf)> {
     Ok((abs_a, abs_b))
 }
 
+/// 写一份最小三角 glTF，`apex` 为第三顶点坐标（依赖内容单变量的唯一差异）。
+///
+/// 采用相对路径 `.bin` 外部缓冲：顶点字节改变而 JSON 结构逐字节不变，
+/// 因此六表 digest 稳定、仅 geom 上游内容变化——正是「依赖内容」单变量。
+fn write_gltf_variant(dir: &Path, apex: [f32; 3]) -> Result<PathBuf> {
+    let _ = fs::remove_dir_all(dir);
+    fs::create_dir_all(dir)?;
+    let verts: [[f32; 3]; 3] = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], apex];
+    let mut bin = Vec::with_capacity(36);
+    for v in &verts {
+        for c in v {
+            bin.extend_from_slice(&c.to_le_bytes());
+        }
+    }
+    fs::write(dir.join("mesh.bin"), &bin)?;
+    // JSON 对两个变体逐字节相同（差异只在外部 .bin）。
+    let json = concat!(
+        r#"{"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],"#,
+        r#""nodes":[{"mesh":0}],"#,
+        r#""meshes":[{"primitives":[{"attributes":{"POSITION":0},"mode":4}]}],"#,
+        r#""accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"}],"#,
+        r#""bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36}],"#,
+        r#""buffers":[{"byteLength":36,"uri":"mesh.bin"}]}"#,
+    );
+    let path = dir.join("model.gltf");
+    fs::write(&path, json.as_bytes())?;
+    Ok(path)
+}
+
 fn artifacts_equal(a: &BuildResult, b: &BuildResult) -> bool {
     if a.artifacts.len() != b.artifacts.len() {
         return false;
@@ -109,27 +138,52 @@ pub fn verify_double_build(workspace: &Path, scratch: &Path) -> Result<VerifyRep
     report.double_build_artifacts_byte_equal = artifacts_equal(&left, &right);
     report.double_build_manifest_digest_equal = left.manifest_digest == right.manifest_digest;
 
-    let signed = [
-        left.dag_bytes.as_slice(),
-        left.manifest_digest.as_bytes(),
-    ]
-    .concat();
-    report.no_env_time_path_in_signed_bytes = graph::signed_bytes_clean(&signed)
-        && graph::signed_bytes_clean(&right.dag_bytes);
+    let signed = [left.dag_bytes.as_slice(), left.manifest_digest.as_bytes()].concat();
+    report.no_env_time_path_in_signed_bytes =
+        graph::signed_bytes_clean(&signed) && graph::signed_bytes_clean(&right.dag_bytes);
 
     let base_keys = left.node_keys.clone();
 
-    // mutate dependency: change geom segments (affects geom pages only)
-    let mut mut_dep = plan.clone();
-    mut_dep.geom_segments = 16;
-    let dep_root = scratch.join("mut_dep");
-    let _ = fs::remove_dir_all(&dep_root);
-    let dep = cook::cook_to(&dep_root, workspace, &mut_dep)?;
-    let geom_flipped = base_keys.get("artifact.geom_pages")
-        != dep.node_keys.get("artifact.geom_pages");
-    let gltf_stable = base_keys.get("artifact.gltf_tables")
-        == dep.node_keys.get("artifact.gltf_tables");
-    report.mutate_dependency_flips_key = geom_flipped;
+    // mutate dependency **内容**（设计案 §3.1「依赖内容」单变量）：
+    // 两份结构逐字节相同、仅顶点缓冲字节不同的 glTF 源。
+    //
+    // 这一腿同时是「glTF 网格真实流入 geom 下游」的守门断言：
+    // 若 geom 由程序化 uv_sphere 旁路造几何（旧行为），源内容变化不会
+    // 传导到 geom 产物，geom key 不翻 → 本腿必红。
+    let dep_a = scratch.join("dep_src_a");
+    let dep_b = scratch.join("dep_src_b");
+    let src_a = write_gltf_variant(&dep_a, [0.0, 1.0, 0.0])?;
+    let src_b = write_gltf_variant(&dep_b, [0.0, 2.0, 0.0])?;
+
+    let mut plan_a = plan.clone();
+    plan_a.gltf_source = src_a;
+    let mut plan_b = plan.clone();
+    plan_b.gltf_source = src_b;
+
+    let root_dep_a = scratch.join("mut_dep_a");
+    let root_dep_b = scratch.join("mut_dep_b");
+    let _ = fs::remove_dir_all(&root_dep_a);
+    let _ = fs::remove_dir_all(&root_dep_b);
+    let cook_a = cook::cook_to(&root_dep_a, workspace, &plan_a)?;
+    let cook_b = cook::cook_to(&root_dep_b, workspace, &plan_b)?;
+
+    // 受影响节点：geom 页 key 必翻（真实 mesh 内容流入）。
+    let geom_content_flipped =
+        cook_a.node_keys.get("artifact.geom_pages") != cook_b.node_keys.get("artifact.geom_pages");
+    // 无关节点：文档结构未变 → 六表 digest 不变 → gltf_tables key 必稳。
+    let gltf_stable = cook_a.node_keys.get("artifact.gltf_tables")
+        == cook_b.node_keys.get("artifact.gltf_tables");
+    // 无关节点：纹理与 glTF 源无依赖 → key 必稳。
+    let tex_stable_dep = cook_a.node_keys.get("artifact.texture_cooked")
+        == cook_b.node_keys.get("artifact.texture_cooked");
+    report.mutate_dependency_flips_key = geom_content_flipped;
+    if !geom_content_flipped {
+        report.notes.push(
+            "dependency content mutation did not flip geom key: \
+             geom 下游未消费真实 glTF 网格(疑 uv_sphere 旁路复活)"
+                .into(),
+        );
+    }
 
     // mutate recipe
     let mut mut_recipe = plan.clone();
@@ -137,8 +191,8 @@ pub fn verify_double_build(workspace: &Path, scratch: &Path) -> Result<VerifyRep
     let recipe_root = scratch.join("mut_recipe");
     let _ = fs::remove_dir_all(&recipe_root);
     let rec = cook::cook_to(&recipe_root, workspace, &mut_recipe)?;
-    report.mutate_recipe_flips_key = base_keys.get("artifact.gltf_tables")
-        != rec.node_keys.get("artifact.gltf_tables");
+    report.mutate_recipe_flips_key =
+        base_keys.get("artifact.gltf_tables") != rec.node_keys.get("artifact.gltf_tables");
 
     // mutate profile
     let mut mut_profile = plan.clone();
@@ -146,8 +200,8 @@ pub fn verify_double_build(workspace: &Path, scratch: &Path) -> Result<VerifyRep
     let profile_root = scratch.join("mut_profile");
     let _ = fs::remove_dir_all(&profile_root);
     let prof = cook::cook_to(&profile_root, workspace, &mut_profile)?;
-    report.mutate_profile_flips_key = base_keys.get("artifact.geom_pages")
-        != prof.node_keys.get("artifact.geom_pages");
+    report.mutate_profile_flips_key =
+        base_keys.get("artifact.geom_pages") != prof.node_keys.get("artifact.geom_pages");
 
     // mutate tool version
     let mut mut_tool = plan.clone();
@@ -155,14 +209,20 @@ pub fn verify_double_build(workspace: &Path, scratch: &Path) -> Result<VerifyRep
     let tool_root = scratch.join("mut_tool");
     let _ = fs::remove_dir_all(&tool_root);
     let tool = cook::cook_to(&tool_root, workspace, &mut_tool)?;
-    report.mutate_tool_version_flips_key = base_keys.get("artifact.gltf_tables")
-        != tool.node_keys.get("artifact.gltf_tables");
+    report.mutate_tool_version_flips_key =
+        base_keys.get("artifact.gltf_tables") != tool.node_keys.get("artifact.gltf_tables");
 
     // unrelated stable across mutations where expected
     report.unrelated_nodes_keys_stable = gltf_stable
+        && tex_stable_dep
         && base_keys.get("artifact.geom_pages") == rec.node_keys.get("artifact.geom_pages")
         && base_keys.get("artifact.gltf_tables") == prof.node_keys.get("artifact.gltf_tables")
-        && base_keys.get("artifact.geom_pages") == tool.node_keys.get("artifact.geom_pages");
+        && base_keys.get("artifact.geom_pages") == tool.node_keys.get("artifact.geom_pages")
+        // 纹理节点与 recipe / geom profile / gltf tool version 均无依赖 → 三腿全程稳。
+        && base_keys.get("artifact.texture_cooked") == rec.node_keys.get("artifact.texture_cooked")
+        && base_keys.get("artifact.texture_cooked") == prof.node_keys.get("artifact.texture_cooked")
+        && base_keys.get("artifact.texture_cooked")
+            == tool.node_keys.get("artifact.texture_cooked");
 
     if !report.all_pass() {
         report.notes.push(format!("report={:?}", report));

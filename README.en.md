@@ -46,6 +46,8 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 
 **G6** (closed per contract §8.2, 2026-08-01) added the production-default Jolt physics library, a default-off Rapier fast path, a one-way Physics→GpuScene bridge, the UC-08 confluence demo, and the Taichi Vulkan AOT effects side track. **G7** (active since 2026-08-01) is [Production Frame Closure](milestones/g7/G7_CONTRACT.md): compute SPIR-V 1.4/RayQuery, real W3 GI/RTAO/hard-shadow kernels, VisBuffer software/hardware raster parity, a literal RD-038 residual audit, and one continuously connected real device frame.
 
+> **Status erratum (2026-08-08, append-only)**: the heading and the paragraph above are snapshots — **G7 closed on 2026-08-05** (`g7-closed`, RD-038 closed) and **G8 closed on 2026-08-06** (`status: closed`, close-out flip commit `b4189e79`; see [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) close-out section for per-gate terminal states, including honest no-go/defer/degraded entries kept on record rather than rewritten as PASS). The stale lines are kept verbatim per append-only discipline.
+
 > Stable-API snapshot freeze has been **active since the 1.0 release** ([`RD-008`](registry/deferred.json) closed): the stable surface (spec clause IDs + error-code meanings + edition values + the `rx` CLI command set) is anchored by snapshot comparison with bless-gated approval — additive-only within an edition; breaking changes require a new edition.
 
 ## Workspace

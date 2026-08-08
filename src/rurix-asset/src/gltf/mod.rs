@@ -8,16 +8,14 @@ pub mod validate;
 use crate::error::{AssetError, ErrorKind, Result};
 use canonical::CanonicalTables;
 use std::path::Path;
-use validate::{ImportOptions, ImportResult, DECLARED_COVERAGE};
+use validate::{DECLARED_COVERAGE, ImportOptions, ImportResult};
 
-pub use validate::{EXTENSION_ALLOWLIST_V1, ConsumedCoverage};
+pub use validate::{ConsumedCoverage, EXTENSION_ALLOWLIST_V1};
 
 /// 从路径导入 `.gltf` / `.glb`。
 pub fn import_path(path: &Path, opts: &ImportOptions) -> Result<ImportResult> {
     let bytes = std::fs::read(path)?;
-    let base = path
-        .parent()
-        .unwrap_or_else(|| Path::new("."));
+    let base = path.parent().unwrap_or_else(|| Path::new("."));
     if path
         .extension()
         .and_then(|e| e.to_str())
@@ -28,18 +26,15 @@ pub fn import_path(path: &Path, opts: &ImportOptions) -> Result<ImportResult> {
         return validate::import_document(&doc.json, base, doc.bin.as_deref(), opts);
     }
     // .gltf: UTF-8 JSON
-    let text = std::str::from_utf8(&bytes).map_err(|_| {
-        AssetError::new(ErrorKind::JsonStrict, "glTF text is not valid UTF-8")
-    })?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|_| AssetError::new(ErrorKind::JsonStrict, "glTF text is not valid UTF-8"))?;
     let root = json::parse_str(text)?;
     validate::import_document(&root, base, None, opts)
 }
 
 /// 覆盖表是否盖住冻结声明清单。
 pub fn coverage_complete(cov: &ConsumedCoverage) -> bool {
-    DECLARED_COVERAGE
-        .iter()
-        .all(|f| cov.fields.contains(f))
+    DECLARED_COVERAGE.iter().all(|f| cov.fields.contains(f))
 }
 
 /// 便捷:导入并只取六表。
@@ -74,17 +69,17 @@ mod corpus_tests {
             let r = import_path(&p, &ImportOptions::default());
             assert!(r.is_ok(), "accept {} failed: {:?}", p.display(), r.err());
             let r = r.unwrap();
-            assert!(coverage_complete(&r.coverage), "coverage incomplete for {}", p.display());
+            assert!(
+                coverage_complete(&r.coverage),
+                "coverage incomplete for {}",
+                p.display()
+            );
             // golden
             let golden = p.with_extension("golden.json");
             if golden.is_file() {
                 let got = r.tables.to_report_json();
                 let exp = std::fs::read_to_string(&golden).unwrap();
-                assert_eq!(
-                    got, exp,
-                    "golden mismatch for {}",
-                    p.display()
-                );
+                assert_eq!(got, exp, "golden mismatch for {}", p.display());
             }
             // 双导入稳定
             let r2 = import_path(&p, &ImportOptions::default()).unwrap();

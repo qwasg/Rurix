@@ -285,15 +285,7 @@ mod tests {
             name: String::new(),
             nodes: vec![0],
         }];
-        let a = encode_tables(
-            scenes.clone(),
-            vec![],
-            vec![],
-            vec![],
-            vec![],
-            vec![],
-        )
-        .unwrap();
+        let a = encode_tables(scenes.clone(), vec![], vec![], vec![], vec![], vec![]).unwrap();
         let b = encode_tables(scenes, vec![], vec![], vec![], vec![], vec![]).unwrap();
         assert_eq!(a.scenes.digest, b.scenes.digest);
         assert_eq!(a.scenes.count, 1);

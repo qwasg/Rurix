@@ -24,8 +24,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let write_fixtures = args.iter().any(|a| a == "--write-fixtures");
     let root = workspace_root();
-    let golden_dir = arg_path(&args, "--golden-dir")
-        .unwrap_or_else(|| root.join("tests/geom_pages/golden"));
+    let golden_dir =
+        arg_path(&args, "--golden-dir").unwrap_or_else(|| root.join("tests/geom_pages/golden"));
     let reject_dir = arg_path(&args, "--reject-dir")
         .unwrap_or_else(|| root.join("conformance/geom_pages/reject"));
 
@@ -92,8 +92,7 @@ fn main() {
     let manifest_path = golden_dir.join("m01_digest_manifest.json");
     let schema_ok = if manifest_path.is_file() {
         let text = fs::read_to_string(&manifest_path).unwrap();
-        text.contains(&schema_hex)
-            && header[72..104] == schema
+        text.contains(&schema_hex) && header[72..104] == schema
     } else {
         false
     };
@@ -107,9 +106,9 @@ fn main() {
     checks.push(("decoded_lod_parent_equal_reference", lod_ok));
 
     // 8 page size
-    let size_ok = pages_a.iter().all(|p| {
-        encode_logical_page(p).len() <= STREAM_PAGE_SIZE as usize
-    });
+    let size_ok = pages_a
+        .iter()
+        .all(|p| encode_logical_page(p).len() <= STREAM_PAGE_SIZE as usize);
     checks.push(("page_size_within_contract", size_ok));
 
     // 9 unknown version rejected pre-consume

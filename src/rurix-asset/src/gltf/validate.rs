@@ -132,10 +132,7 @@ fn decode_base64(input: &str) -> Result<Vec<u8>> {
             }
         })
     }
-    let cleaned: Vec<u8> = input
-        .bytes()
-        .filter(|b| !b.is_ascii_whitespace())
-        .collect();
+    let cleaned: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
     if cleaned.len() % 4 != 0 {
         return Err(AssetError::new(
             ErrorKind::Invalid,
@@ -164,11 +161,7 @@ fn decode_base64(input: &str) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn load_buffer_bytes(
-    uri: &str,
-    base_dir: &Path,
-    glb_bin: Option<&[u8]>,
-) -> Result<Vec<u8>> {
+fn load_buffer_bytes(uri: &str, base_dir: &Path, glb_bin: Option<&[u8]>) -> Result<Vec<u8>> {
     if uri.is_empty() {
         // GLB buffer 0 无 uri → 使用 BIN chunk。
         return glb_bin
@@ -251,7 +244,11 @@ fn resolve_buffers(
     Ok(out)
 }
 
-fn check_extensions(root: &JsonValue, opts: &ImportOptions, coverage: &mut ConsumedCoverage) -> Result<()> {
+fn check_extensions(
+    root: &JsonValue,
+    opts: &ImportOptions,
+    coverage: &mut ConsumedCoverage,
+) -> Result<()> {
     coverage.mark("extensionsRequired");
     coverage.mark("extensionsUsed");
     let allow: HashSet<&str> = EXTENSION_ALLOWLIST_V1.iter().copied().collect();
@@ -261,7 +258,10 @@ fn check_extensions(root: &JsonValue, opts: &ImportOptions, coverage: &mut Consu
         })?;
         for e in arr {
             let name = e.as_str().ok_or_else(|| {
-                AssetError::new(ErrorKind::Invalid, "extensionsRequired entry must be string")
+                AssetError::new(
+                    ErrorKind::Invalid,
+                    "extensionsRequired entry must be string",
+                )
             })?;
             if !allow.contains(name) {
                 return Err(AssetError::new(
@@ -272,9 +272,9 @@ fn check_extensions(root: &JsonValue, opts: &ImportOptions, coverage: &mut Consu
         }
     }
     if let Some(used) = root.get("extensionsUsed") {
-        let arr = used.as_array().ok_or_else(|| {
-            AssetError::new(ErrorKind::Invalid, "extensionsUsed must be array")
-        })?;
+        let arr = used
+            .as_array()
+            .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "extensionsUsed must be array"))?;
         for e in arr {
             let name = e.as_str().ok_or_else(|| {
                 AssetError::new(ErrorKind::Invalid, "extensionsUsed entry must be string")
@@ -289,7 +289,9 @@ fn check_extensions(root: &JsonValue, opts: &ImportOptions, coverage: &mut Consu
                 // 首版不开放 opaque 保留路径以外的语义通道。
                 return Err(AssetError::new(
                     ErrorKind::ExtensionNotAllowed,
-                    format!("optional extension not in allowlist (preserve_opaque unsupported for '{name}' in v1)"),
+                    format!(
+                        "optional extension not in allowlist (preserve_opaque unsupported for '{name}' in v1)"
+                    ),
                 ));
             }
             return Err(AssetError::new(
@@ -301,7 +303,10 @@ fn check_extensions(root: &JsonValue, opts: &ImportOptions, coverage: &mut Consu
     Ok(())
 }
 
-fn accessor_byte_span(accessor: &JsonValue, buffer_views: &[JsonValue]) -> Result<(usize, usize, u32)> {
+fn accessor_byte_span(
+    accessor: &JsonValue,
+    buffer_views: &[JsonValue],
+) -> Result<(usize, usize, u32)> {
     let count = obj_field(accessor, "count")
         .and_then(|v| v.as_u32())
         .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "accessor.count missing"))?
@@ -357,9 +362,14 @@ fn accessor_byte_span(accessor: &JsonValue, buffer_views: &[JsonValue]) -> Resul
         return Ok((byte_offset, 0, component_type));
     }
     let need = byte_offset
-        .checked_add((count - 1).checked_mul(stride).and_then(|x| x.checked_add(element_size)).ok_or_else(|| {
-            AssetError::new(ErrorKind::AccessorOutOfBounds, "accessor span overflow")
-        })?)
+        .checked_add(
+            (count - 1)
+                .checked_mul(stride)
+                .and_then(|x| x.checked_add(element_size))
+                .ok_or_else(|| {
+                    AssetError::new(ErrorKind::AccessorOutOfBounds, "accessor span overflow")
+                })?,
+        )
         .ok_or_else(|| AssetError::new(ErrorKind::AccessorOutOfBounds, "accessor span overflow"))?;
     if need > bv_len {
         return Err(AssetError::new(
@@ -391,7 +401,10 @@ fn validate_accessors(
         let buf_i = obj_field(bv, "buffer")
             .and_then(|v| v.as_u32())
             .ok_or_else(|| {
-                AssetError::new(ErrorKind::Invalid, format!("bufferViews[{i}].buffer missing"))
+                AssetError::new(
+                    ErrorKind::Invalid,
+                    format!("bufferViews[{i}].buffer missing"),
+                )
             })? as usize;
         if buf_i >= buffers.len() {
             return Err(AssetError::new(
@@ -418,9 +431,8 @@ fn validate_accessors(
         }
     }
     for (i, acc) in accessors.iter().enumerate() {
-        let (_off, _need, _) = accessor_byte_span(acc, buffer_views).map_err(|e| {
-            AssetError::new(e.kind, format!("accessors[{i}]: {}", e.message))
-        })?;
+        let (_off, _need, _) = accessor_byte_span(acc, buffer_views)
+            .map_err(|e| AssetError::new(e.kind, format!("accessors[{i}]: {}", e.message)))?;
         // sparse
         if let Some(sparse) = obj_field(acc, "sparse") {
             let sc = obj_field(sparse, "count")
@@ -464,7 +476,9 @@ fn read_index_values(
     buffer_views: &[JsonValue],
     buffers: &[Vec<u8>],
 ) -> Result<Vec<u32>> {
-    let count = obj_field(accessor, "count").and_then(|v| v.as_u32()).unwrap() as usize;
+    let count = obj_field(accessor, "count")
+        .and_then(|v| v.as_u32())
+        .unwrap() as usize;
     let component_type = obj_field(accessor, "componentType")
         .and_then(|v| v.as_u32())
         .unwrap();
@@ -492,12 +506,7 @@ fn read_index_values(
         let v = match component_type {
             5121 => u32::from(base[off]),
             5123 => u32::from(u16::from_le_bytes([base[off], base[off + 1]])),
-            5125 => u32::from_le_bytes([
-                base[off],
-                base[off + 1],
-                base[off + 2],
-                base[off + 3],
-            ]),
+            5125 => u32::from_le_bytes([base[off], base[off + 1], base[off + 2], base[off + 3]]),
             _ => {
                 return Err(AssetError::new(
                     ErrorKind::Invalid,
@@ -589,10 +598,7 @@ fn validate_indices_and_refs(
                     ));
                 }
                 let vertex_count = pos_count.ok_or_else(|| {
-                    AssetError::new(
-                        ErrorKind::Invalid,
-                        "indexed primitive requires POSITION",
-                    )
+                    AssetError::new(ErrorKind::Invalid, "indexed primitive requires POSITION")
                 })?;
                 let values = read_index_values(&accessors[ai], buffer_views, buffers)?;
                 for (k, &ix) in values.iter().enumerate() {
@@ -605,9 +611,10 @@ fn validate_indices_and_refs(
                 }
             }
             if let Some(m) = obj_field(prim, "material") {
-                let mi2 = m.as_u32().ok_or_else(|| {
-                    AssetError::new(ErrorKind::Invalid, "material index")
-                })? as usize;
+                let mi2 = m
+                    .as_u32()
+                    .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "material index"))?
+                    as usize;
                 if mi2 >= materials.len() {
                     return Err(AssetError::new(
                         ErrorKind::DanglingReference,
@@ -654,9 +661,10 @@ fn validate_indices_and_refs(
         }
         if let Some(ch) = obj_field(node, "children").and_then(|v| v.as_array()) {
             for c in ch {
-                let ci = c.as_u32().ok_or_else(|| {
-                    AssetError::new(ErrorKind::Invalid, "child index")
-                })? as usize;
+                let ci = c
+                    .as_u32()
+                    .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "child index"))?
+                    as usize;
                 if ci >= n {
                     return Err(AssetError::new(
                         ErrorKind::DanglingReference,
@@ -722,7 +730,11 @@ fn f32_array(v: Option<&JsonValue>, n: usize, default: &[f32]) -> Vec<f32> {
     if let Some(JsonValue::Array(a)) = v {
         let mut out = Vec::with_capacity(n);
         for i in 0..n {
-            out.push(a.get(i).and_then(|x| x.as_f64()).unwrap_or(default[i] as f64) as f32);
+            out.push(
+                a.get(i)
+                    .and_then(|x| x.as_f64())
+                    .unwrap_or(default[i] as f64) as f32,
+            );
         }
         out
     } else {
@@ -820,7 +832,9 @@ fn build_tables(root: &JsonValue) -> Result<CanonicalTables> {
                 id: prim_id,
                 mesh_id: mid as u32,
                 material: obj_field(prim, "material").and_then(|v| v.as_u32()),
-                mode: obj_field(prim, "mode").and_then(|v| v.as_u32()).unwrap_or(4),
+                mode: obj_field(prim, "mode")
+                    .and_then(|v| v.as_u32())
+                    .unwrap_or(4),
                 attributes,
                 indices: obj_field(prim, "indices").and_then(|v| v.as_u32()),
             });
@@ -880,11 +894,192 @@ fn build_tables(root: &JsonValue) -> Result<CanonicalTables> {
     canonical::encode_tables(scenes, nodes, meshes, primitives, materials, textures)
 }
 
+/// 从 glTF 文档解码出的真实三角网格（M79 DAG 的 geom 上游）。
+///
+/// 只承载 `mode==4`（TRIANGLES）图元；非索引图元按 `0..count` 顺序生成索引。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportedMesh {
+    pub mesh_id: u32,
+    pub primitive_id: u32,
+    pub positions: Vec<[f32; 3]>,
+    pub indices: Vec<u32>,
+}
+
+/// 读 VEC3/f32 accessor 为位置数组（componentType 必须为 5126）。
+fn read_vec3_f32(
+    accessor: &JsonValue,
+    buffer_views: &[JsonValue],
+    buffers: &[Vec<u8>],
+) -> Result<Vec<[f32; 3]>> {
+    let count = obj_field(accessor, "count")
+        .and_then(|v| v.as_u32())
+        .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "POSITION accessor.count missing"))?
+        as usize;
+    let component_type = obj_field(accessor, "componentType")
+        .and_then(|v| v.as_u32())
+        .ok_or_else(|| {
+            AssetError::new(
+                ErrorKind::Invalid,
+                "POSITION accessor.componentType missing",
+            )
+        })?;
+    if component_type != 5126 {
+        return Err(AssetError::new(
+            ErrorKind::Invalid,
+            format!("POSITION componentType must be 5126 (f32), got {component_type}"),
+        ));
+    }
+    let type_name = obj_field(accessor, "type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if type_name != "VEC3" {
+        return Err(AssetError::new(
+            ErrorKind::Invalid,
+            format!("POSITION accessor.type must be VEC3, got {type_name}"),
+        ));
+    }
+    let acc_off = obj_field(accessor, "byteOffset")
+        .and_then(|v| v.as_u32())
+        .unwrap_or(0) as usize;
+    let bvi = obj_field(accessor, "bufferView")
+        .and_then(|v| v.as_u32())
+        .ok_or_else(|| {
+            AssetError::new(
+                ErrorKind::AccessorOutOfBounds,
+                "POSITION missing bufferView",
+            )
+        })? as usize;
+    if bvi >= buffer_views.len() {
+        return Err(AssetError::new(
+            ErrorKind::DanglingReference,
+            "POSITION bufferView OOB",
+        ));
+    }
+    let bv = &buffer_views[bvi];
+    let buf_i = obj_field(bv, "buffer")
+        .and_then(|v| v.as_u32())
+        .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "bufferView.buffer missing"))?
+        as usize;
+    if buf_i >= buffers.len() {
+        return Err(AssetError::new(
+            ErrorKind::DanglingReference,
+            "bufferView.buffer OOB",
+        ));
+    }
+    let bv_off = obj_field(bv, "byteOffset")
+        .and_then(|v| v.as_u32())
+        .unwrap_or(0) as usize;
+    let element_size = 12usize;
+    let stride = obj_field(accessor, "byteStride")
+        .or_else(|| obj_field(bv, "byteStride"))
+        .and_then(|v| v.as_u32())
+        .map(|s| s as usize)
+        .unwrap_or(element_size);
+    let base = &buffers[buf_i];
+    let mut out = Vec::with_capacity(count);
+    for n in 0..count {
+        let off = bv_off
+            .checked_add(acc_off)
+            .and_then(|x| x.checked_add(n.checked_mul(stride)?))
+            .ok_or_else(|| {
+                AssetError::new(ErrorKind::AccessorOutOfBounds, "POSITION offset overflow")
+            })?;
+        if off.checked_add(element_size).map(|e| e > base.len()) != Some(false) {
+            return Err(AssetError::new(
+                ErrorKind::AccessorOutOfBounds,
+                "POSITION span exceeds buffer",
+            ));
+        }
+        let rd = |k: usize| -> f32 {
+            f32::from_le_bytes([
+                base[off + k],
+                base[off + k + 1],
+                base[off + k + 2],
+                base[off + k + 3],
+            ])
+        };
+        out.push([rd(0), rd(4), rd(8)]);
+    }
+    Ok(out)
+}
+
+/// 解码全文档三角网格。顺序 = meshes 序 × primitives 序（稳定、与调度无关）。
+pub fn extract_meshes(root: &JsonValue, buffers: &[Vec<u8>]) -> Result<Vec<ImportedMesh>> {
+    let accessors = arr(root, "accessors")?;
+    let buffer_views = arr(root, "bufferViews")?;
+    let meshes = arr(root, "meshes")?;
+    let mut out = Vec::new();
+    let mut prim_id: u32 = 0;
+    for (mi, mesh) in meshes.iter().enumerate() {
+        let prims = obj_field(mesh, "primitives")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| {
+                AssetError::new(
+                    ErrorKind::Invalid,
+                    format!("meshes[{mi}].primitives missing"),
+                )
+            })?;
+        for prim in prims.iter() {
+            let this_id = prim_id;
+            prim_id += 1;
+            let mode = obj_field(prim, "mode")
+                .and_then(|v| v.as_u32())
+                .unwrap_or(4);
+            if mode != 4 {
+                continue; // 非 TRIANGLES 首版不进 geom 上游
+            }
+            let attrs = obj_field(prim, "attributes")
+                .and_then(|v| v.as_object())
+                .ok_or_else(|| {
+                    AssetError::new(ErrorKind::Invalid, "primitive.attributes missing")
+                })?;
+            let mut pos_acc: Option<usize> = None;
+            for (name, acc_v) in attrs {
+                if name == "POSITION" {
+                    pos_acc = acc_v.as_u32().map(|x| x as usize);
+                }
+            }
+            let Some(pa) = pos_acc else {
+                continue; // 无 POSITION 的图元不产几何
+            };
+            if pa >= accessors.len() {
+                return Err(AssetError::new(
+                    ErrorKind::DanglingReference,
+                    "POSITION accessor OOB",
+                ));
+            }
+            let positions = read_vec3_f32(&accessors[pa], buffer_views, buffers)?;
+            let indices = match obj_field(prim, "indices").and_then(|v| v.as_u32()) {
+                Some(ai) => {
+                    let ai = ai as usize;
+                    if ai >= accessors.len() {
+                        return Err(AssetError::new(
+                            ErrorKind::DanglingReference,
+                            "indices accessor OOB",
+                        ));
+                    }
+                    read_index_values(&accessors[ai], buffer_views, buffers)?
+                }
+                None => (0..positions.len() as u32).collect(),
+            };
+            out.push(ImportedMesh {
+                mesh_id: mi as u32,
+                primitive_id: this_id,
+                positions,
+                indices,
+            });
+        }
+    }
+    Ok(out)
+}
+
 /// 导入结果。
 #[derive(Debug)]
 pub struct ImportResult {
     pub tables: CanonicalTables,
     pub coverage: ConsumedCoverage,
+    /// 真实解码的三角网格（M79 geom 节点的载荷上游；空 = 该文档不含可用几何）。
+    pub meshes: Vec<ImportedMesh>,
 }
 
 /// 对已解析 JSON 根执行验证并产出六表。
@@ -897,9 +1092,9 @@ pub fn import_document(
     let mut coverage = ConsumedCoverage::default();
     coverage.mark("asset");
     coverage.mark("asset.version");
-    let asset = root.get("asset").ok_or_else(|| {
-        AssetError::new(ErrorKind::Invalid, "missing asset object")
-    })?;
+    let asset = root
+        .get("asset")
+        .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "missing asset object"))?;
     let ver = obj_field(asset, "version")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AssetError::new(ErrorKind::Invalid, "asset.version missing"))?;
@@ -925,8 +1120,12 @@ pub fn import_document(
     }
 
     let tables = build_tables(root)?;
-    let _ = buffers;
-    Ok(ImportResult { tables, coverage })
+    let meshes = extract_meshes(root, &buffers)?;
+    Ok(ImportResult {
+        tables,
+        coverage,
+        meshes,
+    })
 }
 
 #[cfg(test)]
@@ -941,8 +1140,8 @@ mod tests {
             r#"{"asset":{"version":"2.0"},"extensionsRequired":["EXT_meshopt_compression"]}"#,
         )
         .unwrap();
-        let err = import_document(&doc, Path::new("."), None, &ImportOptions::default())
-            .unwrap_err();
+        let err =
+            import_document(&doc, Path::new("."), None, &ImportOptions::default()).unwrap_err();
         assert_eq!(err.kind, ErrorKind::ExtensionNotAllowed);
     }
 }

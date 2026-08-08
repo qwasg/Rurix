@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m83_texture_transcode",
+  "symbolic_gate_key": "g8.p1.m83.texture_transcode",
+  "matrix_row": "M83",
+  "wave": "G8.3",
+  "numeric_step": 107,
+  "source_ref": "RFC-0020 §4.8;spec/asset_pipeline.md RXS-0334",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "real_codec_identity": true,
+    "cook_twice_byte_equal": true,
+    "ktx2_leg_present_valid": true,
+    "basis_leg_present_valid": true,
+    "bcn_leg_formats_expected": true,
+    "astc_leg_format_expected": true,
+    "color_error_within_tolerance": true,
+    "normal_length_within_tolerance": true,
+    "alpha_coverage_within_tolerance": true,
+    "container_not_renamed": true,
+    "license_sbom_entries_present": true,
+    "transcode_hook_zero_byte": true,
+    "double_cook_across_isolated_roots": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260807T070713Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M83 host 门;device=not_applicable。basis_leg=real basis_universal ETC1S (sig=sB, slices=2, transcode_roundtrip_blocks=16) astc gradient fixture: total=64 weighted=64 void_extent=0 real codec=basis_universal/1.16.4+g900e40fb5d25 (upstream 1.16.4@900e40fb5d25);measured color_max_delta=0,normal_mad=0.047106,alpha_cov=0.0"
+}

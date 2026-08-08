@@ -1,0 +1,44 @@
+{
+  "schema": "rurix.doc-drift-cleanup.v1",
+  "track": "track4_doc_drift_zero",
+  "timestamp": "20260808T105310",
+  "agent_scope": "top-level non-governance status mirrors only (append-only, no rewrite)",
+  "g8_close_fact": {
+    "status": "closed",
+    "close_date": "2026-08-06",
+    "flip_commit": "b4189e79",
+    "verify_command": "git log -1 --format='%h %ad %s' --date=short b4189e79; head -8 milestones/g8/G8_CONTRACT.md",
+    "verify_output_summary": "b4189e79 2026-08-06 chore(g8): G8_CONTRACT status active->closed; G8_CONTRACT.md front matter status: closed"
+  },
+  "edits": [
+    {
+      "file": "00_MASTER_INDEX.md",
+      "action": "append errata line dated 2026-08-08 after the 2026-08-05 errata (header block, old lines 0-byte untouched)",
+      "before": "latest errata (2026-08-05) still described G8 as G8.1 governance wave / G8.2 interlock READY; 2026-08-02 errata claimed implementation_status: blocked with only G8.1 authorized",
+      "after": "new 2026-08-08 errata line states G8 closed 2026-08-06 (flip commit b4189e79) and marks the blocked/only-G8.1 lines as expired snapshots"
+    },
+    {
+      "file": "README.md",
+      "action": "append blockquote status erratum (2026-08-08) directly after the milestone table G8 row; heading line 26 and G8 row kept verbatim",
+      "before": "heading said 'G8 仅治理波立项'; G8 row said '门已开 ≠ 门已绿, 零 G8 实现能力可宣称为绿' (2026-08-05 snapshot)",
+      "after": "erratum notes both are 2026-08-05 snapshots and that G8 closed 2026-08-06 (flip commit b4189e79), deferring per-gate terminal states to G8_CONTRACT close-out section"
+    },
+    {
+      "file": "README.en.md",
+      "action": "append blockquote status erratum (2026-08-08) after the G6/G7 paragraph; stale heading (line 28) and G7-active paragraph kept verbatim",
+      "before": "heading said 'G5 and G6 closed; G7 Production Frame Closure is active'",
+      "after": "erratum states G7 closed 2026-08-05 (g7-closed) and G8 closed 2026-08-06 (flip commit b4189e79)"
+    }
+  ],
+  "not_touched_by_policy": [
+    "milestones/g8/** (historical snapshot lines, covered by per-file append-only errata; forbidden)",
+    "registry/**, conformance/**, agents/** (forbidden)"
+  ],
+  "doubtful_left_for_main_agent": [
+    "rfcs/README.md:70 — '当前诚实输出 BLOCKED / 当前下一个未用 Full RFC 为 RFC-0022' inside a 2026-08-02-dated calibration blockquote; stale but arguably a dated historical snapshot; not edited",
+    "rfcs/0021-physics-platform.md:542 — '批准本身不改变 implementation_status: blocked' in RFC body; historical condition-of-approval line; not edited",
+    "rfcs/0019-rendering-platform.md, rfcs/0020-asset-pipeline.md, spec/*.md, unsafe-audit/*.md, tests/tsr_contract/GOV_WIRING.md, src/rurix-basis-sys/VENDOR.md — G8 mentions are per-wave technical references, not current-status mirrors; not edited"
+  ],
+  "no_gate_cleared": true,
+  "note": "docs-only drift cleanup; no CI gate, no device evidence required; no RED arm applicable"
+}

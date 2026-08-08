@@ -44,6 +44,8 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 | G7 | 2026-08-05 `g7-closed` | Production Frame Closure 收口:RD-038 closed(compute SPIR-V 1.4/RayQuery、W3 GI/RTAO/硬阴影、VisBuffer SW/HW diff=0、字面余项与 One True Device Frame + soak);见 [`milestones/g7/G7_CONTRACT.md`](milestones/g7/G7_CONTRACT.md) §8.1 |
 | G8 | 2026-08-05 `status: active` / **`implementation_status: unblocked`**(2026-08-02 立项时为 `blocked`) | UE5 级前置能力完成期。G8.1 治理波已交付:契约四件套 + 候选决策表 + 18 个 P0 验收映射 + RFC-0019/0020/0021(均 Agent Approved,D-409 独立 provenance 评审)+ RTX 4070 Ti measured baseline + 三个治理 validator。**G8.2 实现门已开**:G7 `closed`(`g7-closed`)+ RD-038 `closed`,`py -3 ci/check_g8_implementation_interlock.py --require-ready` 输出 `VERDICT = READY`,凭据逐字见 [`G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) §8.1。**门已开 ≠ 门已绿**:21 个 P0/P1 symbolic gate 当前一件未 materialize,零 G8 实现能力可宣称为绿 |
 
+> **状态勘误(2026-08-08,只追加不回写)**:上方状态标题「G8 仅治理波立项」与 G8 行「门已开 ≠ 门已绿,零 G8 实现能力可宣称为绿」均为 2026-08-05 时快照——**G8 已于 2026-08-06 收口**(`status: closed`,close-out flip commit `b4189e79`);G8.2~G8.8 各波已实施并验收,各 P0/P1 门终态(含 no-go/defer/诚实降级留档)以 [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) 最新 close-out 段与 `registry/` 为准,旧行按只追加纪律不回写。
+
 旗舰用例与关键交付(全部端到端真机验收):
 
 - **UC-01 — PyTorch 算子替换**:`rx build --emit=pyd` 产 PYD(nanobind + scikit-build-core),经 `__cuda_array_interface__` v3 / DLPack 双协议零拷贝接入 PyTorch CUDA 张量;SAXPY/Reduction/GEMM 算子替换 **≥ 手写 CUDA C++ 90%**(measured_local)。

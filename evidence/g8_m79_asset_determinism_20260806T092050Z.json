@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m79_asset_determinism",
+  "symbolic_gate_key": "g8.p0.m79.asset_determinism",
+  "matrix_row": "G8.3",
+  "wave": "G8.3",
+  "numeric_step": 108,
+  "source_ref": "RFC-0020 §4.2/§4.6; design §3.1; RXS-0335~0337",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "canon_golden_byte_equal": true,
+    "canon_reject_corpus_fail_closed": true,
+    "double_build_isolated_roots": true,
+    "double_build_dag_byte_equal": true,
+    "double_build_artifacts_byte_equal": true,
+    "double_build_manifest_digest_equal": true,
+    "mutate_dependency_flips_key": true,
+    "mutate_recipe_flips_key": true,
+    "mutate_profile_flips_key": true,
+    "mutate_tool_version_flips_key": true,
+    "unrelated_nodes_keys_stable": true,
+    "no_env_time_path_in_signed_bytes": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092050Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M79 host: canon corpus + double-build + mutations; device N/A"
+}

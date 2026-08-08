@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m66_physics_replay",
+  "symbolic_gate_key": "g8.p0.m66.physics_replay",
+  "matrix_row": "M66",
+  "wave": "G8.6a",
+  "numeric_step": 120,
+  "source_ref": "RFC-0021 §4.A1;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §2;G8_ACCEPTANCE_MAP M66",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "capture_header_complete": true,
+    "recovery_layer_registered": true,
+    "capture_artifact_persisted": true,
+    "corpus_scene_count_min": true,
+    "per_tick_hash_equal_all_scenes": true,
+    "event_digest_equal_all_scenes": true,
+    "journal_fully_consumed": true,
+    "journal_leftover_fails_closed": true,
+    "journal_missing_fails_closed": true,
+    "generation_reuse_stable": true,
+    "streaming_receipt_order_journaled": true,
+    "float_canonicalization_enforced": true,
+    "injection_divergence_exact_all": true,
+    "injection_report_fields_complete": true,
+    "non_whitelist_injection_rejected": true
+  },
+  "jolt_ab": {
+    "probe": "vendor_missing",
+    "jolt_version_pinned": "5.3.0",
+    "ab_pass": false,
+    "verdict": "pin_5_3_honest_stop_loss",
+    "honest_boundary": "Phase0: JoltC-next absent → formal pin 5.3 stop-loss; never claim 5.6 PASS without dual-binary A/B"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092454Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "jolt_ab=pin_5_3_honest_stop_loss probe=vendor_missing"
+}

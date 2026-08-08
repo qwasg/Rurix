@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m01_meshlet_page_builder",
+  "symbolic_gate_key": "g8.p0.m01.meshlet_page_builder",
+  "matrix_row": "M01",
+  "wave": "G8.3",
+  "numeric_step": 105,
+  "source_ref": "RFC-0020 §4.9;spec/geometry_pages.md RXS-0328~0331;G8_ACCEPTANCE_MAP §2 M01",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "builder_double_run_byte_equal": true,
+    "header_magic_version_golden": true,
+    "header_schema_digest_golden": true,
+    "decoded_dag_nodes_equal_reference": true,
+    "decoded_dag_edges_equal_reference": true,
+    "decoded_bounds_equal_reference": true,
+    "decoded_lod_parent_equal_reference": true,
+    "page_size_within_contract": true,
+    "unknown_version_rejected_pre_consume": true,
+    "rxgb_converter_explicit": true,
+    "rxgb_reader_zero_byte": true,
+    "not_substituted_by_m04": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092421Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "host 纯 host 门;device 段 not_applicable。12 腿经 g8_m01_probe + cargo test -p rurix-geom-pages/rurix-asset/rurix-geom-build(serialize)。numeric_step=105 为预占,ledger 合入时校准。"
+}

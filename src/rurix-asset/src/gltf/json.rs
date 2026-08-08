@@ -48,7 +48,9 @@ impl JsonValue {
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             JsonValue::I64(i) => Some(*i),
-            JsonValue::F64(f) if f.fract() == 0.0 && *f >= i64::MIN as f64 && *f <= i64::MAX as f64 => {
+            JsonValue::F64(f)
+                if f.fract() == 0.0 && *f >= i64::MIN as f64 && *f <= i64::MAX as f64 =>
+            {
                 Some(*f as i64)
             }
             _ => None,
@@ -175,9 +177,8 @@ impl<'a> Parser<'a> {
                             for _ in 0..4 {
                                 let h = self.bump()?;
                                 code = (code << 4)
-                                    | hex_nibble(h).ok_or_else(|| {
-                                        self.err("invalid \\u escape hex digit")
-                                    })?;
+                                    | hex_nibble(h)
+                                        .ok_or_else(|| self.err("invalid \\u escape hex digit"))?;
                             }
                             let ch = char::from_u32(code).ok_or_else(|| {
                                 self.err(format!("invalid unicode scalar U+{code:04X}"))
@@ -190,15 +191,14 @@ impl<'a> Parser<'a> {
                     }
                 }
                 0x00..=0x1f => {
-                    return Err(self.err(format!(
-                        "bare control character 0x{b:02x} in JSON string"
-                    )));
+                    return Err(
+                        self.err(format!("bare control character 0x{b:02x} in JSON string"))
+                    );
                 }
                 _ => {
                     // UTF-8 multi-byte: validate sequence from current byte.
-                    let width = utf8_width(b).ok_or_else(|| {
-                        self.err(format!("invalid UTF-8 lead byte 0x{b:02x}"))
-                    })?;
+                    let width = utf8_width(b)
+                        .ok_or_else(|| self.err(format!("invalid UTF-8 lead byte 0x{b:02x}")))?;
                     if width == 1 {
                         out.push(b as char);
                     } else {
@@ -366,9 +366,8 @@ pub fn parse_str(text: &str) -> Result<JsonValue> {
 /// 解析字节;非法 UTF-8 在字符串/整体层面拒录。
 pub fn parse_bytes(bytes: &[u8]) -> Result<JsonValue> {
     // 整体必须是合法 UTF-8(GLB JSON chunk 也走此路径)。
-    std::str::from_utf8(bytes).map_err(|_| {
-        AssetError::new(ErrorKind::JsonStrict, "JSON bytes are not valid UTF-8")
-    })?;
+    std::str::from_utf8(bytes)
+        .map_err(|_| AssetError::new(ErrorKind::JsonStrict, "JSON bytes are not valid UTF-8"))?;
     let mut p = Parser::new(bytes);
     let v = p.parse_value(0)?;
     p.skip_ws();

@@ -1,5 +1,5 @@
 //! 手写 `extern "C"` 声明 + POD 镜像(U45)。
-//! 签名对齐 `vendor/rurix_basis_shim/rurix_basis_shim.h`。
+//! 签名对齐 `ffi/rurix_basis_wrap.h`(真实 basis_universal 1.16.4 包装)。
 
 #![allow(non_camel_case_types)]
 
@@ -11,26 +11,39 @@ pub struct RurixBasisBuf {
     pub len: usize,
 }
 
+/// 容器编码模式(== wrap 头 `RURIX_BASIS_MODE_*` 字面)。
+pub const MODE_UASTC_KTX2: i32 = 0;
+pub const MODE_ETC1S_BASIS: i32 = 1;
+
+/// transcode 源容器种类(== wrap 头 `RURIX_BASIS_SRC_*` 字面)。
+pub const SRC_BASIS: i32 = 0;
+pub const SRC_KTX2: i32 = 1;
+
+/// transcode 目标(== 上游 `basist::transcoder_texture_format` 字面)。
+pub const TF_BC4_R: i32 = 4;
+pub const TF_BC5_RG: i32 = 5;
+pub const TF_BC7_RGBA: i32 = 6;
+pub const TF_ASTC_4X4: i32 = 10;
+
 unsafe extern "C" {
     pub fn rurix_basis_version() -> *const c_char;
     pub fn rurix_basis_buf_free(buf: *mut RurixBasisBuf);
-    pub fn rurix_basis_encode_bc7_rgba8(
+    pub fn rurix_basis_encode_container(
         rgba: *const u8,
         width: u32,
         height: u32,
+        mode: i32,
+        swizzle_rg: i32,
         out: *mut RurixBasisBuf,
     ) -> i32;
-    pub fn rurix_basis_encode_bc1_rgba8(
-        rgba: *const u8,
-        width: u32,
-        height: u32,
+    pub fn rurix_basis_transcode(
+        data: *const u8,
+        len: usize,
+        src_kind: i32,
+        target: i32,
         out: *mut RurixBasisBuf,
-    ) -> i32;
-    pub fn rurix_basis_encode_astc4x4_rgba8(
-        rgba: *const u8,
-        width: u32,
-        height: u32,
-        out: *mut RurixBasisBuf,
+        out_width: *mut u32,
+        out_height: *mut u32,
     ) -> i32;
 }
 
@@ -41,7 +54,10 @@ mod layout {
 
     #[test]
     fn ffi_layout_anchors() {
-        assert_eq!(size_of::<RurixBasisBuf>(), size_of::<*mut u8>() + size_of::<usize>());
+        assert_eq!(
+            size_of::<RurixBasisBuf>(),
+            size_of::<*mut u8>() + size_of::<usize>()
+        );
         assert_eq!(align_of::<RurixBasisBuf>(), align_of::<*mut u8>());
     }
 }

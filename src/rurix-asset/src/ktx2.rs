@@ -10,12 +10,7 @@ pub const VK_FORMAT_BC7_UNORM_BLOCK: u32 = 145;
 pub const VK_FORMAT_ASTC_4X4_UNORM_BLOCK: u32 = 157;
 
 /// 写入单 mip / 单 face、`supercompressionScheme = 0` 的 KTX2。
-pub fn write_ktx2_uncompressed(
-    vk_format: u32,
-    width: u32,
-    height: u32,
-    level0: &[u8],
-) -> Vec<u8> {
+pub fn write_ktx2_uncompressed(vk_format: u32, width: u32, height: u32, level0: &[u8]) -> Vec<u8> {
     // 极简 DFD:totalSize + 一个占位 descriptor block。
     // smoke 核验 magic / scheme / level 计数;完整 DFD 随 basis_universal 合入升级。
     // 布局: u32 totalSize | u32 vendorId | u16 descriptorType | u16 version |
@@ -71,8 +66,16 @@ pub fn write_ktx2_uncompressed(
 }
 
 /// RXBC 自制 BCn 容器: magic `RXBC` + ver u16 + format u16 + w/h u32 + payload。
+///
+/// 注:RXBC 是**离线 BCn 块的 Rurix 自有封装**(非冒充任何标准容器);
+/// format 值语义 = BCn 家族编号。`.basis` / `.ktx2` 两腿一律用真实
+/// basis_universal 码流,不经本封装。
 pub const RXBC_MAGIC: &[u8; 4] = b"RXBC";
 pub const RXBC_FMT_BC7: u16 = 7;
+/// BC5_UNORM(双 BC4 = XY;normal 语义腿)。
+pub const RXBC_FMT_BC5: u16 = 5;
+/// BC4_UNORM(单通道;mask 语义腿)。
+pub const RXBC_FMT_BC4: u16 = 4;
 
 pub fn write_rxbc(format: u16, width: u32, height: u32, blocks: &[u8]) -> Vec<u8> {
     let mut o = Vec::with_capacity(16 + blocks.len());
@@ -99,18 +102,10 @@ pub fn write_rxas(width: u32, height: u32, blocks: &[u8]) -> Vec<u8> {
     o
 }
 
-/// RXBS 过渡 Basis/ETC1S 腿容器(完整 `.basis` 随 basis_universal 合入升级)。
-/// magic `RXBS` + ver u16 + format u16(1=ETC1S-via-BC1) + w/h u32 + payload。
-pub const RXBS_MAGIC: &[u8; 4] = b"RXBS";
-pub const RXBS_FMT_ETC1S_VIA_BC1: u16 = 1;
-
-pub fn write_rxbs(format: u16, width: u32, height: u32, blocks: &[u8]) -> Vec<u8> {
-    let mut o = Vec::with_capacity(16 + blocks.len());
-    o.extend_from_slice(RXBS_MAGIC);
-    o.extend_from_slice(&1u16.to_le_bytes());
-    o.extend_from_slice(&format.to_le_bytes());
-    o.extend_from_slice(&width.to_le_bytes());
-    o.extend_from_slice(&height.to_le_bytes());
-    o.extend_from_slice(blocks);
-    o
-}
+// RXBS(过渡 Basis/ETC1S 腿容器)已**删除**:`.basis` 腿现由真实
+// basis_universal ETC1S 码流产出(`rurix_basis_sys::encode_container`),
+// 自制容器冒充 `.basis` 属假绿形态,禁止复活。
+//
+// 真实 `.basis` 文件签名 = `packed_uint<2>` LE 存 `('B'<<8)|'s'` → 磁盘字节 `b"sB"`。
+/// 真实 `.basis` 磁盘签名字节(校验锚;非写入器)。
+pub const BASIS_FILE_SIG: [u8; 2] = [b's', b'B'];

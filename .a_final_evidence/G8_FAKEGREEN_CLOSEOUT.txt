@@ -1,0 +1,88 @@
+G8 修复/降级清零 · 一枪打完 — 战役闭环日志
+================================================
+日期 2026-08-08（UTC）  机器：本机 RTX 4070 Ti，RURIX_REQUIRE_REAL=1
+HEAD b4189e79（G8 status flip closed）脏树作战，全程未 commit / 未 push。
+治理热点 0-byte 核实：number_ledger / deferred / pr-smoke.yml / budget_eval /
+check_schemas.py / g8_budget.json / G8_CAPABILITY_MATRIX / traceability_matrix
+均未碰；G8_CONTRACT 仅 §8.27 纯追加；CI_GATES 仅 +2 行追加（§7 第 7 条 + v1.24 行）。
+
+一、各 Track 结论（fix vs degrade）
+------------------------------------------------
+Track 0  A2/A2.1 固化复验 —— PASS，零改动，无缺件。
+  自证：selftest digest-falsify 5/5 + mark-falsify 9/9；M19 gate 18/18 device=pass
+  （4 条 RED 臂实机翻红）；wave5a.exit PASS；cargo test -p rurix-render shadow:: 34 passed。
+  local-spot mark 维持 host 白盒记账（A21 诚实边界，未动）。
+  证据：evidence/g8_m19_vsm_page_cache_20260808T025114Z.json、
+        evidence/g8_wave5a_exit_20260808T025136Z.json
+
+Track 1  A3 soak 假绿清零 —— PASS，选 A（真加固）。
+  1) sleep 充墙钟禁绝：run_soak 无 sleep，双阈值全部由真实帧循环产出，
+     sleep_seconds 恒 0（构造保证），active_frame_seconds == soak_seconds。
+  2) validation_messages/device_lost_count 字面量 0 移除：subject=host-soak 明示，
+     伪 device 零错门从 schema required 移除（旧 evidence 兼容保留为可选）。
+  3) RSS 假采样（Windows 恒 0）移除，notes 声明「rss 未门禁」。
+  4) smoke 反假绿：judge_soak + legacy_soak_acceptable；selftest 6 臂——
+     A1 复现 .a3_evidence/01 基线假绿→红；A2 sleep>0→红；A3 外测墙钟戳穿谎报→红；
+     A4 诚实样本→绿；A5 legacy 两臂（真实超时兼容/sleep 凑整判红）。
+  全量门实跑：17812 真实帧 / active 1800.034s / sleep 0 →
+     evidence/g8_wave8a_soak_20260808T033806Z.json（21 门回归同批全 PASS）。
+  主 agent 收口补丁：judge_soak 秒数取键兼容 evidence 的 `seconds`
+     （原只读二进制 raw 的 `soak_seconds`，verify-latest 误判红；一行回退修复，
+     selftest 6/6 仍符合预期）。
+  复验：--verify-latest → PASS(honest soak)；--selftest → 6/6；
+     g8_closeout_check --gate g8.wave.8b.closeout → VERDICT=READY
+     （evidence/g8_wave8b_closeout_20260808T034256Z.json）。
+  说明文档：milestones/g8/G8_8A_SOAK_SEMANTICS_NOTES.md（新）；
+     CI_GATES.md 纯追加 §7 第 7 条 + v1.24 行（判据语义改变，授权内最小追加）。
+
+Track 2  A4 vehicle 薄壳清零 —— PASS，选 A（真实现 6 腿，无降级）。
+  新确定性载具 sim（240 tick 固定步：动力/换挡/悬挂/轮胎推挤轻物体），
+  六腿逐腿实现：asset_roundtrip / fixed_input_replay_hash_equal /
+  rollback_correction_converges / tire_light_object_contact_regression_golden /
+  state_serialization_roundtrip / telemetry_trace_golden。
+  g8-physics-gates vehicle 吐逐腿布尔；wave6d exit 逐腿断言（单 bool 自指关闭）。
+  证伪：二进制 --falsify <leg> 6 臂 + exit selftest 6 臂 = 12/12 全红通过。
+  M72 零回归：g8_cloth_product_chain_smoke VERDICT=PASS。
+  证据：evidence/g8_wave6d_exit_20260808T031010Z.json、
+        evidence/g8_m72_cloth_product_chain_20260808T030955Z.json；
+        notes：.a4_evidence/01_vehicle_six_leg_notes.md。
+  保留诚实边界：sim 为解析式 fixture 模型，未声称 Jolt cast_ray/AddForceAtPoint
+  集成与 VehicleConstraint 对拍（design §5.2 后半步，本战役 scope 外）。
+
+Track 3  M83 vendor 收口 —— PASS，无降级。
+  vendor_basis_universal.py --verify → OK 64 文件，digest 与 VENDOR/SBOM 字面一致；
+  pin = basis_universal 1.16.4 @ 900e40fb（三处字面全等）；RXBS 容器已删除，
+  lib.rs 运行期硬拒 RXBS 头；过渡 shim 不参与编译。
+  M83 gate 13/13 PASS（basis_leg=real ETC1S 转码实测）→ evidence/...025046Z；
+  M79 gate 12/12 PASS → evidence/...025047Z。
+  G8_CONTRACT.md 文末追加 §8.27「M83 vendor 升级清零」（+19/-0 纯追加）；
+  §8.12 历史行 0-byte；status 未 flip。
+
+Track 4  文档漂移 —— PASS（纯追加，零治理文件触碰）。
+  00_MASTER_INDEX.md / README.md / README.en.md 各追加 2026-08-08 勘误行，
+  旧快照行保留。doc_drift 证据件非门证据，已由主 agent 移出 evidence/ 至
+  .a_final_evidence/doc_drift_track4_20260808T105310.json（修 check_schemas FAIL）。
+
+Track 5  终验矩阵 —— 全绿：
+  M19 18/18 + selftest + wave5a PASS（T0）；M83 13/13 + M79 12/12（T3）；
+  wave6d.exit PASS（T2）；8a selftest 6/6 + verify-latest honest PASS +
+  closeout READY；check_schemas PASS；抽检 m66 physics_replay VERDICT=PASS、
+  m72 PASS 零回归。
+
+二、仍保留的诚实降级清单（非 bug，禁止「修」）
+------------------------------------------------
+- local-spot mark host 白盒记账（A21 声明边界，不进 device 判据）。
+- 8a soak：host-soak 无 device validation/device-lost 面（subject 明示）；
+  RSS 未门禁（Windows 无采样器，notes 声明）。
+- vehicle sim 为解析式 fixture，未对拍 Jolt 运行时（design §5.2 后半步）。
+- Jolt pin_5_3_honest_stop_loss（m66 ab_pass=False 为诚实止损态）。
+- 单队列 fallback、VT=SKIP=not-triggered、P2 31 行 no-go/defer、
+  RD-039/040/041/044 总体 open、M28/M40 retained-open。
+- G8_CONTRACT §8.12「RXBS 过渡」历史行保留（§8.27 追加更正现状）。
+
+三、未做项 / 存疑移交
+------------------------------------------------
+- rfcs/README.md:70「当前 RFC-0022 next_free」嵌在 2026-08-02 日期校准 blockquote 内，
+  裁决为历史快照不动（number_ledger 属 0-byte 热点，无权核验现值）。
+- 默认不 commit：本战役全部改动留在工作树，提交拆分建议
+  （M19固化 / soak / vehicle / M83+docs）待用户明确指令。

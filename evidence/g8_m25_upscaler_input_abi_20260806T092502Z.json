@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m25_upscaler_input_abi",
+  "symbolic_gate_key": "g8.p1.m25.upscaler_input_abi",
+  "matrix_row": "M25",
+  "wave": "G8.5b",
+  "numeric_step": 118,
+  "source_ref": "G8_ACCEPTANCE_MAP §2 M25;G8.5_RENDERING_COMPLETION_DESIGN §4–§5;RD-041 M25 go;vendor FSR FFI open-observe",
+  "host_section_pass": true,
+  "device_section_state": "pass",
+  "checks": {
+    "abi_ten_inputs_enumerated": true,
+    "abi_layout_hash_stable": true,
+    "abi_hash_sensitive": true,
+    "missing_input_fail_closed": true,
+    "hash_mismatch_fail_closed": true,
+    "backend_tsr_consumes_all": true,
+    "backend_cas_consumes_all": true,
+    "output_extent_and_finite": true,
+    "sequence_digest_match": true,
+    "backend_switch_abi_identical": true,
+    "not_stub": true,
+    "validation_zero": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092502Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "abi_hash": "de0d928b216d112f4c6fb3bcefcef3e682a073ae0ecfeb2f98b883a5517e96a9",
+  "backends": {
+    "primary": "tsr",
+    "secondary": "cas_easu",
+    "vendor_fsr_ffi": "open_rd041_observe"
+  },
+  "retained_open": [
+    {
+      "matrix_row": "M05",
+      "decision": "no-go",
+      "status": "open-留 G8.7",
+      "trigger": "维持决策表 RD-039 位移/RD-041 蒙皮·WPO MV 既判;动态资产面出现后重判"
+    },
+    {
+      "matrix_row": "M07",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "RT 与主几何误差联动需求出现(M50 消费侧真实资产)时判档"
+    },
+    {
+      "matrix_row": "M08",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "材质数规模使 dispatch 分桶成为 measured 瓶颈时"
+    },
+    {
+      "matrix_row": "M45",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "HDR 显示设备资产/产品需求出现时"
+    },
+    {
+      "matrix_row": "M46",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "产品级后处理需求(bloom/DOF/曝光分级)随 G9+ 建造期出现时"
+    },
+    {
+      "matrix_row": "M47",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "透明资产面出现时;OIT 策略选型需 measured 对照(M24 最小透明贡献不冒充 M47)"
+    },
+    {
+      "matrix_row": "M17",
+      "decision": "no-go",
+      "status": "open",
+      "trigger": "GI/材质画质门需要跨路径 golden 时(G9+ 建造期前置;建议 G8.7 复审)"
+    }
+  ],
+  "notes": "abi_hash=de0d928b216d112f4c6fb3bcefcef3e682a073ae0ecfeb2f98b883a5517e96a9; tsr_digest=cfe161c7762d33730662fa11908b718f14bc3f7f1369abe12d445b778ba57751; cas_digest=2a30967ed807004ec8d818846455bee4903becf4ac18e3753851b9e7b91ed0c4; device max_abs_err=2.980232239e-07; retained_open anchored in CANDIDATE §加性节 + evidence array"
+}

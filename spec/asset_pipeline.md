@@ -119,7 +119,9 @@
 
 - 节点五元组:`tool_id + tool_digest + typed_inputs + typed_outputs + canonical_params`。
 - 无环;未注册 tool fail-closed;类型系统无 shell/`build.rs`/网络节点。
-- 首批注册工具:`rurix.gltf.import.v1` / `rurix.geom.pages.v1` / `rurix.texture.cook.v1`。
+- 首批注册工具:`rurix.gltf.import.v1` / `rurix.geom.pages.v1` / `rurix.texture.cook.v1`;三者在 M79 DAG 中**均须真实执行**,不得以占位注册(`let _ = TOOL_*`)或跳过节点充数。
+- **真实数据流边**:`rurix.geom.pages.v1` 的 `typed_inputs` 须消费 `rurix.gltf.import.v1` 的网格输出(`artifact.gltf_mesh`);禁以程序化几何(`TriMesh::uv_sphere`/`cube` 等)旁路替代导入网格作为 geom 上游。程序化网格仅许用于 M01/M04 自身单测与 golden,不得进入 M79 DAG 的 geom 上游。
+- **产物真实性 fail-closed**:签名 artifact 须通过容器识别(如 KTX2 magic)与非常量填充检查;全零/单字节常量填充载荷即 `Err`,不得计入绿。
 - 调度序不进签名输出。
 
 **测试要求**:
@@ -135,6 +137,7 @@
 
 - 两隔离绝对路径根 + 起始空产物目录;同 plan 双构建 → DAG/artifact/manifest digest 逐字节相等。
 - 四类单变量 mutation(依赖内容 / recipe / profile / tool version)翻转受影响 key,无关节点 key 稳定。
+- 「依赖内容」腿须为**真实源字节 mutation**(两份 glTF 文档 JSON 逐字节相同、仅外部顶点缓冲字节不同),不得以 recipe/profile 类**参数**变更冒充依赖内容变更;该腿同时充当「导入网格真实流入 geom 下游」的守门断言——若 geom 由程序化几何旁路产出,源内容变化不传导,本腿必红。
 - 签名字节扫描:零绝对路径/时间戳/PID 字面。
 
 **测试要求**:
@@ -166,4 +169,5 @@
 | v1.1 | 2026-08-06 | M81 加性扩写:`### RXS-0332`/`### RXS-0333` 补测试要求、conformance 语料目录与 fail-closed 必达类;挂钩 `ci/g8_gltf_import_smoke.py`(numeric_step=106)。**未改** `### RXS-0334`。 | Draft |
 | v1.2 | 2026-08-06 | M79:`### RXS-0335` AP-CANON + `### RXS-0336` AP-GRAPH + `### RXS-0337` 双构建 mutation。 | Draft |
 | v1.3 | 2026-08-06 | M80:`### RXS-0343` AP-DDC。 | Draft |
+| v1.4 | 2026-08-07 | M79 降级清零(加性收紧,未改既有字面):`### RXS-0336` 增「三工具均须真实执行」+「真实数据流边(禁程序化几何旁路作 geom 上游)」+「产物真实性 fail-closed」;`### RXS-0337` 增「依赖内容腿须为真实源字节 mutation」并明确其兼作导入网格流入守门断言。**未改** `### RXS-0335`/`0343`。 | Draft |
 

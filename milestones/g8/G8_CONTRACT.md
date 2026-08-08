@@ -684,3 +684,22 @@ py -3 ci/g8_wave2_exit_check.py --gate g8.wave.2.exit
 
 **裁决**：G-G8-1~11 对应波次与硬门已 materialize；8a soak PASS；8b `VERDICT=READY`（`4190f81b`）。  
 front matter **`status: active` → `status: closed`**（洁净独行）。RD-039/040/041/044 总体维持 open（分项 closed 已由候选决策表留痕）。本条为 close-out 终审签署块。
+
+### 8.27 M83 vendor 升级清零（2026-08-08）
+
+**触发**：战后假绿清零战役——§8.12 诚实边界登记的「完整 basis_universal vendor 待升级」过渡腿收口。
+
+**交付物**：
+- `src/rurix-basis-sys/vendor/basis_universal/`：真实上游 vendor 快照（BinomialLLC tag **1.16.4** @ commit `900e40fb5d2502927360fe2f31762bdbb624455f`；版本串 `basis_universal/1.16.4+g900e40fb5d25`，与 `rurix_basis_version()` 字面全等；64 文件 + `vendor_manifest.json` 逐文件 sha256）
+- `ci/vendor_basis_universal.py`：vendor 拉取/校验脚本（`--verify` 复核聚合 source_digest）
+- `build.rs` 经 `cc` 编译显式 .cpp 清单（encoder 17 + transcoder 1 + 薄 C wrap；禁 cmake）；`ffi/rurix_basis_wrap.{h,cpp}`
+- `VENDOR.md`/`SBOM.md`/`NOTICE` 过渡串清零：活跃 pin 三处一致；`rurix-basis-transitional/0.1.0` 仅存于「已废除」历史行与停用 shim 源码（`vendor/rurix_basis_shim/`，不参与编译）
+- `rurix-asset::{texture,ktx2,bcdec,cook}`：`.basis` 腿 = 真实 ETC1S 码流（签名 `sB`），过渡 RXBS 容器已删除，禁 RXBS/RXBC/RXAS/KTX2 冒充 `.basis`
+
+**诚实边界**：§8.12 为历史事实行不改写；确定性钳制不变（禁 zstd supercompression / OpenCL / SSE 特化、线程恒 1）；任何含过渡串的旧 evidence 均为旧快照。本条只追加，不 flip status。
+
+**验收**：
+- `py -3 ci/g8_texture_transcode_smoke.py --gate g8.p1.m83.texture_transcode` → **PASS 13/13**（`evidence/g8_m83_texture_transcode_20260808T025046Z.json`；basis_leg=real basis_universal ETC1S sig=sB、transcode 回环块数==golden；ASTC gradient 64/64 真实权重块、void_extent=0）
+- `py -3 ci/g8_asset_determinism_smoke.py --gate g8.p0.m79.asset_determinism` → **PASS 12/12**（`evidence/g8_m79_asset_determinism_20260808T025047Z.json`）
+- `py -3 ci/vendor_basis_universal.py --verify` → OK（64 文件；source_digest=`a9a6ac43374801b74b2e73de781f1776992a274c6fdbb199e7c15534b455ab87`，与 VENDOR.md/SBOM.md 字面一致）
+- 双 smoke `--selftest` 均 PASS（证伪臂）；`py -3 ci/check_schemas.py` PASS
