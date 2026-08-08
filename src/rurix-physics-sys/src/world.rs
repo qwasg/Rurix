@@ -965,6 +965,31 @@ impl Inner {
         Ok(())
     }
 
+    pub(crate) fn add_force_at_point(
+        &mut self,
+        token: u64,
+        force: [f32; 3],
+        point: [f32; 3],
+    ) -> Result<(), SysError> {
+        let id = self.validate_token(token)?;
+        if !force.iter().chain(point.iter()).all(|v| v.is_finite()) {
+            return Err(err(SysErrorCode::InvalidDesc, "force/point 必须有限"));
+        }
+        // SAFETY: id 在册;先激活(睡眠体受力需激活方生效,同 apply_impulse
+        // 的 §4.A7 唤醒锚)再于世界系点施力。DOUBLE_PRECISION=OFF 档
+        // JPC_RVec3 == JPC_Vec3,point 布局等价。
+        unsafe {
+            JPC_BodyInterface_ActivateBody(self.bi, id);
+            JPC_BodyInterface_AddForceAtPoint(
+                self.bi,
+                id,
+                JpcVec3::new(force[0], force[1], force[2]),
+                JpcVec3::new(point[0], point[1], point[2]),
+            );
+        }
+        Ok(())
+    }
+
     pub(crate) fn is_active(&self, token: u64) -> Result<bool, SysError> {
         let id = self.validate_token(token)?;
         // SAFETY: id 在册;只读路径。

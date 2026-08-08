@@ -416,6 +416,35 @@ impl PhysicsWorld {
         }
     }
 
+    /// 世界系点施力(M70 悬挂/驱动/侧向力唯一施力口;RFC-0021 §4.D1)。
+    ///
+    /// `force` 单位 N,作用一个 `dt_fixed` 步;`point` 为世界系作用点(轮接触点),
+    /// 由 Jolt 自行分解为线性 + 角动量分量。`force`/`point` 分量须有限。
+    /// Rapier 快路径未导出该面 → 确定性 `Err(BackendUnavailable)`(P-01 不静默回退)。
+    pub fn add_force_at_point(
+        &mut self,
+        body: BodyId,
+        force: [f32; 3],
+        point: [f32; 3],
+    ) -> Result<(), PhysicsError> {
+        if !force.iter().chain(point.iter()).all(|c| c.is_finite()) {
+            return Err(PhysicsError::InvalidDesc(
+                "force/point 分量须有限".into(),
+            ));
+        }
+        let token = self.body_token(body)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .add_force_at_point(token, force, point)
+                .map_err(physics_error_from_sys),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendUnavailable(
+                "add_force_at_point 仅 Jolt 后端导出".into(),
+            )),
+        }
+    }
+
     /// body 是否激活(未睡眠;§4.A7 单测锚)。
     pub fn is_active(&self, body: BodyId) -> Result<bool, PhysicsError> {
         let token = self.body_token(body)?;

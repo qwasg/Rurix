@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "subject": "g8_m72_cloth_product_chain",
+  "symbolic_gate_key": "g8.p1.m72.cloth_product_chain",
+  "matrix_row": "M72",
+  "wave": "G8.6d",
+  "numeric_step": 126,
+  "source_ref": "RFC-0021 §4.D2;G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §5;G8_ACCEPTANCE_MAP M72",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "schema_pass": true,
+    "import_pass": true,
+    "collision_pass": true,
+    "lod_pass": true,
+    "timeline_pass": true,
+    "solver_double_run_deterministic": true,
+    "bound_frozen_reference_present": true,
+    "cloth_capture_scene_appended": true
+  },
+  "penetration_bound": {
+    "frozen": true,
+    "reference": "RFC-0021 §6.5.1 cloth",
+    "max_penetration_m": 0.0125,
+    "measured_max_penetration_m": 0.001
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260806T092149Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "cloth product chain PASS"
+}

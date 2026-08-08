@@ -1,0 +1,1 @@
+{"ok":true,"vehicle_subject_pass":true,"detail":"vehicle capture state ok"}

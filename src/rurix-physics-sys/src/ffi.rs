@@ -737,6 +737,15 @@ unsafe extern "C" {
         body_id: JpcBodyId,
         impulse: JpcVec3,
     );
+    /// 世界系点施力(M70 载具悬挂/驱动/侧向力面;`JPC_RVec3` 在
+    /// `JPC_DOUBLE_PRECISION` 未定义档 typedef 为 `JPC_Vec3`,build.rs 固定
+    /// `DOUBLE_PRECISION=OFF`,故 point 形参用 `JpcVec3` 布局等价。
+    pub fn JPC_BodyInterface_AddForceAtPoint(
+        self_: *mut JpcBodyInterface,
+        body_id: JpcBodyId,
+        force: JpcVec3,
+        point: JpcVec3,
+    );
 
     // BodyLock(读世界空间表面法线用;cast_ray 命中回填 normal)
     pub fn JPC_BodyLockRead_new(

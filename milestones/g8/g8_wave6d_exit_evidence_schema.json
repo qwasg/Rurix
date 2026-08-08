@@ -77,7 +77,15 @@
           "id": { "type": "string" },
           "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
           "detail": { "type": "string" },
-          "evidence_path": { "type": ["string", "null"] }
+          "evidence_path": { "type": ["string", "null"] },
+          "legs": {
+            "type": "object",
+            "description": "m70.vehicle 六腿逐腿布尔(G8.6_G8.8_PHYSICS_CLOSEOUT_DESIGN.md §5.3;禁单 bool 自指)",
+            "additionalProperties": { "type": "boolean" }
+          },
+          "final_state_hash": { "type": "string" },
+          "contact_digest": { "type": "string" },
+          "telemetry_digest": { "type": "string" }
         }
       }
     },

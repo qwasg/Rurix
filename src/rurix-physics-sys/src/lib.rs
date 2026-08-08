@@ -223,6 +223,16 @@ impl SysWorld {
         self.inner.apply_impulse(token, impulse)
     }
 
+    /// 在世界系指定点施力(M70 悬挂/驱动/侧向力;力在下一 step 内积分)。
+    pub fn add_force_at_point(
+        &mut self,
+        token: u64,
+        force: [f32; 3],
+        point: [f32; 3],
+    ) -> Result<(), SysError> {
+        self.inner.add_force_at_point(token, force, point)
+    }
+
     /// body 是否激活(未睡眠)。
     pub fn is_active(&self, token: u64) -> Result<bool, SysError> {
         self.inner.is_active(token)

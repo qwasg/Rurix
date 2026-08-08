@@ -353,14 +353,39 @@ fn cmd_cloth(_args: &[String]) -> Result<String, CaptureError> {
     ))
 }
 
-fn cmd_vehicle(_args: &[String]) -> Result<String, CaptureError> {
-    use rurix_physics::vehicle::vehicle_subject_pass;
-    let (ok, detail) = vehicle_subject_pass();
+fn cmd_vehicle(args: &[String]) -> Result<String, CaptureError> {
+    use rurix_physics::vehicle::legs::{falsify_leg, run_vehicle_subject, LEG_NAMES};
+    // 逐腿 RED 证伪臂:ci selftest 专用;对该腿输入做最小摄动并回报腿结果(期望 false)。
+    if let Some(leg) = arg_value(args, "--falsify") {
+        return match falsify_leg(&leg) {
+            Some(result) => Ok(format!(
+                "{{\"ok\":true,\"falsify\":\"{}\",\"leg_result\":{}}}",
+                util::json_escape(&leg),
+                util::json_bool(result)
+            )),
+            None => Err(CaptureError::Rejected(format!(
+                "unknown leg {leg}; known: {}",
+                LEG_NAMES.join(",")
+            ))),
+        };
+    }
+    let r = run_vehicle_subject();
     Ok(format!(
-        "{{\"ok\":{},\"vehicle_subject_pass\":{},\"detail\":\"{}\"}}",
-        util::json_bool(ok),
-        util::json_bool(ok),
-        util::json_escape(&detail),
+        "{{\"ok\":{},\"vehicle_subject_pass\":{},\"asset_roundtrip\":{},\"fixed_input_replay_hash_equal\":{},\"rollback_correction_converges\":{},\"tire_light_object_contact_regression_golden\":{},\"state_serialization_roundtrip\":{},\"telemetry_trace_golden\":{},\"final_state_hash\":\"{}\",\"contact_digest\":\"{}\",\"contact_events\":{},\"telemetry_digest\":\"{}\",\"telemetry_lines\":{},\"detail\":\"{}\"}}",
+        util::json_bool(r.ok),
+        util::json_bool(r.ok),
+        util::json_bool(r.asset_roundtrip),
+        util::json_bool(r.fixed_input_replay_hash_equal),
+        util::json_bool(r.rollback_correction_converges),
+        util::json_bool(r.tire_light_object_contact_regression_golden),
+        util::json_bool(r.state_serialization_roundtrip),
+        util::json_bool(r.telemetry_trace_golden),
+        util::json_escape(&r.final_state_hash),
+        util::json_escape(&r.contact_digest),
+        r.contact_events,
+        util::json_escape(&r.telemetry_digest),
+        r.telemetry_lines,
+        util::json_escape(&r.detail),
     ))
 }
 
