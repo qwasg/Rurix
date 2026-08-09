@@ -1,6 +1,6 @@
 //! 故障注入(F-12):tick T step 之前翻转白名单字段单 bit。
 
-use super::canonical::{canon_f32_bits_at, CaptureError};
+use super::canonical::{CaptureError, canon_f32_bits_at};
 use crate::id::BodyId;
 use crate::types::PhysicsTransform;
 use crate::world::PhysicsWorld;

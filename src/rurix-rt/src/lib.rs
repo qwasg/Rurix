@@ -34,10 +34,6 @@ pub mod pipeline;
 /// (U27/U31 同一 vk FFI 边界扩注)。
 #[cfg(feature = "vulkan")]
 pub mod pso_cache;
-/// G8.2 M50 RT pipeline 增量(RXS-0326/0327;`plan_sbt_v2`/packer/stack/
-/// `run_rt_pipeline_offscreen`;既有 `plan_sbt`/`run_ray_tracing_offscreen` 0-byte)。
-#[cfg(feature = "vulkan")]
-pub mod rt_incremental;
 /// Rust 级多 pass 图形执行器(RFC-0016 章 B 主通道;G5 门 G-G5-4 前置;U32)。feature
 /// `vulkan` gate:资源描述 + raster/compute 混合 pass + 屏障计划逐字回放 + readback,
 /// 内建 pipeline cache 与 `VK_KHR_shader_atomic_int64` 能力探测面。引擎渲染器库
@@ -49,6 +45,10 @@ pub mod render_exec;
 /// I4 未声明访问 / I5 写写冲突）+ 纯函数 RAW/WAW/WAR hazard 推导。与 G3.5 `graph`（图形面）
 /// 平行的库面 compute-pass RHI（RFC-0014 §7-2 设计参照非复用）。
 pub mod rhi;
+/// G8.2 M50 RT pipeline 增量(RXS-0326/0327;`plan_sbt_v2`/packer/stack/
+/// `run_rt_pipeline_offscreen`;既有 `plan_sbt`/`run_ray_tracing_offscreen` 0-byte)。
+#[cfg(feature = "vulkan")]
+pub mod rt_incremental;
 /// 宿主 sampler 状态面（G3.3，RXS-0225；RFC-0013 §4.B2 形态 b）。纯 host 类型,
 /// 与着色阶段静态属性 `#[sampler(...)]`（RXS-0224）镜像同一状态空间;经 cabi 降级
 /// `VkSamplerCreateInfo`（vk descriptor 建面 RXS-0230 消费）。

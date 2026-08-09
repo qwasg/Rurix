@@ -41,20 +41,18 @@
 )]
 
 mod arena;
+#[cfg(feature = "physics-character")]
+pub mod asset;
 pub mod bridge;
 mod budget;
 #[cfg(feature = "physics-capture")]
 pub mod capture;
 #[cfg(feature = "physics-character")]
-pub mod asset;
-#[cfg(feature = "physics-character")]
 pub mod character;
-#[cfg(feature = "physics-destruction")]
-pub mod destruction;
 #[cfg(feature = "physics-cloth")]
 pub mod cloth;
-#[cfg(feature = "physics-vehicle")]
-pub mod vehicle;
+#[cfg(feature = "physics-destruction")]
+pub mod destruction;
 mod error;
 mod events;
 mod id;
@@ -64,6 +62,8 @@ mod order;
 #[cfg(feature = "rapier")]
 mod rapier;
 mod types;
+#[cfg(feature = "physics-vehicle")]
+pub mod vehicle;
 mod world;
 
 pub use bridge::{

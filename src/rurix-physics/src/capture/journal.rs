@@ -337,8 +337,8 @@ fn parse_hex_u64(s: &str) -> Result<u64, CaptureError> {
 
 fn parse_hex_f32(s: &str) -> Result<f32, CaptureError> {
     let s = s.trim().trim_matches('"');
-    let bits = u32::from_str_radix(s, 16)
-        .map_err(|e| CaptureError::Parse(format!("f32 hex: {e}")))?;
+    let bits =
+        u32::from_str_radix(s, 16).map_err(|e| CaptureError::Parse(format!("f32 hex: {e}")))?;
     Ok(f32::from_bits(bits))
 }
 
@@ -371,10 +371,7 @@ fn parse_id_list(inner: &str) -> Result<Vec<u64>, CaptureError> {
     if inner.trim().is_empty() {
         return Ok(Vec::new());
     }
-    inner
-        .split(',')
-        .map(|p| parse_hex_u64(p.trim()))
-        .collect()
+    inner.split(',').map(|p| parse_hex_u64(p.trim())).collect()
 }
 
 fn parse_f32_3(inner: &str) -> Result<[f32; 3], CaptureError> {
@@ -411,9 +408,13 @@ fn parse_transform(obj: &str) -> Result<PhysicsTransform, CaptureError> {
 fn parse_shape(obj: &str) -> Result<ShapeDesc, CaptureError> {
     if obj.contains("\"Sphere\"") {
         let key = "\"radius\"";
-        let i = obj.find(key).ok_or_else(|| CaptureError::Parse("radius".into()))?;
+        let i = obj
+            .find(key)
+            .ok_or_else(|| CaptureError::Parse("radius".into()))?;
         let rest = &obj[i + key.len()..];
-        let q1 = rest.find('"').ok_or_else(|| CaptureError::Parse("r1".into()))?;
+        let q1 = rest
+            .find('"')
+            .ok_or_else(|| CaptureError::Parse("r1".into()))?;
         let q2 = rest[q1 + 1..]
             .find('"')
             .ok_or_else(|| CaptureError::Parse("r2".into()))?;
@@ -429,13 +430,17 @@ fn parse_shape(obj: &str) -> Result<ShapeDesc, CaptureError> {
     } else if obj.contains("\"Capsule\"") {
         // crude
         let hh_key = "\"half_height\"";
-        let i = obj.find(hh_key).ok_or_else(|| CaptureError::Parse("hh".into()))?;
+        let i = obj
+            .find(hh_key)
+            .ok_or_else(|| CaptureError::Parse("hh".into()))?;
         let rest = &obj[i + hh_key.len()..];
         let q1 = rest.find('"').unwrap();
         let q2 = rest[q1 + 1..].find('"').unwrap();
         let hh = parse_hex_f32(&rest[q1 + 1..q1 + 1 + q2])?;
         let rk = "\"radius\"";
-        let i2 = obj.find(rk).ok_or_else(|| CaptureError::Parse("cr".into()))?;
+        let i2 = obj
+            .find(rk)
+            .ok_or_else(|| CaptureError::Parse("cr".into()))?;
         let rest2 = &obj[i2 + rk.len()..];
         let a = rest2.find('"').unwrap();
         let b = rest2[a + 1..].find('"').unwrap();
@@ -454,8 +459,7 @@ fn parse_desc(obj: &str) -> Result<BodyDesc, CaptureError> {
         let i = obj
             .find(key)
             .ok_or_else(|| CaptureError::Parse(key.into()))?;
-        let rest = obj[i + key.len()..]
-            .trim_start_matches(|c: char| c == ' ' || c == ':');
+        let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
         let end = rest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(rest.len());
@@ -465,8 +469,7 @@ fn parse_desc(obj: &str) -> Result<BodyDesc, CaptureError> {
     }
     fn bool_after(obj: &str, key: &str) -> bool {
         if let Some(i) = obj.find(key) {
-            let rest = obj[i + key.len()..]
-                .trim_start_matches(|c: char| c == ' ' || c == ':');
+            let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
             rest.starts_with("true")
         } else {
             false
@@ -560,7 +563,9 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         })
     } else if obj.contains("\"apply_impulse\"") {
         let body_key = "\"body\"";
-        let i = obj.find(body_key).ok_or_else(|| CaptureError::Parse("body".into()))?;
+        let i = obj
+            .find(body_key)
+            .ok_or_else(|| CaptureError::Parse("body".into()))?;
         let rest = &obj[i + body_key.len()..];
         let q1 = rest.find('"').unwrap();
         let q2 = rest[q1 + 1..].find('"').unwrap();
@@ -599,8 +604,12 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
     } else if obj.contains("\"page_resident\"") {
         let pk = extract_bracket_array(obj, "\"page_key\"")?;
         let parts: Vec<&str> = pk.split(',').map(str::trim).collect();
-        let page_resource: u32 = parts[0].parse().map_err(|e| CaptureError::Parse(format!("{e}")))?;
-        let page: u32 = parts[1].parse().map_err(|e| CaptureError::Parse(format!("{e}")))?;
+        let page_resource: u32 = parts[0]
+            .parse()
+            .map_err(|e| CaptureError::Parse(format!("{e}")))?;
+        let page: u32 = parts[1]
+            .parse()
+            .map_err(|e| CaptureError::Parse(format!("{e}")))?;
         let descs_inner = extract_bracket_array(obj, "\"descs\"")?;
         let ids_inner = extract_bracket_array(obj, "\"assigned_ids\"")?;
         let descs = split_top_level_objects(&descs_inner)
@@ -626,16 +635,19 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         })
     } else if obj.contains("\"add_constraint\"") {
         fn hex_field(obj: &str, key: &str) -> Result<u64, CaptureError> {
-            let i = obj.find(key).ok_or_else(|| CaptureError::Parse(key.into()))?;
+            let i = obj
+                .find(key)
+                .ok_or_else(|| CaptureError::Parse(key.into()))?;
             let rest = &obj[i + key.len()..];
             let q1 = rest.find('"').unwrap();
             let q2 = rest[q1 + 1..].find('"').unwrap();
             parse_hex_u64(&rest[q1 + 1..q1 + 1 + q2])
         }
         fn num_field(obj: &str, key: &str) -> Result<u64, CaptureError> {
-            let i = obj.find(key).ok_or_else(|| CaptureError::Parse(key.into()))?;
-            let rest = obj[i + key.len()..]
-                .trim_start_matches(|c: char| c == ' ' || c == ':');
+            let i = obj
+                .find(key)
+                .ok_or_else(|| CaptureError::Parse(key.into()))?;
+            let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
             let end = rest
                 .find(|c: char| !c.is_ascii_digit())
                 .unwrap_or(rest.len());
@@ -683,7 +695,9 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         let origin = parse_f32_3(&extract_bracket_array(obj, "\"origin\"")?)?;
         let dir = parse_f32_3(&extract_bracket_array(obj, "\"dir\"")?)?;
         fn hex_key(obj: &str, key: &str) -> Result<f32, CaptureError> {
-            let i = obj.find(key).ok_or_else(|| CaptureError::Parse(key.into()))?;
+            let i = obj
+                .find(key)
+                .ok_or_else(|| CaptureError::Parse(key.into()))?;
             let rest = &obj[i + key.len()..];
             let q1 = rest.find('"').unwrap();
             let q2 = rest[q1 + 1..].find('"').unwrap();
@@ -738,8 +752,7 @@ impl JournalTick {
         let ti = line
             .find(tick_key)
             .ok_or_else(|| CaptureError::Parse("tick".into()))?;
-        let trest = line[ti + tick_key.len()..]
-            .trim_start_matches(|c: char| c == ' ' || c == ':');
+        let trest = line[ti + tick_key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
         let tend = trest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(trest.len());
@@ -768,8 +781,7 @@ impl JournalTick {
             let i = line
                 .find(key)
                 .ok_or_else(|| CaptureError::Parse(key.into()))?;
-            let rest = line[i + key.len()..]
-                .trim_start_matches(|c: char| c == ' ' || c == ':');
+            let rest = line[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
             let end = rest
                 .find(|c: char| !(c.is_ascii_digit()))
                 .unwrap_or(rest.len());

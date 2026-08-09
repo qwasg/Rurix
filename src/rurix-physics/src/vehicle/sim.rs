@@ -62,7 +62,9 @@ pub fn parse_input_log(log: &str) -> Result<Vec<VehicleInput>, CaptureError> {
     for (expect_tick, line) in log.lines().enumerate() {
         let parts: Vec<&str> = line.split(':').collect();
         if parts.len() != 3 {
-            return Err(CaptureError::Parse(format!("input log line {expect_tick}: bad arity")));
+            return Err(CaptureError::Parse(format!(
+                "input log line {expect_tick}: bad arity"
+            )));
         }
         let tick: u64 = parts[0]
             .parse()

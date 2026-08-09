@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use rurix_pkg::sha256::{digest, hex};
-use rurix_physics::capture::{default_budget, jolt_world_desc, BudgetProfile};
 use rurix_physics::WorldDesc;
+use rurix_physics::capture::{BudgetProfile, default_budget, jolt_world_desc};
+use rurix_pkg::sha256::{digest, hex};
 
 pub const CORPUS_ROOT: &str = "conformance/physics/replay";
 
@@ -74,11 +74,7 @@ pub fn scenario_budget(scenario: &str) -> BudgetProfile {
 }
 
 pub fn json_bool(v: bool) -> &'static str {
-    if v {
-        "true"
-    } else {
-        "false"
-    }
+    if v { "true" } else { "false" }
 }
 
 pub fn json_escape(s: &str) -> String {

@@ -21,8 +21,11 @@ impl std::fmt::Display for CaptureError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CaptureError::NanFloat { path } => write!(f, "NaN fail-closed at {path}"),
-            CaptureError::Io(m) | CaptureError::Parse(m) | CaptureError::Mismatch(m)
-            | CaptureError::Rejected(m) | CaptureError::Backend(m) => write!(f, "{m}"),
+            CaptureError::Io(m)
+            | CaptureError::Parse(m)
+            | CaptureError::Mismatch(m)
+            | CaptureError::Rejected(m)
+            | CaptureError::Backend(m) => write!(f, "{m}"),
         }
     }
 }
@@ -100,16 +103,10 @@ impl CanonicalPhysicsState {
             push_u32(&mut buf, b.layer);
             push_u64(&mut buf, b.shape_id.to_bits());
             for (i, c) in b.transform.translation.iter().enumerate() {
-                push_u32(
-                    &mut buf,
-                    canon_f32_bits_at(*c, &format!("body.pos[{i}]"))?,
-                );
+                push_u32(&mut buf, canon_f32_bits_at(*c, &format!("body.pos[{i}]"))?);
             }
             for (i, c) in b.transform.rotation.iter().enumerate() {
-                push_u32(
-                    &mut buf,
-                    canon_f32_bits_at(*c, &format!("body.rot[{i}]"))?,
-                );
+                push_u32(&mut buf, canon_f32_bits_at(*c, &format!("body.rot[{i}]"))?);
             }
             for (i, c) in b.linvel.iter().enumerate() {
                 push_u32(
@@ -254,7 +251,10 @@ pub fn event_digest(events: &[ContactEvent]) -> Result<String, CaptureError> {
     Ok(hex(&digest(&buf)))
 }
 
-pub fn state_from_world(world: &PhysicsWorld, tick: u64) -> Result<CanonicalPhysicsState, CaptureError> {
+pub fn state_from_world(
+    world: &PhysicsWorld,
+    tick: u64,
+) -> Result<CanonicalPhysicsState, CaptureError> {
     let bodies = world
         .body_semantic_snapshot()
         .map_err(|e| CaptureError::Backend(e.to_string()))?;

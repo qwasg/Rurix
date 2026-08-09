@@ -377,8 +377,7 @@ const TRI_VS_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tri_vs.spv")
 const TRI_FS_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tri_fs.spv"));
 const RT_RAYGEN_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/meshrt_raygen.spv"));
 const RT_MISS_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/meshrt_miss.spv"));
-const RT_CLOSESTHIT_SPV: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/meshrt_closesthit.spv"));
+const RT_CLOSESTHIT_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/meshrt_closesthit.spv"));
 
 /// 冻结 workload 描述表(RXS-0314 collector 输入;5 条 pipeline)。
 /// 任一嵌入语料为空(build 降级)→ 确定性 `Err`(fail-closed,不伪造 key)。
@@ -407,8 +406,8 @@ pub fn pso_fixtures() -> Result<Vec<PsoFixture>, String> {
         ("vk_atomics_w1", &[], atomics_spv()),
     ];
     for (name, embedded, words) in &compute_fixtures {
-        let entry = vk::entry_point_name(words)
-            .ok_or_else(|| format!("{name} SPIR-V 无 OpEntryPoint"))?;
+        let entry =
+            vk::entry_point_name(words).ok_or_else(|| format!("{name} SPIR-V 无 OpEntryPoint"))?;
         let (bindings, pc_size) = parse_compute_iface(words);
         let plans = bindings
             .iter()
@@ -477,7 +476,11 @@ pub fn pso_fixtures() -> Result<Vec<PsoFixture>, String> {
     let rg_words = spv_words(RT_RAYGEN_SPV);
     let ms_words = spv_words(RT_MISS_SPV);
     let ch_words = spv_words(RT_CLOSESTHIT_SPV);
-    for (n, w) in [("raygen", &rg_words), ("miss", &ms_words), ("closesthit", &ch_words)] {
+    for (n, w) in [
+        ("raygen", &rg_words),
+        ("miss", &ms_words),
+        ("closesthit", &ch_words),
+    ] {
         if vk::entry_point_name(w).is_none() {
             return Err(format!("meshrt_{n} 无 OpEntryPoint"));
         }
@@ -722,7 +725,11 @@ pub fn collector_json(records: &[CollectorRecord]) -> String {
                 "        {{ \"stage_tag\": {}, \"digest\": \"{}\" }}{}\n",
                 sd.stage_tag,
                 hex_of(&sd.artifact_digest),
-                if j + 1 == r.stage_digests.len() { "" } else { "," }
+                if j + 1 == r.stage_digests.len() {
+                    ""
+                } else {
+                    ","
+                }
             ));
         }
         s.push_str("      ],\n");
@@ -838,7 +845,11 @@ struct Reader<'a> {
 
 impl<'a> Reader<'a> {
     fn take(&mut self, n: usize) -> Result<&'a [u8], String> {
-        if self.pos.checked_add(n).is_none_or(|end| end > self.buf.len()) {
+        if self
+            .pos
+            .checked_add(n)
+            .is_none_or(|end| end > self.buf.len())
+        {
             return Err("store 截断/越界(长度前置校验 fail-closed)".into());
         }
         let s = &self.buf[self.pos..self.pos + n];
@@ -965,7 +976,11 @@ pub fn tamper_store(bytes: &[u8], axis: &str) -> Result<Vec<u8>, String> {
         "driver_uuid" => out[11] ^= 0xFF,
         // key-set digest 首字节翻转(keyset 轴;offset 11+16+12 = 39)。
         "keyset" => out[39] ^= 0xFF,
-        _ => return Err(format!("未知篡改轴 `{axis}`(闭集 schema/version/driver_uuid/keyset)")),
+        _ => {
+            return Err(format!(
+                "未知篡改轴 `{axis}`(闭集 schema/version/driver_uuid/keyset)"
+            ));
+        }
     }
     Ok(out)
 }
@@ -1132,7 +1147,13 @@ impl PsoCacheManager {
         std::fs::create_dir_all(dir).map_err(|e| format!("建目录 {}: {e}", dir.display()))?;
         std::fs::write(dir.join(STORE_FILE_NAME), encode_store(&store))
             .map_err(|e| format!("写 store: {e}"))?;
-        Ok(Self::outcome_of(rep, fixtures, keyset, RebuildReason::None, false))
+        Ok(Self::outcome_of(
+            rep,
+            fixtures,
+            keyset,
+            RebuildReason::None,
+            false,
+        ))
     }
 
     /// warm(**全新进程**,判据字面):装载核验 → 逐 key 重建 pipeline;全部 create 带
@@ -1158,18 +1179,28 @@ impl PsoCacheManager {
                 let plans = Self::plans_of(fixtures);
                 let payload = warm_payload_of(&st, &keys)?;
                 let rep = vk::pso_cache_session(&plans, vk::PsoSessionMode::Warm(payload))?;
-                self.runtime_compile_stalls =
-                    rep.outcomes.iter().filter(|o| o.stalled).count();
-                Ok(Self::outcome_of(rep, fixtures, keyset, RebuildReason::None, false))
+                self.runtime_compile_stalls = rep.outcomes.iter().filter(|o| o.stalled).count();
+                Ok(Self::outcome_of(
+                    rep,
+                    fixtures,
+                    keyset,
+                    RebuildReason::None,
+                    false,
+                ))
             }
             (RebuildReason::None, None) => {
                 // 无 store:全 miss warm(逐 key 必 stall;计数器能红语义面)。
                 let plans = Self::plans_of(fixtures);
                 let payload = empty_warm_payload(branch, keys.len());
                 let rep = vk::pso_cache_session(&plans, vk::PsoSessionMode::Warm(payload))?;
-                self.runtime_compile_stalls =
-                    rep.outcomes.iter().filter(|o| o.stalled).count();
-                Ok(Self::outcome_of(rep, fixtures, keyset, RebuildReason::None, false))
+                self.runtime_compile_stalls = rep.outcomes.iter().filter(|o| o.stalled).count();
+                Ok(Self::outcome_of(
+                    rep,
+                    fixtures,
+                    keyset,
+                    RebuildReason::None,
+                    false,
+                ))
             }
             (r, _) => {
                 // fail-closed 全量重建(RXS-0315 绝不部分命中):cold 会话重建 store。
@@ -1198,7 +1229,8 @@ impl PsoCacheManager {
                     payload,
                 };
                 std::fs::create_dir_all(dir).map_err(|e| format!("建目录: {e}"))?;
-                std::fs::write(&path, encode_store(&store)).map_err(|e| format!("写 store: {e}"))?;
+                std::fs::write(&path, encode_store(&store))
+                    .map_err(|e| format!("写 store: {e}"))?;
                 Ok(Self::outcome_of(rep, fixtures, keyset, r, true))
             }
         }
@@ -1214,8 +1246,8 @@ impl PsoCacheManager {
         axis: &str,
     ) -> Result<PsoRunOutcome, String> {
         let path = dir.join(STORE_FILE_NAME);
-        let bytes =
-            std::fs::read(&path).map_err(|e| format!("tamper 前读 store {}: {e}", path.display()))?;
+        let bytes = std::fs::read(&path)
+            .map_err(|e| format!("tamper 前读 store {}: {e}", path.display()))?;
         let tampered = tamper_store(&bytes, axis)?;
         std::fs::write(&path, &tampered).map_err(|e| format!("tamper 写回: {e}"))?;
         self.warm(dir, fixtures)
@@ -1634,7 +1666,11 @@ mod tests {
     fn hand_written_spv_wellformed() {
         for (name, spv) in [("fill", fill_spv()), ("atomics", atomics_spv())] {
             assert_eq!(spv[0], 0x0723_0203, "{name} SPIR-V magic");
-            assert!(spv[3] > 19 && spv[3] < 64, "{name} bound 覆盖全部 id(实测 {})", spv[3]);
+            assert!(
+                spv[3] > 19 && spv[3] < 64,
+                "{name} bound 覆盖全部 id(实测 {})",
+                spv[3]
+            );
             assert_eq!(
                 vk::entry_point_name(&spv).as_deref(),
                 Some("main"),
@@ -1658,7 +1694,10 @@ mod tests {
         let words = spv_words(SAXPY_SPV);
         let (bindings, pc) = parse_compute_iface(&words);
         assert_eq!(bindings, vec![0, 1, 2], "saxpy 3 SSBO binding [0,1,2]");
-        assert!(pc >= 8 && pc % 4 == 0, "saxpy push constants ≥ 8 且 4 对齐(实测 {pc})");
+        assert!(
+            pc >= 8 && pc % 4 == 0,
+            "saxpy push constants ≥ 8 且 4 对齐(实测 {pc})"
+        );
         assert!(vk::entry_point_name(&words).is_some());
     }
 
@@ -1671,9 +1710,15 @@ mod tests {
         let back = decode_vendor_blob(&blob).unwrap();
         assert_eq!(back, pairs, "N 对容器 roundtrip");
         for cut in 0..blob.len() {
-            assert!(decode_vendor_blob(&blob[..cut]).is_err(), "截断 {cut} 必 Err");
+            assert!(
+                decode_vendor_blob(&blob[..cut]).is_err(),
+                "截断 {cut} 必 Err"
+            );
         }
-        assert!(decode_vendor_blob(&encode_vendor_blob(&[])).is_err(), "count 0 非法");
+        assert!(
+            decode_vendor_blob(&encode_vendor_blob(&[])).is_err(),
+            "count 0 非法"
+        );
         assert!(
             decode_vendor_blob(&encode_vendor_blob(&[(vec![], vec![1])])).is_err(),
             "空 key 非法"
@@ -1700,13 +1745,21 @@ mod tests {
     #[test]
     fn pso_ffi_layout_anchors() {
         use std::mem::{align_of, size_of};
-        assert_eq!(size_of::<vk::PipelineCacheCreateInfo>(), 40, "PipelineCacheCreateInfo 40");
+        assert_eq!(
+            size_of::<vk::PipelineCacheCreateInfo>(),
+            40,
+            "PipelineCacheCreateInfo 40"
+        );
         assert_eq!(
             size_of::<vk::PipelineCreateFlags2CreateInfoKHR>(),
             24,
             "Flags2 24"
         );
-        assert_eq!(size_of::<vk::PipelineBinaryKeyKHR>(), 56, "BinaryKey 56(52 + 尾对齐)");
+        assert_eq!(
+            size_of::<vk::PipelineBinaryKeyKHR>(),
+            56,
+            "BinaryKey 56(52 + 尾对齐)"
+        );
         assert_eq!(align_of::<vk::PipelineBinaryKeyKHR>(), 8);
         assert_eq!(size_of::<vk::PipelineBinaryDataKHR>(), 16, "BinaryData 16");
         assert_eq!(
@@ -1714,7 +1767,11 @@ mod tests {
             24,
             "KeysAndData 24"
         );
-        assert_eq!(size_of::<vk::PipelineCreateInfoKHR>(), 16, "CreateInfoKHR 16");
+        assert_eq!(
+            size_of::<vk::PipelineCreateInfoKHR>(),
+            16,
+            "CreateInfoKHR 16"
+        );
         assert_eq!(
             size_of::<vk::PipelineBinaryCreateInfoKHR>(),
             40,
@@ -1751,7 +1808,15 @@ mod tests {
             24,
             "PipelineBinaryFeatures 24"
         );
-        assert_eq!(size_of::<vk::PsoPropertiesBlob>(), 2048, "PropertiesBlob 2048");
-        assert_eq!(align_of::<vk::PsoPropertiesBlob>(), 8, "PropertiesBlob align 8");
+        assert_eq!(
+            size_of::<vk::PsoPropertiesBlob>(),
+            2048,
+            "PropertiesBlob 2048"
+        );
+        assert_eq!(
+            align_of::<vk::PsoPropertiesBlob>(),
+            8,
+            "PropertiesBlob align 8"
+        );
     }
 }

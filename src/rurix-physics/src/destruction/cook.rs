@@ -5,8 +5,8 @@ use std::fmt;
 use rurix_pkg::sha256::{digest, hex};
 
 use super::schema::{
-    validate_graph, DestructionCookedArtifact, DestructionSourceAsset, SchemaError,
-    SchemaHeader, DESTRUCTION_SCHEMA_ID, DESTRUCTION_SCHEMA_VERSION,
+    DESTRUCTION_SCHEMA_ID, DESTRUCTION_SCHEMA_VERSION, DestructionCookedArtifact,
+    DestructionSourceAsset, SchemaError, SchemaHeader, validate_graph,
 };
 
 #[derive(Debug)]

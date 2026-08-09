@@ -29,7 +29,7 @@
 use rurix_render::shadow::clipmap::LightBasis;
 use rurix_render::shadow::events::sha256_hex;
 use rurix_render::shadow::page_cache::{
-    run_m19_fixture, FrameDeviceSnapshot, M19RunResult, MarkFrameSnapshot,
+    FrameDeviceSnapshot, M19RunResult, MarkFrameSnapshot, run_m19_fixture,
 };
 use rurix_render::shadow::vsm::{ShadowTri, Vsm};
 use rurix_rt::render_exec::{
@@ -387,11 +387,7 @@ fn run_one_frame_digest(
             size: pool_b.len() as u64,
         },
     ];
-    let mut push = bytes_u32(&[
-        snap.sample_pts.len() as u32,
-        snap.levels,
-        snap.pool_pages,
-    ]);
+    let mut push = bytes_u32(&[snap.sample_pts.len() as u32, snap.levels, snap.pool_pages]);
     for v in [
         snap.cam[0],
         snap.cam[1],
@@ -860,8 +856,7 @@ fn run_device_inner(
         mark_slot_mismatches,
         mark_tail_dirty,
         mark_distinct_bitmaps,
-        host
-            .device_frames
+        host.device_frames
             .first()
             .map(|s| s.mark.pixels)
             .unwrap_or(0),
@@ -920,13 +915,7 @@ fn host_gather_selected(
     out
 }
 
-fn raster_into(
-    page: &mut [f32],
-    v: [[f32; 3]; 3],
-    origin: [f32; 2],
-    pw: f32,
-    zr: [f32; 2],
-) {
+fn raster_into(page: &mut [f32], v: [[f32; 3]; 3], origin: [f32; 2], pw: f32, zr: [f32; 2]) {
     let n = 128.0f32;
     let mut tx = [0.0f32; 3];
     let mut ty = [0.0f32; 3];

@@ -20,7 +20,7 @@ pub use disk::{
 };
 pub use expand::{expand_memory_page, expand_u32_count, expanded_digest};
 pub use logical::{
-    FLAG_ROOT, FORMAT_ID, HEADER_SIZE, LOGICAL_MAJOR, LOGICAL_MINOR, PACKING_ALGO_ID, LogicalPage,
+    FLAG_ROOT, FORMAT_ID, HEADER_SIZE, LOGICAL_MAJOR, LOGICAL_MINOR, LogicalPage, PACKING_ALGO_ID,
     PageClusterRecord, PageDecodeError, RECORD_SIZE, RXPL_MAGIC, STREAM_PAGE_SIZE,
     decode_logical_page, encode_logical_page, quantize_center, schema_digest,
 };

@@ -271,26 +271,20 @@ pub fn validate_graph(
     for c in clusters {
         if let Some(p) = &c.parent {
             if !ids.contains(p.as_str()) {
-                return Err(SchemaError::NonTreeCluster(format!(
-                    "missing parent {p}"
-                )));
+                return Err(SchemaError::NonTreeCluster(format!("missing parent {p}")));
             }
         }
         for ch in &c.children {
             if !ids.contains(ch.as_str()) && !chunk_ids.contains(ch.as_str()) {
                 // children 可为子 cluster;leaf_chunks 才指向 chunk
                 if !ids.contains(ch.as_str()) {
-                    return Err(SchemaError::NonTreeCluster(format!(
-                        "missing child {ch}"
-                    )));
+                    return Err(SchemaError::NonTreeCluster(format!("missing child {ch}")));
                 }
             }
         }
         for leaf in &c.leaf_chunks {
             if !chunk_ids.contains(leaf.as_str()) {
-                return Err(SchemaError::NonTreeCluster(format!(
-                    "missing leaf {leaf}"
-                )));
+                return Err(SchemaError::NonTreeCluster(format!("missing leaf {leaf}")));
             }
         }
     }
@@ -298,10 +292,7 @@ pub fn validate_graph(
     let mut parent_of: std::collections::BTreeMap<&str, Option<&str>> =
         std::collections::BTreeMap::new();
     for c in clusters {
-        parent_of.insert(
-            c.cluster_id.as_str(),
-            c.parent.as_deref(),
-        );
+        parent_of.insert(c.cluster_id.as_str(), c.parent.as_deref());
     }
     for c in clusters {
         let mut seen = std::collections::BTreeSet::new();
@@ -485,8 +476,8 @@ fn parse_string_array(obj: &str, key: &str) -> Vec<String> {
 }
 
 pub fn parse_source_json(text: &str) -> Result<DestructionSourceAsset, String> {
-    let schema_id = json_str_field(text, "schema_id")
-        .unwrap_or_else(|| DESTRUCTION_SCHEMA_ID.into());
+    let schema_id =
+        json_str_field(text, "schema_id").unwrap_or_else(|| DESTRUCTION_SCHEMA_ID.into());
     let schema_version = json_u32_field(text, "schema_version").unwrap_or(1);
     let asset_id = json_str_field(text, "asset_id").ok_or("asset_id")?;
     let cook_profile = json_str_field(text, "cook_profile").unwrap_or_else(|| "v1".into());

@@ -209,8 +209,7 @@ pub fn decode_logical_page(bytes: &[u8]) -> Result<LogicalPage, PageDecodeError>
         let o = 40 + i * 4;
         bounds[i] = f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
     }
-    let dependency_page_count =
-        u32::from_le_bytes(bytes[64..68].try_into().unwrap()) as usize;
+    let dependency_page_count = u32::from_le_bytes(bytes[64..68].try_into().unwrap()) as usize;
     let dag_link_count = u32::from_le_bytes(bytes[68..72].try_into().unwrap()) as usize;
     let mut schema = [0u8; 32];
     schema.copy_from_slice(&bytes[72..104]);
@@ -239,7 +238,10 @@ pub fn decode_logical_page(bytes: &[u8]) -> Result<LogicalPage, PageDecodeError>
         return Err(PageDecodeError::DigestMismatch("section_digest"));
     }
 
-    let mut cur = Cursor { bytes: body, pos: 0 };
+    let mut cur = Cursor {
+        bytes: body,
+        pos: 0,
+    };
     let mut clusters = Vec::with_capacity(cluster_count);
     for _ in 0..cluster_count {
         clusters.push(take_record(&mut cur)?);
@@ -519,10 +521,7 @@ mod tests {
     fn header_size_literal() {
         let bytes = encode_logical_page(&sample_page());
         assert_eq!(HEADER_SIZE, 136);
-        assert_eq!(
-            u16::from_le_bytes([bytes[14], bytes[15]]),
-            HEADER_SIZE
-        );
+        assert_eq!(u16::from_le_bytes([bytes[14], bytes[15]]), HEADER_SIZE);
         assert_eq!(&bytes[72..104], &schema_digest());
     }
 }

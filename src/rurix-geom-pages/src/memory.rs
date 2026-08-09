@@ -265,7 +265,11 @@ pub fn decode_memory_page(bytes: &[u8]) -> Result<MemoryPage, MemoryError> {
         if off < dir_end {
             return Err(MemoryError::SectionOob);
         }
-        if off.checked_add(size).map(|e| e > bytes.len()).unwrap_or(true) {
+        if off
+            .checked_add(size)
+            .map(|e| e > bytes.len())
+            .unwrap_or(true)
+        {
             return Err(MemoryError::SectionOob);
         }
         sections.push((kind, off, size, align));
@@ -479,7 +483,11 @@ mod tests {
         let base = HEADER_SIZE as usize + SECTION_DIR_ENTRY_SIZE;
         put_u32_at(&mut bytes, base + 4, 112); // 可能与 pos 重叠
         // 强制两段同 offset
-        let pos_off = u32::from_le_bytes(bytes[HEADER_SIZE as usize + 4..HEADER_SIZE as usize + 8].try_into().unwrap());
+        let pos_off = u32::from_le_bytes(
+            bytes[HEADER_SIZE as usize + 4..HEADER_SIZE as usize + 8]
+                .try_into()
+                .unwrap(),
+        );
         put_u32_at(&mut bytes, base + 4, pos_off);
         assert_eq!(decode_memory_page(&bytes), Err(MemoryError::SectionOverlap));
     }

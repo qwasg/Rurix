@@ -158,9 +158,7 @@ fn merge_manifests_cli(args: &[String]) -> ExitCode {
             i += 1;
         }
         let Some(out) = out else {
-            eprintln!(
-                "usage: rurixc --merge-manifests -o <merged.json> <a.json> <b.json> ..."
-            );
+            eprintln!("usage: rurixc --merge-manifests -o <merged.json> <a.json> <b.json> ...");
             return ExitCode::from(2);
         };
         match rurixc::manifest::merge_manifest_files(&inputs, &out) {

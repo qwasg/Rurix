@@ -225,11 +225,7 @@ impl LocalLightPages {
         let stored = pool.page(e.phys)[ty * DIM + tx];
         let zr = self.z_range;
         let dp = (light_xy_z[2] - zr[0]) / (zr[1] - zr[0]);
-        if dp <= stored + bias {
-            1.0
-        } else {
-            0.0
-        }
+        if dp <= stored + bias { 1.0 } else { 0.0 }
     }
 
     /// 脏且驻留页参数(device multi-view batch 装配)。

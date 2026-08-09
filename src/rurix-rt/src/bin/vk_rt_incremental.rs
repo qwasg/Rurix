@@ -12,9 +12,7 @@ use rurix_rt::rt_incremental::{
 };
 use rurix_rt::vk::m50_incremental_spv;
 
-const IDENTITY: [f32; 12] = [
-    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
-];
+const IDENTITY: [f32; 12] = [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
 
 fn words_from_spv_bytes_local(bytes: &[u8]) -> Result<Vec<u32>, String> {
     if bytes.is_empty() {
@@ -218,14 +216,20 @@ fn main() {
             .any(|k| e.contains(k));
             if skip {
                 eprintln!("RT_INC: SKIP {e}");
-                let esc = e.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', " ");
+                let esc = e
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', " ");
                 println!(
                     "{{\n  \"device_state\": \"skipped_dev_env\",\n  \"reason\": \"{esc}\"\n}}"
                 );
                 std::process::exit(0);
             }
             eprintln!("RT_INC: FAIL {e}");
-            let esc = e.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', " ");
+            let esc = e
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', " ");
             println!(
                 "{{\n  \"device_state\": \"fail\",\n  \"reason\": \"{esc}\",\n  \
                  \"hit_group_count\": 0\n}}"

@@ -11,8 +11,8 @@ use crate::capture::replayer::apply_journal_pre;
 use crate::types::{ContactEvent, WorldDesc};
 use crate::world::PhysicsWorld;
 
-use super::frame::{NetworkPhysicsFrameId, PhysicsTickId};
 use super::NetError;
+use super::frame::{NetworkPhysicsFrameId, PhysicsTickId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TickInput {
@@ -88,7 +88,8 @@ pub fn rebuild_and_resim(
         contacts_by_tick.push((PhysicsTickId(tick), events));
     }
 
-    let state = state_from_world(&world, resim_end.0).map_err(|e| NetError::Backend(e.to_string()))?;
+    let state =
+        state_from_world(&world, resim_end.0).map_err(|e| NetError::Backend(e.to_string()))?;
     let final_hash = hash_canonical_state(&state).map_err(|e| NetError::Backend(e.to_string()))?;
 
     Ok(RollbackResult {

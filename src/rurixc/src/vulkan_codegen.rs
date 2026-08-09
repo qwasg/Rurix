@@ -3496,8 +3496,10 @@ pub fn emit_m50_raygen() -> Vec<u32> {
     let tlas = b.global_var(ptr_uc_accel, STORAGE_UNIFORM_CONSTANT, true);
     b.decorate(tlas, DECORATION_DESCRIPTOR_SET, &[0]);
     b.decorate(tlas, DECORATION_BINDING, &[0]);
-    let image_ty =
-        b.type_result(OP_TYPE_IMAGE, &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8]);
+    let image_ty = b.type_result(
+        OP_TYPE_IMAGE,
+        &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8],
+    );
     let ptr_uc_image = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, image_ty]);
     let out_image = b.global_var(ptr_uc_image, STORAGE_UNIFORM_CONSTANT, true);
     b.decorate(out_image, DECORATION_DESCRIPTOR_SET, &[1]);
@@ -3510,13 +3512,21 @@ pub fn emit_m50_raygen() -> Vec<u32> {
     let li = b.id();
     emit(&mut b.body, OP_LOAD, &[v3uint, li, launch_id]);
     let li_xy = b.id();
-    emit(&mut b.body, OP_VECTOR_SHUFFLE, &[v2uint, li_xy, li, li, 0, 1]);
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, li_xy, li, li, 0, 1],
+    );
     let li_f = b.id();
     emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, li_f, li_xy]);
     let ls = b.id();
     emit(&mut b.body, OP_LOAD, &[v3uint, ls, launch_size]);
     let ls_xy = b.id();
-    emit(&mut b.body, OP_VECTOR_SHUFFLE, &[v2uint, ls_xy, ls, ls, 0, 1]);
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, ls_xy, ls, ls, 0, 1],
+    );
     let ls_f = b.id();
     emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, ls_f, ls_xy]);
     let uv = b.id();
@@ -3576,11 +3586,12 @@ pub fn emit_m50_closesthit() -> Vec<u32> {
     b.member_decorate(rec_ty, 1, DECORATION_OFFSET, &[4]);
     b.member_decorate(rec_ty, 2, DECORATION_OFFSET, &[8]);
     b.member_decorate(rec_ty, 3, DECORATION_OFFSET, &[12]);
-    let ptr_rec =
-        b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, rec_ty]);
+    let ptr_rec = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, rec_ty]);
     let rec = b.global_var(ptr_rec, STORAGE_SHADER_RECORD_BUFFER_KHR, true);
-    let ptr_payload =
-        b.type_result(OP_TYPE_POINTER, &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float]);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
     let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
     let ptr_u = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, uint]);
     let ptr_f = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, float]);
@@ -3635,8 +3646,7 @@ pub fn emit_m50_callable() -> Vec<u32> {
     let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
     let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
     let v42 = b.constant(uint, 42);
-    let ptr =
-        b.type_result(OP_TYPE_POINTER, &[STORAGE_INCOMING_CALLABLE_DATA_KHR, uint]);
+    let ptr = b.type_result(OP_TYPE_POINTER, &[STORAGE_INCOMING_CALLABLE_DATA_KHR, uint]);
     let data = b.global_var(ptr, STORAGE_INCOMING_CALLABLE_DATA_KHR, true);
     emit(&mut b.body, OP_STORE, &[data, v42]);
     b.finish(EXEC_MODEL_CALLABLE_KHR, false)

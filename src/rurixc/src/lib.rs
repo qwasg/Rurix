@@ -65,10 +65,10 @@ pub mod ray_query_check;
 pub mod reflection;
 // G8.2 M50(RXS-0322~0324):`#[shader_record]` / `#[hit_group]` / 冻结子集 +
 // `--emit=rt-manifest`(rurix.rt-pipeline-manifest.v1)。
-#[cfg(feature = "shader-stages")]
-pub mod rt_pipeline;
 pub mod render;
 pub mod resolve;
+#[cfg(feature = "shader-stages")]
+pub mod rt_pipeline;
 #[cfg(feature = "shader-stages")]
 pub mod shader_stages;
 pub mod shared_check;

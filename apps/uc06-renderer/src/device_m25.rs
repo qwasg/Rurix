@@ -4,7 +4,7 @@
 //! 十项输入 resource identity。`RURIX_REQUIRE_REAL=1` 下 SKIP 不充绿。
 
 use rurix_render::temporal::abi::{
-    run_via_abi, sequence_digest, synthetic_frame, UpscalerInputAbi,
+    UpscalerInputAbi, run_via_abi, sequence_digest, synthetic_frame,
 };
 use rurix_render::temporal::cas::CasUpscaler;
 use rurix_render::temporal::image::ImageF32;
@@ -137,8 +137,8 @@ fn run_inner() -> Result<String, String> {
         let fr = synthetic_frame(f, IW, IH);
         let bind = fr.bind_set(OW, OH, abi_hash);
         let (host, report) = run_via_abi(&mut cas, &bind).map_err(|e| e.to_string())?;
-        consume_all &= report.contains_all_required()
-            && report.contains_named(&["reactive", "transparent"]);
+        consume_all &=
+            report.contains_all_required() && report.contains_named(&["reactive", "transparent"]);
         let dev = dispatch_cas(
             &fr.color.data,
             &fr.depth.data,
@@ -163,7 +163,9 @@ fn run_inner() -> Result<String, String> {
     let finite = device_outs
         .iter()
         .all(|o| o.data.iter().all(|v| v.is_finite()));
-    let extent_ok = device_outs.iter().all(|o| o.w == OW && o.h == OH && o.c == 3);
+    let extent_ok = device_outs
+        .iter()
+        .all(|o| o.w == OW && o.h == OH && o.c == 3);
     // 非透传:device 输出 digest ≠ color 最近邻
     let fr0 = synthetic_frame(0, IW, IH);
     let mut nearest = ImageF32::new(OW, OH, 3);
@@ -189,7 +191,8 @@ fn run_inner() -> Result<String, String> {
         .map(|_| 0u32)
         .unwrap_or(0u32);
 
-    let pass = match_ok && finite && extent_ok && consume_all && not_passthrough && validation_errors == 0;
+    let pass =
+        match_ok && finite && extent_ok && consume_all && not_passthrough && validation_errors == 0;
     let host_digest = sequence_digest(&host_outs);
     let device_digest = sequence_digest(&device_outs);
     let json = format!(

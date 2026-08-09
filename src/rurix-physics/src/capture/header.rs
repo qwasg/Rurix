@@ -270,10 +270,7 @@ impl PhysicsCaptureHeader {
         let rb = g_rest[lb..]
             .find(']')
             .ok_or_else(|| CaptureError::Parse("gravity ]".into()))?;
-        let parts: Vec<&str> = g_rest[lb + 1..lb + rb]
-            .split(',')
-            .map(str::trim)
-            .collect();
+        let parts: Vec<&str> = g_rest[lb + 1..lb + rb].split(',').map(str::trim).collect();
         if parts.len() != 3 {
             return Err(CaptureError::Parse("gravity len".into()));
         }
@@ -283,7 +280,11 @@ impl PhysicsCaptureHeader {
         let world_job_threads = if jt_raw == "null" {
             None
         } else {
-            Some(jt_raw.parse().map_err(|e| CaptureError::Parse(format!("jt: {e}")))?)
+            Some(
+                jt_raw
+                    .parse()
+                    .map_err(|e| CaptureError::Parse(format!("jt: {e}")))?,
+            )
         };
         Ok(Self {
             schema_id: req(text, "schema_id")?.into(),
@@ -331,10 +332,7 @@ impl PhysicsCaptureHeader {
 
     pub fn validate_complete(&self) -> Result<(), CaptureError> {
         if self.schema_id != SCHEMA_ID {
-            return Err(CaptureError::Parse(format!(
-                "schema_id {}",
-                self.schema_id
-            )));
+            return Err(CaptureError::Parse(format!("schema_id {}", self.schema_id)));
         }
         if self.schema_version != 1 {
             return Err(CaptureError::Parse("schema_version".into()));

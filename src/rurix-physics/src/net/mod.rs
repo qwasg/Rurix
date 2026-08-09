@@ -13,21 +13,21 @@ pub mod trace;
 
 pub use client::{ClientStepReport, ClientWorld, CorrectionReport};
 pub use events::{
-    derive_physics_event_id, event_id_for_contact, EventCommitBridge, PhysicsEventId,
-    PhysicsEventKind,
+    EventCommitBridge, PhysicsEventId, PhysicsEventKind, derive_physics_event_id,
+    event_id_for_contact,
 };
 pub use frame::{FrameDomainMap, NetworkPhysicsFrameId, PhysicsTickId};
 pub use history::HistoryRing;
-pub use rollback::{rebuild_and_resim, RollbackPlan, RollbackResult, TickInput};
+pub use rollback::{RollbackPlan, RollbackResult, TickInput, rebuild_and_resim};
 pub use server::{AuthoritativeSnapshot, ServerWorld};
 pub use smoothing::{
-    hard_snap, soft_snap, within_bound, PresentationOffset, PresentationTransform, SmoothingBound,
-    SMOOTHING_BOUND_V1,
+    PresentationOffset, PresentationTransform, SMOOTHING_BOUND_V1, SmoothingBound, hard_snap,
+    soft_snap, within_bound,
 };
 pub use trace::{
+    DeliveryKind, NetTrace, NetTraceReport, TraceActorImpulse, TraceFrame,
     assert_trace_deterministic, load_net_trace, parse_net_trace, run_net_trace,
-    run_net_trace_with_bound, DeliveryKind, NetTrace, NetTraceReport, TraceActorImpulse,
-    TraceFrame,
+    run_net_trace_with_bound,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,7 +57,10 @@ impl std::fmt::Display for NetError {
             NetError::HardCorrection { reason, detail } => {
                 write!(f, "hard_correction {reason:?}: {detail}")
             }
-            NetError::IncompatibleDigest { schema_ok, build_ok } => {
+            NetError::IncompatibleDigest {
+                schema_ok,
+                build_ok,
+            } => {
                 write!(
                     f,
                     "incompatible digest schema_ok={schema_ok} build_ok={build_ok}"

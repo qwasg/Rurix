@@ -10,14 +10,14 @@ mod schema;
 mod vfx;
 
 pub use cache::{CacheRoundtripReport, DestructionCache};
-pub use cook::{cook_destruction, cook_deterministic_double, CookError};
+pub use cook::{CookError, cook_destruction, cook_deterministic_double};
 pub use runtime::{
     ActivatedBodyRecord, DamageCommand, FracturePipeline, FractureTickReport, RuntimeError,
 };
 pub use schema::{
-    Anchor, ChunkDesc, ClusterNode, ConnectionEdge, DestructionCookedArtifact,
-    DestructionSourceAsset, FractureRecipe, InteriorFace, SchemaHeader, DESTRUCTION_SCHEMA_ID,
-    DESTRUCTION_SCHEMA_VERSION,
+    Anchor, ChunkDesc, ClusterNode, ConnectionEdge, DESTRUCTION_SCHEMA_ID,
+    DESTRUCTION_SCHEMA_VERSION, DestructionCookedArtifact, DestructionSourceAsset, FractureRecipe,
+    InteriorFace, SchemaHeader,
 };
 pub use vfx::{FractureEvent, VfxBridge, VfxCommitReport};
 
@@ -83,7 +83,9 @@ pub fn run_fracture_pipeline(
     }
     let dangling_fail = matches!(
         cook_destruction(&dangling),
-        Err(CE::Schema(SchemaError::DanglingEdge(_) | SchemaError::NonTreeCluster(_)))
+        Err(CE::Schema(
+            SchemaError::DanglingEdge(_) | SchemaError::NonTreeCluster(_)
+        ))
     ) || matches!(cook_destruction(&dangling), Err(CE::Schema(_)));
 
     // 3) 阈下:N tick 零断键
@@ -133,13 +135,14 @@ pub fn run_fracture_pipeline(
     let activated = above.activated_cluster_ids();
     let hierarchy_ok = activated == golden.activated_cluster_ids;
     let bodies_ok = !above.activated_bodies().is_empty()
-        && above.journal_lines().iter().any(|l| l.starts_with("activate_body:"));
+        && above
+            .journal_lines()
+            .iter()
+            .any(|l| l.starts_with("activate_body:"));
 
     // 5) cache roundtrip
     let cache = above.export_cache();
-    let rt = cache
-        .roundtrip_replay(&cooked)
-        .map_err(|e| e.to_string())?;
+    let rt = cache.roundtrip_replay(&cooked).map_err(|e| e.to_string())?;
     let cache_events_ok = rt.event_sequence_identical;
     let cache_hash_ok = rt.state_hash_identical;
 

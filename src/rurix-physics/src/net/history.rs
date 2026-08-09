@@ -14,7 +14,9 @@ pub struct HistoryRing<T> {
 impl<T> HistoryRing<T> {
     pub fn new(capacity: usize) -> Result<Self, NetError> {
         if capacity == 0 {
-            return Err(NetError::Rejected("history ring capacity must be > 0".into()));
+            return Err(NetError::Rejected(
+                "history ring capacity must be > 0".into(),
+            ));
         }
         Ok(Self {
             capacity,
@@ -62,10 +64,7 @@ impl<T> HistoryRing<T> {
     }
 
     pub fn get(&self, frame: NetworkPhysicsFrameId) -> Option<&T> {
-        self.items
-            .iter()
-            .find(|(f, _)| *f == frame)
-            .map(|(_, v)| v)
+        self.items.iter().find(|(f, _)| *f == frame).map(|(_, v)| v)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &(NetworkPhysicsFrameId, T)> {

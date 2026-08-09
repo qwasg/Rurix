@@ -72,7 +72,9 @@ impl ClothAsset {
         let a = self.canonical_json().into_bytes();
         let b = self.canonical_json().into_bytes();
         if a != b {
-            return Err(CaptureError::Rejected("cloth import nondeterministic".into()));
+            return Err(CaptureError::Rejected(
+                "cloth import nondeterministic".into(),
+            ));
         }
         Ok((a, b))
     }
@@ -196,12 +198,7 @@ pub fn run_cloth_pipeline() -> ClothPipelineReport {
         && std::any::type_name::<ClothTickId>() != std::any::type_name::<PhysicsTickId>();
 
     let det = ClothSolver::double_run_deterministic();
-    let ok = schema_pass
-        && import_pass
-        && collision_pass
-        && lod_pass
-        && timeline_pass
-        && det;
+    let ok = schema_pass && import_pass && collision_pass && lod_pass && timeline_pass && det;
 
     ClothPipelineReport {
         ok,

@@ -6,9 +6,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use rurix_physics::capture::{
-    canon_f32_bits, locate_injection_divergence, replay_capture_dir,
-    replay_with_extra_journal_line, replay_with_missing_journal_line, whitelist_reject,
-    CaptureError, InjectRequest, ReplayVerdict,
+    CaptureError, InjectRequest, ReplayVerdict, canon_f32_bits, locate_injection_divergence,
+    replay_capture_dir, replay_with_extra_journal_line, replay_with_missing_journal_line,
+    whitelist_reject,
 };
 
 fn verdict_tag(v: &ReplayVerdict) -> &'static str {
@@ -23,12 +23,14 @@ fn verdict_tag(v: &ReplayVerdict) -> &'static str {
         ReplayVerdict::Backend(_) => "Backend",
     }
 }
-use scenarios::{run_scenario, InjectionSpec};
+use scenarios::{InjectionSpec, run_scenario};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("usage: g8-physics-gates <record|replay|inject|ab|net|fracture|cloth|vehicle> ...");
+        eprintln!(
+            "usage: g8-physics-gates <record|replay|inject|ab|net|fracture|cloth|vehicle> ..."
+        );
         std::process::exit(2);
     }
     let result = match args[1].as_str() {
@@ -42,14 +44,19 @@ fn main() {
         "fracture" => cmd_fracture(&args[2..]),
         "cloth" => cmd_cloth(&args[2..]),
         "vehicle" => cmd_vehicle(&args[2..]),
-        other => Err(CaptureError::Rejected(format!("unknown subcommand {other}"))),
+        other => Err(CaptureError::Rejected(format!(
+            "unknown subcommand {other}"
+        ))),
     };
     match result {
         Ok(out) => {
             println!("{out}");
         }
         Err(e) => {
-            println!("{{\"ok\":false,\"error\":\"{}\"}}", util::json_escape(&e.to_string()));
+            println!(
+                "{{\"ok\":false,\"error\":\"{}\"}}",
+                util::json_escape(&e.to_string())
+            );
             std::process::exit(1);
         }
     }
@@ -62,7 +69,10 @@ fn cmd_record(args: &[String]) -> Result<String, CaptureError> {
         let mut ok = true;
         for id in util::all_scenario_ids() {
             if let Err(e) = record_one(id) {
-                println!("{{\"scenario\":\"{id}\",\"ok\":false,\"error\":\"{}\"}}", util::json_escape(&e.to_string()));
+                println!(
+                    "{{\"scenario\":\"{id}\",\"ok\":false,\"error\":\"{}\"}}",
+                    util::json_escape(&e.to_string())
+                );
                 ok = false;
             } else {
                 println!("{{\"scenario\":\"{id}\",\"ok\":true}}");
@@ -70,7 +80,8 @@ fn cmd_record(args: &[String]) -> Result<String, CaptureError> {
         }
         return Ok(format!("{{\"ok\":{}}}", util::json_bool(ok)));
     }
-    let id = scenario.ok_or_else(|| CaptureError::Rejected("--scenario or --all required".into()))?;
+    let id =
+        scenario.ok_or_else(|| CaptureError::Rejected("--scenario or --all required".into()))?;
     record_one(&id)?;
     Ok(format!("{{\"scenario\":\"{id}\",\"ok\":true}}"))
 }
@@ -98,7 +109,8 @@ fn write_injection_meta(dir: &PathBuf, spec: &InjectionSpec) -> Result<(), Captu
 }
 
 fn cmd_replay(args: &[String]) -> Result<String, CaptureError> {
-    let dir = arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
+    let dir =
+        arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
     let path = PathBuf::from(&dir);
     let report = replay_capture_dir(&path, None)?;
     let pass = report.verdict == ReplayVerdict::Pass;
@@ -115,14 +127,17 @@ fn cmd_replay(args: &[String]) -> Result<String, CaptureError> {
 }
 
 fn cmd_inject(args: &[String]) -> Result<String, CaptureError> {
-    let dir = arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
+    let dir =
+        arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
     let path = PathBuf::from(&dir);
     let tick: u64 = arg_value(args, "--tick")
         .ok_or_else(|| CaptureError::Rejected("--tick required".into()))?
         .parse()
         .map_err(|e| CaptureError::Parse(format!("tick: {e}")))?;
-    let body_hex = arg_value(args, "--body").ok_or_else(|| CaptureError::Rejected("--body required".into()))?;
-    let field = arg_value(args, "--field").ok_or_else(|| CaptureError::Rejected("--field required".into()))?;
+    let body_hex = arg_value(args, "--body")
+        .ok_or_else(|| CaptureError::Rejected("--body required".into()))?;
+    let field = arg_value(args, "--field")
+        .ok_or_else(|| CaptureError::Rejected("--field required".into()))?;
     let bit: u8 = arg_value(args, "--bit")
         .unwrap_or_else(|| "0".into())
         .parse()
@@ -144,21 +159,28 @@ fn cmd_inject(args: &[String]) -> Result<String, CaptureError> {
         div.first_divergence_tick,
         div.diffs.len(),
         div.diffs.first().map(|d| d.path.as_str()).unwrap_or(""),
-        div.diffs.first().map(|d| d.stable_id.as_str()).unwrap_or(""),
+        div.diffs
+            .first()
+            .map(|d| d.stable_id.as_str())
+            .unwrap_or(""),
         div.diffs.first().map(|d| d.expected_bits).unwrap_or(0),
         div.diffs.first().map(|d| d.actual_bits).unwrap_or(0),
     ))
 }
 
 fn cmd_journal_tamper(args: &[String]) -> Result<String, CaptureError> {
-    let dir = arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
-    let mode = arg_value(args, "--mode").ok_or_else(|| CaptureError::Rejected("--mode required".into()))?;
+    let dir =
+        arg_value(args, "--dir").ok_or_else(|| CaptureError::Rejected("--dir required".into()))?;
+    let mode = arg_value(args, "--mode")
+        .ok_or_else(|| CaptureError::Rejected("--mode required".into()))?;
     let path = PathBuf::from(&dir);
     let verdict = match mode.as_str() {
         "leftover" => replay_with_extra_journal_line(&path)?,
         "missing" => replay_with_missing_journal_line(&path)?,
         other => {
-            return Err(CaptureError::Rejected(format!("unknown journal-tamper mode {other}")));
+            return Err(CaptureError::Rejected(format!(
+                "unknown journal-tamper mode {other}"
+            )));
         }
     };
     let fails_closed = verdict != ReplayVerdict::Pass;
@@ -186,13 +208,12 @@ fn cmd_ab(_args: &[String]) -> Result<String, CaptureError> {
 
 fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
     use rurix_physics::net::{
-        assert_trace_deterministic, load_net_trace, run_net_trace, run_net_trace_with_bound,
-        SmoothingBound, SMOOTHING_BOUND_V1,
+        SMOOTHING_BOUND_V1, SmoothingBound, assert_trace_deterministic, load_net_trace,
+        run_net_trace, run_net_trace_with_bound,
     };
 
-    let trace_path = arg_value(args, "--trace").ok_or_else(|| {
-        CaptureError::Rejected("--trace <path> required".into())
-    })?;
+    let trace_path = arg_value(args, "--trace")
+        .ok_or_else(|| CaptureError::Rejected("--trace <path> required".into()))?;
     let path = PathBuf::from(&trace_path);
     let trace = load_net_trace(&path).map_err(|e| CaptureError::Rejected(e.to_string()))?;
 
@@ -213,13 +234,13 @@ fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
 
     let report = run_net_trace_with_bound(&trace, bound)
         .map_err(|e| CaptureError::Rejected(e.to_string()))?;
-    let det = assert_trace_deterministic(&trace)
-        .map_err(|e| CaptureError::Rejected(e.to_string()))?;
+    let det =
+        assert_trace_deterministic(&trace).map_err(|e| CaptureError::Rejected(e.to_string()))?;
 
     // character/asset 最小闭环自检(非 M71/M69 独立门)
     let char_ok = {
-        use rurix_physics::character::RurixCharacter;
         use rurix_physics::PhysicsTransform;
+        use rurix_physics::character::RurixCharacter;
         let c = RurixCharacter::new(1, PhysicsTransform::IDENTITY);
         c.state.canonical_bytes().is_ok()
     };
@@ -235,8 +256,14 @@ fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
         util::json_bool(report.trace_fixture_deterministic && det),
         util::json_bool(report.prediction_divergence_observed),
         util::json_bool(report.correction_received_at_golden),
-        report.correction_frame.map(|v| v.to_string()).unwrap_or_else(|| "null".into()),
-        report.rollback_start.map(|v| v.to_string()).unwrap_or_else(|| "null".into()),
+        report
+            .correction_frame
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "null".into()),
+        report
+            .rollback_start
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "null".into()),
         report
             .rollback_input_sequence
             .iter()
@@ -268,26 +295,19 @@ fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
 }
 
 fn cmd_fracture(args: &[String]) -> Result<String, CaptureError> {
-    use rurix_physics::destruction::{
-        parse_golden_json, parse_source_json, run_fracture_pipeline,
-    };
+    use rurix_physics::destruction::{parse_golden_json, parse_source_json, run_fracture_pipeline};
 
-    let source_path = arg_value(args, "--source").ok_or_else(|| {
-        CaptureError::Rejected("--source <path> required".into())
-    })?;
-    let golden_path = arg_value(args, "--golden").ok_or_else(|| {
-        CaptureError::Rejected("--golden <path> required".into())
-    })?;
-    let source_text = fs::read_to_string(&source_path)
-        .map_err(|e| CaptureError::Io(e.to_string()))?;
-    let golden_text = fs::read_to_string(&golden_path)
-        .map_err(|e| CaptureError::Io(e.to_string()))?;
-    let source = parse_source_json(&source_text)
-        .map_err(|e| CaptureError::Rejected(e))?;
-    let golden = parse_golden_json(&golden_text)
-        .map_err(|e| CaptureError::Rejected(e))?;
-    let report = run_fracture_pipeline(&source, &golden)
-        .map_err(|e| CaptureError::Rejected(e))?;
+    let source_path = arg_value(args, "--source")
+        .ok_or_else(|| CaptureError::Rejected("--source <path> required".into()))?;
+    let golden_path = arg_value(args, "--golden")
+        .ok_or_else(|| CaptureError::Rejected("--golden <path> required".into()))?;
+    let source_text =
+        fs::read_to_string(&source_path).map_err(|e| CaptureError::Io(e.to_string()))?;
+    let golden_text =
+        fs::read_to_string(&golden_path).map_err(|e| CaptureError::Io(e.to_string()))?;
+    let source = parse_source_json(&source_text).map_err(|e| CaptureError::Rejected(e))?;
+    let golden = parse_golden_json(&golden_text).map_err(|e| CaptureError::Rejected(e))?;
+    let report = run_fracture_pipeline(&source, &golden).map_err(|e| CaptureError::Rejected(e))?;
 
     let activated = report
         .activated_cluster_ids
@@ -354,7 +374,7 @@ fn cmd_cloth(_args: &[String]) -> Result<String, CaptureError> {
 }
 
 fn cmd_vehicle(args: &[String]) -> Result<String, CaptureError> {
-    use rurix_physics::vehicle::legs::{falsify_leg, run_vehicle_subject, LEG_NAMES};
+    use rurix_physics::vehicle::legs::{LEG_NAMES, falsify_leg, run_vehicle_subject};
     // 逐腿 RED 证伪臂:ci selftest 专用;对该腿输入做最小摄动并回报腿结果(期望 false)。
     if let Some(leg) = arg_value(args, "--falsify") {
         return match falsify_leg(&leg) {
@@ -394,12 +414,16 @@ fn cmd_canon_float(args: &[String]) -> Result<String, CaptureError> {
     match mode.as_str() {
         "neg_zero" => {
             let bits = canon_f32_bits(-0.0f32)?;
-            Ok(format!("{{\"ok\":true,\"neg_zero_bits\":\"{:08x}\"}}", bits))
+            Ok(format!(
+                "{{\"ok\":true,\"neg_zero_bits\":\"{:08x}\"}}",
+                bits
+            ))
         }
         "nan" => match canon_f32_bits(f32::NAN) {
-            Err(CaptureError::NanFloat { path }) => {
-                Ok(format!("{{\"ok\":true,\"nan_rejected\":true,\"path\":\"{}\"}}", util::json_escape(&path)))
-            }
+            Err(CaptureError::NanFloat { path }) => Ok(format!(
+                "{{\"ok\":true,\"nan_rejected\":true,\"path\":\"{}\"}}",
+                util::json_escape(&path)
+            )),
             Ok(b) => Err(CaptureError::Rejected(format!("NaN accepted bits {b:08x}"))),
             Err(e) => Err(e),
         },

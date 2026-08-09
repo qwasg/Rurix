@@ -3321,8 +3321,7 @@ impl Tck<'_, '_> {
                 // PinnedBuffer brand = Context brand(与 Rhi brand 独立);元素经使用点推断。
                 let ctx_brand = self.infcx.fresh(None);
                 let elem = self.infcx.fresh(None);
-                let expected =
-                    Ty::Ref(Box::new(Ty::Adt(pinned, vec![ctx_brand, elem])), false);
+                let expected = Ty::Ref(Box::new(Ty::Adt(pinned, vec![ctx_brand, elem])), false);
                 let ret = if matches!(op, Op::RhiVertexData) {
                     Ty::Adt(vb, vec![b])
                 } else {
@@ -3348,12 +3347,7 @@ impl Tck<'_, '_> {
                     Ty::Ref(Box::new(Ty::Adt(vb, vec![pass_brand.clone()])), false),
                     Ty::Prim(PrimTy::U32),
                 ];
-                self.check_args(
-                    span,
-                    &expected,
-                    args,
-                    Ty::Adt(gfx_pass, vec![pass_brand]),
-                )
+                self.check_args(span, &expected, args, Ty::Adt(gfx_pass, vec![pass_brand]))
             }
             Op::RhiGfxDrawIndexed => {
                 let gfx_pass = self
@@ -3377,12 +3371,7 @@ impl Tck<'_, '_> {
                     Ty::Ref(Box::new(Ty::Adt(ib, vec![pass_brand.clone()])), false),
                     Ty::Prim(PrimTy::U32),
                 ];
-                self.check_args(
-                    span,
-                    &expected,
-                    args,
-                    Ty::Adt(gfx_pass, vec![pass_brand]),
-                )
+                self.check_args(span, &expected, args, Ty::Adt(gfx_pass, vec![pass_brand]))
             }
             Op::CtxCreate
             | Op::Launch

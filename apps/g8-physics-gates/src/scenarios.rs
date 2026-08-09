@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use rurix_physics::bridge::{PageKey, StreamingBridge};
 use rurix_physics::capture::{
-    apply_journal_pre, body_ids_bits, CaptureArtifact, CaptureError, CaptureRecorder,
-    JournalCommand,
+    CaptureArtifact, CaptureError, CaptureRecorder, JournalCommand, apply_journal_pre,
+    body_ids_bits,
 };
 use rurix_physics::{
     BodyDesc, BodyId, BodyKind, MassProps, PhysicsTransform, PhysicsWorld, QueryRay, ShapeDesc,
@@ -25,7 +25,9 @@ pub struct InjectionSpec {
     pub bit: u8,
 }
 
-pub fn run_scenario(scenario_id: &str) -> Result<(CaptureArtifact, Option<InjectionSpec>), CaptureError> {
+pub fn run_scenario(
+    scenario_id: &str,
+) -> Result<(CaptureArtifact, Option<InjectionSpec>), CaptureError> {
     match scenario_id {
         "box_stack_settle" => box_stack_settle(),
         "sphere_impulse_script" => sphere_impulse_script(),
@@ -66,7 +68,6 @@ impl Sim {
         })
     }
 
-
     fn add_batch(&mut self, descs: &[BodyDesc]) -> Result<Vec<BodyId>, CaptureError> {
         self.world
             .add_bodies_batch(descs)
@@ -101,7 +102,11 @@ impl Sim {
     }
 
     /// 命令已在活世界执行,仅 step+seal(录制 tick0 批插等)。
-    fn step_already_applied(&mut self, tick: u64, pre: Vec<JournalCommand>) -> Result<(), CaptureError> {
+    fn step_already_applied(
+        &mut self,
+        tick: u64,
+        pre: Vec<JournalCommand>,
+    ) -> Result<(), CaptureError> {
         self.advance(tick, pre)
     }
 
@@ -409,7 +414,13 @@ fn joint_pendulum_motor() -> Result<(CaptureArtifact, Option<InjectionSpec>), Ca
     let ids = sim.add_batch(&descs)?;
     let cid = sim
         .world
-        .add_hinge_constraint(ids[1], ids[2], [0.0, 4.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0])
+        .add_hinge_constraint(
+            ids[1],
+            ids[2],
+            [0.0, 4.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        )
         .map_err(|e| CaptureError::Backend(e.to_string()))?;
     sim.constraints.insert(1, cid);
     sim.step_already_applied(
@@ -504,7 +515,12 @@ fn contact_ring_saturation() -> Result<(CaptureArtifact, Option<InjectionSpec>),
     // 4 盒落体:接触序列可重复;小 ring(8)仍可能 backlog,预算截断在 header 登记。
     let mut descs = vec![ground()];
     for i in 0..4 {
-        descs.push(dyn_box(i as f32 * 1.2 - 1.8, 1.0 + i as f32 * 0.05, 0.0, 0.45));
+        descs.push(dyn_box(
+            i as f32 * 1.2 - 1.8,
+            1.0 + i as f32 * 0.05,
+            0.0,
+            0.45,
+        ));
     }
     let ids = sim.add_batch(&descs)?;
     sim.step_already_applied(

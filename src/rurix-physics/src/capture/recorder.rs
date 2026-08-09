@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use super::canonical::{
-    event_digest, hash_canonical_state, state_from_world, CanonicalPhysicsState, CaptureError,
+    CanonicalPhysicsState, CaptureError, event_digest, hash_canonical_state, state_from_world,
 };
 use super::header::{BudgetProfile, PhysicsCaptureHeader};
 use super::journal::{JournalCommand, JournalTick, PostTick};
@@ -123,11 +123,8 @@ impl CaptureRecorder {
 impl CaptureArtifact {
     pub fn persist(&self, dir: &Path) -> Result<(), CaptureError> {
         fs::create_dir_all(dir).map_err(|e| CaptureError::Io(e.to_string()))?;
-        fs::write(
-            dir.join("header.json"),
-            self.header.to_canonical_json()?,
-        )
-        .map_err(|e| CaptureError::Io(e.to_string()))?;
+        fs::write(dir.join("header.json"), self.header.to_canonical_json()?)
+            .map_err(|e| CaptureError::Io(e.to_string()))?;
         let mut journal = String::new();
         for t in &self.ticks {
             journal.push_str(&t.to_json_line()?);
@@ -135,11 +132,8 @@ impl CaptureArtifact {
         }
         fs::write(dir.join("journal.jsonl"), journal)
             .map_err(|e| CaptureError::Io(e.to_string()))?;
-        fs::write(
-            dir.join("state0.json"),
-            self.state0.to_diagnostic_json()?,
-        )
-        .map_err(|e| CaptureError::Io(e.to_string()))?;
+        fs::write(dir.join("state0.json"), self.state0.to_diagnostic_json()?)
+            .map_err(|e| CaptureError::Io(e.to_string()))?;
         fs::write(
             dir.join("state_final.json"),
             self.state_final.to_diagnostic_json()?,
@@ -149,23 +143,24 @@ impl CaptureArtifact {
     }
 
     pub fn load(dir: &Path) -> Result<Self, CaptureError> {
-        let header_text =
-            fs::read_to_string(dir.join("header.json")).map_err(|e| CaptureError::Io(e.to_string()))?;
+        let header_text = fs::read_to_string(dir.join("header.json"))
+            .map_err(|e| CaptureError::Io(e.to_string()))?;
         let header = PhysicsCaptureHeader::parse_json(&header_text)?;
         header.validate_complete()?;
-        let journal_text =
-            fs::read_to_string(dir.join("journal.jsonl")).map_err(|e| CaptureError::Io(e.to_string()))?;
+        let journal_text = fs::read_to_string(dir.join("journal.jsonl"))
+            .map_err(|e| CaptureError::Io(e.to_string()))?;
         let mut ticks = Vec::new();
         for (i, line) in journal_text.lines().enumerate() {
             if line.trim().is_empty() {
                 continue;
             }
-            ticks.push(JournalTick::parse_json_line(line).map_err(|e| {
-                CaptureError::Parse(format!("journal line {}: {e}", i + 1))
-            })?);
+            ticks.push(
+                JournalTick::parse_json_line(line)
+                    .map_err(|e| CaptureError::Parse(format!("journal line {}: {e}", i + 1)))?,
+            );
         }
-        let state0_text =
-            fs::read_to_string(dir.join("state0.json")).map_err(|e| CaptureError::Io(e.to_string()))?;
+        let state0_text = fs::read_to_string(dir.join("state0.json"))
+            .map_err(|e| CaptureError::Io(e.to_string()))?;
         let state_final_text = fs::read_to_string(dir.join("state_final.json"))
             .map_err(|e| CaptureError::Io(e.to_string()))?;
         let state0_tick = parse_state_tick(&state0_text)?;
@@ -184,8 +179,8 @@ fn parse_state_tick(text: &str) -> Result<u64, CaptureError> {
     let i = text
         .find(key)
         .ok_or_else(|| CaptureError::Parse("state tick".into()))?;
-    let rest = text[i + key.len()..]
-        .trim_start_matches(|c: char| c == ' ' || c == ':' || c == '\n');
+    let rest =
+        text[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':' || c == '\n');
     let end = rest
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(rest.len());
