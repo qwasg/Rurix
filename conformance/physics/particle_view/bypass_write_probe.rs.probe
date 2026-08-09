@@ -1,0 +1,22 @@
+// M121 旁路写注入探针源(compile_fail_expected;G9.2 骨架期 RED 臂)。
+//
+// 期望:本文件若作为真 Rust 代码对 `rurix_physics::particle_view` 编译,
+// **必然编译失败**——`ParticleAdapter` trait 类型面不存在任何 transform
+// 直写方法(set_transform/set_position/teleport/set_rotation/write_transform),
+// 旁路写注入在类型面不可表达(写路径仅 impulse/force,RFC-0024 §4.A;
+// 纪律 1 单向事实源 0-byte)。
+//
+// compile_fail_expected = true
+// expected_error_class = E0599 (no method named `set_transform` found)
+
+use rurix_physics::particle_view::{ImpulseWrite, ParticleAdapter, PhysicsParticleRef};
+
+/// 旁路写注入:试图绕过 impulse/force 唯一写口直写 transform。
+pub fn bypass_write_injection<A: ParticleAdapter>(adapter: &mut A, particle: PhysicsParticleRef) {
+    // compile_fail_expected: `set_transform` 不是 ParticleAdapter 成员
+    // (trait 类型面只声明 set_force_impulse)——E0599 必然拒绝。
+    adapter.set_transform(particle, [0.0f32; 3]);
+
+    // 合法写路径对照(仅 impulse/force):
+    let _ = adapter.set_force_impulse(particle, ImpulseWrite::Linear([0.0; 3]));
+}

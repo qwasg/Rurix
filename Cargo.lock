@@ -120,6 +120,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "g9-physics-gates"
+version = "1.0.0"
+dependencies = [
+ "rurix-physics",
+ "rurix-pkg",
+]
+
+[[package]]
 name = "glam"
 version = "0.30.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,18 @@
+[package]
+name = "g9-physics-gates"
+description = "G9.2 physics gate runner(M121 particle view + M122 gameplay field 骨架期 JSON stdout;新建 app 保持 G8 门 0-byte 纪律)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "g9-physics-gates"
+path = "src/main.rs"
+
+[dependencies]
+rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character", "physics-destruction", "physics-cloth", "physics-vehicle", "physics-particle-view", "physics-field"] }
+rurix-pkg = { path = "../../src/rurix-pkg" }
+
+[lints]
+workspace = true

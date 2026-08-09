@@ -100,6 +100,9 @@ pub struct PhysicsBridge {
     tracked: HashMap<BodyId, TrackedBody>,
     hints: Vec<MotionHint>,
     writes_saturated: u64,
+    /// World-Field 提交口(M122 骨架期加性面;GpuScene 0-byte,R-10 🔒)。
+    #[cfg(feature = "physics-field")]
+    world_field: crate::field::WorldFieldSubmitter,
 }
 
 impl PhysicsBridge {
@@ -215,6 +218,30 @@ impl PhysicsBridge {
     /// 计数进 evidence 不进硬门)。
     pub fn writes_saturated_total(&self) -> u64 {
         self.writes_saturated
+    }
+
+    /// World-Field 只读 buffer 提交口(G9.2 M122,RFC-0024 §4.B4/R-10 🔒;
+    /// 骨架期加性面,**GpuScene 冻结面 0-byte**——本方法只把场采样载荷
+    /// 登记进桥内提交序列,不写 GpuScene 任何字段;渲染侧消费与 GpuScene
+    /// 扩面须经渲染侧 RFC 显式修订行,R-10 字面)。
+    ///
+    /// 单向纪律不变:物理→渲染单向提交;渲染零回写(本类型无任何渲染
+    /// →物理回写通道,骨架期类型面登记)。
+    #[cfg(feature = "physics-field")]
+    pub fn submit_world_field(&mut self, buffer: crate::field::WorldFieldBuffer) {
+        self.world_field.submit(buffer);
+    }
+
+    /// 本桥累计提交的 World-Field 载荷(只读;骨架期登记面)。
+    #[cfg(feature = "physics-field")]
+    pub fn world_field_committed(&self) -> &[crate::field::WorldFieldBuffer] {
+        self.world_field.committed()
+    }
+
+    /// World-Field 提交序列 digest(门对拍锚)。
+    #[cfg(feature = "physics-field")]
+    pub fn world_field_sequence_digest(&self) -> String {
+        self.world_field.sequence_digest()
     }
 }
 

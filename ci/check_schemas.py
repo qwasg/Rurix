@@ -418,6 +418,12 @@ def check_evidence_files() -> None:
     g9_vram_as_baseline_schema = load(
         ROOT / "milestones/g9/g9_vram_as_baseline_evidence_schema.json"
     )
+    g9_m121_physics_particle_view_schema = load(
+        ROOT / "milestones/g9/g9_m121_physics_particle_view_evidence_schema.json"
+    )
+    g9_m122_gameplay_field_schema = load(
+        ROOT / "milestones/g9/g9_m122_gameplay_field_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -842,6 +848,16 @@ def check_evidence_files() -> None:
     g9_vram_as_baseline_validator = (
         jsonschema.Draft7Validator(g9_vram_as_baseline_schema)
         if g9_vram_as_baseline_schema is not None
+        else None
+    )
+    g9_m121_physics_particle_view_validator = (
+        jsonschema.Draft7Validator(g9_m121_physics_particle_view_schema)
+        if g9_m121_physics_particle_view_schema is not None
+        else None
+    )
+    g9_m122_gameplay_field_validator = (
+        jsonschema.Draft7Validator(g9_m122_gameplay_field_schema)
+        if g9_m122_gameplay_field_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1611,6 +1627,18 @@ def check_evidence_files() -> None:
             # host 墙钟同步等待口径，不冒充 GPU 异步耗时。供 g9_budget.json
             # g9.bench.* 通用 measured entry 判读。前缀与 g8_* 全族互不包含。
             validator = g9_vram_as_baseline_validator
+        elif (
+            f.name.startswith("g9_m121_physics_particle_view_")
+            and g9_m121_physics_particle_view_validator is not None
+        ):
+            # G9.2 M121 physics_particle_view(步骤 136;双 phase 骨架期)。
+            validator = g9_m121_physics_particle_view_validator
+        elif (
+            f.name.startswith("g9_m122_gameplay_field_")
+            and g9_m122_gameplay_field_validator is not None
+        ):
+            # G9.2 M122 gameplay_field(步骤 137;双 phase 骨架期)。
+            validator = g9_m122_gameplay_field_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None
