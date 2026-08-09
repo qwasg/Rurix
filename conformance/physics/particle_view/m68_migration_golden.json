@@ -1,0 +1,6 @@
+{
+  "description": "M121 M68 damage journal 迁移 golden(骨架期;migration_digest = 2026-08-09 首次真跑 measured_local 回填,此后字节冻结;消费 fixture = conformance/physics/fracture/pillar_prefracture 阈下5+阈上1 damage 序列)",
+  "migration_digest": "1979ca900db1dbbd3557887575bd37d539b3f94cbf49da4d7310ff34d22f6af5",
+  "damage_point": [0.0, 1.0, 0.0],
+  "damage_radius": 1.5
+}

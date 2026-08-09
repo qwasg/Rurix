@@ -3,7 +3,7 @@ mod util;
 
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurix_physics::capture::{
     CaptureError, InjectRequest, ReplayVerdict, canon_f32_bits, locate_injection_divergence,
@@ -97,7 +97,7 @@ fn record_one(id: &str) -> Result<(), CaptureError> {
     Ok(())
 }
 
-fn write_injection_meta(dir: &Path, spec: &InjectionSpec) -> Result<(), CaptureError> {
+fn write_injection_meta(dir: &PathBuf, spec: &InjectionSpec) -> Result<(), CaptureError> {
     let text = format!(
         "{{\"tick\":{},\"body\":\"{:016x}\",\"field\":\"{}\",\"bit\":{}}}\n",
         spec.tick,
@@ -197,9 +197,13 @@ fn cmd_ab(_args: &[String]) -> Result<String, CaptureError> {
     let vendor_next = root.join("src/rurix-physics-sys/vendor/JoltC-next");
     let available = vendor_next.is_dir() && vendor_next.join("JoltC/Functions.h").is_file();
     if !available {
-        return Ok("{\"ok\":true,\"probe\":\"vendor_missing\",\"jolt_version_pinned\":\"5.3.0\",\"ab_pass\":false,\"verdict\":\"pin_5_3_honest_stop_loss\",\"note\":\"JoltC-next unavailable;formally pinned 5.3 (not fake 5.6 PASS)\"}".to_string());
+        return Ok(format!(
+            "{{\"ok\":true,\"probe\":\"vendor_missing\",\"jolt_version_pinned\":\"5.3.0\",\"ab_pass\":false,\"verdict\":\"pin_5_3_honest_stop_loss\",\"note\":\"JoltC-next unavailable;formally pinned 5.3 (not fake 5.6 PASS)\"}}"
+        ));
     }
-    Ok("{\"ok\":true,\"probe\":\"vendor_present\",\"ab_pass\":false,\"verdict\":\"deferred_m73\",\"note\":\"M73 vendor present but A/B not in M66 scope\"}".to_string())
+    Ok(format!(
+        "{{\"ok\":true,\"probe\":\"vendor_present\",\"ab_pass\":false,\"verdict\":\"deferred_m73\",\"note\":\"M73 vendor present but A/B not in M66 scope\"}}"
+    ))
 }
 
 fn cmd_net(args: &[String]) -> Result<String, CaptureError> {
@@ -301,9 +305,9 @@ fn cmd_fracture(args: &[String]) -> Result<String, CaptureError> {
         fs::read_to_string(&source_path).map_err(|e| CaptureError::Io(e.to_string()))?;
     let golden_text =
         fs::read_to_string(&golden_path).map_err(|e| CaptureError::Io(e.to_string()))?;
-    let source = parse_source_json(&source_text).map_err(CaptureError::Rejected)?;
-    let golden = parse_golden_json(&golden_text).map_err(CaptureError::Rejected)?;
-    let report = run_fracture_pipeline(&source, &golden).map_err(CaptureError::Rejected)?;
+    let source = parse_source_json(&source_text).map_err(|e| CaptureError::Rejected(e))?;
+    let golden = parse_golden_json(&golden_text).map_err(|e| CaptureError::Rejected(e))?;
+    let report = run_fracture_pipeline(&source, &golden).map_err(|e| CaptureError::Rejected(e))?;
 
     let activated = report
         .activated_cluster_ids

@@ -1303,6 +1303,26 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout
 
+      # 步骤 136（G9.2 P0 硬门 g9.p0.m121.physics_particle_view --phase g9.2；
+      # RFC-0024 §4.A；判据事实源 = G9_ACCEPTANCE_MAP M121 行）:五域
+      # ParticleAdapter + 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED +
+      # 名义类型隔离 + M68 damage journal 迁移 digest golden + journal 全消费 +
+      # 单向事实源 0-byte。host 门。双 phase 纪律:骨架期 phase_g9_6_pass 恒
+      # false,不替完整期充绿。
+      - name: G9.2 M121 physics particle view smoke (G9 CI_GATES §4.136, g9.p0.m121.physics_particle_view)
+        shell: powershell
+        run: py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.2
+
+      # 步骤 137（G9.2 P0 硬门 g9.p0.m122.gameplay_field --phase g9.2；
+      # RFC-0024 §4.B,R-3/R-7/R-10 🔒；判据事实源 = G9_ACCEPTANCE_MAP M122
+      # 行）:三层解耦 schema 冻结 + 八枚举逐项 accept/非法 RED + 过滤默认空
+      # 匹配零影响(真世界逐 tick 对拍)+ persistent journal replay 逐 tick
+      # hash + World-Field 唯一出口只读 buffer + 渲染侧零回写静态审计。
+      # host 门。双 phase 纪律同 M121。
+      - name: G9.2 M122 gameplay field smoke (G9 CI_GATES §4.137, g9.p0.m122.gameplay_field)
+        shell: powershell
+        run: py -3 ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.2
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -24,6 +24,8 @@ impl fmt::Display for RuntimeError {
     }
 }
 
+impl std::error::Error for RuntimeError {}
+
 #[derive(Debug, Clone)]
 pub struct DamageCommand {
     pub tick: u64,

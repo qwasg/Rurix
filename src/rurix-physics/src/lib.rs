@@ -55,10 +55,14 @@ pub mod cloth;
 pub mod destruction;
 mod error;
 mod events;
+#[cfg(feature = "physics-field")]
+pub mod field;
 mod id;
 #[cfg(feature = "network-physics")]
 pub mod net;
 mod order;
+#[cfg(feature = "physics-particle-view")]
+pub mod particle_view;
 #[cfg(feature = "rapier")]
 mod rapier;
 mod types;
