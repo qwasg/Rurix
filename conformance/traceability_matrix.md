@@ -333,5 +333,5 @@
 | RXS-0345 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx` |
 | RXS-0346 | spec/render_graph.md | 1 | `conformance/render_graph/reject/missing_reads_indirect.rx` |
 | RXS-0347 | spec/rendering_platform.md | 1 | `conformance/reflection/reject/global_descriptor_index_dangling.rx` |
-| RXS-0348 | spec/gpu_driven_submit.md | 1 | `conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx` |
-| RXS-0349 | spec/shader_stages.md | 1 | `conformance/capability/reject/unknown_capability_id_g92.rx` |
+| RXS-0348 | spec/gpu_driven_submit.md | 3 | `conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx`, `src/rurix-rt/src/dgc.rs`, `src/rurix-rt/src/vk.rs` |
+| RXS-0349 | spec/shader_stages.md | 2 | `conformance/capability/reject/unknown_capability_id_g92.rx`, `src/rurixc/src/capability_check.rs` |

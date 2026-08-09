@@ -5,10 +5,12 @@
 //!
 //! 五子面:
 //!
-//! - **capability ID 闭集**(RXS-0311,v1 冻结十项):`rt.pipeline` /
+//! - **capability ID 闭集**(RXS-0311,v1 冻结十项 + G9.2 加性两位实位,
+//!   RXS-0349):`rt.pipeline` /
 //!   `rt.sbt_user_data` / `rt.any_hit` / `rt.intersection.procedural` /
 //!   `rt.callable` / `rt.ray_query` / `mesh.task` / `sync.timeline_semaphore` /
-//!   `queue.dedicated_transfer` / `queue.dedicated_compute`。backend extension 名
+//!   `queue.dedicated_transfer` / `queue.dedicated_compute` / `submit.dgc` /
+//!   `bindless.descriptor_buffer`。backend extension 名
 //!   不作为 ID(RFC-0019 §4.5.1 逐字)。
 //! - **`#[requires("id", ...)]` 声明面**(RXS-0311):fn 级 attr,字符串字面量
 //!   列表,多条可叠加取并集;闭集外 ID / 非字符串实参 / 空列表 → **RX3023**
@@ -102,7 +104,7 @@ pub fn profile_none_digest() -> [u8; 32] {
 
 // ═══════════════════════ capability ID 闭集(RXS-0311) ═══════════════════════
 
-/// capability ID 闭集(v1 冻结十项,RXS-0311;加性演进走条款修订行)。
+/// capability ID 闭集(v1 冻结十项 + G9.2 加性两位实位,RXS-0311/RXS-0349)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CapabilityId {
     /// `rt.pipeline` — RT pipeline 六执行模型(raygen/miss/closesthit 与 trace_ray)。
@@ -125,6 +127,12 @@ pub enum CapabilityId {
     QueueDedicatedTransfer,
     /// `queue.dedicated_compute` — 独立 compute queue class。
     QueueDedicatedCompute,
+    /// `submit.dgc` — DGC device-generated commands 抽象面(M102,RXS-0348/0349;
+    /// `VK_EXT_device_generated_commands` 的 capability 门控 ID)。
+    SubmitDgc,
+    /// `bindless.descriptor_buffer` — `VK_EXT_descriptor_buffer` 单一大表(M103,
+    /// RXS-0347 索引空间预算的 profile 承载位)。
+    BindlessDescriptorBuffer,
 }
 
 impl CapabilityId {
@@ -141,6 +149,8 @@ impl CapabilityId {
             CapabilityId::SyncTimelineSemaphore => "sync.timeline_semaphore",
             CapabilityId::QueueDedicatedTransfer => "queue.dedicated_transfer",
             CapabilityId::QueueDedicatedCompute => "queue.dedicated_compute",
+            CapabilityId::SubmitDgc => "submit.dgc",
+            CapabilityId::BindlessDescriptorBuffer => "bindless.descriptor_buffer",
         }
     }
 
@@ -157,12 +167,14 @@ impl CapabilityId {
             "sync.timeline_semaphore" => CapabilityId::SyncTimelineSemaphore,
             "queue.dedicated_transfer" => CapabilityId::QueueDedicatedTransfer,
             "queue.dedicated_compute" => CapabilityId::QueueDedicatedCompute,
+            "submit.dgc" => CapabilityId::SubmitDgc,
+            "bindless.descriptor_buffer" => CapabilityId::BindlessDescriptorBuffer,
             _ => return None,
         })
     }
 
-    /// 闭集全表(冻结序 = 条款表序)。
-    pub const ALL: [CapabilityId; 10] = [
+    /// 闭集全表(冻结序 = 条款表序;RXS-0349 G9.2 加性两位实位居尾)。
+    pub const ALL: [CapabilityId; 12] = [
         CapabilityId::RtPipeline,
         CapabilityId::RtSbtUserData,
         CapabilityId::RtAnyHit,
@@ -173,6 +185,8 @@ impl CapabilityId {
         CapabilityId::SyncTimelineSemaphore,
         CapabilityId::QueueDedicatedTransfer,
         CapabilityId::QueueDedicatedCompute,
+        CapabilityId::SubmitDgc,
+        CapabilityId::BindlessDescriptorBuffer,
     ];
 }
 
@@ -276,7 +290,7 @@ pub fn extract_requires(
             let Some(id) = CapabilityId::from_name(id_text) else {
                 return Err(invalid(
                     format!(
-                        "capability.unknown_id: 未知 capability ID `{id_text}`(v1 闭集十项 = {};RXS-0311)",
+                        "capability.unknown_id: 未知 capability ID `{id_text}`(闭集十二项 = {};RXS-0311/0349)",
                         CapabilityId::ALL
                             .iter()
                             .map(|c| format!("`{}`", c.name()))
@@ -1147,7 +1161,7 @@ fn parse_id_set(slice: &str, field: &str) -> Result<BTreeSet<CapabilityId>, Prof
         })?;
         let Some(id) = CapabilityId::from_name(id_text) else {
             return Err(ProfileError::UnknownId(format!(
-                "capability.unknown_id: profile 字段 `{field}` 引用闭集外 capability ID `{id_text}`(v1 闭集十项,RXS-0311/0312)"
+                "capability.unknown_id: profile 字段 `{field}` 引用闭集外 capability ID `{id_text}`(闭集十二项,RXS-0311/0312/0349)"
             )));
         };
         out.insert(id);
@@ -1876,6 +1890,47 @@ kernel fn kmain() {}
         let file = crate::parser::parse(src, toks, id, Edition::Rx0, &diag);
         check_requires(&file, src, &diag);
         assert_eq!(diag.emitted().len(), 1, "泛型 fn 未知 ID 仍拒");
+    }
+
+    /// RXS-0349:G9.2 加性两位实位(`submit.dgc`/`bindless.descriptor_buffer`)
+    /// 进闭集;预留位(`bindless.descriptor_heap`/`submit.execution_set`)**不在**
+    /// 闭集(只预留不实现——消费性引用 = 闭集外 ID → RX3023)。
+    //@ spec: RXS-0349
+    #[test]
+    fn g92_additive_two_real_ids() {
+        // 两位实位解析合法。
+        assert_eq!(
+            CapabilityId::from_name("submit.dgc"),
+            Some(CapabilityId::SubmitDgc)
+        );
+        assert_eq!(
+            CapabilityId::from_name("bindless.descriptor_buffer"),
+            Some(CapabilityId::BindlessDescriptorBuffer)
+        );
+        assert_eq!(CapabilityId::SubmitDgc.name(), "submit.dgc");
+        assert_eq!(
+            CapabilityId::BindlessDescriptorBuffer.name(),
+            "bindless.descriptor_buffer"
+        );
+        // 闭集恰十二项(v1 十项 0-byte + 加性两位)。
+        assert_eq!(CapabilityId::ALL.len(), 12);
+        // 预留位不在闭集(消费性引用 = RX3023;只预留不实现)。
+        assert_eq!(CapabilityId::from_name("bindless.descriptor_heap"), None);
+        assert_eq!(CapabilityId::from_name("submit.execution_set"), None);
+        // 预留位进 #[requires] = 闭集外 ID 拒(消费行为不存在)。
+        let src = "#[requires(\"submit.execution_set\")]\nkernel fn k() {}";
+        let diag = DiagCtxt::new();
+        let mut sm = SourceMap::new();
+        let id = sm.add_file("test.rx".to_owned(), src, Edition::Rx0);
+        let toks = crate::lexer::lex(src, id, Edition::Rx0, &diag);
+        let file = crate::parser::parse(src, toks, id, Edition::Rx0, &diag);
+        check_requires(&file, src, &diag);
+        assert!(
+            diag.emitted()
+                .iter()
+                .any(|d| d.code == Some(ErrorCode(3023))),
+            "预留位 submit.execution_set 消费性引用须 RX3023 拒"
+        );
     }
 
     /// 隐式推导:stage 映射(raygen/anyhit/intersection/callable/task/miss/

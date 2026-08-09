@@ -94,6 +94,21 @@ fn main() {
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write saxpy.spv: {e}"));
     }
 
+    // G9.2 M102 DGC pre-pass kernel(RXS-0348;门 g9.p0.m102.dgc_abstraction):
+    // `kernels/dgc_prepass.rx` 经同一 vulkan_codegen 纯 Rust MIR→SPIR-V 产
+    // `dgc_prepass.spv` 嵌入(`bin/vk_dgc` harness 消费;compute pre-pass 直写
+    // DgcBuffer 命令数据 = DGC 唯一 kernel 面)。**镜像 saxpy.spv 机制**(同
+    // gen_spirv 全静态检查 + build_and_emit_vulkan);复现命令等价:
+    // `rurixc --target vulkan src/rurix-rt/kernels/dgc_prepass.rx`。
+    // 降级 → 空哨兵,harness 据空 SKIP(RURIX_REQUIRE_REAL=1 下翻红,非 fake pass)。
+    {
+        let dgc_rx = manifest.join("kernels").join("dgc_prepass.rx");
+        println!("cargo:rerun-if-changed={}", dgc_rx.display());
+        let spv_out = out_dir.join("dgc_prepass.spv");
+        let bytes = gen_spirv(&dgc_rx).unwrap_or_default();
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write dgc_prepass.spv: {e}"));
+    }
+
     // mb1 W7 Android present demo:三角形 vertex/fragment 着色阶段经同一 `vulkan_codegen` 纯
     // Rust MIR→SPIR-V(graphics 阶段走 dxil_spirv::emit_spirv_body_vulkan,方案 B 去 provenance)
     // 产 `tri_vs.spv`/`tri_fs.spv` 嵌入 EXE/cdylib(`vk::demo_shaders_spv` 消费),复现等价

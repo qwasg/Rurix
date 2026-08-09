@@ -1303,6 +1303,17 @@ jobs:
         shell: powershell
         run: py -3 ci/g8_closeout_check.py --gate g8.wave.8b.closeout
 
+      # 步骤 131（G9.2 P0 硬门 g9.p0.m102.dgc_abstraction;RFC-0023 §4.1;
+      # spec/gpu_driven_submit.md RXS-0348 + spec/shader_stages.md RXS-0349;U54;
+      # device 门 env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1;
+      # 落盘前实测 CI_step.next_free=131 顺位领取)。
+      - name: G9.2 M102 DGC abstraction smoke (G9 CI_GATES §4, g9.p0.m102.dgc_abstraction)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_dgc_abstraction_smoke.py --gate g9.p0.m102.dgc_abstraction
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
