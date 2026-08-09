@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.2 M102 dgc_abstraction evidence",
+  "description": "evidence/g9_m102_dgc_abstraction_<UTC>.json。G9.2 P0 硬门 g9.p0.m102.dgc_abstraction:IndirectCmdLayout/DgcBuffer 类型层无 host 读接口(结构性断言+装配期静态核验全真);token 集合取三后端最小公倍数,超出 token 限制的声明装配期 fail-closed(RED 臂);layout 违规声明被拒;目标硬件 capability snapshot 实测确认为阻塞性前置——缺 capability 必须 fail-closed,禁止静默模拟(P-01)。device 腿必需(vk_dgc 最小链路:compute pre-pass 填充 DgcBuffer → vkCmdExecuteGeneratedCommandsEXT → 出图;回读计数器=0);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m102_dgc_abstraction" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m102.dgc_abstraction" },
+    "matrix_row": { "type": "string", "const": "M102" },
+    "milestone": { "type": "string", "const": "M102" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m102.dgc_abstraction" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.2" },
+    "numeric_step": { "type": "integer", "const": 131 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.1/§6.2;spec/gpu_driven_submit.md RXS-0348;spec/shader_stages.md RXS-0349;G9_ACCEPTANCE_MAP §2 M102"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dgcbuffer_no_host_read_interface_structural",
+        "token_layout_assembly_fail_closed",
+        "multi_terminator_rejected",
+        "render_pass_in_sequence_rejected",
+        "barrier_in_sequence_rejected",
+        "descriptor_bind_rejected",
+        "capability_snapshot_blocking",
+        "capability_closed_set_additive_two_real_ids",
+        "conformance_red_corpus_anchored",
+        "three_backend_mapping_frozen",
+        "device_execute_indirect_golden",
+        "readback_counter_zero",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "dgcbuffer_no_host_read_interface_structural": { "type": "boolean" },
+        "token_layout_assembly_fail_closed": { "type": "boolean" },
+        "multi_terminator_rejected": { "type": "boolean" },
+        "render_pass_in_sequence_rejected": { "type": "boolean" },
+        "barrier_in_sequence_rejected": { "type": "boolean" },
+        "descriptor_bind_rejected": { "type": "boolean" },
+        "capability_snapshot_blocking": { "type": "boolean" },
+        "capability_closed_set_additive_two_real_ids": { "type": "boolean" },
+        "conformance_red_corpus_anchored": { "type": "boolean" },
+        "three_backend_mapping_frozen": { "type": "boolean" },
+        "device_execute_indirect_golden": { "type": "boolean" },
+        "readback_counter_zero": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

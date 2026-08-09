@@ -16,6 +16,12 @@
 /// 尺寸/对齐三分量着色 + 执行期峰值计数器（I10 → measured_local）。
 pub mod alias_alloc;
 pub mod backend;
+/// G9.2 M102 DGC 抽象层类型面（RXS-0348；RFC-0023 §4.1；门 g9.p0.m102.dgc_abstraction）。
+/// always-on、零 unsafe、零后端调用:IndirectCmdLayout token 闭集 + 装配期核验
+/// fail-closed（恰一终止且最后;render pass/barrier/descriptor set 不可表达）+
+/// DgcBuffer 无 host 读接口类型契约 + capability snapshot 阻塞性前置（RXS-0313 机制）+
+/// 三后端映射单一事实源。device 执行面归 `vk`（U54 lane,feature `vulkan` 门控）。
+pub mod dgc;
 mod error;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;

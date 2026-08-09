@@ -85,8 +85,8 @@
       "scope": "shared",
       "pattern": "U##",
       "main_fact_source": "unsafe-audit/ 登记",
-      "on_tree_max": 53,
-      "next_free": 54,
+      "on_tree_max": 54,
+      "next_free": 55,
       "shadow_reserved": [],
       "notes": "unsafe-audit 条目编号。main 最高 U31(G4.2 RHI 图形执行路径 FFI 边界,RXS-0272,RFC-0015 §4.A3;沿 U27 审计模式,契约同 U27)。U30 = G3.6 AS/SBT/device-address 细审计(RXS-0248,RFC-0013 §4.E8)。U29 由 EA1 预留(显式跳让,无论其释放与否不回收,EA1_CONTRACT §7)。v1.28 校准(G6.1):U32 = G5 Rust 级多 pass 图形执行器 FFI 边界(src/rurix-rt/src/render_exec.rs,unsafe-audit/rurix-rt.md,RFC-0016 章 B,沿 U26/U27/U31 审计模式)已登记,on_tree_max 31→32、next_free 32→33。v1.30 校准(G6.2 PR-A):U33~U42 = rurix-physics-sys JoltC C API FFI 边界(unsafe-audit/rurix-physics-sys.md 新建登记,RFC-0017 §4.C2,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 32→42、next_free 33→43(reserved_in_flight[G6].U「U33 起」claim 兑现;G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.33 校准(G6.5):U43 = G6.5 TiRT FFI 边界(src/rurix-rt/src/tirt.rs,feature `taichi-tirt` 默认 off,13 符号运行时动态装载 taichi_c_api.dll + TiVulkanRuntimeInteropInfo 并行设备上下文注入〔RFC-0017 §4.E2 明示允许〕+ run_particles_spike 全链 + TirtError 六变体 fail-closed;vk.rs pub(crate) 三件套 cfg gate 既有面 0-byte;unsafe-audit/rurix-rt.md 登记,RFC-0017 §4.E,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 42→43、next_free 43→44(reserved_in_flight[G6].U「U33 起」第二号消费;G5/v1.30 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。下一个可用 U44。"
     },
@@ -745,6 +745,11 @@
       "version": "v1.75",
       "date": "2026-08-09",
       "change": "G9.2 实现波 agent D(M121+M122 骨架期)CI 步骤 136/137 materialize(agent 完全自主 D-406 v2.0;Assisted-by: Claude Code:claude-fable-5):**CI_step on_tree_max 130→137 / next_free 131→138**——.github/workflows/pr-smoke.yml 步骤 130 块后插入步骤 136(ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.2;host 门:五域 ParticleAdapter + 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED + 名义类型隔离 + M68 damage journal 迁移 digest golden + journal 全消费 + 单向事实源 0-byte)与步骤 137(ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.2;host 门:三层解耦 schema 冻结 + 八枚举逐项 accept/非法 RED + 过滤默认空匹配零影响 + persistent journal replay 逐 tick hash + World-Field 唯一出口只读 buffer + 渲染零回写静态审计)。同 PR 落 milestones/g9/g9_m121_physics_particle_view_evidence_schema.json + g9_m122_gameplay_field_evidence_schema.json(双闭集 + phase_g9_2_pass/phase_g9_6_pass 布尔,骨架期 phase_g9_6_pass 恒 false 不充绿)+ ci/check_schemas.py 三处纯追加(g9_m121_physics_particle_view_ / g9_m122_gameplay_field_ 前缀路由)+ 新建 apps/g9-physics-gates harness(G8 门 0-byte 纪律:g8-physics-gates 字面不动)+ conformance/physics/particle_view/ + conformance/physics/field/ 语料。**RFC-0024 §5:零新 RXS/U/RD;零 budget 新条目;physics-field 为 RFC-0024 §6.2 R-7 🔒 冻结名**。G9.2 蜂群并行领号:本分支按落盘时实测 CI_step.next_free=131 领 136/137(预分配计划 136=M121/137=M122 与实际一致);agent A/B/C 同波领号以各自落盘实测为准,合并冲突由编排者解决;波次聚合门 g9.wave.2.exit(预分配 138)由 wave-exit agent 按落盘实测领取。双 phase 纪律:骨架期只跑 --phase g9.2;--phase g9.6 完整期未实现,脚本诚实非零退出不充绿。"
+    },
+    {
+      "version": "v1.76",
+      "date": "2026-08-05",
+      "change": "G7.7 close-out 纯留痕(agent 完全自主 D-406 v2.0,Assisted-by: cursor:cursor-grok-4.5-high-fast;G4 close-out v1.23「无新号消费」先例):**G7 零新号消费 → 各 namespace 字段 0-byte**。RFC on_tree_max 21 / next_free 22 维持;RXS on_tree_max 303 / next_free 304 维持(RXS-0297~0303 已由 v1.36/v1.44 materialize);CI_step on_tree_max 96 / next_free 97 维持(步骤 93~96 已由 v1.41~v1.45 消费);RD on_tree_max 44 / next_free 45 维持(**RD-038 closed** 于 deferred.json v1.74,零新 RD-045+);U on_tree_max 43 / next_free 44 维持(U44 全期未消费);SG on_tree_max 9 / next_free 10 维持(G7 零新 SG,SG-010 软保留);RX_error on_tree_max 7022 / next_free 7023 维持;MR / D 命名空间字段 0-byte。reserved_in_flight[G7] claim 全兑现清点:RFC-0018 / RXS-0297~0303 / CI 步骤 93~96 / RD-038 closure(无新阻塞)/ U44 零消费 / RX_error 仅 RX3018(v1.37)/ MR·SG·D 零消费。G7_CONTRACT status active→closed(§8.1)+ annotated tag g7-closed(C3 后签署)+ check_guardrails 默认基准 ea1-closed→g7-closed 互引。claim 行本体 0-byte。"
     }
   ]
 }

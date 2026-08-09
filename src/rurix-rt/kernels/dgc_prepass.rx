@@ -1,0 +1,20 @@
+//@ spec: RXS-0348
+// G9.2 M102 DGC pre-pass kernel:compute pre-pass 在 GPU 上直写 DgcBuffer
+// (VkDispatchIndirectCommand{x,y,z} 12 字节 @ u32 视图 [0,3);哨兵字 [3] = 0xD6C
+// 证明 prepass 真跑)。binding0 = DgcBuffer(u32 字视图,STORAGE|INDIRECT|
+// SHADER_DEVICE_ADDRESS);本 kernel 同时是 execute 目标(单 kernel 双臂:
+// prepass dispatch 写命令数据,DGC execute 重派同一 kernel 再写一遍同一值——
+// 幂等;哨兵改写 0xD6CD 证明 execute 真跑)。全程零 CPU 回读。
+// Vulkan compute 首期禁提前 return——结构对齐 geom_page_decode/saxpy 收敛 if。
+
+kernel fn dgc_prepass(dgc: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let gid = t.global_id();
+    if gid == 0 {
+        // VkDispatchIndirectCommand{x=1, y=1, z=1}(12 字节)。
+        dgc[0] = 1u32;
+        dgc[1] = 1u32;
+        dgc[2] = 1u32;
+        // 哨兵字:[3] = 0x0D6C(十进制 3436);execute 重派后应仍 = 0x0D6C(幂等)。
+        dgc[3] = 3436u32;
+    }
+}

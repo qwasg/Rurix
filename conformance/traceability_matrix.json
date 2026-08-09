@@ -1790,10 +1790,13 @@
       "conformance/reflection/reject/global_descriptor_index_dangling.rx"
     ],
     "RXS-0348": [
-      "conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx"
+      "conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx",
+      "src/rurix-rt/src/dgc.rs",
+      "src/rurix-rt/src/vk.rs"
     ],
     "RXS-0349": [
-      "conformance/capability/reject/unknown_capability_id_g92.rx"
+      "conformance/capability/reject/unknown_capability_id_g92.rx",
+      "src/rurixc/src/capability_check.rs"
     ]
   }
 }

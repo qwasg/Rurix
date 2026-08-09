@@ -3,8 +3,10 @@
 // IndirectCmdLayout 声明闭集 / token 限制装配期核验 fail-closed / DgcBuffer 无
 // host 读接口类型契约 / 三后端映射单一事实源 / capability snapshot 阻塞性前置 /
 // Execution Set 降级律）。
-// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
-// 实现；DGC 类型层与装配核验落地前本文件只承载条款锚点，不接入任何 harness。
+// **已转正（G9.2 M102 实现 PR）**：装配期核验已在 src/rurix-rt/src/dgc.rs
+// `IndirectCmdLayout::assemble` 落地（恰一终止且最后 fail-closed），本件承载的
+// 「多终止 token」违例族由 `reject_multiple_terminators` 单测锚定（同件条款
+// 锚点字面 0-byte）。
 // 预期 RED 面（实现 PR 转正）：token 限制违反逐类装配期 RED——本件承载「多终止
 // token」（恰一 dispatch/draw 终止 token 且最后之违例）；同族违例（终止 token
 // 非最后 / 嵌 render pass / 插 barrier / 绑 descriptor set）同码族拒；DgcBuffer

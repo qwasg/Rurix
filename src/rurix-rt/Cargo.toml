@@ -132,6 +132,13 @@ required-features = ["vulkan"]
 name = "vk_geom_page_decode"
 required-features = ["vulkan"]
 
+# G9.2 M102 DGC 最小链路 harness(RXS-0348;门 g9.p0.m102.dgc_abstraction;U54):
+# compute pre-pass 直写 DgcBuffer → vkCmdExecuteGeneratedCommandsEXT → 显式
+# readback pass 回读哨兵字;回读计数器 = 0;RURIX_REQUIRE_REAL=1 + 校验层。
+[[bin]]
+name = "vk_dgc"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

@@ -424,6 +424,9 @@ def check_evidence_files() -> None:
     g9_m122_gameplay_field_schema = load(
         ROOT / "milestones/g9/g9_m122_gameplay_field_evidence_schema.json"
     )
+    g9_m102_dgc_abstraction_schema = load(
+        ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -858,6 +861,11 @@ def check_evidence_files() -> None:
     g9_m122_gameplay_field_validator = (
         jsonschema.Draft7Validator(g9_m122_gameplay_field_schema)
         if g9_m122_gameplay_field_schema is not None
+        else None
+    )
+    g9_m102_dgc_abstraction_validator = (
+        jsonschema.Draft7Validator(g9_m102_dgc_abstraction_schema)
+        if g9_m102_dgc_abstraction_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1639,6 +1647,16 @@ def check_evidence_files() -> None:
         ):
             # G9.2 M122 gameplay_field(步骤 137;双 phase 骨架期)。
             validator = g9_m122_gameplay_field_validator
+        elif (
+            f.name.startswith("g9_m102_dgc_abstraction_")
+            and g9_m102_dgc_abstraction_validator is not None
+        ):
+            # G9.2 M102 DGC 抽象门(步骤 131;ci/g9_dgc_abstraction_smoke.py 写:
+            # host 段 dgc.rs 装配期核验/结构性断言/capability snapshot 阻塞性前置
+            # + device 段 vk_dgc 最小链路真跑〔compute pre-pass 直写 DgcBuffer →
+            # vkCmdExecuteGeneratedCommandsEXT → 显式 readback pass 回读哨兵字〕,
+            # RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1,回读计数器=0)。
+            validator = g9_m102_dgc_abstraction_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

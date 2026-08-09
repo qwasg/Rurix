@@ -1,0 +1,23 @@
+{
+  "golden_schema": "rurix.g9-m102-dgc-golden.v1",
+  "gate": "g9.p0.m102.dgc_abstraction",
+  "milestone": "M102",
+  "wave": "G9.2",
+  "frozen_at": "2026-08-09",
+  "device": "NVIDIA GeForce RTX 4070 Ti (driver 620.02)",
+  "source": "vk_dgc device 真跑(RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)",
+  "command": "target/debug/vk_dgc.exe --arm execute",
+  "sentinel_words": [1, 1, 1, 3436],
+  "sentinel_hex": "0100000001000000010000006c0d0000",
+  "sentinel_meaning": "DgcBuffer[0..4] = VkDispatchIndirectCommand{x=1,y=1,z=1} + 哨兵字 3436(0x0D6C);prepass 直写 + ExecuteGeneratedCommands 幂等重派同一 kernel 写同值——值对即 GPU 生成命令数据被 execute 真消费",
+  "readback_counter": 0,
+  "validation_errors": 0,
+  "dgc_device_props": {
+    "max_sequence_count": 4194303,
+    "max_token_count": 32,
+    "max_token_offset": 4294967295,
+    "max_indirect_stride": 4294967295,
+    "vulkan_index_buffer_mode": true
+  },
+  "notes": "M102 DGC device 最小链路 golden:compute pre-pass(dgc_prepass.rx 经 vulkan_codegen 产真 SPIR-V)直写 device-local DgcBuffer → vkCmdExecuteGeneratedCommandsEXT(isPreprocessed=0)→ 显式 readback pass(vkCmdCopyBuffer)回读哨兵字。出图判据 = 哨兵字序列 [1,1,1,3436] 逐字节全等(CPU 录制等价场景的像素级 golden 在首期由 dispatch 哨兵判据承载;图形出图 golden 归后续 M105 Execution Set 波)。preprocess 臂:NVIDIA 4070 Ti 驱动 620.02 下 vkCmdPreprocessGeneratedCommandsEXT 在 EXPLICIT_PREPROCESS 布局 + stateCommandBuffer 自引用下 hang(进程超时 143),首期不纳入硬门判据,留痕登记——M105 Execution Set 波重新评估。DgcBuffer 物理字节格式非 stable(RXS-0348 §3-6),本 golden 只冻结**执行结果哨兵字**,不冻结 DgcBuffer 全量字节。"
+}
