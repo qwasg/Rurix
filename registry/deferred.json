@@ -1098,6 +1098,16 @@
           "date": "2026-07-29",
           "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;几何主线 P0–P2 已落地(rurix-geom-build + geometry:: 两级剔除/VisBuffer/classify-resolve,host 参考全量)",
           "evidence": "rfcs/0016-native-renderer.md §8 / 渲染器调研/调研报告1-几何与Nanite类虚拟化几何.md §7"
+        },
+        {
+          "date": "2026-08-09",
+          "event": "G9.1 立项触发登记(agent 完全自主 D-406 v2.0):G9 正式立项书(2026-08-09 用户立项指令=G9.1 治理包七项交付清单)依 G9_PLAN §1.0 触发声明构成本条目 M06(Foliage/骨骼虚拟几何)与 M09(Mega Geometry 簇级 BLAS)两分项的触发证据——『动态资产面出现时』『RT 与虚拟几何合流需求出现时』由立项书字面命中;两分项由 open-defer 转入 G9 承接(M06→M90/M92/M93,M09→M90/M94,见 milestones/g9/G9_CANDIDATE_DECISIONS.md)。G8.7 决策表原文 0-byte 不回写;本行只追加。RD-039 总体 status 维持 open(M03/M44/M05/Assemblies 等其余分项未触发)。",
+          "evidence": "milestones/g9/G9_PLAN.md §1.0 / milestones/g9/G9_CANDIDATE_DECISIONS.md / milestones/g9/G9_CONTRACT.md §7"
+        },
+        {
+          "date": "2026-08-09",
+          "event": "G9.1 M61 mesh shader strategic_override(agent 完全自主 D-406 v2.0;立项裁决表项 3 用户裁决接受 D3 建议):no-go 留档 → mesh shader **可选 geometry pipeline**(G9 M109,P2 可选;cluster 流入口、VS 光栅唯一 fallback、mesh.task capability 选择律;顺序硬约束=排在 meshlet 页格式 v2 与 GPU-driven 剔除链路之后;语义面由 RFC-0023 冻结,D-409 评审后 Approved 方生效)。原 backfill『多厂商扩展行为收敛且性能差有 measured 证据时评估』字面 0-byte 不回写,本行为只追加 override;RD-039 总体 status 维持 open。",
+          "evidence": "milestones/g9/G9_CANDIDATE_DECISIONS.md §RD-039 / rfcs/0023-gpu-driven-submission-shading.md"
         }
       ]
     },
@@ -1119,6 +1129,11 @@
           "date": "2026-08-06",
           "event": "G8.2 M50 materialize:RT pipeline/SBT **增量分项**按 G8_CANDIDATE_DECISIONS §4.1 strategic_override 兑现(多 hit group/SBT user data/stack sizing/pipeline library + RFC-0019 冻结子集 RED-GREEN;ci/g8_rt_pipeline_incremental_smoke.py 16/16 PASS,evidence/g8_m50_rt_pipeline_incremental_20260806T072320Z.json,RTX 4070 Ti)。**RD-040 总体 status 维持 open**(SER/OMM/SMRT/世界辐射缓存/ReSTIR/NRD 等分项未兑现);本行仅关闭 M50 目标分项,不替代其余 backfill 判档。",
           "evidence": "milestones/g8/G8_CONTRACT.md §8.8 / milestones/g8/G8_CANDIDATE_DECISIONS.md §4.1 / ci/g8_rt_pipeline_incremental_smoke.py / evidence/g8_m50_rt_pipeline_incremental_20260806T072320Z.json / spec RXS-0322~0327 / unsafe-audit U30"
+        },
+        {
+          "date": "2026-08-09",
+          "event": "G9.1 M52 SER strategic_override(agent 完全自主 D-406 v2.0;立项裁决表项 3 用户裁决接受 D3 建议):no-go 留档 → SER **语言层原语 + capability rt.ser 可选**(G9 M108,P2 可选;HitObject 类型面/reorderThread/hitObjectTraceRay/hitObjectInvoke/材质 flags coherence hint 位段预留;收益集中 NV 不承诺性能、渲染器集成延后;语义面由 RFC-0023 冻结,D-409 评审后 Approved 方生效)。原 backfill 字面 0-byte 不回写,本行为只追加 override;RD-040 总体 status 维持 open(SER 外其余分项维持原判)。",
+          "evidence": "milestones/g9/G9_CANDIDATE_DECISIONS.md §RD-040 / rfcs/0023-gpu-driven-submission-shading.md"
         }
       ]
     },
@@ -1578,6 +1593,11 @@
       "version": "v1.76",
       "date": "2026-08-06",
       "change": "G8.2 M50 rt_pipeline_incremental materialize:RD-040 history 追加 M50 RT pipeline/SBT 增量分项兑现行(agent 完全自主 D-406 v2.0;Assisted-by: cursor-grok-4.5-high-fast)。RD-040 status **维持 open**(SER/OMM 等其余分项未兑现);owner_milestone 箭头留痕 G5→G8.2(M50 分项);id/title/reason/backfill_condition 四字段 0-byte;既有 history 一行 0-byte 只尾追加;其余 entry 与 revision_log v1.0~v1.75 行 0-byte。"
+    },
+    {
+      "version": "v1.77",
+      "date": "2026-08-09",
+      "change": "G9.1 立项承接与改判登记(agent 完全自主 D-406 v2.0):RD-039 history +2 行(M06/M09 立项书触发登记、M61 mesh shader strategic_override)、RD-040 history +1 行(M52 SER strategic_override);三行均只追加,id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动;神经变形维持 rfcs/0021:122 无归属留痕不新设 RD);其余 entry 与 revision_log v1.0~v1.76 行 0-byte"
     }
   ]
 }

@@ -6,10 +6,10 @@
       "scope": "shared",
       "pattern": "RFC-####",
       "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
-      "on_tree_max": 21,
-      "next_free": 22,
+      "on_tree_max": 24,
+      "next_free": 25,
       "shadow_reserved": [],
-      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.38 校准(G7.2 前置):RFC-0018(G7 compute RayQuery/device frame 伞形,Agent Approved 2026-08-01)已 materialize 为 rfcs/0018-compute-rayquery-device-frame.md,on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC claim 兑现,claim 行 0-byte。下一个可用 RFC-0019。v1.40 校准(G8.1):RFC-0019(G8 rendering-platform)/RFC-0020(G8 asset-pipeline)/RFC-0021(G8 physics-platform)已 materialize 为 rfcs/ 文件并于 2026-08-02 经 D-409 独立 provenance(Kiro:claude-opus-5 ≠ 起草 Codex:gpt-5)对抗性评审后 Agent Approved,on_tree_max 18→21、next_free 19→22(v1.13/v1.28/v1.29/v1.38 先例);reserved_in_flight[G8].RFC 三号 claim 兑现且 claim 行 0-byte。下一个可用 RFC-0022。"
+      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.38 校准(G7.2 前置):RFC-0018(G7 compute RayQuery/device frame 伞形,Agent Approved 2026-08-01)已 materialize 为 rfcs/0018-compute-rayquery-device-frame.md,on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC claim 兑现,claim 行 0-byte。下一个可用 RFC-0019。v1.40 校准(G8.1):RFC-0019(G8 rendering-platform)/RFC-0020(G8 asset-pipeline)/RFC-0021(G8 physics-platform)已 materialize 为 rfcs/ 文件并于 2026-08-02 经 D-409 独立 provenance(Kiro:claude-opus-5 ≠ 起草 Codex:gpt-5)对抗性评审后 Agent Approved,on_tree_max 18→21、next_free 19→22(v1.13/v1.28/v1.29/v1.38 先例);reserved_in_flight[G8].RFC 三号 claim 兑现且 claim 行 0-byte。下一个可用 RFC-0022。v1.73 校准(G9.1):RFC-0022(G9 virtual-geometry-gi-semantics)/RFC-0023(G9 gpu-driven-submission-shading)/RFC-0024(G9 physics-platform-revision,RFC-0021 修订)已 materialize 为 rfcs/ 文件并于 2026-08-09 经 D-409 对抗性评审(评审 provenance rfc00XX-adversarial-reviewer 独立实例 ≠ 起草 rfc00XX-drafter;首选跨工具评审者本环境不可得,同工具族偏差按 RFC-0015 §9.1/v1.29 先例如实登记于各 RFC §9.1;三份共 17 findings,6 major + 11 minor 全部 disposition)后 Agent Approved,on_tree_max 21→24、next_free 22→25(v1.13/v1.28/v1.29/v1.38/v1.40 先例);reserved_in_flight[G9].RFC 三号 claim 兑现且 claim 行 0-byte。下一个可用 RFC-0025。"
     },
     "MR": {
       "scope": "shared",
@@ -333,9 +333,29 @@
         "SG": "零消费(SG-010 UI 方向软保留维持且不占用;G8 已知 P2/P3 走候选决策表,不预造 SG)",
         "D": "共享 D 段零消费(D-G8-N/G-G8-N 为里程碑私有交付物/门号,不占 D-410;战略裁决记录于 CONTRACT/PLAN/deferred history)"
       }
+    },
+    {
+      "owner": "G9(UE5 级渲染器与物理引擎正式建造期;2026-08-09 governance-only 开工:用户立项指令=同会话 G9.1 治理包七项交付清单 + agent 依 10 §7/P-13/D-406 v2.0 完全自主签署六项立项裁决〔全文记 milestones/g9/G9_CONTRACT.md §7〕;G9.0 文档集不可变 ref=1d9460a1;G9.2+ 仍待 G-G9-3 实现互锁)",
+      "source": "milestones/g9/G9_PLAN.md v1.1 §1/§5 + milestones/g9/G9_CONTRACT.md §7",
+      "claims": {
+        "RFC": "RFC-0022~0024 三号 Full RFC(G9.1 governance-only:0022 virtual-geometry-gi-semantics / 0023 gpu-driven-submission-shading / 0024 physics-platform-revision〔RFC-0021 修订〕;2026-08-09 实测 namespaces.RFC next_free=22 顺序领取,非推测号;三 RFC 均须 D-409 独立 provenance 对抗性评审后 Agent Approved)",
+        "RXS": "G9.1 零数字 claim(G8 closed 后 RXS actual next_free=344 仅为快照;G9.2 互锁绿后重读 actual next_free 再按需 claim/materialize,不得沿用 design/ 草案建议区间〔D3 §⑨ RXS-0322 起与 M50 已消费段冲突,一律作废〕)",
+        "CI_step": "G9.1 零数字 claim(只冻结 symbolic gate key 与脚本名,不预放 workflow 空步骤;check_* 治理守卫不占号;G9.2 互锁绿后按 actual next_free 分配数字步骤)",
+        "RD": "G9.1 零新 RD 编号(只对既有 RD-039/RD-040 history 只追加:M06/M09 立项书触发登记 + M61/M52 strategic_override;神经变形维持 rfcs/0021:122 无归属留痕不新设 RD;新阻塞待 G9.2 后按 actual next_free=45 顺位)",
+        "U": "G9.1 零消费(无 src/unsafe;G9.2 后按 actual next_free 且优先复用既有审计边界)",
+        "RX_error": "G9.1 零消费(无实现/诊断发射;G9.2 后按 error_codes 各段 actual next_free 顺位,en/zh messages 成对)",
+        "MR": "零消费(G9.1 三面均用 Full RFC-0022~0024;实现期若出现独立 Mini 判档,互锁后按 actual next_free)",
+        "SG": "零消费(SG-010 软保留维持且不占用;G9 已知 P2/P3 走候选决策表,不预造 SG)",
+        "D": "共享 D 段零消费(D-G9-N/G-G9-N 为里程碑私有交付物/门号,不占 D-410;战略裁决记录于 CONTRACT/PLAN/deferred history)"
+      }
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.73",
+      "date": "2026-08-09",
+      "change": "G9.1 governance-only 开工 claim + RFC materialize 校准(agent 完全自主 D-406 v2.0,Assisted-by: Kimi Code CLI (Kimi)):① reserved_in_flight 追加 G9 行——用户 2026-08-09 立项指令(同会话 G9.1 治理包七项交付清单)+ D-406 六项立项裁决(G9_CONTRACT §7:带未提交项立项/Safe GPU defer G10+/M52·M61 改判接受/五模块全进/神经变形不新设 RD/G8.8b 同日放行先例继承);G9.0 文档集不可变 ref=1d9460a1。claim:RFC-0022~0024(2026-08-09 实测 next_free=22 顺序领取)/ RXS·CI_step·RD·U·RX_error·MR·SG·D 全零数字 claim(G9.2 互锁绿后按 actual next_free 领取,禁沿用 design/ 草案建议区间)。② RFC 命名空间校准(v1.13/v1.28/v1.29/v1.38/v1.40 先例):RFC-0022(virtual-geometry-gi-semantics)/0023(gpu-driven-submission-shading)/0024(physics-platform-revision,RFC-0021 修订)已 materialize 为 rfcs/ 文件并经 D-409 对抗性评审(评审 provenance rfc00XX-adversarial-reviewer 独立实例 ≠ 起草 rfc00XX-drafter;首选跨工具评审者本环境不可得,同工具族偏差按 RFC-0015 §9.1/v1.29 先例如实登记于各 RFC §9.1;三份共 17 findings〔6 major + 11 minor〕全部 disposition,含 F-6/F-7 跨文档移交 G9_CANDIDATE_DECISIONS v1.1 落实)后 Agent Approved 2026-08-09——RFC on_tree_max 21→24、next_free 22→25;reserved_in_flight[G9].RFC claim 同 revision 兑现,claim 行 0-byte 不改写。③ deferred.json 联动(v1.77):RD-039 history +2(M06/M09 立项书触发登记、M61 strategic_override)、RD-040 history +1(M52 strategic_override),全部只追加、RD 命名空间 0-byte(next_free=45 不动)。同批落 G9.1 治理包:milestones/g9/{G9_CONTRACT,G9_CANDIDATE_DECISIONS,G9_ACCEPTANCE_MAP,CI_GATES,g9_budget.json} + ci/check_g9_{acceptance_map,implementation_interlock,budget_baseline}.py(未编号 check_* 守卫,均带 RED 自检,零 workflow 数字步骤)+ RTX 4070 Ti measured baseline(evidence/g9_vram_as_baseline_20260808T154217Z.json,probe=ci/g9_vram_as_baseline_probe.py ctypes 零新 Rust/C++)。G8 车道(G8 四件套/决策表/evidence schema/budget)与 G8 遗留 staged 工作树集合(带未提交项立项,待独立提交)0-byte 不碰。"
+    },
     {
       "version": "v1.72",
       "date": "2026-08-06",
