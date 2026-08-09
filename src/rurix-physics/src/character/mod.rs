@@ -4,7 +4,7 @@
 //! 完整运动学闭环由波次 subject `g8.wave6b.m71.character_virtual` 承载;
 //! 本模块为 M67 波次并行分支提供可 capture/rollback 的状态 schema。
 
-use crate::capture::canonical::{canon_f32_bits_at, CaptureError};
+use crate::capture::canonical::{CaptureError, canon_f32_bits_at};
 use crate::id::BodyId;
 use crate::types::PhysicsTransform;
 

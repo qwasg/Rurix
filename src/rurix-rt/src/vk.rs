@@ -908,8 +908,7 @@ type FnCmdBindVertexBuffers =
     unsafe extern "system" fn(VkCommandBuffer, u32, u32, *const VkBuffer, *const VkDeviceSize);
 type FnCmdDraw = unsafe extern "system" fn(VkCommandBuffer, u32, u32, u32, u32);
 /// `vkCmdBindIndexBuffer`(G8.2 M89 U31 扩注:IB 绑定)。
-type FnCmdBindIndexBuffer =
-    unsafe extern "system" fn(VkCommandBuffer, VkBuffer, VkDeviceSize, u32);
+type FnCmdBindIndexBuffer = unsafe extern "system" fn(VkCommandBuffer, VkBuffer, VkDeviceSize, u32);
 /// `vkCmdDrawIndexed`(G8.2 M89 U31 扩注:索引绘制)。
 type FnCmdDrawIndexed = unsafe extern "system" fn(VkCommandBuffer, u32, u32, u32, i32, u32);
 type FnCmdPipelineBarrier = unsafe extern "system" fn(
@@ -15797,8 +15796,7 @@ unsafe fn rhi_graphics_body(
         dp!(c"vkCmdBindVertexBuffers", FnCmdBindVertexBuffers);
     let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
     // G8.2 M89 U31 扩注:IB 绑定 + DrawIndexed(既有 U31 图形 FFI 边界加性扩注,0 新 U)。
-    let cmd_bind_ibuf: FnCmdBindIndexBuffer =
-        dp!(c"vkCmdBindIndexBuffer", FnCmdBindIndexBuffer);
+    let cmd_bind_ibuf: FnCmdBindIndexBuffer = dp!(c"vkCmdBindIndexBuffer", FnCmdBindIndexBuffer);
     let cmd_draw_indexed: FnCmdDrawIndexed = dp!(c"vkCmdDrawIndexed", FnCmdDrawIndexed);
     let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
     let cmd_copy_img_to_buf: FnCmdCopyImageToBuffer =
@@ -15865,12 +15863,8 @@ unsafe fn rhi_graphics_body(
         memory_type_bits: 0,
     };
     img_mem_req(device, color_image, &mut color_mem_req);
-    let color_mem_ty = pick_mem_type(
-        &mem_props,
-        color_mem_req.memory_type_bits,
-        MEM_DEVICE_LOCAL,
-    )
-    .ok_or("无 DEVICE_LOCAL memory type (color image)")?;
+    let color_mem_ty = pick_mem_type(&mem_props, color_mem_req.memory_type_bits, MEM_DEVICE_LOCAL)
+        .ok_or("无 DEVICE_LOCAL memory type (color image)")?;
     let color_alloc = MemoryAllocateInfo {
         s_type: ST_MEMORY_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -16729,7 +16723,6 @@ unsafe fn rhi_graphics_body(
 
     Ok(pixels)
 }
-
 
 /// G8.2 M50 增量 SPIR-V 嵌入(非 emit_*_min;RXS-0325)。
 //@ spec: RXS-0325
@@ -18135,11 +18128,9 @@ unsafe fn pso_session_inner(
         c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
     ))
     .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
-    let get_pd_props: FnPsoGetPhysicalDeviceProperties = cast_fn(gipa(
-        instance,
-        c"vkGetPhysicalDeviceProperties".as_ptr(),
-    ))
-    .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let get_pd_props: FnPsoGetPhysicalDeviceProperties =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
     let vk_create_device: FnCreateDevice =
         cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
     let vk_get_device_proc: FnGetDeviceProcAddr =
@@ -18259,8 +18250,8 @@ unsafe fn pso_session_inner(
     let has_ext = |n: &str| avail_refs.contains(&n);
     let binary_exts_advertised =
         has_ext("VK_KHR_maintenance5") && has_ext("VK_KHR_pipeline_binary");
-    let cc_struct_ok = props.api_version >= API_VERSION_1_3
-        || has_ext("VK_EXT_pipeline_creation_cache_control");
+    let cc_struct_ok =
+        props.api_version >= API_VERSION_1_3 || has_ext("VK_EXT_pipeline_creation_cache_control");
 
     // ── feature 探测链（仅链扩展在位的结构,validation 合法性;逐 bit fail-closed）──
     let mut cc_feat = PhysicalDevicePipelineCreationCacheControlFeatures {
@@ -18389,7 +18380,8 @@ unsafe fn pso_session_inner(
     rtp_feat.ray_tracing_pipeline = 1;
     bda_feat.buffer_device_address = 1;
     cc_feat.pipeline_creation_cache_control = 1;
-    let mut dev_exts: Vec<*const c_char> = RT_DEVICE_EXTENSIONS.iter().map(|e| e.as_ptr()).collect();
+    let mut dev_exts: Vec<*const c_char> =
+        RT_DEVICE_EXTENSIONS.iter().map(|e| e.as_ptr()).collect();
     if binary_capable {
         m5_feat.maintenance5 = 1;
         pb_feat.pipeline_binaries = 1;
@@ -18481,8 +18473,10 @@ unsafe fn pso_session_body(
         dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
     let create_dsl: FnCreateDescriptorSetLayout =
         dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
-    let destroy_dsl: FnDestroyDescriptorSetLayout =
-        dp!(c"vkDestroyDescriptorSetLayout", FnDestroyDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
     let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
     let destroy_pl: FnDestroyPipelineLayout =
         dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
@@ -18490,16 +18484,17 @@ unsafe fn pso_session_body(
         dp!(c"vkCreateComputePipelines", FnCreateComputePipelines);
     let create_gp: FnCreateGraphicsPipelines =
         dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
-    let create_rt: FnCreateRayTracingPipelines =
-        dp!(c"vkCreateRayTracingPipelinesKHR", FnCreateRayTracingPipelines);
+    let create_rt: FnCreateRayTracingPipelines = dp!(
+        c"vkCreateRayTracingPipelinesKHR",
+        FnCreateRayTracingPipelines
+    );
     let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
     let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
     let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
     let create_pc: FnCreatePipelineCache = dp!(c"vkCreatePipelineCache", FnCreatePipelineCache);
     let get_pc_data: FnGetPipelineCacheData =
         dp!(c"vkGetPipelineCacheData", FnGetPipelineCacheData);
-    let destroy_pc: FnDestroyPipelineCache =
-        dp!(c"vkDestroyPipelineCache", FnDestroyPipelineCache);
+    let destroy_pc: FnDestroyPipelineCache = dp!(c"vkDestroyPipelineCache", FnDestroyPipelineCache);
     // VK_KHR_pipeline_binary 五符号:binary 分支必载;fallback 分支符号可缺（分支不上路）。
     let create_bins: Option<FnCreatePipelineBinariesKHR> =
         cast_fn(gdpa(device, c"vkCreatePipelineBinariesKHR".as_ptr()));
@@ -18632,7 +18627,10 @@ enum AnyCreateInfo {
         PipelineMultisampleStateCreateInfo,
         PipelineColorBlendStateCreateInfo,
     ),
-    Rt(RayTracingPipelineCreateInfo, Vec<RayTracingShaderGroupCreateInfo>),
+    Rt(
+        RayTracingPipelineCreateInfo,
+        Vec<RayTracingShaderGroupCreateInfo>,
+    ),
 }
 
 impl AnyCreateInfo {
@@ -18935,8 +18933,8 @@ unsafe fn pso_one_plan(
         //    ② VUID-VkPipelineCreateFlags2CreateInfoKHR-flags-requiredbitmask:flags2 链入
         //       时 flags **不得为 0**——故携 binary 的 warm 创建**不链 flags2**,binary info
         //       直挂 create info pNext;stall 重试清位时整条链摘除（p_next=null,flags=0）。
-        let use_flags2 = ctx.branch == PSO_BRANCH_BINARY
-            && (ctx.mode_cold || bin_info.binary_count == 0);
+        let use_flags2 =
+            ctx.branch == PSO_BRANCH_BINARY && (ctx.mode_cold || bin_info.binary_count == 0);
         let flags2_bits: u64 = if !use_flags2 {
             0
         } else if ctx.mode_cold {
@@ -19009,12 +19007,14 @@ unsafe fn pso_one_plan(
                 };
                 let vattrs: Vec<VkVertexInputAttributeDescription> = vertex_attrs
                     .iter()
-                    .map(|&(location, format, offset)| VkVertexInputAttributeDescription {
-                        location,
-                        binding: 0,
-                        format,
-                        offset,
-                    })
+                    .map(
+                        |&(location, format, offset)| VkVertexInputAttributeDescription {
+                            location,
+                            binding: 0,
+                            format,
+                            offset,
+                        },
+                    )
                     .collect();
                 let vin = PipelineVertexInputStateCreateInfo {
                     s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
@@ -19288,8 +19288,13 @@ unsafe fn pso_one_plan(
                     break 'plan Err("vkGetPipelineBinaryDataKHR(size) 失败".into());
                 }
                 let mut data = vec![0u8; sz];
-                if gbd(device, &bdii, &mut key, &mut sz, data.as_mut_ptr() as *mut c_void)
-                    != VK_SUCCESS
+                if gbd(
+                    device,
+                    &bdii,
+                    &mut key,
+                    &mut sz,
+                    data.as_mut_ptr() as *mut c_void,
+                ) != VK_SUCCESS
                 {
                     break 'plan Err("vkGetPipelineBinaryDataKHR(data) 失败".into());
                 }

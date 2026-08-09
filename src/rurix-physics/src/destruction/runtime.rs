@@ -93,10 +93,7 @@ impl FracturePipeline {
             "damage:tick={}:mag={:.6}:r={:.6}",
             cmd.tick, cmd.magnitude, cmd.radius
         ));
-        self.pending_commands
-            .entry(cmd.tick)
-            .or_default()
-            .push(cmd);
+        self.pending_commands.entry(cmd.tick).or_default().push(cmd);
         Ok(())
     }
 
@@ -111,16 +108,8 @@ impl FracturePipeline {
                 if self.broken.contains(&e.edge_id) {
                     continue;
                 }
-                let ca = self
-                    .cooked
-                    .chunks
-                    .iter()
-                    .find(|c| c.chunk_id == e.chunk_a);
-                let cb = self
-                    .cooked
-                    .chunks
-                    .iter()
-                    .find(|c| c.chunk_id == e.chunk_b);
+                let ca = self.cooked.chunks.iter().find(|c| c.chunk_id == e.chunk_a);
+                let cb = self.cooked.chunks.iter().find(|c| c.chunk_id == e.chunk_b);
                 let (Some(a), Some(b)) = (ca, cb) else {
                     continue;
                 };
@@ -148,7 +137,8 @@ impl FracturePipeline {
             if s > e.strength {
                 self.broken.insert(e.edge_id.clone());
                 broken_now.push(e.edge_id.clone());
-                self.journal.push(format!("break_edge:{}:tick={}", e.edge_id, tick));
+                self.journal
+                    .push(format!("break_edge:{}:tick={}", e.edge_id, tick));
             }
         }
 
@@ -201,7 +191,12 @@ impl FracturePipeline {
         if newly_broken.is_empty() {
             return Vec::new();
         }
-        let chunk_ids: Vec<String> = self.cooked.chunks.iter().map(|c| c.chunk_id.clone()).collect();
+        let chunk_ids: Vec<String> = self
+            .cooked
+            .chunks
+            .iter()
+            .map(|c| c.chunk_id.clone())
+            .collect();
         let mut parent: BTreeMap<String, String> = chunk_ids
             .iter()
             .map(|id| (id.clone(), id.clone()))
@@ -288,8 +283,10 @@ impl FracturePipeline {
             self.activated_clusters.insert(c.cluster_id.clone());
             activated_now.push(c.cluster_id.clone());
             let body_id = format!("body:{}:{}", c.cluster_id, tick);
-            self.journal
-                .push(format!("activate_body:{}:cluster={}", body_id, c.cluster_id));
+            self.journal.push(format!(
+                "activate_body:{}:cluster={}",
+                body_id, c.cluster_id
+            ));
             self.activated_bodies.push(ActivatedBodyRecord {
                 body_stable_id: body_id,
                 cluster_id: c.cluster_id.clone(),

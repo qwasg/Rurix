@@ -12,14 +12,14 @@ use crate::id::BodyId;
 use crate::types::{ContactEvent, WorldDesc};
 use crate::world::PhysicsWorld;
 
-use super::events::{event_id_for_contact, EventCommitBridge, PhysicsEventId};
+use super::events::{EventCommitBridge, PhysicsEventId, event_id_for_contact};
 use super::frame::{FrameDomainMap, NetworkPhysicsFrameId, PhysicsTickId};
 use super::history::HistoryRing;
-use super::rollback::{rebuild_and_resim, RollbackPlan, TickInput};
+use super::rollback::{RollbackPlan, TickInput, rebuild_and_resim};
 use super::server::AuthoritativeSnapshot;
 use super::smoothing::{
-    hard_snap, soft_snap, within_bound, PresentationOffset, PresentationTransform, SmoothingBound,
-    SMOOTHING_BOUND_V1,
+    PresentationOffset, PresentationTransform, SMOOTHING_BOUND_V1, SmoothingBound, hard_snap,
+    soft_snap, within_bound,
 };
 use super::{HardCorrectionReason, NetError};
 
@@ -250,7 +250,9 @@ impl ClientWorld {
             .map_err(|e| NetError::Backend(e.to_string()))?;
         let predicted_hash =
             hash_canonical_state(&state).map_err(|e| NetError::Backend(e.to_string()))?;
-        let _ = self.hash_at_tick.push(frame, predicted_hash.clone(), retain);
+        let _ = self
+            .hash_at_tick
+            .push(frame, predicted_hash.clone(), retain);
 
         let offsets = self.smooth_presentations(soft_alpha)?;
         let map = FrameDomainMap::rigid_only(frame, PhysicsTickId(self.tick));

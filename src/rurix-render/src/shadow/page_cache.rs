@@ -345,23 +345,29 @@ fn record_marks(log: &mut EventLog, vsm: &Vsm, frame: u32, slots: &[(u8, u8, u8)
         } else {
             EventKind::MarkMiss
         };
-        emit(log, frame, LightId::Directional, level, (x, y), kind, e.phys);
+        emit(
+            log,
+            frame,
+            LightId::Directional,
+            level,
+            (x, y),
+            kind,
+            e.phys,
+        );
     }
 }
 
-fn record_alloc(log: &mut EventLog, frame: u32, light: LightId, before: &[(u8, u8, u8, bool)], vsm: &Vsm) {
+fn record_alloc(
+    log: &mut EventLog,
+    frame: u32,
+    light: LightId,
+    before: &[(u8, u8, u8, bool)],
+    vsm: &Vsm,
+) {
     for &(level, x, y, was_res) in before {
         let e = vsm.table(level).get(x, y);
         if !was_res && e.resident {
-            emit(
-                log,
-                frame,
-                light,
-                level,
-                (x, y),
-                EventKind::Alloc,
-                e.phys,
-            );
+            emit(log, frame, light, level, (x, y), EventKind::Alloc, e.phys);
         }
     }
 }
@@ -655,15 +661,8 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
         if let Some(loc) = local.as_mut() {
             let mut foreign: Vec<PageId> = Vec::new();
             let dir_victim = vsm.find_lru_victim();
-            let before_local = [
-                loc.table.get(0, 0).resident,
-                loc.table.get(1, 0).resident,
-            ];
-            let st = loc.alloc_into(
-                vsm.pool_mut(),
-                || dir_victim,
-                |id| foreign.push(id),
-            );
+            let before_local = [loc.table.get(0, 0).resident, loc.table.get(1, 0).resident];
+            let st = loc.alloc_into(vsm.pool_mut(), || dir_victim, |id| foreign.push(id));
             for id in foreign {
                 vsm.clear_slot(id.level, id.x, id.y);
             }
@@ -721,14 +720,7 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
                 world_tris_to_spot_light(&loc.spot, &all)
             };
             for (sx, sy, phys, origin) in loc.dirty_resident_pages() {
-                local_pages.push((
-                    sx,
-                    sy,
-                    phys,
-                    origin,
-                    loc.z_range,
-                    loc.page_world,
-                ));
+                local_pages.push((sx, sy, phys, origin, loc.z_range, loc.page_world));
                 dir_pages.push(DirtyPageRef {
                     view_id: 4,
                     level: crate::shadow::local::LOCAL_LEVEL_TAG,
@@ -909,10 +901,7 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
                 levels: views_now.len() as u32,
                 pool_pages: u32::from(vsm.pool().budget),
                 sample_pts: sample_pts.to_vec(),
-                host_dir_values: sample_pts
-                    .iter()
-                    .map(|p| vsm.sample_shadow(*p))
-                    .collect(),
+                host_dir_values: sample_pts.iter().map(|p| vsm.sample_shadow(*p)).collect(),
                 local: local_snap,
                 mark: mark_snapshot,
             });
@@ -1013,7 +1002,7 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
     });
 
     let checks = M19HostChecks {
-        host_oracle_regression: true, // smoke 侧 cargo test 覆写
+        host_oracle_regression: true,        // smoke 侧 cargo test 覆写
         event_sequence_matches_golden: true, // smoke 比对 golden 覆写
         cross_frame_cache_hit: cache_f1 && cache_f6,
         invalidation_reasons_exhaustive: reasons == InvalidationReason::ALL.to_vec(),
@@ -1110,10 +1099,7 @@ mod tests {
             "五失效原因 reasons={:?}",
             r.events.reasons_present()
         );
-        assert!(
-            r.checks.clipmap_scroll_hit,
-            "F4 scroll 事件数应=128"
-        );
+        assert!(r.checks.clipmap_scroll_hit, "F4 scroll 事件数应=128");
         assert!(r.checks.local_light_page_hit, "local Alloc+Raster+Sample");
         assert!(r.checks.non_virtual_caster_hit, "F8-F11 NonVirtual");
         assert!(r.checks.multi_view_batch, "view_count>=5");
@@ -1279,7 +1265,10 @@ mod tests {
         let red = run_m19_fixture_pool(RED_EVICT_POOL);
         assert_eq!(base.pool_pages, 6);
         assert!(base.evict_count > 0, "基线须有真驱逐,否则该轴空转");
-        assert!(red.evict_count > 0, "RED 臂须仍有驱逐(受害者集合变,而非无驱逐)");
+        assert!(
+            red.evict_count > 0,
+            "RED 臂须仍有驱逐(受害者集合变,而非无驱逐)"
+        );
         assert_ne!(
             base.evict_count, red.evict_count,
             "池扰动未改变驱逐数(扰动没落在驱逐轴上)"

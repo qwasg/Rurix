@@ -17,7 +17,7 @@ use super::frame::{NetworkPhysicsFrameId, PhysicsTickId};
 use super::history::HistoryRing;
 use super::rollback::TickInput;
 use super::server::{AuthoritativeSnapshot, ServerWorld};
-use super::smoothing::{SmoothingBound, SMOOTHING_BOUND_V1};
+use super::smoothing::{SMOOTHING_BOUND_V1, SmoothingBound};
 use super::{HardCorrectionReason, NetError};
 
 const IDENTITY: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
@@ -393,11 +393,7 @@ pub fn run_net_trace_with_bound(
             server_cmds.push(create_cmd.clone());
             client_cmds.push(create_cmd.clone());
         }
-        server_cmds.extend(cmds_for(
-            &roles,
-            &frame.client_local,
-            &frame.other_actors,
-        ));
+        server_cmds.extend(cmds_for(&roles, &frame.client_local, &frame.other_actors));
         client_cmds.extend(cmds_for(&roles, &frame.client_local, &[]));
 
         server.step(server_cmds)?;
@@ -450,7 +446,9 @@ pub fn run_net_trace_with_bound(
         c2.is_empty()
     };
 
-    let corr = first_divergent.clone().or_else(|| client.last_correction().cloned());
+    let corr = first_divergent
+        .clone()
+        .or_else(|| client.last_correction().cloned());
     let rollback_start = corr
         .as_ref()
         .and_then(|c| c.rollback.as_ref().map(|r| r.start_tick.0));
@@ -569,10 +567,7 @@ pub fn run_net_trace_with_bound(
     })
 }
 
-fn run_net_trace_once(
-    trace: &NetTrace,
-    bound: SmoothingBound,
-) -> Result<NetTraceReport, NetError> {
+fn run_net_trace_once(trace: &NetTrace, bound: SmoothingBound) -> Result<NetTraceReport, NetError> {
     // 避免 assert_trace_deterministic 递归双倍爆炸:内部轻量再跑(无嵌套 det)
     let world_desc = WorldDesc {
         job_threads: Some(1),
@@ -606,11 +601,7 @@ fn run_net_trace_once(
             sc.push(create_cmd.clone());
             cc.push(create_cmd.clone());
         }
-        sc.extend(cmds_for(
-            &roles,
-            &frame.client_local,
-            &frame.other_actors,
-        ));
+        sc.extend(cmds_for(&roles, &frame.client_local, &frame.other_actors));
         cc.extend(cmds_for(&roles, &frame.client_local, &[]));
         server.step(sc)?;
         if let DeliveryKind::Delay {
@@ -646,9 +637,9 @@ fn run_net_trace_once(
         prediction_divergence_observed: client.prediction_diverged(),
         correction_received_at_golden: correction_frame.is_some(),
         correction_frame,
-        rollback_start: client.last_correction().and_then(|c| {
-            c.rollback.as_ref().map(|r| r.start_tick.0)
-        }),
+        rollback_start: client
+            .last_correction()
+            .and_then(|c| c.rollback.as_ref().map(|r| r.start_tick.0)),
         rollback_input_sequence: Vec::new(),
         expected_rollback_start: trace.expected_rollback_start,
         rollback_sequence_matches: false,
@@ -677,8 +668,10 @@ fn run_net_trace_once(
 pub fn assert_trace_deterministic(trace: &NetTrace) -> Result<bool, NetError> {
     let a = run_net_trace_once(trace, SMOOTHING_BOUND_V1)?;
     let b = run_net_trace_once(trace, SMOOTHING_BOUND_V1)?;
-    Ok(a.prediction_divergence_observed == b.prediction_divergence_observed
-        && a.correction_frame == b.correction_frame
-        && a.resim_final_hash == b.resim_final_hash
-        && a.rollback_start == b.rollback_start)
+    Ok(
+        a.prediction_divergence_observed == b.prediction_divergence_observed
+            && a.correction_frame == b.correction_frame
+            && a.resim_final_hash == b.resim_final_hash
+            && a.rollback_start == b.rollback_start,
+    )
 }

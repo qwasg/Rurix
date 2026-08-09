@@ -2475,11 +2475,17 @@ fn rhi_submit_vk_gfx(
             continue;
         }
         let Some(vs_name) = gp.vs_name.as_deref() else {
-            diag(op, format!("gfx pass {pass_idx}: missing vs symbol [structure]"));
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: missing vs symbol [structure]"),
+            );
             return RXRT_FAIL;
         };
         let Some(fs_name) = gp.fs_name.as_deref() else {
-            diag(op, format!("gfx pass {pass_idx}: missing fs symbol [structure]"));
+            diag(
+                op,
+                format!("gfx pass {pass_idx}: missing fs symbol [structure]"),
+            );
             return RXRT_FAIL;
         };
         if vs_name.is_empty() || fs_name.is_empty() {
@@ -2572,9 +2578,7 @@ fn rhi_submit_vk_gfx(
                 let Some(entry) = ce.artifacts.spirv_entry(name) else {
                     diag(
                         op,
-                        format!(
-                            "gfx pass {pass_idx}: SPIR-V entry `{name}` absent (artifacts v2)"
-                        ),
+                        format!("gfx pass {pass_idx}: SPIR-V entry `{name}` absent (artifacts v2)"),
                     );
                     return Err(RXRT_FAIL);
                 };

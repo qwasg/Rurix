@@ -393,8 +393,7 @@ impl Vsm {
                 let lp = self.basis.to_light(world);
                 for l in self.cfg.clip.select_level(dc)..self.cfg.clip.levels {
                     if let Some((sx, sy, _)) = self.page_at(l, lp[0], lp[1]) {
-                        let bidx =
-                            usize::from(l) * SLOTS + usize::from(sy) * DIM + usize::from(sx);
+                        let bidx = usize::from(l) * SLOTS + usize::from(sy) * DIM + usize::from(sx);
                         bits[bidx / 32] |= 1u32 << (bidx % 32);
                         break;
                     }

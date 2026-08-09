@@ -951,7 +951,9 @@ mod ffi_layout_anchors {
         assert!(offset_of!(JpcCollideShapeArgs, shape_filter) == 192);
 
         // Constraint / Hinge settings(layout_dump 2026-08-06)
-        assert!(size_of::<JpcConstraintSettings>() == 32 && align_of::<JpcConstraintSettings>() == 8);
+        assert!(
+            size_of::<JpcConstraintSettings>() == 32 && align_of::<JpcConstraintSettings>() == 8
+        );
         assert!(offset_of!(JpcConstraintSettings, enabled) == 0);
         assert!(offset_of!(JpcConstraintSettings, constraint_priority) == 4);
         assert!(offset_of!(JpcConstraintSettings, user_data) == 24);

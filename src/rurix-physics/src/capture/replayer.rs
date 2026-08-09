@@ -3,10 +3,10 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::canonical::{event_digest, hash_canonical_state, state_from_world, CaptureError};
-use super::divergence::{locate_divergence, DivergenceLocate, FieldDiff};
+use super::canonical::{CaptureError, event_digest, hash_canonical_state, state_from_world};
+use super::divergence::{DivergenceLocate, FieldDiff, locate_divergence};
 use super::header::{PhysicsCaptureHeader, RECOVERY_LAYER_V1, SCHEMA_ID};
-use super::inject::{inject_before_tick, InjectRequest};
+use super::inject::{InjectRequest, inject_before_tick};
 use super::journal::{JournalCommand, JournalTick};
 use super::recorder::{CaptureArtifact, default_budget};
 use crate::bridge::{PageKey, StreamingBridge};
@@ -83,8 +83,8 @@ pub fn replay_artifact(
         return Ok(fail_report(artifact, verdict, 0, false, None));
     }
     let world_desc = artifact.header.world_desc.to_desc()?;
-    let mut world = PhysicsWorld::new(world_desc.clone())
-        .map_err(|e| CaptureError::Backend(e.to_string()))?;
+    let mut world =
+        PhysicsWorld::new(world_desc.clone()).map_err(|e| CaptureError::Backend(e.to_string()))?;
     let budget_profile = artifact.header.budget_profile.clone();
     let mut streaming = StreamingBridge::new();
     let mut constraint_map: HashMap<u64, u64> = HashMap::new();
@@ -174,9 +174,7 @@ pub fn replay_artifact(
     if ticks_ok != artifact.header.tick_count {
         return Ok(fail_report(
             artifact,
-            ReplayVerdict::JournalMissing {
-                tick: ticks_ok,
-            },
+            ReplayVerdict::JournalMissing { tick: ticks_ok },
             ticks_ok,
             false,
             first_divergence,
@@ -204,10 +202,10 @@ pub fn locate_injection_divergence(
     let world_desc = artifact.header.world_desc.to_desc()?;
     let budget_profile = artifact.header.budget_profile.clone();
 
-    let mut clean = PhysicsWorld::new(world_desc.clone())
-        .map_err(|e| CaptureError::Backend(e.to_string()))?;
-    let mut dirty = PhysicsWorld::new(world_desc)
-        .map_err(|e| CaptureError::Backend(e.to_string()))?;
+    let mut clean =
+        PhysicsWorld::new(world_desc.clone()).map_err(|e| CaptureError::Backend(e.to_string()))?;
+    let mut dirty =
+        PhysicsWorld::new(world_desc).map_err(|e| CaptureError::Backend(e.to_string()))?;
     let mut stream_c = StreamingBridge::new();
     let mut stream_d = StreamingBridge::new();
     let mut map_c = HashMap::new();

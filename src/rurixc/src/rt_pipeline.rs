@@ -98,17 +98,10 @@ fn collect_struct_fields(items: &[Item]) -> HashMap<String, StructFields> {
                     let mut fields = Vec::new();
                     if let VariantBody::Named(named) = &s.body {
                         for f in named {
-                            fields.push((
-                                f.name.name.clone(),
-                                ty_text(&f.ty),
-                                f.ty.span,
-                            ));
+                            fields.push((f.name.name.clone(), ty_text(&f.ty), f.ty.span));
                         }
                     }
-                    out.insert(
-                        s.name.name.clone(),
-                        StructFields { fields },
-                    );
+                    out.insert(s.name.name.clone(), StructFields { fields });
                 }
                 ItemKind::Mod(m) => walk(&m.items, out),
                 _ => {}
@@ -178,17 +171,23 @@ fn pod_ok(
         }
         n => {
             if is_resource_handle_name(n) {
-                return Err(format!("resource handle `{n}` is not POD for #[shader_record]"));
+                return Err(format!(
+                    "resource handle `{n}` is not POD for #[shader_record]"
+                ));
             }
             if n.starts_with('&') || n.starts_with('*') {
-                return Err(format!("reference/pointer field `{n}` is not POD for #[shader_record]"));
+                return Err(format!(
+                    "reference/pointer field `{n}` is not POD for #[shader_record]"
+                ));
             }
             let Some(info) = structs.get(n) else {
                 // 未知类型保守放行(typeck 其它面裁决);不误报。
                 return Ok(());
             };
             if !visiting.insert(n.to_owned()) {
-                return Err(format!("recursive type `{n}` is not POD for #[shader_record]"));
+                return Err(format!(
+                    "recursive type `{n}` is not POD for #[shader_record]"
+                ));
             }
             for (fname, fty, _) in &info.fields {
                 if fty.starts_with('&') || fty.starts_with('*') {
@@ -238,11 +237,7 @@ fn hex32(d: &[u8; 32]) -> String {
 
 // ───────────────────────── RXS-0322 shader_record ─────────────────────────
 
-fn check_shader_records(
-    items: &[Item],
-    structs: &HashMap<String, StructFields>,
-    diag: &DiagCtxt,
-) {
+fn check_shader_records(items: &[Item], structs: &HashMap<String, StructFields>, diag: &DiagCtxt) {
     for it in items {
         match &it.kind {
             ItemKind::Fn(f) => check_fn_shader_records(f, &it.attrs, structs, diag),
@@ -298,10 +293,7 @@ fn check_fn_shader_records(
         let mut visiting = HashSet::new();
         if let Err(detail) = pod_ok(head, structs, &mut visiting) {
             diag.struct_error(E_STAGE_INTERFACE, "shader.stage_interface_mismatch")
-                .arg(
-                    "detail",
-                    format!("{detail} (RXS-0322 POD closed set)"),
-                )
+                .arg("detail", format!("{detail} (RXS-0322 POD closed set)"))
                 .span_label(ty.span, "non-POD #[shader_record] type")
                 .emit();
         }
@@ -409,16 +401,7 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
                         _ => {}
                     }
                 }
-                ItemKind::Mod(m) => {
-                    walk(
-                        &m.items,
-                        groups,
-                        order,
-                        raygen_count,
-                        miss_count,
-                        diag,
-                    )
-                }
+                ItemKind::Mod(m) => walk(&m.items, groups, order, raygen_count, miss_count, diag),
                 _ => {}
             }
         }
@@ -499,7 +482,10 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
                          shader (forbidden by RXS-0323 frozen table)"
                     ),
                 )
-                .span_label(g.first_span, "triangles group must not include intersection")
+                .span_label(
+                    g.first_span,
+                    "triangles group must not include intersection",
+                )
                 .emit();
         }
         // procedural 缺 intersection:组名含 procedural / aabb / proc_
@@ -560,7 +546,8 @@ fn count_callables(items: &[Item]) -> usize {
 }
 
 fn snippet<'a>(src: &'a str, span: Span) -> &'a str {
-    src.get(span.lo.0 as usize..span.hi.0 as usize).unwrap_or("")
+    src.get(span.lo.0 as usize..span.hi.0 as usize)
+        .unwrap_or("")
 }
 
 fn const_u32_src(expr: &Expr, src: &str) -> Option<u32> {
@@ -814,7 +801,11 @@ pub fn build_rt_manifest_json(file: &crate::ast::SourceFile, src: &str) -> Resul
         payload_fields: &mut Option<Vec<(String, String)>>,
     ) {
         for p in &f.params {
-            if !p.attrs.iter().any(|a| single_seg(&a.meta.path) == Some("payload")) {
+            if !p
+                .attrs
+                .iter()
+                .any(|a| single_seg(&a.meta.path) == Some("payload"))
+            {
                 continue;
             }
             let crate::ast::ParamKind::Typed { ty, .. } = &p.kind else {

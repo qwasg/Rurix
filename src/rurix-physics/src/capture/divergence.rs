@@ -1,8 +1,8 @@
 //! Divergence 定位器:两帧 canonical 状态字段 diff。
 
 use super::canonical::{
-    canon_f32_bits_at, hash_canonical_state, CaptureError, CanonicalPhysicsState,
-    ConstraintSemantic,
+    CanonicalPhysicsState, CaptureError, ConstraintSemantic, canon_f32_bits_at,
+    hash_canonical_state,
 };
 use crate::types::BodySemantic;
 
@@ -83,9 +83,21 @@ fn diff_body(
         });
     }
     for (name, ev, av) in [
-        ("pos.x", e.transform.translation[0], a.transform.translation[0]),
-        ("pos.y", e.transform.translation[1], a.transform.translation[1]),
-        ("pos.z", e.transform.translation[2], a.transform.translation[2]),
+        (
+            "pos.x",
+            e.transform.translation[0],
+            a.transform.translation[0],
+        ),
+        (
+            "pos.y",
+            e.transform.translation[1],
+            a.transform.translation[1],
+        ),
+        (
+            "pos.z",
+            e.transform.translation[2],
+            a.transform.translation[2],
+        ),
         ("linvel.x", e.linvel[0], a.linvel[0]),
         ("linvel.y", e.linvel[1], a.linvel[1]),
         ("linvel.z", e.linvel[2], a.linvel[2]),

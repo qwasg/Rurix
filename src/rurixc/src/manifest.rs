@@ -167,9 +167,8 @@ fn parse_hex32(s: &str, field: &str) -> Result<[u8; 32], ManifestError> {
     }
     let mut out = [0u8; 32];
     for i in 0..32 {
-        let byte = u8::from_str_radix(&t[i * 2..i * 2 + 2], 16).map_err(|_| {
-            ManifestError::Malformed(format!("字段 `{field}` hex 解析失败"))
-        })?;
+        let byte = u8::from_str_radix(&t[i * 2..i * 2 + 2], 16)
+            .map_err(|_| ManifestError::Malformed(format!("字段 `{field}` hex 解析失败")))?;
         out[i] = byte;
     }
     Ok(out)
@@ -326,10 +325,7 @@ impl Manifest {
         let psos: Vec<&PsoRecord> = self.psos.values().collect();
         for (i, r) in psos.iter().enumerate() {
             s.push_str("    {\n");
-            s.push_str(&format!(
-                "      \"pso_key\": \"{}\",\n",
-                hex_of(&r.pso_key)
-            ));
+            s.push_str(&format!("      \"pso_key\": \"{}\",\n", hex_of(&r.pso_key)));
             s.push_str(&format!("      \"kind_tag\": {},\n", r.kind_tag));
             s.push_str("      \"stage_digests\": [\n");
             for (j, sd) in r.stage_digests.iter().enumerate() {
@@ -362,18 +358,16 @@ impl Manifest {
 
     /// 解析 manifest JSON。
     pub fn from_json(text: &str) -> Result<Self, ManifestError> {
-        let schema = ju::json_str_field(text, "schema").ok_or_else(|| {
-            ManifestError::Malformed("缺 `schema` 字段".to_owned())
-        })?;
+        let schema = ju::json_str_field(text, "schema")
+            .ok_or_else(|| ManifestError::Malformed("缺 `schema` 字段".to_owned()))?;
         if schema != MANIFEST_SCHEMA {
             return Err(ManifestError::Malformed(format!(
                 "`schema` 须为 \"{MANIFEST_SCHEMA}\",得 `{schema}`"
             )));
         }
         let mut m = Manifest::default();
-        let shaders_slice = ju::json_array_field(text, "shaders").ok_or_else(|| {
-            ManifestError::Malformed("缺 `shaders` 数组".to_owned())
-        })?;
+        let shaders_slice = ju::json_array_field(text, "shaders")
+            .ok_or_else(|| ManifestError::Malformed("缺 `shaders` 数组".to_owned()))?;
         for elem in split_json_top_level(shaders_slice, '[', ']').unwrap_or_default() {
             let r = parse_shader_record(&elem)?;
             let key = r.pipeline_key;
@@ -384,9 +378,8 @@ impl Manifest {
             }
             m.shaders.insert(key, r);
         }
-        let psos_slice = ju::json_array_field(text, "psos").ok_or_else(|| {
-            ManifestError::Malformed("缺 `psos` 数组".to_owned())
-        })?;
+        let psos_slice = ju::json_array_field(text, "psos")
+            .ok_or_else(|| ManifestError::Malformed("缺 `psos` 数组".to_owned()))?;
         for elem in split_json_top_level(psos_slice, '[', ']').unwrap_or_default() {
             let r = parse_pso_record(&elem)?;
             let key = r.pso_key;
@@ -504,22 +497,21 @@ fn parse_pso_record(obj: &str) -> Result<PsoRecord, ManifestError> {
         .ok_or_else(|| ManifestError::Malformed("pso 缺 `kind_tag`".to_owned()))?
         as u32;
     let ff = parse_hex32(
-        &ju::json_str_field(obj, "fixed_function_digest").ok_or_else(|| {
-            ManifestError::Malformed("pso 缺 `fixed_function_digest`".to_owned())
-        })?,
+        &ju::json_str_field(obj, "fixed_function_digest")
+            .ok_or_else(|| ManifestError::Malformed("pso 缺 `fixed_function_digest`".to_owned()))?,
         "fixed_function_digest",
     )?;
-    let stages_slice = ju::json_array_field(obj, "stage_digests").ok_or_else(|| {
-        ManifestError::Malformed("pso 缺 `stage_digests`".to_owned())
-    })?;
+    let stages_slice = ju::json_array_field(obj, "stage_digests")
+        .ok_or_else(|| ManifestError::Malformed("pso 缺 `stage_digests`".to_owned()))?;
     let mut stage_digests = Vec::new();
     for elem in split_json_top_level(stages_slice, '[', ']').unwrap_or_default() {
         let stage_tag = ju::json_i64_field(&elem, "stage_tag").ok_or_else(|| {
             ManifestError::Malformed("stage_digests 元素缺 `stage_tag`".to_owned())
         })? as u32;
         let digest = parse_hex32(
-            &ju::json_str_field(&elem, "digest")
-                .ok_or_else(|| ManifestError::Malformed("stage_digests 元素缺 `digest`".to_owned()))?,
+            &ju::json_str_field(&elem, "digest").ok_or_else(|| {
+                ManifestError::Malformed("stage_digests 元素缺 `digest`".to_owned())
+            })?,
             "stage_digests.digest",
         )?;
         stage_digests.push(StageDigestEntry { stage_tag, digest });
@@ -592,9 +584,8 @@ pub fn from_parts(
     collector_json: Option<&str>,
 ) -> Result<Manifest, ManifestError> {
     let mut m = Manifest::default();
-    let entries_slice = ju::json_array_field(reflection_json, "entries").ok_or_else(|| {
-        ManifestError::Malformed("reflection 缺 `entries` 数组".to_owned())
-    })?;
+    let entries_slice = ju::json_array_field(reflection_json, "entries")
+        .ok_or_else(|| ManifestError::Malformed("reflection 缺 `entries` 数组".to_owned()))?;
     for elem in split_json_top_level(entries_slice, '[', ']').unwrap_or_default() {
         let name = ju::json_str_field(&elem, "name")
             .ok_or_else(|| ManifestError::Malformed("reflection entry 缺 `name`".to_owned()))?;
@@ -614,9 +605,7 @@ pub fn from_parts(
         )?;
         let selected_profile_digest = parse_hex32(
             &ju::json_str_field(&elem, "selected_profile_digest").ok_or_else(|| {
-                ManifestError::Malformed(
-                    "reflection entry 缺 `selected_profile_digest`".to_owned(),
-                )
+                ManifestError::Malformed("reflection entry 缺 `selected_profile_digest`".to_owned())
             })?,
             "selected_profile_digest",
         )?;
@@ -659,9 +648,8 @@ pub fn from_parts(
     }
 
     if let Some(coll) = collector_json {
-        let records_slice = ju::json_array_field(coll, "records").ok_or_else(|| {
-            ManifestError::Malformed("collector 缺 `records` 数组".to_owned())
-        })?;
+        let records_slice = ju::json_array_field(coll, "records")
+            .ok_or_else(|| ManifestError::Malformed("collector 缺 `records` 数组".to_owned()))?;
         for elem in split_json_top_level(records_slice, '[', ']').unwrap_or_default() {
             let r = parse_pso_record(&elem)?;
             if let Some(prev) = m.psos.get(&r.pso_key) {
@@ -795,9 +783,8 @@ pub fn parse_coverage_table(text: &str) -> Result<CoverageTable, ManifestError> 
     let mut table = CoverageTable::default();
     if let Some(arr) = ju::json_array_field(text, "shaders") {
         for elem in split_json_top_level(arr, '[', ']').unwrap_or_default() {
-            let entry = ju::json_str_field(&elem, "entry").ok_or_else(|| {
-                ManifestError::Malformed("coverage shader 缺 `entry`".to_owned())
-            })?;
+            let entry = ju::json_str_field(&elem, "entry")
+                .ok_or_else(|| ManifestError::Malformed("coverage shader 缺 `entry`".to_owned()))?;
             let variant_key = ju::json_str_field(&elem, "variant_key").unwrap_or_default();
             let pipeline_key = ju::json_str_field(&elem, "pipeline_key").ok_or_else(|| {
                 ManifestError::Malformed("coverage shader 缺 `pipeline_key`".to_owned())
@@ -826,21 +813,22 @@ pub fn parse_coverage_table(text: &str) -> Result<CoverageTable, ManifestError> 
 
 /// 读路径 → [`Manifest`]。
 pub fn load_manifest(path: &Path) -> Result<Manifest, ManifestError> {
-    let text = std::fs::read_to_string(path).map_err(|e| {
-        ManifestError::Io(format!("cannot read {}: {e}", path.display()))
-    })?;
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| ManifestError::Io(format!("cannot read {}: {e}", path.display())))?;
     Manifest::from_json(&text)
 }
 
 /// 写 merged/assembled JSON。
 pub fn write_manifest(path: &Path, m: &Manifest) -> Result<(), ManifestError> {
-    std::fs::write(path, m.to_json()).map_err(|e| {
-        ManifestError::Io(format!("cannot write {}: {e}", path.display()))
-    })
+    std::fs::write(path, m.to_json())
+        .map_err(|e| ManifestError::Io(format!("cannot write {}: {e}", path.display())))
 }
 
 /// CLI:`--merge-manifests -o out.json a.json b.json ...`(工具模式)。
-pub fn merge_manifest_files(inputs: &[std::path::PathBuf], out: &Path) -> Result<Manifest, ManifestError> {
+pub fn merge_manifest_files(
+    inputs: &[std::path::PathBuf],
+    out: &Path,
+) -> Result<Manifest, ManifestError> {
     if inputs.is_empty() {
         return Err(ManifestError::Malformed(
             "--merge-manifests 需要至少一份输入 manifest JSON".to_owned(),
@@ -863,19 +851,20 @@ pub fn assemble_manifest_files(
     collector: Option<&Path>,
     out: &Path,
 ) -> Result<Manifest, ManifestError> {
-    let refl = std::fs::read_to_string(reflection).map_err(|e| {
-        ManifestError::Io(format!("cannot read {}: {e}", reflection.display()))
-    })?;
+    let refl = std::fs::read_to_string(reflection)
+        .map_err(|e| ManifestError::Io(format!("cannot read {}: {e}", reflection.display())))?;
     let perm = match permutations {
-        Some(p) => Some(std::fs::read_to_string(p).map_err(|e| {
-            ManifestError::Io(format!("cannot read {}: {e}", p.display()))
-        })?),
+        Some(p) => Some(
+            std::fs::read_to_string(p)
+                .map_err(|e| ManifestError::Io(format!("cannot read {}: {e}", p.display())))?,
+        ),
         None => None,
     };
     let coll = match collector {
-        Some(p) => Some(std::fs::read_to_string(p).map_err(|e| {
-            ManifestError::Io(format!("cannot read {}: {e}", p.display()))
-        })?),
+        Some(p) => Some(
+            std::fs::read_to_string(p)
+                .map_err(|e| ManifestError::Io(format!("cannot read {}: {e}", p.display())))?,
+        ),
         None => None,
     };
     let m = from_parts(&refl, perm.as_deref(), coll.as_deref())?;
@@ -961,9 +950,7 @@ mod tests {
     /// //@ spec: RXS-0317
     #[test]
     fn schema_and_digest_stable() {
-        let refl = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
+        let refl = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
         let coll = collector_doc(&[&pso_rec(H6, 0, 2, H7, H8)]);
         let m = from_parts(&refl, None, Some(&coll)).unwrap();
         assert_eq!(m.shaders.len(), 1);
@@ -985,14 +972,7 @@ mod tests {
     #[test]
     fn from_parts_copies_reflection_fields() {
         let refl = reflection_doc(&[&refl_entry(
-            "fs_main",
-            "fragment",
-            H1,
-            H2,
-            H3,
-            H4,
-            "FOG=true",
-            H5,
+            "fs_main", "fragment", H1, H2, H3, H4, "FOG=true", H5,
         )]);
         let m = from_parts(&refl, None, None).unwrap();
         let r = m.shaders.values().next().unwrap();
@@ -1009,12 +989,8 @@ mod tests {
     /// //@ spec: RXS-0317
     #[test]
     fn digest_flips_on_interface_hash_or_pso_key() {
-        let refl_a = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
-        let refl_b = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H9, H2, H3, H4, "", H5,
-        )]);
+        let refl_a = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
+        let refl_b = reflection_doc(&[&refl_entry("vs_main", "vertex", H9, H2, H3, H4, "", H5)]);
         let ma = from_parts(&refl_a, None, None).unwrap();
         let mb = from_parts(&refl_b, None, None).unwrap();
         assert_ne!(ma.digest(), mb.digest(), "改 interface_hash → digest 必变");
@@ -1029,9 +1005,7 @@ mod tests {
     /// //@ spec: RXS-0318
     #[test]
     fn merge_dedup_identical() {
-        let refl = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
+        let refl = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
         let coll = collector_doc(&[&pso_rec(H6, 0, 2, H7, H8)]);
         let a = from_parts(&refl, None, Some(&coll)).unwrap();
         let b = from_parts(&refl, None, Some(&coll)).unwrap();
@@ -1044,12 +1018,8 @@ mod tests {
     /// //@ spec: RXS-0318
     #[test]
     fn merge_conflict_fail_closed() {
-        let refl_a = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
-        let refl_b = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H9, H2, H3, H4, "", H5,
-        )]);
+        let refl_a = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
+        let refl_b = reflection_doc(&[&refl_entry("vs_main", "vertex", H9, H2, H3, H4, "", H5)]);
         let a = from_parts(&refl_a, None, None).unwrap();
         let b = from_parts(&refl_b, None, None).unwrap();
         let err = merge(&[a, b]).unwrap_err();
@@ -1070,12 +1040,8 @@ mod tests {
     /// //@ spec: RXS-0318
     #[test]
     fn merge_order_invariant_and_double_run() {
-        let refl_a = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
-        let refl_b = reflection_doc(&[&refl_entry(
-            "fs_main", "fragment", HA, HB, HC, HD, "", HE,
-        )]);
+        let refl_a = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
+        let refl_b = reflection_doc(&[&refl_entry("fs_main", "fragment", HA, HB, HC, HD, "", HE)]);
         let coll_a = collector_doc(&[&pso_rec(H6, 0, 2, H7, H8)]);
         let coll_b = collector_doc(&[&pso_rec(HF, 1, 0, H0, H1)]);
         let a = from_parts(&refl_a, None, Some(&coll_a)).unwrap();
@@ -1092,12 +1058,8 @@ mod tests {
     /// //@ spec: RXS-0318
     #[test]
     fn coverage_exact_and_gap() {
-        let refl_a = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
-        let refl_b = reflection_doc(&[&refl_entry(
-            "fs_main", "fragment", HA, HB, HC, HD, "", HE,
-        )]);
+        let refl_a = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
+        let refl_b = reflection_doc(&[&refl_entry("fs_main", "fragment", HA, HB, HC, HD, "", HE)]);
         let coll = collector_doc(&[&pso_rec(H6, 0, 2, H7, H8)]);
         let merged = merge(&[
             from_parts(&refl_a, None, Some(&coll)).unwrap(),
@@ -1149,12 +1111,8 @@ mod tests {
     /// //@ spec: RXS-0318
     #[test]
     fn key_set_union_sorted() {
-        let refl_a = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
-        let refl_b = reflection_doc(&[&refl_entry(
-            "fs_main", "fragment", HA, HB, HC, HD, "", HE,
-        )]);
+        let refl_a = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
+        let refl_b = reflection_doc(&[&refl_entry("fs_main", "fragment", HA, HB, HC, HD, "", HE)]);
         let coll_a = collector_doc(&[&pso_rec(H6, 0, 2, H7, H8)]);
         let coll_b = collector_doc(&[&pso_rec(HF, 1, 0, H0, H1)]);
         let merged = merge(&[
@@ -1174,9 +1132,7 @@ mod tests {
     /// //@ spec: RXS-0317
     #[test]
     fn permutations_disagree_fail_closed() {
-        let refl = reflection_doc(&[&refl_entry(
-            "vs_main", "vertex", H1, H2, H3, H4, "", H5,
-        )]);
+        let refl = reflection_doc(&[&refl_entry("vs_main", "vertex", H1, H2, H3, H4, "", H5)]);
         let perm = format!(
             r#"{{
   "schema": "rurix.permutations.v1",

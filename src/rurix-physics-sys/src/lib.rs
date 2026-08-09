@@ -686,7 +686,11 @@ mod tests {
                 kind,
                 shape: SysShapeParams::Box { half_extents: half },
                 layer: if kind == SysBodyKind::Static { 0 } else { 1 },
-                mass: if kind == SysBodyKind::Dynamic { 1.0 } else { 0.0 },
+                mass: if kind == SysBodyKind::Dynamic {
+                    1.0
+                } else {
+                    0.0
+                },
                 friction: 0.5,
                 restitution: 0.0,
                 ccd: false,
@@ -696,17 +700,33 @@ mod tests {
             }
         }
         let mut world = SysWorld::create(&desc(1)).unwrap();
-        let _ground = world
-            .add_bodies_batch(&[ground_desc()])
-            .unwrap()[0];
+        let _ground = world.add_bodies_batch(&[ground_desc()]).unwrap()[0];
         let anchor = world
-            .add_bodies_batch(&[box_desc(SysBodyKind::Static, 0.0, 4.0, 0.0, [0.3, 0.3, 0.3])])
+            .add_bodies_batch(&[box_desc(
+                SysBodyKind::Static,
+                0.0,
+                4.0,
+                0.0,
+                [0.3, 0.3, 0.3],
+            )])
             .unwrap()[0];
         let bar = world
-            .add_bodies_batch(&[box_desc(SysBodyKind::Dynamic, 0.0, 2.0, 0.0, [0.25, 0.25, 0.25])])
+            .add_bodies_batch(&[box_desc(
+                SysBodyKind::Dynamic,
+                0.0,
+                2.0,
+                0.0,
+                [0.25, 0.25, 0.25],
+            )])
             .unwrap()[0];
         let token = world
-            .add_hinge_constraint(anchor, bar, [0.0, 4.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0])
+            .add_hinge_constraint(
+                anchor,
+                bar,
+                [0.0, 4.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0],
+            )
             .unwrap();
         assert!(token > 0);
     }

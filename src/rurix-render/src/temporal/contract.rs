@@ -354,10 +354,8 @@ impl TsrContract {
             self.last_identity_rejects = ow * oh;
         }
 
-        let force_reset = inputs.reset
-            || inputs.camera_cut
-            || self.history.is_none()
-            || !identity_ok;
+        let force_reset =
+            inputs.reset || inputs.camera_cut || self.history.is_none() || !identity_ok;
 
         // age 全图推进
         for slot in &mut self.retired {
@@ -853,11 +851,7 @@ fn build_thin_geometry_frames() -> Vec<FrameFixture> {
             });
             let depth = ImageF32::from_fn(IN, IN, 1, |x, _, _| {
                 let on = (x as f32 - line_x).abs() < 0.55;
-                if on {
-                    0.1
-                } else {
-                    0.9
-                }
+                if on { 0.1 } else { 0.9 }
             });
             let mv = ImageF32::from_fn(IN, IN, 2, |x, _, ch| {
                 let on = (x as f32 - line_x).abs() < 0.55;
@@ -1143,7 +1137,9 @@ pub fn red_wrong_history_identity() -> bool {
     const IN: u32 = 8;
     const OUT: u32 = 16;
     let mut c = TsrContract::default();
-    let color = ImageF32::from_fn(IN, IN, 3, |x, y, ch| checker_bg(x as f32, y as f32)[ch as usize]);
+    let color = ImageF32::from_fn(IN, IN, 3, |x, y, ch| {
+        checker_bg(x as f32, y as f32)[ch as usize]
+    });
     let depth = ImageF32::from_fn(IN, IN, 1, |_, _, _| 0.5);
     let mv = ImageF32::new(IN, IN, 2);
     let prov0 = HistoryProvenance::default_for((IN, IN), 0);
@@ -1227,7 +1223,9 @@ pub fn not_satisfiable_by_taa() -> bool {
     // TAA 无 resurrection/thin/transparent 语义;用「五 case 全过」作对照必失败的替身:
     // 若有人只用 TsrUpscaler 单帧,resurrection 计数为 0。
     let mut tsr = TsrUpscaler::default();
-    let color = ImageF32::from_fn(8, 8, 3, |x, y, ch| checker_bg(x as f32, y as f32)[ch as usize]);
+    let color = ImageF32::from_fn(8, 8, 3, |x, y, ch| {
+        checker_bg(x as f32, y as f32)[ch as usize]
+    });
     let depth = ImageF32::from_fn(8, 8, 1, |_, _, _| 0.5);
     let mv = ImageF32::new(8, 8, 2);
     for f in 0..8u32 {

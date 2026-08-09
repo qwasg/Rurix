@@ -5,9 +5,9 @@
 //! `RURIX_VK_VALIDATION`(smoke 置 0 或 1 由调用方决定;缺设备 SKIP)。
 
 use rurix_render::temporal::contract::{
-    build_case_frames, digest_image, red_cross_cut_resurrection, red_missing_previous_zero_motion,
-    red_wrong_history_identity, run_all_host_cases, CaseResult, HistoryProvenance, TsrContract,
-    CASE_SET,
+    CASE_SET, CaseResult, HistoryProvenance, TsrContract, build_case_frames, digest_image,
+    red_cross_cut_resurrection, red_missing_previous_zero_motion, red_wrong_history_identity,
+    run_all_host_cases,
 };
 use rurix_render::temporal::image::ImageF32;
 use rurix_render::temporal::tsr::TsrParams;
@@ -95,7 +95,9 @@ fn key_f32(p: &HistoryProvenance) -> f32 {
     f32::from_bits((p.resurrection_key() as u32).wrapping_add((p.resurrection_key() >> 32) as u32))
 }
 
-fn preprocess_mv_reactive(fx: &rurix_render::temporal::contract::FrameFixture) -> (ImageF32, ImageF32) {
+fn preprocess_mv_reactive(
+    fx: &rurix_render::temporal::contract::FrameFixture,
+) -> (ImageF32, ImageF32) {
     let (iw, ih) = (fx.color.w, fx.color.h);
     let mut mv = fx.mv.clone();
     let mut reactive = fx.reactive.clone();
@@ -521,12 +523,7 @@ fn run_m24_inner(
         if !case_ok {
             all = false;
         }
-        cases.push((
-            r.name.to_string(),
-            case_ok,
-            r.measured_max_abs,
-            r.digest,
-        ));
+        cases.push((r.name.to_string(), case_ok, r.measured_max_abs, r.digest));
     }
     let red_id = red_wrong_history_identity();
     let red_cut = red_cross_cut_resurrection();

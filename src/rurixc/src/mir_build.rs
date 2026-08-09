@@ -2321,12 +2321,8 @@ impl Builder<'_, '_> {
                     Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), false),
                     span,
                 );
-                let bytes = self.emit_rt_call(
-                    "rxrt_pinned_len",
-                    vec![pinned],
-                    Ty::Prim(PrimTy::U64),
-                    span,
-                );
+                let bytes =
+                    self.emit_rt_call("rxrt_pinned_len", vec![pinned], Ty::Prim(PrimTy::U64), span);
                 let dest = if op == Op::RhiVertexData {
                     self.emit_rt_call(
                         "rxrt_rhi_vb_create",

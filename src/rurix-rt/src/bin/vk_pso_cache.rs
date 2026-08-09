@@ -22,7 +22,7 @@
 use std::path::PathBuf;
 
 use rurix_rt::pso_cache::{
-    self, PsoCacheManager, PsoRunOutcome, collector_json, collect_records, pso_fixtures,
+    self, PsoCacheManager, PsoRunOutcome, collect_records, collector_json, pso_fixtures,
 };
 
 /// 无设备 / provisioning 缺失(SKIP)信号(镜像 bin/vk_rt NO_DEVICE_KEYS + M30 特性轴)。
@@ -114,10 +114,11 @@ fn outcome_json(
 }
 
 fn skip_json(reason: &str) -> String {
-    let esc = reason.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', " ");
-    format!(
-        "{{\n  \"device_state\": \"skipped_dev_env\",\n  \"reason\": \"{esc}\"\n}}"
-    )
+    let esc = reason
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', " ");
+    format!("{{\n  \"device_state\": \"skipped_dev_env\",\n  \"reason\": \"{esc}\"\n}}")
 }
 
 fn fail(msg: &str) -> ! {

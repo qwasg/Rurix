@@ -4,17 +4,17 @@ use std::collections::HashMap;
 
 use crate::bridge::StreamingBridge;
 use crate::budget::SyncBudget;
-use crate::capture::canonical::{hash_canonical_state, state_from_world, CanonicalPhysicsState};
+use crate::capture::canonical::{CanonicalPhysicsState, hash_canonical_state, state_from_world};
 use crate::capture::header::BudgetProfile;
 use crate::capture::journal::JournalCommand;
 use crate::capture::replayer::apply_journal_pre;
 use crate::types::{ContactEvent, WorldDesc};
 use crate::world::PhysicsWorld;
 
+use super::NetError;
 use super::frame::{FrameDomainMap, NetworkPhysicsFrameId, PhysicsTickId};
 use super::history::HistoryRing;
 use super::rollback::TickInput;
-use super::NetError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthoritativeSnapshot {

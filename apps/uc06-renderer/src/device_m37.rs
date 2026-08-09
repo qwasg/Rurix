@@ -320,7 +320,9 @@ fn gpu_fnv_digest(payload: &[u8]) -> Result<u32, String> {
     if out[0].len() < 4 {
         return Err("digest readback 过短".into());
     }
-    Ok(u32::from_le_bytes([out[0][0], out[0][1], out[0][2], out[0][3]]))
+    Ok(u32::from_le_bytes([
+        out[0][0], out[0][1], out[0][2], out[0][3],
+    ]))
 }
 
 fn fsync_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -331,7 +333,11 @@ fn fsync_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 }
 
 /// 准备 temp 页集：page0=golden RXPD；其余由 golden 解码后改 id 再冻结编码。
-fn prepare_temp_pages(golden_rxpd: &Path, page_count: u32, work: &Path) -> Result<Vec<PathBuf>, String> {
+fn prepare_temp_pages(
+    golden_rxpd: &Path,
+    page_count: u32,
+    work: &Path,
+) -> Result<Vec<PathBuf>, String> {
     fs::create_dir_all(work).map_err(|e| e.to_string())?;
     let root_bytes = fs::read(golden_rxpd).map_err(|e| e.to_string())?;
     let root_mem = decode_disk_page(&root_bytes).map_err(|e| e.to_string())?;
@@ -453,7 +459,10 @@ fn run_once(cfg: &RunConfig) -> Result<RunResult, String> {
     let root_fnv = fnv1a_u32_words(&pad_u32(&root_payload));
 
     // golden 页（late 目标）CPU digest
-    let late = cfg.late_page.unwrap_or(1).min(cfg.page_count.saturating_sub(1));
+    let late = cfg
+        .late_page
+        .unwrap_or(1)
+        .min(cfg.page_count.saturating_sub(1));
     let late_raw = fs::read(&paths[late as usize]).map_err(|e| e.to_string())?;
     let late_payload = {
         let mem = decode_disk_page(&late_raw).map_err(|e| e.to_string())?;
@@ -652,7 +661,9 @@ fn run_once(cfg: &RunConfig) -> Result<RunResult, String> {
                 if e.contains("validation") {
                     validation_errors = 1;
                 }
-                return Err(format!("gpu_fnv: {e} (validation_errors={validation_errors})"));
+                return Err(format!(
+                    "gpu_fnv: {e} (validation_errors={validation_errors})"
+                ));
             }
         };
         let cpu_d = fnv1a_u32_words(&pad_u32(&payload));
@@ -774,7 +785,10 @@ fn run_once(cfg: &RunConfig) -> Result<RunResult, String> {
                 resident_before == vec![0] && (resident_after.len() > 1 || saw_late_correct),
             );
             checks.insert("unreferenced_pages_not_loaded", !unreferenced_loaded);
-            checks.insert("root_pages_pinned", root_pinned && engine.is_resident(RESOURCE_ID, 0));
+            checks.insert(
+                "root_pages_pinned",
+                root_pinned && engine.is_resident(RESOURCE_ID, 0),
+            );
             checks.insert(
                 "late_page_independent_evidence",
                 fallback_frames >= 1 && recovered && saw_late_correct,
@@ -787,7 +801,10 @@ fn run_once(cfg: &RunConfig) -> Result<RunResult, String> {
                     true
                 },
             );
-            checks.insert("device_digest_matches_cpu", saw_late_correct || last_device_digest == root_fnv);
+            checks.insert(
+                "device_digest_matches_cpu",
+                saw_late_correct || last_device_digest == root_fnv,
+            );
             checks.insert("validation_zero", validation_errors == 0);
         }
     }
@@ -844,7 +861,10 @@ fn emit_stream_io_json(a: &RunResult, b: &RunResult, det_ok: bool) -> String {
         "queue_mode_single_registered",
         "device_validation_zero",
     ] {
-        parts.push(format!("\"{k}\":{}", checks.get(k).copied().unwrap_or(false)));
+        parts.push(format!(
+            "\"{k}\":{}",
+            checks.get(k).copied().unwrap_or(false)
+        ));
     }
     let events_json: Vec<String> = a
         .events
@@ -893,7 +913,10 @@ fn emit_geom_page_json(r: &RunResult) -> String {
         "device_digest_matches_cpu",
         "validation_zero",
     ] {
-        parts.push(format!("\"{k}\":{}", r.checks.get(k).copied().unwrap_or(false)));
+        parts.push(format!(
+            "\"{k}\":{}",
+            r.checks.get(k).copied().unwrap_or(false)
+        ));
     }
     let pass = r.checks.values().all(|&v| v);
     format!(
@@ -968,7 +991,12 @@ pub fn run_geom_page(golden_dir: &Path) -> Option<Result<String, String>> {
     match run_once(&cfg) {
         Ok(mut r) => {
             // 压力臂：若未观测到驱逐，用第二次紧池确认
-            if !r.checks.get("lru_eviction_under_pressure").copied().unwrap_or(false) {
+            if !r
+                .checks
+                .get("lru_eviction_under_pressure")
+                .copied()
+                .unwrap_or(false)
+            {
                 let mut cfg2 = RunConfig {
                     pool_capacity: 2,
                     frames: 16,

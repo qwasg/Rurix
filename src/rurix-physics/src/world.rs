@@ -35,8 +35,8 @@ use crate::rapier::RapierBackend;
 #[cfg(any(feature = "jolt", feature = "rapier"))]
 use crate::types::ContactPhase;
 use crate::types::{
-    BackendKind, BodyDesc, BodyKind, ContactEvent, OverlapHit, PhysicsTransform, QueryHit, QueryRay,
-    QueryShape, ShapeDesc, StepStats, WorldDesc,
+    BackendKind, BodyDesc, BodyKind, ContactEvent, OverlapHit, PhysicsTransform, QueryHit,
+    QueryRay, QueryShape, ShapeDesc, StepStats, WorldDesc,
 };
 
 /// 预算饱和计数(单调累计快照;§4.A6「饱和计数上报」出口,计数进 evidence 不进硬门)。
@@ -428,9 +428,7 @@ impl PhysicsWorld {
         point: [f32; 3],
     ) -> Result<(), PhysicsError> {
         if !force.iter().chain(point.iter()).all(|c| c.is_finite()) {
-            return Err(PhysicsError::InvalidDesc(
-                "force/point 分量须有限".into(),
-            ));
+            return Err(PhysicsError::InvalidDesc("force/point 分量须有限".into()));
         }
         let token = self.body_token(body)?;
         match &mut self.backend {
@@ -838,16 +836,8 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => {
                 let mut out = Vec::new();
                 for (token, a, b, enabled, motor) in sys.constraint_snapshot() {
-                    let a_bits = self
-                        .token_map
-                        .get(&a)
-                        .map(|id| id.to_bits())
-                        .unwrap_or(0);
-                    let b_bits = self
-                        .token_map
-                        .get(&b)
-                        .map(|id| id.to_bits())
-                        .unwrap_or(0);
+                    let a_bits = self.token_map.get(&a).map(|id| id.to_bits()).unwrap_or(0);
+                    let b_bits = self.token_map.get(&b).map(|id| id.to_bits()).unwrap_or(0);
                     out.push((token, a_bits, b_bits, enabled, motor));
                 }
                 out

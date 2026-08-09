@@ -5,8 +5,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use rurix_render::temporal::abi::{
-    assemble, run_via_abi, sequence_digest, synthetic_frame, AssembleError, NoOpPassthroughUpscaler,
-    UpscalerInputAbi, ABI_SLOT_NAMES,
+    ABI_SLOT_NAMES, AssembleError, NoOpPassthroughUpscaler, UpscalerInputAbi, assemble,
+    run_via_abi, sequence_digest, synthetic_frame,
 };
 use rurix_render::temporal::cas::CasUpscaler;
 use rurix_render::temporal::tsr::TsrUpscaler;
@@ -90,8 +90,10 @@ fn main() {
     let mut bad_hash = abi_hash;
     bad_hash[0] ^= 0xff;
     let bind_bad = frame0.bind_set(OW, OH, bad_hash);
-    let hash_mismatch_fail_closed =
-        matches!(assemble(&bind_bad, abi_hash), Err(AssembleError::HashMismatch { .. }));
+    let hash_mismatch_fail_closed = matches!(
+        assemble(&bind_bad, abi_hash),
+        Err(AssembleError::HashMismatch { .. })
+    );
 
     // 双 backend 序列
     let mut tsr = TsrUpscaler::default();
@@ -124,7 +126,8 @@ fn main() {
     let cas_digest = sequence_digest(&cas_outs);
 
     // backend 切换调用侧 ABI 同一
-    let backend_switch_abi_identical = tsr.abi_hash() == cas.abi_hash() && tsr.abi_hash() == abi_hash;
+    let backend_switch_abi_identical =
+        tsr.abi_hash() == cas.abi_hash() && tsr.abi_hash() == abi_hash;
 
     // 反假绿:noop 不得吃满 required
     let mut noop = NoOpPassthroughUpscaler::default();

@@ -74,9 +74,30 @@ impl CasUpscaler {
                 ];
                 // 边缘 sharpen:向中心最近邻拉近(depth 不连续区)。
                 let nearest = [
-                    sample_ch(inputs.color, bx.clamp(0, iw as i32 - 1), by.clamp(0, ih as i32 - 1), 0, iw, ih),
-                    sample_ch(inputs.color, bx.clamp(0, iw as i32 - 1), by.clamp(0, ih as i32 - 1), 1, iw, ih),
-                    sample_ch(inputs.color, bx.clamp(0, iw as i32 - 1), by.clamp(0, ih as i32 - 1), 2, iw, ih),
+                    sample_ch(
+                        inputs.color,
+                        bx.clamp(0, iw as i32 - 1),
+                        by.clamp(0, ih as i32 - 1),
+                        0,
+                        iw,
+                        ih,
+                    ),
+                    sample_ch(
+                        inputs.color,
+                        bx.clamp(0, iw as i32 - 1),
+                        by.clamp(0, ih as i32 - 1),
+                        1,
+                        iw,
+                        ih,
+                    ),
+                    sample_ch(
+                        inputs.color,
+                        bx.clamp(0, iw as i32 - 1),
+                        by.clamp(0, ih as i32 - 1),
+                        2,
+                        iw,
+                        ih,
+                    ),
                 ];
                 let sharpen = (edge * 4.0).clamp(0.0, 0.65);
                 let reactive = inputs
@@ -179,7 +200,7 @@ impl UpscaleBackend for CasUpscaler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::temporal::abi::{run_via_abi, sequence_digest, synthetic_frame, UpscalerInputAbi};
+    use crate::temporal::abi::{UpscalerInputAbi, run_via_abi, sequence_digest, synthetic_frame};
 
     #[test]
     fn cas_not_noop_and_finite() {

@@ -5,11 +5,10 @@
 
 use rurix_pkg::sha256::{digest, hex};
 
-use super::sim::{
-    input_log_line, parse_input_log, scripted_input, VehicleSim, VehicleState, ROLLBACK_TICK,
-    TICKS,
-};
 use super::VehicleAsset;
+use super::sim::{
+    ROLLBACK_TICK, TICKS, VehicleSim, VehicleState, input_log_line, parse_input_log, scripted_input,
+};
 
 pub const LEG_NAMES: [&str; 6] = [
     "asset_roundtrip",
@@ -135,7 +134,11 @@ fn leg_rollback_correction_converges(asset: &VehicleAsset) -> bool {
 fn leg_tire_contact(asset: &VehicleAsset) -> (bool, String, usize) {
     let (_, _, contacts) = run_full(asset, 1.0);
     let d = trace_digest(&contacts);
-    (contacts.len() >= 3 && d == GOLDEN_CONTACT_DIGEST, d, contacts.len())
+    (
+        contacts.len() >= 3 && d == GOLDEN_CONTACT_DIGEST,
+        d,
+        contacts.len(),
+    )
 }
 
 /// 腿 5:中途状态序列化→解析→再序列化字节相等 + state hash 相等。
@@ -156,7 +159,11 @@ fn leg_state_serialization_roundtrip(asset: &VehicleAsset) -> bool {
 fn leg_telemetry(asset: &VehicleAsset) -> (bool, String, usize) {
     let (_, tele, _) = run_full(asset, 1.0);
     let d = trace_digest(&tele);
-    (tele.len() == TICKS as usize && d == GOLDEN_TELEMETRY_DIGEST, d, tele.len())
+    (
+        tele.len() == TICKS as usize && d == GOLDEN_TELEMETRY_DIGEST,
+        d,
+        tele.len(),
+    )
 }
 
 /// wave6d subject 六腿取证(替代旧单 bool 薄壳)。
@@ -205,12 +212,13 @@ pub fn falsify_leg(leg: &str) -> Option<bool> {
         // 篡改 asset 字节后 strict roundtrip 必须检出。
         "asset_roundtrip" => {
             let json = asset.canonical_json();
-            let tampered =
-                json.replacen("\"asset_id\":\"demo_buggy_v1\"", "\"asset_id\":\"demo_buggy_v2\"", 1);
+            let tampered = json.replacen(
+                "\"asset_id\":\"demo_buggy_v1\"",
+                "\"asset_id\":\"demo_buggy_v2\"",
+                1,
+            );
             let undetected = match VehicleAsset::parse_canonical(&tampered) {
-                Ok(b) => {
-                    b.canonical_json() == json && asset_digest(&b) == asset_digest(&asset)
-                }
+                Ok(b) => b.canonical_json() == json && asset_digest(&b) == asset_digest(&asset),
                 Err(_) => false,
             };
             Some(undetected)

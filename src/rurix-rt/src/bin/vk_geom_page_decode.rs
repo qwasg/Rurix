@@ -53,12 +53,10 @@ fn sha256(data: &[u8]) -> [u8; 32] {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let spv_path = arg_value(&args, "--spv").unwrap_or_else(|| {
-        fail("用法: vk_geom_page_decode --spv <path> --rxpm <path>")
-    });
-    let rxpm_path = arg_value(&args, "--rxpm").unwrap_or_else(|| {
-        fail("用法: vk_geom_page_decode --spv <path> --rxpm <path>")
-    });
+    let spv_path = arg_value(&args, "--spv")
+        .unwrap_or_else(|| fail("用法: vk_geom_page_decode --spv <path> --rxpm <path>"));
+    let rxpm_path = arg_value(&args, "--rxpm")
+        .unwrap_or_else(|| fail("用法: vk_geom_page_decode --spv <path> --rxpm <path>"));
 
     eprintln!(
         "[vk_geom_page_decode] G8.3 M04 device decode harness(RXS-0342); spv={} rxpm={}",

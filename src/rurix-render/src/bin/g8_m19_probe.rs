@@ -8,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use rurix_render::shadow::page_cache::{
-    result_to_json_value, run_m19_fixture, run_m19_fixture_pool, RED_EVICT_POOL,
+    RED_EVICT_POOL, result_to_json_value, run_m19_fixture, run_m19_fixture_pool,
 };
 
 fn main() {
@@ -69,8 +69,11 @@ fn main() {
         let dir = golden_dir.expect("--write-golden 需要 --golden-dir");
         fs::create_dir_all(&dir).expect("mkdir golden");
         fs::write(dir.join("m19_events.jsonl"), &r.canonical_json).expect("write events");
-        fs::write(dir.join("m19_events.sha256"), format!("{}\n", r.events_sha256))
-            .expect("write sha");
+        fs::write(
+            dir.join("m19_events.sha256"),
+            format!("{}\n", r.events_sha256),
+        )
+        .expect("write sha");
         let dig = serde_like_digests(&r);
         fs::write(dir.join("m19_digests.json"), dig).expect("write digests");
         eprintln!("[g8_m19_probe] wrote golden → {}", dir.display());

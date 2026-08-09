@@ -213,10 +213,7 @@ impl CanonW {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssembleError {
     MissingRequired(&'static str),
-    HashMismatch {
-        caller: String,
-        backend: String,
-    },
+    HashMismatch { caller: String, backend: String },
     Shape(&'static str),
 }
 
@@ -282,11 +279,15 @@ pub fn assemble<'a>(
     }
     let color = bind.color.ok_or(AssembleError::MissingRequired("color"))?;
     let depth = bind.depth.ok_or(AssembleError::MissingRequired("depth"))?;
-    let motion = bind.motion.ok_or(AssembleError::MissingRequired("motion"))?;
+    let motion = bind
+        .motion
+        .ok_or(AssembleError::MissingRequired("motion"))?;
     let exposure = bind
         .exposure
         .ok_or(AssembleError::MissingRequired("exposure"))?;
-    let jitter = bind.jitter.ok_or(AssembleError::MissingRequired("jitter"))?;
+    let jitter = bind
+        .jitter
+        .ok_or(AssembleError::MissingRequired("jitter"))?;
     let render_extent = bind
         .render_extent
         .ok_or(AssembleError::MissingRequired("render_extent"))?;
@@ -367,11 +368,7 @@ pub fn synthetic_frame(frame: u32, iw: u32, ih: u32) -> SyntheticFrame {
         s * (((x + 3 * y + frame) % 11) as f32 - 5.0)
     });
     let reactive = ImageF32::from_fn(iw, ih, 1, |x, y, _| {
-        if (x + y + frame) % 13 == 0 {
-            0.85
-        } else {
-            0.0
-        }
+        if (x + y + frame) % 13 == 0 { 0.85 } else { 0.0 }
     });
     let transparent = ImageF32::from_fn(iw, ih, 1, |x, y, _| {
         if x > iw / 2 && (y + frame) % 9 == 0 {

@@ -50,10 +50,19 @@ pub fn derive_physics_event_id(
     PhysicsEventId(hex(&digest(&buf)))
 }
 
-pub fn event_id_for_contact(tick: PhysicsTickId, ev: &ContactEvent, ordinal: u32) -> PhysicsEventId {
+pub fn event_id_for_contact(
+    tick: PhysicsTickId,
+    ev: &ContactEvent,
+    ordinal: u32,
+) -> PhysicsEventId {
     let a = ev.a.to_bits();
     let b = ev.b.to_bits();
-    derive_physics_event_id(PhysicsEventKind::from_phase(ev.phase), tick, &[a, b], ordinal)
+    derive_physics_event_id(
+        PhysicsEventKind::from_phase(ev.phase),
+        tick,
+        &[a, b],
+        ordinal,
+    )
 }
 
 /// 提交桥:仅当 tick ≤ server_confirmed 时对外发布;按 PhysicsEventId 恰好一次。
