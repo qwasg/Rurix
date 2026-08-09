@@ -249,7 +249,7 @@ fn parse_impulse_array(text: &str, key: &str) -> Result<Vec<TraceActorImpulse>, 
         return Ok(Vec::new());
     };
     let arr_start = arr_start_rel;
-    let bytes = window[arr_start..].as_bytes();
+    let bytes = &window.as_bytes()[arr_start..];
     let mut depth = 0i32;
     let mut end = 0usize;
     for (i, b) in bytes.iter().enumerate() {
@@ -622,11 +622,11 @@ fn run_net_trace_once(trace: &NetTrace, bound: SmoothingBound) -> Result<NetTrac
             }
         }
         let report = client.step_predict(cc, incoming.as_ref(), 0.35)?;
-        if let Some(corr) = report.correction {
-            if f == trace.golden_correction_frame {
-                correction_frame = Some(f);
-                let _ = corr;
-            }
+        if let Some(corr) = report.correction
+            && f == trace.golden_correction_frame
+        {
+            correction_frame = Some(f);
+            let _ = corr;
         }
     }
     Ok(NetTraceReport {

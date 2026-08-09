@@ -198,13 +198,13 @@ fn decode_one(bytes: &[u8]) -> Result<(Value, &[u8])> {
             let mut last_key: Option<u64> = None;
             for _ in 0..n {
                 let (k, r1) = decode_uint_key(cur)?;
-                if let Some(prev) = last_key {
-                    if k <= prev {
-                        return Err(AssetError::new(
-                            ErrorKind::CanonInvalid,
-                            "map keys must be strictly increasing field-ids",
-                        ));
-                    }
+                if let Some(prev) = last_key
+                    && k <= prev
+                {
+                    return Err(AssetError::new(
+                        ErrorKind::CanonInvalid,
+                        "map keys must be strictly increasing field-ids",
+                    ));
                 }
                 last_key = Some(k);
                 let (v, r2) = decode_one(r1)?;
@@ -222,7 +222,7 @@ fn decode_one(bytes: &[u8]) -> Result<(Value, &[u8])> {
             20 => Ok((Value::Bool(false), rest)),
             21 => Ok((Value::Bool(true), rest)),
             22 => Ok((Value::Null, rest)),
-            25 | 26 | 27 => Err(AssetError::new(
+            25..=27 => Err(AssetError::new(
                 ErrorKind::CanonInvalid,
                 "float not open in AP-CANON v1",
             )),

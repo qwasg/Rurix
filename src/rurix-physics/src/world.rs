@@ -853,10 +853,7 @@ impl PhysicsWorld {
         for (index, generation, entry) in self.bodies.iter_live() {
             let id = BodyId::new(index, generation);
             let transform = self.body_transform(id)?;
-            let (linvel, angvel) = match self.body_velocities(id) {
-                Ok(v) => v,
-                Err(_) => ([0.0; 3], [0.0; 3]),
-            };
+            let (linvel, angvel) = self.body_velocities(id).unwrap_or(([0.0; 3], [0.0; 3]));
             let active = self.is_active(id).unwrap_or(false);
             out.push(crate::types::BodySemantic {
                 body_id: id,

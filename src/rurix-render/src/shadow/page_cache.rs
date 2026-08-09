@@ -52,6 +52,7 @@ const D_L2: f32 = 33.0 / 64.0;
 ///   * `px∈[0,4) py∈[4,8)` @L0 ⇒ 0 级槽 (1,0)
 ///   * `px∈[4,8) py∈[0,4)` @L1 ⇒ 1 级槽 (0,0)
 ///   * `px∈[12,16) py∈[0,4)` @L2 ⇒ 2 级槽 (0,0)
+///
 /// F13 起换成「压力块」`px∈[0,4) py∈[8,40)` ⇒ 0 级槽 (2,0)…(9,0) 共 8 页:
 /// 核心页本帧未被标记 ⇒ 帧龄≥1 ⇒ 可被 LRU 驱逐(驱逐轴的前提)。
 fn m19_mark_depth(frame: u32) -> ImageF32 {
@@ -103,6 +104,8 @@ pub struct ShadowViewBatch {
     /// 灯空间三角形(方向光基下预变换,9 f32/tri 扁平由调用方组装)。
     pub dir_tris: Vec<ShadowTri>,
     pub local_tris_light: Vec<[[f32; 3]; 3]>,
+    // 机械豁免(rust 1.93 clippy 漂移):G8 期既有 pub 字段类型,本波不动 API 面。
+    #[allow(clippy::type_complexity)]
     pub local_pages: Vec<(u8, u8, u16, [f32; 2], [f32; 2], f32)>,
 }
 
@@ -436,13 +439,9 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
     let core_slots: [(u8, u8, u8); 4] = [(0, 0, 0), (0, 1, 0), (1, 0, 0), (2, 0, 0)];
 
     for frame in 0..FRAME_COUNT {
-        let camera = if frame == 4 {
-            [0.25, 0.0, 7.0]
-        } else if frame >= 4 {
-            [0.25, 0.0, 7.0]
-        } else {
-            cam0
-        };
+        // F4 相机挪到 z=7.0 并驻留(F5+ 同位;两臂同值,机械合并消除 clippy
+        // if_same_then_else,F4→F5+ 路径数值不变)。
+        let camera = if frame >= 4 { [0.25, 0.0, 7.0] } else { cam0 };
 
         let scroll = if frame == 0 {
             0
@@ -597,25 +596,25 @@ pub fn run_m19_fixture_pool(pool_pages: u16) -> M19RunResult {
         // **方向光 clipmap 栈**(逐级 lparams + 选级/回退环),不覆盖 spot 的单级
         // 透视页表(设计 §2.3 第一核只列方向光 mark);spot 的 device mark 核不在
         // A2.1 范围内。故 local 臂的 mark 位不作 device 判据,只作事件序列的一部分。
-        if let Some(loc) = local.as_mut() {
-            if frame >= 12 {
-                loc.mark_slot(0, 0);
-                loc.mark_slot(1, 0);
-                let e0 = loc.table.get(0, 0);
-                let kind = if e0.resident {
-                    EventKind::MarkHit
-                } else {
-                    EventKind::MarkMiss
-                };
-                emit(&mut log, frame, LightId::Local(0), 0, (0, 0), kind, e0.phys);
-                let e1 = loc.table.get(1, 0);
-                let kind = if e1.resident {
-                    EventKind::MarkHit
-                } else {
-                    EventKind::MarkMiss
-                };
-                emit(&mut log, frame, LightId::Local(0), 0, (1, 0), kind, e1.phys);
-            }
+        if let Some(loc) = local.as_mut()
+            && frame >= 12
+        {
+            loc.mark_slot(0, 0);
+            loc.mark_slot(1, 0);
+            let e0 = loc.table.get(0, 0);
+            let kind = if e0.resident {
+                EventKind::MarkHit
+            } else {
+                EventKind::MarkMiss
+            };
+            emit(&mut log, frame, LightId::Local(0), 0, (0, 0), kind, e0.phys);
+            let e1 = loc.table.get(1, 0);
+            let kind = if e1.resident {
+                EventKind::MarkHit
+            } else {
+                EventKind::MarkMiss
+            };
+            emit(&mut log, frame, LightId::Local(0), 0, (1, 0), kind, e1.phys);
         }
 
         // 分配前快照

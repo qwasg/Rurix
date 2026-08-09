@@ -231,6 +231,9 @@ struct IbRecord {
 }
 
 /// G8.2 M89 draw 绑定(RXS-0319;`ib = None` → 非索引 `draw`)。
+// 机械豁免(rust 1.93 clippy 漂移):字段仅在 feature = "vulkan" 臂消费,默认档
+// 报 dead_code 为假阳性;G8 期既有结构面不动。
+#[allow(dead_code)]
 #[derive(Clone)]
 struct GfxDrawBinding {
     vb: u32,
@@ -239,6 +242,9 @@ struct GfxDrawBinding {
 }
 
 /// G8.2 M89:submit 前 gfx 派发快照(drain 后仍可消费)。
+// 机械豁免(rust 1.93 clippy 漂移):字段仅在 feature = "vulkan" 臂消费,默认档
+// 报 dead_code 为假阳性;G8 期既有结构面不动。
+#[allow(dead_code)]
 struct GfxSubmitSnap {
     passes: Vec<GfxPassRecord>,
     draws: Vec<Option<GfxDrawBinding>>,
@@ -1980,7 +1986,7 @@ pub extern "C" fn rxrt_rhi_vb_create(r: u64, ptr: *const u8, bytes: u64, stride:
 #[unsafe(no_mangle)]
 pub extern "C" fn rxrt_rhi_ib_create(r: u64, ptr: *const u8, bytes: u64) -> u64 {
     const OP: &str = "rhi_ib_create";
-    if ptr.is_null() || bytes == 0 || bytes % 4 != 0 {
+    if ptr.is_null() || bytes == 0 || !bytes.is_multiple_of(4) {
         diag(OP, "null/empty/misaligned index data (need u32 multiples)");
         return 0;
     }

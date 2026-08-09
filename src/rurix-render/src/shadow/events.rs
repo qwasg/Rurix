@@ -170,10 +170,10 @@ impl EventLog {
     pub fn reasons_present(&self) -> Vec<InvalidationReason> {
         let mut rs = Vec::new();
         for e in &self.events {
-            if let EventKind::Invalidate(r) = e.kind {
-                if !rs.contains(&r) {
-                    rs.push(r);
-                }
+            if let EventKind::Invalidate(r) = e.kind
+                && !rs.contains(&r)
+            {
+                rs.push(r);
             }
         }
         rs.sort();

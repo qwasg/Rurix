@@ -16,17 +16,9 @@ pub const EXTENSION_ALLOWLIST_V1: &[&str] = &[
 ];
 
 /// 导入选项。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ImportOptions {
     pub preserve_opaque: bool,
-}
-
-impl Default for ImportOptions {
-    fn default() -> Self {
-        Self {
-            preserve_opaque: false,
-        }
-    }
 }
 
 /// 已消费字段覆盖表(smoke `no_silent_field_drop`)。
@@ -133,7 +125,7 @@ fn decode_base64(input: &str) -> Result<Vec<u8>> {
         })
     }
     let cleaned: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
-    if cleaned.len() % 4 != 0 {
+    if !cleaned.len().is_multiple_of(4) {
         return Err(AssetError::new(
             ErrorKind::Invalid,
             "base64 length not multiple of 4",
@@ -729,12 +721,8 @@ fn validate_indices_and_refs(
 fn f32_array(v: Option<&JsonValue>, n: usize, default: &[f32]) -> Vec<f32> {
     if let Some(JsonValue::Array(a)) = v {
         let mut out = Vec::with_capacity(n);
-        for i in 0..n {
-            out.push(
-                a.get(i)
-                    .and_then(|x| x.as_f64())
-                    .unwrap_or(default[i] as f64) as f32,
-            );
+        for (i, &d) in default.iter().enumerate() {
+            out.push(a.get(i).and_then(|x| x.as_f64()).unwrap_or(d as f64) as f32);
         }
         out
     } else {

@@ -371,10 +371,10 @@ impl Manifest {
         for elem in split_json_top_level(shaders_slice, '[', ']').unwrap_or_default() {
             let r = parse_shader_record(&elem)?;
             let key = r.pipeline_key;
-            if let Some(prev) = m.shaders.get(&key) {
-                if prev != &r {
-                    return Err(conflict_shader(prev, &r));
-                }
+            if let Some(prev) = m.shaders.get(&key)
+                && prev != &r
+            {
+                return Err(conflict_shader(prev, &r));
             }
             m.shaders.insert(key, r);
         }
@@ -383,10 +383,10 @@ impl Manifest {
         for elem in split_json_top_level(psos_slice, '[', ']').unwrap_or_default() {
             let r = parse_pso_record(&elem)?;
             let key = r.pso_key;
-            if let Some(prev) = m.psos.get(&key) {
-                if prev != &r {
-                    return Err(conflict_pso(prev, &r));
-                }
+            if let Some(prev) = m.psos.get(&key)
+                && prev != &r
+            {
+                return Err(conflict_pso(prev, &r));
             }
             m.psos.insert(key, r);
         }
@@ -726,10 +726,7 @@ pub fn check_coverage(merged: &Manifest, table: &CoverageTable) -> Result<(), Ma
     let mut expected_pipe = std::collections::BTreeSet::new();
     for s in &table.shaders {
         expected_pipe.insert(s.pipeline_key.to_ascii_lowercase());
-        let key = match parse_hex32(&s.pipeline_key, "coverage.pipeline_key") {
-            Ok(k) => k,
-            Err(e) => return Err(e),
-        };
+        let key = parse_hex32(&s.pipeline_key, "coverage.pipeline_key")?;
         match merged.shaders.get(&key) {
             None => missing.push(format!("shader:{}", s.pipeline_key)),
             Some(got) => {
@@ -773,12 +770,12 @@ pub fn check_coverage(merged: &Manifest, table: &CoverageTable) -> Result<(), Ma
 
 /// 解析 coverage 声明表 JSON。
 pub fn parse_coverage_table(text: &str) -> Result<CoverageTable, ManifestError> {
-    if let Some(schema) = ju::json_str_field(text, "schema") {
-        if schema != COVERAGE_SCHEMA {
-            return Err(ManifestError::Malformed(format!(
-                "coverage `schema` 须为 \"{COVERAGE_SCHEMA}\",得 `{schema}`"
-            )));
-        }
+    if let Some(schema) = ju::json_str_field(text, "schema")
+        && schema != COVERAGE_SCHEMA
+    {
+        return Err(ManifestError::Malformed(format!(
+            "coverage `schema` 须为 \"{COVERAGE_SCHEMA}\",得 `{schema}`"
+        )));
     }
     let mut table = CoverageTable::default();
     if let Some(arr) = ju::json_array_field(text, "shaders") {
@@ -895,6 +892,8 @@ mod tests {
     const HF: &str = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
     const H0: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
+    // 机械豁免(rust 1.93 clippy 漂移):8 参数为 G8 期既有测试辅助签名,本波不动 API 面。
+    #[allow(clippy::too_many_arguments)]
     fn refl_entry(
         name: &str,
         stage: &str,

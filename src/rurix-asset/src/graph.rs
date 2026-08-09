@@ -39,7 +39,7 @@ impl GraphNode {
                 Value::Array(
                     self.typed_inputs
                         .iter()
-                        .map(|s| Value::text_ascii(s))
+                        .map(Value::text_ascii)
                         .collect::<Result<Vec<_>>>()?,
                 ),
             ),
@@ -48,7 +48,7 @@ impl GraphNode {
                 Value::Array(
                     self.typed_outputs
                         .iter()
-                        .map(|s| Value::text_ascii(s))
+                        .map(Value::text_ascii)
                         .collect::<Result<Vec<_>>>()?,
                 ),
             ),

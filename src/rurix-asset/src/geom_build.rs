@@ -338,6 +338,8 @@ mod tests {
         let pages = pack_cluster_dag(&dag).unwrap();
         let mut nodes: HashMap<u32, (u32, u32)> = HashMap::new();
         let mut edges: HashSet<(u32, u32)> = HashSet::new();
+        // 机械豁免(rust 1.93 clippy 漂移):测试内一次性比对表,G8 期既有形态,本波不动。
+        #[allow(clippy::type_complexity)]
         let mut bounds_map: HashMap<u32, ([u32; 3], u32, [u32; 3], u32, u32, u32)> = HashMap::new();
 
         for p in &pages {

@@ -459,7 +459,7 @@ fn parse_desc(obj: &str) -> Result<BodyDesc, CaptureError> {
         let i = obj
             .find(key)
             .ok_or_else(|| CaptureError::Parse(key.into()))?;
-        let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let rest = obj[i + key.len()..].trim_start_matches([' ', ':']);
         let end = rest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(rest.len());
@@ -469,7 +469,7 @@ fn parse_desc(obj: &str) -> Result<BodyDesc, CaptureError> {
     }
     fn bool_after(obj: &str, key: &str) -> bool {
         if let Some(i) = obj.find(key) {
-            let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
+            let rest = obj[i + key.len()..].trim_start_matches([' ', ':']);
             rest.starts_with("true")
         } else {
             false
@@ -647,7 +647,7 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
             let i = obj
                 .find(key)
                 .ok_or_else(|| CaptureError::Parse(key.into()))?;
-            let rest = obj[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
+            let rest = obj[i + key.len()..].trim_start_matches([' ', ':']);
             let end = rest
                 .find(|c: char| !c.is_ascii_digit())
                 .unwrap_or(rest.len());
@@ -666,7 +666,7 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         })
     } else if obj.contains("\"remove_constraint\"") {
         let i = obj.find("\"id\"").unwrap();
-        let rest = obj[i + 4..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let rest = obj[i + 4..].trim_start_matches([' ', ':']);
         let end = rest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(rest.len());
@@ -674,13 +674,13 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         Ok(JournalCommand::RemoveConstraint { id })
     } else if obj.contains("\"set_motor\"") {
         let i = obj.find("\"id\"").unwrap();
-        let rest = obj[i + 4..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let rest = obj[i + 4..].trim_start_matches([' ', ':']);
         let end = rest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(rest.len());
         let id: u64 = rest[..end].parse().unwrap();
         let si = obj.find("\"state\"").unwrap();
-        let srest = obj[si + 7..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let srest = obj[si + 7..].trim_start_matches([' ', ':']);
         let send = srest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(srest.len());
@@ -706,7 +706,7 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
         let t_min = hex_key(obj, "\"t_min\"")?;
         let t_max = hex_key(obj, "\"t_max\"")?;
         let lm_i = obj.find("\"layer_mask\"").unwrap();
-        let lm_rest = obj[lm_i + 12..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let lm_rest = obj[lm_i + 12..].trim_start_matches([' ', ':']);
         let lm_end = lm_rest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(lm_rest.len());
@@ -752,7 +752,7 @@ impl JournalTick {
         let ti = line
             .find(tick_key)
             .ok_or_else(|| CaptureError::Parse("tick".into()))?;
-        let trest = line[ti + tick_key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
+        let trest = line[ti + tick_key.len()..].trim_start_matches([' ', ':']);
         let tend = trest
             .find(|c: char| !c.is_ascii_digit())
             .unwrap_or(trest.len());
@@ -781,7 +781,7 @@ impl JournalTick {
             let i = line
                 .find(key)
                 .ok_or_else(|| CaptureError::Parse(key.into()))?;
-            let rest = line[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':');
+            let rest = line[i + key.len()..].trim_start_matches([' ', ':']);
             let end = rest
                 .find(|c: char| !(c.is_ascii_digit()))
                 .unwrap_or(rest.len());

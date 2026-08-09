@@ -44,18 +44,17 @@ impl<T> HistoryRing<T> {
         retain_from: Option<NetworkPhysicsFrameId>,
     ) -> Result<(), NetError> {
         if self.items.len() >= self.capacity {
-            if let Some(oldest) = self.items.front() {
-                if let Some(need) = retain_from {
-                    if oldest.0 <= need {
-                        return Err(NetError::HardCorrection {
-                            reason: HardCorrectionReason::HistoryRingOverflow,
-                            detail: format!(
-                                "ring capacity={} would drop frame {} still needed (>= {})",
-                                self.capacity, oldest.0.0, need.0
-                            ),
-                        });
-                    }
-                }
+            if let Some(oldest) = self.items.front()
+                && let Some(need) = retain_from
+                && oldest.0 <= need
+            {
+                return Err(NetError::HardCorrection {
+                    reason: HardCorrectionReason::HistoryRingOverflow,
+                    detail: format!(
+                        "ring capacity={} would drop frame {} still needed (>= {})",
+                        self.capacity, oldest.0.0, need.0
+                    ),
+                });
             }
             self.items.pop_front();
         }

@@ -297,7 +297,7 @@ fn merge_imported_meshes(meshes: &[ImportedMesh]) -> Result<TriMesh> {
             "gltf import produced no triangles; geom upstream has no real input",
         ));
     }
-    if indices.len() % 3 != 0 {
+    if !indices.len().is_multiple_of(3) {
         return Err(AssetError::new(
             ErrorKind::VerifyFailed,
             "imported index count is not a multiple of 3",

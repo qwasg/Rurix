@@ -115,7 +115,7 @@ pub fn from_logical(page: &LogicalPage) -> MemoryPage {
 }
 
 fn align_up(v: usize, a: usize) -> usize {
-    (v + a - 1) / a * a
+    v.div_ceil(a) * a
 }
 
 /// 编码 RXPM image（确定性）。
@@ -259,7 +259,7 @@ pub fn decode_memory_page(bytes: &[u8]) -> Result<MemoryPage, MemoryError> {
         let off = u32::from_le_bytes(bytes[base + 4..base + 8].try_into().unwrap()) as usize;
         let size = u32::from_le_bytes(bytes[base + 8..base + 12].try_into().unwrap()) as usize;
         let align = u32::from_le_bytes(bytes[base + 12..base + 16].try_into().unwrap()) as usize;
-        if align == 0 || off % align != 0 {
+        if align == 0 || !off.is_multiple_of(align) {
             return Err(MemoryError::Inconsistent("align"));
         }
         if off < dir_end {
@@ -290,8 +290,8 @@ pub fn decode_memory_page(bytes: &[u8]) -> Result<MemoryPage, MemoryError> {
     }
     // 空洞恒 0
     let mut covered = vec![false; bytes.len()];
-    for i in 0..dir_end {
-        covered[i] = true;
+    for c in covered.iter_mut().take(dir_end) {
+        *c = true;
     }
     for &(_, off, size, _) in &sections {
         for b in &mut covered[off..off + size] {

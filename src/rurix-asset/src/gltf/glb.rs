@@ -75,7 +75,7 @@ pub fn parse_glb(bytes: &[u8]) -> Result<GlbDocument> {
         }
         let data = &bytes[off..off + chunk_len];
         // 对齐:chunk 总长(含 8B 头)应对齐到 4;数据区本身长度已由标准填充保证。
-        if chunk_len % 4 != 0 {
+        if !chunk_len.is_multiple_of(4) {
             return Err(AssetError::new(
                 ErrorKind::GlbContainer,
                 format!("chunk length {chunk_len} not 4-byte aligned"),
@@ -145,13 +145,13 @@ pub fn parse_glb(bytes: &[u8]) -> Result<GlbDocument> {
 /// 组装最小合法 GLB(测试/fixture 辅助)。
 pub fn build_glb(json_text: &str, bin: Option<&[u8]>) -> Result<Vec<u8>> {
     let mut json_bytes = json_text.as_bytes().to_vec();
-    while json_bytes.len() % 4 != 0 {
+    while !json_bytes.len().is_multiple_of(4) {
         json_bytes.push(b' ');
     }
     let mut bin_bytes = bin.unwrap_or(&[]).to_vec();
     let has_bin = bin.is_some();
     if has_bin {
-        while bin_bytes.len() % 4 != 0 {
+        while !bin_bytes.len().is_multiple_of(4) {
             bin_bytes.push(0);
         }
     }

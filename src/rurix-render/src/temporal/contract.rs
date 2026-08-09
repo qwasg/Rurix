@@ -249,6 +249,8 @@ impl TsrContract {
     }
 
     /// normalized-viewport 重投影:消 current/previous jitter 后映射两帧 extent。
+    // 机械豁免(rust 1.93 clippy 漂移):9 参数为 G8 期既有内部签名,本波不动 API 面。
+    #[allow(clippy::too_many_arguments)]
     fn remap_history_uv(
         ox: u32,
         oy: u32,
@@ -989,8 +991,10 @@ fn checker_bg(fx: f32, fy: f32) -> [f32; 3] {
 pub fn run_case_history_resurrection() -> CaseResult {
     let frames = build_case_frames("history_resurrection");
     let mut contract = TsrContract::default();
-    let mut baseline = TsrContract::default();
-    baseline.resurrection_age_max = 0;
+    let mut baseline = TsrContract {
+        resurrection_age_max: 0,
+        ..TsrContract::default()
+    };
     let mut last = ImageF32::new(32, 32, 3);
     let mut last_base = ImageF32::new(32, 32, 3);
     let mut res_total = 0u32;
@@ -1057,17 +1061,17 @@ pub fn run_case_thin_geometry() -> CaseResult {
     for (frame, fx) in frames.iter().enumerate() {
         let inputs = fx.to_inputs();
         last = contract.process(&inputs).expect("ok");
-        if frame % 2 == 1 {
-            if let Some(c) = &contract.history_confidence {
-                let mut minc = 1.0f32;
-                for y in 0..32u32 {
-                    for x in 0..32u32 {
-                        minc = minc.min(c.get(x, y, 0));
-                    }
+        if frame % 2 == 1
+            && let Some(c) = &contract.history_confidence
+        {
+            let mut minc = 1.0f32;
+            for y in 0..32u32 {
+                for x in 0..32u32 {
+                    minc = minc.min(c.get(x, y, 0));
                 }
-                if minc < 0.3 {
-                    low_conf_frames += 1;
-                }
+            }
+            if minc < 0.3 {
+                low_conf_frames += 1;
             }
         }
     }

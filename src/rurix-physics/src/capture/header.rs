@@ -231,16 +231,14 @@ impl PhysicsCaptureHeader {
                 .find(&pat)
                 .ok_or_else(|| CaptureError::Parse(format!("missing {key}")))?;
             let rest = &text[i + pat.len()..];
-            let rest = rest.trim_start_matches(|c: char| c == ' ' || c == ':' || c == '\n');
+            let rest = rest.trim_start_matches([' ', ':', '\n']);
             if let Some(rest) = rest.strip_prefix('"') {
                 let end = rest
                     .find('"')
                     .ok_or_else(|| CaptureError::Parse(format!("bad string {key}")))?;
                 Ok(&rest[..end])
             } else {
-                let end = rest
-                    .find(|c: char| c == ',' || c == '\n' || c == '}')
-                    .unwrap_or(rest.len());
+                let end = rest.find([',', '\n', '}']).unwrap_or(rest.len());
                 Ok(rest[..end].trim())
             }
         }

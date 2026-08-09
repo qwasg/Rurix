@@ -3450,10 +3450,10 @@ pub fn emit_callable_min() -> Vec<u32> {
     b.finish(EXEC_MODEL_CALLABLE_KHR, false)
 }
 
-/// mesh/task/RT 六执行模型的库级见证集(阶段名 → 发射器)。device 端 mesh/raygen/miss/
-/// closesthit 三件套见证归主循环(vk 运行时);intersection/anyhit/callable 首期 accept-only
-/// (§8;类型面 + spirv-val 全量,device 端到端见证 defer RD-034)。所有产物过 spirv-val
-/// `--target-env vulkan1.2` / `spv1.4`(见 tests/mesh_rt_vulkan_spirv_val.rs)。
+// mesh/task/RT 六执行模型的库级见证集(阶段名 → 发射器)。device 端 mesh/raygen/miss/
+// closesthit 三件套见证归主循环(vk 运行时);intersection/anyhit/callable 首期 accept-only
+// (§8;类型面 + spirv-val 全量,device 端到端见证 defer RD-034)。所有产物过 spirv-val
+// `--target-env vulkan1.2` / `spv1.4`(见 tests/mesh_rt_vulkan_spirv_val.rs)。
 
 // ═══════════════════════ G8.2 M50 RT 增量 SPIR-V(RXS-0325;非 emit_*_min) ═══════════════════════
 const STORAGE_CALLABLE_DATA_KHR: u32 = 5328;

@@ -1301,6 +1301,7 @@ pub struct SelectionError {
 ///    {rt.ray_query, rt.pipeline} 的条目允许 fallback 缺席;其余逐项相等
 ///    (binding 号按 fallback 自身声明序独立推导,不构成不兼容)、相对序
 ///    一致;fallback 不得多出条目。
+///
 /// 返回 Err(不兼容字段名)。
 //@ spec: RXS-0312
 pub(crate) fn fallback_compatible(
@@ -2088,7 +2089,7 @@ kernel fn kmain() { mid(); other(); }
         // schema 常量不符。
         assert!(matches!(
             parse_profile(
-                &base("[]", "[]", "[]")
+                base("[]", "[]", "[]")
                     .replace("rurix.profile.v1", "rurix.profile.v9")
                     .as_str()
             ),

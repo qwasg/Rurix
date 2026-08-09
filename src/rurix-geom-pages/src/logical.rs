@@ -205,9 +205,9 @@ pub fn decode_logical_page(bytes: &[u8]) -> Result<LogicalPage, PageDecodeError>
     let vertex_count = u32::from_le_bytes(bytes[32..36].try_into().unwrap()) as usize;
     let index_count = u32::from_le_bytes(bytes[36..40].try_into().unwrap()) as usize;
     let mut bounds = [0f32; 6];
-    for i in 0..6 {
+    for (i, b) in bounds.iter_mut().enumerate() {
         let o = 40 + i * 4;
-        bounds[i] = f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
+        *b = f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
     }
     let dependency_page_count = u32::from_le_bytes(bytes[64..68].try_into().unwrap()) as usize;
     let dag_link_count = u32::from_le_bytes(bytes[68..72].try_into().unwrap()) as usize;
@@ -287,7 +287,7 @@ pub fn decode_logical_page(bytes: &[u8]) -> Result<LogicalPage, PageDecodeError>
 
 /// 页 AABB 量化中心 → u16×3（RXS-0328）。
 pub fn quantize_center(center: [f32; 3], bounds: [f32; 6]) -> (u16, u16, u16) {
-    const EPS: f32 = 1.17549435e-38; // 2^-126
+    const EPS: f32 = 1.175_494_4e-38; // 2^-126
     let q = |c: f32, lo: f32, hi: f32| -> u16 {
         let span = (hi - lo).max(EPS);
         let t = ((c - lo) / span).clamp(0.0, 1.0);

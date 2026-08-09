@@ -74,10 +74,10 @@ fn hit_group_name(attrs: &[Attr]) -> Option<(String, Span)> {
         let MetaKind::List(inner) = &a.meta.kind else {
             return Some((String::new(), a.span));
         };
-        if let [MetaInner::Meta(mi)] = inner.as_slice() {
-            if let Some(name) = single_seg(&mi.path) {
-                return Some((name.to_owned(), a.span));
-            }
+        if let [MetaInner::Meta(mi)] = inner.as_slice()
+            && let Some(name) = single_seg(&mi.path)
+        {
+            return Some((name.to_owned(), a.span));
         }
         return Some((String::new(), a.span));
     }
@@ -203,11 +203,11 @@ fn pod_ok(
                             "field `{fname}: {fty}` contains resource handle (forbidden in #[shader_record])"
                         ));
                     }
-                    if structs.contains_key(head) {
-                        if let Err(e) = pod_ok(head, structs, visiting) {
-                            visiting.remove(n);
-                            return Err(e);
-                        }
+                    if structs.contains_key(head)
+                        && let Err(e) = pod_ok(head, structs, visiting)
+                    {
+                        visiting.remove(n);
+                        return Err(e);
                     }
                 }
             }
@@ -303,6 +303,8 @@ fn check_fn_shader_records(
 // ───────────────────────── RXS-0323 hit_group ─────────────────────────
 
 struct HitGroupAcc {
+    // 机械豁免(rust 1.93 clippy 漂移):name 为 G8 期既有诊断用字段,语义面不动。
+    #[allow(dead_code)]
     name: String,
     first_span: Span,
     has_chit: bool,
@@ -574,7 +576,7 @@ fn count_callables(items: &[Item]) -> usize {
     n
 }
 
-fn snippet<'a>(src: &'a str, span: Span) -> &'a str {
+fn snippet(src: &str, span: Span) -> &str {
     src.get(span.lo.0 as usize..span.hi.0 as usize)
         .unwrap_or("")
 }
@@ -621,17 +623,17 @@ fn walk_block(
                 }
             }
             crate::ast::StmtKind::Item(it) => {
-                if let ItemKind::Fn(f) = &it.kind {
-                    if let Some(body) = &f.body {
-                        walk_block(
-                            body,
-                            src,
-                            f.stage.or(stage),
-                            callable_count,
-                            f.stage == Some(ShaderStage::Callable) || in_callable,
-                            diag,
-                        );
-                    }
+                if let ItemKind::Fn(f) = &it.kind
+                    && let Some(body) = &f.body
+                {
+                    walk_block(
+                        body,
+                        src,
+                        f.stage.or(stage),
+                        callable_count,
+                        f.stage == Some(ShaderStage::Callable) || in_callable,
+                        diag,
+                    );
                 }
             }
             crate::ast::StmtKind::Empty => {}
@@ -840,19 +842,21 @@ pub fn build_rt_manifest_json(file: &crate::ast::SourceFile, src: &str) -> Resul
             let crate::ast::ParamKind::Typed { ty, .. } = &p.kind else {
                 continue;
             };
-            if let Some(head) = ty_head_name(ty) {
-                if let Some(info) = structs.get(head) {
-                    let fields: Vec<_> = info
-                        .fields
-                        .iter()
-                        .map(|(n, t, _)| (n.clone(), t.clone()))
-                        .collect();
-                    *payload_fields = Some(fields);
-                }
+            if let Some(head) = ty_head_name(ty)
+                && let Some(info) = structs.get(head)
+            {
+                let fields: Vec<_> = info
+                    .fields
+                    .iter()
+                    .map(|(n, t, _)| (n.clone(), t.clone()))
+                    .collect();
+                *payload_fields = Some(fields);
             }
         }
     }
 
+    // 机械豁免(rust 1.93 clippy 漂移):9 参数为 G8 期既有内部 walker 签名,本波不动 API 面。
+    #[allow(clippy::too_many_arguments)]
     fn walk(
         items: &[Item],
         structs: &HashMap<String, StructFields>,
@@ -878,15 +882,15 @@ pub fn build_rt_manifest_json(file: &crate::ast::SourceFile, src: &str) -> Resul
                             let crate::ast::ParamKind::Typed { ty, .. } = &p.kind else {
                                 continue;
                             };
-                            if let Some(head) = ty_head_name(ty) {
-                                if let Some(info) = structs.get(head) {
-                                    let fields: Vec<_> = info
-                                        .fields
-                                        .iter()
-                                        .map(|(n, t, _)| (n.clone(), t.clone()))
-                                        .collect();
-                                    record_by_group.insert(gname.clone(), fields);
-                                }
+                            if let Some(head) = ty_head_name(ty)
+                                && let Some(info) = structs.get(head)
+                            {
+                                let fields: Vec<_> = info
+                                    .fields
+                                    .iter()
+                                    .map(|(n, t, _)| (n.clone(), t.clone()))
+                                    .collect();
+                                record_by_group.insert(gname.clone(), fields);
                             }
                         }
                     }
@@ -1028,7 +1032,6 @@ fn json_opt_str(s: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::diag::DiagCtxt;
     use crate::query::QueryCtx;
     use crate::span::{Edition, SourceId};
