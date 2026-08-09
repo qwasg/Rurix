@@ -51,3 +51,4 @@
 - `HandleShapeResult`(JoltCImpl):`*_ShapeSettings_Create` 成功时 shape 引用计数 = 1,调用方持有;Jolt `Body` **不**对 shape AddRef(实测 `Body::SetShapeInternal`)→ sys 层为每个 body 持有其 shape 引用,body 销毁后 `JPC_Shape_Release`。
 - `BodyCreationSettings.Position` = 体坐标系原点(非质心,`BodyCreationSettings.h:80` 注释);`BodyInterface_GetPosition` 返回同系原点(`Body.h:268` `mPosition - mRotation * COM`)→ 变换 round-trip 一致。
 - 布局可信链:JoltC 头内 C 结构 ↔ JPH C++ 结构由 `JoltCImpl/JoltC.cpp` 的 `LAYOUT_COMPATIBLE` 静态断言在 **vendor 构建期**强制对齐;Rust 侧 `#[repr(C)]` 镜像 ↔ JoltC C 结构由本 crate `ffi_layout_anchors` 单测锚定(U32 模式,数值 = x86_64 单精度画像实测;复测程序 `tools/layout_dump.cpp`:`cl /std:c++17 /I vendor/JoltC tools/layout_dump.cpp` 打印 vendored 头 `offsetof`,pin 或画像变更时重测)。
+- (2026-08-08 追加)Hinge/Constraint 段布局锚点(G8 M66 关节 capture 引入)的复测程序为 `tools/layout_hinge.cpp` + `tools/layout_hinge2.cpp`,同画像同编译方式;探针清单与 2026-08-06 实测结论见 `tools/README.md`。二进制产物不入库。

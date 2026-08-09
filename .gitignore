@@ -44,3 +44,9 @@ apps/ruridrop/src/promo.rx
 .qoder/
 .better-harness/
 .tmp/
+
+# JoltC ABI 布局复测探针的本地编译产物(2026-08-08 G8 收尾清理)
+# src/rurix-physics-sys/tools/*.cpp 由 cl.exe 手动编译:源入库、二进制不入库
+src/rurix-physics-sys/**/*.exe
+src/rurix-physics-sys/**/*.obj
+.hilo/

@@ -1,0 +1,1 @@
+{"ok":true,"schema_pass":true,"import_pass":true,"collision_pass":true,"lod_pass":true,"timeline_pass":true,"solver_double_run_deterministic":true,"bound_frozen_reference_present":true,"cloth_capture_scene_appended":true,"measured_max_penetration_m":0.001000,"penetration_bound_m":0.012500,"detail":"cloth product chain PASS"}
