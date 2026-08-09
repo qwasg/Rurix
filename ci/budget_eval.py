@@ -51,6 +51,34 @@ def measured_value(entry: dict) -> float | None:
     return doc["results"]["trimmed_mean"]
 
 
+def eval_g9_metric(entry: dict) -> None:
+    """G9.1 特例:g9.bench.<metric> 条目从 evidence results.metrics 字典取同名字段。
+
+    G9 baseline evidence(g9_vram_as_baseline_*)的 results.metrics 为多指标字典
+    (vram_device_local_heap_bytes / blas_*_130ktris),非 trimmed_mean 单值;
+    entry id 后缀即 metric 名,缺名即 FAIL(未知 id 强制 FAIL 纪律的 g9 形态)。
+    """
+    eid = entry["id"]
+    metric = eid[len("g9.bench."):]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    metrics = doc.get("results", {}).get("metrics", {})
+    if metric not in metrics:
+        err(f"{eid}: evidence results.metrics 无同名 metric {metric!r}(id 后缀即 metric 名)")
+        return
+    value = float(metrics[metric])
+    threshold = entry.get("threshold")
+    direction = entry.get("direction", "max")
+    ok = value <= threshold if direction == "max" else value >= threshold
+    if ok:
+        PASSES.append(f"{eid}: PASS — {value} {entry.get('unit', '')} vs {direction} {threshold}")
+    else:
+        err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
+
+
 def eval_lsp_latency(entry: dict) -> None:
     """M6.5 特例(契约 G-M6-2):单 entry 表达 LSP 三类交互延迟,逐交互对子阈值判定。
 
@@ -174,6 +202,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if eid == "g7.bench.uc06_device_frame_soak_1080p":
         eval_device_frame_soak(entry)
+        return
+    if eid.startswith("g9.bench."):
+        eval_g9_metric(entry)
         return
     if eid.startswith("ea1.bench.cold_start_"):
         eval_cold_start(entry)

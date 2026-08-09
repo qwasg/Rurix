@@ -415,6 +415,9 @@ def check_evidence_files() -> None:
     g8_wave7_decisions_schema = load(
         ROOT / "milestones/g8/g8_wave7_decisions_evidence_schema.json"
     )
+    g9_vram_as_baseline_schema = load(
+        ROOT / "milestones/g9/g9_vram_as_baseline_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -834,6 +837,11 @@ def check_evidence_files() -> None:
     g8_wave7_decisions_validator = (
         jsonschema.Draft7Validator(g8_wave7_decisions_schema)
         if g8_wave7_decisions_schema is not None
+        else None
+    )
+    g9_vram_as_baseline_validator = (
+        jsonschema.Draft7Validator(g9_vram_as_baseline_schema)
+        if g9_vram_as_baseline_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1593,6 +1601,16 @@ def check_evidence_files() -> None:
             and g8_wave7_decisions_validator is not None
         ):
             validator = g8_wave7_decisions_validator
+        elif (
+            f.name.startswith("g9_vram_as_baseline_")
+            and g9_vram_as_baseline_validator is not None
+        ):
+            # G9.1 governance-only measured baseline：ctypes 直连 vulkan-1.dll
+            # 实测 device-local VRAM heap + 130k 三角 BLAS 构建耗时/存储/scratch，
+            # 并登记 DGC/descriptor_buffer 等 G9 阻塞性前置扩展在位性；
+            # host 墙钟同步等待口径，不冒充 GPU 异步耗时。供 g9_budget.json
+            # g9.bench.* 通用 measured entry 判读。前缀与 g8_* 全族互不包含。
+            validator = g9_vram_as_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "namespace": "g9",
+  "description": "G9 UE5 级渲染器与物理引擎正式建造期预算。G9.1 governance-only 即为非空 measured_local：当前四条 entry 全部是 D1 验收 VRAM/AS 构建耗时指标的 RTX 4070 Ti measured 基线锚，阈值 = 实测 × 1.5。诚实边界：AS 构建耗时为 host 墙钟，含 vkQueueSubmit+vkQueueWaitIdle 同步等待（偏保守不含偏小）；GPU 未锁频；本预算只证明测量已建立，不证明任何 G9 实现达标。G9.2+ 各 P0 实现必须追加自身 measured 条目，既有 measured 条目只追加式收紧。",
+  "source_docs": [
+    "milestones/g9/G9_PLAN.md",
+    "milestones/g9/G9_CONTRACT.md",
+    "milestones/g9/CI_GATES.md",
+    "milestones/g9/G9_ACCEPTANCE_MAP.md"
+  ],
+  "entries": [
+    {
+      "id": "g9.bench.vram_device_local_heap_bytes",
+      "description": "设备本地堆容量基线锚，D1 VRAM 占用指标参照。阈值 = 实测 12576620544 × 1.5 = 18864930816.0 bytes。诚实边界：这是 RTX 4070 Ti DEVICE_LOCAL heap 容量实测，不是 G9 实现 VRAM 占用达标证明。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "bytes",
+      "threshold": 18864930816.0,
+      "evidence_file": "evidence/g9_vram_as_baseline_20260808T154217Z.json",
+      "measured_value": 12576620544
+    },
+    {
+      "id": "g9.bench.blas_build_ms_130ktris",
+      "description": "D1 验收 AS 构建耗时指标基线：固定 256x256 grid（130050 三角形）BLAS（PREFER_FAST_TRACE、opaque）逐 trial 新建构建，1 warmup + 5 trial 中位。阈值 = 实测 0.0465 × 1.5 ≈ 0.0698 ms（四舍五入 4 位）。诚实边界：host 墙钟含 vkQueueSubmit+vkQueueWaitIdle 同步等待（偏保守不含偏小）；GPU 未锁频。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 0.0698,
+      "evidence_file": "evidence/g9_vram_as_baseline_20260808T154217Z.json",
+      "measured_value": 0.0465
+    },
+    {
+      "id": "g9.bench.blas_storage_bytes_130ktris",
+      "description": "D1 验收 AS 存储占用指标基线：同一 130050 三角形 BLAS 的 vkGetAccelerationStructureBuildSizesKHR storage 尺寸。阈值 = 实测 39513088 × 1.5 = 59269632.0 bytes。诚实边界：构建尺寸查询结果随实现/驱动而变，此处仅作 RTX 4070 Ti 同轮 measured 锚。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "bytes",
+      "threshold": 59269632.0,
+      "evidence_file": "evidence/g9_vram_as_baseline_20260808T154217Z.json",
+      "measured_value": 39513088
+    },
+    {
+      "id": "g9.bench.blas_scratch_bytes_130ktris",
+      "description": "D1 验收 AS 构建 scratch 占用指标基线：同一 130050 三角形 BLAS 的 build scratch 尺寸。阈值 = 实测 14352512 × 1.5 = 21528768.0 bytes。诚实边界：同 storage 条，仅作 RTX 4070 Ti 同轮 measured 锚。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "bytes",
+      "threshold": 21528768.0,
+      "evidence_file": "evidence/g9_vram_as_baseline_20260808T154217Z.json",
+      "measured_value": 14352512
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

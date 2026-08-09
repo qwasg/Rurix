@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "subject": "g9_vram_as_baseline",
+  "evidence_level": "measured_local",
+  "milestone": "G9.1 governance-only measured baseline",
+  "base_commit": "1d9460a101f5b0ee1aaae75d2876add5cc40fda4",
+  "timestamp": "2026-08-08T15:42:17.920507Z",
+  "environment": {
+    "os": "Microsoft Windows 11",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_driver_decoded": "620.2.0",
+    "gpu_driver_raw": 2600501248,
+    "python_version": "3.12.1",
+    "probe": "ci/g9_vram_as_baseline_probe.py（ctypes 直连 vulkan-1.dll，零新 Rust/C++）",
+    "nvidia_smi_mirror": {
+      "raw": "NVIDIA GeForce RTX 4070 Ti, 12282 MiB, 620.02"
+    },
+    "clock_lock_applicability": "AS 构建耗时为 host 墙钟含 vkQueueSubmit+vkQueueWaitIdle 同步等待（偏保守不含偏小）；GPU 未锁频；1 warmup + 5 trial 取中位。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g9_vram_as_baseline_probe.py",
+      "exit_code": 0,
+      "note": "ctypes Vulkan：枚举设备/heap/扩展 → 建 130050 三角固定网格 BLAS → submit+waitIdle 同步计时"
+    }
+  ],
+  "sampling": {
+    "trials": 5,
+    "warmup": 1,
+    "timer": "time.perf_counter 包住 vkQueueSubmit + vkQueueWaitIdle",
+    "method": "固定 256x256 grid（130050 三角形、66049 顶点）BLAS（PREFER_FAST_TRACE、opaque）逐 trial 新建 AS 构建并同步等待；中位数为代表值。"
+  },
+  "results": {
+    "metrics": {
+      "vram_device_local_heap_bytes": 12576620544,
+      "blas_build_ms_130ktris": 0.0465,
+      "blas_storage_bytes_130ktris": 39513088,
+      "blas_scratch_bytes_130ktris": 14352512
+    },
+    "unit": {
+      "vram_device_local_heap_bytes": "bytes",
+      "blas_build_ms_130ktris": "ms",
+      "blas_storage_bytes_130ktris": "bytes",
+      "blas_scratch_bytes_130ktris": "bytes"
+    },
+    "trial_values_ms": [
+      0.0598,
+      0.0474,
+      0.0465,
+      0.0458,
+      0.0461
+    ],
+    "mesh": {
+      "grid_n": 256,
+      "vertices": 66049,
+      "triangles": 131072,
+      "build_flags": "PREFER_FAST_TRACE | opaque"
+    },
+    "as_limits": {
+      "maxGeometryCount": 16777215,
+      "maxInstanceCount": 16777215,
+      "maxPrimitiveCount": 536870911,
+      "minAccelerationStructureScratchOffsetAlignment": 128
+    },
+    "memory_heaps": [
+      {
+        "size": 12576620544,
+        "flags": 1
+      },
+      {
+        "size": 17082044416,
+        "flags": 0
+      }
+    ]
+  },
+  "capability_snapshot": {
+    "extensions": {
+      "VK_KHR_acceleration_structure": true,
+      "VK_KHR_ray_query": true,
+      "VK_EXT_mesh_shader": true,
+      "VK_EXT_device_generated_commands": true,
+      "VK_EXT_descriptor_buffer": true,
+      "VK_NV_cluster_acceleration_structure": true,
+      "VK_EXT_ray_tracing_invocation_reorder": true,
+      "VK_NV_displacement_micromap": false,
+      "VK_EXT_opacity_micromap": true
+    },
+    "note": "G9 D3 阻塞性前置（VK_EXT_device_generated_commands / VK_EXT_descriptor_buffer）与 D1/D2/D3 可选面（CLAS/mesh/SER/ray_query）实测在位性；micromap 两枚为禁止面/观察面诚实登记，不作承诺。"
+  },
+  "notes": "G9.1 governance-only baseline：只证明测量已建立，不证明任何 G9 实现达标。"
+}
