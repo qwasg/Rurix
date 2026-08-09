@@ -68,6 +68,13 @@
 > - **RFC-0021**（[`0021-physics-platform.md`](0021-physics-platform.md)，G8 replay-first 物理平台：capture/replay、网络物理、破坏、角色/载具/布料资产链；20 findings〔4 blocker + 12 major 正文实改〕）
 >
 > 三份 RFC 的 **Agent Approved 只表示语义/治理评审完成，不解锁任何实现**：G8.2+ 仍由 `G8_CONTRACT` G-G8-3 与 `ci/check_g8_implementation_interlock.py` 硬门约束（当前诚实输出 `BLOCKED`）。当前下一个未用 Full RFC 为 **RFC-0022**。
+>
+> **RFC 台账校准（2026-08-09，number_ledger v1.73）**：G9.1 治理波 materialize 三份 Full RFC，均于 2026-08-09 经 D-409 对抗性评审（评审 `Assisted-by: Kimi Code CLI (Kimi) rfc00XX-adversarial-reviewer`（独立实例）≠ 起草 `Assisted-by: Kimi Code CLI (Kimi) rfc00XX-drafter`；首选跨工具评审者本环境不可得，同工具族偏差按 RFC-0015 §9.1 / number_ledger v1.29 先例如实登记于各 RFC §9.1）后 **Agent Approved**，findings 逐条 disposition 见各文 §9.1：
+> - **RFC-0022**（[`0022-virtual-geometry-gi-semantics.md`](0022-virtual-geometry-gi-semantics.md)，G9 虚拟几何与 GI 语义：cluster DAG/CLAS 双腿/VisibleClusterSet 单源真相/页格式 v2/Surface Cache/四级追踪降级/probe 编码/M17 golden 门序；6 findings〔1 major + 5 minor〕全部 disposition，F-6 跨文档移交 G9_CANDIDATE_DECISIONS v1.1 落实）
+> - **RFC-0023**（[`0023-gpu-driven-submission-shading.md`](0023-gpu-driven-submission-shading.md)，G9 GPU-driven 提交与着色系统：DGC 抽象/Execution Set/descriptor 全局表/command build node/IR 链接/变体预算/SER 原语/mesh shader 可选路径；含 G5 Barrier EB 冻结面显式修订行（AccessKind 新边 `StorageWrite→IndirectCommandRead`，RXS-0239 字面 0-byte）；4 findings〔2 major + 2 minor〕全部 disposition）
+> - **RFC-0024**（[`0024-physics-platform-revision.md`](0024-physics-platform-revision.md)，G9 物理平台修订（RFC-0021 修订）：Field 系统/统一 particle view/双通道 tick/浮力走 Field 通道/Jolt 5.6 升级路径/神经变形研究轨边界；7 findings〔3 major + 4 minor〕全部 disposition）
+>
+> 三份 RFC 的 **Agent Approved 只表示语义/治理评审完成，不解锁任何实现**：G9.2+ 仍由 `G9_CONTRACT` G-G9-3 与 `ci/check_g9_implementation_interlock.py` 硬门约束（当前诚实输出 `BLOCKED`）。当前下一个未用 Full RFC 为 **RFC-0025**。
 
 > spec 条款号 `RXS-####`、错误码、deferred `RD-###`、spike-gating `SG-###` 的台账各自在 `spec/`、`registry/error_codes.json`、`registry/deferred.json`、`registry/spike_gating.json` 维护，均永不复用。
 >
