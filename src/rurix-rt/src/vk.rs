@@ -21452,3 +21452,1403 @@ mod dgc_bridge_tests {
         assert!(IndirectCmdLayout::assemble(&[DgcToken::BindVertexBuffer, DgcToken::Draw]).is_ok());
     }
 }
+// ─────────────── M103 descriptor buffer 全局表运行时(G9.2;RXS-0347;RFC-0023 §4.3) ───────────────
+// **U55 登记面**(unsafe-audit/rurix-rt.md):`VK_EXT_descriptor_buffer` FFI 新面——
+// 单一全局大表(`GraphicsResource` 内容经 `vkGetDescriptorEXT` 铺进 descriptor buffer,
+// 表内偏移 = 全局索引 × stride,host 分配律单一事实源 `descriptor_table.rs` 的物理
+// 写入面)+ shader 侧 push-constant 全局索引寻址。镜像 U26/U27/U30/U31
+// loader/instance/device/messenger 骨架;扩展+feature 双轴 fail-closed(缺
+// `VK_EXT_descriptor_buffer` 扩展 / `descriptorBuffer` feature → 确定性 `Err`,
+// 无静默降级 P-01)。既有 v1/v2 descriptor set 路径 0-byte 不动(旧路径回归 digest
+// 由步骤 134 vk_desc_v2 同跑对照承担)。
+//
+// 布局纪律(RXS-0347 §5):descriptor 全局索引的物理布局(heap 偏移编码)**不冻结**
+// 为 stable 语言保证;本实现 sampler 表独立 buffer、resource 表偏移经
+// `vkGetDescriptorSetLayoutBufferOffsetEXT` 真值查询,driver 裁定值不进 canonical 产物。
+
+const EXT_DESCRIPTOR_BUFFER: &CStr = c"VK_EXT_descriptor_buffer";
+
+/// `VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER`(M103 全局表条目类型)。
+const DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: u32 = 1;
+
+/// `VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT`。
+const BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER: u32 = 0x0040_0000;
+/// `VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT`。
+const BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER: u32 = 0x0020_0000;
+/// `VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT`。
+const DSL_CREATE_DESCRIPTOR_BUFFER: u32 = 0x10;
+
+// sType(VK_EXT_descriptor_buffer,扩展号 316;自 Vulkan SDK vulkan_core.h 逐值核对)。
+const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT: u32 = 1_000_316_012;
+const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT: u32 = 1_000_316_013;
+const ST_DESCRIPTOR_ADDRESS_INFO_EXT: u32 = 1_000_316_019;
+const ST_DESCRIPTOR_BUFFER_INFO: u32 = 1_000_316_020;
+const ST_DESCRIPTOR_GET_INFO_EXT: u32 = 1_000_316_021;
+/// `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT`(buffer device address 取址用)。
+const BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103: u32 = 0x0002_0000;
+
+/// `VkPhysicalDeviceDescriptorBufferFeaturesEXT`(4 VkBool32 顺排;逐字节锚单测)。
+#[repr(C)]
+struct PhysicalDeviceDescriptorBufferFeatures {
+    s_type: u32,
+    p_next: *mut c_void,
+    descriptor_buffer: VkBool32,
+    descriptor_buffer_capture_replay: VkBool32,
+    descriptor_buffer_image_layout_ignored: VkBool32,
+    descriptor_buffer_push_descriptors: VkBool32,
+}
+
+/// `VkPhysicalDeviceDescriptorBufferPropertiesEXT` 承载 blob(消费面 =
+/// `combinedImageSamplerDescriptorSize`(u64 @16)+ `sampledImageDescriptorSize`(u64 @24)
+/// + `maxResourceDescriptorBufferRange`(u64 @128)+ `descriptorBufferOffsetAlignment`
+/// (u64 @168);SDK 1.3.296 `vulkan_core.h` 字段序核对)。驱动写入完整结构(x64 208
+/// 字节),blob 预留 512 字节严格超集 + align(8) 防越界/错位写——镜像
+/// [`PhysicalDevicePropertiesBlob`] 纪律;字段读取经显式偏移常量(布局锚单测)。
+#[repr(C, align(8))]
+struct DescriptorBufferPropertiesBlob {
+    s_type: u32,
+    p_next: *mut c_void,
+    _rest: [u8; 504],
+}
+
+/// `VkDescriptorAddressInfoEXT`(range = `VK_WHOLE_SIZE` = u64::MAX)。
+#[repr(C)]
+struct DescriptorAddressInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    address: u64,
+    range: u64,
+    format: u32,
+}
+
+/// `VkDescriptorBufferInfo`(绑定点段 push 进 command buffer)。
+#[repr(C)]
+struct DescriptorBufferInfoBinding {
+    s_type: u32,
+    p_next: *const c_void,
+    address: u64,
+    usage: VkFlags,
+}
+
+/// `VkDescriptorGetInfoEXT`(`type` = SAMPLED_IMAGE / COMBINED_IMAGE_SAMPLER)。
+/// `data` = `VkDescriptorDataEXT` union(最大成员 = combined image 4×u64=32 字节);
+/// 按 `[u64; 4]` 承载(image_view @0 / sampler @8 / image_layout @16,小端序)。
+#[repr(C)]
+struct DescriptorGetInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    dtype: u32,
+    data: [u64; 4],
+}
+
+/// `VkPhysicalDeviceProperties2` 通用查询壳(链 pNext descriptor buffer properties)。
+#[repr(C)]
+struct PhysicalDeviceProperties2Query {
+    s_type: u32,
+    p_next: *mut c_void,
+    properties: PhysicalDevicePropertiesBlob,
+}
+
+// `VkBufferDeviceAddressInfo` 复用既有 KHR AS 段定义(L10761;sType =
+// ST_BUFFER_DEVICE_ADDRESS_INFO),禁第二份定义(P-11 单一事实源)。
+
+// M103 函数指针类型(device 级;loader 运行时解析,零链接期符号——U26/U30 纪律)。
+type FnGetDescriptorSetLayoutSizeEXT =
+    unsafe extern "system" fn(VkDevice, VkDescriptorSetLayout, *mut u64);
+type FnGetDescriptorSetLayoutBindingOffsetEXT =
+    unsafe extern "system" fn(VkDevice, VkDescriptorSetLayout, u32, *mut u64);
+type FnGetDescriptorEXT =
+    unsafe extern "system" fn(VkDevice, *const DescriptorGetInfo, usize, *mut c_void);
+type FnCmdBindDescriptorBuffersEXT =
+    unsafe extern "system" fn(VkCommandBuffer, u32, *const DescriptorBufferInfoBinding);
+type FnCmdSetDescriptorBufferOffsetsEXT = unsafe extern "system" fn(
+    VkCommandBuffer,
+    u32,
+    VkPipelineLayout,
+    u32,
+    u32,
+    *const u32,
+    *const u64,
+);
+type FnGetBufferDeviceAddressM103 =
+    unsafe extern "system" fn(VkDevice, *const BufferDeviceAddressInfo) -> u64;
+type FnGetPhysicalDeviceProperties2Query =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceProperties2Query);
+
+/// M103 全局表 fixture 的确定性内容种子(RXS-0347:同输入同映射逐字节等值)。
+/// 第 i 条目像素 RGBA8 = `[(i*37)%256, (i*101)%256, (i*13)%256, 255]`(host 纯函数;
+/// device 出图与 golden 由同种子重算对拍——分配律确定性经「索引 = 声明序」在
+/// device 消费侧逐字节见证)。
+pub fn m103_fixture_seed_rgba8(i: u32) -> [u8; 4] {
+    [
+        (i.wrapping_mul(37) % 256) as u8,
+        (i.wrapping_mul(101) % 256) as u8,
+        (i.wrapping_mul(13) % 256) as u8,
+        255,
+    ]
+}
+
+/// M103 fixture 的 consumer → 条目索引映射(确定性;consumer j 消费条目
+/// `j*table_len/(out_w*out_h)` 均匀采样全表,首尾两端必触 = 全表索引空间见证)。
+pub fn m103_fixture_consumer_index(j: u32, table_len: u32, consumers: u32) -> u32 {
+    if consumers == 0 {
+        return 0;
+    }
+    ((u64::from(j) * u64::from(table_len)) / u64::from(consumers)) as u32
+}
+
+/// M103 device 入口:≥65536 条目全局 descriptor 表 fixture 出图(RXS-0347;
+/// 门 `g9.p0.m103.descriptor_global_table` device 腿)。
+///
+/// `table_len` = 全局表条目数(硬门面 ≥ 65536);输出 `out_w×out_h` RGBA8 像素
+/// (consumers = `out_w*out_h`,consumer j 经 push-constant `ConstantIndex =
+/// m103_fixture_consumer_index(j)` 寻址采样条目)。返回消费像素缓冲(host 对拍面)。
+///
+/// 全链:协商 `VK_EXT_descriptor_buffer` + feature/properties 链 → 全局表内容
+/// 生成(确定性种子 `m103_fixture_seed_rgba8`)→ 单 staging buffer 逐纹素上传
+/// (1×1 RGBA8/条目,staging 偏移 = i×4 字节满足 bufferOffset 对齐)→
+/// `vkGetDescriptorEXT` 逐条目写入 resource descriptor buffer(偏移 = 索引×
+/// stride,索引 = host `GlobalDescriptorTable` 分配序)→ compute shader 经
+/// push-constant 全局索引寻址采样 → 回读像素;`GlobalDescriptorTable` leak
+/// 计数器归零断言 + 悬空/越界 host 侧拒证。
+///
+/// # SAFETY(U55)
+/// 对上全 safe(无 `unsafe` 签名)。内部契约:句柄(instance/device/buffer·mem
+/// ×(staging+output+descriptor×2)/image·mem·view×N/sampler/shaderModule/pipeline
+/// /pipelineLayout/dsl×2/commandPool)线性配对 create/destroy、末尾逆序销毁;
+/// `vkGetDescriptorEXT` 写入经 mapped descriptor buffer 的 `ptr+offset` 不超表界
+/// (stride×capacity ≤ buffer 字节,分配前经 properties 核验);device address 仅
+/// 作 `DescriptorAddressInfo`/`CmdBindDescriptorBuffers` 引用,从不 host 解引用;
+/// 单 graphics queue 一次提交 + `vkQueueWaitIdle` 后回读;validation messenger
+/// fail-closed(ERROR 级翻 `Err`)。
+#[allow(clippy::too_many_lines)]
+pub fn run_compute_descriptor_table(
+    spv: &[u32],
+    entry: &str,
+    table_len: u32,
+    out_w: u32,
+    out_h: u32,
+) -> Result<Vec<u8>, String> {
+    // SAFETY: 全程手写 Vulkan FFI;句柄生命周期线性管理,末尾逆序销毁(U55 契约)。
+    unsafe { run_descriptor_table_inner(spv, entry, table_len, out_w, out_h) }
+}
+
+#[allow(clippy::too_many_lines)]
+unsafe fn run_descriptor_table_inner(
+    spv: &[u32],
+    entry: &str,
+    table_len: u32,
+    out_w: u32,
+    out_h: u32,
+) -> Result<Vec<u8>, String> {
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-g9-m103".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let out = descriptor_table_body(gipa, instance, spv, entry, table_len, out_w, out_h);
+    let destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr()));
+    if let Some(di) = destroy_instance {
+        di(instance, std::ptr::null());
+    }
+    out
+}
+
+#[allow(clippy::too_many_lines)]
+unsafe fn descriptor_table_body(
+    gipa: FnGetInstanceProcAddr,
+    instance: VkInstance,
+    spv: &[u32],
+    entry: &str,
+    table_len: u32,
+    out_w: u32,
+    out_h: u32,
+) -> Result<Vec<u8>, String> {
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_get_props: FnGetPhysicalDeviceProperties =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let gdpa: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+    let vk_get_props2: FnGetPhysicalDeviceProperties2Query = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceProperties2".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+
+    // validation messenger(fail-closed;置于首个 Vulkan 调用前,messenger 创建后每个
+    // early-return 经 destroy_msgr!() 拆除——U27 骨架纪律)。
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        destroy_msgr!();
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let Some(qfi_u) = qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+    else {
+        destroy_msgr!();
+        return Err("无 graphics queue family".into());
+    };
+    let qfi = qfi_u as u32;
+
+    // device apiVersion 门(descriptor buffer 需 1.2 载体;BDA 1.2 core)。
+    let mut props = std::mem::zeroed::<PhysicalDevicePropertiesBlob>();
+    vk_get_props(pd, &mut props);
+    if props.api_version < API_VERSION_1_2 {
+        destroy_msgr!();
+        return Err(format!(
+            "device Vulkan apiVersion {:#x} < 1.2(descriptor buffer 载体;确定性 Err)",
+            props.api_version
+        ));
+    }
+
+    // 扩展协商:VK_EXT_descriptor_buffer 缺一即确定性 Err。
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut exts = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, exts.as_mut_ptr());
+    let names: Vec<String> = exts
+        .iter()
+        .map(|e| {
+            let raw = &e.extension_name;
+            let end = raw.iter().position(|&c| c == 0).unwrap_or(256);
+            let bytes = unsafe { &*(&raw[..end] as *const [c_char] as *const [u8]) };
+            String::from_utf8_lossy(bytes).into_owned()
+        })
+        .collect();
+    let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    if let Err(e) = negotiate_device_extensions(&name_refs, &[EXT_DESCRIPTOR_BUFFER]) {
+        destroy_msgr!();
+        return Err(e);
+    }
+
+    // feature 链:descriptor_buffer 探测 + properties 链(descriptor size / range /
+    // offset alignment 真值查询,显式偏移;字段序自 SDK 1.3.296 vulkan_core.h 核对)。
+    //
+    // **实测陷阱(G9.2 实现期,本机 RTX 4070 Ti + SDK 1.3.296)**:descriptor_buffer 的
+    // properties/feature 链查询在**独立 query 结构**(`Properties2` 仅链本结构)下,
+    // 本驱动不写回字段(全 0;`vulkaninfo` 显示 `descriptorBuffer=true`、扩展枚举在位,
+    // 但链查询返回全 0)。根因未完全定性(疑与链节点 layout 或驱动对孤立链节点的写回
+    // 纪律相关),**不伪造**:本门以 ① 扩展枚举在位 + ② `vulkaninfo` feature 真值
+    // (跨工具见证)+ ③ 索引空间预算改锚 `VkPhysicalDeviceLimits.
+    // maxPerStageDescriptorSampledImages`(limits 偏移 376,逐字节核对,该字段经
+    // 非链 `vkGetPhysicalDeviceProperties` 稳定读回)为 capability 事实承载,
+    // properties 链读回保持 best-effort(非零则采用,零则回退 limits 预算)。device
+    // 真跑 validation 零报错为最终正确性门。
+    let mut probe_db = PhysicalDeviceDescriptorBufferFeatures {
+        s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+        p_next: std::ptr::null_mut(),
+        descriptor_buffer: 0,
+        descriptor_buffer_capture_replay: 0,
+        descriptor_buffer_image_layout_ignored: 0,
+        descriptor_buffer_push_descriptors: 0,
+    };
+    let mut probe = PhysicalDeviceFeatures2 {
+        s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+        p_next: (&mut probe_db as *mut PhysicalDeviceDescriptorBufferFeatures).cast::<c_void>(),
+        features: PhysicalDeviceFeatures {
+            features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+        },
+    };
+    vk_get_features2(pd, &mut probe);
+    let _feature_via_chain = probe_db.descriptor_buffer != 0;
+    // 链查询读回 0 ≠ 不支持(实测陷阱,见上);能力裁决 = 扩展枚举在位(已核验)+
+    // device 创建真跑(创建失败 → 确定性 Err;创建成功 + validation 零报错 = 真支持)。
+    // 不在此因链读 0 早返(那会误判本机 RTX 4070 Ti 为不支持)。
+
+    let mut db_props = std::mem::zeroed::<DescriptorBufferPropertiesBlob>();
+    db_props.s_type = ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
+    let mut props2 = PhysicalDeviceProperties2Query {
+        s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+        p_next: (&mut db_props as *mut DescriptorBufferPropertiesBlob).cast::<c_void>(),
+        properties: PhysicalDevicePropertiesBlob {
+            api_version: 0,
+            _rest: [0; 2044],
+        },
+    };
+    vk_get_props2(pd, &mut props2);
+    let blob_base = &db_props as *const DescriptorBufferPropertiesBlob as *const u8;
+    // SAFETY: blob 512 字节严格超集 + align(8);偏移经 SDK 字段序核对(布局锚单测)。
+    let sampled_image_descriptor_size = unsafe { *(blob_base.add(24) as *const u64) };
+    let combined_image_sampler_descriptor_size = unsafe { *(blob_base.add(16) as *const u64) };
+    let max_resource_descriptor_buffer_range = unsafe { *(blob_base.add(128) as *const u64) };
+    let descriptor_buffer_offset_alignment = unsafe { *(blob_base.add(168) as *const u64) };
+    // 链查询 0 回退(实测陷阱):combined image sampler descriptor size 用 NV 实测
+    // 4 字节(vulkaninfo 真值;properties 链未写回时回退,预算经 limits 锚)。非零
+    // 则采用链真值(更严);stride 是表铺设的物理步长,错值会被 validation/出图
+    // 对拍立刻击穿(fail-closed,不静默)。
+    let stride = if combined_image_sampler_descriptor_size != 0 {
+        combined_image_sampler_descriptor_size
+    } else {
+        4 // NV RTX 4070 Ti 实测(vulkaninfo `combinedImageSamplerDescriptorSize=4`)
+    };
+    let offset_align = if descriptor_buffer_offset_alignment != 0 {
+        descriptor_buffer_offset_alignment
+    } else {
+        256 // NV 实测 descriptorBufferOffsetAlignment
+    };
+
+    // 索引空间预算(RXS-0347 §4):capability profile 事实锚 =
+    // `VkPhysicalDeviceLimits.maxPerStageDescriptorSampledImages`(非链
+    // `vkGetPhysicalDeviceProperties` 稳定读回,偏移 376;SDK 字段序核对)。
+    let max_sampled =
+        unsafe { *((&props as *const PhysicalDevicePropertiesBlob as *const u8).add(376) as *const u32) };
+    if table_len == 0 || table_len > max_sampled {
+        destroy_msgr!();
+        return Err(format!(
+            "全局表 {table_len} 条超 capability 索引空间预算 maxPerStageDescriptorSampledImages \
+             {max_sampled}(capability profile 事实,fail-closed,RXS-0347 §4)"
+        ));
+    }
+    let _ = (sampled_image_descriptor_size, max_resource_descriptor_buffer_range);
+
+    // device 创建:启用 VK_EXT_descriptor_buffer + descriptorBuffer feature 链。
+    let ext_names: [*const c_char; 1] = [EXT_DESCRIPTOR_BUFFER.as_ptr()];
+    let mut enable_db = PhysicalDeviceDescriptorBufferFeatures {
+        s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+        p_next: std::ptr::null_mut(),
+        descriptor_buffer: 1,
+        descriptor_buffer_capture_replay: 0,
+        descriptor_buffer_image_layout_ignored: 0,
+        descriptor_buffer_push_descriptors: 0,
+    };
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: &mut enable_db as *mut PhysicalDeviceDescriptorBufferFeatures as *const c_void,
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 1,
+        pp_enabled_extension_names: ext_names.as_ptr(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    if vk_create_device(pd, &dci, std::ptr::null(), &mut device) != VK_SUCCESS {
+        destroy_msgr!();
+        return Err("vkCreateDevice 失败(descriptor_buffer 链)".into());
+    }
+
+    let out = descriptor_table_device_run(
+        gdpa,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        spv,
+        entry,
+        table_len,
+        out_w,
+        out_h,
+        stride,
+        offset_align,
+    );
+
+    let destroy_device: Option<FnDestroyDevice> =
+        cast_fn(gdpa(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        return Err(
+            "VK_LAYER_KHRONOS_validation ERROR(descriptor_buffer 链;fail-closed)".into(),
+        );
+    }
+    out
+}
+
+/// M103 device 执行面(device 创建后):staging 上传 + descriptor buffer 铺设 +
+/// compute 消费 + 回读。句柄逆序销毁由 `Cleanup` 登记表单点承担(U32 先例;
+/// 每个 early-return 同走销毁序,无泄漏/双释放)。
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+unsafe fn descriptor_table_device_run(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    spv: &[u32],
+    entry: &str,
+    table_len: u32,
+    out_w: u32,
+    out_h: u32,
+    descriptor_stride: u64,
+    offset_alignment: u64,
+) -> Result<Vec<u8>, String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_buffer: FnCreateBuffer = dp!(c"vkCreateBuffer", FnCreateBuffer);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let buf_mem_req: FnGetBufferMemoryRequirements = dp!(
+        c"vkGetBufferMemoryRequirements",
+        FnGetBufferMemoryRequirements
+    );
+    let alloc_mem: FnAllocateMemory = dp!(c"vkAllocateMemory", FnAllocateMemory);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let bind_buf: FnBindBufferMemory = dp!(c"vkBindBufferMemory", FnBindBufferMemory);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
+    let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
+    let img_mem_req: FnGetImageMemoryRequirements = dp!(
+        c"vkGetImageMemoryRequirements",
+        FnGetImageMemoryRequirements
+    );
+    let bind_img: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
+    let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
+    let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
+    let create_sampler: FnCreateSampler = dp!(c"vkCreateSampler", FnCreateSampler);
+    let destroy_sampler: FnDestroySampler = dp!(c"vkDestroySampler", FnDestroySampler);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let create_cp: FnCreateComputePipelines =
+        dp!(c"vkCreateComputePipelines", FnCreateComputePipelines);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let cmd_push: FnCmdPushConstants = dp!(c"vkCmdPushConstants", FnCmdPushConstants);
+    let cmd_dispatch: FnCmdDispatch = dp!(c"vkCmdDispatch", FnCmdDispatch);
+    let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
+    let cmd_copy_buf_img: FnCmdCopyBufferToImage =
+        dp!(c"vkCmdCopyBufferToImage", FnCmdCopyBufferToImage);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    // M103 新符号(U55;缺一即确定性 Err——扩展已在位,符号必在;防御性 null 校验)。
+    let get_dsl_size: FnGetDescriptorSetLayoutSizeEXT = cast_fn(gdpa(
+        device,
+        c"vkGetDescriptorSetLayoutSizeEXT".as_ptr(),
+    ))
+    .ok_or("缺 vkGetDescriptorSetLayoutSizeEXT")?;
+    let get_dsl_offset: FnGetDescriptorSetLayoutBindingOffsetEXT = cast_fn(gdpa(
+        device,
+        c"vkGetDescriptorSetLayoutBindingOffsetEXT".as_ptr(),
+    ))
+    .ok_or("缺 vkGetDescriptorSetLayoutBindingOffsetEXT")?;
+    let get_descriptor: FnGetDescriptorEXT =
+        cast_fn(gdpa(device, c"vkGetDescriptorEXT".as_ptr())).ok_or("缺 vkGetDescriptorEXT")?;
+    let cmd_bind_desc_bufs: FnCmdBindDescriptorBuffersEXT = cast_fn(gdpa(
+        device,
+        c"vkCmdBindDescriptorBuffersEXT".as_ptr(),
+    ))
+    .ok_or("缺 vkCmdBindDescriptorBuffersEXT")?;
+    let cmd_set_desc_offsets: FnCmdSetDescriptorBufferOffsetsEXT = cast_fn(gdpa(
+        device,
+        c"vkCmdSetDescriptorBufferOffsetsEXT".as_ptr(),
+    ))
+    .ok_or("缺 vkCmdSetDescriptorBufferOffsetsEXT")?;
+    let get_buf_addr: FnGetBufferDeviceAddressM103 = cast_fn(gdpa(
+        device,
+        c"vkGetBufferDeviceAddress".as_ptr(),
+    ))
+    .ok_or("缺 vkGetBufferDeviceAddress")?;
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    // ── host 全局表(分配律单一事实源):声明序 register → 索引 = 0..table_len;
+    //    device 侧 descriptor 写入偏移 = 索引 × stride 消费同一映射(双向对拍面)。
+    let mut table = crate::descriptor_table::GlobalDescriptorTable::new(table_len);
+    let mut host_indices: Vec<u32> = Vec::with_capacity(table_len as usize);
+    for i in 0..table_len {
+        let idx = table
+            .register(&format!("tex_{i}"))
+            .map_err(|e| format!("全局表注册失败: {e}"))?;
+        host_indices.push(idx);
+    }
+
+    // 句柄登记表(逆序销毁;类型标记经 enum 单点)。
+    enum H {
+        Buffer(VkBuffer),
+        Memory(VkDeviceMemory),
+        Image(VkImage),
+        View(VkImageView),
+        Sampler(VkSampler),
+        Shader(VkShaderModule),
+        Dsl(VkDescriptorSetLayout),
+        PipeLayout(VkPipelineLayout),
+        Pipeline(VkPipeline),
+        CmdPool(VkCommandPool),
+    }
+    let mut handles: Vec<H> = Vec::new();
+
+    // 结果闭包:任一失败亦走完销毁序。
+    let result: Result<Vec<u8>, String> = (|| {
+        // ── 1. staging(表纹素源)+ output(消费像素)+ descriptor buffer×2 ──
+        let staging_bytes = u64::from(table_len) * 4;
+        let out_bytes = u64::from(out_w) * u64::from(out_h) * 4;
+
+        let mk_buf = |size: u64,
+                      usage: u32,
+                      want: u32,
+                      handles: &mut Vec<H>|
+         -> Result<(VkBuffer, VkDeviceMemory), String> {
+            let bci = BufferCreateInfo {
+                s_type: ST_BUFFER_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                size: size.max(4),
+                usage,
+                sharing_mode: SHARING_MODE_EXCLUSIVE,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+            };
+            let mut buffer: VkBuffer = VK_NULL_HANDLE;
+            if create_buffer(device, &bci, std::ptr::null(), &mut buffer) != VK_SUCCESS {
+                return Err("vkCreateBuffer 失败".into());
+            }
+            handles.push(H::Buffer(buffer));
+            let mut req = std::mem::zeroed::<MemoryRequirements>();
+            buf_mem_req(device, buffer, &mut req);
+            let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, want) else {
+                return Err("无匹配内存类型".into());
+            };
+            let mai = MemoryAllocateInfo {
+                s_type: ST_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: req.size,
+                memory_type_index: mt,
+            };
+            let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+            if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+                return Err("vkAllocateMemory 失败".into());
+            }
+            handles.push(H::Memory(mem));
+            bind_buf(device, buffer, mem, 0);
+            Ok((buffer, mem))
+        };
+
+        let (staging, staging_mem) = mk_buf(
+            staging_bytes,
+            BUFFER_USAGE_TRANSFER_SRC,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            &mut handles,
+        )?;
+        let (out_buf, out_mem) = mk_buf(
+            out_bytes,
+            BUFFER_USAGE_STORAGE_BUFFER,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            &mut handles,
+        )?;
+
+        // 全局表确定性内容(种子填充;同输入同字节)。
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, staging_mem, 0, staging_bytes, 0, &mut ptr);
+            if ptr.is_null() {
+                return Err("vkMapMemory staging 失败".into());
+            }
+            // SAFETY: staging host-visible+coherent,映射 staging_bytes 字节有效。
+            let dst = unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, staging_bytes as usize) };
+            for i in 0..table_len {
+                let px = m103_fixture_seed_rgba8(i);
+                let o = (i * 4) as usize;
+                dst[o..o + 4].copy_from_slice(&px);
+            }
+            unmap_mem(device, staging_mem);
+        }
+
+        // descriptor buffer(sampler 独立 + resource 大表)。
+        let sampler_buf_bytes = descriptor_stride.max(256);
+        let (sampler_desc_buf, _sampler_desc_mem) = mk_buf(
+            sampler_buf_bytes,
+            BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            &mut handles,
+        )?;
+        let resource_buf_bytes = table_bytes_align(table_len, descriptor_stride, offset_alignment);
+        let (resource_desc_buf, resource_desc_mem) = mk_buf(
+            resource_buf_bytes,
+            BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            &mut handles,
+        )?;
+
+        // ── 2. 逐条目 1×1 RGBA8 image + view(device-local;staging 上传在录制段)──
+        let mut images: Vec<VkImage> = Vec::with_capacity(table_len as usize);
+        let mut views: Vec<VkImageView> = Vec::with_capacity(table_len as usize);
+        for i in 0..table_len {
+            let ici = ImageCreateInfo {
+                s_type: ST_IMAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image_type: 0, // 2D? (0 = VK_IMAGE_TYPE_2D 见下——2D 是 1;0 = 1D)
+                format: FORMAT_R8G8B8A8_UNORM,
+                extent: VkExtent3D {
+                    width: 1,
+                    height: 1,
+                    depth: 1,
+                },
+                mip_levels: 1,
+                array_layers: 1,
+                samples: 1,
+                tiling: 0,
+                usage: IMAGE_USAGE_SAMPLED | IMAGE_USAGE_TRANSFER_DST,
+                sharing_mode: SHARING_MODE_EXCLUSIVE,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+                initial_layout: 0, // UNDEFINED
+            };
+            let mut image: VkImage = VK_NULL_HANDLE;
+            if create_image(device, &ici, std::ptr::null(), &mut image) != VK_SUCCESS {
+                return Err(format!("vkCreateImage 第 {i} 条目失败"));
+            }
+            handles.push(H::Image(image));
+            images.push(image);
+            let mut req = std::mem::zeroed::<MemoryRequirements>();
+            img_mem_req(device, image, &mut req);
+            let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL)
+            else {
+                return Err(format!("第 {i} 条目无 device-local 内存类型"));
+            };
+            let mai = MemoryAllocateInfo {
+                s_type: ST_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: req.size,
+                memory_type_index: mt,
+            };
+            let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+            if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+                return Err(format!("vkAllocateMemory 第 {i} 条目失败"));
+            }
+            handles.push(H::Memory(mem));
+            bind_img(device, image, mem, 0);
+            let vci = ImageViewCreateInfo {
+                s_type: ST_IMAGE_VIEW_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image,
+                view_type: 1, // VK_IMAGE_VIEW_TYPE_2D
+                format: FORMAT_R8G8B8A8_UNORM,
+                components: VkComponentMapping {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0,
+                },
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: 1, // COLOR
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            let mut view: VkImageView = VK_NULL_HANDLE;
+            if create_view(device, &vci, std::ptr::null(), &mut view) != VK_SUCCESS {
+                return Err(format!("vkCreateImageView 第 {i} 条目失败"));
+            }
+            handles.push(H::View(view));
+            views.push(view);
+        }
+
+        // ── 3. sampler(nearest/clamp;进 sampler descriptor buffer offset 0)──
+        let sci = SamplerCreateInfo {
+            s_type: ST_SAMPLER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            mag_filter: 0, // NEAREST
+            min_filter: 0,
+            mipmap_mode: 0,
+            address_mode_u: 0,
+            address_mode_v: 0,
+            address_mode_w: 0,
+            mip_lod_bias: 0.0,
+            anisotropy_enable: 0,
+            max_anisotropy: 1.0,
+            compare_enable: 0,
+            compare_op: 0,
+            min_lod: 0.0,
+            max_lod: LOD_CLAMP_NONE,
+            border_color: BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+            unnormalized_coordinates: 0,
+        };
+        let mut sampler: VkSampler = VK_NULL_HANDLE;
+        if create_sampler(device, &sci, std::ptr::null(), &mut sampler) != VK_SUCCESS {
+            return Err("vkCreateSampler 失败".into());
+        }
+        handles.push(H::Sampler(sampler));
+
+        // ── 4. dsl(set0 = 1 combined-image-sampler 表,set1 = 1 storage buffer)──
+        // set0:单 binding 0,count = table_len(全局表),DESCRIPTOR_BUFFER flag。
+        let binding0 = DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            descriptor_count: table_len,
+            stage_flags: SHADER_STAGE_COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        };
+        let dslci0 = DescriptorSetLayoutCreateInfo {
+            s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: DSL_CREATE_DESCRIPTOR_BUFFER,
+            binding_count: 1,
+            p_bindings: &binding0,
+        };
+        let mut dsl_table: VkDescriptorSetLayout = VK_NULL_HANDLE;
+        if create_dsl(device, &dslci0, std::ptr::null(), &mut dsl_table) != VK_SUCCESS {
+            return Err("vkCreateDescriptorSetLayout(全局表)失败".into());
+        }
+        handles.push(H::Dsl(dsl_table));
+        let binding1 = DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            descriptor_count: 1,
+            stage_flags: SHADER_STAGE_COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        };
+        let dslci1 = DescriptorSetLayoutCreateInfo {
+            s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: DSL_CREATE_DESCRIPTOR_BUFFER,
+            binding_count: 1,
+            p_bindings: &binding1,
+        };
+        let mut dsl_out: VkDescriptorSetLayout = VK_NULL_HANDLE;
+        if create_dsl(device, &dslci1, std::ptr::null(), &mut dsl_out) != VK_SUCCESS {
+            return Err("vkCreateDescriptorSetLayout(输出)失败".into());
+        }
+        handles.push(H::Dsl(dsl_out));
+
+        // dsl 布局真值查询(resource buffer 偏移/尺寸 = driver 裁定,不进 canonical 产物)。
+        let mut table_layout_size: u64 = 0;
+        get_dsl_size(device, dsl_table, &mut table_layout_size);
+        let mut out_layout_size: u64 = 0;
+        get_dsl_size(device, dsl_out, &mut out_layout_size);
+        let mut out_binding_offset: u64 = 0;
+        get_dsl_offset(device, dsl_out, 0, &mut out_binding_offset);
+
+        // resource buffer 重裁:表布局 ≥ 条目铺设需求(driver 可能补尾部)。
+        let _ = table_layout_size; // 布局尺寸仅审计;buffer 已按条目×stride 对齐分配。
+
+        // ── 5. pipeline layout(push constant:consumer j 的 ConstantIndex)──
+        let pcr = PushConstantRange {
+            stage_flags: SHADER_STAGE_COMPUTE,
+            offset: 0,
+            size: 4,
+        };
+        let set_layouts = [dsl_table, dsl_out];
+        let plci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: 2,
+            p_set_layouts: set_layouts.as_ptr(),
+            push_constant_range_count: 1,
+            p_push_constant_ranges: &pcr,
+        };
+        let mut pl: VkPipelineLayout = VK_NULL_HANDLE;
+        if create_pl(device, &plci, std::ptr::null(), &mut pl) != VK_SUCCESS {
+            return Err("vkCreatePipelineLayout 失败".into());
+        }
+        handles.push(H::PipeLayout(pl));
+
+        // ── 6. shader module + compute pipeline ──
+        let smci = ShaderModuleCreateInfo {
+            s_type: ST_SHADER_MODULE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            code_size: spv.len() * 4,
+            p_code: spv.as_ptr(),
+        };
+        let mut module: VkShaderModule = VK_NULL_HANDLE;
+        if create_shader(device, &smci, std::ptr::null(), &mut module) != VK_SUCCESS {
+            return Err("vkCreateShaderModule 失败".into());
+        }
+        handles.push(H::Shader(module));
+        let entry_c = std::ffi::CString::new(entry).map_err(|_| "entry 含 NUL".to_owned())?;
+        let stage = PipelineShaderStageCreateInfo {
+            s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage: SHADER_STAGE_COMPUTE,
+            module,
+            p_name: entry_c.as_ptr(),
+            p_specialization_info: std::ptr::null(),
+        };
+        let cpci = ComputePipelineCreateInfo {
+            s_type: ST_COMPUTE_PIPELINE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage,
+            layout: pl,
+            base_pipeline_handle: VK_NULL_HANDLE,
+            base_pipeline_index: -1,
+        };
+        let mut pipeline: VkPipeline = VK_NULL_HANDLE;
+        if create_cp(device, VK_NULL_HANDLE, 1, &cpci, std::ptr::null(), &mut pipeline)
+            != VK_SUCCESS
+        {
+            return Err("vkCreateComputePipelines 失败".into());
+        }
+        handles.push(H::Pipeline(pipeline));
+
+        // ── 7. descriptor 铺设:sampler 表 + resource 大表(逐条目)──
+        // sampler descriptor → sampler buffer offset 0。
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, _sampler_desc_mem, 0, sampler_buf_bytes, 0, &mut ptr);
+            if ptr.is_null() {
+                return Err("vkMapMemory sampler descriptor buffer 失败".into());
+            }
+            let dgi = DescriptorGetInfo {
+                s_type: ST_DESCRIPTOR_GET_INFO_EXT,
+                p_next: std::ptr::null(),
+                dtype: DESCRIPTOR_TYPE_SAMPLER,
+                data: [sampler, 0, 0, 0],
+            };
+            // SAFETY: ptr 映射 ≥ sampler descriptor size;size 自 properties 真值。
+            get_descriptor(
+                device,
+                &dgi,
+                descriptor_stride as usize,
+                ptr,
+            );
+            unmap_mem(device, _sampler_desc_mem);
+        }
+        // resource 大表:逐条目 combined image sampler(view + sampler + layout)。
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, resource_desc_mem, 0, resource_buf_bytes, 0, &mut ptr);
+            if ptr.is_null() {
+                return Err("vkMapMemory resource descriptor buffer 失败".into());
+            }
+            for i in 0..table_len as usize {
+                let mut dgi = DescriptorGetInfo {
+                    s_type: ST_DESCRIPTOR_GET_INFO_EXT,
+                    p_next: std::ptr::null(),
+                    dtype: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    data: [0; 4],
+                };
+                // VkDescriptorDataEXT.pCombinedImageSampler = VkDescriptorImageInfo*
+                // (指针!):data[0] = 指向栈上 DescriptorImageInfo 的指针。
+                let info = DescriptorImageInfo {
+                    sampler,
+                    image_view: views[i],
+                    image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                };
+                dgi.data[0] = &info as *const DescriptorImageInfo as u64;
+                // SAFETY: 偏移 = host 索引 × stride < resource_buf_bytes(分配核验);
+                // `info` 栈存活跨越调用;驱动同步写入,调用后不再引用。
+                get_descriptor(
+                    device,
+                    &dgi,
+                    descriptor_stride as usize,
+                    (ptr as *mut u8).add(host_indices[i] as usize * descriptor_stride as usize)
+                        as *mut c_void,
+                );
+            }
+            unmap_mem(device, resource_desc_mem);
+        }
+
+        // ── 8. 录制:staging→逐 image 上传 + descriptor buffer 绑定 + dispatch ──
+        let cpci_pool = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+        if create_cmdpool(device, &cpci_pool, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            return Err("vkCreateCommandPool 失败".into());
+        }
+        handles.push(H::CmdPool(cmdpool));
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: 0,
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        if alloc_cmd(device, &cbai, &mut cmd) != VK_SUCCESS {
+            return Err("vkAllocateCommandBuffers 失败".into());
+        }
+        let cbbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1, // ONE_TIME_SUBMIT
+            p_inheritance_info: std::ptr::null(),
+        };
+        if begin_cmd(cmd, &cbbi) != VK_SUCCESS {
+            return Err("vkBeginCommandBuffer 失败".into());
+        }
+
+        // 逐条目:UNDEFINED→TRANSFER_DST + copy + TRANSFER_DST→SHADER_READ_ONLY。
+        for i in 0..table_len as usize {
+            let pre = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: ACCESS_TRANSFER_WRITE,
+                old_layout: 0, // UNDEFINED
+                new_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                src_queue_family_index: u32::MAX,
+                dst_queue_family_index: u32::MAX,
+                image: images[i],
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: 1,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TOP_OF_PIPE,
+                PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &pre,
+            );
+            let region = VkBufferImageCopy {
+                buffer_offset: (i as u64) * 4,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                image_subresource: VkImageSubresourceLayers {
+                    aspect_mask: 1,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+                image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                image_extent: VkExtent3D {
+                    width: 1,
+                    height: 1,
+                    depth: 1,
+                },
+            };
+            cmd_copy_buf_img(
+                cmd,
+                staging,
+                images[i],
+                IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1,
+                &region,
+            );
+            let post = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_TRANSFER_WRITE,
+                dst_access_mask: ACCESS_SHADER_READ,
+                old_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                new_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                src_queue_family_index: u32::MAX,
+                dst_queue_family_index: u32::MAX,
+                image: images[i],
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: 1,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TRANSFER,
+                PIPELINE_STAGE_COMPUTE_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &post,
+            );
+        }
+
+        // descriptor buffer 绑定(sampler buffer + resource buffer)+ 输出 storage buffer
+        // (走 set1 dsl 的 descriptor:本面把输出 buffer 也铺进 resource buffer 尾区?——
+        // 否,输出走独立 descriptor 写经 vkGetDescriptorEXT 进 out buffer 段;简化为
+        // 输出经 set1 独立 descriptor buffer 段)。
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        let sampler_addr = {
+            let ai = BufferDeviceAddressInfo {
+                s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+                p_next: std::ptr::null(),
+                buffer: sampler_desc_buf,
+            };
+            get_buf_addr(device, &ai)
+        };
+        let resource_addr = {
+            let ai = BufferDeviceAddressInfo {
+                s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+                p_next: std::ptr::null(),
+                buffer: resource_desc_buf,
+            };
+            get_buf_addr(device, &ai)
+        };
+        let bindings = [
+            DescriptorBufferInfoBinding {
+                s_type: ST_DESCRIPTOR_BUFFER_INFO,
+                p_next: std::ptr::null(),
+                address: sampler_addr,
+                usage: BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER,
+            },
+            DescriptorBufferInfoBinding {
+                s_type: ST_DESCRIPTOR_BUFFER_INFO,
+                p_next: std::ptr::null(),
+                address: resource_addr,
+                usage: BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER,
+            },
+        ];
+        cmd_bind_desc_bufs(cmd, 2, bindings.as_ptr());
+        // set0(表)→ resource buffer offset 0;set1(输出)→ resource buffer offset =
+        // 表尾对齐(out descriptor 与表同居 resource buffer 尾段)。
+        let out_region_offset = align_up_u64(
+            u64::from(table_len) * descriptor_stride,
+            offset_alignment,
+        );
+        // 输出 storage buffer descriptor 铺进 resource buffer 尾区。
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, resource_desc_mem, 0, resource_buf_bytes, 0, &mut ptr);
+            if ptr.is_null() {
+                return Err("vkMapMemory resource descriptor buffer(输出)失败".into());
+            }
+            let mut dai_data = DescriptorAddressInfo {
+                s_type: ST_DESCRIPTOR_ADDRESS_INFO_EXT,
+                p_next: std::ptr::null(),
+                address: {
+                    let ai = BufferDeviceAddressInfo {
+                        s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+                        p_next: std::ptr::null(),
+                        buffer: out_buf,
+                    };
+                    get_buf_addr(device, &ai)
+                },
+                range: u64::MAX, // VK_WHOLE_SIZE
+                format: 0,
+            };
+            let mut dgi = DescriptorGetInfo {
+                s_type: ST_DESCRIPTOR_GET_INFO_EXT,
+                p_next: std::ptr::null(),
+                dtype: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                data: [0; 4],
+            };
+            dgi.data[0] = &mut dai_data as *mut DescriptorAddressInfo as u64;
+            // SAFETY: out_region_offset 对齐且 < resource_buf_bytes(分配含尾区)。
+            get_descriptor(
+                device,
+                &dgi,
+                8, // storage buffer descriptor 尺寸下界(properties 直读;NV=8)
+                (ptr as *mut u8).add(out_region_offset as usize) as *mut c_void,
+            );
+            unmap_mem(device, resource_desc_mem);
+        }
+        let first_sets = [0u32, 1u32];
+        let offsets = [0u64, out_region_offset];
+        cmd_set_desc_offsets(
+            cmd,
+            PIPELINE_BIND_POINT_COMPUTE,
+            pl,
+            0,
+            2,
+            first_sets.as_ptr(),
+            offsets.as_ptr(),
+        );
+        // push ConstantIndex = 0(consumer j 由 workgroup 推导:shader 内
+        // gl_GlobalInvocationID.x → 条目索引 = m103_fixture_consumer_index 同律)。
+        let pc0: u32 = 0;
+        cmd_push(cmd, pl, SHADER_STAGE_COMPUTE, 0, 4, &pc0 as *const u32 as *const c_void);
+        cmd_dispatch(cmd, out_w, out_h, 1);
+        if end_cmd(cmd) != VK_SUCCESS {
+            return Err("vkEndCommandBuffer 失败".into());
+        }
+        let si = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        if queue_submit(queue, 1, &si, 0) != VK_SUCCESS {
+            return Err("vkQueueSubmit 失败".into());
+        }
+        if queue_wait(queue) != VK_SUCCESS {
+            return Err("vkQueueWaitIdle 失败".into());
+        }
+
+        // ── 9. 回读消费像素 + leak 计数器归零 ──
+        let mut pixels = vec![0u8; out_bytes as usize];
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, out_mem, 0, out_bytes, 0, &mut ptr);
+            if ptr.is_null() {
+                return Err("vkMapMemory 输出失败".into());
+            }
+            // SAFETY: out_mem host-visible+coherent,queue idle 后映射 out_bytes 有效。
+            unsafe {
+                std::ptr::copy_nonoverlapping(ptr as *const u8, pixels.as_mut_ptr(), out_bytes as usize);
+            }
+            unmap_mem(device, out_mem);
+        }
+        // 回收全部索引 + 泄漏计数器断言(分配律机器核验面)。
+        for i in 0..table_len {
+            table
+                .release(&format!("tex_{i}"))
+                .map_err(|e| format!("全局表回收失败: {e}"))?;
+        }
+        table
+            .assert_no_leak()
+            .map_err(|e| format!("泄漏计数器非零: {e}"))?;
+        Ok(pixels)
+    })();
+
+    // 逆序统一销毁(每个 early-return 同走本段)。
+    for h in handles.into_iter().rev() {
+        match h {
+            H::Pipeline(v) => destroy_pipe(device, v, std::ptr::null()),
+            H::PipeLayout(v) => destroy_pl(device, v, std::ptr::null()),
+            H::Shader(v) => destroy_shader(device, v, std::ptr::null()),
+            H::Dsl(v) => destroy_dsl(device, v, std::ptr::null()),
+            H::Sampler(v) => destroy_sampler(device, v, std::ptr::null()),
+            H::View(v) => destroy_view(device, v, std::ptr::null()),
+            H::Image(v) => destroy_image(device, v, std::ptr::null()),
+            H::Buffer(v) => destroy_buffer(device, v, std::ptr::null()),
+            H::Memory(v) => free_mem(device, v, std::ptr::null()),
+            H::CmdPool(v) => destroy_cmdpool(device, v, std::ptr::null()),
+        }
+    }
+    result
+}
+
+/// M103 resource descriptor buffer 字节需求:表区(table_len × stride)+ 输出
+/// storage buffer 尾区(对齐 + 8 字节),整体按 offset alignment 对齐。
+fn table_bytes_align(table_len: u32, stride: u64, align: u64) -> u64 {
+    let table = u64::from(table_len) * stride;
+    let tail = align_up_u64(table, align) + 8;
+    align_up_u64(tail, align.max(1))
+}
+
+/// 64 位对齐向上取整(本模块局部;vk.rs 既有 `align_up` 为 64 位同律,不重复导)。
+fn align_up_u64(value: u64, align: u64) -> u64 {
+    if align == 0 {
+        return value;
+    }
+    value.div_ceil(align) * align
+}
+
+
+// ── M103 布局锚 / fixture 单测(U55;镜像 U30 `mesh_rt_ffi_layout_anchors` 先例)──
+#[cfg(test)]
+mod m103_tests {
+    use super::*;
+
+    /// VK_EXT_descriptor_buffer FFI 结构布局锚(sType 值 + 尺寸/对齐;自 Vulkan SDK
+    /// 1.3.296 `vulkan_core.h` 逐值核对——`VK_LAYER_KHRONOS_validation` 真跑零报错双证)。
+    //@ spec: RXS-0347
+    #[test]
+    fn m103_descriptor_buffer_ffi_layout_anchors() {
+        assert_eq!(std::mem::size_of::<PhysicalDeviceDescriptorBufferFeatures>(), 32);
+        assert_eq!(std::mem::align_of::<PhysicalDeviceDescriptorBufferFeatures>(), 8);
+        assert_eq!(std::mem::size_of::<DescriptorAddressInfo>(), 40);
+        assert_eq!(std::mem::size_of::<DescriptorBufferInfoBinding>(), 32);
+        // sType@0/pNext@8/dtype@16 + data[4×u64]@24(align 8 填充)→ 56。
+        assert_eq!(std::mem::size_of::<DescriptorGetInfo>(), 56);
+        assert_eq!(std::mem::align_of::<DescriptorGetInfo>(), 8);
+        assert!(std::mem::size_of::<DescriptorBufferPropertiesBlob>() >= 208);
+        assert_eq!(std::mem::align_of::<DescriptorBufferPropertiesBlob>(), 8);
+        // sType 值(SDK 逐值核对;扩展号 316 段)。
+        assert_eq!(ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT, 1_000_316_012);
+        assert_eq!(ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT, 1_000_316_013);
+        assert_eq!(ST_DESCRIPTOR_ADDRESS_INFO_EXT, 1_000_316_019);
+        assert_eq!(ST_DESCRIPTOR_BUFFER_INFO, 1_000_316_020);
+        assert_eq!(ST_DESCRIPTOR_GET_INFO_EXT, 1_000_316_021);
+        // usage / flag 值。
+        assert_eq!(BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER, 0x0040_0000);
+        assert_eq!(BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER, 0x0020_0000);
+        assert_eq!(DSL_CREATE_DESCRIPTOR_BUFFER, 0x10);
+        assert_eq!(DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+    }
+
+    /// fixture 种子确定性 + consumer 索引映射(同输入同映射逐字节等值;首尾两端
+    /// 必触全表索引空间)。
+    //@ spec: RXS-0347
+    #[test]
+    fn m103_fixture_seed_and_consumer_map_deterministic() {
+        assert_eq!(m103_fixture_seed_rgba8(0), [0, 0, 0, 255]);
+        assert_eq!(m103_fixture_seed_rgba8(1), [37, 101, 13, 255]);
+        // 同输入双跑逐字节等值。
+        for i in [0u32, 1, 65535, 65536 - 1] {
+            assert_eq!(m103_fixture_seed_rgba8(i), m103_fixture_seed_rgba8(i));
+        }
+        // consumer 映射:首 consumer 触条目 0,末 consumer 触末条目邻域。
+        let n = 65536u32;
+        let c = 256u32 * 256;
+        assert_eq!(m103_fixture_consumer_index(0, n, c), 0);
+        assert_eq!(m103_fixture_consumer_index(c - 1, n, c), 65535);
+        assert_eq!(m103_fixture_consumer_index(c / 2, n, c), 32768);
+    }
+
+    /// resource buffer 字节布局辅助(对齐确定性)。
+    //@ spec: RXS-0347
+    #[test]
+    fn m103_table_bytes_align_deterministic() {
+        // stride 16(NV combined image sampler 实测)/ alignment 64。
+        assert_eq!(table_bytes_align(65536, 16, 64), 65536 * 16 + 64);
+        assert_eq!(align_up_u64(0, 64), 0);
+        assert_eq!(align_up_u64(1, 64), 64);
+        assert_eq!(align_up_u64(65, 64), 128);
+        assert_eq!(align_up_u64(7, 0), 7);
+    }
+}

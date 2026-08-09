@@ -1,13 +1,25 @@
 //@ spec: RXS-0346
-// G9.2 spec-first 条款锚定占位语料（spec/render_graph.md §2A RXS-0346：AccessKind
-// 加性 IndirectCommandRead + 新依赖边 StorageWrite→IndirectCommandRead + 双后端
-// 映射新行 + 🔒 RXS-0239/RXS-0241 字面 0-byte 声明，RFC-0023 §4.4.3 修订行表）。
-// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
-// 实现；graph.rs 新访问类落地前本文件只承载条款锚点，不接入任何 harness。
-// 预期 RED 面（实现 PR 转正）：indirect pass 消费 DgcBuffer 但未声明
-// reads_indirect → 装配期 strict 拒（沿 RX6029 族装配诊断先例，实号实现期领取）；
-// cabi 侧 rxrt_graph_declare 声明 indirect 读访问类（tag 域 0..=6 之外）→ 不可
-// 表达诊断（确定性 diag + RXRT_FAIL 通道，零新码）。
-// 转正锚点目标：src/rurix-rt/src/graph.rs 推导单测（新边 golden 只加不改 +
-// 既有 golden 0-byte）+ cabi 拒绝语料。
+// G9.2 M104 装配期 strict RED 语料（RFC-0023 §4.4.3 末段逐字）：**漏声明 indirect
+// 读边**（indirect pass 消费 DgcBuffer 但未声明 `reads_indirect`）→ 装配期 strict
+// 拒，沿 RX6029 族装配诊断先例（实号实现期领取 = 复用 RX6029，零新码，见
+// spec/render_graph.md §3 码表末行）。
+//
+// **转正（本实现 PR）**：宿主库面装配核验归 `src/rurix-rt/src/graph.rs`（纯 host
+// safe；本文件的拒绝证据 = graph.rs RXS-0346 单测 `rejects_missing_reads_indirect`
+// / `rejects_reads_indirect_on_non_dgc_resource` / `rejects_dgc_buffer_with_non_indirect_read`
+// + 步骤 135 ci/g9_accesskind_indirect_edge_smoke.py
+// `missing_reads_indirect_strict_rejected` 腿经 cargo test 真跑红绿）。本文件锚定的
+// 消费形态（command-build compute node + indirect pass）：
+//   kernel fn build_commands(t: ThreadCtx<1>, dgc_buf: ViewMut<global, u32>) {
+//       let i = t.global_id();  // GPU 端生成命令写 DgcBuffer（DGC 类型层归 M102）
+//       if i == 0 { dgc_buf[0] = 0; }
+//   }
+// —— compute pre-pass `reads_writes_uav(dgc_buf)` 产、indirect pass 消费；若
+// indirect pass 侧漏声明 `reads_indirect` → 装配期 RX6029 拒（graph.rs `seal()`
+// ⑤ 段；消费关系事实源 = `Graph::declare_indirect_dispatch` 编排边）。
+// `.rx` 侧 Graph 宿主库 `reads_indirect` lang-item 前端接线归后续波次（spec
+// RXS-0346 落地的是 rurix-rt 面）；cabi 侧声明 indirect 读访问类（tag 7）→
+// 不可表达诊断（既有确定性 diag + RXRT_FAIL 通道，🔒 RXS-0241 tag 域 0..=6
+// 字面 0-byte），cabi 语料锚 = rurix-rt-cabi 既有未知 tag 失败路单测 +
+// graph.rs `indirect_command_read_mapping_and_cabi_tag_domain`。
 fn main() {}

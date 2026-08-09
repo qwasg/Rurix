@@ -244,6 +244,13 @@ pub struct EntryReflection {
     pub source_digest: [u8; 32],
     /// 下游 DDC/PSO/RT pipeline key 组成见证(RXS-0306)。
     pub pipeline_key: [u8; 32],
+    /// **RXS-0347 尾随可选字段(G9.2 M103,RFC-0023 §4.3)**:「资源 → 全局 descriptor
+    /// 索引」映射记录(资源名按**声明序**,与 `resources` 一一对应;值为全局索引)。
+    /// `None` = 缺省——canonical 序列化字节 ≡ 字段不存在(0-drift,既有产物 0-byte;
+    /// **不得以「空编码为 count 0」冒充**);`Some` = 真值化(经
+    /// [`ReflectionDescPlan::global_index_table`] 供给,rurix-rt `descriptor_table`
+    /// 分配律单一事实源)。**与 set/binding 对并存不删**(保 M31/M85 digest 链)。
+    pub global_descriptor_indices: Option<Vec<u32>>,
 }
 
 /// 编译单元级 reflection v1 文档。
@@ -600,9 +607,21 @@ fn graphics_resources(
         .collect())
 }
 
-/// `--permutation-select` / `--permutation-budget` 的 reflection 输入面(M29,
-/// RXS-0304 v1.1 / RXS-0310)。默认(未选择 + 无 CLI 覆盖)下空域路径与 M31
-/// 产物**逐字节 0 漂移**。
+/// `--descriptor-table-plan` 的 reflection 输入面(RXS-0347;M103)。**尾随可选**:
+/// 缺省(`global_index_table = None`)时序列化字节 ≡ 字段不存在(0-drift,既有
+/// 产物 0-byte)。
+#[derive(Clone, Default)]
+pub struct ReflectionDescPlan {
+    /// 全局 descriptor 索引映射(「资源名 → 全局索引」;rurix-rt
+    /// `descriptor_table::GlobalDescriptorTable::mapping_snapshot` 的产物,或测试
+    /// 直供)。None = 缺省(字段不发射,序列化 0-drift)。
+    pub global_index_table: Option<Vec<(String, u32)>>,
+    /// 索引空间预算(capability profile 事实,RXS-0347 §4);索引 ≥ 预算 = 装配期
+    /// 确定性拒绝(fail-closed)。None = 不做预算门(缺省路径 0-drift)。
+    pub index_budget: Option<u32>,
+}
+
+
 #[derive(Clone, Copy, Default)]
 pub struct ReflectionPermPlan<'a> {
     /// `--permutation-select=KEY`(字符串形态;选中后 `variant_key = KEY`、
@@ -781,6 +800,7 @@ fn build_entry(
     span: Span,
     perm_plan: &ReflectionPermPlan<'_>,
     cap_plan: &ReflectionCapPlan<'_>,
+    desc_plan: &ReflectionDescPlan,
 ) -> Result<EntryReflection, ReflectError> {
     let stage = enumerable_stage(f.stage, f.color).expect("枚举口径已过滤");
     let stage_tag = crate::codegen::stage_tag(stage);
@@ -869,8 +889,7 @@ fn build_entry(
     // 域 → 真 domain digest;`--permutation-select` 选中 → `variant_key = KEY`
     // (KEY ∉ 合法集 = RX3019 类确定性错误,禁最接近回退)。无 `#[permutation]`
     // 标注(空域)→ 既有常量 + 空串,与 M31 产物逐字节 0 漂移。
-    let (perm_digest, variant_key) = match crate::permutation::extract_domain(attrs, src) {
-        Ok(Some(domain)) => {
+    let (perm_digest, variant_key) = match crate::permutation::extract_domain(attrs, src) {        Ok(Some(domain)) => {
             let digest = domain.digest();
             let variant = match perm_plan.select {
                 Some(key) => domain
@@ -902,6 +921,40 @@ fn build_entry(
     w.bytes(&profile_digest);
     w.bytes(&perm_digest);
     w.strv(&variant_key);
+    // RXS-0347 尾随可选字段(0-drift;缺省 = 字段不存在,既有字节 0-byte)——
+    // 真值化时按资源声明序逐资源编码「全局 descriptor 索引」(u32 LE);**不得以
+    // count 0 冒充 0-byte**(本段在 `Some` 时才写,与既有字节流严格加性尾随)。
+    let gdi: Option<Vec<u32>> = match desc_plan.global_index_table.as_ref() {
+        Some(map) => {
+            let mut v = Vec::with_capacity(resources.len());
+            for r in &resources {
+                let idx = map
+                    .iter()
+                    .find(|(n, _)| n == &r.name)
+                    .map(|(_, i)| *i)
+                    .ok_or_else(|| ReflectError::Unsupported {
+                        detail: format!(
+                            "资源 `{}` 缺全局 descriptor 索引映射(悬空;fail-closed,RXS-0347 §3)",
+                            r.name
+                        ),
+                    })?;
+                if let Some(budget) = desc_plan.index_budget
+                    && idx >= budget
+                {
+                    return Err(ReflectError::Unsupported {
+                        detail: format!(
+                            "资源 `{}` 全局索引 {idx} ≥ 索引空间预算 {budget}(capability profile 事实;装配期确定性拒绝,RXS-0347 §4)",
+                            r.name
+                        ),
+                    });
+                }
+                w.u32v(idx);
+                v.push(idx);
+            }
+            Some(v)
+        }
+        None => None,
+    };
     let canonical = w.buf;
 
     let mut h = sha256::Sha256::new();
@@ -967,6 +1020,7 @@ fn build_entry(
         interface_hash,
         source_digest,
         pipeline_key,
+        global_descriptor_indices: gdi,
     })
 }
 
@@ -985,6 +1039,20 @@ pub fn build_reflection(
     main_file: SourceId,
     perm_plan: &ReflectionPermPlan<'_>,
     cap_plan: &ReflectionCapPlan<'_>,
+) -> Result<ReflectionDoc, ReflectError> {
+    build_reflection_with_desc(file, src, main_file, perm_plan, cap_plan, &ReflectionDescPlan::default())
+}
+
+/// RXS-0347(M103)加性入口:携 `ReflectionDescPlan`(「资源 → 全局 descriptor 索引」
+/// 尾随可选字段供给面)。缺省 plan ≡ [`build_reflection`](序列化 0-drift,既有产物
+/// 0-byte);真值化 plan → 每 entry canonical 尾随逐资源全局索引 + JSON 加性字段。
+pub fn build_reflection_with_desc(
+    file: &ast::SourceFile,
+    src: &str,
+    main_file: SourceId,
+    perm_plan: &ReflectionPermPlan<'_>,
+    cap_plan: &ReflectionCapPlan<'_>,
+    desc_plan: &ReflectionDescPlan,
 ) -> Result<ReflectionDoc, ReflectError> {
     let mut raw: Vec<(String, &ast::FnItem, &[ast::Attr], Span)> = Vec::new();
     collect_entries(&file.items, "", &mut raw);
@@ -1008,7 +1076,7 @@ pub fn build_reflection(
     let mut select_applied = false;
     for (path, f, attrs, span) in &raw {
         let e = build_entry(
-            file, src, main_file, path, f, attrs, *span, perm_plan, cap_plan,
+            file, src, main_file, path, f, attrs, *span, perm_plan, cap_plan, desc_plan,
         )?;
         if !e.variant_key.is_empty() {
             select_applied = true;
@@ -1252,6 +1320,17 @@ fn entry_json(e: &EntryReflection, ind: &str) -> String {
         "{i2}\"variant_key\": \"{}\",\n",
         json_escape(&e.variant_key)
     ));
+    // RXS-0347 尾随可选字段(JSON 加性;缺省 = 字段不发射,0-drift)。
+    if let Some(gdi) = &e.global_descriptor_indices {
+        let list = gdi
+            .iter()
+            .map(u32::to_string)
+            .collect::<Vec<_>>()
+            .join(", ");
+        s.push_str(&format!(
+            "{i2}\"global_descriptor_indices\": [{list}],\n"
+        ));
+    }
     // digest 面。
     s.push_str(&format!(
         "{i2}\"interface_hash\": \"{}\",\n",
@@ -1719,5 +1798,125 @@ fn main() {}
             )));
             assert!(ja.contains(&hex_bytes(&e.canonical)));
         }
+    }
+
+    // ── RXS-0347(G9.2 M103,RFC-0023 §4.3)尾随可选字段 0-drift / 真值化 / RED ──
+
+    fn reflect_desc(src: &str, plan: &ReflectionDescPlan) -> ReflectionDoc {
+        let (file, id) = parse_src(src);
+        build_reflection_with_desc(
+            &file,
+            src,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+            plan,
+        )
+        .expect("reflection 推导须成功")
+    }
+
+    /// **0-drift 恒跑(RXS-0347 §1)**:缺省 plan(`global_index_table = None`)产物
+    /// 与缺省 `build_reflection` 逐字节相等(canonical/interface_hash/JSON 三面);
+    /// 「不得以 count 0 冒充 0-byte」。
+    //@ spec: RXS-0347
+    #[test]
+    fn gdi_absent_is_byte_identical_zero_drift() {
+        let base = reflect(BASE);
+        let via_desc = reflect_desc(BASE, &ReflectionDescPlan::default());
+        assert_eq!(base.canonical, via_desc.canonical, "文档 canonical 0-drift");
+        assert_eq!(base.unit_digest, via_desc.unit_digest);
+        for (ea, eb) in base.entries.iter().zip(via_desc.entries.iter()) {
+            assert_eq!(ea.canonical, eb.canonical, "entry canonical 0-drift");
+            assert_eq!(ea.interface_hash, eb.interface_hash);
+            assert!(eb.global_descriptor_indices.is_none());
+        }
+        assert_eq!(to_json(&base), to_json(&via_desc), "JSON 0-drift");
+        assert!(!to_json(&via_desc).contains("global_descriptor_indices"));
+    }
+
+    /// **真值化(RXS-0347 §2/§3)**:plan 供给「资源 → 全局索引」→ 每 entry canonical
+    /// 尾随逐资源索引(声明序)+ JSON 加性字段;同输入同映射逐字节等值;与
+    /// set/binding 并存不删(既有字段不动)。
+    //@ spec: RXS-0347
+    #[test]
+    fn gdi_truth_table_trailing_additive() {
+        // BASE 的 fs_main 资源 = tex_b(srv)/ samp(sampler);vs_main = tex/samp;
+        // kmain = tlas(accel)/ buf(uav)。分配序 = 资源声明序(确定性)。
+        let plan = ReflectionDescPlan {
+            global_index_table: Some(vec![
+                ("tex".to_owned(), 0),
+                ("samp".to_owned(), 1),
+                ("tex_b".to_owned(), 2),
+                ("tlas".to_owned(), 3),
+                ("buf".to_owned(), 4),
+            ]),
+            index_budget: Some(65536),
+        };
+        let a = reflect_desc(BASE, &plan);
+        let b = reflect_desc(BASE, &plan);
+        assert_eq!(a.canonical, b.canonical, "同输入同映射逐字节等值");
+        let fs = a.entries.iter().find(|e| e.name == "fs_main").unwrap();
+        let gdi = fs.global_descriptor_indices.as_ref().unwrap();
+        // fs_main 资源声明序 = tex_b, samp → [2, 1]。
+        assert_eq!(gdi, &vec![2u32, 1], "尾随索引 = 声明序映射值");
+        // set/binding 并存不删(既有字段不变)。
+        assert!(fs.resources.iter().any(|r| r.name == "tex_b" && r.class == "srv"));
+        let json = to_json(&a);
+        assert!(json.contains("\"global_descriptor_indices\": [2, 1]"));
+        // 缺省基线 canonical 是真值化的前缀(尾随加性,不改既有字节)。
+        let base = reflect(BASE);
+        let base_fs = base.entries.iter().find(|e| e.name == "fs_main").unwrap();
+        assert!(
+            fs.canonical.starts_with(&base_fs.canonical[..]),
+            "真值化 canonical = 既有字节流 + 尾随索引(0-drift 加性)"
+        );
+    }
+
+    /// **RED:悬空/越界 fail-closed(RXS-0347 §3/§4)**:资源缺映射(悬空)→
+    /// 确定性拒绝;索引 ≥ 预算 → 装配期确定性拒绝。
+    //@ spec: RXS-0347
+    #[test]
+    fn gdi_dangling_and_budget_fail_closed() {
+        // 悬空:plan 缺 `buf` 的映射。
+        let dangling = ReflectionDescPlan {
+            global_index_table: Some(vec![
+                ("tex".to_owned(), 0),
+                ("samp".to_owned(), 1),
+                ("tex_b".to_owned(), 2),
+                ("tlas".to_owned(), 3),
+            ]),
+            index_budget: None,
+        };
+        let (file, id) = parse_src(BASE);
+        let r = build_reflection_with_desc(
+            &file,
+            BASE,
+            id,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+            &dangling,
+        );
+        assert!(r.is_err(), "悬空索引应 fail-closed");
+        // 越界:索引 ≥ 预算。
+        let over = ReflectionDescPlan {
+            global_index_table: Some(vec![
+                ("tex".to_owned(), 0),
+                ("samp".to_owned(), 1),
+                ("tex_b".to_owned(), 2),
+                ("tlas".to_owned(), 3),
+                ("buf".to_owned(), 70000),
+            ]),
+            index_budget: Some(65536),
+        };
+        let (file2, id2) = parse_src(BASE);
+        let r2 = build_reflection_with_desc(
+            &file2,
+            BASE,
+            id2,
+            &ReflectionPermPlan::default(),
+            &ReflectionCapPlan::default(),
+            &over,
+        );
+        assert!(r2.is_err(), "超预算索引应 fail-closed");
     }
 }
