@@ -2,8 +2,8 @@
 contract: G9
 title: G9 UE5 级渲染器与物理引擎正式建造期
 status: active
-implementation_status: blocked
-active_scope: g9_1_governance_only
+implementation_status: unblocked
+active_scope: g9_1_governance_only + g9_2_plus_implementation_waves
 version: v1.0
 date: 2026-08-09
 timebox: "G9.1 治理波即刻执行（G8 已 closed）；G9.2~G9.8b 严格波次，工期在实现互锁开放后由 measured baseline 校准"
@@ -241,3 +241,12 @@ G-G9-1~11 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚�
 ## 8. Implementation activation / Close-out（只追加区）
 
 <!-- 首条未来记录只能是 G-G9-3 互锁实测与 implementation_status 解锁凭据；其后追加逐波验收与 close-out。当前不得写 PASS、不得预填 run URL。 -->
+
+### §8.1 G-G9-3 implementation_status 解锁记录（2026-08-09）
+
+- **用户 G9.2 开工指令**：2026-08-09 主会话下达「帮我一次性完成G9，积极委派子agent和workflow」（G9.2~G9.8b 全实现波授权：15 个 P0 + 已 go P1 + P2/留档穷举 + soak + close-out；指令原文以会话留痕为准）。同会话三项执行裁决：①P1 全进（逐波经治理流程只追加进 ACCEPTANCE_MAP §3，不静默并入既有 key）；②CI 验证按波走 PR（每波 spec PR + 实现 PR，self-hosted runner 真跑全部数字步骤）；③蜂群本地资源策略 = 本机+worktree 蜂群（实现 agent 独立 worktree 写码，device 真跑腿回主 checkout 持 `ci/gpu_device_lock.py` 串行，cargo 同时只一个 agent）。
+- **互锁 validator 实测**：`py -3 ci/check_g9_implementation_interlock.py --require-ready` → 事实门①~⑥全绿、一致性门 C1~C3 全绿，VERDICT=READY，exit=0（本小节落盘后实测；`--selftest` 5 RED + 1 GREEN + 1 TREE 全过）。
+- **共享编号重校准（actual next_free，本 commit 落地时 `registry/number_ledger.json` 实测）**：CI_step `next_free=131`（on_tree_max=130）/ RXS `next_free=344`（on_tree_max=343）/ RD `next_free=45` / U `next_free=54` / RX_error `next_free=7024` / MR `next_free=12` / RFC `next_free=25` / D `next_free=410`。数字 CI 步骤自 131 起按波次实测顺位领取；禁沿用 design/ 草案建议号段（R-G9-7）。
+- **front matter 双状态翻转**：`implementation_status: blocked → unblocked`；`active_scope` 追加 `g9_2_plus_implementation_waves`（`status` 维持 `active`，close-out 才 flip）。
+- **蜂群基设**（治理面，不占数字 CI 步骤，本 commit 同落）：`ci/gpu_device_lock.py`（本机 GPU/构建互斥锁，2 RED + 1 GREEN selftest 实证互斥有效）、`ci/g9_wave_exit_lib.py`（波次聚合门共享库，同构 g8_wave_exit_lib，DEVICE_FAIL_STATES 原样保留）、`ci/g9_p2_decisions_check.py` 骨架（G9.7 门；当前决策表未落盘，`--gate` 诚实红、`--selftest` 全绿）；`ci/check_g9_implementation_interlock.py` selftest 的 TREE 臂放行为「登记未落盘=BLOCKED／已落盘=READY 两态均正确」（原实现假设永远登记前，解锁后必自相矛盾 FAIL；5 RED + 1 GREEN 断言语义 0-byte）。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G8 §8.1 同模）。`Assisted-by: Claude Code:claude-fable-5`（影响范围：G9_CONTRACT §8.1 与 front matter、ci/ 蜂群基设三件套与 interlock selftest 放行；验证方式：interlock `--require-ready`/`--selftest`、gpu_device_lock `--selftest`、g9_p2_decisions_check `--selftest`/`--gate` 实测，输出如上）。

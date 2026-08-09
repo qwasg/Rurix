@@ -127,6 +127,13 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # 描述表解析/fatbin 惰性装载缓存/launch marshalling/poisoned 确定性失败 单测锚定
     # RXS-0193/0194,RFC-0009 §4.3)
     test_files += sorted((ROOT / "src" / "rurix-rt-cabi").glob("**/*.rs"))
+    # G8.2~G8.4:rurix-asset / rurix-geom-build / rurix-geom-pages 三 crate(资产管线
+    # schema/gltf/cook/canon/graph/verify/ddc/texture 与逻辑页 ABI/codec/disk/expand/
+    # memory/离线 DAG 构建,单测锚定 RXS-0328~0343;G9.2 解锁时登记——此前未被扫描致
+    # 该 16 条款历史未锚定)
+    test_files += sorted((ROOT / "src" / "rurix-asset").glob("**/*.rs"))
+    test_files += sorted((ROOT / "src" / "rurix-geom-build").glob("**/*.rs"))
+    test_files += sorted((ROOT / "src" / "rurix-geom-pages").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }
@@ -148,14 +155,20 @@ def main() -> int:
 
     json_text = json.dumps(matrix, ensure_ascii=False, indent=2) + "\n"
     md_text = render_md(matrix, clauses)
+    # 字节纪律:traceability_matrix 双产物是仓库既有 CRLF 特例(144 既有例外之一,
+    # .gitattributes `* -text` 不改写);生成必须按二进制写出 CRLF,保持与入库历史
+    # 字节同族——若某次再生成输出 LF,等于对全文件做行尾重写,g8/g9 evidence 只增
+    # 纪律与 byte-diff 审计会被噪声淹没。
+    json_bytes = json_text.replace("\n", "\r\n").encode("utf-8")
+    md_bytes = md_text.replace("\n", "\r\n").encode("utf-8")
     if check_only:
-        if not MATRIX_JSON.is_file() or MATRIX_JSON.read_text(encoding="utf-8") != json_text:
+        if not MATRIX_JSON.is_file() or MATRIX_JSON.read_bytes() != json_bytes:
             failures.append(
                 "入库矩阵与现状不一致(运行 py -3 ci/trace_matrix.py 重新生成)"
             )
     else:
-        MATRIX_JSON.write_text(json_text, encoding="utf-8")
-        MATRIX_MD.write_text(md_text, encoding="utf-8")
+        MATRIX_JSON.write_bytes(json_bytes)
+        MATRIX_MD.write_bytes(md_bytes)
 
     if failures:
         print("[trace_matrix] FAIL")

@@ -1720,6 +1720,62 @@
       "conformance/rt_pipeline/accept/two_hit_groups.rx",
       "src/rurix-rt/src/rt_incremental.rs",
       "src/rurix-rt/src/vk_m50_rt_body.rs"
+    ],
+    "RXS-0328": [
+      "src/rurix-asset/src/geom_build.rs",
+      "src/rurix-geom-pages/src/logical.rs"
+    ],
+    "RXS-0329": [
+      "src/rurix-asset/src/geom_build.rs"
+    ],
+    "RXS-0330": [
+      "src/rurix-asset/src/geom_build.rs"
+    ],
+    "RXS-0331": [
+      "src/rurix-asset/src/geom_build.rs",
+      "src/rurix-geom-pages/src/logical.rs"
+    ],
+    "RXS-0332": [
+      "src/rurix-asset/src/schema.rs"
+    ],
+    "RXS-0333": [
+      "src/rurix-asset/src/gltf/canonical.rs",
+      "src/rurix-asset/src/gltf/glb.rs",
+      "src/rurix-asset/src/gltf/json.rs",
+      "src/rurix-asset/src/gltf/mod.rs",
+      "src/rurix-asset/src/gltf/validate.rs"
+    ],
+    "RXS-0334": [
+      "src/rurix-asset/src/bcdec.rs",
+      "src/rurix-asset/src/texture.rs"
+    ],
+    "RXS-0335": [
+      "src/rurix-asset/src/canon.rs"
+    ],
+    "RXS-0336": [
+      "src/rurix-asset/src/cook.rs",
+      "src/rurix-asset/src/graph.rs"
+    ],
+    "RXS-0337": [
+      "src/rurix-asset/src/verify.rs"
+    ],
+    "RXS-0338": [
+      "src/rurix-geom-pages/src/memory.rs"
+    ],
+    "RXS-0339": [
+      "src/rurix-geom-pages/src/disk.rs"
+    ],
+    "RXS-0340": [
+      "src/rurix-geom-pages/src/codec.rs"
+    ],
+    "RXS-0341": [
+      "src/rurix-geom-pages/src/disk.rs"
+    ],
+    "RXS-0342": [
+      "src/rurix-geom-pages/src/expand.rs"
+    ],
+    "RXS-0343": [
+      "src/rurix-asset/src/ddc.rs"
     ]
   }
 }

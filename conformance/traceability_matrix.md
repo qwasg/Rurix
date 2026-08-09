@@ -313,3 +313,19 @@
 | RXS-0325 | spec/vulkan_backend.md | 6 | `conformance/rt_pipeline/accept/anyhit_ignore.rx`, `conformance/rt_pipeline/accept/callable_basic.rx`, `conformance/rt_pipeline/accept/procedural_group.rx` …(+3) |
 | RXS-0326 | spec/vulkan_backend.md | 3 | `conformance/rt_pipeline/accept/callable_basic.rx`, `conformance/rt_pipeline/accept/two_hit_groups.rx`, `src/rurix-rt/src/rt_incremental.rs` |
 | RXS-0327 | spec/vulkan_backend.md | 3 | `conformance/rt_pipeline/accept/two_hit_groups.rx`, `src/rurix-rt/src/rt_incremental.rs`, `src/rurix-rt/src/vk_m50_rt_body.rs` |
+| RXS-0328 | spec/geometry_pages.md | 2 | `src/rurix-asset/src/geom_build.rs`, `src/rurix-geom-pages/src/logical.rs` |
+| RXS-0329 | spec/geometry_pages.md | 1 | `src/rurix-asset/src/geom_build.rs` |
+| RXS-0330 | spec/geometry_pages.md | 1 | `src/rurix-asset/src/geom_build.rs` |
+| RXS-0331 | spec/geometry_pages.md | 2 | `src/rurix-asset/src/geom_build.rs`, `src/rurix-geom-pages/src/logical.rs` |
+| RXS-0332 | spec/asset_pipeline.md | 1 | `src/rurix-asset/src/schema.rs` |
+| RXS-0333 | spec/asset_pipeline.md | 5 | `src/rurix-asset/src/gltf/canonical.rs`, `src/rurix-asset/src/gltf/glb.rs`, `src/rurix-asset/src/gltf/json.rs` …(+2) |
+| RXS-0334 | spec/asset_pipeline.md | 2 | `src/rurix-asset/src/bcdec.rs`, `src/rurix-asset/src/texture.rs` |
+| RXS-0335 | spec/asset_pipeline.md | 1 | `src/rurix-asset/src/canon.rs` |
+| RXS-0336 | spec/asset_pipeline.md | 2 | `src/rurix-asset/src/cook.rs`, `src/rurix-asset/src/graph.rs` |
+| RXS-0337 | spec/asset_pipeline.md | 1 | `src/rurix-asset/src/verify.rs` |
+| RXS-0338 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/memory.rs` |
+| RXS-0339 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/disk.rs` |
+| RXS-0340 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/codec.rs` |
+| RXS-0341 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/disk.rs` |
+| RXS-0342 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/expand.rs` |
+| RXS-0343 | spec/asset_pipeline.md | 1 | `src/rurix-asset/src/ddc.rs` |

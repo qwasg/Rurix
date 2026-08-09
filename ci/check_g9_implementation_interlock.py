@@ -392,19 +392,21 @@ def run_selftest() -> int:
         print(f"  GREEN MISS — 合成正本本应 READY/exit=0，实测 VERDICT={verdict} / exit={code}")
         failures += 1
 
-    # 当前树实测：VERDICT 必须 BLOCKED；一致性全绿时脚本退 0，有 FAIL 时退 1。
+    # 当前树实测：VERDICT 与事实一致（登记未落盘=BLOCKED／已落盘=READY，两态均为正确结论）；
+    # 一致性全绿时脚本退 0，有 FAIL 时退 1。
     tree_lines: list[str] = []
     tree_code, tree_verdict = run(load_inputs(ROOT), printer=tree_lines.append)
     tree_consistency_green = "FAIL — " not in "\n".join(tree_lines)
     expected_tree_exit = 0 if tree_consistency_green else 1
-    if tree_verdict == "BLOCKED" and tree_code == expected_tree_exit:
+    if tree_verdict in ("BLOCKED", "READY") and tree_code == expected_tree_exit:
         print(
-            f"  TREE ok   — 当前树 VERDICT=BLOCKED，exit={tree_code}"
-            f"（一致性{'全绿' if tree_consistency_green else '有 FAIL'}，符合「登记未落盘期」预期）"
+            f"  TREE ok   — 当前树 VERDICT={tree_verdict}，exit={tree_code}"
+            f"（一致性{'全绿' if tree_consistency_green else '有 FAIL'}；"
+            f"{'登记未落盘期' if tree_verdict == 'BLOCKED' else 'G-G9-3 解锁登记已落盘'}，符合当前事实预期）"
         )
     else:
         print(
-            f"  TREE WRONG— 当前树本应 VERDICT=BLOCKED / exit={expected_tree_exit}，"
+            f"  TREE WRONG— 当前树 VERDICT/exit 与事实预期不符（期望 exit={expected_tree_exit}），"
             f"实测 VERDICT={tree_verdict} / exit={tree_code}"
         )
         failures += 1
