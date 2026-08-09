@@ -46,6 +46,8 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 
 > **状态勘误(2026-08-08,只追加不回写)**:上方状态标题「G8 仅治理波立项」与 G8 行「门已开 ≠ 门已绿,零 G8 实现能力可宣称为绿」均为 2026-08-05 时快照——**G8 已于 2026-08-06 收口**(`status: closed`,close-out flip commit `b4189e79`);G8.2~G8.8 各波已实施并验收,各 P0/P1 门终态(含 no-go/defer/诚实降级留档)以 [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) 最新 close-out 段与 `registry/` 为准,旧行按只追加纪律不回写。
 
+> **状态勘误(2026-08-09,只追加不回写)**:上方表格止于 G8 行为 2026-08-08 时快照——**G9(UE5 目标渲染/物理平台期,`milestones/g9/`)已于 2026-08-09 立项**:`status: active` / `implementation_status: blocked`,**只有 G9.1 治理波获授权并已交付**:契约四要素 + 候选决策表(RD-039/040/041/044 全 open 分项逐行 go/no-go/strategic_override)+ 15 个 P0 验收映射 + 伞形 RFC-0022/0023/0024(均 Agent Approved,D-409 独立 provenance 评审,RFC-0024 为 RFC-0021 修订)+ RTX 4070 Ti VRAM/AS measured baseline(`g9_budget.json` 非空)+ 三个治理 validator。**G9.2+ 由 G-G9-3 事实互锁硬阻断**:`py -3 ci/check_g9_implementation_interlock.py` 当前 `VERDICT = BLOCKED`(治理完成 ≠ 实现开工),门开≠门绿口径不变。里程碑事实源恒为 `milestones/g9/` 与 `registry/`,旧行按只追加纪律不回写。
+
 旗舰用例与关键交付(全部端到端真机验收):
 
 - **UC-01 — PyTorch 算子替换**:`rx build --emit=pyd` 产 PYD(nanobind + scikit-build-core),经 `__cuda_array_interface__` v3 / DLPack 双协议零拷贝接入 PyTorch CUDA 张量;SAXPY/Reduction/GEMM 算子替换 **≥ 手写 CUDA C++ 90%**(measured_local)。
