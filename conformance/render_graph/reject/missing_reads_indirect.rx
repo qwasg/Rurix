@@ -1,0 +1,13 @@
+//@ spec: RXS-0346
+// G9.2 spec-first 条款锚定占位语料（spec/render_graph.md §2A RXS-0346：AccessKind
+// 加性 IndirectCommandRead + 新依赖边 StorageWrite→IndirectCommandRead + 双后端
+// 映射新行 + 🔒 RXS-0239/RXS-0241 字面 0-byte 声明，RFC-0023 §4.4.3 修订行表）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
+// 实现；graph.rs 新访问类落地前本文件只承载条款锚点，不接入任何 harness。
+// 预期 RED 面（实现 PR 转正）：indirect pass 消费 DgcBuffer 但未声明
+// reads_indirect → 装配期 strict 拒（沿 RX6029 族装配诊断先例，实号实现期领取）；
+// cabi 侧 rxrt_graph_declare 声明 indirect 读访问类（tag 域 0..=6 之外）→ 不可
+// 表达诊断（确定性 diag + RXRT_FAIL 通道，零新码）。
+// 转正锚点目标：src/rurix-rt/src/graph.rs 推导单测（新边 golden 只加不改 +
+// 既有 golden 0-byte）+ cabi 拒绝语料。
+fn main() {}

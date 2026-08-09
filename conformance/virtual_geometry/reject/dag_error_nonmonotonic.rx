@@ -1,0 +1,13 @@
+//@ spec: RXS-0345
+// G9.2 spec-first 条款锚定占位语料（spec/virtual_geometry.md RXS-0345：DAG 误差
+// monotonic 不变式——DAG 每一边 parent_error >= cluster_error 逐边成立；破坏单调性
+// 的输入/中间态 builder 必须 typed Err 拒绝（fail-closed，无 UB）+ 簇对锁定语义 +
+// 蒙皮元数据/CLAS 烘焙输入字段 schema）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
+// 实现；geom_build dag.rs 校验拒录臂落地前本文件只承载条款锚点，不接入任何 harness。
+// 预期 RED 面（实现 PR 转正）：构造 parent_error < cluster_error 的 DAG 边 fixture
+// → builder typed Err RED；缺蒙皮元数据三字段（最大影响骨数/骨骼索引集/包围体膨胀
+// 系数）任一的骨骼资产 → builder typed Err RED。
+// 转正锚点目标：src/rurix-asset/src/geom_build/dag.rs 校验拒录臂单测 +
+// 双构建 byte golden。
+fn main() {}

@@ -10,6 +10,12 @@
 > host 单测 + `uc04-demo` D6 互证 + `rurix-rt-cabi` 符号单测 + conformance/host_orch graph 语料 +
 > `ci/render_graph_smoke.py`）随实现 commit 同 PR 落。stable 快照因条款计数增长同 PR 重 bless
 > （RXS-0180 L2 加性演进）。
+>
+> **G9.2 加性修订留痕（RXS-0346，RFC-0023 §4.4.3 🔒 修订行表逐条落地）**：本文件条款号区间自此
+> 延伸为 **RXS-0236 ~ RXS-0241 + RXS-0346**——RXS-0346 = M104 AccessKind 加性 `IndirectCommandRead`
+> 新访问类与 `StorageWrite→IndirectCommandRead` 新依赖边（唯一修订行表见 §2A，既有条款
+> RXS-0236~0241 字面 0-byte，含 🔒 RXS-0239 单 queue 全序与 🔒 RXS-0241 cabi tag 域 0..=6
+> 字面不动声明）。
 
 ## 1. 范围与编号区间
 
@@ -33,6 +39,11 @@
 **首期不可表达面（§4.0-3）**：bindless 表声明、storage image（`TextureRw2D`）资源、mesh/RT pass kind
 均不在访问声明封闭枚举内——凡含此三者的 pass 首期不可经 graph 表达，显式登记 §8（RD-034+），不静默；
 storage image barrier 首期走 RXS-0169 手动路。
+
+> **G9.2 修订行（RXS-0346，RFC-0023 §4.4.3 末段逐字落地）**：本清单中「bindless 表 + indirect
+> buffer」两项自 G9.2 起**出列**——indirect buffer（DgcBuffer）经 RXS-0346 新访问类
+> `IndirectCommandRead` 可表达；mesh/RT pass kind 是否同步出列归后续波次裁决（RFC-0023 §4.4.3
+> 不预裁）。storage image（`TextureRw2D`）**维持**不可表达 + RXS-0169 手动路不动。
 
 ## 2. 条款（RXS-0236 ~ RXS-0241）
 
@@ -240,6 +251,62 @@ rxrt_graph_destroy(g: u64)                                // affine 消费式，
 > 测试锚定：`rurix-rt-cabi` cabi 单测（`rxrt_graph_*` 符号面 + handle-0/未知句柄失败路 + 增量建面 →
 > execute 装配核验）+ D6 互证 set-equality 恒跑单测（[`uc04-demo` d6_crosscheck](../src/uc04-demo/tests/d6_crosscheck.rs)）。
 
+## 2A. G9.2 加性条款（M104，RFC-0023 §4.4.3 🔒 修订行表落地）
+
+> 本章是 RFC-0023 §4.4.3 🔒 G5 Barrier EB 三轴冻结面**唯一显式修订行表**的逐条落地
+> （RFC-0023 Agent Approved 2026-08-09，批准范围含 §4.4.3 修订行，RXS-0236/RXS-0241
+> 字面已随评审 F-1 补申报）。**既有条款 RXS-0236~0241 字面 0-byte**；下列六行声明
+> 替代对既有条款正文的任何改写。若实现期发现任一行无法在不改既有 golden 的前提下
+> 落地，必须停止实现并先修订 RFC-0023（§4.4.3 末段逐字）。
+
+### RXS-0346 AccessKind 加性 IndirectCommandRead 与 StorageWrite→IndirectCommandRead 依赖边
+
+**Legality**（RFC-0023 §4.4.3 修订行表逐条）：
+
+1. **AccessKind 封闭枚举加性扩展**（修订行 1）：`graph.rs` `AccessKind` 封闭枚举
+   **加性**扩展一个访问类 **`IndirectCommandRead`**；新依赖边类型
+   **`StorageWrite→IndirectCommandRead`** 进入 `graph.rs` 推导。配套修订（评审 F-1
+   补申报行）：RXS-0236 访问声明集封闭枚举**加性扩展 `reads_indirect →
+   IndirectCommandRead`**——既有五类 + present 终端胶水字面 **0-byte**（本面
+   「不支持即不可表达」纪律不变，扩展后该面自此可表达）。**既有 barrier 推导
+   golden 全部 0-byte 恒跑；新边类型的 barrier 序列作为新增 golden 只加不改。**
+2. **双后端映射新行**（修订行 2）：RXS-0238 双后端映射单一事实源表新增行——
+   **Vulkan `SHADER_WRITE`→`INDIRECT_COMMAND_READ`；D3D12
+   `UNORDERED_ACCESS`→`INDIRECT_ARGUMENT`**，同居 `graph.rs` 单一事实源；执行器
+   逐字重放纪律（RXS-0240）原样生效。
+3. **EB 三轴结构 0-byte**（修订行 3）：`Barrier { sync_before/after,
+   access_before/after, layout_before/after }` 字段、枚举含义、推导规则
+   **0-byte 不动**——新访问类只是 access 轴取值域的加性扩展，不是第四轴，也不是
+   新 barrier 结构；三轴结构相关既有 golden 0-byte。
+4. **RXS-0239 单 queue 全序字面 0-byte**（修订行 4）：「单 queue；声明序 = 提交序
+   = pass 粒度完成序」**字面不动**——DGC 缓冲的「GPU 端生成 → GPU 端消费」数据流
+   是该全序**内**的数据流，不扩承诺面、不引入多队列与 pass 内重排；首期 indirect
+   pass 仍受单 queue 全序裁定。RXS-0239 既有判据 0-byte 恒跑。
+5. **RXS-0236 访问声明集扩展 = 加性**（修订行 5，评审 F-1 补申报）：见第 1 条配套
+   修订；既有访问声明集判据 0-byte 恒跑；`reads_indirect` 合法化与非法访问类拒绝
+   作为**新增判据只加不改**。
+6. **RXS-0241 🔒 cabi tag 域字面 0-byte**（修订行 6，评审 F-1 补申报）：
+   `rxrt_graph_declare(pass, resource, access: u32)` 的 `access = AccessKind u32 tag
+   （0..=6）` **字面 0-byte**——首期 cabi **不暴露**新访问类，该限制在此显式登记
+   （备选 = 扩 tag 域 0..=7；RFC-0023 取前者，cabi 面扩展另案裁决）。**cabi 侧
+   声明 indirect 读访问类 → 不可表达诊断**（沿既有确定性 `diag` + `RXRT_FAIL`
+   通道，声明即诊断）；cabi tag 域既有判据 0-byte 恒跑。
+
+**配套 strict 判据**（RFC-0023 §4.4.3 末段逐字）：**漏声明 indirect 读边**
+（indirect pass 消费 DgcBuffer 但未声明 `reads_indirect`）→ **装配期 strict 拒**
+（沿 RX6029 族装配诊断先例，实号实现期领取）。
+
+**Implementation Requirements**
+
+- 实现锚定 `src/rurix-rt/src/graph.rs`（AccessKind 加性 variant + 推导新边 + 双后端
+  映射新行，纯 host safe 单一事实源纪律不变）；RED 锚定计划（实现 PR 落）：新边
+  barrier 推导 golden 新增只加不改 + 既有 golden 0-byte + 漏声明 indirect 读边
+  装配期 strict 拒 RED + cabi 侧 indirect 声明不可表达诊断 RED 语料。
+- 本 spec PR 先行落最小 RED 锚定占位语料
+  `conformance/render_graph/reject/missing_reads_indirect.rx`（条款锚定占位，inert
+  锚定口径与转正路径见该文件头注释）；锚点目标文件（实现 PR 转正）=
+  `src/rurix-rt/src/graph.rs` 推导单测 + cabi 拒绝语料。
+
 ## 3. 错误码引用汇总
 
 | 码 | 段 | 语义 | 条款 |
@@ -250,10 +317,13 @@ rxrt_graph_destroy(g: u64)                                // affine 消费式，
 | RX4001 / RX4003 | 4xxx 借用 | affine 句柄 move 后再用 / 经引用消费（复用 RXS-0054/0057~0061，零新借用码） | RXS-0236 |
 | **RX6029** | 6xxx 装配 | **图结构违例族**（装配期 strict：环/读未写 use-before-write 可达形态 / 写写或读写冲突 / 生命周期误用；graph.rs 装配核验） | RXS-0237 |
 | **RX6030** | 6xxx 装配 | **声明-反射失配族**（装配期 strict：声明集 ↔ 绑定反射面双向精确相等核验失败，漏声明/声明未用；相等域 = 首期封闭枚举资源面） | RXS-0237 |
+| RX6029 族（实号实现期领取） | 6xxx 装配 | 漏声明 indirect 读边（indirect pass 消费 DgcBuffer 未声明 `reads_indirect`）装配期 strict 拒——沿 RX6029 族装配诊断先例，实号实现期领取（RFC-0023 §4.4.3 末段） | RXS-0346 |
 
 新码 ×2（RX6029 / RX6030，en/zh 成对，message_key `runtime.graph_structure` /
 `runtime.graph_reflection_mismatch`）；段内分配制递增不复用、含义冻结（10 §6）。**运行期后端失败不占
-RX 段位**（RXS-0193 口径，确定性诊断 + `rxrt_trap` 终止）。
+RX 段位**（RXS-0193 口径，确定性诊断 + `rxrt_trap` 终止）。RXS-0346（G9.2）为加性条款，**零新码**：
+漏声明 indirect 读边的装配期 strict 拒沿 RX6029 族先例（实号实现期领取）；cabi 侧 indirect 读
+访问类不可表达诊断走既有确定性 `diag` + `RXRT_FAIL` 通道（不占新码）。
 
 ## 4. 升档 / 禁区留痕
 
@@ -269,9 +339,16 @@ RX 段位**（RXS-0193 口径，确定性诊断 + `rxrt_trap` 终止）。
   登记 RD-034+ 非静默；storage image barrier 首期走 RXS-0169 手动路（在 §4.D 自动推导域之外，G-RED-2）。
 - **present 终端胶水（D5c，SC-5）**：graph 只做 pre-present 状态迁移，不吸收 present 会话生命周期；窗/泵/
   交换链维持 C++ shim（D-130 0-byte 红线），RXS-0197 present typestate 维持不动。
+- **G9.2 加性演进留痕（RXS-0346 / RFC-0023 §4.4.3 🔒 唯一修订行表）**：AccessKind 封闭枚举加性
+  `IndirectCommandRead` + 新边 `StorageWrite→IndirectCommandRead` + 双后端映射新行（Vulkan
+  `SHADER_WRITE→INDIRECT_COMMAND_READ` / D3D12 `UNORDERED_ACCESS→INDIRECT_ARGUMENT`）+ §4.0-3
+  「bindless 表 + indirect buffer」出列修订行；**既有冻结面 0-byte**——EB 三轴结构 / 🔒 RXS-0239
+  单 queue 全序字面 / 🔒 RXS-0241 cabi tag 域 0..=6 字面均不动（首期 cabi 不暴露新访问类，cabi 侧
+  声明即不可表达诊断）；漏声明 `reads_indirect` → 装配期 strict 拒（RX6029 族，实号实现期领取）。
 
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-07-19 | 新建 spec/render_graph.md（G3.5，PR-G1 条款先行）：带编号条款体 `### RXS-0236 ~ ### RXS-0241`（FLS 体例，按需分 Syntax/Legality/Dynamic Semantics/Implementation Requirements，**严禁 UB 节**；🔒 禁区 RXS-0239/RXS-0241 全文批准）——RXS-0236 Graph/Pass 宿主库类型面与访问声明集（Graph/GraphResource/PassBuilder lang items 非 Copy affine，五类访问封闭枚举 + PresentHandoff，kernel 体内 → RX3015 承 RXS-0189）/ RXS-0237 声明序=提交序与图合法性（装配期 strict：环/读未写/写写冲突/生命周期 → RX6029，声明-反射双向精确相等 → RX6030）/ RXS-0238 自动资源状态推导状态机（纯函数，三 barrier 形态 Transition/BufferSync/UavSync，AccessKind 双后端映射单一事实源）/ RXS-0239 🔒 pass 边界 happens-before 语义本体（单 queue 全序同步点，pass 粒度可见性，严禁 UB）/ RXS-0240 双后端 barrier 映射与执行器语义（run_graph；D3D12 数值透传 / Vulkan vkCmdPipelineBarrier；present 胶水交 §4.A 链 D-130 0-byte）/ RXS-0241 rxrt_graph_* C ABI 只追加 + 手动复核门（D6 互证金标准，graph.rs 禁 import barrier.rs）。配套 host 侧 safe 推导 `src/rurix-rt/src/graph.rs`（always-on 零 unsafe 零后端调用）+ cabi `rxrt_graph_*`（rurix-rt-cabi）+ 前端 Graph/PassBuilder/GraphResource lang items（resolve/typeck/mir_build/hir）+ D6 互证 `src/uc04-demo/tests/d6_crosscheck.rs`。错误码 RX6029/RX6030（en/zh 成对，bilingual 99→101）；每条 ≥1 `//@ spec` 测试锚定随实现 commit 同 PR 落，trace_matrix 全锚定；stable 快照同 PR 重 bless（RXS-0180 L2）。承 [RFC-0013](../rfcs/0013-industrial-rendering.md)（Agent Approved 2026-07-18，§4.D 全文批准，RD-020 兑现）。 | **Full RFC**（RFC-0013 / §4.D / PR-G1） |
+| v1.1 | 2026-08-09 | G9.2 spec-first（M104）：**RFC-0023 §4.4.3 🔒 G5 Barrier EB 三轴冻结面唯一显式修订行表逐条落地**——追加 §2A 新章 **RXS-0346**（AccessKind 封闭枚举加性 `IndirectCommandRead` + 新依赖边 `StorageWrite→IndirectCommandRead` 进推导 + 双后端映射新行 Vulkan `SHADER_WRITE→INDIRECT_COMMAND_READ` / D3D12 `UNORDERED_ACCESS→INDIRECT_ARGUMENT` 同居单一事实源 + 配套 strict 判据「漏声明 `reads_indirect` → 装配期 strict 拒，沿 RX6029 族先例实号实现期领取」）；§4.0-3 不可表达清单修订行（「bindless 表 + indirect buffer」两项出列；mesh/RT pass kind 归后续波次裁决不预裁；storage image 维持不可表达 + RXS-0169 手动路不动）；**既有条款字面 0-byte**：EB 三轴结构 0-byte / 🔒 RXS-0239 单 queue 全序字面不动声明（DGC 数据流是全序内数据流，不扩承诺面）/ RXS-0236 既有五类 + present 字面 0-byte（仅加性 `reads_indirect → IndirectCommandRead`，非法访问类拒绝新增判据只加不改）/ 🔒 RXS-0241 cabi tag 域 0..=6 字面不动声明（首期 cabi 不暴露新访问类；cabi 侧声明 indirect 读访问类 → 不可表达诊断，走既有确定性 `diag` + `RXRT_FAIL` 通道，零新码）。零漂移证明计划（RFC-0023 §4.4.3 逐字）：既有 barrier 推导 golden 全部 0-byte 恒跑 + 新边 golden 只加不改 + 既有访问声明集/cabi tag 域判据 0-byte 恒跑。条款号自 ledger 实测 RXS.next_free=344 顺位领取之本批第三号。依据 [RFC-0023](../rfcs/0023-gpu-driven-submission-shading.md)（Agent Approved 2026-08-09，§4.4.3 批准范围含 RXS-0236/RXS-0241 字面申报）+ G9_ACCEPTANCE_MAP M104 行 | **Full RFC**（RFC-0023 §4.4.3） |

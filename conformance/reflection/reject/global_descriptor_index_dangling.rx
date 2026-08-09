@@ -1,0 +1,14 @@
+//@ spec: RXS-0347
+// G9.2 spec-first 条款锚定占位语料（spec/rendering_platform.md §2A RXS-0347：
+// reflection v1 字段闭集加性扩展「资源→全局 descriptor 索引」尾随可选字段——
+// 缺省序列化 ≡ 字段不存在 0-drift，RXS-0305 CanonW 律加性修订点 + 索引分配律/
+// 回收 + 索引空间预算进 capability profile）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
+// 实现；reflection.rs 尾随可选字段编解码落地前本文件只承载条款锚点，不接入任何
+// harness。
+// 预期 RED 面（实现 PR 转正）：索引越界/悬空索引 → fail-closed 诊断 RED；索引
+// 泄漏 → 计数器断言非零即红；既有 reflection golden 0-byte 恒跑（尾随可选字段
+// 缺省时既有产物字节流不变）。
+// 转正锚点目标：src/rurixc/src/reflection.rs 单测 + conformance/reflection/ 既有
+// golden 0-byte 恒跑面。
+fn main() {}

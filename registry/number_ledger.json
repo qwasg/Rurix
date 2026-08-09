@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 343,
-      "next_free": 344,
+      "on_tree_max": 349,
+      "next_free": 350,
       "shadow_reserved": [
         181,
         182,
@@ -351,6 +351,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.74",
+      "date": "2026-08-09",
+      "change": "G9.2 地基波 spec-first PR(feat/g9.2-spec,agent 完全自主 D-406 v2.0,Assisted-by: Claude Code:claude-fable-5;硬规则 7 条款先于实现):RXS on_tree_max 343→349、next_free 344→350——**RXS-0344~0349 六号 materialize 为条款头**(落盘前实测 RXS.next_free=344,与蜂群章程 §8.1 快照一致,按预分配计划顺位领取):spec/geometry_pages.md v1.2 追加 §7 新章 RXS-0344(M91 RXPL major=2 段布局/新 schema preimage/v1-v2 共存律/未知版本 fail-closed,RFC-0022 §4.5 四行冻结句逐字;v1 条款 RXS-0328~0342 字面 0-byte)/ spec/virtual_geometry.md 新建 RXS-0345(M90 DAG 误差 monotonic 不变式 + 簇对锁定语义〔独立自研不 vendoring nv,D-10〕+ 蒙皮元数据/CLAS 烘焙输入字段 schema,RFC-0022 §4.1)/ spec/render_graph.md v1.1 追加 §2A 新章 RXS-0346(M104 AccessKind 加性 IndirectCommandRead + 新边 StorageWrite→IndirectCommandRead + 双后端映射新行 Vulkan SHADER_WRITE→INDIRECT_COMMAND_READ / D3D12 UNORDERED_ACCESS→INDIRECT_ARGUMENT + §4.0-3「bindless 表+indirect buffer」出列修订行 + 🔒 RXS-0239/RXS-0241 字面 0-byte 声明,RFC-0023 §4.4.3 🔒 修订行表逐条落地)/ spec/rendering_platform.md v1.5 追加 §2A RXS-0347(M103 「资源→全局 descriptor 索引」尾随可选字段 0-drift〔缺省序列化 ≡ 字段不存在,RXS-0305 CanonW 律加性修订点〕+ 索引分配律/回收 + 索引空间预算进 capability profile,RFC-0023 §4.3)/ spec/gpu_driven_submit.md 新建 RXS-0348(M102 DGC 抽象层:IndirectCmdLayout token 闭集/装配期核验 fail-closed/DgcBuffer 无 host 读接口〔镜像 RXS-0144~0148〕/三后端映射单一事实源/capability snapshot 阻塞性前置〔RXS-0313 机制〕/Execution Set 降级律,RFC-0023 §4.1/§4.2)/ spec/shader_stages.md v1.9 RXS-0311 闭集加性修订行 + 新条款 RXS-0349(capability ID 闭集加 `submit.dgc`/`bindless.descriptor_buffer` 实位 + `bindless.descriptor_heap`/`submit.execution_set` 预留位〔只预留不实现〕+ profile JSON schema 加性扩展说明〔profile v1 字段闭集 0-byte〕,RFC-0023 §5 末行)。反映 reserved_in_flight[G9].RXS「G9.2 互锁绿后按 actual next_free 领取」的 spec 波兑现(G-G9-3 READY 后首波;G5/v1.29 先例:claim 行 0-byte 不改写,materialize 经命名空间校准 + 本行记录)。条款号连续不跳号(0295/0296 burned 与 shadow_reserved 181~184 维持);经 grep `### RXS-` 实测 spec 最大条款头 = RXS-0349(geometry_pages 0344 / virtual_geometry 0345 / render_graph 0346 / rendering_platform 0347 / gpu_driven_submit 0348 / shader_stages 0349,同号零碰撞)。conformance 最小 RED 锚定占位语料六件同 PR 落(inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注,G7.1 v1.36 spec-first 先例):conformance/geom_pages/reject/rxpl_v2_unknown_major.rx / virtual_geometry/reject/dag_error_nonmonotonic.rx / render_graph/reject/missing_reads_indirect.rx / reflection/reject/global_descriptor_index_dangling.rx / gpu_driven_submit/reject/dgc_layout_double_terminator.rx / capability/reject/unknown_capability_id_g92.rx;trace_matrix 同 PR 重生成(279/279→285/285 全锚定,CRLF 字节纪律);stable 快照因条款计数 279→285 同 PR 重 bless + tests/stable/bless_log.md 追加(RXS-0180 L2 加性演进;error_codes/editions/subcommands 三段 0 变化)。**零新 RX 码**(装配期 strict 拒沿 RX6029 族先例实号实现期领取;cabi 不可表达诊断走既有 diag+RXRT_FAIL 通道;预留位无诊断面)、零新 RD/U/SG/MR/D/RFC/CI_step 命名空间字段(CI 步骤 131~138 归实现波按实际领取);既有 spec 条款字面 0-byte(只追加新章/修订行/登记行);零 src/ 改动、零 workflow 步骤。"
+    },
     {
       "version": "v1.73",
       "date": "2026-08-09",

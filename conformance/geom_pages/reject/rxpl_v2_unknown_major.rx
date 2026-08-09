@@ -1,0 +1,11 @@
+//@ spec: RXS-0344
+// G9.2 spec-first 条款锚定占位语料（spec/geometry_pages.md §7 RXS-0344：RXPL major=2
+// 段布局 / 新 schema preimage / v1-v2 共存律 / 未知版本 fail-closed）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
+// 实现；v2 loader 落地前本文件只承载条款锚点，不接入任何 harness。
+// 预期 RED 面（实现 PR 转正）：未知 major（含 major=2 之前的任何非 {1,2} 值）的
+// RXPL 页 loader 必须确定性拒绝（typed Err，沿 RXS-0331 UnsupportedVersion 族），
+// 不得按猜测布局解析；篡改 schema_digest/section_digest 同拒。
+// 转正锚点目标：src/rurix-geom-pages v2 编解码臂单测 +
+// conformance/geom_pages/reject/ v2 fixture（.rxpl 二进制，经生成器产出）。
+fn main() {}

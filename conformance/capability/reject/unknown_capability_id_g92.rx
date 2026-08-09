@@ -1,0 +1,14 @@
+//@ spec: RXS-0349
+// G9.2 spec-first 条款锚定占位语料（spec/shader_stages.md RXS-0349：capability ID
+// 闭集 G9.2 加性扩展——实位 submit.dgc / bindless.descriptor_buffer + 预留位
+// bindless.descriptor_heap / submit.execution_set〔只预留不实现〕+ profile JSON
+// schema 加性扩展说明，RXS-0311 加性修订行落地）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
+// 实现；capability_check.rs 闭集表扩展落地前本文件只承载条款锚点，不接入任何
+// harness。
+// 预期 RED 面（实现 PR 转正）：闭集外未知 capability ID → capability.unknown_id
+// 拒（RXS-0311 第五 key 恒跑）；预留位被消费性引用时按 RXS-0312 选择律拒绝面
+// 落地（预留位不产生任何 codegen/profile 消费行为）。
+// 转正锚点目标：src/rurixc/src/capability_check.rs 闭集表单测 +
+// conformance/capability/ 既有语料恒跑面。
+fn main() {}

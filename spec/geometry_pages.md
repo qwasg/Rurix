@@ -366,9 +366,47 @@ rurixc→SPIR-V，禁手写 SPIR-V 替身）；`vk_geom_page_decode` harness。
 
 ---
 
+## 7. M91 条款（G9.2，RFC-0022 §4.5）— RXPL major=2 段布局与 v1/v2 共存律
+
+### RXS-0344 RXPL major=2 段布局、新 schema preimage 与 v1/v2 共存律
+
+> 🔒 演进面（RFC-0022 §4.5，Agent Approved 2026-08-09）：RXPL 自 major=1（RXS-0328
+> 冻结面）向 major=2 的演进是**新 major**，不是 v1 条款的修订——v1 既有条款
+> （RXS-0328~0342）**字面 0-byte 不动**，v2 语义全部落本章。
+
+**Legality**
+
+1. **v2 语义**（RFC-0022 §4.5 逐字）：RXPL `major=2`；schema_digest preimage 为
+   **新** preimage（域分离字串 `b"RXPL-SCHEMA-V2\0"` 起首，`major:u16=2`；沿用
+   RXS-0328 preimage 逐字段拼接律，`record_size` / 段序 / 新增段标识按 v2 布局随实现
+   PR 冻结并进 digest）；v2 页在 v1 簇记录之外新增**簇误差/包围球/骨骼元数据/CLAS
+   输入段**（蒙皮元数据与 CLAS 输入字段面见 spec/virtual_geometry.md RXS-0345）；
+   v2 编解码**往返无损**（编码→解码→再编码逐字节相等）。
+2. **v1 共存律**（RFC-0022 §4.5 逐字）：M01/M04 v1 页格式 ABI（RXS-0328~0342
+   冻结面）**0-byte 保持**；v1/v2 页可在同一流送系统共存，G8.4 streamer 只消费
+   冻结 ABI、迟到页降级语义不重定；**禁止在实现波次中途重定 v1 ABI**。
+3. **未知版本 fail-closed**（RFC-0022 §4.5 逐字）：loader 对未知 major/篡改
+   schema_digest/section_digest 的页必须**确定性拒绝**（typed `Err`，沿 RXS-0331
+   `UnsupportedVersion` 族同码族先例），**不得按猜测布局解析**。
+4. **双构建确定性**（RFC-0022 §4.5 逐字）：沿 M79 判据——同一资产 + 同一 builder
+   版本双构建字节一致；物理段偏移/padding 差异进 environment/evidence，**不进**
+   语义哈希。
+
+**Implementation Requirements**
+
+- 实现锚定 `src/rurix-geom-pages` v2 编解码臂（v1 `logical::{encode,decode}` 既有面
+  0-byte）+ `conformance/geom_pages/reject/` v2 RED fixture（篡改 digest / 未知
+  major 各至少一件）随实现 PR 落。
+- 本 spec PR 先行落最小 RED 锚定占位语料
+  `conformance/geom_pages/reject/rxpl_v2_unknown_major.rx`（条款锚定占位，inert 锚定
+  口径与转正路径见该文件头注释）；锚点目标文件（实现 PR 转正）=
+  `src/rurix-geom-pages/src/logical.rs` v2 臂单测 + `conformance/geom_pages/reject/`
+  v2 fixture。
+
 ## 6. 修订记录
 
-| 版本 | 日期 | 说明 |
-|---|---|---|
-| v1.0 | 2026-08-06 | 初版：RXS-0328~0331 逻辑页 ABI + 装箱/依赖/converter；M01 host 门 |
-| v1.1 | 2026-08-06 | M04：RXS-0338~0342 RXPM/RXPD/RXPZ-LZ1/映射拒录/展开 digest；device 腿 |
+| 版本 | 日期 | 说明 | 档位 |
+|---|---|---|---|
+| v1.0 | 2026-08-06 | 初版：RXS-0328~0331 逻辑页 ABI + 装箱/依赖/converter；M01 host 门 | Full RFC（RFC-0020） |
+| v1.1 | 2026-08-06 | M04：RXS-0338~0342 RXPM/RXPD/RXPZ-LZ1/映射拒录/展开 digest；device 腿 | Full RFC（RFC-0020） |
+| v1.2 | 2026-08-09 | G9.2 spec-first（M91）：追加 §7 新章 RXS-0344（RXPL major=2 段布局/新 schema preimage/v1-v2 共存律/未知版本 fail-closed/双构建确定性，RFC-0022 §4.5 四行冻结句逐字落实）；v1 既有条款 RXS-0328~0342 字面 0-byte；条款号自 ledger 实测 RXS.next_free=344 顺位领取。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.5/§5 + G9_ACCEPTANCE_MAP M91 行；本行同步把本表升格为「版本/日期/说明/档位」四列同构体例（既有两行仅补档位列标记，说明列字面不动） | **Full RFC**（RFC-0022） |

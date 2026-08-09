@@ -482,6 +482,52 @@ permutation 域为 **entry 级**声明(附着于着色入口函数的 `#[permuta
 
 ---
 
+## 2A. G9.2 加性条款（M103，RFC-0023 §4.3）
+
+### RXS-0347 「资源→全局 descriptor 索引」尾随可选字段与索引分配律/回收
+
+> 承 RFC-0023 §4.3（Agent Approved 2026-08-09，含评审 F-2 补齐的 0-drift 序列化
+> 机制）：reflection v1 字段闭集（RXS-0304）**加性扩展**「资源→全局 descriptor
+> 索引」映射记录；本条款同时是 **RXS-0305 CanonW 律的加性修订点**（尾随可选字段
+> 编码规则自此进入 canonical serialization 规则面）。
+
+**Legality**
+
+1. **尾随可选字段（0-drift 序列化机制，RFC-0023 §4.3 评审 F-2 逐字）**：
+   「资源→全局 descriptor 索引」为 canonical 序列化的**尾随可选字段**——缺省时
+   序列化字节 ≡ 字段不存在，既有产物字节流 **0-byte**；**不得以「空编码为
+   count 0」冒充 0-byte**（count 0 仍会改变既有字节）。该机制列为 **RXS-0305
+   CanonW 律的加性修订点**；验收面强制「既有 reflection golden 0-byte 恒跑」。
+2. **与 set/binding 对并存不删**（RFC-0023 §4.3 逐字）：新字段**加性并存**于既有
+   set/binding 资源记录（保 M31/M85 digest 链），沿 RXS-0180 L2 加性演进先例——
+   v1 字段不删，新增字段按上条 0-drift 机制加性；直接替换 set/binding 记录面
+   否决（破坏既有 digest 链）。
+3. **索引分配律与回收**（RFC-0023 §4.3 逐字）：全局索引的分配、streaming 换入
+   换出时的回收/复用由本条款冻结（不单靠实现约定）——**同输入同映射逐字节等值**
+   （确定性）；索引越界/悬空索引 → **fail-closed 诊断**（装配期确定性拒绝，
+   不静默回退、不最近邻回退）；索引泄漏以**计数器断言**（泄漏计数器非零即红）。
+4. **索引空间预算进 capability profile**（RFC-0023 §4.3 逐字）：全局 descriptor
+   索引空间上限为 profile 事实（capability ID 面见 spec/shader_stages.md
+   RXS-0311 闭集修订行，RXS-0349）；索引空间超预算 = 装配期确定性拒绝
+   （fail-closed）。
+5. **非 stable 物理布局**（RFC-0023 §4.0-5/§4.3 逐字）：descriptor 全局索引的
+   物理布局（heap 偏移编码）**不冻结**为 stable 语言保证（沿 spec/binding_layout.md
+   🔒「descriptor heap 编码不冻结为 stable 语言保证」边界）。
+
+**Implementation Requirements**
+
+- 实现锚定 `src/rurixc/src/reflection.rs`（尾随可选字段编解码 + 0-drift 见证）
+  与 descriptor 全局表分配/回收实现面；RED 锚定计划（实现 PR 落）：既有
+  reflection golden 0-byte 恒跑 + 索引越界/悬空 RED + 泄漏计数器断言 + 同输入
+  同映射双构建逐字节等值。
+- 本 spec PR 先行落最小 RED 锚定占位语料
+  `conformance/reflection/reject/global_descriptor_index_dangling.rx`（条款锚定
+  占位，inert 锚定口径与转正路径见该文件头注释）；锚点目标文件（实现 PR 转正）
+  = `src/rurixc/src/reflection.rs` 单测 + `conformance/reflection/` 既有 golden
+  0-byte 恒跑面。
+
+---
+
 ## 3. 与其他 spec 文件的关系
 
 - `shader_stages.md`(RXS-0153~0156/0242~0245/0297~0299):着色阶段**类型面**与
@@ -492,11 +538,15 @@ permutation 域为 **entry 级**声明(附着于着色入口函数的 `#[permuta
   其为单一事实源,artifact digest 归属声明见其条款。
 - `binding_layout.md`(RXS-0163~0166/0233):host 侧绑定推导;本文件复用
   `infer_spirv_bindings_vk_native` 为 graphics 绑定唯一来源。
+- `gpu_driven_submit.md`(RXS-0348,G9.2 新建):DGC 抽象层语义面;本文件 RXS-0347
+  的「资源→全局 descriptor 索引」记录面与其 capability 阻塞性前置
+  （`bindless.descriptor_buffer`）配套（RXS-0349 闭集修订行）。
 
 ## 4. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.5 | 2026-08-09 | G9.2 spec-first（M103）：§2A 追加 **RXS-0347**（reflection v1 字段闭集加性扩展「资源→全局 descriptor 索引」**尾随可选字段**——缺省时序列化字节 ≡ 字段不存在、既有产物字节流 0-byte，不得以「空编码为 count 0」冒充 0-byte，本条为 **RXS-0305 CanonW 律加性修订点**；与 set/binding 对并存不删保 M31/M85 digest 链；索引分配/回收律——同输入同映射逐字节等值、越界/悬空 fail-closed、泄漏计数器断言；索引空间预算进 capability profile；heap 偏移编码物理布局非 stable）。验收面强制「既有 reflection golden 0-byte 恒跑」。条款号自 ledger 实测 RXS.next_free=344 顺位领取之本批第四号。依据 [RFC-0023](../rfcs/0023-gpu-driven-submission-shading.md)（Agent Approved 2026-08-09，§4.3 含评审 F-2 0-drift 机制）+ G9_ACCEPTANCE_MAP M103 行。既有条款 RXS-0304~0318 字面 0-byte | **Full RFC**(RFC-0023) |
 | v1.4 | 2026-08-06 | §2 追加 **RXS-0317 ~ RXS-0318**(G8.2 M85 shader_manifest_ddc 硬门 `g8.p0.m85.shader_manifest_ddc` 的 `--phase g8.2` 腿,spec-first 条款先行,硬规则 7):RXS-0317 shader/PSO manifest v1 字段闭集与 canonical digest(`schema=rurix.shader-manifest.v1`;shader 记录八字段来自 reflection v1、PSO 记录四字段来自 M30 collector RXS-0314;记录键分别为 pipeline_key/pso_key;canonical 沿 RXS-0305 CanonW 律;`manifest_digest` 为 G8.3 DDC key 组成项字段位冻结)/ RXS-0318 merge/dedup/冲突/coverage 律(同键同值恰好去重、同键异值 typed Err fail-closed 零新 RX 码、coverage 以输入侧声明表为准禁输出自证、输入乱序 digest 不变、改 interface_hash/pso_key digest 必变、phase 纪律 `phase_g8_2_pass`/`phase_g8_3_pass` 互不代绿)。编号自 ledger 实测 next_free 顺位领取(RXS-0317~0318)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md) §4.1/§5 + G8_ACCEPTANCE_MAP §2 M85 行 + G8.2 设计案 §4。既有条款 RXS-0304~0313 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.3 | 2026-08-06 | **RXS-0312 接口契约兼容判定精确化**(实现前发现的条款矛盾修复,加性修订,同日 spec-first 序列内):v1.2 的「resources 结构相等」从严口径与 M32 fallback 腿判据(「低 profile 只生成允许的 specialization,禁止能力对应指令/扩展计数为 0」,G8_ACCEPTANCE_MAP §2 M32 行)**不可同时满足**——主 entry 用 RayQuery 必带 `AccelStruct` 签名形参(RXS-0297 `ray_query_initialize` 需 tlas 实参),而 fallback 模块一旦声明 accel descriptor,SPIR-V 必须声明 RayQueryKHR capability + SPV_KHR_ray_query 扩展(OpTypeAccelerationStructureKHR 能力要求),扩展计数必非 0;故 fallback **不能**带 accel 形参,而这在「resources 结构相等」下恒被拒为 `capability.fallback_incompatible`,v1.2 口径下不存在任何合法 fallback fixture。修复 = resources 比对允许「缺失 capability 对应资源类」条目在 fallback 缺席(v1 冻结映射 accel ↔ {rt.ray_query, rt.pipeline};低 profile 环境无 TLAS 可绑,缺席恰为正确外部接口),其余条目逐项相等且相对序一致,fallback 不得多出条目;binding 号按 fallback 自身声明序独立推导(P-11 runtime 以 fallback reflection 为准)。io/push_constants/execution_modes/stage 判定 0-byte;其余条款 0-byte。 | **Full RFC**(RFC-0019) |
 | v1.2 | 2026-08-06 | §2 追加 **RXS-0312 ~ RXS-0313**(G8.2 M32 capability_profile 硬门 `g8.p0.m32.capability_profile`,RP-CAP-PROFILE materialize,spec-first 条款先行,硬规则 7;`#[requires]`/ID 闭集/调用图并集律 = spec/shader_stages.md v1.7 RXS-0311 同 PR):RXS-0312 profile 闭集、构建期选择律与 fallback(profile v1 JSON 闭集 schema=rurix.profile.v1 + required/optional/forbidden 两两不相交 + fallbacks 映射;canonical bytes/digest 沿 CanonW 律,无 --profile 恒 rurix.profile-none.v1 常量 0 漂移;选择律四分支绑定 RFC-0019 §4.5.1 冻结 symbolic key `capability.forbidden_used`/`capability.missing_required`/`capability.fallback_incompatible`;fallback 接口契约兼容 = io/resources/push_constants/execution_modes 结构相等 v1 从严,选中 fallback 主 variant 不发射,fallback 链深度 1;`--emit=capabilities` selection manifest 确定性 JSON;--profile 未给 0-byte)/ RXS-0313 运行期 capability snapshot 核验 fail-closed(`capability.runtime_snapshot_mismatch` 装载期 RED,禁临时重编/静默换 profile/尽力而为;库层 typed Err 不占 RX 码;`verify_profile_snapshot` host 纯函数原语镜像 RXS-0307 体例,device 腿归 M50/M89)。**RXS-0304 加性修订**:`required_capabilities`/`selected_profile_digest` 两行由「M32 未实现空编码」真值化(空集/无 profile 路径恒既有常量,0 字节漂移见证进 smoke)。编号自 ledger 实测 next_free 顺位领取(RXS-0311~0313,v1.50 校准 310/311→313/314);typeck 段数字错误码按实现 commit 实测领取(条款以 RFC 四键 + `capability.unknown_id` 五个 symbolic key 冻结)。依据 [RFC-0019](../rfcs/0019-rendering-platform.md)(§4.5.1/§4.5.2/§5 RP-CAP-PROFILE 行)+ G8_ACCEPTANCE_MAP §2 M32 行 + G8.2 设计案 §2。既有条款 RXS-0304 其余行/0305~0310 0-byte。 | **Full RFC**(RFC-0019) |

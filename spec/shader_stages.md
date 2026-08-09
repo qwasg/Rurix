@@ -436,6 +436,17 @@ RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
 | `queue.dedicated_transfer` | 独立 transfer queue class |
 | `queue.dedicated_compute` | 独立 compute queue class |
 
+> **G9.2 加性修订行（RXS-0349，RFC-0023 §5 末行）**：本闭集自 v1 十项**加性扩展**——
+> 实位 **`submit.dgc`**（DGC device-generated commands 抽象面，M102，spec/
+> gpu_driven_submit.md RXS-0348 的 capability 门控 ID）与实位
+> **`bindless.descriptor_buffer`**（`VK_EXT_descriptor_buffer` 单一大表，M103，
+> spec/rendering_platform.md RXS-0347 索引空间预算的 profile 承载位），及
+> **预留位 `bindless.descriptor_heap`**（`VK_EXT_descriptor_heap` 关注项，
+> **只预留不实现**——现在实现等于绑定未冻结面，RFC-0023 §4.3 逐字；该 ID 仅占位
+> 登记，不产生任何 codegen/profile 消费行为）。同期登记**预留位
+> `submit.execution_set`**（M105，G9.3 波消费，本波只占位登记，同上不实现）。
+> 闭集外加性演进维持走本条款修订行（禁静默扩）；十项既有 ID 字面 0-byte。
+
 - 引用闭集外 ID = 编译期确定性拒，symbolic diagnostic key
   **`capability.unknown_id`**（本条款加性冻结的第五 key——RFC-0019 §4.5.1 四键
   之外的闭集违例类别，不改 RFC 四键字面;数字码按实现 commit 实测 `next_free`
@@ -561,6 +572,46 @@ manifest 是 runtime 装配单一事实源；`(instance, geometry) → group_ind
 
 - accept/reject 语料见 `conformance/rt_pipeline/`；≥1 `//@ spec: RXS-0324` 锚定。
 
+### RXS-0349 capability ID 闭集 G9.2 加性扩展与 profile JSON schema 加性扩展说明（G9.2，RFC-0023 §5 末行）
+
+**Legality**
+
+1. **闭集加性扩展（RXS-0311 加性修订行落地的条款本体）**：RXS-0311 capability ID
+   闭集自 v1 十项**加性扩展四位**——实位 **`submit.dgc`**（M102 DGC 抽象面
+   capability 门控 ID，消费面见 spec/gpu_driven_submit.md RXS-0348）与实位
+   **`bindless.descriptor_buffer`**（M103 `VK_EXT_descriptor_buffer` 单一大表，
+   spec/rendering_platform.md RXS-0347 索引空间预算的 profile 承载位），及
+   **预留位 `bindless.descriptor_heap`**（`VK_EXT_descriptor_heap` 关注项，
+   **只预留不实现**——现在实现等于绑定未冻结面，RFC-0023 §4.3 逐字）与
+   **预留位 `submit.execution_set`**（M105 Execution Set，G9.3 波消费，本波
+   只占位登记）。两预留位仅占位登记：不产生任何 codegen/profile 消费行为、
+   无新诊断面、零新 RX 码。闭集外 ID 维持 `capability.unknown_id` 拒
+   （RXS-0311 第五 key 字面不变）；后续加性演进仍走 RXS-0311 加性修订行
+   （禁静默扩）。
+2. **profile JSON schema 加性扩展说明**（RFC-0023 §5 末行口径）：profile v1
+   字段闭集（`{schema, name, version, required[], optional[], forbidden[],
+   fallbacks}`，RXS-0312）**0-byte 不动**——本批扩展的只是
+   `required`/`optional`/`forbidden` 的**元素取值域**（随第 1 条闭集同扩），
+   profile JSON 本身无新字段；`submit.dgc` / `bindless.descriptor_buffer` 的
+   消费经既有 RXS-0312 选择律 + RXS-0313 snapshot 核验机制生效（缺位 →
+   `capability.missing_required` / 装载期 RED，fail-closed）；两预留位进
+   `forbidden` 集即等价「本 profile 不承诺该能力」。
+3. **登记面**：capability profile 文件的 spec 面登记 = spec/README.md §4
+   （本文件行与 `gpu_driven_submit.md` 行同 PR 追加）；实位/预留位的证据与
+   snapshot 实测消费归 G9.2 实现波（M102/M103 gate）。
+
+**Implementation Requirements**
+
+- 实现锚定 `src/rurixc/src/capability_check.rs` ID 闭集表（实现波加性扩两位实位；
+  预留位接线与否归实现波按本条款字面裁决）。RED 锚定计划（实现 PR 落）：
+  闭集外未知 ID → `capability.unknown_id` RED 恒跑（既有判据）+ 预留位被消费性
+  引用时的拒绝面按实现波 RXS-0312 选择律落。
+- 本 spec PR 先行落最小 RED 锚定占位语料
+  `conformance/capability/reject/unknown_capability_id_g92.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见该文件头注释）；锚点目标文件（实现 PR 转正）=
+  `src/rurixc/src/capability_check.rs` 闭集表单测 + `conformance/capability/`
+  既有语料恒跑面。
+
 ## 3. 错误码引用汇总（RX3011 ~ RX3017）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
@@ -592,6 +643,7 @@ manifest 是 runtime 装配单一事实源；`(instance, geometry) → group_ind
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.9 | 2026-08-09 | **G9.2 spec-first:RXS-0311 capability ID 闭集加性修订行(RFC-0023 §5 末行落地) + 新条款 RXS-0349(profile JSON schema 加性扩展说明)**。承 RFC-0023(Agent Approved 2026-08-09;F-1 先例:入 RXS-0311 闭集必须经本条款加性修订行,禁静默扩)。闭集自 v1 十项**加性扩展四位**:实位 **`submit.dgc`**(M102 DGC 抽象面 capability 门控 ID,spec/gpu_driven_submit.md RXS-0348)+ 实位 **`bindless.descriptor_buffer`**(M103 `VK_EXT_descriptor_buffer` 单一大表,spec/rendering_platform.md RXS-0347 索引空间预算 profile 承载位)+ **预留位 `bindless.descriptor_heap`**(`VK_EXT_descriptor_heap` 关注项,只预留不实现——现在实现等于绑定未冻结面,RFC-0023 §4.3 逐字)+ **预留位 `submit.execution_set`**(M105,G9.3 波消费,本波只占位登记不实现);两预留位仅占位登记,不产生任何 codegen/profile 消费行为;十项既有 ID 字面 0-byte。新增 `### RXS-0349`(capability ID 闭集加性扩展与 profile JSON schema 加性扩展说明:闭集加四位同上;profile v1 闭集(RXS-0312)的 required/optional/forbidden 元素域随闭集同扩、**profile JSON 字段闭集 0-byte**;两预留位进 `forbidden` 集即等价不承诺;capability profile 文件登记面 = spec/README.md §4 同 PR 行)。条款号自 ledger 实测 RXS.next_free=344 顺位领取之本批第六号。零新 RX 码(预留位无任何诊断面新增;实位消费归实现波按实测顺位领取)。既有条款 RXS-0153~0324 字面 0-byte | **Full RFC**(RFC-0023) |
 | v1.8 | 2026-08-06 | **G8.2 M50 spec-first:RXS-0244/0245 修订行 + RXS-0322~0324 条款体**(硬规则 7;设计案规划参考号 0319~0324 **不预占**,按 ledger 实测 next_free=322 顺位领取)。RXS-0244 配对域扩为单编译单元+manifest 全域(RFC-0019 §4.1.6);RXS-0245 SBT 寻址改装配期静态映射、trace 调用点拒运行期动态实参;新增 RXS-0322(`#[shader_record]` POD/布局/schema hash)/RXS-0323(`#[hit_group]`+manifest)/RXS-0324(冻结子集 ignore/report/execute_callable)。零新 RX 码(扩 RX3012/3013/3017)。M62 task 维持不开放。vulkan 腿见 vulkan_backend.md RXS-0325~0327。RED 语料 `conformance/rt_pipeline/` 同落。既有条款 0-byte 纯追加 | **Full RFC**（RFC-0019） |
 | v1.7 | 2026-08-06 | **RFC-0019 §4.5.1 capability 声明面落库 + RXS-0311 条款体(spec-first,G8.2 M32 条款先行,硬规则 7)**。承 RFC-0019(Agent Approved 2026-08-02;number_ledger v1.50 校准 RXS 310/311→313/314,RXS-0311 归本文件、RXS-0312/0313 归 spec/rendering_platform.md v1.2)。新增 `### RXS-0311`(`#[requires]` capability 声明、ID 闭集与调用图并集律):fn 级 `#[requires("capability.id", ...)]` 字符串字面量列表;**capability ID 闭集 v1 十项冻结**(rt.pipeline / rt.sbt_user_data / rt.any_hit / rt.intersection.procedural / rt.callable / rt.ray_query / mesh.task / sync.timeline_semaphore / queue.dedicated_transfer / queue.dedicated_compute;backend extension 名不作 ID,mapping 归 target profile,RFC §4.5.1 逐字);**隐式推导映射表冻结**(intrinsic 五项 + stage 五项 + 形参类型两项,漏推导即实现 bug);**调用图并集律**(有效集 = 显式 ∪ 隐式 ∪ 全部静态可达 device callee 并集,DefId 级 call facts 禁名字匹配,泛型不产 entry 随单态化并入);诊断消息携带缺失 ID + 首个引入 callee(判据字面);闭集外 ID → 加性冻结第五 symbolic key `capability.unknown_id`(RFC 四键 0-byte 不改)。数字错误码零消费(RFC 四键 + unknown_id 的 typeck 段实号按实现 commit 实测 next_free 顺位领取,RX3018/RX3019 先例;§3 表 0-byte)。profile 闭集/选择律/fallback/运行期 snapshot 核验见 spec/rendering_platform.md RXS-0312/0313。每条 ≥1 `//@ spec` 锚定随实现 commit 同落。既有条款 RXS-0153~0299 0-byte。 | **Full RFC**（RFC-0019） |
 | v1.5 | 2026-07-19 | **RFC-0013 §4.E mesh-task-RT 章类型面落库 + RXS-0242~RXS-0245 条款体(spec-first,G3.6 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0242`(intersection/callable 阶段全集补齐,RXS-0153 加性修订行不占新号):前缀式 `intersection fn`/`callable fn` 入 `<stage>` 集,取 kernel 入口着色,直接调用复用 RX3001,PTX 收集根排除维持(D-207);ast.rs ShaderStage 补 Intersection/Callable + parser 前瞻。新增 `### RXS-0243`(mesh/task 入口契约):mesh 须 `#[numthreads(x,y,z)]`(三正整数字面量)+ `#[outputs(topology="triangles", max_vertices=N, max_primitives=M)]`(triangles-only,Q-M-MeshTopology),task 须 `#[numthreads]`;缺任一/未知拓扑/非正字面量 → **新码 RX3017**(`shader.mesh_entry_invalid` en/zh 成对,3xxx typeck 段续接 RX3016);task→mesh payload 逐字段比对 → RX3012 扩类别。新增 `### RXS-0244`(RT payload/attribute/callable data 显式类型契约,RXS-0155 加性修订行,SC-3):`#[payload]`/`#[hit_attribute]`/`#[callable_data]`/`#[task_payload]` 标注式形参逐字段比对(单三件套配对域,Q-M-PairingDomain),错配 → **RX3012 扩类别**(阶段间数据契约超集,插值维度对 RT/callable N/A,只加类别不改语义);🔒 字节布局非承诺。新增 `### RXS-0245`(AccelStruct 句柄 + trace_ray 已知签名 + RT builtins):AccelStruct 仅 RT 阶段签名形参(SRV 轴承 RXS-0163)违例 → **RX3013 扩类别**;trace_ray 固定签名 + 递归恒 1 编译期结构约束;RT builtins 阶段矩阵(launch_id/world_ray_*/hit_t/hit_kind/primitive_index 等,名入 KNOWN_BUILTINS)。§3 错误码表回填 RX3017 + RX3012/RX3013 扩覆盖。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(递归深度=编译期结构约束,越界写=静态上限,无运行期未定义;anyhit 调用次数「实现定义但有界」非「未定义」)。mesh/task SPIR-V 编码见 spec/vulkan_backend.md RXS-0246;RT 六模型编码+1.4 分叉见 RXS-0247;DXIL 腿条件分支见 spec/dxil_backend.md RXS-0249。每条 ≥1 `//@ spec` 测试锚定(shader_stages.rs typeck 单测 accept+reject)。**类型面首期**:trace_ray 调用点签名核对 + RT builtin 阶段矩阵 + raygen↔hit/miss payload body 层比对归后续 mir_build/coloring 接线(诚实标注);intersection/callable device 语料 accept-only(§8) | **Full RFC**（RFC-0013） |
