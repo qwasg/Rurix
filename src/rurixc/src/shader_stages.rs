@@ -746,6 +746,11 @@ fn check_numthreads(f: &FnItem, attrs: &[Attr], src: &str, kind: &str, diag: &Di
 }
 
 /// RXS-0243:mesh/task 入口标注契约走查(mesh 须 numthreads + outputs;task 须 numthreads)。
+///
+/// 契约面口径(2026-08-09 历史回归修复):条款面与 error_codes 字面「mesh/task 入口
+/// 标注」仅覆盖 Mesh/Task 两阶段;compute/kernel 的 workgroup 尺寸契约走 compute 面
+/// (`wg` 标注系),不经本表。gating 不得按 fn 名/属性组合推断——stage 枚举是唯一
+/// 判据;非 mesh/task 阶段(compute/RT 全集/vertex/fragment)一律跳过,无论属性组合。
 fn check_stage_entries(items: &[Item], src: &str, diag: &DiagCtxt) {
     for it in items {
         match &it.kind {
@@ -756,6 +761,8 @@ fn check_stage_entries(items: &[Item], src: &str, diag: &DiagCtxt) {
                     ShaderStage::Task => {
                         check_numthreads(f, &it.attrs, src, "task", diag);
                     }
+                    // 契约面仅 mesh/task;其余阶段(compute/RT 全集/vertex/fragment)
+                    // 的标注契约各有其面(compute workgroup 走 `wg` 系),本表不越界。
                     _ => {}
                 }
             }

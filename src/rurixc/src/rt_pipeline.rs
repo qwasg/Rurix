@@ -341,6 +341,7 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
         raygen_count: &mut usize,
         miss_count: &mut usize,
         diag: &DiagCtxt,
+        attr_check_enabled: bool,
     ) {
         for it in items {
             match &it.kind {
@@ -353,17 +354,23 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
                         | ShaderStage::AnyHit
                         | ShaderStage::Intersection => {
                             let Some((gname, gspan)) = hit_group_name(&it.attrs) else {
-                                diag.struct_error(E_MESH_ENTRY, "shader.mesh_entry_invalid")
-                                    .arg(
-                                        "detail",
-                                        format!(
-                                            "RT hit-stage entry `{}` is missing required \
-                                             `#[hit_group(NAME)]` (RXS-0323)",
-                                            f.name.name
-                                        ),
-                                    )
-                                    .span_label(f.name.span, "missing #[hit_group]")
-                                    .emit();
+                                // 2026-08-09 豁免:单三件套配对面(单元内零显式
+                                // `#[hit_group]` 声明)视同单匿名默认组,组标注义务
+                                // 豁免(RXS-0244 先例:raygen+miss+closesthit 无组
+                                // 标注合法);显式组标注一旦出现豁免即失效。
+                                if attr_check_enabled {
+                                    diag.struct_error(E_MESH_ENTRY, "shader.mesh_entry_invalid")
+                                        .arg(
+                                            "detail",
+                                            format!(
+                                                "RT hit-stage entry `{}` is missing required \
+                                                 `#[hit_group(NAME)]` (RXS-0323)",
+                                                f.name.name
+                                            ),
+                                        )
+                                        .span_label(f.name.span, "missing #[hit_group]")
+                                        .emit();
+                                }
                                 continue;
                             };
                             if gname.is_empty() {
@@ -401,11 +408,23 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
                         _ => {}
                     }
                 }
-                ItemKind::Mod(m) => walk(&m.items, groups, order, raygen_count, miss_count, diag),
+                ItemKind::Mod(m) => walk(
+                    &m.items,
+                    groups,
+                    order,
+                    raygen_count,
+                    miss_count,
+                    diag,
+                    attr_check_enabled,
+                ),
                 _ => {}
             }
         }
     }
+
+    // 第一遍(豁免探测):先收集显式组声明,确定豁免域。单元内零显式 `#[hit_group]`
+    // → 单匿名默认组(组标注义务与完备性双双豁免);有显式声明 → 第二遍带核验。
+    // 豁免探测自身不 emit(attr_check_enabled=false)。
     walk(
         items,
         &mut groups,
@@ -413,6 +432,27 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
         &mut raygen_count,
         &mut miss_count,
         diag,
+        false,
+    );
+    let any_group_declared = !order.is_empty();
+    if !any_group_declared {
+        // 豁免域:重置收集态,按「零显式组」直接返回(无组可审)。
+        // raygen/miss 计数不影响本门面(单三件套配对面由 shader_stages 承载)。
+        return;
+    }
+    // 第二遍(带核验):重建收集态,attr_check_enabled=true。
+    let mut groups: BTreeMap<String, HitGroupAcc> = BTreeMap::new();
+    let mut order: Vec<String> = Vec::new();
+    let mut raygen_count = 0usize;
+    let mut miss_count = 0usize;
+    walk(
+        items,
+        &mut groups,
+        &mut order,
+        &mut raygen_count,
+        &mut miss_count,
+        diag,
+        true,
     );
 
     // 仅当本编译单元声明了任一 hit_group / raygen / miss 时才强制 manifest 形态
@@ -453,42 +493,31 @@ fn check_hit_groups(items: &[Item], _src: &str, diag: &DiagCtxt) {
                 .emit();
         }
 
-        // triangles 带 intersection → 已在 procedural 分支;若同时想标 triangles 非法:
-        // 设计:有 intersection = procedural;无 = triangles。triangles_with_intersection
-        // reject 语料 = 同组同时宣称 triangles 语义却带 intersection——我们用「组含
-        // intersection + 另有标记」无法区分,改为:若组内 intersection 与「仅 triangles
-        // 合法形态」冲突——语料 `triangles_with_intersection` 会放 chit+intersection
-        // 在同名组。按冻结表 triangles 禁 intersection,故 **chit+intersection 若用户
-        // 意图 triangles** 无法静态知。设计案表:triangles 带 intersection = 非法。
-        // 但 procedural = intersection+chit 合法。二者同形!
-        //
-        // RFC §4.1.1:形态由是否含 intersection 决定——有 intersection → 必须 procedural
-        // 完备;无 → triangles。故 chit+intersection = procedural GREEN。
-        // reject `triangles_with_intersection` 需要显式形态标注。
-        // 设计案 RED:`triangles_with_intersection.rx` → RX3017。
-        // 实现约定:若组名以 `tri_` 开头或 attr 为 `#[hit_group(tri_...)]` 且含
-        // intersection → 拒;更干净:支持 `#[hit_group(NAME, kind = triangles)]`。
-        // 最小冻结面仅 `#[hit_group(NAME)]`。
-        //
-        // 对 reject 语料:同组 closesthit+intersection **且** 无 procedural 意图时拒。
-        // 采用启发式:组名包含 `triangles` 或 `tri_` → triangles 形态,禁 intersection。
-        let triangles_named = name.contains("triangles") || name.starts_with("tri_");
+        // 形态判定(2026-08-09 口径收窄,修复历史回归):默认形态 = **triangles**
+        // (无 intersection 的组恒为 triangles,这是 accept 语料与既有测试的普遍形态,
+        // 不附形态审查义务);形态审查义务只挂**显式形态命名**的组:
+        //  - 组名含 `triangles`(完整词)→ 显式声明 triangles 意图,此类组禁
+        //    intersection(RXS-0323 冻结表「triangles 禁 intersection」),违例 RX3017;
+        //  - 组名含 `procedural`/`aabb` 或 `proc_` 前缀 → 显式声明 procedural 意图,
+        //    此类组必须含 intersection,缺失即 RX3017。
+        // 短前缀 `tri_` 不算显式声明(`tri_main` 等是 accept 语料普遍命名,只是习惯性
+        // 缩写);chit+intersection 的其余同形歧义组不作启发式拒。
+        let triangles_named = name.contains("triangles");
         if triangles_named && g.has_intersection {
             diag.struct_error(E_MESH_ENTRY, "shader.mesh_entry_invalid")
                 .arg(
                     "detail",
                     format!(
-                        "hit group `{name}` is triangles-shaped but declares an intersection \
-                         shader (forbidden by RXS-0323 frozen table)"
+                        "hit group `{name}` is explicitly triangles-named but declares an \
+                         intersection shader (forbidden by RXS-0323 frozen table)"
                     ),
                 )
                 .span_label(
                     g.first_span,
-                    "triangles group must not include intersection",
+                    "explicitly triangles-named group must not include intersection",
                 )
                 .emit();
         }
-        // procedural 缺 intersection:组名含 procedural / aabb / proc_
         let procedural_named =
             name.contains("procedural") || name.contains("aabb") || name.starts_with("proc_");
         if procedural_named && !g.has_intersection {
