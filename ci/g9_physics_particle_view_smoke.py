@@ -184,9 +184,9 @@ def run_gate() -> int:
 
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
     out_path = EVIDENCE_DIR / f"{SUBJECT}_{stamp}.json"
-    out_path.write_text(
-        json.dumps(evidence, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    # LF byte-exact 纪律:text mode 在 Windows 会写出 CRLF——显式 newline 钉死。
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(evidence, indent=2, ensure_ascii=False) + "\n")
     print(f"[g9_m121] evidence → {out_path.relative_to(ROOT)}")
     for k, v in checks.items():
         print(f"  check {k}: {'PASS' if v else 'FAIL'}")
