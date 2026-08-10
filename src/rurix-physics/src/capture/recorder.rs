@@ -179,8 +179,7 @@ fn parse_state_tick(text: &str) -> Result<u64, CaptureError> {
     let i = text
         .find(key)
         .ok_or_else(|| CaptureError::Parse("state tick".into()))?;
-    let rest =
-        text[i + key.len()..].trim_start_matches(|c: char| c == ' ' || c == ':' || c == '\n');
+    let rest = text[i + key.len()..].trim_start_matches([' ', ':', '\n']);
     let end = rest
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(rest.len());

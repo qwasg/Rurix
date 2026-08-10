@@ -248,6 +248,10 @@ pub struct DgcBuffer {
 impl DgcBuffer {
     /// crate 内构造(vk.rs U54 lane 建 buffer 后登记;host 外部不可构造 = 无
     /// 公开构造器 = 不可经本类型伪造 GPU 命令数据身份)。
+    // 机械豁免(rust 1.93 clippy 漂移):构造点仅在 feature `vulkan` 的 vk.rs U54
+    // lane(`run_dgc_offscreen`),default(CUDA-only)构建下 dead_code 假阳性;
+    // 与 rt-cabi vulkan 臂字段同型豁免(3e919991 先例),API 面不动。
+    #[allow(dead_code)]
     pub(crate) fn new(byte_len: u64, layout_token_count: u32) -> Self {
         DgcBuffer {
             byte_len,
