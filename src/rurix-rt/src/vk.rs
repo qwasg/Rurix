@@ -21964,8 +21964,10 @@ unsafe fn descriptor_table_body(
 
     // device 创建:启用 VK_EXT_descriptor_buffer + 依赖 VK_KHR_synchronization2 +
     // descriptorBuffer feature 链。
-    let ext_names: [*const c_char; 2] =
-        [EXT_DESCRIPTOR_BUFFER.as_ptr(), EXT_SYNCHRONIZATION_2.as_ptr()];
+    let ext_names: [*const c_char; 2] = [
+        EXT_DESCRIPTOR_BUFFER.as_ptr(),
+        EXT_SYNCHRONIZATION_2.as_ptr(),
+    ];
     let mut enable_db = PhysicalDeviceDescriptorBufferFeatures {
         s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
         p_next: std::ptr::null_mut(),

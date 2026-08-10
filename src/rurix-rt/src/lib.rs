@@ -16,17 +16,17 @@
 /// 尺寸/对齐三分量着色 + 执行期峰值计数器（I10 → measured_local）。
 pub mod alias_alloc;
 pub mod backend;
+/// M103 descriptor buffer 全局表分配/回收律(G9.2,RXS-0347;RFC-0023 §4.3)。
+/// always-on、零 unsafe、零后端调用:「资源 → 全局 descriptor 索引」映射的 host 侧
+/// 单一事实源(确定性分配/空位升序回收复用/越界·悬空 fail-closed/泄漏计数器断言)。
+/// `vk.rs` 的 VK_EXT_descriptor_buffer 物理写入面只消费本模块产物。
+pub mod descriptor_table;
 /// G9.2 M102 DGC 抽象层类型面（RXS-0348；RFC-0023 §4.1；门 g9.p0.m102.dgc_abstraction）。
 /// always-on、零 unsafe、零后端调用:IndirectCmdLayout token 闭集 + 装配期核验
 /// fail-closed（恰一终止且最后;render pass/barrier/descriptor set 不可表达）+
 /// DgcBuffer 无 host 读接口类型契约 + capability snapshot 阻塞性前置（RXS-0313 机制）+
 /// 三后端映射单一事实源。device 执行面归 `vk`（U54 lane,feature `vulkan` 门控）。
 pub mod dgc;
-/// M103 descriptor buffer 全局表分配/回收律(G9.2,RXS-0347;RFC-0023 §4.3)。
-/// always-on、零 unsafe、零后端调用:「资源 → 全局 descriptor 索引」映射的 host 侧
-/// 单一事实源(确定性分配/空位升序回收复用/越界·悬空 fail-closed/泄漏计数器断言)。
-/// `vk.rs` 的 VK_EXT_descriptor_buffer 物理写入面只消费本模块产物。
-pub mod descriptor_table;
 mod error;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;
