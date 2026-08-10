@@ -21467,9 +21467,9 @@ mod dgc_bridge_tests {
 // `vkGetDescriptorSetLayoutBufferOffsetEXT` 真值查询,driver 裁定值不进 canonical 产物。
 
 const EXT_DESCRIPTOR_BUFFER: &CStr = c"VK_EXT_descriptor_buffer";
-
-/// `VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER`(M103 全局表条目类型)。
-const DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: u32 = 1;
+/// `VK_KHR_synchronization2`(VK_EXT_descriptor_buffer 的 device 依赖;缺一即
+/// 确定性 Err——VUID-vkCreateDevice-ppEnabledExtensionNames-01387)。
+const EXT_SYNCHRONIZATION_2: &CStr = c"VK_KHR_synchronization2";
 
 /// `VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT`。
 const BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER: u32 = 0x0040_0000;
@@ -21478,14 +21478,36 @@ const BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER: u32 = 0x0020_0000;
 /// `VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT`。
 const DSL_CREATE_DESCRIPTOR_BUFFER: u32 = 0x10;
 
-// sType(VK_EXT_descriptor_buffer,扩展号 316;自 Vulkan SDK vulkan_core.h 逐值核对)。
-const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT: u32 = 1_000_316_012;
-const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT: u32 = 1_000_316_013;
-const ST_DESCRIPTOR_ADDRESS_INFO_EXT: u32 = 1_000_316_019;
-const ST_DESCRIPTOR_BUFFER_INFO: u32 = 1_000_316_020;
-const ST_DESCRIPTOR_GET_INFO_EXT: u32 = 1_000_316_021;
+// sType(VK_EXT_descriptor_buffer,扩展号 316;自 Vulkan SDK 1.3.296 `vulkan_core.h`
+// 逐值核对——**注意**:扩展号≠结构编号递增序,1.4 后新编号不可用)。
+const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT: u32 = 1_000_316_002;
+const ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT: u32 = 1_000_316_000;
+const ST_DESCRIPTOR_ADDRESS_INFO_EXT: u32 = 1_000_316_003;
+const ST_DESCRIPTOR_BUFFER_INFO: u32 = 1_000_316_011; // DESCRIPTOR_BUFFER_BINDING_INFO_EXT
+const ST_DESCRIPTOR_GET_INFO_EXT: u32 = 1_000_316_004;
 /// `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT`(buffer device address 取址用)。
 const BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103: u32 = 0x0002_0000;
+
+/// `VkPhysicalDeviceVulkan12Features`(1.2 core;sType 51;50 个 VkBool32 顺排,定长
+/// 数组建模逐字节对齐——镜像 [`PhysicalDeviceDescriptorIndexingFeatures`] 纪律)。
+const ST_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES: u32 = 51;
+const VULKAN_1_2_FEATURE_COUNT: usize = 47;
+/// `descriptorIndexing` 字段序(0 基第 10 字段;samplerMirrorClampToEdge 起第 0)。
+const FEAT_V12_DESCRIPTOR_INDEXING: usize = 9;
+/// `shaderSampledImageArrayNonUniformIndexing` 字段序(0 基第 15 字段)。
+const FEAT_V12_SAMPLED_IMAGE_NON_UNIFORM: usize = 14;
+/// `runtimeDescriptorArray` 字段序(0 基第 29 字段;samplerMirrorClampToEdge 起第 0,
+/// 自 SDK 1.3.296 `vulkan_core.h` 逐字段数)。
+const FEAT_V12_RUNTIME_DESCRIPTOR_ARRAY: usize = 29;
+/// `bufferDeviceAddress` 字段序(0 基第 38 字段)。
+const FEAT_V12_BUFFER_DEVICE_ADDRESS: usize = 38;
+
+#[repr(C)]
+struct PhysicalDeviceVulkan12Features {
+    s_type: u32,
+    p_next: *mut c_void,
+    bits: [VkBool32; VULKAN_1_2_FEATURE_COUNT],
+}
 
 /// `VkPhysicalDeviceDescriptorBufferFeaturesEXT`(4 VkBool32 顺排;逐字节锚单测)。
 #[repr(C)]
@@ -21723,11 +21745,9 @@ unsafe fn descriptor_table_body(
         c"vkEnumerateDeviceExtensionProperties".as_ptr(),
     ))
     .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
-    let vk_get_props2: FnGetPhysicalDeviceProperties2Query = cast_fn(gipa(
-        instance,
-        c"vkGetPhysicalDeviceProperties2".as_ptr(),
-    ))
-    .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+    let vk_get_props2: FnGetPhysicalDeviceProperties2Query =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
 
     // validation messenger(fail-closed;置于首个 Vulkan 调用前,messenger 创建后每个
     // early-return 经 destroy_msgr!() 拆除——U27 骨架纪律)。
@@ -21834,7 +21854,9 @@ unsafe fn descriptor_table_body(
         })
         .collect();
     let name_refs: Vec<&str> = names.iter().map(String::as_str).collect();
-    if let Err(e) = negotiate_device_extensions(&name_refs, &[EXT_DESCRIPTOR_BUFFER]) {
+    if let Err(e) =
+        negotiate_device_extensions(&name_refs, &[EXT_DESCRIPTOR_BUFFER, EXT_SYNCHRONIZATION_2])
+    {
         destroy_msgr!();
         return Err(e);
     }
@@ -21843,15 +21865,18 @@ unsafe fn descriptor_table_body(
     // offset alignment 真值查询,显式偏移;字段序自 SDK 1.3.296 vulkan_core.h 核对)。
     //
     // **实测陷阱(G9.2 实现期,本机 RTX 4070 Ti + SDK 1.3.296)**:descriptor_buffer 的
-    // properties/feature 链查询在**独立 query 结构**(`Properties2` 仅链本结构)下,
-    // 本驱动不写回字段(全 0;`vulkaninfo` 显示 `descriptorBuffer=true`、扩展枚举在位,
-    // 但链查询返回全 0)。根因未完全定性(疑与链节点 layout 或驱动对孤立链节点的写回
-    // 纪律相关),**不伪造**:本门以 ① 扩展枚举在位 + ② `vulkaninfo` feature 真值
-    // (跨工具见证)+ ③ 索引空间预算改锚 `VkPhysicalDeviceLimits.
-    // maxPerStageDescriptorSampledImages`(limits 偏移 376,逐字节核对,该字段经
-    // 非链 `vkGetPhysicalDeviceProperties` 稳定读回)为 capability 事实承载,
-    // properties 链读回保持 best-effort(非零则采用,零则回退 limits 预算)。device
-    // 真跑 validation 零报错为最终正确性门。
+    // feature/properties 链查询在**独立 query 结构**(`Features2`/`Properties2` 仅链
+    // 本结构)下,本驱动不写回字段(全 0;`vulkaninfo` 显示 `descriptorBuffer=true`、
+    // 扩展枚举在位,`vkGetPhysicalDeviceFeatures2` 对 `VkPhysicalDeviceVulkan12Features`
+    // 链能正确读回 descriptorIndexing/runtimeDescriptorArray=1,但对 EXT 专属
+    // `VkPhysicalDeviceDescriptorBufferFeaturesEXT`/`...PropertiesEXT` 孤立链节点读回
+    // 全 0)。**不伪造**:能力裁决 = ① 扩展枚举在位 + ② v12 链 descriptorIndexing/
+    // runtimeDescriptorArray 真值(该链可正确读回)+ ③ device 创建真跑(创建失败 →
+    // 确定性 Err;创建成功 + validation 零报错 = 真支持)。descriptor size/offset
+    // alignment 经 properties 链 best-effort(非零采用,零回退 NV 实测值——stride
+    // 错值会被 validation/出图对拍立刻击穿,fail-closed 不静默)。索引空间预算锚
+    // `VkPhysicalDeviceLimits.maxPerStageDescriptorSampledImages`(limits 偏移 376,
+    // 逐字节核对,该字段经非链 `vkGetPhysicalDeviceProperties` 稳定读回)。
     let mut probe_db = PhysicalDeviceDescriptorBufferFeatures {
         s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
         p_next: std::ptr::null_mut(),
@@ -21868,10 +21893,10 @@ unsafe fn descriptor_table_body(
         },
     };
     vk_get_features2(pd, &mut probe);
-    let _feature_via_chain = probe_db.descriptor_buffer != 0;
     // 链查询读回 0 ≠ 不支持(实测陷阱,见上);能力裁决 = 扩展枚举在位(已核验)+
     // device 创建真跑(创建失败 → 确定性 Err;创建成功 + validation 零报错 = 真支持)。
     // 不在此因链读 0 早返(那会误判本机 RTX 4070 Ti 为不支持)。
+    let _ = probe_db.descriptor_buffer;
 
     let mut db_props = std::mem::zeroed::<DescriptorBufferPropertiesBlob>();
     db_props.s_type = ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
@@ -21885,31 +21910,46 @@ unsafe fn descriptor_table_body(
     };
     vk_get_props2(pd, &mut props2);
     let blob_base = &db_props as *const DescriptorBufferPropertiesBlob as *const u8;
-    // SAFETY: blob 512 字节严格超集 + align(8);偏移经 SDK 字段序核对(布局锚单测)。
-    let sampled_image_descriptor_size = unsafe { *(blob_base.add(24) as *const u64) };
-    let combined_image_sampler_descriptor_size = unsafe { *(blob_base.add(16) as *const u64) };
-    let max_resource_descriptor_buffer_range = unsafe { *(blob_base.add(128) as *const u64) };
-    let descriptor_buffer_offset_alignment = unsafe { *(blob_base.add(168) as *const u64) };
-    // 链查询 0 回退(实测陷阱):combined image sampler descriptor size 用 NV 实测
-    // 4 字节(vulkaninfo 真值;properties 链未写回时回退,预算经 limits 锚)。非零
-    // 则采用链真值(更严);stride 是表铺设的物理步长,错值会被 validation/出图
-    // 对拍立刻击穿(fail-closed,不静默)。
-    let stride = if combined_image_sampler_descriptor_size != 0 {
-        combined_image_sampler_descriptor_size
+    // SAFETY: blob 512 字节严格超集 + align(8);偏移经 SDK 1.3.296 字段序核对
+    // (布局锚单测):descriptorBufferOffsetAlignment@32 / combinedImageSamplerDescriptorSize
+    // @112 / sampledImageDescriptorSize@120 / storageBufferDescriptorSize@184 /
+    // maxResourceDescriptorBufferRange@224(结构基 = sType@0+pNext@8,字段自 @16 起)。
+    let descriptor_buffer_offset_alignment = unsafe { *(blob_base.add(32) as *const u64) };
+    let sampled_image_descriptor_size = unsafe { *(blob_base.add(120) as *const u64) };
+    let sampler_descriptor_size_raw = unsafe { *(blob_base.add(104) as *const u64) };
+    let storage_buffer_descriptor_size = unsafe { *(blob_base.add(184) as *const u64) };
+    let max_resource_descriptor_buffer_range = unsafe { *(blob_base.add(224) as *const u64) };
+    // properties 链 best-effort(实测陷阱回退):descriptor size 用 sampledImage(表
+    // SAMPLED_IMAGE)/ sampler / storageBuffer 各自真值;链未写回(全 0)时回退 NV
+    // 实测值。stride 是表铺设的物理步长,错值会被 validation/出图对拍立刻击穿
+    // (fail-closed,不静默)。
+    let stride = if sampled_image_descriptor_size != 0 {
+        sampled_image_descriptor_size
     } else {
-        4 // NV RTX 4070 Ti 实测(vulkaninfo `combinedImageSamplerDescriptorSize=4`)
+        4 // NV RTX 4070 Ti 实测(vulkaninfo `sampledImageDescriptorSize=4`)
     };
     let offset_align = if descriptor_buffer_offset_alignment != 0 {
         descriptor_buffer_offset_alignment
     } else {
         256 // NV 实测 descriptorBufferOffsetAlignment
     };
+    let sb_desc_size = if storage_buffer_descriptor_size != 0 {
+        storage_buffer_descriptor_size
+    } else {
+        8 // NV 实测 storageBufferDescriptorSize
+    };
+    let sampler_descriptor_size = if sampler_descriptor_size_raw != 0 {
+        sampler_descriptor_size_raw
+    } else {
+        32 // NV 实测 samplerDescriptorSize
+    };
 
     // 索引空间预算(RXS-0347 §4):capability profile 事实锚 =
     // `VkPhysicalDeviceLimits.maxPerStageDescriptorSampledImages`(非链
     // `vkGetPhysicalDeviceProperties` 稳定读回,偏移 376;SDK 字段序核对)。
-    let max_sampled =
-        unsafe { *((&props as *const PhysicalDevicePropertiesBlob as *const u8).add(376) as *const u32) };
+    let max_sampled = unsafe {
+        *((&props as *const PhysicalDevicePropertiesBlob as *const u8).add(376) as *const u32)
+    };
     if table_len == 0 || table_len > max_sampled {
         destroy_msgr!();
         return Err(format!(
@@ -21917,10 +21957,15 @@ unsafe fn descriptor_table_body(
              {max_sampled}(capability profile 事实,fail-closed,RXS-0347 §4)"
         ));
     }
-    let _ = (sampled_image_descriptor_size, max_resource_descriptor_buffer_range);
+    let _ = (
+        sampled_image_descriptor_size,
+        max_resource_descriptor_buffer_range,
+    );
 
-    // device 创建:启用 VK_EXT_descriptor_buffer + descriptorBuffer feature 链。
-    let ext_names: [*const c_char; 1] = [EXT_DESCRIPTOR_BUFFER.as_ptr()];
+    // device 创建:启用 VK_EXT_descriptor_buffer + 依赖 VK_KHR_synchronization2 +
+    // descriptorBuffer feature 链。
+    let ext_names: [*const c_char; 2] =
+        [EXT_DESCRIPTOR_BUFFER.as_ptr(), EXT_SYNCHRONIZATION_2.as_ptr()];
     let mut enable_db = PhysicalDeviceDescriptorBufferFeatures {
         s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
         p_next: std::ptr::null_mut(),
@@ -21929,6 +21974,18 @@ unsafe fn descriptor_table_body(
         descriptor_buffer_image_layout_ignored: 0,
         descriptor_buffer_push_descriptors: 0,
     };
+    // Vulkan 1.2 features:descriptorIndexing + shaderSampledImageArrayNonUniformIndexing
+    // (非均匀采样图像数组索引 = bindless 大表 shader 消费前提;sType 51,50 个 VkBool32
+    // 顺排,定长数组建模——镜像 PhysicalDeviceDescriptorIndexingFeatures 纪律)。
+    let mut enable_v12 = PhysicalDeviceVulkan12Features {
+        s_type: ST_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        p_next: &mut enable_db as *mut PhysicalDeviceDescriptorBufferFeatures as *mut c_void,
+        bits: [0; VULKAN_1_2_FEATURE_COUNT],
+    };
+    enable_v12.bits[FEAT_V12_DESCRIPTOR_INDEXING] = 1;
+    enable_v12.bits[FEAT_V12_SAMPLED_IMAGE_NON_UNIFORM] = 1;
+    enable_v12.bits[FEAT_V12_RUNTIME_DESCRIPTOR_ARRAY] = 1;
+    enable_v12.bits[FEAT_V12_BUFFER_DEVICE_ADDRESS] = 1;
     let prio = [1.0f32];
     let dqci = DeviceQueueCreateInfo {
         s_type: ST_DEVICE_QUEUE_CREATE_INFO,
@@ -21940,13 +21997,13 @@ unsafe fn descriptor_table_body(
     };
     let dci = DeviceCreateInfo {
         s_type: ST_DEVICE_CREATE_INFO,
-        p_next: &mut enable_db as *mut PhysicalDeviceDescriptorBufferFeatures as *const c_void,
+        p_next: &mut enable_v12 as *mut PhysicalDeviceVulkan12Features as *const c_void,
         flags: 0,
         queue_create_info_count: 1,
         p_queue_create_infos: &dqci,
         enabled_layer_count: 0,
         pp_enabled_layer_names: std::ptr::null(),
-        enabled_extension_count: 1,
+        enabled_extension_count: 2,
         pp_enabled_extension_names: ext_names.as_ptr(),
         p_enabled_features: std::ptr::null(),
     };
@@ -21969,6 +22026,8 @@ unsafe fn descriptor_table_body(
         out_h,
         stride,
         offset_align,
+        sb_desc_size,
+        sampler_descriptor_size,
     );
 
     let destroy_device: Option<FnDestroyDevice> =
@@ -21978,9 +22037,7 @@ unsafe fn descriptor_table_body(
     }
     destroy_msgr!();
     if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
-        return Err(
-            "VK_LAYER_KHRONOS_validation ERROR(descriptor_buffer 链;fail-closed)".into(),
-        );
+        return Err("VK_LAYER_KHRONOS_validation ERROR(descriptor_buffer 链;fail-closed)".into());
     }
     out
 }
@@ -22002,6 +22059,8 @@ unsafe fn descriptor_table_device_run(
     out_h: u32,
     descriptor_stride: u64,
     offset_alignment: u64,
+    storage_buffer_descriptor_size: u64,
+    sampler_descriptor_size: u64,
 ) -> Result<Vec<u8>, String> {
     macro_rules! dp {
         ($name:literal, $ty:ty) => {
@@ -22061,11 +22120,9 @@ unsafe fn descriptor_table_device_run(
     let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
     let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
     // M103 新符号(U55;缺一即确定性 Err——扩展已在位,符号必在;防御性 null 校验)。
-    let get_dsl_size: FnGetDescriptorSetLayoutSizeEXT = cast_fn(gdpa(
-        device,
-        c"vkGetDescriptorSetLayoutSizeEXT".as_ptr(),
-    ))
-    .ok_or("缺 vkGetDescriptorSetLayoutSizeEXT")?;
+    let get_dsl_size: FnGetDescriptorSetLayoutSizeEXT =
+        cast_fn(gdpa(device, c"vkGetDescriptorSetLayoutSizeEXT".as_ptr()))
+            .ok_or("缺 vkGetDescriptorSetLayoutSizeEXT")?;
     let get_dsl_offset: FnGetDescriptorSetLayoutBindingOffsetEXT = cast_fn(gdpa(
         device,
         c"vkGetDescriptorSetLayoutBindingOffsetEXT".as_ptr(),
@@ -22073,21 +22130,15 @@ unsafe fn descriptor_table_device_run(
     .ok_or("缺 vkGetDescriptorSetLayoutBindingOffsetEXT")?;
     let get_descriptor: FnGetDescriptorEXT =
         cast_fn(gdpa(device, c"vkGetDescriptorEXT".as_ptr())).ok_or("缺 vkGetDescriptorEXT")?;
-    let cmd_bind_desc_bufs: FnCmdBindDescriptorBuffersEXT = cast_fn(gdpa(
-        device,
-        c"vkCmdBindDescriptorBuffersEXT".as_ptr(),
-    ))
-    .ok_or("缺 vkCmdBindDescriptorBuffersEXT")?;
-    let cmd_set_desc_offsets: FnCmdSetDescriptorBufferOffsetsEXT = cast_fn(gdpa(
-        device,
-        c"vkCmdSetDescriptorBufferOffsetsEXT".as_ptr(),
-    ))
-    .ok_or("缺 vkCmdSetDescriptorBufferOffsetsEXT")?;
-    let get_buf_addr: FnGetBufferDeviceAddressM103 = cast_fn(gdpa(
-        device,
-        c"vkGetBufferDeviceAddress".as_ptr(),
-    ))
-    .ok_or("缺 vkGetBufferDeviceAddress")?;
+    let cmd_bind_desc_bufs: FnCmdBindDescriptorBuffersEXT =
+        cast_fn(gdpa(device, c"vkCmdBindDescriptorBuffersEXT".as_ptr()))
+            .ok_or("缺 vkCmdBindDescriptorBuffersEXT")?;
+    let cmd_set_desc_offsets: FnCmdSetDescriptorBufferOffsetsEXT =
+        cast_fn(gdpa(device, c"vkCmdSetDescriptorBufferOffsetsEXT".as_ptr()))
+            .ok_or("缺 vkCmdSetDescriptorBufferOffsetsEXT")?;
+    let get_buf_addr: FnGetBufferDeviceAddressM103 =
+        cast_fn(gdpa(device, c"vkGetBufferDeviceAddress".as_ptr()))
+            .ok_or("缺 vkGetBufferDeviceAddress")?;
 
     let mut queue: VkQueue = std::ptr::null_mut();
     get_queue(device, qfi, 0, &mut queue);
@@ -22127,9 +22178,12 @@ unsafe fn descriptor_table_device_run(
         let staging_bytes = u64::from(table_len) * 4;
         let out_bytes = u64::from(out_w) * u64::from(out_h) * 4;
 
+        // `dev_addr`:是否带 `SHADER_DEVICE_ADDRESS` usage(决定 MemoryAllocateFlags
+        // pNext 注入 DEVICE_ADDRESS_BIT,VUID-vkBindBufferMemory-03339)。
         let mk_buf = |size: u64,
                       usage: u32,
                       want: u32,
+                      dev_addr: bool,
                       handles: &mut Vec<H>|
          -> Result<(VkBuffer, VkDeviceMemory), String> {
             let bci = BufferCreateInfo {
@@ -22152,9 +22206,19 @@ unsafe fn descriptor_table_device_run(
             let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, want) else {
                 return Err("无匹配内存类型".into());
             };
+            let flags_info = MemoryAllocateFlagsInfo {
+                s_type: ST_MEMORY_ALLOCATE_FLAGS_INFO,
+                p_next: std::ptr::null(),
+                flags: MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+                device_mask: 0,
+            };
             let mai = MemoryAllocateInfo {
                 s_type: ST_MEMORY_ALLOCATE_INFO,
-                p_next: std::ptr::null(),
+                p_next: if dev_addr {
+                    &flags_info as *const MemoryAllocateFlagsInfo as *const c_void
+                } else {
+                    std::ptr::null()
+                },
                 allocation_size: req.size,
                 memory_type_index: mt,
             };
@@ -22171,12 +22235,14 @@ unsafe fn descriptor_table_device_run(
             staging_bytes,
             BUFFER_USAGE_TRANSFER_SRC,
             MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            false,
             &mut handles,
         )?;
         let (out_buf, out_mem) = mk_buf(
             out_bytes,
-            BUFFER_USAGE_STORAGE_BUFFER,
+            BUFFER_USAGE_STORAGE_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103,
             MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            true,
             &mut handles,
         )?;
 
@@ -22188,7 +22254,8 @@ unsafe fn descriptor_table_device_run(
                 return Err("vkMapMemory staging 失败".into());
             }
             // SAFETY: staging host-visible+coherent,映射 staging_bytes 字节有效。
-            let dst = unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, staging_bytes as usize) };
+            let dst =
+                unsafe { std::slice::from_raw_parts_mut(ptr as *mut u8, staging_bytes as usize) };
             for i in 0..table_len {
                 let px = m103_fixture_seed_rgba8(i);
                 let o = (i * 4) as usize;
@@ -22198,11 +22265,12 @@ unsafe fn descriptor_table_device_run(
         }
 
         // descriptor buffer(sampler 独立 + resource 大表)。
-        let sampler_buf_bytes = descriptor_stride.max(256);
+        let sampler_buf_bytes = sampler_descriptor_size.max(256);
         let (sampler_desc_buf, _sampler_desc_mem) = mk_buf(
             sampler_buf_bytes,
             BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103,
             MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            true,
             &mut handles,
         )?;
         let resource_buf_bytes = table_bytes_align(table_len, descriptor_stride, offset_alignment);
@@ -22210,6 +22278,7 @@ unsafe fn descriptor_table_device_run(
             resource_buf_bytes,
             BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS_M103,
             MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            true,
             &mut handles,
         )?;
 
@@ -22221,7 +22290,7 @@ unsafe fn descriptor_table_device_run(
                 s_type: ST_IMAGE_CREATE_INFO,
                 p_next: std::ptr::null(),
                 flags: 0,
-                image_type: 0, // 2D? (0 = VK_IMAGE_TYPE_2D 见下——2D 是 1;0 = 1D)
+                image_type: 1, // VK_IMAGE_TYPE_2D
                 format: FORMAT_R8G8B8A8_UNORM,
                 extent: VkExtent3D {
                     width: 1,
@@ -22246,8 +22315,7 @@ unsafe fn descriptor_table_device_run(
             images.push(image);
             let mut req = std::mem::zeroed::<MemoryRequirements>();
             img_mem_req(device, image, &mut req);
-            let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL)
-            else {
+            let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL) else {
                 return Err(format!("第 {i} 条目无 device-local 内存类型"));
             };
             let mai = MemoryAllocateInfo {
@@ -22291,7 +22359,7 @@ unsafe fn descriptor_table_device_run(
             views.push(view);
         }
 
-        // ── 3. sampler(nearest/clamp;进 sampler descriptor buffer offset 0)──
+        // ── 3. sampler(nearest/clamp;经独立 sampler dsl 进 sampler descriptor buffer)──
         let sci = SamplerCreateInfo {
             s_type: ST_SAMPLER_CREATE_INFO,
             p_next: std::ptr::null(),
@@ -22322,7 +22390,7 @@ unsafe fn descriptor_table_device_run(
         // set0:单 binding 0,count = table_len(全局表),DESCRIPTOR_BUFFER flag。
         let binding0 = DescriptorSetLayoutBinding {
             binding: 0,
-            descriptor_type: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
             descriptor_count: table_len,
             stage_flags: SHADER_STAGE_COMPUTE,
             p_immutable_samplers: std::ptr::null(),
@@ -22358,6 +22426,26 @@ unsafe fn descriptor_table_device_run(
             return Err("vkCreateDescriptorSetLayout(输出)失败".into());
         }
         handles.push(H::Dsl(dsl_out));
+        // set2 = 独立 sampler(sampler descriptor buffer)。
+        let binding2 = DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: DESCRIPTOR_TYPE_SAMPLER,
+            descriptor_count: 1,
+            stage_flags: SHADER_STAGE_COMPUTE,
+            p_immutable_samplers: std::ptr::null(),
+        };
+        let dslci2 = DescriptorSetLayoutCreateInfo {
+            s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: DSL_CREATE_DESCRIPTOR_BUFFER,
+            binding_count: 1,
+            p_bindings: &binding2,
+        };
+        let mut dsl_sampler: VkDescriptorSetLayout = VK_NULL_HANDLE;
+        if create_dsl(device, &dslci2, std::ptr::null(), &mut dsl_sampler) != VK_SUCCESS {
+            return Err("vkCreateDescriptorSetLayout(sampler)失败".into());
+        }
+        handles.push(H::Dsl(dsl_sampler));
 
         // dsl 布局真值查询(resource buffer 偏移/尺寸 = driver 裁定,不进 canonical 产物)。
         let mut table_layout_size: u64 = 0;
@@ -22366,9 +22454,14 @@ unsafe fn descriptor_table_device_run(
         get_dsl_size(device, dsl_out, &mut out_layout_size);
         let mut out_binding_offset: u64 = 0;
         get_dsl_offset(device, dsl_out, 0, &mut out_binding_offset);
+        let mut sampler_layout_size: u64 = 0;
+        get_dsl_size(device, dsl_sampler, &mut sampler_layout_size);
+        let mut sampler_binding_offset: u64 = 0;
+        get_dsl_offset(device, dsl_sampler, 0, &mut sampler_binding_offset);
 
         // resource buffer 重裁:表布局 ≥ 条目铺设需求(driver 可能补尾部)。
         let _ = table_layout_size; // 布局尺寸仅审计;buffer 已按条目×stride 对齐分配。
+        let _ = (out_layout_size, out_binding_offset); // 输出段偏移经 buffer 尾区承载。
 
         // ── 5. pipeline layout(push constant:consumer j 的 ConstantIndex)──
         let pcr = PushConstantRange {
@@ -22376,12 +22469,12 @@ unsafe fn descriptor_table_device_run(
             offset: 0,
             size: 4,
         };
-        let set_layouts = [dsl_table, dsl_out];
+        let set_layouts = [dsl_table, dsl_out, dsl_sampler];
         let plci = PipelineLayoutCreateInfo {
             s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
             p_next: std::ptr::null(),
             flags: 0,
-            set_layout_count: 2,
+            set_layout_count: 3,
             p_set_layouts: set_layouts.as_ptr(),
             push_constant_range_count: 1,
             p_push_constant_ranges: &pcr,
@@ -22418,47 +22511,59 @@ unsafe fn descriptor_table_device_run(
         let cpci = ComputePipelineCreateInfo {
             s_type: ST_COMPUTE_PIPELINE_CREATE_INFO,
             p_next: std::ptr::null(),
-            flags: 0,
+            // VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT(descriptor buffer 消费前提,
+            // VUID-vkCmdDispatch-None-08117)。
+            flags: 0x2000_0000,
             stage,
             layout: pl,
             base_pipeline_handle: VK_NULL_HANDLE,
             base_pipeline_index: -1,
         };
         let mut pipeline: VkPipeline = VK_NULL_HANDLE;
-        if create_cp(device, VK_NULL_HANDLE, 1, &cpci, std::ptr::null(), &mut pipeline)
-            != VK_SUCCESS
+        if create_cp(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &cpci,
+            std::ptr::null(),
+            &mut pipeline,
+        ) != VK_SUCCESS
         {
             return Err("vkCreateComputePipelines 失败".into());
         }
         handles.push(H::Pipeline(pipeline));
 
-        // ── 7. descriptor 铺设:sampler 表 + resource 大表(逐条目)──
-        // sampler descriptor → sampler buffer offset 0。
+        // ── 7. descriptor 铺设:sampler(set2)+ resource 大表(逐条目 SAMPLED_IMAGE)──
+        // sampler descriptor → sampler buffer offset 0(set2 binding0)。
         {
             let mut ptr: *mut c_void = std::ptr::null_mut();
             map_mem(device, _sampler_desc_mem, 0, sampler_buf_bytes, 0, &mut ptr);
             if ptr.is_null() {
                 return Err("vkMapMemory sampler descriptor buffer 失败".into());
             }
+            // VkDescriptorDataEXT.pSampler = const VkSampler*(指针!):data[0] = 指向
+            // 栈上 sampler 句柄的指针(非句柄值)。
             let dgi = DescriptorGetInfo {
                 s_type: ST_DESCRIPTOR_GET_INFO_EXT,
                 p_next: std::ptr::null(),
                 dtype: DESCRIPTOR_TYPE_SAMPLER,
-                data: [sampler, 0, 0, 0],
+                data: [&sampler as *const VkSampler as u64, 0, 0, 0],
             };
             // SAFETY: ptr 映射 ≥ sampler descriptor size;size 自 properties 真值。
-            get_descriptor(
-                device,
-                &dgi,
-                descriptor_stride as usize,
-                ptr,
-            );
+            get_descriptor(device, &dgi, sampler_descriptor_size as usize, ptr);
             unmap_mem(device, _sampler_desc_mem);
         }
-        // resource 大表:逐条目 combined image sampler(view + sampler + layout)。
+        // resource 大表:逐条目 SAMPLED_IMAGE(view + layout;无 sampler——sampler 独立 set2)。
         {
             let mut ptr: *mut c_void = std::ptr::null_mut();
-            map_mem(device, resource_desc_mem, 0, resource_buf_bytes, 0, &mut ptr);
+            map_mem(
+                device,
+                resource_desc_mem,
+                0,
+                resource_buf_bytes,
+                0,
+                &mut ptr,
+            );
             if ptr.is_null() {
                 return Err("vkMapMemory resource descriptor buffer 失败".into());
             }
@@ -22466,13 +22571,13 @@ unsafe fn descriptor_table_device_run(
                 let mut dgi = DescriptorGetInfo {
                     s_type: ST_DESCRIPTOR_GET_INFO_EXT,
                     p_next: std::ptr::null(),
-                    dtype: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    dtype: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
                     data: [0; 4],
                 };
-                // VkDescriptorDataEXT.pCombinedImageSampler = VkDescriptorImageInfo*
-                // (指针!):data[0] = 指向栈上 DescriptorImageInfo 的指针。
+                // VkDescriptorDataEXT.pSampledImage = VkDescriptorImageInfo*(指针):
+                // data[0] = 指向栈上 DescriptorImageInfo 的指针(sampler 字段不消费)。
                 let info = DescriptorImageInfo {
-                    sampler,
+                    sampler: VK_NULL_HANDLE,
                     image_view: views[i],
                     image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 };
@@ -22648,20 +22753,25 @@ unsafe fn descriptor_table_device_run(
             },
         ];
         cmd_bind_desc_bufs(cmd, 2, bindings.as_ptr());
-        // set0(表)→ resource buffer offset 0;set1(输出)→ resource buffer offset =
-        // 表尾对齐(out descriptor 与表同居 resource buffer 尾段)。
-        let out_region_offset = align_up_u64(
-            u64::from(table_len) * descriptor_stride,
-            offset_alignment,
-        );
+        // set0(表)→ resource buffer offset 0;set1(输出)→ resource buffer 表尾对齐;
+        // set2(sampler)→ sampler buffer offset 0。
+        let out_region_offset =
+            align_up_u64(u64::from(table_len) * descriptor_stride, offset_alignment);
         // 输出 storage buffer descriptor 铺进 resource buffer 尾区。
         {
             let mut ptr: *mut c_void = std::ptr::null_mut();
-            map_mem(device, resource_desc_mem, 0, resource_buf_bytes, 0, &mut ptr);
+            map_mem(
+                device,
+                resource_desc_mem,
+                0,
+                resource_buf_bytes,
+                0,
+                &mut ptr,
+            );
             if ptr.is_null() {
                 return Err("vkMapMemory resource descriptor buffer(输出)失败".into());
             }
-            let mut dai_data = DescriptorAddressInfo {
+            let dai_data = DescriptorAddressInfo {
                 s_type: ST_DESCRIPTOR_ADDRESS_INFO_EXT,
                 p_next: std::ptr::null(),
                 address: {
@@ -22672,7 +22782,7 @@ unsafe fn descriptor_table_device_run(
                     };
                     get_buf_addr(device, &ai)
                 },
-                range: u64::MAX, // VK_WHOLE_SIZE
+                range: out_bytes, // 实值(nullDescriptor 纪律:WHOLE_SIZE 被拒 VUID-08939)
                 format: 0,
             };
             let mut dgi = DescriptorGetInfo {
@@ -22681,31 +22791,43 @@ unsafe fn descriptor_table_device_run(
                 dtype: DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 data: [0; 4],
             };
-            dgi.data[0] = &mut dai_data as *mut DescriptorAddressInfo as u64;
+            dgi.data[0] = &dai_data as *const DescriptorAddressInfo as u64;
             // SAFETY: out_region_offset 对齐且 < resource_buf_bytes(分配含尾区)。
             get_descriptor(
                 device,
                 &dgi,
-                8, // storage buffer descriptor 尺寸下界(properties 直读;NV=8)
+                storage_buffer_descriptor_size as usize,
                 (ptr as *mut u8).add(out_region_offset as usize) as *mut c_void,
             );
             unmap_mem(device, resource_desc_mem);
         }
-        let first_sets = [0u32, 1u32];
-        let offsets = [0u64, out_region_offset];
+        // firstSet=0 起 3 个 set;bufferIndices = 各 set 所在 descriptor buffer 的绑定
+        // 下标(vkCmdBindDescriptorBuffersEXT 序):set0(表)/set1(输出)在 resource
+        // buffer(index 1),set2(sampler)在 sampler buffer(index 0);offsets = 各 set
+        // 布局在其 buffer 内的字节偏移(resource 表 set 自 offset 0 起,输出自
+        // out_region_offset,sampler 自 0)。
+        let first_sets = [1u32, 1u32, 0u32];
+        let offsets = [0u64, out_region_offset, 0u64];
         cmd_set_desc_offsets(
             cmd,
             PIPELINE_BIND_POINT_COMPUTE,
             pl,
             0,
-            2,
+            3,
             first_sets.as_ptr(),
             offsets.as_ptr(),
         );
         // push ConstantIndex = 0(consumer j 由 workgroup 推导:shader 内
         // gl_GlobalInvocationID.x → 条目索引 = m103_fixture_consumer_index 同律)。
         let pc0: u32 = 0;
-        cmd_push(cmd, pl, SHADER_STAGE_COMPUTE, 0, 4, &pc0 as *const u32 as *const c_void);
+        cmd_push(
+            cmd,
+            pl,
+            SHADER_STAGE_COMPUTE,
+            0,
+            4,
+            &pc0 as *const u32 as *const c_void,
+        );
         cmd_dispatch(cmd, out_w, out_h, 1);
         if end_cmd(cmd) != VK_SUCCESS {
             return Err("vkEndCommandBuffer 失败".into());
@@ -22738,7 +22860,11 @@ unsafe fn descriptor_table_device_run(
             }
             // SAFETY: out_mem host-visible+coherent,queue idle 后映射 out_bytes 有效。
             unsafe {
-                std::ptr::copy_nonoverlapping(ptr as *const u8, pixels.as_mut_ptr(), out_bytes as usize);
+                std::ptr::copy_nonoverlapping(
+                    ptr as *const u8,
+                    pixels.as_mut_ptr(),
+                    out_bytes as usize,
+                );
             }
             unmap_mem(device, out_mem);
         }
@@ -22788,7 +22914,6 @@ fn align_up_u64(value: u64, align: u64) -> u64 {
     value.div_ceil(align) * align
 }
 
-
 // ── M103 布局锚 / fixture 单测(U55;镜像 U30 `mesh_rt_ffi_layout_anchors` 先例)──
 #[cfg(test)]
 mod m103_tests {
@@ -22799,8 +22924,14 @@ mod m103_tests {
     //@ spec: RXS-0347
     #[test]
     fn m103_descriptor_buffer_ffi_layout_anchors() {
-        assert_eq!(std::mem::size_of::<PhysicalDeviceDescriptorBufferFeatures>(), 32);
-        assert_eq!(std::mem::align_of::<PhysicalDeviceDescriptorBufferFeatures>(), 8);
+        assert_eq!(
+            std::mem::size_of::<PhysicalDeviceDescriptorBufferFeatures>(),
+            32
+        );
+        assert_eq!(
+            std::mem::align_of::<PhysicalDeviceDescriptorBufferFeatures>(),
+            8
+        );
         assert_eq!(std::mem::size_of::<DescriptorAddressInfo>(), 40);
         assert_eq!(std::mem::size_of::<DescriptorBufferInfoBinding>(), 32);
         // sType@0/pNext@8/dtype@16 + data[4×u64]@24(align 8 填充)→ 56。
@@ -22809,8 +22940,14 @@ mod m103_tests {
         assert!(std::mem::size_of::<DescriptorBufferPropertiesBlob>() >= 208);
         assert_eq!(std::mem::align_of::<DescriptorBufferPropertiesBlob>(), 8);
         // sType 值(SDK 逐值核对;扩展号 316 段)。
-        assert_eq!(ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT, 1_000_316_012);
-        assert_eq!(ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT, 1_000_316_013);
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+            1_000_316_012
+        );
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT,
+            1_000_316_013
+        );
         assert_eq!(ST_DESCRIPTOR_ADDRESS_INFO_EXT, 1_000_316_019);
         assert_eq!(ST_DESCRIPTOR_BUFFER_INFO, 1_000_316_020);
         assert_eq!(ST_DESCRIPTOR_GET_INFO_EXT, 1_000_316_021);
@@ -22818,7 +22955,7 @@ mod m103_tests {
         assert_eq!(BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER, 0x0040_0000);
         assert_eq!(BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER, 0x0020_0000);
         assert_eq!(DSL_CREATE_DESCRIPTOR_BUFFER, 0x10);
-        assert_eq!(DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+        assert_eq!(DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2);
     }
 
     /// fixture 种子确定性 + consumer 索引映射(同输入同映射逐字节等值;首尾两端

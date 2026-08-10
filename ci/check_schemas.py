@@ -427,6 +427,12 @@ def check_evidence_files() -> None:
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
+    g9_m103_descriptor_global_table_schema = load(
+        ROOT / "milestones/g9/g9_m103_descriptor_global_table_evidence_schema.json"
+    )
+    g9_m104_accesskind_indirect_edge_schema = load(
+        ROOT / "milestones/g9/g9_m104_accesskind_indirect_edge_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -866,6 +872,16 @@ def check_evidence_files() -> None:
     g9_m102_dgc_abstraction_validator = (
         jsonschema.Draft7Validator(g9_m102_dgc_abstraction_schema)
         if g9_m102_dgc_abstraction_schema is not None
+        else None
+    )
+    g9_m103_descriptor_global_table_validator = (
+        jsonschema.Draft7Validator(g9_m103_descriptor_global_table_schema)
+        if g9_m103_descriptor_global_table_schema is not None
+        else None
+    )
+    g9_m104_accesskind_indirect_edge_validator = (
+        jsonschema.Draft7Validator(g9_m104_accesskind_indirect_edge_schema)
+        if g9_m104_accesskind_indirect_edge_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1657,6 +1673,25 @@ def check_evidence_files() -> None:
             # vkCmdExecuteGeneratedCommandsEXT → 显式 readback pass 回读哨兵字〕,
             # RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1,回读计数器=0)。
             validator = g9_m102_dgc_abstraction_validator
+        elif (
+            f.name.startswith("g9_m103_descriptor_global_table_")
+            and g9_m103_descriptor_global_table_validator is not None
+        ):
+            # G9.2 M103 descriptor buffer 全局表(ci/g9_descriptor_global_table_smoke.py
+            # 步骤 134 写：host+device 门,reflection↔shader 索引双向精确相等 +
+            # 65536 条目出图 golden + set/binding 0-byte 回归 + 分配确定性 +
+            # 悬空/越界拒 + leak 零 + validation 零)→
+            # milestones/g9/g9_m103_descriptor_global_table_evidence_schema.json。
+            validator = g9_m103_descriptor_global_table_validator
+        elif (
+            f.name.startswith("g9_m104_accesskind_indirect_edge_")
+            and g9_m104_accesskind_indirect_edge_validator is not None
+        ):
+            # G9.2 M104 AccessKind 加性 IndirectCommandRead(ci/g9_accesskind_indirect_edge_smoke.py
+            # 步骤 135 写：纯 host 门,新边 golden + 既有 golden 0-byte + strict 拒 +
+            # cabi 不可表达诊断 + RXS-0239 字面不动 + D6 互证)→
+            # milestones/g9/g9_m104_accesskind_indirect_edge_evidence_schema.json。
+            validator = g9_m104_accesskind_indirect_edge_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

@@ -621,7 +621,6 @@ pub struct ReflectionDescPlan {
     pub index_budget: Option<u32>,
 }
 
-
 #[derive(Clone, Copy, Default)]
 pub struct ReflectionPermPlan<'a> {
     /// `--permutation-select=KEY`(字符串形态;选中后 `variant_key = KEY`、
@@ -889,7 +888,8 @@ fn build_entry(
     // 域 → 真 domain digest;`--permutation-select` 选中 → `variant_key = KEY`
     // (KEY ∉ 合法集 = RX3019 类确定性错误,禁最接近回退)。无 `#[permutation]`
     // 标注(空域)→ 既有常量 + 空串,与 M31 产物逐字节 0 漂移。
-    let (perm_digest, variant_key) = match crate::permutation::extract_domain(attrs, src) {        Ok(Some(domain)) => {
+    let (perm_digest, variant_key) = match crate::permutation::extract_domain(attrs, src) {
+        Ok(Some(domain)) => {
             let digest = domain.digest();
             let variant = match perm_plan.select {
                 Some(key) => domain
@@ -1040,7 +1040,14 @@ pub fn build_reflection(
     perm_plan: &ReflectionPermPlan<'_>,
     cap_plan: &ReflectionCapPlan<'_>,
 ) -> Result<ReflectionDoc, ReflectError> {
-    build_reflection_with_desc(file, src, main_file, perm_plan, cap_plan, &ReflectionDescPlan::default())
+    build_reflection_with_desc(
+        file,
+        src,
+        main_file,
+        perm_plan,
+        cap_plan,
+        &ReflectionDescPlan::default(),
+    )
 }
 
 /// RXS-0347(M103)加性入口:携 `ReflectionDescPlan`(「资源 → 全局 descriptor 索引」
@@ -1327,9 +1334,7 @@ fn entry_json(e: &EntryReflection, ind: &str) -> String {
             .map(u32::to_string)
             .collect::<Vec<_>>()
             .join(", ");
-        s.push_str(&format!(
-            "{i2}\"global_descriptor_indices\": [{list}],\n"
-        ));
+        s.push_str(&format!("{i2}\"global_descriptor_indices\": [{list}],\n"));
     }
     // digest 面。
     s.push_str(&format!(
@@ -1860,7 +1865,11 @@ fn main() {}
         // fs_main 资源声明序 = tex_b, samp → [2, 1]。
         assert_eq!(gdi, &vec![2u32, 1], "尾随索引 = 声明序映射值");
         // set/binding 并存不删(既有字段不变)。
-        assert!(fs.resources.iter().any(|r| r.name == "tex_b" && r.class == "srv"));
+        assert!(
+            fs.resources
+                .iter()
+                .any(|r| r.name == "tex_b" && r.class == "srv")
+        );
         let json = to_json(&a);
         assert!(json.contains("\"global_descriptor_indices\": [2, 1]"));
         // 缺省基线 canonical 是真值化的前缀(尾随加性,不改既有字节)。

@@ -775,24 +775,26 @@ impl Graph {
         // indirect dispatch 编排边逐边核验:两端下标在域、DgcBuffer 类别、producer
         // 恰有 UavReadWrite 写声明、consumer 恰有 IndirectCommandRead 读声明。
         for d in &self.indirect_dispatches {
-            let producer = self.passes.get(d.producer_pass).ok_or_else(|| {
-                GraphError::Structure {
-                    detail: format!(
-                        "indirect dispatch producer pass 下标 {} 越界(图共 {} pass)",
-                        d.producer_pass,
-                        self.passes.len()
-                    ),
-                }
-            })?;
-            let consumer = self.passes.get(d.consumer_pass).ok_or_else(|| {
-                GraphError::Structure {
-                    detail: format!(
-                        "indirect dispatch consumer pass 下标 {} 越界(图共 {} pass)",
-                        d.consumer_pass,
-                        self.passes.len()
-                    ),
-                }
-            })?;
+            let producer =
+                self.passes
+                    .get(d.producer_pass)
+                    .ok_or_else(|| GraphError::Structure {
+                        detail: format!(
+                            "indirect dispatch producer pass 下标 {} 越界(图共 {} pass)",
+                            d.producer_pass,
+                            self.passes.len()
+                        ),
+                    })?;
+            let consumer =
+                self.passes
+                    .get(d.consumer_pass)
+                    .ok_or_else(|| GraphError::Structure {
+                        detail: format!(
+                            "indirect dispatch consumer pass 下标 {} 越界(图共 {} pass)",
+                            d.consumer_pass,
+                            self.passes.len()
+                        ),
+                    })?;
             let dgc_name = self.resource_name(d.dgc_buffer);
             let is_dgc = self
                 .resources
@@ -806,9 +808,11 @@ impl Graph {
                     ),
                 });
             }
-            if !producer.accesses.iter().any(|a| {
-                a.resource == d.dgc_buffer && a.kind == AccessKind::UavReadWrite
-            }) {
+            if !producer
+                .accesses
+                .iter()
+                .any(|a| a.resource == d.dgc_buffer && a.kind == AccessKind::UavReadWrite)
+            {
                 return Err(GraphError::Structure {
                     detail: format!(
                         "indirect dispatch producer pass `{}` 未声明 reads_writes_uav(`{dgc_name}`)(command build node 的唯一合法写形态;RXS-0346)",
@@ -816,9 +820,11 @@ impl Graph {
                     ),
                 });
             }
-            if !consumer.accesses.iter().any(|a| {
-                a.resource == d.dgc_buffer && a.kind == AccessKind::IndirectCommandRead
-            }) {
+            if !consumer
+                .accesses
+                .iter()
+                .any(|a| a.resource == d.dgc_buffer && a.kind == AccessKind::IndirectCommandRead)
+            {
                 return Err(GraphError::Structure {
                     detail: format!(
                         "indirect pass `{}` 消费 DgcBuffer `{dgc_name}` 但未声明 reads_indirect(漏声明 indirect 读边;RXS-0346 配套 strict 判据)",

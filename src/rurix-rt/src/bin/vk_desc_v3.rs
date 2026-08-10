@@ -43,25 +43,39 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
             .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect()
     }
-    // header: magic / version 1.0 / generator 0 / bound 100 / schema 0。
-    let mut v = vec![0x0723_0203u32, 0x0001_0000, 0, 100, 0];
+    // header: magic / version 1.3(StorageBuffer storage class 核心化)/ generator 0 /
+    // bound 100 / schema 0。
+    let mut v = vec![0x0723_0203u32, 0x0001_0300, 0, 100, 0];
     inst(&mut v, 17, &[1]); // OpCapability Shader
+    inst(&mut v, 17, &[5302]); // OpCapability RuntimeDescriptorArray
+    inst(&mut v, 17, &[5301]); // OpCapability ShaderNonUniform(动态索引大表)
+    // OpExtension "SPV_EXT_descriptor_indexing"
+    let mut ext = vec![];
+    ext.extend(words("SPV_EXT_descriptor_indexing"));
+    inst(&mut v, 10, &ext);
     inst(&mut v, 14, &[0, 1]); // OpMemoryModel Logical GLSL450
     let mut ep = vec![5u32, 1];
     ep.extend(words("main"));
-    inst(&mut v, 15, &ep); // OpEntryPoint GLCompute %1 "main"
+    // interface 仅 Input(SPIR-V 1.x 对 vulkan1.2 目标要求 interface 只含
+    // Input/Output storage class;descriptor/push 变量经 DescriptorSet/Binding 装饰引用,
+    // 不入 interface)。
+    ep.extend_from_slice(&[5]);
+    inst(&mut v, 15, &ep); // OpEntryPoint GLCompute %1 "main" %5
     inst(&mut v, 16, &[1, 17, 1, 1, 1]); // OpExecutionMode %1 LocalSize 1 1 1
 
-    // ── 注解(全局变量/Builtin/Block/Offset/Set/Binding)──
+    // ── 注解(全局变量/Builtin/Block/Offset/Set/Binding/ArrayStride)──
     inst(&mut v, 71, &[5, 11, 28]); // OpDecorate %5 BuiltIn GlobalInvocationId
-    inst(&mut v, 71, &[12, 34, 0]); // OpDecorate %12 DescriptorSet 0(大表)
+    inst(&mut v, 71, &[12, 34, 0]); // OpDecorate %12 DescriptorSet 0(大表 SAMPLED_IMAGE)
     inst(&mut v, 71, &[12, 33, 0]); // OpDecorate %12 Binding 0
     inst(&mut v, 71, &[17, 34, 1]); // OpDecorate %17 DescriptorSet 1(输出)
     inst(&mut v, 71, &[17, 33, 0]); // OpDecorate %17 Binding 0
+    inst(&mut v, 71, &[95, 34, 2]); // OpDecorate %95 DescriptorSet 2(sampler)
+    inst(&mut v, 71, &[95, 33, 0]); // OpDecorate %95 Binding 0
     inst(&mut v, 71, &[18, 2]); // OpDecorate %18 Block(SSBO struct)
-    inst(&mut v, 72, &[18, 0, 3]); // OpMemberDecorate %18 member0 Offset(=3) 0
+    inst(&mut v, 72, &[18, 0, 35, 0]); // OpMemberDecorate %18 member0 Offset(=35) 0
+    inst(&mut v, 71, &[13, 6, 4]); // OpDecorate %13 ArrayStride 4(SSBO runtime array)
     inst(&mut v, 71, &[30, 2]); // OpDecorate %30 Block(push struct)
-    inst(&mut v, 72, &[30, 0, 3]); // OpMemberDecorate %30 member0 Offset(=3) 0
+    inst(&mut v, 72, &[30, 0, 35, 0]); // OpMemberDecorate %30 member0 Offset(=35) 0
 
     // ── 类型 / 常量 / 全局变量 ──
     inst(&mut v, 19, &[2]); // %2 = OpTypeVoid
@@ -71,15 +85,19 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
     inst(&mut v, 32, &[7, 1, 6]); // %7 = OpTypePointer Input %6
     inst(&mut v, 59, &[7, 5, 1]); // %5 = OpVariable %7 Input (gl_GlobalInvocationID)
     inst(&mut v, 22, &[8, 32]); // %8 = OpTypeFloat 32
-    inst(&mut v, 25, &[9, 8, 2, 0, 0, 0, 0]); // %9 = OpTypeImage %8 2D(Depth0,Sampling=0)
-    inst(&mut v, 28, &[10, 9]); // %10 = OpTypeRuntimeArray %9
+    inst(&mut v, 43, &[4, 60, table_len]); // %60 = OpConstant %4 table_len(前置:OpTypeArray 引用)
+    inst(&mut v, 25, &[9, 8, 1, 0, 0, 0, 1, 0]); // %9 = OpTypeImage %8 Dim=2D(=1) Sampled=1
+    inst(&mut v, 28, &[10, 9, 60]); // %10 = OpTypeArray %9 %60(固定 65536 条;vulkan1.2 interface 不收 runtime array,用定长数组)
     inst(&mut v, 32, &[11, 0, 10]); // %11 = OpTypePointer UniformConstant %10
     inst(&mut v, 59, &[11, 12, 0]); // %12 = OpVariable %11 UniformConstant(大表)
-    inst(&mut v, 28, &[13, 4]); // %13 = OpTypeRuntimeArray %4 (u32 输出)
-    inst(&mut v, 29, &[18, 13]); // %18 = OpTypeStruct %13 (Block)
-    inst(&mut v, 32, &[14, 2, 18]); // %14 = OpTypePointer StorageBuffer %18
-    inst(&mut v, 59, &[14, 17, 2]); // %17 = OpVariable %14 StorageBuffer(输出)
-    inst(&mut v, 29, &[30, 4]); // %30 = OpTypeStruct %4 (push Block)
+    inst(&mut v, 26, &[94]); // %94 = OpTypeSampler
+    inst(&mut v, 32, &[96, 0, 94]); // %96 = OpTypePointer UniformConstant %94
+    inst(&mut v, 59, &[96, 95, 0]); // %95 = OpVariable %96 UniformConstant(sampler)
+    inst(&mut v, 29, &[13, 4]); // %13 = OpTypeRuntimeArray %4 (u32 输出)
+    inst(&mut v, 30, &[18, 13]); // %18 = OpTypeStruct %13 (Block)
+    inst(&mut v, 32, &[14, 12, 18]); // %14 = OpTypePointer StorageBuffer %18
+    inst(&mut v, 59, &[14, 17, 12]); // %17 = OpVariable %14 StorageBuffer(输出)
+    inst(&mut v, 30, &[30, 4]); // %30 = OpTypeStruct %4 (push Block)
     inst(&mut v, 32, &[31, 9, 30]); // %31 = OpTypePointer PushConstant %30
     inst(&mut v, 59, &[31, 32, 9]); // %32 = OpVariable %31 PushConstant
     inst(&mut v, 32, &[33, 9, 4]); // %33 = OpTypePointer PushConstant %4
@@ -87,13 +105,14 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
     inst(&mut v, 23, &[35, 8, 4]); // %35 = OpTypeVector %8 4 (vec4)
     inst(&mut v, 21, &[66, 32, 1]); // %66 = OpTypeInt 32 1 (i32)
     inst(&mut v, 23, &[68, 66, 2]); // %68 = OpTypeVector %66 2 (ivec2)
-    inst(&mut v, 32, &[37, 2, 4]); // %37 = OpTypePointer StorageBuffer %4
+    inst(&mut v, 23, &[97, 66, 3]); // %97 = OpTypeVector %66 3 (ivec3)
+    inst(&mut v, 32, &[37, 12, 4]); // %37 = OpTypePointer StorageBuffer %4
     inst(&mut v, 43, &[4, 40, 0]); // %40 = OpConstant %4 0 (u32 0)
     inst(&mut v, 43, &[8, 41, 0x437F_0000]); // %41 = OpConstant %8 255.0
     inst(&mut v, 43, &[66, 67, 0]); // %67 = OpConstant %66 0 (i32 0)
     inst(&mut v, 44, &[68, 69, 67, 67]); // %69 = OpConstantComposite %68 (0,0)
+    inst(&mut v, 44, &[97, 98, 67, 67, 67]); // %98 = OpConstantComposite %97 (0,0,0)
     inst(&mut v, 43, &[4, 54, 256]); // %54 = OpConstant %4 256 (OUT_W)
-    inst(&mut v, 43, &[4, 60, table_len]); // %60 = OpConstant %4 table_len
     inst(&mut v, 43, &[4, 84, 8]); // %84 = 8
     inst(&mut v, 43, &[4, 85, 16]); // %85 = 16
     inst(&mut v, 43, &[4, 86, 24]); // %86 = 24
@@ -104,7 +123,7 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
     inst(&mut v, 61, &[6, 51, 5]); // %51 = OpLoad %6 %5 (gid uvec3)
     inst(&mut v, 81, &[4, 52, 51, 0]); // %52 = x
     inst(&mut v, 81, &[4, 53, 51, 1]); // %53 = y
-    inst(&mut v, 142, &[4, 55, 53, 54]); // %55 = OpIMul %4 y*256
+    inst(&mut v, 132, &[4, 55, 53, 54]); // %55 = OpIMul %4 y*256
     inst(&mut v, 128, &[4, 56, 52, 55]); // %56 = OpIAdd %4 x + y*256 (j)
     // start = push.start
     inst(&mut v, 65, &[33, 57, 32, 40]); // %57 = OpAccessChain %33 %32 0
@@ -114,7 +133,7 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
     // texel = image2D[%61] fetch(ivec2(0,0), lod 0)
     inst(&mut v, 65, &[34, 62, 12, 61]); // %62 = OpAccessChain %34 %12 %61
     inst(&mut v, 61, &[9, 63, 62]); // %63 = OpLoad %9 %62
-    inst(&mut v, 100, &[35, 71, 63, 69, 67]); // %71 = OpImageFetch %35 %63 %69 Lod %67
+    inst(&mut v, 95, &[35, 71, 63, 98, 0x2, 67]); // %71 = OpImageFetch %35 %63 %98(ivec3) Lod %67
     // RGBA(f32 归一化)→ ×255 → u32 pack。
     inst(&mut v, 81, &[8, 72, 71, 0]); // r
     inst(&mut v, 81, &[8, 73, 71, 1]); // g
@@ -124,16 +143,16 @@ fn m103_consumer_spv(table_len: u32) -> Vec<u32> {
     inst(&mut v, 133, &[8, 77, 73, 41]); // g*255
     inst(&mut v, 133, &[8, 78, 74, 41]); // b*255
     inst(&mut v, 133, &[8, 79, 75, 41]); // a*255
-    inst(&mut v, 110, &[4, 80, 76]); // OpConvertFToU r
-    inst(&mut v, 110, &[4, 81, 77]); // g
-    inst(&mut v, 110, &[4, 82, 78]); // b
-    inst(&mut v, 110, &[4, 83, 79]); // a
+    inst(&mut v, 109, &[4, 80, 76]); // OpConvertFToU r
+    inst(&mut v, 109, &[4, 81, 77]); // g
+    inst(&mut v, 109, &[4, 82, 78]); // b
+    inst(&mut v, 109, &[4, 83, 79]); // a
     inst(&mut v, 196, &[4, 87, 81, 84]); // OpShiftLeftLogical g<<8
     inst(&mut v, 196, &[4, 88, 82, 85]); // b<<16
     inst(&mut v, 196, &[4, 89, 83, 86]); // a<<24
-    inst(&mut v, 199, &[4, 90, 80, 87]); // OpBitwiseOr r|g8
-    inst(&mut v, 199, &[4, 91, 90, 88]); // |b16
-    inst(&mut v, 199, &[4, 92, 91, 89]); // |a24 = packed
+    inst(&mut v, 197, &[4, 90, 80, 87]); // OpBitwiseOr r|g8
+    inst(&mut v, 197, &[4, 91, 90, 88]); // |b16
+    inst(&mut v, 197, &[4, 92, 91, 89]); // |a24 = packed
     inst(&mut v, 65, &[37, 93, 17, 40, 56]); // %93 = OpAccessChain %37 %17 0 %56
     inst(&mut v, 62, &[93, 92]); // OpStore out[j] = packed
     inst(&mut v, 253, &[]); // OpReturn
@@ -203,7 +222,11 @@ fn main() {
     }
     let diff = pixels.iter().zip(&golden).filter(|(a, b)| a != b).count();
     if diff != 0 {
-        let first = pixels.iter().zip(&golden).position(|(a, b)| a != b).unwrap();
+        let first = pixels
+            .iter()
+            .zip(&golden)
+            .position(|(a, b)| a != b)
+            .unwrap();
         eprintln!(
             "VK_DESC_V3: FAIL 出图与 golden 不等(diff 字节 = {diff},首差 @字节 {first};\
              got {:02x?} want {:02x?})",

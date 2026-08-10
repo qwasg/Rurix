@@ -240,8 +240,7 @@ impl GlobalDescriptorTable {
     /// 当前映射的确定性快照(reflection 记录面;按索引升序,与输入序无关字节等值)。
     #[must_use]
     pub fn mapping_snapshot(&self) -> Vec<(String, u32)> {
-        let mut v: Vec<(String, u32)> =
-            self.slots.iter().map(|(k, &i)| (k.clone(), i)).collect();
+        let mut v: Vec<(String, u32)> = self.slots.iter().map(|(k, &i)| (k.clone(), i)).collect();
         v.sort_by_key(|(_, i)| *i);
         v
     }
@@ -327,10 +326,7 @@ mod tests {
             Err(TableError::DanglingIndex { .. })
         ));
         // 双释放。
-        assert!(matches!(
-            t.release("x"),
-            Err(TableError::DoubleFree { .. })
-        ));
+        assert!(matches!(t.release("x"), Err(TableError::DoubleFree { .. })));
         // 泄漏计数器:y 未回收 → live=1 → 红。
         assert!(matches!(t.assert_no_leak(), Err(TableError::Leak { .. })));
         t.release("y").unwrap();
