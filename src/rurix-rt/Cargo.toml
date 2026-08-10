@@ -148,6 +148,13 @@ required-features = ["vulkan"]
 name = "vk_desc_v3"
 required-features = ["vulkan"]
 
+# G9.2 M91 页格式 v2 device 解码 harness(RXS-0344;门 g9.p0.m91.page_format_v2_abi):
+# 消费 rurixc 产 geom_page_decode_v2.spv + RXPL major=2 页字节,compute 整数域展开
+# 回读 digest,与 CPU expand_digest_v2 逐位等。
+[[bin]]
+name = "vk_geom_page_decode_v2"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

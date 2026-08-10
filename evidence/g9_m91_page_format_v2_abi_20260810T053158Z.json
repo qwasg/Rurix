@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m91_page_format_v2_abi",
+  "symbolic_gate_key": "g9.p0.m91.page_format_v2_abi",
+  "matrix_row": "M91",
+  "wave": "G9.2",
+  "numeric_step": 132,
+  "source_ref": "RFC-0022 §4.5;spec/geometry_pages.md RXS-0344;G9_ACCEPTANCE_MAP §2 M91",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "abi_v2_ids_distinct_and_frozen": true,
+    "v1_abi_zero_byte_regression": true,
+    "encode_decode_roundtrip_byte_equal": true,
+    "corrupt_v2_digest_fail_closed": true,
+    "unknown_major_fail_closed": true,
+    "cpu_decode_digest_stable": true,
+    "device_decode_digest_equals_cpu": true,
+    "device_validation_zero": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260810T053158Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": ""
+}

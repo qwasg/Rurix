@@ -15,6 +15,7 @@ pub mod cook;
 pub mod ddc;
 pub mod error;
 pub mod geom_build;
+pub mod geom_build_v2;
 pub mod gltf;
 pub mod graph;
 pub mod ktx2;
@@ -24,4 +25,8 @@ pub mod verify;
 
 pub use error::{AssetError, ErrorKind, Result};
 pub use geom_build::{PackError, concatenate_pages, pack_cluster_dag, rxgb_to_pages};
+pub use geom_build_v2::{
+    check_v2_pages_within_contract, concatenate_pages_v2, logical_v2_from_parts,
+    pack_cluster_dag_v2,
+};
 pub use texture::{CookProfile, CookReport, TextureSemantics, cook_texture};

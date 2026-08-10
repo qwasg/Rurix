@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "input": "TriMesh::uv_sphere(1.0,24,24) pack_cluster_dag_v2 page0",
+  "v2_schema_digest_hex": "c909eaeb05a9f6d85c97686339e55d085ded375a02a0afc7c6d438c184731a54",
+  "expanded_digest_hex": "2158adbcfc5378fa58a7c1f79c486acd7a1350123bdcc2b05cea7ca131fb19b0",
+  "expanded_u32_count": 7840,
+  "page0_sha256": "a7c37bd34ed3dde7b70acf27cfa9095484245ad6212dbb022135598c67f11e03",
+  "pages_v2_concat_sha256": "a7c37bd34ed3dde7b70acf27cfa9095484245ad6212dbb022135598c67f11e03",
+  "page0_len": 31732,
+  "page_count": 1,
+  "v1_concat_sha256": "6dc792b12c658edf7f2dde804471d672a7d557ecb5606d54af184ebabc0b71a2"
+}

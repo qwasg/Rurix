@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.2 M91 page_format_v2_abi evidence",
+  "description": "evidence/g9_m91_page_format_v2_abi_<UTC>.json。G9.2 P0 硬门 g9.p0.m91.page_format_v2_abi:RXPL major=2 ABI id/version 与 v1 不同且冻结 + checked-in fixtures encode→decode 往返无损 canonical records 与 golden 逐字节相等 + M04 v1 页 ABI 0-byte 兼容(v1 消费路径回归 digest 不变)+ 篡改 digest 页 fail-closed(RED 臂)+ device 解码 digest 等于 CPU 解码 digest(RXS-0344;RFC-0022 §4.5)。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m91_page_format_v2_abi" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m91.page_format_v2_abi" },
+    "matrix_row": { "type": "string", "const": "M91" },
+    "wave": { "type": "string", "const": "G9.2" },
+    "numeric_step": { "type": "integer", "const": 132 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.5;spec/geometry_pages.md RXS-0344;G9_ACCEPTANCE_MAP §2 M91"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abi_v2_ids_distinct_and_frozen",
+        "v1_abi_zero_byte_regression",
+        "encode_decode_roundtrip_byte_equal",
+        "corrupt_v2_digest_fail_closed",
+        "unknown_major_fail_closed",
+        "cpu_decode_digest_stable",
+        "device_decode_digest_equals_cpu",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "abi_v2_ids_distinct_and_frozen": { "type": "boolean" },
+        "v1_abi_zero_byte_regression": { "type": "boolean" },
+        "encode_decode_roundtrip_byte_equal": { "type": "boolean" },
+        "corrupt_v2_digest_fail_closed": { "type": "boolean" },
+        "unknown_major_fail_closed": { "type": "boolean" },
+        "cpu_decode_digest_stable": { "type": "boolean" },
+        "device_decode_digest_equals_cpu": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

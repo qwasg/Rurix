@@ -327,10 +327,10 @@
 | RXS-0339 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/disk.rs` |
 | RXS-0340 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/codec.rs` |
 | RXS-0341 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/disk.rs` |
-| RXS-0342 | spec/geometry_pages.md | 1 | `src/rurix-geom-pages/src/expand.rs` |
+| RXS-0342 | spec/geometry_pages.md | 2 | `src/rurix-geom-pages/src/expand.rs`, `src/rurix-geom-pages/src/expand_v2.rs` |
 | RXS-0343 | spec/asset_pipeline.md | 1 | `src/rurix-asset/src/ddc.rs` |
-| RXS-0344 | spec/geometry_pages.md | 1 | `conformance/geom_pages/reject/rxpl_v2_unknown_major.rx` |
-| RXS-0345 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx` |
+| RXS-0344 | spec/geometry_pages.md | 4 | `conformance/geom_pages/reject/rxpl_v2_unknown_major.rx`, `src/rurix-asset/src/geom_build_v2.rs`, `src/rurix-geom-pages/src/expand_v2.rs` …(+1) |
+| RXS-0345 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx`, `src/rurix-geom-build/src/dag.rs` |
 | RXS-0346 | spec/render_graph.md | 2 | `conformance/render_graph/reject/missing_reads_indirect.rx`, `src/rurix-rt/src/graph.rs` |
 | RXS-0347 | spec/rendering_platform.md | 4 | `conformance/reflection/reject/global_descriptor_index_dangling.rx`, `src/rurix-rt/src/descriptor_table.rs`, `src/rurix-rt/src/vk.rs` …(+1) |
 | RXS-0348 | spec/gpu_driven_submit.md | 3 | `conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx`, `src/rurix-rt/src/dgc.rs`, `src/rurix-rt/src/vk.rs` |
