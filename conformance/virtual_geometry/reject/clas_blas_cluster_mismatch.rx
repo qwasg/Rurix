@@ -1,0 +1,15 @@
+//@ spec: RXS-0351
+// G9.3 spec-first 条款锚定占位语料（spec/virtual_geometry.md RXS-0351：CLAS 主腿
+// 当帧 multi-indirect device 拼装 + Cluster Template 实例化 + 传统 BLAS 回退腿
+// ray query 逐命中一致〔任意 hit 集合 + 最近 hit 距离容差 0〕+ 可见集/BLAS 错开
+// 一簇即 RED + 静态帧零 AS 构建〔构建计数非零即 RED〕+ ClasBlasKey 单所有者 +
+// 构建/装配期换腿纪律 + DMM 禁止线）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例，沿 G9.2 spec 波
+// dag_error_nonmonotonic.rx 同模）**：本 spec PR 不含 src/ 实现；CLAS 拼装与双腿
+// 对拍落地前本文件只承载条款锚点，不接入任何 harness。
+// 预期 RED 面（实现 PR 转正）：可见集与 BLAS 内容故意错开一簇的注入 variant →
+// provenance 校验判 RED；静态帧构建计数非零 variant → RED。
+// 转正锚点目标：src/rurix-render/src/rt/as_manager.rs ClasBlasKey 校验负例 +
+// ci/g9_clas_rt_convergence_smoke.py 门（symbolic key
+// g9.p0.m94.clas_rt_convergence，G9.1 冻结字面不动）。
+fn main() {}

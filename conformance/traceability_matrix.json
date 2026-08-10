@@ -1806,6 +1806,15 @@
     "RXS-0349": [
       "conformance/capability/reject/unknown_capability_id_g92.rx",
       "src/rurixc/src/capability_check.rs"
+    ],
+    "RXS-0350": [
+      "conformance/virtual_geometry/reject/selection_cut_hole_injected.rx"
+    ],
+    "RXS-0351": [
+      "conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx"
+    ],
+    "RXS-0352": [
+      "conformance/virtual_geometry/reject/bypass_single_source_variant.rx"
     ]
   }
 }

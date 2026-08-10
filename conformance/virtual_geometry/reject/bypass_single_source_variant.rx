@@ -1,0 +1,16 @@
+//@ spec: RXS-0352
+// G9.3 spec-first 条款锚定占位语料（spec/virtual_geometry.md RXS-0352：
+// VisibleClusterSet 单源真相——一份三喂光栅/RT/VSM 的 provenance 链完整可机核
+// 〔帧末三方消费者输入 digest 与 VisibleClusterSet digest 精确一致〕+ 旁路单源
+// 真相 variant provenance 校验判 RED〔负例臂为硬门，R-G9-8〕+ 光栅/RT 各自独立
+// 计算可见性的双世界结构即使出图相似也判 FAIL + 蒙皮簇 VisBuffer SW/HW diff=0
+// 维持 + 动画分级作用于 AS 更新、静态帧零 AS 构建）。
+// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例，沿 G9.2 spec 波
+// dag_error_nonmonotonic.rx 同模）**：本 spec PR 不含 src/ 实现；三喂 provenance
+// 校验落地前本文件只承载条款锚点，不接入任何 harness。
+// 预期 RED 面（实现 PR 转正）：旁路单源真相（RT 侧独立再算一遍可见性）的
+// variant → 帧末 provenance 校验判 RED，负例臂为硬门。
+// 转正锚点目标：帧末 provenance 校验模块旁路 variant 负例 +
+// ci/g9_single_source_truth_smoke.py 门（symbolic key
+// g9.p0.m95.single_source_truth，G9.1 冻结字面不动）。
+fn main() {}

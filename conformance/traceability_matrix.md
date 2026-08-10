@@ -335,3 +335,6 @@
 | RXS-0347 | spec/rendering_platform.md | 4 | `conformance/reflection/reject/global_descriptor_index_dangling.rx`, `src/rurix-rt/src/descriptor_table.rs`, `src/rurix-rt/src/vk.rs` …(+1) |
 | RXS-0348 | spec/gpu_driven_submit.md | 3 | `conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx`, `src/rurix-rt/src/dgc.rs`, `src/rurix-rt/src/vk.rs` |
 | RXS-0349 | spec/shader_stages.md | 2 | `conformance/capability/reject/unknown_capability_id_g92.rx`, `src/rurixc/src/capability_check.rs` |
+| RXS-0350 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/reject/selection_cut_hole_injected.rx` |
+| RXS-0351 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx` |
+| RXS-0352 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/reject/bypass_single_source_variant.rx` |
