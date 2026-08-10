@@ -1365,6 +1365,13 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.2
 
+      # 步骤 138(G9.2 波聚合门 g9.wave.2.exit;七 P0 只读汇总 + RFC-0022/0023/0024
+      # Approved + RD-039/040 维持 open;M121/M122 phase_g9_6_pass=false 不充绿;
+      # 落盘前实测 CI_step.next_free=138 顺位)。
+      - name: G9.2 wave2.exit aggregate (G9 CI_GATES §5.138, g9.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g9_wave2_exit_check.py --gate g9.wave.2.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

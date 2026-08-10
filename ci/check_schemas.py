@@ -424,6 +424,9 @@ def check_evidence_files() -> None:
     g9_m122_gameplay_field_schema = load(
         ROOT / "milestones/g9/g9_m122_gameplay_field_evidence_schema.json"
     )
+    g9_wave2_exit_schema = load(
+        ROOT / "milestones/g9/g9_wave2_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -873,6 +876,11 @@ def check_evidence_files() -> None:
     g9_m122_gameplay_field_validator = (
         jsonschema.Draft7Validator(g9_m122_gameplay_field_schema)
         if g9_m122_gameplay_field_schema is not None
+        else None
+    )
+    g9_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g9_wave2_exit_schema)
+        if g9_wave2_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -1679,6 +1687,11 @@ def check_evidence_files() -> None:
         ):
             # G9.2 M122 gameplay_field(步骤 137;双 phase 骨架期)。
             validator = g9_m122_gameplay_field_validator
+        elif (
+            f.name.startswith("g9_wave2_exit_")
+            and g9_wave2_exit_validator is not None
+        ):
+            validator = g9_wave2_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None
