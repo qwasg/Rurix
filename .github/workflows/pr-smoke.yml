@@ -1314,6 +1314,19 @@ jobs:
           RURIX_VK_VALIDATION: "1"
         run: py -3 ci/g9_dgc_abstraction_smoke.py --gate g9.p0.m102.dgc_abstraction
 
+      # 步骤 132（G9.2 P0 硬门 g9.p0.m90.cluster_dag_deepening）。host 门。
+      - name: G9.2 M90 cluster dag deepening smoke (G9 CI_GATES §4.132, g9.p0.m90.cluster_dag_deepening)
+        shell: powershell
+        run: py -3 ci/g9_cluster_dag_deepening_smoke.py --gate g9.p0.m90.cluster_dag_deepening
+
+      # 步骤 133（G9.2 P0 硬门 g9.p0.m91.page_format_v2_abi）。host+device 门。
+      - name: G9.2 M91 page format v2 abi smoke (G9 CI_GATES §4.133, g9.p0.m91.page_format_v2_abi)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_page_format_v2_abi_smoke.py --gate g9.p0.m91.page_format_v2_abi
+
       # 步骤 134（G9.2 P0 硬门 g9.p0.m103.descriptor_global_table；M103 descriptor
       # buffer 全局表；RFC-0023 §4.3 / RXS-0347）。host+device 门：device 段持锁真跑
       # RTX 4070 Ti（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 双置；vk_desc_v3

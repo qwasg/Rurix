@@ -31,7 +31,11 @@ mod vecmath;
 
 pub use cluster::{Cluster, MAX_TRIS, MAX_VERTS, clusterize};
 pub use cull_ref::{CullStats, CullView, Mat4, cull_clusters, lod_cut_select};
-pub use dag::{ClusterDag, DagLevel, DagNode, build_dag};
+pub use dag::{
+    ClasBakeInput, ClusterDag, ClusterDagV2, ClusterSkinMeta, DagAsset, DagError, DagLevel,
+    DagNode, MAX_BONE_INFLUENCES, SkinWeights, build_asset_dag, build_dag, build_dag_v2,
+    canonical_bytes, clas_bake_input_of, derive_skin_metadata, validate_monotonicity,
+};
 pub use mesh::{TriMesh, build_face_adjacency};
 pub use serialize::{RXGB_VERSION, RxgbError, read_dag, write_dag};
 

@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.2 M90 cluster_dag_deepening evidence",
+  "description": "evidence/g9_m90_cluster_dag_deepening_<UTC>.json。G9.2 P0 硬门 g9.p0.m90.cluster_dag_deepening:固定 mesh 语料 cluster DAG 两次独立构建 canonical 字节相等 + DAG 每条 parent→child 边误差度量单调不增逐边机器核验 + 注入破坏单调性的 fixture 构建期 fail-closed 拒绝(RED 臂)+ 蒙皮元数据与 CLAS 离线烘焙输入字段按冻结 schema 完整 roundtrip(RXS-0345;RFC-0022 §4.1)。host 纯 host 门,device_section_state=not_applicable。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m90_cluster_dag_deepening" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m90.cluster_dag_deepening" },
+    "matrix_row": { "type": "string", "const": "M90" },
+    "wave": { "type": "string", "const": "G9.2" },
+    "numeric_step": { "type": "integer", "const": 131 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.1;spec/virtual_geometry.md RXS-0345;G9_ACCEPTANCE_MAP §2 M90"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "not_applicable" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "double_build_byte_equal",
+        "monotonic_edge_check",
+        "monotonic_break_fixture_rejected",
+        "skin_metadata_roundtrip",
+        "clas_bake_input_roundtrip",
+        "not_substituted_by_m01"
+      ],
+      "properties": {
+        "double_build_byte_equal": { "type": "boolean" },
+        "monotonic_edge_check": { "type": "boolean" },
+        "monotonic_break_fixture_rejected": { "type": "boolean" },
+        "skin_metadata_roundtrip": { "type": "boolean" },
+        "clas_bake_input_roundtrip": { "type": "boolean" },
+        "not_substituted_by_m01": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

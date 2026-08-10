@@ -1,0 +1,169 @@
+//@ spec: RXS-0344
+// G9.2 M91 device 解码腿(v2 臂):结构性解包 **RXPL major=2 页** → 整数域展开流
+// (零浮点运算;字段序与 host `expand_logical_page_v2` 逐字一致)。
+// binding0 = RXPL v2 页字节(u32 字视图);binding1 = 展开输出 u32 流;
+// push:page_bytes:u32 @0, out_cap:u32 @4。仅 global_id==0 写。
+// 输入由 host 保证为合法 RXPL v2(smoke 先 CPU 校验);kernel 遍历 v2 段表展开。
+// **容量纪律**:host 必须给足 out_cap(= host 展开字数);守卫 = 单次写前
+// `ow + 块 ≤ cap` 短路——**触发即块丢弃**(不推进 ow),与 v1 体例同构;
+// 容量足够时守卫恒真、逐块全写。
+
+kernel fn geom_page_decode_v2(
+    page: View<global, u32>,
+    out: ViewMut<global, u32>,
+    page_bytes: u32,
+    out_cap: u32,
+    t: ThreadCtx<1>,
+) {
+    let gid = t.global_id();
+    if gid == 0 {
+        let _pb = page_bytes;
+        let cap = out_cap as usize;
+        // v2 header 定偏移(字节):cluster_count @28,index_count @36;
+        // v1_len @138(u16),skin_hdr_len @140,bone_idx_len @144,clas_len @148(u32)。
+        let cluster_count = page[7];
+        let index_count = page[9];
+        // v2 header 定偏移(字节):v1_len:u16 @138,skin_hdr_len:u32 @140,
+        // bone_idx_len:u32 @144,clas_len:u32 @148。
+        let w34 = page[34];
+        let v1_len = (w34 >> 16u32) & 65535u32;
+        let skin_hdr_len = page[35];
+        let bone_idx_len = page[36];
+        let v1_off: u32 = 160u32;
+        let skin_off = v1_off + v1_len;
+        let bone_off = skin_off + skin_hdr_len;
+        let clas_off = bone_off + bone_idx_len;
+
+        // v1 段内子段偏移(与 v1 段序逐字一致:96B 记录 → 顶点 → 索引 → 依赖 → 边)。
+        let idx_base = v1_off + cluster_count * 96u32 + page[8] * 12u32;
+
+        let mut ow: usize = 0;
+        out[ow] = cluster_count;
+        ow = ow + 1;
+        let mut ci: u32 = 0u32;
+        while ci < cluster_count {
+            let rec = v1_off + ci * 96u32;
+            let rw = (rec / 4u32) as usize;
+            let cluster_id = page[rw];
+            let w1 = page[rw + 1];
+            let qx = w1 & 65535u32;
+            let qy = (w1 >> 16u32) & 65535u32;
+            let w2 = page[rw + 2];
+            let qz = w2 & 65535u32;
+            let radius_bits = page[rw + 6];
+            let cone0 = page[rw + 7];
+            let cone1 = page[rw + 8];
+            let cone2 = page[rw + 9];
+            let cone_cutoff_bits = page[rw + 10];
+            let error_bits = page[rw + 11];
+            let parent_error_bits = page[rw + 12];
+            let vertex_offset = page[rw + 13];
+            let triangle_offset = page[rw + 14];
+            let vertex_count = page[rw + 15];
+            let triangle_count = page[rw + 16];
+            let level = page[rw + 17];
+            let group = page[rw + 18];
+            let sw = ((skin_off + ci * 12u32) / 4u32) as usize;
+            let max_influences = page[sw];
+            let bone_count = page[sw + 1];
+            let bound_inflation_bits = page[sw + 2];
+            let cw = ((clas_off + ci * 32u32) / 4u32) as usize;
+            if ow + 5 <= cap {
+                out[ow] = cluster_id;
+                out[ow + 1] = qx;
+                out[ow + 2] = qy;
+                out[ow + 3] = qz;
+                out[ow + 4] = triangle_count;
+                ow = ow + 5;
+            }
+            let mut ti: u32 = 0u32;
+            while ti < triangle_count {
+                let byte_i = idx_base + triangle_offset + ti * 3u32;
+                let w = page[(byte_i / 4u32) as usize];
+                let shift0 = (byte_i & 3u32) * 8u32;
+                let i0 = (w >> shift0) & 255u32;
+                let byte_i1 = byte_i + 1u32;
+                let w1b = page[(byte_i1 / 4u32) as usize];
+                let shift1 = (byte_i1 & 3u32) * 8u32;
+                let i1 = (w1b >> shift1) & 255u32;
+                let byte_i2 = byte_i + 2u32;
+                let w2b = page[(byte_i2 / 4u32) as usize];
+                let shift2 = (byte_i2 & 3u32) * 8u32;
+                let i2 = (w2b >> shift2) & 255u32;
+                if ow + 3 <= cap {
+                    out[ow] = i0;
+                    out[ow + 1] = i1;
+                    out[ow + 2] = i2;
+                    ow = ow + 3;
+                }
+                ti = ti + 1u32;
+            }
+            if ow + 6 <= cap {
+                out[ow] = vertex_offset;
+                out[ow + 1] = triangle_offset;
+                out[ow + 2] = vertex_count;
+                out[ow + 3] = triangle_count;
+                out[ow + 4] = level;
+                out[ow + 5] = group;
+                ow = ow + 6;
+            }
+            if ow + 10 <= cap {
+                out[ow] = page[rw + 3];
+                out[ow + 1] = page[rw + 4];
+                out[ow + 2] = page[rw + 5];
+                out[ow + 3] = page[rw + 6];
+                out[ow + 4] = page[rw + 7];
+                out[ow + 5] = page[rw + 8];
+                out[ow + 6] = page[rw + 9];
+                out[ow + 7] = page[rw + 10];
+                out[ow + 8] = page[rw + 11];
+                out[ow + 9] = page[rw + 12];
+                ow = ow + 10;
+            }
+            // 包围球段 = center×3 + radius + cone×3 + cutoff + error + parent_error + radius(11 字,
+            // 与 host expand_v2 冻结序一致;v1 96B 记录字 +3..+12 + 重发 +4 即此序)。
+            if ow + 3 <= cap {
+                out[ow] = max_influences;
+                out[ow + 1] = bone_count;
+                out[ow + 2] = bound_inflation_bits;
+                ow = ow + 3;
+            }
+            // 骨骼索引集(簇序前缀和定位)。
+            let mut boff: u32 = 0u32;
+            let mut bi: u32 = 0u32;
+            while bi < ci {
+                boff = boff + page[((skin_off + bi * 12u32) / 4u32) as usize + 1];
+                bi = bi + 1u32;
+            }
+            let mut bj: u32 = 0u32;
+            while bj < bone_count {
+                let bw = ((bone_off + (boff + bj) * 4u32) / 4u32) as usize;
+                if ow + 1 <= cap {
+                    out[ow] = page[bw];
+                    ow = ow + 1;
+                }
+                bj = bj + 1u32;
+            }
+            if ow + 6 <= cap {
+                out[ow] = page[cw + 2];
+                out[ow + 1] = page[cw + 3];
+                out[ow + 2] = page[cw + 4];
+                out[ow + 3] = page[cw + 5];
+                out[ow + 4] = page[cw + 6];
+                out[ow + 5] = page[cw + 7];
+                ow = ow + 6;
+            }
+            ci = ci + 1u32;
+        }
+        if ow + 6 <= cap {
+            out[ow] = page[10];
+            out[ow + 1] = page[11];
+            out[ow + 2] = page[12];
+            out[ow + 3] = page[13];
+            out[ow + 4] = page[14];
+            out[ow + 5] = page[15];
+        }
+    }
+}
+
+fn main() {}

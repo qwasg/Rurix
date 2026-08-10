@@ -29,5 +29,13 @@ path = "src/bin/rxcook.rs"
 name = "g8_m79_write_fixtures"
 path = "src/bin/g8_m79_write_fixtures.rs"
 
+[[bin]]
+name = "g9_m90_probe"
+path = "src/bin/g9_m90_probe.rs"
+
+[[bin]]
+name = "g9_m91_probe"
+path = "src/bin/g9_m91_probe.rs"
+
 [lints]
 workspace = true

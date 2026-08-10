@@ -1772,16 +1772,21 @@
       "src/rurix-geom-pages/src/disk.rs"
     ],
     "RXS-0342": [
-      "src/rurix-geom-pages/src/expand.rs"
+      "src/rurix-geom-pages/src/expand.rs",
+      "src/rurix-geom-pages/src/expand_v2.rs"
     ],
     "RXS-0343": [
       "src/rurix-asset/src/ddc.rs"
     ],
     "RXS-0344": [
-      "conformance/geom_pages/reject/rxpl_v2_unknown_major.rx"
+      "conformance/geom_pages/reject/rxpl_v2_unknown_major.rx",
+      "src/rurix-asset/src/geom_build_v2.rs",
+      "src/rurix-geom-pages/src/expand_v2.rs",
+      "src/rurix-geom-pages/src/logical_v2.rs"
     ],
     "RXS-0345": [
-      "conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx"
+      "conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx",
+      "src/rurix-geom-build/src/dag.rs"
     ],
     "RXS-0346": [
       "conformance/render_graph/reject/missing_reads_indirect.rx",

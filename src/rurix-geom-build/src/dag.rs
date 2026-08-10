@@ -21,6 +21,19 @@
 //!   - 组误差 `gerr = max(自身偏移, 成员簇 error)`,成员簇 `parent_error = gerr`
 //!     ⇒ **parent_error ≥ 子 error(单调)**,且同组父簇共享同一 error;
 //!   - 顶层(根)`parent_error = f32::MAX`(任意阈值下恒可选,cut 非空)。
+//!
+//! G9.2 M90 深化(RXS-0345;RFC-0022 §4.1;spec/virtual_geometry.md):
+//!   - [`build_dag_v2`] = [`build_dag`] 的 typed `Err` 变体——构建产物逐边单调性
+//!     机器核验,破坏即 fail-closed typed `Err` 拒录(**不静默继续、不 clamp 修复**);
+//!     资产级 builder 入口 [`build_asset_dag`] 额外把单调性破坏的**输入/中间态**映射为
+//!     `DagError::NonMonotonicInput`(内部不变量断言经 typed Err 转译,非 panic 泄漏)。
+//!   - 蒙皮元数据三字段(最大影响骨数/骨骼索引集/包围体膨胀系数)经
+//!     [`SkinWeights`] 逐簇校核进入 [`ClusterDagV2::ext`];骨骼资产缺任一字段 =
+//!     typed `Err` 拒录。
+//!   - CLAS 离线烘焙输入(三角形簇 + 簇级 AABB)由 [`ClusterDagV2::clas_bake_input`]
+//!     按簇导出(三角形簇几何 = 既有顶点/索引段视图,簇级 AABB = 逐位 min/max)。
+//!   - [`build_dag`] / [`crate::serialize`] RXGB v1 面 **0-byte 不动**(v1 消费路径
+//!     回归 digest 不变;v2 记录面走 [`ClusterDagV2`] 与 RXPL major=2,RXS-0344)。
 
 use rurix_render::graph::types::ClusterRecord;
 use std::collections::HashMap;
@@ -28,6 +41,72 @@ use std::collections::HashMap;
 use crate::cluster::{backface_cone, bounding_sphere, clusterize_tris};
 use crate::mesh::TriMesh;
 use crate::vecmath::vdist;
+
+/// 叶层网格顶点反查表(蒙皮元数据逐簇查权重的确定性源):
+/// 顶点位置 bits → 叶层全局顶点下标(焊接同位取最小下标,确定性)。
+/// 由 [`build_asset_dag`] 在构建期挂载于线程局部,导出前摘除。
+#[derive(Debug)]
+struct MeshLookup {
+    map: HashMap<[u32; 3], u32>,
+    positions_len: usize,
+}
+
+impl MeshLookup {
+    fn of(mesh: &TriMesh) -> Self {
+        let mut map = HashMap::with_capacity(mesh.positions.len());
+        for (i, p) in mesh.positions.iter().enumerate() {
+            map.entry(p.map(f32::to_bits)).or_insert(i as u32);
+        }
+        Self {
+            map,
+            positions_len: mesh.positions.len(),
+        }
+    }
+}
+
+thread_local! {
+    /// 当前资产级构建的叶层反查表(`build_asset_dag` 挂入,导出前摘除;
+    /// RAII 守卫保证 panic 路径同摘)。
+    static ACTIVE_MESH_LOOKUP: std::cell::RefCell<Option<MeshLookup>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// 摘除资产级构建上下文(panic 安全:经 [`MeshContextGuard`] 自动调用)。
+fn clear_dag_mesh_context() {
+    ACTIVE_MESH_LOOKUP.with(|c| *c.borrow_mut() = None);
+}
+
+/// 资产级构建上下文 RAII 守卫(Drop 摘除,防 panic 泄漏上下文)。
+struct MeshContextGuard;
+
+impl MeshContextGuard {
+    fn install(mesh: &TriMesh) -> Self {
+        ACTIVE_MESH_LOOKUP.with(|c| *c.borrow_mut() = Some(MeshLookup::of(mesh)));
+        Self
+    }
+}
+
+impl Drop for MeshContextGuard {
+    fn drop(&mut self) {
+        clear_dag_mesh_context();
+    }
+}
+
+/// 供 `derive_skin_metadata` 的 DAG 侧视图(查不到 = 字段不可得,
+/// 由校核层 typed Err;不暴露线程局部态为公共可变面)。
+impl ClusterDag {
+    fn leaf_vertex_source_index(&self, position_bits: &[u32; 3]) -> Option<u32> {
+        ACTIVE_MESH_LOOKUP.with(|c| {
+            c.borrow()
+                .as_ref()
+                .and_then(|l| l.map.get(position_bits).copied())
+        })
+    }
+
+    fn mesh_positions_len(&self) -> usize {
+        ACTIVE_MESH_LOOKUP.with(|c| c.borrow().as_ref().map_or(0, |l| l.positions_len))
+    }
+}
 
 /// 每组目标簇数(报告1 §3.1「约 4 簇/组」)。
 const GROUP_SIZE: usize = 4;
@@ -74,6 +153,148 @@ pub struct ClusterDag {
     /// 层表(0 = 叶层,末层 = 顶层/根)。
     pub levels: Vec<DagLevel>,
 }
+
+// ———— G9.2 M90:v2 深化记录面(RXS-0345;v1 64B ClusterRecord 0-byte 不动)————
+
+/// DAG builder fail-closed typed 错误(RXS-0345 §1;无 UB、无静默、无 clamp)。
+#[derive(Debug, Clone, PartialEq)]
+pub enum DagError {
+    /// 逐边单调性破坏(构建产物核验):父簇 `parent` 误差 < 子簇 `child` 误差
+    /// (浮点序;误差 NaN 不可比较同判破坏)。
+    NonMonotonicEdge {
+        /// 父簇 record id。
+        parent: u32,
+        /// 子簇 record id。
+        child: u32,
+        /// 父侧误差(parent 边方向 = `parent.error`)。
+        parent_error: f32,
+        /// 子侧误差。
+        child_error: f32,
+    },
+    /// 资产级输入/中间态单调性破坏(由 `build_asset_dag` 自内部断言转译;
+    /// 拒绝 panic 泄漏为构建期事故)。
+    NonMonotonicInput {
+        /// 破坏点自述(内部转译标签)。
+        detail: &'static str,
+    },
+    /// 蒙皮元数据缺失:骨骼资产某簇缺三字段(最大影响骨数/骨骼索引集/包围体
+    /// 膨胀系数)任一面(每簇骨骼权重行缺失或三字段长度不齐)。
+    SkinMetadataMissing {
+        /// 缺字段簇(record id)。
+        cluster: u32,
+        /// 缺失面自述。
+        detail: &'static str,
+    },
+    /// 蒙皮元数据不一致:骨骼 id 越界(≥ joint_count)或越簇数。
+    SkinMetadataInconsistent {
+        /// 簇 record id。
+        cluster: u32,
+        /// 越界面自述。
+        detail: &'static str,
+    },
+}
+
+impl std::fmt::Display for DagError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DagError::NonMonotonicEdge {
+                parent,
+                child,
+                parent_error,
+                child_error,
+            } => write!(
+                f,
+                "DAG 边单调性破坏: parent={parent} child={child} \
+                 parent_error={parent_error} < child_error={child_error}"
+            ),
+            DagError::NonMonotonicInput { detail } => {
+                write!(f, "DAG 输入/中间态单调性破坏:{detail}")
+            }
+            DagError::SkinMetadataMissing { cluster, detail } => {
+                write!(f, "簇 {cluster} 蒙皮元数据缺失:{detail}")
+            }
+            DagError::SkinMetadataInconsistent { cluster, detail } => {
+                write!(f, "簇 {cluster} 蒙皮元数据不一致:{detail}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for DagError {}
+
+/// 蒙皮元数据(RXS-0345 §3.3 三字段冻结 schema,每簇随页烘焙)。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClusterSkinMeta {
+    /// 最大影响骨数(0 = 非蒙皮簇;> 0 时 bone_indices/bound_inflation 必须为 Some)。
+    pub max_influences: u32,
+    /// 骨骼索引集(确定性升序;非蒙皮簇 = None)。
+    pub bone_indices: Option<Vec<u32>>,
+    /// 蒙皮包围体膨胀系数(Kerbl 保守界所需输入;非蒙皮簇 = None)。
+    pub bound_inflation: Option<f32>,
+}
+
+impl ClusterSkinMeta {
+    /// 非蒙皮簇(三字段零值面)。
+    pub fn unskinned() -> Self {
+        Self {
+            max_influences: 0,
+            bone_indices: None,
+            bound_inflation: None,
+        }
+    }
+}
+
+/// CLAS 离线烘焙输入(RXS-0345 §3.4;三角形簇 = `ClusterDag::cluster_vertices` /
+/// `cluster_triangle` 既有视图,簇级 AABB 见 [`ClusterDagV2::clas_bake_input`])。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClasBakeInput {
+    /// 簇级 AABB min(逐位 min/max,非包围球收缩)。
+    pub aabb_min: [f32; 3],
+    /// 簇级 AABB max。
+    pub aabb_max: [f32; 3],
+}
+
+/// v2 DAG 深化产物:v1 `ClusterDag` 字段面 0-byte + 逐簇平行扩展表。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClusterDagV2 {
+    /// v1 DAG(64B ClusterRecord/层级表/数据段,字面不动)。
+    pub base: ClusterDag,
+    /// 与 `base.records` 等长平行:蒙皮元数据(三字段校核后形态)。
+    pub skin: Vec<ClusterSkinMeta>,
+    /// 与 `base.records` 等长平行:CLAS 烘焙输入(簇级 AABB)。
+    pub clas: Vec<ClasBakeInput>,
+}
+
+/// 资产级 builder 输入(G9.2 M90;纯静态网格 = `skinned: None`)。
+#[derive(Debug, Clone, Default)]
+pub struct DagAsset {
+    /// 三角网格(叶层事实源)。
+    pub mesh: TriMesh,
+    /// 骨骼资产蒙皮权重(仅骨骼资产 = Some;逐顶点 ≤ MAX_BONE_INFLUENCES 对)。
+    pub skinned: Option<SkinWeights>,
+}
+
+/// 逐顶点骨骼权重(离线烘焙输入面;`joint_count` 为索引集越界校核上界)。
+#[derive(Debug, Clone)]
+pub struct SkinWeights {
+    /// 与 `mesh.positions` 等长;每顶点 (bone_id, weight) ≤ 4 对。
+    pub vertex_influences: Vec<Vec<(u32, f32)>>,
+    /// 骨骼总数(骨骼索引集元素 < joint_count 才合法)。
+    pub joint_count: u32,
+}
+
+impl DagAsset {
+    /// 纯静态网格资产(非蒙皮;蒙皮三字段按零值面落)。
+    pub fn static_mesh(mesh: TriMesh) -> Self {
+        Self {
+            mesh,
+            skinned: None,
+        }
+    }
+}
+
+/// 每顶点最大影响骨数(RXS-0345 上游口径;meshopt 同值)。
+pub const MAX_BONE_INFLUENCES: usize = 4;
 
 impl ClusterDag {
     pub fn cluster_count(&self) -> usize {
@@ -176,7 +397,8 @@ struct SubMesh {
 }
 
 /// 网格 → 簇层级 DAG(报告1 §5 P0→P3 的离线半;验收:任意输入得 DAG +
-/// 每簇误差包围球 + 层级统计)。
+/// 每簇误差包围球 + 层级统计)。**v1 既有面 0-byte 不动**;G9.2 typed `Err`
+/// 拒录变体见 [`build_dag_v2`](同一产物,失败经 `DagError` 返回而非 panic)。
 pub fn build_dag(mesh: &TriMesh) -> ClusterDag {
     let tris = mesh.triangles();
     let raw = clusterize_tris(&mesh.positions, &tris);
@@ -258,6 +480,251 @@ pub fn build_dag(mesh: &TriMesh) -> ClusterDag {
     }
     levels.push(level);
     export(&levels, &group_of, &group_counts, &child_links)
+}
+
+// ———— G9.2 M90 深化 API(RXS-0345;纯追加,v1 面 0-byte)————
+
+/// [`build_dag`] 的 typed `Err` 变体:构建(资产级输入经 [`DagAsset::static_mesh`]
+/// 等价路径)+ 逐边单调性核验;产物破坏单调性即 fail-closed 拒录(RXS-0345 §1)。
+pub fn build_dag_v2(mesh: &TriMesh) -> Result<ClusterDag, DagError> {
+    let dag = build_dag(mesh);
+    validate_monotonicity(&dag)?;
+    Ok(dag)
+}
+
+/// 资产级 builder 入口:蒙皮元数据三字段校核 + 单调性核验 + CLAS 烘焙输入导出
+/// (RXS-0345 §1/§3.3/§3.4)。骨骼资产(skinned = Some)任一簇缺三字段任一面 =
+/// typed `Err` 拒录;内部不变量断言转译为 `DagError::NonMonotonicInput`——
+/// builder 失败一律 typed `Err`,无 panic 泄漏(FLS:本 spec 无 UB 节)。
+pub fn build_asset_dag(asset: &DagAsset) -> Result<ClusterDagV2, DagError> {
+    // 叶层反查上下文(RAII;panic 路径同摘)。
+    let _ctx = MeshContextGuard::install(&asset.mesh);
+    // 内部 panic 级不变量断言(病态输入/中间态)→ typed Err 转译(不静默、不 clamp)。
+    let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_dag(&asset.mesh)));
+    let dag = match built {
+        Ok(d) => d,
+        Err(payload) => {
+            let s: String = match payload.downcast::<String>() {
+                Ok(b) => *b,
+                Err(p) => match p.downcast::<&'static str>() {
+                    Ok(b) => (*b).to_string(),
+                    Err(_) => String::new(),
+                },
+            };
+            let detail: &'static str = match s.as_str() {
+                "monotonic violation" => "monotonic violation",
+                _ => "builder internal assertion",
+            };
+            return Err(DagError::NonMonotonicInput { detail });
+        }
+    };
+    validate_monotonicity(&dag)?;
+    let skin = derive_skin_metadata(&dag, asset.skinned.as_ref())?;
+    let clas = (0..dag.records.len() as u32)
+        .map(|id| clas_bake_input_of(&dag, id))
+        .collect();
+    Ok(ClusterDagV2 {
+        base: dag,
+        skin,
+        clas,
+    })
+}
+
+/// 逐边单调性机器核验:DAG 每条 parent→child 边 `parent.error ≥ child.error`
+/// (RXS-0345 §1 逐字面;首条破坏边即 typed `Err`,不聚合不静默)。
+pub fn validate_monotonicity(dag: &ClusterDag) -> Result<(), DagError> {
+    for parent in 0..dag.records.len() as u32 {
+        let pe = dag.record(parent).error;
+        for &child in dag.children_of(parent) {
+            let ce = dag.record(child).error;
+            // 浮点序:NaN 不可比较同判破坏(partial_cmp 显式区分,非静默 ≥ 简化)。
+            if !matches!(
+                pe.partial_cmp(&ce),
+                Some(std::cmp::Ordering::Greater | std::cmp::Ordering::Equal)
+            ) {
+                return Err(DagError::NonMonotonicEdge {
+                    parent,
+                    child,
+                    parent_error: pe,
+                    child_error: ce,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 蒙皮元数据推导与校核(RXS-0345 §3.3 三字段:最大影响骨数/骨骼索引集/
+/// 包围体膨胀系数)。骨骼资产缺任一字段面 = typed `Err` 拒录。
+pub fn derive_skin_metadata(
+    dag: &ClusterDag,
+    skinned: Option<&SkinWeights>,
+) -> Result<Vec<ClusterSkinMeta>, DagError> {
+    let n = dag.records.len();
+    let mut out = Vec::with_capacity(n);
+    match skinned {
+        None => {
+            out.resize_with(n, ClusterSkinMeta::unskinned);
+        }
+        Some(sw) => {
+            if sw.vertex_influences.len() != dag.mesh_positions_len() {
+                // 权重表与网格顶点数不齐 = 三字段面残缺,拒录首簇定位。
+                let id = dag.leaf_ids().next().unwrap_or(0);
+                return Err(DagError::SkinMetadataMissing {
+                    cluster: id,
+                    detail: "vertex_influences 与网格顶点数不齐",
+                });
+            }
+            for id in 0..n as u32 {
+                let verts = dag.cluster_vertices(id);
+                let mut bones: Vec<u32> = Vec::new();
+                let mut max_inf = 0usize;
+                let mut rows: Vec<&[(u32, f32)]> = Vec::with_capacity(verts.len());
+                let mut missing = false;
+                for v in verts {
+                    let key = v.map(f32::to_bits);
+                    match dag.leaf_vertex_source_index(&key) {
+                        Some(gi) => rows.push(&sw.vertex_influences[gi as usize]),
+                        None => missing = true,
+                    }
+                }
+                if missing {
+                    return Err(DagError::SkinMetadataMissing {
+                        cluster: id,
+                        detail: "簇顶点无叶层权重行(三字段不可得)",
+                    });
+                }
+                for row in &rows {
+                    if row.is_empty() {
+                        return Err(DagError::SkinMetadataMissing {
+                            cluster: id,
+                            detail: "顶点骨骼权重行为空(最大影响骨数不可得)",
+                        });
+                    }
+                    max_inf = max_inf.max(row.len());
+                    for &(b, _) in row.iter() {
+                        if !bones.contains(&b) {
+                            bones.push(b);
+                        }
+                    }
+                }
+                bones.sort_unstable();
+                bones.dedup();
+                for &b in &bones {
+                    if b >= sw.joint_count {
+                        return Err(DagError::SkinMetadataInconsistent {
+                            cluster: id,
+                            detail: "骨骼索引越界(≥ joint_count)",
+                        });
+                    }
+                }
+                if max_inf > MAX_BONE_INFLUENCES {
+                    return Err(DagError::SkinMetadataInconsistent {
+                        cluster: id,
+                        detail: "单顶点影响骨数 > MAX_BONE_INFLUENCES",
+                    });
+                }
+                if max_inf == 0 {
+                    // 全簇零权重 = 事实非蒙皮簇(字段面完整:零值三字段)。
+                    out.push(ClusterSkinMeta::unskinned());
+                    continue;
+                }
+                let bound_inflation = bound_inflation_of(&rows);
+                out.push(ClusterSkinMeta {
+                    max_influences: max_inf as u32,
+                    bone_indices: Some(bones),
+                    bound_inflation: Some(bound_inflation),
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// 包围体膨胀系数(Kerbl 保守界所需输入的离线界,确定性纯函数):
+/// 顶点权重均摊偏移总量 = 蒙皮位移上界的保守代理(权重非负 ≤ 1)。
+fn bound_inflation_of(rows: &[&[(u32, f32)]]) -> f32 {
+    let total_w: f32 = rows
+        .iter()
+        .map(|r| r.iter().map(|&(_, w)| w).sum::<f32>())
+        .sum();
+    let n_inf: usize = rows.iter().map(|r| r.len()).sum();
+    if n_inf == 0 {
+        return 0.0;
+    }
+    let mean = total_w / n_inf as f32;
+    rows.iter()
+        .flat_map(|r| r.iter())
+        .map(|&(_, w)| (w - mean).abs())
+        .fold(0.0f32, f32::max)
+}
+
+/// 簇级 CLAS 烘焙输入(三角形簇几何 = `cluster_vertices`/`cluster_triangle` 视图;
+/// 簇级 AABB = 簇局部顶点逐位 min/max,RXS-0345 §3.4)。
+pub fn clas_bake_input_of(dag: &ClusterDag, id: u32) -> ClasBakeInput {
+    let verts = dag.cluster_vertices(id);
+    let mut lo = [f32::INFINITY; 3];
+    let mut hi = [f32::NEG_INFINITY; 3];
+    for v in verts {
+        for k in 0..3 {
+            lo[k] = lo[k].min(v[k]);
+            hi[k] = hi[k].max(v[k]);
+        }
+    }
+    if verts.is_empty() {
+        lo = [0.0; 3];
+        hi = [0.0; 3];
+    }
+    ClasBakeInput {
+        aabb_min: lo,
+        aabb_max: hi,
+    }
+}
+
+/// DAG canonical 字节流(双构建 byte-equal golden 的比对面;RXS-0345 §5):
+/// v1 全字段面逐位拼接(records/nodes/children/vertices/indices/levels),
+/// 与 RXGB 序列化同信息集、本结构内联布局(manifest 落 digest 不进本流)。
+pub fn canonical_bytes(dag: &ClusterDag) -> Vec<u8> {
+    let mut out = Vec::new();
+    for r in &dag.records {
+        for &x in &r.center {
+            out.extend_from_slice(&x.to_bits().to_le_bytes());
+        }
+        out.extend_from_slice(&r.radius.to_bits().to_le_bytes());
+        for &x in &r.cone_axis {
+            out.extend_from_slice(&x.to_bits().to_le_bytes());
+        }
+        out.extend_from_slice(&r.cone_cutoff.to_bits().to_le_bytes());
+        out.extend_from_slice(&r.error.to_bits().to_le_bytes());
+        out.extend_from_slice(&r.parent_error.to_bits().to_le_bytes());
+        out.extend_from_slice(&r.vertex_offset.to_le_bytes());
+        out.extend_from_slice(&r.triangle_offset.to_le_bytes());
+        out.extend_from_slice(&r.vertex_count.to_le_bytes());
+        out.extend_from_slice(&r.triangle_count.to_le_bytes());
+        out.extend_from_slice(&r.page_id.to_le_bytes());
+        out.extend_from_slice(&r.reserved.to_le_bytes());
+    }
+    for n in &dag.nodes {
+        out.extend_from_slice(&n.first_child.to_le_bytes());
+        out.extend_from_slice(&n.child_count.to_le_bytes());
+        out.extend_from_slice(&n.level.to_le_bytes());
+        out.extend_from_slice(&n.group.to_le_bytes());
+    }
+    for &c in &dag.children {
+        out.extend_from_slice(&c.to_le_bytes());
+    }
+    for v in &dag.vertices {
+        for &x in v {
+            out.extend_from_slice(&x.to_bits().to_le_bytes());
+        }
+    }
+    out.extend_from_slice(&dag.triangle_indices);
+    for l in &dag.levels {
+        out.extend_from_slice(&l.record_start.to_le_bytes());
+        out.extend_from_slice(&l.record_count.to_le_bytes());
+        out.extend_from_slice(&l.triangle_count.to_le_bytes());
+    }
+    out
 }
 
 /// 簇分组(meshopt_partitionClusters 目标的简化版):簇邻接按**共享边计数**
@@ -867,5 +1334,169 @@ mod tests {
             );
         }
         println!("[uv_sphere_64] 总簇数 = {}", dag.cluster_count());
+    }
+
+    // ———— G9.2 M90(RXS-0345)————
+
+    /// 破坏单调性 fixture:合法 DAG 副本上把某非根父簇 `error` 压到其孩子以下
+    /// (模拟「破坏单调性的输入/中间态」;RXS-0345 §1 fail-closed 拒录臂)。
+    fn make_nonmonotonic_fixture() -> (ClusterDag, u32, u32) {
+        let mut dag = build_dag(&TriMesh::uv_sphere(1.0, 24, 24));
+        for parent in 0..dag.records.len() as u32 {
+            let children = dag.children_of(parent).to_vec();
+            if children.is_empty() {
+                continue;
+            }
+            let child = children[0];
+            let child_err = dag.record(child).error;
+            if child_err > 0.0 {
+                dag.records[parent as usize].error = child_err * 0.5;
+                return (dag, parent, child);
+            }
+        }
+        panic!("fixture 构造失败:无可用边");
+    }
+
+    //@ spec: RXS-0345
+    #[test]
+    fn nonmonotonic_edge_rejected_typed_err() {
+        let (dag, parent, child) = make_nonmonotonic_fixture();
+        let err = validate_monotonicity(&dag).expect_err("破坏单调性必须 typed Err 拒录");
+        match err {
+            DagError::NonMonotonicEdge {
+                parent: p,
+                child: c,
+                parent_error,
+                child_error,
+            } => {
+                assert_eq!(p, parent);
+                assert_eq!(c, child);
+                assert!(parent_error < child_error);
+            }
+            other => panic!("错误变体不符: {other:?}"),
+        }
+        // NaN 误差不可比较 → 同判破坏(浮点序保守侧)。
+        let mut nan_dag = build_dag(&TriMesh::uv_sphere(1.0, 24, 24));
+        let pid = nan_dag.levels[1].record_start;
+        nan_dag.records[pid as usize].error = f32::NAN;
+        assert!(matches!(
+            validate_monotonicity(&nan_dag),
+            Err(DagError::NonMonotonicEdge { .. })
+        ));
+    }
+
+    //@ spec: RXS-0345
+    #[test]
+    fn build_dag_v2_accepts_monotonic_and_rejects_broken() {
+        let dag = build_dag_v2(&TriMesh::uv_sphere(1.0, 16, 16)).expect("合法 mesh 必须过");
+        validate_monotonicity(&dag).expect("产物逐边单调");
+        // 双构建 canonical 字节相等(RXS-0345 §5 双构建确定性)。
+        let a = build_dag_v2(&TriMesh::uv_sphere(1.0, 16, 16)).unwrap();
+        let b = build_dag_v2(&TriMesh::uv_sphere(1.0, 16, 16)).unwrap();
+        assert_eq!(canonical_bytes(&a), canonical_bytes(&b));
+    }
+
+    //@ spec: RXS-0345
+    #[test]
+    fn asset_level_builder_catches_panic_as_typed_err() {
+        // 资产级入口:病态输入的内部断言必须转译 typed Err,不 panic 泄漏。
+        let bad = DagAsset {
+            mesh: TriMesh {
+                positions: vec![[0.0, 0.0, 0.0]],
+                indices: vec![0, 1, 2], // 索引越界(positions 仅 1 顶点)
+            },
+            skinned: None,
+        };
+        let err = build_asset_dag(&bad).expect_err("病态输入必须 typed Err");
+        assert!(matches!(err, DagError::NonMonotonicInput { .. }));
+    }
+
+    //@ spec: RXS-0345
+    #[test]
+    fn skin_metadata_three_fields_roundtrip() {
+        let mesh = TriMesh::uv_sphere(1.0, 12, 12);
+        let n = mesh.positions.len();
+        // 全顶点半权重绑骨 0/1(权重和 1.0;骨骼索引集应恰 {0,1})。
+        let influences: Vec<Vec<(u32, f32)>> = (0..n)
+            .map(|_| vec![(0u32, 0.5f32), (1u32, 0.5f32)])
+            .collect();
+        let asset = DagAsset {
+            mesh: mesh.clone(),
+            skinned: Some(SkinWeights {
+                vertex_influences: influences,
+                joint_count: 4,
+            }),
+        };
+        let v2 = build_asset_dag(&asset).expect("蒙皮资产合法构建");
+        assert_eq!(v2.skin.len(), v2.base.records.len());
+        assert_eq!(v2.clas.len(), v2.base.records.len());
+        for id in v2.base.leaf_ids() {
+            let meta = &v2.skin[id as usize];
+            assert_eq!(meta.max_influences, 2, "最大影响骨数");
+            assert_eq!(
+                meta.bone_indices.as_deref(),
+                Some(&[0u32, 1u32][..]),
+                "骨骼索引集升序去重"
+            );
+            let infl = meta.bound_inflation.expect("包围体膨胀系数在场");
+            assert!(infl.is_finite() && infl >= 0.0);
+        }
+        // CLAS 输入:簇级 AABB ⊇ 簇顶点(逐位)。
+        for id in 0..v2.base.records.len() as u32 {
+            let c = &v2.clas[id as usize];
+            for v in v2.base.cluster_vertices(id) {
+                for (k, &x) in v.iter().enumerate() {
+                    assert!(c.aabb_min[k] <= x && x <= c.aabb_max[k]);
+                }
+            }
+            // 三角形簇几何视图 = v1 数据段(不重发)。
+            assert!(v2.base.record(id).triangle_count > 0);
+        }
+        let _ = mesh;
+    }
+
+    //@ spec: RXS-0345
+    #[test]
+    fn skin_metadata_missing_fields_rejected() {
+        let mesh = TriMesh::uv_sphere(1.0, 8, 8);
+        let n = mesh.positions.len();
+        // 缺臂 1:权重表行数与顶点数不齐(三字段面残缺)。
+        let short = DagAsset {
+            mesh: mesh.clone(),
+            skinned: Some(SkinWeights {
+                vertex_influences: vec![vec![(0u32, 1.0f32)]; n - 1],
+                joint_count: 2,
+            }),
+        };
+        assert!(matches!(
+            build_asset_dag(&short),
+            Err(DagError::SkinMetadataMissing { .. })
+        ));
+        // 缺臂 2:某顶点权重行为空(最大影响骨数不可得)。
+        let mut rows: Vec<Vec<(u32, f32)>> = (0..n).map(|_| vec![(0u32, 1.0f32)]).collect();
+        rows[0] = Vec::new();
+        let empty_row = DagAsset {
+            mesh: mesh.clone(),
+            skinned: Some(SkinWeights {
+                vertex_influences: rows,
+                joint_count: 2,
+            }),
+        };
+        assert!(matches!(
+            build_asset_dag(&empty_row),
+            Err(DagError::SkinMetadataMissing { .. })
+        ));
+        // 不一致臂:骨骼 id 越界(≥ joint_count)。
+        let oob = DagAsset {
+            mesh,
+            skinned: Some(SkinWeights {
+                vertex_influences: (0..n).map(|_| vec![(7u32, 1.0f32)]).collect(),
+                joint_count: 2,
+            }),
+        };
+        assert!(matches!(
+            build_asset_dag(&oob),
+            Err(DagError::SkinMetadataInconsistent { .. })
+        ));
     }
 }

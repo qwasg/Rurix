@@ -287,7 +287,7 @@ pub fn decode_logical_page(bytes: &[u8]) -> Result<LogicalPage, PageDecodeError>
 
 /// 页 AABB 量化中心 → u16×3（RXS-0328）。
 pub fn quantize_center(center: [f32; 3], bounds: [f32; 6]) -> (u16, u16, u16) {
-    const EPS: f32 = 1.175_494_4e-38; // 2^-126
+    const EPS: f32 = f32::MIN_POSITIVE; // 2^-126
     let q = |c: f32, lo: f32, hi: f32| -> u16 {
         let span = (hi - lo).max(EPS);
         let t = ((c - lo) / span).clamp(0.0, 1.0);

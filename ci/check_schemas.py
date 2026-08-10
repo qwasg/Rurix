@@ -433,6 +433,12 @@ def check_evidence_files() -> None:
     g9_m104_accesskind_indirect_edge_schema = load(
         ROOT / "milestones/g9/g9_m104_accesskind_indirect_edge_evidence_schema.json"
     )
+    g9_m90_cluster_dag_deepening_schema = load(
+        ROOT / "milestones/g9/g9_m90_cluster_dag_deepening_evidence_schema.json"
+    )
+    g9_m91_page_format_v2_abi_schema = load(
+        ROOT / "milestones/g9/g9_m91_page_format_v2_abi_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -882,6 +888,16 @@ def check_evidence_files() -> None:
     g9_m104_accesskind_indirect_edge_validator = (
         jsonschema.Draft7Validator(g9_m104_accesskind_indirect_edge_schema)
         if g9_m104_accesskind_indirect_edge_schema is not None
+        else None
+    )
+    g9_m90_cluster_dag_deepening_validator = (
+        jsonschema.Draft7Validator(g9_m90_cluster_dag_deepening_schema)
+        if g9_m90_cluster_dag_deepening_schema is not None
+        else None
+    )
+    g9_m91_page_format_v2_abi_validator = (
+        jsonschema.Draft7Validator(g9_m91_page_format_v2_abi_schema)
+        if g9_m91_page_format_v2_abi_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1692,6 +1708,30 @@ def check_evidence_files() -> None:
             # cabi 不可表达诊断 + RXS-0239 字面不动 + D6 互证)→
             # milestones/g9/g9_m104_accesskind_indirect_edge_evidence_schema.json。
             validator = g9_m104_accesskind_indirect_edge_validator
+        elif (
+            f.name.startswith("g9_m90_cluster_dag_deepening_")
+            and g9_m90_cluster_dag_deepening_validator is not None
+        ):
+            # G9.2 P0 硬门 M90 cluster_dag_deepening（步骤 132，host 纯 host 门）：
+            # 固定 mesh 语料 cluster DAG 两次独立构建 canonical 字节相等 + 每条
+            # parent→child 边误差单调不增逐边机器核验 + 破坏单调性 fixture 构建期
+            # fail-closed typed Err 拒录 + 蒙皮元数据/CLAS 离线烘焙输入字段按冻结
+            # schema 完整 roundtrip（RXS-0345；RFC-0022 §4.1）。
+            # 前缀与 g9_vram_as_baseline_ / g9_m91_page_format_v2_abi_ 互不包含。
+            validator = g9_m90_cluster_dag_deepening_validator
+        elif (
+            f.name.startswith("g9_m91_page_format_v2_abi_")
+            and g9_m91_page_format_v2_abi_validator is not None
+        ):
+            # G9.2 P0 硬门 M91 page_format_v2_abi（步骤 133，host+device 门）：
+            # RXPL major=2 ABI id/version 与 v1 不同且冻结 + checked-in fixtures
+            # encode→decode 往返无损 canonical records 与 golden 逐字节相等 +
+            # M04 v1 页 ABI 0-byte 兼容（v1 消费路径回归 digest 不变）+ 篡改
+            # digest 页 fail-closed（RED 臂）+ device 解码 digest 等于 CPU 解码
+            # digest（RXS-0344；RFC-0022 §4.5）。device 腿必需，
+            # RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。
+            # 前缀与 g9_vram_as_baseline_ / g9_m90_cluster_dag_deepening_ 互不包含。
+            validator = g9_m91_page_format_v2_abi_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "input": "TriMesh::uv_sphere(1.0,24,24) build_asset_dag(static)",
+  "canonical_dag_sha256": "68def89991d49a93f7325dbcf95632b2faa4dd9bde9c946a7a849d6f477de926",
+  "pages_v2_concat_sha256": "ddba33159c53aa468dc4ff81154b311b2ca17107267035469c6c70ea704574f3",
+  "page_count": 1,
+  "cluster_count": 39,
+  "edge_count": 82
+}
