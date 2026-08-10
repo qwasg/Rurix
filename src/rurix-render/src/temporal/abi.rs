@@ -258,7 +258,7 @@ impl ConsumeReport {
         abi.slots
             .iter()
             .filter(|s| s.required)
-            .all(|s| self.slots.iter().any(|&n| n == s.name))
+            .all(|s| self.slots.contains(&s.name))
     }
 
     pub fn contains_named(&self, names: &[&str]) -> bool {
@@ -305,17 +305,17 @@ pub fn assemble<'a>(
     if motion.c != 2 || (motion.w, motion.h) != render_extent {
         return Err(AssembleError::Shape("motion must be 2ch @ render_extent"));
     }
-    if let Some(r) = bind.reactive {
-        if r.c != 1 || (r.w, r.h) != render_extent {
-            return Err(AssembleError::Shape("reactive must be 1ch @ render_extent"));
-        }
+    if let Some(r) = bind.reactive
+        && (r.c != 1 || (r.w, r.h) != render_extent)
+    {
+        return Err(AssembleError::Shape("reactive must be 1ch @ render_extent"));
     }
-    if let Some(t) = bind.transparent {
-        if t.c != 1 || (t.w, t.h) != render_extent {
-            return Err(AssembleError::Shape(
-                "transparent must be 1ch @ render_extent",
-            ));
-        }
+    if let Some(t) = bind.transparent
+        && (t.c != 1 || (t.w, t.h) != render_extent)
+    {
+        return Err(AssembleError::Shape(
+            "transparent must be 1ch @ render_extent",
+        ));
     }
 
     let inputs = UpscaleInputs {
@@ -368,10 +368,14 @@ pub fn synthetic_frame(frame: u32, iw: u32, ih: u32) -> SyntheticFrame {
         s * (((x + 3 * y + frame) % 11) as f32 - 5.0)
     });
     let reactive = ImageF32::from_fn(iw, ih, 1, |x, y, _| {
-        if (x + y + frame) % 13 == 0 { 0.85 } else { 0.0 }
+        if (x + y + frame).is_multiple_of(13) {
+            0.85
+        } else {
+            0.0
+        }
     });
     let transparent = ImageF32::from_fn(iw, ih, 1, |x, y, _| {
-        if x > iw / 2 && (y + frame) % 9 == 0 {
+        if x > iw / 2 && (y + frame).is_multiple_of(9) {
             0.6
         } else {
             0.0
@@ -557,7 +561,10 @@ mod tests {
         let mut noop = NoOpPassthroughUpscaler::default();
         let (onoop, rn) = run_via_abi(&mut noop, &bind).unwrap();
         assert!(!rn.contains_all_required());
-        assert_ne!(sequence_digest(&[o1]), sequence_digest(&[onoop.clone()]));
+        assert_ne!(
+            sequence_digest(&[o1]),
+            sequence_digest(std::slice::from_ref(&onoop))
+        );
         assert_ne!(sequence_digest(&[o2]), sequence_digest(&[onoop]));
     }
 }

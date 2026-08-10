@@ -269,10 +269,10 @@ pub fn validate_graph(
         )));
     }
     for c in clusters {
-        if let Some(p) = &c.parent {
-            if !ids.contains(p.as_str()) {
-                return Err(SchemaError::NonTreeCluster(format!("missing parent {p}")));
-            }
+        if let Some(p) = &c.parent
+            && !ids.contains(p.as_str())
+        {
+            return Err(SchemaError::NonTreeCluster(format!("missing parent {p}")));
         }
         for ch in &c.children {
             if !ids.contains(ch.as_str()) && !chunk_ids.contains(ch.as_str()) {
@@ -398,10 +398,10 @@ fn extract_array_objects<'a>(text: &'a str, key: &str) -> Result<Vec<&'a str>, S
             depth += 1;
         } else if c == '}' {
             depth -= 1;
-            if depth == 1 {
-                if let Some(s) = start.take() {
-                    outs.push(&rest[s..=j]);
-                }
+            if depth == 1
+                && let Some(s) = start.take()
+            {
+                outs.push(&rest[s..=j]);
             }
         } else if c == '[' {
             depth += 1;

@@ -139,6 +139,15 @@ required-features = ["vulkan"]
 name = "vk_dgc"
 required-features = ["vulkan"]
 
+# G9.2 M103 descriptor buffer 全局表 device 出图 harness(步骤 134;RXS-0347;RFC-0023
+# §4.3;门 g9.p0.m103.descriptor_global_table):VK_EXT_descriptor_buffer 单一全局大表
+# ≥65536 条目 fixture 出图与 host 种子 golden 逐字节相等 + 分配律/leak/悬空/越界
+# host 判据 + v1/v2 旧路径回归对照(vk_desc_v2 范式扩 v3)。RURIX_REQUIRE_REAL=1 +
+# RURIX_VK_VALIDATION=1 双置。
+[[bin]]
+name = "vk_desc_v3"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

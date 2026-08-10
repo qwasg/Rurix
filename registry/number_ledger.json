@@ -352,6 +352,11 @@
   ],
   "revision_log": [
     {
+      "version": "v1.78",
+      "date": "2026-08-09",
+      "change": "G9.2 实现波 impl-c(M103+M104)materialize(feat/g9.2-impl-c,agent 完全自主 D-406 v2.0,Assisted-by: Claude Code:claude-fable-5):**CI_step on_tree_max 137 / next_free 138 维持**——步骤 134(ci/g9_descriptor_global_table_smoke.py --gate g9.p0.m103.descriptor_global_table,host+device,RURIX_REQUIRE_REAL=1+RURIX_VK_VALIDATION=1 双置,vk_desc_v3 ≥65536 条目 descriptor buffer 全局表出图与 host 种子 golden 逐字节相等 + validation 零)/ 步骤 135(ci/g9_accesskind_indirect_edge_smoke.py --gate g9.p0.m104.accesskind_indirect_edge,纯 host,新边 golden + 既有 golden 0-byte + strict 拒 + cabi 不可表达诊断 + D6 互证)已落 pr-smoke.yml;落盘前实测 CI_step.next_free=131(与蜂群章程 §8.1 快照一致),134/135 顺位领取,与 agent B(131)/agent D(136/137)同波。**U on_tree_max 54 / next_free 55 维持**——U55 = M103 VK_EXT_descriptor_buffer FFI(vk.rs 加性 append 段,unsafe-audit/rurix-rt.md 登记,沿 U26/U27/U30/U31/U32 审计模式)落 55;U54 = agent B M102 DGC FFI 同波已领(on_tree_max 54 即其兑现,本行补记归属)。RX_error/RD/SG/MR/D/RFC 字段 0-byte(零新码:装配期 strict 拒复用 RX6029 族,cabi 不可表达诊断走既有 diag+RXRT_FAIL;零新 RD/U 之外命名空间)。spec 条款 RXS-0344~0349 已由 v1.74 spec-first materialize,本波消费其实现面不重领号。"
+    },
+    {
       "version": "v1.77",
       "date": "2026-08-09",
       "change": "G9.2 实现波 agent B(M102 DGC 抽象门)materialize 合并仲裁补记(feat/g9.2-impl-b,agent 完全自主 D-406 v2.0,Assisted-by: Claude Code:claude-fable-5):**CI_step 步骤 131 落账 (on_tree_max 含 131/136/137=137,next_free=138 维持)** + **U on_tree_max 53→54、next_free 54→55**——U54 = M102 VK_EXT_device_generated_commands FFI(src/rurix-rt/src/vk.rs DGC 段,unsafe-audit/rurix-rt.md 登记,沿 U26/U27/U30/U31/U32 审计模式;U55 预 agent C descriptor_buffer 同波)。本行补记 merge commit 19118b23 仲裁时漏落的 revision_log 条目(仅补记,不动 on_tree_max/next_free——131 与 U54 的命名空间字段已随该 merge 落账);v1.75(agent D 136/137)/v1.76(G7.7 close-out 占位)行不改写。"

@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.2 M104 accesskind_indirect_edge evidence",
+  "description": "evidence/g9_m104_accesskind_indirect_edge_<UTC>.json。G9.2 P0 硬门 g9.p0.m104.accesskind_indirect_edge（G9_ACCEPTANCE_MAP §2 M104；RFC-0023 §4.4.3 🔒 修订行表；spec/render_graph.md RXS-0346）：新 AccessKind 边 StorageWrite→IndirectCommandRead barrier 推导 golden 全等 + 既有 golden 0-byte 恒跑 + 同图双跑逐字节等值 + 漏声明 reads_indirect 装配期 strict 拒（RX6029 族）+ cabi 侧 indirect 声明不可表达诊断（RXS-0241 tag 域 0..=6 字面 0-byte）+ RXS-0239 单 queue 全序字面不动 + RXS-0346 条款与 RFC 修订行表逐字机核 + command build node 零 CPU 回读（结构性断言 + 回读计数器=0）+ D6 互证 0-byte。纯 host 门，device 段 not_applicable。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "wave",
+    "assertion_id",
+    "status",
+    "commands",
+    "symbolic_gate_key",
+    "matrix_row",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "base_commit",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m104_accesskind_indirect_edge" },
+    "milestone": { "type": "string", "const": "M104" },
+    "wave": { "type": "string", "const": "G9.2" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m104.accesskind_indirect_edge" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m104.accesskind_indirect_edge" },
+    "matrix_row": { "type": "string", "const": "M104" },
+    "numeric_step": { "type": "integer", "const": 135 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.4.3;spec/render_graph.md RXS-0346;G9_ACCEPTANCE_MAP §2 M104"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "new_edge_barrier_golden_equal",
+        "legacy_golden_zero_byte",
+        "double_run_byte_equal",
+        "missing_reads_indirect_strict_rejected",
+        "cabi_indirect_access_inexpressible",
+        "rxs0239_literal_untouched",
+        "readback_counter_zero",
+        "d6_crosscheck_zero_byte"
+      ],
+      "properties": {
+        "new_edge_barrier_golden_equal": { "type": "boolean" },
+        "legacy_golden_zero_byte": { "type": "boolean" },
+        "double_run_byte_equal": { "type": "boolean" },
+        "missing_reads_indirect_strict_rejected": { "type": "boolean" },
+        "cabi_indirect_access_inexpressible": { "type": "boolean" },
+        "rxs0239_literal_untouched": { "type": "boolean" },
+        "readback_counter_zero": { "type": "boolean" },
+        "d6_crosscheck_zero_byte": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

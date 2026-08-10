@@ -16,9 +16,25 @@
 //! 逻辑**;推导与 uc04 手动 `plan_barriers`(RXS-0169)对 deferred 三 pass 图的集合相等由
 //! `uc04-demo` 侧 D6 单测双向断言(两独立实现互证)。
 //!
-//! **首期不可表达面(§4.0-3)**:bindless 表声明、storage image(`TextureRw2D`)资源、
-//! mesh/RT pass kind 均不在 [`AccessKind`] 封闭枚举内;凡含此三者的 pass 首期不可经 graph
-//! 表达(显式登记 RD-034+,非静默)。storage image barrier 首期走 RXS-0169 手动路。
+//! **首期不可表达面(§4.0-3,G9.2 RXS-0346 修订后)**:storage image(`TextureRw2D`)
+//! 资源、mesh/RT pass kind 仍不在 [`AccessKind`] 封闭枚举内(显式登记 RD-034+,非静默);
+//! 「bindless 表声明 + indirect buffer」两项自 G9.2 起**出列**(indirect buffer 经
+//! [`Graph::dgc_buffer`] / `reads_indirect` 可表达)。storage image barrier 首期走
+//! RXS-0169 手动路。
+//!
+//! **G9.2 加性演进(RXS-0346 / RFC-0023 §4.4.3 🔒 修订行表)**:AccessKind 封闭枚举
+//! 加性 `IndirectCommandRead`(tag 7;**🔒 cabi tag 域 0..=6 字面 0-byte**——`from_u32`
+//! 不映射 tag 7,cabi 侧声明 indirect 读访问类 → 不可表达诊断,零新码)+ 新依赖边
+//! `StorageWrite→IndirectCommandRead`(`UavReadWrite` 写侧 → `IndirectCommandRead` 读侧
+//! 经既有推导自然成边)+ 双后端映射新行(Vulkan `SHADER_WRITE→INDIRECT_COMMAND_READ` /
+//! D3D12 `UNORDERED_ACCESS→INDIRECT_ARGUMENT`)。**EB 三轴结构 0-byte**(新访问类只是
+//! access 轴取值域加性扩展);既有 barrier 推导 golden 全部 0-byte 恒跑,新边 golden
+//! 只加不改。漏声明 indirect 读边(indirect pass 消费 DgcBuffer 但未声明
+//! `reads_indirect`)→ 装配期 strict 拒(RX6029 族,`seal()` ⑤ 段;DGC 消费关系事实源
+//! = [`Graph::declare_indirect_dispatch`] 编排边表,主机编排侧 DGC token 装配核验归
+//! M102/RXS-0348 harness)。「bindless 表 + indirect buffer」出首期不可表达清单
+//! (§4.0-3 修订行);mesh/RT pass kind 归后续波次裁决,storage image 维持不可表达 +
+//! RXS-0169 手动路不动。
 
 use std::collections::BTreeSet;
 
@@ -62,6 +78,16 @@ pub mod vk_access {
     pub const TRANSFER_READ: u32 = 0x800;
     pub const TRANSFER_WRITE: u32 = 0x1000;
     pub const MEMORY_READ: u32 = 0x8000;
+    /// `VK_ACCESS_INDIRECT_COMMAND_READ_BIT`(RXS-0346 双后端映射新行)。
+    pub const INDIRECT_COMMAND_READ: u32 = 0x1;
+}
+
+/// `VkPipelineStageFlagBits` 追加数值(RXS-0346;`DRAW_INDIRECT` 段独立成行,
+/// 既有 `vk_stage` 模块字面 0-byte)。
+pub mod vk_stage_ext {
+    #![allow(missing_docs)]
+    /// `VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT`。
+    pub const DRAW_INDIRECT: u32 = 0x2;
 }
 
 // ── AccessKind 封闭枚举(单一事实源,D3/D5)────────────────────────────────────────────
@@ -86,6 +112,12 @@ pub enum AccessKind {
     CopyDstReadback,
     /// present 终端胶水(D5c):backbuffer 交回 present 会话(`PRESENT` / `PRESENT_SRC_KHR`)。
     PresentHandoff,
+    /// `reads_indirect(b)`:indirect command buffer(DgcBuffer)GPU 端消费读
+    /// (**RXS-0346 加性扩展**,G9.2 / RFC-0023 §4.4.3 修订行 1;`INDIRECT_ARGUMENT` /
+    /// buffer 无 layout)。新依赖边 `StorageWrite→IndirectCommandRead`(Vulkan
+    /// `SHADER_WRITE→INDIRECT_COMMAND_READ` / D3D12 `UNORDERED_ACCESS→INDIRECT_ARGUMENT`)
+    /// 经 `UavReadWrite` 写侧 → 本变体读侧在 `derive_barriers` 自然成边。
+    IndirectCommandRead,
 }
 
 impl AccessKind {
@@ -106,7 +138,10 @@ impl AccessKind {
     pub fn is_consuming_read(self) -> bool {
         matches!(
             self,
-            AccessKind::ShaderRead | AccessKind::CopySrcReadback | AccessKind::PresentHandoff
+            AccessKind::ShaderRead
+                | AccessKind::CopySrcReadback
+                | AccessKind::PresentHandoff
+                | AccessKind::IndirectCommandRead
         )
     }
 
@@ -121,6 +156,8 @@ impl AccessKind {
             AccessKind::CopySrcReadback => D3d12State::CopySource,
             AccessKind::CopyDstReadback => D3d12State::CopyDest,
             AccessKind::PresentHandoff => D3d12State::Present,
+            // RXS-0346 修订行 2:D3D12 `UNORDERED_ACCESS → INDIRECT_ARGUMENT`。
+            AccessKind::IndirectCommandRead => D3d12State::IndirectArgument,
         }
     }
 
@@ -135,6 +172,8 @@ impl AccessKind {
             AccessKind::CopySrcReadback => vk_layout::TRANSFER_SRC_OPTIMAL,
             AccessKind::CopyDstReadback => vk_layout::TRANSFER_DST_OPTIMAL,
             AccessKind::PresentHandoff => vk_layout::PRESENT_SRC_KHR,
+            // DgcBuffer = buffer 资源:无 layout(推导路径发 BufferSync,本臂防御性 GENERAL)。
+            AccessKind::IndirectCommandRead => vk_layout::GENERAL,
         }
     }
 
@@ -150,6 +189,9 @@ impl AccessKind {
             AccessKind::UavReadWrite => vk_stage::FRAGMENT_SHADER | vk_stage::COMPUTE_SHADER,
             AccessKind::CopySrcReadback | AccessKind::CopyDstReadback => vk_stage::TRANSFER,
             AccessKind::PresentHandoff => vk_stage::BOTTOM_OF_PIPE,
+            // RXS-0346:indirect command 消费阶段(DgcBuffer 由 compute pre-pass
+            // `reads_writes_uav` 写;跨阶段可见性由源侧保守掩码裁定)。
+            AccessKind::IndirectCommandRead => vk_stage_ext::DRAW_INDIRECT,
         }
     }
 
@@ -164,10 +206,15 @@ impl AccessKind {
             AccessKind::CopySrcReadback => vk_access::TRANSFER_READ,
             AccessKind::CopyDstReadback => vk_access::TRANSFER_WRITE,
             AccessKind::PresentHandoff => vk_access::MEMORY_READ,
+            // RXS-0346 修订行 2:Vulkan `SHADER_WRITE → INDIRECT_COMMAND_READ`(读侧)。
+            AccessKind::IndirectCommandRead => vk_access::INDIRECT_COMMAND_READ,
         }
     }
 
     /// C ABI / cabi 下发用的稳定 u32 tag(`rxrt_graph_declare` 参数;含义冻结,只追加)。
+    /// **🔒 RXS-0241 tag 域字面 0-byte(RXS-0346 修订行 6)**:cabi 合法域恒 `0..=6`;
+    /// `IndirectCommandRead` 的 tag 7 **仅供内部等值/测试**,cabi 面不暴露(声明 tag 7
+    /// 经 `from_u32(None)` → 不可表达诊断,见 [`Self::from_u32`])。
     #[must_use]
     pub fn as_u32(self) -> u32 {
         match self {
@@ -178,10 +225,15 @@ impl AccessKind {
             AccessKind::CopySrcReadback => 4,
             AccessKind::CopyDstReadback => 5,
             AccessKind::PresentHandoff => 6,
+            AccessKind::IndirectCommandRead => 7,
         }
     }
 
-    /// u32 tag → AccessKind(cabi 上行;未知 tag → `None`)。
+    /// u32 tag → AccessKind(cabi 上行;未知 tag → `None`)。**🔒 RXS-0241 tag 域
+    /// 0..=6 字面 0-byte(RXS-0346 修订行 6)**:tag 7(`IndirectCommandRead`)首期
+    /// cabi **不暴露**——与其他未知 tag 同路返回 `None`,cabi 侧声明 indirect 读访问类
+    /// → 不可表达诊断(既有确定性 `diag` + `RXRT_FAIL` 通道,零新码);cabi 面扩展
+    /// (tag 域 0..=7)另案裁决。
     #[must_use]
     pub fn from_u32(v: u32) -> Option<AccessKind> {
         Some(match v {
@@ -216,6 +268,8 @@ pub enum D3d12State {
     CopyDest,
     /// `D3D12_RESOURCE_STATE_PRESENT`(== `COMMON` 数值,语义 present handoff)。
     Present,
+    /// `D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT`(RXS-0346 加性;DgcBuffer 消费态)。
+    IndirectArgument,
 }
 
 // ── 资源与 pass 建面 ───────────────────────────────────────────────────────────────
@@ -296,6 +350,15 @@ impl PassSpec {
         self.with(b, AccessKind::UavReadWrite)
     }
 
+    /// `reads_indirect(b)`:indirect command buffer(DgcBuffer)GPU 端消费读
+    /// (**RXS-0346 加性扩展**,G9.2 / RFC-0023 §4.4.3 修订行 1/5)。DgcBuffer 资源经
+    /// [`Graph::dgc_buffer`] 分配;indirect pass 消费 DgcBuffer 而未声明本访问 →
+    /// 装配期 strict 拒(RX6029 族,RFC-0023 §4.4.3 末段配套 strict 判据)。
+    #[must_use]
+    pub fn reads_indirect(self, b: ResourceId) -> PassSpec {
+        self.with(b, AccessKind::IndirectCommandRead)
+    }
+
     /// present 终端胶水:backbuffer → PRESENT。
     #[must_use]
     pub fn present_handoff(self, t: ResourceId) -> PassSpec {
@@ -317,6 +380,22 @@ struct ResourceDesc {
     /// 创建意图初态:attachment 创建即处写态(首写不发 barrier);buffer 创建即 `COMMON`。
     initial: D3d12State,
     name: String,
+    /// 是否 DgcBuffer 资源(RXS-0346;GPU 端生成命令缓冲,间接 buffer 面)。
+    is_dgc: bool,
+}
+
+/// indirect dispatch 编排边(RXS-0346):「producer pass 经 `reads_writes_uav` 产
+/// DgcBuffer → consumer pass 经 `reads_indirect` 消费」的装配期核验事实源。
+/// DgcBuffer 为 GPU 端生成→GPU 端消费数据流(RXS-0239 单 queue 全序内),host 侧
+/// **零 CPU 回读**(本结构不携命令载荷)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IndirectDispatch {
+    /// compute pre-pass(command build node)下标(声明序)。
+    pub producer_pass: usize,
+    /// indirect-draw pass 下标(声明序)。
+    pub consumer_pass: usize,
+    /// 被消费 DgcBuffer 资源。
+    pub dgc_buffer: ResourceId,
 }
 
 // ── barrier 计划(推导产物)──────────────────────────────────────────────────────────
@@ -416,6 +495,9 @@ pub type Result<T> = std::result::Result<T, GraphError>;
 pub struct Graph {
     resources: Vec<ResourceDesc>,
     passes: Vec<PassSpec>,
+    /// indirect dispatch 编排边表(RXS-0346;`declare_indirect_dispatch` 登记,
+    /// `seal()` 逐边 strict 核验)。
+    indirect_dispatches: Vec<IndirectDispatch>,
     sealed: bool,
     executed: bool,
 }
@@ -438,6 +520,7 @@ impl Graph {
             class,
             initial,
             name: name.to_owned(),
+            is_dgc: false,
         });
         id
     }
@@ -462,6 +545,19 @@ impl Graph {
         self.add_resource(ResourceClass::Buffer, D3d12State::Common, name)
     }
 
+    /// 分配 DgcBuffer(buffer,创建即 `COMMON`;**RXS-0346 加性**)——GPU 端生成命令
+    /// 缓冲(DGC 抽象面语义归 M102/RXS-0348;本面只登记「indirect buffer」资源类别供
+    /// 访问声明与装配核验)。`reads_indirect` 只能声明在 DgcBuffer 资源上(其余资源
+    /// → 装配期 RX6029);DgcBuffer 不允许 `IndirectCommandRead` 之外的访问类
+    /// (写侧 `reads_writes_uav` 除外——command build node 的唯一合法写形态)。
+    pub fn dgc_buffer(&mut self, name: &str) -> ResourceId {
+        let id = self.add_resource(ResourceClass::Buffer, D3d12State::Common, name);
+        if let Some(r) = self.resources.get_mut(id.0 as usize) {
+            r.is_dgc = true;
+        }
+        id
+    }
+
     /// 分配可采样纹理 image(创建即 `COMMON`/`UNDEFINED`,首期经 host 上传〔`CopyDstReadback`〕
     /// 后转 `SHADER_READ_ONLY`)。G4.2 RHI 图形资源面桥接(RXS-0271):`texture2d` 资源经
     /// host→device copy 写 + 着色采样读的两步状态迁移由 [`Graph::derive_barriers`] 推导。
@@ -481,6 +577,61 @@ impl Graph {
             });
         }
         self.passes.push(pass);
+        Ok(())
+    }
+
+    /// pass 是否消费任一 DgcBuffer 但未声明 `reads_indirect`(RXS-0346 配套 strict
+    /// 判据的判定原语,**纯函数**;RFC-0023 §4.4.3 末段逐字)。
+    ///
+    /// 「indirect pass」操作化判定(非启发式、确定性、同图恒同结论):
+    /// **持有 `IndirectCommandRead` 声明、或出现在任一 [`IndirectDispatch`] 边
+    /// 的 `consumer_pass` 下标**的 pass。`IndirectDispatch` 边表 = DGC 消费
+    /// 关系的事实源(主机编排侧 per-pass DGC token 装配核验归 M102/RXS-0348
+    /// harness;DgcBuffer 句柄经 M102 类型层取得)。
+    #[must_use]
+    pub fn pass_missing_reads_indirect(&self, pass_idx: usize) -> bool {
+        let Some(pass) = self.passes.get(pass_idx) else {
+            return false;
+        };
+        let declared: BTreeSet<u32> = pass
+            .accesses
+            .iter()
+            .filter(|a| a.kind == AccessKind::IndirectCommandRead)
+            .map(|a| a.resource.0)
+            .collect();
+        let mut consumed = declared.clone();
+        for d in &self.indirect_dispatches {
+            if d.consumer_pass == pass_idx {
+                consumed.insert(d.dgc_buffer.0);
+            }
+        }
+        consumed.into_iter().any(|r| !declared.contains(&r))
+    }
+
+    /// 登记一条「compute pre-pass 产 DgcBuffer → indirect pass 消费」的编排边
+    /// (RXS-0346;M102 类型层证据携带)。`seal()` 时逐边核验:两端下标在域、
+    /// `dgc_buffer` 为 DgcBuffer 资源、**producer 恰有该资源的 `UavReadWrite`
+    /// 写声明、consumer 恰有 `IndirectCommandRead` 读声明**——缺任一侧(含漏
+    /// 声明 indirect 读边)→ RX6029 装配期 strict 拒(RFC-0023 §4.4.3 末段)。
+    ///
+    /// # Errors
+    /// seal 后登记 → [`GraphError::Structure`](RX6029);装配期核验在 `seal()`。
+    pub fn declare_indirect_dispatch(
+        &mut self,
+        producer_pass: usize,
+        consumer_pass: usize,
+        dgc_buffer: ResourceId,
+    ) -> Result<()> {
+        if self.sealed {
+            return Err(GraphError::Structure {
+                detail: "seal 后登记 indirect dispatch 编排边(生命周期误用)".to_owned(),
+            });
+        }
+        self.indirect_dispatches.push(IndirectDispatch {
+            producer_pass,
+            consumer_pass,
+            dgc_buffer,
+        });
         Ok(())
     }
 
@@ -574,6 +725,112 @@ impl Graph {
                 if a.kind.is_write() {
                     written.insert(a.resource.0);
                 }
+            }
+        }
+
+        // ⑤ RXS-0346(G9.2):DgcBuffer / `IndirectCommandRead` 双向类别纪律 + indirect
+        //    dispatch 编排边核验(加性——无 DGC 声明的既有图不触本段,判据 0-byte)。
+        for (pass_idx, pass) in self.passes.iter().enumerate() {
+            for a in &pass.accesses {
+                if a.kind == AccessKind::IndirectCommandRead {
+                    let is_dgc = self
+                        .resources
+                        .get(a.resource.0 as usize)
+                        .is_some_and(|r| r.is_dgc);
+                    if !is_dgc {
+                        return Err(GraphError::Structure {
+                            detail: format!(
+                                "pass `{}` 对非 DgcBuffer 资源 `{}` 声明 reads_indirect(`reads_indirect` 只能声明在 Graph::dgc_buffer 分配的资源上;RXS-0346)",
+                                pass.name,
+                                self.resource_name(a.resource)
+                            ),
+                        });
+                    }
+                } else if self
+                    .resources
+                    .get(a.resource.0 as usize)
+                    .is_some_and(|r| r.is_dgc)
+                    && a.kind != AccessKind::UavReadWrite
+                {
+                    return Err(GraphError::Structure {
+                        detail: format!(
+                            "pass `{}` 对 DgcBuffer 资源 `{}` 声明了 `{:?}` 之外的访问类(DgcBuffer 仅允许 reads_writes_uav 写侧〔command build node〕与 reads_indirect 读侧;RXS-0346)",
+                            pass.name,
+                            self.resource_name(a.resource),
+                            a.kind
+                        ),
+                    });
+                }
+            }
+            // 漏声明 indirect 读边 → 装配期 strict 拒(RFC-0023 §4.4.3 末段逐字)。
+            if self.pass_missing_reads_indirect(pass_idx) {
+                return Err(GraphError::Structure {
+                    detail: format!(
+                        "indirect pass `{}` 消费 DgcBuffer 但未声明 reads_indirect(漏声明 indirect 读边;RXS-0346 配套 strict 判据,RFC-0023 §4.4.3 末段)",
+                        pass.name
+                    ),
+                });
+            }
+        }
+        // indirect dispatch 编排边逐边核验:两端下标在域、DgcBuffer 类别、producer
+        // 恰有 UavReadWrite 写声明、consumer 恰有 IndirectCommandRead 读声明。
+        for d in &self.indirect_dispatches {
+            let producer =
+                self.passes
+                    .get(d.producer_pass)
+                    .ok_or_else(|| GraphError::Structure {
+                        detail: format!(
+                            "indirect dispatch producer pass 下标 {} 越界(图共 {} pass)",
+                            d.producer_pass,
+                            self.passes.len()
+                        ),
+                    })?;
+            let consumer =
+                self.passes
+                    .get(d.consumer_pass)
+                    .ok_or_else(|| GraphError::Structure {
+                        detail: format!(
+                            "indirect dispatch consumer pass 下标 {} 越界(图共 {} pass)",
+                            d.consumer_pass,
+                            self.passes.len()
+                        ),
+                    })?;
+            let dgc_name = self.resource_name(d.dgc_buffer);
+            let is_dgc = self
+                .resources
+                .get(d.dgc_buffer.0 as usize)
+                .is_some_and(|r| r.is_dgc);
+            if !is_dgc {
+                return Err(GraphError::Structure {
+                    detail: format!(
+                        "indirect dispatch 边(`{}`→`{}`)引用非 DgcBuffer 资源 `{dgc_name}`(RXS-0346)",
+                        producer.name, consumer.name
+                    ),
+                });
+            }
+            if !producer
+                .accesses
+                .iter()
+                .any(|a| a.resource == d.dgc_buffer && a.kind == AccessKind::UavReadWrite)
+            {
+                return Err(GraphError::Structure {
+                    detail: format!(
+                        "indirect dispatch producer pass `{}` 未声明 reads_writes_uav(`{dgc_name}`)(command build node 的唯一合法写形态;RXS-0346)",
+                        producer.name
+                    ),
+                });
+            }
+            if !consumer
+                .accesses
+                .iter()
+                .any(|a| a.resource == d.dgc_buffer && a.kind == AccessKind::IndirectCommandRead)
+            {
+                return Err(GraphError::Structure {
+                    detail: format!(
+                        "indirect pass `{}` 消费 DgcBuffer `{dgc_name}` 但未声明 reads_indirect(漏声明 indirect 读边;RXS-0346 配套 strict 判据)",
+                        consumer.name
+                    ),
+                });
             }
         }
 
@@ -700,6 +957,8 @@ fn state_vk_layout(s: D3d12State) -> u32 {
         D3d12State::CopySource => vk_layout::TRANSFER_SRC_OPTIMAL,
         D3d12State::CopyDest => vk_layout::TRANSFER_DST_OPTIMAL,
         D3d12State::Present => vk_layout::PRESENT_SRC_KHR,
+        // DgcBuffer = buffer 资源:推导路径不读本值(BufferSync 恒 UNDEFINED);防御性 GENERAL。
+        D3d12State::IndirectArgument => vk_layout::GENERAL,
     }
 }
 
@@ -825,6 +1084,183 @@ mod tests {
             assert_eq!(AccessKind::from_u32(k.as_u32()), Some(k));
         }
         assert_eq!(AccessKind::from_u32(99), None);
+    }
+
+    // ── RXS-0346(G9.2,RFC-0023 §4.4.3 修订行表)新边 / strict / 0-byte 锚 ────────────
+
+    /// 构造 M104 DGC 最小图:command build node(compute pre-pass,`reads_writes_uav`
+    /// 写 DgcBuffer)→ indirect pass(`reads_indirect` 消费)+ draw 写 RT(声明序 =
+    /// 提交序,RXS-0239 单 queue 全序内的数据流)。
+    fn dgc_graph() -> Graph {
+        let mut g = Graph::new();
+        let dgc = g.dgc_buffer("dgc_buf");
+        let out = g.color_target("draw_out");
+        g.add_pass(PassSpec::new("cmd_build").with(dgc, AccessKind::UavReadWrite))
+            .unwrap();
+        g.add_pass(
+            PassSpec::new("indirect_draw")
+                .reads_indirect(dgc)
+                .writes_rt(out),
+        )
+        .unwrap();
+        g
+    }
+
+    /// **新边推导 golden(RXS-0346 修订行 1/2,只加不改)**:`StorageWrite→
+    /// IndirectCommandRead` 边(`UavReadWrite` 写侧 → `IndirectCommandRead` 读侧)
+    /// 产出恰一条 BufferSync,逐字段锚定——Vulkan `SHADER_WRITE|SHADER_READ →
+    /// INDIRECT_COMMAND_READ`(保守源掩码承 UavReadWrite 既有访问面)+
+    /// `COMPUTE_SHADER|FRAGMENT_SHADER → DRAW_INDIRECT`、D3D12 `UNORDERED_ACCESS →
+    /// INDIRECT_ARGUMENT`、buffer 无 layout(UNDEFINED)、EB 三轴结构不动(修订行 3)。
+    //@ spec: RXS-0346
+    #[test]
+    fn derives_indirect_command_read_edge_golden() {
+        let mut g = dgc_graph();
+        let plan = g.execute().expect("合法 DGC 图应 execute 通过");
+        // dgc: Common→UnorderedAccess(pre-pass)+ UnorderedAccess→IndirectArgument(新边);
+        // draw_out: RenderTarget 初态无 barrier。恰 2 条。
+        assert_eq!(plan.len(), 2, "DGC 图应恰 2 条 barrier: {plan:?}");
+        let edge = plan
+            .iter()
+            .find(|b| b.d3d12_after == D3d12State::IndirectArgument)
+            .expect("新边 barrier 缺失");
+        assert_eq!(edge.resource_name, "dgc_buf");
+        assert_eq!(
+            edge.form,
+            BarrierForm::BufferSync,
+            "buffer → BufferSync(无 layout)"
+        );
+        assert_eq!(edge.d3d12_before, D3d12State::UnorderedAccess);
+        assert_eq!(edge.vk_old_layout, vk_layout::UNDEFINED);
+        assert_eq!(edge.vk_new_layout, vk_layout::UNDEFINED);
+        assert_eq!(
+            edge.vk_src_access,
+            vk_access::SHADER_READ | vk_access::SHADER_WRITE
+        );
+        assert_eq!(edge.vk_dst_access, vk_access::INDIRECT_COMMAND_READ);
+        assert_eq!(
+            edge.vk_src_stage,
+            vk_stage::FRAGMENT_SHADER | vk_stage::COMPUTE_SHADER
+        );
+        assert_eq!(edge.vk_dst_stage, vk_stage_ext::DRAW_INDIRECT);
+        assert_eq!(edge.at_pass, 1, "新边 barrier 录于 indirect pass 边界");
+    }
+
+    /// 同图双跑逐字节等值(RXS-0346 零漂移证明:新边计划确定性)。
+    //@ spec: RXS-0346
+    #[test]
+    fn indirect_edge_derivation_double_run_byte_equal() {
+        let mut g1 = dgc_graph();
+        g1.seal().unwrap();
+        let mut g2 = dgc_graph();
+        g2.seal().unwrap();
+        assert_eq!(g1.derive_barriers(), g2.derive_barriers());
+        assert_eq!(g1.derive_barriers(), g1.derive_barriers());
+    }
+
+    /// AccessKind 新变体映射锚(RXS-0346 修订行 2 双后端映射新行 + 修订行 6
+    /// 🔒 cabi tag 域字面 0-byte):tag 7 内部等值但 `from_u32` **不映射**(cabi
+    /// 合法域恒 0..=6;cabi 侧声明 indirect 读访问类 → 不可表达诊断,零新码)。
+    //@ spec: RXS-0346
+    #[test]
+    fn indirect_command_read_mapping_and_cabi_tag_domain() {
+        let k = AccessKind::IndirectCommandRead;
+        assert_eq!(k.d3d12_state(), D3d12State::IndirectArgument);
+        assert_eq!(k.vk_access(), vk_access::INDIRECT_COMMAND_READ);
+        assert_eq!(k.vk_stage(), vk_stage_ext::DRAW_INDIRECT);
+        assert_eq!(k.vk_layout(), vk_layout::GENERAL, "buffer 无 layout");
+        assert!(!k.is_write());
+        assert!(k.is_consuming_read(), "消费读 → 读未写判据覆盖");
+        assert_eq!(k.as_u32(), 7);
+        // 🔒 RXS-0241 cabi tag 域 0..=6 字面不动:tag 7 不映射(声明即不可表达诊断)。
+        assert_eq!(AccessKind::from_u32(7), None);
+    }
+
+    /// reject:indirect pass 消费 DgcBuffer 但未声明 `reads_indirect` → 装配期
+    /// strict 拒 RX6029(RXS-0346 配套 strict 判据,RFC-0023 §4.4.3 末段逐字)。
+    //@ spec: RXS-0346
+    #[test]
+    fn rejects_missing_reads_indirect() {
+        let mut g = Graph::new();
+        let dgc = g.dgc_buffer("dgc_buf");
+        let out = g.color_target("draw_out");
+        g.add_pass(PassSpec::new("cmd_build").reads_writes_uav(dgc))
+            .unwrap();
+        // indirect pass 只写 RT,未声明 reads_indirect;消费关系经编排边登记。
+        g.add_pass(PassSpec::new("indirect_draw").writes_rt(out))
+            .unwrap();
+        g.declare_indirect_dispatch(0, 1, dgc).unwrap();
+        match g.seal() {
+            Err(e @ GraphError::Structure { .. }) => {
+                assert_eq!(e.rx_code(), "RX6029");
+                assert!(
+                    e.to_string().contains("reads_indirect"),
+                    "诊断须点名漏声明: {e}"
+                );
+            }
+            other => panic!("漏声明 indirect 读边应 RX6029,实得 {other:?}"),
+        }
+    }
+
+    /// accept:完整声明(writes_uav 产 + reads_indirect 消费 + 编排边)→ seal 通过;
+    /// 无编排边的纯声明图亦合法(编排边 = strict 核验触发面,非强制)。
+    //@ spec: RXS-0346
+    #[test]
+    fn accepts_fully_declared_indirect_edge() {
+        let mut g = dgc_graph();
+        g.declare_indirect_dispatch(0, 1, ResourceId(0)).unwrap();
+        g.execute().expect("完整声明应 execute 通过");
+        // 纯声明图(无编排边):`reads_indirect` 消费读已被先前 pass UavReadWrite
+        // 写过 → 读未写判据满足,strict 段无触发面。
+        let mut g2 = dgc_graph();
+        assert!(g2.seal().is_ok());
+    }
+
+    /// reject:`reads_indirect` 声明在非 DgcBuffer 资源上 → RX6029(类别纪律,
+    /// 非法访问类拒绝作为新增判据只加不改)。
+    //@ spec: RXS-0346
+    #[test]
+    fn rejects_reads_indirect_on_non_dgc_resource() {
+        let mut g = Graph::new();
+        let buf = g.uav_buffer("plain_uav");
+        let out = g.color_target("out");
+        g.add_pass(PassSpec::new("cmd_build").reads_writes_uav(buf))
+            .unwrap();
+        g.add_pass(PassSpec::new("bad").reads_indirect(buf).writes_rt(out))
+            .unwrap();
+        match g.seal() {
+            Err(e @ GraphError::Structure { .. }) => assert_eq!(e.rx_code(), "RX6029"),
+            other => panic!("非 DgcBuffer 上 reads_indirect 应 RX6029,实得 {other:?}"),
+        }
+    }
+
+    /// reject:DgcBuffer 上 `reads`(ShaderRead)等其它读类 → RX6029(DgcBuffer 仅允许
+    /// UavReadWrite 写侧 + IndirectCommandRead 读侧)。
+    //@ spec: RXS-0346
+    #[test]
+    fn rejects_dgc_buffer_with_non_indirect_read() {
+        let mut g = Graph::new();
+        let dgc = g.dgc_buffer("dgc_buf");
+        g.add_pass(PassSpec::new("cmd_build").reads_writes_uav(dgc))
+            .unwrap();
+        g.add_pass(PassSpec::new("bad").reads(dgc)).unwrap();
+        assert!(matches!(g.seal(), Err(GraphError::Structure { .. })));
+    }
+
+    /// **既有 golden 0-byte 恒跑锚(RXS-0346 修订行 1 零漂移证明)**:deferred 图
+    /// 推导在 AccessKind 加性扩展后逐条不变(与 `derives_deferred_golden_plan`
+    /// 同场景复核;恒跑面 = 步骤 65 host 段既有单测全集 0-byte)。
+    //@ spec: RXS-0346
+    #[test]
+    fn legacy_golden_zero_byte_after_accesskind_extension() {
+        let mut g = deferred_graph();
+        let plan = g.execute().expect("合法图应 execute 通过");
+        assert_eq!(plan.len(), 5, "deferred 图仍恰 5 条 barrier(0-byte)");
+        assert!(
+            plan.iter()
+                .all(|b| b.d3d12_after != D3d12State::IndirectArgument),
+            "既有图不得出现新访问类(0-byte)"
+        );
     }
 
     /// depth 独立路由:`writes_depth` → `DEPTH_WRITE`,读转换 `DEPTH_WRITE→PSR`(RXS-0238)。

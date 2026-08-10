@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.2 M103 descriptor_global_table evidence",
+  "description": "evidence/g9_m103_descriptor_global_table_<UTC>.json。G9.2 P0 硬门 g9.p0.m103.descriptor_global_table（G9_ACCEPTANCE_MAP §2 M103；RFC-0023 §4.3；spec/rendering_platform.md RXS-0347）：reflection/manifest「资源→全局 descriptor 索引」与 shader 实际消费索引双向精确相等 + ≥65536 条目 fixture 出图与 golden 逐字节相等 + set/binding 旧路径加性并存回归 digest 不变 + 索引分配律/回收确定性 + 悬空/越界 fail-closed + 泄漏计数器零 + device validation 零报错。host+device 门（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 真跑）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "wave",
+    "assertion_id",
+    "status",
+    "commands",
+    "symbolic_gate_key",
+    "matrix_row",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "evidence_level",
+    "base_commit",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m103_descriptor_global_table" },
+    "milestone": { "type": "string", "const": "M103" },
+    "wave": { "type": "string", "const": "G9.2" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m103.descriptor_global_table" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m103.descriptor_global_table" },
+    "matrix_row": { "type": "string", "const": "M103" },
+    "numeric_step": { "type": "integer", "const": 134 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.3;spec/rendering_platform.md RXS-0347;G9_ACCEPTANCE_MAP §2 M103"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["pass", "fail"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reflection_shader_index_bidirectional_equal",
+        "table_65536_entries_golden",
+        "legacy_set_binding_zero_byte_regression",
+        "index_allocation_deterministic",
+        "dangling_index_fail_closed",
+        "index_leak_counter_zero",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "reflection_shader_index_bidirectional_equal": { "type": "boolean" },
+        "table_65536_entries_golden": { "type": "boolean" },
+        "legacy_set_binding_zero_byte_regression": { "type": "boolean" },
+        "index_allocation_deterministic": { "type": "boolean" },
+        "dangling_index_fail_closed": { "type": "boolean" },
+        "index_leak_counter_zero": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

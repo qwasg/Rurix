@@ -1314,6 +1314,24 @@ jobs:
           RURIX_VK_VALIDATION: "1"
         run: py -3 ci/g9_dgc_abstraction_smoke.py --gate g9.p0.m102.dgc_abstraction
 
+      # 步骤 134（G9.2 P0 硬门 g9.p0.m103.descriptor_global_table；M103 descriptor
+      # buffer 全局表；RFC-0023 §4.3 / RXS-0347）。host+device 门：device 段持锁真跑
+      # RTX 4070 Ti（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 双置；vk_desc_v3
+      # ≥65536 条目出图与 host 种子 golden 逐字节相等 + validation 零报错）。
+      - name: G9.2 M103 descriptor global table smoke (G9 CI_GATES §4, g9.p0.m103.descriptor_global_table)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_descriptor_global_table_smoke.py --gate g9.p0.m103.descriptor_global_table
+
+      # 步骤 135（G9.2 P0 硬门 g9.p0.m104.accesskind_indirect_edge；M104 AccessKind
+      # 加性 IndirectCommandRead；RFC-0023 §4.4.3 / RXS-0346）。纯 host 门（推导
+      # golden + strict 拒 + cabi 不可表达诊断 + D6 互证 0-byte）。
+      - name: G9.2 M104 accesskind indirect edge smoke (G9 CI_GATES §4, g9.p0.m104.accesskind_indirect_edge)
+        shell: powershell
+        run: py -3 ci/g9_accesskind_indirect_edge_smoke.py --gate g9.p0.m104.accesskind_indirect_edge
+
       # 步骤 136（G9.2 P0 硬门 g9.p0.m121.physics_particle_view --phase g9.2；
       # RFC-0024 §4.A；判据事实源 = G9_ACCEPTANCE_MAP M121 行）:五域
       # ParticleAdapter + 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED +
