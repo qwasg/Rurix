@@ -88,7 +88,7 @@
       "on_tree_max": 54,
       "next_free": 55,
       "shadow_reserved": [],
-      "notes": "unsafe-audit 条目编号。main 最高 U31(G4.2 RHI 图形执行路径 FFI 边界,RXS-0272,RFC-0015 §4.A3;沿 U27 审计模式,契约同 U27)。U30 = G3.6 AS/SBT/device-address 细审计(RXS-0248,RFC-0013 §4.E8)。U29 由 EA1 预留(显式跳让,无论其释放与否不回收,EA1_CONTRACT §7)。v1.28 校准(G6.1):U32 = G5 Rust 级多 pass 图形执行器 FFI 边界(src/rurix-rt/src/render_exec.rs,unsafe-audit/rurix-rt.md,RFC-0016 章 B,沿 U26/U27/U31 审计模式)已登记,on_tree_max 31→32、next_free 32→33。v1.30 校准(G6.2 PR-A):U33~U42 = rurix-physics-sys JoltC C API FFI 边界(unsafe-audit/rurix-physics-sys.md 新建登记,RFC-0017 §4.C2,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 32→42、next_free 33→43(reserved_in_flight[G6].U「U33 起」claim 兑现;G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.33 校准(G6.5):U43 = G6.5 TiRT FFI 边界(src/rurix-rt/src/tirt.rs,feature `taichi-tirt` 默认 off,13 符号运行时动态装载 taichi_c_api.dll + TiVulkanRuntimeInteropInfo 并行设备上下文注入〔RFC-0017 §4.E2 明示允许〕+ run_particles_spike 全链 + TirtError 六变体 fail-closed;vk.rs pub(crate) 三件套 cfg gate 既有面 0-byte;unsafe-audit/rurix-rt.md 登记,RFC-0017 §4.E,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 42→43、next_free 43→44(reserved_in_flight[G6].U「U33 起」第二号消费;G5/v1.30 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。下一个可用 U44。"
+      "notes": "unsafe-audit 条目编号。main 最高 U31(G4.2 RHI 图形执行路径 FFI 边界,RXS-0272,RFC-0015 §4.A3;沿 U27 审计模式,契约同 U27)。U30 = G3.6 AS/SBT/device-address 细审计(RXS-0248,RFC-0013 §4.E8)。U29 由 EA1 预留(显式跳让,无论其释放与否不回收,EA1_CONTRACT §7)。v1.28 校准(G6.1):U32 = G5 Rust 级多 pass 图形执行器 FFI 边界(src/rurix-rt/src/render_exec.rs,unsafe-audit/rurix-rt.md,RFC-0016 章 B,沿 U26/U27/U31 审计模式)已登记,on_tree_max 31→32、next_free 32→33。v1.30 校准(G6.2 PR-A):U33~U42 = rurix-physics-sys JoltC C API FFI 边界(unsafe-audit/rurix-physics-sys.md 新建登记,RFC-0017 §4.C2,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 32→42、next_free 33→43(reserved_in_flight[G6].U「U33 起」claim 兑现;G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.33 校准(G6.5):U43 = G6.5 TiRT FFI 边界(src/rurix-rt/src/tirt.rs,feature `taichi-tirt` 默认 off,13 符号运行时动态装载 taichi_c_api.dll + TiVulkanRuntimeInteropInfo 并行设备上下文注入〔RFC-0017 §4.E2 明示允许〕+ run_particles_spike 全链 + TirtError 六变体 fail-closed;vk.rs pub(crate) 三件套 cfg gate 既有面 0-byte;unsafe-audit/rurix-rt.md 登记,RFC-0017 §4.E,沿 U26/U27/U31/U32 审计模式)已 materialize,on_tree_max 42→43、next_free 43→44(reserved_in_flight[G6].U「U33 起」第二号消费;G5/v1.30 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。下一个可用 U44。v1.77 校准(G9.2 实现波 agent B):U54 = G9.2 M102 VK_EXT_device_generated_commands DGC 抽象 FFI 边界(src/rurix-rt/src/vk.rs DGC 段 + dgc.rs 类型层,unsafe-audit/rurix-rt.md 登记,RFC-0023 §4.1/RXS-0348,沿 U26/U27/U30/U31/U32 审计模式)已 materialize,on_tree_max 53→54、next_free 54→55;蜂群章程 U 预分配 M102=U54 兑现(实际 next_free=54 与快照一致,U55 预 agent C descriptor_buffer 同波领取;G5/v1.29 先例:claim 行 0-byte,materialize 经校准+revision_log)。"
     },
     "G": {
       "scope": "milestone_scoped",
@@ -351,6 +351,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.77",
+      "date": "2026-08-09",
+      "change": "G9.2 实现波 agent B(M102 DGC 抽象门)materialize 合并仲裁补记(feat/g9.2-impl-b,agent 完全自主 D-406 v2.0,Assisted-by: Claude Code:claude-fable-5):**CI_step 步骤 131 落账 (on_tree_max 含 131/136/137=137,next_free=138 维持)** + **U on_tree_max 53→54、next_free 54→55**——U54 = M102 VK_EXT_device_generated_commands FFI(src/rurix-rt/src/vk.rs DGC 段,unsafe-audit/rurix-rt.md 登记,沿 U26/U27/U30/U31/U32 审计模式;U55 预 agent C descriptor_buffer 同波)。本行补记 merge commit 19118b23 仲裁时漏落的 revision_log 条目(仅补记,不动 on_tree_max/next_free——131 与 U54 的命名空间字段已随该 merge 落账);v1.75(agent D 136/137)/v1.76(G7.7 close-out 占位)行不改写。"
+    },
     {
       "version": "v1.74",
       "date": "2026-08-09",
