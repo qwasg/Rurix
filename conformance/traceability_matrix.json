@@ -1784,10 +1784,14 @@
       "conformance/virtual_geometry/reject/dag_error_nonmonotonic.rx"
     ],
     "RXS-0346": [
-      "conformance/render_graph/reject/missing_reads_indirect.rx"
+      "conformance/render_graph/reject/missing_reads_indirect.rx",
+      "src/rurix-rt/src/graph.rs"
     ],
     "RXS-0347": [
-      "conformance/reflection/reject/global_descriptor_index_dangling.rx"
+      "conformance/reflection/reject/global_descriptor_index_dangling.rx",
+      "src/rurix-rt/src/descriptor_table.rs",
+      "src/rurix-rt/src/vk.rs",
+      "src/rurixc/src/reflection.rs"
     ],
     "RXS-0348": [
       "conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx",

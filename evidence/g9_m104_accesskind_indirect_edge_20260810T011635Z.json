@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m104_accesskind_indirect_edge",
+  "milestone": "M104",
+  "wave": "G9.2",
+  "assertion_id": "g9.p0.m104.accesskind_indirect_edge",
+  "status": "pass",
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-rt --quiet --lib graph::",
+      "exit_code": 0,
+      "note": "graph.rs 推导 golden + RXS-0346 新边/strict/0-byte 单测组"
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurix-rt --lib --quiet graph::tests::derives_indirect_command_read_edge_golden",
+      "exit_code": 0,
+      "note": "①新边 golden"
+    },
+    {
+      "seq": 3,
+      "command": "cargo test -p rurix-rt --lib --quiet graph::tests::indirect_edge_derivation_double_run_byte_equal",
+      "exit_code": 0,
+      "note": "③同图双跑"
+    },
+    {
+      "seq": 4,
+      "command": "cargo test -p rurix-rt --lib --quiet graph::tests::rejects_missing_reads_indirect",
+      "exit_code": 0,
+      "note": "④漏声明 strict 拒"
+    },
+    {
+      "seq": 5,
+      "command": "cargo test -p rurix-rt --lib --quiet graph::tests::indirect_command_read_mapping_and_cabi_tag_domain",
+      "exit_code": 0,
+      "note": "⑤cabi tag 域(7 不映射)"
+    },
+    {
+      "seq": 6,
+      "command": "cargo test -p rurix-rt --lib --quiet graph::tests::legacy_golden_zero_byte_after_accesskind_extension",
+      "exit_code": 0,
+      "note": "②既有 golden 0-byte"
+    },
+    {
+      "seq": 7,
+      "command": "cargo test -p rurix-rt --quiet --lib graph::tests::derives_deferred_golden_plan",
+      "exit_code": 0,
+      "note": "②deferred 五 barrier 既有 golden"
+    },
+    {
+      "seq": 8,
+      "command": "cargo test -p rurix-rt --quiet --lib graph::tests::access_kind_mapping_single_source",
+      "exit_code": 0,
+      "note": "②双后端映射单一事实源(既有)"
+    },
+    {
+      "seq": 9,
+      "command": "cargo test -p rurix-rt-cabi --quiet --lib tests::graph_symbols_failure_path_and_incremental_build",
+      "exit_code": 0,
+      "note": "⑤cabi 符号面 + 未知 access tag 失败路(RXRT_FAIL)"
+    },
+    {
+      "seq": 10,
+      "command": "cargo test -p uc04-demo --quiet --test d6_crosscheck",
+      "exit_code": 0,
+      "note": "⑧D6 互证金标准(graph.rs 推导 ≡ uc04 plan_barriers 锚点集,双向集合相等)"
+    },
+    {
+      "seq": 11,
+      "command": "git diff 5e7b24e2 HEAD -- spec/render_graph.md",
+      "exit_code": 0,
+      "note": "⑥RXS-0239 单 queue 全序字面 + RXS-0236/0241"
+    },
+    {
+      "seq": 12,
+      "command": "git diff 5e7b24e2 HEAD -- rfcs/0023-gpu-driven-submission-shading.md",
+      "exit_code": 0,
+      "note": "⑥RFC-0023 §4.4.3 修订行表字面"
+    },
+    {
+      "seq": 13,
+      "command": "git diff 5e7b24e2 HEAD -- src/uc04-demo/src/barrier.rs",
+      "exit_code": 0,
+      "note": "⑧D6 oracle(0-byte 不动)"
+    },
+    {
+      "seq": 14,
+      "command": "git diff 5e7b24e2 HEAD -- src/uc04-demo/src/deferred.rs",
+      "exit_code": 0,
+      "note": "⑧D6 oracle 编排面"
+    }
+  ],
+  "symbolic_gate_key": "g9.p0.m104.accesskind_indirect_edge",
+  "matrix_row": "M104",
+  "numeric_step": 135,
+  "source_ref": "RFC-0023 §4.4.3;spec/render_graph.md RXS-0346;G9_ACCEPTANCE_MAP §2 M104",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "new_edge_barrier_golden_equal": true,
+    "legacy_golden_zero_byte": true,
+    "double_run_byte_equal": true,
+    "missing_reads_indirect_strict_rejected": true,
+    "cabi_indirect_access_inexpressible": true,
+    "rxs0239_literal_untouched": true,
+    "readback_counter_zero": true,
+    "d6_crosscheck_zero_byte": true
+  },
+  "evidence_level": "measured_local",
+  "base_commit": "0b5a0f69b656",
+  "run_url": "",
+  "timestamp": "20260810T011635Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "纯 host 门;device 段 not_applicable(CI_GATES §6 host-only 行)。八腿判据经 cargo test(rurix-rt graph:: + rurix-rt-cabi + uc04-demo D6)+ git diff 0-byte 机核 + spec/RFC 修订行逐字机核 + 结构性回读零断言。command build node 零 CPU 回读:本门自含结构性断言腿(graph.rs 纯 host 推导,无 host 回读 API 消费);运行时回读计数器=0 腿归 M102 device 面(DgcBuffer 无 host 读接口 + vk_dgc harness 回读记账),本门 notes 登记分担关系——M102 evidence 落地后由 wave-exit 聚合门交叉引用,本门不以 M102 未落地自红(host 结构性腿独立成立)。"
+}
