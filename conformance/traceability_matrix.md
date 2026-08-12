@@ -342,3 +342,9 @@
 | RXS-0354 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/command_build_host_readback.rx`, `src/rurix-rt/src/command_build.rs` |
 | RXS-0355 | spec/gpu_driven_submit.md | 4 | `src/rurix-rt/src/execution_set.rs`, `src/rurix-rt/src/pso_cache.rs`, `src/rurix-rt/src/vk.rs` …(+1) |
 | RXS-0356 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx`, `src/rurixc/src/shader_library.rs` |
+| RXS-0357 | spec/global_illumination.md | 2 | `conformance/gi/accept/pt_reference_fixed_seed_minimal.rx`, `conformance/gi/reject/pt_seed_changed_nondeterministic.rx` |
+| RXS-0358 | spec/global_illumination.md | 1 | `conformance/gi/reject/surface_cache_card_hole_leak.rx` |
+| RXS-0359 | spec/global_illumination.md | 1 | `conformance/gi/reject/tracing_fallback_silent_demotion.rx` |
+| RXS-0360 | spec/global_illumination.md | 2 | `conformance/gi/accept/spg_radiance_cache_screen_level_minimal.rx`, `conformance/gi/reject/radiance_cache_product_is_disabled.rx` |
+| RXS-0361 | spec/global_illumination.md | 1 | `conformance/gi/reject/multi_light_restir_tier_unproven.rx` |
+| RXS-0362 | spec/global_illumination.md | 3 | `conformance/gi/accept/if_tier_ladder_shared_kernel_minimal.rx`, `conformance/gi/reject/if_as_budget_exceeded_no_demote.rx`, `conformance/gi/reject/if_octahedral_srgb_encoding.rx` |

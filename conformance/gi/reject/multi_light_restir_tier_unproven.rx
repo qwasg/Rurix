@@ -1,0 +1,15 @@
+//@ spec: RXS-0361
+// G9.4 M100 RED 语料（spec/global_illumination.md RXS-0361 L2/L3：验证射线零
+// 跳过硬契约——跳验证射线注入负例 RED 臂独立有效；高档 ReSTIR reservoir 须附
+// 多灯 workload 证据，证据不足不做到场登记 not-triggered 不充绿）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   低档 MegaLights 式固定随机选灯默认档多灯场景（选灯种子流固定）。
+//   负例臂①（跳验证射线）：复用路径跳过验证射线——引入系统性变暗偏置
+//   （D2-Q4），必须判 RED；
+//   负例臂②（高档冒充）：无多灯 workload 证据却把高档 ReSTIR reservoir 分项
+//   登记为已验收（PASS）——违反 not-triggered 纪律，必须判 RED。
+//   两臂独立于正例臂（默认档 golden + 验证射线零跳过计数）成立。
+// 预期 RED 面（实现 PR 接线）：验证射线计数校验负例 +
+//   ci/g9_multi_light_low_smoke.py 门（symbolic key
+//   g9.p1.m100.multi_light_low，G9.4 波 P1 登记字面不动）。
+fn main() {}

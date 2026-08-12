@@ -1,0 +1,15 @@
+//@ spec: RXS-0358
+// G9.4 M97 RED 语料（spec/global_illumination.md RXS-0358 L3/L4：Card 未覆盖
+// 区域只丢能量不漏光——输出非负、无低于 ambient 的黑色裂缝，漏光像素计数=0；
+// Card 空洞漏光检测负例 RED 臂独立有效）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   单 mesh 两 Card（C0/C1）最小图集；注入 Card 空洞 = 删除 C1 覆盖（mesh 背面
+//   无 Card）。
+//   正例臂：空洞区域采样回退下一级追踪结果/ambient 项，输出非负、漏光像素
+//   计数=0、能量差 measured 记录。
+//   负例臂：空洞区域出现低于 ambient 的黑色裂缝（漏光像素计数≠0）必须被漏光
+//   检测臂判 RED，负例臂独立于正例臂成立。
+// 预期 RED 面（实现 PR 接线）：漏光检测校验负例 + ci/g9_surface_cache_smoke.py
+//   门 Card 空洞注入臂（symbolic key g9.p0.m97.surface_cache，G9.1 冻结字面
+//   不动）。
+fn main() {}

@@ -1,0 +1,14 @@
+//@ spec: RXS-0362
+// G9.4 M101 RED 语料（spec/global_illumination.md RXS-0362 L4：每档强制含 AS
+// 更新预算行，档位切换判据消费 AsStats 计数面——超 AS 更新预算必须强制降档，
+// 超限未降档即 RED）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   IF 档位 L1 固定场景，该档 AS 更新预算行 = as_build_ms 阈值（measured 冻结）。
+//   正例臂：AsStats 计数面消费下 as_build_ms 超预算 → 档位切换判据强制降档
+//   （L1→L0），降档事件显式记录入 evidence。
+//   负例臂：as_build_ms 超预算而档位维持 L1（超限未降档）——预算硬契约失效，
+//   必须判 RED；负例臂独立于正例臂成立。
+// 预期 RED 面（实现 PR 接线）：预算/降档校验负例 +
+//   ci/g9_if_tier_ladder_smoke.py 门超预算强制降档臂（symbolic key
+//   g9.p1.m101.if_tier_ladder，G9.4 波 P1 登记字面不动）。
+fn main() {}

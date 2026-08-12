@@ -1,0 +1,14 @@
+//@ spec: RXS-0360
+// G9.4 M99 RED 语料（spec/global_illumination.md RXS-0360 L2：第一反弹采样 =
+// BRDF×入射光 product importance sampling；关 product IS → 方差回归可检测，
+// 负例 RED 臂独立有效）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   屏幕级 SPG（16 px/probe 基线 + 自适应细分）+ Radiance Cache 屏幕级最小
+//   场景，固定 spp 序列。
+//   正例臂：product IS 开启，方差/收敛曲线落入 measured 冻结容差带。
+//   负例臂：关闭 product IS（均匀采样替代）后方差回归不可检测（方差统计仍同
+//   正例）= 漏检，必须判 RED；负例臂独立于正例臂成立。
+// 预期 RED 面（实现 PR 接线）：方差回归校验负例 +
+//   ci/g9_spg_radiance_cache_smoke.py 门关 product IS 臂（symbolic key
+//   g9.p1.m99.spg_radiance_cache，G9.4 波 P1 登记字面不动）。
+fn main() {}

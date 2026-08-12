@@ -1,0 +1,15 @@
+//@ spec: RXS-0362
+// G9.4 M101 RED 语料（spec/global_illumination.md RXS-0362 L3：probe 数据的
+// 八面体编码在线性域进行——SRGB 编码注入即 RED，编码域错误属漏检即判本条款
+// 整体 FAIL 的负例臂）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   L1 clipmap 体积 probe（DDGI 基线：八面体 irradiance 8×8 + visibility
+//   16×16）最小网格。
+//   正例臂：irradiance/visibility 数据以线性域八面体编码写读，往返误差落入
+//   measured 冻结容差带。
+//   负例臂：编码前误施加 SRGB 传递函数（编码域错）——解码后线性域数据被
+//   非线性化，必须被编码域校验判 RED；负例臂独立于正例臂成立。
+// 预期 RED 面（实现 PR 接线）：八面体编码域校验负例 +
+//   ci/g9_if_tier_ladder_smoke.py 门（symbolic key
+//   g9.p1.m101.if_tier_ladder，G9.4 波 P1 登记字面不动）。
+fn main() {}

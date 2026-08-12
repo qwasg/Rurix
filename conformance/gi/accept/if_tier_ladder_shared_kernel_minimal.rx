@@ -1,0 +1,14 @@
+//@ spec: RXS-0362
+// G9.4 M101 accept 正例语料（spec/global_illumination.md RXS-0362 L1/L2/L4/L5）：
+// IF 体素网格档位阶梯 L0~L3 最小正例——共享 probe 着色与八面体编码内核、只换
+// 空间索引结构；每档 AS 更新预算行消费 AsStats；档位切换对同输入确定。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   四档空间索引 = L0 屏幕空间 probe / L1 clipmap 体积 probe（八面体
+//   irradiance 8×8 + visibility 16×16 防漏光优先）/ L2 空间哈希缓存 /
+//   L3 per-pixel 参考档；同一共享内核函数实例（同一实例断言）。
+//   档间 golden 对拍可归因到索引结构；每档 AS 更新预算行强制且消费 AsStats
+//   计数面（超预算强制降档并显式记录）；档位切换双运行逐位一致；八面体编码
+//   线性域。
+// 消费锚：ci/g9_if_tier_ladder_smoke.py（g9.p1.m101.if_tier_ladder）正例臂
+//   （实现 PR 接线）。
+fn main() {}

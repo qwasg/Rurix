@@ -1,0 +1,14 @@
+//@ spec: RXS-0357
+// G9.4 M96 accept 正例语料（spec/global_illumination.md RXS-0357 L1/L2/L3）：
+// 单向 PT + NEE/MIS/RR megakernel 参照器最小正例——固定 seed 两次运行位级一致
+// + pbrt-v4 同场景同 spp 收敛曲线落入 measured 冻结容差带。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   固定 diffuse 场景 + 固定 spp + 固定 seed S；起步范围冻结（焦散/体积/
+//   specular 链 out）。
+//   双运行输出 digest 全等（累加序/RNG 流冻结，PCG32 承 G8 ref_tracer 对拍
+//   模式）；逐像素 sample count 导出 + 方差/收敛曲线进 evidence；
+//   pbrt-v4 对照收敛曲线落入冻结容差带（容差带 measured 冻结，禁手写）；
+//   匹配深度 ∈ {1, 2, full} 三深度各一 golden。
+// 消费锚：ci/g9_path_tracer_reference_smoke.py（g9.p0.m96.path_tracer_reference）
+//   正例臂（实现 PR 接线）。
+fn main() {}

@@ -1,0 +1,14 @@
+//@ spec: RXS-0360
+// G9.4 M99 accept 正例语料（spec/global_illumination.md RXS-0360 L1/L2/L3）：
+// 屏幕级 SPG 自适应细分 + Radiance Cache 屏幕级双级语义最小正例（世界级
+// clipmap 未 measured 举证，登记 not-triggered 不充绿）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   屏幕空间 probe 基线 16 px/probe + 自适应细分（深度/法线不连续性 +
+//   radiance 方差双判据）+ 3×3 空间滤波；Radiance Cache 屏幕级复用 probe
+//   历史；第一反弹 BRDF×入射光 product importance sampling 开启。
+//   双级语义产物 digest 等于 golden；probe 历史/时域累积经 temporal 公共底座
+//   （不私写重投影，D2-Q14）；世界 clipmap 级 evidence 显式登记
+//   not-triggered。
+// 消费锚：ci/g9_spg_radiance_cache_smoke.py（g9.p1.m99.spg_radiance_cache）
+//   正例臂（实现 PR 接线）。
+fn main() {}

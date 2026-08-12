@@ -1,0 +1,14 @@
+//@ spec: RXS-0357
+// G9.4 M96 RED 语料（spec/global_illumination.md RXS-0357 L2/L4：固定 seed 两次
+// 运行位级一致——累加序与 RNG 流冻结；改 seed（期望不同）、跳过 RR、关闭 MIS
+// 三臂 RED 独立有效）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   固定场景 + 固定 spp；正例臂 = seed S 双运行输出位级一致（digest 全等）。
+//   负例臂①：改 seed S→S′ 后输出 digest 与正例全等 = 确定性协议漏检，必须 RED；
+//   负例臂②：跳过 RR（路径永不轮盘终止）输出仍同 golden = RED；
+//   负例臂③：关闭 MIS（仅 NEE 单策略）输出仍同 golden = RED。
+//   三臂各自独立于正例臂成立，任一臂不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：参照器确定性协议校验负例 +
+//   ci/g9_path_tracer_reference_smoke.py 门三臂（symbolic key
+//   g9.p0.m96.path_tracer_reference，G9.1 冻结字面不动）。
+fn main() {}

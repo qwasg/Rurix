@@ -1,0 +1,15 @@
+//@ spec: RXS-0359
+// G9.4 M98 RED 语料（spec/global_illumination.md RXS-0359 L3/L4：逐级强制关闭
+// 后回归差异必须可检测——强关后输出仍同 golden 即 RED；实际使用级别必须显式
+// 记录入 evidence，禁静默回退，无计数降级即 RED）。
+// **转正（G9.4 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   四级链 L1 Screen Trace / L2 SWRT / L3 HWRT / L4 Far Field 最小场景。
+//   负例臂①（静默回退）：L2 实际不可用时静默改走 L3 且 evidence 无级别记录
+//   ——必须判 RED；
+//   负例臂②（强关不可检测）：强制关闭 L2 后输出仍与全开 golden 逐位一致——
+//   回归差异不可检测 = 降级链失效，必须判 RED。
+//   两臂独立于正例臂（四级计数非空逐帧 evidence + 实际级别显式记录）成立。
+// 预期 RED 面（实现 PR 接线）：选档/计数校验负例 +
+//   ci/g9_tracing_fallback_chain_smoke.py 门（symbolic key
+//   g9.p0.m98.tracing_fallback_chain，G9.1 冻结字面不动）。
+fn main() {}
