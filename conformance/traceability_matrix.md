@@ -340,5 +340,5 @@
 | RXS-0352 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/single_source_three_consumers.rx`, `conformance/virtual_geometry/reject/bypass_single_source_variant.rx` |
 | RXS-0353 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx`, `src/rurix-geom-build/src/dag.rs` |
 | RXS-0354 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/command_build_host_readback.rx`, `src/rurix-rt/src/command_build.rs` |
-| RXS-0355 | spec/gpu_driven_submit.md | 3 | `src/rurix-rt/src/execution_set.rs`, `src/rurix-rt/src/pso_cache.rs`, `src/rurixc/src/capability_check.rs` |
+| RXS-0355 | spec/gpu_driven_submit.md | 4 | `src/rurix-rt/src/execution_set.rs`, `src/rurix-rt/src/pso_cache.rs`, `src/rurix-rt/src/vk.rs` …(+1) |
 | RXS-0356 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx`, `src/rurixc/src/shader_library.rs` |

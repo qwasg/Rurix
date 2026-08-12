@@ -1833,6 +1833,7 @@
     "RXS-0355": [
       "src/rurix-rt/src/execution_set.rs",
       "src/rurix-rt/src/pso_cache.rs",
+      "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/capability_check.rs"
     ],
     "RXS-0356": [
