@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""G9.1 治理守卫 — 验收映射覆盖 / 空行 / 三向命名空间一致性。
+"""G9.1 治理守卫 — 验收映射覆盖 / 空行 / 三向命名空间一致性（G9.3 波起含 §3 P1 面）。
 
 对应 milestones/g9/CI_GATES.md §3 的 `g9.gov.acceptance_coverage`。
 
@@ -7,6 +7,13 @@
   1. milestones/g9/G9_ACCEPTANCE_MAP.md §2（15 P0；G9.1 只映射 P0，go-P1 波次开工前只追加）
   2. milestones/g9/G9_CONTRACT.md §4.2（15 P0 独立断言表）
   3. milestones/g9/CI_GATES.md §4（15 P0）
+
+G9.3 波 P1 全进裁决（G9_CONTRACT §8.1 裁决①，2026-08-11 只追加登记）落地后：
+  - MAP §3 登记已 go P1 四行（M92/M105/M106/M107，key 形如 `g9.p1.m##.<slug>`）；
+  - CI_GATES §4A 同构登记同四行；P1 行做 **MAP §3 ↔ CI_GATES §4A 双向逐字比对**
+    （G9_CONTRACT §4.2 为 15 P0 独立断言表，不载 P1 行，P1 三向比对不适用）；
+  - §2 P0 十五行的既有 coverage/no-empty/三向比对 **0-byte 不改弱**；
+    后续波次判 go 的 P1 只追加扩 `EXPECTED_P1` 与 §3/§4A 表。
 
 本守卫属未编号 `check_*` 类，不占 numeric CI step，不判定任何实现门为绿。
 `--selftest` 用内置合成夹具的受控负样本证明每组断言都能红（不依赖树上文件）。
@@ -37,10 +44,20 @@ EXPECTED_P0 = {
     "M110", "M118",
 }
 
+# 已 go P1 精确集合（2026-08-11 G9.3 波 P1 全进裁决，G9_CONTRACT §8.1 裁决①：
+# 逐波经治理流程只追加进 ACCEPTANCE_MAP §3，不静默并入既有 key）。
+# 后续波次判 go 的 P1 只追加扩本集合 + MAP §3 + CI_GATES §4A。
+EXPECTED_P1 = {"M92", "M105", "M106", "M107"}
+
 ALLOWED_WAVES = {"G9.2", "G9.3", "G9.4", "G9.5", "G9.6", "G9.2 + G9.6"}
 
 KEY_RE = re.compile(r"^g9\.p0\.m\d{2,3}\.[a-z0-9_]+$")
 KEY_IN_CELL_RE = re.compile(r"`(g9\.p0\.m\d{2,3}\.[a-z0-9_]+)`")
+KEY_P1_RE = re.compile(r"^g9\.p1\.m\d{2,3}\.[a-z0-9_]+$")
+KEY_P1_IN_CELL_RE = re.compile(r"`(g9\.p1\.m\d{2,3}\.[a-z0-9_]+)`")
+KEY_P0_CELL_RE = re.compile(r"`(g9\.p0\.m\d{2,3}\.[a-z0-9_]+)`")
+KEY_P1_CELL_RE = re.compile(r"`(g9\.p1\.m\d{2,3}\.[a-z0-9_]+)`")
+SECTION_RE = re.compile(r"^## (\d+)\. ")
 SCRIPT_RE = re.compile(r"ci/g9_[a-z0-9_]+_smoke\.py")
 SCHEMA_RE = re.compile(r"`(milestones/g9/g9_(m\d{2,3})_[a-z0-9_]+_evidence_schema\.json)`")
 PLACEHOLDERS = ("TBD", "TODO", "待定", "待补", "待填", "—", "N/A")
@@ -54,10 +71,26 @@ def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
-def parse_map(text: str) -> dict[str, dict]:
-    """解析 ACCEPTANCE_MAP §2 的 15 行 `| **M##** | ... ` 行。"""
-    rows: dict[str, dict] = {}
+def section_lines(text: str, section_no: int) -> list[str]:
+    """取 `## <section_no>. ` 节首行至下一 `## N. ` 节之间的行（节内作用域）。"""
+    out: list[str] = []
+    in_sec = False
     for line in text.splitlines():
+        m = SECTION_RE.match(line)
+        if m:
+            if in_sec:
+                break
+            in_sec = int(m.group(1)) == section_no
+            continue
+        if in_sec:
+            out.append(line)
+    return out
+
+
+def parse_map_rows(lines: list[str], key_in_cell_re: re.Pattern) -> dict[str, dict]:
+    """解析节内 `| **M##** | ... ` 行（§2 P0 / §3 P1 共用形态）。"""
+    rows: dict[str, dict] = {}
+    for line in lines:
         if not line.startswith("| **M"):
             continue
         cells = _cells(line)
@@ -66,7 +99,7 @@ def parse_map(text: str) -> dict[str, dict]:
         m = re.match(r"\*\*(M\d{2,3})\*\*", cells[0])
         if not m:
             continue
-        keys = KEY_IN_CELL_RE.findall(cells[1])
+        keys = key_in_cell_re.findall(cells[1])
         scripts = SCRIPT_RE.findall(cells[1])
         rows[m.group(1)] = {
             "raw_key_cell": cells[1],
@@ -79,14 +112,16 @@ def parse_map(text: str) -> dict[str, dict]:
     return rows
 
 
-def parse_key_script_table(text: str) -> dict[str, tuple[str, str]]:
-    """解析 CONTRACT §4.2 / CI_GATES §4 形态的 `key | M## | wave | script` 行。"""
+def parse_key_script_table(
+    text: str, key_cell_re: re.Pattern
+) -> dict[str, tuple[str, str]]:
+    """解析 CONTRACT §4.2 / CI_GATES §4 / §4A 形态的 `key | M## | wave | script` 行。"""
     out: dict[str, tuple[str, str]] = {}
     for line in text.splitlines():
         if not line.startswith("| `g9.p"):
             continue
         cells = _cells(line)
-        key_m = re.match(r"`(g9\.p0\.m\d{2,3}\.[a-z0-9_]+)`", cells[0])
+        key_m = key_cell_re.match(cells[0])
         m_m = re.search(r"(M\d{2,3})", cells[1]) if len(cells) > 1 else None
         script_m = SCRIPT_RE.search(line)
         if not (key_m and m_m and script_m):
@@ -95,28 +130,27 @@ def parse_key_script_table(text: str) -> dict[str, tuple[str, str]]:
     return out
 
 
-def check(map_text: str, contract_text: str, ci_gates_text: str) -> Finding:
-    findings = Finding()
-    rows = parse_map(map_text)
-
-    # --- coverage 组 ---
-    if set(rows) != EXPECTED_P0:
-        findings.append(
-            f"[coverage] P0 集合不等于冻结 15 行：缺 {sorted(EXPECTED_P0 - set(rows))}，多 {sorted(set(rows) - EXPECTED_P0)}"
-        )
-
-    seen_keys: dict[str, str] = {}
-    seen_schemas: dict[str, str] = {}
+def check_rows(
+    rows: dict[str, dict],
+    key_re: re.Pattern,
+    key_desc: str,
+    bad_ns: str,
+    bad_ns_msg: str,
+    seen_keys: dict[str, str],
+    seen_schemas: dict[str, str],
+    findings: Finding,
+) -> None:
+    """§2 P0 / §3 P1 行共用的 coverage + no-empty 断言组（逐行独立报告）。"""
     for m in sorted(rows):
         row = rows[m]
-        if ".p1." in row["raw_key_cell"]:
-            findings.append(f"[coverage] {m} 出现 p1 key：G9.1 只映射 P0，go-P1 波次开工前只追加")
+        if bad_ns in row["raw_key_cell"]:
+            findings.append(f"[coverage] {m} 出现 {bad_ns.strip('.')} key：{bad_ns_msg}")
         if len(row["keys"]) != 1:
             findings.append(f"[coverage] {m} 必须恰有一个 canonical symbolic key，实测 {row['keys']}")
             continue
         key = row["keys"][0]
-        if not KEY_RE.match(key):
-            findings.append(f"[coverage] {m} key `{key}` 不匹配 g9.p0.m##.<slug>")
+        if not key_re.match(key):
+            findings.append(f"[coverage] {m} key `{key}` 不匹配 {key_desc}")
         if key.split(".")[2] != m.lower():
             findings.append(f"[coverage] {m} key `{key}` 的 m## 段与行号不符")
         if key in seen_keys:
@@ -156,9 +190,38 @@ def check(map_text: str, contract_text: str, ci_gates_text: str) -> Finding:
         if row["wave"] not in ALLOWED_WAVES:
             findings.append(f"[no-empty] {m} 波次 {row['wave']!r} 不在允许集合内")
 
-    # --- 三向一致组 ---
-    contract_rows = parse_key_script_table(contract_text)
-    ci_rows = parse_key_script_table(ci_gates_text)
+
+def check(map_text: str, contract_text: str, ci_gates_text: str) -> Finding:
+    findings = Finding()
+    rows = parse_map_rows(section_lines(map_text, 2), KEY_IN_CELL_RE)
+    p1_rows = parse_map_rows(section_lines(map_text, 3), KEY_P1_IN_CELL_RE)
+
+    # --- coverage 组 ---
+    if set(rows) != EXPECTED_P0:
+        findings.append(
+            f"[coverage] P0 集合不等于冻结 15 行：缺 {sorted(EXPECTED_P0 - set(rows))}，多 {sorted(set(rows) - EXPECTED_P0)}"
+        )
+    if set(p1_rows) != EXPECTED_P1:
+        findings.append(
+            f"[coverage] P1 集合不等于 §1 声明集合：缺 {sorted(EXPECTED_P1 - set(p1_rows))}，多 {sorted(set(p1_rows) - EXPECTED_P1)}"
+        )
+
+    seen_keys: dict[str, str] = {}
+    seen_schemas: dict[str, str] = {}
+    check_rows(
+        rows, KEY_RE, "g9.p0.m##.<slug>", ".p1.",
+        "§2 只映射 P0（go-P1 只追加进 §3，不混入 P0 冻结面）",
+        seen_keys, seen_schemas, findings,
+    )
+    check_rows(
+        p1_rows, KEY_P1_RE, "g9.p1.m##.<slug>", ".p0.",
+        "§3 只登记已 go P1（P0 行属 §2 冻结面）",
+        seen_keys, seen_schemas, findings,
+    )
+
+    # --- 三向一致组（P0：MAP §2 ↔ CONTRACT §4.2 ↔ CI_GATES §4） ---
+    contract_rows = parse_key_script_table(contract_text, KEY_P0_CELL_RE)
+    ci_rows = parse_key_script_table(ci_gates_text, KEY_P0_CELL_RE)
     for m in sorted(rows):
         if len(rows[m]["keys"]) != 1 or not rows[m]["scripts"]:
             continue
@@ -173,11 +236,27 @@ def check(map_text: str, contract_text: str, ci_gates_text: str) -> Finding:
                 findings.append(f"[three-way] {m} key 漂移：MAP `{key}` vs {name} `{other_key}`")
             if other_script != script:
                 findings.append(f"[three-way] {m} script 漂移：MAP `{script}` vs {name} `{other_script}`")
+
+    # --- 双向一致组（P1：MAP §3 ↔ CI_GATES §4A；CONTRACT §4.2 不载 P1 行） ---
+    ci_p1_rows = parse_key_script_table(ci_gates_text, KEY_P1_CELL_RE)
+    for m in sorted(p1_rows):
+        if len(p1_rows[m]["keys"]) != 1 or not p1_rows[m]["scripts"]:
+            continue
+        key = p1_rows[m]["keys"][0]
+        script = p1_rows[m]["scripts"][0]
+        if m not in ci_p1_rows:
+            findings.append(f"[two-way] CI_GATES §4A 缺 {m} 行")
+            continue
+        other_key, other_script = ci_p1_rows[m]
+        if other_key != key:
+            findings.append(f"[two-way] {m} key 漂移：MAP `{key}` vs CI_GATES §4A `{other_key}`")
+        if other_script != script:
+            findings.append(f"[two-way] {m} script 漂移：MAP `{script}` vs CI_GATES §4A `{other_script}`")
     return findings
 
 
 # ---------------------------------------------------------------------------
-# selftest 合成夹具：15 行冻结集合的正本，不依赖树上文件。
+# selftest 合成夹具：15 行 P0 冻结集合 + G9.3 波四行 P1 的正本，不依赖树上文件。
 # ---------------------------------------------------------------------------
 
 CANONICAL_ROWS = [
@@ -198,11 +277,18 @@ CANONICAL_ROWS = [
     ("M118", "display_pipeline_view_transform", "G9.5"),
 ]
 
+CANONICAL_P1_ROWS = [
+    ("M92", "gpu_skinning_lod_update", "G9.3"),
+    ("M105", "command_build_node", "G9.3"),
+    ("M106", "execution_set_pso", "G9.3"),
+    ("M107", "shader_library_ir_link", "G9.3"),
+]
+
 
 def _fixture() -> tuple[str, str, str]:
-    map_lines = ["# fixture G9_ACCEPTANCE_MAP", "", "## §2 P0 映射", ""]
-    contract_lines = ["# fixture G9_CONTRACT", "", "### §4.2 P0 独立断言表", ""]
-    gates_lines = ["# fixture CI_GATES", "", "## §4 P0 门", ""]
+    map_lines = ["# fixture G9_ACCEPTANCE_MAP", "", "## 2. P0 映射", ""]
+    contract_lines = ["# fixture G9_CONTRACT", "", "### 4.2 P0 独立断言表", ""]
+    gates_lines = ["# fixture CI_GATES", "", "## 4. P0 门", ""]
     for m, slug, wave in CANONICAL_ROWS:
         key = f"g9.p0.{m.lower()}.{slug}"
         script = f"ci/g9_{slug}_smoke.py"
@@ -213,6 +299,16 @@ def _fixture() -> tuple[str, str, str]:
         row = f"| `{key}` | {m} | {wave} | `{script}` |"
         contract_lines.append(row)
         gates_lines.append(row)
+    map_lines += ["", "## 3. 已 go P1", ""]
+    gates_lines += ["", "## 4A. 已 go P1 门", ""]
+    for m, slug, wave in CANONICAL_P1_ROWS:
+        key = f"g9.p1.{m.lower()}.{slug}"
+        script = f"ci/g9_{slug}_smoke.py"
+        schema = f"milestones/g9/g9_{m.lower()}_{slug}_evidence_schema.json"
+        map_lines.append(
+            f"| **{m}** | `{key}` — `py -3 {script} --gate {key}` | `{schema}` | 合成判据 {m} | **{wave}** |"
+        )
+        gates_lines.append(f"| `{key}` | {m} | {wave} | `{script}` |")
     return "\n".join(map_lines), "\n".join(contract_lines), "\n".join(gates_lines)
 
 
@@ -273,6 +369,29 @@ def run_selftest() -> int:
             ci_text,
             "[no-empty] M94 schema 路径的 m## 段不符",
         ),
+        (
+            "删除 §3 M107 行 → P1 coverage 必须红",
+            "\n".join(l for l in map_text.splitlines() if not l.startswith("| **M107**")),
+            contract_text,
+            ci_text,
+            "P1 集合不等于 §1 声明集合",
+        ),
+        (
+            "§3 P1 行误用 p0 key → coverage 必须红",
+            map_text.replace(
+                "`g9.p1.m92.gpu_skinning_lod_update`", "`g9.p0.m92.gpu_skinning_lod_update`", 1
+            ),
+            contract_text,
+            ci_text,
+            "出现 p0 key",
+        ),
+        (
+            "CI_GATES §4A 单侧改脚本名 → two-way 必须红",
+            map_text,
+            contract_text,
+            ci_text.replace("ci/g9_execution_set_pso_smoke.py", "ci/g9_execution_set_smoke.py"),
+            "[two-way] M106 script 漂移",
+        ),
     ]
 
     failures = 0
@@ -298,7 +417,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[check_g9_acceptance_map] SELFTEST FAIL ({failures})")
         return 1
-    print("[check_g9_acceptance_map] SELFTEST PASS (7 RED + 1 GREEN)")
+    print("[check_g9_acceptance_map] SELFTEST PASS (10 RED + 1 GREEN)")
     return 0
 
 
@@ -326,10 +445,10 @@ def main() -> int:
         return 1
     print(
         "[check_g9_acceptance_map] PASS"
-        "（15 P0 覆盖齐备；15 key 唯一且同一命名空间；"
-        "MAP/CONTRACT/CI_GATES 三向逐字一致；零空行/占位）"
+        "（15 P0 + 4 已 go P1（G9.3 波）覆盖齐备；19 key 唯一且同一命名空间；"
+        "P0 行 MAP/CONTRACT/CI_GATES 三向逐字一致、P1 行 MAP §3/CI_GATES §4A 双向逐字一致；零空行/占位）"
     )
-    print("  注意：本 PASS 只表示映射完整，不表示任何 P0 能力门已实现或已绿。")
+    print("  注意：本 PASS 只表示映射完整，不表示任何 P0/P1 能力门已实现或已绿。")
     return 0
 
 

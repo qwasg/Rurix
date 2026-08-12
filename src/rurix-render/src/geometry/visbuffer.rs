@@ -42,6 +42,8 @@ use crate::temporal::common::Mat4;
 
 use super::cull::VisibleCluster;
 use super::gpu_scene::{InstanceRecord, transform_point};
+use super::skinning::SkinCache;
+use super::visible_cluster_set::VisibleClusterSet;
 
 /// 无效簇标记(clear 值的 cluster 段;27 位全 1)。
 pub const CLUSTER_INVALID: u32 = (1 << VISBUFFER_CLUSTER_BITS) - 1;
@@ -191,37 +193,203 @@ pub fn raster_clusters(
     visible: &[VisibleCluster],
     scene: &RasterScene<'_>,
 ) {
-    let vp = Mat4 { m: scene.view_proj };
-    let (w_px, h_px) = (vis.w as f32, vis.h as f32);
     for (vis_idx, vc) in visible.iter().enumerate() {
         let inst = &scene.instances[vc.instance as usize];
         let c = &scene.clusters[vc.cluster as usize];
-        let cluster27 = vis_idx as u32;
-        for t in 0..c.triangle_count {
-            let mut screen = [[0.0f32; 3]; 3];
-            let mut valid = true;
-            for (k, sv) in screen.iter_mut().enumerate() {
-                let local = scene.indices[(c.triangle_offset + 3 * t) as usize + k];
-                let obj = scene.vertices[(c.vertex_offset + local) as usize];
-                let world = transform_point(&inst.transform, obj);
-                let clip = vp.transform_vec4([world[0], world[1], world[2], 1.0]);
-                if clip[3] <= 1e-20 {
-                    // 近平面穿越/相机背后(clip[3] ≤ 0)或极近零正值(防 1/clip[3] → inf/NaN
-                    // 传播)⇒ 保守丢弃(裁决 4)。
-                    valid = false;
-                    break;
-                }
-                let inv_w = 1.0 / clip[3];
-                let nx = clip[0] * inv_w;
-                let ny = clip[1] * inv_w;
-                let nz = (clip[2] * inv_w).clamp(0.0, 1.0);
-                *sv = [(nx + 1.0) * 0.5 * w_px, (1.0 - ny) * 0.5 * h_px, nz];
+        raster_cluster_tris(
+            vis,
+            vis_idx as u32,
+            c,
+            &inst.transform,
+            scene.indices,
+            &scene.view_proj,
+            |local| scene.vertices[(c.vertex_offset + local) as usize],
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// M95 光栅消费侧(RXS-0352 L1/L2):VisibleClusterSet → VisBuffer
+// ---------------------------------------------------------------------------
+
+/// `VisibleClusterSet` 光栅场景面(单源真相光栅腿;RXS-0352 L1)。
+///
+/// 相对 [`RasterScene`] 新增蒙皮面:`skin_slot_of` = 全局簇 → skin cache 槽位
+/// (`u32::MAX` = 非蒙皮);蒙皮簇对象空间顶点取 skin cache 槽位(蒙皮 kernel
+/// 输出,与剔除/RT/VSM 同源),**不再读静态顶点池**——VisBuffer 64 位格式与
+/// 光栅内核逐字复用(L1「格式不变」)。
+#[derive(Debug, Clone, Copy)]
+pub struct VisibleSetScene<'a> {
+    pub instances: &'a [InstanceRecord],
+    pub clusters: &'a [ClusterRecord],
+    pub vertices: &'a [[f32; 3]],
+    pub indices: &'a [u32],
+    /// 视图 × 投影(行主、列向量约定;与剔除同一相机)。
+    pub view_proj: [[f32; 4]; 4],
+    /// skin cache(蒙皮簇位置源;`None` = 场景无蒙皮簇)。
+    pub skin: Option<&'a SkinCache>,
+    /// 全局簇 → skin cache 槽位(`u32::MAX` = 非蒙皮)。
+    pub skin_slot_of: &'a [u32],
+}
+
+/// `VisibleClusterSet` 可见元素 → 全屏 VisBuffer(M95 光栅消费腿)。
+///
+/// cluster27 = **元素在 `VisibleClusterSet::entries` 中的位置**(= 帧内可见簇
+/// 列表下标裁决的 set 载体形态,与 [`VisibleClusterSet::feed_raster`] 的
+/// `entry_indices` 一致);蒙皮簇经 skin cache 顶点进光栅(L1/L2 host 腿)。
+pub fn raster_visible_set(
+    vis: &mut VisBufferCpu,
+    set: &VisibleClusterSet,
+    scene: &VisibleSetScene<'_>,
+) {
+    for (entry_idx, e) in set.visible_entries() {
+        let inst = &scene.instances[e.instance as usize];
+        let c = &scene.clusters[e.cluster as usize];
+        let slot = scene.skin_slot_of[e.cluster as usize];
+        if slot != u32::MAX {
+            let positions = &scene
+                .skin
+                .expect("skin_slot_of 指派槽位时 skin cache 必须在场")
+                .slots[slot as usize]
+                .positions;
+            debug_assert_eq!(positions.len(), c.vertex_count as usize);
+            raster_cluster_tris(
+                vis,
+                entry_idx,
+                c,
+                &inst.transform,
+                scene.indices,
+                &scene.view_proj,
+                |local| positions[local as usize],
+            );
+        } else {
+            raster_cluster_tris(
+                vis,
+                entry_idx,
+                c,
+                &inst.transform,
+                scene.indices,
+                &scene.view_proj,
+                |local| scene.vertices[(c.vertex_offset + local) as usize],
+            );
+        }
+    }
+}
+
+/// 单簇逐三角形光栅内核(`raster_clusters` 与 [`raster_visible_set`] 共享;
+/// `position_of` = 簇局部顶点下标 → 对象空间位置,蒙皮/静态双路同核)。
+#[allow(clippy::too_many_arguments)]
+fn raster_cluster_tris(
+    vis: &mut VisBufferCpu,
+    cluster27: u32,
+    c: &ClusterRecord,
+    transform: &[[f32; 4]; 3],
+    indices: &[u32],
+    view_proj: &[[f32; 4]; 4],
+    position_of: impl Fn(u32) -> [f32; 3],
+) {
+    let vp = Mat4 { m: *view_proj };
+    let (w_px, h_px) = (vis.w as f32, vis.h as f32);
+    for t in 0..c.triangle_count {
+        let mut screen = [[0.0f32; 3]; 3];
+        let mut valid = true;
+        for (k, sv) in screen.iter_mut().enumerate() {
+            let local = indices[(c.triangle_offset + 3 * t) as usize + k];
+            let obj = position_of(local);
+            let world = transform_point(transform, obj);
+            let clip = vp.transform_vec4([world[0], world[1], world[2], 1.0]);
+            if clip[3] <= 1e-20 {
+                // 近平面穿越/相机背后(clip[3] ≤ 0)或极近零正值(防 1/clip[3] → inf/NaN
+                // 传播)⇒ 保守丢弃(裁决 4)。
+                valid = false;
+                break;
             }
-            if valid {
-                vis.raster_triangle(&screen, cluster27, t);
+            let inv_w = 1.0 / clip[3];
+            let nx = clip[0] * inv_w;
+            let ny = clip[1] * inv_w;
+            let nz = (clip[2] * inv_w).clamp(0.0, 1.0);
+            *sv = [(nx + 1.0) * 0.5 * w_px, (1.0 - ny) * 0.5 * h_px, nz];
+        }
+        if valid {
+            vis.raster_triangle(&screen, cluster27, t);
+        }
+    }
+}
+
+/// VisBuffer 整数域 diff 报告(host 对拍面;RXS-0352 L2 蒙皮簇 SW/HW
+/// diff=0 的 host 断言锚——device 双腿由 CI 门代理经 rurix-rt render_exec
+/// 骨架真跑,本面为其 host 侧断言与接线点)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VisDiff {
+    /// 不一致像素数(u64 逐位比较;整数域零容差)。
+    pub mismatched: u32,
+    /// 首个不一致像素 (x, y, a, b)。
+    pub first: Option<(u32, u32, u64, u64)>,
+}
+
+/// VisBuffer diff 错误(尺寸失配 = 对拍前提破坏;diff ≠ 0 见 [`VisDiff`])。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VisDiffError {
+    /// 两缓冲尺寸不一致。
+    DimensionMismatch {
+        /// (w, h) 对。
+        a: (u32, u32),
+        /// (w, h) 对。
+        b: (u32, u32),
+    },
+    /// 整数域 diff 非零(SW/HW diff=0 判据破坏)。
+    NonZeroDiff(VisDiff),
+}
+
+impl std::fmt::Display for VisDiffError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            VisDiffError::DimensionMismatch { a, b } => {
+                write!(f, "VisBuffer 尺寸失配:{a:?} vs {b:?}")
+            }
+            VisDiffError::NonZeroDiff(d) => {
+                write!(f, "VisBuffer 整数域 diff = {} 像素(零容差破坏)", d.mismatched)
             }
         }
     }
+}
+
+impl std::error::Error for VisDiffError {}
+
+/// 两 VisBuffer 整数域逐像素 diff(u64 位级比较,零容差;G7.5b RXS-0303 口径)。
+pub fn visbuffer_diff_host(a: &VisBufferCpu, b: &VisBufferCpu) -> Result<VisDiff, VisDiffError> {
+    if (a.w, a.h) != (b.w, b.h) {
+        return Err(VisDiffError::DimensionMismatch {
+            a: (a.w, a.h),
+            b: (b.w, b.h),
+        });
+    }
+    let mut diff = VisDiff {
+        mismatched: 0,
+        first: None,
+    };
+    for y in 0..a.h {
+        for x in 0..a.w {
+            let (va, vb) = (a.get(x, y), b.get(x, y));
+            if va != vb {
+                diff.mismatched += 1;
+                if diff.first.is_none() {
+                    diff.first = Some((x, y, va, vb));
+                }
+            }
+        }
+    }
+    Ok(diff)
+}
+
+/// SW/HW diff=0 host 断言(diff ≠ 0 即 typed `Err`;蒙皮簇路径同口径维持,
+/// RXS-0352 L2「不减损、不重定」)。
+pub fn assert_visbuffer_diff_zero(a: &VisBufferCpu, b: &VisBufferCpu) -> Result<(), VisDiffError> {
+    let d = visbuffer_diff_host(a, b)?;
+    if d.mismatched != 0 {
+        return Err(VisDiffError::NonZeroDiff(d));
+    }
+    Ok(())
 }
 
 fn sub2(a: [f32; 3], b: [f32; 3]) -> [f32; 2] {
@@ -588,5 +756,176 @@ mod tests {
             assert_eq!((tk.material_slot, tk.pixel_count), (7, 16), "tile {i}");
             assert_eq!(out.tile_offsets[i], i as u32, "前缀和 {i}");
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // G9.3 M95(RXS-0352):VisibleClusterSet 光栅消费 + 蒙皮簇 diff=0 host 锚
+    // -----------------------------------------------------------------------
+
+    /// 两簇(静态 + 蒙皮)场景:簇 0 下半三角形、簇 1 上半三角形(对象空间,
+    /// 实例平移 z = −5);簇 1 蒙皮 = 静止顶点 + (0.5, 0, 0)。
+    #[allow(clippy::type_complexity)]
+    fn skinned_set_scene() -> (
+        Vec<[f32; 3]>,   // 静态顶点池(簇 1 段 = 静止顶点)
+        Vec<[f32; 3]>,   // 蒙皮后顶点(skin cache 槽位 0 / 直烘池用)
+        Vec<u32>,        // 索引池
+        Vec<ClusterRecord>,
+        [[f32; 4]; 4],   // view_proj
+    ) {
+        let rest0 = [[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 0.0, 0.0]];
+        let rest1 = [[-1.0, 1.0, 0.0], [0.0, 3.0, 0.0], [1.0, 1.0, 0.0]];
+        let skinned1: Vec<[f32; 3]> = rest1.iter().map(|v| [v[0] + 0.5, v[1], v[2]]).collect();
+        let vertices = vec![rest0[0], rest0[1], rest0[2], rest1[0], rest1[1], rest1[2]];
+        // 簇 1 反序 ⇒ 两簇均正面(RH CCW 向外,相机 −z 方向可见面 = +z 法向)。
+        let indices = vec![0, 1, 2, 0, 2, 1];
+        let rec = |voff, toff| ClusterRecord {
+            center: [0.0; 3],
+            radius: 2.0,
+            cone_axis: [0.0, 0.0, 1.0],
+            cone_cutoff: 2.0,
+            error: 0.0,
+            parent_error: f32::INFINITY,
+            vertex_offset: voff,
+            triangle_offset: toff,
+            vertex_count: 3,
+            triangle_count: 1,
+            page_id: 0,
+            reserved: 0,
+        };
+        let clusters = vec![rec(0, 0), rec(3, 3)];
+        let vp = [
+            [4.0, 0.0, 0.0, 0.0],
+            [0.0, 4.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0, -0.2],
+            [0.0, 0.0, -1.0, 0.0],
+        ];
+        (vertices, skinned1, indices, clusters, vp)
+    }
+
+    fn two_entry_set() -> VisibleClusterSet {
+        use crate::geometry::visible_cluster_set::{
+            VisibleClusterEntry, compute_provenance_digest,
+        };
+        let mut set = VisibleClusterSet {
+            frame_serial: 1,
+            entries: vec![
+                VisibleClusterEntry {
+                    cluster: 0,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 0,
+                    page_id: 0,
+                    visible: true,
+                },
+                VisibleClusterEntry {
+                    cluster: 1,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 1, // 蒙皮簇(版本 1)
+                    page_id: 0,
+                    visible: true,
+                },
+            ],
+            residency: vec![],
+            fallback: vec![],
+            provenance_digest: [0; 32],
+        };
+        set.provenance_digest = compute_provenance_digest(&set);
+        set
+    }
+
+    //@ spec: RXS-0352
+    #[test]
+    fn skinned_cluster_skin_cache_path_diff_zero_host() {
+        let (vertices, skinned1, indices, clusters, vp) = skinned_set_scene();
+        let inst = [InstanceRecord {
+            transform: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, -5.0],
+            ],
+            cluster_offset: 0,
+            cluster_count: 2,
+            material_id: 0,
+            flags: 0,
+            aabb_min: [-2.0; 3],
+            mesh_id: 0,
+            aabb_max: [2.0; 3],
+            reserved: u32::MAX,
+        }];
+        let set = two_entry_set();
+        // 腿 A(skin cache 路):蒙皮簇顶点取 skin cache 槽位。
+        let skin = SkinCache {
+            slots: vec![crate::geometry::skinning::SkinCacheSlot {
+                positions: skinned1.clone(),
+                bound: ([0.0; 3], [0.0; 3]),
+                version: 1,
+                stale_frames: 0,
+            }],
+        };
+        let mut leg_a = VisBufferCpu::new(16, 16);
+        raster_visible_set(
+            &mut leg_a,
+            &set,
+            &VisibleSetScene {
+                instances: &inst,
+                clusters: &clusters,
+                vertices: &vertices,
+                indices: &indices,
+                view_proj: vp,
+                skin: Some(&skin),
+                skin_slot_of: &[u32::MAX, 0],
+            },
+        );
+        // 腿 B(直烘路/HW host 模型):蒙皮后顶点直烘静态池,不经 skin cache。
+        let mut baked = vertices.clone();
+        baked[3..6].copy_from_slice(&skinned1);
+        let mut leg_b = VisBufferCpu::new(16, 16);
+        raster_visible_set(
+            &mut leg_b,
+            &set,
+            &VisibleSetScene {
+                instances: &inst,
+                clusters: &clusters,
+                vertices: &baked,
+                indices: &indices,
+                view_proj: vp,
+                skin: None,
+                skin_slot_of: &[u32::MAX, u32::MAX],
+            },
+        );
+        // 蒙皮簇 skin cache 路与直烘路整数域逐像素 diff = 0(RXS-0352 L2 host 锚)。
+        assert_visbuffer_diff_zero(&leg_a, &leg_b).expect("skin cache 路 diff 必须为 0");
+        assert!(leg_a.count_valid() > 0);
+        // cluster27 = 元素在 set.entries 的位置(簇 0 → 0,簇 1 → 1)。
+        let mut seen = [false; 2];
+        for y in 0..16u32 {
+            for x in 0..16u32 {
+                let (_, c, _) = visbuffer_unpack(leg_a.get(x, y));
+                if c != CLUSTER_INVALID {
+                    assert!(c < 2, "cluster27 必须取 set 元素位置");
+                    seen[c as usize] = true;
+                }
+            }
+        }
+        assert!(seen[0] && seen[1], "两簇均应覆盖像素");
+        // feed_raster 的 entry_indices 与写入的 cluster27 域一致。
+        assert_eq!(set.feed_raster().entry_indices, vec![0, 1]);
+        // RED 臂:篡改一像素 ⇒ diff 断言必须检出。
+        let mut tampered = leg_b.clone();
+        tampered.data[0] = if tampered.data[0] == VISBUFFER_CLEAR {
+            visbuffer_pack(1, 0, 0)
+        } else {
+            VISBUFFER_CLEAR
+        };
+        assert!(matches!(
+            assert_visbuffer_diff_zero(&leg_a, &tampered),
+            Err(VisDiffError::NonZeroDiff(_)) | Err(VisDiffError::DimensionMismatch { .. })
+                if leg_a.data[0] != tampered.data[0]
+        ));
+        assert_eq!(
+            visbuffer_diff_host(&leg_a, &tampered).map(|d| d.mismatched),
+            Ok(1)
+        );
     }
 }

@@ -1,0 +1,11 @@
+//@ spec: RXS-0351
+// G9.3 accept 正例语料（spec/virtual_geometry.md RXS-0351 L1/L2）：CLAS 主腿与传统
+// BLAS 回退腿内容匹配的最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   可见集 = {C0, C1, C2}（由 VisibleClusterSet digest 派生）；
+//   当帧 multi-indirect 拼装 BLAS 输入 = {C0, C1, C2}——逐簇匹配、零错开；
+//   双腿 ray query 逐命中一致（任意 hit 集合 + 最近 hit 距离容差 0）；
+//   静态帧（可见集 digest 逐帧不变）零 AS 构建（构建计数 = 0）。
+// 消费锚：ci/g9_clas_rt_convergence_smoke.py（g9.p0.m94.clas_rt_convergence）
+//   正例臂（实现 PR 接线）。
+fn main() {}

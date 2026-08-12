@@ -1,13 +1,15 @@
 //@ spec: RXS-0345
-// G9.2 spec-first 条款锚定占位语料（spec/virtual_geometry.md RXS-0345：DAG 误差
-// monotonic 不变式——DAG 每一边 parent_error >= cluster_error 逐边成立；破坏单调性
-// 的输入/中间态 builder 必须 typed Err 拒绝（fail-closed，无 UB）+ 簇对锁定语义 +
-// 蒙皮元数据/CLAS 烘焙输入字段 schema）。
-// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例）**：本 spec PR 不含 src/
-// 实现；geom_build dag.rs 校验拒录臂落地前本文件只承载条款锚点，不接入任何 harness。
-// 预期 RED 面（实现 PR 转正）：构造 parent_error < cluster_error 的 DAG 边 fixture
-// → builder typed Err RED；缺蒙皮元数据三字段（最大影响骨数/骨骼索引集/包围体膨胀
-// 系数）任一的骨骼资产 → builder typed Err RED。
-// 转正锚点目标：src/rurix-asset/src/geom_build/dag.rs 校验拒录臂单测 +
-// 双构建 byte golden。
+// G9.2 M90 RED 语料（spec/virtual_geometry.md RXS-0345 L1：DAG 每一边
+// parent_error ≥ cluster_error 逐边成立；破坏单调性的输入/中间态 builder 必须
+// typed Err 拒绝，fail-closed 无 UB）。
+// **转正（G9.3 波语料转正批）**：负例数据面（可被 host 门/单测消费的最小 fixture）——
+//   边 (parent=P, child=C)：parent_error(P) = 0.125 < cluster_error(C) = 0.250
+//   ⇒ 单调性破坏，builder 必须 fail-closed typed Err 拒录，不得静默继续、不得
+//   clamp 修复后照常出页。
+// 拒绝证据锚（G9.2 已落地）：src/rurix-geom-build/src/dag.rs
+//   DagError::NonMonotonicEdge 拒录臂单测 + build_asset_dag 病态输入转译 +
+//   步骤 132 ci/g9_cluster_dag_deepening_smoke.py ③ monotonic_break_fixture_rejected
+//   腿（合法 DAG 副本压父 error 至子以下 → typed Err RED）。缺蒙皮元数据三字段
+//   （最大影响骨数/骨骼索引集/包围体膨胀系数）任一的骨骼资产同条款 L3 拒录臂
+//   同门覆盖。
 fn main() {}

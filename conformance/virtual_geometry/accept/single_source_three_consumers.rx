@@ -1,0 +1,13 @@
+//@ spec: RXS-0352
+// G9.3 accept 正例语料（spec/virtual_geometry.md RXS-0352 L1/L3）：VisibleClusterSet
+// 单源真相一份三喂（光栅/RT/VSM）的最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   VisibleClusterSet digest D = H(selection 输出)；
+//   光栅消费者输入 digest = D（VisBuffer 路径直接引用）；
+//   RT 消费者输入 digest = D（BLAS 拼装输入由 selection 输出派生，不独立再算
+//   可见性）；
+//   VSM 消费者输入 digest = D（同可见集 + 灯光视角 selection）；
+//   帧末 provenance 校验：三方消费者输入 digest 与 D 精确一致 ⇒ GREEN。
+// 消费锚：ci/g9_single_source_truth_smoke.py（g9.p0.m95.single_source_truth）
+//   正例臂（实现 PR 接线）。
+fn main() {}

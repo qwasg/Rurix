@@ -80,6 +80,17 @@ G8 已 materialize 的全部数字 CI 步骤判据 0-byte 只增；G8 四件套/
 
 > **单一命名空间**：本文件、`G9_CONTRACT.md` 验收章、`G9_ACCEPTANCE_MAP.md` §2/§3 与 RFC-0022~0024 必须引用同一份 key/脚本；`g9.p{0,1}.m##.<slug>` + `ci/g9_<slug>_smoke.py` 为唯一合法形态，由 `ci/check_g9_acceptance_map.py` 三向比对强制。
 
+## 4A. 已 go P1 独立机器断言（G9.3 波四行）
+
+G9.3 波 P1 全进裁决（[G9_CONTRACT.md](G9_CONTRACT.md) §8.1 裁决①）只追加登记：下表四行与 [G9_ACCEPTANCE_MAP.md](G9_ACCEPTANCE_MAP.md) §3 逐字一致，由 `ci/check_g9_acceptance_map.py` 双向比对强制（§4 P0 三向比对 0-byte 不改弱）。`numeric_step` 一律为 `post-interlock actual-next-free allocation`，待各门脚本/schema/workflow 步骤 materialize 时按 §1.2 纪律落盘实测回填；本节不预建空脚本、空 schema 壳或占位 workflow 步骤。
+
+| symbolic_gate_key | M## | 最晚波次 | script | 判据摘要 |
+|---|---:|---|---|---|
+| `g9.p1.m92.gpu_skinning_lod_update` | M92 | G9.3 | `ci/g9_gpu_skinning_lod_update_smoke.py` | GPU 蒙皮输出与 host 参照逐顶点一致 + 保守包围体含全部蒙皮顶点 + 距离分级更新率档位切换确定性 + 蒙皮簇 AS 更新计数非空 |
+| `g9.p1.m105.command_build_node` | M105 | G9.3 | `ci/g9_command_build_node_smoke.py` | command build node 全链路零 CPU 回读（readback_counter=0 断言）+ 构建产物与 host 参照逐字节一致 |
+| `g9.p1.m106.execution_set_pso` | M106 | G9.3 | `ci/g9_execution_set_pso_smoke.py` | Execution Set 与 PSO 衔接出图正确 + 失效重建确定性 + capability 缺失 fail-closed |
+| `g9.p1.m107.shader_library_ir_link` | M107 | G9.3 | `ci/g9_shader_library_ir_link_smoke.py` | IR 链接 interface hash 双构建相等 + 变体预算超限硬失败 RED 臂 |
+
 ## 5. G9.2 互锁
 
 `G9.GOV.G9_2.ENTRY_INTERLOCK` 六条件与判据字面见 [G9_ACCEPTANCE_MAP.md](G9_ACCEPTANCE_MAP.md) §5（G8 closed + G9.0 不可变 ref 登记 + 三 RFC Agent Approved + 决策表无空行且 M52/M61 override 已登记 deferred history + 数字步骤按互锁后 actual next_free 分配 + 用户 G9.2 开工指令留痕）。互锁未输出 READY 前：禁止合入 G9.2 的 `spec/`、`conformance/`、`src/` 或 workflow 实现改动；禁止 claim 任何数字 CI step；spec-first + RED 先行自互锁通过后才启动。
@@ -93,3 +104,4 @@ G8 已 materialize 的全部数字 CI 步骤判据 0-byte 只增；G8 四件套/
 | v1.2 | 2026-08-10 | G9.2 波聚合门: 数字步骤按互锁后实测  顺位 materialize 为 **步骤 138**( G9.2 wave2.exit aggregate;脚本  薄壳 + ,evidence schema ;七 P0 subject 只读汇总 + RFC-0022/0023/0024 Approved + RD-039/040 维持 open;M121/M122 骨架期 phase_g9_6_pass=false 不充绿); 由  转为实测 138(落盘前实测 CI_step.next_free=138 顺位;agent A 132/133、B 131、C 134/135、D 136/137 已落满 131~137)。 |
 | v1.2 | 2026-08-09 | G9.2 M102 实现波：`g9.p0.m102.dgc_abstraction` 数字步骤按互锁后实测 `next_free` 顺位 materialize 为 **步骤 131**（`pr-smoke.yml` G9.2 M102 DGC abstraction smoke，device 门 env 双置 `RURIX_REQUIRE_REAL=1` + `RURIX_VK_VALIDATION=1`；脚本 `ci/g9_dgc_abstraction_smoke.py`，evidence schema `milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json`，13 checks 双闭集）；`numeric_step` 由 `post-interlock actual-next-free allocation` 转为实测 131(与 agent D 的 136/137 合并;M102 实领 131)；实现面 = `src/rurix-rt/src/dgc.rs`（IndirectCmdLayout token 闭集装配期核验 + DgcBuffer 无 host 读接口结构性断言 + 三后端映射 + capability snapshot 阻塞性前置）+ `src/rurix-rt/src/vk.rs` DGC FFI 段（U54，`VK_EXT_device_generated_commands`）+ `src/rurixc/src/capability_check.rs` 闭集加性两位实位（RXS-0349）+ `src/rurix-rt/src/bin/vk_dgc.rs` device 最小链路。 |
 | v1.3 | 2026-08-10 | G9.2 实现 agent A 双 P0 门落地（只追加）：步骤 132（`g9.p0.m90.cluster_dag_deepening`，host 纯 host 门 `ci/g9_cluster_dag_deepening_smoke.py`）+ 步骤 133（`g9.p0.m91.page_format_v2_abi`，host+device 门 `ci/g9_page_format_v2_abi_smoke.py`，env 双置 `RURIX_REQUIRE_REAL=1` + `RURIX_VK_VALIDATION=1`）插入 `.github/workflows/pr-smoke.yml` 步骤 131 块后、步骤 134 块前；evidence schema 双闭集（`milestones/g9/g9_m90_cluster_dag_deepening_evidence_schema.json` device_section_state=not_applicable / `g9_m91_page_format_v2_abi_evidence_schema.json` enum 含 executed）与 `ci/check_schemas.py` 前缀路由（`g9_m90_cluster_dag_deepening_` / `g9_m91_page_format_v2_abi_`）同 PR 落；ledger CI_step on_tree_max 137→133 / next_free 138→134（v1.48，落盘前实测 next_free=138 撞号顺位领取 132/133）。§4 表体冻结不动，本行只追加。 |
+| v1.4 | 2026-08-11 | G9.3 波 P1 全进裁决只追加登记（G9_CONTRACT §8.1 裁决①）：新增 **§4A 已 go P1 独立机器断言表**四行——`g9.p1.m92.gpu_skinning_lod_update` / `g9.p1.m105.command_build_node` / `g9.p1.m106.execution_set_pso` / `g9.p1.m107.shader_library_ir_link`（最晚波次均 G9.3，与 G9_ACCEPTANCE_MAP §3 逐字一致，`ci/check_g9_acceptance_map.py` MAP §3 ↔ 本文 §4A 双向比对强制）；numeric_step 一律 `post-interlock actual-next-free allocation` 待 materialize 实测回填，零脚本/schema/workflow 预放。§4 表体 0-byte；G5~G8 closed 判据 0-byte。 |

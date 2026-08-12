@@ -333,4 +333,59 @@ mod tests {
             }
         }
     }
+
+    //@ spec: RXS-0350
+    #[test]
+    fn lod_cut_select_reference_passes_runtime_coverage_verifier() {
+        // G9.3 M93 对拍(RXS-0350 L2):离线参照 `lod_cut_select` 的输出必须
+        // 通过 rurix-render 运行时覆盖性机器核验器(无重叠无空洞);真实 builder
+        // 产物 DAG(plane_grid / uv_sphere)× 相机阈值扫描。
+        use rurix_render::geometry::visible_cluster_set::{
+            DagNodeRec, MeshDagView, verify_cut_coverage,
+        };
+        for mesh in [TriMesh::plane_grid(8, 1.0), TriMesh::uv_sphere(1.0, 16, 16)] {
+            let dag: ClusterDag = build_dag(&mesh);
+            let nodes: Vec<DagNodeRec> = dag
+                .nodes
+                .iter()
+                .map(|n| DagNodeRec {
+                    first_child: n.first_child,
+                    child_count: n.child_count,
+                    level: n.level,
+                })
+                .collect();
+            let view = MeshDagView::new(&dag.records, &nodes, &dag.children).expect("拓扑合法");
+            for &(eye_z, t) in &[
+                (1.2f32, 0.25f32),
+                (3.0, 1.0),
+                (12.0, 1.0),
+                (60.0, 4.0),
+                (500.0, 8.0),
+            ] {
+                let cv = front_view(eye_z, 2000.0).with_threshold(t);
+                let selected = lod_cut_select(&dag.records, &cv);
+                verify_cut_coverage(&view, &selected)
+                    .unwrap_or_else(|e| panic!("阈值 {t} 参照 cut 覆盖性破坏:{e}"));
+                // 空洞注入(摘除首个选中簇及其**别名类**——组级共享子链接下
+                // 展开相交的同选簇一并摘除)⇒ 运行时核验器必须判 RED(负例臂独立)。
+                let victim_leaves = view.expand_to_leaves(&[selected[0]]);
+                let holed: Vec<u32> = selected
+                    .iter()
+                    .copied()
+                    .filter(|&s| {
+                        view.expand_to_leaves(&[s])
+                            .iter()
+                            .all(|l| !victim_leaves.contains(l))
+                    })
+                    .collect();
+                assert!(
+                    matches!(
+                        verify_cut_coverage(&view, &holed),
+                        Err(rurix_render::geometry::visible_cluster_set::CutCoverageError::Hole { .. })
+                    ),
+                    "阈值 {t} 空洞注入未被检出"
+                );
+            }
+        }
+    }
 }

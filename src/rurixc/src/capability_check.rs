@@ -6,11 +6,11 @@
 //! 五子面:
 //!
 //! - **capability ID 闭集**(RXS-0311,v1 冻结十项 + G9.2 加性两位实位,
-//!   RXS-0349):`rt.pipeline` /
+//!   RXS-0349;G9.3 预留位 `submit.execution_set` 转正为实位,RXS-0355):`rt.pipeline` /
 //!   `rt.sbt_user_data` / `rt.any_hit` / `rt.intersection.procedural` /
 //!   `rt.callable` / `rt.ray_query` / `mesh.task` / `sync.timeline_semaphore` /
 //!   `queue.dedicated_transfer` / `queue.dedicated_compute` / `submit.dgc` /
-//!   `bindless.descriptor_buffer`。backend extension 名
+//!   `bindless.descriptor_buffer` / `submit.execution_set`。backend extension 名
 //!   不作为 ID(RFC-0019 §4.5.1 逐字)。
 //! - **`#[requires("id", ...)]` 声明面**(RXS-0311):fn 级 attr,字符串字面量
 //!   列表,多条可叠加取并集;闭集外 ID / 非字符串实参 / 空列表 → **RX3023**
@@ -104,7 +104,8 @@ pub fn profile_none_digest() -> [u8; 32] {
 
 // ═══════════════════════ capability ID 闭集(RXS-0311) ═══════════════════════
 
-/// capability ID 闭集(v1 冻结十项 + G9.2 加性两位实位,RXS-0311/RXS-0349)。
+/// capability ID 闭集(v1 冻结十项 + G9.2 加性两位实位,RXS-0311/RXS-0349;
+/// + G9.3 一位预留转正,RXS-0355)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CapabilityId {
     /// `rt.pipeline` — RT pipeline 六执行模型(raygen/miss/closesthit 与 trace_ray)。
@@ -133,6 +134,10 @@ pub enum CapabilityId {
     /// `bindless.descriptor_buffer` — `VK_EXT_descriptor_buffer` 单一大表(M103,
     /// RXS-0347 索引空间预算的 profile 承载位)。
     BindlessDescriptorBuffer,
+    /// `submit.execution_set` — Execution Set GPU 侧索引切换(M106,RXS-0355;
+    /// G9.2 RXS-0349 预留位,G9.3 转正为实位;`VkIndirectExecutionSetEXT` 的
+    /// capability 门控 ID)。
+    SubmitExecutionSet,
 }
 
 impl CapabilityId {
@@ -151,6 +156,7 @@ impl CapabilityId {
             CapabilityId::QueueDedicatedCompute => "queue.dedicated_compute",
             CapabilityId::SubmitDgc => "submit.dgc",
             CapabilityId::BindlessDescriptorBuffer => "bindless.descriptor_buffer",
+            CapabilityId::SubmitExecutionSet => "submit.execution_set",
         }
     }
 
@@ -169,12 +175,14 @@ impl CapabilityId {
             "queue.dedicated_compute" => CapabilityId::QueueDedicatedCompute,
             "submit.dgc" => CapabilityId::SubmitDgc,
             "bindless.descriptor_buffer" => CapabilityId::BindlessDescriptorBuffer,
+            "submit.execution_set" => CapabilityId::SubmitExecutionSet,
             _ => return None,
         })
     }
 
-    /// 闭集全表(冻结序 = 条款表序;RXS-0349 G9.2 加性两位实位居尾)。
-    pub const ALL: [CapabilityId; 12] = [
+    /// 闭集全表(冻结序 = 条款表序;RXS-0349 G9.2 加性两位实位 + RXS-0355 G9.3
+    /// 转正一位顺次居尾)。
+    pub const ALL: [CapabilityId; 13] = [
         CapabilityId::RtPipeline,
         CapabilityId::RtSbtUserData,
         CapabilityId::RtAnyHit,
@@ -187,6 +195,7 @@ impl CapabilityId {
         CapabilityId::QueueDedicatedCompute,
         CapabilityId::SubmitDgc,
         CapabilityId::BindlessDescriptorBuffer,
+        CapabilityId::SubmitExecutionSet,
     ];
 }
 
@@ -290,7 +299,7 @@ pub fn extract_requires(
             let Some(id) = CapabilityId::from_name(id_text) else {
                 return Err(invalid(
                     format!(
-                        "capability.unknown_id: 未知 capability ID `{id_text}`(闭集十二项 = {};RXS-0311/0349)",
+                        "capability.unknown_id: 未知 capability ID `{id_text}`(闭集十三项 = {};RXS-0311/0349/0355)",
                         CapabilityId::ALL
                             .iter()
                             .map(|c| format!("`{}`", c.name()))
@@ -1161,7 +1170,7 @@ fn parse_id_set(slice: &str, field: &str) -> Result<BTreeSet<CapabilityId>, Prof
         })?;
         let Some(id) = CapabilityId::from_name(id_text) else {
             return Err(ProfileError::UnknownId(format!(
-                "capability.unknown_id: profile 字段 `{field}` 引用闭集外 capability ID `{id_text}`(闭集十二项,RXS-0311/0312/0349)"
+                "capability.unknown_id: profile 字段 `{field}` 引用闭集外 capability ID `{id_text}`(闭集十三项,RXS-0311/0312/0349/0355)"
             )));
         };
         out.insert(id);
@@ -1894,8 +1903,10 @@ kernel fn kmain() {}
     }
 
     /// RXS-0349:G9.2 加性两位实位(`submit.dgc`/`bindless.descriptor_buffer`)
-    /// 进闭集;预留位(`bindless.descriptor_heap`/`submit.execution_set`)**不在**
-    /// 闭集(只预留不实现——消费性引用 = 闭集外 ID → RX3023)。
+    /// 进闭集;预留位 `bindless.descriptor_heap` **不在**闭集(只预留不实现——
+    /// 消费性引用 = 闭集外 ID → RX3023)。另一预留位 `submit.execution_set`
+    /// 自 RXS-0355(G9.3 M106)起转正为实位,转正钉死见
+    /// `g93_execution_set_reserved_to_real`。
     //@ spec: RXS-0349
     #[test]
     fn g92_additive_two_real_ids() {
@@ -1913,13 +1924,12 @@ kernel fn kmain() {}
             CapabilityId::BindlessDescriptorBuffer.name(),
             "bindless.descriptor_buffer"
         );
-        // 闭集恰十二项(v1 十项 0-byte + 加性两位)。
-        assert_eq!(CapabilityId::ALL.len(), 12);
-        // 预留位不在闭集(消费性引用 = RX3023;只预留不实现)。
+        // 闭集恰十三项(v1 十项 0-byte + G9.2 加性两位 + G9.3 转正一位 RXS-0355)。
+        assert_eq!(CapabilityId::ALL.len(), 13);
+        // 预留位 bindless.descriptor_heap 不在闭集(消费性引用 = RX3023;只预留不实现)。
         assert_eq!(CapabilityId::from_name("bindless.descriptor_heap"), None);
-        assert_eq!(CapabilityId::from_name("submit.execution_set"), None);
         // 预留位进 #[requires] = 闭集外 ID 拒(消费行为不存在)。
-        let src = "#[requires(\"submit.execution_set\")]\nkernel fn k() {}";
+        let src = "#[requires(\"bindless.descriptor_heap\")]\nkernel fn k() {}";
         let diag = DiagCtxt::new();
         let mut sm = SourceMap::new();
         let id = sm.add_file("test.rx".to_owned(), src, Edition::Rx0);
@@ -1930,8 +1940,40 @@ kernel fn kmain() {}
             diag.emitted()
                 .iter()
                 .any(|d| d.code == Some(ErrorCode(3023))),
-            "预留位 submit.execution_set 消费性引用须 RX3023 拒"
+            "预留位 bindless.descriptor_heap 消费性引用须 RX3023 拒"
         );
+    }
+
+    /// RXS-0355:G9.3 M106 — 预留位 `submit.execution_set` 由「只预留不实现」
+    /// 转正为实位(RXS-0349 L1 预留位兑现,RXS-0311 加性修订行纪律):
+    /// from_name 正当接收、`#[requires]` 消费合法(零诊断)、闭集居尾;
+    /// `bindless.descriptor_heap` 维持预留(回归钉死,RXS-0349 字面不回写)。
+    //@ spec: RXS-0355
+    #[test]
+    fn g93_execution_set_reserved_to_real() {
+        assert_eq!(
+            CapabilityId::from_name("submit.execution_set"),
+            Some(CapabilityId::SubmitExecutionSet)
+        );
+        assert_eq!(
+            CapabilityId::SubmitExecutionSet.name(),
+            "submit.execution_set"
+        );
+        assert!(CapabilityId::ALL.contains(&CapabilityId::SubmitExecutionSet));
+        // 转正后 #[requires] 消费 = 正当接收(零诊断)。
+        let src = "#[requires(\"submit.execution_set\")]\nkernel fn k() {}";
+        let diag = DiagCtxt::new();
+        let mut sm = SourceMap::new();
+        let id = sm.add_file("test.rx".to_owned(), src, Edition::Rx0);
+        let toks = crate::lexer::lex(src, id, Edition::Rx0, &diag);
+        let file = crate::parser::parse(src, toks, id, Edition::Rx0, &diag);
+        check_requires(&file, src, &diag);
+        assert!(
+            diag.emitted().is_empty(),
+            "转正后 submit.execution_set 消费性引用须零诊断"
+        );
+        // 另一预留位维持预留(回归钉死)。
+        assert_eq!(CapabilityId::from_name("bindless.descriptor_heap"), None);
     }
 
     /// 隐式推导:stage 映射(raygen/anyhit/intersection/callable/task/miss/

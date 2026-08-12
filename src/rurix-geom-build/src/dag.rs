@@ -681,6 +681,98 @@ pub fn clas_bake_input_of(dag: &ClusterDag, id: u32) -> ClasBakeInput {
     }
 }
 
+/// 蒙皮簇运行时数据(G9.3 M92 RXS-0353 消费桥;builder 蒙皮三字段产物 +
+/// 逐顶点权重 → rurix-render host 蒙皮求值器输入的**拥有型**载体)。
+///
+/// 运行时(host/device)只消费本结构与骨骼 palette;页内 skin_hdr/bone_idx/
+/// clas_aabb 段 ABI 与本结构字段一一对应(RXS-0344 段序不重发)。
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkinnedClusterData {
+    /// 蒙皮元数据:最大影响骨数(skin_hdr.max_influences)。
+    pub max_influences: u32,
+    /// 蒙皮元数据:骨骼索引集(bone_idx 段,升序)。
+    pub bone_indices: Vec<u32>,
+    /// 蒙皮元数据:包围体膨胀系数(skin_hdr.bound_inflation)。
+    pub bound_inflation: f32,
+    /// 簇级静止 AABB min(clas_aabb 段)。
+    pub aabb_min: [f32; 3],
+    /// 簇级静止 AABB max。
+    pub aabb_max: [f32; 3],
+    /// 簇局部静止顶点(v1 顶点段视图拷贝)。
+    pub vertices: Vec<[f32; 3]>,
+    /// 逐顶点权重行(与 `vertices` 等长;叶层源顶点反查自 `SkinWeights`)。
+    pub weights: Vec<Vec<(u32, f32)>>,
+}
+
+impl SkinnedClusterData {
+    /// 借出为 rurix-render host 蒙皮求值器输入(零拷贝视图)。
+    pub fn as_input(&self) -> rurix_render::geometry::skinning::ClusterSkinInput<'_> {
+        rurix_render::geometry::skinning::ClusterSkinInput {
+            max_influences: self.max_influences,
+            bone_indices: &self.bone_indices,
+            bound_inflation: self.bound_inflation,
+            rest_aabb_min: self.aabb_min,
+            rest_aabb_max: self.aabb_max,
+            vertices: &self.vertices,
+            weights: &self.weights,
+        }
+    }
+}
+
+/// 蒙皮簇运行时数据导出(M92 消费侧最小追加;RXS-0353 实现锚定)。
+///
+/// 反查规则与 builder 校核侧同源(顶点位置 bits → 叶层源顶点,同位取最小
+/// 下标,确定性)。非蒙皮簇(`max_influences == 0`)/ 缺权重行 = typed `Err`
+/// 拒录(fail-closed,与 RXS-0345 §3.3 同口径)。
+pub fn skinned_cluster_runtime_data(
+    v2: &ClusterDagV2,
+    mesh: &TriMesh,
+    skin: &SkinWeights,
+    id: u32,
+) -> Result<SkinnedClusterData, DagError> {
+    let meta = v2.skin.get(id as usize).ok_or(DagError::SkinMetadataMissing {
+        cluster: id,
+        detail: "簇号越出蒙皮元数据表",
+    })?;
+    let (Some(bones), Some(inflation)) = (&meta.bone_indices, meta.bound_inflation) else {
+        return Err(DagError::SkinMetadataMissing {
+            cluster: id,
+            detail: "非蒙皮簇无蒙皮运行时输入",
+        });
+    };
+    if skin.vertex_influences.len() != mesh.positions.len() {
+        return Err(DagError::SkinMetadataInconsistent {
+            cluster: id,
+            detail: "权重表与网格顶点数不齐",
+        });
+    }
+    let mut map: HashMap<[u32; 3], u32> = HashMap::with_capacity(mesh.positions.len());
+    for (i, p) in mesh.positions.iter().enumerate() {
+        map.entry(p.map(f32::to_bits)).or_insert(i as u32);
+    }
+    let vertices = v2.base.cluster_vertices(id).to_vec();
+    let mut weights = Vec::with_capacity(vertices.len());
+    for v in &vertices {
+        let Some(&gi) = map.get(&v.map(f32::to_bits)) else {
+            return Err(DagError::SkinMetadataMissing {
+                cluster: id,
+                detail: "簇顶点无叶层权重行(运行时输入不可得)",
+            });
+        };
+        weights.push(skin.vertex_influences[gi as usize].clone());
+    }
+    let clas = &v2.clas[id as usize];
+    Ok(SkinnedClusterData {
+        max_influences: meta.max_influences,
+        bone_indices: bones.clone(),
+        bound_inflation: inflation,
+        aabb_min: clas.aabb_min,
+        aabb_max: clas.aabb_max,
+        vertices,
+        weights,
+    })
+}
+
 /// DAG canonical 字节流(双构建 byte-equal golden 的比对面;RXS-0345 §5):
 /// v1 全字段面逐位拼接(records/nodes/children/vertices/indices/levels),
 /// 与 RXGB 序列化同信息集、本结构内联布局(manifest 落 digest 不进本流)。
@@ -1452,6 +1544,71 @@ mod tests {
             // 三角形簇几何视图 = v1 数据段(不重发)。
             assert!(v2.base.record(id).triangle_count > 0);
         }
+        let _ = mesh;
+    }
+
+    //@ spec: RXS-0353
+    #[test]
+    fn skinned_cluster_runtime_bridge_end_to_end() {
+        use rurix_render::geometry::skinning::{
+            SkinPalette, conservative_skinned_aabb, skin_cluster, verify_bound_containment,
+        };
+        // 与 skin_metadata_three_fields_roundtrip 同资产(全顶点半权重绑骨 0/1)。
+        let mesh = TriMesh::uv_sphere(1.0, 12, 12);
+        let n = mesh.positions.len();
+        let influences: Vec<Vec<(u32, f32)>> = (0..n)
+            .map(|_| vec![(0u32, 0.5f32), (1u32, 0.5f32)])
+            .collect();
+        let asset = DagAsset {
+            mesh: mesh.clone(),
+            skinned: Some(SkinWeights {
+                vertex_influences: influences,
+                joint_count: 4,
+            }),
+        };
+        let v2 = build_asset_dag(&asset).expect("蒙皮资产合法构建");
+        let skinned = asset.skinned.as_ref().expect("在场");
+        // 叶簇桥接:三字段 + 逐顶点权重 + 簇级 AABB 全部在场。
+        let leaf = v2.base.leaf_ids().next().expect("叶层非空");
+        let data = skinned_cluster_runtime_data(&v2, &asset.mesh, skinned, leaf).expect("桥接");
+        assert_eq!(data.max_influences, 2);
+        assert_eq!(data.bone_indices, vec![0, 1]);
+        assert_eq!(data.vertices.len(), data.weights.len());
+        assert!(!data.vertices.is_empty());
+        // 运行时消费:骨骼 palette(骨 0 平移、骨 1 恒等)→ 蒙皮 + 包围体包含。
+        let palette = SkinPalette {
+            bones: vec![
+                [
+                    [1.0, 0.0, 0.0, 0.5],
+                    [0.0, 1.0, 0.0, -0.25],
+                    [0.0, 0.0, 1.0, 1.0],
+                ],
+                [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                ],
+            ],
+        };
+        let input = data.as_input();
+        let out = skin_cluster(&input, &palette).expect("蒙皮求值");
+        assert_eq!(out.len(), data.vertices.len());
+        let bound = conservative_skinned_aabb(&input, &palette).expect("保守包围体");
+        verify_bound_containment(&bound, &out).expect("包含不变式(任意姿态 100% 包含)");
+        // 确定性:同输入双跑逐位一致。
+        let out2 = skin_cluster(&input, &palette).expect("二跑");
+        for (a, b) in out.iter().zip(out2.iter()) {
+            assert_eq!(a.map(f32::to_bits), b.map(f32::to_bits));
+        }
+        // 权重表不齐 ⇒ typed Err(fail-closed)。
+        let short = SkinWeights {
+            vertex_influences: vec![vec![(0u32, 1.0f32)]; n - 1],
+            joint_count: 2,
+        };
+        assert!(matches!(
+            skinned_cluster_runtime_data(&v2, &asset.mesh, &short, leaf),
+            Err(DagError::SkinMetadataInconsistent { .. })
+        ));
         let _ = mesh;
     }
 

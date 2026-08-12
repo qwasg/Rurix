@@ -17,6 +17,11 @@ rurix-d3d12 = { path = "../rurix-d3d12", optional = true }
 # default(CUDA-only)构建依赖面 0-byte 不动。
 rurix-pkg = { path = "../rurix-pkg", optional = true }
 
+[dev-dependencies]
+# G9.3 M94(RXS-0351):rt_clas 烘焙输入 32B 记录与 logical_v2 CLAS_RECORD_SIZE 的
+# 跨 crate ABI 一致性锚(仅测试依赖,运行时依赖面 0-byte 不动)。
+rurix-geom-pages = { path = "../rurix-geom-pages" }
+
 [features]
 default = []
 # mb1 Vulkan/SPIR-V 跨端后端运行时(RFC-0011 §4.5/§4.6;RXS-0206~0207)。默认关闭——
@@ -153,6 +158,14 @@ required-features = ["vulkan"]
 # 回读 digest,与 CPU expand_digest_v2 逐位等。
 [[bin]]
 name = "vk_geom_page_decode_v2"
+required-features = ["vulkan"]
+
+# G9.3 M94 CLAS×RT 合流 device 对拍 harness(RXS-0351;门 g9.p0.m94.clas_rt_convergence;
+# U56 探测段):VK_NV_cluster_acceleration_structure capability snapshot → 确定性簇集
+# 场景回退腿(传统 BLAS 分组)ray query 与 host 金标准逐命中容差 0 对拍(主腿在位时
+# CLAS×回退双腿对拍)+ 错开一簇 RED 臂 + 静态帧零 AS 构建断言。
+[[bin]]
+name = "vk_clas_rt"
 required-features = ["vulkan"]
 
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API

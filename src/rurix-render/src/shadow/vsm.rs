@@ -19,7 +19,10 @@
 //! 跨帧纪律(RFC-0016 §4.0-3):页表与物理页池为**跨帧外部资源**(render graph
 //! imported 语义,不入 transient 池;device 接线属 W3,本模块为对拍金标准)。
 
-use crate::graph::types::{AccessKind, TextureFormat};
+use crate::geometry::gpu_scene::{InstanceRecord, transform_point};
+use crate::geometry::skinning::SkinCache;
+use crate::geometry::visible_cluster_set::VisibleClusterSet;
+use crate::graph::types::{AccessKind, ClusterRecord, TextureFormat};
 use crate::shadow::clipmap::{
     ClipmapConfig, LightBasis, PAGE_TABLE_DIM, slot_of, world_page_coord, world_page_of_slot,
 };
@@ -805,6 +808,53 @@ pub fn vsm_frame_desc() -> Vec<ShadowResourceSpec> {
     ]
 }
 
+// ---------------------------------------------------------------------------
+// M95 VSM 消费侧(RXS-0352 L1):VisibleClusterSet → 阴影深度光栅三角形
+// ---------------------------------------------------------------------------
+
+/// `VisibleClusterSet` 可见簇 → 世界空间阴影三角形(VSM 深度光栅消费腿;
+/// G9.3 M95 最小追加面)。
+///
+/// 簇列表来源 = 同一可见集可见元素(与 `VisibleClusterSet::feed_vsm()` 同序,
+/// **禁独立再算可见性**);蒙皮簇对象空间顶点取 skin cache 槽位(蒙皮簇阴影
+/// 包围体与相机路径同源,RXS-0352 L1 VSM 条)。产出直接喂
+/// [`Vsm::shadow_depth_raster`];provenance 帧末校验归
+/// `visible_cluster_set::verify_frame_provenance`。
+pub fn shadow_tris_from_visible_set(
+    set: &VisibleClusterSet,
+    instances: &[InstanceRecord],
+    clusters: &[ClusterRecord],
+    vertices: &[[f32; 3]],
+    indices: &[u32],
+    skin: Option<&SkinCache>,
+    skin_slot_of: &[u32],
+) -> Vec<ShadowTri> {
+    let mut out = Vec::new();
+    for (_, e) in set.visible_entries() {
+        let inst = &instances[e.instance as usize];
+        let c = &clusters[e.cluster as usize];
+        let slot = skin_slot_of[e.cluster as usize];
+        let position_of = |local: u32| {
+            if slot != u32::MAX {
+                skin.expect("skin_slot_of 指派槽位时 skin cache 必须在场").slots
+                    [slot as usize]
+                    .positions[local as usize]
+            } else {
+                vertices[(c.vertex_offset + local) as usize]
+            }
+        };
+        for t in 0..c.triangle_count {
+            let mut tri = [[0.0f32; 3]; 3];
+            for (k, v) in tri.iter_mut().enumerate() {
+                let local = indices[(c.triangle_offset + 3 * t) as usize + k];
+                *v = transform_point(&inst.transform, position_of(local));
+            }
+            out.push(ShadowTri::new(tri[0], tri[1], tri[2]));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1305,5 +1355,121 @@ mod tests {
             .find(|r| r.name == "shadow.main_depth")
             .expect("存在");
         assert!(!depth.imported && depth.access == AccessKind::ShaderRead);
+    }
+
+    // -----------------------------------------------------------------
+    // G9.3 M95(RXS-0352):VisibleClusterSet → VSM 深度光栅消费腿
+    // -----------------------------------------------------------------
+
+    //@ spec: RXS-0352
+    #[test]
+    fn vsm_consumes_visible_cluster_set_same_source() {
+        use crate::geometry::visible_cluster_set::{
+            VisibleClusterEntry, compute_provenance_digest,
+        };
+        // 两簇(簇 0 静态、簇 1 蒙皮)单实例场景;实例平移 z = −5。
+        let rest1 = [[0.0f32, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+        let skinned1: Vec<[f32; 3]> = rest1.iter().map(|v| [v[0] + 2.0, v[1], v[2]]).collect();
+        let vertices = vec![[9.0f32, 9.0, 0.0], [10.0, 9.0, 0.0], [9.0, 10.0, 0.0]]
+            .into_iter()
+            .chain(rest1)
+            .collect::<Vec<_>>();
+        let indices = vec![0u32, 1, 2, 0, 1, 2];
+        let rec = |voff, toff| ClusterRecord {
+            center: [0.0; 3],
+            radius: 2.0,
+            cone_axis: [0.0, 0.0, 1.0],
+            cone_cutoff: 2.0,
+            error: 0.0,
+            parent_error: f32::INFINITY,
+            vertex_offset: voff,
+            triangle_offset: toff,
+            vertex_count: 3,
+            triangle_count: 1,
+            page_id: 0,
+            reserved: 0,
+        };
+        let clusters = vec![rec(0, 0), rec(3, 3)];
+        let inst = [InstanceRecord {
+            transform: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, -5.0],
+            ],
+            cluster_offset: 0,
+            cluster_count: 2,
+            material_id: 0,
+            flags: 0,
+            aabb_min: [-2.0; 3],
+            mesh_id: 0,
+            aabb_max: [2.0; 3],
+            reserved: u32::MAX,
+        }];
+        let mut set = VisibleClusterSet {
+            frame_serial: 3,
+            entries: vec![
+                VisibleClusterEntry {
+                    cluster: 0,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 0,
+                    page_id: 0,
+                    visible: true,
+                },
+                VisibleClusterEntry {
+                    cluster: 1,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 2,
+                    page_id: 0,
+                    visible: true,
+                },
+                // 不可见元素(视锥/锥剔标记者)不得进 VSM 深度光栅。
+                VisibleClusterEntry {
+                    cluster: 0,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 0,
+                    page_id: 0,
+                    visible: false,
+                },
+            ],
+            residency: vec![],
+            fallback: vec![],
+            provenance_digest: [0; 32],
+        };
+        set.provenance_digest = compute_provenance_digest(&set);
+        let skin = SkinCache {
+            slots: vec![crate::geometry::skinning::SkinCacheSlot {
+                positions: skinned1.clone(),
+                bound: ([0.0; 3], [0.0; 3]),
+                version: 2,
+                stale_frames: 0,
+            }],
+        };
+        let tris = shadow_tris_from_visible_set(
+            &set,
+            &inst,
+            &clusters,
+            &vertices,
+            &indices,
+            Some(&skin),
+            &[u32::MAX, 0],
+        );
+        // 仅可见两元素 × 各 1 三角形 = 2;不可见元素不展开。
+        assert_eq!(tris.len(), 2);
+        // 簇 0(静态):世界 = 静止 + (0,0,−5)。
+        assert_eq!(tris[0].v[0], [9.0, 9.0, -5.0]);
+        // 簇 1(蒙皮):取 skin cache(+2 x 位移),与相机路径同源。
+        assert_eq!(tris[1].v[0], [2.0, 0.0, -5.0]);
+        assert_eq!(tris[1].v[1], [3.0, 0.0, -5.0]);
+        // provenance 链:VSM 喂 source = set digest(帧末校验面同口径)。
+        assert_eq!(set.feed_vsm().source, set.provenance_digest);
+        assert_eq!(set.feed_vsm().depth_clusters.len(), 2);
+        // 产出的三角形可直接喂多视图深度光栅(消费冒烟,不空转)。
+        let mut vsm = Vsm::new(cfg4(4.0, 20.0, 64), [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]);
+        vsm.begin_frame([0.0, 0.0, 0.0]);
+        let stats = vsm.shadow_depth_raster(&tris);
+        let _ = stats;
     }
 }

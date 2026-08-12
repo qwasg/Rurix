@@ -1,0 +1,12 @@
+//@ spec: RXS-0356
+// G9.3 spec-first 条款锚定语料（spec/gpu_driven_submit.md RXS-0356 L4：变体工程级
+// 总预算门——超预算装配期硬失败〔非警告〕；审计恒等式 enumerated == pruned +
+// emitted 工程级成立；死变体只报告不自动删）。
+// **转正（G9.3 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   工程声明变体枚举总数 > 工程级总预算声明值的 variant ⇒ 装配期硬失败（诊断码
+//   实现期从工具段按实际可达类别领取，不预造）；预算内正例经审计报告
+//   （rurix.variant-audit-report.v1）放行。
+// 消费锚：ci/g9_shader_library_ir_link_smoke.py 门（symbolic key
+//   g9.p1.m107.shader_library_ir_link，G9.3 波 P1 登记字面不动）+ 变体审计工具
+//   预算门单测（实现 PR 接线）。
+fn main() {}

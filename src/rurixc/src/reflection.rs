@@ -57,6 +57,17 @@ const PROFILE_NONE_DOMAIN: &[u8] = b"rurix.profile-none.v1\0";
 /// 空 permutation 域的规范 digest 定义域(M29 未实现的确定性空编码,RXS-0304)。
 const PERM_EMPTY_DOMAIN: &[u8] = b"rurix.permutation-domain-empty.v1\0";
 
+/// RXS-0356(G9.3 M107)复用点:interface hash 机构的**单一事实源**——IR 链接
+/// 合并产物的 interface hash 重算(`shader_library`)与 entry 级 `interface_hash`
+/// 同一域分离律(`SHA-256("rurix.shader-interface.v1\0" || canonical)`,RFC-0019
+/// §4.4 逐字),domain 常量与哈希序列化不复制。
+pub(crate) fn interface_hash_of(canonical: &[u8]) -> [u8; 32] {
+    let mut h = sha256::Sha256::new();
+    h.update(IFACE_DOMAIN);
+    h.update(canonical);
+    h.finalize()
+}
+
 /// `location` 的空值编码(RXS-0305:`0xFFFF_FFFF` 哨兵)。
 const LOCATION_NONE: u32 = u32::MAX;
 

@@ -1,15 +1,15 @@
 //@ spec: RXS-0350
-// G9.3 spec-first 条款锚定占位语料（spec/virtual_geometry.md RXS-0350：
-// VisibleClusterSet 屏幕空间误差 selection cut 逐帧无重叠无空洞〔每条根→叶路径
-// 恰好一个选中簇，覆盖性机器核验〕+ 未驻留页父簇兜底〔沿 G8.4 迟到页降级语义
-// 不重定〕+ 空洞注入负例 RED 臂独立有效 + 静态 LOD cut 无运行时误差驱动不充数）。
-// **inert 锚定占位（G7.1 PR-1 conformance/rayquery/ 先例，沿 G9.2 spec 波
-// dag_error_nonmonotonic.rx 同模）**：本 spec PR 不含 src/ 实现；selection cut
-// 生产者与覆盖性校验落地前本文件只承载条款锚点，不接入任何 harness。
-// 预期 RED 面（实现 PR 转正）：向选中簇集合注入空洞（父子同不选路径截断）或
-// 重叠（父子同选）的 variant → selection 覆盖性校验 fail-closed 判 RED，负例臂
-// 独立于正例臂成立。
-// 转正锚点目标：src/rurix-render/src/geometry/cull.rs 覆盖性校验负例 +
-// ci/g9_visible_cluster_set_smoke.py 门（symbolic key
-// g9.p0.m93.visible_cluster_set，G9.1 冻结字面不动）。
+// G9.3 M93 RED 语料（spec/virtual_geometry.md RXS-0350 L2/L4：屏幕空间误差
+// selection cut 逐帧无重叠无空洞——每条根→叶路径恰好一个选中簇，覆盖性机器核验；
+// 空洞注入负例 RED 臂独立有效）。
+// **转正（G9.3 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   DAG：root R → {A, B}；A → {A0, A1}（parent→child LOD 细化边）。
+//   合法 cut（正例对照，见 accept/visible_cluster_set_valid_cut.rx）= {A0, A1, B}。
+//   注入空洞 cut = {A0, B}：根→叶路径 R→A→A1 无选中簇（A 未选且 A1 未选）= 空洞；
+//   注入重叠 cut = {A, A0, B}：A 与 A0 父子同选 = 重叠。
+//   两种 variant 均必须被 selection 覆盖性校验 fail-closed 判 RED，负例臂独立于
+//   正例臂成立。
+// 预期 RED 面（实现 PR 接线）：src/rurix-render/src/geometry/cull.rs 覆盖性校验
+//   负例 + ci/g9_visible_cluster_set_smoke.py 门空洞注入臂（symbolic key
+//   g9.p0.m93.visible_cluster_set，G9.1 冻结字面不动）。
 fn main() {}

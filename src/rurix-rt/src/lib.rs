@@ -16,6 +16,11 @@
 /// 尺寸/对齐三分量着色 + 执行期峰值计数器（I10 → measured_local）。
 pub mod alias_alloc;
 pub mod backend;
+/// G9.3 M105 command build node(RXS-0354;RFC-0023 §4.4;门 g9.p1.m105.command_build_node)。
+/// always-on、零 unsafe、零后端调用:图节点声明面(消费 graph.rs RXS-0346 既有
+/// IndirectCommandRead 边面)+ host 参照构建器(内容流确定性纯函数)+ 全链路零 CPU
+/// 回读机器核验(readback_counter 增量 == 0,结构性断言双承担)。device 接线归 CI 门代理。
+pub mod command_build;
 /// M103 descriptor buffer 全局表分配/回收律(G9.2,RXS-0347;RFC-0023 §4.3)。
 /// always-on、零 unsafe、零后端调用:「资源 → 全局 descriptor 索引」映射的 host 侧
 /// 单一事实源(确定性分配/空位升序回收复用/越界·悬空 fail-closed/泄漏计数器断言)。
@@ -28,6 +33,18 @@ pub mod descriptor_table;
 /// 三后端映射单一事实源。device 执行面归 `vk`（U54 lane,feature `vulkan` 门控）。
 pub mod dgc;
 mod error;
+/// G9.3 M106 Execution Set 与 PSO 衔接(RXS-0355;RFC-0023 §4.2;门
+/// g9.p1.m106.execution_set_pso)。always-on、零 unsafe、零后端调用:Execution Set
+/// 声明/构建/失效重建面(manifest 成员枚举规范字节)+ capability 缺失 fail-closed
+/// (`submit.execution_set`,消费 rurixc 闭集不重定)+ D3D12 诚实降级显式登记。
+/// pso_key 第八段加性扩展归 `pso_cache`(feature `vulkan` 门控,单一事实源)。
+pub mod execution_set;
+/// G9.3 M94 CLAS×RT 合流 host 面(RXS-0351;RFC-0022 §4.3;门 g9.p0.m94.clas_rt_convergence)。
+/// always-on、零 unsafe、零后端调用:ClasBlasKey(可见簇集合内容 digest)单所有者
+/// 当帧拼装管理(静态帧零 AS 构建计数面)+ 装配期可见集/BLAS 一致性核验(错开一簇
+/// RED)+ 双腿装配期选择 fail-closed + host 金标准逐命中参照。device 执行面归 `vk`
+/// (U56 探测/主腿 lane,feature `vulkan` 门控)。
+pub mod rt_clas;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;
 /// render graph 纯 host 自动资源状态推导（G3.5，RXS-0236~0241；RFC-0013 §4.D）。always-on、

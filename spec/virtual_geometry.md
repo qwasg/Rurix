@@ -1,9 +1,10 @@
-# virtual_geometry.md — 虚拟化几何 DAG 深化与 RT 合流语义面（G9.2 M90 / G9.3 M93~M95）
+# virtual_geometry.md — 虚拟化几何 DAG 深化与 RT 合流语义面（G9.2 M90 / G9.3 M92~M95）
 
 > **地位**：虚拟化几何 cluster DAG 深化（误差度量 / 簇对锁定 / 蒙皮元数据 / CLAS
 > 烘焙输入）**与几何×RT 合流（VisibleClusterSet 运行时 selection cut / CLAS×RT
 > 合流 / 单源真相 provenance）** 语义事实源之一（RFC-0022 §4.1/§4.2/§4.3/§4.4，
-> Agent Approved 2026-08-09；G9_ACCEPTANCE_MAP §2 M90/M93/M94/M95 行）。G8 已冻结的
+> Agent Approved 2026-08-09；G9_ACCEPTANCE_MAP §2 M90/M93/M94/M95 行 + §3 M92 行
+> 〔G9.3 P1 全进裁决登记〕）。G8 已冻结的
 > 静态 meshlet DAG 底座（spec/geometry_pages.md RXS-0328~0342 /
 > spec/asset_pipeline.md RXS-0332~0337）**字面 0-byte 不动**；本文件只承载 G9.2
 > 深化新增语义与 G9.3 合流新增语义。
@@ -13,7 +14,9 @@
 > **编号**：RXS-0345（G9.2 spec-first，自合入时 `registry/number_ledger.json` 实测
 > `RXS.next_free = 344` 顺位领取之本批第二号）+ RXS-0350~0352（G9.3 spec-first，
 > 自合入时实测 `RXS.next_free = 350` 顺位领取，0350~0352 连续不跳号；
-> 编号永不复用，10 §9.5）。
+> 编号永不复用，10 §9.5）+ RXS-0353（G9.3 spec-first P1 批 M92，自合入时实测
+> `RXS.next_free = 353` 顺位领取本批首号；0353~0356 跨文件连续不跳号，
+> 0354~0356 落 gpu_driven_submit.md）。
 >
 > **新建裁决留痕（G9.2 spec PR）**：RFC-0022 §5 条款映射表把「DAG 误差度量
 > monotonic 不变式与簇对锁定语义」的目标 spec 冻结为「新建 `spec/virtual_geometry.md`
@@ -38,6 +41,16 @@
 > 语义与装配期换腿禁止线（RXS-0351 L7 装配期不变量），**语言层 capability 门控
 > 面随实现波经 RXS-0311 加性修订行落 spec/shader_stages.md**，本波条款不重复
 > 冻结、不冲突。
+>
+> **目标 spec 合并裁决留痕（G9.3 P1 spec PR）**：RFC-0022 §5 条款映射表 M92 行
+> 「LBS 蒙皮 kernel 确定性律（palette 读取序、浮点累加序）、skin cache 布局与
+> 失效律」的候选目标 spec 为「新建 `spec/skinned_geometry.md`（候选）或
+> `spec/shader_stages.md`」；本波裁定**合并落本文件**——GPU 蒙皮运行时语义
+> （kernel 对拍 / 保守包围体 / 距离分级更新率）与 RXS-0345 蒙皮元数据字段、
+> RXS-0350~0352 合流语义同轴同卷，`skinned_geometry.md` 不新建、
+> `shader_stages.md` 本体 0-byte（沿本文件 G9.3 合并裁决先例，头注留痕）。
+> 蒙皮变形 MV 双时刻求值面（RFC-0022 §4.9/§5 映射行）目标 spec =
+> `spec/rendering_platform.md` 时域章，**不在本批**，本文件不冻结。
 
 ---
 
@@ -53,6 +66,9 @@
   生产者，G8 两级剔除 + LOD cut host 参照底座）+ `src/rurix-render::rt::as_manager`
   （AS 单所有者扩展：`ClasBlasKey` / 计数面）+ `src/rurix-render::streaming`
   （页驻留联动）+ host 侧纯 safe 帧末 provenance 校验模块（实现期命名）。
+- 实现锚定（G9.3 P1 面，M92）：蒙皮 compute kernel 与 skin cache（实现期命名
+  模块）+ host Kerbl 参照实现（逐顶点对拍基线，纯 safe）+
+  `src/rurix-render::rt::as_manager` AsStats 计数消费面。
 - 每条款 ≥1 `//@ spec: RXS-####` 测试锚定（traceability 矩阵全锚定，10 §4）。
 
 ## 2. 术语
@@ -270,9 +286,61 @@
 
 ---
 
-## 7. 修订记录
+## 7. 条款（RXS-0353，G9.3 M92 GPU 蒙皮与距离分级更新率）
+
+### RXS-0353 GPU 蒙皮 kernel 输出与 host 参照一致律、保守包围体包含不变式与距离分级更新率档位闭集
+
+**Legality**
+
+1. **GPU 蒙皮与 host 参照逐顶点一致**（RFC-0022 §4.2/§5 M92 映射行；判据逐字引
+   G9_ACCEPTANCE_MAP §3 M92 行）：cluster 感知 LBS 蒙皮 kernel（compute 主腿，
+   D1-b）输出蒙皮后顶点写回 skin cache，并与 host Kerbl 参照实现**逐顶点对拍**——
+   定点化输入域**容差 0**；浮点输入域容差必须经本条款面**明示冻结**（先
+   measured 后冻结，禁手写掩盖，P-09）。**CPU 蒙皮喂静态 cluster 权宜路线永久
+   否决**（D-1，RFC-0022 §7 逐字）。
+2. **保守包围体包含不变式**（RFC-0022 §4.2 逐字；判据逐字引 G9_ACCEPTANCE_MAP
+   §3 M92 行）：蒙皮 kernel 同时输出**保守包围球/法向锥**写回 skin cache——LBS
+   权重下包围球半径按各骨最大位移保守放大（膨胀系数 = RXS-0345 L3 蒙皮元数据
+   字段，即 bound_inflation），法向锥按骨旋转角保守放大（Kerbl et al. 2021，
+   R4 §3.1 著录勘定）；**bound_inflation 应用后的保守包围体必须含全部蒙皮后
+   顶点**（任意姿态序列 100% 包含，法向锥覆盖真实法向）。包含性破坏 =
+   fail-closed 确定性拒绝（剔除错杀即一致性校验失败），不设 UB。
+3. **距离分级更新率档位闭集与切换确定性**（RFC-0022 §4.2 D-3 逐字；判据逐字引
+   G9_ACCEPTANCE_MAP §3 M92 行）：档位表为**规范闭集** = `{全速, 1/2, 1/3, 1/4}`
+   （10m 内全速），闭集外档位不可声明（装配期确定性拒绝）；分级状态进场景表；
+   **档位切换对同一输入确定**（同相机距离序列 + 同姿态流双运行逐位一致）；
+   降级帧顶点缓冲逐位不变，保守包围体按最大未更新帧数放大；恢复全速无跳变
+   越界。
+4. **蒙皮簇 AS 更新计数可核验**（RFC-0022 §4.4 逐字；判据逐字引
+   G9_ACCEPTANCE_MAP §3 M92 行）：蒙皮簇 AS 更新必须经 `AsStats` 计数面显式
+   记账（归 `AsManager` 单所有者，RXS-0351 L6 同口径），**更新计数非空可机核**；
+   动画分级作用于 AS 更新（降级簇 AS 引用不变，RXS-0352 L5 同口径）。
+5. **静态帧零 AS 构建**（RXS-0351 L4 同口径延伸至蒙皮链路；判据逐字引
+   G9_ACCEPTANCE_MAP §3 M92 行）：无蒙皮输入变化（姿态流与档位均不变）的帧
+   AS 构建计数必须为 0，非零即 RED。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，纯 safe 方向维持）：蒙皮 compute kernel + skin cache
+  布局/失效律 + host Kerbl 参照实现（逐顶点对拍基线）+
+  `src/rurix-render::rt::as_manager` AsStats 计数消费面；unsafe 确需时按当时
+  `U.next_free` 实测顺位登记 unsafe-audit。
+- RED 锚定计划（实现 PR 落）：包围体人为缩小 variant → 包含性校验 RED；闭集外
+  档位声明 → 装配期拒；静态帧非零构建计数 → RED；蒙皮输出/host 参照逐顶点
+  golden。
+- 本 spec PR 落锚定语料
+  `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx`
+  （含蒙皮簇元素的正例锚，`//@ spec: RXS-0350, RXS-0353`）；锚点目标（实现 PR
+  转正）= 蒙皮 kernel/host 参照对拍与包围体包含性校验单测 +
+  `ci/g9_gpu_skinning_lod_update_smoke.py` 门（symbolic key
+  `g9.p1.m92.gpu_skinning_lod_update`，G9.3 波 P1 登记字面不动）。
+
+---
+
+## 8. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-08-09 | 新建（G9.2 spec-first，M90）：RXS-0345 DAG 误差 monotonic 不变式（`parent_error ≥ cluster_error` 逐边；破坏者 builder typed `Err` fail-closed）+ 簇对锁定语义（独立自研，不 vendoring nv 代码，RFC-0022 §4.1 D-10）+ 蒙皮元数据字段（最大影响骨数/骨骼索引集/包围体膨胀系数）与 CLAS 离线烘焙输入字段（三角形簇+簇级 AABB）schema。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.1/§5 + G9_ACCEPTANCE_MAP M90 行。G8 底座条款 RXS-0328~0342 字面 0-byte | **Full RFC**（RFC-0022） |
 | v1.1 | 2026-08-10 | 加性扩写（G9.3 spec-first，几何×RT 合流波 M93/M94/M95，硬规则 7 条款先行）：RXS-0350（VisibleClusterSet 载荷 + 屏幕空间误差 selection cut 逐帧无重叠无空洞覆盖性 + 未驻留页父簇兜底〔沿 G8.4 迟到页降级语义不重定〕+ 空洞注入 RED 臂独立有效 + 静态 LOD cut 不充数）/ RXS-0351（CLAS 当帧 multi-indirect 拼装 + Cluster Template 实例化 + BLAS 回退腿逐命中一致〔容差 0〕+ 错开一簇 RED + 静态帧零 AS 构建 + `ClasBlasKey` 单所有者 + 构建/装配期换腿纪律 + DMM 禁止线）/ RXS-0352（一份三喂光栅/RT/VSM provenance 链 + 旁路 variant provenance RED 硬门〔R-G9-8〕+ 双世界结构即使出图相似也判 FAIL + 蒙皮簇 VisBuffer SW/HW diff=0 维持 + 动画分级作用于 AS 更新）。**目标 spec 合并裁决**：RFC-0022 §5 映射表「单源真相契约」与「CLAS 当帧拼装语义/回退腿等价性」候选目标 spec=rendering_platform.md，本波裁定合并落本文件（与 RXS-0345 同轴同卷），rendering_platform.md 本体 0-byte；**CLAS 页内字段布局不重定**（RXS-0345 L4 已冻结，RXS-0351 只冻结运行时拼装语义与双腿等价性）；**`rt.clas` 语言层 capability 门控随实现波经 RXS-0311 加性修订行落 shader_stages.md**（RXS-0349 修订行未含 `rt.clas`，本波不重复冻结）。条款号自 ledger 实测 `RXS.next_free=350` 顺位领取（0350~0352 连续不跳号）。conformance 最小 RED 锚定占位语料三件（inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注）同 PR 落；symbolic key `g9.p0.m93/m94/m95` 与 ci 脚本名 G9.1 冻结字面 0-byte 不动；零 src/ 改动、零 workflow 步骤、零新 RX 码、零新 U/RD/SG。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.0/§4.2/§4.3/§4.4 + G9_ACCEPTANCE_MAP §2 M93/M94/M95 行（判据逐字）+ G9_CONTRACT §4.2 M93/M94/M95 行。既有条款 RXS-0345 字面 0-byte | **Full RFC**（RFC-0022） |
+| v1.2 | 2026-08-11 | 加性扩写（G9.3 spec-first P1 批，M92，硬规则 7 条款先行）：**RXS-0353**（GPU 蒙皮 kernel 输出与 host Kerbl 参照逐顶点一致〔定点化输入域容差 0，浮点输入域容差明示冻结，P-09〕+ 保守包围体包含不变式〔bound_inflation 应用后含全部蒙皮后顶点，任意姿态序列 100% 包含，Kerbl et al. 2021〕+ 距离分级更新率档位规范闭集〔全速/1/2/1/3/1/4，10m 内全速〕与切换对同输入确定性 + 蒙皮簇 AS 更新 AsStats 计数非空可机核 + 静态帧〔无蒙皮输入变化〕零 AS 构建；CPU 蒙皮喂静态 cluster 权宜路线永久否决 D-1 重申）。**目标 spec 合并裁决**：RFC-0022 §5 M92 行候选目标 spec（新建 `spec/skinned_geometry.md`〔候选〕或 `spec/shader_stages.md`）裁定合并落本文件（与 RXS-0345/0350~0352 同轴同卷），两候选文件本体 0-byte；蒙皮变形 MV 双时刻求值面（RFC-0022 §4.9）目标 spec = rendering_platform.md 时域章，不在本批。条款号自 ledger 实测 `RXS.next_free=353` 顺位领取本批首号（0353；0354~0356 落 gpu_driven_submit.md，跨文件连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。conformance 锚定语料 `accept/visible_cluster_set_valid_cut.rx`（含蒙皮簇元素正例锚，`//@ spec: RXS-0350, RXS-0353`）同 PR 落；symbolic key `g9.p1.m92.gpu_skinning_lod_update`（G9.3 波 P1 全进裁决登记，G9_ACCEPTANCE_MAP §3 / CI_GATES §4A）。零新 RX 码、零新 U/RD/SG、零 workflow 步骤。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.2/§5 + G9_ACCEPTANCE_MAP §3 M92 行（判据逐字）。既有条款 RXS-0345/0350/0351/0352 字面 0-byte | **Full RFC**（RFC-0022） |

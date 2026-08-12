@@ -9,7 +9,7 @@
 ## 1. 覆盖集合与独立绿灯纪律
 
 - P0 精确集合（15 行）：`{M90,M91,M102,M103,M104,M121,M122,M93,M94,M95,M96,M97,M98,M110,M118}`。
-- 已 go 的 P1 精确集合：**当前空集**。后续在对应波次开工前判 go 的 P1，须经治理流程**只追加**修订本表（§1 覆盖集合 + §3 行），不得静默并入现有 key；P0 集合变更属于契约变更，不得以勘误处理。
+- 已 go 的 P1 精确集合：`{M92,M105,M106,M107}`（G9.3 波 P1 全进裁决，[G9_CONTRACT.md](G9_CONTRACT.md) §8.1 裁决①；2026-08-11 只追加登记，见 §3）。后续在对应波次开工前判 go 的 P1，须经治理流程**只追加**修订本表（§1 覆盖集合 + §3 行），不得静默并入现有 key；P0 集合变更属于契约变更，不得以勘误处理。
 - 每一行的 symbolic key 同时是该能力唯一的 `assertion_id`。实现后的 evidence 顶层必须至少含：`schema_version`、`subject`、`milestone`、`wave`、`assertion_id`、`status`、`commands`、`environment`、`base_commit`、`run_url`、`timestamp`；其中 `assertion_id` 必须等于本表 key，`status` 必须为 `pass|fail`，不得以 `skip|estimated|advisory` 充绿（条件未触发只能登记 `not-triggered`，见 M98/M118 行）。
 - 每个 symbolic key 最终一对一取得一个 numeric CI step。脚本可复用，但 workflow 必须按 `--gate <symbolic-key>` 独立调用、独立产 evidence、独立给结论；任一 P0 assertion 缺失或失败，只能使该 P0 为红，**不得用同脚本内另一 assertion 的绿色代替**。
 - **单一 key/脚本命名空间**：symbolic key 一律小写点分 `g9.p{0,1}.m<##>.<slug>`，脚本一律 `ci/g9_<slug>_smoke.py`，evidence schema 一律 `milestones/g9/g9_m<##>_<slug>_evidence_schema.json`（slug 与 key 末段同字面）。本表、[G9_CONTRACT.md](G9_CONTRACT.md) 验收章、[CI_GATES.md](CI_GATES.md) §4 与 RFC-0022~0024 引用同一份 key/脚本，由 `ci/check_g9_acceptance_map.py` 三向比对强制一致。
@@ -39,9 +39,16 @@
 
 ---
 
-## 3. 已 go P1 硬门（当前空集）
+## 3. 已 go P1 硬门（G9.3 波四行）
 
-G9.1 立项裁决未将任何 P1 判 go，本节无行。后续在对应波次开工前经治理流程判 go 的 P1，按 §1 覆盖集合条**只追加**进入本节（独立 key、独立脚本、独立 schema、独立判据、独立波次），并同步修订 [CI_GATES.md](CI_GATES.md) 追加段；`no-go`/`defer` 项不入本表，不得冒充 PASS。
+G9.3 波 P1 全进裁决（[G9_CONTRACT.md](G9_CONTRACT.md) §8.1 裁决①：P1 全进，逐波经治理流程只追加进本节，不静默并入既有 key）首批登记 M92/M105/M106/M107 四行（2026-08-11，只追加）。M## 承接面按 G9.3 执行波口径（G9_PLAN §2 G9.3 D3 链路行）：M105 = command build node 全链路零 CPU 回读（RFC-0023 §4.4 语义面，在 M104 P0 已冻结的 AccessKind 新边与结构性零回读之上）、M106 = Execution Set 与 PSO 衔接（RFC-0023 §4.2，`submit.execution_set` 预留位转正）、M107 = shader library IR 链接 + 变体预算合并门（RFC-0023 §4.5/§4.6「同波不延后」字面）。后续在对应波次开工前经治理流程判 go 的 P1，按 §1 覆盖集合条**只追加**进入本节（独立 key、独立脚本、独立 schema、独立判据、独立波次），并同步修订 [CI_GATES.md](CI_GATES.md) §4A 追加段；`no-go`/`defer` 项不入本表，不得冒充 PASS。
+
+| M 行 | Symbolic CI gate key / 脚本 | Evidence schema（目标路径） | 精确 PASS 判据（本行独立 assertion） | 最晚波次 |
+|---|---|---|---|---|
+| **M92** | `g9.p1.m92.gpu_skinning_lod_update`<br>`py -3 ci/g9_gpu_skinning_lod_update_smoke.py --gate g9.p1.m92.gpu_skinning_lod_update` | `milestones/g9/g9_m92_gpu_skinning_lod_update_evidence_schema.json` | GPU 蒙皮 kernel 输出与 host Kerbl 参照逐顶点一致（定点化输入域容差 0；浮点输入域容差须 spec 明示冻结，禁手写掩盖）；bound_inflation 应用后的保守包围体必须含全部蒙皮后顶点（任意姿态序列 100% 包含，法向锥覆盖真实法向）；距离分级更新率档位表为规范闭集（全速/1/2/1/3/1/4，10m 内全速）、档位切换对同输入确定（双运行逐位一致）；蒙皮簇 AS 更新经 AsStats 计数非空可机核；静态帧（无蒙皮输入变化）零 AS 构建。G9.3 波 P1 判 go（G9_CONTRACT §8.1 裁决①）只追加登记。 | **G9.3** |
+| **M105** | `g9.p1.m105.command_build_node`<br>`py -3 ci/g9_command_build_node_smoke.py --gate g9.p1.m105.command_build_node` | `milestones/g9/g9_m105_command_build_node_evidence_schema.json` | command build node（compute pre-pass 产 DgcBuffer → indirect pass 消费）全链路零 CPU 回读：DgcBuffer host 读接口不存在结构性断言 + readback_counter=0 机器核验（任何隐式回读含调试路径必须经计数器显式记账，非零即 RED）；构建产物与 host 参照逐字节一致（同输入双构建 digest 相等）。G9.3 波 P1 判 go（G9_CONTRACT §8.1 裁决①）只追加登记。 | **G9.3** |
+| **M106** | `g9.p1.m106.execution_set_pso`<br>`py -3 ci/g9_execution_set_pso_smoke.py --gate g9.p1.m106.execution_set_pso` | `milestones/g9/g9_m106_execution_set_pso_evidence_schema.json` | Execution Set 与 PSO 衔接出图正确（同状态仅换 shader 的管线数组 GPU 侧索引切换，材质变体为消费方）；`submit.execution_set` capability 由 RXS-0349 预留位转正（RXS-0311 加性修订行纪律，profile 选择律裁定 fallback）；失效重建对同输入确定；capability 缺失 fail-closed（D3D12 诚实降级 CPU 侧 PSO 切换并显式登记不可表达，禁静默模拟）。G9.3 波 P1 判 go（G9_CONTRACT §8.1 裁决①）只追加登记。 | **G9.3** |
+| **M107** | `g9.p1.m107.shader_library_ir_link`<br>`py -3 ci/g9_shader_library_ir_link_smoke.py --gate g9.p1.m107.shader_library_ir_link` | `milestones/g9/g9_m107_shader_library_ir_link_evidence_schema.json` | shader library IR 函数级组合链接 interface hash 确定性（同输入双构建相等；链接拓扑进 manifest 可回放，拓扑 → 产物 digest 重算相等）；符号缺失/类型契约失配/接口失配/循环链接编译期 fail-closed；变体工程级总预算超限装配期硬失败 RED 臂独立有效；死变体检测报告（只报告不自动删）。G9.3 波 P1 判 go（G9_CONTRACT §8.1 裁决①）只追加登记。 | **G9.3** |
 
 ---
 
@@ -63,10 +70,10 @@ g9.gov.measured_baseline
 
 `ci/check_g9_acceptance_map.py` 的 PASS 判据（coverage + no-empty 两组断言分别独立报告）：
 
-1. P0 行集合与 §1 的 15 项**集合全等**，无遗漏、无额外 P0、无重复；已 go P1 行集合与 §1 声明集合全等（当前为空集）。
-2. 15 个 symbolic key 全局唯一，均匹配 `g9\.p[01]\.m\d{2}\.[a-z0-9_]+`；每行只有一个 canonical `assertion_id`，没有两个 M 行共享 key。
+1. P0 行集合与 §1 的 15 项**集合全等**，无遗漏、无额外 P0、无重复；已 go P1 行集合与 §1 声明集合全等（G9.3 波起 = `{M92,M105,M106,M107}`）。
+2. 全部 symbolic key 全局唯一，均匹配 `g9\.p[01]\.m\d{2,3}\.[a-z0-9_]+`；每行只有一个 canonical `assertion_id`，没有两个 M 行共享 key。
 3. 每一行均有脚本命令、evidence schema、可机器求值的 PASS 判据、最晚波次；共享脚本必须使用不同的 `--gate`（及 `--phase`）参数。
-4. **三向一致**：本表、`G9_CONTRACT.md` 验收章与 `CI_GATES.md` §4 对同一 M 行给出的 key 与脚本必须逐字相等；任一处漂移即 FAIL。
+4. **三向一致**：本表 §2、`G9_CONTRACT.md` 验收章与 `CI_GATES.md` §4 对同一 P0 M 行给出的 key 与脚本必须逐字相等；任一处漂移即 FAIL。已 go P1 行做本表 §3 与 `CI_GATES.md` §4A **双向**逐字比对（CONTRACT 验收章为 15 P0 独立断言表，不载 P1 行）。
 
 no-empty 组的 PASS 判据：
 
@@ -107,3 +114,4 @@ no-empty 组的 PASS 判据：
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-09 | G9.1 初版：冻结 15 个 P0 的 symbolic gate、目标脚本/schema、独立判据（自 G9_PLAN §2.9 判据草案 + 矩阵 §6.4 展开，含负例 RED 臂与防假绿句）与最晚波次；已 go P1 为空集并立只追加流程；单一命名空间 `g9.p{0,1}.m##.<slug>` + `ci/g9_<slug>_smoke.py` + `g9_m##_<slug>_evidence_schema.json` 由 `ci/check_g9_acceptance_map.py` 三向比对强制；加入 G9.2 硬互锁（六条件）、覆盖/空行治理门与 Close-out 审计。数字 CI 步骤全部延迟分配，零 workflow/script/schema 预放。 |
+| v1.1 | 2026-08-11 | **G9.3 波 P1 全进裁决只追加登记**（[G9_CONTRACT.md](G9_CONTRACT.md) §8.1 裁决①）：§1 已 go P1 集合空集 → `{M92,M105,M106,M107}`；§3 追加四行（M92 `g9.p1.m92.gpu_skinning_lod_update` / M105 `g9.p1.m105.command_build_node` / M106 `g9.p1.m106.execution_set_pso` / M107 `g9.p1.m107.shader_library_ir_link`，脚本 `ci/g9_<slug>_smoke.py` 同 slug，最晚波次均 G9.3，numeric CI step 一律 `post-interlock actual-next-free allocation` 待 materialize 回填）；M105/M106/M107 承接面按 G9.3 执行波口径登记（command build node 全链路零 CPU 回读 / Execution Set 与 PSO 衔接 / IR 链接+变体预算合并门，语义面 RFC-0023 §4.4/§4.2/§4.5/§4.6）；§4 validator 判据描述同步（P1 行 MAP §3 ↔ CI_GATES §4A 双向比对）。`ci/check_g9_acceptance_map.py` 同 PR 扩展 §3 P1 覆盖（`EXPECTED_P1` + 节内作用域解析 + 双向比对组；§2 P0 十五行 coverage/no-empty/三向比对 0-byte 不改弱；selftest 7 RED → 10 RED + 1 GREEN）。**§2 P0 15 行精确集合 0-byte**；G5~G8 closed 判据 0-byte；零脚本/schema/workflow 预放。 |

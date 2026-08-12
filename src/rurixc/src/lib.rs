@@ -84,3 +84,8 @@ pub mod typeck;
 pub mod views_check;
 #[cfg(feature = "vulkan-backend")]
 pub mod vulkan_codegen;
+// G9.3 M107(RXS-0356):shader library IR 函数级组合链接(显式拓扑 + interface hash
+// 重算写回 manifest 面 + 链接违例 fail-closed)+ 变体工程级总预算门
+// (`rurix.variant-audit-report.v1`;硬失败 typed Err)。codegen/DDC 接线归 CI 门代理。
+#[cfg(feature = "shader-stages")]
+pub mod shader_library;

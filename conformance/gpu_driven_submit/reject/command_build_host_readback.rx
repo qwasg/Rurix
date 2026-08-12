@@ -1,0 +1,13 @@
+//@ spec: RXS-0354
+// G9.3 spec-first 条款锚定语料（spec/gpu_driven_submit.md RXS-0354：command build
+// node 全链路零 CPU 回读——DgcBuffer host 读接口不存在〔类型层结构性保证〕+
+// 回读计数器恒 0〔任何隐式回读含调试路径必须经计数器显式记账，非零即红〕+
+// 构建产物与 host 参照逐字节一致）。
+// **转正（G9.3 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   host 侧读取 DgcBuffer 命令数据的 variant：类型层无 host 读接口 ⇒ 不可构造
+//   （编译期结构性拦截，非运行期错误）；经调试路径隐式回读的 variant ⇒ 回读计数器
+//   非零 ⇒ RED；调试 dump 唯一合法通道 = 显式 readback pass（g.readback，RXS-0236）。
+// 消费锚：ci/g9_command_build_node_smoke.py 门（symbolic key
+//   g9.p1.m105.command_build_node，G9.3 波 P1 登记字面不动）+ src/rurix-rt DGC
+//   类型层结构性断言单测（实现 PR 接线）。
+fn main() {}

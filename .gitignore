@@ -1,5 +1,7 @@
 # Rust
 target/
+# 蜂群隔离构建目录(G9.3 起 agent CARGO_TARGET_DIR=target-* 惯例)
+target-*/
 
 # rurixc 本地编译产物(M2.3 闭环输出)
 build/

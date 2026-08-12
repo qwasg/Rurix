@@ -1,0 +1,17 @@
+//@ spec: RXS-0350, RXS-0353
+// G9.3 accept 正例语料（spec/virtual_geometry.md RXS-0350 L1/L2 + RXS-0353 L1~L3）：
+// 合法 selection cut——每条根→叶路径恰好一个选中簇（无重叠无空洞）——含蒙皮簇
+// 元素的最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   DAG：root R → {A, B}；A → {A0, A1}（parent→child LOD 细化边）。
+//   合法 cut = {A0, A1, B}：路径 R→A→A0 由 A0 覆盖、R→A→A1 由 A1 覆盖、R→B 由 B
+//   覆盖，每条路径恰好一簇。
+//   蒙皮簇元素（VisibleClusterSet 载荷 RXS-0350 L1 = cluster stable id + LOD level
+//   + 蒙皮版本 + 变换 id）：A0 = {stable_id: "c0a0", lod: 2, skin_version: 7,
+//   transform_id: "t3"}——蒙皮版本随 GPU 蒙皮 kernel 输出递增；bound_inflation
+//   应用后的保守包围体含全部蒙皮后顶点（RXS-0353 L2）；更新率档位 ∈ 规范闭集
+//   {全速, 1/2, 1/3, 1/4}（RXS-0353 L3），档位切换对同输入确定。
+// 消费锚：ci/g9_visible_cluster_set_smoke.py（g9.p0.m93.visible_cluster_set）+
+//   ci/g9_gpu_skinning_lod_update_smoke.py（g9.p1.m92.gpu_skinning_lod_update）
+//   正例臂（实现 PR 接线）。
+fn main() {}

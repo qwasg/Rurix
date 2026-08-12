@@ -576,6 +576,7 @@ name = "rurix-rt"
 version = "1.0.0"
 dependencies = [
  "rurix-d3d12",
+ "rurix-geom-pages",
  "rurix-pkg",
  "rurixc",
 ]

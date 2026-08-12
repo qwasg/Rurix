@@ -144,14 +144,14 @@ pub struct PsoKeyInput<'a> {
     pub fixed_function_canonical: &'a [u8],
 }
 
-//@ spec: RXS-0314
-/// `pso_key = SHA-256("rurix.pso-key.v1\0" || preimage)`——纯 host 函数(无 GPU 依赖,
-/// 可单测)。preimage 七段**依次**(闭集;域分离 + 定界编码 by construction):
-/// ① kind_tag u32;② 计数 + 逐 stage(stage_tag u32 + artifact digest 32B,升序);
-/// ③ 计数 + 逐 stage(stage_tag u32 + interface_hash 轴空编码常量 32B,同序);
-/// ④ selected_profile_digest 轴空编码常量 32B;⑤ variant_key 字符串(未选择恒空串);
-/// ⑥ 固定功能状态规范编码;⑦ compiler/compiler_version/edition/target(RXS-0306 同源字串)。
-pub fn pso_key(input: &PsoKeyInput<'_>) -> [u8; 32] {
+/// pso_key preimage 七段闭集规范编码(RXS-0314;**单一事实源**——`pso_key` 与
+/// RXS-0355 加性扩展 `pso_key_with_membership` 共用,域分离 + 定界编码 by
+/// construction):① kind_tag u32;② 计数 + 逐 stage(stage_tag u32 + artifact
+/// digest 32B,升序);③ 计数 + 逐 stage(stage_tag u32 + interface_hash 轴空编码
+/// 常量 32B,同序);④ selected_profile_digest 轴空编码常量 32B;⑤ variant_key
+/// 字符串(未选择恒空串);⑥ 固定功能状态规范编码;⑦ compiler/compiler_version/
+/// edition/target(RXS-0306 同源字串)。
+fn pso_preimage(input: &PsoKeyInput<'_>) -> Vec<u8> {
     let iface = iface_none_digest();
     let profile = profile_none_digest();
     let mut w = CanonW::new();
@@ -173,9 +173,16 @@ pub fn pso_key(input: &PsoKeyInput<'_>) -> [u8; 32] {
     w.strv(COMPILER_VERSION);
     w.strv(EDITION);
     w.strv(TARGET);
+    w.buf
+}
+
+//@ spec: RXS-0314
+/// `pso_key = SHA-256("rurix.pso-key.v1\0" || preimage)`——纯 host 函数(无 GPU 依赖,
+/// 可单测)。preimage 七段闭集见 [`pso_preimage`](编码律逐字注释在该函数)。
+pub fn pso_key(input: &PsoKeyInput<'_>) -> [u8; 32] {
     let mut h = sha256::Sha256::new();
     h.update(PSO_KEY_DOMAIN);
-    h.update(&w.buf);
+    h.update(&pso_preimage(input));
     h.finalize()
 }
 
@@ -186,6 +193,57 @@ pub fn keyset_digest(keys: &[[u8; 32]]) -> [u8; 32] {
     let mut h = sha256::Sha256::new();
     for k in &sorted {
         h.update(k);
+    }
+    h.finalize()
+}
+
+// ─────────────────── RXS-0355(G9.3 M106)pso_key 加性第八段 ───────────────────
+
+/// Execution Set 内容身份 digest 定义域(RXS-0355;set 规范字节的域分离压缩)。
+const EXECUTION_SET_DOMAIN: &[u8] = b"rurix.execution-set.v1\0";
+
+//@ spec: RXS-0355
+/// Execution Set 内容身份 digest(manifest 成员枚举面;
+/// `SHA-256("rurix.execution-set.v1\0" || set.canonical_bytes())`)。句柄物理值为
+/// 实现确定、非 stable(RFC-0023 §4.0-5);本 digest = **内容身份**(失效重建逐位
+/// 比对面,RXS-0355 L3)。always-on 的 `execution_set` 模块携规范字节,digest 压缩
+/// 归本 lane(SHA-256 单一事实源 = rurix-pkg,零跨 crate 复制;default(CUDA-only)
+/// 构建依赖面 0-byte 不动)。
+pub fn execution_set_identity(set: &crate::execution_set::ExecutionSet) -> [u8; 32] {
+    let mut h = sha256::Sha256::new();
+    h.update(EXECUTION_SET_DOMAIN);
+    h.update(set.canonical_bytes());
+    h.finalize()
+}
+
+//@ spec: RXS-0355
+/// Execution Set 成员身份装配(set 内容身份 digest + 成员索引;cache key 第八段
+/// 加性扩展字段的载荷,类型单一事实源 = `crate::execution_set`)。
+pub fn execution_set_membership(
+    set: &crate::execution_set::ExecutionSet,
+    member_index: u32,
+) -> crate::execution_set::ExecutionSetMembership {
+    crate::execution_set::ExecutionSetMembership {
+        set_identity: execution_set_identity(set),
+        member_index,
+    }
+}
+
+//@ spec: RXS-0355
+/// `pso_key` 七段闭集的**加性扩展**(RXS-0355 L1 逐字:「execution set 成员身份」
+/// 字段;沿 RXS-0347 尾随可选字段 0-drift 先例):`membership = None` ≡ 既有
+/// [`pso_key`] 逐字节(既有 golden `pso_keys.golden.json` 不动);`Some(m)` =
+/// preimage **尾随第八段**(`m.canonical_encode()`,36B 定长定界——不得以
+/// 「空编码为计数 0」冒充缺省)。
+pub fn pso_key_with_membership(
+    input: &PsoKeyInput<'_>,
+    membership: Option<&crate::execution_set::ExecutionSetMembership>,
+) -> [u8; 32] {
+    let mut h = sha256::Sha256::new();
+    h.update(PSO_KEY_DOMAIN);
+    h.update(&pso_preimage(input));
+    if let Some(m) = membership {
+        h.update(&m.canonical_encode());
     }
     h.finalize()
 }
@@ -1638,6 +1696,79 @@ mod tests {
         let c = sha256::digest(b"ccc");
         assert_eq!(keyset_digest(&[a, b, c]), keyset_digest(&[c, a, b]));
         assert_ne!(keyset_digest(&[a, b]), keyset_digest(&[a, b, c]));
+    }
+
+    /// RXS-0355(G9.3 M106):pso_key 第八段加性扩展——`None` ≡ 既有 `pso_key`
+    /// 逐字节(0-drift);`Some` 双跑逐字节相等、异于基 key、随成员索引与 set
+    /// 身份区分;**失效重建确定性**(同 spec 重建 → 同一 set 身份 digest → 同一
+    /// 成员扩展 key,逐位一致)。
+    //@ spec: RXS-0355
+    #[test]
+    fn execution_set_membership_extension() {
+        use crate::execution_set::{
+            ExecutionSet, ExecutionSetMemberSpec, ExecutionSetMembership, ExecutionSetSpec,
+        };
+        let (base, stages, ff) = sample_fixture(KIND_COMPUTE, 7);
+        let input = PsoKeyInput {
+            kind_tag: KIND_COMPUTE,
+            stages: &stages,
+            fixed_function_canonical: &ff,
+        };
+        // 0-drift:None ≡ 既有 pso_key(与既有 golden 同源)。
+        assert_eq!(
+            pso_key_with_membership(&input, None),
+            base,
+            "membership 缺省 ≡ 既有 pso_key 逐字节(0-drift)"
+        );
+        // set 构建(成员 = PSO cache 条目子集视图;成员键 = 既有 pso_key)。
+        let spec = ExecutionSetSpec {
+            name: "mat_set".to_owned(),
+            state_canonical: vec![0xC0, 0xFF, 0xEE, 0x00],
+            members: vec![
+                ExecutionSetMemberSpec {
+                    name: "m0".to_owned(),
+                    pso_key: base,
+                },
+                ExecutionSetMemberSpec {
+                    name: "m1".to_owned(),
+                    pso_key: sha256::digest(b"m1-pso"),
+                },
+            ],
+        };
+        let set = ExecutionSet::build(&spec).expect("合法 set");
+        let m0 = execution_set_membership(&set, 0);
+        let k1 = pso_key_with_membership(&input, Some(&m0));
+        let k2 = pso_key_with_membership(&input, Some(&m0));
+        assert_eq!(k1, k2, "成员扩展 key 双跑逐字节相等");
+        assert_ne!(k1, base, "第八段尾随必改 key(加性字段有区分力)");
+        // 成员索引区分(同 set 同基 key,异索引)。
+        let m1 = ExecutionSetMembership {
+            set_identity: m0.set_identity,
+            member_index: 1,
+        };
+        assert_ne!(
+            pso_key_with_membership(&input, Some(&m1)),
+            k1,
+            "成员索引必入 key"
+        );
+        // set 身份区分(同索引异 set)。
+        let spec2 = ExecutionSetSpec {
+            name: "other_set".to_owned(),
+            ..spec.clone()
+        };
+        let set2 = ExecutionSet::build(&spec2).unwrap();
+        let m0_other = execution_set_membership(&set2, 0);
+        assert_ne!(m0_other.set_identity, m0.set_identity, "异 set 异身份");
+        assert_ne!(pso_key_with_membership(&input, Some(&m0_other)), k1);
+        // 失效重建确定性(RXS-0355 L3):同 spec 重建 → 成员身份逐位一致 →
+        // 扩展 key 逐位一致。
+        let rebuilt = ExecutionSet::rebuild(&spec, 1).unwrap();
+        let m0r = execution_set_membership(&rebuilt, 0);
+        assert_eq!(m0r, m0, "重建产物成员身份逐位一致");
+        assert_eq!(pso_key_with_membership(&input, Some(&m0r)), k1);
+        // 身份 digest 双跑稳定 + 与异 set 相异。
+        assert_eq!(execution_set_identity(&set), execution_set_identity(&set));
+        assert_ne!(execution_set_identity(&set), execution_set_identity(&set2));
     }
 
     /// RXS-0314:空编码常量与 M31/M32/M29 既有字面同一(M32 smoke PROFILE_NONE_DIGEST /

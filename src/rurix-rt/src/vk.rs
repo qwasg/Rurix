@@ -22991,3 +22991,2319 @@ mod m103_tests {
         assert_eq!(align_up_u64(7, 0), 7);
     }
 }
+
+// ─────────────── M94 CLAS×RT 合流:VK_NV_cluster_acceleration_structure 能力探测段(G9.3;RXS-0351;RFC-0022 §4.3) ───────────────
+// **U56 登记面**(unsafe-audit/rurix-rt.md):`VK_NV_cluster_acceleration_structure`
+// 能力探测 FFI 面——loader/instance/枚举骨架(U26 同一)+ `vkEnumerateDeviceExtensionProperties`
+// 设备扩展枚举 + `vkGetPhysicalDeviceFeatures2` / `vkGetPhysicalDeviceProperties2`
+// pNext 链查询(NV features/properties 结构挂链读回)。**本段只建 instance,不建
+// device/queue/命令/AS 句柄**:探测产物 = safe 能力快照 [`ClasCapabilityReport`]
+// (RXS-0351 L7「装载 fail-closed、禁运行期静默换腿」的证据源;主腿 not-supported
+// 时 rt_clas 侧 [`crate::rt_clas::select_leg`] 确定性 `Err`)。扩展号 570(sType 基
+// 1000569000)与结构布局经 Khronos `vk.xml`(Vulkan-Docs main)逐字段核对——本机
+// SDK 1.3.296 头未收编该扩展,数值以 registry 为准。
+//
+// DMM 禁止线(RXS-0351 L8):本段不声明/不探测任何 micromap 面
+// (`VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_CLUSTER_OPACITY_MICROMAPS_BIT_NV` 等
+// micromap 位不启用、不出现于本段)。
+
+/// `VK_NV_cluster_acceleration_structure` 设备扩展名。
+const EXT_CLUSTER_ACCELERATION_STRUCTURE: &CStr = c"VK_NV_cluster_acceleration_structure";
+
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_FEATURES_NV`
+/// (扩展号 570,offset 0;vk.xml 逐值核对)。
+const ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_FEATURES_NV: u32 = 1_000_569_000;
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_PROPERTIES_NV`
+/// (扩展号 570,offset 1)。
+const ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_PROPERTIES_NV: u32 = 1_000_569_001;
+
+/// `VkPhysicalDeviceClusterAccelerationStructureFeaturesNV`(sType/pNext + 1×VkBool32)。
+#[repr(C)]
+struct PhysicalDeviceClusterAccelerationStructureFeaturesNV {
+    s_type: u32,
+    p_next: *mut c_void,
+    cluster_acceleration_structure: VkBool32,
+}
+
+/// `VkPhysicalDeviceClusterAccelerationStructurePropertiesNV`(sType/pNext + 8×u32)。
+#[repr(C)]
+struct PhysicalDeviceClusterAccelerationStructurePropertiesNV {
+    s_type: u32,
+    p_next: *mut c_void,
+    max_vertices_per_cluster: u32,
+    max_triangles_per_cluster: u32,
+    cluster_scratch_byte_alignment: u32,
+    cluster_byte_alignment: u32,
+    cluster_template_byte_alignment: u32,
+    cluster_bottom_level_byte_alignment: u32,
+    cluster_template_bounds_byte_alignment: u32,
+    max_cluster_geometry_index: u32,
+}
+
+/// `VkPhysicalDeviceProperties` 承载 blob(命名字段读 api/driver/vendor/deviceType/
+/// deviceName;2048 字节 align(8) 严格超集防越界/错位写,镜像
+/// [`PhysicalDevicePropertiesBlob`] 纪律;字段偏移 apiVersion@0/driverVersion@4/
+/// vendorID@8/deviceID@12/deviceType@16/deviceName[256]@20 经 SDK 1.3.296
+/// `vulkan_core.h` 核对)。
+#[repr(C, align(8))]
+struct ClasDevicePropsBlob {
+    api_version: u32,
+    driver_version: u32,
+    vendor_id: u32,
+    device_id: u32,
+    device_type: u32,
+    device_name: [c_char; 256],
+    _rest: [u8; 2048 - 276],
+}
+
+/// 同 [`FnGetPhysicalDeviceProperties`] 签名、参数化到本段 blob 的别名
+/// (镜像 `FnGetPhysicalDeviceProperties2Dgc` 先例)。
+type FnGetPhysicalDevicePropertiesClas =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut ClasDevicePropsBlob);
+
+/// `VkLayerProperties`(layerName[256] + specVersion + implementationVersion
+/// + description[256];SDK 1.3.296 `vulkan_core.h` 核对 = 520B align 4)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ClasLayerProperties {
+    layer_name: [c_char; 256],
+    spec_version: u32,
+    implementation_version: u32,
+    description: [c_char; 256],
+}
+
+/// 同 `vkEnumerateInstanceLayerProperties` 签名(全局命令,null instance 取址)。
+type FnEnumerateInstanceLayerPropertiesClas =
+    unsafe extern "system" fn(*mut u32, *mut ClasLayerProperties) -> VkResult;
+
+/// `VK_MAKE_API_VERSION(0,1,4,0)`——VK_NV_cluster_acceleration_structure(扩展号
+/// 570)为 1.4 时代扩展:validation layer spec 版本 < 1.4 的 VUID 库不含其 sType,
+/// device 创建 pNext 链必被 `VUID-VkDeviceCreateInfo-pNext-pNext` 误报(工具链
+/// 滞后,非设备/驱动缺陷;本机 SDK 1.3.296 头未收编该扩展即此态)。
+const API_VERSION_1_4: u32 = (1 << 22) | (4 << 12);
+
+/// CLAS 设备属性子集(safe 拷贝;数值为驱动真值,**非 stable**——RXS-0351 L9
+/// 非 stable 边界,不进 canonical 产物/golden)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClasNvProperties {
+    /// `maxVerticesPerCluster`。
+    pub max_vertices_per_cluster: u32,
+    /// `maxTrianglesPerCluster`。
+    pub max_triangles_per_cluster: u32,
+    /// `clusterScratchByteAlignment`。
+    pub cluster_scratch_byte_alignment: u32,
+    /// `clusterByteAlignment`。
+    pub cluster_byte_alignment: u32,
+    /// `clusterTemplateByteAlignment`。
+    pub cluster_template_byte_alignment: u32,
+    /// `clusterBottomLevelByteAlignment`。
+    pub cluster_bottom_level_byte_alignment: u32,
+    /// `clusterTemplateBoundsByteAlignment`。
+    pub cluster_template_bounds_byte_alignment: u32,
+    /// `maxClusterGeometryIndex`。
+    pub max_cluster_geometry_index: u32,
+}
+
+/// CLAS 能力快照(RXS-0351 L7 装配期门控的**实测证据面**;三段事实、缺失清单
+/// 与设备身份,诚实登记——not-supported 时主腿 DEV_ENV_DEGRADE,不得以 host
+/// 模拟充绿)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClasCapabilityReport {
+    /// 物理设备名(驱动写入,NUL 结尾)。
+    pub device_name: String,
+    /// `VkPhysicalDeviceProperties::apiVersion`。
+    pub api_version: u32,
+    /// `VkPhysicalDeviceProperties::driverVersion`。
+    pub driver_version: u32,
+    /// 设备扩展枚举含 `VK_NV_cluster_acceleration_structure`。
+    pub extension_present: bool,
+    /// `clusterAccelerationStructure` feature bit(扩展缺失时恒 false 且不发起链查询)。
+    pub cluster_acceleration_structure: bool,
+    /// NV 属性(仅扩展在位时查询;缺失 = None)。
+    pub properties: Option<ClasNvProperties>,
+    /// `VK_LAYER_KHRONOS_validation` 的 specVersion(层未安装/不可枚举 = None;
+    /// 仅枚举事实,不装载层)。
+    pub validation_layer_spec_version: Option<u32>,
+    /// 主腿缺失件清单(空 = 主腿可装载)。
+    missing: Vec<String>,
+}
+
+impl ClasCapabilityReport {
+    /// 主腿(NV CLAS)可装载 = 缺失清单为空。
+    pub fn main_leg_supported(&self) -> bool {
+        self.missing.is_empty()
+    }
+
+    /// 缺失件清单(证据面只读)。
+    pub fn missing(&self) -> &[String] {
+        &self.missing
+    }
+
+    /// 主腿 device 创建会被 validation layer 头文件滞后误报拦截 = 层在位且其
+    /// spec 版本 < 1.4(扩展 570 sType 不在旧层 VUID 库;驱动本体不受影响——
+    /// 本机 driver api 1.4.351 实测主腿真跑绿)。调用方据此显式登记
+    /// DEV_ENV_DEGRADE(validation=off 时层不装载,主腿照常真跑)。
+    pub fn main_leg_blocked_by_layer_lag(&self) -> bool {
+        matches!(self.validation_layer_spec_version, Some(v) if v < API_VERSION_1_4)
+    }
+
+    /// 单行摘要(evidence/日志用;driver_version 为 Vulkan 打包值原样)。
+    pub fn summary_line(&self) -> String {
+        format!(
+            "device=`{}` api={}.{}.{} driver=0x{:08x} extension={} feature={} missing=[{}] val_layer={}",
+            self.device_name,
+            self.api_version >> 22,
+            (self.api_version >> 12) & 0x3ff,
+            self.api_version & 0xfff,
+            self.driver_version,
+            self.extension_present,
+            self.cluster_acceleration_structure,
+            self.missing.join(","),
+            self.validation_layer_spec_version.map_or("none".to_string(), |v| format!(
+                "{}.{}.{}",
+                v >> 22,
+                (v >> 12) & 0x3ff,
+                v & 0xfff
+            )),
+        )
+    }
+}
+
+/// 主腿缺失件推导(纯 host 函数;扩展缺失 → 只列扩展名,feature/properties 不查
+/// 不猜——fail-closed 不静默,缺扩展时 feature 位无意义)。
+fn clas_missing_pieces(extension_present: bool, feature: bool) -> Vec<&'static str> {
+    let mut missing = Vec::new();
+    if !extension_present {
+        missing.push("VK_NV_cluster_acceleration_structure");
+    } else if !feature {
+        missing.push("clusterAccelerationStructure");
+    }
+    missing
+}
+
+/// 探测本机首个物理设备的 `VK_NV_cluster_acceleration_structure` 能力(RXS-0351 L7
+/// 门控证据源)。loader 缺失/无 Vulkan 设备/枚举失败 → 确定性 `Err`(dev-env degrade,
+/// 由调用方转 SKIP 纪律,非 panic)。
+///
+/// 只建 instance(enumerate-only,无 device/queue/命令面,validation 无校验对象,
+/// 故不装载 messenger——与 device 真跑段的 messenger fail-closed 纪律不冲突)。
+pub fn probe_cluster_acceleration_structure() -> Result<ClasCapabilityReport, String> {
+    let gipa = load_vulkan_loader()
+        .ok_or("vulkan loader 不可用(vulkan-1.dll/libvulkan.so 缺失;dev-env degrade)")?;
+    // SAFETY: gipa 经 U26 loader 成功装载;调用的均为 Vulkan 1.0/1.1 core 已知 ABI
+    // 符号(instance 级),句柄线性 create/destroy 配对。
+    unsafe { probe_cluster_acceleration_structure_inner(gipa) }
+}
+
+/// [`probe_cluster_acceleration_structure`] 的 unsafe 本体(句柄:instance 单点
+/// create/destroy;每个 early-return 同走销毁,无泄漏)。
+unsafe fn probe_cluster_acceleration_structure_inner(
+    gipa: FnGetInstanceProcAddr,
+) -> Result<ClasCapabilityReport, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-rt-clas-probe".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let layer_spec = validation_layer_spec_version(gipa);
+    let out = probe_clas_on_instance(gipa, instance).map(|mut r| {
+        r.validation_layer_spec_version = layer_spec;
+        r
+    });
+    let destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr()));
+    if let Some(di) = destroy_instance {
+        di(instance, std::ptr::null());
+    }
+    out
+}
+
+/// 枚举 instance layer 取 `VK_LAYER_KHRONOS_validation` 的 specVersion(纯事实
+/// 采集;层未安装/符号缺失/枚举失败 → `None`,由调用方按「无滞后证据」处理)。
+fn validation_layer_spec_version(gipa: FnGetInstanceProcAddr) -> Option<u32> {
+    // SAFETY: gipa 经 U26 loader 成功装载;vkEnumerateInstanceLayerProperties 为
+    // Vulkan 1.0 core 全局命令(null instance 取址),两阶段 count/数组调用,缓冲
+    // 长度由首轮 count 裁定,不越界;layer_name 为驱动写入的 NUL 结尾 C 串(≤256B)。
+    unsafe {
+        let enumerate: FnEnumerateInstanceLayerPropertiesClas =
+            cast_fn(gipa(std::ptr::null_mut(), c"vkEnumerateInstanceLayerProperties".as_ptr()))?;
+        let mut count = 0u32;
+        if enumerate(&mut count, std::ptr::null_mut()) != VK_SUCCESS || count == 0 {
+            return None;
+        }
+        let mut layers = vec![
+            ClasLayerProperties {
+                layer_name: [0; 256],
+                spec_version: 0,
+                implementation_version: 0,
+                description: [0; 256],
+            };
+            count as usize
+        ];
+        if enumerate(&mut count, layers.as_mut_ptr()) != VK_SUCCESS {
+            return None;
+        }
+        layers.iter().take(count as usize).find_map(|l| {
+            (std::ffi::CStr::from_ptr(l.layer_name.as_ptr()) == c"VK_LAYER_KHRONOS_validation")
+                .then_some(l.spec_version)
+        })
+    }
+}
+
+/// instance 级探测本体(物理设备属性/扩展枚举/feature+properties 链查询)。
+unsafe fn probe_clas_on_instance(
+    gipa: FnGetInstanceProcAddr,
+    instance: VkInstance,
+) -> Result<ClasCapabilityReport, String> {
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_props: FnGetPhysicalDevicePropertiesClas =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let vk_get_props2: FnGetPhysicalDeviceProperties2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // ── 设备身份(api/driver/名称;blob 为真实结构 2048B 严格超集,防越界写)──
+    let mut props_blob = ClasDevicePropsBlob {
+        api_version: 0,
+        driver_version: 0,
+        vendor_id: 0,
+        device_id: 0,
+        device_type: 0,
+        device_name: [0; 256],
+        _rest: [0; 2048 - 276],
+    };
+    vk_get_props(pd, &mut props_blob);
+    // SAFETY: device_name 为驱动写入的 NUL 结尾 C 串(定长 256 字段内)。
+    let device_name = std::ffi::CStr::from_ptr(props_blob.device_name.as_ptr())
+        .to_string_lossy()
+        .into_owned();
+
+    // ── 扩展枚举(存在性事实;缺失即不再发起 feature/properties 链查询)──
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut ext_props = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+    let extension_present = ext_props.iter().any(|e| {
+        // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串(≤256 字节)。
+        std::ffi::CStr::from_ptr(e.extension_name.as_ptr()) == EXT_CLUSTER_ACCELERATION_STRUCTURE
+    });
+
+    // ── feature / properties 链查询(仅扩展在位时;读回真值,缺一即 missing)──
+    let mut feature_on = false;
+    let mut properties: Option<ClasNvProperties> = None;
+    if extension_present {
+        let mut nv_feat = PhysicalDeviceClusterAccelerationStructureFeaturesNV {
+            s_type: ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_FEATURES_NV,
+            p_next: std::ptr::null_mut(),
+            cluster_acceleration_structure: 0,
+        };
+        let mut feats2 = PhysicalDeviceFeatures2 {
+            s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+            p_next: &mut nv_feat as *mut _ as *mut c_void,
+            features: std::mem::zeroed(),
+        };
+        vk_get_features2(pd, &mut feats2);
+        feature_on = nv_feat.cluster_acceleration_structure != 0;
+
+        let mut nv_props = PhysicalDeviceClusterAccelerationStructurePropertiesNV {
+            s_type: ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_PROPERTIES_NV,
+            p_next: std::ptr::null_mut(),
+            max_vertices_per_cluster: 0,
+            max_triangles_per_cluster: 0,
+            cluster_scratch_byte_alignment: 0,
+            cluster_byte_alignment: 0,
+            cluster_template_byte_alignment: 0,
+            cluster_bottom_level_byte_alignment: 0,
+            cluster_template_bounds_byte_alignment: 0,
+            max_cluster_geometry_index: 0,
+        };
+        let mut props2 = PhysicalDeviceProperties2Rt {
+            s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+            p_next: &mut nv_props as *mut _ as *mut c_void,
+            properties: std::mem::zeroed(),
+        };
+        vk_get_props2(pd, &mut props2);
+        properties = Some(ClasNvProperties {
+            max_vertices_per_cluster: nv_props.max_vertices_per_cluster,
+            max_triangles_per_cluster: nv_props.max_triangles_per_cluster,
+            cluster_scratch_byte_alignment: nv_props.cluster_scratch_byte_alignment,
+            cluster_byte_alignment: nv_props.cluster_byte_alignment,
+            cluster_template_byte_alignment: nv_props.cluster_template_byte_alignment,
+            cluster_bottom_level_byte_alignment: nv_props.cluster_bottom_level_byte_alignment,
+            cluster_template_bounds_byte_alignment: nv_props.cluster_template_bounds_byte_alignment,
+            max_cluster_geometry_index: nv_props.max_cluster_geometry_index,
+        });
+    }
+
+    let missing: Vec<String> = clas_missing_pieces(extension_present, feature_on)
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+    Ok(ClasCapabilityReport {
+        device_name,
+        api_version: props_blob.api_version,
+        driver_version: props_blob.driver_version,
+        extension_present,
+        cluster_acceleration_structure: feature_on,
+        properties,
+        // 由 `probe_cluster_acceleration_structure_inner` 全局层枚举回填。
+        validation_layer_spec_version: None,
+        missing,
+    })
+}
+
+#[cfg(test)]
+mod m94_clas_tests {
+    use super::*;
+
+    /// CLAS NV 结构布局锚(size/align/sType;扩展号 570 段,经 vk.xml 逐值核对)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_clas_ffi_layout_anchors() {
+        // sType@0(u32)+pad@4 + pNext@8 + clusterAccelerationStructure@16 → 24B。
+        assert_eq!(
+            size_of::<PhysicalDeviceClusterAccelerationStructureFeaturesNV>(),
+            24
+        );
+        assert_eq!(
+            align_of::<PhysicalDeviceClusterAccelerationStructureFeaturesNV>(),
+            8
+        );
+        assert_eq!(
+            size_of::<PhysicalDeviceClusterAccelerationStructurePropertiesNV>(),
+            48
+        );
+        assert_eq!(
+            align_of::<PhysicalDeviceClusterAccelerationStructurePropertiesNV>(),
+            8
+        );
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_FEATURES_NV,
+            1_000_569_000
+        );
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_PROPERTIES_NV,
+            1_000_569_001
+        );
+        // 设备属性 blob:2048 严格超集 + 命名字段偏移(vulkan_core.h 核对)。
+        assert_eq!(size_of::<ClasDevicePropsBlob>(), 2048);
+        assert_eq!(align_of::<ClasDevicePropsBlob>(), 8);
+    }
+
+    /// 缺失件推导:扩展缺失 → 只列扩展(feature 不查);扩展在 feature 缺 → 列
+    /// feature 名;全在 → 空(主腿可装载)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_clas_missing_pieces_truth_table() {
+        assert_eq!(
+            clas_missing_pieces(false, false),
+            vec!["VK_NV_cluster_acceleration_structure"]
+        );
+        // 扩展缺失时 feature 位无意义(无论传入何值,缺失清单只含扩展名)。
+        assert_eq!(
+            clas_missing_pieces(false, true),
+            vec!["VK_NV_cluster_acceleration_structure"]
+        );
+        assert_eq!(
+            clas_missing_pieces(true, false),
+            vec!["clusterAccelerationStructure"]
+        );
+        assert!(clas_missing_pieces(true, true).is_empty());
+    }
+
+    /// 快照摘要行含设备身份与缺失件(evidence 形态锚)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_clas_report_summary_line_shape() {
+        let report = ClasCapabilityReport {
+            device_name: "dev".into(),
+            api_version: API_VERSION_1_2,
+            driver_version: 0x1234,
+            extension_present: false,
+            cluster_acceleration_structure: false,
+            properties: None,
+            validation_layer_spec_version: None,
+            missing: vec!["VK_NV_cluster_acceleration_structure".into()],
+        };
+        assert!(!report.main_leg_supported());
+        let line = report.summary_line();
+        assert!(line.contains("device=`dev`"));
+        assert!(line.contains("extension=false"));
+        assert!(line.contains("VK_NV_cluster_acceleration_structure"));
+        assert!(line.contains("val_layer=none"));
+    }
+
+    /// 层滞后判据真值表(层 <1.4 → 主腿 device 创建被旧层 VUID 库误报;
+    /// 层缺失/≥1.4 → 不拦截) + `ClasLayerProperties` 布局锚(520B align 4)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_validation_layer_lag_truth_table() {
+        assert_eq!(size_of::<ClasLayerProperties>(), 520);
+        assert_eq!(align_of::<ClasLayerProperties>(), 4);
+        let mk = |v: Option<u32>| ClasCapabilityReport {
+            device_name: "dev".into(),
+            api_version: API_VERSION_1_2,
+            driver_version: 0,
+            extension_present: true,
+            cluster_acceleration_structure: true,
+            properties: None,
+            validation_layer_spec_version: v,
+            missing: vec![],
+        };
+        // 1.3.296(本机层实测档)< 1.4 → 滞后拦截。
+        assert!(mk(Some((1 << 22) | (3 << 12) | 296)).main_leg_blocked_by_layer_lag());
+        assert!(!mk(Some(API_VERSION_1_4)).main_leg_blocked_by_layer_lag());
+        assert!(!mk(Some((1 << 22) | (4 << 12) | 320)).main_leg_blocked_by_layer_lag());
+        assert!(!mk(None).main_leg_blocked_by_layer_lag());
+    }
+}
+
+// ─────────────── M94 CLAS 主腿:当帧 multi-indirect device 拼装执行面(G9.3;RXS-0351 L1;RFC-0022 §4.3) ───────────────
+// **U56 登记面续**(unsafe-audit/rurix-rt.md 同一条目):CLAS 主腿 device lane——
+// `vkGetClusterAccelerationStructureBuildSizesNV` × 逐 op 尺寸查询 +
+// `vkCmdBuildClusterAccelerationStructureIndirectNV` 当帧拼装(Cluster Template
+// 直建 + 实例化 + 三角形簇直建 → CLAS 引用数组拼 cluster BLAS → 标准 KHR TLAS)
+// + compute ray query 消费(与回退腿同一 SPV/同一 descriptor 布局,对拍同口径)。
+// 镜像 run_rq_inner/rq_body 骨架(loader/instance/device/messenger fail-closed);
+// 扩展五件 + feature 四链双轴探测,缺一确定性 `Err`(无静默降级 P-01)。
+//
+// 地址纪律(🔒 沿用 U30):vertex/index/srcInfos/dstAddresses 各 device address
+// 取址仅作构建输入/输出数组填充,**从不解引用为 host 指针**;host 回读仅经
+// host-visible+coherent 缓冲 map(同 U26/U30 先例)。DMM 禁止线(L8):全程不触
+// 任何 micromap 面(opacityMicromapArray/IndexBuffer 恒 0,OMM build flag 不启用)。
+
+/// `VK_STRUCTURE_TYPE_CLUSTER_ACCELERATION_STRUCTURE_CLUSTERS_BOTTOM_LEVEL_INPUT_NV`(offset 2)。
+const ST_CLUSTER_CLUSTERS_BOTTOM_LEVEL_INPUT_NV: u32 = 1_000_569_002;
+/// `VK_STRUCTURE_TYPE_CLUSTER_ACCELERATION_STRUCTURE_TRIANGLE_CLUSTER_INPUT_NV`(offset 3)。
+const ST_CLUSTER_TRIANGLE_CLUSTER_INPUT_NV: u32 = 1_000_569_003;
+/// `VK_STRUCTURE_TYPE_CLUSTER_ACCELERATION_STRUCTURE_INPUT_INFO_NV`(offset 5)。
+const ST_CLUSTER_INPUT_INFO_NV: u32 = 1_000_569_005;
+/// `VK_STRUCTURE_TYPE_CLUSTER_ACCELERATION_STRUCTURE_COMMANDS_INFO_NV`(offset 6)。
+const ST_CLUSTER_COMMANDS_INFO_NV: u32 = 1_000_569_006;
+
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_TYPE_BUILD_CLUSTERS_BOTTOM_LEVEL_NV`。
+const CLUSTER_OP_BUILD_CLUSTERS_BOTTOM_LEVEL: u32 = 1;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_TYPE_BUILD_TRIANGLE_CLUSTER_NV`。
+const CLUSTER_OP_BUILD_TRIANGLE_CLUSTER: u32 = 2;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_TYPE_BUILD_TRIANGLE_CLUSTER_TEMPLATE_NV`。
+const CLUSTER_OP_BUILD_TRIANGLE_CLUSTER_TEMPLATE: u32 = 3;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_TYPE_INSTANTIATE_TRIANGLE_CLUSTER_NV`。
+const CLUSTER_OP_INSTANTIATE_TRIANGLE_CLUSTER: u32 = 4;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_MODE_IMPLICIT_DESTINATIONS_NV`
+/// (驱动在 `dstImplicitData` 内隐式分配,产物地址写 `dstAddressesArray`)。
+const CLUSTER_OPMODE_IMPLICIT_DESTINATIONS: u32 = 0;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_OP_MODE_EXPLICIT_DESTINATIONS_NV`
+/// (产物写入 `dstAddressesArray` 预设地址;本 lane 用于模板——模板地址须在
+/// 录制期 host 已知,供实例化 srcInfos 引用)。
+const CLUSTER_OPMODE_EXPLICIT_DESTINATIONS: u32 = 1;
+/// `VK_CLUSTER_ACCELERATION_STRUCTURE_INDEX_FORMAT_32BIT_NV`(bitpos 2)。
+const CLUSTER_INDEX_FORMAT_32BIT: u32 = 0x4;
+/// `VkClusterAccelerationStructureGeometryFlagBitsNV`:CULL_DISABLE(1)|OPAQUE(4)
+/// —— 与回退腿 `GEOMETRY_OPAQUE_BIT` + 实例 `TRIANGLE_FACING_CULL_DISABLE` 同口径
+/// (对拍必需:host 金标准 Möller–Trumbore 双面)。
+const CLUSTER_GEOMETRY_FLAGS_OPAQUE_CULL_DISABLE: u32 = 0x5;
+
+/// `VkClusterAccelerationStructureClustersBottomLevelInputNV`(sType/pNext + 2×u32)。
+#[repr(C)]
+struct ClusterClustersBottomLevelInputNV {
+    s_type: u32,
+    p_next: *const c_void,
+    max_total_cluster_count: u32,
+    max_cluster_count_per_acceleration_structure: u32,
+}
+
+/// `VkClusterAccelerationStructureTriangleClusterInputNV`(sType/pNext + VkFormat + 7×u32)。
+#[repr(C)]
+struct ClusterTriangleClusterInputNV {
+    s_type: u32,
+    p_next: *const c_void,
+    vertex_format: u32,
+    max_geometry_index_value: u32,
+    max_cluster_unique_geometry_count: u32,
+    max_cluster_triangle_count: u32,
+    max_cluster_vertex_count: u32,
+    max_total_triangle_count: u32,
+    max_total_vertex_count: u32,
+    min_position_truncate_bit_count: u32,
+}
+
+/// `VkClusterAccelerationStructureInputInfoNV`(opInput union 以 `*const c_void` 承载——
+/// 三个候选均为「指向输入上限结构」的指针,布局等价)。
+#[repr(C)]
+struct ClusterInputInfoNV {
+    s_type: u32,
+    p_next: *const c_void,
+    max_acceleration_structure_count: u32,
+    flags: u32,
+    op_type: u32,
+    op_mode: u32,
+    op_input: *const c_void,
+}
+
+/// `VkClusterAccelerationStructureCommandsInfoNV`。
+#[repr(C)]
+struct ClusterCommandsInfoNV {
+    s_type: u32,
+    p_next: *const c_void,
+    input: ClusterInputInfoNV,
+    dst_implicit_data: u64,
+    scratch_data: u64,
+    dst_addresses_array: StridedDeviceAddressRegion,
+    dst_sizes_array: StridedDeviceAddressRegion,
+    src_infos_array: StridedDeviceAddressRegion,
+    src_infos_count: u64,
+    address_resolution_flags: u32,
+}
+
+/// `VkClusterAccelerationStructureBuildTriangleClusterInfoNV`(64B;bitfield 已手工
+/// 打包为两个 u32——`triangleCount:9|vertexCount:9|positionTruncateBitCount:6|
+/// indexType:4|opacityMicromapIndexType:4` 与 `geometryIndex:24|reserved:5|
+/// geometryFlags:3`,normative 布局见 spec 注记)。
+#[repr(C)]
+struct ClusterBuildTriangleClusterInfoNV {
+    cluster_id: u32,
+    cluster_flags: u32,
+    packed_counts: u32,
+    base_geometry_index_and_flags: u32,
+    index_buffer_stride: u16,
+    vertex_buffer_stride: u16,
+    geometry_index_and_flags_buffer_stride: u16,
+    opacity_micromap_index_buffer_stride: u16,
+    index_buffer: u64,
+    vertex_buffer: u64,
+    geometry_index_and_flags_buffer: u64,
+    opacity_micromap_array: u64,
+    opacity_micromap_index_buffer: u64,
+}
+
+/// `VkClusterAccelerationStructureBuildTriangleClusterTemplateInfoNV`(72B = 直建
+/// 信息 + 尾随 `instantiationBoundingBoxLimit` 地址)。
+#[repr(C)]
+struct ClusterBuildTriangleClusterTemplateInfoNV {
+    base: ClusterBuildTriangleClusterInfoNV,
+    instantiation_bounding_box_limit: u64,
+}
+
+/// `VkClusterAccelerationStructureInstantiateClusterInfoNV`(32B;
+/// `geometryIndexOffset:24|reserved:8` 手工打包;`vertexBuffer` =
+/// `VkStridedDeviceAddressNV{startAddress,strideInBytes}`)。
+#[repr(C)]
+struct ClusterInstantiateClusterInfoNV {
+    cluster_id_offset: u32,
+    geometry_index_offset_packed: u32,
+    cluster_template_address: u64,
+    vertex_buffer_start: u64,
+    vertex_buffer_stride: u64,
+}
+
+/// `VkClusterAccelerationStructureBuildClustersBottomLevelInfoNV`(16B)。
+#[repr(C)]
+struct ClusterBuildClustersBottomLevelInfoNV {
+    cluster_references_count: u32,
+    cluster_references_stride: u32,
+    cluster_references: u64,
+}
+
+type FnGetClusterBuildSizesNV =
+    unsafe extern "system" fn(VkDevice, *const ClusterInputInfoNV, *mut AccelBuildSizesInfo);
+type FnCmdBuildClusterIndirectNV =
+    unsafe extern "system" fn(VkCommandBuffer, *const ClusterCommandsInfoNV);
+
+/// `triangleCount|vertexCount|truncate|indexType|ommIndexType` 打包(纯 host 函数,
+/// 单测锚;`positionTruncateBitCount` 恒 0 = 不截断——截断会改变顶点位模式,
+/// 击穿双腿逐命中容差 0 判据)。
+fn cluster_pack_counts(tri_count: u32, vertex_count: u32) -> u32 {
+    tri_count | (vertex_count << 9) | (CLUSTER_INDEX_FORMAT_32BIT << 24)
+}
+
+/// `geometryIndex:24|reserved:5|geometryFlags:3` 打包(纯 host 函数,单测锚)。
+fn cluster_pack_geometry_index_flags(geometry_index: u32, flags: u32) -> u32 {
+    (geometry_index & 0x00FF_FFFF) | (flags << 29)
+}
+
+/// 主腿执行输出(evidence 面;地址值为实现确定、**非 stable**——L9,仅供
+/// provenance/调试,不进 golden)。
+#[derive(Debug)]
+pub struct ClasMainLegOutput {
+    /// 命中输出 SSBO 回读字节(与回退腿同一布局:逐光线 4×u32)。
+    pub readback: Vec<u8>,
+    /// 逐 CLAS device address(可见集序)。
+    pub clas_addresses: Vec<u64>,
+    /// Cluster Template device address(模板序)。
+    pub template_addresses: Vec<u64>,
+    /// cluster BLAS device address(TLAS 唯一实例引用)。
+    pub blas_address: u64,
+}
+
+/// CLAS 主腿当帧拼装 + ray query 消费(RXS-0351 L1;U56 lane)。
+///
+/// 输入 = `rt_clas` 单所有者产物 [`crate::rt_clas::AssembledBlas`](拼装计划 +
+/// 逐簇几何;device 侧**只拼装不几何处理**——顶点/索引随页流送语料原样上传)。
+/// `rays`/`out_len`/`groups` 与回退腿 `run_ray_query_effects` 同一 SPV/同一
+/// 输出布局(对拍同口径)。capability 缺失/校验错误/构建失败 → 确定性 `Err`
+/// (fail-closed;调用方据 [`probe_cluster_acceleration_structure`] 快照应已
+/// 经 `rt_clas::select_leg` 裁决,此处的 Err 是装载期最后防线)。
+pub fn run_clas_main_leg_ray_query(
+    assembled: &crate::rt_clas::AssembledBlas,
+    spv: &[u32],
+    entry: &str,
+    rays: &[u8],
+    out_len: usize,
+    groups: [u32; 3],
+) -> Result<ClasMainLegOutput, String> {
+    if assembled.clusters().is_empty() {
+        return Err("CLAS 主腿:空簇集(fail-closed)".into());
+    }
+    if rays.is_empty() || out_len == 0 {
+        return Err("CLAS 主腿:空光线集/空输出(fail-closed)".into());
+    }
+    let gipa = load_vulkan_loader()
+        .ok_or("vulkan loader 不可用(vulkan-1.dll/libvulkan.so 缺失;dev-env degrade)")?;
+    // SAFETY: gipa 经 U26 loader 成功装载;全部 Vulkan 调用在下方 inner 内按
+    // U26/U30 句柄线性纪律执行。
+    unsafe { run_clas_main_leg_inner(gipa, assembled, spv, entry, rays, out_len, groups) }
+}
+
+/// [`run_clas_main_leg_ray_query`] unsafe 本体:instance/device/messenger 骨架
+/// (镜像 `run_rq_inner`;messenger fail-closed 同 U27)。
+unsafe fn run_clas_main_leg_inner(
+    gipa: FnGetInstanceProcAddr,
+    assembled: &crate::rt_clas::AssembledBlas,
+    spv: &[u32],
+    entry: &str,
+    rays: &[u8],
+    out_len: usize,
+    groups: [u32; 3],
+) -> Result<ClasMainLegOutput, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-rt-clas-main".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let get_pd_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if messenger != VK_NULL_HANDLE
+                && let Some(dm) = destroy_messenger
+            {
+                dm(instance, messenger, std::ptr::null());
+            }
+        };
+    }
+    macro_rules! bail {
+        ($e:expr) => {{
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err($e);
+        }};
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        bail!("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // ── 扩展协商(主腿五件;任一缺失确定性 Err 且消息含缺失名)──
+    const CLAS_MAIN_DEVICE_EXTENSIONS: &[&CStr] = &[
+        EXT_CLUSTER_ACCELERATION_STRUCTURE,
+        EXT_ACCELERATION_STRUCTURE,
+        EXT_RAY_QUERY,
+        EXT_DEFERRED_HOST_OPERATIONS,
+        EXT_BUFFER_DEVICE_ADDRESS,
+    ];
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut ext_props = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+    let avail: Vec<String> = ext_props
+        .iter()
+        .map(|e| {
+            // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串(≤256 字节)。
+            std::ffi::CStr::from_ptr(e.extension_name.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let avail_refs: Vec<&str> = avail.iter().map(|s| s.as_str()).collect();
+    if let Err(e) = negotiate_device_extensions(&avail_refs, CLAS_MAIN_DEVICE_EXTENSIONS) {
+        bail!(format!(
+            "CLAS 主腿扩展缺失:{e}(RXS-0351 L7 装载 fail-closed)"
+        ));
+    }
+
+    // ── feature 链探测(cluster AS + accel_struct + ray_query + bda;缺一即拒)──
+    let mut clas_feat = PhysicalDeviceClusterAccelerationStructureFeaturesNV {
+        s_type: ST_PHYSICAL_DEVICE_CLUSTER_ACCELERATION_STRUCTURE_FEATURES_NV,
+        p_next: std::ptr::null_mut(),
+        cluster_acceleration_structure: 0,
+    };
+    let mut bda_feat = PhysicalDeviceBufferDeviceAddressFeatures {
+        s_type: ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        p_next: &mut clas_feat as *mut _ as *mut c_void,
+        buffer_device_address: 0,
+        buffer_device_address_capture_replay: 0,
+        buffer_device_address_multi_device: 0,
+    };
+    let mut rq_feat = PhysicalDeviceRayQueryFeatures {
+        s_type: ST_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+        p_next: &mut bda_feat as *mut _ as *mut c_void,
+        ray_query: 0,
+    };
+    let mut as_feat = PhysicalDeviceAccelerationStructureFeatures {
+        s_type: ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        p_next: &mut rq_feat as *mut _ as *mut c_void,
+        acceleration_structure: 0,
+        acceleration_structure_capture_replay: 0,
+        acceleration_structure_indirect_build: 0,
+        acceleration_structure_host_commands: 0,
+        descriptor_binding_acceleration_structure_update_after_bind: 0,
+    };
+    let mut feats2 = PhysicalDeviceFeatures2 {
+        s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+        p_next: &mut as_feat as *mut _ as *mut c_void,
+        features: std::mem::zeroed(),
+    };
+    get_pd_features2(pd, &mut feats2);
+    let mut missing: Vec<&str> = Vec::new();
+    if as_feat.acceleration_structure == 0 {
+        missing.push("accelerationStructure");
+    }
+    if rq_feat.ray_query == 0 {
+        missing.push("rayQuery");
+    }
+    if bda_feat.buffer_device_address == 0 {
+        missing.push("bufferDeviceAddress");
+    }
+    if clas_feat.cluster_acceleration_structure == 0 {
+        missing.push("clusterAccelerationStructure");
+    }
+    if !missing.is_empty() {
+        bail!(format!(
+            "device 缺 CLAS 主腿 feature: {}(确定性 Err,RXS-0351 L7 fail-closed,无静默降级)",
+            missing.join(", ")
+        ));
+    }
+
+    // ── compute queue family ──
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_COMPUTE_BIT != 0)
+    {
+        Some(i) => i as u32,
+        None => bail!("无 compute queue family".into()),
+    };
+
+    // ── device:5 扩展 + feature 链全启用 ──
+    as_feat.acceleration_structure = 1;
+    rq_feat.ray_query = 1;
+    bda_feat.buffer_device_address = 1;
+    clas_feat.cluster_acceleration_structure = 1;
+    // 重挂 pNext 链(enable bit 写入后再取址;链语义不变,同 run_rq_inner 先例)。
+    bda_feat.p_next = &mut clas_feat as *mut _ as *mut c_void;
+    rq_feat.p_next = &mut bda_feat as *mut _ as *mut c_void;
+    as_feat.p_next = &mut rq_feat as *mut _ as *mut c_void;
+    let dev_exts: Vec<*const c_char> = CLAS_MAIN_DEVICE_EXTENSIONS
+        .iter()
+        .map(|e| e.as_ptr())
+        .collect();
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: &as_feat as *const _ as *const c_void,
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: dev_exts.len() as u32,
+        pp_enabled_extension_names: dev_exts.as_ptr(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    if vk_create_device(pd, &dci, std::ptr::null(), &mut device) != VK_SUCCESS {
+        bail!("vkCreateDevice 失败(CLAS 主腿扩展/feature 启用)".into());
+    }
+
+    let mut out = clas_main_leg_body(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        assembled,
+        spv,
+        entry,
+        rays,
+        out_len,
+        groups,
+    );
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        out = Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(fail-closed,L3)".into());
+    }
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+/// 主腿 lane 句柄登记(逆序销毁;AS 句柄先于其 storage buffer——U30 IR2 同律)。
+enum ClasLaneHandle {
+    Buffer(VkBuffer, VkDeviceMemory),
+    Accel(VkAccelerationStructureKHR),
+}
+
+/// [`run_clas_main_leg_inner`] 的 device 本体(全部句柄经 `lane` 登记表单点
+/// 逆序销毁;每个 early-return 同走销毁序,无泄漏/双释放)。
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
+unsafe fn clas_main_leg_body(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    assembled: &crate::rt_clas::AssembledBlas,
+    spv: &[u32],
+    entry: &str,
+    rays: &[u8],
+    out_len: usize,
+    groups: [u32; 3],
+) -> Result<ClasMainLegOutput, String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let create_compute_pipe: FnCreateComputePipelines =
+        dp!(c"vkCreateComputePipelines", FnCreateComputePipelines);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_dpool: FnCreateDescriptorPool =
+        dp!(c"vkCreateDescriptorPool", FnCreateDescriptorPool);
+    let destroy_dpool: FnDestroyDescriptorPool =
+        dp!(c"vkDestroyDescriptorPool", FnDestroyDescriptorPool);
+    let alloc_ds: FnAllocateDescriptorSets =
+        dp!(c"vkAllocateDescriptorSets", FnAllocateDescriptorSets);
+    let update_ds: FnUpdateDescriptorSets = dp!(c"vkUpdateDescriptorSets", FnUpdateDescriptorSets);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let cmd_bind_ds: FnCmdBindDescriptorSets =
+        dp!(c"vkCmdBindDescriptorSets", FnCmdBindDescriptorSets);
+    let cmd_dispatch: FnCmdDispatch = dp!(c"vkCmdDispatch", FnCmdDispatch);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let as_fns = VkAsFns::load(gdpa, device)?;
+    let get_cluster_sizes: FnGetClusterBuildSizesNV = dp!(
+        c"vkGetClusterAccelerationStructureBuildSizesNV",
+        FnGetClusterBuildSizesNV
+    );
+    let cmd_build_cluster: FnCmdBuildClusterIndirectNV = dp!(
+        c"vkCmdBuildClusterAccelerationStructureIndirectNV",
+        FnCmdBuildClusterIndirectNV
+    );
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    let buf_addr = |buffer: VkBuffer| -> u64 {
+        let info = BufferDeviceAddressInfo {
+            s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+            p_next: std::ptr::null(),
+            buffer,
+        };
+        (as_fns.get_buf_addr)(device, &info)
+    };
+    let as_barrier = |cmd: VkCommandBuffer| {
+        let b = MemoryBarrier {
+            s_type: ST_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_ACCEL_STRUCTURE_WRITE_KHR,
+            dst_access_mask: ACCESS_ACCEL_STRUCTURE_READ_KHR | ACCESS_ACCEL_STRUCTURE_WRITE_KHR,
+        };
+        (as_fns.cmd_barrier)(
+            cmd,
+            PIPELINE_STAGE_ACCEL_STRUCTURE_BUILD_KHR,
+            PIPELINE_STAGE_ACCEL_STRUCTURE_BUILD_KHR,
+            0,
+            1,
+            &b as *const MemoryBarrier as *const c_void,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+        );
+    };
+
+    let clusters = assembled.clusters();
+    let ops = assembled.ops();
+    let templates = assembled.templates();
+    let n_clusters = clusters.len();
+    // 每簇一 CLAS;实例化批次按模板分组(本 lane 模板计划至多多少组 = templates.len())。
+    let n_templates = templates.len();
+
+    // ── 尺寸查询(逐 op;驱动裁定,非 stable)──
+    let query_sizes = |count: u32,
+                       op_type: u32,
+                       op_mode: u32,
+                       op_input: *const c_void,
+                       flags: u32|
+     -> AccelBuildSizesInfo {
+        let input = ClusterInputInfoNV {
+            s_type: ST_CLUSTER_INPUT_INFO_NV,
+            p_next: std::ptr::null(),
+            max_acceleration_structure_count: count,
+            flags,
+            op_type,
+            op_mode,
+            op_input,
+        };
+        let mut sizes = AccelBuildSizesInfo {
+            s_type: ST_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+            p_next: std::ptr::null(),
+            acceleration_structure_size: 0,
+            update_scratch_size: 0,
+            build_scratch_size: 0,
+        };
+        get_cluster_sizes(device, &input, &mut sizes);
+        sizes
+    };
+    let tri_input_of = |max_tris: u32, max_verts: u32, total_tris: u32, total_verts: u32| {
+        ClusterTriangleClusterInputNV {
+            s_type: ST_CLUSTER_TRIANGLE_CLUSTER_INPUT_NV,
+            p_next: std::ptr::null(),
+            vertex_format: FORMAT_R32G32B32_SFLOAT,
+            max_geometry_index_value: n_clusters as u32,
+            max_cluster_unique_geometry_count: 1,
+            max_cluster_triangle_count: max_tris,
+            max_cluster_vertex_count: max_verts,
+            max_total_triangle_count: total_tris,
+            max_total_vertex_count: total_verts,
+            min_position_truncate_bit_count: 0,
+        }
+    };
+
+    // ── 逐簇 vertex/index 缓冲(host-visible;CLAS 构建输入,页流送语料原样上传)──
+    let mut lane: Vec<ClasLaneHandle> = Vec::new();
+    let mut dpool: VkDescriptorPool = VK_NULL_HANDLE;
+    let mut dsl: VkDescriptorSetLayout = VK_NULL_HANDLE;
+    let mut player: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut pipeline: VkPipeline = VK_NULL_HANDLE;
+    let mut dset: VkDescriptorSet = VK_NULL_HANDLE;
+    let mut tlas: VkAccelerationStructureKHR = VK_NULL_HANDLE;
+    let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+    let result: Result<ClasMainLegOutput, String> = 'body: {
+        let mut vbuf_addrs: Vec<u64> = Vec::with_capacity(n_clusters);
+        let mut ibuf_addrs: Vec<u64> = Vec::with_capacity(n_clusters);
+        for (slot, cluster) in clusters.iter().enumerate() {
+            let vbytes: Vec<u8> = cluster
+                .positions
+                .iter()
+                .flat_map(|p| p.iter().flat_map(|f| f.to_le_bytes()).collect::<Vec<u8>>())
+                .collect();
+            let vusage = BUFFER_USAGE_SHADER_DEVICE_ADDRESS
+                | BUFFER_USAGE_ACCEL_STRUCTURE_BUILD_INPUT_READ_ONLY
+                | BUFFER_USAGE_STORAGE_BUFFER;
+            let (vb, vm, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                vbytes.len() as u64,
+                vusage,
+                true,
+                true,
+            ) {
+                Ok(t) => t,
+                Err(e) => break 'body Err(format!("簇[{slot}] vertex buffer: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(vb, vm));
+            VkAsManager::upload(&as_fns, device, vm, &vbytes);
+            vbuf_addrs.push(buf_addr(vb));
+            let ibytes: Vec<u8> = cluster
+                .indices
+                .iter()
+                .flat_map(|t| t.iter().flat_map(|i| i.to_le_bytes()).collect::<Vec<u8>>())
+                .collect();
+            let (ib, im, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                ibytes.len() as u64,
+                vusage,
+                true,
+                true,
+            ) {
+                Ok(t) => t,
+                Err(e) => break 'body Err(format!("簇[{slot}] index buffer: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(ib, im));
+            VkAsManager::upload(&as_fns, device, im, &ibytes);
+            ibuf_addrs.push(buf_addr(ib));
+        }
+
+        // ── 模板构建(EXPLICIT_DESTINATIONS:模板地址录制期 host 已知,供实例化
+        //    srcInfos 引用)──
+        let mut template_addrs: Vec<u64> = Vec::with_capacity(n_templates);
+        let mut template_cmds: Vec<ClusterCommandsInfoNV> = Vec::with_capacity(n_templates);
+        // 逐模板 input 上限常驻数组(op_input 指针生命期须覆盖录制)。
+        let tri_inputs_template: Vec<ClusterTriangleClusterInputNV> = templates
+            .iter()
+            .map(|t| {
+                let src = &clusters[t.source_slot as usize];
+                tri_input_of(
+                    src.indices.len() as u32,
+                    src.positions.len() as u32,
+                    src.indices.len() as u32,
+                    src.positions.len() as u32,
+                )
+            })
+            .collect();
+        let susage = BUFFER_USAGE_SHADER_DEVICE_ADDRESS
+            | BUFFER_USAGE_ACCEL_STRUCTURE_BUILD_INPUT_READ_ONLY
+            | BUFFER_USAGE_STORAGE_BUFFER;
+        for (k, t) in templates.iter().enumerate() {
+            let src_slot = t.source_slot as usize;
+            let src = &clusters[src_slot];
+            let sizes = query_sizes(
+                1,
+                CLUSTER_OP_BUILD_TRIANGLE_CLUSTER_TEMPLATE,
+                CLUSTER_OPMODE_EXPLICIT_DESTINATIONS,
+                &tri_inputs_template[k] as *const ClusterTriangleClusterInputNV as *const c_void,
+                0,
+            );
+            // 模板 AS 数据缓冲(EXPLICIT 目标;其 device address 即模板地址)。
+            let (db, dm, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                sizes.acceleration_structure_size,
+                BUFFER_USAGE_ACCEL_STRUCTURE_STORAGE | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+                false,
+                true,
+            ) {
+                Ok(t2) => t2,
+                Err(e) => break 'body Err(format!("模板 dst: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(db, dm));
+            let taddr = buf_addr(db);
+            // 显式目标地址对齐(clusterTemplateByteAlignment;不对齐 = 装配/驱动
+            // 契约违例,fail-closed 不猜测)。
+            let align_req = 32u64; // clusterTemplateByteAlignment 实测下界(registry 语义)
+            if taddr % align_req != 0 {
+                break 'body Err(format!(
+                    "模板 dst 地址 0x{taddr:x} 未按 {align_req} 对齐(fail-closed)"
+                ));
+            }
+            template_addrs.push(taddr);
+            // srcInfo(72B;含源簇顶点/索引缓冲地址)。
+            let info = ClusterBuildTriangleClusterTemplateInfoNV {
+                base: ClusterBuildTriangleClusterInfoNV {
+                    cluster_id: 0,
+                    cluster_flags: 0,
+                    packed_counts: cluster_pack_counts(
+                        src.indices.len() as u32,
+                        src.positions.len() as u32,
+                    ),
+                    base_geometry_index_and_flags: cluster_pack_geometry_index_flags(
+                        0,
+                        CLUSTER_GEOMETRY_FLAGS_OPAQUE_CULL_DISABLE,
+                    ),
+                    index_buffer_stride: 0,
+                    vertex_buffer_stride: 0,
+                    geometry_index_and_flags_buffer_stride: 0,
+                    opacity_micromap_index_buffer_stride: 0,
+                    index_buffer: ibuf_addrs[src_slot],
+                    vertex_buffer: vbuf_addrs[src_slot],
+                    geometry_index_and_flags_buffer: 0,
+                    opacity_micromap_array: 0,
+                    opacity_micromap_index_buffer: 0,
+                },
+                instantiation_bounding_box_limit: 0,
+            };
+            let info_bytes = unsafe_struct_bytes(&info);
+            let (sb, sm, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                info_bytes.len() as u64,
+                susage,
+                true,
+                true,
+            ) {
+                Ok(t2) => t2,
+                Err(e) => break 'body Err(format!("模板 srcInfo: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(sb, sm));
+            VkAsManager::upload(&as_fns, device, sm, &info_bytes);
+            // dstAddresses(EXPLICIT 输入 = 模板地址;host 写入,driver 读)。
+            let abytes = taddr.to_le_bytes();
+            let (ab, am, _, _) =
+                match VkAsManager::mk_buffer(&as_fns, device, &memprops, 8, susage, true, true) {
+                    Ok(t2) => t2,
+                    Err(e) => break 'body Err(format!("模板 dstAddresses: {e}")),
+                };
+            lane.push(ClasLaneHandle::Buffer(ab, am));
+            VkAsManager::upload(&as_fns, device, am, &abytes);
+            // scratch
+            let (cb, cm, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                sizes.build_scratch_size,
+                BUFFER_USAGE_STORAGE_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+                false,
+                true,
+            ) {
+                Ok(t2) => t2,
+                Err(e) => break 'body Err(format!("模板 scratch: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(cb, cm));
+            template_cmds.push(ClusterCommandsInfoNV {
+                s_type: ST_CLUSTER_COMMANDS_INFO_NV,
+                p_next: std::ptr::null(),
+                input: ClusterInputInfoNV {
+                    s_type: ST_CLUSTER_INPUT_INFO_NV,
+                    p_next: std::ptr::null(),
+                    max_acceleration_structure_count: 1,
+                    flags: 0,
+                    op_type: CLUSTER_OP_BUILD_TRIANGLE_CLUSTER_TEMPLATE,
+                    op_mode: CLUSTER_OPMODE_EXPLICIT_DESTINATIONS,
+                    op_input: &tri_inputs_template[k] as *const ClusterTriangleClusterInputNV
+                        as *const c_void,
+                },
+                dst_implicit_data: 0,
+                scratch_data: buf_addr(cb),
+                dst_addresses_array: StridedDeviceAddressRegion {
+                    device_address: buf_addr(ab),
+                    stride: 8,
+                    size: 1,
+                },
+                dst_sizes_array: StridedDeviceAddressRegion {
+                    device_address: 0,
+                    stride: 0,
+                    size: 0,
+                },
+                src_infos_array: StridedDeviceAddressRegion {
+                    device_address: buf_addr(sb),
+                    stride: size_of::<ClusterBuildTriangleClusterTemplateInfoNV>() as u64,
+                    size: 1,
+                },
+                src_infos_count: 0,
+                address_resolution_flags: 0,
+            });
+        }
+
+        // ── CLAS 构建(直建 + 实例化,IMPLICIT_DESTINATIONS;产物地址统一写
+        //    clas_addr_all[可见集序],供 BLAS 引用数组直接消费)──
+        // clas_addr_all:6×u64 host-visible(BLAS build 设备侧读 + host 回读 provenance)。
+        let ausage = BUFFER_USAGE_SHADER_DEVICE_ADDRESS
+            | BUFFER_USAGE_ACCEL_STRUCTURE_BUILD_INPUT_READ_ONLY
+            | BUFFER_USAGE_STORAGE_BUFFER;
+        let (clas_addr_buf, clas_addr_mem, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            (n_clusters * 8) as u64,
+            ausage,
+            true,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("clas_addr_all: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(clas_addr_buf, clas_addr_mem));
+        let clas_addr_base = buf_addr(clas_addr_buf);
+
+        // 直建批次(op=DirectBuild 的簇;保持可见集序)。
+        let direct_slots: Vec<u32> = (0..n_clusters as u32)
+            .filter(|&s| ops[s as usize] == crate::rt_clas::ClusterOp::DirectBuild)
+            .collect();
+        // 实例化批次按模板分组:逐模板一批(members 序 = 可见集序)。
+        // 每批:srcInfos(N×32B)+ dstImplicit + scratch;dstAddressesArray 指进
+        // clas_addr_all 对应槽位区间(模板 members 连续区间由 host 计算)。
+        //
+        // 批次结构:(槽位表, input 上限, srcInfo 字节, dstImplicit 尺寸, scratch 尺寸)
+        struct ClasBatch {
+            slots: Vec<u32>,
+            op_type: u32,
+            tri_input: ClusterTriangleClusterInputNV,
+            srcinfo_bytes: Vec<u8>,
+            sizes: AccelBuildSizesInfo,
+        }
+        let mut batches: Vec<ClasBatch> = Vec::new();
+        if !direct_slots.is_empty() {
+            let mut total_tris = 0u32;
+            let mut total_verts = 0u32;
+            let mut max_tris = 0u32;
+            let mut max_verts = 0u32;
+            let mut bytes = Vec::new();
+            for &s in &direct_slots {
+                let c = &clusters[s as usize];
+                let (nt, nv) = (c.indices.len() as u32, c.positions.len() as u32);
+                total_tris += nt;
+                total_verts += nv;
+                max_tris = max_tris.max(nt);
+                max_verts = max_verts.max(nv);
+                let info = ClusterBuildTriangleClusterInfoNV {
+                    cluster_id: assembled.visible()[s as usize].cluster_id as u32,
+                    cluster_flags: 0,
+                    packed_counts: cluster_pack_counts(nt, nv),
+                    base_geometry_index_and_flags: cluster_pack_geometry_index_flags(
+                        s,
+                        CLUSTER_GEOMETRY_FLAGS_OPAQUE_CULL_DISABLE,
+                    ),
+                    index_buffer_stride: 0,
+                    vertex_buffer_stride: 0,
+                    geometry_index_and_flags_buffer_stride: 0,
+                    opacity_micromap_index_buffer_stride: 0,
+                    index_buffer: ibuf_addrs[s as usize],
+                    vertex_buffer: vbuf_addrs[s as usize],
+                    geometry_index_and_flags_buffer: 0,
+                    opacity_micromap_array: 0,
+                    opacity_micromap_index_buffer: 0,
+                };
+                bytes.extend_from_slice(&unsafe_struct_bytes(&info));
+            }
+            let tri_input = tri_input_of(max_tris, max_verts, total_tris, total_verts);
+            let sizes = query_sizes(
+                direct_slots.len() as u32,
+                CLUSTER_OP_BUILD_TRIANGLE_CLUSTER,
+                CLUSTER_OPMODE_IMPLICIT_DESTINATIONS,
+                &tri_input as *const ClusterTriangleClusterInputNV as *const c_void,
+                0,
+            );
+            batches.push(ClasBatch {
+                slots: direct_slots.clone(),
+                op_type: CLUSTER_OP_BUILD_TRIANGLE_CLUSTER,
+                tri_input,
+                srcinfo_bytes: bytes,
+                sizes,
+            });
+        }
+        for (tk, t) in templates.iter().enumerate() {
+            let mut total_tris = 0u32;
+            let mut total_verts = 0u32;
+            let mut max_tris = 0u32;
+            let mut max_verts = 0u32;
+            let mut bytes = Vec::new();
+            for &s in &t.members {
+                let c = &clusters[s as usize];
+                let (nt, nv) = (c.indices.len() as u32, c.positions.len() as u32);
+                total_tris += nt;
+                total_verts += nv;
+                max_tris = max_tris.max(nt);
+                max_verts = max_verts.max(nv);
+                let info = ClusterInstantiateClusterInfoNV {
+                    cluster_id_offset: assembled.visible()[s as usize].cluster_id as u32,
+                    geometry_index_offset_packed: s & 0x00FF_FFFF,
+                    cluster_template_address: template_addrs[tk],
+                    vertex_buffer_start: vbuf_addrs[s as usize],
+                    vertex_buffer_stride: 12,
+                };
+                bytes.extend_from_slice(&unsafe_struct_bytes(&info));
+            }
+            let tri_input = tri_input_of(max_tris, max_verts, total_tris, total_verts);
+            let sizes = query_sizes(
+                t.members.len() as u32,
+                CLUSTER_OP_INSTANTIATE_TRIANGLE_CLUSTER,
+                CLUSTER_OPMODE_IMPLICIT_DESTINATIONS,
+                &tri_input as *const ClusterTriangleClusterInputNV as *const c_void,
+                0,
+            );
+            batches.push(ClasBatch {
+                slots: t.members.clone(),
+                op_type: CLUSTER_OP_INSTANTIATE_TRIANGLE_CLUSTER,
+                tri_input,
+                srcinfo_bytes: bytes,
+                sizes,
+            });
+        }
+        // 批次设备资源 + 命令参数拼装(srcInfos/dstImplicit/scratch 缓冲)。
+        // clas_addr_all 布局 = **批次序拼接**(逐批基址累加;槽位 → 位置的映射
+        // 经 `slot_order` 登记,供输出 provenance 还原为可见集序)。BLAS 引用数组
+        // 只要求「全部 CLAS 地址尽收」——数组内顺序不进命中语义(命中身份由
+        // CLAS 携带的 geometry index = 槽位承载)。
+        let mut batch_cmds: Vec<ClusterCommandsInfoNV> = Vec::with_capacity(batches.len());
+        let mut slot_order: Vec<u32> = Vec::with_capacity(n_clusters);
+        let mut addr_cursor = 0u64;
+        for b in &batches {
+            let (sbuf, smem, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                b.srcinfo_bytes.len() as u64,
+                ausage,
+                true,
+                true,
+            ) {
+                Ok(t) => t,
+                Err(e) => break 'body Err(format!("批次 srcInfos: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(sbuf, smem));
+            VkAsManager::upload(&as_fns, device, smem, &b.srcinfo_bytes);
+            let (dbuf, dmem, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                b.sizes.acceleration_structure_size,
+                BUFFER_USAGE_ACCEL_STRUCTURE_STORAGE | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+                false,
+                true,
+            ) {
+                Ok(t) => t,
+                Err(e) => break 'body Err(format!("批次 dstImplicit: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(dbuf, dmem));
+            let (cbuf, cmem, _, _) = match VkAsManager::mk_buffer(
+                &as_fns,
+                device,
+                &memprops,
+                b.sizes.build_scratch_size,
+                BUFFER_USAGE_STORAGE_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+                false,
+                true,
+            ) {
+                Ok(t) => t,
+                Err(e) => break 'body Err(format!("批次 scratch: {e}")),
+            };
+            lane.push(ClasLaneHandle::Buffer(cbuf, cmem));
+            let stride = match b.op_type {
+                CLUSTER_OP_BUILD_TRIANGLE_CLUSTER => {
+                    size_of::<ClusterBuildTriangleClusterInfoNV>() as u64
+                }
+                _ => size_of::<ClusterInstantiateClusterInfoNV>() as u64,
+            };
+            slot_order.extend_from_slice(&b.slots);
+            batch_cmds.push(ClusterCommandsInfoNV {
+                s_type: ST_CLUSTER_COMMANDS_INFO_NV,
+                p_next: std::ptr::null(),
+                input: ClusterInputInfoNV {
+                    s_type: ST_CLUSTER_INPUT_INFO_NV,
+                    p_next: std::ptr::null(),
+                    max_acceleration_structure_count: b.slots.len() as u32,
+                    flags: 0,
+                    op_type: b.op_type,
+                    op_mode: CLUSTER_OPMODE_IMPLICIT_DESTINATIONS,
+                    op_input: &b.tri_input as *const ClusterTriangleClusterInputNV as *const c_void,
+                },
+                dst_implicit_data: buf_addr(dbuf),
+                scratch_data: buf_addr(cbuf),
+                dst_addresses_array: StridedDeviceAddressRegion {
+                    device_address: clas_addr_base + addr_cursor * 8,
+                    stride: 8,
+                    // `size` = 元素数(NVIDIA VKLOD 样例同口径,driver 实测消费)。
+                    size: b.slots.len() as u64,
+                },
+                dst_sizes_array: StridedDeviceAddressRegion {
+                    device_address: 0,
+                    stride: 0,
+                    size: 0,
+                },
+                src_infos_array: StridedDeviceAddressRegion {
+                    device_address: buf_addr(sbuf),
+                    stride,
+                    size: b.slots.len() as u64,
+                },
+                src_infos_count: 0,
+                address_resolution_flags: 0,
+            });
+            addr_cursor += b.slots.len() as u64;
+        }
+
+        // ── TLAS 实例缓冲(1 实例;reference 字段由 BLAS build 的
+        //    dstAddressesArray 直写——录制期未知,设备侧填充)──
+        let iusage = BUFFER_USAGE_SHADER_DEVICE_ADDRESS
+            | BUFFER_USAGE_ACCEL_STRUCTURE_BUILD_INPUT_READ_ONLY
+            | BUFFER_USAGE_STORAGE_BUFFER;
+        let instance_raw = AccelInstance {
+            transform: RAY_QUERY_IDENTITY_TRANSFORM,
+            instance_custom_index_and_mask: 0xFF00_0000, // customIndex 0 | mask 0xFF
+            instance_sbt_offset_and_flags: GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE << 24,
+            acceleration_structure_reference: 0, // BLAS build 直写
+        };
+        let ibytes = unsafe_struct_bytes(&instance_raw);
+        let (ibuf2, imem2, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            ibytes.len() as u64,
+            iusage,
+            true,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("instance buffer: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(ibuf2, imem2));
+        VkAsManager::upload(&as_fns, device, imem2, &ibytes);
+        let ibuf2_addr = buf_addr(ibuf2);
+
+        // ── cluster BLAS 构建(srcInfo = CLAS 引用数组;dstAddresses 直写实例
+        //    reference 字段,stride = 实例尺寸)──
+        let blas_bl_input = ClusterClustersBottomLevelInputNV {
+            s_type: ST_CLUSTER_CLUSTERS_BOTTOM_LEVEL_INPUT_NV,
+            p_next: std::ptr::null(),
+            max_total_cluster_count: n_clusters as u32,
+            max_cluster_count_per_acceleration_structure: n_clusters as u32,
+        };
+        let blas_sizes = query_sizes(
+            1,
+            CLUSTER_OP_BUILD_CLUSTERS_BOTTOM_LEVEL,
+            CLUSTER_OPMODE_IMPLICIT_DESTINATIONS,
+            &blas_bl_input as *const ClusterClustersBottomLevelInputNV as *const c_void,
+            0,
+        );
+        let blas_src = ClusterBuildClustersBottomLevelInfoNV {
+            cluster_references_count: n_clusters as u32,
+            cluster_references_stride: 8,
+            cluster_references: clas_addr_base,
+        };
+        let blas_src_bytes = unsafe_struct_bytes(&blas_src);
+        let (bsb, bsm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            blas_src_bytes.len() as u64,
+            ausage,
+            true,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("BLAS srcInfo: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(bsb, bsm));
+        VkAsManager::upload(&as_fns, device, bsm, &blas_src_bytes);
+        let (bdb, bdm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            blas_sizes.acceleration_structure_size,
+            BUFFER_USAGE_ACCEL_STRUCTURE_STORAGE | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+            false,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("BLAS dstImplicit: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(bdb, bdm));
+        let (bcb, bcm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            blas_sizes.build_scratch_size,
+            BUFFER_USAGE_STORAGE_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+            false,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("BLAS scratch: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(bcb, bcm));
+        let blas_cmd = ClusterCommandsInfoNV {
+            s_type: ST_CLUSTER_COMMANDS_INFO_NV,
+            p_next: std::ptr::null(),
+            input: ClusterInputInfoNV {
+                s_type: ST_CLUSTER_INPUT_INFO_NV,
+                p_next: std::ptr::null(),
+                max_acceleration_structure_count: 1,
+                flags: 0,
+                op_type: CLUSTER_OP_BUILD_CLUSTERS_BOTTOM_LEVEL,
+                op_mode: CLUSTER_OPMODE_IMPLICIT_DESTINATIONS,
+                op_input: &blas_bl_input as *const ClusterClustersBottomLevelInputNV
+                    as *const c_void,
+            },
+            dst_implicit_data: buf_addr(bdb),
+            scratch_data: buf_addr(bcb),
+            dst_addresses_array: StridedDeviceAddressRegion {
+                // 直写实例 reference 字段(VkAccelerationStructureInstanceKHR
+                // 布局:transform 48B + 两 u32 = 56B 偏移);`size` = 元素数(1 个 BLAS)。
+                device_address: ibuf2_addr + 56,
+                stride: size_of::<AccelInstance>() as u64,
+                size: 1,
+            },
+            dst_sizes_array: StridedDeviceAddressRegion {
+                device_address: 0,
+                stride: 0,
+                size: 0,
+            },
+            src_infos_array: StridedDeviceAddressRegion {
+                device_address: buf_addr(bsb),
+                stride: size_of::<ClusterBuildClustersBottomLevelInfoNV>() as u64,
+                size: 1,
+            },
+            src_infos_count: 0,
+            address_resolution_flags: 0,
+        };
+
+        // ── TLAS(标准 KHR;实例缓冲引用 = cluster BLAS 地址)──
+        let mut tlas_geom = Box::new(AccelGeometry {
+            s_type: ST_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+            p_next: std::ptr::null(),
+            geometry_type: GEOMETRY_TYPE_INSTANCES,
+            geometry: AccelGeometryData {
+                instances: std::mem::zeroed(),
+            },
+            flags: GEOMETRY_OPAQUE_BIT,
+        });
+        tlas_geom.geometry.instances = AccelGeometryInstancesData {
+            s_type: ST_ACCEL_GEOMETRY_INSTANCES_DATA_KHR,
+            p_next: std::ptr::null(),
+            array_of_pointers: 0,
+            data: ibuf2_addr,
+        };
+        let mut tlas_bgi = AccelBuildGeometryInfo {
+            s_type: ST_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
+            p_next: std::ptr::null(),
+            ty: ACCEL_STRUCTURE_TYPE_TOP_LEVEL,
+            flags: 0,
+            mode: BUILD_ACCEL_STRUCTURE_MODE_BUILD,
+            src_acceleration_structure: VK_NULL_HANDLE,
+            dst_acceleration_structure: VK_NULL_HANDLE,
+            geometry_count: 1,
+            p_geometries: &*tlas_geom,
+            pp_geometries: std::ptr::null(),
+            scratch_data: 0,
+        };
+        let mut tlas_sizes = AccelBuildSizesInfo {
+            s_type: ST_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
+            p_next: std::ptr::null(),
+            acceleration_structure_size: 0,
+            update_scratch_size: 0,
+            build_scratch_size: 0,
+        };
+        let inst_count = 1u32;
+        (as_fns.get_as_sizes)(
+            device,
+            ACCEL_STRUCTURE_BUILD_TYPE_DEVICE,
+            &tlas_bgi,
+            &inst_count,
+            &mut tlas_sizes,
+        );
+        let (tb, tm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            tlas_sizes.acceleration_structure_size,
+            BUFFER_USAGE_ACCEL_STRUCTURE_STORAGE | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+            false,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("TLAS storage: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(tb, tm));
+        let tlas_ci = AccelCreateInfo {
+            s_type: ST_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
+            p_next: std::ptr::null(),
+            create_flags: 0,
+            buffer: tb,
+            offset: 0,
+            size: tlas_sizes.acceleration_structure_size,
+            ty: ACCEL_STRUCTURE_TYPE_TOP_LEVEL,
+            device_address: 0,
+        };
+        if (as_fns.create_as)(device, &tlas_ci, std::ptr::null(), &mut tlas) != VK_SUCCESS {
+            break 'body Err("vkCreateAccelerationStructureKHR(CLAS TLAS) 失败".into());
+        }
+        lane.push(ClasLaneHandle::Accel(tlas));
+        let (tsb, tsm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            tlas_sizes.build_scratch_size,
+            BUFFER_USAGE_STORAGE_BUFFER | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+            false,
+            true,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("TLAS scratch: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(tsb, tsm));
+        tlas_bgi.dst_acceleration_structure = tlas;
+        tlas_bgi.scratch_data = buf_addr(tsb);
+        let tlas_range = AccelBuildRangeInfo {
+            primitive_count: 1,
+            primitive_offset: 0,
+            first_vertex: 0,
+            transform_offset: 0,
+        };
+
+        // ── 光线输入/输出 SSBO ──
+        let (rb, rm, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            rays.len() as u64,
+            BUFFER_USAGE_STORAGE_BUFFER,
+            true,
+            false,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("rays SSBO: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(rb, rm));
+        VkAsManager::upload(&as_fns, device, rm, rays);
+        let (ob, om, _, _) = match VkAsManager::mk_buffer(
+            &as_fns,
+            device,
+            &memprops,
+            out_len as u64,
+            BUFFER_USAGE_STORAGE_BUFFER,
+            true,
+            false,
+        ) {
+            Ok(t) => t,
+            Err(e) => break 'body Err(format!("out SSBO: {e}")),
+        };
+        lane.push(ClasLaneHandle::Buffer(ob, om));
+        VkAsManager::upload(&as_fns, device, om, &vec![0u8; out_len]);
+
+        // ── descriptor(set0:binding0 = TLAS,binding1 rays,binding2 out)──
+        let pool_sizes = [
+            DescriptorPoolSize {
+                descriptor_type: DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                descriptor_count: 1,
+            },
+            DescriptorPoolSize {
+                descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                descriptor_count: 2,
+            },
+        ];
+        let dpci = DescriptorPoolCreateInfo {
+            s_type: ST_DESCRIPTOR_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            max_sets: 1,
+            pool_size_count: 2,
+            p_pool_sizes: pool_sizes.as_ptr(),
+        };
+        if create_dpool(device, &dpci, std::ptr::null(), &mut dpool) != VK_SUCCESS {
+            break 'body Err("vkCreateDescriptorPool(clas) 失败".into());
+        }
+        let bindings = [
+            DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_type: DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                descriptor_count: 1,
+                stage_flags: SHADER_STAGE_COMPUTE,
+                p_immutable_samplers: std::ptr::null(),
+            },
+            DescriptorSetLayoutBinding {
+                binding: 1,
+                descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                descriptor_count: 1,
+                stage_flags: SHADER_STAGE_COMPUTE,
+                p_immutable_samplers: std::ptr::null(),
+            },
+            DescriptorSetLayoutBinding {
+                binding: 2,
+                descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                descriptor_count: 1,
+                stage_flags: SHADER_STAGE_COMPUTE,
+                p_immutable_samplers: std::ptr::null(),
+            },
+        ];
+        let dslci = DescriptorSetLayoutCreateInfo {
+            s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            binding_count: 3,
+            p_bindings: bindings.as_ptr(),
+        };
+        if create_dsl(device, &dslci, std::ptr::null(), &mut dsl) != VK_SUCCESS {
+            break 'body Err("vkCreateDescriptorSetLayout(clas) 失败".into());
+        }
+        let plci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: 1,
+            p_set_layouts: &dsl,
+            push_constant_range_count: 0,
+            p_push_constant_ranges: std::ptr::null(),
+        };
+        if create_pl(device, &plci, std::ptr::null(), &mut player) != VK_SUCCESS {
+            break 'body Err("vkCreatePipelineLayout(clas) 失败".into());
+        }
+        let smci = ShaderModuleCreateInfo {
+            s_type: ST_SHADER_MODULE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            code_size: spv.len() * 4,
+            p_code: spv.as_ptr(),
+        };
+        let mut smod: VkShaderModule = VK_NULL_HANDLE;
+        if create_shader(device, &smci, std::ptr::null(), &mut smod) != VK_SUCCESS {
+            break 'body Err("vkCreateShaderModule(clas) 失败".into());
+        }
+        let entry_c = match std::ffi::CString::new(entry) {
+            Ok(c) => c,
+            Err(_) => {
+                destroy_shader(device, smod, std::ptr::null());
+                break 'body Err("CLAS 主腿 entry 名含 NUL".into());
+            }
+        };
+        let stage = PipelineShaderStageCreateInfo {
+            s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage: SHADER_STAGE_COMPUTE,
+            module: smod,
+            p_name: entry_c.as_ptr(),
+            p_specialization_info: std::ptr::null(),
+        };
+        let cpci = ComputePipelineCreateInfo {
+            s_type: ST_COMPUTE_PIPELINE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage,
+            layout: player,
+            base_pipeline_handle: VK_NULL_HANDLE,
+            base_pipeline_index: -1,
+        };
+        let pr = create_compute_pipe(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &cpci,
+            std::ptr::null(),
+            &mut pipeline,
+        );
+        destroy_shader(device, smod, std::ptr::null());
+        if pr != VK_SUCCESS {
+            break 'body Err(format!("vkCreateComputePipelines(clas) 失败: {pr}"));
+        }
+        let dsai = DescriptorSetAllocateInfo {
+            s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            descriptor_pool: dpool,
+            descriptor_set_count: 1,
+            p_set_layouts: &dsl,
+        };
+        if alloc_ds(device, &dsai, &mut dset) != VK_SUCCESS {
+            break 'body Err("vkAllocateDescriptorSets(clas) 失败".into());
+        }
+        let as_write = WriteDescriptorSetAccelStructure {
+            s_type: ST_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+            p_next: std::ptr::null(),
+            acceleration_structure_count: 1,
+            p_acceleration_structures: &tlas,
+        };
+        let binfos = [
+            DescriptorBufferInfo {
+                buffer: rb,
+                offset: 0,
+                range: !0u64,
+            },
+            DescriptorBufferInfo {
+                buffer: ob,
+                offset: 0,
+                range: !0u64,
+            },
+        ];
+        let writes = [
+            WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: &as_write as *const WriteDescriptorSetAccelStructure as *const c_void,
+                dst_set: dset,
+                dst_binding: 0,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                p_image_info: std::ptr::null(),
+                p_buffer_info: std::ptr::null(),
+                p_texel_buffer_view: std::ptr::null(),
+            },
+            WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: std::ptr::null(),
+                dst_set: dset,
+                dst_binding: 1,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                p_image_info: std::ptr::null(),
+                p_buffer_info: &binfos[0],
+                p_texel_buffer_view: std::ptr::null(),
+            },
+            WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: std::ptr::null(),
+                dst_set: dset,
+                dst_binding: 2,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                p_image_info: std::ptr::null(),
+                p_buffer_info: &binfos[1],
+                p_texel_buffer_view: std::ptr::null(),
+            },
+        ];
+        update_ds(device, 3, writes.as_ptr(), 0, std::ptr::null());
+
+        // ── 录制(单 cmd 单提交):模板 → 实例化/直建 → cluster BLAS → TLAS →
+        //    消费屏障 → dispatch → host 读屏障 ──
+        let cpci2 = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        if create_cmdpool(device, &cpci2, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            break 'body Err("vkCreateCommandPool(clas) 失败".into());
+        }
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: COMMAND_BUFFER_LEVEL_PRIMARY_MESH_RT,
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        alloc_cmd(device, &cbai, &mut cmd);
+        let cbbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            p_inheritance_info: std::ptr::null(),
+        };
+        begin_cmd(cmd, &cbbi);
+        for tc in &template_cmds {
+            cmd_build_cluster(cmd, tc);
+            as_barrier(cmd);
+        }
+        for bc in &batch_cmds {
+            cmd_build_cluster(cmd, bc);
+            as_barrier(cmd);
+        }
+        cmd_build_cluster(cmd, &blas_cmd);
+        as_barrier(cmd);
+        let tlas_range_ptr: *const AccelBuildRangeInfo = &tlas_range;
+        (as_fns.cmd_build_as)(cmd, 1, &tlas_bgi, &tlas_range_ptr);
+        // 消费屏障(AS_WRITE→AS_READ,AS_BUILD→COMPUTE_SHADER)。
+        let consume = MemoryBarrier {
+            s_type: ST_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_ACCEL_STRUCTURE_WRITE_KHR,
+            dst_access_mask: ACCESS_ACCEL_STRUCTURE_READ_KHR,
+        };
+        (as_fns.cmd_barrier)(
+            cmd,
+            PIPELINE_STAGE_ACCEL_STRUCTURE_BUILD_KHR,
+            PIPELINE_STAGE_COMPUTE_SHADER,
+            0,
+            1,
+            &consume as *const MemoryBarrier as *const c_void,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+        );
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_COMPUTE, pipeline);
+        cmd_bind_ds(
+            cmd,
+            PIPELINE_BIND_POINT_COMPUTE,
+            player,
+            0,
+            1,
+            &dset,
+            0,
+            std::ptr::null(),
+        );
+        cmd_dispatch(cmd, groups[0], groups[1], groups[2]);
+        let host_barrier = MemoryBarrier {
+            s_type: ST_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_SHADER_WRITE,
+            dst_access_mask: ACCESS_HOST_READ,
+        };
+        (as_fns.cmd_barrier)(
+            cmd,
+            PIPELINE_STAGE_COMPUTE_SHADER,
+            PIPELINE_STAGE_HOST,
+            0,
+            1,
+            &host_barrier as *const MemoryBarrier as *const c_void,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+        );
+        end_cmd(cmd);
+        let submit = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        let sr = queue_submit(queue, 1, &submit, VK_NULL_HANDLE);
+        if sr != VK_SUCCESS {
+            break 'body Err(queue_submit_err("vkQueueSubmit(clas)", sr));
+        }
+        let wr = queue_wait(queue);
+        if wr != VK_SUCCESS {
+            break 'body Err(queue_submit_err("vkQueueWaitIdle(clas)", wr));
+        }
+
+        // ── 回读:命中输出 + CLAS 地址(provenance)+ 实例 reference(= BLAS 地址)──
+        let readback = {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, om, 0, out_len as u64, 0, &mut ptr);
+            let mut bytes = vec![0u8; out_len];
+            if !ptr.is_null() {
+                // SAFETY: om host-visible+coherent,映射 out_len 字节有效;wait idle
+                // + host 读屏障后可见,逐字节拷出后 unmap。
+                std::ptr::copy_nonoverlapping(ptr as *const u8, bytes.as_mut_ptr(), out_len);
+                unmap_mem(device, om);
+            }
+            bytes
+        };
+        let clas_addresses = {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(
+                device,
+                clas_addr_mem,
+                0,
+                (n_clusters * 8) as u64,
+                0,
+                &mut ptr,
+            );
+            let mut raw = vec![0u64; n_clusters];
+            if !ptr.is_null() {
+                // SAFETY: clas_addr_mem host-visible+coherent,映射 n_clusters*8 字节
+                // 有效;驱动构建完成后(单提交 + wait idle)逐 u64 拷出后 unmap。
+                std::ptr::copy_nonoverlapping(
+                    ptr as *const u8,
+                    raw.as_mut_ptr() as *mut u8,
+                    n_clusters * 8,
+                );
+                unmap_mem(device, clas_addr_mem);
+            }
+            // 批次序 → 可见集序(slot_order[pos] = 该位置对应的簇槽位)。
+            let mut by_slot = vec![0u64; n_clusters];
+            for (pos, a) in raw.iter().enumerate() {
+                by_slot[slot_order[pos] as usize] = *a;
+            }
+            by_slot
+        };
+        let blas_address = {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            map_mem(device, imem2, 56, 8, 0, &mut ptr);
+            let mut b = [0u8; 8];
+            if !ptr.is_null() {
+                // SAFETY: imem2 host-visible+coherent,映射偏移 56 起 8 字节 =
+                // 实例 reference 字段(BLAS build 经 dstAddressesArray 直写)。
+                std::ptr::copy_nonoverlapping(ptr as *const u8, b.as_mut_ptr(), 8);
+                unmap_mem(device, imem2);
+            }
+            u64::from_le_bytes(b)
+        };
+        break 'body Ok(ClasMainLegOutput {
+            readback,
+            clas_addresses,
+            template_addresses: template_addrs,
+            blas_address,
+        });
+    };
+
+    // ── 逆序统一销毁(cmdpool → pipeline → player → dsl → dpool → 登记表逆序;
+    //    descriptor set 随 pool 释放;AS 句柄先于其 storage buffer)──
+    if cmdpool != VK_NULL_HANDLE {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+    }
+    if pipeline != VK_NULL_HANDLE {
+        destroy_pipe(device, pipeline, std::ptr::null());
+    }
+    if player != VK_NULL_HANDLE {
+        destroy_pl(device, player, std::ptr::null());
+    }
+    if dsl != VK_NULL_HANDLE {
+        destroy_dsl(device, dsl, std::ptr::null());
+    }
+    if dpool != VK_NULL_HANDLE {
+        destroy_dpool(device, dpool, std::ptr::null());
+    }
+    for h in lane.iter().rev() {
+        match h {
+            ClasLaneHandle::Accel(a) => {
+                if *a != VK_NULL_HANDLE {
+                    (as_fns.destroy_as)(device, *a, std::ptr::null());
+                }
+            }
+            ClasLaneHandle::Buffer(b, m) => {
+                if *b != VK_NULL_HANDLE {
+                    destroy_buffer(device, *b, std::ptr::null());
+                }
+                if *m != VK_NULL_HANDLE {
+                    free_mem(device, *m, std::ptr::null());
+                }
+            }
+        }
+    }
+    result
+}
+
+/// `#[repr(C)]` POD 逐字节视图(上传用;调用方保证结构无填充未初始化敏感面——
+/// 本 lane 全部结构逐字段显式初始化,含 padding 由 `#[repr(C)]` 布局锚单测钉死)。
+unsafe fn unsafe_struct_bytes<T>(v: &T) -> Vec<u8> {
+    let p = v as *const T as *const u8;
+    // SAFETY: T 为 #[repr(C)] POD;读取 size_of::<T>() 字节构造上传缓冲,不越界。
+    unsafe { std::slice::from_raw_parts(p, size_of::<T>()) }.to_vec()
+}
+
+#[cfg(test)]
+mod m94_clas_main_tests {
+    use super::*;
+
+    /// 主腿 FFI 结构布局锚(size/align;扩展号 570 段,经 vk.xml 逐字段核对;
+    /// bitfield 打包为 normative 布局)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_clas_main_ffi_layout_anchors() {
+        // sType@0+pad@4 + pNext@8 + 2×u32@16 → 24B。
+        assert_eq!(size_of::<ClusterClustersBottomLevelInputNV>(), 24);
+        assert_eq!(align_of::<ClusterClustersBottomLevelInputNV>(), 8);
+        // sType/pNext + VkFormat + 7×u32 = 16 + 32 → 48B。
+        assert_eq!(size_of::<ClusterTriangleClusterInputNV>(), 48);
+        assert_eq!(align_of::<ClusterTriangleClusterInputNV>(), 8);
+        assert_eq!(size_of::<ClusterInputInfoNV>(), 40);
+        assert_eq!(align_of::<ClusterInputInfoNV>(), 8);
+        assert_eq!(size_of::<ClusterCommandsInfoNV>(), 160);
+        assert_eq!(align_of::<ClusterCommandsInfoNV>(), 8);
+        assert_eq!(size_of::<ClusterBuildTriangleClusterInfoNV>(), 64);
+        assert_eq!(align_of::<ClusterBuildTriangleClusterInfoNV>(), 8);
+        assert_eq!(size_of::<ClusterBuildTriangleClusterTemplateInfoNV>(), 72);
+        assert_eq!(align_of::<ClusterBuildTriangleClusterTemplateInfoNV>(), 8);
+        assert_eq!(size_of::<ClusterInstantiateClusterInfoNV>(), 32);
+        assert_eq!(align_of::<ClusterInstantiateClusterInfoNV>(), 8);
+        assert_eq!(size_of::<ClusterBuildClustersBottomLevelInfoNV>(), 16);
+        assert_eq!(align_of::<ClusterBuildClustersBottomLevelInfoNV>(), 8);
+        // sType 值(扩展号 570 offset 2/3/5/6)。
+        assert_eq!(ST_CLUSTER_CLUSTERS_BOTTOM_LEVEL_INPUT_NV, 1_000_569_002);
+        assert_eq!(ST_CLUSTER_TRIANGLE_CLUSTER_INPUT_NV, 1_000_569_003);
+        assert_eq!(ST_CLUSTER_INPUT_INFO_NV, 1_000_569_005);
+        assert_eq!(ST_CLUSTER_COMMANDS_INFO_NV, 1_000_569_006);
+        // op 值。
+        assert_eq!(CLUSTER_OP_BUILD_CLUSTERS_BOTTOM_LEVEL, 1);
+        assert_eq!(CLUSTER_OP_BUILD_TRIANGLE_CLUSTER, 2);
+        assert_eq!(CLUSTER_OP_BUILD_TRIANGLE_CLUSTER_TEMPLATE, 3);
+        assert_eq!(CLUSTER_OP_INSTANTIATE_TRIANGLE_CLUSTER, 4);
+        assert_eq!(CLUSTER_OPMODE_IMPLICIT_DESTINATIONS, 0);
+        assert_eq!(CLUSTER_OPMODE_EXPLICIT_DESTINATIONS, 1);
+        assert_eq!(CLUSTER_INDEX_FORMAT_32BIT, 0x4);
+    }
+
+    /// bitfield 打包(normative 布局;单测锚)。
+    //@ spec: RXS-0351
+    #[test]
+    fn m94_cluster_bitfield_packing() {
+        // 2 三角形/4 顶点/0 截断/32-bit 索引/OMM 索引类型位(恒 32BIT 占位,
+        // OMM array 恒 0 不启用 micromap 面)。
+        assert_eq!(cluster_pack_counts(2, 4), 0x0400_0802);
+        assert_eq!(cluster_pack_counts(1, 3), 0x0400_0601);
+        // geometryIndex 24 位截断 + flags 高 3 位。
+        assert_eq!(cluster_pack_geometry_index_flags(5, 0x5), 0xA000_0005);
+        assert_eq!(
+            cluster_pack_geometry_index_flags(0x01FF_FFFF, 0),
+            0x00FF_FFFF
+        );
+    }
+}

@@ -308,7 +308,8 @@ pub fn compact_draw_args(
 
 /// 簇包围球经实例变换到世界:球心仿射变换精确;半径按 3×3 列范数最大者缩放
 /// (刚体 + 均匀缩放精确,非均匀缩放保守放大——安全方向)。
-fn world_sphere(m: &[[f32; 4]; 3], c: &ClusterRecord) -> ([f32; 3], f32, f32) {
+/// `pub(crate)`:G9.3 `visible_cluster_set` 复用同一世界化口径(单源,禁重算)。
+pub(crate) fn world_sphere(m: &[[f32; 4]; 3], c: &ClusterRecord) -> ([f32; 3], f32, f32) {
     let scale = linear_scale(m);
     (transform_point(m, c.center), c.radius * scale, scale)
 }
@@ -323,7 +324,8 @@ fn linear_scale(m: &[[f32; 4]; 3]) -> f32 {
 
 /// 方向向量经 3×3 线性部变换并归一化(锥轴;刚体/均匀缩放精确)。
 /// 退化(零缩放/零轴)返回 None——调用方按「不做锥剔」保守保留。
-fn transform_dir_normalized(m: &[[f32; 4]; 3], v: [f32; 3]) -> Option<[f32; 3]> {
+/// `pub(crate)`:G9.3 `visible_cluster_set` 可见性标记复用同一锥轴变换口径。
+pub(crate) fn transform_dir_normalized(m: &[[f32; 4]; 3], v: [f32; 3]) -> Option<[f32; 3]> {
     let mut out = [0.0f32; 3];
     for (i, o) in out.iter_mut().enumerate() {
         *o = m[i][0] * v[0] + m[i][1] * v[1] + m[i][2] * v[2];
