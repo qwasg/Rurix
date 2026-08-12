@@ -413,6 +413,41 @@ impl BlasSet for BlasCache {
 }
 
 // ---------------------------------------------------------------------------
+// M95 RT 消费面(RXS-0352 L1/L3/L4):BLAS 拼装输入由 selection 输出直接派生
+// ---------------------------------------------------------------------------
+
+use crate::geometry::cull::VisibleCluster;
+use crate::geometry::visible_cluster_set::{
+    Consumer, ProvenanceError, RtFeed, VisibleClusterSet,
+};
+
+/// RT 腿消费锚(G9.3 M95):当帧 BLAS 拼装的输入数组 = [`RtFeed`]
+/// ([`VisibleClusterSet::feed_rt`] 产物)**直接派生**——本函数是 RT 消费方
+/// 进入 AS 管理层前的**结构性断言**:`feed.source` 必须与权威
+/// `VisibleClusterSet` 的 provenance digest **精确一致**,随后透传 feed 的
+/// (instance, cluster) 输入切片(零拷贝 = 直接派生字面,层内不再重算可见性)。
+///
+/// 旁路双世界否决(L4,硬门 R-G9-8):光栅/RT 各自独立再算可见性的 variant
+/// ⇒ 实例 serial 必异 ⇒ digest 必异 ⇒ fail-closed `Err`(即使内容全等、
+/// 出图相似也判 RED——单源真相是**结构**判据)。
+///
+/// # Errors
+/// digest 失配产 `ProvenanceError::Mismatch { consumer: Consumer::Rt, .. }`。
+pub fn rt_blas_input_from_feed<'a>(
+    set: &VisibleClusterSet,
+    feed: &'a RtFeed,
+) -> Result<&'a [VisibleCluster], ProvenanceError> {
+    if feed.source != set.provenance_digest {
+        return Err(ProvenanceError::Mismatch {
+            consumer: Consumer::Rt,
+            expected: set.provenance_digest,
+            got: feed.source,
+        });
+    }
+    Ok(&feed.blas_input)
+}
+
+// ---------------------------------------------------------------------------
 // TlasBuilder:实例列表管理 + 每帧快速重建(增量标脏)
 // ---------------------------------------------------------------------------
 
@@ -910,5 +945,109 @@ mod tests {
         assert_eq!(cache.len(), 1);
         // 复用后 TLAS 恢复命中(同一句柄再次有效)。
         assert!(tlas.intersect(&cache, &ray).is_some());
+    }
+
+    // -----------------------------------------------------------------------
+    // G9.3 M95(RXS-0352):RT 腿 as_manager 消费锚(结构断言 + RED)
+    // -----------------------------------------------------------------------
+
+    use crate::geometry::visible_cluster_set::{
+        VisibleClusterEntry, compute_provenance_digest,
+    };
+
+    /// 手构两元素可见集(与 visbuffer 单测同型;cluster 0 静态 + cluster 1 蒙皮)。
+    fn two_entry_set(serial: u64) -> crate::geometry::visible_cluster_set::VisibleClusterSet {
+        let mut set = crate::geometry::visible_cluster_set::VisibleClusterSet {
+            frame_serial: serial,
+            entries: vec![
+                VisibleClusterEntry {
+                    cluster: 0,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 0,
+                    page_id: 0,
+                    visible: true,
+                },
+                VisibleClusterEntry {
+                    cluster: 1,
+                    instance: 0,
+                    lod_level: 0,
+                    skin_version: 1,
+                    page_id: 0,
+                    visible: true,
+                },
+            ],
+            residency: vec![],
+            fallback: vec![],
+            provenance_digest: [0; 32],
+        };
+        set.provenance_digest = compute_provenance_digest(&set);
+        set
+    }
+
+    //@ spec: RXS-0352
+    #[test]
+    fn rt_feed_consumed_by_as_manager_anchor() {
+        let set = two_entry_set(7);
+        let feed = set.feed_rt();
+        // 正例:provenance 一致 ⇒ 消费放行,输入切片 = feed 载荷直接派生
+        // (零拷贝同址 = 直接派生字面;内容 = 可见元素 (instance, cluster) 对)。
+        let input = rt_blas_input_from_feed(&set, &feed).expect("权威 feed 必须放行");
+        assert_eq!(
+            input,
+            &[
+                VisibleCluster {
+                    instance: 0,
+                    cluster: 0
+                },
+                VisibleCluster {
+                    instance: 0,
+                    cluster: 1
+                },
+            ]
+        );
+        assert!(
+            std::ptr::eq(input.as_ptr(), feed.blas_input.as_ptr()),
+            "直接派生 = 零拷贝透传 feed 载荷(禁独立再算可见性)"
+        );
+        // 双跑逐位一致(确定性)。
+        let set2 = two_entry_set(7);
+        let feed2 = set2.feed_rt();
+        assert_eq!(
+            rt_blas_input_from_feed(&set2, &feed2).expect("run B"),
+            input
+        );
+    }
+
+    //@ spec: RXS-0352
+    #[test]
+    fn rt_feed_bypass_recompute_red_at_consumption() {
+        // RED 臂(消费锚面):RT 腿旁路独立再算可见性 ⇒ serial 异 ⇒ digest 必异,
+        // 即使内容逐元素全等也 fail-closed(双世界结构否决,L4/R-G9-8)。
+        let authoritative = two_entry_set(7);
+        let bypass = two_entry_set(8);
+        assert_eq!(authoritative.entries, bypass.entries, "内容全等");
+        assert_ne!(
+            authoritative.provenance_digest, bypass.provenance_digest,
+            "serial 混入 ⇒ 旁路 digest 必异"
+        );
+        let bypass_feed = bypass.feed_rt();
+        let err = rt_blas_input_from_feed(&authoritative, &bypass_feed)
+            .expect_err("旁路 feed 必须在消费锚判 RED");
+        match err {
+            ProvenanceError::Mismatch {
+                consumer,
+                expected,
+                got,
+            } => {
+                assert_eq!(consumer, Consumer::Rt);
+                assert_eq!(expected, authoritative.provenance_digest);
+                assert_eq!(got, bypass.provenance_digest);
+            }
+        }
+        // 篡改 source 字节的 feed(伪装同源)同样判 RED。
+        let mut forged = authoritative.feed_rt();
+        forged.source[0] ^= 0xFF;
+        assert!(rt_blas_input_from_feed(&authoritative, &forged).is_err());
     }
 }

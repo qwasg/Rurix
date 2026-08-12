@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g9m95.visbuffer_swhw.v1",
+  "subject": "g9_m95_visbuffer_swhw",
+  "device_state": {"device_name": "NVIDIA GeForce RTX 4070 Ti", "validation": "on", "validation_error_total": 0, "require_real": true},
+  "checks": {"sw_hw_diff_zero": true, "sw_hw_coverage_nonzero": true, "oracle_coverage_equal_sw": true, "oracle_coverage_equal_hw": true, "skin_device_bitexact": true, "provenance_three_feeds": true, "rt_feed_consumed_as_manager": true, "rt_bypass_red": true, "red_pixel_tamper": true, "red_ids_tamper": true, "validation_error_zero": true},
+  "resolution": [128, 72],
+  "triangles": 2,
+  "diff_pixels": 0,
+  "sw_covered": 1496,
+  "hw_covered": 1496,
+  "oracle_covered": 1496,
+  "sw_digest": "93115231476b0f936d8fd10e4d78cccfdfe0bf452857c794a0d25a6a6d1ffdca",
+  "hw_digest": "93115231476b0f936d8fd10e4d78cccfdfe0bf452857c794a0d25a6a6d1ffdca",
+  "set_provenance_digest": "52862909f39a76b07312835c994ec1dc5b683a023c4d9e38c51e786c27e60640",
+  "rt_blas_input_count": 2,
+  "conservative_props": {"primitive_overestimation_size": 1.953125000e-3, "max_extra_primitive_overestimation_size": 7.500000000e-1, "extra_primitive_overestimation_size_granularity": 2.500000000e-1, "degenerate_triangles_rasterized": true},
+  "failures": []
+}

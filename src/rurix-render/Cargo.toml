@@ -35,5 +35,12 @@ name = "g9_m92_skinning_device"
 path = "src/bin/g9_m92_skinning_device.rs"
 required-features = ["vulkan"]
 
+# G9.3 M95 蒙皮簇 VisBuffer SW/HW diff=0 device 双腿 harness(RXS-0352 L2):
+# SW 精确 compute 腿 vs HW 保守光栅腿(render_exec;G7.5b RXS-0303 体例)u64 位级 diff=0。
+[[bin]]
+name = "g9_m95_visbuffer_swhw"
+path = "src/bin/g9_m95_visbuffer_swhw.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

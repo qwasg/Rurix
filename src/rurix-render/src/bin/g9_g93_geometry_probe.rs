@@ -26,7 +26,7 @@ use rurix_render::geometry::visbuffer::{
     VisibleSetScene, VisBufferCpu, raster_visible_set, visbuffer_diff_host,
 };
 use rurix_render::graph::types::ClusterRecord;
-use rurix_render::rt::as_manager::{BlasCache, DynamicPolicy};
+use rurix_render::rt::as_manager::{BlasCache, DynamicPolicy, rt_blas_input_from_feed};
 use rurix_render::shadow::vsm::shadow_tris_from_visible_set;
 
 fn hex(d: &[u8; 32]) -> String {
@@ -161,6 +161,16 @@ fn main() {
         .expect("旁路 set");
     let bypass_red = verify_frame_provenance(&set, &raster, &bypass.feed_rt(), &vsm).is_err();
     check("m95.bypass_red", bypass_red, &mut failures);
+
+    // M95 RT 腿 as_manager 消费锚(RXS-0352 L1/L4):BLAS 输入由 selection 输出
+    // 直接派生(消费前结构断言 = digest 精确一致);旁路 feed 在消费锚判 RED。
+    let rt_blas_input = rt_blas_input_from_feed(&set, &rt);
+    let rt_consumed_ok = rt_blas_input
+        .as_ref()
+        .is_ok_and(|input| input.len() == rt.blas_input.len() && !input.is_empty());
+    check("m95.rt_feed_consumed", rt_consumed_ok, &mut failures);
+    let rt_bypass_red = rt_blas_input_from_feed(&set, &bypass.feed_rt()).is_err();
+    check("m95.rt_feed_bypass_red", rt_bypass_red, &mut failures);
 
     // ------------------------------------------------------------------
     // M92:蒙皮驱动(近→静态→远降级→更新点)+ AsStats 计数面。
@@ -359,7 +369,9 @@ fn main() {
          \"tlas_rebuilds\": {},\n  \"anim_update_tier_histogram\": {:?},\n  \
          \"skinned_updates\": {},\n  \"stale_skips\": {},\n  \"static_skips\": {},\n  \
          \"static_frame_zero_as_build\": {},\n  \"visbuffer_diff_mismatched\": {},\n  \
-         \"vsm_depth_tris\": {},\n  \"failures\": {:?}\n}}",
+         \"vsm_depth_tris\": {},\n  \"rt_blas_input_count\": {},\n  \
+         \"rt_feed_consumed_ok\": {},\n  \"rt_feed_bypass_red_detected\": {},\n  \
+         \"failures\": {:?}\n}}",
         set.visible_count(),
         hex(&set.provenance_digest),
         provenance_ok,
@@ -379,6 +391,9 @@ fn main() {
         static_frame_zero_as_build,
         diff.mismatched,
         vsm_tris.len(),
+        rt_blas_input.map(|i| i.len()).unwrap_or(0),
+        rt_consumed_ok,
+        rt_bypass_red,
         failures,
     );
     match evidence_path {
