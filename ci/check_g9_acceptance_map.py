@@ -14,6 +14,9 @@ G9.3 波 P1 全进裁决（G9_CONTRACT §8.1 裁决①，2026-08-11 只追加登
     （G9_CONTRACT §4.2 为 15 P0 独立断言表，不载 P1 行，P1 三向比对不适用）；
   - §2 P0 十五行的既有 coverage/no-empty/三向比对 **0-byte 不改弱**；
     后续波次判 go 的 P1 只追加扩 `EXPECTED_P1` 与 §3/§4A 表。
+G9.4 波 P1 全进裁决（同一裁决①，2026-08-12 只追加登记）同口径扩三行
+（M99/M100/M101；M99 仅屏幕级 / M100 仅低档默认判 go，RD-040 未举证分项
+not-triggered 不充绿，G9_CANDIDATE_DECISIONS v1.3 校准注）。
 
 本守卫属未编号 `check_*` 类，不占 numeric CI step，不判定任何实现门为绿。
 `--selftest` 用内置合成夹具的受控负样本证明每组断言都能红（不依赖树上文件）。
@@ -44,10 +47,12 @@ EXPECTED_P0 = {
     "M110", "M118",
 }
 
-# 已 go P1 精确集合（2026-08-11 G9.3 波 P1 全进裁决，G9_CONTRACT §8.1 裁决①：
+# 已 go P1 精确集合（G9_CONTRACT §8.1 裁决①：
 # 逐波经治理流程只追加进 ACCEPTANCE_MAP §3，不静默并入既有 key）。
-# 后续波次判 go 的 P1 只追加扩本集合 + MAP §3 + CI_GATES §4A。
-EXPECTED_P1 = {"M92", "M105", "M106", "M107"}
+# 2026-08-11 G9.3 波四行（M92/M105/M106/M107）+ 2026-08-12 G9.4 波三行
+# （M99/M100/M101；M99 仅屏幕级、M100 仅低档默认判 go，RD-040 未举证分项
+# not-triggered 不充绿）。后续波次判 go 的 P1 只追加扩本集合 + MAP §3 + CI_GATES §4A。
+EXPECTED_P1 = {"M92", "M105", "M106", "M107", "M99", "M100", "M101"}
 
 ALLOWED_WAVES = {"G9.2", "G9.3", "G9.4", "G9.5", "G9.6", "G9.2 + G9.6"}
 
@@ -282,6 +287,9 @@ CANONICAL_P1_ROWS = [
     ("M105", "command_build_node", "G9.3"),
     ("M106", "execution_set_pso", "G9.3"),
     ("M107", "shader_library_ir_link", "G9.3"),
+    ("M99", "spg_radiance_cache", "G9.4"),
+    ("M100", "multi_light_low", "G9.4"),
+    ("M101", "if_tier_ladder", "G9.4"),
 ]
 
 
@@ -392,6 +400,13 @@ def run_selftest() -> int:
             ci_text.replace("ci/g9_execution_set_pso_smoke.py", "ci/g9_execution_set_smoke.py"),
             "[two-way] M106 script 漂移",
         ),
+        (
+            "删除 §3 M99 行（G9.4 波新增）→ P1 coverage 必须红",
+            "\n".join(l for l in map_text.splitlines() if not l.startswith("| **M99**")),
+            contract_text,
+            ci_text,
+            "P1 集合不等于 §1 声明集合",
+        ),
     ]
 
     failures = 0
@@ -417,7 +432,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[check_g9_acceptance_map] SELFTEST FAIL ({failures})")
         return 1
-    print("[check_g9_acceptance_map] SELFTEST PASS (10 RED + 1 GREEN)")
+    print("[check_g9_acceptance_map] SELFTEST PASS (11 RED + 1 GREEN)")
     return 0
 
 
@@ -445,7 +460,7 @@ def main() -> int:
         return 1
     print(
         "[check_g9_acceptance_map] PASS"
-        "（15 P0 + 4 已 go P1（G9.3 波）覆盖齐备；19 key 唯一且同一命名空间；"
+        "（15 P0 + 7 已 go P1（G9.3 波四行 + G9.4 波三行）覆盖齐备；22 key 唯一且同一命名空间；"
         "P0 行 MAP/CONTRACT/CI_GATES 三向逐字一致、P1 行 MAP §3/CI_GATES §4A 双向逐字一致；零空行/占位）"
     )
     print("  注意：本 PASS 只表示映射完整，不表示任何 P0/P1 能力门已实现或已绿。")
