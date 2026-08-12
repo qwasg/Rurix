@@ -427,6 +427,9 @@ def check_evidence_files() -> None:
     g9_wave2_exit_schema = load(
         ROOT / "milestones/g9/g9_wave2_exit_evidence_schema.json"
     )
+    g9_wave3_exit_schema = load(
+        ROOT / "milestones/g9/g9_wave3_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -902,6 +905,11 @@ def check_evidence_files() -> None:
     g9_wave2_exit_validator = (
         jsonschema.Draft7Validator(g9_wave2_exit_schema)
         if g9_wave2_exit_schema is not None
+        else None
+    )
+    g9_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g9_wave3_exit_schema)
+        if g9_wave3_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -1748,6 +1756,14 @@ def check_evidence_files() -> None:
             and g9_wave2_exit_validator is not None
         ):
             validator = g9_wave2_exit_validator
+        elif (
+            f.name.startswith("g9_wave3_exit_")
+            and g9_wave3_exit_validator is not None
+        ):
+            # G9.3 波聚合门(步骤 146;ci/g9_wave3_exit_check.py 写:七门最新
+            # evidence 只读汇总 + RFC-0022/0023 Approved + RXS-0350~0356 条款头
+            # + U56/U57 登记;聚合不代绿)。
+            validator = g9_wave3_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

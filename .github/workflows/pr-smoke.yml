@@ -1455,6 +1455,15 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_shader_library_ir_link_smoke.py --gate g9.p1.m107.shader_library_ir_link
 
+      # 步骤 146（G9.3 波聚合门 g9.wave.3.exit;CI_GATES §6 v1.6;落盘前实测
+      # CI_step.next_free=146 顺位领取）。只读汇总七门(139~145)最新 evidence
+      # + RFC-0022/0023 Agent Approved 字面维持 + RXS-0350~0356 条款头在树 +
+      # U56/U57 unsafe 登记在树;聚合不代绿、不重跑 smoke、不设
+      # RURIX_REQUIRE_REAL;evidence 落盘 evidence/g9_wave3_exit_<UTC>.json。
+      - name: G9.3 wave3.exit aggregate (G9 CI_GATES §6.146, g9.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g9_wave3_exit_check.py --gate g9.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
