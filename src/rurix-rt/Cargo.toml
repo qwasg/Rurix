@@ -168,6 +168,23 @@ required-features = ["vulkan"]
 name = "vk_clas_rt"
 required-features = ["vulkan"]
 
+# G9.3 M105 command build node device harness(RXS-0354;门 g9.p1.m105.command_build_node;
+# 复用 U54 DGC device 面,零新 FFI):compute pre-pass 在 device 上构建
+# dispatch/draw/draw_indexed 内容流(手编 SPV kernel),indirect pass
+# (ExecuteGeneratedCommands)消费;产物经显式记账回读与 host build_reference 逐字节
+# 比对;同输入双构建 digest 相等;生产路径零隐式回读 + RED 注入臂。
+[[bin]]
+name = "vk_command_build"
+required-features = ["vulkan"]
+
+# G9.3 M106 Execution Set×PSO 衔接 device harness(RXS-0355;门
+# g9.p1.m106.execution_set_pso;U57):两条同状态仅换 shader 的 pipeline 组成
+# execution set,GPU 侧索引切换出图 vs CPU 侧 PSO 切换 golden 逐字节一致;失效
+# 重建确定性;capability fail-closed + D3D12 诚实降级登记(host 面引用进 checks)。
+[[bin]]
+name = "vk_execution_set"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

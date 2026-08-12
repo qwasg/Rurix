@@ -25307,3 +25307,1737 @@ mod m94_clas_main_tests {
         );
     }
 }
+
+// ─────────────── M106 Execution Set 与 PSO 衔接(G9.3;RXS-0355;RFC-0023 §4.2) ───────────────
+// **U57 登记面**(unsafe-audit/rurix-rt.md):`VK_EXT_device_generated_commands` 的
+// Execution Set 子面 FFI——`vkCreateIndirectExecutionSetEXT` /
+// `vkDestroyIndirectExecutionSetEXT` / `vkUpdateIndirectExecutionSetPipelineEXT`
+// 三符号 + `VkIndirectExecutionSetEXT` 句柄与四个 `#[repr(C)]` 结构
+// (CreateInfo/PipelineInfo/WritePipeline/ExecutionSetToken)+
+// `VK_INDIRECT_COMMANDS_TOKEN_TYPE_EXECUTION_SET_EXT`(=0)layout token +
+// `VK_PIPELINE_CREATE_2_INDIRECT_BINDABLE_BIT_EXT`(flags2 经既有
+// `PipelineCreateFlags2CreateInfoKHR` pNext 承载)。**既有 U26/U27/U30/U31/U32/
+// U43/U54/U55/U56 路径 0-byte 不动,独立加性段组装**(skeleton 镜像 U54
+// `run_dgc_inner`/`dgc_body` 纪律;DGC 基础设施结构/常量/函数指针类型复用
+// 本文件 M102 段单一事实源,不重定)。
+//
+// 语义面(RXS-0355 L1):两条**同状态仅换 fragment shader** 的 graphics pipeline
+// 组成 execution set(成员 0/1),DgcBuffer 两条 sequence 各携
+// [execution-set token: u32 管线索引 @0 | draw token: VkDrawIndirectCommand @4]
+// (stride 20),`vkCmdExecuteGeneratedCommandsEXT` GPU 侧按 sequence 索引切换
+// shader 出图;对照臂 = 同场景 CPU 侧 `vkCmdBindPipeline` PSO 切换两 draw
+// golden;失效重建臂 = destroy 后同输入重建 set 重跑 GPU 臂。三臂像素供调用方
+// (`bin/vk_execution_set`)逐字节比对。capability 缺失(扩展/feature/符号/属性
+// 上限)任一 → 确定性 `Err`(fail-closed,禁静默模拟 P-01;host 面路径选择归
+// `execution_set.rs` safe 层)。
+
+// ── M106 structure-type / 枚举值(vulkan_core.h 1.3.296 L1149~1157/L19566~19718
+// 逐值核对;扩展号 572 段)──
+/// `VK_STRUCTURE_TYPE_INDIRECT_EXECUTION_SET_CREATE_INFO_EXT`(=1000572003)。
+const ST_INDIRECT_EXECUTION_SET_CREATE_INFO_EXT: u32 = 1_000_572_003;
+/// `VK_STRUCTURE_TYPE_WRITE_INDIRECT_EXECUTION_SET_PIPELINE_EXT`(=1000572008)。
+const ST_WRITE_INDIRECT_EXECUTION_SET_PIPELINE_EXT: u32 = 1_000_572_008;
+/// `VK_STRUCTURE_TYPE_INDIRECT_EXECUTION_SET_PIPELINE_INFO_EXT`(=1000572010)。
+const ST_INDIRECT_EXECUTION_SET_PIPELINE_INFO_EXT: u32 = 1_000_572_010;
+/// `VK_INDIRECT_COMMANDS_TOKEN_TYPE_EXECUTION_SET_EXT`(=0;GPU 侧索引切换 token)。
+const DGC_TOKEN_TYPE_EXECUTION_SET: u32 = 0;
+/// `VK_INDIRECT_EXECUTION_SET_INFO_TYPE_PIPELINES_EXT`(=0;管线数组成员形态)。
+const EXECUTION_SET_INFO_TYPE_PIPELINES: u32 = 0;
+/// `VK_PIPELINE_CREATE_2_INDIRECT_BINDABLE_BIT_EXT`(=0x4000000000ULL;execution
+/// set 成员管线创建期必须携带,64 位 flags2 域)。
+const PIPELINE_CREATE_2_INDIRECT_BINDABLE_EXT: u64 = 0x4000_0000_00;
+
+/// `VkIndirectExecutionSetEXT`(VK_DEFINE_NON_DISPATCHABLE_HANDLE;u64 别名,
+/// 镜像 M102 段 `VkIndirectCommandsLayoutEXT` 体例)。
+type VkIndirectExecutionSetEXT = u64;
+
+/// `VkIndirectExecutionSetPipelineInfoEXT`(sType/pNext + initialPipeline +
+/// maxPipelineCount;逐字段同布局)。
+#[repr(C)]
+struct IndirectExecutionSetPipelineInfoEXT {
+    s_type: u32,
+    p_next: *const c_void,
+    initial_pipeline: VkPipeline,
+    max_pipeline_count: u32,
+}
+
+/// `VkIndirectExecutionSetCreateInfoEXT`(sType/pNext/type + info union)。
+/// union `VkIndirectExecutionSetInfoEXT` 本期只消费 pipelines 变体——以
+/// `p_pipeline_info` 单指针承载(镜像 M102 段 `IndirectCommandsTokenDataEXT`
+/// 的构造侧纪律:只构造一经指针传驱动,从不读回)。
+#[repr(C)]
+struct IndirectExecutionSetCreateInfoEXT {
+    s_type: u32,
+    p_next: *const c_void,
+    ty: u32,
+    p_pipeline_info: *const IndirectExecutionSetPipelineInfoEXT,
+}
+
+/// `VkWriteIndirectExecutionSetPipelineEXT`(sType/pNext/index/pipeline)。
+#[repr(C)]
+struct WriteIndirectExecutionSetPipelineEXT {
+    s_type: u32,
+    p_next: *const c_void,
+    index: u32,
+    pipeline: VkPipeline,
+}
+
+/// `VkIndirectCommandsExecutionSetTokenEXT`(type + shaderStages;layout token
+/// data 的 execution-set 变体)。
+#[repr(C)]
+struct IndirectCommandsExecutionSetTokenEXT {
+    ty: u32,
+    shader_stages: VkFlags,
+}
+
+// ── M106 函数指针类型(PFN_* 签名自 vulkan_core.h L19782~19785 逐一对应)──
+type FnCreateIndirectExecutionSetEXT = unsafe extern "system" fn(
+    VkDevice,
+    *const IndirectExecutionSetCreateInfoEXT,
+    *const c_void,
+    *mut VkIndirectExecutionSetEXT,
+) -> VkResult;
+type FnDestroyIndirectExecutionSetEXT =
+    unsafe extern "system" fn(VkDevice, VkIndirectExecutionSetEXT, *const c_void);
+type FnUpdateIndirectExecutionSetPipelineEXT = unsafe extern "system" fn(
+    VkDevice,
+    VkIndirectExecutionSetEXT,
+    u32,
+    *const WriteIndirectExecutionSetPipelineEXT,
+);
+
+/// Execution Set 能力快照(RXS-0355 L2 装载期门控的**实测证据面**;只建
+/// instance 的枚举/链查询产物,镜像 [`ClasCapabilityReport`] 体例)。
+#[derive(Debug, Clone)]
+pub struct ExecutionSetCapabilityReport {
+    /// 设备名(驱动真值)。
+    pub device_name: String,
+    /// `VkPhysicalDeviceProperties.apiVersion`(打包值原样)。
+    pub api_version: u32,
+    /// `driverVersion`(打包值原样)。
+    pub driver_version: u32,
+    /// `VK_EXT_device_generated_commands` 设备扩展实测在位。
+    pub extension_present: bool,
+    /// `deviceGeneratedCommands` feature 实测在位。
+    pub device_generated_commands: bool,
+    /// `maxIndirectPipelineCount`(execution set 容量上界;≥2 才可组成双成员 set)。
+    pub max_indirect_pipeline_count: u32,
+    /// `maxIndirectSequenceCount`。
+    pub max_indirect_sequence_count: u32,
+    /// 缺失件清单(空 = 可装载)。
+    pub missing: Vec<String>,
+}
+
+impl ExecutionSetCapabilityReport {
+    /// Execution Set 面可装载 = 缺失清单为空。
+    #[must_use]
+    pub fn execution_set_supported(&self) -> bool {
+        self.missing.is_empty()
+    }
+
+    /// 缺失件清单(证据面只读)。
+    #[must_use]
+    pub fn missing(&self) -> &[String] {
+        &self.missing
+    }
+
+    /// 单行摘要(evidence/日志用;driver_version 为 Vulkan 打包值原样)。
+    #[must_use]
+    pub fn summary_line(&self) -> String {
+        format!(
+            "device=`{}` api={}.{}.{} driver=0x{:08x} extension={} feature={} \
+             maxIndirectPipelineCount={} maxIndirectSequenceCount={} missing=[{}]",
+            self.device_name,
+            self.api_version >> 22,
+            (self.api_version >> 12) & 0x3ff,
+            self.api_version & 0xfff,
+            self.driver_version,
+            self.extension_present,
+            self.device_generated_commands,
+            self.max_indirect_pipeline_count,
+            self.max_indirect_sequence_count,
+            self.missing.join(","),
+        )
+    }
+}
+
+/// 探测本机首个物理设备的 Execution Set 能力(RXS-0355 L2 门控证据源)。
+/// loader 缺失/无 Vulkan 设备/枚举失败 → 确定性 `Err`(dev-env degrade,由
+/// 调用方转 SKIP 纪律,非 panic)。只建 instance(enumerate-only,无
+/// device/queue/命令面,validation 无校验对象,故不装载 messenger)。
+pub fn probe_execution_set_capability() -> Result<ExecutionSetCapabilityReport, String> {
+    let gipa = load_vulkan_loader()
+        .ok_or("vulkan loader 不可用(vulkan-1.dll/libvulkan.so 缺失;dev-env degrade)")?;
+    // SAFETY: gipa 经 U26 loader 成功装载;调用的均为 Vulkan 1.0/1.1 core 已知
+    // ABI 符号(instance 级)+ DGC feature/properties 链查询结构(布局锚单测钉死),
+    // 句柄线性 create/destroy 配对。
+    unsafe { probe_execution_set_inner(gipa) }
+}
+
+/// [`probe_execution_set_capability`] 的 unsafe 本体(句柄:instance 单点
+/// create/destroy;每个 early-return 同走销毁,无泄漏)。
+unsafe fn probe_execution_set_inner(
+    gipa: FnGetInstanceProcAddr,
+) -> Result<ExecutionSetCapabilityReport, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-rt-execset-probe".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let out = probe_execution_set_on_instance(gipa, instance);
+    let destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr()));
+    if let Some(di) = destroy_instance {
+        di(instance, std::ptr::null());
+    }
+    out
+}
+
+/// instance 级探测本体(物理设备身份/扩展枚举/DGC feature+properties 链查询)。
+unsafe fn probe_execution_set_on_instance(
+    gipa: FnGetInstanceProcAddr,
+    instance: VkInstance,
+) -> Result<ExecutionSetCapabilityReport, String> {
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_props: FnGetPhysicalDevicePropertiesClas =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let vk_get_props2: FnGetPhysicalDeviceProperties2Dgc =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // ── 设备身份(blob 为真实结构 2048B 严格超集,防越界写)──
+    let mut props_blob = ClasDevicePropsBlob {
+        api_version: 0,
+        driver_version: 0,
+        vendor_id: 0,
+        device_id: 0,
+        device_type: 0,
+        device_name: [0; 256],
+        _rest: [0; 2048 - 276],
+    };
+    vk_get_props(pd, &mut props_blob);
+    // SAFETY: device_name 为驱动写入的 NUL 结尾 C 串(定长 256 字段内)。
+    let device_name = std::ffi::CStr::from_ptr(props_blob.device_name.as_ptr())
+        .to_string_lossy()
+        .into_owned();
+
+    // ── 扩展枚举(存在性事实;缺失即不再发起链查询——fail-closed 不猜值)──
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut ext_props = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+    let extension_present = ext_props.iter().any(|e| {
+        // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串(≤256 字节)。
+        std::ffi::CStr::from_ptr(e.extension_name.as_ptr()) == EXT_DEVICE_GENERATED_COMMANDS
+    });
+
+    // ── feature / properties 链查询(仅扩展在位时读回真值)──
+    let mut feature_on = false;
+    let mut max_indirect_pipeline_count = 0u32;
+    let mut max_indirect_sequence_count = 0u32;
+    if extension_present {
+        let mut dgc_feat = PhysicalDeviceDeviceGeneratedCommandsFeaturesEXT {
+            s_type: ST_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT,
+            p_next: std::ptr::null_mut(),
+            device_generated_commands: 0,
+            dynamic_generated_pipeline_layout: 0,
+        };
+        let mut feats2 = PhysicalDeviceFeatures2 {
+            s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+            p_next: &mut dgc_feat as *mut _ as *mut c_void,
+            features: std::mem::zeroed(),
+        };
+        vk_get_features2(pd, &mut feats2);
+        feature_on = dgc_feat.device_generated_commands != 0;
+
+        let mut dgc_props = PhysicalDeviceDeviceGeneratedCommandsPropertiesEXT {
+            s_type: ST_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_EXT,
+            p_next: std::ptr::null_mut(),
+            max_indirect_pipeline_count: 0,
+            max_indirect_shader_object_count: 0,
+            max_indirect_sequence_count: 0,
+            max_indirect_commands_token_count: 0,
+            max_indirect_commands_token_offset: 0,
+            max_indirect_commands_indirect_stride: 0,
+            supported_indirect_commands_input_modes: 0,
+            supported_indirect_commands_shader_stages: 0,
+            supported_indirect_commands_shader_stages_pipeline_binding: 0,
+            supported_indirect_commands_shader_stages_shader_binding: 0,
+            device_generated_commands_transform_feedback: 0,
+            device_generated_commands_multi_draw_indirect_count: 0,
+        };
+        let mut props2 = PhysicalDeviceProperties2Dgc {
+            s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+            p_next: &mut dgc_props as *mut _ as *mut c_void,
+            properties: std::mem::zeroed(),
+        };
+        vk_get_props2(pd, &mut props2);
+        max_indirect_pipeline_count = dgc_props.max_indirect_pipeline_count;
+        max_indirect_sequence_count = dgc_props.max_indirect_sequence_count;
+    }
+
+    let mut missing: Vec<String> = Vec::new();
+    if !extension_present {
+        missing.push(EXT_DEVICE_GENERATED_COMMANDS.to_string_lossy().into_owned());
+    } else if !feature_on {
+        missing.push("deviceGeneratedCommands".to_owned());
+    }
+    if extension_present && feature_on && max_indirect_pipeline_count < 2 {
+        missing.push(format!(
+            "maxIndirectPipelineCount={max_indirect_pipeline_count}<2(双成员 execution set 不可组成)"
+        ));
+    }
+    Ok(ExecutionSetCapabilityReport {
+        device_name,
+        api_version: props_blob.api_version,
+        driver_version: props_blob.driver_version,
+        extension_present,
+        device_generated_commands: feature_on,
+        max_indirect_pipeline_count,
+        max_indirect_sequence_count,
+        missing,
+    })
+}
+
+/// Execution Set 场景描述(`run_execution_set_offscreen` 入参;两条管线同状态
+/// 仅 fragment shader 不同——RXS-0355 L1「同一 graphics 状态、仅 shader 不同」
+/// 的 harness 承载面)。
+pub struct ExecutionSetScene<'a> {
+    /// vertex SPIR-V(无顶点输入;内建 VertexIndex/InstanceIndex 生成几何)。
+    pub vs_spv: &'a [u32],
+    /// 成员 0 fragment SPIR-V(GPU 侧索引 0 / CPU 臂先绑)。
+    pub fs_spv_a: &'a [u32],
+    /// 成员 1 fragment SPIR-V(索引 1;仅 shader 不同)。
+    pub fs_spv_b: &'a [u32],
+    /// 出图宽。
+    pub width: u32,
+    /// 出图高。
+    pub height: u32,
+    /// 清屏色(RGBA8 等价)。
+    pub clear: [f32; 4],
+}
+
+/// Execution Set device lane 输出(三臂像素 + 证据面属性)。
+pub struct ExecutionSetRunOutput {
+    /// GPU 侧索引切换臂像素(紧凑 RGBA8;execution set token 驱动)。
+    pub pixels_gpu: Vec<u8>,
+    /// CPU 侧 PSO 切换 golden 臂像素(vkCmdBindPipeline 两 draw)。
+    pub pixels_cpu: Vec<u8>,
+    /// 失效重建臂像素(set destroy 后同输入重建重跑 GPU 臂)。
+    pub pixels_rebuild: Vec<u8>,
+    /// 实测 `maxIndirectPipelineCount`(证据留痕)。
+    pub max_indirect_pipeline_count: u32,
+    /// 实测 preprocess 需求字节(证据留痕;非 stable,RXS-0348 §3-6 同口径)。
+    pub preprocess_size: u64,
+}
+
+/// M106 device 链路(RXS-0355;U57):execution set 双管线 GPU 侧索引切换出图
+/// vs CPU 侧 PSO 切换 golden + 失效重建重跑。对上全 safe(无 `unsafe` 签名);
+/// feature/capability/属性限制全 fail-closed。
+///
+/// # SAFETY(U57;unsafe-audit/rurix-rt.md 登记)
+/// 复用 U26/U27 loader/instance/device/messenger 骨架与 M102 段 DGC 基础设施;
+/// 每个新 `#[repr(C)]` VkStruct 与 vulkan_core.h 1.3.296 逐字节对齐(布局锚单测
+/// `m106_exec_set_ffi_layout_anchors`);句柄(buffer×N/memory×N/image·view×3/
+/// renderPass/framebuffer×3/pipeline×2/pipelineLayout/shaderModule×3/
+/// IndirectCommandsLayoutEXT/IndirectExecutionSetEXT×2/commandPool)线性配对
+/// create/destroy、末尾逆序销毁(exec set 先于其成员 pipeline);device address
+/// 仅填充 GeneratedCommandsInfoEXT 字段经驱动消费,从不解引用为 host 指针;
+/// set 失效(destroy)发生在 queue 排空后,重建产物经独立 command buffer 提交;
+/// execute 前在 render pass 内预绑 initial pipeline(VUID-vkCmdExecuteGenerated
+/// CommandsEXT-indirectCommandsLayout-11053:execution set token 存在时 command
+/// buffer 必须先绑定 initial shader state,否则 validation ERROR fail-closed);
+/// 单 graphics queue 两次同步提交 + `vkQueueWaitIdle` 后回读;messenger
+/// fail-closed 同 U27(ERROR 级校验翻 `Err`);gate feature `vulkan` 默认关闭。
+//@ spec: RXS-0355
+pub fn run_execution_set_offscreen(
+    scene: &ExecutionSetScene<'_>,
+) -> Result<ExecutionSetRunOutput, String> {
+    let gipa = load_vulkan_loader().ok_or("vulkan loader 不可用")?;
+    // SAFETY: gipa 为 loader 真符号;instance/device 句柄在 run_execution_set_inner
+    // 内线性配对销毁(逆序;messenger 先于 instance)。
+    unsafe { run_execution_set_inner(gipa, scene) }
+}
+
+#[allow(clippy::too_many_lines)]
+unsafe fn run_execution_set_inner(
+    gipa: FnGetInstanceProcAddr,
+    scene: &ExecutionSetScene<'_>,
+) -> Result<ExecutionSetRunOutput, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-rt-execset".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let get_pd_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let get_pd_props2: FnGetPhysicalDeviceProperties2Dgc =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+    macro_rules! bail {
+        ($e:expr) => {{
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err($e);
+        }};
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        bail!("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // ── capability snapshot 阻塞性前置(RXS-0355 L2;DGC 扩展集实测在位)──
+    let mut ext_count = 0u32;
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+    let mut ext_props = vec![
+        ExtensionProperties {
+            extension_name: [0; 256],
+            spec_version: 0,
+        };
+        ext_count as usize
+    ];
+    enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+    let avail: Vec<String> = ext_props
+        .iter()
+        .map(|e| {
+            // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串(≤256 字节)。
+            std::ffi::CStr::from_ptr(e.extension_name.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let avail_refs: Vec<&str> = avail.iter().map(|s| s.as_str()).collect();
+    if let Err(e) = negotiate_device_extensions(&avail_refs, DGC_DEVICE_EXTENSIONS) {
+        bail!(e);
+    }
+    // dgc.rs safe 层 snapshot 原语复测(同一份实测表;缺位 typed Err,fail-closed)。
+    if let Err(e) = crate::dgc::verify_dgc_snapshot(&avail_refs) {
+        bail!(e.to_string());
+    }
+
+    // ── feature 探测(deviceGeneratedCommands + bufferDeviceAddress 双链)──
+    let mut bda_feat = PhysicalDeviceBufferDeviceAddressFeatures {
+        s_type: ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        p_next: std::ptr::null_mut(),
+        buffer_device_address: 0,
+        buffer_device_address_capture_replay: 0,
+        buffer_device_address_multi_device: 0,
+    };
+    let mut dgc_feat = PhysicalDeviceDeviceGeneratedCommandsFeaturesEXT {
+        s_type: ST_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_EXT,
+        p_next: &mut bda_feat as *mut _ as *mut c_void,
+        device_generated_commands: 0,
+        dynamic_generated_pipeline_layout: 0,
+    };
+    let mut feats2 = PhysicalDeviceFeatures2 {
+        s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+        p_next: &mut dgc_feat as *mut _ as *mut c_void,
+        features: std::mem::zeroed(),
+    };
+    get_pd_features2(pd, &mut feats2);
+    let mut missing_feat: Vec<&str> = Vec::new();
+    if dgc_feat.device_generated_commands == 0 {
+        missing_feat.push("deviceGeneratedCommands");
+    }
+    if bda_feat.buffer_device_address == 0 {
+        missing_feat.push("bufferDeviceAddress");
+    }
+    if !missing_feat.is_empty() {
+        bail!(format!(
+            "device 缺 Execution Set 前置 feature: {}(确定性 Err,RXS-0355 L2,禁静默模拟 P-01)",
+            missing_feat.join(", ")
+        ));
+    }
+
+    // ── DGC 设备属性(装配期上界核验:pipeline 数/sequence 数/token 限制)──
+    let mut dgc_props = PhysicalDeviceDeviceGeneratedCommandsPropertiesEXT {
+        s_type: ST_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_EXT,
+        p_next: std::ptr::null_mut(),
+        max_indirect_pipeline_count: 0,
+        max_indirect_shader_object_count: 0,
+        max_indirect_sequence_count: 0,
+        max_indirect_commands_token_count: 0,
+        max_indirect_commands_token_offset: 0,
+        max_indirect_commands_indirect_stride: 0,
+        supported_indirect_commands_input_modes: 0,
+        supported_indirect_commands_shader_stages: 0,
+        supported_indirect_commands_shader_stages_pipeline_binding: 0,
+        supported_indirect_commands_shader_stages_shader_binding: 0,
+        device_generated_commands_transform_feedback: 0,
+        device_generated_commands_multi_draw_indirect_count: 0,
+    };
+    let mut props2 = PhysicalDeviceProperties2Dgc {
+        s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+        p_next: &mut dgc_props as *mut _ as *mut c_void,
+        properties: std::mem::zeroed(),
+    };
+    get_pd_props2(pd, &mut props2);
+
+    // ── queue family(graphics;draw token 消费)──
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs.iter().position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0) {
+        Some(i) => i as u32,
+        None => bail!("无 graphics queue family".into()),
+    };
+
+    // ── device:DGC 扩展集 + feature 链(enable bit 写入后再取址重挂 pNext)──
+    dgc_feat.device_generated_commands = 1;
+    dgc_feat.dynamic_generated_pipeline_layout = 0;
+    bda_feat.buffer_device_address = 1;
+    dgc_feat.p_next = &mut bda_feat as *mut _ as *mut c_void;
+    let dev_exts: Vec<*const c_char> = DGC_DEVICE_EXTENSIONS.iter().map(|e| e.as_ptr()).collect();
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: &dgc_feat as *const _ as *const c_void,
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: dev_exts.len() as u32,
+        pp_enabled_extension_names: dev_exts.as_ptr(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    if vk_create_device(pd, &dci, std::ptr::null(), &mut device) != VK_SUCCESS {
+        bail!("vkCreateDevice 失败(DGC 扩展/feature 启用)".into());
+    }
+
+    let mut out = exec_set_body(vk_get_device_proc, device, pd, vk_get_mem, qfi, scene, &dgc_props);
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        out = Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(fail-closed,L3)".into());
+    }
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+/// M106 exec_set_body:三臂(execution-set GPU 索引切换 / CPU PSO 切换 golden /
+/// 失效重建重跑)录制与回读(device 面;U57 段)。
+#[allow(clippy::too_many_lines)]
+unsafe fn exec_set_body(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    scene: &ExecutionSetScene<'_>,
+    dgc_props: &PhysicalDeviceDeviceGeneratedCommandsPropertiesEXT,
+) -> Result<ExecutionSetRunOutput, String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_buffer: FnCreateBuffer = dp!(c"vkCreateBuffer", FnCreateBuffer);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let buf_mem_req: FnGetBufferMemoryRequirements = dp!(
+        c"vkGetBufferMemoryRequirements",
+        FnGetBufferMemoryRequirements
+    );
+    let alloc_mem: FnAllocateMemory = dp!(c"vkAllocateMemory", FnAllocateMemory);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let bind_buf: FnBindBufferMemory = dp!(c"vkBindBufferMemory", FnBindBufferMemory);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let create_gp: FnCreateGraphicsPipelines =
+        dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
+    let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    let get_buf_addr: FnGetBufferDeviceAddress =
+        dp!(c"vkGetBufferDeviceAddress", FnGetBufferDeviceAddress);
+    let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
+    let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
+    let img_mem_req: FnGetImageMemoryRequirements =
+        dp!(c"vkGetImageMemoryRequirements", FnGetImageMemoryRequirements);
+    let bind_image: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
+    let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
+    let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
+    let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
+    let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
+    let create_fb: FnCreateFramebuffer = dp!(c"vkCreateFramebuffer", FnCreateFramebuffer);
+    let destroy_fb: FnDestroyFramebuffer = dp!(c"vkDestroyFramebuffer", FnDestroyFramebuffer);
+    let cmd_begin_rp: FnCmdBeginRenderPass = dp!(c"vkCmdBeginRenderPass", FnCmdBeginRenderPass);
+    let cmd_end_rp: FnCmdEndRenderPass = dp!(c"vkCmdEndRenderPass", FnCmdEndRenderPass);
+    let cmd_copy_img_buf: FnCmdCopyImageToBuffer =
+        dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer);
+    // DGC 符号(M102 段同一扩展面)+ Execution Set 三符号(U57 新面;缺一即
+    // fail-closed——设备扩展+feature 已探测,符号缺失属驱动不一致,确定性 Err 非 panic)。
+    let create_dgc_layout: FnCreateIndirectCommandsLayoutEXT = dp!(
+        c"vkCreateIndirectCommandsLayoutEXT",
+        FnCreateIndirectCommandsLayoutEXT
+    );
+    let destroy_dgc_layout: FnDestroyIndirectCommandsLayoutEXT = dp!(
+        c"vkDestroyIndirectCommandsLayoutEXT",
+        FnDestroyIndirectCommandsLayoutEXT
+    );
+    let cmd_execute_dgc: FnCmdExecuteGeneratedCommandsEXT = dp!(
+        c"vkCmdExecuteGeneratedCommandsEXT",
+        FnCmdExecuteGeneratedCommandsEXT
+    );
+    let get_dgc_mem_req: FnGetGeneratedCommandsMemoryRequirementsEXT = dp!(
+        c"vkGetGeneratedCommandsMemoryRequirementsEXT",
+        FnGetGeneratedCommandsMemoryRequirementsEXT
+    );
+    let create_exec_set: FnCreateIndirectExecutionSetEXT = dp!(
+        c"vkCreateIndirectExecutionSetEXT",
+        FnCreateIndirectExecutionSetEXT
+    );
+    let destroy_exec_set: FnDestroyIndirectExecutionSetEXT = dp!(
+        c"vkDestroyIndirectExecutionSetEXT",
+        FnDestroyIndirectExecutionSetEXT
+    );
+    let update_exec_set: FnUpdateIndirectExecutionSetPipelineEXT = dp!(
+        c"vkUpdateIndirectExecutionSetPipelineEXT",
+        FnUpdateIndirectExecutionSetPipelineEXT
+    );
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    // ── 句柄登记表(单点逆序销毁;早退路径同走)──
+    let mut buffers: Vec<(VkBuffer, VkDeviceMemory)> = Vec::new();
+    let mut shaders: Vec<VkShaderModule> = Vec::new();
+    let mut pipelines: Vec<VkPipeline> = Vec::new();
+    let mut pipe_layouts: Vec<VkPipelineLayout> = Vec::new();
+    let mut images: Vec<(VkImage, VkDeviceMemory)> = Vec::new();
+    let mut views: Vec<VkImageView> = Vec::new();
+    let mut render_passes: Vec<VkRenderPass> = Vec::new();
+    let mut framebuffers: Vec<VkFramebuffer> = Vec::new();
+    let mut dgc_layouts: Vec<VkIndirectCommandsLayoutEXT> = Vec::new();
+    let mut exec_sets: Vec<VkIndirectExecutionSetEXT> = Vec::new();
+    let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+
+    // 结果载体(闭包返回;cleanup 后统一回传)。
+    let body_result: Result<ExecutionSetRunOutput, String> = (|| {
+        // ── 装配期上界核验(DGC 属性限制;超界 fail-closed)──
+        if dgc_props.max_indirect_pipeline_count < 2 {
+            return Err(format!(
+                "maxIndirectPipelineCount={} < 2(双成员 execution set 不可组成,装配期 fail-closed,RXS-0355)",
+                dgc_props.max_indirect_pipeline_count
+            ));
+        }
+        if dgc_props.max_indirect_sequence_count < 2 {
+            return Err(format!(
+                "maxIndirectSequenceCount={} < 2(双 sequence 不可表达,装配期 fail-closed)",
+                dgc_props.max_indirect_sequence_count
+            ));
+        }
+        // token 数 2(exec-set + draw)、offset 4、stride 20 上界核验。
+        if dgc_props.max_indirect_commands_token_count < 2 {
+            return Err("maxIndirectCommandsTokenCount < 2(不可表达)".into());
+        }
+        if dgc_props.max_indirect_commands_token_offset < 4 {
+            return Err("maxIndirectCommandsTokenOffset < 4(不可表达)".into());
+        }
+        if dgc_props.max_indirect_commands_indirect_stride < 20 {
+            return Err("maxIndirectCommandsIndirectStride < 20(不可表达)".into());
+        }
+
+        let readback_len = (scene.width as usize) * (scene.height as usize) * 4;
+
+        // ── indirect input buffer(host-visible+coherent CPU 预填两 sequence;
+        // 命令流 = 输入数据,与 M102「顶点内容 CPU 预填非回读」同口径):seq k @
+        // k*20 = [u32 set_index @0 | VkDrawIndirectCommand{3,1,0,k} @4]。──
+        let mut stream = [0u8; 40];
+        for k in 0..2u32 {
+            let base = (k as usize) * 20;
+            stream[base..base + 4].copy_from_slice(&k.to_le_bytes());
+            for (j, w) in [3u32, 1, 0, k].iter().enumerate() {
+                stream[base + 4 + j * 4..base + 8 + j * 4].copy_from_slice(&w.to_le_bytes());
+            }
+        }
+        let bci_in = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            size: stream.len() as u64,
+            usage: BUFFER_USAGE_INDIRECT | BUFFER_USAGE_SHADER_DEVICE_ADDRESS,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut in_buf: VkBuffer = VK_NULL_HANDLE;
+        if create_buffer(device, &bci_in, std::ptr::null(), &mut in_buf) != VK_SUCCESS {
+            return Err("vkCreateBuffer(indirect input) 失败".into());
+        }
+        let mut req_in = std::mem::zeroed::<MemoryRequirements>();
+        buf_mem_req(device, in_buf, &mut req_in);
+        let Some(mt_in) = pick_mem_type(
+            &memprops,
+            req_in.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        ) else {
+            destroy_buffer(device, in_buf, std::ptr::null());
+            return Err("无匹配内存类型(indirect input)".into());
+        };
+        let flags_in = MemoryAllocateFlagsInfo {
+            s_type: ST_MEMORY_ALLOCATE_FLAGS_INFO,
+            p_next: std::ptr::null(),
+            flags: MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+            device_mask: 0,
+        };
+        let mai_in = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: &flags_in as *const MemoryAllocateFlagsInfo as *const c_void,
+            allocation_size: req_in.size,
+            memory_type_index: mt_in,
+        };
+        let mut in_mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai_in, std::ptr::null(), &mut in_mem) != VK_SUCCESS {
+            destroy_buffer(device, in_buf, std::ptr::null());
+            return Err("vkAllocateMemory(indirect input) 失败".into());
+        }
+        bind_buf(device, in_buf, in_mem, 0);
+        let mut ptr_in: *mut c_void = std::ptr::null_mut();
+        if map_mem(device, in_mem, 0, WHOLE_SIZE, 0, &mut ptr_in) != VK_SUCCESS {
+            return Err("vkMapMemory(indirect input) 失败".into());
+        }
+        // SAFETY: ptr_in 为刚 map 的 ≥ 40 字节 host 内存;coherent 免 flush。
+        std::ptr::copy_nonoverlapping(stream.as_ptr(), ptr_in as *mut u8, stream.len());
+        unmap_mem(device, in_mem);
+        let bda_in = BufferDeviceAddressInfo {
+            s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+            p_next: std::ptr::null(),
+            buffer: in_buf,
+        };
+        // SAFETY: device address 仅填充 GeneratedCommandsInfoEXT 字段经驱动消费;
+        // 从不解引用为 host 指针(U57 🔒 不变量,沿 U54 同律)。
+        let in_addr = get_buf_addr(device, &bda_in);
+        buffers.push((in_buf, in_mem));
+
+        // ── 空 pipeline layout(双管线同一状态模板;无 descriptor/push 消费)──
+        let gpl_ci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: 0,
+            p_set_layouts: std::ptr::null(),
+            push_constant_range_count: 0,
+            p_push_constant_ranges: std::ptr::null(),
+        };
+        let mut gfx_pl: VkPipelineLayout = VK_NULL_HANDLE;
+        if create_pl(device, &gpl_ci, std::ptr::null(), &mut gfx_pl) != VK_SUCCESS {
+            return Err("vkCreatePipelineLayout(gfx) 失败".into());
+        }
+        pipe_layouts.push(gfx_pl);
+
+        // ── shader module(vs 共享 + fs_a/fs_b 仅着色不同)──
+        let mk_shader =
+            |words: &[u32], shaders: &mut Vec<VkShaderModule>| -> Result<VkShaderModule, String> {
+                let ci = ShaderModuleCreateInfo {
+                    s_type: ST_SHADER_MODULE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    code_size: words.len() * 4,
+                    p_code: words.as_ptr(),
+                };
+                let mut m: VkShaderModule = VK_NULL_HANDLE;
+                if create_shader(device, &ci, std::ptr::null(), &mut m) != VK_SUCCESS {
+                    return Err("vkCreateShaderModule 失败".into());
+                }
+                shaders.push(m);
+                Ok(m)
+            };
+        let vs_mod = mk_shader(scene.vs_spv, &mut shaders)?;
+        let fs_a_mod = mk_shader(scene.fs_spv_a, &mut shaders)?;
+        let fs_b_mod = mk_shader(scene.fs_spv_b, &mut shaders)?;
+
+        // ── render pass(R8G8B8A8 CLEAR→STORE,finalLayout COLOR_ATTACHMENT_OPTIMAL;
+        // 显式 barrier 迁 TRANSFER_SRC 回读,沿 M102 graphics 段纪律)──
+        let attach = AttachmentDescription {
+            flags: 0,
+            format: FORMAT_R8G8B8A8_UNORM,
+            samples: SAMPLE_COUNT_1,
+            load_op: ATTACHMENT_LOAD_OP_CLEAR,
+            store_op: ATTACHMENT_STORE_OP_STORE,
+            stencil_load_op: ATTACHMENT_LOAD_OP_DONT_CARE,
+            stencil_store_op: ATTACHMENT_STORE_OP_DONT_CARE,
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+            final_layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        let aref = AttachmentReference {
+            attachment: 0,
+            layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        let subpass = SubpassDescription {
+            flags: 0,
+            pipeline_bind_point: PIPELINE_BIND_POINT_GRAPHICS,
+            input_attachment_count: 0,
+            p_input_attachments: std::ptr::null(),
+            color_attachment_count: 1,
+            p_color_attachments: &aref,
+            p_resolve_attachments: std::ptr::null(),
+            p_depth_stencil_attachment: std::ptr::null(),
+            preserve_attachment_count: 0,
+            p_preserve_attachments: std::ptr::null(),
+        };
+        let rpci = RenderPassCreateInfo {
+            s_type: ST_RENDER_PASS_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            attachment_count: 1,
+            p_attachments: &attach,
+            subpass_count: 1,
+            p_subpasses: &subpass,
+            dependency_count: 0,
+            p_dependencies: std::ptr::null(),
+        };
+        let mut rp: VkRenderPass = VK_NULL_HANDLE;
+        if create_rp(device, &rpci, std::ptr::null(), &mut rp) != VK_SUCCESS {
+            return Err("vkCreateRenderPass 失败".into());
+        }
+        render_passes.push(rp);
+
+        // ── 三臂 color image + view + framebuffer(每臂独立,无跨段 hazard)──
+        for _ in 0..3 {
+            let ici_img = ImageCreateInfo {
+                s_type: ST_IMAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image_type: IMAGE_TYPE_2D,
+                format: FORMAT_R8G8B8A8_UNORM,
+                extent: VkExtent3D {
+                    width: scene.width,
+                    height: scene.height,
+                    depth: 1,
+                },
+                mip_levels: 1,
+                array_layers: 1,
+                samples: SAMPLE_COUNT_1,
+                tiling: IMAGE_TILING_OPTIMAL,
+                usage: IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC,
+                sharing_mode: SHARING_MODE_EXCLUSIVE,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+                initial_layout: IMAGE_LAYOUT_UNDEFINED,
+            };
+            let mut img: VkImage = VK_NULL_HANDLE;
+            if create_image(device, &ici_img, std::ptr::null(), &mut img) != VK_SUCCESS {
+                return Err("vkCreateImage(color) 失败".into());
+            }
+            let mut img_req = std::mem::zeroed::<MemoryRequirements>();
+            img_mem_req(device, img, &mut img_req);
+            let Some(imt) = pick_mem_type(&memprops, img_req.memory_type_bits, MEM_DEVICE_LOCAL)
+            else {
+                destroy_image(device, img, std::ptr::null());
+                return Err("无匹配内存类型(color image)".into());
+            };
+            let imai = MemoryAllocateInfo {
+                s_type: ST_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: img_req.size,
+                memory_type_index: imt,
+            };
+            let mut img_mem: VkDeviceMemory = VK_NULL_HANDLE;
+            if alloc_mem(device, &imai, std::ptr::null(), &mut img_mem) != VK_SUCCESS {
+                destroy_image(device, img, std::ptr::null());
+                return Err("vkAllocateMemory(color image) 失败".into());
+            }
+            bind_image(device, img, img_mem, 0);
+            images.push((img, img_mem));
+            let vci = ImageViewCreateInfo {
+                s_type: ST_IMAGE_VIEW_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image: img,
+                view_type: IMAGE_VIEW_TYPE_2D,
+                format: FORMAT_R8G8B8A8_UNORM,
+                components: VkComponentMapping {
+                    r: COMPONENT_SWIZZLE_IDENTITY,
+                    g: COMPONENT_SWIZZLE_IDENTITY,
+                    b: COMPONENT_SWIZZLE_IDENTITY,
+                    a: COMPONENT_SWIZZLE_IDENTITY,
+                },
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            let mut view: VkImageView = VK_NULL_HANDLE;
+            if create_view(device, &vci, std::ptr::null(), &mut view) != VK_SUCCESS {
+                return Err("vkCreateImageView 失败".into());
+            }
+            views.push(view);
+            let fbci = FramebufferCreateInfo {
+                s_type: ST_FRAMEBUFFER_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                render_pass: rp,
+                attachment_count: 1,
+                p_attachments: &view,
+                width: scene.width,
+                height: scene.height,
+                layers: 1,
+            };
+            let mut fb: VkFramebuffer = VK_NULL_HANDLE;
+            if create_fb(device, &fbci, std::ptr::null(), &mut fb) != VK_SUCCESS {
+                return Err("vkCreateFramebuffer 失败".into());
+            }
+            framebuffers.push(fb);
+        }
+
+        // ── 三臂 readback buffer(host-visible TRANSFER_DST)──
+        for _ in 0..3 {
+            let bci_r = BufferCreateInfo {
+                s_type: ST_BUFFER_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                size: readback_len as u64,
+                usage: BUFFER_USAGE_TRANSFER_DST,
+                sharing_mode: SHARING_MODE_EXCLUSIVE,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+            };
+            let mut rb: VkBuffer = VK_NULL_HANDLE;
+            if create_buffer(device, &bci_r, std::ptr::null(), &mut rb) != VK_SUCCESS {
+                return Err("vkCreateBuffer(readback) 失败".into());
+            }
+            let mut req_r = std::mem::zeroed::<MemoryRequirements>();
+            buf_mem_req(device, rb, &mut req_r);
+            let Some(mt_r) = pick_mem_type(
+                &memprops,
+                req_r.memory_type_bits,
+                MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+            ) else {
+                destroy_buffer(device, rb, std::ptr::null());
+                return Err("无匹配内存类型(readback)".into());
+            };
+            let mai_r = MemoryAllocateInfo {
+                s_type: ST_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: req_r.size,
+                memory_type_index: mt_r,
+            };
+            let mut rb_mem: VkDeviceMemory = VK_NULL_HANDLE;
+            if alloc_mem(device, &mai_r, std::ptr::null(), &mut rb_mem) != VK_SUCCESS {
+                destroy_buffer(device, rb, std::ptr::null());
+                return Err("vkAllocateMemory(readback) 失败".into());
+            }
+            bind_buf(device, rb, rb_mem, 0);
+            buffers.push((rb, rb_mem));
+        }
+
+        // ── 双 graphics pipeline(同状态仅 FS 不同;flags2 携 INDIRECT_BINDABLE——
+        // execution set 成员管线创建期强制位,VUID-VkIndirectExecutionSetPipeline
+        // InfoEXT-initialPipeline-11015 族)──
+        let vi = PipelineVertexInputStateCreateInfo {
+            s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            vertex_binding_description_count: 0,
+            p_vertex_binding_descriptions: std::ptr::null(),
+            vertex_attribute_description_count: 0,
+            p_vertex_attribute_descriptions: std::ptr::null(),
+        };
+        let ia = PipelineInputAssemblyStateCreateInfo {
+            s_type: ST_PIPELINE_INPUT_ASSEMBLY_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            topology: PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            primitive_restart_enable: 0,
+        };
+        let viewport = VkViewport {
+            x: 0.0,
+            y: 0.0,
+            width: scene.width as f32,
+            height: scene.height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        };
+        let scissor = VkRect2D {
+            offset: VkOffset2D { x: 0, y: 0 },
+            extent: VkExtent2D {
+                width: scene.width,
+                height: scene.height,
+            },
+        };
+        let vs_state = PipelineViewportStateCreateInfo {
+            s_type: ST_PIPELINE_VIEWPORT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            viewport_count: 1,
+            p_viewports: &viewport,
+            scissor_count: 1,
+            p_scissors: &scissor,
+        };
+        let rs = PipelineRasterizationStateCreateInfo {
+            s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            depth_clamp_enable: 0,
+            rasterizer_discard_enable: 0,
+            polygon_mode: POLYGON_MODE_FILL,
+            cull_mode: CULL_MODE_NONE,
+            front_face: FRONT_FACE_COUNTER_CLOCKWISE,
+            depth_bias_enable: 0,
+            depth_bias_constant_factor: 0.0,
+            depth_bias_clamp: 0.0,
+            depth_bias_slope_factor: 0.0,
+            line_width: 1.0,
+        };
+        let ms = PipelineMultisampleStateCreateInfo {
+            s_type: ST_PIPELINE_MULTISAMPLE_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            rasterization_samples: SAMPLE_COUNT_1,
+            sample_shading_enable: 0,
+            min_sample_shading: 0.0,
+            p_sample_mask: std::ptr::null(),
+            alpha_to_coverage_enable: 0,
+            alpha_to_one_enable: 0,
+        };
+        let cb_attach = PipelineColorBlendAttachmentState {
+            blend_enable: 0,
+            src_color_blend_factor: 0,
+            dst_color_blend_factor: 0,
+            color_blend_op: 0,
+            src_alpha_blend_factor: 0,
+            dst_alpha_blend_factor: 0,
+            alpha_blend_op: 0,
+            color_write_mask: COLOR_COMPONENT_RGBA,
+        };
+        let cb = PipelineColorBlendStateCreateInfo {
+            s_type: ST_PIPELINE_COLOR_BLEND_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            logic_op_enable: 0,
+            logic_op: 0,
+            attachment_count: 1,
+            p_attachments: &cb_attach,
+            blend_constants: [0.0; 4],
+        };
+        for fs_mod in [fs_a_mod, fs_b_mod] {
+            let stages = [
+                PipelineShaderStageCreateInfo {
+                    s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    stage: SHADER_STAGE_VERTEX,
+                    module: vs_mod,
+                    p_name: c"main".as_ptr(),
+                    p_specialization_info: std::ptr::null(),
+                },
+                PipelineShaderStageCreateInfo {
+                    s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    stage: SHADER_STAGE_FRAGMENT,
+                    module: fs_mod,
+                    p_name: c"main".as_ptr(),
+                    p_specialization_info: std::ptr::null(),
+                },
+            ];
+            let flags2 = PipelineCreateFlags2CreateInfoKHR {
+                s_type: ST_PIPELINE_CREATE_FLAGS_2_CREATE_INFO_KHR,
+                p_next: std::ptr::null(),
+                flags: PIPELINE_CREATE_2_INDIRECT_BINDABLE_EXT,
+            };
+            let gpci = GraphicsPipelineCreateInfo {
+                s_type: ST_GRAPHICS_PIPELINE_CREATE_INFO,
+                p_next: &flags2 as *const PipelineCreateFlags2CreateInfoKHR as *const c_void,
+                flags: 0,
+                stage_count: 2,
+                p_stages: stages.as_ptr(),
+                p_vertex_input_state: &vi,
+                p_input_assembly_state: &ia,
+                p_tessellation_state: std::ptr::null(),
+                p_viewport_state: &vs_state,
+                p_rasterization_state: &rs,
+                p_multisample_state: &ms,
+                p_depth_stencil_state: std::ptr::null(),
+                p_color_blend_state: &cb,
+                p_dynamic_state: std::ptr::null(),
+                layout: gfx_pl,
+                render_pass: rp,
+                subpass: 0,
+                base_pipeline_handle: VK_NULL_HANDLE,
+                base_pipeline_index: -1,
+            };
+            let mut pipe: VkPipeline = VK_NULL_HANDLE;
+            if create_gp(
+                device,
+                VK_NULL_HANDLE,
+                1,
+                &gpci,
+                std::ptr::null(),
+                &mut pipe,
+            ) != VK_SUCCESS
+            {
+                return Err("vkCreateGraphicsPipelines(execution set 成员) 失败".into());
+            }
+            pipelines.push(pipe);
+        }
+
+        // ── execution set v1(initialPipeline=成员 0;update 写成员 1)──
+        let pipe_info = IndirectExecutionSetPipelineInfoEXT {
+            s_type: ST_INDIRECT_EXECUTION_SET_PIPELINE_INFO_EXT,
+            p_next: std::ptr::null(),
+            initial_pipeline: pipelines[0],
+            max_pipeline_count: 2,
+        };
+        let esci = IndirectExecutionSetCreateInfoEXT {
+            s_type: ST_INDIRECT_EXECUTION_SET_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            ty: EXECUTION_SET_INFO_TYPE_PIPELINES,
+            p_pipeline_info: &pipe_info,
+        };
+        let mut exec_set: VkIndirectExecutionSetEXT = 0;
+        if create_exec_set(device, &esci, std::ptr::null(), &mut exec_set) != VK_SUCCESS {
+            return Err("vkCreateIndirectExecutionSetEXT 失败(capability 面 fail-closed)".into());
+        }
+        exec_sets.push(exec_set);
+        let write1 = WriteIndirectExecutionSetPipelineEXT {
+            s_type: ST_WRITE_INDIRECT_EXECUTION_SET_PIPELINE_EXT,
+            p_next: std::ptr::null(),
+            index: 1,
+            pipeline: pipelines[1],
+        };
+        update_exec_set(device, exec_set, 1, &write1);
+
+        // ── indirect commands layout([execution-set token @0 | draw token @4],
+        // stride 20;状态预绑不存在——VS 无输入,管线状态全由 set 承载)──
+        let es_token = IndirectCommandsExecutionSetTokenEXT {
+            ty: EXECUTION_SET_INFO_TYPE_PIPELINES,
+            shader_stages: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+        };
+        let tokens = [
+            IndirectCommandsLayoutTokenEXT {
+                s_type: ST_INDIRECT_COMMANDS_LAYOUT_TOKEN_EXT,
+                p_next: std::ptr::null(),
+                ty: DGC_TOKEN_TYPE_EXECUTION_SET,
+                data: IndirectCommandsTokenDataEXT {
+                    p_execution_set: &es_token as *const IndirectCommandsExecutionSetTokenEXT
+                        as *const c_void,
+                },
+                offset: 0,
+            },
+            IndirectCommandsLayoutTokenEXT {
+                s_type: ST_INDIRECT_COMMANDS_LAYOUT_TOKEN_EXT,
+                p_next: std::ptr::null(),
+                ty: DGC_TOKEN_TYPE_DRAW,
+                data: IndirectCommandsTokenDataEXT {
+                    p_execution_set: std::ptr::null(),
+                },
+                offset: 4,
+            },
+        ];
+        let dlci = IndirectCommandsLayoutCreateInfoEXT {
+            s_type: ST_INDIRECT_COMMANDS_LAYOUT_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            shader_stages: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+            indirect_stride: 20,
+            pipeline_layout: gfx_pl,
+            token_count: 2,
+            p_tokens: tokens.as_ptr(),
+        };
+        let mut dgc_layout: VkIndirectCommandsLayoutEXT = VK_NULL_HANDLE;
+        if create_dgc_layout(device, &dlci, std::ptr::null(), &mut dgc_layout) != VK_SUCCESS {
+            return Err("vkCreateIndirectCommandsLayoutEXT(execution-set token) 失败".into());
+        }
+        dgc_layouts.push(dgc_layout);
+
+        // ── preprocess 尺寸实测(execute-only 臂 NVIDIA 驱动亦强制非空,
+        // VUID-11063/11071;先查后建满尺)──
+        let mem_info = GeneratedCommandsMemoryRequirementsInfoEXT {
+            s_type: ST_GENERATED_COMMANDS_MEMORY_REQUIREMENTS_INFO_EXT,
+            p_next: std::ptr::null(),
+            indirect_execution_set: exec_set,
+            indirect_commands_layout: dgc_layout,
+            max_sequence_count: 2,
+            max_draw_count: 2,
+        };
+        let mut mr2 = MemoryRequirements2 {
+            s_type: ST_MEMORY_REQUIREMENTS_2,
+            p_next: std::ptr::null_mut(),
+            memory_requirements: MemoryRequirements {
+                size: 0,
+                alignment: 0,
+                memory_type_bits: 0,
+            },
+        };
+        get_dgc_mem_req(device, &mem_info, &mut mr2);
+        let preprocess_size = mr2.memory_requirements.size.max(256);
+        let uf2 = BufferUsageFlags2CreateInfo {
+            s_type: ST_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+            p_next: std::ptr::null(),
+            usage: BUFFER_USAGE_2_PREPROCESS_BUFFER_EXT
+                | u64::from(BUFFER_USAGE_SHADER_DEVICE_ADDRESS),
+        };
+        let bci_pp = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: &uf2 as *const BufferUsageFlags2CreateInfo as *const c_void,
+            flags: 0,
+            size: preprocess_size,
+            usage: 0, // usage2 经 pNext 承载(32 位域不含 PREPROCESS 位)
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut pp_buf: VkBuffer = VK_NULL_HANDLE;
+        if create_buffer(device, &bci_pp, std::ptr::null(), &mut pp_buf) != VK_SUCCESS {
+            return Err("vkCreateBuffer(preprocess) 失败".into());
+        }
+        let mut req_pp = std::mem::zeroed::<MemoryRequirements>();
+        buf_mem_req(device, pp_buf, &mut req_pp);
+        let Some(mt_pp) = pick_mem_type(&memprops, req_pp.memory_type_bits, MEM_DEVICE_LOCAL)
+        else {
+            destroy_buffer(device, pp_buf, std::ptr::null());
+            return Err("无匹配内存类型(preprocess)".into());
+        };
+        let flags_pp = MemoryAllocateFlagsInfo {
+            s_type: ST_MEMORY_ALLOCATE_FLAGS_INFO,
+            p_next: std::ptr::null(),
+            flags: MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+            device_mask: 0,
+        };
+        let mai_pp = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: &flags_pp as *const MemoryAllocateFlagsInfo as *const c_void,
+            allocation_size: req_pp.size,
+            memory_type_index: mt_pp,
+        };
+        let mut pp_mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai_pp, std::ptr::null(), &mut pp_mem) != VK_SUCCESS {
+            destroy_buffer(device, pp_buf, std::ptr::null());
+            return Err("vkAllocateMemory(preprocess) 失败".into());
+        }
+        bind_buf(device, pp_buf, pp_mem, 0);
+        let bda_pp = BufferDeviceAddressInfo {
+            s_type: ST_BUFFER_DEVICE_ADDRESS_INFO,
+            p_next: std::ptr::null(),
+            buffer: pp_buf,
+        };
+        let pp_addr = get_buf_addr(device, &bda_pp);
+        buffers.push((pp_buf, pp_mem));
+
+        // ── command pool + 两 command buffer(cb1:GPU 臂 + CPU golden 臂;
+        // cb2:失效重建臂)──
+        let cpci2 = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        if create_cmdpool(device, &cpci2, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            return Err("vkCreateCommandPool 失败".into());
+        }
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: CMD_BUFFER_LEVEL_PRIMARY,
+            command_buffer_count: 2,
+        };
+        let mut cmds: [VkCommandBuffer; 2] = [std::ptr::null_mut(); 2];
+        if alloc_cmd(device, &cbai, cmds.as_mut_ptr()) != VK_SUCCESS {
+            return Err("vkAllocateCommandBuffers 失败".into());
+        }
+
+        let clear_v = ClearValue { color: scene.clear };
+        let gci = GeneratedCommandsInfoEXT {
+            s_type: ST_GENERATED_COMMANDS_INFO_EXT,
+            p_next: std::ptr::null(), // execution set 非空 → 不挂 pipeline info pNext
+            shader_stages: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+            indirect_execution_set: exec_set,
+            indirect_commands_layout: dgc_layout,
+            indirect_address: in_addr,
+            indirect_address_size: stream.len() as u64,
+            preprocess_address: pp_addr,
+            preprocess_size,
+            max_sequence_count: 2,
+            sequence_count_address: 0,
+            max_draw_count: 2,
+        };
+        // 段录制宏:begin rp(fb 第 i 个)→ 闭包录制画命令 → end rp → barrier → copy。
+        macro_rules! record_arm {
+            ($cmd:expr, $fb_idx:expr, $record:expr) => {{
+                let rpbi = RenderPassBeginInfo {
+                    s_type: ST_RENDER_PASS_BEGIN_INFO,
+                    p_next: std::ptr::null(),
+                    render_pass: rp,
+                    framebuffer: framebuffers[$fb_idx],
+                    render_area: VkRect2D {
+                        offset: VkOffset2D { x: 0, y: 0 },
+                        extent: VkExtent2D {
+                            width: scene.width,
+                            height: scene.height,
+                        },
+                    },
+                    clear_value_count: 1,
+                    p_clear_values: &clear_v,
+                };
+                cmd_begin_rp($cmd, &rpbi, SUBPASS_CONTENTS_INLINE);
+                $record
+                cmd_end_rp($cmd);
+                let imb = ImageMemoryBarrier {
+                    s_type: ST_IMAGE_MEMORY_BARRIER,
+                    p_next: std::ptr::null(),
+                    src_access_mask: ACCESS_COLOR_ATTACHMENT_WRITE,
+                    dst_access_mask: ACCESS_TRANSFER_READ,
+                    old_layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    new_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    image: images[$fb_idx].0,
+                    subresource_range: VkImageSubresourceRange {
+                        aspect_mask: IMAGE_ASPECT_COLOR,
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                };
+                cmd_barrier(
+                    $cmd,
+                    PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
+                    PIPELINE_STAGE_TRANSFER,
+                    0,
+                    0,
+                    std::ptr::null(),
+                    0,
+                    std::ptr::null(),
+                    1,
+                    &imb,
+                );
+                let region = VkBufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_row_length: 0,
+                    buffer_image_height: 0,
+                    image_subresource: VkImageSubresourceLayers {
+                        aspect_mask: IMAGE_ASPECT_COLOR,
+                        mip_level: 0,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                    image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                    image_extent: VkExtent3D {
+                        width: scene.width,
+                        height: scene.height,
+                        depth: 1,
+                    },
+                };
+                // readback buffer = buffers[1 + $fb_idx](buffers[0] = indirect input,
+                // 此后三个 readback 依登记序;preprocess buffer 在其后登记)。
+                cmd_copy_img_buf(
+                    $cmd,
+                    images[$fb_idx].0,
+                    IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    buffers[1 + $fb_idx].0,
+                    1,
+                    &region,
+                );
+            }};
+        }
+
+        let cbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            p_inheritance_info: std::ptr::null(),
+        };
+        // ── cb1:GPU 臂(execution set 索引切换)+ CPU golden 臂(bind 切换)──
+        if begin_cmd(cmds[0], &cbi) != VK_SUCCESS {
+            return Err("vkBeginCommandBuffer(cb1) 失败".into());
+        }
+        record_arm!(cmds[0], 0, {
+            // VUID-vkCmdExecuteGeneratedCommandsEXT-indirectCommandsLayout-11053:
+            // execution set token 存在时,command buffer 必须先绑定 initial shader state
+            // (initial pipeline)。
+            cmd_bind_pipe(cmds[0], PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
+            cmd_execute_dgc(cmds[0], 0, &gci);
+        });
+        record_arm!(cmds[0], 1, {
+            cmd_bind_pipe(cmds[0], PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
+            cmd_draw(cmds[0], 3, 1, 0, 0);
+            cmd_bind_pipe(cmds[0], PIPELINE_BIND_POINT_GRAPHICS, pipelines[1]);
+            cmd_draw(cmds[0], 3, 1, 0, 1);
+        });
+        if end_cmd(cmds[0]) != VK_SUCCESS {
+            return Err("vkEndCommandBuffer(cb1) 失败".into());
+        }
+        let si1 = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmds[0],
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        if queue_submit(queue, 1, &si1, 0) != VK_SUCCESS {
+            return Err("vkQueueSubmit(cb1) 失败".into());
+        }
+        queue_wait(queue);
+
+        // ── 失效重建(RXS-0355 L3):queue 排空后 destroy set v1,同输入重建 v2
+        // (同成员管线、同 update 写序;句柄物理值非 stable,内容身份由重建后
+        // 重跑像素逐字节一致承担)──
+        destroy_exec_set(device, exec_set, std::ptr::null());
+        exec_sets.clear();
+        let pipe_info2 = IndirectExecutionSetPipelineInfoEXT {
+            s_type: ST_INDIRECT_EXECUTION_SET_PIPELINE_INFO_EXT,
+            p_next: std::ptr::null(),
+            initial_pipeline: pipelines[0],
+            max_pipeline_count: 2,
+        };
+        let esci2 = IndirectExecutionSetCreateInfoEXT {
+            s_type: ST_INDIRECT_EXECUTION_SET_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            ty: EXECUTION_SET_INFO_TYPE_PIPELINES,
+            p_pipeline_info: &pipe_info2,
+        };
+        let mut exec_set2: VkIndirectExecutionSetEXT = 0;
+        if create_exec_set(device, &esci2, std::ptr::null(), &mut exec_set2) != VK_SUCCESS {
+            return Err("vkCreateIndirectExecutionSetEXT(重建) 失败".into());
+        }
+        exec_sets.push(exec_set2);
+        update_exec_set(device, exec_set2, 1, &write1);
+        let gci2 = GeneratedCommandsInfoEXT {
+            indirect_execution_set: exec_set2,
+            ..gci
+        };
+        if begin_cmd(cmds[1], &cbi) != VK_SUCCESS {
+            return Err("vkBeginCommandBuffer(cb2) 失败".into());
+        }
+        record_arm!(cmds[1], 2, {
+            // 失效重建臂同 VUID-11053 纪律:execute 前绑 initial pipeline。
+            cmd_bind_pipe(cmds[1], PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
+            cmd_execute_dgc(cmds[1], 0, &gci2);
+        });
+        if end_cmd(cmds[1]) != VK_SUCCESS {
+            return Err("vkEndCommandBuffer(cb2) 失败".into());
+        }
+        let si2 = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmds[1],
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        if queue_submit(queue, 1, &si2, 0) != VK_SUCCESS {
+            return Err("vkQueueSubmit(cb2) 失败".into());
+        }
+        queue_wait(queue);
+
+        // ── 三臂回读(host-visible+coherent;queue_wait 后无在途写)──
+        let mut arms: Vec<Vec<u8>> = Vec::with_capacity(3);
+        for i in 0..3usize {
+            let (_, mem) = buffers[1 + i];
+            let mut out = vec![0u8; readback_len];
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                return Err("vkMapMemory(readback) 失败".into());
+            }
+            // SAFETY: ptr 为刚 map 的 readback_len 字节;queue_wait 后无在途写。
+            std::ptr::copy_nonoverlapping(ptr as *const u8, out.as_mut_ptr(), readback_len);
+            unmap_mem(device, mem);
+            arms.push(out);
+        }
+        Ok(ExecutionSetRunOutput {
+            pixels_gpu: arms[0].clone(),
+            pixels_cpu: arms[1].clone(),
+            pixels_rebuild: arms[2].clone(),
+            max_indirect_pipeline_count: dgc_props.max_indirect_pipeline_count,
+            preprocess_size,
+        })
+    })();
+
+    // 单点逆序销毁(每个早退路径同走;先取走结果再清句柄)。
+    if cmdpool != VK_NULL_HANDLE {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+    }
+    for h in dgc_layouts.iter().rev() {
+        destroy_dgc_layout(device, *h, std::ptr::null());
+    }
+    // execution set 先于其成员 pipeline 销毁(成员引用纪律)。
+    for h in exec_sets.iter().rev() {
+        destroy_exec_set(device, *h, std::ptr::null());
+    }
+    for h in framebuffers.iter().rev() {
+        destroy_fb(device, *h, std::ptr::null());
+    }
+    for h in render_passes.iter().rev() {
+        destroy_rp(device, *h, std::ptr::null());
+    }
+    for h in pipelines.iter().rev() {
+        destroy_pipe(device, *h, std::ptr::null());
+    }
+    for h in pipe_layouts.iter().rev() {
+        destroy_pl(device, *h, std::ptr::null());
+    }
+    for h in shaders.iter().rev() {
+        destroy_shader(device, *h, std::ptr::null());
+    }
+    for v in views.iter().rev() {
+        destroy_view(device, *v, std::ptr::null());
+    }
+    for (img, mem) in images.iter().rev() {
+        destroy_image(device, *img, std::ptr::null());
+        free_mem(device, *mem, std::ptr::null());
+    }
+    for (buf, mem) in buffers.iter().rev() {
+        destroy_buffer(device, *buf, std::ptr::null());
+        free_mem(device, *mem, std::ptr::null());
+    }
+    body_result
+}
+
+#[cfg(test)]
+mod m106_exec_set_tests {
+    use super::*;
+
+    /// Execution Set FFI 布局锚(size/align/sType/枚举值;扩展号 572 段,经
+    /// vulkan_core.h 1.3.296 L1149~1157/L19566~19718 逐值核对)。
+    //@ spec: RXS-0355
+    #[test]
+    fn m106_exec_set_ffi_layout_anchors() {
+        // VkIndirectExecutionSetPipelineInfoEXT:sType@0 + pad@4 + pNext@8 +
+        // initialPipeline@16(u64)+ maxPipelineCount@24 → 32B align 8。
+        assert_eq!(size_of::<IndirectExecutionSetPipelineInfoEXT>(), 32);
+        assert_eq!(align_of::<IndirectExecutionSetPipelineInfoEXT>(), 8);
+        // VkIndirectExecutionSetCreateInfoEXT:sType@0 + pNext@8 + type@16(u32)
+        // + pad + info 指针@24 → 32B align 8。
+        assert_eq!(size_of::<IndirectExecutionSetCreateInfoEXT>(), 32);
+        assert_eq!(align_of::<IndirectExecutionSetCreateInfoEXT>(), 8);
+        // VkWriteIndirectExecutionSetPipelineEXT:sType@0 + pNext@8 + index@16
+        // (u32)+ pad + pipeline@24 → 32B align 8。
+        assert_eq!(size_of::<WriteIndirectExecutionSetPipelineEXT>(), 32);
+        assert_eq!(align_of::<WriteIndirectExecutionSetPipelineEXT>(), 8);
+        // VkIndirectCommandsExecutionSetTokenEXT:type@0 + shaderStages@4 → 8B align 4。
+        assert_eq!(size_of::<IndirectCommandsExecutionSetTokenEXT>(), 8);
+        assert_eq!(align_of::<IndirectCommandsExecutionSetTokenEXT>(), 4);
+        // sType / 枚举值锚(vulkan_core.h 逐值)。
+        assert_eq!(ST_INDIRECT_EXECUTION_SET_CREATE_INFO_EXT, 1_000_572_003);
+        assert_eq!(ST_WRITE_INDIRECT_EXECUTION_SET_PIPELINE_EXT, 1_000_572_008);
+        assert_eq!(ST_INDIRECT_EXECUTION_SET_PIPELINE_INFO_EXT, 1_000_572_010);
+        assert_eq!(DGC_TOKEN_TYPE_EXECUTION_SET, 0);
+        assert_eq!(EXECUTION_SET_INFO_TYPE_PIPELINES, 0);
+        assert_eq!(PIPELINE_CREATE_2_INDIRECT_BINDABLE_EXT, 0x4000_0000_00);
+    }
+
+    /// 命令流布局锚(harness 与 lane 共享事实源:seq k @ k*20 = set_index u32
+    /// @0 + VkDrawIndirectCommand 16B @4;stride 20;draw token offset 4)。
+    //@ spec: RXS-0355
+    #[test]
+    fn m106_command_stream_layout_anchor() {
+        // 与 exec_set_body 内 stream 构造逐字节同构:seq1 = [1 | 3,1,0,1]。
+        let mut stream = [0u8; 40];
+        for k in 0..2u32 {
+            let base = (k as usize) * 20;
+            stream[base..base + 4].copy_from_slice(&k.to_le_bytes());
+            for (j, w) in [3u32, 1, 0, k].iter().enumerate() {
+                stream[base + 4 + j * 4..base + 8 + j * 4].copy_from_slice(&w.to_le_bytes());
+            }
+        }
+        assert_eq!(&stream[0..4], &0u32.to_le_bytes(), "seq0 set_index=0");
+        assert_eq!(&stream[4..8], &3u32.to_le_bytes(), "seq0 vertexCount=3");
+        assert_eq!(&stream[16..20], &0u32.to_le_bytes(), "seq0 firstInstance=0");
+        assert_eq!(&stream[20..24], &1u32.to_le_bytes(), "seq1 set_index=1");
+        assert_eq!(&stream[36..40], &1u32.to_le_bytes(), "seq1 firstInstance=1");
+    }
+}

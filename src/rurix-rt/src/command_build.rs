@@ -471,6 +471,29 @@ mod tests {
         );
     }
 
+    /// 验证回读显式记账对账口径(RXS-0354 L2/L4;M105 device harness
+    /// `bin/vk_command_build` 消费):生产路径 baseline 后零增量(隐式回读为零)
+    /// 与「产物经显式 readback pass 回读后显式记账为 verification readback」
+    /// 两口径分离——记账后 delta == 记账量,断言面据增量类别区分,不混同。
+    /// 单测试函数内串行(进程级计数器,避免并行用例互染)。
+    //@ spec: RXS-0354
+    #[test]
+    fn verification_readback_accounting_protocol() {
+        let baseline = readback_baseline();
+        // 生产窗:零增量(隐式回读为零 = 判据 readback_counter=0 口径)。
+        assert_eq!(assert_zero_readback_since(baseline), Ok(()));
+        // 验证窗:显式 readback pass 产物回读 → 显式记账 N(verification readback)。
+        dgc::readback_counter_record(32);
+        let delta = dgc::readback_counter().saturating_sub(baseline);
+        assert_eq!(delta, 32, "verification readback 显式记账须如实反映");
+        // 记账后同一断言按 RXS-0354 L4 判红——两类口径据此分离(harness 先断言
+        // 生产零增量、后记账验证回读,次序为本协议的一部分)。
+        assert_eq!(
+            assert_zero_readback_since(baseline),
+            Err(CommandBuildError::ReadbackDetected { delta: 32 })
+        );
+    }
+
     /// conformance 锚定语料消费(RXS-0354;`command_build_host_readback.rx`,
     /// 可消费不可改):锚文件存在且携带本条款号(RED 语义面 = 本模块
     /// `ReadbackDetected` / dgc.rs 类型层无 host 读接口)。
