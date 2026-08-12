@@ -17,7 +17,9 @@ pub mod gpu_layout;
 pub mod gpu_scene;
 pub mod material_pass;
 // G9.3 波:蒙皮 host 参照(M92 RXS-0353)+ VisibleClusterSet 单源真相
-// (M93 RXS-0350 / M95 RXS-0352)。
+// (M93 RXS-0350 / M95 RXS-0352)。M92 device 腿:蒙皮 kernel 手编 SPV 构建
+// (纯 host 数据构造)。
+pub mod skin_kernel;
 pub mod skinning;
 pub mod visible_cluster_set;
 pub mod visbuffer;

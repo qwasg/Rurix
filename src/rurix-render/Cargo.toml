@@ -27,5 +27,13 @@ path = "src/bin/g8_m19_probe.rs"
 name = "g8_m25_probe"
 path = "src/bin/g8_m25_probe.rs"
 
+# G9.3 M92 GPU 蒙皮 device 对拍 harness(RXS-0353;门 g9.p1.m92.gpu_skinning_lod_update):
+# 手编 SPV 蒙皮 compute kernel(geometry/skin_kernel.rs)经 rurix-rt render_exec 真跑,
+# 与 host Kerbl 参照逐顶点容差 0 对拍 + 包围球/法向锥包含核验 + RED 臂。
+[[bin]]
+name = "g9_m92_skinning_device"
+path = "src/bin/g9_m92_skinning_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true
