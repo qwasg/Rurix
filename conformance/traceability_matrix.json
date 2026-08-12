@@ -1809,27 +1809,35 @@
     ],
     "RXS-0350": [
       "conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx",
-      "conformance/virtual_geometry/reject/selection_cut_hole_injected.rx"
+      "conformance/virtual_geometry/reject/selection_cut_hole_injected.rx",
+      "src/rurix-geom-build/src/cull_ref.rs"
     ],
     "RXS-0351": [
       "conformance/virtual_geometry/accept/clas_blas_matched.rx",
-      "conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx"
+      "conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx",
+      "src/rurix-rt/src/rt_clas.rs",
+      "src/rurix-rt/src/vk.rs"
     ],
     "RXS-0352": [
       "conformance/virtual_geometry/accept/single_source_three_consumers.rx",
       "conformance/virtual_geometry/reject/bypass_single_source_variant.rx"
     ],
     "RXS-0353": [
-      "conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx"
+      "conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx",
+      "src/rurix-geom-build/src/dag.rs"
     ],
     "RXS-0354": [
-      "conformance/gpu_driven_submit/reject/command_build_host_readback.rx"
+      "conformance/gpu_driven_submit/reject/command_build_host_readback.rx",
+      "src/rurix-rt/src/command_build.rs"
     ],
     "RXS-0355": [
+      "src/rurix-rt/src/execution_set.rs",
+      "src/rurix-rt/src/pso_cache.rs",
       "src/rurixc/src/capability_check.rs"
     ],
     "RXS-0356": [
-      "conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx"
+      "conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx",
+      "src/rurixc/src/shader_library.rs"
     ]
   }
 }

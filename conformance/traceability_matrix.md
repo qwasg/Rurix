@@ -335,10 +335,10 @@
 | RXS-0347 | spec/rendering_platform.md | 4 | `conformance/reflection/reject/global_descriptor_index_dangling.rx`, `src/rurix-rt/src/descriptor_table.rs`, `src/rurix-rt/src/vk.rs` …(+1) |
 | RXS-0348 | spec/gpu_driven_submit.md | 3 | `conformance/gpu_driven_submit/reject/dgc_layout_double_terminator.rx`, `src/rurix-rt/src/dgc.rs`, `src/rurix-rt/src/vk.rs` |
 | RXS-0349 | spec/shader_stages.md | 2 | `conformance/capability/reject/unknown_capability_id_g92.rx`, `src/rurixc/src/capability_check.rs` |
-| RXS-0350 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx`, `conformance/virtual_geometry/reject/selection_cut_hole_injected.rx` |
-| RXS-0351 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/clas_blas_matched.rx`, `conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx` |
+| RXS-0350 | spec/virtual_geometry.md | 3 | `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx`, `conformance/virtual_geometry/reject/selection_cut_hole_injected.rx`, `src/rurix-geom-build/src/cull_ref.rs` |
+| RXS-0351 | spec/virtual_geometry.md | 4 | `conformance/virtual_geometry/accept/clas_blas_matched.rx`, `conformance/virtual_geometry/reject/clas_blas_cluster_mismatch.rx`, `src/rurix-rt/src/rt_clas.rs` …(+1) |
 | RXS-0352 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/single_source_three_consumers.rx`, `conformance/virtual_geometry/reject/bypass_single_source_variant.rx` |
-| RXS-0353 | spec/virtual_geometry.md | 1 | `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx` |
-| RXS-0354 | spec/gpu_driven_submit.md | 1 | `conformance/gpu_driven_submit/reject/command_build_host_readback.rx` |
-| RXS-0355 | spec/gpu_driven_submit.md | 1 | `src/rurixc/src/capability_check.rs` |
-| RXS-0356 | spec/gpu_driven_submit.md | 1 | `conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx` |
+| RXS-0353 | spec/virtual_geometry.md | 2 | `conformance/virtual_geometry/accept/visible_cluster_set_valid_cut.rx`, `src/rurix-geom-build/src/dag.rs` |
+| RXS-0354 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/command_build_host_readback.rx`, `src/rurix-rt/src/command_build.rs` |
+| RXS-0355 | spec/gpu_driven_submit.md | 3 | `src/rurix-rt/src/execution_set.rs`, `src/rurix-rt/src/pso_cache.rs`, `src/rurixc/src/capability_check.rs` |
+| RXS-0356 | spec/gpu_driven_submit.md | 2 | `conformance/gpu_driven_submit/reject/variant_budget_exceeded.rx`, `src/rurixc/src/shader_library.rs` |
