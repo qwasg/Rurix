@@ -442,6 +442,27 @@ def check_evidence_files() -> None:
     g9_m91_page_format_v2_abi_schema = load(
         ROOT / "milestones/g9/g9_m91_page_format_v2_abi_evidence_schema.json"
     )
+    g9_m93_visible_cluster_set_schema = load(
+        ROOT / "milestones/g9/g9_m93_visible_cluster_set_evidence_schema.json"
+    )
+    g9_m94_clas_rt_convergence_schema = load(
+        ROOT / "milestones/g9/g9_m94_clas_rt_convergence_evidence_schema.json"
+    )
+    g9_m95_single_source_truth_schema = load(
+        ROOT / "milestones/g9/g9_m95_single_source_truth_evidence_schema.json"
+    )
+    g9_m92_gpu_skinning_lod_update_schema = load(
+        ROOT / "milestones/g9/g9_m92_gpu_skinning_lod_update_evidence_schema.json"
+    )
+    g9_m105_command_build_node_schema = load(
+        ROOT / "milestones/g9/g9_m105_command_build_node_evidence_schema.json"
+    )
+    g9_m106_execution_set_pso_schema = load(
+        ROOT / "milestones/g9/g9_m106_execution_set_pso_evidence_schema.json"
+    )
+    g9_m107_shader_library_ir_link_schema = load(
+        ROOT / "milestones/g9/g9_m107_shader_library_ir_link_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -906,6 +927,41 @@ def check_evidence_files() -> None:
     g9_m91_page_format_v2_abi_validator = (
         jsonschema.Draft7Validator(g9_m91_page_format_v2_abi_schema)
         if g9_m91_page_format_v2_abi_schema is not None
+        else None
+    )
+    g9_m93_visible_cluster_set_validator = (
+        jsonschema.Draft7Validator(g9_m93_visible_cluster_set_schema)
+        if g9_m93_visible_cluster_set_schema is not None
+        else None
+    )
+    g9_m94_clas_rt_convergence_validator = (
+        jsonschema.Draft7Validator(g9_m94_clas_rt_convergence_schema)
+        if g9_m94_clas_rt_convergence_schema is not None
+        else None
+    )
+    g9_m95_single_source_truth_validator = (
+        jsonschema.Draft7Validator(g9_m95_single_source_truth_schema)
+        if g9_m95_single_source_truth_schema is not None
+        else None
+    )
+    g9_m92_gpu_skinning_lod_update_validator = (
+        jsonschema.Draft7Validator(g9_m92_gpu_skinning_lod_update_schema)
+        if g9_m92_gpu_skinning_lod_update_schema is not None
+        else None
+    )
+    g9_m105_command_build_node_validator = (
+        jsonschema.Draft7Validator(g9_m105_command_build_node_schema)
+        if g9_m105_command_build_node_schema is not None
+        else None
+    )
+    g9_m106_execution_set_pso_validator = (
+        jsonschema.Draft7Validator(g9_m106_execution_set_pso_schema)
+        if g9_m106_execution_set_pso_schema is not None
+        else None
+    )
+    g9_m107_shader_library_ir_link_validator = (
+        jsonschema.Draft7Validator(g9_m107_shader_library_ir_link_schema)
+        if g9_m107_shader_library_ir_link_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1745,6 +1801,63 @@ def check_evidence_files() -> None:
             # RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。
             # 前缀与 g9_vram_as_baseline_ / g9_m90_cluster_dag_deepening_ 互不包含。
             validator = g9_m91_page_format_v2_abi_validator
+        elif (
+            f.name.startswith("g9_m93_visible_cluster_set_")
+            and g9_m93_visible_cluster_set_validator is not None
+        ):
+            # G9.3 P0 硬门 M93 visible_cluster_set（步骤 139，host 纯 host 门）：
+            # selection cut 无重叠无空洞 + 父簇兜底/复原 + 空洞注入 RED +
+            # 双跑 digest 逐位相等（RXS-0350；RFC-0022 §4.2）。
+            # 前缀与 g9_m9x/g9_m1xx 全族互不包含。
+            validator = g9_m93_visible_cluster_set_validator
+        elif (
+            f.name.startswith("g9_m94_clas_rt_convergence_")
+            and g9_m94_clas_rt_convergence_validator is not None
+        ):
+            # G9.3 P0 硬门 M94 clas_rt_convergence（步骤 140，host+device 门）：
+            # CLAS 主腿 vs BLAS 回退腿逐命中一致（容差 0）+ 错簇 RED +
+            # 静态帧零 AS 构建 + validation=0（RXS-0351；RFC-0022 §4.3；U56）。
+            validator = g9_m94_clas_rt_convergence_validator
+        elif (
+            f.name.startswith("g9_m95_single_source_truth_")
+            and g9_m95_single_source_truth_validator is not None
+        ):
+            # G9.3 P0 硬门 M95 single_source_truth（步骤 141，host+device 门）：
+            # 一份三喂 provenance + 旁路 variant RED + 蒙皮簇 VisBuffer
+            # SW/HW diff=0（RXS-0352；RFC-0022 §4.4；R-G9-8）。
+            validator = g9_m95_single_source_truth_validator
+        elif (
+            f.name.startswith("g9_m92_gpu_skinning_lod_update_")
+            and g9_m92_gpu_skinning_lod_update_validator is not None
+        ):
+            # G9.3 P1 硬门 M92 gpu_skinning_lod_update（步骤 142，host+device 门）：
+            # GPU 蒙皮 vs host 参照逐顶点一致 + 保守包围体包含 + 档位闭集
+            # 确定性 + 静态帧零 AS 构建（RXS-0353；G9_CONTRACT §8.1 裁决①）。
+            validator = g9_m92_gpu_skinning_lod_update_validator
+        elif (
+            f.name.startswith("g9_m105_command_build_node_")
+            and g9_m105_command_build_node_validator is not None
+        ):
+            # G9.3 P1 硬门 M105 command_build_node（步骤 143，host+device 门）：
+            # 全链路零 CPU 回读 + 构建产物逐字节一致 + RED 注入臂
+            # （RXS-0354；RFC-0023 §4.4；复用 U54 lane）。
+            validator = g9_m105_command_build_node_validator
+        elif (
+            f.name.startswith("g9_m106_execution_set_pso_")
+            and g9_m106_execution_set_pso_validator is not None
+        ):
+            # G9.3 P1 硬门 M106 execution_set_pso（步骤 144，host+device 门）：
+            # GPU 侧索引切换 vs CPU PSO 切换 vs 失效重建三 digest 全等 +
+            # capability 缺失 fail-closed（RXS-0355；RFC-0023 §4.2；U57）。
+            validator = g9_m106_execution_set_pso_validator
+        elif (
+            f.name.startswith("g9_m107_shader_library_ir_link_")
+            and g9_m107_shader_library_ir_link_validator is not None
+        ):
+            # G9.3 P1 硬门 M107 shader_library_ir_link（步骤 145，host 纯 host 门）：
+            # IR 链接 interface hash 确定性 + 链接 fail-closed RED 族 +
+            # 变体预算超限硬失败 RED（RXS-0356；RFC-0023 §4.5/§4.6）。
+            validator = g9_m107_shader_library_ir_link_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

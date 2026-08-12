@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M106 execution_set_pso evidence",
+  "description": "evidence/g9_m106_execution_set_pso_<UTC>.json。G9.3 P1 硬门 g9.p1.m106.execution_set_pso:Execution Set 与 PSO 衔接出图正确(同状态仅换 shader 的管线数组 GPU 侧索引切换,材质变体为消费方;GPU 侧索引切换臂 vs CPU PSO 切换 golden 臂 vs 失效重建臂三 digest 全等,左红右蓝采样点证索引切换真发生);submit.execution_set capability 由 RXS-0349 预留位转正(RXS-0311 加性修订行);失效重建对同输入确定;capability 缺失 fail-closed(D3D12 诚实降级 CPU 侧 PSO 切换并显式登记不可表达,禁静默模拟)。host 段 execution_set/pso_cache/vk::m106/capability_check 四组单测;device 腿必需(vk_execution_set,U57);RURIX_REQUIRE_REAL=1 下 SKIP/degrade 翻硬红。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m106_execution_set_pso" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m106.execution_set_pso" },
+    "matrix_row": { "type": "string", "const": "M106" },
+    "milestone": { "type": "string", "const": "M106" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m106.execution_set_pso" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 144 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.2;spec/gpu_driven_submit.md RXS-0355;spec/shader_stages.md RXS-0311;G9_ACCEPTANCE_MAP §3 M106"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_execution_set_tests_anchored",
+        "host_pso_cache_execution_set_anchored",
+        "host_vk_m106_layout_anchors",
+        "host_capability_reserved_to_real",
+        "device_pass",
+        "device_gpu_cpu_rebuild_equal",
+        "device_index_switch_ok",
+        "device_host_red_arms_ok",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_execution_set_tests_anchored": { "type": "boolean" },
+        "host_pso_cache_execution_set_anchored": { "type": "boolean" },
+        "host_vk_m106_layout_anchors": { "type": "boolean" },
+        "host_capability_reserved_to_real": { "type": "boolean" },
+        "device_pass": { "type": "boolean" },
+        "device_gpu_cpu_rebuild_equal": { "type": "boolean" },
+        "device_index_switch_ok": { "type": "boolean" },
+        "device_host_red_arms_ok": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M105 command_build_node evidence",
+  "description": "evidence/g9_m105_command_build_node_<UTC>.json。G9.3 P1 硬门 g9.p1.m105.command_build_node:command build node(compute pre-pass 产 DgcBuffer → indirect pass 消费)全链路零 CPU 回读——DgcBuffer host 读接口不存在结构性断言 + readback_counter=0 机器核验(任何隐式回读含调试路径必须经计数器显式记账,非零即 RED);构建产物与 host 参照逐字节一致(同输入双构建 digest 相等)。host 段 command_build::tests 7 单测 + conformance 锚定;device 腿必需(vk_command_build 四腿逐字节比对 + 哨兵 0x0D6D 消费 + --red-inject-readback RED 臂必退 1,复用 U54 DGC lane);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m105_command_build_node" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m105.command_build_node" },
+    "matrix_row": { "type": "string", "const": "M105" },
+    "milestone": { "type": "string", "const": "M105" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m105.command_build_node" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 143 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.4;spec/gpu_driven_submit.md RXS-0354;G9_ACCEPTANCE_MAP §3 M105"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_command_build_tests_anchored",
+        "conformance_red_corpus_anchored",
+        "device_pass",
+        "device_byte_exact_legs",
+        "device_double_build_digest_equal",
+        "device_indirect_consumed_sentinel",
+        "device_production_readback_zero",
+        "device_red_inject_readback_ok",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_command_build_tests_anchored": { "type": "boolean" },
+        "conformance_red_corpus_anchored": { "type": "boolean" },
+        "device_pass": { "type": "boolean" },
+        "device_byte_exact_legs": { "type": "boolean" },
+        "device_double_build_digest_equal": { "type": "boolean" },
+        "device_indirect_consumed_sentinel": { "type": "boolean" },
+        "device_production_readback_zero": { "type": "boolean" },
+        "device_red_inject_readback_ok": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

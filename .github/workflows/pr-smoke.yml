@@ -1372,6 +1372,89 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_wave2_exit_check.py --gate g9.wave.2.exit
 
+      # 步骤 139（G9.3 P0 硬门 g9.p0.m93.visible_cluster_set;RFC-0022 §4.2;
+      # spec/virtual_geometry.md RXS-0350;落盘前实测 CI_step.next_free=139 顺位领取）。
+      # host 纯 host 门:visible_cluster_set 9 单测逐名锚定 + cull_ref 运行时覆盖
+      # 核验参照 + conformance accept/reject 锚定 + g9_g93_geometry_probe 双跑
+      # set_digest 逐位相等;空洞/重叠注入 RED 臂。device 段 not_applicable。
+      - name: G9.3 M93 visible cluster set smoke (G9 CI_GATES §4.139, g9.p0.m93.visible_cluster_set)
+        shell: powershell
+        run: py -3 ci/g9_visible_cluster_set_smoke.py --gate g9.p0.m93.visible_cluster_set
+
+      # 步骤 140（G9.3 P0 硬门 g9.p0.m94.clas_rt_convergence;RFC-0022 §4.3;
+      # spec/virtual_geometry.md RXS-0351;U56;落盘前实测 CI_step.next_free=139
+      # 顺位领取 140）。host+device 门:rt_clas 8 单测 + vk::m94 布局锚 +
+      # conformance 锚定;device 段持锁 vk_clas_rt 双臂(validation=on 复跑零报错
+      # + validation=off 主腿真跑 main==fallback==host 逐命中容差 0),
+      # env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.3 M94 CLAS RT convergence smoke (G9 CI_GATES §4.140, g9.p0.m94.clas_rt_convergence)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_clas_rt_convergence_smoke.py --gate g9.p0.m94.clas_rt_convergence
+
+      # 步骤 141（G9.3 P0 硬门 g9.p0.m95.single_source_truth;RFC-0022 §4.4;
+      # spec/virtual_geometry.md RXS-0352;R-G9-8;落盘前实测 CI_step.next_free=139
+      # 顺位领取 141）。host+device 门:provenance/消费锚单测 + probe 真跑 +
+      # device 段持锁 g9_m95_visbuffer_swhw(SW/HW u64 位级 diff=0 + 旁路 RED),
+      # env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.3 M95 single source truth smoke (G9 CI_GATES §4.141, g9.p0.m95.single_source_truth)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_single_source_truth_smoke.py --gate g9.p0.m95.single_source_truth
+
+      # 步骤 142（G9.3 P1 硬门 g9.p1.m92.gpu_skinning_lod_update;
+      # spec/virtual_geometry.md RXS-0353;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=139 顺位领取 142）。host+device 门:skinning::tests
+      # 15 单测 + geom-build dag 桥单测 + device 段持锁 g9_m92_skinning_device
+      # (逐顶点定点域位级 + 包围体三包含 + 档位闭集确定性 + RED 四臂),
+      # env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.3 M92 GPU skinning LOD update smoke (G9 CI_GATES §4A.142, g9.p1.m92.gpu_skinning_lod_update)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_gpu_skinning_lod_update_smoke.py --gate g9.p1.m92.gpu_skinning_lod_update
+
+      # 步骤 143（G9.3 P1 硬门 g9.p1.m105.command_build_node;RFC-0023 §4.4;
+      # spec/gpu_driven_submit.md RXS-0354;复用 U54 DGC lane 零新 FFI;落盘前
+      # 实测 CI_step.next_free=139 顺位领取 143）。host+device 门:command_build
+      # 7 单测 + conformance 锚定 + device 段持锁 vk_command_build(四腿逐字节
+      # 一致 + 哨兵 0x0D6D 消费 + 生产路径零回读 + --red-inject-readback RED
+      # 臂必退 1),env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.3 M105 command build node smoke (G9 CI_GATES §4A.143, g9.p1.m105.command_build_node)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_command_build_node_smoke.py --gate g9.p1.m105.command_build_node
+
+      # 步骤 144（G9.3 P1 硬门 g9.p1.m106.execution_set_pso;RFC-0023 §4.2;
+      # spec/gpu_driven_submit.md RXS-0355 + spec/shader_stages.md RXS-0311 加性
+      # 修订行;U57;落盘前实测 CI_step.next_free=139 顺位领取 144）。host+device
+      # 门:execution_set/pso_cache/vk::m106/capability_check 四组单测 +
+      # device 段持锁 vk_execution_set(GPU 索引切换 vs CPU PSO golden vs
+      # 失效重建三 digest 全等 + capability 缺失 fail-closed),
+      # env 双置 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.3 M106 execution set PSO smoke (G9 CI_GATES §4A.144, g9.p1.m106.execution_set_pso)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_execution_set_pso_smoke.py --gate g9.p1.m106.execution_set_pso
+
+      # 步骤 145（G9.3 P1 硬门 g9.p1.m107.shader_library_ir_link;RFC-0023
+      # §4.5/§4.6;spec/gpu_driven_submit.md RXS-0356;落盘前实测
+      # CI_step.next_free=139 顺位领取 145）。host 纯 host 门:rurixc
+      # shader_library 6 单测逐名锚定 + conformance variant_budget_exceeded
+      # 锚定(变体预算超限装配期硬失败 RED)。device 段 not_applicable。
+      - name: G9.3 M107 shader library IR link smoke (G9 CI_GATES §4A.145, g9.p1.m107.shader_library_ir_link)
+        shell: powershell
+        run: py -3 ci/g9_shader_library_ir_link_smoke.py --gate g9.p1.m107.shader_library_ir_link
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

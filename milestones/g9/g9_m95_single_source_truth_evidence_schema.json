@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M95 single_source_truth evidence",
+  "description": "evidence/g9_m95_single_source_truth_<UTC>.json。G9.3 P0 硬门 g9.p0.m95.single_source_truth:VisibleClusterSet 一份三喂光栅/RT/VSM 的 provenance 链完整可机核;蒙皮簇 VisBuffer SW/HW diff=0 维持(RXS-0303 判据不减损);旁路单源真相 variant 必被 provenance 校验判 RED(负例臂为硬门 R-G9-8);动画分级作用于 AS 更新、静态帧零 AS 构建;帧末一致性断言全真、validation error=0。光栅/RT 各自独立计算可见性的双世界结构即使出图相似也判 FAIL。host 段 provenance/消费锚单测 + probe 真跑;device 腿必需(g9_m95_visbuffer_swhw 双腿 u64 位级 diff=0 + RED 双臂);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m95_single_source_truth" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m95.single_source_truth" },
+    "matrix_row": { "type": "string", "const": "M95" },
+    "milestone": { "type": "string", "const": "M95" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m95.single_source_truth" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 141 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.4;spec/virtual_geometry.md RXS-0352;G9_ACCEPTANCE_MAP §2 M95"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_provenance_tests_anchored",
+        "host_consumer_anchor_tests_anchored",
+        "conformance_red_corpus_anchored",
+        "probe_m95_checks_green",
+        "device_sw_hw_diff_zero",
+        "device_provenance_consumption_anchors",
+        "device_red_arms_ok",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_provenance_tests_anchored": { "type": "boolean" },
+        "host_consumer_anchor_tests_anchored": { "type": "boolean" },
+        "conformance_red_corpus_anchored": { "type": "boolean" },
+        "probe_m95_checks_green": { "type": "boolean" },
+        "device_sw_hw_diff_zero": { "type": "boolean" },
+        "device_provenance_consumption_anchors": { "type": "boolean" },
+        "device_red_arms_ok": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

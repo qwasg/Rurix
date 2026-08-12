@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M107 shader_library_ir_link evidence",
+  "description": "evidence/g9_m107_shader_library_ir_link_<UTC>.json。G9.3 P1 硬门 g9.p1.m107.shader_library_ir_link:shader library IR 函数级组合链接 interface hash 确定性(同输入双构建相等;链接拓扑进 manifest 可回放,拓扑→产物 digest 重算相等);符号缺失/类型契约失配/接口失配/循环链接编译期 fail-closed;变体工程级总预算超限装配期硬失败 RED 臂独立有效;死变体检测报告(只报告不自动删)。host 纯 host 门(rurixc shader_library::tests 6 单测逐名锚定 + conformance variant_budget_exceeded.rx 锚定),device_section_state=not_applicable。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m107_shader_library_ir_link" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m107.shader_library_ir_link" },
+    "matrix_row": { "type": "string", "const": "M107" },
+    "milestone": { "type": "string", "const": "M107" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m107.shader_library_ir_link" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 145 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0023 §4.5/§4.6;spec/gpu_driven_submit.md RXS-0356;G9_ACCEPTANCE_MAP §3 M107"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "not_applicable" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_link_deterministic_and_order_invariant",
+        "host_interface_hash_stability_and_replay",
+        "host_link_fail_closed_reds",
+        "host_variant_budget_exceeded_red_and_boundary",
+        "host_variant_budget_zero_and_single_edges",
+        "host_variant_audit_identity_dead_and_json",
+        "conformance_red_corpus_anchored"
+      ],
+      "properties": {
+        "host_link_deterministic_and_order_invariant": { "type": "boolean" },
+        "host_interface_hash_stability_and_replay": { "type": "boolean" },
+        "host_link_fail_closed_reds": { "type": "boolean" },
+        "host_variant_budget_exceeded_red_and_boundary": { "type": "boolean" },
+        "host_variant_budget_zero_and_single_edges": { "type": "boolean" },
+        "host_variant_audit_identity_dead_and_json": { "type": "boolean" },
+        "conformance_red_corpus_anchored": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

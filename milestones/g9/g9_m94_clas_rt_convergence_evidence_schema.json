@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M94 clas_rt_convergence evidence",
+  "description": "evidence/g9_m94_clas_rt_convergence_<UTC>.json。G9.3 P0 硬门 g9.p0.m94.clas_rt_convergence:同一场景 CLAS 主腿(NV)与传统 BLAS 回退腿 ray query 逐命中一致(任意 hit 集合 + 最近 hit 距离容差 0);可见集与 BLAS 内容错开一簇注入必判 RED;静态帧零 AS 构建(构建计数非零即 RED);Cluster Template 实例化与当帧 multi-indirect 拼装 digest 锚定;validation error=0。回退腿为正确性基线。device 腿必需(vk_clas_rt 双臂:validation=on 复跑零报错 + validation=off 主腿真跑 main==fallback==host 三 digest 全等);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m94_clas_rt_convergence" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m94.clas_rt_convergence" },
+    "matrix_row": { "type": "string", "const": "M94" },
+    "milestone": { "type": "string", "const": "M94" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m94.clas_rt_convergence" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 140 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.3;spec/virtual_geometry.md RXS-0351;G9_ACCEPTANCE_MAP §2 M94"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_rt_clas_tests_anchored",
+        "host_vk_m94_layout_anchors",
+        "conformance_red_corpus_anchored",
+        "device_pass_validation_on",
+        "device_static_frame_zero_build",
+        "device_red_arms_ok",
+        "device_fallback_host_parity",
+        "device_main_leg_executed",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_rt_clas_tests_anchored": { "type": "boolean" },
+        "host_vk_m94_layout_anchors": { "type": "boolean" },
+        "conformance_red_corpus_anchored": { "type": "boolean" },
+        "device_pass_validation_on": { "type": "boolean" },
+        "device_static_frame_zero_build": { "type": "boolean" },
+        "device_red_arms_ok": { "type": "boolean" },
+        "device_fallback_host_parity": { "type": "boolean" },
+        "device_main_leg_executed": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

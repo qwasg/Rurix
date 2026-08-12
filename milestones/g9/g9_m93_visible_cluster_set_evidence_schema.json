@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.3 M93 visible_cluster_set evidence",
+  "description": "evidence/g9_m93_visible_cluster_set_<UTC>.json。G9.3 P0 硬门 g9.p0.m93.visible_cluster_set:固定多视图场景 VisibleClusterSet 的屏幕空间误差 selection cut 逐帧无重叠无空洞(覆盖性机器核验,每条根→叶路径恰好一个选中簇);强制未驻留页命中父簇兜底、页到达后转为正确内容(沿 G8.4 迟到页降级语义);空洞注入负例 RED 臂独立有效;输出 digest 双跑逐位相等。host 纯 host 门(visible_cluster_set 9 单测逐名锚定 + cull_ref 运行时覆盖核验参照 + conformance accept/reject 锚定 + g9_g93_geometry_probe 真跑),device_section_state=not_applicable。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m93_visible_cluster_set" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m93.visible_cluster_set" },
+    "matrix_row": { "type": "string", "const": "M93" },
+    "milestone": { "type": "string", "const": "M93" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m93.visible_cluster_set" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.3" },
+    "numeric_step": { "type": "integer", "const": 139 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.2;spec/virtual_geometry.md RXS-0350;G9_ACCEPTANCE_MAP §2 M93"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "not_applicable" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_visible_cluster_set_tests_anchored",
+        "host_lod_cut_reference_verifier_anchored",
+        "conformance_accept_corpus_anchored",
+        "conformance_reject_hole_corpus_anchored",
+        "probe_executed_green",
+        "probe_selection_cut_checks_green",
+        "probe_hole_overlap_red_detected",
+        "probe_digest_double_run_equal"
+      ],
+      "properties": {
+        "host_visible_cluster_set_tests_anchored": { "type": "boolean" },
+        "host_lod_cut_reference_verifier_anchored": { "type": "boolean" },
+        "conformance_accept_corpus_anchored": { "type": "boolean" },
+        "conformance_reject_hole_corpus_anchored": { "type": "boolean" },
+        "probe_executed_green": { "type": "boolean" },
+        "probe_selection_cut_checks_green": { "type": "boolean" },
+        "probe_hole_overlap_red_detected": { "type": "boolean" },
+        "probe_digest_double_run_equal": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
