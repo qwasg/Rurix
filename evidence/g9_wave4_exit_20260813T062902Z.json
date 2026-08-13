@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "subject": "g9_wave4_exit",
+  "symbolic_gate_key": "g9.wave.4.exit",
+  "matrix_row": "G9.4",
+  "wave": "G9.4",
+  "numeric_step": 153,
+  "source_ref": "milestones/g9/CI_GATES §6 v1.9;G9_CONTRACT §8.4;G9_ACCEPTANCE_MAP §2/§3;RFC-0022 Agent Approved;RXS-0357~0362 clause heads on tree;gate-order interlock enforced (D2-Q7)",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g9.p0.m96.path_tracer_reference",
+      "subject_prefix": "g9_m96_path_tracer_reference",
+      "evidence_path": "evidence/g9_m96_path_tracer_reference_20260813T055651Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T055651Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m97.surface_cache",
+      "subject_prefix": "g9_m97_surface_cache",
+      "evidence_path": "evidence/g9_m97_surface_cache_20260813T055714Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T055714Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m98.tracing_fallback_chain",
+      "subject_prefix": "g9_m98_tracing_fallback_chain",
+      "evidence_path": "evidence/g9_m98_tracing_fallback_chain_20260813T055741Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T055741Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m99.spg_radiance_cache",
+      "subject_prefix": "g9_m99_spg_radiance_cache",
+      "evidence_path": "evidence/g9_m99_spg_radiance_cache_20260813T060302Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T060302Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m100.multi_light_low",
+      "subject_prefix": "g9_m100_multi_light_low",
+      "evidence_path": "evidence/g9_m100_multi_light_low_20260813T060329Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T060329Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m101.if_tier_ladder",
+      "subject_prefix": "g9_m101_if_tier_ladder",
+      "evidence_path": "evidence/g9_m101_if_tier_ladder_20260813T060509Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260813T060509Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rfc0022_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-09）** |"
+    },
+    {
+      "id": "rxs0357_0362_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/global_illumination.md RXS-0357~0362 条款头全在树"
+    },
+    {
+      "id": "gate_order_interlock_enforced",
+      "status": "PASS",
+      "detail": "ci/g9_gi_interlock.py 在树;M97~M101 五门最新 evidence 均含 checks.gate_order_m96_passed=true(D2-Q7 门序前置机器核验留痕)"
+    },
+    {
+      "id": "frozen_bands_on_tree",
+      "status": "PASS",
+      "detail": "六冻结带(m96 pbrt 容差/m97 depth/m98 depth/m99 spg_rc/m100 multi_light/m101 if_tier)全在树"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260813T062902Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: six G9.4 gates (P0 M96/M97/M98 + P1 M99/M100/M101); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RFC-0022 Approved literal + RXS-0357~0362 clause heads + gate-order interlock (D2-Q7) + six frozen bands on tree; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}
