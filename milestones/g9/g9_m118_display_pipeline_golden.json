@@ -1,0 +1,37 @@
+{
+  "schema": "rurix.g9m118.display_pipeline_golden.v1",
+  "frozen_at_utc": "2026-08-13T13:20:25Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M118 语义面 = view transform 数学 + 交换链路径状态机;窗口腿 D-130 C++ shim 0-byte)"},
+  "freeze_rule": "golden digest = golden 输入集(155 条闭式)经四插件参考公式 host 逐字实现输出的 SHA-256(双跑位级一致后冻结,禁手写);已知差异 = ACES 1.3↔2.0 SDR 编码域逐通道 max/mean 绝对差 + AgX↔ACES 2.0 显示线性域色相角差(度),实测入带(f64 位级 hex)",
+  "spec_anchor": "RXS-0369",
+  "golden_input_digest": "36c961d1d620069334cb80885c7c04c43005ef9f09bc1d89281f385166a1515c",
+  "golden_input_count": 155,
+  "canonical_frame_digest": "b4f68a1dc6d6fa9ebc627f50d25d7b229357eceb6ca5be1050ca964dd39d9ab7",
+  "plugin_reference": {"aces13": "ACES 1.3 RRT.a1.0.3+ODT.Rec709_100nits_dim.a1.0.3 host 逐字", "aces20": "ACES 2.0 aces-core Lib.Academy.OutputTransform.a2.v1 host 逐字(preset Rec709-D65_100nit_BT1886)", "agx": "AgX iolite minimal host 逐字(look=Punchy 资产化)", "neutral": "Khronos PBR Neutral host 逐字"},
+  "agx_look_asset": {"slope": [1.0, 1.0, 1.0], "offset": [0.0, 0.0, 0.0], "power": [1.35, 1.35, 1.35], "saturation": 1.4},
+  "plugins": {
+    "aces13_sdr_digest": "bccc0b3438c2e36555b06499d8d69489bb2f00a3b87f55779cf96d8665a84653",
+    "aces13_scrgb_digest": "8a8d9ded4b9640d0352138b7422910195c5fc6611c41d3e65f986712b88666ab",
+    "aces13_pq_digest": "36f1652462b818c827d41af4c5d8e36d5000d273fb5bc9dd3c66f24d3f8d1a97",
+    "aces20_sdr_digest": "ff9e668ace2ddf9576c6efe6d5f181489fc1677e94d5498302a7fb3a2dc2f838",
+    "aces20_scrgb_digest": "bcf868be0cfa40c9209c34ec5b71d5c153dba16a80325a7f1c38bf17b4c32b2d",
+    "aces20_pq_digest": "9f180295fc659ebe2459e8583d17d6a6456e6161898f555e0b4b47a82c462673",
+    "agx_sdr_digest": "b3973ef43537b9985be6583ec23e1b2ed0fca388c46aa3c5d6cb3f28a155ffd6",
+    "agx_scrgb_digest": "084f66e703db076357adb7a3988440c77bea4edcf9db823b1d2a697ba02eb0ac",
+    "agx_pq_digest": "cd6710aa1a4e59bad1021ebcac1de77eaff2ed160a736c0a1969ba31add91f41",
+    "neutral_sdr_digest": "87973f89f607740225d8aa4ee872f8301a0833d0bb82736b171cfe8e9c7f0cca",
+    "neutral_scrgb_digest": "3f2b180cd6c0e35d26e5aaf6cd5bb86afa7b5bc29f3341830d0580fc631ba9b2",
+    "neutral_pq_digest": "0f26a14b9f6d5255ba8469747ebfd220e15e1ab9ffe03c820e9406ab02c97a1b"},
+  "known_differences": {
+    "aces13_vs_aces20_max_abs": "3fd647d82fe43732",
+    "aces13_vs_aces20_mean_abs": "3fa5dec17ba4acf2",
+    "aces13_vs_aces20_max_abs_dec": "3.481350e-1",
+    "aces13_vs_aces20_mean_abs_dec": "4.271512e-2",
+    "agx_vs_aces20_hue_skew_max_deg": "40497a724c258f38",
+    "agx_vs_aces20_hue_skew_mean_deg": "4024a52d21ba934c",
+    "agx_vs_aces20_hue_skew_max_dec": "50.956613",
+    "agx_vs_aces20_hue_skew_mean_dec": "10.322610",
+    "note": "AgX/ACES hue-skew 与 ACES 版本间差异为公认差异记录(D4 R-D4-5),不作 bug 返工"
+  },
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-m118-m120-implementer"
+}

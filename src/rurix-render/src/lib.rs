@@ -9,6 +9,8 @@
 //! - 报告6 材质/场景/流送 → [`material`] + [`streaming`]
 //! - 报告7 时域重建/超分 → [`temporal`]
 //! - G9.5 大世界数据模型(RFC-0025 D4 伞形 §4.A) → [`world`]
+//! - G9.5 显示管线 view transform 插件面与交换链路径(RFC-0025 §4.I,RXS-0369)
+//!   → [`display`]
 //!
 //! 架构纪律(RFC-0016 跨章一致性约定):
 //! - 渲染器是库不进语言(06 §8.3);host 侧全 safe(`forbid(unsafe_code)`)纯 Rust 可单测;
@@ -19,6 +21,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod display;
 pub mod geometry;
 pub mod gi;
 pub mod graph;

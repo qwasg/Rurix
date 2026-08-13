@@ -1,0 +1,30 @@
+{
+  "schema": "rurix.g9m118.display_pipeline.v1",
+  "schema_version": 1,
+  "subject": "g9_m118_display_pipeline",
+  "spec_anchor": "RXS-0369",
+  "assertion_id": "g9.p0.m118.display_pipeline_view_transform",
+  "milestone": "M118",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T14:28:54Z",
+  "base_commit": "3cf26e0b",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M118 语义面 = view transform 数学 + 交换链路径状态机,窗口腿 D-130 shim 0-byte)", "validation": "not_applicable", "require_real": true},
+  "golden": {"input_digest": "36c961d1d620069334cb80885c7c04c43005ef9f09bc1d89281f385166a1515c", "input_count": 155, "frame_digest": "b4f68a1dc6d6fa9ebc627f50d25d7b229357eceb6ca5be1050ca964dd39d9ab7", "freeze_band": "H:\\rurix\\milestones/g9/g9_m118_display_pipeline_golden.json", "plugins": {
+          "aces13": {"sdr": "bccc0b3438c2e36555b06499d8d69489bb2f00a3b87f55779cf96d8665a84653", "scrgb": "8a8d9ded4b9640d0352138b7422910195c5fc6611c41d3e65f986712b88666ab", "pq": "36f1652462b818c827d41af4c5d8e36d5000d273fb5bc9dd3c66f24d3f8d1a97"},
+      "aces20": {"sdr": "ff9e668ace2ddf9576c6efe6d5f181489fc1677e94d5498302a7fb3a2dc2f838", "scrgb": "bcf868be0cfa40c9209c34ec5b71d5c153dba16a80325a7f1c38bf17b4c32b2d", "pq": "9f180295fc659ebe2459e8583d17d6a6456e6161898f555e0b4b47a82c462673"},
+      "agx": {"sdr": "b3973ef43537b9985be6583ec23e1b2ed0fca388c46aa3c5d6cb3f28a155ffd6", "scrgb": "084f66e703db076357adb7a3988440c77bea4edcf9db823b1d2a697ba02eb0ac", "pq": "cd6710aa1a4e59bad1021ebcac1de77eaff2ed160a736c0a1969ba31add91f41"},
+      "neutral": {"sdr": "87973f89f607740225d8aa4ee872f8301a0833d0bb82736b171cfe8e9c7f0cca", "scrgb": "3f2b180cd6c0e35d26e5aaf6cd5bb86afa7b5bc29f3341830d0580fc631ba9b2", "pq": "0f26a14b9f6d5255ba8469747ebfd220e15e1ab9ffe03c820e9406ab02c97a1b"}
+  }},
+  "known_differences": {"aces13_vs_aces20_max_abs": 3.481350e-1, "aces13_vs_aces20_mean_abs": 4.271512e-2, "agx_vs_aces20_hue_skew_max_deg": 50.956613, "agx_vs_aces20_hue_skew_mean_deg": 10.322610, "counts_as_bug": false},
+  "swapchain": {"paths": ["sdr", "scrgb", "pq_rec2020"], "switch_log": [{"seq": 0, "from": "sdr", "to": "scrgb"}, {"seq": 1, "from": "scrgb", "to": "pq_rec2020"}, {"seq": 2, "from": "pq_rec2020", "to": "sdr"}], "switch_deterministic_bit_equal": true},
+  "hdr_calibration": {"status": "not-triggered", "display_hdr_capable": false, "query_surface": "os_display_hdr_query unwired(D-130 C++ shim 0-byte;本机无 HDR 设备资产)", "counts_as_green": false, "does_not_veto_sdr_surface": true, "require_calibration_fail_closed": true},
+  "red_arms": {"pq_on_non_hdr_swapchain": true, "unregistered_plugin": true},
+  "conformance_corpus": {"dir": "conformance/display_pipeline", "files": 2, "anchors": {"accept/view_transform_four_plugins_minimal.rx": "RXS-0369", "reject/non_hdr_swapchain_pq_output.rx": "RXS-0369"}},
+  "checks": {"conformance_corpus_anchored": true, "registry_four_builtins_and_unregistered_rejected": true, "four_plugins_golden_double_run_bit_equal": true, "four_plugins_golden_frozen_equal": true, "known_differences_recorded": true, "three_paths_runtime_switch_deterministic": true, "hdr_metadata_filled_by_output_transform": true, "pq_on_non_hdr_swapchain_red_arm": true, "hdr_calibration_not_triggered_registered": true},
+  "commands": ["H:\\rurix\\target-g95b\\debug\\g9_m118_display_pipeline.exe", "--evidence", "H:\\rurix\\evidence\\g9_m118_display_pipeline_20260813T142853Z_voff.json"],
+  "failures": []
+}

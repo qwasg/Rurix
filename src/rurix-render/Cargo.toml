@@ -117,5 +117,14 @@ required-features = ["vulkan"]
 name = "g9_m110_world_partition"
 path = "src/bin/g9_m110_world_partition.rs"
 
+# G9.5 M118 显示管线 view transform P0 harness(RXS-0369;门
+# g9.p0.m118.display_pipeline_view_transform):ACES 1.3/2.0/AgX/中性四内置插件逐一
+# golden(measured 冻结带)+ SDR/scRGB/PQ 三交换链路径运行时切换确定性 + 非 HDR
+# 交换链携带 PQ 输出 RED 臂 + HDR 设备标定层 not-triggered 显式登记。纯 host
+# 确定性面(窗口腿 D-130 C++ shim 0-byte;无 device 依赖,故无 required-features)。
+[[bin]]
+name = "g9_m118_display_pipeline"
+path = "src/bin/g9_m118_display_pipeline.rs"
+
 [lints]
 workspace = true
