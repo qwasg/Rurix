@@ -126,5 +126,14 @@ path = "src/bin/g9_m110_world_partition.rs"
 name = "g9_m118_display_pipeline"
 path = "src/bin/g9_m118_display_pipeline.rs"
 
+# G9.5 M120 OIT benchmark harness P1(RXS-0371;门 g9.p1.m120.oit_benchmark_harness):
+# nvpro 七算法对照(同场景同 overdraw 分布)帧时/内存/质量误差曲线 evidence 非空;
+# 仅测量不定档(选型 fail-closed NotMeasuredYet);无数据选型提交 RED 臂 + 精确档
+# 内存无界增长 RED 臂 + 排序 fallback 永保留断言 + linked-list 精确档与排序真值
+# diff=0。纯 host 确定性面(无 device 依赖)。
+[[bin]]
+name = "g9_m120_oit_benchmark"
+path = "src/bin/g9_m120_oit_benchmark.rs"
+
 [lints]
 workspace = true

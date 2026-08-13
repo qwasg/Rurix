@@ -11,6 +11,8 @@
 //! - G9.5 大世界数据模型(RFC-0025 D4 伞形 §4.A) → [`world`]
 //! - G9.5 显示管线 view transform 插件面与交换链路径(RFC-0025 §4.I,RXS-0369)
 //!   → [`display`]
+//! - G9.5 OIT benchmark harness 测量面(RFC-0025 §4.K,RXS-0371,仅测量不定档)
+//!   → [`oit`]
 //!
 //! 架构纪律(RFC-0016 跨章一致性约定):
 //! - 渲染器是库不进语言(06 §8.3);host 侧全 safe(`forbid(unsafe_code)`)纯 Rust 可单测;
@@ -26,6 +28,7 @@ pub mod geometry;
 pub mod gi;
 pub mod graph;
 pub mod material;
+pub mod oit;
 pub mod rt;
 pub mod shadow;
 pub mod streaming;
