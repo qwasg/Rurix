@@ -65,5 +65,15 @@ name = "g9_m97_surface_cache"
 path = "src/bin/g9_m97_surface_cache.rs"
 required-features = ["vulkan"]
 
+# G9.4 M98 四级追踪降级链 device harness(RXS-0359;门 g9.p0.m98.tracing_fallback_chain):
+# L1 屏幕高度场 march(kernels/g9_m98_screen_trace.rx,纯 compute)+ L2 SWRT host
+# 解析求值 + L3 HWRT RayQuery 双着色档(kernels/g9_m98_hwrt.rx,U30
+# run_ray_query_effects)+ L4 not-triggered 登记;选档/计数/转移日志逐帧 evidence,
+# 逐级强关双臂 + 静默回退注入臂 + 匹配深度对 M96 golden 容差带(measured 冻结)。
+[[bin]]
+name = "g9_m98_fallback_chain"
+path = "src/bin/g9_m98_fallback_chain.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

@@ -1,0 +1,178 @@
+//@ spec: RXS-0359
+// G9.4 M98 四级追踪降级链 L1 Screen Trace kernel(device 腿;门
+// `g9.p0.m98.tracing_fallback_chain`)。
+//
+// ## 语义(RXS-0359 L1;RFC-0022 §4.7)
+// 屏幕空间高度场 ray march(HZB/深度:~50 m 内、屏幕内,成本最低档)。
+// 逐像素单 invocation:自 GBuffer 预传递的二次射线(原点/方向为**输入**,
+// host 预传递与 RNG 流同纪律)在屏幕深度缓冲(视 z 高度场)上 march——
+// 屏幕线段均匀 M98_L1_MAX_STEPS 采样;同像素门跳过自像素(高度场首样本 =
+// 自身主命中面,防自命中);穿越判定 = 视 z 超过缓冲 + 深度偏置;首命中锁存
+// (算术门,无早退 ⇒ 全分支形态为 M96 已机验白名单形的纯算术段 + 单 while)。
+// 命中着色 = 点光源近似(光源中心)未阴影(最低成本档;阴影归 L2/L3)。
+// 与 GI RayQuery 射线流**不共享**同一射线流(D2-Q9):本内核无 AccelStruct
+// 形参,经纯 compute 执行面(vk::run_compute)派发,不消费 TLAS。
+//
+// ## 确定性协议(承 RXS-0357 L2 同律)
+// - 无 RNG 消费(屏幕 march 全确定);逐像素独立顺序执行,禁 atomic;输出直写。
+// - 全部 f32;分支判定一律 min/max 算术门(`(x·big).min(1).max(0)`);host 参照
+//   = `gi::fallback_chain::l1_march_host`(逐字同源,harness 对拍腿)。
+// - 耗时计数面 = 命中前执行步数(out_state[2];确定性代理,显式登记口径)。
+//
+// ## 参数面(host `gi::fallback_chain::pack_l1_params` 逐字同源;f32 位级编码)
+//   params[0]=pixel_count [1]=width [2]=height [3]=max_steps [4]=inv_steps
+//   [5]=l1_range [6]=depth_bias
+//   [7..10]=cam_origin [10..13]=cam_forward [13..16]=cam_right [16..19]=cam_up
+//   [19]=tan(fov/2) [20..23]=light_center [23..26]=light_emission_rgb
+//   [26]=light_area [27..30]=light_normal(单面)
+//   dep: 1 f32/px 视 z 高度场(主未命中 = 1e30 哨兵);nrm/alb: 3 f32/px;
+//   rays_o/rays_d: 3 f32/px 二次射线(世界空间,单位方向);
+//   out_rgb: 3 f32/px 命中点辐射度(未命中 = 0,选档器以 hit 门);
+//   out_state: 4 f32/px [hit, t, steps, pad]。
+kernel fn g9_m98_screen_trace(
+    t: ThreadCtx<1>,
+    dep: View<global, f32>,
+    nrm: View<global, f32>,
+    alb: View<global, f32>,
+    rays_o: View<global, f32>,
+    rays_d: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_state: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let width = params[1] as usize;
+    let w_f = params[1];
+    let h_f = params[2];
+    let max_steps = params[3] as usize;
+    let inv_steps = params[4];
+    let range = params[5];
+    let bias = params[6];
+    let co_x = params[7];
+    let co_y = params[8];
+    let co_z = params[9];
+    let cf_x = params[10];
+    let cf_y = params[11];
+    let cf_z = params[12];
+    let cr_x = params[13];
+    let cr_y = params[14];
+    let cr_z = params[15];
+    let cu_x = params[16];
+    let cu_y = params[17];
+    let cu_z = params[18];
+    let tan_half = params[19];
+    let lc_x = params[20];
+    let lc_y = params[21];
+    let lc_z = params[22];
+    let lem_r = params[23];
+    let lem_g = params[24];
+    let lem_b = params[25];
+    let light_area = params[26];
+    let ln_x = params[27];
+    let ln_y = params[28];
+    let ln_z = params[29];
+    let pi: f32 = 3.1415927;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    if i < pixel_count {
+        let ox = rays_o[i * 3];
+        let oy = rays_o[i * 3 + 1];
+        let oz = rays_o[i * 3 + 2];
+        let dx = rays_d[i * 3];
+        let dy = rays_d[i * 3 + 1];
+        let dz = rays_d[i * 3 + 2];
+        // ── 世界 → 屏幕投影(起点 o 与 range 端点 e)──
+        let v0_x = ox - co_x;
+        let v0_y = oy - co_y;
+        let v0_z = oz - co_z;
+        let z0 = v0_x * cf_x + v0_y * cf_y + v0_z * cf_z;
+        let x0n = (v0_x * cr_x + v0_y * cr_y + v0_z * cr_z) / (z0 * tan_half);
+        let y0n = (v0_x * cu_x + v0_y * cu_y + v0_z * cu_z) / (z0 * tan_half);
+        let px_f0 = (x0n + 1.0) * 0.5 * w_f;
+        let py_f0 = (1.0 - y0n) * 0.5 * h_f;
+        let ex = ox + dx * range;
+        let ey = oy + dy * range;
+        let ez = oz + dz * range;
+        let v1_x = ex - co_x;
+        let v1_y = ey - co_y;
+        let v1_z = ez - co_z;
+        let z1 = v1_x * cf_x + v1_y * cf_y + v1_z * cf_z;
+        let x1n = (v1_x * cr_x + v1_y * cr_y + v1_z * cr_z) / (z1 * tan_half);
+        let y1n = (v1_x * cu_x + v1_y * cu_y + v1_z * cu_z) / (z1 * tan_half);
+        let px_f1 = (x1n + 1.0) * 0.5 * w_f;
+        let py_f1 = (1.0 - y1n) * 0.5 * h_f;
+        // 端点在相机后 ⇒ 离屏,march 全门关闭。
+        let valid = ((z0 - tiny) * big).min(1.0).max(0.0) * ((z1 - tiny) * big).min(1.0).max(0.0);
+        let x0c = px_f0.max(0.0).min(w_f - 1.0);
+        let y0c = py_f0.max(0.0).min(h_f - 1.0);
+        // ── 高度场 march(固定步数;首命中算术锁存)──
+        let mut hit = 0.0;
+        let mut hit_t = 0.0;
+        let mut hit_idx = 0.0;
+        let mut steps = 0.0;
+        let mut k = 1usize;
+        let step_end = max_steps + 1usize;
+        while k < step_end {
+            let s = (k as f32) * inv_steps;
+            let xf = px_f0 + (px_f1 - px_f0) * s;
+            let yf = py_f0 + (py_f1 - py_f0) * s;
+            let zr = z0 + (z1 - z0) * s;
+            let inb = ((xf) * big).min(1.0).max(0.0)
+                * ((w_f - xf) * big).min(1.0).max(0.0)
+                * ((yf) * big).min(1.0).max(0.0)
+                * ((h_f - yf) * big).min(1.0).max(0.0);
+            let xc = xf.max(0.0).min(w_f - 1.0);
+            let yc = yf.max(0.0).min(h_f - 1.0);
+            let idx = (yc as usize) * width + (xc as usize);
+            let zb = dep[idx];
+            let same = ((0.5 - (xc - x0c).abs()) * big).min(1.0).max(0.0)
+                * ((0.5 - (yc - y0c).abs()) * big).min(1.0).max(0.0);
+            let cond = valid
+                * inb
+                * (1.0 - same)
+                * ((zr - (zb + bias)) * big).min(1.0).max(0.0)
+                * (1.0 - hit);
+            hit_t = hit_t + cond * (s * range);
+            hit_idx = hit_idx + cond * (idx as f32);
+            steps = steps + (1.0 - hit);
+            hit = hit + cond;
+            k = k + 1usize;
+        }
+        // ── 命中着色(点光源近似未阴影;hit 门,未命中恒 0)──
+        let hi = (hit_idx as usize) * 3;
+        let nx0 = nrm[hi];
+        let ny0 = nrm[hi + 1];
+        let nz0 = nrm[hi + 2];
+        let al_r = alb[hi];
+        let al_g = alb[hi + 1];
+        let al_b = alb[hi + 2];
+        // 双面着色:法线翻转朝向入射光线来向(M96 kernel flip 门同式)。
+        let facing = nx0 * dx + ny0 * dy + nz0 * dz;
+        let flip = 1.0 - 2.0 * (facing * big).min(1.0).max(0.0);
+        let nx = nx0 * flip;
+        let ny = ny0 * flip;
+        let nz = nz0 * flip;
+        let hx = ox + dx * hit_t;
+        let hy = oy + dy * hit_t;
+        let hz = oz + dz * hit_t;
+        let wvx = lc_x - hx;
+        let wvy = lc_y - hy;
+        let wvz = lc_z - hz;
+        let dist2 = wvx * wvx + wvy * wvy + wvz * wvz;
+        let dist = dist2.sqrt().max(tiny);
+        let wix = wvx / dist;
+        let wiy = wvy / dist;
+        let wiz = wvz / dist;
+        let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+        let cos_l = (0.0 - (ln_x * wix + ln_y * wiy + ln_z * wiz)).max(0.0);
+        let core = hit * cos_s * cos_l * light_area / (pi * dist2);
+        out_rgb[i * 3] = al_r * lem_r * core;
+        out_rgb[i * 3 + 1] = al_g * lem_g * core;
+        out_rgb[i * 3 + 2] = al_b * lem_b * core;
+        out_state[i * 4] = hit;
+        out_state[i * 4 + 1] = hit_t;
+        out_state[i * 4 + 2] = steps;
+        out_state[i * 4 + 3] = 0.0;
+    }
+}

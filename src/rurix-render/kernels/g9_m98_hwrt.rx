@@ -1,0 +1,192 @@
+//@ spec: RXS-0359
+// G9.4 M98 四级追踪降级链 L3 HWRT kernel(device 腿;门
+// `g9.p0.m98.tracing_fallback_chain`)。
+//
+// ## 语义(RXS-0359 L1;RFC-0022 §4.7)
+// Vulkan RayQuery 对 TLAS 追踪(全场景、视距内兜底档)。逐像素单 invocation:
+// 消费 GBuffer 预传递的二次射线(输入),主 ray query 求最近命中;命中着色
+// **两档**(params[1]=mode):
+// - 简单兜底求值(mode=0,默认):点光源近似(光源中心)× 阴影光线 + 天空
+//   ambient 项(sky×albedo;与 L2 档的区分项,档间 golden 可归因);
+// - hit lighting(mode=1,高档):完整材质求值 = NEE(流采样光源 quad 点
+//   q = p00 + u·e1 + v·e2,u/v = 流 [nee_u, nee_v] 维)+ Lambert + 阴影光线
+//   (M96 megakernel shade② NEE 核心逐字同式,单采样估计子)。
+// 未命中 ⇒ 天空常量辐射度。与 GI 各档 RayQuery 射线流同面(compute 派发,
+// 队列化中间层留位 = host 侧缓冲装配;与 M96 PT RT pipeline 递归不混流,
+// D2-Q9)。
+//
+// ## 确定性协议(承 RXS-0357 L2 同律)
+// - RNG = host 同源 PCG32 流(`gi::fallback_chain::m98_rng` 同一实例生成;
+//   流为**输入**不是结果);逐像素按索引寻址([2]=nee_u,[3]=nee_v)。
+// - 逐像素独立,输出直写,禁 atomic;全 f32;分支判定 = min/max 算术门 +
+//   短 selection 臂(committed 提取臂与遮蔽臂均 ≤4 语句,M96 已机验白名单形)。
+// - 耗时计数面 = 有效射线查询发行量(out_state[2] = 1 + hit:主查询恒 1,
+//   命中 ⇒ 阴影查询 1;未命中的阴影执行被 hit_f 门消零、不计有效量)。
+//   **不**用 proceed 迭代数:实测驱动对简单场景单调用即完成遍历(proceed
+//   首调即 false),迭代数恒 0 不满足非空判据;发行量为确定性代理,口径显式
+//   登记——device timestamp query 不在本门。
+//
+// ## 参数面(host `gi::fallback_chain::pack_l3_params` 逐字同源;23 f32 位级编码)
+//   params[0]=pixel_count [1]=mode(0=simple/1=hit_lighting) [2]=ray_eps
+//   [3]=t_max [4..7]=light_p00 [7..10]=light_e1 [10..13]=light_e2
+//   [13]=light_area [14..17]=light_emission_rgb [17..20]=light_normal(单面)
+//   [20..23]=sky_rgb
+//   rays_o/rays_d: 3 f32/px 二次射线;rng: 4 f32/px;mats: 8 f32/tri(M96 同式);
+//   tris: 9 f32/tri(M96 同式,顶点序 = primitiveIndex 序);
+//   out_rgb: 3 f32/px;out_state: 4 f32/px [hit, t, ray_queries, pad]。
+kernel fn g9_m98_hwrt(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    rays_o: View<global, f32>,
+    rays_d: View<global, f32>,
+    rng: View<global, f32>,
+    mats: View<global, f32>,
+    tris: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_state: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let mode = params[1];
+    let ray_eps = params[2];
+    let t_max = params[3];
+    let lp_x = params[4];
+    let lp_y = params[5];
+    let lp_z = params[6];
+    let le1_x = params[7];
+    let le1_y = params[8];
+    let le1_z = params[9];
+    let le2_x = params[10];
+    let le2_y = params[11];
+    let le2_z = params[12];
+    let light_area = params[13];
+    let lem_r = params[14];
+    let lem_g = params[15];
+    let lem_b = params[16];
+    let ln_x = params[17];
+    let ln_y = params[18];
+    let ln_z = params[19];
+    let sky_r = params[20];
+    let sky_g = params[21];
+    let sky_b = params[22];
+    let pi: f32 = 3.1415927;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    if i < pixel_count {
+        let ox = rays_o[i * 3];
+        let oy = rays_o[i * 3 + 1];
+        let oz = rays_o[i * 3 + 2];
+        let dx = rays_d[i * 3];
+        let dy = rays_d[i * 3 + 1];
+        let dz = rays_d[i * 3 + 2];
+        let nee_u = rng[i * 4 + 2];
+        let nee_v = rng[i * 4 + 3];
+        // ── 主 ray query(最近命中;空体循环 = M96 已机验白名单形)──
+        let mut rq = ray_query_initialize(tlas, (ox, oy, oz), 0.0, (dx, dy, dz), t_max);
+        while rq.proceed() {
+        }
+        // committed 提取 = 短臂(S3 守卫;重计算在下方无 selection 算术段)。
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+        }
+        // ── 命中点/法线/材质(算术段;miss 时 prim=0 保底,贡献经 hit_f 门恒 0)──
+        let tb = (prim as usize) * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let ng_inv = 1.0 / (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let hgx = ngx * ng_inv;
+        let hgy = ngy * ng_inv;
+        let hgz = ngz * ng_inv;
+        let facing = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (facing * big).min(1.0).max(0.0);
+        let nx = hgx * flip;
+        let ny = hgy * flip;
+        let nz = hgz * flip;
+        let hx = ox + dx * th;
+        let hy = oy + dy * th;
+        let hz = oz + dz * th;
+        let mb = (prim as usize) * 8;
+        let al_r = mats[mb];
+        let al_g = mats[mb + 1];
+        let al_b = mats[mb + 2];
+        // ── 着色档选择(算术门):simple = 光源中心点近似;hit lighting = 流采样 ──
+        let m1 = mode;
+        let m0 = 1.0 - mode;
+        let qu = 0.5 * m0 + nee_u * m1;
+        let qv = 0.5 * m0 + nee_v * m1;
+        let qx = lp_x + le1_x * qu + le2_x * qv;
+        let qy = lp_y + le1_y * qu + le2_y * qv;
+        let qz = lp_z + le1_z * qu + le2_z * qv;
+        let wvx = qx - hx;
+        let wvy = qy - hy;
+        let wvz = qz - hz;
+        let dist2 = wvx * wvx + wvy * wvy + wvz * wvz;
+        let dist = dist2.sqrt().max(tiny);
+        let wix = wvx / dist;
+        let wiy = wvy / dist;
+        let wiz = wvz / dist;
+        let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+        let cos_l = (0.0 - (ln_x * wix + ln_y * wiy + ln_z * wiz)).max(0.0);
+        // 贡献 = albedo·Le·cos_s·cos_l·area/(π·dist²)(M96 NEE 核心同式)。
+        let core = hit_f * cos_s * cos_l * light_area / (pi * dist2);
+        let nee_r = al_r * lem_r * core;
+        let nee_g = al_g * lem_g * core;
+        let nee_b = al_b * lem_b * core;
+        // ambient 项(simple 档专属):sky × albedo。
+        let am_r = m0 * sky_r * al_r;
+        let am_g = m0 * sky_g * al_g;
+        let am_b = m0 * sky_b * al_b;
+        let t_sh = (dist - 2.0 * ray_eps).max(ray_eps);
+        // ── 阴影光线(循环外顶层;M96 shade⑤ 同构)──
+        let mut sq = ray_query_initialize(
+            tlas,
+            (hx + nx * ray_eps, hy + ny * ray_eps, hz + nz * ray_eps),
+            0.0,
+            (wix, wiy, wiz),
+            t_sh,
+        );
+        while sq.proceed() {
+        }
+        // 遮蔽 ⇒ ambient-only;未遮蔽 ⇒ ambient + NEE(短臂)。
+        let mut leg_r = 0.0;
+        let mut leg_g = 0.0;
+        let mut leg_b = 0.0;
+        if sq.has_committed() {
+            leg_r = am_r;
+            leg_g = am_g;
+            leg_b = am_b;
+        } else {
+            leg_r = am_r + nee_r;
+            leg_g = am_g + nee_g;
+            leg_b = am_b + nee_b;
+        }
+        // miss ⇒ 天空常量(hit_f 门)。
+        out_rgb[i * 3] = sky_r * (1.0 - hit_f) + leg_r * hit_f;
+        out_rgb[i * 3 + 1] = sky_g * (1.0 - hit_f) + leg_g * hit_f;
+        out_rgb[i * 3 + 2] = sky_b * (1.0 - hit_f) + leg_b * hit_f;
+        out_state[i * 4] = hit_f;
+        out_state[i * 4 + 1] = th;
+        out_state[i * 4 + 2] = 1.0 + hit_f;
+        out_state[i * 4 + 3] = 0.0;
+    }
+}

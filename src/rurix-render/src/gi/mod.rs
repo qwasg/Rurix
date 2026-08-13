@@ -28,8 +28,15 @@
 //! [`surface_cache`] = M97 Surface Cache host 面(RXS-0358:离线 Card 参数化器
 //! [≤12/mesh 可配 fail-closed] + RXPL v2 图集页打包 + 漏光检测/空洞注入 +
 //! 匹配深度容差带 + capture host oracle;device kernels =
-//! `kernels/g9_m97_cache_{capture,render}.rx`,harness = `bin/g9_m97_surface_cache`)。
+//! `kernels/g9_m97_cache_{capture,render}.rx`,harness = `bin/g9_m97_surface_cache`);
+//! [`fallback_chain`] = M98 四级追踪降级链 host 面(RXS-0359:L1 Screen Trace
+//! [屏幕高度场 march,host 参照 + device kernel `kernels/g9_m98_screen_trace.rx`]→
+//! L2 SWRT[host 解析场景暴力求值,BVH 金标准对拍]→ L3 HWRT[device RayQuery,
+//! `kernels/g9_m98_hwrt.rx`,含 hit lighting 档]→ L4 Far Field[HLOD 未就绪 ⇒
+//! not-triggered 登记];选档器 + 逐档计数面 + 转移日志禁静默回退审计 + 逐级强关
+//! 可检测产物 digest + 匹配深度容差带;harness = `bin/g9_m98_fallback_chain`)。
 
+pub mod fallback_chain;
 pub mod filter;
 pub mod interpolate;
 pub mod path_trace;

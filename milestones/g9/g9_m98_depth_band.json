@@ -1,0 +1,19 @@
+{
+  "schema": "rurix.g9m98.depth_band.v1",
+  "frozen_at_utc": "2026-08-13T02:18:47Z",
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "scene": "m96_cornell",
+  "m96_anchor_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b",
+  "freeze_rule": "band_rel_dev = measured_rel_dev * 2.0(规则冻结于 gi::fallback_chain::M98_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)",
+  "matched_depth": "2",
+  "m96_golden_spp": "64",
+  "seed_chain": "6528033707627369033",
+  "entries": [
+    {"tier": "l1_solo", "chain_digest": "74ee1759bb0b47e7dd891bea15674395b3952d5b95c7c7fece3d5d3131677b4d", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.580569871558099e0", "measured_rel_dev": "7.902849357790495e-1"},
+    {"tier": "l2_solo", "chain_digest": "fa9e970e24910d6fd3044d5c49a137522ee7b0a7dcfdfdc297f53ec0639d49ac", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6133232485207873e0", "measured_rel_dev": "8.066616242603937e-1"},
+    {"tier": "l3_simple_solo", "chain_digest": "ee5e3ecb7497a2b041da255b35da5658a217ad4988db089e545095c4d0918ff9", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6116359834231133e0", "measured_rel_dev": "8.058179917115567e-1"},
+    {"tier": "l3_hit_lighting_solo", "chain_digest": "0219683cf8b8eadb3136bc58c86aa431ed00a0cc5c3b156900350a0849154d5d", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.618320797870835e0", "measured_rel_dev": "8.091603989354175e-1"},
+    {"tier": "chain_simple", "chain_digest": "b6db2d99f21342ce6a21a52aaadb4303437d15a0e5dc9e09bb351d0c3df3cd44", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6219828248941561e0", "measured_rel_dev": "8.109914124470781e-1"},
+    {"tier": "chain_hit_lighting", "chain_digest": "c6807de18d7b10f579bf65cb7bdeac3a3c0d4b388f291d9f14cb30f0550f64cd", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6227477018664023e0", "measured_rel_dev": "8.113738509332011e-1"}
+  ]
+}
