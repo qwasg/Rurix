@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "namespace": "g9",
-  "description": "G9 UE5 级渲染器与物理引擎正式建造期预算。G9.1 governance-only 即为非空 measured_local：当前四条 entry 全部是 D1 验收 VRAM/AS 构建耗时指标的 RTX 4070 Ti measured 基线锚，阈值 = 实测 × 1.5。诚实边界：AS 构建耗时为 host 墙钟，含 vkQueueSubmit+vkQueueWaitIdle 同步等待（偏保守不含偏小）；GPU 未锁频；本预算只证明测量已建立，不证明任何 G9 实现达标。G9.2+ 各 P0 实现必须追加自身 measured 条目，既有 measured 条目只追加式收紧。",
+  "description": "G9 UE5 级渲染器与物理引擎正式建造期预算。G9.1 governance-only 即为非空 measured_local：前四条 entry 全部是 D1 验收 VRAM/AS 构建耗时指标的 RTX 4070 Ti measured 基线锚，阈值 = 实测 × 1.5。诚实边界：AS 构建耗时为 host 墙钟，含 vkQueueSubmit+vkQueueWaitIdle 同步等待（偏保守不含偏小）；GPU 未锁频；本预算只证明测量已建立，不证明任何 G9 实现达标。G9.2+ 各 P0 实现必须追加自身 measured 条目，既有 measured 条目只追加式收紧。G9.5 M110 波追加第五条 g9.bench.world_partition_hitch_p99_ms（RXS-0363 L6：代表性大世界 soak hitch p99，host 确定性流送调度器逐帧 tick 墙钟，≥10000 帧合成相机路径，阈值 = 实测 × 1.5；host-only 无 device 依赖，GPU 非必需）。",
   "source_docs": [
     "milestones/g9/G9_PLAN.md",
     "milestones/g9/G9_CONTRACT.md",
@@ -52,6 +52,17 @@
       "threshold": 21528768.0,
       "evidence_file": "evidence/g9_vram_as_baseline_20260808T154217Z.json",
       "measured_value": 14352512
+    },
+    {
+      "id": "g9.bench.world_partition_hitch_p99_ms",
+      "description": "G9.5 M110（RXS-0363 L6）代表性大世界 soak hitch p99：512×512 cell 单一持久世界 + 合成相机路径 12000 帧（≥10000 帧声明阈值，warmup 64 帧剔除），host 侧确定性流送调度器逐帧 tick 墙钟（距离环 target/resident diff + 三项预算扣账 + 四事件发射全工作量），nearest-rank p99。阈值 = 实测 9.2219 × 1.5 ≈ 13.8329 ms（四舍五入 4 位）。诚实边界：host-only 无 device 依赖（M110 语义面 = 数据模型+调度+预算计数+事件总线，GPU 非必需）；debug build 墙钟含 OS 抖动，p99 稳健统计 + ×1.5 余量沿既有 measured 冻结先例；帧数/事件/预算计数面逐帧非空见 evidence。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 13.8329,
+      "evidence_file": "evidence/g9_m110_world_partition_20260813T103539Z.json",
+      "measured_value": 9.2219
     }
   ],
   "ratio_assertions": [],

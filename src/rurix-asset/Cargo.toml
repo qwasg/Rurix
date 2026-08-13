@@ -37,5 +37,12 @@ path = "src/bin/g9_m90_probe.rs"
 name = "g9_m91_probe"
 path = "src/bin/g9_m91_probe.rs"
 
+# G9.5 M110 波 HLOD 离线烘焙工具(RXS-0364 语义锚最小面;asset graph 注册
+# `rurix.hlod.bake.v1`):输入 cell 几何资产逐 Component 分发产 HLOD 层级资产,
+# 双构建 hash 相等 + 声明序扰动免疫 + 几何扰动分叉;纯 host 离线,GPU 非必需。
+[[bin]]
+name = "rxhlod"
+path = "src/bin/rxhlod.rs"
+
 [lints]
 workspace = true

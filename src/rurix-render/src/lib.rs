@@ -8,6 +8,7 @@
 //! - 报告4 实时光追/AS 管理 → [`rt`]
 //! - 报告6 材质/场景/流送 → [`material`] + [`streaming`]
 //! - 报告7 时域重建/超分 → [`temporal`]
+//! - G9.5 大世界数据模型(RFC-0025 D4 伞形 §4.A) → [`world`]
 //!
 //! 架构纪律(RFC-0016 跨章一致性约定):
 //! - 渲染器是库不进语言(06 §8.3);host 侧全 safe(`forbid(unsafe_code)`)纯 Rust 可单测;
@@ -26,3 +27,4 @@ pub mod rt;
 pub mod shadow;
 pub mod streaming;
 pub mod temporal;
+pub mod world;

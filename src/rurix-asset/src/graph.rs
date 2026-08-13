@@ -6,15 +6,17 @@ use crate::canon::{self, Value};
 use crate::error::{AssetError, ErrorKind, Result};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-/// 已注册工具 ID（首批真工具）。
+/// 已注册工具 ID（首批真工具 + G9.5 HLOD 离线烘焙）。
 pub const TOOL_GLTF_IMPORT: &str = "rurix.gltf.import.v1";
 pub const TOOL_GEOM_PAGES: &str = "rurix.geom.pages.v1";
 pub const TOOL_TEXTURE_COOK: &str = "rurix.texture.cook.v1";
+/// G9.5 M110 波 HLOD 离线烘焙工具（RXS-0364 语义锚最小面;`crate::hlod`）。
+pub const TOOL_HLOD_BAKE: &str = "rurix.hlod.bake.v1";
 
 pub fn is_registered_tool(tool_id: &str) -> bool {
     matches!(
         tool_id,
-        TOOL_GLTF_IMPORT | TOOL_GEOM_PAGES | TOOL_TEXTURE_COOK
+        TOOL_GLTF_IMPORT | TOOL_GEOM_PAGES | TOOL_TEXTURE_COOK | TOOL_HLOD_BAKE
     )
 }
 

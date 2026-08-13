@@ -18,6 +18,7 @@ pub mod geom_build;
 pub mod geom_build_v2;
 pub mod gltf;
 pub mod graph;
+pub mod hlod;
 pub mod ktx2;
 pub mod schema;
 pub mod texture;

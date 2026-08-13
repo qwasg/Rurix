@@ -107,5 +107,15 @@ name = "g9_m101_if_tier_ladder"
 path = "src/bin/g9_m101_if_tier_ladder.rs"
 required-features = ["vulkan"]
 
+# G9.5 M110 世界分区 P0 harness(RXS-0363;门 g9.p0.m110.world_partition):
+# 单一持久世界 schema/2D cell + 三项流送预算契约逐帧 evidence + 预算违约排队
+# 降级 RED 臂 + cell 四事件序列逐字 golden + Data Layer 掩码位只预留不接线 +
+# 大世界 soak hitch p99 ≤ measured 阈值(g9_budget.json 实测标定)。纯 host
+# 确定性面(无 device 依赖,故无 required-features);HLOD 双构建经同构建目录
+# rxhlod(rurix-asset)进程级核验。
+[[bin]]
+name = "g9_m110_world_partition"
+path = "src/bin/g9_m110_world_partition.rs"
+
 [lints]
 workspace = true
