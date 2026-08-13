@@ -24,7 +24,11 @@
 //! G9.4 波(GI 语义波,spec/global_illumination.md):[`path_trace`] = M96 M17
 //! Path Tracer 参照器 host 面(RXS-0357:确定性冻结场景 fixtures + PCG32 流布局 +
 //! host oracle + pbrt-v4 对照/容差带面;device megakernel =
-//! `kernels/g9_m96_path_tracer.rx`,harness = `bin/g9_m96_path_tracer`)。
+//! `kernels/g9_m96_path_tracer.rx`,harness = `bin/g9_m96_path_tracer`);
+//! [`surface_cache`] = M97 Surface Cache host 面(RXS-0358:离线 Card 参数化器
+//! [≤12/mesh 可配 fail-closed] + RXPL v2 图集页打包 + 漏光检测/空洞注入 +
+//! 匹配深度容差带 + capture host oracle;device kernels =
+//! `kernels/g9_m97_cache_{capture,render}.rx`,harness = `bin/g9_m97_surface_cache`)。
 
 pub mod filter;
 pub mod interpolate;
@@ -32,5 +36,6 @@ pub mod path_trace;
 pub mod pipeline;
 pub mod probe;
 pub mod sh;
+pub mod surface_cache;
 pub mod temporal;
 pub mod tracer;

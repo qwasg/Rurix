@@ -12,6 +12,9 @@ license.workspace = true
 rurix-rt = { path = "../rurix-rt", optional = true }
 # M25 ABI hash 与 M31 同源 SHA-256(rurix-pkg)。
 rurix-pkg = { path = "../rurix-pkg" }
+# G9.4 M97(RXS-0358):Card 图集页复用 M91 RXPL v2 页 ABI(encode/decode 冻结面
+# 直接消费,禁私定磁盘格式;workspace path 依赖,零外部 crate)。
+rurix-geom-pages = { path = "../rurix-geom-pages" }
 
 [features]
 default = []
@@ -49,6 +52,17 @@ required-features = ["vulkan"]
 [[bin]]
 name = "g9_m96_path_tracer"
 path = "src/bin/g9_m96_path_tracer.rs"
+required-features = ["vulkan"]
+
+# G9.4 M97 Surface Cache device harness(RXS-0358;门 g9.p0.m97.surface_cache):
+# 离线 Card 参数化(≤12/mesh 可配 fail-closed)+ RXPL v2 图集页打包(复用 M91
+# 冻结 ABI)经 gi::surface_cache host 面;capture/render 两 .rx kernel
+# (kernels/g9_m97_cache_{capture,render}.rx,rurixc --target vulkan 产 SPV)经
+# run_ray_query_effects(U30 ray query 执行面)真跑;三深度对 M96 golden 容差带
+# (measured 冻结)+ Card 空洞漏光 RED 臂 + 只丢能量不漏光断言。
+[[bin]]
+name = "g9_m97_surface_cache"
+path = "src/bin/g9_m97_surface_cache.rs"
 required-features = ["vulkan"]
 
 [lints]

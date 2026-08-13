@@ -1,0 +1,14 @@
+{
+  "schema": "rurix.g9m97.surface_cache.v1",
+  "subject": "g9_m97_surface_cache",
+  "spec_anchor": "RXS-0358",
+  "device_state": {"device_name": "NVIDIA GeForce RTX 4070 Ti", "validation": "off", "require_real": true},
+  "determinism_protocol": {"seed_capture": "6671882932491086595", "rng": "PCG32 单一流按索引寻址(rt::ref_tracer::Pcg32 同一实例;流为输入非结果,G7.4 先例)", "accumulation": "逐 texel/逐像素独立顺序累加(禁 atomic)", "digest_domain": "sha256(产物字节依序拼接)"},
+  "parameterization": {"max_cards_per_mesh": 12, "card_res": 8, "samples_per_texel": 16, "card_count": 12, "total_texels": 768, "atlas_page_abi": "RXPL major=2 (RXS-0344;复用 M91 冻结面,不私定)", "atlas_page_bytes": 2776},
+  "checks": {"double_run_bitexact": true, "cardset_digest_match": true, "atlas_page_digest_match": true, "cache_digest_match": true, "render_digest_match": true, "m96_golden_anchor": true, "depth_band_within": true, "coverage_complete_no_leak": true, "energy_loss_only_no_leak": true, "red_hole_leak_detected": true, "red_private_format_rejected": true, "validation_zero": true},
+  "digests": {"cardset": "2b2ed9987054f2ae831207d22deb3bab7d45303f7dc90f21310b542a37b2a167", "atlas_page": "ebc60207a391dc6aea30a2b1dd1117a78d81f55a20c6bea6726dea65b99f8aed", "cache_depth1": "56b9b71434098993d9264fdece3b66dfd96eaebcef3e9e35efc4ffa1c00787f9", "render_depth1": "775e98a5a3c34c4dad888ec182cc21b3e8651774a8ef941dffe10589cc2ce899", "m96_depth1": "f69e6be0e1c916ba70587d45dea2274cf2dab39c73db474dfef00a7fd112c1b0", "cache_depth2": "c98a0c180db665c254bf193911551914dbf0757401762c7e121ffe0f3ebe8c82", "render_depth2": "91b39defebdd9cb7a87600eab3628249cbf0a8c8f8766d9aef2c1b58adfc48a6", "m96_depth2": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "cache_depth4": "bd0160bd263b950acac1d35ee91dac697ede6470831cff3bde258f39ca4357f8", "render_depth4": "2dc6ccd2129f07d234d9a375f9c7b6e6a42c01091cc69f22b90c5ac060029296", "m96_depth4": "301ae330d9afac2b370105369dfdaacb6c8a6c15ce5ba030c88c6b97fb9af3bb"},
+  "depth_band": {"depth1": {"rel_dev": "1.003191714699206e-1", "band": "2.006383429398412e-1"}, "depth2": {"rel_dev": "1.1763399051529e-1", "band": "2.3526798103058e-1"}, "depth4": {"rel_dev": "1.223783115783335e-1", "band": "2.44756623156667e-1"}},
+  "hole_arms": {"victim_card": 0, "holed_tris": 2, "energy_full": "3.878959708303679e3", "energy_holed_green": "3.7012228694916703e3", "energy_loss_rel_measured": "4.582074890634407e-2", "leak_full": 0, "leak_green": 0, "leak_red": 544, "fallback_px_green": 544},
+  "commands": [".\\target-g94b\\debug\\g9_m97_surface_cache.exe", "--spv-capture", ".tmp\\g9_m97_cache_capture.spv", "--spv-render", ".tmp\\g9_m97_cache_render.spv", "--spv-m96", ".tmp\\g9_m96_path_tracer.spv", "--evidence", "evidence\\g9_m97_surface_cache_20260813T005957Z_voff.json"],
+  "failures": []
+}

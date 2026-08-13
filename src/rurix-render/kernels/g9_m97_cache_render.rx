@@ -1,0 +1,140 @@
+//@ spec: RXS-0358
+// G9.4 M97 Surface Cache 消费渲染 kernel(device 腿;门 `g9.p0.m97.surface_cache`)。
+//
+// ## 架构(RXS-0358 L2/L3;RFC-0022 §4.6)
+// 逐像素单 invocation:相机主光线(像素中心,jitter-free——RFC-0019 §4.6.1
+// 运动约定同口径)ray query 首命中 ⇒ 经逐三角→Card 映射定位图集 texel
+// (命中点投影到 Card 面内 (u,v),最近 texel),读取 capture 产物辐射度;
+// **缺失覆盖只丢能量不漏光(硬契约)**:无 Card 覆盖 / texel 覆盖为 0 ⇒
+// 回退到 ambient 项(输出非负、无低于 ambient 的黑色裂缝);`fallback_on=0`
+// 变体 = 回退关闭(黑色裂缝注入,漏光检测 RED 臂承载——漏光像素计数≠0)。
+// 相机 miss(场景外)= 0 且 flag=0(不参与漏光判定)。
+// 与 capture 内核/M96 megakernel **不共享**同一射线流(D2-Q9):独立 dispatch、
+// 独立缓冲;逐像素独立直写,无跨像素交互(确定性协议承 RXS-0357 L2)。
+//
+// ## 参数面(host `gi::surface_cache::pack_render_params` 逐字同源;f32 位级编码)
+//   params[0]=pixel_count [1]=width [2]=height [3]=fallback_on(0/1)
+//   [4..7]=ambient_rgb [7..10]=cam_origin [10..13]=cam_forward [13..16]=cam_right
+//   [16..19]=cam_up [19]=tan(fov/2) [20]=1/width [21]=1/height [22]=ray_eps [23]=t_max
+//   cards/tri_to_card/atlas/coverage 布局见 host 打包函数头注。
+//   out_rgb: 3 f32/px;out_flags: 1 f32/px(0=相机 miss,1=缓存命中,2=缺失
+//   覆盖回退区——漏光检测校验面 `count_leak_pixels` 消费)。
+kernel fn g9_m97_cache_render(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    cards: View<global, f32>,
+    tri_to_card: View<global, f32>,
+    atlas: View<global, f32>,
+    coverage: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_flags: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let width = params[1] as usize;
+    let fallback_on = params[3];
+    let amb_r = params[4];
+    let amb_g = params[5];
+    let amb_b = params[6];
+    let co_x = params[7];
+    let co_y = params[8];
+    let co_z = params[9];
+    let cf_x = params[10];
+    let cf_y = params[11];
+    let cf_z = params[12];
+    let cr_x = params[13];
+    let cr_y = params[14];
+    let cr_z = params[15];
+    let cu_x = params[16];
+    let cu_y = params[17];
+    let cu_z = params[18];
+    let tan_half = params[19];
+    let inv_w = params[20];
+    let inv_h = params[21];
+    let t_max = params[23];
+    let big: f32 = 1e30;
+    if i < pixel_count {
+        // ── ray gen(相机主光线;pinhole,像素中心)──
+        let px = i % width;
+        let py = i / width;
+        let ju = ((px as f32) + 0.5) * inv_w;
+        let jv = ((py as f32) + 0.5) * inv_h;
+        let sx = (2.0 * ju - 1.0) * tan_half;
+        let sy = (1.0 - 2.0 * jv) * tan_half;
+        let d0_x = cf_x + cr_x * sx + cu_x * sy;
+        let d0_y = cf_y + cr_y * sx + cu_y * sy;
+        let d0_z = cf_z + cr_z * sx + cu_z * sy;
+        let d0_inv = 1.0 / (d0_x * d0_x + d0_y * d0_y + d0_z * d0_z).sqrt();
+        let dx = d0_x * d0_inv;
+        let dy = d0_y * d0_inv;
+        let dz = d0_z * d0_inv;
+        // ── intersect(函数体顶层)──
+        let mut rq = ray_query_initialize(tlas, (co_x, co_y, co_z), 0.0, (dx, dy, dz), t_max);
+        while rq.proceed() {
+        }
+        // committed 提取 = 短臂(S3 守卫)。
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+        }
+        // ── 图集查询算术段(无 selection;全部经 hit_f / min-max 门)──
+        let hx = co_x + dx * th;
+        let hy = co_y + dy * th;
+        let hz = co_z + dz * th;
+        // 逐三角 → Card(−1.0 = 无覆盖 sentinel;miss 时 prim=0 读 map[0],贡献经门恒 0)。
+        let cardf = tri_to_card[prim as usize];
+        let has_card = ((cardf + 1.0) * big).min(1.0).max(0.0);
+        let card = cardf.max(0.0) as usize;
+        let cb = card * 24;
+        let kx = cards[cb];
+        let ky = cards[cb + 1];
+        let kz = cards[cb + 2];
+        let au_x = cards[cb + 3];
+        let au_y = cards[cb + 4];
+        let au_z = cards[cb + 5];
+        let av_x = cards[cb + 6];
+        let av_y = cards[cb + 7];
+        let av_z = cards[cb + 8];
+        let size_u = cards[cb + 12];
+        let size_v = cards[cb + 13];
+        let res_u_f = cards[cb + 14];
+        let res_v_f = cards[cb + 15];
+        let texel_base = cards[cb + 16] as usize;
+        let rel_x = hx - kx;
+        let rel_y = hy - ky;
+        let rel_z = hz - kz;
+        let du = (rel_x * au_x + rel_y * au_y + rel_z * au_z) / size_u;
+        let dv = (rel_x * av_x + rel_y * av_y + rel_z * av_z) / size_v;
+        let res_u = res_u_f as usize;
+        let tu = (du * res_u_f).max(0.0).min(res_u_f - 1.0) as usize;
+        let tv = (dv * res_v_f).max(0.0).min(res_v_f - 1.0) as usize;
+        let texel = texel_base + tv * res_u + tu;
+        let cov = coverage[texel];
+        let cov_ok = (cov * big).min(1.0).max(0.0);
+        // 选择:缓存命中 / 缺失覆盖回退 / 相机 miss(全算术门)。
+        let use_atlas = hit_f * has_card * cov_ok;
+        let fb = hit_f * (1.0 - has_card * cov_ok);
+        let out_r = atlas[texel * 3] * use_atlas + amb_r * fb * fallback_on;
+        let out_g = atlas[texel * 3 + 1] * use_atlas + amb_g * fb * fallback_on;
+        let out_b = atlas[texel * 3 + 2] * use_atlas + amb_b * fb * fallback_on;
+        let flag = use_atlas * 1.0 + fb * 2.0;
+        out_rgb[i * 3] = out_r;
+        out_rgb[i * 3 + 1] = out_g;
+        out_rgb[i * 3 + 2] = out_b;
+        out_flags[i] = flag;
+    } else {
+        out_rgb[i * 3] = 0.0;
+        out_rgb[i * 3 + 1] = 0.0;
+        out_rgb[i * 3 + 2] = 0.0;
+        out_flags[i] = 0.0;
+    }
+}
