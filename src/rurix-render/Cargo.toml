@@ -150,5 +150,12 @@ path = "src/bin/g9_m111_hlod_runtime.rs"
 name = "g9_m119_post_chain"
 path = "src/bin/g9_m119_post_chain.rs"
 
+# G9.5 M112 Froxel 大气前端 P1 harness(RXS-0365;门 g9.p1.m112.atmosphere_froxel):
+# Froxel 统一基础设施(云雾共用)+ 雾前端高度雾解析项 + 计数面逐帧 evidence +
+# weather map 篡改签名拒录 RED 臂 + 时序链断裂 RED 臂。纯 host 确定性面。
+[[bin]]
+name = "g9_m112_atmosphere_froxel"
+path = "src/bin/g9_m112_atmosphere_froxel.rs"
+
 [lints]
 workspace = true

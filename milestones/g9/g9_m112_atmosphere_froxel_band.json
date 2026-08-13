@@ -1,0 +1,11 @@
+{
+  "schema": "rurix.g9m112.atmosphere_froxel_band.v1",
+  "frozen_at_utc": "2026-08-13T15:24:55Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M112 语义面 = 体素网格 + 密度/光照累积 + 散射积分)"},
+  "freeze_rule": "scene_digest = canonical 场景(64×64×64 Froxel + 高度雾前端 + 2 注入光源 + 32 步散射积分)密度场 + 逐像素散射序列 SHA-256(双跑位级一致后冻结,禁手写);density_z0 = 高度雾底层密度 golden",
+  "spec_anchor": "RXS-0365",
+  "scene_digest": "7dfe961bd94b22b62aba830e1dcb51e44667c3fbba979f2cfc4603f8c7b24981",
+  "density_z0": "0.050000",
+  "density_z1": "0.048260",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-m111-m112-m119-implementer"
+}

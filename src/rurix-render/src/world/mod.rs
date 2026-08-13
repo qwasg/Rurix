@@ -6,6 +6,10 @@
 //!   大世界 soak hitch p99 measured 阈值)。
 //! - [`hlod`] = M111 HLOD 运行时互斥切换面(RXS-0364:screen-size 阈值互斥
 //!   切换 + 运行时零合并断言 + cell 事件总线接线 + 层级序列 golden)。
+//! - [`atmosphere`] = M112 Froxel 大气前端(RXS-0365:Froxel 统一基础设施 +
+//!   雾前端高度雾解析项 + weather map 资产化 + 时序上采样默认路径 + 计数面
+//!   逐帧 evidence)。
 
+pub mod atmosphere;
 pub mod hlod;
 pub mod partition;

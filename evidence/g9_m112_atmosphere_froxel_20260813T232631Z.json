@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g9m112.atmosphere_froxel.v1",
+  "schema_version": 1,
+  "subject": "g9_m112_atmosphere_froxel",
+  "spec_anchor": "RXS-0365",
+  "assertion_id": "g9.p1.m112.atmosphere_froxel",
+  "milestone": "M112",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T15:26:33Z",
+  "base_commit": "5b0f93c0",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M112 语义面 = 体素网格 + 密度/光照累积 + 散射积分)", "validation": "not_applicable", "require_real": true},
+  "golden": {"scene_digest": "7dfe961bd94b22b62aba830e1dcb51e44667c3fbba979f2cfc4603f8c7b24981", "density_z0": 0.050000, "density_z1": 0.048260, "freeze_band": "H:\\rurix\\milestones/g9/g9_m112_atmosphere_froxel_band.json"},
+  "counters": {"grid_dim": [64, 64, 64], "light_count": 2, "scatter_steps": 32, "density_nonzero_voxels": 147456},
+  "red_arms": {"grid_tamper": true, "zero_scatter": true, "weather_tamper": true, "temporal_break": true},
+  "conformance_corpus": {"dir": "conformance/world_partition", "files": 2, "anchors": {"accept/atmosphere_froxel_fog_minimal.rx": "RXS-0365", "reject/atmosphere_weather_map_signature_tampered.rx": "RXS-0365"}},
+  "checks": {"conformance_corpus_anchored": true, "froxel_unified_infrastructure": true, "fog_density_height_decay": true, "per_frame_counters_nonempty": true, "double_run_bit_equal": true, "golden_frozen_equal": true, "red_arm_grid_tamper": true, "red_arm_zero_scatter": true, "red_arm_weather_and_temporal": true},
+  "commands": ["target-g95c\\debug\\g9_m112_atmosphere_froxel.exe", "--evidence", "H:\\rurix\\evidence\\g9_m112_atmosphere_froxel_20260813T232631Z.json"],
+  "failures": []
+}
