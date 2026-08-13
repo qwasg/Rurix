@@ -1,0 +1,22 @@
+{
+  "schema": "rurix.g9m111.hlod_runtime.v1",
+  "schema_version": 1,
+  "subject": "g9_m111_hlod_runtime",
+  "spec_anchor": "RXS-0364",
+  "assertion_id": "g9.p1.m111.hlod_runtime",
+  "milestone": "M111",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T15:26:31Z",
+  "base_commit": "5b0f93c0",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M111 语义面 = 选择/切换/零合并断言)", "validation": "not_applicable", "require_real": true},
+  "golden": {"selection_log_digest": "b019f2556aa46207339b5edfaac1cff9b782fcdbefddf7818c1242f67b4370fd", "record_count": 32, "switch_distances_m": "[202.385618, 639.999519]", "freeze_band": "H:\\rurix\\milestones/g9/g9_m111_hlod_runtime_band.json"},
+  "red_arms": {"runtime_merge": true, "level_perturb": true, "digest_mismatch": true},
+  "conformance_corpus": {"dir": "conformance/world_partition", "files": 2, "anchors": {"accept/hlod_baking_double_build_minimal.rx": "RXS-0364", "reject/hlod_runtime_merge_forbidden.rx": "RXS-0364"}},
+  "checks": {"conformance_corpus_anchored": true, "event_bus_wired": true, "selection_double_run_bit_equal": true, "mutually_exclusive": true, "sequence_nontrivial": true, "golden_frozen_equal": true, "red_arm_runtime_merge": true, "red_arm_level_perturb_and_digest": true},
+  "commands": ["target-g95c\\debug\\g9_m111_hlod_runtime.exe", "--evidence", "H:\\rurix\\evidence\\g9_m111_hlod_runtime_20260813T232631Z.json"],
+  "failures": []
+}

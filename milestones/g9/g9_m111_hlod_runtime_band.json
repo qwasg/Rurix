@@ -1,0 +1,11 @@
+{
+  "schema": "rurix.g9m111.hlod_runtime_band.v1",
+  "frozen_at_utc": "2026-08-13T15:24:26Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M111 运行时语义面 = 选择/切换/零合并断言)"},
+  "freeze_rule": "selection_log_digest = canonical 场景 8 帧事件总线接线后,对驻留 HLOD cell 按 32 帧 canonical 视距序列逐帧选择的层级序列 SHA-256(双跑位级一致后冻结,禁手写);switch_distances_m = canonical 阈值表对 45.2548m 包围球半径的闭式切换距离表 golden",
+  "spec_anchor": "RXS-0364",
+  "selection_log_digest": "b019f2556aa46207339b5edfaac1cff9b782fcdbefddf7818c1242f67b4370fd",
+  "selection_record_count": 32,
+  "switch_distances_m": "[202.385618, 639.999519]",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-m111-m112-m119-implementer"
+}
