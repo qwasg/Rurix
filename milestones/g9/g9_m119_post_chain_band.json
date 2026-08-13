@@ -1,0 +1,14 @@
+{
+  "schema": "rurix.g9m119.post_chain_band.v1",
+  "frozen_at_utc": "2026-08-13T15:24:53Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M119 语义面 = 排序骨架 + HDR 探针 + 曝光持久状态)"},
+  "freeze_rule": "chain_digest = canonical HDR 帧(32×32,含高光>1)经五级显式排序链(曝光→bloom→tonemap→LUT→输出变换)SDR 路径输出的 SHA-256(双跑位级一致后冻结,禁手写);四插件逐一冻结",
+  "spec_anchor": "RXS-0370",
+  "stage_order": ["exposure", "bloom", "tonemap", "color_grading", "output_transform"],
+  "plugins": {
+    "aces13_chain_digest": "bdb40188c91295e4054c16fad25cccd2f75f02c8d55479eac0163ccf1747f16c",
+    "aces20_chain_digest": "6e512a890057c6c5353f77d9966b7cb2f44d3def7a0a7f95bebfec8d99c62284",
+    "agx_chain_digest": "5a0fcfef37562f4ea7d3b96407940ac2c02b92ac16cf294611ffd431a9b51739",
+    "neutral_chain_digest": "71e9ead12cf8fae385fc0a353ccfe519b04dd92d73c4ccfe7cea89d861d078cf"},
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-m111-m112-m119-implementer"
+}

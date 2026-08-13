@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g9m119.post_chain.v1",
+  "schema_version": 1,
+  "subject": "g9_m119_post_chain",
+  "spec_anchor": "RXS-0370",
+  "assertion_id": "g9.p1.m119.post_chain",
+  "milestone": "M119",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T15:26:31Z",
+  "base_commit": "5b0f93c0",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M119 语义面 = 排序骨架 + HDR 探针 + 曝光持久状态)", "validation": "not_applicable", "require_real": true},
+  "golden": {"chain_digests": {"aces13": "bdb40188c91295e4054c16fad25cccd2f75f02c8d55479eac0163ccf1747f16c", "aces20": "6e512a890057c6c5353f77d9966b7cb2f44d3def7a0a7f95bebfec8d99c62284", "agx": "5a0fcfef37562f4ea7d3b96407940ac2c02b92ac16cf294611ffd431a9b51739", "neutral": "71e9ead12cf8fae385fc0a353ccfe519b04dd92d73c4ccfe7cea89d861d078cf"}, "freeze_band": "H:\\rurix\\milestones/g9/g9_m119_post_chain_band.json"},
+  "red_arms": {"order_swap": true, "implicit_clamp": true, "exposure_lost": true},
+  "exposure_adapt": {"up_step": 1.000000, "down_step": 0.500000, "rates_diverged": true},
+  "conformance_corpus": {"dir": "conformance/display_pipeline", "files": 2, "anchors": {"accept/post_stack_explicit_order_minimal.rx": "RXS-0370", "reject/post_stack_implicit_sdr_clamp.rx": "RXS-0370"}},
+  "checks": {"conformance_corpus_anchored": true, "five_stage_explicit_order": true, "order_swap_detectable_red": true, "hdr_linear_domain_probe_red": true, "exposure_state_persist_red": true, "four_plugins_wired": true, "double_run_bit_equal": true, "golden_frozen_equal": true},
+  "commands": ["target-g95c\\debug\\g9_m119_post_chain.exe", "--evidence", "H:\\rurix\\evidence\\g9_m119_post_chain_20260813T232631Z.json"],
+  "failures": []
+}

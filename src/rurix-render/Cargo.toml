@@ -135,5 +135,20 @@ path = "src/bin/g9_m118_display_pipeline.rs"
 name = "g9_m120_oit_benchmark"
 path = "src/bin/g9_m120_oit_benchmark.rs"
 
+# G9.5 M111 HLOD 运行时 P1 harness(RXS-0364;门 g9.p1.m111.hlod_runtime):
+# screen-size 阈值互斥切换层级序列 golden + 运行时零合并断言 RED 臂 + M110 cell
+# 事件总线接线 + 烘焙产物双构建 hash 相等运行时核验臂。纯 host 确定性面。
+[[bin]]
+name = "g9_m111_hlod_runtime"
+path = "src/bin/g9_m111_hlod_runtime.rs"
+
+# G9.5 M119 后处理骨架 P1 harness(RXS-0370;门 g9.p1.m119.post_chain):
+# 五级显式排序闭集(曝光→bloom→tonemap→LUT→输出变换)golden + 全程 HDR 线性域
+# 探针 RED 臂 + 曝光状态帧间持久 RED 臂 + M118 view transform 插件接线。
+# 纯 host 确定性面。
+[[bin]]
+name = "g9_m119_post_chain"
+path = "src/bin/g9_m119_post_chain.rs"
+
 [lints]
 workspace = true

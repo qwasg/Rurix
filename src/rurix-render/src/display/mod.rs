@@ -21,5 +21,6 @@ pub mod aces20;
 pub mod agx;
 pub mod color;
 pub mod neutral;
+pub mod post_chain;
 pub mod swapchain;
 pub mod view_transform;
