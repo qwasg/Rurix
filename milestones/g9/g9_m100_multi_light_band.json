@@ -1,0 +1,16 @@
+{
+  "schema": "rurix.g9m100.multi_light_band.v1",
+  "frozen_at_utc": "2026-08-13T04:04:47Z",
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "scene": "m100_multi_light",
+  "m96_anchor_digest": "f69e6be0e1c916ba70587d45dea2274cf2dab39c73db474dfef00a7fd112c1b0",
+  "freeze_rule": "band_rel_dev = measured_rel_dev * 2.0(规则冻结于 gi::multi_light::M100_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)",
+  "matched_depth": "1",
+  "m96_golden_spp": "64",
+  "seed_chain": "6489699234650062852",
+  "skip_verification_bias": "2.0591399066436256e-2",
+  "light_subset_rel_dev": "2.0386899972212838e-1",
+  "entries": [
+    {"tier": "m100_low_reference", "product_digest": "a2dcb60fcf7c523961393ebebed81e1fa8ef792013983bb50419af221a9b629b", "m96_golden_digest": "0adc27f34fc10e9eff35a710ec82adc602ade1d8ed8d434fe17b3e13ef41d251", "band_rel_dev": "2.3426495462985863e-1", "measured_rel_dev": "1.1713247731492932e-1"}
+  ]
+}

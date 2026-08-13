@@ -1,0 +1,242 @@
+//@ spec: RXS-0361
+// G9.4 M100 低档多灯直接光 kernel(device 腿;门 `g9.p1.m100.multi_light_low`)。
+//
+// ## 语义(RXS-0361 L1/L2;RFC-0022 §7 D2-Q4)
+// 低档默认档 = MegaLights 式**固定随机选灯**:逐像素单 invocation,内部采样
+// 循环(spp);每采样 = jitter 相机主光线 ray query 求最近命中 → ① 主命中
+// 发光面(直接可见灯,首反弹 w_b=1,M96 shade① 同式)→ ② 固定随机选灯
+// (流维度 light_sel,均匀 L 选一,子集注入档恒灯 0)+ NEE×MIS(逐灯 MIS 权
+// 与 M96 shade② 逐字同式;选灯概率 1/L 折贡献 ×L)+ **验证射线零跳过**
+// (参照/子集档:每被选灯样本必发射可见性 ray query,发行记录写 diag;
+// 跳验证注入档:可见性恒取 1 不发射,fired=0 显式——D2-Q4 否决行 RED 臂)。
+// 逐样本发行记录(选中灯+1 / fired / blocked)写 out_diag,host 确定性归约
+// 出逐灯计数面(禁 device atomic,承确定性协议);逐像素输出均值 RGB +
+// Σlum/Σlum²(方差面,M96 同律)。海量灯阴影统一接口随动 = 逐灯可见性经同一
+// ray query 通道(灯表索引化,无灯级特化路径)。
+//
+// ## 确定性协议(承 RXS-0357 L2 同律)
+// - RNG = host 同源 PCG32 流(`gi::multi_light::m100_rng` 同一实例生成;流为
+//   **输入**不是结果):逐像素逐采样 5 维 [cam_u, cam_v, light_sel, nee_u,
+//   nee_v],按索引寻址(base = (pixel·spp + s)·5)。
+// - 逐像素独立顺序累加,禁 atomic;全 f32;分支判定 = min/max 算术门 + 短
+//   selection 臂(committed 提取臂 ≤4 语句,M96 已机验白名单形)。
+// - host 参照 = `gi::multi_light::trace_direct_host`(逐字同源)。
+//
+// ## 参数面(host `gi::multi_light::pack_ml_params` 逐字同源;21 f32 位级编码)
+//   params[0]=pixel_count [1]=spp [2]=mode(0=ref/1=skip_verif/2=subset)
+//   [3]=light_count [4]=ray_eps [5]=t_max [6..9]=cam_origin
+//   [9..12]=cam_forward [12..15]=cam_right [15..18]=cam_up [18]=tan(fov/2)
+//   [19]=width [20]=height
+//   lights: 16 f32/灯 [p00 3, e1 3, e2 3, emission 3, area, normal 3];
+//   mats: 8 f32/tri(M96 同式);tris: 9 f32/tri(M96 同式,顶点序 =
+//   primitiveIndex 序);rng: 5 f32/(px·spp);
+//   out_rgb: 3 f32/px 均值辐射度;out_stats: 2 f32/px [Σlum, Σlum²];
+//   out_diag: 3 f32/(px·spp) [选中灯+1(主未命中=0), fired, blocked]。
+kernel fn g9_m100_multi_light(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    lights: View<global, f32>,
+    rng: View<global, f32>,
+    mats: View<global, f32>,
+    tris: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_stats: ViewMut<global, f32>,
+    out_diag: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let spp = params[1] as usize;
+    let mode = params[2];
+    let light_count = params[3];
+    let ray_eps = params[4];
+    let t_max = params[5];
+    let co_x = params[6];
+    let co_y = params[7];
+    let co_z = params[8];
+    let cf_x = params[9];
+    let cf_y = params[10];
+    let cf_z = params[11];
+    let cr_x = params[12];
+    let cr_y = params[13];
+    let cr_z = params[14];
+    let cu_x = params[15];
+    let cu_y = params[16];
+    let cu_z = params[17];
+    let tan_half = params[18];
+    let width = params[19] as usize;
+    let height = params[20] as usize;
+    let pi: f32 = 3.1415927;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let spp_f = spp as f32;
+    if i < pixel_count {
+        let px = i % width;
+        let py = i / width;
+        let inv_w = 1.0 / (width as f32);
+        let inv_h = 1.0 / (height as f32);
+        // mode 算术门:m_skip = 1 iff mode==1;m_subset = 1 iff mode==2。
+        let m_skip = ((mode - 0.5) * big).min(1.0).max(0.0) * ((1.5 - mode) * big).min(1.0).max(0.0);
+        let m_subset = ((mode - 1.5) * big).min(1.0).max(0.0);
+        let mut sum_r = 0.0;
+        let mut sum_g = 0.0;
+        let mut sum_b = 0.0;
+        let mut sum_l = 0.0;
+        let mut sq_l = 0.0;
+        let mut s = 0usize;
+        while s < spp {
+            let sb = (i * spp + s) * 5;
+            // ── 相机主光线(jitter 流采样;M96 ray gen 同式)──
+            let ju = ((px as f32) + rng[sb]) * inv_w;
+            let jv = ((py as f32) + rng[sb + 1]) * inv_h;
+            let sx = (2.0 * ju - 1.0) * tan_half;
+            let sy = (1.0 - 2.0 * jv) * tan_half;
+            let d0_x = cf_x + cr_x * sx + cu_x * sy;
+            let d0_y = cf_y + cr_y * sx + cu_y * sy;
+            let d0_z = cf_z + cr_z * sx + cu_z * sy;
+            let d0_inv = 1.0 / (d0_x * d0_x + d0_y * d0_y + d0_z * d0_z).sqrt();
+            let dx = d0_x * d0_inv;
+            let dy = d0_y * d0_inv;
+            let dz = d0_z * d0_inv;
+            // ── 主 ray query(最近命中;空体循环 = M96 白名单形)──
+            let mut rq = ray_query_initialize(tlas, (co_x, co_y, co_z), 0.0, (dx, dy, dz), t_max);
+            while rq.proceed() {
+            }
+            // committed 提取 = 短臂(S3 守卫)。
+            let mut hit_f = 1.0;
+            let mut th = 0.0;
+            let mut prim = 0u32;
+            if rq.has_committed() {
+                th = rq.committed_t();
+                prim = rq.committed_primitive_index();
+                hit_f = 1.0;
+            } else {
+                hit_f = 0.0;
+                th = 0.0;
+                prim = 0u32;
+            }
+            // 命中点/法线/材质(miss 时 prim=0 保底,贡献经 hit_f 门恒 0)。
+            let tb = (prim as usize) * 9;
+            let ax = tris[tb];
+            let ay = tris[tb + 1];
+            let az = tris[tb + 2];
+            let e1x = tris[tb + 3] - ax;
+            let e1y = tris[tb + 4] - ay;
+            let e1z = tris[tb + 5] - az;
+            let e2x = tris[tb + 6] - ax;
+            let e2y = tris[tb + 7] - ay;
+            let e2z = tris[tb + 8] - az;
+            let ngx = e1y * e2z - e1z * e2y;
+            let ngy = e1z * e2x - e1x * e2z;
+            let ngz = e1x * e2y - e1y * e2x;
+            let ng_inv = 1.0 / (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+            let hgx = ngx * ng_inv;
+            let hgy = ngy * ng_inv;
+            let hgz = ngz * ng_inv;
+            let facing = hgx * dx + hgy * dy + hgz * dz;
+            let flip = 1.0 - 2.0 * (facing * big).min(1.0).max(0.0);
+            let nx = hgx * flip;
+            let ny = hgy * flip;
+            let nz = hgz * flip;
+            let hx = co_x + dx * th;
+            let hy = co_y + dy * th;
+            let hz = co_z + dz * th;
+            let mb = (prim as usize) * 8;
+            let al_r = mats[mb];
+            let al_g = mats[mb + 1];
+            let al_b = mats[mb + 2];
+            let em_r = mats[mb + 3];
+            let em_g = mats[mb + 4];
+            let em_b = mats[mb + 5];
+            // ── ① 主命中发光面(直接可见灯;首反弹 w_b=1,M96 shade① first 同式)──
+            let cos_emit = 0.0 - (hgx * dx + hgy * dy + hgz * dz);
+            let e_lum = em_r.max(em_g).max(em_b);
+            let gate_e = hit_f * (e_lum * big).min(1.0).max(0.0) * (cos_emit * big).min(1.0).max(0.0);
+            let mut li_r = em_r * gate_e;
+            let mut li_g = em_g * gate_e;
+            let mut li_b = em_b * gate_e;
+            // ── ② 固定随机选灯(子集注入 ⇒ 恒灯 0)+ NEE×MIS + 验证射线 ──
+            let sel_f = (rng[sb + 2] * light_count).min(light_count - 1.0);
+            let k_eff = (sel_f as u32) as f32 * (1.0 - m_subset);
+            let lb = (k_eff as usize) * 16;
+            let lp_x = lights[lb];
+            let lp_y = lights[lb + 1];
+            let lp_z = lights[lb + 2];
+            let le1_x = lights[lb + 3];
+            let le1_y = lights[lb + 4];
+            let le1_z = lights[lb + 5];
+            let le2_x = lights[lb + 6];
+            let le2_y = lights[lb + 7];
+            let le2_z = lights[lb + 8];
+            let lem_r = lights[lb + 9];
+            let lem_g = lights[lb + 10];
+            let lem_b = lights[lb + 11];
+            let light_area = lights[lb + 12];
+            let ln_x = lights[lb + 13];
+            let ln_y = lights[lb + 14];
+            let ln_z = lights[lb + 15];
+            let qx = lp_x + le1_x * rng[sb + 3] + le2_x * rng[sb + 4];
+            let qy = lp_y + le1_y * rng[sb + 3] + le2_y * rng[sb + 4];
+            let qz = lp_z + le1_z * rng[sb + 3] + le2_z * rng[sb + 4];
+            let wvx = qx - hx;
+            let wvy = qy - hy;
+            let wvz = qz - hz;
+            let dist2 = (wvx * wvx + wvy * wvy + wvz * wvz).max(tiny * tiny);
+            let dist = dist2.sqrt();
+            let wix = wvx / dist;
+            let wiy = wvy / dist;
+            let wiz = wvz / dist;
+            let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+            let cos_l = (0.0 - (ln_x * wix + ln_y * wiy + ln_z * wiz)).max(0.0);
+            let t_sh = (dist - 2.0 * ray_eps).max(ray_eps);
+            // 验证射线(零跳过:每被选灯样本必发射;skip 档经 m_skip 门
+            // 消费为 vis=1,fired 记 0——ray 仍发行以保持执行形一致,发行
+            // 记录以 fired 门为准)。
+            let mut sq = ray_query_initialize(
+                tlas,
+                (hx + nx * ray_eps, hy + ny * ray_eps, hz + nz * ray_eps),
+                0.0,
+                (wix, wiy, wiz),
+                t_sh,
+            );
+            while sq.proceed() {
+            }
+            let mut blk = 0.0;
+            if sq.has_committed() {
+                blk = 1.0;
+            } else {
+                blk = 0.0;
+            }
+            let vis = m_skip + (1.0 - m_skip) * (1.0 - blk);
+            let fired = (1.0 - m_skip) * hit_f;
+            let blk_rec = blk * (1.0 - m_skip) * hit_f;
+            // 贡献 = albedo·Le·core·w_l·vis·L(M96 NEE 核心同式 × 选灯折叠)。
+            let nee_core = cos_s * cos_l * light_area / (pi * dist2);
+            let wl_ratio = (cos_s / pi) * light_area * cos_l.max(tiny) / dist2;
+            let w_l = 1.0 / (1.0 + wl_ratio * wl_ratio);
+            let gate_n = hit_f * (cos_s * big).min(1.0).max(0.0) * (cos_l * big).min(1.0).max(0.0);
+            let gain = nee_core * w_l * vis * light_count * gate_n;
+            li_r = li_r + al_r * lem_r * gain;
+            li_g = li_g + al_g * lem_g * gain;
+            li_b = li_b + al_b * lem_b * gain;
+            // ── 逐样本发行记录(diag;host 确定性归约)──
+            let db = (i * spp + s) * 3;
+            out_diag[db] = (k_eff + 1.0) * hit_f;
+            out_diag[db + 1] = fired;
+            out_diag[db + 2] = blk_rec;
+            // ── 逐采样累加(顺序;方差面 Σlum/Σlum²)──
+            sum_r = sum_r + li_r;
+            sum_g = sum_g + li_g;
+            sum_b = sum_b + li_b;
+            let lum = (li_r + li_g + li_b) / 3.0;
+            sum_l = sum_l + lum;
+            sq_l = sq_l + lum * lum;
+            s = s + 1;
+        }
+        out_rgb[i * 3] = sum_r / spp_f;
+        out_rgb[i * 3 + 1] = sum_g / spp_f;
+        out_rgb[i * 3 + 2] = sum_b / spp_f;
+        out_stats[i * 2] = sum_l;
+        out_stats[i * 2 + 1] = sq_l;
+    }
+}

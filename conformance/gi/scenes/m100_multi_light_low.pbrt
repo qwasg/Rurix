@@ -1,0 +1,44 @@
+# G9.4 M100 pbrt-v4 对照场景(经 M96 同源导出面 gi::path_trace::pbrt_scene_text;RXS-0361 L4)
+# scene=m100_multi_light lights=4 spp=64 seed=1575931494 maxdepth=1
+Film "rgb" "integer xresolution" [64] "integer yresolution" [64] "string filename" ["m100_multi_light_low.exr"]
+Sampler "independent" "integer pixelsamples" [64] "integer seed" [1575931494]
+Integrator "path" "integer maxdepth" [1]
+LookAt 0.5 0.5 -0.9  0.5 0.5 0.099999964  0 1 0
+Camera "perspective" "float fov" [50]
+WorldBegin
+AttributeBegin
+  Material "diffuse" "rgb reflectance" [0.73 0.73 0.73]
+  Shape "trianglemesh" "integer indices" [0 1 2 0 2 3 4 5 6 4 6 7 8 9 10 8 10 11] "point3 P" [0 0 0 0 0 1 1 0 1 1 0 0 0 1 0 1 1 0 1 1 1 0 1 1 0 0 1 0 1 1 1 1 1 1 0 1]
+AttributeEnd
+AttributeBegin
+  Material "diffuse" "rgb reflectance" [0.61 0.06 0.06]
+  Shape "trianglemesh" "integer indices" [0 1 2 0 2 3] "point3 P" [0 0 0 0 1 0 0 1 1 0 0 1]
+AttributeEnd
+AttributeBegin
+  Material "diffuse" "rgb reflectance" [0.12 0.45 0.15]
+  Shape "trianglemesh" "integer indices" [0 1 2 0 2 3] "point3 P" [1 0 0 1 0 1 1 1 1 1 1 0]
+AttributeEnd
+AttributeBegin
+  Material "diffuse" "rgb reflectance" [0.6 0.6 0.6]
+  Shape "trianglemesh" "integer indices" [0 1 2 0 2 3 4 5 6 4 6 7 8 9 10 8 10 11 12 13 14 12 14 15 16 17 18 16 18 19 20 21 22 20 22 23] "point3 P" [0.42 0 0.38 0.42 0 0.68 0.72 0 0.68 0.72 0 0.38 0.42 0.55 0.38 0.72 0.55 0.38 0.72 0.55 0.68 0.42 0.55 0.68 0.42 0 0.38 0.72 0 0.38 0.72 0.55 0.38 0.42 0.55 0.38 0.42 0 0.68 0.42 0.55 0.68 0.72 0.55 0.68 0.72 0 0.68 0.42 0 0.38 0.42 0.55 0.38 0.42 0.55 0.68 0.42 0 0.68 0.72 0 0.38 0.72 0 0.68 0.72 0.55 0.68 0.72 0.55 0.38]
+AttributeEnd
+AttributeBegin
+  AreaLightSource "diffuse" "rgb L" [10 8.5 6.5]
+  Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+  Shape "trianglemesh" "integer indices" [0 1 2 3 4 5] "point3 P" [0.15 0.995 0.15 0.4 0.995 0.15 0.4 0.995 0.4 0.15 0.995 0.15 0.4 0.995 0.4 0.15 0.995 0.4]
+AttributeEnd
+AttributeBegin
+  AreaLightSource "diffuse" "rgb L" [6.5 8.5 10]
+  Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+  Shape "trianglemesh" "integer indices" [0 1 2 3 4 5] "point3 P" [0.6 0.995 0.15 0.85 0.995 0.15 0.85 0.995 0.4 0.6 0.995 0.15 0.85 0.995 0.4 0.6 0.995 0.4]
+AttributeEnd
+AttributeBegin
+  AreaLightSource "diffuse" "rgb L" [8 8 8]
+  Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+  Shape "trianglemesh" "integer indices" [0 1 2 3 4 5] "point3 P" [0.15 0.995 0.6 0.4 0.995 0.6 0.4 0.995 0.85 0.15 0.995 0.6 0.4 0.995 0.85 0.15 0.995 0.85]
+AttributeEnd
+AttributeBegin
+  AreaLightSource "diffuse" "rgb L" [12 10 8]
+  Material "diffuse" "rgb reflectance" [0.5 0.5 0.5]
+  Shape "trianglemesh" "integer indices" [0 1 2 3 4 5] "point3 P" [0.6 0.995 0.6 0.85 0.995 0.6 0.85 0.995 0.85 0.6 0.995 0.6 0.85 0.995 0.85 0.6 0.995 0.85]
+AttributeEnd

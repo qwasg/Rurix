@@ -1,0 +1,183 @@
+//@ spec: RXS-0362
+// G9.4 M101 IF 体素网格 probe 八面体图 kernel(device 腿;门
+// `g9.p1.m101.if_tier_ladder`)。
+//
+// ## 语义(RXS-0362 L1/L2/L3;RFC-0022 §4.8 D2-Q5)
+// 逐 (probe × texel) 单 invocation:texel 方向经**八面体解码**(线性域;
+// 与 host `gi::if_tier::oct` 单一源逐字同式)恢复,自 probe(体素中心)
+// 发射 ray query:
+// - mode=0 irradiance 图(8×8):命中点直接光(点光源近似未阴影,M98 L1 档
+//   公式面)+ 命中发光面直入(单面 cos_emit 门);未命中 = 零;
+// - mode=1 visibility 图(16×16——防漏光优先于提 irradiance 分辨率,
+//   RXS-0362 L1 逐字):归一化遮蔽距离 min(t, range)/range(miss = 1)——
+//   采样侧以 probe→点距离对比判遮蔽(存储距离 + 余量 ≥ 点距 ⇒ 可见)。
+// 同一 SPV 两 dispatch(irr/vis 各一,params 区分)——共享 probe 着色与
+// 八面体编码内核只换空间索引(D2-Q5)的 device 实例;每帧轮换更新摊销的
+// probe 子集选择由 host 侧游标驱动(本 kernel 无帧态)。
+//
+// ## 确定性协议(承 RXS-0357 L2 同律)
+// - 无 RNG 消费(oct texel 方向确定性);逐 invocation 独立,输出直写,
+//   禁 atomic;全 f32;分支判定 = min/max 算术门 + 短 selection 臂(M96
+//   已机验白名单形)。
+// - host 镜像 = `gi::if_tier::oct_texel_trace_host`(逐字同源,harness
+//   对拍腿);八面体折叠 sign01 约定与 host `oct` 模块同一字面。
+//
+// ## 参数面(host `gi::if_tier::pack_oct_params` 逐字同源;23 f32 位级编码)
+//   params[0]=probe_count [1]=texels_per_probe [2]=mode(0=irr/1=vis)
+//   [3]=res [4]=ray_eps [5]=t_max [6]=vis_range
+//   [7..10]=light_p00 [10..13]=light_e1 [13..16]=light_e2 [16]=light_area
+//   [17..20]=light_emission_rgb [20..23]=light_normal(单面)
+//   probes: 4 f32/probe [pos 3, pad];mats: 8 f32/tri(M96 同式);
+//   tris: 9 f32/tri(M96 同式,顶点序 = primitiveIndex 序);
+//   out_irr: 3 f32/(probe·64)(mode 0 写);out_vis: 1 f32/(probe·256)
+//   (mode 1 写);非本 mode 缓冲写 0(定义域洁净)。
+kernel fn g9_m101_probe_oct(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    probes: View<global, f32>,
+    mats: View<global, f32>,
+    tris: View<global, f32>,
+    params: View<global, f32>,
+    out_irr: ViewMut<global, f32>,
+    out_vis: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let probe_count = params[0] as usize;
+    let texels = params[1] as usize;
+    let mode = params[2];
+    let res = params[3] as usize;
+    let ray_eps = params[4];
+    let t_max = params[5];
+    let vis_range = params[6];
+    let lp_x = params[7];
+    let lp_y = params[8];
+    let lp_z = params[9];
+    let le1_x = params[10];
+    let le1_y = params[11];
+    let le1_z = params[12];
+    let le2_x = params[13];
+    let le2_y = params[14];
+    let le2_z = params[15];
+    let light_area = params[16];
+    let lem_r = params[17];
+    let lem_g = params[18];
+    let lem_b = params[19];
+    let ln_x = params[20];
+    let ln_y = params[21];
+    let ln_z = params[22];
+    let pi: f32 = 3.1415927;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let total = probe_count * texels;
+    if i < total {
+        let probe = i / texels;
+        let texel = i % texels;
+        let pb = probe * 4;
+        let px = probes[pb];
+        let py = probes[pb + 1];
+        let pz = probes[pb + 2];
+        // ── 八面体 texel 中心解码(线性域;host oct::decode_quant 同式)──
+        let ix = texel % res;
+        let iy = texel / res;
+        let res_f = res as f32;
+        let u = (((ix as f32) + 0.5) / res_f) * 2.0 - 1.0;
+        let v = (((iy as f32) + 0.5) / res_f) * 2.0 - 1.0;
+        let z = 1.0 - u.abs() - v.abs();
+        // 折叠(z<0 ⇒ 负半球折回菱形边界;sign01 约定:0 ⇒ +1)。
+        let fold = ((0.0 - z) * big).min(1.0).max(0.0);
+        let sx = 1.0 - 2.0 * ((0.0 - u) * big).min(1.0).max(0.0);
+        let sy = 1.0 - 2.0 * ((0.0 - v) * big).min(1.0).max(0.0);
+        let fx = (1.0 - v.abs()) * sx;
+        let fy = (1.0 - u.abs()) * sy;
+        let dx0 = u * (1.0 - fold) + fx * fold;
+        let dy0 = v * (1.0 - fold) + fy * fold;
+        let len = (dx0 * dx0 + dy0 * dy0 + z * z).sqrt().max(tiny);
+        let dx = dx0 / len;
+        let dy = dy0 / len;
+        let dz = z / len;
+        // ── 主 ray query(最近命中;空体循环 = M96 白名单形)──
+        let mut rq = ray_query_initialize(tlas, (px, py, pz), 0.0, (dx, dy, dz), t_max);
+        while rq.proceed() {
+        }
+        // committed 提取 = 短臂(S3 守卫)。
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+        }
+        // 命中点/法线/材质(miss 时 prim=0 保底,贡献经 hit_f 门恒 0)。
+        let tb = (prim as usize) * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let ng_inv = 1.0 / (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let hgx = ngx * ng_inv;
+        let hgy = ngy * ng_inv;
+        let hgz = ngz * ng_inv;
+        let facing = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (facing * big).min(1.0).max(0.0);
+        let nx = hgx * flip;
+        let ny = hgy * flip;
+        let nz = hgz * flip;
+        let hx = px + dx * th;
+        let hy = py + dy * th;
+        let hz = pz + dz * th;
+        let mb = (prim as usize) * 8;
+        let al_r = mats[mb];
+        let al_g = mats[mb + 1];
+        let al_b = mats[mb + 2];
+        let em_r = mats[mb + 3];
+        let em_g = mats[mb + 4];
+        let em_b = mats[mb + 5];
+        // ── irradiance:点光源近似未阴影(M98 L1 档公式面)+ 发光面直入 ──
+        let qx = lp_x + 0.5 * le1_x + 0.5 * le2_x;
+        let qy = lp_y + 0.5 * le1_y + 0.5 * le2_y;
+        let qz = lp_z + 0.5 * le1_z + 0.5 * le2_z;
+        let wvx = qx - hx;
+        let wvy = qy - hy;
+        let wvz = qz - hz;
+        let dist2 = wvx * wvx + wvy * wvy + wvz * wvz;
+        let dist = dist2.sqrt().max(tiny);
+        let wix = wvx / dist;
+        let wiy = wvy / dist;
+        let wiz = wvz / dist;
+        let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+        let cos_l = (0.0 - (ln_x * wix + ln_y * wiy + ln_z * wiz)).max(0.0);
+        let core = hit_f * cos_s * cos_l * light_area / (pi * dist2);
+        let sh_r = al_r * lem_r * core;
+        let sh_g = al_g * lem_g * core;
+        let sh_b = al_b * lem_b * core;
+        // 发光面直入门(单面;cos_emit > 0)。
+        let cos_emit = 0.0 - (hgx * dx + hgy * dy + hgz * dz);
+        let e_lum = em_r.max(em_g).max(em_b);
+        let gate_e = hit_f * (e_lum * big).min(1.0).max(0.0) * (cos_emit * big).min(1.0).max(0.0);
+        let irr_r = sh_r * (1.0 - gate_e) + em_r * gate_e;
+        let irr_g = sh_g * (1.0 - gate_e) + em_g * gate_e;
+        let irr_b = sh_b * (1.0 - gate_e) + em_b * gate_e;
+        // ── visibility:归一化遮蔽距离(命中 ⇒ min(t/range, 1);miss ⇒ 1)──
+        let t_norm = (th / vis_range).min(1.0);
+        let vis_v = 1.0 - hit_f * (1.0 - t_norm);
+        // ── 输出(mode 门;非本 mode 缓冲写 0)──
+        let m_irr = 1.0 - mode;
+        out_irr[i * 3] = irr_r * m_irr;
+        out_irr[i * 3 + 1] = irr_g * m_irr;
+        out_irr[i * 3 + 2] = irr_b * m_irr;
+        out_vis[i] = vis_v * mode;
+    }
+}

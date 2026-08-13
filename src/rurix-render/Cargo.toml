@@ -75,5 +75,37 @@ name = "g9_m98_fallback_chain"
 path = "src/bin/g9_m98_fallback_chain.rs"
 required-features = ["vulkan"]
 
+# G9.4 M99 屏幕级 SPG 自适应细分 + Radiance Cache 双级 device harness
+# (RXS-0360;门 g9.p1.m99.spg_radiance_cache):probe 第一反弹 kernel
+# (kernels/g9_m99_spg_probe.rx,product IS×MIS,U30 run_ray_query_effects)真跑;
+# 细分判据闭集计数 + tile 级缓存(temporal 公共底座历史复用)+ 世界级 clipmap
+# not-triggered 登记 + 关 product IS 方差回归/关自适应收敛特征偏离/私写重投影
+# 三 RED 臂 + 匹配深度 2 对 M96 golden 容差带(measured 冻结)。
+[[bin]]
+name = "g9_m99_spg_radiance_cache"
+path = "src/bin/g9_m99_spg_radiance_cache.rs"
+required-features = ["vulkan"]
+
+# G9.4 M100 低档多灯直接光 device harness(RXS-0361;门 g9.p1.m100.multi_light_low):
+# MegaLights 式固定随机选灯默认档(kernels/g9_m100_multi_light.rx,U30
+# run_ray_query_effects)真跑;验证射线零跳过逐样本发行记录 diag 归约逐灯计数
+# + 跳验证偏置/灯子集偏离双 RED 臂 + 高档 ReSTIR not-triggered 登记 + M96
+# 多灯 golden(逐灯参照和,匹配深度 1)容差带(measured 冻结)。
+[[bin]]
+name = "g9_m100_multi_light_low"
+path = "src/bin/g9_m100_multi_light_low.rs"
+required-features = ["vulkan"]
+
+# G9.4 M101 IF 体素网格 + 档位阶梯 device harness(RXS-0362;门
+# g9.p1.m101.if_tier_ladder):probe 八面体图 kernel
+# (kernels/g9_m101_probe_oct.rx,irr 8×8/vis 16×16 双 dispatch,U30
+# run_ray_query_effects)真跑;四档 L0~L3 共享内核单实例断言 + 每档 AS 预算行
+# 消费 AsStats + 超预算强制降档显式记录(静默降档注入必拒)+ SRGB 编码注入
+# RED 臂 + 匹配深度 2 对 M96 golden 容差带(measured 冻结)。
+[[bin]]
+name = "g9_m101_if_tier_ladder"
+path = "src/bin/g9_m101_if_tier_ladder.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

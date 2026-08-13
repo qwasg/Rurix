@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g9m101.if_tier_band.v1",
+  "frozen_at_utc": "2026-08-13T04:33:57Z",
+  "device_name": "NVIDIA GeForce RTX 4070 Ti",
+  "scene": "m96_cornell",
+  "m96_anchor_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b",
+  "freeze_rule": "band_rel_dev = measured_rel_dev * 2.0(规则冻结于 gi::if_tier::M101_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)",
+  "matched_depth": "2",
+  "m96_golden_spp": "64",
+  "seed_chain": "6777952067921969159",
+  "srgb_encode_rel_dev": "4.9855647742875586e-1",
+  "entries": [
+    {"tier": "l0_screen_probe", "product_digest": "4f39387476bffb3ccc60b0db299ea999cb636381edcf1fce2b6f93181238bf43", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6707777294238775e0", "measured_rel_dev": "8.353888647119387e-1"},
+    {"tier": "l1_clipmap_volume", "product_digest": "f1cf12cd9c9bcb30408cdde68ef25885476bf53dd087b5d59b19e7cb7869a9e5", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "2.238675158958212e0", "measured_rel_dev": "1.119337579479106e0"},
+    {"tier": "l2_spatial_hash", "product_digest": "73ce776109de9500838bdc2ddf332bc78631be3595edc908a0c14a1ad7ac6798", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.6850589569672827e0", "measured_rel_dev": "8.425294784836413e-1"},
+    {"tier": "l3_per_pixel", "product_digest": "6bb1593dddd48524a8174b9cf302d7d89b9adf067ef2df06d4ef4ae527d6a452", "m96_digest": "6bb43eb091ab2d4d1a726ba18a85bb07a504ca830e2649b7f018257072574e0b", "band_rel_dev": "1.703776296869834e0", "measured_rel_dev": "8.51888148434917e-1"}
+  ]
+}
