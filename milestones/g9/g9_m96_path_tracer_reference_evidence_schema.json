@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.4 M96 path_tracer_reference evidence",
+  "description": "evidence/g9_m96_path_tracer_reference_<UTC>.json。G9.4 P0 硬门 g9.p0.m96.path_tracer_reference:固定 seed 两次运行位级一致(digest 域 sha256(out_rgb‖out_stats‖out_samples));pbrt-v4 对照收敛曲线落入冻结容差带(milestones/g9/g9_m96_pbrt_tolerance_band.json,带 = 冻结批实测 × M96_BAND_MARGIN,provenance 全字段机器核验,禁手写 P-09);改 seed/跳 RR/关 MIS 三臂 RED 独立有效(harness 全档内 + --red-arm 子模式独立复跑抽检);megakernel 起步范围冻结(焦散/体积/specular 链 validate fail-closed)。门序硬约束(D2-Q7):本门最新 PASS evidence 是 M97~M101 五门前置(ci/g9_gi_interlock.py 机器阻断)。device 腿必需(rurixc --target vulkan 产 SPV → g9_m96_path_tracer harness 全档真跑,持 gpu_device_lock);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m96_path_tracer_reference" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m96.path_tracer_reference" },
+    "matrix_row": { "type": "string", "const": "M96" },
+    "milestone": { "type": "string", "const": "M96" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m96.path_tracer_reference" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.4" },
+    "numeric_step": { "type": "integer", "const": 147 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.10;spec/global_illumination.md RXS-0357;G9_ACCEPTANCE_MAP §2 M96"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_path_trace_tests_anchored",
+        "conformance_gi_corpus_anchored",
+        "pbrt_band_provenance_frozen",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_sample_count_export",
+        "device_golden_digest_match",
+        "device_pbrt_band_within",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_scope_reject_failclosed",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_path_trace_tests_anchored": { "type": "boolean" },
+        "conformance_gi_corpus_anchored": { "type": "boolean" },
+        "pbrt_band_provenance_frozen": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_sample_count_export": { "type": "boolean" },
+        "device_golden_digest_match": { "type": "boolean" },
+        "device_pbrt_band_within": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_red_arm_submodes_detected": { "type": "boolean" },
+        "device_scope_reject_failclosed": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

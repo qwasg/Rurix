@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.4 M100 multi_light_low evidence",
+  "description": "evidence/g9_m100_multi_light_low_<UTC>.json。G9.4 P1 硬门 g9.p1.m100.multi_light_low(G9_CONTRACT §8.1 裁决① P1 全进):低档多灯直接光(MegaLights 式固定随机选灯)为默认档,多灯场景出图与 golden 相等(容差带 measured 冻结 milestones/g9/g9_m100_multi_light_band.json,禁手写 P-09);验证射线零跳过统计性偏置硬契约(D2-Q4,逐样本发行记录 diag 归约逐灯计数非空;跳验证射线注入负例 RED 臂独立有效 + --red-arm skip-verification 子模式复跑);海量灯阴影统一接口随动;选灯种子流固定双跑逐位一致;高档 ReSTIR reservoir 证据不足登记 not-triggered 不充绿(restir_registration 字段机器核验:status=not-triggered/trigger_met=false/serve_request_rejected;M15 维持 open-留档);按匹配深度 1 对 M96 golden(带 m96_anchor_digest 与 M97 冻结带 depth1 m96_digest 逐字相等门序链锚)。门序机器阻断(D2-Q7,前置):M96 门最新 evidence status==pass 且 assertion_id 相符才放行(ci/g9_gi_interlock.py)。device 腿必需(双 SPV 真跑,持 gpu_device_lock);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m100_multi_light_low" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m100.multi_light_low" },
+    "matrix_row": { "type": "string", "const": "M100" },
+    "milestone": { "type": "string", "const": "M100" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m100.multi_light_low" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.4" },
+    "numeric_step": { "type": "integer", "const": 151 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §7;spec/global_illumination.md RXS-0361;G9_ACCEPTANCE_MAP §3 M100"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_order_m96_passed",
+        "host_multi_light_tests_anchored",
+        "conformance_gi_corpus_anchored",
+        "multi_light_band_provenance_frozen",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_verification_ray_zero_skip",
+        "device_red_arms_effective",
+        "device_red_arm_submode_detected",
+        "device_restir_not_triggered",
+        "device_unified_shadow_interface",
+        "device_m96_cross_anchor_band",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "gate_order_m96_passed": { "type": "boolean" },
+        "host_multi_light_tests_anchored": { "type": "boolean" },
+        "conformance_gi_corpus_anchored": { "type": "boolean" },
+        "multi_light_band_provenance_frozen": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_verification_ray_zero_skip": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_red_arm_submode_detected": { "type": "boolean" },
+        "device_restir_not_triggered": { "type": "boolean" },
+        "device_unified_shadow_interface": { "type": "boolean" },
+        "device_m96_cross_anchor_band": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

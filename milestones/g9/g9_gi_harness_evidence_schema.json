@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.4 GI 波 harness 直出 evidence(六 harness 共享面)",
+  "description": "G9.4 GI 波六个 device harness 的直出 evidence 共享 schema(实现波直出件,非门 evidence——门 evidence 由各 g9_m9*_*/g9_m10*_*_evidence_schema.json 承载,路由按 doc.symbolic_gate_key 有无分派)。直出件文件名形态 <prefix>_<UTC>[_voff|_von|_freeze].json;identity 三件套(schema/subject/spec_anchor)逐 harness const 钉死,checks 键集逐 harness 闭集(全 boolean),failures 为字符串数组。",
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m96.path_tracer.v1" },
+        "subject": { "type": "string", "const": "g9_m96_path_tracer" },
+        "spec_anchor": { "type": "string", "const": "RXS-0357" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "sample_count_export",
+            "golden_digest_match",
+            "pbrt_band_within",
+            "red_seed",
+            "red_no_rr",
+            "red_no_mis",
+            "scope_reject_failclosed",
+            "validation_zero"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m97.surface_cache.v1" },
+        "subject": { "type": "string", "const": "g9_m97_surface_cache" },
+        "spec_anchor": { "type": "string", "const": "RXS-0358" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "cardset_digest_match",
+            "atlas_page_digest_match",
+            "cache_digest_match",
+            "render_digest_match",
+            "m96_golden_anchor",
+            "depth_band_within",
+            "coverage_complete_no_leak",
+            "energy_loss_only_no_leak",
+            "red_hole_leak_detected",
+            "red_private_format_rejected",
+            "validation_zero"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m98.fallback_chain.v1" },
+        "subject": { "type": "string", "const": "g9_m98_fallback_chain" },
+        "spec_anchor": { "type": "string", "const": "RXS-0359" },
+        "assertion_id": { "type": "string", "const": "g9.p0.m98.tracing_fallback_chain" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "l1_device_host_parity",
+            "level_coverage_all_used",
+            "counters_non_empty_per_frame",
+            "force_off_l1_detectable",
+            "force_off_l2_detectable",
+            "force_off_l3_detectable",
+            "silent_demotion_detected",
+            "l4_not_triggered_registered",
+            "m96_cross_anchor",
+            "depth_band_within",
+            "validation_zero"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m99.spg_rc.v1" },
+        "subject": { "type": "string", "const": "g9_m99_spg_radiance_cache" },
+        "spec_anchor": { "type": "string", "const": "RXS-0360" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m99.spg_radiance_cache" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "spg_adaptive_subdivision_non_trivial",
+            "subdivide_cause_counts_non_empty",
+            "cache_counters_per_frame",
+            "temporal_base_audit_pass",
+            "private_reproject_detected",
+            "product_is_off_variance_detectable",
+            "adaptive_off_deviation_detectable",
+            "world_clipmap_not_triggered_registered",
+            "m96_cross_anchor",
+            "depth_band_within"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m100.multi_light_low.v1" },
+        "subject": { "type": "string", "const": "g9_m100_multi_light_low" },
+        "spec_anchor": { "type": "string", "const": "RXS-0361" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m100.multi_light_low" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "pbrt_fixture_anchor",
+            "verification_ray_zero_skip",
+            "per_light_verification_non_empty",
+            "skip_verification_bias_detectable",
+            "light_subset_deviation_detectable",
+            "restir_not_triggered_registered",
+            "unified_shadow_interface",
+            "m96_cross_anchor",
+            "depth_band_within",
+            "validation_zero"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m101.if_tier.v1" },
+        "subject": { "type": "string", "const": "g9_m101_if_tier_ladder" },
+        "spec_anchor": { "type": "string", "const": "RXS-0362" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m101.if_tier_ladder" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "double_run_bitexact",
+            "shared_kernel_single_instance",
+            "vis_device_host_parity",
+            "rotation_amortization_non_empty",
+            "budget_row_per_tier_present",
+            "as_stats_consumed_calm_no_demote",
+            "forced_demote_with_records",
+            "selector_double_run_bitexact",
+            "silent_demotion_detected",
+            "srgb_encode_detectable",
+            "m96_cross_anchor",
+            "depth_band_within"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    }
+  ]
+}

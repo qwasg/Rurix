@@ -466,6 +466,27 @@ def check_evidence_files() -> None:
     g9_m107_shader_library_ir_link_schema = load(
         ROOT / "milestones/g9/g9_m107_shader_library_ir_link_evidence_schema.json"
     )
+    g9_m96_path_tracer_reference_schema = load(
+        ROOT / "milestones/g9/g9_m96_path_tracer_reference_evidence_schema.json"
+    )
+    g9_m97_surface_cache_schema = load(
+        ROOT / "milestones/g9/g9_m97_surface_cache_evidence_schema.json"
+    )
+    g9_m98_tracing_fallback_chain_schema = load(
+        ROOT / "milestones/g9/g9_m98_tracing_fallback_chain_evidence_schema.json"
+    )
+    g9_m99_spg_radiance_cache_schema = load(
+        ROOT / "milestones/g9/g9_m99_spg_radiance_cache_evidence_schema.json"
+    )
+    g9_m100_multi_light_low_schema = load(
+        ROOT / "milestones/g9/g9_m100_multi_light_low_evidence_schema.json"
+    )
+    g9_m101_if_tier_ladder_schema = load(
+        ROOT / "milestones/g9/g9_m101_if_tier_ladder_evidence_schema.json"
+    )
+    g9_gi_harness_schema = load(
+        ROOT / "milestones/g9/g9_gi_harness_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -970,6 +991,41 @@ def check_evidence_files() -> None:
     g9_m107_shader_library_ir_link_validator = (
         jsonschema.Draft7Validator(g9_m107_shader_library_ir_link_schema)
         if g9_m107_shader_library_ir_link_schema is not None
+        else None
+    )
+    g9_m96_path_tracer_reference_validator = (
+        jsonschema.Draft7Validator(g9_m96_path_tracer_reference_schema)
+        if g9_m96_path_tracer_reference_schema is not None
+        else None
+    )
+    g9_m97_surface_cache_validator = (
+        jsonschema.Draft7Validator(g9_m97_surface_cache_schema)
+        if g9_m97_surface_cache_schema is not None
+        else None
+    )
+    g9_m98_tracing_fallback_chain_validator = (
+        jsonschema.Draft7Validator(g9_m98_tracing_fallback_chain_schema)
+        if g9_m98_tracing_fallback_chain_schema is not None
+        else None
+    )
+    g9_m99_spg_radiance_cache_validator = (
+        jsonschema.Draft7Validator(g9_m99_spg_radiance_cache_schema)
+        if g9_m99_spg_radiance_cache_schema is not None
+        else None
+    )
+    g9_m100_multi_light_low_validator = (
+        jsonschema.Draft7Validator(g9_m100_multi_light_low_schema)
+        if g9_m100_multi_light_low_schema is not None
+        else None
+    )
+    g9_m101_if_tier_ladder_validator = (
+        jsonschema.Draft7Validator(g9_m101_if_tier_ladder_schema)
+        if g9_m101_if_tier_ladder_schema is not None
+        else None
+    )
+    g9_gi_harness_validator = (
+        jsonschema.Draft7Validator(g9_gi_harness_schema)
+        if g9_gi_harness_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -1874,6 +1930,76 @@ def check_evidence_files() -> None:
             # IR 链接 interface hash 确定性 + 链接 fail-closed RED 族 +
             # 变体预算超限硬失败 RED（RXS-0356；RFC-0023 §4.5/§4.6）。
             validator = g9_m107_shader_library_ir_link_validator
+        elif (
+            f.name.startswith("g9_m96_path_tracer_reference_")
+            and g9_m96_path_tracer_reference_validator is not None
+        ):
+            # G9.4 P0 硬门 M96 path_tracer_reference（步骤 147，host+device 门）：
+            # 固定 seed 双跑位级一致 + pbrt-v4 冻结容差带 + 三臂 RED + 起步范围
+            # 冻结（RXS-0357；RFC-0022 §4.10；D2-Q7 门序源）。门 evidence（含
+            # symbolic_gate_key 面）→ 门 schema；harness 直出件（无该面）→
+            # g9_gi_harness 共享 schema。前缀与 g9_m9x/g9_m1xx 全族互不包含。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m96_path_tracer_reference_validator
+            else:
+                validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m97_surface_cache_")
+            and g9_m97_surface_cache_validator is not None
+        ):
+            # G9.4 P0 硬门 M97 surface_cache（步骤 148，host+device 门）：Card
+            # 参数化/RXPL v2 图集页/三深度产物 golden + 只丢能量不漏光 + 漏光
+            # RED 臂 + M96 golden 深度带（RXS-0358；RFC-0022 §4.6；D2-Q7 门序
+            # 机器阻断前置）。门/harness 直出件分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m97_surface_cache_validator
+            else:
+                validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m98_tracing_fallback_chain_")
+            and g9_m98_tracing_fallback_chain_validator is not None
+        ):
+            # G9.4 P0 硬门 M98 tracing_fallback_chain（步骤 149，host+device 门）：
+            # 四级计数逐帧非空 + 逐级强关可检测 + 禁静默回退 + L4 not-triggered
+            # 登记（RXS-0359；RFC-0022 §4.7；D2-Q7 门序机器阻断前置）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m98_tracing_fallback_chain_validator
+            else:
+                validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m99_spg_radiance_cache_")
+            and g9_m99_spg_radiance_cache_validator is not None
+        ):
+            # G9.4 P1 硬门 M99 spg_radiance_cache（步骤 150，host+device 门）：
+            # 屏幕级 SPG 自适应细分 + Radiance Cache 双级 golden + 世界级
+            # clipmap not-triggered 登记（RXS-0360；RFC-0022 §4.8；D2-Q7 前置）。
+            # 分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m99_spg_radiance_cache_validator
+            else:
+                validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m100_multi_light_low_")
+            and g9_m100_multi_light_low_validator is not None
+        ):
+            # G9.4 P1 硬门 M100 multi_light_low（步骤 151，host+device 门）：低档
+            # 多灯默认档 golden + 验证射线零跳过契约 + ReSTIR not-triggered 登记
+            # （RXS-0361；RFC-0022 §7；D2-Q7 前置）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m100_multi_light_low_validator
+            else:
+                validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m101_if_tier_ladder_")
+            and g9_m101_if_tier_ladder_validator is not None
+        ):
+            # G9.4 P1 硬门 M101 if_tier_ladder（步骤 152，host+device 门）：四档
+            # 共享内核单实例 + 每档 AS 预算行消费 AsStats + 超预算强制降档 +
+            # SRGB 注入 RED（RXS-0362；RFC-0022 §4.8；D2-Q7 前置）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m101_if_tier_ladder_validator
+            else:
+                validator = g9_gi_harness_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

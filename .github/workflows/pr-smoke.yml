@@ -1464,6 +1464,102 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_wave3_exit_check.py --gate g9.wave.3.exit
 
+      # 步骤 147（G9.4 P0 硬门 g9.p0.m96.path_tracer_reference;RFC-0022 §4.10;
+      # spec/global_illumination.md RXS-0357;落盘前实测 CI_step.next_free=147
+      # 顺位领取）。host+device 门:gi::path_trace 10 单测逐名锚定 +
+      # conformance gi 语料锚 + 冻结容差带 provenance 机器核验;device 段持锁
+      # g9_m96_path_tracer harness 全档真跑(rurixc --target vulkan 产 SPV;
+      # 双跑位级一致 + pbrt-v4 对照带内 + 改 seed/跳 RR/关 MIS 三臂 RED +
+      # 起步范围冻结显式拒绝)+ 三 RED 臂子模式独立复跑抽检,env 双置
+      # RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。本门 = D2-Q7 门序源
+      # (M97~M101 五门前置)。
+      - name: G9.4 M96 path tracer reference smoke (G9 CI_GATES §4.147, g9.p0.m96.path_tracer_reference)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_path_tracer_reference_smoke.py --gate g9.p0.m96.path_tracer_reference
+
+      # 步骤 148（G9.4 P0 硬门 g9.p0.m97.surface_cache;RFC-0022 §4.6;
+      # spec/global_illumination.md RXS-0358;落盘前实测 CI_step.next_free=147
+      # 顺位领取 148）。门序机器阻断(D2-Q7)前置:M96 门最新 evidence
+      # status==pass 且 assertion_id 相符才放行(ci/g9_gi_interlock.py)。
+      # host+device 门:gi::surface_cache 13 单测 + 语料锚 + 深度带 provenance
+      # (含 M96 带 spp64 门序链锚);device 段持锁 g9_m97_surface_cache harness
+      # 全档真跑(三 SPV;CardSet/图集页/三深度 digest golden + 只丢能量不漏光
+      # + 漏光 RED 臂)+ --red-arm hole-leak 子模式复跑,env 双置
+      # RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1。
+      - name: G9.4 M97 surface cache smoke (G9 CI_GATES §4.148, g9.p0.m97.surface_cache)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_surface_cache_smoke.py --gate g9.p0.m97.surface_cache
+
+      # 步骤 149（G9.4 P0 硬门 g9.p0.m98.tracing_fallback_chain;RFC-0022 §4.7;
+      # spec/global_illumination.md RXS-0359;落盘前实测 CI_step.next_free=147
+      # 顺位领取 149）。门序机器阻断(D2-Q7)前置同 148。host+device 门:
+      # gi::fallback_chain 14 单测 + 语料锚 + 深度带 provenance(含 M97 带
+      # depth2 门序链锚);device 段持锁 g9_m98_fallback_chain harness 全档真跑
+      # (三 SPV;四级计数逐帧非空 + 逐级强关可检测 + 禁静默回退审计 + L4
+      # not-triggered 字段核验 + 六条目深度带内)+ --red-arm force-off-l1 /
+      # silent-demotion 子模式复跑,env 双置 RURIX_REQUIRE_REAL=1 +
+      # RURIX_VK_VALIDATION=1。
+      - name: G9.4 M98 tracing fallback chain smoke (G9 CI_GATES §4.149, g9.p0.m98.tracing_fallback_chain)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_tracing_fallback_chain_smoke.py --gate g9.p0.m98.tracing_fallback_chain
+
+      # 步骤 150（G9.4 P1 硬门 g9.p1.m99.spg_radiance_cache;RFC-0022 §4.8;
+      # spec/global_illumination.md RXS-0360;G9_CONTRACT §8.1 裁决① P1 全进;
+      # 落盘前实测 CI_step.next_free=147 顺位领取 150）。门序机器阻断(D2-Q7)
+      # 前置同 148。host+device 门:gi::spg_rc 9 单测 + 语料锚 + 带 provenance;
+      # device 段持锁 g9_m99_spg_radiance_cache harness 全档真跑(双 SPV;SPG
+      # 自适应细分 + Radiance Cache 双级 golden + 关 product IS/关自适应双臂
+      # 可检测 + 世界级 clipmap not-triggered 字段核验)+ --red-arm
+      # product-is-off 子模式复跑,env 双置 RURIX_REQUIRE_REAL=1 +
+      # RURIX_VK_VALIDATION=1。
+      - name: G9.4 M99 SPG radiance cache smoke (G9 CI_GATES §4A.150, g9.p1.m99.spg_radiance_cache)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_spg_radiance_cache_smoke.py --gate g9.p1.m99.spg_radiance_cache
+
+      # 步骤 151（G9.4 P1 硬门 g9.p1.m100.multi_light_low;RFC-0022 §7;
+      # spec/global_illumination.md RXS-0361;G9_CONTRACT §8.1 裁决① P1 全进;
+      # 落盘前实测 CI_step.next_free=147 顺位领取 151）。门序机器阻断(D2-Q7)
+      # 前置同 148。host+device 门:gi::multi_light 7 单测 + 语料锚(含多灯
+      # pbrt fixture)+ 带 provenance;device 段持锁 g9_m100_multi_light_low
+      # harness 全档真跑(双 SPV;低档默认档 golden + 验证射线零跳过逐灯计数
+      # 非空 + 跳验证/灯子集双臂可检测 + ReSTIR not-triggered 字段核验)+
+      # --red-arm skip-verification 子模式复跑,env 双置 RURIX_REQUIRE_REAL=1
+      # + RURIX_VK_VALIDATION=1。
+      - name: G9.4 M100 multi light low smoke (G9 CI_GATES §4A.151, g9.p1.m100.multi_light_low)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_multi_light_low_smoke.py --gate g9.p1.m100.multi_light_low
+
+      # 步骤 152（G9.4 P1 硬门 g9.p1.m101.if_tier_ladder;RFC-0022 §4.8;
+      # spec/global_illumination.md RXS-0362;G9_CONTRACT §8.1 裁决① P1 全进;
+      # 落盘前实测 CI_step.next_free=147 顺位领取 152）。门序机器阻断(D2-Q7)
+      # 前置同 148。host+device 门:gi::if_tier 7 单测 + 三语料锚 + 带
+      # provenance;device 段持锁 g9_m101_if_tier_ladder harness 全档真跑
+      # (双 SPV;四档共享内核单实例 + 每档 AS 预算行消费 AsStats + 超预算
+      # 强制降档显式记录 + SRGB 注入可检测)+ --red-arm srgb-encode /
+      # budget-no-demote 子模式复跑,env 双置 RURIX_REQUIRE_REAL=1 +
+      # RURIX_VK_VALIDATION=1。
+      - name: G9.4 M101 IF tier ladder smoke (G9 CI_GATES §4A.152, g9.p1.m101.if_tier_ladder)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g9_if_tier_ladder_smoke.py --gate g9.p1.m101.if_tier_ladder
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

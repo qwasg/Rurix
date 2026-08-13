@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.4 M97 surface_cache evidence",
+  "description": "evidence/g9_m97_surface_cache_<UTC>.json。G9.4 P0 硬门 g9.p0.m97.surface_cache:离线 Card 参数化(≤12/mesh 可配 fail-closed)与运行时辐射度缓存产物 digest 等于 golden(CardSet/RXPL v2 图集页/三深度 cache+render);Card 图集页复用页格式 ABI 不私定格式(篡改/私定 variant 装配期拒);缺失覆盖只丢能量不漏光(漏光像素计数=0、能量差 measured 记录)+ Card 空洞漏光检测负例 RED 臂独立有效(harness 全档内 + --red-arm hole-leak 子模式独立复跑);按匹配深度(1/2/full)对 M96 golden 验收(m96_golden_anchor + 冻结深度带 milestones/g9/g9_m97_depth_band.json,带 = measured × M97_BAND_MARGIN,禁手写 P-09;带 m96_anchor_digest 与 M96 冻结带 m96_cornell spp64 golden 逐字相等门序链锚)。门序机器阻断(D2-Q7,前置):M96 门最新 evidence status==pass 且 assertion_id 相符才放行(ci/g9_gi_interlock.py)。device 腿必需(三 SPV 真跑,持 gpu_device_lock);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m97_surface_cache" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m97.surface_cache" },
+    "matrix_row": { "type": "string", "const": "M97" },
+    "milestone": { "type": "string", "const": "M97" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m97.surface_cache" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.4" },
+    "numeric_step": { "type": "integer", "const": 148 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.6;spec/global_illumination.md RXS-0358;G9_ACCEPTANCE_MAP §2 M97"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_order_m96_passed",
+        "host_surface_cache_tests_anchored",
+        "conformance_gi_corpus_anchored",
+        "depth_band_provenance_frozen",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_product_digests_golden",
+        "device_m96_golden_anchor",
+        "device_depth_band_within",
+        "device_no_leak_energy_only",
+        "device_red_arms_effective",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "gate_order_m96_passed": { "type": "boolean" },
+        "host_surface_cache_tests_anchored": { "type": "boolean" },
+        "conformance_gi_corpus_anchored": { "type": "boolean" },
+        "depth_band_provenance_frozen": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_product_digests_golden": { "type": "boolean" },
+        "device_m96_golden_anchor": { "type": "boolean" },
+        "device_depth_band_within": { "type": "boolean" },
+        "device_no_leak_energy_only": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

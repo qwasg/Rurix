@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.4 M101 if_tier_ladder evidence",
+  "description": "evidence/g9_m101_if_tier_ladder_<UTC>.json。G9.4 P1 硬门 g9.p1.m101.if_tier_ladder(G9_CONTRACT §8.1 裁决① P1 全进):IF 体素网格档位阶梯 L0~L3 共享 probe 着色与八面体编码内核、只换空间索引(共享内核同一函数实例 fn_addr_eq 机器锚;档间产物 digest 各自冻结可归因);每档强制含 AS 更新预算行且档位切换判据消费 AsStats 计数面(D2-Q10),超 AS 更新预算必须强制降档(逐级 DemotionRecord 显式;audit_demotions 独立重算,静默降档/超限未降档注入必 fail-closed,--red-arm budget-no-demote 子模式复跑);八面体编码线性域(SRGB 编码注入即 RED,--red-arm srgb-encode 子模式复跑);档位切换对同输入确定(双运行逐位一致);按匹配深度 2 对 M96 golden(冻结带 milestones/g9/g9_m101_if_tier_band.json 四档,带 = measured × M101_BAND_MARGIN,禁手写 P-09;带 m96_anchor_digest 与 M97 冻结带 depth2 m96_digest 逐字相等门序链锚)。门序机器阻断(D2-Q7,前置):M96 门最新 evidence status==pass 且 assertion_id 相符才放行(ci/g9_gi_interlock.py)。device 腿必需(双 SPV 真跑,持 gpu_device_lock);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m101_if_tier_ladder" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m101.if_tier_ladder" },
+    "matrix_row": { "type": "string", "const": "M101" },
+    "milestone": { "type": "string", "const": "M101" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m101.if_tier_ladder" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.4" },
+    "numeric_step": { "type": "integer", "const": 152 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0022 §4.8;spec/global_illumination.md RXS-0362;G9_ACCEPTANCE_MAP §3 M101"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_order_m96_passed",
+        "host_if_tier_tests_anchored",
+        "conformance_gi_corpus_anchored",
+        "if_tier_band_provenance_frozen",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_shared_kernel_single_instance",
+        "device_vis_host_parity",
+        "device_budget_rows_consumed",
+        "device_selector_bitexact",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_m96_cross_anchor_band",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "gate_order_m96_passed": { "type": "boolean" },
+        "host_if_tier_tests_anchored": { "type": "boolean" },
+        "conformance_gi_corpus_anchored": { "type": "boolean" },
+        "if_tier_band_provenance_frozen": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_shared_kernel_single_instance": { "type": "boolean" },
+        "device_vis_host_parity": { "type": "boolean" },
+        "device_budget_rows_consumed": { "type": "boolean" },
+        "device_selector_bitexact": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_red_arm_submodes_detected": { "type": "boolean" },
+        "device_m96_cross_anchor_band": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
