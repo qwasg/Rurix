@@ -42,5 +42,14 @@ name = "g9_m95_visbuffer_swhw"
 path = "src/bin/g9_m95_visbuffer_swhw.rs"
 required-features = ["vulkan"]
 
+# G9.4 M96 M17 Path Tracer 参照器 device harness(RXS-0357;门 g9.p0.m96.path_tracer_reference):
+# .rx megakernel(kernels/g9_m96_path_tracer.rx,rurixc --target vulkan 产 SPV)经
+# run_ray_query_effects(U30 ray query 执行面)真跑;固定 seed 双跑位级一致 +
+# pbrt-v4 容差带对照 + 改 seed/跳 RR/关 MIS 三臂 RED。
+[[bin]]
+name = "g9_m96_path_tracer"
+path = "src/bin/g9_m96_path_tracer.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

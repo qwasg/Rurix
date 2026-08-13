@@ -20,9 +20,15 @@
 //!
 //! 下一波(W3 device 腿,不在本模块):ray query 计算着色器管线、探针纹理
 //! 图集与历史双缓冲资源接线、device/host 方向一致性对拍(G-G5-6)。
+//!
+//! G9.4 波(GI 语义波,spec/global_illumination.md):[`path_trace`] = M96 M17
+//! Path Tracer 参照器 host 面(RXS-0357:确定性冻结场景 fixtures + PCG32 流布局 +
+//! host oracle + pbrt-v4 对照/容差带面;device megakernel =
+//! `kernels/g9_m96_path_tracer.rx`,harness = `bin/g9_m96_path_tracer`)。
 
 pub mod filter;
 pub mod interpolate;
+pub mod path_trace;
 pub mod pipeline;
 pub mod probe;
 pub mod sh;

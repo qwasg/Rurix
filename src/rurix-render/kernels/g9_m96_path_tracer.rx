@@ -1,0 +1,339 @@
+//@ spec: RXS-0357
+// G9.4 M96 M17 Path Tracer 参照器 megakernel(device 腿;门
+// `g9.p0.m96.path_tracer_reference`)。
+//
+// ## 架构(RXS-0357 L1/L5;RFC-0022 §4.10)
+// 单向 PT + NEE/MIS/RR,**megakernel 起步**:单一 compute 入口承载全路径求值
+// (多 bounce 循环内联 ray query;ray gen / intersect / shade / reservoir 阶段化
+// 接口留位 = host 侧 `gi::path_trace` 模块的阶段化数据面,为 wavefront/SER 演进
+// 留位,D2-Q8)。与 GI 各档 RayQuery 射线流**不共享**同一射线流(D2-Q9):本内核
+// 独占 TLAS/输入缓冲/输出缓冲,不与探针/降级链内核拼接。
+//
+// ## 起步范围冻结(焦散/体积/specular 链 out)
+// 材质模型 = Lambert BRDF(albedo/π)+ 单面光源 quad 发光;**无**镜面/透射/体积
+// 介质路径——host 场景装载(`PtScene::validate`)对非 Lambert/发光材质 fail-closed
+// typed Err 显式拒绝,内核不采样任何 specular 链(焦散路径因无镜面事件而不可达)。
+//
+// ## 确定性协议(RXS-0357 L2 硬条款;承 G8 ref_tracer PCG32 对拍模式)
+// - RNG = host 同源 PCG32 流(`rt::ref_tracer::Pcg32` 同一函数实例生成;遍历/求交/
+//   着色真在 device,RNG 流为**输入**不是结果,与 G7.4 rtao.rx 先例同构,evidence
+//   字段显式登记)。流布局**冻结**(与 host `gi::path_trace::rng` 逐字同源):
+//   逐像素逐采样顺序排布;每采样 2(cam jitter)+ 每 bounce 5(NEE u/v、BSDF r1/r2、
+//   RR)× max_bounces,**按索引寻址**而非顺序消费 ⇒ 流位置与路径动态无关。
+// - 累加序冻结:逐像素独立顺序累加(每像素单 invocation、采样循环顺序执行),
+//   **禁 atomic 顺序敏感累加**;输出直写无跨像素交互。
+// - 浮点形态:全部 f32;分支判定一律经 min/max 算术门 + 短 selection 臂(无数据
+//   相关深层嵌套控制流),相同输入缓冲 ⇒ 位级一致输出(固定 seed 双跑位级一致)。
+// - 灭活路径 = 吞吐量为 0 的吸收态(后续 bounce 数学贡献恒 0,无 NaN/inf:
+//   所有除法分母有正下界,余弦项经 max(...,0) 截断)。
+// - 结构约束(rurixc vulkan 后端 structurizer 已验证形态):ray query 只出现在
+//   循环体顶层或 selection 臂末尾;committed 属性提取臂与 miss 臂均为**短臂**
+//   (≤8 语句),重计算全部落于**无 selection 的算术段**——长 then 臂在循环内会
+//   使 merge 前向可达分析误选臂头(实测 spirv-val 拒),本形态为已机验白名单形。
+//
+// ## 参数面(host `gi::path_trace::pack_params` 逐字同源;f32 位级编码)
+//   params[0]=pixel_count [1]=spp [2]=max_bounces [3]=width [4]=height
+//   [5]=enable_mis(0/1) [6]=enable_rr(0/1) [7]=rr_min_bounce
+//   [8]=ray_eps [9]=t_max
+//   [10..13]=cam_origin [13..16]=cam_forward [16..19]=cam_right [19..22]=cam_up
+//   [22]=tan(fov/2) [23]=1/width [24]=1/height
+//   [25..28]=light_p00 [28..31]=light_e1(p10-p00) [31..34]=light_e2(p01-p00)
+//   [34]=light_area [35..38]=light_emission_rgb [38..41]=light_normal(绕向法线,单面)
+//   [41]=rng_sample_stride(= 2 + 5*max_bounces)
+//   mats:  8 f32/tri = albedo.rgb, emission.rgb, flags(0=Lambert), pad
+//   tris:  9 f32/tri = v0.xyz, v1.xyz, v2.xyz(世界空间,绕向 = 几何法线)
+//   out_rgb: 3 f32/px 均值辐射度;out_stats: 2 f32/px [Σlum, Σlum²];
+//   out_samples: 1 u32/px 实际采样数(= spp,逐像素 sample count 导出面)。
+kernel fn g9_m96_path_tracer(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    rng: View<global, f32>,
+    mats: View<global, f32>,
+    tris: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_stats: ViewMut<global, f32>,
+    out_samples: ViewMut<global, u32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let spp = params[1] as usize;
+    let max_bounces = params[2] as usize;
+    let width = params[3] as usize;
+    let enable_mis = params[5];
+    let enable_rr = params[6];
+    let rr_min = params[7];
+    let ray_eps = params[8];
+    let t_max = params[9];
+    let co_x = params[10];
+    let co_y = params[11];
+    let co_z = params[12];
+    let cf_x = params[13];
+    let cf_y = params[14];
+    let cf_z = params[15];
+    let cr_x = params[16];
+    let cr_y = params[17];
+    let cr_z = params[18];
+    let cu_x = params[19];
+    let cu_y = params[20];
+    let cu_z = params[21];
+    let tan_half = params[22];
+    let inv_w = params[23];
+    let inv_h = params[24];
+    let lp_x = params[25];
+    let lp_y = params[26];
+    let lp_z = params[27];
+    let le1_x = params[28];
+    let le1_y = params[29];
+    let le1_z = params[30];
+    let le2_x = params[31];
+    let le2_y = params[32];
+    let le2_z = params[33];
+    let light_area = params[34];
+    let lem_r = params[35];
+    let lem_g = params[36];
+    let lem_b = params[37];
+    let ln_x = params[38];
+    let ln_y = params[39];
+    let ln_z = params[40];
+    let sample_stride = params[41] as usize;
+    let pi: f32 = 3.1415927;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let spp_f = spp as f32;
+    if i < pixel_count {
+        let px = i % width;
+        let py = i / width;
+        let mut sum_r = 0.0;
+        let mut sum_g = 0.0;
+        let mut sum_b = 0.0;
+        let mut sum_l = 0.0;
+        let mut sq_l = 0.0;
+        let mut s = 0usize;
+        while s < spp {
+            let rbase = (i * spp + s) * sample_stride;
+            // ── ray gen 阶段(相机主光线;pinhole,方形画幅水平=垂直 fov)──
+            let ju = ((px as f32) + rng[rbase]) * inv_w;
+            let jv = ((py as f32) + rng[rbase + 1]) * inv_h;
+            let sx = (2.0 * ju - 1.0) * tan_half;
+            let sy = (1.0 - 2.0 * jv) * tan_half;
+            let d0_x = cf_x + cr_x * sx + cu_x * sy;
+            let d0_y = cf_y + cr_y * sx + cu_y * sy;
+            let d0_z = cf_z + cr_z * sx + cu_z * sy;
+            let d0_inv = 1.0 / (d0_x * d0_x + d0_y * d0_y + d0_z * d0_z).sqrt();
+            let mut ox = co_x;
+            let mut oy = co_y;
+            let mut oz = co_z;
+            let mut dx = d0_x * d0_inv;
+            let mut dy = d0_y * d0_inv;
+            let mut dz = d0_z * d0_inv;
+            let mut thr_r = 1.0;
+            let mut thr_g = 1.0;
+            let mut thr_b = 1.0;
+            let mut li_r = 0.0;
+            let mut li_g = 0.0;
+            let mut li_b = 0.0;
+            let mut prev_pdf = 1.0;
+            let mut first_f = 1.0;
+            let mut b = 0usize;
+            while b < max_bounces {
+                let bb = rbase + 2 + b * 5;
+                // ── intersect 阶段(场景光线求交)──
+                let mut rq = ray_query_initialize(tlas, (ox, oy, oz), 0.0, (dx, dy, dz), t_max);
+                while rq.proceed() {
+                }
+                // committed 提取 = 短臂(S3 守卫);重计算在下方无 selection 算术段。
+                let mut hit_f = 1.0;
+                let mut th = 0.0;
+                let mut prim = 0u32;
+                if rq.has_committed() {
+                    th = rq.committed_t();
+                    prim = rq.committed_primitive_index();
+                    hit_f = 1.0;
+                } else {
+                    // miss:吸收零态(thr 归零;prim=0 保底在界内,贡献经 hit_f 门恒 0)。
+                    hit_f = 0.0;
+                    th = 0.0;
+                    prim = 0u32;
+                    thr_r = 0.0;
+                    thr_g = 0.0;
+                    thr_b = 0.0;
+                }
+                // ── shade 算术段(无 selection;全部经 hit_f / min-max 门)──
+                let tb = (prim as usize) * 9;
+                let ax = tris[tb];
+                let ay = tris[tb + 1];
+                let az = tris[tb + 2];
+                let e1x = tris[tb + 3] - ax;
+                let e1y = tris[tb + 4] - ay;
+                let e1z = tris[tb + 5] - az;
+                let e2x = tris[tb + 6] - ax;
+                let e2y = tris[tb + 7] - ay;
+                let e2z = tris[tb + 8] - az;
+                // 绕向几何法线(单面发光判定用,不翻转)。
+                let ngx = e1y * e2z - e1z * e2y;
+                let ngy = e1z * e2x - e1x * e2z;
+                let ngz = e1x * e2y - e1y * e2x;
+                let ng_inv = 1.0 / (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+                let hgx = ngx * ng_inv;
+                let hgy = ngy * ng_inv;
+                let hgz = ngz * ng_inv;
+                // 命中点。
+                let hx = ox + dx * th;
+                let hy = oy + dy * th;
+                let hz = oz + dz * th;
+                // 着色法线 = 面向入射光线翻转(双面 Lambert;封闭场景恒正面)。
+                let facing = hgx * dx + hgy * dy + hgz * dz;
+                let flip = 1.0 - 2.0 * (facing * big).min(1.0).max(0.0);
+                let nx = hgx * flip;
+                let ny = hgy * flip;
+                let nz = hgz * flip;
+                // 材质装载(miss 时 prim=0:读三角 0,贡献经 hit_f 门恒 0)。
+                let mb = (prim as usize) * 8;
+                let al_r = mats[mb];
+                let al_g = mats[mb + 1];
+                let al_b = mats[mb + 2];
+                let em_r = mats[mb + 3];
+                let em_g = mats[mb + 4];
+                let em_b = mats[mb + 5];
+                // ── shade ①:BSDF 命中发光面(单面,cos_emit 门 + MIS 权 w_b)──
+                // MIS = power-2 heuristic(与 pbrt-v4 PowerHeuristic 逐字同形,
+                // 收敛曲线对齐正确性锚):w_b = pdf_b²/(pdf_b²+pdf_l²)
+                //   = 1/(1 + (t²/(area·cos_emit_c·prev_pdf))²)(安全形,无零除)。
+                let cos_emit = 0.0 - (hgx * dx + hgy * dy + hgz * dz);
+                let e_lum = em_r.max(em_g).max(em_b);
+                let gate_e = hit_f * (e_lum * big).min(1.0).max(0.0) * (cos_emit * big).min(1.0).max(0.0);
+                let wb_ratio = (th * th) / (light_area * cos_emit.max(tiny) * prev_pdf);
+                let w_b = 1.0 / (1.0 + wb_ratio * wb_ratio);
+                let w_b_mis = enable_mis * w_b + (1.0 - enable_mis);
+                let w_b_eff = first_f + (1.0 - first_f) * w_b_mis;
+                let e_gain = gate_e * w_b_eff;
+                li_r = li_r + thr_r * em_r * e_gain;
+                li_g = li_g + thr_g * em_g * e_gain;
+                li_b = li_b + thr_b * em_b * e_gain;
+                // ── shade ②:NEE 预计算(用**当前** thr;阴影光线在本 bounce 末尾)──
+                let nee_u = rng[bb];
+                let nee_v = rng[bb + 1];
+                let qx = lp_x + le1_x * nee_u + le2_x * nee_v;
+                let qy = lp_y + le1_y * nee_u + le2_y * nee_v;
+                let qz = lp_z + le1_z * nee_u + le2_z * nee_v;
+                let wvx = qx - hx;
+                let wvy = qy - hy;
+                let wvz = qz - hz;
+                let dist2 = wvx * wvx + wvy * wvy + wvz * wvz;
+                let dist = dist2.sqrt().max(tiny);
+                let wix = wvx / dist;
+                let wiy = wvy / dist;
+                let wiz = wvz / dist;
+                let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+                let cos_l = (0.0 - (ln_x * wix + ln_y * wiy + ln_z * wiz)).max(0.0);
+                // 贡献 = thr·(albedo/π)·cos_s·Le/pdf_l;pdf_l = dist²/(area·cos_l)
+                //       ⇒ thr·albedo·Le·cos_s·cos_l·area/(π·dist²)(无零除)。
+                let nee_core = hit_f * cos_s * cos_l * light_area / (pi * dist2);
+                let nee_r = thr_r * al_r * lem_r * nee_core;
+                let nee_g = thr_g * al_g * lem_g * nee_core;
+                let nee_b = thr_b * al_b * lem_b * nee_core;
+                // w_l = pdf_l²/(pdf_l²+pdf_b²)(power-2,pbrt 同形)
+                //   = 1/(1 + (pdf_b·area·cos_lc/dist²)²)(安全形)。
+                let wl_ratio = (cos_s / pi) * light_area * cos_l.max(tiny) / dist2;
+                let w_l = 1.0 / (1.0 + wl_ratio * wl_ratio);
+                let w_l_eff = enable_mis * w_l + (1.0 - enable_mis);
+                let nee_fr = nee_r * w_l_eff;
+                let nee_fg = nee_g * w_l_eff;
+                let nee_fb = nee_b * w_l_eff;
+                let t_sh = (dist - 2.0 * ray_eps).max(ray_eps);
+                // ── shade ③:BSDF 采样(余弦加权半球;host
+                //    cosine_sample_hemisphere 同公式)+ 吞吐更新 ──
+                let r1 = rng[bb + 2];
+                let r2 = rng[bb + 3];
+                let phi = 2.0 * pi * r1;
+                let rr2 = r2.sqrt();
+                let lx = rr2 * phi.cos();
+                let ly = rr2 * phi.sin();
+                let lz = (1.0 - r2).max(0.0).sqrt();
+                let up_sel = ((0.999 - ny.abs()) * big).min(1.0).max(0.0);
+                let upx = 1.0 - up_sel;
+                let upy = up_sel;
+                // t = normalize(cross(up, n)):cross 展开(upz = 0)。
+                let t1x = upy * nz;
+                let t1y = 0.0 - upx * nz;
+                let t1z = upx * ny - upy * nx;
+                let t1l = 1.0 / (t1x * t1x + t1y * t1y + t1z * t1z).sqrt();
+                let tx = t1x * t1l;
+                let ty = t1y * t1l;
+                let tz = t1z * t1l;
+                let bx = ny * tz - nz * ty;
+                let by = nz * tx - nx * tz;
+                let bz = nx * ty - ny * tx;
+                let nd_x = tx * lx + bx * ly + nx * lz;
+                let nd_y = ty * lx + by * ly + ny * lz;
+                let nd_z = tz * lx + bz * ly + nz * lz;
+                let nd_inv = 1.0 / (nd_x * nd_x + nd_y * nd_y + nd_z * nd_z).sqrt();
+                prev_pdf = lz / pi;
+                // Lambert 余弦采样:吞吐 ×= albedo((albedo/π)·cos/(cos/π));
+                // miss 时 thr 已归零,×albedo 恒 0(mats[0] 值不参与贡献)。
+                thr_r = thr_r * al_r;
+                thr_g = thr_g * al_g;
+                thr_b = thr_b * al_b;
+                // ── shade ④:RR(算术门;enable/b≥min 折叠进 p_eff)──
+                let rr = rng[bb + 4];
+                let p_surv = thr_r.max(thr_g).max(thr_b).min(1.0).max(0.0);
+                let gate_b = (((b as f32) - rr_min + 1.0) * big).min(1.0).max(0.0);
+                let p_eff = 1.0 + gate_b * enable_rr * (p_surv - 1.0);
+                let survive = ((p_eff - rr) * big).min(1.0).max(0.0);
+                let rr_gain = survive / p_eff.max(tiny);
+                thr_r = thr_r * rr_gain;
+                thr_g = thr_g * rr_gain;
+                thr_b = thr_b * rr_gain;
+                // 下一 bounce 光线(原点沿着色法线偏移)。
+                ox = hx + nx * ray_eps;
+                oy = hy + ny * ray_eps;
+                oz = hz + nz * ray_eps;
+                dx = nd_x * nd_inv;
+                dy = nd_y * nd_inv;
+                dz = nd_z * nd_inv;
+                first_f = 0.0;
+                // ── shade ⑤:NEE 阴影光线(循环体顶层;遮蔽 ⇒ 零贡献)──
+                let mut sq = ray_query_initialize(
+                    tlas,
+                    (hx + nx * ray_eps, hy + ny * ray_eps, hz + nz * ray_eps),
+                    0.0,
+                    (wix, wiy, wiz),
+                    t_sh,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    li_r = li_r + 0.0;
+                    li_g = li_g + 0.0;
+                    li_b = li_b + 0.0;
+                } else {
+                    li_r = li_r + nee_fr;
+                    li_g = li_g + nee_fg;
+                    li_b = li_b + nee_fb;
+                }
+                b = b + 1usize;
+            }
+            let lum = (li_r + li_g + li_b) / 3.0;
+            sum_r = sum_r + li_r;
+            sum_g = sum_g + li_g;
+            sum_b = sum_b + li_b;
+            sum_l = sum_l + lum;
+            sq_l = sq_l + lum * lum;
+            s = s + 1usize;
+        }
+        out_rgb[i * 3] = sum_r / spp_f;
+        out_rgb[i * 3 + 1] = sum_g / spp_f;
+        out_rgb[i * 3 + 2] = sum_b / spp_f;
+        out_stats[i * 2] = sum_l;
+        out_stats[i * 2 + 1] = sq_l;
+        out_samples[i] = spp as u32;
+    } else {
+        out_rgb[i * 3] = 0.0;
+        out_rgb[i * 3 + 1] = 0.0;
+        out_rgb[i * 3 + 2] = 0.0;
+        out_stats[i * 2] = 0.0;
+        out_stats[i * 2 + 1] = 0.0;
+        out_samples[i] = 0u32;
+    }
+}
