@@ -1,0 +1,14 @@
+//@ spec: RXS-0363
+// G9.5 M110 accept 正例语料（spec/world_partition.md RXS-0363 L1/L2/L5）：单一
+// 持久世界 schema + 2D cell + streaming source 距离环流送 + cell 四事件序列
+// 逐字 golden 最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   单一 persistent world 资产（always_loaded / spatially_loaded 区分）；cell 为
+//   正方形 2D 网格（边长为资产属性）；cell 元数据 v1 = cell id / 包围盒 / 资产页
+//   引用（M04 ABI）/ HLOD 层级引用；Data Layer 掩码位只预留不接线。
+//   固定相机轨迹 → 距离环求 target cell 集合 → 与 resident diff 出 load/unload
+//   队列 → CellLoadBegin / CellResident / CellUnloadBegin / CellEvicted 四事件
+//   序列与 golden 逐字相等。
+// 消费锚：ci/g9_world_partition_smoke.py（g9.p0.m110.world_partition）正例臂
+//   （实现 PR 接线）。
+fn main() {}

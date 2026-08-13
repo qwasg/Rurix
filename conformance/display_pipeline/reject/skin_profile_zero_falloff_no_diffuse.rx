@@ -1,0 +1,12 @@
+//@ spec: RXS-0373
+// G9.5 M115 RED 语料（spec/display_pipeline.md RXS-0373 L4：扩散 profile 全零衰减
+// 注入必须退化为纯漫反射——否则 profile 未生效，RED）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = Burley 屏单 pass 按扩散 profile（RGB 三通道 falloff）产次表面扩散
+//   出图 golden。
+//   负例臂：profile 全零衰减注入后输出未退化为纯漫反射（仍产扩散效果或与全零
+//   输入无关的输出）= profile 消费通路未生效，必须 RED。
+// 预期 RED 面（实现 PR 接线）：扩散 profile 消费校验负例 +
+//   ci/g9_skin_burley_diffusion_smoke.py 门（symbolic key
+//   g9.p1.m115.skin_burley_diffusion，G9.5 波 P1 登记字面不动）。
+fn main() {}

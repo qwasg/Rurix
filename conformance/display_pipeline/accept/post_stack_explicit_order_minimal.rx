@@ -1,0 +1,12 @@
+//@ spec: RXS-0370
+// G9.5 M119 accept 正例语料（spec/display_pipeline.md RXS-0370 L1/L3/L4）：后处理
+// 骨架显式排序 + 全程 HDR 线性域 + 曝光状态帧间持久最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   节点显式排序冻结：histogram 曝光+EV 偏移 → bloom（tonemap 前 HDR 域多尺度
+//   mip 链）→ tonemap（经 view transform 插件）→ 色彩分级 LUT → 输出变换，SDR
+//   上即可全量验证；DOF/色彩分级完整化在同波顺位 2 推进。
+//   曝光状态（histogram→目标 EV adapt 上/下不同速率）为 persistent resource 帧间
+//   持久；与 TAA/TSR 时域链显式排序；节点输出范围探针不越界（全程 HDR 线性域）。
+// 消费锚：ci/g9_post_processing_skeleton_smoke.py
+//   （g9.p1.m119.post_processing_skeleton）正例臂（实现 PR 接线）。
+fn main() {}

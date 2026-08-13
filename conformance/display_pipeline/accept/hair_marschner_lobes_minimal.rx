@@ -1,0 +1,13 @@
+//@ spec: RXS-0372
+// G9.5 M114 accept 正例语料（spec/display_pipeline.md RXS-0372 L1/L3/L4）：毛发
+// Marschner R/TT/TRT 三瓣 + 几何三档最小正例（strand 档分项 not-triggered 登记）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   Marschner R/TT/TRT 三瓣着色（纵向/方位角分离参数化为资产属性：每缕基调色、
+//   高光偏移、medulla 配置）与参考实现逐瓣对拍 golden（瓣能量守恒）；几何三档
+//   （近 strand / 中 card / 远 mesh）档间切换距离与 strand→card 股替换映射离线
+//   烘焙确定性 golden；card/mesh 档走默认半透明路径；strand 档强制精确 OIT——
+//   依赖 M120 精确档 benchmark 裁决数据，数据可得性不足，strand 档分项登记
+//   not-triggered 不充绿（承接锚「M120 精确档数据落地后重判，兜底 G9.7 穷举」）。
+// 消费锚：ci/g9_hair_marschner_smoke.py（g9.p1.m114.hair_marschner）正例臂
+//   （实现 PR 接线）。
+fn main() {}

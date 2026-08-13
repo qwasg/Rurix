@@ -1,0 +1,13 @@
+//@ spec: RXS-0369
+// G9.5 M118 accept 正例语料（spec/display_pipeline.md RXS-0369 L1/L2/L4）：SDR/
+// scRGB/PQ 三交换链路径运行时切换 + ACES 1.3/2.0/AgX/中性四内置插件逐一 golden
+// 最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   三条 swapchain 路径为一等资源运行时切换（重建交换链或双链过渡）；同一 HDR
+//   线性输入帧经 ACES 1.3 / ACES 2.0 / AgX / 中性四内置 ViewTransform 插件分别
+//   输出，逐一对冻结 golden（含 AgX/ACES hue-skew 已知差异记录）；HDR 元数据
+//   （MaxCLL/MaxFALL/mastering primaries）由输出变换阶段填写；HDR 设备标定层
+//   条件未触发登记 SKIP=not-triggered 不充绿，不反向否决 SDR 验证面。
+// 消费锚：ci/g9_display_pipeline_view_transform_smoke.py
+//   （g9.p0.m118.display_pipeline_view_transform）正例臂（实现 PR 接线）。
+fn main() {}

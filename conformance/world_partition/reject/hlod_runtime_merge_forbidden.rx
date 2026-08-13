@@ -1,0 +1,12 @@
+//@ spec: RXS-0364
+// G9.5 M111 RED 语料（spec/world_partition.md RXS-0364 L3：HLOD 代理与 cell 全量
+// 内容按 screen-size 阈值互斥切换；运行时零合并——运行时合并调用尝试即断言/
+// 装配期拒绝）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = HLOD 产物即资产（经 M01/M04 通道）+ 运行时仅互斥切换。
+//   负例臂：运行时尝试合并 HLOD 代理（运行时简化/合批调用）未被断言拦住 =
+//   零合并纪律漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：运行时零合并结构性断言负例 +
+//   ci/g9_hlod_baking_smoke.py 门（symbolic key
+//   g9.p1.m111.hlod_baking，G9.5 波 P1 登记字面不动）。
+fn main() {}

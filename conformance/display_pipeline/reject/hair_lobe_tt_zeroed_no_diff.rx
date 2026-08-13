@@ -1,0 +1,12 @@
+//@ spec: RXS-0372
+// G9.5 M114 RED 语料（spec/display_pipeline.md RXS-0372 L2：Marschner R/TT/TRT
+// 三瓣——单瓣系数置零的 RED 渲染独立有效，缺 TT 瓣必须可见差异，无差异即管线
+// 未接通）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = Marschner 三瓣完整着色与参考实现逐瓣对拍 golden（瓣能量守恒）。
+//   负例臂：TT 瓣系数置零后输出与完整三瓣 golden 无可见差异 = 瓣通路未接通
+//   （管线漏接），必须 RED。
+// 预期 RED 面（实现 PR 接线）：逐瓣对拍校验负例 +
+//   ci/g9_hair_marschner_smoke.py 门（symbolic key
+//   g9.p1.m114.hair_marschner，G9.5 波 P1 登记字面不动）。
+fn main() {}

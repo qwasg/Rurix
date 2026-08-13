@@ -1,0 +1,12 @@
+//@ spec: RXS-0363
+// G9.5 M110 RED 语料（spec/world_partition.md RXS-0363 L3/L4：三项流送预算契约
+// MaxStreamingCellsPerFrame/MaxActorsToSpawnPerFrame/MemoryBudgetMB 逐帧 evidence；
+// 超预算请求排队而非抢占；预算违约注入必须排队降级、不得静默超帧）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   固定大世界场景 + 固定相机轨迹；正例臂 = 违约注入（如 MaxStreamingCellsPerFrame=0）
+//   后请求排队降级、计数器报警、无静默超帧。
+//   负例臂：预算违约注入后请求被静默执行（超帧且无报警）= 排队降级漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：流送预算契约校验负例 +
+//   ci/g9_world_partition_smoke.py 门（symbolic key
+//   g9.p0.m110.world_partition，G9.1 冻结字面不动）。
+fn main() {}

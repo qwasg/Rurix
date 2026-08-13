@@ -1,0 +1,12 @@
+//@ spec: RXS-0371
+// G9.5 M120 RED 语料（spec/display_pipeline.md RXS-0371 L2/L3：OIT 仅测量不定档；
+// 默认档选型必须引 benchmark 数据——无 benchmark 数据的默认档选型提交判 RED）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 默认档选型提交引用 nvpro 七算法 harness 实测帧时/内存曲线数据
+//   （evidence 非空）。
+//   负例臂：无 benchmark 数据引用即提交默认档选型（如按论文偏好直接选 AVBOIT）=
+//   数据裁决纪律漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：默认档选型数据引用校验负例 +
+//   ci/g9_oit_benchmark_harness_smoke.py 门（symbolic key
+//   g9.p1.m120.oit_benchmark_harness，G9.5 波 P1 登记字面不动）。
+fn main() {}

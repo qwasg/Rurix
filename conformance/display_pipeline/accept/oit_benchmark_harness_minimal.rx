@@ -1,0 +1,12 @@
+//@ spec: RXS-0371
+// G9.5 M120 accept 正例语料（spec/display_pipeline.md RXS-0371 L1/L4）：OIT
+// benchmark harness 七算法对照 evidence 非空 + 排序 fallback 永保留最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   以 nvpro vk_order_independent_transparency 七算法 sample 为对照基线建
+//   harness（同场景、同 overdraw 分布），测量 4070 Ti 上各算法帧时/内存曲线，
+//   evidence 非空；仅测量不定档；排序 fallback（depth-sorted alpha）路径永远
+//   保留为最低端档与正确性对照；linked-list 精确档与排序真值 diff=0（精确档
+//   仅毛发 strand 启用、场景级不开放）。
+// 消费锚：ci/g9_oit_benchmark_harness_smoke.py
+//   （g9.p1.m120.oit_benchmark_harness）正例臂（实现 PR 接线）。
+fn main() {}

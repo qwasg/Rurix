@@ -1,0 +1,12 @@
+//@ spec: RXS-0368
+// G9.5 M117 RED 语料（spec/world_partition.md RXS-0368 L2/L4：screen-space cluster
+// 化限制逐像素贴花评估数上界；超 cluster 上界贴花密度注入必须受界降级、过绘制
+// 计数越界即 RED）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 贴花密度在上界内，逐像素评估数受界，过绘制计数器落 evidence。
+//   负例臂：注入超 cluster 上界的贴花密度且未受界降级（过绘制计数越界未报警）=
+//   受界降级漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：cluster 上界受界降级校验负例 +
+//   ci/g9_decal_dbuffer_smoke.py 门（symbolic key
+//   g9.p1.m117.decal_dbuffer，G9.5 波 P1 登记字面不动）。
+fn main() {}

@@ -1,0 +1,11 @@
+//@ spec: RXS-0365
+// G9.5 M112 accept 正例语料（spec/world_partition.md RXS-0365 L1/L2/L4）：Froxel
+// 统一基础设施云雾共用 + 雾前端高度雾解析项最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   视锥体素网格（froxel volume）+ 密度/光照累积 + 深度切片分布 + 帧图合成节点
+//   一次性建造；雾前端（高度雾/分层介质解析项）直接写 Froxel 密度场。
+//   预算字段（ray-march 最大步数 / froxel 分辨率档 / 上采样开关）逐帧 evidence
+//   非空；首帧无历史正确初始化（不复用脏帧）。
+// 消费锚：ci/g9_atmosphere_froxel_smoke.py（g9.p1.m112.atmosphere_froxel）
+//   正例臂（实现 PR 接线）。
+fn main() {}

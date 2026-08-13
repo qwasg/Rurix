@@ -1,0 +1,11 @@
+//@ spec: RXS-0364
+// G9.5 M111 accept 正例语料（spec/world_partition.md RXS-0364 L1/L2/L4）：HLOD
+// 离线 Builder 按 Component 分发 + 产物即资产 + 双构建 hash 相等最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   固定 cell/Component 划分输入，离线 Builder 逐 Component 生成代理几何（简化
+//   + 合批 + 材质合并），产物经 M01/M04 管线落成普通资产（产物即资产）。
+//   同输入两次独立烘焙产物 digest 逐位一致（双构建 hash 相等）；代理相对原始
+//   的屏幕空间误差上界与切换距离表 golden。
+// 消费锚：ci/g9_hlod_baking_smoke.py（g9.p1.m111.hlod_baking）正例臂
+//   （实现 PR 接线）。
+fn main() {}

@@ -1,0 +1,11 @@
+//@ spec: RXS-0368
+// G9.5 M117 accept 正例语料（spec/world_partition.md RXS-0368 L1/L2/L3）：DBuffer
+// 三通道帧图设计期占位 + screen-space cluster 化最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   DBuffer（法线 + 材质属性 + 可选第三通道）在 G-buffer pass 内合成，帧图设计期
+//   即占位——v1 贴花数量为零也先冻结通道与 barrier 布局；screen-space cluster
+//   （复用光照 cluster 结构）对贴花体求交，逐像素评估数受界，过绘制计数器落
+//   evidence；前向回退档与 DBuffer 档两档语义等价 golden。
+// 消费锚：ci/g9_decal_dbuffer_smoke.py（g9.p1.m117.decal_dbuffer）正例臂
+//   （实现 PR 接线）。
+fn main() {}

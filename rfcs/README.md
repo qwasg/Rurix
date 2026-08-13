@@ -75,6 +75,8 @@
 > - **RFC-0024**（[`0024-physics-platform-revision.md`](0024-physics-platform-revision.md)，G9 物理平台修订（RFC-0021 修订）：Field 系统/统一 particle view/双通道 tick/浮力走 Field 通道/Jolt 5.6 升级路径/神经变形研究轨边界；7 findings〔3 major + 4 minor〕全部 disposition）
 >
 > 三份 RFC 的 **Agent Approved 只表示语义/治理评审完成，不解锁任何实现**：G9.2+ 仍由 `G9_CONTRACT` G-G9-3 与 `ci/check_g9_implementation_interlock.py` 硬门约束（当前诚实输出 `BLOCKED`）。当前下一个未用 Full RFC 为 **RFC-0025**。
+>
+> **RFC 台账校准（2026-08-12，number_ledger v1.90）**：G9.5 D4（大世界×专项渲染器×显示管线）无伞形 RFC 缺口处置——Grep 实测 RFC-0016/0019/0022/0023 冻结面与 D4 链路面（M110~M120）无重叠，且 M115/M114 触 G5 冻结面 `MaterialClosure` 32B 扩展按 G9_CONTRACT guardrail 须 RFC 显式修订行（M104 先例 = RFC-0023 §4.4.3），MR（Mini-RFC）体例不承载新语义面 + 冻结面修订，判档向上取严为 Full RFC。**RFC-0025**（[`0025-world-and-specialty-renderers.md`](0025-world-and-specialty-renderers.md)，G9 D4 伞形：世界分区/流送预算契约/HLOD/大气 Froxel/水体双管线/地形 chunk≡cell/贴花 DBuffer + 显示管线 view transform/后处理骨架/OIT benchmark + 毛发 Marschner/皮肤 Burley，含 §4.L 🔒 MaterialClosure 32B 显式修订行〔资产化侧表扩展通道，32B 布局 0-byte〕）经 D-409 第 1 轮对抗性评审（评审 `Assisted-by: Kimi:Kimi-K3 rfc0025-adversarial-reviewer`；**单实例偏差如实登记**——单模型子代理会话无法派生跨工具/跨模型独立评审实例，偏差大于 RFC-0024「同工具族独立实例」先例，效力自限声明见 RFC-0025 §9.1）后 **Agent Approved**，4 findings（1 major + 3 minor）全部 disposition。Agent Approved 只表示语义评审完成，不解锁任何实现。当前下一个未用 Full RFC 为 **RFC-0026**。
 
 > spec 条款号 `RXS-####`、错误码、deferred `RD-###`、spike-gating `SG-###` 的台账各自在 `spec/`、`registry/error_codes.json`、`registry/deferred.json`、`registry/spike_gating.json` 维护，均永不复用。
 >

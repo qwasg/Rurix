@@ -1,0 +1,11 @@
+//@ spec: RXS-0367
+// G9.5 M116 accept 正例语料（spec/world_partition.md RXS-0367 L1/L2/L3）：地形
+// chunk ≡ cell + 全 compute LOD/剔除/缝合 + toroidal 更新最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   heightfield 数据为 M04 页格式资产；chunk ≡ 世界分区 cell（同一网格族，无第
+//   二套分格）；LOD 选择/视锥剔除/邻级缝合全进 compute 产 indirect draw（CPU
+//   零逐 chunk 提交）；toroidal 环形窗口滚动复用 ring buffer，chunk 页迟到 →
+//   父级 LOD 占位；零 SVT 依赖。
+// 消费锚：ci/g9_terrain_chunk_cell_smoke.py（g9.p1.m116.terrain_chunk_cell）
+//   正例臂（实现 PR 接线）。
+fn main() {}

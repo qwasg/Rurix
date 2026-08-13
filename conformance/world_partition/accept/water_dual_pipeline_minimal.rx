@@ -1,0 +1,12 @@
+//@ spec: RXS-0366
+// G9.5 M113 accept 正例语料（spec/world_partition.md RXS-0366 L1/L2/L3）：大洋
+// Tessendorf IFFT 与浅水波方程双管线分离最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   大洋管线 = IFFT 谱参数化资产 + 位移/梯度/Jacobian 三贴图 + CDLOD 分档 +
+//   tiling-and-blending；浅水管线 = 局部波方程高度场+速度场 ping-pong compute。
+//   双管线不共享几何路径、仅共享水面着色 closure 输入面（互斥断言）；大洋
+//   compute IFFT 与 host FFT 参考逐值对拍（容差域 spec 明示冻结）；浮力查询
+//   接口面预留不实现。
+// 消费锚：ci/g9_water_dual_pipeline_smoke.py（g9.p1.m113.water_dual_pipeline）
+//   正例臂（实现 PR 接线）。
+fn main() {}

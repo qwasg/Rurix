@@ -1,0 +1,12 @@
+//@ spec: RXS-0365
+// G9.5 M112 RED 语料（spec/world_partition.md RXS-0365 L3/L5：云前端 2D weather
+// map 资产化走 M01/M85 通道；篡改 weather map 资产签名即拒录）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = weather map（覆盖度/湿度/类型）经 M01/M85 资产通道烘焙/打包/验签
+//   后消费。
+//   负例臂：篡改 weather map 资产签名（或内容字节）的 variant 仍被装载消费 =
+//   资产完整性校验漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：资产签名/完整性校验负例 +
+//   ci/g9_atmosphere_froxel_smoke.py 门（symbolic key
+//   g9.p1.m112.atmosphere_froxel，G9.5 波 P1 登记字面不动）。
+fn main() {}

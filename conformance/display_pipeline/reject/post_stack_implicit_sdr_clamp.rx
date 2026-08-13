@@ -1,0 +1,12 @@
+//@ spec: RXS-0370
+// G9.5 M119 RED 语料（spec/display_pipeline.md RXS-0370 L2：后处理全程 HDR 线性
+// 域——任何节点不得隐式 clamp 到 SDR，隐式 SDR clamp 注入即探针越界 RED）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 曝光/bloom/tonemap/LUT/输出变换全链 HDR 线性域，节点输出范围探针
+//   不越界。
+//   负例臂：任一节点（如 bloom 输出）隐式 clamp 到 SDR 域而探针未报警 = HDR
+//   线性域断言漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：节点输出范围探针校验负例 +
+//   ci/g9_post_processing_skeleton_smoke.py 门（symbolic key
+//   g9.p1.m119.post_processing_skeleton，G9.5 波 P1 登记字面不动）。
+fn main() {}

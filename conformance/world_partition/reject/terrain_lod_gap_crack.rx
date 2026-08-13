@@ -1,0 +1,12 @@
+//@ spec: RXS-0367
+// G9.5 M116 RED 语料（spec/world_partition.md RXS-0367 L5：相邻 chunk LOD 差 >1
+// 注入必须触发缝合路径，出现裂缝像素即 RED；邻级缝合处顶点位置连续性裂缝=0）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 邻级 LOD 差 >1 的 chunk 边界触发缝合路径（stitch skirt 或指数网格
+//   morph），顶点位置连续。
+//   负例臂：注入邻级 LOD 差 >1 但未走缝合路径、输出出现裂缝像素 = 缝合路径
+//   漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：邻级缝合路径校验负例 +
+//   ci/g9_terrain_chunk_cell_smoke.py 门（symbolic key
+//   g9.p1.m116.terrain_chunk_cell，G9.5 波 P1 登记字面不动）。
+fn main() {}

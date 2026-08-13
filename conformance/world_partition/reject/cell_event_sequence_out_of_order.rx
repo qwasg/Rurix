@@ -1,0 +1,12 @@
+//@ spec: RXS-0363
+// G9.5 M110 RED 语料（spec/world_partition.md RXS-0363 L5：CellLoadBegin /
+// CellResident / CellUnloadBegin / CellEvicted 四事件为渲染器唯一消费面；
+// 固定相机轨迹的 cell 四事件序列与 golden 逐字相等）。
+// **转正（G9.5 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   固定相机轨迹驱动 cell 流送；正例臂 = 四事件序列与 golden 逐字相等。
+//   负例臂：事件乱序注入（如 CellResident 先于 CellLoadBegin 到达 / Unload 与
+//   Evicted 颠倒）仍被当作合法序列消费 = 序列校验漏检，必须 RED。
+// 预期 RED 面（实现 PR 接线）：cell 事件序列校验负例 +
+//   ci/g9_world_partition_smoke.py 门（symbolic key
+//   g9.p0.m110.world_partition，G9.1 冻结字面不动）。
+fn main() {}

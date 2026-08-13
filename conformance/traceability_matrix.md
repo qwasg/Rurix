@@ -348,3 +348,14 @@
 | RXS-0360 | spec/global_illumination.md | 2 | `conformance/gi/accept/spg_radiance_cache_screen_level_minimal.rx`, `conformance/gi/reject/radiance_cache_product_is_disabled.rx` |
 | RXS-0361 | spec/global_illumination.md | 1 | `conformance/gi/reject/multi_light_restir_tier_unproven.rx` |
 | RXS-0362 | spec/global_illumination.md | 3 | `conformance/gi/accept/if_tier_ladder_shared_kernel_minimal.rx`, `conformance/gi/reject/if_as_budget_exceeded_no_demote.rx`, `conformance/gi/reject/if_octahedral_srgb_encoding.rx` |
+| RXS-0363 | spec/world_partition.md | 3 | `conformance/world_partition/accept/cell_event_sequence_minimal.rx`, `conformance/world_partition/reject/cell_event_sequence_out_of_order.rx`, `conformance/world_partition/reject/partition_budget_overrun_no_demote.rx` |
+| RXS-0364 | spec/world_partition.md | 2 | `conformance/world_partition/accept/hlod_baking_double_build_minimal.rx`, `conformance/world_partition/reject/hlod_runtime_merge_forbidden.rx` |
+| RXS-0365 | spec/world_partition.md | 2 | `conformance/world_partition/accept/atmosphere_froxel_fog_minimal.rx`, `conformance/world_partition/reject/atmosphere_weather_map_signature_tampered.rx` |
+| RXS-0366 | spec/world_partition.md | 2 | `conformance/world_partition/accept/water_dual_pipeline_minimal.rx`, `conformance/world_partition/reject/water_spectrum_param_invalid.rx` |
+| RXS-0367 | spec/world_partition.md | 2 | `conformance/world_partition/accept/terrain_chunk_cell_aligned_minimal.rx`, `conformance/world_partition/reject/terrain_lod_gap_crack.rx` |
+| RXS-0368 | spec/world_partition.md | 2 | `conformance/world_partition/accept/decal_dbuffer_placeholder_minimal.rx`, `conformance/world_partition/reject/decal_overdraw_budget_exceeded.rx` |
+| RXS-0369 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/view_transform_four_plugins_minimal.rx`, `conformance/display_pipeline/reject/non_hdr_swapchain_pq_output.rx` |
+| RXS-0370 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/post_stack_explicit_order_minimal.rx`, `conformance/display_pipeline/reject/post_stack_implicit_sdr_clamp.rx` |
+| RXS-0371 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/oit_benchmark_harness_minimal.rx`, `conformance/display_pipeline/reject/oit_default_tier_without_benchmark_data.rx` |
+| RXS-0372 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/hair_marschner_lobes_minimal.rx`, `conformance/display_pipeline/reject/hair_lobe_tt_zeroed_no_diff.rx` |
+| RXS-0373 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/skin_diffusion_profile_minimal.rx`, `conformance/display_pipeline/reject/skin_profile_zero_falloff_no_diffuse.rx` |

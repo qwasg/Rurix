@@ -17,6 +17,12 @@ G9.3 波 P1 全进裁决（G9_CONTRACT §8.1 裁决①，2026-08-11 只追加登
 G9.4 波 P1 全进裁决（同一裁决①，2026-08-12 只追加登记）同口径扩三行
 （M99/M100/M101；M99 仅屏幕级 / M100 仅低档默认判 go，RD-040 未举证分项
 not-triggered 不充绿，G9_CANDIDATE_DECISIONS v1.3 校准注）。
+G9.5 波 P1 全进裁决（同一裁决①，2026-08-12 只追加登记）同口径扩九行
+（M111/M112/M113/M114/M115/M116/M117/M119/M120；M114 条件 go——strand 档
+依赖 M120 精确档 benchmark 数据不足，分项 not-triggered 不充绿，承接锚
+「M120 精确档数据落地后重判，兜底 G9.7 穷举」；M115 触 MaterialClosure 32B
+经 RFC-0025 §4.L 🔒 显式修订行前置登记；M120 仅测量不定档；D4 伞形 RFC
+缺口经起草 RFC-0025 处置，G9_CANDIDATE_DECISIONS v1.4 校准注）。
 
 本守卫属未编号 `check_*` 类，不占 numeric CI step，不判定任何实现门为绿。
 `--selftest` 用内置合成夹具的受控负样本证明每组断言都能红（不依赖树上文件）。
@@ -51,8 +57,14 @@ EXPECTED_P0 = {
 # 逐波经治理流程只追加进 ACCEPTANCE_MAP §3，不静默并入既有 key）。
 # 2026-08-11 G9.3 波四行（M92/M105/M106/M107）+ 2026-08-12 G9.4 波三行
 # （M99/M100/M101；M99 仅屏幕级、M100 仅低档默认判 go，RD-040 未举证分项
-# not-triggered 不充绿）。后续波次判 go 的 P1 只追加扩本集合 + MAP §3 + CI_GATES §4A。
-EXPECTED_P1 = {"M92", "M105", "M106", "M107", "M99", "M100", "M101"}
+# not-triggered 不充绿）+ 2026-08-12 G9.5 波九行（M111~M120 去 M118〔P0〕；
+# M114 条件 go——strand 档依赖 M120 精确档数据不足 not-triggered 不充绿；
+# M115 触 MaterialClosure 32B 经 RFC-0025 §4.L 修订行前置；M120 仅测量不定档）。
+# 后续波次判 go 的 P1 只追加扩本集合 + MAP §3 + CI_GATES §4A。
+EXPECTED_P1 = {
+    "M92", "M105", "M106", "M107", "M99", "M100", "M101",
+    "M111", "M112", "M113", "M114", "M115", "M116", "M117", "M119", "M120",
+}
 
 ALLOWED_WAVES = {"G9.2", "G9.3", "G9.4", "G9.5", "G9.6", "G9.2 + G9.6"}
 
@@ -290,6 +302,15 @@ CANONICAL_P1_ROWS = [
     ("M99", "spg_radiance_cache", "G9.4"),
     ("M100", "multi_light_low", "G9.4"),
     ("M101", "if_tier_ladder", "G9.4"),
+    ("M111", "hlod_baking", "G9.5"),
+    ("M112", "atmosphere_froxel", "G9.5"),
+    ("M113", "water_dual_pipeline", "G9.5"),
+    ("M114", "hair_marschner", "G9.5"),
+    ("M115", "skin_burley_diffusion", "G9.5"),
+    ("M116", "terrain_chunk_cell", "G9.5"),
+    ("M117", "decal_dbuffer", "G9.5"),
+    ("M119", "post_processing_skeleton", "G9.5"),
+    ("M120", "oit_benchmark_harness", "G9.5"),
 ]
 
 
@@ -407,6 +428,13 @@ def run_selftest() -> int:
             ci_text,
             "P1 集合不等于 §1 声明集合",
         ),
+        (
+            "删除 §3 M115 行（G9.5 波新增）→ P1 coverage 必须红",
+            "\n".join(l for l in map_text.splitlines() if not l.startswith("| **M115**")),
+            contract_text,
+            ci_text,
+            "P1 集合不等于 §1 声明集合",
+        ),
     ]
 
     failures = 0
@@ -432,7 +460,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[check_g9_acceptance_map] SELFTEST FAIL ({failures})")
         return 1
-    print("[check_g9_acceptance_map] SELFTEST PASS (11 RED + 1 GREEN)")
+    print("[check_g9_acceptance_map] SELFTEST PASS (12 RED + 1 GREEN)")
     return 0
 
 
@@ -460,7 +488,7 @@ def main() -> int:
         return 1
     print(
         "[check_g9_acceptance_map] PASS"
-        "（15 P0 + 7 已 go P1（G9.3 波四行 + G9.4 波三行）覆盖齐备；22 key 唯一且同一命名空间；"
+        "（15 P0 + 16 已 go P1（G9.3 波四行 + G9.4 波三行 + G9.5 波九行）覆盖齐备；31 key 唯一且同一命名空间；"
         "P0 行 MAP/CONTRACT/CI_GATES 三向逐字一致、P1 行 MAP §3/CI_GATES §4A 双向逐字一致；零空行/占位）"
     )
     print("  注意：本 PASS 只表示映射完整，不表示任何 P0/P1 能力门已实现或已绿。")
