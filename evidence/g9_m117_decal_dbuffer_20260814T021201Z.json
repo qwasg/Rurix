@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m117_decal_dbuffer",
+  "symbolic_gate_key": "g9.p1.m117.decal_dbuffer",
+  "matrix_row": "M117",
+  "milestone": "M117",
+  "assertion_id": "g9.p1.m117.decal_dbuffer",
+  "status": "pass",
+  "wave": "G9.5",
+  "numeric_step": 162,
+  "source_ref": "RFC-0025 §4.H;spec/world_partition.md RXS-0368;G9_ACCEPTANCE_MAP §3 M117",
+  "base_commit": "c8e6e944a54b1232635163a4303cc86baaa04668",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_module_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "band_provenance_frozen": true,
+    "harness_full_pass": true,
+    "harness_checks_closed_set_green": true,
+    "harness_red_arm_submode_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib world::decal",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurix-render --bin g9_m117_decal_dbuffer",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target-g95g\\debug\\g9_m117_decal_dbuffer.exe --evidence H:\\rurix\\.tmp\\g95_gates\\m117\\harness_evidence.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target-g95g\\debug\\g9_m117_decal_dbuffer.exe --red-arm missing-placeholder",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target-g95g\\debug\\g9_m117_decal_dbuffer.exe --red-arm overdraw",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T021201Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "harness:DBuffer 三通道帧图占位 + cluster 受界 + 两档语义等价 golden + RED 双臂子模式复跑"
+}
