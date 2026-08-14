@@ -20,19 +20,21 @@ use rurix_physics_sys::{
     SysBodyDesc, SysBodyKind, SysContactPhase, SysError, SysErrorCode, SysRay, SysShapeParams,
     SysTransform, SysWorld, SysWorldDesc,
 };
+#[cfg(feature = "jolt56")]
+use rurix_physics_sys56 as sys56;
 
 use crate::arena::GenArena;
 use crate::budget::SyncBudget;
 use crate::error::PhysicsError;
 use crate::events::ContactRing;
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 use crate::events::normalize_contacts;
 use crate::id::{BodyId, ShapeId};
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 use crate::order::{sort_overlap_hits, sort_query_hits};
 #[cfg(feature = "rapier")]
 use crate::rapier::RapierBackend;
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 use crate::types::ContactPhase;
 use crate::types::{
     BackendKind, BodyDesc, BodyKind, ContactEvent, OverlapHit, PhysicsTransform, QueryHit,
@@ -60,7 +62,7 @@ struct BodyEntry {
 }
 
 /// 一对已占槽位:(body (index, generation), shape (index, generation))。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 type BodyShapeSlots = ((u32, u32), (u32, u32));
 
 /// 后端枚举(构建矩阵三档:jolt 默认 / rapier 快路径(G6.4)/ 双后端对拍;
@@ -72,8 +74,11 @@ enum Backend {
     Jolt(SysWorld),
     #[cfg(feature = "rapier")]
     Rapier(Box<RapierBackend>),
+    /// G9.6 M125:Jolt 5.6 评估后端(RXS-0377;独立 vendor 线并存,不升格生产默认)。
+    #[cfg(feature = "jolt56")]
+    Jolt56(sys56::SysWorld),
     /// 无后端构建档:本变体永不实例化,仅保类型完备与 match 穷尽(P-01 零 panic)。
-    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
+    #[cfg(not(any(feature = "jolt", feature = "rapier", feature = "jolt56")))]
     NeverCompiled,
 }
 
@@ -111,7 +116,26 @@ impl PhysicsWorld {
         match desc.backend {
             BackendKind::Jolt => Self::new_jolt(desc),
             BackendKind::Rapier => Self::new_rapier(desc),
+            BackendKind::Jolt56 => Self::new_jolt56(desc),
         }
+    }
+
+    #[cfg(feature = "jolt56")]
+    fn new_jolt56(desc: WorldDesc) -> Result<Self, PhysicsError> {
+        let sys = sys56::SysWorld::create(&sys56::SysWorldDesc {
+            gravity: desc.gravity,
+            layer_count: desc.layer_count,
+            max_bodies: desc.max_bodies,
+            job_threads: desc.job_threads.unwrap_or(0),
+            contact_capacity: desc.contact_capacity,
+        })
+        .map_err(physics56_error_from_sys)?;
+        Ok(Self::assemble(desc, Backend::Jolt56(sys)))
+    }
+
+    #[cfg(not(feature = "jolt56"))]
+    fn new_jolt56(_desc: WorldDesc) -> Result<Self, PhysicsError> {
+        Err(PhysicsError::BackendNotCompiled(BackendKind::Jolt56))
     }
 
     #[cfg(feature = "jolt")]
@@ -145,7 +169,7 @@ impl PhysicsWorld {
         Err(PhysicsError::BackendNotCompiled(BackendKind::Rapier))
     }
 
-    #[cfg(any(feature = "jolt", feature = "rapier"))]
+    #[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
     fn assemble(desc: WorldDesc, backend: Backend) -> Self {
         let bodies = GenArena::with_capacity(desc.max_bodies);
         let shapes = GenArena::with_capacity(desc.max_bodies);
@@ -231,6 +255,32 @@ impl PhysicsWorld {
                     raw,
                 ))
             }
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => {
+                let stats = sys.step(_dt_fixed).map_err(physics56_error_from_sys)?;
+                let (raw, sys_dropped) = sys.drain_contacts();
+                let raw: Vec<RawContact> = raw
+                    .into_iter()
+                    .map(|e| {
+                        (
+                            e.a,
+                            e.b,
+                            phase56_from_sys(e.phase),
+                            e.point,
+                            e.normal,
+                            e.impulse,
+                        )
+                    })
+                    .collect();
+                Ok(finish_step(
+                    ring,
+                    token_map,
+                    (stats.active_bodies, stats.slept_this_step),
+                    stats.contacts_dropped.saturating_add(sys_dropped),
+                    stats.step_time_secs,
+                    raw,
+                ))
+            }
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(desc.backend)),
         }
@@ -246,7 +296,7 @@ impl PhysicsWorld {
         self.add_bodies_inner(descs)
     }
 
-    #[cfg(any(feature = "jolt", feature = "rapier"))]
+    #[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
     fn add_bodies_inner(&mut self, descs: &[BodyDesc]) -> Result<Vec<BodyId>, PhysicsError> {
         let n = u32::try_from(descs.len())
             .map_err(|_| PhysicsError::InvalidDesc("批插数量超 u32 上限".into()))?;
@@ -273,6 +323,13 @@ impl PhysicsWorld {
             }
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.add_bodies_batch(descs),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => {
+                let sys_descs: Vec<sys56::SysBodyDesc> =
+                    descs.iter().map(sys56_body_desc).collect();
+                sys.add_bodies_batch(&sys_descs)
+                    .map_err(physics56_error_from_sys)
+            }
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         };
@@ -297,7 +354,7 @@ impl PhysicsWorld {
         Ok(ids)
     }
 
-    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
+    #[cfg(not(any(feature = "jolt", feature = "rapier", feature = "jolt56")))]
     fn add_bodies_inner(&mut self, _descs: &[BodyDesc]) -> Result<Vec<BodyId>, PhysicsError> {
         Err(PhysicsError::BackendNotCompiled(self.desc.backend))
     }
@@ -329,6 +386,10 @@ impl PhysicsWorld {
                 .map_err(physics_error_from_sys)?,
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.remove_bodies_batch(&tokens)?,
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .remove_bodies_batch(&tokens)
+                .map_err(physics56_error_from_sys)?,
             #[allow(unreachable_patterns)]
             _ => return Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -357,6 +418,11 @@ impl PhysicsWorld {
                 .map(transform_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.body_transform(token),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .body_transform(token)
+                .map_err(physics56_error_from_sys)
+                .map(transform56_from_sys),
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -387,6 +453,16 @@ impl PhysicsWorld {
                 .into_iter()
                 .filter_map(|(token, t)| self.token_map.get(&token).map(|id| (*id, t)))
                 .collect(),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .active_transforms()
+                .into_iter()
+                .filter_map(|(token, t)| {
+                    self.token_map
+                        .get(&token)
+                        .map(|id| (*id, transform56_from_sys(t)))
+                })
+                .collect(),
             #[allow(unreachable_patterns)]
             _ => Vec::new(),
         };
@@ -411,6 +487,10 @@ impl PhysicsWorld {
                 .map_err(physics_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.apply_impulse(token, impulse),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .apply_impulse(token, impulse)
+                .map_err(physics56_error_from_sys),
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -436,9 +516,13 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .add_force_at_point(token, force, point)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .add_force_at_point(token, force, point)
+                .map_err(physics56_error_from_sys),
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendUnavailable(
-                "add_force_at_point 仅 Jolt 后端导出".into(),
+                "add_force_at_point 仅 Jolt 系后端导出".into(),
             )),
         }
     }
@@ -455,6 +539,8 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys.is_active(token).map_err(physics_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.is_active(token),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys.is_active(token).map_err(physics56_error_from_sys),
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -503,6 +589,23 @@ impl PhysicsWorld {
                     .map(|h| (h.token, h.t, h.position, h.normal))
                     .collect(),
             )),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => {
+                let hits = sys.cast_ray(&sys56::SysRay {
+                    origin: ray.origin,
+                    dir: ray.dir,
+                    t_min: ray.t_min,
+                    t_max: ray.t_max,
+                    layer_mask: ray.layer_mask,
+                });
+                Ok(map_raw_hits(
+                    &self.token_map,
+                    &self.bodies,
+                    hits.into_iter()
+                        .map(|h| (h.body, h.t, h.position, h.normal))
+                        .collect(),
+                ))
+            }
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -551,6 +654,23 @@ impl PhysicsWorld {
                         .collect(),
                 ))
             }
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => {
+                let hits = sys.cast_shape(
+                    &sys56_shape(&query.shape),
+                    &sys56_transform(query.start),
+                    query.dir,
+                    query.t_max,
+                    query.layer_mask,
+                );
+                Ok(map_raw_hits(
+                    &self.token_map,
+                    &self.bodies,
+                    hits.into_iter()
+                        .map(|h| (h.body, h.t, h.position, h.normal))
+                        .collect(),
+                ))
+            }
             #[allow(unreachable_patterns)]
             _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         }
@@ -581,7 +701,7 @@ impl PhysicsWorld {
         self.overlap_inner(shape, transform, layer_mask)
     }
 
-    #[cfg(any(feature = "jolt", feature = "rapier"))]
+    #[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
     fn overlap_inner(
         &self,
         shape: &ShapeDesc,
@@ -595,6 +715,12 @@ impl PhysicsWorld {
             }
             #[cfg(feature = "rapier")]
             Backend::Rapier(r) => r.overlap_shape(shape, transform, layer_mask)?,
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys.overlap_shape(
+                &sys56_shape(shape),
+                &sys56_transform(*transform),
+                layer_mask,
+            ),
             #[allow(unreachable_patterns)]
             _ => return Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
         };
@@ -610,7 +736,7 @@ impl PhysicsWorld {
         Ok(out)
     }
 
-    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
+    #[cfg(not(any(feature = "jolt", feature = "rapier", feature = "jolt56")))]
     fn overlap_inner(
         &self,
         _shape: &ShapeDesc,
@@ -670,6 +796,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .set_kinematic_target(token, &sys_transform(target))
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .set_kinematic_target(token, &sys56_transform(target))
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 set_kinematic_target(M66 门走 Jolt)".into(),
@@ -685,6 +815,8 @@ impl PhysicsWorld {
         match &self.backend {
             #[cfg(feature = "jolt")]
             Backend::Jolt(sys) => sys.body_velocities(token).map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys.body_velocities(token).map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 body_velocities(M66 门走 Jolt)".into(),
@@ -708,6 +840,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .set_linear_velocity(token, linear)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .set_linear_velocity(token, linear)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 set_linear_velocity(M66 门走 Jolt)".into(),
@@ -731,6 +867,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .set_angular_velocity(token, angular)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .set_angular_velocity(token, angular)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 set_angular_velocity(M66 门走 Jolt)".into(),
@@ -760,6 +900,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .set_position_rotation_dont_activate(token, &sys_transform(transform))
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .set_position_rotation_dont_activate(token, &sys56_transform(transform))
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 set_position_rotation_dont_activate".into(),
@@ -785,6 +929,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .add_hinge_constraint(ta, tb, point, hinge_axis, normal_axis)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .add_hinge_constraint(ta, tb, point, hinge_axis, normal_axis)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 hinge constraint".into(),
@@ -800,6 +948,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .remove_constraint(constraint)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .remove_constraint(constraint)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 remove_constraint".into(),
@@ -820,6 +972,10 @@ impl PhysicsWorld {
             Backend::Jolt(sys) => sys
                 .set_hinge_motor(constraint, state, target_angular_velocity)
                 .map_err(physics_error_from_sys),
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => sys
+                .set_hinge_motor(constraint, state, target_angular_velocity)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 set_hinge_motor".into(),
@@ -834,6 +990,16 @@ impl PhysicsWorld {
         match &self.backend {
             #[cfg(feature = "jolt")]
             Backend::Jolt(sys) => {
+                let mut out = Vec::new();
+                for (token, a, b, enabled, motor) in sys.constraint_snapshot() {
+                    let a_bits = self.token_map.get(&a).map(|id| id.to_bits()).unwrap_or(0);
+                    let b_bits = self.token_map.get(&b).map(|id| id.to_bits()).unwrap_or(0);
+                    out.push((token, a_bits, b_bits, enabled, motor));
+                }
+                out
+            }
+            #[cfg(feature = "jolt56")]
+            Backend::Jolt56(sys) => {
                 let mut out = Vec::new();
                 for (token, a, b, enabled, motor) in sys.constraint_snapshot() {
                     let a_bits = self.token_map.get(&a).map(|id| id.to_bits()).unwrap_or(0);
@@ -890,7 +1056,7 @@ impl PhysicsWorld {
 }
 
 /// 占 body+shape 槽位(add 批内单条;返回 (body 部件, shape 部件))。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 fn alloc_body_slots(
     bodies: &mut GenArena<BodyEntry>,
     shapes: &mut GenArena<()>,
@@ -913,7 +1079,7 @@ fn alloc_body_slots(
 }
 
 /// 回滚一批已占槽位(后端失败路径;句柄从未外泄,无悬挂)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 fn rollback_body_slots(
     bodies: &mut GenArena<BodyEntry>,
     shapes: &mut GenArena<()>,
@@ -926,17 +1092,17 @@ fn rollback_body_slots(
 }
 
 /// 后端原始命中统一上岸型(token + t + 世界系命中点/法线;两后端同构)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 type RawHit = (u64, f32, [f32; 3], [f32; 3]);
 
 /// 后端原始接触统一上岸型(token 对 + 相位 + 点/法线/冲量;Jolt 经
 /// `phase_from_sys` 转换后与本型一致,Rapier 直接产出)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 type RawContact = (u64, u64, ContactPhase, [f32; 3], [f32; 3], f32);
 
 /// 后端命中 → 公共 `QueryHit`(token→BodyId 映射 + body→shape 回填;
 /// 未知 token 确定性丢弃),按 `(t, BodyId)` 规范序(C-2;两后端共享)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 fn map_raw_hits(
     token_map: &HashMap<u64, BodyId>,
     bodies: &GenArena<BodyEntry>,
@@ -964,7 +1130,7 @@ fn map_raw_hits(
 /// (未知 token——如本步内已移除 body——无法命名,确定性丢弃计数)→ 归一化
 /// (规范序排序去重)→ 有界 ring → `StepStats` 组装(丢弃计数三路合流:
 /// 后端层 + ring 溢出 + 未映射)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 fn finish_step(
     ring: &mut ContactRing,
     token_map: &HashMap<u64, BodyId>,
@@ -1098,9 +1264,99 @@ fn phase_from_sys(p: SysContactPhase) -> ContactPhase {
     }
 }
 
+// ---------------------------------------------------------------------------
+// G9.6 M125:Jolt 5.6 评估臂(rurix-physics-sys56)转换面——与 5.3 线助手逐项
+// 同构(sys56 crate 类型面与 5.3 sys crate 字面同构,边界契约同一;RXS-0377)。
+// ---------------------------------------------------------------------------
+
+/// sys56 层错误上岸映射(同 5.3 线 `physics_error_from_sys` 逐类归并)。
+#[cfg(feature = "jolt56")]
+fn physics56_error_from_sys(e: sys56::SysError) -> PhysicsError {
+    match e.code {
+        sys56::SysErrorCode::InvalidDesc => PhysicsError::InvalidDesc(e.message),
+        sys56::SysErrorCode::InvalidBody => {
+            PhysicsError::BackendUnavailable(format!("sys56 侧 body token 失效:{}", e.message))
+        }
+        sys56::SysErrorCode::PoolExhausted => PhysicsError::PoolExhausted,
+        sys56::SysErrorCode::BackendUnavailable => PhysicsError::BackendUnavailable(e.message),
+    }
+}
+
+#[cfg(feature = "jolt56")]
+fn transform56_from_sys(t: sys56::SysTransform) -> PhysicsTransform {
+    PhysicsTransform {
+        translation: t.translation,
+        rotation: t.rotation,
+    }
+}
+
+#[cfg(feature = "jolt56")]
+fn sys56_transform(t: PhysicsTransform) -> sys56::SysTransform {
+    sys56::SysTransform {
+        translation: t.translation,
+        rotation: t.rotation,
+    }
+}
+
+#[cfg(feature = "jolt56")]
+fn sys56_shape(shape: &ShapeDesc) -> sys56::SysShapeParams {
+    match shape {
+        ShapeDesc::Sphere { radius } => sys56::SysShapeParams::Sphere { radius: *radius },
+        ShapeDesc::Box { half_extents } => sys56::SysShapeParams::Box {
+            half_extents: *half_extents,
+        },
+        ShapeDesc::Capsule {
+            half_height,
+            radius,
+        } => sys56::SysShapeParams::Capsule {
+            half_height: *half_height,
+            radius: *radius,
+        },
+        ShapeDesc::ConvexHull { points } => sys56::SysShapeParams::ConvexHull {
+            points: points.clone(),
+        },
+        ShapeDesc::StaticMesh {
+            vertices,
+            triangles,
+        } => sys56::SysShapeParams::StaticMesh {
+            vertices: vertices.clone(),
+            triangles: triangles.clone(),
+        },
+    }
+}
+
+#[cfg(feature = "jolt56")]
+fn sys56_body_desc(d: &BodyDesc) -> sys56::SysBodyDesc {
+    sys56::SysBodyDesc {
+        kind: match d.kind {
+            BodyKind::Static => sys56::SysBodyKind::Static,
+            BodyKind::Kinematic => sys56::SysBodyKind::Kinematic,
+            BodyKind::Dynamic => sys56::SysBodyKind::Dynamic,
+        },
+        shape: sys56_shape(&d.shape),
+        layer: d.layer,
+        mass: d.mass_props.mass,
+        friction: d.mass_props.friction,
+        restitution: d.mass_props.restitution,
+        ccd: d.ccd,
+        allow_sleep: d.mass_props.allow_sleep,
+        translation: d.transform.translation,
+        rotation: d.transform.rotation,
+    }
+}
+
+#[cfg(feature = "jolt56")]
+fn phase56_from_sys(p: sys56::SysContactPhase) -> ContactPhase {
+    match p {
+        sys56::SysContactPhase::Begin => ContactPhase::Begin,
+        sys56::SysContactPhase::Persist => ContactPhase::Persist,
+        sys56::SysContactPhase::End => ContactPhase::End,
+    }
+}
+
 /// f64 秒 → `Duration`(非有限/非正 → ZERO;`from_secs_f64` 对负/NaN 会 panic,
 /// P-01 下不允许)。
-#[cfg(any(feature = "jolt", feature = "rapier"))]
+#[cfg(any(feature = "jolt", feature = "rapier", feature = "jolt56"))]
 fn duration_from_secs(secs: f64) -> std::time::Duration {
     if secs.is_finite() && secs > 0.0 {
         std::time::Duration::from_secs_f64(secs)

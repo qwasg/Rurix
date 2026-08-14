@@ -549,12 +549,20 @@ version = "1.0.0"
 dependencies = [
  "rapier3d",
  "rurix-physics-sys",
+ "rurix-physics-sys56",
  "rurix-pkg",
  "rurix-render",
 ]
 
 [[package]]
 name = "rurix-physics-sys"
+version = "1.0.0"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
+name = "rurix-physics-sys56"
 version = "1.0.0"
 dependencies = [
  "cmake",

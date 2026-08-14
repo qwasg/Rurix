@@ -14,6 +14,11 @@ pub enum BackendKind {
     /// Rapier 快路径后端(feature `rapier`,默认 off,G6.4 实现;feature 未编译 →
     /// 确定性 `Err(BackendNotCompiled)`,P-01 不静默回退)。
     Rapier,
+    /// Jolt 5.6 评估后端(G9.6 M125,RXS-0377;feature `jolt56`,默认 off,经
+    /// rurix-physics-sys56 独立 vendor 线构建;**评估用途,不升格生产默认**——
+    /// 与 5.3 基线 `Jolt` 并存同进程各自实例化,feature 未编译 → 确定性
+    /// `Err(BackendNotCompiled)`,P-01 不静默回退)。
+    Jolt56,
 }
 
 impl std::fmt::Display for BackendKind {
@@ -21,6 +26,7 @@ impl std::fmt::Display for BackendKind {
         match self {
             BackendKind::Jolt => write!(f, "Jolt"),
             BackendKind::Rapier => write!(f, "Rapier"),
+            BackendKind::Jolt56 => write!(f, "Jolt56"),
         }
     }
 }

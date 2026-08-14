@@ -535,6 +535,9 @@ def check_evidence_files() -> None:
     g9_m126_rapier_benchmark_ab_schema = load(
         ROOT / "milestones/g9/g9_m126_rapier_benchmark_ab_evidence_schema.json"
     )
+    g9_m125_jolt_56_ab_evaluation_schema = load(
+        ROOT / "milestones/g9/g9_m125_jolt_56_ab_evaluation_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1154,6 +1157,11 @@ def check_evidence_files() -> None:
     g9_m126_rapier_benchmark_ab_validator = (
         jsonschema.Draft7Validator(g9_m126_rapier_benchmark_ab_schema)
         if g9_m126_rapier_benchmark_ab_schema is not None
+        else None
+    )
+    g9_m125_jolt_56_ab_evaluation_validator = (
+        jsonschema.Draft7Validator(g9_m125_jolt_56_ab_evaluation_schema)
+        if g9_m125_jolt_56_ab_evaluation_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2296,6 +2304,16 @@ def check_evidence_files() -> None:
             # oracle + RD-044 字面不变（RXS-0378；RFC-0024 §4.E2）。harness 直出件
             # 落 .tmp 工作区不进 evidence/；同短前缀直出件误入落 gpu fallthrough 必红。
             validator = g9_m126_rapier_benchmark_ab_validator
+        elif (
+            f.name.startswith("g9_m125_jolt_56_ab_evaluation_")
+            and g9_m125_jolt_56_ab_evaluation_validator is not None
+        ):
+            # G9.6 P1 硬门 M125 jolt_56_ab_evaluation（步骤 168，host 纯 host 确定性门）：
+            # RFC-0021 §4.A4 七步程序逐字 + 5.6 独立 vendor 并存不覆盖 5.3 基线 +
+            # 新摩擦模型逐字段分类 + GPU compute 只评估不接权威 + 两臂诚实登记禁伪绿
+            # （RXS-0377；RFC-0024 §4.E1）。harness 直出件落 .tmp 工作区不进 evidence/；
+            # 同短前缀直出件误入落 gpu fallthrough 必红（fail-closed，evidence/ 只收门件）。
+            validator = g9_m125_jolt_56_ab_evaluation_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

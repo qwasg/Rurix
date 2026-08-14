@@ -37,19 +37,26 @@ impl CaptureRecorder {
         abi_digest: &str,
         budget: BudgetProfile,
     ) -> Self {
+        Self::begin_with_header(PhysicsCaptureHeader::new_jolt_53(
+            scenario_id,
+            tick_count,
+            world_desc,
+            build_fingerprint,
+            abi_digest,
+            budget.clone(),
+        ))
+    }
+
+    /// G9.6 M125(RXS-0377 七步③):调用方显式给 header 的录制入口——5.6 评估臂
+    /// 经 `PhysicsCaptureHeader::new_jolt_56` 构造 header 后走本口,录制/replay
+    /// 主流与 5.3 线完全同构(M66 设施复用,版本锚在 header 内)。
+    pub fn begin_with_header(header: PhysicsCaptureHeader) -> Self {
         CaptureRecorder {
-            header: PhysicsCaptureHeader::new_jolt_53(
-                scenario_id,
-                tick_count,
-                world_desc,
-                build_fingerprint,
-                abi_digest,
-                budget.clone(),
-            ),
-            ticks: Vec::with_capacity(tick_count as usize),
+            budget: header.budget_profile.clone(),
+            ticks: Vec::with_capacity(header.tick_count as usize),
+            header,
             state0: None,
             pending_pre: Vec::new(),
-            budget,
         }
     }
 

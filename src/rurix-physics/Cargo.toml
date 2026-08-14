@@ -11,6 +11,10 @@ license.workspace = true
 # rurix-physics-sys vendor 构建 JoltC;`--no-default-features` 零 C++ 依赖恒绿,
 # `PhysicsWorld::new(Jolt)` → 确定性 Err(BackendNotCompiled,P-01 不静默回退)。
 rurix-physics-sys = { path = "../rurix-physics-sys", optional = true }
+# G9.6 M125 Jolt 5.6 评估后端(RXS-0377 七步程序第②步;feature `jolt56` 默认 off):
+# 经 rurix-physics-sys56 独立 vendor 线(JoltC@2982004 + JoltPhysics v5.6.0,
+# JPC56_/JPH56 符号隔离)与 5.3 基线并存同进程;评估用途不升格生产默认。
+rurix-physics-sys56 = { path = "../rurix-physics-sys56", optional = true }
 # G6.3 渲染合流桥(RFC-0017 §4.B):bridge 取 GpuScene 类型面——依赖方向裁决 =
 # rurix-physics → rurix-render 单向(rurix-render 永不依赖 physics,§4.B1-1);
 # 仅消费 host 侧类型面(GpuScene 变换写口 + DirtyRange),不启用 render 的
@@ -31,6 +35,9 @@ rapier3d = { version = "=0.33.0", default-features = false, features = ["dim3", 
 [features]
 default = ["jolt"]
 jolt = ["dep:rurix-physics-sys"]
+# jolt56:G9.6 M125 Jolt 5.6 评估后端(默认 off,cargo metadata 可机验;与 5.3
+# 基线并存不覆盖;评估臂不升格生产默认,RXS-0377 L6 两臂诚实登记)。
+jolt56 = ["dep:rurix-physics-sys56"]
 # physics-capture:M66 capture/replay(RFC-0021 §6.2 冻结名);依赖 jolt + sha256。
 physics-capture = ["jolt", "dep:rurix-pkg"]
 # network-physics:M67 history/rollback/correction/event dedup/smoothing(RFC-0021 §6.2)。

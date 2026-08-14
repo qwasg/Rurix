@@ -65,6 +65,7 @@ impl WorldDescSnapshot {
             backend: match d.backend {
                 BackendKind::Jolt => "Jolt".into(),
                 BackendKind::Rapier => "Rapier".into(),
+                BackendKind::Jolt56 => "Jolt56".into(),
             },
             gravity: d.gravity,
             layer_count: d.layer_count,
@@ -79,6 +80,7 @@ impl WorldDescSnapshot {
         let backend = match self.backend.as_str() {
             "Jolt" => BackendKind::Jolt,
             "Rapier" => BackendKind::Rapier,
+            "Jolt56" => BackendKind::Jolt56,
             other => {
                 return Err(CaptureError::Parse(format!("unknown backend {other}")));
             }
@@ -104,11 +106,58 @@ impl PhysicsCaptureHeader {
         abi_digest: &str,
         budget: BudgetProfile,
     ) -> Self {
+        Self::new_with_version(
+            scenario_id,
+            tick_count,
+            world,
+            build_fingerprint,
+            abi_digest,
+            budget,
+            "5.3.0",
+            "2982004387a9e36ca89525a87d983709d3666da7",
+        )
+    }
+
+    /// G9.6 M125 5.6 评估臂 header(RXS-0377 七步③;版本锚按实测 tag/commit
+    /// 登记):Jolt v5.6.0(e77f175595e64cb44218cc9d9d56fc365ad0e36a)+ JoltC
+    /// 与 5.3 线同一 commit 2982004(上游 JoltC 未跟进 5.6,vendor56 =
+    /// JoltC@2982004 + JoltPhysics v5.6.0 + 5.6 适配补丁集,VENDOR56.md §1)。
+    pub fn new_jolt_56(
+        scenario_id: &str,
+        tick_count: u64,
+        world: &WorldDesc,
+        build_fingerprint: &str,
+        abi_digest: &str,
+        budget: BudgetProfile,
+    ) -> Self {
+        Self::new_with_version(
+            scenario_id,
+            tick_count,
+            world,
+            build_fingerprint,
+            abi_digest,
+            budget,
+            "5.6.0",
+            "2982004387a9e36ca89525a87d983709d3666da7",
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_version(
+        scenario_id: &str,
+        tick_count: u64,
+        world: &WorldDesc,
+        build_fingerprint: &str,
+        abi_digest: &str,
+        budget: BudgetProfile,
+        jolt_version: &str,
+        joltc_commit: &str,
+    ) -> Self {
         Self {
             schema_id: SCHEMA_ID.into(),
             schema_version: 1,
-            jolt_version: "5.3.0".into(),
-            joltc_commit: "2982004387a9e36ca89525a87d983709d3666da7".into(),
+            jolt_version: jolt_version.into(),
+            joltc_commit: joltc_commit.into(),
             joltc_abi_digest: abi_digest.into(),
             rurix_build_fingerprint: build_fingerprint.into(),
             platform: format!(

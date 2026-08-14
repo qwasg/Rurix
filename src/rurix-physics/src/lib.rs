@@ -36,13 +36,18 @@
 // 零后端档(G6.4 起):统一分派的 match 臂全 cfg 出局,绑定/后续语句不可达——
 // 窄域豁免仅该档;jolt/rapier/双后端档全量 lint 维持(G6.4 落地后仍零告警)。
 #![cfg_attr(
-    not(any(feature = "jolt", feature = "rapier")),
+    not(any(feature = "jolt", feature = "rapier", feature = "jolt56")),
     allow(unused_variables, unreachable_code)
 )]
 
 mod arena;
 #[cfg(feature = "physics-character")]
 pub mod asset;
+// G9.6 M125 Jolt 5.3→5.6 升级 A/B 评估夹具(RXS-0377;RFC-0024 §4.E1;
+// jolt56 feature 默认 off 纪律维持——feature off 时本模块不编译,harness
+// 面 fail-closed typed Err,不静默单臂充绿;5.6 臂评估用途不升格生产默认)。
+#[cfg(all(feature = "physics-capture", feature = "jolt56"))]
+pub mod ab_eval;
 // G9.6 M126 Rapier 深造对标基准 A/B 夹具(RXS-0378;RFC-0024 §4.E2;
 // rapier feature 默认 off 纪律维持——feature off 时本模块不编译,harness
 // 面 fail-closed typed Err,不静默单臂充绿)。

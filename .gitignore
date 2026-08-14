@@ -51,4 +51,7 @@ apps/ruridrop/src/promo.rx
 # src/rurix-physics-sys/tools/*.cpp 由 cl.exe 手动编译:源入库、二进制不入库
 src/rurix-physics-sys/**/*.exe
 src/rurix-physics-sys/**/*.obj
+# G9.6 M125:5.6 评估臂布局探针同体例(tools/layout_dump56.cpp 源入库、二进制不入库)
+src/rurix-physics-sys56/**/*.exe
+src/rurix-physics-sys56/**/*.obj
 .hilo/

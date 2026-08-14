@@ -65,3 +65,38 @@ Drop 无 panic(销毁调用均无失败返回;锁不中毒,U36)。
   无效 token → `Err(InvalidBody)`(含移除后二次使用)。
 - 验收门:`cargo clippy -p rurix-physics-sys --all-targets -- -D warnings` 零告警 +
   `cargo fmt --check -p rurix-physics-sys` 绿;G-G6-3 集成门见 milestones/g6/CI_GATES.md 步骤 88。
+
+## §M125 追加段(2026-08-14):rurix-physics-sys56 —— Jolt 5.6 评估臂同构镜像登记
+
+G9.6 M125(RXS-0377;RFC-0024 §4.E1 + RFC-0021 §4.A4 七步②)新建
+`src/rurix-physics-sys56` crate(Jolt 5.6 评估臂 FFI 边界,**与 5.3 基线并存
+不覆盖**;feature `jolt56` 默认 off,评估不升格生产默认)。**U 命名空间
+0-byte——复用 U33~U53 既有审计边界**(G9.3 M105 device 腿复用 U54 先例):
+本 crate 的 unsafe 面 = U33~U53 各条原语的**同构镜像**(同一 JoltC@2982004
+FFI 面、同一 Rust 绑定结构、同一 SAFETY 不变量逐条成立),差异面 = 下列
+5.6 delta,逐项登记:
+
+| 镜像面 | 对应 5.3 登记 | 5.6 delta 与不变量维持 |
+|---|---|---|
+| 进程级 Jolt 初始化(`JPC56_RegisterDefaultAllocator`/`JPC56_FactoryInit`/`JPC56_RegisterTypes`,`Once` 一次注册、进程常驻) | U33 | 符号重命名 `JPC_→JPC56_`;**两线各自 `Once` 注册各自 namespace 的全局态**(5.3 `JPH` / 5.6 `JPH56` 为两套独立静态库全局符号,互不覆盖——符号隔离 dumpbin 实测);其余不变量逐字同 U33 |
+| 句柄线性配对 create/delete + `CreateGuard` 逆序兜底 + `Inner::drop` 固定销毁序 | U34 | 同构;销毁序不变;5.6 线句柄为 JPH56 侧对象,与 5.3 线互不可见 |
+| 手写 `extern "C"` 声明 + `#[repr(C)]` POD 镜像 + `ffi_layout_anchors` 编译期断言 | U35 | 函数集与签名同构(符号 `JPC56_` 前缀);**布局 delta 仅两件**:`JpcShapeCastSettings` 插入 `extra_convex_radius`(@32,尾部 32~35→36~39,size 48 不变)+ `JpcCollideShapeSettings` 追加 `internal_edge_removal_vertex_tolerance_sq`(@40,占 5.3 尾垫,size 48 不变)——数值 = `tools/layout_dump56.cpp` 对 vendored 5.6 头实测(2026-08-13,画像同 5.3 线);`CollisionEstimationResult`/`BodyManager_DrawSettings` 5.6 重排面 Rust 侧不镜像(safe 层不消费,C 侧由 LAYOUT_COMPATIBLE 锚定) |
+| contact listener 回调(`Mutex` 收集、回调内不 panic、user_data 生命周期 ≥ 注册窗口) | U36 | 同构;5.6 回调面签名未变(JoltC 同一 commit) |
+| 查询过滤器/收集器栈纪律 | U37 | 同构 |
+| shape 引用计数配对 | U38 | 同构 |
+| 批插 prepare/finalize + 批移除(逐 DestroyBody 循环) | U39 | 同构(JoltC `DestroyBodies` impl 上游注释 WIP 缺口在 5.6 线同样存在,处置 (c) 沿用) |
+| `BodyLockRead` 配对(cast_ray 法线回填) | U40 | 同构 |
+| `SysWorld` 的 `unsafe impl Send`/`Sync`(相位门) | U41 | 同构;两线 `SysWorld` 类型独立,相位门纪律逐字同 |
+| `mem::zeroed` + `*_default` 初始化模式 | U42 | 同构;新增字段均经对应 `JPC56_*_default` 填上游默认(ExtraConvexRadius=0.0、InternalEdgeRemovalVertexToleranceSq=cDefault…)——**杜绝从尾垫读未定值的静默偏差**(5.6 适配补丁 #2 动因) |
+| `BodyInterface` 速度只读/写入、位姿写入(DontActivate/原子)、`BodyLockWrite`、约束生命周期、铰链 motor 面 | U47~U53 | 同构;`JPC56_ConstraintSettings_default` 内经派生 shim 取默认值(5.6 起基类 ctor protected,补丁 #5;零行为变化) |
+
+- crate lint 面同 5.3 线:`[lints.rust] unsafe_code = "allow"`(本 crate 块级豁免)
+  + `undocumented_unsafe_blocks = "deny"`(每块 `// SAFETY:` 强制);`rurix-physics`
+  (safe 层)与 `rurix-render` 维持 `#![forbid(unsafe_code)]` 0-byte。
+- vendor pin/裁剪/重命名/五件适配补丁/构建画像/GPU compute 编译期排除(只评估
+  不接权威结构性断言)全字段登记 = `src/rurix-physics-sys56/VENDOR56.md`;
+  5.3 基线 vendor 与本文件既有条目 0-byte。
+- 验收门:`cargo test -p rurix-physics-sys56`(ffi_layout_anchors 编译期断言 +
+  in-crate 单测六面同构)+ `cargo clippy -p rurix-physics-sys56 --all-targets --
+  -D warnings` 零告警;G9.6 集成门 = `ci/g9_jolt_56_ab_evaluation_smoke.py`
+  (步骤 168,milestones/g9/CI_GATES.md §4A M125 行)。

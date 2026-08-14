@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.6 M125 jolt_56_ab_evaluation evidence",
+  "description": "evidence/g9_m125_jolt_56_ab_evaluation_<UTC>.json(门 evidence,含 symbolic_gate_key 面)。G9.6 P1 硬门 g9.p1.m125.jolt_56_ab_evaluation(G9_CONTRACT §8.1 裁决① P1 全进;RFC-0024 §4.E1 + RFC-0021 §4.A4;spec/physics.md RXS-0377):Jolt 5.3→5.6 升级 A/B 七步程序逐字执行记录完整(①冻结 5.3 基线 corpus digest/replay corpus 重跑/measured baseline → ②5.6 独立 vendor/ABI 构建不覆盖 5.3 基线〔覆盖注入即 RED,RED 臂独立有效〕→ ③两版本各自同版本 capture/replay 逐 tick 一致 → ④相同 canonical source asset/input journal A/B → ⑤性能阈值只从真实采样写入 budget、版本锚按实测 tag/commit 登记 → ⑥失败臂钉 5.3 不伪绿 → ⑦采纳臂三件事登记);新摩擦模型(平均接触点)重点实测,求解器语义变化逐字段 exact/tolerance/invariant 分类;GPU compute 接口只评估不接权威(接入提案即 RED,GPU 主刚体禁止线 0-byte);layout 探针工具化(所有 *Settings 结构 sizeof/offsetof 静态断言重跑,探针源码入库);两臂(采纳/失败钉 5.3)诚实登记,禁写 5.6 PASS 伪绿。host 纯 host 确定性门(device_section_state=not_applicable,Jolt 5.3 + Jolt 5.6 双臂同进程 host 确定性面;jolt56 feature 默认 off 纪律维持——本门仅 feature on 构建档产绿):host 段 ab_eval 2 单测逐名锚定 + sys56 单测 + 5.3 基线回归 + conformance physics M125 双件语料锚 + measured 报告 g9_m125_jolt56_ab.json provenance 机器核验(基线冻结/vendor56 pin 与补丁集/偏差画像逐字段分类/摩擦模型专项/七步记录/verdict 闭集诚实登记);harness 段持锁 g9_m125_jolt56_ab 全档真跑(18 判据闭集全真)+ --red-arm vendor-overwrite/gpu-authority/fake-pass 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m125_jolt_56_ab_evaluation" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m125.jolt_56_ab_evaluation" },
+    "matrix_row": { "type": "string", "const": "M125" },
+    "milestone": { "type": "string", "const": "M125" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m125.jolt_56_ab_evaluation" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.6" },
+    "numeric_step": { "type": "integer", "const": 168 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0024 §4.E1;spec/physics.md RXS-0377;G9_ACCEPTANCE_MAP §3 M125"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "baseline_53_default_regression",
+        "conformance_corpus_anchored",
+        "baseline_freeze_provenance",
+        "vendor56_provenance_layout_probe",
+        "ab_deviation_classification_recorded",
+        "friction_model_special_recorded",
+        "two_arms_honest_registration",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "baseline_53_default_regression": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "baseline_freeze_provenance": { "type": "boolean" },
+        "vendor56_provenance_layout_probe": { "type": "boolean" },
+        "ab_deviation_classification_recorded": { "type": "boolean" },
+        "friction_model_special_recorded": { "type": "boolean" },
+        "two_arms_honest_registration": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

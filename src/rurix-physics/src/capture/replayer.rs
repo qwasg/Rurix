@@ -320,7 +320,14 @@ fn validate_header(h: &PhysicsCaptureHeader) -> Result<(), CaptureError> {
             h.recovery_layer
         )));
     }
-    if h.jolt_version != "5.3.0" {
+    // 版本锚(RFC-0021 §4.A4 ⑤「版本锚按实测 tag/commit 登记」):5.3 基线
+    // 字面钉住不动;G9.6 M125 5.6 评估臂仅当 header backend = Jolt56 时接受
+    // 实测 5.6.0 锚(加性面,5.3 corpus 行为 0-byte)。
+    let version_ok = match h.world_desc.backend.as_str() {
+        "Jolt56" => h.jolt_version == "5.6.0",
+        _ => h.jolt_version == "5.3.0",
+    };
+    if !version_ok {
         return Err(CaptureError::Parse(format!(
             "jolt_version {}",
             h.jolt_version

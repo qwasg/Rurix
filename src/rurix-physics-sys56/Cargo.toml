@@ -1,0 +1,22 @@
+[package]
+name = "rurix-physics-sys56"
+description = "G9.6 M125 Jolt 5.3→5.6 升级 A/B 5.6 评估臂 FFI 边界(RXS-0377;RFC-0024 §4.E1):JoltC@2982004 + JoltPhysics v5.6.0 独立 vendor 线薄绑定(JPC56_/JPH56 符号隔离,与 5.3 基线 rurix-physics-sys 并存同进程零冲突;5.3 基线默认面 0-byte 不动,评估臂不升格生产默认)。unsafe 注册 = unsafe-audit/rurix-physics-sys.md §M125 追加段(U33~U53 同构镜像 + 5.6 delta)。对外只露 safe Rust 类型与 u64 句柄;vendor 内联构建(cmake,上游 pin/裁剪/补丁全字段登记 VENDOR56.md)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[build-dependencies]
+# vendor 内联构建 JoltC(5.6 线)+ Jolt v5.6.0(沿 5.3 线 I-1 定案同构:
+# 可重现、CI 无外部依赖漂移;cmake 配置关键项逐条理由见 VENDOR56.md §2)
+cmake = "0.1"
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6 / RFC-0017 §4.C2):本 crate 是物理 FFI
+# unsafe 集中地之二(5.6 评估臂),块级豁免 `unsafe_code`(注册 =
+# unsafe-audit/rurix-physics-sys.md §M125 追加段,U33~U53 同构镜像 + 5.6 delta,
+# U 命名空间 0-byte 复用既有审计边界),仍强制每个 unsafe 块携 `// SAFETY:` 注释。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
