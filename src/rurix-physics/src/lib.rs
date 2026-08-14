@@ -43,6 +43,11 @@
 mod arena;
 #[cfg(feature = "physics-character")]
 pub mod asset;
+// G9.6 M126 Rapier 深造对标基准 A/B 夹具(RXS-0378;RFC-0024 §4.E2;
+// rapier feature 默认 off 纪律维持——feature off 时本模块不编译,harness
+// 面 fail-closed typed Err,不静默单臂充绿)。
+#[cfg(all(feature = "physics-capture", feature = "rapier"))]
+pub mod benchmark;
 pub mod bridge;
 mod budget;
 #[cfg(feature = "physics-capture")]

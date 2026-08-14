@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.6 M124 buoyancy_field_channel evidence",
+  "description": "evidence/g9_m124_buoyancy_field_channel_<UTC>.json(门 evidence,含 symbolic_gate_key 面)。G9.6 P1 硬门 g9.p1.m124.buoyancy_field_channel(G9_CONTRACT §8.1 裁决① P1 全进;RFC-0024 §4.D;spec/physics.md RXS-0376):解析浮力模型(浸入体积/浸没质心 → 浮力 + 浮力矩 + 线性/角阻力 impulse)走 Field 通道(水体区域 = persistent field,解析水面函数为场定义层 analytic-surface 基元;FieldPhysicsType::Buoyancy 语义;Field 统一抽象第二个真实用户);旁路 API(直接写速度/位置/transform)注入即 RED(RED 臂独立有效);细长体/翻滚体 corpus fixture(canonical 场景 + 输入参数锚定语料);capture→replay 逐 tick hash 一致 + 变帧率输入同 tick 结果逐位一致(determinism 断言);固定 dt + 解析水面函数,禁帧率相关插值、禁墙钟相位;形状支持分层(首期 convex/primitive 解析 clip,任意 mesh 走离线预计算 voxelized volume table cooked artifact 版本化);浮力权威不经 Taichi(M49 联动维持 defer)。host 纯 host 确定性门(device_section_state=not_applicable,Jolt 5.3 lockstep 单线程 host 确定性面):host 段 buoyancy 5 单测 + buoyancy_capture 3 单测逐名锚定 + conformance physics M124 双件语料锚 + corpus fixture 六件×2 场景 provenance + 冻结带 g9_m124_buoyancy_freeze.json provenance 机器核验;harness 段持锁 g9_m124_buoyancy 全档真跑(9 判据闭集全真)+ --red-arm bypass-api/field-unwired/framerate-drift 子模式独立复跑抽检。feature physics-buoyancy(R-7 🔒 冻结名)未编译档 fail-closed FeatureNotCompiled,不静默退化成视觉-only 成功。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m124_buoyancy_field_channel" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m124.buoyancy_field_channel" },
+    "matrix_row": { "type": "string", "const": "M124" },
+    "milestone": { "type": "string", "const": "M124" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m124.buoyancy_field_channel" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.6" },
+    "numeric_step": { "type": "integer", "const": 166 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0024 §4.D;spec/physics.md RXS-0376;G9_ACCEPTANCE_MAP §3 M124"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "corpus_fixture_provenance",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "corpus_fixture_provenance": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

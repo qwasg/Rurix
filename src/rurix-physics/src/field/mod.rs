@@ -36,6 +36,14 @@ pub mod journal;
 pub mod lifecycle;
 pub mod registry;
 pub mod world_egress;
+// G9.6 M124 解析浮力(RXS-0376;RFC-0024 §4.D):浮力求值走 Field 通道
+// (Buoyancy 语义第二个真实用户),capture/replay corpus fixture 面;
+// `physics-buoyancy` feature(R-7 🔒 冻结名)未编译时本面不导出,harness
+// 返回 FeatureNotCompiled 类错误(不静默退化成视觉-only 成功)。
+#[cfg(feature = "physics-buoyancy")]
+pub mod buoyancy;
+#[cfg(feature = "physics-buoyancy")]
+pub mod buoyancy_capture;
 
 pub use def::{
     AnalyticSurfacePrimitive, FIELD_SCHEMA_ID, FIELD_SCHEMA_VERSION, FieldDef, FieldError,

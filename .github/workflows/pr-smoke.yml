@@ -1732,6 +1732,32 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_wave5_exit_check.py --gate g9.wave.5.exit
 
+      # 步骤 166（G9.6 P1 硬门 g9.p1.m124.buoyancy_field_channel;RFC-0024 §4.D;
+      # spec/physics.md RXS-0376;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=166 顺位领取）。host 纯 host 确定性门:buoyancy 5 单测
+      # + buoyancy_capture 3 单测逐名锚定 + 语料锚 + corpus fixture 六件×2
+      # 场景 provenance + 冻结带 g9_m124_buoyancy_freeze.json provenance 机核;
+      # harness 段持锁 g9_m124_buoyancy 全档真跑(走 Field 通道 + capture/replay
+      # 逐 tick hash + 变帧率逐位一致)+ --red-arm bypass-api/field-unwired/
+      # framerate-drift 子模式复跑抽检;feature physics-buoyancy 未编译档
+      # fail-closed FeatureNotCompiled。
+      - name: G9.6 M124 buoyancy field channel smoke (G9 CI_GATES §4A.166, g9.p1.m124.buoyancy_field_channel)
+        shell: powershell
+        run: py -3 ci/g9_buoyancy_field_channel_smoke.py --gate g9.p1.m124.buoyancy_field_channel
+
+      # 步骤 167（G9.6 P1 硬门 g9.p1.m126.rapier_benchmark_ab;RFC-0024 §4.E2;
+      # spec/physics.md RXS-0378;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=167 顺位领取）。host 纯 host 确定性门(rapier feature
+      # 默认 off 纪律维持——本门仅 feature on 构建档产绿):benchmark 2 单测逐名
+      # 锚定 + 语料锚 + measured 报告 g9_m126_rapier_benchmark.json provenance
+      # 机核(双臂 digest/计时 measured + 跨 solver 偏差统计 + RD-044 verdict
+      # 诚实登记);harness 段持锁 g9_m126_rapier_benchmark 全档真跑(同场景同
+      # 输入同画像 + 双臂双跑位级一致)+ --red-arm replay-oracle/
+      # rd044-without-measured 子模式复跑抽检;RD-044 字面不变,不升格深造。
+      - name: G9.6 M126 rapier benchmark ab smoke (G9 CI_GATES §4A.167, g9.p1.m126.rapier_benchmark_ab)
+        shell: powershell
+        run: py -3 ci/g9_rapier_benchmark_ab_smoke.py --gate g9.p1.m126.rapier_benchmark_ab
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

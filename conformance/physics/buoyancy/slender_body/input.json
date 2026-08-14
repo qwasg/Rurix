@@ -1,0 +1,12 @@
+{
+  "_comment": "G9.6 M124 浮力 corpus fixture(RXS-0376 L4:细长体/翻滚体 canonical 场景 + 输入参数锚定语料;capture/replay corpus M66 设施挂接点)。input.json = 场景输入全量锚(digest 与 capture header 一致);expected.json = 预期行为特征(方向/区间断言 + measured 冻结观测);header.json/journal.jsonl/state0.json/state_final.json = M66 capture artifact 四件(逐 tick hash golden 面)。",
+  "scenario_id": "g96_m124_buoyancy_slender_body",
+  "tick_count": 120,
+  "dt_fixed": "3c888889",
+  "gravity": ["00000000", "00000000", "c11cf5c3"],
+  "input_digest": "580cc98ea421f1ba31837ec40f680fdc0eb0e99ba27eedd8686b63a6d774f9a5",
+  "world_digest": "6a40a62189c7036bab611357894ec89b1f3a9a04d2145905643305a965c3aa31",
+  "journal_digest": "83bdf2eb8bd9d4c8236934f7d2596364f0a843a40d54ad74971c44894a519b2b",
+  "field_chain_digest": "8edcb6390abcd79f5649248d238aab16e939c48c44d4cf0a79e38f3db79e1607",
+  "applied_impulse_count": 120
+}

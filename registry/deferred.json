@@ -1198,6 +1198,11 @@
           "date": "2026-08-01",
           "event": "G6.6 close-out P3+ 登记:物理主线 P0–P2(Jolt 刚体底座/合流桥/Rapier 对拍门/Taichi spike 最低判据)已由 G6.2~G6.5 落地;软体/布料/流体生产化、MPM·体积场生产面、Rapier 深造三类 P3+ 按 G6_PLAN §3 登记存续,不进 G6 硬门;编号自 number_ledger reserved_in_flight[G6].RD claim 顺位消费",
           "evidence": "milestones/g6/G6_PLAN.md §1 G6.5/§3 / rfcs/0017-engine-physics.md §4.E / apps/uc09-taichi-spike / registry/number_ledger.json reserved_in_flight[G6].RD"
+        },
+        {
+          "date": "2026-08-14",
+          "event": "G9.6 M126 Rapier 深造对标基准落地 → Rapier 快路径深造分项重判 = 维持 no-go(条件制):canonical 大堆叠 6 层 A/B 同场景同输入同 determinism 画像(input_digest 两臂逐位相等;Jolt/Rapier 各自后端双跑位级一致),Jolt step 中位 40400ns vs Rapier 197900ns(measured_local 真实采样,禁 estimated)——Rapier 臂无 measured 优势,RD-044 条件字面「快路径被真实 workload 采用时」不变,verdict=maintain_no_go;跨 solver 差异如实记录(world 链非逐位一致,max translation abs diff ≈ 3.9e-2 m 在 0.05m 容差内,接触事件计数差 11,rest_above_ground 不变量成立);基准不作 replay oracle(replay 对拍唯一权威 = 同 solver 同版本 capture/replay 逐 tick hash,RFC-0021 §4.A1);本门只产基准报告,不升格深造、不作验收依赖与生产默认;RD-044 status 维持 open,id/title/reason/backfill_condition 四字段 0-byte(沿 v1.76 RD-040 history 只尾追加先例);Continuum/Fluid 分项观察维持不碰",
+          "evidence": "milestones/g9/g9_m126_rapier_benchmark.json / evidence/g9_m126_rapier_benchmark_ab_<UTC>.json / ci/g9_rapier_benchmark_ab_smoke.py / spec/physics.md RXS-0378 / G9_CANDIDATE_DECISIONS.md v1.6 校准注 / registry/number_ledger.json v1.96"
         }
       ]
     }
@@ -1598,6 +1603,11 @@
       "version": "v1.77",
       "date": "2026-08-09",
       "change": "G9.1 立项承接与改判登记(agent 完全自主 D-406 v2.0):RD-039 history +2 行(M06/M09 立项书触发登记、M61 mesh shader strategic_override)、RD-040 history +1 行(M52 SER strategic_override);三行均只追加,id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动;神经变形维持 rfcs/0021:122 无归属留痕不新设 RD);其余 entry 与 revision_log v1.0~v1.76 行 0-byte"
+    },
+    {
+      "version": "v1.78",
+      "date": "2026-08-14",
+      "change": "G9.6 M126 基准报告落地 RD-044 verdict 登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3):RD-044 history +1 行(M126 Rapier 深造对标基准 measured 无优势 ⇒ Rapier 快路径深造分项重判维持 no-go,条件字面不变);只尾追加,id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-044 总体 status 维持 open(Continuum/Fluid 分项观察维持不碰);零新 RD 编号(RD next_free=45 不动——本批为既有号 verdict 登记非新消费);其余 entry 与 revision_log v1.0~v1.77 行 0-byte"
     }
   ]
 }

@@ -529,6 +529,12 @@ def check_evidence_files() -> None:
     g9_m120_oit_benchmark_harness_schema = load(
         ROOT / "milestones/g9/g9_m120_oit_benchmark_harness_evidence_schema.json"
     )
+    g9_m124_buoyancy_field_channel_schema = load(
+        ROOT / "milestones/g9/g9_m124_buoyancy_field_channel_evidence_schema.json"
+    )
+    g9_m126_rapier_benchmark_ab_schema = load(
+        ROOT / "milestones/g9/g9_m126_rapier_benchmark_ab_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1138,6 +1144,16 @@ def check_evidence_files() -> None:
     g9_m120_oit_benchmark_harness_validator = (
         jsonschema.Draft7Validator(g9_m120_oit_benchmark_harness_schema)
         if g9_m120_oit_benchmark_harness_schema is not None
+        else None
+    )
+    g9_m124_buoyancy_field_channel_validator = (
+        jsonschema.Draft7Validator(g9_m124_buoyancy_field_channel_schema)
+        if g9_m124_buoyancy_field_channel_schema is not None
+        else None
+    )
+    g9_m126_rapier_benchmark_ab_validator = (
+        jsonschema.Draft7Validator(g9_m126_rapier_benchmark_ab_schema)
+        if g9_m126_rapier_benchmark_ab_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2261,6 +2277,25 @@ def check_evidence_files() -> None:
                 validator = g9_m120_oit_benchmark_harness_validator
             else:
                 validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m124_buoyancy_field_channel_")
+            and g9_m124_buoyancy_field_channel_validator is not None
+        ):
+            # G9.6 P1 硬门 M124 buoyancy_field_channel（步骤 166，host 纯 host 确定性门）：
+            # 解析浮力走 Field 通道 + 旁路 API 注入即 RED + 细长/翻滚 corpus fixture +
+            # capture→replay 逐 tick hash + 变帧率逐位一致（RXS-0376；RFC-0024 §4.D）。
+            # harness 直出件落 .tmp 工作区不进 evidence/；同短前缀直出件误入则
+            # 落 gpu fallthrough 必红（fail-closed，evidence/ 只收门件）。
+            validator = g9_m124_buoyancy_field_channel_validator
+        elif (
+            f.name.startswith("g9_m126_rapier_benchmark_ab_")
+            and g9_m126_rapier_benchmark_ab_validator is not None
+        ):
+            # G9.6 P1 硬门 M126 rapier_benchmark_ab（步骤 167，host 纯 host 确定性门）：
+            # 同场景同输入同 determinism 画像 A/B + measured 报告 + 基准不作 replay
+            # oracle + RD-044 字面不变（RXS-0378；RFC-0024 §4.E2）。harness 直出件
+            # 落 .tmp 工作区不进 evidence/；同短前缀直出件误入落 gpu fallthrough 必红。
+            validator = g9_m126_rapier_benchmark_ab_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

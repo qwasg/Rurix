@@ -50,6 +50,10 @@ physics-particle-view = ["physics-capture"]
 # physics-field:G9.2 M122 Gameplay Field(RFC-0024 §4.B,R-3/R-7 🔒 冻结名;
 # 名称即日冻结,改名须修订行);作用对象层消费 M121 particle view。
 physics-field = ["physics-particle-view", "physics-cloth", "physics-destruction", "physics-character"]
+# physics-buoyancy:G9.6 M124 解析浮力走 Field 通道(RFC-0024 §4.D + R-7 🔒
+# 冻结名;名称即日冻结,改名须修订行);spec/physics.md RXS-0376:功能未编译
+# 时返回 FeatureNotCompiled 类错误,不静默退化成视觉-only 成功。
+physics-buoyancy = ["physics-field"]
 # rapier:G6.4 快路径第二后端(默认 off,cargo metadata 可机验;G-G6-5)。
 # 纯 Rust 零 CMake(default-features = false,=0.33.0 pin,RFC-0017 §4.D1
 # 调研锚 2026-07-31);「快路径 ≠ 性能/稳定性默认」(§4.D4)。

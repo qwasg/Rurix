@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.6 M126 rapier_benchmark_ab evidence",
+  "description": "evidence/g9_m126_rapier_benchmark_ab_<UTC>.json(门 evidence,含 symbolic_gate_key 面)。G9.6 P1 硬门 g9.p1.m126.rapier_benchmark_ab(G9_CONTRACT §8.1 裁决① P1 全进;RFC-0024 §4.E2;spec/physics.md RXS-0378):Rapier 深造对标基准 A/B 夹具(新 Dynamic BVH / sparse voxel collider / persistent islands / manifold ≤4 / 简化摩擦模型,canonical 大堆叠场景)与 Jolt 同场景、同输入、同 determinism 画像;产出 measured 报告(evidence 非空)含跨 solver 确定性偏差统计(只作不变量/容差对拍;基准不作 replay oracle——跨 solver 不承诺逐位,以基准输出充当 replay oracle 即 RED,RED 臂独立有效);glam 迁移兼容(Rapier 0.32+ glam 化)API 冲击评估与兼容层设计留档,不承诺 bitwise 不变;RD-044 字面不变——基准显示 D5 真实 workload 上 measured 优势才按 RD-044 程序申请深造判档,否则维持 no-go 留档(无 measured 数据的判档申请 fail-closed,RED 臂独立有效);本门只产基准报告,不升格深造、不作验收依赖与生产默认。host 纯 host 确定性门(device_section_state=not_applicable,Jolt 5.3 + rapier3d 0.33 双臂 host 确定性面;rapier feature 默认 off 纪律维持——本门仅 feature on 构建档产绿):host 段 benchmark 2 单测逐名锚定 + conformance physics M126 双件语料锚 + measured 报告 g9_m126_rapier_benchmark.json provenance 机器核验(双臂 digest/计时 measured + 偏差统计 + RD-044 verdict 诚实登记);harness 段持锁 g9_m126_rapier_benchmark 全档真跑(10 判据闭集全真)+ --red-arm replay-oracle/rd044-without-measured 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m126_rapier_benchmark_ab" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m126.rapier_benchmark_ab" },
+    "matrix_row": { "type": "string", "const": "M126" },
+    "milestone": { "type": "string", "const": "M126" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m126.rapier_benchmark_ab" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.6" },
+    "numeric_step": { "type": "integer", "const": 167 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0024 §4.E2;spec/physics.md RXS-0378;G9_ACCEPTANCE_MAP §3 M126"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "measured_report_provenance",
+        "cross_solver_deviation_recorded",
+        "rd044_verdict_honest",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "measured_report_provenance": { "type": "boolean" },
+        "cross_solver_deviation_recorded": { "type": "boolean" },
+        "rd044_verdict_honest": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

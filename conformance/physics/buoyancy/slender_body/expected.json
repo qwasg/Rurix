@@ -1,0 +1,6 @@
+{
+  "_comment": "预期行为特征(measured 冻结观测 + 方向/区间断言;断言面见 harness behavior_assertions)",
+  "final_z": "00000000",
+  "final_submerged_fraction": "3f000000",
+  "final_linvel_z": "00000000"
+}
