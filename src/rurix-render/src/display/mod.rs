@@ -9,6 +9,9 @@
 //!   合法性闭集（非 HDR 交换链携带 PQ 输出即 RED）+ HDR 元数据输出变换阶段
 //!   填写 + HDR 设备标定层 NotTriggered 显式登记（不充绿、不反向否决 SDR
 //!   验证面）。
+//! - [`skin`] = M115 皮肤 Burley 屏单 pass separable SSS（RXS-0373:颜色/深度
+//!   双 kernel + 扩散 profile 资产化经 §4.L 侧表通道 + pre-integrated LUT 回退
+//!   档 + 全零衰减退化纯漫反射 RED + 32B 0-byte 机核）。
 //!
 //! 纪律:host 纯 safe 确定性（全库 `forbid(unsafe_code)`）；零新 FFI；无
 //! device 依赖——M118 语义面 = view transform 数学 + 交换链路径状态机,窗口
@@ -22,5 +25,6 @@ pub mod agx;
 pub mod color;
 pub mod neutral;
 pub mod post_chain;
+pub mod skin;
 pub mod swapchain;
 pub mod view_transform;

@@ -1,0 +1,13 @@
+{
+  "schema": "rurix.g9m115.skin_band.v1",
+  "frozen_at_utc": "2026-08-13T20:49:22Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M115 语义面 = Burley 扩散数学 + LUT 回退档 + 侧表通道机核)"},
+  "freeze_rule": "sss_digest = canonical 斑块(64 样本)Burley 屏单 pass 双 kernel 输出 SHA-256(双跑位级一致后冻结,禁手写);closure_32b_layout_digest = MaterialClosure 32B 冻结面默认打包逐字段 LE 序列化 SHA-256(RFC-0025 §4.L 零漂移证明:PASS 逐字相等);tier_diff_max/mean = 主档 vs LUT 回退档画质差 measured;diffusion_radius = canonical profile 扩散半径响应 golden",
+  "spec_anchor": "RXS-0373",
+  "sss_digest": "abbaed7491ff02f2d065f724c7c06daabe3e448c05df1d5166cd658d350577f1",
+  "closure_32b_layout_digest": "a82ffce70c89eb88a9773208f096705936faa75d18c9a65239949015cae75a6c",
+  "tier_diff_max": "0.5050658",
+  "tier_diff_mean": "0.22488777",
+  "diffusion_radius": "0.6072769",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-p1b-implementer"
+}

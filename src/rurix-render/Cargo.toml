@@ -181,5 +181,14 @@ path = "src/bin/g9_m117_decal_dbuffer.rs"
 name = "g9_m113_water"
 path = "src/bin/g9_m113_water.rs"
 
+# G9.5 M115 皮肤 Burley 屏单 pass P1 harness(RXS-0373;门
+# g9.p1.m115.skin_burley_diffusion):Burley 屏单 pass separable SSS(颜色/深度
+# 双 kernel)golden + 扩散 profile 资产化(§4.L 侧表通道按材质槽 ID 索引)+
+# pre-integrated LUT 回退档画质差 + 全零衰减退化纯漫反射 RED 臂 + 32B 布局
+# digest 逐位相等/缺省侧表零漂移/预留位零消费机核。纯 host 确定性面。
+[[bin]]
+name = "g9_m115_skin"
+path = "src/bin/g9_m115_skin.rs"
+
 [lints]
 workspace = true
