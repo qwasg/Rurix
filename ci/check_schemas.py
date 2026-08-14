@@ -439,6 +439,9 @@ def check_evidence_files() -> None:
     g9_wave6_exit_schema = load(
         ROOT / "milestones/g9/g9_wave6_exit_evidence_schema.json"
     )
+    g9_p2_decisions_schema = load(
+        ROOT / "milestones/g9/g9_p2_decisions_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1000,6 +1003,11 @@ def check_evidence_files() -> None:
     g9_wave6_exit_validator = (
         jsonschema.Draft7Validator(g9_wave6_exit_schema)
         if g9_wave6_exit_schema is not None
+        else None
+    )
+    g9_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g9_p2_decisions_schema)
+        if g9_p2_decisions_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -1991,6 +1999,15 @@ def check_evidence_files() -> None:
             # no-go 登记 + M125 verdict/5.3 基线 0-byte + M126 RD-044 verdict
             # + 门序 interlock;聚合不代绿)。
             validator = g9_wave6_exit_validator
+        elif (
+            f.name.startswith("g9_p2_decisions_")
+            and g9_p2_decisions_validator is not None
+        ):
+            # G9.7 P2 穷举决策门(步骤 170;ci/g9_p2_decisions_check.py 写:33 行
+            # 冻结候选闭集全等 + 裁决枚举合法 + 零空行 + defer 承接锚「重判条件+
+            # 兜底+G10+ 重评窗」+ MAP 34 key 互斥 + deferred.json history 对账
+            # 〔RD-039 +1/RD-040 +3,零新 RD〕;普通检查门非聚合门,不代绿)。
+            validator = g9_p2_decisions_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

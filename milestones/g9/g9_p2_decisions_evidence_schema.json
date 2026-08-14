@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.7 P2 decisions evidence",
+  "description": "evidence/g9_p2_decisions_<UTC>.json。G9.7 P2/留档/未触发分项穷举决策门 g9.wave.7.decisions(步骤 170,ci/g9_p2_decisions_check.py 写;普通检查门非聚合门,required_gates 空):核验 milestones/g9/G9_P2_DECISIONS.md v1.0——33 行冻结候选闭集全等(G9_CANDIDATE_DECISIONS 实记全集未进 34 key 验收面者 + G9.3~G9.6 新增 not-triggered/no-go 登记面去重)、裁决枚举合法(go/no-go/defer-to-G10+/strategic_override)、零空行(全列非空)、承接锚「重判条件 + 兜底」字面、defer 行必含 G10+ 重评窗、go 行 evidence 义务、no-go 行 RD/矩阵/契约锚义务;横向机核①与 G9_ACCEPTANCE_MAP 34 key(15 P0 + 19 已 go P1)互斥(P2 行 ID 不得命中已 go M## 裸 token,M114-strand/M126-rd044 等子项级 key 不互斥)②deferred.json history 对账(G9.7 P2 defer 登记恰好 RD-039 +1〔M61〕/RD-040 +3〔M52/M99-clipmap/M100-high〕,零新 RD max=RD-044,RD-039/040 status open 维持 0-byte)。只读文档与 registry,不代绿实现门;no-go/defer 如实保持 open 不写进全绿叙述。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g9_p2_decisions"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g9.wave.7.decisions"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G9.7"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G9.7"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 170
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G9_PLAN §G9.7;CI_GATES §6 v1.19;G9_P2_DECISIONS.md v1.0;G9_CANDIDATE_DECISIONS v1.0~v1.6;G9_ACCEPTANCE_MAP §1~§3;registry/deferred.json v1.79"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 37,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

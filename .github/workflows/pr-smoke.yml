@@ -1791,6 +1791,20 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_wave6_exit_check.py --gate g9.wave.6.exit
 
+      # 步骤 170（G9.7 P2 穷举决策门 g9.wave.7.decisions;CI_GATES §6 v1.19;落盘前实测
+      # CI_step.next_free=170 顺位领取）。普通检查门非聚合门:核验 G9_P2_DECISIONS.md
+      # v1.0——33 行冻结候选闭集全等(G9_CANDIDATE_DECISIONS 实记全集未进 34 key 验收
+      # 面者 + G9.3~G9.6 新增 not-triggered/no-go 登记面去重)+ 裁决枚举合法 + 零空行
+      # (全列非空)+ 承接锚「重判条件 + 兜底」字面 + defer 行必含 G10+ 重评窗 + 横向
+      # 机核①MAP 34 key(15 P0 + 19 已 go P1)互斥②deferred.json history 对账
+      # (G9.7 P2 defer 登记恰好 RD-039 +1〔M61〕/RD-040 +3〔M52/M99-clipmap/
+      # M100-high〕,零新 RD max=RD-044,status 0-byte);只读文档与 registry 不代绿
+      # 实现门;no-go/defer 如实保持 open 不写进全绿叙述;evidence 落盘
+      # evidence/g9_p2_decisions_<UTC>.json。
+      - name: G9.7 P2 decisions check (G9 CI_GATES §6.170, g9.wave.7.decisions)
+        shell: powershell
+        run: py -3 ci/g9_p2_decisions_check.py --gate g9.wave.7.decisions
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

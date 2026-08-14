@@ -1108,6 +1108,11 @@
           "date": "2026-08-09",
           "event": "G9.1 M61 mesh shader strategic_override(agent 完全自主 D-406 v2.0;立项裁决表项 3 用户裁决接受 D3 建议):no-go 留档 → mesh shader **可选 geometry pipeline**(G9 M109,P2 可选;cluster 流入口、VS 光栅唯一 fallback、mesh.task capability 选择律;顺序硬约束=排在 meshlet 页格式 v2 与 GPU-driven 剔除链路之后;语义面由 RFC-0023 冻结,D-409 评审后 Approved 方生效)。原 backfill『多厂商扩展行为收敛且性能差有 measured 证据时评估』字面 0-byte 不回写,本行为只追加 override;RD-039 总体 status 维持 open。",
           "evidence": "milestones/g9/G9_CANDIDATE_DECISIONS.md §RD-039 / rfcs/0023-gpu-driven-submission-shading.md"
+        },
+        {
+          "date": "2026-08-14",
+          "event": "G9.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G9.1 strategic_override 登记维持(2026-08-09 override 行 0-byte),可选实现分项 G9.2~G9.6 五波未排产(顺序硬约束前置 M91 页格式 v2/GPU-driven 剔除链路虽绿,P2 可选不承诺性能收益、无真实消费方举证),裁决 defer-to-G10+;承接锚:重判条件 = G10+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G10+ 前零实现痕迹);RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g9/G9_P2_DECISIONS.md §1 M61 行 / ci/g9_p2_decisions_check.py(步骤 170) / milestones/g9/G9_CONTRACT.md §8.3"
         }
       ]
     },
@@ -1134,6 +1139,21 @@
           "date": "2026-08-09",
           "event": "G9.1 M52 SER strategic_override(agent 完全自主 D-406 v2.0;立项裁决表项 3 用户裁决接受 D3 建议):no-go 留档 → SER **语言层原语 + capability rt.ser 可选**(G9 M108,P2 可选;HitObject 类型面/reorderThread/hitObjectTraceRay/hitObjectInvoke/材质 flags coherence hint 位段预留;收益集中 NV 不承诺性能、渲染器集成延后;语义面由 RFC-0023 冻结,D-409 评审后 Approved 方生效)。原 backfill 字面 0-byte 不回写,本行为只追加 override;RD-040 总体 status 维持 open(SER 外其余分项维持原判)。",
           "evidence": "milestones/g9/G9_CANDIDATE_DECISIONS.md §RD-040 / rfcs/0023-gpu-driven-submission-shading.md"
+        },
+        {
+          "date": "2026-08-14",
+          "event": "G9.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G9.1 strategic_override 登记维持(2026-08-09 override 行 0-byte;语义面 RFC-0023 冻结),语言层原语面 G9.2~G9.6 未排波(P2 可选收益集中 NV 不承诺性能、渲染器集成延后、不构成主线硬门,G9 期内无集成需求方),裁决 defer-to-G10+;承接锚:重判条件 = G10+ 重评窗内高分歧 RT workload 真实集成需求出现且 capability rt.ser 设备面实测可用时按只追加程序重判,兜底 = 语言层不加 SER 原语维持(无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线);RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g9/G9_P2_DECISIONS.md §1 M52 行 / ci/g9_p2_decisions_check.py(步骤 170) / rfcs/0023-gpu-driven-submission-shading.md"
+        },
+        {
+          "date": "2026-08-14",
+          "event": "G9.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M99-clipmap 世界辐射缓存世界 clipmap 级条件分项——远场画质 measured 举证截至 G9.7 未产出(树内零对应 measured artifact;G9_CANDIDATE_DECISIONS v1.3 校准注 + G9.4 门 evidence not-triggered 登记不充绿),裁决 defer-to-G10+;承接锚:重判条件 = G10+ 远场画质 measured 举证(屏幕探针远场缺失成为画质问题)落地后按只追加程序重判,兜底 = 屏幕级 SPG 自适应细分 + Radiance Cache 屏幕级 + product importance sampling 已 go 验收(g9.p1.m99.spg_radiance_cache 门绿)维持;屏幕级绿色不冒充世界级触发;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g9/G9_P2_DECISIONS.md §1 M99-clipmap 行 / evidence/g9_m99_spg_radiance_cache_20260813T060302Z.json / milestones/g9/G9_CONTRACT.md §8.4"
+        },
+        {
+          "date": "2026-08-14",
+          "event": "G9.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——多灯 workload 证据截至 G9.7 不足(树内零多灯 workload measured artifact;G9_CANDIDATE_DECISIONS v1.3 校准注 + G9.4 门 evidence not-triggered 登记不充绿),裁决 defer-to-G10+;承接锚:重判条件 = G10+ 多灯 workload measured 证据齐备后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 式固定随机选灯默认档已 go 验收(g9.p1.m100.multi_light_low 门绿,验证射线零跳过硬契约)维持,M15 维持 open-留档;低档绿色不冒充高档验收;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g9/G9_P2_DECISIONS.md §1 M100-high 行 / evidence/g9_m100_multi_light_low_20260813T060329Z.json / milestones/g9/G9_CONTRACT.md §8.4"
         }
       ]
     },
@@ -1608,6 +1628,11 @@
       "version": "v1.78",
       "date": "2026-08-14",
       "change": "G9.6 M126 基准报告落地 RD-044 verdict 登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3):RD-044 history +1 行(M126 Rapier 深造对标基准 measured 无优势 ⇒ Rapier 快路径深造分项重判维持 no-go,条件字面不变);只尾追加,id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-044 总体 status 维持 open(Continuum/Fluid 分项观察维持不碰);零新 RD 编号(RD next_free=45 不动——本批为既有号 verdict 登记非新消费);其余 entry 与 revision_log v1.0~v1.77 行 0-byte"
+    },
+    {
+      "version": "v1.79",
+      "date": "2026-08-14",
+      "change": "G9.7 P2 穷举裁决 defer 登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3):RD-039 history +1 行(M61 mesh shader → M109 可选 geometry pipeline 分项 override 登记维持、可选实现 defer-to-G10+)、RD-040 history +3 行(M52 SER → M108 语言层原语分项 override 登记维持、可选实现 defer-to-G10+;M99-clipmap 世界级远场 measured 举证未产出 defer-to-G10+;M100-high 高档多灯 workload 证据不足 defer-to-G10+);四行均只追加且含「G9.7 P2」字面与承接锚(重判条件 + 兜底),id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动——M98-l4/M114-strand/M118-hdr-cal/M125-adopt3/SAFE-GPU/M127 六行 defer 无 RD 条目归属不新设 RD,沿 v1.3~v1.5 先例,留痕于 G9_CONTRACT §8.4~8.6 登记面 + 门 evidence + milestones/g9/G9_P2_DECISIONS.md);其余 entry 与 revision_log v1.0~v1.78 行 0-byte"
     }
   ]
 }
