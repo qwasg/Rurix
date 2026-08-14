@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M120 oit_benchmark_harness evidence",
+  "description": "evidence/g9_m120_oit_benchmark_harness_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P1 硬门 g9.p1.m120.oit_benchmark_harness(G9_CONTRACT §8.1 裁决① P1 全进):OIT benchmark harness 以 nvpro vk_order_independent_transparency 七算法(simple/linked_list/loop32/loop64/spinlock/interlock/weighted_blended)为对照基线、同场景同 overdraw 分布(4 档)测量帧时/内存/质量曲线,evidence 非空;仅测量不定档(tier_selection.committed==false,本门只产 benchmark 数据不定默认档,选型入口 fail-closed NotMeasuredYet);默认档选型必须引 benchmark 数据——无数据选型提交判 RED(RED 臂独立有效);排序 fallback(depth-sorted alpha)永保留断言(最低端档与正确性对照);linked-list 精确档与排序真值 diff=0(精确档仅毛发 strand 启用、场景级不开放;精确档内存无界增长注入即 RED)。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径〔4070 Ti device 帧时腿归后续波〕):host 段 oit:: 10 单测逐名锚定 + conformance display_pipeline M120 双件语料锚 + 冻结带 g9_m120_oit_measurements.json provenance 机器核验(七算法 × 4 档 + scene/truth digest);harness 段持锁 g9_m120_oit_benchmark 全档真跑(9 判据闭集全真)+ 不定档字段机器核验 + --red-arm selection-without-data/unbounded-memory 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m120_oit_benchmark_harness" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m120.oit_benchmark_harness" },
+    "matrix_row": { "type": "string", "const": "M120" },
+    "milestone": { "type": "string", "const": "M120" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m120.oit_benchmark_harness" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 164 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.K;spec/display_pipeline.md RXS-0371;G9_ACCEPTANCE_MAP §3 M120"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected",
+        "not_triggered_field_verified"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" },
+        "not_triggered_field_verified": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

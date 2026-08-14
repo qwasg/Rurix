@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M110 world_partition evidence",
+  "description": "evidence/g9_m110_world_partition_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P0 硬门 g9.p0.m110.world_partition:单一持久世界 schema + 2D cell 冻结(canonical 往返 + cell 边长资产属性 + 篡改 fail-closed);三项流送预算契约逐帧 evidence 非空;预算违约注入必排队降级不得静默超帧(RED 臂);cell 四事件闭集序列 digest 对冻结带逐字相等;Data Layer 掩码位只预留不接线;代表性大世界 soak hitch p99 ≤ g9_budget.json 实测标定阈值(禁手写 P-09);HLOD 烘焙工具 rurix.hlod.bake.v1 双构建位级相等。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径):host 段 world::partition 12 单测逐名锚定 + conformance world_partition M110 三件语料锚 + 冻结带 g9_m110_world_partition_band.json provenance 机器核验;harness 段持锁 g9_m110_world_partition 全档真跑(10 判据闭集全真)+ --red-arm budget-overrun/event-order 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m110_world_partition" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m110.world_partition" },
+    "matrix_row": { "type": "string", "const": "M110" },
+    "milestone": { "type": "string", "const": "M110" },
+    "assertion_id": { "type": "string", "const": "g9.p0.m110.world_partition" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 154 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.A;spec/world_partition.md RXS-0363;G9_ACCEPTANCE_MAP §2 M110"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

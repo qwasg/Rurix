@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M119 post_processing_skeleton evidence",
+  "description": "evidence/g9_m119_post_processing_skeleton_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P1 硬门 g9.p1.m119.post_processing_skeleton(G9_CONTRACT §8.1 裁决① P1 全进):后处理骨架节点显式排序冻结(histogram 曝光+EV 偏移 → bloom〔tonemap 前 HDR 域多尺度 mip 链〕→ tonemap〔经 M118 view transform 插件〕→ 色彩分级 LUT → 输出变换,SDR 上即可全量验证);全程 HDR 线性域断言(节点输出范围探针,隐式 SDR clamp 注入即 RED);曝光状态(histogram→目标 EV adapt 上下不同速率)persistent resource 帧间持久(跨帧丢失注入即 RED);排序调换可检测 RED;四内置插件接线;与 TAA/TSR(M24)时域链显式排序断言。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径):host 段 display::post_chain 4 单测逐名锚定 + conformance display_pipeline M119 双件语料锚 + 冻结带 g9_m119_post_chain_band.json provenance 机器核验(五级排序字面 + 四插件 chain digest);harness 段持锁 g9_m119_post_chain 全档真跑(8 判据闭集全真)+ --red-arm order-swap/implicit-clamp 子模式独立复跑抽检。命名差如实登记:门 key=MAP §3 post_processing_skeleton,harness 直出件 assertion_id=g9.p1.m119.post_chain(实现波实记字面,门按该字面核验不改写)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m119_post_processing_skeleton" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m119.post_processing_skeleton" },
+    "matrix_row": { "type": "string", "const": "M119" },
+    "milestone": { "type": "string", "const": "M119" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m119.post_processing_skeleton" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 163 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.J;spec/display_pipeline.md RXS-0370;G9_ACCEPTANCE_MAP §3 M119"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M113 water_dual_pipeline evidence",
+  "description": "evidence/g9_m113_water_dual_pipeline_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P1 硬门 g9.p1.m113.water_dual_pipeline(G9_CONTRACT §8.1 裁决① P1 全进):大洋管线(Tessendorf IFFT 谱参数化资产 + 位移/梯度/Jacobian 泡沫三贴图 + CDLOD 距离分档 + 多尺度谱 tiling-and-blending)与浅水管线(高度场+速度场 ping-pong)双管线分离断言(几何路径互斥机核、仅共享水面着色 closure 输入面);大洋 IFFT 与 host DFT 参考逐值对拍(measured 容差);非法谱参数资产拒录 RED;浅水越界写检测;浮力查询接口面预留不实现(M77→M124 归 G9.6 Field 通道)。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径):host 段 world::water 7 单测逐名锚定 + conformance world_partition M113 双件语料锚 + 冻结带 g9_m113_water_band.json provenance 机器核验;harness 段持锁 g9_m113_water 全档真跑(12 判据闭集全真)+ --red-arm invalid-spectrum/geometry-shared 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m113_water_dual_pipeline" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m113.water_dual_pipeline" },
+    "matrix_row": { "type": "string", "const": "M113" },
+    "milestone": { "type": "string", "const": "M113" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m113.water_dual_pipeline" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 158 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.D;spec/world_partition.md RXS-0366;G9_ACCEPTANCE_MAP §3 M113"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1571,6 +1571,135 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_wave4_exit_check.py --gate g9.wave.4.exit
 
+      # 步骤 154（G9.5 P0 硬门 g9.p0.m110.world_partition;RFC-0025 §4.A;
+      # spec/world_partition.md RXS-0363;落盘前实测 CI_step.next_free=154 顺位
+      # 领取）。host 纯 host 确定性门(device_section_state=not_applicable,按
+      # harness evidence 实记 host-only 口径):world::partition 12 单测逐名锚定
+      # + conformance world_partition M110 三件语料锚 + 冻结带 provenance 机器
+      # 核验;harness 段持锁 g9_m110_world_partition 全档真跑(预算违约排队降级
+      # + cell 事件逐字 golden + HLOD 双构建 + soak hitch p99 ≤ g9_budget 实测
+      # 阈值)+ --red-arm budget-overrun/event-order 子模式复跑抽检。
+      - name: G9.5 M110 world partition smoke (G9 CI_GATES §4.154, g9.p0.m110.world_partition)
+        shell: powershell
+        run: py -3 ci/g9_world_partition_smoke.py --gate g9.p0.m110.world_partition
+
+      # 步骤 155（G9.5 P0 硬门 g9.p0.m118.display_pipeline_view_transform;
+      # RFC-0025 §4.I;spec/display_pipeline.md RXS-0369;落盘前实测
+      # CI_step.next_free=154 顺位领取 155）。host 纯 host 确定性门:
+      # display::view_transform 3 单测 + display::swapchain 4 单测逐名锚定 +
+      # 语料锚 + 冻结带 provenance;harness 段持锁 g9_m118_display_pipeline 全档
+      # 真跑(四内置插件逐一 golden + 三交换链路径运行时切换 + 非 HDR 携带 PQ
+      # 即 RED)+ HDR 标定 not-triggered 字段机器核验(不假绿不否决 SDR 面)+
+      # --red-arm pq-on-non-hdr/unregistered-plugin 子模式复跑抽检。
+      - name: G9.5 M118 display pipeline view transform smoke (G9 CI_GATES §4.155, g9.p0.m118.display_pipeline_view_transform)
+        shell: powershell
+        run: py -3 ci/g9_display_pipeline_view_transform_smoke.py --gate g9.p0.m118.display_pipeline_view_transform
+
+      # 步骤 156（G9.5 P1 硬门 g9.p1.m111.hlod_baking;RFC-0025 §4.B;
+      # spec/world_partition.md RXS-0364;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=154 顺位领取 156）。host 纯 host 确定性门:world::hlod
+      # 5 单测逐名锚定(含双构建 digest 运行时核验)+ 语料锚 + 冻结带
+      # provenance;harness 段持锁 g9_m111_hlod_runtime 全档真跑(screen-size
+      # 互斥切换 golden + 运行时零合并断言 + 事件总线接线)+ --red-arm
+      # runtime-merge/level-perturb 子模式复跑抽检;命名差如实登记(harness
+      # assertion_id=g9.p1.m111.hlod_runtime vs 门 key=hlod_baking)。
+      - name: G9.5 M111 HLOD baking smoke (G9 CI_GATES §4A.156, g9.p1.m111.hlod_baking)
+        shell: powershell
+        run: py -3 ci/g9_hlod_baking_smoke.py --gate g9.p1.m111.hlod_baking
+
+      # 步骤 157（G9.5 P1 硬门 g9.p1.m112.atmosphere_froxel;RFC-0025 §4.C;
+      # spec/world_partition.md RXS-0365;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=154 顺位领取 157）。host 纯 host 确定性门:
+      # world::atmosphere 5 单测逐名锚定 + 语料锚 + 冻结带 provenance;harness
+      # 段持锁 g9_m112_atmosphere_froxel 全档真跑(Froxel 统一基础设施云雾共用
+      # + 雾前端 golden + 逐帧计数面 + weather map 篡改签名拒录 RED)+
+      # --red-arm grid-tamper/weather-tamper 子模式复跑抽检。
+      - name: G9.5 M112 atmosphere froxel smoke (G9 CI_GATES §4A.157, g9.p1.m112.atmosphere_froxel)
+        shell: powershell
+        run: py -3 ci/g9_atmosphere_froxel_smoke.py --gate g9.p1.m112.atmosphere_froxel
+
+      # 步骤 158（G9.5 P1 硬门 g9.p1.m113.water_dual_pipeline;RFC-0025 §4.D;
+      # spec/world_partition.md RXS-0366;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=154 顺位领取 158）。host 纯 host 确定性门:world::water
+      # 7 单测逐名锚定 + 语料锚 + 冻结带 provenance;harness 段持锁 g9_m113_water
+      # 全档真跑(大洋 IFFT 三贴图 vs host DFT 对拍 + 双管线几何互斥 + 非法谱
+      # 参数拒录 RED + 浮力预留不实现)+ --red-arm invalid-spectrum/
+      # geometry-shared 子模式复跑抽检。
+      - name: G9.5 M113 water dual pipeline smoke (G9 CI_GATES §4A.158, g9.p1.m113.water_dual_pipeline)
+        shell: powershell
+        run: py -3 ci/g9_water_dual_pipeline_smoke.py --gate g9.p1.m113.water_dual_pipeline
+
+      # 步骤 159（G9.5 P1 硬门 g9.p1.m114.hair_marschner;RFC-0025 §4.E;
+      # spec/display_pipeline.md RXS-0372;G9_CONTRACT §8.1 裁决① 条件 go;
+      # 落盘前实测 CI_step.next_free=154 顺位领取 159）。host 纯 host 确定性门:
+      # display::hair 6 单测逐名锚定 + 语料锚 + 冻结带 provenance;harness 段
+      # 持锁 g9_m114_hair 全档真跑(三瓣逐瓣 golden + 能量守恒 + 几何三档 +
+      # 股替换烘焙确定性)+ strand 档强制精确 OIT 分项 not-triggered 字段机器
+      # 核验(依赖 M120 精确档数据不足不充绿,承接锚重判兜底 G9.7)+
+      # --red-arm lobe-tt-zeroed/strand-sorted-fallback 子模式复跑抽检。
+      - name: G9.5 M114 hair Marschner smoke (G9 CI_GATES §4A.159, g9.p1.m114.hair_marschner)
+        shell: powershell
+        run: py -3 ci/g9_hair_marschner_smoke.py --gate g9.p1.m114.hair_marschner
+
+      # 步骤 160（G9.5 P1 硬门 g9.p1.m115.skin_burley_diffusion;RFC-0025 §4.F;
+      # spec/display_pipeline.md RXS-0373;G9_CONTRACT §8.1 裁决①;触
+      # MaterialClosure 32B 经 RFC-0025 §4.L 🔒 显式修订行;落盘前实测
+      # CI_step.next_free=154 顺位领取 160）。host 纯 host 确定性门:
+      # display::skin 4 单测逐名锚定 + 语料锚 + 冻结带 provenance(含 32B 布局
+      # digest);harness 段持锁 g9_m115_skin 全档真跑(Burley 屏单 pass 双 kernel
+      # golden + profile 资产化 + 全零衰减退化纯漫反射 RED + 32B 布局 0-byte
+      # 机核)+ --red-arm zero-falloff-not-diffuse/slot-overreach 子模式复跑抽检。
+      - name: G9.5 M115 skin Burley diffusion smoke (G9 CI_GATES §4A.160, g9.p1.m115.skin_burley_diffusion)
+        shell: powershell
+        run: py -3 ci/g9_skin_burley_diffusion_smoke.py --gate g9.p1.m115.skin_burley_diffusion
+
+      # 步骤 161（G9.5 P1 硬门 g9.p1.m116.terrain_chunk_cell;RFC-0025 §4.G;
+      # spec/world_partition.md RXS-0367;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=154 顺位领取 161）。host 纯 host 确定性门:
+      # world::terrain 6 单测逐名锚定 + 语料锚 + 冻结带 provenance;harness 段
+      # 持锁 g9_m116_terrain 全档真跑(chunk≡cell 禁第二套分格 + 全 compute
+      # LOD/剔除/缝合 indirect + 零 SVT 依赖 + 裂缝像素=0)+ --red-arm
+      # second-grid/stitch-crack 子模式复跑抽检。
+      - name: G9.5 M116 terrain chunk cell smoke (G9 CI_GATES §4A.161, g9.p1.m116.terrain_chunk_cell)
+        shell: powershell
+        run: py -3 ci/g9_terrain_chunk_cell_smoke.py --gate g9.p1.m116.terrain_chunk_cell
+
+      # 步骤 162（G9.5 P1 硬门 g9.p1.m117.decal_dbuffer;RFC-0025 §4.H;
+      # spec/world_partition.md RXS-0368;G9_CONTRACT §8.1 裁决①;落盘前实测
+      # CI_step.next_free=154 顺位领取 162）。host 纯 host 确定性门:world::decal
+      # 5 单测逐名锚定 + 语料锚 + 冻结带 provenance;harness 段持锁
+      # g9_m117_decal_dbuffer 全档真跑(DBuffer 三通道帧图占位 + cluster 化受界
+      # + 两档语义等价 golden + 超界注入降级 RED)+ --red-arm
+      # missing-placeholder/overdraw 子模式复跑抽检。
+      - name: G9.5 M117 decal DBuffer smoke (G9 CI_GATES §4A.162, g9.p1.m117.decal_dbuffer)
+        shell: powershell
+        run: py -3 ci/g9_decal_dbuffer_smoke.py --gate g9.p1.m117.decal_dbuffer
+
+      # 步骤 163（G9.5 P1 硬门 g9.p1.m119.post_processing_skeleton;RFC-0025
+      # §4.J;spec/display_pipeline.md RXS-0370;G9_CONTRACT §8.1 裁决①;落盘前
+      # 实测 CI_step.next_free=154 顺位领取 163）。host 纯 host 确定性门:
+      # display::post_chain 4 单测逐名锚定 + 语料锚 + 冻结带 provenance(五级
+      # 排序字面 + 四插件 chain digest);harness 段持锁 g9_m119_post_chain 全档
+      # 真跑(显式排序 golden + 全程 HDR 线性域探针 + 曝光状态帧间持久)+
+      # --red-arm order-swap/implicit-clamp 子模式复跑抽检;命名差如实登记
+      # (harness assertion_id=g9.p1.m119.post_chain vs 门 key=
+      # post_processing_skeleton)。
+      - name: G9.5 M119 post processing skeleton smoke (G9 CI_GATES §4A.163, g9.p1.m119.post_processing_skeleton)
+        shell: powershell
+        run: py -3 ci/g9_post_processing_skeleton_smoke.py --gate g9.p1.m119.post_processing_skeleton
+
+      # 步骤 164（G9.5 P1 硬门 g9.p1.m120.oit_benchmark_harness;RFC-0025 §4.K;
+      # spec/display_pipeline.md RXS-0371;G9_CONTRACT §8.1 裁决① 仅测量不定档;
+      # 落盘前实测 CI_step.next_free=154 顺位领取 164）。host 纯 host 确定性门:
+      # oit:: 10 单测逐名锚定 + 语料锚 + 冻结带 provenance(nvpro 七算法 × 4 档
+      # + scene/truth digest);harness 段持锁 g9_m120_oit_benchmark 全档真跑
+      # (evidence 非空 + 精确档 vs 排序真值 diff=0 + 排序 fallback 永保留)+
+      # 不定档字段机器核验(tier_selection.committed==false)+ --red-arm
+      # selection-without-data/unbounded-memory 子模式复跑抽检。
+      - name: G9.5 M120 OIT benchmark harness smoke (G9 CI_GATES §4A.164, g9.p1.m120.oit_benchmark_harness)
+        shell: powershell
+        run: py -3 ci/g9_oit_benchmark_harness_smoke.py --gate g9.p1.m120.oit_benchmark_harness
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

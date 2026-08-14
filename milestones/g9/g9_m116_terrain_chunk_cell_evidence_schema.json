@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M116 terrain_chunk_cell evidence",
+  "description": "evidence/g9_m116_terrain_chunk_cell_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P1 硬门 g9.p1.m116.terrain_chunk_cell(G9_CONTRACT §8.1 裁决① P1 全进):地形 heightfield 为 M04 页格式资产;chunk ≡ cell 断言(尺寸对齐 M110 同一网格族,禁第二套分格——独立地形分格即 RED);LOD 选择/视锥剔除/邻级缝合全进 compute 产 indirect draw(CPU 侧零逐 chunk 提交断言);toroidal 环状更新复用 + 迟到页父级 LOD 占位(沿 M44 迟到页语义);零 SVT 依赖断言(D4 D17);相邻 chunk LOD 差 >1 注入必须触发缝合路径、裂缝像素=0(RED 臂独立有效)。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径):host 段 world::terrain 6 单测逐名锚定 + conformance world_partition M116 双件语料锚 + 冻结带 g9_m116_terrain_band.json provenance 机器核验;harness 段持锁 g9_m116_terrain 全档真跑(11 判据闭集全真)+ --red-arm second-grid/stitch-crack 子模式独立复跑抽检。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m116_terrain_chunk_cell" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m116.terrain_chunk_cell" },
+    "matrix_row": { "type": "string", "const": "M116" },
+    "milestone": { "type": "string", "const": "M116" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m116.terrain_chunk_cell" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 161 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.G;spec/world_partition.md RXS-0367;G9_ACCEPTANCE_MAP §3 M116"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 M111 hlod_baking evidence",
+  "description": "evidence/g9_m111_hlod_baking_<UTC>.json(门 evidence,含 symbolic_gate_key 面;harness 直出件无该面,路由分派 g9_world_harness 共享 schema)。G9.5 P1 硬门 g9.p1.m111.hlod_baking(G9_CONTRACT §8.1 裁决① P1 全进):HLOD 离线 Builder 按 Component 分发产物即资产 + 双构建 hash 相等(world::hlod 单测 double_build_digest_runtime_verification + M110 harness hlod_double_build_hash_equal 锚)+ 运行时零合并断言(fail-closed typed Err,RED 臂独立有效)+ screen-size 阈值互斥切换 golden(双跑位级一致 + 冻结带逐字相等)+ cell 事件总线接线。host 纯 host 确定性门(device_section_state=not_applicable,按 harness evidence 实记 host-only 口径):host 段 world::hlod 5 单测逐名锚定 + conformance world_partition M111 双件语料锚 + 冻结带 g9_m111_hlod_runtime_band.json provenance 机器核验;harness 段持锁 g9_m111_hlod_runtime 全档真跑(8 判据闭集全真)+ --red-arm runtime-merge/level-perturb 子模式独立复跑抽检。命名差如实登记:门 key=MAP §3 hlod_baking,harness 直出件 assertion_id=g9.p1.m111.hlod_runtime(实现波实记字面,门按该字面核验不改写)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_m111_hlod_baking" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.p1.m111.hlod_baking" },
+    "matrix_row": { "type": "string", "const": "M111" },
+    "milestone": { "type": "string", "const": "M111" },
+    "assertion_id": { "type": "string", "const": "g9.p1.m111.hlod_baking" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G9.5" },
+    "numeric_step": { "type": "integer", "const": 156 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0025 §4.B;spec/world_partition.md RXS-0364;G9_ACCEPTANCE_MAP §3 M111"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_module_tests_anchored",
+        "conformance_corpus_anchored",
+        "band_provenance_frozen",
+        "harness_full_pass",
+        "harness_checks_closed_set_green",
+        "harness_red_arm_submode_detected"
+      ],
+      "properties": {
+        "host_module_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "band_provenance_frozen": { "type": "boolean" },
+        "harness_full_pass": { "type": "boolean" },
+        "harness_checks_closed_set_green": { "type": "boolean" },
+        "harness_red_arm_submode_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

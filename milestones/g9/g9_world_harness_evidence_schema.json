@@ -1,0 +1,296 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 大世界×专项波 harness 直出 evidence(十一 harness 共享面)",
+  "description": "G9.5 大世界×专项波十一个 host 确定性 harness 的直出 evidence 共享 schema(实现波直出件,非门 evidence——门 evidence 由各 g9_m11*_*/g9_m120_*_evidence_schema.json 承载,路由按 doc.symbolic_gate_key 有无分派,沿 G9.4 g9_gi_harness 先例)。直出件文件名形态 <prefix>_<UTC>[_voff|_von].json;identity 四件套(schema/subject/spec_anchor/assertion_id)逐 harness const 钉死(M111/M119 直出件 assertion_id 为实现波实记字面 hlod_runtime/post_chain,与 MAP 门 key hlod_baking/post_processing_skeleton 的命名差如实登记不改写),status enum pass|fail,checks 键集逐 harness 闭集(全 boolean),failures 为字符串数组。十一直出件 environment 实记 device_name=host-only/validation=not_applicable(全 host 确定性面,无 device 依赖)。",
+  "type": "object",
+  "anyOf": [
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m110.world_partition.v1" },
+        "subject": { "type": "string", "const": "g9_m110_world_partition" },
+        "spec_anchor": { "type": "string", "const": "RXS-0363" },
+        "assertion_id": { "type": "string", "const": "g9.p0.m110.world_partition" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "schema_roundtrip_and_cell_frozen",
+            "data_layer_reserved_unwired",
+            "budget_counters_per_frame_nonempty",
+            "budget_violation_queued_demote_red_arm",
+            "cell_event_sequence_golden_equal",
+            "event_out_of_order_red_arm",
+            "hlod_double_build_hash_equal",
+            "soak_hitch_p99_within_measured_threshold",
+            "budget_threshold_provenance"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m111.hlod_runtime.v1" },
+        "subject": { "type": "string", "const": "g9_m111_hlod_runtime" },
+        "spec_anchor": { "type": "string", "const": "RXS-0364" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m111.hlod_runtime" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "event_bus_wired",
+            "selection_double_run_bit_equal",
+            "mutually_exclusive",
+            "sequence_nontrivial",
+            "golden_frozen_equal",
+            "red_arm_runtime_merge",
+            "red_arm_level_perturb_and_digest"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m112.atmosphere_froxel.v1" },
+        "subject": { "type": "string", "const": "g9_m112_atmosphere_froxel" },
+        "spec_anchor": { "type": "string", "const": "RXS-0365" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m112.atmosphere_froxel" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "froxel_unified_infrastructure",
+            "fog_density_height_decay",
+            "per_frame_counters_nonempty",
+            "double_run_bit_equal",
+            "golden_frozen_equal",
+            "red_arm_grid_tamper",
+            "red_arm_zero_scatter",
+            "red_arm_weather_and_temporal"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m113.water.v1" },
+        "subject": { "type": "string", "const": "g9_m113_water" },
+        "spec_anchor": { "type": "string", "const": "RXS-0366" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m113.water_dual_pipeline" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "spectrum_asset_assembly",
+            "ocean_ifft_three_maps",
+            "ifft_vs_host_dft_measured",
+            "jacobian_negative_drives_foam",
+            "cdlod_tiling_blend_closed",
+            "shallow_ping_pong",
+            "dual_pipeline_geometry_disjoint",
+            "shared_shading_closure_input_only",
+            "buoyancy_reserved_not_implemented",
+            "double_run_bit_equal",
+            "golden_frozen_equal"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m114.hair.v1" },
+        "subject": { "type": "string", "const": "g9_m114_hair" },
+        "spec_anchor": { "type": "string", "const": "RXS-0372" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m114.hair_marschner" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "side_table_channel_consumed",
+            "marschner_three_lobes_per_lobe_golden",
+            "lobe_energy_conservation",
+            "geometry_three_tiers_closed",
+            "strand_replacement_bake_deterministic",
+            "strand_tier_not_triggered_registered",
+            "m120_measurements_availability_recorded",
+            "double_run_bit_equal",
+            "golden_frozen_equal",
+            "red_arm_lobe_zeroed_and_strand_sorted",
+            "red_arm_side_table_overreach"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m115.skin.v1" },
+        "subject": { "type": "string", "const": "g9_m115_skin" },
+        "spec_anchor": { "type": "string", "const": "RXS-0373" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m115.skin_burley_diffusion" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "closure_32b_size_and_face_untouched",
+            "closure_32b_layout_digest_frozen_equal",
+            "side_table_asset_roundtrip",
+            "burley_single_pass_dual_kernel",
+            "diffusion_radius_response_golden",
+            "lut_fallback_tier_quality_diff",
+            "default_side_table_bit_invariant",
+            "zero_falloff_degrades_pure_diffuse",
+            "double_run_bit_equal",
+            "golden_frozen_equal",
+            "red_arm_zero_falloff_and_default_table",
+            "red_arm_slot_overreach_and_reserved_bits"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m116.terrain.v1" },
+        "subject": { "type": "string", "const": "g9_m116_terrain" },
+        "spec_anchor": { "type": "string", "const": "RXS-0367" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m116.terrain_chunk_cell" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "chunk_eq_cell_structural",
+            "full_compute_lod_cull_indirect",
+            "cpu_zero_per_chunk_submit",
+            "stitch_continuity_crack_zero",
+            "toroidal_reuse_and_placeholder",
+            "double_run_bit_equal",
+            "golden_frozen_equal",
+            "red_arm_second_grid_and_svt",
+            "red_arm_lod_gap_and_crack",
+            "red_arm_cpu_submit"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m117.decal_dbuffer.v1" },
+        "subject": { "type": "string", "const": "g9_m117_decal_dbuffer" },
+        "spec_anchor": { "type": "string", "const": "RXS-0368" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m117.decal_dbuffer" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "dbuffer_placeholder_present",
+            "cluster_bounded_intersection",
+            "overdraw_counter_nonempty",
+            "two_stage_dbuffer_semantics",
+            "two_tier_equivalence_golden",
+            "double_run_bit_equal",
+            "golden_frozen_equal",
+            "red_arm_placeholder_and_svt",
+            "red_arm_density_and_overdraw",
+            "red_arm_dbuffer_bypass"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m118.display_pipeline.v1" },
+        "subject": { "type": "string", "const": "g9_m118_display_pipeline" },
+        "spec_anchor": { "type": "string", "const": "RXS-0369" },
+        "assertion_id": { "type": "string", "const": "g9.p0.m118.display_pipeline_view_transform" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "registry_four_builtins_and_unregistered_rejected",
+            "four_plugins_golden_double_run_bit_equal",
+            "four_plugins_golden_frozen_equal",
+            "known_differences_recorded",
+            "three_paths_runtime_switch_deterministic",
+            "hdr_metadata_filled_by_output_transform",
+            "pq_on_non_hdr_swapchain_red_arm",
+            "hdr_calibration_not_triggered_registered"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m119.post_chain.v1" },
+        "subject": { "type": "string", "const": "g9_m119_post_chain" },
+        "spec_anchor": { "type": "string", "const": "RXS-0370" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m119.post_chain" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "five_stage_explicit_order",
+            "order_swap_detectable_red",
+            "hdr_linear_domain_probe_red",
+            "exposure_state_persist_red",
+            "four_plugins_wired",
+            "double_run_bit_equal",
+            "golden_frozen_equal"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    },
+    {
+      "properties": {
+        "schema": { "type": "string", "const": "rurix.g9m120.oit_benchmark.v1" },
+        "subject": { "type": "string", "const": "g9_m120_oit_benchmark" },
+        "spec_anchor": { "type": "string", "const": "RXS-0371" },
+        "assertion_id": { "type": "string", "const": "g9.p1.m120.oit_benchmark_harness" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "checks": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" },
+          "required": [
+            "conformance_corpus_anchored",
+            "benchmark_evidence_nonempty",
+            "double_run_deterministic_bit_equal",
+            "linked_list_exact_tier_diff_zero",
+            "sorted_fallback_always_reachable",
+            "quality_measurement_sensitive",
+            "selection_without_data_red_arm",
+            "exact_tier_unbounded_memory_red_arm",
+            "measurements_frozen_equal"
+          ]
+        }
+      },
+      "required": ["schema", "subject", "spec_anchor", "assertion_id", "status", "checks", "failures"]
+    }
+  ]
+}

@@ -490,6 +490,42 @@ def check_evidence_files() -> None:
     g9_gi_harness_schema = load(
         ROOT / "milestones/g9/g9_gi_harness_evidence_schema.json"
     )
+    g9_world_harness_schema = load(
+        ROOT / "milestones/g9/g9_world_harness_evidence_schema.json"
+    )
+    g9_m110_world_partition_schema = load(
+        ROOT / "milestones/g9/g9_m110_world_partition_evidence_schema.json"
+    )
+    g9_m118_display_pipeline_view_transform_schema = load(
+        ROOT / "milestones/g9/g9_m118_display_pipeline_view_transform_evidence_schema.json"
+    )
+    g9_m111_hlod_baking_schema = load(
+        ROOT / "milestones/g9/g9_m111_hlod_baking_evidence_schema.json"
+    )
+    g9_m112_atmosphere_froxel_schema = load(
+        ROOT / "milestones/g9/g9_m112_atmosphere_froxel_evidence_schema.json"
+    )
+    g9_m113_water_dual_pipeline_schema = load(
+        ROOT / "milestones/g9/g9_m113_water_dual_pipeline_evidence_schema.json"
+    )
+    g9_m114_hair_marschner_schema = load(
+        ROOT / "milestones/g9/g9_m114_hair_marschner_evidence_schema.json"
+    )
+    g9_m115_skin_burley_diffusion_schema = load(
+        ROOT / "milestones/g9/g9_m115_skin_burley_diffusion_evidence_schema.json"
+    )
+    g9_m116_terrain_chunk_cell_schema = load(
+        ROOT / "milestones/g9/g9_m116_terrain_chunk_cell_evidence_schema.json"
+    )
+    g9_m117_decal_dbuffer_schema = load(
+        ROOT / "milestones/g9/g9_m117_decal_dbuffer_evidence_schema.json"
+    )
+    g9_m119_post_processing_skeleton_schema = load(
+        ROOT / "milestones/g9/g9_m119_post_processing_skeleton_evidence_schema.json"
+    )
+    g9_m120_oit_benchmark_harness_schema = load(
+        ROOT / "milestones/g9/g9_m120_oit_benchmark_harness_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1034,6 +1070,66 @@ def check_evidence_files() -> None:
     g9_gi_harness_validator = (
         jsonschema.Draft7Validator(g9_gi_harness_schema)
         if g9_gi_harness_schema is not None
+        else None
+    )
+    g9_world_harness_validator = (
+        jsonschema.Draft7Validator(g9_world_harness_schema)
+        if g9_world_harness_schema is not None
+        else None
+    )
+    g9_m110_world_partition_validator = (
+        jsonschema.Draft7Validator(g9_m110_world_partition_schema)
+        if g9_m110_world_partition_schema is not None
+        else None
+    )
+    g9_m118_display_pipeline_view_transform_validator = (
+        jsonschema.Draft7Validator(g9_m118_display_pipeline_view_transform_schema)
+        if g9_m118_display_pipeline_view_transform_schema is not None
+        else None
+    )
+    g9_m111_hlod_baking_validator = (
+        jsonschema.Draft7Validator(g9_m111_hlod_baking_schema)
+        if g9_m111_hlod_baking_schema is not None
+        else None
+    )
+    g9_m112_atmosphere_froxel_validator = (
+        jsonschema.Draft7Validator(g9_m112_atmosphere_froxel_schema)
+        if g9_m112_atmosphere_froxel_schema is not None
+        else None
+    )
+    g9_m113_water_dual_pipeline_validator = (
+        jsonschema.Draft7Validator(g9_m113_water_dual_pipeline_schema)
+        if g9_m113_water_dual_pipeline_schema is not None
+        else None
+    )
+    g9_m114_hair_marschner_validator = (
+        jsonschema.Draft7Validator(g9_m114_hair_marschner_schema)
+        if g9_m114_hair_marschner_schema is not None
+        else None
+    )
+    g9_m115_skin_burley_diffusion_validator = (
+        jsonschema.Draft7Validator(g9_m115_skin_burley_diffusion_schema)
+        if g9_m115_skin_burley_diffusion_schema is not None
+        else None
+    )
+    g9_m116_terrain_chunk_cell_validator = (
+        jsonschema.Draft7Validator(g9_m116_terrain_chunk_cell_schema)
+        if g9_m116_terrain_chunk_cell_schema is not None
+        else None
+    )
+    g9_m117_decal_dbuffer_validator = (
+        jsonschema.Draft7Validator(g9_m117_decal_dbuffer_schema)
+        if g9_m117_decal_dbuffer_schema is not None
+        else None
+    )
+    g9_m119_post_processing_skeleton_validator = (
+        jsonschema.Draft7Validator(g9_m119_post_processing_skeleton_schema)
+        if g9_m119_post_processing_skeleton_schema is not None
+        else None
+    )
+    g9_m120_oit_benchmark_harness_validator = (
+        jsonschema.Draft7Validator(g9_m120_oit_benchmark_harness_schema)
+        if g9_m120_oit_benchmark_harness_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2016,6 +2112,138 @@ def check_evidence_files() -> None:
                 validator = g9_m101_if_tier_ladder_validator
             else:
                 validator = g9_gi_harness_validator
+        elif (
+            f.name.startswith("g9_m110_world_partition_")
+            and g9_m110_world_partition_validator is not None
+        ):
+            # G9.5 P0 硬门 M110 world_partition（步骤 154，host 纯 host 确定性门）：
+            # 预算违约注入必排队降级 + soak hitch p99 ≤ g9_budget 实测阈值 +
+            # cell 事件序列逐字 golden + HLOD 双构建位等（RXS-0363；RFC-0025 §4.A）。
+            # 门 evidence（含 symbolic_gate_key 面）→ 门 schema；harness 直出件
+            # （无该面）→ g9_world_harness 共享 schema。前缀与 g9_m1xx 全族互不包含。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m110_world_partition_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m118_display_pipeline_")
+            and g9_m118_display_pipeline_view_transform_validator is not None
+        ):
+            # G9.5 P0 硬门 M118 display_pipeline_view_transform（步骤 155，host
+            # 纯 host 确定性门）：四内置插件逐一 golden + 三交换链路径运行时切换 +
+            # 非 HDR 携带 PQ 即 RED + HDR 标定 not-triggered 不假绿不否决 SDR 面
+            # （RXS-0369；RFC-0025 §4.I）。门/harness 直出件分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m118_display_pipeline_view_transform_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m111_hlod_")
+            and g9_m111_hlod_baking_validator is not None
+        ):
+            # G9.5 P1 硬门 M111 hlod_baking（步骤 156，host 纯 host 确定性门）：
+            # 双构建 hash 相等 + 运行时零合并断言 + screen-size 互斥切换 golden
+            # （RXS-0364；RFC-0025 §4.B）。门 evidence subject=g9_m111_hlod_baking
+            # 与 harness 直出件 subject=g9_m111_hlod_runtime 共享前缀，按
+            # symbolic_gate_key 有无分派；命名差（harness assertion_id=
+            # g9.p1.m111.hlod_runtime vs 门 key=hlod_baking）如实登记不改写。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m111_hlod_baking_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m112_atmosphere_froxel_")
+            and g9_m112_atmosphere_froxel_validator is not None
+        ):
+            # G9.5 P1 硬门 M112 atmosphere_froxel（步骤 157，host 纯 host 确定性门）：
+            # Froxel 统一基础设施云雾共用 + 雾/云前端 golden + weather map 篡改
+            # 签名拒录 RED + 预算字段逐帧非空（RXS-0365；RFC-0025 §4.C）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m112_atmosphere_froxel_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m113_water_")
+            and g9_m113_water_dual_pipeline_validator is not None
+        ):
+            # G9.5 P1 硬门 M113 water_dual_pipeline（步骤 158，host 纯 host 确定性门）：
+            # 大洋 IFFT/浅水波方程双管线几何互斥 + IFFT vs host DFT 对拍 +
+            # 非法谱参数拒录 RED + 浮力预留不实现（RXS-0366；RFC-0025 §4.D）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m113_water_dual_pipeline_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m114_hair_")
+            and g9_m114_hair_marschner_validator is not None
+        ):
+            # G9.5 P1 硬门 M114 hair_marschner（步骤 159，host 纯 host 确定性门）：
+            # Marschner 三瓣逐瓣 golden + 能量守恒 + 股替换烘焙确定性 + strand 档
+            # 强制精确 OIT 依赖 M120 数据不足 not-triggered 不充绿
+            # （RXS-0372；RFC-0025 §4.E）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m114_hair_marschner_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m115_skin_")
+            and g9_m115_skin_burley_diffusion_validator is not None
+        ):
+            # G9.5 P1 硬门 M115 skin_burley_diffusion（步骤 160，host 纯 host 确定性门）：
+            # Burley 屏单 pass 双 kernel golden + profile 资产化 + 全零衰减退化
+            # 纯漫反射 RED + 触 32B 经 RFC-0025 §4.L 修订行（RXS-0373；§4.F）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m115_skin_burley_diffusion_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m116_terrain_")
+            and g9_m116_terrain_chunk_cell_validator is not None
+        ):
+            # G9.5 P1 硬门 M116 terrain_chunk_cell（步骤 161，host 纯 host 确定性门）：
+            # chunk≡cell 禁第二套分格 + 全 compute LOD/剔除/缝合 + 零 SVT 依赖 +
+            # LOD 差>1 注入裂缝 RED（RXS-0367；RFC-0025 §4.G）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m116_terrain_chunk_cell_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m117_decal_dbuffer_")
+            and g9_m117_decal_dbuffer_validator is not None
+        ):
+            # G9.5 P1 硬门 M117 decal_dbuffer（步骤 162，host 纯 host 确定性门）：
+            # DBuffer 三通道帧图占位 + cluster 化受界 + 两档语义等价 golden +
+            # 超界注入降级 RED（RXS-0368；RFC-0025 §4.H）。分派同上。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m117_decal_dbuffer_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m119_post_")
+            and g9_m119_post_processing_skeleton_validator is not None
+        ):
+            # G9.5 P1 硬门 M119 post_processing_skeleton（步骤 163，host 纯 host
+            # 确定性门）：五级显式排序冻结 + 全程 HDR 线性域 + 隐式 clamp 注入 RED +
+            # 曝光状态帧间持久（RXS-0370；RFC-0025 §4.J）。门 subject=
+            # g9_m119_post_processing_skeleton 与 harness 直出件 g9_m119_post_chain
+            # 共享前缀，按 symbolic_gate_key 有无分派；命名差如实登记。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m119_post_processing_skeleton_validator
+            else:
+                validator = g9_world_harness_validator
+        elif (
+            f.name.startswith("g9_m120_oit_benchmark")
+            and g9_m120_oit_benchmark_harness_validator is not None
+        ):
+            # G9.5 P1 硬门 M120 oit_benchmark_harness（步骤 164，host 纯 host 确定性门）：
+            # nvpro 七算法 × 4 档 evidence 非空 + 仅测量不定档 + 无数据选型判 RED +
+            # 排序 fallback 永保留 + 精确档 diff=0（RXS-0371；RFC-0025 §4.K）。
+            # 门 subject=g9_m120_oit_benchmark_harness 与 harness 直出件
+            # g9_m120_oit_benchmark 共享前缀，按 symbolic_gate_key 有无分派。
+            if isinstance(doc, dict) and "symbolic_gate_key" in doc:
+                validator = g9_m120_oit_benchmark_harness_validator
+            else:
+                validator = g9_world_harness_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None
