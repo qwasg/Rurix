@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.5 wave5.exit evidence",
+  "description": "evidence/g9_wave5_exit_<UTC>.json。G9.5 波次聚合门 g9.wave.5.exit(步骤 165):G9.5 波十一门(两 P0 M110/M118 + 九 P1 M111~M120)最新 evidence 只读汇总 + RFC-0025 Agent Approved 字面维持 + RXS-0363~0373 条款头在树(spec/world_partition.md 0363~0368 + spec/display_pipeline.md 0369~0373)+ M115 MaterialClosure 32B 布局 digest 冻结面核验(milestones/g9/g9_m115_skin_band.json 冻结值与 spec RXS-0373 修订行断言及 harness 直出件 material_closure_32b 机核面逐字一致)+ M114 strand 档 not-triggered 登记字面(spec RXS-0372 + 门 evidence checks.not_triggered_field_verified + harness checks.strand_tier_not_triggered_registered/m120_measurements_availability_recorded)+ M120 仅测量不定档字面(spec RXS-0371 + 门 evidence checks.not_triggered_field_verified + harness tier_selection.committed==false 且 policy 含 NotMeasuredYet)。聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE;不重跑 smoke、不代绿、不设 RURIX_REQUIRE_REAL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g9_wave5_exit"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g9.wave.5.exit"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G9.5"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G9.5"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 165
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g9/CI_GATES §6 v1.12;G9_CONTRACT §8.5;G9_ACCEPTANCE_MAP §2/§3;RFC-0025 Agent Approved;RXS-0363~0373 clause heads on tree;M115 32B layout digest frozen;M114 strand tier not-triggered registered;M120 tier not committed (NotMeasuredYet)"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "symbolic_gate_key",
+          "status"
+        ],
+        "properties": {
+          "symbolic_gate_key": {
+            "type": "string"
+          },
+          "subject_prefix": {
+            "type": "string"
+          },
+          "evidence_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIP"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

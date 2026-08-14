@@ -433,6 +433,9 @@ def check_evidence_files() -> None:
     g9_wave4_exit_schema = load(
         ROOT / "milestones/g9/g9_wave4_exit_evidence_schema.json"
     )
+    g9_wave5_exit_schema = load(
+        ROOT / "milestones/g9/g9_wave5_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -975,6 +978,11 @@ def check_evidence_files() -> None:
     g9_wave4_exit_validator = (
         jsonschema.Draft7Validator(g9_wave4_exit_schema)
         if g9_wave4_exit_schema is not None
+        else None
+    )
+    g9_wave5_exit_validator = (
+        jsonschema.Draft7Validator(g9_wave5_exit_schema)
+        if g9_wave5_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -1932,6 +1940,15 @@ def check_evidence_files() -> None:
             # evidence 只读汇总 + RFC-0022 Approved + RXS-0357~0362 条款头
             # + 门序机器阻断留痕 + 六冻结带;聚合不代绿)。
             validator = g9_wave4_exit_validator
+        elif (
+            f.name.startswith("g9_wave5_exit_")
+            and g9_wave5_exit_validator is not None
+        ):
+            # G9.5 波聚合门(步骤 165;ci/g9_wave5_exit_check.py 写:十一门最新
+            # evidence 只读汇总 + RFC-0025 Approved + RXS-0363~0373 条款头
+            # + M115 32B 布局 digest 冻结面 + M114 strand 档 not-triggered
+            # 登记 + M120 仅测量不定档;聚合不代绿)。
+            validator = g9_wave5_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

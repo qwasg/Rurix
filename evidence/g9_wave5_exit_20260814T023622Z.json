@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "subject": "g9_wave5_exit",
+  "symbolic_gate_key": "g9.wave.5.exit",
+  "matrix_row": "G9.5",
+  "wave": "G9.5",
+  "numeric_step": 165,
+  "source_ref": "milestones/g9/CI_GATES §6 v1.12;G9_CONTRACT §8.5;G9_ACCEPTANCE_MAP §2/§3;RFC-0025 Agent Approved;RXS-0363~0373 clause heads on tree;M115 32B layout digest frozen;M114 strand tier not-triggered registered;M120 tier not committed (NotMeasuredYet)",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g9.p0.m110.world_partition",
+      "subject_prefix": "g9_m110_world_partition",
+      "evidence_path": "evidence/g9_m110_world_partition_20260814T020901Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T020901Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m118.display_pipeline_view_transform",
+      "subject_prefix": "g9_m118_display_pipeline_view_transform",
+      "evidence_path": "evidence/g9_m118_display_pipeline_view_transform_20260814T021021Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021021Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m111.hlod_baking",
+      "subject_prefix": "g9_m111_hlod_baking",
+      "evidence_path": "evidence/g9_m111_hlod_baking_20260814T021050Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021050Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m112.atmosphere_froxel",
+      "subject_prefix": "g9_m112_atmosphere_froxel",
+      "evidence_path": "evidence/g9_m112_atmosphere_froxel_20260814T021054Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021054Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m113.water_dual_pipeline",
+      "subject_prefix": "g9_m113_water_dual_pipeline",
+      "evidence_path": "evidence/g9_m113_water_dual_pipeline_20260814T021057Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021057Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m114.hair_marschner",
+      "subject_prefix": "g9_m114_hair_marschner",
+      "evidence_path": "evidence/g9_m114_hair_marschner_20260814T021124Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021124Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m115.skin_burley_diffusion",
+      "subject_prefix": "g9_m115_skin_burley_diffusion",
+      "evidence_path": "evidence/g9_m115_skin_burley_diffusion_20260814T021127Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021127Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m116.terrain_chunk_cell",
+      "subject_prefix": "g9_m116_terrain_chunk_cell",
+      "evidence_path": "evidence/g9_m116_terrain_chunk_cell_20260814T021130Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021130Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m117.decal_dbuffer",
+      "subject_prefix": "g9_m117_decal_dbuffer",
+      "evidence_path": "evidence/g9_m117_decal_dbuffer_20260814T021201Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021201Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m119.post_processing_skeleton",
+      "subject_prefix": "g9_m119_post_processing_skeleton",
+      "evidence_path": "evidence/g9_m119_post_processing_skeleton_20260814T021204Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021204Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m120.oit_benchmark_harness",
+      "subject_prefix": "g9_m120_oit_benchmark_harness",
+      "evidence_path": "evidence/g9_m120_oit_benchmark_harness_20260814T021309Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260814T021309Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rfc0025_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-12）** |"
+    },
+    {
+      "id": "rxs0363_0373_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/world_partition.md RXS-0363~0368 + spec/display_pipeline.md RXS-0369~0373 条款头全在树(共 11 枚)"
+    },
+    {
+      "id": "m115_closure_32b_layout_digest_frozen",
+      "status": "PASS",
+      "detail": "g9_m115_skin_band.json 冻结值 = harness 最新直出件 material_closure_32b.layout_digest/golden 逐字一致(size=32B、reserved/flags 未分配位全零、revision_line=RFC-0025 §4.L);spec RXS-0373 修订行断言字面在树"
+    },
+    {
+      "id": "m114_strand_tier_not_triggered_registered",
+      "status": "PASS",
+      "detail": "spec RXS-0372 条款头 + M114 门/harness 最新 evidence 三处登记面一致:strand 档强制精确 OIT 分项 not-triggered 不充绿(消费 M120 测量带,承接锚重判兜底 G9.7)"
+    },
+    {
+      "id": "m120_tier_not_committed_not_measured_yet",
+      "status": "PASS",
+      "detail": "spec RXS-0371 条款头 + M120 门/harness 最新 evidence 三处登记面一致:仅测量不定档(tier_selection.committed==false,select_default_tier fail-closed NotMeasuredYet)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T023622Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: eleven G9.5 gates (P0 M110/M118 + P1 M111~M120); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RFC-0025 Approved literal + RXS-0363~0373 clause heads + M115 32B layout digest frozen face + M114 strand not-triggered + M120 tier not committed (NotMeasuredYet); aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

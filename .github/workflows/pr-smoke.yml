@@ -1700,6 +1700,20 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_oit_benchmark_harness_smoke.py --gate g9.p1.m120.oit_benchmark_harness
 
+      # 步骤 165（G9.5 波聚合门 g9.wave.5.exit;CI_GATES §6 v1.12;落盘前实测
+      # CI_step.next_free=165 顺位领取）。只读汇总十一门(154~164)最新 evidence
+      # + RFC-0025 Agent Approved 字面维持 + RXS-0363~0373 条款头在树
+      # (spec/world_partition.md 0363~0368 + spec/display_pipeline.md 0369~0373)
+      # + M115 MaterialClosure 32B 布局 digest 冻结面核验(g9_m115_skin_band.json
+      # 冻结值 ↔ spec RXS-0373 修订行断言 ↔ harness material_closure_32b 机核面
+      # 逐字一致)+ M114 strand 档 not-triggered 登记字面 + M120 仅测量不定档
+      # 字面(tier_selection.committed==false / NotMeasuredYet);聚合不代绿、
+      # 不重跑 smoke、不设 RURIX_REQUIRE_REAL;evidence 落盘
+      # evidence/g9_wave5_exit_<UTC>.json。
+      - name: G9.5 wave5.exit aggregate (G9 CI_GATES §6.165, g9.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g9_wave5_exit_check.py --gate g9.wave.5.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
