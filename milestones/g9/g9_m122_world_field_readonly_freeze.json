@@ -1,0 +1,12 @@
+{
+  "schema": "rurix.g9m122.world_field_readonly.v1",
+  "frozen_at_utc": "2026-08-14T05:02:04Z",
+  "base_commit": "539e23d31c30a4ee4d3832fda66bd64a22f9178c",
+  "generator": "cargo build -p g9-physics-gates && g9-physics-gates field-full --emit-freeze",
+  "generator_host": "Windows x86_64 msvc; rustc 1.93.1 (01f6ddf75 2026-02-11); Jolt 5.3.0 lockstep (job_threads=1, dt_fixed=1/60)",
+  "provenance": "G9.6 M122 完整期(RXS-0375)canonical 场景首次真跑 measured_local 回填,此后字节冻结;禁手写(P-09)。场景与 M121 同一 canonical 耦合场景(8 tick 单动态球 + persistent LinearForce 场,注册/变更/注销全 journal 化并入 M66 capture 主流);world_field_sequence_digest = World-Field 经 Physics→GpuScene 桥完整期提交口(commit_world_field_to_scene,RFC-0024 v1.1 章 F2 修订行授权面)提交三 tick 的 GpuScene 只读 buffer 序列 digest(渲染侧只读消费、零回写)。过滤默认空匹配零影响与渲染写拒绝/旁路提交检出为门内 live 断言,不入冻结带。",
+  "world_digest_active": "8e6c17e591e0cc7c480d030a609e57511413980b9293bce6b16bd42dc1fff7fa",
+  "journal_digest_active": "d2d00023859db570f8dd00e22f55e9f85c0b65bd4cf8bdcf4805f8e307ffdac6",
+  "field_chain_digest_active": "84ef909887026bd69bfb979bec2e0e8ef84d699edf2800a6226e236a58887c9c",
+  "world_field_sequence_digest": "4fa9a56998d88bf8c3e50733bc27bdc41d99545e52dbc4b25a90575569467028"
+}

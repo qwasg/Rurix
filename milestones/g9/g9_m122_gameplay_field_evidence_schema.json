@@ -1,106 +1,220 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "G9.2 M122 gameplay_field evidence(骨架期 --phase g9.2)",
-  "description": "evidence/g9_m122_gameplay_field_<UTC>.json。G9.2 P0 硬门 g9.p0.m122.gameplay_field(步骤 137;RFC-0024 §4.B,R-3/R-7/R-10 🔒;判据事实源 = G9_ACCEPTANCE_MAP.md M122 行)。host 恒跑,device not_applicable。双 phase 纪律同 M121:phase_g9_6_pass 骨架期恒 false,任一阶段绿不替另一阶段充绿。",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "subject",
-    "symbolic_gate_key",
-    "milestone",
-    "assertion_id",
-    "status",
-    "matrix_row",
-    "wave",
-    "numeric_step",
-    "source_ref",
-    "phase_g9_2_pass",
-    "phase_g9_6_pass",
-    "host_section_pass",
-    "device_section_state",
-    "checks",
-    "commands",
-    "base_commit",
-    "evidence_level",
-    "run_url",
-    "timestamp",
-    "environment",
-    "notes"
-  ],
-  "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
-    "subject": { "type": "string", "const": "g9_m122_gameplay_field" },
-    "symbolic_gate_key": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
-    "milestone": { "type": "string", "const": "M122" },
-    "assertion_id": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
-    "status": { "type": "string", "enum": ["pass", "fail"] },
-    "matrix_row": { "type": "string", "const": "M122" },
-    "wave": { "type": "string", "const": "G9.2" },
-    "numeric_step": { "type": "integer", "minimum": 1 },
-    "source_ref": {
-      "type": "string",
-      "const": "RFC-0024 §4.B;G9_ACCEPTANCE_MAP M122;G9.2 骨架期(双 phase:--phase g9.2)"
-    },
-    "phase_g9_2_pass": { "type": "boolean" },
-    "phase_g9_6_pass": {
-      "type": "boolean",
-      "const": false,
-      "description": "骨架期恒 false:--phase g9.6 完整期未跑,任一阶段绿不替另一阶段充绿(MAP M122 双 phase 纪律)。"
-    },
-    "host_section_pass": { "type": "boolean" },
-    "device_section_state": { "type": "string", "const": "not_applicable" },
-    "checks": {
+  "title": "G9.2+G9.6 M122 gameplay_field evidence(双 phase:anyOf 骨架期 v1 / 完整期 v2)",
+  "description": "evidence/g9_m122_gameplay_field_<UTC>.json。G9.2 P0 硬门 g9.p0.m122.gameplay_field(步骤 137;RFC-0024 §4.B + v1.1 章 F2,R-3/R-7/R-10 🔒;spec/physics.md RXS-0375;判据事实源 = G9_ACCEPTANCE_MAP.md M122 行)。host 恒跑,device not_applicable。双 phase 纪律同 M121(MAP M122 行逐字:schema 同 M121 双 phase 要求;任一阶段绿色不能替另一阶段充绿):v1 支 = 骨架期 --phase g9.2 evidence(phase_g9_6_pass 恒 false);v2 支 = 完整期 --phase g9.6 evidence(wave=G9.6,门序前置 gate_order_m121_full_passed + 骨架期回归与完整期门同段真跑,phase_g9_2_pass/phase_g9_6_pass 各自实测写入)。",
+  "anyOf": [
+    {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "three_layer_schema_frozen",
-        "eight_enum_accept_green",
-        "illegal_enum_red",
-        "filter_default_empty_zero_impact",
-        "persistent_journal_replay_hash_equal",
-        "world_field_egress_readonly",
-        "render_zero_writeback_audit"
+        "schema_version",
+        "subject",
+        "symbolic_gate_key",
+        "milestone",
+        "assertion_id",
+        "status",
+        "matrix_row",
+        "wave",
+        "numeric_step",
+        "source_ref",
+        "phase_g9_2_pass",
+        "phase_g9_6_pass",
+        "host_section_pass",
+        "device_section_state",
+        "checks",
+        "commands",
+        "base_commit",
+        "evidence_level",
+        "run_url",
+        "timestamp",
+        "environment",
+        "notes"
       ],
       "properties": {
-        "three_layer_schema_frozen": { "type": "boolean" },
-        "eight_enum_accept_green": { "type": "boolean" },
-        "illegal_enum_red": { "type": "boolean" },
-        "filter_default_empty_zero_impact": { "type": "boolean" },
-        "persistent_journal_replay_hash_equal": { "type": "boolean" },
-        "world_field_egress_readonly": { "type": "boolean" },
-        "render_zero_writeback_audit": { "type": "boolean" }
+        "schema_version": { "type": "integer", "const": 1 },
+        "subject": { "type": "string", "const": "g9_m122_gameplay_field" },
+        "symbolic_gate_key": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
+        "milestone": { "type": "string", "const": "M122" },
+        "assertion_id": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "matrix_row": { "type": "string", "const": "M122" },
+        "wave": { "type": "string", "const": "G9.2" },
+        "numeric_step": { "type": "integer", "minimum": 1 },
+        "source_ref": {
+          "type": "string",
+          "const": "RFC-0024 §4.B;G9_ACCEPTANCE_MAP M122;G9.2 骨架期(双 phase:--phase g9.2)"
+        },
+        "phase_g9_2_pass": { "type": "boolean" },
+        "phase_g9_6_pass": {
+          "type": "boolean",
+          "const": false,
+          "description": "骨架期恒 false:--phase g9.6 完整期未跑,任一阶段绿不替另一阶段充绿(MAP M122 双 phase 纪律)。"
+        },
+        "host_section_pass": { "type": "boolean" },
+        "device_section_state": { "type": "string", "const": "not_applicable" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "three_layer_schema_frozen",
+            "eight_enum_accept_green",
+            "illegal_enum_red",
+            "filter_default_empty_zero_impact",
+            "persistent_journal_replay_hash_equal",
+            "world_field_egress_readonly",
+            "render_zero_writeback_audit"
+          ],
+          "properties": {
+            "three_layer_schema_frozen": { "type": "boolean" },
+            "eight_enum_accept_green": { "type": "boolean" },
+            "illegal_enum_red": { "type": "boolean" },
+            "filter_default_empty_zero_impact": { "type": "boolean" },
+            "persistent_journal_replay_hash_equal": { "type": "boolean" },
+            "world_field_egress_readonly": { "type": "boolean" },
+            "render_zero_writeback_audit": { "type": "boolean" }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seq", "command", "exit_code"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 1 },
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" }
+            }
+          }
+        },
+        "base_commit": { "type": "string", "minLength": 7 },
+        "evidence_level": { "type": "string", "const": "measured_local" },
+        "run_url": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "python_version", "cargo_version", "rustc_version"],
+          "properties": {
+            "os": { "type": "string" },
+            "python_version": { "type": "string" },
+            "cargo_version": { "type": "string" },
+            "rustc_version": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
       }
     },
-    "commands": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["seq", "command", "exit_code"],
-        "properties": {
-          "seq": { "type": "integer", "minimum": 1 },
-          "command": { "type": "string" },
-          "exit_code": { "type": "integer" }
-        }
-      }
-    },
-    "base_commit": { "type": "string", "minLength": 7 },
-    "evidence_level": { "type": "string", "const": "measured_local" },
-    "run_url": { "type": "string" },
-    "timestamp": { "type": "string" },
-    "environment": {
+    {
       "type": "object",
       "additionalProperties": false,
-      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "required": [
+        "schema_version",
+        "subject",
+        "symbolic_gate_key",
+        "milestone",
+        "assertion_id",
+        "status",
+        "matrix_row",
+        "wave",
+        "numeric_step",
+        "source_ref",
+        "phase_g9_2_pass",
+        "phase_g9_6_pass",
+        "host_section_pass",
+        "device_section_state",
+        "checks",
+        "commands",
+        "base_commit",
+        "evidence_level",
+        "run_url",
+        "timestamp",
+        "environment",
+        "notes"
+      ],
       "properties": {
-        "os": { "type": "string" },
-        "python_version": { "type": "string" },
-        "cargo_version": { "type": "string" },
-        "rustc_version": { "type": "string" }
+        "schema_version": { "type": "integer", "const": 1 },
+        "subject": { "type": "string", "const": "g9_m122_gameplay_field" },
+        "symbolic_gate_key": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
+        "milestone": { "type": "string", "const": "M122" },
+        "assertion_id": { "type": "string", "const": "g9.p0.m122.gameplay_field" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "matrix_row": { "type": "string", "const": "M122" },
+        "wave": { "type": "string", "const": "G9.6" },
+        "numeric_step": { "type": "integer", "minimum": 1 },
+        "source_ref": {
+          "type": "string",
+          "const": "RFC-0024 §4.B + v1.1 章 F2;spec/physics.md RXS-0375;G9_ACCEPTANCE_MAP M122;G9.6 完整期(双 phase:--phase g9.6)"
+        },
+        "phase_g9_2_pass": {
+          "type": "boolean",
+          "description": "完整期分支内骨架期回归实测值(0-byte 维持核验;完整期绿不替骨架期充绿)。"
+        },
+        "phase_g9_6_pass": {
+          "type": "boolean",
+          "description": "完整期门实测值(field-full 8 判据 + 自证红臂全检出;骨架期绿不替完整期充绿)。"
+        },
+        "host_section_pass": { "type": "boolean" },
+        "device_section_state": { "type": "string", "const": "not_applicable" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field_drives_dynamic_response_full",
+            "filter_default_empty_zero_impact_full",
+            "persistent_journal_mainstream_replay_equal",
+            "world_field_egress_unique_authorized_f2",
+            "render_write_injection_rejected",
+            "bypass_submit_detected",
+            "conformance_anchor_consumed",
+            "measured_freeze_digest_match",
+            "gate_order_m121_full_passed",
+            "full_selftest_red_arms_detected"
+          ],
+          "properties": {
+            "field_drives_dynamic_response_full": { "type": "boolean" },
+            "filter_default_empty_zero_impact_full": { "type": "boolean" },
+            "persistent_journal_mainstream_replay_equal": { "type": "boolean" },
+            "world_field_egress_unique_authorized_f2": { "type": "boolean" },
+            "render_write_injection_rejected": { "type": "boolean" },
+            "bypass_submit_detected": { "type": "boolean" },
+            "conformance_anchor_consumed": { "type": "boolean" },
+            "measured_freeze_digest_match": { "type": "boolean" },
+            "gate_order_m121_full_passed": { "type": "boolean" },
+            "full_selftest_red_arms_detected": { "type": "boolean" }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["seq", "command", "exit_code"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 1 },
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" }
+            }
+          }
+        },
+        "base_commit": { "type": "string", "minLength": 7 },
+        "evidence_level": { "type": "string", "const": "measured_local" },
+        "run_url": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "python_version", "cargo_version", "rustc_version"],
+          "properties": {
+            "os": { "type": "string" },
+            "python_version": { "type": "string" },
+            "cargo_version": { "type": "string" },
+            "rustc_version": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
       }
-    },
-    "notes": { "type": "string" }
-  }
+    }
+  ]
 }

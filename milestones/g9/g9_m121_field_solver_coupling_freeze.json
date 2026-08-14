@@ -1,0 +1,12 @@
+{
+  "schema": "rurix.g9m121.field_solver_coupling.v1",
+  "frozen_at_utc": "2026-08-14T05:02:04Z",
+  "base_commit": "539e23d31c30a4ee4d3832fda66bd64a22f9178c",
+  "generator": "cargo build -p g9-physics-gates && g9-physics-gates particle-view-full --emit-freeze",
+  "generator_host": "Windows x86_64 msvc; rustc 1.93.1 (01f6ddf75 2026-02-11); Jolt 5.3.0 lockstep (job_threads=1, dt_fixed=1/60)",
+  "provenance": "G9.6 M121 完整期(RXS-0374)canonical 耦合场景首次真跑 measured_local 回填,此后字节冻结;禁手写(P-09)。场景 = 8 tick 单动态球(layer 0,禁睡眠)+ persistent LinearForce 径向衰减场(tick0 注册 / tick4 权重×2 变更 / tick7 注销);world_digest_active = 逐 tick semantic_state_hash 链 sha256;journal_digest_active = 合并主流 journal.jsonl 全文 sha256(场命令 + 场驱动 ApplyImpulse 同流);field_chain_digest_active = 逐 tick 场注册表 semantic hash 链 sha256;world_field_sequence_digest = 桥完整期提交口(commit_world_field_to_scene)三提交序列 digest。场置零/零匹配两臂与无场基线逐位一致为门内 live 断言,不入冻结带。",
+  "world_digest_active": "8e6c17e591e0cc7c480d030a609e57511413980b9293bce6b16bd42dc1fff7fa",
+  "journal_digest_active": "d2d00023859db570f8dd00e22f55e9f85c0b65bd4cf8bdcf4805f8e307ffdac6",
+  "field_chain_digest_active": "84ef909887026bd69bfb979bec2e0e8ef84d699edf2800a6226e236a58887c9c",
+  "world_field_sequence_digest": "4fa9a56998d88bf8c3e50733bc27bdc41d99545e52dbc4b25a90575569467028"
+}

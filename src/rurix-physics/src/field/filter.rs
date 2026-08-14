@@ -34,6 +34,16 @@ pub fn domain_bit(domain: ParticleDomain) -> u64 {
 /// 域掩码合法位(五域闭集;骨架期 domain_mask 只允许低 5 位)。
 pub const DOMAIN_MASK_VALID: u64 = 0b1_1111;
 
+/// `ParticleSleepState` → 对象状态掩码位(完整期耦合面与骨架期 `evaluate`
+/// 共用同一映射,RXS-0374 L1)。
+pub fn sleep_state_bits(state: crate::particle_view::ParticleSleepState) -> u64 {
+    match state {
+        crate::particle_view::ParticleSleepState::Awake => object_state_bits::AWAKE,
+        crate::particle_view::ParticleSleepState::Sleeping => object_state_bits::SLEEPING,
+        crate::particle_view::ParticleSleepState::Static => object_state_bits::STATIC,
+    }
+}
+
 /// 场过滤(四元组;`Default` = 全空集 = 零匹配零影响,RFC-0024 §4.B3
 /// 拒绝「默认全影响」语义的类型面落地)。
 #[derive(Debug, Clone, PartialEq)]

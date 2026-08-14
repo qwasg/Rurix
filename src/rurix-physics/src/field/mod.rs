@@ -27,7 +27,10 @@
 //! - noise 基元骨架期 = 确定性 hash-noise(整数格点);curve-driven =
 //!   分段线性;analytic-surface 预留(浮力水面函数,M124 共用求值管线)。
 
+pub mod capture_merge;
+pub mod couple;
 pub mod def;
+pub mod eval;
 pub mod filter;
 pub mod journal;
 pub mod lifecycle;
@@ -35,8 +38,8 @@ pub mod registry;
 pub mod world_egress;
 
 pub use def::{
-    FIELD_SCHEMA_ID, FIELD_SCHEMA_VERSION, FieldDef, FieldError, FieldNode, FieldNodeKind,
-    FieldPhysicsType,
+    AnalyticSurfacePrimitive, FIELD_SCHEMA_ID, FIELD_SCHEMA_VERSION, FieldDef, FieldError,
+    FieldNode, FieldNodeKind, FieldPhysicsType,
 };
 pub use filter::{FieldFilter, ObjectStateMask};
 pub use journal::{FieldJournal, FieldJournalCommand, FieldJournalTick};

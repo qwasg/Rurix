@@ -125,6 +125,7 @@ version = "1.0.0"
 dependencies = [
  "rurix-physics",
  "rurix-pkg",
+ "rurix-render",
 ]
 
 [[package]]

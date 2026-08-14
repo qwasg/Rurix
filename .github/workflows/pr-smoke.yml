@@ -1345,25 +1345,43 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_accesskind_indirect_edge_smoke.py --gate g9.p0.m104.accesskind_indirect_edge
 
-      # 步骤 136（G9.2 P0 硬门 g9.p0.m121.physics_particle_view --phase g9.2；
-      # RFC-0024 §4.A；判据事实源 = G9_ACCEPTANCE_MAP M121 行）:五域
-      # ParticleAdapter + 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED +
-      # 名义类型隔离 + M68 damage journal 迁移 digest golden + journal 全消费 +
-      # 单向事实源 0-byte。host 门。双 phase 纪律:骨架期 phase_g9_6_pass 恒
-      # false,不替完整期充绿。
-      - name: G9.2 M121 physics particle view smoke (G9 CI_GATES §4.136, g9.p0.m121.physics_particle_view)
+      # 步骤 136（G9.2+G9.6 P0 硬门 g9.p0.m121.physics_particle_view 双 phase 双腿；
+      # RFC-0024 §4.A + v1.1 章 F2；spec/physics.md RXS-0374；判据事实源 =
+      # G9_ACCEPTANCE_MAP M121 行）。骨架期腿 --phase g9.2:五域 ParticleAdapter +
+      # 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED + 名义类型隔离 +
+      # M68 damage journal 迁移 digest golden + journal 全消费 + 单向事实源
+      # 0-byte。完整期腿 --phase g9.6(G9.6 落地后同 step 顺位追加,与 MAP §2
+      # M121 行 invocation cell 双命令逐字一致；CI_step 复用 136 不消费新号):
+      # 骨架期回归 + particle-view-full 12 判据(measured 冻结带对拍)+ 自证
+      # 红臂四臂(journal 缺失/乱序/篡改 + 场置零不退化检测面)实测必红。
+      # host 门。双 phase 纪律:任一阶段绿不替另一阶段充绿。
+      - name: G9.2+G9.6 M121 physics particle view smoke (G9 CI_GATES §4.136, g9.p0.m121.physics_particle_view)
         shell: powershell
-        run: py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.2
+        run: |
+          py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      # 步骤 137（G9.2 P0 硬门 g9.p0.m122.gameplay_field --phase g9.2；
-      # RFC-0024 §4.B,R-3/R-7/R-10 🔒；判据事实源 = G9_ACCEPTANCE_MAP M122
-      # 行）:三层解耦 schema 冻结 + 八枚举逐项 accept/非法 RED + 过滤默认空
-      # 匹配零影响(真世界逐 tick 对拍)+ persistent journal replay 逐 tick
-      # hash + World-Field 唯一出口只读 buffer + 渲染侧零回写静态审计。
-      # host 门。双 phase 纪律同 M121。
-      - name: G9.2 M122 gameplay field smoke (G9 CI_GATES §4.137, g9.p0.m122.gameplay_field)
+      # 步骤 137（G9.2+G9.6 P0 硬门 g9.p0.m122.gameplay_field 双 phase 双腿；
+      # RFC-0024 §4.B + v1.1 章 F2,R-3/R-7/R-10 🔒；spec/physics.md RXS-0375；
+      # 判据事实源 = G9_ACCEPTANCE_MAP M122 行）。骨架期腿 --phase g9.2:三层
+      # 解耦 schema 冻结 + 八枚举逐项 accept/非法 RED + 过滤默认空匹配零影响
+      # (真世界逐 tick 对拍)+ persistent journal replay 逐 tick hash +
+      # World-Field 唯一出口只读 buffer + 渲染侧零回写静态审计。完整期腿
+      # --phase g9.6(G9.6 落地后同 step 顺位追加,与 MAP §2 M122 行 invocation
+      # cell 双命令逐字一致；CI_step 复用 137 不消费新号):门序前置(RXS-0375
+      # 硬约束,ci/g9_physics_interlock.py 机器阻断——M121 完整期未绿本门不得
+      # 验收)+ 骨架期回归 + field-full 8 判据(measured 冻结带对拍)+ 自证
+      # 红臂两臂(渲染侧写注入/旁路提交注入)实测必红。host 门。双 phase 纪律
+      # 同 M121。
+      - name: G9.2+G9.6 M122 gameplay field smoke (G9 CI_GATES §4.137, g9.p0.m122.gameplay_field)
         shell: powershell
-        run: py -3 ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.2
+        run: |
+          py -3 ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/g9_gameplay_field_smoke.py --gate g9.p0.m122.gameplay_field --phase g9.6
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # 步骤 138(G9.2 波聚合门 g9.wave.2.exit;七 P0 只读汇总 + RFC-0022/0023/0024
       # Approved + RD-039/040 维持 open;M121/M122 phase_g9_6_pass=false 不充绿;

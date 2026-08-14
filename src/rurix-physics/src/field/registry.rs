@@ -95,6 +95,12 @@ impl FieldRegistry {
         self.fields.len()
     }
 
+    /// 注册表迭代(BTreeMap 字典序 = 规范序;完整期耦合求值面消费,
+    /// RXS-0374 L1)。
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &RegisteredField)> {
+        self.fields.iter()
+    }
+
     /// 空表。
     pub fn is_empty(&self) -> bool {
         self.fields.is_empty()

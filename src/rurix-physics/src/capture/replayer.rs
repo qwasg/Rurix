@@ -511,6 +511,19 @@ pub fn apply_journal_pre(
                     }
                 }
             }
+            // RXS-0374 L3:场命令需场感知 replay(`field::capture_merge::
+            // replay_field_capture` 重建 FieldRegistry 并逐 tick 核验场
+            // hash);legacy 纯世界 replay 不静默吞掉场命令——fail-closed
+            // 拒绝(防止场参与 capture 被半校验充绿)。
+            JournalCommand::FieldRegister { .. }
+            | JournalCommand::FieldUnregister { .. }
+            | JournalCommand::FieldUpdate { .. } => {
+                return Err(CaptureError::Rejected(
+                    "field journal command requires field-aware replay \
+                     (rurix_physics::field::capture_merge::replay_field_capture)"
+                        .into(),
+                ));
+            }
         }
     }
     Ok(())

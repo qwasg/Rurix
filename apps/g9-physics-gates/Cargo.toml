@@ -13,6 +13,10 @@ path = "src/main.rs"
 [dependencies]
 rurix-physics = { path = "../../src/rurix-physics", features = ["physics-capture", "network-physics", "physics-character", "physics-destruction", "physics-cloth", "physics-vehicle", "physics-particle-view", "physics-field"] }
 rurix-pkg = { path = "../../src/rurix-pkg" }
+# G9.6 完整期(RXS-0374 L4):World-Field GpuScene 只读扩面门机验——命名
+# GpuScene/WorldFieldSlot 类型面(commit/只读消费/写拒绝守卫),host 类型
+# 面消费同 rurix-physics 既有依赖方向(device feature 不启用)。
+rurix-render = { path = "../../src/rurix-render" }
 
 [lints]
 workspace = true

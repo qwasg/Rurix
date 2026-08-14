@@ -71,6 +71,47 @@ pub struct DirtyRange {
     pub end: u32,
 }
 
+/// World-Field 只读 buffer 槽(RFC-0024 v1.1 章 F2 🔒 显式修订行授权加性
+/// 面;spec/physics.md RXS-0374 L4;RFC-0019 §8 `GpuScene` 冻结面加性修订)。
+///
+/// 物理侧按 tick(`PhysicsTickId`)经既有 Physics→GpuScene 桥把场采样参数
+/// 提交为本槽;**渲染/VFX/材质侧只读消费、零回写**(纪律 1 单向事实源
+/// 0-byte);时间域归属 `WorldFieldSampleSet` → `RenderFrameId` 显式映射
+/// (R-4 🔒 字面不变)。类型面不依赖 physics crate(依赖方向 =
+/// physics → render 单向,RFC-0017 §4.B1-1),tick/frame 以 u64 位面值承载。
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorldFieldSlot {
+    /// 场参数提交 tick(物理时间域 `PhysicsTickId` 位面值)。
+    pub physics_tick: u64,
+    /// 归属渲染帧(`RenderFrameId` 位面值;`FrameDomainMap` 显式映射)。
+    pub render_frame: u64,
+    /// 场采样参数 canonical 字节(场 digest × 参数位表示;只读载荷)。
+    pub payload: Vec<u8>,
+}
+
+/// 渲染侧写 World-Field 缓冲的统一拒绝(RXS-0374 L4 旁路写注入 RED 臂的
+/// fail-closed typed Err 锚;零回写纪律 0-byte)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorldFieldWriteError {
+    /// 渲染侧写/回写尝试一律拒绝(World-Field 唯一写口 = Physics→GpuScene
+    /// 桥 `commit_world_field`;渲染侧只读消费)。
+    RenderWriteRejected,
+}
+
+impl core::fmt::Display for WorldFieldWriteError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::RenderWriteRejected => write!(
+                f,
+                "RenderWriteRejected: World-Field buffer is read-only on render side \
+                 (RFC-0024 v1.1 F2; unique writer = Physics->GpuScene bridge)"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for WorldFieldWriteError {}
+
 /// 部件定义(部件组 = 同 mesh 多实例共享的 part 表)。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PartDef {
@@ -145,6 +186,10 @@ pub struct GpuScene {
     dirty: BTreeSet<u32>,
     groups: Vec<Vec<PartDef>>,
     placements: Vec<GroupPlacement>,
+    /// World-Field 只读 buffer 槽序列(RFC-0024 v1.1 F2 🔒 加性面;提交序 =
+    /// tick 序;**唯一写口 = `commit_world_field`(Physics→GpuScene 桥专用),
+    /// 渲染侧经 `world_field_slots` 只读消费、零回写**;既有面字段 0-byte)。
+    world_field_slots: Vec<WorldFieldSlot>,
 }
 
 impl GpuScene {
@@ -294,6 +339,30 @@ impl GpuScene {
     /// placement 反查(父子关系记录;展开实例的 `reserved` 即其下标)。
     pub fn placement(&self, placement: u32) -> Option<&GroupPlacement> {
         self.placements.get(placement as usize)
+    }
+
+    /// World-Field 提交口(RFC-0024 v1.1 F2 🔒 修订行授权;**调用方纪律 =
+    /// 既有 Physics→GpuScene 桥**按 tick 提交场采样参数,渲染侧不得调用)。
+    /// 加性面:不触实例表/脏跟踪等任何既有字段(GpuScene 既有面 0-byte)。
+    pub fn commit_world_field(&mut self, slot: WorldFieldSlot) {
+        self.world_field_slots.push(slot);
+    }
+
+    /// World-Field 只读消费面(渲染/VFX/材质侧;**只读**——类型面不存在
+    /// `&mut` 访问器,零回写纪律由类型面 + `render_write_world_field`
+    /// fail-closed 守卫双重承载)。
+    pub fn world_field_slots(&self) -> &[WorldFieldSlot] {
+        &self.world_field_slots
+    }
+
+    /// 渲染侧写 World-Field 缓冲尝试的统一入口(RXS-0374 L4 RED 臂锚):
+    /// **任何渲染侧写/回写尝试 fail-closed typed `Err`**——本守卫是渲染侧
+    /// 唯一可寻址的写形态,恒拒绝且不产生任何状态变化。
+    pub fn render_write_world_field(
+        &mut self,
+        _slot: WorldFieldSlot,
+    ) -> Result<(), WorldFieldWriteError> {
+        Err(WorldFieldWriteError::RenderWriteRejected)
     }
 }
 
@@ -486,6 +555,38 @@ mod tests {
         assert_eq!(p2, 1);
         assert_eq!(s.instances()[2].reserved, p2);
         assert_eq!(s.instances()[3].reserved, p2);
+    }
+
+    //@ spec: RXS-0374
+    #[test]
+    fn world_field_readonly_face_commit_consume_and_write_rejected() {
+        // F2 修订行面:桥提交 → 渲染只读消费;渲染侧写尝试 = typed Err 且
+        // 零状态变化;既有面(脏跟踪/实例表)不受提交影响。
+        let mut s = GpuScene::new();
+        let m = s.add_mesh(0, 1, [0.0; 3], [1.0; 3]);
+        let inst = s.add_instance(m, IDENTITY_3X4, 0, 0);
+        let slot = |tick: u64| WorldFieldSlot {
+            physics_tick: tick,
+            render_frame: tick * 2,
+            payload: vec![tick as u8; 4],
+        };
+        s.commit_world_field(slot(0));
+        s.commit_world_field(slot(1));
+        // 渲染只读消费:可读、逐位一致、提交序保持。
+        let slots = s.world_field_slots();
+        assert_eq!(slots.len(), 2);
+        assert_eq!(slots[0], slot(0));
+        assert_eq!(slots[1], slot(1));
+        // 渲染侧写/回写尝试 → fail-closed typed Err,槽序列零变化。
+        let before = s.world_field_slots().to_vec();
+        let e = s
+            .render_write_world_field(slot(9))
+            .expect_err("渲染侧写必须拒绝");
+        assert_eq!(e, WorldFieldWriteError::RenderWriteRejected);
+        assert_eq!(s.world_field_slots(), before.as_slice());
+        // 既有面 0-byte:World-Field 提交不触实例表/脏跟踪。
+        assert_eq!(s.instance_count(), 1);
+        assert!(s.update_transform(inst, IDENTITY_3X4));
     }
 
     #[test]

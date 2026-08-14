@@ -17,7 +17,7 @@ pub use header::{
     BudgetProfile, DeterminismProfile, FixedStepRational, PhysicsCaptureHeader, RECOVERY_LAYER_V1,
 };
 pub use inject::{InjectRequest, inject_before_tick, whitelist_reject};
-pub use journal::{JournalCommand, JournalTick, PostTick, body_ids_bits};
+pub use journal::{FIELD_COMMAND_WIRE_VERSION, JournalCommand, JournalTick, PostTick, body_ids_bits};
 pub use recorder::{CaptureArtifact, CaptureRecorder, default_budget, default_budget_profile};
 pub use replayer::{
     ReplayReport, ReplayVerdict, apply_journal_pre, jolt_world_desc, locate_injection_divergence,

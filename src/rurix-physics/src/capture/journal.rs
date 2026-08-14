@@ -14,7 +14,15 @@ pub struct PostTick {
     pub saturation_query_casts: u64,
     pub saturation_contact_events: u64,
     pub saturation_body_writes: u64,
+    /// 场注册表 semantic hash(RXS-0374 L3 完整期加性面:persistent field
+    /// 注册/注销/变更参与逐 tick hash;**legacy capture 恒 None,JSON 面
+    /// 0-byte**——None 不产出任何字节,既有 corpus 编解码逐位不变)。
+    pub field_semantic_hash: Option<String>,
 }
+
+/// 场命令线格式版本(RXS-0374 L3 版本化纪律,承 RFC-0021 §5.1 共同头:
+/// 版本变化显式迁移而非静默重解释——未知版本 parse fail-closed)。
+pub const FIELD_COMMAND_WIRE_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JournalCommand {
@@ -73,6 +81,33 @@ pub enum JournalCommand {
         t_max: f32,
         layer_mask: u64,
         expected_hits: Vec<(u64, u32)>, // (body_bits, t_bits)
+    },
+    /// 场注册(RXS-0374 L3 主流并入面:persistent field 命令并入 M66
+    /// capture 同一 journal 流;载荷 = 场定义**线格式 v1 JSON**(`FieldDef::
+    /// wire_json`,well-formed;骨架期冻结 canonical 字面 0-byte 不动)+
+    /// digest 锚〔冻结 canonical 前像〕,capture 侧不透明承载,场侧
+    /// [`crate::field`] 负责还原与校验)。
+    FieldRegister {
+        /// 场稳定 ID。
+        field_id: String,
+        /// 定义 canonical digest(replay 校验锚)。
+        def_digest: String,
+        /// 定义线格式 v1 JSON(`FieldDef::wire_json` 字节)。
+        def_json: String,
+    },
+    /// 场注销(主流并入面)。
+    FieldUnregister {
+        /// 场稳定 ID。
+        field_id: String,
+    },
+    /// 场参数变更(主流并入面;载荷 = 变更后完整定义线格式 v1)。
+    FieldUpdate {
+        /// 场稳定 ID。
+        field_id: String,
+        /// 变更后定义 canonical digest。
+        def_digest: String,
+        /// 变更后定义线格式 v1 JSON。
+        def_json: String,
     },
 }
 
@@ -302,7 +337,35 @@ fn write_cmd(cmd: &JournalCommand) -> Result<String, CaptureError> {
                 fhex(*t_max, "tmax")?,
             ))
         }
+        JournalCommand::FieldRegister {
+            field_id,
+            def_digest,
+            def_json,
+        } => Ok(format!(
+            "{{\"field_register\":{{\"v\":{FIELD_COMMAND_WIRE_VERSION},\"field_id\":\"{}\",\"def_digest\":\"{}\",\"def\":{def_json}}}}}",
+            escape_str(field_id),
+            escape_str(def_digest),
+        )),
+        JournalCommand::FieldUnregister { field_id } => Ok(format!(
+            "{{\"field_unregister\":{{\"v\":{FIELD_COMMAND_WIRE_VERSION},\"field_id\":\"{}\"}}}}",
+            escape_str(field_id)
+        )),
+        JournalCommand::FieldUpdate {
+            field_id,
+            def_digest,
+            def_json,
+        } => Ok(format!(
+            "{{\"field_update\":{{\"v\":{FIELD_COMMAND_WIRE_VERSION},\"field_id\":\"{}\",\"def_digest\":\"{}\",\"def\":{def_json}}}}}",
+            escape_str(field_id),
+            escape_str(def_digest),
+        )),
     }
+}
+
+/// 字符串转义(canonical 文本面;转义 `\\` 与 `"` 两字符,与场定义
+/// canonical_json 同纪律)。
+fn escape_str(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 impl JournalTick {
@@ -315,8 +378,14 @@ impl JournalTick {
             pre.push_str(&write_cmd(c)?);
         }
         pre.push(']');
+        // RXS-0374 L3 加性面:None → 零字节产出(legacy corpus 0-byte);
+        // Some → post 内追加场注册表 hash 字段。
+        let field_part = match &self.post.field_semantic_hash {
+            Some(h) => format!(",\"field_semantic_hash\":\"{h}\""),
+            None => String::new(),
+        };
         Ok(format!(
-            "{{\"tick\":{},\"pre\":{pre},\"post\":{{\"semantic_state_hash\":\"{}\",\"event_digest\":\"{}\",\"contacts_emitted\":{},\"contacts_dropped\":{},\"ring_backlog\":{},\"saturation\":{{\"query_casts\":{},\"contact_events\":{},\"body_writes\":{}}}}}}}",
+            "{{\"tick\":{},\"pre\":{pre},\"post\":{{\"semantic_state_hash\":\"{}\",\"event_digest\":\"{}\"{field_part},\"contacts_emitted\":{},\"contacts_dropped\":{},\"ring_backlog\":{},\"saturation\":{{\"query_casts\":{},\"contact_events\":{},\"body_writes\":{}}}}}}}",
             self.tick,
             self.post.semantic_state_hash,
             self.post.event_digest,
@@ -365,6 +434,72 @@ fn extract_bracket_array(s: &str, after: &str) -> Result<String, CaptureError> {
         }
     }
     Ok(rest[start + 1..end].to_string())
+}
+
+/// 平衡花括号对象抽取(场命令 def 载荷面;与 `extract_bracket_array` 同
+/// 最小口径——canonical id 字面不含花括号,生成面零转义花括号)。
+fn extract_object(s: &str, after: &str) -> Result<String, CaptureError> {
+    let i = s
+        .find(after)
+        .ok_or_else(|| CaptureError::Parse(format!("missing {after}")))?;
+    let rest = &s[i + after.len()..];
+    let start = rest
+        .find('{')
+        .ok_or_else(|| CaptureError::Parse("{".into()))?;
+    let mut depth = 0i32;
+    let bytes = rest.as_bytes();
+    let mut end = start;
+    for (off, &b) in bytes[start..].iter().enumerate() {
+        if b == b'{' {
+            depth += 1;
+        } else if b == b'}' {
+            depth -= 1;
+            if depth == 0 {
+                end = start + off;
+                break;
+            }
+        }
+    }
+    if depth != 0 {
+        return Err(CaptureError::Parse("unbalanced object".into()));
+    }
+    Ok(rest[start..=end].to_string())
+}
+
+/// 场命令线版本核验(RXS-0374 L3:未知版本 fail-closed,显式迁移纪律)。
+fn check_field_wire_version(obj: &str) -> Result<(), CaptureError> {
+    let key = "\"v\"";
+    let i = obj
+        .find(key)
+        .ok_or_else(|| CaptureError::Parse("field cmd missing v".into()))?;
+    let rest = obj[i + key.len()..].trim_start_matches([' ', ':']);
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
+    let v: u32 = rest[..end]
+        .parse()
+        .map_err(|e| CaptureError::Parse(format!("field cmd v: {e}")))?;
+    if v != FIELD_COMMAND_WIRE_VERSION {
+        return Err(CaptureError::Parse(format!(
+            "field cmd wire version {v} != {FIELD_COMMAND_WIRE_VERSION} (explicit migration required)"
+        )));
+    }
+    Ok(())
+}
+
+/// 引号字符串字段抽取(场命令 field_id/def_digest 面)。
+fn quoted_field(obj: &str, key: &str) -> Result<String, CaptureError> {
+    let i = obj
+        .find(key)
+        .ok_or_else(|| CaptureError::Parse(format!("missing {key}")))?;
+    let rest = &obj[i + key.len()..];
+    let q1 = rest
+        .find('"')
+        .ok_or_else(|| CaptureError::Parse(format!("{key} q1")))?;
+    let q2 = rest[q1 + 1..]
+        .find('"')
+        .ok_or_else(|| CaptureError::Parse(format!("{key} q2")))?;
+    Ok(rest[q1 + 1..q1 + 1 + q2].replace("\\\"", "\"").replace("\\\\", "\\"))
 }
 
 fn parse_id_list(inner: &str) -> Result<Vec<u64>, CaptureError> {
@@ -734,6 +869,25 @@ fn parse_cmd(obj: &str) -> Result<JournalCommand, CaptureError> {
             layer_mask,
             expected_hits,
         })
+    } else if obj.contains("\"field_register\"") {
+        check_field_wire_version(obj)?;
+        Ok(JournalCommand::FieldRegister {
+            field_id: quoted_field(obj, "\"field_id\"")?,
+            def_digest: quoted_field(obj, "\"def_digest\"")?,
+            def_json: extract_object(obj, "\"def\"")?,
+        })
+    } else if obj.contains("\"field_unregister\"") {
+        check_field_wire_version(obj)?;
+        Ok(JournalCommand::FieldUnregister {
+            field_id: quoted_field(obj, "\"field_id\"")?,
+        })
+    } else if obj.contains("\"field_update\"") {
+        check_field_wire_version(obj)?;
+        Ok(JournalCommand::FieldUpdate {
+            field_id: quoted_field(obj, "\"field_id\"")?,
+            def_digest: quoted_field(obj, "\"def_digest\"")?,
+            def_json: extract_object(obj, "\"def\"")?,
+        })
     } else {
         Err(CaptureError::Parse(format!(
             "unknown cmd {}",
@@ -777,6 +931,14 @@ impl JournalTick {
                 .ok_or_else(|| CaptureError::Parse("sf2".into()))?;
             Ok(rest[q1 + 1..q1 + 1 + q2].to_string())
         }
+        fn opt_str_field(line: &str, key: &str) -> Option<String> {
+            // 加性可选面(RXS-0374 L3):legacy 行无此键 → None(零字节纪律)。
+            let i = line.find(key)?;
+            let rest = &line[i + key.len()..];
+            let q1 = rest.find('"')?;
+            let q2 = rest[q1 + 1..].find('"')?;
+            Some(rest[q1 + 1..q1 + 1 + q2].to_string())
+        }
         fn num_field(line: &str, key: &str) -> Result<u64, CaptureError> {
             let i = line
                 .find(key)
@@ -801,6 +963,7 @@ impl JournalTick {
                 saturation_query_casts: num_field(line, "\"query_casts\"")?,
                 saturation_contact_events: num_field(line, "\"contact_events\"")?,
                 saturation_body_writes: num_field(line, "\"body_writes\"")?,
+                field_semantic_hash: opt_str_field(line, "\"field_semantic_hash\""),
             },
         })
     }

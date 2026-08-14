@@ -243,6 +243,29 @@ impl PhysicsBridge {
     pub fn world_field_sequence_digest(&self) -> String {
         self.world_field.sequence_digest()
     }
+
+    /// World-Field 完整期提交口(G9.6 M121/M122,spec/physics.md RXS-0374 L4;
+    /// RFC-0024 v1.1 章 F2 🔒 修订行授权面):按 tick(`PhysicsTickId`)把场
+    /// 采样参数提交为 **GpuScene 承载的只读 buffer**——唯一合法写口;渲染
+    /// 侧经 `GpuScene::world_field_slots` 只读消费、零回写,渲染侧写/回写
+    /// 尝试经 `GpuScene::render_write_world_field` fail-closed typed Err。
+    ///
+    /// 单向纪律不变:物理→渲染单向提交;本方法同时登记桥内提交序列(与
+    /// 骨架期 `submit_world_field` 同一序列面,digest 对拍锚连续)。
+    #[cfg(feature = "physics-field")]
+    pub fn commit_world_field_to_scene(
+        &mut self,
+        scene: &mut GpuScene,
+        buffer: crate::field::WorldFieldBuffer,
+    ) {
+        let slot = rurix_render::geometry::gpu_scene::WorldFieldSlot {
+            physics_tick: buffer.sample_set.physics_tick.0,
+            render_frame: buffer.sample_set.render_frame.0,
+            payload: buffer.payload.clone(),
+        };
+        scene.commit_world_field(slot);
+        self.world_field.submit(buffer);
+    }
 }
 
 #[cfg(test)]

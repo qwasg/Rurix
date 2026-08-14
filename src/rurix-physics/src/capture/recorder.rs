@@ -99,6 +99,9 @@ impl CaptureRecorder {
                 saturation_query_casts: sat.query_casts,
                 saturation_contact_events: sat.contact_events,
                 saturation_body_writes: sat.body_writes,
+                // M66 主流录制面 0-byte:场 hash 由 field::capture_merge 完整期
+                // 驱动器逐 tick 填入(RXS-0374 L3),本录制器恒 None。
+                field_semantic_hash: None,
             },
         });
         Ok(())

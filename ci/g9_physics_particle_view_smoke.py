@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""G9.2 M121 physics_particle_view 硬门冒烟(g9.p0.m121.physics_particle_view;
-RFC-0024 §4.A;判据事实源 = G9_ACCEPTANCE_MAP.md M121 行)。骨架期 --phase g9.2。
+"""G9.2+G9.6 M121 physics_particle_view 硬门冒烟(g9.p0.m121.physics_particle_view;
+RFC-0024 §4.A + v1.1 章 F2;spec/physics.md RXS-0374;判据事实源 =
+G9_ACCEPTANCE_MAP.md M121 行)。骨架期 --phase g9.2 / 完整期 --phase g9.6。
 
-host 恒跑 / device not_applicable。7 checks:
+host 恒跑 / device not_applicable。骨架期 7 checks:
 五域 adapter + 写路径仅 impulse/force 结构性断言 + 旁路写注入 RED +
 名义类型隔离 + M68 迁移 digest golden + journal 全消费 + 单向事实源 0-byte。
 
-双 phase 纪律:骨架期 phase_g9_2_pass 由本门写入;phase_g9_6_pass 恒 false
-(完整期未跑,骨架期绿不替完整期充绿)。
+完整期 12+1 checks(RXS-0374;G9_ACCEPTANCE_MAP §2 M121 行):
+场求解器耦合驱动运动 + 双跑逐位一致 + 场置零退化 digest 逐位等于无场基线 +
+写路径仅 impulse/force 结构性断言(0-byte 维持)+ 旁路写注入 RED(维持)+
+analytic-surface 闭集 + 场 journal 并入 M66 capture 主流往返无损 +
+capture→replay 主流逐 tick hash + World-Field GpuScene 只读扩面(F2)+
+渲染侧写 typed Err + 锚定语料消费 + measured 冻结带对拍 +
+完整期自证红臂全检出(journal 缺失/乱序/篡改 + 场置零不退化检测面)。
+
+双 phase 纪律:骨架期 evidence phase_g9_6_pass 恒 false(骨架期绿不替完整期
+充绿);完整期 evidence 同时真跑骨架期回归与完整期门,phase_g9_2_pass 与
+phase_g9_6_pass 各自实测写入(MAP M121 行:schema 同时要求两者 true)。
 
 用法:
   py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.2
+  py -3 ci/g9_physics_particle_view_smoke.py --gate g9.p0.m121.physics_particle_view --phase g9.6
   py -3 ci/g9_physics_particle_view_smoke.py --selftest
 """
 from __future__ import annotations
@@ -34,6 +45,11 @@ GATE_KEY = "g9.p0.m121.physics_particle_view"
 NUMERIC_STEP = 136
 SUBJECT = "g9_m121_physics_particle_view"
 SOURCE_REF = "RFC-0024 §4.A;G9_ACCEPTANCE_MAP M121;G9.2 骨架期(双 phase:--phase g9.2)"
+SOURCE_REF_FULL = (
+    "RFC-0024 §4.A + v1.1 章 F2;spec/physics.md RXS-0374;G9_ACCEPTANCE_MAP M121;"
+    "G9.6 完整期(双 phase:--phase g9.6)"
+)
+FULL_FREEZE = ROOT / "milestones" / "g9" / "g9_m121_field_solver_coupling_freeze.json"
 
 CHECK_KEYS = [
     "five_domain_adapters_implemented",
@@ -43,6 +59,32 @@ CHECK_KEYS = [
     "m68_migration_digest_equal",
     "journal_fully_consumed",
     "one_way_fact_source_zero_byte",
+]
+
+# 完整期判据键(harness particle-view-full 直出 12 键)+ 红臂检出键。
+FULL_CHECK_KEYS = [
+    "field_solver_coupling_drives_motion",
+    "coupling_determinism_double_run",
+    "field_zeroed_baseline_digest_equal",
+    "write_path_impulse_only_structural",
+    "bypass_write_injection_rejected",
+    "analytic_surface_closed_set",
+    "field_journal_capture_roundtrip",
+    "capture_replay_field_mainstream",
+    "world_field_gpu_scene_readonly",
+    "render_write_injection_typed_err",
+    "conformance_anchor_consumed",
+    "measured_freeze_digest_match",
+    "full_selftest_red_arms_detected",
+]
+
+# 完整期自证红臂(harness particle-view-full-selftest --arm):臂失效 = 漏检
+# 即门红。coupling_not_wired = 场置零不退化检测面活性臂。
+FULL_SELFTEST_ARMS = [
+    "journal_missing_line",
+    "journal_reordered",
+    "journal_tampered_def",
+    "coupling_not_wired",
 ]
 
 FAILURES: list[str] = []
@@ -199,6 +241,167 @@ def run_gate() -> int:
     return 0 if host_pass else 1
 
 
+def run_gate_full() -> int:
+    """G9.6 完整期门(--phase g9.6;RXS-0374)。
+
+    三段真跑:① 骨架期回归(particle-view,phase_g9_2_pass 实测写入,骨架期
+    绿不替完整期充绿、完整期也不替骨架期充绿);② 完整期门
+    (particle-view-full --freeze 对拍 measured 冻结带,12 判据);③ 完整期
+    自证红臂(journal 缺失/乱序/篡改 + 场置零不退化检测面,臂漏检即门红)。
+    """
+    checks = {k: False for k in FULL_CHECK_KEYS}
+    exe = build_gates()
+    commands: list[dict] = [
+        {"seq": 1, "command": "cargo build -p g9-physics-gates", "exit_code": 0}
+    ]
+
+    # —— ① 骨架期回归(0-byte 维持:完整期落地不得冲掉 G9.2 面)——
+    print("[g9_m121] full: 骨架期回归 particle-view --source/--golden")
+    code_s, doc_s, out_s = run_gates(
+        exe, ["particle-view", "--source", str(SOURCE), "--golden", str(GOLDEN)]
+    )
+    commands.append(
+        {
+            "seq": 2,
+            "command": (
+                "g9-physics-gates particle-view --source "
+                "conformance/physics/fracture/pillar_prefracture/source.json "
+                "--golden conformance/physics/particle_view/m68_migration_golden.json"
+            ),
+            "exit_code": code_s,
+        }
+    )
+    scaffold_pass = (
+        code_s == 0
+        and doc_s is not None
+        and bool(doc_s.get("ok"))
+        and all(bool(doc_s.get(k)) for k in CHECK_KEYS)
+    )
+    check(scaffold_pass, f"骨架期回归非绿(--phase g9.2 面 0-byte 维持): {out_s[-300:]}")
+    print(f"  骨架期回归: {'PASS' if scaffold_pass else 'FAIL'}")
+
+    # —— ② 完整期门(measured 冻结带对拍,禁手写 golden)——
+    print("[g9_m121] full: particle-view-full --freeze(measured 冻结带对拍)")
+    code, doc, out = run_gates(
+        exe, ["particle-view-full", "--freeze", str(FULL_FREEZE)]
+    )
+    commands.append(
+        {
+            "seq": 3,
+            "command": (
+                "g9-physics-gates particle-view-full --freeze "
+                "milestones/g9/g9_m121_field_solver_coupling_freeze.json"
+            ),
+            "exit_code": code,
+        }
+    )
+    if code != 0 or doc is None:
+        print(f"[g9_m121] full harness failed: {out[-600:]}", file=sys.stderr)
+        return 1
+    for k in FULL_CHECK_KEYS[:-1]:
+        checks[k] = bool(doc.get(k))
+        check(checks[k], f"{k} not true")
+
+    # —— ③ 完整期自证红臂实测必红(臂失效 = 漏检即门红)——
+    arms_ok = True
+    for i, arm in enumerate(FULL_SELFTEST_ARMS):
+        code_a, doc_a, out_a = run_gates(
+            exe, ["particle-view-full-selftest", "--arm", arm]
+        )
+        commands.append(
+            {
+                "seq": 4 + i,
+                "command": f"g9-physics-gates particle-view-full-selftest --arm {arm}",
+                "exit_code": code_a,
+            }
+        )
+        arm_red = code_a == 0 and doc_a is not None and bool(doc_a.get("red_detected"))
+        check(arm_red, f"full selftest arm {arm} 未检出(red_detected≠true): {out_a[-200:]}")
+        arms_ok = arms_ok and arm_red
+        print(f"  selftest arm {arm}: {'RED ok' if arm_red else 'MISS'}")
+    checks["full_selftest_red_arms_detected"] = arms_ok
+
+    full_pass = (
+        code == 0
+        and bool(doc.get("ok"))
+        and all(checks[k] for k in FULL_CHECK_KEYS[:-1])
+        and arms_ok
+    )
+    host_pass = scaffold_pass and full_pass and not FAILURES
+    stamp = utc_stamp()
+    base_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=ROOT
+    ).stdout.strip()
+    evidence = {
+        "schema_version": 1,
+        "subject": SUBJECT,
+        "symbolic_gate_key": GATE_KEY,
+        "milestone": "M121",
+        "assertion_id": GATE_KEY,
+        "status": "pass" if host_pass else "fail",
+        "matrix_row": "M121",
+        "wave": "G9.6",
+        "numeric_step": NUMERIC_STEP,
+        "source_ref": SOURCE_REF_FULL,
+        # 双 phase 各自实测:任一阶段绿不替另一阶段充绿。
+        "phase_g9_2_pass": scaffold_pass,
+        "phase_g9_6_pass": full_pass,
+        "host_section_pass": host_pass,
+        "device_section_state": "not_applicable",
+        "checks": checks,
+        "commands": commands,
+        "base_commit": base_commit,
+        "evidence_level": "measured_local",
+        "run_url": "",
+        "timestamp": stamp,
+        "environment": {
+            "os": platform.platform(),
+            "python_version": sys.version.split()[0],
+            "cargo_version": tool_version("cargo"),
+            "rustc_version": tool_version("rustc"),
+        },
+        "notes": doc.get("detail") or "M121 particle view 完整期",
+    }
+
+    try:
+        import jsonschema
+
+        errs = sorted(
+            jsonschema.Draft7Validator(
+                json.loads(SCHEMA.read_text(encoding="utf-8"))
+            ).iter_errors(evidence),
+            key=lambda e: list(e.path),
+        )
+        if errs:
+            for e in errs:
+                FAILURES.append(f"schema: {e.message}")
+            host_pass = False
+            evidence["host_section_pass"] = False
+            evidence["status"] = "fail"
+            evidence["phase_g9_6_pass"] = False
+    except ImportError:
+        NOTES.append("jsonschema missing; skipped local schema validate")
+
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = EVIDENCE_DIR / f"{SUBJECT}_{stamp}.json"
+    # LF byte-exact 纪律:text mode 在 Windows 会写出 CRLF——显式 newline 钉死。
+    with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(evidence, indent=2, ensure_ascii=False) + "\n")
+    print(f"[g9_m121] evidence → {out_path.relative_to(ROOT)}")
+    for k, v in checks.items():
+        print(f"  check {k}: {'PASS' if v else 'FAIL'}")
+    print(
+        f"  phase_g9_2_pass={evidence['phase_g9_2_pass']} "
+        f"phase_g9_6_pass={evidence['phase_g9_6_pass']} (双 phase 各自实测)"
+    )
+    if FAILURES:
+        print("[g9_m121] FAILURES:", file=sys.stderr)
+        for f in FAILURES:
+            print(f"  - {f}", file=sys.stderr)
+    print(f"[g9_m121] VERDICT = {'PASS' if host_pass else 'FAIL'}")
+    return 0 if host_pass else 1
+
+
 def run_selftest() -> int:
     """负样本:缺 golden( digest 漂移)→ 门必须红。"""
     exe = build_gates()
@@ -231,7 +434,7 @@ def run_selftest() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="G9.2 M121 physics_particle_view smoke")
+    ap = argparse.ArgumentParser(description="G9.2+G9.6 M121 physics_particle_view smoke")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--gate", choices=[GATE_KEY])
     g.add_argument("--selftest", action="store_true")
@@ -239,13 +442,9 @@ def main() -> int:
     args = ap.parse_args()
     if args.selftest:
         return run_selftest()
-    if args.phase != "g9.2":
-        # 完整期未实现:诚实退出非零,不充绿(MAP 双 phase 纪律)。
-        print(
-            f"[g9_m121] --phase {args.phase} 完整期未落地(G9.6);骨架期绿不替完整期充绿",
-            file=sys.stderr,
-        )
-        return 1
+    if args.phase == "g9.6":
+        # G9.6 完整期(RXS-0374):骨架期回归 + 完整期门 + 红臂三段真跑。
+        return run_gate_full()
     return run_gate()
 
 
