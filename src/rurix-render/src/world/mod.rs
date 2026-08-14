@@ -12,8 +12,12 @@
 //! - [`terrain`] = M116 地形(RXS-0367:chunk ≡ cell 禁第二套分格 + 全 compute
 //!   LOD/剔除/缝合产 indirect draw + toroidal 环形窗口复用 + 零 SVT 依赖断言 +
 //!   邻级 LOD 差>1 缝合裂缝 RED)。
+//! - [`decal`] = M117 贴花 DBuffer(RXS-0368:DBuffer 三通道帧图设计期占位 +
+//!   双段写/合成语义 + screen-space cluster 化受界 + 前向回退档语义等价 golden +
+//!   超界注入受界降级 RED)。
 
 pub mod atmosphere;
+pub mod decal;
 pub mod hlod;
 pub mod partition;
 pub mod terrain;

@@ -165,5 +165,13 @@ path = "src/bin/g9_m112_atmosphere_froxel.rs"
 name = "g9_m116_terrain"
 path = "src/bin/g9_m116_terrain.rs"
 
+# G9.5 M117 贴花 DBuffer P1 harness(RXS-0368;门 g9.p1.m117.decal_dbuffer):
+# DBuffer 三通道帧图设计期占位断言 + screen-space cluster 受界求交 + 过绘制计数
+# 非空 + 前向回退档两档语义等价 golden + 超界未降级/过绘制越界/旁路直写 RED 臂。
+# 纯 host 确定性面。
+[[bin]]
+name = "g9_m117_decal_dbuffer"
+path = "src/bin/g9_m117_decal_dbuffer.rs"
+
 [lints]
 workspace = true

@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g9m117.decal_dbuffer.v1",
+  "schema_version": 1,
+  "subject": "g9_m117_decal_dbuffer",
+  "spec_anchor": "RXS-0368",
+  "assertion_id": "g9.p1.m117.decal_dbuffer",
+  "milestone": "M117",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T20:50:56Z",
+  "base_commit": "ee8edeed",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M117 语义面 = 帧图占位 + cluster 受界 + 双段合成数学)", "validation": "not_applicable", "require_real": true},
+  "golden": {"seat_digest": "00989c6094db8d464f289ba2a212bfa8c2ff4083c951acff4829551b6d7ed2d6", "image_digest": "53606512aea0f7bbafb5076a92f88933e722ff112e2e1f2a790fb99d3ad79c82", "overdraw_count": 48, "freeze_band": "H:\\rurix\\milestones/g9/g9_m117_decal_dbuffer_band.json"},
+  "counters": {"decals": 4, "overdraw_total_evals": 48, "overdraw_budget": 16384, "max_decals_per_cluster": 4, "cluster_dim": [16, 8, 24]},
+  "red_arms": {"missing_placeholder": true, "density_unbounded": true, "overdraw": true, "dbuffer_bypass": true, "svt_inject": true},
+  "conformance_corpus": {"dir": "conformance/world_partition", "files": 2, "anchors": {"accept/decal_dbuffer_placeholder_minimal.rx": "RXS-0368", "reject/decal_overdraw_budget_exceeded.rx": "RXS-0368"}},
+  "checks": {"conformance_corpus_anchored": true, "dbuffer_placeholder_present": true, "cluster_bounded_intersection": true, "overdraw_counter_nonempty": true, "two_stage_dbuffer_semantics": true, "two_tier_equivalence_golden": true, "double_run_bit_equal": true, "golden_frozen_equal": true, "red_arm_placeholder_and_svt": true, "red_arm_density_and_overdraw": true, "red_arm_dbuffer_bypass": true},
+  "commands": ["target-g95d/debug/g9_m117_decal_dbuffer.exe", "--evidence", "evidence/g9_m117_decal_dbuffer_20260813T205055Z_von.json"],
+  "failures": []
+}
