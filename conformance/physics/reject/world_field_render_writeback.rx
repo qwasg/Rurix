@@ -1,0 +1,18 @@
+//@ spec: RXS-0374
+// G9.6 M121/M122 RED 语料（spec/physics.md RXS-0374 L4：World-Field GpuScene
+// 只读扩面——渲染侧只读消费、零回写；RFC-0024 v1.1 F2 🔒 修订行边界）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 物理侧按 tick（PhysicsTickId）经既有 Physics→GpuScene 桥提交场
+//   采样参数为 GpuScene 承载的只读 buffer，渲染侧只读消费；WorldFieldSampleSet
+//   归属 RenderFrameId 经 FrameDomainMap 显式映射（R-4 🔒 字面不变）。
+//   负例臂 A：渲染侧对该 buffer 的任何写/回写通道注入（渲染 pass 声明写访问
+//   或回读-修改-写回）= 零回写纪律破坏，必须 RED。
+//   负例臂 B：绕过 Physics→GpuScene 桥的旁路提交注入（渲染侧自构场参数
+//   buffer 冒充 World-Field 出口）= 唯一出口纪律破坏，必须 RED。
+//   两 RED 臂独立有效，臂失效（注入不红）即漏检。
+// 预期 RED 面（实现 PR 接线）：World-Field 渲染侧回写注入 + 旁路提交注入
+//   负例 + ci/g9_physics_particle_view_smoke.py --phase g9.6 /
+//   ci/g9_gameplay_field_smoke.py --phase g9.6 门（symbolic key
+//   g9.p0.m121.physics_particle_view / g9.p0.m122.gameplay_field，G9.1
+//   冻结字面不动）。
+fn main() {}

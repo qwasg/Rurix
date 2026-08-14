@@ -359,3 +359,9 @@
 | RXS-0371 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/oit_benchmark_harness_minimal.rx`, `conformance/display_pipeline/reject/oit_default_tier_without_benchmark_data.rx` |
 | RXS-0372 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/hair_marschner_lobes_minimal.rx`, `conformance/display_pipeline/reject/hair_lobe_tt_zeroed_no_diff.rx` |
 | RXS-0373 | spec/display_pipeline.md | 2 | `conformance/display_pipeline/accept/skin_diffusion_profile_minimal.rx`, `conformance/display_pipeline/reject/skin_profile_zero_falloff_no_diffuse.rx` |
+| RXS-0374 | spec/physics.md | 3 | `conformance/physics/accept/field_solver_coupling_minimal.rx`, `conformance/physics/reject/field_journal_capture_roundtrip_break.rx`, `conformance/physics/reject/world_field_render_writeback.rx` |
+| RXS-0375 | spec/physics.md | 1 | `conformance/physics/accept/gameplay_field_full_phase_minimal.rx` |
+| RXS-0376 | spec/physics.md | 2 | `conformance/physics/accept/buoyancy_field_channel_minimal.rx`, `conformance/physics/reject/buoyancy_bypass_api_injection.rx` |
+| RXS-0377 | spec/physics.md | 2 | `conformance/physics/accept/jolt_ab_seven_step_minimal.rx`, `conformance/physics/reject/jolt_56_vendor_overwrite_baseline.rx` |
+| RXS-0378 | spec/physics.md | 2 | `conformance/physics/accept/rapier_benchmark_ab_fixture_minimal.rx`, `conformance/physics/reject/rapier_benchmark_as_replay_oracle.rx` |
+| RXS-0379 | spec/physics.md | 1 | `conformance/physics/reject/async_decorative_channel_without_verdict.rx` |

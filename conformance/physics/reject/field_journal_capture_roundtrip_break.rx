@@ -1,0 +1,22 @@
+//@ spec: RXS-0374
+// G9.6 M121/M122 RED 语料（spec/physics.md RXS-0374 L3：场 journal 并入 M66
+// capture 主流——capture ↔ field journal 格式往返兼容性断言；RFC-0024 §4.B2
+// + RFC-0021 §4.A1）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = persistent field 注册/注销/参数变更 command journal 并入 M66
+//   capture artifact 主流（同一 capture 目录与 journal 流），参与
+//   semantic_state_hash；合并后 journal 经 encode→decode 往返无损，迁移前后
+//   逐 tick digest 与 golden 一致、journal 全消费无损；schema 版本化，版本
+//   变化显式迁移。
+//   负例臂 A：合并 journal 字节篡改（任一 command record 字段/序扰动）仍被
+//   replay 消费 = 往返完整性校验漏检，必须 RED。
+//   负例臂 B：schema 版本不符的 journal 被静默重解释（不走显式迁移）=
+//   版本纪律破坏，必须 RED。
+//   负例臂 C：场 journal 另开第二通道（独立于 M66 capture 主流目录/流）=
+//   主流并入纪律破坏，必须 RED。
+// 预期 RED 面（实现 PR 接线）：journal 往返篡改/版本静默重解释/第二通道
+//   负例 + ci/g9_physics_particle_view_smoke.py --phase g9.6 /
+//   ci/g9_gameplay_field_smoke.py --phase g9.6 门（symbolic key
+//   g9.p0.m121.physics_particle_view / g9.p0.m122.gameplay_field，G9.1
+//   冻结字面不动）。
+fn main() {}

@@ -1,0 +1,18 @@
+//@ spec: RXS-0377
+// G9.6 M125 RED 语料（spec/physics.md RXS-0377 L2：独立 vendor 并存——Jolt
+// 5.6 独立 vendor/ABI 构建，不覆盖 5.3 基线；RFC-0021 §4.A4 七步程序第②步
+// + RFC-0024 §4.E1）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 5.3 基线 vendor 线 pin 字面不动（VENDOR.md 冻结），5.6 以独立
+//   vendor 线并存构建；两版本各自证明同版本 capture/replay 逐 tick 一致后
+//   才进 canonical A/B；5.3 基线 artifact（corpus digest 与 measured
+//   baseline）在评估全程保持可复算。
+//   负例臂 A：5.6 vendor 覆盖/替换 5.3 基线 vendor 目录（就地升级 pin 或
+//   覆写产物）= 独立并存纪律破坏，必须 RED。
+//   负例臂 B：5.3 基线 artifact 被改写/删除致 digest 不可复算 = 基线冻结
+//   破坏，必须 RED。
+//   本 RED 臂独立有效，臂失效（覆盖注入不红）即漏检。
+// 预期 RED 面（实现 PR 接线）：vendor 覆盖注入负例 +
+//   ci/g9_jolt_56_ab_evaluation_smoke.py 门（symbolic key
+//   g9.p1.m125.jolt_56_ab_evaluation，G9.6 波 P1 登记字面不动）。
+fn main() {}

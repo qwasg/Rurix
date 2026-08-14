@@ -1,0 +1,17 @@
+//@ spec: RXS-0377
+// G9.6 M125 accept 正例语料（spec/physics.md RXS-0377 L1/L2/L3/L4/L5/L6）：
+// Jolt 5.3→5.6 升级 A/B 七步程序最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   七步程序逐字（RFC-0021 §4.A4）：①冻结 5.3 基线（corpus/cook digest/
+//   CCD/contact/query/measured baseline）→ ②5.6 独立 vendor/ABI 构建不覆盖
+//   5.3 基线 → ③两版本各自 capture/replay 逐 tick 一致 → ④相同 canonical
+//   source asset/input journal A/B → ⑤性能阈值只从真实采样写入 budget、
+//   版本锚按实测 tag/commit 登记 → ⑥失败臂钉 5.3 记录失败证据 → ⑦采纳臂
+//   三件事（corpus 显式迁移保留 5.3 基线 artifact + replay 门新版本重跑落
+//   evidence + 判据字面经修订后才改版本号）；新摩擦模型（平均接触点）逐字段
+//   exact/tolerance/invariant 分类；GPU compute 只评估不接权威；layout 探针
+//   工具化入库；两臂诚实登记禁伪绿。
+// 消费锚：ci/g9_jolt_56_ab_evaluation_smoke.py
+//   （g9.p1.m125.jolt_56_ab_evaluation，G9.6 波 P1 登记字面不动）正例臂
+//   （实现 PR 接线）。
+fn main() {}

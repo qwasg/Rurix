@@ -1,0 +1,18 @@
+//@ spec: RXS-0376
+// G9.6 M124 RED 语料（spec/physics.md RXS-0376 L3：旁路 API 注入即 RED——
+// 浮力必须走 Field 通道〔persistent field + FieldPhysicsType::Buoyancy〕，
+// 不得长成第二套空间影响管线；RFC-0024 §4.D）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = 水体区域 = persistent field（解析水面函数为 analytic-surface
+//   基元，RXS-0374 L2 求值管线共用）；每 tick 对 filter 内 RigidBody 计算
+//   clipped 浸入体积与浸没质心 → 浮力 impulse + 浮力矩 + 线性/角阻力
+//   impulse，经 AddForceAtPoint 类既有 FFI 施加。
+//   负例臂：任何不经 Field 通道直接写速度/位置/transform 的浮力旁路 API
+//   注入（专用 buoyancy_set_velocity / buoyancy_teleport 类旁路面）=
+//   Field 统一抽象破坏，旁路即门红，必须 RED。
+//   本 RED 臂独立于正例臂成立，臂失效（旁路注入不红）即漏检，条款整体
+//   FAIL。
+// 预期 RED 面（实现 PR 接线）：浮力旁路 API 注入负例 +
+//   ci/g9_buoyancy_field_channel_smoke.py 门（symbolic key
+//   g9.p1.m124.buoyancy_field_channel，G9.6 波 P1 登记字面不动）。
+fn main() {}

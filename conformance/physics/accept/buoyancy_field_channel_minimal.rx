@@ -1,0 +1,15 @@
+//@ spec: RXS-0376
+// G9.6 M124 accept 正例语料（spec/physics.md RXS-0376 L1/L2/L4）：解析浮力走
+// Field 通道 + 细长/翻滚 corpus fixture + 确定性断言最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   水体区域 = persistent field（解析水面函数为 analytic-surface 基元，
+//   RXS-0374 L2 求值管线共用）+ FieldPhysicsType::Buoyancy 语义；每 tick 对
+//   filter 内 RigidBody 计算 clipped 浸入体积与浸没质心 → 浮力 impulse +
+//   浮力矩 + 线性/角阻力 impulse，经 AddForceAtPoint 类既有 FFI 施加；
+//   细长体/翻滚体 canonical 场景 + 输入参数锚定 corpus fixture；固定 dt +
+//   解析水面函数（禁帧率相关插值、禁墙钟相位）；capture→replay 逐 tick
+//   hash 一致 + 变帧率输入同 tick 结果逐位一致；浮力权威不经 Taichi。
+// 消费锚：ci/g9_buoyancy_field_channel_smoke.py
+//   （g9.p1.m124.buoyancy_field_channel，G9.6 波 P1 登记字面不动）正例臂
+//   （实现 PR 接线）。
+fn main() {}

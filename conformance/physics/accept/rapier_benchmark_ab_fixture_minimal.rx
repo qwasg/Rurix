@@ -1,0 +1,16 @@
+//@ spec: RXS-0378
+// G9.6 M126 accept 正例语料（spec/physics.md RXS-0378 L1/L2/L5）：Rapier 深造
+// 对标基准 A/B 夹具 + measured 报告 + RD-044 字面不变最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   A/B 夹具 = 新 Dynamic BVH / sparse voxel collider / persistent islands /
+//   manifold ≤4 / 简化摩擦模型，大堆叠场景；与 Jolt 同场景、同输入、同
+//   determinism 画像（同一 canonical 场景资产 + 同一输入 journal + 同一
+//   deterministic_profile 画像断言面）；measured 报告 evidence 非空，含跨
+//   solver 确定性偏差统计（只作不变量/容差对拍，跨 solver 不承诺逐位）；
+//   glam 迁移兼容评估留档；RD-044「快路径被真实 workload 采用时」字面
+//   0-byte——基准显示 D5 真实 workload measured 优势才按程序申请深造判档，
+//   否则维持 no-go 留档；本门只产基准报告，不升格深造。
+// 消费锚：ci/g9_rapier_benchmark_ab_smoke.py
+//   （g9.p1.m126.rapier_benchmark_ab，G9.6 波 P1 登记字面不动）正例臂
+//   （实现 PR 接线）。
+fn main() {}

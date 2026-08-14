@@ -1,0 +1,13 @@
+//@ spec: RXS-0375
+// G9.6 M122 accept 正例语料（spec/physics.md RXS-0375 L1/L2/L3）：--phase g9.6
+// 完整期语义 + phase_g9_6_pass=true 判据 + 门序硬约束最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   双 phase 纪律——evidence 同时含 phase_g9_2_pass=true 与
+//   phase_g9_6_pass=true；完整期场求值实际驱动力学响应（经 RXS-0374 耦合面）；
+//   过滤默认空匹配 = 零影响完整期重验（field 注册但零匹配时世界状态 hash 与
+//   无 field 基线逐位一致）；persistent 全 journal 化 replay 逐 tick hash
+//   一致完整期重验；门序硬约束——M121 完整期（--phase g9.6）最新 evidence
+//   status==pass 且 phase_g9_6_pass=true 时 M122 完整期方可验收。
+// 消费锚：ci/g9_gameplay_field_smoke.py --phase g9.6
+//   （g9.p0.m122.gameplay_field，G9.1 冻结字面不动）正例臂（实现 PR 接线）。
+fn main() {}

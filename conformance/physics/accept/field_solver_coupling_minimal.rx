@@ -1,0 +1,15 @@
+//@ spec: RXS-0374
+// G9.6 M121 accept 正例语料（spec/physics.md RXS-0374 L1/L2/L3/L4）：场求值与
+// 求解器耦合（力场积分）+ analytic-surface 基元最小闭集 + 场 journal 并入
+// M66 capture 主流 + World-Field GpuScene 只读扩面最小正例。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   tick 内显式序 = 场求值 → impulse 施加 → 求解步进；场输出经五域
+//   ParticleAdapter 写路径以 impulse/force 语义耦合 lockstep 求解输入，
+//   同输入双运行逐位一致；analytic-surface 闭集 sphere/plane/box 解析符号
+//   距离与梯度采样（M124 共用求值管线）；persistent field 注册/注销/变更
+//   command journal 并入 M66 capture artifact 主流，encode→decode 往返无损；
+//   World-Field buffer 按 tick 经 Physics→GpuScene 桥提交，渲染侧只读消费。
+// 消费锚：ci/g9_physics_particle_view_smoke.py --phase g9.6 /
+//   ci/g9_gameplay_field_smoke.py --phase g9.6（g9.p0.m121.physics_particle_view /
+//   g9.p0.m122.gameplay_field，G9.1 冻结字面不动）正例臂（实现 PR 接线）。
+fn main() {}

@@ -1,0 +1,17 @@
+//@ spec: RXS-0378
+// G9.6 M126 RED 语料（spec/physics.md RXS-0378 L3：基准不作 replay oracle——
+// 跨 solver 不承诺逐位，只作不变量/容差对拍〔RFC-0021 §7 备选 D〕；replay
+// 对拍唯一权威 = 同 solver 同版本 capture/replay 逐 tick hash〔RFC-0021
+// §4.A1 字面不变〕；RFC-0024 §4.E2）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂 = Rapier 深造对标基准与 Jolt 同场景、同输入、同 determinism
+//   画像建 A/B 夹具；产出 measured 报告含跨 solver 确定性偏差统计
+//   （不变量/容差对拍），性能数字只从真实采样写入。
+//   负例臂：以基准输出（Rapier 臂或 Jolt 臂的 benchmark 结果）冒充
+//   capture/replay 逐位对拍 oracle——把基准输出当 replay golden 消费或
+//   以其替代逐 tick hash 比对 = replay 权威通道僭越，必须 RED。
+//   本 RED 臂独立有效，臂失效（冒充不红）即漏检。
+// 预期 RED 面（实现 PR 接线）：基准输出冒充 replay oracle 注入负例 +
+//   ci/g9_rapier_benchmark_ab_smoke.py 门（symbolic key
+//   g9.p1.m126.rapier_benchmark_ab，G9.6 波 P1 登记字面不动）。
+fn main() {}

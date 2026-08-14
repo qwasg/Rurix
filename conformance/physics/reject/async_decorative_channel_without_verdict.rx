@@ -1,0 +1,18 @@
+//@ spec: RXS-0379
+// G9.6 M123 RED 语料（spec/physics.md RXS-0379 L2：双通道判档 = no-go 不充
+// 绿——判档硬前置 Jolt 单线程成本 measured 未满足；lockstep-deterministic
+// 维持唯一权威通道；RFC-0024 v1.1 F1 🔒 修订行落定）。
+// **转正（G9.6 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI 消费）——
+//   正例臂（no-go 登记期）= `physics-async-decorative` feature 与
+//   `DecorativePhysicsTickId` 维持「仅 M123 判档 go 时生效」字面不启用；
+//   async-decorative 通道不建造、不接线；世界状态由 lockstep 通道唯一权威
+//   产出。
+//   负例臂 A：判档 go 前启用 `physics-async-decorative` feature 接线注入 =
+//   通道生效面破坏，必须 RED。
+//   负例臂 B：判档 go 前实例化/消费 `DecorativePhysicsTickId` 时间域注入 =
+//   同上，必须 RED。
+//   本 RED 臂独立于 no-go 登记成立，臂失效（启用注入不红）即漏检。
+// 预期 RED 面（重判后实现 PR 接线）：async 通道无判档启用注入负例；本条款
+//   不立 symbolic gate key（no-go 不入 G9_ACCEPTANCE_MAP §3），锚点目标 =
+//   G9.7 穷举决策行 + RFC-0024 修订行只追加程序。
+fn main() {}
