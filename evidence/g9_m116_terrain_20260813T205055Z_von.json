@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g9m116.terrain.v1",
+  "schema_version": 1,
+  "subject": "g9_m116_terrain",
+  "spec_anchor": "RXS-0367",
+  "assertion_id": "g9.p1.m116.terrain_chunk_cell",
+  "milestone": "M116",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T20:50:56Z",
+  "base_commit": "ee8edeed",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M116 语义面 = chunk≡cell 数据模型 + compute 批次产出面 + 缝合机核)", "validation": "not_applicable", "require_real": true},
+  "golden": {"scene_digest": "67dc6668f83a705a12f414d2c1c75b1cc8c8a34368f2f9f62b779a0b899e577e", "indirect_records": 3, "freeze_band": "H:\\rurix\\milestones/g9/g9_m116_terrain_band.json"},
+  "counters": {"chunks": 3, "indirect_records": 3, "cpu_per_chunk_submits": 0, "toroidal_reused": 2, "toroidal_loaded": 3, "toroidal_placeholders": 1, "seam_crack_pixels": 0},
+  "red_arms": {"second_grid": true, "svt_inject": true, "lod_gap_unstitched": true, "stitch_crack": true, "cpu_submit": true},
+  "conformance_corpus": {"dir": "conformance/world_partition", "files": 2, "anchors": {"accept/terrain_chunk_cell_aligned_minimal.rx": "RXS-0367", "reject/terrain_lod_gap_crack.rx": "RXS-0367"}},
+  "checks": {"conformance_corpus_anchored": true, "chunk_eq_cell_structural": true, "full_compute_lod_cull_indirect": true, "cpu_zero_per_chunk_submit": true, "stitch_continuity_crack_zero": true, "toroidal_reuse_and_placeholder": true, "double_run_bit_equal": true, "golden_frozen_equal": true, "red_arm_second_grid_and_svt": true, "red_arm_lod_gap_and_crack": true, "red_arm_cpu_submit": true},
+  "commands": ["target-g95d/debug/g9_m116_terrain.exe", "--evidence", "evidence/g9_m116_terrain_20260813T205055Z_von.json"],
+  "failures": []
+}

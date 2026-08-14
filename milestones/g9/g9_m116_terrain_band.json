@@ -1,0 +1,10 @@
+{
+  "schema": "rurix.g9m116.terrain_band.v1",
+  "frozen_at_utc": "2026-08-13T16:03:53Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M116 语义面 = chunk≡cell 数据模型 + compute 批次产出面 + toroidal 复用计数 + 缝合连续性机核)"},
+  "freeze_rule": "scene_digest = canonical 场景(3×1 cell 条带 + 同一世界高度函数 heightfield + LOD 差2 邻级缝合)indirect 批次与缝合报告序列 SHA-256(双跑位级一致后冻结,禁手写);indirect_records = 视锥内 chunk 记录数 golden;crack_pixels = 0 为判据本体不入带",
+  "spec_anchor": "RXS-0367",
+  "scene_digest": "67dc6668f83a705a12f414d2c1c75b1cc8c8a34368f2f9f62b779a0b899e577e",
+  "indirect_records": "3",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-p1b-implementer"
+}

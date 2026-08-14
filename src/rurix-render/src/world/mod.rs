@@ -9,7 +9,11 @@
 //! - [`atmosphere`] = M112 Froxel 大气前端(RXS-0365:Froxel 统一基础设施 +
 //!   雾前端高度雾解析项 + weather map 资产化 + 时序上采样默认路径 + 计数面
 //!   逐帧 evidence)。
+//! - [`terrain`] = M116 地形(RXS-0367:chunk ≡ cell 禁第二套分格 + 全 compute
+//!   LOD/剔除/缝合产 indirect draw + toroidal 环形窗口复用 + 零 SVT 依赖断言 +
+//!   邻级 LOD 差>1 缝合裂缝 RED)。
 
 pub mod atmosphere;
 pub mod hlod;
 pub mod partition;
+pub mod terrain;
