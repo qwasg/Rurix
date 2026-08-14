@@ -1869,7 +1869,8 @@
     ],
     "RXS-0364": [
       "conformance/world_partition/accept/hlod_baking_double_build_minimal.rx",
-      "conformance/world_partition/reject/hlod_runtime_merge_forbidden.rx"
+      "conformance/world_partition/reject/hlod_runtime_merge_forbidden.rx",
+      "src/rurix-asset/src/hlod.rs"
     ],
     "RXS-0365": [
       "conformance/world_partition/accept/atmosphere_froxel_fog_minimal.rx",

@@ -349,7 +349,7 @@
 | RXS-0361 | spec/global_illumination.md | 1 | `conformance/gi/reject/multi_light_restir_tier_unproven.rx` |
 | RXS-0362 | spec/global_illumination.md | 3 | `conformance/gi/accept/if_tier_ladder_shared_kernel_minimal.rx`, `conformance/gi/reject/if_as_budget_exceeded_no_demote.rx`, `conformance/gi/reject/if_octahedral_srgb_encoding.rx` |
 | RXS-0363 | spec/world_partition.md | 3 | `conformance/world_partition/accept/cell_event_sequence_minimal.rx`, `conformance/world_partition/reject/cell_event_sequence_out_of_order.rx`, `conformance/world_partition/reject/partition_budget_overrun_no_demote.rx` |
-| RXS-0364 | spec/world_partition.md | 2 | `conformance/world_partition/accept/hlod_baking_double_build_minimal.rx`, `conformance/world_partition/reject/hlod_runtime_merge_forbidden.rx` |
+| RXS-0364 | spec/world_partition.md | 3 | `conformance/world_partition/accept/hlod_baking_double_build_minimal.rx`, `conformance/world_partition/reject/hlod_runtime_merge_forbidden.rx`, `src/rurix-asset/src/hlod.rs` |
 | RXS-0365 | spec/world_partition.md | 2 | `conformance/world_partition/accept/atmosphere_froxel_fog_minimal.rx`, `conformance/world_partition/reject/atmosphere_weather_map_signature_tampered.rx` |
 | RXS-0366 | spec/world_partition.md | 2 | `conformance/world_partition/accept/water_dual_pipeline_minimal.rx`, `conformance/world_partition/reject/water_spectrum_param_invalid.rx` |
 | RXS-0367 | spec/world_partition.md | 2 | `conformance/world_partition/accept/terrain_chunk_cell_aligned_minimal.rx`, `conformance/world_partition/reject/terrain_lod_gap_crack.rx` |
