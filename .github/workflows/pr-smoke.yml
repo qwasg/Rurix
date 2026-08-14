@@ -1774,6 +1774,23 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_jolt_56_ab_evaluation_smoke.py --gate g9.p1.m125.jolt_56_ab_evaluation
 
+      # 步骤 169（G9.6 波聚合门 g9.wave.6.exit;CI_GATES §6 v1.18;落盘前实测
+      # CI_step.next_free=169 顺位领取）。只读汇总五门最新 evidence——两 P0
+      # 完整期(M121/M122,步骤 136/137 同 step 双 phase:聚合核验最新件
+      # status=="pass" 且 phase_g9_6_pass==true,骨架期绿不替完整期充绿)+
+      # 三 P1(M124 步骤 166 / M126 步骤 167 / M125 步骤 168)+ spec/physics.md
+      # 在树且 RXS-0374~0379 条款头齐(RXS-0376 条款头「解析浮力走 Field 通道」
+      # 字面)+ RFC-0024 v1.1 章 F1/F2 字面 + M123 no-go counts_as_green=false
+      # 诚实登记字面(spec RXS-0379 + CANDIDATE v1.5 校准注 + MAP 登记句且 §3
+      # 零 m123 key)+ M125 verdict=maintain_5_3_default + 5.3 基线 0-byte
+      # (VENDOR.md pin 字面不动)+ M126 RD-044 maintain_no_go 登记字面 +
+      # 门序 interlock(ci/g9_physics_interlock.py——M121 完整期 full pass 前
+      # M122 完整期不得绿);聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL;
+      # evidence 落盘 evidence/g9_wave6_exit_<UTC>.json。
+      - name: G9.6 wave6.exit aggregate (G9 CI_GATES §6.169, g9.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g9_wave6_exit_check.py --gate g9.wave.6.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

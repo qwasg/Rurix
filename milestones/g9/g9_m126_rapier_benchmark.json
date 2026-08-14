@@ -1,15 +1,15 @@
 {
   "schema": "rurix.g9m126.rapier_benchmark.report.v1",
-  "generated_at_utc": "2026-08-14T08:44:25Z",
-  "base_commit": "d4491594f678d8387ea5fbcdfd5cc6b814150dc3",
+  "generated_at_utc": "2026-08-14T11:43:08Z",
+  "base_commit": "4641d6e61e00b2bb7b45cb4479800f05121f5e1d",
   "provenance": {"generator": "cargo build -p rurix-physics --features 'physics-capture,rapier' --bin g9_m126_rapier_benchmark && g9_m126_rapier_benchmark", "host": "windows x86_64", "backends": {"jolt": "Jolt 5.3.0 / JoltC 2982004387a9e36ca89525a87d983709d3666da7(feature jolt 默认 on)", "rapier": "rapier3d =0.33.0 pin(default-features=false + dim3/f32/std;parallel/simd-stable/serde-serialize/enhanced-determinism 维持 off,feature rapier 默认 off)"}, "evidence_level": "measured_local(真实采样,禁 estimated)"},
   "scenario": {"kind": "canonical 大堆叠(静态地面 + 6 层动态箱,半长 0.45 m,层缝 0.001 m)", "ticks": 90, "determinism_profile": {"dt_fixed": "1/60 锁死", "job_threads": 1, "job_system": "ThreadPool(1)/rapier 单线程标量(job_threads 为 Jolt 专用,Rapier 臂忽略——rapier.rs 诚实登记)", "sleep_policy": "钉值(can_sleep=true 两臂同参)", "io": "零 IO", "fp_env": "无浮点环境变量依赖"}, "input_digest": "4bdb0132ce08651e5d42d628f48f40ff836504f61b62a2bddc56321c5c327fcd", "same_scene_same_input": true},
   "arms": {
-    "jolt": {"world_digest": "1c720930e42cd2f2500611845a828c8b18ec506e42d9f62e72dc7037555bb9ea", "contact_events_total": 540, "step_ns_median": 44600, "step_ns_min": 32400, "step_ns_total": 6191400, "final_state_digest": "b181b670c0eea27a158bf91667db65557242c07b390327e152a867f7f0e1ba20", "double_run_bitwise": true},
-    "rapier": {"world_digest": "1e91ebb54923953dcabd028662adaa3e42972b8e3be2d6b907562031cdcc4197", "contact_events_total": 529, "step_ns_median": 194200, "step_ns_min": 191400, "step_ns_total": 17891700, "final_state_digest": "6cf68e249ffe4811c583f762d344933450a82583d0c95cf0c315bb59199a3f1d", "double_run_bitwise": true}
+    "jolt": {"world_digest": "1c720930e42cd2f2500611845a828c8b18ec506e42d9f62e72dc7037555bb9ea", "contact_events_total": 540, "step_ns_median": 39500, "step_ns_min": 28400, "step_ns_total": 3885300, "final_state_digest": "b181b670c0eea27a158bf91667db65557242c07b390327e152a867f7f0e1ba20", "double_run_bitwise": true},
+    "rapier": {"world_digest": "1e91ebb54923953dcabd028662adaa3e42972b8e3be2d6b907562031cdcc4197", "contact_events_total": 529, "step_ns_median": 195600, "step_ns_min": 191900, "step_ns_total": 18195200, "final_state_digest": "6cf68e249ffe4811c583f762d344933450a82583d0c95cf0c315bb59199a3f1d", "double_run_bitwise": true}
   },
   "cross_solver_deviation": {"world_chain_bitwise_equal": false, "max_translation_abs_diff": 3.903001547e-2, "mean_translation_abs_diff": 8.289075457e-3, "max_linvel_abs_diff": 8.982925117e-2, "contact_events_abs_diff": 11, "rest_above_ground_invariant": true, "within_tolerance_0.05m": true, "note": "跨 solver 不承诺逐位(RFC-0021 §7 备选 D),只作不变量/容差对拍;差异如实记录,非判据"},
-  "rd044": {"condition_literal": "Rapier 深造在快路径被真实 workload 采用时(对拍门判据形态不变,阈值实测标定口径不变)", "condition_literal_unchanged": true, "verdict": "maintain_no_go", "verdict_basis": "rapier.step_ns_median(194200) < jolt.step_ns_median(44600) ⇒ measured 优势 = false;不变量/容差对拍 = true/true", "scope": "本门只产基准报告,不升格深造、不作验收依赖与生产默认;RD-044 字面不变"},
+  "rd044": {"condition_literal": "Rapier 深造在快路径被真实 workload 采用时(对拍门判据形态不变,阈值实测标定口径不变)", "condition_literal_unchanged": true, "verdict": "maintain_no_go", "verdict_basis": "rapier.step_ns_median(195600) < jolt.step_ns_median(39500) ⇒ measured 优势 = false;不变量/容差对拍 = true/true", "scope": "本门只产基准报告,不升格深造、不作验收依赖与生产默认;RD-044 字面不变"},
   "glam_migration": "Rapier 0.33 数学层 = glam 化 nalgebra 后继(Pose/Rotation/Vector = glam 基);对既有快路径封装的 API 冲击 = 收敛于 src/rapier.rs 单模块类型映射面(pose_of/transform_of:PhysicsTransform xyzw quat ↔ glam Quat 直映零重排,§4.C4 原生类型名不透出);兼容层设计 = 映射函数单点维护,公共 API 零 glam 类型透出;glam 化不承诺 bitwise 不变(跨版本浮点语义漂移如实登记,跨 solver 只作不变量/容差对拍)。",
   "benchmark_not_replay_oracle": "replay 对拍唯一权威 = 同 solver 同版本 capture/replay 逐 tick hash(RFC-0021 §4.A1);基准输出冒充 replay oracle = RED(夹具内自检已实测)"
 }

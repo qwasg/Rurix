@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.6 wave6.exit evidence",
+  "description": "evidence/g9_wave6_exit_<UTC>.json。G9.6 波次聚合门 g9.wave.6.exit(步骤 169):G9.6 波五门最新 evidence 只读汇总——两 P0 完整期(M121/M122,步骤 136/137 同 step 双 phase:聚合核验最新件 status==\"pass\" 且 phase_g9_6_pass==true,骨架期绿不替完整期充绿)+ 三 P1(M124 步骤 166 / M126 步骤 167 / M125 步骤 168)+ spec/physics.md 在树且 RXS-0374~0379 条款头齐(RXS-0376 条款头「解析浮力走 Field 通道」字面)+ RFC-0024 v1.1 章 F1/F2 字面在树 + M123 no-go counts_as_green=false 诚实登记字面(spec RXS-0379 + G9_CANDIDATE_DECISIONS v1.5 校准注 + MAP M123 no-go 登记句且 §3 零 m123 key)+ M125 verdict=maintain_5_3_default + 5.3 基线 0-byte 事实(g9_m125_jolt56_ab.json verdict 机核 + src/rurix-physics-sys/VENDOR.md 5.3 pin 字面不动)+ M126 RD-044 maintain_no_go 登记字面(g9_m126_rapier_benchmark.json rd044 面机核)+ 门序 interlock 留痕(ci/g9_physics_interlock.py:M121 完整期 full pass 前 M122 完整期不得绿;M122 最新件 checks.gate_order_m121_full_passed==true)。聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE;不重跑 smoke、不代绿、不设 RURIX_REQUIRE_REAL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g9_wave6_exit"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g9.wave.6.exit"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G9.6"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G9.6"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 169
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g9/CI_GATES §6 v1.18;G9_CONTRACT §8.6;G9_ACCEPTANCE_MAP §2/§3;RFC-0024 v1.1 章 F1/F2;RXS-0374~0379 clause heads on tree;M123 no-go counts_as_green=false registered (not in MAP §3);M125 verdict=maintain_5_3_default + 5.3 baseline 0-byte;M126 RD-044 maintain_no_go registered;M121 full before M122 full interlock"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "symbolic_gate_key",
+          "status"
+        ],
+        "properties": {
+          "symbolic_gate_key": {
+            "type": "string"
+          },
+          "subject_prefix": {
+            "type": "string"
+          },
+          "evidence_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIP"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

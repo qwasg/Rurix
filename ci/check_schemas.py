@@ -436,6 +436,9 @@ def check_evidence_files() -> None:
     g9_wave5_exit_schema = load(
         ROOT / "milestones/g9/g9_wave5_exit_evidence_schema.json"
     )
+    g9_wave6_exit_schema = load(
+        ROOT / "milestones/g9/g9_wave6_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -992,6 +995,11 @@ def check_evidence_files() -> None:
     g9_wave5_exit_validator = (
         jsonschema.Draft7Validator(g9_wave5_exit_schema)
         if g9_wave5_exit_schema is not None
+        else None
+    )
+    g9_wave6_exit_validator = (
+        jsonschema.Draft7Validator(g9_wave6_exit_schema)
+        if g9_wave6_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -1973,6 +1981,16 @@ def check_evidence_files() -> None:
             # + M115 32B 布局 digest 冻结面 + M114 strand 档 not-triggered
             # 登记 + M120 仅测量不定档;聚合不代绿)。
             validator = g9_wave5_exit_validator
+        elif (
+            f.name.startswith("g9_wave6_exit_")
+            and g9_wave6_exit_validator is not None
+        ):
+            # G9.6 波聚合门(步骤 169;ci/g9_wave6_exit_check.py 写:五门最新
+            # evidence 只读汇总——M121/M122 完整期双 phase 核验 + M124/M125/
+            # M126 + RXS-0374~0379 条款头 + RFC-0024 v1.1 章 F1/F2 + M123
+            # no-go 登记 + M125 verdict/5.3 基线 0-byte + M126 RD-044 verdict
+            # + 门序 interlock;聚合不代绿)。
+            validator = g9_wave6_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None
