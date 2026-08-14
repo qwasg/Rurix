@@ -336,9 +336,32 @@ P0 key 命名空间单一事实源为 `G9_ACCEPTANCE_MAP.md` §2：key 一律小
 
 ---
 
+## 12. 章 F — G9.6 判档落定与 World-Field GpuScene 扩面修订行（G9.6 spec-first 修订增补）
+
+> **增补性质**（修订行体例；先例 = RFC-0018 v1.1 §E 纯加性章增补 / RFC-0025 §4.L 对 G5 冻结面显式修订行）：本章为 **v1.1 纯加性增补**，§1~§11 既有冻结文本 **0-byte 不动**。兑现两处前置：① §9 Q1 字面「判档结论以本 RFC 修订行落定，并引判档证据」（M123 判档）；② R-10 🔒 字面「若实现期需要扩展 `GpuScene` 冻结面（新 buffer 面），必须经渲染侧 RFC（RFC-0019 面）的显式修订行，本 RFC 不隐式扩展 G5 渲染冻结面」（M121/M122 完整期 World-Field GpuScene 扩面）。裁定事实源 = G9_ACCEPTANCE_MAP v1.4 / G9_CANDIDATE_DECISIONS v1.5 / 树内 evidence 与 budget 实测。
+
+### F1 🔒 M123 双通道判档落定（Q1 discharged：no-go 不充绿）
+
+- **判档结论 = no-go，维持 M75 no-go 留档**（Q1「测量不足 → 维持 M75 no-go 留档」字面兑现；「异步调度须独立判档」为 `G8_P2_DECISIONS.md` M75 行理由列字面，Q6 唯一字面以 R-6 所引为准，均 0-byte）。
+- **判档证据**（Q1「引判档证据」字面；2026-08-13 树内实测）：判档硬前置 = Jolt 单线程成本 measured——**树内零对应 measured artifact**：`evidence/` 物理相关件（G6 physics_core/physics_bridge/physics_rapier_parity、G8 M66/M67、G9.2 M121/M122 骨架 evidence）零 Jolt 单线程成本字段；`milestones/g9/g9_budget.json` 无物理段 counter（grep 实测零匹配）；测量任务 = D5 先行任务 P-6 / §6.3 步 1，归实现波真跑（measured_local 纪律，禁 estimated），G9.6 治理登记 + spec-first 波零 cargo 构建不产测量。**测量不足 → 判档不成立**。
+- **生效面**（R-4/R-7 🔒 字面维持）：lockstep-deterministic 维持唯一通道；`physics-async-decorative` feature 与 `DecorativePhysicsTickId` 维持「仅 M123 判档 go 时生效」字面**不启用**；async-decorative 通道不建造。M123 不产 P0/P1 key、不充绿；**no-go 项不入 G9_ACCEPTANCE_MAP §3**（§3「no-go/defer 项不入本表」纪律）。
+- **承接锚**：G9.7 P2 穷举（G9_PLAN §2 G9.7 候选行集已列「M123/M126（若判档不成立）」；`ci/g9_p2_decisions_check.py` 候选行含 M123）；实现波 Jolt 单线程成本 measured 数据落地后只追加重判，本行字面不改写。`registry/deferred.json` 0-byte（不新设 RD——承接锚为 G9.7 穷举既有候选行字面，沿 G9_CANDIDATE_DECISIONS v1.3/v1.4 先例）。
+- **登记联动**：G9_CANDIDATE_DECISIONS v1.5 校准注（47 行裁决字面 0-byte）；G9_ACCEPTANCE_MAP §1 只追加 M123 no-go 登记句。
+
+### F2 🔒 World-Field GpuScene 只读扩面显式修订行（RFC-0019 §8 面）
+
+- **修订对象**：RFC-0019 §8 冻结面清单 `GpuScene` 项（G5 冻结面；RFC-0016 §4 语义面，RFC-0022 §8 / RFC-0025 §8 重申 0-byte）。
+- **修订内容（加性，单行面）**：`GpuScene` 加性扩展 **World-Field 只读 buffer 面**——物理侧经既有 Physics→GpuScene 桥按 tick（`PhysicsTickId`）把场采样参数提交为 GpuScene 承载的只读 buffer；渲染/VFX/材质侧**只读消费**该 buffer 自行求值；**渲染侧零回写**（纪律 1 单向事实源 0-byte；旁路写/回写通道即 RED）；时间域归属 `WorldFieldSampleSet` → `RenderFrameId` 经 `FrameDomainMap` 显式映射（R-4 🔒 字面不变）。语义面条款化落 [spec/physics.md](../spec/physics.md) **RXS-0374**（G9.6 spec-first；字段级布局归实现波，本行只冻结面语义与纪律）。
+- **0-byte 边界**：`GpuScene` 既有面（实例变换表/更新口 `update_transform`/`flush_dirty` 等）与 RFC-0019 §8 清单其余项（`MaterialClosure` 32B〔RFC-0025 §4.L 修订行面除外〕/Barrier EB 三轴/`PageRequest`/VisBuffer 位格式/物理五纪律）**字面 0-byte**；本行不授权任何既有字段重排/重释。
+- **R-10 衔接声明**：R-10 🔒「本 RFC 不隐式扩展 G5 渲染冻结面」字面维持——本行为**显式修订行**而非隐式扩展，程序先例 = RFC-0025 §4.L（G9 波 Full RFC 承载对 G5 冻结面〔MaterialClosure 32B〕的显式 🔒 修订行）；「渲染侧 RFC（RFC-0019 面）的显式修订行」经本行对 RFC-0019 §8 `GpuScene` 项的逐字点名修订兑现。差距裁定：扩面 = 单个只读 buffer 面（与 RFC-0025 §4.L 单侧表通道同量级），判档不另起新 RFC（RFC next_free=26 维持不消费）。
+- **RED 臂**（实现波接线）：渲染侧对 World-Field buffer 的任何写/回写通道注入即 RED；绕过 Physics→GpuScene 桥的旁路提交即 RED；骨架期「GpuScene 0-byte 扩面」断言面（`apps/g9-physics-gates` m122.rs 机验）在完整期改按本修订行面核验（world_field buffer 仅经本行授权面出现）。
+
+---
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-08-09 | G9.1 governance-only 初稿：RFC-0021 修订 RFC——§1.1 十条 🔒 修订行（in-scope 承接三行、行 122 神经变形、Field 语义面追加、多时间域扩展、determinism 画像扩展、Q6 判档移交、feature 名追加、bound 程序沿用、NN 权威禁止线、G5 冻结面纪律）；§4 冻结 M121 particle view / M122 Field（八枚举+默认空匹配+persistent 全 journal）/ M123 双通道判档（硬前置=Jolt 单线程成本 measured）/ M124 解析浮力（走 Field 通道、禁旁路）/ M125 Jolt A/B（七步逐字、两臂诚实）/ M127 研究子轨边界；§6.4 冻结两道 P0 key/脚本/schema 路径（不建空壳）；§8 范围红线；§9.1 第 1 轮评审待进行。零 RXS/CI/RD/U/RX 数字 claim；Draft 不构成任何许可。起草 provenance `Kimi Code CLI (Kimi) rfc0024-drafter`。 | Full RFC（Draft） |
 | v1.0 | 2026-08-09 | **Agent Approved**：D-409 第 1 轮独立实例对抗性评审（评审 provenance `Kimi Code CLI (Kimi) rfc0024-adversarial-reviewer` ≠ 起草 `Kimi Code CLI (Kimi) rfc0024-drafter`；同工具族偏差按 RFC-0015 §9.1 / number_ledger v1.29 先例如实登记于 §9.1）完成，7 findings（3 major + 4 minor）全部**采纳并修**：F-1 Q6 字面归属统一（「异步调度须独立判档」= `G8_P2_DECISIONS.md` M75 行字面 / 0021 §2.4 行 123；Q6 唯一字面以 R-6 所引为准，三处实改）、F-2 §6.4 补 `--phase g9.2`/`--phase g9.6` 双腿与双 phase schema 要求、F-3 §6.4 判据逐字照抄 `G9_ACCEPTANCE_MAP.md` M121/M122 行并声明判据事实源、F-4 R-6 补全 Q6「提议」句首并标注提议性质、F-5 三向比对当事方更正为 ACCEPTANCE_MAP/G9_CONTRACT 验收章/CI_GATES §4、F-6 §2.1 M77 行字面归属改标 `G8_P2_DECISIONS.md` M77 行、F-7 §6.4 补 M124 已 go P1 衔接句（G9.6 开工前 MAP §1 只追加程序或波次聚合 subject，不预造 key）。零 RXS/CI/RD/U/RX 数字 claim；批准不解锁实现。 | Full RFC（Agent Approved） |
+| v1.1 | 2026-08-13 | **增补 §12（章 F）：G9.6 判档落定与 World-Field GpuScene 扩面修订行（G9.6 spec-first，纯加性，§1~§11 既有冻结文本 0-byte）**——F1 🔒 M123 Q1 判档落定：**no-go 不充绿**（判档硬前置 Jolt 单线程成本 measured 未满足——树内零 measured artifact：evidence/ 物理件零单线程成本字段、g9_budget.json 无物理段 counter；测量归实现波 D5 先行任务 P-6/§6.3 步 1，治理/spec 波零 cargo 构建不产测量，禁 estimated；维持 M75 no-go 留档，`physics-async-decorative`/`DecorativePhysicsTickId` 维持「仅判档 go 时生效」字面不启用；承接锚 G9.7 穷举；deferred.json 0-byte 不新设 RD；联动 G9_CANDIDATE_DECISIONS v1.5 / G9_ACCEPTANCE_MAP v1.4）；F2 🔒 World-Field GpuScene 只读扩面显式修订行（RFC-0019 §8 `GpuScene` 冻结面加性扩展 World-Field 只读 buffer 面——按 tick 经 Physics→GpuScene 桥提交、渲染侧只读消费零回写、旁路写/旁路提交即 RED、时间域 R-4 字面不变；语义面条款化落 spec/physics.md RXS-0374；GpuScene 既有面与 §8 清单其余项 0-byte；R-10「不隐式扩展」字面维持——本行为显式修订行，程序先例 RFC-0025 §4.L；差距裁定 = 单个只读 buffer 面同 §4.L 量级，不另起新 RFC，RFC next_free=26 维持不消费）。零 RXS/CI/RD/U/RX/MR/D 数字 claim 随本章（spec-first 条款批 RXS-0374~0379 消费登记于 number_ledger v1.93，随 spec PR 同批落）；本章不构成任何实现许可。 | Full RFC（Agent Approved 增补） |
