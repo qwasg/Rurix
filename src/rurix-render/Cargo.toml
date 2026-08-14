@@ -173,5 +173,13 @@ path = "src/bin/g9_m116_terrain.rs"
 name = "g9_m117_decal_dbuffer"
 path = "src/bin/g9_m117_decal_dbuffer.rs"
 
+# G9.5 M113 水体双管线 P1 harness(RXS-0366;门 g9.p1.m113.water_dual_pipeline):
+# 大洋 Tessendorf IFFT 三贴图与 host DFT 参考逐值对拍(measured 容差冻结)+
+# 浅水波方程 ping-pong + 双管线几何路径互斥机核 + 非法谱参数拒录/浅水越界写/
+# 互斥违反三 RED 臂 + 浮力接口面预留不实现登记。纯 host 确定性面。
+[[bin]]
+name = "g9_m113_water"
+path = "src/bin/g9_m113_water.rs"
+
 [lints]
 workspace = true

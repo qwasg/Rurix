@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g9m113.water.v1",
+  "schema_version": 1,
+  "subject": "g9_m113_water",
+  "spec_anchor": "RXS-0366",
+  "assertion_id": "g9.p1.m113.water_dual_pipeline",
+  "milestone": "M113",
+  "wave": "G9.5",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "mode": "pass",
+  "timestamp": "2026-08-13T20:50:56Z",
+  "base_commit": "ee8edeed",
+  "run_url": null,
+  "environment": {"os": "windows", "arch": "x86_64", "device_name": "host-only(无 device 依赖;M113 语义面 = 谱参数化 + IFFT 数学 + 互斥机核)", "validation": "not_applicable", "require_real": true},
+  "golden": {"ocean_digest": "76a7e0560cdc77f7e4e8b10b2c99fd20f27963ac6bb525f01fe10c1c944a3f26", "shallow_digest": "b36c98a3b6c0ed3c86243321ed009e5ca85c8a4a71ac74ef186b56387f66bf35", "ifft_vs_dft_max_abs": "0.00000000000029309887850104133", "foam_count": 587, "freeze_band": "H:\\rurix\\milestones/g9/g9_m113_water_band.json"},
+  "counters": {"ocean_grid": 32, "shallow_dim": 16, "foam_count": 587, "shallow_energy_abs_sum": 3.932460},
+  "red_arms": {"invalid_spectrum": true, "shallow_oob": true, "geometry_shared": true},
+  "conformance_corpus": {"dir": "conformance/world_partition", "files": 2, "anchors": {"accept/water_dual_pipeline_minimal.rx": "RXS-0366", "reject/water_spectrum_param_invalid.rx": "RXS-0366"}},
+  "checks": {"conformance_corpus_anchored": true, "spectrum_asset_assembly": true, "ocean_ifft_three_maps": true, "ifft_vs_host_dft_measured": true, "jacobian_negative_drives_foam": true, "cdlod_tiling_blend_closed": true, "shallow_ping_pong": true, "dual_pipeline_geometry_disjoint": true, "shared_shading_closure_input_only": true, "buoyancy_reserved_not_implemented": true, "double_run_bit_equal": true, "golden_frozen_equal": true},
+  "commands": ["target-g95d/debug/g9_m113_water.exe", "--evidence", "evidence/g9_m113_water_20260813T205055Z_voff.json"],
+  "failures": []
+}

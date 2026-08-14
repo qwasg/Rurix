@@ -1,0 +1,12 @@
+{
+  "schema": "rurix.g9m113.water_band.v1",
+  "frozen_at_utc": "2026-08-13T20:25:37Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M113 语义面 = 谱参数化 + IFFT 数学 + 双管线互斥机核)"},
+  "freeze_rule": "ocean_digest = canonical 谱资产 32×32 IFFT 三贴图+泡沫掩码 SHA-256;shallow_digest = 16×16 浅水 8 步 ping-pong 场 SHA-256(双跑位级一致后冻结,禁手写);ifft_vs_dft_max_abs = radix-2 FFT 与定义式 DFT 参考逐值对拍最大绝对差 measured 精确值(容差域 = 该 measured 值逐字,确定性双实现同机重放恒等,禁手写);foam_count = Jacobian 负值驱动泡沫计数 golden",
+  "spec_anchor": "RXS-0366",
+  "ocean_digest": "76a7e0560cdc77f7e4e8b10b2c99fd20f27963ac6bb525f01fe10c1c944a3f26",
+  "shallow_digest": "b36c98a3b6c0ed3c86243321ed009e5ca85c8a4a71ac74ef186b56387f66bf35",
+  "ifft_vs_dft_max_abs": "0.00000000000029309887850104133",
+  "foam_count": "587",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-p1b-implementer"
+}

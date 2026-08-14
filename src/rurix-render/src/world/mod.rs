@@ -15,9 +15,13 @@
 //! - [`decal`] = M117 贴花 DBuffer(RXS-0368:DBuffer 三通道帧图设计期占位 +
 //!   双段写/合成语义 + screen-space cluster 化受界 + 前向回退档语义等价 golden +
 //!   超界注入受界降级 RED)。
+//! - [`water`] = M113 水体双管线(RXS-0366:大洋 Tessendorf IFFT 三贴图与 host
+//!   DFT 参考逐值对拍 + 浅水波方程 ping-pong + 双管线几何路径互斥机核 + 非法
+//!   谱参数拒录 RED + 浮力接口面预留不实现)。
 
 pub mod atmosphere;
 pub mod decal;
 pub mod hlod;
 pub mod partition;
 pub mod terrain;
+pub mod water;
