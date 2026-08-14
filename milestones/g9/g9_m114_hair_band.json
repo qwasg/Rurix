@@ -1,0 +1,13 @@
+{
+  "schema": "rurix.g9m114.hair_band.v1",
+  "frozen_at_utc": "2026-08-13T20:44:05Z",
+  "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖;M114 语义面 = Marschner 三瓣数学 + 几何三档 + 烘焙确定性)"},
+  "freeze_rule": "lobe_*_digest = canonical Marschner 参数集角度扫描(θ_r∈±0.6 步 0.05,φ∈0..π 步 π/36)逐瓣序列 SHA-256(逐瓣对拍 golden,双跑位级一致后冻结,禁手写);max_total_lobe_energy = 瓣能量守恒 measured(逐样本总瓣能上界 1);replacement_digest = 64 strand/聚类8 股替换映射 SHA-256(烘焙确定性 golden)",
+  "spec_anchor": "RXS-0372",
+  "lobe_r_digest": "6169f09bdbf082e82020d4c06d9f6283d8a2fd61137011ddeefb7bf3736cfb7f",
+  "lobe_tt_digest": "60891822cc6290f2674debac907ba87cf8db76768f44d162278e40f95540ea93",
+  "lobe_trt_digest": "0401452ea5154bcfd58b366c6614a567bfa79ad56af8c035c64ce5dcba7b69b0",
+  "max_total_lobe_energy": "0.5376431",
+  "replacement_digest": "c643e5525541dae2502fcba16262d5b63261ae149bf26ec7779fe6ce0f668d3d",
+  "provenance": "Assisted-by: Kimi:Kimi-K3 g95-p1b-implementer"
+}

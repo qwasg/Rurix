@@ -12,6 +12,9 @@
 //! - [`skin`] = M115 皮肤 Burley 屏单 pass separable SSS（RXS-0373:颜色/深度
 //!   双 kernel + 扩散 profile 资产化经 §4.L 侧表通道 + pre-integrated LUT 回退
 //!   档 + 全零衰减退化纯漫反射 RED + 32B 0-byte 机核）。
+//! - [`hair`] = M114 毛发 Marschner R/TT/TRT 三瓣与几何三档（RXS-0372:逐瓣
+//!   golden + 瓣能量守恒 + 单瓣置零 RED + 股替换烘焙确定性 + strand 档强制精确
+//!   OIT 分项 not-triggered 登记不充绿）。
 //!
 //! 纪律:host 纯 safe 确定性（全库 `forbid(unsafe_code)`）；零新 FFI；无
 //! device 依赖——M118 语义面 = view transform 数学 + 交换链路径状态机,窗口
@@ -23,6 +26,7 @@ pub mod aces13;
 pub mod aces20;
 pub mod agx;
 pub mod color;
+pub mod hair;
 pub mod neutral;
 pub mod post_chain;
 pub mod skin;

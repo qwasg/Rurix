@@ -190,5 +190,14 @@ path = "src/bin/g9_m113_water.rs"
 name = "g9_m115_skin"
 path = "src/bin/g9_m115_skin.rs"
 
+# G9.5 M114 毛发 Marschner 三瓣 P1 harness(RXS-0372;门 g9.p1.m114.hair_marschner):
+# Marschner R/TT/TRT 逐瓣 golden + 瓣能量守恒 + 几何三档 + strand→card 股替换
+# 烘焙确定性 + strand 档强制精确 OIT 分项 not-triggered 登记(消费 M120 测量
+# 冻结带,counts_as_green=false)+ 单瓣置零/排序依赖缺失/侧表越权三 RED 臂。
+# 纯 host 确定性面。
+[[bin]]
+name = "g9_m114_hair"
+path = "src/bin/g9_m114_hair.rs"
+
 [lints]
 workspace = true
