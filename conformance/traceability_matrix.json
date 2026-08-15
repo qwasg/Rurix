@@ -1976,6 +1976,11 @@
     "RXS-0388": [
       "conformance/visual_comparison/accept/pixel_diff_report_minimal.rx",
       "conformance/visual_comparison/reject/diff_scalar_inconsistency.rx"
+    ],
+    "RXS-0389": [
+      "conformance/visual_comparison/accept/flip_caliber_minimal.rx",
+      "conformance/visual_comparison/reject/flip_caliber_drift.rx",
+      "conformance/visual_comparison/reject/flip_reference_perturbation.rx"
     ]
   }
 }

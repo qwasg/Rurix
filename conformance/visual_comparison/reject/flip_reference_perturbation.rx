@@ -1,0 +1,8 @@
+//@ spec: RXS-0389
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0389 L5：参考
+// 输出扰动注入即 RED——参考实现输出标量/误差图被注入扰动后，自实现与
+// 「参考实现」对拍差超 measured 容差，门必须检出；扰动冒充一致即
+// 防降级硬门失效）。
+// 预期 RED：对拍差 > 容差（p100×k）→ g10.p0.m135.flip_metric FAIL。
+// 转正路径（G10.4b 波接线）：ci/g10_flip_metric_smoke.py 门内注入臂。
+fn main() {}

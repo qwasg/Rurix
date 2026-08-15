@@ -374,3 +374,4 @@
 | RXS-0386 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/metric_domain_contract_minimal.rx`, `conformance/visual_comparison/reject/domain_label_mismatch.rx` |
 | RXS-0387 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/ssim_psnr_caliber_minimal.rx`, `conformance/visual_comparison/reject/hdr_direct_ssim_psnr.rx` |
 | RXS-0388 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/pixel_diff_report_minimal.rx`, `conformance/visual_comparison/reject/diff_scalar_inconsistency.rx` |
+| RXS-0389 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/flip_caliber_minimal.rx`, `conformance/visual_comparison/reject/flip_caliber_drift.rx`, `conformance/visual_comparison/reject/flip_reference_perturbation.rx` |

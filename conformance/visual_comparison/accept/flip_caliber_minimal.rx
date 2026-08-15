@@ -1,0 +1,14 @@
+//@ spec: RXS-0389
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0389 L1~L5：FLIP
+// 口径闭集——NVlabs/flip 参考实现 pin 五元组〔commit digest + 分支/后端 +
+// OS/工具链 + 构建配置 + 运行参数集〕/ 双域口径〔HDR-FLIP 曝光 start/stop/N
+// + auto-from-reference 语义，LDR-FLIP 显示域 sRGB〕/ YCxCz 色彩管道与常量
+// 闭集〔gqc/gpc/gpt/gw/gqf + a1/b1/a2/b2〕/ ppd 策略冻结〔全语料单一值或
+// 单一推导几何〕/ 恒等图对 FLIP=0 极值断言 / 对拍容差两面分列〔标量差与
+// 误差图逐像素差 p100×k measured 标定〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：LDR 显示域 sRGB [0,1]
+// 图对（五内容类：高频边缘/平滑渐变/噪声/高亮截断/色彩孤立区，≥24 图对
+// 每类 ≥4）逐图自实现 vs 参考实现对拍一致；恒等图对 FLIP 标量恰 0。
+// 转正路径（G10.4b 波接线）：ci/g10_flip_metric_smoke.py 门（symbolic
+// key g10.p0.m135.flip_metric，G10.1 冻结字面不动）。
+fn main() {}

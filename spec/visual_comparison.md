@@ -312,3 +312,85 @@
 - IR3 RED 语料（conformance/visual_comparison/reject/）：diff 图与标量
   报告不一致注入 / 空场景行注入 / 闭集外字段注入——转正路径为 M137 门
   脚本内注入臂。
+
+### RXS-0389 FLIP 口径闭集：参考实现 pin 五元组 / 双域口径 / 恒等图对极值断言 / 对拍容差两面分列（M135）
+
+**Legality**
+
+- L1 **参考实现选型与版本 pin（pin 五元组，缺一元即 RED）**：FLIP 参考
+  实现 = NVIDIA FLIP 官方开源实现 NVlabs/flip（Andersson et al.,
+  *FLIP: A Difference Evaluator for Alternating Images*, HPG 2020；
+  BSD-3-Clause）。**pin 五元组**随 evidence 登记（R-G10-3 版本漂移对策）：
+  ① commit digest（联网获取时 `git ls-remote` 实测登记，zip 快照 digest
+  双记）；② 实现分支/后端（枚举闭集 `{"cpp-tool", "cpp-header-lib",
+  "cuda", "python-nanobind"}`，登记采用形态）；③ OS/工具链（OS + 编译器
+  + CMake + Python + nanobind/scikit-build-core 版本）；④ 构建配置
+  （构建系统 + 产物 wheel digest）；⑤ 运行参数集（域/输入色彩空间旗标/
+  色彩映射旗标/均值聚合旗标/参数字面）。上游明示跨 OS 输出可像素级不
+  一致、C++ 与 CUDA 后端结果亦不同（仓库 `misc/precision.md` 精度声明），
+  故分支/后端与 OS/工具链必须是显式 pin 维度；任一 pin 维度漂移即口径
+  漂移 RED。
+- L2 **双域口径**（与 RXS-0386 L1 双臂一一对应）：**HDR-FLIP** 输入 =
+  HDR 臂 scene-linear 帧（线性 HDR）；曝光参数面对齐参考实现实际面——
+  `hdr_exposure_mode ∈ {"auto-from-reference", "fixed"}`：
+  `auto-from-reference` = 由**参考图中位亮度**推导 start/stop 曝光
+  （参考实现 v1.7 起 median=0 安全）；`fixed` 时
+  `{hdr_exposure_start, hdr_exposure_stop, hdr_num_exposures}` 三参必填；
+  单值 `hdr_exposure_value` 形态否决（与参考实现参数面不符，照抄即不可
+  执行）。**LDR-FLIP** 输入 = LDR 臂显示域 sRGB `[0,1]` 帧。**域互证**：
+  度量 `domain` 入参必须等于输入帧元数据 `rurix:domain`（RXS-0386 L3），
+  错配拒绝（fail-closed）。
+- L3 **口径参数闭集**（闭集外参数禁调；值随参考实现默认 pin，偏离默认
+  须经 M138 标定程序登记理由）：
+
+  | 参数 | 闭集/口径 |
+  |---|---|
+  | `domain` | `"hdr"` / `"ldr"`（与帧 `rurix:domain` 互证，错配拒绝） |
+  | `ppd` | pixels-per-degree 正数；或由 viewing geometry 三参数（`viewing_distance_m` / `screen_width_m` / `resolution_x`）按参考实现公式 `ppd = dist · (res_x / mon_w) · π/180` 推导——两形态二选一，登记采用形态；**ppd 策略冻结：全语料单一值或单一推导几何**（采用形态与取值随 `metric_caliber` digest 登记；语料内逐场景漂移即口径漂移 RED，跨场景 FLIP 标量方可比）；变更走修订行 |
+  | `hdr_exposure_mode` / `hdr_exposure_start` / `hdr_exposure_stop` / `hdr_num_exposures` | HDR 域曝光参数面（见 L2，对齐参考实现 start/stop/N + auto 语义） |
+  | `colorspace_transform` | `"YCxCz"`（论文口径，冻结） |
+  | `feature_filters` | 边缘/点检测参数集 = 参考实现默认（`gw = 0.082`、`gqf = 0.5`；pin 五元组覆盖） |
+  | `spatial_pooling` | 加权均值聚合（全图算术均值），输出标量 ∈ `[0,1]`（0 = 不可区分） |
+  | `error_map_output` | 必开（逐像素误差图，RXS-0388 机器 canonical 面的 FLIP 源） |
+
+  颜色/特征常量闭集（论文口径冻结）：`gqc = 0.7`、`gpc = 0.4`、
+  `gpt = 0.95`、`gw = 0.082`、`gqf = 0.5`；空间滤波常量
+  `a1 = (1.0, 1.0, 34.1)`、`b1 = (0.0047, 0.0053, 0.04)`、
+  `a2 = (0.0, 0.0, 13.5)`、`b2 = (1e-5, 1e-5, 0.025)`；色彩管道 =
+  sRGB → linear RGB → XYZ(D65) → YCxCz → 空间滤波（分离卷积、边缘
+  clamp）→ 回线性 RGB clamp [0,1] → CIELAB → Hunt 调整
+  （`0.01·L·a` / `0.01·L·b`）→ HyAB 距离 → `^gqc` → cmax/pccmax
+  分段重映射；特征差 = 边缘/点差大者经 `1/√2` 归一后 `^gqf`；最终
+  误差 = `color_diff ^ (1 − feature_diff)`。
+- L4 **恒等图对极值断言**：位级相同图对 → FLIP 标量**恰为 `0`**（误差
+  图逐像素恰为 0）；非零即 RED。
+- L5 **对拍与容差（两面分列，measured 标定）**：自实现与参考实现在同一
+  测试图集上逐图对拍。**对拍图集下界**：图集 ≥ 24 图对；内容类五类每类
+  ≥ 4——高频边缘 / 平滑渐变 / 噪声 / 高亮截断（clip）/ 色彩孤立区
+  （RXS-0387 L4 同一图集与下界语义，两度量共用）；图集清单与每图 digest
+  入 evidence；**不满足下界的对拍不构成有效标定**（稀释通道封堵）。
+  **对拍容差两面分列**——标量对拍容差（逐图 FLIP 标量差）与**误差图
+  对拍容差**（逐像素误差图差）分列 M138 标定、分列登记：上游明示跨
+  OS/跨后端误差图可像素级漂移，而 RXS-0388 机器 canonical 误差 EXR
+  直接取 FLIP 误差图，容差面必须覆盖误差图而非仅标量。**估计器语义
+  （冻结）**：统计量 = 全图集逐图 |自实现 − 参考实现| 差（标量差与误差
+  图逐像素差分列）的样本最大值（p100）；容差 = p100 × 安全系数 k，
+  k ∈ [1.0, 3.0]（取值与选择理由随 `g10_budget.json` provenance 登记；
+  估计器形态变更走修订行）；样本集 = 对拍图集 digest 引用。容差数值
+  一律 M138 measured 标定（G10.4 波以 provisional 形态随 evidence 登记
+  provenance，禁手写阈值冒充标定）。参考输出扰动注入即 RED；口径参数
+  漂移（闭集外参数或值漂移）注入即 RED。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m135.flip_metric`（G10.4）；测试锚定 =
+  conformance/visual_comparison/ 语料 + `ci/g10_flip_metric_smoke.py`
+  门脚本。
+- IR2 自实现面 = ci/ 工具链 Python/numpy 按 L3 口径管道逐字实现
+  （YCxCz 变换 / 分离空间滤波 / Hunt-HyAB 色差 / 边缘·点特征滤波 /
+  分段重映射 / 最终误差合成字面与 L3 逐字一致）；参考实现面 =
+  NVlabs/flip 按 L1 pin 五元组落地（选臂与构建受阻回退臂如实登记），
+  参考输出经 `flip_evaluator.evaluate(...)`（或选臂对应入口）逐图取得。
+- IR3 RED 语料（conformance/visual_comparison/reject/）：参考输出扰动
+  注入 / 口径参数漂移注入 / 恒等图对非零注入 / 图集不满足下界冒充——
+  转正路径为 M135 门脚本内注入臂。

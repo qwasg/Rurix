@@ -1,0 +1,9 @@
+//@ spec: RXS-0389
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0389 L3/L5：口径
+// 参数漂移注入即 RED——闭集外参数或闭集值漂移（如 gqc/ppd/滤波常量偏离
+// pin 值）后，自实现输出偏离参考实现超 measured 容差，门必须检出；pin
+// 五元组任一维度漂移同判口径漂移 RED）。
+// 预期 RED：漂移后 |自实现 − 参考实现| > 容差（p100×k）→
+// g10.p0.m135.flip_metric FAIL。
+// 转正路径（G10.4b 波接线）：ci/g10_flip_metric_smoke.py 门内注入臂。
+fn main() {}
