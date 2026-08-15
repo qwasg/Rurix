@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m103_descriptor_global_table",
+  "milestone": "M103",
+  "wave": "G9.2",
+  "assertion_id": "g9.p0.m103.descriptor_global_table",
+  "status": "pass",
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-rt --quiet --lib descriptor_table::",
+      "exit_code": 0,
+      "note": "④⑤⑥全局表分配律/悬空越界/泄漏计数器"
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurixc --quiet --lib reflection",
+      "exit_code": 0,
+      "note": "①③⑤reflection RXS-0347 尾随字段 0-drift/真值化/RED 单测"
+    },
+    {
+      "seq": 3,
+      "command": "cargo test -p rurixc --lib --quiet reflection::tests::gdi_truth_table_trailing_additive",
+      "exit_code": 0,
+      "note": "①reflection↔全局索引映射真值化(双向对拍面)"
+    },
+    {
+      "seq": 4,
+      "command": "cargo test -p rurixc --lib --quiet reflection::tests::gdi_absent_is_byte_identical_zero_drift",
+      "exit_code": 0,
+      "note": "③既有 reflection golden 0-byte 恒跑"
+    },
+    {
+      "seq": 5,
+      "command": "cargo test -p rurixc --lib --quiet reflection::tests::gdi_dangling_and_budget_fail_closed",
+      "exit_code": 0,
+      "note": "⑤悬空/越界 fail-closed"
+    },
+    {
+      "seq": 6,
+      "command": "cargo test -p rurix-rt --lib --quiet descriptor_table::tests::allocation_is_deterministic",
+      "exit_code": 0,
+      "note": "④同输入同映射确定性"
+    },
+    {
+      "seq": 7,
+      "command": "cargo test -p rurix-rt --lib --quiet descriptor_table::tests::fail_closed_paths_and_leak_counter",
+      "exit_code": 0,
+      "note": "⑤⑥悬空/越界/双释放/leak 计数器"
+    },
+    {
+      "seq": 8,
+      "command": "cargo build -p rurix-rt --features vulkan --bin vk_desc_v3",
+      "exit_code": 0,
+      "note": "vk_desc_v3 编译"
+    },
+    {
+      "seq": 9,
+      "command": "vk_desc_v3.exe (RURIX_REQUIRE_REAL=1 RURIX_VK_VALIDATION=1)",
+      "exit_code": 0,
+      "note": "②⑦65536 条目 device 出图 + validation"
+    },
+    {
+      "seq": 10,
+      "command": "cargo build -p rurix-rt --features vulkan --bin vk_desc_v2",
+      "exit_code": 0,
+      "note": "vk_desc_v2 编译(回归)"
+    },
+    {
+      "seq": 11,
+      "command": "vk_desc_v2.exe (回归对照)",
+      "exit_code": 0,
+      "note": "③v1/v2 旧路径回归对照"
+    }
+  ],
+  "symbolic_gate_key": "g9.p0.m103.descriptor_global_table",
+  "matrix_row": "M103",
+  "numeric_step": 134,
+  "source_ref": "RFC-0023 §4.3;spec/rendering_platform.md RXS-0347;G9_ACCEPTANCE_MAP §2 M103",
+  "host_section_pass": true,
+  "device_section_state": "pass",
+  "checks": {
+    "reflection_shader_index_bidirectional_equal": true,
+    "table_65536_entries_golden": true,
+    "legacy_set_binding_zero_byte_regression": true,
+    "index_allocation_deterministic": true,
+    "dangling_index_fail_closed": true,
+    "index_leak_counter_zero": true,
+    "device_validation_zero": true
+  },
+  "evidence_level": "measured_local",
+  "base_commit": "ec27492add88c3f36f7412b7ec1ff670a5c2d1ed",
+  "run_url": "",
+  "timestamp": "20260815T030028Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "host+device 门(RTX 4070 Ti 真跑,RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1,validation 零报错)。七腿:reflection↔shader 索引双向精确相等 + ≥65536 条目出图 golden 逐字节相等 + set/binding 旧路径0-byte 回归(vk_desc_v2 对照)+ 分配确定性 + 悬空/越界 fail-closed + 泄漏计数器零 + device validation 零。全局表分配律单一事实源 = src/rurix-rt/src/descriptor_table.rs;descriptor buffer 物理写入面 = vk.rs VK_EXT_descriptor_buffer FFI(U55);reflection 尾随可选字段 = rurixc reflection.rs RXS-0347(缺省 0-drift,既有 golden 0-byte 恒跑)。"
+}

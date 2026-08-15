@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m107_shader_library_ir_link",
+  "symbolic_gate_key": "g9.p1.m107.shader_library_ir_link",
+  "matrix_row": "M107",
+  "milestone": "M107",
+  "assertion_id": "g9.p1.m107.shader_library_ir_link",
+  "status": "pass",
+  "wave": "G9.3",
+  "numeric_step": 145,
+  "source_ref": "RFC-0023 §4.5/§4.6;spec/gpu_driven_submit.md RXS-0356;G9_ACCEPTANCE_MAP §3 M107",
+  "base_commit": "ec27492add88c3f36f7412b7ec1ff670a5c2d1ed",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_link_deterministic_and_order_invariant": true,
+    "host_interface_hash_stability_and_replay": true,
+    "host_link_fail_closed_reds": true,
+    "host_variant_budget_exceeded_red_and_boundary": true,
+    "host_variant_budget_zero_and_single_edges": true,
+    "host_variant_audit_identity_dead_and_json": true,
+    "conformance_red_corpus_anchored": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurixc --lib shader_library",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T022447Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "纯 host 门;6 单测逐名锚定 + conformance RED 语料锚定"
+}

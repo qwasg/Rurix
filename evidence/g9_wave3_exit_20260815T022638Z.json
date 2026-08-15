@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "subject": "g9_wave3_exit",
+  "symbolic_gate_key": "g9.wave.3.exit",
+  "matrix_row": "G9.3",
+  "wave": "G9.3",
+  "numeric_step": 146,
+  "source_ref": "milestones/g9/CI_GATES §6 v1.6;G9_CONTRACT §8.3;G9_ACCEPTANCE_MAP §2/§3;RFC-0022/0023 Agent Approved;RXS-0350~0356 clause heads on tree;U56/U57 unsafe-audit registered",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g9.p0.m93.visible_cluster_set",
+      "subject_prefix": "g9_m93_visible_cluster_set",
+      "evidence_path": "evidence/g9_m93_visible_cluster_set_20260815T022438Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022438Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m94.clas_rt_convergence",
+      "subject_prefix": "g9_m94_clas_rt_convergence",
+      "evidence_path": "evidence/g9_m94_clas_rt_convergence_20260815T022439Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022439Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m95.single_source_truth",
+      "subject_prefix": "g9_m95_single_source_truth",
+      "evidence_path": "evidence/g9_m95_single_source_truth_20260815T022441Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022441Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m92.gpu_skinning_lod_update",
+      "subject_prefix": "g9_m92_gpu_skinning_lod_update",
+      "evidence_path": "evidence/g9_m92_gpu_skinning_lod_update_20260815T022443Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022443Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m105.command_build_node",
+      "subject_prefix": "g9_m105_command_build_node",
+      "evidence_path": "evidence/g9_m105_command_build_node_20260815T022445Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022445Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m106.execution_set_pso",
+      "subject_prefix": "g9_m106_execution_set_pso",
+      "evidence_path": "evidence/g9_m106_execution_set_pso_20260815T022446Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022446Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m107.shader_library_ir_link",
+      "subject_prefix": "g9_m107_shader_library_ir_link",
+      "evidence_path": "evidence/g9_m107_shader_library_ir_link_20260815T022447Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T022447Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rfc0022_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-09）** |"
+    },
+    {
+      "id": "rfc0023_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-09）**。§9.1 独立 provenance 对抗性评审第 1 轮完成，4 findings（2 major + 2 minor）全部采纳并修；G9.1 governance-only 交付物，批准只表示语义评审通过，不解锁任何 `src/`、`spec/`、`conformance/` 实现 |"
+    },
+    {
+      "id": "rxs0350_0356_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/virtual_geometry.md RXS-0350~0353 + spec/gpu_driven_submit.md RXS-0354~0356 条款头全在树"
+    },
+    {
+      "id": "u56_u57_registered",
+      "status": "PASS",
+      "detail": "unsafe-audit/rurix-rt.md U56/U57 行=在树;ledger U on_tree_max=57 next_free=58(要求 ≥57/≥58)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T022638Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: seven G9.3 gates (P0 M93/M94/M95 + P1 M92/M105/M106/M107); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RFC-0022/0023 Approved literal + RXS-0350~0356 clause heads + U56/U57 registered; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

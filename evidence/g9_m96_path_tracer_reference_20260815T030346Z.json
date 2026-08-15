@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m96_path_tracer_reference",
+  "symbolic_gate_key": "g9.p0.m96.path_tracer_reference",
+  "matrix_row": "M96",
+  "milestone": "M96",
+  "assertion_id": "g9.p0.m96.path_tracer_reference",
+  "status": "pass",
+  "wave": "G9.4",
+  "numeric_step": 147,
+  "source_ref": "RFC-0022 §4.10;spec/global_illumination.md RXS-0357;G9_ACCEPTANCE_MAP §2 M96",
+  "base_commit": "1d298017991278e32e54d459589e296242718115",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "host_path_trace_tests_anchored": true,
+    "conformance_gi_corpus_anchored": true,
+    "pbrt_band_provenance_frozen": true,
+    "device_harness_full_pass": true,
+    "device_double_run_bitexact": true,
+    "device_sample_count_export": true,
+    "device_golden_digest_match": true,
+    "device_pbrt_band_within": true,
+    "device_red_arms_effective": true,
+    "device_red_arm_submodes_detected": true,
+    "device_scope_reject_failclosed": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib gi::path_trace",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurixc --features vulkan-backend --bin rurixc",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "rurixc src/rurix-render/kernels/g9_m96_path_tracer.rx --target vulkan -o .tmp/g94_gates/m96/g9_m96_path_tracer.spv",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurix-render --features vulkan --bin g9_m96_path_tracer",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g9_m96_path_tracer --spv .. --pbrt .. --imgtool .. (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g9_m96_path_tracer --red-arm seed-change|no-rr|no-mis --spv .. (子模式抽检)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T030346Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "本机 pbrt.exe sha256 与冻结带 provenance 逐字一致; device:全档真跑(双跑位级 + pbrt 带内)+ 三 RED 臂子模式独立复跑"
+}

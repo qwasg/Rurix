@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m101_if_tier_ladder",
+  "symbolic_gate_key": "g9.p1.m101.if_tier_ladder",
+  "matrix_row": "M101",
+  "milestone": "M101",
+  "assertion_id": "g9.p1.m101.if_tier_ladder",
+  "status": "pass",
+  "wave": "G9.4",
+  "numeric_step": 152,
+  "source_ref": "RFC-0022 §4.8;spec/global_illumination.md RXS-0362;G9_ACCEPTANCE_MAP §3 M101",
+  "base_commit": "1d298017991278e32e54d459589e296242718115",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "gate_order_m96_passed": true,
+    "host_if_tier_tests_anchored": true,
+    "conformance_gi_corpus_anchored": true,
+    "if_tier_band_provenance_frozen": true,
+    "device_harness_full_pass": true,
+    "device_double_run_bitexact": true,
+    "device_shared_kernel_single_instance": true,
+    "device_vis_host_parity": true,
+    "device_budget_rows_consumed": true,
+    "device_selector_bitexact": true,
+    "device_red_arms_effective": true,
+    "device_red_arm_submodes_detected": true,
+    "device_m96_cross_anchor_band": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib gi::if_tier",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurixc --features vulkan-backend --bin rurixc",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "rurixc kernels/g9_m101_probe_oct.rx + g9_m96_path_tracer.rx --target vulkan -o .tmp/g94_gates/m101/*.spv",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurix-render --features vulkan --bin g9_m101_if_tier_ladder",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g9_m101_if_tier_ladder --spv-m101 .. --spv-m96 .. (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g9_m101_if_tier_ladder --red-arm srgb-encode --spv-m101 .. + --red-arm budget-no-demote (子模式抽检)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T030406Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M96 门最新 evidence g9_m96_path_tracer_reference_20260815T030346Z.json status=pass(门序前置满足); M101 带 m96_anchor_digest == M97 带 depth2 m96_digest(门序链锚逐字一致); device:全档真跑(四档阶梯 + 预算行消费 AsStats)+ srgb-encode/budget-no-demote 子模式复跑"
+}

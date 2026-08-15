@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m126_rapier_benchmark_ab",
+  "symbolic_gate_key": "g9.p1.m126.rapier_benchmark_ab",
+  "matrix_row": "M126",
+  "milestone": "M126",
+  "assertion_id": "g9.p1.m126.rapier_benchmark_ab",
+  "status": "pass",
+  "wave": "G9.6",
+  "numeric_step": 167,
+  "source_ref": "RFC-0024 §4.E2;spec/physics.md RXS-0378;G9_ACCEPTANCE_MAP §3 M126",
+  "base_commit": "ec27492add88c3f36f7412b7ec1ff670a5c2d1ed",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_module_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "measured_report_provenance": true,
+    "cross_solver_deviation_recorded": true,
+    "rd044_verdict_honest": true,
+    "harness_full_pass": true,
+    "harness_checks_closed_set_green": true,
+    "harness_red_arm_submode_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-physics --features physics-capture,rapier --lib benchmark",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurix-physics --features physics-capture,rapier --bin g9_m126_rapier_benchmark",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\debug\\g9_m126_rapier_benchmark.exe --evidence H:\\rurix\\.tmp\\g96_gates\\m126\\harness_evidence.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g9_m126_rapier_benchmark.exe --red-arm replay-oracle",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\debug\\g9_m126_rapier_benchmark.exe --red-arm rd044-without-measured",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T022636Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "harness:A/B 同场景同输入同画像 + 双臂双跑位级一致 + measured 报告 + 双 RED 臂 + RD-044 字面不变"
+}

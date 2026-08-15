@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m97_surface_cache",
+  "symbolic_gate_key": "g9.p0.m97.surface_cache",
+  "matrix_row": "M97",
+  "milestone": "M97",
+  "assertion_id": "g9.p0.m97.surface_cache",
+  "status": "pass",
+  "wave": "G9.4",
+  "numeric_step": 148,
+  "source_ref": "RFC-0022 §4.6;spec/global_illumination.md RXS-0358;G9_ACCEPTANCE_MAP §2 M97",
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "gate_order_m96_passed": true,
+    "host_surface_cache_tests_anchored": true,
+    "conformance_gi_corpus_anchored": true,
+    "depth_band_provenance_frozen": true,
+    "device_harness_full_pass": true,
+    "device_double_run_bitexact": true,
+    "device_product_digests_golden": true,
+    "device_m96_golden_anchor": true,
+    "device_depth_band_within": true,
+    "device_no_leak_energy_only": true,
+    "device_red_arms_effective": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib gi::surface_cache",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurixc --features vulkan-backend --bin rurixc",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "rurixc kernels/g9_m97_cache_{capture,render}.rx + g9_m96_path_tracer.rx --target vulkan -o .tmp/g94_gates/m97/*.spv",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurix-render --features vulkan --bin g9_m97_surface_cache",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g9_m97_surface_cache --spv-capture .. --spv-render .. --spv-m96 .. (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g9_m97_surface_cache --red-arm hole-leak --spv-capture .. --spv-render .. (子模式抽检)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T144534Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M96 门最新 evidence g9_m96_path_tracer_reference_20260814T144528Z.json status=pass(门序前置满足); M97 带 m96_anchor_digest == M96 带 m96_cornell spp64 golden(门序链锚逐字一致); device:全档真跑(三深度 golden + 漏光双臂)+ hole-leak 子模式独立复跑"
+}

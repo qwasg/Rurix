@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m102_dgc_abstraction",
+  "symbolic_gate_key": "g9.p0.m102.dgc_abstraction",
+  "matrix_row": "M102",
+  "milestone": "M102",
+  "assertion_id": "g9.p0.m102.dgc_abstraction",
+  "status": "pass",
+  "wave": "G9.2",
+  "numeric_step": 131,
+  "source_ref": "RFC-0023 §4.1/§6.2;spec/gpu_driven_submit.md RXS-0348;spec/shader_stages.md RXS-0349;G9_ACCEPTANCE_MAP §2 M102",
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "dgcbuffer_no_host_read_interface_structural": true,
+    "token_layout_assembly_fail_closed": true,
+    "multi_terminator_rejected": true,
+    "render_pass_in_sequence_rejected": true,
+    "barrier_in_sequence_rejected": true,
+    "descriptor_bind_rejected": true,
+    "capability_snapshot_blocking": true,
+    "capability_closed_set_additive_two_real_ids": true,
+    "conformance_red_corpus_anchored": true,
+    "three_backend_mapping_frozen": true,
+    "device_execute_indirect_golden": true,
+    "readback_counter_zero": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-rt --features vulkan --lib dgc",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurixc --lib capability",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo build -p rurix-rt --features vulkan --bin vk_dgc",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "target/debug/vk_dgc.exe (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T133501Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "golden dir tests\\gpu_driven_submit\\golden 在位; golden file tests\\gpu_driven_submit\\golden\\dgc_dispatch_sentinel.json 核验"
+}

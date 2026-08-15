@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m106_execution_set_pso",
+  "symbolic_gate_key": "g9.p1.m106.execution_set_pso",
+  "matrix_row": "M106",
+  "milestone": "M106",
+  "assertion_id": "g9.p1.m106.execution_set_pso",
+  "status": "pass",
+  "wave": "G9.3",
+  "numeric_step": 144,
+  "source_ref": "RFC-0023 §4.2;spec/gpu_driven_submit.md RXS-0355;spec/shader_stages.md RXS-0311;G9_ACCEPTANCE_MAP §3 M106",
+  "base_commit": "ec27492add88c3f36f7412b7ec1ff670a5c2d1ed",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "host_execution_set_tests_anchored": true,
+    "host_pso_cache_execution_set_anchored": true,
+    "host_vk_m106_layout_anchors": true,
+    "host_capability_reserved_to_real": true,
+    "device_pass": true,
+    "device_gpu_cpu_rebuild_equal": true,
+    "device_index_switch_ok": true,
+    "device_host_red_arms_ok": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-rt --features vulkan --lib execution_set",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurix-rt --features vulkan --lib execution_set_membership_extension",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo test -p rurix-rt --features vulkan --lib vk::m106",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo test -p rurixc --lib g93_execution_set_reserved_to_real",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "cargo build -p rurix-rt --features vulkan --bin vk_execution_set",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "vk_execution_set (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T022446Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": ""
+}

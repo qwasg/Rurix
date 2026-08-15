@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "subject": "g9_wave6_exit",
+  "symbolic_gate_key": "g9.wave.6.exit",
+  "matrix_row": "G9.6",
+  "wave": "G9.6",
+  "numeric_step": 169,
+  "source_ref": "milestones/g9/CI_GATES §6 v1.18;G9_CONTRACT §8.6;G9_ACCEPTANCE_MAP §2/§3;RFC-0024 v1.1 章 F1/F2;RXS-0374~0379 clause heads on tree;M123 no-go counts_as_green=false registered (not in MAP §3);M125 verdict=maintain_5_3_default + 5.3 baseline 0-byte;M126 RD-044 maintain_no_go registered;M121 full before M122 full interlock",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g9.p0.m121.physics_particle_view",
+      "subject_prefix": "g9_m121_physics_particle_view",
+      "evidence_path": "evidence/g9_m121_physics_particle_view_20260815T021215Z.json",
+      "status": "PASS",
+      "detail": "PASS(status=pass 且 phase_g9_6_pass=true,完整期)",
+      "timestamp": "20260815T021215Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m122.gameplay_field",
+      "subject_prefix": "g9_m122_gameplay_field",
+      "evidence_path": "evidence/g9_m122_gameplay_field_20260815T021215Z.json",
+      "status": "PASS",
+      "detail": "PASS(status=pass 且 phase_g9_6_pass=true,完整期)",
+      "timestamp": "20260815T021215Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m124.buoyancy_field_channel",
+      "subject_prefix": "g9_m124_buoyancy_field_channel",
+      "evidence_path": "evidence/g9_m124_buoyancy_field_channel_20260815T021610Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T021610Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m125.jolt_56_ab_evaluation",
+      "subject_prefix": "g9_m125_jolt_56_ab_evaluation",
+      "evidence_path": "evidence/g9_m125_jolt_56_ab_evaluation_20260815T021721Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T021721Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p1.m126.rapier_benchmark_ab",
+      "subject_prefix": "g9_m126_rapier_benchmark_ab",
+      "evidence_path": "evidence/g9_m126_rapier_benchmark_ab_20260815T021626Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T021626Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rxs0374_0379_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/physics.md 在树,RXS-0374~0379 条款头全在树(共 6 枚),RXS-0376 条款头「解析浮力走 Field 通道」字面在树(M124 Field 通道)"
+    },
+    {
+      "id": "rfc0024_v1_1_chapter_f_literals",
+      "status": "PASS",
+      "detail": "RFC-0024 v1.1 章 F1(M123 双通道判档落定 no-go)/F2(World-Field GpuScene 只读扩面显式修订行)字面在树"
+    },
+    {
+      "id": "m123_no_go_counts_as_green_false_registered",
+      "status": "PASS",
+      "detail": "M123 no-go 诚实登记三面一致: spec RXS-0379 counts_as_green=false(证据非空不充绿)+ CANDIDATE v1.5 校准注 + MAP 登记句;no-go 不入 MAP §3(零 m123 key),承接锚 G9.7 穷举"
+    },
+    {
+      "id": "m125_verdict_maintain_5_3_default_baseline_0byte",
+      "status": "PASS",
+      "detail": "g9_m125_jolt56_ab.json verdict=maintain_5_3_default(评估完成不升格默认)+ src/rurix-physics-sys/VENDOR.md 5.3 基线 pin 字面不动(5.6 独立 vendor 并存不覆盖 5.3 基线)"
+    },
+    {
+      "id": "m126_rd044_maintain_no_go_registered",
+      "status": "PASS",
+      "detail": "g9_m126_rapier_benchmark.json rd044.verdict=maintain_no_go 且 condition_literal_unchanged=true(RD-044 字面不变维持 open-留档,不升格深造、不作验收依赖与生产默认)"
+    },
+    {
+      "id": "gate_order_m121_full_before_m122_full",
+      "status": "PASS",
+      "detail": "门序 interlock 留痕: M121 门最新 evidence g9_m121_physics_particle_view_20260815T021215Z.json status=pass 且 phase_g9_6_pass=true(完整期门序前置满足);M122 门最新 evidence checks.gate_order_m121_full_passed=true(RXS-0375:M121 完整期未绿 M122 完整期不得验收)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T021725Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: five G9.6 gates (P0 M121/M122 full-phase dual-leg + P1 M124/M125/M126); M121/M122 aggregate ruling: latest evidence status==pass and phase_g9_6_pass==true (skeleton-phase green does not substitute full phase; dual phase same numeric step); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RXS-0374~0379 clause heads + RFC-0024 v1.1 ch.F1/F2 literals + M123 no-go counts_as_green=false registered (not in MAP §3) + M125 verdict=maintain_5_3_default + 5.3 baseline 0-byte + M126 RD-044 maintain_no_go + gate-order interlock (M121 full before M122 full); aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

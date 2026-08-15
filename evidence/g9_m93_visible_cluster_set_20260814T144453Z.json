@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m93_visible_cluster_set",
+  "symbolic_gate_key": "g9.p0.m93.visible_cluster_set",
+  "matrix_row": "M93",
+  "milestone": "M93",
+  "assertion_id": "g9.p0.m93.visible_cluster_set",
+  "status": "pass",
+  "wave": "G9.3",
+  "numeric_step": 139,
+  "source_ref": "RFC-0022 §4.2;spec/virtual_geometry.md RXS-0350;G9_ACCEPTANCE_MAP §2 M93",
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_visible_cluster_set_tests_anchored": true,
+    "host_lod_cut_reference_verifier_anchored": true,
+    "conformance_accept_corpus_anchored": true,
+    "conformance_reject_hole_corpus_anchored": true,
+    "probe_executed_green": true,
+    "probe_selection_cut_checks_green": true,
+    "probe_hole_overlap_red_detected": true,
+    "probe_digest_double_run_equal": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib visible_cluster_set",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurix-geom-build --lib cull_ref",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo run -q -p rurix-render --bin g9_g93_geometry_probe -- --evidence <tmp> (×2 双跑 digest 轴)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T144453Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "probe g9_g93_geometry_probe 双跑真跑;set_digest 逐位相等"
+}

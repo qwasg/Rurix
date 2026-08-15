@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m121_physics_particle_view",
+  "symbolic_gate_key": "g9.p0.m121.physics_particle_view",
+  "milestone": "M121",
+  "assertion_id": "g9.p0.m121.physics_particle_view",
+  "status": "pass",
+  "matrix_row": "M121",
+  "wave": "G9.6",
+  "numeric_step": 136,
+  "source_ref": "RFC-0024 §4.A + v1.1 章 F2;spec/physics.md RXS-0374;G9_ACCEPTANCE_MAP M121;G9.6 完整期(双 phase:--phase g9.6)",
+  "phase_g9_2_pass": true,
+  "phase_g9_6_pass": true,
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "field_solver_coupling_drives_motion": true,
+    "coupling_determinism_double_run": true,
+    "field_zeroed_baseline_digest_equal": true,
+    "write_path_impulse_only_structural": true,
+    "bypass_write_injection_rejected": true,
+    "analytic_surface_closed_set": true,
+    "field_journal_capture_roundtrip": true,
+    "capture_replay_field_mainstream": true,
+    "world_field_gpu_scene_readonly": true,
+    "render_write_injection_typed_err": true,
+    "conformance_anchor_consumed": true,
+    "measured_freeze_digest_match": true,
+    "full_selftest_red_arms_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build -p g9-physics-gates",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g9-physics-gates particle-view --source conformance/physics/fracture/pillar_prefracture/source.json --golden conformance/physics/particle_view/m68_migration_golden.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g9-physics-gates particle-view-full --freeze milestones/g9/g9_m121_field_solver_coupling_freeze.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "g9-physics-gates particle-view-full-selftest --arm journal_missing_line",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g9-physics-gates particle-view-full-selftest --arm journal_reordered",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g9-physics-gates particle-view-full-selftest --arm journal_tampered_def",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "g9-physics-gates particle-view-full-selftest --arm coupling_not_wired",
+      "exit_code": 0
+    }
+  ],
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T133933Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "coupling: applied=7 active!=true zeroed==absent=true; mainstream replay: ticks 8/8 impulses_recomputed=true"
+}

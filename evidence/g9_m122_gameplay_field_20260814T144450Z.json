@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m122_gameplay_field",
+  "symbolic_gate_key": "g9.p0.m122.gameplay_field",
+  "milestone": "M122",
+  "assertion_id": "g9.p0.m122.gameplay_field",
+  "status": "pass",
+  "matrix_row": "M122",
+  "wave": "G9.6",
+  "numeric_step": 137,
+  "source_ref": "RFC-0024 §4.B + v1.1 章 F2;spec/physics.md RXS-0375;G9_ACCEPTANCE_MAP M122;G9.6 完整期(双 phase:--phase g9.6)",
+  "phase_g9_2_pass": true,
+  "phase_g9_6_pass": true,
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "field_drives_dynamic_response_full": true,
+    "filter_default_empty_zero_impact_full": true,
+    "persistent_journal_mainstream_replay_equal": true,
+    "world_field_egress_unique_authorized_f2": true,
+    "render_write_injection_rejected": true,
+    "bypass_submit_detected": true,
+    "conformance_anchor_consumed": true,
+    "measured_freeze_digest_match": true,
+    "gate_order_m121_full_passed": true,
+    "full_selftest_red_arms_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build -p g9-physics-gates",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g9-physics-gates field --golden conformance/physics/field/field_golden.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g9-physics-gates field-full --freeze milestones/g9/g9_m122_world_field_readonly_freeze.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "g9-physics-gates field-full-selftest --arm render_write_injection",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g9-physics-gates field-full-selftest --arm bypass_submit",
+      "exit_code": 0
+    }
+  ],
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T144450Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "field drives motion: applied=7 digest_diverged=true; zero-impact re-verify: nomatch==absent=true; mainstream replay: active 8/8 + nomatch 8/8; F2 authorized-face audit: bridge clean + GpuScene face exact + unique commit site"
+}

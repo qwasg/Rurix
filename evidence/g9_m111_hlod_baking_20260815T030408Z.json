@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m111_hlod_baking",
+  "symbolic_gate_key": "g9.p1.m111.hlod_baking",
+  "matrix_row": "M111",
+  "milestone": "M111",
+  "assertion_id": "g9.p1.m111.hlod_baking",
+  "status": "pass",
+  "wave": "G9.5",
+  "numeric_step": 156,
+  "source_ref": "RFC-0025 §4.B;spec/world_partition.md RXS-0364;G9_ACCEPTANCE_MAP §3 M111",
+  "base_commit": "1d298017991278e32e54d459589e296242718115",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_module_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "band_provenance_frozen": true,
+    "harness_full_pass": true,
+    "harness_checks_closed_set_green": true,
+    "harness_red_arm_submode_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib world::hlod",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurix-render --bin g9_m111_hlod_runtime",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\debug\\g9_m111_hlod_runtime.exe --evidence H:\\rurix\\.tmp\\g95_gates\\m111\\harness_evidence.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g9_m111_hlod_runtime.exe --red-arm runtime-merge",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\debug\\g9_m111_hlod_runtime.exe --red-arm level-perturb",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T030408Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "harness:g9_m111_hlod_runtime 全档真跑(screen-size 互斥切换 golden + 运行时零合并断言 + 事件总线接线)+ RED 双臂子模式复跑;命名差如实登记(harness assertion_id=g9.p1.m111.hlod_runtime vs 门 key=hlod_baking)"
+}

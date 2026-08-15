@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "subject": "g9_wave2_exit",
+  "symbolic_gate_key": "g9.wave.2.exit",
+  "matrix_row": "G9.2",
+  "wave": "G9.2",
+  "numeric_step": 138,
+  "source_ref": "milestones/g9/CI_GATES §5;G9_CONTRACT G-G9-4;G9_CANDIDATE_DECISIONS v1.1;RFC-0022/0023/0024 Agent Approved;RD-039/040 overall open retained",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g9.p0.m90.cluster_dag_deepening",
+      "subject_prefix": "g9_m90_cluster_dag_deepening",
+      "evidence_path": "evidence/g9_m90_cluster_dag_deepening_20260815T030259Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030259Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m91.page_format_v2_abi",
+      "subject_prefix": "g9_m91_page_format_v2_abi",
+      "evidence_path": "evidence/g9_m91_page_format_v2_abi_20260815T030301Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030301Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m102.dgc_abstraction",
+      "subject_prefix": "g9_m102_dgc_abstraction",
+      "evidence_path": "evidence/g9_m102_dgc_abstraction_20260815T030258Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030258Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m103.descriptor_global_table",
+      "subject_prefix": "g9_m103_descriptor_global_table",
+      "evidence_path": "evidence/g9_m103_descriptor_global_table_20260815T030317Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030317Z",
+      "device_section_state": "pass",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m104.accesskind_indirect_edge",
+      "subject_prefix": "g9_m104_accesskind_indirect_edge",
+      "evidence_path": "evidence/g9_m104_accesskind_indirect_edge_20260815T030320Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030320Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m121.physics_particle_view",
+      "subject_prefix": "g9_m121_physics_particle_view",
+      "evidence_path": "evidence/g9_m121_physics_particle_view_20260815T030320Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030320Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g9.p0.m122.gameplay_field",
+      "subject_prefix": "g9_m122_gameplay_field",
+      "evidence_path": "evidence/g9_m122_gameplay_field_20260815T030321Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260815T030321Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rfc0022_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-09）** |"
+    },
+    {
+      "id": "rfc0023_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved（2026-08-09）**。§9.1 独立 provenance 对抗性评审第 1 轮完成，4 findings（2 major + 2 minor）全部采纳并修；G9.1 governance-only 交付物，批准只表示语义评审通过，不解锁任何 `src/`、`spec/`、`conformance/` 实现 |"
+    },
+    {
+      "id": "rfc0024_approved",
+      "status": "PASS",
+      "detail": "| 状态 | **Agent Approved**（2026-08-09） |"
+    },
+    {
+      "id": "rd039_retained_open",
+      "status": "PASS",
+      "detail": "RD-039.status='open' (wave2 要求维持 open;M06/M09/M61 分项已承接不代关)"
+    },
+    {
+      "id": "rd040_retained_open",
+      "status": "PASS",
+      "detail": "RD-040.status='open' (wave2 要求维持 open;M52 分项已承接不代关)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T030521Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: seven G9.2 P0 keys (M90/M91/M102/M103/M104/M121/M122 skeleton); dual-phase discipline: M121/M122 skeleton --phase g9.2 PASS; phase_g9_6_pass=false 不充绿; retained-open: RD-039/RD-040 overall open (分项承接不代关); aggregate read-only: no smoke re-run, no substitute green"
+}

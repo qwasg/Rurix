@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m110_world_partition",
+  "symbolic_gate_key": "g9.p0.m110.world_partition",
+  "matrix_row": "M110",
+  "milestone": "M110",
+  "assertion_id": "g9.p0.m110.world_partition",
+  "status": "fail",
+  "wave": "G9.5",
+  "numeric_step": 154,
+  "source_ref": "RFC-0025 §4.A;spec/world_partition.md RXS-0363;G9_ACCEPTANCE_MAP §2 M110",
+  "base_commit": "02472bcf946b81e239b40df0d817c58687c79418",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_module_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "band_provenance_frozen": true,
+    "harness_full_pass": false,
+    "harness_checks_closed_set_green": false,
+    "harness_red_arm_submode_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib world::partition",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurix-render --bin g9_m110_world_partition",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo build -p rurix-asset --bin rxhlod",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target-g98\\debug\\g9_m110_world_partition.exe --evidence H:\\rurix\\.tmp\\g95_gates\\m110\\harness_evidence.json --work-dir H:\\rurix\\.tmp\\g95_gates\\m110\\work",
+      "exit_code": 1
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target-g98\\debug\\g9_m110_world_partition.exe --red-arm budget-overrun",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target-g98\\debug\\g9_m110_world_partition.exe --red-arm event-order",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260814T142927Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "harness:全档真跑(soak hitch p99 ≤ g9_budget 冻结阈值)+ RED 双臂子模式复跑; harness 全档失败 rc=1:\n17408,58458112,52166656,55312384,56623104,60162048,57802752,50331648,50724864,58720256,49414144,54394880,61997056,55181312,51773440,54525952,51773440,59375616,56754176,61865984,47448064,59375616,63045632,63307776]},\n  \"results\": {\"metrics\": {\"world_partition_hitch_p99_ms\": 21.825000}, \"unit\": {\"world_partition_hitch_p99_ms\": \"ms\"}},\n  \"conformance_corpus\": {\"dir\": \"conformance/world_partition\", \"files\": 13, \"anchors\": {\"accept/atmosphere_froxel_fog_minimal.rx\": \"RXS-0365\", \"accept/cell_event_sequence_minimal.rx\": \"RXS-0363\", \"accept/decal_dbuffer_placeholder_minimal.rx\": \"RXS-0368\", \"accept/hlod_baking_double_build_minimal.rx\": \"RXS-0364\", \"accept/terrain_chunk_cell_aligned_minimal.rx\": \"RXS-0367\", \"accept/water_dual_pipeline_minimal.rx\": \"RXS-0366\", \"reject/atmosphere_weather_map_signature_tampered.rx\": \"RXS-0365\", \"reject/cell_event_sequence_out_of_order.rx\": \"RXS-0363\", \"reject/decal_overdraw_budget_exceeded.rx\": \"RXS-0368\", \"reject/hlod_runtime_merge_forbidden.rx\": \"RXS-0364\", \"reject/partition_budget_overrun_no_demote.rx\": \"RXS-0363\", \"reject/terrain_lod_gap_crack.rx\": \"RXS-0367\", \"reject/water_spectrum_param_invalid.rx\": \"RXS-0366\"}},\n  \"checks\": {\"conformance_corpus_anchored\": true, \"schema_roundtrip_and_cell_frozen\": true, \"data_layer_reserved_unwired\": true, \"budget_counters_per_frame_nonempty\": true, \"budget_violation_queued_demote_red_arm\": true, \"cell_event_sequence_golden_equal\": true, \"event_out_of_order_red_arm\": true, \"hlod_double_build_hash_equal\": true, \"soak_hitch_p99_within_measured_threshold\": false, \"budget_threshold_provenance\": true},\n  \"commands\": [\"H:\\\\rurix\\\\target-g98\\\\debug\\\\g9_m110_world_partition.exe\", \"--evidence\", \"H:\\\\rurix\\\\.tmp\\\\g95_gates\\\\m110\\\\harness_evidence.json\", \"--work-dir\", \"H:\\\\rurix\\\\.tmp\\\\g95_gates\\\\m110\\\\work\"],\n  \"failures\": [\"soak 面: nonempty=true p99=21.825ms threshold=13.8329ms within=false provenance=true\"]\n}\nG9_M110_WP: FAIL [\"soak 面: nonempty=true p99=21.825ms threshold=13.8329ms within=false provenance=true\"]\n"
+}

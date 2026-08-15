@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m124_buoyancy_field_channel",
+  "symbolic_gate_key": "g9.p1.m124.buoyancy_field_channel",
+  "matrix_row": "M124",
+  "milestone": "M124",
+  "assertion_id": "g9.p1.m124.buoyancy_field_channel",
+  "status": "pass",
+  "wave": "G9.6",
+  "numeric_step": 166,
+  "source_ref": "RFC-0024 §4.D;spec/physics.md RXS-0376;G9_ACCEPTANCE_MAP §3 M124",
+  "base_commit": "ec27492add88c3f36f7412b7ec1ff670a5c2d1ed",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "host_module_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "corpus_fixture_provenance": true,
+    "band_provenance_frozen": true,
+    "harness_full_pass": true,
+    "harness_checks_closed_set_green": true,
+    "harness_red_arm_submode_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-physics --features physics-buoyancy --lib field::buoyancy",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurix-physics --features physics-buoyancy --lib field::buoyancy_capture",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo build -p rurix-physics --features physics-buoyancy --bin g9_m124_buoyancy",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g9_m124_buoyancy.exe --evidence H:\\rurix\\.tmp\\g96_gates\\m124\\harness_evidence.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\debug\\g9_m124_buoyancy.exe --red-arm bypass-api",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\debug\\g9_m124_buoyancy.exe --red-arm field-unwired",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target\\debug\\g9_m124_buoyancy.exe --red-arm framerate-drift",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T021610Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "harness:解析浮力走 Field 通道 + corpus fixture + capture/replay 逐 tick hash + 变帧率逐位一致 + 三 RED 臂"
+}
