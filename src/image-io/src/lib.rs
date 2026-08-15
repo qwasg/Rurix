@@ -14,6 +14,10 @@
 
 use std::path::{Path, PathBuf};
 
+/// EXR HDR 帧容器（spec/imageio.md §2A RXS-0385；G10.4 M134 新实现面，
+/// 全 safe / 零外部依赖加性模块；既有 PPM P6 面 0-byte）。
+pub mod exr;
+
 /// 像素抽象:确定性量化到 8-bit RGB 三通道(PPM P6 无 alpha 通道,RXS-0116)。
 pub trait Pixel: Copy {
     /// 按 RXS-0116 确定量化产 `[R, G, B]` 三个 `u8`(通道序 R, G, B)。
@@ -163,6 +167,12 @@ pub enum ImageError {
     UnsupportedFormat,
     /// 落盘写入失败(目录不存在 / IO 错误);携带细节描述。
     WriteFailed(String),
+    /// EXR 字节流非法 / 截断 / 子集外形态(RXS-0385;G10.4 加性变体)。
+    InvalidExr(String),
+    /// EXR 压缩值在 v1 实现面外(ZIP 解码未接通 / 闭集外压缩;fail-closed 显式)。
+    UnsupportedCompression(String),
+    /// EXR 元数据闭集违例(缺字段 / 闭集外取值 / 混标 / 分端策略违例)。
+    MetadataViolation(String),
 }
 
 impl std::fmt::Display for ImageError {
@@ -170,6 +180,9 @@ impl std::fmt::Display for ImageError {
         match self {
             ImageError::UnsupportedFormat => write!(f, "image-io: 不支持的图像格式"),
             ImageError::WriteFailed(d) => write!(f, "image-io: 写入失败: {d}"),
+            ImageError::InvalidExr(d) => write!(f, "image-io: EXR 非法: {d}"),
+            ImageError::UnsupportedCompression(d) => write!(f, "image-io: 不支持的 EXR 压缩: {d}"),
+            ImageError::MetadataViolation(d) => write!(f, "image-io: EXR 元数据闭集违例: {d}"),
         }
     }
 }

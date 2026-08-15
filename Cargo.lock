@@ -576,6 +576,7 @@ version = "1.0.0"
 name = "rurix-render"
 version = "1.0.0"
 dependencies = [
+ "image-io",
  "rurix-geom-pages",
  "rurix-pkg",
  "rurix-rt",

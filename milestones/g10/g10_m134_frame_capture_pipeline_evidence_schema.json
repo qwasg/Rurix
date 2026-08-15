@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M134 frame_capture_pipeline evidence",
+  "description": "evidence/g10_m134_frame_capture_pipeline_<UTC>.json。G10.4 P0 硬门 g10.p0.m134.frame_capture_pipeline（步骤 181；G10_CONTRACT §4.2 M134 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0026 §4.1；spec/imageio.md RXS-0385 + spec/visual_comparison.md RXS-0386）：HDR 帧捕获落盘（EXR 自研最小子集 float32 RGB scanline NONE）+ 捕获→回读逐像素往返无损（device 腿 GPU 真渲染→fp16→f32 提升；host 腿闭式探针图案）+ 分辨率/色彩空间/位深元数据闭集齐备（ci/g10_exr_lib.py 独立第二实现互核 + 跨实现 digest 互证）+ 渲染输出探针图案位级核验 + UE 真帧 strip-and-log 读取（fp16→f32，剥离登记）；位深截断/sRGB 混标/元数据缺字段注入即 RED（三臂 harness --red-arm 复跑 + 内联双保险）；ZIP fail-closed 显式 UnsupportedCompression 登记。host+device 门（device 腿持 gpu_device_lock 串行；PASS 要求 device_section_state==executed）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "capture_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m134_frame_capture_pipeline" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m134.frame_capture_pipeline" },
+    "matrix_row": { "type": "string", "const": "M134" },
+    "milestone": { "type": "string", "const": "M134" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m134.frame_capture_pipeline" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 181 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0026 §4.1;spec/imageio.md RXS-0385;spec/visual_comparison.md RXS-0386;G10_ACCEPTANCE_MAP §1 M134"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "dev_env_degrade", "fail"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0385_clause_on_tree",
+        "spec_rxs0386_clause_on_tree",
+        "imageio_exr_unit_tests",
+        "harness_build_vulkan",
+        "harness_checks_all_true",
+        "device_section_executed",
+        "metadata_closed_set_complete",
+        "cross_impl_digest_match",
+        "ue_frame_strip_and_log",
+        "zip_decode_fail_closed",
+        "red_bit_depth_truncation_detected",
+        "red_srgb_linear_mislabel_detected",
+        "red_metadata_missing_detected"
+      ],
+      "properties": {
+        "spec_rxs0385_clause_on_tree": { "type": "boolean" },
+        "spec_rxs0386_clause_on_tree": { "type": "boolean" },
+        "imageio_exr_unit_tests": { "type": "boolean" },
+        "harness_build_vulkan": { "type": "boolean" },
+        "harness_checks_all_true": { "type": "boolean" },
+        "device_section_executed": { "type": "boolean" },
+        "metadata_closed_set_complete": { "type": "boolean" },
+        "cross_impl_digest_match": { "type": "boolean" },
+        "ue_frame_strip_and_log": { "type": "boolean" },
+        "zip_decode_fail_closed": { "type": "boolean" },
+        "red_bit_depth_truncation_detected": { "type": "boolean" },
+        "red_srgb_linear_mislabel_detected": { "type": "boolean" },
+        "red_metadata_missing_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "capture_report": {
+      "type": "object",
+      "description": "帧捕获报告：host/device 帧 digest + UE 真帧 digest/位深/剥离计数 + EXR 子集与压缩收窄登记 + 跨实现互证面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "device_section_state": { "const": "executed" },
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M136 ssim_psnr_metric evidence",
+  "description": "evidence/g10_m136_ssim_psnr_metric_<UTC>.json。G10.4 P0 硬门 g10.p0.m136.ssim_psnr_metric（步骤 182；G10_CONTRACT §4.2 M136 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0026 §4.3；spec/visual_comparison.md RXS-0387）：口径冻结进 spec + 自实现（Wang 2004 逐字）与 scikit-image 参考实现（显式 Wang 参数化，版本 pin + digest 登记）逐图对拍一致（容差 measured 标定 = 图集标量差 p100 × k〔k∈[1,3] 登记〕，provisional 待 M138 正式入 g10_budget）+ 恒等图对 SSIM=1/PSNR=inf 极值断言 + LDR 域限定（HDR 直算即拒）+ 对拍图集下界（≥24 图对、五内容类每类 ≥4，图集 digest 入 evidence）；口径漂移/参考扰动/恒等非极值/HDR 直算/下界冒充注入即 RED。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "metric_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m136_ssim_psnr_metric" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m136.ssim_psnr_metric" },
+    "matrix_row": { "type": "string", "const": "M136" },
+    "milestone": { "type": "string", "const": "M136" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m136.ssim_psnr_metric" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 182 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0026 §4.3;spec/visual_comparison.md RXS-0387;G10_ACCEPTANCE_MAP §1 M136"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0387_clause_on_tree",
+        "skimage_reference_pinned",
+        "corpus_lower_bound",
+        "identity_ssim_one_psnr_inf",
+        "pairwise_comparison_within_tolerance",
+        "tolerance_calibration_provenance",
+        "ldr_domain_restriction_enforced",
+        "red_caliber_drift_detected",
+        "red_hdr_direct_compute_detected",
+        "red_identity_non_extremum_detected",
+        "red_corpus_below_bound_detected",
+        "red_reference_perturbation_detected"
+      ],
+      "properties": {
+        "spec_rxs0387_clause_on_tree": { "type": "boolean" },
+        "skimage_reference_pinned": { "type": "boolean" },
+        "corpus_lower_bound": { "type": "boolean" },
+        "identity_ssim_one_psnr_inf": { "type": "boolean" },
+        "pairwise_comparison_within_tolerance": { "type": "boolean" },
+        "tolerance_calibration_provenance": { "type": "boolean" },
+        "ldr_domain_restriction_enforced": { "type": "boolean" },
+        "red_caliber_drift_detected": { "type": "boolean" },
+        "red_hdr_direct_compute_detected": { "type": "boolean" },
+        "red_identity_non_extremum_detected": { "type": "boolean" },
+        "red_corpus_below_bound_detected": { "type": "boolean" },
+        "red_reference_perturbation_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "metric_report": {
+      "type": "object",
+      "description": "度量报告：参考实现 pin + 图集清单 digest + 容差标定 provenance（p100×k，provisional_pending_m138）+ 恒等极值 + 逐图对拍标量集",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

@@ -1962,7 +1962,8 @@
     "RXS-0385": [
       "conformance/imageio/accept/exr_hdr_container_minimal.rx",
       "conformance/imageio/reject/bit_depth_truncation_8bit_clamp.rx",
-      "conformance/imageio/reject/srgb_linear_mislabel.rx"
+      "conformance/imageio/reject/srgb_linear_mislabel.rx",
+      "src/image-io/src/exr.rs"
     ],
     "RXS-0386": [
       "conformance/visual_comparison/accept/metric_domain_contract_minimal.rx",

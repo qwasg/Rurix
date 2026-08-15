@@ -15,6 +15,9 @@ rurix-pkg = { path = "../rurix-pkg" }
 # G9.4 M97(RXS-0358):Card 图集页复用 M91 RXPL v2 页 ABI(encode/decode 冻结面
 # 直接消费,禁私定磁盘格式;workspace path 依赖,零外部 crate)。
 rurix-geom-pages = { path = "../rurix-geom-pages" }
+# G10.4a M134/M137(RXS-0385/RXS-0388):EXR HDR 帧容器编解码(自研最小子集,
+# spec/imageio.md §2A;workspace path 依赖,零外部 crate)。
+image-io = { path = "../image-io" }
 
 [features]
 default = []
@@ -198,6 +201,23 @@ path = "src/bin/g9_m115_skin.rs"
 [[bin]]
 name = "g9_m114_hair"
 path = "src/bin/g9_m114_hair.rs"
+
+# G10.4a M134 帧捕获管线 harness(RXS-0385/RXS-0386;门
+# g10.p0.m134.frame_capture_pipeline):device 腿(render_exec 三角形真渲染 →
+# Rgba16Float readback → fp16→f32 精确提升)与 host 腿(闭式探针图案)各自
+# capture→EXR→回读逐像素位级核验 + 元数据闭集 + UE 真帧 strip-and-log 读取
+# + ZIP fail-closed + 三 RED 臂(8-bit clamp/混标/缺字段)。
+[[bin]]
+name = "g10_m134_frame_capture"
+path = "src/bin/g10_m134_frame_capture.rs"
+required-features = ["vulkan"]
+
+# G10.4a M137 逐像素 diff 报告器(RXS-0388;门 g10.p0.m137.pixel_diff_report):
+# host 纯 safe——读两帧 EXR(image-io 解码)→ 误差缓冲(通道最大绝对差)→
+# 误差 EXR 单通道 Y + 灰度热区图 PPM + 16×16 区域统计 + evidence JSON。
+[[bin]]
+name = "g10_m137_diff_report"
+path = "src/bin/g10_m137_diff_report.rs"
 
 [lints]
 workspace = true

@@ -472,6 +472,15 @@ def check_evidence_files() -> None:
     g10_wave2_exit_schema = load(
         ROOT / "milestones/g10/g10_wave2_exit_evidence_schema.json"
     )
+    g10_m134_frame_capture_pipeline_schema = load(
+        ROOT / "milestones/g10/g10_m134_frame_capture_pipeline_evidence_schema.json"
+    )
+    g10_m136_ssim_psnr_metric_schema = load(
+        ROOT / "milestones/g10/g10_m136_ssim_psnr_metric_evidence_schema.json"
+    )
+    g10_m137_pixel_diff_report_schema = load(
+        ROOT / "milestones/g10/g10_m137_pixel_diff_report_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1091,6 +1100,21 @@ def check_evidence_files() -> None:
     g10_wave2_exit_validator = (
         jsonschema.Draft7Validator(g10_wave2_exit_schema)
         if g10_wave2_exit_schema is not None
+        else None
+    )
+    g10_m134_frame_capture_pipeline_validator = (
+        jsonschema.Draft7Validator(g10_m134_frame_capture_pipeline_schema)
+        if g10_m134_frame_capture_pipeline_schema is not None
+        else None
+    )
+    g10_m136_ssim_psnr_metric_validator = (
+        jsonschema.Draft7Validator(g10_m136_ssim_psnr_metric_schema)
+        if g10_m136_ssim_psnr_metric_schema is not None
+        else None
+    )
+    g10_m137_pixel_diff_report_validator = (
+        jsonschema.Draft7Validator(g10_m137_pixel_diff_report_schema)
+        if g10_m137_pixel_diff_report_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2182,6 +2206,30 @@ def check_evidence_files() -> None:
             # evidence 只读汇总 + RXS-0380/RXS-0384 条款头 + RFC-0026/0027
             # Approved + 场景集登记 + M130 phase 纪律;聚合不代绿)。
             validator = g10_wave2_exit_validator
+        elif (
+            f.name.startswith("g10_m134_frame_capture_pipeline_")
+            and g10_m134_frame_capture_pipeline_validator is not None
+        ):
+            # G10.4 M134 帧捕获管线门(步骤 181;ci/g10_frame_capture_pipeline_smoke.py
+            # 写:EXR 自研子集 device+host 双腿往返无损 + 元数据闭集 + 跨实现
+            # digest 互证 + UE 真帧 strip-and-log + ZIP fail-closed + RED 三臂)。
+            validator = g10_m134_frame_capture_pipeline_validator
+        elif (
+            f.name.startswith("g10_m136_ssim_psnr_metric_")
+            and g10_m136_ssim_psnr_metric_validator is not None
+        ):
+            # G10.4 M136 SSIM/PSNR 度量门(步骤 182;ci/g10_ssim_psnr_metric_smoke.py
+            # 写:自实现 vs scikit-image 参考 25 图对五类对拍 + 恒等极值 + LDR
+            # 域限定 + 容差 p100×k provisional + RED 五臂)。
+            validator = g10_m136_ssim_psnr_metric_validator
+        elif (
+            f.name.startswith("g10_m137_pixel_diff_report_")
+            and g10_m137_pixel_diff_report_validator is not None
+        ):
+            # G10.4 M137 逐像素 diff 报告门(步骤 183;ci/g10_pixel_diff_report_smoke.py
+            # 写:误差 EXR/热区图/区域统计/标量四面独立重算一致 + 闭集机核 +
+            # RED 三臂)。
+            validator = g10_m137_pixel_diff_report_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

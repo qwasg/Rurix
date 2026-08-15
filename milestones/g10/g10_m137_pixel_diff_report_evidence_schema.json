@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M137 pixel_diff_report evidence",
+  "description": "evidence/g10_m137_pixel_diff_report_<UTC>.json。G10.4 P0 硬门 g10.p0.m137.pixel_diff_report（步骤 183；G10_CONTRACT §4.2 M137 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0026 §4.4；spec/visual_comparison.md RXS-0388）：diff 热区图 + 逐区域统计落盘 + evidence schema 闭集——同一误差缓冲三面投影（误差 EXR 单通道 Y float32 / 灰度热区图 PPM / 16×16 区域统计 + 标量），门侧独立第二实现逐面重算核验 golden（误差 EXR 逐像素位级 / 热区图逐字节 / 区域统计逐字段 / 标量逐字段 / digest 对账）；thresholds provisional 登记（identity 噪声底 p100 实测，M138 正式入 g10_budget 后翻转）；diff 图与标量不一致/空场景行/闭集外字段注入即 RED。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "diff_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m137_pixel_diff_report" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m137.pixel_diff_report" },
+    "matrix_row": { "type": "string", "const": "M137" },
+    "milestone": { "type": "string", "const": "M137" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m137.pixel_diff_report" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 183 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0026 §4.4;spec/visual_comparison.md RXS-0388;G10_ACCEPTANCE_MAP §1 M137"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0388_clause_on_tree",
+        "harness_build_host",
+        "identity_pair_noise_floor_zero",
+        "dual_layer_artifacts",
+        "error_exr_recompute_match",
+        "heatmap_recompute_match",
+        "region_stats_recompute_match",
+        "scalars_recompute_match",
+        "report_closed_set_enforced",
+        "red_diff_scalar_inconsistency_detected",
+        "red_empty_scene_row_detected",
+        "red_extra_field_detected"
+      ],
+      "properties": {
+        "spec_rxs0388_clause_on_tree": { "type": "boolean" },
+        "harness_build_host": { "type": "boolean" },
+        "identity_pair_noise_floor_zero": { "type": "boolean" },
+        "dual_layer_artifacts": { "type": "boolean" },
+        "error_exr_recompute_match": { "type": "boolean" },
+        "heatmap_recompute_match": { "type": "boolean" },
+        "region_stats_recompute_match": { "type": "boolean" },
+        "scalars_recompute_match": { "type": "boolean" },
+        "report_closed_set_enforced": { "type": "boolean" },
+        "red_diff_scalar_inconsistency_detected": { "type": "boolean" },
+        "red_empty_scene_row_detected": { "type": "boolean" },
+        "red_extra_field_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "diff_report": {
+      "type": "object",
+      "description": "diff 报告摘要：scene 三元组/domain/metric_caliber/thresholds（provisional）/region_grid/scalars/artifacts 四 digest/determinism_contract_digest + 跨实现互证面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

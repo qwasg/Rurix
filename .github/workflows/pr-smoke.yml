@@ -1943,6 +1943,58 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_wave2_exit_check.py --gate g10.wave.2.exit
 
+      # 步骤 181（G10.4 M134 帧捕获管线门 g10.p0.m134.frame_capture_pipeline;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=181 顺位领取）。host+device 门
+      # （device 腿持 gpu_device_lock 串行，RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1）：
+      # EXR 自研最小子集（src/image-io/src/exr.rs，float32 RGB scanline NONE 编+解，
+      # ZIP fail-closed 显式 UnsupportedCompression，零外部依赖全 safe）+ device 腿
+      # （GPU 真渲染三角形 → Rgba16Float readback → fp16→f32 精确提升）与 host 腿
+      # （闭式探针图案）各自 capture→encode→落盘→decode 逐像素位级往返无损 +
+      # 分辨率/色彩空间/位深元数据闭集齐备（ci/g10_exr_lib.py 独立第二实现互核 +
+      # 跨实现帧 digest 互证）+ 渲染输出探针图案位级核验（RFC-0026 §6.2 F16）+
+      # UE 真帧 strip-and-log 读取（G10.2 已出真实 UE EXR，fp16→f32，闭集外属性
+      # 剥离逐条登记，chromaticities 位级闭集互证）;位深截断（8-bit clamp）/sRGB-
+      # 线性混标/元数据缺字段注入各为独立 RED 臂（harness 内联实测 + --red-arm
+      # 子模式独立复跑双保险）。evidence 落盘
+      # evidence/g10_m134_frame_capture_pipeline_<UTC>.json。
+      - name: G10.4 M134 frame capture pipeline (G10 CI_GATES §4.181, g10.p0.m134.frame_capture_pipeline)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/g10_frame_capture_pipeline_smoke.py --gate g10.p0.m134.frame_capture_pipeline
+
+      # 步骤 182（G10.4 M136 SSIM/PSNR 度量门 g10.p0.m136.ssim_psnr_metric;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=182 顺位领取）。host 纯 host 门:
+      # 口径冻结进 spec（visual_comparison.md RXS-0387 条款头在树）+ 自实现
+      # （ci/g10_ssim_psnr_lib.py，Wang 2004 逐字：11×11 高斯 σ=1.5 / K1·K2 /
+      # data_range=1.0 / 总体协方差 / 逐通道均值）与 scikit-image 参考实现（显式
+      # Wang 参数化，版本 pin 0.26.0 + 参数化 digest 登记）逐图对拍一致（对拍图集
+      # 25 图对 ≥24 下界、五内容类每类 ≥4〔高频边缘/平滑渐变/噪声/高亮截断/色彩
+      # 孤立区〕，图集 manifest digest 入 evidence；容差 measured 标定 = 标量差
+      # p100 × k=2.0，provisional 待 M138 正式入 g10_budget）+ 恒等图对 SSIM=1 /
+      # PSNR=inf 极值断言 + LDR 域限定（HDR 直算即拒）;口径漂移/参考输出扰动/
+      # 恒等非极值/HDR 直算/图集下界冒充注入各为独立 RED 臂。evidence 落盘
+      # evidence/g10_m136_ssim_psnr_metric_<UTC>.json。
+      - name: G10.4 M136 ssim psnr metric (G10 CI_GATES §4.182, g10.p0.m136.ssim_psnr_metric)
+        shell: powershell
+        run: py -3 ci/g10_ssim_psnr_metric_smoke.py --gate g10.p0.m136.ssim_psnr_metric
+
+      # 步骤 183（G10.4 M137 逐像素 diff 报告门 g10.p0.m137.pixel_diff_report;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=183 顺位领取）。host 纯 host 门:
+      # 报告器 g10_m137_diff_report（host 纯 safe Rust bin，image-io RXS-0385
+      # 解码）产同一误差缓冲三面投影（误差 EXR 单通道 Y float32 canonical +
+      # 灰度热区图 PPM + 16×16 区域统计〔nearest-rank p95 + 末区域实际剩余像素
+      # 边缘规则〕+ 标量），门侧 ci/g10_exr_lib.py 独立第二实现逐面重算核验
+      # golden（误差 EXR 由帧对重算逐像素位级一致 / 热区图由误差 EXR 重算逐
+      # 字节一致 / 区域统计与标量由误差 EXR 重算逐字段一致 / artifacts 四
+      # digest 对账）+ evidence JSON 字段闭集机核 + thresholds provisional
+      # 登记（identity 图对噪声底 p100 实测 = 0.0，M138 正式入 g10_budget 后
+      # 翻转）;diff 图与标量报告不一致/空场景行/闭集外字段注入各为独立 RED 臂。
+      # evidence 落盘 evidence/g10_m137_pixel_diff_report_<UTC>.json。
+      - name: G10.4 M137 pixel diff report (G10 CI_GATES §4.183, g10.p0.m137.pixel_diff_report)
+        shell: powershell
+        run: py -3 ci/g10_pixel_diff_report_smoke.py --gate g10.p0.m137.pixel_diff_report
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
