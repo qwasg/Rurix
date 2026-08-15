@@ -1995,6 +1995,54 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_pixel_diff_report_smoke.py --gate g10.p0.m137.pixel_diff_report
 
+      # 步骤 184（G10.4 M135 FLIP 度量门 g10.p0.m135.flip_metric;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=184 顺位领取）。host 纯 host 门:
+      # 口径冻结进 spec（visual_comparison.md RXS-0389 条款头在树）+ 参考实现
+      # NVlabs/flip pin 五元组齐备（commit b475eb4bf394… + python-nanobind 臂
+      # 本地 pin 源码构建 wheel digest + MSVC 17.14.38/CMake 4.3.0/nanobind
+      # 2.12.0/scikit-build-core 0.11.6/Python 3.12 + 运行参数集，缺一元即 RED，
+      # 选臂如实登记）+ 自实现（ci/g10_flip_lib.py，YCxCz 管道逐字）与参考实现
+      # 25 图对五类 LDR 对拍两面分列全在容差内（标量差与误差图逐像素差 p100 ×
+      # k=2.0 measured 标定 provisional_pending_m138；图集 manifest digest 入
+      # evidence）+ 恒等图对 FLIP=0 极值双侧（标量恰 0 且误差图逐像素恰 0）+
+      # ppd 策略冻结（自实现默认 ppd 与参考返回参数字典逐位一致）+ HDR-FLIP
+      # 探针臂（auto-from-reference 曝光 5 对同批对拍）;参考输出扰动/口径参数
+      # 漂移/恒等非零/图集下界冒充注入各为独立 RED 臂。evidence 落盘
+      # evidence/g10_m135_flip_metric_<UTC>.json。
+      - name: G10.4 M135 flip metric (G10 CI_GATES §4.184, g10.p0.m135.flip_metric)
+        shell: powershell
+        run: py -3 ci/g10_flip_metric_smoke.py --gate g10.p0.m135.flip_metric
+
+      # 步骤 185（G10.4 M138 度量阈值标定门 g10.p1.m138.metric_threshold_calibration;G10
+      # CI_GATES §4A;落盘前实测 CI_step.next_free=185 顺位领取）。host 纯 host 门:
+      # 标定程序可复跑（同一图集 digest 上 p100 估计器两跑逐位一致）+ M135/M136/
+      # M137 三门 provisional 容差翻正——五面标定值（FLIP 标量/FLIP 误差图/SSIM/
+      # PSNR/diff over_threshold）p100 × k 入 g10_budget.json（字节级纯追加五条
+      # g10.metric.* 条目 measured_local + provenance + 环境画像，P-09 禁手写
+      # 阈值）+ 三门 provisional_pending_m138 标记消费登记（标定重算值与门内
+      # 登记 p100 逐位一致）+ budget_eval --strict 全 PASS;手写阈值冒充标定/
+      # estimated 冒充 measured/不可复跑/门 evidence 缺失冒充注入各为独立 RED
+      # 臂。evidence 落盘 evidence/g10_m138_metric_threshold_calibration_<UTC>.json
+      # + 五条 g10_m138_calibration_<slug>_<UTC>.json 标定证据。
+      - name: G10.4 M138 metric threshold calibration (G10 CI_GATES §4A.185, g10.p1.m138.metric_threshold_calibration)
+        shell: powershell
+        run: py -3 ci/g10_metric_threshold_calibration_smoke.py --gate g10.p1.m138.metric_threshold_calibration
+
+      # 步骤 186（G10.4 波聚合门 g10.wave.4.exit;G10 CI_GATES §5;落盘前实测
+      # CI_step.next_free=186 顺位领取）。host 只读聚合门:只读汇总五门最新
+      # evidence（M134 步骤 181 / M135 步骤 184 / M136 步骤 182 / M137 步骤 183 /
+      # M138 步骤 185）+ spec 条款头在树（imageio.md RXS-0385 + visual_comparison.md
+      # RXS-0386~0389，共 5 枚）+ RFC-0026 Agent Approved 字面在树 + 标定值入
+      # g10_budget 且 provenance 齐备（五条 g10.metric.* 条目 measured_local +
+      # evidence_file 在树可解 trimmed_mean + threshold == trimmed_mean × k 重算
+      # 口径，P-09）+ 四门 RED 臂独立有效（M134/M135/M136/M137 最新 evidence
+      # 各含 red_* checks 且全真）;聚合不代绿、不重跑 smoke、不设
+      # RURIX_REQUIRE_REAL,聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。
+      # evidence 落盘 evidence/g10_wave4_exit_<UTC>.json。
+      - name: G10.4 wave4.exit aggregate (G10 CI_GATES §5.186, g10.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g10_wave4_exit_check.py --gate g10.wave.4.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

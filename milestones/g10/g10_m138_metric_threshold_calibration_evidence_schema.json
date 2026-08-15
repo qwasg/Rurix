@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M138 metric_threshold_calibration evidence",
+  "description": "evidence/g10_m138_metric_threshold_calibration_<UTC>.json。G10.4 P1 硬门 g10.p1.m138.metric_threshold_calibration（步骤 185；G10_PLAN §2 G10.4 / G10_ACCEPTANCE_MAP §2 M138 行 / CI_GATES §4A 判据逐字；RFC-0026 §4.2 F10 估计器语义）：标定程序可复跑（同一图集 digest 上 p100 估计器两跑逐位一致）+ M135/M136/M137 三门 provisional 容差翻正——标定值入 g10_budget.json（纯追加条目 measured_local + provenance + 环境画像，P-09 禁手写阈值）+ 三门 provisional_pending_m138 标记消费登记（标定重算值与门内登记 p100 逐位一致）+ 估计器语义 p100 × k（k∈[1.0,3.0] 登记、样本集 digest 引用）+ budget_eval --strict 全 PASS；手写阈值冒充标定/estimated 冒充 measured/不可复跑/门 evidence 缺失冒充注入即 RED。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "calibration_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m138_metric_threshold_calibration" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p1.m138.metric_threshold_calibration" },
+    "matrix_row": { "type": "string", "const": "M138" },
+    "milestone": { "type": "string", "const": "M138" },
+    "assertion_id": { "type": "string", "const": "g10.p1.m138.metric_threshold_calibration" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 185 },
+    "source_ref": {
+      "type": "string",
+      "const": "G10_PLAN §2 G10.4;G10_ACCEPTANCE_MAP §2 M138;CI_GATES §4A;RFC-0026 §4.2 F10"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gates_latest_evidence_provisional_present",
+        "estimator_semantics_frozen",
+        "recompute_matches_gate_registrations",
+        "calibration_rerun_deterministic",
+        "calibration_evidence_files_provenance",
+        "budget_entries_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "provisional_markers_consumed",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected",
+        "red_nonrerunnable_detected",
+        "red_missing_gate_evidence_detected"
+      ],
+      "properties": {
+        "gates_latest_evidence_provisional_present": { "type": "boolean" },
+        "estimator_semantics_frozen": { "type": "boolean" },
+        "recompute_matches_gate_registrations": { "type": "boolean" },
+        "calibration_rerun_deterministic": { "type": "boolean" },
+        "calibration_evidence_files_provenance": { "type": "boolean" },
+        "budget_entries_appended_measured_local": { "type": "boolean" },
+        "budget_eval_strict_all_pass": { "type": "boolean" },
+        "provisional_markers_consumed": { "type": "boolean" },
+        "red_handwritten_threshold_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" },
+        "red_nonrerunnable_detected": { "type": "boolean" },
+        "red_missing_gate_evidence_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "calibration_report": {
+      "type": "object",
+      "description": "标定报告：估计器语义 + 样本集 digest + 两跑一致性 + 五条标定条目（source gate 消费映射 + p100 + k + threshold）+ budget 落盘面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

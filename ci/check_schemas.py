@@ -481,6 +481,18 @@ def check_evidence_files() -> None:
     g10_m137_pixel_diff_report_schema = load(
         ROOT / "milestones/g10/g10_m137_pixel_diff_report_evidence_schema.json"
     )
+    g10_m135_flip_metric_schema = load(
+        ROOT / "milestones/g10/g10_m135_flip_metric_evidence_schema.json"
+    )
+    g10_m138_metric_threshold_calibration_schema = load(
+        ROOT / "milestones/g10/g10_m138_metric_threshold_calibration_evidence_schema.json"
+    )
+    g10_m138_calibration_schema = load(
+        ROOT / "milestones/g10/g10_m138_calibration_evidence_schema.json"
+    )
+    g10_wave4_exit_schema = load(
+        ROOT / "milestones/g10/g10_wave4_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1115,6 +1127,26 @@ def check_evidence_files() -> None:
     g10_m137_pixel_diff_report_validator = (
         jsonschema.Draft7Validator(g10_m137_pixel_diff_report_schema)
         if g10_m137_pixel_diff_report_schema is not None
+        else None
+    )
+    g10_m135_flip_metric_validator = (
+        jsonschema.Draft7Validator(g10_m135_flip_metric_schema)
+        if g10_m135_flip_metric_schema is not None
+        else None
+    )
+    g10_m138_metric_threshold_calibration_validator = (
+        jsonschema.Draft7Validator(g10_m138_metric_threshold_calibration_schema)
+        if g10_m138_metric_threshold_calibration_schema is not None
+        else None
+    )
+    g10_m138_calibration_validator = (
+        jsonschema.Draft7Validator(g10_m138_calibration_schema)
+        if g10_m138_calibration_schema is not None
+        else None
+    )
+    g10_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g10_wave4_exit_schema)
+        if g10_wave4_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2230,6 +2262,41 @@ def check_evidence_files() -> None:
             # 写:误差 EXR/热区图/区域统计/标量四面独立重算一致 + 闭集机核 +
             # RED 三臂)。
             validator = g10_m137_pixel_diff_report_validator
+        elif (
+            f.name.startswith("g10_m135_flip_metric_")
+            and g10_m135_flip_metric_validator is not None
+        ):
+            # G10.4 M135 FLIP 度量门(步骤 184;ci/g10_flip_metric_smoke.py 写:
+            # 自实现 vs NVlabs/flip 参考(python-nanobind 臂 pin 五元组)25 图对
+            # 五类 LDR 对拍两面分列 + 恒等 FLIP=0 双侧 + ppd 策略冻结 + HDR
+            # 探针 + RED 四臂)。
+            validator = g10_m135_flip_metric_validator
+        elif (
+            f.name.startswith("g10_m138_metric_threshold_calibration_")
+            and g10_m138_metric_threshold_calibration_validator is not None
+        ):
+            # G10.4 M138 阈值标定门(步骤 185;ci/g10_metric_threshold_calibration_smoke.py
+            # 写:标定两跑逐位一致 + 五面 p100×k 标定值入 g10_budget 纯追加 +
+            # 三门 provisional 标记消费 + budget_eval --strict 全 PASS + RED 四臂)。
+            validator = g10_m138_metric_threshold_calibration_validator
+        elif (
+            f.name.startswith("g10_m138_calibration_")
+            and g10_m138_calibration_validator is not None
+        ):
+            # G10.4 M138 标定 budget 证据(步骤 185 门产出,五条 g10.metric.*
+            # 条目 evidence_file 引用;results.trimmed_mean = 标定 p100 供
+            # budget_eval 通用 measured entry 判读,零新 evaluator 分支;
+            # provenance 含样本集 digest + source gate 消费映射 + 环境画像)。
+            # 前缀与 g10_m138_metric_threshold_calibration_ 互不包含。
+            validator = g10_m138_calibration_validator
+        elif (
+            f.name.startswith("g10_wave4_exit_")
+            and g10_wave4_exit_validator is not None
+        ):
+            # G10.4 波聚合门(步骤 186;ci/g10_wave4_exit_check.py 写:五门最新
+            # evidence 只读汇总 + RXS-0385~0389 条款头 + RFC-0026 Approved +
+            # 标定值入 budget provenance + 四门 RED 臂独立有效)。
+            validator = g10_wave4_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

@@ -285,3 +285,44 @@ py -3 -m pytest tests/ -q → 117 passed
 **④ 门序登记面**：spec 条款 RXS-0384 commit 先于实现段落写盘（spec-first，硬规则 7）；编号领取 = 落盘前实测 `CI_step.next_free=177` 顺位 177~180、`RXS.next_free=384` 顺位 RXS-0384（registry/number_ledger.json revision_log **v1.104**，on_tree_max CI_step 176→180 / RXS 383→384）；CI_GATES.md v1.2 修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 177~180（步骤 176 块后追加）；check_schemas.py 三处纯追加（既有路由 0-byte）；trace_matrix 365→366、stable 快照 365→366 重 bless（bless_log 追加行）；G5~G9 closed 判据与 G10.3 门脚本 0-byte；evidence/ 只增不删不改。
 
 **⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.2 波 materialize）`（影响范围：G10_CONTRACT §8.2、spec/visual_comparison.md 新建与 spec/README.md 登记、四门脚本与共享判定层、四 evidence schema、red_fixtures/m128+m129、pr-smoke.yml 步骤 177~180、CI_GATES v1.2、ledger v1.104、conformance/visual_comparison 语料、harness g10_param_contract SPEC 布局替换、g10_2_provisional_scene_set.json、trace/stable 重生成；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：CornellBox UE 程序生成场景与 Bistro UE 导入面未建成（环境日志 §7.4 缺项 #7，M129 暂定场景面偏差已登记）；M130 `--phase g10.5` 双端核验腿、门序三重绑定机器阻断、应用层探针归 G10.5；`-renderoffscreen` 5.8 可用性未测（本轮出图走窗口模式）。
+
+### §8.4 G10.4 波验收记录（2026-08-15，G-G10-5）
+
+**① 独立断言清单（12 P0 中本波 4 行 + 已 go P1 中本波 1 行，逐行独立 PASS|FAIL 不互代）**：
+
+| Symbolic gate key | 步骤 | 实测 verdict | evidence（最新件） |
+|---|---:|---|---|
+| `g10.p0.m134.frame_capture_pipeline` | 181 | **PASS**（checks 13/13，device=executed） | `evidence/g10_m134_frame_capture_pipeline_20260815T194016Z.json` |
+| `g10.p0.m135.flip_metric` | 184 | **PASS**（checks 13/13，device=not_applicable） | `evidence/g10_m135_flip_metric_20260815T194017Z.json` |
+| `g10.p0.m136.ssim_psnr_metric` | 182 | **PASS**（checks 12/12，device=not_applicable） | `evidence/g10_m136_ssim_psnr_metric_20260815T194018Z.json` |
+| `g10.p0.m137.pixel_diff_report` | 183 | **PASS**（checks 12/12，device=not_applicable） | `evidence/g10_m137_pixel_diff_report_20260815T194018Z.json` |
+| `g10.p1.m138.metric_threshold_calibration` | 185 | **PASS**（checks 12/12，device=not_applicable） | `evidence/g10_m138_metric_threshold_calibration_20260815T194127Z.json` |
+
+- M134（A 段）：EXR 自研最小子集 `src/image-io/src/exr.rs`（float32 RGB scanline NONE 编+解，ZIP fail-closed 显式 UnsupportedCompression，全 safe 零外部依赖）+ device 腿（GPU 真渲染 → Rgba16Float readback → fp16→f32 精确提升，gpu_device_lock 串行）与 host 腿（闭式探针）各自捕获→落盘→回读逐像素位级往返无损 + 元数据闭集齐备（`ci/g10_exr_lib.py` 独立第二实现互核 + 跨实现帧 digest 互证）+ 渲染输出探针图案位级核验 + UE 真帧 strip-and-log 读取（fp16→f32，`unreal/*` 剥离 3 条登记，chromaticities 位级闭集互证）；位深截断/sRGB 混标/元数据缺字段三 RED 臂全检出（harness 内联 + `--red-arm` 复跑双保险）；首跑 FAIL 诚实留痕（`…T180226Z.json`，真实 UE 帧 version 字段 long-names 标志被 v1 严格校验拦截，spec/imageio.md v1.3 修订行加性放读后复原绿——真实红绿闭合）。
+- M135（B 段）：spec-first RXS-0389（commit `e6a4c7c2` 先行）+ 参考实现 NVlabs/flip **pin 五元组**齐备——commit `b475eb4bf394ab877c42166c9eb0a84a02cc5b14`（`git ls-remote` HEAD 实测）+ zip 快照 `sha256:d4e0362c…` 双记；选臂 = **python-nanobind**（本地 pin 源码树 `K:\rurix_g10_cache\tools\flip` pip install 一次构建成功，wheel `flip_evaluator-1.7-cp312-cp312-win_amd64` `sha256:46348e21…`；MSVC VS2022 BuildTools 17.14.38 + CMake 4.3.0 + nanobind 2.12.0 + scikit-build-core 0.11.6 + Python 3.12；运行参数集 `evaluate(ref,test,'LDR',inputsRGB=True,applyMagma=False,computeMeanError=True,parameters={})`；**首选 cpp tool 前即选 nanobind 臂，非构建失败后回退——如实登记选臂**）；自实现 `ci/g10_flip_lib.py`（YCxCz 管道逐字，numpy）与参考 25 图对五类 LDR 对拍**两面分列**全在容差内（标量差 p100=3.0153e-05 × k=2.0 → 6.0305e-05、误差图逐像素差 p100=9.8765e-05 × k=2.0 → 1.9753e-04，provisional_pending_m138；图集 manifest digest 入 evidence）+ 恒等图对 FLIP=0 极值双侧（标量恰 0 且误差图逐像素恰 0）+ ppd 策略冻结（自实现默认 67.02064514160156 与参考返回参数字典逐位一致）+ HDR-FLIP 探针臂（auto-from-reference 曝光 5 对同批对拍 + 恒等 HDR 恰 0）；参考输出扰动（标量面+误差图面）/口径漂移（gqc 0.7→0.8）/恒等非零/下界冒充四 RED 臂全检出。
+- M136（A 段）：自实现 Wang 2004 逐字 vs scikit-image 0.26.0 显式参数化参考（pin + 参数化 digest 登记）25 图对五类对拍全在容差内（tol_ssim=2.220e-16〔p100 1.11e-16 × k=2.0〕/tol_psnr=0.0，provisional_pending_m138）+ 恒等 SSIM=1/PSNR=inf + LDR 域限定（HDR 直算即拒）；口径漂移/参考扰动/恒等非极值/HDR 直算/下界冒充五 RED 臂全检出。
+- M137（A 段）：报告器 `g10_m137_diff_report`（host 纯 safe）产误差 EXR 单通道 Y + 灰度热区图 PPM + 16×16 区域统计（nearest-rank p95 + 边缘规则）+ 标量三面投影，门侧独立第二实现逐面重算核验 golden + artifacts 四 digest 对账 + evidence 闭集机核 + thresholds provisional（identity 噪声底 p100 实测 0.0）；diff 图与标量不一致/空场景行/闭集外字段三 RED 臂全检出。
+- M138（B 段，P1）：标定程序可复跑（同一图集 digest 上 p100 估计器两跑逐位一致）+ 五面标定值（FLIP 标量/FLIP 误差图/SSIM/PSNR/diff over_threshold）p100 × k **字节级纯追加**入 `g10_budget.json`（五条 `g10.metric.*` 条目 measured_local + provenance + 环境画像，P-09 禁手写——首跑整文重写行尾漂移自检检出后修为字节级追加，既有行 0-byte；复跑幂等口径 = 值面逐字一致 + 在树 evidence_file trimmed_mean 复核，防「同值换皮」假漂移）+ 三门 provisional_pending_m138 标记消费登记（标定重算值与门内登记 p100 逐位一致）+ `budget_eval --strict` 全 PASS（138 pass 0 skip）；手写阈值冒充/estimated 冒充/不可复跑/门 evidence 缺失冒充四 RED 臂全检出（幂等修复前复跑实测 11/12 FAIL 留痕 `…T194020Z.json`，修复后 12/12——真实红绿闭合）。
+
+**② 聚合门实测**：`ci/g10_wave4_exit_check.py --gate g10.wave.4.exit`（步骤 186）→ 五门最新 evidence 只读汇总 5/5 PASS + 四 facts（spec/imageio.md RXS-0385 + visual_comparison.md RXS-0386~0389 条款头在树〔共 5 枚〕/ RFC-0026 Agent Approved 字面在树 / 标定值入 `g10_budget` 且 provenance 齐备〔五条 `g10.metric.*` 条目 measured_local + evidence_file 在树可解 trimmed_mean + threshold == trimmed_mean × k 重算口径 + 样本集 digest 引用〕/ 四门 RED 臂独立有效〔M134/M135/M136/M137 最新 evidence 各含 red_* checks 且全真，共 15 臂〕）全 PASS，**VERDICT=PASS**（`evidence/g10_wave4_exit_20260815T194151Z.json`）；聚合不代绿、不重跑 smoke、不遮蔽子断言；`--selftest` 负样本（空 evidence 目录）必红 + 正样本真树绿双全（负样本 FAIL evidence `…T194149Z.json` 诚实留痕——负/正样本隔 1.1s 防同秒同名覆写，最新件为 PASS）。
+
+**③ 验收命令与守卫套件实测（本记录落盘前）**：
+
+```text
+py -3 ci/g10_frame_capture_pipeline_smoke.py --gate g10.p0.m134.frame_capture_pipeline   → exit 0（PASS 13/13, device=executed）
+py -3 ci/g10_flip_metric_smoke.py --gate g10.p0.m135.flip_metric                         → exit 0（PASS 13/13）
+py -3 ci/g10_ssim_psnr_metric_smoke.py --gate g10.p0.m136.ssim_psnr_metric               → exit 0（PASS 12/12）
+py -3 ci/g10_pixel_diff_report_smoke.py --gate g10.p0.m137.pixel_diff_report             → exit 0（PASS 12/12）
+py -3 ci/g10_metric_threshold_calibration_smoke.py --gate g10.p1.m138.metric_threshold_calibration → exit 0（PASS 12/12）
+py -3 ci/g10_wave4_exit_check.py --gate g10.wave.4.exit                                  → exit 0（VERDICT=PASS）
+六门 --selftest → 全 PASS（m134 3RED+2GREEN / m135 3RED+3GREEN / m136 3RED+2GREEN / m137 2RED+2GREEN / m138 3RED+3GREEN / wave4 负正样本；g10_wave_exit_lib 6RED+1GREEN）
+py -3 ci/check_structure.py → PASS · py -3 ci/check_schemas.py → PASS · py -3 ci/check_number_ledger.py → PASS（371 条款零同号碰撞）
+py -3 ci/check_g10_acceptance_map.py → PASS（三向逐字一致）· py -3 ci/budget_eval.py --strict → PASS（138 pass 0 skip）
+py -3 ci/trace_matrix.py --check → PASS（371/371 全锚定）· py -3 ci/stable_snapshot.py --check → PASS（371）
+py -3 ci/check_g10_implementation_interlock.py --require-ready → VERDICT=READY exit 0（--selftest 11 RED + 1 GREEN + 1 TREE 全过）
+py -3 -m pytest tests/ -q → 117 passed
+```
+
+**④ 门序登记面**：spec 条款 RXS-0385~0388（A 段，commit `7689674d`）与 RXS-0389（B 段，commit `e6a4c7c2`）spec-first 先行（硬规则 7）；编号领取 = 落盘前实测 `CI_step.next_free=181/184` 顺位 181~186、`RXS.next_free=385/389` 顺位 RXS-0385~0389（registry/number_ledger.json revision_log **v1.105/v1.106**，on_tree_max CI_step 180→186 / RXS 384→389）；CI_GATES.md v1.3（A 段）/ v1.4（B 段）修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 181~183（A 段，步骤 180 块后）/ 184~186（B 段，步骤 183 块后）；check_schemas.py A 段三处 + B 段四处纯追加（既有路由 0-byte）；trace_matrix 366→371、stable 快照 366→371 重 bless（bless_log 追加行）；互锁 validator `ci/check_g10_implementation_interlock.py` **C3/C4 两态校准**（治理修复，判据语义 0-byte：blocked 态原机核维持、unblocked 态自动不适用登记 skipped_reason——校准前实测 C3/C4 FAIL exit=1〔workflow g10 token 36 处 + ci/g10_*_smoke.py 9 件 + 三面命中 36 处〕，校准后 not_applicable PASS exit=0，selftest 11 RED + 1 GREEN + 1 TREE 实证两态）；G5~G9 closed 判据与 G10.2/G10.3 门脚本 0-byte；evidence/ 只增不删不改。**§8.3 处置注记（如实登记）**：G10.3 波聚合门 `g10.wave.3.exit` 已 PASS 于 G10.3 批（最新件 `evidence/g10_wave3_exit_20260815T124853Z.json`，M131/M132/M133 三门 + 四 facts 全绿），但 G10.3 波验收记录未随 G10.3 批落 §8.3；本任务按波次编号只落 §8.4，**§8.3 由主会话补落或不补**（本记录不代补、不遮蔽该缺口）。
+
+**⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.4b 波）`（影响范围：G10_CONTRACT §8.4、spec/visual_comparison.md RXS-0389 与 spec/README.md 登记、ci/g10_flip_lib.py、ci/g10_flip_metric_smoke.py、ci/g10_metric_threshold_calibration_smoke.py、ci/g10_wave4_exit_check.py、四 evidence schema、check_schemas.py 四处纯追加、pr-smoke.yml 步骤 184~186、g10_budget.json 五条标定条目、互锁 validator C3/C4 两态校准、CI_GATES v1.4、ledger v1.106、conformance/visual_comparison 语料三件、trace/stable 重生成；A 段影响面见 v1.3 修订行与 G10.4a 三 commit；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：HDR-FLIP 为探针臂形态（5 对 auto-from-reference 同批对拍），非独立标定样本集——HDR 域正式对拍标定随 G10.5 A/B 波真实 HDR 帧对接通；M137 `scalars.flip` 字段维持 `null` 演进位（RXS-0388 L3，G10.5 翻转实值）；§8.3 未落（见 ④ 注记）。

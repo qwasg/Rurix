@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Assisted-by: Kimi-K3（G10.1 治理波 validator）
+# Assisted-by: Kimi-K3（G10.1 治理波 validator；G10.4b 波 C3/C4 两态校准）
 """G10.2 实现互锁守卫（milestones/g10/CI_GATES.md §3 `g10.gov.implementation_interlock`）。
 
 读取事实源并逐项输出，最后给出 READY / BLOCKED。两类断言严格分开：
@@ -21,6 +21,13 @@
   C3 数字步骤零预占：milestones/g10 全域无 numeric_step 数字赋值、workflow 无 g10.* key /
     ci/g10_ 脚本引用、ci/ 无 g10_*_smoke.py 预放；
   C4 src/spec/conformance 0-byte（治理期）：三面无任何 g10 字面引用、无 g10 命名文件。
+
+**C3/C4 两态口径（G10.4b 校准，判据语义 0-byte）**：C3/C4 是**治理期口径**——
+implementation_status == blocked 时维持原机核（预占/三面命中即 FAIL）；
+implementation_status != blocked（已解锁）时 C3/C4 自动不适用（实现波合法
+materialize 数字步骤/workflow/ci 脚本与 src/spec/conformance 面，机核必然
+命中而非违例），输出行登记 skipped_reason 并按通过处理；blocked 态恢复
+原机核。G9 §8.1 TREE 臂两态先例同构（selftest 红绿臂实证两态）。
 
 诚实纪律：BLOCKED 是当前正确结论，不得被当作 G-G10-3 PASS；`--require-ready`
 供未来 G10.2 实现 PR 作前置 required check（未 READY 即退出非零）。
@@ -344,24 +351,48 @@ def evaluate_consistency_gates(inp: TreeInputs, facts_all_green: bool) -> list[t
     )
 
     preclaim = inp.numeric_step_violations + inp.workflow_g10_hits + inp.g10_smoke_scripts
-    consistency.append(
-        (
-            not preclaim,
-            f"C3 数字步骤零预占：milestones/g10 numeric_step 违例 {len(inp.numeric_step_violations)} 处、"
-            f"workflow g10 token {len(inp.workflow_g10_hits)} 处、ci/g10_*_smoke.py 预放 "
-            f"{inp.g10_smoke_scripts or '无'}"
-            + (f"；首处违例 {preclaim[0]}" if preclaim else ""),
+    if impl_status == "blocked":
+        consistency.append(
+            (
+                not preclaim,
+                f"C3 数字步骤零预占：milestones/g10 numeric_step 违例 {len(inp.numeric_step_violations)} 处、"
+                f"workflow g10 token {len(inp.workflow_g10_hits)} 处、ci/g10_*_smoke.py 预放 "
+                f"{inp.g10_smoke_scripts or '无'}"
+                + (f"；首处违例 {preclaim[0]}" if preclaim else ""),
+            )
         )
-    )
 
-    consistency.append(
-        (
-            not inp.impl_surface_hits,
-            f"C4 src/spec/conformance 治理期 0-byte：g10 字面/命名命中 "
-            f"{len(inp.impl_surface_hits)} 处"
-            + (f"；首处 {inp.impl_surface_hits[0]}" if inp.impl_surface_hits else ""),
+        consistency.append(
+            (
+                not inp.impl_surface_hits,
+                f"C4 src/spec/conformance 治理期 0-byte：g10 字面/命名命中 "
+                f"{len(inp.impl_surface_hits)} 处"
+                + (f"；首处 {inp.impl_surface_hits[0]}" if inp.impl_surface_hits else ""),
+            )
         )
-    )
+    else:
+        # 两态口径（G10.4b 校准，判据语义 0-byte）：已解锁后 C3/C4 治理期口径
+        # 自动不适用——实现波合法 materialize 数字步骤/workflow/ci 脚本与
+        # src/spec/conformance 面，机核命中非违例；blocked 态恢复原机核。
+        consistency.append(
+            (
+                True,
+                f"C3 数字步骤零预占：not_applicable（implementation_status={impl_status!r} 已解锁，"
+                f"治理期口径不适用；skipped_reason=实现波合法 materialize，实测 numeric_step 违例 "
+                f"{len(inp.numeric_step_violations)} 处 / workflow g10 token {len(inp.workflow_g10_hits)} 处 / "
+                f"ci/g10_*_smoke.py {len(inp.g10_smoke_scripts)} 件均为解锁后合法实现面，非预占；"
+                "blocked 态恢复原机核，判据语义 0-byte）",
+            )
+        )
+        consistency.append(
+            (
+                True,
+                f"C4 src/spec/conformance 治理期 0-byte：not_applicable（implementation_status={impl_status!r} 已解锁，"
+                f"治理期口径不适用；skipped_reason=实现波合法改动三面，实测 g10 字面/命名命中 "
+                f"{len(inp.impl_surface_hits)} 处均为解锁后合法实现面，非治理期预放；"
+                "blocked 态恢复原机核，判据语义 0-byte）",
+            )
+        )
     return consistency
 
 
@@ -512,6 +543,30 @@ def run_selftest() -> int:
     )
     case("落 §8 解锁记录但 front matter 未翻 → C2 FAIL 退 1", inp, "C2 §8 G-G10-3 解锁记录存在 = True", "READY", 1)
 
+    # 两态口径（G10.4b 校准）：unblocked 态 C3/C4 自动不适用（skipped_reason 登记），
+    # 预占/三面命中注入不再构成 FAIL；blocked 态上述两臂已实证原机核维持。
+    unblocked_text = _GOOD_G10_CONTRACT.replace(
+        "implementation_status: blocked", "implementation_status: unblocked"
+    ).replace(
+        "## §8 Implementation activation / Close-out（只追加区）",
+        "### §8.1 G-G10-3 implementation_status 解锁记录",
+    )
+    inp = copy.deepcopy(_good_inputs())
+    inp.g10_contract_text = unblocked_text
+    inp.numeric_step_violations = ["milestones/g10/CI_GATES.md:70 numeric_step 数字赋值：numeric_step: 184"]
+    inp.workflow_g10_hits = [".github/workflows/pr-smoke.yml:2000 g10.p0.m135.flip_metric"]
+    inp.g10_smoke_scripts = ["g10_flip_metric_smoke.py"]
+    inp.impl_surface_hits = ["src/image-io/src/exr.rs:1 G10.4 M134"]
+    case(
+        "unblocked 态预占/三面命中注入 → C3/C4 not_applicable 退 0（skipped_reason 登记）",
+        inp, "skipped_reason", "READY", 0,
+    )
+
+    inp = copy.deepcopy(_good_inputs())
+    inp.g10_contract_text = unblocked_text
+    inp.acceptance_findings = ["[three-way] M135 key 漂移"]
+    case("unblocked 态事实门红 → C1 仍 FAIL 退 1（两态校准不遮蔽 C1/C2）", inp, "C1 G10_CONTRACT implementation_status = 'unblocked'", "BLOCKED", 1)
+
     lines = []
     code, verdict = run(_good_inputs(), printer=lines.append)
     if code == 0 and verdict == "READY":
@@ -542,7 +597,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[check_g10_implementation_interlock] SELFTEST FAIL ({failures})")
         return 1
-    print("[check_g10_implementation_interlock] SELFTEST PASS (9 RED + 1 GREEN + 1 TREE)")
+    print("[check_g10_implementation_interlock] SELFTEST PASS (11 RED + 1 GREEN + 1 TREE)")
     return 0
 
 

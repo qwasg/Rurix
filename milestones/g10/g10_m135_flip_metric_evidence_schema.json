@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M135 flip_metric evidence",
+  "description": "evidence/g10_m135_flip_metric_<UTC>.json。G10.4 P0 硬门 g10.p0.m135.flip_metric（步骤 184；G10_CONTRACT §4.2 M135 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0026 §4.2；spec/visual_comparison.md RXS-0389）：口径冻结进 spec + 参考实现 NVlabs/flip pin 五元组齐备（commit digest + 分支/后端 + OS/工具链 + 构建配置 + 运行参数集，缺一元即 RED；选臂 python-nanobind 本地 pin 源码构建如实登记）+ 自实现（YCxCz 管道逐字）与参考实现逐图对拍一致（图集 25 对五类下界，digest 入 evidence；容差两面分列——标量差与误差图逐像素差 p100 × k〔k∈[1,3] 登记〕 measured 标定，provisional 待 M138 正式入 g10_budget）+ 恒等图对 FLIP=0 极值断言（自实现与参考双侧，标量恰 0 且误差图逐像素恰 0）+ ppd 策略冻结（自实现默认 ppd 与参考返回参数字典逐位一致）+ HDR-FLIP 探针臂（auto-from-reference 曝光同批对拍）；参考输出扰动/口径参数漂移/恒等非零/下界冒充注入即 RED。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "metric_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m135_flip_metric" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m135.flip_metric" },
+    "matrix_row": { "type": "string", "const": "M135" },
+    "milestone": { "type": "string", "const": "M135" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m135.flip_metric" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 184 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0026 §4.2;spec/visual_comparison.md RXS-0389;G10_ACCEPTANCE_MAP §1 M135"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0389_clause_on_tree",
+        "reference_pin_quintuple_complete",
+        "corpus_lower_bound",
+        "identity_flip_zero",
+        "ppd_strategy_frozen",
+        "pairwise_scalar_within_tolerance",
+        "pairwise_error_map_within_tolerance",
+        "tolerance_calibration_provenance",
+        "hdr_flip_probe_within_tolerance",
+        "red_caliber_drift_detected",
+        "red_reference_perturbation_detected",
+        "red_identity_nonzero_detected",
+        "red_corpus_below_bound_detected"
+      ],
+      "properties": {
+        "spec_rxs0389_clause_on_tree": { "type": "boolean" },
+        "reference_pin_quintuple_complete": { "type": "boolean" },
+        "corpus_lower_bound": { "type": "boolean" },
+        "identity_flip_zero": { "type": "boolean" },
+        "ppd_strategy_frozen": { "type": "boolean" },
+        "pairwise_scalar_within_tolerance": { "type": "boolean" },
+        "pairwise_error_map_within_tolerance": { "type": "boolean" },
+        "tolerance_calibration_provenance": { "type": "boolean" },
+        "hdr_flip_probe_within_tolerance": { "type": "boolean" },
+        "red_caliber_drift_detected": { "type": "boolean" },
+        "red_reference_perturbation_detected": { "type": "boolean" },
+        "red_identity_nonzero_detected": { "type": "boolean" },
+        "red_corpus_below_bound_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "metric_report": {
+      "type": "object",
+      "description": "度量报告：参考实现 pin 五元组 + 选臂登记 + 图集清单 digest + 容差标定 provenance（标量面与误差图面两面分列 p100×k，provisional_pending_m138）+ 恒等极值双侧 + HDR-FLIP 探针臂 + 逐图对拍标量/误差图差集",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

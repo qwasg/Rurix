@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.4 M138 calibration budget evidence（五条标定条目共享）",
+  "description": "evidence/g10_m138_calibration_<slug>_<UTC>.json（slug ∈ {flip_scalar, flip_error_map, ssim, psnr, diff_over_threshold}）。M138 标定门（步骤 185）产出的 budget 标定证据：results.trimmed_mean = 标定 p100（budget_eval 通用 measured entry 判读面，零新 evaluator 分支）+ provenance（估计器语义 p100×k / k 理由 / 样本集 digest / source gate evidence 路径与 digest / provisional_pending_m138 消费标记）+ 环境画像。供 g10_budget.json 五条 g10.metric.* 标定条目 evidence_file 引用。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "milestone",
+    "wave",
+    "numeric_step",
+    "results",
+    "provenance",
+    "environment",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "g10_m138_calibration_flip_scalar",
+        "g10_m138_calibration_flip_error_map",
+        "g10_m138_calibration_ssim",
+        "g10_m138_calibration_psnr",
+        "g10_m138_calibration_diff_over_threshold"
+      ]
+    },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p1.m138.metric_threshold_calibration" },
+    "milestone": { "type": "string", "const": "M138" },
+    "wave": { "type": "string", "const": "G10.4" },
+    "numeric_step": { "type": "integer", "const": 185 },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean", "estimator", "sample_pair_count", "safety_factor_k", "threshold"],
+      "properties": {
+        "trimmed_mean": { "type": "number" },
+        "estimator": { "type": "string", "const": "p100" },
+        "sample_pair_count": { "type": "integer", "minimum": 24 },
+        "safety_factor_k": { "type": "number", "minimum": 1.0, "maximum": 3.0 },
+        "threshold": { "type": "number" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "estimator_semantics",
+        "k_rationale",
+        "sample_set_digest",
+        "source_gate",
+        "source_gate_evidence",
+        "source_gate_evidence_digest",
+        "consumed_provisional_marker",
+        "measured"
+      ],
+      "properties": {
+        "estimator_semantics": { "type": "string" },
+        "k_rationale": { "type": "string" },
+        "sample_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "source_gate": { "type": "string" },
+        "source_gate_evidence": { "type": "string" },
+        "source_gate_evidence_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "consumed_provisional_marker": { "type": "string", "const": "provisional_pending_m138" },
+        "measured": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" }
+  }
+}
