@@ -1,7 +1,7 @@
 ---
 contract: G9
 title: G9 UE5 级渲染器与物理引擎正式建造期
-status: active
+status: closed
 implementation_status: unblocked
 active_scope: g9_1_governance_only + g9_2_plus_implementation_waves
 version: v1.0
@@ -311,3 +311,10 @@ G-G9-1~11 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚�
 - **验收命令（实测全绿）**：`py -3 ci/g9_closeout_check.py --gate g9.wave.8b.closeout` exit=0 READY + `--selftest` OK materialized step 172 + `py -3 ci/check_schemas.py` / `py -3 ci/check_g9_acceptance_map.py` / `py -3 ci/check_number_ledger.py` / `py -3 ci/trace_matrix.py --check`（361/361）/ `py -3 ci/stable_snapshot.py --check` / `py -3 ci/check_g9_implementation_interlock.py --require-ready`（READY）守卫全 PASS。
 - **status flip**：见紧随其后的独立 commit（front matter `active`→`closed` + 本条 0-byte 维持）。
 - **签署**：白栀（D-406 v2.0 agent 完全自主签署）。`Assisted-by: Kimi-K3`（影响范围：G9.8b close-out 终审门步骤 172 六件套——`ci/g9_closeout_check.py` + `milestones/g9/g9_wave8b_closeout_evidence_schema.json` + `ci/check_schemas.py` 三处纯追加 + `pr-smoke.yml` 步骤 172 + CI_GATES v1.21 / ledger v1.101 / 本小节留痕；验证方式：closeout 门 --gate/--selftest 实测 + 守卫全绿，输出如上）。
+
+### §8.10 G9 status flip（2026-08-15）
+
+**裁决**：G-G9-1~11 对应波次与硬门已 materialize 并逐波验收（G9.2~G9.6 五波 §8.2~§8.6、G9.7 决策门 §8.7、G9.8a soak §8.8）；8a full-run PASS（`g9_stabilization_soak_20260815T033526Z`）；8b `VERDICT=READY`（`g9_wave8b_closeout_20260815T034218Z`）。  
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-034/039/040/041/042/043/044 总体维持 open（分项 closed/go/defer 已由候选决策表、G9_P2_DECISIONS 与 deferred history 只追加留痕）。本条为 close-out 终审签署块。
+
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G8 §8.26 同模）。`Assisted-by: Kimi-K3`（影响范围：front matter status flip + 本条签署块；验证方式：`py -3 ci/g9_closeout_check.py --gate g9.wave.8b.closeout` 复跑幂等 READY + 全守卫复跑 PASS）。
