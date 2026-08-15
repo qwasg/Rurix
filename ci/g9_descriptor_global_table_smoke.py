@@ -362,7 +362,7 @@ def main() -> int:
         check(False, f"--gate `{args.gate}` ≠ canonical key `{GATE_KEY}`")
 
     mb = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True)
-    base_commit = (mb.stdout.strip() or "unknown")[:12]
+    base_commit = mb.stdout.strip() or "unknown"
 
     leg_rust_gates()
     leg_fixture_and_spec()
