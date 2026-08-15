@@ -286,7 +286,31 @@ py -3 -m pytest tests/ -q → 117 passed
 
 **⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.2 波 materialize）`（影响范围：G10_CONTRACT §8.2、spec/visual_comparison.md 新建与 spec/README.md 登记、四门脚本与共享判定层、四 evidence schema、red_fixtures/m128+m129、pr-smoke.yml 步骤 177~180、CI_GATES v1.2、ledger v1.104、conformance/visual_comparison 语料、harness g10_param_contract SPEC 布局替换、g10_2_provisional_scene_set.json、trace/stable 重生成；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：CornellBox UE 程序生成场景与 Bistro UE 导入面未建成（环境日志 §7.4 缺项 #7，M129 暂定场景面偏差已登记）；M130 `--phase g10.5` 双端核验腿、门序三重绑定机器阻断、应用层探针归 G10.5；`-renderoffscreen` 5.8 可用性未测（本轮出图走窗口模式）。
 
-### §8.4 G10.4 波验收记录（2026-08-15，G-G10-5）
+### §8.3 G10.3 波验收记录（2026-08-15，G-G10-5；主会话补落——wave3 聚合门已 PASS 于 G10.3 批，本记录为补登）
+
+**① 独立断言清单（12 P0 中本波 2 行 + 已 go P1 中本波 1 行，逐行独立 PASS|FAIL 不互代）**：
+
+| Symbolic gate key | 步骤 | 实测 verdict | evidence（最新件） |
+|---|---:|---|---|
+| `g10.p0.m131.asset_license_registry` | 173 | **PASS**（checks 7/7） | `evidence/g10_m131_asset_license_registry_20260815T124824Z.json` |
+| `g10.p0.m132.corpus_loading` | 174 | **PASS**（checks 9/9，device=executed） | `evidence/g10_m132_corpus_loading_20260815T124829Z.json` |
+| `g10.p1.m133.corpus_list_freeze` | 175 | **PASS**（checks 7/7） | `evidence/g10_m133_corpus_list_freeze_20260815T124830Z.json` |
+
+- M131：许可白名单闭集 {CC0-1.0, CC-BY-3.0, CC-BY-4.0} 机核 + external 五元组 / generated 六字段按类登记（互冒充即 RED）+ attribution 子字段闭集 + digest 复算一致 + git 零二进制守卫；RED 五件全检出（白名单外许可注入〔Emerald Square CC-BY-NC-SA-3.0 夹具〕/未登记资产混入/缺字段/互冒充/digest 篡改）。
+- M132：rxcook 真跑加载——BistroInterior glTF（FBX2glTF v0.9.7 派生，工具 sha256 登记）**1,046,609 三角形 / 70 材质 / 144 纹理**（与包内 README total 逐字一致）+ CornellBox 程序生成 34/4/1；计数/六表全等 golden + 加载事件序列 golden + 静默丢场景零；RED 三件全检出。
+- M133：场景清单 digest `d96b4d2f…` 注册在树 + 只追加修订程序机核（原地改即 RED）+ M131/M132 行集对账 + ready 下界 ≥2（vacuous PASS 拦截）。
+- 资产实测登记：Bistro（ORCA，**CC-BY-4.0**）`Bistro_v5_2.zip` 894,377,473 B，sha256 `0d50e3c7…34e1`，解包 643 文件 2,613,499,054 B，清单级 canonical digest `0afc237b…4ac4`，缓存 `K:\rurix_g10_cache\bistro-orca\v5_2\`（零入 git）；CornellBox 生成器 `ci/_gen_g10_cornell_box.py`（generated 类六字段），4 文件 13,059 B，digest `a53b05d7…fdaa8e`；BistroInterior 派生 glTF 146 文件 553,266,741 B，digest `4dae7c0d…2565`。
+- 遗留缺口（如实登记不充绿）：**BistroExterior 未入清单**——FBX2glTF v0.9.7 转换 Exterior 动画烘焙 95% 后写 .gltf 失败（K:/H: 双盘四臂同失败，无纹理诊断臂成功，工具内部缺陷非环境问题）；首发清单场景面 = BistroInterior + CornellBox（ready=2 满足下界），Exterior 启用走只追加修订程序；纹理 DDS 原样拷贝（URI 不透明保留），纹理解码归后续波次。
+
+**② 聚合门实测**：`ci/g10_wave3_exit_check.py --gate g10.wave.3.exit`（步骤 176）→ 三门最新 evidence 只读汇总 3/3 PASS + 四 facts（RXS-0380~0383 条款头在树 / RFC-0027 Agent Approved 字面 / 清单 digest 注册在树 / M131 白名单字面）全 PASS，**VERDICT=PASS**（`evidence/g10_wave3_exit_20260815T124853Z.json`）；聚合不代绿、不重跑 smoke、不遮蔽子断言；`--selftest` 红绿双全（缺 evidence 必红负样本留痕件在库）。
+
+**③ 验收命令与守卫套件实测（G10.3 批留痕）**：四门 `--gate` 全 PASS + 全门 `--selftest` 红绿双全 + `check_structure` / `check_schemas` / `check_number_ledger`（365 条款零碰撞）/ `trace_matrix --check` 365/365 / `budget_eval` 133 pass 0 skip / `check_g10_acceptance_map` 三向 / `stable_snapshot`（361→365 重 bless，bless_log 追加）/ `pytest` 117 passed 全 PASS。
+
+**④ 门序登记面**：spec-first 落 `spec/external_reference.md` RXS-0380~0383（条款 commit 先于实现段落）；编号领取 = 落盘前实测 actual next_free 顺位（CI_step 173~176 / RXS-0380~0383；registry/number_ledger.json revision_log **v1.103**，on_tree_max CI_step 172→176 / RXS 379→383）；pr-smoke.yml 步骤 173~176（步骤 172 块后追加）；CI_GATES.md v1.1 修订行（§4/§4A/§5 表体 0-byte）；check_schemas.py 三处纯追加；.gitignore 缓存路径守卫块纯追加；G5~G9 closed 判据 0-byte；evidence/ 只增不删不改。commits：`3d019d3d`（feat 主批 58 文件）/ `6550e470`（四门 evidence 入库）/ `13bf40a0`（wave3 selftest RED 臂留痕件）。
+
+**⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署）。`Assisted-by: Kimi-K3`（影响范围：G10.3 波三门 + 聚合门 + spec RXS-0380~0383 + 本 §8.3 补落；验证方式：③ 全量实测输出留痕 + evidence 最新件复核）。
+
+### §8.4 G10.4 波验收记录（2026-08-15，G-G10-6）
 
 **① 独立断言清单（12 P0 中本波 4 行 + 已 go P1 中本波 1 行，逐行独立 PASS|FAIL 不互代）**：
 
