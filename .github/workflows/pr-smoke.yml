@@ -1822,6 +1822,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_stabilization_soak.py --verify-latest
 
+      # 步骤 172（G9.8b close-out 终审门 g9.wave.8b.closeout;CI_GATES §6 v1.21;
+      # G9_CONTRACT G-G9-11;落盘前实测 CI_step.next_free=172 顺位领取）。只读汇总
+      # 八 facts:①34 key(15 P0 + 19 go P1)最新 evidence 逐门 PASS(wel 口径);
+      # ②wave2~8a 七聚合门(exit×5 + decisions + soak)全 PASS;③MAP 三向
+      # check_g9_acceptance_map exit=0;④P2 表最新 evidence host_section_pass;
+      # ⑤budget_eval --strict 非空零 estimated/skip;⑥8a full-run 先行(最新
+      # g9_stabilization_soak evidence host_section_pass,base_commit_8a 留痕;
+      # 立项裁决 6 同日放行——8a full-run 先行完成后允许同日 close-out);
+      # ⑦RD 最终状态逐字一致(G-G9-11:deferred.json RD-034/039~044 七条目级
+      # status 全 open 逐字 + G9_P2_DECISIONS.md 33 行 FROZEN_IDS 闭集在树);
+      # ⑧最后新绿 UTC 日留痕(信息不阻断)。VERDICT=READY|BLOCKED;status flip
+      # 独立 commit。evidence 落盘 evidence/g9_wave8b_closeout_<UTC>.json。
+      - name: G9.8b closeout check (G9 CI_GATES §6.172, g9.wave.8b.closeout)
+        shell: powershell
+        run: py -3 ci/g9_closeout_check.py --gate g9.wave.8b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

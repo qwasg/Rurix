@@ -445,6 +445,9 @@ def check_evidence_files() -> None:
     g9_stabilization_soak_schema = load(
         ROOT / "milestones/g9/g9_stabilization_soak_evidence_schema.json"
     )
+    g9_wave8b_closeout_schema = load(
+        ROOT / "milestones/g9/g9_wave8b_closeout_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1016,6 +1019,11 @@ def check_evidence_files() -> None:
     g9_stabilization_soak_validator = (
         jsonschema.Draft7Validator(g9_stabilization_soak_schema)
         if g9_stabilization_soak_schema is not None
+        else None
+    )
+    g9_wave8b_closeout_validator = (
+        jsonschema.Draft7Validator(g9_wave8b_closeout_schema)
+        if g9_wave8b_closeout_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2027,6 +2035,16 @@ def check_evidence_files() -> None:
             # sleep_seconds 恒 0/active≈wall 诚实口径〕+ budget --strict 非空零
             # estimated/skip + 日期锚)。
             validator = g9_stabilization_soak_validator
+        elif (
+            f.name.startswith("g9_wave8b_closeout_")
+            and g9_wave8b_closeout_validator is not None
+        ):
+            # G9.8b close-out 终审门(步骤 172;ci/g9_closeout_check.py 写:
+            # 34 key + wave2~8a 七聚合门 + MAP 三向 + P2 + budget --strict
+            # + 8a full-run 先行〔立项裁决 6 同日放行〕+ RD 最终状态逐字一致
+            # 〔RD-034/039~044 七条目级 status 全 open + P2 33 行闭集在树〕
+            # + 最后新绿留痕;VERDICT=READY|BLOCKED,status flip 独立 commit)。
+            validator = g9_wave8b_closeout_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None
