@@ -1805,6 +1805,23 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_p2_decisions_check.py --gate g9.wave.7.decisions
 
+      # 步骤 171（G9.8a stabilization soak 聚合门 g9.wave.8a.soak;CI_GATES §6 v1.20;
+      # G9_CONTRACT G-G9-10;落盘前实测 CI_step.next_free=171 顺位领取）。pr-smoke
+      # 侧 = --verify-latest 秒级核最新 full-run evidence(schema + host_section_pass
+      # + checks 六键全真 + soak 双阈值与 honesty 字段复核);full-run 本地/
+      # workflow_dispatch 产 evidence——四腿:①全量回归(15 P0 + 19 go P1 逐门
+      # 真跑 --gate 后机器核验最新 evidence status==pass,M121/M122 完整期
+      # --phase g9.6 核验 phase_g9_6_pass==true,34 门 base_commit 同值=同一候选
+      # close-out 基线)+ 波聚合门 wave2~wave6 exit + p2_decisions 真跑核验;
+      # ②M110 大世界流送长 soak(g9_m110_world_partition --long-soak,512×512
+      # cell,3072 帧闭式路径周期,≥1800s 墙钟且 ≥10000 帧,sleep_seconds 恒 0,
+      # active_frame_seconds≈soak_seconds,帧计数/hitch p99/流送计数非空);
+      # ③budget_eval --strict 非空零 estimated/skip;④日期锚。evidence 落盘
+      # evidence/g9_stabilization_soak_<UTC>.json。
+      - name: G9.8a stabilization soak verify-latest (G9 CI_GATES §6.171, g9.wave.8a.soak)
+        shell: powershell
+        run: py -3 ci/g9_stabilization_soak.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

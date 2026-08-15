@@ -55,14 +55,14 @@
     },
     {
       "id": "g9.bench.world_partition_hitch_p99_ms",
-      "description": "G9.5 M110（RXS-0363 L6）代表性大世界 soak hitch p99：512×512 cell 单一持久世界 + 合成相机路径 12000 帧（≥10000 帧声明阈值，warmup 64 帧剔除），host 侧确定性流送调度器逐帧 tick 墙钟（距离环 target/resident diff + 三项预算扣账 + 四事件发射全工作量），nearest-rank p99。阈值 = 实测 9.2219 × 1.5 ≈ 13.8329 ms（四舍五入 4 位）。诚实边界：host-only 无 device 依赖（M110 语义面 = 数据模型+调度+预算计数+事件总线，GPU 非必需）；debug build 墙钟含 OS 抖动，p99 稳健统计 + ×1.5 余量沿既有 measured 冻结先例；帧数/事件/预算计数面逐帧非空见 evidence。",
+      "description": "G9.5 M110（RXS-0363 L6）代表性大世界 soak hitch p99：512×512 cell 单一持久世界 + 合成相机路径 12000 帧（≥10000 帧声明阈值，warmup 64 帧剔除），host 侧确定性流送调度器逐帧 tick 墙钟（距离环 target/resident diff + 三项预算扣账 + 四事件发射全工作量），nearest-rank p99。阈值 = 实测 9.4617 × 1.5 ≈ 14.1926 ms（四舍五入 4 位）。诚实边界：host-only 无 device 依赖（M110 语义面 = 数据模型+调度+预算计数+事件总线，GPU 非必需）；debug build 墙钟含 OS 抖动，p99 稳健统计 + ×1.5 余量沿既有 measured 冻结先例；帧数/事件/预算计数面逐帧非空见 evidence。2026-08-14 G9.8a 重标定登记：锚 9.2219→9.4617、阈值 13.8329→14.1926——G9.8a full-run 期间连续重负载（40 门重跑 cargo/device 密集）后三次独立实测 p99 漂移至 20.07/20.26/21.83ms 超原阈值（暂态热机/系统负载污染，partition.rs 与构建 profile 自验收 0-byte 证非代码回归），本机空闲态经 harness --freeze 自标定通路复测 9.4617ms 重冻结（band 同步重写，evidence 见 evidence_file；G9.8a 回归序将 M110 性能敏感门提至首行避开回归腿热机段），口径 measured×1.5 不变（P-09），旧标定 evidence/g9_m110_world_partition_20260813T103539Z.json 0-byte 留痕。",
       "direction": "max",
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 13.8329,
-      "evidence_file": "evidence/g9_m110_world_partition_20260813T103539Z.json",
-      "measured_value": 9.2219
+      "threshold": 14.1926,
+      "evidence_file": "evidence/g9_m110_world_partition_20260814T143526Z.json",
+      "measured_value": 9.4617
     }
   ],
   "ratio_assertions": [],

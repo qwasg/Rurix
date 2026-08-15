@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G9.8a stabilization soak aggregate evidence",
+  "description": "evidence/g9_stabilization_soak_<UTC>.json。四腿:全量回归(15 P0 + 19 go P1 + wave2~wave6 exit + p2_decisions,逐门真跑后机器核验最新 evidence;M121/M122 双 phase 完整期核验;34 门 base_commit 同值=同一候选 close-out 基线 MAP §6)+ M110 大世界流送长 soak(≥30min 且 ≥10000 帧)+ budget --strict + 日期锚。诚实语义沿 G8.8a 2026-08-08 口径:soak 墙钟=真实帧循环(sleep_seconds 恒 0,active_frame_seconds 佐证,gate 外测墙钟交叉核验);host-soak 无 validation/device_lost 字面量 0 硬门;G9 无 legacy 兼容——首份 evidence 即 honesty 格式,soak 块 honesty 字段全必填。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "base_commit",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "soak",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g9_stabilization_soak" },
+    "symbolic_gate_key": { "type": "string", "const": "g9.wave.8a.soak" },
+    "matrix_row": { "type": "string", "const": "G9.8a" },
+    "wave": { "type": "string", "const": "G9.8a" },
+    "numeric_step": { "type": "integer", "const": 171 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "required_gates": { "type": "array", "minItems": 40, "maxItems": 40 },
+    "extra_facts": { "type": "array", "minItems": 1 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regression_all_pass",
+        "base_commit_uniform",
+        "soak_dual_threshold",
+        "soak_no_sleep_padding",
+        "budget_strict_pass",
+        "date_anchor_recorded"
+      ],
+      "properties": {
+        "regression_all_pass": { "type": "boolean" },
+        "base_commit_uniform": { "type": "boolean" },
+        "soak_dual_threshold": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" },
+        "budget_strict_pass": { "type": "boolean" },
+        "date_anchor_recorded": { "type": "boolean" }
+      }
+    },
+    "soak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frames",
+        "seconds",
+        "min_frames",
+        "min_seconds",
+        "soak_subject",
+        "active_frame_seconds",
+        "sleep_seconds",
+        "outer_wall_seconds",
+        "hitch_p99_ms",
+        "total_events",
+        "total_cells_streamed"
+      ],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 10000 },
+        "seconds": { "type": "number", "minimum": 1800 },
+        "min_frames": { "type": "integer", "const": 10000 },
+        "min_seconds": { "type": "integer", "const": 1800 },
+        "soak_subject": { "type": "string", "const": "host-soak" },
+        "active_frame_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "sleep_seconds": { "type": "number", "const": 0 },
+        "outer_wall_seconds": { "type": "number", "minimum": 1800 },
+        "hitch_p99_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "total_events": { "type": "integer", "minimum": 1 },
+        "total_cells_streamed": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -442,6 +442,9 @@ def check_evidence_files() -> None:
     g9_p2_decisions_schema = load(
         ROOT / "milestones/g9/g9_p2_decisions_evidence_schema.json"
     )
+    g9_stabilization_soak_schema = load(
+        ROOT / "milestones/g9/g9_stabilization_soak_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1008,6 +1011,11 @@ def check_evidence_files() -> None:
     g9_p2_decisions_validator = (
         jsonschema.Draft7Validator(g9_p2_decisions_schema)
         if g9_p2_decisions_schema is not None
+        else None
+    )
+    g9_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g9_stabilization_soak_schema)
+        if g9_stabilization_soak_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2004,10 +2012,21 @@ def check_evidence_files() -> None:
             and g9_p2_decisions_validator is not None
         ):
             # G9.7 P2 穷举决策门(步骤 170;ci/g9_p2_decisions_check.py 写:33 行
-            # 冻结候选闭集全等 + 裁决枚举合法 + 零空行 + defer 承接锚「重判条件+
+            # 冻结候选闭集全等 + 裁决枚举合法 + 零空行 + 承接锚「重判条件+
             # 兜底+G10+ 重评窗」+ MAP 34 key 互斥 + deferred.json history 对账
             # 〔RD-039 +1/RD-040 +3,零新 RD〕;普通检查门非聚合门,不代绿)。
             validator = g9_p2_decisions_validator
+        elif (
+            f.name.startswith("g9_stabilization_soak_")
+            and g9_stabilization_soak_validator is not None
+        ):
+            # G9.8a stabilization soak 聚合门(步骤 171;ci/g9_stabilization_soak.py
+            # 写:15 P0 + 19 go P1 + wave2~wave6 exit + p2_decisions 全量回归
+            # 〔M121/M122 双 phase 完整期核验;34 门 base_commit 同值=同一候选
+            # close-out 基线〕+ M110 大世界流送长 soak〔≥1800s 且 ≥10000 帧,
+            # sleep_seconds 恒 0/active≈wall 诚实口径〕+ budget --strict 非空零
+            # estimated/skip + 日期锚)。
+            validator = g9_stabilization_soak_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

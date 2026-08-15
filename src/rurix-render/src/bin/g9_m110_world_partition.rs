@@ -42,7 +42,19 @@
 //!                         [--soak-frames N]
 //! g9_m110_world_partition --freeze [--band-out <path>] [--evidence <path>]
 //! g9_m110_world_partition --red-arm budget-overrun|event-order|hlod-drift
+//! g9_m110_world_partition --long-soak --min-seconds S --min-frames N
 //! ```
+//!
+//! ## G9.8a 长 soak 扩展（`--long-soak`，加性子模式，门流程 0-byte）
+//!
+//! 同一 512×512 cell 大世界 + 同一 soak 预算 + 同一闭式相机路径（周期
+//! lcm(1024,1536)=3072 帧循环回放，与门内 12000 帧面逐帧同源）跑**墙钟驱动**
+//! 长 soak：循环至 `elapsed ≥ min_seconds` 且 `frames ≥ min_frames` 双阈值同时
+//! 满足。honesty 口径（沿 G8.8a uc08 soak 语义）：全程真实帧循环（tick + 逐帧
+//! 预算一致性机核 + 事件 drain 全工作量），**零 sleep**（`sleep_seconds` 恒
+//! 0.0），`active_frame_seconds` = 逐帧工作量测和，与 `soak_seconds`（帧循环
+//! 墙钟）同源产出；帧计数/hitch p99/流送计数非空即硬断言（空即 FAIL 不充绿）。
+//! 输出单行 JSON 供 `ci/g9_stabilization_soak.py` 机器核验。
 
 #![forbid(unsafe_code)]
 
@@ -160,6 +172,9 @@ struct Args {
     soak_frames: u32,
     freeze: bool,
     red_arm: Option<String>,
+    long_soak: bool,
+    min_seconds: u64,
+    min_frames: u64,
 }
 
 fn parse_args() -> Args {
@@ -171,6 +186,9 @@ fn parse_args() -> Args {
         soak_frames: wp::M110_SOAK_DEFAULT_FRAMES,
         freeze: false,
         red_arm: None,
+        long_soak: false,
+        min_seconds: 0,
+        min_frames: 0,
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut i = 0;
@@ -192,6 +210,17 @@ fn parse_args() -> Args {
             }
             "--freeze" => out.freeze = true,
             "--red-arm" => out.red_arm = Some(take(&mut i)),
+            "--long-soak" => out.long_soak = true,
+            "--min-seconds" => {
+                out.min_seconds = take(&mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--min-seconds 非整数"))
+            }
+            "--min-frames" => {
+                out.min_frames = take(&mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--min-frames 非整数"))
+            }
             other => fail(&format!("未知参数: {other}")),
         }
         i += 1;
@@ -402,6 +431,133 @@ fn red_arm_hlod(work_dir: &Path) -> Result<(), String> {
 }
 
 // ---------------------------------------------------------------------------
+// G9.8a 长 soak 子模式（--long-soak；加性，门流程 0-byte）
+// ---------------------------------------------------------------------------
+
+/// 闭式相机路径循环周期（`soak_camera_path` 两轴三角波周期 lcm(1024,1536)）。
+const LONG_SOAK_PATH_CYCLE_FRAMES: u32 = 3072;
+
+/// 墙钟驱动长 soak：同一 soak 大世界/预算/闭式相机路径（3072 帧周期循环），
+/// 循环至 `elapsed ≥ min_seconds` 且 `frames ≥ min_frames` 双阈值同时满足；
+/// 全程真实帧循环零 sleep，honesty 字段（sleep_seconds=0/active≈wall）单行
+/// JSON 输出供 ci/g9_stabilization_soak.py 机器核验。
+fn run_long_soak(min_seconds: u64, min_frames: u64) -> ! {
+    if min_seconds == 0 {
+        fail("--min-seconds 必须 >0（墙钟硬口径，禁 0 充数）");
+    }
+    if min_frames < wp::M110_SOAK_MIN_FRAMES as u64 {
+        fail(&format!(
+            "--min-frames {min_frames} 低于声明阈值 {}",
+            wp::M110_SOAK_MIN_FRAMES
+        ));
+    }
+    let world = wp::soak_world();
+    let budget = wp::soak_budget();
+    let world_cells = world.cells.len();
+    let spatial_objects = world.spatially_loaded.len();
+    let world_digest = hex(&wp::world_digest(&world).expect("world digest"));
+    let cycle = wp::soak_camera_path(LONG_SOAK_PATH_CYCLE_FRAMES);
+    let cycle_digest = hex(&camera_path_digest(&cycle));
+    let mut rt = wp::PartitionRuntime::new(world, budget).expect("runtime 装配");
+    let warmup = wp::M110_SOAK_WARMUP_FRAMES as u64;
+    let mut tick_samples: Vec<u64> = Vec::new();
+    let mut active_ns: u128 = 0;
+    let mut events_by_kind = [0u64; 4];
+    let mut total_events: u64 = 0;
+    let mut total_cells_streamed: u64 = 0;
+    let mut frames: u64 = 0;
+    let loop_start = std::time::Instant::now();
+    let mut last_progress = std::time::Instant::now();
+    loop {
+        // 逐帧工作量测区：tick + 逐帧预算一致性机核 + 事件 drain + 计数聚合
+        // （active_frame_seconds 的唯一来源；循环控制开销可忽略）。
+        let f0 = std::time::Instant::now();
+        let src = &cycle[(frames % LONG_SOAK_PATH_CYCLE_FRAMES as u64) as usize];
+        let ev = rt
+            .tick(frames as u32, std::slice::from_ref(src))
+            .unwrap_or_else(|e| fail(&format!("long-soak 帧 {frames} tick: {e}")));
+        wp::check_frame_budget_consistency(&ev, &budget)
+            .unwrap_or_else(|e| fail(&format!("long-soak 帧 {frames} 预算一致性: {e}")));
+        for e in rt.drain_events() {
+            // 四事件闭集计数(序与 CellEventKind::code 一致;code() 为 crate 内
+            // 私有,bin 侧用公开 variant 匹配)。
+            match e.kind {
+                wp::CellEventKind::CellLoadBegin => events_by_kind[0] += 1,
+                wp::CellEventKind::CellResident => events_by_kind[1] += 1,
+                wp::CellEventKind::CellUnloadBegin => events_by_kind[2] += 1,
+                wp::CellEventKind::CellEvicted => events_by_kind[3] += 1,
+            }
+            total_events += 1;
+        }
+        total_cells_streamed += ev.streaming_cells_this_frame as u64;
+        let frame_ns = f0.elapsed().as_nanos() as u64;
+        active_ns += frame_ns as u128;
+        if frames >= warmup {
+            tick_samples.push(frame_ns);
+        }
+        frames += 1;
+        let elapsed = loop_start.elapsed().as_secs_f64();
+        if frames >= min_frames && elapsed >= min_seconds as f64 {
+            break;
+        }
+        if last_progress.elapsed().as_secs() >= 60 {
+            eprintln!(
+                "{TAG}: long-soak progress frames={frames} elapsed={elapsed:.1}s \
+                 events={total_events} streamed={total_cells_streamed}"
+            );
+            last_progress = std::time::Instant::now();
+        }
+    }
+    let seconds = loop_start.elapsed().as_secs_f64();
+    let active_seconds = active_ns as f64 / 1e9;
+    // 帧计数/hitch/流送计数非空硬断言（空即 FAIL 不充绿）。
+    if tick_samples.is_empty() || total_events == 0 || total_cells_streamed == 0 {
+        fail(&format!(
+            "long-soak 计数面空: samples={} events={total_events} streamed={total_cells_streamed}",
+            tick_samples.len()
+        ));
+    }
+    let p50_ms = wp::percentile_ns(&tick_samples, 0.50) as f64 / 1e6;
+    let p95_ms = wp::percentile_ns(&tick_samples, 0.95) as f64 / 1e6;
+    let p99_ms = wp::percentile_ns(&tick_samples, 0.99) as f64 / 1e6;
+    let max_ms = *tick_samples.iter().max().unwrap_or(&0) as f64 / 1e6;
+    let base_commit =
+        std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
+    let json = format!(
+        "{{\"ok\": true, \"soak\": true, \"soak_subject\": \"host-soak\", \
+         \"subject\": \"g9_m110_world_partition_long_soak\", \
+         \"schema\": \"rurix.g9m110.world_partition_long_soak.v1\", \"schema_version\": 1, \
+         \"soak_frames\": {frames}, \"frames\": {frames}, \
+         \"soak_seconds\": {seconds:.3}, \"seconds\": {seconds:.3}, \
+         \"active_frame_seconds\": {active_seconds:.3}, \"sleep_seconds\": 0.0, \
+         \"min_seconds\": {min_seconds}, \"min_frames\": {min_frames}, \"warmup_frames\": {warmup}, \
+         \"world_cells\": {world_cells}, \"spatial_objects\": {spatial_objects}, \
+         \"world_digest\": \"{world_digest}\", \
+         \"path_cycle_frames\": {LONG_SOAK_PATH_CYCLE_FRAMES}, \"path_cycle_digest\": \"{cycle_digest}\", \
+         \"hitch\": {{\"p50_ms\": {p50_ms:.6}, \"p95_ms\": {p95_ms:.6}, \"p99_ms\": {p99_ms:.6}, \"max_ms\": {max_ms:.6}}}, \
+         \"events_by_kind\": [{}, {}, {}, {}], \"total_events\": {total_events}, \
+         \"total_cells_streamed\": {total_cells_streamed}, \
+         \"budget_caps\": {{\"MaxStreamingCellsPerFrame\": {}, \"MaxActorsToSpawnPerFrame\": {}, \"MemoryBudgetMB\": {}}}, \
+         \"evidence_level\": \"measured_local\", \"timestamp\": \"{}\", \"base_commit\": \"{}\"}}",
+        events_by_kind[0],
+        events_by_kind[1],
+        events_by_kind[2],
+        events_by_kind[3],
+        budget.max_streaming_cells_per_frame,
+        budget.max_actors_to_spawn_per_frame,
+        budget.memory_budget_mb,
+        utc_now(),
+        json_escape(&base_commit),
+    );
+    println!("{json}");
+    eprintln!(
+        "{TAG}: long-soak PASS frames={frames} seconds={seconds:.1} active={active_seconds:.1} \
+         sleep=0.0 p99={p99_ms:.6}ms events={total_events} streamed={total_cells_streamed}"
+    );
+    std::process::exit(0);
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
@@ -427,6 +583,11 @@ fn main() {
             }
             Err(e) => fail(&format!("red-arm {arm} 失效(漏检): {e}")),
         }
+    }
+
+    // ── G9.8a 长 soak 子模式（加性；先于门流程分派）──
+    if args.long_soak {
+        run_long_soak(args.min_seconds, args.min_frames);
     }
 
     let mut failures: Vec<String> = Vec::new();

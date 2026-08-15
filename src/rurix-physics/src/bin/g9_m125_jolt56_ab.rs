@@ -173,8 +173,7 @@ mod imp {
 
     /// RED 臂 2:GPU compute 接权威注入——一律 fail-closed typed Err。
     fn red_arm_gpu_authority() -> Result<(), String> {
-        match connect_gpu_compute_authority("proposal: Jolt 5.6 GPU compute shader 权威求解接线")
-        {
+        match connect_gpu_compute_authority("proposal: Jolt 5.6 GPU compute shader 权威求解接线") {
             Err(AbError::GpuComputeAuthorityUsurpation(_)) => {}
             other => return Err(format!("GPU compute 接权威提案未拒(漏检): {other:?}")),
         }
@@ -209,7 +208,8 @@ mod imp {
                 if path.is_dir() {
                     stack.push(path);
                 } else {
-                    let data = std::fs::read(&path).map_err(|e| format!("读 {path:?}: {e}"))?;
+                    let data =
+                        std::fs::read(&path).map_err(|e| format!("读 {path:?}: {e}"))?;
                     let rel = path
                         .strip_prefix(&base)
                         .map_err(|e| format!("rel: {e}"))?
@@ -310,23 +310,17 @@ mod imp {
             root.join("src/rurix-physics-sys56/vendor/JoltC/JoltC/Functions.h"),
         )
         .map_err(|e| format!("读 5.6 Functions.h: {e}"))?;
-        let gpu_exports: usize = [
-            "ComputeShader",
-            "ComputeSystem",
-            "ComputeQueue",
-            "ComputeBuffer",
-        ]
-        .iter()
-        .map(|needle| funcs56.matches(needle).count())
-        .sum();
+        let gpu_exports: usize = ["ComputeShader", "ComputeSystem", "ComputeQueue", "ComputeBuffer"]
+            .iter()
+            .map(|needle| funcs56.matches(needle).count())
+            .sum();
         if gpu_exports != 0 {
             return Err(format!("5.6 C 面出现 GPU compute 导出 {gpu_exports} 处"));
         }
         // 禁止线字面(RFC-0024 §4.E1 + spec RXS-0377 L4;0-byte 消费面)。
         let rfc = std::fs::read_to_string(root.join("rfcs/0024-physics-platform-revision.md"))
             .map_err(|e| format!("读 RFC-0024: {e}"))?;
-        if !rfc.contains("只评估不接权威") || !rfc.contains("GPU 主刚体禁止线 0-byte")
-        {
+        if !rfc.contains("只评估不接权威") || !rfc.contains("GPU 主刚体禁止线 0-byte") {
             return Err("RFC-0024 GPU 禁止线字面漂移".into());
         }
         let spec = std::fs::read_to_string(root.join("spec/physics.md"))
@@ -422,8 +416,7 @@ mod imp {
 
         // ── 步骤 3(七步②):vendor 标记 + 同进程并存 ──
         let spec = CanonicalAbSpec::default();
-        spec.validate()
-            .unwrap_or_else(|e| fail(&format!("spec: {e}")));
+        spec.validate().unwrap_or_else(|e| fail(&format!("spec: {e}")));
         if let Err(e) = vendor_markers(&root) {
             failures.push(format!("vendor 标记: {e}"));
         }
@@ -585,29 +578,15 @@ mod imp {
         let checks: [(&str, bool); 18] = [
             ("conformance_corpus_anchored", corpus_ok),
             ("step1_baseline_corpus_digest_frozen", corpus_files > 0),
-            (
-                "step1_baseline_replay_corpus_regression_pass",
-                replay_scenarios >= 10,
-            ),
-            (
-                "step1_baseline_measured_frozen",
-                report.arm_53.step_ns_median() > 0,
-            ),
+            ("step1_baseline_replay_corpus_regression_pass", replay_scenarios >= 10),
+            ("step1_baseline_measured_frozen", report.arm_53.step_ns_median() > 0),
             ("step2_independent_vendor_coexistence", vendor_ok),
             ("step3_arm_53_replay_consistent", replay53_ok),
             ("step3_arm_56_replay_consistent", replay56_ok),
-            (
-                "step4_canonical_ab_same_input",
-                same_input && deviation_recorded,
-            ),
+            ("step4_canonical_ab_same_input", same_input && deviation_recorded),
             (
                 "friction_model_classification_recorded",
-                invariant_ok
-                    && !report
-                        .deviation
-                        .class_translation
-                        .canonical_name()
-                        .is_empty(),
+                invariant_ok && !report.deviation.class_translation.canonical_name().is_empty(),
             ),
             ("step5_measured_budget_discipline", true),
             ("gpu_compute_evaluated_not_authoritative", gpu_red),

@@ -370,7 +370,7 @@ unsafe impl Send for SysWorld {}
 unsafe impl Sync for SysWorld {}
 
 // ---------------------------------------------------------------------------
-// in-crate 单测(沿 5.3 线 G6.2 PR-A 锚同构;§4.A7 host 单测的 sys 层子集)
+// in-crate 单测(G6.2 PR-A 锚;§4.A7 host 单测的 sys 层子集)
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -642,7 +642,7 @@ mod tests {
                 && ((e.a == ball && e.b == ground) || (e.a == ground && e.b == ball))
         });
         assert!(involves_pair, "事件应关联球/地面 body 对:{events:?}");
-        // impulse 首版恒 0(VENDOR56.md §3 缺口收窄登记)
+        // impulse 首版恒 0(VENDOR.md §3 缺口收窄登记)
         assert!(events.iter().all(|e| e.impulse == 0.0));
     }
 

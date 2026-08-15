@@ -816,7 +816,9 @@ impl PhysicsWorld {
             #[cfg(feature = "jolt")]
             Backend::Jolt(sys) => sys.body_velocities(token).map_err(physics_error_from_sys),
             #[cfg(feature = "jolt56")]
-            Backend::Jolt56(sys) => sys.body_velocities(token).map_err(physics56_error_from_sys),
+            Backend::Jolt56(sys) => sys
+                .body_velocities(token)
+                .map_err(physics56_error_from_sys),
             #[cfg(feature = "rapier")]
             Backend::Rapier(_) => Err(PhysicsError::InvalidDesc(
                 "Rapier 路径暂未暴露 body_velocities(M66 门走 Jolt)".into(),

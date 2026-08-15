@@ -1,6 +1,6 @@
 {
   "schema": "rurix.g9m110.world_partition_band.v1",
-  "frozen_at_utc": "2026-08-13T10:36:55Z",
+  "frozen_at_utc": "2026-08-14T14:36:42Z",
   "host": {"os": "windows", "arch": "x86_64", "device": "host-only(无 device 依赖,M110 语义面 = 数据模型+调度+预算计数+事件总线;GPU 非必需)"},
   "freeze_rule": "golden digest = canonical 场景实测事件日志 SHA-256(双跑位级一致后冻结,禁手写);hitch 阈值 = measured p99 × 1.5 落 g9_budget.json 条目 g9.bench.world_partition_hitch_p99_ms(P-09)",
   "spec_anchor": "RXS-0363",
@@ -17,7 +17,7 @@
   "soak_warmup_frames": 64,
   "soak_world_digest": "8e3d98279bb2d00f5e7cc5070783580833a7ad9fd1003a58511b8b26aa4aa2b2",
   "soak_path_digest": "6311b11a1206a0fb8baeb56846660301ad9fef7e2d91a497aa10697e9d77510e",
-  "soak_hitch_p99_ms": "9.221900",
-  "soak_hitch_p99_ns": 9221900,
+  "soak_hitch_p99_ms": "9.461700",
+  "soak_hitch_p99_ns": 9461700,
   "provenance": "Assisted-by: Kimi:Kimi-K3 g95-m110-implementer"
 }

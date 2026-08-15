@@ -593,9 +593,7 @@ unsafe extern "C" {
         self_: *const c_void,
         fns: JpcObjectVsBroadPhaseLayerFilterFns,
     ) -> *mut JpcObjectVsBroadPhaseLayerFilter;
-    pub fn JPC56_ObjectVsBroadPhaseLayerFilter_delete(
-        object: *mut JpcObjectVsBroadPhaseLayerFilter,
-    );
+    pub fn JPC56_ObjectVsBroadPhaseLayerFilter_delete(object: *mut JpcObjectVsBroadPhaseLayerFilter);
     pub fn JPC56_ObjectLayerPairFilter_new(
         self_: *const c_void,
         fns: JpcObjectLayerPairFilterFns,
@@ -674,7 +672,7 @@ unsafe extern "C" {
     ) -> *mut JpcBody;
     pub fn JPC56_BodyInterface_DestroyBody(self_: *mut JpcBodyInterface, body_id: JpcBodyId);
     // 注:JPC56_BodyInterface_DestroyBodies 在 JoltC 头声明但 impl 被上游注释(WIP 缺口,
-    // 处置 (c):Rust 侧逐 DestroyBody 循环 — VENDOR56.md §3 计划外缺口登记)。
+    // 处置 (c):Rust 侧逐 DestroyBody 循环 — VENDOR.md §3 计划外缺口登记)。
     pub fn JPC56_BodyInterface_AddBodiesPrepare(
         self_: *mut JpcBodyInterface,
         bodies: *mut JpcBodyId,
@@ -699,8 +697,7 @@ unsafe extern "C" {
         number: i32,
     );
     pub fn JPC56_BodyInterface_IsAdded(self_: *const JpcBodyInterface, body_id: JpcBodyId) -> bool;
-    pub fn JPC56_BodyInterface_IsActive(self_: *const JpcBodyInterface, body_id: JpcBodyId)
-    -> bool;
+    pub fn JPC56_BodyInterface_IsActive(self_: *const JpcBodyInterface, body_id: JpcBodyId) -> bool;
     pub fn JPC56_BodyInterface_ActivateBody(self_: *mut JpcBodyInterface, body_id: JpcBodyId);
     pub fn JPC56_BodyInterface_DeactivateBody(self_: *mut JpcBodyInterface, body_id: JpcBodyId);
     pub fn JPC56_BodyInterface_GetPositionAndRotation(
@@ -881,7 +878,7 @@ unsafe extern "C" {
 // ---------------------------------------------------------------------------
 // ffi_layout_anchors(U32 模式):Rust 镜像 ↔ JoltC C 结构布局锚定
 // 数值 = layout_dump(x86_64-pc-windows-msvc,单精度,OBJECT_LAYER_BITS=16)实测;
-// vendor pin 或构建画像变更时必须重新测量(见 VENDOR56.md §4)。
+// vendor pin 或构建画像变更时必须重新测量(见 VENDOR.md §4)。
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
@@ -949,12 +946,7 @@ mod ffi_layout_anchors {
         assert!(offset_of!(JpcCollideShapeSettings, max_separation_distance) == 32);
         assert!(offset_of!(JpcCollideShapeSettings, back_face_mode) == 36);
         // Jolt 5.6 delta(tools/layout_dump56.cpp 实测):新字段@40(占 5.3 尾垫位)。
-        assert!(
-            offset_of!(
-                JpcCollideShapeSettings,
-                internal_edge_removal_vertex_tolerance_sq
-            ) == 40
-        );
+        assert!(offset_of!(JpcCollideShapeSettings, internal_edge_removal_vertex_tolerance_sq) == 40);
         assert!(size_of::<JpcRShapeCast>() == 112 && align_of::<JpcRShapeCast>() == 16);
         assert!(offset_of!(JpcRShapeCast, shape) == 0 && offset_of!(JpcRShapeCast, scale) == 16);
         assert!(offset_of!(JpcRShapeCast, center_of_mass_start) == 32);

@@ -660,8 +660,7 @@ pub fn cross_version_deviation(
         }
         // 不变量:动态体末态箱心在地面之上(地面顶 z=0;容差内允许接触微沉;
         // 静态地面体心 z=-0.5 不参与本断言)。
-        if a.4
-            && (a.0[2] < -FIELD_TOLERANCE_TRANSLATION_M || b.0[2] < -FIELD_TOLERANCE_TRANSLATION_M)
+        if a.4 && (a.0[2] < -FIELD_TOLERANCE_TRANSLATION_M || b.0[2] < -FIELD_TOLERANCE_TRANSLATION_M)
         {
             rest_ok = false;
         }
@@ -676,9 +675,7 @@ pub fn cross_version_deviation(
     } else {
         return Err(AbError::InvalidInput("slider index 越界".into()));
     };
-    let contact_diff = arm_53
-        .contact_events_total
-        .abs_diff(arm_56.contact_events_total);
+    let contact_diff = arm_53.contact_events_total.abs_diff(arm_56.contact_events_total);
     Ok(CrossVersionDeviation {
         world_chain_bitwise_equal: arm_53.world_digest == arm_56.world_digest,
         max_translation_abs_diff: max_t,
