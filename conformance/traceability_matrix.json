@@ -1981,6 +1981,9 @@
       "conformance/visual_comparison/accept/flip_caliber_minimal.rx",
       "conformance/visual_comparison/reject/flip_caliber_drift.rx",
       "conformance/visual_comparison/reject/flip_reference_perturbation.rx"
+    ],
+    "RXS-0390": [
+      "conformance/visual_comparison/accept/application_probe_minimal.rx"
     ]
   }
 }

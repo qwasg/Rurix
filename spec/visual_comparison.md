@@ -394,3 +394,67 @@
 - IR3 RED 语料（conformance/visual_comparison/reject/）：参考输出扰动
   注入 / 口径参数漂移注入 / 恒等图对非零注入 / 图集不满足下界冒充——
   转正路径为 M135 门脚本内注入臂。
+
+### RXS-0390 应用层探针：冻结标志物集与双端投影像素一致性断言（M130 双端核验期 / M139）
+
+**Legality**
+
+- L1 **探针语义（应用一致机核面）**：digest 证解析一致、探针证应用一致
+  （RFC-0026 §4.6 值约定末节「应用层探针」逐字承接——M130 双端核验期与
+  M139 evidence 各含 `application_probes[]`）。标定场景冻结标志物集
+  （L2 逐值冻结）经**双端各自管线**按当次契约参数投影为像素坐标：
+  Rurix 端 = 契约相机直接消费面（`g10_5_scene_render --project-landmarks`
+  探针，契约四元数 → f64 view/proj 对账面，与渲染主路径同 look-at/
+  针孔口径）；UE 端 = 契约 → RFC-0026 §4.6 冻结映射（含本卷 RXS-0384 L2
+  errata 后的四元数共轭修订式）→ UE 相机视/投影链——视空间三分量
+  （`rel·right` / `rel·up` / `rel·fwd`，fwd/right/up = 相机 actor 世界
+  三轴）、针孔水平 FOV 投影、`px = (ndc.x/2 + 0.5)·w` /
+  `py = (0.5 − ndc.y/2)·h` 像素映射（UE 5.8 源树一手锚定：
+  `GameplayStatics::CalculateViewProjectionMatricesFromMinimalView`
+  〔GameplayStatics.cpp〕+ `FReversedZPerspectiveMatrix`
+  〔PerspectiveMatrix.h〕+ `FSceneView::ProjectWorldToScreen`
+  〔SceneView.cpp〕）。**判定式（冻结常量）**：逐标志物双端像素差
+  `pixel_delta = max(|Δx|, |Δy|) ≤ 1e-3 px`（**schema 合法性谓词常量**，
+  与 RXS-0384 L2 unit-norm 判定式同登记口径——非 measured 标定值，
+  **不走 `g10_budget.json`**；RFC-0026 §4.6 逐字）；超差即「应用不一致」
+  RED。
+- L2 **冻结标志物集（逐值字面冻结；改动走修订行）**：
+  - `cornell-box`（毫米量级数值面，盒后墙平面 z=558.8 四角 + 中心，
+    五点）：`(0.0, 0.0, 558.8)` · `(552.8, 0.0, 558.8)` ·
+    `(552.8, 548.8, 558.8)` · `(0.0, 548.8, 558.8)` ·
+    `(276.4, 274.4, 558.8)`；
+  - `bistro-interior`（米，相机系合成标定标志物五点——深度 2.0 m、
+    相机 NDC 面 `(0,0)` / `(±0.6, ±0.4)` 定格换算的世界常量）：
+    `(2.0375248420941845, 1.3697032820278594, -1.6595583445401449)` ·
+    `(2.1463398736291461, 1.6862064060565474, -0.82191749619001619)` ·
+    `(1.9521887623639345, 1.6862064214520678, -2.4999157956664435)` ·
+    `(2.1228609218244348, 1.053200142603651, -0.81920089341384617)` ·
+    `(1.9287098105592226, 1.0532001579991714, -2.4971991928902737)`；
+  - 入帧前提（条款作者 2026-08-15 实测登记）：cornell-box 五点
+    |ndc| ≤ 0.573（512×512 帧内）；bistro-interior 五点 ndc = 设计定格
+    值（1920×1080 帧内）。
+- L3 **机核面**：M130 双端核验期（`--phase g10.5`）evidence 与 M139
+  evidence 各含 `application_probes[]`——逐场景逐标志物 `pixel_rurix` /
+  `pixel_ue5` / `pixel_delta` 实测值与逐点 pass 布尔；探针缺失或任一点
+  超差即 RED；标志物集任一字面漂移（对照 L2 逐值 fail-closed）即 RED。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m130.dual_determinism_contract --phase g10.5`
+  （G10.5）与 `g10.p0.m139.ab_comparison`（同波 evidence 面）；测试锚定
+  = `conformance/visual_comparison/accept/application_probe_minimal.rx`
+  + `ci/g10_dual_determinism_contract_smoke.py` 门脚本 g10.5 腿。
+- IR2 UE 端探针载体 = **UE 进程内嵌 CPython**
+  （`milestones/g10/harness/ue_python/g10_5_probe_landmarks.py`，契约映射
+  经 `g10_param_contract.py` 单源消费，禁脚本内手写第二份）；host 侧
+  代算否决（RXS-0384 L4 载体纪律同口径）；Rurix 端 =
+  `g10_5_scene_render --project-landmarks`（Rust 消费面第三实现）。
+
+---
+
+## 修订记录
+
+| 版本 | 日期 | 变更 | 档位 |
+|---|---|---|---|
+| v1.1 | 2026-08-15 | **errata（RXS-0384 L2 四元数共轭公式勘误；零既有字面改写，本行 = 唯一生效勘误）**：L2 冻结公式行「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射矩阵 M **数学上不成立**——正交共轭的一般律为 R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**，det(M) = −1 时转角反号：**R_ue = R(M·axis, −θ)**，四元数向量部应为 **−M·v**、标量部不变，即 q = (w, x, y, z) ⇒ **q_ue = (w, z, −x, −y)**（harness 缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向）。**实证**（G10.5a 波，2026-08-15）：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组）/ 1.39e0（pytest 5000 组首例），修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 UE 映射 = 绕 +Z 转 −90°，缺陷式给 +90°）镜像成立；`tests/test_g10_param_contract.py` RED 先行 commit 后修复转 GREEN。cornell-box 相机（绕 +Y 180°）为该缺陷不变量特例（R(a,180°) ≡ R(a,−180°)），bistro-interior 一般旋转取景全暴露。**生效面**：harness `g10_param_contract.py quat_contract_to_ue` 按修订式修复（G10.5a 实现批）；L2 既有字面 0-byte 不回改，RFC-0026 §4.6 同文理勘误 = RFC 章 E1 errata 段（只追加）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026 errata） |
+| v1.2 | 2026-08-15 | G10.5a 双端出图波 spec-first（硬规则 7 条款先行）：**RXS-0390 单号 materialize 为条款头**——应用层探针（冻结标志物集〔cornell-box 后墙五点毫米数值面 / bistro-interior 相机系合成五点米，逐值字面冻结〕+ 双端各自管线投影像素一致性断言〔`pixel_delta ≤ 1e-3 px` 合法性谓词常量不走 budget〕+ M130 `--phase g10.5` 与 M139 evidence `application_probes[]` 机核面 + UE 端内嵌 CPython 载体纪律），依据 RFC-0026（Agent Approved 2026-08-15）§4.6 应用层探针末节（「标志物世界坐标集进 spec 条款」兑现点）+ G10_ACCEPTANCE_MAP §1 M130 行 + §3.3（判据逐字）；条款号自落盘前实测 `RXS.next_free=390` 顺位领取（0390 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件（application_probe_minimal.rx）同 PR 落；trace_matrix 371→372 全锚定 + stable 快照 371→372 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026） |

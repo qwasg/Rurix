@@ -1,0 +1,17 @@
+//@ spec: RXS-0390
+// G10.5a spec-first 锚定语料（spec/visual_comparison.md RXS-0390：应用层探针
+// ——冻结标志物集与双端投影像素一致性断言）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：冻结标志物集（cornell-box
+//   盒后墙五点毫米数值面 / bistro-interior 相机系合成五点米，RXS-0390 L2 逐值
+//   字面冻结）经双端各自管线按当次契约参数投影——Rurix 端
+//   g10_5_scene_render --project-landmarks（契约相机直接消费面）与 UE 端
+//   g10_5_probe_landmarks.py（UE 进程内嵌 CPython，g10_param_contract 单源
+//   消费 + UE 视/投影链一手锚定公式）逐点像素差 pixel_delta = max(|Δx|,|Δy|)
+//   ≤ 1e-3 px（schema 合法性谓词常量，不走 g10_budget.json）；M130
+//   --phase g10.5 与 M139 evidence 各含 application_probes[] 机核面。
+// 预期 RED 面：任一探针点超差即「应用不一致」RED；标志物集任一字面漂移
+//   （对照 L2 逐值）fail-closed RED。
+// 转正路径（G10.5a 波接线）：ci/g10_dual_determinism_contract_smoke.py 门
+//   （symbolic key g10.p0.m130.dual_determinism_contract --phase g10.5 腿，
+//   G10.1 冻结字面不动；步骤 187）。
+fn main() {}

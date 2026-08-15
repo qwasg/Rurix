@@ -431,9 +431,24 @@ M130 单 key 双 phase（`--phase g10.2` 骨架 / `--phase g10.5` 双端核验�
 
 ---
 
+## 12. 章 E — G10.5a 契约四元数共轭公式勘误（errata 纯加性段）
+
+> **增补性质**（errata 体例；先例 = RFC-0024 v1.1 章 F 纯加性章增补 / RFC-0025 §4.L 显式修订行）：本章为 **v1.1 纯加性 errata 段**，§1~§11 既有冻结文本 **0-byte 不动**；被勘误的 §4.6 值约定公式行原文保留，生效语义以本章 E1 为准。缺陷由 G10.5a 双端出图波实证暴露，处置纪律 = spec-first 修订行（spec/visual_comparison.md v1.1 errata）+ RED 先行测试（tests/test_g10_param_contract.py）+ 本章登记。
+
+### E1 🔒 §4.6 UE 映射四元数共轭公式勘误（det(M) = −1 反射矩阵的转角符号）
+
+- **缺陷定位**：§4.6「UE 侧应用映射（冻结公式）」行原文「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射 M **数学上不成立**。正交共轭一般律：R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**；det(M) = −1 时**转角反号**——R_ue = R(M·axis, −θ)，四元数向量部 = **−M·v**、标量部不变。
+- **修订式（生效）**：q = (w, x, y, z)（契约，w,x,y,z 序）⇒ **q_ue = (w, z, −x, −y)**。缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向（左右翻转取景）。位置映射 `p_ue = (−z, x, y)·100`、`sun.direction` 同 M、`fov_h_ue` 换算三式核验无缺陷，维持不变。
+- **实证（2026-08-15，G10.5a 波）**：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组对拍）/ pytest 5000 组首例偏差 1.39e0，修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 = UE 绕 +Z 转 −90°）缺陷式镜像成立；`tests/test_g10_param_contract.py` RED（commit 先行）→ 修复 GREEN。cornell-box 取景（绕 +Y 180°）为该缺陷**不变量特例**（R(a,180°) ≡ R(a,−180°)，q ≡ −q），bistro-interior 一般旋转取景全暴露——G10.2 骨架期未暴露原因如实登记（骨架期门面只核 schema/digest，应用一致面归双端核验期，缺陷在应用面）。
+- **生效面**：harness `milestones/g10/harness/ue_python/g10_param_contract.py quat_contract_to_ue` 按修订式修复；spec 侧规范落点 = spec/visual_comparison.md RXS-0384 L2 之 v1.1 errata 修订行（条款字面 0-byte，errata 追加纪律维持）；应用一致机核 = RXS-0390 应用层探针（pixel_delta ≤ 1e-3 px，G10.5a spec-first 顺位领取）兜底防线——同类缺陷再现即探针 RED。
+- **零新号消费**：本章 errata 不消费 RXS/RD/U/RX/MR/CI_step 任何新号（RXS-0390 探针条款消费登记于 number_ledger v1.107 spec-first 批，非本章）。
+
+---
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-08-15 | AI 起草初版（G10.1 治理波）：六面语义冻结——§4.1 帧捕获 EXR float32 格式面（压缩/色彩空间/位深/元数据四闭集 + 往返无损）/ §4.2 FLIP 口径（NVlabs/flip 选型 + pin 三元组策略 + HDR-LDR 双域参数闭集 + 恒等极值）/ §4.3 SSIM/PSNR 口径（Wang 2004 参数闭集 + LDR 域限定 + 恒等极值 + G5 helper 0-byte 声明）/ §4.4 逐像素 diff 报告 schema（双层产物 + 区域统计 + evidence JSON 闭集）/ §4.5 差距清单 schema（UE5 模块枚举闭集 = 目录级 23 + 文件级 + Other 终值，measured delta 溯源，G11 承接锚）/ §4.6 双端确定性契约（参数四节闭集 + 二进制 canonical + SHA-256 + digest 不等不得出 A/B 报告门序）；§5 目标 spec 裁决 = 新建 `spec/visual_comparison.md` + `imageio.md` 追加新章，条款号一律 post-interlock actual-next-free allocation；§9.1 空段待 D-409 回填；零 `src/`、`spec/`、`conformance/`、workflows 改动；零画质/帧率通过线 | Full RFC（Draft） |
 | Draft v0.2 | 2026-08-15 | D-409 第 1 轮对抗性评审修法批（17 findings 全部采纳并修）：F1 §4.6 新增「值约定」小节（契约世界系右手系/+Y up/米立约 + UE 厘米/左手系/Z-up/水平 FOV 映射公式 + unit-norm 判定常量 2^-40 + 应用层探针入 M130/M139 evidence）；F2 门序升级三重绑定（当次双端 digest 相等 ∧ == M130 最新 evidence `param_digest` ∧ 同 `base_commit` 同 `session_run_id`；「最新」= `timestamp` UTC + 文件名 UTC stamp 次键）+ M130 补陈旧 pass RED 臂；F3 LDR 臂改派生路径（HDR 帧权威源 + UE MRQ EXR tone curve 启用 fp16→f32 提升 + 双端共用 host 侧 sRGB 编码器 spec 口径单源 + 派生链元数据字段，消「M136/LDR-FLIP 无合法 UE 输入」矛盾；UE 官方 .exr 不应用 sRGB 编码曲线为依据，URL 见 §11）；F4 压缩闭集收窄 {NONE, ZIP}（PIZ/RLE 演进位）+ harness 收窄 evidence 登记 + ZIP 解构成如实登记；F5 HDR 曝光面 start/stop/N + auto + pin 五元组 + ppd 全语料冻结 + 标量/误差图对拍容差分列；F6 unit-norm 判定常量登记为 schema 合法性谓词（不走 budget）；F7 UE 侧载体钉死内嵌 CPython + 字节布局自由量 spec 单源 + correctly-rounded 口径与边界浮点差分语料；F8 EXR 标准属性白名单 + 分端读取策略（rurix strict / ue5 strip-and-log）+ chromaticities 处置条款计划；F9 枚举版本锚 5.8.0 release + 版本差风险标注 + 筛选规则字面化与补收触发条件；F10 对拍图集下界（≥24 图对、五内容类每类 ≥4）+ M138 标定估计器语义（p100 × k，k∈[1.0,3.0]）；F11 `post.view_transform` v1 单值 `aces13` + §3.1 措辞；F12 裁决句限域 Rurix 侧 canonical；F13 err_p95 nearest-rank + 末区域截断规则；F14 MSSIM=mean-SSIM 注；F15 契约三节兼容性注明（post 为扩集不收缩契约判据）；F16 M134 探针图案 RED 臂；F17 同模型评审偏差如实登记；§9.1 回填评审 provenance 与 17 条 disposition 表与总评；§9 增 Q13/Q14/Q15；§5/§6.1/§6.2/§7 同步；状态维持 Draft，翻 Agent Approved 由主会话核后执行。`Assisted-by: Kimi-K3（D-409 修法批）` | Full RFC（Draft） |
+| v1.1 | 2026-08-15 | **增补 §12（章 E）：G10.5a 契约四元数共轭公式勘误（errata 纯加性，§1~§11 既有冻结文本 0-byte）**——E1 🔒 §4.6 UE 映射四元数共轭公式勘误：原文「向量部经同一 M 变换、标量部不变（转角保持）」对 det(M) = −1 反射矩阵不成立，正交共轭一般律 R_ue = R(M·axis, det(M)·θ)，修订式 **q_ue = (w, z, −x, −y)**（向量部 −M·v、标量部不变）；实证 = 共轭恒等式随机对拍（缺陷式最大偏差 6.35e0 / 修订式 0.0）+ 黄金个案镜像 + RED 先行测试（tests/test_g10_param_contract.py）修复转 GREEN；cornell-box 180° 取景为缺陷不变量特例、bistro 一般旋转全暴露、G10.2 骨架期未暴露原因如实登记；位置/方向/FOV 三式核验无缺陷维持；生效面 = harness `quat_contract_to_ue` 修复 + spec/visual_comparison.md v1.1 errata 修订行（规范落点）+ RXS-0390 应用层探针兜底防线；本章零新号消费（RXS-0390 消费登记于 number_ledger v1.107 spec-first 批）。`Assisted-by: Kimi-K3（G10.5a 波续）` | Full RFC（Agent Approved 增补 errata） |
