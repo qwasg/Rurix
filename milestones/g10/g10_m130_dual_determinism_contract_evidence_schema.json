@@ -1,146 +1,261 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "G10.2/G10.5 M130 dual_determinism_contract evidence（双 phase）",
-  "description": "evidence/g10_m130_dual_determinism_contract_<UTC>.json。G10.2 P0 硬门 g10.p0.m130.dual_determinism_contract（步骤 179；G10_CONTRACT §4.2 M130 行 / G10_ACCEPTANCE_MAP §1 判据逐字 + §3.3 双阶段口径；RFC-0026 §4.6；spec/visual_comparison.md RXS-0384）：相机/光照/时间参数同 schema 双端各一份 + digest 比对面就位；单端参数漂移注入即 RED；schema 外字段注入即 RED；非单位四元数/NaN 注入即拒。骨架期（--phase g10.2）evidence 标 phase_g10_2_pass=true、phase_g10_5_pass=false（骨架期绿不替双端核验期充绿）；双端核验期（--phase g10.5，G10.5 实现波）phase_g10_5_pass=true 方为完整绿；digest 不等仍出 A/B 报告即 RED（门序三重绑定，G10.5 机器阻断）。host 纯 host 门（device_section_state=not_applicable）。",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "subject",
-    "symbolic_gate_key",
-    "matrix_row",
-    "milestone",
-    "assertion_id",
-    "status",
-    "wave",
-    "phase",
-    "phase_g10_2_pass",
-    "phase_g10_5_pass",
-    "numeric_step",
-    "source_ref",
-    "base_commit",
-    "host_section_pass",
-    "device_section_state",
-    "checks",
-    "commands",
-    "contract_report",
-    "evidence_level",
-    "run_url",
-    "timestamp",
-    "environment",
-    "notes"
-  ],
-  "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
-    "subject": { "type": "string", "const": "g10_m130_dual_determinism_contract" },
-    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
-    "matrix_row": { "type": "string", "const": "M130" },
-    "milestone": { "type": "string", "const": "M130" },
-    "assertion_id": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
-    "status": { "type": "string", "enum": ["pass", "fail"] },
-    "wave": { "type": "string" },
-    "phase": { "type": "string", "enum": ["g10.2", "g10.5"] },
-    "phase_g10_2_pass": { "type": "boolean" },
-    "phase_g10_5_pass": { "type": "boolean" },
-    "numeric_step": { "type": "integer", "const": 179 },
-    "source_ref": {
-      "type": "string",
-      "const": "RFC-0026 §4.6;spec/visual_comparison.md RXS-0384;G10_ACCEPTANCE_MAP §1 M130 + §3.3"
-    },
-    "base_commit": { "type": "string" },
-    "host_section_pass": { "type": "boolean" },
-    "device_section_state": {
-      "type": "string",
-      "enum": ["not_applicable"]
-    },
-    "checks": {
+  "title": "G10.2/G10.5 M130 dual_determinism_contract evidence（双 phase：anyOf 骨架期 v1 / 双端核验期 v2）",
+  "description": "evidence/g10_m130_dual_determinism_contract_<UTC>.json。G10.2 P0 硬门 g10.p0.m130.dual_determinism_contract（骨架期步骤 179 / 双端核验腿步骤 187；G10_CONTRACT §4.2 M130 行 / G10_ACCEPTANCE_MAP §1 判据逐字 + §3.3 双阶段口径；RFC-0026 §4.6 + v1.1 章 E errata；spec/visual_comparison.md RXS-0384 + 修订记录 v1.1 + RXS-0390）。双 phase 纪律（MAP §3.3 逐字：schema 同时要求 phase_g10_2_pass=true 与 phase_g10_5_pass=true 完整期形态承载，沿 G9 v1.14 anyOf 双支体例；任一阶段绿不替另一阶段充绿）：v1 支 = 骨架期 --phase g10.2 evidence（phase_g10_5_pass 恒 false）；v2 支 = 双端核验期 --phase g10.5 evidence（wave=G10.5，双场景真实契约三方 digest 实测相等〔host 参考 × Rurix Rust 第三实现 × UE 进程内嵌 CPython 实跑〕+ 应用层探针〔RXS-0390 冻结标志物双端投影 pixel_delta ≤ 1e-3 px〕+ 三重绑定字段登记〔param_digest + base_commit + session_run_id，M139 机器前置消费面〕+ RED 四臂；device_section_state=executed——UE 真跑）。",
+  "anyOf": [
+    {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "spec_rxs0384_clause_on_tree",
-        "byte_layout_matches_spec",
-        "rurix_side_parse_digest",
-        "ue_side_parse_digest",
-        "dual_digest_compare_face",
-        "boundary_float_corpus_consistent",
-        "red_param_drift_detected",
-        "red_schema_extra_field_detected",
-        "red_nonunit_quat_detected",
-        "red_nan_injection_detected"
+        "schema_version",
+        "subject",
+        "symbolic_gate_key",
+        "matrix_row",
+        "milestone",
+        "assertion_id",
+        "status",
+        "wave",
+        "phase",
+        "phase_g10_2_pass",
+        "phase_g10_5_pass",
+        "numeric_step",
+        "source_ref",
+        "base_commit",
+        "host_section_pass",
+        "device_section_state",
+        "checks",
+        "commands",
+        "contract_report",
+        "evidence_level",
+        "run_url",
+        "timestamp",
+        "environment",
+        "notes"
       ],
       "properties": {
-        "spec_rxs0384_clause_on_tree": { "type": "boolean" },
-        "byte_layout_matches_spec": { "type": "boolean" },
-        "rurix_side_parse_digest": { "type": "boolean" },
-        "ue_side_parse_digest": { "type": "boolean" },
-        "dual_digest_compare_face": { "type": "boolean" },
-        "boundary_float_corpus_consistent": { "type": "boolean" },
-        "red_param_drift_detected": { "type": "boolean" },
-        "red_schema_extra_field_detected": { "type": "boolean" },
-        "red_nonunit_quat_detected": { "type": "boolean" },
-        "red_nan_injection_detected": { "type": "boolean" }
-      }
-    },
-    "commands": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["seq", "command", "exit_code"],
-        "properties": {
-          "seq": { "type": "integer" },
-          "command": { "type": "string" },
-          "exit_code": { "type": "integer" }
+        "schema_version": { "type": "integer", "const": 1 },
+        "subject": { "type": "string", "const": "g10_m130_dual_determinism_contract" },
+        "symbolic_gate_key": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
+        "matrix_row": { "type": "string", "const": "M130" },
+        "milestone": { "type": "string", "const": "M130" },
+        "assertion_id": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "wave": { "type": "string", "const": "G10.2" },
+        "phase": { "type": "string", "const": "g10.2" },
+        "phase_g10_2_pass": { "type": "boolean" },
+        "phase_g10_5_pass": { "type": "boolean", "const": false },
+        "numeric_step": { "type": "integer", "const": 179 },
+        "source_ref": {
+          "type": "string",
+          "const": "RFC-0026 §4.6;spec/visual_comparison.md RXS-0384;G10_ACCEPTANCE_MAP §1 M130 + §3.3"
+        },
+        "base_commit": { "type": "string" },
+        "host_section_pass": { "type": "boolean" },
+        "device_section_state": {
+          "type": "string",
+          "enum": ["not_applicable"]
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spec_rxs0384_clause_on_tree",
+            "byte_layout_matches_spec",
+            "rurix_side_parse_digest",
+            "ue_side_parse_digest",
+            "dual_digest_compare_face",
+            "boundary_float_corpus_consistent",
+            "red_param_drift_detected",
+            "red_schema_extra_field_detected",
+            "red_nonunit_quat_detected",
+            "red_nan_injection_detected"
+          ],
+          "properties": {
+            "spec_rxs0384_clause_on_tree": { "type": "boolean" },
+            "byte_layout_matches_spec": { "type": "boolean" },
+            "rurix_side_parse_digest": { "type": "boolean" },
+            "ue_side_parse_digest": { "type": "boolean" },
+            "dual_digest_compare_face": { "type": "boolean" },
+            "boundary_float_corpus_consistent": { "type": "boolean" },
+            "red_param_drift_detected": { "type": "boolean" },
+            "red_schema_extra_field_detected": { "type": "boolean" },
+            "red_nonunit_quat_detected": { "type": "boolean" },
+            "red_nan_injection_detected": { "type": "boolean" }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["seq", "command", "exit_code"],
+            "properties": {
+              "seq": { "type": "integer" },
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" }
+            }
+          }
+        },
+        "contract_report": {
+          "type": "object",
+          "description": "契约报告：param_digest_rurix / param_digest_ue5 / param_digest（相等时）+ 双端解析器路径 + 骨架期诚实边界注记",
+          "additionalProperties": true
+        },
+        "evidence_level": { "type": "string", "const": "measured_local" },
+        "run_url": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "python_version", "cargo_version", "rustc_version"],
+          "properties": {
+            "os": { "type": "string" },
+            "python_version": { "type": "string" },
+            "cargo_version": { "type": "string" },
+            "rustc_version": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "phase_g10_2_pass": { "const": true }
+            }
+          }
         }
-      }
+      ]
     },
-    "contract_report": {
-      "type": "object",
-      "description": "契约报告：param_digest_rurix / param_digest_ue5 / param_digest（相等时）+ 双端解析器路径 + 骨架期诚实边界注记",
-      "additionalProperties": true
-    },
-    "evidence_level": { "type": "string", "const": "measured_local" },
-    "run_url": { "type": "string" },
-    "timestamp": { "type": "string" },
-    "environment": {
+    {
       "type": "object",
       "additionalProperties": false,
-      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "required": [
+        "schema_version",
+        "subject",
+        "symbolic_gate_key",
+        "matrix_row",
+        "milestone",
+        "assertion_id",
+        "status",
+        "wave",
+        "phase",
+        "phase_g10_2_pass",
+        "phase_g10_5_pass",
+        "numeric_step",
+        "source_ref",
+        "base_commit",
+        "host_section_pass",
+        "device_section_state",
+        "checks",
+        "commands",
+        "contract_report",
+        "evidence_level",
+        "run_url",
+        "timestamp",
+        "environment",
+        "notes"
+      ],
       "properties": {
-        "os": { "type": "string" },
-        "python_version": { "type": "string" },
-        "cargo_version": { "type": "string" },
-        "rustc_version": { "type": "string" }
-      }
-    },
-    "notes": { "type": "string" }
-  },
-  "allOf": [
-    {
-      "if": { "properties": { "phase": { "const": "g10.2" } }, "required": ["phase"] },
-      "then": {
-        "properties": {
-          "wave": { "const": "G10.2" },
-          "phase_g10_5_pass": { "const": false }
+        "schema_version": { "type": "integer", "const": 1 },
+        "subject": { "type": "string", "const": "g10_m130_dual_determinism_contract" },
+        "symbolic_gate_key": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
+        "matrix_row": { "type": "string", "const": "M130" },
+        "milestone": { "type": "string", "const": "M130" },
+        "assertion_id": { "type": "string", "const": "g10.p0.m130.dual_determinism_contract" },
+        "status": { "type": "string", "enum": ["pass", "fail"] },
+        "wave": { "type": "string", "const": "G10.5" },
+        "phase": { "type": "string", "const": "g10.5" },
+        "phase_g10_2_pass": { "type": "boolean", "const": true },
+        "phase_g10_5_pass": { "type": "boolean" },
+        "numeric_step": { "type": "integer", "const": 187 },
+        "source_ref": {
+          "type": "string",
+          "const": "RFC-0026 §4.6;spec/visual_comparison.md RXS-0384;G10_ACCEPTANCE_MAP §1 M130 + §3.3;spec/visual_comparison.md RXS-0390;RFC-0026 v1.1 章 E"
+        },
+        "base_commit": { "type": "string" },
+        "host_section_pass": { "type": "boolean" },
+        "device_section_state": {
+          "type": "string",
+          "const": "executed"
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "skeleton_phase_regression",
+            "dual_scene_coverage",
+            "contract_params_deterministic_regen",
+            "rurix_rust_digest_real_run",
+            "ue_inprocess_digest_real_run",
+            "triple_digest_equal",
+            "landmark_set_matches_spec",
+            "application_probe_dual_end",
+            "three_binding_fields_registered",
+            "red_param_drift_detected",
+            "red_wrong_conjugation_detected",
+            "red_landmark_tamper_detected",
+            "red_stale_binding_detected"
+          ],
+          "properties": {
+            "skeleton_phase_regression": { "type": "boolean" },
+            "dual_scene_coverage": { "type": "boolean" },
+            "contract_params_deterministic_regen": { "type": "boolean" },
+            "rurix_rust_digest_real_run": { "type": "boolean" },
+            "ue_inprocess_digest_real_run": { "type": "boolean" },
+            "triple_digest_equal": { "type": "boolean" },
+            "landmark_set_matches_spec": { "type": "boolean" },
+            "application_probe_dual_end": { "type": "boolean" },
+            "three_binding_fields_registered": { "type": "boolean" },
+            "red_param_drift_detected": { "type": "boolean" },
+            "red_wrong_conjugation_detected": { "type": "boolean" },
+            "red_landmark_tamper_detected": { "type": "boolean" },
+            "red_stale_binding_detected": { "type": "boolean" }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["seq", "command", "exit_code"],
+            "properties": {
+              "seq": { "type": "integer" },
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" }
+            }
+          }
+        },
+        "contract_report": {
+          "type": "object",
+          "description": "契约报告（双端核验期）：逐场景三方 digest + 联合 param_digest（双场景 digest 字典序拼接 sha256）+ session_run_id + application_probes[]（逐标志物 pixel_rurix/pixel_ue5/pixel_host_ref/pixel_delta/pass 实测值）",
+          "additionalProperties": true
+        },
+        "evidence_level": { "type": "string", "const": "measured_local" },
+        "run_url": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["os", "python_version", "cargo_version", "rustc_version"],
+          "properties": {
+            "os": { "type": "string" },
+            "python_version": { "type": "string" },
+            "cargo_version": { "type": "string" },
+            "rustc_version": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "phase_g10_5_pass": { "const": true }
+            }
+          }
         }
-      }
-    },
-    {
-      "if": { "properties": { "phase": { "const": "g10.5" } }, "required": ["phase"] },
-      "then": {
-        "properties": {
-          "wave": { "const": "G10.5" },
-          "phase_g10_2_pass": { "const": true },
-          "phase_g10_5_pass": { "const": true }
-        }
-      }
-    },
-    {
-      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
-      "then": {
-        "properties": {
-          "phase_g10_2_pass": { "const": true }
-        }
-      }
+      ]
     }
   ]
 }

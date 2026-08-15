@@ -2043,6 +2043,24 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_wave4_exit_check.py --gate g10.wave.4.exit
 
+      # 步骤 187（G10.5a M130 双端核验腿 g10.p0.m130.dual_determinism_contract
+      # --phase g10.5；G10 CI_GATES §4；G10_ACCEPTANCE_MAP §3.3 双阶段口径；
+      # RFC-0026 §4.6 + v1.1 章 E errata；spec RXS-0384 + RXS-0390；落盘前实测
+      # CI_step.next_free=187 顺位领取）。host+device 门（UE 真跑持
+      # gpu_device_lock 串行）：骨架期回归 + 双场景真实契约三方 digest 实测
+      # 相等（host 参考解析器 × Rurix Rust 第三实现 g10_5_scene_render
+      # --contract-digest × UE 进程内嵌 CPython 实跑——RXS-0384 L4 双端核验期
+      # 载体要求兑现）+ 应用层探针（RXS-0390：冻结标志物双端各自管线投影
+      # pixel_delta ≤ 1e-3 px，UE 端 as-built 相机读回 + 标志物三面对账）+
+      # 三重绑定字段登记（param_digest + base_commit + session_run_id，M139
+      # 机器前置消费面）+ 契约参数生成器确定性再生成核验 + RED 四臂（参数漂移
+      # 三方不等 / 错误共轭注入探针超差 / 标志物字面漂移 / 陈旧绑定冒充全检出）;
+      # UE 环境不齐 fail-closed 诚实登记不充绿。evidence 落盘
+      # evidence/g10_m130_dual_determinism_contract_<UTC>.json（phase=g10.5）。
+      - name: G10.5 M130 dual determinism contract dual-end verification (G10 CI_GATES §4.187, g10.p0.m130.dual_determinism_contract)
+        shell: powershell
+        run: py -3 ci/g10_dual_determinism_contract_smoke.py --gate g10.p0.m130.dual_determinism_contract --phase g10.5
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
