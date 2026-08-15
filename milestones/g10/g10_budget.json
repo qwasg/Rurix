@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "namespace": "g10",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G10.1 治理波 baseline）",
+    "created_utc": "2026-08-15T09:45:38Z",
+    "base_commit": "c0cdfddd"
+  },
+  "description": "G10 UE5 画面对标基线期预算（D-G10-5）。G10.1 governance-only 即为非空 measured_local：两条 entry 全部是本波 RTX 4070 Ti 实测锚——①g10.bench.sr_pipeline_l3_frame_ms（G0 软光栅四 stage 1080p 单帧 GPU 墙钟，G10 双端出图/帧捕获面 Rurix 侧出帧耗时锚，阈值 = 实测 1.2068 × 1.5 = 1.8102 ms）；②g10.bench.bandwidth_d2h_pinned_gbps（D2H pinned 读回带宽，帧捕获/帧读回面上界锚，direction=min，阈值 = 实测 24.5031 ÷ 1.5 = 16.3354 GB/s，与 ×1.5 max 向同余量带）。诚实边界：GPU 未锁频（NVML 采样起止双探测 locked=false，随证据 environment.clock_lock_note 存档；×1.5 余量沿 G9.1 measured 冻结先例覆盖频率漂移，P-09）；本预算只证明测量已建立，不证明任何 G10 实现达标；G10 不设画质通过阈值与帧率通过线（契约 G-G10-7），本波条目为回归守护锚非通过线。前瞻预算项（M134 帧捕获管线 / M135 FLIP / M136 SSIM/PSNR / M137 diff 报告 / M141 双端帧率基线）一律等 G10.4 度量基建波标定回填——无实测证据的阈值不写入（零 estimated 硬约束）；counter_assertions 本波留空：未知 counter id 会被 ci/budget_eval.py 强制 FAIL（14 §5 防僵尸纪律），G10 计数器断言须随实现波次连同 evaluator 一并落盘，本波不建空形态。",
+  "source_docs": [
+    "milestones/g10/G10_PLAN.md",
+    "milestones/g10/G10_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "g10.bench.sr_pipeline_l3_frame_ms",
+      "description": "G10 双端出图/帧捕获面 Rurix 侧出帧耗时基线锚：G0 软光栅四 stage（binning/raster/depth/tonemap，RXS-0118~0121）device kernel 背靠背 launch，1920x1080 帧（binning 4096 prims/240x135 tiles cap32，raster 1 大三角形，depth 2073600px x4 frags，tonemap 6220800 comp）单帧 GPU 墙钟；BENCH_PROTOCOL §3（warmup 19 至稳态 CV 0.006293 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时）。阈值 = 实测 1.2068 × 1.5 = 1.8102 ms（四舍五入 4 位）。诚实边界：GPU 未锁频（随证据存档）；四 stage 各按 L3 独立放大代表一帧大分辨率软光栅，非 G10 渲染器实现达标证明。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1.8102,
+      "evidence_file": "evidence/g10_baseline_sr_pipeline_l3_20260815T094538Z.json",
+      "measured_value": 1.2068
+    },
+    {
+      "id": "g10.bench.bandwidth_d2h_pinned_gbps",
+      "description": "G10 帧捕获/帧读回面上界基线锚：D2H pinned 256MB Driver API memcpy 带宽（bandwidthTest 等价，BENCH_PROTOCOL §3：warmup 10 至稳态 CV 0.001006 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时前后 stream_sync）。阈值 = 实测 24.5031 ÷ 1.5 = 16.3354 GB/s（min 向，四舍五入 4 位）。诚实边界：GPU 未锁频（随证据存档）；此为读回链路上界能力锚，非 G10 帧捕获管线实现达标证明（M134 归 G10.4）。",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "threshold": 16.3354,
+      "evidence_file": "evidence/g10_baseline_bandwidth_d2h_pinned_20260815T094538Z.json",
+      "measured_value": 24.5031
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

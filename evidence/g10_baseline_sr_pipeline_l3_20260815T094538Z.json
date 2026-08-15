@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "subject": "g10_sr_pipeline_l3_frame",
+  "evidence_level": "measured_local",
+  "milestone": "G10.1",
+  "base_commit": "c0cdfddd",
+  "timestamp": "2026-08-15T09:45:38Z",
+  "environment": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "cuda_driver_version": "13.2",
+    "driver_model": "WDDM",
+    "hags_enabled": true,
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "clocks": {
+      "locked": false,
+      "sm_clock_mhz": 240,
+      "mem_clock_mhz": 405,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "os_build": "Windows 10.0.28120",
+    "thermal": {
+      "temp_start_c": 35,
+      "temp_end_c": 37,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 16
+    },
+    "clock_lock_note": "GPU 未锁频（NVML 采样起止双探测 locked=false，sm 空闲读回 210~240MHz / mem 405MHz）；锁频需提权 nvidia-smi -lgc/-lmc，本治理波未执行。阈值 = 实测 ×1.5 余量覆盖频率漂移（沿 G9.1 measured 冻结先例，P-09）；harness 协议直出件按 BENCH_PROTOCOL 标 evidence_level=unlocked，本档按 G9.1 治理波先例以 measured_local 登记并将未锁频边界诚实存档。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 bench/env_probe.py --validate",
+      "exit_code": 0,
+      "note": "环境画像 + evidence_schema environment 子 schema 校验 PASS；画像关键字段已并入本档 environment（GPU 未锁频 / HAGS true / WDDM / driver 620.02 / CUDA 13.2）。"
+    },
+    {
+      "seq": 2,
+      "command": "py -3 bench/sr_pipeline_bench.py --smoke",
+      "exit_code": 0,
+      "note": "缩比正确性门：四 stage PTX loaded (.version 8.0)；correctness PASS (frame 128x72, prims 256, 四 stage 逐 stage 参考一致)。"
+    },
+    {
+      "seq": 3,
+      "command": "py -3 bench/sr_tonemap_bench.py --smoke",
+      "exit_code": 0,
+      "note": "色调映射 kernel（帧捕获/色彩空间相关面）正确性：PTX loaded (.version 8.0, entry rx_sr_tonemap_9)；correctness PASS (n=4096, 量化逐分量逐字节一致)。"
+    },
+    {
+      "seq": 4,
+      "command": "py -3 bench/sr_pipeline_bench.py --emit build/g10_baseline_scratch/sr_pipeline_l3.json",
+      "exit_code": 0,
+      "note": "L3 协议采样：correctness PASS (frame 1920x1080, prims 4096) 后 50x3 timed；直出件 [protocol] evidence written (level=unlocked, 1.2068 ms)。本档 results 逐字段转录自该直出件。"
+    },
+    {
+      "seq": 5,
+      "command": "py -3 bench/bandwidth_bench.py --direction d2h_pinned --emit build/g10_baseline_scratch/bandwidth_d2h_pinned.json",
+      "exit_code": 0,
+      "note": "D2H pinned 读回带宽协议采样（帧读回面上界），见 evidence/g10_baseline_bandwidth_d2h_pinned_20260815T094538Z.json。"
+    },
+    {
+      "seq": 6,
+      "command": "py -3 ci/image_io_smoke.py",
+      "exit_code": 0,
+      "note": "图像 IO 读写依赖面（G10 帧捕获落盘依赖）：PASS（image-io 离线构建 + 8 帧两次落盘 content SHA-256 逐字节一致 / 红验证篡改字节序 SHA 改变）；check_* 守卫风格不产数值指标，仅作面在位性记录。"
+    }
+  ],
+  "sampling": {
+    "trials": 3,
+    "warmup_iterations": 19,
+    "timed_iterations": 50,
+    "timer": "cuda_event",
+    "method": "BENCH_PROTOCOL.md §3：warmup 至稳态（窗口 5，CV<0.05；实测 warmup 19 次、steady_state_cv 0.006293）→ 50x3 timed → IQR 去离群（拒 17）→ trial medians 的 trimmed mean(0.2)；每 timed iteration 前 256MB L2 清理；CUDA Event 计时区前后 stream_sync（WDDM batch flush）；problem_size = 1920x1080 frame; binning 4096 prims/240x135 tiles cap32, raster 1 big-tri, depth 2073600px x4 frags, tonemap 6220800 comp。"
+  },
+  "results": {
+    "metric": "frame_time",
+    "unit": "ms",
+    "trial_medians": [1.2192, 1.2155, 1.1858],
+    "trimmed_mean": 1.2068,
+    "cv": 0.013545,
+    "ci95": [1.2112, 1.2144],
+    "min": 1.1794,
+    "max": 1.8398,
+    "outliers_rejected_iqr": 17,
+    "correctness_check": "pass"
+  },
+  "notes": "G10.1 画面对标基线锚①：G0 软光栅四 stage（binning/raster/depth/tonemap，RXS-0118~0121）device kernel 背靠背 launch 单帧 1080p GPU 墙钟——G10 双端出图/帧捕获面的 Rurix 侧出帧耗时锚。数值逐字段转录自 harness 协议直出件 build/g10_baseline_scratch/sr_pipeline_l3.json（harness_commit c0cdfddd，直出时间戳 2026-08-15T09:43:02Z，本回合真实运行）；kernel 签名未改（M7.3 PTX golden 冻结面 0-byte）。只证明测量已建立，不证明任何 G10 实现达标；G10 不设画质/帧率通过线（契约 G-G10-7）。"
+}

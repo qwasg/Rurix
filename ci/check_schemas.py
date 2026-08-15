@@ -550,6 +550,9 @@ def check_evidence_files() -> None:
     g9_m125_jolt_56_ab_evaluation_schema = load(
         ROOT / "milestones/g9/g9_m125_jolt_56_ab_evaluation_evidence_schema.json"
     )
+    g10_baseline_schema = load(
+        ROOT / "milestones/g10/g10_baseline_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1194,6 +1197,11 @@ def check_evidence_files() -> None:
     g9_m125_jolt_56_ab_evaluation_validator = (
         jsonschema.Draft7Validator(g9_m125_jolt_56_ab_evaluation_schema)
         if g9_m125_jolt_56_ab_evaluation_schema is not None
+        else None
+    )
+    g10_baseline_validator = (
+        jsonschema.Draft7Validator(g10_baseline_schema)
+        if g10_baseline_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2386,6 +2394,18 @@ def check_evidence_files() -> None:
             # （RXS-0377；RFC-0024 §4.E1）。harness 直出件落 .tmp 工作区不进 evidence/；
             # 同短前缀直出件误入落 gpu fallthrough 必红（fail-closed，evidence/ 只收门件）。
             validator = g9_m125_jolt_56_ab_evaluation_validator
+        elif (
+            f.name.startswith("g10_baseline_")
+            and g10_baseline_validator is not None
+        ):
+            # G10.1 governance-only measured baseline（D-G10-5）→
+            # milestones/g10/g10_baseline_evidence_schema.json：复用既有 harness 真跑
+            # （sr_pipeline L3 1080p 帧墙钟 / d2h_pinned 读回带宽，BENCH_PROTOCOL §3
+            # 50x3 协议）+ 会话环境画像随档；未锁频诚实边界经 clock_lock_note 存档，
+            # 阈值 = 实测 ×1.5（min 向 ÷1.5）。results.trimmed_mean 供 g10_budget.json
+            # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
+            # evaluator 分支。前缀与 g7_*/g8_*/g9_* 全族互不包含，置于 g9 族后安全。
+            validator = g10_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None
