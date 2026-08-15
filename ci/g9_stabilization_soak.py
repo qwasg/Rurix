@@ -360,7 +360,12 @@ def judge_soak(
             f"外测墙钟 {outer_elapsed:.1f}s < 自称 seconds={seconds:.1f}s(谎报时长)"
         )
     hitch = doc.get("hitch") or {}
-    if float(hitch.get("p99_ms") or 0.0) <= 0.0:
+    # 二进制 raw 输出为嵌套 hitch.p99_ms;gate 落盘的 evidence soak 块为平铺
+    # hitch_p99_ms——与 frames/seconds 同体例,同一判定函数兼容两种来源。
+    p99_ms = hitch.get("p99_ms") if hitch else None
+    if p99_ms is None:
+        p99_ms = doc.get("hitch_p99_ms")
+    if float(p99_ms or 0.0) <= 0.0:
         problems.append("hitch.p99_ms 非正(计数面空)")
     if int(doc.get("total_events") or 0) < 1 or int(doc.get("total_cells_streamed") or 0) < 1:
         problems.append("total_events/total_cells_streamed 计数面空")
