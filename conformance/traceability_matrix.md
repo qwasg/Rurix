@@ -365,3 +365,7 @@
 | RXS-0377 | spec/physics.md | 2 | `conformance/physics/accept/jolt_ab_seven_step_minimal.rx`, `conformance/physics/reject/jolt_56_vendor_overwrite_baseline.rx` |
 | RXS-0378 | spec/physics.md | 2 | `conformance/physics/accept/rapier_benchmark_ab_fixture_minimal.rx`, `conformance/physics/reject/rapier_benchmark_as_replay_oracle.rx` |
 | RXS-0379 | spec/physics.md | 1 | `conformance/physics/reject/async_decorative_channel_without_verdict.rx` |
+| RXS-0380 | spec/external_reference.md | 4 | `conformance/external_reference/accept/harness_command_face_minimal.rx`, `conformance/external_reference/reject/command_face_switch_outside_closed_set.rx`, `conformance/external_reference/reject/execcmds_template_injection.rx` …(+1) |
+| RXS-0381 | spec/external_reference.md | 5 | `conformance/external_reference/accept/license_registry_minimal.rx`, `conformance/external_reference/reject/class_masquerade.rx`, `conformance/external_reference/reject/license_outside_whitelist.rx` …(+2) |
+| RXS-0382 | spec/external_reference.md | 3 | `conformance/external_reference/accept/cache_layout_minimal.rx`, `conformance/external_reference/reject/cache_digest_tamper.rx`, `conformance/external_reference/reject/git_binary_guard_hit.rx` |
+| RXS-0383 | spec/external_reference.md | 2 | `conformance/external_reference/accept/manifest_freeze_minimal.rx`, `conformance/external_reference/reject/manifest_in_place_edit.rx` |

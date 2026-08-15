@@ -1,0 +1,10 @@
+//@ spec: RXS-0381
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0381 L2：两类不得
+// 互相冒充——generated 类谎报外部来源、external 类借 generated 类规避
+// source_url/digest，均即 RED；NONE 为字面闭集值而非缺字段）。
+// 负例数据面（最小说明性 fixture）：external 类行将 spdx_id 谎报为 NONE 并
+//   以 generator_script_digest 占位规避真实 source_url/digest 核验 ⇒ 判 RED；
+//   generated 类行填写非 NONE source_url 谎报外部来源 ⇒ 判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py 门
+//   （symbolic key g10.p0.m131.asset_license_registry，G10.1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,9 @@
+//@ spec: RXS-0380
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0380 L2：出图命令
+// 面闭集外开关/参数注入即 fail-closed）。
+// 负例数据面（最小说明性 fixture，未来 CI 消费）：向臂 A MRQ 命令注入闭集外
+//   开关（如 -renderoffscreen 未实证开关或自由文本参数）⇒ 命令面装配层
+//   fail-closed 拒出帧，证据登记诊断类别「命令面越界」。
+// 转正路径（G10.2 波接线）：ci/g10_ue5_capture_environment_smoke.py 门
+//   （symbolic key g10.p0.m128.ue5_capture_environment，G10.1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.3 M133 corpus_list_freeze evidence",
+  "description": "evidence/g10_m133_corpus_list_freeze_<UTC>.json。G10.3 已 go P1 硬门 g10.p1.m133.corpus_list_freeze（步骤 175；G10_ACCEPTANCE_MAP §2 M133 行判据逐字；RFC-0027 §4.4；spec/external_reference.md RXS-0383）：场景清单版本化冻结 + 清单 canonical digest 注册在树（最新修订行 manifest_digest == 全量行复算）+ 后续变更只追加修订行（revision 自 1 单调递增无重复、修订行四字段齐备）+ 清单全场景与 M131 许可登记、M132 加载门行集闭集对账（ready 集 == M132 最新 pass evidence 已加载集）；清单变更无只追加修订行即 RED；未注册 digest 冒充冻结即 RED；清单行集与许可/加载登记不对账即 RED；ready 场景数下界 ≥2（首发清单基数），空清单/全 not-ready vacuous truth 不构 PASS。host 纯 host 门（device_section_state=not_applicable）。RED 语料三件（red_fixtures/m133/：原地改 / 未注册 digest 冒充 / 行集不对账）逐件独立检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m133_corpus_list_freeze" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p1.m133.corpus_list_freeze" },
+    "matrix_row": { "type": "string", "const": "M133" },
+    "milestone": { "type": "string", "const": "M133" },
+    "assertion_id": { "type": "string", "const": "g10.p1.m133.corpus_list_freeze" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.3" },
+    "numeric_step": { "type": "integer", "const": 175 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0027 §4.4;spec/external_reference.md RXS-0383;G10_ACCEPTANCE_MAP §2 M133"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_schema_valid",
+        "manifest_digest_registered_in_tree",
+        "append_only_revision_program",
+        "rowset_reconciles_license_registry",
+        "rowset_reconciles_loading_gate",
+        "ready_floor_vacuous_guard",
+        "red_fixtures_all_detected"
+      ],
+      "properties": {
+        "manifest_schema_valid": { "type": "boolean" },
+        "manifest_digest_registered_in_tree": { "type": "boolean" },
+        "append_only_revision_program": { "type": "boolean" },
+        "rowset_reconciles_license_registry": { "type": "boolean" },
+        "rowset_reconciles_loading_gate": { "type": "boolean" },
+        "ready_floor_vacuous_guard": { "type": "boolean" },
+        "red_fixtures_all_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,1 @@
+{"schema":"rurix.g10.camera_params.v1","scene_id":"bistro-interior","eye":[0.0,2.0,-6.0],"target":[0.0,1.5,0.0],"up":[0.0,1.0,0.0],"fov_y_deg":60.0,"resolution":[1920,1080],"note":"Bistro Interior 取景初始值（加载门只消费引用存在性；取景校准归 G10.5 出图波）"}

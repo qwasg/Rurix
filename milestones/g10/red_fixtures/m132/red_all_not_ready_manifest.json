@@ -1,0 +1,29 @@
+{
+  "schema": "rurix.g10.corpus_scene_manifest.v1",
+  "spec_anchor": "RXS-0383",
+  "scenes": [
+    {
+      "scene_id": "bistro-interior",
+      "asset_id": "bistro-orca",
+      "camera_ref": "corpus/camera_bistro_interior.json",
+      "lighting_ref": "corpus/lighting_bistro_interior.json",
+      "status": "not-ready"
+    },
+    {
+      "scene_id": "cornell-box",
+      "asset_id": "cornell-box-generated",
+      "camera_ref": "corpus/camera_cornell_box.json",
+      "lighting_ref": "corpus/lighting_cornell_box.json",
+      "status": "not-ready"
+    }
+  ],
+  "revisions": [
+    {
+      "revision": 1,
+      "manifest_digest": "sha256:35e95ffdc03883d45009af01c6b41ddfbb61d8b7baa07e645cefdd945811cde8",
+      "changed_at": "2026-08-15",
+      "change_note": "RED 语料"
+    }
+  ],
+  "_fixture_note": "RED 语料：全 not-ready 空清单 vacuous truth 冒充 PASS——ready 下界 ≥2 必须拦截（RXS-0383 L5）"
+}

@@ -1,0 +1,5 @@
+{
+  "_fixture_note": "RED 语料：计数为零冒充成功（M132 判据逐字）——counts 校验必须判 RED",
+  "scene_id": "cornell-box",
+  "counts": {"triangles": 0, "materials": 0, "textures": 0}
+}

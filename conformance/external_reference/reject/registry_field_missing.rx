@@ -1,0 +1,10 @@
+//@ spec: RXS-0381
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0381 L2/L4：按类
+// 登记闭集缺字段即 RED——external 五元组 / generated 六字段 / 通用字段
+// license_snapshot/checked_at/upstream_ref/cache_rel/file_count/byte_len；
+// attribution 结构化子字段闭集缺失即 RED）。
+// 负例数据面（最小说明性 fixture）：external 类行缺 source_url，或
+//   attribution 缺 modified_flag 子字段 ⇒ M131 门 fail-closed 判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py 门
+//   （symbolic key g10.p0.m131.asset_license_registry，G10.1 冻结字面不动）。
+fn main() {}

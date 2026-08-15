@@ -1838,6 +1838,55 @@ jobs:
         shell: powershell
         run: py -3 ci/g9_closeout_check.py --gate g9.wave.8b.closeout
 
+      # 步骤 173（G10.3 M131 许可登记门 g10.p0.m131.asset_license_registry;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=173 顺位领取）。host 纯 host 门:
+      # 逐资产 license 白名单闭集 {CC0-1.0, CC-BY-3.0, CC-BY-4.0} + SPDX id +
+      # 来源 URL + attribution 结构化子字段闭集 + 清单级 canonical digest 缓存
+      # 复算 + git 零二进制守卫（扩展名闭集 + measured 体积阈值 + magic-bytes,
+      # 白名单路径闭集豁免留痕）;未登记资产混入/白名单外许可注入/按类缺字段/
+      # 两类互冒充/digest 篡改各为独立 RED 臂（red_fixtures/m131/ 五件全检出）。
+      # 缓存根不可达 dev_env_degrade 诚实登记不充绿（R-G10-9）。evidence 落盘
+      # evidence/g10_m131_asset_license_registry_<UTC>.json。
+      - name: G10.3 M131 asset license registry (G10 CI_GATES §4.173, g10.p0.m131.asset_license_registry)
+        shell: powershell
+        run: py -3 ci/g10_asset_license_registry_smoke.py --gate g10.p0.m131.asset_license_registry
+
+      # 步骤 174（G10.3 M132 语料加载门 g10.p0.m132.corpus_loading;G10 CI_GATES
+      # §4;落盘前实测 CI_step.next_free=174 顺位领取）。场景清单逐场景经 Rurix
+      # 既有 glTF 导入面（G8 M81 rxcook import-gltf --emit-digest）真实加载:
+      # 加载门前逐文件 SHA-256 + 清单级 canonical digest 复算 fail-closed +
+      # 三角形/材质/纹理计数非空 + 计数与六表 count/digest 全等 golden
+      # （milestones/g10/g10_corpus_loading_golden.json 实测首跑冻结,P-09）+
+      # 加载事件序列 golden + 场景集对账（静默丢场景即 RED）;计数为零冒充成功/
+      # 静默丢场景/全 not-ready vacuous 各为独立 RED 臂（red_fixtures/m132/
+      # 三件全检出）。evidence 落盘 evidence/g10_m132_corpus_loading_<UTC>.json。
+      - name: G10.3 M132 corpus loading (G10 CI_GATES §4.174, g10.p0.m132.corpus_loading)
+        shell: powershell
+        run: py -3 ci/g10_corpus_loading_smoke.py --gate g10.p0.m132.corpus_loading
+
+      # 步骤 175（G10.3 M133 清单冻结门 g10.p1.m133.corpus_list_freeze;G10
+      # CI_GATES §4A;落盘前实测 CI_step.next_free=175 顺位领取）。场景清单版本化
+      # 冻结 + 清单 canonical digest 注册在树（最新修订行 == 全量行复算）+
+      # 只追加修订程序（revision 自 1 单调递增）+ 清单全场景与 M131 许可登记、
+      # M132 加载门行集闭集对账 + ready 下界 ≥2 vacuous 拦截;原地改/未注册
+      # digest 冒充/行集不对账各为独立 RED 臂（red_fixtures/m133/ 三件全检出）。
+      # evidence 落盘 evidence/g10_m133_corpus_list_freeze_<UTC>.json。
+      - name: G10.3 M133 corpus list freeze (G10 CI_GATES §4A.175, g10.p1.m133.corpus_list_freeze)
+        shell: powershell
+        run: py -3 ci/g10_corpus_list_freeze_smoke.py --gate g10.p1.m133.corpus_list_freeze
+
+      # 步骤 176（G10.3 波聚合门 g10.wave.3.exit;G10 CI_GATES §5;落盘前实测
+      # CI_step.next_free=176 顺位领取）。host 只读聚合门:只读汇总三门最新
+      # evidence（M131 步骤 173 / M132 步骤 174 / M133 步骤 175）+
+      # spec/external_reference.md 在树且 RXS-0380~0383 条款头齐 + RFC-0027
+      # Agent Approved 字面在树 + 许可注册表按类登记闭集零缺行 + 清单 digest
+      # 注册在树字面;聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL,聚合
+      # PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g10_wave3_exit_<UTC>.json。
+      - name: G10.3 wave3.exit aggregate (G10 CI_GATES §5.176, g10.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g10_wave3_exit_check.py --gate g10.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

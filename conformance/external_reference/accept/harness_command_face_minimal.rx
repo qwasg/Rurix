@@ -1,0 +1,14 @@
+//@ spec: RXS-0380
+// G10.3 spec-first 锚定语料（spec/external_reference.md RXS-0380 L2/L3：UE 5.8
+// 恒为外部进程；出图命令面闭集三臂（MRQ 批量臂 / 快速截屏臂 / Python 编排臂）
+// 由结构化参数生成；provenance 七元组闭集逐帧登记缺行即 RED）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：臂 A MRQ 命令形态
+//   -game -MoviePipelineConfig=<queue> -windowed -resx/-resy -log
+//   -notexturestreaming -Unattended，全部由白名单开关 + schema 内参数装配；
+//   逐帧 provenance 七元组（scene_id/camera_params_digest/lighting_params_digest/
+//   ue_build_id/gpu_driver_version/clock_lock_state/capture_arm）齐备。
+// 转正路径（G10.2 波接线）：ci/g10_ue5_capture_environment_smoke.py 与
+//   ci/g10_ue5_reference_frames_smoke.py 门（symbolic key
+//   g10.p0.m128.ue5_capture_environment / g10.p0.m129.ue5_reference_frames，
+//   G10.1 冻结字面不动）。
+fn main() {}

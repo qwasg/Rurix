@@ -1,0 +1,13 @@
+//@ spec: RXS-0381
+// G10.3 spec-first 锚定语料（spec/external_reference.md RXS-0381 L1~L4：许可
+// 白名单精确 SPDX 闭集 {CC0-1.0, CC-BY-3.0, CC-BY-4.0}；external 类五元组
+// asset_id+spdx_id+source_url+attribution+digest / generated 类替代登记型
+// 六字段（generator_script_digest+generator_params_digest+本地产物 digest，
+// NONE 为字面闭集值）；attribution 结构化子字段闭集 creator/title/source_uri/
+// license_uri/copyright_notice/modified_flag 按 spdx_id 对应版本求值）。
+// 正例数据面（最小说明性 fixture）：bistro-orca 行 spdx_id=CC-BY-4.0 +
+// attribution 六子字段齐备 + 清单级 canonical digest 实测登记；
+//   cornell-box-generated 行 spdx_id=NONE/source_url=NONE + 三 digest 齐备。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py 门
+//   （symbolic key g10.p0.m131.asset_license_registry，G10.1 冻结字面不动）。
+fn main() {}

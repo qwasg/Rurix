@@ -448,6 +448,18 @@ def check_evidence_files() -> None:
     g9_wave8b_closeout_schema = load(
         ROOT / "milestones/g9/g9_wave8b_closeout_evidence_schema.json"
     )
+    g10_m131_asset_license_registry_schema = load(
+        ROOT / "milestones/g10/g10_m131_asset_license_registry_evidence_schema.json"
+    )
+    g10_m132_corpus_loading_schema = load(
+        ROOT / "milestones/g10/g10_m132_corpus_loading_evidence_schema.json"
+    )
+    g10_m133_corpus_list_freeze_schema = load(
+        ROOT / "milestones/g10/g10_m133_corpus_list_freeze_evidence_schema.json"
+    )
+    g10_wave3_exit_schema = load(
+        ROOT / "milestones/g10/g10_wave3_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1027,6 +1039,26 @@ def check_evidence_files() -> None:
     g9_wave8b_closeout_validator = (
         jsonschema.Draft7Validator(g9_wave8b_closeout_schema)
         if g9_wave8b_closeout_schema is not None
+        else None
+    )
+    g10_m131_asset_license_registry_validator = (
+        jsonschema.Draft7Validator(g10_m131_asset_license_registry_schema)
+        if g10_m131_asset_license_registry_schema is not None
+        else None
+    )
+    g10_m132_corpus_loading_validator = (
+        jsonschema.Draft7Validator(g10_m132_corpus_loading_schema)
+        if g10_m132_corpus_loading_schema is not None
+        else None
+    )
+    g10_m133_corpus_list_freeze_validator = (
+        jsonschema.Draft7Validator(g10_m133_corpus_list_freeze_schema)
+        if g10_m133_corpus_list_freeze_schema is not None
+        else None
+    )
+    g10_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g10_wave3_exit_schema)
+        if g10_wave3_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2053,6 +2085,39 @@ def check_evidence_files() -> None:
             # 〔RD-034/039~044 七条目级 status 全 open + P2 33 行闭集在树〕
             # + 最后新绿留痕;VERDICT=READY|BLOCKED,status flip 独立 commit)。
             validator = g9_wave8b_closeout_validator
+        elif (
+            f.name.startswith("g10_m131_asset_license_registry_")
+            and g10_m131_asset_license_registry_validator is not None
+        ):
+            # G10.3 M131 许可登记门(步骤 173;ci/g10_asset_license_registry_smoke.py
+            # 写:白名单闭集 + 按类登记零缺行 + attribution 子字段闭集 + 清单级
+            # canonical digest 缓存复算 + git 零二进制守卫 + RED 五件全检出)。
+            validator = g10_m131_asset_license_registry_validator
+        elif (
+            f.name.startswith("g10_m132_corpus_loading_")
+            and g10_m132_corpus_loading_validator is not None
+        ):
+            # G10.3 M132 语料加载门(步骤 174;ci/g10_corpus_loading_smoke.py 写:
+            # 逐场景 rxcook 真实加载 + 三角形/材质/纹理计数非空 + 计数与六表
+            # count/digest 全等 golden + 加载事件序列 golden + 静默丢场景零 +
+            # RED 三件全检出)。
+            validator = g10_m132_corpus_loading_validator
+        elif (
+            f.name.startswith("g10_m133_corpus_list_freeze_")
+            and g10_m133_corpus_list_freeze_validator is not None
+        ):
+            # G10.3 M133 清单冻结门(步骤 175;ci/g10_corpus_list_freeze_smoke.py
+            # 写:清单 digest 注册在树 + 只追加修订程序 + M131/M132 行集对账 +
+            # ready 下界 vacuous 拦截 + RED 三件全检出)。
+            validator = g10_m133_corpus_list_freeze_validator
+        elif (
+            f.name.startswith("g10_wave3_exit_")
+            and g10_wave3_exit_validator is not None
+        ):
+            # G10.3 波聚合门(步骤 176;ci/g10_wave3_exit_check.py 写:三门最新
+            # evidence 只读汇总 + RXS-0380~0383 条款头 + RFC-0027 Approved +
+            # 注册表零缺行 + 清单 digest 注册在树;聚合不代绿)。
+            validator = g10_wave3_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

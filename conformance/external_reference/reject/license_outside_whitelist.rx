@@ -1,0 +1,11 @@
+//@ spec: RXS-0381
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0381 L1：白名单
+// 精确 SPDX 闭集 {CC0-1.0, CC-BY-3.0, CC-BY-4.0}；NC/ND/SA 后缀变体、自定义/
+// 专有许可、无许可法律文本的声明性文字一律 fail-closed；M131 判据「白名单外
+// 许可注入即 RED」逐字承接）。
+// 负例数据面（最小说明性 fixture）：注入 spdx_id=CC-BY-NC-SA-3.0 资产行
+//   （NVIDIA Emerald Square 反例夹具，RFC-0027 §4.2 事实表反例登记）⇒
+//   M131 门 fail-closed 判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py 门
+//   （symbolic key g10.p0.m131.asset_license_registry，G10.1 冻结字面不动）。
+fn main() {}

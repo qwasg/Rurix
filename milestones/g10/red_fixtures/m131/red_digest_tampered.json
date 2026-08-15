@@ -1,0 +1,66 @@
+{
+  "schema": "rurix.g10.asset_license_registry.v1",
+  "spec_anchor": "RXS-0381",
+  "frozen_by": "ci/g10_asset_license_registry_smoke.py（g10.p0.m131.asset_license_registry，步骤 173）",
+  "whitelist_spdx": [
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0"
+  ],
+  "whitelist_note": "精确 SPDX 名单（立项裁决 3「CC0/CC-BY 族」精确化，RFC-0027 §4.2 冻结）；NC/ND/SA 后缀变体、自定义/专有许可、无许可法律文本的声明性文字一律 fail-closed。Sponza（Cryengine LLA）与 Emerald Square（CC-BY-NC-SA-3.0）白名单外裁决逐字承接 RFC-0027 §4.2 事实表。",
+  "git_binary_guard": {
+    "extension_closed_set": [
+      ".glb",
+      ".gltf",
+      ".bin",
+      ".fbx",
+      ".obj",
+      ".exr",
+      ".hdr",
+      ".ktx2",
+      ".zip",
+      ".png",
+      ".tga",
+      ".dds",
+      ".tif",
+      ".tiff"
+    ],
+    "threshold_bytes": 3110430,
+    "threshold_provenance": "measured：2026-08-15 git ls-files 实测全仓 4441 个 tracked 文件最大者 evidence/soak_anchors/1785893478/anchor_*.ppm = 1,555,215 B，阈值取 2× = 3,110,430 B（P-09 measured 标定，禁手写；RXS-0382 L1 体积阈值双判）",
+    "magic_bytes_formats": [
+      "glb",
+      "png",
+      "zip",
+      "dds",
+      "hdr",
+      "ktx2"
+    ],
+    "exempt_paths": [
+      "conformance/asset/gltf/",
+      "tests/geom_pages/golden/",
+      "apps/uc09-taichi-spike/assets/particles.tcm"
+    ],
+    "exempt_note": "白名单路径闭集豁免留痕（RXS-0382 L1）：conformance/asset/gltf/ 与 tests/geom_pages/golden/ 既有合法小夹具；apps/uc09-taichi-spike/assets/particles.tcm 既有 zip 容器 .tcm 资产（魔数嗅探命中豁免）；绕过面（阈值以下小文件/分片/未嗅探格式）由 digest 核验与人工 review 兜底，如实登记不夸大"
+  },
+  "cache_root_resolution": "RURIX_G10_CACHE_ROOT 环境变量优先 → g10_cache_root.local.json（机器局部，gitignored，不入签名面）→ 缺省 K:\\rurix_g10_cache；根不可达 fail-closed（RXS-0382 L2）",
+  "assets": [
+    {
+      "class": "generated",
+      "asset_id": "cornell-box-generated",
+      "spdx_id": "NONE",
+      "source_url": "NONE",
+      "generator_script": "ci/_gen_g10_cornell_box.py",
+      "generator_script_digest": "sha256:e686c23bacbaea176fea66e85fbdf9c6e7e5fdad24d6e77cafafe5124df12667",
+      "generator_params_digest": "sha256:e6508b94c53ffb5ae7a28e10ac7dd3a539a6206aa3abf78df38f2c48c360f16d",
+      "digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa80",
+      "file_count": 4,
+      "byte_len": 13059,
+      "license_snapshot": "NONE",
+      "checked_at": "2026-08-15",
+      "upstream_ref": "NONE",
+      "cache_rel": "cornell-box-generated/v1/",
+      "load_unit": "cornell_box.gltf",
+      "generated_note": "纯自写几何/反射率公式，不读取/转换任何外部数据文件（NONE 判定成立前提，RFC-0027 §4.2 F14）；几何/反射率数值参考 Cornell PCG Public Use Data 页（https://www.graphics.cornell.edu/online/box/data.html，页面无显式许可文本，仅作数值来源参考登记）。产物含 8x8 程序生成棋盘格纹理（floor 专用，供 M132 纹理计数非空判据）"
+    }
+  ]
+}

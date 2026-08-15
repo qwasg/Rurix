@@ -55,3 +55,27 @@ src/rurix-physics-sys/**/*.obj
 src/rurix-physics-sys56/**/*.exe
 src/rurix-physics-sys56/**/*.obj
 .hilo/
+
+# G10 压测资产 git 零二进制守卫（2026-08-15 G10.3；RFC-0027 §4.3.1 / spec/external_reference.md RXS-0382 L1）
+# 扩展名闭集拦截；白名单路径闭集豁免留痕（conformance/asset/gltf/、tests/geom_pages/golden/、
+# apps/uc09-taichi-spike/assets/particles.tcm）；CI 守卫 = ci/g10_asset_license_registry_smoke.py 守卫腿
+# （扩展名闭集 + measured 体积阈值双判 + magic-bytes 嗅探）。
+*.fbx
+*.obj
+*.exr
+*.hdr
+*.ktx2
+*.tga
+*.dds
+*.tif
+*.tiff
+*.zip
+*.glb
+*.gltf
+*.bin
+*.png
+!conformance/asset/gltf/**
+!tests/geom_pages/golden/**
+
+# G10 机器局部缓存根配置（RXS-0382 L2 解析序兜底；本机绝对路径不入签名面、不入 git）
+g10_cache_root.local.json

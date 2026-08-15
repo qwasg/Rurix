@@ -1,0 +1,11 @@
+//@ spec: RXS-0383
+// G10.3 spec-first 锚定语料（spec/external_reference.md RXS-0383 L1~L5：场景
+// 清单行 = scene_id+asset_id+相机/光照参数引用+status(ready|not-ready)，按
+// scene_id 稳定排序；清单 canonical digest 注册在树；冻结后变更只追加修订行
+// + 新 digest；ready 场景数下界 ≥ 首发清单基数 2，空清单/全 not-ready 为
+// vacuous truth 不构 PASS）。
+// 正例数据面（最小说明性 fixture）：cornell-box + bistro 两 ready 行 +
+//   revision 1 初冻结修订行（manifest_digest 实测登记）在树。
+// 转正路径（G10.3 波接线）：ci/g10_corpus_list_freeze_smoke.py 门
+//   （symbolic key g10.p1.m133.corpus_list_freeze，G10.1 冻结字面不动）。
+fn main() {}

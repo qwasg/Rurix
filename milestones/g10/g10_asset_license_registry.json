@@ -1,0 +1,113 @@
+{
+  "schema": "rurix.g10.asset_license_registry.v1",
+  "spec_anchor": "RXS-0381",
+  "frozen_by": "ci/g10_asset_license_registry_smoke.py（g10.p0.m131.asset_license_registry，步骤 173）",
+  "whitelist_spdx": [
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0"
+  ],
+  "whitelist_note": "精确 SPDX 名单（立项裁决 3「CC0/CC-BY 族」精确化，RFC-0027 §4.2 冻结）；NC/ND/SA 后缀变体、自定义/专有许可、无许可法律文本的声明性文字一律 fail-closed。Sponza（Cryengine LLA）与 Emerald Square（CC-BY-NC-SA-3.0）白名单外裁决逐字承接 RFC-0027 §4.2 事实表。",
+  "git_binary_guard": {
+    "extension_closed_set": [
+      ".glb",
+      ".gltf",
+      ".bin",
+      ".fbx",
+      ".obj",
+      ".exr",
+      ".hdr",
+      ".ktx2",
+      ".zip",
+      ".png",
+      ".tga",
+      ".dds",
+      ".tif",
+      ".tiff"
+    ],
+    "threshold_bytes": 3110430,
+    "threshold_provenance": "measured：2026-08-15 git ls-files 实测全仓 4441 个 tracked 文件最大者 evidence/soak_anchors/1785893478/anchor_*.ppm = 1,555,215 B，阈值取 2× = 3,110,430 B（P-09 measured 标定，禁手写；RXS-0382 L1 体积阈值双判）",
+    "magic_bytes_formats": [
+      "glb",
+      "png",
+      "zip",
+      "dds",
+      "hdr",
+      "ktx2"
+    ],
+    "exempt_paths": [
+      "conformance/asset/gltf/",
+      "tests/geom_pages/golden/",
+      "apps/uc09-taichi-spike/assets/particles.tcm"
+    ],
+    "exempt_note": "白名单路径闭集豁免留痕（RXS-0382 L1）：conformance/asset/gltf/ 与 tests/geom_pages/golden/ 既有合法小夹具；apps/uc09-taichi-spike/assets/particles.tcm 既有 zip 容器 .tcm 资产（魔数嗅探命中豁免）；绕过面（阈值以下小文件/分片/未嗅探格式）由 digest 核验与人工 review 兜底，如实登记不夸大"
+  },
+  "cache_root_resolution": "RURIX_G10_CACHE_ROOT 环境变量优先 → g10_cache_root.local.json（机器局部，gitignored，不入签名面）→ 缺省 K:\\rurix_g10_cache；根不可达 fail-closed（RXS-0382 L2）",
+  "assets": [
+    {
+      "class": "external",
+      "asset_id": "bistro-orca",
+      "spdx_id": "CC-BY-4.0",
+      "source_url": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+      "attribution": {
+        "creator": "Amazon Lumberyard",
+        "title": "Amazon Lumberyard Bistro, Open Research Content Archive (ORCA)",
+        "source_uri": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+        "license_uri": "https://creativecommons.org/licenses/by/4.0/",
+        "copyright_notice": "© 2017 Amazon Lumberyard",
+        "modified_flag": true,
+        "modification_note": "BistroInterior.fbx 经 FBX2glTF v0.9.7 格式转换为 glTF 供 Rurix 既有 glTF 导入面加载（G8 M81 面）；格式转换不修改资产内容（CC-BY-4.0 §3(a)(1)(B) 修改标示）"
+      },
+      "digest_scope": [
+        "Bistro_v5_2.zip",
+        "extracted/"
+      ],
+      "digest": "sha256:0afc237b70d23324239b573301cb4cd5b4d0eb0087674136f02c59b497dd4ac4",
+      "file_count": 643,
+      "byte_len": 2613499054,
+      "license_snapshot": "license_snapshots/bistro_orca_cc_by_4_0.txt",
+      "checked_at": "2026-08-15",
+      "upstream_ref": "Bistro_v5_2（ORCA 下载包版本面，包内 CHANGELOG.txt）",
+      "cache_rel": "bistro-orca/v5_2/",
+      "load_unit": "derived/BistroInterior/BistroInterior.gltf",
+      "download": {
+        "page_url": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+        "direct_url": "https://developer.nvidia.com/bistro（301 → /downloads/bistro → 302 → developer.download.nvidia.com/assets/gameworks/downloads/secure/Graphics_Research_Tools/Bistro_v5_2.zip?__token__=…，token 签名链接，2026-08-15 实测）",
+        "zip_sha256": "sha256:0d50e3c724c6c5da19f8eb99ad3f53e36fec37ffa2df9621f9ccf0603f3934e1",
+        "zip_bytes": 894377473,
+        "downloaded_at": "2026-08-15"
+      },
+      "derived": {
+        "tool": "FBX2glTF",
+        "version": "v0.9.7",
+        "tool_source_url": "https://github.com/facebookincubator/FBX2glTF/releases/download/v0.9.7/FBX2glTF-windows-x64.exe",
+        "tool_sha256": "sha256:8d90fb5e0a8d186a3d9a7ff8c75eaee541c3975ce4df0d80351f20092ae0877f",
+        "input": "extracted/Bistro_v5_2/BistroInterior.fbx",
+        "conversion_flags": "--pbr-metallic-roughness --no-khr-lights-punctual",
+        "output_rel": "derived/BistroInterior/",
+        "digest": "sha256:4dae7c0d22cda6922a4541de3b41a0d63d22846c381ee7f06954a264a23f2565",
+        "file_count": 146,
+        "byte_len": 553266741,
+        "note": "首发清单 Bistro 场景面 = BistroInterior（包内 README：1,044,183 unique / 1,046,609 total 三角形）。BistroExterior（2,799,704/2,832,120）FBX2glTF v0.9.7 转换失败如实登记：动画烘焙 95% 后写 .gltf 报 ERROR Couldn't open file for writing（同参数 Interior 成功；K:/H: 双盘、有无扩展名、--fbx-temp-dir 四臂同失败，工具内部缺陷非环境问题）——Exterior 不进首发清单签名面；后续启用走只追加修订程序。纹理为 DDS 原样拷贝（glTF image URI 不透明保留，Rurix 导入面 coverage_complete=true 实测）"
+      }
+    },
+    {
+      "class": "generated",
+      "asset_id": "cornell-box-generated",
+      "spdx_id": "NONE",
+      "source_url": "NONE",
+      "generator_script": "ci/_gen_g10_cornell_box.py",
+      "generator_script_digest": "sha256:e686c23bacbaea176fea66e85fbdf9c6e7e5fdad24d6e77cafafe5124df12667",
+      "generator_params_digest": "sha256:e6508b94c53ffb5ae7a28e10ac7dd3a539a6206aa3abf78df38f2c48c360f16d",
+      "digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+      "file_count": 4,
+      "byte_len": 13059,
+      "license_snapshot": "NONE",
+      "checked_at": "2026-08-15",
+      "upstream_ref": "NONE",
+      "cache_rel": "cornell-box-generated/v1/",
+      "load_unit": "cornell_box.gltf",
+      "generated_note": "纯自写几何/反射率公式，不读取/转换任何外部数据文件（NONE 判定成立前提，RFC-0027 §4.2 F14）；几何/反射率数值参考 Cornell PCG Public Use Data 页（https://www.graphics.cornell.edu/online/box/data.html，页面无显式许可文本，仅作数值来源参考登记）。产物含 8x8 程序生成棋盘格纹理（floor 专用，供 M132 纹理计数非空判据）"
+    }
+  ]
+}

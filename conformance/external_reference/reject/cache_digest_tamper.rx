@@ -1,0 +1,10 @@
+//@ spec: RXS-0382
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0382 L4：加载门前
+// 对缓存逐文件实算 SHA-256 并复算清单级 canonical digest，与登记不符即
+// fail-closed；登记 digest 与缓存实算不符即 RED——M131/M132 判据逐项承接）。
+// 负例数据面（最小说明性 fixture）：篡改缓存内单文件字节（或登记 digest 单
+//   字符）⇒ 清单级 canonical digest 复算不符，加载门 fail-closed 判 RED；
+//   该场景行诚实登记 not-ready 不充绿（R-G10-9）。
+// 转正路径（G10.3 波接线）：ci/g10_corpus_loading_smoke.py 门
+//   （symbolic key g10.p0.m132.corpus_loading，G10.1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,57 @@
+{
+  "schema": "rurix.g10.asset_license_registry.v1",
+  "spec_anchor": "RXS-0381",
+  "whitelist_spdx": [
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0"
+  ],
+  "git_binary_guard": {
+    "extension_closed_set": [
+      ".glb",
+      ".gltf",
+      ".bin",
+      ".fbx",
+      ".obj",
+      ".exr",
+      ".hdr",
+      ".ktx2",
+      ".zip",
+      ".png",
+      ".tga",
+      ".dds",
+      ".tif",
+      ".tiff"
+    ],
+    "threshold_bytes": 3110430,
+    "threshold_provenance": "measured",
+    "exempt_paths": [
+      "conformance/asset/gltf/",
+      "tests/geom_pages/golden/",
+      "apps/uc09-taichi-spike/assets/particles.tcm"
+    ]
+  },
+  "assets": [
+    {
+      "class": "external",
+      "asset_id": "bistro-orca",
+      "spdx_id": "CC-BY-4.0",
+      "source_url": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+      "attribution": {
+        "creator": "Amazon Lumberyard",
+        "title": "Amazon Lumberyard Bistro, Open Research Content Archive (ORCA)",
+        "source_uri": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+        "license_uri": "https://creativecommons.org/licenses/by/4.0/",
+        "copyright_notice": "© 2017 Amazon Lumberyard"
+      },
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license_snapshot": "license_snapshots/bistro_orca_cc_by_4_0.txt",
+      "checked_at": "2026-08-15",
+      "upstream_ref": "Bistro_v5_2",
+      "cache_rel": "bistro-orca/v5_2/",
+      "file_count": 1,
+      "byte_len": 1,
+      "_fixture_note": "RED 语料：attribution 结构化子字段缺 modified_flag（子字段缺失即 RED，RXS-0381 L4）"
+    }
+  ]
+}

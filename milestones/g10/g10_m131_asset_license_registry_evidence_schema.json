@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.3 M131 asset_license_registry evidence",
+  "description": "evidence/g10_m131_asset_license_registry_<UTC>.json。G10.3 P0 硬门 g10.p0.m131.asset_license_registry（步骤 173；G10_CONTRACT §4.2 M131 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0027 §4.2/§4.3；spec/external_reference.md RXS-0381/RXS-0382）：逐资产 license 白名单闭集 {CC0-1.0, CC-BY-3.0, CC-BY-4.0} + SPDX id + 来源 URL + attribution 结构化子字段闭集 + 资产 digest（清单级 canonical 实测）；未登记资产混入即 RED；白名单外许可注入即 RED；按类登记缺字段即 RED；两类互冒充即 RED；登记 digest 与缓存实算不符即 RED；git 零二进制守卫闭集命中即 RED（扩展名闭集 + measured 体积阈值双判 + magic-bytes，白名单路径闭集豁免留痕）。host 纯 host 门（device_section_state 正常态 not_applicable；缓存根不可达 dev_env_degrade 诚实登记不充绿，R-G10-9）。RED 语料五件（red_fixtures/m131/）逐件独立检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m131_asset_license_registry" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m131.asset_license_registry" },
+    "matrix_row": { "type": "string", "const": "M131" },
+    "milestone": { "type": "string", "const": "M131" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m131.asset_license_registry" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.3" },
+    "numeric_step": { "type": "integer", "const": 173 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0027 §4.2/§4.3;spec/external_reference.md RXS-0381/RXS-0382;G10_ACCEPTANCE_MAP §1 M131"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_structure_valid",
+        "license_snapshots_on_tree",
+        "cache_root_resolved",
+        "cache_digest_match",
+        "cache_dirs_all_registered",
+        "git_binary_guard_clean",
+        "red_fixtures_all_detected"
+      ],
+      "properties": {
+        "registry_structure_valid": { "type": "boolean" },
+        "license_snapshots_on_tree": { "type": "boolean" },
+        "cache_root_resolved": { "type": "boolean" },
+        "cache_digest_match": { "type": "boolean" },
+        "cache_dirs_all_registered": { "type": "boolean" },
+        "git_binary_guard_clean": { "type": "boolean" },
+        "red_fixtures_all_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

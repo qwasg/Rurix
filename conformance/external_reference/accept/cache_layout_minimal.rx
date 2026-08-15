@@ -1,0 +1,12 @@
+//@ spec: RXS-0382
+// G10.3 spec-first 锚定语料（spec/external_reference.md RXS-0382 L1~L4：压测
+// 资产二进制零入 git；缓存根解析序闭集 = RURIX_G10_CACHE_ROOT 环境变量优先 →
+// 机器局部 g10_cache_root.local.json 兜底（不入签名面）→ 缺省 K:\rurix_g10_cache，
+// 根不可达 fail-closed；仓库内只登记 cache_rel 相对路径；加载门前逐文件实算
+// SHA-256 并复算清单级 canonical digest，不符即 fail-closed）。
+// 正例数据面（最小说明性 fixture）：<cache_root>/<asset_id>/<versioned_subdir>/
+//   布局；登记行 cache_rel=bistro-orca/v5_2/ 正斜杠相对路径零主机绝对路径；
+//   git 守卫闭集（扩展名 + measured 体积阈值 + magic-bytes）零命中。
+// 转正路径（G10.3 波接线）：ci/g10_corpus_loading_smoke.py 门
+//   （symbolic key g10.p0.m132.corpus_loading，G10.1 冻结字面不动）。
+fn main() {}

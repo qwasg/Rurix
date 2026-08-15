@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m132_corpus_loading",
+  "symbolic_gate_key": "g10.p0.m132.corpus_loading",
+  "matrix_row": "M132",
+  "milestone": "M132",
+  "assertion_id": "g10.p0.m132.corpus_loading",
+  "status": "pass",
+  "wave": "G10.3",
+  "numeric_step": 174,
+  "source_ref": "RFC-0027 §4.3/§4.4;spec/external_reference.md RXS-0382/RXS-0383;G10_ACCEPTANCE_MAP §1 M132",
+  "base_commit": "37de1713d83d3a530bc55b43d68f066990c4e74d",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "manifest_valid": true,
+    "cache_root_resolved": true,
+    "per_scene_digest_verified": true,
+    "per_scene_import_ok": true,
+    "counts_nonzero": true,
+    "counts_equal_golden": true,
+    "event_sequence_golden": true,
+    "scene_set_reconciled": true,
+    "red_fixtures_all_detected": true
+  },
+  "scenes": [
+    {
+      "scene_id": "bistro-interior",
+      "events": [
+        "rxcook_import_ok",
+        "coverage_complete",
+        "tables_extracted",
+        "counts_nonzero"
+      ],
+      "ok": true,
+      "counts": {
+        "scenes": 1,
+        "nodes": 1192,
+        "meshes": 1186,
+        "materials": 70,
+        "textures": 144,
+        "triangles": 1046609
+      },
+      "table_digests": {
+        "scenes": "8559072f45f148f79ff58b09c238717130782e307dddcf60f8de9b1fcd5c8276",
+        "nodes": "e87e31ca718f69626c81717f2de98bc74609961dfae152e1c57aae0692f971a4",
+        "meshes": "e8be503ea817390b61a62e9601ce55c9566167ab2532707ce2195419cf789dac",
+        "primitives": "e0a3aff617df6828113cc883eca25c26d302f7b32f7b33c833ec4ffb54989165",
+        "materials": "ab26a0c48dbc63ab58b0452addf7909d69f94c091abf939ea666d5d656acf864",
+        "textures": "d32d06bd3abee4198f822188380556603eab1ef56e0b61c2db1dfbddf79e3098"
+      }
+    },
+    {
+      "scene_id": "cornell-box",
+      "events": [
+        "rxcook_import_ok",
+        "coverage_complete",
+        "tables_extracted",
+        "counts_nonzero"
+      ],
+      "ok": true,
+      "counts": {
+        "scenes": 1,
+        "nodes": 17,
+        "meshes": 17,
+        "materials": 4,
+        "textures": 1,
+        "triangles": 34
+      },
+      "table_digests": {
+        "scenes": "3f8393a7deedcf6b69228158d924fc5f088c4c15fb064774d3f90704d99bf0cd",
+        "nodes": "3c86e95ffffda50f9958a8c4a65667b1945dae801ae7422ee64fa259383a8001",
+        "meshes": "83146d391b0f8cb7356dae01dac00f8097c7500ea4dbd74c1ee51a6536a58ecc",
+        "primitives": "6d151b6c0a88a557ae550c9a804172bd760a0b15c3fcb918649e0a94d2465ca7",
+        "materials": "1299c7025a0d17bf1462985c5dbbee80dd22a3db1c9ad7351edb227749afd7f6",
+        "textures": "7e66702b268e98a9c7e4f3554d88c6dbf99dbf48f197734ce13855cb6a35b6c9"
+      }
+    }
+  ],
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build -p rurix-asset --bin rxcook --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "H:\\rurix\\target\\debug\\rxcook.exe import-gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --emit-digest",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\debug\\rxcook.exe import-gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --emit-digest",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T123623Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "缓存根解析: default; M132 RED 三件全检出（零计数冒充/静默丢场景/vacuous 空清单）"
+}

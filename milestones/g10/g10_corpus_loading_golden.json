@@ -1,0 +1,93 @@
+{
+  "schema": "rurix.g10.corpus_loading_golden.v1",
+  "spec_anchor": "RXS-0382",
+  "frozen_at_utc": "2026-08-15",
+  "provenance": "Assisted-by: Kimi-K3（G10.3 波）——实测首跑冻结（P-09 禁手写）：值来自 rxcook import-gltf --emit-digest 与 gltf 文档实算的真实输出",
+  "freeze_rule": "禁手写：本文件全部数值由 G10.3 首跑实测产生，手工改动即与门复算不符判 RED",
+  "scenes": {
+    "cornell-box": {
+      "counts": {
+        "scenes": 1,
+        "nodes": 17,
+        "meshes": 17,
+        "materials": 4,
+        "textures": 1,
+        "triangles": 34
+      },
+      "tables": {
+        "scenes": {
+          "count": 1,
+          "digest": "3f8393a7deedcf6b69228158d924fc5f088c4c15fb064774d3f90704d99bf0cd"
+        },
+        "nodes": {
+          "count": 17,
+          "digest": "3c86e95ffffda50f9958a8c4a65667b1945dae801ae7422ee64fa259383a8001"
+        },
+        "meshes": {
+          "count": 17,
+          "digest": "83146d391b0f8cb7356dae01dac00f8097c7500ea4dbd74c1ee51a6536a58ecc"
+        },
+        "primitives": {
+          "count": 17,
+          "digest": "6d151b6c0a88a557ae550c9a804172bd760a0b15c3fcb918649e0a94d2465ca7"
+        },
+        "materials": {
+          "count": 4,
+          "digest": "1299c7025a0d17bf1462985c5dbbee80dd22a3db1c9ad7351edb227749afd7f6"
+        },
+        "textures": {
+          "count": 1,
+          "digest": "7e66702b268e98a9c7e4f3554d88c6dbf99dbf48f197734ce13855cb6a35b6c9"
+        }
+      },
+      "event_sequence": [
+        "rxcook_import_ok",
+        "coverage_complete",
+        "tables_extracted",
+        "counts_nonzero"
+      ]
+    },
+    "bistro-interior": {
+      "counts": {
+        "scenes": 1,
+        "nodes": 1192,
+        "meshes": 1186,
+        "materials": 70,
+        "textures": 144,
+        "triangles": 1046609
+      },
+      "tables": {
+        "scenes": {
+          "count": 1,
+          "digest": "8559072f45f148f79ff58b09c238717130782e307dddcf60f8de9b1fcd5c8276"
+        },
+        "nodes": {
+          "count": 1192,
+          "digest": "e87e31ca718f69626c81717f2de98bc74609961dfae152e1c57aae0692f971a4"
+        },
+        "meshes": {
+          "count": 1186,
+          "digest": "e8be503ea817390b61a62e9601ce55c9566167ab2532707ce2195419cf789dac"
+        },
+        "primitives": {
+          "count": 2062,
+          "digest": "e0a3aff617df6828113cc883eca25c26d302f7b32f7b33c833ec4ffb54989165"
+        },
+        "materials": {
+          "count": 70,
+          "digest": "ab26a0c48dbc63ab58b0452addf7909d69f94c091abf939ea666d5d656acf864"
+        },
+        "textures": {
+          "count": 144,
+          "digest": "d32d06bd3abee4198f822188380556603eab1ef56e0b61c2db1dfbddf79e3098"
+        }
+      },
+      "event_sequence": [
+        "rxcook_import_ok",
+        "coverage_complete",
+        "tables_extracted",
+        "counts_nonzero"
+      ]
+    }
+  }
+}

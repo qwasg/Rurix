@@ -1,0 +1,12 @@
+//@ spec: RXS-0382
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0382 L1：git 零二
+// 进制守卫闭集命中即 RED——扩展名闭集 .glb/.gltf/.bin/.fbx/.obj/.exr/.hdr/
+// .ktx2/.zip/.png/.tga/.dds/.tif/.tiff + measured 体积阈值双判 + magic-bytes
+// 内容嗅探；白名单路径闭集豁免仅 conformance/asset/gltf/** 与
+// tests/geom_pages/golden/** 留痕）。
+// 负例数据面（最小说明性 fixture）：非豁免路径引入 .fbx/.dds 等闭集扩展名
+//   文件（或超 measured 阈值二进制、或改扩展名但 magic-bytes 命中）⇒ 守卫
+//   判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py 守卫腿
+//   （symbolic key g10.p0.m131.asset_license_registry，G10.1 冻结字面不动）。
+fn main() {}

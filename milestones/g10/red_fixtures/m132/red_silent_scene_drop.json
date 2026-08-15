@@ -1,0 +1,5 @@
+{
+  "_fixture_note": "RED 语料：静默丢场景（M132 判据逐字）——ready 集 {bistro-exterior, cornell-box} 而 loaded 集缺 bistro-exterior，对账必须判 RED",
+  "ready": ["bistro-exterior", "cornell-box"],
+  "loaded": ["cornell-box"]
+}

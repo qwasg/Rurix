@@ -1,0 +1,58 @@
+{
+  "schema": "rurix.g10.asset_license_registry.v1",
+  "spec_anchor": "RXS-0381",
+  "whitelist_spdx": [
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0"
+  ],
+  "git_binary_guard": {
+    "extension_closed_set": [
+      ".glb",
+      ".gltf",
+      ".bin",
+      ".fbx",
+      ".obj",
+      ".exr",
+      ".hdr",
+      ".ktx2",
+      ".zip",
+      ".png",
+      ".tga",
+      ".dds",
+      ".tif",
+      ".tiff"
+    ],
+    "threshold_bytes": 3110430,
+    "threshold_provenance": "measured",
+    "exempt_paths": [
+      "conformance/asset/gltf/",
+      "tests/geom_pages/golden/",
+      "apps/uc09-taichi-spike/assets/particles.tcm"
+    ]
+  },
+  "assets": [
+    {
+      "class": "external",
+      "asset_id": "emerald-square-orca",
+      "spdx_id": "CC-BY-NC-SA-3.0",
+      "source_url": "https://developer.nvidia.com/orca/nvidia-emerald-square",
+      "attribution": {
+        "creator": "NVIDIA",
+        "title": "NVIDIA Emerald Square, Open Research Content Archive (ORCA)",
+        "source_uri": "https://developer.nvidia.com/orca/nvidia-emerald-square",
+        "license_uri": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+        "copyright_notice": "© NVIDIA Corporation",
+        "modified_flag": false
+      },
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license_snapshot": "license_snapshots/emerald_square_cc_by_nc_sa_3_0.txt",
+      "checked_at": "2026-08-15",
+      "upstream_ref": "NONE",
+      "cache_rel": "emerald-square-orca/v1/",
+      "file_count": 1,
+      "byte_len": 1,
+      "_fixture_note": "RED 语料：白名单外许可注入（NC+SA 族明确排除，RFC-0027 §4.2 反例登记行）——M131 门必须 fail-closed 检出"
+    }
+  ]
+}

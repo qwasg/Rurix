@@ -1,0 +1,1 @@
+{"schema":"rurix.g10.lighting_params.v1","scene_id":"cornell-box","lights":[{"type":"point","position":[278.0,538.8,279.4],"color":[1.0,1.0,1.0],"intensity":180000.0,"note":"经典天花板块光源近似点光（程序生成场景登记用）"}]}

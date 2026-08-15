@@ -1,0 +1,1 @@
+{"schema":"rurix.g10.lighting_params.v1","scene_id":"bistro-interior","lights":[{"type":"directional","direction":[-0.3,-1.0,0.2],"color":[1.0,0.98,0.95,1.0],"intensity":3.0}],"note":"Bistro Interior 含 emissive surfaces（包内 README 逐字）；分析光+emissive 双通道取景参数归 G10.5"}

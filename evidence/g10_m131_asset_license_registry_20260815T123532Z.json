@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m131_asset_license_registry",
+  "symbolic_gate_key": "g10.p0.m131.asset_license_registry",
+  "matrix_row": "M131",
+  "milestone": "M131",
+  "assertion_id": "g10.p0.m131.asset_license_registry",
+  "status": "pass",
+  "wave": "G10.3",
+  "numeric_step": 173,
+  "source_ref": "RFC-0027 §4.2/§4.3;spec/external_reference.md RXS-0381/RXS-0382;G10_ACCEPTANCE_MAP §1 M131",
+  "base_commit": "37de1713d83d3a530bc55b43d68f066990c4e74d",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "registry_structure_valid": true,
+    "license_snapshots_on_tree": true,
+    "cache_root_resolved": true,
+    "cache_digest_match": true,
+    "cache_dirs_all_registered": true,
+    "git_binary_guard_clean": true,
+    "red_fixtures_all_detected": true
+  },
+  "commands": [],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T123532Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "缓存根解析: default; RED 检出 red_attribution_missing: assets[0](bistro-orca) attribution 子字段缺失 modified_flag; RED 检出 red_class_masquerade: assets[0](fake-generated) generated 类 source_url ≠ NONE（谎报外部来源）; RED 检出 red_missing_source_url: assets[0](bistro-orca) external 五元组缺字段 source_url; RED 检出 red_whitelist_injection: assets[0](emerald-square-orca) spdx_id 'CC-BY-NC-SA-3.0' 非受限表达式子集（白名单 id 的 AND 组合 + LicenseRef-<name>）"
+}

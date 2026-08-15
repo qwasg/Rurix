@@ -1,0 +1,10 @@
+//@ spec: RXS-0380
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0380 L2：臂 B
+// -execcmds 内嵌控制台命令闭集 = HighResShot <W>x<H> 模板 + r.ResetViewState；
+// 模板外自由文本注入即 fail-closed——注入面不得从开关层转移到 execcmds
+// 内容层，RFC-0027 §4.1.3 F17 修法）。
+// 负例数据面（最小说明性 fixture）：-execcmds 注入闭集外控制台命令
+//   （如 r.SetRes 或直接自由文本）⇒ 装配层 fail-closed。
+// 转正路径（G10.2 波接线）：ci/g10_ue5_capture_environment_smoke.py 门
+//   （symbolic key g10.p0.m128.ue5_capture_environment，G10.1 冻结字面不动）。
+fn main() {}

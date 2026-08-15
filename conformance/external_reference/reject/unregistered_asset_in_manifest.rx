@@ -1,0 +1,11 @@
+//@ spec: RXS-0381
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0381 L5：未登记
+// 资产混入清单即 RED；M131 判据逐字承接；RXS-0383 L4 门序硬约束——先许可
+// 登记，后清单行）。
+// 负例数据面（最小说明性 fixture）：场景清单出现未在
+//   g10_asset_license_registry.json 登记的 asset_id 行 ⇒ 对账判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_asset_license_registry_smoke.py /
+//   ci/g10_corpus_list_freeze_smoke.py 门（symbolic key
+//   g10.p0.m131.asset_license_registry / g10.p1.m133.corpus_list_freeze，
+//   G10.1 冻结字面不动）。
+fn main() {}

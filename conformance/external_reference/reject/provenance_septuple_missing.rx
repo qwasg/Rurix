@@ -1,0 +1,10 @@
+//@ spec: RXS-0380
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0380 L3：provenance
+// 七元组闭集 scene_id/camera_params_digest/lighting_params_digest/ue_build_id/
+// gpu_driver_version/clock_lock_state/capture_arm 逐帧登记，缺任一行即 RED；
+// M129 判据「provenance 缺行即 RED」逐字承接）。
+// 负例数据面（最小说明性 fixture）：帧 evidence 缺 capture_arm 行
+//   （同 scene 不同臂出帧不可区分）⇒ provenance 校验判 RED。
+// 转正路径（G10.2 波接线）：ci/g10_ue5_reference_frames_smoke.py 门
+//   （symbolic key g10.p0.m129.ue5_reference_frames，G10.1 冻结字面不动）。
+fn main() {}

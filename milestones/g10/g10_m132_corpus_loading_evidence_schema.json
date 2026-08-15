@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.3 M132 corpus_loading evidence",
+  "description": "evidence/g10_m132_corpus_loading_<UTC>.json。G10.3 P0 硬门 g10.p0.m132.corpus_loading（步骤 174；G10_CONTRACT §4.2 M132 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0027 §4.3/§4.4；spec/external_reference.md RXS-0382/RXS-0383）：场景清单逐场景经 Rurix 既有 glTF 导入面（G8 M81 rxcook import-gltf --emit-digest）真实加载成功 + 三角形/材质/纹理计数非空 + 加载事件序列 golden（逐场景 [rxcook_import_ok, coverage_complete, tables_extracted, counts_nonzero] 逐字）+ 计数与六表 count/digest 全等 golden（milestones/g10/g10_corpus_loading_golden.json，实测首跑冻结，P-09）；计数为零冒充成功即 RED；静默丢场景即 RED；加载门前逐文件 SHA-256 + 清单级 canonical digest 复算不符即 fail-closed；全 not-ready 空清单 vacuous truth 不构 PASS。host 驱动（正常态 device_section_state=not_applicable；缓存根不可达 dev_env_degrade 诚实登记不充绿，R-G10-9）。RED 语料三件（red_fixtures/m132/）逐件独立检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "scenes",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m132_corpus_loading" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m132.corpus_loading" },
+    "matrix_row": { "type": "string", "const": "M132" },
+    "milestone": { "type": "string", "const": "M132" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m132.corpus_loading" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.3" },
+    "numeric_step": { "type": "integer", "const": 174 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0027 §4.3/§4.4;spec/external_reference.md RXS-0382/RXS-0383;G10_ACCEPTANCE_MAP §1 M132"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_valid",
+        "cache_root_resolved",
+        "per_scene_digest_verified",
+        "per_scene_import_ok",
+        "counts_nonzero",
+        "counts_equal_golden",
+        "event_sequence_golden",
+        "scene_set_reconciled",
+        "red_fixtures_all_detected"
+      ],
+      "properties": {
+        "manifest_valid": { "type": "boolean" },
+        "cache_root_resolved": { "type": "boolean" },
+        "per_scene_digest_verified": { "type": "boolean" },
+        "per_scene_import_ok": { "type": "boolean" },
+        "counts_nonzero": { "type": "boolean" },
+        "counts_equal_golden": { "type": "boolean" },
+        "event_sequence_golden": { "type": "boolean" },
+        "scene_set_reconciled": { "type": "boolean" },
+        "red_fixtures_all_detected": { "type": "boolean" }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["scene_id", "events", "ok"],
+        "properties": {
+          "scene_id": { "type": "string" },
+          "events": { "type": "array", "items": { "type": "string" } },
+          "ok": { "type": "boolean" },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "triangles": { "type": "integer", "minimum": 1 },
+              "materials": { "type": "integer", "minimum": 1 },
+              "textures": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "table_digests": { "type": "object" }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,1 @@
+{"schema":"rurix.g10.camera_params.v1","scene_id":"cornell-box","eye":[278.0,273.0,-800.0],"target":[278.0,273.0,279.0],"up":[0.0,1.0,0.0],"fov_y_deg":39.31,"resolution":[512,512],"note":"Cornell Box 经典取景（PCG 数据页口径；G10.3 首发清单）"}

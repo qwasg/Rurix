@@ -1,0 +1,29 @@
+{
+  "schema": "rurix.g10.corpus_scene_manifest.v1",
+  "spec_anchor": "RXS-0383",
+  "frozen_by": "ci/g10_corpus_list_freeze_smoke.py（g10.p1.m133.corpus_list_freeze，步骤 175）",
+  "scenes": [
+    {
+      "scene_id": "bistro-interior",
+      "asset_id": "bistro-orca",
+      "camera_ref": "corpus/camera_bistro_interior.json",
+      "lighting_ref": "corpus/lighting_bistro_interior.json",
+      "status": "ready"
+    },
+    {
+      "scene_id": "cornell-box",
+      "asset_id": "cornell-box-generated",
+      "camera_ref": "corpus/camera_cornell_box.json",
+      "lighting_ref": "corpus/lighting_cornell_box.json",
+      "status": "ready"
+    }
+  ],
+  "revisions": [
+    {
+      "revision": 1,
+      "manifest_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "changed_at": "2026-08-15",
+      "change_note": "G10.3 初冻结：首发清单 CornellBox+Bistro 两行（立项裁决 3 + RFC-0027 §4.2 Sponza 裁决——Sponza 白名单外 fail-closed 不入清单；Bistro 场景面 = BistroInterior，Exterior 转换失败如实登记见注册表 derived.note）；后续变更只追加修订行 + 新清单 digest（原地改即 RED）"
+    }
+  ]
+}

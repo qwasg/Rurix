@@ -1,0 +1,9 @@
+//@ spec: RXS-0383
+// G10.3 spec-first RED 语料（spec/external_reference.md RXS-0383 L3：清单冻结
+// 后任何变更以新修订行 + 新清单 digest 落盘；原地改既有行即 RED；未注册
+// digest 冒充冻结即 RED——M133 判据逐字承接）。
+// 负例数据面（最小说明性 fixture）：原地改清单既有行（如翻转 status 不追加
+//   修订行）⇒ 清单 canonical digest 复算与注册 digest 不符，判 RED。
+// 转正路径（G10.3 波接线）：ci/g10_corpus_list_freeze_smoke.py 门
+//   （symbolic key g10.p1.m133.corpus_list_freeze，G10.1 冻结字面不动）。
+fn main() {}

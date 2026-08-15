@@ -1930,6 +1930,28 @@
     ],
     "RXS-0379": [
       "conformance/physics/reject/async_decorative_channel_without_verdict.rx"
+    ],
+    "RXS-0380": [
+      "conformance/external_reference/accept/harness_command_face_minimal.rx",
+      "conformance/external_reference/reject/command_face_switch_outside_closed_set.rx",
+      "conformance/external_reference/reject/execcmds_template_injection.rx",
+      "conformance/external_reference/reject/provenance_septuple_missing.rx"
+    ],
+    "RXS-0381": [
+      "conformance/external_reference/accept/license_registry_minimal.rx",
+      "conformance/external_reference/reject/class_masquerade.rx",
+      "conformance/external_reference/reject/license_outside_whitelist.rx",
+      "conformance/external_reference/reject/registry_field_missing.rx",
+      "conformance/external_reference/reject/unregistered_asset_in_manifest.rx"
+    ],
+    "RXS-0382": [
+      "conformance/external_reference/accept/cache_layout_minimal.rx",
+      "conformance/external_reference/reject/cache_digest_tamper.rx",
+      "conformance/external_reference/reject/git_binary_guard_hit.rx"
+    ],
+    "RXS-0383": [
+      "conformance/external_reference/accept/manifest_freeze_minimal.rx",
+      "conformance/external_reference/reject/manifest_in_place_edit.rx"
     ]
   }
 }
