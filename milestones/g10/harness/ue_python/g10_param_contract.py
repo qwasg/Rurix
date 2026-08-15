@@ -12,9 +12,12 @@ schema 四节闭集（全字段必填；schema 外字段注入即拒；null 仅 
   time     : fixed_dt_s · warmup_frames · capture_frame_index · random_seed · jitter{sequence:"halton_2_3",index_base,scale}
   post     : view_transform "aces13" · bloom/vignette/motion_blur/dof 全 false
 
-值约定（RFC-0026 §4.6 冻结公式）：契约世界系右手系/+Y up/米；UE 厘米/左手系/Z-up/水平 FOV。
-  p_ue = (−z, x, y)·100 ；四元数向量部同 M 变换、标量部不变；fov_h_ue = 2·atan(tan(fov_y/2)·aspect)；
-  sun.direction 同 M（无单位换算）。unit-norm 判定式 |‖v‖²−1| ≤ 2^-40（schema 合法性谓词常量，非 measured）。
+值约定（RFC-0026 §4.6 冻结公式 + v1.1 章 E errata；spec/visual_comparison.md RXS-0384 L2
++ 修订记录 v1.1 勘误行）：契约世界系右手系/+Y up/米；UE 厘米/左手系/Z-up/水平 FOV。
+  p_ue = (−z, x, y)·100 ；四元数共轭按 errata 修订式 q_ue = (w, z, −x, −y)（反射 M det=−1
+  共轭 R(M·axis, −θ)：向量部 −M·v、标量部不变；原文「向量部同 M、转角保持」勘误不复用）；
+  fov_h_ue = 2·atan(tan(fov_y/2)·aspect)；sun.direction 同 M（无单位换算）。
+  unit-norm 判定式 |‖v‖²−1| ≤ 2^-40（schema 合法性谓词常量，非 measured）。
 
 Assisted-by: Kimi-K3（G10.2 波）
 """
@@ -231,7 +234,11 @@ def section_param_digest(contract, section):
 
 # ---------------------------------------------------------------------------
 # 值约定映射：契约世界系（右手系/+Y up/米）→ UE（厘米/左手系/Z-up/水平 FOV）
-# 冻结公式（RFC-0026 §4.6）：p_ue = (−z, x, y)·100；四元数向量部同 M、标量部不变；
+# 冻结公式（RFC-0026 §4.6 + v1.1 章 E errata；RXS-0384 L2 + v1.1 勘误行）：
+# p_ue = (−z, x, y)·100；四元数共轭 q_ue = (w, z, −x, −y)（errata 修订式——M 为
+# 反射 det=−1，共轭 R_ue = M·R(axis,θ)·M⁻¹ = R(M·axis, −θ)，向量部 −M·v、标量部
+# 不变；勘误前实现 (w, −z, x, y) = R(M·axis, +θ) 镜像朝向，tests/
+# test_g10_param_contract.py 共轭恒等式对拍 RED→GREEN 实证）；
 # fov_h_ue = 2·atan(tan(fov_y/2)·aspect)；sun.direction 同 M。
 # ---------------------------------------------------------------------------
 
@@ -242,7 +249,7 @@ def pos_contract_to_ue(p):
 
 def quat_contract_to_ue(q):
     w, x, y, z = q
-    return (w, -z, x, y)
+    return (w, z, -x, -y)
 
 
 def fov_y_to_ue_horizontal(fov_y_deg, aspect):
