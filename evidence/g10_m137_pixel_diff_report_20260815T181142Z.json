@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m137_pixel_diff_report",
+  "symbolic_gate_key": "g10.p0.m137.pixel_diff_report",
+  "matrix_row": "M137",
+  "milestone": "M137",
+  "assertion_id": "g10.p0.m137.pixel_diff_report",
+  "status": "pass",
+  "wave": "G10.4",
+  "numeric_step": 183,
+  "source_ref": "RFC-0026 §4.4;spec/visual_comparison.md RXS-0388;G10_ACCEPTANCE_MAP §1 M137",
+  "base_commit": "7689674d08411c6906a9a1e27dd5ca7670f436a3",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "spec_rxs0388_clause_on_tree": true,
+    "harness_build_host": true,
+    "identity_pair_noise_floor_zero": true,
+    "dual_layer_artifacts": true,
+    "error_exr_recompute_match": true,
+    "heatmap_recompute_match": true,
+    "region_stats_recompute_match": true,
+    "scalars_recompute_match": true,
+    "report_closed_set_enforced": true,
+    "red_diff_scalar_inconsistency_detected": true,
+    "red_empty_scene_row_detected": true,
+    "red_extra_field_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build -p rurix-render --bin g10_m137_diff_report",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "H:\\rurix\\target\\debug\\g10_m137_diff_report.exe --synthetic-pair --out-dir H:\\rurix\\.tmp\\g104_gates\\m137\\main --evidence H:\\rurix\\.tmp\\g104_gates\\m137\\main\\report.json --scene-id probe-synthetic --camera-id cam0 --frame-index 0 --threshold 0.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\debug\\g10_m137_diff_report.exe --frame-a H:\\rurix\\.tmp\\g104_gates\\m137\\main\\frame_a.exr --frame-b H:\\rurix\\.tmp\\g104_gates\\m137\\main\\frame_a.exr --out-dir H:\\rurix\\.tmp\\g104_gates\\m137\\identity --evidence H:\\rurix\\.tmp\\g104_gates\\m137\\identity\\report.json --scene-id probe-identity --camera-id cam0 --frame-index 0 --threshold 0.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g10_m137_diff_report.exe --synthetic-pair --out-dir H:\\rurix\\.tmp\\g104_gates\\m137\\red_empty --evidence H:\\rurix\\.tmp\\g104_gates\\m137\\red_empty\\report.json --scene-id  --camera-id cam0 --frame-index 0 --threshold 0.0",
+      "exit_code": 1
+    }
+  ],
+  "diff_report": {
+    "reporter": "g10_m137_diff_report",
+    "report_path": ".tmp/g104_gates/m137/main/report.json",
+    "scene_id": "probe-synthetic",
+    "camera_id": "cam0",
+    "frame_index": 0,
+    "domain": "scene-linear-hdr",
+    "metric_caliber": "sha256:21d34cad5edc35ca8615f5e23817c49846c474cd2811d89a1b5e532ded18df66",
+    "thresholds": {
+      "value": 0,
+      "source": "provisional_pending_m138",
+      "source_digest": "sha256:9c3d1326f8875f390d57b93a435af6981ac1d7bb9a80ebe35c5aa67092b24f4e"
+    },
+    "threshold_calibration": {
+      "estimator": "p100×k",
+      "safety_factor_k": 1.0,
+      "measured_noise_floor": 0,
+      "status": "provisional_pending_m138",
+      "provenance": "identity 图对（frame_a vs frame_a）噪声底 p100 实测 = 0.0；M138 正式标定入 g10_budget.json 后翻转 thresholds.source"
+    },
+    "region_grid": {
+      "nx": 16,
+      "ny": 16
+    },
+    "region_count": 256,
+    "scalars": {
+      "flip": null,
+      "err_max": 1,
+      "err_mean": 0.12272995532304048,
+      "err_p95": 0.7699999,
+      "over_threshold_pixel_count": 5318,
+      "over_threshold_ratio": 0.7597142857142857
+    },
+    "artifacts": {
+      "frame_a_digest": "sha256:aceb75578cf8210b3deb55105ec2a53dae553677994ac607fb936b80b27bb485",
+      "frame_b_digest": "sha256:8330312485e5bab37318876968572e8f14623c6ad4258bf57880f4bc6bb91c45",
+      "error_map_digest": "sha256:1bd2c423b50ad60ed27aa4f0cc1ccc4d9322b2e19643d415eef347bf7633f773",
+      "heatmap_digest": "sha256:372e40c58f9e241d89d301e347d4942e2df83c3f19c9e0d9c2c2a3e03f85199c"
+    },
+    "determinism_contract_digest": "sha256:45826b7b39f32c5cb03feb6677f041b80acee7f9f7fee220d53a1aa25f86d8d0",
+    "cross_impl_verification": "ci/g10_exr_lib.py 独立第二实现：误差 EXR/热区图/区域统计/标量四面重算一致 + digest 对账"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T181142Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "provisional threshold = identity p100 0.0 × k=1.0 = 0.0（M138 正式标定后翻转 source）; RED 检出 diff_scalar_inconsistency: 篡改误差 EXR/标量 → 重算不一致"
+}
