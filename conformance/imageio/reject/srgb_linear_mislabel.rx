@@ -1,0 +1,11 @@
+//@ spec: RXS-0385
+// G10.4 spec-first 锚定语料（spec/imageio.md §2A RXS-0385 L2：色彩空间闭集
+// ——HDR 臂 domain="scene-linear-hdr" 必 transfer="linear"，LDR 臂
+// domain="display-referred-ldr" 必 transfer="srgb"；错配 = sRGB/线性混标，
+// fail-closed 拒绝）。
+// 预期 RED（最小说明性 fixture，未来 CI 消费）：构造 domain=scene-linear-hdr
+// + transfer="srgb"（或反向错配）的帧元数据，编码/读取侧必须确定性拒绝，
+// 不静默继续。
+// 转正路径（G10.4a 波接线）：ci/g10_frame_capture_pipeline_smoke.py 门内
+// 注入臂（--red-arm srgb-linear-mislabel，混标必拒）。
+fn main() {}

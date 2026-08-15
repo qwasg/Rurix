@@ -1,0 +1,14 @@
+//@ spec: RXS-0388
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0388 L1~L4：逐像素
+// diff 报告 schema——双层产物〔误差 EXR float32 单通道 Y canonical + 灰度
+// 热区图 gray 映射经 RXS-0116 量化 PPM P6〕/ 区域统计字段闭集〔16×16 网格
+// + nearest-rank p95 + 末区域实际剩余像素规则〕/ evidence JSON 字段闭集
+// 〔scene 三元组/end_pair/metric_caliber/thresholds/regions/scalars/
+// artifacts 四 digest/determinism_contract_digest/provenance〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：同一误差缓冲的三面投影
+// （误差 EXR / 热区图 / 区域统计）重算一致；evidence 闭集字段齐备、空场景
+// 行不出现。
+// 转正路径（G10.4a 波接线）：src/rurix-render/src/bin/g10_m137_diff_report.rs
+// + ci/g10_pixel_diff_report_smoke.py 门（symbolic key
+// g10.p0.m137.pixel_diff_report，G10.1 冻结字面不动）。
+fn main() {}

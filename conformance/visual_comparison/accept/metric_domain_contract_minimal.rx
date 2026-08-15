@@ -1,0 +1,13 @@
+//@ spec: RXS-0386
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0386 L1~L3：度量
+// 域契约——HDR 臂 tonemap 前 scene-linear 捕获点 / LDR 臂显示域 sRGB 派生
+// 路径〔HDR 帧权威源 + 双端共用 host 侧 sRGB 编码器口径单源 + 派生链元数据
+// 互证 rurix:derivation / rurix:source_frame_digest〕/ 帧域标签与度量域互证）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：HDR 臂帧 domain=
+// scene-linear-hdr + transfer=linear；LDR 臂派生帧 domain=
+// display-referred-ldr + transfer=srgb + derivation="derived:
+// host-srgb-encoder-v1" + source_frame_digest 指回源 HDR 帧 digest；
+// 度量计算域入参与帧元数据逐字互证。
+// 转正路径（G10.4a 波接线）：ci/g10_frame_capture_pipeline_smoke.py 门
+// （symbolic key g10.p0.m134.frame_capture_pipeline，G10.1 冻结字面不动）。
+fn main() {}

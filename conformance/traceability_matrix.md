@@ -370,3 +370,7 @@
 | RXS-0382 | spec/external_reference.md | 3 | `conformance/external_reference/accept/cache_layout_minimal.rx`, `conformance/external_reference/reject/cache_digest_tamper.rx`, `conformance/external_reference/reject/git_binary_guard_hit.rx` |
 | RXS-0383 | spec/external_reference.md | 2 | `conformance/external_reference/accept/manifest_freeze_minimal.rx`, `conformance/external_reference/reject/manifest_in_place_edit.rx` |
 | RXS-0384 | spec/visual_comparison.md | 4 | `conformance/visual_comparison/accept/determinism_contract_minimal.rx`, `conformance/visual_comparison/reject/non_unit_quat_injection.rx`, `conformance/visual_comparison/reject/schema_extra_field_injection.rx` …(+1) |
+| RXS-0385 | spec/imageio.md | 3 | `conformance/imageio/accept/exr_hdr_container_minimal.rx`, `conformance/imageio/reject/bit_depth_truncation_8bit_clamp.rx`, `conformance/imageio/reject/srgb_linear_mislabel.rx` |
+| RXS-0386 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/metric_domain_contract_minimal.rx`, `conformance/visual_comparison/reject/domain_label_mismatch.rx` |
+| RXS-0387 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/ssim_psnr_caliber_minimal.rx`, `conformance/visual_comparison/reject/hdr_direct_ssim_psnr.rx` |
+| RXS-0388 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/pixel_diff_report_minimal.rx`, `conformance/visual_comparison/reject/diff_scalar_inconsistency.rx` |

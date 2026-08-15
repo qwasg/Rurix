@@ -1,0 +1,15 @@
+//@ spec: RXS-0385
+// G10.4 spec-first 锚定语料（spec/imageio.md §2A RXS-0385 L1~L5：EXR HDR 帧
+// 容器语义——float32 RGB scanline / 压缩闭集 {NONE, ZIP}〔v1 NONE 编+解，
+// ZIP fail-closed 显式 UnsupportedCompression〕/ 色彩空间 rec709·d65 与
+// chromaticities 位级闭集 / 元数据闭集〔标准属性白名单 + rurix:* 九字段〕/
+// 分端读取策略〔rurix strict / ue5 strip-and-log〕/ 捕获→回读逐像素
+// float32 位级往返无损）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：Rurix 侧 canonical 帧
+// （float32 RGB、domain=scene-linear-hdr、transfer=linear、bit_depth=float32、
+// source_end=rurix、derivation=capture）经 encode→落盘→decode 逐像素位级
+// 相等；UE 帧（fp16 RGBA、NONE）经 strip-and-log 读取提升到 float32。
+// 转正路径（G10.4a 波接线）：src/image-io/src/exr.rs 实现 +
+// ci/g10_frame_capture_pipeline_smoke.py 门（symbolic key
+// g10.p0.m134.frame_capture_pipeline，G10.1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,10 @@
+//@ spec: RXS-0385
+// G10.4 spec-first 锚定语料（spec/imageio.md §2A RXS-0385 L5：位深截断注入
+// 即 RED——Rurix 侧 canonical = float32 每通道，捕获源经 8-bit clamp 量化
+// 后逐像素位模式必偏离原帧；往返无损判据必须检出该截断）。
+// 预期 RED（最小说明性 fixture，未来 CI 消费）：探针图案含非 8-bit 精确
+// 表示值，截断注入后 capture→encode→decode 位级比对检出不等；以截断帧冒充
+// float32 原帧 = 假绿口。
+// 转正路径（G10.4a 波接线）：ci/g10_frame_capture_pipeline_smoke.py 门内
+// 注入臂（--red-arm clamp-8bit，截断必检出）。
+fn main() {}

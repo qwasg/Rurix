@@ -132,6 +132,28 @@ FrameName ::= Expr "." "frame_path" "(" Expr ")"             // (index) -> 规�
 
 > 锚定测试:`src/image-io/src/lib.rs`(`#[cfg(test)]`:`frame_path` 规范化命名、`push_frame` 落盘字节与 `encode` 一致、序列同输入两次落盘逐字节相等)。
 
+## 2A. EXR HDR 帧容器语义(G10.4 M134;RFC-0026 §4.1)
+
+> 本章为 G10.4 度量基建波 spec-first 追加新章([RFC-0026](../rfcs/0026-visual-comparison-metrics.md) §4.1/§5,Agent Approved 2026-08-15;目标文件裁决 = 帧容器 EXR 语义挂本文件追加新章,RXS-0114~0117 字面 0-byte 不动——EXR 为 HDR 域新类别**加性**登记,RXS-0115 LDR 无损优先序不动)。条款号按 G10.4 波落盘时实测 `registry/number_ledger.json` `RXS.next_free` 顺位领取(编号永不复用,10 §9.5)。实现锚定:`src/image-io/src/exr.rs`(全 safe、零外部依赖、确定性字节流);门脚本 `ci/g10_frame_capture_pipeline_smoke.py`(symbolic key `g10.p0.m134.frame_capture_pipeline`,G10.1 冻结字面不动)。
+
+### RXS-0385 EXR HDR 帧容器语义:float32 RGB scanline / 压缩闭集 / 元数据闭集 / 分端读取策略 / 往返无损(M134)
+
+**Legality**
+
+- L1 **canonical 帧容器** = OpenEXR(`.exr`),scanline 布局;Rurix 侧 canonical = **float32 每通道**,RGB 三通道(alpha 可选且不进入度量面)与单通道 Y(误差标量场,RXS-0388 消费面)两形态;UE 侧实际位深(fp16/fp32)以 harness 实测登记入 provenance,读取侧统一提升到 float32(fp16→f32 为精确提升,逐值位级可逆)。**压缩闭集 = `{NONE, ZIP}`**(NONE=0 / ZIP=3,OpenEXR compression 枚举);PIZ/RLE 为修订行演进位,DWAA/DWAB 及一切有损压缩禁入。**v1 实现面**:NONE 编码 + NONE 解码;ZIP 解码本波未接通——遇 ZIP(及闭集外一切压缩值)一律 fail-closed 显式 `ImageError::UnsupportedCompression`(**禁静默**),harness 须将 UE 侧压缩配置收窄至自研可解子集并以 evidence 登记(本波实测收窄 = `{NONE}`,UE 5.8.1 MRQ 帧 compression=NONE 实证)。
+- L2 **色彩空间闭集**:`color_primaries="rec709"`、`white_point="d65"`、`transfer ∈ {"linear","srgb"}`;HDR 臂(`domain="scene-linear-hdr"`)必 `"linear"`,LDR 臂(`domain="display-referred-ldr"`)必 `"srgb"`,**错配 = sRGB/线性混标,fail-closed 拒绝**。`chromaticities` 标准属性必填,值 = Rec.709 primaries + D65 白点位级闭集(`red(0.64,0.33) green(0.30,0.60) blue(0.15,0.06) white(0.3127,0.3290)`),与色彩空间闭集互证;闭集外取值拒绝。
+- L3 **元数据字段闭集**(EXR header 标准属性白名单 + 自定义属性 `rurix:*` 命名空间,**闭集外禁写**;写侧 fail-closed):标准属性白名单 = 结构属性(`channels`/`compression`/`dataWindow`/`displayWindow`/`lineOrder`)+ 可选标准属性闭集 {`chromaticities`(必填)、`pixelAspectRatio`、`screenWindowCenter`、`screenWindowWidth`};`rurix:*` 闭集 = `rurix:schema_version`(string,`"1"` 起,加性演进)· `rurix:domain`(域闭集)· `rurix:transfer` · `rurix:bit_depth`(`"float32"` canonical / `"float16"` UE 侧实测登记)· `rurix:source_end`(`"rurix"` / `"ue5"`)· `rurix:view_transform`(LDR 臂必,枚举 `{"aces13","aces20","agx","neutral","ue5-default-aces-filmic"}`)· `rurix:capture_params_digest`(帧 ↔ 参数互证 digest,G10.5 A/B 帧 = M130 `param_digest`;G10.4 探针/合成帧 = 其生成参数描述符 SHA-256,登记面不冒充 M130 链)· `rurix:derivation`(`"capture"` 直接捕获 / `"derived:host-srgb-encoder-v1"` LDR 派生链标记)· `rurix:source_frame_digest`(派生帧必,派生源 HDR 帧 digest;`"capture"` 帧缺省合法)· `rurix:chromaticities_origin`(条件必:`"writer"` / `"harness-backfill"`,UE 帧 `chromaticities` 缺失补写时必填)。必填字段缺失即 fail-closed 拒绝(元数据缺字段即 RED)。
+- L4 **分端读取策略**:按 `rurix:source_end` 分派——`"rurix"` 帧 **strict**:白名单与 `rurix:*` 闭集外属性确定性拒绝;`"ue5"` 帧 **strip-and-log**:闭集外属性剥离并逐属性随 provenance 登记(属性名 + 值 digest),不得因 UE 写出器附带属性拒收真实帧,白名单内属性保留并参与互证;`"ue5"` 帧出现 `rurix:*` 属性 = 命名空间冒充,拒绝。`chromaticities` 缺失:UE 帧经 harness 补写闭集值并 `rurix:chromaticities_origin="harness-backfill"` 登记后放读(本波实测 UE 5.8.1 MRQ 帧 chromaticities 在位且 = 闭集值,backfill 路径不触发);读取侧遇缺失一律 fail-closed。alpha 通道:读取侧接受并剥离(A 通道不进入 canonical RGB 缓冲),剥离随 stripped 登记。
+- L5 **往返无损判据(Rurix 侧管线)**:capture→encode→落盘→decode 后逐像素 float32 **位级相等**(NONE 平凡成立);位深截断(8-bit clamp 注入)即 RED;sRGB/线性混标注入即 RED;渲染输出探针图案未位级出现于捕获 EXR 即 RED(注入已知像素图案经管线后核验,防恒定合成帧伪绿,RFC-0026 §6.2 F16)。编码字节流确定性:同一输入(宽高/像素/元数据)产**逐字节一致**字节流(canonical 编码不含路径/mtime/随机量)。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m134.frame_capture_pipeline`(G10.4);测试锚定 = `src/image-io/src/exr.rs` 单测 + conformance/imageio/ 语料 + `ci/g10_frame_capture_pipeline_smoke.py` 门脚本。
+- IR2 实现面 = `src/image-io/src/exr.rs`:全 safe(`unsafe_code=deny` 继承)、零外部依赖、纯函数确定性;EXR 字节布局 = magic `0x762f3101` + version 2 + header 属性区(name\0 type\0 size u32le value 逐属性)+ `\0` 终止 + 扫描线偏移表(每行 u64le)+ 逐扫描线块(y i32le + packed_size u32le + 像素数据);通道按名称字母序(B,G,R / 单通道 Y)存储,逐扫描线内逐通道平面排列;错误以库层 `ImageError` 错误值表达(§3 口径,不分配 RX 段位)。
+- IR3 RED 语料(conformance/imageio/reject/):8-bit clamp 位深截断注入 / sRGB-线性混标注入 / 元数据缺字段注入——转正路径为 M134 门脚本内注入臂(截断必检出 / 混标必拒 / 缺字段必拒)。
+
+> 锚定测试:`src/image-io/src/exr.rs`(`#[cfg(test)]`:往返无损 golden / 元数据闭集 / 分端读取策略 / ZIP fail-closed / fp16 提升 / RED 注入)。
+
 ## 3. 错误码引用汇总 / 库层错误值口径
 
 > 本表仅**引用**既有错误码(均为 2xxx 类型段位,07 §5),含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源。image-io 接口以具体 host 结构体 + inherent 方法实现,**类型误用**(像素 / 缓冲类型不匹配、实参元数 / 类型不符)天然落入既有**类型类诊断**,**不新增错误码、不预造条目**(无 bespoke 诊断实现,M7 CI_GATES §4.2);故不改 [../registry/error_codes.json](../registry/error_codes.json) 与 `en.messages`。
@@ -157,4 +179,5 @@ FrameName ::= Expr "." "frame_path" "(" Expr ")"             // (index) -> 规�
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.1 | 2026-08-15 | G10.4 度量基建波 spec-first(硬规则 7 条款先行;G10 已解锁 implementation_status=unblocked,G10_CONTRACT §8.1):§2A 追加新章「EXR HDR 帧容器语义」,登记 **RXS-0385**(float32 RGB scanline / 压缩闭集 {NONE, ZIP}〔v1 实现面 NONE 编+解,ZIP 解码 fail-closed 显式 UnsupportedCompression 禁静默,harness 收窄登记〕/ 色彩空间与 chromaticities 闭集 / 元数据字段闭集〔白名单 + rurix:* 命名空间,含派生链字段〕/ 分端读取策略〔rurix strict / ue5 strip-and-log〕/ 捕获→回读逐像素往返无损与探针图案位级核验)。条款号自 ledger 实测 `RXS.next_free=385` 顺位领取(0385 单号,0295/0296 burned 与 shadow_reserved 181~184 维持)。RXS-0114~0117 字面 0-byte(EXR 为 HDR 域新类别加性登记,RXS-0115 LDR 无损优先序不动);零新 RX 码(库层错误值口径 §3 维持);零 unsafe(image-io 全 safe 维持,不领 U 号)。依据 [RFC-0026](../rfcs/0026-visual-comparison-metrics.md)(Agent Approved 2026-08-15)§4.1/§5 + G10_ACCEPTANCE_MAP §1 M134 行(判据逐字)。`Assisted-by: Kimi-K3（G10.4a 波）` | **Full RFC**(RFC-0026) |
 | v1.0 | 2026-06-16 | 新建 spec/imageio.md(M7.2 image-io 接口语义面起始文件):落地带编号条款体 RXS-0114 ~ RXS-0117(图像缓冲与像素类型面 `Rgb`/`Rgba`/`ImageBuffer`,复用 M7.1 标量 f32 像素口径 / 无损格式优先与格式选择 PPM P6 优先·PNG 次 / 确定性字节布局与 PPM P6 header 规范化·行主序·通道序·f32→u8 确定量化 / 图像序列落盘接口逐帧 content SHA-256 可核对),每条 ≥1 锚定(`src/image-io` crate 内确定性单测,trace_matrix 维持全锚定)。实现裁决:**host-only 单路径**(不引入 device codegen,区别于 stdlib 双路径),纯函数确定性编码 + 标准库落盘,全 safe(`unsafe_code=deny`);维度以具体像素类型名 + 运行期宽高编码,不用 const 泛型(RD-007 不触碰)。错误码:Legality 仅引用既有 2xxx 类型类诊断 RX2001/RX2003(§3 引用汇总),不新增 / 不预造错误码、不改 error_codes.json 与 en.messages;运行期失败(格式不支持 / 写入失败)以库层 Result 错误值表达,若确需编译器侧 RX 诊断则停手升档。§1 编号区间登记 RXS-0114 ~ RXS-0117;README §4 文件清单 + §5 修订行同 PR 登记。授权:01 §6 UC-03 + 08 §5 stdlib 充实 + 09 §5/§7 image-io 包形态 + 11 §3 M7,M7_CONTRACT D-M7-2 / G-M7-1 子集 / G-M7-5 `rfc_required: none` | Direct |

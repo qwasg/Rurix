@@ -1958,6 +1958,23 @@
       "conformance/visual_comparison/reject/non_unit_quat_injection.rx",
       "conformance/visual_comparison/reject/schema_extra_field_injection.rx",
       "conformance/visual_comparison/reject/single_end_param_drift.rx"
+    ],
+    "RXS-0385": [
+      "conformance/imageio/accept/exr_hdr_container_minimal.rx",
+      "conformance/imageio/reject/bit_depth_truncation_8bit_clamp.rx",
+      "conformance/imageio/reject/srgb_linear_mislabel.rx"
+    ],
+    "RXS-0386": [
+      "conformance/visual_comparison/accept/metric_domain_contract_minimal.rx",
+      "conformance/visual_comparison/reject/domain_label_mismatch.rx"
+    ],
+    "RXS-0387": [
+      "conformance/visual_comparison/accept/ssim_psnr_caliber_minimal.rx",
+      "conformance/visual_comparison/reject/hdr_direct_ssim_psnr.rx"
+    ],
+    "RXS-0388": [
+      "conformance/visual_comparison/accept/pixel_diff_report_minimal.rx",
+      "conformance/visual_comparison/reject/diff_scalar_inconsistency.rx"
     ]
   }
 }

@@ -1,0 +1,13 @@
+//@ spec: RXS-0387
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0387 L1~L4：SSIM/
+// PSNR 口径闭集——11×11 高斯窗 σ=1.5 + K1=0.01/K2=0.03 + data_range=1.0 +
+// 总体协方差 + 逐通道均值聚合〔mean-SSIM 非 multi-scale〕/ PSNR 联合 MSE 与
+// "inf" 例外字面 / LDR 域限定 / 恒等图对 SSIM=1/PSNR=inf 极值断言 /
+// scikit-image 显式 Wang 参数化参考对拍 + 图集下界 ≥24 图对五内容类每类
+// ≥4 + 容差 p100×k measured 标定）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：LDR 显示域 sRGB [0,1]
+// 图对（五内容类：高频边缘/平滑渐变/噪声/高亮截断/色彩孤立区）逐图自实现
+// vs 参考实现对拍一致；恒等图对 SSIM 恰 1.0、PSNR "inf"。
+// 转正路径（G10.4a 波接线）：ci/g10_ssim_psnr_metric_smoke.py 门（symbolic
+// key g10.p0.m136.ssim_psnr_metric，G10.1 冻结字面不动）。
+fn main() {}

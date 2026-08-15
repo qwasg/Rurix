@@ -1,0 +1,11 @@
+//@ spec: RXS-0386
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0386 L3：帧域标签
+// 与度量域互证——度量计算的域入参必须等于输入帧元数据 rurix:domain 与
+// rurix:transfer；域标签错配 / transfer 错配注入即 RED；LDR 派生帧缺
+// rurix:source_frame_digest 即 RED）。
+// 预期 RED（最小说明性 fixture，未来 CI 消费）：以 domain=display-referred-ldr
+// 标签贴在 scene-linear 帧上（或反向）跑度量域互证，必须 fail-closed 检出；
+// 派生链字段缺失同理。
+// 转正路径（G10.4a 波接线）：ci/g10_frame_capture_pipeline_smoke.py 门内
+// 注入臂（域标签错配必检出）。
+fn main() {}

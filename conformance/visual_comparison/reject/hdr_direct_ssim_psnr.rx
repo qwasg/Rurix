@@ -1,0 +1,11 @@
+//@ spec: RXS-0387
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0387 L1：SSIM/
+// PSNR 仅在 LDR 臂定义——显示域 sRGB [0,1]、data_range=1.0；HDR 臂不定义
+// SSIM/PSNR〔无界动态范围下口径不适定〕；任何在 HDR 帧上直接计算 SSIM/PSNR
+// 的请求即口径混用，fail-closed 拒绝）。
+// 预期 RED（最小说明性 fixture，未来 CI 消费）：以含 >1.0 值的 HDR 帧
+// （domain=scene-linear-hdr）直算 SSIM/PSNR，必须确定性拒绝；口径漂移注入
+// （σ/win_size/K1/K2 偏离闭集）同臂检出。
+// 转正路径（G10.4a 波接线）：ci/g10_ssim_psnr_metric_smoke.py 门内注入臂
+// （HDR 直算必拒 / 口径漂移必检出）。
+fn main() {}

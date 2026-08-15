@@ -166,3 +166,149 @@
 - IR3 RED 语料（conformance/visual_comparison/reject/）：单端参数漂移 /
   schema 外字段注入 / 非单位四元数注入——转正路径为 M130 门脚本内注入臂
   （同参数双端 digest 不等检出 / 解析器确定性拒绝）。
+
+### RXS-0386 度量域契约：HDR/LDR 双臂捕获点 / LDR 臂派生路径 / 帧域标签与度量域互证（M134）
+
+**Legality**
+
+- L1 **双臂捕获点（域闭集 `domain ∈ {"scene-linear-hdr","display-referred-ldr"}`）**：
+  HDR 臂（`scene-linear-hdr`）= tonemap / view transform **之前**的
+  scene-referred 线性帧（Rurix 侧 = 后处理骨架〔RXS-0370〕tonemap 节点之前
+  的 HDR 线性域帧，RXS-0369~0373 字面 0-byte 消费）；LDR 臂
+  （`display-referred-ldr`）= 显示域 sRGB `[0,1]` 编码帧。HDR 臂是画质
+  差距主战场；LDR 臂服务显示域体感对照与 SSIM/PSNR 口径面（RXS-0387）。
+- L2 **LDR 臂派生路径**：LDR 帧由**本端 HDR 帧派生**——HDR 帧为权威源、
+  LDR 帧为派生产物；view transform 双端共用同一参数字面（v1 仅
+  `"aces13"`，RXS-0384 L1 `post.view_transform` 字面）；view transform
+  后的线性显示域帧经**双端共用同一 host 侧 sRGB 编码步骤**（编码器口径
+  单源）产 sRGB 编码帧，编码差从构造上消除；UE 侧产出路径 = 派生路径
+  （UE 官方文档明示 `.exr` 不应用 sRGB 编码曲线，RFC-0026 §4.1/Q13）。
+  派生链元数据互证：LDR 帧 `rurix:derivation="derived:host-srgb-encoder-v1"`
+  且 `rurix:source_frame_digest` = 派生源 HDR 帧 digest，缺失即 RED。
+- L3 **帧域标签与度量域互证**：度量计算的域入参必须等于输入帧元数据
+  `rurix:domain` 与 `rurix:transfer`（HDR 臂 ⟺ `linear`，LDR 臂 ⟺
+  `srgb`）；域标签错配 / transfer 错配（sRGB-线性混标）注入即 RED；
+  HDR 帧直算 SSIM/PSNR 即口径混用 RED（RXS-0387 L1）。度量域互证失败
+  一律 fail-closed，不静默降级。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m134.frame_capture_pipeline`（G10.4）；测试锚定 =
+  conformance/visual_comparison/ 语料 + `ci/g10_frame_capture_pipeline_smoke.py`
+  门脚本（域标签错标注入臂）。
+- IR2 帧元数据闭集（域/transfer/派生链字段字面）以 spec/imageio.md
+  RXS-0385 L3 为单源；本条款只冻结度量域契约，不重述字段表。
+
+### RXS-0387 SSIM/PSNR 口径闭集：Wang 2004 参数化 / LDR 域限定 / 恒等图对极值断言 / 参考实现对拍（M136）
+
+**Legality**
+
+- L1 **域限定（防口径混用）**：SSIM/PSNR **仅在 LDR 臂定义**——显示域
+  sRGB `[0,1]`，`data_range = 1.0`；HDR 臂不定义 SSIM/PSNR（无界动态
+  范围下 data_range 无公认取值，口径不适定；HDR 域差异由 HDR-FLIP 承担，
+  RFC-0026 §4.2/§4.3）。**任何在 HDR 帧上直接计算 SSIM/PSNR 的请求即
+  口径混用，fail-closed 拒绝**（HDR 直算注入即 RED）。
+- L2 **SSIM 口径闭集（Wang et al. 2004 标准参数化，闭集外参数禁调）**：
+  窗 = 11×11 高斯窗 σ = 1.5；常数 K1 = 0.01、K2 = 0.03，
+  C1 = (K1·L)²、C2 = (K2·L)²，L = data_range = 1.0；协方差 = 总体协方差
+  （不采样校正，`use_sample_covariance = false`）；聚合 = 逐通道 SSIM →
+  RGB 三通道均值（mean-SSIM 均值聚合，**非** multi-scale MS-SSIM〔Wang
+  2003〕，不对齐 multi-scale 变体）；返回值域 `[-1, 1]`。
+- L3 **PSNR 口径闭集**：MSE = RGB 三通道联合均方误差；
+  `PSNR = 10·log10(L²/MSE)`，L = 1.0。**恒等图对极值断言语义**：位级
+  相同图对 → SSIM 恰为 `1.0`、PSNR 为 `+inf`（JSON 序列化约定：PSNR
+  字段类型 = number 或字符串字面 `"inf"`——MSE = 0 时的闭集例外值；
+  解析器对 `"inf"` 与有限值双形态均须接受，其余字符串拒绝）。恒等图对
+  非极值即 RED。
+- L4 **参考实现与对拍**：参考实现 = scikit-image
+  `structural_similarity`（显式参数化 `gaussian_weights=True, sigma=1.5,
+  win_size=11, use_sample_covariance=False, data_range=1.0, channel_axis`
+  显式）与 `peak_signal_noise_ratio`（`data_range=1.0`），**版本 pin +
+  digest 登记**随 evidence；自实现与参考实现在同一测试图集上逐图对拍。
+  **对拍图集下界**：图集 ≥ 24 图对；内容类五类每类 ≥ 4——高频边缘 /
+  平滑渐变 / 噪声 / 高亮截断（clip）/ 色彩孤立区；图集清单与每图
+  digest 入 evidence；**不满足下界的对拍不构成有效标定**（稀释通道封
+  堵）。**对拍容差**：自实现与参考实现逐图标量差（SSIM 与 PSNR 分列）
+  的样本最大值（p100）× 安全系数 k（k ∈ [1.0, 3.0]），容差数值一律
+  measured 标定（M138 正式入 `g10_budget.json`；G10.4 波以 provisional
+  形态随 evidence 登记 provenance，禁手写阈值冒充标定——估计器形态 =
+  p100 × k，样本集 = 对拍图集 digest 引用，RFC-0026 §4.2 F10 字面）。
+  口径漂移注入（闭集外参数或值漂移）即 RED；参考输出扰动注入即 RED。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m136.ssim_psnr_metric`（G10.4）；测试锚定 =
+  conformance/visual_comparison/ 语料 + `ci/g10_ssim_psnr_metric_smoke.py`
+  门脚本。
+- IR2 自实现面 = ci/ 工具链 Python/numpy 按 Wang 2004 原文逐字实现
+  （高斯窗/总体协方差/逐通道均值聚合字面与 L2 逐字一致）；与 G5 既有
+  SSIM 门禁 helper（`src/rurix-render/src/temporal/ssim.rs`，8×8 盒式窗）
+  **不同属一套口径**——字面 0-byte 不动，两口径并存、各自登记、互不
+  冒充（RFC-0026 §4.3 0-byte 声明）。
+- IR3 RED 语料（conformance/visual_comparison/reject/）：HDR 直算注入 /
+  口径漂移注入 / 恒等图对非极值注入 / 图集不满足下界冒充——转正路径为
+  M136 门脚本内注入臂。
+
+### RXS-0388 逐像素 diff 报告 schema：双层产物 / 区域统计字段闭集 / evidence JSON 闭集（M137）
+
+**Legality**
+
+- L1 **双层产物（同一误差缓冲的确定性投影，互不一致即 RED）**：
+  ① 机器 canonical 面 = 逐像素误差 EXR——float32 **单通道 Y**、无损
+  （spec/imageio.md RXS-0385 单通道形态）、域随输入帧；色彩映射前的
+  标量场是唯一事实源（G10.5 A/B 期 FLIP 域误差图直接取 FLIP
+  `error_map_output`，RFC-0026 §4.2/§4.4；G10.4 门内误差缓冲供给口径
+  = 逐像素 RGB 通道最大绝对差 `e = max(|Ra−Rb|,|Ga−Gb|,|Ba−Bb|)` 钳制
+  `[0,1]`，登记为门内供给口径、非 schema 语义本体）。
+  ② 人读面 = 灰度热区图——误差 `e ∈ [0,1]` 经冻结色彩映射闭集 v1 =
+  `{"gray"}`（`e → [e,e,e]`，零色表常量）映射后按 RXS-0116 确定量化
+  口径（clamp + 就近取整）落 8-bit 灰度，经 image-io 既有无损通道编码
+  （PPM P6；PNG 接通后同语义加性可用）。
+- L2 **逐区域统计字段闭集**：固定网格 `region_grid = {nx, ny}`（v1 默认
+  16×16；网格维度入 schema 字段登记，改值走修订行）；`regions[]` 每区域
+  字段闭集 = `{x, y, w, h, pixel_count, err_max, err_mean, err_p95,
+  over_threshold_count}`。**百分位口径（冻结）**：`err_p95` = nearest-
+  rank——N 个样本升序排序取第 ceil(0.95·N) 个（1-based；ceil(0.95·N)
+  < 1 时取 1；禁插值法）。**网格边缘规则（冻结）**：分辨率不被
+  `region_grid` 整除时，末行/末列区域 `w`/`h` 取实际剩余像素
+  （`pixel_count` = w·h 逐区域对账，禁漂移）。`over_threshold_count`
+  的阈值 = M138 标定值（噪声底上方）；报告内嵌阈值数值 +
+  `thresholds.source_digest` 引用（G10.4 波 thresholds 以 provisional
+  形态登记 `source="provisional_pending_m138"` 与推导 provenance，M138
+  正式入 `g10_budget.json` 后翻 `source="g10_budget.json"`，禁手写阈值
+  冒充标定）。
+- L3 **标量报告（全图聚合）**：`scalars` 字段闭集 = 域对应指标集
+  （HDR 臂：`flip`；LDR 臂：`flip` / `ssim` / `psnr`——G10.4 门内
+  FLIP 未接通，对应字段登记 `null` 演进位，G10.5 翻转实值）+ 误差全图
+  统计 `{err_max, err_mean, err_p95, over_threshold_pixel_count,
+  over_threshold_ratio}`。
+- L4 **evidence JSON 字段闭集（闭集外字段拒收；空场景行即 RED）**：
+  `schema_version`（报告 schema 版本，v1 起加性演进）· `scene_id` /
+  `camera_id` / `frame_index`（场景/机位/帧定位三元组，空串/缺失即
+  RED）· `end_pair`（双帧标识与各自 digest——`{frame_a, frame_b}` 各
+  含 `source_end` / `frame_id` / `digest`；G10.5 A/B 期 frame_a = rurix
+  帧、frame_b = ue5 帧，G10.4 门内双探针帧 `source_end` 均 `"rurix"`
+  登记）· `domain`（与帧元数据互证）· `metric_caliber`（口径参数闭集
+  的 digest，口径版本互证）· `thresholds`（`{value, source,
+  source_digest}`）· `region_grid` / `regions[]`（字段闭集见 L2）·
+  `scalars`（字段闭集见 L3）· `artifacts`（`{frame_a_digest,
+  frame_b_digest, error_map_digest, heatmap_digest}` 四 digest 闭集）·
+  `determinism_contract_digest`（M130 链 digest，G10.4 门内探针对登记
+  探针描述符 digest、不冒充 M130 链）· `provenance`（环境画像引用）。
+  **一致性判据**：误差 EXR / 热区图 / 区域统计三面由同一误差缓冲
+  重算一致 golden；diff 图与标量报告不一致注入即 RED；空场景行注入即
+  RED；闭集外字段注入即 RED。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m137.pixel_diff_report`（G10.4）；测试锚定 =
+  conformance/visual_comparison/ 语料 + `ci/g10_pixel_diff_report_smoke.py`
+  门脚本。
+- IR2 实现面 = `src/rurix-render/src/bin/g10_m137_diff_report.rs`（host
+  纯 safe 报告器：读两帧 EXR〔image-io RXS-0385 解码〕→ 误差缓冲 → 三
+  投影产物 + evidence JSON）；门侧 Python 独立重算核验（ci/ 独立 EXR
+  解析器，双实现互证——区域统计由误差 EXR 重算一致、热区图由误差 EXR
+  重算逐字节一致）。
+- IR3 RED 语料（conformance/visual_comparison/reject/）：diff 图与标量
+  报告不一致注入 / 空场景行注入 / 闭集外字段注入——转正路径为 M137 门
+  脚本内注入臂。

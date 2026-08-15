@@ -1,0 +1,10 @@
+//@ spec: RXS-0388
+// G10.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0388 L4：一致性
+// 判据——误差 EXR / 热区图 / 区域统计三面由同一误差缓冲重算一致；diff 图
+// 与标量报告不一致注入即 RED；空场景行注入即 RED；闭集外字段注入即 RED）。
+// 预期 RED（最小说明性 fixture，未来 CI 消费）：篡改误差 EXR 或标量报告
+// 任一投影（err_max/regions[] 与误差 EXR 重算不符），必须 fail-closed 检出；
+// 空 scene_id / 空 regions 报告必须拒绝。
+// 转正路径（G10.4a 波接线）：ci/g10_pixel_diff_report_smoke.py 门内注入臂
+// （篡改必检出 / 空场景行必拒 / 闭集外字段必拒）。
+fn main() {}
