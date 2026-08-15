@@ -1,0 +1,33 @@
+{
+  "camera": {
+    "position": [0.0, 1.7, 3.2],
+    "orientation_quat": [1.0, 0.0, 0.0, 0.0],
+    "fov_y_deg": 39.6,
+    "near": 0.1,
+    "far": 1000.0,
+    "resolution": { "w": 1920, "h": 1080 }
+  },
+  "lighting": {
+    "sun": {
+      "direction": [0.0, -0.7071067811865476, 0.7071067811865476],
+      "intensity_lux": 100000.0,
+      "color_linear_rgb": [1.0, 1.0, 1.0]
+    },
+    "sky": { "intensity": 1.0, "cubemap_id": null },
+    "exposure": { "mode": "manual", "ev100": 0.0 }
+  },
+  "time": {
+    "fixed_dt_s": 0.03333333333333333,
+    "warmup_frames": 64,
+    "capture_frame_index": 0,
+    "random_seed": 42,
+    "jitter": { "sequence": "halton_2_3", "index_base": 0, "scale": 1.0 }
+  },
+  "post": {
+    "view_transform": "aces13",
+    "bloom": false,
+    "vignette": false,
+    "motion_blur": false,
+    "dof": false
+  }
+}

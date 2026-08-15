@@ -250,3 +250,38 @@ G-G10-1~11 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
 - **front matter 双状态翻转**：`implementation_status: blocked → unblocked`；`active_scope` 追加 `g10_2_plus_implementation_waves`（`status` 维持 `active`，close-out 才 flip）。
 - **G10.1 治理波交付清单（D-G10-1~5 全落盘）**：四件套（G10_PLAN v1.0 / G10_CONTRACT v1.0 / CI_GATES v1.0 / g10_budget v1.0 非空 measured）+ G10_CAPABILITY_MATRIX v1.0（M128~M143）+ G10_CANDIDATE_DECISIONS v1.0（十锚初裁全 defer-to-G11+ + 三锚 G10 触发评估登记 + 新增候选五行）+ G10_ACCEPTANCE_MAP v1.0（12 P0 + 2 P1 三向逐字一致）+ RFC-0026/0027 双 Full RFC（D-409 评审后 Agent Approved，provenance 偏差按先例如实登记）+ design/g10_ue5_harness_spike v1.0（出图路径裁决输入）+ 两份对抗性评审记录 + validator 五件套（interlock / acceptance_map / wave_exit_lib / p2_decisions 骨架 / wave6_reevaluation 骨架——后两者 --gate 诚实红）+ RTX 4070 Ti measured baseline（sr_pipeline L3 1.2068 ms / D2H pinned 24.5031 GB/s，evidence `g10_baseline_*_20260815T094538Z.json`，未锁频边界经 clock_lock_note 诚实存档）。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.1 同模）。`Assisted-by: Kimi-K3`（影响范围：G10_CONTRACT §8.1 与 front matter、G10.1 治理波全部落盘件、RFC-0026/0027 翻 Approved、ledger v1.102；验证方式：interlock `--require-ready`/`--selftest`、check_g10_acceptance_map、check_schemas、check_number_ledger、check_structure、trace_matrix 361/361、budget_eval --strict 133 pass 0 skip、stable_snapshot 全绿实测，输出如本会话留痕）。
+
+### §8.2 G10.2 波验收记录（2026-08-15，G-G10-4）
+
+**① 独立断言清单（12 P0 中本波 3 行，逐行独立 PASS|FAIL 不互代）**：
+
+| Symbolic gate key | 步骤 | 实测 verdict | evidence（最新件） |
+|---|---:|---|---|
+| `g10.p0.m128.ue5_capture_environment` | 177 | **PASS**（checks 10/10，device=executed） | `evidence/g10_m128_ue5_capture_environment_20260815T163219Z.json` |
+| `g10.p0.m129.ue5_reference_frames` | 178 | **PASS**（checks 7/7，device=executed） | `evidence/g10_m129_ue5_reference_frames_20260815T163253Z.json` |
+| `g10.p0.m130.dual_determinism_contract --phase g10.2` | 179 | **PASS**（checks 10/10，骨架期；`phase_g10_2_pass=true`、`phase_g10_5_pass=false`） | `evidence/g10_m130_dual_determinism_contract_20260815T163127Z.json` |
+
+- M128：②Launcher 裁决路径落地（UE **5.8.1-56057345** @ `F:\UE_5.8`，`Build.version` 实测 ue_build_id）；Entry 静态空图 MRQ 臂真出帧（Phase B 官方命令行形态，gpu_device_lock 串行，exit 0，4 帧 1920×1080 EXR float 新出，`mtime ≥ run_start` 新鲜度机核 + EXR magic + 体积下限真帧判据）；环境画像七元组随 evidence 存档（ue_build_id / 驱动 620.02 / clock_lock_state=unlocked / scene_id / camera_params_digest `sha256:017f0b3b…` / lighting_params_digest `sha256:2bb35380…` / capture_arm `A(mrq)`）；RED 臂全检出——非零退出冒充成功 / 预置假帧冒充真出帧 / 画像缺字段（red_fixtures/m128/ 三件）+ live 探针（不存在工程真调 exit=1、0.9s 检出）。
+- M129：暂定场景集 `milestones/g10/g10_2_provisional_scene_set.json` 登记（RFC-0027 §4.4 F8 形态，`entry-empty-static` 单场景闭集；CornellBox/Bistro UE 场景面缺口以 `deviation_note` 如实登记，不以临时场景集冒充，M133 冻结后按 F8 回归复核）；同参数双跑 canonical digest **4/4 一致**（harness `g10_determinism.exr_canonical_digest` 14 属性剥离单一事实源；`.0000` = `429ac81122a7…` 与环境日志 §7.3 跨跑复验一致）；provenance 七元组逐帧闭集；RED 臂全检出——Template_Default vs Entry 真实不等帧对 / provenance 缺行 / 真帧像素区翻字节 digest 漂移（red_fixtures/m129/ 三件）。
+- M130 骨架期：spec-first 落 `spec/visual_comparison.md` **RXS-0384**（canonical preimage 字节布局字节级单源冻结）；Rurix 侧骨架参考解析器（ci 脚本内独立实现）与 UE 侧 harness `g10_param_contract.py`（DRAFT_BYTE_LAYOUT 随 spec 冻结替换 SPEC_BYTE_LAYOUT）双端 schema 各一份；同参数 JSON 双端 digest 相等（`param_digest = sha256:3ace41840c40e55a…`）；边界浮点差分语料（-0.0 / 次正规 / 2^53 / 长十进制 / 1e-310 / u64 上界）跨端逐位一致；RED 臂全检出——单端参数漂移 / schema 外字段 / 非单位四元数 / NaN；`--phase g10.5` 本波 fail-closed 拒跑（双端核验腿留 G10.5）。
+- HighResShot 臂时序不稳与 `-csvCaptureFrames` 死路未复活作证据面（环境日志 §7.1 钉死）；UE 零 vendoring 纪律维持。
+
+**② 聚合门实测**：`ci/g10_wave2_exit_check.py --gate g10.wave.2.exit`（步骤 180）→ 三门最新 evidence 只读汇总 3/3 PASS + 四 facts（RXS-0380/RXS-0384 条款头在树 / RFC-0026+0027 Agent Approved 字面 / 场景集登记 / M130 phase 纪律）全 PASS，**VERDICT=PASS**（`evidence/g10_wave2_exit_20260815T163317Z.json`）；聚合不代绿、不重跑 smoke、不遮蔽子断言；`--selftest` 负样本（空 evidence 目录）必红 + 正样本真树绿双全（负样本 FAIL evidence `…T163316Z.json` 诚实留痕，最新件为 PASS）。
+
+**③ 验收命令与守卫套件实测（本记录落盘前）**：
+
+```text
+py -3 ci/g10_ue5_capture_environment_smoke.py --gate g10.p0.m128.ue5_capture_environment   → exit 0（PASS 10/10, device=executed）
+py -3 ci/g10_ue5_reference_frames_smoke.py --gate g10.p0.m129.ue5_reference_frames         → exit 0（PASS 7/7, device=executed）
+py -3 ci/g10_dual_determinism_contract_smoke.py --gate g10.p0.m130.dual_determinism_contract --phase g10.2 → exit 0（PASS 10/10）
+py -3 ci/g10_wave2_exit_check.py --gate g10.wave.2.exit                                    → exit 0（VERDICT=PASS）
+四门 --selftest → 全 PASS（m128 4RED+2GREEN / m129 3RED+2GREEN / m130 4RED+2GREEN / wave2 负正样本）
+py -3 ci/check_structure.py → PASS · py -3 ci/check_schemas.py → PASS · py -3 ci/check_number_ledger.py → PASS
+py -3 ci/trace_matrix.py --check → PASS（366/366 全锚定）· py -3 ci/stable_snapshot.py --check → PASS（366）
+py -3 ci/check_g10_acceptance_map.py → PASS（三向逐字一致）· py -3 ci/budget_eval.py〔--strict〕→ PASS（133 pass 0 skip）
+py -3 -m pytest tests/ -q → 117 passed
+```
+
+**④ 门序登记面**：spec 条款 RXS-0384 commit 先于实现段落写盘（spec-first，硬规则 7）；编号领取 = 落盘前实测 `CI_step.next_free=177` 顺位 177~180、`RXS.next_free=384` 顺位 RXS-0384（registry/number_ledger.json revision_log **v1.104**，on_tree_max CI_step 176→180 / RXS 383→384）；CI_GATES.md v1.2 修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 177~180（步骤 176 块后追加）；check_schemas.py 三处纯追加（既有路由 0-byte）；trace_matrix 365→366、stable 快照 365→366 重 bless（bless_log 追加行）；G5~G9 closed 判据与 G10.3 门脚本 0-byte；evidence/ 只增不删不改。
+
+**⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.2 波 materialize）`（影响范围：G10_CONTRACT §8.2、spec/visual_comparison.md 新建与 spec/README.md 登记、四门脚本与共享判定层、四 evidence schema、red_fixtures/m128+m129、pr-smoke.yml 步骤 177~180、CI_GATES v1.2、ledger v1.104、conformance/visual_comparison 语料、harness g10_param_contract SPEC 布局替换、g10_2_provisional_scene_set.json、trace/stable 重生成；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：CornellBox UE 程序生成场景与 Bistro UE 导入面未建成（环境日志 §7.4 缺项 #7，M129 暂定场景面偏差已登记）；M130 `--phase g10.5` 双端核验腿、门序三重绑定机器阻断、应用层探针归 G10.5；`-renderoffscreen` 5.8 可用性未测（本轮出图走窗口模式）。

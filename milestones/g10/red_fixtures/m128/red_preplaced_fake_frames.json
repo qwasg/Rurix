@@ -1,0 +1,21 @@
+{
+  "kind": "preplaced_fake_frames",
+  "arm": "预置假帧冒充真出帧即 RED（G10_CONTRACT §4.2 M128 行字面）",
+  "expect_failure_substring": "预置假帧",
+  "receipt": {
+    "exit_code": 0,
+    "new_frames": [],
+    "preplaced_frames": ["HighresScreenshot00000.png", ".0000.exr"],
+    "frames": [],
+    "provenance": {
+      "scene_id": "entry-empty-static",
+      "camera_params_digest": "sha256:00",
+      "lighting_params_digest": "sha256:00",
+      "ue_build_id": "5.8.1-56057345",
+      "gpu_driver_version": "620.02",
+      "clock_lock_state": "unlocked",
+      "capture_arm": "A(mrq):sha256:00"
+    }
+  },
+  "note": "exit 0 但零新出帧、仅预置帧在场——mtime 新鲜度机核下预置假帧不充数（禁以截图/人工采集帧冒充 harness 出帧，G-G10-4 字面）"
+}

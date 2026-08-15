@@ -1,0 +1,16 @@
+{
+  "kind": "provenance_missing_row",
+  "arm": "provenance 缺行即 RED（G10_CONTRACT §4.2 M129 行字面）",
+  "expect_failure_substring": "缺行",
+  "provenance_rows": [
+    {
+      "scene_id": "entry-empty-static",
+      "camera_params_digest": "sha256:00",
+      "ue_build_id": "5.8.1-56057345",
+      "gpu_driver_version": "620.02",
+      "clock_lock_state": "unlocked",
+      "capture_arm": "A(mrq):sha256:00"
+    }
+  ],
+  "note": "provenance 缺 lighting_params_digest 行（场景/相机/光照/build 登记闭集缺一）——缺行必须独立检出"
+}

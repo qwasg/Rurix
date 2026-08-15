@@ -369,3 +369,4 @@
 | RXS-0381 | spec/external_reference.md | 5 | `conformance/external_reference/accept/license_registry_minimal.rx`, `conformance/external_reference/reject/class_masquerade.rx`, `conformance/external_reference/reject/license_outside_whitelist.rx` …(+2) |
 | RXS-0382 | spec/external_reference.md | 3 | `conformance/external_reference/accept/cache_layout_minimal.rx`, `conformance/external_reference/reject/cache_digest_tamper.rx`, `conformance/external_reference/reject/git_binary_guard_hit.rx` |
 | RXS-0383 | spec/external_reference.md | 2 | `conformance/external_reference/accept/manifest_freeze_minimal.rx`, `conformance/external_reference/reject/manifest_in_place_edit.rx` |
+| RXS-0384 | spec/visual_comparison.md | 4 | `conformance/visual_comparison/accept/determinism_contract_minimal.rx`, `conformance/visual_comparison/reject/non_unit_quat_injection.rx`, `conformance/visual_comparison/reject/schema_extra_field_injection.rx` …(+1) |

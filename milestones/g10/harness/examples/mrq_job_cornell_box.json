@@ -1,0 +1,7 @@
+{
+  "scene_id": "cornell-box-generated.default",
+  "map_package": "/Game/Maps/G10_CornellBox",
+  "contract_params_path": "examples/contract_params_cornell_box.json",
+  "output_dir": "K:/rurix-ext/g10-frames/cornell-box-generated.default/",
+  "capture_arm": "A"
+}

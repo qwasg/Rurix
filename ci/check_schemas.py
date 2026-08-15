@@ -460,6 +460,18 @@ def check_evidence_files() -> None:
     g10_wave3_exit_schema = load(
         ROOT / "milestones/g10/g10_wave3_exit_evidence_schema.json"
     )
+    g10_m128_ue5_capture_environment_schema = load(
+        ROOT / "milestones/g10/g10_m128_ue5_capture_environment_evidence_schema.json"
+    )
+    g10_m129_ue5_reference_frames_schema = load(
+        ROOT / "milestones/g10/g10_m129_ue5_reference_frames_evidence_schema.json"
+    )
+    g10_m130_dual_determinism_contract_schema = load(
+        ROOT / "milestones/g10/g10_m130_dual_determinism_contract_evidence_schema.json"
+    )
+    g10_wave2_exit_schema = load(
+        ROOT / "milestones/g10/g10_wave2_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1059,6 +1071,26 @@ def check_evidence_files() -> None:
     g10_wave3_exit_validator = (
         jsonschema.Draft7Validator(g10_wave3_exit_schema)
         if g10_wave3_exit_schema is not None
+        else None
+    )
+    g10_m128_ue5_capture_environment_validator = (
+        jsonschema.Draft7Validator(g10_m128_ue5_capture_environment_schema)
+        if g10_m128_ue5_capture_environment_schema is not None
+        else None
+    )
+    g10_m129_ue5_reference_frames_validator = (
+        jsonschema.Draft7Validator(g10_m129_ue5_reference_frames_schema)
+        if g10_m129_ue5_reference_frames_schema is not None
+        else None
+    )
+    g10_m130_dual_determinism_contract_validator = (
+        jsonschema.Draft7Validator(g10_m130_dual_determinism_contract_schema)
+        if g10_m130_dual_determinism_contract_schema is not None
+        else None
+    )
+    g10_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g10_wave2_exit_schema)
+        if g10_wave2_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2118,6 +2150,38 @@ def check_evidence_files() -> None:
             # evidence 只读汇总 + RXS-0380~0383 条款头 + RFC-0027 Approved +
             # 注册表零缺行 + 清单 digest 注册在树;聚合不代绿)。
             validator = g10_wave3_exit_validator
+        elif (
+            f.name.startswith("g10_m128_ue5_capture_environment_")
+            and g10_m128_ue5_capture_environment_validator is not None
+        ):
+            # G10.2 M128 UE5 出图环境门(步骤 177;ci/g10_ue5_capture_environment_smoke.py
+            # 写:UE 5.8.1 Build.version 实测 + MRQ 臂真出帧 + 新鲜度/真帧判据 +
+            # 画像七元组 + RED 三夹具 + live 非零退出探针)。
+            validator = g10_m128_ue5_capture_environment_validator
+        elif (
+            f.name.startswith("g10_m129_ue5_reference_frames_")
+            and g10_m129_ue5_reference_frames_validator is not None
+        ):
+            # G10.2 M129 UE5 参考帧门(步骤 178;ci/g10_ue5_reference_frames_smoke.py
+            # 写:暂定场景集逐场景参考帧 + 双跑 canonical digest 一致 + provenance
+            # 闭集 + RED 三夹具〔不等帧对/缺行/篡改〕)。
+            validator = g10_m129_ue5_reference_frames_validator
+        elif (
+            f.name.startswith("g10_m130_dual_determinism_contract_")
+            and g10_m130_dual_determinism_contract_validator is not None
+        ):
+            # G10.2 M130 双端确定性契约门骨架期(步骤 179;ci/g10_dual_determinism_contract_smoke.py
+            # --phase g10.2 写:双端 schema 各一份 + digest 比对面 + 边界浮点语料 +
+            # RED 四臂;phase_g10_5_pass=false 不充双端核验期绿)。
+            validator = g10_m130_dual_determinism_contract_validator
+        elif (
+            f.name.startswith("g10_wave2_exit_")
+            and g10_wave2_exit_validator is not None
+        ):
+            # G10.2 波聚合门(步骤 180;ci/g10_wave2_exit_check.py 写:三门最新
+            # evidence 只读汇总 + RXS-0380/RXS-0384 条款头 + RFC-0026/0027
+            # Approved + 场景集登记 + M130 phase 纪律;聚合不代绿)。
+            validator = g10_wave2_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

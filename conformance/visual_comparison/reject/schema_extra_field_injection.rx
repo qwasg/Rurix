@@ -1,0 +1,11 @@
+//@ spec: RXS-0384
+// G10.2 spec-first RED 语料（spec/visual_comparison.md RXS-0384 L1：
+// 参数 schema 四节闭集 strict fail-closed——schema 外字段注入即 RED、缺字段
+// 即 RED，契约 §4.2 M130 行判据逐字承接）。
+// 负例数据面（最小说明性 fixture）：参数 JSON 注入 schema 外字段
+//   （如 camera.hdr_enable 或第五节 misc）⇒ 解析器确定性拒绝（ContractError
+//   typed 拒绝，非静默忽略）；双端各自拒绝。
+// 转正路径（G10.2 波接线）：ci/g10_dual_determinism_contract_smoke.py 门
+//   （symbolic key g10.p0.m130.dual_determinism_contract，G10.1 冻结字面
+//   不动）。
+fn main() {}

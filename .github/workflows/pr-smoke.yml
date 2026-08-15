@@ -1887,6 +1887,62 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_wave3_exit_check.py --gate g10.wave.3.exit
 
+      # 步骤 177（G10.2 M128 UE5 出图环境门 g10.p0.m128.ue5_capture_environment;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=177 顺位领取）。host 编排 + device
+      # （UE 侧 GPU 渲染）门:spike 裁决路径落地（②Launcher UE 5.8.1-56057345 @
+      # F:\UE_5.8，Build.version 实测 ue_build_id）+ 固定场景（Entry 静态空图，
+      # 暂定场景集 g10_2_provisional_scene_set.json 登记）MRQ 臂真出帧（Phase B
+      # 官方命令行形态，gpu_device_lock 串行）+ 环境画像七元组（ue_build_id/驱动
+      # 620.02/锁频状态/场景/相机 digest/光照 digest/capture_arm）随 evidence 存档;
+      # 出帧进程非零退出冒充成功/预置假帧冒充真出帧/画像缺字段各为独立 RED 臂
+      # （red_fixtures/m128/ 三件全检出）+ live RED 探针（不存在工程真调非零退出
+      # 检出）;UE 环境不齐 dev_env_degrade 诚实登记不充绿。evidence 落盘
+      # evidence/g10_m128_ue5_capture_environment_<UTC>.json。
+      - name: G10.2 M128 ue5 capture environment (G10 CI_GATES §4.177, g10.p0.m128.ue5_capture_environment)
+        shell: powershell
+        run: py -3 ci/g10_ue5_capture_environment_smoke.py --gate g10.p0.m128.ue5_capture_environment
+
+      # 步骤 178（G10.2 M129 UE5 参考帧门 g10.p0.m129.ue5_reference_frames;G10
+      # CI_GATES §4;落盘前实测 CI_step.next_free=178 顺位领取）。暂定场景集
+      # （RFC-0027 §4.4 F8 形态，单场景闭集 entry-empty-static + CornellBox/Bistro
+      # 缺口 deviation_note 如实登记）逐场景参考帧落盘 + 同参数双跑 canonical
+      # digest 一致（harness g10_determinism 14 属性剥离单一事实源，环境日志 §7.3
+      # 4/4 MATCH 实证面）+ provenance 七元组登记闭集;双跑 digest 不等（真实
+      # Template_Default vs Entry 帧对）/provenance 缺行/帧文件篡改（真帧像素区
+      # 翻字节 digest 漂移）各为独立 RED 臂（red_fixtures/m129/ 三件全检出）;
+      # HighResShot 臂与 -csvCaptureFrames 死路不复活作证据面。evidence 落盘
+      # evidence/g10_m129_ue5_reference_frames_<UTC>.json。
+      - name: G10.2 M129 ue5 reference frames (G10 CI_GATES §4.178, g10.p0.m129.ue5_reference_frames)
+        shell: powershell
+        run: py -3 ci/g10_ue5_reference_frames_smoke.py --gate g10.p0.m129.ue5_reference_frames
+
+      # 步骤 179（G10.2 M130 双端确定性契约门骨架期 g10.p0.m130.dual_determinism_contract
+      # --phase g10.2;G10 CI_GATES §4;落盘前实测 CI_step.next_free=179 顺位领取）。
+      # host 纯 host 门:相机/光照/时间参数同 schema 双端各一份（Rurix 侧骨架参考
+      # 解析器按 spec/visual_comparison.md RXS-0384 L3 字节布局字面独立实现 +
+      # UE 侧 harness g10_param_contract.py 内嵌 CPython 载体同一源文件）+ digest
+      # 比对面就位（同参数 JSON 双端 digest 相等 ⟺ 解析一致 + 边界浮点差分语料
+      # 跨端逐位一致）;单端参数漂移/schema 外字段/非单位四元数/NaN 注入各为独立
+      # RED 臂;--phase g10.5 双端核验腿本波 fail-closed 拒跑（留 G10.5），骨架期
+      # evidence 标 phase_g10_2_pass=true、phase_g10_5_pass=false（不替双端核验期
+      # 充绿）。evidence 落盘 evidence/g10_m130_dual_determinism_contract_<UTC>.json。
+      - name: G10.2 M130 dual determinism contract skeleton (G10 CI_GATES §4.179, g10.p0.m130.dual_determinism_contract)
+        shell: powershell
+        run: py -3 ci/g10_dual_determinism_contract_smoke.py --gate g10.p0.m130.dual_determinism_contract --phase g10.2
+
+      # 步骤 180（G10.2 波聚合门 g10.wave.2.exit;G10 CI_GATES §5;落盘前实测
+      # CI_step.next_free=180 顺位领取）。host 只读聚合门:只读汇总三门最新
+      # evidence（M128 步骤 177 / M129 步骤 178 / M130 骨架期步骤 179）+
+      # RXS-0380（external_reference.md）与 RXS-0384（visual_comparison.md）条款头
+      # 在树 + RFC-0026/0027 Agent Approved 字面在树 + 暂定场景集登记（deviation_note
+      # 非空）+ M130 双 phase 纪律（phase_g10_2_pass=true 且 phase_g10_5_pass=false）;
+      # 聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL,聚合 PASS 不遮蔽任一
+      # 子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g10_wave2_exit_<UTC>.json。
+      - name: G10.2 wave2.exit aggregate (G10 CI_GATES §5.180, g10.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g10_wave2_exit_check.py --gate g10.wave.2.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

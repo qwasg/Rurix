@@ -1952,6 +1952,12 @@
     "RXS-0383": [
       "conformance/external_reference/accept/manifest_freeze_minimal.rx",
       "conformance/external_reference/reject/manifest_in_place_edit.rx"
+    ],
+    "RXS-0384": [
+      "conformance/visual_comparison/accept/determinism_contract_minimal.rx",
+      "conformance/visual_comparison/reject/non_unit_quat_injection.rx",
+      "conformance/visual_comparison/reject/schema_extra_field_injection.rx",
+      "conformance/visual_comparison/reject/single_end_param_drift.rx"
     ]
   }
 }

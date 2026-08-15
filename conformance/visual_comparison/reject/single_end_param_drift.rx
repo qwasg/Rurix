@@ -1,0 +1,12 @@
+//@ spec: RXS-0384
+// G10.2 spec-first RED 语料（spec/visual_comparison.md RXS-0384 L4/L5：
+// 双端解析一致性——同一参数 JSON 双端各自解析各自产 digest；单端参数漂移
+// 注入即 RED，契约 §4.2 M130 行判据逐字承接）。
+// 负例数据面（最小说明性 fixture）：单端 camera.fov_y_deg 漂移
+//   （如 60.0 → 60.00000000000001）⇒ 双端 digest 不等 ⇒ 比对层必须检出
+//   判 RED；骨架期 digest 不等即不得宣称双端解析一致。
+// 转正路径（G10.2 波接线）：ci/g10_dual_determinism_contract_smoke.py 门
+//   （symbolic key g10.p0.m130.dual_determinism_contract，G10.1 冻结字面
+//   不动；双端核验期 digest 不等仍出 A/B 报告即 RED 的门序三重绑定归
+//   G10.5 M139 机器阻断）。
+fn main() {}

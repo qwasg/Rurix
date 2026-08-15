@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.2 M129 ue5_reference_frames evidence",
+  "description": "evidence/g10_m129_ue5_reference_frames_<UTC>.json。G10.2 P0 硬门 g10.p0.m129.ue5_reference_frames（步骤 178；G10_CONTRACT §4.2 M129 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0027 §4.1/§4.4；spec/external_reference.md RXS-0380）：暂定场景集（RFC-0027 §4.4 F8 形态，单场景闭集 + 偏差如实登记）逐场景参考帧落盘 + 同参数双跑 canonical digest 一致（harness g10_determinism 14 属性剥离单一事实源）+ provenance 七元组登记闭集；双跑 digest 不等即 RED；provenance 缺行即 RED；帧文件篡改即 RED（真帧像素区翻字节 digest 漂移检出）。host+device 门（device_section_state 正常态 executed；UE 环境不齐 dev_env_degrade 诚实登记不充绿）。RED 夹具三件（red_fixtures/m129/）逐件独立检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "reference_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m129_ue5_reference_frames" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m129.ue5_reference_frames" },
+    "matrix_row": { "type": "string", "const": "M129" },
+    "milestone": { "type": "string", "const": "M129" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m129.ue5_reference_frames" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.2" },
+    "numeric_step": { "type": "integer", "const": 178 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0027 §4.1/§4.4;spec/external_reference.md RXS-0380;G10_ACCEPTANCE_MAP §1 M129"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable", "executed", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0380_clause_on_tree",
+        "provisional_scene_set_registered",
+        "double_run_capture_exit_zero",
+        "per_scene_reference_frames",
+        "double_run_canonical_digest_equal",
+        "provenance_septuple_closed",
+        "red_fixtures_all_detected"
+      ],
+      "properties": {
+        "spec_rxs0380_clause_on_tree": { "type": "boolean" },
+        "provisional_scene_set_registered": { "type": "boolean" },
+        "double_run_capture_exit_zero": { "type": "boolean" },
+        "per_scene_reference_frames": { "type": "boolean" },
+        "double_run_canonical_digest_equal": { "type": "boolean" },
+        "provenance_septuple_closed": { "type": "boolean" },
+        "red_fixtures_all_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "reference_report": {
+      "type": "object",
+      "description": "参考帧报告（dev_env_degrade 时为空对象 {}）：逐场景行 + 双跑 canonical digest 表 + provenance 行集 + GPU 画像随档",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

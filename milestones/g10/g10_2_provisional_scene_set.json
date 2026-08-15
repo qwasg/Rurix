@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "kind": "g10_2_provisional_scene_set",
+  "registered_at": "2026-08-15",
+  "revision": 1,
+  "per": "RFC-0027 §4.4 F8（M129 场景集时序定义）+ G10_ACCEPTANCE_MAP §3.2",
+  "scenes": [
+    {
+      "scene_id": "entry-empty-static",
+      "map": "/Engine/Maps/Entry",
+      "status": "ready",
+      "note": "UE 内置静态空图（零时域动画内容）；design/g10_2_environment_log.md §7.3 实证面：MRQ 同参数双跑 canonical digest 4/4 MATCH、像素区 16,597,440 B/帧逐字节零差"
+    }
+  ],
+  "deviation_note": "RFC-0027 §4.4 F8 暂定清单形态为首发清单草案两行（CornellBox+Bistro）的最小场景面；CornellBox UE 程序生成场景（harness g10_scene_cornell_box.py 引擎内实测未完成）与 Bistro UE 导入面本波未建成（design/g10_2_environment_log.md §7.4 缺项 #7 在录）。本波暂定场景面 = entry-empty-static 单场景闭集，缺口如实登记、不以任意临时场景集冒充「场景清单」；G10.3 M133 清单冻结后按 F8 对 M129 证据做回归复核（冻结清单 ⊇ 暂定场景面；缺行即登记漂移并按只追加程序处理）",
+  "assisted_by": "Assisted-by: Kimi-K3（G10.2 波 materialize）"
+}

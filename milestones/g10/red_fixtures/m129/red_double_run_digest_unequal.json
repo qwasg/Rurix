@@ -1,0 +1,9 @@
+{
+  "kind": "double_run_digest_unequal",
+  "arm": "双跑 digest 不等即 RED（G10_CONTRACT §4.2 M129 行字面）",
+  "expect_failure_substring": "不等",
+  "run_a_frame": "red_fixtures_m129/template_default_frame.exr",
+  "run_b_frame": "red_fixtures_m129/entry_frame.exr",
+  "frames_root_note": "路径相对 RURIX_G10_FRAMES_ROOT（缺省 K:/rurix-ext/g10-frames）",
+  "note": "真实帧对负例：Template_Default 动画内容帧（时域状态漂移，环境日志 §7.1/§7.3 实证双跑不等）vs Entry 静态帧——canonical digest 不等必须被判定层检出"
+}

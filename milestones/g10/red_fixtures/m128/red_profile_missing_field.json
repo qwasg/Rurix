@@ -1,0 +1,23 @@
+{
+  "kind": "profile_missing_field",
+  "arm": "环境画像缺字段即 RED（G10_PLAN §3 草案补充臂，M128 行 provenance 七元组闭集联动）",
+  "expect_failure_substring": "缺行",
+  "receipt": {
+    "exit_code": 0,
+    "new_frames": [".0000.exr"],
+    "preplaced_frames": [],
+    "frames": [
+      { "name": ".0000.exr", "bytes": 16609821, "exr_magic_ok": true,
+        "canonical_digest": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16" }
+    ],
+    "provenance": {
+      "scene_id": "entry-empty-static",
+      "camera_params_digest": "sha256:00",
+      "lighting_params_digest": "sha256:00",
+      "ue_build_id": "5.8.1-56057345",
+      "gpu_driver_version": "620.02",
+      "capture_arm": "A(mrq):sha256:00"
+    }
+  },
+  "note": "provenance 缺 clock_lock_state 行（七元组闭集缺一）——画像缺字段必须独立检出（RXS-0380 L3 缺行即 RED）"
+}

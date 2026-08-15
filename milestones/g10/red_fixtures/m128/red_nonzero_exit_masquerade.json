@@ -1,0 +1,24 @@
+{
+  "kind": "nonzero_exit_masquerade",
+  "arm": "出帧进程非零退出冒充成功即 RED（G10_CONTRACT §4.2 M128 行字面）",
+  "expect_failure_substring": "非零退出",
+  "receipt": {
+    "exit_code": 1,
+    "new_frames": [".0000.exr"],
+    "preplaced_frames": [],
+    "frames": [
+      { "name": ".0000.exr", "bytes": 16609821, "exr_magic_ok": true,
+        "canonical_digest": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16" }
+    ],
+    "provenance": {
+      "scene_id": "entry-empty-static",
+      "camera_params_digest": "sha256:00",
+      "lighting_params_digest": "sha256:00",
+      "ue_build_id": "5.8.1-56057345",
+      "gpu_driver_version": "620.02",
+      "clock_lock_state": "unlocked",
+      "capture_arm": "A(mrq):sha256:00"
+    }
+  },
+  "note": "出帧进程 exit=1 而帧与画像齐备——非零退出冒充成功必须独立检出（帧面完好不得赦免进程失败）"
+}

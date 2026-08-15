@@ -1,0 +1,12 @@
+//@ spec: RXS-0384
+// G10.2 spec-first RED 语料（spec/visual_comparison.md RXS-0384 L2：
+// unit-norm 判定式 |‖q‖²−1| ≤ 2^-40（schema 合法性谓词常量，非 measured
+// 标定值，不走 g10_budget.json）——非单位四元数注入即 fail-closed 拒绝；
+// sun.direction 同式；NaN/±Inf 禁入值域（L1）。
+// 负例数据面（最小说明性 fixture）：camera.orientation_quat 注入
+//   (1, 0.1, 0, 0)（‖q‖²=1.01 越界）⇒ 解析器确定性拒绝；NaN 字面注入
+//   同拒。
+// 转正路径（G10.2 波接线）：ci/g10_dual_determinism_contract_smoke.py 门
+//   （symbolic key g10.p0.m130.dual_determinism_contract，G10.1 冻结字面
+//   不动）。
+fn main() {}

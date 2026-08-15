@@ -1,0 +1,16 @@
+//@ spec: RXS-0384
+// G10.2 spec-first 锚定语料（spec/visual_comparison.md RXS-0384 L1/L3/L4：
+// 双端确定性契约——参数 schema 四节闭集（camera/lighting/time/post 全字段
+// 必填，schema 外字段注入即 RED，null 仅 sky.cubemap_id 合法，NaN/±Inf 禁入）
+// + canonical preimage 字节布局字节级单源（版本前缀 "G10DCP-1"\0 + 类型标签
+// 字节 + Unicode code point 键序 + length-prefix + f64 binary64 小端 +
+// schema 驱动 u32/u64 宽度）+ SHA-256 digest + 双端解析一致）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：同一份参数 JSON 经
+//   Rurix 侧骨架参考解析器与 UE 侧 harness 解析器（内嵌 CPython 载体同一
+//   源文件）各自解析 → 各自重编码 canonical preimage → 双端 digest 相等；
+//   边界浮点差分语料（-0.0 / 次正规 / 2^53 边界 / 长十进制最短表示 /
+//   1e-310）跨端逐位一致。
+// 转正路径（G10.2 波接线）：ci/g10_dual_determinism_contract_smoke.py 门
+//   （symbolic key g10.p0.m130.dual_determinism_contract --phase g10.2，
+//   G10.1 冻结字面不动；--phase g10.5 双端核验腿归 G10.5 实现波）。
+fn main() {}

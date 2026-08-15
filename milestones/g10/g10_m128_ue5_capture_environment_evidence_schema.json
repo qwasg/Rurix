@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.2 M128 ue5_capture_environment evidence",
+  "description": "evidence/g10_m128_ue5_capture_environment_<UTC>.json。G10.2 P0 硬门 g10.p0.m128.ue5_capture_environment（步骤 177；G10_CONTRACT §4.2 M128 行 / G10_ACCEPTANCE_MAP §1 判据逐字；RFC-0027 §4.1；spec/external_reference.md RXS-0380）：spike 裁决路径落地（②Launcher UE 5.8.1-56057345 @ F:\\UE_5.8，Build.version 实测）+ 固定场景（Entry 静态空图，暂定场景集登记）MRQ 臂真出帧 + 环境画像七元组随证据存档；出帧进程非零退出冒充成功即 RED；预置假帧冒充真出帧即 RED；画像缺字段即 RED；live RED 探针（不存在工程真调非零退出检出）。host 编排 + device（UE 侧 GPU 渲染）门（device_section_state 正常态 executed；UE 环境不齐 dev_env_degrade 诚实登记不充绿）。RED 夹具三件（red_fixtures/m128/）逐件独立检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "capture_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m128_ue5_capture_environment" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m128.ue5_capture_environment" },
+    "matrix_row": { "type": "string", "const": "M128" },
+    "milestone": { "type": "string", "const": "M128" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m128.ue5_capture_environment" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.2" },
+    "numeric_step": { "type": "integer", "const": 177 },
+    "source_ref": {
+      "type": "string",
+      "const": "RFC-0027 §4.1;spec/external_reference.md RXS-0380;G10_ACCEPTANCE_MAP §1 M128"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable", "executed", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0380_clause_on_tree",
+        "ue_install_build_id_measured",
+        "uproject_and_mrq_assets_present",
+        "gpu_profile_collected",
+        "real_capture_exit_zero",
+        "fresh_frames_produced",
+        "frames_are_real_exr",
+        "profile_septuple_complete",
+        "red_fixtures_all_detected",
+        "live_red_probe_detected"
+      ],
+      "properties": {
+        "spec_rxs0380_clause_on_tree": { "type": "boolean" },
+        "ue_install_build_id_measured": { "type": "boolean" },
+        "uproject_and_mrq_assets_present": { "type": "boolean" },
+        "gpu_profile_collected": { "type": "boolean" },
+        "real_capture_exit_zero": { "type": "boolean" },
+        "fresh_frames_produced": { "type": "boolean" },
+        "frames_are_real_exr": { "type": "boolean" },
+        "profile_septuple_complete": { "type": "boolean" },
+        "red_fixtures_all_detected": { "type": "boolean" },
+        "live_red_probe_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "capture_report": {
+      "type": "object",
+      "description": "出帧报告（dev_env_degrade 时为空对象 {}）；provenance 七元组闭集 + 逐帧 canonical digest + GPU 画像随档",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "kind": "frame_tampered",
+  "arm": "帧文件篡改检测 RED（G10_PLAN §3 草案补充臂）",
+  "expect_failure_substring": "漂移",
+  "frame": "red_fixtures_m129/entry_frame.exr",
+  "frames_root_note": "路径相对 RURIX_G10_FRAMES_ROOT（缺省 K:/rurix-ext/g10-frames）",
+  "expected_canonical_digest": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16",
+  "tamper_offset_from_end": 1024,
+  "note": "真帧（Entry .0000.exr，canonical digest 登记值见上，2026-08-15 实测复算一致）像素区尾端翻 1 字节 ⇒ canonical digest 必须相对登记值漂移被检出；夹具基准 digest 漂移则夹具失效判红"
+}

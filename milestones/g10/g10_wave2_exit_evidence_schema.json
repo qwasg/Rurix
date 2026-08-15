@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.2 wave2.exit evidence",
+  "description": "evidence/g10_wave2_exit_<UTC>.json。G10.2 波次聚合门 g10.wave.2.exit（步骤 180；milestones/g10/CI_GATES.md §5；G10_CONTRACT G-G10-4）：G10.2 波三门最新 evidence 只读汇总——M128 UE5 出图环境（步骤 177）/ M129 UE5 参考帧（步骤 178）/ M130 双端确定性契约骨架期（步骤 179）——+ RXS-0380（external_reference.md）与 RXS-0384（visual_comparison.md）条款头在树 + RFC-0026/0027 Agent Approved 字面在树 + 暂定场景集登记（deviation_note 非空，CornellBox/Bistro 缺口如实登记）+ M130 双 phase 纪律（phase_g10_2_pass=true 且 phase_g10_5_pass=false）。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_wave2_exit" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.wave.2.exit" },
+    "matrix_row": { "type": "string", "const": "G10.2" },
+    "wave": { "type": "string", "const": "G10.2" },
+    "numeric_step": { "type": "integer", "const": 180 },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g10/CI_GATES.md §5;G10_CONTRACT G-G10-4;G10_ACCEPTANCE_MAP §1/§3.3;RFC-0026 §4.6/RFC-0027 §4.1;RXS-0380/RXS-0384 clause heads on tree;provisional scene set registered;M130 phase discipline"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["symbolic_gate_key", "status"],
+        "properties": {
+          "symbolic_gate_key": { "type": "string" },
+          "subject_prefix": { "type": "string" },
+          "evidence_path": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
+          "detail": { "type": "string" },
+          "timestamp": { "type": ["string", "null"] },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
