@@ -12,6 +12,9 @@ rurix-geom-pages = { path = "../rurix-geom-pages" }
 rurix-geom-build = { path = "../rurix-geom-build" }
 rurix-render = { path = "../rurix-render" }
 rurix-basis-sys = { path = "../rurix-basis-sys" }
+# G10.5a M130 双端核验腿 + 场景渲染 harness（bin g10_5_scene_render）：EXR 帧容器
+# 编解码（自研最小子集，spec/imageio.md §2A；workspace path 依赖，零外部 crate）。
+image-io = { path = "../image-io" }
 
 [[bin]]
 name = "g8_m01_probe"
@@ -43,6 +46,13 @@ path = "src/bin/g9_m91_probe.rs"
 [[bin]]
 name = "rxhlod"
 path = "src/bin/rxhlod.rs"
+
+# G10.5a 双端帧链路 Rurix 侧场景渲染 harness（RXS-0384 契约解析/digest 第三实现 +
+# glTF 场景 → rurix-render GI 管线真渲染 → EXR 捕获 + RXS-0390 应用层探针投影 +
+# RXS-0386 LDR 派生；门 g10.p0.m130.dual_determinism_contract --phase g10.5）。
+[[bin]]
+name = "g10_5_scene_render"
+path = "src/bin/g10_5_scene_render.rs"
 
 [lints]
 workspace = true

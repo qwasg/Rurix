@@ -482,6 +482,7 @@ dependencies = [
 name = "rurix-asset"
 version = "1.0.0"
 dependencies = [
+ "image-io",
  "rurix-basis-sys",
  "rurix-geom-build",
  "rurix-geom-pages",
