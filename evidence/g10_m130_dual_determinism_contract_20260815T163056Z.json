@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m130_dual_determinism_contract",
+  "symbolic_gate_key": "g10.p0.m130.dual_determinism_contract",
+  "matrix_row": "M130",
+  "milestone": "M130",
+  "assertion_id": "g10.p0.m130.dual_determinism_contract",
+  "status": "fail",
+  "wave": "G10.2",
+  "phase": "g10.2",
+  "phase_g10_2_pass": false,
+  "phase_g10_5_pass": false,
+  "numeric_step": 179,
+  "source_ref": "RFC-0026 §4.6;spec/visual_comparison.md RXS-0384;G10_ACCEPTANCE_MAP §1 M130 + §3.3",
+  "base_commit": "13bf40a002e5c3360e5f1c216b2c8c996756a46f",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "spec_rxs0384_clause_on_tree": true,
+    "byte_layout_matches_spec": true,
+    "rurix_side_parse_digest": true,
+    "ue_side_parse_digest": true,
+    "dual_digest_compare_face": true,
+    "boundary_float_corpus_consistent": true,
+    "red_param_drift_detected": false,
+    "red_schema_extra_field_detected": true,
+    "red_nonunit_quat_detected": true,
+    "red_nan_injection_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_param_contract.py H:\\rurix\\milestones\\g10\\harness\\examples\\contract_params_entry_smoke.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_param_contract.py C:\\Users\\苍\\AppData\\Local\\Temp\\tmprx6mrlfj.json",
+      "exit_code": 0
+    }
+  ],
+  "contract_report": {
+    "phase": "g10.2",
+    "params_path": "milestones/g10/harness/examples/contract_params_entry_smoke.json",
+    "ue_parser_path": "milestones/g10/harness/ue_python/g10_param_contract.py",
+    "param_digest_rurix": "sha256:3ace41840c40e55a82b9553237e2f8dcecb1a5633bade78728ae8181d6243582",
+    "param_digest_ue5": "sha256:3ace41840c40e55a82b9553237e2f8dcecb1a5633bade78728ae8181d6243582",
+    "param_digest": "sha256:3ace41840c40e55a82b9553237e2f8dcecb1a5633bade78728ae8181d6243582",
+    "dual_digest_equal": true,
+    "rurix_side_note": "Rurix 侧骨架 = host Python 参考解析器（本脚本内独立实现，RXS-0384 L3 同字面）；Rust 消费面归 G10.5 实现波（RFC-0026 §4.6 骨架期登记口径）"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T163056Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "双端 digest 相等（解析一致）: sha256:3ace41840c40e55a82b9553237e2f8dcecb1a5633bade78728ae8181d6243582; 边界浮点语料跨端逐位一致: 7b0f4f679b4b8aae…; RED 检出 red_schema_extra_field: camera: unknown fields ['hdr_enable']; RED 检出 red_nonunit_quat: camera.orientation_quat: unit-norm violated (|q²−1| > 2^-40); RED 检出 red_nan_injection: lighting.exposure.ev100: NaN/Inf forbidden; 单端参数漂移未引起 digest 不等（判定失效）"
+}

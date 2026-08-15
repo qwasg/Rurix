@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m128_ue5_capture_environment",
+  "symbolic_gate_key": "g10.p0.m128.ue5_capture_environment",
+  "matrix_row": "M128",
+  "milestone": "M128",
+  "assertion_id": "g10.p0.m128.ue5_capture_environment",
+  "status": "pass",
+  "wave": "G10.2",
+  "numeric_step": 177,
+  "source_ref": "RFC-0027 §4.1;spec/external_reference.md RXS-0380;G10_ACCEPTANCE_MAP §1 M128",
+  "base_commit": "4af8d8feda2352d06ee64033150a83527cd200c0",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "spec_rxs0380_clause_on_tree": true,
+    "ue_install_build_id_measured": true,
+    "uproject_and_mrq_assets_present": true,
+    "gpu_profile_collected": true,
+    "real_capture_exit_zero": true,
+    "fresh_frames_produced": true,
+    "frames_are_real_exr": true,
+    "profile_septuple_complete": true,
+    "red_fixtures_all_detected": true,
+    "live_red_probe_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe K:\\rurix-ext\\g10-ue\\G10RefRender\\G10RefRender.uproject /Engine/Maps/Entry -game -LevelSequence=/Game/Cinematics/G10_SmokeSeq -MoviePipelineConfig=/Game/Cinematics/G10_SmokeConfig -windowed -resx=1920 -resy=1080 -log -notexturestreaming -Unattended -FixedSeed",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe K:\\rurix-ext\\g10-ue\\NoSuchProject.uproject /Engine/Maps/Entry -game -unattended -log",
+      "exit_code": 1
+    }
+  ],
+  "capture_report": {
+    "ue_build_id": "5.8.1-56057345",
+    "scene_id": "entry-empty-static",
+    "map": "/Engine/Maps/Entry",
+    "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b",
+    "provenance": {
+      "scene_id": "entry-empty-static",
+      "camera_params_digest": "sha256:017f0b3b77ff77ab6f91ad7a3be0308d55bd99c926fa03d9abc432560487d893",
+      "lighting_params_digest": "sha256:2bb353803416fd0508fdf841fdbfdf5dfeb8bd0d77aa22e856adef0a56d31b8a",
+      "ue_build_id": "5.8.1-56057345",
+      "gpu_driver_version": "620.02",
+      "clock_lock_state": "locked",
+      "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b"
+    },
+    "exit_code": 0,
+    "duration_s": 11.966,
+    "frames_dir": "K:\\rurix-ext\\g10-frames\\g10_gate_runs\\m128_20260815T164025Z",
+    "frames": [
+      {
+        "name": ".0000.exr",
+        "bytes": 16609821,
+        "exr_magic_ok": true,
+        "canonical_digest": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16"
+      },
+      {
+        "name": ".0001.exr",
+        "bytes": 16609821,
+        "exr_magic_ok": true,
+        "canonical_digest": "7517af824a823f469fa6e80e03821f43c17ffe06eae533f52a4f86b869ed1355"
+      },
+      {
+        "name": ".0002.exr",
+        "bytes": 16609821,
+        "exr_magic_ok": true,
+        "canonical_digest": "f8dd05540ecb7ff6adb8270ff001ab8049b8f1eed8b4f32fdf0c662909769d59"
+      },
+      {
+        "name": ".0003.exr",
+        "bytes": 16609821,
+        "exr_magic_ok": true,
+        "canonical_digest": "ffa2868be43fe105152ec8b3ca64ec48ea6c3c5dce9de69c464edc3a6f725665"
+      }
+    ],
+    "gpu_profile": {
+      "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+      "gpu_driver_version": "620.02",
+      "clocks_sm_current": "210 MHz",
+      "clocks_sm_max": "3105 MHz",
+      "clock_lock_state": "locked"
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260815T164026Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "live RED 探针检出: exit=1（0.934s）→ 出帧进程非零退出冒充成功: exit_code=1; RED 检出 red_nonzero_exit_masquerade: 出帧进程非零退出冒充成功: exit_code=1; RED 检出 red_preplaced_fake_frames: 预置假帧冒充真出帧: 零新出帧而预置帧 2 件在场; RED 检出 red_profile_missing_field: provenance 缺行/空值: clock_lock_state"
+}
