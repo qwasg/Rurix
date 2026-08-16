@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g11_bandwidth_d2h_pinned",
+  "evidence_level": "measured_local",
+  "milestone": "G11.1",
+  "base_commit": "53eb3a28",
+  "timestamp": "2026-08-16T08:17:00Z",
+  "environment": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "cuda_driver_version": "13.2",
+    "driver_model": "WDDM",
+    "hags_enabled": true,
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "clocks": {
+      "locked": false,
+      "sm_clock_mhz": 2745,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "os_build": "Windows 10.0.28120",
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 37,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 25
+    },
+    "clock_lock_note": "GPU 未锁频（采样期 sm 读回 2745MHz / mem 10501MHz 为 Boost 行为非锁频）；锁频需提权 nvidia-smi -lgc/-lmc，本治理波未执行。阈值 = 实测 ÷1.5 余量覆盖频率漂移（min 向，沿 G9.1/G10.1 measured 冻结先例，P-09）；harness 协议直出件按 BENCH_PROTOCOL 标 evidence_level=unlocked，本档按 G9.1/G10.1 治理波先例以 measured_local 登记并将未锁频边界诚实存档。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 bench/env_probe.py --validate",
+      "exit_code": 0,
+      "note": "环境画像校验 PASS，见 evidence/g11_baseline_sr_pipeline_l3_20260816T081700Z.json seq 1。"
+    },
+    {
+      "seq": 2,
+      "command": "py -3 bench/bandwidth_bench.py --direction d2h_pinned --emit build/g11_baseline_scratch/bandwidth_d2h_pinned.json",
+      "exit_code": 0,
+      "note": "D2H pinned 256MB Driver API memcpy 带宽协议采样（bandwidthTest 等价，BENCH_PROTOCOL §3：warmup 10 至稳态 CV 0.000852 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时前后 stream_sync）；直出件 [protocol] evidence written (level=unlocked, 26.2772 GB/s)。本档 results 逐字段转录自该直出件。"
+    }
+  ],
+  "sampling": {
+    "trials": 3,
+    "warmup_iterations": 10,
+    "timed_iterations": 50,
+    "timer": "cuda_event",
+    "method": "BENCH_PROTOCOL.md §3：warmup 至稳态（实测 warmup 10 次、steady_state_cv 0.000852）→ 50x3 timed → IQR 去离群（拒 3）→ trial medians 的 trimmed mean(0.2)；problem_size = 256MB pinned D2H。"
+  },
+  "results": {
+    "metric": "copy_bandwidth",
+    "unit": "GB/s",
+    "trial_medians": [26.2901, 26.2567, 26.285],
+    "trimmed_mean": 26.2772,
+    "cv": 0.001757,
+    "ci95": [26.2692, 26.2901],
+    "min": 18.9193,
+    "max": 26.3183,
+    "outliers_rejected_iqr": 3,
+    "correctness_check": "n/a"
+  },
+  "notes": "G11.1 画质修复期 baseline 锚②（沿 G10.1 同协议复测重登记）：D2H pinned 读回带宽——G11 修复期帧捕获/帧读回面上界回归守护锚（修复不得降级读回链路）。数值逐字段转录自 harness 协议直出件 build/g11_baseline_scratch/bandwidth_d2h_pinned.json（harness_commit 53eb3a28，直出时间戳 2026-08-16T08:16:56Z，本回合真实运行）。只证明测量已建立，不证明任何 G11 实现达标；G11 不设绝对画质/帧率通过线（契约 §1/§5），本条目为回归守护锚非通过线。"
+}

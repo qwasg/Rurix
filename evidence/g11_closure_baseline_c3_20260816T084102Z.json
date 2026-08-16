@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g11_closure_baseline_anchor",
+  "evidence_level": "measured_local",
+  "milestone": "G11.1",
+  "base_commit": "53eb3a28",
+  "timestamp": "2026-08-16T08:41:02Z",
+  "environment": {
+    "os": "Windows 10.0.28120",
+    "note": "非 GPU 重测面——上游 G10.5 源帧位深双端实测转录登记（upstream evidence digest 见 gap_anchor）。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry",
+      "exit_code": 0,
+      "note": "2026-08-16T08:41:02Z 真跑：上游 M140 门 PASS（清单 11 项全绿），锁定清单完整在位；本档为 0-byte 消费转录。"
+    }
+  ],
+  "gap_anchor": {
+    "gap_row": "C3",
+    "gap_id": "cc2b9ec7f19f0dad",
+    "scene_id": "bistro-interior",
+    "kind": "caliber_diff",
+    "metric": "exr_source_bit_depth@bistro-interior",
+    "a_value": 32.0,
+    "b_value": 16.0,
+    "delta": -16.0,
+    "delta_abs": 16.0,
+    "upstream_evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+    "upstream_registry": "milestones/g10/g10_gap_registry.json",
+    "upstream_generated_by": "ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison"
+  },
+  "results": {
+    "metric": "closure_baseline_delta_abs",
+    "unit": "bit",
+    "trimmed_mean": 16.0,
+    "note": "闭环基线锚 = 锁定清单 C3 行 measured delta 绝对值转录（Rurix 原生 f32=32 vs UE MRQ fp16=16，M134 既定口径沿用）；G11.2 口径对齐闭环门（g11.p0.m146）与 G11.5 复测（g11.p0.m155）消费本锚断言收敛。"
+  },
+  "notes": "G11 修复闭环面预算项基线锚（C3 UE EXR 位深 fp16 → f32 提升〔RXS-0385 strip-and-log〕；Rurix 原生 f32）：转录自 milestones/g10/g10_gap_registry.json C3 行（G10.8b 终审锁定，0-byte 消费不回写）。本档只登记基线锚，不断言任何对齐已发生。"
+}

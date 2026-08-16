@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g11_closure_baseline_anchor",
+  "evidence_level": "measured_local",
+  "milestone": "G11.1",
+  "base_commit": "53eb3a28",
+  "timestamp": "2026-08-16T08:41:02Z",
+  "environment": {
+    "os": "Windows 10.0.28120",
+    "note": "非 GPU 重测面——上游 G10.5 探针 measured 转录登记（u64 顶格 seed 注入探针 Rust 端拒绝实测 exit≠0，upstream evidence digest 见 gap_anchor）。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry",
+      "exit_code": 0,
+      "note": "2026-08-16T08:41:02Z 真跑：上游 M140 门 PASS（清单 11 项全绿），锁定清单完整在位；本档为 0-byte 消费转录。"
+    }
+  ],
+  "gap_anchor": {
+    "gap_row": "R5",
+    "gap_id": "4fc5507c595f6c35",
+    "scene_id": "cornell-box",
+    "kind": "quality_gap",
+    "metric": "contract_seed_u64_max_rejection",
+    "a_value": 9.223372036854776e+18,
+    "b_value": 1.8446744073709552e+19,
+    "delta": 9.223372036854776e+18,
+    "delta_abs": 9.223372036854776e+18,
+    "upstream_evidence_digest": "sha256:9e302e054fe953d7d5b69ec49a43cf6e0ded49f0a698dd8857f5c7f6e1beb4c6",
+    "upstream_registry": "milestones/g10/g10_gap_registry.json",
+    "upstream_generated_by": "ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison"
+  },
+  "results": {
+    "metric": "closure_baseline_delta_abs",
+    "unit": "1",
+    "trimmed_mean": 9.223372036854776e+18,
+    "note": "闭环基线锚 = 锁定清单 R5 行 measured delta 绝对值转录（a=i64 域上界 f64，b=u64 顶格 f64）；G11.5 复测闭环门（g11.p0.m149/m155）消费本锚断言收敛（修复后 u64 顶格 seed 合法消费 → 探针 delta 收敛至 0）。"
+  },
+  "notes": "G11 修复闭环面预算项基线锚（R5 JSON 整数解析经 i64，u64 顶格 seed 被 fail-closed 拒绝）：转录自 milestones/g10/g10_gap_registry.json R5 行（G10.8b 终审锁定，0-byte 消费不回写）。本档只登记基线锚，不断言任何修复已发生或已收敛。"
+}

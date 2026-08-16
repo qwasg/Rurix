@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.1 RTX 4070 Ti measured baseline evidence（画质修复期治理波锚）",
+  "description": "evidence/g11_baseline_<surface>_<UTC>.json。G11.1 governance-only measured baseline：沿 G10.1 同协议复测重登记（bench/sr_pipeline_bench.py L3 协议 50x3 / bench/bandwidth_bench.py d2h_pinned 协议 50x3），数值逐字段转录自 harness 协议直出件，会话级环境画像（bench/env_probe.py --validate）随档存档；只证明测量已建立，不证明任何 G11 实现达标（G11 不设绝对画质/帧率通过线，G11_CONTRACT §1/§5——本族条目为修复期回归守护锚非通过线）。results.trimmed_mean 供 g11_budget.json entries 经 ci/budget_eval.py eval_entry 通用路判读，零新 evaluator 分支。",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G11.1 治理波 baseline）",
+    "created_utc": "2026-08-16T08:17:00Z"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "evidence_level", "milestone", "base_commit", "timestamp", "environment", "commands", "sampling", "results", "notes"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "enum": ["g11_sr_pipeline_l3_frame", "g11_bandwidth_d2h_pinned"] },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "milestone": { "type": "string" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu_name", "compute_capability", "driver_version", "nvml_version", "cuda_driver_version", "driver_model", "hags_enabled", "tdr", "clocks", "os_build", "thermal", "isolation_check", "clock_lock_note"],
+      "properties": {
+        "gpu_name": { "type": "string" },
+        "compute_capability": { "type": "string" },
+        "driver_version": { "type": "string" },
+        "nvml_version": { "type": "string" },
+        "cuda_driver_version": { "type": "string" },
+        "driver_model": { "enum": ["WDDM", "TCC", "MCDM", "unavailable"] },
+        "hags_enabled": { "enum": [true, false, "unavailable"] },
+        "tdr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tdr_delay", "tdr_level"],
+          "properties": {
+            "tdr_delay": { "type": ["integer", "string"] },
+            "tdr_level": { "type": ["integer", "string"] }
+          }
+        },
+        "clocks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["locked", "sm_clock_mhz", "mem_clock_mhz", "lock_method"],
+          "properties": {
+            "locked": { "type": "boolean" },
+            "sm_clock_mhz": { "type": ["number", "string"] },
+            "mem_clock_mhz": { "type": ["number", "string"] },
+            "lock_method": { "type": "string" }
+          }
+        },
+        "os_build": { "type": "string" },
+        "thermal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["temp_start_c", "temp_end_c", "steady_state"],
+          "properties": {
+            "temp_start_c": { "type": ["number", "string"] },
+            "temp_end_c": { "type": ["number", "string"] },
+            "steady_state": { "type": "boolean" }
+          }
+        },
+        "isolation_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["other_compute_processes"],
+          "properties": {
+            "other_compute_processes": { "type": "integer" }
+          }
+        },
+        "clock_lock_note": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trials", "warmup_iterations", "timed_iterations", "timer", "method"],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 3 },
+        "warmup_iterations": { "type": "integer", "minimum": 10 },
+        "timed_iterations": { "type": "integer", "minimum": 50 },
+        "timer": { "type": "string" },
+        "method": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "unit", "trial_medians", "trimmed_mean", "cv", "ci95", "min", "max", "outliers_rejected_iqr", "correctness_check"],
+      "properties": {
+        "metric": { "type": "string" },
+        "unit": { "type": "string" },
+        "trial_medians": { "type": "array", "minItems": 3, "items": { "type": "number" } },
+        "trimmed_mean": { "type": "number" },
+        "cv": { "type": "number" },
+        "ci95": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "outliers_rejected_iqr": { "type": "integer" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

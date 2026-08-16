@@ -622,6 +622,12 @@ def check_evidence_files() -> None:
     g10_baseline_schema = load(
         ROOT / "milestones/g10/g10_baseline_evidence_schema.json"
     )
+    g11_baseline_schema = load(
+        ROOT / "milestones/g11/g11_baseline_evidence_schema.json"
+    )
+    g11_closure_baseline_schema = load(
+        ROOT / "milestones/g11/g11_closure_baseline_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1386,6 +1392,16 @@ def check_evidence_files() -> None:
     g10_baseline_validator = (
         jsonschema.Draft7Validator(g10_baseline_schema)
         if g10_baseline_schema is not None
+        else None
+    )
+    g11_baseline_validator = (
+        jsonschema.Draft7Validator(g11_baseline_schema)
+        if g11_baseline_schema is not None
+        else None
+    )
+    g11_closure_baseline_validator = (
+        jsonschema.Draft7Validator(g11_closure_baseline_schema)
+        if g11_closure_baseline_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2783,6 +2799,30 @@ def check_evidence_files() -> None:
             # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
             # evaluator 分支。前缀与 g7_*/g8_*/g9_* 全族互不包含，置于 g9 族后安全。
             validator = g10_baseline_validator
+        elif (
+            f.name.startswith("g11_closure_baseline_")
+            and g11_closure_baseline_validator is not None
+        ):
+            # G11.1 governance-only 修复闭环面基线锚（D-G11-5）→
+            # milestones/g11/g11_closure_baseline_evidence_schema.json：G10.8b 终审锁定
+            # 差距清单 11 行 measured delta 绝对值逐行转录（0-byte 消费不回写；上游 M140
+            # 门真跑复核清单完整在位），gap_anchor 块含 gap_id/upstream_evidence_digest
+            # 回溯；results.trimmed_mean = delta_abs 供 g11_budget.json g11.closure_baseline.*
+            # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
+            # evaluator 分支。前缀与 g11_baseline_ 及既有全族互不包含，置于 g11_baseline_ 前。
+            validator = g11_closure_baseline_validator
+        elif (
+            f.name.startswith("g11_baseline_")
+            and g11_baseline_validator is not None
+        ):
+            # G11.1 governance-only measured baseline（D-G11-5）→
+            # milestones/g11/g11_baseline_evidence_schema.json：沿 G10.1 同协议复测重登记
+            # （sr_pipeline L3 1080p 帧墙钟 / d2h_pinned 读回带宽，BENCH_PROTOCOL §3
+            # 50x3 协议）+ 会话环境画像随档；未锁频诚实边界经 clock_lock_note 存档，
+            # 阈值 = 实测 ×1.5（min 向 ÷1.5）。results.trimmed_mean 供 g11_budget.json
+            # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
+            # evaluator 分支。前缀与 g10_baseline_ 及既有全族互不包含，置于 g10 族后安全。
+            validator = g11_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

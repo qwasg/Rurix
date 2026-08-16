@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g11_closure_baseline_anchor",
+  "evidence_level": "measured_local",
+  "milestone": "G11.1",
+  "base_commit": "53eb3a28",
+  "timestamp": "2026-08-16T08:41:02Z",
+  "environment": {
+    "os": "Windows 10.0.28120",
+    "note": "非 GPU 重测面——上游 G10.5 派生链参数 measured 转录登记（upstream evidence digest 见 gap_anchor）。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry",
+      "exit_code": 0,
+      "note": "2026-08-16T08:41:02Z 真跑：上游 M140 门 PASS（清单 11 项全绿），锁定清单完整在位；本档为 0-byte 消费转录。"
+    }
+  ],
+  "gap_anchor": {
+    "gap_row": "C2",
+    "gap_id": "afba0e189a607ce2",
+    "scene_id": "cornell-box",
+    "kind": "caliber_diff",
+    "metric": "ldr_derivation_exposure_scale@cornell-box",
+    "a_value": 0.25,
+    "b_value": 1.0,
+    "delta": 0.75,
+    "delta_abs": 0.75,
+    "upstream_evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4",
+    "upstream_registry": "milestones/g10/g10_gap_registry.json",
+    "upstream_generated_by": "ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison"
+  },
+  "results": {
+    "metric": "closure_baseline_delta_abs",
+    "unit": "1",
+    "trimmed_mean": 0.75,
+    "note": "闭环基线锚 = 锁定清单 C2 行主 measured delta（cornell 派生尺度 0.25 vs 1.0）绝对值转录；C2 行另含 @bistro-interior delta=0.5（0.5 vs 1.0）同锚登记于清单；G11.2 口径对齐闭环门（g11.p0.m145）与 G11.5 复测（g11.p0.m155）消费本锚断言收敛。"
+  },
+  "notes": "G11 修复闭环面预算项基线锚（C2 曝光链：Rurix 臂派生尺度 = 2^(−EV100)，UE 臂 pipe 内手动曝光已施 ×1.0）：转录自 milestones/g10/g10_gap_registry.json C2 行（G10.8b 终审锁定，0-byte 消费不回写）。本档只登记基线锚，不断言任何对齐已发生。"
+}

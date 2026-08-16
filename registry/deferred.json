@@ -1123,6 +1123,11 @@
           "date": "2026-08-15",
           "event": "G10.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G10.6 重判结论(maintain-defer)逐字承接,裁决 defer-to-G11+;承接锚:重判条件 = G11+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G11+ 前零实现痕迹);RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g10/G10_P2_DECISIONS.md §1 M61 行 / ci/g10_p2_decisions_check.py(步骤 193) / milestones/g10/G10_DEFER_REEVALUATION.md §1 M61 行"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G11.1 候选决策表逐行承接 G10.7 裁决(defer-to-G11+ → defer-to-G12+);G11 画质修复面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现;承接锚:重判条件 = G11+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G11+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G12+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M61 行 / ci/g11_p2_decisions_check.py(骨架期) / milestones/g11/G11_CONTRACT.md §6"
         }
       ]
     },
@@ -1194,6 +1199,21 @@
           "date": "2026-08-15",
           "event": "G10.7 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——G10.6 重判结论(maintain-defer)逐字承接,裁决 defer-to-G11+;承接锚:重判条件 = G11+ 多灯 workload measured 证据齐备(低档 MegaLights GPU 管线在多灯场景 measured 对照)后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)维持,M15 维持 open-留档;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g10/G10_P2_DECISIONS.md §1 M100-high 行 / ci/g10_p2_decisions_check.py(步骤 193) / milestones/g10/G10_DEFER_REEVALUATION.md §1 M100-high 行"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G11.1 候选决策表逐行承接 G10.6/G10.7 裁决(defer-to-G11+ → defer-to-G12+,锚定 G12 重评);G11 修复面零 RT 语言层集成需求、不产 rt.ser 设备面实测,锚定 G12(路径追踪生产化期 = 高分歧 RT workload 真实集成面)不变;承接锚:重判条件 = G11+(锚定 G12)高分歧 RT workload 真实集成需求出现且 capability rt.ser 设备面实测可用时按只追加程序重判,兜底 = 语言层不加 SER 原语维持(无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线)——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M52 行 / ci/g11_p2_decisions_check.py(骨架期) / milestones/g11/G11_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M99-clipmap 世界辐射缓存世界 clipmap 级条件分项——**承接兑现启动登记**:G10.6 rejudged-go 逐字承接(G11 立项裁决 4),G11.1 候选决策表裁决 go——G11.4 光照与 GI 修复波承接世界辐射缓存世界 clipmap 级落地(只消费 G10.8b 锁定清单 R4/C1 行 + 承接锚;M154 门 g11.p0.m154.fix_r4_gi_multibounce_world_cache);语义面经 Full RFC-0028(rfcs/0028-g11-gi-quality-closure.md,Agent Approved 2026-08-16,D-409 第 1 轮 12 findings 全 disposition)冻结——spec/global_illumination.md RXS-0360 世界级 not-triggered 登记翻转走显式修订行(post-interlock actual-next-free allocation 领新 RXS 条款承载,RXS-0360 既有字面 0-byte);兜底 = 屏幕级 SPG + Radiance Cache(g9.p1.m99 门绿)维持,不以屏幕级绿色冒充世界级验收;RD-040 总体 status 维持 open(其余分项未兑现),backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M99-clipmap 行 / rfcs/0028-g11-gi-quality-closure.md / milestones/g11/G11_CONTRACT.md §7 裁决 4 / milestones/g10/g10_gap_registry.json R4/C1 行"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——G11.1 候选决策表逐行承接 G10.6/G10.7 裁决(defer-to-G11+ → defer-to-G12+,G11.6 触发评估登记);R3 修复(G11.4 点/面光源表达)落地后多灯 workload measured 对照面可能产出——登记 G11.6 穷举触发评估,证据齐备则按只追加程序重判,未齐备维持 defer,不以低档绿色冒充高档触发;承接锚:重判条件 = G11+ 多灯 workload measured 证据齐备(低档 MegaLights GPU 管线在多灯场景 measured 对照)后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)维持,M15 维持 open-留档——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M100-high 行 / ci/g11_p2_decisions_check.py(骨架期) / milestones/g11/G11_CONTRACT.md §6"
         }
       ]
     },
@@ -1683,6 +1703,11 @@
       "version": "v1.81",
       "date": "2026-08-15",
       "change": "G10.7 P2 穷举裁决 defer 登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3（G10.6/G10.7 波）):RD-039 history +1 行(M61 G10.6 重判结论逐字承接 defer-to-G11+)、RD-040 history +3 行(M52 defer-to-G11+ 锚定 G12;M99-clipmap defer-to-G11+〔G10.6 重判 go,指定 G11 画质修复期承接,G10 零实现面〕;M100-high defer-to-G11+);四行均只追加且含「G10.7 P2」字面与承接锚(重判条件 + 兜底),id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动——G10-N5~N17 新增分项与 SAFE-GPU/M127/M98-l4/M114-strand/M118-hdr-cal/M125-adopt3 无 RD 条目归属不新设 RD,沿 v1.79/v1.80 先例,留痕于 milestones/g10/G10_P2_DECISIONS.md + G10_CONTRACT §8.2~§8.5 登记面);其余 entry 与 revision_log v1.0~v1.80 行 0-byte"
+    },
+    {
+      "version": "v1.82",
+      "date": "2026-08-16",
+      "change": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3（G11.1 治理波）):RD-039 history +1 行(M61 defer-to-G12+ 维持,承接锚字面 0-byte)、RD-040 history +3 行(M52 defer-to-G12+ 锚定 G12 维持;M99-clipmap **承接兑现启动登记**——G10.6 rejudged-go 逐字承接,G11.4 承接世界辐射缓存世界 clipmap 级落地,语义面 Full RFC-0028 Agent Approved 冻结,RXS-0360 世界级登记翻转走显式修订行;M100-high defer-to-G12+ 维持,G11.6 触发评估登记);四行均只追加且含「G11.1 治理门」字面与承接锚(重判条件 + 兜底),id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动——SAFE-GPU/M127/M98-l4/M114-strand/M118-hdr-cal/M125-adopt3/G10-N5~N17/G11-N1~N3 无 RD 条目归属不新设 RD,沿 v1.79~v1.81 先例,留痕于 milestones/g11/G11_CANDIDATE_DECISIONS.md + G11_CONTRACT §6 登记面);其余 entry 与 revision_log v1.0~v1.81 行 0-byte"
     }
   ]
 }

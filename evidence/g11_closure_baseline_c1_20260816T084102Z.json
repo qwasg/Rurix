@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "subject": "g11_closure_baseline_anchor",
+  "evidence_level": "measured_local",
+  "milestone": "G11.1",
+  "base_commit": "53eb3a28",
+  "timestamp": "2026-08-16T08:41:02Z",
+  "environment": {
+    "os": "Windows 10.0.28120",
+    "note": "非 GPU 重测面——上游 G10.5 A/B measured 转录登记（RTX 4070 Ti + UE 5.8.1-56057345 双臂实测，upstream evidence digest 见 gap_anchor）。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry",
+      "exit_code": 0,
+      "note": "2026-08-16T08:41:02Z 真跑：上游 M140 门 PASS（清单 11 项全绿），锁定清单完整在位；本档为 0-byte 消费转录。"
+    }
+  ],
+  "gap_anchor": {
+    "gap_row": "C1",
+    "gap_id": "62692bbd57d731c3",
+    "scene_id": "bistro-interior",
+    "kind": "caliber_diff",
+    "metric": "hdr_luminance_median@bistro-interior",
+    "a_value": 0.1333588808774948,
+    "b_value": 2.798138671875,
+    "delta": 2.664779790997505,
+    "delta_abs": 2.664779790997505,
+    "upstream_evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+    "upstream_registry": "milestones/g10/g10_gap_registry.json",
+    "upstream_generated_by": "ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison"
+  },
+  "results": {
+    "metric": "closure_baseline_delta_abs",
+    "unit": "1",
+    "trimmed_mean": 2.664779790997505,
+    "note": "闭环基线锚 = 锁定清单 C1 行主 measured delta（bistro HDR 中位 ≈21× 主差）绝对值转录；C1 行另含 hdr_luminance_p90@cornell-box(rurix×2^-EV100) delta=0.29024957587122924（≈1.95×）同锚登记于清单；G11.2 口径对齐闭环门（g11.p0.m144）与 G11.5 复测（g11.p0.m155）消费本锚断言收敛。"
+  },
+  "notes": "G11 修复闭环面预算项基线锚（C1 室内亮度主差：GI/天光遮蔽口径差 + 太阳 lux→辐射度链差；M99-clipmap rejudged-go 举证双行之一）：转录自 milestones/g10/g10_gap_registry.json C1 行（G10.8b 终审锁定，0-byte 消费不回写）。本档只登记基线锚，不断言任何对齐或修复已发生。"
+}

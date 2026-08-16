@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.1 修复闭环面基线锚 evidence（G10.8b 锁定差距清单 measured delta 转录登记）",
+  "description": "evidence/g11_closure_baseline_<row>_<UTC>.json。G11.1 governance-only 修复闭环面基线锚：G10.8b 终审锁定差距清单（milestones/g10/g10_gap_registry.json，0-byte 消费不回写）11 行 measured delta 逐行转录为闭环基线锚——每行一档：gap_anchor 块转录 gap_row/gap_id/scene_id/kind/metric/a_value/b_value/delta/delta_abs/upstream_evidence_digest（回溯 M139 A/B 报告 evidence 登记 artifact digest）/upstream_registry/upstream_generated_by；results.trimmed_mean = delta_abs，供 g11_budget.json g11.closure_baseline.* entries 经 ci/budget_eval.py eval_entry 通用路判读，零新 evaluator 分支。本族只登记基线锚，不断言任何修复已发生或已收敛；闭环判据 = 修复前后度量 delta 收敛 measured（收敛阈由 G11.2/G11.5 标定程序 measured 追加，禁手写——G11_CONTRACT §4.2 字面）。",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G11.1 治理波 baseline）",
+    "created_utc": "2026-08-16T08:41:02Z"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "evidence_level", "milestone", "base_commit", "timestamp", "environment", "commands", "gap_anchor", "results", "notes"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "enum": ["g11_closure_baseline_anchor"] },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "milestone": { "type": "string" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "note"],
+      "properties": {
+        "os": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "gap_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_row", "gap_id", "scene_id", "kind", "metric", "a_value", "b_value", "delta", "delta_abs", "upstream_evidence_digest", "upstream_registry", "upstream_generated_by"],
+      "properties": {
+        "gap_row": { "type": "string", "enum": ["R1", "R2", "R3", "R4", "R5", "U1", "U2", "U3", "C1", "C2", "C3"] },
+        "gap_id": { "type": "string", "minLength": 16, "maxLength": 16 },
+        "scene_id": { "type": "string", "enum": ["cornell-box", "bistro-interior"] },
+        "kind": { "type": "string", "enum": ["quality_gap", "caliber_diff"] },
+        "metric": { "type": "string" },
+        "a_value": { "type": "number" },
+        "b_value": { "type": "number" },
+        "delta": { "type": "number" },
+        "delta_abs": { "type": "number", "minimum": 0 },
+        "upstream_evidence_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "upstream_registry": { "type": "string", "const": "milestones/g10/g10_gap_registry.json" },
+        "upstream_generated_by": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "unit", "trimmed_mean", "note"],
+      "properties": {
+        "metric": { "type": "string", "const": "closure_baseline_delta_abs" },
+        "unit": { "type": "string" },
+        "trimmed_mean": { "type": "number", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

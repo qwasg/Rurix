@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "namespace": "g11",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G11.1 治理波 baseline）",
+    "created_utc": "2026-08-16T08:41:02Z",
+    "base_commit": "53eb3a28"
+  },
+  "description": "G11 画质修复期预算（D-G11-5）。G11.1 governance-only 即为非空 measured_local、零 estimated：①两条 bench 回归守护锚（g11.bench.sr_pipeline_l3_frame_ms / g11.bench.bandwidth_d2h_pinned_gbps）= 沿 G10.1 同协议本回合复测重登记（RTX 4070 Ti，BENCH_PROTOCOL §3，evidence/g11_baseline_*_20260816T081700Z.json），语义 = 修复期出帧/读回链路回归守护锚（修复不得降级），非通过线；②十一条修复闭环面基线锚（g11.closure_baseline.{r1,r2,r3,r4,r5,u1,u2,u3,c1,c2,c3}）= G10.8b 终审锁定差距清单 11 行 measured delta 绝对值逐行转录（evidence/g11_closure_baseline_*_20260816T084102Z.json，上游 M140 门 2026-08-16T08:41:02Z 真跑 PASS 复核清单完整在位）——direction=max 语义：任何时刻同 row 重登记 delta 不得大于本锚（防修复反向恶化冒充）；G11.5 复测闭环门消费本锚断言「post-fix delta < 本锚」（收敛判定），收敛阈值由 G11.2/G11.5 标定程序 measured 追加为本预算新条目（沿 G10.4 M138 追加先例，禁手写）。诚实边界：GPU 未锁频（NVML 采样 locked=false，随证据 environment.clock_lock_note 存档；×1.5 / ÷1.5 余量沿 G9.1/G10.1 measured 冻结先例覆盖频率漂移，P-09）；本预算只证明测量已建立与基线锚已登记，不证明任何 G11 实现达标、不断言任何修复已发生或已收敛；G11 不设绝对画质通过线与帧率通过线（G11_CONTRACT §1/§5）。前瞻预算项（各修复闭环门的收敛阈值 / HDR-FLIP 标定值）一律等实现波标定回填——无实测证据的阈值不写入（零 estimated 硬约束）；counter_assertions 本波留空：未知 counter id 会被 ci/budget_eval.py 强制 FAIL（14 §5 防僵尸纪律），G11 计数器断言须随实现波次连同 evaluator 一并落盘，本波不建空形态。",
+  "source_docs": [
+    "milestones/g11/G11_PLAN.md",
+    "milestones/g11/G11_CONTRACT.md",
+    "milestones/g10/g10_gap_registry.json"
+  ],
+  "entries": [
+    {
+      "id": "g11.bench.sr_pipeline_l3_frame_ms",
+      "description": "G11 修复期出图/帧捕获面 Rurix 侧出帧耗时回归守护锚：G0 软光栅四 stage（binning/raster/depth/tonemap，RXS-0118~0121）device kernel 背靠背 launch，1920x1080 帧单帧 GPU 墙钟（BENCH_PROTOCOL §3：warmup 19 至稳态 CV 0.00099 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时）。阈值 = 实测 1.2034 × 1.5 = 1.8051 ms（四舍五入 4 位）。诚实边界：GPU 未锁频（随证据存档）；四 stage 各按 L3 独立放大代表一帧大分辨率软光栅；沿 G10.1 同协议本回合复测（2026-08-16T08:16:53Z 直出件转录），非 G11 渲染器实现达标证明。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1.8051,
+      "evidence_file": "evidence/g11_baseline_sr_pipeline_l3_20260816T081700Z.json",
+      "measured_value": 1.2034
+    },
+    {
+      "id": "g11.bench.bandwidth_d2h_pinned_gbps",
+      "description": "G11 修复期帧捕获/帧读回面上界回归守护锚：D2H pinned 256MB Driver API memcpy 带宽（bandwidthTest 等价，BENCH_PROTOCOL §3：warmup 10 至稳态 CV 0.000852 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时前后 stream_sync）。阈值 = 实测 26.2772 ÷ 1.5 = 17.5181 GB/s（min 向，四舍五入 4 位）。诚实边界：GPU 未锁频（随证据存档）；此为读回链路上界能力锚，非 G11 帧捕获管线实现达标证明；沿 G10.1 同协议本回合复测（2026-08-16T08:16:56Z 直出件转录）。",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "threshold": 17.5181,
+      "evidence_file": "evidence/g11_baseline_bandwidth_d2h_pinned_20260816T081700Z.json",
+      "measured_value": 26.2772
+    },
+    {
+      "id": "g11.closure_baseline.r1",
+      "description": "修复闭环基线锚 R1（材质子集仅逐图元 baseColorFactor）：锁定清单 R1 行 measured delta 绝对值（ssim@bistro-interior(ldr)，a=0.16710192121627712 b=1.0）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m147/m155）消费本锚断言收敛，收敛阈由标定程序 measured 追加（禁手写）。本条目只登记基线锚，不断言修复已发生。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.8328980787837229,
+      "evidence_file": "evidence/g11_closure_baseline_r1_20260816T084102Z.json",
+      "measured_value": 0.8328980787837229
+    },
+    {
+      "id": "g11.closure_baseline.r2",
+      "description": "修复闭环基线锚 R2（几何法线 winding 朝向 + 双面翻转不消费）：锁定清单 R2 行 measured delta 绝对值（hdr_nonzero_ratio@cornell-box，a=0.9290046691894531 b=0.1838836669921875）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m148/m155）消费本锚断言收敛，收敛阈由标定程序 measured 追加。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.7451210021972656,
+      "evidence_file": "evidence/g11_closure_baseline_r2_20260816T084102Z.json",
+      "measured_value": 0.7451210021972656
+    },
+    {
+      "id": "g11.closure_baseline.r3",
+      "description": "修复闭环基线锚 R3（灯种子集 = 契约 sun + sky 常量天光）：锁定清单 R3 行 measured delta 绝对值（hdr_luminance_median@bistro-interior，a=0.1333588808774948 b=2.798138671875）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m153/m155）消费本锚断言收敛，收敛阈由标定程序 measured 追加。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 2.664779790997505,
+      "evidence_file": "evidence/g11_closure_baseline_r3_20260816T084102Z.json",
+      "measured_value": 2.664779790997505
+    },
+    {
+      "id": "g11.closure_baseline.r4",
+      "description": "修复闭环基线锚 R4（GI = 屏幕探针单反弹；M99-clipmap 世界级承接 measured 举证行）：锁定清单 R4 行 measured delta 绝对值（hdr_luminance_p90@bistro-interior，a=0.30276253819465637 b=5.000015625）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m154/m155）消费本锚断言收敛，收敛阈由标定程序 measured 追加。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 4.697253086805343,
+      "evidence_file": "evidence/g11_closure_baseline_r4_20260816T084102Z.json",
+      "measured_value": 4.697253086805343
+    },
+    {
+      "id": "g11.closure_baseline.r5",
+      "description": "修复闭环基线锚 R5（JSON 整数解析经 i64，u64 顶格 seed 被 fail-closed 拒绝）：锁定清单 R5 行 measured delta 绝对值（contract_seed_u64_max_rejection 探针，a=i64 域上界 f64 b=u64 顶格 f64）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m149/m155）消费本锚断言收敛（修复后探针 delta 收敛至 0）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 9.223372036854776e+18,
+      "evidence_file": "evidence/g11_closure_baseline_r5_20260816T084102Z.json",
+      "measured_value": 9.223372036854776e+18
+    },
+    {
+      "id": "g11.closure_baseline.u1",
+      "description": "修复闭环基线锚 U1（cornell 壳体零辐射：语料单面片外向绕向 × UE 背面剔除口径）：锁定清单 U1 行 measured delta 绝对值（hdr_nonzero_ratio@cornell-box，UE 帧覆盖 18.39% vs Rurix 92.90%）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m150/m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.7451210021972656,
+      "evidence_file": "evidence/g11_closure_baseline_u1_20260816T084102Z.json",
+      "measured_value": 0.7451210021972656
+    },
+    {
+      "id": "g11.closure_baseline.u2",
+      "description": "修复闭环基线锚 U2（bistro 纹理全缺：.dds Interchange 不支持；G10-N7 DDS 解码面承接锚联动）：锁定清单 U2 行 measured delta 绝对值（ldr_luminance_median@bistro-interior，a=0.16252008080482483 b=0.9324080557703971）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m151/m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.7698879749655723,
+      "evidence_file": "evidence/g11_closure_baseline_u2_20260816T084102Z.json",
+      "measured_value": 0.7698879749655723
+    },
+    {
+      "id": "g11.closure_baseline.u3",
+      "description": "修复闭环基线锚 U3（Bistro 动画 Take 001 / glTF 相机节点不引用）：锁定清单 U3 行 measured delta 绝对值（gltf_animation_channels_unconsumed@bistro-interior，a=双端消费数 0 b=包内实测通道数 2）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.5 闭环门（g11.p0.m152/m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 2.0,
+      "evidence_file": "evidence/g11_closure_baseline_u3_20260816T084102Z.json",
+      "measured_value": 2.0
+    },
+    {
+      "id": "g11.closure_baseline.c1",
+      "description": "修复闭环基线锚 C1（室内亮度主差：GI/天光遮蔽口径差 + 太阳 lux→辐射度链差；M99-clipmap rejudged-go 举证行）：锁定清单 C1 行主 measured delta 绝对值（hdr_luminance_median@bistro-interior ≈21×；另含 hdr_luminance_p90@cornell-box(rurix×2^-EV100) delta=0.29024957587122924 ≈1.95× 同锚登记于清单）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.2 口径对齐门（g11.p0.m144）与 G11.5 闭环门（g11.p0.m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 2.664779790997505,
+      "evidence_file": "evidence/g11_closure_baseline_c1_20260816T084102Z.json",
+      "measured_value": 2.664779790997505
+    },
+    {
+      "id": "g11.closure_baseline.c2",
+      "description": "修复闭环基线锚 C2（曝光链派生尺度：Rurix 臂 2^(−EV100) vs UE 臂 ×1.0）：锁定清单 C2 行主 measured delta 绝对值（ldr_derivation_exposure_scale@cornell-box 0.25 vs 1.0；另含 @bistro-interior 0.5 vs 1.0 同锚登记于清单）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.2 口径对齐门（g11.p0.m145）与 G11.5 闭环门（g11.p0.m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.75,
+      "evidence_file": "evidence/g11_closure_baseline_c2_20260816T084102Z.json",
+      "measured_value": 0.75
+    },
+    {
+      "id": "g11.closure_baseline.c3",
+      "description": "修复闭环基线锚 C3（UE EXR 位深 fp16 → f32 提升〔RXS-0385 strip-and-log〕；Rurix 原生 f32）：锁定清单 C3 行 measured delta 绝对值（exr_source_bit_depth@bistro-interior，a=32 b=16，M134 既定口径沿用）。direction=max 语义 = 同 row 重登记 delta 不得大于本锚；G11.2 口径对齐门（g11.p0.m146）与 G11.5 闭环门（g11.p0.m155）消费本锚断言收敛。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "bit",
+      "threshold": 16.0,
+      "evidence_file": "evidence/g11_closure_baseline_c3_20260816T084102Z.json",
+      "measured_value": 16.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
