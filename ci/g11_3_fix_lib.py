@@ -118,6 +118,15 @@ def ssim_ldr(scene_id: str, root: Path = FRAMES_G11_3) -> float:
     return float(ssim_psnr.ssim_wang2004(a, b))
 
 
+def ssim_ldr_cross(scene_id: str, end_a: str, root_a: Path, end_b: str, root_b: Path) -> float:
+    """跨帧区 LDR 臂 SSIM（M147 双 phase 反向激励旁证 measured 面：
+    ssim(ue_修复帧, rurix_未修复 G10.5 帧) vs ssim(ue_修复帧, rurix_修复帧)——
+    锁定度量对正确修复结构性不友好的证据链，G11.6 P2 候选行消费）。"""
+    a = pixels_of(decode(ldr_frame(scene_id, end_a, root_a), "rurix"))
+    b = pixels_of(decode(ldr_frame(scene_id, end_b, root_b), "rurix"))
+    return float(ssim_psnr.ssim_wang2004(a, b))
+
+
 def coverage_delta(scene_id: str, root: Path = FRAMES_G11_3) -> dict:
     """HDR nonzero 覆盖比双端实测（delta = ue − rurix，锁定基线同口径）。"""
     r = nonzero_mask(pixels_of(decode(hdr_frame(scene_id, "rurix", root), "rurix")))

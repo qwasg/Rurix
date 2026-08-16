@@ -2282,21 +2282,27 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_wave2_exit_check.py --gate g11.wave.2.exit
 
-      # 步骤 201（G11.3 M147 R1 材质子集修复闭环门 g11.p0.m147.fix_r1_material_subset；
-      # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M147 行判据逐字 / G-G11-5；
-      # G11_ACCEPTANCE_MAP §1 M147 行；g10_gap_registry R1 行承接锚；
+      # 步骤 201（G11.3 M147 R1 材质子集修复闭环门 g11.p0.m147.fix_r1_material_subset
+      # --phase g11.3；G11 CI_GATES §4 v1.2 + v1.3 双 phase 校准注；G11_CONTRACT §4.2
+      # M147 行判据逐字（正文 0-byte 冻结）+ §8.3a 双 phase 修订句 / G-G11-5；
+      # G11_ACCEPTANCE_MAP §1 M147 行 + §3.4 双 phase 口径；g10_gap_registry R1 行承接锚；
       # spec/visual_comparison.md RXS-0393；落盘前实测 CI_step.next_free=201 顺位
-      # 领取 201~207——201 归 M147）。host+device 门：baseColorTexture/法线/
-      # metallic-roughness 采样接入（bistro --material-pbr：70 材质/144 DDS 纹理
-      # bcdec 真实解码消费 + sRGB→线性 IEC 分段 + 太阳 GGX + 法线贴图 BC5 XY 重建 Z
-      # 切线空间扰动 + GI 逐实例 albedo 代理）+ 修复前后 LDR 臂 SSIM delta 收敛
-      # measured（锁定基线 0.8328980787837229，收敛阈标定程序产 p100×k 入
+      # 领取 201~207——201 归 M147；G10 M130 单 key 双 phase 先例同构）。host+device 门：
+      # baseColorTexture/法线/metallic-roughness 采样接入（bistro --material-pbr：70
+      # 材质/144 DDS 纹理 bcdec 真实解码消费 + sRGB→线性 IEC 分段 + 太阳 GGX + 法线
+      # 贴图 BC5 XY 重建 Z 切线空间扰动 + GI 逐实例 albedo 代理）+ 修复前后 LDR 臂
+      # SSIM delta measured（锁定基线 0.8328980787837229，收敛阈标定程序产 p100×k 入
       # g11_budget g11.fix.r1_ssim_shrink_tol）+ 契约 digest 0-byte；未采样冒充
       # 修复/未收敛冒充闭环/契约漂移/手写阈值/estimated 冒充 RED 臂全检出。
-      # evidence 落盘 evidence/g11_m147_fix_r1_material_subset_<UTC>.json。
+      # 双 phase 口径：--phase g11.3 = 修复落盘 + 局部度量 verdict 显式登记面
+      # （实测收敛 converged ∧ pending=false，或 deferred_to_g11_5 ∧
+      # convergence_pending=true——不是 SKIP 充绿，pending 缺登记冒充全闭环即 RED）；
+      # --phase g11.5 = 收敛断言面（definitive 测量面 = G11.5 同契约复跑，
+      # RXS-0393 L2）当前 fail-closed 拒跑。
+      # evidence 落盘 evidence/g11_m147_fix_r1_material_subset_<UTC>.json（phase=g11.3）。
       - name: G11.3 M147 fix R1 material subset (G11 CI_GATES §4.201, g11.p0.m147.fix_r1_material_subset)
         shell: powershell
-        run: py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset
+        run: py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset --phase g11.3
 
       # 步骤 202（G11.3 M148 R2 几何法线修复闭环门 g11.p0.m148.fix_r2_geometry_normals；
       # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M148 行判据逐字 / G-G11-5；

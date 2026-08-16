@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Assisted-by: Kimi-K3（G11.3 波）
+# Assisted-by: Kimi-K3（G11.3 波；G11.3 收口 M147 双 phase 两态校准）
 """G11.3 波次聚合门 g11.wave.3.exit（步骤 207；milestones/g11/CI_GATES.md §5；
 G11_CONTRACT G-G11-5；同构 ci/g11_wave2_exit_check.py + ci/g11_wave_exit_lib.py）。
 
 只读汇总 G11.3 波六门最新 evidence——M147 R1 材质（步骤 201）/ M148 R2 法线
 （步骤 202）/ M149 R5 u64 seed（步骤 203）/ M150 U1 壳体（步骤 204）/ M151 U2
-DDS 纹理（步骤 205）/ M152 U3 动画（步骤 206）——+ 五 facts：
+DDS 纹理（步骤 205）/ M152 U3 动画（步骤 206）——+ 六 facts：
 ① 契约 digest 0-byte（双场景当次重算 == G10.5 锁定值 + 联合值）；
 ② 六门 RED 臂独立有效（最新 evidence 各含 red_* checks 且全真）；
 ③ 标定值入 g11_budget 且 provenance 齐备（八条 g11.fix.* 条目 measured_local +
@@ -14,7 +14,9 @@ DDS 纹理（步骤 205）/ M152 U3 动画（步骤 206）——+ 五 facts：
 ④ 资产 provenance 齐备（DDS 转码 manifest 144 条目 + cornell 语料 M131 登记
    digest 复算 0-byte + 派生产物目录零未登记混入）；
 ⑤ 回归前置自检（G10 14 门 + G9 34 门最新 evidence 全绿只读汇总 + 默认面帧
-   digest 逐位 parity——g11_3/parity 无旗标复跑帧 == G10.5 锁定 digest）。
+   digest 逐位 parity——g11_3/parity 无旗标复跑帧 == G10.5 锁定 digest）；
+⑥ M147 双 phase 纪律两态口径（G11.3 收口校准，沿 G10.8a wave2 fact④ 两态先例；
+   判据语义 0-byte——g11.3 phase 绿不替 g11.5 收敛断言充绿）。
 不重跑 smoke、不代绿、不设 RURIX_REQUIRE_REAL。聚合 PASS 不遮蔽任一子断言
 FAIL/SKIP/DEV_ENV_DEGRADE。
 
@@ -127,6 +129,41 @@ G9_KEYS = [
 
 def _fact(fid: str, ok: bool, detail: str) -> dict:
     return {"id": fid, "status": "PASS" if ok else "FAIL", "detail": detail}
+
+
+def m147_dual_phase_discipline(ev: dict) -> tuple[bool, str]:
+    """M147 双 phase 纪律两态判定（G11.3 收口校准，沿 G10.8a wave2 fact④
+    m130_phase_discipline 两态先例；契约 §8.3a 修订句消费面；判据语义 0-byte——
+    g11.3 phase 绿不替 g11.5 收敛断言充绿）。
+
+    接受形态：
+    - A 态（g11.3 phase 登记面）：status==pass ∧ phase==g11.3 ∧ g11_3_phase_pass==true
+      ∧（deferred 如实登记：convergence_pending==true ∧ closure.verdict==deferred_to_g11_5
+      〔现状形态〕，或实测收敛：convergence_pending==false ∧ closure.converged==true）；
+    - B 态（g11.5 phase 收敛断言面，G11.5 落地后合法形态）：status==pass ∧ phase==g11.5
+      ∧ convergence_pending==false ∧ closure.converged==true。
+    其余一律红（convergence_pending 缺登记冒充全闭环 / g11_3_phase_pass≠true 而 pass /
+    phase=g11.5 而 pending=true / 缺 phase 字段的 legacy 形态等）。
+    """
+    status = ev.get("status")
+    phase = ev.get("phase")
+    p3 = ev.get("g11_3_phase_pass")
+    pending = ev.get("convergence_pending")
+    closure = ev.get("closure") or {}
+    converged = closure.get("converged")
+    verdict = closure.get("verdict")
+    if status == "pass" and phase == "g11.3" and p3 is True:
+        if pending is True and verdict == "deferred_to_g11_5" and converged is False:
+            return True, "M147 A 态：g11.3 phase 绿 + convergence_pending=true（deferred_to_g11_5 如实登记，不替 g11.5 收敛断言充绿）"
+        if pending is False and converged is True and verdict == "converged":
+            return True, "M147 A 态变体：g11.3 phase 绿 + 实测收敛（converged=true，登记面提前闭环）"
+    if status == "pass" and phase == "g11.5" and pending is False and converged is True:
+        return True, "M147 B 态：g11.5 phase 收敛断言绿（definitive 测量面）"
+    return False, (
+        f"M147 phase 纪律不符: status={status} phase={phase} g11_3_phase_pass={p3} "
+        f"convergence_pending={pending} converged={converged} verdict={verdict}"
+        "（两态外一律红——convergence_pending 缺登记冒充全闭环即 RED，判据语义 0-byte）"
+    )
 
 
 def collect_extra_facts() -> list[dict]:
@@ -262,6 +299,21 @@ def collect_extra_facts() -> list[dict]:
         f"G10 14 门 + G9 34 门最新 evidence 全绿只读汇总 + 默认面帧 digest 逐位 parity（双场景 == G10.5 锁定值）"
         if not reg_bad and not parity_bad else "; ".join((reg_bad + parity_bad)[:3]),
     ))
+
+    # ⑥ M147 双 phase 纪律（两态口径，G11.3 收口校准，沿 G10.8a wave2 fact④ 先例）：
+    #    最新 evidence 要么 g11.3 phase 绿且 deferred/收敛如实登记（A 态——不替 g11.5
+    #    收敛断言充绿），要么 g11.5 phase 收敛断言绿（B 态——G11.5 落地后合法形态）；
+    #    两态外一律红（convergence_pending 缺登记冒充全闭环即 RED，判据语义 0-byte）。
+    m147_path = wel.load_latest_evidence("g11_m147_fix_r1_material_subset")
+    if m147_path is None:
+        phase_ok, phase_detail = False, "M147 最新 evidence 缺失"
+    else:
+        try:
+            phase_ok, phase_detail = m147_dual_phase_discipline(wel.load_json(m147_path))
+            phase_detail = f"{phase_detail}（{m147_path.name}）"
+        except (OSError, ValueError) as e:
+            phase_ok, phase_detail = False, f"M147 evidence 不可读: {e}"
+    facts.append(_fact("m147_dual_phase_discipline", phase_ok, phase_detail))
     return facts
 
 
@@ -275,7 +327,8 @@ def run_gate(*, evidence_dir: Path | None = None) -> int:
         "P0 M152 fix_u3_bistro_animation step 206)",
         "aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL",
         "facts: contract digest 0-byte + six gates red arms + calibrated thresholds in budget (P-09) + "
-        "asset provenance intact + regression precheck (48 gates + default-face parity)",
+        "asset provenance intact + regression precheck (48 gates + default-face parity) + "
+        "M147 dual-phase discipline (g11.3 phase green does not substitute g11.5 convergence assertion)",
         "aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE",
     ]
     code, _path = wel.emit_wave_evidence(
@@ -296,7 +349,8 @@ def run_gate(*, evidence_dir: Path | None = None) -> int:
 
 
 def run_selftest() -> int:
-    """① 缺六门 evidence → 红；② 真树六门绿 + 事实核验 → 绿。"""
+    """① 缺六门 evidence → 红；② 真树六门绿 + 事实核验 → 绿；
+    ③ m147_dual_phase_discipline 两态单元红绿（G11.3 收口校准面）。"""
     print("[selftest] 负样本:空 evidence 目录")
     import tempfile
 
@@ -316,6 +370,61 @@ def run_selftest() -> int:
         print("[selftest] FAIL: 真树聚合未绿（前置六门/事实核验未满足）", file=sys.stderr)
         return 1
     print("[selftest] PASS: 真树聚合绿")
+
+    # 两态单元红绿（合成 evidence dict，不依赖树）：A/A变体/B 三接受态绿 + 六红臂。
+    print("[selftest] m147_dual_phase_discipline 两态单元红绿")
+    base = {
+        "status": "pass", "phase": "g11.3", "g11_3_phase_pass": True,
+        "convergence_pending": True,
+        "closure": {"converged": False, "verdict": "deferred_to_g11_5"},
+    }
+    green_a = m147_dual_phase_discipline(base)[0]
+    green_a2 = m147_dual_phase_discipline({
+        **base, "convergence_pending": False,
+        "closure": {"converged": True, "verdict": "converged"},
+    })[0]
+    green_b = m147_dual_phase_discipline({
+        "status": "pass", "phase": "g11.5", "convergence_pending": False,
+        "closure": {"converged": True, "verdict": "converged"},
+    })[0]
+    red_arms = [
+        ("convergence_pending 缺登记冒充全闭环（未收敛而 pending=false）",
+         {**base, "convergence_pending": False}),
+        ("convergence_pending 字段缺失冒充全闭环",
+         {k: v for k, v in base.items() if k != "convergence_pending"}),
+        ("g11_3_phase_pass≠true 而 pass（其余检未全绿冒充）",
+         {**base, "g11_3_phase_pass": False}),
+        ("status≠pass（FAIL 件不充绿）",
+         {**base, "status": "fail"}),
+        ("phase=g11.5 而 pending=true（收敛断言期未收敛冒充绿）",
+         {"status": "pass", "phase": "g11.5", "convergence_pending": True,
+          "closure": {"converged": False, "verdict": "deferred_to_g11_5"}}),
+        ("缺 phase 字段 legacy 形态（双 phase 校准前形态不充新口径绿）",
+         {"status": "pass", "g11_3_phase_pass": True, "convergence_pending": True,
+          "closure": {"converged": False, "verdict": "deferred_to_g11_5"}}),
+    ]
+    failures = 0
+    if not green_a:
+        print("[selftest] RED MISS — A 态（g11.3 phase deferred 如实登记）被误拒")
+        failures += 1
+    if not green_a2:
+        print("[selftest] RED MISS — A 态变体（g11.3 phase 实测收敛）被误拒")
+        failures += 1
+    if not green_b:
+        print("[selftest] RED MISS — B 态（g11.5 phase 收敛断言绿）被误拒")
+        failures += 1
+    for name, ev in red_arms:
+        ok, detail = m147_dual_phase_discipline(ev)
+        if ok:
+            print(f"[selftest] RED MISS — {name}:负样本过检")
+            failures += 1
+        else:
+            print(f"[selftest] RED ok   — {name}（{detail[:60]}…）")
+    if green_a and green_a2 and green_b:
+        print("[selftest] GREEN ok — A/A变体/B 三接受态均判绿")
+    if failures:
+        print(f"[selftest] FAIL ({failures})", file=sys.stderr)
+        return 1
     print("[selftest] ALL PASS")
     return 0
 

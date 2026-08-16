@@ -64,6 +64,14 @@
 
 锁定清单 11 行均为 host CPU 参考管线臂实测（G10-N16 字面）；GPU 管线画质差距面未 measured、不在锁定清单内——G11 不得无锚新立修复项（契约 §5 / 立项裁决 2）；GPU 管线双端 A/B 面锚定 G14（G10-N16 承接锚字面）。
 
+### 3.4 M147 双 phase 口径（G11.3 修复落盘+局部度量登记期 / G11.5 收敛断言期，沿 G10 M130 §3.3 双阶段先例）
+
+M147 单 key 双 phase（不拆双 key，沿 [G10_ACCEPTANCE_MAP.md](../g10/G10_ACCEPTANCE_MAP.md) §3.3 M130 双阶段口径先例；[G11_CONTRACT.md](G11_CONTRACT.md) §8.3a 修订句为裁决事实源，§4.2 M147 判据行正文 0-byte 冻结——本节为只追加校准注登记面，§1 M147 行字面 0-byte 不动）：
+
+- **修复落盘+局部度量登记期（`--phase g11.3`，G11.3 波）**：材质子集采样接入消费核验 + 基线复现（锁定基线 = bistro LDR SSIM delta 0.8328980787837229）+ 契约 digest 0-byte + 标定/RED 臂全绿；收敛检 = verdict 显式登记形态——实测收敛（`converged` ∧ `convergence_pending=false`）或 `deferred_to_g11_5` 显式登记（∧ `convergence_pending=true`）皆合法；evidence 标 `phase=g11.3` + `g11_3_phase_pass`（当且仅当 12 检全绿）+ `convergence_pending`——**convergence_pending 缺登记冒充全闭环即 RED，不是 SKIP 充绿**（反向激励旁证 measured：ssim(ue_修,rurix_未修白帧)=0.1624318277352612 > ssim(ue_修,rurix_修)=0.009656442299775102，锁定度量对正确修复结构性不友好——G11.6 P2 候选行登记，契约 §8.3a）。
+- **收敛断言期（`--phase g11.5`，G11.5 波）**：R1 行修复前后 SSIM delta 收敛断言（definitive 测量面 = G11.5 同契约复跑，RXS-0393 L2 quality_gap 款字面；阈值标定程序产禁手写；**不收敛则整波 FAIL**——契约 §8.3a 不弱化声明 + [G11_PLAN.md](G11_PLAN.md) §2 G11.5 节 M155 门预备注记）；当前 G11.5 未至，`--phase g11.5` **fail-closed 拒跑**（exit=2）。
+- schema 同时承载 v1 legacy 支（双 phase 校准前既有 evidence 形态 0-byte）与 v2 g11.3 phase 支（沿 G9 v1.14 / G10 M130 anyOf 双支体例）；**g11.3 phase 绿不替 g11.5 收敛断言充绿**（wave3 聚合门 fact⑥ `m147_dual_phase_discipline` 两态机核，沿 G10.8a wave2 fact④ 两态校准先例，判据语义 0-byte）。
+
 ---
 
 ## 4. 互斥与对账面（key 命名空间三方逐字一致机器可核声明）
@@ -138,3 +146,4 @@ no-empty 组的 PASS 判据：
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-16 | G11.1 初版：冻结 13 个 P0 的 symbolic gate、目标脚本/schema、独立判据（契约 §4.2 逐字）与最晚波次——口径对齐闭环 3 行（M144~M146，G11.2）+ 资产场景修复闭环 6 行（M147~M152，G11.3）+ 光照 GI 修复闭环 2 行（M153/M154，G11.4）+ 复测与回归 2 行（M155/M156，G11.5）；已 go P1 一行（M157 hdr_flip_calibration，G10-N10 承接锚兑现）同构登记；§3 条件型/not-triggered 登记面（异己并发工作树面 / 三行触发评估 / GPU 管线画质差距面边界）；§4 key 命名空间三方逐字一致机器可核声明 + 锁定基线 delta 溯源表；单一命名空间 `g11.p{0,1}.m###.<slug>` + `ci/g11_<slug>_smoke.py` + `g11_m###_<slug>_evidence_schema.json` 由 `ci/check_g11_acceptance_map.py` 三向比对强制；§5 治理覆盖与空行门、§6 G11.2 硬互锁六条件、§7 Close-out 审计。数字 CI 步骤全部 `post-interlock actual-next-free allocation`（当前实测 CI_step next_free=196），零 workflow/script/schema 预放。 |
+| v1.1 | 2026-08-16 | **G11.3 收口 M147 判据双 phase 校准注（只追加登记，§1/§2 行字面 0-byte）**：§3.4 新增 M147 双 phase 口径登记（沿 G10 M130 §3.3 双阶段先例；契约 §8.3a 修订句为裁决事实源）——`--phase g11.3` = 修复落盘+局部度量 verdict 显式登记面（deferred_to_g11_5 ∧ convergence_pending=true 或实测收敛；pending 缺登记冒充全闭环即 RED），`--phase g11.5` = 收敛断言面（RXS-0393 L2 definitive 测量面，阈值标定程序产禁手写，不收敛则整波 FAIL，当前 fail-closed 拒跑）；schema anyOf 双支承载 v1 legacy/v2 g11.3 phase；g11.3 phase 绿不替 g11.5 收敛断言充绿（wave3 fact⑥ `m147_dual_phase_discipline` 两态机核，沿 G10.8a wave2 fact④ 先例）。`Assisted-by: Kimi-K3（G11.3 收口）` |
