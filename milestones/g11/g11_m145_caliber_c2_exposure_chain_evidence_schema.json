@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.2 M145 caliber_c2_exposure_chain evidence",
+  "description": "evidence/g11_m145_caliber_c2_exposure_chain_<UTC>.json。G11.2 P0 硬门 g11.p0.m145.caliber_c2_exposure_chain（步骤 197；G11_CONTRACT §4.2 M145 行判据逐字 / G-G11-4；G11_ACCEPTANCE_MAP §1 M145 行；CI_GATES §4；spec/visual_comparison.md RXS-0386 L2 / RXS-0393）：双端 EV100 同字面下派生尺度对齐（Rurix 臂曝光尺度管线内烘焙 2^(−EV100) 与 UE 臂 pipe 内 FixedExposure 同域 → LDR 派生尺度双端统一 ×1.0——锁定基线 delta cornell 0.75 / bistro 0.5 → 复测 0.0）+ 派生链元数据互证回归（四张 LDR 帧 source_frame_digest == HDR 内容 digest 独立重算 + capture_params_digest == G10.5 锁定值）+ 收敛阈标定程序产（p100 × k 两跑逐位一致，入 g11_budget.json g11.caliber.c2_exposure_scale_tol measured_local 字节级纯追加 + budget_eval --strict 全 PASS）；派生尺度未对齐出 LDR 度量 / 互证链断裂 / 手写阈值 / estimated 冒充四 RED 臂全检出。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "exposure_provenance",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g11_m145_caliber_c2_exposure_chain" },
+    "symbolic_gate_key": { "type": "string", "const": "g11.p0.m145.caliber_c2_exposure_chain" },
+    "matrix_row": { "type": "string", "const": "M145" },
+    "milestone": { "type": "string", "const": "M145" },
+    "assertion_id": { "type": "string", "const": "g11.p0.m145.caliber_c2_exposure_chain" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G11.2" },
+    "numeric_step": { "type": "integer", "const": 197 },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M145 + G-G11-4;G11_ACCEPTANCE_MAP §1 M145;CI_GATES §4;RFC-0028 §4.6;spec/visual_comparison.md RXS-0386/RXS-0393"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "ev100_literal_dual_end",
+        "inpipe_scale_rurix_matches_ev100",
+        "derivation_scale_unified_dual_end",
+        "derivation_metadata_cross_verify",
+        "closure_delta_converged_measured",
+        "calibration_rerun_deterministic",
+        "budget_entry_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_unaligned_scale_detected",
+        "red_cross_verify_broken_detected",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": { "type": "boolean" },
+        "ev100_literal_dual_end": { "type": "boolean" },
+        "inpipe_scale_rurix_matches_ev100": { "type": "boolean" },
+        "derivation_scale_unified_dual_end": { "type": "boolean" },
+        "derivation_metadata_cross_verify": { "type": "boolean" },
+        "closure_delta_converged_measured": { "type": "boolean" },
+        "calibration_rerun_deterministic": { "type": "boolean" },
+        "budget_entry_appended_measured_local": { "type": "boolean" },
+        "budget_eval_strict_all_pass": { "type": "boolean" },
+        "red_unaligned_scale_detected": { "type": "boolean" },
+        "red_cross_verify_broken_detected": { "type": "boolean" },
+        "red_handwritten_threshold_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_row_id", "baseline_delta", "retest_delta", "converged", "threshold_provenance", "contract_digest_unchanged"],
+      "properties": {
+        "gap_row_id": { "type": "string", "minLength": 16, "maxLength": 16 },
+        "baseline_delta": { "type": "number" },
+        "baseline_detail": { "type": "object" },
+        "retest_delta": { "type": "number" },
+        "converged": { "type": "boolean", "const": true },
+        "threshold_provenance": { "type": "string", "minLength": 1 },
+        "contract_digest_unchanged": { "type": "boolean", "const": true }
+      }
+    },
+    "exposure_provenance": {
+      "type": "object",
+      "description": "曝光链对齐 provenance：EV100 字面 / Rurix 管线内尺度 / UE 臂 pipe 内曝光登记 / LDR host 尺度 / HDR 帧内容 digest 互证面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

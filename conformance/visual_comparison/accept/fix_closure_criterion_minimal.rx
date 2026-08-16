@@ -1,0 +1,15 @@
+//@ spec: RXS-0393
+// G11.2 spec-first 锚定语料（spec/visual_comparison.md RXS-0393 L1~L5：修复闭环
+// 判据——锁定基线锚消费〔g10_gap_registry 0-byte 转引 + g11.closure_baseline.*
+// direction=max〕+ 收敛判定两款〔quality_gap 行 delta 向 0 收敛且幅度 ≥ 标定阈；
+// caliber_diff 行 = 口径对齐完成 + 残余显式登记 + 复测 delta 与登记残余一致〕+
+// 收敛阈标定程序产〔p100 × k 入 g11_budget measured_local，禁手写〕+ 契约 digest
+// 0-byte + 不设绝对画质通过线）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：closure 块 gap_row_id/
+// baseline_delta/retest_delta/converged/threshold_provenance/
+// contract_digest_unchanged 六字段齐备，threshold_provenance 含标定程序与 budget
+// 条目引用。
+// 转正路径（G11.2 波接线）：ci/g11_caliber_c1_indoor_luminance_smoke.py /
+// ci/g11_caliber_c2_exposure_chain_smoke.py / ci/g11_caliber_c3_exr_bit_depth_smoke.py
+// 三门 closure 块（symbolic key 见 G11_ACCEPTANCE_MAP §1，冻结字面不动）。
+fn main() {}

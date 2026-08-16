@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.2 标定 budget evidence（M145/M146/M157 四条标定条目共享）",
+  "description": "evidence/g11_m145_calibration_c2_exposure_scale_<UTC>.json / g11_m146_calibration_c3_bitdepth_domain_<UTC>.json / g11_m157_calibration_hdr_flip_scalar_<UTC>.json / g11_m157_calibration_hdr_flip_error_map_<UTC>.json。G11.2 波 M145（C2 曝光链）/ M146（C3 位深）/ M157（HDR-FLIP 独立标定）三门产出的 budget 标定证据：results.trimmed_mean = 标定 p100（budget_eval 通用 measured entry 判读面，零新 evaluator 分支）+ provenance（估计器语义 p100×k / k 理由 / 样本集 digest / measured 登记；M157 面加 sample_set 真实 HDR 帧双臂说明与 reference_impl pin 登记）+ 环境画像。供 g11_budget.json 四条 g11.caliber.c2_exposure_scale_tol / g11.caliber.c3_bitdepth_domain_tol / g11.metric.hdr_flip_pairwise_scalar_tol / g11.metric.hdr_flip_pairwise_error_map_tol 标定条目 evidence_file 引用（P-09 禁手写阈值）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "milestone",
+    "wave",
+    "numeric_step",
+    "results",
+    "provenance",
+    "environment",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "g11_m145_calibration_c2_exposure_scale",
+        "g11_m146_calibration_c3_bitdepth_domain",
+        "g11_m157_calibration_hdr_flip_scalar",
+        "g11_m157_calibration_hdr_flip_error_map"
+      ]
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "enum": [
+        "g11.p0.m145.caliber_c2_exposure_chain",
+        "g11.p0.m146.caliber_c3_exr_bit_depth",
+        "g11.p1.m157.hdr_flip_calibration"
+      ]
+    },
+    "milestone": { "type": "string" },
+    "wave": { "type": "string", "const": "G11.2" },
+    "numeric_step": { "type": "integer", "enum": [197, 198, 199] },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean", "estimator", "sample_pair_count", "safety_factor_k", "threshold"],
+      "properties": {
+        "trimmed_mean": { "type": "number" },
+        "estimator": { "type": "string", "const": "p100" },
+        "sample_pair_count": { "type": "integer", "minimum": 1 },
+        "safety_factor_k": { "type": "number", "minimum": 1.0, "maximum": 3.0 },
+        "threshold": { "type": "number" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["estimator_semantics", "k_rationale", "sample_set_digest", "measured"],
+      "properties": {
+        "estimator_semantics": { "type": "string" },
+        "k_rationale": { "type": "string" },
+        "sample_set_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "measured": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" }
+  }
+}

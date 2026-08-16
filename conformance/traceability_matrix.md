@@ -377,3 +377,5 @@
 | RXS-0389 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/flip_caliber_minimal.rx`, `conformance/visual_comparison/reject/flip_caliber_drift.rx`, `conformance/visual_comparison/reject/flip_reference_perturbation.rx` |
 | RXS-0390 | spec/visual_comparison.md | 1 | `conformance/visual_comparison/accept/application_probe_minimal.rx` |
 | RXS-0391 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/gap_registry_minimal.rx`, `conformance/visual_comparison/reject/gap_registry_missing_attribution.rx`, `conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx` |
+| RXS-0392 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/caliber_alignment_minimal.rx`, `conformance/visual_comparison/reject/caliber_fitting_masquerade.rx` |
+| RXS-0393 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/fix_closure_criterion_minimal.rx`, `conformance/visual_comparison/reject/closure_handwritten_threshold.rx` |

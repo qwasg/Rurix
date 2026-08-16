@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "report": "g11_2_ab_rerun",
+  "generated_by": "milestones/g11/harness/g11_2_ab_rerun.py",
+  "frames_root": "K:\\rurix-ext\\g11-frames\\g11_2",
+  "locked_contract_digest": {
+    "cornell-box": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+    "bistro-interior": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514"
+  },
+  "timestamp_utc": "2026-08-16T10:26:40Z",
+  "stages": {
+    "registry": "done",
+    "ue": "done",
+    "metrics": "done",
+    "rurix": "done",
+    "derive": "done"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --out-dir K:\\rurix-ext\\g11-frames\\g11_2\\rurix --scene-id cornell-box --exposure-scale 0.25",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --out-dir K:\\rurix-ext\\g11-frames\\g11_2\\rurix --scene-id bistro-interior --exposure-scale 0.5",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_2\\rurix\\cornell-box.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\cornell-box_rurix_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_2\\ue\\cornell-box\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\cornell-box_ue5_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_2\\rurix\\bistro-interior.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\bistro-interior_rurix_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_2\\ue\\bistro-interior\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\bistro-interior_ue5_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    }
+  ],
+  "results": {
+    "metrics": {
+      "scenes": {
+        "cornell-box": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.03441402787938714,
+              "p90": 0.3039876311600208,
+              "max": 0.35954260204434396,
+              "mean": 0.10505566410547973,
+              "nonzero_ratio": 0.9290046691894531
+            },
+            "ue5": {
+              "median": 0.0,
+              "p90": 0.59423720703125,
+              "max": 0.595666796875,
+              "mean": 0.0967712114236376,
+              "nonzero_ratio": 0.1838836669921875
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.08358066641539334,
+              "p90": 0.5009738778293134,
+              "max": 0.5498988258123397,
+              "mean": 0.1874533258566405,
+              "nonzero_ratio": 0.9290046691894531
+            },
+            "ue5": {
+              "median": 0.0,
+              "p90": 0.6963858742475509,
+              "max": 0.6970374228715897,
+              "mean": 0.11826632827999409,
+              "nonzero_ratio": 0.18301010131835938
+            }
+          },
+          "hdr_luminance_median_delta": -0.03441402787938714,
+          "hdr_luminance_p90_delta": 0.29024957587122924,
+          "metrics_ldr": {
+            "flip_ldr": 0.338644611302288,
+            "ssim": 0.34829777885646934,
+            "psnr_db": 13.982872203129087
+          }
+        },
+        "bistro-interior": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.0666794404387474,
+              "p90": 0.15138126909732819,
+              "max": 1.4968533515930174,
+              "mean": 0.07678073510401232,
+              "nonzero_ratio": 0.9564231288580247
+            },
+            "ue5": {
+              "median": 2.798138671875,
+              "p90": 5.000015625,
+              "max": 76.2895125,
+              "mean": 3.086870950030268,
+              "nonzero_ratio": 1.0
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.16252008080482483,
+              "p90": 0.3130713999271392,
+              "max": 0.8724713325500488,
+              "mean": 0.1683499250906763,
+              "nonzero_ratio": 0.9439134837962962
+            },
+            "ue5": {
+              "median": 0.9324080557703971,
+              "p90": 0.9666675288200379,
+              "max": 1.0,
+              "mean": 0.8887972871104632,
+              "nonzero_ratio": 1.0
+            }
+          },
+          "hdr_luminance_median_delta": 2.7314592314362525,
+          "hdr_luminance_p90_delta": 4.8486343559026714,
+          "metrics_ldr": {
+            "flip_ldr": 0.9403171872698077,
+            "ssim": 0.1671024952877607,
+            "psnr_db": 2.584558942060708
+          }
+        }
+      },
+      "baselines": {
+        "C1": [
+          {
+            "metric": "hdr_luminance_median@bistro-interior",
+            "a_value": 0.1333588808774948,
+            "b_value": 2.798138671875,
+            "delta": 2.664779790997505,
+            "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+          },
+          {
+            "metric": "hdr_luminance_p90@cornell-box(rurix×2^-EV100)",
+            "a_value": 0.3039876311600208,
+            "b_value": 0.59423720703125,
+            "delta": 0.29024957587122924,
+            "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4",
+            "region_ref": "scene:cornell-box"
+          }
+        ],
+        "C2": [
+          {
+            "metric": "ldr_derivation_exposure_scale@cornell-box",
+            "a_value": 0.25,
+            "b_value": 1.0,
+            "delta": 0.75,
+            "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4"
+          },
+          {
+            "metric": "ldr_derivation_exposure_scale@bistro-interior",
+            "a_value": 0.5,
+            "b_value": 1.0,
+            "delta": 0.5,
+            "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+            "region_ref": "scene:bistro-interior"
+          }
+        ],
+        "C3": [
+          {
+            "metric": "exr_source_bit_depth@bistro-interior",
+            "a_value": 32.0,
+            "b_value": 16.0,
+            "delta": -16.0,
+            "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+          }
+        ]
+      },
+      "commands_count": 0
+    },
+    "registry": {
+      "schema_version": 1,
+      "registry": "g11_2_residual_caliber_registry",
+      "generated_by": "milestones/g11/harness/g11_2_ab_rerun.py --stage registry",
+      "semantics": "C1 口径对齐后残余口径差逐环节显式登记（RXS-0392 L4；不拟合、只登记——口径差行不是被修没，残余 delta 全额归属本登记项，G11.5 复测差距清单 caliber_diff 面消费）",
+      "aligned_chains": [
+        {
+          "chain": "sun_color",
+          "scene_id": "bistro-interior",
+          "before": "UE 臂 set_light_color b_srgb=True——契约 color_linear_rgb [1.0,0.98,0.95] 被 sRGB 二次转线性（有效值 [1.0,0.9551,0.8902]，G −2.5% / B −6.3% 实测口径偏差）",
+          "after": "UE 臂 set_light_color b_srgb=False 线性直给 [1.0,0.98,0.95]（RXS-0392 L3）——与 Rurix 臂 sun_color = rgb×lux 同构",
+          "status": "aligned_fixed"
+        },
+        {
+          "chain": "sun_lux_to_radiance",
+          "scene_id": "both",
+          "before": "UE DirectionalLight lux → L=ρ·E·(n·l)/π；Rurix sun_color=rgb·lux → direct=·ndl·albedo/π——同构（G10.5a 登记面）",
+          "after": "同构复核维持（本批双端同参数登记）",
+          "status": "aligned_verified"
+        },
+        {
+          "chain": "sky_intensity",
+          "scene_id": "both",
+          "before": "UE SkyLight 指定 cubemap × intensity（cubemap = 白色常量 1.0 uniform，digest 实测登记）= scene-linear 辐射度；Rurix 常量天光辐射度 = sky.intensity——同单位链（G10.5a 登记面）",
+          "after": "同单位链复核维持 + cubemap 逐像素值核验（=1.0 uniform）",
+          "status": "aligned_verified"
+        },
+        {
+          "chain": "exposure_scale",
+          "scene_id": "both",
+          "before": "Rurix 臂 LDR 派生 ×2^(−EV100)（cornell 0.25 / bistro 0.5）vs UE 臂 pipe 内 FixedExposure=2^(−EV100) 已施 ×1.0——C2 口径差",
+          "after": "Rurix 臂曝光尺度管线内烘焙 2^(−EV100)（--exposure-scale）与 UE 臂同域；LDR 派生尺度双端统一 ×1.0（C2 对齐落点）",
+          "status": "aligned_fixed"
+        }
+      ],
+      "items": [
+        {
+          "residual_id": "c1_light_seed_subset_r3",
+          "chain": "light_seed_subset",
+          "scene_id": "bistro-interior",
+          "kind": "residual_caliber_diff",
+          "description": "UE 臂表达 bistro 包内 pointLight1~N（glTF 节点实测 4+ 盏）与 emissive 面；Rurix 臂灯种子集 = 契约 sun + sky 常量天光（点/面光源与 glTF emissive 不表达）——灯种子集结构差",
+          "measured_impact": {
+            "hdr_luminance_median_delta_post_alignment": 2.7314592314362525,
+            "hdr_luminance_p90_delta_post_alignment": 4.8486343559026714
+          },
+          "disposition_anchor": "R3 修复承接面（g11.p0.m153.fix_r3_light_subset，G11.4 波；g10_gap_registry.json R3 行 g11_anchor 字面）",
+          "status": "registered"
+        },
+        {
+          "residual_id": "c1_gi_structure_multibounce_r4",
+          "chain": "gi_structure",
+          "scene_id": "bistro-interior",
+          "kind": "residual_caliber_diff",
+          "description": "UE 臂 Lumen 多反弹 GI（屏幕探针 + 世界辐射缓存双级）vs Rurix 臂屏幕探针单反弹（host 参考管线）——GI 结构/反弹级数差；全向 IBL 遮蔽细节（UE SkyLight × Lumen AO）vs 探针 SH 单反弹覆盖差",
+          "measured_impact": {
+            "hdr_luminance_p90_delta_post_alignment": 4.8486343559026714
+          },
+          "disposition_anchor": "R4 修复承接面（g11.p0.m154.fix_r4_gi_multibounce_world_cache，G11.4 波；g10_gap_registry.json R4 行 g11_anchor 字面 + RFC-0028 §4.1/§4.2）",
+          "status": "registered"
+        },
+        {
+          "residual_id": "c1_cornell_gi_structure_r4",
+          "chain": "gi_structure",
+          "scene_id": "cornell-box",
+          "kind": "residual_caliber_diff",
+          "description": "cornell 封闭盒多反弹能量回归（UE Lumen）vs Rurix 单反弹——同 GI 结构差在 cornell 场景的投影（块区 p90 UE vs Rurix ≈1.95× 面）",
+          "measured_impact": {
+            "hdr_luminance_p90_delta_post_alignment": 0.29024957587122924
+          },
+          "disposition_anchor": "R4 修复承接面（g11.p0.m154，G11.4 波）",
+          "status": "registered"
+        },
+        {
+          "residual_id": "c1_ue_specular_ibl",
+          "chain": "sky_ibl_structure",
+          "scene_id": "both",
+          "kind": "residual_caliber_diff",
+          "description": "UE 臂 SkyLight 镜面 IBL / 反射环境（specular）vs Rurix 臂 Lambert-only 漫反射——镜面能量通道结构差（漫反射链已参数化对齐）",
+          "measured_impact": null,
+          "disposition_anchor": "显式留档（G11 期不承接；G15 画质量级收口面候选登记）",
+          "status": "registered"
+        },
+        {
+          "residual_id": "c3_source_bit_depth_quantization",
+          "chain": "bit_depth_source",
+          "scene_id": "both",
+          "kind": "residual_caliber_diff",
+          "description": "UE MRQ 源帧位深 fp16（写出时量化一次）vs Rurix 原生 f32——源位深量化差；度量域已统一提升 f32（fp16→f32 提升精确无损，C3 对齐面），源帧量化本身不可回退",
+          "measured_impact": null,
+          "disposition_anchor": "C3 口径行承接面（g11.p0.m146.caliber_c3_exr_bit_depth，G11.2 波——度量域对齐登记 + 本源差显式留档）",
+          "status": "registered"
+        }
+      ]
+    },
+    "ue": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_2\\ue\\cornell-box\\.0000.exr",
+        "frame_content_digest": "sha256:c7c6f2cf1644ba79512da1f4f3fceeb2001826f4723681a35ab7a8ca9dc853a2",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:60074c5663a2b1298a2bcf573a5cadf0ada05a5b8834f7941025bddf25f20409"
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_2\\ue\\bistro-interior\\.0000.exr",
+        "frame_content_digest": "sha256:8f907dc06560506e0ae640a974d889536a447b5bff483a623c44c98b4bc1bba2",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:b7eb4257a66b9450bd069d3f42c16ded65999f7bed4224129d70aa756cdd36c3"
+      }
+    },
+    "rurix": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_2\\rurix\\cornell-box.exr",
+        "frame_content_digest": "sha256:326b7ed0fb6621ffc862a9bd25fac04d26feedb5cf514643806612639dabfeec",
+        "exposure_scale_in_pipe": 0.25,
+        "param_digest": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+        "file_digest": "sha256:adda4242bd98ba4649bd2c25273ff793ea594778d61a648a46640f1b1bb38d50"
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_2\\rurix\\bistro-interior.exr",
+        "frame_content_digest": "sha256:38f5cc25e1d2566fa69131fbacb8d25341be09af13dc21fa34ccfe47e19d942c",
+        "exposure_scale_in_pipe": 0.5,
+        "param_digest": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+        "file_digest": "sha256:d110ba815235f6d79b3dc3bed7fee56faa7a52159b56bd51731d898ffcade54f"
+      }
+    },
+    "derive": {
+      "cornell-box:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\cornell-box_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:326b7ed0fb6621ffc862a9bd25fac04d26feedb5cf514643806612639dabfeec",
+        "file_digest": "sha256:f66fc12d7454fdae57b12387848322278289766a0b36f847c9c76ca3b3b02e48"
+      },
+      "cornell-box:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\cornell-box_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:c7c6f2cf1644ba79512da1f4f3fceeb2001826f4723681a35ab7a8ca9dc853a2",
+        "file_digest": "sha256:577676d9b1209052c33df54533e678d78d303fe0dbadc92ba8b157548bea84b2"
+      },
+      "bistro-interior:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\bistro-interior_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:38f5cc25e1d2566fa69131fbacb8d25341be09af13dc21fa34ccfe47e19d942c",
+        "file_digest": "sha256:77749c8e54f3a6d8b2ba024bea7bf867aaac2a473610cdf4e370cf71e8413b67"
+      },
+      "bistro-interior:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_2\\ldr\\bistro-interior_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:8f907dc06560506e0ae640a974d889536a447b5bff483a623c44c98b4bc1bba2",
+        "file_digest": "sha256:46150523ab4edbf8819398dbfb6d087fdfdb9381374e4a1a403f29a2b6ad64e4"
+      }
+    }
+  }
+}

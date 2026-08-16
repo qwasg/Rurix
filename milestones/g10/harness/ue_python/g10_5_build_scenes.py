@@ -224,9 +224,12 @@ def build_level(scene_id, contract_obj):
     dl = sun_actor.get_component_by_class(unreal.DirectionalLightComponent)
     dl.set_intensity(float(ue_params["sun_intensity_lux"]))
     rgb = ue_params["sun_color_linear_rgb"]
-    dl.set_light_color(unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0), True)
+    # G11.2 C1 口径对齐修复（RXS-0392 L3）：契约 color_linear_rgb 本为线性域——
+    # set_light_color 第二参 b_srgb=True 会被 UE 按 sRGB 二次转线性（bistro 太阳色
+    # [1,0.98,0.95] 实测偏差 G −2.5% / B −6.3%）；b_srgb=False = 线性直给口径。
+    dl.set_light_color(unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0), False)
     dl.set_mobility(unreal.ComponentMobility.MOVABLE)
-    log("太阳光: dir_ue=%s lux=%s" % (str(sun_dir_ue), str(ue_params["sun_intensity_lux"])))
+    log("太阳光: dir_ue=%s lux=%s（光色线性直给 b_srgb=False，G11.2 C1 口径对齐）" % (str(sun_dir_ue), str(ue_params["sun_intensity_lux"])))
 
     white_cube = ensure_white_cubemap()
     sky_actor = actor_subsys.spawn_actor_from_class(unreal.SkyLight, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
@@ -353,7 +356,10 @@ def main():
     else:
         log("跳过导入（--skip-import）")
     map_path, cam_actor = build_level(scene_id, c)
-    out_dir = "K:/rurix-ext/g10-frames/g10_5/ue/" + scene_id
+    # 出帧根目录：默认 G10.5 帧库面（G10 门序既有字面不动）；G11.2 复测批经
+    # G11_2_OUT_ROOT 环境变量指向 G11.2 帧区（G10 帧库只读纪律，K: 盘分区隔离）。
+    out_root = os.environ.get("G11_2_OUT_ROOT", "K:/rurix-ext/g10-frames/g10_5/ue")
+    out_dir = out_root.rstrip("/") + "/" + scene_id
     seq_path, cfg_path = build_mrq_assets(scene_id, c, cam_actor, out_dir)
     log("BUILD DONE scene=%s map=%s seq=%s cfg=%s" % (scene_id, map_path, seq_path, cfg_path))
 

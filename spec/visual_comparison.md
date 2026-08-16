@@ -546,6 +546,113 @@
   字段闭集 / gap_id 派生 / 校验器），M139 落盘侧与 M140 门侧同一实现
   消费，禁第二份手写（RXS-0384 L4 同构载体纪律）。
 
+### RXS-0392 C1 口径对齐：天光/太阳辐照链参数化对齐 + 残余口径差显式登记 / 不拟合（M144，G11.2）
+
+**Legality**
+
+- L1 **不拟合原则**：C1 口径差对齐 = 双端天光/太阳辐照链**参数化**对齐
+  + 残余口径差显式登记；禁止以拟合/反向调参使双端亮度 delta 人为缩小
+  ——对齐 = 参数化口径一致或显式登记残余（RFC-0028 §4.5 冻结语义；
+  G11_CONTRACT §4.2 M144 判据字面「拟合冒充对齐即 RED」）。
+- L2 **天光链参数集枚举闭集**（逐项双端同参数登记，任一环节不对齐即
+  该环节残余口径差）：`{ 天光模式（cubemap IBL / 探针采样常量天光）、
+  强度（同单位链——UE SkyLight 指定 cubemap 强度 × cubemap 值 =
+  scene-linear 辐射度 cd/m²；Rurix 常量天光辐射度同单位）、色温/光谱面
+  （常量值或 cubemap 资产 digest）、采样档位（探针分辨率/光线数档位） }`；
+  cubemap 资产若使用须过 M131 许可白名单登记面（SPDX/来源
+  URL/attribution/资产 digest，未登记资产混入即 RED——RFC-0028 §4.5.1
+  字面）；白色常量 cubemap 的资产 digest 与逐像素值核验（= 1.0 uniform）
+  进门 evidence。
+- L3 **太阳 lux→辐射度链**（EV100 同字面前提，C2 派生尺度面与本链解耦
+  ——RXS-0386 L2 既有口径 0-byte）：双端链式逐项参数化对齐并登记
+  provenance——UE 臂 `DirectionalLight.intensity = 契约 sun.intensity_lux`
+  （lux = 面元辐照度 E），朗伯出射辐射度 `L = ρ·E·(n·l)/π`；Rurix 臂
+  `sun_color = color_linear_rgb × intensity_lux`，
+  `direct = sun_color × max(n·l,0) × albedo/π`——两式同构；UE 侧光色消费
+  口径 = **线性直给**（`set_light_color` 第二参 `b_srgb = False`，契约
+  字段名 `color_linear_rgb` 即线性域——sRGB 二次转换即口径违例）；链上
+  每环节参数 provenance（契约值 / UE 侧应用值 / Rurix 侧应用值）进门
+  evidence。
+- L4 **残余口径差显式登记**（对齐后结构性残余逐环节分列，登记粒度 =
+  逐环节——天光/太阳/曝光/位深/GI 结构面分列，RFC-0028 §9 Q4 倾向
+  裁决）：残余项 = 参数化对齐后仍存在的结构面差异（全向 IBL vs 探针
+  单反弹覆盖差 / 多反弹缺级 / 灯种子集缺类〔R3 承接面〕/ GI 结构差
+  〔R4 承接面〕/ 源位深量化差〔C3 承接面〕等）；登记载体 =
+  `milestones/g11/g11_2_residual_caliber_registry.json`（每残余项带环节 /
+  场景 / 处置锚〔指向 R3/R4/C3 修复承接面或显式留档〕/ measured 影响量
+  〔可测则记〕）；复测差距清单 caliber_diff 面消费本登记（RXS-0391
+  schema 面 0-byte 消费）；**残余口径差未登记即 RED**。
+- L5 **消费门序**：未对齐口径（L2/L3 任一环节未参数化一致且未登记残余）
+  消费复测 delta 即 RED（G11_CONTRACT §4.2 M144 判据字面）；契约参数
+  （相机/光照/seed/post）digest 三面绑定 0-byte——对齐不得改契约参数
+  （M130 门序字面继承，RXS-0393 L4）。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g11.p0.m144.caliber_c1_indoor_luminance`
+  （`ci/g11_caliber_c1_indoor_luminance_smoke.py`，G11.2）；测试锚定 =
+  `conformance/visual_comparison/accept/caliber_alignment_minimal.rx` +
+  `conformance/visual_comparison/reject/caliber_fitting_masquerade.rx`。
+- IR2 天光/太阳链 provenance 机器形态 = 门 evidence `caliber_chain`
+  闭集块（逐环节 `{chain, scene_id, contract_value, ue_applied,
+  rurix_applied, aligned, residual_note}`）；残余登记机核 =
+  `g11_2_residual_caliber_registry.json` 逐环节非空行 + 每行处置锚非空。
+
+### RXS-0393 修复闭环判据：锁定基线锚消费 + 收敛判定两款 + 收敛阈标定程序产 + 契约 digest 0-byte（G11.2~G11.5 共用）
+
+**Legality**
+
+- L1 **锁定基线锚**：每修复/口径行的基线 delta 转引自
+  `milestones/g10/g10_gap_registry.json` 对应行 `measured_delta[].delta`
+  （0-byte 消费不回写）；G11.1 已转录为 `g11_budget.json`
+  `g11.closure_baseline.*` 十一条基线锚（`direction = max`：同 row 重登记
+  delta 不得大于本锚——防修复反向恶化冒充）。
+- L2 **收敛判定分两款**（RFC-0028 §4.6.2 冻结语义）：
+  - **quality_gap 行（R/U 族）**：收敛 = 复测 delta（G11.5 同契约双端
+    复跑实测）**向 0 收敛**——|复测 delta| < |基线 delta| 且收敛幅度 ≥
+    收敛幅度阈值；方向性注入（修复反向过冲冒充收敛 / 绝对值缩小但双端
+    仍实质不一致冒充闭环）即 RED。
+  - **caliber_diff 行（C 族）**：闭环 = 口径对齐完成（参数化一致或显式
+    互证登记，RXS-0392 面）+ 残余口径差显式登记 + 复测 delta 与登记残余
+    一致（口径差行不是「被修没」——残余 delta 全额归属登记残余项，无未
+    归因余量）；不以 quality_gap 款收敛字面冒充口径对齐闭环；未对齐口径
+    消费复测 delta 即 RED。
+- L3 **收敛阈值标定程序产**（禁手写，P-09）：收敛幅度阈值由标定程序对
+  修复前后度量数据实测标定产出（p100 × k，k ∈ [1.0, 3.0]——RXS-0389
+  L5 / RFC-0026 §4.2 F10 估计器语义同程序纪律），标定值入
+  `g11_budget.json`（measured_local，provenance 齐备：样本集 digest /
+  标定程序 / k 取值与理由随档）；**收敛阈值缺失（标定未产）时闭环断言
+  不成立**——不得以「delta 有变小」叙述冒充收敛判定；手写阈值冒充标定
+  即 RED；estimated 冒充 measured 即 RED。
+- L4 **契约 digest 0-byte**：修复不得改契约参数（相机/光照/seed/post）
+  ——复测契约参数 digest == G10.5 锁定值（cornell
+  `sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118`
+  / bistro
+  `sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514`，
+  联合
+  `sha256:64fd54df6e9be522d6dbb3bec8fac1eb30a0a421c7a5a8185a3452c381178aa4`）；
+  锁定值机核事实源 = `evidence/g10_m130_dual_determinism_contract_20260815T233315Z.json`
+  （M130 `--phase g10.5` 门实测登记，本条款字面为转引便利）；不等仍出
+  报告即 RED（M130/M139 门序硬约束继承，RXS-0384 L5/§4.0 字面）。
+- L5 **不设绝对画质通过线**：闭环判据只断言 delta 收敛 measured，不断言
+  绝对画质达标——「已达 UE5 画质」判定归 G15 商用收口期（G11_CONTRACT
+  §1/§5 字面）。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 G11.2 口径对齐闭环三门
+  （`g11.p0.m144.caliber_c1_indoor_luminance` /
+  `g11.p0.m145.caliber_c2_exposure_chain` /
+  `g11.p0.m146.caliber_c3_exr_bit_depth`）与 G11.3~G11.5 各修复闭环门
+  （G11_ACCEPTANCE_MAP §1 行集 0-byte 引用）；测试锚定 =
+  `conformance/visual_comparison/accept/fix_closure_criterion_minimal.rx` +
+  `conformance/visual_comparison/reject/closure_handwritten_threshold.rx`。
+- IR2 门 evidence 闭环节机器形态（CI_GATES §7 修复闭环节字段闭集
+  materialize 硬化面）= `closure = { gap_row_id, baseline_delta,
+  retest_delta, converged, threshold_provenance, contract_digest_unchanged }`
+  ——`threshold_provenance` 须含标定程序与 budget 条目引用（L3），
+  `contract_digest_unchanged` 机核 = 当次契约参数 digest == L4 锁定值。
+
 ---
 
 ## 修订记录
@@ -555,3 +662,5 @@
 | v1.1 | 2026-08-15 | **errata（RXS-0384 L2 四元数共轭公式勘误；零既有字面改写，本行 = 唯一生效勘误）**：L2 冻结公式行「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射矩阵 M **数学上不成立**——正交共轭的一般律为 R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**，det(M) = −1 时转角反号：**R_ue = R(M·axis, −θ)**，四元数向量部应为 **−M·v**、标量部不变，即 q = (w, x, y, z) ⇒ **q_ue = (w, z, −x, −y)**（harness 缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向）。**实证**（G10.5a 波，2026-08-15）：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组）/ 1.39e0（pytest 5000 组首例），修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 UE 映射 = 绕 +Z 转 −90°，缺陷式给 +90°）镜像成立；`tests/test_g10_param_contract.py` RED 先行 commit 后修复转 GREEN。cornell-box 相机（绕 +Y 180°）为该缺陷不变量特例（R(a,180°) ≡ R(a,−180°)），bistro-interior 一般旋转取景全暴露。**生效面**：harness `g10_param_contract.py quat_contract_to_ue` 按修订式修复（G10.5a 实现批）；L2 既有字面 0-byte 不回改，RFC-0026 §4.6 同文理勘误 = RFC 章 E1 errata 段（只追加）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026 errata） |
 | v1.2 | 2026-08-15 | G10.5a 双端出图波 spec-first（硬规则 7 条款先行）：**RXS-0390 单号 materialize 为条款头**——应用层探针（冻结标志物集〔cornell-box 后墙五点毫米数值面 / bistro-interior 相机系合成五点米，逐值字面冻结〕+ 双端各自管线投影像素一致性断言〔`pixel_delta ≤ 1e-3 px` 合法性谓词常量不走 budget〕+ M130 `--phase g10.5` 与 M139 evidence `application_probes[]` 机核面 + UE 端内嵌 CPython 载体纪律），依据 RFC-0026（Agent Approved 2026-08-15）§4.6 应用层探针末节（「标志物世界坐标集进 spec 条款」兑现点）+ G10_ACCEPTANCE_MAP §1 M130 行 + §3.3（判据逐字）；条款号自落盘前实测 `RXS.next_free=390` 顺位领取（0390 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件（application_probe_minimal.rx）同 PR 落；trace_matrix 371→372 全锚定 + stable 快照 371→372 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026） |
 | v1.3 | 2026-08-15 | G10.5b 首轮 A/B 对比波 B 段 spec-first（硬规则 7 条款先行）：**RXS-0391 单号 materialize 为条款头**——差距清单 schema（顶层/差距项字段闭集〔13 键 + attribution_note 条件可选键〕+ gap_id 派生冻结字节规则〔sha256 五节 0x00 分隔 utf8 拼接前 16 hex〕+ kind 两值分列〔quality_gap / caliber_diff〕+ UE5 模块归属枚举闭集〔目录级 23 + 文件级 57 + Other 终值，公共前缀 `Engine/Source/Runtime/Renderer/Private/`，Other 须 attribution_note 非空〕+ measured_delta 可溯源〔≥1 项、delta == b−a f64 精确、evidence_digest 须回溯 M137/M139 evidence 登记 artifact digest，纯叙述无测量即 RED〕+ 建议 P 级三值 + g11_anchor 非空 + 场景全集零空行对账〔scene_summary 全等 + no_gap_explicit 显式 + not_ready_scenes 显式在列〕+ domain 两值互证），依据 RFC-0026（Agent Approved 2026-08-15）§4.5 + §3.3 + G10_ACCEPTANCE_MAP §1 M140 行（判据逐字）+ G10_CONTRACT G-G10-7；条款号自落盘前实测 `RXS.next_free=391` 顺位领取（0391 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 两件（gap_registry_minimal.rx / gap_registry_missing_attribution.rx / gap_registry_unmeasured_narrative.rx）同 PR 落；trace_matrix 372→373 全锚定 + stable 快照 372→373 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5b 波）` | **Full RFC**（RFC-0026） |
+| v1.4 | 2026-08-16 | G11.2 口径差对齐波 spec-first（硬规则 7 条款先行）：**RXS-0392 单号 materialize 为条款头**——C1 口径对齐（不拟合原则 + 天光链参数集枚举闭集〔天光模式/强度同单位链/色温或 cubemap 资产 digest/采样档位，cubemap 资产 M131 白名单联动 + 白色常量 cubemap digest 与逐像素值核验〕+ 太阳 lux→辐射度链〔UE DirectionalLight lux → L=ρ·E·(n·l)/π 与 Rurix sun_color=rgb·lux → direct=·ndl·albedo/π 同构登记；UE 侧光色线性直给口径 b_srgb=False〕+ 残余口径差显式登记〔逐环节粒度，载体 milestones/g11/g11_2_residual_caliber_registry.json，未登记即 RED〕+ 消费门序〔未对齐口径消费复测 delta 即 RED；契约 digest 三面绑定 0-byte〕），依据 RFC-0028（Agent Approved 2026-08-16）§4.5 + G11_CONTRACT §4.2 M144 行（判据逐字）+ G11_ACCEPTANCE_MAP §1 M144 行；条款号自落盘前实测 `RXS.next_free=392` 顺位领取（0392 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 一件（caliber_alignment_minimal.rx / caliber_fitting_masquerade.rx）同 PR 落；trace_matrix 373→374 全锚定 + stable 快照 373→374 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G11.2 波）` | **Full RFC**（RFC-0028） |
+| v1.5 | 2026-08-16 | G11.2 口径差对齐波 spec-first：**RXS-0393 单号 materialize 为条款头**——修复闭环判据（锁定基线锚消费〔g10_gap_registry 0-byte 转引 + g11.closure_baseline.* direction=max 十一条基线锚〕+ 收敛判定两款〔quality_gap 行 delta 向 0 收敛且幅度 ≥ 标定阈，方向性注入 RED；caliber_diff 行 = 口径对齐完成 + 残余显式登记 + 复测 delta 与登记残余一致〕+ 收敛阈标定程序产〔p100 × k，k∈[1,3]，入 g11_budget measured_local，标定缺失时闭环断言不成立，手写/estimated 冒充 RED〕+ 契约 digest 0-byte〔锁定值机核事实源 = evidence/g10_m130_dual_determinism_contract_20260815T233315Z.json，不等仍出报告即 RED〕+ 不设绝对画质通过线〔归 G15〕），依据 RFC-0028（Agent Approved 2026-08-16）§4.6 + G11_CONTRACT §4.2/§5（判据字面）+ G11_ACCEPTANCE_MAP §1；条款号自落盘前实测 `RXS.next_free=393` 顺位领取（0393 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 一件（fix_closure_criterion_minimal.rx / closure_handwritten_threshold.rx）同 PR 落；trace_matrix 374→375 全锚定 + stable 快照 374→375 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G11.2 波）` | **Full RFC**（RFC-0028） |

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m146_caliber_c3_exr_bit_depth",
+  "symbolic_gate_key": "g11.p0.m146.caliber_c3_exr_bit_depth",
+  "matrix_row": "M146",
+  "milestone": "M146",
+  "assertion_id": "g11.p0.m146.caliber_c3_exr_bit_depth",
+  "status": "pass",
+  "wave": "G11.2",
+  "numeric_step": 198,
+  "source_ref": "G11_CONTRACT §4.2 M146 + G-G11-4;G11_ACCEPTANCE_MAP §1 M146;CI_GATES §4;spec/imageio.md RXS-0385;spec/visual_comparison.md RXS-0393",
+  "base_commit": "5408716115d0415c3006f33efabff7b648f45c57",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "ue_source_fp16_registered": true,
+    "rurix_native_f32": true,
+    "promotion_exact_exhaustive": true,
+    "ue_pixels_lossless_promotion": true,
+    "measurement_domain_f32_unified": true,
+    "bitdepth_metadata_closed_set": true,
+    "closure_delta_converged_measured": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_bitdepth_truncation_detected": true,
+    "red_metadata_missing_field_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "cc2b9ec7f19f0dad",
+    "baseline_delta": -16.0,
+    "retest_delta": 0.0,
+    "converged": true,
+    "threshold_provenance": "标定程序 ci/g11_caliber_c3_exr_bit_depth_smoke.py（p100×k=1.0，样本集 = 复跑报告 digest 引用；budget 条目 g11.caliber.c3_bitdepth_domain_tol）；残余源位深量化差显式登记 g11_2_residual_caliber_registry c3_source_bit_depth_quantization 行",
+    "contract_digest_unchanged": true
+  },
+  "bitdepth_provenance": {
+    "source_bit_depth": {
+      "cornell-box:ue5": "float16",
+      "cornell-box:rurix": "float32",
+      "bistro-interior:ue5": "float16",
+      "bistro-interior:rurix": "float32"
+    },
+    "promotion_exhaustive": {
+      "patterns": 65536,
+      "mismatches": 0,
+      "nan_joint": 2046
+    },
+    "measurement_domain": "float32（UE fp16 → f32 精确提升；Rurix 原生 f32）",
+    "residual_registration": "milestones/g11/g11_2_residual_caliber_registry.json c3_source_bit_depth_quantization 行（UE 源帧写出时 fp16 量化一次，不可回退，显式留档）"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T103942Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "源位深实测: {'cornell-box:ue5': 'float16', 'cornell-box:rurix': 'float32', 'bistro-interior:ue5': 'float16', 'bistro-interior:rurix': 'float32'}; fp16→f32 提升穷举: 65536 位模式零不符（NaN 联合 2046）; C3 修复前后 delta 对拍: 基线（源位深）-16.0 → 复测（度量域）0.0（阈 0.0）; g11_budget.json 字节级纯追加 g11.caliber.c3_bitdepth_domain_tol（threshold=0.0）; budget_eval --strict: exit 0（[budget_eval] PASS (155 pass, 0 skip, strict mode)）"
+}

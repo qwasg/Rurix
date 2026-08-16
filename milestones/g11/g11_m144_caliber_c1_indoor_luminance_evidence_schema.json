@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.2 M144 caliber_c1_indoor_luminance evidence",
+  "description": "evidence/g11_m144_caliber_c1_indoor_luminance_<UTC>.json。G11.2 P0 硬门 g11.p0.m144.caliber_c1_indoor_luminance（步骤 196；G11_CONTRACT §4.2 M144 行判据逐字 / G-G11-4；G11_ACCEPTANCE_MAP §1 M144 行；CI_GATES §4；RFC-0028 §4.5；spec/visual_comparison.md RXS-0392/RXS-0393）：GI/天光遮蔽口径差 + 太阳 lux→辐射度链差逐行对齐（太阳链 b_srgb=False 线性直给修复面 + 天光链白色 cubemap 逐像素 =1.0 uniform 核验 + 曝光链 Rurix 管线内 2^(−EV100) 与 UE 臂同域）+ 对齐后残余口径差逐环节显式登记（g11_2_residual_caliber_registry，R3/R4 承接锚非空）+ 对齐前后口径参数 provenance 齐备（caliber_chain 闭集块）+ 修复前后度量 delta 对拍（复测 delta 独立重算，与登记残余 measured_impact 逐位一致）+ 契约 digest 三面绑定 0-byte（双场景当次重算 == G10.5 锁定值）；未对齐口径消费复测 delta / 拟合冒充对齐 / 残余未登记三 RED 臂全检出。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "caliber_chain",
+    "closure",
+    "delta_decomposition",
+    "retest_measured",
+    "residual_registry_path",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g11_m144_caliber_c1_indoor_luminance" },
+    "symbolic_gate_key": { "type": "string", "const": "g11.p0.m144.caliber_c1_indoor_luminance" },
+    "matrix_row": { "type": "string", "const": "M144" },
+    "milestone": { "type": "string", "const": "M144" },
+    "assertion_id": { "type": "string", "const": "g11.p0.m144.caliber_c1_indoor_luminance" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G11.2" },
+    "numeric_step": { "type": "integer", "const": 196 },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M144 + G-G11-4;G11_ACCEPTANCE_MAP §1 M144;CI_GATES §4;RFC-0028 §4.5;spec/visual_comparison.md RXS-0392/RXS-0393"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "sun_chain_aligned_provenance",
+        "sky_chain_aligned_provenance",
+        "exposure_chain_unified_provenance",
+        "residual_registry_complete",
+        "retest_delta_measured_consistent",
+        "aligned_chains_provenance_before_after",
+        "red_fitting_masquerade_detected",
+        "red_unaligned_consumption_detected",
+        "red_residual_unregistered_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": { "type": "boolean" },
+        "sun_chain_aligned_provenance": { "type": "boolean" },
+        "sky_chain_aligned_provenance": { "type": "boolean" },
+        "exposure_chain_unified_provenance": { "type": "boolean" },
+        "residual_registry_complete": { "type": "boolean" },
+        "retest_delta_measured_consistent": { "type": "boolean" },
+        "aligned_chains_provenance_before_after": { "type": "boolean" },
+        "red_fitting_masquerade_detected": { "type": "boolean" },
+        "red_unaligned_consumption_detected": { "type": "boolean" },
+        "red_residual_unregistered_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "caliber_chain": {
+      "type": "array",
+      "minItems": 4,
+      "description": "对齐前后口径参数 provenance 闭集块（RXS-0392 IR2）：逐环节 chain/scene_id/contract_value/ue_applied/rurix_applied/before/aligned/residual_note",
+      "items": {
+        "type": "object",
+        "required": ["chain", "scene_id", "ue_applied", "rurix_applied", "before", "aligned"],
+        "properties": {
+          "chain": { "type": "string" },
+          "scene_id": { "type": "string" },
+          "contract_value": { "type": "string" },
+          "ue_applied": { "type": "string" },
+          "rurix_applied": { "type": "string" },
+          "before": { "type": "string" },
+          "aligned": { "type": "boolean" },
+          "residual_note": { "type": "string" }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_row_id", "baseline_delta", "retest_delta", "converged", "threshold_provenance", "contract_digest_unchanged"],
+      "properties": {
+        "gap_row_id": { "type": "string", "minLength": 16, "maxLength": 16 },
+        "baseline_delta": { "type": "number" },
+        "retest_delta": { "type": "number" },
+        "converged": { "type": "boolean" },
+        "threshold_provenance": { "type": "string", "minLength": 1 },
+        "contract_digest_unchanged": { "type": "boolean", "const": true }
+      }
+    },
+    "delta_decomposition": {
+      "type": "object",
+      "description": "修复前后 delta 对拍分解（原域基线 / 域统一换算基线 / 复测同域实测，三面登记）",
+      "additionalProperties": true
+    },
+    "sun_provenance": {
+      "type": "object",
+      "description": "太阳 lux→辐射度链对齐 provenance（双场景契约值回显 + 双端应用面登记）",
+      "additionalProperties": true
+    },
+    "sky_provenance": {
+      "type": "object",
+      "description": "天光链对齐 provenance（白色 cubemap digest/uniform 核验 + 契约 sky.intensity + 采样档位登记）",
+      "additionalProperties": true
+    },
+    "retest_measured": {
+      "type": "object",
+      "description": "复测 HDR 亮度统计（G11.2 帧区独立重算，双端双面）",
+      "additionalProperties": true
+    },
+    "residual_registry_path": { "type": "string", "const": "milestones/g11/g11_2_residual_caliber_registry.json" },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+//@ spec: RXS-0392
+// G11.2 spec-first 锚定语料（RXS-0392 L1/L5 负例面）：拟合冒充对齐——以反向
+// 调参/拟合使双端亮度 delta 人为缩小（契约参数被改动、链路参数无 provenance、
+// 或残余口径差未登记）即 RED。
+// 负例数据面（最小说明性 fixture）：契约 lighting 节参数被调小的「对齐」报告
+// ——契约 digest ≠ G10.5 锁定值即 fail-closed；残余口径差登记空集即 RED。
+// 转正路径（G11.2 波接线）：ci/g11_caliber_c1_indoor_luminance_smoke.py 门
+// RED 臂（red_fitting_masquerade / red_unaligned_consumption / red_residual_unregistered）。
+fn main() {}

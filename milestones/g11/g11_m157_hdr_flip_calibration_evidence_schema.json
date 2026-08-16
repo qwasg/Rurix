@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.2 M157 hdr_flip_calibration evidence",
+  "description": "evidence/g11_m157_hdr_flip_calibration_<UTC>.json。G11.2 P1 硬门 g11.p1.m157.hdr_flip_calibration（步骤 199；G11_ACCEPTANCE_MAP §2 M157 行判据 / G-G11-4；CI_GATES §4A；G10-N10 承接锚兑现——G10.4b HDR-FLIP 仅探针臂遗留面；spec/visual_comparison.md RXS-0389 L2/L5 + RXS-0393；RFC-0026 §4.2 F10 估计器语义）：HDR 域正式对拍样本集（G11.2 复跑真实 HDR 帧双臂 cornell-box + bistro-interior × UE5/Rurix 臂，4×4 瓦片 32 对 ≥ 下界 24，样本清单 + 每对 digest + manifest digest 入 evidence）+ 标定程序可复跑（两跑逐位一致——自实现 flip_hdr vs 参考实现 flip_evaluator NVlabs/flip 1.7 逐对标量差与误差图逐像素差分列 p100）+ 标定值 p100×k measured 入 g11_budget.json（g11.metric.hdr_flip_pairwise_scalar_tol / hdr_flip_pairwise_error_map_tol，k=2.0，字节级纯追加 + provenance 齐备，P-09 禁手写阈值）+ 恒等图对 HDR-FLIP == 0 极值断言 + budget_eval --strict 全 PASS；手写阈值 / estimated 冒充 / 不可复跑 / 低于下界冒充四 RED 臂全检出。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "calibration_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g11_m157_hdr_flip_calibration" },
+    "symbolic_gate_key": { "type": "string", "const": "g11.p1.m157.hdr_flip_calibration" },
+    "matrix_row": { "type": "string", "const": "M157" },
+    "milestone": { "type": "string", "const": "M157" },
+    "assertion_id": { "type": "string", "const": "g11.p1.m157.hdr_flip_calibration" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G11.2" },
+    "numeric_step": { "type": "integer", "const": 199 },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_ACCEPTANCE_MAP §2 M157;G11_CONTRACT G-G11-4;CI_GATES §4A;G10-N10 承接锚;spec/visual_comparison.md RXS-0389/RXS-0393;RFC-0026 §4.2 F10"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hdr_sample_set_real_frames",
+        "estimator_semantics_frozen",
+        "calibration_rerun_deterministic",
+        "hdr_flip_identity_zero",
+        "budget_entries_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected",
+        "red_nonrerunnable_detected",
+        "red_below_bound_detected"
+      ],
+      "properties": {
+        "hdr_sample_set_real_frames": { "type": "boolean" },
+        "estimator_semantics_frozen": { "type": "boolean" },
+        "calibration_rerun_deterministic": { "type": "boolean" },
+        "hdr_flip_identity_zero": { "type": "boolean" },
+        "budget_entries_appended_measured_local": { "type": "boolean" },
+        "budget_eval_strict_all_pass": { "type": "boolean" },
+        "red_handwritten_threshold_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" },
+        "red_nonrerunnable_detected": { "type": "boolean" },
+        "red_below_bound_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "calibration_report": {
+      "type": "object",
+      "description": "标定报告：估计器语义 + 样本集 manifest/digest + 两跑一致性 + 两条标定条目（p100 + k + threshold）+ budget 落盘面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

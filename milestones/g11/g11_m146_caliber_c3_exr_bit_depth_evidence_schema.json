@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.2 M146 caliber_c3_exr_bit_depth evidence",
+  "description": "evidence/g11_m146_caliber_c3_exr_bit_depth_<UTC>.json。G11.2 P0 硬门 g11.p0.m146.caliber_c3_exr_bit_depth（步骤 198；G11_CONTRACT §4.2 M146 行判据逐字 / G-G11-4；G11_ACCEPTANCE_MAP §1 M146 行；CI_GATES §4；spec/imageio.md RXS-0385 / spec/visual_comparison.md RXS-0393）：UE EXR fp16→f32 提升口径（RXS-0385 strip-and-log）与 Rurix 原生 f32 度量域对齐登记——提升精确无损（全 65536 位模式穷举 half_to_f32 == numpy float16 语义）+ UE 帧逐像素可逆核验（无二次截断）+ 位深元数据闭集回归（Rurix strict 闭集齐备 / UE strip-and-log 实测登记）；锁定基线 delta 16.0（源位深）→ 复测度量域 delta 0.0，源位深量化差显式登记残余；收敛阈标定程序产（p100 × k 两跑逐位一致，入 g11_budget.json g11.caliber.c3_bitdepth_domain_tol measured_local 字节级纯追加 + budget_eval --strict 全 PASS）；位深截断注入 / 元数据缺字段 / 手写阈值 / estimated 冒充四 RED 臂全检出。host 纯 host 门（device_section_state=not_applicable）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "bitdepth_provenance",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g11_m146_caliber_c3_exr_bit_depth" },
+    "symbolic_gate_key": { "type": "string", "const": "g11.p0.m146.caliber_c3_exr_bit_depth" },
+    "matrix_row": { "type": "string", "const": "M146" },
+    "milestone": { "type": "string", "const": "M146" },
+    "assertion_id": { "type": "string", "const": "g11.p0.m146.caliber_c3_exr_bit_depth" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G11.2" },
+    "numeric_step": { "type": "integer", "const": 198 },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M146 + G-G11-4;G11_ACCEPTANCE_MAP §1 M146;CI_GATES §4;spec/imageio.md RXS-0385;spec/visual_comparison.md RXS-0393"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "ue_source_fp16_registered",
+        "rurix_native_f32",
+        "promotion_exact_exhaustive",
+        "ue_pixels_lossless_promotion",
+        "measurement_domain_f32_unified",
+        "bitdepth_metadata_closed_set",
+        "closure_delta_converged_measured",
+        "calibration_rerun_deterministic",
+        "budget_entry_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_bitdepth_truncation_detected",
+        "red_metadata_missing_field_detected",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": { "type": "boolean" },
+        "ue_source_fp16_registered": { "type": "boolean" },
+        "rurix_native_f32": { "type": "boolean" },
+        "promotion_exact_exhaustive": { "type": "boolean" },
+        "ue_pixels_lossless_promotion": { "type": "boolean" },
+        "measurement_domain_f32_unified": { "type": "boolean" },
+        "bitdepth_metadata_closed_set": { "type": "boolean" },
+        "closure_delta_converged_measured": { "type": "boolean" },
+        "calibration_rerun_deterministic": { "type": "boolean" },
+        "budget_entry_appended_measured_local": { "type": "boolean" },
+        "budget_eval_strict_all_pass": { "type": "boolean" },
+        "red_bitdepth_truncation_detected": { "type": "boolean" },
+        "red_metadata_missing_field_detected": { "type": "boolean" },
+        "red_handwritten_threshold_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_row_id", "baseline_delta", "retest_delta", "converged", "threshold_provenance", "contract_digest_unchanged"],
+      "properties": {
+        "gap_row_id": { "type": "string", "minLength": 16, "maxLength": 16 },
+        "baseline_delta": { "type": "number" },
+        "retest_delta": { "type": "number" },
+        "converged": { "type": "boolean", "const": true },
+        "threshold_provenance": { "type": "string", "minLength": 1 },
+        "contract_digest_unchanged": { "type": "boolean", "const": true }
+      }
+    },
+    "bitdepth_provenance": {
+      "type": "object",
+      "description": "位深对齐 provenance：双端源位深实测 / 提升穷举核验 / 度量域 / 残余登记面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "host_section_pass": { "const": true }
+        }
+      }
+    }
+  ]
+}

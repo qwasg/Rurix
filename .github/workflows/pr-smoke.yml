@@ -2201,6 +2201,87 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_closeout_check.py --gate g10.wave.8b.closeout
 
+      # 步骤 196（G11.2 M144 C1 亮度口径对齐闭环门 g11.p0.m144.caliber_c1_indoor_luminance；
+      # G11 CI_GATES §4 v1.1；G11_CONTRACT §4.2 M144 行判据逐字 / G-G11-4；
+      # G11_ACCEPTANCE_MAP §1 M144 行；RFC-0028 §4.5；spec/visual_comparison.md
+      # RXS-0392/RXS-0393；落盘前实测 CI_step.next_free=196 顺位领取）。host 纯 host
+      # 门：GI/天光遮蔽口径差 + 太阳 lux→辐射度链差逐行对齐（b_srgb=False 线性直给
+      # 修复面 + 白色 cubemap 逐像素 =1.0 uniform 核验 + Rurix 管线内 2^(−EV100) 与
+      # UE 臂同域）+ 残余口径差逐环节显式登记（g11_2_residual_caliber_registry，
+      # R3/R4 承接锚非空）+ 对齐前后口径参数 provenance 齐备 + 复测 delta 与登记
+      # 残余一致 + 契约 digest 三面绑定 0-byte；未对齐口径消费/拟合冒充/残余未登记
+      # 三 RED 臂全检出。evidence 落盘
+      # evidence/g11_m144_caliber_c1_indoor_luminance_<UTC>.json。
+      - name: G11.2 M144 caliber C1 indoor luminance (G11 CI_GATES §4.196, g11.p0.m144.caliber_c1_indoor_luminance)
+        shell: powershell
+        run: py -3 ci/g11_caliber_c1_indoor_luminance_smoke.py --gate g11.p0.m144.caliber_c1_indoor_luminance
+
+      # 步骤 197（G11.2 M145 C2 曝光链派生尺度对齐闭环门
+      # g11.p0.m145.caliber_c2_exposure_chain；G11 CI_GATES §4 v1.1；G11_CONTRACT
+      # §4.2 M145 行判据逐字 / G-G11-4；G11_ACCEPTANCE_MAP §1 M145 行；
+      # spec/visual_comparison.md RXS-0386 L2 / RXS-0393；落盘前实测
+      # CI_step.next_free=196 顺位领取 196/197——196 归 M144）。host 纯 host 门：
+      # 双端 EV100 同字面下派生尺度对齐（Rurix 臂管线内烘焙 2^(−EV100) 与 UE 臂
+      # pipe 内 FixedExposure 同域 → LDR 派生尺度双端统一 ×1.0，基线 cornell 0.75 /
+      # bistro 0.5 → 复测 0.0）+ 派生链元数据互证回归（source_frame_digest ==
+      # HDR 内容 digest 独立重算）+ 收敛阈标定程序产（p100×k 两跑逐位一致，入
+      # g11_budget g11.caliber.c2_exposure_scale_tol 字节级纯追加）+ budget_eval
+      # --strict 全 PASS；未对齐出 LDR 度量/互证链断裂/手写阈值/estimated 冒充四
+      # RED 臂全检出。evidence 落盘
+      # evidence/g11_m145_caliber_c2_exposure_chain_<UTC>.json。
+      - name: G11.2 M145 caliber C2 exposure chain (G11 CI_GATES §4.197, g11.p0.m145.caliber_c2_exposure_chain)
+        shell: powershell
+        run: py -3 ci/g11_caliber_c2_exposure_chain_smoke.py --gate g11.p0.m145.caliber_c2_exposure_chain
+
+      # 步骤 198（G11.2 M146 C3 EXR 位深对齐闭环门
+      # g11.p0.m146.caliber_c3_exr_bit_depth；G11 CI_GATES §4 v1.1；G11_CONTRACT
+      # §4.2 M146 行判据逐字 / G-G11-4；G11_ACCEPTANCE_MAP §1 M146 行；
+      # spec/imageio.md RXS-0385 / spec/visual_comparison.md RXS-0393；落盘前实测
+      # CI_step.next_free=196 顺位领取 196~198）。host 纯 host 门：UE EXR fp16→f32
+      # 提升口径（RXS-0385 strip-and-log）与 Rurix 原生 f32 度量域对齐登记（提升
+      # 全 65536 位模式穷举精确核验 + UE 帧逐像素可逆核验）+ 位深元数据闭集回归
+      # （基线 16.0 → 复测度量域 0.0，源位深量化差显式登记残余）+ 收敛阈标定程序
+      # 产（p100×k 两跑逐位一致，入 g11_budget g11.caliber.c3_bitdepth_domain_tol
+      # 字节级纯追加）+ budget_eval --strict 全 PASS；位深截断注入/元数据缺字段/
+      # 手写阈值/estimated 冒充四 RED 臂全检出。evidence 落盘
+      # evidence/g11_m146_caliber_c3_exr_bit_depth_<UTC>.json。
+      - name: G11.2 M146 caliber C3 EXR bit depth (G11 CI_GATES §4.198, g11.p0.m146.caliber_c3_exr_bit_depth)
+        shell: powershell
+        run: py -3 ci/g11_caliber_c3_exr_bit_depth_smoke.py --gate g11.p0.m146.caliber_c3_exr_bit_depth
+
+      # 步骤 199（G11.2 M157 HDR-FLIP 独立标定门（P1）
+      # g11.p1.m157.hdr_flip_calibration；G11 CI_GATES §4A v1.1；G11_ACCEPTANCE_MAP
+      # §2 M157 行判据 / G-G11-4；G10-N10 承接锚兑现——G10.4b HDR-FLIP 仅探针臂
+      # 遗留面；spec/visual_comparison.md RXS-0389 L2/L5 + RXS-0393；RFC-0026
+      # §4.2 F10 估计器语义；落盘前实测 CI_step.next_free=196 顺位领取 196~199）。
+      # host 纯 host 门：HDR 域正式对拍样本集（G11.2 复跑真实 HDR 帧双臂
+      # cornell-box + bistro-interior × UE5/Rurix 臂，4×4 瓦片 32 对 ≥ 下界 24，
+      # 清单 + 每对 digest + manifest digest 入 evidence）+ 标定程序可复跑（两跑
+      # 逐位一致，自实现 flip_hdr vs 参考实现 flip_evaluator 逐对标量差与误差图
+      # 逐像素差分列 p100）+ 标定值 p100×k=2.0 measured 入 g11_budget
+      # （g11.metric.hdr_flip_pairwise_scalar_tol / hdr_flip_pairwise_error_map_tol
+      # 字节级纯追加，P-09 禁手写阈值）+ 恒等图对 == 0 + budget_eval --strict 全
+      # PASS；手写阈值/estimated 冒充/不可复跑/低于下界冒充四 RED 臂全检出。
+      # evidence 落盘 evidence/g11_m157_hdr_flip_calibration_<UTC>.json。
+      - name: G11.2 M157 HDR-FLIP calibration (G11 CI_GATES §4A.199, g11.p1.m157.hdr_flip_calibration)
+        shell: powershell
+        run: py -3 ci/g11_hdr_flip_calibration_smoke.py --gate g11.p1.m157.hdr_flip_calibration
+
+      # 步骤 200（G11.2 波聚合门 g11.wave.2.exit；G11 CI_GATES §5 v1.1；G11_CONTRACT
+      # G-G11-4；落盘前实测 CI_step.next_free=196 顺位领取 196~200）。只读汇总
+      # M144（步骤 196）/M145（步骤 197）/M146（步骤 198）/M157（步骤 199）最新
+      # evidence + spec 条款头在树（visual_comparison.md RXS-0392/0393，共 2 枚）+
+      # RFC-0028 Agent Approved 字面 + 残余口径差登记在树且完备（R3/R4 承接锚非
+      # 空）+ 标定值入 g11_budget 且 provenance 齐备（四条 g11.caliber.*/g11.metric.*
+      # 条目 measured_local + evidence_file 在树可解 trimmed_mean + threshold ==
+      # trimmed_mean × k 重算口径，P-09）+ 四门 RED 臂独立有效（共 15 臂）；聚合
+      # 不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言
+      # FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g11_wave2_exit_<UTC>.json。
+      - name: G11.2 wave2 exit aggregate (G11 CI_GATES §5.200, g11.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g11_wave2_exit_check.py --gate g11.wave.2.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

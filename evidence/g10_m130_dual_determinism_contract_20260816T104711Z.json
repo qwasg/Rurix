@@ -1,0 +1,354 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m130_dual_determinism_contract",
+  "symbolic_gate_key": "g10.p0.m130.dual_determinism_contract",
+  "matrix_row": "M130",
+  "milestone": "M130",
+  "assertion_id": "g10.p0.m130.dual_determinism_contract",
+  "status": "pass",
+  "wave": "G10.5",
+  "phase": "g10.5",
+  "phase_g10_2_pass": true,
+  "phase_g10_5_pass": true,
+  "numeric_step": 187,
+  "source_ref": "RFC-0026 §4.6;spec/visual_comparison.md RXS-0384;G10_ACCEPTANCE_MAP §1 M130 + §3.3;spec/visual_comparison.md RXS-0390;RFC-0026 v1.1 章 E",
+  "base_commit": "5408716115d0415c3006f33efabff7b648f45c57",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "skeleton_phase_regression": true,
+    "dual_scene_coverage": true,
+    "contract_params_deterministic_regen": true,
+    "rurix_rust_digest_real_run": true,
+    "ue_inprocess_digest_real_run": true,
+    "triple_digest_equal": true,
+    "landmark_set_matches_spec": true,
+    "application_probe_dual_end": true,
+    "three_binding_fields_registered": true,
+    "red_param_drift_detected": true,
+    "red_wrong_conjugation_detected": true,
+    "red_landmark_tamper_detected": true,
+    "red_stale_binding_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_param_contract.py H:\\rurix\\milestones\\g10\\harness\\examples\\contract_params_entry_smoke.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_gen_contract_params.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo build -p rurix-asset --bin g10_5_scene_render",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\debug\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_probe_landmarks.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_probe_landmarks.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "H:\\rurix\\target\\debug\\g10_5_scene_render.exe --project-landmarks --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --landmarks H:\\rurix\\milestones\\g10\\corpus\\landmarks_cornell_box.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "H:\\rurix\\target\\debug\\g10_5_scene_render.exe --project-landmarks --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --landmarks H:\\rurix\\milestones\\g10\\corpus\\landmarks_bistro_interior.json",
+      "exit_code": 0
+    }
+  ],
+  "contract_report": {
+    "phase": "g10.5",
+    "scenes": {
+      "cornell-box": {
+        "params_path": "milestones/g10/corpus/contract_params_cornell_box.json",
+        "param_digest": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118"
+      },
+      "bistro-interior": {
+        "params_path": "milestones/g10/corpus/contract_params_bistro_interior.json",
+        "param_digest": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514"
+      }
+    },
+    "param_digest_rurix": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+    "param_digest_ue5": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+    "param_digest": "sha256:64fd54df6e9be522d6dbb3bec8fac1eb30a0a421c7a5a8185a3452c381178aa4",
+    "param_digest_note": "param_digest = sha256(双场景各自 digest 字典序拼接)——联合登记值；逐场景 digest 见 scenes[]（逐场景三方相等实测）",
+    "dual_digest_equal": true,
+    "session_run_id": "g10ab-20260816T104711Z",
+    "application_probes": [
+      {
+        "scene_id": "cornell-box",
+        "landmarks": [
+          {
+            "index": 0,
+            "world": [
+              0.0,
+              0.0,
+              558.8
+            ],
+            "pixel_rurix": [
+              402.64224,
+              400.0048
+            ],
+            "pixel_ue5": [
+              402.64224389338494,
+              400.0047934636478
+            ],
+            "pixel_host_ref": [
+              402.6422494414495,
+              400.00479891192697
+            ],
+            "pixel_delta": 6.536352202601847e-06,
+            "pass": true
+          },
+          {
+            "index": 1,
+            "world": [
+              552.8,
+              0.0,
+              558.8
+            ],
+            "pixel_rurix": [
+              111.04573,
+              400.0048
+            ],
+            "pixel_ue5": [
+              111.04572438164703,
+              400.0047934636478
+            ],
+            "pixel_host_ref": [
+              111.04571889744494,
+              400.00479891192697
+            ],
+            "pixel_delta": 6.536352202601847e-06,
+            "pass": true
+          },
+          {
+            "index": 2,
+            "world": [
+              552.8,
+              548.8,
+              558.8
+            ],
+            "pixel_rurix": [
+              111.04573,
+              110.518234
+            ],
+            "pixel_ue5": [
+              111.04572438164703,
+              110.51823429569947
+            ],
+            "pixel_host_ref": [
+              111.04571889744494,
+              110.51822879154042
+            ],
+            "pixel_delta": 5.618352972192042e-06,
+            "pass": true
+          },
+          {
+            "index": 3,
+            "world": [
+              0.0,
+              548.8,
+              558.8
+            ],
+            "pixel_rurix": [
+              402.64224,
+              110.518234
+            ],
+            "pixel_ue5": [
+              402.64224389338494,
+              110.51823429569947
+            ],
+            "pixel_host_ref": [
+              402.6422494414495,
+              110.51822879154042
+            ],
+            "pixel_delta": 5.548064564209199e-06,
+            "pass": true
+          },
+          {
+            "index": 4,
+            "world": [
+              276.4,
+              274.4,
+              558.8
+            ],
+            "pixel_rurix": [
+              256.844,
+              255.26152
+            ],
+            "pixel_ue5": [
+              256.843984137516,
+              255.26151387967363
+            ],
+            "pixel_host_ref": [
+              256.8439841694472,
+              255.26151385173372
+            ],
+            "pixel_delta": 1.5862484019635303e-05,
+            "pass": true
+          }
+        ]
+      },
+      {
+        "scene_id": "bistro-interior",
+        "landmarks": [
+          {
+            "index": 0,
+            "world": [
+              2.0375248420941845,
+              1.3697032820278594,
+              -1.659558344540145
+            ],
+            "pixel_rurix": [
+              960.00024,
+              540.00006
+            ],
+            "pixel_ue5": [
+              959.9999835062192,
+              540.0000019261616
+            ],
+            "pixel_host_ref": [
+              960.0,
+              540.0
+            ],
+            "pixel_delta": 0.0002564937807392198,
+            "pass": true
+          },
+          {
+            "index": 1,
+            "world": [
+              2.146339873629146,
+              1.6862064060565474,
+              -0.8219174961900162
+            ],
+            "pixel_rurix": [
+              1536.0001,
+              324.0
+            ],
+            "pixel_ue5": [
+              1535.9999516817052,
+              324.00001419242017
+            ],
+            "pixel_host_ref": [
+              1536.0,
+              324.00000000000006
+            ],
+            "pixel_delta": 0.00014831829480499437,
+            "pass": true
+          },
+          {
+            "index": 2,
+            "world": [
+              1.9521887623639345,
+              1.6862064214520678,
+              -2.4999157956664435
+            ],
+            "pixel_rurix": [
+              383.99997,
+              324.0
+            ],
+            "pixel_ue5": [
+              384.0000096662146,
+              324.0000114040944
+            ],
+            "pixel_host_ref": [
+              384.0000000000001,
+              323.99999999999994
+            ],
+            "pixel_delta": 3.96662146044946e-05,
+            "pass": true
+          },
+          {
+            "index": 3,
+            "world": [
+              2.1228609218244348,
+              1.053200142603651,
+              -0.8192008934138462
+            ],
+            "pixel_rurix": [
+              1536.0001,
+              756.00006
+            ],
+            "pixel_ue5": [
+              1535.9999517209883,
+              755.9999903387654
+            ],
+            "pixel_host_ref": [
+              1535.9999999999998,
+              756.0000000000002
+            ],
+            "pixel_delta": 0.00014827901168246171,
+            "pass": true
+          },
+          {
+            "index": 4,
+            "world": [
+              1.9287098105592226,
+              1.0532001579991714,
+              -2.4971991928902737
+            ],
+            "pixel_rurix": [
+              383.99997,
+              756.00006
+            ],
+            "pixel_ue5": [
+              384.0000091902424,
+              755.9999919625873
+            ],
+            "pixel_host_ref": [
+              383.9999999999999,
+              756.0000000000001
+            ],
+            "pixel_delta": 6.80374126886818e-05,
+            "pass": true
+          }
+        ]
+      }
+    ],
+    "pixel_delta_tol": 0.001,
+    "rurix_side_note": "Rurix 端 = Rust 第三实现 g10_5_scene_render（RXS-0384 L3 同字面；--contract-digest / --project-landmarks 真跑）",
+    "ue_side_note": "UE 端 = 进程内嵌 CPython（g10_param_contract.py 同一源文件）实跑 digest + as-built 相机读回探针（g10_5_probe_landmarks.py，载体内嵌 CPython 钉死字面兑现）"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T104711Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "错误共轭注入实测超差 d_def=inf px（>1e-3 检出）；修订式 d_fix=2.842171e-13 px"
+}

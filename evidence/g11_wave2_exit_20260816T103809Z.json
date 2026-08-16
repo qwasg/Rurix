@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "subject": "g11_wave2_exit",
+  "symbolic_gate_key": "g11.wave.2.exit",
+  "matrix_row": "G11.2",
+  "wave": "G11.2",
+  "numeric_step": 200,
+  "source_ref": "milestones/g11/CI_GATES.md §5;G11_CONTRACT G-G11-4;G11_ACCEPTANCE_MAP §1/§2;RFC-0028 §4.5/§4.6;RXS-0392/0393 clause heads on tree;residual caliber registry complete;calibrated thresholds in g11_budget with provenance (P-09);four gates red arms independently effective",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g11.p0.m144.caliber_c1_indoor_luminance",
+      "subject_prefix": "g11_m144_caliber_c1_indoor_luminance",
+      "evidence_path": "evidence/g11_m144_caliber_c1_indoor_luminance_20260816T102753Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T102753Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g11.p0.m145.caliber_c2_exposure_chain",
+      "subject_prefix": "g11_m145_caliber_c2_exposure_chain",
+      "evidence_path": "evidence/g11_m145_caliber_c2_exposure_chain_20260816T102846Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T102846Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g11.p0.m146.caliber_c3_exr_bit_depth",
+      "subject_prefix": "g11_m146_caliber_c3_exr_bit_depth",
+      "evidence_path": "evidence/g11_m146_caliber_c3_exr_bit_depth_20260816T102847Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T102847Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g11.p1.m157.hdr_flip_calibration",
+      "subject_prefix": "g11_m157_hdr_flip_calibration",
+      "evidence_path": "evidence/g11_m157_hdr_flip_calibration_20260816T103623Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T103623Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rxs0392_0393_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/visual_comparison.md RXS-0392/0393 条款头全在树（共 2 枚）"
+    },
+    {
+      "id": "rfc0028_agent_approved",
+      "status": "PASS",
+      "detail": "RFC-0028: | 状态 | **Agent Approved（2026-08-16）**——D-409 对抗性评审已完成：独立评审会话 12 findings（3 high F1~F3 / 5 med F4~F8 / 4 low F9~F12）全部 disposition 落实（v0.2 修法批），§9.1 评审记录段已回填；同环境单一模型 provenance 偏差按 RFC-0015 §9.1/v1.29/v1.73（G9 三 RFC）/v1.90（RFC-0025）/v1.102（G10 双 RFC）先例如实登记于 §9.1，效力自限并留 G11.7b 终审复核锚。主会话核对契约/MAP/CI_GATES 三面一致后翻 Agent Approved。Approved 不构成实现许可，G11.2+ 由 G-G11-3 实现互锁硬门独立阻断 |"
+    },
+    {
+      "id": "residual_caliber_registry_complete",
+      "status": "PASS",
+      "detail": "g11_2_residual_caliber_registry 逐环节非空 + R3（m153）/R4（m154）承接锚非空（RXS-0392 L4）"
+    },
+    {
+      "id": "calibrated_thresholds_in_budget_with_provenance",
+      "status": "FAIL",
+      "detail": "g11.caliber.c3_bitdepth_domain_tol description 缺样本集 digest 引用"
+    },
+    {
+      "id": "four_gates_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M144/M145/M146/M157 四门最新 evidence 各含 red_* checks 且全真（共 15 臂独立有效）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": false,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T103809Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: four G11.2 gates (P0 M144 caliber_c1_indoor_luminance step 196 / P0 M145 caliber_c2_exposure_chain step 197 / P0 M146 caliber_c3_exr_bit_depth step 198 / P1 M157 hdr_flip_calibration step 199); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RXS-0392/0393 clause heads + RFC-0028 Agent Approved literal + residual caliber registry complete + calibrated thresholds in g11_budget with provenance (P-09) + four gates red arms independently effective; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

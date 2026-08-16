@@ -1,0 +1,10 @@
+//@ spec: RXS-0393
+// G11.2 spec-first 锚定语料（RXS-0393 L3 负例面）：手写阈值冒充标定——闭环
+// threshold 无标定程序 provenance（≠ p100×k 重算口径）、estimated 冒充
+// measured_local、或标定缺失时以「delta 有变小」叙述冒充收敛判定，均即 RED。
+// 负例数据面（最小说明性 fixture）：closure.threshold_provenance 缺 budget
+// 条目引用 / threshold ≠ measured_value × k 的「闭环」报告——门侧重算口径
+// fail-closed。
+// 转正路径（G11.2 波接线）：ci/g11_caliber_c2_exposure_chain_smoke.py 门
+// RED 臂（red_handwritten_threshold / red_estimated_masquerade）。
+fn main() {}

@@ -1989,6 +1989,14 @@
       "conformance/visual_comparison/accept/gap_registry_minimal.rx",
       "conformance/visual_comparison/reject/gap_registry_missing_attribution.rx",
       "conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx"
+    ],
+    "RXS-0392": [
+      "conformance/visual_comparison/accept/caliber_alignment_minimal.rx",
+      "conformance/visual_comparison/reject/caliber_fitting_masquerade.rx"
+    ],
+    "RXS-0393": [
+      "conformance/visual_comparison/accept/fix_closure_criterion_minimal.rx",
+      "conformance/visual_comparison/reject/closure_handwritten_threshold.rx"
     ]
   }
 }

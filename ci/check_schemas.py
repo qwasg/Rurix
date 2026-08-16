@@ -628,6 +628,24 @@ def check_evidence_files() -> None:
     g11_closure_baseline_schema = load(
         ROOT / "milestones/g11/g11_closure_baseline_evidence_schema.json"
     )
+    g11_m144_caliber_c1_schema = load(
+        ROOT / "milestones/g11/g11_m144_caliber_c1_indoor_luminance_evidence_schema.json"
+    )
+    g11_m145_caliber_c2_schema = load(
+        ROOT / "milestones/g11/g11_m145_caliber_c2_exposure_chain_evidence_schema.json"
+    )
+    g11_m146_caliber_c3_schema = load(
+        ROOT / "milestones/g11/g11_m146_caliber_c3_exr_bit_depth_evidence_schema.json"
+    )
+    g11_m157_hdr_flip_schema = load(
+        ROOT / "milestones/g11/g11_m157_hdr_flip_calibration_evidence_schema.json"
+    )
+    g11_wave2_exit_schema = load(
+        ROOT / "milestones/g11/g11_wave2_exit_evidence_schema.json"
+    )
+    g11_2_calibration_schema = load(
+        ROOT / "milestones/g11/g11_2_calibration_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1402,6 +1420,36 @@ def check_evidence_files() -> None:
     g11_closure_baseline_validator = (
         jsonschema.Draft7Validator(g11_closure_baseline_schema)
         if g11_closure_baseline_schema is not None
+        else None
+    )
+    g11_m144_caliber_c1_validator = (
+        jsonschema.Draft7Validator(g11_m144_caliber_c1_schema)
+        if g11_m144_caliber_c1_schema is not None
+        else None
+    )
+    g11_m145_caliber_c2_validator = (
+        jsonschema.Draft7Validator(g11_m145_caliber_c2_schema)
+        if g11_m145_caliber_c2_schema is not None
+        else None
+    )
+    g11_m146_caliber_c3_validator = (
+        jsonschema.Draft7Validator(g11_m146_caliber_c3_schema)
+        if g11_m146_caliber_c3_schema is not None
+        else None
+    )
+    g11_m157_hdr_flip_validator = (
+        jsonschema.Draft7Validator(g11_m157_hdr_flip_schema)
+        if g11_m157_hdr_flip_schema is not None
+        else None
+    )
+    g11_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g11_wave2_exit_schema)
+        if g11_wave2_exit_schema is not None
+        else None
+    )
+    g11_2_calibration_validator = (
+        jsonschema.Draft7Validator(g11_2_calibration_schema)
+        if g11_2_calibration_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2799,6 +2847,76 @@ def check_evidence_files() -> None:
             # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
             # evaluator 分支。前缀与 g7_*/g8_*/g9_* 全族互不包含，置于 g9 族后安全。
             validator = g10_baseline_validator
+        elif (
+            f.name.startswith("g11_m145_calibration_")
+            and g11_2_calibration_validator is not None
+        ):
+            # G11.2 M145 C2 曝光链标定件（步骤 197 门产）→
+            # milestones/g11/g11_2_calibration_evidence_schema.json：双端 LDR 派生尺度差
+            # p100 × k=1.0（两跑逐位一致）供 g11.caliber.c2_exposure_scale_tol 判读。
+            # 前缀与 g11_m145_caliber_ 门件互不包含（calibration vs caliber 第九字符分叉），
+            # 置于门件映射前安全。
+            validator = g11_2_calibration_validator
+        elif (
+            f.name.startswith("g11_m146_calibration_")
+            and g11_2_calibration_validator is not None
+        ):
+            # G11.2 M146 C3 位深标定件（步骤 198 门产）→ 同上共享 schema：双场景度量域
+            # 位深差 p100 × k=1.0 + fp16→f32 全 65536 位模式穷举核验，
+            # 供 g11.caliber.c3_bitdepth_domain_tol 判读。
+            validator = g11_2_calibration_validator
+        elif (
+            f.name.startswith("g11_m157_calibration_")
+            and g11_2_calibration_validator is not None
+        ):
+            # G11.2 M157 HDR-FLIP 标定件（步骤 199 门产）→ 同上共享 schema：真实 HDR 帧
+            # 双臂 4×4 瓦片 32 对逐对标量差/误差图差 p100 × k=2.0，供
+            # g11.metric.hdr_flip_pairwise_{scalar,error_map}_tol 判读。
+            validator = g11_2_calibration_validator
+        elif (
+            f.name.startswith("g11_wave2_exit_")
+            and g11_wave2_exit_validator is not None
+        ):
+            # G11.2 波聚合门（步骤 200）→ milestones/g11/g11_wave2_exit_evidence_schema.json：
+            # M144/M145/M146/M157 四门最新 evidence 只读汇总 + spec 条款头/RFC-0028/残余登记/
+            # 标定入 budget/四门 RED 臂五 facts；aggregate_read_only const true。
+            validator = g11_wave2_exit_validator
+        elif (
+            f.name.startswith("g11_m144_caliber_c1_indoor_luminance_")
+            and g11_m144_caliber_c1_validator is not None
+        ):
+            # G11.2 P0 硬门 M144 C1 亮度口径对齐（步骤 196）→
+            # milestones/g11/g11_m144_caliber_c1_indoor_luminance_evidence_schema.json：
+            # 太阳/天光/曝光链逐行对齐 provenance + 残余口径差逐环节显式登记 +
+            # 复测 delta 与登记残余一致 + 契约 digest 0-byte + RED 三臂。
+            validator = g11_m144_caliber_c1_validator
+        elif (
+            f.name.startswith("g11_m145_caliber_c2_exposure_chain_")
+            and g11_m145_caliber_c2_validator is not None
+        ):
+            # G11.2 P0 硬门 M145 C2 曝光链对齐（步骤 197）→
+            # milestones/g11/g11_m145_caliber_c2_exposure_chain_evidence_schema.json：
+            # 派生尺度双端统一 ×1.0（基线 0.75/0.5 → 复测 0.0）+ 派生链元数据互证回归 +
+            # 收敛阈标定入 g11_budget + RED 四臂。
+            validator = g11_m145_caliber_c2_validator
+        elif (
+            f.name.startswith("g11_m146_caliber_c3_exr_bit_depth_")
+            and g11_m146_caliber_c3_validator is not None
+        ):
+            # G11.2 P0 硬门 M146 C3 位深对齐（步骤 198）→
+            # milestones/g11/g11_m146_caliber_c3_exr_bit_depth_evidence_schema.json：
+            # UE fp16→f32 提升穷举精确 + 度量域统一（基线 16.0 → 复测 0.0）+
+            # 元数据闭集回归 + 标定入 g11_budget + RED 四臂。
+            validator = g11_m146_caliber_c3_validator
+        elif (
+            f.name.startswith("g11_m157_hdr_flip_calibration_")
+            and g11_m157_hdr_flip_validator is not None
+        ):
+            # G11.2 P1 硬门 M157 HDR-FLIP 独立标定（步骤 199）→
+            # milestones/g11/g11_m157_hdr_flip_calibration_evidence_schema.json：
+            # 真实 HDR 帧双臂样本集（32 对 ≥ 下界 24）+ 两跑逐位一致 +
+            # p100×k=2.0 入 g11_budget + 恒等图对 == 0 + RED 四臂。
+            validator = g11_m157_hdr_flip_validator
         elif (
             f.name.startswith("g11_closure_baseline_")
             and g11_closure_baseline_validator is not None

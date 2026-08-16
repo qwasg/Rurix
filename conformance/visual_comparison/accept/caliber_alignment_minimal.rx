@@ -1,0 +1,13 @@
+//@ spec: RXS-0392
+// G11.2 spec-first 锚定语料（spec/visual_comparison.md RXS-0392 L1~L5：C1 口径
+// 对齐——不拟合原则 + 天光链参数集枚举闭集〔天光模式/强度同单位链/色温或
+// cubemap 资产 digest/采样档位〕+ 太阳 lux→辐射度链双端同构登记〔UE 臂光色
+// 线性直给 b_srgb=False〕+ 残余口径差逐环节显式登记〔载体
+// milestones/g11/g11_2_residual_caliber_registry.json，未登记即 RED〕+ 消费门序
+// 〔未对齐口径消费复测 delta 即 RED；契约 digest 三面绑定 0-byte〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：天光/太阳链逐环节
+// contract_value/ue_applied/rurix_applied provenance 齐备且 aligned=true；
+// 残余口径差逐环节登记非空。
+// 转正路径（G11.2 波接线）：ci/g11_caliber_c1_indoor_luminance_smoke.py 门
+// （symbolic key g11.p0.m144.caliber_c1_indoor_luminance，G11.1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "registry": "g11_2_residual_caliber_registry",
+  "generated_by": "milestones/g11/harness/g11_2_ab_rerun.py --stage registry",
+  "semantics": "C1 口径对齐后残余口径差逐环节显式登记（RXS-0392 L4；不拟合、只登记——口径差行不是被修没，残余 delta 全额归属本登记项，G11.5 复测差距清单 caliber_diff 面消费）",
+  "aligned_chains": [
+    {
+      "chain": "sun_color",
+      "scene_id": "bistro-interior",
+      "before": "UE 臂 set_light_color b_srgb=True——契约 color_linear_rgb [1.0,0.98,0.95] 被 sRGB 二次转线性（有效值 [1.0,0.9551,0.8902]，G −2.5% / B −6.3% 实测口径偏差）",
+      "after": "UE 臂 set_light_color b_srgb=False 线性直给 [1.0,0.98,0.95]（RXS-0392 L3）——与 Rurix 臂 sun_color = rgb×lux 同构",
+      "status": "aligned_fixed"
+    },
+    {
+      "chain": "sun_lux_to_radiance",
+      "scene_id": "both",
+      "before": "UE DirectionalLight lux → L=ρ·E·(n·l)/π；Rurix sun_color=rgb·lux → direct=·ndl·albedo/π——同构（G10.5a 登记面）",
+      "after": "同构复核维持（本批双端同参数登记）",
+      "status": "aligned_verified"
+    },
+    {
+      "chain": "sky_intensity",
+      "scene_id": "both",
+      "before": "UE SkyLight 指定 cubemap × intensity（cubemap = 白色常量 1.0 uniform，digest 实测登记）= scene-linear 辐射度；Rurix 常量天光辐射度 = sky.intensity——同单位链（G10.5a 登记面）",
+      "after": "同单位链复核维持 + cubemap 逐像素值核验（=1.0 uniform）",
+      "status": "aligned_verified"
+    },
+    {
+      "chain": "exposure_scale",
+      "scene_id": "both",
+      "before": "Rurix 臂 LDR 派生 ×2^(−EV100)（cornell 0.25 / bistro 0.5）vs UE 臂 pipe 内 FixedExposure=2^(−EV100) 已施 ×1.0——C2 口径差",
+      "after": "Rurix 臂曝光尺度管线内烘焙 2^(−EV100)（--exposure-scale）与 UE 臂同域；LDR 派生尺度双端统一 ×1.0（C2 对齐落点）",
+      "status": "aligned_fixed"
+    }
+  ],
+  "items": [
+    {
+      "residual_id": "c1_light_seed_subset_r3",
+      "chain": "light_seed_subset",
+      "scene_id": "bistro-interior",
+      "kind": "residual_caliber_diff",
+      "description": "UE 臂表达 bistro 包内 pointLight1~N（glTF 节点实测 4+ 盏）与 emissive 面；Rurix 臂灯种子集 = 契约 sun + sky 常量天光（点/面光源与 glTF emissive 不表达）——灯种子集结构差",
+      "measured_impact": {
+        "hdr_luminance_median_delta_post_alignment": 2.7314592314362525,
+        "hdr_luminance_p90_delta_post_alignment": 4.8486343559026714
+      },
+      "disposition_anchor": "R3 修复承接面（g11.p0.m153.fix_r3_light_subset，G11.4 波；g10_gap_registry.json R3 行 g11_anchor 字面）",
+      "status": "registered"
+    },
+    {
+      "residual_id": "c1_gi_structure_multibounce_r4",
+      "chain": "gi_structure",
+      "scene_id": "bistro-interior",
+      "kind": "residual_caliber_diff",
+      "description": "UE 臂 Lumen 多反弹 GI（屏幕探针 + 世界辐射缓存双级）vs Rurix 臂屏幕探针单反弹（host 参考管线）——GI 结构/反弹级数差；全向 IBL 遮蔽细节（UE SkyLight × Lumen AO）vs 探针 SH 单反弹覆盖差",
+      "measured_impact": {
+        "hdr_luminance_p90_delta_post_alignment": 4.8486343559026714
+      },
+      "disposition_anchor": "R4 修复承接面（g11.p0.m154.fix_r4_gi_multibounce_world_cache，G11.4 波；g10_gap_registry.json R4 行 g11_anchor 字面 + RFC-0028 §4.1/§4.2）",
+      "status": "registered"
+    },
+    {
+      "residual_id": "c1_cornell_gi_structure_r4",
+      "chain": "gi_structure",
+      "scene_id": "cornell-box",
+      "kind": "residual_caliber_diff",
+      "description": "cornell 封闭盒多反弹能量回归（UE Lumen）vs Rurix 单反弹——同 GI 结构差在 cornell 场景的投影（块区 p90 UE vs Rurix ≈1.95× 面）",
+      "measured_impact": {
+        "hdr_luminance_p90_delta_post_alignment": 0.29024957587122924
+      },
+      "disposition_anchor": "R4 修复承接面（g11.p0.m154，G11.4 波）",
+      "status": "registered"
+    },
+    {
+      "residual_id": "c1_ue_specular_ibl",
+      "chain": "sky_ibl_structure",
+      "scene_id": "both",
+      "kind": "residual_caliber_diff",
+      "description": "UE 臂 SkyLight 镜面 IBL / 反射环境（specular）vs Rurix 臂 Lambert-only 漫反射——镜面能量通道结构差（漫反射链已参数化对齐）",
+      "measured_impact": null,
+      "disposition_anchor": "显式留档（G11 期不承接；G15 画质量级收口面候选登记）",
+      "status": "registered"
+    },
+    {
+      "residual_id": "c3_source_bit_depth_quantization",
+      "chain": "bit_depth_source",
+      "scene_id": "both",
+      "kind": "residual_caliber_diff",
+      "description": "UE MRQ 源帧位深 fp16（写出时量化一次）vs Rurix 原生 f32——源位深量化差；度量域已统一提升 f32（fp16→f32 提升精确无损，C3 对齐面），源帧量化本身不可回退",
+      "measured_impact": null,
+      "disposition_anchor": "C3 口径行承接面（g11.p0.m146.caliber_c3_exr_bit_depth，G11.2 波——度量域对齐登记 + 本源差显式留档）",
+      "status": "registered"
+    }
+  ]
+}
