@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.3 M151 fix_u2_bistro_texture_dds evidence",
+  "description": "evidence/g11_m151_fix_u2_bistro_texture_dds_<UTC>.json。U2 bistro 纹理（DDS 面）修复闭环：DDS 解码面落地（bcdec 真实解码 BC1/BC3/BC5 + 派生链转码 manifest 逐文件 digest 机核，G10-N7 承接锚兑现）+ 材质实例 texture_parameter_values 非空回归（70 MIC 显式绑定）+ 修复前后 LDR 亮度中位 delta 收敛 measured（锁定基线 0.7698879749655723）；纹理仍全缺冒充/未登记资产混入/未收敛冒充/手写阈值/estimated 冒充 RED 臂全检出。（步骤 205；G11_CONTRACT §4.2 M151 行判据逐字 / G-G11-5；G11_ACCEPTANCE_MAP §1 M151 行；CI_GATES §4；spec/visual_comparison.md RXS-0393）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "texture_provenance",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_m151_fix_u2_bistro_texture_dds"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.p0.m151.fix_u2_bistro_texture_dds"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M151"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M151"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g11.p0.m151.fix_u2_bistro_texture_dds"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 205
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M151 + G-G11-5;G11_ACCEPTANCE_MAP §1 M151;CI_GATES §4;g10_gap_registry U2 行承接锚 + G10-N7 承接锚;spec/visual_comparison.md RXS-0393"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "dds_decode_face_landed",
+        "dds_decode_reproduction_anchor",
+        "ue_texture_params_nonnull",
+        "ue_frame_changed_vs_g10",
+        "unregistered_asset_guard",
+        "baseline_metric_reproduction",
+        "closure_delta_converged_measured",
+        "calibration_rerun_deterministic",
+        "budget_entry_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_texture_still_missing_detected",
+        "red_unregistered_asset_detected",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": {
+          "type": "boolean"
+        },
+        "dds_decode_face_landed": {
+          "type": "boolean"
+        },
+        "dds_decode_reproduction_anchor": {
+          "type": "boolean"
+        },
+        "ue_texture_params_nonnull": {
+          "type": "boolean"
+        },
+        "ue_frame_changed_vs_g10": {
+          "type": "boolean"
+        },
+        "unregistered_asset_guard": {
+          "type": "boolean"
+        },
+        "baseline_metric_reproduction": {
+          "type": "boolean"
+        },
+        "closure_delta_converged_measured": {
+          "type": "boolean"
+        },
+        "calibration_rerun_deterministic": {
+          "type": "boolean"
+        },
+        "budget_entry_appended_measured_local": {
+          "type": "boolean"
+        },
+        "budget_eval_strict_all_pass": {
+          "type": "boolean"
+        },
+        "red_texture_still_missing_detected": {
+          "type": "boolean"
+        },
+        "red_unregistered_asset_detected": {
+          "type": "boolean"
+        },
+        "red_handwritten_threshold_detected": {
+          "type": "boolean"
+        },
+        "red_estimated_masquerade_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_row_id",
+        "baseline_delta",
+        "retest_delta",
+        "converged",
+        "threshold_provenance",
+        "contract_digest_unchanged"
+      ],
+      "properties": {
+        "gap_row_id": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16
+        },
+        "baseline_delta": {
+          "type": "number"
+        },
+        "retest_delta": {
+          "type": "number"
+        },
+        "converged": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_digest_unchanged": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "texture_provenance": {
+      "type": "object",
+      "description": "U2 纹理修复 provenance：转码 manifest / UE 纹理参数回归 / 绑定计数 / 帧 digest / 复测与基线中位",
+      "additionalProperties": true
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "host_section_pass": {
+            "const": true
+          },
+          "closure": {
+            "properties": {
+              "converged": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -52,7 +52,11 @@ CINE_ROOT = "/Game/Cinematics"
 
 SCENE_GLTF = {
     "cornell-box": "K:/rurix_g10_cache/cornell-box-generated/v1/cornell_box.gltf",
-    "bistro-interior": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    # G11.3 U2 修复面：bistro 导入面 = G11.3 派生链转码产物（DDS→PNG，UE
+    # Interchange 不消费 .dds 的绕行面——G10-N7 承接锚兑现；派生 gltf 仅
+    # images[].uri 扩展名改写，buffer.bin 逐字节复制，G10 语料 0-byte 只读；
+    # 产物登记 milestones/g11/g11_3_dds_transcode_manifest.json）。
+    "bistro-interior": "K:/rurix-ext/g11-assets/bistro-interior-ue/BistroInterior.gltf",
 }
 SCENE_MAP = {
     "cornell-box": "G10_CornellBox",
@@ -128,6 +132,155 @@ def import_scene_gltf(scene_id):
 # 3) glTF 网格资产 → 关卡 actors（actor 世界变换 = R_fix；节点变换烘焙定案见头注）
 # ---------------------------------------------------------------------------
 
+def ensure_two_sided_parent():
+    """G11.3 U1 修复面：双面父材质（壳体内表面参与光照——语料单面片外向绕向
+    × UE 背面剔除口径的 harness 侧对齐；颜色经 BaseColor 向量参数走 MIC）。
+    粗糙度 1.0 / 金属 0.0 = cornell 语料 pbr 因子同值（双端朗伯口径对齐）。"""
+    path = CONTENT_ROOT + "/M_G11_TwoSided_Parent"
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        return unreal.EditorAssetLibrary.load_asset(path)
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    mat = tools.create_asset(
+        "M_G11_TwoSided_Parent", CONTENT_ROOT, unreal.Material, unreal.MaterialFactoryNew()
+    )
+    mat.set_editor_property("two_sided", True)
+    mel = unreal.MaterialEditingLibrary
+    vp = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -600, 0)
+    vp.set_editor_property("parameter_name", "BaseColor")
+    vp.set_editor_property("default_value", unreal.LinearColor(1.0, 1.0, 1.0, 1.0))
+    mel.connect_material_property(vp, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    sp = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 160)
+    sp.set_editor_property("parameter_name", "Roughness")
+    sp.set_editor_property("default_value", 1.0)
+    mel.connect_material_property(sp, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    sp2 = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 320)
+    sp2.set_editor_property("parameter_name", "Metallic")
+    sp2.set_editor_property("default_value", 0.0)
+    mel.connect_material_property(sp2, "", unreal.MaterialProperty.MP_METALLIC)
+    unreal.EditorAssetLibrary.save_asset(path)
+    # 读回核验（双面属性未生效即报错不静默）
+    chk = unreal.EditorAssetLibrary.load_asset(path)
+    if not chk.get_editor_property("two_sided"):
+        raise RuntimeError("双面父材质 two_sided 读回失败")
+    log("双面父材质就绪: %s（two_sided=True 读回核验）" % path)
+    return chk
+
+
+def apply_two_sided_cornell(gltf, spawned):
+    """cornell 壳体（墙/顶/地板）双面化：逐 actor 以 gltf 材质 baseColorFactor
+    换发双面 MIC（父材质 two_sided=True）；地板 white_tex 按其 factor [1,1,1]
+    双面白材质（棋盘格纹理双端不采样口径维持——Rurix 侧 PNG 容器显式登记
+    不消费面，G10.5a 降级登记面演进）。返回逐 actor 置换 provenance 列表。"""
+    parent = ensure_two_sided_parent()
+    mel = unreal.MaterialEditingLibrary
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    mats = gltf.get("materials", [])
+    mic_cache = {}
+    prov = []
+    for actor, mat_idx in spawned:
+        if mat_idx is None or mat_idx >= len(mats):
+            raise RuntimeError("cornell 图元材质索引缺失（置换映射断裂）: %s" % mat_idx)
+        m = mats[mat_idx]
+        name = m.get("name", "mat%d" % mat_idx)
+        fac = m.get("pbrMetallicRoughness", {}).get("baseColorFactor", [1.0, 1.0, 1.0, 1.0])
+        key = name
+        mic = mic_cache.get(key)
+        if mic is None:
+            mic_path = CONTENT_ROOT + "/G11_TS_%s" % name
+            if unreal.EditorAssetLibrary.does_asset_exist(mic_path):
+                mic = unreal.EditorAssetLibrary.load_asset(mic_path)
+            else:
+                mic = tools.create_asset(
+                    "G11_TS_%s" % name, CONTENT_ROOT,
+                    unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew(),
+                )
+                mel.set_material_instance_parent(mic, parent)
+            mel.set_material_instance_vector_parameter_value(
+                mic, "BaseColor", unreal.LinearColor(fac[0], fac[1], fac[2], 1.0)
+            )
+            unreal.EditorAssetLibrary.save_asset(mic_path)
+            mic_cache[key] = mic
+        smc = actor.static_mesh_component
+        for slot in range(smc.get_num_materials()):
+            smc.set_material(slot, mic)
+        prov.append({
+            "actor": actor.get_actor_label(),
+            "material": name,
+            "base_color_factor": [float(fac[0]), float(fac[1]), float(fac[2])],
+            "two_sided_readback": bool(parent.get_editor_property("two_sided")),
+        })
+    log("cornell 双面置换完成: %d actors / %d MIC（壳体内表面参与光照）" % (len(prov), len(mic_cache)))
+    return prov
+
+
+def bind_bistro_material_textures(scene_id):
+    """G11.3 U2 修复面：MIC 纹理参数显式绑定（UE 5.8.1 实测：派生链 PNG 纹理
+    资产导入成功但 Interchange 建成的 70 个 MIC texture_parameter_values 全空——
+    父材质九参数面〔BaseColorTexture/NormalTexture/…〕在树而绑定缺位；本函数按
+    派生 gltf 材质→纹理映射显式绑定 + 读回核验，禁静默）。返回 provenance 块。"""
+    with open(SCENE_GLTF[scene_id], "r", encoding="utf-8") as f:
+        doc = json.load(f)
+    images = doc.get("images", [])
+    textures = doc.get("textures", [])
+    mats = doc.get("materials", [])
+    base_dir = CONTENT_ROOT + "/" + scene_id + "/BistroInterior"
+    mel = unreal.MaterialEditingLibrary
+    bound = []
+    problems = []
+    for m in mats:
+        name = m.get("name")
+        if not name:
+            problems.append({"material": None, "reason": "材质缺 name"})
+            continue
+        # UE 对象名净化（gltf 材质名 '.' 等非法字符 → '_'，5.8.1 实测
+        # TransparentGlass.DoubleSided → TransparentGlass_DoubleSided.uasset）。
+        safe = "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in name)
+        mic_path = base_dir + "/Materials/%s.%s" % (safe, safe)
+        if not unreal.EditorAssetLibrary.does_asset_exist(mic_path):
+            problems.append({"material": name, "reason": "MIC 资产缺失: %s" % safe})
+            continue
+        mic = unreal.EditorAssetLibrary.load_asset(mic_path)
+        rec = {"material": name, "bound": []}
+        refs = (
+            ("BaseColorTexture", (m.get("pbrMetallicRoughness") or {}).get("baseColorTexture")),
+            ("NormalTexture", m.get("normalTexture")),
+        )
+        for param, ref in refs:
+            if not ref:
+                continue
+            ti = ref.get("index")
+            try:
+                src = textures[ti].get("source")
+                stem = images[src].get("uri", "").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            except (IndexError, AttributeError):
+                problems.append({"material": name, "reason": "纹理引用链断裂: %s" % param})
+                continue
+            tex_path = base_dir + "/Textures/%s.%s" % (stem, stem)
+            if not unreal.EditorAssetLibrary.does_asset_exist(tex_path):
+                problems.append({"material": name, "reason": "纹理资产缺失: %s" % stem})
+                continue
+            tex = unreal.EditorAssetLibrary.load_asset(tex_path)
+            mel.set_material_instance_texture_parameter_value(mic, param, tex)
+            rec["bound"].append(param + "=" + stem)
+        if rec["bound"]:
+            # 读回核验（绑定未生效即报错不静默）
+            tpv = mic.get_editor_property("texture_parameter_values") or []
+            nonnull = sum(1 for e in tpv if getattr(e, "parameter_value", None) is not None)
+            if nonnull < len(rec["bound"]):
+                raise RuntimeError("MIC 纹理绑定读回核验失败: %s（bound=%d readback=%d）" % (name, len(rec["bound"]), nonnull))
+            rec["readback_nonnull"] = int(nonnull)
+            unreal.EditorAssetLibrary.save_asset(mic_path)
+            bound.append(rec)
+    log("bistro MIC 纹理绑定完成: %d 材质（problems=%d）" % (len(bound), len(problems)))
+    if problems:
+        raise RuntimeError("U2 纹理绑定面存在缺行（禁静默）: %s" % json.dumps(problems[:4], ensure_ascii=False))
+    return {
+        "bound_materials": len(bound),
+        "bound_texture_params": sum(len(r["bound"]) for r in bound),
+        "detail_head": bound[:6],
+    }
+
+
 def build_level(scene_id, contract_obj):
     ue_params = contract.to_ue_scene_params(contract_obj)
     level_subsys = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
@@ -168,6 +321,7 @@ def build_level(scene_id, contract_obj):
         mesh_assets[norm] = obj_path
 
     n_spawned = 0
+    cornell_spawned = []  # (actor, gltf 材质索引) —— U1 双面置换映射面
     for idx, node in enumerate(nodes):
         if "mesh" not in node:
             continue
@@ -184,16 +338,23 @@ def build_level(scene_id, contract_obj):
         smc = actor.static_mesh_component
         smc.set_static_mesh(mesh)
         smc.set_mobility(unreal.ComponentMobility.STATIC)
-        if scene_id == "cornell-box" and "white_tex" in node.get("name", ""):
-            # 地板棋盘格降为白材质（双端最大子集口径对齐）
-            white = unreal.EditorAssetLibrary.load_asset(
-                CONTENT_ROOT + "/cornell-box/cornell_box/Materials/white.white"
-            )
-            if white is not None:
-                smc.set_material(0, white)
-                log("地板材质降为 white（checker 纹理双端不采样口径）")
+        if scene_id == "cornell-box":
+            # G11.3 U1 修复面：cornell 壳体双面化（单面片外向绕向 × UE 背面剔除
+            # 口径对齐——壳体内表面参与光照）。语料 0-byte（不走 M133 修订——
+            # 双端着色口径对齐面）；地板 white_tex 维持双端最大子集口径（棋盘格
+            # 纹理双端不采样，材质 = white_tex factor [1,1,1] 双面白——G10.5a
+            # 「降为 white」登记面演进为双面置换面，逐 actor baseColorFactor 置换）。
+            mesh_def = gltf.get("meshes", [])[node["mesh"]]
+            prims = mesh_def.get("primitives", [])
+            mat_idx = prims[0].get("material") if prims else None
+            cornell_spawned.append((actor, mat_idx))
         n_spawned += 1
     log("节点 spawn 完成: %d mesh actors" % n_spawned)
+    g11_3_probe = {}
+    if scene_id == "cornell-box":
+        prov = apply_two_sided_cornell(gltf, cornell_spawned)
+        g11_3_probe["two_sided_replacement"] = prov
+        g11_3_probe["two_sided_actor_count"] = len(prov)
 
     # ---- 契约相机 ----
     cam_loc = ue_params["camera_location_cm"]
@@ -274,7 +435,41 @@ def build_level(scene_id, contract_obj):
 
     level_subsys.save_current_level()
     log("关卡保存: " + map_path)
-    return map_path, cam_actor
+    return map_path, cam_actor, g11_3_probe
+
+
+def probe_texture_params(scene_id):
+    """G11.3 U2 修复面探针：导入后材质实例 texture_parameter_values 非空回归
+    （bistro 派生链转码纹理绑定机核面；空值冒充修复即 RED 的计数目）。"""
+    mesh_dir = CONTENT_ROOT + "/" + scene_id
+    total = 0
+    with_tex = 0
+    detail = []
+    for sub in unreal.EditorAssetLibrary.list_assets(mesh_dir, recursive=True):
+        cls_path = unreal.EditorAssetLibrary.find_asset_data(sub).get_class().get_path_name()
+        if "Material" not in cls_path:
+            continue
+        obj = unreal.EditorAssetLibrary.load_asset(sub)
+        tpv = []
+        try:
+            tpv = list(obj.get_editor_property("texture_parameter_values") or [])
+        except Exception:
+            tpv = []
+        nonnull = 0
+        for e in tpv:
+            try:
+                if e.parameter_value is not None:
+                    nonnull += 1
+            except Exception:
+                pass
+        total += 1
+        if nonnull > 0:
+            with_tex += 1
+        detail.append({"asset": sub.split("/")[-1], "class": cls_path.split("/")[-1],
+                       "texture_params": len(tpv), "texture_params_nonnull": nonnull})
+    log("材质纹理参数探针: %s materials=%d with_textures=%d" % (scene_id, total, with_tex))
+    return {"materials_total": total, "materials_with_textures": with_tex,
+            "texture_parameter_detail_head": detail[:8]}
 
 
 # ---------------------------------------------------------------------------
@@ -355,9 +550,26 @@ def main():
         import_scene_gltf(scene_id)
     else:
         log("跳过导入（--skip-import）")
-    map_path, cam_actor = build_level(scene_id, c)
-    # 出帧根目录：默认 G10.5 帧库面（G10 门序既有字面不动）；G11.2 复测批经
-    # G11_2_OUT_ROOT 环境变量指向 G11.2 帧区（G10 帧库只读纪律，K: 盘分区隔离）。
+    g11_3_binding = None
+    if scene_id == "bistro-interior":
+        # G11.3 U2 修复面：MIC 纹理参数显式绑定（Interchange 导入纹理资产成功但
+        # 绑定缺位——绑定后 probe_texture_params 非空回归方可成立）。
+        g11_3_binding = bind_bistro_material_textures(scene_id)
+    map_path, cam_actor, g11_3_probe = build_level(scene_id, c)
+    if scene_id == "bistro-interior":
+        # G11.3 U2 修复面探针：材质实例 texture_parameter_values 非空回归。
+        if g11_3_binding is not None:
+            g11_3_probe["texture_binding"] = g11_3_binding
+        g11_3_probe["texture_params"] = probe_texture_params(scene_id)
+    # G11.3 探针输出（文件面为门脚本权威解析源——同 G10_5_PROBE_OUT 体例）。
+    probe_out = os.environ.get("G11_3_PROBE_OUT", "")
+    if probe_out and g11_3_probe:
+        g11_3_probe["scene_id"] = scene_id
+        with open(probe_out, "w", encoding="utf-8", newline="\n") as f:
+            f.write(json.dumps(g11_3_probe, ensure_ascii=False, separators=(",", ":")) + "\n")
+        log("G11.3 探针落盘: " + probe_out)
+    # 出帧根目录：默认 G10.5 帧库面（G10 门序既有字面不动）；G11.2/G11.3 复测批经
+    # G11_2_OUT_ROOT 环境变量指向对应波次帧区（G10 帧库只读纪律，K: 盘分区隔离）。
     out_root = os.environ.get("G11_2_OUT_ROOT", "K:/rurix-ext/g10-frames/g10_5/ue")
     out_dir = out_root.rstrip("/") + "/" + scene_id
     seq_path, cfg_path = build_mrq_assets(scene_id, c, cam_actor, out_dir)

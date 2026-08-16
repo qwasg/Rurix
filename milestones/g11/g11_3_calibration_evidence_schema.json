@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.3 标定 budget evidence（M147~M152 八条标定条目共享）",
+  "description": "evidence/g11_m14x|m15x_calibration_*_<UTC>.json。G11.3 波六门产出的 budget 标定证据：results.trimmed_mean = 标定 p100（budget_eval 通用 measured entry 判读面，零新 evaluator 分支）+ provenance（估计器语义 p100×k / k 理由 / 样本集 digest / measured 登记）+ 环境画像。供 g11_budget.json 八条 g11.fix.* 标定条目 evidence_file 引用（P-09 禁手写阈值）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "milestone",
+    "wave",
+    "numeric_step",
+    "results",
+    "provenance",
+    "environment",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "g11_m147_calibration_r1_ssim_shrink",
+        "g11_m148_calibration_r2_coverage_shrink",
+        "g11_m148_calibration_r2_coverage_zero_band",
+        "g11_m149_calibration_r5_u64_seed_shrink",
+        "g11_m150_calibration_u1_coverage_shrink",
+        "g11_m150_calibration_u1_coverage_zero_band",
+        "g11_m151_calibration_u2_luminance_shrink",
+        "g11_m152_calibration_u3_anim_channels_shrink"
+      ]
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "enum": [
+        "g11.p0.m147.fix_r1_material_subset",
+        "g11.p0.m148.fix_r2_geometry_normals",
+        "g11.p0.m149.fix_r5_json_u64_seed",
+        "g11.p0.m150.fix_u1_cornell_shell_radiance",
+        "g11.p0.m151.fix_u2_bistro_texture_dds",
+        "g11.p0.m152.fix_u3_bistro_animation"
+      ]
+    },
+    "milestone": {
+      "type": "string"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "enum": [
+        201,
+        202,
+        203,
+        204,
+        205,
+        206
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trimmed_mean",
+        "estimator",
+        "sample_pair_count",
+        "safety_factor_k",
+        "threshold"
+      ],
+      "properties": {
+        "trimmed_mean": {
+          "type": "number"
+        },
+        "estimator": {
+          "type": "string",
+          "const": "p100"
+        },
+        "sample_pair_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "safety_factor_k": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 3.0
+        },
+        "threshold": {
+          "type": "number"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "estimator_semantics",
+        "k_rationale",
+        "sample_set_digest",
+        "measured"
+      ],
+      "properties": {
+        "estimator_semantics": {
+          "type": "string"
+        },
+        "k_rationale": {
+          "type": "string"
+        },
+        "sample_set_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "measured": {
+          "type": "string"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}

@@ -199,6 +199,94 @@
       "threshold": 0.00024052384510472175,
       "evidence_file": "evidence/g11_m157_calibration_hdr_flip_error_map_20260816T103623Z.json",
       "measured_value": 0.00012026192255236087
+    },
+    {
+      "id": "g11.fix.r5_u64_seed_shrink_tol",
+      "description": "R5 u64 seed 修复闭环收敛幅度阈：探针度量双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_r5_json_u64_seed_smoke.py 可复跑两跑逐位一致；样本集 digest sha256:32812eb8281b39457…）。M149 measured 标定（P-09 禁手写阈值）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m149_calibration_r5_u64_seed_shrink_20260816T164954Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.u3_anim_channels_shrink_tol",
+      "description": "U3 动画剥离修复闭环收敛幅度阈：包内通道重算双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_u3_bistro_animation_smoke.py 可复跑两跑逐位一致；样本集 digest sha256:4134339a3a06d66bf…）。M152 measured 标定（P-09 禁手写阈值）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m152_calibration_u3_anim_channels_shrink_20260816T165008Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r2_coverage_shrink_tol",
+      "description": "R2 覆盖 delta 收敛幅度阈：覆盖 delta 双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_r2_geometry_normals_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M148 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m148_calibration_r2_coverage_shrink_20260816T165024Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r2_coverage_zero_band",
+      "description": "R2 覆盖 delta zero_band：per-tile XOR p100 × k=2.0（跨端离散一致性包络）（RXS-0393 L3；标定程序 ci/g11_fix_r2_geometry_normals_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M148 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.052734375,
+      "evidence_file": "evidence/g11_m148_calibration_r2_coverage_zero_band_20260816T165024Z.json",
+      "measured_value": 0.0263671875
+    },
+    {
+      "id": "g11.fix.u1_coverage_shrink_tol",
+      "description": "U1 覆盖 delta 收敛幅度阈：双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_u1_cornell_shell_radiance_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M150 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m150_calibration_u1_coverage_shrink_20260816T165041Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.u1_coverage_zero_band",
+      "description": "U1 覆盖 delta zero_band：per-tile XOR p100 × k=2.0（RXS-0393 L3；标定程序 ci/g11_fix_u1_cornell_shell_radiance_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M150 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.052734375,
+      "evidence_file": "evidence/g11_m150_calibration_u1_coverage_zero_band_20260816T165041Z.json",
+      "measured_value": 0.0263671875
+    },
+    {
+      "id": "g11.fix.u2_luminance_shrink_tol",
+      "description": "U2 LDR 亮度中位 delta 收敛幅度阈：双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_u2_bistro_texture_dds_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M151 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m151_calibration_u2_luminance_shrink_20260816T165102Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r1_ssim_shrink_tol",
+      "description": "R1 LDR SSIM delta 收敛幅度阈：双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_r1_material_subset_smoke.py 两跑逐位一致；样本集 digest sha256:dc4a40f5cb8de684f…）。M147 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m147_calibration_r1_ssim_shrink_20260816T165136Z.json",
+      "measured_value": 0.0
     }
   ],
   "ratio_assertions": [],

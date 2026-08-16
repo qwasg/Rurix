@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.3 M150 fix_u1_cornell_shell_radiance evidence",
+  "description": "evidence/g11_m150_fix_u1_cornell_shell_radiance_<UTC>.json。U1 cornell 壳体零辐射修复闭环：UE 侧双面化（two_sided 父材质 + 逐 actor MIC 置换，语料 0-byte 不走 M133 修订——M131 登记 digest 复算机核）+ 修复后 UE 帧覆盖收敛 measured（锁定基线 18.39% vs 92.90%，delta −0.7451210021972656，zero_band 标定带）+ Rurix 侧覆盖不降级；语料静默改写/覆盖未收敛冒充/Rurix 降级/手写阈值/estimated 冒充 RED 臂全检出。（步骤 204；G11_CONTRACT §4.2 M150 行判据逐字 / G-G11-5；G11_ACCEPTANCE_MAP §1 M150 行；CI_GATES §4；spec/visual_comparison.md RXS-0393）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "shell_provenance",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_m150_fix_u1_cornell_shell_radiance"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.p0.m150.fix_u1_cornell_shell_radiance"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M150"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M150"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g11.p0.m150.fix_u1_cornell_shell_radiance"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 204
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M150 + G-G11-5;G11_ACCEPTANCE_MAP §1 M150;CI_GATES §4;g10_gap_registry U1 行承接锚;spec/visual_comparison.md RXS-0393"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "ue_two_sided_fix_landed",
+        "ue_frame_changed_vs_g10",
+        "corpus_zero_byte",
+        "baseline_metric_reproduction",
+        "closure_delta_converged_measured",
+        "rurix_coverage_non_degrade",
+        "calibration_rerun_deterministic",
+        "budget_entry_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_corpus_silent_rewrite_detected",
+        "red_unconverged_masquerade_detected",
+        "red_rurix_degrade_detected",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": {
+          "type": "boolean"
+        },
+        "ue_two_sided_fix_landed": {
+          "type": "boolean"
+        },
+        "ue_frame_changed_vs_g10": {
+          "type": "boolean"
+        },
+        "corpus_zero_byte": {
+          "type": "boolean"
+        },
+        "baseline_metric_reproduction": {
+          "type": "boolean"
+        },
+        "closure_delta_converged_measured": {
+          "type": "boolean"
+        },
+        "rurix_coverage_non_degrade": {
+          "type": "boolean"
+        },
+        "calibration_rerun_deterministic": {
+          "type": "boolean"
+        },
+        "budget_entry_appended_measured_local": {
+          "type": "boolean"
+        },
+        "budget_eval_strict_all_pass": {
+          "type": "boolean"
+        },
+        "red_corpus_silent_rewrite_detected": {
+          "type": "boolean"
+        },
+        "red_unconverged_masquerade_detected": {
+          "type": "boolean"
+        },
+        "red_rurix_degrade_detected": {
+          "type": "boolean"
+        },
+        "red_handwritten_threshold_detected": {
+          "type": "boolean"
+        },
+        "red_estimated_masquerade_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_row_id",
+        "baseline_delta",
+        "retest_delta",
+        "converged",
+        "threshold_provenance",
+        "contract_digest_unchanged"
+      ],
+      "properties": {
+        "gap_row_id": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16
+        },
+        "baseline_delta": {
+          "type": "number"
+        },
+        "retest_delta": {
+          "type": "number"
+        },
+        "converged": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_digest_unchanged": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "shell_provenance": {
+      "type": "object",
+      "description": "U1 壳体修复 provenance：双面置换计数 / UE 帧 digest 对账 / M131 语料 digest / 覆盖对账 / zero_band 标定",
+      "additionalProperties": true
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "host_section_pass": {
+            "const": true
+          },
+          "closure": {
+            "properties": {
+              "converged": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

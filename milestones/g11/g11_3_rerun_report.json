@@ -1,0 +1,643 @@
+{
+  "schema_version": 1,
+  "report": "g11_3_ab_rerun",
+  "generated_by": "milestones/g11/harness/g11_3_ab_rerun.py",
+  "frames_root": "K:\\rurix-ext\\g11-frames\\g11_3",
+  "locked_contract_digest": {
+    "cornell-box": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+    "bistro-interior": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514"
+  },
+  "transcode_manifest": "H:\\rurix\\milestones\\g11\\g11_3_dds_transcode_manifest.json",
+  "timestamp_utc": "2026-08-16T15:33:34Z",
+  "stages": {
+    "contract": "done",
+    "rurix": "done",
+    "ue": "done",
+    "derive": "done",
+    "metrics": "done"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_gen_contract_params.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g10_5_scene_render",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --out-dir K:\\rurix-ext\\g11-frames\\g11_3\\rurix --scene-id cornell-box --exposure-scale 0.25 --smooth-normals",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --out-dir K:\\rurix-ext\\g11-frames\\g11_3\\rurix --scene-id bistro-interior --exposure-scale 0.5 --material-pbr",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py cornell-box --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py bistro-interior --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py cornell-box --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 14,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py bistro-interior --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 15,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_3\\rurix\\cornell-box.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\cornell-box_rurix_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 16,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_3\\ue\\cornell-box\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\cornell-box_ue5_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 17,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_3\\rurix\\bistro-interior.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\bistro-interior_rurix_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 18,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_3\\ue\\bistro-interior\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\bistro-interior_ue5_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    }
+  ],
+  "results": {
+    "contract": {
+      "cornell-box": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "bistro-interior": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514"
+    },
+    "rurix": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_3\\rurix\\cornell-box.exr",
+        "frame_content_digest": "sha256:24cb287f7afebd0e1dbc2d98371ffa28a2c3827caa1a40e70f79caae7c02ba7b",
+        "exposure_scale_in_pipe": 0.25,
+        "rurix_flags": [
+          "--smooth-normals"
+        ],
+        "param_digest": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+        "file_digest": "sha256:3f4bd62e6a4a38915a9399fc7375f67c4d2563b9634b2eb26757d2c215a3e96c",
+        "render_json": {
+          "animations": {
+            "package_count": 0,
+            "channels": 0,
+            "consumed_channels": 0,
+            "policy": "strip_static_contract"
+          },
+          "materials": {
+            "count": 4,
+            "textured": 1,
+            "normal_mapped": 0,
+            "textures_consumed": 0,
+            "texture_formats": [],
+            "textures_declared_unconsumed": [],
+            "material_pbr": false,
+            "smooth_normals": true
+          },
+          "frame_content_digest": "sha256:24cb287f7afebd0e1dbc2d98371ffa28a2c3827caa1a40e70f79caae7c02ba7b"
+        }
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_3\\rurix\\bistro-interior.exr",
+        "frame_content_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e",
+        "exposure_scale_in_pipe": 0.5,
+        "rurix_flags": [
+          "--material-pbr"
+        ],
+        "param_digest": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+        "file_digest": "sha256:9a4da16e19fef443f5629aa95a61a144df46206a8a0cc01c17adbdcb90662de5",
+        "render_json": {
+          "animations": {
+            "package_count": 1,
+            "channels": 2,
+            "consumed_channels": 0,
+            "policy": "strip_static_contract"
+          },
+          "materials": {
+            "count": 70,
+            "textured": 70,
+            "normal_mapped": 70,
+            "textures_consumed": 144,
+            "texture_formats": [
+              "bc1",
+              "bc3",
+              "bc5"
+            ],
+            "textures_declared_unconsumed": [],
+            "material_pbr": true,
+            "smooth_normals": false
+          },
+          "frame_content_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e"
+        }
+      }
+    },
+    "ue": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_3\\ue\\cornell-box\\.0000.exr",
+        "frame_content_digest": "sha256:82a156aeffc8b93014cd475d26b7be63f8e9083beee41c1a4e45ca8ffd7fec3e",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:924f88dbbb4c72ab9336aa570d268bdbb583fbeedaae6e86e5faf495bcf7ce57",
+        "probe_path": "K:\\rurix-ext\\g11-frames\\g11_3\\probe\\cornell-box_probe.json",
+        "probe": {
+          "two_sided_replacement": [
+            {
+              "actor": "G10N_part_00_white_tex",
+              "material": "white_tex",
+              "base_color_factor": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_01_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_02_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_03_red",
+              "material": "red",
+              "base_color_factor": [
+                0.63,
+                0.065,
+                0.05
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_04_green",
+              "material": "green",
+              "base_color_factor": [
+                0.14,
+                0.45,
+                0.091
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_05_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_06_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_07_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_08_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_09_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_10_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_11_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_12_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_13_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_14_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_15_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_16_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            }
+          ],
+          "two_sided_actor_count": 17,
+          "scene_id": "cornell-box"
+        }
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_3\\ue\\bistro-interior\\.0000.exr",
+        "frame_content_digest": "sha256:92b730e68328dc43b3dab10931837f5396ca77d33897c7713b9da5edc2d79b4a",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:ff24fe90a3cf68c63be2d7e0f2fbbdc5749351483b3ea24826a70f3ecfc716a3",
+        "probe_path": "K:\\rurix-ext\\g11-frames\\g11_3\\probe\\bistro-interior_probe.json",
+        "probe": {
+          "texture_binding": {
+            "bound_materials": 70,
+            "bound_texture_params": 140,
+            "detail_head": [
+              {
+                "material": "Paris_Cashregister",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Cashregister_Buttons",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_Buttons_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Buttons_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Cashregister_Glass",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_Glass_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Glass_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Coasters_01",
+                "bound": [
+                  "BaseColorTexture=Paris_Coasters_01_BaseColor",
+                  "NormalTexture=Paris_Coasters_01_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "ToffeeJar_Metal",
+                "bound": [
+                  "BaseColorTexture=ToffeeJar_Metal_BaseColor",
+                  "NormalTexture=ToffeeJar_Metal_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "ToffeeJar_Label",
+                "bound": [
+                  "BaseColorTexture=ToffeeJar_Label_BaseColor",
+                  "NormalTexture=ToffeeJar_Label_Normal"
+                ],
+                "readback_nonnull": 2
+              }
+            ]
+          },
+          "texture_params": {
+            "materials_total": 70,
+            "materials_with_textures": 70,
+            "texture_parameter_detail_head": [
+              {
+                "asset": "Cloth.Cloth",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "CookieJar_Cookies.CookieJar_Cookies",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "curtainA.curtainA",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "curtainB1.curtainB1",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "Cutlery_chrome.Cutlery_chrome",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "Cutlery_details.Cutlery_details",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "MASTER_Bistro_Main_Door.MASTER_Bistro_Main_Door",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "MASTER_Concrete.MASTER_Concrete",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              }
+            ]
+          },
+          "scene_id": "bistro-interior"
+        }
+      }
+    },
+    "derive": {
+      "cornell-box:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\cornell-box_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:24cb287f7afebd0e1dbc2d98371ffa28a2c3827caa1a40e70f79caae7c02ba7b",
+        "file_digest": "sha256:8281b5d139a8535a3750b26eb4c0fa8301b2ad71f75e8ff6ec875edab6e9fa3f"
+      },
+      "cornell-box:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\cornell-box_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:82a156aeffc8b93014cd475d26b7be63f8e9083beee41c1a4e45ca8ffd7fec3e",
+        "file_digest": "sha256:a784f8826bc201c5be4d25858f02c634ebe27f2cf48922323f1e471e39a27cc0"
+      },
+      "bistro-interior:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\bistro-interior_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e",
+        "file_digest": "sha256:8abad0f855e3c8a38106b69305e27f3b318ed6848feecdaff4ba275012edc2ec"
+      },
+      "bistro-interior:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_3\\ldr\\bistro-interior_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:92b730e68328dc43b3dab10931837f5396ca77d33897c7713b9da5edc2d79b4a",
+        "file_digest": "sha256:e39e07d4642b6e67710ded34cd1ef8c8809d0c655e645f5a645dceb9c480d785"
+      }
+    },
+    "metrics": {
+      "scenes": {
+        "cornell-box": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.03441402787938714,
+              "p90": 0.30398761962652204,
+              "max": 0.35954260204434396,
+              "mean": 0.10505566108431447,
+              "nonzero_ratio": 0.9290046691894531
+            },
+            "ue5": {
+              "median": 0.09897164306640624,
+              "p90": 0.585412890625,
+              "max": 0.58663486328125,
+              "mean": 0.19759275347906752,
+              "nonzero_ratio": 0.9328155517578125
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.08358066641539334,
+              "p90": 0.5009738182246685,
+              "max": 0.5498988258123397,
+              "mean": 0.18745332267340858,
+              "nonzero_ratio": 0.9290046691894531
+            },
+            "ue5": {
+              "median": 0.2257373055577278,
+              "p90": 0.692305027115345,
+              "max": 0.6928785018086433,
+              "mean": 0.28704192038775345,
+              "nonzero_ratio": 0.927154541015625
+            }
+          },
+          "hdr_nonzero_ratio_delta": 0.003810882568359375,
+          "ldr_luminance_median_delta": 0.14215663914233445,
+          "metrics_ldr": {
+            "flip_ldr": 0.5073933225511339,
+            "ssim": 0.44070627300538656,
+            "ssim_delta_identity": 0.5592937269946134,
+            "psnr_db": 11.288697106826053
+          }
+        },
+        "bistro-interior": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.0031897984895855186,
+              "p90": 0.010620570732094348,
+              "max": 4.768777864408493,
+              "mean": 0.005172218168222848,
+              "nonzero_ratio": 0.9468605324074074
+            },
+            "ue5": {
+              "median": 0.48341762695312496,
+              "p90": 1.2267179687499998,
+              "max": 57.28535625000001,
+              "mean": 0.645658551883069,
+              "nonzero_ratio": 1.0
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.0011029792974237352,
+              "p90": 0.015078293247520923,
+              "max": 0.9616434326171874,
+              "mean": 0.006718522510199244,
+              "nonzero_ratio": 0.700861786265432
+            },
+            "ue5": {
+              "median": 0.6250903178334235,
+              "p90": 0.8452076324701309,
+              "max": 1.0,
+              "mean": 0.6060886658849776,
+              "nonzero_ratio": 0.9999995177469135
+            }
+          },
+          "hdr_nonzero_ratio_delta": 0.05313946759259258,
+          "ldr_luminance_median_delta": 0.6239873385359997,
+          "metrics_ldr": {
+            "flip_ldr": 0.9146345536660789,
+            "ssim": 0.009656442299775102,
+            "ssim_delta_identity": 0.9903435577002249,
+            "psnr_db": 3.8532000871936773
+          }
+        }
+      },
+      "closure_faces": {
+        "r1": {
+          "gap_row_id": "ea68ebb265cb2bd5",
+          "metric": "ssim@bistro-interior(ldr)",
+          "baseline_delta": 0.8328980787837229,
+          "baseline_a": 0.16710192121627712,
+          "retest_ssim": 0.009656442299775102,
+          "retest_delta": 0.9903435577002249
+        },
+        "r2": {
+          "gap_row_id": "aa64a7a22dc16a0e",
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "baseline_delta": -0.7451210021972656,
+          "baseline_a": 0.9290046691894531,
+          "retest_rurix_nonzero": 0.9290046691894531,
+          "retest_ue5_nonzero": 0.9328155517578125,
+          "retest_delta": 0.003810882568359375
+        },
+        "u1": {
+          "gap_row_id": "03cac13af56a53cf",
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "baseline_delta": -0.7451210021972656,
+          "baseline_b": 0.1838836669921875,
+          "retest_rurix_nonzero": 0.9290046691894531,
+          "retest_ue5_nonzero": 0.9328155517578125,
+          "retest_delta": 0.003810882568359375
+        },
+        "u2": {
+          "gap_row_id": "6311bc89b610e019",
+          "metric": "ldr_luminance_median@bistro-interior",
+          "baseline_delta": 0.7698879749655723,
+          "baseline_a": 0.16252008080482483,
+          "baseline_b": 0.9324080557703971,
+          "retest_rurix_median": 0.0011029792974237352,
+          "retest_ue5_median": 0.6250903178334235,
+          "retest_delta": 0.6239873385359997
+        },
+        "u3": {
+          "gap_row_id": "0b7c50151f24137e",
+          "metric": "gltf_animation_channels_unconsumed@bistro-interior",
+          "baseline_delta": 2.0,
+          "baseline_b": 2.0
+        }
+      },
+      "commands_count": 0
+    }
+  }
+}

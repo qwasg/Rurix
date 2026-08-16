@@ -427,3 +427,332 @@ pub fn normal_length_mean_abs_dev(dec: &[u8]) -> f64 {
     }
     acc / pixels as f64
 }
+
+// ─────────────────── BC1(DXT1)/ BC3(DXT5) 与 DDS 容器(G11.3 U2/R1 修复面) ───────────────────
+//
+// Bistro 语料实测枚举(144 张 `.dds`,G11.3 资产面实盘点):legacy FourCC
+// `DXT1`(BC1)×54 / `DXT5`(BC3)×20 / `ATI2`(BC5)×70;零 DX10 扩展头。
+// 本段补齐 BC1/BC3 解码与 DDS 容器解析(legacy FourCC + DX10 头双形),
+// 支撑 baseColor/normal 纹理在 host 参考管线的真实采样(G10-N7 承接锚兑现)。
+
+/// RGB565 通道扩展为 8-bit(位复制法:5→8 = v<<3|v>>2;6→8 = v<<2|v>>4)。
+fn rgb565_to_rgba8(c: u16) -> [u8; 4] {
+    let r = ((c >> 11) & 0x1f) as u8;
+    let g = ((c >> 5) & 0x3f) as u8;
+    let b = (c & 0x1f) as u8;
+    [
+        (r << 3) | (r >> 2),
+        (g << 2) | (g >> 4),
+        (b << 3) | (b >> 2),
+        255,
+    ]
+}
+
+/// 解码单个 BC1 块(8 字节)为 16 个 RGBA8 texel(行主序 4×4)。
+///
+/// 布局:`c0 u16 LE | c1 u16 LE`(RGB565)+ 16×2-bit 索引(u32 LE,LSB-first)。
+/// `c0 > c1`(无符号)= 四色模式(两级 1/3 插值,整数截断除法);
+/// `c0 <= c1` = 三色 + 透明黑模式(索引 3 = RGBA 全 0)。
+fn decode_bc1_block(block: &[u8], out: &mut [[u8; 4]; 16]) {
+    let c0 = u16::from_le_bytes([block[0], block[1]]);
+    let c1 = u16::from_le_bytes([block[2], block[3]]);
+    let idx_bits = u32::from_le_bytes([block[4], block[5], block[6], block[7]]);
+    let p0 = rgb565_to_rgba8(c0);
+    let p1 = rgb565_to_rgba8(c1);
+    let mut lut = [[0u8; 4]; 4];
+    lut[0] = p0;
+    lut[1] = p1;
+    if c0 > c1 {
+        for ch in 0..3 {
+            lut[2][ch] = ((2 * u32::from(p0[ch]) + u32::from(p1[ch])) / 3) as u8;
+            lut[3][ch] = ((u32::from(p0[ch]) + 2 * u32::from(p1[ch])) / 3) as u8;
+        }
+        lut[2][3] = 255;
+        lut[3][3] = 255;
+    } else {
+        for ch in 0..3 {
+            lut[2][ch] = ((u32::from(p0[ch]) + u32::from(p1[ch])) / 2) as u8;
+        }
+        lut[2][3] = 255;
+        lut[3] = [0, 0, 0, 0];
+    }
+    for (i, texel) in out.iter_mut().enumerate() {
+        *texel = lut[((idx_bits >> (i * 2)) & 0x3) as usize];
+    }
+}
+
+/// 解码 BC1(DXT1)块字节为 RGBA8(行主序)。`blocks` 长度须 = ceil(w/4)*ceil(h/4)*8。
+pub fn decode_bc1_rgba8(blocks: &[u8], width: u32, height: u32) -> Vec<u8> {
+    let bw = width.div_ceil(4);
+    let bh = height.div_ceil(4);
+    let mut out = vec![0u8; (width as usize) * (height as usize) * 4];
+    let mut bi = 0usize;
+    for by in 0..bh {
+        for bx in 0..bw {
+            if bi + 8 > blocks.len() {
+                return out;
+            }
+            let mut texels = [[0u8; 4]; 16];
+            decode_bc1_block(&blocks[bi..bi + 8], &mut texels);
+            bi += 8;
+            for ty in 0..4u32 {
+                for tx in 0..4u32 {
+                    let x = bx * 4 + tx;
+                    let y = by * 4 + ty;
+                    if x >= width || y >= height {
+                        continue;
+                    }
+                    let i = (y as usize * width as usize + x as usize) * 4;
+                    out[i..i + 4].copy_from_slice(&texels[(ty * 4 + tx) as usize]);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// 解码 BC3(DXT5)块字节为 RGBA8(行主序)。
+/// 块 = BC4 形 alpha 块(8 字节)+ BC1 形颜色块(8 字节,颜色恒四色模式)。
+/// `blocks` 长度须 = ceil(w/4)*ceil(h/4)*16。
+pub fn decode_bc3_rgba8(blocks: &[u8], width: u32, height: u32) -> Vec<u8> {
+    let bw = width.div_ceil(4);
+    let bh = height.div_ceil(4);
+    let mut out = vec![0u8; (width as usize) * (height as usize) * 4];
+    let mut bi = 0usize;
+    for by in 0..bh {
+        for bx in 0..bw {
+            if bi + 16 > blocks.len() {
+                return out;
+            }
+            let mut alpha = [0u8; 16];
+            decode_bc4_block(&blocks[bi..bi + 8], &mut alpha);
+            // 颜色块按四色模式解码:c0/c1 大端序强制在四色档——构造
+            // c0>c1 的等价格局不如直接展开;此处复用 BC1 块解码再以
+            // BC3 规范覆写(BC3 颜色块 c0<=c1 时索引 3 仍为第四插值色,
+            // 不透明)——故独立展开而非调 decode_bc1_block。
+            let cb = &blocks[bi + 8..bi + 16];
+            let c0 = u16::from_le_bytes([cb[0], cb[1]]);
+            let c1 = u16::from_le_bytes([cb[2], cb[3]]);
+            let idx_bits = u32::from_le_bytes([cb[4], cb[5], cb[6], cb[7]]);
+            let p0 = rgb565_to_rgba8(c0);
+            let p1 = rgb565_to_rgba8(c1);
+            let mut lut = [[0u8; 4]; 4];
+            lut[0] = p0;
+            lut[1] = p1;
+            for ch in 0..3 {
+                lut[2][ch] = ((2 * u32::from(p0[ch]) + u32::from(p1[ch])) / 3) as u8;
+                lut[3][ch] = ((u32::from(p0[ch]) + 2 * u32::from(p1[ch])) / 3) as u8;
+            }
+            for ty in 0..4u32 {
+                for tx in 0..4u32 {
+                    let x = bx * 4 + tx;
+                    let y = by * 4 + ty;
+                    if x >= width || y >= height {
+                        continue;
+                    }
+                    let t = (ty * 4 + tx) as usize;
+                    let mut px = lut[((idx_bits >> (t * 2)) & 0x3) as usize];
+                    px[3] = alpha[t];
+                    let i = (y as usize * width as usize + x as usize) * 4;
+                    out[i..i + 4].copy_from_slice(&px);
+                }
+            }
+            bi += 16;
+        }
+    }
+    out
+}
+
+/// DDS 像素格式(G11.3 消费闭集;BC2/DXT3 等未覆盖格式 fail-closed 显式拒绝)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DdsFormat {
+    Bc1,
+    Bc3,
+    Bc4,
+    Bc5,
+    Bc7,
+}
+
+impl DdsFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DdsFormat::Bc1 => "bc1",
+            DdsFormat::Bc3 => "bc3",
+            DdsFormat::Bc4 => "bc4",
+            DdsFormat::Bc5 => "bc5",
+            DdsFormat::Bc7 => "bc7",
+        }
+    }
+
+    fn block_bytes(self) -> usize {
+        match self {
+            DdsFormat::Bc1 | DdsFormat::Bc4 => 8,
+            DdsFormat::Bc3 | DdsFormat::Bc5 | DdsFormat::Bc7 => 16,
+        }
+    }
+}
+
+/// DDS 解码产物(mip 0;RGBA8 行主序)。
+#[derive(Debug, Clone)]
+pub struct DdsImage {
+    pub width: u32,
+    pub height: u32,
+    pub format: DdsFormat,
+    pub mip_count: u32,
+    pub rgba8: Vec<u8>,
+}
+
+fn dds_u32(bytes: &[u8], off: usize) -> Result<u32, String> {
+    let b = bytes
+        .get(off..off + 4)
+        .ok_or_else(|| format!("DDS 头截断 @0x{off:x}"))?;
+    Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+}
+
+/// 解码 DDS 容器(mip 0)为 RGBA8。
+///
+/// 容器两形:legacy FourCC(`DXT1`/`DXT5`/`ATI1`/`BC4U`/`ATI2`/`BC5U`/`BC5S`)
+/// 与 DX10 扩展头(DXGI BC1/BC3/BC4/BC5/BC7 子集,UNORM 与 SRGB 同解码——
+/// 色域语义归消费方)。非闭集格式 / 头截断 / 体长不符一律 fail-closed。
+pub fn decode_dds(bytes: &[u8]) -> Result<DdsImage, String> {
+    if bytes.len() < 128 {
+        return Err(format!("DDS 头长不足 128: {}", bytes.len()));
+    }
+    if &bytes[0..4] != b"DDS " {
+        return Err("非 DDS magic".to_owned());
+    }
+    if dds_u32(bytes, 4)? != 124 {
+        return Err("DDS header.size ≠ 124".to_owned());
+    }
+    let height = dds_u32(bytes, 12)?;
+    let width = dds_u32(bytes, 16)?;
+    let mip_count = dds_u32(bytes, 28).unwrap_or(1).max(1);
+    if width == 0 || height == 0 {
+        return Err("DDS 尺寸为零".to_owned());
+    }
+    if dds_u32(bytes, 76)? != 32 {
+        return Err("DDS ddspf.size ≠ 32".to_owned());
+    }
+    let fourcc = &bytes[84..88];
+    let mut data_off = 128usize;
+    let format = match fourcc {
+        b"DXT1" => DdsFormat::Bc1,
+        b"DXT5" => DdsFormat::Bc3,
+        b"ATI1" | b"BC4U" => DdsFormat::Bc4,
+        b"ATI2" | b"BC5U" | b"BC5S" => DdsFormat::Bc5,
+        b"DX10" => {
+            if bytes.len() < 148 {
+                return Err("DDS DX10 扩展头截断".to_owned());
+            }
+            data_off = 148;
+            // DXGI_FORMAT 子集:71/72=BC1, 77/78=BC3, 80/81/82=BC4, 83/84=BC5,
+            // 98/99=BC7(UNORM/SRGB/TYPELESS 同块解码)。
+            match dds_u32(bytes, 128)? {
+                71 | 72 | 73 => DdsFormat::Bc1,
+                77 | 78 | 79 => DdsFormat::Bc3,
+                80 | 81 | 82 => DdsFormat::Bc4,
+                83 | 84 | 85 => DdsFormat::Bc5,
+                98 | 99 => DdsFormat::Bc7,
+                other => return Err(format!("DXGI 格式未入消费闭集: {other}")),
+            }
+        }
+        other => {
+            return Err(format!(
+                "DDS FourCC 未入消费闭集: {}",
+                String::from_utf8_lossy(other)
+            ))
+        }
+    };
+    let bb = format.block_bytes();
+    let need = (width.div_ceil(4) as usize) * (height.div_ceil(4) as usize) * bb;
+    let blocks = bytes
+        .get(data_off..data_off + need)
+        .ok_or_else(|| format!("DDS 体截断: 需 {need} 字节(mip 0), 存 {}", bytes.len().saturating_sub(data_off)))?;
+    let rgba8 = match format {
+        DdsFormat::Bc1 => decode_bc1_rgba8(blocks, width, height),
+        DdsFormat::Bc3 => decode_bc3_rgba8(blocks, width, height),
+        DdsFormat::Bc4 => decode_bc4_r8(blocks, width, height),
+        DdsFormat::Bc5 => decode_bc5_rg8(blocks, width, height),
+        DdsFormat::Bc7 => decode_bc7_rgba8(blocks, width, height),
+    };
+    Ok(DdsImage {
+        width,
+        height,
+        format,
+        mip_count,
+        rgba8,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bc1_four_color_block_anchor() {
+        // c0 = 纯红 0xF800,c1 = 纯蓝 0x001F(c0>c1 四色模式),全索引 0。
+        let mut block = [0u8; 8];
+        block[0..2].copy_from_slice(&0xF800u16.to_le_bytes());
+        block[2..4].copy_from_slice(&0x001Fu16.to_le_bytes());
+        let mut texels = [[0u8; 4]; 16];
+        decode_bc1_block(&block, &mut texels);
+        assert_eq!(texels[0], [255, 0, 0, 255]);
+        // 索引 2 = (2·c0+c1)/3 = [170,0,85];索引 3 = (c0+2·c1)/3 = [85,0,170]
+        // (通道级整数截断;蓝 0x001F → [0,0,255])。
+        let mut b2 = block;
+        b2[4] = 0b10; // texel0 索引=2
+        decode_bc1_block(&b2, &mut texels);
+        assert_eq!(texels[0], [170, 0, 85, 255]);
+        b2[4] = 0b11; // texel0 索引=3
+        decode_bc1_block(&b2, &mut texels);
+        assert_eq!(texels[0], [85, 0, 170, 255]);
+    }
+
+    #[test]
+    fn bc1_three_color_transparent_anchor() {
+        // c0 <= c1:索引 2 = 平均色;索引 3 = 全 0(透明)。
+        let mut block = [0u8; 8];
+        block[0..2].copy_from_slice(&0x0000u16.to_le_bytes());
+        block[2..4].copy_from_slice(&0xFFFFu16.to_le_bytes());
+        block[4] = 0b1110_0100; // texel0 idx=0, texel1 idx=1, texel2 idx=2, texel3 idx=3
+        let mut texels = [[0u8; 4]; 16];
+        decode_bc1_block(&block, &mut texels);
+        assert_eq!(texels[0], [0, 0, 0, 255]);
+        assert_eq!(texels[1], [255, 255, 255, 255]);
+        assert_eq!(texels[2], [127, 127, 127, 255]);
+        assert_eq!(texels[3], [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn bc3_alpha_from_bc4_lane() {
+        // alpha e0=255 e1=0 全索引 0 → alpha=255;颜色 c0>c1 全索引 0 → c0。
+        let mut block = [0u8; 16];
+        block[0] = 255;
+        block[1] = 0;
+        block[8..10].copy_from_slice(&0x07E0u16.to_le_bytes()); // 纯绿
+        block[10..12].copy_from_slice(&0x0000u16.to_le_bytes());
+        let out = decode_bc3_rgba8(&block, 4, 4);
+        assert_eq!(&out[0..4], &[0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn dds_container_fail_closed_and_legacy_parse() {
+        assert!(decode_dds(b"not dds").is_err());
+        // 构造最小 DXT1:4×4 单块(c0 红 > c1 蓝,全索引 0)。
+        let mut dds = vec![0u8; 128 + 8];
+        dds[0..4].copy_from_slice(b"DDS ");
+        dds[4..8].copy_from_slice(&124u32.to_le_bytes());
+        dds[12..16].copy_from_slice(&4u32.to_le_bytes());
+        dds[16..20].copy_from_slice(&4u32.to_le_bytes());
+        dds[28..32].copy_from_slice(&1u32.to_le_bytes());
+        dds[76..80].copy_from_slice(&32u32.to_le_bytes());
+        dds[84..88].copy_from_slice(b"DXT1");
+        dds[128..130].copy_from_slice(&0xF800u16.to_le_bytes());
+        dds[130..132].copy_from_slice(&0x001Fu16.to_le_bytes());
+        let img = decode_dds(&dds).unwrap();
+        assert_eq!((img.width, img.height, img.format), (4, 4, DdsFormat::Bc1));
+        assert_eq!(&img.rgba8[0..4], &[255, 0, 0, 255]);
+        // 体截断 fail-closed。
+        assert!(decode_dds(&dds[..130]).is_err());
+    }
+}

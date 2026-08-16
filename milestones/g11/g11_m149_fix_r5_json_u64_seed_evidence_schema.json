@@ -1,0 +1,280 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.3 M149 fix_r5_json_u64_seed evidence",
+  "description": "evidence/g11_m149_fix_r5_json_u64_seed_<UTC>.json。R5 JSON u64 seed 修复闭环：u64 顶格 seed 合法消费（gltf/json.rs U64 全域入口 + --u64-seed 旗标；i64 域 fail-closed 解除）+ 既有 seed=42 契约 digest 不变回归 + u64 边界语料锚定（2^63 合法 / 2^64 维持拒绝）+ 默认面 fail-closed parity 0-byte；顶格仍拒绝/digest 漂移/越界开放 RED 臂全检出。（步骤 203；G11_CONTRACT §4.2 M149 行判据逐字 / G-G11-5；G11_ACCEPTANCE_MAP §1 M149 行；CI_GATES §4；spec/visual_comparison.md RXS-0393）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "u64_provenance",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_m149_fix_r5_json_u64_seed"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.p0.m149.fix_r5_json_u64_seed"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M149"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M149"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g11.p0.m149.fix_r5_json_u64_seed"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 203
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M149 + G-G11-5;G11_ACCEPTANCE_MAP §1 M149;CI_GATES §4;g10_gap_registry R5 行承接锚;spec/visual_comparison.md RXS-0393"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_locked_unchanged",
+        "u64_max_seed_consumed",
+        "u64_seed_value_participates_digest",
+        "default_face_fail_closed_parity",
+        "seed42_digest_regression_unchanged",
+        "u64_boundary_corpus_anchor",
+        "over_u64_still_fail_closed",
+        "closure_delta_converged_measured",
+        "calibration_rerun_deterministic",
+        "budget_entry_appended_measured_local",
+        "budget_eval_strict_all_pass",
+        "red_top_seed_still_rejected_detected",
+        "red_seed42_digest_drift_detected",
+        "red_over_u64_open_detected"
+      ],
+      "properties": {
+        "contract_digest_locked_unchanged": {
+          "type": "boolean"
+        },
+        "u64_max_seed_consumed": {
+          "type": "boolean"
+        },
+        "u64_seed_value_participates_digest": {
+          "type": "boolean"
+        },
+        "default_face_fail_closed_parity": {
+          "type": "boolean"
+        },
+        "seed42_digest_regression_unchanged": {
+          "type": "boolean"
+        },
+        "u64_boundary_corpus_anchor": {
+          "type": "boolean"
+        },
+        "over_u64_still_fail_closed": {
+          "type": "boolean"
+        },
+        "closure_delta_converged_measured": {
+          "type": "boolean"
+        },
+        "calibration_rerun_deterministic": {
+          "type": "boolean"
+        },
+        "budget_entry_appended_measured_local": {
+          "type": "boolean"
+        },
+        "budget_eval_strict_all_pass": {
+          "type": "boolean"
+        },
+        "red_top_seed_still_rejected_detected": {
+          "type": "boolean"
+        },
+        "red_seed42_digest_drift_detected": {
+          "type": "boolean"
+        },
+        "red_over_u64_open_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gap_row_id",
+        "baseline_delta",
+        "retest_delta",
+        "converged",
+        "threshold_provenance",
+        "contract_digest_unchanged"
+      ],
+      "properties": {
+        "gap_row_id": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 16
+        },
+        "baseline_delta": {
+          "type": "number"
+        },
+        "retest_delta": {
+          "type": "number"
+        },
+        "converged": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_digest_unchanged": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "u64_provenance": {
+      "type": "object",
+      "description": "R5 u64 seed provenance：顶格 digest / 减一探针对账 / 默认面 exit / 2^64 探针 exit / 修复面登记",
+      "additionalProperties": true
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "host_section_pass": {
+            "const": true
+          },
+          "closure": {
+            "properties": {
+              "converged": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

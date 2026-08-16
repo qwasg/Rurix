@@ -13,6 +13,11 @@ pub enum JsonValue {
     Bool(bool),
     /// 有限整数(无小数/指数形态且落入 i64)。
     I64(i64),
+    /// 有限整数(无小数/指数形态,落入 u64 但超出 i64)。
+    /// 仅 `parse_str_u64`/`parse_bytes_u64` 全域入口产出(G11.3 R5 修复面:
+    /// 契约 time.random_seed u64 顶格合法消费);默认 `parse_str` 入口对
+    /// 超出 i64 的整数维持 fail-closed 拒绝(行为逐字节不变)。
+    U64(u64),
     /// 有限浮点(含科学计数或小数形态)。
     F64(f64),
     String(String),
@@ -48,6 +53,7 @@ impl JsonValue {
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             JsonValue::I64(i) => Some(*i),
+            JsonValue::U64(u) => i64::try_from(*u).ok(),
             JsonValue::F64(f)
                 if f.fract() == 0.0 && *f >= i64::MIN as f64 && *f <= i64::MAX as f64 =>
             {
@@ -59,10 +65,22 @@ impl JsonValue {
     pub fn as_u32(&self) -> Option<u32> {
         self.as_i64().and_then(|i| u32::try_from(i).ok())
     }
+    /// u64 域整数读取(G11.3 R5 修复面):I64 非负 / U64 全值 / F64 整值在域。
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            JsonValue::I64(i) => u64::try_from(*i).ok(),
+            JsonValue::U64(u) => Some(*u),
+            JsonValue::F64(f) if f.fract() == 0.0 && *f >= 0.0 && *f <= u64::MAX as f64 => {
+                Some(*f as u64)
+            }
+            _ => None,
+        }
+    }
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             JsonValue::F64(f) => Some(*f),
             JsonValue::I64(i) => Some(*i as f64),
+            JsonValue::U64(u) => Some(*u as f64),
             _ => None,
         }
     }
@@ -77,11 +95,26 @@ impl JsonValue {
 struct Parser<'a> {
     bytes: &'a [u8],
     i: usize,
+    /// u64 全域模式(G11.3 R5 修复面):true 时整数先 i64 后 u64 落地;
+    /// false = 默认面——超出 i64 的整数 fail-closed 拒绝(逐字节既有行为)。
+    u64_domain: bool,
 }
 
 impl<'a> Parser<'a> {
     fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes, i: 0 }
+        Self {
+            bytes,
+            i: 0,
+            u64_domain: false,
+        }
+    }
+
+    fn new_u64(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            i: 0,
+            u64_domain: true,
+        }
     }
 
     fn err(&self, msg: impl Into<String>) -> AssetError {
@@ -262,6 +295,13 @@ impl<'a> Parser<'a> {
             match text.parse::<i64>() {
                 Ok(i) => return Ok(JsonValue::I64(i)),
                 Err(_) => {
+                    // u64 全域入口(G11.3 R5):i64 溢出后非负整数尝试 u64 落地;
+                    // 仍溢出(>u64::MAX 或负向越界)维持显式 Err,不静默降为 f64。
+                    if self.u64_domain && !text.starts_with('-') {
+                        if let Ok(u) = text.parse::<u64>() {
+                            return Ok(JsonValue::U64(u));
+                        }
+                    }
                     // 超出 i64:显式 Err(溢出),不静默降为 f64。
                     return Err(self.err(format!("integer overflow: {text}")));
                 }
@@ -365,10 +405,30 @@ pub fn parse_str(text: &str) -> Result<JsonValue> {
 
 /// 解析字节;非法 UTF-8 在字符串/整体层面拒录。
 pub fn parse_bytes(bytes: &[u8]) -> Result<JsonValue> {
+    parse_bytes_impl(bytes, false)
+}
+
+/// u64 全域入口(G11.3 R5 修复面):无小数/指数形态的非负整数先落 i64、
+/// i64 溢出后落 u64(`JsonValue::U64`),超出 u64 维持 fail-closed;
+/// 其余严格谓词(重复 key/UTF-8/裸控制字符/深度/非有限浮点)与默认面同。
+pub fn parse_str_u64(text: &str) -> Result<JsonValue> {
+    parse_bytes_impl(text.as_bytes(), true)
+}
+
+/// `parse_str_u64` 的字节形态。
+pub fn parse_bytes_u64(bytes: &[u8]) -> Result<JsonValue> {
+    parse_bytes_impl(bytes, true)
+}
+
+fn parse_bytes_impl(bytes: &[u8], u64_domain: bool) -> Result<JsonValue> {
     // 整体必须是合法 UTF-8(GLB JSON chunk 也走此路径)。
     std::str::from_utf8(bytes)
         .map_err(|_| AssetError::new(ErrorKind::JsonStrict, "JSON bytes are not valid UTF-8"))?;
-    let mut p = Parser::new(bytes);
+    let mut p = if u64_domain {
+        Parser::new_u64(bytes)
+    } else {
+        Parser::new(bytes)
+    };
     let v = p.parse_value(0)?;
     p.skip_ws();
     if p.i != p.bytes.len() {
@@ -415,5 +475,37 @@ mod tests {
     #[test]
     fn rejects_integer_overflow() {
         assert!(parse_str("9223372036854775808").is_err());
+    }
+
+    // G11.3 R5 修复面:u64 全域入口合法消费 i64 域外整数,默认面维持拒绝。
+    #[test]
+    fn u64_domain_entry_accepts_u64_max() {
+        let v = parse_str_u64("18446744073709551615").unwrap();
+        assert_eq!(v, JsonValue::U64(u64::MAX));
+        assert_eq!(v.as_u64(), Some(u64::MAX));
+        // i64 域内整数两入口同型落地(既有消费面 0-byte)。
+        let w = parse_str_u64("42").unwrap();
+        assert_eq!(w, JsonValue::I64(42));
+        assert_eq!(w.as_u64(), Some(42));
+        // i64 上界邻域:2^63−1 两入口均为 I64;2^63 仅 u64 入口落地。
+        assert_eq!(
+            parse_str_u64("9223372036854775807").unwrap(),
+            JsonValue::I64(i64::MAX)
+        );
+        assert_eq!(
+            parse_str_u64("9223372036854775808").unwrap(),
+            JsonValue::U64(9223372036854775808)
+        );
+    }
+
+    #[test]
+    fn u64_domain_entry_still_fail_closed_beyond_u64() {
+        // 2^64 与负向越界维持显式拒绝(不静默降为 f64)。
+        assert!(parse_str_u64("18446744073709551616").is_err());
+        assert!(parse_str_u64("-9223372036854775809").is_err());
+        // 默认面对 u64 域外整数维持逐字节既有拒绝(G10 探针 parity 面)。
+        assert!(parse_str("18446744073709551615").is_err());
+        let e = parse_str("18446744073709551615").unwrap_err();
+        assert!(e.message.contains("integer overflow"));
     }
 }

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m150_fix_u1_cornell_shell_radiance",
+  "symbolic_gate_key": "g11.p0.m150.fix_u1_cornell_shell_radiance",
+  "matrix_row": "M150",
+  "milestone": "M150",
+  "assertion_id": "g11.p0.m150.fix_u1_cornell_shell_radiance",
+  "status": "pass",
+  "wave": "G11.3",
+  "numeric_step": 204,
+  "source_ref": "G11_CONTRACT §4.2 M150 + G-G11-5;G11_ACCEPTANCE_MAP §1 M150;CI_GATES §4;g10_gap_registry U1 行承接锚;spec/visual_comparison.md RXS-0393",
+  "base_commit": "734f379245baf9f27b4a33e6c0c6200e575a48a9",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "ue_two_sided_fix_landed": true,
+    "ue_frame_changed_vs_g10": true,
+    "corpus_zero_byte": true,
+    "baseline_metric_reproduction": true,
+    "closure_delta_converged_measured": true,
+    "rurix_coverage_non_degrade": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_corpus_silent_rewrite_detected": true,
+    "red_unconverged_masquerade_detected": true,
+    "red_rurix_degrade_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "03cac13af56a53cf",
+    "baseline_delta": -0.7451210021972656,
+    "retest_delta": 0.003810882568359375,
+    "converged": true,
+    "threshold_provenance": "标定程序 ci/g11_fix_u1_cornell_shell_radiance_smoke.py（shrink 阈 = 双跑噪声 p100×k=1.0；zero_band = per-tile XOR p100 0.0263671875×k=2.0=0.052734375，样本集 = G11.3 复测 cornell 帧对 64 瓦片；budget 条目 g11.fix.u1_coverage_shrink_tol/g11.fix.u1_coverage_zero_band）",
+    "contract_digest_unchanged": true
+  },
+  "shell_provenance": {
+    "two_sided_actor_count": 17,
+    "ue_frame_content_digest": "sha256:82a156aeffc8b93014cd475d26b7be63f8e9083beee41c1a4e45ca8ffd7fec3e",
+    "g10_5_locked_ue_frame_digest": "sha256:c7c6f2cf1644ba79512da1f4f3fceeb2001826f4723681a35ab7a8ca9dc853a2",
+    "corpus_digest_m131": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+    "retest_coverage": {
+      "rurix": 0.9290046691894531,
+      "ue5": 0.9328155517578125
+    },
+    "baseline_coverage": {
+      "rurix": 0.9290046691894531,
+      "ue5": 0.1838836669921875
+    },
+    "zero_band_calibration": {
+      "p100": 0.0263671875,
+      "k": 2.0,
+      "zero_band": 0.052734375,
+      "global_xor_ratio": 0.003810882568359375
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T165041Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "UE 双面置换: 17 actors; U1 修复前后 delta 对拍: 基线 -0.7451210021972656 → 复测 0.003810882568359375（UE 覆盖 0.1838836669921875 → 0.9328155517578125）; g11_budget.json 字节级纯追加 g11.fix.u1_coverage_shrink_tol/g11.fix.u1_coverage_zero_band"
+}

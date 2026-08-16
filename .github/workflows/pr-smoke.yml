@@ -2282,6 +2282,105 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_wave2_exit_check.py --gate g11.wave.2.exit
 
+      # 步骤 201（G11.3 M147 R1 材质子集修复闭环门 g11.p0.m147.fix_r1_material_subset；
+      # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M147 行判据逐字 / G-G11-5；
+      # G11_ACCEPTANCE_MAP §1 M147 行；g10_gap_registry R1 行承接锚；
+      # spec/visual_comparison.md RXS-0393；落盘前实测 CI_step.next_free=201 顺位
+      # 领取 201~207——201 归 M147）。host+device 门：baseColorTexture/法线/
+      # metallic-roughness 采样接入（bistro --material-pbr：70 材质/144 DDS 纹理
+      # bcdec 真实解码消费 + sRGB→线性 IEC 分段 + 太阳 GGX + 法线贴图 BC5 XY 重建 Z
+      # 切线空间扰动 + GI 逐实例 albedo 代理）+ 修复前后 LDR 臂 SSIM delta 收敛
+      # measured（锁定基线 0.8328980787837229，收敛阈标定程序产 p100×k 入
+      # g11_budget g11.fix.r1_ssim_shrink_tol）+ 契约 digest 0-byte；未采样冒充
+      # 修复/未收敛冒充闭环/契约漂移/手写阈值/estimated 冒充 RED 臂全检出。
+      # evidence 落盘 evidence/g11_m147_fix_r1_material_subset_<UTC>.json。
+      - name: G11.3 M147 fix R1 material subset (G11 CI_GATES §4.201, g11.p0.m147.fix_r1_material_subset)
+        shell: powershell
+        run: py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset
+
+      # 步骤 202（G11.3 M148 R2 几何法线修复闭环门 g11.p0.m148.fix_r2_geometry_normals；
+      # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M148 行判据逐字 / G-G11-5；
+      # G11_ACCEPTANCE_MAP §1 M148 行；g10_gap_registry R2 行承接锚；RXS-0393）。
+      # host+device 门：winding 朝向 + 双面翻转消费（cornell --smooth-normals 顶点
+      # 平滑法线重心插值 + 逆矩阵转置世界化）+ 修复前后 cornell HDR 覆盖 delta
+      # 收敛 measured（锁定基线 −0.7451210021972656，zero_band = per-tile XOR
+      # p100×k=2.0 标定带入 g11_budget g11.fix.r2_coverage_zero_band）+ 与 U1 同面
+      # 对账 + Rurix 侧覆盖不降级；法线未消费冒充/未收敛冒充/方向性注入/手写阈值/
+      # estimated 冒充 RED 臂全检出。evidence 落盘
+      # evidence/g11_m148_fix_r2_geometry_normals_<UTC>.json。
+      - name: G11.3 M148 fix R2 geometry normals (G11 CI_GATES §4.202, g11.p0.m148.fix_r2_geometry_normals)
+        shell: powershell
+        run: py -3 ci/g11_fix_r2_geometry_normals_smoke.py --gate g11.p0.m148.fix_r2_geometry_normals
+
+      # 步骤 203（G11.3 M149 R5 JSON u64 seed 修复闭环门 g11.p0.m149.fix_r5_json_u64_seed；
+      # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M149 行判据逐字 / G-G11-5；
+      # G11_ACCEPTANCE_MAP §1 M149 行；g10_gap_registry R5 行承接锚；RXS-0393）。
+      # host 纯 host 门：u64 顶格 seed 合法消费（gltf/json.rs JsonValue::U64 +
+      # parse_str_u64 全域入口 + --u64-seed 旗标，i64 域 fail-closed 解除）+ 既有
+      # seed=42 契约 digest 不变回归（== G10.5 锁定值）+ u64 边界语料锚定（2^63
+      # 合法 / 2^64 维持拒绝）+ 默认面 fail-closed parity 0-byte；顶格仍拒绝/
+      # digest 漂移/越界开放 RED 臂全检出。evidence 落盘
+      # evidence/g11_m149_fix_r5_json_u64_seed_<UTC>.json。
+      - name: G11.3 M149 fix R5 json u64 seed (G11 CI_GATES §4.203, g11.p0.m149.fix_r5_json_u64_seed)
+        shell: powershell
+        run: py -3 ci/g11_fix_r5_json_u64_seed_smoke.py --gate g11.p0.m149.fix_r5_json_u64_seed
+
+      # 步骤 204（G11.3 M150 U1 cornell 壳体零辐射修复闭环门
+      # g11.p0.m150.fix_u1_cornell_shell_radiance；G11 CI_GATES §4 v1.2；G11_CONTRACT
+      # §4.2 M150 行判据逐字 / G-G11-5；G11_ACCEPTANCE_MAP §1 M150 行；g10_gap_registry
+      # U1 行承接锚；RXS-0393）。host+device 门：UE 侧双面化（two_sided 父材质 +
+      # 逐 actor MIC 置换，语料 0-byte 不走 M133 修订——M131 登记 digest 复算机核）
+      # + 修复后 UE 帧覆盖收敛 measured（18.39%→93.28%，锁定基线 delta
+      # −0.7451210021972656，zero_band 标定带入 g11_budget g11.fix.u1_coverage_zero_band）
+      # + Rurix 侧覆盖不降级；语料静默改写/覆盖未收敛冒充/Rurix 降级/手写阈值/
+      # estimated 冒充 RED 臂全检出。evidence 落盘
+      # evidence/g11_m150_fix_u1_cornell_shell_radiance_<UTC>.json。
+      - name: G11.3 M150 fix U1 cornell shell radiance (G11 CI_GATES §4.204, g11.p0.m150.fix_u1_cornell_shell_radiance)
+        shell: powershell
+        run: py -3 ci/g11_fix_u1_cornell_shell_radiance_smoke.py --gate g11.p0.m150.fix_u1_cornell_shell_radiance
+
+      # 步骤 205（G11.3 M151 U2 bistro 纹理 DDS 修复闭环门
+      # g11.p0.m151.fix_u2_bistro_texture_dds；G11 CI_GATES §4 v1.2；G11_CONTRACT
+      # §4.2 M151 行判据逐字 / G-G11-5；G11_ACCEPTANCE_MAP §1 M151 行；g10_gap_registry
+      # U2 行承接锚 + G10-N7 承接锚兑现；RXS-0393）。host+device 门：DDS 解码面落地
+      #（bcdec BC1/BC3/BC5 真实解码 + 派生链转码 manifest 144 条目逐文件 digest
+      # 机核 + 式样重解码复现）+ 材质实例 texture_parameter_values 非空回归
+      #（70 MIC 显式绑定——Interchange 绑定缺位补绑面）+ 修复前后 LDR 亮度中位
+      # delta 收敛 measured（锁定基线 0.7698879749655723，收敛阈标定入
+      # g11_budget g11.fix.u2_luminance_shrink_tol）+ 未登记资产混入守卫；纹理仍
+      # 全缺冒充/未登记混入/未收敛冒充/手写阈值/estimated 冒充 RED 臂全检出。
+      # evidence 落盘 evidence/g11_m151_fix_u2_bistro_texture_dds_<UTC>.json。
+      - name: G11.3 M151 fix U2 bistro texture DDS (G11 CI_GATES §4.205, g11.p0.m151.fix_u2_bistro_texture_dds)
+        shell: powershell
+        run: py -3 ci/g11_fix_u2_bistro_texture_dds_smoke.py --gate g11.p0.m151.fix_u2_bistro_texture_dds
+
+      # 步骤 206（G11.3 M152 U3 动画剥离修复闭环门 g11.p0.m152.fix_u3_bistro_animation；
+      # G11 CI_GATES §4 v1.2；G11_CONTRACT §4.2 M152 行判据逐字 / G-G11-5；
+      # G11_ACCEPTANCE_MAP §1 M152 行；g10_gap_registry U3 行承接锚；RXS-0393）。
+      # host 纯 host 门：动画通道双端同剥离口径（Rurix 输出 animations 闭集块
+      # policy=strip_static_contract + UE 头注登记在树）+ 包内动画通道计数对账
+      #（包内 1 animation/2 channels 独立重算 vs 显式剥离 2，残余静默 0）+ 相机
+      # 位姿契约 0-byte（corpus 文件工作树 0-byte + 契约 digest == G10.5 锁定值）；
+      # 静默丢弃冒充/相机契约漂移/手写阈值/estimated 冒充 RED 臂全检出。evidence
+      # 落盘 evidence/g11_m152_fix_u3_bistro_animation_<UTC>.json。
+      - name: G11.3 M152 fix U3 bistro animation (G11 CI_GATES §4.206, g11.p0.m152.fix_u3_bistro_animation)
+        shell: powershell
+        run: py -3 ci/g11_fix_u3_bistro_animation_smoke.py --gate g11.p0.m152.fix_u3_bistro_animation
+
+      # 步骤 207（G11.3 波聚合门 g11.wave.3.exit；G11 CI_GATES §5 v1.2；G11_CONTRACT
+      # G-G11-5；落盘前实测 CI_step.next_free=201 顺位领取 201~207）。只读汇总
+      # M147（步骤 201）/M148（步骤 202）/M149（步骤 203）/M150（步骤 204）/M151
+      #（步骤 205）/M152（步骤 206）最新 evidence + 五 facts（契约 digest 0-byte /
+      # 六门 RED 臂独立有效〔共 25 臂〕/标定八条 g11.fix.* 入 g11_budget provenance
+      # 齐备〔P-09〕/资产 provenance 齐备〔转码 manifest + cornell 语料 0-byte +
+      # 未登记资产零混入〕/回归前置自检〔G10 14 门 + G9 34 门最新 evidence 全绿 +
+      # 默认面帧 digest 逐位 parity〕）；聚合不代绿、不重跑 smoke、不设
+      # RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。
+      # evidence 落盘 evidence/g11_wave3_exit_<UTC>.json。
+      - name: G11.3 wave3 exit aggregate (G11 CI_GATES §5.207, g11.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g11_wave3_exit_check.py --gate g11.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -646,6 +646,30 @@ def check_evidence_files() -> None:
     g11_2_calibration_schema = load(
         ROOT / "milestones/g11/g11_2_calibration_evidence_schema.json"
     )
+    g11_m147_fix_r1_material_subset_schema = load(
+        ROOT / "milestones/g11/g11_m147_fix_r1_material_subset_evidence_schema.json"
+    )
+    g11_m148_fix_r2_geometry_normals_schema = load(
+        ROOT / "milestones/g11/g11_m148_fix_r2_geometry_normals_evidence_schema.json"
+    )
+    g11_m149_fix_r5_json_u64_seed_schema = load(
+        ROOT / "milestones/g11/g11_m149_fix_r5_json_u64_seed_evidence_schema.json"
+    )
+    g11_m150_fix_u1_cornell_shell_radiance_schema = load(
+        ROOT / "milestones/g11/g11_m150_fix_u1_cornell_shell_radiance_evidence_schema.json"
+    )
+    g11_m151_fix_u2_bistro_texture_dds_schema = load(
+        ROOT / "milestones/g11/g11_m151_fix_u2_bistro_texture_dds_evidence_schema.json"
+    )
+    g11_m152_fix_u3_bistro_animation_schema = load(
+        ROOT / "milestones/g11/g11_m152_fix_u3_bistro_animation_evidence_schema.json"
+    )
+    g11_wave3_exit_schema = load(
+        ROOT / "milestones/g11/g11_wave3_exit_evidence_schema.json"
+    )
+    g11_3_calibration_schema = load(
+        ROOT / "milestones/g11/g11_3_calibration_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1450,6 +1474,46 @@ def check_evidence_files() -> None:
     g11_2_calibration_validator = (
         jsonschema.Draft7Validator(g11_2_calibration_schema)
         if g11_2_calibration_schema is not None
+        else None
+    )
+    g11_m147_fix_r1_material_subset_validator = (
+        jsonschema.Draft7Validator(g11_m147_fix_r1_material_subset_schema)
+        if g11_m147_fix_r1_material_subset_schema is not None
+        else None
+    )
+    g11_m148_fix_r2_geometry_normals_validator = (
+        jsonschema.Draft7Validator(g11_m148_fix_r2_geometry_normals_schema)
+        if g11_m148_fix_r2_geometry_normals_schema is not None
+        else None
+    )
+    g11_m149_fix_r5_json_u64_seed_validator = (
+        jsonschema.Draft7Validator(g11_m149_fix_r5_json_u64_seed_schema)
+        if g11_m149_fix_r5_json_u64_seed_schema is not None
+        else None
+    )
+    g11_m150_fix_u1_cornell_shell_radiance_validator = (
+        jsonschema.Draft7Validator(g11_m150_fix_u1_cornell_shell_radiance_schema)
+        if g11_m150_fix_u1_cornell_shell_radiance_schema is not None
+        else None
+    )
+    g11_m151_fix_u2_bistro_texture_dds_validator = (
+        jsonschema.Draft7Validator(g11_m151_fix_u2_bistro_texture_dds_schema)
+        if g11_m151_fix_u2_bistro_texture_dds_schema is not None
+        else None
+    )
+    g11_m152_fix_u3_bistro_animation_validator = (
+        jsonschema.Draft7Validator(g11_m152_fix_u3_bistro_animation_schema)
+        if g11_m152_fix_u3_bistro_animation_schema is not None
+        else None
+    )
+    g11_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g11_wave3_exit_schema)
+        if g11_wave3_exit_schema is not None
+        else None
+    )
+    g11_3_calibration_validator = (
+        jsonschema.Draft7Validator(g11_3_calibration_schema)
+        if g11_3_calibration_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -2917,6 +2981,64 @@ def check_evidence_files() -> None:
             # 真实 HDR 帧双臂样本集（32 对 ≥ 下界 24）+ 两跑逐位一致 +
             # p100×k=2.0 入 g11_budget + 恒等图对 == 0 + RED 四臂。
             validator = g11_m157_hdr_flip_validator
+        elif (
+            f.name.startswith("g11_m147_calibration_")
+            or f.name.startswith("g11_m148_calibration_")
+            or f.name.startswith("g11_m149_calibration_")
+            or f.name.startswith("g11_m150_calibration_")
+            or f.name.startswith("g11_m151_calibration_")
+            or f.name.startswith("g11_m152_calibration_")
+        ) and g11_3_calibration_validator is not None:
+            # G11.3 六门标定件（步骤 201~206 门产）→ g11_3_calibration_evidence_schema.json：
+            # 八条 g11.fix.* 标定条目（收敛幅度阈 / zero_band）p100×k measured_local
+            # 判读面。前缀与 g11_m1xx_fix_ 门件在 "calibration"/"fix" 第七段分叉，
+            # 置于门件映射前安全。
+            validator = g11_3_calibration_validator
+        elif (
+            f.name.startswith("g11_wave3_exit_")
+            and g11_wave3_exit_validator is not None
+        ):
+            # G11.3 波聚合门（步骤 207）→ milestones/g11/g11_wave3_exit_evidence_schema.json：
+            # M147~M152 六门最新 evidence 只读汇总 + 契约 digest/RED 臂/标定入 budget/
+            # 资产 provenance/回归前置自检五 facts；aggregate_read_only const true。
+            validator = g11_wave3_exit_validator
+        elif (
+            f.name.startswith("g11_m147_fix_r1_material_subset_")
+            and g11_m147_fix_r1_material_subset_validator is not None
+        ):
+            # G11.3 P0 硬门 M147 R1 材质子集（步骤 201）→
+            # milestones/g11/g11_m147_fix_r1_material_subset_evidence_schema.json。
+            validator = g11_m147_fix_r1_material_subset_validator
+        elif (
+            f.name.startswith("g11_m148_fix_r2_geometry_normals_")
+            and g11_m148_fix_r2_geometry_normals_validator is not None
+        ):
+            # G11.3 P0 硬门 M148 R2 几何法线（步骤 202）。
+            validator = g11_m148_fix_r2_geometry_normals_validator
+        elif (
+            f.name.startswith("g11_m149_fix_r5_json_u64_seed_")
+            and g11_m149_fix_r5_json_u64_seed_validator is not None
+        ):
+            # G11.3 P0 硬门 M149 R5 JSON u64 seed（步骤 203）。
+            validator = g11_m149_fix_r5_json_u64_seed_validator
+        elif (
+            f.name.startswith("g11_m150_fix_u1_cornell_shell_radiance_")
+            and g11_m150_fix_u1_cornell_shell_radiance_validator is not None
+        ):
+            # G11.3 P0 硬门 M150 U1 cornell 壳体零辐射（步骤 204）。
+            validator = g11_m150_fix_u1_cornell_shell_radiance_validator
+        elif (
+            f.name.startswith("g11_m151_fix_u2_bistro_texture_dds_")
+            and g11_m151_fix_u2_bistro_texture_dds_validator is not None
+        ):
+            # G11.3 P0 硬门 M151 U2 bistro 纹理 DDS（步骤 205）。
+            validator = g11_m151_fix_u2_bistro_texture_dds_validator
+        elif (
+            f.name.startswith("g11_m152_fix_u3_bistro_animation_")
+            and g11_m152_fix_u3_bistro_animation_validator is not None
+        ):
+            # G11.3 P0 硬门 M152 U3 动画剥离（步骤 206）。
+            validator = g11_m152_fix_u3_bistro_animation_validator
         elif (
             f.name.startswith("g11_closure_baseline_")
             and g11_closure_baseline_validator is not None
