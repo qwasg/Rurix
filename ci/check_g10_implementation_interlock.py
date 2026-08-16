@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Assisted-by: Kimi-K3（G10.1 治理波 validator；G10.4b 波 C3/C4 两态校准）
+# Assisted-by: Kimi-K3（G10.1 治理波 validator；G10.4b 波 C3/C4 两态校准；G10.8b 波 closed 三态校准）
 """G10.2 实现互锁守卫（milestones/g10/CI_GATES.md §3 `g10.gov.implementation_interlock`）。
 
 读取事实源并逐项输出，最后给出 READY / BLOCKED。两类断言严格分开：
@@ -28,6 +28,13 @@ implementation_status != blocked（已解锁）时 C3/C4 自动不适用（实�
 materialize 数字步骤/workflow/ci 脚本与 src/spec/conformance 面，机核必然
 命中而非违例），输出行登记 skipped_reason 并按通过处理；blocked 态恢复
 原机核。G9 §8.1 TREE 臂两态先例同构（selftest 红绿臂实证两态）。
+
+**closed 三态口径（G10.8b 校准，沿 C3/C4 两态先例，判据语义 0-byte）**：
+front matter status == closed（G10.8b close-out READY 后 status flip 的收口
+终态）时，本守卫回答的问题「G10.2 可否开工」不再适用——互锁使命完结，
+事实门/一致性门整体不适用（skipped_reason 登记），VERDICT=CLOSED、exit=0；
+active/blocked 态恢复原机核逐字维持。CLOSED 是终态正确结论，不得被当作
+G-G10-3 重新开放凭据（契约 reopen 须新立项治理程序）。
 
 诚实纪律：BLOCKED 是当前正确结论，不得被当作 G-G10-3 PASS；`--require-ready`
 供未来 G10.2 实现 PR 作前置 required check（未 READY 即退出非零）。
@@ -398,6 +405,24 @@ def evaluate_consistency_gates(inp: TreeInputs, facts_all_green: bool) -> list[t
 
 def run(inp: TreeInputs, require_ready: bool = False, printer=print) -> tuple[int, str]:
     """执行两类断言并输出；返回 (退出码, VERDICT)。"""
+    # closed 三态口径（G10.8b 校准，沿 C3/C4 两态先例，判据语义 0-byte）：
+    # status==closed = 收口终态，互锁使命完结，事实门/一致性门整体不适用。
+    contract_status = (
+        front_matter_field(inp.g10_contract_text, "status") if inp.g10_contract_text else None
+    )
+    if contract_status == "closed":
+        printer(
+            "[check_g10_implementation_interlock] 事实门/一致性门：not_applicable"
+            "（status='closed' 收口终态，互锁使命完结；skipped_reason=G10.2+ 开工门问题"
+            "不再适用——G10.8b close-out READY 后 status flip；active/blocked 态恢复原机核，"
+            "判据语义 0-byte）"
+        )
+        printer("[check_g10_implementation_interlock] VERDICT = CLOSED")
+        printer(
+            "  CLOSED 是收口终态正确结论：本守卫回答「G10.2 可否开工」，契约 closed 后该问题"
+            "不再适用；不得被当作 G-G10-3 重新开放凭据（契约 reopen 须新立项治理程序）。"
+        )
+        return 0, "CLOSED"
     facts = evaluate_fact_gates(inp)
     facts_all_green = all(ok for ok, _ in facts)
     consistency = evaluate_consistency_gates(inp, facts_all_green)
@@ -567,6 +592,16 @@ def run_selftest() -> int:
     inp.acceptance_findings = ["[three-way] M135 key 漂移"]
     case("unblocked 态事实门红 → C1 仍 FAIL 退 1（两态校准不遮蔽 C1/C2）", inp, "C1 G10_CONTRACT implementation_status = 'unblocked'", "BLOCKED", 1)
 
+    # closed 三态口径（G10.8b 校准）：status==closed → VERDICT=CLOSED 退 0，
+    # 全门 not_applicable + skipped_reason 登记；active/blocked 态原机核维持
+    #（上述红绿臂已实证）。
+    inp = copy.deepcopy(_good_inputs())
+    inp.g10_contract_text = unblocked_text.replace("status: active", "status: closed")
+    case(
+        "closed 态 → 全门 not_applicable VERDICT=CLOSED 退 0（skipped_reason 登记）",
+        inp, "skipped_reason", "CLOSED", 0,
+    )
+
     lines = []
     code, verdict = run(_good_inputs(), printer=lines.append)
     if code == 0 and verdict == "READY":
@@ -575,17 +610,17 @@ def run_selftest() -> int:
         print(f"  GREEN MISS — 合成正本本应 READY/exit=0，实测 VERDICT={verdict} / exit={code}")
         failures += 1
 
-    # 当前树实测：VERDICT 与事实一致（RFC Draft/登记未落盘=BLOCKED／全绿=READY，两态均为正确结论）；
-    # 一致性全绿时脚本退 0，有 FAIL 时退 1。
+    # 当前树实测：VERDICT 与事实一致（RFC Draft/登记未落盘=BLOCKED／全绿=READY／
+    # 收口终态=CLOSED，三态均为正确结论）；一致性全绿时脚本退 0，有 FAIL 时退 1。
     tree_lines: list[str] = []
     tree_code, tree_verdict = run(load_inputs(ROOT), printer=tree_lines.append)
     tree_consistency_green = "FAIL — " not in "\n".join(tree_lines)
     expected_tree_exit = 0 if tree_consistency_green else 1
-    if tree_verdict in ("BLOCKED", "READY") and tree_code == expected_tree_exit:
+    if tree_verdict in ("BLOCKED", "READY", "CLOSED") and tree_code == expected_tree_exit:
         print(
             f"  TREE ok   — 当前树 VERDICT={tree_verdict}，exit={tree_code}"
             f"（一致性{'全绿' if tree_consistency_green else '有 FAIL'}；"
-            f"{'互锁条件未齐期' if tree_verdict == 'BLOCKED' else 'G-G10-3 解锁条件已齐'}，符合当前事实预期）"
+            f"{'互锁条件未齐期' if tree_verdict == 'BLOCKED' else ('收口终态' if tree_verdict == 'CLOSED' else 'G-G10-3 解锁条件已齐')}，符合当前事实预期）"
         )
     else:
         print(
@@ -597,7 +632,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[check_g10_implementation_interlock] SELFTEST FAIL ({failures})")
         return 1
-    print("[check_g10_implementation_interlock] SELFTEST PASS (11 RED + 1 GREEN + 1 TREE)")
+    print("[check_g10_implementation_interlock] SELFTEST PASS (12 RED + 1 GREEN + 1 TREE)")
     return 0
 
 
