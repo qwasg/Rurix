@@ -50,6 +50,8 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 
 > **状态勘误(2026-08-15,只追加不回写)**:上方 2026-08-09 勘误行状态止于 G9 治理波立项快照——**G9 已于 2026-08-15 收口**(`status: closed`,close-out flip commit 见 `milestones/g9/G9_CONTRACT.md` §8.10):G9.2~G9.6 五波、G9.7 P2 穷举决策(33 行闭集)、G9.8a stabilization soak(≥30min/≥10000 帧 honest 口径)与 G9.8b close-out 终审(VERDICT=READY)逐波验收,15 个 P0 与 19 个已 go P1 独立断言全绿;各门终态(含 no-go/defer-to-G10+/not-triggered 诚实留档,不回写为 PASS)以 [`milestones/g9/G9_CONTRACT.md`](milestones/g9/G9_CONTRACT.md) 最新 close-out 段、`G9_P2_DECISIONS.md` 与 `registry/` 为准,旧行按只追加纪律不回写。
 
+> **状态勘误(2026-08-16,只追加不回写)**:上方 2026-08-15 勘误行状态止于 G9 收口快照——**G10(UE5 画面对标基线期,`milestones/g10/`)已于 2026-08-16 收口**(`status: closed`,close-out flip commit 见 [`milestones/g10/G10_CONTRACT.md`](milestones/g10/G10_CONTRACT.md) §8.10):G10.2~G10.5 四波(UE5 5.8 出图环境/压测语料/度量基建/首轮 A/B 对比)、G10.6 defer 重评窗(M99-clipmap 唯一 rejudged-go 指定 G11 画质修复期承接)、G10.7 P2 穷举决策(27 行闭集)、G10.8a stabilization soak(出图→捕获→度量→差距清单全链路连续复跑 ≥30min honest 口径)与 G10.8b close-out 终审(VERDICT=READY)逐波验收,12 个 P0 与 2 个已 go P1 独立断言全绿;**差距清单 11 行闭集(R1~R5/U1~U3/C1~C3)终审锁定为 G11 法定输入**(G11 修复范围只消费该清单 + 承接锚);各门终态(含 no-go/defer-to-G11+/not-triggered 诚实留档,不回写为 PASS)以 [`milestones/g10/G10_CONTRACT.md`](milestones/g10/G10_CONTRACT.md) 最新 close-out 段、`G10_P2_DECISIONS.md` 与 `registry/` 为准,旧行按只追加纪律不回写。
+
 旗舰用例与关键交付(全部端到端真机验收):
 
 - **UC-01 — PyTorch 算子替换**:`rx build --emit=pyd` 产 PYD(nanobind + scikit-build-core),经 `__cuda_array_interface__` v3 / DLPack 双协议零拷贝接入 PyTorch CUDA 张量;SAXPY/Reduction/GEMM 算子替换 **≥ 手写 CUDA C++ 90%**(measured_local)。

@@ -1,7 +1,7 @@
 ---
 contract: G10
 title: G10 UE5 画面对标基线期
-status: active
+status: closed
 implementation_status: unblocked
 active_scope: g10_1_governance_only + g10_2_plus_implementation_waves
 version: v1.0
@@ -489,3 +489,13 @@ py -3 -m pytest tests/ -q → 121 passed
 - **验收命令（实测全绿）**：`py -3 ci/g10_closeout_check.py --gate g10.wave.8b.closeout` exit=0 READY + `--selftest` OK materialized step 195 + `py -3 ci/check_schemas.py` / `py -3 ci/check_g10_acceptance_map.py` / `py -3 ci/check_number_ledger.py` / `py -3 ci/trace_matrix.py --check`（373/373）/ `py -3 ci/stable_snapshot.py --check` / `py -3 ci/check_g10_implementation_interlock.py --require-ready`（READY）守卫全 PASS。
 - **status flip**：见紧随其后的独立 commit（front matter `active`→`closed` + 本条 0-byte 维持）。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.9 同模）。`Assisted-by: Kimi-K3（G10.8 收口波）`（影响范围：G10_CONTRACT §8.9、ci/g10_closeout_check.py + g10_wave8b_closeout evidence schema（+ `87b7e322` import json 修复）、8b READY evidence 入库；验证方式如上全量实测输出留痕）。
+
+### §8.10 G10 status flip（2026-08-16）
+
+**裁决**：G-G10-1~11 对应波次与硬门已 materialize 并逐波验收（G10.2~G10.5 四波 §8.2~§8.5、G10.6 defer 重评窗 §8.6、G10.7 P2 穷举决策门 §8.7、G10.8a stabilization soak §8.8）；8a full-run PASS（`g10_stabilization_soak_20260816T073116Z`）；8b `VERDICT=READY`（`g10_wave8b_closeout_20260816T073202Z`）。  
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-034/039/040/041/042/043/044 总体维持 open（分项 go/defer 已由候选决策表、G10_P2_DECISIONS 与 deferred history 只追加留痕）。**差距清单 `g10_gap_registry.json` 11 行闭集（R1~R5/U1~U3/C1~C3）终审锁定为 G11 法定输入**——G11 修复范围只能消费该清单 + 其承接锚（G-G10-11/MAP §7）。本条为 close-out 终审签署块。
+
+- **guardrail 基准链留痕**：`ci/check_guardrails.py` 默认基准维持 `g7-closed`——G8/G9 close-out 均未落 `g8-closed`/`g9-closed` tag（基准链 mb1-closed→g3-closed→ei1-closed→g4-closed→ea1-closed→g7-closed 单线性维持，v1.58 注释面），G10 沿 G8/G9 先例**不新落 close tag、不切基准**（无 g9-closed 基准可切，留痕登记）；README.md / 00_MASTER_INDEX.md 状态勘误行只追加随本 commit 同落。
+- **互锁 validator closed 三态校准**：status flip 后 `ci/check_g10_implementation_interlock.py` 事实门①「status 要求 active」按字面失配转红、C1/C2 一致性门连带 FAIL（校准前实测 VERDICT=BLOCKED exit=1）——按 C3/C4 两态先例加性扩第三态：status==closed（收口终态）时事实门/一致性门整体 not_applicable（skipped_reason 登记），VERDICT=CLOSED、exit=0；active/blocked 态原机核逐字维持，CLOSED 不得被当作 G-G10-3 重新开放凭据；selftest 加性扩 closed 臂（12 RED + 1 GREEN + 1 TREE 全过，CI_GATES v1.10 登记）。
+- **异己并发工作树面**：本 flip commit 只含 front matter `status` 字段 + §8.10 追加 + README/00_MASTER_INDEX 勘误行；工作树异己 src 面（§8.8④ 登记的并发会话研究模块声明面）维持未提交、不混入本 commit。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.10 同模）。`Assisted-by: Kimi-K3（G10.8 收口波）`（影响范围：front matter status flip + 本条签署块 + README/00_MASTER_INDEX 状态勘误行；验证方式：`py -3 ci/g10_closeout_check.py --gate g10.wave.8b.closeout` 复跑幂等 READY + 全守卫复跑 PASS，输出如本会话留痕）。
