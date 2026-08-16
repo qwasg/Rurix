@@ -386,3 +386,67 @@ py -3 ci/check_g10_implementation_interlock.py --require-ready → VERDICT=READY
 **④ 门序 / not-triggered / no-go 登记面摘要**：spec 条款 RXS-0391 spec-first 先行（commit `4925efdf`，硬规则 7）；编号领取 = 落盘前实测 `CI_step.next_free=188` 顺位 188~191、`RXS.next_free=391` 顺位 RXS-0391（registry/number_ledger.json revision_log **v1.109/v1.110**，on_tree_max CI_step 187→191 / RXS 390→391）；CI_GATES.md v1.6 修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 188~191（步骤 187 块后追加）；check_schemas.py 四处纯追加（load/validator/前缀路由，既有路由 0-byte）；共享判定层 `ci/g10_gap_registry_lib.py`（RXS-0391 IR2 单一事实源）；UE bench harness 两件（`ue_python/g10_5_build_bench.py` + `g10_5_ue_bench.py`）；trace_matrix 372→373、stable 快照 372→373 重 bless（bless_log 追加行）；G5~G9 closed 判据与 G10.2~G10.5a 门脚本 0-byte（M130 门仅 verify_three_binding 双场景口径修订，见 ①）；**HEAD 既有 rustfmt 漂移面（hlod.rs/terrain.rs/water.rs 等）与 rurix-render lib 3 条 clippy 警告为 HEAD 既有状态如实登记**（G10.5a fmt 收口批已登记 hlod.rs 不回写先例），本批触改文件（g10_5_scene_render.rs / g10_m137_diff_report.rs / exr.rs）rustfmt+clippy 零警告实测（bin 内 4 条 A 段遗留警告随本批顺手清净：3 redundant closure + 1 collapsible if，语义 0-byte）；本波无 not-triggered 分项、无 no-go；M139 两度 FAIL 件与 wave5 负样本 FAIL 件诚实留痕（evidence/ 只增不删不改）。
 
 **⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.5b 波）`（影响范围：G10_CONTRACT §8.5、ci/g10_ab_comparison_smoke.py / g10_gap_registry_smoke.py / g10_perf_baseline_smoke.py / g10_wave5_exit_check.py / g10_gap_registry_lib.py、milestones/g10/g10_gap_registry.json 与四 evidence schema、ci/g10_dual_determinism_contract_smoke.py verify_three_binding 双场景口径修订、image-io exr.rs as_str pub + g10_m137_diff_report.rs domain 派生（H1）+ g10_5_scene_render.rs --benchmark 加性子模式、harness UE bench 两件、check_schemas.py 四处纯追加、pr-smoke.yml 步骤 188~191、CI_GATES v1.6、ledger v1.110；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：M141 基线为单轮采样（14 §5 50×3 足额，M0 §3「三次进程级独立运行」为预算回填口径——本门不回填 budget，trial 块为进程内/单 MRQ run 内连续段，已如实登记采样形态）；UE 侧 frameRenderDuration 含 MRQ 捕获合并开销（读回/写盘异步面），口径注释在案；Rurix bistro 0.057 fps 为 host CPU 参考管线实测，GPU 管线帧率面归后续波次；G10.6 重评窗以本波 measured 数据为法定证据输入（契约 G-G10-8）。
+
+### §8.6 G10.6 波验收记录（2026-08-15，G-G10-8）
+
+**① 门断言清单（本波 1 门，逐条独立 PASS|FAIL 不互代）**：
+
+| Symbolic gate key | 步骤 | 实测 verdict | evidence（最新件） |
+|---|---:|---|---|
+| `g10.wave.6.reevaluation` | 192 | **PASS**（facts 14/14，device=not_applicable） | `evidence/g10_wave6_reevaluation_20260816T031917Z.json` |
+
+- **十锚逐行重判核验（G10.5 measured 数据为法定证据输入，零空行）**：`milestones/g10/G10_DEFER_REEVALUATION.md` v1.0 落盘——十锚闭集全等（G9_P2_DECISIONS §1 十行 defer-to-G10+）+ 每行 G10.5 measured 证据列在树且至少一条为 A/B measured 面前缀闭集（g10_m139_ab_comparison_/g10_m140_gap_registry_/g10_m141_perf_baseline_，法定证据输入语义机核）。**重判结论：M99-clipmap 唯一 rejudged-go，其余九锚 maintain-defer**——
+  - **M99-clipmap（rejudged-go）**：差距清单 R4（P0，GI = 屏幕探针单反弹，bistro HDR 亮度 p90 a=0.30276253819465637 vs b=5.000015625，delta=4.697253086805343 measured）+ C1（P1，GI/天光遮蔽口径差 = 室内亮度主差，bistro HDR 中位 ≈21× measured）双行实证「屏幕探针远场缺失成为画质 measured 问题」命中重判条件；按只追加程序重判 go 并指定 **G11 画质修复期**为承接波次（**G10 零实现面——重判 go 只指承接不实现**，G11 只消费 G10.8b 锁定清单 R4/C1 行 + 承接锚）；兜底 = 屏幕级 SPG + Radiance Cache（g9.p1.m99 门绿）维持，不以屏幕级绿色冒充世界级验收。
+  - **M100-high（maintain-defer）**：语料多灯场景真实存在（bistro 4+ 点光源 + emissive，R3 P0 measured），但 A/B 臂为 host CPU 参考管线、未消费 G9 低档 MegaLights GPU 管线，「低档在多灯 workload 下不足」measured 对照证据未产出，且 4+ 灯非海量灯 workload——重判条件未命中，承接锚字面 0-byte 维持。
+  - **M98-l4（maintain-defer）**：G10.5 语料为 cornell-box + bistro-interior 双小场景闭集（M133 清单），无大世界 HLOD 运行时接口面就绪度 measured 证据，L4 命中率/耗时计数可测面未建——重判条件未命中，承接锚字面 0-byte 维持。
+  - **M61 / M52 / SAFE-GPU / M127 / M114-strand / M118-hdr-cal / M125-adopt3（maintain-defer）**：重判条件所需 measured 举证/真实消费方/独立期/设备资产/裁决数据/升级评估窗均非 G10.5 measured 数据命中面；M52 锚定 G12、M114-strand 锚定 G14 不变；承接锚字面 0-byte 维持（G9_P2_DECISIONS §3 原文逐字）。
+- **deferred history 只追加（禁静默改判）**：`registry/deferred.json` history 只追加四条——RD-039 +1（M61，G10.6 重评窗行）、RD-040 +3（M52 / M99-clipmap〔含 rejudged-go 与 G11 画质修复期字面〕/ M100-high）；revision_log v1.80 只追加；RD-039/040 条目级 status 维持 open，id/title/reason/backfill_condition 四字段 0-byte；SAFE-GPU/M127/M98-l4/M114-strand/M118-hdr-cal/M125-adopt3 六行无 RD 归属不新设 RD（沿 G9.7 先例），零新 RD（RD max=RD-044 不动）。
+
+**② 门实测**：`ci/g10_wave6_reevaluation_check.py --gate g10.wave.6.reevaluation`（步骤 192）→ 十锚闭集全等 + 零空行 + 重判结论枚举合法 + G10.5 measured 证据在树与 measured 面前缀机核 + maintain-defer 行承接锚字面 0-byte 维持（重判后 == 原字面）+ rejudged-go 行承接锚含 G11+ 承接波次 + deferred history 留痕「只追加」+ deferred.json history 对账（G10.6 重评窗 RD-039 +1/RD-040 +3，零新 RD）+ G10_P2_DECISIONS 十锚行对账（裁决 == defer-to-G11+，rejudged-go 仅 M99-clipmap 一行）全 PASS，**VERDICT=PASS**（`evidence/g10_wave6_reevaluation_20260816T031917Z.json`）；`--selftest` 正样本（真表十行绿 + 合成全表绿）+ 负样本九臂（缺行 / maintain-defer 承接锚改写 / 非法重判结论 / 证据引用不在树 / rejudged-go 缺 G11+ 承接波次 / history 缺「只追加」字面 / 非 G10.5 measured 面证据 / deferred history 缺登记 / P2 对账失配）全红，红绿双全。
+
+**③ 验收命令与守卫套件实测（本记录落盘前）**：
+
+```text
+py -3 ci/g10_wave6_reevaluation_check.py --gate g10.wave.6.reevaluation   → exit 0（VERDICT=PASS，facts 14/14）
+py -3 ci/g10_wave6_reevaluation_check.py --selftest                       → exit 0（2 正样本绿 + 9 负样本红全过）
+py -3 ci/check_structure.py → PASS · py -3 ci/check_schemas.py → PASS · py -3 ci/check_number_ledger.py → PASS
+py -3 ci/check_g10_acceptance_map.py → PASS（三向逐字一致）· py -3 ci/budget_eval.py --strict → PASS
+py -3 ci/trace_matrix.py --check → PASS（373/373 全锚定）· py -3 ci/stable_snapshot.py --check → PASS（373）
+py -3 ci/check_g10_implementation_interlock.py --require-ready → VERDICT=READY exit 0
+py -3 -m pytest tests/ -q → 全 pass
+```
+
+**④ 门序登记面**：编号领取 = 落盘前实测 `CI_step.next_free=192` 顺位领取 192（registry/number_ledger.json revision_log **v1.111**，on_tree_max CI_step 191→193 / next_free 192→194——193 归 G10.7 同批）；本批**零新 spec 条款**（RXS next_free=392 不动，重评窗为文档/registry 面非语义面）；CI_GATES.md v1.7 修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 192（步骤 191 块后追加）；check_schemas.py 三处纯追加（g10_wave6_reevaluation_ 前缀路由 load/validator/路由，与既有全族互不包含，既有路由 0-byte）；evidence schema `milestones/g10/g10_wave6_reevaluation_evidence_schema.json`（const 钉死 numeric_step=192/gate key）同批落；骨架脚本 materialize——骨架期行级机核沿用 + 横向对账（deferred history / P2 行集 / measured 证据语义面）加性，骨架期 `--gate` 诚实红使命完结；G5~G9 closed 判据与 G10.2~G10.5 门脚本 0-byte；evidence/ 只增不删不改。
+
+**⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.6/G10.7 波）`（影响范围：G10_CONTRACT §8.6、milestones/g10/G10_DEFER_REEVALUATION.md v1.0、ci/g10_wave6_reevaluation_check.py materialize、g10_wave6_reevaluation evidence schema、check_schemas.py 纯追加、pr-smoke.yml 步骤 192、CI_GATES v1.7、registry/deferred.json G10.6 history 四行 + revision_log v1.80、number_ledger v1.111；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：M99-clipmap 重判 go 仅指定 G11 承接波次——G10 零实现面，世界辐射缓存世界 clipmap 级实现归 G11 画质修复期（只消费 G10.8b 锁定清单 R4/C1 行 + 承接锚）；A/B 臂为 host CPU 参考管线，GPU 管线远场面复核归 G11 承接工作面（G10-N16 行登记）；九锚 defer 维持 open 不写进全绿叙述、不阻塞 G10.8a soak。
+
+### §8.7 G10.7 波验收记录（2026-08-15，G-G10-9）
+
+**① 门断言清单（本波 1 门，逐条独立 PASS|FAIL 不互代）**：
+
+| Symbolic gate key | 步骤 | 实测 verdict | evidence（最新件） |
+|---|---:|---|---|
+| `g10.wave.7.decisions` | 193 | **PASS**（facts 32/32，device=not_applicable） | `evidence/g10_p2_decisions_20260816T031917Z.json` |
+
+- **27 行闭集穷举决策（零空行）**：`milestones/g10/G10_P2_DECISIONS.md` v1.0 落盘——候选全集 = G10_CANDIDATE_DECISIONS 22 行实记全集未进 14 key 验收面者 15 行（十锚 10 + G10-N5 + RD-034/042/043/044 四条 RD 级维持行）+ G10.2~G10.6 期内新增 not-triggered/no-go/留档 登记面 **G10-N6~G10-N17 十二行**（BistroExterior FBX2glTF 工具缺陷缺口 / 纹理 DDS 解码面 / -renderoffscreen 未测 / HighResShot+csvCaptureFrames 死路留档 / HDR-FLIP 探针臂未独立标定 / M141 单轮采样形态+MRQ 开销口径 / M130 三重绑定口径修订留痕 / 互锁 validator C3/C4 两态校准留痕 / UE 装 F: 盘偏差 / 预存 rustfmt+clippy 漂移面 / Rurix GPU 管线 A/B 出图帧率面 / M137 scalars.flip 演进位 null 维持），去重后 27 行闭集与门脚本 FROZEN_IDS 逐字对账。go 4 行（G10-N1~N4）已进 14 key 验收面独立绿不进本表（沿 G9 范式）。
+- **裁决汇总**：**go 2 行**（G10-N12 M130 三重绑定口径修订留痕 / G10-N13 互锁 validator C3/C4 两态校准留痕——均 closed-go 留痕，evidence 在树）+ **no-go 7 行**（RD034 blocked 维持 / RD042/RD043 观察维持 / RD044 maintain_no_go 维持 / G10-N9 死路留档 / G10-N14 偏差登记合规 / G10-N15 漂移面零修复纪律不回写）+ **defer-to-G11+ 18 行**（十锚 10——M99-clipmap G10.6 重判 go 指定 G11 画质修复期承接、其余九锚 maintain-defer 承接锚字面 0-byte；G10-N5 锚定 G13；G10-N6/N7/N8/N10/N11/N16/N17 七行遗留缺口）+ **strategic_override 0 行**；每行承接锚「重判条件 + 兜底」齐备、defer 行含 G11+ 重评窗字面；**no-go/defer 如实保持 open，不写进全绿叙述、不阻塞 G10.8a soak**（G-G10-9 字面）。
+- **互斥与对账面**：与 G10_ACCEPTANCE_MAP 14 key（12 P0 + 2 已 go P1）互斥——P2 行 ID 零命中已 go M## 裸 token（M99-clipmap/M100-high/M98-l4 等子项级 key 不互斥）；deferred.json history 只追加四条（G10.7 P2：RD-039 +1〔M61〕、RD-040 +3〔M52/M99-clipmap/M100-high〕）+ revision_log v1.81 只追加，零新 RD（RD max=RD-044 不动），RD 条目级 status 与四字段 0-byte；G10.6 重评窗对账——十锚行裁决与 G10_DEFER_REEVALUATION.md 重判结论一致（maintain-defer ↔ defer-to-G11+ 无 rejudged-go 字面；rejudged-go 仅 M99-clipmap 一行）。
+
+**② 门实测**：`ci/g10_p2_decisions_check.py --gate g10.wave.7.decisions`（步骤 193）→ 27 行闭集全等 + 零空行 + 裁决枚举合法 + 承接锚「重判条件+兜底」/defer G11+ 字面 + go 行 evidence 义务 + no-go 行锚义务 + MAP 14 key 互斥（12 P0 + 2 P1 实解）+ deferred.json history 对账 + G10.6 重评窗对账全 PASS，**VERDICT=PASS**（`evidence/g10_p2_decisions_20260816T031917Z.json`）；`--selftest` 正样本（真表 27 行绿 + 合成全表绿）+ 负样本七臂（缺行 / defer 缺 G11+ 承接锚 / 非法裁决枚举 / 互斥违例〔已 go P0 裸 token M139 入表〕/ 空单元格 / deferred history 缺登记 / G10.6 对账失配）全红，红绿双全；骨架期空闭集硬护栏使命完结（FROZEN_IDS 27 行闭集冻结填入）。
+
+**③ 验收命令与守卫套件实测（本记录落盘前）**：
+
+```text
+py -3 ci/g10_p2_decisions_check.py --gate g10.wave.7.decisions            → exit 0（VERDICT=PASS，facts 32/32）
+py -3 ci/g10_p2_decisions_check.py --selftest                             → exit 0（2 正样本绿 + 7 负样本红全过）
+py -3 ci/g10_wave6_reevaluation_check.py --gate g10.wave.6.reevaluation   → exit 0（G10.6 门复核绿）
+py -3 ci/check_structure.py → PASS · py -3 ci/check_schemas.py → PASS · py -3 ci/check_number_ledger.py → PASS
+py -3 ci/check_g10_acceptance_map.py → PASS（三向逐字一致）· py -3 ci/budget_eval.py --strict → PASS
+py -3 ci/trace_matrix.py --check → PASS（373/373 全锚定）· py -3 ci/stable_snapshot.py --check → PASS（373）
+py -3 ci/check_g10_implementation_interlock.py --require-ready → VERDICT=READY exit 0
+py -3 -m pytest tests/ -q → 全 pass
+```
+
+**④ 门序登记面**：编号领取 = 落盘前实测 `CI_step.next_free=192` 顺位领取 192~193（192 归 G10.6 重评窗门，registry/number_ledger.json revision_log **v1.111**，on_tree_max CI_step 191→193 / next_free 192→194）；本批**零新 spec 条款**（RXS next_free=392 不动）；CI_GATES.md v1.7 修订行（§4/§4A/§5 表体 0-byte）；pr-smoke.yml 步骤 193（步骤 192 块后追加）；check_schemas.py 三处纯追加（g10_p2_decisions_ 前缀路由，与既有全族互不包含，既有路由 0-byte）；evidence schema `milestones/g10/g10_p2_decisions_evidence_schema.json`（const 钉死 numeric_step=193/gate key）同批落；registry/deferred.json history 只追加八行（G10.6 四行 + G10.7 四行）与 revision_log v1.80/v1.81；G5~G9 closed 判据与 G10.2~G10.6 门脚本 0-byte；G9_P2_DECISIONS 33 行裁决字面 0-byte 不回写；evidence/ 只增不删不改。
+
+**⑤ 签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G9 §8.x 五块模板同构）。`Assisted-by: Kimi-K3（G10.6/G10.7 波）`（影响范围：G10_CONTRACT §8.7、milestones/g10/G10_P2_DECISIONS.md v1.0（27 行闭集）、ci/g10_p2_decisions_check.py materialize（FROZEN_IDS 27 行冻结）、g10_p2_decisions evidence schema、check_schemas.py 纯追加、pr-smoke.yml 步骤 193、CI_GATES v1.7、registry/deferred.json G10.7 history 四行 + revision_log v1.81、number_ledger v1.111；验证方式如 ③ 全量实测输出留痕）。**遗留缺口（如实登记不充绿）**：no-go 7 行与 defer-to-G11+ 18 行如实保持 open/留档——不写进全绿叙述、不阻塞 G10.8a soak；G10.8a 稳定门（全部 P0 与 go P1 全量回归 + 全链路连续复跑 soak）为下一波次，CI_step next_free=194 以落盘实测为准。

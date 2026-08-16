@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.7 P2 decisions evidence",
+  "description": "evidence/g10_p2_decisions_<UTC>.json。G10.7 P2/留档/未触发分项穷举决策门 g10.wave.7.decisions（步骤 193，ci/g10_p2_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g10/G10_P2_DECISIONS.md v1.0——27 行冻结候选闭集全等（G10_CANDIDATE_DECISIONS 22 行实记全集未进 14 key 验收面者 15 行〔十锚 10 + G10-N5 + RD-034/042/043/044〕+ G10.2~G10.6 期内新增 not-triggered/no-go/留档 登记面 G10-N6~G10-N17 十二行去重）、裁决枚举合法（go/no-go/defer-to-G11+/strategic_override）、零空行（全列非空）、承接锚「重判条件 + 兜底」字面、defer 行必含 G11+ 重评窗、go 行 evidence 义务、no-go 行 RD/矩阵/契约锚义务；横向机核①与 G10_ACCEPTANCE_MAP 14 key（12 P0 + 2 已 go P1）互斥（P2 行 ID 不得命中已 go M## 裸 token，M99-clipmap/M100-high/M98-l4 等子项级 key 不互斥）②deferred.json history 对账（G10.7 P2 defer 登记恰好 RD-039 +1〔M61〕/RD-040 +3〔M52/M99-clipmap/M100-high〕，零新 RD max=RD-044，RD-039/040 status open 0-byte）③G10.6 重评窗对账（十锚行裁决与 G10_DEFER_REEVALUATION.md 重判结论一致，rejudged-go 仅 M99-clipmap 一行）。只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_p2_decisions" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.wave.7.decisions" },
+    "matrix_row": { "type": "string", "const": "G10.7" },
+    "wave": { "type": "string", "const": "G10.7" },
+    "numeric_step": { "type": "integer", "const": 193 },
+    "source_ref": {
+      "type": "string",
+      "const": "G10_CONTRACT G-G10-9;CI_GATES §5 v1.7;G10_P2_DECISIONS.md v1.0;G10_CANDIDATE_DECISIONS v1.0;G10_DEFER_REEVALUATION.md v1.0;G10_ACCEPTANCE_MAP §1/§2;registry/deferred.json v1.81"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

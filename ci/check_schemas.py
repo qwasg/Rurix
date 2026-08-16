@@ -505,6 +505,12 @@ def check_evidence_files() -> None:
     g10_wave5_exit_schema = load(
         ROOT / "milestones/g10/g10_wave5_exit_evidence_schema.json"
     )
+    g10_wave6_reevaluation_schema = load(
+        ROOT / "milestones/g10/g10_wave6_reevaluation_evidence_schema.json"
+    )
+    g10_p2_decisions_schema = load(
+        ROOT / "milestones/g10/g10_p2_decisions_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1179,6 +1185,16 @@ def check_evidence_files() -> None:
     g10_wave5_exit_validator = (
         jsonschema.Draft7Validator(g10_wave5_exit_schema)
         if g10_wave5_exit_schema is not None
+        else None
+    )
+    g10_wave6_reevaluation_validator = (
+        jsonschema.Draft7Validator(g10_wave6_reevaluation_schema)
+        if g10_wave6_reevaluation_schema is not None
+        else None
+    )
+    g10_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g10_p2_decisions_schema)
+        if g10_p2_decisions_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2361,6 +2377,23 @@ def check_evidence_files() -> None:
             # evidence 只读汇总〔含 M130 --phase g10.5 腿〕+ RXS-0391 条款头 +
             # RFC-0026/0027 Approved + 三重绑定留痕 + 清单零空行 + RED 臂有效)。
             validator = g10_wave5_exit_validator
+        elif (
+            f.name.startswith("g10_wave6_reevaluation_")
+            and g10_wave6_reevaluation_validator is not None
+        ):
+            # G10.6 defer 重评窗门(步骤 192;ci/g10_wave6_reevaluation_check.py
+            # 写:十锚闭集零空行 + G10.5 measured 法定证据面〔m139/m140/m141
+            # 前缀闭集〕+ 承接锚 0-byte/G11+ 波次 + deferred history 对账
+            # 〔RD-039 +1/RD-040 +3〕+ P2 行集对账)。前缀与既有全族互不包含。
+            validator = g10_wave6_reevaluation_validator
+        elif (
+            f.name.startswith("g10_p2_decisions_")
+            and g10_p2_decisions_validator is not None
+        ):
+            # G10.7 P2 穷举决策门(步骤 193;ci/g10_p2_decisions_check.py 写:
+            # 27 行闭集零空行 + 承接锚重判/兜底/G11+ + MAP 14 key 互斥 +
+            # deferred history 对账 + G10.6 重评窗对账)。前缀与既有全族互不包含。
+            validator = g10_p2_decisions_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

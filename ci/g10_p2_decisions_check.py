@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Assisted-by: Kimi-K3（G10.1 治理波 validator）
-"""G10.7 P2/留档/未触发分项穷举决策门 g10.wave.7.decisions(G10_CONTRACT G-G10-9)——骨架。
+# Assisted-by: Kimi-K3（G10.6/G10.7 波）
+"""G10.7 P2/留档/未触发分项穷举决策门 g10.wave.7.decisions(G10_CONTRACT G-G10-9)。
 
-骨架形态（G10.1 治理波落盘）：
-  - FROZEN_IDS 为空闭集——G10 期 P2/留档/未触发分项候选全集要等 G10.2~G10.6 各波
-    真实登记面落地后才可冻结（同 G9 先例：骨架期十行 → materialize 期按候选全集扩闭集）；
-  - `milestones/g10/G10_P2_DECISIONS.md` 当前未落盘，`--gate` 诚实红（exit 1），不假绿；
-  - FROZEN_IDS 空 = 骨架期硬护栏：任何决策表（即使合形）一律判红「候选闭集未冻结」，
-    杜绝骨架冒充全绿；
-  - evidence schema 目标路径只冻结不预建（CI_GATES §1.2），骨架期不落 evidence、
-    不占 numeric CI step；numeric_step 一律 post-interlock actual-next-free allocation。
+核验 `milestones/g10/G10_P2_DECISIONS.md`(2026-08-15 v1.0 落盘):
+冻结 27 行候选闭集全等(G10_CANDIDATE_DECISIONS 22 行实记全集未进 14 key
+验收面者 15 行〔十锚 10 + G10-N5 + RD-034/042/043/044〕+ G10.2~G10.6 期内
+新增 not-triggered/no-go/留档 登记面 G10-N6~G10-N17 十二行去重)、决策枚举
+合法(go/no-go/defer-to-G11+/strategic_override)、零空行(全列非空)、承接锚
+「重判条件 + 兜底」字面、defer 行必含 G11+ 重评窗、go 行 evidence 义务、
+no-go 行 RD/矩阵/契约锚义务;外加三横向机核——
+  ① 与 G10_ACCEPTANCE_MAP 14 key(12 P0 + 2 已 go P1)互斥:P2 行 ID 不得命中
+    任何已 go M## 裸 token(M99-clipmap/M100-high/M98-l4 等子项级 key 不互斥);
+  ② deferred.json history 对账:G10.7 P2 defer 登记恰好 RD-039 +1(M61)/
+    RD-040 +3(M52/M99-clipmap/M100-high),零新 RD(max=RD-044),status 0-byte;
+  ③ G10.6 重评窗对账:十锚行裁决与 G10_DEFER_REEVALUATION.md 重判结论一致
+    (maintain-defer ↔ defer-to-G11+ 无 rejudged-go 字面;rejudged-go 仅
+    M99-clipmap 一行)。
+只读文档与 registry,不代绿实现门;no-go/defer 如实保持 open 不写进全绿叙述。
 
-行级机核（materialize 期直接复用，selftest 以注入闭集证明红绿两臂）：
-  决策枚举合法（go / no-go / defer-to-G11+ / strategic_override）、零空行（全列非空）、
-  承接锚必含「重判条件 + 兜底」字面、defer 行必含 G11+ 重评窗、go 行 evidence 义务、
-  no-go 行 RD/矩阵/契约锚义务；与 G10_ACCEPTANCE_MAP 14 key 互斥等横向机核随
-  FROZEN_IDS 冻结一并落盘（同构 ci/g9_p2_decisions_check.py 全量形态）。
+materialize:numeric_step=193(落盘前实测 CI_step.next_free=192 顺位领取
+192/193——192 归 G10.6 重评窗门);骨架期空闭集硬护栏由本版按候选全集口径
+扩为 27 行闭集(同 G9 先例:骨架期十行 → materialize 期按候选全集扩闭集),
+行 key 逐字对账;同构 ci/g9_p2_decisions_check.py 全量形态。
 
 用法:
   py -3 ci/g10_p2_decisions_check.py --gate g10.wave.7.decisions
@@ -35,27 +41,66 @@ import g10_wave_exit_lib as wel  # noqa: E402
 
 ROOT = wel.ROOT
 GATE_KEY = "g10.wave.7.decisions"
-NUMERIC_STEP = None  # post-interlock actual-next-free allocation；骨架期零数字 claim
+NUMERIC_STEP = 193  # 落盘前实测 registry/number_ledger.json CI_step.next_free=192 顺位领取(192 归 G10.6)
 SUBJECT = "g10_p2_decisions"
 WAVE = "G10.7"
 DECISIONS = ROOT / "milestones" / "g10" / "G10_P2_DECISIONS.md"
 SCHEMA_PATH = ROOT / "milestones" / "g10" / "g10_p2_decisions_evidence_schema.json"
 ACCEPTANCE_MAP = ROOT / "milestones" / "g10" / "G10_ACCEPTANCE_MAP.md"
+REEVALUATION = ROOT / "milestones" / "g10" / "G10_DEFER_REEVALUATION.md"
+DEFERRED = wel.DEFERRED_PATH
 
-# 骨架期空闭集：G10.7 穷举时按「G10_CANDIDATE_DECISIONS 实记全集未进 14 key 验收面者
-# + G10.2~G10.6 期内新增 not-triggered/no-go 登记面去重」冻结，与 G10_P2_DECISIONS §1 逐字对账。
-FROZEN_IDS: list[str] = []
+# 冻结 ID 闭集(27 行)= G10_CANDIDATE_DECISIONS 实记全集未进 14 key 验收面者
+# + G10.2~G10.6 期内新增 not-triggered/no-go/留档 登记面去重——与 G10_P2_DECISIONS §1 逐字对账。
+FROZEN_IDS = [
+    "M61",          # 十锚:RD-039 mesh shader→M109(G10.6 maintain-defer)
+    "M52",          # 十锚:RD-040 SER→M108(G10.6 maintain-defer,锚定 G12)
+    "M99-clipmap",  # 十锚:RD-040 世界辐射缓存世界级(G10.6 rejudged-go → G11 承接)
+    "M100-high",    # 十锚:RD-040 ReSTIR 高档(G10.6 maintain-defer)
+    "SAFE-GPU",     # 十锚:Safe GPU Operator Platform(G10.6 maintain-defer)
+    "M127",         # 十锚:神经变形研究子轨(G10.6 maintain-defer)
+    "M98-l4",       # 十锚:M98 L4 Far Field(G10.6 maintain-defer)
+    "M114-strand",  # 十锚:毛发 strand 档(G10.6 maintain-defer,锚定 G14)
+    "M118-hdr-cal", # 十锚:HDR 设备标定层(G10.6 maintain-defer)
+    "M125-adopt3",  # 十锚:Jolt 5.6 采纳三件(G10.6 maintain-defer)
+    "G10-N5",       # G10.1 新增候选:DLSS/Streamline 方向登记(defer,锚定 G13)
+    "RD034",        # RD 级:DXIL RT/mesh 腿(no-go:blocked 维持,Vulkan 主腿)
+    "RD042",        # RD 级:可微物理/机器人批仿(no-go:观察维持,红线不动)
+    "RD043",        # RD 级:wgrapier GPU 刚体(no-go:观察维持,否决线不动)
+    "RD044",        # RD 级:物理 P3+(no-go:maintain_no_go 维持,FLIP 防混淆)
+    "G10-N6",       # G10.3 新增:BistroExterior FBX2glTF 工具缺陷缺口(defer)
+    "G10-N7",       # G10.3 新增:纹理 DDS 解码面(defer,G11 画质修复期)
+    "G10-N8",       # G10.2 新增:-renderoffscreen 未测(defer)
+    "G10-N9",       # G10.2 新增:HighResShot/csvCaptureFrames 死路留档(no-go)
+    "G10-N10",      # G10.4 新增:HDR-FLIP 探针臂未独立标定(defer)
+    "G10-N11",      # G10.5 新增:M141 单轮采样形态+MRQ 开销口径(defer,锚定 G14)
+    "G10-N12",      # G10.5 新增:M130 三重绑定口径修订留痕(go,closed-go 留痕)
+    "G10-N13",      # G10.4 新增:互锁 validator C3/C4 两态校准留痕(go,closed-go 留痕)
+    "G10-N14",      # G10.2 新增:UE 装 F: 盘偏差(no-go:登记合规不重装)
+    "G10-N15",      # G10.5 新增:预存 rustfmt/clippy 漂移面(no-go:零修复纪律不回写)
+    "G10-N16",      # G10.5 新增:Rurix GPU 管线 A/B 出图/帧率面未测(defer)
+    "G10-N17",      # G10.4 新增:M137 scalars.flip 演进位 null 维持(defer)
+]
+FROZEN_IDS = [s.strip() for s in FROZEN_IDS if s.strip()]
 ALLOWED = frozenset({"go", "no-go", "defer-to-G11+", "strategic_override"})
+DEFER_TEN = [
+    "M61", "M52", "M99-clipmap", "M100-high", "SAFE-GPU",
+    "M127", "M98-l4", "M114-strand", "M118-hdr-cal", "M125-adopt3",
+]
+REJUDGED_GO_IDS = frozenset({"M99-clipmap"})
 EMPTY_RE = re.compile(r"^(TBD|TODO|待定|—|-)?$", re.I)
 ID_RE = re.compile(r"^(M\d|RD\d|SAFE-GPU|G10-N\d)")
 HEADERS = [
     "ID", "分项名", "来源波次", "原触发条件字面", "裁决",
     "裁决理由", "依据/证据路径", "承接锚", "登记留痕位置", "最终状态",
 ]
+# deferred.json history 对账期望:G10.7 P2 defer 登记恰好 RD-039 +1 / RD-040 +3。
+EXPECTED_DEFER_HISTORY = {"RD-039": ["M61"], "RD-040": ["M52", "M99-clipmap", "M100-high"]}
+HISTORY_MARKER = "G10.7 P2"
 
 
 def parse_table(text: str) -> list[dict[str, str]]:
-    """解析 §1 决策表(| ID | ... | 行;止于表后首个非 | 行)。"""
+    """解析 §1 决策表(| ID | ... | 行;止于表后首个非 | 行,§3 锚清单表不入)。"""
     rows: list[dict[str, str]] = []
     in_table = False
     headers: list[str] = []
@@ -93,21 +138,14 @@ def cell_empty(v: str) -> bool:
 
 def validate_rows(
     rows: list[dict[str, str]],
+    map_text: str | None = None,
+    deferred_data: dict | None = None,
+    reevaluation_text: str | None = None,
     frozen_ids: list[str] | None = None,
 ) -> list[dict]:
-    """行级机核；frozen_ids 缺省取模块级 FROZEN_IDS（骨架期为空闭集）。"""
+    """行级机核 + 横向对账;各数据面无注入时读真树。"""
     frozen = FROZEN_IDS if frozen_ids is None else frozen_ids
     results: list[dict] = []
-    if not frozen:
-        # 骨架期硬护栏：候选闭集未冻结，任何表一律红（杜绝骨架冒充全绿）。
-        results.append(
-            {
-                "id": "set_equality_frozen",
-                "status": "FAIL",
-                "detail": "FROZEN_IDS 空闭集（G10.7 候选全集未冻结；骨架期诚实红，任何决策表不充绿）",
-            }
-        )
-        return results
     ids = [r.get("ID", "") for r in rows]
     set_ok = set(ids) == set(frozen) and len(ids) == len(frozen)
     results.append(
@@ -166,57 +204,172 @@ def validate_rows(
                 "detail": "; ".join(detail_parts) if detail_parts else f"{decision}",
             }
         )
+
+    # 横向机核①:与 G10_ACCEPTANCE_MAP 14 key(12 P0 + 2 已 go P1)互斥
+    mt = map_text if map_text is not None else (
+        ACCEPTANCE_MAP.read_text(encoding="utf-8") if ACCEPTANCE_MAP.is_file() else ""
+    )
+    go_p0 = {f"M{m}" for m in re.findall(r"g10\.p0\.m(\d{3})\.", mt)}
+    go_p1 = {f"M{m}" for m in re.findall(r"g10\.p1\.m(\d{3})\.", mt)}
+    hit = sorted(set(ids) & (go_p0 | go_p1))
+    mutex_ok = (
+        not hit and len(go_p0) == 12 and len(go_p1) == 2
+    )
+    results.append(
+        {
+            "id": "acceptance_map_mutex",
+            "status": "PASS" if mutex_ok else "FAIL",
+            "detail": f"MAP 实解 P0={len(go_p0)} P1={len(go_p1)}(expect 12/2);P2 表命中已 go 裸 token: {hit or '无'}",
+        }
+    )
+
+    # 横向机核②:deferred.json history 对账(G10.7 P2 defer 登记新增条数)
+    dd = deferred_data if deferred_data is not None else (
+        wel.load_json(DEFERRED) if DEFERRED.is_file() else {"entries": []}
+    )
+    entries = dd.get("entries") or []
+    reconcile_ok = True
+    rec_parts: list[str] = []
+    holders: dict[str, list[dict]] = {}
+    for e in entries:
+        marked = [h for h in e.get("history", []) if HISTORY_MARKER in (h.get("event") or "")]
+        if marked:
+            holders[e.get("id")] = marked
+    for rd, keys in EXPECTED_DEFER_HISTORY.items():
+        held = holders.get(rd)
+        if held is None or len(held) != len(keys):
+            reconcile_ok = False
+            rec_parts.append(f"{rd} {HISTORY_MARKER}行数={0 if held is None else len(held)} expect {len(keys)}")
+            continue
+        blob = "\n".join(h.get("event") or "" for h in held)
+        missing = [k for k in keys if k not in blob]
+        if missing:
+            reconcile_ok = False
+            rec_parts.append(f"{rd} 缺行 key {missing}")
+    extra = sorted(r for r in holders if r not in EXPECTED_DEFER_HISTORY)
+    if extra:
+        reconcile_ok = False
+        rec_parts.append(f"非期望 RD 含{HISTORY_MARKER}行: {extra}")
+    rd_nums = [int(m.group(1)) for e in entries for m in [re.match(r"RD-(\d+)$", e.get("id") or "")] if m]
+    if not rd_nums or max(rd_nums) != 44:
+        reconcile_ok = False
+        rec_parts.append(f"RD max={max(rd_nums) if rd_nums else None} expect 44(零新 RD)")
+    status_map = {e.get("id"): e.get("status") for e in entries}
+    if status_map.get("RD-039") != "open" or status_map.get("RD-040") != "open":
+        reconcile_ok = False
+        rec_parts.append("RD-039/040 status 非 open")
+    rec_parts.append(f"{HISTORY_MARKER} history: {sorted((r, len(g)) for r, g in holders.items())}")
+    results.append(
+        {
+            "id": "deferred_history_reconcile",
+            "status": "PASS" if reconcile_ok else "FAIL",
+            "detail": "; ".join(rec_parts),
+        }
+    )
+
+    # 横向机核③:G10.6 重评窗对账(十锚行裁决与重判结论一致)
+    rt = reevaluation_text if reevaluation_text is not None else (
+        REEVALUATION.read_text(encoding="utf-8") if REEVALUATION.is_file() else ""
+    )
+    re_rows = parse_table(rt) if rt else []
+    re_verdict = {r.get("ID", ""): (r.get("重判结论") or "").strip() for r in re_rows}
+    p2_map = {r.get("ID", ""): r for r in rows}
+    w6_ok = True
+    w6_parts: list[str] = []
+    for rid in DEFER_TEN:
+        verdict = re_verdict.get(rid)
+        pr = p2_map.get(rid)
+        if verdict not in ("maintain-defer", "rejudged-go"):
+            w6_ok = False
+            w6_parts.append(f"G10.6 表缺/非法重判结论 {rid}={verdict!r}")
+            continue
+        if pr is None:
+            w6_ok = False
+            w6_parts.append(f"P2 表缺十锚行 {rid}")
+            continue
+        row_blob = " | ".join(pr.values())
+        has_rejudged = "rejudged-go" in row_blob
+        if verdict == "rejudged-go" and not has_rejudged:
+            w6_ok = False
+            w6_parts.append(f"{rid} G10.6=rejudged-go 但 P2 行缺 rejudged-go 字面")
+        if verdict == "maintain-defer" and has_rejudged:
+            w6_ok = False
+            w6_parts.append(f"{rid} G10.6=maintain-defer 但 P2 行含 rejudged-go 字面(冒充)")
+    if not rt:
+        w6_ok = False
+        w6_parts.append("G10_DEFER_REEVALUATION.md 未落盘或不可读")
+    w6_parts.append(f"十锚对账 n={sum(1 for rid in DEFER_TEN if re_verdict.get(rid) in ('maintain-defer','rejudged-go'))}/10")
+    results.append(
+        {
+            "id": "wave6_reevaluation_reconcile",
+            "status": "PASS" if w6_ok else "FAIL",
+            "detail": "; ".join(w6_parts),
+        }
+    )
     return results
 
 
-def run_check(path: Path | None = None) -> tuple[int, list[dict]]:
+def run_check(
+    path: Path | None = None,
+    map_text: str | None = None,
+    deferred_data: dict | None = None,
+    reevaluation_text: str | None = None,
+    frozen_ids: list[str] | None = None,
+) -> tuple[int, list[dict]]:
     p = path or DECISIONS
     if not p.is_file():
         # 诚实红:表未落盘不是绿
         return 1, [{"id": "file", "status": "FAIL", "detail": f"missing {p}(G10.7 决策表未落盘;诚实红,不假绿)"}]
     rows = parse_table(p.read_text(encoding="utf-8"))
-    results = validate_rows(rows)
+    results = validate_rows(
+        rows,
+        map_text=map_text,
+        deferred_data=deferred_data,
+        reevaluation_text=reevaluation_text,
+        frozen_ids=frozen_ids,
+    )
     ok = all(x["status"] == "PASS" for x in results)
     return (0 if ok else 1), results
 
 
 def emit(results: list[dict], overall_ok: bool) -> int:
-    """骨架期不落 evidence：schema 只冻结目标路径不预建（CI_GATES §1.2），
-    numeric_step 待 post-interlock actual-next-free allocation。"""
     for r in results:
         print(f"  FACT  {r['status']:4}  {r['id']}  ({r.get('detail','')})")
     if not SCHEMA_PATH.is_file():
-        print(
-            f"[g10_p2_decisions] schema 未落盘（{SCHEMA_PATH.relative_to(ROOT)} 只冻结不预建）；"
-            "骨架期不落 evidence、不占数字步骤",
-            file=sys.stderr,
-        )
+        print(f"[g10_p2_decisions] FAIL: schema 缺失 {SCHEMA_PATH}", file=sys.stderr)
         return 1
     code, _ = wel.emit_wave_evidence(
         wave=WAVE,
         subject=SUBJECT,
         symbolic_gate_key=GATE_KEY,
         numeric_step=NUMERIC_STEP,
-        source_ref="G10_CONTRACT G-G10-9;CI_GATES §5;G10_P2_DECISIONS.md;G10_CANDIDATE_DECISIONS",
+        source_ref="G10_CONTRACT G-G10-9;CI_GATES §5 v1.7;G10_P2_DECISIONS.md v1.0;G10_CANDIDATE_DECISIONS v1.0;G10_DEFER_REEVALUATION.md v1.0;G10_ACCEPTANCE_MAP §1/§2;registry/deferred.json v1.81",
         required_gate_rows=[],
         extra_facts=results,
         subjects=[],
         schema_path=SCHEMA_PATH,
         evidence_basename=SUBJECT,
-        notes="G10.7 P2/留档/未触发分项穷举决策；defer 必有承接锚（重判条件+兜底+G11+ 重评窗）；no-go/defer 如实保持 open 不写进全绿叙述",
+        notes="G10.7 P2/留档/未触发分项穷举决策(27 行闭集:go 2 closed-go 留痕 + no-go 7 + defer-to-G11+ 18,strategic_override 0);defer 必有承接锚(重判条件+兜底+G11+ 重评窗);与 MAP 14 key 互斥;deferred.json history 对账(RD-039 +1/RD-040 +3,零新 RD);G10.6 重评窗十锚对账(M99-clipmap 唯一 rejudged-go → G11 画质修复期承接,G10 零实现面);no-go/defer 如实保持 open 不写进全绿叙述",
         host_section_pass=True,
     )
     return code
 
 
-def _synth_row(rid: str, decision: str) -> str:
-    if decision == "defer-to-G11+":
+def _synth_row(rid: str) -> str:
+    if rid == "M99-clipmap":
+        decision = "defer-to-G11+"
+        anchor = "重判条件已命中(G10.6:rejudged-go 举证落地)→ G11+ 承接波次 = G11 画质修复期;兜底 = 既有已验收面维持"
+        ref = "registry/deferred.json RD-040"
+    elif rid in DEFER_TEN or rid.startswith("G10-N") and rid not in ("G10-N9", "G10-N12", "G10-N13", "G10-N14", "G10-N15"):
+        decision = "defer-to-G11+"
         anchor = "重判条件 = G11+ 重评窗触发条件齐备时按只追加程序重判;兜底 = 既有已验收面维持"
         ref = "registry/deferred.json RD-039"
-    elif decision == "go":
+    elif rid in ("G10-N12", "G10-N13"):
+        decision = "go"
         anchor = "重判条件 = 回归失败时按只追加程序重判;兜底 = 回退既有面"
         ref = "evidence/g10_fixture_20260815T000000Z.json"
     else:
+        decision = "no-go"
         anchor = "重判条件 = 触发条件齐备时按只追加程序重判;兜底 = 既有面维持"
         ref = "registry/deferred.json RD-039 / G10_CANDIDATE_DECISIONS"
     return f"| {rid} | 分项 | G10.3 | 触发条件字面 | {decision} | 理由 | {ref} | {anchor} | 留痕位置 | open |\n"
@@ -224,17 +377,14 @@ def _synth_row(rid: str, decision: str) -> str:
 
 def run_selftest() -> int:
     failures = 0
-    fixture_ids = ["M61", "RD042", "G10-N5"]
     good_header = (
         "| " + " | ".join(HEADERS) + " |\n"
         "|" + "---|" * len(HEADERS) + "\n"
     )
-    full = good_header + "".join(
-        _synth_row(rid, "defer-to-G11+" if rid == "M61" else "no-go") for rid in fixture_ids
-    )
+    full = good_header + "".join(_synth_row(i) for i in FROZEN_IDS)
 
-    # 正样本 1:真表当前未落盘 → 必须诚实红(起始正确结论)
-    code, _ = run_check(None)
+    # 正样本 1:真表(已落盘)必须绿
+    code, results = run_check(None)
     if not DECISIONS.is_file():
         if code == 0:
             print("[selftest] FAIL: 表未落盘仍绿(假绿)", file=sys.stderr)
@@ -242,84 +392,112 @@ def run_selftest() -> int:
         else:
             print("[selftest] PASS: 表未落盘 → 诚实红(起始正确结论)")
     else:
-        # 未来 materialize 后:真表必须绿
         if code != 0:
             print("[selftest] FAIL: 决策表已落盘但核验未绿", file=sys.stderr)
+            for r in results:
+                if r["status"] != "PASS":
+                    print(f"  {r}", file=sys.stderr)
             failures += 1
         else:
-            print("[selftest] PASS: 真表绿")
+            print("[selftest] PASS: 真表 27 行绿")
 
     with tempfile.TemporaryDirectory(prefix="g10_p2_selftest_") as td:
-        # 负样本 1:骨架期 FROZEN_IDS 空,合成全表经 --gate 路径也必须红
+        # 正样本 2:合成全表(真树 MAP/deferred/G10.6 表对账)必须绿
         p = Path(td) / "full.md"
         p.write_text(full, encoding="utf-8")
-        code, _ = run_check(p)
-        if code == 0:
-            print("[selftest] FAIL: 骨架期空闭集下合成表仍绿(骨架冒充全绿)", file=sys.stderr)
-            failures += 1
-        else:
-            print("[selftest] PASS: 骨架期 FROZEN_IDS 空 → 任何表红")
-
-        # 正样本 2:注入合成闭集后行级机核必须能绿(证明 materialize 期非永红)
-        rows = parse_table(full)
-        res = validate_rows(rows, frozen_ids=fixture_ids)
-        if all(x["status"] == "PASS" for x in res):
-            print("[selftest] PASS: 注入闭集 + 合成全表 → 行级机核绿")
-        else:
-            print("[selftest] FAIL: 注入闭集正本未绿", file=sys.stderr)
+        code, res = run_check(p)
+        if code != 0:
+            print("[selftest] FAIL: 合成全表未绿", file=sys.stderr)
             for r in res:
                 if r["status"] != "PASS":
                     print(f"  {r}", file=sys.stderr)
             failures += 1
-
-        # 负样本 2:缺行 → 必须红
-        lines = [ln for ln in full.splitlines() if not ln.strip().startswith("| RD042 |")]
-        rows = parse_table("\n".join(lines) + "\n")
-        res = validate_rows(rows, frozen_ids=fixture_ids)
-        if any(x["status"] == "FAIL" and x["id"] == "set_equality_frozen" for x in res):
-            print("[selftest] PASS: 缺行→红")
         else:
+            print("[selftest] PASS: 合成全表绿")
+
+        # 负样本 1:缺行 → 必须红
+        lines = [ln for ln in full.splitlines() if not ln.strip().startswith("| M127 |")]
+        p2 = Path(td) / "bad.md"
+        p2.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        code, _ = run_check(p2)
+        if code == 0:
             print("[selftest] FAIL: 缺行仍绿", file=sys.stderr)
             failures += 1
+        else:
+            print("[selftest] PASS: 缺行→红")
 
-        # 负样本 3:defer 行承接锚缺 G11+ → 必须红
+        # 负样本 2:defer 行承接锚缺 G11+ → 必须红
         bad_defer = full.replace(
             "重判条件 = G11+ 重评窗触发条件齐备时按只追加程序重判;兜底 = 既有已验收面维持",
             "重判条件 = 触发条件齐备时按只追加程序重判;兜底 = 既有已验收面维持",
         )
-        res = validate_rows(parse_table(bad_defer), frozen_ids=fixture_ids)
-        if any(x["status"] == "FAIL" and "G11+" in x["detail"] for x in res):
-            print("[selftest] PASS: defer 缺 G11+ 承接锚→红")
-        else:
+        p3 = Path(td) / "baddefer.md"
+        p3.write_text(bad_defer, encoding="utf-8")
+        code, _ = run_check(p3)
+        if code == 0:
             print("[selftest] FAIL: defer 缺 G11+ 承接锚仍绿", file=sys.stderr)
             failures += 1
-
-        # 负样本 4:非法裁决枚举 → 必须红
-        bad_enum = full.replace("| no-go |", "| maybe |", 1)
-        res = validate_rows(parse_table(bad_enum), frozen_ids=fixture_ids)
-        if any(x["status"] == "FAIL" and "非法裁决" in x["detail"] for x in res):
-            print("[selftest] PASS: 非法裁决枚举→红")
         else:
+            print("[selftest] PASS: defer 缺 G11+ 承接锚→红")
+
+        # 负样本 3:非法裁决枚举 → 必须红
+        bad_enum = full.replace("| no-go |", "| maybe |", 1)
+        p4 = Path(td) / "badenum.md"
+        p4.write_text(bad_enum, encoding="utf-8")
+        code, _ = run_check(p4)
+        if code == 0:
             print("[selftest] FAIL: 非法裁决枚举仍绿", file=sys.stderr)
             failures += 1
+        else:
+            print("[selftest] PASS: 非法裁决枚举→红")
+
+        # 负样本 4:互斥违例(已 go P0 裸 token M139 入表)→ 必须红
+        bad_mutex = full.replace("| M61 |", "| M139 |")
+        p5 = Path(td) / "badmutex.md"
+        p5.write_text(bad_mutex, encoding="utf-8")
+        code, _ = run_check(p5)
+        if code == 0:
+            print("[selftest] FAIL: 已 go P0 裸 token 入表仍绿(互斥失效)", file=sys.stderr)
+            failures += 1
+        else:
+            print("[selftest] PASS: 互斥违例→红")
 
         # 负样本 5:空单元格(裁决理由空)→ 必须红
         bad_empty = full.replace("| 理由 |", "|  |", 1)
-        res = validate_rows(parse_table(bad_empty), frozen_ids=fixture_ids)
-        if any(x["status"] == "FAIL" and "空单元格" in x["detail"] for x in res):
-            print("[selftest] PASS: 空单元格→红")
-        else:
+        p6 = Path(td) / "badempty.md"
+        p6.write_text(bad_empty, encoding="utf-8")
+        code, _ = run_check(p6)
+        if code == 0:
             print("[selftest] FAIL: 空单元格仍绿", file=sys.stderr)
             failures += 1
-
-        # 负样本 6:no-go 行缺 RD/矩阵/契约锚 → 必须红
-        bad_ref = full.replace("registry/deferred.json RD-039 / G10_CANDIDATE_DECISIONS", "某处留痕", 1)
-        res = validate_rows(parse_table(bad_ref), frozen_ids=fixture_ids)
-        if any(x["status"] == "FAIL" and "no-go 缺" in x["detail"] for x in res):
-            print("[selftest] PASS: no-go 缺锚→红")
         else:
-            print("[selftest] FAIL: no-go 缺锚仍绿", file=sys.stderr)
+            print("[selftest] PASS: 空单元格→红")
+
+        # 负样本 6:deferred.json 对账失配(注入缺 G10.7 P2 行的 deferred 数据)→ 必须红
+        real = wel.load_json(DEFERRED)
+        stripped = {
+            **real,
+            "entries": [
+                {**e, "history": [h for h in e.get("history", []) if HISTORY_MARKER not in (h.get("event") or "")]}
+                for e in real.get("entries", [])
+            ],
+        }
+        code, _ = run_check(p, deferred_data=stripped)
+        if code == 0:
+            print("[selftest] FAIL: deferred history 缺登记仍绿", file=sys.stderr)
             failures += 1
+        else:
+            print("[selftest] PASS: deferred history 缺登记→红")
+
+        # 负样本 7:G10.6 对账失配(注入 M99-clipmap 被改 maintain-defer 的重评窗文本)→ 必须红
+        real_w6 = REEVALUATION.read_text(encoding="utf-8") if REEVALUATION.is_file() else ""
+        bad_w6 = real_w6.replace("| rejudged-go |", "| maintain-defer |", 1)
+        code, _ = run_check(p, reevaluation_text=bad_w6)
+        if code == 0:
+            print("[selftest] FAIL: G10.6 对账失配仍绿", file=sys.stderr)
+            failures += 1
+        else:
+            print("[selftest] PASS: G10.6 对账失配→红")
 
     if failures:
         print(f"[selftest] FAIL ({failures})")

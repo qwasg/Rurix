@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "subject": "g10_p2_decisions",
+  "symbolic_gate_key": "g10.wave.7.decisions",
+  "matrix_row": "G10.7",
+  "wave": "G10.7",
+  "numeric_step": 193,
+  "source_ref": "G10_CONTRACT G-G10-9;CI_GATES §5 v1.7;G10_P2_DECISIONS.md v1.0;G10_CANDIDATE_DECISIONS v1.0;G10_DEFER_REEVALUATION.md v1.0;G10_ACCEPTANCE_MAP §1/§2;registry/deferred.json v1.81",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_frozen",
+      "status": "PASS",
+      "detail": "got n=27 unique=27; expect frozen 27"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M99-clipmap",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N5",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_RD034",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_RD042",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_RD043",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_RD044",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N7",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N9",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_G10-N10",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N11",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N12",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G10-N13",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G10-N14",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_G10-N15",
+      "status": "PASS",
+      "detail": "no-go"
+    },
+    {
+      "id": "row_G10-N16",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "defer-to-G11+"
+    },
+    {
+      "id": "acceptance_map_mutex",
+      "status": "PASS",
+      "detail": "MAP 实解 P0=12 P1=2(expect 12/2);P2 表命中已 go 裸 token: 无"
+    },
+    {
+      "id": "deferred_history_reconcile",
+      "status": "PASS",
+      "detail": "G10.7 P2 history: [('RD-039', 1), ('RD-040', 3)]"
+    },
+    {
+      "id": "wave6_reevaluation_reconcile",
+      "status": "PASS",
+      "detail": "十锚对账 n=10/10"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T031236Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G10.7 P2/留档/未触发分项穷举决策(27 行闭集:go 2 closed-go 留痕 + no-go 7 + defer-to-G11+ 18,strategic_override 0);defer 必有承接锚(重判条件+兜底+G11+ 重评窗);与 MAP 14 key 互斥;deferred.json history 对账(RD-039 +1/RD-040 +3,零新 RD);G10.6 重评窗十锚对账(M99-clipmap 唯一 rejudged-go → G11 画质修复期承接,G10 零实现面);no-go/defer 如实保持 open 不写进全绿叙述"
+}

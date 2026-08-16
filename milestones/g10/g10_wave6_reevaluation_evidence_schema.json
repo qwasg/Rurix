@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.6 wave6.reevaluation evidence",
+  "description": "evidence/g10_wave6_reevaluation_<UTC>.json。G10.6 defer 重评窗门 g10.wave.6.reevaluation（步骤 192，ci/g10_wave6_reevaluation_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g10/G10_DEFER_REEVALUATION.md v1.0——十锚冻结闭集全等（G9_P2_DECISIONS §1 十项 defer-to-G10+ 行，G10_CONTRACT §6/G-G10-8 字面）、零空行（全列非空）、重判结论枚举合法（maintain-defer/rejudged-go）、G10.5 measured 证据列必含 evidence/ 引用且在树且至少一条为 G10.5 A/B measured 面前缀闭集（g10_m139_ab_comparison_/g10_m140_gap_registry_/g10_m141_perf_baseline_，法定证据输入语义机核）、maintain-defer 行承接锚字面 0-byte 维持且最终状态含 defer、rejudged-go 行承接锚必含 G11+ 承接波次、deferred history 留痕列必含「只追加」；横向机核①deferred.json history 对账（G10.6 重评窗登记恰好 RD-039 +1〔M61〕/RD-040 +3〔M52/M99-clipmap/M100-high〕，M99-clipmap 行含 rejudged-go 与 G11 画质修复期字面，零新 RD max=RD-044，RD-039/040 status open 0-byte）②G10_P2_DECISIONS 行集对账（十锚行齐备、裁决 == defer-to-G11+、rejudged-go 仅 M99-clipmap 一行）。只读文档与 registry，不代绿实现门；G10 零实现面——重判 go 只指承接不实现。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_wave6_reevaluation" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.wave.6.reevaluation" },
+    "matrix_row": { "type": "string", "const": "G10.6" },
+    "wave": { "type": "string", "const": "G10.6" },
+    "numeric_step": { "type": "integer", "const": 192 },
+    "source_ref": {
+      "type": "string",
+      "const": "G10_CONTRACT G-G10-8;CI_GATES §5 v1.7;G10_DEFER_REEVALUATION.md v1.0;G10_P2_DECISIONS.md v1.0;G9_P2_DECISIONS §1/§3;g10_gap_registry.json R3/R4/C1 行;registry/deferred.json v1.80"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
