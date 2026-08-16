@@ -1,0 +1,483 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m135_flip_metric",
+  "symbolic_gate_key": "g10.p0.m135.flip_metric",
+  "matrix_row": "M135",
+  "milestone": "M135",
+  "assertion_id": "g10.p0.m135.flip_metric",
+  "status": "pass",
+  "wave": "G10.4",
+  "numeric_step": 184,
+  "source_ref": "RFC-0026 §4.2;spec/visual_comparison.md RXS-0389;G10_ACCEPTANCE_MAP §1 M135",
+  "base_commit": "ca407477149d222ebf544cda05cc5b4d350e7cee",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "spec_rxs0389_clause_on_tree": true,
+    "reference_pin_quintuple_complete": true,
+    "corpus_lower_bound": true,
+    "identity_flip_zero": true,
+    "ppd_strategy_frozen": true,
+    "pairwise_scalar_within_tolerance": true,
+    "pairwise_error_map_within_tolerance": true,
+    "tolerance_calibration_provenance": true,
+    "hdr_flip_probe_within_tolerance": true,
+    "red_caliber_drift_detected": true,
+    "red_reference_perturbation_detected": true,
+    "red_identity_nonzero_detected": true,
+    "red_corpus_below_bound_detected": true
+  },
+  "commands": [],
+  "metric_report": {
+    "reference_impl": {
+      "name": "NVlabs/flip",
+      "license": "BSD-3-Clause",
+      "pin_quintuple": {
+        "commit_digest": "b475eb4bf394ab877c42166c9eb0a84a02cc5b14",
+        "archive_digest": "sha256:d4e0362c16818423b0d2517a0b79100fdc537ca4c9f579dbd9ba4c7d5204b668",
+        "backend": "python-nanobind",
+        "os_toolchain": "Windows win_amd64; MSVC VS2022 BuildTools 17.14.38; CMake 4.3.0; Python 3.12; nanobind 2.12.0; scikit-build-core 0.11.6",
+        "build_config": "scikit-build-core Release wheel cp312; flip_evaluator-1.7-cp312-cp312-win_amd64.whl sha256:46348e21936625702f81f863135e0c29357f507af0ee5624c42f84c4b0b1e84c; 本地 pin 源码树 K:\\rurix_g10_cache\\tools\\flip pip install 构建",
+        "runtime_params": "evaluate(ref, test, 'LDR', inputsRGB=True, applyMagma=False, computeMeanError=True, parameters={}); ppd=default(67.02064514160156)"
+      },
+      "installed_version": "1.7",
+      "caliber_literal": "flip-ldr{colorspace=YCxCz,gqc=0.7,gpc=0.4,gpt=0.95,gw=0.082,gqf=0.5,a1=(1.0,1.0,34.1),b1=(0.0047,0.0053,0.04),a2=(0.0,0.0,13.5),b2=(1e-5,1e-5,0.025),ppd=67.02064514160156,ppd_strategy=reference-default-single-value,spatial_pooling=weighted-mean,error_map_output=on,domain=ldr}",
+      "caliber_digest": "sha256:7b649a93f0cae44ab4846308c094904807a3e3a491aed01c95e4c759318a5558",
+      "selection_arm": "首选 cpp tool CMake 构建受阻前即选 python-nanobind 臂（pin 五元组枚举闭集内）：本地 pin 源码树 pip install 一次构建成功（wheel digest 登记），LDR/HDR 双域参数面齐备；cpp tool 臂未再尝试（如实登记选臂，非构建失败后回退）"
+    },
+    "corpus": {
+      "pair_count": 25,
+      "per_class": {
+        "high_freq_edge": 5,
+        "smooth_gradient": 5,
+        "noise": 5,
+        "highlight_clip": 5,
+        "color_isolation": 5
+      },
+      "manifest_digest": "sha256:740e2481dd9ee3814c5938a9077d2083653b8787e5b79cde406d7b691793a158",
+      "classes": [
+        "high_freq_edge",
+        "smooth_gradient",
+        "noise",
+        "highlight_clip",
+        "color_isolation"
+      ]
+    },
+    "tolerance": {
+      "estimator": "p100",
+      "safety_factor_k": 2.0,
+      "k_bounds": [
+        1.0,
+        3.0
+      ],
+      "k_rationale": "实现差噪声底上方双倍余量；k∈[1,3] 闭集内（RFC-0026 §4.2 F10；M136 同值先例）",
+      "p100_scalar_abs_diff": 3.015264163747089e-05,
+      "p100_error_map_max_abs_diff": 9.876619850479607e-05,
+      "tolerance_scalar": 6.030528327494178e-05,
+      "tolerance_error_map": 0.00019753239700959213,
+      "sample_set_digest": "sha256:740e2481dd9ee3814c5938a9077d2083653b8787e5b79cde406d7b691793a158",
+      "status": "provisional_pending_m138",
+      "provenance": "measured_local：本图集 25 对逐图标量差与误差图逐像素差两面分列 p100 × k；M138 正式入 g10_budget.json 后翻转（禁手写阈值冒充标定）"
+    },
+    "identity_extremum": {
+      "flip_self": 0.0,
+      "flip_ref": 0.0,
+      "error_map_max_self": 0.0,
+      "error_map_max_ref": 0.0
+    },
+    "hdr_probe": {
+      "scope": "probe-arm-not-calibration-sample-set",
+      "pair_indices": [
+        0,
+        6,
+        12,
+        18,
+        23
+      ],
+      "derivation": "srgb_to_linear(ldr) × 4.0（scene-linear HDR 内容）",
+      "hdr_exposure_mode": "auto-from-reference",
+      "p100_scalar_abs_diff": 3.096640176586396e-05,
+      "p100_error_map_max_abs_diff": 0.00010683286713414342,
+      "identity_flip": 0.0,
+      "rows": [
+        {
+          "pair_id": "high_freq_edge-0:hdr-probe",
+          "content_class": "high_freq_edge",
+          "flip_self": 0.10936581909589954,
+          "flip_ref": 0.1093967854976654,
+          "scalar_abs_diff": 3.096640176586396e-05,
+          "error_map_max_abs_diff": 0.00010683286713414342,
+          "self_exposures": [
+            -0.6409715063780868,
+            -0.4054795918401968,
+            2
+          ],
+          "ref_exposures": [
+            -0.6409710049629211,
+            -0.4054791331291199,
+            2
+          ]
+        },
+        {
+          "pair_id": "smooth_gradient-1:hdr-probe",
+          "content_class": "smooth_gradient",
+          "flip_self": 0.19090720859446772,
+          "flip_ref": 0.190907284617424,
+          "scalar_abs_diff": 7.602295629127731e-08,
+          "error_map_max_abs_diff": 2.3161076742050923e-06,
+          "self_exposures": [
+            -0.4045353304152735,
+            1.0249306505478097,
+            2
+          ],
+          "ref_exposures": [
+            -0.4045349955558777,
+            1.0249311923980713,
+            2
+          ]
+        },
+        {
+          "pair_id": "noise-2:hdr-probe",
+          "content_class": "noise",
+          "flip_self": 0.05268151623380707,
+          "flip_ref": 0.05268154665827751,
+          "scalar_abs_diff": 3.0424470442991236e-08,
+          "error_map_max_abs_diff": 4.449435209566421e-06,
+          "self_exposures": [
+            -0.8381236723143018,
+            1.0468556261572006,
+            2
+          ],
+          "ref_exposures": [
+            -0.838123083114624,
+            1.0468562841415405,
+            2
+          ]
+        },
+        {
+          "pair_id": "highlight_clip-3:hdr-probe",
+          "content_class": "highlight_clip",
+          "flip_self": 0.02252323735155191,
+          "flip_ref": 0.02252311073243618,
+          "scalar_abs_diff": 1.26619115730503e-07,
+          "error_map_max_abs_diff": 1.4031917952295192e-06,
+          "self_exposures": [
+            -0.7984961605819125,
+            3.3962002694266866,
+            5
+          ],
+          "ref_exposures": [
+            -0.7984957098960876,
+            3.396200656890869,
+            5
+          ]
+        },
+        {
+          "pair_id": "color_isolation-3:hdr-probe",
+          "content_class": "color_isolation",
+          "flip_self": 0.07391674102153736,
+          "flip_ref": 0.07391685247421265,
+          "scalar_abs_diff": 1.1145267528323011e-07,
+          "error_map_max_abs_diff": 1.317172879080266e-05,
+          "self_exposures": [
+            -0.09984880607620482,
+            1.307336632108088,
+            2
+          ],
+          "ref_exposures": [
+            -0.09984821826219559,
+            1.3073371648788452,
+            2
+          ]
+        }
+      ]
+    },
+    "pairs": [
+      {
+        "pair_id": "high_freq_edge-0",
+        "content_class": "high_freq_edge",
+        "a_digest": "sha256:7734d50cb43391b3a367ed8186d59de0a6791b4087c7ca970bb68883ad3d200d",
+        "b_digest": "sha256:764fb67223a0a25c9691bc47683a76d231b70b9e4951f9cca5ed119d536add30",
+        "flip_self": 0.10932883606065974,
+        "flip_ref": 0.10935898870229721,
+        "scalar_abs_diff": 3.015264163747089e-05,
+        "error_map_max_abs_diff": 9.876502791805741e-05,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "high_freq_edge-1",
+        "content_class": "high_freq_edge",
+        "a_digest": "sha256:83b50b9e0038da68fa493aec71dafc1f42b7e9c65b858b295a418ad72cbaf85a",
+        "b_digest": "sha256:dfbde1b3173d89b983aab4effc19598978c71de4c4bc932f7cebe8e820fe4e5c",
+        "flip_self": 0.007565774268579473,
+        "flip_ref": 0.007567542605102062,
+        "scalar_abs_diff": 1.7683365225893907e-06,
+        "error_map_max_abs_diff": 8.289604159099568e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "high_freq_edge-2",
+        "content_class": "high_freq_edge",
+        "a_digest": "sha256:0f877824b5f50cfd261ed36c25f71013233ffab0f9cbf988a4f5548d84799ca2",
+        "b_digest": "sha256:4327701bc7eaf589e470d551eae64eed4f3ce7d86554a39d1dbc3ddd0eb55c1f",
+        "flip_self": 0.6255375826535876,
+        "flip_ref": 0.6255496740341187,
+        "scalar_abs_diff": 1.2091380531042972e-05,
+        "error_map_max_abs_diff": 5.596736670598901e-05,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "high_freq_edge-3",
+        "content_class": "high_freq_edge",
+        "a_digest": "sha256:7734d50cb43391b3a367ed8186d59de0a6791b4087c7ca970bb68883ad3d200d",
+        "b_digest": "sha256:764fb67223a0a25c9691bc47683a76d231b70b9e4951f9cca5ed119d536add30",
+        "flip_self": 0.10932883616460093,
+        "flip_ref": 0.10935898870229721,
+        "scalar_abs_diff": 3.01525376962819e-05,
+        "error_map_max_abs_diff": 9.876619850479607e-05,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "high_freq_edge-4",
+        "content_class": "high_freq_edge",
+        "a_digest": "sha256:83b50b9e0038da68fa493aec71dafc1f42b7e9c65b858b295a418ad72cbaf85a",
+        "b_digest": "sha256:94df37e581647b619a08f4ccbfea227dbbda92e680b5c8da1249da1ce524ea3d",
+        "flip_self": 0.3233262399291349,
+        "flip_ref": 0.3233546018600464,
+        "scalar_abs_diff": 2.8361930911491307e-05,
+        "error_map_max_abs_diff": 7.10370254212167e-05,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "smooth_gradient-0",
+        "content_class": "smooth_gradient",
+        "a_digest": "sha256:507783286fedd5b120cfdfde2431119c1e4e63d04aa336695c543a65111dd1f9",
+        "b_digest": "sha256:e60b1da13448405ba8b6528c009d360782d89a12a742a4c6275d12c8e6e39774",
+        "flip_self": 0.14648603244884878,
+        "flip_ref": 0.14648602902889252,
+        "scalar_abs_diff": 3.4199562626291424e-09,
+        "error_map_max_abs_diff": 1.9275978588861875e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "smooth_gradient-1",
+        "content_class": "smooth_gradient",
+        "a_digest": "sha256:301fef4f95f70b6dba7e5f1ed0d1a9d7f9d226e38026a93ce960e004dbfeacd8",
+        "b_digest": "sha256:c69264440d067a4f83ab10ff149e873a213b33eea28752cfca2be87b8a8362bb",
+        "flip_self": 0.29082320721157856,
+        "flip_ref": 0.2908232808113098,
+        "scalar_abs_diff": 7.359973125398156e-08,
+        "error_map_max_abs_diff": 1.2491497026201337e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "smooth_gradient-2",
+        "content_class": "smooth_gradient",
+        "a_digest": "sha256:507783286fedd5b120cfdfde2431119c1e4e63d04aa336695c543a65111dd1f9",
+        "b_digest": "sha256:ed0603f13a7ae55897ba15c2d484862ae9ee4ace52cc914aebbf11eacef3f6f9",
+        "flip_self": 0.3142141689117571,
+        "flip_ref": 0.3142140805721283,
+        "scalar_abs_diff": 8.833962877874413e-08,
+        "error_map_max_abs_diff": 1.325664159002038e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "smooth_gradient-3",
+        "content_class": "smooth_gradient",
+        "a_digest": "sha256:301fef4f95f70b6dba7e5f1ed0d1a9d7f9d226e38026a93ce960e004dbfeacd8",
+        "b_digest": "sha256:0f2bebdbe77b2f43a723db92b9e13d5b08560a25d123d8e35c93726a55b666b1",
+        "flip_self": 0.46130165312850746,
+        "flip_ref": 0.46130138635635376,
+        "scalar_abs_diff": 2.6677215370085605e-07,
+        "error_map_max_abs_diff": 9.013752110265116e-07,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "smooth_gradient-4",
+        "content_class": "smooth_gradient",
+        "a_digest": "sha256:507783286fedd5b120cfdfde2431119c1e4e63d04aa336695c543a65111dd1f9",
+        "b_digest": "sha256:f41b8be47db1f9ef8c0a01196370d909d3917a056ec0d121eb539b3a5f5cb2e2",
+        "flip_self": 0.43740328478842067,
+        "flip_ref": 0.4374028444290161,
+        "scalar_abs_diff": 4.403594045521153e-07,
+        "error_map_max_abs_diff": 1.1085711246749952e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "noise-0",
+        "content_class": "noise",
+        "a_digest": "sha256:f0c924bf0162ef1aa6fcc40b94813b69e66a0ba67c7ce8287e7b6956c0c2227f",
+        "b_digest": "sha256:1fd89619a7df1567d4358ba08100c671c2032f6026f12d150745f5139bf1a1ca",
+        "flip_self": 0.053434157620917064,
+        "flip_ref": 0.05343414098024368,
+        "scalar_abs_diff": 1.664067338091879e-08,
+        "error_map_max_abs_diff": 3.5843589474178483e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "noise-1",
+        "content_class": "noise",
+        "a_digest": "sha256:727d6c8473f5f176480e40261158a14c6c5ad17c8202c1ad1713d2eb4ae814cf",
+        "b_digest": "sha256:abebbc64b4488f4a5db2c71e497f1f3517f4dab2be52ba3d472a67aa5cb2b6b7",
+        "flip_self": 0.055119226078027515,
+        "flip_ref": 0.05511923134326935,
+        "scalar_abs_diff": 5.265241832808076e-09,
+        "error_map_max_abs_diff": 2.779671003327183e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "noise-2",
+        "content_class": "noise",
+        "a_digest": "sha256:49b1ced53dc3c4d6ecb34d9c95e9ab063c9b851759920e2e215d5e1346970f2f",
+        "b_digest": "sha256:18aadf13675cc11fa8275c1cb668b295b86c70ecd9910c383e5c4ce123e789b1",
+        "flip_self": 0.05355422345463176,
+        "flip_ref": 0.05355415120720863,
+        "scalar_abs_diff": 7.224742312739174e-08,
+        "error_map_max_abs_diff": 3.300945023806956e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "noise-3",
+        "content_class": "noise",
+        "a_digest": "sha256:688d087233ddb4efc7aeebc77a457f83b548e300b34f0ea6e2a51d89fb48a6ab",
+        "b_digest": "sha256:64c12c38238df8ca1e556fbcb03b02c1245b6253693446db0082bcf9bd1cb839",
+        "flip_self": 0.05511551373847796,
+        "flip_ref": 0.05511551350355148,
+        "scalar_abs_diff": 2.3492647410749967e-10,
+        "error_map_max_abs_diff": 3.819486358042773e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "noise-4",
+        "content_class": "noise",
+        "a_digest": "sha256:ff0440e40b2e6da8f9b5a10f900a25b5a9c2d46c4b30ed6088c2407b6b7460ee",
+        "b_digest": "sha256:d1c9cf34af728e80a2d0bb7d1ac2545eef13ba7a866a41302fa3987c92016470",
+        "flip_self": 0.051907997407527745,
+        "flip_ref": 0.0519079715013504,
+        "scalar_abs_diff": 2.5906177342216452e-08,
+        "error_map_max_abs_diff": 3.681065998746569e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "highlight_clip-0",
+        "content_class": "highlight_clip",
+        "a_digest": "sha256:293435dae09462bc007228f8d6a7cb58266db5d19b186399f065afab816fd9d8",
+        "b_digest": "sha256:345a50dbe47b28c07c3f6ebfc15eee4a524445e5f4f02446b02c7397ebae3d24",
+        "flip_self": 0.014897952774380007,
+        "flip_ref": 0.014897992834448814,
+        "scalar_abs_diff": 4.0060068807329374e-08,
+        "error_map_max_abs_diff": 1.3914411060300669e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "highlight_clip-1",
+        "content_class": "highlight_clip",
+        "a_digest": "sha256:ea510ad566d3a025bfb71e830610ae46973c7ba1c1f82f5c9209d804646617fa",
+        "b_digest": "sha256:2df6efd89334d29a7b9e83cf94214d2dd43bf38ffb024496de3343c40ced86e7",
+        "flip_self": 0.029276306392303,
+        "flip_ref": 0.02927609346807003,
+        "scalar_abs_diff": 2.129242329708403e-07,
+        "error_map_max_abs_diff": 1.1128998569920334e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "highlight_clip-2",
+        "content_class": "highlight_clip",
+        "a_digest": "sha256:de42ae60bbbb8f03dd95ddb9a25e48352eb627b7940bca2a7fb4fa37ef3d1f45",
+        "b_digest": "sha256:74766e876b75b91ce1b26fc2831feefed10cacbab67f3570832dc66e1997efd0",
+        "flip_self": 0.04767509816926781,
+        "flip_ref": 0.04767509549856186,
+        "scalar_abs_diff": 2.6707059480601814e-09,
+        "error_map_max_abs_diff": 8.501364968660496e-07,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "highlight_clip-3",
+        "content_class": "highlight_clip",
+        "a_digest": "sha256:e4d88836383b97749c5713184d21c003dfa75fb87064743a23639757b531b828",
+        "b_digest": "sha256:ddce7c9b47449ddc983820ddb5707d3546ba46975230a2ea89179a101bad0d14",
+        "flip_self": 0.06859295650201366,
+        "flip_ref": 0.06859315186738968,
+        "scalar_abs_diff": 1.9536537601561044e-07,
+        "error_map_max_abs_diff": 6.269085923715778e-07,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "highlight_clip-4",
+        "content_class": "highlight_clip",
+        "a_digest": "sha256:ac2c849cd4ad5c30468b88d86fa5ce44ef45f49d6e56f2770a3509cc4385ddf1",
+        "b_digest": "sha256:fdf390719a2fe77261ce9ca41b436188ed57450816b6a14fc7b7803fde742bce",
+        "flip_self": 0.09236666502673999,
+        "flip_ref": 0.09236673265695572,
+        "scalar_abs_diff": 6.763021573319428e-08,
+        "error_map_max_abs_diff": 6.313357090170779e-07,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "color_isolation-0",
+        "content_class": "color_isolation",
+        "a_digest": "sha256:e0b718909c9a6d870d2e9ac7b18116fc924e68fe188ee1f686c2269cbbaed539",
+        "b_digest": "sha256:2f60a9b336888b67d6a6a48a1c6ec2579271919fcb95fa486e476c08729a3fb9",
+        "flip_self": 0.07806965034184654,
+        "flip_ref": 0.07806957513093948,
+        "scalar_abs_diff": 7.521090705786548e-08,
+        "error_map_max_abs_diff": 5.006445610260577e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "color_isolation-1",
+        "content_class": "color_isolation",
+        "a_digest": "sha256:41f648de4a1df79da2e9b96a7668bf64346e04dcf96387836e220de71641261f",
+        "b_digest": "sha256:7a61f20c9d5749dd906a256c1f3f2b3406b62cd79d6a69a74278b8d56c7f8797",
+        "flip_self": 0.0780767298175897,
+        "flip_ref": 0.07807666808366776,
+        "scalar_abs_diff": 6.17339219466384e-08,
+        "error_map_max_abs_diff": 5.006445610260577e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "color_isolation-2",
+        "content_class": "color_isolation",
+        "a_digest": "sha256:5296e35f790c8bd0628327082a183d191da66101648f0435a76601b47c7e2e06",
+        "b_digest": "sha256:5fa63b2c7a7480903cd275eb288ed574f0b94e6ce97ef4a5058be7e7a02b7ccf",
+        "flip_self": 0.07803277052225449,
+        "flip_ref": 0.0780327245593071,
+        "scalar_abs_diff": 4.596294739256379e-08,
+        "error_map_max_abs_diff": 5.006445610260577e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "color_isolation-3",
+        "content_class": "color_isolation",
+        "a_digest": "sha256:504fcc11fea48b6ecc60298231fadb73827df11a9b8f33c6a3b3e4f01ad81261",
+        "b_digest": "sha256:82bce4f992682cc817363fcd93f7553efa412b4406cdb3a4026a338fd933e9a6",
+        "flip_self": 0.0779295108615276,
+        "flip_ref": 0.07792945951223373,
+        "scalar_abs_diff": 5.1349293872515744e-08,
+        "error_map_max_abs_diff": 5.006445610260577e-06,
+        "within_tolerance": true
+      },
+      {
+        "pair_id": "color_isolation-4",
+        "content_class": "color_isolation",
+        "a_digest": "sha256:208cb0ace7bfc0ad3d9211de9cc4dbd6730327bb60421c86d5aac2a180e34564",
+        "b_digest": "sha256:17d3d721dd9cf98b5007e9203866f3f8a736b3f03c10c0d54005e82f21fa76f0",
+        "flip_self": 0.0777160886091816,
+        "flip_ref": 0.07771610468626022,
+        "scalar_abs_diff": 1.6077078626719477e-08,
+        "error_map_max_abs_diff": 5.006445610260577e-06,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T060613Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "参考实现 pin: NVlabs/flip commit b475eb4bf394… backend=python-nanobind version=1.7 wheel …84c; 本地 pin 源码树 K:\\rurix_g10_cache\\tools\\flip pip install 构建; 图集: 25 对 / 五类 {'high_freq_edge': 5, 'smooth_gradient': 5, 'noise': 5, 'highlight_clip': 5, 'color_isolation': 5} / manifest sha256:740e2481dd9ee3814…; ppd 策略: 全语料单一值 67.02064514160156（参考默认 0.7m/3840px/0.7m 推导，位级一致）; 容差标定（两面分列）: p100_scalar=3.015e-05 × k=2.0 → 6.031e-05；p100_map=9.877e-05 × k=2.0 → 1.975e-04（25 对全在容差内）; HDR 探针: 5 对 auto-from-reference 曝光对拍在容差内（p100_scalar=3.097e-05 p100_map=1.068e-04；恒等 HDR 恰 0）; RED 检出 caliber_drift: gqc=0.8 → |drift−ref|=4.536e-02 > tol 6.031e-05"
+}

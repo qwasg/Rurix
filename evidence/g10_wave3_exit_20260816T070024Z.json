@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g10_wave3_exit",
+  "symbolic_gate_key": "g10.wave.3.exit",
+  "matrix_row": "G10.3",
+  "wave": "G10.3",
+  "numeric_step": 176,
+  "source_ref": "milestones/g10/CI_GATES.md §5;G10_CONTRACT G-G10-5;G10_ACCEPTANCE_MAP §1/§2;RFC-0027 §4.2/§4.3/§4.4;RXS-0380~0383 clause heads on tree;license registry zero missing rows;manifest digest registered in tree",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g10.p0.m131.asset_license_registry",
+      "subject_prefix": "g10_m131_asset_license_registry",
+      "evidence_path": "evidence/g10_m131_asset_license_registry_20260816T060531Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T060531Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m132.corpus_loading",
+      "subject_prefix": "g10_m132_corpus_loading",
+      "evidence_path": "evidence/g10_m132_corpus_loading_20260816T060548Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T060548Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p1.m133.corpus_list_freeze",
+      "subject_prefix": "g10_m133_corpus_list_freeze",
+      "evidence_path": "evidence/g10_m133_corpus_list_freeze_20260816T060549Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T060549Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "rxs0380_0383_clause_heads_on_tree",
+      "status": "PASS",
+      "detail": "spec/external_reference.md 在树，RXS-0380~0383 条款头全在树（共 4 枚）"
+    },
+    {
+      "id": "rfc0027_agent_approved",
+      "status": "PASS",
+      "detail": "RFC-0027: | 状态 | **Agent Approved（2026-08-15）**——D-409 对抗性评审已完成：独立隔离评审会话 18 findings（high F1~F3 / med F4~F11 / low F12~F18）全部 disposition 落实（v0.2 修法批），§9.1 评审记录段已回填；F1 同环境单一模型 provenance 偏差不静默处理、按 RFC-0015 §9.1/v1.29/v1.73/v1.90 先例如实登记于 §9.1，补救承诺与 G10.8b 终审复核锚同录。主会话核对契约三面一致后翻 Agent Approved。**批准不解锁任何实现**（G-G10-3 互锁为唯一实现入口） |"
+    },
+    {
+      "id": "license_registry_zero_missing_rows",
+      "status": "PASS",
+      "detail": "g10_asset_license_registry.json 按类登记闭集零缺行（白名单/五元组/六字段/attribution 复算全过）"
+    },
+    {
+      "id": "manifest_digest_registered_in_tree",
+      "status": "PASS",
+      "detail": "g10_corpus_scene_manifest.json 最新修订行 manifest_digest == 全量行 canonical 复算（清单 digest 注册在树）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T070024Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: three G10.3 gates (P0 M131 asset_license_registry step 173 / P0 M132 corpus_loading step 174 / P1 M133 corpus_list_freeze step 175); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: RXS-0380~0383 clause heads + RFC-0027 Agent Approved literal + license registry zero missing rows + manifest digest registered in tree; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

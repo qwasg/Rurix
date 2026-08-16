@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m133_corpus_list_freeze",
+  "symbolic_gate_key": "g10.p1.m133.corpus_list_freeze",
+  "matrix_row": "M133",
+  "milestone": "M133",
+  "assertion_id": "g10.p1.m133.corpus_list_freeze",
+  "status": "pass",
+  "wave": "G10.3",
+  "numeric_step": 175,
+  "source_ref": "RFC-0027 §4.4;spec/external_reference.md RXS-0383;G10_ACCEPTANCE_MAP §2 M133",
+  "base_commit": "ca407477149d222ebf544cda05cc5b4d350e7cee",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "manifest_schema_valid": true,
+    "manifest_digest_registered_in_tree": true,
+    "append_only_revision_program": true,
+    "rowset_reconciles_license_registry": true,
+    "rowset_reconciles_loading_gate": true,
+    "ready_floor_vacuous_guard": true,
+    "red_fixtures_all_detected": true
+  },
+  "commands": [],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T060549Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M132 对账源: evidence/g10_m132_corpus_loading_20260816T060548Z.json; M133 RED 三件全检出（原地改/未注册冒充/行集不对账）"
+}

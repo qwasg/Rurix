@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m134_frame_capture_pipeline",
+  "symbolic_gate_key": "g10.p0.m134.frame_capture_pipeline",
+  "matrix_row": "M134",
+  "milestone": "M134",
+  "assertion_id": "g10.p0.m134.frame_capture_pipeline",
+  "status": "pass",
+  "wave": "G10.4",
+  "numeric_step": 181,
+  "source_ref": "RFC-0026 §4.1;spec/imageio.md RXS-0385;spec/visual_comparison.md RXS-0386;G10_ACCEPTANCE_MAP §1 M134",
+  "base_commit": "e27822c8dd617d8ad6144fe74398dcd78bbff8a3",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "spec_rxs0385_clause_on_tree": true,
+    "spec_rxs0386_clause_on_tree": true,
+    "imageio_exr_unit_tests": true,
+    "harness_build_vulkan": true,
+    "harness_checks_all_true": true,
+    "device_section_executed": true,
+    "metadata_closed_set_complete": true,
+    "cross_impl_digest_match": true,
+    "ue_frame_strip_and_log": true,
+    "zip_decode_fail_closed": true,
+    "red_bit_depth_truncation_detected": true,
+    "red_srgb_linear_mislabel_detected": true,
+    "red_metadata_missing_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p image-io",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurix-render --features vulkan --bin g10_m134_frame_capture",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\debug\\g10_m134_frame_capture.exe --evidence H:\\rurix\\.tmp\\g104_gates\\m134\\harness_evidence.json --ue-frame K:\\rurix-ext\\g10-frames\\g10_gate_runs\\m128_20260816T040124Z\\.0000.exr --work-dir H:\\rurix\\.tmp\\g104_gates\\m134",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\debug\\g10_m134_frame_capture.exe --red-arm clamp-8bit",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\debug\\g10_m134_frame_capture.exe --red-arm srgb-linear-mislabel",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\debug\\g10_m134_frame_capture.exe --red-arm metadata-missing",
+      "exit_code": 0
+    }
+  ],
+  "capture_report": {
+    "harness": "g10_m134_frame_capture",
+    "harness_evidence": ".tmp/g104_gates/m134/harness_evidence.json",
+    "host_frame_digest": "sha256:d2104ebf7992927d3b0b97cb4faa1e29c817cb1e022f57220f2b4f726c1544fe",
+    "host_exr_file_digest": "sha256:7ef4e815c696aae473043acec2110e885f97999e12ce8995c3817db8cf6ed712",
+    "device_frame_digest": "sha256:ca171676fd404363b2fec9227e3f66a22c65411a54c8cf8065db6573d4efb9bc",
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "ue_frame": "K:\\rurix-ext\\g10-frames\\g10_gate_runs\\m128_20260816T040124Z\\.0000.exr",
+    "ue_frame_digest": "sha256:33bba7e40bf76bae9426d4bfb6e56d0b945f8ecdd3443fd0a40c673dad2f26f9",
+    "ue_frame_bit_depth": "float16",
+    "ue_stripped_attribute_count": 74,
+    "exr_subset": "scanline float32 RGB/Y; compression v1 = NONE 编+解; ZIP fail-closed 显式 UnsupportedCompression（禁静默）",
+    "compression_narrowing": "harness 收窄登记 = {NONE}（UE 5.8.1 MRQ 帧 compression=NONE 实测）",
+    "cross_impl_verification": "ci/g10_exr_lib.py 独立第二实现（Python）互核元数据闭集 + 帧 digest 互证"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T040327Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "UE 真帧: .0000.exr 1920×1080 fp16→f32, stripped=74（独立复核 digest 一致）; RED 检出 clamp-8bit（--red-arm 复跑）; RED 检出 srgb-linear-mislabel（--red-arm 复跑）; RED 检出 metadata-missing（--red-arm 复跑）"
+}

@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m129_ue5_reference_frames",
+  "symbolic_gate_key": "g10.p0.m129.ue5_reference_frames",
+  "matrix_row": "M129",
+  "milestone": "M129",
+  "assertion_id": "g10.p0.m129.ue5_reference_frames",
+  "status": "pass",
+  "wave": "G10.2",
+  "numeric_step": 178,
+  "source_ref": "RFC-0027 §4.1/§4.4;spec/external_reference.md RXS-0380;G10_ACCEPTANCE_MAP §1 M129",
+  "base_commit": "ca407477149d222ebf544cda05cc5b4d350e7cee",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "spec_rxs0380_clause_on_tree": true,
+    "provisional_scene_set_registered": true,
+    "double_run_capture_exit_zero": true,
+    "per_scene_reference_frames": true,
+    "double_run_canonical_digest_equal": true,
+    "provenance_septuple_closed": true,
+    "red_fixtures_all_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe K:\\rurix-ext\\g10-ue\\G10RefRender\\G10RefRender.uproject /Engine/Maps/Entry -game -LevelSequence=/Game/Cinematics/G10_SmokeSeq -MoviePipelineConfig=/Game/Cinematics/G10_SmokeConfig -windowed -resx=1920 -resy=1080 -log -notexturestreaming -Unattended -FixedSeed",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "F:\\UE_5.8\\Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe K:\\rurix-ext\\g10-ue\\G10RefRender\\G10RefRender.uproject /Engine/Maps/Entry -game -LevelSequence=/Game/Cinematics/G10_SmokeSeq -MoviePipelineConfig=/Game/Cinematics/G10_SmokeConfig -windowed -resx=1920 -resy=1080 -log -notexturestreaming -Unattended -FixedSeed",
+      "exit_code": 0
+    }
+  ],
+  "reference_report": {
+    "ue_build_id": "5.8.1-56057345",
+    "scene_set_revision": 1,
+    "scenes": [
+      {
+        "scene_id": "entry-empty-static",
+        "map": "/Engine/Maps/Entry",
+        "run_a_frames": 4,
+        "run_b_frames": 4,
+        "reference_frames_on_disk": true
+      }
+    ],
+    "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b",
+    "double_run_digests": {
+      ".0000.exr": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16",
+      ".0001.exr": "7517af824a823f469fa6e80e03821f43c17ffe06eae533f52a4f86b869ed1355",
+      ".0002.exr": "f8dd05540ecb7ff6adb8270ff001ab8049b8f1eed8b4f32fdf0c662909769d59",
+      ".0003.exr": "ffa2868be43fe105152ec8b3ca64ec48ea6c3c5dce9de69c464edc3a6f725665"
+    },
+    "provenance_rows": [
+      {
+        "frame": ".0000.exr",
+        "canonical_digest": "429ac81122a7fc382be6c3312ea6a4dc215a8b8487344e2403b94d51fe52aa16",
+        "provenance": {
+          "scene_id": "entry-empty-static",
+          "camera_params_digest": "sha256:017f0b3b77ff77ab6f91ad7a3be0308d55bd99c926fa03d9abc432560487d893",
+          "lighting_params_digest": "sha256:2bb353803416fd0508fdf841fdbfdf5dfeb8bd0d77aa22e856adef0a56d31b8a",
+          "ue_build_id": "5.8.1-56057345",
+          "gpu_driver_version": "620.02",
+          "clock_lock_state": "locked",
+          "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b"
+        }
+      },
+      {
+        "frame": ".0001.exr",
+        "canonical_digest": "7517af824a823f469fa6e80e03821f43c17ffe06eae533f52a4f86b869ed1355",
+        "provenance": {
+          "scene_id": "entry-empty-static",
+          "camera_params_digest": "sha256:017f0b3b77ff77ab6f91ad7a3be0308d55bd99c926fa03d9abc432560487d893",
+          "lighting_params_digest": "sha256:2bb353803416fd0508fdf841fdbfdf5dfeb8bd0d77aa22e856adef0a56d31b8a",
+          "ue_build_id": "5.8.1-56057345",
+          "gpu_driver_version": "620.02",
+          "clock_lock_state": "locked",
+          "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b"
+        }
+      },
+      {
+        "frame": ".0002.exr",
+        "canonical_digest": "f8dd05540ecb7ff6adb8270ff001ab8049b8f1eed8b4f32fdf0c662909769d59",
+        "provenance": {
+          "scene_id": "entry-empty-static",
+          "camera_params_digest": "sha256:017f0b3b77ff77ab6f91ad7a3be0308d55bd99c926fa03d9abc432560487d893",
+          "lighting_params_digest": "sha256:2bb353803416fd0508fdf841fdbfdf5dfeb8bd0d77aa22e856adef0a56d31b8a",
+          "ue_build_id": "5.8.1-56057345",
+          "gpu_driver_version": "620.02",
+          "clock_lock_state": "locked",
+          "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b"
+        }
+      },
+      {
+        "frame": ".0003.exr",
+        "canonical_digest": "ffa2868be43fe105152ec8b3ca64ec48ea6c3c5dce9de69c464edc3a6f725665",
+        "provenance": {
+          "scene_id": "entry-empty-static",
+          "camera_params_digest": "sha256:017f0b3b77ff77ab6f91ad7a3be0308d55bd99c926fa03d9abc432560487d893",
+          "lighting_params_digest": "sha256:2bb353803416fd0508fdf841fdbfdf5dfeb8bd0d77aa22e856adef0a56d31b8a",
+          "ue_build_id": "5.8.1-56057345",
+          "gpu_driver_version": "620.02",
+          "clock_lock_state": "locked",
+          "capture_arm": "A(mrq):sha256:eef3ae8fe4a0403fc59225856353c58e446ec70d94f9f567c5a660f3f360968b"
+        }
+      }
+    ],
+    "gpu_profile": {
+      "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+      "gpu_driver_version": "620.02",
+      "clocks_sm_current": "210 MHz",
+      "clocks_sm_max": "3105 MHz",
+      "clock_lock_state": "locked"
+    },
+    "durations_s": [
+      17.525,
+      18.53
+    ]
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T060416Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "双跑 canonical digest 一致: 4/4 帧 MATCH; RED 检出 red_double_run_digest_unequal: 双跑 digest 不等: template_default_frame.exr（4199415a9fe73887… ≠ 429ac81122a7fc38…）; RED 检出 red_frame_tampered: 篡改后 digest 6db946f383e770b5… ≠ 登记 429ac81122a7fc38…; RED 检出 red_provenance_missing_row: provenance 缺行/空值: lighting_params_digest"
+}
