@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "subject": "g11_wave5_exit",
+  "symbolic_gate_key": "g11.wave.5.exit",
+  "matrix_row": "G11.5",
+  "wave": "G11.5",
+  "numeric_step": 213,
+  "source_ref": "milestones/g11/CI_GATES.md §5;G11_CONTRACT G-G11-7 + §8.3a;G11_ACCEPTANCE_MAP §1;two gates red arms independently effective;retest registry terminal states honest;M156 spot reruns green;regression summary green (48 + G11 green gates + parity);M147 g11.5 phase verdict honest two-state",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g11.p0.m155.ab_retest_closure",
+      "subject_prefix": "g11_m155_ab_retest_closure",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "缺最新 evidence(g11_m155_ab_retest_closure_*.json)"
+    },
+    {
+      "symbolic_gate_key": "g11.p0.m156.regression_guard",
+      "subject_prefix": "g11_m156_regression_guard",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "缺最新 evidence(g11_m156_regression_guard_*.json)"
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "contract_digest_locked_unchanged",
+      "status": "PASS",
+      "detail": "双场景契约 digest 当次重算 == G10.5 锁定值（cornell 80305791…/bistro ad45951b…，联合 64fd54df…）"
+    },
+    {
+      "id": "two_gates_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "两门最新 evidence 各含 red_* checks 且全真（共 9 臂独立有效）"
+    },
+    {
+      "id": "retest_registry_terminal_states_honest",
+      "status": "PASS",
+      "detail": "复测差距清单 11 行闭集对账 + 终态诚实面全绿；partial 行如实登记（['R1']，带 G12+/G11.6 承接锚不充绿）"
+    },
+    {
+      "id": "m156_spot_reruns_green",
+      "status": "PASS",
+      "detail": "M156 最新 evidence PASS + 真跑抽检八面全绿（M130 双 phase/M139/M140/M141/G9 M96/M94/M110）"
+    },
+    {
+      "id": "regression_summary_green_with_parity",
+      "status": "PASS",
+      "detail": "G10 14 门 + G9 34 门 + G11 已绿门最新 evidence 全绿只读汇总 + 默认面帧 digest 逐位 parity（双场景 == G10.5 锁定值）"
+    },
+    {
+      "id": "m147_g11_5_verdict_honest_two_state",
+      "status": "PASS",
+      "detail": "M147 g11.5 phase verdict=not_converged（g11_m147_fix_r1_material_subset_20260816T223105Z.json；converged=False）⇔ M155 最新 FAIL——两态一致；not_converged 时本 fact 绿但 M155 required 行 FAIL ⇒ 聚合 VERDICT=FAIL 如实（不收敛则整波 FAIL，§8.3a）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": false,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T233645Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: two G11.5 gates (P0 M155 ab_retest_closure step 211 / P0 M156 regression_guard step 212); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: contract digest 0-byte + red arms + retest registry terminal states honest + M156 spot reruns + regression summary (48 + G11 green + parity) + M147 g11.5 verdict two-state; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

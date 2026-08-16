@@ -682,6 +682,15 @@ def check_evidence_files() -> None:
     g11_4_calibration_schema = load(
         ROOT / "milestones/g11/g11_4_calibration_evidence_schema.json"
     )
+    g11_m155_ab_retest_closure_schema = load(
+        ROOT / "milestones/g11/g11_m155_ab_retest_closure_evidence_schema.json"
+    )
+    g11_m156_regression_guard_schema = load(
+        ROOT / "milestones/g11/g11_m156_regression_guard_evidence_schema.json"
+    )
+    g11_wave5_exit_schema = load(
+        ROOT / "milestones/g11/g11_wave5_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1536,6 +1545,21 @@ def check_evidence_files() -> None:
     g11_4_calibration_validator = (
         jsonschema.Draft7Validator(g11_4_calibration_schema)
         if g11_4_calibration_schema is not None
+        else None
+    )
+    g11_m155_ab_retest_closure_validator = (
+        jsonschema.Draft7Validator(g11_m155_ab_retest_closure_schema)
+        if g11_m155_ab_retest_closure_schema is not None
+        else None
+    )
+    g11_m156_regression_guard_validator = (
+        jsonschema.Draft7Validator(g11_m156_regression_guard_schema)
+        if g11_m156_regression_guard_schema is not None
+        else None
+    )
+    g11_wave5_exit_validator = (
+        jsonschema.Draft7Validator(g11_wave5_exit_schema)
+        if g11_wave5_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3055,6 +3079,32 @@ def check_evidence_files() -> None:
         ):
             # G11.4 P0 硬门 M154 R4 多反弹 GI + 世界级辐射缓存（步骤 209）。
             validator = g11_m154_fix_r4_gi_multibounce_world_cache_validator
+        elif (
+            f.name.startswith("g11_m155_ab_retest_closure_")
+            and g11_m155_ab_retest_closure_validator is not None
+        ):
+            # G11.5 P0 硬门 M155 A/B 复测闭环（步骤 211）→
+            # milestones/g11/g11_m155_ab_retest_closure_evidence_schema.json：
+            # 同契约双端复跑 digest 门序 + 复测差距清单 11 行闭集逐项闭环机核 +
+            # R1 行收敛断言（不收敛整波 FAIL，契约 §8.3a）+ RED 六臂。
+            validator = g11_m155_ab_retest_closure_validator
+        elif (
+            f.name.startswith("g11_m156_regression_guard_")
+            and g11_m156_regression_guard_validator is not None
+        ):
+            # G11.5 P0 硬门 M156 修复回归门（步骤 212）→
+            # milestones/g11/g11_m156_regression_guard_evidence_schema.json：
+            # 48 门 + G11 已绿门最新 evidence 全绿只读汇总 + 关键门真跑抽检零降级
+            # （M130 双 phase/M139/M140/M141/G9 M96/M94/M110）+ RED 三臂。
+            validator = g11_m156_regression_guard_validator
+        elif (
+            f.name.startswith("g11_wave5_exit_")
+            and g11_wave5_exit_validator is not None
+        ):
+            # G11.5 波聚合门（步骤 213）→ milestones/g11/g11_wave5_exit_evidence_schema.json：
+            # M155/M156 两门最新 evidence 只读汇总 + 契约 digest/RED 臂/清单终态诚实面/
+            # M156 抽检面/回归面/M147 g11.5 verdict 两态六 facts；aggregate_read_only const true。
+            validator = g11_wave5_exit_validator
         elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None

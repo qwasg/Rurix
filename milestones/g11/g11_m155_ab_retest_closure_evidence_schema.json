@@ -1,0 +1,367 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.5 M155 ab_retest_closure evidence",
+  "description": "evidence/g11_m155_ab_retest_closure_<UTC>.json。A/B 复测闭环：同契约双端复跑（契约参数 digest == G10.5 锁定值，不等仍出报告即 RED）+ 复测度量报告 + 复测差距清单 11 行闭集落盘（行集逐字对账；新差距项显式登记即 RED 评审面）+ 逐项闭环状态机核（修复前后 delta 收敛 measured，收敛阈由标定程序产）；清单缺行即 RED；单端缺帧聚合 PASS 即 RED。R1 行（M147 g11.5 phase）收敛断言：锁定基线 0.8328980787837229 对当次复测——不收敛则本门 FAIL、整波 FAIL（G11_CONTRACT §8.3a 不弱化声明）。（步骤 211；G11_CONTRACT §4.2 M155 行判据逐字 + G-G11-7；G11_ACCEPTANCE_MAP §1 M155 行；CI_GATES §4；spec/visual_comparison.md RXS-0393/RXS-0392）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "closure",
+    "closure_rows",
+    "registry_digest",
+    "report_digest",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_m155_ab_retest_closure"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.p0.m155.ab_retest_closure"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M155"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M155"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g11.p0.m155.ab_retest_closure"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.5"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 211
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M155 + G-G11-7 + §8.3a;G11_ACCEPTANCE_MAP §1 M155;CI_GATES §4;g10_gap_registry 11 行锁定清单;spec/visual_comparison.md RXS-0393/RXS-0392"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0393_clause_on_tree",
+        "contract_digest_locked_unchanged",
+        "rerun_report_complete_and_digest_honest",
+        "dual_end_frames_present_full_scene_set",
+        "ue_build_provenance_matches_m128",
+        "retest_registry_row_set_exact_locked",
+        "baseline_literals_match_locked_registry",
+        "retest_deltas_independently_recomputed",
+        "closure_thresholds_from_budget_calibrated",
+        "closure_r1_ssim_converged",
+        "closure_r2_u1_coverage_converged",
+        "closure_r3_luminance_converged",
+        "closure_r4_p90_converged",
+        "closure_r5_u64_seed_converged",
+        "closure_u2_luminance_converged",
+        "closure_u3_anim_channels_converged",
+        "closure_c1_disposition_reviewed",
+        "closure_c2_disposition_reviewed",
+        "closure_c3_disposition_reviewed",
+        "registry_terminal_states_honest",
+        "budget_eval_strict_all_pass",
+        "red_missing_registry_row_detected",
+        "red_stale_rerun_masquerade_detected",
+        "red_handwritten_threshold_detected",
+        "red_single_end_missing_frame_detected",
+        "red_digest_unequal_report_blocked",
+        "red_partial_masquerade_closed_detected"
+      ],
+      "properties": {
+        "spec_rxs0393_clause_on_tree": {
+          "type": "boolean"
+        },
+        "contract_digest_locked_unchanged": {
+          "type": "boolean"
+        },
+        "rerun_report_complete_and_digest_honest": {
+          "type": "boolean"
+        },
+        "dual_end_frames_present_full_scene_set": {
+          "type": "boolean"
+        },
+        "ue_build_provenance_matches_m128": {
+          "type": "boolean"
+        },
+        "retest_registry_row_set_exact_locked": {
+          "type": "boolean"
+        },
+        "baseline_literals_match_locked_registry": {
+          "type": "boolean"
+        },
+        "retest_deltas_independently_recomputed": {
+          "type": "boolean"
+        },
+        "closure_thresholds_from_budget_calibrated": {
+          "type": "boolean"
+        },
+        "closure_r1_ssim_converged": {
+          "type": "boolean"
+        },
+        "closure_r2_u1_coverage_converged": {
+          "type": "boolean"
+        },
+        "closure_r3_luminance_converged": {
+          "type": "boolean"
+        },
+        "closure_r4_p90_converged": {
+          "type": "boolean"
+        },
+        "closure_r5_u64_seed_converged": {
+          "type": "boolean"
+        },
+        "closure_u2_luminance_converged": {
+          "type": "boolean"
+        },
+        "closure_u3_anim_channels_converged": {
+          "type": "boolean"
+        },
+        "closure_c1_disposition_reviewed": {
+          "type": "boolean"
+        },
+        "closure_c2_disposition_reviewed": {
+          "type": "boolean"
+        },
+        "closure_c3_disposition_reviewed": {
+          "type": "boolean"
+        },
+        "registry_terminal_states_honest": {
+          "type": "boolean"
+        },
+        "budget_eval_strict_all_pass": {
+          "type": "boolean"
+        },
+        "red_missing_registry_row_detected": {
+          "type": "boolean"
+        },
+        "red_stale_rerun_masquerade_detected": {
+          "type": "boolean"
+        },
+        "red_handwritten_threshold_detected": {
+          "type": "boolean"
+        },
+        "red_single_end_missing_frame_detected": {
+          "type": "boolean"
+        },
+        "red_digest_unequal_report_blocked": {
+          "type": "boolean"
+        },
+        "red_partial_masquerade_closed_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_rows",
+        "converged",
+        "aligned_closed",
+        "partial",
+        "summary",
+        "contract_digest_unchanged",
+        "r1_headline"
+      ],
+      "properties": {
+        "total_rows": {
+          "type": "integer"
+        },
+        "converged": {
+          "type": "integer"
+        },
+        "aligned_closed": {
+          "type": "integer"
+        },
+        "partial": {
+          "type": "integer"
+        },
+        "summary": {
+          "type": "object"
+        },
+        "contract_digest_unchanged": {
+          "type": "boolean",
+          "const": true
+        },
+        "r1_headline": {
+          "type": "object"
+        }
+      }
+    },
+    "closure_rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "row",
+          "closure_status",
+          "converged"
+        ],
+        "properties": {
+          "row": {
+            "type": "string"
+          },
+          "closure_status": {
+            "type": ["string", "null"]
+          },
+          "converged": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "registry_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "report_digest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "host_section_pass": {
+            "const": true
+          },
+          "closure": {
+            "properties": {
+              "partial": {
+                "const": 0
+              },
+              "total_rows": {
+                "const": 11
+              }
+            }
+          },
+          "closure_rows": {
+            "minItems": 11,
+            "maxItems": 11
+          }
+        }
+      }
+    }
+  ]
+}

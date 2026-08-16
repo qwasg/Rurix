@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.5 wave5.exit evidence",
+  "description": "evidence/g11_wave5_exit_<UTC>.json。G11.5 波次聚合门 g11.wave.5.exit（步骤 213；milestones/g11/CI_GATES.md §5；G11_CONTRACT G-G11-7）：G11.5 波两门最新 evidence 只读汇总——M155 A/B 复测闭环（步骤 211）/ M156 修复回归门（步骤 212）——+ 六 facts：契约 digest 0-byte / 两门 RED 臂独立有效 / 复测差距清单终态诚实面（11 行闭集对账 + partial 行承接锚 + 汇总计数重算一致）/ M156 真跑抽检面 / 回归面（48 门 + G11 已绿门 + 默认面 parity）/ M147 g11.5 phase verdict 诚实登记两态机核（converged ⇔ M155 最新 PASS；not_converged 时本 fact 绿但 M155 required 行 FAIL ⇒ 聚合 VERDICT=FAIL 如实——不收敛则整波 FAIL，契约 §8.3a 不弱化声明）。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_wave5_exit"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.wave.5.exit"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G11.5"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.5"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 213
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g11/CI_GATES.md §5;G11_CONTRACT G-G11-7 + §8.3a;G11_ACCEPTANCE_MAP §1;two gates red arms independently effective;retest registry terminal states honest;M156 spot reruns green;regression summary green (48 + G11 green gates + parity);M147 g11.5 phase verdict honest two-state"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "symbolic_gate_key",
+          "status"
+        ],
+        "properties": {
+          "symbolic_gate_key": {
+            "type": "string"
+          },
+          "subject_prefix": {
+            "type": "string"
+          },
+          "evidence_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIP"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "contains": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "const": "m147_g11_5_verdict_honest_two_state"
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,1060 @@
+{
+  "schema_version": 1,
+  "report": "g11_5_ab_rerun",
+  "generated_by": "milestones/g11/harness/g11_5_ab_rerun.py",
+  "frames_root": "K:\\rurix-ext\\g11-frames\\g11_5",
+  "locked_contract_digest": {
+    "cornell-box": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+    "bistro-interior": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514"
+  },
+  "locked_contract_digest_joint": "sha256:64fd54df6e9be522d6dbb3bec8fac1eb30a0a421c7a5a8185a3452c381178aa4",
+  "timestamp_utc": "2026-08-16T22:30:12Z",
+  "stages": {
+    "contract": "done",
+    "rurix": "done",
+    "ue": "done",
+    "derive": "done",
+    "metrics": "done",
+    "registry": "done"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_gen_contract_params.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g10_5_scene_render",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --contract-digest H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --out-dir K:\\rurix-ext\\g11-frames\\g11_5\\rurix --scene-id cornell-box --exposure-scale 0.25 --smooth-normals --gi-multibounce",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --out-dir K:\\rurix-ext\\g11-frames\\g11_5\\rurix --scene-id bistro-interior --exposure-scale 0.5 --material-pbr --light-seed-set H:\\rurix\\milestones\\g10\\corpus\\lighting_bistro_interior.json --gi-multibounce",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --out-dir K:\\rurix-ext\\g11-frames\\g11_5\\parity --scene-id cornell-box --exposure-scale 1.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --out-dir K:\\rurix-ext\\g11-frames\\g11_5\\parity --scene-id bistro-interior --exposure-scale 1.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_run.py H:\\rurix\\milestones\\g10\\harness\\ue_python\\g10_5_build_scenes.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py cornell-box --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g10\\harness\\g10_5_ue_render.py bistro-interior --timeout 3600",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_5\\rurix\\cornell-box.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\cornell-box_rurix_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 14,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_5\\ue\\cornell-box\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\cornell-box_ue5_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 15,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_5\\rurix\\bistro-interior.exr --source-end rurix --out K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\bistro-interior_rurix_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 16,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g11-frames\\g11_5\\ue\\bistro-interior\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\bistro-interior_ue5_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 17,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --u64-seed --contract-digest C:\\Users\\苍\\AppData\\Local\\Temp\\tmpjhe08db9.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 18,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --u64-seed --contract-digest C:\\Users\\苍\\AppData\\Local\\Temp\\tmp3_8ias9l.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 19,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --u64-seed --contract-digest C:\\Users\\苍\\AppData\\Local\\Temp\\tmp_vsi3v0_.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 20,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --u64-seed --contract-digest C:\\Users\\苍\\AppData\\Local\\Temp\\tmpvy0wbqax.json",
+      "exit_code": 0
+    }
+  ],
+  "results": {
+    "contract": {
+      "cornell-box": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "bistro-interior": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "joint": "sha256:64fd54df6e9be522d6dbb3bec8fac1eb30a0a421c7a5a8185a3452c381178aa4"
+    },
+    "rurix": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_5\\rurix\\cornell-box.exr",
+        "frame_content_digest": "sha256:db5893eb3db0948ec3877a399904fb93beea25b4484c79a50073f6e8cb01f998",
+        "exposure_scale_in_pipe": 0.25,
+        "rurix_flags": [
+          "--smooth-normals",
+          "--gi-multibounce"
+        ],
+        "param_digest": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+        "file_digest": "sha256:4df158c3d0a1881ff0f42eb2f9e4a2a8c752ba22ce4bff331fdbf0112bb4bef0",
+        "render_json": {
+          "animations": {
+            "package_count": 0,
+            "channels": 0,
+            "consumed_channels": 0,
+            "policy": "strip_static_contract"
+          },
+          "materials": {
+            "count": 4,
+            "textured": 1,
+            "normal_mapped": 0,
+            "textures_consumed": 0,
+            "texture_formats": [],
+            "textures_declared_unconsumed": [],
+            "material_pbr": false,
+            "smooth_normals": true,
+            "gi_multibounce": true
+          },
+          "lights": {
+            "enabled": false
+          },
+          "world_cache": {
+            "enabled": true,
+            "levels": 4,
+            "scene_diag": 958.6588,
+            "s0": 3.744761,
+            "d_ref": 59.916176,
+            "bounce_iters": 3,
+            "build_cell": 16,
+            "build_rays": 8,
+            "deposits": [
+              0,
+              0,
+              0,
+              19299
+            ],
+            "dropped": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "queries": [
+              0,
+              0,
+              0,
+              177933
+            ],
+            "hits": [
+              0,
+              0,
+              0,
+              175965
+            ],
+            "coarse_fallback": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "cache_miss": 1968,
+            "energy_per_iter": [
+              [
+                0,
+                0,
+                0,
+                1406.5797132374719
+              ],
+              [
+                0,
+                0,
+                0,
+                2398.767254963459
+              ],
+              [
+                0,
+                0,
+                0,
+                3136.182902204935
+              ]
+            ],
+            "fallback_px": 347,
+            "last_resort_px": 0,
+            "farfield_probe_count": 27,
+            "farfield_energy_mean": 0.3139703815480147,
+            "gi_mean": 1.505220740860215,
+            "direct_mean": 0.2988390307250923,
+            "emissive_mean": 0
+          },
+          "frame_content_digest": "sha256:db5893eb3db0948ec3877a399904fb93beea25b4484c79a50073f6e8cb01f998"
+        }
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_5\\rurix\\bistro-interior.exr",
+        "frame_content_digest": "sha256:9d91738200c779040f049b0762ddc61202be69bf015a4d30786cd55419cf23b5",
+        "exposure_scale_in_pipe": 0.5,
+        "rurix_flags": [
+          "--material-pbr",
+          "--light-seed-set",
+          "H:\\rurix\\milestones\\g10\\corpus\\lighting_bistro_interior.json",
+          "--gi-multibounce"
+        ],
+        "param_digest": "sha256:ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+        "file_digest": "sha256:64ce64a58b461d81e617a0bf3852a1b36a68412a7c0bfa9ddbef9c5c1cb532e0",
+        "render_json": {
+          "animations": {
+            "package_count": 1,
+            "channels": 2,
+            "consumed_channels": 0,
+            "policy": "strip_static_contract"
+          },
+          "materials": {
+            "count": 70,
+            "textured": 70,
+            "normal_mapped": 70,
+            "textures_consumed": 144,
+            "texture_formats": [
+              "bc1",
+              "bc3",
+              "bc5"
+            ],
+            "textures_declared_unconsumed": [],
+            "material_pbr": true,
+            "smooth_normals": false,
+            "gi_multibounce": true
+          },
+          "lights": {
+            "enabled": true,
+            "source_digest": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
+            "legacy_face": false,
+            "point_lights_consumed": 4,
+            "emissive_materials_consumed": 4,
+            "emissive_instances": 18,
+            "area_lights_declared_absent": true,
+            "point_lights": [
+              {
+                "id": "pointLight1",
+                "position": [
+                  4.991288,
+                  3.030627,
+                  -0.48861912
+                ],
+                "color_linear_rgb": [
+                  1.000277,
+                  0.9998896,
+                  1.0002773
+                ],
+                "intensity_cd": 0.018232724,
+                "emit_direction": [
+                  8.275202e-08,
+                  -1,
+                  -7.0162755e-06
+                ],
+                "area_m2": 0.8177257,
+                "derived_from": "glTF 节点 pointLight1 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_03_2360（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+              },
+              {
+                "id": "pointLight2",
+                "position": [
+                  7.9887805,
+                  3.0742626,
+                  1.0150611
+                ],
+                "color_linear_rgb": [
+                  1.000277,
+                  0.9998896,
+                  1.0002773
+                ],
+                "intensity_cd": 0.018232727,
+                "emit_direction": [
+                  1.2651927e-15,
+                  -1,
+                  -3.4228542e-08
+                ],
+                "area_m2": 0.81772596,
+                "derived_from": "glTF 节点 pointLight2 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_04_2362（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+              },
+              {
+                "id": "pointLight3",
+                "position": [
+                  4.2630033,
+                  3.0952866,
+                  -4.9198537
+                ],
+                "color_linear_rgb": [
+                  1.000277,
+                  0.9998896,
+                  1.0002773
+                ],
+                "intensity_cd": 0.018232727,
+                "emit_direction": [
+                  2.0951896e-15,
+                  -1,
+                  -3.4228542e-08
+                ],
+                "area_m2": 0.81772596,
+                "derived_from": "glTF 节点 pointLight3 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_02_2358（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+              },
+              {
+                "id": "pointLight4",
+                "position": [
+                  6.106886,
+                  2.9393868,
+                  -8.468322
+                ],
+                "color_linear_rgb": [
+                  1.000277,
+                  0.9998896,
+                  1.0002773
+                ],
+                "intensity_cd": 0.018232713,
+                "emit_direction": [
+                  2.6477096e-15,
+                  -1,
+                  -3.4228545e-08
+                ],
+                "area_m2": 0.8177253,
+                "derived_from": "glTF 节点 pointLight4 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_01_2356（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817725 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+              }
+            ]
+          },
+          "world_cache": {
+            "enabled": true,
+            "levels": 4,
+            "scene_diag": 25.96225,
+            "s0": 0.10141504,
+            "d_ref": 1.6226406,
+            "bounce_iters": 3,
+            "build_cell": 16,
+            "build_rays": 8,
+            "deposits": [
+              2926,
+              66978,
+              139118,
+              5446
+            ],
+            "dropped": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "queries": [
+              30539,
+              619921,
+              1330108,
+              112966
+            ],
+            "hits": [
+              29175,
+              601903,
+              1266934,
+              47276
+            ],
+            "coarse_fallback": [
+              0,
+              1364,
+              18018,
+              63174
+            ],
+            "cache_miss": 65690,
+            "energy_per_iter": [
+              [
+                0.0038865892037378558,
+                42.06724718952169,
+                86.89489007222652,
+                1.6001712226806497
+              ],
+              [
+                0.004063933218707572,
+                44.056383878601274,
+                90.5015045285348,
+                1.8830194849941617
+              ],
+              [
+                0.004162667266191411,
+                42.220588484799926,
+                91.60627208886685,
+                1.8047620600451775
+              ]
+            ],
+            "fallback_px": 6908,
+            "last_resort_px": 1277,
+            "farfield_probe_count": 64,
+            "farfield_energy_mean": 0.002718323364194886,
+            "gi_mean": 0.4904605110040535,
+            "direct_mean": 2.864538057022063e-05,
+            "emissive_mean": 0.00046377820633986753
+          },
+          "frame_content_digest": "sha256:9d91738200c779040f049b0762ddc61202be69bf015a4d30786cd55419cf23b5"
+        }
+      },
+      "parity:cornell-box": {
+        "frame_content_digest": "sha256:c2000ebfbe90359d55e668f8af3b7df24d64c3f72e637904f614821b7ad0d727",
+        "g10_5_locked_digest": "sha256:c2000ebfbe90359d55e668f8af3b7df24d64c3f72e637904f614821b7ad0d727",
+        "parity_bitexact": true
+      },
+      "parity:bistro-interior": {
+        "frame_content_digest": "sha256:8519cc67c917e7b8c2c5a9bb5633ea5ee9e72deb8cf63b3b187b0d3ac5bb9935",
+        "g10_5_locked_digest": "sha256:8519cc67c917e7b8c2c5a9bb5633ea5ee9e72deb8cf63b3b187b0d3ac5bb9935",
+        "parity_bitexact": true
+      }
+    },
+    "ue": {
+      "cornell-box": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_5\\ue\\cornell-box\\.0000.exr",
+        "frame_content_digest": "sha256:82a156aeffc8b93014cd475d26b7be63f8e9083beee41c1a4e45ca8ffd7fec3e",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:ee08d2882e8fddfa6708c503777cdef703d8c43b9ed47649a97de239b79aa120",
+        "probe_path": "K:\\rurix-ext\\g11-frames\\g11_5\\probe\\cornell-box_probe.json",
+        "probe": {
+          "two_sided_replacement": [
+            {
+              "actor": "G10N_part_00_white_tex",
+              "material": "white_tex",
+              "base_color_factor": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_01_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_02_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_03_red",
+              "material": "red",
+              "base_color_factor": [
+                0.63,
+                0.065,
+                0.05
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_04_green",
+              "material": "green",
+              "base_color_factor": [
+                0.14,
+                0.45,
+                0.091
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_05_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_06_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_07_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_08_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_09_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_10_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_11_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_12_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_13_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_14_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_15_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            },
+            {
+              "actor": "G10N_part_16_white",
+              "material": "white",
+              "base_color_factor": [
+                0.725,
+                0.71,
+                0.68
+              ],
+              "two_sided_readback": true
+            }
+          ],
+          "two_sided_actor_count": 17,
+          "scene_id": "cornell-box"
+        }
+      },
+      "bistro-interior": {
+        "frame": "K:\\rurix-ext\\g11-frames\\g11_5\\ue\\bistro-interior\\.0000.exr",
+        "frame_content_digest": "sha256:92ed5dff4c70411e3c28d8ccf7a56b4c676a93210cc68adb7166f481ff457cd5",
+        "source_bit_depth": "float16",
+        "file_digest": "sha256:054fe11354d8cbac166d959dcf65069e6f4885b35475747b0c051b17dbf83232",
+        "probe_path": "K:\\rurix-ext\\g11-frames\\g11_5\\probe\\bistro-interior_probe.json",
+        "probe": {
+          "g11_4_point_lights": [
+            {
+              "id": "pointLight1",
+              "position_ue_cm": [
+                48.8619118928909,
+                499.128818511963,
+                303.062701225281
+              ],
+              "intensity_cd_readback": 0.01823272369801998,
+              "emit_direction_contract": [
+                8.275201621091572e-08,
+                -0.9999999999753826,
+                -7.0162755117504905e-06
+              ],
+              "derived_from": "glTF 节点 pointLight1 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_03_2360（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+            },
+            {
+              "id": "pointLight2",
+              "position_ue_cm": [
+                -101.506114006042,
+                798.878049850464,
+                307.42626190185496
+              ],
+              "intensity_cd_readback": 0.01823272742331028,
+              "emit_direction_contract": [
+                1.265192627913875e-15,
+                -0.9999999999999993,
+                -3.4228542647094395e-08
+              ],
+              "derived_from": "glTF 节点 pointLight2 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_04_2362（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+            },
+            {
+              "id": "pointLight3",
+              "position_ue_cm": [
+                491.985368728638,
+                426.30033493042004,
+                309.528660774231
+              ],
+              "intensity_cd_readback": 0.01823272742331028,
+              "emit_direction_contract": [
+                2.09518964613716e-15,
+                -0.9999999999999996,
+                -3.4228542304081157e-08
+              ],
+              "derived_from": "glTF 节点 pointLight3 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_02_2358（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+            },
+            {
+              "id": "pointLight4",
+              "position_ue_cm": [
+                846.832180023193,
+                610.688591003418,
+                293.93868446350103
+              ],
+              "intensity_cd_readback": 0.018232712522149086,
+              "emit_direction_contract": [
+                2.647709509001796e-15,
+                -0.9999999999999996,
+                -3.422854635870733e-08
+              ],
+              "derived_from": "glTF 节点 pointLight4 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_01_2356（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817725 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+            }
+          ],
+          "g11_4_point_lights_count": 4,
+          "g11_4_lighting_json_digest_note": "契约光照面单通道消费（RXS-0394 L2；UE 侧朗伯轴向简化为全向点光，强度微小实测面见 A/B 报告）",
+          "texture_binding": {
+            "bound_materials": 70,
+            "bound_texture_params": 140,
+            "detail_head": [
+              {
+                "material": "Paris_Cashregister",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Cashregister_Buttons",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_Buttons_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Buttons_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Cashregister_Glass",
+                "bound": [
+                  "BaseColorTexture=Paris_Cashregister_Glass_BaseColor",
+                  "NormalTexture=Paris_Cashregister_Glass_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "Paris_Coasters_01",
+                "bound": [
+                  "BaseColorTexture=Paris_Coasters_01_BaseColor",
+                  "NormalTexture=Paris_Coasters_01_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "ToffeeJar_Metal",
+                "bound": [
+                  "BaseColorTexture=ToffeeJar_Metal_BaseColor",
+                  "NormalTexture=ToffeeJar_Metal_Normal"
+                ],
+                "readback_nonnull": 2
+              },
+              {
+                "material": "ToffeeJar_Label",
+                "bound": [
+                  "BaseColorTexture=ToffeeJar_Label_BaseColor",
+                  "NormalTexture=ToffeeJar_Label_Normal"
+                ],
+                "readback_nonnull": 2
+              }
+            ]
+          },
+          "texture_params": {
+            "materials_total": 70,
+            "materials_with_textures": 70,
+            "texture_parameter_detail_head": [
+              {
+                "asset": "Cloth.Cloth",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "CookieJar_Cookies.CookieJar_Cookies",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "curtainA.curtainA",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "curtainB1.curtainB1",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "Cutlery_chrome.Cutlery_chrome",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "Cutlery_details.Cutlery_details",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "MASTER_Bistro_Main_Door.MASTER_Bistro_Main_Door",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              },
+              {
+                "asset": "MASTER_Concrete.MASTER_Concrete",
+                "class": "Engine.MaterialInstanceConstant",
+                "texture_params": 2,
+                "texture_params_nonnull": 2
+              }
+            ]
+          },
+          "scene_id": "bistro-interior"
+        }
+      }
+    },
+    "derive": {
+      "cornell-box:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\cornell-box_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:db5893eb3db0948ec3877a399904fb93beea25b4484c79a50073f6e8cb01f998",
+        "file_digest": "sha256:834d27507636eb7172dd84388fc8ba070363b818b6dcc094937a127c04fe4519"
+      },
+      "cornell-box:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\cornell-box_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:82a156aeffc8b93014cd475d26b7be63f8e9083beee41c1a4e45ca8ffd7fec3e",
+        "file_digest": "sha256:a784f8826bc201c5be4d25858f02c634ebe27f2cf48922323f1e471e39a27cc0"
+      },
+      "bistro-interior:rurix": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\bistro-interior_rurix_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:9d91738200c779040f049b0762ddc61202be69bf015a4d30786cd55419cf23b5",
+        "file_digest": "sha256:da742532eb2df0600670bce43c3dd2711f701698648466435e984521b9fb692a"
+      },
+      "bistro-interior:ue5": {
+        "ldr": "K:\\rurix-ext\\g11-frames\\g11_5\\ldr\\bistro-interior_ue5_ldr.exr",
+        "exposure_scale_host": 1.0,
+        "source_frame_digest": "sha256:92ed5dff4c70411e3c28d8ccf7a56b4c676a93210cc68adb7166f481ff457cd5",
+        "file_digest": "sha256:7df44f885f862b45b1c654bfc7409a6af5301c246218c944ddd7f3f28c05cc90"
+      }
+    },
+    "metrics": {
+      "scenes": {
+        "cornell-box": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.06266851647496223,
+              "p90": 0.35338761129975316,
+              "max": 0.6468693864345549,
+              "mean": 0.13396565528852813,
+              "nonzero_ratio": 0.9290313720703125
+            },
+            "ue5": {
+              "median": 0.09897164306640624,
+              "p90": 0.585412890625,
+              "max": 0.58663486328125,
+              "mean": 0.19759275347906752,
+              "nonzero_ratio": 0.9328155517578125
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.15113336742818353,
+              "p90": 0.5448037644863127,
+              "max": 0.7188204308986663,
+              "mean": 0.23178430470198866,
+              "nonzero_ratio": 0.9290313720703125
+            },
+            "ue5": {
+              "median": 0.2257373055577278,
+              "p90": 0.692305027115345,
+              "max": 0.6928785018086433,
+              "mean": 0.28704192038775345,
+              "nonzero_ratio": 0.927154541015625
+            }
+          },
+          "hdr_luminance_median_delta": 0.03630312659144401,
+          "hdr_luminance_p90_delta": 0.23202527932524686,
+          "hdr_nonzero_ratio_delta": 0.0037841796875,
+          "ldr_luminance_median_delta": 0.07460393812954427,
+          "metrics_ldr": {
+            "flip_ldr": 0.46719246768054723,
+            "ssim": 0.5827275115072117,
+            "ssim_delta_identity": 0.4172724884927883,
+            "psnr_db": 11.85250421427524
+          }
+        },
+        "bistro-interior": {
+          "hdr_stats": {
+            "rurix": {
+              "median": 0.0032725086649414152,
+              "p90": 0.011101446486636996,
+              "max": 4.768794195461273,
+              "mean": 0.005670061278428945,
+              "nonzero_ratio": 0.9943668016975309
+            },
+            "ue5": {
+              "median": 0.483505224609375,
+              "p90": 1.22809296875,
+              "max": 57.28535625000001,
+              "mean": 0.6460510322124291,
+              "nonzero_ratio": 1.0
+            }
+          },
+          "ldr_stats": {
+            "rurix": {
+              "median": 0.001210784979723394,
+              "p90": 0.016177988046407698,
+              "max": 0.9616435644984245,
+              "mean": 0.007663745459723116,
+              "nonzero_ratio": 0.7094280478395062
+            },
+            "ue5": {
+              "median": 0.6251416855454445,
+              "p90": 0.8453543697834015,
+              "max": 1.0,
+              "mean": 0.6061352644294169,
+              "nonzero_ratio": 0.9999995177469135
+            }
+          },
+          "hdr_luminance_median_delta": 0.48023271594443356,
+          "hdr_luminance_p90_delta": 1.216991522263363,
+          "hdr_nonzero_ratio_delta": 0.005633198302469111,
+          "ldr_luminance_median_delta": 0.6239309005657211,
+          "metrics_ldr": {
+            "flip_ldr": 0.9142310385955925,
+            "ssim": 0.010847362392386794,
+            "ssim_delta_identity": 0.9891526376076132,
+            "psnr_db": 3.865208407197219
+          }
+        }
+      },
+      "closure_faces": {
+        "r1": {
+          "gap_row_id": "ea68ebb265cb2bd5",
+          "metric": "ssim@bistro-interior(ldr)",
+          "baseline_delta": 0.8328980787837229,
+          "baseline_a": 0.16710192121627712,
+          "retest_ssim": 0.010847362392386794,
+          "retest_delta": 0.9891526376076132
+        },
+        "r2": {
+          "gap_row_id": "aa64a7a22dc16a0e",
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "baseline_delta": -0.7451210021972656,
+          "baseline_a": 0.9290046691894531,
+          "baseline_b": 0.1838836669921875,
+          "retest_rurix_nonzero": 0.9290313720703125,
+          "retest_ue5_nonzero": 0.9328155517578125,
+          "retest_delta": 0.0037841796875
+        },
+        "r3": {
+          "gap_row_id": "60a3ac2d1711912a",
+          "metric": "hdr_luminance_median@bistro-interior",
+          "baseline_delta": 2.664779790997505,
+          "baseline_a": 0.1333588808774948,
+          "baseline_b": 2.798138671875,
+          "baseline_delta_aligned_domain": 2.7314592314362525,
+          "retest_rurix_median": 0.0032725086649414152,
+          "retest_ue5_median": 0.483505224609375,
+          "retest_delta": 0.48023271594443356
+        },
+        "r4": {
+          "gap_row_id": "865d452e76fbaa45",
+          "metric": "hdr_luminance_p90@bistro-interior",
+          "baseline_delta": 4.697253086805343,
+          "baseline_a": 0.30276253819465637,
+          "baseline_b": 5.000015625,
+          "baseline_delta_aligned_domain": 4.8486343559026714,
+          "retest_rurix_p90": 0.011101446486636996,
+          "retest_ue5_p90": 1.22809296875,
+          "retest_delta": 1.216991522263363
+        },
+        "r5": {
+          "gap_row_id": "4fc5507c595f6c35",
+          "metric": "contract_seed_u64_max_rejection",
+          "baseline_delta": 9.223372036854776e+18,
+          "baseline_a": 9.223372036854776e+18,
+          "baseline_b": 1.8446744073709552e+19,
+          "retest_u64_max_consumed": true,
+          "retest_u64_max_digest": "sha256:a9c90cc30dad46b1ef1162e2174340df8ccaf0936bd33094fd938db9454da226",
+          "retest_u64_max_minus1_digest": "sha256:4f470b82759b0a462e5b4545bbf5b73bd4d7c24dbc284b234a26a7cb0314ef75",
+          "retest_delta": 0.0
+        },
+        "u1": {
+          "gap_row_id": "03cac13af56a53cf",
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "baseline_delta": -0.7451210021972656,
+          "baseline_a": 0.9290046691894531,
+          "baseline_b": 0.1838836669921875,
+          "retest_rurix_nonzero": 0.9290313720703125,
+          "retest_ue5_nonzero": 0.9328155517578125,
+          "retest_delta": 0.0037841796875
+        },
+        "u2": {
+          "gap_row_id": "6311bc89b610e019",
+          "metric": "ldr_luminance_median@bistro-interior",
+          "baseline_delta": 0.7698879749655723,
+          "baseline_a": 0.16252008080482483,
+          "baseline_b": 0.9324080557703971,
+          "retest_rurix_median": 0.001210784979723394,
+          "retest_ue5_median": 0.6251416855454445,
+          "retest_delta": 0.6239309005657211
+        },
+        "u3": {
+          "gap_row_id": "0b7c50151f24137e",
+          "metric": "gltf_animation_channels_unconsumed@bistro-interior",
+          "baseline_delta": 2.0,
+          "baseline_a": 0.0,
+          "baseline_b": 2.0,
+          "retest_package_animations": 1,
+          "retest_package_channels": 2,
+          "retest_consumed_channels": 0,
+          "retest_policy": "strip_static_contract",
+          "retest_delta": 0.0
+        },
+        "c1": {
+          "gap_row_id": "62692bbd57d731c3",
+          "metric": "hdr_luminance_median@bistro-interior + hdr_luminance_p90@cornell-box(rurix×2^-EV100)",
+          "baseline_delta": 2.664779790997505,
+          "baseline_delta_cornell_p90": 0.29024957587122924,
+          "baseline_delta_aligned_domain_bistro_median": 2.7314592314362525,
+          "baseline_delta_aligned_domain_cornell_p90": 0.29024957587122924,
+          "retest_bistro_median_delta": 0.48023271594443356,
+          "retest_cornell_p90_delta": 0.23202527932524686,
+          "retest_delta": 0.48023271594443356
+        },
+        "c2": {
+          "gap_row_id": "afba0e189a607ce2",
+          "metric": "ldr_derivation_exposure_scale@cornell-box + @bistro-interior",
+          "baseline_delta": 0.75,
+          "baseline_delta_bistro": 0.5,
+          "retest_scale_rurix_cornell": 0.25,
+          "retest_scale_rurix_bistro": 0.5,
+          "retest_scale_ue": 1.0,
+          "retest_ldr_derivation_scale_both_ends": 1.0,
+          "retest_delta": 0.0
+        },
+        "c3": {
+          "gap_row_id": "cc2b9ec7f19f0dad",
+          "metric": "exr_source_bit_depth@bistro-interior",
+          "baseline_delta": -16.0,
+          "baseline_a": 32.0,
+          "baseline_b": 16.0,
+          "retest_ue_source_bit_depth": "float16",
+          "retest_metric_domain_bit_depth": 32.0,
+          "retest_delta": 0.0
+        }
+      },
+      "commands_count": 0
+    },
+    "registry": {
+      "path": "milestones/g11/g11_5_retest_gap_registry.json",
+      "digest": "sha256:4b83c5f9b92a79f883b4d4a12425c16039f6a513e758f79e3f4f27c76ab4f41c",
+      "summary": {
+        "total": 11,
+        "converged": 7,
+        "aligned_closed": 3,
+        "partial": 1,
+        "partial_rows": [
+          "R1"
+        ],
+        "new_items": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,275 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.5 M156 regression_guard evidence",
+  "description": "evidence/g11_m156_regression_guard_<UTC>.json。修复回归门：既有 48 门（G9 34 key + G10 14 key）最新 evidence 全绿只读汇总 + G11 已绿门（wave2~wave4）零降级只读汇总（M147 双 phase 面 = 最新 phase=g11.3 evidence PASS + 当次复跑 --phase g11.3 真跑绿；g11.5 phase verdict 显式登记不遮蔽）+ 关键门真跑抽检零降级（M130 双 phase / M139 / M140 / M141 / G9 M96/M94/M110——子进程真跑 exit 0 + 最新 evidence PASS + 新鲜度 timestamp ≥ 会话起点）+ 既有判据 0-byte（G5~G10 closed 面工作树空集）；既有门降级即 RED；聚合遮蔽子断言 FAIL/SKIP/DEV_ENV_DEGRADE 即 RED；陈旧 evidence 冒充当次即 RED。（步骤 212；G11_CONTRACT §4.2 M156 行判据逐字 + G-G11-7；G11_ACCEPTANCE_MAP §1 M156 行；CI_GATES §4）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "regression_summary",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_m156_regression_guard"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.p0.m156.regression_guard"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M156"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M156"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g11.p0.m156.regression_guard"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.5"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 212
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G11_CONTRACT §4.2 M156 + G-G11-7;G11_ACCEPTANCE_MAP §1 M156;CI_GATES §4;G9 34 keys + G10 14 keys latest evidence read-only summary;spot rerun zero-degrade"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g10_14_gates_latest_evidence_all_green",
+        "g9_34_gates_latest_evidence_all_green",
+        "g11_green_gates_latest_evidence_all_green",
+        "m147_g11_3_phase_face_rerun_green",
+        "spot_rerun_m130_g10_2_pass",
+        "spot_rerun_m130_g10_5_pass",
+        "spot_rerun_m139_pass",
+        "spot_rerun_m140_pass",
+        "spot_rerun_m141_pass",
+        "spot_rerun_g9_m96_pass",
+        "spot_rerun_g9_m94_pass",
+        "spot_rerun_g9_m110_pass",
+        "legacy_criteria_0byte",
+        "red_degraded_gate_detected",
+        "red_aggregate_masking_detected",
+        "red_stale_evidence_detected"
+      ],
+      "properties": {
+        "g10_14_gates_latest_evidence_all_green": {
+          "type": "boolean"
+        },
+        "g9_34_gates_latest_evidence_all_green": {
+          "type": "boolean"
+        },
+        "g11_green_gates_latest_evidence_all_green": {
+          "type": "boolean"
+        },
+        "m147_g11_3_phase_face_rerun_green": {
+          "type": "boolean"
+        },
+        "spot_rerun_m130_g10_2_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_m130_g10_5_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_m139_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_m140_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_m141_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_g9_m96_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_g9_m94_pass": {
+          "type": "boolean"
+        },
+        "spot_rerun_g9_m110_pass": {
+          "type": "boolean"
+        },
+        "legacy_criteria_0byte": {
+          "type": "boolean"
+        },
+        "red_degraded_gate_detected": {
+          "type": "boolean"
+        },
+        "red_aggregate_masking_detected": {
+          "type": "boolean"
+        },
+        "red_stale_evidence_detected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "regression_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_start",
+        "g10_gates",
+        "g9_gates",
+        "g11_green_gates",
+        "spot_reruns"
+      ],
+      "properties": {
+        "session_start": {
+          "type": "string"
+        },
+        "g10_gates": {
+          "type": "array",
+          "minItems": 14,
+          "maxItems": 14
+        },
+        "g9_gates": {
+          "type": "array",
+          "minItems": 34,
+          "maxItems": 34
+        },
+        "g11_green_gates": {
+          "type": "array",
+          "minItems": 14,
+          "maxItems": 14
+        },
+        "spot_reruns": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "host_section_pass": {
+            "const": true
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "G11.3 M147 fix_r1_material_subset evidence（双 phase：anyOf v1 legacy / v2 g11.3 phase 登记形态）",
-  "description": "evidence/g11_m147_fix_r1_material_subset_<UTC>.json。R1 材质子集修复闭环：baseColorTexture/法线/metallic-roughness 采样接入（bistro --material-pbr：70 材质/144 DDS 纹理 bcdec 真实解码消费）+ 修复前后 LDR 臂 SSIM delta 收敛 measured（锁定基线 0.8328980787837229，收敛阈标定程序产）+ 契约 digest 0-byte；未采样冒充修复/delta 未收敛冒充闭环/契约漂移/手写阈值/estimated 冒充 RED 臂全检出。（步骤 201；G11_CONTRACT §4.2 M147 行判据逐字〔正文 0-byte 冻结〕+ §8.3a 双 phase 修订句 / G-G11-5；G11_ACCEPTANCE_MAP §1 M147 行 + §3.4 双 phase 口径；CI_GATES §4；spec/visual_comparison.md RXS-0393；G10 M130 单 key 双 phase 先例同构——沿 G9 v1.14 anyOf 双支体例）。双 phase 纪律：v1 支 = 双 phase 校准前 legacy 形态（既有 evidence 0-byte 不改；收敛检 = closure_delta_converged_measured 直断，pass 当且仅当 converged=true）；v2 支 = --phase g11.3 登记形态（phase=g11.3 + g11_3_phase_pass 当且仅当 12 检全绿 + convergence_pending——实测收敛 verdict=converged ∧ pending=false，或未收敛 deferred_to_g11_5 显式登记 verdict=deferred_to_g11_5 ∧ pending=true；convergence_pending 缺登记冒充全闭环即 RED，不是 SKIP 充绿）。--phase g11.5 收敛断言面（definitive 测量面 = G11.5 同契约复跑，RXS-0393 L2 quality_gap 款字面）当前 fail-closed 拒跑，G11.5 落地时按 §8.3a 不弱化声明扩支（阈值标定程序产禁手写，不收敛则整波 FAIL）。",
+  "title": "G11.3/G11.5 M147 fix_r1_material_subset evidence（双 phase：anyOf v1 legacy / v2 g11.3 phase 登记形态 / v3 g11.5 phase 收敛断言形态）",
+  "description": "evidence/g11_m147_fix_r1_material_subset_<UTC>.json。R1 材质子集修复闭环：baseColorTexture/法线/metallic-roughness 采样接入（bistro --material-pbr：70 材质/144 DDS 纹理 bcdec 真实解码消费）+ 修复前后 LDR 臂 SSIM delta 收敛 measured（锁定基线 0.8328980787837229，收敛阈标定程序产）+ 契约 digest 0-byte；未采样冒充修复/delta 未收敛冒充闭环/契约漂移/手写阈值/estimated 冒充 RED 臂全检出。（步骤 201；G11_CONTRACT §4.2 M147 行判据逐字〔正文 0-byte 冻结〕+ §8.3a 双 phase 修订句 / G-G11-5 / G-G11-7；G11_ACCEPTANCE_MAP §1 M147 行 + §3.4 双 phase 口径；CI_GATES §4；spec/visual_comparison.md RXS-0393；G10 M130 单 key 双 phase 先例同构——沿 G9 v1.14 anyOf 多支体例）。双 phase 纪律：v1 支 = 双 phase 校准前 legacy 形态（既有 evidence 0-byte 不改；收敛检 = closure_delta_converged_measured 直断，pass 当且仅当 converged=true）；v2 支 = --phase g11.3 登记形态（phase=g11.3 + g11_3_phase_pass 当且仅当 12 检全绿 + convergence_pending——实测收敛 verdict=converged ∧ pending=false，或未收敛 deferred_to_g11_5 显式登记 verdict=deferred_to_g11_5 ∧ pending=true；convergence_pending 缺登记冒充全闭环即 RED，不是 SKIP 充绿）；v3 支 = --phase g11.5 收敛断言形态（G11.5 波落地：wave=G11.5 + phase=g11.5 + g11_5_phase_pass 当且仅当 11 检全绿；definitive 测量面 = G11.5 同契约复跑帧区——复测 delta 门侧当次独立重算与复测差距清单 R1 行登记逐位互核，旧帧区值冒充即 RED；verdict enum converged|not_converged；**不收敛则本门 FAIL、整波 FAIL**——契约 §8.3a 不弱化声明，禁改判据充绿）。",
   "anyOf": [
     {
       "type": "object",
@@ -638,6 +638,294 @@
                   },
                   "convergence_pending": {
                     "const": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "subject",
+        "symbolic_gate_key",
+        "matrix_row",
+        "milestone",
+        "assertion_id",
+        "status",
+        "wave",
+        "phase",
+        "g11_5_phase_pass",
+        "numeric_step",
+        "source_ref",
+        "base_commit",
+        "host_section_pass",
+        "device_section_state",
+        "checks",
+        "commands",
+        "closure",
+        "material_provenance",
+        "evidence_level",
+        "run_url",
+        "timestamp",
+        "environment",
+        "notes"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "subject": {
+          "type": "string",
+          "const": "g11_m147_fix_r1_material_subset"
+        },
+        "symbolic_gate_key": {
+          "type": "string",
+          "const": "g11.p0.m147.fix_r1_material_subset"
+        },
+        "matrix_row": {
+          "type": "string",
+          "const": "M147"
+        },
+        "milestone": {
+          "type": "string",
+          "const": "M147"
+        },
+        "assertion_id": {
+          "type": "string",
+          "const": "g11.p0.m147.fix_r1_material_subset"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "wave": {
+          "type": "string",
+          "const": "G11.5"
+        },
+        "phase": {
+          "type": "string",
+          "const": "g11.5"
+        },
+        "g11_5_phase_pass": {
+          "type": "boolean"
+        },
+        "numeric_step": {
+          "type": "integer",
+          "const": 201
+        },
+        "source_ref": {
+          "type": "string",
+          "const": "G11_CONTRACT §4.2 M147 + G-G11-5;G11_ACCEPTANCE_MAP §1 M147;CI_GATES §4;g10_gap_registry R1 行承接锚;spec/visual_comparison.md RXS-0393"
+        },
+        "base_commit": {
+          "type": "string"
+        },
+        "host_section_pass": {
+          "type": "boolean"
+        },
+        "device_section_state": {
+          "type": "string",
+          "enum": [
+            "executed"
+          ]
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_digest_locked_unchanged",
+            "material_subset_consumed",
+            "baseline_metric_reproduction",
+            "retest_delta_g11_5_definitive_recomputed",
+            "closure_delta_converged_measured",
+            "closure_threshold_from_budget_calibrated",
+            "budget_eval_strict_all_pass",
+            "red_unconverged_masquerade_detected",
+            "red_handwritten_threshold_detected",
+            "red_estimated_masquerade_detected",
+            "red_stale_definitive_face_detected"
+          ],
+          "properties": {
+            "contract_digest_locked_unchanged": {
+              "type": "boolean"
+            },
+            "material_subset_consumed": {
+              "type": "boolean"
+            },
+            "baseline_metric_reproduction": {
+              "type": "boolean"
+            },
+            "retest_delta_g11_5_definitive_recomputed": {
+              "type": "boolean"
+            },
+            "closure_delta_converged_measured": {
+              "type": "boolean"
+            },
+            "closure_threshold_from_budget_calibrated": {
+              "type": "boolean"
+            },
+            "budget_eval_strict_all_pass": {
+              "type": "boolean"
+            },
+            "red_unconverged_masquerade_detected": {
+              "type": "boolean"
+            },
+            "red_handwritten_threshold_detected": {
+              "type": "boolean"
+            },
+            "red_estimated_masquerade_detected": {
+              "type": "boolean"
+            },
+            "red_stale_definitive_face_detected": {
+              "type": "boolean"
+            }
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "seq",
+              "command",
+              "exit_code"
+            ],
+            "properties": {
+              "seq": {
+                "type": "integer"
+              },
+              "command": {
+                "type": "string"
+              },
+              "exit_code": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "closure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gap_row_id",
+            "baseline_delta",
+            "retest_delta",
+            "converged",
+            "verdict",
+            "threshold_provenance",
+            "contract_digest_unchanged"
+          ],
+          "properties": {
+            "gap_row_id": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16
+            },
+            "baseline_delta": {
+              "type": "number"
+            },
+            "retest_delta": {
+              "type": "number"
+            },
+            "converged": {
+              "type": "boolean"
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "converged",
+                "not_converged"
+              ]
+            },
+            "threshold_provenance": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contract_digest_unchanged": {
+              "type": "boolean",
+              "const": true
+            }
+          }
+        },
+        "material_provenance": {
+          "type": "object",
+          "description": "R1 材质消费 provenance（g11.5 phase）：渲染输出 materials 闭集块 / 帧 digest 对账 / definitive 面复测 ssim 与基线 + 陈旧帧区检出旁证",
+          "additionalProperties": true
+        },
+        "evidence_level": {
+          "type": "string",
+          "const": "measured_local"
+        },
+        "run_url": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "os",
+            "python_version",
+            "cargo_version",
+            "rustc_version"
+          ],
+          "properties": {
+            "os": {
+              "type": "string"
+            },
+            "python_version": {
+              "type": "string"
+            },
+            "cargo_version": {
+              "type": "string"
+            },
+            "rustc_version": {
+              "type": "string"
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "host_section_pass": {
+                "const": true
+              },
+              "g11_5_phase_pass": {
+                "const": true
+              },
+              "closure": {
+                "properties": {
+                  "converged": {
+                    "const": true
+                  },
+                  "verdict": {
+                    "const": "converged"
                   }
                 }
               }

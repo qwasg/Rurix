@@ -362,3 +362,60 @@ G-G11-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
 - **④ 门序 / not-triggered / no-go 登记面摘要**：**M156 回归面前置自检**——G10 M130 `--phase g10.5` 全门复跑 **PASS 13/13**（evidence `g10_m130_dual_determinism_contract_20260816T213627Z.json`；G11.4 bin/harness 改动后双场景三方 digest 逐位相等 `sha256:64fd54df6e9be522…` + 应用层探针逐点 ≤1e-3 px——触改面对 G10 门序零降级实测）；G10 14 门 + G9 34 门最新 evidence 全绿只读汇总（wave4 fact⑤ 机核）；**默认面帧 digest 逐位 parity**——无旗标复跑双场景帧 == G10.5 锁定 digest（`--exposure-scale=1.0` 默认面 + 独立 parity 目录防覆写；M139 探针 parity 与 M141 benchmark digest 锚零降级旁证）。`cargo test --workspace` 全绿（exit 0，2026-08-16 实测）；`cargo fmt --check` / `cargo clippy -D warnings` 为 HEAD 预存漂移红（G11.2 §8.2 / G11.3 §8.3 同口径登记，本波不扩大不冒充修复）。**not-triggered / no-go 登记面**：M100-high 维持 defer 0-byte（R3 修复后多灯 workload measured 对照面产出让 G11.6 穷举重评，契约 §6 行字面）；M98-l4 defer 0-byte（RXS-0396 ≠RXS-0359 L4 Far Field 边界声明）；GPU 管线世界级锚定 G14（RXS-0395 host 同构兑现面不冒充）；**M147 g11.5 phase 收敛断言 coupling 解除备料**——R1 耦合面实测登记 0.9891526376076132（m154 面）入 wave4 fact⑥，M155 definitive 测量面承接（§8.3a 修订句 0-byte，收敛断言一字不弱）。**G-G11-6 退出门判据「M153/M154 两个 P0 独立断言全绿 + RXS-0360 世界级登记翻转显式修订行 + 不以 g9.p1.m99 屏幕级绿色冒充世界级 + HDR 域 delta 收敛 measured」达成——本波验收通过**。
 - **⑤ 异己并发工作树面与纪律**：本批只含 G11.4 车道文件（src/rurix-asset bin/g10_5_scene_render.rs 修复面 + bin/world_cache/mod.rs 新件〔bin 局部模块，仅依赖 HEAD 既有 rurix_render::rt::bvh::Vec3，与异己声明面零耦合——grep 实测 ktx2_read/hzb/restir/sdf_trace/smrt/ssr 命中 0〕+ UE harness g10_5_build_scenes.py 灯消费/探针面 + milestones/g10 corpus lighting_bistro_interior.json M133 只追加修订 + 清单修订行 + milestones/g11 harness 两件〔g11_4_ab_rerun.py / g11_4_light_derive.py〕+ 派生登记/复跑报告/冻结带三件 + spec/global_illumination.md 三条款 + spec/README.md 计数 + conformance 六锚 + ci 三脚本一共享库 + 四 schema + pr-smoke 三步骤 + check_schemas 纯追加 + g11_budget 字节级纯追加三条 + ledger v1.117/v1.118 + CI_GATES v1.4 + 本契约本条 + tests/stable 快照/bless_log + conformance/traceability_matrix 双件）；**异己会话 src/ 未提交面（rurix-asset lib.rs ktx2_read 声明 + ktx2_read.rs + rurix-render geometry/hzb + gi/restir/sdf_trace + shadow/smrt + ssr 声明面）维持未提交、不混入本批**（立项裁决 1 / MAP §3.1，G10.8b §8.10 先例同模——`git add` 按文件名显式择取，异己面零混入）；压测资产二进制零入 git（K: 盘外部缓存）；UE 零 vendoring（只读外部参照）；新文件 LF + 尾换行。**evidence 纪律如实登记**：evidence/ 只增不删不改维持——本波四件 wave=G11.3 串扰标定中间件删除登记（开发环中间件非门 verdict 证据：共享库 `calib_evidence_payload` 沿 G11.3 wave 字面串扰，schema isolation_check 检出；值确定性逐位可再生，最终标定件以 wave=G11.4 重产落盘〔212836Z/212847Z 三件〕，budget 条目 evidence_file 指针同批修复；ledger v1.118 同字面登记）。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2/§8.3/§8.3a/§8.3b 同模）。`Assisted-by: Kimi-K3（G11.4 波）`（影响范围：§8.4 本条；验证方式：③ 节验收命令逐字输出 + 聚合 VERDICT=PASS + ④ 节 M130 g10.5 复跑 PASS 13/13 + 守卫套件全绿留痕）。
+
+### §8.5 G-G11-7 G11.5 A/B 复测波执行记录（2026-08-16）——**M156 回归门 PASS + M155 R1 行收敛断言不成立如实 FAIL（不收敛则整波 FAIL，§8.3a 加严裁决兑现）；本波不宣称收口，停线报主会话裁决**
+
+- **① 独立断言清单（gate_key + 步骤号 + host/device + evidence 路径 UTC stamp）**：
+  - `g11.p0.m155.ab_retest_closure`（步骤 211，host+device，device_section_state=executed）——`--gate` **FAIL checks 26/27**（evidence `g11_m155_ab_retest_closure_20260816T223023Z.json`）：契约 digest 三面绑定/复跑报告完备诚实/双端四组帧齐备/UE build provenance（== M128 登记 5.8.1-56057345）/清单行集逐字对账/基线字面逐行对账/复测 delta 门侧独立重算逐位一致/收敛阈 budget 标定条目 provenance/R2~U3 六行收敛/C1~C3 处置状态复核/清单终态诚实面/budget_eval --strict/RED 六臂全检出——**全绿**；**`closure_r1_ssim_converged` 红**（R1 行 M147 g11.5 phase 收敛断言不成立：基线 0.8328980787837229 → 复测 0.9891526376076132，反向增大 |复测| > |基线|，shrink −0.15625455882389028 < 阈 0.0）。
+  - `g11.p0.m156.regression_guard`（步骤 212，host 纯 host，device_section_state=not_applicable）——`--gate` **PASS checks 16/16**（evidence `g11_m156_regression_guard_20260816T223926Z.json`）：G10 14 门 + G9 34 门 + G11 已绿门（wave2~wave4，14 key）最新 evidence 全绿只读汇总 + M147 g11.3 phase 面当次复跑真绿 + 关键门真跑抽检八面零降级（M130 双 phase / M139 / M140 / M141 / G9 M96/M94/M110——子进程真跑 exit 0 + 最新 evidence PASS + 新鲜度 timestamp ≥ 会话起点 223926Z）+ 既有判据 0-byte（ci/g9_*/g10_* + milestones/g9/g10 + spec + conformance 工作树空集）+ RED 三臂全检出。
+  - M147 双 phase 面（步骤 201 既有号）：`--phase g11.5`（收敛断言面，本波落地）`--gate` **FAIL checks 10/11**（evidence `g11_m147_fix_r1_material_subset_20260816T223105Z.json`——契约 digest/材质消费维持/基线复现/definitive 面互核/收敛阈 provenance/budget_eval/RED 四臂全绿，**`closure_delta_converged_measured` 红**，verdict=not_converged 如实登记）；`--phase g11.3`（登记面）当次复跑 **PASS 12/12**（evidence `g11_m147_fix_r1_material_subset_20260816T223224Z.json`；M156 门内复跑件 `…_20260816T223927Z.json`——既有绿面零降级实证，verdict=deferred_to_g11_5 ∧ convergence_pending=true 登记面语义 0-byte）。
+- **② 波聚合门实测输出**：`g11.wave.5.exit`（步骤 213）`--gate` **VERDICT=FAIL**（evidence `g11_wave5_exit_20260816T233642Z.json`）——required 行 M155 **FAIL**（不遮蔽）/ M156 PASS + 六 facts 全 PASS：① 契约 digest 0-byte（双场景当次重算 == G10.5 锁定值 cornell `80305791…`/bistro `ad45951b…`，联合 `64fd54df…`）；② 两门 RED 臂独立有效（共 9 臂）；③ 复测差距清单终态诚实面（11 行闭集对账 + 终态校验全绿；partial 行 = ['R1'] 带 G11.6/G12+ 承接锚不充绿）；④ M156 真跑抽检面全绿；⑤ 回归面（48 门 + G11 已绿门最新 evidence 全绿只读汇总 + 默认面帧 digest 逐位 parity 双场景 == G10.5 锁定值 `c2000ebf…`/`8519cc67…`）；⑥ **m147_g11_5_verdict_honest_two_state PASS**（verdict=not_converged ⇔ M155 最新 FAIL——两态一致；not_converged 时本 fact 绿但 M155 required 行 FAIL ⇒ 聚合 VERDICT=FAIL 如实）。聚合不代绿、不重跑 smoke、不遮蔽子断言 FAIL/SKIP/DEV_ENV_DEGRADE；selftest 留痕件如实登记（负样本空 evidence 目录 artifact `g11_wave5_exit_20260816T233645Z.json`〔VERDICT=FAIL，受控负样本〕+ 真树一致性 artifact `g11_wave5_exit_20260816T233648Z.json`〔VERDICT=FAIL == 子门实测态，不遮蔽机核〕——只增不删不改）。
+- **③ 验收命令逐字输出（各门 --gate + --selftest + 守卫套件）**：
+  ```text
+  py -3 milestones/g11/harness/g11_5_ab_rerun.py --stage contract → 双场景契约 digest == G10.5 锁定值 + 联合 64fd54df… 逐位一致 ✓
+  py -3 milestones/g11/harness/g11_5_ab_rerun.py --stage rurix   → 全修复面帧 digest == G11.4 m154 面逐位复现（cornell db5893eb…/bistro 9d917382…）+ parity 双场景 == G10.5 锁定 digest ✓
+  py -3 milestones/g11/harness/g11_5_ab_rerun.py --stage ue      → UE MRQ 双场景重出 == G11.3/G11.4 帧逐位复现（cornell 82a156ae…/bistro 92ed5dff…，fp16）✓
+  py -3 milestones/g11/harness/g11_5_ab_rerun.py --stage derive|metrics|registry → g11_5_rerun_report.json + g11_5_retest_gap_registry.json 落盘（summary：total 11 / converged 7 / aligned_closed 3 / partial 1〔R1〕/ new_items 0）
+  py -3 ci/g11_ab_retest_closure_smoke.py --gate g11.p0.m155.ab_retest_closure
+    [g11_m155] checks 26/27 device=executed → FAIL（closure_r1_ssim_converged 红：0.8328980787837229 → 0.9891526376076132）
+  py -3 ci/g11_ab_retest_closure_smoke.py --selftest → PASS checks=27 (6 RED + 3 GREEN)
+  py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset --phase g11.5
+    [g11_m147] checks 10/11 device=executed phase=g11.5 → FAIL（closure_delta_converged_measured 红，shrink −0.15625455882389028 < 阈 0.0）
+  py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset --phase g11.3 → PASS 12/12（既有绿面零降级）
+  py -3 ci/g11_fix_r1_material_subset_smoke.py --selftest → PASS checks=12 (8 RED + 5 GREEN——含 schema anyOf 三支互核 + g11.5 未收敛冒充臂)
+  py -3 ci/g11_regression_guard_smoke.py --gate g11.p0.m156.regression_guard
+    [g11_m156] checks 16/16 device=not_applicable → PASS（48 门 + G11 已绿门全绿只读汇总 + 抽检八面真跑零降级 + RED 三臂）
+  py -3 ci/g11_regression_guard_smoke.py --selftest → PASS checks=16 (5 RED + 2 GREEN)
+  py -3 ci/g11_wave5_exit_check.py --gate g11.wave.5.exit → VERDICT=FAIL（M155 required 行 FAIL 不遮蔽 + 六 facts 全 PASS）
+  py -3 ci/g11_wave5_exit_check.py --selftest → 负样本缺 evidence → 红 + 真树 VERDICT == 子门实测态 + fact⑥ 两态注入 → 红 ALL PASS
+  py -3 ci/check_structure.py            → PASS (11 dirs, 6 files)
+  py -3 ci/check_schemas.py              → PASS（M155/M156/wave5 三 schema + M147 schema anyOf v3 支全量 evidence 校验——含 M155/M147 g11.5 fail 件与 wave5 三件留痕件，既有全族 0-byte 全过）
+  py -3 ci/check_number_ledger.py        → PASS（spec RXS 头 378 个零同号碰撞；ledger v1.119 CI_step 211~213 登记在树）
+  py -3 ci/check_g11_acceptance_map.py   → PASS（13 P0 + 1 已 go P1 三向/双向逐字一致；numeric_step 零预占）
+  py -3 ci/check_g11_implementation_interlock.py --require-ready → VERDICT=READY（budget 28 条 measured_local 零 estimated）
+  py -3 ci/trace_matrix.py --check       → PASS (378/378)
+  py -3 ci/budget_eval.py --strict       → PASS (166 pass, 0 skip——本波收敛阈零新增，复用 G11.3/G11.4 已产 g11.fix.* 标定条目)
+  py -3 ci/stable_snapshot.py --check    → PASS（spec_clauses=378，三段 0 变化）
+  py -3 ci/check_guardrails.py 19e7eebf  → PASS（字节级只追加核对 12 changed paths；历史 advisory 先例面一致 0 新增面）
+  py -3 ci/check_contribution.py         → advisory 先例面一致（历史 findings 0 新增面）
+  ```
+- **④ 门序 / not-triggered / no-go 登记面与 11 行逐项闭环判定表**：**M130 双 phase 三重绑定前置复跑绿**（M156 门内真跑：`--phase g10.2` PASS + `--phase g10.5` PASS 13/13——双场景三方 digest 逐位相等 `64fd54df…` + 应用层探针逐点 ≤1e-3 px，evidence `g10_m130_dual_determinism_contract_20260816T223953Z.json`/`…_20260816T224212Z.json`；M139/M140/M141/G9 M96/M94/M110 抽检 fresh evidence 全 PASS 零降级）。**复测差距清单 11 行逐项闭环判定表**（基线 vs 复测 delta，全部数字来自当次命令输出；definitive 测量面 = G11.5 同契约双端全量复跑帧区 K:/rurix-ext/g11-frames/g11_5）：
+
+  | 行 | 度量 | 锁定基线 delta | 评价域基线 | 复测 delta | 判定 |
+  |---|---|---|---|---|---|
+  | R1 | ssim@bistro(ldr) | 0.8328980787837229 | 同左 | **0.9891526376076132** | **partial（未收敛如实登记——反向增大；承接锚 = G11.6 P2 候选行〔锁定度量对正确修复结构性不友好，§8.3a 登记〕+ G12+ 度量口径修订评估面，不冒充 closed）** |
+  | R2 | hdr_nonzero_ratio@cornell | −0.7451210021972656 | 同左 | +0.0037841796875 | converged（zero_band 0.052734375 跨端一致包络内近零穿越） |
+  | R3 | hdr_luminance_median@bistro | 2.664779790997505 | 2.7314592314362525（域统一） | 0.48023271594443356 | converged |
+  | R4 | hdr_luminance_p90@bistro | 4.697253086805343 | 4.8486343559026714（域统一） | 1.216991522263363 | converged |
+  | R5 | contract_seed_u64_max_rejection | 9.223372036854776e+18 | 同左 | 0.0 | converged |
+  | U1 | hdr_nonzero_ratio@cornell | −0.7451210021972656 | 同左 | +0.0037841796875 | converged（Rurix 侧 0.9290313720703125 ≥ 基线 0.9290046691894531 不降级） |
+  | U2 | ldr_luminance_median@bistro | 0.7698879749655723 | 同左 | 0.6239309005657211 | converged |
+  | U3 | gltf_animation_channels_unconsumed | 2.0 | 同左 | 0.0 | converged |
+  | C1 | bistro HDR 中位 + cornell p90 | 2.664779790997505 / 0.29024957587122924 | 口径对齐面 | 0.48023271594443356 / 0.23202527932524686 | aligned_closed（口径对齐闭环维持 + 残余全额归属登记〔c1_ue_specular_ibl / c3_source_bit_depth_quantization〕，无未归因余量） |
+  | C2 | LDR 派生曝光尺度 | 0.75（/0.5） | — | 0.0 | aligned_closed（双端统一 ×1.0 维持） |
+  | C3 | EXR 位深 | −16.0 | — | 0.0（度量域 f32 统一） | aligned_closed（源位深量化差显式留档维持） |
+
+  **not-triggered / no-go 登记面**：**R1 行未收敛整波 FAIL 停线**——主会话加严裁决（§8.3a：G11.5 不收敛则整波 FAIL）兑现，本波不宣称收口；M155 门 26/27 绿面全量落档（清单/报告/对账/RED 面齐备），未收敛行带承接锚如实登记不充绿；「锁定度量对正确修复结构性不友好」G11.6 P2 候选行证据链维持（反向激励旁证 0.1624318277352612 > 0.009656442299775102 入 M147 g11.3 phase evidence material_provenance）。`cargo test --workspace` 未在本波复跑（本波零 `.rs` 改动——复跑驱动/门脚本/schema/治理文档面；G11.4 实测全绿沿引）；`cargo fmt --check` / `cargo clippy -D warnings` 为 HEAD 预存漂移红（G11.2 §8.2 同口径登记，本波不扩大不冒充修复）。**G-G11-7 退出门判据「M155/M156 两个 P0 独立断言全绿」未达成（M155 R1 行红）——本波验收不通过，停线报主会话裁决（禁改判据充绿）**。
+- **⑤ 异己并发工作树面与纪律**：本批只含 G11.5 车道文件（复跑驱动 milestones/g11/harness/g11_5_ab_rerun.py + g11_5_rerun_report.json + g11_5_retest_gap_registry.json + ci/g11_5_retest_lib.py + ci/g11_ab_retest_closure_smoke.py + ci/g11_regression_guard_smoke.py + ci/g11_wave5_exit_check.py + ci/g11_fix_r1_material_subset_smoke.py g11.5 腿 + 三新 schema + M147 schema v3 支 + check_schemas 三处纯追加 + pr-smoke 三步骤 211~213 + ledger v1.119 + CI_GATES v1.5 + MAP v1.2 + 本契约本条 + evidence 十九件〔M155/M156/wave5 三件/M147 g11.5 fail + g11.3 复跑两件/标定两件 + M130 三件/M139/M140/M141/G9 M96/M94/M110 抽检 fresh 件〕）；**异己会话 src/ 未提交面（rurix-asset lib.rs ktx2_read 声明 + ktx2_read.rs + rurix-render geometry/hzb + gi/restir/sdf_trace + shadow/smrt + ssr 声明面）维持未提交、不混入本批**（立项裁决 1 / MAP §3.1，G10.8b §8.10 先例同模——`git add` 按文件名显式择取，异己面零混入）；压测资产二进制零入 git（K: 盘外部缓存）；UE 零 vendoring（只读外部参照）；新文件 LF + 尾换行。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2/§8.3/§8.3a/§8.3b/§8.4 同模）。`Assisted-by: Kimi-K3（G11.5 波）`（影响范围：§8.5 本条；验证方式：③ 节验收命令逐字输出 + ② 节聚合 VERDICT=FAIL 如实 + ④ 节 M130 双 phase 前置绿与 11 行逐项闭环判定表留痕）。
+

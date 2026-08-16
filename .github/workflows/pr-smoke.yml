@@ -2435,6 +2435,51 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_wave4_exit_check.py --gate g11.wave.4.exit
 
+      # 步骤 211（G11.5 M155 A/B 复测闭环门 g11.p0.m155.ab_retest_closure；G11
+      # CI_GATES §4 v1.5；G11_CONTRACT §4.2 M155 行判据逐字 + G-G11-7 + §8.3a；
+      # 落盘前实测 CI_step.next_free=211 顺位领取 211~213）。同契约双端全量复跑
+      #（契约 digest == G10.5 锁定值〔cornell 80305791…/bistro ad45951b…/联合
+      # 64fd54df…〕，不等仍出报告即 RED）+ 复测度量报告 + 复测差距清单 11 行闭集
+      # 落盘（行集 == G10.8b 锁定清单逐字对账；新差距项显式登记即 RED 评审面）+
+      # 逐项闭环状态机核（修复前后 delta 收敛 measured，quality_gap 行按 RXS-0393
+      # L2 字面，收敛阈消费 g11_budget g11.fix.* 标定条目〔标定程序产禁手写〕；
+      # caliber_diff 行处置状态复核〔C 族款〕）+ **R1 行 M147 g11.5 phase 收敛断言**
+      #（锁定基线 0.8328980787837229 对当次复测——不收敛则整波 FAIL，§8.3a 不弱化
+      # 声明）；清单缺行/未复跑冒充/阈值手写/单端缺帧聚合 PASS/digest 不等仍出报告/
+      # partial 冒充 closed RED 六臂全检出。evidence 落盘
+      # evidence/g11_m155_ab_retest_closure_<UTC>.json。
+      - name: G11.5 M155 A/B retest closure (G11 CI_GATES §4.211, g11.p0.m155.ab_retest_closure)
+        shell: powershell
+        run: py -3 ci/g11_ab_retest_closure_smoke.py --gate g11.p0.m155.ab_retest_closure
+
+      # 步骤 212（G11.5 M156 修复回归门 g11.p0.m156.regression_guard；G11 CI_GATES
+      # §4 v1.5；G11_CONTRACT §4.2 M156 行判据逐字 + G-G11-7）。既有 48 门（G9 34
+      # key + G10 14 key）最新 evidence 全绿只读汇总 + G11 已绿门（wave2~wave4）
+      # 零降级只读汇总（M147 双 phase 面 = 最新 phase=g11.3 evidence PASS + 当次
+      # 复跑 --phase g11.3 真跑绿；g11.5 phase verdict 显式登记不遮蔽）+ 关键门
+      # 真跑抽检零降级（M130 双 phase / M139 / M140 / M141 / G9 M96/M94/M110——
+      # 子进程真跑 exit 0 + 最新 evidence PASS + 新鲜度 timestamp ≥ 会话起点）+
+      # 既有判据 0-byte（G5~G10 closed 面工作树空集）；既有门降级/聚合遮蔽子断言
+      # FAIL/SKIP/DEV_ENV_DEGRADE/陈旧 evidence 冒充当次 RED 三臂全检出。
+      # evidence 落盘 evidence/g11_m156_regression_guard_<UTC>.json。
+      - name: G11.5 M156 regression guard (G11 CI_GATES §4.212, g11.p0.m156.regression_guard)
+        shell: powershell
+        run: py -3 ci/g11_regression_guard_smoke.py --gate g11.p0.m156.regression_guard
+
+      # 步骤 213（G11.5 波聚合门 g11.wave.5.exit；G11 CI_GATES §5 v1.5；G11_CONTRACT
+      # G-G11-7 + §8.3a）。只读汇总 M155（步骤 211）/M156（步骤 212）最新 evidence
+      # + 六 facts（契约 digest 0-byte / 两门 RED 臂独立有效 / 复测差距清单终态
+      # 诚实面〔11 行闭集对账 + partial 行承接锚 + 汇总计数重算一致〕/ M156 真跑
+      # 抽检面 / 回归面〔48 门 + G11 已绿门 + 默认面 parity〕/ M147 g11.5 phase
+      # verdict 诚实登记两态机核〔converged ⇔ M155 最新 PASS；not_converged 时
+      # 本 fact 绿但 M155 required 行 FAIL ⇒ 聚合 VERDICT=FAIL 如实——不收敛则
+      # 整波 FAIL〕）；聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合
+      # PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g11_wave5_exit_<UTC>.json。
+      - name: G11.5 wave5 exit aggregate (G11 CI_GATES §5.213, g11.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g11_wave5_exit_check.py --gate g11.wave.5.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
