@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.8b closeout evidence",
+  "description": "evidence/g10_wave8b_closeout_<UTC>.json。VERDICT READY|BLOCKED；8a full-run 先行即可同日 close-out（立项裁决 8 继承 G9.8b/G8.8b 先例链）；差距清单终审锁定为 G11 法定输入（g10_gap_registry.json 11 行闭集 + 每项 G11 承接锚非空）；status flip 独立 commit。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "verdict",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_wave8b_closeout" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.wave.8b.closeout" },
+    "matrix_row": { "type": "string", "const": "G10.8b" },
+    "wave": { "type": "string", "const": "G10.8b" },
+    "numeric_step": { "type": "integer", "const": 195 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "verdict": { "type": "string", "enum": ["READY", "BLOCKED"] },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "last_new_green_utc_date": { "type": ["string", "null"] },
+    "base_commit_8a": { "type": ["string", "null"] },
+    "required_gates": { "type": "array", "minItems": 21, "maxItems": 21 },
+    "extra_facts": { "type": "array", "minItems": 8, "maxItems": 8 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fourteen_keys_pass",
+        "wave_exits_pass",
+        "acceptance_map_ok",
+        "p2_ok",
+        "budget_strict_ok",
+        "soak_8a_ok",
+        "rd_final_state_ok",
+        "gap_registry_locked"
+      ],
+      "properties": {
+        "fourteen_keys_pass": { "type": "boolean" },
+        "wave_exits_pass": { "type": "boolean" },
+        "acceptance_map_ok": { "type": "boolean" },
+        "p2_ok": { "type": "boolean" },
+        "budget_strict_ok": { "type": "boolean" },
+        "soak_8a_ok": { "type": "boolean" },
+        "rd_final_state_ok": { "type": "boolean" },
+        "gap_registry_locked": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

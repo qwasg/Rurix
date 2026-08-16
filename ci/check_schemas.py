@@ -511,6 +511,12 @@ def check_evidence_files() -> None:
     g10_p2_decisions_schema = load(
         ROOT / "milestones/g10/g10_p2_decisions_evidence_schema.json"
     )
+    g10_stabilization_soak_schema = load(
+        ROOT / "milestones/g10/g10_stabilization_soak_evidence_schema.json"
+    )
+    g10_wave8b_closeout_schema = load(
+        ROOT / "milestones/g10/g10_wave8b_closeout_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1195,6 +1201,16 @@ def check_evidence_files() -> None:
     g10_p2_decisions_validator = (
         jsonschema.Draft7Validator(g10_p2_decisions_schema)
         if g10_p2_decisions_schema is not None
+        else None
+    )
+    g10_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g10_stabilization_soak_schema)
+        if g10_stabilization_soak_schema is not None
+        else None
+    )
+    g10_wave8b_closeout_validator = (
+        jsonschema.Draft7Validator(g10_wave8b_closeout_schema)
+        if g10_wave8b_closeout_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2394,6 +2410,26 @@ def check_evidence_files() -> None:
             # 27 行闭集零空行 + 承接锚重判/兜底/G11+ + MAP 14 key 互斥 +
             # deferred history 对账 + G10.6 重评窗对账)。前缀与既有全族互不包含。
             validator = g10_p2_decisions_validator
+        elif (
+            f.name.startswith("g10_stabilization_soak_")
+            and g10_stabilization_soak_validator is not None
+        ):
+            # G10.8a stabilization soak 聚合门(步骤 194;ci/g10_stabilization_soak.py
+            # 写:四腿 = 14 key 全量回归〔M130 --phase g10.5 双端核验腿先于 M139〕
+            # + base_commit 同值新鲜度机核 + 出图→捕获→度量→差距清单全链路连续
+            # 复跑 soak〔≥1800s 沿 G9.8a 继承,chain-soak honesty 字段全必填〕+
+            # budget --strict + 日期锚)。前缀与既有全族互不包含。
+            validator = g10_stabilization_soak_validator
+        elif (
+            f.name.startswith("g10_wave8b_closeout_")
+            and g10_wave8b_closeout_validator is not None
+        ):
+            # G10.8b close-out 终审门(步骤 195;ci/g10_closeout_check.py 写:
+            # 八 facts——14 key PASS + wave2~8a 聚合 + MAP 三向 + P2 27 行闭集 +
+            # budget --strict + 8a 先行 + RD 最终状态三面一致 + 差距清单终审锁定
+            # 〔11 行闭集 + G11 承接锚,G11 法定输入〕+ 最后新绿留痕)。
+            # 前缀与既有全族互不包含。
+            validator = g10_wave8b_closeout_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None

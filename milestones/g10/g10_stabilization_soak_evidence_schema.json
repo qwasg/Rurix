@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.8a stabilization soak aggregate evidence",
+  "description": "evidence/g10_stabilization_soak_<UTC>.json。四腿:①全量回归(12 P0 + 2 go P1 = 14 key 逐门真跑 --gate 后机器核验最新 evidence 顶层 status==pass——M130 走 --phase g10.5 双端核验腿须 phase_g10_2_pass==true 且 phase_g10_5_pass==true、门序先于 M139;wave2~wave5 exit + wave6 重评窗 + wave7 决策六聚合/决策门真跑核验;14 门 evidence base_commit 同值=HEAD 且 20 门 stamp 新鲜度机核=同一候选 close-out 基线 MAP §7)+ ②出图→捕获→度量→差距清单全链路连续复跑 soak(≥1800s 沿 G9.8a 30min 继承,迭代计数与各环节计数非空、零失败)+ ③budget_eval --strict 非空零 estimated/skip + ④纪律日期锚。诚实语义沿 G9.8a/G8.8a 2026-08-08 口径:soak 墙钟=真实链路复跑实测(sleep_seconds 恒 0,active_chain_seconds 逐迭代计时求和,gate 外测墙钟交叉核验);chain-soak 无 validation/device_lost 字面量 0 硬门;G10 无 legacy 兼容——首份 evidence 即 honesty 格式,soak 块 honesty 字段全必填。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "base_commit",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "soak",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_stabilization_soak" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.wave.8a.soak" },
+    "matrix_row": { "type": "string", "const": "G10.8a" },
+    "wave": { "type": "string", "const": "G10.8a" },
+    "numeric_step": { "type": "integer", "const": 194 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "required_gates": { "type": "array", "minItems": 20, "maxItems": 20 },
+    "extra_facts": { "type": "array", "minItems": 1 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regression_all_pass",
+        "base_commit_uniform",
+        "soak_dual_threshold",
+        "soak_no_sleep_padding",
+        "budget_strict_pass",
+        "date_anchor_recorded"
+      ],
+      "properties": {
+        "regression_all_pass": { "type": "boolean" },
+        "base_commit_uniform": { "type": "boolean" },
+        "soak_dual_threshold": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" },
+        "budget_strict_pass": { "type": "boolean" },
+        "date_anchor_recorded": { "type": "boolean" }
+      }
+    },
+    "soak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations",
+        "seconds",
+        "min_iterations",
+        "min_seconds",
+        "soak_subject",
+        "active_chain_seconds",
+        "sleep_seconds",
+        "outer_wall_seconds",
+        "failures",
+        "rurix_frames_rendered",
+        "ldr_derivations",
+        "frames_decoded",
+        "metric_triplets",
+        "diff_reports",
+        "gap_registry_assemblies"
+      ],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 3 },
+        "seconds": { "type": "number", "minimum": 1800 },
+        "min_iterations": { "type": "integer", "const": 3 },
+        "min_seconds": { "type": "integer", "const": 1800 },
+        "soak_subject": { "type": "string", "const": "chain-soak" },
+        "active_chain_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "sleep_seconds": { "type": "number", "const": 0 },
+        "outer_wall_seconds": { "type": "number", "minimum": 1800 },
+        "failures": { "type": "integer", "const": 0 },
+        "rurix_frames_rendered": { "type": "integer", "minimum": 1 },
+        "ldr_derivations": { "type": "integer", "minimum": 1 },
+        "frames_decoded": { "type": "integer", "minimum": 1 },
+        "metric_triplets": { "type": "integer", "minimum": 1 },
+        "diff_reports": { "type": "integer", "minimum": 1 },
+        "gap_registry_assemblies": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -2162,6 +2162,45 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_p2_decisions_check.py --gate g10.wave.7.decisions
 
+      # 步骤 194（G10.8a stabilization soak 聚合门 g10.wave.8a.soak;G10 CI_GATES §5 v1.8;
+      # G10_CONTRACT G-G10-10;落盘前实测 CI_step.next_free=194 顺位领取）。pr-smoke
+      # 侧 = --verify-latest 秒级核最新 full-run evidence(schema + host_section_pass
+      # + checks 六键全真 + soak 双阈值与 honesty 字段复核);full-run 本地/
+      # workflow_dispatch 产 evidence——四腿:①全量回归(12 P0 + 2 go P1 = 14 key
+      # 逐门真跑 --gate 后机器核验最新 evidence 顶层 status==pass,M130 走
+      # --phase g10.5 双端核验腿核验 phase_g10_2_pass 且 phase_g10_5_pass 同真、
+      # 门序先于 M139,14 门 base_commit 同值=同一候选 close-out 基线 MAP §7)+
+      # 波聚合/决策门 wave2~wave5 exit + wave6 重评窗 + wave7 决策真跑核验;
+      # ②出图→捕获→度量→差距清单全链路连续复跑 soak(≥1800s 沿 G9.8a 30min 继承,
+      # Rurix HDR 重渲染 digest 逐位复现 + LDR 派生逐字节 + 双端帧解码/UE
+      # provenance + FLIP/SSIM/PSNR 重算==G10.5a golden + diff 报告三面一致 +
+      # 差距清单装配校验与在树逐字节幂等复核,sleep_seconds 恒 0,
+      # active_chain_seconds≈seconds,迭代/出图/解码/度量/diff/装配计数非空零失败);
+      # ③budget_eval --strict 非空零 estimated/skip;④日期锚。evidence 落盘
+      # evidence/g10_stabilization_soak_<UTC>.json。
+      - name: G10.8a stabilization soak verify-latest (G10 CI_GATES §5.194, g10.wave.8a.soak)
+        shell: powershell
+        run: py -3 ci/g10_stabilization_soak.py --verify-latest
+
+      # 步骤 195（G10.8b close-out 终审门 g10.wave.8b.closeout;G10 CI_GATES §5 v1.8;
+      # G10_CONTRACT G-G10-11;落盘前实测 CI_step.next_free=195 顺位领取）。只读汇总
+      # 八 facts:①14 key(12 P0 + 2 go P1)最新 evidence 逐门 PASS(wel 口径 + 顶层
+      # status==pass + M130 双 phase 同真);②wave2~8a 七聚合/决策门(exit×4 +
+      # 重评窗 + 决策 + soak)全 PASS;③MAP 三向 check_g10_acceptance_map exit=0;
+      # ④P2 表 27 行闭集最终状态无漂移(最新 evidence host_section_pass +
+      # FROZEN_IDS 在树);⑤budget_eval --strict 非空零 estimated/skip;⑥8a
+      # full-run 先行(最新 g10_stabilization_soak evidence host_section_pass,
+      # base_commit_8a 留痕;立项裁决 8 同日放行——8a full-run 先行完成后允许同日
+      # close-out);⑦RD 最终状态逐字一致(G-G10-11:deferred.json RD-034/039~044
+      # 七条目级 status 全 open 逐字 + G10_P2_DECISIONS 27 行 FROZEN_IDS 闭集在树
+      # + G10_DEFER_REEVALUATION 十锚终态在树三面一致);⑧差距清单终审锁定
+      # (g10_gap_registry.json 11 行闭集 + 每项 G11 承接锚非空——G11 法定输入)+
+      # 最后新绿 UTC 日留痕。VERDICT=READY|BLOCKED;status flip 独立 commit。
+      # evidence 落盘 evidence/g10_wave8b_closeout_<UTC>.json。
+      - name: G10.8b closeout check (G10 CI_GATES §5.195, g10.wave.8b.closeout)
+        shell: powershell
+        run: py -3 ci/g10_closeout_check.py --gate g10.wave.8b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
