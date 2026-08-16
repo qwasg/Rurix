@@ -43,6 +43,10 @@
 
 #![forbid(unsafe_code)]
 
+use image_io::exr::{
+    ChromaticitiesOrigin, DecodedExr, ExrBitDepth, ExrChannelLayout, ExrDerivation, ExrDomain,
+    ExrImage, ExrMetadata, ExrSourceEnd, ExrTransfer, ExrViewTransform, decode_exr, encode_exr,
+};
 use rurix_asset::gltf::json::{self, JsonValue};
 use rurix_asset::gltf::validate;
 use rurix_render::display::aces13::Aces13;
@@ -53,10 +57,6 @@ use rurix_render::gi::tracer::{GiMeshInstance, GiScene, RayTracedRadiance};
 use rurix_render::rt::bvh::{Ray, Transform3x4, Vec3};
 use rurix_render::rt::ref_tracer::RAY_EPS;
 use rurix_render::temporal::image::ImageF32;
-use image_io::exr::{
-    ChromaticitiesOrigin, DecodedExr, ExrBitDepth, ExrChannelLayout, ExrDerivation, ExrDomain,
-    ExrImage, ExrMetadata, ExrSourceEnd, ExrTransfer, ExrViewTransform, decode_exr, encode_exr,
-};
 use std::path::{Path, PathBuf};
 
 const TAG: &str = "G10_5_RENDER";
@@ -134,7 +134,11 @@ fn as_f64_arr(name: &str, v: &JsonValue, n: usize) -> Result<Vec<f64>, String> {
         .collect()
 }
 
-fn obj_closed<'a>(name: &str, v: &'a JsonValue, keys: &[&str]) -> Result<&'a [(String, JsonValue)], String> {
+fn obj_closed<'a>(
+    name: &str,
+    v: &'a JsonValue,
+    keys: &[&str],
+) -> Result<&'a [(String, JsonValue)], String> {
     let obj = v
         .as_object()
         .ok_or_else(|| cerr(format!("{name}: expected object")))?;
@@ -159,17 +163,32 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
     obj_closed(
         "camera",
         cam,
-        &["position", "orientation_quat", "fov_y_deg", "near", "far", "resolution"],
+        &[
+            "position",
+            "orientation_quat",
+            "fov_y_deg",
+            "near",
+            "far",
+            "resolution",
+        ],
     )?;
     let pos = as_f64_arr("camera.position", cam.get("position").unwrap(), 3)?;
-    let quat = as_f64_arr("camera.orientation_quat", cam.get("orientation_quat").unwrap(), 4)?;
+    let quat = as_f64_arr(
+        "camera.orientation_quat",
+        cam.get("orientation_quat").unwrap(),
+        4,
+    )?;
     let res = cam.get("resolution").unwrap();
     obj_closed("camera.resolution", res, &["w", "h"])?;
 
     let lighting = root.get("lighting").unwrap();
     obj_closed("lighting", lighting, &["sun", "sky", "exposure"])?;
     let sun = lighting.get("sun").unwrap();
-    obj_closed("lighting.sun", sun, &["direction", "intensity_lux", "color_linear_rgb"])?;
+    obj_closed(
+        "lighting.sun",
+        sun,
+        &["direction", "intensity_lux", "color_linear_rgb"],
+    )?;
     let sky = lighting.get("sky").unwrap();
     obj_closed("lighting.sky", sky, &["intensity", "cubemap_id"])?;
     let cubemap_id = match sky.get("cubemap_id").unwrap() {
@@ -188,7 +207,13 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
     obj_closed(
         "time",
         time,
-        &["fixed_dt_s", "warmup_frames", "capture_frame_index", "random_seed", "jitter"],
+        &[
+            "fixed_dt_s",
+            "warmup_frames",
+            "capture_frame_index",
+            "random_seed",
+            "jitter",
+        ],
     )?;
     let jitter = time.get("jitter").unwrap();
     obj_closed("time.jitter", jitter, &["sequence", "index_base", "scale"])?;
@@ -198,7 +223,11 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
     }
 
     let post = root.get("post").unwrap();
-    obj_closed("post", post, &["view_transform", "bloom", "vignette", "motion_blur", "dof"])?;
+    obj_closed(
+        "post",
+        post,
+        &["view_transform", "bloom", "vignette", "motion_blur", "dof"],
+    )?;
     match post.get("view_transform").unwrap() {
         JsonValue::String(s) if s == "aces13" => {}
         _ => return Err(cerr("post.view_transform: v1 闭集仅 \"aces13\"")),
@@ -222,9 +251,16 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
             let d = as_f64_arr("lighting.sun.direction", sun.get("direction").unwrap(), 3)?;
             [d[0], d[1], d[2]]
         },
-        sun_intensity_lux: as_f64("lighting.sun.intensity_lux", sun.get("intensity_lux").unwrap())?,
+        sun_intensity_lux: as_f64(
+            "lighting.sun.intensity_lux",
+            sun.get("intensity_lux").unwrap(),
+        )?,
         sun_color: {
-            let rgb = as_f64_arr("lighting.sun.color_linear_rgb", sun.get("color_linear_rgb").unwrap(), 3)?;
+            let rgb = as_f64_arr(
+                "lighting.sun.color_linear_rgb",
+                sun.get("color_linear_rgb").unwrap(),
+                3,
+            )?;
             [rgb[0], rgb[1], rgb[2]]
         },
         sky_intensity: as_f64("lighting.sky.intensity", sky.get("intensity").unwrap())?,
@@ -232,18 +268,30 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
         ev100: as_f64("lighting.exposure.ev100", exposure.get("ev100").unwrap())?,
         fixed_dt_s: as_f64("time.fixed_dt_s", time.get("fixed_dt_s").unwrap())?,
         warmup_frames: as_u("time.warmup_frames", time.get("warmup_frames").unwrap(), 32)? as u32,
-        capture_frame_index: as_u("time.capture_frame_index", time.get("capture_frame_index").unwrap(), 32)? as u32,
+        capture_frame_index: as_u(
+            "time.capture_frame_index",
+            time.get("capture_frame_index").unwrap(),
+            32,
+        )? as u32,
         random_seed: as_u("time.random_seed", time.get("random_seed").unwrap(), 64)?,
-        jitter_index_base: as_u("time.jitter.index_base", jitter.get("index_base").unwrap(), 32)? as u32,
+        jitter_index_base: as_u(
+            "time.jitter.index_base",
+            jitter.get("index_base").unwrap(),
+            32,
+        )? as u32,
         jitter_scale: as_f64("time.jitter.scale", jitter.get("scale").unwrap())?,
     };
     let q2: f64 = c.cam_quat.iter().map(|x| x * x).sum();
     if (q2 - 1.0).abs() > UNIT_NORM_TOL {
-        return Err(cerr("camera.orientation_quat: unit-norm 违例（|q²−1| > 2^-40）"));
+        return Err(cerr(
+            "camera.orientation_quat: unit-norm 违例（|q²−1| > 2^-40）",
+        ));
     }
     let d2: f64 = c.sun_direction.iter().map(|x| x * x).sum();
     if (d2 - 1.0).abs() > UNIT_NORM_TOL {
-        return Err(cerr("lighting.sun.direction: unit-norm 违例（|d²−1| > 2^-40）"));
+        return Err(cerr(
+            "lighting.sun.direction: unit-norm 违例（|d²−1| > 2^-40）",
+        ));
     }
     Ok(c)
 }
@@ -397,7 +445,11 @@ fn param_digest(c: &Contract) -> String {
 /// 主动旋转 v' = q·v·q*（f64；契约四元数 w,x,y,z）。
 fn quat_rotate(q: [f64; 4], v: [f64; 3]) -> [f64; 3] {
     let [w, x, y, z] = q;
-    let uv = [y * v[2] - z * v[1], z * v[0] - x * v[2], x * v[1] - y * v[0]];
+    let uv = [
+        y * v[2] - z * v[1],
+        z * v[0] - x * v[2],
+        x * v[1] - y * v[0],
+    ];
     let uuv = [
         y * uv[2] - z * uv[1],
         z * uv[0] - x * uv[2],
@@ -452,7 +504,10 @@ fn json_f32_arr(v: &JsonValue, n: usize) -> Option<Vec<f32>> {
     if arr.len() != n {
         return None;
     }
-    arr.iter().map(json_f64).map(|x| x.map(|f| f as f32)).collect()
+    arr.iter()
+        .map(json_f64)
+        .map(|x| x.map(|f| f as f32))
+        .collect()
 }
 
 /// 4×4 行主（f64 组合，落定转 f32 Transform3x4）。
@@ -563,16 +618,22 @@ fn load_gltf_scene(path: &Path) -> Result<SceneLoad, String> {
     let base = path.parent().unwrap_or_else(|| Path::new("."));
     // buffers（外部 URI 闭集；GLB 本 harness 不消费——G10.5 语料均为 .gltf+bin）
     let mut buffers: Vec<Vec<u8>> = Vec::new();
-    for b in root.get("buffers").and_then(|v| v.as_array()).unwrap_or(&[]) {
+    for b in root
+        .get("buffers")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&[])
+    {
         let uri = b
             .get("uri")
             .and_then(|v| v.as_str())
             .ok_or_else(|| cerr("buffer 缺 uri（GLB/内嵌不消费）"))?;
-        let data = std::fs::read(base.join(uri)).map_err(|e| format!("buffer {uri} 读取失败: {e}"))?;
+        let data =
+            std::fs::read(base.join(uri)).map_err(|e| format!("buffer {uri} 读取失败: {e}"))?;
         buffers.push(data);
     }
     // 几何提取（单一事实源 = rurix-asset gltf::validate::extract_meshes）
-    let meshes = validate::extract_meshes(&root, &buffers).map_err(|e| format!("extract_meshes: {e}"))?;
+    let meshes =
+        validate::extract_meshes(&root, &buffers).map_err(|e| format!("extract_meshes: {e}"))?;
 
     // 材质子集：baseColorFactor rgb（纹理/法线/mr 不采样——诚实边界见头注）
     let mut mat_albedo: Vec<[f32; 3]> = Vec::new();
@@ -650,9 +711,18 @@ fn load_gltf_scene(path: &Path) -> Result<SceneLoad, String> {
             }
             let w = world[ni].ok_or_else(|| cerr("节点世界变换缺失"))?;
             let t = Transform3x4::from_rows([
-                w[0][0] as f32, w[0][1] as f32, w[0][2] as f32, w[0][3] as f32,
-                w[1][0] as f32, w[1][1] as f32, w[1][2] as f32, w[1][3] as f32,
-                w[2][0] as f32, w[2][1] as f32, w[2][2] as f32, w[2][3] as f32,
+                w[0][0] as f32,
+                w[0][1] as f32,
+                w[0][2] as f32,
+                w[0][3] as f32,
+                w[1][0] as f32,
+                w[1][1] as f32,
+                w[1][2] as f32,
+                w[1][3] as f32,
+                w[2][0] as f32,
+                w[2][1] as f32,
+                w[2][2] as f32,
+                w[2][3] as f32,
             ]);
             let albedo = prim_material
                 .get(&(m.mesh_id, m.primitive_id))
@@ -755,7 +825,10 @@ fn render_frame(scene: &GiScene, camera: &GiCamera, c: &Contract) -> RenderOut {
             };
             let dir = (p1 - p0).normalize();
             let idx = (y * w + x) as usize;
-            let Some(hit) = scene.tlas.intersect(&scene.blases, &Ray { origin: p0, dir }) else {
+            let Some(hit) = scene
+                .tlas
+                .intersect(&scene.blases, &Ray { origin: p0, dir })
+            else {
                 depth.set(x, y, 0, 1.0);
                 continue;
             };
@@ -920,7 +993,8 @@ fn main() {
         let c = parse_contract(&text).unwrap_or_else(|e| fail(&e));
         let lm_text = std::fs::read_to_string(landmarks_path.unwrap())
             .unwrap_or_else(|e| fail(&format!("标志物读取失败: {e}")));
-        let lm_root = json::parse_str(&lm_text).unwrap_or_else(|e| fail(&format!("标志物 JSON: {e}")));
+        let lm_root =
+            json::parse_str(&lm_text).unwrap_or_else(|e| fail(&format!("标志物 JSON: {e}")));
         let camera = contract_camera(&c);
         let (w, h) = (c.res_w as f32, c.res_h as f32);
         let mut out = String::from("{\"pixels\":[");
@@ -930,7 +1004,10 @@ fn main() {
             .unwrap_or_else(|| fail("landmarks 缺数组"));
         for (li, lm) in lms.iter().enumerate() {
             let p = json_f64_arr3(lm).unwrap_or_else(|| fail("landmark 非 [x,y,z]"));
-            let clip = camera.view_proj.transform_vec4([p[0] as f32, p[1] as f32, p[2] as f32, 1.0]);
+            let clip =
+                camera
+                    .view_proj
+                    .transform_vec4([p[0] as f32, p[1] as f32, p[2] as f32, 1.0]);
             if li > 0 {
                 out.push(',');
             }
@@ -977,7 +1054,8 @@ fn main() {
             .parse()
             .unwrap_or_else(|_| fail("--exposure-scale 非 f64"));
         let digest = params_digest.unwrap_or_else(|| fail("缺 --params-digest"));
-        let bytes = std::fs::read(hdr_path.unwrap()).unwrap_or_else(|e| fail(&format!("HDR 帧读取失败: {e}")));
+        let bytes = std::fs::read(hdr_path.unwrap())
+            .unwrap_or_else(|e| fail(&format!("HDR 帧读取失败: {e}")));
         let hdr = decode_exr(&bytes, end).unwrap_or_else(|e| fail(&format!("HDR 帧解码失败: {e}")));
         let src = derive_ldr(&hdr, scale, &digest, Path::new(&out_path.unwrap()))
             .unwrap_or_else(|e| fail(&e));
