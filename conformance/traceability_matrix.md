@@ -376,3 +376,4 @@
 | RXS-0388 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/pixel_diff_report_minimal.rx`, `conformance/visual_comparison/reject/diff_scalar_inconsistency.rx` |
 | RXS-0389 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/flip_caliber_minimal.rx`, `conformance/visual_comparison/reject/flip_caliber_drift.rx`, `conformance/visual_comparison/reject/flip_reference_perturbation.rx` |
 | RXS-0390 | spec/visual_comparison.md | 1 | `conformance/visual_comparison/accept/application_probe_minimal.rx` |
+| RXS-0391 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/gap_registry_minimal.rx`, `conformance/visual_comparison/reject/gap_registry_missing_attribution.rx`, `conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx` |

@@ -1,0 +1,10 @@
+//@ spec: RXS-0391
+// G10.5b spec-first 锚定语料（spec/visual_comparison.md RXS-0391 L6/L8：非
+// measured 叙述充差距即 RED + 场景全集零空行——measured_delta 空数组、
+// delta ≠ b_value − a_value（f64 重算不等）、evidence_digest 不在 M139
+// evidence artifact_digests 登记集内（不可回溯）、或 scene_summary 行集与
+// scene_set 不全等（静默丢场景行），门必须检出）。
+// 预期 RED：无测量叙述/不可回溯 digest/场景缺行 →
+// g10.p0.m140.gap_registry FAIL。
+// 转正路径（G10.5b 波接线）：ci/g10_gap_registry_smoke.py 门内注入臂。
+fn main() {}

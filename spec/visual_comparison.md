@@ -450,6 +450,102 @@
   代算否决（RXS-0384 L4 载体纪律同口径）；Rurix 端 =
   `g10_5_scene_render --project-landmarks`（Rust 消费面第三实现）。
 
+### RXS-0391 差距清单 schema：字段闭集 / UE5 模块归属枚举闭集 / kind 两值分列 / measured_delta 可溯源 / 场景全集零空行对账（M140）
+
+**Legality**
+
+- L1 **清单 JSON 顶层字段闭集**（闭集外字段拒收——fail-closed）：
+  `{schema_version, registry, generated_by, scene_set, items, scene_summary, not_ready_scenes}`；
+  `schema_version` const `1`；`registry` const `"g10_gap_registry"`；
+  `generated_by` 非空字符串（产出门脚本字面）；`scene_set` = 场景全集
+  字符串数组（与 M133 冻结清单行集闭集对账面）。
+- L2 **差距项字段闭集**（13 键 + 1 条件可选键）：
+  `{gap_id, scene_id, camera_id, domain, kind, ue5_module_primary, ue5_module_secondary, measured_delta, suggested_priority, g11_anchor, title, description, attachments}`
+  ——闭集外字段拒收；`attribution_note` 为唯一可选键，**当且仅当
+  `ue5_module_primary` 取 Other 终值时必填非空**（Other 行计数进 evidence
+  统计防滥用，RFC-0026 §4.5 终值行字面）。
+- L3 **gap_id 派生（冻结字节规则，重跑可复现）**：
+  `gap_id = sha256(utf8(scene_id) ‖ 0x00 ‖ utf8(camera_id) ‖ 0x00 ‖ utf8(ue5_module_primary) ‖ 0x00 ‖ utf8(kind) ‖ 0x00 ‖ utf8(title))`
+  的全小写 hex **前 16 字符**（‖ 分隔符 = 单字节 `0x00`，字段序即本序；
+  RFC-0026 §4.5「sha256(scene_id ‖ camera_id ‖ ue5_module_primary ‖ kind ‖ title)
+  前 16 hex 派生」的字节级落地——分隔符与编码本条款单源冻结）。
+- L4 **kind 两值分列**（RFC-0026 §3.3/§4.5）：`"quality_gap"`（画质差距）
+  与 `"caliber_diff"`（口径差）——两值闭集外取值即 RED；口径差项与画质
+  差距项不得互相冒充（G10 零通过线：两族全量登记即绿，均不设判线）。
+- L5 **UE5 模块归属枚举闭集**（`ue5_module_primary` / `ue5_module_secondary[]`
+  同闭集；枚举值 = 规范化正斜杠路径字面，公共前缀
+  `Engine/Source/Runtime/Renderer/Private/`；版本锚 = Launcher 5.8.0 正式版
+  release 口径，快照复核风险注记沿 RFC-0026 §4.5 字面）：
+  - **目录级 23 值**：`CompositionLighting` · `Froxel` · `HairStrands` ·
+    `HeterogeneousVolumes` · `InstanceCulling` · `Lumen` · `MaterialCache` ·
+    `MegaLights` · `Nanite` · `OIT` · `PostProcess` · `RayTracing` ·
+    `Renderer` · `SceneCulling` · `Shadows` · `Skinning` ·
+    `SparseVolumeTexture` · `StateStream` · `StochasticLighting` ·
+    `Substrate` · `VariableRateShading` · `VirtualShadowMaps` · `VT`。
+  - **文件级 57 值**（curated 子集 + 补收触发条件沿 RFC-0026 §4.5 字面）：
+    `PathTracing.cpp` · `PathTracingSpatialTemporalDenoising.cpp` ·
+    `SceneCaptureRendering.cpp` · `SkyAtmosphereRendering.cpp` ·
+    `SkyPassRendering.cpp` · `VolumetricCloudRendering.cpp` ·
+    `VolumetricFog.cpp` · `SingleLayerWaterRendering.cpp` ·
+    `WaterInfoTextureRendering.cpp` · `SubsurfaceTiles.cpp` ·
+    `DBufferTextures.cpp` · `TranslucentRendering.cpp` ·
+    `TranslucentLighting.cpp` · `FrontLayerTranslucency.cpp` ·
+    `ShadowRendering.cpp` · `ShadowSetup.cpp` · `ShadowDepthRendering.cpp` ·
+    `CapsuleShadowRendering.cpp` · `DistanceFieldAmbientOcclusion.cpp` ·
+    `DistanceFieldShadowing.cpp` · `DistanceFieldScreenGridLighting.cpp` ·
+    `DistanceFieldLightingPost.cpp` · `GlobalDistanceField.cpp` ·
+    `ReflectionEnvironment.cpp` · `ReflectionEnvironmentCapture.cpp` ·
+    `ReflectionEnvironmentDiffuseIrradiance.cpp` ·
+    `ReflectionEnvironmentRealTimeCapture.cpp` ·
+    `PlanarReflectionRendering.cpp` · `ScreenSpaceReflectionTiles.cpp` ·
+    `ScreenSpaceRayTracing.cpp` · `ScreenSpaceDenoise.cpp` ·
+    `FogRendering.cpp` · `LocalFogVolumeRendering.cpp` ·
+    `LightRendering.cpp` · `IndirectLightRendering.cpp` ·
+    `LightShaftRendering.cpp` · `BasePassRendering.cpp` · `DepthRendering.cpp` ·
+    `VelocityRendering.cpp` · `AnisotropyRendering.cpp` ·
+    `DecalRenderingShared.cpp` · `GPUScene.cpp` · `HZB.cpp` ·
+    `SceneVisibility.cpp` · `DeferredShadingRenderer.cpp` · `Renderer.cpp` ·
+    `HaltonUtilities.cpp` · `BlueNoise.cpp` · `HdrCustomResolveShaders.cpp` ·
+    `GPUBenchmark.cpp` · `ShadingEnergyConservation.cpp` ·
+    `IESTextureManager.cpp` · `RectLightTextureManager.cpp` ·
+    `LightFunctionRendering.cpp` · `VolumeLighting.cpp` ·
+    `HeightfieldLighting.cpp` · `DistortionRendering.cpp`。
+  - **终值**：`Other`（全路径 = 公共前缀 + `Other`）——须
+    `attribution_note` 非空说明。
+  - **演进纪律**：闭集**只追加修订行**；旧值永不删除（10 §9.5 同构）。
+- L6 **measured_delta 可溯源**（≥1 项，纯叙述无测量即 RED——M140 RED 臂
+  字面）：每项字段闭集 `{metric, a_value, b_value, delta, region_ref, evidence_digest}`
+  （`region_ref` 为唯一可选键，diff 报告区域/场景引用）；`a_value` /
+  `b_value` 为双端或对拍测量值（f64），**`delta == b_value − a_value`
+  f64 精确相等**（机器重算面）；`evidence_digest` 必须可回溯到 M137 diff
+  报告 / M139 A/B 报告 evidence 登记的 artifact digest（门侧机核：
+  不在最新 M139 evidence `ab_report.artifact_digests[]` 登记集内即 RED）。
+- L7 **建议 P 级与承接锚**：`suggested_priority` ∈ `{"P0","P1","P2"}`
+  （建议值，G11 立项重裁，本字段不构成承诺——RFC-0026 §4.5 字面）；
+  `g11_anchor` 非空字符串（G11 立项只消费 G10.8b 锁定清单 + 本锚，
+  契约 G-G10-11 字面）；缺归属/缺承接锚行即 RED。
+- L8 **场景全集零空行对账**（M139/M140「差距清单缺场景行即 RED」字面）：
+  `scene_summary[]` 逐场景 `{scene_id, gap_count, no_gap_explicit}` 字段
+  闭集；行集与 `scene_set` 精确全等（禁静默丢行）；`no_gap_explicit ==
+  (gap_count == 0)`（无差距场景显式 `no_gap_explicit=true` 汇总行）；
+  `not_ready_scenes` 显式在列（G10_ACCEPTANCE_MAP §3.2 not-ready 登记面，
+  可空集但键必须存在）。
+- L9 **domain 两值**（与 diff 报告/帧元数据互证面，RXS-0386 L1）：
+  `{"scene-linear-hdr", "display-referred-ldr"}`；取值须与该项
+  measured_delta 锚定的度量域一致。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 `g10.p0.m139.ab_comparison`（清单落盘产出门）与
+  `g10.p0.m140.gap_registry`（登记核验门）；测试锚定 =
+  `conformance/visual_comparison/accept/gap_registry_minimal.rx` +
+  `conformance/visual_comparison/reject/gap_registry_missing_attribution.rx`
+  + `conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx`
+  + `ci/g10_gap_registry_smoke.py` 门脚本。
+- IR2 共享判定层 = `ci/g10_gap_registry_lib.py` 单一事实源（枚举闭集 /
+  字段闭集 / gap_id 派生 / 校验器），M139 落盘侧与 M140 门侧同一实现
+  消费，禁第二份手写（RXS-0384 L4 同构载体纪律）。
+
 ---
 
 ## 修订记录
@@ -458,3 +554,4 @@
 |---|---|---|---|
 | v1.1 | 2026-08-15 | **errata（RXS-0384 L2 四元数共轭公式勘误；零既有字面改写，本行 = 唯一生效勘误）**：L2 冻结公式行「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射矩阵 M **数学上不成立**——正交共轭的一般律为 R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**，det(M) = −1 时转角反号：**R_ue = R(M·axis, −θ)**，四元数向量部应为 **−M·v**、标量部不变，即 q = (w, x, y, z) ⇒ **q_ue = (w, z, −x, −y)**（harness 缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向）。**实证**（G10.5a 波，2026-08-15）：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组）/ 1.39e0（pytest 5000 组首例），修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 UE 映射 = 绕 +Z 转 −90°，缺陷式给 +90°）镜像成立；`tests/test_g10_param_contract.py` RED 先行 commit 后修复转 GREEN。cornell-box 相机（绕 +Y 180°）为该缺陷不变量特例（R(a,180°) ≡ R(a,−180°)），bistro-interior 一般旋转取景全暴露。**生效面**：harness `g10_param_contract.py quat_contract_to_ue` 按修订式修复（G10.5a 实现批）；L2 既有字面 0-byte 不回改，RFC-0026 §4.6 同文理勘误 = RFC 章 E1 errata 段（只追加）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026 errata） |
 | v1.2 | 2026-08-15 | G10.5a 双端出图波 spec-first（硬规则 7 条款先行）：**RXS-0390 单号 materialize 为条款头**——应用层探针（冻结标志物集〔cornell-box 后墙五点毫米数值面 / bistro-interior 相机系合成五点米，逐值字面冻结〕+ 双端各自管线投影像素一致性断言〔`pixel_delta ≤ 1e-3 px` 合法性谓词常量不走 budget〕+ M130 `--phase g10.5` 与 M139 evidence `application_probes[]` 机核面 + UE 端内嵌 CPython 载体纪律），依据 RFC-0026（Agent Approved 2026-08-15）§4.6 应用层探针末节（「标志物世界坐标集进 spec 条款」兑现点）+ G10_ACCEPTANCE_MAP §1 M130 行 + §3.3（判据逐字）；条款号自落盘前实测 `RXS.next_free=390` 顺位领取（0390 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件（application_probe_minimal.rx）同 PR 落；trace_matrix 371→372 全锚定 + stable 快照 371→372 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026） |
+| v1.3 | 2026-08-15 | G10.5b 首轮 A/B 对比波 B 段 spec-first（硬规则 7 条款先行）：**RXS-0391 单号 materialize 为条款头**——差距清单 schema（顶层/差距项字段闭集〔13 键 + attribution_note 条件可选键〕+ gap_id 派生冻结字节规则〔sha256 五节 0x00 分隔 utf8 拼接前 16 hex〕+ kind 两值分列〔quality_gap / caliber_diff〕+ UE5 模块归属枚举闭集〔目录级 23 + 文件级 57 + Other 终值，公共前缀 `Engine/Source/Runtime/Renderer/Private/`，Other 须 attribution_note 非空〕+ measured_delta 可溯源〔≥1 项、delta == b−a f64 精确、evidence_digest 须回溯 M137/M139 evidence 登记 artifact digest，纯叙述无测量即 RED〕+ 建议 P 级三值 + g11_anchor 非空 + 场景全集零空行对账〔scene_summary 全等 + no_gap_explicit 显式 + not_ready_scenes 显式在列〕+ domain 两值互证），依据 RFC-0026（Agent Approved 2026-08-15）§4.5 + §3.3 + G10_ACCEPTANCE_MAP §1 M140 行（判据逐字）+ G10_CONTRACT G-G10-7；条款号自落盘前实测 `RXS.next_free=391` 顺位领取（0391 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 两件（gap_registry_minimal.rx / gap_registry_missing_attribution.rx / gap_registry_unmeasured_narrative.rx）同 PR 落；trace_matrix 372→373 全锚定 + stable 快照 372→373 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5b 波）` | **Full RFC**（RFC-0026） |

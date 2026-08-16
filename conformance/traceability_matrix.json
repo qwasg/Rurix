@@ -1984,6 +1984,11 @@
     ],
     "RXS-0390": [
       "conformance/visual_comparison/accept/application_probe_minimal.rx"
+    ],
+    "RXS-0391": [
+      "conformance/visual_comparison/accept/gap_registry_minimal.rx",
+      "conformance/visual_comparison/reject/gap_registry_missing_attribution.rx",
+      "conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx"
     ]
   }
 }

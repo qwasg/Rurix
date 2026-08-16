@@ -1,0 +1,15 @@
+//@ spec: RXS-0391
+// G10.5b spec-first 锚定语料（spec/visual_comparison.md RXS-0391 L1~L9：差距
+// 清单 schema——顶层/差距项字段闭集〔13 键 + attribution_note 条件可选键〕
+// + gap_id 派生冻结字节规则〔sha256 五节 0x00 分隔 utf8 拼接前 16 hex〕+
+// kind 两值分列〔quality_gap / caliber_diff〕+ UE5 模块归属枚举闭集〔目录级
+// 23 + 文件级 57 + Other 终值〕+ measured_delta 可溯源〔≥1 项、delta ==
+// b−a f64 精确、evidence_digest 回溯 M137/M139 evidence artifact digest〕+
+// 建议 P 级三值 + g11_anchor 非空 + 场景全集零空行对账〔scene_summary 全等
+// + no_gap_explicit 显式 + not_ready_scenes 显式在列〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：清单逐差距项归属/承接锚/
+// measured delta 齐备，逐场景汇总行零空行。
+// 转正路径（G10.5b 波接线）：ci/g10_gap_registry_lib.py 共享判定层 +
+// ci/g10_ab_comparison_smoke.py（落盘）+ ci/g10_gap_registry_smoke.py 门
+// （symbolic key g10.p0.m140.gap_registry，G10.1 冻结字面不动）。
+fn main() {}

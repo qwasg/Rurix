@@ -1,0 +1,9 @@
+//@ spec: RXS-0391
+// G10.5b spec-first 锚定语料（spec/visual_comparison.md RXS-0391 L2/L5/L7：
+// 缺归属/缺承接锚行即 RED——差距项缺 ue5_module_primary、枚举闭集外模块值、
+// 或 ue5_module_primary 取 Other 终值而 attribution_note 缺失/为空、或
+// g11_anchor 空串，门必须检出；Other 行计数进 evidence 防滥用）。
+// 预期 RED：缺归属/闭集外模块/Other 无 note/缺承接锚 →
+// g10.p0.m140.gap_registry FAIL。
+// 转正路径（G10.5b 波接线）：ci/g10_gap_registry_smoke.py 门内注入臂。
+fn main() {}
