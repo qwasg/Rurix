@@ -37,7 +37,16 @@
 //! g10_5_scene_render --project-landmarks --contract <params.json> --landmarks <landmarks.json>
 //! g10_5_scene_render --derive-ldr --hdr <frame.exr> --source-end <rurix|ue5> \
 //!     --out <ldr.exr> --exposure-scale <f64>
+//! g10_5_scene_render --benchmark --gltf <scene.gltf> --contract <params.json> \
+//!     --scene-id <id> [--warmup <n=10>] [--frames <n=150>]
 //! ```
+//!
+//! `--benchmark`（G10.5b M141 帧率基线采样面，加性子模式，既有四面 0-byte）：
+//! 场景装载 + GiScene 构建一次后置 warmup ≥10 帧（丢弃）+ N 帧计时渲染，
+//! 逐帧墙钟毫秒（`Instant`，host CPU 管线口径）+ 逐帧内容 digest 集合
+//! （确定性计数面）+ 首帧 digest（== A/B 库帧 digest 机核锚，release
+//! profile 实测逐位复现 c2000ebf…/8519cc67…）单行 JSON 输出；只测量不
+//! 定档（G10 零帧率通过线）。
 //!
 //! Assisted-by: Kimi-K3（G10.5a 波）
 
@@ -564,15 +573,15 @@ fn node_local_m4(node: &JsonValue) -> Result<M4, String> {
     }
     let t = node
         .get("translation")
-        .and_then(|v| json_f64_arr3(v))
+        .and_then(json_f64_arr3)
         .unwrap_or([0.0, 0.0, 0.0]);
     let q = node
         .get("rotation")
-        .and_then(|v| json_f64_arr4(v))
+        .and_then(json_f64_arr4)
         .unwrap_or([0.0, 0.0, 0.0, 1.0]);
     let s = node
         .get("scale")
-        .and_then(|v| json_f64_arr3(v))
+        .and_then(json_f64_arr3)
         .unwrap_or([1.0, 1.0, 1.0]);
     let mut m = quat_to_m4(&q);
     for r in 0..3 {
@@ -680,11 +689,11 @@ fn load_gltf_scene(path: &Path) -> Result<SceneLoad, String> {
         // 找父（O(n²) 可接受：节点千级）
         let mut parent = None;
         for (i, n) in nodes.iter().enumerate() {
-            if let Some(ch) = n.get("children").and_then(|v| v.as_array()) {
-                if ch.iter().any(|c| c.as_u32() == Some(idx as u32)) {
-                    parent = Some(i);
-                    break;
-                }
+            if let Some(ch) = n.get("children").and_then(|v| v.as_array())
+                && ch.iter().any(|c| c.as_u32() == Some(idx as u32))
+            {
+                parent = Some(i);
+                break;
             }
         }
         let w = match parent {
@@ -1157,5 +1166,103 @@ fn main() {
         std::process::exit(0);
     }
 
-    fail("未知模式（--contract-digest / --render / --project-landmarks / --derive-ldr）");
+    if args.iter().any(|a| a == "--benchmark") {
+        let mut gltf_path = None;
+        let mut contract_path = None;
+        let mut scene_id = None;
+        let mut warmup = 10usize;
+        let mut frames = 150usize;
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--gltf" => gltf_path = Some(take_arg(&args, &mut i)),
+                "--contract" => contract_path = Some(take_arg(&args, &mut i)),
+                "--scene-id" => scene_id = Some(take_arg(&args, &mut i)),
+                "--warmup" => {
+                    warmup = take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--warmup 非 usize"))
+                }
+                "--frames" => {
+                    frames = take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--frames 非 usize"))
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        if frames == 0 {
+            fail("--frames 须 ≥1");
+        }
+        let text = std::fs::read_to_string(contract_path.unwrap())
+            .unwrap_or_else(|e| fail(&format!("契约参数读取失败: {e}")));
+        let c = parse_contract(&text).unwrap_or_else(|e| fail(&e));
+        let digest = param_digest(&c);
+        let scene_id = scene_id.unwrap_or_else(|| fail("缺 --scene-id"));
+        let load = load_gltf_scene(Path::new(&gltf_path.unwrap()))
+            .unwrap_or_else(|e| fail(&format!("场景装载失败: {e}")));
+        let sun_toward = [
+            -c.sun_direction[0],
+            -c.sun_direction[1],
+            -c.sun_direction[2],
+        ];
+        let sun_color = [
+            (c.sun_color[0] * c.sun_intensity_lux) as f32,
+            (c.sun_color[1] * c.sun_intensity_lux) as f32,
+            (c.sun_color[2] * c.sun_intensity_lux) as f32,
+        ];
+        let sky_i = c.sky_intensity as f32;
+        let scene = GiScene::build(
+            &load.instances,
+            f32v(sun_toward),
+            sun_color,
+            [sky_i, sky_i, sky_i],
+        );
+        let camera = contract_camera(&c);
+        let mut warmup_ms = Vec::with_capacity(warmup);
+        for _ in 0..warmup {
+            let t = std::time::Instant::now();
+            let _ = render_frame(&scene, &camera, &c);
+            warmup_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        let mut frame_ms = Vec::with_capacity(frames);
+        let mut digest_set = std::collections::BTreeSet::new();
+        let mut first_digest = String::new();
+        let mut covered = 0usize;
+        for k in 0..frames {
+            let t = std::time::Instant::now();
+            let fr = render_frame(&scene, &camera, &c);
+            frame_ms.push(t.elapsed().as_secs_f64() * 1000.0);
+            let d = frame_content_digest(c.res_w, c.res_h, 3, &fr.pixels);
+            if k == 0 {
+                first_digest = d.clone();
+                covered = fr.covered;
+            }
+            digest_set.insert(d);
+        }
+        let fmt_ms = |v: &[f64]| {
+            v.iter()
+                .map(|x| format!("{x:?}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let profile = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
+        println!(
+            "{{\"scene_id\":\"{scene_id}\",\"param_digest\":\"sha256:{digest}\",\"profile\":\"{profile}\",\"warmup_count\":{warmup},\"timed_count\":{frames},\"warmup_ms\":[{}],\"frame_ms\":[{}],\"first_frame_digest\":\"{first_digest}\",\"distinct_frame_digests\":{},\"covered_px\":{covered},\"triangles\":{}}}",
+            fmt_ms(&warmup_ms),
+            fmt_ms(&frame_ms),
+            digest_set.len(),
+            load.triangle_count
+        );
+        std::process::exit(0);
+    }
+
+    fail(
+        "未知模式（--contract-digest / --render / --project-landmarks / --derive-ldr / --benchmark）",
+    );
 }

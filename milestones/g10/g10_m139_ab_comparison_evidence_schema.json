@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.5 M139 ab_comparison evidence",
+  "description": "evidence/g10_m139_ab_comparison_<UTC>.json。G10.5 P0 硬门 g10.p0.m139.ab_comparison（步骤 188；G10_CONTRACT §4.2 M139 行 / G-G10-7；G10_ACCEPTANCE_MAP §1 M139 行 + §3.2/§3.3；RFC-0026 §4.4/§4.5/§4.6 + §4.0 不变量 4；spec/visual_comparison.md RXS-0386/RXS-0390/RXS-0391）。host+device 门（device_section_state=executed——UE 真跑经 M130 g10.5 腿子进程自持 gpu_device_lock 串行，本门不嵌套持锁 D5 定案）：门序三重绑定机器核验（当次 session M130 g10.5 腿真跑 + 内嵌双端 digest == M130 最新 evidence param_digest ∧ 同 base_commit ∧ 同 session_run_id，不等仍出报告即 RED）+ 场景全集双端四组帧齐备/逐位复现（Rurix HDR release 重渲染 digest == 库帧 + LDR 派生逐字节复现 + UE HDR unreal/build == M128 登记 ue_build_id + 双端 HDR 内容 digest == G10.5a 注册常量；单端缺帧聚合 PASS 即 RED）+ LDR 臂 FLIP/SSIM/PSNR 重算 == G10.5a golden 逐位 + 逐像素 diff 报告重跑独立重算三面一致（H1 修订后 domain==display-referred-ldr 互证）+ 差距清单 11 项 RXS-0391 schema 装配落盘（幂等复核）+ RED 五臂（缺场景行/单端缺帧/口径漂移/digest 不等出报告阻断/陈旧绑定冒充全检出）。G10 零通过线维持——全部数字 measured_local 登记，不设画质通过判据。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "ab_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m139_ab_comparison" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m139.ab_comparison" },
+    "matrix_row": { "type": "string", "const": "M139" },
+    "milestone": { "type": "string", "const": "M139" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m139.ab_comparison" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.5" },
+    "numeric_step": { "type": "integer", "const": 188 },
+    "source_ref": {
+      "type": "string",
+      "const": "G10_CONTRACT §4.2 M139 + G-G10-7;G10_ACCEPTANCE_MAP §1 M139 + §3.2/§3.3;RFC-0026 §4.4/§4.5/§4.6 + §4.0 不变量 4;spec/visual_comparison.md RXS-0386/RXS-0390/RXS-0391"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "executed" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_rxs0391_clause_on_tree",
+        "m130_g10_5_leg_fresh_pass",
+        "three_binding_verified",
+        "dual_end_frames_present_full_scene_set",
+        "rurix_frames_reproduced_bit_exact",
+        "ldr_derivation_reproduced_bit_exact",
+        "ue_frames_provenance_and_digest_match",
+        "derivation_chain_metadata_consistent",
+        "metric_report_recomputed_golden",
+        "diff_reports_regenerated_consistent",
+        "gap_registry_materialized_valid",
+        "red_missing_scene_row_detected",
+        "red_single_end_missing_frame_detected",
+        "red_caliber_drift_detected",
+        "red_digest_unequal_report_blocked",
+        "red_stale_binding_detected"
+      ],
+      "properties": {
+        "spec_rxs0391_clause_on_tree": { "type": "boolean" },
+        "m130_g10_5_leg_fresh_pass": { "type": "boolean" },
+        "three_binding_verified": { "type": "boolean" },
+        "dual_end_frames_present_full_scene_set": { "type": "boolean" },
+        "rurix_frames_reproduced_bit_exact": { "type": "boolean" },
+        "ldr_derivation_reproduced_bit_exact": { "type": "boolean" },
+        "ue_frames_provenance_and_digest_match": { "type": "boolean" },
+        "derivation_chain_metadata_consistent": { "type": "boolean" },
+        "metric_report_recomputed_golden": { "type": "boolean" },
+        "diff_reports_regenerated_consistent": { "type": "boolean" },
+        "gap_registry_materialized_valid": { "type": "boolean" },
+        "red_missing_scene_row_detected": { "type": "boolean" },
+        "red_single_end_missing_frame_detected": { "type": "boolean" },
+        "red_caliber_drift_detected": { "type": "boolean" },
+        "red_digest_unequal_report_blocked": { "type": "boolean" },
+        "red_stale_binding_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "ab_report": {
+      "type": "object",
+      "description": "A/B 对比报告：three_binding（param_digest 三面 + session_run_id + base_commit + M130 evidence 路径）+ 逐场景 metrics/hdr_stats/ldr_stats/metric_report_digest/diff_report_digest/diff_scalars + metric_caliber（含 digest）+ gap_registry（路径/digest/项数/kind 分列/Other 行计数）+ probes（探针 artifact digest）+ artifact_digests（差距清单 measured_delta 回溯登记集）+ zero_pass_line 字面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "spec_rxs0391_clause_on_tree": { "const": true },
+              "m130_g10_5_leg_fresh_pass": { "const": true },
+              "three_binding_verified": { "const": true },
+              "dual_end_frames_present_full_scene_set": { "const": true },
+              "rurix_frames_reproduced_bit_exact": { "const": true },
+              "ldr_derivation_reproduced_bit_exact": { "const": true },
+              "ue_frames_provenance_and_digest_match": { "const": true },
+              "derivation_chain_metadata_consistent": { "const": true },
+              "metric_report_recomputed_golden": { "const": true },
+              "diff_reports_regenerated_consistent": { "const": true },
+              "gap_registry_materialized_valid": { "const": true },
+              "red_missing_scene_row_detected": { "const": true },
+              "red_single_end_missing_frame_detected": { "const": true },
+              "red_caliber_drift_detected": { "const": true },
+              "red_digest_unequal_report_blocked": { "const": true },
+              "red_stale_binding_detected": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

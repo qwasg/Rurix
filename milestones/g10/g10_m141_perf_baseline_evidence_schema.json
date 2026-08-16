@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G10.5 M141 perf_baseline evidence",
+  "description": "evidence/g10_m141_perf_baseline_<UTC>.json。G10.5 P0 硬门 g10.p0.m141.perf_baseline（步骤 190；G10_CONTRACT §4.2 M141 行 / G-G10-7；G10_ACCEPTANCE_MAP §1 M141 行；14 §5；milestones/m0/BENCH_PROTOCOL.md §2/§3；G10.1 baseline clock_lock_note 先例）。host+device 门（device_section_state=executed——UE 真跑经 g10_5_ue_bench.py 子进程自持 gpu_device_lock 串行）：双端同场景帧率采样（L0 环境验证 → warmup ≥10 → 50×3 trimmed mean → IQR）+ 环境画像随证据存档（env_probe 全字段 + 锁频状态实测登记，未锁频 clock_lock_note 诚实存档沿 G10.1 先例）+ 双端交替采样顺序登记（场景粒度 [rurix/ue5]×双场景，逐腿 UTC 起止）；Rurix 端 release --benchmark 进程内逐帧 Instant 墙钟（首帧 digest == A/B 库帧锚 + distinct==1 确定性断言）、UE 端 MRQ benchmark 逐帧 frameRenderDuration（EXR 头元数据，5.8 源树实证面）；统计面独立第二实现重算核验；未锁频登记缺失/画像缺字段/采样轮数不足冒充三 RED 臂全检出。只建基线数据，不设帧率通过线。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "perf_report",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g10_m141_perf_baseline" },
+    "symbolic_gate_key": { "type": "string", "const": "g10.p0.m141.perf_baseline" },
+    "matrix_row": { "type": "string", "const": "M141" },
+    "milestone": { "type": "string", "const": "M141" },
+    "assertion_id": { "type": "string", "const": "g10.p0.m141.perf_baseline" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G10.5" },
+    "numeric_step": { "type": "integer", "const": 190 },
+    "source_ref": {
+      "type": "string",
+      "const": "G10_CONTRACT §4.2 M141 + G-G10-7;G10_ACCEPTANCE_MAP §1 M141;14 §5;milestones/m0/BENCH_PROTOCOL.md §2/§3;G10.1 baseline clock_lock_note 先例"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "executed" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "l0_environment_profile_complete",
+        "clock_lock_state_registered",
+        "rurix_benchmark_real_run_release",
+        "ue_benchmark_real_run_mrq",
+        "sampling_protocol_rounds_complete",
+        "alternating_sampling_order_registered",
+        "stats_recompute_match",
+        "baseline_values_registered",
+        "red_unlocked_registration_missing_detected",
+        "red_profile_missing_field_detected",
+        "red_round_shortfall_masquerade_detected"
+      ],
+      "properties": {
+        "l0_environment_profile_complete": { "type": "boolean" },
+        "clock_lock_state_registered": { "type": "boolean" },
+        "rurix_benchmark_real_run_release": { "type": "boolean" },
+        "ue_benchmark_real_run_mrq": { "type": "boolean" },
+        "sampling_protocol_rounds_complete": { "type": "boolean" },
+        "alternating_sampling_order_registered": { "type": "boolean" },
+        "stats_recompute_match": { "type": "boolean" },
+        "baseline_values_registered": { "type": "boolean" },
+        "red_unlocked_registration_missing_detected": { "type": "boolean" },
+        "red_profile_missing_field_detected": { "type": "boolean" },
+        "red_round_shortfall_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "perf_report": {
+      "type": "object",
+      "description": "帧率基线报告：sampling_order（双端交替逐腿 UTC 起止）+ legs（cornell-box/bistro-interior × rurix/ue5：timer/profile/warmup_count/timed_count/samples_ms/blocks/trimmed_mean_ms/fps/cv/ci95_ms/outliers_rejected_iqr/digest 锚）+ stats_caliber 冻结口径 + clock_lock_note 诚实存档 + zero_pass_line 字面",
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version", "gpu"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" },
+        "gpu": {
+          "type": "object",
+          "description": "env_probe.collect_environment() 全字段画像（gpu_name/driver_version/nvml_version/cuda_driver_version/driver_model/hags_enabled/tdr/clocks/thermal/isolation_check/os_build；受限字段降级取值 schema 不变，14 §5）",
+          "additionalProperties": true
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "l0_environment_profile_complete": { "const": true },
+              "clock_lock_state_registered": { "const": true },
+              "rurix_benchmark_real_run_release": { "const": true },
+              "ue_benchmark_real_run_mrq": { "const": true },
+              "sampling_protocol_rounds_complete": { "const": true },
+              "alternating_sampling_order_registered": { "const": true },
+              "stats_recompute_match": { "const": true },
+              "baseline_values_registered": { "const": true },
+              "red_unlocked_registration_missing_detected": { "const": true },
+              "red_profile_missing_field_detected": { "const": true },
+              "red_round_shortfall_masquerade_detected": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

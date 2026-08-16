@@ -47,7 +47,9 @@ pub enum ExrDomain {
 }
 
 impl ExrDomain {
-    fn as_str(self) -> &'static str {
+    /// 域闭集字面（`"scene-linear-hdr"` / `"display-referred-ldr"`）——
+    /// G10.5b 起 pub（M137 diff 报告器 domain 派生消费面，H1 修订；闭集字面不变）。
+    pub fn as_str(self) -> &'static str {
         match self {
             ExrDomain::SceneLinearHdr => "scene-linear-hdr",
             ExrDomain::DisplayReferredLdr => "display-referred-ldr",

@@ -2061,6 +2061,78 @@ jobs:
         shell: powershell
         run: py -3 ci/g10_dual_determinism_contract_smoke.py --gate g10.p0.m130.dual_determinism_contract --phase g10.5
 
+      # 步骤 188（G10.5b M139 A/B 对比门 g10.p0.m139.ab_comparison；G10
+      # CI_GATES §4；G10_ACCEPTANCE_MAP §1 M139 行 + §3.2/§3.3；RFC-0026
+      # §4.4/§4.5/§4.6 + §4.0 不变量 4；spec RXS-0386/RXS-0390/RXS-0391；落盘前
+      # 实测 CI_step.next_free=188 顺位领取）。host+device 门（UE 真跑经 M130
+      # g10.5 腿子进程自持 gpu_device_lock 串行，本门不嵌套持锁 D5 定案）：
+      # 门序三重绑定机器核验（当次 session M130 --phase g10.5 真跑 + host 侧
+      # 联合 param_digest 独立重算对账 == M130 最新 evidence 登记值 ∧ 同
+      # base_commit ∧ 同 session_run_id；不等仍出报告即 RED）+ 场景全集双端
+      # 四组帧齐备（cornell-box + bistro-interior × HDR/LDR × 双端；单端缺帧
+      # 聚合 PASS 即 RED）+ Rurix HDR release 重渲染 digest 逐位复现库帧 +
+      # LDR 派生逐字节复现 + UE HDR unreal/build == M128 登记 ue_build_id +
+      # LDR 臂 FLIP/SSIM/PSNR 重算 == G10.5a golden 逐位 + 逐像素 diff 报告
+      # 重跑独立重算三面一致（H1 修订后 domain==display-referred-ldr 互证）+
+      # 差距清单 11 项（R1~R5/U1~U3/C1~C3）RXS-0391 schema 装配落盘
+      # milestones/g10/g10_gap_registry.json（幂等复核，漂移即 RED）+ RED 五臂
+      # （缺场景行/单端缺帧/口径漂移/digest 不等出报告阻断/陈旧绑定冒充全检出）。
+      # G10 零通过线维持——差距全量登记即绿，不设画质通过判据。evidence 落盘
+      # evidence/g10_m139_ab_comparison_<UTC>.json。
+      - name: G10.5 M139 A/B comparison (G10 CI_GATES §4.188, g10.p0.m139.ab_comparison)
+        shell: powershell
+        run: py -3 ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison
+
+      # 步骤 189（G10.5b M140 差距清单登记门 g10.p0.m140.gap_registry；G10
+      # CI_GATES §4；G10_ACCEPTANCE_MAP §1 M140 行 + §3.2；RFC-0026 §4.5 + §3.3；
+      # spec RXS-0391；落盘前实测 CI_step.next_free=189 顺位领取）。host 纯
+      # host 门：清单每项 UE5 Renderer 模块归属（RXS-0391 L5 枚举闭集——目录级
+      # 23 + 文件级 57 + Other 终值，Other 须 attribution_note 非空且行计数
+      # 登记防滥用）+ measured delta（≥1 项、delta == b_value − a_value f64
+      # 精确重算、evidence_digest 回溯 M139 最新 evidence ab_report.
+      # artifact_digests 登记集——纯叙述无测量即 RED）+ 建议 P 级闭集 +
+      # G11 承接锚非空 + kind 两值分列（caliber_diff = C1~C3 / quality_gap =
+      # R1~R5/U1~U3）+ gap_id 冻结字节规则重算 + 场景全集零空行（scene_summary
+      # 与 M133 冻结清单全等 + no_gap_explicit 显式 + not_ready_scenes 显式
+      # 在列）+ RED 六臂（缺归属/缺承接锚/非 measured 叙述/闭集外模块/场景缺行/
+      # 不可回溯 digest 全检出）。G10 零通过线维持。evidence 落盘
+      # evidence/g10_m140_gap_registry_<UTC>.json。
+      - name: G10.5 M140 gap registry (G10 CI_GATES §4.189, g10.p0.m140.gap_registry)
+        shell: powershell
+        run: py -3 ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry
+
+      # 步骤 190（G10.5b M141 性能对标基线门 g10.p0.m141.perf_baseline；G10
+      # CI_GATES §4；G10_ACCEPTANCE_MAP §1 M141 行；14 §5 + BENCH_PROTOCOL §2/§3；
+      # G10.1 baseline clock_lock_note 先例；落盘前实测 CI_step.next_free=190
+      # 顺位领取）。host+device 门（UE 真跑经 g10_5_ue_bench.py 子进程自持
+      # gpu_device_lock 串行）：双端同场景帧率采样（L0 环境验证 → warmup ≥10 →
+      # 50×3 trimmed mean → IQR）+ 环境画像随证据存档（env_probe 全字段 + 锁频
+      # 状态实测登记，未锁频 clock_lock_note 诚实存档）+ 双端交替采样顺序登记
+      # （场景粒度 [rurix/ue5]×双场景逐腿 UTC 起止）；Rurix 端 release
+      # --benchmark 进程内逐帧 Instant 墙钟（首帧 digest == A/B 库帧锚 +
+      # distinct==1 确定性断言）、UE 端 MRQ benchmark 160 帧（engine warmup 64
+      # + 前 10 帧弃计 + 150 timed）逐帧 frameRenderDuration（EXR 头元数据，
+      # 5.8 源树实证面）；统计面独立第二实现重算核验；未锁频登记缺失/画像缺
+      # 字段/采样轮数不足冒充三 RED 臂全检出。只建基线数据，不设帧率通过线。
+      # evidence 落盘 evidence/g10_m141_perf_baseline_<UTC>.json。
+      - name: G10.5 M141 perf baseline (G10 CI_GATES §4.190, g10.p0.m141.perf_baseline)
+        shell: powershell
+        run: py -3 ci/g10_perf_baseline_smoke.py --gate g10.p0.m141.perf_baseline
+
+      # 步骤 191（G10.5b 波聚合门 g10.wave.5.exit；G10 CI_GATES §5；落盘前实测
+      # CI_step.next_free=191 顺位领取）：M139（步骤 188）/M140（步骤 189）/
+      # M141（步骤 190）+ M130 双端核验腿（--phase g10.5 步骤 187，须 status==pass
+      # 且 phase_g10_5_pass==true，MAP §3.3）最新 evidence 只读汇总 + spec 条款头
+      # 在树（visual_comparison.md RXS-0391 + RXS-0390/RXS-0384，共 3 枚）+
+      # RFC-0026/0027 双 Agent Approved 字面 + 门序三重绑定留痕（M139 内嵌
+      # three_binding == M130 g10.5 最新 evidence 登记面逐字相等）+ 差距清单
+      # 场景全集零空行（not_ready 行显式在列 + 清单 digest 无漂移）+ 三门 RED 臂
+      # 独立有效（共 14 臂）；聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL。
+      # evidence 落盘 evidence/g10_wave5_exit_<UTC>.json。
+      - name: G10.5 wave5 exit aggregate (G10 CI_GATES §5.191, g10.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g10_wave5_exit_check.py --gate g10.wave.5.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

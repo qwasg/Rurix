@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "registry": "g10_gap_registry",
+  "generated_by": "ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison",
+  "scene_set": [
+    "cornell-box",
+    "bistro-interior"
+  ],
+  "items": [
+    {
+      "gap_id": "ea68ebb265cb2bd5",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "display-referred-ldr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/BasePassRendering.cpp",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/Substrate",
+        "Engine/Source/Runtime/Renderer/Private/MaterialCache"
+      ],
+      "measured_delta": [
+        {
+          "metric": "ssim@bistro-interior(ldr)",
+          "a_value": 0.16710192121627712,
+          "b_value": 1.0,
+          "delta": 0.8328980787837229,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        }
+      ],
+      "suggested_priority": "P0",
+      "g11_anchor": "G11 立项承接：R1 材质子集仅逐图元 baseColorFactor（Lambert），baseColorTexture/法线/metallic-roughness 不采样（只消费 G10.8b 锁定清单 R1 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "R1 材质子集仅逐图元 baseColorFactor（Lambert），baseColorTexture/法线/metallic-roughness 不采样",
+      "description": "Rurix 侧渲染缺口（g10_5_scene_render 头注诚实边界）：bistro Rurix 帧近灰白（纹理所载色彩全缺）；G10.3 已登记 DDS 解码归后续波次。measured 锚 = bistro LDR SSIM 实测值 vs 恒等极值 1.0（a=实测对拍值，b=恒等参考——结构性内容缺失主导的结构相似度塌陷）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    },
+    {
+      "gap_id": "aa64a7a22dc16a0e",
+      "scene_id": "cornell-box",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/BasePassRendering.cpp",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/SceneVisibility.cpp"
+      ],
+      "measured_delta": [
+        {
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "a_value": 0.9290046691894531,
+          "b_value": 0.1838836669921875,
+          "delta": -0.7451210021972656,
+          "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G11 立项承接：R2 几何法线（winding 朝向 + 双面翻转），平滑法线不消费（只消费 G10.8b 锁定清单 R2 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "R2 几何法线（winding 朝向 + 双面翻转），平滑法线不消费",
+      "description": "Rurix 侧渲染缺口：cornell 壳体单面片外向绕向被双面口径吞没（UE 侧同内容被背面剔除——口径交互差见 U1/C 族）。measured 锚 = cornell HDR 覆盖 nonzero 比双端实测（a=rurix，b=ue5）。",
+      "attachments": [
+        "sha256:3b3d6065755c8a90b03bb5b9b2bf161debd9ccdd7b148768e52a8c7728330a60",
+        "sha256:6dd9c77811f35ed4e72d0c4855f7f5dbe50925e50b87f0b1a9b4e56d27786ce1"
+      ]
+    },
+    {
+      "gap_id": "60a3ac2d1711912a",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/LightRendering.cpp",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/MegaLights"
+      ],
+      "measured_delta": [
+        {
+          "metric": "hdr_luminance_median@bistro-interior",
+          "a_value": 0.1333588808774948,
+          "b_value": 2.798138671875,
+          "delta": 2.664779790997505,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        }
+      ],
+      "suggested_priority": "P0",
+      "g11_anchor": "G11 立项承接：R3 灯种子集 = 契约 sun + sky 常量天光；点/面光源与 glTF emissive 不表达（只消费 G10.8b 锁定清单 R3 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "R3 灯种子集 = 契约 sun + sky 常量天光；点/面光源与 glTF emissive 不表达",
+      "description": "Rurix 侧渲染缺口：bistro 包内 pointLight1~N（glTF 节点实测 4+ 盏）与 emissive surfaces 不表达；cornell 语料点光源按契约降为 sun+sky。measured 锚 = bistro HDR 亮度中位双端实测（a=rurix，b=ue5；≈21× 主差见 C1）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    },
+    {
+      "gap_id": "865d452e76fbaa45",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Lumen",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/ScreenSpaceDenoise.cpp"
+      ],
+      "measured_delta": [
+        {
+          "metric": "hdr_luminance_p90@bistro-interior",
+          "a_value": 0.30276253819465637,
+          "b_value": 5.000015625,
+          "delta": 4.697253086805343,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        }
+      ],
+      "suggested_priority": "P0",
+      "g11_anchor": "G11 立项承接：R4 GI = 屏幕探针单反弹（host 参考管线），非 Lumen 等效宣称（只消费 G10.8b 锁定清单 R4 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "R4 GI = 屏幕探针单反弹（host 参考管线），非 Lumen 等效宣称",
+      "description": "Rurix 侧渲染缺口：bistro Rurix 帧高噪声（单反弹 + 有限样本）；measured 锚 = bistro HDR 亮度 p90 双端实测（a=rurix，b=ue5；GI/天光口径差主因之一，见 C1）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    },
+    {
+      "gap_id": "4fc5507c595f6c35",
+      "scene_id": "cornell-box",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Other",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "contract_seed_u64_max_rejection",
+          "a_value": 9.223372036854776e+18,
+          "b_value": 1.8446744073709552e+19,
+          "delta": 9.223372036854776e+18,
+          "evidence_digest": "sha256:9e302e054fe953d7d5b69ec49a43cf6e0ded49f0a698dd8857f5c7f6e1beb4c6"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G11 立项承接：R5 JSON 整数解析经 i64（u64 顶格 seed 被 fail-closed 拒绝）（只消费 G10.8b 锁定清单 R5 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "R5 JSON 整数解析经 i64（u64 顶格 seed 被 fail-closed 拒绝）",
+      "description": "Rurix 侧 harness 解析面缺口：契约 time.random_seed 取 u64 顶格值时 Rust 消费面（g10_5_scene_render，i64 域解析）fail-closed 拒绝；本波契约 seed=42 不触面。measured 锚 = u64 顶格 seed 注入探针：a=i64 域上界（f64），b=u64 顶格（f64），Rust 端拒绝实测（exit≠0）。",
+      "attachments": [
+        "sha256:3b3d6065755c8a90b03bb5b9b2bf161debd9ccdd7b148768e52a8c7728330a60",
+        "sha256:6dd9c77811f35ed4e72d0c4855f7f5dbe50925e50b87f0b1a9b4e56d27786ce1"
+      ],
+      "attribution_note": "Rurix 侧 harness JSON 解析面（i64 域），无 UE5 Renderer 模块对应——Other 终值按 RXS-0391 L5 登记并入计数。"
+    },
+    {
+      "gap_id": "03cac13af56a53cf",
+      "scene_id": "cornell-box",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/SceneVisibility.cpp",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/GPUScene.cpp"
+      ],
+      "measured_delta": [
+        {
+          "metric": "hdr_nonzero_ratio@cornell-box",
+          "a_value": 0.9290046691894531,
+          "b_value": 0.1838836669921875,
+          "delta": -0.7451210021972656,
+          "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4"
+        }
+      ],
+      "suggested_priority": "P0",
+      "g11_anchor": "G11 立项承接：U1 cornell 壳体（墙/顶/地板）零辐射：语料单面片外向绕向 × UE 背面剔除口径（只消费 G10.8b 锁定清单 U1 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "U1 cornell 壳体（墙/顶/地板）零辐射：语料单面片外向绕向 × UE 背面剔除口径",
+      "description": "UE 侧场景面缺口：语料单面片外向 CCW × UE 背面剔除 → UE 帧仅双块可见；Rurix 同内容双面着色口径 92.90% 覆盖。内容/口径交互差，G10 零修复不改语料不改渲染器。measured 锚 = cornell HDR 覆盖 nonzero 比双端实测（a=rurix，b=ue5）。",
+      "attachments": [
+        "sha256:3b3d6065755c8a90b03bb5b9b2bf161debd9ccdd7b148768e52a8c7728330a60",
+        "sha256:6dd9c77811f35ed4e72d0c4855f7f5dbe50925e50b87f0b1a9b4e56d27786ce1"
+      ]
+    },
+    {
+      "gap_id": "6311bc89b610e019",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "display-referred-ldr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/BasePassRendering.cpp",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/MaterialCache"
+      ],
+      "measured_delta": [
+        {
+          "metric": "ldr_luminance_median@bistro-interior",
+          "a_value": 0.16252008080482483,
+          "b_value": 0.9324080557703971,
+          "delta": 0.7698879749655723,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        }
+      ],
+      "suggested_priority": "P0",
+      "g11_anchor": "G11 立项承接：U2 bistro 纹理全缺：包内 .dds 纹理 Interchange 不支持，材质实例 texture_parameter_values 空（只消费 G10.8b 锁定清单 U2 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "U2 bistro 纹理全缺：包内 .dds 纹理 Interchange 不支持，材质实例 texture_parameter_values 空",
+      "description": "UE 侧场景面缺口：UE bistro 帧近纯白洗涤态（albedo 全 ≈ 白）；导入错误日志 LogInterchangeEngine 逐条在案。measured 锚 = bistro LDR 亮度中位双端实测（a=rurix，b=ue5，UE 帧近纯白抬升）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    },
+    {
+      "gap_id": "0b7c50151f24137e",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "quality_gap",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Other",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "gltf_animation_channels_unconsumed@bistro-interior",
+          "a_value": 0.0,
+          "b_value": 2.0,
+          "delta": 2.0,
+          "evidence_digest": "sha256:ad95e5bf71048bb4ad77b99354a0273f868a0ec2d9a09792e552bffad78ce785"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G11 立项承接：U3 Bistro 动画 Take 001 / glTF 相机节点不引用（动画剥离）（只消费 G10.8b 锁定清单 U3 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "U3 Bistro 动画 Take 001 / glTF 相机节点不引用（动画剥离）",
+      "description": "UE 侧场景面缺口：动画剥离（build_scenes 头注登记），相机采用 glTF 静态节点位姿（corpus 校准登记）。measured 锚 = bistro glTF 包内动画通道计数实测（a=双端消费数 0，b=包内实测动画通道数）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ],
+      "attribution_note": "动画/Sequencer 面缺口，无 UE5 Renderer 模块对应——Other 终值按 RXS-0391 L5 登记并入计数。"
+    },
+    {
+      "gap_id": "62692bbd57d731c3",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Lumen",
+      "ue5_module_secondary": [
+        "Engine/Source/Runtime/Renderer/Private/SkyPassRendering.cpp"
+      ],
+      "measured_delta": [
+        {
+          "metric": "hdr_luminance_median@bistro-interior",
+          "a_value": 0.1333588808774948,
+          "b_value": 2.798138671875,
+          "delta": 2.664779790997505,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        },
+        {
+          "metric": "hdr_luminance_p90@cornell-box(rurix×2^-EV100)",
+          "a_value": 0.3039876311600208,
+          "b_value": 0.59423720703125,
+          "delta": 0.29024957587122924,
+          "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4",
+          "region_ref": "scene:cornell-box"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G11 立项承接：C1 室内亮度主差：GI/天光遮蔽口径差（UE SkyLight 指定 cubemap 全向 IBL vs Rurix 屏幕探针单反弹）+ 太阳 lux→辐射度链差（只消费 G10.8b 锁定清单 C1 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "C1 室内亮度主差：GI/天光遮蔽口径差（UE SkyLight 指定 cubemap 全向 IBL vs Rurix 屏幕探针单反弹）+ 太阳 lux→辐射度链差",
+      "description": "口径差（不拟合、只登记）：bistro HDR 中位 UE vs Rurix ≈21×；cornell 块区 p90 UE vs Rurix ×2^(−EV100) 后 ≈1.95×。measured 锚 = 两条目双端 HDR 亮度实测（a=rurix，b=ue5；cornell 行 a 含 ×2^(−EV100) 派生尺度，见 C2）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    },
+    {
+      "gap_id": "afba0e189a607ce2",
+      "scene_id": "cornell-box",
+      "camera_id": "g10_contract_camera",
+      "domain": "display-referred-ldr",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "ldr_derivation_exposure_scale@cornell-box",
+          "a_value": 0.25,
+          "b_value": 1.0,
+          "delta": 0.75,
+          "evidence_digest": "sha256:ae78312e26a5ae47e4ea1ddb878b3fd3919ea589e3514393fc51d4e075ddd6d4"
+        },
+        {
+          "metric": "ldr_derivation_exposure_scale@bistro-interior",
+          "a_value": 0.5,
+          "b_value": 1.0,
+          "delta": 0.5,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+          "region_ref": "scene:bistro-interior"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G11 立项承接：C2 曝光链：双端 EV100 同字面；Rurix 臂派生尺度 = 2^(−EV100)，UE 臂 pipe 内手动曝光已施（FixedExposure=2^(−EV100) 源码实证）派生尺度 ×1.0（只消费 G10.8b 锁定清单 C2 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "C2 曝光链：双端 EV100 同字面；Rurix 臂派生尺度 = 2^(−EV100)，UE 臂 pipe 内手动曝光已施（FixedExposure=2^(−EV100) 源码实证）派生尺度 ×1.0",
+      "description": "口径差：派生链参数登记（a=Rurix 臂派生尺度，b=UE 臂派生尺度；cornell 0.25/1.0、bistro 0.5/1.0 双场景实测登记）。",
+      "attachments": [
+        "sha256:3b3d6065755c8a90b03bb5b9b2bf161debd9ccdd7b148768e52a8c7728330a60",
+        "sha256:6dd9c77811f35ed4e72d0c4855f7f5dbe50925e50b87f0b1a9b4e56d27786ce1"
+      ]
+    },
+    {
+      "gap_id": "cc2b9ec7f19f0dad",
+      "scene_id": "bistro-interior",
+      "camera_id": "g10_contract_camera",
+      "domain": "scene-linear-hdr",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/HdrCustomResolveShaders.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "exr_source_bit_depth@bistro-interior",
+          "a_value": 32.0,
+          "b_value": 16.0,
+          "delta": -16.0,
+          "evidence_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G11 立项承接：C3 UE EXR 位深 fp16 → f32 提升（RXS-0385 strip-and-log）；Rurix 原生 f32（只消费 G10.8b 锁定清单 C3 行 + 本锚；G10 零修复纪律不回头改 G10 帧库）",
+      "title": "C3 UE EXR 位深 fp16 → f32 提升（RXS-0385 strip-and-log）；Rurix 原生 f32",
+      "description": "口径差（M134 既定口径沿用）：源帧位深双端实测（a=rurix 原生 f32=32，b=ue5 MRQ fp16=16；双场景同口径，主行挂 bistro 1080p 帧实测面）。",
+      "attachments": [
+        "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+        "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666"
+      ]
+    }
+  ],
+  "scene_summary": [
+    {
+      "scene_id": "cornell-box",
+      "gap_count": 4,
+      "no_gap_explicit": false
+    },
+    {
+      "scene_id": "bistro-interior",
+      "gap_count": 7,
+      "no_gap_explicit": false
+    }
+  ],
+  "not_ready_scenes": []
+}

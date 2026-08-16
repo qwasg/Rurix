@@ -22,6 +22,12 @@
 //! camera_id 空串即 fail-closed）；thresholds 以 provisional 形态登记
 //! （`source="provisional_pending_m138"`，M138 正式入 g10_budget 后翻转）。
 //!
+//! **G10.5b H1 修订**：evidence `domain` 字段由硬编码 `"scene-linear-hdr"`
+//! 改为自输入帧元数据派生（`md_a.domain.as_str()`；双帧域不一致本已
+//! fail-closed）——LDR 帧对消费面（M139 A/B 臂）报告域标签与输入域
+//! 互证（RXS-0386 L1），G10.5a 预演 H1 标注兑现；误差数值口径 0-byte
+//! 不变。
+//!
 //! ## 用法
 //!
 //! ```text
@@ -513,7 +519,7 @@ fn main() {
         frame_b_digest
     ));
     j.push_str("  },\n");
-    j.push_str(&format!("  \"domain\": \"{}\",\n", "scene-linear-hdr"));
+    j.push_str(&format!("  \"domain\": \"{}\",\n", md_a.domain.as_str()));
     j.push_str(&format!(
         "  \"metric_caliber\": \"{}\",\n",
         metric_caliber_digest()

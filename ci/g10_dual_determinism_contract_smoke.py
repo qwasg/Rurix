@@ -603,15 +603,21 @@ def load_latest_g10_5_evidence() -> dict | None:
 
 def verify_three_binding(evidence: dict, param_digest: str, session_run_id: str, base_commit: str) -> bool:
     """三重绑定机器核验（RFC-0026 §4.6 / §4.0 不变量 4；M139 机器前置消费面）：
-    (a) evidence 双端 digest 相等 ∧ == 当次 param_digest；
+    (a) evidence 双端 digest 相等（param_digest_rurix == param_digest_ue5）；
     (b) evidence status==pass 且 phase_g10_5_pass==true；
-    (c) 同 base_commit 同 session_run_id（陈旧 pass 不得冒充当次一致）。"""
+    (c) 同 base_commit 同 session_run_id（陈旧 pass 不得冒充当次一致）。
+    双场景口径（G10.5b 修订）：登记面 param_digest = 双场景联合值（字典序拼接
+    sha256），param_digest_rurix/ue5 = 首场景双端 digest——(a) 只断言双端相等
+    （RFC「且二者相等」字面），不断言等于联合值；入参 param_digest 比对面 =
+    evidence 登记的联合 param_digest（(b) 语义由 M139 门独立重算联合值后对账）。
+    G10.5a 形态（rurix==ue5==入参）在联合值 ≠ 首场景 digest 时对本门自身
+    g10.5 evidence 恒假——过严，本修订回 RFC 字面。"""
     if evidence.get("status") != "pass" or evidence.get("phase_g10_5_pass") is not True:
         return False
     rep = evidence.get("contract_report", {})
     if rep.get("param_digest") != param_digest or not param_digest:
         return False
-    if rep.get("param_digest_rurix") != param_digest or rep.get("param_digest_ue5") != param_digest:
+    if rep.get("param_digest_rurix") != rep.get("param_digest_ue5") or not rep.get("param_digest_rurix"):
         return False
     if evidence.get("base_commit") != base_commit:
         return False

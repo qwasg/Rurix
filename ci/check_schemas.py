@@ -493,6 +493,18 @@ def check_evidence_files() -> None:
     g10_wave4_exit_schema = load(
         ROOT / "milestones/g10/g10_wave4_exit_evidence_schema.json"
     )
+    g10_m139_ab_comparison_schema = load(
+        ROOT / "milestones/g10/g10_m139_ab_comparison_evidence_schema.json"
+    )
+    g10_m140_gap_registry_schema = load(
+        ROOT / "milestones/g10/g10_m140_gap_registry_evidence_schema.json"
+    )
+    g10_m141_perf_baseline_schema = load(
+        ROOT / "milestones/g10/g10_m141_perf_baseline_evidence_schema.json"
+    )
+    g10_wave5_exit_schema = load(
+        ROOT / "milestones/g10/g10_wave5_exit_evidence_schema.json"
+    )
     g9_m102_dgc_abstraction_schema = load(
         ROOT / "milestones/g9/g9_m102_dgc_abstraction_evidence_schema.json"
     )
@@ -1147,6 +1159,26 @@ def check_evidence_files() -> None:
     g10_wave4_exit_validator = (
         jsonschema.Draft7Validator(g10_wave4_exit_schema)
         if g10_wave4_exit_schema is not None
+        else None
+    )
+    g10_m139_ab_comparison_validator = (
+        jsonschema.Draft7Validator(g10_m139_ab_comparison_schema)
+        if g10_m139_ab_comparison_schema is not None
+        else None
+    )
+    g10_m140_gap_registry_validator = (
+        jsonschema.Draft7Validator(g10_m140_gap_registry_schema)
+        if g10_m140_gap_registry_schema is not None
+        else None
+    )
+    g10_m141_perf_baseline_validator = (
+        jsonschema.Draft7Validator(g10_m141_perf_baseline_schema)
+        if g10_m141_perf_baseline_schema is not None
+        else None
+    )
+    g10_wave5_exit_validator = (
+        jsonschema.Draft7Validator(g10_wave5_exit_schema)
+        if g10_wave5_exit_schema is not None
         else None
     )
     g9_m102_dgc_abstraction_validator = (
@@ -2297,6 +2329,38 @@ def check_evidence_files() -> None:
             # evidence 只读汇总 + RXS-0385~0389 条款头 + RFC-0026 Approved +
             # 标定值入 budget provenance + 四门 RED 臂独立有效)。
             validator = g10_wave4_exit_validator
+        elif (
+            f.name.startswith("g10_m139_ab_comparison_")
+            and g10_m139_ab_comparison_validator is not None
+        ):
+            # G10.5 M139 A/B 对比门(步骤 188;ci/g10_ab_comparison_smoke.py 写:
+            # 门序三重绑定同 session 机核 + 双端四组帧齐备/逐位复现 + 度量
+            # golden 逐位复核 + diff 三面重算 + 差距清单 11 项落盘 + RED 五臂)。
+            validator = g10_m139_ab_comparison_validator
+        elif (
+            f.name.startswith("g10_m140_gap_registry_")
+            and g10_m140_gap_registry_validator is not None
+        ):
+            # G10.5 M140 差距清单登记门(步骤 189;ci/g10_gap_registry_smoke.py
+            # 写:RXS-0391 字段闭集 + UE5 模块归属枚举 + measured 回溯 + kind
+            # 分列 + 场景零空行 + RED 六臂)。前缀与 g10_m139_* 互不包含。
+            validator = g10_m140_gap_registry_validator
+        elif (
+            f.name.startswith("g10_m141_perf_baseline_")
+            and g10_m141_perf_baseline_validator is not None
+        ):
+            # G10.5 M141 性能对标基线门(步骤 190;ci/g10_perf_baseline_smoke.py
+            # 写:14 §5 采样 + 画像齐备 + 交替顺序登记 + 统计重算 + RED 三臂;
+            # 只建基线不设帧率通过线)。
+            validator = g10_m141_perf_baseline_validator
+        elif (
+            f.name.startswith("g10_wave5_exit_")
+            and g10_wave5_exit_validator is not None
+        ):
+            # G10.5 波聚合门(步骤 191;ci/g10_wave5_exit_check.py 写:四门最新
+            # evidence 只读汇总〔含 M130 --phase g10.5 腿〕+ RXS-0391 条款头 +
+            # RFC-0026/0027 Approved + 三重绑定留痕 + 清单零空行 + RED 臂有效)。
+            validator = g10_wave5_exit_validator
         elif (
             f.name.startswith("g9_m102_dgc_abstraction_")
             and g9_m102_dgc_abstraction_validator is not None
