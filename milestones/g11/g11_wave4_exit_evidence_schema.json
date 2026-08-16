@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G11.4 wave4.exit evidence",
+  "description": "evidence/g11_wave4_exit_<UTC>.json。G11.4 波次聚合门 g11.wave.4.exit（步骤 210；milestones/g11/CI_GATES.md §5；G11_CONTRACT G-G11-6）：G11.4 波两门最新 evidence 只读汇总——M153 R3 灯种子集（步骤 208）/ M154 R4 多反弹 GI + 世界级辐射缓存（步骤 209）——+ 六 facts：契约 digest 0-byte / 两门 RED 臂独立有效 / 标定三条 g11.fix.r3|r4 入 g11_budget 且 provenance 齐备（P-09）/ spec-first 面（RXS-0394~0396 条款头 + RXS-0396 世界级翻转修订行 + RXS-0360 0-byte + RFC-0028 Approved）/ 回归前置自检（48 门 + 默认面 parity）/ M96 门序 + R1 耦合面复核登记。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g11_wave4_exit"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g11.wave.4.exit"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G11.4"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G11.4"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 210
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g11/CI_GATES.md §5;G11_CONTRACT G-G11-6;G11_ACCEPTANCE_MAP §1;two gates red arms independently effective;calibrated thresholds in g11_budget with provenance (P-09);spec-first RXS-0394~0396 + RXS-0360 flip revision line;regression precheck green;M96 gate ordering (RXS-0357 L6)"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "symbolic_gate_key",
+          "status"
+        ],
+        "properties": {
+          "symbolic_gate_key": {
+            "type": "string"
+          },
+          "subject_prefix": {
+            "type": "string"
+          },
+          "evidence_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "SKIP"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "contains": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "const": "m96_ordering_and_r1_coupling_recheck"
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

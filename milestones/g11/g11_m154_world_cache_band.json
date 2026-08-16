@@ -1,0 +1,26 @@
+{
+  "schema": "rurix.g11m154.world_cache_band.v1",
+  "frozen_at_utc": "2026-08-16T21:19:06Z",
+  "device_name": "host CPU 参考管线（g10_5_scene_render --world-cache-fixture）",
+  "scene": "m96_cornell",
+  "matched_depth": "full(4)",
+  "m96_golden_spp": "64",
+  "seed_chain": "M96_SEED（path_trace 冻结协议面）派生——构建/收集种子 probe_seed 链",
+  "freeze_rule": "band_rel_dev = measured_rel_dev × 2.0（M96/M99 同 margin 口径；基值 = 本批实测，禁手写 P-09）",
+  "rel_dev_formula": "mean over covered px of |lum_a − lum_b| / max(lum_b, 1% × mean_lum(ref))（fixture 注释面同式）",
+  "entries": [
+    {
+      "tier": "world_cache_multibounce_full",
+      "product_digest": "sha256:7c2d5f88334ad66626f8c1e214ce149a2121cfa0c3f1509e9bcbcde05338c91c",
+      "m96_digest": "sha256:bd2d2d50fdfc2ca221f9fc710759845b8140b6eb94e7ab1a1f9373c85de11f1b",
+      "band_rel_dev": 0.6789811833194213,
+      "measured_rel_dev": 0.3394905916597106
+    }
+  ],
+  "provenance": {
+    "fixture": "rurix_render::gi::path_trace::m96_cornell_scene（0-byte 消费）",
+    "reference": "trace_host max_bounces=4 spp=64（M96 host oracle 匹配深度 full 档）",
+    "farfield_energy_mean_fixture": 0.08966105893816065,
+    "assisted_by": "Kimi-K3（G11.4 波）"
+  }
+}

@@ -1,0 +1,16 @@
+//@ spec: RXS-0396
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0396 L1~L6：
+// M99-clipmap 世界级辐射缓存承接——RXS-0360 世界级 not-triggered 登记翻转
+// 修订行〔G10.6 rejudged-go 承接锚；measured 举证 R4 行 4.697253086805343 /
+// C1 行 ≈21×；RXS-0360 字面 0-byte〕+ 空间哈希世界缓存〔对数族距离自适应
+// 量化 + 双哈希步长线性探测 + 在线构建零离线预处理〕+ 距离自适应辐射 LOD
+// clipmap 级〔层级/距离带/命中率计数，禁静默降级〕+ 级间回落链 → 天光末级
+// 兜底显式登记 + 世界级双锚判定〔远场探针集能量回归达标定阈 + M96 golden
+// 匹配深度对拍〕+ ≠RXS-0359 L4 Far Field 边界声明）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：world_cache 闭集块
+// levels=4 / per-level 命中率计数 / farfield_probe_energy ≥ 标定阈 /
+// m96_matched_depth 对拍 digest 与 rel_dev ≤ 冻结带。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py
+// 门（symbolic key g11.p0.m154.fix_r4_gi_multibounce_world_cache，
+// G11_ACCEPTANCE_MAP §1 冻结字面不动）。
+fn main() {}

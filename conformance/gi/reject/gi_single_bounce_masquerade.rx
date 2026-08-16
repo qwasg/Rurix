@@ -1,0 +1,11 @@
+//@ spec: RXS-0395
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0395 L2 负例面）：
+// 单反弹换皮冒充多反弹——间接光仍单反弹（第二次及以上反弹入射辐射度未经世界
+// 缓存查询：level≥2 沉积能量为零 / bounce_levels<2 / 每级能量计数缺失），或
+// 屏幕探针失效处静默返回零辐射（回落路径无计数），均即 RED。
+// 负例数据面（最小说明性 fixture）：world_cache 块 bounce_levels=1 或
+// per_level_energy 自 level 2 起全零的「多反弹」声明——门侧能量计数机核
+// fail-closed。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py
+// 门 RED 臂（red_single_bounce_masquerade）。
+fn main() {}

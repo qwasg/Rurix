@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m154_fix_r4_gi_multibounce_world_cache",
+  "symbolic_gate_key": "g11.p0.m154.fix_r4_gi_multibounce_world_cache",
+  "matrix_row": "M154",
+  "milestone": "M154",
+  "assertion_id": "g11.p0.m154.fix_r4_gi_multibounce_world_cache",
+  "status": "pass",
+  "wave": "G11.4",
+  "numeric_step": 209,
+  "source_ref": "G11_CONTRACT §4.2 M154 + G-G11-6;G11_ACCEPTANCE_MAP §1 M154;CI_GATES §4;g10_gap_registry R4 行承接锚 + G10.6 rejudged-go 承接锚;spec/global_illumination.md RXS-0395/RXS-0396（RXS-0360 世界级登记翻转修订行）;RXS-0357 L6 门序;RXS-0393",
+  "base_commit": "66365ae1ab1bc9f57a96e9a776c1f4451060d20d",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "rxs0396_revision_line_on_tree": true,
+    "m96_gate_ordering_green": true,
+    "world_cache_landed": true,
+    "farfield_energy_regression_measured": true,
+    "m96_golden_matched_depth_band": true,
+    "rurix_frame_changed_vs_g11_3": true,
+    "baseline_metric_reproduction": true,
+    "closure_delta_converged_measured": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_world_cache_not_landed_detected": true,
+    "red_screen_level_masquerade_detected": true,
+    "red_single_bounce_masquerade_detected": true,
+    "red_unconverged_masquerade_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g10_5_scene_render --world-cache-fixture",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "865d452e76fbaa45",
+    "baseline_delta": 4.697253086805343,
+    "baseline_delta_aligned_domain": 4.8486343559026714,
+    "retest_delta": 1.216991522263363,
+    "converged": true,
+    "threshold_provenance": "标定程序 ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py（HDR p90 双跑噪声 p100×k=1.0；budget 条目 g11.fix.r4_p90_shrink_tol）",
+    "contract_digest_unchanged": true
+  },
+  "world_class_provenance": {
+    "world_cache_bistro": {
+      "enabled": true,
+      "levels": 4,
+      "scene_diag": 25.96225,
+      "s0": 0.10141504,
+      "d_ref": 1.6226406,
+      "bounce_iters": 3,
+      "build_cell": 16,
+      "build_rays": 8,
+      "deposits": [
+        2926,
+        66978,
+        139118,
+        5446
+      ],
+      "dropped": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "queries": [
+        30539,
+        619921,
+        1330108,
+        112966
+      ],
+      "hits": [
+        29175,
+        601903,
+        1266934,
+        47276
+      ],
+      "coarse_fallback": [
+        0,
+        1364,
+        18018,
+        63174
+      ],
+      "cache_miss": 65690,
+      "energy_per_iter": [
+        [
+          0.0038865892037378558,
+          42.06724718952169,
+          86.89489007222652,
+          1.6001712226806497
+        ],
+        [
+          0.004063933218707572,
+          44.056383878601274,
+          90.5015045285348,
+          1.8830194849941617
+        ],
+        [
+          0.004162667266191411,
+          42.220588484799926,
+          91.60627208886685,
+          1.8047620600451775
+        ]
+      ],
+      "fallback_px": 6908,
+      "last_resort_px": 1277,
+      "farfield_probe_count": 64,
+      "farfield_energy_mean": 0.002718323364194886,
+      "gi_mean": 0.4904605110040535,
+      "direct_mean": 2.864538057022063e-05,
+      "emissive_mean": 0.00046377820633986753
+    },
+    "world_cache_cornell": {
+      "enabled": true,
+      "levels": 4,
+      "scene_diag": 958.6588,
+      "s0": 3.744761,
+      "d_ref": 59.916176,
+      "bounce_iters": 3,
+      "build_cell": 16,
+      "build_rays": 8,
+      "deposits": [
+        0,
+        0,
+        0,
+        19299
+      ],
+      "dropped": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "queries": [
+        0,
+        0,
+        0,
+        177933
+      ],
+      "hits": [
+        0,
+        0,
+        0,
+        175965
+      ],
+      "coarse_fallback": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "cache_miss": 1968,
+      "energy_per_iter": [
+        [
+          0,
+          0,
+          0,
+          1406.5797132374719
+        ],
+        [
+          0,
+          0,
+          0,
+          2398.767254963459
+        ],
+        [
+          0,
+          0,
+          0,
+          3136.182902204935
+        ]
+      ],
+      "fallback_px": 347,
+      "last_resort_px": 0,
+      "farfield_probe_count": 27,
+      "farfield_energy_mean": 0.3139703815480147,
+      "gi_mean": 1.505220740860215,
+      "direct_mean": 0.2988390307250923,
+      "emissive_mean": 0
+    },
+    "farfield_calibration": {
+      "measured": 0.002718323364194886,
+      "bistro": 0.002718323364194886,
+      "cornell": 0.3139703815480147,
+      "k": 0.5,
+      "threshold": 0.001359161682097443,
+      "estimator": "min(scene farfield energy) × k",
+      "sample_count": 2
+    },
+    "m96_band_digest": "sha256:2f7a80fb991bb4f8999061a863fef00e759d2b19fa030027bd7287b7591d01ff",
+    "rurix_m154_frame_digest": "sha256:9d91738200c779040f049b0762ddc61202be69bf015a4d30786cd55419cf23b5",
+    "g11_3_rurix_frame_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e",
+    "baseline_reproduction": {
+      "a": 0.30276253819465637,
+      "b": 5.000015625,
+      "delta_locked": 4.697253086805343,
+      "delta_aligned": 4.8486343559026714
+    },
+    "cornell_p90_delta_residual_face": 0.23202527932524686
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T212206Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "远场探针集能量回归：bistro=0.002718323364194886 / cornell=0.3139703815480147 ≥ 标定阈 0.001359161682097443（min × k=0.5，标定程序产——「非零」字面不构成判定）; M96 golden 对拍：rel_dev 0.3394905916597106 ≤ 带 0.6789811833194213；双 digest 全等（full 档）; R4 修复前后 delta 对拍: 锁定基线 4.697253086805343（原域）/ 4.8486343559026714（对齐域）→ 复测 1.216991522263363（cornell p90 delta 残余面 0.23202527932524686）；标定阈 0.0; g11_budget.json 字节级纯追加 g11.fix.r4_p90_shrink_tol + g11.fix.r4_farfield_energy_min"
+}

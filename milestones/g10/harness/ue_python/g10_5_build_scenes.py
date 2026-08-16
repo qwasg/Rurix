@@ -404,6 +404,47 @@ def build_level(scene_id, contract_obj):
     sl.set_mobility(unreal.ComponentMobility.MOVABLE)
     log("天光: 指定白色 cubemap × intensity=%s" % str(ue_params["sky_intensity"]))
 
+    # ---- G11.4 R3 灯种子集（spec/global_illumination.md RXS-0394 L2：光源参数
+    # 唯一事实源 = 契约光照参数面 corpus/lighting_*.json，双端同消费；bistro 包内
+    # pointLight1~4 派生点光源逐盏 spawn + provenance 读回入探针；cornell 契约
+    # sun+sky 灯面 0-byte——本段对 cornell 不触发）----
+    if scene_id == "bistro-interior":
+        import pathlib
+        _light_json = (
+            pathlib.Path(os.environ.get("G10_5_CONTRACT", "")).parent
+            / "lighting_bistro_interior.json"
+        )
+        _ldoc = json.loads(_light_json.read_text(encoding="utf-8"))
+        _pls = _ldoc.get("point_lights", [])
+        if len(_pls) < 4:
+            raise RuntimeError("契约光照 JSON point_lights < 4（R3 承接锚字面 4+ 盏）: %s" % _light_json)
+        _pl_probe = []
+        for pl in _pls:
+            p_ue = contract.pos_contract_to_ue(pl["position"])
+            pa = actor_subsys.spawn_actor_from_class(
+                unreal.PointLight, unreal.Vector(*p_ue), unreal.Rotator(0, 0, 0)
+            )
+            pa.set_actor_label("G11_4_" + str(pl["id"]))
+            pa.set_folder_path("G10")
+            pc = pa.get_component_by_class(unreal.PointLightComponent)
+            pc.set_intensity(float(pl["intensity_cd"]))  # candela（UE 点光默认单位）
+            pc.set_light_color(
+                unreal.LinearColor(pl["color_linear_rgb"][0], pl["color_linear_rgb"][1], pl["color_linear_rgb"][2], 1.0),
+                False,
+            )  # 线性直给（G11.2 C1 同口径）
+            pc.set_mobility(unreal.ComponentMobility.MOVABLE)
+            _pl_probe.append({
+                "id": pl["id"],
+                "position_ue_cm": [float(v) for v in p_ue],
+                "intensity_cd_readback": float(pc.get_editor_property("intensity")),
+                "emit_direction_contract": pl["emit_direction"],
+                "derived_from": pl["derived_from"],
+            })
+        g11_3_probe["g11_4_point_lights"] = _pl_probe
+        g11_3_probe["g11_4_point_lights_count"] = len(_pl_probe)
+        g11_3_probe["g11_4_lighting_json_digest_note"] = "契约光照面单通道消费（RXS-0394 L2；UE 侧朗伯轴向简化为全向点光，强度微小实测面见 A/B 报告）"
+        log("G11.4 点光源: %d 盏逐盏 spawn（契约光照 JSON 单通道）" % len(_pl_probe))
+
     # ---- 手动曝光（FixedExposure=2^(−EV100) 源码实证公式；N²·S=2^EV100 @ISO100）----
     ev100 = float(ue_params["exposure_ev100"])
     n_fstop = 4.0
@@ -577,3 +618,4 @@ def main():
 
 
 main()
+

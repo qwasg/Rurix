@@ -362,8 +362,200 @@
 
 ---
 
-## 9. 修订记录
+## 9. 条款（RXS-0394，G11.4 M153 R3 灯种子集表达）
+
+### RXS-0394 R3 灯种子集表达：光源集五元闭集 + 契约光照面单通道 + 点光源辐射链与 emissive 语义 + cornell 契约灯面 0-byte
+
+**Legality**
+
+1. **光源集五元闭集**（RFC-0028 §4.3.1 冻结语义；判据逐字引
+   G11_CONTRACT §4.2 M153 行）：场景光源集 = `{ 契约 sun（方向光）,
+   契约 sky（常量天光）, glTF 点光源集（包内 pointLight1~N 节点）,
+   glTF 面光源集（area/spot 若包内存在）, glTF emissive 表面集
+   （材质 emissiveFactor/emissiveTexture 非零面） }`——五元闭集，
+   **缺类显式登记**（不得以缺类冒充空集）；bistro 包内实测 pointLight1~4
+   四盏 + emissive 材质四件全部表达进渲染（4+ 盏实测消费，M153 门
+   机核面）。
+2. **契约光照面单通道**（RFC-0028 §4.3.2 / D-409 F4 修法逐字）：光源参数
+   唯一事实源 = **契约光照参数面**（`milestones/g10/corpus/lighting_*.json`，
+   M133 清单冻结面）；包内 glTF 字段为**派生输入**——经 corpus 派生链
+   转入契约光照 JSON（语料修订走 M133 只追加修订程序：清单 digest 注册 +
+   修订行），Rurix harness 与 UE build_scenes 双端同消费契约面；**禁止
+   运行时双通道并存**（M130 契约 digest 一致性门序继承），glTF 字段直读
+   绕过契约面即 RED；每盏光源的位姿/强度/色温/派生源 provenance 逐盏
+   登记进门 evidence。
+3. **点光源辐射链（host 参考管线口径）**：点光源对着色点辐照度
+   `E = color_linear_rgb × I₀ × max(0, cosθ_emit) / d²`（朗伯余弦瓣——
+   灯具单面发光口径，发光轴向背向取零；candela 点强 → 距离平方衰减，
+   与契约 sun lux 链同单位面），出射 `L = E × max(n·l,0) × albedo/π ×
+   可见性`（阴影射线，原点沿着色法线偏移 RAY_EPS，与 gi/tracer.rs 太阳
+   阴影同口径）；**强度派生链**（RFC-0028 §9 Q3 字面：包内字段实测
+   登记）= 灯具 emissive 通量换算——`Φ = Le × A × π`（朗伯半球通量，
+   `Le = emissiveFactor × emissiveTexture 线性均值`，A = 关联灯具几何
+   表面积）、**轴向点强 `I₀ = Φ / π = Le × A`**（朗伯发射 I(θ)=I₀·cosθ
+   满足 ∫I dΩ = Φ），发光轴向 = 关联灯具 emissive 三角形面积加权平均
+   法线，逐盏 provenance（节点位姿 / 关联灯具 / Le / A / 轴向 / 换算
+   结果）进 evidence；换算链参数实现波 measured 标定后冻结（P-09），
+   族外发明即口径漂移 RED。
+4. **emissive 语义**（RFC-0028 §4.3.4 冻结语义）：emissive 表面出射辐射度
+   `Le = emissiveFactor × emissiveTexture`（线性域），作为光源参与**直接
+   可见与 GI 双级能量贡献**（主射线命中直出 + 世界辐射缓存沉淀喂回场景，
+   RXS-0396 面）；emissive 强度/纹理消费口径与材质面（R1 修复面）解耦
+   登记——材质未消费面如实登记，不以 emissive 表达冒充材质修复。
+5. **cornell 契约 sun+sky 灯面 0-byte**（复测对照口径，G11_CONTRACT §4.2
+   M153 行字面）：cornell 语料灯面维持契约 sun+sky（G10.3 生成器登记
+   口径），`corpus/lighting_cornell_box.json` 0-byte；bistro 灯面表达
+   不得回流改写 cornell 灯面（漂移即 RED）。
+6. **门序**：本条款门验收以 RXS-0357（M96 golden）门绿为前置（RXS-0357
+   L6 字面继承）；多灯开销与 G9 M100 低档 MegaLights 面联动评估登记——
+   host 参考管线 4 盏逐灯直接求值（验证射线零跳过，RXS-0361 L2 口径
+   继承），不新造低档选灯面；GPU 管线多灯 workload measured 对照面未
+   产出，M100-high 维持 defer（G11.6 触发评估登记，承接锚字面 0-byte）。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`forbid(unsafe_code)` 纪律维持）：A/B host 参考
+  管线（g10_5_scene_render）点光源/emissive 消费面 + 契约光照 JSON
+  闭集解析（fail-closed）+ 逐灯 provenance 登记块；派生链脚本
+  （milestones/g11/harness 面）产 M133 修订。
+- RED 锚定计划（实现 PR 落）：点光源未表达冒充修复 → RED；glTF 直读
+  绕过契约面 → RED；cornell 契约灯面漂移 → RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/light_seed_set_minimal.rx` 与
+  `conformance/gi/reject/light_seed_gltf_direct_bypass.rx`（条款锚定
+  占位，inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR
+  转正）= `ci/g11_fix_r3_light_subset_smoke.py` 门（symbolic key
+  `g11.p0.m153.fix_r3_light_subset`，G11.1 冻结字面 0-byte 不动）。
+
+---
+
+## 10. 条款（RXS-0395，G11.4 M154 R4 多反弹 GI 双级语义）
+
+### RXS-0395 R4 多反弹 GI：屏幕探针近场 + 世界辐射缓存远场兜底双级语义、能量守恒口径与 host 同构兑现面
+
+**Legality**
+
+1. **双级语义**（RFC-0028 §4.1.1 冻结语义；判据逐字引 G11_CONTRACT §4.2
+   M154 行）：近场 = 屏幕探针（G9 M99 已验收屏幕级 SPG + Radiance
+   Cache 底座 0-byte 复用）；远场 = 世界空间辐射缓存（RXS-0396）。屏幕
+   探针间接场查询失效（无有效屏幕覆盖/反照率不足/超出屏幕域）时**必须
+   回落**世界缓存，**回落路径逐帧计数进 evidence**；禁止静默返回零辐射
+   （远场能量丢失即 R4 差距成因面）。
+2. **多反弹语义**（RFC-0028 §4.1.2 冻结语义）：间接光计算支持 **≥2 次
+   反弹**；第二次及以上反弹的入射辐射度经世界缓存查询获得（屏幕探针只
+   承担第一级近场面）；**反弹次数、每级能量计数进 evidence**；反弹截断
+   处只丢能量不漏光（RXS-0358「只丢能量不漏光」口径继承——漏光适用面
+   注：本语境漏光 = 双级合计后非物理正能量穿越遮挡的像素，判定 = 与
+   M96 golden 按匹配深度对拍超容差带的漏光模式像素，计数 = 0 断言面
+   沿 RXS-0358 口径继承）。
+3. **能量守恒口径**（RFC-0028 §4.1.3 冻结语义）：双级合计的远场能量
+   回归必须 measured 非零（对屏幕缓存物理不可达区域，判定阈 = RXS-0396
+   L4 双锚面）；**逐级能量增量绝对值单调不增趋于零**（`|ΔE_{k+1}| ≤
+   |ΔE_k|`，ΔE_k = 第 k 级迭代沉积总能量增量——多弹收敛口径：增量趋于
+   零即收敛至均衡（采样噪声下允许小幅负增量），|Δ| 递增 = 能量发散即
+   RED——不凭空造能）。
+4. **host 参考管线消费面（双侧最小兑现面裁决，D-409 F1 修法）**：A/B
+   host 参考管线（g10_5_scene_render）消费同一双级语义，形态 = **同构
+   世界缓存的 host CPU 参考实现**（同一语义面双实现——解析式远场估计
+   不构成「世界辐射缓存世界级」语义兑现，否决）；renderer 面 = 世界级
+   缓存落地 + 远场能量回归判定锚（RXS-0396 L4），host 面 = G11.5 复测
+   R4 delta 收敛断言的载体。**不以 host 参考管线多反弹冒充 GPU 管线
+   世界级验收，不以 GPU 管线世界级落地冒充 host 臂 delta 收敛**（GPU
+   管线双端面锚定 G14 不动）。
+5. **门序**：本条款门验收以 RXS-0357（M96 golden）门绿为前置（RXS-0357
+   L6 字面继承）；契约 digest 不等仍出 A/B 报告即 RED（M130/M139 门序
+   字面，G11.5 复测继承）。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，纯 safe 方向维持）：世界缓存多反弹消费面 +
+  回落路径/反弹级数/逐级能量计数导出 + host 同构实现（g10_5_scene_render
+  面）；device/GPU 腿锚定 G14 不动。
+- RED 锚定计划（实现 PR 落）：单反弹换皮冒充多反弹（逐级能量为零）→
+  RED；回落计数缺失/静默零辐射 → RED；漏光像素注入 → RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/gi_multibounce_two_level_minimal.rx` 与
+  `conformance/gi/reject/gi_single_bounce_masquerade.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR 转正）=
+  `ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py` 门（symbolic key
+  `g11.p0.m154.fix_r4_gi_multibounce_world_cache`，G11.1 冻结字面
+  0-byte 不动）。
+
+---
+
+## 11. 条款（RXS-0396，G11.4 M154 M99-clipmap 世界级辐射缓存承接）
+
+### RXS-0396 世界辐射缓存世界级承接：空间哈希世界缓存 + 距离自适应辐射 LOD + 屏幕缓存失效回落 + 远场能量回归双锚判定（RXS-0360 世界级登记翻转修订行）
+
+**Legality**
+
+1. **修订行——RXS-0360 世界级 not-triggered 登记翻转**（RFC-0028 §4.4
+   授权；G10.6 rejudged-go 承接锚逐字：「重判条件已命中（G10.6：R4 P0 +
+   C1 P1 measured 举证落地）→ G11 画质修复期承接世界辐射缓存世界
+   clipmap 级（只消费 G10.8b 锁定清单 R4/C1 行 + 本锚）；兜底 = 屏幕级
+   SPG + Radiance Cache（g9.p1.m99 门绿）维持」）：RXS-0360 L3「世界级
+   clipmap 未 measured 举证，登记 not-triggered 不充绿」登记**翻转为
+   「世界级承接落地（G11.4 M154）」**——measured 举证 = `g10_gap_registry`
+   R4 行（bistro HDR p90 delta = 4.697253086805343，evidence_digest
+   sha256:d5f5d644…）+ C1 行（HDR 中位 ≈21×）双行，重判条件已命中
+   （G10.6 重评窗核验，deferred.json RD-040 history 2026-08-15 行）。
+   **RXS-0360 既有字面 0-byte 不改写**；世界级语义面由本条款承载；屏幕级
+   SPG + Radiance Cache 兜底面（g9.p1.m99 门绿）维持不动——**不得以屏幕级
+   绿色冒充世界级验收**（G11_CONTRACT §4.2 M154 行字面）。
+2. **空间索引形态**（RFC-0028 §4.2.1 冻结语义）：世界空间哈希缓存——
+   位置按距离自适应量化（**对数族**，量化函数族闭集 {对数族, 幂律族}
+   取定）：`level(p) = clamp(floor(log2(1 + dist(p, camera) / d_ref)),
+   0, LEVELS−1)`，格长 `s(ℓ) = s0 × 2^ℓ`；参数经实现波 measured 标定
+   冻结（P-09）：`LEVELS = 4`、`s0 = scene_diag × 2^-8`、`d_ref =
+   scene_diag × 2^-4`（scene_diag = 场景包围盒对角线实测——bistro
+   25.962 m / cornell 958.659 单位，G11.4 实现波实测登记）；哈希冲突走
+   **双哈希步长线性探测**（h1 定位 + h2 步长，探测上界闭集登记）；索引
+   结构在线构建、**零离线预处理**（Surface Cache/Mesh Card 重资产路径
+   继续后置）。
+3. **辐射 LOD（clipmap 级）**（RFC-0028 §4.2.2 冻结语义）：按距离自适应
+   的辐射度细节层级（每一级对应一个距离带的辐射度细节层级）；**层级数、
+   每层覆盖距离带、每层命中率/耗时逐帧计数进 evidence**；禁静默降层级
+   （降级路径显式登记，RXS-0359 禁静默回退口径继承）。
+4. **回落语义**（RFC-0028 §4.2.3 冻结语义）：屏幕探针失效处回落世界
+   缓存（RXS-0395 L1）；世界缓存级内未命中 → 更粗级查询（级间回落链）
+   → 天光/常量环境项**末级兜底显式登记**；回落查询命中率、回落辐射度
+   能量计数进 evidence。
+5. **世界级验收判定（机核面，双锚同真，D-409 F3 修法）**：①**远场探针集**
+   （屏幕缓存物理不可达的场景区域集——不投影进任何覆盖像素或被更近
+   表面遮挡的场景表面点确定性采样，场景标定面登记，区域集实现波按
+   G10 语料双场景登记）**能量回归 measured 达标定阈**（阈值由标定程序
+   measured 产——「非零」字面不构成判定，任意噪声冒充能量回归即 RED）；
+   ②**与 M96 golden 按匹配深度对拍一致**（RXS-0357 L2 匹配深度表与容差
+   带 0-byte 引用，容差带 measured 后冻结〔P-09〕，L6 门序硬约束——M96
+   golden 未绿本面不得验收）。双锚同真方为世界级；**UE 对拍面归 G11.5
+   复测 delta 收敛（RXS-0393 面），不与 M96 golden 混用**。
+6. **边界声明（D-409 F7 修法）**：世界级辐射缓存 **≠** RXS-0359 L4 Far
+   Field 档——L4 为追踪降级链远场档（M98-l4 维持 defer，承接锚字面
+   0-byte 不动），世界级缓存为辐射度复用缓存；两语义面不互冒充，世界级
+   落地不构成 M98-l4 的静默兑现。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，纯 safe 方向维持）：空间哈希世界缓存（双哈希 +
+  线性探测 + 距离自适应量化）+ 辐射 LOD 计数面 + 回落链计数面 + 远场
+  探针集能量回归判定 + M96 golden 匹配深度对拍面（host 参考管线
+  g10_5_scene_render 兑现，device/GPU 面锚定 G14）。
+- RED 锚定计划（实现 PR 落）：世界级未落地冒充承接（远场探针集能量回归
+  为零/低于标定阈）→ RED；屏幕级绿色冒充世界级（g9.p1.m99 evidence
+  冒充 M154 evidence）→ RED；容差带外漏光 → RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/world_radiance_cache_minimal.rx` 与
+  `conformance/gi/reject/world_cache_farfield_zero_energy.rx`（条款锚定
+  占位，inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR
+  转正）= `ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py` 门
+  （symbolic key `g11.p0.m154.fix_r4_gi_multibounce_world_cache`，G11.1
+  冻结字面 0-byte 不动）。
+
+---
+
+## 12. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-08-12 | 新建（G9.4 spec-first，GI 波 M96~M101，硬规则 7 条款先行）：RXS-0357（M96 M17 Path Tracer 参照器：megakernel + NEE/MIS/RR + 起步范围冻结〔焦散/体积/specular 链 out〕+ 固定 seed 位级一致确定性协议〔累加序/RNG 流冻结、逐像素 sample count/方差导出、匹配深度 1/2/full 三 golden〕+ pbrt-v4 收敛曲线 measured 冻结容差带 + 改 seed/跳 RR/关 MIS 三臂 RED + 门序硬约束〔M96 未绿 M97~M101 任何画质门不得验收，机器阻断〕）/ RXS-0358（M97 Surface Cache：离线 Card 参数化 ≤12/mesh 可配 + 运行时辐射度缓存 + 只丢能量不漏光〔漏光像素计数=0〕+ Card 空洞漏光检测 RED 臂 + 图集复用 M04/M91 页 ABI 不私定 + 按匹配深度对 M96 golden）/ RXS-0359（M98 四级追踪降级链 L1 Screen Trace→L2 SWRT→L3 HWRT〔含 hit lighting 档〕→L4 Far Field + 逐档命中率/耗时计数逐帧 evidence + 逐级强关回归可检测〔强关后仍同 golden 即 RED〕+ 禁静默回退 + L4 未就绪 SKIP=not-triggered）/ RXS-0360（M99 屏幕级 SPG 自适应细分 + Radiance Cache 双级 + product IS 关闭方差回归 RED + 世界级 clipmap 未 measured 举证 not-triggered 不充绿）/ RXS-0361（M100 低档多灯直接光默认档 + 验证射线零跳过硬契约〔D2-Q4〕+ 高档 ReSTIR workload 证据不足 not-triggered 不充绿）/ RXS-0362（M101 IF 体素网格档位阶梯 L0~L3 + 共享 probe 着色/八面体编码内核只换空间索引 + 八面体编码线性域 + 每档 AS 更新预算行消费 AsStats + 超预算强制降档 RED）。**目标 spec 新建裁决**：RFC-0022 §5 映射表 GI 各行候选（rendering_platform.md / shader_stages.md / 资产管线 spec / conformance 协议章）裁定合并新建本文件（D2 GI 独立语义轴，候选文件本体 0-byte，头注留痕）。条款号自 ledger 实测 `RXS.next_free=357` 顺位领取（0357~0362 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。conformance 最小锚定语料同 PR 落（conformance/gi/{accept,reject}/，inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注，G9.2/G9.3 spec 波先例）；symbolic key `g9.p0.m96/m97/m98.*`（G9.1 冻结字面）与 `g9.p1.m99/m100/m101.*`（G9.4 波 P1 全进裁决登记，G9_ACCEPTANCE_MAP §3 / CI_GATES §4A）0-byte 不动。零新 RX 码（诊断码实现期按实际可达类别领取不预造）、零新 U/RD/SG、零 src/ 改动、零 workflow 步骤。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.6/§4.7/§4.8/§4.10/§7 + G9_ACCEPTANCE_MAP §2 M96/M97/M98 行 + §3 M99/M100/M101 行（判据逐字）+ G9_CANDIDATE_DECISIONS §2 RD-040 行与 v1.3 校准注 | **Full RFC**（RFC-0022） |
+| v1.1 | 2026-08-16 | 追加（G11.4 光照与 GI 修复波 spec-first，硬规则 7 条款先行；G11 已解锁 implementation_status=unblocked，G11_CONTRACT §8.1）登记 **RXS-0394 ~ RXS-0396**：RXS-0394（M153 R3 灯种子集表达：光源集五元闭集〔契约 sun/sky + glTF 点光源/面光源/emissive 表面，缺类显式登记〕+ 契约光照面单通道〔corpus/lighting_*.json 唯一事实源，glTF 字段 = 派生输入经 M133 只追加修订程序，直读绕过即 RED〕+ 点光源辐射链〔E = color×I/d²、L = E·ndl·albedo/π·vis，强度派生 = 灯具 emissive 通量换算 Φ=Le·A·π / I=Φ/(2π)，逐盏 provenance〕+ emissive 双级能量贡献语义 + cornell 契约 sun+sky 灯面 0-byte + M100 低档面联动评估登记〔不新造，M100-high 维持 defer〕）/ RXS-0395（M154 R4 多反弹 GI：屏幕探针近场 + 世界辐射缓存远场兜底双级语义〔失效必须回落 + 回落路径逐帧计数 + 禁静默零辐射〕+ 多反弹 ≥2 级〔第二次及以上经世界缓存查询 + 反弹级数/逐级能量计数 + 只丢能量不漏光 RXS-0358 口径继承〕+ 逐级能量单调不增 + host 同构世界缓存兑现面〔解析式否决；不冒充 GPU 管线世界级，GPU 面锚定 G14〕+ RXS-0357 L6 门序继承）/ RXS-0396（M154 M99-clipmap 世界级辐射缓存承接：**RXS-0360 世界级 not-triggered 登记翻转修订行**〔G10.6 rejudged-go 承接锚逐字 + measured 举证 R4 行 4.697253086805343 / C1 行 ≈21×；RXS-0360 既有字面 0-byte〕+ 空间哈希世界缓存〔对数族量化 level=clamp(floor(log2(1+dist/d_ref)),0,LEVELS−1)，s(ℓ)=s0×2^ℓ，LEVELS=4 / s0=scene_diag×2^-8 / d_ref=scene_diag×2^-4 实测标定冻结〔bistro 25.962 m / cornell 958.659 单位〕+ 双哈希步长线性探测 + 在线构建零离线预处理〕+ 距离自适应辐射 LOD clipmap 级〔层级/距离带/命中率计数 + 禁静默降级〕+ 级间回落链 → 天光末级兜底显式登记 + 世界级双锚判定〔远场探针集能量回归达标定阈 + M96 golden 匹配深度对拍，UE 对拍归 G11.5 不混用〕+ ≠RXS-0359 L4 Far Field 边界声明〔M98-l4 defer 0-byte〕）。条款号自 ledger 实测 `RXS.next_free=394` 顺位领取（0394~0396 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料六件（conformance/gi/accept 三件：light_seed_set_minimal.rx / gi_multibounce_two_level_minimal.rx / world_radiance_cache_minimal.rx；reject 三件：light_seed_gltf_direct_bypass.rx / gi_single_bounce_masquerade.rx / world_cache_farfield_zero_energy.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.2 spec 波先例）同 PR 落；symbolic key `g11.p0.m153/m154.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（375→378 全锚定）；stable 快照因条款计数 375→378 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§5 + G11_CONTRACT §4.2 M153/M154 行（判据逐字）+ G11_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§9 修订记录节号顺延 §12，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.4 波）` | **Full RFC**（RFC-0028） |

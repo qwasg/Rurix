@@ -1,0 +1,15 @@
+//@ spec: RXS-0394
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0394 L1~L6：R3 灯
+// 种子集表达——光源集五元闭集〔契约 sun/sky + glTF 点光源/面光源/emissive
+// 表面，缺类显式登记〕+ 契约光照面单通道〔corpus/lighting_*.json 唯一事实源，
+// glTF 字段 = 派生输入经 M133 只追加修订程序〕+ 点光源辐射链〔E = color×I/d²，
+// L = E·ndl·albedo/π·vis；强度派生 = 灯具 emissive 通量换算 Φ=Le·A·π /
+// I=Φ/(2π)，逐盏 provenance〕+ emissive 双级能量贡献 + cornell 契约 sun+sky
+// 灯面 0-byte）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：lights 闭集块
+// point_lights_consumed=4 / emissive_materials_consumed=4 / per-light
+// provenance（位姿/强度/派生源）齐备 + 契约光照 JSON digest 登记。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r3_light_subset_smoke.py 门
+// （symbolic key g11.p0.m153.fix_r3_light_subset，G11_ACCEPTANCE_MAP §1
+// 冻结字面不动）。
+fn main() {}

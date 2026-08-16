@@ -670,6 +670,18 @@ def check_evidence_files() -> None:
     g11_3_calibration_schema = load(
         ROOT / "milestones/g11/g11_3_calibration_evidence_schema.json"
     )
+    g11_m153_fix_r3_light_subset_schema = load(
+        ROOT / "milestones/g11/g11_m153_fix_r3_light_subset_evidence_schema.json"
+    )
+    g11_m154_fix_r4_gi_multibounce_world_cache_schema = load(
+        ROOT / "milestones/g11/g11_m154_fix_r4_gi_multibounce_world_cache_evidence_schema.json"
+    )
+    g11_wave4_exit_schema = load(
+        ROOT / "milestones/g11/g11_wave4_exit_evidence_schema.json"
+    )
+    g11_4_calibration_schema = load(
+        ROOT / "milestones/g11/g11_4_calibration_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1504,6 +1516,26 @@ def check_evidence_files() -> None:
     g11_m152_fix_u3_bistro_animation_validator = (
         jsonschema.Draft7Validator(g11_m152_fix_u3_bistro_animation_schema)
         if g11_m152_fix_u3_bistro_animation_schema is not None
+        else None
+    )
+    g11_m153_fix_r3_light_subset_validator = (
+        jsonschema.Draft7Validator(g11_m153_fix_r3_light_subset_schema)
+        if g11_m153_fix_r3_light_subset_schema is not None
+        else None
+    )
+    g11_m154_fix_r4_gi_multibounce_world_cache_validator = (
+        jsonschema.Draft7Validator(g11_m154_fix_r4_gi_multibounce_world_cache_schema)
+        if g11_m154_fix_r4_gi_multibounce_world_cache_schema is not None
+        else None
+    )
+    g11_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g11_wave4_exit_schema)
+        if g11_wave4_exit_schema is not None
+        else None
+    )
+    g11_4_calibration_validator = (
+        jsonschema.Draft7Validator(g11_4_calibration_schema)
+        if g11_4_calibration_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -2994,6 +3026,35 @@ def check_evidence_files() -> None:
             # 判读面。前缀与 g11_m1xx_fix_ 门件在 "calibration"/"fix" 第七段分叉，
             # 置于门件映射前安全。
             validator = g11_3_calibration_validator
+        elif (
+            f.name.startswith("g11_m153_calibration_")
+            or f.name.startswith("g11_m154_calibration_")
+        ) and g11_4_calibration_validator is not None:
+            # G11.4 两门标定件（步骤 208/209 门产）→ g11_4_calibration_evidence_schema.json：
+            # 三条 g11.fix.r3|r4 标定条目（收敛幅度阈 p100×k / 远场能量回归阈 min×k=0.5）
+            # measured_local 判读面。前缀与门件在 "calibration"/"fix" 第七段分叉。
+            validator = g11_4_calibration_validator
+        elif (
+            f.name.startswith("g11_wave4_exit_")
+            and g11_wave4_exit_validator is not None
+        ):
+            # G11.4 波聚合门（步骤 210）→ milestones/g11/g11_wave4_exit_evidence_schema.json：
+            # M153/M154 两门最新 evidence 只读汇总 + 契约 digest/RED 臂/标定入 budget/
+            # spec-first 面/回归前置自检/M96 门序+R1 耦合复核六 facts。
+            validator = g11_wave4_exit_validator
+        elif (
+            f.name.startswith("g11_m153_fix_r3_light_subset_")
+            and g11_m153_fix_r3_light_subset_validator is not None
+        ):
+            # G11.4 P0 硬门 M153 R3 灯种子集（步骤 208）→
+            # milestones/g11/g11_m153_fix_r3_light_subset_evidence_schema.json。
+            validator = g11_m153_fix_r3_light_subset_validator
+        elif (
+            f.name.startswith("g11_m154_fix_r4_gi_multibounce_world_cache_")
+            and g11_m154_fix_r4_gi_multibounce_world_cache_validator is not None
+        ):
+            # G11.4 P0 硬门 M154 R4 多反弹 GI + 世界级辐射缓存（步骤 209）。
+            validator = g11_m154_fix_r4_gi_multibounce_world_cache_validator
         elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None

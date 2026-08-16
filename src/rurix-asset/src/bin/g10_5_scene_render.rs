@@ -41,9 +41,26 @@
 //! - U3 修复（**无条件生效**，零像素影响）：glTF animations 包内通道计数显式
 //!   探测 + 显式静态契约剥离声明（`--render` 输出 JSON `animations` 闭集块 +
 //!   stderr 留痕），禁静默丢弃；相机位姿 = 静态节点契约（0-byte）。
-//! - 维持不表达（G11.4 承接面登记）：灯种子集 = 契约 sun + sky 常量天光
-//!   （点/面光源与 glTF emissive 不表达，R3 行 G11.4 承接）；GI = 屏幕探针
-//!   单反弹（host 参考管线，R4 行 G11.4 承接），非 Lumen 等效宣称。
+//!
+//! G11.4 光照与 GI 修复波已落地（**全部旗标默认关——默认面与 G10.5/G11.3
+//! 逐字节一致**，M141 benchmark digest 锚与 parity 面零降级；G11.4 复跑帧由
+//! 旗标显式开启驱动）：
+//!
+//! - `--light-seed-set <corpus/lighting_*.json>`（R3 修复，RXS-0394）：点光源
+//!   集（E = color×I/d²·ndl·albedo/π·vis 阴影射线）+ glTF emissive 表面
+//!   （主射线直出 + GI 双级能量贡献）消费——光源参数唯一事实源 = 契约光照
+//!   JSON（corpus 派生链 M133 只追加修订程序转入），glTF 字段直读绕过即
+//!   RED；逐盏 provenance 进 `lights` 闭集块；cornell 契约 sun+sky 灯面
+//!   0-byte（legacy 文件 = 空集显式登记）。
+//! - `--gi-multibounce`（R4 修复，RXS-0395/0396）：世界辐射缓存世界级承接
+//!   （空间哈希 + 对数族距离自适应辐射 LOD〔LEVELS=4，s0=diag×2^-8，
+//!   d_ref=diag×2^-4〕+ 双哈希步长线性探测 + 级间回落链）+ 多反弹
+//!   （WC_BOUNCE_ITERS=3 级迭代在线构建，第二次及以上反弹入射辐射度经
+//!   世界缓存查询）+ 屏幕探针失效像素级回落 → 天光末级兜底显式登记 +
+//!   远场探针集能量回归计数——全部计数进 `world_cache` 闭集块。
+//! - `--world-cache-fixture`（M154 锚②面）：M96 cornell fixture 对拍——
+//!   本路径多反弹 host 渲染 vs M96 host oracle（trace_host 匹配深度 full
+//!   档 spp=64）rel_dev measured 产冻结带（P-09，M99 同程序纪律）。
 //!
 //! ## 用法
 //!
@@ -79,12 +96,19 @@ use rurix_asset::gltf::validate;
 use rurix_render::display::aces13::Aces13;
 use rurix_render::display::view_transform::ViewTransform;
 use rurix_render::gi::pipeline::{GiParams, render_gi};
-use rurix_render::gi::probe::GiCamera;
-use rurix_render::gi::tracer::{GiMeshInstance, GiScene, RayTracedRadiance};
+use rurix_render::gi::probe::{
+    GiCamera, cosine_sample_hemisphere, place_probes, probe_seed,
+};
+use rurix_render::gi::tracer::{GiMeshInstance, GiScene, RadianceTracer, RayTracedRadiance};
 use rurix_render::rt::bvh::{Ray, Transform3x4, Vec3};
-use rurix_render::rt::ref_tracer::RAY_EPS;
+use rurix_render::rt::ref_tracer::{Pcg32, RAY_EPS};
 use rurix_render::temporal::image::ImageF32;
 use std::path::{Path, PathBuf};
+
+mod world_cache;
+use world_cache::{
+    WC_BOUNCE_ITERS, WC_BUILD_CELL, WC_BUILD_RAYS, WC_LEVELS, WorldCache,
+};
 
 const TAG: &str = "G10_5_RENDER";
 
@@ -662,6 +686,9 @@ struct MaterialRec {
     normal_img: Option<usize>,
     metallic: f32,
     roughness: f32,
+    // G11.4 R3 修复面（--light-seed-set 消费；解析无条件，像素面默认 0-byte）
+    emissive_factor: [f32; 3],
+    emissive_img: Option<usize>,
 }
 
 /// 纹理消费记录（解码后 RGBA8 行主序；baseColor 经 sRGB→线性 IEC 分段于采样时换算）。
@@ -705,6 +732,8 @@ struct SceneLoad {
     animation_channels: usize,
     textured_materials: usize,
     normal_mapped_materials: usize,
+    // G11.4 面：场景包围盒对角线（世界空间实测；世界缓存 s0/d_ref 标定源）
+    scene_diag: f32,
 }
 
 /// glTF accessor 读取（本 harness 局部面——validate::extract_meshes 单一事实源
@@ -842,6 +871,21 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
                 .and_then(|tex| tex.get("source"))
                 .and_then(|v| v.as_u64())
                 .map(|s| s as usize);
+            // G11.4 R3 面：emissiveFactor / emissiveTexture 解析（无条件，
+            // 默认零像素影响；--light-seed-set 下经契约光照 JSON 登记面消费）。
+            let emissive_factor = m
+                .get("emissiveFactor")
+                .and_then(|v| json_f32_arr(v, 3))
+                .map(|v| [v[0], v[1], v[2]])
+                .unwrap_or([0.0, 0.0, 0.0]);
+            let emissive_img = m
+                .get("emissiveTexture")
+                .and_then(|t| t.get("index"))
+                .and_then(|v| v.as_u64())
+                .and_then(|ti| root.get("textures")?.as_array()?.get(ti as usize))
+                .and_then(|tex| tex.get("source"))
+                .and_then(|v| v.as_u64())
+                .map(|s| s as usize);
             materials.push(MaterialRec {
                 base_color_factor: alb,
                 base_color_img: tex_img("baseColorTexture"),
@@ -854,6 +898,8 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
                     .and_then(|p| p.get("roughnessFactor"))
                     .and_then(|v| json_f64(v))
                     .unwrap_or(1.0) as f32,
+                emissive_factor,
+                emissive_img,
             });
         }
     }
@@ -985,6 +1031,8 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
     let mut mesh_normals: Vec<Option<Vec<[f32; 3]>>> = Vec::new();
     let mut mesh_uvs: Vec<Option<Vec<[f32; 2]>>> = Vec::new();
     let mut tri_total = 0usize;
+    let mut bbox_min = [f32::INFINITY; 3];
+    let mut bbox_max = [f32::NEG_INFINITY; 3];
     for m in &meshes {
         // 该 mesh 被哪些节点引用（一网格多实例按节点各出一份实例）
         for (ni, n) in nodes.iter().enumerate() {
@@ -1075,8 +1123,24 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
                 transform: t,
                 albedo,
             });
+            // G11.4：世界空间包围盒（世界缓存标定源；顶点级变换累计）。
+            for v in &m.positions {
+                let wp = t.apply_point(Vec3::from_array(*v)).to_array();
+                for ch in 0..3 {
+                    bbox_min[ch] = bbox_min[ch].min(wp[ch]);
+                    bbox_max[ch] = bbox_max[ch].max(wp[ch]);
+                }
+            }
         }
     }
+    let scene_diag = if bbox_min[0].is_finite() && bbox_max[0].is_finite() {
+        ((bbox_max[0] - bbox_min[0]).powi(2)
+            + (bbox_max[1] - bbox_min[1]).powi(2)
+            + (bbox_max[2] - bbox_min[2]).powi(2))
+        .sqrt()
+    } else {
+        0.0
+    };
     Ok(SceneLoad {
         primitive_count: instances.len(),
         triangle_count: tri_total,
@@ -1091,6 +1155,233 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
         animation_channels,
         textured_materials,
         normal_mapped_materials,
+        scene_diag,
+    })
+}
+
+// ─────────────────── G11.4 R3 灯种子集（RXS-0394 契约光照面单通道消费） ───────────────────
+
+/// 点光源记录（契约光照 JSON 派生面；逐盏 provenance）。
+#[derive(Debug, Clone)]
+struct PointLightRec {
+    id: String,
+    position: [f32; 3],
+    color: [f32; 3],
+    intensity_cd: f32,
+    /// 发光轴向（朗伯余弦瓣；单位长——灯具单面发光口径，全向化即 RED 面）。
+    emit_dir: [f32; 3],
+    /// 关联灯具几何表面积（m²；近场钳制盘等效半径源——d²_eff = max(d², A/π)）。
+    area_m2: f32,
+    /// 代理覆盖的材质索引（NEE 覆盖面；None = 不覆盖任何 emissive 材质）。
+    covers_material_index: Option<usize>,
+    derived_from: String,
+}
+
+/// emissive 表面登记（契约光照 JSON 面；material_index 对齐 glTF 材质序）。
+#[derive(Debug, Clone)]
+struct EmissiveRec {
+    material_index: usize,
+    material_name: String,
+    le: [f32; 3],
+}
+
+/// 灯种子集（契约光照参数面唯一事实源消费；legacy 文件 = 空集显式登记）。
+#[derive(Debug)]
+struct LightSeedSet {
+    point_lights: Vec<PointLightRec>,
+    emissive: Vec<EmissiveRec>,
+    area_lights_declared_absent: bool,
+    source_digest: String,
+    legacy_face: bool,
+}
+
+impl LightSeedSet {
+    fn emissive_le(&self, material_index: usize) -> Option<[f32; 3]> {
+        self.emissive
+            .iter()
+            .find(|e| e.material_index == material_index)
+            .map(|e| e.le)
+    }
+
+    /// NEE 覆盖面（点光代理关联材质）：GI 面 Le 整零排除（防 NEE/缓存双重
+    /// 计数）；未覆盖 emissive 面 GI 正常进入。
+    fn is_nee_covered(&self, material_index: usize) -> bool {
+        self.point_lights
+            .iter()
+            .any(|p| p.covers_material_index == Some(material_index))
+    }
+}
+
+/// 契约光照 JSON 闭集解析（fail-closed；schema 外字段拒绝）。
+/// 既有键集 = schema/scene_id/lights/note；G11.4 修订面键 = point_lights /
+/// emissive_surfaces / derived（M133 只追加修订程序产物；缺失 = legacy 空集
+/// 显式登记，不静默冒充）。
+fn parse_light_seed_set(path: &Path) -> Result<LightSeedSet, String> {
+    let raw = std::fs::read(path).map_err(|e| format!("契约光照 JSON 读取失败: {e}"))?;
+    let digest = format!("sha256:{}", sha256_hex(&raw));
+    let text = String::from_utf8(raw).map_err(|e| format!("契约光照 JSON 非 UTF-8: {e}"))?;
+    let root = json::parse_str(&text).map_err(|e| format!("契约光照 JSON: {e}"))?;
+    let obj = root
+        .as_object()
+        .ok_or_else(|| "契约光照 JSON 根非 object".to_owned())?;
+    const KEYS: &[&str] = &[
+        "schema",
+        "scene_id",
+        "lights",
+        "note",
+        "point_lights",
+        "emissive_surfaces",
+        "derived",
+    ];
+    for (k, _) in obj {
+        if !KEYS.contains(&k.as_str()) {
+            return Err(format!("契约光照 JSON schema 外字段 {k:?}（fail-closed）"));
+        }
+    }
+    let mut point_lights = Vec::new();
+    if let Some(pl) = root.get("point_lights") {
+        let arr = pl
+            .as_array()
+            .ok_or_else(|| "point_lights 非数组".to_owned())?;
+        for (i, it) in arr.iter().enumerate() {
+            let o = it
+                .as_object()
+                .ok_or_else(|| format!("point_lights[{i}] 非 object"))?;
+            const LKEYS: &[&str] = &[
+                "id",
+                "node_name",
+                "position",
+                "color_linear_rgb",
+                "intensity_cd",
+                "emit_direction",
+                "area_m2",
+                "covers_material_index",
+                "derived_from",
+            ];
+            for (k, _) in o {
+                if !LKEYS.contains(&k.as_str()) {
+                    return Err(format!("point_lights[{i}] schema 外字段 {k:?}"));
+                }
+            }
+            for k in [
+                "id",
+                "position",
+                "color_linear_rgb",
+                "intensity_cd",
+                "emit_direction",
+                "area_m2",
+                "derived_from",
+            ] {
+                if it.get(k).is_none() {
+                    return Err(format!("point_lights[{i}] 缺字段 {k}"));
+                }
+            }
+            let pos = as_f64_arr(&format!("point_lights[{i}].position"), it.get("position").unwrap(), 3)?;
+            let color = as_f64_arr(
+                &format!("point_lights[{i}].color_linear_rgb"),
+                it.get("color_linear_rgb").unwrap(),
+                3,
+            )?;
+            let intensity = as_f64(
+                &format!("point_lights[{i}].intensity_cd"),
+                it.get("intensity_cd").unwrap(),
+            )?;
+            if !(intensity > 0.0) {
+                return Err(format!("point_lights[{i}].intensity_cd 非正（{intensity}）"));
+            }
+            let emit = as_f64_arr(
+                &format!("point_lights[{i}].emit_direction"),
+                it.get("emit_direction").unwrap(),
+                3,
+            )?;
+            let en2: f64 = emit.iter().map(|x| x * x).sum();
+            if (en2 - 1.0).abs() > 9.094947017729282e-13 {
+                return Err(format!("point_lights[{i}].emit_direction 非单位长（|d|²={en2}）"));
+            }
+            let area = as_f64(
+                &format!("point_lights[{i}].area_m2"),
+                it.get("area_m2").unwrap(),
+            )?;
+            if !(area > 0.0) {
+                return Err(format!("point_lights[{i}].area_m2 非正（{area}）"));
+            }
+            let covers = match it.get("covers_material_index") {
+                None | Some(JsonValue::Null) => None,
+                Some(v) => Some(as_u(
+                    &format!("point_lights[{i}].covers_material_index"),
+                    v,
+                    32,
+                )? as usize),
+            };
+            point_lights.push(PointLightRec {
+                id: it.get("id").unwrap().as_str().unwrap_or("").to_owned(),
+                position: [pos[0] as f32, pos[1] as f32, pos[2] as f32],
+                color: [color[0] as f32, color[1] as f32, color[2] as f32],
+                intensity_cd: intensity as f32,
+                emit_dir: [emit[0] as f32, emit[1] as f32, emit[2] as f32],
+                area_m2: area as f32,
+                covers_material_index: covers,
+                derived_from: it
+                    .get("derived_from")
+                    .unwrap()
+                    .as_str()
+                    .unwrap_or("")
+                    .to_owned(),
+            });
+        }
+    }
+    let mut emissive = Vec::new();
+    if let Some(em) = root.get("emissive_surfaces") {
+        let arr = em
+            .as_array()
+            .ok_or_else(|| "emissive_surfaces 非数组".to_owned())?;
+        for (i, it) in arr.iter().enumerate() {
+            let o = it
+                .as_object()
+                .ok_or_else(|| format!("emissive_surfaces[{i}] 非 object"))?;
+            const EKEYS: &[&str] = &[
+                "material_index",
+                "material_name",
+                "le_linear_rgb",
+                "area_m2",
+                "texture_ref",
+            ];
+            for (k, _) in o {
+                if !EKEYS.contains(&k.as_str()) {
+                    return Err(format!("emissive_surfaces[{i}] schema 外字段 {k:?}"));
+                }
+            }
+            for k in ["material_index", "material_name", "le_linear_rgb"] {
+                if it.get(k).is_none() {
+                    return Err(format!("emissive_surfaces[{i}] 缺字段 {k}"));
+                }
+            }
+            let mi = as_u(
+                &format!("emissive_surfaces[{i}].material_index"),
+                it.get("material_index").unwrap(),
+                32,
+            )? as usize;
+            let le = as_f64_arr(
+                &format!("emissive_surfaces[{i}].le_linear_rgb"),
+                it.get("le_linear_rgb").unwrap(),
+                3,
+            )?;
+            emissive.push(EmissiveRec {
+                material_index: mi,
+                material_name: it.get("material_name").unwrap().as_str().unwrap_or("").to_owned(),
+                le: [le[0] as f32, le[1] as f32, le[2] as f32],
+            });
+        }
+    }
+    // 面光源集：bistro 包内无 area/spot 灯节点（缺类显式登记，不冒充空集）。
+    let area_lights_declared_absent = true;
+    let legacy_face = root.get("point_lights").is_none() && root.get("emissive_surfaces").is_none();
+    Ok(LightSeedSet {
+        point_lights,
+        emissive,
+        area_lights_declared_absent,
+        source_digest: digest,
+        legacy_face,
     })
 }
 
@@ -1127,6 +1418,40 @@ fn hdr_metadata(width: u32, height: u32, digest: &str) -> ExrMetadata {
 struct RenderOut {
     pixels: Vec<f32>,
     covered: usize,
+    // G11.4 旗标面计数/标定登记（None = 旗标关，默认面 0-byte parity）
+    g114: Option<G114Stats>,
+}
+
+/// G11.4 渲染登记面（lights/world_cache 闭集块数据源；evidence 消费）。
+#[derive(Debug, Default)]
+struct G114Stats {
+    // R3 灯种子集面（RXS-0394）
+    point_lights_consumed: usize,
+    emissive_materials_consumed: usize,
+    emissive_instances: usize,
+    // R4 世界缓存面（RXS-0395/0396）
+    scene_diag: f32,
+    s0: f32,
+    d_ref: f32,
+    levels: u32,
+    bounce_iters: u32,
+    build_cell: u32,
+    build_rays: u32,
+    deposits: [u64; 4],
+    dropped: [u64; 4],
+    queries: [u64; 4],
+    hits: [u64; 4],
+    coarse_fallback: [u64; 4],
+    cache_miss: u64,
+    energy_per_iter: Vec<[f64; 4]>,
+    fallback_px: u64,
+    last_resort_px: u64,
+    farfield_probe_count: usize,
+    farfield_energy_mean: f64,
+    // 诊断面（帧均值分项登记）
+    gi_mean: f64,
+    direct_mean: f64,
+    emissive_mean: f64,
 }
 
 /// 双线性纹理采样（REPEAT 环绕；glTF UV 原点 = 图像左上，DDS 行主序同向直映射）。
@@ -1212,12 +1537,277 @@ fn ggx_specular(n: Vec3, v_dir: Vec3, l: Vec3, roughness: f32, f0: [f32; 3]) -> 
     out
 }
 
+// ─────────────────── G11.4 双级 GI 面（RXS-0395/0396 消费面） ───────────────────
+
+/// 点光源集直接光（RXS-0394 L3 辐射链：E = color × I₀·cosθ_emit/d²（朗伯
+/// 余弦瓣——灯具单面发光口径），L = E·ndl·albedo/π·vis；阴影射线原点沿法线
+/// 偏移 RAY_EPS、遮蔽上界 = 灯距——验证射线零跳过，RXS-0361 L2 口径继承）。
+/// 返回漫反射出射辐射度（无点光 = 零）。
+fn point_lights_direct(
+    scene: &GiScene,
+    p: Vec3,
+    n: Vec3,
+    albedo: [f32; 3],
+    lights: &LightSeedSet,
+) -> [f32; 3] {
+    let inv_pi = 1.0 / core::f32::consts::PI;
+    let origin = p + n * RAY_EPS;
+    let mut out = [0.0f32; 3];
+    for pl in &lights.point_lights {
+        let lp = Vec3::from_array(pl.position);
+        let to_l = lp - p;
+        let d2 = to_l.dot(to_l);
+        if d2 <= 1e-12 {
+            continue;
+        }
+        let d = d2.sqrt();
+        let dir_l = to_l * (1.0 / d);
+        let nl = n.dot(dir_l).max(0.0);
+        if nl <= 0.0 {
+            continue;
+        }
+        // 朗伯余弦瓣（发光轴向单侧；背向零——单面发光灯具口径）。
+        let emit = Vec3::from_array(pl.emit_dir);
+        let cos_emit = emit.dot(Vec3::new(-dir_l.x, -dir_l.y, -dir_l.z));
+        if cos_emit <= 0.0 {
+            continue;
+        }
+        let shadow = Ray { origin, dir: dir_l };
+        if scene.tlas.any_hit(&scene.blases, &shadow, d * (1.0 - 1e-4)) {
+            continue;
+        }
+        // 近场钳制（RXS-0394 L3 登记）：d²_eff = max(d², A/π)——盘等效半径
+        // 截断点代理的 1/d² 奇异性（接触面辐照度界 = Le·π，物理界非拟合）。
+        let d2_eff = d2.max(pl.area_m2 / core::f32::consts::PI);
+        let e = pl.intensity_cd * cos_emit / d2_eff;
+        for ch in 0..3 {
+            out[ch] += pl.color[ch] * e * nl * albedo[ch] * inv_pi;
+        }
+    }
+    out
+}
+
+/// 命中点直接光辐射度（G11.4 扩展面：太阳 + 点光源集 + emissive 表面；
+/// tracer.rs 单太阳面同公式扩展——阴影射线原点沿法线偏移 RAY_EPS 同口径）。
+/// `emissive_inst` = 逐实例 Le（契约光照 JSON 登记面；非 emissive 实例 = 0）。
+#[allow(clippy::too_many_arguments)]
+fn direct_light_at(
+    scene: &GiScene,
+    p: Vec3,
+    n: Vec3,
+    instance: usize,
+    sun_toward: Vec3,
+    sun_color: [f32; 3],
+    lights: Option<&LightSeedSet>,
+    emissive_inst: &[[f32; 3]],
+) -> [f32; 3] {
+    let albedo = scene.albedos[instance];
+    let inv_pi = 1.0 / core::f32::consts::PI;
+    let mut out = emissive_inst[instance];
+    let ndl = n.dot(sun_toward).max(0.0);
+    if ndl > 0.0 && sun_color[0] > 0.0 {
+        let shadow = Ray {
+            origin: p + n * RAY_EPS,
+            dir: sun_toward,
+        };
+        if !scene.tlas.any_hit(&scene.blases, &shadow, f32::INFINITY) {
+            for ch in 0..3 {
+                out[ch] += sun_color[ch] * ndl * albedo[ch] * inv_pi;
+            }
+        }
+    }
+    if let Some(ls) = lights {
+        let pl = point_lights_direct(scene, p, n, albedo, ls);
+        for ch in 0..3 {
+            out[ch] += pl[ch];
+        }
+    }
+    out
+}
+
+/// 双级 GI 追踪器（RXS-0395 L1：近场屏幕探针 + 远场世界缓存兜底）——
+/// 命中 ⇒ **路径终止式缓存查询**：命中返回缓存总辐射度（直接+多反弹间接
+/// 已在沉积面单计数）；未命中格 ⇒ live 直接+天空项（只丢间接 = 只丢能量
+/// 方向）+ miss 计数登记；射线未命中 = 天空常量色（tracer.rs 同口径）。
+struct WcTracer<'a> {
+    scene: &'a GiScene,
+    sun_toward: Vec3,
+    sun_color: [f32; 3],
+    sky_color: [f32; 3],
+    lights: Option<&'a LightSeedSet>,
+    emissive_inst: &'a [[f32; 3]],
+    cache: &'a WorldCache,
+}
+
+impl RadianceTracer for WcTracer<'_> {
+    fn trace(&self, origin: Vec3, dir: Vec3) -> [f32; 3] {
+        let Some(hit) = self
+            .scene
+            .tlas
+            .intersect(&self.scene.blases, &Ray { origin, dir })
+        else {
+            return self.sky_color;
+        };
+        let p = origin + dir * hit.t;
+        let mut n = Vec3::from_array(hit.normal);
+        if n.dot(dir) > 0.0 {
+            n = -n;
+        }
+        let n = n.normalize();
+        if let Some(lq) = self.cache.query_radiance(p, n) {
+            return lq;
+        }
+        shade_for_cache(
+            self.scene,
+            p,
+            n,
+            hit.instance as usize,
+            self.sun_toward,
+            self.sun_color,
+            self.lights,
+            self.emissive_inst,
+            None,
+        )
+    }
+}
+
+/// 命中点辐射度（构建/渲染共用统一面）：直接（太阳+点光+emissive 基项——
+/// `emissive_gi` = GI 面 emissive（NEE 代理已覆盖的灯具 Le 整零排除，防
+/// NEE/缓存双重计数；未代理 emissive 面正常进入））+ 上级缓存查询间接项
+/// （albedo×L_parent，路径终止式）。天空能量入口 = 探针点沉积的收集均值
+/// （miss 射线 = 天空常量，无偏逃逸率估计）。
+#[allow(clippy::too_many_arguments)]
+fn shade_for_cache(
+    scene: &GiScene,
+    p: Vec3,
+    n: Vec3,
+    instance: usize,
+    sun_toward: Vec3,
+    sun_color: [f32; 3],
+    lights: Option<&LightSeedSet>,
+    emissive_inst: &[[f32; 3]],
+    parent: Option<&WorldCache>,
+) -> [f32; 3] {
+    let mut l = direct_light_at(
+        scene,
+        p,
+        n,
+        instance,
+        sun_toward,
+        sun_color,
+        lights,
+        emissive_inst,
+    );
+    let albedo = scene.albedos[instance];
+    if let Some(par) = parent {
+        if let Some(lq) = par.query_radiance(p, n) {
+            for ch in 0..3 {
+                l[ch] += albedo[ch] * lq[ch];
+            }
+        }
+    }
+    l
+}
+
+/// 世界缓存单级构建（SHaRC 同构在线建格 + 双沉积）：
+/// - **命中点沉积**：构建探针射线命中点 q 沉积 `L(q)` = 统一面辐射度（直接+
+///   天空项+上级间接）——缓存覆盖跟随射线到达面（含相机不可达远场）；
+/// - **探针点沉积**：探针 p 处沉积 `L(p)` = 直接 + albedo(p)×mean(L_seen)
+///   （p 的收集场均值，miss 射线 = 天空常量）——远场能量经探针收集链接进
+///   p 的格（长程传播 = 射线终止于远方亮面并读取该处缓存）。
+/// 两类沉积均为总辐射度量纲（邻域权重均值混合，零能量放大）；探针 = 屏幕
+/// 粗格（WC_BUILD_CELL）有效探针 × WC_BUILD_RAYS 余弦半球光线；种子 = 契约
+/// random_seed 经 probe_seed 派生 + 迭代盐去相关；`inst_px` = 逐像素实例
+/// 回取面（探针锚点像素 → 实例 albedo/emissive）。
+#[allow(clippy::too_many_arguments)]
+fn build_world_cache_level(
+    scene: &GiScene,
+    probes: &[(Vec3, Vec3, u32)],
+    parent: Option<&WorldCache>,
+    params: world_cache::WcParams,
+    sun_toward: Vec3,
+    sun_color: [f32; 3],
+    sky_color: [f32; 3],
+    lights: Option<&LightSeedSet>,
+    emissive_inst: &[[f32; 3]],
+    seed: u64,
+    iteration: u32,
+) -> WorldCache {
+    let mut wc = WorldCache::new(params);
+    for (idx, &(ppos, pn, inst)) in probes.iter().enumerate() {
+        let inst = inst as usize;
+        let mut rng = Pcg32::new(
+            probe_seed(seed, idx as u32)
+                .wrapping_add(0xB1CE_u64.wrapping_mul(u64::from(iteration) + 1)),
+        );
+        let origin = ppos + pn * RAY_EPS;
+        let mut acc = [0.0f64; 3];
+        for _ in 0..WC_BUILD_RAYS {
+            let dir = cosine_sample_hemisphere(pn, rng.next_f32(), rng.next_f32());
+            let l_seen = match scene
+                .tlas
+                .intersect(&scene.blases, &Ray { origin, dir })
+            {
+                Some(hit) => {
+                    let q = origin + dir * hit.t;
+                    let mut qn = Vec3::from_array(hit.normal);
+                    if qn.dot(dir) > 0.0 {
+                        qn = -qn;
+                    }
+                    let qn = qn.normalize();
+                    let lv = shade_for_cache(
+                        scene,
+                        q,
+                        qn,
+                        hit.instance as usize,
+                        sun_toward,
+                        sun_color,
+                        lights,
+                        emissive_inst,
+                        parent,
+                    );
+                    wc.deposit(q, qn, lv);
+                    lv
+                }
+                None => sky_color,
+            };
+            for ch in 0..3 {
+                acc[ch] += f64::from(l_seen[ch]);
+            }
+        }
+        // 探针点沉积：L(p) = 直接（太阳+点光+emissive）+ albedo × 收集均值
+        //（miss 射线 = 天空常量 ⇒ 天空经无偏逃逸率进入；E=π×mean 恒等式消 π）。
+        let mut dp = direct_light_at(
+            scene,
+            ppos,
+            pn,
+            inst,
+            sun_toward,
+            sun_color,
+            lights,
+            emissive_inst,
+        );
+        let albedo_p = scene.albedos[inst];
+        for ch in 0..3 {
+            dp[ch] += albedo_p[ch] * (acc[ch] / f64::from(WC_BUILD_RAYS)) as f32;
+        }
+        wc.deposit(ppos, pn, dp);
+    }
+    wc
+}
+
 /// 主渲染：针孔主射线（render_gbuffer_pinhole 同口径）+ 直光/阴影（tracer 同公式）
 /// + 屏幕探针单反弹 GI（seed = 契约 random_seed）。返回 scene-linear HDR RGB。
 ///
 /// G11.3 旗标面（默认关 = G10.5 逐字节口径）：`pbr` = baseColorTexture×factor×
 /// (1−metallic) 漫反射 + 太阳 GGX + 法线贴图切线空间扰动（R1）；`smooth` = 顶点
 /// 平滑法线重心插值 + 双面翻转（R2）。
+///
+/// G11.4 旗标面（默认关 = 0-byte parity）：`lights` = R3 灯种子集（契约光照
+/// JSON 单通道消费——点光源直接光 + emissive 表面主射线直出，RXS-0394）；
+/// `multibounce` = R4 多反弹 + 世界辐射缓存世界级承接（双级 GI：近场屏幕探针
+/// + 远场世界缓存兜底 + 像素级失效回落 → 天光末级兜底显式登记，RXS-0395/0396）。
+#[allow(clippy::too_many_arguments)]
 fn render_frame(
     scene: &GiScene,
     camera: &GiCamera,
@@ -1225,6 +1815,8 @@ fn render_frame(
     load: &SceneLoad,
     pbr: bool,
     smooth: bool,
+    lights: Option<&LightSeedSet>,
+    multibounce: bool,
 ) -> RenderOut {
     let (w, h) = (c.res_w, c.res_h);
     // 契约：sun.direction = 传播方向；GiScene.sun_dir = 指向光源（= −direction）。
@@ -1243,6 +1835,35 @@ fn render_frame(
     let mut normals = ImageF32::new(w, h, 3);
     let mut albedo_px = vec![[0.0f32; 3]; (w * h) as usize];
     let mut direct = vec![[0.0f32; 3]; (w * h) as usize];
+    // G11.4 旗标面：emissive 逐实例 Le（契约光照 JSON 登记消费）+ 主射线
+    // emissive 直出缓冲 + 登记计数。旗标关 = 全零缓冲零消费（0-byte parity）。
+    let mut g114 = if lights.is_some() || multibounce {
+        Some(G114Stats::default())
+    } else {
+        None
+    };
+    let mut emissive_inst = vec![[0.0f32; 3]; load.instances.len()];
+    let mut emissive_gi = vec![[0.0f32; 3]; load.instances.len()];
+    let mut emissive_px = vec![[0.0f32; 3]; (w * h) as usize];
+    // G11.4：逐像素实例回取面（世界缓存构建探针锚点 → 实例 albedo/emissive）。
+    let mut inst_px = vec![u32::MAX; (w * h) as usize];
+    if let (Some(ls), Some(st)) = (lights, g114.as_mut()) {
+        st.point_lights_consumed = ls.point_lights.len();
+        st.emissive_materials_consumed = ls.emissive.len();
+        for (ii, sh) in load.shade.iter().enumerate() {
+            if let Some(mi) = sh.material {
+                if let Some(le) = ls.emissive_le(mi) {
+                    emissive_inst[ii] = le;
+                    st.emissive_instances += 1;
+                    // GI 面排除面：NEE 代理已覆盖的灯具（Le 经点光 NEE 进入，
+                    // GI 面整零防双重计数）；未代理 emissive 面正常进 GI。
+                    if !ls.is_nee_covered(mi) {
+                        emissive_gi[ii] = le;
+                    }
+                }
+            }
+        }
+    }
     let unproject = |nx: f32, ny: f32, z: f32| -> Option<Vec3> {
         let v4 = camera.inv_view_proj.transform_vec4([nx, ny, z, 1.0]);
         if !v4[3].is_finite() || v4[3].abs() < 1e-8 {
@@ -1411,6 +2032,7 @@ fn render_frame(
                 }
             }
             albedo_px[idx] = albedo;
+            inst_px[idx] = hit.instance;
             covered += 1;
             // 直光（gi/tracer.rs RadianceTracer::trace 命中分支同公式：
             // sun_color·ndl·albedo/π·太阳可见性；阴影射线原点沿法线偏移 RAY_EPS；
@@ -1437,33 +2059,270 @@ fn render_frame(
                     }
                 }
             }
+
+            // ── G11.4 R3 面（旗标面）：emissive 主射线直出 + 点光源直接光 ──
+            if let Some(ls) = lights {
+                let le_mean = emissive_inst[hit.instance as usize];
+                let mut le_px = le_mean;
+                // pbr 面：emissiveTexture 逐像素采样 × emissiveFactor（与
+                // baseColor 同双线性/sRGB→线性口径；无纹理/未消费 = 契约登记均值）。
+                if pbr
+                    && le_mean == [0.0; 3]
+                    && let (Some(uv), Some(mi)) = (hit_uv, shade.material)
+                    && let Some(rec) = load.materials.get(mi)
+                    && rec.emissive_factor != [0.0; 3]
+                {
+                    let em_tex = rec
+                        .emissive_img
+                        .and_then(|ii| load.textures.get(ii))
+                        .and_then(|s| match s {
+                            TextureSlot::Consumed(t) => Some(t),
+                            TextureSlot::DeclaredUnconsumed { .. } => None,
+                        });
+                    if let Some(t) = em_tex {
+                        let tb = sample_basecolor_linear(t, uv[0], uv[1]);
+                        le_px = [
+                            tb[0] * rec.emissive_factor[0],
+                            tb[1] * rec.emissive_factor[1],
+                            tb[2] * rec.emissive_factor[2],
+                        ];
+                    }
+                }
+                emissive_px[idx] = le_px;
+                let pl = point_lights_direct(scene, p, n, albedo, ls);
+                for ch in 0..3 {
+                    direct[idx][ch] += pl[ch];
+                }
+            }
         }
     }
 
-    // GI 单反弹（host 参考管线；seed = 契约 random_seed；temporal off 单帧口径）。
-    let tracer = RayTracedRadiance::new(scene.clone());
+    // GI 面：默认 = 屏幕探针单反弹（G10.5 口径 0-byte）；--gi-multibounce =
+    // 双级 GI（近场屏幕探针 + 远场世界缓存，WC_BOUNCE_ITERS 级迭代在线构建）。
     let gi_params = GiParams {
         seed: c.random_seed,
         temporal: false,
         ..GiParams::default()
     };
-    let gi = render_gi(&depth, &normals, camera, &tracer, None, None, &gi_params);
+    let mut caches: Vec<WorldCache> = Vec::new();
+    let gi = if multibounce {
+        let cam_pos = [
+            c.cam_position[0] as f32,
+            c.cam_position[1] as f32,
+            c.cam_position[2] as f32,
+        ];
+        let params = WorldCache::params_from_scene(load.scene_diag, cam_pos);
+        if let Some(st) = g114.as_mut() {
+            st.scene_diag = load.scene_diag;
+            st.s0 = params.s0;
+            st.d_ref = params.d_ref;
+            st.levels = WC_LEVELS;
+            st.bounce_iters = WC_BOUNCE_ITERS;
+            st.build_cell = WC_BUILD_CELL;
+            st.build_rays = WC_BUILD_RAYS;
+        }
+        // 构建探针集 = 屏幕粗格有效探针（锚点像素实例回取）。
+        let build_grid = place_probes(&depth, &normals, camera, WC_BUILD_CELL);
+        let probe_list: Vec<(Vec3, Vec3, u32)> = build_grid
+            .probes
+            .iter()
+            .filter(|p| p.valid)
+            .map(|p| {
+                let pi_idx = (p.anchor[1] * w + p.anchor[0]) as usize;
+                (p.pos, p.normal, inst_px[pi_idx])
+            })
+            .filter(|&(_, _, inst)| inst != u32::MAX)
+            .collect();
+        for it in 0..WC_BOUNCE_ITERS {
+            let wc = build_world_cache_level(
+                scene,
+                &probe_list,
+                caches.last(),
+                params,
+                sun_toward,
+                sun_color,
+                scene.sky_color,
+                lights,
+                &emissive_gi,
+                c.random_seed,
+                it,
+            );
+            if let Some(st) = g114.as_mut() {
+                st.energy_per_iter.push(wc.stats.energy);
+                for lv in 0..WC_LEVELS as usize {
+                    st.deposits[lv] += wc.stats.deposits[lv];
+                    st.dropped[lv] += wc.stats.dropped[lv];
+                }
+            }
+            caches.push(wc);
+        }
+        let wc_tracer = WcTracer {
+            scene,
+            sun_toward,
+            sun_color,
+            sky_color: scene.sky_color,
+            lights,
+            emissive_inst: &emissive_gi,
+            cache: caches.last().expect("multibounce 面至少一级缓存"),
+        };
+        render_gi(&depth, &normals, camera, &wc_tracer, None, None, &gi_params)
+    } else {
+        // GI 单反弹（host 参考管线；seed = 契约 random_seed；temporal off 单帧口径）。
+        let tracer = RayTracedRadiance::new(scene.clone());
+        render_gi(&depth, &normals, camera, &tracer, None, None, &gi_params)
+    };
+    if let (Some(st), Some(wc)) = (g114.as_mut(), caches.last()) {
+        for lv in 0..WC_LEVELS as usize {
+            st.queries[lv] = wc.stats.queries[lv].get();
+            st.hits[lv] = wc.stats.hits[lv].get();
+            st.coarse_fallback[lv] = wc.stats.coarse_fallback[lv].get();
+        }
+        st.cache_miss = wc.stats.miss.get();
+    }
 
     let inv_pi = 1.0 / core::f32::consts::PI;
     let mut pixels = vec![0.0f32; (w * h * 3) as usize];
+    // G11.4 诊断面：GI 场/直接/emissive 分项帧均值（evidence 登记，零像素影响）。
+    let mut sum_gi = 0.0f64;
+    let mut sum_direct = 0.0f64;
+    let mut sum_emissive = 0.0f64;
+    let mut sum_covered = 0u64;
     for y in 0..h {
         for x in 0..w {
             let idx = (y * w + x) as usize;
             if depth.get(x, y, 0) >= 1.0 {
                 continue; // 主射线未命中 = 黑（UE 侧无天空网格同口径）
             }
-            let gi_e = gi.irradiance.pixel3(x, y);
+            let mut gi_e = gi.irradiance.pixel3(x, y);
+            // G11.4 像素级失效回落（RXS-0395 L1/RXS-0396 L4）：屏幕探针辐照度
+            // 全零（查询失效面）→ 世界缓存直接查询 → 天光/常量环境末级兜底
+            //（π×sky_color 与探针全 miss 估计子同口径）——逐级计数显式登记，
+            // 禁静默返回零辐射。
+            if multibounce && gi_e == [0.0; 3] {
+                let u = (x as f32 + 0.5) / w as f32;
+                let v = (y as f32 + 0.5) / h as f32;
+                let (nx, ny) = (2.0 * u - 1.0, 1.0 - 2.0 * v);
+                let n = Vec3::from_array(normals.pixel3(x, y));
+                let pos = unproject(nx, ny, depth.get(x, y, 0));
+                if let (Some(p), Some(wc), Some(st)) =
+                    (pos, caches.last(), g114.as_mut())
+                {
+                    st.fallback_px += 1;
+                    if n.length() > 0.0 {
+                        if let Some(lq) = wc.query_radiance(p, n.normalize()) {
+                            // 像素回落面 = 辐照度：E = π×L（恒等式口径）。
+                            let pi = core::f32::consts::PI;
+                            gi_e = [pi * lq[0], pi * lq[1], pi * lq[2]];
+                        } else {
+                            st.last_resort_px += 1;
+                            let pi = core::f32::consts::PI;
+                            gi_e = [
+                                pi * scene.sky_color[0],
+                                pi * scene.sky_color[1],
+                                pi * scene.sky_color[2],
+                            ];
+                        }
+                    }
+                }
+            }
+            sum_gi += f64::from(gi_e[0] * 0.2126 + gi_e[1] * 0.7152 + gi_e[2] * 0.0722);
+            sum_direct +=
+                f64::from(direct[idx][0] * 0.2126 + direct[idx][1] * 0.7152 + direct[idx][2] * 0.0722);
+            sum_emissive += f64::from(
+                emissive_px[idx][0] * 0.2126 + emissive_px[idx][1] * 0.7152 + emissive_px[idx][2] * 0.0722,
+            );
+            sum_covered += 1;
             for ch in 0..3 {
-                pixels[idx * 3 + ch] = direct[idx][ch] + albedo_px[idx][ch] * inv_pi * gi_e[ch];
+                pixels[idx * 3 + ch] = direct[idx][ch]
+                    + albedo_px[idx][ch] * inv_pi * gi_e[ch]
+                    + emissive_px[idx][ch];
             }
         }
     }
-    RenderOut { pixels, covered }
+    if let Some(st) = g114.as_mut() {
+        let nc = sum_covered.max(1) as f64;
+        st.gi_mean = sum_gi / nc;
+        st.direct_mean = sum_direct / nc;
+        st.emissive_mean = sum_emissive / nc;
+    }
+    // G11.4 远场探针集（RXS-0396 L5 锚①场景标定面）：场景三角形质心确定性
+    // 步进采样（≤64），分类 = 相机不可达（画幅外/背面/被遮蔽）⇒ 远场探针；
+    // 能量回归 = 末级缓存逐点辐照度查询亮度均值（None = 0 计入）。
+    if let (Some(st), Some(wc)) = (g114.as_mut(), caches.last()) {
+        let mut ff_points: Vec<(Vec3, Vec3)> = Vec::new();
+        let tri_total = load.triangle_count.max(1);
+        let stride = (tri_total / 256).max(1);
+        let cam_pos = Vec3::from_array([
+            c.cam_position[0] as f32,
+            c.cam_position[1] as f32,
+            c.cam_position[2] as f32,
+        ]);
+        let mut g = 0usize;
+        'outer: for inst in &load.instances {
+            for tri in &inst.indices {
+                g += 1;
+                if g % stride != 0 {
+                    continue;
+                }
+                let a = inst.transform.apply_point(Vec3::from_array(inst.positions[tri[0] as usize]));
+                let b = inst.transform.apply_point(Vec3::from_array(inst.positions[tri[1] as usize]));
+                let cc = inst.transform.apply_point(Vec3::from_array(inst.positions[tri[2] as usize]));
+                let centroid = (a + b + cc) * (1.0 / 3.0);
+                let gn = (b - a).cross(cc - a);
+                if gn.length() <= 1e-12 {
+                    continue;
+                }
+                let gn = gn.normalize();
+                // 相机不可达分类：画幅外/背面 或 遮蔽射线命中更近几何。
+                let clip = camera
+                    .view_proj
+                    .transform_vec4([centroid.x, centroid.y, centroid.z, 1.0]);
+                let to_c = centroid - cam_pos;
+                let dist = to_c.length();
+                let facing = gn.dot(to_c * (1.0 / dist.max(1e-12))) < 0.0;
+                let in_frame = clip[3] > 1e-8
+                    && (clip[0] / clip[3]).abs() <= 1.0
+                    && (clip[1] / clip[3]).abs() <= 1.0
+                    && clip[2] / clip[3] >= 0.0
+                    && clip[2] / clip[3] <= 1.0;
+                let occluded = if in_frame && facing {
+                    let dir = to_c * (1.0 / dist.max(1e-12));
+                    scene.tlas.any_hit(
+                        &scene.blases,
+                        &Ray {
+                            origin: cam_pos,
+                            dir,
+                        },
+                        dist * (1.0 - 1e-3),
+                    )
+                } else {
+                    false
+                };
+                if !(in_frame && facing) || occluded {
+                    ff_points.push((centroid, gn));
+                    if ff_points.len() >= 64 {
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        st.farfield_probe_count = ff_points.len();
+        if !ff_points.is_empty() {
+            let mut acc = 0.0f64;
+            for (p, n) in &ff_points {
+                let lq = wc.query_radiance(*p, *n).unwrap_or([0.0; 3]);
+                // 能量回归面 = 辐照度 E = π×L 亮度（f64 累加）。
+                acc += core::f64::consts::PI
+                    * f64::from(lq[0] * 0.2126 + lq[1] * 0.7152 + lq[2] * 0.0722);
+            }
+            st.farfield_energy_mean = acc / ff_points.len() as f64;
+        }
+    }
+    RenderOut {
+        pixels,
+        covered,
+        g114,
+    }
 }
 
 // ─────────────────────────── LDR 派生（RXS-0386 L2） ───────────────────────────
@@ -1646,6 +2505,9 @@ fn main() {
         let mut exposure_scale = 1.0f64;
         let material_pbr = args.iter().any(|a| a == "--material-pbr");
         let smooth_normals = args.iter().any(|a| a == "--smooth-normals");
+        // G11.4 旗标面（默认关 = G10.5/G11.3 逐字节 parity）
+        let gi_multibounce = args.iter().any(|a| a == "--gi-multibounce");
+        let mut light_seed_path: Option<String> = None;
         let mut i = 0;
         while i < args.len() {
             match args[i].as_str() {
@@ -1658,6 +2520,7 @@ fn main() {
                         .parse()
                         .unwrap_or_else(|_| fail("--exposure-scale 非 f64"))
                 }
+                "--light-seed-set" => light_seed_path = Some(take_arg(&args, &mut i)),
                 _ => {}
             }
             i += 1;
@@ -1707,8 +2570,30 @@ fn main() {
             [sky_i, sky_i, sky_i],
         );
         let camera = contract_camera(&c);
+        // G11.4 R3 面：契约光照 JSON（唯一事实源单通道）闭集解析。
+        let light_seed = light_seed_path
+            .as_deref()
+            .map(|p| parse_light_seed_set(Path::new(p)).unwrap_or_else(|e| fail(&e)));
+        if let Some(ls) = &light_seed {
+            eprintln!(
+                "[{TAG}] 灯种子集（RXS-0394 契约面）: point_lights={} emissive_materials={} legacy_face={} source={}",
+                ls.point_lights.len(),
+                ls.emissive.len(),
+                ls.legacy_face,
+                ls.source_digest
+            );
+        }
         let t0 = std::time::Instant::now();
-        let frame = render_frame(&scene, &camera, &c, &load, material_pbr, smooth_normals);
+        let frame = render_frame(
+            &scene,
+            &camera,
+            &c,
+            &load,
+            material_pbr,
+            smooth_normals,
+            light_seed.as_ref(),
+            gi_multibounce,
+        );
         let mut px = frame.pixels;
         if exposure_scale != 1.0 {
             for v in px.iter_mut() {
@@ -1767,8 +2652,64 @@ fn main() {
             .map(|f| format!("\"{f}\""))
             .collect::<Vec<_>>()
             .join(",");
+        // G11.4 登记块（闭集；旗标关 = enabled:false 显式登记不冒充）。
+        let lights_json = match &light_seed {
+            Some(ls) => {
+                let pls = ls
+                    .point_lights
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{{\"id\":\"{}\",\"position\":[{},{},{}],\"color_linear_rgb\":[{},{},{}],\"intensity_cd\":{},\"emit_direction\":[{},{},{}],\"area_m2\":{},\"derived_from\":\"{}\"}}",
+                            p.id, p.position[0], p.position[1], p.position[2],
+                            p.color[0], p.color[1], p.color[2], p.intensity_cd,
+                            p.emit_dir[0], p.emit_dir[1], p.emit_dir[2], p.area_m2, p.derived_from
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let st = frame.g114.as_ref();
+                format!(
+                    "{{\"enabled\":true,\"source_digest\":\"{}\",\"legacy_face\":{},\"point_lights_consumed\":{},\"emissive_materials_consumed\":{},\"emissive_instances\":{},\"area_lights_declared_absent\":{},\"point_lights\":[{}]}}",
+                    ls.source_digest,
+                    ls.legacy_face,
+                    ls.point_lights.len(),
+                    ls.emissive.len(),
+                    st.map(|s| s.emissive_instances).unwrap_or(0),
+                    ls.area_lights_declared_absent,
+                    pls
+                )
+            }
+            None => "{\"enabled\":false}".to_owned(),
+        };
+        let wc_json = match frame.g114.as_ref().filter(|s| s.levels > 0) {
+            Some(st) => {
+                let arr = |v: &[u64; 4]| {
+                    v.iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                };
+                let energy = st
+                    .energy_per_iter
+                    .iter()
+                    .map(|e| format!("[{},{},{},{}]", e[0], e[1], e[2], e[3]))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!(
+                    "{{\"enabled\":true,\"levels\":{},\"scene_diag\":{},\"s0\":{},\"d_ref\":{},\"bounce_iters\":{},\"build_cell\":{},\"build_rays\":{},\"deposits\":[{}],\"dropped\":[{}],\"queries\":[{}],\"hits\":[{}],\"coarse_fallback\":[{}],\"cache_miss\":{},\"energy_per_iter\":[{}],\"fallback_px\":{},\"last_resort_px\":{},\"farfield_probe_count\":{},\"farfield_energy_mean\":{},\"gi_mean\":{},\"direct_mean\":{},\"emissive_mean\":{}}}",
+                    st.levels, st.scene_diag, st.s0, st.d_ref, st.bounce_iters,
+                    st.build_cell, st.build_rays,
+                    arr(&st.deposits), arr(&st.dropped), arr(&st.queries), arr(&st.hits),
+                    arr(&st.coarse_fallback), st.cache_miss, energy,
+                    st.fallback_px, st.last_resort_px, st.farfield_probe_count,
+                    st.farfield_energy_mean, st.gi_mean, st.direct_mean, st.emissive_mean
+                )
+            }
+            None => "{\"enabled\":false}".to_owned(),
+        };
         println!(
-            "{{\"scene_id\":\"{scene_id}\",\"param_digest\":\"sha256:{digest}\",\"frame\":\"{}\",\"frame_content_digest\":\"{content}\",\"covered_px\":{},\"triangles\":{},\"animations\":{{\"package_count\":{},\"channels\":{},\"consumed_channels\":0,\"policy\":\"strip_static_contract\"}},\"materials\":{{\"count\":{},\"textured\":{},\"normal_mapped\":{},\"textures_consumed\":{},\"texture_formats\":[{}],\"textures_declared_unconsumed\":[{}],\"material_pbr\":{material_pbr},\"smooth_normals\":{smooth_normals}}}}}",
+            "{{\"scene_id\":\"{scene_id}\",\"param_digest\":\"sha256:{digest}\",\"frame\":\"{}\",\"frame_content_digest\":\"{content}\",\"covered_px\":{},\"triangles\":{},\"animations\":{{\"package_count\":{},\"channels\":{},\"consumed_channels\":0,\"policy\":\"strip_static_contract\"}},\"lights\":{lights_json},\"world_cache\":{wc_json},\"materials\":{{\"count\":{},\"textured\":{},\"normal_mapped\":{},\"textures_consumed\":{},\"texture_formats\":[{}],\"textures_declared_unconsumed\":[{}],\"material_pbr\":{material_pbr},\"smooth_normals\":{smooth_normals},\"gi_multibounce\":{gi_multibounce}}}}}",
             frame_path.display(),
             frame.covered,
             load.triangle_count,
@@ -1841,7 +2782,7 @@ fn main() {
         let mut warmup_ms = Vec::with_capacity(warmup);
         for _ in 0..warmup {
             let t = std::time::Instant::now();
-            let _ = render_frame(&scene, &camera, &c, &load, false, false);
+            let _ = render_frame(&scene, &camera, &c, &load, false, false, None, false);
             warmup_ms.push(t.elapsed().as_secs_f64() * 1000.0);
         }
         let mut frame_ms = Vec::with_capacity(frames);
@@ -1850,7 +2791,7 @@ fn main() {
         let mut covered = 0usize;
         for k in 0..frames {
             let t = std::time::Instant::now();
-            let fr = render_frame(&scene, &camera, &c, &load, false, false);
+            let fr = render_frame(&scene, &camera, &c, &load, false, false, None, false);
             frame_ms.push(t.elapsed().as_secs_f64() * 1000.0);
             let d = frame_content_digest(c.res_w, c.res_h, 3, &fr.pixels);
             if k == 0 {
@@ -1880,7 +2821,406 @@ fn main() {
         std::process::exit(0);
     }
 
+    // ─────────────────── G11.4 M154 fixture 对拍面（RXS-0396 L5 锚②） ───────────────────
+    // M96 cornell fixture（path_trace::m96_cornell_scene 0-byte 消费）上跑世界缓存
+    // 多反弹 host 路径 vs M96 host oracle（trace_host，匹配深度 full 档 max_bounces=4，
+    // spp=64）——rel_dev measured 产冻结带（P-09；M99 同程序纪律 band=measured×2.0）。
+    if args.iter().any(|a| a == "--world-cache-fixture") {
+        use rurix_render::gi::path_trace::{self, MaterialKind, PtConfig};
+
+        let fixture = path_trace::m96_cornell_scene();
+        let (fw, fh) = (fixture.camera.width, fixture.camera.height);
+        // 逐类材质拆实例（白/红/绿/灰盒/发光灯面——GiScene 逐实例 albedo 口径）。
+        let mut groups: std::collections::BTreeMap<String, (Vec<[f32; 3]>, Vec<[u32; 3]>, [f32; 3], [f32; 3])> =
+            std::collections::BTreeMap::new();
+        for (t, tri) in fixture.indices.iter().enumerate() {
+            let (key, albedo, emission) = match &fixture.materials[t] {
+                MaterialKind::Lambert { albedo } => (format!("l{albedo:?}"), *albedo, [0.0; 3]),
+                MaterialKind::Emission { albedo, emission } => {
+                    ("emission".to_owned(), *albedo, *emission)
+                }
+                other => fail(&format!("fixture 材质越域: {other:?}")),
+            };
+            let g = groups.entry(key).or_default();
+            let base = g.0.len() as u32;
+            for &vi in tri {
+                g.0.push(fixture.positions[vi as usize]);
+            }
+            g.1.push([base, base + 1, base + 2]);
+            g.2 = albedo;
+            g.3 = emission;
+        }
+        let mut instances = Vec::new();
+        let mut emissive_inst: Vec<[f32; 3]> = Vec::new();
+        let mut emissive_gi: Vec<[f32; 3]> = Vec::new();
+        for (_k, (pos, idx, albedo, emission)) in groups {
+            emissive_inst.push(emission);
+            // fixture 灯面 = 点代理 NEE 覆盖 ⇒ GI 面 Le 整零（防双重计数，
+            // 与主路径 is_nee_covered 同语义）。
+            emissive_gi.push([0.0; 3]);
+            instances.push(GiMeshInstance {
+                positions: pos,
+                indices: idx,
+                transform: Transform3x4::IDENTITY,
+                albedo,
+            });
+        }
+        let scene = GiScene::build(&instances, [0.0, 0.0, 0.0], [0.0; 3], [0.0; 3]);
+        // 场景标定：fixture 包围盒对角线实测。
+        let mut bmin = [f32::INFINITY; 3];
+        let mut bmax = [f32::NEG_INFINITY; 3];
+        for v in &fixture.positions {
+            for ch in 0..3 {
+                bmin[ch] = bmin[ch].min(v[ch]);
+                bmax[ch] = bmax[ch].max(v[ch]);
+            }
+        }
+        let scene_diag = ((bmax[0] - bmin[0]).powi(2)
+            + (bmax[1] - bmin[1]).powi(2)
+            + (bmax[2] - bmin[2]).powi(2))
+        .sqrt();
+        let cam_pos = fixture.camera.origin;
+        // 点光代理（RXS-0394 L3 派生链同源：I = Le × A 朗伯轴向点强，位置 = 灯
+        // quad 中心；fixture 灯光谱中性 ⇒ color = [1,1,1]）。
+        let lq = &fixture.light;
+        let lc = [
+            lq.p00[0] + lq.e1[0] * 0.5 + lq.e2[0] * 0.5,
+            lq.p00[1] + lq.e1[1] * 0.5 + lq.e2[1] * 0.5,
+            lq.p00[2] + lq.e1[2] * 0.5 + lq.e2[2] * 0.5,
+        ];
+        let proxy = LightSeedSet {
+            point_lights: vec![PointLightRec {
+                id: "fixture_light_quad_proxy".to_owned(),
+                position: lc,
+                color: [1.0, 1.0, 1.0],
+                intensity_cd: lq.emission[0] * lq.area(),
+                emit_dir: lq.normal(),
+                area_m2: lq.area(),
+                covers_material_index: Some(usize::MAX), // 灯面实例 GI 面整零（emissive_gi 已排除）
+                derived_from: "m96_cornell light quad (Le×A 派生链同源)".to_owned(),
+            }],
+            emissive: Vec::new(),
+            area_lights_declared_absent: true,
+            source_digest: "fixture:internal".to_owned(),
+            legacy_face: false,
+        };
+        // 主射线（PtCamera 约定逐字同式，像素中心无 jitter）+ 直接光 + 逐像素
+        // 余弦收集（16 光线，seed 链派生）× 世界缓存多反弹（3 级迭代）。
+        let mut depth = ImageF32::new(fw, fh, 1);
+        let mut normals = ImageF32::new(fw, fh, 3);
+        let mut hit_pos: Vec<Vec3> = vec![Vec3::ZERO; (fw * fh) as usize];
+        let mut hit_inst = vec![usize::MAX; (fw * fh) as usize];
+        let cam = &fixture.camera;
+        let cf = Vec3::from_array(cam.forward);
+        let cr = Vec3::from_array(cam.right);
+        let cu = Vec3::from_array(cam.up);
+        let co = Vec3::from_array(cam.origin);
+        for py in 0..fh {
+            for px in 0..fw {
+                let ju = (px as f32 + 0.5) / fw as f32;
+                let jv = (py as f32 + 0.5) / fh as f32;
+                let sx = (2.0 * ju - 1.0) * cam.tan_half_fov;
+                let sy = (1.0 - 2.0 * jv) * cam.tan_half_fov;
+                let dir = (cf + cr * sx + cu * sy).normalize();
+                let idx = (py * fw + px) as usize;
+                if let Some(hit) = scene.tlas.intersect(&scene.blases, &Ray { origin: co, dir }) {
+                    let p = co + dir * hit.t;
+                    let mut n = Vec3::from_array(hit.normal);
+                    if n.dot(dir) > 0.0 {
+                        n = -n;
+                    }
+                    hit_pos[idx] = p;
+                    hit_inst[idx] = hit.instance as usize;
+                    depth.set(px, py, 0, 0.5); // fixture 面：深度仅占位（缓构建探针不走相机反投影）
+                    normals.set_pixel3(px, py, n.normalize().to_array());
+                }
+            }
+        }
+        // 世界缓存构建（探针 = 覆盖像素步进采样，与主流水面同一构建函数）。
+        let params = WorldCache::params_from_scene(scene_diag, cam_pos);
+        let probe_list: Vec<(Vec3, Vec3, u32)> = (0..(fw * fh) as usize)
+            .step_by(2)
+            .filter(|&idx| hit_inst[idx] != usize::MAX)
+            .map(|idx| {
+                (
+                    hit_pos[idx],
+                    Vec3::from_array(normals.pixel3(idx as u32 % fw, idx as u32 / fw)),
+                    hit_inst[idx] as u32,
+                )
+            })
+            .collect();
+        let mut caches: Vec<WorldCache> = Vec::new();
+        for it in 0..WC_BOUNCE_ITERS {
+            let wc = build_world_cache_level(
+                &scene,
+                &probe_list,
+                caches.last(),
+                params,
+                Vec3::ZERO,
+                [0.0; 3],
+                [0.0; 3],
+                Some(&proxy),
+                &emissive_gi,
+                path_trace::M96_SEED,
+                it,
+            );
+            caches.push(wc);
+        }
+        let wc = caches.last().expect("fixture 缓存");
+        // 逐像素收集（64 spp 余弦半球，E = π/N Σ L——irradiance_bruteforce 同
+        // 估计子；spp 与 M96 host oracle 参照档同值对齐）。
+        const GATHER_SPP: u32 = 64;
+        let mut pixels = vec![0.0f32; (fw * fh * 3) as usize];
+        for py in 0..fh {
+            for px in 0..fw {
+                let idx = (py * fw + px) as usize;
+                if hit_inst[idx] == usize::MAX {
+                    continue;
+                }
+                let p = hit_pos[idx];
+                let n = Vec3::from_array(normals.pixel3(px, py));
+                let inst = hit_inst[idx];
+                let direct = direct_light_at(
+                    &scene,
+                    p,
+                    n,
+                    inst,
+                    Vec3::ZERO,
+                    [0.0; 3],
+                    Some(&proxy),
+                    &emissive_inst,
+                );
+                let mut rng = Pcg32::new(probe_seed(path_trace::M96_SEED ^ 0x6A17, idx as u32));
+                let origin = p + n * RAY_EPS;
+                let mut acc = [0.0f64; 3];
+                for _ in 0..GATHER_SPP {
+                    let dir = cosine_sample_hemisphere(n, rng.next_f32(), rng.next_f32());
+                    let Some(hit) = scene.tlas.intersect(&scene.blases, &Ray { origin, dir })
+                    else {
+                        continue;
+                    };
+                    let hp = origin + dir * hit.t;
+                    let mut hn = Vec3::from_array(hit.normal);
+                    if hn.dot(dir) > 0.0 {
+                        hn = -hn;
+                    }
+                    let hn = hn.normalize();
+                    // 路径终止式缓存查询（命中 = 缓存总辐射度；未命中 = live 直接
+                    // 面——与主流水 WcTracer 同一语义）。
+                    let l = match wc.query_radiance(hp, hn) {
+                        Some(lq) => lq,
+                        None => shade_for_cache(
+                            &scene,
+                            hp,
+                            hn,
+                            hit.instance as usize,
+                            Vec3::ZERO,
+                            [0.0; 3],
+                            Some(&proxy),
+                            &emissive_gi,
+                            None,
+                        ),
+                    };
+                    for ch in 0..3 {
+                        acc[ch] += f64::from(l[ch]);
+                    }
+                }
+                let scale = core::f64::consts::PI / f64::from(GATHER_SPP);
+                let albedo = scene.albedos[inst];
+                for ch in 0..3 {
+                    pixels[idx * 3 + ch] =
+                        direct[ch] + albedo[ch] * (acc[ch] * scale) as f32 / core::f32::consts::PI;
+                }
+            }
+        }
+        // 参考：M96 host oracle（匹配深度 full 档 max_bounces=4，spp=64）。
+        let cfg = PtConfig::reference(64);
+        let stream = path_trace::rng::generate_stream(
+            (fw * fh) as usize,
+            cfg.spp,
+            cfg.max_bounces,
+            path_trace::M96_SEED,
+        );
+        let reference = path_trace::trace_host(&fixture, &cfg, &stream)
+            .unwrap_or_else(|e| fail(&format!("M96 host oracle 失败: {e:?}")));
+        // 直接光分离诊断（--fixture-direct-diag）：参照 max_bounces=1（纯 NEE
+        // 直接光）vs 本路径直接光（点代理 NEE + emissive）——分离直接/间接链
+        // 残差归属（调试登记面，不进 golden）。
+        if args.iter().any(|a| a == "--fixture-direct-diag") {
+            let cfg1 = PtConfig {
+                spp: 64,
+                max_bounces: 1,
+                rr_min_bounce: 0,
+                seed: path_trace::M96_SEED,
+                switches: path_trace::PtSwitches::REFERENCE,
+            };
+            let stream1 = path_trace::rng::generate_stream(
+                (fw * fh) as usize,
+                cfg1.spp,
+                cfg1.max_bounces,
+                path_trace::M96_SEED,
+            );
+            let ref1 = path_trace::trace_host(&fixture, &cfg1, &stream1)
+                .unwrap_or_else(|e| fail(&format!("M96 host oracle(d1) 失败: {e:?}")));
+            let mut my_direct = vec![0.0f32; (fw * fh * 3) as usize];
+            for idx in 0..(fw * fh) as usize {
+                if hit_inst[idx] == usize::MAX {
+                    continue;
+                }
+                let d = direct_light_at(
+                    &scene,
+                    hit_pos[idx],
+                    Vec3::from_array(normals.pixel3(idx as u32 % fw, idx as u32 / fw)),
+                    hit_inst[idx],
+                    Vec3::ZERO,
+                    [0.0; 3],
+                    Some(&proxy),
+                    &emissive_inst,
+                );
+                my_direct[idx * 3] = d[0];
+                my_direct[idx * 3 + 1] = d[1];
+                my_direct[idx * 3 + 2] = d[2];
+            }
+            let mut dnum = 0.0f64;
+            let mut dden = 0.0f64;
+            let mut dcnt = 0usize;
+            for idx in 0..(fw * fh) as usize {
+                if hit_inst[idx] == usize::MAX {
+                    continue;
+                }
+                let a = my_direct[idx * 3] * 0.2126 + my_direct[idx * 3 + 1] * 0.7152
+                    + my_direct[idx * 3 + 2] * 0.0722;
+                let b = ref1.rgb[idx * 3] * 0.2126 + ref1.rgb[idx * 3 + 1] * 0.7152
+                    + ref1.rgb[idx * 3 + 2] * 0.0722;
+                dnum += f64::from((a - b).abs());
+                dden += f64::from(b);
+                dcnt += 1;
+            }
+            eprintln!(
+                "[fixture-direct-diag] mean|a−b|={:.6} mean_b={:.6} rel={:.4}",
+                dnum / dcnt.max(1) as f64,
+                dden / dcnt.max(1) as f64,
+                dnum / dden.max(1e-12)
+            );
+        }
+        // rel_dev = 覆盖像素亮度 |a−b|/max(b, floor) 均值（floor = 1% 参考均值亮度）。
+        let floor_lum = {
+            let mut s = 0.0f64;
+            let mut n = 0usize;
+            for v in reference.rgb.chunks_exact(3) {
+                let l = f64::from(v[0] * 0.2126 + v[1] * 0.7152 + v[2] * 0.0722);
+                if l > 0.0 {
+                    s += l;
+                    n += 1;
+                }
+            }
+            (s / n.max(1) as f64) * 0.01
+        };
+        let mut rel_acc = 0.0f64;
+        let mut rel_cnt = 0usize;
+        for idx in 0..(fw * fh) as usize {
+            if hit_inst[idx] == usize::MAX {
+                continue;
+            }
+            let a = pixels[idx * 3] * 0.2126 + pixels[idx * 3 + 1] * 0.7152 + pixels[idx * 3 + 2] * 0.0722;
+            let b = reference.rgb[idx * 3] * 0.2126
+                + reference.rgb[idx * 3 + 1] * 0.7152
+                + reference.rgb[idx * 3 + 2] * 0.0722;
+            rel_acc += f64::from((a - b).abs()) / f64::from(b).max(floor_lum);
+            rel_cnt += 1;
+        }
+        let rel_dev = rel_acc / rel_cnt.max(1) as f64;
+        let product = frame_content_digest(fw, fh, 3, &pixels);
+        let m96_digest = frame_content_digest(fw, fh, 3, &reference.rgb);
+        // 调试面（--fixture-dump <dir>：双方像素 f32le 落盘，误差结构分析用）。
+        if let Some(di) = args.iter().position(|a| a == "--fixture-dump") {
+            let dir = args.get(di + 1).map(|s| s.as_str()).unwrap_or(".");
+            std::fs::create_dir_all(dir).ok();
+            let dump = |name: &str, data: &[f32]| {
+                let b: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
+                std::fs::write(format!("{dir}/{name}"), b).ok();
+            };
+            dump("mine_f32le.raw", &pixels);
+            dump("ref_f32le.raw", &reference.rgb);
+        }
+        // 远场探针集（fixture 面：背面/遮蔽分类——中央盒背面朝远场）。
+        let mut ff: Vec<(Vec3, Vec3)> = Vec::new();
+        for inst in &instances {
+            for tri in &inst.indices {
+                let a = Vec3::from_array(inst.positions[tri[0] as usize]);
+                let b = Vec3::from_array(inst.positions[tri[1] as usize]);
+                let cc = Vec3::from_array(inst.positions[tri[2] as usize]);
+                let centroid = (a + b + cc) * (1.0 / 3.0);
+                let gn = (b - a).cross(cc - a);
+                if gn.length() <= 1e-12 {
+                    continue;
+                }
+                let gn = gn.normalize();
+                let to_c = centroid - co;
+                let dist = to_c.length();
+                let facing = gn.dot(to_c * (1.0 / dist.max(1e-12))) < 0.0;
+                let occluded = scene.tlas.any_hit(
+                    &scene.blases,
+                    &Ray {
+                        origin: co,
+                        dir: to_c * (1.0 / dist.max(1e-12)),
+                    },
+                    dist * (1.0 - 1e-3),
+                );
+                if !facing || occluded {
+                    ff.push((centroid, gn));
+                }
+            }
+        }
+        let mut ff_energy = 0.0f64;
+        for (p, n) in &ff {
+            let lq = wc.query_radiance(*p, *n).unwrap_or([0.0; 3]);
+            ff_energy += core::f64::consts::PI
+                * f64::from(lq[0] * 0.2126 + lq[1] * 0.7152 + lq[2] * 0.0722);
+        }
+        let ff_energy_mean = ff_energy / ff.len().max(1) as f64;
+        let arr = |v: &[u64; 4]| {
+            v.iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let energy = caches
+            .iter()
+            .map(|c| {
+                format!(
+                    "[{},{},{},{}]",
+                    c.stats.energy[0], c.stats.energy[1], c.stats.energy[2], c.stats.energy[3]
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        println!(
+            "{{\"fixture\":\"m96_cornell\",\"matched_depth\":\"full(4)\",\"reference_spp\":64,\"gather_spp\":{GATHER_SPP},\"product_digest\":\"{product}\",\"m96_host_digest\":\"{m96_digest}\",\"rel_dev\":{rel_dev},\"covered_px\":{rel_cnt},\"point_light_proxy\":{{\"position\":[{},{},{}],\"intensity_cd\":{}}},\"farfield_probe_count\":{},\"farfield_energy_mean\":{},\"world_cache\":{{\"levels\":{},\"scene_diag\":{},\"s0\":{},\"d_ref\":{},\"bounce_iters\":{},\"deposits\":[{}],\"queries\":[{}],\"hits\":[{}],\"cache_miss\":{},\"energy_per_iter\":[{}]}}}}",
+            lc[0], lc[1], lc[2], lq.emission[0] * lq.area(),
+            ff.len(),
+            ff_energy_mean,
+            WC_LEVELS, scene_diag, params.s0, params.d_ref, WC_BOUNCE_ITERS,
+            arr(&wc.stats.deposits),
+            arr(&[
+                wc.stats.queries[0].get(),
+                wc.stats.queries[1].get(),
+                wc.stats.queries[2].get(),
+                wc.stats.queries[3].get(),
+            ]),
+            arr(&[
+                wc.stats.hits[0].get(),
+                wc.stats.hits[1].get(),
+                wc.stats.hits[2].get(),
+                wc.stats.hits[3].get(),
+            ]),
+            wc.stats.miss.get(),
+            energy
+        );
+        std::process::exit(0);
+    }
+
     fail(
-        "未知模式（--contract-digest / --render / --project-landmarks / --derive-ldr / --benchmark）",
+        "未知模式（--contract-digest / --render / --project-landmarks / --derive-ldr / --benchmark / --world-cache-fixture）",
     );
 }

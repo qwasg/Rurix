@@ -1,0 +1,15 @@
+//@ spec: RXS-0395
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0395 L1~L5：R4
+// 多反弹 GI 双级语义——近场屏幕探针〔G9 M99 屏幕级底座 0-byte 复用〕+ 远场
+// 世界辐射缓存兜底〔RXS-0396〕+ 屏幕探针间接场查询失效必须回落世界缓存〔回落
+// 路径逐帧计数，禁静默零辐射〕+ 多反弹 ≥2 级〔第二次及以上反弹的入射辐射度经
+// 世界缓存查询获得；反弹级数/逐级能量计数进 evidence；只丢能量不漏光，
+// RXS-0358 口径继承〕+ 逐级能量单调不增 E_{k+1} ≤ E_k + host 同构世界缓存
+// 兑现面〔解析式远场估计否决；不冒充 GPU 管线世界级验收〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：world_cache 闭集块
+// bounce_levels ≥2 / per-level 能量计数非空单调不增 / fallback_queries
+// 计数登记 / fallback_zero_radiance=0。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py
+// 门（symbolic key g11.p0.m154.fix_r4_gi_multibounce_world_cache，
+// G11_ACCEPTANCE_MAP §1 冻结字面不动）。
+fn main() {}

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m154_calibration_r4_farfield_energy_min",
+  "symbolic_gate_key": "g11.p0.m154.fix_r4_gi_multibounce_world_cache",
+  "milestone": "M154",
+  "wave": "G11.4",
+  "numeric_step": 209,
+  "results": {
+    "trimmed_mean": 0.002718323364194886,
+    "estimator": "p100",
+    "sample_pair_count": 2,
+    "safety_factor_k": 0.5,
+    "threshold": 0.001359161682097443
+  },
+  "provenance": {
+    "estimator_semantics": "p100 × k（RFC-0026 §4.2 F10 / RXS-0393 L3）",
+    "sample_set_digest": "sha256:fa0270eab4353b2c3c95288e7a039641c4e7a9d47ca93d6a147eb7b2fbfc2b5c",
+    "rerun_report": "milestones/g11/g11_3_rerun_report.json",
+    "measured": "measured_local：G11.4 双场景远场探针集能量回归实测 min（bistro 0.002718323364194886 / cornell 0.3139703815480147）×k=0.5（min 向安全边；确定性管线复跑逐位一致）——「非零」字面不构成判定",
+    "k_rationale": "direction=min：阈 = measured×0.5 留 2× 下行 margin；任意噪声冒充能量回归（≈1e-9 量级）必低于此阈"
+  },
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "timestamp": "20260816T212847Z"
+}

@@ -1,0 +1,11 @@
+//@ spec: RXS-0396
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0396 L5 负例面）：
+// 世界级未落地冒充承接——远场探针集（屏幕缓存物理不可达场景区域集）能量回归
+// 为零或低于标定阈仍宣称世界级（任意噪声/静默零辐射冒充能量回归），或以
+// g9.p1.m99 屏幕级绿色 evidence 冒充世界级验收，均即 RED（双锚不同真不验收）。
+// 负例数据面（最小说明性 fixture）：farfield_probe_energy=0 或
+// energy < threshold 的「世界级落地」声明 / subject 为 g9_m99_* 的 evidence
+// 冒充 M154 evidence——门侧双锚机核 fail-closed。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py
+// 门 RED 臂（red_world_cache_not_landed / red_screen_level_masquerade）。
+fn main() {}

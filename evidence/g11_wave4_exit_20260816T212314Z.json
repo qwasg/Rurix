@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g11_wave4_exit",
+  "symbolic_gate_key": "g11.wave.4.exit",
+  "matrix_row": "G11.4",
+  "wave": "G11.4",
+  "numeric_step": 210,
+  "source_ref": "milestones/g11/CI_GATES.md §5;G11_CONTRACT G-G11-6;G11_ACCEPTANCE_MAP §1;two gates red arms independently effective;calibrated thresholds in g11_budget with provenance (P-09);spec-first RXS-0394~0396 + RXS-0360 flip revision line;regression precheck green;M96 gate ordering (RXS-0357 L6)",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g11.p0.m153.fix_r3_light_subset",
+      "subject_prefix": "g11_m153_fix_r3_light_subset",
+      "evidence_path": "evidence/g11_m153_fix_r3_light_subset_20260816T211923Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T211923Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g11.p0.m154.fix_r4_gi_multibounce_world_cache",
+      "subject_prefix": "g11_m154_fix_r4_gi_multibounce_world_cache",
+      "evidence_path": "evidence/g11_m154_fix_r4_gi_multibounce_world_cache_20260816T212206Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T212206Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "contract_digest_locked_unchanged",
+      "status": "PASS",
+      "detail": "双场景契约 digest 当次重算 == G10.5 锁定值（cornell 80305791…/bistro ad45951b…，联合 64fd54df…）"
+    },
+    {
+      "id": "two_gates_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "两门最新 evidence 各含 red_* checks 且全真（共 10 臂独立有效）"
+    },
+    {
+      "id": "calibrated_thresholds_in_budget_with_provenance",
+      "status": "PASS",
+      "detail": "g11_budget.json 三条 g11.fix.r3/r4 标定条目 measured_local + evidence_file 在树可解 trimmed_mean + threshold == trimmed_mean × k（P-09）"
+    },
+    {
+      "id": "spec_first_rxs_and_flip_revision",
+      "status": "PASS",
+      "detail": "spec/global_illumination.md RXS-0394/0395/0396 条款头在树 + RXS-0396 世界级翻转修订行字面 + RXS-0360 既有字面 0-byte + RFC-0028 Agent Approved（| 状态 | **Agent Approved（2026-08-16）**——D…）"
+    },
+    {
+      "id": "regression_guard_precheck",
+      "status": "PASS",
+      "detail": "G10 14 门 + G9 34 门最新 evidence 全绿只读汇总 + 默认面帧 digest 逐位 parity（双场景 == G10.5 锁定值）"
+    },
+    {
+      "id": "m96_ordering_and_r1_coupling_recheck",
+      "status": "PASS",
+      "detail": "M96 最新 evidence PASS（RXS-0357 L6 门序）；R1 耦合面复核：G11.3 复测 0.9903435577002249 → G11.4 m154 面 0.9891526376076132（m153 面 0.9894255837864896）——实测登记为 M155 收敛断言备料，不冒充收敛"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T212314Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: two G11.4 gates (P0 M153 fix_r3_light_subset step 208 / P0 M154 fix_r4_gi_multibounce_world_cache step 209); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: contract digest 0-byte + red arms + calibrated thresholds (P-09) + spec-first RXS-0394~0396 + RXS-0360 flip revision + regression precheck (48 gates + parity) + M96 ordering + R1 coupling recheck registered (not a convergence claim); aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

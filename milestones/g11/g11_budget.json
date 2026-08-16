@@ -287,6 +287,39 @@
       "threshold": 0.0,
       "evidence_file": "evidence/g11_m147_calibration_r1_ssim_shrink_20260816T165136Z.json",
       "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r3_luminance_shrink_tol",
+      "description": "R3 HDR 亮度中位 delta 收敛幅度阈：双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_r3_light_subset_smoke.py 两跑逐位一致；样本集 digest sha256:fa0270eab4353b2c3…）。M153 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m153_calibration_r3_luminance_shrink_20260816T212836Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r4_p90_shrink_tol",
+      "description": "R4 HDR 亮度 p90 delta 收敛幅度阈：双跑噪声 p100 × k=1.0（RXS-0393 L3；标定程序 ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py 两跑逐位一致；样本集 digest sha256:fa0270eab4353b2c3…）。M154 measured 标定（P-09）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g11_m154_calibration_r4_p90_shrink_20260816T212847Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g11.fix.r4_farfield_energy_min",
+      "description": "R4 远场探针集能量回归阈（世界级锚①）：双场景实测 min × k=0.5（标定程序产，direction=min；样本 = G11.4 复跑帧双场景 farfield_energy_mean；样本集 digest sha256:fa0270eab4353b2c3…）。M154 measured 标定（P-09）。",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.001359161682097443,
+      "evidence_file": "evidence/g11_m154_calibration_r4_farfield_energy_min_20260816T212847Z.json",
+      "measured_value": 0.002718323364194886
     }
   ],
   "ratio_assertions": [],

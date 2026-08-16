@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m153_fix_r3_light_subset",
+  "symbolic_gate_key": "g11.p0.m153.fix_r3_light_subset",
+  "matrix_row": "M153",
+  "milestone": "M153",
+  "assertion_id": "g11.p0.m153.fix_r3_light_subset",
+  "status": "pass",
+  "wave": "G11.4",
+  "numeric_step": 208,
+  "source_ref": "G11_CONTRACT §4.2 M153 + G-G11-6;G11_ACCEPTANCE_MAP §1 M153;CI_GATES §4;g10_gap_registry R3 行承接锚;spec/global_illumination.md RXS-0394;spec/visual_comparison.md RXS-0393",
+  "base_commit": "66365ae1ab1bc9f57a96e9a776c1f4451060d20d",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "light_derivation_provenance": true,
+    "light_seed_set_consumed": true,
+    "ue_point_lights_double_end": true,
+    "cornell_light_face_0byte": true,
+    "rurix_frame_changed_vs_g11_3": true,
+    "baseline_metric_reproduction": true,
+    "closure_delta_converged_measured": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_light_unexpressed_detected": true,
+    "red_unconverged_masquerade_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "60a3ac2d1711912a",
+    "baseline_delta": 2.664779790997505,
+    "baseline_delta_aligned_domain": 2.7314592314362525,
+    "retest_delta": 0.48027740360833704,
+    "converged": true,
+    "threshold_provenance": "标定程序 ci/g11_fix_r3_light_subset_smoke.py（HDR 亮度中位双跑噪声 p100×k=1.0，样本集 = G11.4 bistro m153 帧对；budget 条目 g11.fix.r3_luminance_shrink_tol）",
+    "contract_digest_unchanged": true
+  },
+  "light_provenance": {
+    "render_lights_block": {
+      "enabled": true,
+      "source_digest": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
+      "legacy_face": false,
+      "point_lights_consumed": 4,
+      "emissive_materials_consumed": 4,
+      "emissive_instances": 18,
+      "area_lights_declared_absent": true,
+      "point_lights": [
+        {
+          "id": "pointLight1",
+          "position": [
+            4.991288,
+            3.030627,
+            -0.48861912
+          ],
+          "color_linear_rgb": [
+            1.000277,
+            0.9998896,
+            1.0002773
+          ],
+          "intensity_cd": 0.018232724,
+          "emit_direction": [
+            8.275202e-08,
+            -1,
+            -7.0162755e-06
+          ],
+          "area_m2": 0.8177257,
+          "derived_from": "glTF 节点 pointLight1 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_03_2360（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+        },
+        {
+          "id": "pointLight2",
+          "position": [
+            7.9887805,
+            3.0742626,
+            1.0150611
+          ],
+          "color_linear_rgb": [
+            1.000277,
+            0.9998896,
+            1.0002773
+          ],
+          "intensity_cd": 0.018232727,
+          "emit_direction": [
+            1.2651927e-15,
+            -1,
+            -3.4228542e-08
+          ],
+          "area_m2": 0.81772596,
+          "derived_from": "glTF 节点 pointLight2 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_04_2362（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+        },
+        {
+          "id": "pointLight3",
+          "position": [
+            4.2630033,
+            3.0952866,
+            -4.9198537
+          ],
+          "color_linear_rgb": [
+            1.000277,
+            0.9998896,
+            1.0002773
+          ],
+          "intensity_cd": 0.018232727,
+          "emit_direction": [
+            2.0951896e-15,
+            -1,
+            -3.4228542e-08
+          ],
+          "area_m2": 0.81772596,
+          "derived_from": "glTF 节点 pointLight3 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_02_2358（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+        },
+        {
+          "id": "pointLight4",
+          "position": [
+            6.106886,
+            2.9393868,
+            -8.468322
+          ],
+          "color_linear_rgb": [
+            1.000277,
+            0.9998896,
+            1.0002773
+          ],
+          "intensity_cd": 0.018232713,
+          "emit_direction": [
+            2.6477096e-15,
+            -1,
+            -3.4228545e-08
+          ],
+          "area_m2": 0.8177253,
+          "derived_from": "glTF 节点 pointLight4 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_01_2356（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817725 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+        }
+      ]
+    },
+    "derivation_report_digest": "sha256:9c2b160f2a99453ba08b74e8a37c50bcd267ae42ff42965b58e25b805fd5f40f",
+    "lighting_bistro_digest": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
+    "lighting_cornell_digest": "sha256:74b1b444612e94d0303b34bbfec24989727011025e9de790ef963612e20fa464",
+    "ue_point_lights_count": 4,
+    "rurix_m153_frame_digest": "sha256:bb0cd70c235e839164748aac76448bc4014e4b6a52f815022782b7dd2c74226e",
+    "g11_3_rurix_frame_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e",
+    "baseline_reproduction": {
+      "a": 0.1333588808774948,
+      "b": 2.798138671875,
+      "delta_locked": 2.664779790997505,
+      "delta_aligned": 2.7314592314362525
+    },
+    "m154_face_delta": 0.48023271594443356
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T212836Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "R3 修复前后 delta 对拍: 锁定基线 2.664779790997505（原域）/ 2.7314592314362525（对齐域）→ 复测 0.48027740360833704（m154 全修复面 0.48023271594443356）；标定阈 p100×k=1.0=0.0; g11_budget.json 字节级纯追加 g11.fix.r3_luminance_shrink_tol（threshold=0.0）"
+}

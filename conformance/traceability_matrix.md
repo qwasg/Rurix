@@ -379,3 +379,6 @@
 | RXS-0391 | spec/visual_comparison.md | 3 | `conformance/visual_comparison/accept/gap_registry_minimal.rx`, `conformance/visual_comparison/reject/gap_registry_missing_attribution.rx`, `conformance/visual_comparison/reject/gap_registry_unmeasured_narrative.rx` |
 | RXS-0392 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/caliber_alignment_minimal.rx`, `conformance/visual_comparison/reject/caliber_fitting_masquerade.rx` |
 | RXS-0393 | spec/visual_comparison.md | 2 | `conformance/visual_comparison/accept/fix_closure_criterion_minimal.rx`, `conformance/visual_comparison/reject/closure_handwritten_threshold.rx` |
+| RXS-0394 | spec/global_illumination.md | 2 | `conformance/gi/accept/light_seed_set_minimal.rx`, `conformance/gi/reject/light_seed_gltf_direct_bypass.rx` |
+| RXS-0395 | spec/global_illumination.md | 2 | `conformance/gi/accept/gi_multibounce_two_level_minimal.rx`, `conformance/gi/reject/gi_single_bounce_masquerade.rx` |
+| RXS-0396 | spec/global_illumination.md | 2 | `conformance/gi/accept/world_radiance_cache_minimal.rx`, `conformance/gi/reject/world_cache_farfield_zero_energy.rx` |

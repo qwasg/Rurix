@@ -2387,6 +2387,54 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_wave3_exit_check.py --gate g11.wave.3.exit
 
+      # 步骤 208（G11.4 M153 R3 灯种子集修复闭环门 g11.p0.m153.fix_r3_light_subset；
+      # G11 CI_GATES §4 v1.4；G11_CONTRACT §4.2 M153 行判据逐字 + G-G11-6；落盘前
+      # 实测 CI_step.next_free=208 顺位领取 208~210）。点/面光源 + glTF emissive
+      # 表达（bistro 包内 pointLight1~4 四盏 + emissive 四件实测消费——契约光照
+      # 面单通道：corpus/lighting_bistro_interior.json 经 M133 只追加修订程序派生
+      # 〔g11_4_light_derive.py 逐盏 provenance〕，UE build_scenes 双端同消费 spawn
+      # 读回探针）+ 修复前后 HDR 亮度中位 delta 收敛 measured（锁定基线
+      # 2.664779790997505 / G11.2 域统一换算面 2.7314592314362525，收敛阈标定程序产
+      # p100×k=1.0 双跑逐位一致入 g11_budget g11.fix.r3_luminance_shrink_tol）+
+      # cornell 契约 sun+sky 灯面 0-byte（文件与 HEAD 逐位 + 渲染未消费 + 清单修订
+      # 行只追加）；点光源未表达冒充/delta 未收敛冒充/手写阈值/estimated 冒充 RED
+      # 四臂全检出。evidence 落盘 evidence/g11_m153_fix_r3_light_subset_<UTC>.json。
+      - name: G11.4 M153 fix R3 light subset (G11 CI_GATES §4.208, g11.p0.m153.fix_r3_light_subset)
+        shell: powershell
+        run: py -3 ci/g11_fix_r3_light_subset_smoke.py --gate g11.p0.m153.fix_r3_light_subset
+
+      # 步骤 209（G11.4 M154 R4 GI 多反弹 + M99-clipmap 世界级辐射缓存修复闭环门
+      # g11.p0.m154.fix_r4_gi_multibounce_world_cache；G11 CI_GATES §4 v1.4；
+      # G11_CONTRACT §4.2 M154 行判据逐字 + G-G11-6）。世界级承接 = G10.6
+      # rejudged-go 承接锚字面 + RFC-0028 语义面 spec-first（spec/global_illumination.md
+      # RXS-0396 世界级登记翻转修订行在树机核，RXS-0360 既有字面 0-byte）：空间哈希
+      # 世界缓存 + 对数族距离自适应辐射 LOD（LEVELS=4）+ 双哈希步长线性探测 + 3 级
+      # 多反弹 + 级间回落链 + 远场探针集能量回归达标定阈（标定程序产 direction=min
+      # ×k=0.5，入 g11_budget g11.fix.r4_farfield_energy_min）+ M96 golden 匹配深度
+      # 对拍（full 档 host oracle，冻结带 g11_m154_world_cache_band.json 双 digest
+      # 全等 + rel_dev ≤ measured×2.0）+ 修复前后 HDR 亮度 p90 delta 收敛 measured
+      # （锁定基线 4.697253086805343 / 域统一面 4.8486343559026714，收敛阈入
+      # g11.fix.r4_p90_shrink_tol）+ 不以 g9.p1.m99 屏幕级绿色冒充世界级验收 +
+      # M96 门序前置（RXS-0357 L6）；世界级未落地冒充/屏幕级冒充世界级/单反弹换皮/
+      # 未收敛冒充/手写阈值/estimated 冒充 RED 六臂全检出。evidence 落盘
+      # evidence/g11_m154_fix_r4_gi_multibounce_world_cache_<UTC>.json。
+      - name: G11.4 M154 fix R4 GI multibounce world cache (G11 CI_GATES §4.209, g11.p0.m154.fix_r4_gi_multibounce_world_cache)
+        shell: powershell
+        run: py -3 ci/g11_fix_r4_gi_multibounce_world_cache_smoke.py --gate g11.p0.m154.fix_r4_gi_multibounce_world_cache
+
+      # 步骤 210（G11.4 波聚合门 g11.wave.4.exit；G11 CI_GATES §5 v1.4；G11_CONTRACT
+      # G-G11-6）。只读汇总 M153（步骤 208）/M154（步骤 209）最新 evidence + 六 facts
+      #（契约 digest 0-byte / 两门 RED 臂独立有效〔共 10 臂〕/标定三条 g11.fix.r3|r4
+      # 入 g11_budget provenance 齐备〔P-09〕/spec-first 面〔RXS-0394~0396 条款头 +
+      # RXS-0360 世界级翻转修订行 + RFC-0028 Approved〕/回归前置自检〔G10 14 门 +
+      # G9 34 门最新 evidence 全绿 + 默认面帧 digest 逐位 parity〕/M96 门序 + R1 的
+      # g11.5 phase 耦合面复核实测登记〔为 M155 收敛断言备料，不冒充收敛〕）；
+      # 聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一
+      # 子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘 evidence/g11_wave4_exit_<UTC>.json。
+      - name: G11.4 wave4 exit aggregate (G11 CI_GATES §5.210, g11.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g11_wave4_exit_check.py --gate g11.wave.4.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

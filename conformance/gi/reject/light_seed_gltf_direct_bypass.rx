@@ -1,0 +1,11 @@
+//@ spec: RXS-0394
+// G11.4 spec-first 锚定语料（spec/global_illumination.md RXS-0394 L2 负例面）：
+// glTF 字段直读绕过契约光照参数面（运行时双通道并存）——光源参数未经 M133
+// 只追加修订程序转入 corpus/lighting_*.json 而由渲染器直接消费包内 glTF
+// 字段，即 RED（M130 契约 digest 一致性门序继承）；cornell 契约 sun+sky 灯面
+// 漂移同臂判 RED。
+// 负例数据面（最小说明性 fixture）：lights 块 provenance 缺派生源 / 光源参数
+// 来源标记为 glTF 直读的「修复」报告——门侧单通道机核 fail-closed。
+// 转正路径（G11.4 波接线）：ci/g11_fix_r3_light_subset_smoke.py 门 RED 臂
+// （red_light_seed_unexpressed / red_cornell_light_face_drift）。
+fn main() {}

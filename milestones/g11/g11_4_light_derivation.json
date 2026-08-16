@@ -1,24 +1,11 @@
 {
-  "schema": "rurix.g10.lighting_params.v1",
-  "scene_id": "bistro-interior",
-  "lights": [
-    {
-      "type": "directional",
-      "direction": [
-        -0.3,
-        -1.0,
-        0.2
-      ],
-      "color": [
-        1.0,
-        0.98,
-        0.95,
-        1.0
-      ],
-      "intensity": 300.0
-    }
-  ],
-  "note": "G10.5a 光照校准：sun 强度 3.0→300.0（原始登记值在室内 GI 主导面下中位亮度 0.0027，按本波取景校准义务上调至可判读区间；方向/色相维持原登记）；emissive surfaces 灯种缺口维持 G10.3 登记（Rurix 侧不表达，进差距清单候选）",
+  "schema_version": 1,
+  "report": "g11_4_light_derivation",
+  "generated_by": "milestones/g11/harness/g11_4_light_derive.py",
+  "source_gltf": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+  "source_gltf_digest": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+  "transcode_manifest_digest": "sha256:c222ac45b7314db20b87165a24d2ef8ec88f97154f979eb1d6c132bf79d3912f",
+  "derivation_rule": "RXS-0394 L3：I₀ = Le × A（Φ=Le·A·π 朗伯半球通量 ⇒ 轴向点强 I₀=Φ/π）；发光轴向 = emissive 三角形面积加权平均法线；近场钳制 d²_eff = max(d², A/π)",
   "point_lights": [
     {
       "id": "pointLight1",
@@ -175,10 +162,8 @@
       }
     }
   ],
-  "derived": {
-    "by": "milestones/g11/harness/g11_4_light_derive.py",
-    "at": "2026-08-16",
-    "rule": "RXS-0394 L3（I₀=Le×A；朗伯余弦瓣；近场钳制 d²_eff=max(d²,A/π)）",
-    "report": "milestones/g11/g11_4_light_derivation.json"
-  }
+  "area_lights": [],
+  "area_lights_note": "bistro 包内无 area/spot 灯节点（缺类显式登记，不冒充空集）",
+  "lighting_json_digest_pre_revision": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
+  "lighting_json_digest_post_revision": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce"
 }

@@ -24,6 +24,12 @@
       "manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
       "changed_at": "2026-08-15",
       "change_note": "G10.3 初冻结：首发清单 CornellBox+Bistro 两行（立项裁决 3 + RFC-0027 §4.2 Sponza 裁决——Sponza 白名单外 fail-closed 不入清单；Bistro 场景面 = BistroInterior，Exterior 转换失败如实登记见注册表 derived.note）；后续变更只追加修订行 + 新清单 digest（原地改即 RED）"
+    },
+    {
+      "revision": 2,
+      "manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "changed_at": "2026-08-16",
+      "change_note": "G11.4 R3 灯种子集承接（M133 只追加修订程序）：corpus/lighting_bistro_interior.json 内容修订——只追加 point_lights（4 盏派生）/emissive_surfaces（4 件）/derived 三键，既有 lights[] 与 note 0-byte（gen_contract_params 仅消费 lights[type=directional]，契约 digest 锁定值 0-byte）；scenes 行集 0-byte ⇒ 清单 digest 维持 sha256:d96b4d2f535efca5e…；派生链 milestones/g11/harness/g11_4_light_derive.py + 报告 milestones/g11/g11_4_light_derivation.json（逐盏 provenance）；cornell 灯面 0-byte（lighting_cornell_box.json 不动）"
     }
   ]
 }
