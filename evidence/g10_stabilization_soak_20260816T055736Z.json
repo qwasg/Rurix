@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "subject": "g10_stabilization_soak",
+  "symbolic_gate_key": "g10.wave.8a.soak",
+  "matrix_row": "G10.8a",
+  "wave": "G10.8a",
+  "numeric_step": 194,
+  "source_ref": "G10_CONTRACT G-G10-10;G10_PLAN §G10.8a;G10_ACCEPTANCE_MAP §7;CI_GATES §5 wave8a;12 P0 + 2 go P1 全量回归(M130 --phase g10.5 先于 M139)+ wave2~wave7 聚合/决策门 + 出图→捕获→度量→差距清单全链路 soak ≥1800s + budget --strict",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "base_commit": "e27822c8dd617d8ad6144fe74398dcd78bbff8a3",
+  "utc_date": "20260816",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g10.p0.m128.ue5_capture_environment",
+      "subject_prefix": "g10_m128_ue5_capture_environment",
+      "evidence_path": "evidence/g10_m128_ue5_capture_environment_20260816T040125Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040125Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m129.ue5_reference_frames",
+      "subject_prefix": "g10_m129_ue5_reference_frames",
+      "evidence_path": "evidence/g10_m129_ue5_reference_frames_20260816T040200Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040200Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m131.asset_license_registry",
+      "subject_prefix": "g10_m131_asset_license_registry",
+      "evidence_path": "evidence/g10_m131_asset_license_registry_20260816T040246Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040246Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m132.corpus_loading",
+      "subject_prefix": "g10_m132_corpus_loading",
+      "evidence_path": "evidence/g10_m132_corpus_loading_20260816T040259Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040259Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p1.m133.corpus_list_freeze",
+      "subject_prefix": "g10_m133_corpus_list_freeze",
+      "evidence_path": "evidence/g10_m133_corpus_list_freeze_20260816T040259Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040259Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m134.frame_capture_pipeline",
+      "subject_prefix": "g10_m134_frame_capture_pipeline",
+      "evidence_path": "evidence/g10_m134_frame_capture_pipeline_20260816T040327Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040327Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m135.flip_metric",
+      "subject_prefix": "g10_m135_flip_metric",
+      "evidence_path": "evidence/g10_m135_flip_metric_20260816T040329Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040329Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m136.ssim_psnr_metric",
+      "subject_prefix": "g10_m136_ssim_psnr_metric",
+      "evidence_path": "evidence/g10_m136_ssim_psnr_metric_20260816T040334Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040334Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m137.pixel_diff_report",
+      "subject_prefix": "g10_m137_pixel_diff_report",
+      "evidence_path": "evidence/g10_m137_pixel_diff_report_20260816T040336Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040336Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p1.m138.metric_threshold_calibration",
+      "subject_prefix": "g10_m138_metric_threshold_calibration",
+      "evidence_path": "evidence/g10_m138_metric_threshold_calibration_20260816T040339Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040339Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m130.dual_determinism_contract",
+      "subject_prefix": "g10_m130_dual_determinism_contract",
+      "evidence_path": "evidence/g10_m130_dual_determinism_contract_20260816T040552Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040552Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m139.ab_comparison",
+      "subject_prefix": "g10_m139_ab_comparison",
+      "evidence_path": "evidence/g10_m139_ab_comparison_20260816T040949Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040949Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m140.gap_registry",
+      "subject_prefix": "g10_m140_gap_registry",
+      "evidence_path": "evidence/g10_m140_gap_registry_20260816T040950Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T040950Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.p0.m141.perf_baseline",
+      "subject_prefix": "g10_m141_perf_baseline",
+      "evidence_path": "evidence/g10_m141_perf_baseline_20260816T052630Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052630Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.wave.2.exit",
+      "subject_prefix": "g10_wave2_exit",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "smoke exit=1"
+    },
+    {
+      "symbolic_gate_key": "g10.wave.3.exit",
+      "subject_prefix": "g10_wave3_exit",
+      "evidence_path": "evidence/g10_wave3_exit_20260816T052631Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052631Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.wave.4.exit",
+      "subject_prefix": "g10_wave4_exit",
+      "evidence_path": "evidence/g10_wave4_exit_20260816T052631Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052631Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.wave.5.exit",
+      "subject_prefix": "g10_wave5_exit",
+      "evidence_path": "evidence/g10_wave5_exit_20260816T052631Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052631Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.wave.6.reevaluation",
+      "subject_prefix": "g10_wave6_reevaluation",
+      "evidence_path": "evidence/g10_wave6_reevaluation_20260816T052632Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052632Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g10.wave.7.decisions",
+      "subject_prefix": "g10_p2_decisions",
+      "evidence_path": "evidence/g10_p2_decisions_20260816T052632Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260816T052632Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "regression_12p0_2p1_6wave",
+      "status": "FAIL",
+      "detail": "gates=20 base_commit=e27822c8dd617d8ad6144fe74398dcd78bbff8a3"
+    },
+    {
+      "id": "base_commit_uniform",
+      "status": "PASS",
+      "detail": "14 门 evidence base_commit 同值且=HEAD(同一候选 close-out 基线,MAP §7)"
+    },
+    {
+      "id": "soak_dual_threshold",
+      "status": "PASS",
+      "detail": "iterations=23 seconds=1850.4 active=1850.4 sleep=0.0 failures=0 subject='chain-soak'"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0; [budget_eval] PASS (138 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "date_anchor",
+      "status": "PASS",
+      "detail": "utc_date=20260816"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "regression_all_pass": false,
+    "base_commit_uniform": true,
+    "soak_dual_threshold": true,
+    "soak_no_sleep_padding": true,
+    "budget_strict_pass": true,
+    "date_anchor_recorded": true
+  },
+  "soak": {
+    "iterations": 23,
+    "seconds": 1850.4406759738922,
+    "min_iterations": 3,
+    "min_seconds": 1800,
+    "soak_subject": "chain-soak",
+    "active_chain_seconds": 1850.4391345977783,
+    "sleep_seconds": 0.0,
+    "outer_wall_seconds": 1859.732,
+    "failures": 0,
+    "rurix_frames_rendered": 46,
+    "ldr_derivations": 92,
+    "frames_decoded": 552,
+    "metric_triplets": 46,
+    "diff_reports": 46,
+    "gap_registry_assemblies": 23
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260816T055736Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G10.8a full soak; four legs; honest semantics(沿 G9.8a/G8.8a 2026-08-08 口径): soak 墙钟=真实链路复跑实测(禁 sleep 充时,sleep_seconds 恒 0,active_chain_seconds 逐迭代计时求和,gate 外测墙钟交叉核验);soak 载体=出图→捕获→度量→差距清单全链路 连续复跑(与 M139 门数据面同构:Rurix HDR release 重渲染 digest 逐位复现 + LDR 派生 逐字节复现 + 双端帧解码/UE provenance + FLIP/SSIM/PSNR 重算==G10.5a golden + diff 报告重跑三面一致 + 差距清单装配校验与在树逐字节幂等复核);subject=chain-soak 无 device 零错字面量门;14 门 evidence base_commit 同值一致(MAP §7 同一候选 close-out 基线)"
+}

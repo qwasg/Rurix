@@ -8,8 +8,10 @@ G10_CONTRACT G-G10-4；同构 ci/g10_wave3_exit_check.py + ci/g10_wave_exit_lib.
 UE5 参考帧（步骤 178）/ M130 双端确定性契约骨架期（步骤 179）——+
 spec/external_reference.md RXS-0380 与 spec/visual_comparison.md RXS-0384
 条款头在树 + RFC-0026/0027 Agent Approved 字面在树 + 暂定场景集登记与偏差
-如实登记 + M130 双 phase 纪律（最新 evidence phase_g10_2_pass=true 且
-phase_g10_5_pass=false，骨架期绿不替双端核验期充绿）。不重跑 smoke、不代绿、
+如实登记 + M130 双 phase 纪律两态口径（G10.8a 校准：A 态 = 最新 evidence 骨架期绿
+phase_g10_2_pass=true 且 phase_g10_5_pass=false；B 态 = 完整期双真 phase=g10.5 且
+双 flag 同真——G10.5 双端核验腿落地后最新件合法携带完整期绿；两态外一律红，
+骨架期绿不替双端核验期充绿语义 0-byte）。不重跑 smoke、不代绿、
 不设 RURIX_REQUIRE_REAL。聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。
 
 用法：
@@ -55,6 +57,30 @@ _RXS_HEAD_RE = re.compile(r"^###\s+RXS-(\d{4})\b", re.MULTILINE)
 
 def _fact(fid: str, ok: bool, detail: str) -> dict:
     return {"id": fid, "status": "PASS" if ok else "FAIL", "detail": detail}
+
+
+def m130_phase_discipline(ev: dict) -> tuple[bool, str]:
+    """M130 双 phase 纪律两态判定(G10.8a 校准,沿 G10.4b 互锁 C3/C4 两态先例)。
+
+    接受两态(反冒充语义 = 骨架期绿不替双端核验期充绿,0-byte):
+    - A 骨架期形态(G10.2 原机核):status==pass ∧ phase==g10.2 ∧
+      phase_g10_2_pass==true ∧ phase_g10_5_pass==false;
+    - B 完整期形态(G10.5 双端核验腿落地后终态):status==pass ∧ phase==g10.5 ∧
+      phase_g10_2_pass==true ∧ phase_g10_5_pass==true。
+    其余一律红(p5=true 而 p2≠true、phase=g10.5 而 p5≠true、status≠pass 等)。
+    """
+    status = ev.get("status")
+    phase = ev.get("phase")
+    p2 = ev.get("phase_g10_2_pass")
+    p5 = ev.get("phase_g10_5_pass")
+    if status == "pass" and phase == "g10.2" and p2 is True and p5 is False:
+        return True, "M130 骨架期绿 phase_g10_2_pass=true 且 phase_g10_5_pass=false(A 态)"
+    if status == "pass" and phase == "g10.5" and p2 is True and p5 is True:
+        return True, "M130 完整期双真 phase_g10_2_pass=true 且 phase_g10_5_pass=true(B 态)"
+    return False, (
+        f"phase 纪律不符: status={status} phase={phase} g10_2={p2} g10_5={p5}"
+        "(两态外一律红,反冒充语义不变)"
+    )
 
 
 def collect_extra_facts() -> list[dict]:
@@ -109,31 +135,19 @@ def collect_extra_facts() -> list[dict]:
             ss_ok, ss_detail = False, f"场景集不可读: {e}"
     facts.append(_fact("provisional_scene_set_registered", ss_ok, ss_detail))
 
-    # ④ M130 双 phase 纪律：最新 evidence 骨架期绿且不替双端核验期充绿。
+    # ④ M130 双 phase 纪律(两态口径,G10.8a 校准):最新 evidence 要么骨架期绿
+    #    且不替双端核验期充绿(G10.2 原机核形态),要么完整期双真(phase=g10.5 且
+    #    phase_g10_2_pass==true 且 phase_g10_5_pass==true——G10.5 双端核验腿
+    #    落地后最新件合法携带完整期绿,反冒充语义不变:p5=true 而 p2≠true 仍红)。
     m130_path = wel.load_latest_evidence("g10_m130_dual_determinism_contract")
-    phase_ok = False
-    phase_detail = "M130 最新 evidence 缺失"
-    if m130_path is not None:
+    if m130_path is None:
+        phase_ok, phase_detail = False, "M130 最新 evidence 缺失"
+    else:
         try:
-            ev = wel.load_json(m130_path)
-            if (
-                ev.get("status") == "pass"
-                and ev.get("phase") == "g10.2"
-                and ev.get("phase_g10_2_pass") is True
-                and ev.get("phase_g10_5_pass") is False
-            ):
-                phase_ok = True
-                phase_detail = (
-                    f"M130 骨架期绿 phase_g10_2_pass=true 且 phase_g10_5_pass=false"
-                    f"（{m130_path.name}；双端核验腿归 G10.5）"
-                )
-            else:
-                phase_detail = (
-                    f"phase 纪律不符: status={ev.get('status')} phase={ev.get('phase')} "
-                    f"g10_2={ev.get('phase_g10_2_pass')} g10_5={ev.get('phase_g10_5_pass')}"
-                )
+            phase_ok, phase_detail = m130_phase_discipline(wel.load_json(m130_path))
+            phase_detail = f"{phase_detail}（{m130_path.name}）"
         except (OSError, ValueError) as e:
-            phase_detail = f"M130 evidence 不可读: {e}"
+            phase_ok, phase_detail = False, f"M130 evidence 不可读: {e}"
     facts.append(_fact("m130_phase_discipline", phase_ok, phase_detail))
     return facts
 
@@ -168,7 +182,8 @@ def run_gate(*, evidence_dir: Path | None = None) -> int:
 
 
 def run_selftest() -> int:
-    """① 缺三门 evidence → 红；② 真树三门绿 + 事实核验 → 绿。"""
+    """① 缺三门 evidence → 红；② 真树三门绿 + 事实核验 → 绿；
+    ③ m130_phase_discipline 两态单元红绿(G10.8a 校准面)。"""
     print("[selftest] 负样本:空 evidence 目录")
     import tempfile
 
@@ -185,6 +200,42 @@ def run_selftest() -> int:
         print("[selftest] FAIL: 真树聚合未绿（前置三门/事实核验未满足）", file=sys.stderr)
         return 1
     print("[selftest] PASS: 真树聚合绿")
+
+    # 两态单元红绿(合成 evidence dict,不依赖树):A/B 两接受态绿 + 五红臂。
+    print("[selftest] m130_phase_discipline 两态单元红绿")
+    base = {"status": "pass", "phase": "g10.2",
+            "phase_g10_2_pass": True, "phase_g10_5_pass": False}
+    green_a = m130_phase_discipline(base)[0]
+    green_b = m130_phase_discipline({**base, "phase": "g10.5", "phase_g10_5_pass": True})[0]
+    red_arms = [
+        ("p5=true 而 p2=false(冒充完整期)",
+         {**base, "phase": "g10.5", "phase_g10_2_pass": False, "phase_g10_5_pass": True}),
+        ("phase=g10.5 而 p5=false(核验腿未过)",
+         {**base, "phase": "g10.5", "phase_g10_5_pass": False}),
+        ("status≠pass", {**base, "status": "fail"}),
+        ("骨架期 p2=false", {**base, "phase_g10_2_pass": False}),
+        ("骨架期 p5=true(自相矛盾形态)",
+         {**base, "phase_g10_5_pass": True}),
+    ]
+    failures = 0
+    if not green_a:
+        print("[selftest] RED MISS — A 态(骨架期绿)被误拒")
+        failures += 1
+    if not green_b:
+        print("[selftest] RED MISS — B 态(完整期双真)被误拒")
+        failures += 1
+    for name, ev in red_arms:
+        ok, detail = m130_phase_discipline(ev)
+        if ok:
+            print(f"[selftest] RED MISS — {name}:负样本过检")
+            failures += 1
+        else:
+            print(f"[selftest] RED ok   — {name}（{detail[:60]}…）")
+    if green_a and green_b:
+        print("[selftest] GREEN ok — A/B 两接受态均判绿")
+    if failures:
+        print(f"[selftest] FAIL ({failures})", file=sys.stderr)
+        return 1
     print("[selftest] ALL PASS")
     return 0
 
