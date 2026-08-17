@@ -1128,6 +1128,11 @@
           "date": "2026-08-16",
           "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G11.1 候选决策表逐行承接 G10.7 裁决(defer-to-G11+ → defer-to-G12+);G11 画质修复面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现;承接锚:重判条件 = G11+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G11+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G12+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M61 行 / ci/g11_p2_decisions_check.py(骨架期) / milestones/g11/G11_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G11.1 候选决策表承接逐字复核(defer-to-G12+ 维持);G11.2~G11.5b 五波修复面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现;承接锚:重判条件 = G12+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G12+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G12+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_P2_DECISIONS.md §1 M61 行 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/G11_CONTRACT.md §8.6"
         }
       ]
     },
@@ -1214,6 +1219,21 @@
           "date": "2026-08-16",
           "event": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——G11.1 候选决策表逐行承接 G10.6/G10.7 裁决(defer-to-G11+ → defer-to-G12+,G11.6 触发评估登记);R3 修复(G11.4 点/面光源表达)落地后多灯 workload measured 对照面可能产出——登记 G11.6 穷举触发评估,证据齐备则按只追加程序重判,未齐备维持 defer,不以低档绿色冒充高档触发;承接锚:重判条件 = G11+ 多灯 workload measured 证据齐备(低档 MegaLights GPU 管线在多灯场景 measured 对照)后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)维持,M15 维持 open-留档——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g11/G11_CANDIDATE_DECISIONS.md §2 M100-high 行 / ci/g11_p2_decisions_check.py(骨架期) / milestones/g11/G11_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G11.1 候选决策表承接逐字复核(defer-to-G12+ 维持,锚定 G12 重评);G11 修复面零 RT 语言层集成需求、不产 rt.ser 设备面实测;承接锚:重判条件 = G12+(锚定 G12)高分歧 RT workload 真实集成需求出现且 capability rt.ser 设备面实测可用时按只追加程序重判,兜底 = 语言层不加 SER 原语维持(无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线)——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_P2_DECISIONS.md §1 M52 行 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/G11_CONTRACT.md §8.6"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M99-clipmap 世界辐射缓存世界 clipmap 级条件分项——**G11.4 承接兑现完结登记**:G10.6 rejudged-go 逐字承接兑现(G11 立项裁决 4),M154 门 g11.p0.m154.fix_r4_gi_multibounce_world_cache 闭环 PASS(evidence/g11_m154_fix_r4_gi_multibounce_world_cache_20260816T212847Z.json——世界辐射缓存世界级 clipmap 级落地:LEVELS=4 空间哈希 + 3 级多反弹 + 远场能量回归达标定阈 + M96 golden 冻结带对拍),语义面 RFC-0028 冻结兑现(spec/global_illumination.md RXS-0396 追加,RXS-0360 世界级 not-triggered 登记翻转显式修订行在树,RXS-0360 既有字面 0-byte);G11.5b 复测 R4 行收敛(HDR p90 delta 4.697253086805343 → 1.0397662017256022,g11_5b_retest_gap_registry.json R4 行 converged);本分项 go 已进 14 key 验收面(M154),G11_P2_DECISIONS 28 行闭集不再立行(沿 G9/G10 范式);兜底 = 屏幕级 SPG + Radiance Cache(g9.p1.m99 门绿)维持,不以屏幕级绿色冒充世界级验收;RD-040 总体 status 维持 open(其余分项未兑现),backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_P2_DECISIONS.md §2 条 5 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/g11_5b_retest_gap_registry.json R4 行 / milestones/g11/G11_CONTRACT.md §8.4/§8.6"
+        },
+        {
+          "date": "2026-08-16",
+          "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——**G11.6 触发评估兑现**:R3 修复(G11.4 点/面光源表达,bistro 4 点光派生 + 18 emissive 实例实测消费,g11_4_light_derivation.json 逐盏 provenance)已落地,但 A/B 复测臂 = host CPU 参考管线(G11 立项裁决 8),未消费 G9 低档 MegaLights GPU 管线——「低档在多灯 workload 下不足」measured 对照面未产出,重判条件未命中维持 defer-to-G12+;不以低档绿色冒充高档触发;承接锚:重判条件 = G12+ 多灯 workload measured 证据齐备(低档 MegaLights GPU 管线在多灯场景 measured 对照)后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)维持,M15 维持 open-留档——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g11/G11_P2_DECISIONS.md §1 M100-high 行 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/g11_4_light_derivation.json / milestones/g11/G11_CONTRACT.md §8.6"
         }
       ]
     },
