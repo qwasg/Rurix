@@ -199,6 +199,28 @@
       "threshold": 4.32264886574e-05,
       "evidence_file": "evidence/g12_m166_calibration_rr_unbiased_tol_20260817T151512Z.json",
       "measured_value": 2.16132443287e-05
+    },
+    {
+      "id": "g12.pt.denoise_hf_drop_min",
+      "description": "降噪噪声谱高频能量下降标定阈(12 单元〔2 场景 × 3 族 × {static,moved}〕min,低梯度半幅掩码口径;threshold = measured × 0.5,协议冻结 k;M166 标定程序降噪腿产,禁手写 P-09);样本集 digest sha256:dc9a412efdd07a588016cda71b15247e78c575b99fa0afeadd73d5cd7a56b855(count=12 ≥ 12);标定程序 ci/g12_denoise_pipeline_tsr_smoke.py 降噪腿可复跑(两跑逐位一致)",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.3430440991672,
+      "evidence_file": "evidence/g12_m162_calibration_hf_drop_min_20260817T174510Z.json",
+      "measured_value": 0.6860881983345
+    },
+    {
+      "id": "g12.pt.denoise_mean_energy_tol",
+      "description": "降噪帧均值能量守恒容差(12 单元 |mean(den)−mean(raw)|/mean(raw) p100 × 2.0,协议冻结 k;M166 标定程序降噪腿产,禁手写 P-09);样本集 digest sha256:dc9a412efdd07a588016cda71b15247e78c575b99fa0afeadd73d5cd7a56b855(count=12 ≥ 12);标定程序 ci/g12_denoise_pipeline_tsr_smoke.py 降噪腿可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01271256601788,
+      "evidence_file": "evidence/g12_m162_calibration_mean_energy_tol_20260817T174510Z.json",
+      "measured_value": 0.00635628300894
     }
   ],
   "ratio_assertions": [],

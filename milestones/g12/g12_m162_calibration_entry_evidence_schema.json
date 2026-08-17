@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.3 M162 降噪标定条目 evidence（g12.pt.denoise_* 两条标定条目的逐条目 measured 面）",
+  "description": "evidence/g12_m162_calibration_<param>_<UTC>.json。G12.3 M162 降噪管线 + TSR 联动门（g12.p0.m162.denoise_pipeline_tsr）标定腿（harness --calibrate-denoise，纯 host 零 device，两跑逐字节一致由门复核）逐条目 measured 面：results.trimmed_mean = 该条目标定 measured 基值（hf_drop = 12 单元〔2 场景 × 3 族 × {static,moved}〕噪声谱高频能量下降 min，低梯度半幅掩码口径 / mean_energy = 12 单元帧均值能量相对差 p100），供 g12_budget.json g12.pt.denoise_* entries 经 ci/budget_eval.py eval_entry 通用路判读（threshold = 基值 × 协议冻结 k〔0.5/2.0〕，禁手写 P-09），零新 evaluator 分支；sample_manifest digest（标定样本集 ≥12）与 host provenance 随档。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g12pt.denoise_calibration_entry.v1" },
+    "entry_id": {
+      "type": "string",
+      "enum": [
+        "g12.pt.denoise_hf_drop_min",
+        "g12.pt.denoise_mean_energy_tol"
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number" }
+      }
+    },
+    "protocol": { "type": "string" },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest", "lower_bound"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 12 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "lower_bound": { "type": "integer", "const": 12 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["seed", "host"],
+      "properties": {
+        "seed": { "type": "string" },
+        "host": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" }
+  }
+}

@@ -2,7 +2,12 @@
 //! (spec/global_illumination.md RXS-0398~0401;RFC-0029 §4.1~§4.4;门
 //! `g12.p0.m158.mis_full_surface` / `g12.p0.m159.russian_roulette_prod` /
 //! `g12.p0.m160.sampling_lds_upgrade` / `g12.p0.m161.convergence_criterion_prod`
-//! / `g12.p1.m166.pt_production_calibration`)。
+//! / `g12.p1.m166.pt_production_calibration`)。G12.3 降噪波扩展面(RXS-0402;
+//! RFC-0029 §4.5;门 `g12.p0.m162.denoise_pipeline_tsr`):降噪管线 device 腿
+//! (时域累积 + firefly 预钳位 + A-trous,消费 `kernels/g12_pt_denoise.rx` 经
+//! --denoise-spv)+ 噪声谱/均值能量测量 + 降噪标定腿(--calibrate-denoise,
+//! 纯 host)+ 降噪 RED 三臂(denoise-energy-bias/denoise-masquerade/
+//! history-validation-off);temporal 底座 0-byte 不接线(只读消费历史接口面)。
 //!
 //! ## 判据面(G12_CONTRACT §4.2 M158~M161 行 + G12_ACCEPTANCE_MAP §1/§2 逐字)
 //!
@@ -59,11 +64,13 @@ use rurix_render::gi::path_trace::prod::{
     self, AdaptiveParams, G12_ADAPTIVE_N_FLOOR, G12_ADAPTIVE_SPP_MAX, G12_PROD_SEED, LightDist,
     ProdConfig, ProdImage, ProdScene, RrProdParams, SamplerFamily,
 };
+use rurix_render::gi::path_trace::prod_denoise::{self as pden};
 use rurix_render::gi::path_trace::{
     self, M96_PBRT_REF_SPP, M96_PBRT_SEED, PtConfig, PtScene, ToleranceBand,
 };
 use rurix_render::rt::bvh::{InstanceDesc, Ray, Tlas, Transform3x4, TriBvh, Vec3};
 use rurix_render::rt::ref_tracer::RAY_EPS;
+use rurix_render::temporal::image::ImageF32;
 use rurix_rt::render_exec::{self, KernelWave};
 use rurix_rt::vk::{
     self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc,
@@ -1086,6 +1093,10 @@ struct Args {
     anchor_direct: [f64; 4],
     red_arm: Option<String>,
     calibrate: Option<String>,
+    calibrate_denoise: Option<String>,
+    denoise_spv: Option<String>,
+    hf_drop_min: f64,
+    mean_energy_tol: f64,
     selftest: bool,
 }
 
@@ -1119,6 +1130,10 @@ fn parse_args() -> Args {
         anchor_direct: [0.0; 4],
         red_arm: None,
         calibrate: None,
+        calibrate_denoise: None,
+        denoise_spv: None,
+        hf_drop_min: 0.0,
+        mean_energy_tol: 0.0,
         selftest: false,
     };
     let mut i = 0;
@@ -1178,6 +1193,18 @@ fn parse_args() -> Args {
             "--anchor-direct" => out.anchor_direct = parse_anchor(&take(&mut i)),
             "--red-arm" => out.red_arm = Some(take(&mut i)),
             "--calibrate" => out.calibrate = Some(take(&mut i)),
+            "--calibrate-denoise" => out.calibrate_denoise = Some(take(&mut i)),
+            "--denoise-spv" => out.denoise_spv = Some(take(&mut i)),
+            "--hf-drop-min" => {
+                out.hf_drop_min = take(&mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--hf-drop-min 非 f64"))
+            }
+            "--mean-energy-tol" => {
+                out.mean_energy_tol = take(&mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--mean-energy-tol 非 f64"))
+            }
             "--selftest" => out.selftest = true,
             other => fail(&format!("unknown arg {other}")),
         }
@@ -1784,12 +1811,564 @@ fn gate_m161(
 }
 
 // ---------------------------------------------------------------------------
+// G12.3 M162 降噪管线 + TSR 联动(device 降噪腿;RXS-0402;RFC-0029 §4.5)
+// ---------------------------------------------------------------------------
+
+/// 降噪帧(device 输出面:rgb 3/px + 时域有效历史 mask 1/px)。
+struct DenoiseOut {
+    rgb: Vec<f32>,
+    valid: Vec<f32>,
+}
+
+/// 单帧 device 降噪:时域累积(mode 0)+ A-trous 逐级(mode 1,ℓ=0..levels−1)
+/// 经 `vk::run_compute` 真跑(纯图像空间 compute,无 TLAS;G-buffer/MV 为
+/// host 预备输入)。energy_bias 注入点 = A-trous 输出面(params[10])。
+#[allow(clippy::too_many_arguments)]
+fn run_denoise_device(
+    dn_spv: &[u32],
+    dn_entry: &str,
+    cur_rgb: &[f32],
+    hist_rgb: Option<&[f32]>,
+    gb_cur: &pden::GBuffer,
+    gb_prev: Option<&pden::GBuffer>,
+    mv: &[f32],
+    params: &pden::DenoiseParams,
+    width: u32,
+    height: u32,
+) -> Result<DenoiseOut, String> {
+    let pc = (width * height) as usize;
+    let hist_data: &[f32] = hist_rgb.unwrap_or(cur_rgb);
+    let (dp_data, np_data) = match gb_prev {
+        Some(g) => (&g.depth.data[..], &g.normal.data[..]),
+        None => (&gb_cur.depth.data[..], &gb_cur.normal.data[..]),
+    };
+    // ── firefly 预钳位(mode 2;denoise_off 臂 = 旁通由 kernel 面承载——
+    //    本腿恒跑,RED 旁通语义在 kernel 内)──
+    let pf = pden::pack_denoise_params(width, height, 2, 1, false, params);
+    let mut bufs: Vec<Vec<u8>> = vec![
+        bytes_f32(cur_rgb),
+        bytes_f32(hist_data),
+        bytes_f32(&gb_cur.depth.data),
+        bytes_f32(&gb_cur.normal.data),
+        bytes_f32(dp_data),
+        bytes_f32(np_data),
+        bytes_f32(mv),
+        bytes_f32(&pf),
+        vec![0u8; pc * 12],
+        vec![0u8; pc * 4],
+    ];
+    vk::run_compute(dn_spv, dn_entry, &mut bufs, &[], [pc as u32, 1, 1])?;
+    let pre = read_f32(&bufs[8]);
+    // ── 时域累积(mode 0,消费 firefly 钳位后当前帧)──
+    let pt = pden::pack_denoise_params(width, height, 0, 1, hist_rgb.is_some(), params);
+    let mut bufs: Vec<Vec<u8>> = vec![
+        bytes_f32(&pre),
+        bytes_f32(hist_data),
+        bytes_f32(&gb_cur.depth.data),
+        bytes_f32(&gb_cur.normal.data),
+        bytes_f32(dp_data),
+        bytes_f32(np_data),
+        bytes_f32(mv),
+        bytes_f32(&pt),
+        vec![0u8; pc * 12],
+        vec![0u8; pc * 4],
+    ];
+    vk::run_compute(dn_spv, dn_entry, &mut bufs, &[], [pc as u32, 1, 1])?;
+    let mut img = read_f32(&bufs[8]);
+    let valid = read_f32(&bufs[9]);
+    // ── A-trous 逐级(mode 1;step = 2^ℓ)──
+    for level in 0..params.atrous_levels {
+        let pa = pden::pack_denoise_params(width, height, 1, 1 << level, false, params);
+        let mut bufs: Vec<Vec<u8>> = vec![
+            bytes_f32(&img),
+            bytes_f32(&img),
+            bytes_f32(&gb_cur.depth.data),
+            bytes_f32(&gb_cur.normal.data),
+            bytes_f32(&gb_cur.depth.data),
+            bytes_f32(&gb_cur.normal.data),
+            bytes_f32(mv),
+            bytes_f32(&pa),
+            vec![0u8; pc * 12],
+            vec![0u8; pc * 4],
+        ];
+        vk::run_compute(dn_spv, dn_entry, &mut bufs, &[], [pc as u32, 1, 1])?;
+        img = read_f32(&bufs[8]);
+    }
+    Ok(DenoiseOut { rgb: img, valid })
+}
+
+/// M162 门内单场景全流程(返回测量面供 checks/evidence;RED 臂复用)。
+#[allow(clippy::too_many_arguments)]
+fn m162_scene_run(
+    ctx: &ProdCtx,
+    args: &Args,
+    band: Option<&ToleranceBand>,
+    pbrt_spp: Option<&std::collections::BTreeMap<(String, u32), Vec<f32>>>,
+    name: &str,
+    params: &pden::DenoiseParams,
+    pt_spv: &[u32],
+    pt_entry: &str,
+    dn_spv: &[u32],
+    dn_entry: &str,
+    out: &mut GateOut,
+) -> M162SceneMeas {
+    let (scene, dist) = ctx.get(name);
+    let moved = pden::moved_camera_scene(scene);
+    let (w, h) = (scene.camera.width, scene.camera.height);
+    // golden 对拍面不降级:基相机固定全 spp64 vs pbrt 同 spp 冻结带。
+    let full1 = run_device(
+        scene,
+        dist,
+        &prod_cfg(pden::G12_DENOISE_REF_SPP, args.sampler, args.tau),
+        pt_spv,
+        pt_entry,
+    )
+    .expect("full1");
+    let mut golden_dev = f64::NAN;
+    let mut golden_band = f64::NAN;
+    if let (Some(b), Some(map)) = (band, pbrt_spp) {
+        let pbrt64 = &map[&(name.to_string(), pden::G12_DENOISE_REF_SPP)];
+        golden_dev = path_trace::rel_dev(&full1.rgb, pbrt64).expect("rel_dev");
+        golden_band = b
+            .entry(name, pden::G12_DENOISE_REF_SPP)
+            .expect("带条目")
+            .band_rel_dev;
+    }
+    // 帧 2 参照(移动相机全 spp64;同一固定 seed 面)。
+    let full2 = run_device(
+        &moved,
+        dist,
+        &prod_cfg(pden::G12_DENOISE_REF_SPP, args.sampler, args.tau),
+        pt_spv,
+        pt_entry,
+    )
+    .expect("full2");
+    // 低 spp 原生双帧(帧 2 seed = 固定异或派生;确定性协议登记)。
+    let raw1 = run_device(
+        scene,
+        dist,
+        &prod_cfg(pden::G12_DENOISE_RAW_SPP, args.sampler, args.tau),
+        pt_spv,
+        pt_entry,
+    )
+    .expect("raw1");
+    let mut cfg2 = prod_cfg(pden::G12_DENOISE_RAW_SPP, args.sampler, args.tau);
+    cfg2.seed = G12_PROD_SEED ^ pden::G12_DENOISE_FRAME2_SEED_XOR;
+    let raw2 = run_device(&moved, dist, &cfg2, pt_spv, pt_entry).expect("raw2");
+    // G-buffer + MV(host 预备输入面)。
+    let gb1 = pden::gbuffer_host(scene);
+    let gb2 = pden::gbuffer_host(&moved);
+    let mv = pden::camera_mv_host(&gb2, &moved.camera, &scene.camera);
+    // 帧 1(无历史)→ 帧 2(历史 = 帧 1 降噪帧反馈)。
+    let den1 = run_denoise_device(
+        dn_spv, dn_entry, &raw1.rgb, None, &gb1, None, &mv.data, params, w, h,
+    )
+    .expect("den1");
+    let den2 = run_denoise_device(
+        dn_spv,
+        dn_entry,
+        &raw2.rgb,
+        Some(&den1.rgb),
+        &gb2,
+        Some(&gb1),
+        &mv.data,
+        params,
+        w,
+        h,
+    )
+    .expect("den2");
+    // 双跑位级(固定 seed 确定性协议)。
+    let den2_b = run_denoise_device(
+        dn_spv,
+        dn_entry,
+        &raw2.rgb,
+        Some(&den1.rgb),
+        &gb2,
+        Some(&gb1),
+        &mv.data,
+        params,
+        w,
+        h,
+    )
+    .expect("den2 rerun");
+    let digest_a = pden::denoise_frame_digest(&den2.rgb, &den2.valid);
+    let digest_b = pden::denoise_frame_digest(&den2_b.rgb, &den2_b.valid);
+    // 测量面(host 确定函数聚合 device 输出)。
+    let hf_raw = pden::high_freq_error_energy(&raw2.rgb, &full2.rgb, w, h);
+    let hf_den = pden::high_freq_error_energy(&den2.rgb, &full2.rgb, w, h);
+    let drop = 1.0 - hf_den / hf_raw.max(1e-30);
+    let ediff = pden::frame_mean_rel_diff(&den2.rgb, &raw2.rgb);
+    let p90 = pden::region_energy_diff_p90(&den2.rgb, &raw2.rgb, w, h);
+    let pc = (w * h) as usize;
+    let rejected = den2.valid.iter().filter(|&&v| v < 0.5).count();
+    out.digests_json
+        .push(format!("\"{name}_den2\": \"{}\"", hex(&digest_a)));
+    M162SceneMeas {
+        bitexact: digest_a == digest_b,
+        hf_drop: drop,
+        hf_raw,
+        hf_den,
+        mean_energy_rel_diff: ediff,
+        region_p90: p90,
+        rejected,
+        pixel_count: pc,
+        golden_dev,
+        golden_band,
+    }
+}
+
+/// M162 单场景测量面。
+struct M162SceneMeas {
+    bitexact: bool,
+    hf_drop: f64,
+    hf_raw: f64,
+    hf_den: f64,
+    mean_energy_rel_diff: f64,
+    region_p90: f64,
+    rejected: usize,
+    pixel_count: usize,
+    golden_dev: f64,
+    golden_band: f64,
+}
+
+/// 降噪 RED 臂注册表(device 变体真跑;检出器 = 门内对应断言面)。
+const DENOISE_RED_ARMS: [&str; 3] = [
+    "denoise-energy-bias",
+    "denoise-masquerade",
+    "history-validation-off",
+];
+
+/// 降噪 RED 臂单臂执行:注入变体真跑 → 检出器断言必须翻红(不翻 = 漏检)。
+#[allow(clippy::too_many_arguments)]
+fn red_arm_denoise(
+    ctx: &ProdCtx,
+    args: &Args,
+    name: &str,
+    pt_spv: &[u32],
+    pt_entry: &str,
+    dn_spv: &[u32],
+    dn_entry: &str,
+) -> Result<bool, String> {
+    let mut params = pden::DenoiseParams::production();
+    match name {
+        "denoise-energy-bias" => params.energy_bias = 0.05,
+        "denoise-masquerade" => params.denoise_off = true,
+        "history-validation-off" => params.validation_off = true,
+        other => fail(&format!(
+            "unknown 降噪 --red-arm {other}(注册表 {DENOISE_RED_ARMS:?})"
+        )),
+    }
+    let mut sink = GateOut::new();
+    // 洁净臂测量面(validation-off 检出器的对照基线;深度/法线判据真实拒绝
+    // 计数 = 洁净臂拒绝数,臂跳过判据后拒绝数严格下降即检出)。
+    let clean = m162_scene_run(
+        ctx,
+        args,
+        None,
+        None,
+        RED_SCENE,
+        &pden::DenoiseParams::production(),
+        pt_spv,
+        pt_entry,
+        dn_spv,
+        dn_entry,
+        &mut sink,
+    );
+    let m = m162_scene_run(
+        ctx, args, None, None, RED_SCENE, &params, pt_spv, pt_entry, dn_spv, dn_entry, &mut sink,
+    );
+    let detected = match name {
+        // 偏置注入 → 均值能量差越容差(能量守恒断言翻红)。
+        "denoise-energy-bias" => m.mean_energy_rel_diff > args.mean_energy_tol,
+        // 旁通冒充 → 高频能量下降 ≈ 0 < 标定阈(噪声底断言翻红)。
+        "denoise-masquerade" => m.hf_drop < args.hf_drop_min,
+        // 验证关闭 → 历史拒绝计数严格低于洁净臂(深度/法线判据拒绝面被跳过;
+        // 洁净臂 = 屏内拒 + 深度/法线拒,臂 = 仅屏内拒)。
+        "history-validation-off" => m.rejected < clean.rejected,
+        _ => false,
+    };
+    println!(
+        "{TAG}: RED 臂 {name} hf_drop={:.6e} ediff={:.6e} rejected={}/{}(洁净臂 {}) → {}",
+        m.hf_drop,
+        m.mean_energy_rel_diff,
+        m.rejected,
+        m.pixel_count,
+        clean.rejected,
+        if detected {
+            "检出(RED 有效)"
+        } else {
+            "未检出(漏检)"
+        }
+    );
+    Ok(detected)
+}
+
+/// M162 降噪管线 + TSR 联动门。
+#[allow(clippy::too_many_arguments)]
+fn gate_m162(
+    ctx: &ProdCtx,
+    args: &Args,
+    band: &ToleranceBand,
+    pt_spv: &[u32],
+    pt_entry: &str,
+    dn_spv: &[u32],
+    dn_entry: &str,
+    pbrt_spp: &std::collections::BTreeMap<(String, u32), Vec<f32>>,
+) -> GateOut {
+    let mut out = GateOut::new();
+    if !(args.hf_drop_min > 0.0 && args.mean_energy_tol > 0.0) {
+        fail(
+            "降噪标定阈缺失(--hf-drop-min/--mean-energy-tol 必须 > 0;g12_budget 标定条目传入,禁手写 P-09)",
+        );
+    }
+    let params = pden::DenoiseParams::production();
+    params
+        .validate()
+        .unwrap_or_else(|e| fail(&format!("降噪参数校验: {e}")));
+    let mut bitexact = true;
+    let mut hf_ok = true;
+    let mut energy_ok = true;
+    let mut hist_ok = true;
+    let mut band_ok = true;
+    for name in ["m96_cornell", "m96_direct"] {
+        let m = m162_scene_run(
+            ctx,
+            args,
+            Some(band),
+            Some(pbrt_spp),
+            name,
+            &params,
+            pt_spv,
+            pt_entry,
+            dn_spv,
+            dn_entry,
+            &mut out,
+        );
+        if !m.bitexact {
+            bitexact = false;
+        }
+        if !(m.hf_drop >= args.hf_drop_min) {
+            hf_ok = false;
+        }
+        if !(m.mean_energy_rel_diff <= args.mean_energy_tol) {
+            energy_ok = false;
+        }
+        if m.rejected == 0 || m.rejected == m.pixel_count {
+            hist_ok = false;
+        }
+        if m.golden_dev.is_nan() || m.golden_dev > m.golden_band {
+            band_ok = false;
+        }
+        println!(
+            "{TAG}: {name} 降噪:hf {e_raw:.6e} → {e_den:.6e}(drop {drop:.6e} ≥ 阈 {thr:.6e}) 均值能量差 {ediff:.6e}(容差 {tol:.6e}) 区域 p90 {p90:.6e} 历史拒绝 {rej}/{pc} golden rel_dev={gdev:.6e}(带 {gband:.6e})",
+            e_raw = m.hf_raw,
+            e_den = m.hf_den,
+            drop = m.hf_drop,
+            thr = args.hf_drop_min,
+            ediff = m.mean_energy_rel_diff,
+            tol = args.mean_energy_tol,
+            p90 = m.region_p90,
+            rej = m.rejected,
+            pc = m.pixel_count,
+            gdev = m.golden_dev,
+            gband = m.golden_band,
+        );
+        out.measurements_json.push(format!(
+            "\"{name}\": {{\"hf_raw\": \"{:.6e}\", \"hf_den\": \"{:.6e}\", \"hf_drop\": \"{:.6e}\", \"mean_energy_rel_diff\": \"{:.6e}\", \"region_p90\": \"{:.6e}\", \"history_rejected\": {}, \"pixel_count\": {}, \"golden_rel_dev\": \"{:.6e}\", \"golden_band\": \"{:.6e}\"}}",
+            m.hf_raw, m.hf_den, m.hf_drop, m.mean_energy_rel_diff, m.region_p90, m.rejected, m.pixel_count, m.golden_dev, m.golden_band
+        ));
+    }
+    out.check(
+        "double_run_bitexact",
+        bitexact,
+        "降噪双跑 digest 分叉(确定性协议漂移)",
+    );
+    out.check(
+        "hf_noise_floor_drop",
+        hf_ok,
+        "噪声谱高频能量下降 < 标定阈(噪声底未降)",
+    );
+    out.check(
+        "mean_energy_conserved",
+        energy_ok,
+        "帧均值能量差越容差(系统性变暗/变亮偏置)",
+    );
+    out.check(
+        "history_validation_active",
+        hist_ok,
+        "历史验证活性面失效(移动帧拒绝计数 ∈ (0, N) 开区间违反)",
+    );
+    out.check(
+        "golden_band_within",
+        band_ok,
+        "固定全 spp golden 对拍偏离冻结带(对拍面降级)",
+    );
+    // 帧型标签闭集 {raw, denoised}(混标即 RED;G12.2 {adaptive, full_reference}
+    // 标签在本门帧型面必须被拒)。
+    let label_ok = pden::frame_label_valid("raw")
+        && pden::frame_label_valid("denoised")
+        && !pden::frame_label_valid("adaptive")
+        && !pden::frame_label_valid("full_reference");
+    out.check("frame_label_closed", label_ok, "帧型标签闭集混标");
+    // RED 臂(device 变体真跑;检出器翻红 = 臂有效)。
+    for arm in DENOISE_RED_ARMS {
+        let ok = red_arm_denoise(ctx, args, arm, pt_spv, pt_entry, dn_spv, dn_entry)
+            .expect("RED 臂执行");
+        let key = match arm {
+            "denoise-energy-bias" => "red_energy_bias_detected",
+            "denoise-masquerade" => "red_masquerade_detected",
+            _ => "red_validation_off_detected",
+        };
+        out.check(key, ok, &format!("RED 臂 {arm} 未检出(漏检)"));
+    }
+    out
+}
+
+/// M162 降噪标定腿(--calibrate-denoise;**纯 host** 零 device 依赖——host
+/// oracle 渲染 + host oracle 降噪;M166 标定程序同律,两跑逐位一致由 smoke
+/// 层复核)。单元 = 场景 × 采样族 × {static, moved} 12 格;hf_drop_min =
+/// 单元 min(measured)× 0.5(协议冻结 k;direction=min);mean_energy_tol =
+/// 单元 p100 × 2.0(协议冻结 k;direction=max)。
+fn run_denoise_calibration(out_path: &str) -> ! {
+    let ctx = prod_ctx();
+    let params = pden::DenoiseParams::production();
+    let mut manifest: Vec<String> = Vec::new();
+    let mut drops: Vec<f64> = Vec::new();
+    let mut ediffs: Vec<f64> = Vec::new();
+    let mut cell_table: Vec<String> = Vec::new();
+    for name in ["m96_cornell", "m96_direct"] {
+        let (scene, dist) = ctx.get(name);
+        let moved = pden::moved_camera_scene(scene);
+        let gb1 = pden::gbuffer_host(scene);
+        let gb2 = pden::gbuffer_host(&moved);
+        let mv_moved = pden::camera_mv_host(&gb2, &moved.camera, &scene.camera);
+        let mv_static = pden::camera_mv_host(&gb1, &scene.camera, &scene.camera);
+        for fam in [
+            SamplerFamily::Pcg,
+            SamplerFamily::Stratified,
+            SamplerFamily::Sobol,
+        ] {
+            for moved_leg in [false, true] {
+                let (scene2, gb_cur, mv) = if moved_leg {
+                    (&moved, &gb2, &mv_moved)
+                } else {
+                    (scene, &gb1, &mv_static)
+                };
+                let (w, h) = (scene.camera.width, scene.camera.height);
+                // host oracle 帧(raw spp4 双帧独立 seed + 全 spp64 参照)。
+                let raw1 = host_render(scene, &prod_cfg(pden::G12_DENOISE_RAW_SPP, fam, 0.35));
+                let mut cfg2 = prod_cfg(pden::G12_DENOISE_RAW_SPP, fam, 0.35);
+                cfg2.seed = G12_PROD_SEED ^ pden::G12_DENOISE_FRAME2_SEED_XOR;
+                let raw2 = host_render(scene2, &cfg2);
+                let ref2 = host_render(scene2, &prod_cfg(pden::G12_DENOISE_REF_SPP, fam, 0.35));
+                let to_img = |img: &ProdImage| {
+                    ImageF32::from_fn(w, h, 3, |x, y, c| img.rgb[((y * w + x) * 3 + c) as usize])
+                };
+                let raw1_img = to_img(&raw1);
+                let raw2_img = to_img(&raw2);
+                // 帧 1(无历史)→ 帧 2(历史 = 帧 1 降噪帧);全管线 =
+                // firefly 预钳位 → 时域累积 → A-trous(denoise_frame_host)。
+                let (den1, _) =
+                    pden::denoise_frame_host(&raw1_img, None, &gb1, None, &mv_static, &params);
+                let (den2, _) = pden::denoise_frame_host(
+                    &raw2_img,
+                    Some(&den1),
+                    gb_cur,
+                    Some(&gb1),
+                    mv,
+                    &params,
+                );
+                let drop = pden::hf_noise_drop(&raw2.rgb, &den2.data, &ref2.rgb, w, h);
+                let ediff = pden::frame_mean_rel_diff(&den2.data, &raw2.rgb);
+                drops.push(drop);
+                ediffs.push(ediff);
+                let cell = format!(
+                    "{name}:{}:{}",
+                    fam.name(),
+                    if moved_leg { "moved" } else { "static" }
+                );
+                cell_table.push(format!(
+                    "\"{cell}\": {{\"hf_drop\": \"{drop:.6e}\", \"mean_energy_rel_diff\": \"{ediff:.6e}\"}}"
+                ));
+                manifest.push(format!("denoise:{cell}"));
+            }
+        }
+    }
+    let mut diag: Vec<(String, f64, f64)> = Vec::new();
+    {
+        let mut k = 0usize;
+        for name in ["m96_cornell", "m96_direct"] {
+            for fam in [
+                SamplerFamily::Pcg,
+                SamplerFamily::Stratified,
+                SamplerFamily::Sobol,
+            ] {
+                for moved_leg in [false, true] {
+                    let cell = format!(
+                        "{name}:{}:{}",
+                        fam.name(),
+                        if moved_leg { "moved" } else { "static" }
+                    );
+                    diag.push((cell, drops[k], ediffs[k]));
+                    k += 1;
+                }
+            }
+        }
+    }
+    for (cell, d, e) in &diag {
+        println!("{TAG}: 标定单元 {cell} hf_drop={d:.6e} ediff={e:.6e}");
+    }
+    manifest.sort();
+    let digest = hex(&rurix_pkg::sha256::digest(manifest.join("\n").as_bytes()));
+    let drop_min = drops.iter().cloned().fold(f64::INFINITY, f64::min);
+    let ediff_p100 = ediffs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    if !(drop_min > 0.0) {
+        fail(&format!(
+            "降噪标定样本集高频下降 min 非正({drop_min:.6e})——噪声底未降,标定无意义"
+        ));
+    }
+    let hf_thr = drop_min * 0.5;
+    let energy_tol = ediff_p100 * 2.0;
+    println!(
+        "{TAG}: 降噪标定 hf_drop min = {drop_min:.6e} → hf_drop_min = {hf_thr:.6e}(×0.5);均值能量差 p100 = {ediff_p100:.6e} → tol = {energy_tol:.6e}(×2.0);单元数 {}",
+        drops.len()
+    );
+    let json = format!(
+        "{{\n  \"schema\": \"rurix.g12pt.denoise_calibration.v1\",\n  \
+         \"hf_drop\": {{\"measured\": \"{drop_min:.12e}\", \"tol\": \"{hf_thr:.12e}\", \"protocol\": \"min over cells(2 scenes × 3 fam × {{static,moved}}) of 1−hf(den)/hf(raw),hf = mean((err−blur3x3(err))²) 亮度误差高通能量;threshold = measured × 0.5(协议冻结 k;direction=min)\"}},\n  \
+         \"mean_energy\": {{\"measured\": \"{ediff_p100:.12e}\", \"tol\": \"{energy_tol:.12e}\", \"protocol\": \"p100 over cells of |mean(den)−mean(raw)|/max(mean(raw),1e-12);tol = measured × 2.0(协议冻结 k;direction=max)\"}},\n  \
+         \"cells\": {{{}}},\n  \
+         \"sample_manifest\": {{\"count\": {}, \"digest\": \"sha256:{}\", \"lower_bound\": 12}},\n  \
+         \"provenance\": {{\"seed\": \"{}\", \"frame2_seed_xor\": \"{}\", \"cam_shift\": \"{}\", \"alpha\": \"{}\", \"depth_rel_tol\": \"{}\", \"normal_dot_min\": \"{}\", \"atrous_levels\": {}, \"sigma_l\": \"{}\", \"sigma_z\": \"{}\", \"host\": \"host oracle(gi::path_trace::prod + prod_denoise;纯 host 零 device)\"}}\n}}",
+        cell_table.join(", "),
+        manifest.len(),
+        digest,
+        G12_PROD_SEED,
+        pden::G12_DENOISE_FRAME2_SEED_XOR,
+        pden::G12_DENOISE_CAM_SHIFT,
+        pden::G12_DENOISE_ALPHA,
+        pden::G12_DENOISE_DEPTH_REL_TOL,
+        pden::G12_DENOISE_NORMAL_DOT_MIN,
+        pden::G12_DENOISE_ATROUS_LEVELS,
+        pden::G12_DENOISE_SIGMA_L,
+        pden::G12_DENOISE_SIGMA_Z,
+    );
+    std::fs::write(out_path, &json)
+        .unwrap_or_else(|e| fail(&format!("写降噪标定 JSON {out_path}: {e}")));
+    println!(
+        "{TAG}: PASS calibrate-denoise → {out_path}(样本集 {} 项 digest sha256:{digest})",
+        manifest.len()
+    );
+    std::process::exit(0)
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
 fn main() {
     println!(
-        "[g12_pt_production] G12.2 生产化核心波 harness(RXS-0398~0401;门 M158~M161 + M166 标定)"
+        "[g12_pt_production] G12.2 生产化核心波 harness(RXS-0398~0401;门 M158~M161 + M166 标定;G12.3 扩展面 M162 降噪 RXS-0402)"
     );
     let args = parse_args();
     if args.selftest {
@@ -1804,6 +2383,11 @@ fn main() {
             skip(&format!("pbrt 不存在({})(DEV_ENV_DEGRADE)", pbrt.display()));
         }
         run_calibration(out, &pbrt, &imgtool, std::path::Path::new(&args.work_dir));
+    }
+    if let Some(out) = &args.calibrate_denoise {
+        // M162 降噪标定腿(纯 host 零 device 依赖;pbrt 不消费——参照 = host
+        // oracle 全 spp 帧)。
+        run_denoise_calibration(out);
     }
 
     // ── 步骤 0:device 门(三态)──
@@ -1841,8 +2425,45 @@ fn main() {
 
     let ctx = prod_ctx();
 
+    // 降噪 kernel SPV(M162 门 / 降噪 RED 臂消费面)。
+    let need_denoise = args.gate.as_deref() == Some("g12.p0.m162.denoise_pipeline_tsr")
+        || args
+            .red_arm
+            .as_deref()
+            .map(|a| DENOISE_RED_ARMS.contains(&a))
+            .unwrap_or(false);
+    let (dn_spv, dn_entry) = if need_denoise {
+        let p = args
+            .denoise_spv
+            .clone()
+            .unwrap_or_else(|| fail("缺 --denoise-spv <g12_pt_denoise.spv>"));
+        let b = std::fs::read(&p).unwrap_or_else(|e| fail(&format!("读 {p}: {e}")));
+        if b.len() % 4 != 0 {
+            fail("降噪 SPIR-V 字节数非 4 对齐");
+        }
+        let words: Vec<u32> = b
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let e = vk::entry_point_name(&words).unwrap_or_else(|| fail("降噪 SPIR-V 无 OpEntryPoint"));
+        println!("{TAG}: denoise kernel entry=`{e}`");
+        (words, e)
+    } else {
+        (Vec::new(), String::new())
+    };
+
     // ── RED 臂子模式(独立复跑抽检)──
     if let Some(arm) = &args.red_arm {
+        if DENOISE_RED_ARMS.contains(&arm.as_str()) {
+            match red_arm_denoise(&ctx, &args, arm, &spv, &entry, &dn_spv, &dn_entry) {
+                Ok(true) => {
+                    println!("{TAG}: PASS red-arm {arm}(独立检出)");
+                    std::process::exit(0);
+                }
+                Ok(false) => fail(&format!("red-arm {arm} 未检出")),
+                Err(e) => fail(&format!("red-arm {arm} 执行: {e}")),
+            }
+        }
         match red_arm_run(&ctx, arm, args.sampler, args.tau, &spv, &entry) {
             Ok(true) => {
                 println!("{TAG}: PASS red-arm {arm}(独立检出)");
@@ -1886,7 +2507,9 @@ fn main() {
             }
             Err(e) => fail(&format!("pbrt 参照 {}: {e}", scene.name)),
         }
-        if gate == "g12.p0.m161.convergence_criterion_prod" {
+        if gate == "g12.p0.m161.convergence_criterion_prod"
+            || gate == "g12.p0.m162.denoise_pipeline_tsr"
+        {
             match pbrt_render_cached(&pbrt_exe, &imgtool_exe, &work, scene, G12_ADAPTIVE_SPP_MAX) {
                 Ok(img) => {
                     pbrt_spp.insert((scene.name.to_string(), G12_ADAPTIVE_SPP_MAX), img);
@@ -1913,6 +2536,15 @@ fn main() {
                 .unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
             gate_m161(&ctx, &args, &band, &spv, &entry, &pbrt_spp)
         }
+        "g12.p0.m162.denoise_pipeline_tsr" => {
+            let band_text = std::fs::read_to_string(&args.band)
+                .unwrap_or_else(|e| fail(&format!("读容差带 {}: {e}", args.band)));
+            let band = ToleranceBand::parse(&band_text)
+                .unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
+            gate_m162(
+                &ctx, &args, &band, &spv, &entry, &dn_spv, &dn_entry, &pbrt_spp,
+            )
+        }
         other => fail(&format!("unknown --gate {other}")),
     };
     // validation 零 ERROR(到此即零,vk.rs lane fail-closed)。
@@ -1929,10 +2561,15 @@ fn main() {
         .iter()
         .map(|f| format!("\"{}\"", json_escape(f)))
         .collect();
+    let spec_anchor = if gate == "g12.p0.m162.denoise_pipeline_tsr" {
+        "RXS-0402"
+    } else {
+        "RXS-0398~0401"
+    };
     let json = format!(
         "{{\n  \"schema\": \"rurix.g12pt.production.v1\",\n  \
          \"subject\": \"g12_pt_production\",\n  \"gate\": \"{}\",\n  \
-         \"spec_anchor\": \"RXS-0398~0401\",\n  \
+         \"spec_anchor\": \"{}\",\n  \
          \"device_state\": {{\"device_name\": \"{}\", \"validation\": \"{}\", \"require_real\": {}}},\n  \
          \"production\": {{\"sampler\": \"{}\", \"rr_tau\": \"{:.6e}\", \"adaptive_theta\": \"{:.6e}\", \
          \"curve_tol\": \"{:.6e}\", \"furnace_tol\": \"{:.6e}\", \"level_tol\": \"{:.6e}\", \
@@ -1948,6 +2585,7 @@ fn main() {
          \"checks\": {{{}}},\n  \"digests\": {{{}}},\n  \"curves\": {{{}}},\n  \"measurements\": {{{}}},\n  \
          \"commands\": [{}],\n  \"failures\": [{}]\n}}",
         json_escape(&gate),
+        spec_anchor,
         json_escape(&caps.device_name),
         if validation_on { "on" } else { "off" },
         std::env::var("RURIX_REQUIRE_REAL").as_deref() == Ok("1"),

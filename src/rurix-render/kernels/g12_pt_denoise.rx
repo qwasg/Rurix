@@ -1,0 +1,376 @@
+//@ spec: RXS-0402
+// G12.3 降噪波 PT 降噪 kernel（device 腿;门 `g12.p0.m162.denoise_pipeline_tsr`）。
+//
+// ## 架构（RXS-0402；RFC-0029 §4.5）
+// 纯图像空间 compute kernel（无 AccelStruct——降噪不追光线;G-buffer 深度/法线
+// 与 MV 为 host 预备输入面,G7.4「输入是输入」先例与 RNG 流同纪律）。双模式
+// （params[3]）：mode 0 = 时域累积（历史重投影 + 三判据历史验证 + YCoCg 邻域
+// 裁剪 + α 混合）;mode 1 = 空域 A-trous 单级（3x3 [1,2,1]²/16 核 × 步长
+// 2^ℓ,边缘停止函数消费亮度/深度/法线）。公式面与 host oracle
+// `gi::path_trace::prod_denoise` 逐字同源（RXS-0357 host oracle 纪律继承:
+// 仅 host 输出不能充绿,门绿由 device 腿承载）。**temporal 底座 0-byte
+// 不接线**——本 kernel 只实现底座公式面的 device 同源兑现,不改 TAA/TSR
+// 任何语义面/代码面。
+//
+// ## 时域累积（mode 0;公式面 = temporal::common::reproject_sample /
+// validate_history / neighborhood_aabb / clamp_to_bounds 逐字同源）
+// 历史采样位置 = uv + mv（su/sv 出 [0,1] 即 disocclusion 拒）;双线性 =
+// xf = su·w − 0.5 向下取整 + 小数权,边界 clamp;深度判据 |dc−dp| ≤
+// depth_rel_tol·max(dc, dp, 1e-6);法线判据 归一化点积 ≥ normal_dot_min
+// （零向量法线恒拒）;邻域裁剪 = 当前帧 YCoCg 3x3 AABB 钳历史色;混合 =
+// valid ? α·cur + (1−α)·hist_clamped : cur。has_history=0 → 输出 = 当前帧
+// （首帧兜底,valid 全 0）。
+//
+// ## A-trous（mode 1;params[4] = step = 2^ℓ）
+// w = w_h · exp(−dL²/(2σ_l²)) · exp(−dZ²/(2σ_z²)) · max(dot(n,n′),0)^8;
+// w_h = [1,2,1]²/16;dL = |Y_p−Y_q|/max(Y_p, 0.05)（中心像素归一化——优先
+// 保护暗侧防边缘光晕;亮噪尖峰不对称保留引入的偏置由 firefly 预钳位腿
+// 抑制;Y = YCoCg 亮度 = 0.25r+0.5g+0.25b）;dZ = |z_p−z_q|/max(z_p,
+// z_q, 1e-6)。中心 tap 恒 w_h=4/16 且 w_lum=w_z=w_n=1 → wsum ≥ 1/4,
+// 无零除分支（min/max 算术门纪律）。
+//
+// ## RED 注入位（正常态恒 0）
+// params[10]=energy_bias（A-trous 输出面加性偏置——系统性变亮/变暗注入臂,
+// 门侧均值能量断言必检出）;params[11]=validation_off（时域面跳过深度/法线
+// 双判据,冒充有效历史——历史污染鬼影臂）;params[13]=denoise_off（双模式
+// 恒等旁通——噪声底未降冒充降噪臂）。
+//
+// ## 确定性协议（RXS-0357 L2 继承）
+// 逐像素独立顺序求值,禁 atomic;输出直写无跨像素交互;固定输入双跑位级
+// 一致。全 f32;分支判定一律 min/max 算术门 + 短 selection 臂。
+//
+// ## 参数面（host `gi::path_trace::prod_denoise::pack_denoise_params` 逐字
+// 同源;16 f32）
+//   params[0]=pixel_count [1]=width [2]=height [3]=mode(0=时域/1=A-trous)
+//   [4]=atrous_step(2^ℓ) [5]=alpha [6]=depth_rel_tol [7]=normal_dot_min
+//   [8]=sigma_l [9]=sigma_z [10]=energy_bias(RED,正常=0)
+//   [11]=validation_off(RED,正常=0) [12]=has_history [13]=denoise_off(RED,
+//   正常=0) [14..16]=reserved(恒 0)。
+//   cur:        3 f32/px(时域 = 当前帧 raw;A-trous = 上级输入)。
+//   hist:       3 f32/px(时域 = 历史降噪帧反馈;A-trous 未用,传 cur)。
+//   depth_cur:  1 f32/px NDC 深度(ZO [0,1])。
+//   normal_cur: 3 f32/px 世界几何法线(miss = 零向量)。
+//   depth_prev/normal_prev: 时域模式上一帧 G-buffer(A-trous 传 cur 面)。
+//   mv:         2 f32/px(mv = prev_uv − cur_uv;历史采样位置 = uv + mv)。
+//   out_rgb:    3 f32/px;out_valid: 1 f32/px(时域 = 历史有效 mask;
+//   A-trous = 0)。
+kernel fn g12_pt_denoise(
+    t: ThreadCtx<1>,
+    cur: View<global, f32>,
+    hist: View<global, f32>,
+    depth_cur: View<global, f32>,
+    normal_cur: View<global, f32>,
+    depth_prev: View<global, f32>,
+    normal_prev: View<global, f32>,
+    mv: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_valid: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let width = params[1] as usize;
+    let mode = params[3];
+    let step_f = params[4];
+    let alpha = params[5];
+    let depth_tol = params[6];
+    let dot_min = params[7];
+    let sigma_l = params[8];
+    let sigma_z = params[9];
+    let energy_bias = params[10];
+    let validation_off = params[11];
+    let has_history = params[12];
+    let denoise_off = params[13];
+    let firefly_gamma = params[14];
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    if i < pixel_count {
+        let px = i % width;
+        let py = i / width;
+        let wf = width as f32;
+        let hf = (pixel_count / width) as f32;
+        let cr = cur[i * 3];
+        let cg = cur[i * 3 + 1];
+        let cb = cur[i * 3 + 2];
+        let mut o_r = cr;
+        let mut o_g = cg;
+        let mut o_b = cb;
+        let mut valid = 0.0;
+        if mode < 0.5 {
+            // ── 时域累积 ──
+            if has_history > 0.5 {
+                let u = ((px as f32) + 0.5) / wf;
+                let v = ((py as f32) + 0.5) / hf;
+                let su = u + mv[i * 2];
+                let sv = v + mv[i * 2 + 1];
+                // 屏内判(出屏 = disocclusion 拒)。
+                let inx = su.min(1.0 - su).min(sv).min(1.0 - sv);
+                let inside = (inx * big).min(1.0).max(0.0);
+                // 双线性重投影(xf = su·w − 0.5;边界 clamp)。
+                let xf = su * wf - 0.5;
+                let yf = sv * hf - 0.5;
+                let x0f = xf.floor();
+                let y0f = yf.floor();
+                let fx = xf - x0f;
+                let fy = yf - y0f;
+                let wm1 = wf - 1.0;
+                let hm1 = hf - 1.0;
+                let xa = x0f.min(wm1).max(0.0) as usize;
+                let xb = (x0f + 1.0).min(wm1).max(0.0) as usize;
+                let ya = y0f.min(hm1).max(0.0) as usize;
+                let yb = (y0f + 1.0).min(hm1).max(0.0) as usize;
+                let i00 = ya * width + xa;
+                let i10 = ya * width + xb;
+                let i01 = yb * width + xa;
+                let i11 = yb * width + xb;
+                // 历史色双线性(3 通道)。
+                let h00 = hist[i00 * 3];
+                let h10 = hist[i10 * 3];
+                let h01 = hist[i01 * 3];
+                let h11 = hist[i11 * 3];
+                let hr = (h00 * (1.0 - fx) + h10 * fx) * (1.0 - fy)
+                    + (h01 * (1.0 - fx) + h11 * fx) * fy;
+                let g00 = hist[i00 * 3 + 1];
+                let g10 = hist[i10 * 3 + 1];
+                let g01 = hist[i01 * 3 + 1];
+                let g11 = hist[i11 * 3 + 1];
+                let hg = (g00 * (1.0 - fx) + g10 * fx) * (1.0 - fy)
+                    + (g01 * (1.0 - fx) + g11 * fx) * fy;
+                let b00 = hist[i00 * 3 + 2];
+                let b10 = hist[i10 * 3 + 2];
+                let b01 = hist[i01 * 3 + 2];
+                let b11 = hist[i11 * 3 + 2];
+                let hb = (b00 * (1.0 - fx) + b10 * fx) * (1.0 - fy)
+                    + (b01 * (1.0 - fx) + b11 * fx) * fy;
+                // 上一帧深度/法线双线性。
+                let d00 = depth_prev[i00];
+                let d10 = depth_prev[i10];
+                let d01 = depth_prev[i01];
+                let d11 = depth_prev[i11];
+                let dp = (d00 * (1.0 - fx) + d10 * fx) * (1.0 - fy)
+                    + (d01 * (1.0 - fx) + d11 * fx) * fy;
+                let n00 = normal_prev[i00 * 3];
+                let n10 = normal_prev[i10 * 3];
+                let n01 = normal_prev[i01 * 3];
+                let n11 = normal_prev[i11 * 3];
+                let np0 = (n00 * (1.0 - fx) + n10 * fx) * (1.0 - fy)
+                    + (n01 * (1.0 - fx) + n11 * fx) * fy;
+                let m00 = normal_prev[i00 * 3 + 1];
+                let m10 = normal_prev[i10 * 3 + 1];
+                let m01 = normal_prev[i01 * 3 + 1];
+                let m11 = normal_prev[i11 * 3 + 1];
+                let np1 = (m00 * (1.0 - fx) + m10 * fx) * (1.0 - fy)
+                    + (m01 * (1.0 - fx) + m11 * fx) * fy;
+                let k00 = normal_prev[i00 * 3 + 2];
+                let k10 = normal_prev[i10 * 3 + 2];
+                let k01 = normal_prev[i01 * 3 + 2];
+                let k11 = normal_prev[i11 * 3 + 2];
+                let np2 = (k00 * (1.0 - fx) + k10 * fx) * (1.0 - fy)
+                    + (k01 * (1.0 - fx) + k11 * fx) * fy;
+                // 历史验证:深度相对差判据。
+                let dc = depth_cur[i];
+                let depth_ok = ((depth_tol * dc.max(dp).max(tiny) - (dc - dp).abs()) * big)
+                    .min(1.0)
+                    .max(0.0);
+                // 历史验证:法线点积判据(零向量恒拒)。
+                let ncx = normal_cur[i * 3];
+                let ncy = normal_cur[i * 3 + 1];
+                let ncz = normal_cur[i * 3 + 2];
+                let lc = (ncx * ncx + ncy * ncy + ncz * ncz).sqrt();
+                let lp = (np0 * np0 + np1 * np1 + np2 * np2).sqrt();
+                let nl = lc * lp;
+                let nl_ok = ((nl - tiny) * big).min(1.0).max(0.0);
+                let dotn = ((ncx * np0 + ncy * np1 + ncz * np2) / nl.max(tiny))
+                    * nl_ok;
+                let normal_ok = ((dotn - dot_min) * big).min(1.0).max(0.0) * nl_ok;
+                valid = inside * depth_ok * normal_ok;
+                if validation_off > 0.5 {
+                    // RED 臂:历史验证关闭(仅屏内判)——冒充有效历史。
+                    valid = inside;
+                }
+                // 当前帧 YCoCg 3x3 邻域 AABB(边界复制)。
+                let mut mn0: f32 = 1e30;
+                let mut mn1: f32 = 1e30;
+                let mut mn2: f32 = 1e30;
+                let mut mx0: f32 = 0.0 - 1e30;
+                let mut mx1: f32 = 0.0 - 1e30;
+                let mut mx2: f32 = 0.0 - 1e30;
+                let mut dy = 0usize;
+                while dy < 3 {
+                    let mut dx = 0usize;
+                    while dx < 3 {
+                        let qxf = ((px as f32) + (dx as f32 - 1.0)).min(wm1).max(0.0);
+                        let qyf = ((py as f32) + (dy as f32 - 1.0)).min(hm1).max(0.0);
+                        let qi = (qyf as usize) * width + (qxf as usize);
+                        let qr = cur[qi * 3];
+                        let qg = cur[qi * 3 + 1];
+                        let qb = cur[qi * 3 + 2];
+                        let y0 = 0.25 * qr + 0.5 * qg + 0.25 * qb;
+                        let co0 = 0.5 * qr - 0.5 * qb;
+                        let cg0 = 0.0 - 0.25 * qr + 0.5 * qg - 0.25 * qb;
+                        mn0 = mn0.min(y0);
+                        mx0 = mx0.max(y0);
+                        mn1 = mn1.min(co0);
+                        mx1 = mx1.max(co0);
+                        mn2 = mn2.min(cg0);
+                        mx2 = mx2.max(cg0);
+                        dx = dx + 1;
+                    }
+                    dy = dy + 1;
+                }
+                // 历史色 → YCoCg → 钳入邻域 AABB → RGB。
+                let hy = 0.25 * hr + 0.5 * hg + 0.25 * hb;
+                let hco = 0.5 * hr - 0.5 * hb;
+                let hcg = 0.0 - 0.25 * hr + 0.5 * hg - 0.25 * hb;
+                let cy = hy.min(mx0).max(mn0);
+                let cco = hco.min(mx1).max(mn1);
+                let ccg = hcg.min(mx2).max(mn2);
+                let tmp = cy - ccg;
+                let fr = tmp + cco;
+                let fg = cy + ccg;
+                let fb = tmp - cco;
+                // α 混合 + valid 选择。
+                let br = alpha * cr + (1.0 - alpha) * fr;
+                let bg = alpha * cg + (1.0 - alpha) * fg;
+                let bb = alpha * cb + (1.0 - alpha) * fb;
+                o_r = valid * br + (1.0 - valid) * cr;
+                o_g = valid * bg + (1.0 - valid) * cg;
+                o_b = valid * bb + (1.0 - valid) * cb;
+            }
+            if denoise_off > 0.5 {
+                // RED 臂:恒等旁通(冒充已降噪)。
+                o_r = cr;
+                o_g = cg;
+                o_b = cb;
+            }
+        } else if mode < 1.5 {
+            // ── A-trous 单级 ──
+            let y_p = 0.25 * cr + 0.5 * cg + 0.25 * cb;
+            let z_p = depth_cur[i];
+            let npx = normal_cur[i * 3];
+            let npy = normal_cur[i * 3 + 1];
+            let npz = normal_cur[i * 3 + 2];
+            let lp = (npx * npx + npy * npy + npz * npz).sqrt();
+            let sig_l2 = 2.0 * sigma_l * sigma_l;
+            let sig_z2 = 2.0 * sigma_z * sigma_z;
+            let wm1 = wf - 1.0;
+            let hm1 = hf - 1.0;
+            let mut acc_r = 0.0;
+            let mut acc_g = 0.0;
+            let mut acc_b = 0.0;
+            let mut wsum = 0.0;
+            let mut dy = 0usize;
+            while dy < 3 {
+                let mut dx = 0usize;
+                while dx < 3 {
+                    let dxf = dx as f32 - 1.0;
+                    let dyf = dy as f32 - 1.0;
+                    let qxf = ((px as f32) + dxf * step_f).min(wm1).max(0.0);
+                    let qyf = ((py as f32) + dyf * step_f).min(hm1).max(0.0);
+                    let qi = (qyf as usize) * width + (qxf as usize);
+                    let w_h = (1.0 + (1.0 - dxf.abs())) * (1.0 + (1.0 - dyf.abs())) / 16.0;
+                    let qr = cur[qi * 3];
+                    let qg = cur[qi * 3 + 1];
+                    let qb = cur[qi * 3 + 2];
+                    let y_q = 0.25 * qr + 0.5 * qg + 0.25 * qb;
+                    let dl = (y_p - y_q).abs() / y_p.max(y_q).max(0.05);
+                    let w_lum = (0.0 - dl * dl / sig_l2).exp();
+                    let z_q = depth_cur[qi];
+                    let dz = (z_p - z_q).abs() / z_p.max(z_q).max(tiny);
+                    let w_z = (0.0 - dz * dz / sig_z2).exp();
+                    let nqx = normal_cur[qi * 3];
+                    let nqy = normal_cur[qi * 3 + 1];
+                    let nqz = normal_cur[qi * 3 + 2];
+                    let lq = (nqx * nqx + nqy * nqy + nqz * nqz).sqrt();
+                    let nl = lp * lq;
+                    let nl_ok = ((nl - tiny) * big).min(1.0).max(0.0);
+                    let dotn = ((npx * nqx + npy * nqy + npz * nqz) / nl.max(tiny))
+                        .max(0.0)
+                        * nl_ok;
+                    let w_n = dotn.powf(8.0);
+                    let wtap = w_h * w_lum * w_z * w_n;
+                    acc_r = acc_r + wtap * qr;
+                    acc_g = acc_g + wtap * qg;
+                    acc_b = acc_b + wtap * qb;
+                    wsum = wsum + wtap;
+                    dx = dx + 1;
+                }
+                dy = dy + 1;
+            }
+            let inv = 1.0 / wsum.max(tiny);
+            o_r = acc_r * inv;
+            o_g = acc_g * inv;
+            o_b = acc_b * inv;
+            if denoise_off > 0.5 {
+                // RED 臂:恒等旁通(冒充已滤波)。
+                o_r = cr;
+                o_g = cg;
+                o_b = cb;
+            }
+            // energy_bias RED 注入点(A-trous 输出面加性偏置)。
+            o_r = o_r + energy_bias;
+            o_g = o_g + energy_bias;
+            o_b = o_b + energy_bias;
+        } else {
+            // ── firefly 预钳位(mode 2;公式面 = neighborhood_variance_bounds
+            // μ±γσ + clamp_to_bounds 逐字同源;YCoCg 3x3 邻域)──
+            let wm1 = wf - 1.0;
+            let hm1 = hf - 1.0;
+            let mut sum0 = 0.0;
+            let mut sum1 = 0.0;
+            let mut sum2 = 0.0;
+            let mut sq0 = 0.0;
+            let mut sq1 = 0.0;
+            let mut sq2 = 0.0;
+            let mut dy = 0usize;
+            while dy < 3 {
+                let mut dx = 0usize;
+                while dx < 3 {
+                    let qxf = ((px as f32) + (dx as f32 - 1.0)).min(wm1).max(0.0);
+                    let qyf = ((py as f32) + (dy as f32 - 1.0)).min(hm1).max(0.0);
+                    let qi = (qyf as usize) * width + (qxf as usize);
+                    let qr = cur[qi * 3];
+                    let qg = cur[qi * 3 + 1];
+                    let qb = cur[qi * 3 + 2];
+                    let y0 = 0.25 * qr + 0.5 * qg + 0.25 * qb;
+                    let co0 = 0.5 * qr - 0.5 * qb;
+                    let cg0 = 0.0 - 0.25 * qr + 0.5 * qg - 0.25 * qb;
+                    sum0 = sum0 + y0;
+                    sum1 = sum1 + co0;
+                    sum2 = sum2 + cg0;
+                    sq0 = sq0 + y0 * y0;
+                    sq1 = sq1 + co0 * co0;
+                    sq2 = sq2 + cg0 * cg0;
+                    dx = dx + 1;
+                }
+                dy = dy + 1;
+            }
+            let mu0 = sum0 / 9.0;
+            let mu1 = sum1 / 9.0;
+            let mu2 = sum2 / 9.0;
+            let sd0 = (sq0 / 9.0 - mu0 * mu0).max(0.0).sqrt();
+            let sd1 = (sq1 / 9.0 - mu1 * mu1).max(0.0).sqrt();
+            let sd2 = (sq2 / 9.0 - mu2 * mu2).max(0.0).sqrt();
+            let y_p = 0.25 * cr + 0.5 * cg + 0.25 * cb;
+            let co_p = 0.5 * cr - 0.5 * cb;
+            let cg_p = 0.0 - 0.25 * cr + 0.5 * cg - 0.25 * cb;
+            let cy = y_p.min(mu0 + firefly_gamma * sd0).max(mu0 - firefly_gamma * sd0);
+            let cco = co_p.min(mu1 + firefly_gamma * sd1).max(mu1 - firefly_gamma * sd1);
+            let ccg = cg_p.min(mu2 + firefly_gamma * sd2).max(mu2 - firefly_gamma * sd2);
+            let tmp = cy - ccg;
+            o_r = tmp + cco;
+            o_g = cy + ccg;
+            o_b = tmp - cco;
+            if denoise_off > 0.5 {
+                // RED 臂:恒等旁通(冒充已钳位)。
+                o_r = cr;
+                o_g = cg;
+                o_b = cb;
+            }
+        }
+        out_rgb[i * 3] = o_r;
+        out_rgb[i * 3 + 1] = o_g;
+        out_rgb[i * 3 + 2] = o_b;
+        out_valid[i] = valid;
+    }
+}

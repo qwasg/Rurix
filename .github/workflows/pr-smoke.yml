@@ -2616,6 +2616,40 @@ jobs:
         shell: powershell
         run: py -3 ci/g12_wave2_exit_check.py --gate g12.wave.2.exit
 
+      # 步骤 223(G12.3 M162 降噪管线 + TSR 联动门 g12.p0.m162.denoise_pipeline_tsr;
+      # G12 CI_GATES §4;G12_ACCEPTANCE_MAP §1;spec RXS-0402;落盘前实测 CI_step.
+      # next_free=223 顺位领取 223~224)。host+device 门,env 双置 RURIX_REQUIRE_
+      # REAL=1 + RURIX_VK_VALIDATION=1:host 段 = prod_denoise 单测逐名锚定 +
+      # conformance 3 件锚定 + temporal 底座 0-byte 机核(目录级 git diff vs
+      # G12.0 不可变 ref + 工作树双面)+ M96 冻结面 0-byte + NRD 评估报告落盘
+      # + 树内零 vendor 接线符号 + 降噪标定腿(harness --calibrate-denoise 纯
+      # host 两跑逐字节一致 + 2 条 g12.pt.denoise_* 标定条目字节级纯追加入
+      # g12_budget measured_local + budget_eval 全 PASS);device 段持锁真跑
+      # (双 kernel:g12_pt_production.rx 0-byte + g12_pt_denoise.rx SPV →
+      # harness --gate 全档——时域累积 + firefly 预钳位 + A-trous 双帧管线,
+      # 噪声谱高频能量下降 ≥ 标定阈 + 帧均值能量守恒容差内 + 历史验证活性 +
+      # golden 对拍面不降级 + 帧型标签闭集 + 双跑位级 + RED 三臂)+ --red-arm
+      # 子模式独立复跑抽检。evidence 落盘 evidence/g12_m162_denoise_pipeline_
+      # tsr_<UTC>.json。
+      - name: G12.3 M162 denoise pipeline TSR (G12 CI_GATES §4.223, g12.p0.m162.denoise_pipeline_tsr)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_denoise_pipeline_tsr_smoke.py --gate g12.p0.m162.denoise_pipeline_tsr
+
+      # 步骤 224(G12.3 波聚合门 g12.wave.3.exit;G12 CI_GATES §5;G12_CONTRACT
+      # G-G12-5)。只读汇总 M162 最新 evidence(步骤 223)+ 六 facts(M96 正确性
+      # 锚 0-byte / temporal 底座 0-byte 双面机核 / M162 RED 臂独立有效 /
+      # g12_budget 17 条目 measured_local 零 estimated + budget_eval 全 PASS /
+      # spec-first RXS-0402 + RFC-0029 Approved + conformance 3 件 / NRD 评估
+      # 报告落盘 + 零接线 + RD-040 open 维持);聚合不代绿、不重跑 smoke、不设
+      # RURIX_REQUIRE_REAL;聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。
+      # evidence 落盘 evidence/g12_wave3_exit_<UTC>.json。
+      - name: G12.3 wave3 exit aggregate (G12 CI_GATES §5.224, g12.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g12_wave3_exit_check.py --gate g12.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

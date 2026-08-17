@@ -1,0 +1,234 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.3 M162 denoise_pipeline_tsr evidence",
+  "description": "evidence/g12_m162_denoise_pipeline_tsr_<UTC>.json。G12.3 P0 硬门 g12.p0.m162.denoise_pipeline_tsr(spec RXS-0402;G12_CONTRACT §4.2 M162 行判据逐字):时域/空域降噪管线落地(时域累积消费既有 TAA/TSR 历史接口面——temporal 底座 0-byte 不接线,目录级 git diff vs G12.0 不可变 ref 机核 + firefly 预钳位 + A-trous 类滤波)+ 噪声谱高频能量下降 measured ≥ 标定阈(g12_budget 标定条目消费,标定程序降噪腿产禁手写 P-09)+ 帧均值能量守恒容差内(不引入系统性变暗/变亮偏置)+ NRD 类 vendor 降噪评估报告落盘(评估不接线——报告在位 + 树内零 vendor 接线符号)+ golden 对拍面不降级(固定全 spp golden 不偏离 measured×2.0 冻结带)+ 帧型标签闭集 {raw, denoised} + 固定 seed 双跑位级一致;偏置注入/旁通冒充/历史验证关闭 RED 三臂独立有效 + 子模式复跑抽检。device 腿必需(双 kernel:PT megakernel + 降噪 kernel);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g12_m162_denoise_pipeline_tsr"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g12.p0.m162.denoise_pipeline_tsr"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M162"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M162"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g12.p0.m162.denoise_pipeline_tsr"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G12.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 223
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M162;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0402;RFC-0029 §4.5"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_denoise_tests_anchored",
+        "conformance_corpus_anchored",
+        "budget_anchors_present",
+        "m96_frozen_surface_0byte",
+        "temporal_base_0byte",
+        "nrd_evaluation_report_present",
+        "nrd_no_vendor_wiring",
+        "calibration_two_run_bitexact",
+        "calibration_budget_entries_measured",
+        "budget_eval_all_pass",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_hf_noise_floor_drop",
+        "device_mean_energy_conserved",
+        "device_history_validation_active",
+        "device_golden_band_within",
+        "device_frame_label_closed",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_denoise_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "budget_anchors_present": { "type": "boolean" },
+        "m96_frozen_surface_0byte": { "type": "boolean" },
+        "temporal_base_0byte": { "type": "boolean" },
+        "nrd_evaluation_report_present": { "type": "boolean" },
+        "nrd_no_vendor_wiring": { "type": "boolean" },
+        "calibration_two_run_bitexact": { "type": "boolean" },
+        "calibration_budget_entries_measured": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_hf_noise_floor_drop": { "type": "boolean" },
+        "device_mean_energy_conserved": { "type": "boolean" },
+        "device_history_validation_active": { "type": "boolean" },
+        "device_golden_band_within": { "type": "boolean" },
+        "device_frame_label_closed": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_red_arm_submodes_detected": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": {
+          "type": "boolean"
+        },
+        "baseline_anchor_id": {
+          "type": "string"
+        },
+        "measured_value": {
+          "type": "string"
+        },
+        "not_worse_than_anchor": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string"
+        },
+        "evolution_register": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1244,6 +1244,11 @@
           "date": "2026-08-17",
           "event": "G12.1 M52 SER 重评窗核验登记(agent 完全自主 D-406 v2.0;G12 立项裁决 5 兑现):M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G12 重评窗核验(G10.6/G10.7 锚定 G12 = 高分歧 RT workload 真实集成面字面兑现)= **maintain-defer**:①真实集成需求未至——G12.1 治理波零实现,高分歧 RT workload 集成面 G12.2 生产化核心波才 materialize;②capability rt.ser 设备面未实测——树内零 rt.ser 探针(grep 实测 src/ 零 rt.ser/HitObject/reorderThread/hit_object 命中,2026-08-17);双条件均未命中 → maintain-defer;复评点 = G12.2 生产化核心波 materialize 高分歧 RT workload 集成面时按只追加程序重判(真实集成需求出现且 capability rt.ser 设备面实测可用 → 独立 Full RFC 评估〔语言层原语面,RFC-0023 冻结面衔接〕;未命中维持 defer 顺延 G13+);承接锚字面 0-byte 维持(G9_P2_DECISIONS §3 原文逐字),兜底 = 语言层不加 SER 原语维持(无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线);RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g12/G12_CONTRACT.md §7 裁决 5 / milestones/g12/G12_CANDIDATE_DECISIONS.md §1 M52 行/§2 RD-040 行"
+        },
+        {
+          "date": "2026-08-17",
+          "event": "G12.3 RD040-nrd 评估窗承接兑现登记(agent 完全自主 D-406 v2.0;G12 立项裁决 9 / G12_CONTRACT §6 RD-040 行兑现):**NRD 类 vendor 降噪评估报告落盘**(milestones/g12/design/nrd_vendor_denoise_evaluation.md v1.0——UpscaleBackend 同构输入契约〔MV/深度/法线〕接入面五轴差距逐项登记〔MV 口径/深度 NDC→viewZ/法线+粗糙度打包/albedo demodulation 结构性差距/NRI 集成形态〕+ 许可取证〔2026-08-17 联网实测 NVIDIA-RTX/NRD v4.17.5 master:自定义 NVIDIA RTX SDKs LICENSE,GitHub API license=other/NOASSERTION,非 OSI 批准许可——owner 法律面审为接入硬前置〕+ ABI/集成形态取证〔C++ 库 + HLSL shader pack + NRDIntegration NRI 基集成层 v22〕+ 与自研降噪面 measured 对照〔M162 门 evidence 转引:噪声谱高频能量下降 cornell 7.697348e-1/direct 9.740259e-1、帧均值能量相对差 ≤2.74e-3、历史验证拒绝活性面〕);**评估不接线**——树内零 vendor 降噪接线符号(M162 门机核面承载,接线即 RED),接入另判 G13+ 窗(重判条件 = 接入真实需求 + owner 法律面许可清结 + measured 对拍面接入裁决);RD-040 总体 status 维持 open,backfill_condition 字面 0-byte 不回写",
+          "evidence": "milestones/g12/design/nrd_vendor_denoise_evaluation.md / ci/g12_denoise_pipeline_tsr_smoke.py(步骤 223) / evidence/g12_m162_denoise_pipeline_tsr_20260817T174510Z.json / milestones/g12/G12_CONTRACT.md §8.3"
         }
       ]
     },

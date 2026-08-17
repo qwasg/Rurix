@@ -727,6 +727,15 @@ def check_evidence_files() -> None:
     g12_m166_calibration_entry_schema = load(
         ROOT / "milestones/g12/g12_m166_calibration_entry_evidence_schema.json"
     )
+    g12_m162_denoise_pipeline_tsr_schema = load(
+        ROOT / "milestones/g12/g12_m162_denoise_pipeline_tsr_evidence_schema.json"
+    )
+    g12_m162_calibration_entry_schema = load(
+        ROOT / "milestones/g12/g12_m162_calibration_entry_evidence_schema.json"
+    )
+    g12_wave3_exit_schema = load(
+        ROOT / "milestones/g12/g12_wave3_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1656,6 +1665,21 @@ def check_evidence_files() -> None:
     g12_m166_calibration_entry_validator = (
         jsonschema.Draft7Validator(g12_m166_calibration_entry_schema)
         if g12_m166_calibration_entry_schema is not None
+        else None
+    )
+    g12_m162_denoise_pipeline_tsr_validator = (
+        jsonschema.Draft7Validator(g12_m162_denoise_pipeline_tsr_schema)
+        if g12_m162_denoise_pipeline_tsr_schema is not None
+        else None
+    )
+    g12_m162_calibration_entry_validator = (
+        jsonschema.Draft7Validator(g12_m162_calibration_entry_schema)
+        if g12_m162_calibration_entry_schema is not None
+        else None
+    )
+    g12_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g12_wave3_exit_schema)
+        if g12_wave3_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3270,6 +3294,27 @@ def check_evidence_files() -> None:
         ):
             # G12.2 波聚合门（步骤 222）→ required_gates 5 行 + aggregate_read_only。
             validator = g12_wave2_exit_validator
+        elif (
+            f.name.startswith("g12_m162_denoise_pipeline_tsr_")
+            and g12_m162_denoise_pipeline_tsr_validator is not None
+        ):
+            # G12.3 P0 硬门 M162 降噪管线 + TSR 联动（步骤 223）→
+            # milestones/g12/g12_m162_denoise_pipeline_tsr_evidence_schema.json。
+            validator = g12_m162_denoise_pipeline_tsr_validator
+        elif (
+            f.name.startswith("g12_m162_calibration_")
+            and g12_m162_calibration_entry_validator is not None
+        ):
+            # G12.3 M162 降噪标定条目 evidence（步骤 223 标定腿逐条目 measured 面;
+            # results.trimmed_mean 供 budget_eval 通用路判读）→
+            # milestones/g12/g12_m162_calibration_entry_evidence_schema.json。
+            validator = g12_m162_calibration_entry_validator
+        elif (
+            f.name.startswith("g12_wave3_exit_")
+            and g12_wave3_exit_validator is not None
+        ):
+            # G12.3 波聚合门（步骤 224）→ required_gates 1 行 + aggregate_read_only。
+            validator = g12_wave3_exit_validator
         elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None
