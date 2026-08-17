@@ -1,0 +1,10 @@
+//@ spec: RXS-0397
+// G11.5b spec-first 锚定语料（spec/global_illumination.md RXS-0397 L2 负例面）：
+// 天光能量双重计数冒充——直接天光 IBL 项与 GI 收集 miss 射线天空项并存（首反弹
+// 天空既进直接项又进间接估计子，能量翻倍），或旗标关默认面帧 digest 漂移（parity
+// 破坏），或下半球黑口径翻转（(1−n·up)/2 反向 / 下半球不置黑）注入，均即 RED。
+// 负例数据面（最小说明性 fixture）：--sky-ibl 面 GI miss 射线仍返回天空常量
+// 的「IBL」声明——门侧双重计数机核 fail-closed。
+// 转正路径（G11.5b 波接线）：ci/g11_ab_retest_closure_smoke.py 门 RED 臂
+// （red_stale_rerun_masquerade 复测自帧独立重算面——帧 digest/能量口径断裂必检出）。
+fn main() {}

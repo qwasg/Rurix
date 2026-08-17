@@ -1,0 +1,17 @@
+//@ spec: RXS-0397
+// G11.5b spec-first 锚定语料（spec/global_illumination.md RXS-0397 L1~L6：契约
+// 天光直接漫反射 IBL 消费面——全向口径〔UE SkyLight 指定 cubemap 无遮蔽投递对齐，
+// G11.5b 实测 UE 侧 SkyLight 漫反射占帧均值 95.4%〕+ 下半球黑半球混合闭式
+// Lo = albedo × L_sky × (1+n·up)/2〔up=+Y，着色法线消费面，解析式确定性零采样〕+
+// GI 双重计数排除〔旗标开时间接估计子 miss 射线整零，天光首反弹 = 直接项单计数；
+// 沉积面直接项同期 += 同式天光项〕+ RXS-0396 L4 末级兜底修订行〔旗标开时末级
+// 兜底由直接项承接，GI 零值 = 有效零间接，计数登记维持〕+ 旗标关 = 旧口径逐字节
+// 0-byte parity）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：sky_ibl 闭集块 enabled=true /
+// mode=diffuse_omni_ibl_lower_hemi_black / direct_sky_mean 非零登记 + 默认面帧
+// digest == G10.5 锁定值 parity。
+// 转正路径（G11.5b 波接线）：复测闭环断言面 = ci/g11_ab_retest_closure_smoke.py
+// 门（symbolic key g11.p0.m155.ab_retest_closure）+ ci/g11_fix_r1_material_subset_smoke.py
+// --phase g11.5（g11.p0.m147.fix_r1_material_subset，G11_ACCEPTANCE_MAP §1 冻结
+// 字面不动）。
+fn main() {}

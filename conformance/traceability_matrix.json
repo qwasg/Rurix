@@ -2009,6 +2009,10 @@
     "RXS-0396": [
       "conformance/gi/accept/world_radiance_cache_minimal.rx",
       "conformance/gi/reject/world_cache_farfield_zero_energy.rx"
+    ],
+    "RXS-0397": [
+      "conformance/gi/accept/sky_ibl_direct_diffuse_minimal.rx",
+      "conformance/gi/reject/sky_ibl_gi_double_count.rx"
     ]
   }
 }

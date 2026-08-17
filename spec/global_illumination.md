@@ -553,9 +553,68 @@
 
 ---
 
-## 12. 修订记录
+## 12. 条款（RXS-0397，G11.5b 天光直接 IBL 消费面）
+
+### RXS-0397 天光直接漫反射 IBL 消费面（--sky-ibl）：全向口径 + 下半球黑半球混合 + GI 双重计数排除（RXS-0396 L4 末级兜底修订行）
+
+**Legality**
+
+1. **契约天光直接消费语义**（RFC-0028 §4.5 伞形「GI/天光遮蔽语义面」消费；
+   measured 诊断事实源 = `milestones/g11/design/g11_5b_ldr_residual_diag.md`）：
+   契约 sky（常量天光，cubemap_id=null ⇒ 常量辐射度 `L_sky = sky.intensity`
+   同单位链，RXS-0392 口径维持）消费面扩为「**直接全向漫反射 IBL + GI 间接**
+   双通道」——直接通道 = UE SkyLight 指定 cubemap 全向投递口径对齐面（G11.5b
+   实测：该 UE 参照配置 `r.DynamicGlobalIlluminationMethod=0` 且
+   `r.GenerateMeshDistanceFields=0` ⇒ movable SkyLight 无遮蔽机制可消费，按
+   全向 IBL 投递，下半球黑读回 = true；SkyLight 漫反射实测占帧均值 95.4%、
+   镜面 ≤0.03%）；直接项解析式 **`Lo_sky(x) = albedo(x) × L_sky ×
+   (1 + n(x)·up)/2`**（下半球黑半球混合闭式；up = +Y；n = 着色法线，法线
+   贴图扰动后消费面；解析式确定性、零采样面）。
+2. **GI 双重计数排除**：旗标开时，世界缓存构建/渲染的间接估计子 **miss
+   射线返回零辐射**（天空首反弹 = 主射线直接项单计数，禁直接项与 GI 收集
+   并存双计数）；沉积面（命中点/探针点）直接项 += 同式天光项（天空二反弹
+   及以上经缓存链接进入维持，RXS-0395 双级语义不变）；**旗标关 =
+   RXS-0395/0396 字面口径逐字节 0-byte**（默认面帧 digest parity 门序面维持，
+   破坏即 RED）。
+3. **修订行——RXS-0396 L4 末级兜底**：旗标开时「天光/常量环境项末级兜底」
+   由直接天光项承接（天光已单计数，禁重复注入），GI 零值 = 有效零间接，
+   `last_resort_px` 计数显式登记维持；**RXS-0396 既有字面 0-byte 不改写**。
+4. **镜面天光不消费登记**：天光镜面 IBL 项本条款不消费（G11.5b 实测份额
+   ≤0.03% + 高光尾过冲防面）；维持 `c1_ue_specular_ibl` 残余登记（G15 画质
+   量级收口面候选），不以本条款落地冒充镜面 IBL 闭环。
+5. **消费面边界**：本条款消费面 = `--sky-ibl` 与 `--gi-multibounce` 组合
+   （G11.5b 复测面双场景同消费）；单反弹 GI 组合与 GPU 管线面不在本条款
+   消费面（GPU 面锚定 G14 不动）；cornell 契约 sun+sky 灯面参数 0-byte
+   （同一消费语义双场景一致）；契约参数（相机/光照/seed/post）digest ==
+   G10.5 锁定值 0-byte。
+6. **门序**：契约 digest 不等仍出 A/B 报告即 RED（RXS-0395 L5 / M130/M139
+   字面继承）；本条款闭环断言面 = G11.5 复测 R1 行收敛断言（M155 / M147
+   `--phase g11.5`，RXS-0393 L2 quality_gap 款字面 0-byte）——**不以本条款
+   落地冒充 delta 收敛，不改判据/阈值充绿**。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，纯 safe 方向维持）：host 参考管线
+  `g10_5_scene_render` `--sky-ibl` 旗标面（主射线直接项 + GI miss 射线整零
+  + 沉积直接项同式 + 末级兜底修订行口径）+ 渲染输出 `sky_ibl` 闭集登记块
+  （enabled/mode/direct_sky_mean）；device/GPU 腿锚定 G14 不动。
+- RED 锚定计划（实现 PR 落）：天光项双重计数（直接项与 GI miss 收集并存）
+  → RED；旗标关默认面帧 digest 漂移（parity 破坏）→ RED；下半球黑口径翻转
+  （(1−n·up)/2 反向或下半球不置黑注入）→ RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/sky_ibl_direct_diffuse_minimal.rx` 与
+  `conformance/gi/reject/sky_ibl_gi_double_count.rx`（条款锚定占位，inert
+  锚定口径与转正路径见各文件头注释）；锚点目标（复测闭环断言面）=
+  `ci/g11_ab_retest_closure_smoke.py` 门（symbolic key
+  `g11.p0.m155.ab_retest_closure`）+ `ci/g11_fix_r1_material_subset_smoke.py`
+  `--phase g11.5`（G11.1 冻结字面 0-byte 不动）。
+
+---
+
+## 13. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-08-12 | 新建（G9.4 spec-first，GI 波 M96~M101，硬规则 7 条款先行）：RXS-0357（M96 M17 Path Tracer 参照器：megakernel + NEE/MIS/RR + 起步范围冻结〔焦散/体积/specular 链 out〕+ 固定 seed 位级一致确定性协议〔累加序/RNG 流冻结、逐像素 sample count/方差导出、匹配深度 1/2/full 三 golden〕+ pbrt-v4 收敛曲线 measured 冻结容差带 + 改 seed/跳 RR/关 MIS 三臂 RED + 门序硬约束〔M96 未绿 M97~M101 任何画质门不得验收，机器阻断〕）/ RXS-0358（M97 Surface Cache：离线 Card 参数化 ≤12/mesh 可配 + 运行时辐射度缓存 + 只丢能量不漏光〔漏光像素计数=0〕+ Card 空洞漏光检测 RED 臂 + 图集复用 M04/M91 页 ABI 不私定 + 按匹配深度对 M96 golden）/ RXS-0359（M98 四级追踪降级链 L1 Screen Trace→L2 SWRT→L3 HWRT〔含 hit lighting 档〕→L4 Far Field + 逐档命中率/耗时计数逐帧 evidence + 逐级强关回归可检测〔强关后仍同 golden 即 RED〕+ 禁静默回退 + L4 未就绪 SKIP=not-triggered）/ RXS-0360（M99 屏幕级 SPG 自适应细分 + Radiance Cache 双级 + product IS 关闭方差回归 RED + 世界级 clipmap 未 measured 举证 not-triggered 不充绿）/ RXS-0361（M100 低档多灯直接光默认档 + 验证射线零跳过硬契约〔D2-Q4〕+ 高档 ReSTIR workload 证据不足 not-triggered 不充绿）/ RXS-0362（M101 IF 体素网格档位阶梯 L0~L3 + 共享 probe 着色/八面体编码内核只换空间索引 + 八面体编码线性域 + 每档 AS 更新预算行消费 AsStats + 超预算强制降档 RED）。**目标 spec 新建裁决**：RFC-0022 §5 映射表 GI 各行候选（rendering_platform.md / shader_stages.md / 资产管线 spec / conformance 协议章）裁定合并新建本文件（D2 GI 独立语义轴，候选文件本体 0-byte，头注留痕）。条款号自 ledger 实测 `RXS.next_free=357` 顺位领取（0357~0362 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。conformance 最小锚定语料同 PR 落（conformance/gi/{accept,reject}/，inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注，G9.2/G9.3 spec 波先例）；symbolic key `g9.p0.m96/m97/m98.*`（G9.1 冻结字面）与 `g9.p1.m99/m100/m101.*`（G9.4 波 P1 全进裁决登记，G9_ACCEPTANCE_MAP §3 / CI_GATES §4A）0-byte 不动。零新 RX 码（诊断码实现期按实际可达类别领取不预造）、零新 U/RD/SG、零 src/ 改动、零 workflow 步骤。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.6/§4.7/§4.8/§4.10/§7 + G9_ACCEPTANCE_MAP §2 M96/M97/M98 行 + §3 M99/M100/M101 行（判据逐字）+ G9_CANDIDATE_DECISIONS §2 RD-040 行与 v1.3 校准注 | **Full RFC**（RFC-0022） |
 | v1.1 | 2026-08-16 | 追加（G11.4 光照与 GI 修复波 spec-first，硬规则 7 条款先行；G11 已解锁 implementation_status=unblocked，G11_CONTRACT §8.1）登记 **RXS-0394 ~ RXS-0396**：RXS-0394（M153 R3 灯种子集表达：光源集五元闭集〔契约 sun/sky + glTF 点光源/面光源/emissive 表面，缺类显式登记〕+ 契约光照面单通道〔corpus/lighting_*.json 唯一事实源，glTF 字段 = 派生输入经 M133 只追加修订程序，直读绕过即 RED〕+ 点光源辐射链〔E = color×I/d²、L = E·ndl·albedo/π·vis，强度派生 = 灯具 emissive 通量换算 Φ=Le·A·π / I=Φ/(2π)，逐盏 provenance〕+ emissive 双级能量贡献语义 + cornell 契约 sun+sky 灯面 0-byte + M100 低档面联动评估登记〔不新造，M100-high 维持 defer〕）/ RXS-0395（M154 R4 多反弹 GI：屏幕探针近场 + 世界辐射缓存远场兜底双级语义〔失效必须回落 + 回落路径逐帧计数 + 禁静默零辐射〕+ 多反弹 ≥2 级〔第二次及以上经世界缓存查询 + 反弹级数/逐级能量计数 + 只丢能量不漏光 RXS-0358 口径继承〕+ 逐级能量单调不增 + host 同构世界缓存兑现面〔解析式否决；不冒充 GPU 管线世界级，GPU 面锚定 G14〕+ RXS-0357 L6 门序继承）/ RXS-0396（M154 M99-clipmap 世界级辐射缓存承接：**RXS-0360 世界级 not-triggered 登记翻转修订行**〔G10.6 rejudged-go 承接锚逐字 + measured 举证 R4 行 4.697253086805343 / C1 行 ≈21×；RXS-0360 既有字面 0-byte〕+ 空间哈希世界缓存〔对数族量化 level=clamp(floor(log2(1+dist/d_ref)),0,LEVELS−1)，s(ℓ)=s0×2^ℓ，LEVELS=4 / s0=scene_diag×2^-8 / d_ref=scene_diag×2^-4 实测标定冻结〔bistro 25.962 m / cornell 958.659 单位〕+ 双哈希步长线性探测 + 在线构建零离线预处理〕+ 距离自适应辐射 LOD clipmap 级〔层级/距离带/命中率计数 + 禁静默降级〕+ 级间回落链 → 天光末级兜底显式登记 + 世界级双锚判定〔远场探针集能量回归达标定阈 + M96 golden 匹配深度对拍，UE 对拍归 G11.5 不混用〕+ ≠RXS-0359 L4 Far Field 边界声明〔M98-l4 defer 0-byte〕）。条款号自 ledger 实测 `RXS.next_free=394` 顺位领取（0394~0396 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料六件（conformance/gi/accept 三件：light_seed_set_minimal.rx / gi_multibounce_two_level_minimal.rx / world_radiance_cache_minimal.rx；reject 三件：light_seed_gltf_direct_bypass.rx / gi_single_bounce_masquerade.rx / world_cache_farfield_zero_energy.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.2 spec 波先例）同 PR 落；symbolic key `g11.p0.m153/m154.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（375→378 全锚定）；stable 快照因条款计数 375→378 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§5 + G11_CONTRACT §4.2 M153/M154 行（判据逐字）+ G11_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§9 修订记录节号顺延 §12，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.4 波）` | **Full RFC**（RFC-0028） |
+| v1.2 | 2026-08-16 | 追加（G11.5b 追加子波 spec-first，硬规则 7 条款先行；G11.5 R1 行整波 FAIL 停线后诊断修复面，G11_CONTRACT §8.5b）登记 **RXS-0397**（天光直接漫反射 IBL 消费面 --sky-ibl：全向口径〔UE SkyLight 指定 cubemap 无遮蔽投递对齐——G11.5b measured 诊断 g11_5b_ldr_residual_diag.md：UE 侧 SkyLight 漫反射占帧均值 95.4%、镜面 ≤0.03%、r.DynamicGlobalIlluminationMethod=0/距离场关机制取证〕+ 下半球黑半球混合闭式 Lo = albedo×L_sky×(1+n·up)/2 + GI 双重计数排除〔旗标开时间接估计子 miss 射线整零，天光首反弹 = 直接项单计数；沉积直接项同式〕+ **RXS-0396 L4 末级兜底修订行**〔旗标开时末级兜底由直接项承接，RXS-0396 既有字面 0-byte〕+ 镜面天光不消费登记〔c1_ue_specular_ibl 维持 G15 候选〕+ 消费面边界〔--gi-multibounce 组合面；cornell 契约灯面 0-byte〕+ 门序继承 + 闭环断言面 = M155/M147 g11.5 phase 字面不改判据）。条款号自 ledger 实测 `RXS.next_free=397` 顺位领取（0397 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料两件（accept sky_ibl_direct_diffuse_minimal.rx + reject sky_ibl_gi_double_count.rx；inert + `//@ spec` 锚定 + 转正路径旁注，G9.2~G11.4 spec 波先例）同 PR 落；symbolic key `g11.p0.m155/m147.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（378→379 全锚定）；stable 快照因条款计数 378→379 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.5 伞形「GI/天光遮蔽语义面」+ §5 映射表 + G11_CONTRACT §4.2 M155 行（判据逐字）+ 主会话 G11.5b 裁决（先诊断修复后评 metric，禁改判据充绿）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§12 修订记录节号顺延 §13，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.5b 波）` | **Full RFC**（RFC-0028 伞形 §4.5 面承接） |

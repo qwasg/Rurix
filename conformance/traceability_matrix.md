@@ -382,3 +382,4 @@
 | RXS-0394 | spec/global_illumination.md | 2 | `conformance/gi/accept/light_seed_set_minimal.rx`, `conformance/gi/reject/light_seed_gltf_direct_bypass.rx` |
 | RXS-0395 | spec/global_illumination.md | 2 | `conformance/gi/accept/gi_multibounce_two_level_minimal.rx`, `conformance/gi/reject/gi_single_bounce_masquerade.rx` |
 | RXS-0396 | spec/global_illumination.md | 2 | `conformance/gi/accept/world_radiance_cache_minimal.rx`, `conformance/gi/reject/world_cache_farfield_zero_energy.rx` |
+| RXS-0397 | spec/global_illumination.md | 2 | `conformance/gi/accept/sky_ibl_direct_diffuse_minimal.rx`, `conformance/gi/reject/sky_ibl_gi_double_count.rx` |
