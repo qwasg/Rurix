@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m151_fix_u2_bistro_texture_dds",
+  "symbolic_gate_key": "g11.p0.m151.fix_u2_bistro_texture_dds",
+  "matrix_row": "M151",
+  "milestone": "M151",
+  "assertion_id": "g11.p0.m151.fix_u2_bistro_texture_dds",
+  "status": "pass",
+  "wave": "G11.3",
+  "numeric_step": 205,
+  "source_ref": "G11_CONTRACT §4.2 M151 + G-G11-5;G11_ACCEPTANCE_MAP §1 M151;CI_GATES §4;g10_gap_registry U2 行承接锚 + G10-N7 承接锚;spec/visual_comparison.md RXS-0393",
+  "base_commit": "413c58af2049ce6e0200a2951963e1c5b007cf40",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "dds_decode_face_landed": true,
+    "dds_decode_reproduction_anchor": true,
+    "ue_texture_params_nonnull": true,
+    "ue_frame_changed_vs_g10": true,
+    "unregistered_asset_guard": true,
+    "baseline_metric_reproduction": true,
+    "closure_delta_converged_measured": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_texture_still_missing_detected": true,
+    "red_unregistered_asset_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g11_3_dds_dump Paris_Cashregister_Normal.dds",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "6311bc89b610e019",
+    "baseline_delta": 0.7698879749655723,
+    "retest_delta": 0.6239873385359997,
+    "converged": true,
+    "threshold_provenance": "标定程序 ci/g11_fix_u2_bistro_texture_dds_smoke.py（LDR 亮度中位双跑噪声 p100×k=1.0，样本集 = G11.3 bistro LDR 帧对；budget 条目 g11.fix.u2_luminance_shrink_tol）",
+    "contract_digest_unchanged": true
+  },
+  "texture_provenance": {
+    "transcode_manifest": "milestones/g11/g11_3_dds_transcode_manifest.json（144 条目 bc1×54/bc3×20/bc5×70）",
+    "ue_texture_params": {
+      "total": 70,
+      "with_textures": 70
+    },
+    "ue_texture_binding": {
+      "bound_materials": 70,
+      "bound_texture_params": 140
+    },
+    "ue_frame_content_digest": "sha256:92b730e68328dc43b3dab10931837f5396ca77d33897c7713b9da5edc2d79b4a",
+    "retest_ldr_median": {
+      "rurix": 0.0011029792974237352,
+      "ue5": 0.6250903178334235
+    },
+    "baseline_ldr_median": {
+      "rurix": 0.16252008080482483,
+      "ue5": 0.9324080557703971
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T051721Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "U2 修复前后 delta 对拍: 基线 0.7698879749655723 → 复测 0.6239873385359997（LDR 中位 rurix 0.16252008080482483→0.0011029792974237352 / ue5 0.9324080557703971→0.6250903178334235）; g11_budget.json 字节级纯追加 g11.fix.u2_luminance_shrink_tol（threshold=0.0）"
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m147_fix_r1_material_subset",
+  "symbolic_gate_key": "g11.p0.m147.fix_r1_material_subset",
+  "matrix_row": "M147",
+  "milestone": "M147",
+  "assertion_id": "g11.p0.m147.fix_r1_material_subset",
+  "status": "pass",
+  "wave": "G11.3",
+  "phase": "g11.3",
+  "g11_3_phase_pass": true,
+  "convergence_pending": true,
+  "numeric_step": 201,
+  "source_ref": "G11_CONTRACT §4.2 M147 + G-G11-5;G11_ACCEPTANCE_MAP §1 M147;CI_GATES §4;g10_gap_registry R1 行承接锚;spec/visual_comparison.md RXS-0393",
+  "base_commit": "413c58af2049ce6e0200a2951963e1c5b007cf40",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_locked_unchanged": true,
+    "material_subset_consumed": true,
+    "rurix_frame_changed_vs_g10": true,
+    "baseline_metric_reproduction": true,
+    "closure_convergence_verdict_registered": true,
+    "calibration_rerun_deterministic": true,
+    "budget_entry_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_unsampled_masquerade_detected": true,
+    "red_unconverged_masquerade_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "gap_row_id": "ea68ebb265cb2bd5",
+    "baseline_delta": 0.8328980787837229,
+    "retest_delta": 0.9903435577002249,
+    "converged": false,
+    "verdict": "deferred_to_g11_5",
+    "convergence_pending": true,
+    "threshold_provenance": "标定程序 ci/g11_fix_r1_material_subset_smoke.py（LDR SSIM 双跑噪声 p100×k=1.0，样本集 = G11.3 bistro LDR 帧对；budget 条目 g11.fix.r1_ssim_shrink_tol）",
+    "contract_digest_unchanged": true,
+    "deferred_to": "g11.5",
+    "defer_reason": "R1 局部 SSIM 度量被 R3（点光源子集）/R4（多反弹 GI）光照残余结构性主导——耦合解消归 G11.4 承接面，definitive 收敛测量面 = G11.5 同契约复跑（RXS-0393 L2 quality_gap 款字面；契约 §8.3a 修订句：断言不弱化只后移，G11.5 不收敛则整波 FAIL）"
+  },
+  "material_provenance": {
+    "render_materials_block": {
+      "count": 70,
+      "textured": 70,
+      "normal_mapped": 70,
+      "textures_consumed": 144,
+      "texture_formats": [
+        "bc1",
+        "bc3",
+        "bc5"
+      ],
+      "textures_declared_unconsumed": [],
+      "material_pbr": true,
+      "smooth_normals": false
+    },
+    "rurix_frame_content_digest": "sha256:cf1286dfb96b48661ea5a3b6a421ac0a2db9e3ad2454b3a810cdb5792d9fb94e",
+    "g10_5_locked_rurix_frame_digest": "sha256:8519cc67c917e7b8c2c5a9bb5633ea5ee9e72deb8cf63b3b187b0d3ac5bb9935",
+    "retest_ssim": 0.009656442299775102,
+    "baseline_ssim": 0.16710192121627712,
+    "anti_incentive_ssim_ue_fixed_vs_rurix_unfixed_g10_5": 0.1624318277352612,
+    "anti_incentive_ssim_ue_fixed_vs_rurix_fixed": 0.009656442299775102
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T051835Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "R1 修复前后 delta 对拍: 基线 0.8328980787837229（ssim 0.16710192121627712）→ 复测 0.9903435577002249（ssim 0.009656442299775102）; R1 未收敛如实登记（verdict=deferred_to_g11_5，convergence_pending=true——不是 SKIP 充绿）：复测 delta 0.9903435577002249 反向增大（基线 0.8328980787837229），收敛断言后移 --phase g11.5 definitive 测量面（RXS-0393 L2；判据语义 0-byte 不弱化）。根因（measured 登记）：Rurix 帧真实反照率（纹理均值×(1−metallic)≈0.10）下单反弹 GI + 无点光源（R3/R4 承接面 G11.4）使帧面较 UE 暗 ≈150×，SSIM 亮度/结构项塌陷——材质采样本身经 manifest/均值/digest 面核验正确落地；耦合证据链 milestones/g11/g11_2_residual_caliber_registry.json; 反向激励旁证（measured）：ssim(ue_修, rurix_未修复 G10.5 帧)=0.1624318277352612 > ssim(ue_修, rurix_修)=0.009656442299775102——锁定度量对正确修复结构性不友好（G11.6 P2 候选行登记）; g11_budget.json 字节级纯追加 g11.fix.r1_ssim_shrink_tol（threshold=0.0）"
+}
