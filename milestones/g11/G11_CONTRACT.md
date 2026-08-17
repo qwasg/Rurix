@@ -1,7 +1,7 @@
 ---
 contract: G11
 title: G11 画质修复期
-status: active
+status: closed
 implementation_status: unblocked
 active_scope: g11_1_governance_only + g11_2_plus_implementation_waves
 version: v1.0
@@ -553,4 +553,12 @@ G-G11-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
   ```
 - **④ 纪律面**：只读终审不重跑子门 smoke、不设 RURIX_REQUIRE_REAL；G5~G10 closed 判据与既有门脚本 0-byte；evidence/ 只增不删不改；RD 条目级 status 与四字段 0-byte；复测清单终态 0-byte（终审锁定不重写）；异己 src/ 未提交面与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交不混入；本批 commit 只含本车道文件。**VERDICT=READY ⇒ status flip 独立洁净 commit（active→closed + §8.8 签署块）**。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2~§8.7a 同模）。`Assisted-by: Kimi-K3（G11.6/G11.7 收口波）`（影响范围：§8.7b 本条 + 同批文件集（② 节字面）；验证方式：① 节八 facts 终审实测 + ③ 节验收命令逐字输出 + evidence g11_wave7b_closeout_20260817T065600Z.json 在树）。
+
+### §8.8 Close-out 终审签署块（2026-08-17）
+
+**裁决**：G-G11-1~10 对应波次与硬门已 materialize 并逐波验收（G11.2 口径差对齐 §8.2、G11.3 资产与场景面修复 §8.3/§8.3a/§8.3b、G11.4 光照与 GI 修复 §8.4、G11.5 A/B 复测 §8.5、G11.5b 追加子波 §8.5b、G11.6 P2 穷举决策 §8.6、G11.7a stabilization soak §8.7a、G11.7b close-out 终审 §8.7b）；7a full-run PASS（`g11_stabilization_soak_20260817T064847Z`）；7b `VERDICT=READY`（`g11_wave7b_closeout_20260817T065600Z`）。
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-034/039/040/041/042/043/044 总体维持 open（分项 go/defer 已由候选决策表、G11_P2_DECISIONS 与 deferred history 只追加留痕）。**复测差距清单 `g11_5b_retest_gap_registry.json` 11 行终态（converged 8 + aligned_closed 3 + partial 0）终审锁定**——残余差距五元归属如实登记不冒充全闭环（G-G11-10）。本条为 close-out 终审签署块。
+
+- **异己并发工作树面**：本 flip commit 只含 front matter `status` 字段 + §8.8 追加 + README/00_MASTER_INDEX 勘误行；工作树异己 src 面（rurix-asset/rurix-render 未提交声明面）与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交、不混入本 commit（立项裁决 1 / G10.8b §8.10 先例同模）。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.10 同模）。`Assisted-by: Kimi-K3（G11.6/G11.7 收口波）`（影响范围：§8.8 本条 + front matter `status` 字段 + README/00_MASTER_INDEX 勘误行；验证方式：§8.7b 八 facts READY evidence + 守卫终扫全绿）。
 
