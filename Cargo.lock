@@ -488,6 +488,7 @@ dependencies = [
  "rurix-geom-pages",
  "rurix-pkg",
  "rurix-render",
+ "rurix-rt",
 ]
 
 [[package]]
