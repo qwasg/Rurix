@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "subject": "g12_m162_denoise_pipeline_tsr",
+  "symbolic_gate_key": "g12.p0.m162.denoise_pipeline_tsr",
+  "matrix_row": "M162",
+  "milestone": "M162",
+  "assertion_id": "g12.p0.m162.denoise_pipeline_tsr",
+  "status": "pass",
+  "wave": "G12.3",
+  "numeric_step": 223,
+  "source_ref": "G12_CONTRACT §4.2 M162;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0402;RFC-0029 §4.5",
+  "base_commit": "76bccefc3cdd74a5a28c4279be8d22779d928a93",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "host_denoise_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "budget_anchors_present": true,
+    "m96_frozen_surface_0byte": true,
+    "temporal_base_0byte": true,
+    "nrd_evaluation_report_present": true,
+    "nrd_no_vendor_wiring": true,
+    "calibration_two_run_bitexact": true,
+    "calibration_budget_entries_measured": true,
+    "budget_eval_all_pass": true,
+    "device_harness_full_pass": true,
+    "device_double_run_bitexact": true,
+    "device_hf_noise_floor_drop": true,
+    "device_mean_energy_conserved": true,
+    "device_history_validation_active": true,
+    "device_golden_band_within": true,
+    "device_frame_label_closed": true,
+    "device_red_arms_effective": true,
+    "device_red_arm_submodes_detected": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib gi::path_trace::prod_denoise",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "git diff --name-only 5ae83aa7 -- src/rurix-render/src/temporal (0-byte 机核)",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g12_pt_production --calibrate-denoise <run1/run2> (纯 host 两跑逐字节一致)",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurixc --features vulkan-backend --bin rurixc + rurixc g12_pt_production.rx / g12_pt_denoise.rx --target vulkan",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g12_pt_production --gate g12.p0.m162.denoise_pipeline_tsr --spv .. --denoise-spv .. --hf-drop-min <g12.pt.denoise_hf_drop_min> --mean-energy-tol <g12.pt.denoise_mean_energy_tol>(RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g12_pt_production --red-arm denoise-energy-bias|denoise-masquerade|history-validation-off --denoise-spv .. (子模式抽检)",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T224217Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "7 降噪单测逐名锚定全绿; 3 件语料锚定在位; band 0-byte + path_trace.rs 差分 ⊆ prod 模块注册块(纯追加); temporal/ vs 5ae83aa7 目录级 0-byte(提交面 + 工作树双面); NRD 评估报告落盘 + 六节 + UpscaleBackend/MV/深度/法线/不接线字面齐备; src/ 与 Cargo.toml 全树零 vendor 降噪接线符号(评估不接线); 降噪标定:hf_drop measured=6.860881983345e-1 → 阈 3.430440991672e-1;mean_energy p100=6.356283008940e-3 → 容差 1.271256601788e-2; device:双 kernel 全档真跑(时域+firefly+A-trous 双帧管线)+ RED 三臂子模式独立复跑",
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g12.pt.denoise_hf_drop_min / g12.pt.denoise_mean_energy_tol(本门标定腿产出入 budget)",
+    "measured_value": "m96_cornell: hf_drop=7.697348e-1 ediff=2.494836e-3 hist_rej=96; m96_direct: hf_drop=9.740259e-1 ediff=2.736881e-3 hist_rej=2108",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "g12_budget.json 降噪标定条目(标定程序降噪腿 measured 产,两跑逐位一致,禁手写 P-09)",
+    "evolution_register": null
+  }
+}

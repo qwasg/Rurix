@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.4 M163 对标标定条目 evidence（g12.pt.parity_* 三条标定条目的逐条目 measured 面）",
+  "description": "evidence/g12_m163_calibration_<param>_<UTC>.json。G12.4 M163 UE PT 对标门（g12.p0.m163.ue_pt_parity）标定腿（双 seed〔契约 seed vs calibration_seed 字面〕Rurix 臂方差底实测，固定 seed 确定面可复跑）逐条目 measured 面：results.trimmed_mean = 该条目标定 measured 基值（curve_tol = 10 单元〔2 场景 × 5 段〕逐段曲线差方差底 p100 / noise_tol = 2 单元高频份额差 p100 / energy_tol = 2 单元帧均值相对差 p100），供 g12_budget.json g12.pt.parity_* entries 经 ci/budget_eval.py eval_entry 通用路判读（threshold = 基值 × 协议冻结 k=2.0，禁手写 P-09），零新 evaluator 分支；sample_manifest digest 与 host provenance 随档。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entry_id", "results", "protocol", "sample_manifest", "provenance", "timestamp"],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g12pt.parity_calibration_entry.v1" },
+    "entry_id": {
+      "type": "string",
+      "enum": [
+        "g12.pt.parity_curve_tol",
+        "g12.pt.parity_noise_tol",
+        "g12.pt.parity_energy_tol"
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number" }
+      }
+    },
+    "protocol": { "type": "string" },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest", "lower_bound"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 2 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "lower_bound": { "type": "integer", "const": 2 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["seed", "host"],
+      "properties": {
+        "seed": { "type": "string" },
+        "host": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" }
+  }
+}

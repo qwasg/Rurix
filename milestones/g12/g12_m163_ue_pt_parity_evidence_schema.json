@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.4 M163 ue_pt_parity evidence",
+  "description": "evidence/g12_m163_ue_pt_parity_<UTC>.json。G12.4 P0 硬门 g12.p0.m163.ue_pt_parity（spec RXS-0403；G12_CONTRACT §4.2 M163 行判据逐字）：同场景同 spp 双端出图（场景 = M133 清单闭集 {cornell-box,bistro-interior} digest 转引只读；spp 序列 [1,4,16,64,256,1024]；UE build digest == M128 登记 ue_build_id 机核；契约 digest 独立冻结——host python/Rurix Rust/UE 内嵌 CPython 三方独立实现全等 ∧ == 门内冻结注册值，不等仍出报告即 RED〔门序拒产面〕）+ 收敛曲线逐段 measured 对拍（端内参照 rel-MAE 冻结公式，容差标定腿产入 g12_budget 禁手写 P-09）+ 噪声谱对拍（残余帧高频能量份额）+ 能量守恒对拍（帧均值，×2^(−ev100) 派生尺度链）+ UE PathTracing 模块归属差距登记表落盘（RXS-0391 归属枚举口径继承 + 行集与对拍报告对账——超容差静默/差距静默混入/单端缺帧聚合 PASS 即 RED）+ 不设绝对通过线 + 残余口径差逐环节显式登记。device 腿必需（Rurix 生产化 PT megakernel + UE 5.8.1 PT MRQ 双臂真跑）；RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "milestone",
+    "assertion_id", "status", "wave", "numeric_step", "source_ref", "base_commit",
+    "host_section_pass", "device_section_state", "checks", "commands",
+    "evidence_level", "run_url", "timestamp", "environment", "notes"
+  ],
+  "if": {
+    "properties": { "status": { "const": "pass" } }
+  },
+  "then": {
+    "required": ["parity"]
+  },
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_m163_ue_pt_parity" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.p0.m163.ue_pt_parity" },
+    "matrix_row": { "type": "string", "const": "M163" },
+    "milestone": { "type": "string", "const": "M163" },
+    "assertion_id": { "type": "string", "const": "g12.p0.m163.ue_pt_parity" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G12.4" },
+    "numeric_step": { "type": "integer", "const": 225 },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M163 + G-G12-6;G12_ACCEPTANCE_MAP §1 M163 + §3.4;CI_GATES §4/§7;spec/visual_comparison.md RXS-0403;RFC-0029 §4.6;UE 5.8.1 PT MRQ 臂 + Rurix 生产化 PT 臂"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest_three_way_consistent",
+        "contract_digest_matches_frozen",
+        "ue_build_id_matches_m128",
+        "m133_manifest_digest_referenced",
+        "rurix_arm_frames_complete",
+        "ue_arm_frames_complete",
+        "ue_pt_engagement_verified",
+        "rurix_double_run_bitexact",
+        "curve_segments_measured",
+        "noise_spectrum_delta_measured",
+        "energy_conservation_delta_measured",
+        "calibration_tolerances_measured",
+        "budget_entries_measured_local",
+        "gap_registry_landed",
+        "over_tolerance_fully_registered",
+        "residual_caliber_registered",
+        "red_digest_mismatch_report_detected",
+        "red_over_tolerance_silent_detected",
+        "red_gap_silent_mix_detected",
+        "red_single_end_missing_frame_detected",
+        "red_residual_caliber_silent_detected"
+      ],
+      "properties": {
+        "contract_digest_three_way_consistent": { "type": "boolean" },
+        "contract_digest_matches_frozen": { "type": "boolean" },
+        "ue_build_id_matches_m128": { "type": "boolean" },
+        "m133_manifest_digest_referenced": { "type": "boolean" },
+        "rurix_arm_frames_complete": { "type": "boolean" },
+        "ue_arm_frames_complete": { "type": "boolean" },
+        "ue_pt_engagement_verified": { "type": "boolean" },
+        "rurix_double_run_bitexact": { "type": "boolean" },
+        "curve_segments_measured": { "type": "boolean" },
+        "noise_spectrum_delta_measured": { "type": "boolean" },
+        "energy_conservation_delta_measured": { "type": "boolean" },
+        "calibration_tolerances_measured": { "type": "boolean" },
+        "budget_entries_measured_local": { "type": "boolean" },
+        "gap_registry_landed": { "type": "boolean" },
+        "over_tolerance_fully_registered": { "type": "boolean" },
+        "residual_caliber_registered": { "type": "boolean" },
+        "red_digest_mismatch_report_detected": { "type": "boolean" },
+        "red_over_tolerance_silent_detected": { "type": "boolean" },
+        "red_gap_silent_mix_detected": { "type": "boolean" },
+        "red_single_end_missing_frame_detected": { "type": "boolean" },
+        "red_residual_caliber_silent_detected": { "type": "boolean" }
+      }
+    },
+    "commands": { "type": "array" },
+    "parity": {
+      "type": "object",
+      "required": [
+        "contract_digest", "ue_build_id", "curve_segments",
+        "noise_spectrum_delta", "energy_conservation_delta",
+        "gap_registry_file", "residual_caliber_note"
+      ],
+      "properties": {
+        "contract_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "ue_build_id": { "type": "string", "const": "5.8.1-56057345" },
+        "curve_segments": { "type": "array", "minItems": 1 },
+        "noise_spectrum_delta": { "type": "object" },
+        "energy_conservation_delta": { "type": "object" },
+        "gap_registry_file": { "type": "string", "const": "milestones/g12/g12_ue_pt_gap_registry.json" },
+        "residual_caliber_note": { "type": ["string", "null"] },
+        "gap_item_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

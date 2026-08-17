@@ -1,0 +1,26 @@
+{
+  "schema": "rurix.g12pt.denoise_calibration_entry.v1",
+  "entry_id": "g12.pt.denoise_hf_drop_min",
+  "results": {
+    "trimmed_mean": 0.6860881983345
+  },
+  "protocol": "min over cells(2 scenes × 3 fam × {static,moved}) of 1−hf(den)/hf(raw),hf = mean((err−blur3x3(err))²) 亮度误差高通能量;threshold = measured × 0.5(协议冻结 k;direction=min)",
+  "sample_manifest": {
+    "count": 12,
+    "digest": "sha256:dc9a412efdd07a588016cda71b15247e78c575b99fa0afeadd73d5cd7a56b855",
+    "lower_bound": 12
+  },
+  "provenance": {
+    "seed": "11400714819323198485",
+    "frame2_seed_xor": "4354430596816722522",
+    "cam_shift": "0.02",
+    "alpha": "0.1",
+    "depth_rel_tol": "0.1",
+    "normal_dot_min": "0.9",
+    "atrous_levels": 3,
+    "sigma_l": "0.2",
+    "sigma_z": "0.1",
+    "host": "host oracle(gi::path_trace::prod + prod_denoise;纯 host 零 device)"
+  },
+  "timestamp": "20260817T224217Z"
+}

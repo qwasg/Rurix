@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.4 wave4.exit evidence",
+  "description": "evidence/g12_wave4_exit_<UTC>.json。G12.4 UE PT 对标波聚合门 g12.wave.4.exit（步骤 227；milestones/g12/CI_GATES.md §5；G12_CONTRACT G-G12-6）：G12.4 波两 P0 门最新 evidence 只读汇总——M163 UE PT 对标（步骤 225）+ M164 生产化回归门（步骤 226）——+ 六 facts：①M96 正确性锚 0-byte（参照器门最新 evidence PASS + 冻结带/参照器面 git diff 闭集机核）②对标契约 digest 冻结面（M163 最新 evidence parity.contract_digest == 门内冻结注册值 ∧ ue_build_id == M128 登记值 ∧ 三向一致字面）③差距登记表落盘 + RXS-0391 归属枚举合法 + 行集对账（M163 evidence parity 面 + 表文件在树）④g12_budget 20 条目齐备 measured_local 零 estimated（G12.2 十五 + 降噪二 + 对标标定三）+ budget_eval 全 PASS（P-09）⑤spec-first 面（RXS-0403 条款头在树 + RFC-0029 Agent Approved 字面 + conformance 3 件锚定〔accept 1 + reject 2〕）⑥62 门零降级（M164 最新 evidence PASS 承载）+ RD-040 history 只追加（M100-high G12.4 触发评估登记——多灯 workload measured 对照面产出留痕，条目级字段 0-byte）。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "wave",
+    "numeric_step", "source_ref", "host_section_pass", "device_section_state",
+    "required_gates", "extra_facts", "subjects", "checks", "evidence_level",
+    "run_url", "timestamp", "environment", "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_wave4_exit" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.wave.4.exit" },
+    "matrix_row": { "type": "string", "const": "G12.4" },
+    "wave": { "type": "string", "const": "G12.4" },
+    "numeric_step": { "type": "integer", "const": 227 },
+    "source_ref": {
+      "type": "string",
+      "const": "milestones/g12/CI_GATES.md §5;G12_CONTRACT G-G12-6;G12_ACCEPTANCE_MAP §1;M163 parity contract digest frozen + ue_build_id M128 machine check;gap registry landed + RXS-0391 enum;g12_budget 20 entries measured_local;spec-first RXS-0403 + RFC-0029 approved;62 gates zero-degrade + RD-040 M100-high trigger evaluated"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "required_gates": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["symbolic_gate_key", "status"],
+        "properties": {
+          "symbolic_gate_key": { "type": "string" },
+          "subject_prefix": { "type": "string" },
+          "evidence_path": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
+          "detail": { "type": "string" },
+          "timestamp": { "type": ["string", "null"] },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": { "type": "array", "maxItems": 0, "items": { "type": "object" } },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_required_gates_pass", "all_extra_facts_pass", "all_subjects_pass", "aggregate_read_only"],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

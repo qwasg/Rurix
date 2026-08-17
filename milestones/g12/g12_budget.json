@@ -221,6 +221,39 @@
       "threshold": 0.01271256601788,
       "evidence_file": "evidence/g12_m162_calibration_mean_energy_tol_20260817T174510Z.json",
       "measured_value": 0.00635628300894
+    },
+    {
+      "id": "g12.pt.parity_curve_tol",
+      "description": "UE PT 对标收敛曲线逐段对拍容差（双 seed Rurix 臂 rel_err 曲线差方差底 p100×2.0,协议冻结 k;M163 标定腿产,禁手写 P-09）;样本集 digest sha256:32fddbc9a8b5515545de27cafd2c8bec764afddb0515f98930b117cab2b9a214(count=10 ≥ 2);标定程序 ci/g12_ue_pt_parity_smoke.py 标定腿可复跑（固定 seed 确定面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.23919679712747455,
+      "evidence_file": "evidence/g12_m163_calibration_parity_curve_tol_20260817T223929Z.json",
+      "measured_value": 0.11959839856373727
+    },
+    {
+      "id": "g12.pt.parity_noise_tol",
+      "description": "UE PT 对标噪声谱对拍容差（双 seed 高频能量份额差方差底 p100×2.0,协议冻结 k;M163 标定腿产,禁手写 P-09）;样本集 digest sha256:df063f6e6e2409ff56c99199feadb4b3bfd8d17ffab526e85080cd4ee79adb00(count=2 ≥ 2);标定程序 ci/g12_ue_pt_parity_smoke.py 标定腿可复跑（固定 seed 确定面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.012169321007880152,
+      "evidence_file": "evidence/g12_m163_calibration_parity_noise_tol_20260817T223929Z.json",
+      "measured_value": 0.006084660503940076
+    },
+    {
+      "id": "g12.pt.parity_energy_tol",
+      "description": "UE PT 对标能量守恒对拍容差（双 seed 帧均值相对差方差底 p100×2.0,协议冻结 k;M163 标定腿产,禁手写 P-09）;样本集 digest sha256:6a4a635d8d1d618ce70902df64eb1dfd56eaeb01553dd08c8be76b8f22398c06(count=2 ≥ 2);标定程序 ci/g12_ue_pt_parity_smoke.py 标定腿可复跑（固定 seed 确定面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0013802290235563413,
+      "evidence_file": "evidence/g12_m163_calibration_parity_energy_tol_20260817T223929Z.json",
+      "measured_value": 0.0006901145117781707
     }
   ],
   "ratio_assertions": [],

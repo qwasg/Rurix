@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g12pt.parity_calibration_entry.v1",
+  "entry_id": "g12.pt.parity_energy_tol",
+  "results": {
+    "trimmed_mean": 0.0006901145117781707
+  },
+  "protocol": "UE PT 对标能量守恒对拍容差（双 seed 帧均值相对差方差底 p100×2.0,协议冻结 k;M163 标定腿产,禁手写 P-09）;样本集 2 单元（双场景 × 逐段/双场景）双 seed 方差底",
+  "sample_manifest": {
+    "count": 2,
+    "digest": "sha256:6a4a635d8d1d618ce70902df64eb1dfd56eaeb01553dd08c8be76b8f22398c06",
+    "lower_bound": 2
+  },
+  "provenance": {
+    "seed": "9182346301 vs 9182346302（契约 seed/calibration_seed 字面）",
+    "host": "g12_4_ue_pt_parity_render release device 双跑"
+  },
+  "timestamp": "20260817T223929Z"
+}

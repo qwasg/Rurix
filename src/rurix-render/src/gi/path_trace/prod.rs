@@ -398,7 +398,7 @@ pub mod sampler {
 // 两类维持——起步范围冻结 0-byte)
 // ---------------------------------------------------------------------------
 
-/// 生产化光源(面光 quad + delta 点光闭集)。
+/// 生产化光源(面光 quad + delta 点光 + 三角网格光闭集)。
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProdLight {
     /// 面光 quad(与 M96 PtLightQuad 同构;单面发光)。
@@ -410,6 +410,36 @@ pub enum ProdLight {
         /// 点强 RGB(线性,辐射强度 I——贡献 = I·cos/(π·d²·pdf_d))。
         intensity: [f32; 3],
     },
+    /// 三角网格光(G12.4 M163 UE PT 对标面:bistro emissive 表面逐三角
+    /// 网格光;单面发光,绕向法线;NEE 采样 = (u,v)∈[0,1)² u+v>1 折叠
+    /// 均匀三角采样,面积 = |e1×e2|/2——kernel type=2 加性面,quad/point
+    /// 既有路径 0-byte)。
+    Tri {
+        /// 角点 v0(世界空间)。
+        v0: [f32; 3],
+        /// 边 e1 = v1 − v0。
+        e1: [f32; 3],
+        /// 边 e2 = v2 − v0。
+        e2: [f32; 3],
+        /// 发光辐射度 RGB(线性)。
+        emission: [f32; 3],
+    },
+}
+
+impl ProdLight {
+    /// 三角光面积 |e1×e2|/2(仅 Tri;确定性)。
+    pub fn tri_area(v0_e1: [f32; 3], e2: [f32; 3]) -> f32 {
+        let e1 = Vec3::from_array(v0_e1);
+        let e2 = Vec3::from_array(e2);
+        e1.cross(e2).length() * 0.5
+    }
+
+    /// 三角光绕向法线(单位长;仅 Tri)。
+    pub fn tri_normal(e1: [f32; 3], e2: [f32; 3]) -> [f32; 3] {
+        let e1 = Vec3::from_array(e1);
+        let e2 = Vec3::from_array(e2);
+        e1.cross(e2).normalize().to_array()
+    }
 }
 
 /// 生产化场景(单 BLAS 三角形汤 + 逐三角材质 + 多光源 + 相机)。
@@ -507,13 +537,20 @@ impl ProdScene {
                 }
             }
         }
+        // 逐光源 ↔ 发光三角映射一遍构建(G12.4 M163 万级三角网格光面:逐灯
+        // 线性扫 = O(L×T) 不可行——单遍 O(T) 分桶,语义不变;quad 双臂规则
+        // 0-byte)。
+        let mut tris_by_light: Vec<Vec<usize>> = vec![Vec::new(); self.lights.len()];
+        for (t, &li) in self.light_of_prim.iter().enumerate() {
+            if li != u32::MAX {
+                tris_by_light[li as usize].push(t);
+            }
+        }
         // 逐 quad 光源 ↔ 恰 2 发光三角逐字一致(M96 口径的多光源推广)。
         for (li, l) in self.lights.iter().enumerate() {
             match l {
                 ProdLight::Quad(q) => {
-                    let tris: Vec<usize> = (0..self.indices.len())
-                        .filter(|&t| self.light_of_prim[t] == li as u32)
-                        .collect();
+                    let tris: &[usize] = &tris_by_light[li];
                     if tris.len() != 2 {
                         return Err(PtError::InvalidScene(format!(
                             "quad 光源 {li} 发光三角数 {} ≠ 2",
@@ -566,6 +603,78 @@ impl ProdScene {
                     }
                     if !intensity.iter().all(|c| c.is_finite() && *c >= 0.0) {
                         return Err(PtError::InvalidScene(format!("点光 {li} 强度非有限/负")));
+                    }
+                }
+                ProdLight::Tri {
+                    v0,
+                    e1,
+                    e2,
+                    emission,
+                } => {
+                    // 逐三角网格光 ↔ 恰 1 发光三角逐字一致(G12.4 M163 面;
+                    // quad 双臂规则 0-byte)。
+                    let tris: &[usize] = &tris_by_light[li];
+                    if tris.len() != 1 {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} 发光三角数 {} ≠ 1",
+                            tris.len()
+                        )));
+                    }
+                    if !emission.iter().all(|c| c.is_finite() && *c >= 0.0) {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} emission 非有限/负"
+                        )));
+                    }
+                    let area = ProdLight::tri_area(*e1, *e2);
+                    if !(area.is_finite() && area > 0.0) {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} 面积非正"
+                        )));
+                    }
+                    let t = tris[0];
+                    let idx = self.indices[t];
+                    let vs = [
+                        Vec3::from_array(self.positions[idx[0] as usize]),
+                        Vec3::from_array(self.positions[idx[1] as usize]),
+                        Vec3::from_array(self.positions[idx[2] as usize]),
+                    ];
+                    let lv0 = Vec3::from_array(*v0);
+                    let expected = [lv0, lv0 + Vec3::from_array(*e1), lv0 + Vec3::from_array(*e2)];
+                    // 顶点一致 = 相对容差 1e-5(G12.4 M163 面:三角网格光 e1/e2
+                    // 由烘焙顶点差分派生,f32 截断使 v0+(v1−v0) ≠ v1 位级——
+                    // quad 臂位级逐字面 0-byte 不动)。
+                    for (j, (v, e)) in vs.iter().zip(expected.iter()).enumerate() {
+                        let d = (*v - *e).length();
+                        let tol = 1e-5 * e.length().max(1e-3);
+                        if d > tol {
+                            return Err(PtError::InvalidScene(format!(
+                                "三角网格光 {li} 发光三角 {t} 顶点 {j} 越容差:{v:?} vs {e:?}"
+                            )));
+                        }
+                    }
+                    let n = (vs[1] - vs[0]).cross(vs[2] - vs[0]);
+                    let ln = Vec3::from_array(ProdLight::tri_normal(*e1, *e2));
+                    if n.dot(ln) <= 0.0 {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} 发光三角 {t} 绕向法线反向"
+                        )));
+                    }
+                    if (n.length() * 0.5 - area).abs() > 1e-6 * area {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} 发光三角 {t} 面积不符"
+                        )));
+                    }
+                    // 发光三角材质 emission 与光源 emission 逐字一致。
+                    if let MaterialKind::Emission { emission: em_tri, .. } = &self.materials[t] {
+                        if em_tri != emission {
+                            return Err(PtError::InvalidScene(format!(
+                                "三角网格光 {li} 光源/材质 emission 不逐字一致"
+                            )));
+                        }
+                    } else {
+                        return Err(PtError::InvalidScene(format!(
+                            "三角网格光 {li} 发光三角 {t} 材质非 Emission"
+                        )));
                     }
                 }
             }
@@ -746,6 +855,107 @@ pub fn g12_two_light_scene() -> ProdScene {
         materials,
         lights,
         camera,
+        t_max: 100.0,
+        light_of_prim,
+    }
+}
+
+/// 生产化 fixture(G12.4 M163 面):三角网格光——单位盒房间 + 天花一块
+/// 0.3×0.3 方形光源拆为**两枚三角网格光**(type=2;绕向法线 −y)。
+/// `tri_pair` 形 = 同面积同 Le 单 quad 光源的逐三角拆分;等价性单测锚:
+/// 双三角灯渲染 ≡ 同面积 quad 灯渲染(MC 容差内)——折叠采样 + 半面积 +
+/// 光源分布加权三面联合正确性的判决实验。
+pub fn g12_tri_light_scene(tri_pair: bool) -> ProdScene {
+    let mut s = g12_two_light_scene();
+    // 剥除 two_light 的双 quad 灯与其发光三角(保留盒体 + 箱块)。
+    s.lights.clear();
+    let keep = s
+        .light_of_prim
+        .iter()
+        .enumerate()
+        .filter(|&(_, &l)| l == u32::MAX)
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
+    let mut positions: Vec<[f32; 3]> = Vec::new();
+    let mut indices: Vec<[u32; 3]> = Vec::new();
+    let mut materials: Vec<MaterialKind> = Vec::new();
+    for &t in &keep {
+        let base = positions.len() as u32;
+        let old = s.indices[t];
+        for k in 0..3 {
+            positions.push(s.positions[old[k] as usize]);
+        }
+        indices.push([base, base + 1, base + 2]);
+        materials.push(s.materials[t]);
+    }
+    // 天花灯光几何:p00=(0.35,0.995,0.35) e1=(0.3,0,0) e2=(0,0,0.3)(法线 −y)。
+    let p00 = [0.35f32, 0.995, 0.35];
+    let e1 = [0.3f32, 0.0, 0.0];
+    let e2 = [0.0f32, 0.0, 0.3];
+    let le = [8.0f32, 7.0, 5.5];
+    let em = MaterialKind::Emission {
+        albedo: [0.5, 0.5, 0.5],
+        emission: le,
+    };
+    let push_tri = |positions: &mut Vec<[f32; 3]>,
+                    indices: &mut Vec<[u32; 3]>,
+                    materials: &mut Vec<MaterialKind>,
+                    a: [f32; 3],
+                    b: [f32; 3],
+                    c: [f32; 3],
+                    m: MaterialKind| {
+        let base = positions.len() as u32;
+        positions.push(a);
+        positions.push(b);
+        positions.push(c);
+        indices.push([base, base + 1, base + 2]);
+        materials.push(m);
+    };
+    let mut lights: Vec<ProdLight> = Vec::new();
+    let mut light_of_prim = vec![u32::MAX; indices.len()];
+    let p10 = [p00[0] + e1[0], p00[1], p00[2]];
+    let p01 = [p00[0], p00[1], p00[2] + e2[2]];
+    let p11 = [p10[0], p10[1], p01[2]];
+    if tri_pair {
+        // 两枚三角网格光:[p00,p10,p11] 与 [p00,p11,p01](quad 对角拆分)。
+        for (a, b, c) in [(p00, p10, p11), (p00, p11, p01)] {
+            let li = lights.len() as u32;
+            lights.push(ProdLight::Tri {
+                v0: a,
+                e1: [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
+                e2: [c[0] - a[0], c[1] - a[1], c[2] - a[2]],
+                emission: le,
+            });
+            push_tri(&mut positions, &mut indices, &mut materials, a, b, c, em);
+            light_of_prim.push(li);
+        }
+    } else {
+        lights.push(ProdLight::Quad(PtLightQuad {
+            p00,
+            e1,
+            e2,
+            emission: le,
+        }));
+        super_push_quad(
+            &mut positions,
+            &mut indices,
+            &mut materials,
+            p00,
+            p10,
+            p11,
+            p01,
+            em,
+        );
+        light_of_prim.push(0);
+        light_of_prim.push(0);
+    }
+    ProdScene {
+        name: "g12_tri_light",
+        positions,
+        indices,
+        materials,
+        lights,
+        camera: s.camera,
         t_max: 100.0,
         light_of_prim,
     }
@@ -1022,6 +1232,14 @@ pub fn build_light_distribution(scene: &ProdScene) -> LightDist {
             }
             ProdLight::Point { intensity, .. } => {
                 (intensity[0] + intensity[1] + intensity[2]) as f64
+            }
+            ProdLight::Tri {
+                e1, e2, emission, ..
+            } => {
+                // 三角网格光权重 = Σemission·(|e1×e2|/2)(quad 同构半面积;
+                // G12.4 M163 面)。
+                (emission[0] + emission[1] + emission[2]) as f64
+                    * ProdLight::tri_area(*e1, *e2) as f64
             }
         };
         w.push(weight);
@@ -1420,8 +1638,9 @@ fn trace_path_prod<B: BlasSet + ?Sized>(
         let al = Vec3::from_array(albedo);
         let em = Vec3::from_array(emission);
         let mut lum_b = 0.0f32;
-        // ① BSDF 命中发光面(单面 + balance MIS w_b;多光源分母 = 全部 quad
-        //    光源 NEE 联合 PDF 之和——非重叠光源仅命中光源项非零,显式累加)。
+        // ① BSDF 命中发光面(单面 + balance MIS w_b;多光源分母 = 全部面光源
+        //    (quad + 三角网格光)NEE 联合 PDF 之和——非重叠光源仅命中光源项
+        //    非零,显式累加;G12.4 M163 面:type=2 面积 = |e1×e2|/2)。
         let cos_emit = -ng.dot(d);
         if emission.iter().any(|c| *c > 0.0) && cos_emit > 0.0 {
             let w_b = if first {
@@ -1430,9 +1649,16 @@ fn trace_path_prod<B: BlasSet + ?Sized>(
                 let hit_light = scene.light_of_prim[prim] as usize;
                 let mut r_sum = 0.0f32;
                 for (li, l) in scene.lights.iter().enumerate() {
-                    if let ProdLight::Quad(q) = l {
+                    let area = match l {
+                        ProdLight::Quad(q) => Some(q.area()),
+                        ProdLight::Tri { e1, e2, .. } => {
+                            Some(ProdLight::tri_area(*e1, *e2))
+                        }
+                        ProdLight::Point { .. } => None,
+                    };
+                    if let Some(area) = area {
                         if li == hit_light {
-                            let denom = q.area() * cos_emit * prev_pdf;
+                            let denom = area * cos_emit * prev_pdf;
                             if denom > 0.0 {
                                 r_sum += dist.pdf[li] * hit.t * hit.t / denom;
                             }
@@ -1524,6 +1750,57 @@ fn trace_path_prod<B: BlasSet + ?Sized>(
                     );
                     if !blocked {
                         let add = cmul(cmul(thr, al), inten) * (core * (1.0 + cfg.energy_bias));
+                        li = li + add;
+                        lum_b += (add.x + add.y + add.z) / 3.0;
+                    }
+                }
+            }
+            ProdLight::Tri {
+                v0,
+                e1,
+                e2,
+                emission,
+            } => {
+                // 三角网格光 NEE(G12.4 M163 面):(u,v)∈[0,1)² 折叠均匀采样
+                // (u+v>1 ⇒ (1−u,1−v)),面积 = |e1×e2|/2;公式面与 quad 臂同构
+                // (贡献 = thr·(albedo/π)·cos_s·Le·cos_l·area/(π·dist²·pdf_d))。
+                let lp00 = Vec3::from_array(*v0);
+                let le1 = Vec3::from_array(*e1);
+                let le2 = Vec3::from_array(*e2);
+                let ln = Vec3::from_array(ProdLight::tri_normal(*e1, *e2));
+                let le = Vec3::from_array(*emission);
+                let area = ProdLight::tri_area(*e1, *e2);
+                let (mut su, mut sv) = (stream[bb + 1], stream[bb + 2]);
+                if su + sv > 1.0 {
+                    su = 1.0 - su;
+                    sv = 1.0 - sv;
+                }
+                let qp = lp00 + le1 * su + le2 * sv;
+                let wv = qp - p;
+                let dist2 = wv.dot(wv).max(1e-12);
+                let dist = dist2.sqrt();
+                let wi = wv * (1.0 / dist);
+                let cos_s = n.dot(wi).max(0.0);
+                let cos_l = (-ln.dot(wi)).max(0.0);
+                if cos_s > 0.0 && cos_l > 0.0 {
+                    let core = cos_s * cos_l * area / (PT_PI * dist2 * pdf_sel);
+                    let w_l = if cfg.mis {
+                        mis_balance_nee(cos_s, area, cos_l, pdf_sel, dist2)
+                    } else {
+                        1.0
+                    };
+                    let shadow_origin = p + n * RAY_EPS;
+                    let t_sh = (dist - 2.0 * RAY_EPS).max(RAY_EPS);
+                    let blocked = tlas.any_hit(
+                        blases,
+                        &Ray {
+                            origin: shadow_origin,
+                            dir: wi,
+                        },
+                        t_sh,
+                    );
+                    if !blocked {
+                        let add = cmul(cmul(thr, al), le) * (core * w_l * (1.0 + cfg.energy_bias));
                         li = li + add;
                         lum_b += (add.x + add.y + add.z) / 3.0;
                     }
@@ -1757,10 +2034,12 @@ pub fn pack_prod_tris(scene: &ProdScene) -> Vec<f32> {
     scene.blas_triangles()
 }
 
-/// 光源打包:16 f32/光源([type(0=quad,1=point), p0.xyz, e1.xyz, e2.xyz,
-/// em.rgb, area, pdf_d, pad])。
+/// 光源打包:17 f32/光源([type(0=quad,1=point,2=三角网格光), p0.xyz,
+/// e1.xyz, e2.xyz, em.rgb, area, pdf_d, pad, cdf]——G12.4 M163 加性扩
+/// stride 16→17:槽位 16 = 离散分布 CDF(kernel NEE 二分选择消费;既有槽位
+/// 0..15 语义 0-byte,type 0/1 渲染位级不变)。
 pub fn pack_prod_lights(scene: &ProdScene, dist: &LightDist) -> Vec<f32> {
-    let mut out = Vec::with_capacity(scene.lights.len() * 16);
+    let mut out = Vec::with_capacity(scene.lights.len() * 17);
     for (li, l) in scene.lights.iter().enumerate() {
         match l {
             ProdLight::Quad(q) => {
@@ -1786,7 +2065,25 @@ pub fn pack_prod_lights(scene: &ProdScene, dist: &LightDist) -> Vec<f32> {
                 out.push(dist.pdf[li]);
                 out.push(0.0);
             }
+            ProdLight::Tri {
+                v0,
+                e1,
+                e2,
+                emission,
+            } => {
+                // type=2 三角网格光(G12.4 M163 加性面):p0=v0、e1/e2 边、
+                // emission 槽位 = Le、area = |e1×e2|/2。
+                out.push(2.0);
+                out.extend_from_slice(v0);
+                out.extend_from_slice(e1);
+                out.extend_from_slice(e2);
+                out.extend_from_slice(emission);
+                out.push(ProdLight::tri_area(*e1, *e2));
+                out.push(dist.pdf[li]);
+                out.push(0.0);
+            }
         }
+        out.push(dist.cdf[li]); // 槽位 16 = CDF(二分选择消费)
     }
     out
 }
@@ -2364,7 +2661,7 @@ mod tests {
         let cfg = ProdConfig::production(16, SamplerFamily::Stratified, TAU_TEST);
         assert_eq!(pack_prod_mats(&scene).len(), scene.indices.len() * 8);
         assert_eq!(pack_prod_tris(&scene).len(), scene.indices.len() * 9);
-        assert_eq!(pack_prod_lights(&scene, &dist).len(), 2 * 16);
+        assert_eq!(pack_prod_lights(&scene, &dist).len(), 2 * 17);
         let p = pack_prod_params(&scene, &cfg);
         assert_eq!(p.len(), 48);
         assert_eq!(p[25], 2.0, "n_lights=2");
@@ -2373,5 +2670,61 @@ mod tests {
         let mats = pack_prod_mats(&scene);
         let last_tri_flag = mats[(scene.indices.len() - 1) * 8 + 6];
         assert_eq!(last_tri_flag, 2.0, "末发光三角 flag=光源 1+1");
+    }
+
+    //@ spec: RXS-0403
+    #[test]
+    fn tri_mesh_light_validate_and_layout() {
+        let scene = g12_tri_light_scene(true);
+        scene.validate().expect("双三角网格光 fixture 必过校验");
+        let dist = build_light_distribution(&scene);
+        // 双三角灯等面积 ⇒ 离散分布均匀(各 0.5)。
+        assert_eq!(dist.pdf.len(), 2);
+        assert!(
+            (dist.pdf[0] - 0.5).abs() < 1e-6 && (dist.pdf[1] - 0.5).abs() < 1e-6,
+            "等面积双三角灯功率加权均匀: {:?}",
+            dist.pdf
+        );
+        // 打包布局:type=2 + area=|e1×e2|/2(0.3×0.3 对角拆半 = 0.045);
+        // stride 17(G12.4 CDF 槽位扩展面)。
+        let packed = pack_prod_lights(&scene, &dist);
+        assert_eq!(packed.len(), 2 * 17);
+        assert_eq!(packed[0], 2.0, "三角网格光 type=2");
+        assert!(
+            (packed[13] - 0.045).abs() < 1e-7,
+            "三角灯半面积 0.045(实测 {})",
+            packed[13]
+        );
+        // 校验 fail-closed:灯光/材质 emission 不符必拒。
+        let mut bad = g12_tri_light_scene(true);
+        if let ProdLight::Tri { emission, .. } = &mut bad.lights[0] {
+            emission[0] += 0.25;
+        }
+        assert!(bad.validate().is_err(), "光源/材质 emission 不符必拒");
+        // 发光三角数 ≠1 必拒(删掉一枚发光三角的 light_of_prim 关联)。
+        let mut bad2 = g12_tri_light_scene(true);
+        let n = bad2.light_of_prim.len();
+        bad2.light_of_prim[n - 1] = u32::MAX;
+        assert!(bad2.validate().is_err(), "三角网格光 1↔1 校验面");
+    }
+
+    //@ spec: RXS-0403
+    #[test]
+    fn tri_mesh_light_pair_equiv_quad_reference() {
+        // 判决实验:同面积同 Le 双三角网格光 ≡ 单 quad 光源(MC 容差内)——
+        // 折叠采样 + 半面积 + 离散分布加权三面联合正确性(host oracle 面;
+        // device 对拍归 G12.4 门腿)。
+        let tri = g12_tri_light_scene(true);
+        let quad = g12_tri_light_scene(false);
+        let cfg = ProdConfig::production(64, SamplerFamily::Stratified, TAU_TEST);
+        let img_tri = host_render(&tri, &cfg);
+        let img_quad = host_render(&quad, &cfg);
+        let dev = super::super::rel_dev(&img_tri.rgb, &img_quad.rgb).expect("rel_dev");
+        assert!(
+            dev < 0.08,
+            "双三角灯 vs 同面积 quad 灯帧级 rel_dev {dev}(MC 容差内等价)"
+        );
+        // 能量非平凡(光下来到地板):帧均值亮度 > 0。
+        assert!(img_tri.mean_luminance() > 0.1, "三角网格光照明能量非零");
     }
 }

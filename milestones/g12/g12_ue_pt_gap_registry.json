@@ -1,0 +1,274 @@
+{
+  "schema": "rurix.g12.ue_pt_gap_registry.v1",
+  "registry": "g12_ue_pt_gap_registry",
+  "generated_by": "ci/g12_ue_pt_parity_smoke.py（g12.p0.m163.ue_pt_parity,步骤 225）",
+  "scene_set": [
+    "cornell-box",
+    "bistro-interior"
+  ],
+  "items": [
+    {
+      "gap_id": "8bb75b6657d6b10c",
+      "scene_id": "cornell-box",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "noise_spectrum@cornell-box",
+          "a_label": "rurix_hf_share",
+          "a_value": 0.9660312634118327,
+          "b_label": "ue_hf_share",
+          "b_value": 0.9097349214788788,
+          "delta": -0.05629634193295385,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "noise_spectrum@cornell-box",
+      "description": "噪声谱对拍超容差:spp=64 残余高频能量份额双端差 5.629634e-02 > 容差 1.216932e-02——噪声谱形态真实差（采样器族/滤波宽度口径面）。",
+      "attachments": []
+    },
+    {
+      "gap_id": "525dcf5fe42a5a37",
+      "scene_id": "cornell-box",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "energy_conservation@cornell-box",
+          "a_label": "rurix_mean_scaled",
+          "a_value": 0.09868238755301614,
+          "b_label": "ue_mean",
+          "b_value": 0.1453627206744092,
+          "delta": 0.04668033312139305,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "energy_conservation@cornell-box",
+      "description": "能量守恒对拍超容差:ref 档帧均值能量双端相对差 3.211300e-01 > 容差 1.380229e-03——系统性亮度差（材质/emissive/灯面口径残差聚合面,分项归属见 caliber_diff 行）。",
+      "attachments": []
+    },
+    {
+      "gap_id": "e6796378ebae6108",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "curve_segment_spp1@bistro-interior",
+          "a_label": "rurix_rel_err",
+          "a_value": 0.6628787485368837,
+          "b_label": "ue_rel_err",
+          "b_value": 0.27298420195616446,
+          "delta": -0.3898945465807192,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "curve_segment_spp1@bistro-interior",
+      "description": "收敛曲线逐段对拍超容差:spp=1 双端 rel_err 差 3.898945e-01 > 容差 2.391968e-01（标定腿双 seed 方差底 p100×2.0）——收敛行为真实差,UE Path Tracer 采样/滤波策略面归属登记。",
+      "attachments": []
+    },
+    {
+      "gap_id": "000f1899da9f087d",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "curve_segment_spp4@bistro-interior",
+          "a_label": "rurix_rel_err",
+          "a_value": 0.55945831682154,
+          "b_label": "ue_rel_err",
+          "b_value": 0.24583106256253726,
+          "delta": -0.31362725425900273,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "curve_segment_spp4@bistro-interior",
+      "description": "收敛曲线逐段对拍超容差:spp=4 双端 rel_err 差 3.136273e-01 > 容差 2.391968e-01（标定腿双 seed 方差底 p100×2.0）——收敛行为真实差,UE Path Tracer 采样/滤波策略面归属登记。",
+      "attachments": []
+    },
+    {
+      "gap_id": "7ea11b30c1bc7f18",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "noise_spectrum@bistro-interior",
+          "a_label": "rurix_hf_share",
+          "a_value": 0.9804317846976327,
+          "b_label": "ue_hf_share",
+          "b_value": 0.8303323798232056,
+          "delta": -0.15009940487442708,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "noise_spectrum@bistro-interior",
+      "description": "噪声谱对拍超容差:spp=64 残余高频能量份额双端差 1.500994e-01 > 容差 1.216932e-02——噪声谱形态真实差（采样器族/滤波宽度口径面）。",
+      "attachments": []
+    },
+    {
+      "gap_id": "3fd88ba1c1b25684",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "quality_gap",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "energy_conservation@bistro-interior",
+          "a_label": "rurix_mean_scaled",
+          "a_value": 0.014252178548159912,
+          "b_label": "ue_mean",
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "energy_conservation@bistro-interior",
+      "description": "能量守恒对拍超容差:ref 档帧均值能量双端相对差 6.929274e-01 > 容差 1.380229e-03——系统性亮度差（材质/emissive/灯面口径残差聚合面,分项归属见 caliber_diff 行）。",
+      "attachments": []
+    },
+    {
+      "gap_id": "1cd456377445d16c",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "Other",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "bistro_material_texture_mean_vs_per_texel",
+          "a_label": "rurix_bistro_mean_scaled",
+          "a_value": 0.014252178548159912,
+          "b_label": "ue_bistro_mean",
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P1",
+      "g11_anchor": "G15 材质链收口（G12-N10/G11-N8/G11-N9 锚定维持）",
+      "title": "bistro_material_texture_mean_vs_per_texel",
+      "description": "bistro 材质口径:Rurix PT 臂 = 纹理均值线性域 × factor × (1−metallic) 逐材质扁平化（PT megakernel 逐三角朗伯面）;UE 臂 = 逐纹素 baseColor 纹理 + GGX 面。残余口径差不拟合只登记（RXS-0392 不拟合原则）。",
+      "attachments": [],
+      "attribution_note": "Rurix 侧 PT 生产化面（逐三角朗伯 megakernel）,无 UE5 Renderer 模块对应——Other 终值按 RXS-0391 L5 登记并入计数。"
+    },
+    {
+      "gap_id": "499b752ce1d25f1d",
+      "scene_id": "bistro-interior",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "emissive_le_mean_vs_textured_emissive",
+          "a_label": "rurix_emissive_le_mean",
+          "a_value": 0.022303,
+          "b_label": "ue_emissive_le_mean",
+          "b_value": 0.022303,
+          "delta": 0.0,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "emissive_le_mean_vs_textured_emissive",
+      "description": "emissive 面光口径:Rurix 臂 = 契约 Le 均值逐三角三角网格光（type=2）;UE 臂 = 契约 Le 直给 MIC emissive（同均值口径,逐纹素 emissive 纹理双端不消费——双端最大子集）。点光自天花灯具 emissive 派生（I₀=Le×A,RXS-0394 L3 链）而灯具 emissive 面维持激活——双通道有意同构（契约 provenance 登记面,双端同一灯面）。",
+      "attachments": []
+    },
+    {
+      "gap_id": "21a61c9da0f3122e",
+      "scene_id": "cornell-box",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "PathTracing.cpp",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "aa_filter_policy_residual",
+          "a_label": "rurix_jitter_full_pixel",
+          "a_value": 1.0,
+          "b_label": "ue_filter_width",
+          "b_value": 0.0,
+          "delta": -1.0,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "aa_filter_policy_residual",
+      "description": "AA 滤波口径:UE 臂 r.PathTracing.FilterWidth=0（像素中心点采样）;Rurix 臂 = 全像素均匀抖动（cam_u/cam_v 流维）。边缘走样形态差进残余登记;收敛曲线端内参照面消去。",
+      "attachments": []
+    },
+    {
+      "gap_id": "802a48548e2e64fe",
+      "scene_id": "cornell-box",
+      "camera_id": "g12_pt_parity",
+      "domain": "hdr_scene_linear",
+      "kind": "caliber_diff",
+      "ue5_module_primary": "Other",
+      "ue5_module_secondary": [],
+      "measured_delta": [
+        {
+          "metric": "exr_bit_depth_fp16_vs_f32",
+          "a_label": "rurix_bit_depth_f32",
+          "a_value": 32.0,
+          "b_label": "ue_bit_depth_fp16",
+          "b_value": 16.0,
+          "delta": -16.0,
+          "evidence_digest": "sha256:74df98127f939a2cbc8682ecb33e8c954758d4ef9354e7d06c87bb2ddfad8039"
+        }
+      ],
+      "suggested_priority": "P2",
+      "g11_anchor": "G15 画质收口期评估",
+      "title": "exr_bit_depth_fp16_vs_f32",
+      "description": "位深口径（M134 既定口径沿用）:UE MRQ EXR = fp16;Rurix = f32 canonical。strip-and-log 精确提升面（RXS-0385）;量化残差进残余登记。",
+      "attachments": [],
+      "attribution_note": "EXR 容器位深面（image-io f32 canonical vs UE MRQ fp16）,无 UE5 Renderer 模块对应——Other 终值按 RXS-0391 L5 登记并入计数。"
+    }
+  ],
+  "scene_summary": {
+    "cornell-box": {
+      "gap_count": 4,
+      "no_gap_explicit": false
+    },
+    "bistro-interior": {
+      "gap_count": 6,
+      "no_gap_explicit": false
+    }
+  },
+  "not_ready_scenes": []
+}

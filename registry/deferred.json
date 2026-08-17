@@ -1249,6 +1249,11 @@
           "date": "2026-08-17",
           "event": "G12.3 RD040-nrd 评估窗承接兑现登记(agent 完全自主 D-406 v2.0;G12 立项裁决 9 / G12_CONTRACT §6 RD-040 行兑现):**NRD 类 vendor 降噪评估报告落盘**(milestones/g12/design/nrd_vendor_denoise_evaluation.md v1.0——UpscaleBackend 同构输入契约〔MV/深度/法线〕接入面五轴差距逐项登记〔MV 口径/深度 NDC→viewZ/法线+粗糙度打包/albedo demodulation 结构性差距/NRI 集成形态〕+ 许可取证〔2026-08-17 联网实测 NVIDIA-RTX/NRD v4.17.5 master:自定义 NVIDIA RTX SDKs LICENSE,GitHub API license=other/NOASSERTION,非 OSI 批准许可——owner 法律面审为接入硬前置〕+ ABI/集成形态取证〔C++ 库 + HLSL shader pack + NRDIntegration NRI 基集成层 v22〕+ 与自研降噪面 measured 对照〔M162 门 evidence 转引:噪声谱高频能量下降 cornell 7.697348e-1/direct 9.740259e-1、帧均值能量相对差 ≤2.74e-3、历史验证拒绝活性面〕);**评估不接线**——树内零 vendor 降噪接线符号(M162 门机核面承载,接线即 RED),接入另判 G13+ 窗(重判条件 = 接入真实需求 + owner 法律面许可清结 + measured 对拍面接入裁决);RD-040 总体 status 维持 open,backfill_condition 字面 0-byte 不回写",
           "evidence": "milestones/g12/design/nrd_vendor_denoise_evaluation.md / ci/g12_denoise_pipeline_tsr_smoke.py(步骤 223) / evidence/g12_m162_denoise_pipeline_tsr_20260817T174510Z.json / milestones/g12/G12_CONTRACT.md §8.3"
+        },
+        {
+          "date": "2026-08-17",
+          "event": "G12.4 M100-high 触发评估登记(agent 完全自主 D-406 v2.0;G12 立项裁决 9 / G12_CONTRACT §6 RD-040 行 / G12_ACCEPTANCE_MAP §3.2 行兑现):**多灯 workload measured 对照面产出**——G12.4 UE PT 对标波双端 PT 对拍落地 bistro-interior 4 点光(G11.4 派生链 RXS-0394 L3 I₀=Le×A 逐盏 provenance)+ 4 emissive 材质面光(逐三角三角网格光,契约 Le 登记值)多灯 workload:同场景同 spp(1/4/16/64/256/1024)双端出图(Rurix 生产化 PT megakernel device 真跑 + UE 5.8.1 Path Tracer MRQ 臂)+ 收敛曲线逐段/噪声谱/能量守恒 measured 对拍(evidence/g12_m163_ue_pt_parity_20260817T223129Z.json——bistro spp1/spp4 段超容差显式登记差距登记表,不静默)+ UE PathTracing 模块归属差距登记表落盘(milestones/g12/g12_ue_pt_gap_registry.json 10 行:6 quality_gap + 4 caliber_diff);**触发条件命中——按只追加程序留 G12.6 穷举窗重判 M100-high**(G12_CANDIDATE_DECISIONS §1 M100-high 行/§3.2 登记面;本波不改判,不以对标绿冒充重判;承接锚字面 0-byte 维持,锚定 G14 口径不动);RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g12/g12_ue_pt_parity_contract.json / evidence/g12_m163_ue_pt_parity_20260817T223129Z.json / milestones/g12/g12_ue_pt_gap_registry.json / milestones/g12/G12_CONTRACT.md §8.4"
         }
       ]
     },

@@ -1,0 +1,16 @@
+{
+  "cornell-box": {
+    "gltf": "cornell_box.gltf",
+    "gltf_sha256": "sha256:57ea4d959d7f08747d340398e66f4b0a70de89979ce5ad34f0ee37540f34442b",
+    "bin_sha256": "sha256:046a56ca37de447d0e16b2a83d3bbf0fd3ddf76734d6b1becd0aac0fad807cc8",
+    "bytes": 2276,
+    "textures_copied": 0
+  },
+  "bistro-interior": {
+    "gltf": "BistroInterior.gltf",
+    "gltf_sha256": "sha256:d6274d0a70154f618ee7bd8c9edbb5cb5d88b49282954f59fe36c45da4c84330",
+    "bin_sha256": "sha256:2d8aae3b1a189f7b0c4dde7d875fd270619a8455f7f8125465691906aaa964f5",
+    "bytes": 51507652,
+    "textures_copied": 0
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.4 M164 regression_guard evidence",
+  "description": "evidence/g12_m164_regression_guard_<UTC>.json。G12.4 P0 硬门 g12.p0.m164.regression_guard（G12_CONTRACT §4.2 M164 行判据逐字）：既有 62 门（G9 34 key + G10 14 key + G11 14 key〔M147 双 phase 纪律两态面继承〕）最新 evidence 全绿只读汇总（聚合不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE）+ 生产化触改面既有门重跑回归零降级（M96 golden 门序面真跑抽检 + G12.2 M158/M160 + G12.3 M162 + wave2/wave3 exit 聚合复跑 + G10 M140/G11 M157 host 面广幅抽检——子进程真跑 exit 0 + 最新 evidence PASS + 新鲜度机核〔timestamp ≥ 会话起点〕）+ 既有判据 0-byte（G5~G11 closed 面工作树空集）；既有门降级/聚合遮蔽/陈旧冒充即 RED 三臂独立有效。纯 host 门（device_section_state=not_applicable；抽检子进程自持 device 面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "milestone",
+    "assertion_id", "status", "wave", "numeric_step", "source_ref", "base_commit",
+    "host_section_pass", "device_section_state", "checks", "commands",
+    "regression_summary", "evidence_level", "run_url", "timestamp", "environment", "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_m164_regression_guard" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.p0.m164.regression_guard" },
+    "matrix_row": { "type": "string", "const": "M164" },
+    "milestone": { "type": "string", "const": "M164" },
+    "assertion_id": { "type": "string", "const": "g12.p0.m164.regression_guard" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G12.4" },
+    "numeric_step": { "type": "integer", "const": 226 },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M164 + G-G12-6;G12_ACCEPTANCE_MAP §1 M164;CI_GATES §4;G9 34 + G10 14 + G11 14 keys latest evidence read-only summary;touched-face spot rerun zero-degrade"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g10_14_gates_latest_evidence_all_green",
+        "g9_34_gates_latest_evidence_all_green",
+        "g11_14_gates_latest_evidence_all_green",
+        "spot_rerun_g9_m96_pass",
+        "spot_rerun_g12_m158_pass",
+        "spot_rerun_g12_m160_pass",
+        "spot_rerun_g12_m162_pass",
+        "spot_rerun_g12_wave2_exit_pass",
+        "spot_rerun_g12_wave3_exit_pass",
+        "spot_rerun_g10_m140_pass",
+        "spot_rerun_g11_m157_pass",
+        "legacy_criteria_0byte",
+        "red_degraded_gate_detected",
+        "red_aggregate_masking_detected",
+        "red_stale_evidence_detected"
+      ],
+      "properties": {
+        "g10_14_gates_latest_evidence_all_green": { "type": "boolean" },
+        "g9_34_gates_latest_evidence_all_green": { "type": "boolean" },
+        "g11_14_gates_latest_evidence_all_green": { "type": "boolean" },
+        "spot_rerun_g9_m96_pass": { "type": "boolean" },
+        "spot_rerun_g12_m158_pass": { "type": "boolean" },
+        "spot_rerun_g12_m160_pass": { "type": "boolean" },
+        "spot_rerun_g12_m162_pass": { "type": "boolean" },
+        "spot_rerun_g12_wave2_exit_pass": { "type": "boolean" },
+        "spot_rerun_g12_wave3_exit_pass": { "type": "boolean" },
+        "spot_rerun_g10_m140_pass": { "type": "boolean" },
+        "spot_rerun_g11_m157_pass": { "type": "boolean" },
+        "legacy_criteria_0byte": { "type": "boolean" },
+        "red_degraded_gate_detected": { "type": "boolean" },
+        "red_aggregate_masking_detected": { "type": "boolean" },
+        "red_stale_evidence_detected": { "type": "boolean" }
+      }
+    },
+    "commands": { "type": "array" },
+    "regression_summary": {
+      "type": "object",
+      "required": ["session_start", "g10_gates", "g9_gates", "g11_gates", "spot_reruns"],
+      "properties": {
+        "session_start": { "type": "string" },
+        "g10_gates": { "type": "array", "minItems": 14, "maxItems": 14 },
+        "g9_gates": { "type": "array", "minItems": 34, "maxItems": 34 },
+        "g11_gates": { "type": "array", "minItems": 14, "maxItems": 14 },
+        "spot_reruns": { "type": "array", "minItems": 8, "maxItems": 8 }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": { "type": "object" },
+    "notes": { "type": "string" }
+  }
+}

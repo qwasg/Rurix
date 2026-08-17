@@ -58,16 +58,21 @@
 //   [29]=adaptive_on [30]=adaptive_n_floor [31]=adaptive_rel_err_theta
 //   [32]=energy_bias(RED 臂,正常=0) [33]=rr_comp_off(RED 臂,正常=0)
 //   [34]=rng_sample_stride(= 2 + 6*max_bounces = 26) [35]=seed(provenance,
-//   digest 域外) [36..48]=reserved(恒 0)
+//   digest 域外) [36]=pixel_base(G12.4 M163 像素带分段 dispatch 起点,TDR
+//   规避;0 = 整帧既有面) [37..48]=reserved(恒 0)
 //   rng:    26 f32/(px·spp) = 2(cam jitter)+ 每 bounce 6(选灯 u_sel、NEE
 //           u/v、BSDF r1/r2、RR)× max_bounces,按索引寻址。
 //   mats:   8 f32/tri = albedo.rgb, emission.rgb, flag(0=非发光;>0 =
 //           光源下标+1), pad。
 //   tris:   9 f32/tri = v0/v1/v2(世界空间,绕向 = 几何法线,primitiveIndex 序)。
-//   lights: 16 f32/光源 = [type(0=quad/1=point), p0.xyz(quad=p00/point=位置),
+//   lights: 17 f32/光源(G12.4 M163 加性扩 stride 16→17,槽位 16 = 离散
+//           分布 CDF〔NEE 二分选择消费;既有槽位 0..15 语义 0-byte〕)=
+//           [type(0=quad/1=point/2=三角网格光〔G12.4 M163 加性面:p0=v0、
+//           e1/e2 边、emission=Le、area=|e1×e2|/2;NEE = u+v>1 折叠均匀
+//           三角采样〕), p0.xyz(quad=p00/point=位置),
 //           e1.xyz(quad 边/point=点强 I), e2.xyz(quad 边/point 恒 0),
 //           emission.rgb(quad/point 恒 0), area(quad/point=0), pdf_d(离散
-//           光源分布), pad]。
+//           光源分布), pad, cdf]。type 0/1 既有路径位级不变(加性扩展)。
 //   out_rgb: 3 f32/px 均值辐射度(除数 = 有效采样数);out_stats: 2 f32/px
 //   [Σlum, Σlum²](有效采样);out_samples: 1 u32/px 实际采样数(自适应面
 //   < spp 上界);out_converged: 1 f32/px(1=达阈早停);out_rr: 4 f32/px
@@ -127,8 +132,11 @@ kernel fn g12_pt_production(
     let big: f32 = 1e30;
     let tiny: f32 = 0.000001;
     if i < pixel_count {
-        let px = i % width;
-        let py = i / width;
+        // G12.4 M163 面:像素带分段 dispatch(TDR 规避——params[36]=带起点;
+        // 0 = 整帧既有面,位级不变)。
+        let g = (params[36] as usize) + i;
+        let px = g % width;
+        let py = g / width;
         let mut sum_r = 0.0;
         let mut sum_g = 0.0;
         let mut sum_b = 0.0;
@@ -236,28 +244,27 @@ kernel fn g12_pt_production(
                 let em_g = mats[mb + 4];
                 let em_b = mats[mb + 5];
                 let flag = mats[mb + 6];
-                // ── shade ①:BSDF 命中发光面(单面 + balance MIS w_b;多光源分母
-                //    = 全部 quad 光源 NEE 联合 PDF 之和——逐灯显式累加,仅命中
-                //    光源项非零)──
+                // ── shade ①:BSDF 命中发光面(单面 + balance MIS w_b;命中光源
+                //    NEE 联合 PDF 项直查——G12.4 M163 万级三角网格光面:逐灯
+                //    O(L) 累加循环在 44k 灯面单 dispatch 超时(device lost
+                //    实测);循环命中项外全零 ⇒ 直取位级同值,既有场景 0-byte)──
                 let cos_emit = 0.0 - (hgx * dx + hgy * dy + hgz * dz);
                 let e_lum = em_r.max(em_g).max(em_b);
                 let gate_e = hit_f * (e_lum * big).min(1.0).max(0.0) * (cos_emit * big).min(1.0).max(0.0);
                 let cos_emit_c = cos_emit.max(tiny);
-                let mut r_sum = 0.0;
-                let mut li1 = 0usize;
-                while li1 < n_lights {
-                    let lb1 = li1 * 16;
-                    let ltype1 = lights[lb1];
-                    let area1 = lights[lb1 + 13];
-                    let pdf1 = lights[lb1 + 14];
-                    // match = 1 iff flag == li1+1;is_quad = 1 iff type==0。
-                    let match1 = 1.0 - ((flag - ((li1 as f32) + 1.0)).abs() * big).min(1.0);
-                    let is_quad1 = 1.0 - ltype1;
-                    let denom1 = area1 * cos_emit_c * prev_pdf;
-                    let gate_d1 = (denom1 * big).min(1.0).max(0.0);
-                    r_sum = r_sum + match1 * is_quad1 * gate_d1 * pdf1 * th * th / denom1.max(tiny);
-                    li1 = li1 + 1usize;
-                }
+                // flag = 光源下标+1(0 = 非灯三角——钳制到 [0,n_lights) 防越界,
+                // 该情形 e_lum=0 ⇒ gate_e=0 结果整零不消费)。
+                let hit_li = (flag - 1.0).max(0.0).min((n_lights as f32) - 1.0) as usize;
+                let hb = hit_li * 17;
+                let htype = lights[hb];
+                let harea = lights[hb + 13];
+                let hpdf = lights[hb + 14];
+                // 面积门 = 1 iff type∈{0 quad,2 三角网格光}(point 退化 area=0
+                // ⇒ denom=0 ⇒ gate_d=0 整零)。
+                let area_gate = (htype - 1.0).abs().min(1.0);
+                let hdenom = harea * cos_emit_c * prev_pdf;
+                let gate_d = (hdenom * big).min(1.0).max(0.0);
+                let r_sum = area_gate * gate_d * hpdf * th * th / hdenom.max(tiny);
                 let w_b = 1.0 / (1.0 + r_sum);
                 let w_b_mis = enable_mis * w_b + (1.0 - enable_mis);
                 let w_b_eff = first_f + (1.0 - first_f) * w_b_mis;
@@ -270,21 +277,23 @@ kernel fn g12_pt_production(
                 li_b = li_b + add_eb;
                 let mut lum_b = (add_er + add_eg + add_eb) / 3.0;
                 // ── shade ②:NEE(光源分布离散 CDF 选择 → 类型门 quad/point
-                //    双公式面;联合 PDF = 离散 × 连续)──
+                //    /tri 三公式面;联合 PDF = 离散 × 连续)──
+                // CDF 选择 = 二分(左most i:cdf[i] > u_sel;G12.4 M163 万级三角
+                // 网格光面 O(log n)——与既有线性扫描同一选择语义〔同一下标〕,
+                // type 0/1 场景位级不变;cdf 存 lights 记录槽位 16,打包单源
+                // = host pack_prod_lights stride 17)。
                 let u_sel = rng[bb];
-                let mut acc = 0.0;
-                let mut found = 0.0;
-                let mut sel_f = 0.0;
-                let mut li2 = 0usize;
-                while li2 < n_lights {
-                    let pdf2 = lights[li2 * 16 + 14];
-                    acc = acc + pdf2;
-                    let take2 = ((acc - u_sel) * big).min(1.0).max(0.0) * (1.0 - found);
-                    sel_f = sel_f + (li2 as f32) * take2;
-                    found = found + take2;
-                    li2 = li2 + 1usize;
+                let mut lo = 0usize;
+                let mut hi = n_lights;
+                while lo < hi {
+                    let mid = (lo + hi) / 2usize;
+                    let c = lights[mid * 17 + 16];
+                    let go_left = ((c - u_sel) * big).min(1.0).max(0.0);
+                    let gi = go_left as usize;
+                    hi = mid * gi + hi * (1usize - gi);
+                    lo = (mid + 1usize) * (1usize - gi) + lo * gi;
                 }
-                let sb2 = (sel_f as usize) * 16;
+                let sb2 = lo * 17;
                 let ltype = lights[sb2];
                 let lp_x = lights[sb2 + 1];
                 let lp_y = lights[sb2 + 2];
@@ -300,9 +309,13 @@ kernel fn g12_pt_production(
                 let lem_b = lights[sb2 + 12];
                 let area_s = lights[sb2 + 13];
                 let pdf_d = lights[sb2 + 14];
-                // 类型门:q_gate = 1 iff quad(type=0);p_gate = 1 iff point(type=1)。
-                let q_gate = 1.0 - ltype;
-                let p_gate = ltype;
+                // 类型门:q_gate = 面积门 1 iff type∈{0 quad,2 三角网格光};
+                // p_gate = 1 iff point(type=1);tri_gate = 1 iff type==2
+                // (G12.4 M163 加性面:type 0/1 两门位级不变——q: quad 1/point 0;
+                // p: point 1/quad 0;tri_gate 对 0/1 恒 0)。
+                let p_gate = 1.0 - (ltype - 1.0).abs().min(1.0);
+                let q_gate = (ltype - 1.0).abs().min(1.0);
+                let tri_gate = (ltype - 1.0).max(0.0).min(1.0);
                 // quad 光源法线 = normalize(cross(e1, e2))(point: e1×0=0 向量,
                 // 经 max(len, tiny) 兜底折零,不产生 NaN)。
                 let lcr_x = le1_y * le2_z - le1_z * le2_y;
@@ -312,10 +325,17 @@ kernel fn g12_pt_production(
                 let ln_x = lcr_x * lcr_inv;
                 let ln_y = lcr_y * lcr_inv;
                 let ln_z = lcr_z * lcr_inv;
-                // NEE 目标点:quad = 面上采样点(u/v 流维);point = 光源位置。
-                let qq_x = lp_x + le1_x * rng[bb + 1] + le2_x * rng[bb + 2];
-                let qq_y = lp_y + le1_y * rng[bb + 1] + le2_y * rng[bb + 2];
-                let qq_z = lp_z + le1_z * rng[bb + 1] + le2_z * rng[bb + 2];
+                // NEE 目标点:quad = 面上采样点(u/v 流维);point = 光源位置;
+                // 三角网格光(type=2)= u+v>1 折叠均匀三角采样(G12.4 M163
+                // 加性面:fold_f 对 type 0/1 恒 0 ⇒ su/sv 位级不变)。
+                let su0 = rng[bb + 1];
+                let sv0 = rng[bb + 2];
+                let fold_f = tri_gate * ((su0 + sv0 - 1.0) * big).min(1.0).max(0.0);
+                let su = su0 * (1.0 - fold_f) + (1.0 - su0) * fold_f;
+                let sv = sv0 * (1.0 - fold_f) + (1.0 - sv0) * fold_f;
+                let qq_x = lp_x + le1_x * su + le2_x * sv;
+                let qq_y = lp_y + le1_y * su + le2_y * sv;
+                let qq_z = lp_z + le1_z * su + le2_z * sv;
                 let tg_x = qq_x * q_gate + lp_x * p_gate;
                 let tg_y = qq_y * q_gate + lp_y * p_gate;
                 let tg_z = qq_z * q_gate + lp_z * p_gate;

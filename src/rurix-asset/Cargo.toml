@@ -15,6 +15,15 @@ rurix-basis-sys = { path = "../rurix-basis-sys" }
 # G10.5a M130 双端核验腿 + 场景渲染 harness（bin g10_5_scene_render）：EXR 帧容器
 # 编解码（自研最小子集，spec/imageio.md §2A；workspace path 依赖，零外部 crate）。
 image-io = { path = "../image-io" }
+# G12.4 M163 UE PT 对标 Rurix 臂（bin g12_4_ue_pt_parity_render）：device 执行底座
+# （可选；rurix-rt vk ray query 执行面——rurix-render vulkan feature 同构形态，
+# default 不拉 GPU 面）。
+rurix-rt = { path = "../rurix-rt", optional = true }
+
+[features]
+default = []
+# vulkan:device 执行腿（经 rurix-rt vk 底座真派发；rurix-render vulkan feature 联动）。
+vulkan = ["dep:rurix-rt", "rurix-rt/vulkan", "rurix-render/vulkan"]
 
 [[bin]]
 name = "g8_m01_probe"
@@ -53,6 +62,18 @@ path = "src/bin/rxhlod.rs"
 [[bin]]
 name = "g10_5_scene_render"
 path = "src/bin/g10_5_scene_render.rs"
+
+# G12.4 M163 UE PT 对标 Rurix 臂 harness（spec/visual_comparison.md RXS-0403；门
+# g12.p0.m163.ue_pt_parity）：G12.4 对标契约（独立冻结，RXS-0403 L1 字段闭集）
+# 严格解析 + canonical digest 第二实现（--contract-digest）+ glTF 场景（M133
+# 清单双场景闭集）→ 生产化 ProdScene（逐三角材质扁平化 + 契约灯面：quad 面光 /
+# 点光 / emissive 逐三角三角网格光 type=2）→ G12 生产化 PT megakernel
+#（kernels/g12_pt_production.rx SPV）device 真跑（固定 seed 双跑位级一致）→
+# scene-linear HDR EXR 落盘（RXS-0385 rurix strict 面）+ receipt JSON。
+[[bin]]
+name = "g12_4_ue_pt_parity_render"
+path = "src/bin/g12_4_ue_pt_parity_render.rs"
+required-features = ["vulkan"]
 
 [lints]
 workspace = true
