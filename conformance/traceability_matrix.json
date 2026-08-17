@@ -2013,6 +2013,25 @@
     "RXS-0397": [
       "conformance/gi/accept/sky_ibl_direct_diffuse_minimal.rx",
       "conformance/gi/reject/sky_ibl_gi_double_count.rx"
+    ],
+    "RXS-0398": [
+      "conformance/gi/accept/mis_full_surface_minimal.rx",
+      "conformance/gi/reject/mis_energy_bias_inject.rx",
+      "conformance/gi/reject/mis_weight_missing.rx"
+    ],
+    "RXS-0399": [
+      "conformance/gi/accept/rr_throughput_adaptive_minimal.rx",
+      "conformance/gi/reject/rr_compensation_missing.rx",
+      "conformance/gi/reject/rr_early_kill_bias.rx"
+    ],
+    "RXS-0400": [
+      "conformance/gi/accept/lds_deterministic_minimal.rx",
+      "conformance/gi/reject/lds_nondeterministic_inject.rx"
+    ],
+    "RXS-0401": [
+      "conformance/gi/accept/adaptive_convergence_minimal.rx",
+      "conformance/gi/reject/early_stop_masquerade.rx",
+      "conformance/gi/reject/unconverged_pixel_underreport.rx"
     ]
   }
 }

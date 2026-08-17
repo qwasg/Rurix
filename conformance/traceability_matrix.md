@@ -383,3 +383,7 @@
 | RXS-0395 | spec/global_illumination.md | 2 | `conformance/gi/accept/gi_multibounce_two_level_minimal.rx`, `conformance/gi/reject/gi_single_bounce_masquerade.rx` |
 | RXS-0396 | spec/global_illumination.md | 2 | `conformance/gi/accept/world_radiance_cache_minimal.rx`, `conformance/gi/reject/world_cache_farfield_zero_energy.rx` |
 | RXS-0397 | spec/global_illumination.md | 2 | `conformance/gi/accept/sky_ibl_direct_diffuse_minimal.rx`, `conformance/gi/reject/sky_ibl_gi_double_count.rx` |
+| RXS-0398 | spec/global_illumination.md | 3 | `conformance/gi/accept/mis_full_surface_minimal.rx`, `conformance/gi/reject/mis_energy_bias_inject.rx`, `conformance/gi/reject/mis_weight_missing.rx` |
+| RXS-0399 | spec/global_illumination.md | 3 | `conformance/gi/accept/rr_throughput_adaptive_minimal.rx`, `conformance/gi/reject/rr_compensation_missing.rx`, `conformance/gi/reject/rr_early_kill_bias.rx` |
+| RXS-0400 | spec/global_illumination.md | 2 | `conformance/gi/accept/lds_deterministic_minimal.rx`, `conformance/gi/reject/lds_nondeterministic_inject.rx` |
+| RXS-0401 | spec/global_illumination.md | 3 | `conformance/gi/accept/adaptive_convergence_minimal.rx`, `conformance/gi/reject/early_stop_masquerade.rx`, `conformance/gi/reject/unconverged_pixel_underreport.rx` |

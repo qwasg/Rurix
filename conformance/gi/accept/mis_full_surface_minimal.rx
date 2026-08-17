@@ -1,0 +1,14 @@
+//@ spec: RXS-0398
+// G12.2 M158 accept 正例语料（spec/global_illumination.md RXS-0398 L1~L5）：
+// MIS 完整面生产化最小正例——光源采样（NEE）× BSDF 采样双策略逐顶点
+// balance heuristic 权重（w_nee = p_nee/(p_nee+p_bsdf)；delta 光源退化
+// w_nee=1 不产生除零）+ 多光源联合 PDF（离散×连续）+ 光源分布构建确定性
+// （同场景同分布 digest）+ 能量守恒（白炉均值=入射能量 + 逐级能量增量
+// 单调不增）+ 同 spp 收敛曲线不劣于参照器基线锚 + 固定 seed 位级确定性
+// 协议继承 + M96 既有判据 0-byte（起步范围冻结维持）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   生产化场景集（m96_cornell/m96_direct 消费面 + 多光源/delta/白炉生产化
+//   fixtures）+ 固定 spp + 固定 seed S；正确性锚 = M96 既有判据 0-byte。
+// 消费锚：ci/g12_mis_full_surface_smoke.py（g12.p0.m158.mis_full_surface）
+//   正例臂（实现 PR 接线）。
+fn main() {}

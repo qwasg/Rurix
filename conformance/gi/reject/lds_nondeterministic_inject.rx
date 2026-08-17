@@ -1,0 +1,14 @@
+//@ spec: RXS-0400
+// G12.2 M160 RED 语料（spec/global_illumination.md RXS-0400 L2：序列索引
+// 确定性 + 固定 seed 位级一致维持；序列非确定冒充低差异即 RED；位级一致
+// 破坏未登记即 RED）。
+// **转正（G12.2 波语料转正批）**：负例数据面——生产化场景 + 固定 spp +
+//   固定 seed；正例臂 = 同 seed 双跑序列位级一致（流 digest 全等 ⇒ 输出
+//   digest 全等）。
+//   负例臂：序列非确定注入（低差异序列掺入数据相关状态/非确定源，同 seed
+//   双跑流分叉）后输出仍判位级一致 = 确定性协议漏检，必须 RED；该臂独立
+//   于正例臂成立，不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：序列确定性校验负例 +
+//   ci/g12_sampling_lds_upgrade_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m160.sampling_lds_upgrade，G12.1 冻结字面不动）。
+fn main() {}

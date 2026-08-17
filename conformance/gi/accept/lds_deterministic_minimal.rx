@@ -1,0 +1,14 @@
+//@ spec: RXS-0400
+// G12.2 M160 accept 正例语料（spec/global_illumination.md RXS-0400 L1~L4）：
+// 采样策略升级与低差异序列最小正例——分层/低差异序列生产化（stratified /
+// Sobol 类确定性种子扰动，选型 benchmark measured 裁决证据进 evidence）+
+// 序列索引确定性（样本值 = f(像素索引, 采样索引, 维度, seed) 确定函数寻址，
+// 无数据相关状态）+ 固定 seed 两次运行位级一致维持（canonical digest 口径
+// 沿 RXS-0357 L2 字面）+ RNG 流布局 provenance（序列族/扰动面/寻址公式
+// 字面进 evidence）+ 收敛曲线 measured 不劣于独立 PCG 流锚。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   生产化场景集 + 固定 spp 序列 + 固定 seed S；RXS-0357 L2 既有字面
+//   0-byte（本条款为加性扩展）。
+// 消费锚：ci/g12_sampling_lds_upgrade_smoke.py
+//   （g12.p0.m160.sampling_lds_upgrade）正例臂（实现 PR 接线）。
+fn main() {}

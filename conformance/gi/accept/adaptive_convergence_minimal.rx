@@ -1,0 +1,14 @@
+//@ spec: RXS-0401
+// G12.2 M161 accept 正例语料（spec/global_illumination.md RXS-0401 L1~L5）：
+// 收敛判据生产化最小正例——逐像素方差驱动自适应 spp 终止（在线方差 Σx/Σx²
+// 协议沿 RXS-0357 L2 out_stats 面；阈值标定程序产 p100×k 禁手写）+ spp
+// 下界保障（每像素最小采样数 ≥ N_floor 防早期方差欠估计早停）+ 收敛报告
+// （逐像素 spp 分布 min/p50/p90/max、方差分布、未收敛像素计数非空）+ 收敛
+// 误判率 ≤ 标定阈 + 全 spp golden 对拍不偏离 measured×2.0 冻结带 + 帧型
+// 标签闭集 {adaptive, full_reference}。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   生产化场景集 + spp 上界 + 固定 seed S；对照集 = 自适应帧 vs 全 spp
+//   参照帧同 seed 同场景；M96 既有判据 0-byte。
+// 消费锚：ci/g12_convergence_criterion_prod_smoke.py
+//   （g12.p0.m161.convergence_criterion_prod）正例臂（实现 PR 接线）。
+fn main() {}

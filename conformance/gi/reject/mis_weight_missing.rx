@@ -1,0 +1,13 @@
+//@ spec: RXS-0398
+// G12.2 M158 RED 语料（spec/global_illumination.md RXS-0398 L2：双策略逐顶点
+// MIS balance heuristic——权重缺失冒充 MIS 即 RED）。
+// **转正（G12.2 波语料转正批）**：负例数据面（最小说明性 fixture，未来 CI
+//   消费）——生产化场景 + 固定 spp + 固定 seed；正例臂 = MIS 完整面开
+//   （balance 权重全路径覆盖）。
+//   负例臂：关 MIS / 权重置 1 裸加（NEE 与 BSDF 双策略无权重直接相加）后
+//   同 seed 输出 digest 仍与正例臂全等 = MIS 权重缺失漏检，必须 RED；
+//   该臂独立于正例臂成立，不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：生产化 MIS 权重校验负例 +
+//   ci/g12_mis_full_surface_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m158.mis_full_surface，G12.1 冻结字面不动）。
+fn main() {}

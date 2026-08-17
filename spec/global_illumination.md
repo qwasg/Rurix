@@ -611,10 +611,228 @@
 
 ---
 
-## 13. 修订记录
+## 13. 条款（RXS-0398，G12.2 M158 MIS 完整面生产化）
+
+### RXS-0398 MIS 完整面生产化：光源采样（NEE）× BSDF 采样双策略逐顶点 balance heuristic 权重、多光源联合 PDF 与光源分布确定性、delta 光源退化、能量守恒口径（RXS-0357 参照器面生产化演进显式修订行）
+
+**Legality**
+
+1. **修订行——RXS-0357 参照器面生产化演进（G12，RFC-0029 §4.7 逐字
+   承接）**：RXS-0357 既有字面 **0-byte**——起步范围冻结（焦散/体积/
+   specular 链 out）维持、固定 seed 确定性协议维持、pbrt-v4 容差带维持、
+   golden 门序硬约束 D2-Q7 维持；参照器面生产化演进语义（MIS 完整面 /
+   俄罗斯轮盘生产化 / 采样策略升级与低差异序列 / 收敛判据生产化）经本
+   修订行 + 新条款 **RXS-0398~RXS-0401** 承载（post-interlock
+   actual-next-free allocation 领取，G12 立项裁决 6）。
+2. **双策略逐顶点 MIS（balance heuristic）**（RFC-0029 §4.1 L1 冻结
+   语义；判据逐字引 G12_CONTRACT §4.2 M158 行）：路径每个非首顶点处，
+   光源采样（NEE）与 BSDF 采样构成双策略 MIS 对，权重 = **balance
+   heuristic**——`w_nee = p_nee / (p_nee + p_bsdf)`、`w_bsdf =
+   p_bsdf / (p_nee + p_bsdf)`（p_* 为该顶点处两策略各自 PDF 换算到同一
+   测度；实现面取无零除安全形）。**delta 光源（点光）退化**：BSDF 策略
+   对 delta 光源概率为零 → `w_nee = 1`，不产生除零；非 delta 光源
+   （面光/发光面）双策略均可能非零，权重闭式计算。**权重缺失冒充 MIS
+   即 RED**。
+3. **多光源 MIS**（RFC-0029 §4.1 L2 冻结语义）：多光源场景 NEE 先按
+   光源分布采样光源（离散 PDF），再按光源采样点（连续 PDF）——**联合
+   PDF = 离散 × 连续**；MIS 分母含全部光源的 NEE 联合 PDF 之和（不重
+   不漏）；**光源分布构建确定性**（同场景同分布 digest 进 evidence）。
+4. **能量守恒**（RFC-0029 §4.1 L3 冻结语义）：白炉场景（全白 furnace，
+   albedo=1 全反射闭域）MIS 渲染结果均值 = 入射能量（守恒容差 measured
+   标定，禁手写 P-09）；**逐级能量增量单调不增**（RXS-0395 L3 口径继承
+   ——每加一级反弹路径能量增量不增，采样噪声下允许小幅负增量，|Δ| 递增
+   = 能量发散即 RED）；**只丢能量不漏光**（RXS-0358 口径继承：能量损失
+   只允许数值截断方向，不允许负辐射或漏光注入）。**能量偏置注入即
+   RED**。
+5. **正确性锚 0-byte + 收敛不劣于**（G12_CONTRACT §4.2 生产化判据统一
+   形态字面）：M96 既有判据 0-byte（起步范围冻结维持——MIS 完整面不改
+   材质集合，Lambert/发光两类维持）；**固定 seed 位级确定性协议继承**
+   （MIS 权重计算全 f32/f64 确定函数，无数据相关分支序差异）；golden
+   门序 D2-Q7 维持（M96 未绿任何下游门不得验收）；**同 spp 收敛曲线不
+   劣于参照器基线锚**（`g12_budget.json` 的 `g12.pt.ref_curve_*` 锚，
+   direction=max，容差由 G12.2 标定程序 M166 measured 产出禁手写）——
+   MIS 是方差削减升级，**收敛劣化冒充升级即 RED；确定性协议漂移即
+   RED**。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`src/rurix-render` 维持 `forbid(unsafe_code)`
+  纪律）：生产化 host 面 `gi::path_trace::prod`（生产化场景装载/光源
+  分布构建/MIS balance 权重/host oracle——与 device megakernel 公式面
+  逐字同源，RXS-0357 host oracle 纪律继承：仅 host 输出不能充绿，门绿
+  由 device 腿承载）+ device megakernel
+  `src/rurix-render/kernels/g12_pt_production.rx` + harness
+  `src/rurix-render/src/bin/g12_pt_production.rs`；M96 参照器既有面
+  （`gi::path_trace` 既有条目/`g9_m96_path_tracer.rx`/harness）0-byte
+  只消费不回写。
+- RED 锚定计划（实现 PR 落）：权重缺失冒充 MIS（关 MIS 双策略裸加，
+  输出仍同正例臂）→ RED；能量偏置注入（NEE 贡献人为增益）→ RED；
+  收敛劣化冒充升级 → RED；确定性协议漂移（同 seed 输出分叉）→ RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/mis_full_surface_minimal.rx` 与
+  `conformance/gi/reject/mis_weight_missing.rx`、
+  `conformance/gi/reject/mis_energy_bias_inject.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR 转正）=
+  `ci/g12_mis_full_surface_smoke.py` 门（symbolic key
+  `g12.p0.m158.mis_full_surface`，G12.1 冻结字面 0-byte 不动）。
+
+---
+
+## 14. 条款（RXS-0399，G12.2 M159 俄罗斯轮盘生产化）
+
+### RXS-0399 俄罗斯轮盘生产化：吞吐自适应终止概率、无偏补偿闭式、最小反弹保障与终止率/补偿计数面
+
+**Legality**
+
+1. **吞吐自适应终止概率**（RFC-0029 §4.2 L1 冻结语义；判据逐字引
+   G12_CONTRACT §4.2 M159 行）：自第 N_min 级反弹起（**N_min ≥ 2 最小
+   反弹保障**——低深度不早杀），路径按 `p_kill = clamp(1 − T/τ, 0,
+   p_max)` 概率终止（T = 当前路径吞吐权重估计，τ = 吞吐参考阈——标定
+   程序 measured 产禁手写 P-09；**p_max < 1 恒成立**——任何深度保留非零
+   续行概率，禁截断偏置）。**早杀偏置注入（N_min 违反 / p_max=1）即
+   RED**。
+2. **无偏补偿**（RFC-0029 §4.2 L2 冻结语义）：续行路径权重乘以补偿
+   因子 `1/(1 − p_kill)`——RR 补偿**闭式无偏**（estimator 期望不变）；
+   补偿因子上界登记（防数值爆炸，钳制面显式登记进 evidence）。**补偿
+   缺失冒充无偏即 RED**。
+3. **计数非空**（RFC-0029 §4.2 L3 冻结语义）：RR 终止率（终止路径数/
+   总路径数）、补偿因子分布（p50/p90/max）逐场景进 evidence——无计数
+   面不得验收。
+4. **跳 RR 偏移 RED 面继承**（RFC-0029 §4.2 L4；RXS-0357 L4 三臂 RED
+   面继承）：关 RR 后同 seed 输出 digest 必须偏离正例臂对拍面——不偏离
+   = 漏检 = 本条款整体 FAIL。
+5. **正确性锚 0-byte + 收敛不劣于**：M96 既有判据 0-byte；固定 seed
+   位级确定性协议继承（RR 终止判定与补偿计算全确定函数，终止不改后续
+   采样起始索引——按索引寻址口径沿 RXS-0357 L2 字面）；**同 spp 收敛
+   曲线不劣于基线锚**（`g12.pt.ref_curve_*` 锚，容差标定程序产）；收敛
+   劣化冒充升级即 RED；确定性协议漂移即 RED。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`forbid(unsafe_code)` 纪律维持）：吞吐自适应
+  RR 参数面（τ 标定值消费、p_max/补偿钳制登记）+ 终止率/补偿计数导出
+  （逐像素确定函数聚合，禁 atomic 顺序敏感累加）+ host oracle 同构兑现
+  面（`gi::path_trace::prod`，公式面逐字同源）+ device megakernel
+  `g12_pt_production.rx` 兑现面。
+- RED 锚定计划（实现 PR 落）：早杀偏置注入（rr_min=0 / p_max=1）→
+  RED；补偿缺失（续行不乘 1/(1−p_kill)）→ RED；跳 RR 偏移未检出 →
+  RED（RXS-0357 三臂 RED 面继承）。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/rr_throughput_adaptive_minimal.rx` 与
+  `conformance/gi/reject/rr_early_kill_bias.rx`、
+  `conformance/gi/reject/rr_compensation_missing.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR 转正）=
+  `ci/g12_russian_roulette_prod_smoke.py` 门（symbolic key
+  `g12.p0.m159.russian_roulette_prod`，G12.1 冻结字面 0-byte 不动）。
+
+---
+
+## 15. 条款（RXS-0400，G12.2 M160 采样策略升级与低差异序列）
+
+### RXS-0400 采样策略升级与低差异序列生产化：分层/低差异序列、序列索引确定性协议加性扩展与 RNG 流布局 provenance
+
+**Legality**
+
+1. **低差异序列面**（RFC-0029 §4.3 L1 冻结语义；判据逐字引
+   G12_CONTRACT §4.2 M160 行）：采样维度序列自逐像素独立 PCG 流演进为
+   **分层/低差异序列**——候选面 = Sobol 类低差异序列（确定性种子扰动）
+   与分层采样（stratified per-dimension）；**选型经 benchmark measured
+   裁决**（收敛曲线对照，选型证据进 evidence——本条款冻结选型面，采样
+   选型是语义面选择非档位承诺，「仅测量不定档」纪律不适用，选型证据进
+   evidence 即闭环）。
+2. **确定性协议加性扩展**（RFC-0029 §4.3 L2 冻结语义）：低差异序列
+   **索引推导确定性**——样本值 = f（像素索引， 采样索引， 维度， seed）
+   确定函数寻址，无任何数据相关状态；**固定 seed 两次运行位级一致维持**
+   （同 seed ⇒ 序列位级一致 ⇒ 输出位级一致；canonical digest 口径沿
+   RXS-0357 L2 字面）；**RNG 流布局 provenance**（序列族/扰动面/寻址
+   公式字面）进 evidence。RXS-0357 L2 既有字面 **0-byte**——本条款为
+   **加性扩展**（新条款承载，修订行经 RXS-0398 L1 衔接）。**序列非确定
+   冒充低差异即 RED；位级一致破坏未登记即 RED**。
+3. **收敛不劣于**（RFC-0029 §4.3 L3 冻结语义）：同场景同 spp 收敛曲线
+   measured **不劣于独立 PCG 流锚**（`g12.pt.ref_curve_*` 锚，容差标定
+   程序产禁手写）——低差异序列的卖点是收敛加速，劣化即语义错误；**收敛
+   劣化冒充升级即 RED**。
+4. **正确性锚 0-byte**：M96 既有判据 0-byte（起步范围/确定性协议/
+   pbrt-v4 容差带/golden 门序 D2-Q7）；M96 参照器既有流布局字面不动
+   （生产化流布局为加性新面，不改 RXS-0357 冻结排布）。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`forbid(unsafe_code)` 纪律维持）：采样器族
+  （PCG 独立流承 G8 `ref_tracer` 对拍模式 / stratified 分层 / Sobol 类
+  确定性种子扰动）同缓冲按索引寻址生成面 + 序列索引确定性机核（逐索引
+  重求值 == 流内容）+ 双跑位级一致 + 流布局 provenance 登记；host 面
+  `gi::path_trace::prod::sampler`，device 消费同一缓冲（RNG 流为输入
+  不是结果，G7.4 先例同构）。
+- RED 锚定计划（实现 PR 落）：序列非确定注入（同 seed 双跑流分叉）→
+  RED；位级一致破坏未登记 → RED；收敛劣化冒充升级 → RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/lds_deterministic_minimal.rx` 与
+  `conformance/gi/reject/lds_nondeterministic_inject.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR 转正）=
+  `ci/g12_sampling_lds_upgrade_smoke.py` 门（symbolic key
+  `g12.p0.m160.sampling_lds_upgrade`，G12.1 冻结字面 0-byte 不动）。
+
+---
+
+## 16. 条款（RXS-0401，G12.2 M161 收敛判据生产化）
+
+### RXS-0401 收敛判据生产化：逐像素方差驱动自适应 spp 终止、spp 下界保障、收敛报告、误判率标定与全 spp golden 冻结带对拍
+
+**Legality**
+
+1. **方差驱动自适应终止**（RFC-0029 §4.4 L1 冻结语义；判据逐字引
+   G12_CONTRACT §4.2 M161 行）：逐像素维护在线方差估计（Σx/Σx² 协议沿
+   RXS-0357 L2 out_stats 面）；像素方差（或相对误差界）达阈即停采——
+   **阈值标定程序产**（p100×k measured 入 `g12_budget.json` 禁手写
+   P-09）；**spp 下界保障**（每像素最小采样数 ≥ N_floor——防早期方差
+   欠估计早停；N_floor 值实现波冻结登记进 evidence）。**早停冒充收敛
+   即 RED**。
+2. **收敛报告**（RFC-0029 §4.4 L2 冻结语义）：逐像素 spp 分布
+   （min/p50/p90/max）、方差分布、**未收敛像素计数**（达 spp 上界仍未
+   达阈）非空进 evidence——无报告面不得验收；**未收敛像素缺报即
+   RED**（报告计数与逐像素导出面独立重算不一致即缺报）。
+3. **误判率标定**（RFC-0029 §4.4 L3 冻结语义）：**收敛误判率**（判
+   收敛像素中相对全 spp 参照偏差超带比例）≤ 标定阈（标定程序产禁手写；
+   对照集 = 自适应帧 vs 全 spp 参照帧同 seed 同场景）。
+4. **golden 不偏离 + 帧型标签闭集**（RFC-0029 §4.4 L4 冻结语义）：
+   固定全 spp golden 对拍不偏离冻结带
+   （`milestones/g9/g9_m96_pbrt_tolerance_band.json` measured×2.0 带继承
+   ——自适应帧与全 spp 参照同场景对拍，偏差超带即 RED）；**自适应帧
+   不得冒充全 spp 参照**——evidence 帧型标签闭集
+   `{adaptive, full_reference}`，混标即 RED。
+5. **正确性锚 0-byte**：M96 既有判据 0-byte；固定 seed 位级确定性协议
+   维持（自适应终止判定 = 样本值的确定函数，同 seed 同终止面同输出）；
+   golden 门序 D2-Q7 维持；收敛曲线面不劣于基线锚口径沿 RXS-0398 L5
+   字面。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`forbid(unsafe_code)` 纪律维持）：逐像素在线
+  方差 + 达阈停采 + spp 下界保障 + 逐像素 spp/收敛标志导出（禁 atomic
+  顺序敏感累加）+ 收敛报告聚合面 + 误判率对照面（自适应帧 vs 全 spp
+  参照帧同 seed 同场景）+ 帧型标签闭集登记；host 面
+  `gi::path_trace::prod` 与 device megakernel `g12_pt_production.rx`
+  公式面逐字同源。
+- RED 锚定计划（实现 PR 落）：早停冒充收敛（spp 下界违反/阈值面外）
+  → RED；未收敛像素缺报（报告计数 ≠ 逐像素导出面重算）→ RED；golden
+  偏离冻结带 → RED；帧型标签混标 → RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/adaptive_convergence_minimal.rx` 与
+  `conformance/gi/reject/early_stop_masquerade.rx`、
+  `conformance/gi/reject/unconverged_pixel_underreport.rx`（条款锚定
+  占位，inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR
+  转正）= `ci/g12_convergence_criterion_prod_smoke.py` 门（symbolic key
+  `g12.p0.m161.convergence_criterion_prod`，G12.1 冻结字面 0-byte
+  不动）。
+
+---
+
+## 17. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-08-12 | 新建（G9.4 spec-first，GI 波 M96~M101，硬规则 7 条款先行）：RXS-0357（M96 M17 Path Tracer 参照器：megakernel + NEE/MIS/RR + 起步范围冻结〔焦散/体积/specular 链 out〕+ 固定 seed 位级一致确定性协议〔累加序/RNG 流冻结、逐像素 sample count/方差导出、匹配深度 1/2/full 三 golden〕+ pbrt-v4 收敛曲线 measured 冻结容差带 + 改 seed/跳 RR/关 MIS 三臂 RED + 门序硬约束〔M96 未绿 M97~M101 任何画质门不得验收，机器阻断〕）/ RXS-0358（M97 Surface Cache：离线 Card 参数化 ≤12/mesh 可配 + 运行时辐射度缓存 + 只丢能量不漏光〔漏光像素计数=0〕+ Card 空洞漏光检测 RED 臂 + 图集复用 M04/M91 页 ABI 不私定 + 按匹配深度对 M96 golden）/ RXS-0359（M98 四级追踪降级链 L1 Screen Trace→L2 SWRT→L3 HWRT〔含 hit lighting 档〕→L4 Far Field + 逐档命中率/耗时计数逐帧 evidence + 逐级强关回归可检测〔强关后仍同 golden 即 RED〕+ 禁静默回退 + L4 未就绪 SKIP=not-triggered）/ RXS-0360（M99 屏幕级 SPG 自适应细分 + Radiance Cache 双级 + product IS 关闭方差回归 RED + 世界级 clipmap 未 measured 举证 not-triggered 不充绿）/ RXS-0361（M100 低档多灯直接光默认档 + 验证射线零跳过硬契约〔D2-Q4〕+ 高档 ReSTIR workload 证据不足 not-triggered 不充绿）/ RXS-0362（M101 IF 体素网格档位阶梯 L0~L3 + 共享 probe 着色/八面体编码内核只换空间索引 + 八面体编码线性域 + 每档 AS 更新预算行消费 AsStats + 超预算强制降档 RED）。**目标 spec 新建裁决**：RFC-0022 §5 映射表 GI 各行候选（rendering_platform.md / shader_stages.md / 资产管线 spec / conformance 协议章）裁定合并新建本文件（D2 GI 独立语义轴，候选文件本体 0-byte，头注留痕）。条款号自 ledger 实测 `RXS.next_free=357` 顺位领取（0357~0362 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。conformance 最小锚定语料同 PR 落（conformance/gi/{accept,reject}/，inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注，G9.2/G9.3 spec 波先例）；symbolic key `g9.p0.m96/m97/m98.*`（G9.1 冻结字面）与 `g9.p1.m99/m100/m101.*`（G9.4 波 P1 全进裁决登记，G9_ACCEPTANCE_MAP §3 / CI_GATES §4A）0-byte 不动。零新 RX 码（诊断码实现期按实际可达类别领取不预造）、零新 U/RD/SG、零 src/ 改动、零 workflow 步骤。依据 [RFC-0022](../rfcs/0022-virtual-geometry-gi-semantics.md)（Agent Approved 2026-08-09）§4.6/§4.7/§4.8/§4.10/§7 + G9_ACCEPTANCE_MAP §2 M96/M97/M98 行 + §3 M99/M100/M101 行（判据逐字）+ G9_CANDIDATE_DECISIONS §2 RD-040 行与 v1.3 校准注 | **Full RFC**（RFC-0022） |
 | v1.1 | 2026-08-16 | 追加（G11.4 光照与 GI 修复波 spec-first，硬规则 7 条款先行；G11 已解锁 implementation_status=unblocked，G11_CONTRACT §8.1）登记 **RXS-0394 ~ RXS-0396**：RXS-0394（M153 R3 灯种子集表达：光源集五元闭集〔契约 sun/sky + glTF 点光源/面光源/emissive 表面，缺类显式登记〕+ 契约光照面单通道〔corpus/lighting_*.json 唯一事实源，glTF 字段 = 派生输入经 M133 只追加修订程序，直读绕过即 RED〕+ 点光源辐射链〔E = color×I/d²、L = E·ndl·albedo/π·vis，强度派生 = 灯具 emissive 通量换算 Φ=Le·A·π / I=Φ/(2π)，逐盏 provenance〕+ emissive 双级能量贡献语义 + cornell 契约 sun+sky 灯面 0-byte + M100 低档面联动评估登记〔不新造，M100-high 维持 defer〕）/ RXS-0395（M154 R4 多反弹 GI：屏幕探针近场 + 世界辐射缓存远场兜底双级语义〔失效必须回落 + 回落路径逐帧计数 + 禁静默零辐射〕+ 多反弹 ≥2 级〔第二次及以上经世界缓存查询 + 反弹级数/逐级能量计数 + 只丢能量不漏光 RXS-0358 口径继承〕+ 逐级能量单调不增 + host 同构世界缓存兑现面〔解析式否决；不冒充 GPU 管线世界级，GPU 面锚定 G14〕+ RXS-0357 L6 门序继承）/ RXS-0396（M154 M99-clipmap 世界级辐射缓存承接：**RXS-0360 世界级 not-triggered 登记翻转修订行**〔G10.6 rejudged-go 承接锚逐字 + measured 举证 R4 行 4.697253086805343 / C1 行 ≈21×；RXS-0360 既有字面 0-byte〕+ 空间哈希世界缓存〔对数族量化 level=clamp(floor(log2(1+dist/d_ref)),0,LEVELS−1)，s(ℓ)=s0×2^ℓ，LEVELS=4 / s0=scene_diag×2^-8 / d_ref=scene_diag×2^-4 实测标定冻结〔bistro 25.962 m / cornell 958.659 单位〕+ 双哈希步长线性探测 + 在线构建零离线预处理〕+ 距离自适应辐射 LOD clipmap 级〔层级/距离带/命中率计数 + 禁静默降级〕+ 级间回落链 → 天光末级兜底显式登记 + 世界级双锚判定〔远场探针集能量回归达标定阈 + M96 golden 匹配深度对拍，UE 对拍归 G11.5 不混用〕+ ≠RXS-0359 L4 Far Field 边界声明〔M98-l4 defer 0-byte〕）。条款号自 ledger 实测 `RXS.next_free=394` 顺位领取（0394~0396 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料六件（conformance/gi/accept 三件：light_seed_set_minimal.rx / gi_multibounce_two_level_minimal.rx / world_radiance_cache_minimal.rx；reject 三件：light_seed_gltf_direct_bypass.rx / gi_single_bounce_masquerade.rx / world_cache_farfield_zero_energy.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.2 spec 波先例）同 PR 落；symbolic key `g11.p0.m153/m154.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（375→378 全锚定）；stable 快照因条款计数 375→378 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§5 + G11_CONTRACT §4.2 M153/M154 行（判据逐字）+ G11_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§9 修订记录节号顺延 §12，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.4 波）` | **Full RFC**（RFC-0028） |
-| v1.2 | 2026-08-16 | 追加（G11.5b 追加子波 spec-first，硬规则 7 条款先行；G11.5 R1 行整波 FAIL 停线后诊断修复面，G11_CONTRACT §8.5b）登记 **RXS-0397**（天光直接漫反射 IBL 消费面 --sky-ibl：全向口径〔UE SkyLight 指定 cubemap 无遮蔽投递对齐——G11.5b measured 诊断 g11_5b_ldr_residual_diag.md：UE 侧 SkyLight 漫反射占帧均值 95.4%、镜面 ≤0.03%、r.DynamicGlobalIlluminationMethod=0/距离场关机制取证〕+ 下半球黑半球混合闭式 Lo = albedo×L_sky×(1+n·up)/2 + GI 双重计数排除〔旗标开时间接估计子 miss 射线整零，天光首反弹 = 直接项单计数；沉积直接项同式〕+ **RXS-0396 L4 末级兜底修订行**〔旗标开时末级兜底由直接项承接，RXS-0396 既有字面 0-byte〕+ 镜面天光不消费登记〔c1_ue_specular_ibl 维持 G15 候选〕+ 消费面边界〔--gi-multibounce 组合面；cornell 契约灯面 0-byte〕+ 门序继承 + 闭环断言面 = M155/M147 g11.5 phase 字面不改判据）。条款号自 ledger 实测 `RXS.next_free=397` 顺位领取（0397 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料两件（accept sky_ibl_direct_diffuse_minimal.rx + reject sky_ibl_gi_double_count.rx；inert + `//@ spec` 锚定 + 转正路径旁注，G9.2~G11.4 spec 波先例）同 PR 落；symbolic key `g11.p0.m155/m147.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（378→379 全锚定）；stable 快照因条款计数 378→379 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.5 伞形「GI/天光遮蔽语义面」+ §5 映射表 + G11_CONTRACT §4.2 M155 行（判据逐字）+ 主会话 G11.5b 裁决（先诊断修复后评 metric，禁改判据充绿）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§12 修订记录节号顺延 §13，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.5b 波）` | **Full RFC**（RFC-0028 伞形 §4.5 面承接） |
+| v1.2 | 2026-08-16 | 追加（G11.5b 追加子波 spec-first，硬规则 7 条款先行；G11.5 R1 行整波 FAIL 停线后诊断修复面，G11_CONTRACT §8.5b）登记 **RXS-0397**（天光直接漫反射 IBL 消费面 --sky-ibl：全向口径〔UE SkyLight 指定 cubemap 无遮蔽投递对齐——G11.5b measured 诊断 g11_5b_ldr_residual_diag.md：UE 侧 SkyLight 漫反射占帧均值 95.4%、镜面 ≤0.03%、r.DynamicGlobalIlluminationMethod=0/距离场关机制取证〕+ 下半球黑半球混合闭式 Lo = albedo×L_sky×(1+n·up)/2 + GI 双重计数排除〔旗标开时间接估计子 miss 射线整零，天光首反弹 = 直接项单计数；沉积直接项同式〕+ **RXS-0396 L4 末级兜底修订行**〔旗标开时末级兜底由直接项承接，RXS-0396 既有字面 0-byte〕+ 镜面天光不消费登记〔c1_ue_specular_ibl 维持 G15 候选〕+ 消费面边界〔--gi-multibounce 组合面；cornell 契约灯面 0-byte〕+ 门序继承 + 闭环断言面 = M155/M147 g11.5 phase 字面不改判据）。条款号自 ledger 实测 `RXS.next_free=397` 顺位领取（0397 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料两件（accept sky_ibl_direct_diffuse_minimal.rx + reject sky_ibl_gi_double_count.rx；inert + `//@ spec` 锚定 + 转正路径旁注，G9.2~G11.4 spec 波先例）同 PR 落；symbolic key `g11.p0.m155/m147.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（378→379 全锚定）；stable 快照因条款计数 378→379 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.5 伞形「GI/天光遮蔽语义面」+ §5 映射表 + G11_CONTRACT §4.2 M155 行判据逐字承接 + 主会话 G11.5b 裁决（先诊断修复后评 metric，禁改判据充绿）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§12 修订记录节号顺延 §13，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.5b 波）` | **Full RFC**（RFC-0028 伞形 §4.5 面承接） |
+| v1.3 | 2026-08-17 | 追加（G12.2 生产化核心波 spec-first，硬规则 7 条款先行；G12 已解锁 implementation_status=unlocked，G12_CONTRACT §8.1 G-G12-3 互锁 READY）登记 **RXS-0398 ~ RXS-0401**：RXS-0398（M158 MIS 完整面生产化：NEE×BSDF 双策略逐顶点 balance heuristic〔w_nee=p_nee/(p_nee+p_bsdf)，delta 光源退化 w_nee=1 无除零〕+ 多光源 MIS〔联合 PDF=离散×连续，光源分布构建确定性 digest〕+ 能量守恒〔白炉均值=入射能量 measured 标定容差 + 逐级能量增量单调不增 RXS-0395 口径继承 + 只丢能量不漏光 RXS-0358 口径继承〕+ 正确性锚 0-byte + 同 spp 收敛不劣于 g12_budget ref_curve 锚〔容差 M166 标定产〕+ **RXS-0357 参照器面生产化演进显式修订行**〔RXS-0357 既有字面 0-byte，起步范围冻结维持〕）/ RXS-0399（M159 俄罗斯轮盘生产化：吞吐自适应 p_kill=clamp(1−T/τ,0,p_max)〔τ 标定程序产 + p_max<1 恒成立 + N_min≥2 最小反弹保障〕+ 无偏补偿闭式 1/(1−p_kill)〔上界登记〕+ 终止率/补偿计数非空 + 跳 RR 偏移 RED 面继承 RXS-0357 三臂）/ RXS-0400（M160 采样策略升级与低差异序列：stratified/Sobol 类候选 benchmark measured 裁决选型 + 确定性协议加性扩展〔样本值=f(像素,采样,维度,seed) 确定函数寻址 + 固定 seed 位级一致维持 + RNG 流布局 provenance；RXS-0357 L2 既有字面 0-byte〕+ 收敛不劣于独立 PCG 流锚）/ RXS-0401（M161 收敛判据生产化：逐像素方差驱动自适应 spp 终止〔阈值标定程序产 p100×k 入 g12_budget + spp 下界 N_floor 保障〕+ 收敛报告〔spp 分布/方差/未收敛像素计数非空〕+ 误判率 ≤ 标定阈 + 全 spp golden 对拍不偏离 measured×2.0 冻结带 + 帧型标签闭集 {adaptive, full_reference}）。条款号自 ledger 实测 `RXS.next_free=398` 顺位领取（0398~0401 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料十一件（conformance/gi/accept 四件：mis_full_surface_minimal.rx / rr_throughput_adaptive_minimal.rx / lds_deterministic_minimal.rx / adaptive_convergence_minimal.rx；reject 七件：mis_weight_missing.rx / mis_energy_bias_inject.rx / rr_early_kill_bias.rx / rr_compensation_missing.rx / lds_nondeterministic_inject.rx / early_stop_masquerade.rx / unconverged_pixel_underreport.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.5b spec 波先例）同 PR 落；symbolic key `g12.p0.m158/m159/m160/m161.*`（G12.1 冻结字面，G12_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（379→383 全锚定）；stable 快照因条款计数 379→383 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0029](../rfcs/0029-g12-path-tracer-productionization.md)（Agent Approved 2026-08-17，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§4.7/§5 + G12_CONTRACT §4.2 M158/M159/M160/M161 行判据逐字承接 + G12_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§13 修订记录节号顺延 §17，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G12.2 生产化核心波）` | **Full RFC**（RFC-0029） |

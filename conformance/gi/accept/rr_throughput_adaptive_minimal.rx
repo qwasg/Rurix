@@ -1,0 +1,13 @@
+//@ spec: RXS-0399
+// G12.2 M159 accept 正例语料（spec/global_illumination.md RXS-0399 L1~L5）：
+// 俄罗斯轮盘生产化最小正例——吞吐自适应终止概率（p_kill =
+// clamp(1−T/τ, 0, p_max)，τ 标定程序产、p_max<1 恒成立）+ 无偏补偿闭式
+// （续行 ×1/(1−p_kill)，上界登记）+ 最小反弹保障（N_min ≥ 2 低深度不早杀）
+// + 终止率/补偿计数（p50/p90/max）非空进 evidence + 收敛曲线不劣于基线锚
+// + 固定 seed 位级确定性协议继承。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   生产化场景集 + 固定 spp + 固定 seed S；跳 RR 偏移 RED 面继承
+//   RXS-0357 三臂（关 RR 同 seed 输出 digest 必偏离正例臂）。
+// 消费锚：ci/g12_russian_roulette_prod_smoke.py
+//   （g12.p0.m159.russian_roulette_prod）正例臂（实现 PR 接线）。
+fn main() {}

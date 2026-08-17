@@ -1,0 +1,12 @@
+//@ spec: RXS-0401
+// G12.2 M161 RED 语料（spec/global_illumination.md RXS-0401 L2：收敛报告——
+// 未收敛像素计数非空进 evidence；未收敛像素缺报即 RED）。
+// **转正（G12.2 波语料转正批）**：负例数据面——生产化场景 + spp 上界 +
+//   固定 seed；正例臂 = 收敛报告未收敛像素计数 == 逐像素导出面独立重算。
+//   负例臂：未收敛像素缺报注入（报告计数人为小于逐像素导出面重算值）后
+//   报告仍判一致 = 缺报漏检，必须 RED；该臂独立于正例臂成立，不红即漏检、
+//   本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：收敛报告一致性校验负例 +
+//   ci/g12_convergence_criterion_prod_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m161.convergence_criterion_prod，G12.1 冻结字面不动）。
+fn main() {}

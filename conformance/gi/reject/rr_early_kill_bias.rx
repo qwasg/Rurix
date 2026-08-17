@@ -1,0 +1,13 @@
+//@ spec: RXS-0399
+// G12.2 M159 RED 语料（spec/global_illumination.md RXS-0399 L1：吞吐自适应
+// 终止概率——N_min ≥ 2 最小反弹保障 + p_max < 1 恒成立；早杀偏置注入即
+// RED）。
+// **转正（G12.2 波语料转正批）**：负例数据面——生产化场景 + 固定 spp +
+//   固定 seed；正例臂 = 最小反弹保障（rr_min ≥ 2 低深度不轮盘）+ p_max<1。
+//   负例臂：早杀偏置注入（rr_min=0 低深度即轮盘 / p_max=1 截断续行概率）
+//   后同 seed 输出仍同正例臂或系统性变暗未检出 = 早杀偏置漏检，必须 RED；
+//   该臂独立于正例臂成立，不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：RR 早杀偏置校验负例 +
+//   ci/g12_russian_roulette_prod_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m159.russian_roulette_prod，G12.1 冻结字面不动）。
+fn main() {}

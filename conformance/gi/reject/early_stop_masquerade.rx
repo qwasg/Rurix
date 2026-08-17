@@ -1,0 +1,12 @@
+//@ spec: RXS-0401
+// G12.2 M161 RED 语料（spec/global_illumination.md RXS-0401 L1：方差驱动
+// 自适应终止 + spp 下界保障；早停冒充收敛即 RED）。
+// **转正（G12.2 波语料转正批）**：负例数据面——生产化场景 + 固定 seed；
+//   正例臂 = spp 下界保障（每像素 ≥ N_floor）+ 达阈停采（阈值标定程序产）。
+//   负例臂：早停注入（N_floor 违反 = 0 / 阈值面外放大）使像素大面积早停，
+//   收敛误判率超阈未检出 = 早停冒充收敛漏检，必须 RED；该臂独立于正例臂
+//   成立，不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：早停校验负例 +
+//   ci/g12_convergence_criterion_prod_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m161.convergence_criterion_prod，G12.1 冻结字面不动）。
+fn main() {}
