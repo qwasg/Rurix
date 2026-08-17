@@ -122,6 +122,83 @@
       "threshold": 0.028991059755816284,
       "evidence_file": "evidence/g12_pt_ref_curve_direct_spp64_20260817T102907Z.json",
       "measured_value": 0.028991059755816284
+    },
+    {
+      "id": "g12.pt.rr_tau",
+      "description": "RR 吞吐参考阈 τ(p50 逐路径 bounce==2 吞吐 max 分量;cornell+direct+two_light spp16 stratified;M166 标定程序产,drift guard ×2.0,禁手写 P-09);样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.4899999797344,
+      "evidence_file": "evidence/g12_m166_calibration_rr_tau_20260817T151512Z.json",
+      "measured_value": 0.2449999898672
+    },
+    {
+      "id": "g12.pt.adaptive_rel_err_theta",
+      "description": "自适应 rel_err 阈 θ(p75 池化逐像素 rel_err @ spp=N_floor=16;cornell+direct winner 族;M166 标定程序产,drift guard ×1.5,禁手写 P-09);样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.21795051544905,
+      "evidence_file": "evidence/g12_m166_calibration_adaptive_rel_err_theta_20260817T151512Z.json",
+      "measured_value": 0.1453003436327
+    },
+    {
+      "id": "g12.pt.misjudge_rate_tol",
+      "description": "收敛误判率阈(场景×族单元 p100 + 1/min_cell_judged)×2.0(协议冻结;误判带 0.25);M166 标定程序产,禁手写 P-09;样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.07008704500762612,
+      "evidence_file": "evidence/g12_m166_calibration_misjudge_rate_tol_20260817T151512Z.json",
+      "measured_value": 0.03471074380165
+    },
+    {
+      "id": "g12.pt.curve_tol_rel",
+      "description": "收敛曲线不劣于判定相对容差(族×场景×spp 矩阵曲线族间极差/锚 p100 ×1.5,协议冻结 k);M166 标定程序产,禁手写 P-09;样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.6440295310861499,
+      "evidence_file": "evidence/g12_m166_calibration_curve_tol_rel_20260817T151512Z.json",
+      "measured_value": 0.4293530207241
+    },
+    {
+      "id": "g12.pt.furnace_energy_tol",
+      "description": "白炉能量容差(device vs host 参照均值相对偏差上界;族间均值相对极差 p100 ×1.5,协议冻结 k;不产能量上界 Le 门侧硬断言);M166 标定程序产,禁手写 P-09;样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.00269266415889,
+      "evidence_file": "evidence/g12_m166_calibration_furnace_energy_tol_20260817T151512Z.json",
+      "measured_value": 0.00179510943926
+    },
+    {
+      "id": "g12.pt.level_monotone_tol",
+      "description": "逐级能量增量单调噪声带(四场景 spp64 max(0,E_(k+1)/E_k−1) p100 ×1.5,协议冻结 k);M166 标定程序产,禁手写 P-09;样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.38872113695070004,
+      "evidence_file": "evidence/g12_m166_calibration_level_monotone_tol_20260817T151512Z.json",
+      "measured_value": 0.2591474246338
+    },
+    {
+      "id": "g12.pt.rr_unbiased_tol",
+      "description": "RR 无偏容差(RR 开/关均值相对差;场景×族池化 p100 ×2.0,协议冻结 k);M166 标定程序产,禁手写 P-09;样本集 digest sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752(count=35 ≥ 24);标定程序 ci/g12_pt_production_calibration_smoke.py 可复跑(两跑逐位一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 4.32264886574e-05,
+      "evidence_file": "evidence/g12_m166_calibration_rr_unbiased_tol_20260817T151512Z.json",
+      "measured_value": 2.16132443287e-05
     }
   ],
   "ratio_assertions": [],

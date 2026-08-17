@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g12pt.sampler_selection.v1",
+  "winner": "sobol_class_seed_perturbed",
+  "variance_table": {
+    "pcg": "1.906762364743e-1",
+    "stratified": "1.885907046453e-1",
+    "sobol": "1.787242824009e-1"
+  },
+  "protocol": "winner = argmin Σ mean_pixel_variance(cornell,direct;spp16)",
+  "sample_manifest": {
+    "count": 35,
+    "digest": "sha256:ec0ad563646fc83b8905a9a07d6b8e4c96f1c4e4624c9c575d29ba1a3c4eb752",
+    "lower_bound": 24
+  },
+  "provenance": {
+    "pbrt_version": "pbrt version 4 (built Aug 13 2026 at 00:37:06)",
+    "pbrt_exe_sha256": "1a85663abdadbc468274ce48adf56569750229b2b6357466698addc5257ad4a4",
+    "seed": "11400714819323198485",
+    "host": "host oracle(gi::path_trace::prod;纯 host 零 device)"
+  },
+  "timestamp": "20260817T151512Z",
+  "note": "RXS-0400 L1 选型面:benchmark measured 裁决,选型证据进 evidence;winner 族 = 生产化门消费采样器。内容确定性——同值重写幂等,漂移即 RED。"
+}

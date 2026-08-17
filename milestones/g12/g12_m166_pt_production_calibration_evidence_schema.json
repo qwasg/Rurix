@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.2 M166 pt_production_calibration evidence",
+  "description": "evidence/g12_pt_production_calibration_<UTC>.json。G12.2 已 go P1 门 g12.p1.m166.pt_production_calibration(G12_ACCEPTANCE_MAP §2;G12_PLAN §2 G12.2;RFC-0029 §4 U2):生产化闭门槛值标定集(τ p50 / θ p75@spp=N_floor / 误判率阈场景×族单元 p100 / 曲线容差族间极差 p100 / 白炉能量容差 / 逐级单调噪声带 / RR 无偏容差——标定样本集下界 ≥24 + manifest digest 入 evidence)+ 标定程序可复跑(harness --calibrate 两跑逐字节一致)+ 标定值按 M138 同程序(p100×k measured)入 g12_budget.json(measured_local 字节级纯追加 + 逐条目 evidence results.trimmed_mean + budget_eval 全 PASS + 选型 artifact 落盘);手写阈值冒充/estimated 冒充/不可复跑/低于下界 RED 四臂全检出。纯 host 门(device_section_state=not_applicable;pbrt 1024 参照子进程真跑,缺 provisioning → DEV_ENV_DEGRADE 不充绿)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_pt_production_calibration" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.p1.m166.pt_production_calibration" },
+    "matrix_row": { "type": "string", "const": "M166" },
+    "milestone": { "type": "string", "const": "M166" },
+    "assertion_id": { "type": "string", "const": "g12.p1.m166.pt_production_calibration" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G12.2" },
+    "numeric_step": { "type": "integer", "const": 217 },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_ACCEPTANCE_MAP §2 M166;G12_PLAN §2 G12.2;RFC-0029 §4 U2;spec/global_illumination.md RXS-0398~0401"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibration_two_run_bitexact",
+        "sample_set_lower_bound",
+        "sample_digest_registered",
+        "budget_entries_appended_measured_local",
+        "budget_eval_all_pass",
+        "selection_artifact_written",
+        "red_handwritten_threshold_detected",
+        "red_estimated_masquerade_detected",
+        "red_nonrerunnable_detected",
+        "red_below_bound_detected"
+      ],
+      "properties": {
+        "calibration_two_run_bitexact": { "type": "boolean" },
+        "sample_set_lower_bound": { "type": "boolean" },
+        "sample_digest_registered": { "type": "boolean" },
+        "budget_entries_appended_measured_local": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "selection_artifact_written": { "type": "boolean" },
+        "red_handwritten_threshold_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" },
+        "red_nonrerunnable_detected": { "type": "boolean" },
+        "red_below_bound_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

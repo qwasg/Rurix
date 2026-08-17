@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.2 M158 mis_full_surface evidence",
+  "description": "evidence/g12_m158_mis_full_surface_<UTC>.json。G12.2 P0 硬门 g12.p0.m158.mis_full_surface(spec/global_illumination.md RXS-0398;G12_CONTRACT §4.2 M158 行判据逐字):MIS 完整面生产化(NEE×BSDF 双策略逐顶点 balance heuristic + 多光源联合 PDF + delta 光源退化 w_nee=1 无除零)+ 能量守恒(白炉 device vs host 截断参照 + 不产能量上界 + 逐级能量增量单调不增)+ 同 spp 收敛曲线不劣于 g12_budget ref_curve 锚(容差 M166 标定程序产禁手写)+ 固定 seed 位级确定性协议继承 + M96 既有判据 0-byte;权重缺失/能量偏置/收敛劣化/协议漂移 RED 臂独立有效(harness 全档内 + --red-arm 子模式独立复跑抽检)。device 腿必需(rurixc --target vulkan 产 SPV → g12_pt_production harness 全档真跑,持 gpu_device_lock);RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_m158_mis_full_surface" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.p0.m158.mis_full_surface" },
+    "matrix_row": { "type": "string", "const": "M158" },
+    "milestone": { "type": "string", "const": "M158" },
+    "assertion_id": { "type": "string", "const": "g12.p0.m158.mis_full_surface" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G12.2" },
+    "numeric_step": { "type": "integer", "const": 218 },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M158;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0398;RFC-0029 §4.1"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_prod_tests_anchored",
+        "conformance_corpus_anchored",
+        "budget_anchors_present",
+        "m96_frozen_surface_0byte",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_light_dist_deterministic",
+        "device_mis_delta_degenerate",
+        "device_furnace_energy_conserved",
+        "device_levels_monotone",
+        "device_no_light_leak",
+        "device_curve_not_worse",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_prod_tests_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "budget_anchors_present": { "type": "boolean" },
+        "m96_frozen_surface_0byte": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_light_dist_deterministic": { "type": "boolean" },
+        "device_mis_delta_degenerate": { "type": "boolean" },
+        "device_furnace_energy_conserved": { "type": "boolean" },
+        "device_levels_monotone": { "type": "boolean" },
+        "device_no_light_leak": { "type": "boolean" },
+        "device_curve_not_worse": { "type": "boolean" },
+        "device_red_arms_effective": { "type": "boolean" },
+        "device_red_arm_submodes_detected": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

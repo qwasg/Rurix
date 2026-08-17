@@ -110,6 +110,20 @@ name = "g9_m101_if_tier_ladder"
 path = "src/bin/g9_m101_if_tier_ladder.rs"
 required-features = ["vulkan"]
 
+# G12.2 生产化核心波 PT 生产化 device harness + M166 标定程序(RXS-0398~0401;
+# 门 g12.p0.m158.mis_full_surface / g12.p0.m159.russian_roulette_prod /
+# g12.p0.m160.sampling_lds_upgrade / g12.p0.m161.convergence_criterion_prod /
+# g12.p1.m166.pt_production_calibration):.rx megakernel
+# (kernels/g12_pt_production.rx,rurixc --target vulkan 产 SPV)经
+# run_ray_query_effects(U30 ray query 执行面)真跑;固定 seed 双跑位级一致 +
+# 收敛曲线不劣于 g12_budget ref_curve 锚(容差 M166 标定程序产)+ 白炉能量
+# 守恒 + RR 计数/无偏对照 + 自适应收敛报告 + 全 spp golden 冻结带对拍 +
+# 各门 RED 臂独立有效。
+[[bin]]
+name = "g12_pt_production"
+path = "src/bin/g12_pt_production.rs"
+required-features = ["vulkan"]
+
 # G9.5 M110 世界分区 P0 harness(RXS-0363;门 g9.p0.m110.world_partition):
 # 单一持久世界 schema/2D cell + 三项流送预算契约逐帧 evidence + 预算违约排队
 # 降级 RED 臂 + cell 四事件序列逐字 golden + Data Layer 掩码位只预留不接线 +

@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.2 M159 russian_roulette_prod evidence",
+  "description": "evidence/g12_m159_russian_roulette_prod_<UTC>.json。G12.2 P0 硬门 g12.p0.m159.russian_roulette_prod(spec RXS-0399;G12_CONTRACT §4.2 M159 行判据逐字):吞吐自适应 RR(p_kill=clamp(1−T/τ,0,p_max),τ 标定程序产,p_max<1 恒成立)+ 无偏补偿闭式 1/(1−p_kill)(上界登记)+ 最小反弹保障(N_min≥2 fail-closed)+ 终止率/补偿计数非空 + RR 开/关无偏对照(容差标定程序产)+ 收敛曲线不劣于基线锚 + 确定性协议继承 + M96 既有判据 0-byte;跳 RR 偏移/补偿缺失/早杀偏置 RED 臂独立有效 + 子模式复跑抽检。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g12_m159_russian_roulette_prod"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g12.p0.m159.russian_roulette_prod"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M159"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M159"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g12.p0.m159.russian_roulette_prod"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G12.2"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 219
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M159;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0399;RFC-0029 §4.2"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_prod_tests_anchored",
+        "conformance_corpus_anchored",
+        "budget_anchors_present",
+        "m96_frozen_surface_0byte",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_rr_counters_nonempty",
+        "device_rr_unbiased",
+        "device_rr_params_fail_closed",
+        "device_curve_not_worse",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_prod_tests_anchored": {
+          "type": "boolean"
+        },
+        "conformance_corpus_anchored": {
+          "type": "boolean"
+        },
+        "budget_anchors_present": {
+          "type": "boolean"
+        },
+        "m96_frozen_surface_0byte": {
+          "type": "boolean"
+        },
+        "device_harness_full_pass": {
+          "type": "boolean"
+        },
+        "device_double_run_bitexact": {
+          "type": "boolean"
+        },
+        "device_rr_counters_nonempty": {
+          "type": "boolean"
+        },
+        "device_rr_unbiased": {
+          "type": "boolean"
+        },
+        "device_rr_params_fail_closed": {
+          "type": "boolean"
+        },
+        "device_curve_not_worse": {
+          "type": "boolean"
+        },
+        "device_red_arms_effective": {
+          "type": "boolean"
+        },
+        "device_red_arm_submodes_detected": {
+          "type": "boolean"
+        },
+        "device_validation_zero": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": {
+          "type": "boolean"
+        },
+        "baseline_anchor_id": {
+          "type": "string"
+        },
+        "measured_value": {
+          "type": "string"
+        },
+        "not_worse_than_anchor": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string"
+        },
+        "evolution_register": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

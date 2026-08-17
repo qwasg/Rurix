@@ -706,6 +706,27 @@ def check_evidence_files() -> None:
     g11_wave7b_closeout_schema = load(
         ROOT / "milestones/g11/g11_wave7b_closeout_evidence_schema.json"
     )
+    g12_m158_mis_full_surface_schema = load(
+        ROOT / "milestones/g12/g12_m158_mis_full_surface_evidence_schema.json"
+    )
+    g12_m159_russian_roulette_prod_schema = load(
+        ROOT / "milestones/g12/g12_m159_russian_roulette_prod_evidence_schema.json"
+    )
+    g12_m160_sampling_lds_upgrade_schema = load(
+        ROOT / "milestones/g12/g12_m160_sampling_lds_upgrade_evidence_schema.json"
+    )
+    g12_m161_convergence_criterion_prod_schema = load(
+        ROOT / "milestones/g12/g12_m161_convergence_criterion_prod_evidence_schema.json"
+    )
+    g12_m166_pt_production_calibration_schema = load(
+        ROOT / "milestones/g12/g12_m166_pt_production_calibration_evidence_schema.json"
+    )
+    g12_wave2_exit_schema = load(
+        ROOT / "milestones/g12/g12_wave2_exit_evidence_schema.json"
+    )
+    g12_m166_calibration_entry_schema = load(
+        ROOT / "milestones/g12/g12_m166_calibration_entry_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1600,6 +1621,41 @@ def check_evidence_files() -> None:
     g11_wave7b_closeout_validator = (
         jsonschema.Draft7Validator(g11_wave7b_closeout_schema)
         if g11_wave7b_closeout_schema is not None
+        else None
+    )
+    g12_m158_mis_full_surface_validator = (
+        jsonschema.Draft7Validator(g12_m158_mis_full_surface_schema)
+        if g12_m158_mis_full_surface_schema is not None
+        else None
+    )
+    g12_m159_russian_roulette_prod_validator = (
+        jsonschema.Draft7Validator(g12_m159_russian_roulette_prod_schema)
+        if g12_m159_russian_roulette_prod_schema is not None
+        else None
+    )
+    g12_m160_sampling_lds_upgrade_validator = (
+        jsonschema.Draft7Validator(g12_m160_sampling_lds_upgrade_schema)
+        if g12_m160_sampling_lds_upgrade_schema is not None
+        else None
+    )
+    g12_m161_convergence_criterion_prod_validator = (
+        jsonschema.Draft7Validator(g12_m161_convergence_criterion_prod_schema)
+        if g12_m161_convergence_criterion_prod_schema is not None
+        else None
+    )
+    g12_m166_pt_production_calibration_validator = (
+        jsonschema.Draft7Validator(g12_m166_pt_production_calibration_schema)
+        if g12_m166_pt_production_calibration_schema is not None
+        else None
+    )
+    g12_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g12_wave2_exit_schema)
+        if g12_wave2_exit_schema is not None
+        else None
+    )
+    g12_m166_calibration_entry_validator = (
+        jsonschema.Draft7Validator(g12_m166_calibration_entry_schema)
+        if g12_m166_calibration_entry_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3170,6 +3226,51 @@ def check_evidence_files() -> None:
             # 八 facts READY|BLOCKED + checks 八键闭集 + required_gates 20 行。
             validator = g11_wave7b_closeout_validator
         elif (
+            f.name.startswith("g12_m158_mis_full_surface_")
+            and g12_m158_mis_full_surface_validator is not None
+        ):
+            # G12.2 P0 硬门 M158 MIS 完整面（步骤 218）→
+            # milestones/g12/g12_m158_mis_full_surface_evidence_schema.json。
+            validator = g12_m158_mis_full_surface_validator
+        elif (
+            f.name.startswith("g12_m159_russian_roulette_prod_")
+            and g12_m159_russian_roulette_prod_validator is not None
+        ):
+            # G12.2 P0 硬门 M159 RR 生产化（步骤 219）。
+            validator = g12_m159_russian_roulette_prod_validator
+        elif (
+            f.name.startswith("g12_m160_sampling_lds_upgrade_")
+            and g12_m160_sampling_lds_upgrade_validator is not None
+        ):
+            # G12.2 P0 硬门 M160 采样升级+低差异（步骤 220）。
+            validator = g12_m160_sampling_lds_upgrade_validator
+        elif (
+            f.name.startswith("g12_m161_convergence_criterion_prod_")
+            and g12_m161_convergence_criterion_prod_validator is not None
+        ):
+            # G12.2 P0 硬门 M161 收敛判据生产化（步骤 221）。
+            validator = g12_m161_convergence_criterion_prod_validator
+        elif (
+            f.name.startswith("g12_pt_production_calibration_")
+            and g12_m166_pt_production_calibration_validator is not None
+        ):
+            # G12.2 已 go P1 门 M166 PT 生产化标定（步骤 217）。
+            validator = g12_m166_pt_production_calibration_validator
+        elif (
+            f.name.startswith("g12_m166_calibration_")
+            and g12_m166_calibration_entry_validator is not None
+        ):
+            # G12.2 M166 标定条目 evidence（步骤 217 逐条目 measured 面;
+            # results.trimmed_mean 供 budget_eval 通用路判读）→
+            # milestones/g12/g12_m166_calibration_entry_evidence_schema.json。
+            validator = g12_m166_calibration_entry_validator
+        elif (
+            f.name.startswith("g12_wave2_exit_")
+            and g12_wave2_exit_validator is not None
+        ):
+            # G12.2 波聚合门（步骤 222）→ required_gates 5 行 + aggregate_read_only。
+            validator = g12_wave2_exit_validator
+        elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None
         ):
@@ -3332,3 +3433,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

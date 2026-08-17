@@ -1,0 +1,250 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.2 M161 convergence_criterion_prod evidence",
+  "description": "evidence/g12_m161_convergence_criterion_prod_<UTC>.json。G12.2 P0 硬门 g12.p0.m161.convergence_criterion_prod(spec RXS-0401;G12_CONTRACT §4.2 M161 行判据逐字):逐像素方差驱动自适应 spp 终止(θ 标定程序产,N_floor=16 下界保障)+ 收敛报告(spp 分布/方差/未收敛计数非空 + 独立重算一致)+ 误判率 ≤ 标定阈(场景×族单元 p100)+ 固定全 spp golden 对拍不偏离 measured×2.0 冻结带 + 帧型标签闭集;早停冒充/缺报/混标 RED 臂独立有效 + 子模式复跑抽检。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g12_m161_convergence_criterion_prod"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g12.p0.m161.convergence_criterion_prod"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M161"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M161"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g12.p0.m161.convergence_criterion_prod"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G12.2"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 221
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M161;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0401;RFC-0029 §4.4"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_prod_tests_anchored",
+        "conformance_corpus_anchored",
+        "budget_anchors_present",
+        "m96_frozen_surface_0byte",
+        "device_harness_full_pass",
+        "device_double_run_bitexact",
+        "device_convergence_report_nonempty",
+        "device_spp_floor_held",
+        "device_frame_label_closed",
+        "device_misjudge_within_tol",
+        "device_golden_band_within",
+        "device_red_arms_effective",
+        "device_red_arm_submodes_detected",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "host_prod_tests_anchored": {
+          "type": "boolean"
+        },
+        "conformance_corpus_anchored": {
+          "type": "boolean"
+        },
+        "budget_anchors_present": {
+          "type": "boolean"
+        },
+        "m96_frozen_surface_0byte": {
+          "type": "boolean"
+        },
+        "device_harness_full_pass": {
+          "type": "boolean"
+        },
+        "device_double_run_bitexact": {
+          "type": "boolean"
+        },
+        "device_convergence_report_nonempty": {
+          "type": "boolean"
+        },
+        "device_spp_floor_held": {
+          "type": "boolean"
+        },
+        "device_frame_label_closed": {
+          "type": "boolean"
+        },
+        "device_misjudge_within_tol": {
+          "type": "boolean"
+        },
+        "device_golden_band_within": {
+          "type": "boolean"
+        },
+        "device_red_arms_effective": {
+          "type": "boolean"
+        },
+        "device_red_arm_submodes_detected": {
+          "type": "boolean"
+        },
+        "device_validation_zero": {
+          "type": "boolean"
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": {
+          "type": "boolean"
+        },
+        "baseline_anchor_id": {
+          "type": "string"
+        },
+        "measured_value": {
+          "type": "string"
+        },
+        "not_worse_than_anchor": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string"
+        },
+        "evolution_register": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

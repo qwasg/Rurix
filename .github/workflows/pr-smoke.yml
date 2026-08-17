@@ -2539,6 +2539,83 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_closeout_check.py --gate g11.wave.7b.closeout
 
+      # 步骤 217(G12.2 M166 PT 生产化标定门 g12.p1.m166.pt_production_calibration;
+      # G12 CI_GATES §4A;G12_ACCEPTANCE_MAP §2;落盘前实测 CI_step.next_free=217
+      # 顺位领取 217~222)。纯 host 门:harness --calibrate 标定程序两跑逐字节一致
+      # (τ p50 / θ p75@spp=N_floor=16 / 误判率阈场景×族单元 p100 / 曲线容差族间
+      # 极差 p100 / 白炉能量容差 / 逐级单调噪声带 / RR 无偏容差全 measured 产,
+      # P-09 禁手写)+ 7 条 g12.pt.* 标定条目字节级纯追加入 g12_budget(measured_
+      # local,逐条目 evidence results.trimmed_mean)+ 采样器选型 artifact 落盘
+      # (winner=sobol_class_seed_perturbed)+ budget_eval 全 PASS;手写阈值/
+      # estimated 冒充/不可复跑/低于下界 RED 四臂全检出。evidence 落盘
+      # evidence/g12_pt_production_calibration_<UTC>.json。
+      - name: G12.2 M166 PT production calibration (G12 CI_GATES §4A.217, g12.p1.m166.pt_production_calibration)
+        shell: powershell
+        run: py -3 ci/g12_pt_production_calibration_smoke.py --gate g12.p1.m166.pt_production_calibration
+
+      # 步骤 218(G12.2 M158 MIS 完整面生产化门 g12.p0.m158.mis_full_surface;
+      # G12 CI_GATES §4;G12_CONTRACT §4.2 M158 行判据逐字)。host 段恒跑 prod
+      # 单测锚定 + conformance 语料锚 + budget 锚齐备 + M96 冻结面 0-byte 机核;
+      # device 段持锁真跑(g12_pt_production.rx megakernel SPV → harness --gate
+      # 全档:多光源/白炉/delta 三 fixture + 双 m96 场景收敛曲线锚 + delta 退化
+      # 位级一致 + 白炉能量守恒 + 逐级单调 + RED 三臂 + 子模式复跑抽检)。
+      # evidence 落盘 evidence/g12_m158_mis_full_surface_<UTC>.json。
+      - name: G12.2 M158 MIS full surface (G12 CI_GATES §4.218, g12.p0.m158.mis_full_surface)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_mis_full_surface_smoke.py --gate g12.p0.m158.mis_full_surface
+
+      # 步骤 219(G12.2 M159 俄罗斯轮盘生产化门 g12.p0.m159.russian_roulette_prod;
+      # G12_CONTRACT §4.2 M159 行判据逐字)。吞吐自适应 RR + 无偏补偿闭式 + 最小
+      # 反弹保障 fail-closed + 终止率/补偿计数非空 + RR 开/关无偏对照 + 曲线锚;
+      # RED 三臂(跳 RR/补偿缺失/早杀)+ 子模式复跑。evidence 落盘
+      # evidence/g12_m159_russian_roulette_prod_<UTC>.json。
+      - name: G12.2 M159 russian roulette prod (G12 CI_GATES §4.219, g12.p0.m159.russian_roulette_prod)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_russian_roulette_prod_smoke.py --gate g12.p0.m159.russian_roulette_prod
+
+      # 步骤 220(G12.2 M160 采样策略升级+低差异序列门 g12.p0.m160.sampling_lds_
+      # upgrade;G12_CONTRACT §4.2 M160 行判据逐字)。流位级一致 + 索引推导确定性
+      # (逐索引重求值==流内容)+ RNG 流布局 provenance + 选型 benchmark 确定性
+      # + winner 族 artifact 一致性 + 曲线不劣于 PCG 流锚;RED 双臂(非确定注入/
+      # 改 seed)+ 子模式复跑。evidence 落盘
+      # evidence/g12_m160_sampling_lds_upgrade_<UTC>.json。
+      - name: G12.2 M160 sampling LDS upgrade (G12 CI_GATES §4.220, g12.p0.m160.sampling_lds_upgrade)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_sampling_lds_upgrade_smoke.py --gate g12.p0.m160.sampling_lds_upgrade
+
+      # 步骤 221(G12.2 M161 收敛判据生产化门 g12.p0.m161.convergence_criterion_
+      # prod;G12_CONTRACT §4.2 M161 行判据逐字)。逐像素方差驱动自适应 spp 终止
+      # (N_floor=16 下界)+ 收敛报告非空(独立重算一致)+ 误判率 ≤ 标定阈 +
+      # 固定全 spp golden 不偏离 measured×2.0 冻结带 + 帧型标签闭集;RED 三臂
+      # (早停冒充/缺报/混标)+ 子模式复跑。evidence 落盘
+      # evidence/g12_m161_convergence_criterion_prod_<UTC>.json。
+      - name: G12.2 M161 convergence criterion prod (G12 CI_GATES §4.221, g12.p0.m161.convergence_criterion_prod)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_convergence_criterion_prod_smoke.py --gate g12.p0.m161.convergence_criterion_prod
+
+      # 步骤 222(G12.2 波聚合门 g12.wave.2.exit;G12 CI_GATES §5;G12_CONTRACT
+      # G-G12-4)。只读汇总五门最新 evidence(217~221)+ 六 facts(M96 正确性锚
+      # 0-byte / 五门 RED 臂独立有效共 23 臂 / g12_budget 15 条目 measured_local
+      # 零 estimated + budget_eval 全 PASS / spec-first RXS-0398~0401 + RFC-0029
+      # Approved / conformance 11 件锚定 / M166 标定 provenance 齐备);聚合不代绿、
+      # 不重跑 smoke、不设 RURIX_REQUIRE_REAL;聚合 PASS 不遮蔽任一子断言
+      # FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘 evidence/g12_wave2_exit_<UTC>.json。
+      - name: G12.2 wave2 exit aggregate (G12 CI_GATES §5.222, g12.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g12_wave2_exit_check.py --gate g12.wave.2.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

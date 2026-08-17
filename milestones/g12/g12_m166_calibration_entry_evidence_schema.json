@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.2 M166 标定条目 evidence（g12.pt.* 七条标定条目的逐条目 measured 面）",
+  "description": "evidence/g12_m166_calibration_<param>_<UTC>.json。G12.2 M166 PT 生产化标定（g12.p1.m166.pt_production_calibration）逐条目 measured 面：results.trimmed_mean = 该条目标定 measured 基值（τ p50 / θ p75@spp=N_floor / 误判率单元 p100 / 曲线族间极差 p100 / 白炉族间均值极差 p100 / 逐级单调 p100 / RR 无偏池化 p100），供 g12_budget.json g12.pt.* entries 经 ci/budget_eval.py eval_entry 通用路判读（threshold = 基值 × 协议冻结 k 或闭式公式，禁手写 P-09），零新 evaluator 分支；sample_manifest digest（标定样本集 ≥24）与 pbrt/host provenance 随档。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g12pt.calibration_entry.v1" },
+    "entry_id": {
+      "type": "string",
+      "enum": [
+        "g12.pt.rr_tau",
+        "g12.pt.adaptive_rel_err_theta",
+        "g12.pt.misjudge_rate_tol",
+        "g12.pt.curve_tol_rel",
+        "g12.pt.furnace_energy_tol",
+        "g12.pt.level_monotone_tol",
+        "g12.pt.rr_unbiased_tol"
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number" }
+      }
+    },
+    "protocol": { "type": "string" },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest", "lower_bound"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 24 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "lower_bound": { "type": "integer", "const": 24 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["pbrt_version", "pbrt_exe_sha256", "seed", "host"],
+      "properties": {
+        "pbrt_version": { "type": "string" },
+        "pbrt_exe_sha256": { "type": "string" },
+        "seed": { "type": "string" },
+        "host": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" }
+  }
+}
