@@ -1,0 +1,11 @@
+//@ spec: RXS-0403
+// G12.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0403 L2 门序面）。
+// 预期 RED：契约 digest 不等仍出报告——三方独立实现（host python / Rurix
+// Rust harness / UE 内嵌 CPython）任一 digest 不等或 ≠ 门内冻结注册值时，
+// 仍产出对拍报告/evidence = 门序硬约束违例（M130/M139/M155 同族，
+// RXS-0384 L5 / RXS-0393 L4），判 RED。
+// 负例数据面：篡改契约任一参数（spp 序列/相机/光照/seed）后 digest 漂移，
+// 门必须拒绝出报告并 FAIL；RED 臂注入（篡改契约仍强行出报告）必检出。
+// 转正路径（G12.4 波接线）：ci/g12_ue_pt_parity_smoke.py 门（symbolic key
+// g12.p0.m163.ue_pt_parity，G12.1 冻结字面不动）。
+fn main() {}

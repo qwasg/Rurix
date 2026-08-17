@@ -653,6 +653,108 @@
   ——`threshold_provenance` 须含标定程序与 budget 条目引用（L3），
   `contract_digest_unchanged` 机核 = 当次契约参数 digest == L4 锁定值。
 
+### RXS-0403 UE Path Tracer 对标口径：对标契约独立冻结与 digest 门序 / 双端同场景同 spp 出图 / 收敛曲线逐段·噪声谱·能量守恒 measured 对拍 / UE PathTracing 模块归属差距登记（M163，G12.4）
+
+**Legality**
+
+- L1 **对标契约独立冻结**：G12.4 UE PT 对标契约 =
+  `milestones/g12/g12_ue_pt_parity_contract.json`（schema
+  `rurix.g12.ue_pt_parity_contract.v1`），字段闭集：`schema` const /
+  `contract_id` / `version`（u32）/ `spp_sequence`（u32 数组，严格递增，
+  末档 == `ref_spp`）/ `ref_spp`（u32）/ `max_bounces`（u32）/ `seed`
+  （u64）/ `calibration_seed`（u64，≠ `seed`）/ `noise_probe_spp`（u32，
+  ∈ `spp_sequence` 且 ≠ `ref_spp`）/ `scenes`（恰二行，场景闭集
+  {`cornell-box`, `bistro-interior`}——M133 清单 digest 注册面转引只读
+  不回写，RXS-0383 口径）/ `rendering_policy`（`ue_pathtracing` const
+  true / `filter_width` f64 / `max_bounces` u32 / `mis_mode` u32 /
+  `russian_roulette` bool / `denoiser` const `"off"` / `tonemap` const
+  `"off"`）/ `provenance`（**不入 digest preimage**）；逐场景行字段闭集：
+  `scene_id` / `m133_manifest_digest` / `gltf_product_digest` / `camera`
+  （`position` f64×3 / `orientation_quat` f64×4〔unit-norm 2^-40 谓词
+  常量，RXS-0384 L2 口径继承〕/ `fov_y_deg` / `near` / `far` /
+  `resolution{w,h}` u32）/ `exposure`（`mode` enum 仅 `"manual"` /
+  `ev100` f64）/ `lighting`（`quad_lights[]`{`p00`/`e1`/`e2`/
+  `le_linear_rgb` f64×3} / `point_lights[]`{`id` str/`position`/
+  `color_linear_rgb` f64×3/`intensity_cd` f64} / `emissive_materials[]`
+  {`material_name` str/`material_index` u32/`le_linear_rgb` f64×3/
+  `area_m2` f64} / `sun_intensity_lux` f64 / `sky_intensity` f64——后两
+  者本契约 = 0.0 显式登记：PT 起步范围无方向光/天光链接口面，RXS-0357
+  L1 起步范围冻结维持）/ `material_policy`（`texture_mean_albedo` bool
+  / `white_tex_to_white` bool 闭集）。schema 外字段注入即拒
+  （fail-closed）；null 禁入。**契约参数独立冻结：不动 G10.5/G11.5b
+  锁定值**（G10/G11 closed 复测对照面 0-byte，RXS-0393 L4 锁定值不消
+  费不承接）。
+- L2 **canonical 字节布局与 digest 门序**：契约 digest =
+  SHA-256(canonical preimage)——字节布局 = 版本前缀 ASCII `G12PTP-1`
+  + NUL（`47 31 32 50 54 50 2D 31 00`）+ RXS-0384 L3 同构规则（类型
+  标签 f64=0x01/u32=0x02/u64=0x03/str=0x04/bool=0x05/obj 起止
+  0x07/0x08/arr 起止 0x09/0x0A；键 Unicode code point 升序 + u32
+  length-prefix UTF-8；f64 binary64 小端；u32/u64 宽度 schema 驱动禁
+  值域分派；NaN/±Inf 禁入）；digest 域 = L1 字段闭集（`provenance`
+  块不入）。**三方独立实现 digest 全等机核**：① host python（门脚本
+  内嵌解析器）② Rurix Rust harness（`--contract-digest` 面）③ UE 内
+  嵌 CPython（harness 解析器）——三值全等且 == 门内冻结注册值（实现
+  PR 落盘时实测回填）；**契约 digest 不等仍出报告即 RED**（M130/
+  M139/M155 门序硬约束继承，RXS-0384 L5 / RXS-0393 L4 同族）。
+- L3 **双端出图**：同场景同 spp 双端出图——UE 臂 = UE 5.8.1 Path
+  Tracer MRQ 臂（F:\UE_5.8；**UE build digest == M128 登记 ue_build_id
+  机核**〔`5.8.1-56057345`，ci/g10_ue5_lib.py `EXPECTED_UE_BUILD_ID`
+  注册面消费〕；窗口模式主路臂，G10-N8/N9 口径继承；MRQ 逐 （场景 ×
+  spp） 作业 EXR〔NONE 压缩 + tone curve 关闭捕获点，RXS-0386 L1〕)；
+  Rurix 臂 = G12 生产化 PT megakernel device 真跑（固定 seed 双跑位级
+  一致确定性协议继承 RXS-0357 L2 / RXS-0400；多灯 workload 面 =
+  bistro-interior 4+ 点光 + emissive 表面双端 PT 对拍——RD-040
+  M100-high 触发评估法定输入）。**单端缺帧聚合不得 PASS**：任一端任
+  一场景任一 spp 档缺帧/非真 EXR/非新鲜出帧，聚合门必须 FAIL（单端
+  缺帧聚合 PASS 即 RED）。
+- L4 **measured 对拍三面**（容差一律标定程序 measured 产，禁手写
+  P-09，入 `g12_budget.json` measured_local；**不设绝对通过线**——
+  超容差段显式登记即 RED 评审面，**逐段对拍超容差静默即 RED**）：
+  - **收敛曲线逐段对拍**：逐端收敛曲线 rel_err_e(s) = rel-MAE(
+    frame_e(s), frame_e(ref_spp))（端内参照，曝光尺度链两端消去）；
+    逐段对拍差 = |rel_err_ue(s) − rel_err_rurix(s)|，s ∈ spp_sequence
+    ∖ {ref_spp}；超容差段必须有差距登记表对应行。
+  - **噪声谱对拍**：`noise_probe_spp` 档残余帧（frame_e(probe) −
+    frame_e(ref)）高频能量谱逐端 measured + 双端谱差 measured；超容
+    差登记纪律同上。
+  - **能量守恒对拍**：ref_spp 档帧均值能量双端相对差 measured（口径
+    链对齐后消费——Rurix 帧 ×2^(−ev100) 派生尺度，RXS-0392 C1 口径
+    继承）；超容差登记纪律同上。
+- L5 **UE PathTracing 模块归属差距登记**：差距登记表落盘
+  （`milestones/g12/g12_ue_pt_gap_registry.json`）——差距逐项登记
+  UE5 模块归属（`Engine/Source/Runtime/Renderer/Private/PathTracing.cpp`
+  及关联模块行集，**RXS-0391 归属枚举闭集口径继承**，只追加演进）；
+  差距项显式登记，不冒充全闭环（**差距项静默混入即 RED**）；登记表
+  行集与对拍报告**对账**——L4 全部超容差段/谱差/能量差行必须有对应
+  登记表行，登记表每行 measured_delta 可溯源（delta == b−a f64 精确
+  + evidence_digest 回溯，RXS-0391 口径）。
+- L6 **口径对齐先行 + 不设绝对通过线**：曝光/位深口径沿 G11.2 对齐
+  口径（RXS-0385 strip-and-log / EV100 派生链互证，RXS-0392 口径继
+  承）；残余口径差逐环节显式登记（载体 = 门 evidence
+  `residual_caliber_note` + 差距登记表 caliber_diff 行）；**未对齐口
+  径消费对拍 delta 即 RED**（R-G12-5 / R-G11-1 同族纪律）；**不设绝
+  对通过线**——「已达 UE5 PT 画质」叙述 G12 期内一律不成立（绝对判
+  定归 G15 商用收口期，G12_CONTRACT §1/§5 字面）。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 G12.4 P0 门 `g12.p0.m163.ue_pt_parity`
+  （`ci/g12_ue_pt_parity_smoke.py`，G12_CONTRACT §4.2 M163 行 +
+  G12_ACCEPTANCE_MAP §1 判据逐字）；测试锚定 =
+  `conformance/visual_comparison/accept/ue_pt_parity_contract_minimal.rx`
+  + `conformance/visual_comparison/reject/parity_digest_mismatch_report.rx`
+  + `conformance/visual_comparison/reject/residual_caliber_silent.rx`。
+- IR2 门 evidence 对标节机器形态（G12 CI_GATES §7 对标节字段闭集
+  materialize 硬化面）= `parity = { contract_digest, ue_build_id,
+  curve_segments, noise_spectrum_delta, energy_conservation_delta,
+  gap_registry_file, residual_caliber_note }`——`curve_segments` 逐段
+  数组非空（每段 {spp, rel_err_ue, rel_err_rurix, delta, tolerance,
+  over_tolerance, registered}）；`residual_caliber_note` 无残余须为
+  null 字面；`gap_registry_file` 行集对账机核 = L5。
+- IR3 RED 臂独立有效（契约 §4.2 M163 判据字面）：契约 digest 不等仍
+  出报告 / 逐段对拍超容差静默 / 差距项静默混入 / 单端缺帧聚合 PASS
+  / 残余口径差未登记消费 delta——各臂注入必检出，漏检即 FAIL。
+
 ---
 
 ## 修订记录
@@ -664,3 +766,4 @@
 | v1.3 | 2026-08-15 | G10.5b 首轮 A/B 对比波 B 段 spec-first（硬规则 7 条款先行）：**RXS-0391 单号 materialize 为条款头**——差距清单 schema（顶层/差距项字段闭集〔13 键 + attribution_note 条件可选键〕+ gap_id 派生冻结字节规则〔sha256 五节 0x00 分隔 utf8 拼接前 16 hex〕+ kind 两值分列〔quality_gap / caliber_diff〕+ UE5 模块归属枚举闭集〔目录级 23 + 文件级 57 + Other 终值，公共前缀 `Engine/Source/Runtime/Renderer/Private/`，Other 须 attribution_note 非空〕+ measured_delta 可溯源〔≥1 项、delta == b−a f64 精确、evidence_digest 须回溯 M137/M139 evidence 登记 artifact digest，纯叙述无测量即 RED〕+ 建议 P 级三值 + g11_anchor 非空 + 场景全集零空行对账〔scene_summary 全等 + no_gap_explicit 显式 + not_ready_scenes 显式在列〕+ domain 两值互证），依据 RFC-0026（Agent Approved 2026-08-15）§4.5 + §3.3 + G10_ACCEPTANCE_MAP §1 M140 行（判据逐字）+ G10_CONTRACT G-G10-7；条款号自落盘前实测 `RXS.next_free=391` 顺位领取（0391 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 两件（gap_registry_minimal.rx / gap_registry_missing_attribution.rx / gap_registry_unmeasured_narrative.rx）同 PR 落；trace_matrix 372→373 全锚定 + stable 快照 372→373 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5b 波）` | **Full RFC**（RFC-0026） |
 | v1.4 | 2026-08-16 | G11.2 口径差对齐波 spec-first（硬规则 7 条款先行）：**RXS-0392 单号 materialize 为条款头**——C1 口径对齐（不拟合原则 + 天光链参数集枚举闭集〔天光模式/强度同单位链/色温或 cubemap 资产 digest/采样档位，cubemap 资产 M131 白名单联动 + 白色常量 cubemap digest 与逐像素值核验〕+ 太阳 lux→辐射度链〔UE DirectionalLight lux → L=ρ·E·(n·l)/π 与 Rurix sun_color=rgb·lux → direct=·ndl·albedo/π 同构登记；UE 侧光色线性直给口径 b_srgb=False〕+ 残余口径差显式登记〔逐环节粒度，载体 milestones/g11/g11_2_residual_caliber_registry.json，未登记即 RED〕+ 消费门序〔未对齐口径消费复测 delta 即 RED；契约 digest 三面绑定 0-byte〕），依据 RFC-0028（Agent Approved 2026-08-16）§4.5 + G11_CONTRACT §4.2 M144 行（判据逐字）+ G11_ACCEPTANCE_MAP §1 M144 行；条款号自落盘前实测 `RXS.next_free=392` 顺位领取（0392 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 一件（caliber_alignment_minimal.rx / caliber_fitting_masquerade.rx）同 PR 落；trace_matrix 373→374 全锚定 + stable 快照 373→374 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G11.2 波）` | **Full RFC**（RFC-0028） |
 | v1.5 | 2026-08-16 | G11.2 口径差对齐波 spec-first：**RXS-0393 单号 materialize 为条款头**——修复闭环判据（锁定基线锚消费〔g10_gap_registry 0-byte 转引 + g11.closure_baseline.* direction=max 十一条基线锚〕+ 收敛判定两款〔quality_gap 行 delta 向 0 收敛且幅度 ≥ 标定阈，方向性注入 RED；caliber_diff 行 = 口径对齐完成 + 残余显式登记 + 复测 delta 与登记残余一致〕+ 收敛阈标定程序产〔p100 × k，k∈[1,3]，入 g11_budget measured_local，标定缺失时闭环断言不成立，手写/estimated 冒充 RED〕+ 契约 digest 0-byte〔锁定值机核事实源 = evidence/g10_m130_dual_determinism_contract_20260815T233315Z.json，不等仍出报告即 RED〕+ 不设绝对画质通过线〔归 G15〕），依据 RFC-0028（Agent Approved 2026-08-16）§4.6 + G11_CONTRACT §4.2/§5（判据字面）+ G11_ACCEPTANCE_MAP §1；条款号自落盘前实测 `RXS.next_free=393` 顺位领取（0393 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 一件（fix_closure_criterion_minimal.rx / closure_handwritten_threshold.rx）同 PR 落；trace_matrix 374→375 全锚定 + stable 快照 374→375 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G11.2 波）` | **Full RFC**（RFC-0028） |
+| v1.6 | 2026-08-17 | G12.4 UE Path Tracer 对标波 spec-first（硬规则 7 条款先行）：**RXS-0403 单号 materialize 为条款头**——UE PT 对标口径（对标契约独立冻结〔schema `rurix.g12.ue_pt_parity_contract.v1` 字段闭集 + 场景闭集 {cornell-box, bistro-interior} M133 清单 digest 转引 + sun/sky=0.0 显式登记 PT 起步范围面 + 不动 G10.5/G11.5b 锁定值〕+ canonical 字节布局与 digest 门序〔版本前缀 `G12PTP-1\0` + RXS-0384 L3 同构规则 + 三方独立实现 digest 全等机核 + 不等仍出报告即 RED〕+ 双端同场景同 spp 出图〔UE 5.8.1 PT MRQ 臂 + UE build digest == M128 登记 ue_build_id 机核 + Rurix 生产化 PT megakernel device 真跑 + 单端缺帧聚合不得 PASS〕+ measured 对拍三面〔收敛曲线逐段端内参照 rel-MAE 对拍 + 噪声谱对拍 + 能量守恒对拍，容差标定程序产禁手写，超容差显式登记即 RED 评审面、静默即 RED〕+ UE PathTracing 模块归属差距登记〔RXS-0391 归属枚举闭集口径继承 + 行集与对拍报告对账 + 差距项静默混入即 RED〕+ 口径对齐先行〔残余口径差逐环节显式登记，未对齐口径消费 delta 即 RED〕+ 不设绝对通过线〔归 G15〕），依据 RFC-0029（Agent Approved 2026-08-17，D-409 评审后）§4.6/§5 + G12_CONTRACT §4.2 M163 行（判据逐字）+ G12_ACCEPTANCE_MAP §1 M163 行 + §3.4 PT 对标契约面；条款号自落盘前实测 `RXS.next_free=403` 顺位领取（0403 单号不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 两件（ue_pt_parity_contract_minimal.rx / parity_digest_mismatch_report.rx / residual_caliber_silent.rx）同 PR 落；trace_matrix 384→385 全锚定 + stable 快照 384→385 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G12.4 UE PT 对标波）` | **Full RFC**（RFC-0029） |

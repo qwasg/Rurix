@@ -2037,6 +2037,11 @@
       "conformance/gi/accept/denoise_pipeline_minimal.rx",
       "conformance/gi/reject/denoise_energy_bias.rx",
       "conformance/gi/reject/temporal_base_rewire.rx"
+    ],
+    "RXS-0403": [
+      "conformance/visual_comparison/accept/ue_pt_parity_contract_minimal.rx",
+      "conformance/visual_comparison/reject/parity_digest_mismatch_report.rx",
+      "conformance/visual_comparison/reject/residual_caliber_silent.rx"
     ]
   }
 }

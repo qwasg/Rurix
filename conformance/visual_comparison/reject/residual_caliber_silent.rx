@@ -1,0 +1,11 @@
+//@ spec: RXS-0403
+// G12.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0403 L6 口径面）。
+// 预期 RED：残余口径差未登记即消费对拍 delta——曝光/位深/AA 滤波策略/emissive
+// 单位链等残余口径差未在 residual_caliber_note 与差距登记表 caliber_diff 行
+// 显式登记（RXS-0392 不拟合口径继承），即消费收敛曲线/噪声谱/能量对拍 delta
+// = 未对齐口径消费（R-G12-5/R-G11-1 同族纪律），判 RED。
+// 负例数据面：residual_caliber_note 缺失（非 null 字面且无登记串）或口径环节
+// 未逐环节登记时，对拍 delta 消费必须 fail-closed；RED 臂注入必检出。
+// 转正路径（G12.4 波接线）：ci/g12_ue_pt_parity_smoke.py 门（symbolic key
+// g12.p0.m163.ue_pt_parity，G12.1 冻结字面不动）。
+fn main() {}

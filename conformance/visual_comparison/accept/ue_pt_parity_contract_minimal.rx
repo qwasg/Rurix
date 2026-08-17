@@ -1,0 +1,18 @@
+//@ spec: RXS-0403
+// G12.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0403 L1~L6：UE PT
+// 对标口径——对标契约独立冻结〔schema rurix.g12.ue_pt_parity_contract.v1 字段
+// 闭集 + 场景闭集 {cornell-box, bistro-interior} M133 清单 digest 转引只读 +
+// sun/sky=0.0 显式登记 + 不动 G10.5/G11.5b 锁定值〕+ canonical 字节布局与
+// digest 门序〔版本前缀 G12PTP-1\0 + RXS-0384 L3 同构规则 + host python /
+// Rurix Rust / UE 内嵌 CPython 三方独立实现 digest 全等机核 + 契约 digest 不
+// 等仍出报告即 RED〕+ 双端同场景同 spp 出图〔UE 5.8.1 PT MRQ 臂 ue_build_id
+// == M128 登记机核 + Rurix 生产化 PT megakernel device 真跑 + 单端缺帧聚合不
+// 得 PASS〕+ measured 对拍三面〔收敛曲线逐段端内参照 rel-MAE + 噪声谱 + 能量
+// 守恒，容差标定程序产禁手写 P-09〕+ UE PathTracing 模块归属差距登记
+// 〔RXS-0391 归属枚举口径继承 + 行集对账〕+ 不设绝对通过线〔归 G15〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：契约 JSON 经三方解析 digest
+// 全等且 == 门内冻结注册值；双端逐场景逐 spp 档帧齐备（真 EXR + 新鲜度机核）；
+// 逐段对拍差/谱差/能量差 measured 入 evidence；超容差段在差距登记表有对应行。
+// 转正路径（G12.4 波接线）：ci/g12_ue_pt_parity_smoke.py 门（symbolic key
+// g12.p0.m163.ue_pt_parity，G12.1 冻结字面不动）。
+fn main() {}
