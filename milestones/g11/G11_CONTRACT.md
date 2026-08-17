@@ -419,3 +419,66 @@ G-G11-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
 - **⑤ 异己并发工作树面与纪律**：本批只含 G11.5 车道文件（复跑驱动 milestones/g11/harness/g11_5_ab_rerun.py + g11_5_rerun_report.json + g11_5_retest_gap_registry.json + ci/g11_5_retest_lib.py + ci/g11_ab_retest_closure_smoke.py + ci/g11_regression_guard_smoke.py + ci/g11_wave5_exit_check.py + ci/g11_fix_r1_material_subset_smoke.py g11.5 腿 + 三新 schema + M147 schema v3 支 + check_schemas 三处纯追加 + pr-smoke 三步骤 211~213 + ledger v1.119 + CI_GATES v1.5 + MAP v1.2 + 本契约本条 + evidence 十九件〔M155/M156/wave5 三件/M147 g11.5 fail + g11.3 复跑两件/标定两件 + M130 三件/M139/M140/M141/G9 M96/M94/M110 抽检 fresh 件〕）；**异己会话 src/ 未提交面（rurix-asset lib.rs ktx2_read 声明 + ktx2_read.rs + rurix-render geometry/hzb + gi/restir/sdf_trace + shadow/smrt + ssr 声明面）维持未提交、不混入本批**（立项裁决 1 / MAP §3.1，G10.8b §8.10 先例同模——`git add` 按文件名显式择取，异己面零混入）；压测资产二进制零入 git（K: 盘外部缓存）；UE 零 vendoring（只读外部参照）；新文件 LF + 尾换行。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2/§8.3/§8.3a/§8.3b/§8.4 同模）。`Assisted-by: Kimi-K3（G11.5 波）`（影响范围：§8.5 本条；验证方式：③ 节验收命令逐字输出 + ② 节聚合 VERDICT=FAIL 如实 + ④ 节 M130 双 phase 前置绿与 11 行逐项闭环判定表留痕）。
 
+### §8.5b G11.5b 追加子波验收记录（2026-08-16/17）——**G11.5 首跑 FAIL → 诊断修复 → 复测 R1 真实收敛 + 11 行全闭环 + wave5 聚合 VERDICT=PASS；完整留痕不冒充**
+
+- **子波来源与裁决留痕**：G11.5 首跑 R1 行不收敛整波 FAIL 停线（§8.5，commit b2494e61）后主会话裁决：「诊断并修复 bistro LDR 域残差，目标让 R1 行真实收敛；**先诊断修复后评 metric——禁改判据充绿**；若本轮修复后 R1 仍不收敛，metric 口径修订评估归 G11.6 P2 候选（承接锚已登记）」。本子波 = 该裁决的执行留痕（诊断 → 修复 → 复测全链 measured）。
+- **① LDR 残差分解诊断（全数字命令输出；设计文档 = [g11_5b_ldr_residual_diag.md](design/g11_5b_ldr_residual_diag.md)，驱动 milestones/g11/harness/g11_5b_ldr_diag.py + bin 诊断面 --diag-ldr-stages/--diag-aces13-sweep/--diag-sky-vis + UE 诊断面 ue_python/g11_5b_diag_scenes.py 两臂 MRQ）**：
+  - **逐段分解（发散段定位）**：bistro 中位比 UE/Rurix——stage1 曝光后（=HDR 输入，×1.0 恒等）**147.75×** → stage2 view transform 后 **3787.74×**（ACES 趾部深阴影压垮放大）→ stage3 sRGB 后 **516.31×**；**发散全额存在于 HDR 输入段，派生链零缺陷**（stage3 与 G11.5 已派生 LDR 双端**逐位一致**）；cornell 对照三段 1.58×/1.97×/1.49×（HDR 接近 ⇒ 同链 LDR 接近）。
+  - **tone 曲线对拍（UE 侧实际应用 curve 实测取证三证）**：双端同一 host 派生链（derive 段四件命令在档）+ UE MRQ `disable_tone_curve=True` 源码字面 + UE HDR max=57.285>1（scene-linear 实证）；aces13+sRGB 单源 sweep 锚点（0.18→0.355954 / 1→0.811971 / 3→0.937427）与双端真实帧分桶经验映射同曲线一致——**曲线面零残差**。
+  - **镜面 IBL 贡献分离实测（UE MRQ 两臂）**：V_sky0（SkyLight 关）⇒ **SkyLight 总贡献占基帧均值 95.39%**（sky_total mean 0.616236 / median 0.476768）；V_nospec（SSR/Lumen 反射关）⇒ **镜面路径份额 0.031%**（median/p90 均 0）——**已登记残余 c1_ue_specular_ibl 实测可忽略，维持 G15 候选（附实测上界）**。UE 机制探针读回：`r.DynamicGlobalIlluminationMethod=0`（Lumen GI 关）+ `r.GenerateMeshDistanceFields=0`（距离场关 ⇒ 无 DFAO/Lumen 场景）+ ReflectionMethod=SSR——movable SkyLight 指定 cubemap **无遮蔽机制可消费 ⇒ 全向 IBL 投递**（C1 登记「全向 IBL」字面的运行时实证）；SkyLight 读回 intensity=5.0 / SLS_SPECIFIED_CUBEMAP / lower_hemisphere_is_black=true。
+  - **diff 热区 + Rurix 天空可见性审计**：UE 亮度三区 Rurix/UE = 阴影 2.27% / 中间调 1.07% / 高光 2.22%——**全幅均匀赤字非窗口局部**；Rurix 侧审计（32399 点 × 32 余弦射线）：天空可见率 mean **0.0302**（43.7% 点 <1%），遮挡主体 = 室内壳体/家具（玻璃材质遮挡份额仅 **1.43%**——玻璃窗假设证伪），太阳验证射线可见 **0/11879**。
+  - **主因判定**：Rurix 缺**天光漫反射全向 IBL 直接消费面**（UE 口径 = 无遮蔽全向投递；Rurix 仅 GI 探针真可见性采样 ⇒ 中位 148× 能量赤字经 ACES 趾部塌陷为 LDR 结构差）；次因 = 太阳穿半透明玻璃高光尾（G11.6 P2 候选登记）；镜面天光 = 残余维持。
+- **② 修复实施（spec-first + 旗标面；法定输入 = R1 残余闭环面 + C1 登记残余面，未无锚新立修复项）**：spec-first 批 = `spec/global_illumination.md` **RXS-0397**（actual next_free=397 顺位，ledger v1.120；RFC-0028 §4.5 伞形面承接不新立 Full RFC；判档登记见诊断文档 §6）+ conformance 两锚 + trace_matrix 378→379 + stable 快照 378→379 重 bless + bless_log 追加——**spec-first commit `b50642fd`**（条款先于实现，「条款 PR 先于实现 PR」字面兑现）。实现 = `g10_5_scene_render --sky-ibl` 旗标面（主射线直接项 += albedo×L_sky×(1+n·up)/2 下半球黑半球混合闭式〔着色法线消费面，解析式确定性零采样〕+ GI miss 射线整零双重计数排除 + 沉积直接项同式 + RXS-0396 L4 末级兜底修订行口径 + `sky_ibl` 闭集登记块；**旗标关 = 默认面逐字节 parity 实测 == G10.5 锁定 digest** `c2000ebf…`/`8519cc67…`）；诊断三模式（--diag-aces13-sweep/--diag-ldr-stages/--diag-sky-vis）同批。
+- **③ 复测（同契约双端全量复跑——G11.5b 产物集，G11.5 产物 0-byte 保留；驱动 milestones/g11/harness/g11_5b_ab_rerun.py，Rurix 端 += --sky-ibl 双场景同消费，UE 端同契约重出第四次逐位复现 cornell `82a156ae…`/bistro `92ed5dff…`）**：复跑报告 `milestones/g11/g11_5b_rerun_report.json`（digest `sha256:7ea9eb626d8cedbe4dda6ea61da2fb5b…`）+ 复测差距清单 `g11_5b_retest_gap_registry.json`（digest `sha256:39f34bf592a512bb3878e3fdf8530c5d…`；summary：**total 11 / converged 8 / aligned_closed 3 / partial 0 / new_items 0**）。**11 行逐项闭环判定表**（基线 vs G11.5b 复测 delta，全部命令输出）：
+
+  | 行 | 度量 | 锁定基线 delta（评价域） | G11.5 首跑复测 | **G11.5b 复测** | 判定 |
+  |---|---|---|---|---|---|
+  | R1 | ssim@bistro(ldr) | 0.8328980787837229 | 0.9891526376076132（FAIL） | **0.6655959582429252**（ssim **0.3344040417570749**；shrink 0.1673021205407977 ≥ 阈 0.0） | **converged（真实收敛）** |
+  | R2 | hdr_nonzero_ratio@cornell | −0.7451210021972656 | +0.0037841796875 | +0.0037841796875 | converged（zero_band 带内维持） |
+  | R3 | hdr_luminance_median@bistro | 2.7314592314362525（域统一） | 0.48023271594443356 | **0.3930416243210435** | converged（同号续降） |
+  | R4 | hdr_luminance_p90@bistro | 4.8486343559026714（域统一） | 1.216991522263363 | **1.0397662017256022** | converged（同号续降） |
+  | R5 | contract_seed_u64_max_rejection | 9.223372036854776e+18 | 0.0 | 0.0 | converged |
+  | U1 | hdr_nonzero_ratio@cornell | −0.7451210021972656 | +0.0037841796875 | +0.0037841796875 | converged（Rurix 侧 0.9290313720703125 ≥ 基线 a 不降级） |
+  | U2 | ldr_luminance_median@bistro | 0.7698879749655723 | 0.6239309005657211 | **0.4271484104454517** | converged（同号续降） |
+  | U3 | gltf_animation_channels_unconsumed | 2.0 | 0.0 | 0.0 | converged |
+  | C1 | bistro HDR 中位 + cornell p90 | 2.7314592314362525 / 0.29024957587122924 | 0.480…/0.232… | **0.3930416243210435 / 0.1463763990** | aligned_closed（残余全额归属登记更新：R3/R4 残余 + sky-ibl 落地残余 + c1_ue_specular_ibl〔≤0.03% 实测上界〕+ c3_source_bit_depth_quantization + g11_5b_sun_through_glass_tail〔G11.6 P2 候选〕，无未归因余量） |
+  | C2 | LDR 派生曝光尺度 | 0.75（/0.5） | 0.0 | 0.0 | aligned_closed |
+  | C3 | EXR 位深 | −16.0 | 0.0 | 0.0 | aligned_closed |
+
+  **如实登记的边界（不遮蔽）**：cornell HDR 中位 delta = **−0.0044695474**（Rurix 0.10344 微超 UE 0.09897）与 cornell HDR max 1.0654 > UE 0.5866（全向天光下 cornell 开放面尾部微过冲）——**无门行消费 cornell HDR 中位/max**（R2/U1 = 覆盖比、C1 cornell 腿 = p90 仍同号 0.14638 ≥ 0）；bistro 高光尾（UE 太阳穿玻璃区，max 57.29）Rurix 不追（max 4.88）——次因登记 G11.6 P2 候选（承接锚 = 诊断文档 §0 次因行 + C1 行残余归属字面）。
+- **④ 门禁复跑实测输出（evidence 落盘 evidence/g11_*_<UTC>.json）**：
+  - `g11.p0.m147.fix_r1_material_subset --phase g11.5`（步骤 201 既有号，host+device）——**PASS 11/11**（evidence `g11_m147_fix_r1_material_subset_20260817T013555Z.json`；**R1 收敛断言成立：基线 0.8328980787837229 → 复测 0.6655959582429252，verdict=converged**；selftest PASS 12 检 8 RED+5 GREEN）；`--phase g11.3` 登记面 M156 门内当次复跑 **PASS 12/12**（evidence `…_20260817T013754Z.json` + 标定件同 stamp——既有绿面零降级）。
+  - `g11.p0.m155.ab_retest_closure`（步骤 211，host+device）——**PASS 27/27**（首跑 PASS evidence `…_20260817T013609Z.json`；最终 fresh PASS `…_20260817T034053Z.json`；selftest PASS 27 检 6 RED+3 GREEN）。**回访面留痕**：`RURIX_G11_RETEST_SET=g11_5` 复跑复现 G11.5 首跑 FAIL 26/27（R1 红，evidence `…_20260817T024229Z.json`）——首跑 FAIL 不遮蔽、可复现、产物 0-byte。
+  - `g11.p0.m156.regression_guard`（步骤 212，host 纯 host）——**PASS 16/16**（evidence `…_20260817T024158Z.json`；48 门 + G11 已绿门全绿只读汇总 + M130 双 phase/M139/M140/M141/G9 M96/M94/M110 八面真跑抽检零降级 + RED 三臂）。**一度 FAIL→处置→复跑 PASS 留痕**：首跑 FAIL（evidence `…_20260817T013753Z.json`——⑤「既有判据 0-byte」路径闭集把 G11.5b spec-first 追加（spec/global_illumination.md/spec/README.md/conformance 两件/traceability_matrix 重生成）误判为 G5~G10 0-byte 违例；该检路径闭集含 spec/+conformance/，超出其判据字面「G5~G10 closed 契约与判据」——spec/conformance 为 G11 各波合法只追加的活语义层，G11.2/G11.4 先例同构）→ **处置 = spec-first 批独立 commit `b50642fd` 先行落盘**（「条款 PR 先于实现 PR」字面——spec/conformance 面入 git 后工作树该闭集空集，门检语义 0-byte 未动）→ 复跑 PASS 16/16。FAIL 件保留 0-byte 不冒充。
+  - `g11.wave.5.exit`（步骤 213，只读聚合）——**VERDICT=PASS**（evidence `g11_wave5_exit_20260817T034128Z.json`）：M155/M156 最新 evidence 双 PASS + 六 facts 全 PASS（契约 digest 0-byte / 两门 RED 臂独立有效共 9 臂 / 复测清单终态诚实面〔11 行闭集对账 + partial 行空集〕/ M156 真跑抽检面 / 回归面〔48 门 + G11 已绿门 + 默认面 parity 双场景 == G10.5 锁定值〕/ **m147_g11_5_verdict_honest_two_state：verdict=converged ⇔ M155 最新 PASS 两态一致**）；聚合不代绿不重跑不遮蔽；selftest 全绿（负样本缺 evidence→红 + 真树 VERDICT==子门实测态 + fact⑥ 两态注入→红；留痕件 `…_013703Z`〔受控负样本 FAIL〕/`…_013707Z`〔PASS〕只增不删）。
+- **⑤ 验收命令逐字输出（守卫套件）**：
+  ```text
+  py -3 milestones/g11/harness/g11_5b_ab_rerun.py --stage all
+    → 契约 digest 三面绑定 == G10.5 锁定值（cornell 80305791…/bistro ad45951b…/联合 64fd54df…）✓
+    → Rurix 全修复面 + --sky-ibl：cornell f2352985…/bistro ef5980b1…（sky_ibl 闭集块 enabled=true，direct_sky_mean 0.14580/0.19866）
+    → parity 双场景 == G10.5 锁定 digest 逐位一致 ✓；UE 双端重出 == G11.3/G11.4/G11.5 帧第四次逐位复现 ✓
+    → 度量：bistro SSIM=0.334404（G11.5 = 0.010847）FLIP 0.81715（0.91423）PSNR 7.4203（3.8652）；cornell SSIM 0.696881（0.582727）
+    → 清单落盘：total 11 / converged 8 / aligned_closed 3 / partial 0 / new_items 0
+  py -3 ci/g11_fix_r1_material_subset_smoke.py --gate g11.p0.m147.fix_r1_material_subset --phase g11.5
+    [g11_m147] checks 11/11 device=executed phase=g11.5 → PASS（基线 0.8328980787837229 → 复测 0.6655959582429252）
+  py -3 ci/g11_ab_retest_closure_smoke.py --gate g11.p0.m155.ab_retest_closure
+    [g11_m155] checks 27/27 device=executed → PASS（11 行逐项闭环核验全绿 + RED 六臂全检出）
+  py -3 ci/g11_regression_guard_smoke.py --gate g11.p0.m156.regression_guard
+    [g11_m156] checks 16/16 device=not_applicable → PASS（48 门 + G11 已绿门全绿汇总 + 抽检八面真跑零降级）
+  py -3 ci/g11_wave5_exit_check.py --gate g11.wave.5.exit
+    两门 GATE 双 PASS + 六 facts 全 PASS → VERDICT = PASS（evidence g11_wave5_exit_20260817T034128Z.json）
+  py -3 ci/check_structure.py            → PASS (11 dirs, 6 files)
+  py -3 ci/check_schemas.py              → PASS（含 M155/M156/wave5/M147 g11.5 phase 新 evidence 全量校验——既有 schema anyOf 支 0-byte 消费）
+  py -3 ci/check_number_ledger.py        → PASS（spec RXS 头 379 个零同号碰撞；ledger v1.120 登记在树）
+  py -3 ci/check_g11_acceptance_map.py   → PASS（13 P0 + 1 已 go P1 三向/双向逐字一致；numeric_step 零预占）
+  py -3 ci/check_g11_implementation_interlock.py --require-ready → VERDICT=READY（budget 28 条 measured_local 零 estimated）
+  py -3 ci/trace_matrix.py --check       → PASS (379/379)
+  py -3 ci/stable_snapshot.py --check    → PASS（spec_clauses=379，三段 0 变化）
+  py -3 ci/budget_eval.py --strict       → PASS (166 pass, 0 skip——收敛阈零新增，复用 G11.3/G11.4 已产 g11.fix.* 标定条目)
+  py -3 ci/check_guardrails.py b50642fd  → PASS（字节级只追加核对；advisory 面：evidence/d3d12_interop_smoke.json 工作树改写 = 异己并发会话 2026-08-17T10:40 本地真跑留痕（非本车道文件，不混入不消费，维持未提交），先例面一致 0 新增面）
+  py -3 ci/check_contribution.py         → advisory 先例面一致（历史 findings 0 新增面）
+  ```
+- **⑥ 门序 / not-triggered / no-go 登记面与复测集切换治理接线**：M130 双 phase 三重绑定 M156 门内真跑绿（双场景三方 digest 逐位相等 `64fd54df…` + 应用层探针逐点 ≤1e-3 px）。**复测消费面切换**（CI_GATES v1.6 注记同批）：`ci/g11_5_retest_lib.py` 增 `RURIX_G11_RETEST_SET` 选择面（缺省 g11_5b = 当前闭环面；g11_5 = 首跑集回访；闭集外 fail-closed）——**门禁检集/锁定基线字面/收敛阈标定条目/gate key/脚本名/numeric_step 全部 0-byte 不动**，仅复测输入集切换；pr-smoke 步骤 211/213 接 env 同构（数字步骤零新增，201/211/212/213 既有号维持）；M155 清单 registry 名字面校验随集同构（rl.REGISTRY_NAME）。**CI_step 零新增**（快照 next_free=214 维持不动）；RXS 顺位 397→398（v1.120）；RD/U/SG/MR/D/RFC 零新号。**G11.6 P2 候选行维持登记**：「锁定度量对正确修复结构性不友好」（反向激励旁证 0.1624318277352612 > 0.009656442299775102 证据链维持——本波 R1 已真实收敛，该行转为度量稳健性评估候选不撤）+ 新增 g11_5b_sun_through_glass_tail（太阳穿半透明玻璃高光尾，诊断文档 §0 次因行承接锚）。`cargo test --workspace` 全绿（exit 0，2026-08-17 实测）；`cargo fmt --check` / `cargo clippy -D warnings` 为 HEAD 预存漂移红（G11.2 §8.2 同口径登记，本波不扩大不冒充修复）。**G-G11-7 退出门判据「M155/M156 两个 P0 独立断言全绿」达成（M155 PASS 27/27 + M156 PASS 16/16 + wave5 聚合 VERDICT=PASS）——G11.5b 追加子波验收通过；G11.5 首跑 FAIL→G11.5b 诊断修复→复跑 PASS 完整留痕（§8.5 0-byte 保留）**。
+- **⑦ 异己并发工作树面与纪律**：本批两 commit——spec-first commit `b50642fd`（spec/README.md + spec/global_illumination.md + conformance 两锚 + traceability_matrix 双件 + registry/number_ledger.json + tests/stable 双件 + 诊断文档）+ 实现/复测批（src/rurix-asset bin g10_5_scene_render.rs 旗标面与诊断面 + ci/g11_5_retest_lib.py 选择面 + ci/g11_ab_retest_closure_smoke.py 集同构校验 + pr-smoke 双步骤 env + milestones/g11 CI_GATES v1.6 + harness 五件〔g11_5b_ab_rerun.py / g11_5b_ldr_diag.py / g11_5b_preview_metrics.py / g11_5b_ue_render.py / ue_python/g11_5b_diag_scenes.py〕+ g11_5b_rerun_report.json + g11_5b_retest_gap_registry.json + 本契约本条 + evidence 新件）；**异己会话 src/ 未提交面（rurix-asset lib.rs ktx2_read 声明 + ktx2_read.rs + rurix-render geometry/hzb + gi/restir/sdf_trace + shadow/smrt + ssr 声明面）与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交、不混入本批**（立项裁决 1 / MAP §3.1，G10.8b §8.10 先例同模——`git add` 按文件名显式择取，异己面零混入）；压测资产二进制零入 git（K: 盘外部缓存）；UE 零 vendoring（只读外部参照）；新文件 LF + 尾换行。**工作树并发安全留痕**：本波期间异己会话活跃（evidence/d3d12_interop_smoke.json 本地真跑改写 2026-08-17T10:40 实测 + registry/number_ledger.json 本车道编辑一度被回退后重放落盘并复核）——提交前以 git status/diff 逐文件复核本车道文件集。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2/§8.3/§8.3a/§8.3b/§8.4/§8.5 同模）。`Assisted-by: Kimi-K3（G11.5b 波）`（影响范围：§8.5b 本条 + 同批文件集（⑦ 节字面）；验证方式：⑤ 节验收命令逐字输出 + ④ 节门禁 evidence 实测 + ③ 节复跑报告/清单 digest 留痕）。
+

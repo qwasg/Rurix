@@ -1,0 +1,198 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m155_ab_retest_closure",
+  "symbolic_gate_key": "g11.p0.m155.ab_retest_closure",
+  "matrix_row": "M155",
+  "milestone": "M155",
+  "assertion_id": "g11.p0.m155.ab_retest_closure",
+  "status": "fail",
+  "wave": "G11.5",
+  "numeric_step": 211,
+  "source_ref": "G11_CONTRACT §4.2 M155 + G-G11-7 + §8.3a;G11_ACCEPTANCE_MAP §1 M155;CI_GATES §4;g10_gap_registry 11 行锁定清单;spec/visual_comparison.md RXS-0393/RXS-0392",
+  "base_commit": "b50642fdc585feb85ee7715b82eb680d1cd59547",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "spec_rxs0393_clause_on_tree": true,
+    "contract_digest_locked_unchanged": true,
+    "rerun_report_complete_and_digest_honest": true,
+    "dual_end_frames_present_full_scene_set": true,
+    "ue_build_provenance_matches_m128": true,
+    "retest_registry_row_set_exact_locked": true,
+    "baseline_literals_match_locked_registry": true,
+    "retest_deltas_independently_recomputed": true,
+    "closure_thresholds_from_budget_calibrated": true,
+    "closure_r1_ssim_converged": false,
+    "closure_r2_u1_coverage_converged": true,
+    "closure_r3_luminance_converged": true,
+    "closure_r4_p90_converged": true,
+    "closure_r5_u64_seed_converged": true,
+    "closure_u2_luminance_converged": true,
+    "closure_u3_anim_channels_converged": true,
+    "closure_c1_disposition_reviewed": true,
+    "closure_c2_disposition_reviewed": true,
+    "closure_c3_disposition_reviewed": true,
+    "registry_terminal_states_honest": true,
+    "budget_eval_strict_all_pass": true,
+    "red_missing_registry_row_detected": true,
+    "red_stale_rerun_masquerade_detected": true,
+    "red_handwritten_threshold_detected": true,
+    "red_single_end_missing_frame_detected": true,
+    "red_digest_unequal_report_blocked": true,
+    "red_partial_masquerade_closed_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g10_5_scene_render --contract-digest ×2 scenes",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "closure": {
+    "total_rows": 11,
+    "converged": 7,
+    "aligned_closed": 3,
+    "partial": 1,
+    "summary": {
+      "total": 11,
+      "converged": 7,
+      "aligned_closed": 3,
+      "partial": 1,
+      "partial_rows": [
+        "R1"
+      ],
+      "new_items": 0
+    },
+    "contract_digest_unchanged": true,
+    "r1_headline": {
+      "row": "R1",
+      "gap_row_id": "ea68ebb265cb2bd5",
+      "baseline_delta": 0.8328980787837229,
+      "baseline_delta_evaluation_domain": 0.8328980787837229,
+      "retest_delta": 0.9891526376076132,
+      "converged": false,
+      "closure_status": "partial",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r1_ssim_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    }
+  },
+  "closure_rows": [
+    {
+      "row": "R1",
+      "gap_row_id": "ea68ebb265cb2bd5",
+      "baseline_delta": 0.8328980787837229,
+      "baseline_delta_evaluation_domain": 0.8328980787837229,
+      "retest_delta": 0.9891526376076132,
+      "converged": false,
+      "closure_status": "partial",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r1_ssim_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "R2",
+      "gap_row_id": "aa64a7a22dc16a0e",
+      "baseline_delta": -0.7451210021972656,
+      "baseline_delta_evaluation_domain": -0.7451210021972656,
+      "retest_delta": 0.0037841796875,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r2_coverage_shrink_tol + g11.fix.r2_coverage_zero_band（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "R3",
+      "gap_row_id": "60a3ac2d1711912a",
+      "baseline_delta": 2.664779790997505,
+      "baseline_delta_evaluation_domain": 2.7314592314362525,
+      "retest_delta": 0.48023271594443356,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r3_luminance_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "R4",
+      "gap_row_id": "865d452e76fbaa45",
+      "baseline_delta": 4.697253086805343,
+      "baseline_delta_evaluation_domain": 4.8486343559026714,
+      "retest_delta": 1.216991522263363,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r4_p90_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "R5",
+      "gap_row_id": "4fc5507c595f6c35",
+      "baseline_delta": 9.223372036854776e+18,
+      "baseline_delta_evaluation_domain": 9.223372036854776e+18,
+      "retest_delta": 0.0,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.r5_u64_seed_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "U1",
+      "gap_row_id": "03cac13af56a53cf",
+      "baseline_delta": -0.7451210021972656,
+      "baseline_delta_evaluation_domain": -0.7451210021972656,
+      "retest_delta": 0.0037841796875,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.u1_coverage_shrink_tol + g11.fix.u1_coverage_zero_band（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "U2",
+      "gap_row_id": "6311bc89b610e019",
+      "baseline_delta": 0.7698879749655723,
+      "baseline_delta_evaluation_domain": 0.7698879749655723,
+      "retest_delta": 0.6239309005657211,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.u2_luminance_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "U3",
+      "gap_row_id": "0b7c50151f24137e",
+      "baseline_delta": 2.0,
+      "baseline_delta_evaluation_domain": 2.0,
+      "retest_delta": 0.0,
+      "converged": true,
+      "closure_status": "converged",
+      "threshold_provenance": "g11_budget 标定条目 g11.fix.u3_anim_channels_shrink_tol（标定程序产 p100×k，P-09 禁手写）"
+    },
+    {
+      "row": "C1",
+      "gap_row_id": "62692bbd57d731c3",
+      "closure_status": "aligned_closed",
+      "converged": true,
+      "caliber_gate_latest_status": "PASS"
+    },
+    {
+      "row": "C2",
+      "gap_row_id": "afba0e189a607ce2",
+      "closure_status": "aligned_closed",
+      "converged": true,
+      "caliber_gate_latest_status": "PASS"
+    },
+    {
+      "row": "C3",
+      "gap_row_id": "cc2b9ec7f19f0dad",
+      "closure_status": "aligned_closed",
+      "converged": true,
+      "caliber_gate_latest_status": "PASS"
+    }
+  ],
+  "registry_digest": "sha256:4b83c5f9b92a79f883b4d4a12425c16039f6a513e758f79e3f4f27c76ab4f41c",
+  "report_digest": "sha256:af378cbf6bec6e4ba808806fcd040345895c5ea34c380cc24eea45875636d15d",
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T024229Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "UE build provenance: 5.8.1-56057345（M128 登记值）; R1 修复前后 delta 对拍（definitive 面）：基线 0.8328980787837229 → 复测 0.9891526376076132（阈 0.0；converged=False）; caliber_diff 行复核：C1/C2/C3 口径对齐闭环维持（G11.2 门最新 evidence PASS + 残余归属登记一致）; 清单终态汇总: {'total': 11, 'converged': 7, 'aligned_closed': 3, 'partial': 1, 'partial_rows': ['R1'], 'new_items': 0}; R1 行 M147 g11.5 phase 收敛断言不成立（不收敛则整波 FAIL，§8.3a）：基线 0.8328980787837229 → 复测 0.9891526376076132"
+}

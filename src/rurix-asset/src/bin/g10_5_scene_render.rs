@@ -689,6 +689,11 @@ struct MaterialRec {
     // G11.4 R3 修复面（--light-seed-set 消费；解析无条件，像素面默认 0-byte）
     emissive_factor: [f32; 3],
     emissive_img: Option<usize>,
+    // G11.5b 诊断面（解析无条件登记，着色面默认不消费 = 0-byte parity）：
+    // 材质名（诊断直方图锚）+ glTF alphaMode 原始字面 + baseColorFactor 第 4 通道。
+    name: String,
+    alpha_mode: String,
+    base_color_alpha: f32,
 }
 
 /// 纹理消费记录（解码后 RGBA8 行主序；baseColor 经 sRGB→线性 IEC 分段于采样时换算）。
@@ -900,6 +905,21 @@ fn load_gltf_scene(path: &Path, material_pbr: bool) -> Result<SceneLoad, String>
                     .unwrap_or(1.0) as f32,
                 emissive_factor,
                 emissive_img,
+                name: m
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_owned(),
+                alpha_mode: m
+                    .get("alphaMode")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("OPAQUE")
+                    .to_owned(),
+                base_color_alpha: pbr
+                    .and_then(|p| p.get("baseColorFactor"))
+                    .and_then(|v| json_f32_arr(v, 4))
+                    .map(|v| v[3])
+                    .unwrap_or(1.0),
             });
         }
     }
@@ -1452,6 +1472,9 @@ struct G114Stats {
     gi_mean: f64,
     direct_mean: f64,
     emissive_mean: f64,
+    // G11.5b 天光直接 IBL 面（RXS-0397；--sky-ibl 旗标登记面）
+    sky_ibl: bool,
+    sky_ibl_direct_mean: f64,
 }
 
 /// 双线性纹理采样（REPEAT 环绕；glTF UV 原点 = 图像左上，DDS 行主序同向直映射）。
@@ -1637,6 +1660,9 @@ struct WcTracer<'a> {
     lights: Option<&'a LightSeedSet>,
     emissive_inst: &'a [[f32; 3]],
     cache: &'a WorldCache,
+    /// G11.5b（RXS-0397）：--sky-ibl 开时间接估计子 miss 射线整零（天光首反弹
+    /// = 主射线直接项单计数，防 GI/直接双重计数）；关 = 天空常量（0-byte 旧口径）。
+    sky_ibl: bool,
 }
 
 impl RadianceTracer for WcTracer<'_> {
@@ -1646,7 +1672,7 @@ impl RadianceTracer for WcTracer<'_> {
             .tlas
             .intersect(&self.scene.blases, &Ray { origin, dir })
         else {
-            return self.sky_color;
+            return if self.sky_ibl { [0.0; 3] } else { self.sky_color };
         };
         let p = origin + dir * hit.t;
         let mut n = Vec3::from_array(hit.normal);
@@ -1667,6 +1693,7 @@ impl RadianceTracer for WcTracer<'_> {
             self.lights,
             self.emissive_inst,
             None,
+            self.sky_ibl,
         )
     }
 }
@@ -1687,6 +1714,7 @@ fn shade_for_cache(
     lights: Option<&LightSeedSet>,
     emissive_inst: &[[f32; 3]],
     parent: Option<&WorldCache>,
+    sky_ibl: bool,
 ) -> [f32; 3] {
     let mut l = direct_light_at(
         scene,
@@ -1699,6 +1727,14 @@ fn shade_for_cache(
         emissive_inst,
     );
     let albedo = scene.albedos[instance];
+    // G11.5b（RXS-0397）：--sky-ibl 直接天光漫反射 IBL（全向口径 + 下半球黑
+    // 半球混合 (1+n·up)/2）——沉积/缓存面直接项单计数（GI miss 射线同期整零）。
+    if sky_ibl {
+        let hemi = 0.5 * (1.0 + n.y).max(0.0);
+        for ch in 0..3 {
+            l[ch] += albedo[ch] * scene.sky_color[ch] * hemi;
+        }
+    }
     if let Some(par) = parent {
         if let Some(lq) = par.query_radiance(p, n) {
             for ch in 0..3 {
@@ -1732,6 +1768,7 @@ fn build_world_cache_level(
     emissive_inst: &[[f32; 3]],
     seed: u64,
     iteration: u32,
+    sky_ibl: bool,
 ) -> WorldCache {
     let mut wc = WorldCache::new(params);
     for (idx, &(ppos, pn, inst)) in probes.iter().enumerate() {
@@ -1765,11 +1802,20 @@ fn build_world_cache_level(
                         lights,
                         emissive_inst,
                         parent,
+                        sky_ibl,
                     );
                     wc.deposit(q, qn, lv);
                     lv
                 }
-                None => sky_color,
+                // G11.5b（RXS-0397）：--sky-ibl 开时 miss 射线整零（天光首反弹
+                // = 直接项单计数，防 GI/直接双重计数）；关 = 天空常量旧口径 0-byte。
+                None => {
+                    if sky_ibl {
+                        [0.0; 3]
+                    } else {
+                        sky_color
+                    }
+                }
             };
             for ch in 0..3 {
                 acc[ch] += f64::from(l_seen[ch]);
@@ -1788,6 +1834,14 @@ fn build_world_cache_level(
             emissive_inst,
         );
         let albedo_p = scene.albedos[inst];
+        // G11.5b（RXS-0397）：探针点直接项 += 天光漫反射 IBL（半球混合口径），
+        // 天空二反弹及以上经缓存链接正常进入。
+        if sky_ibl {
+            let hemi = 0.5 * (1.0 + pn.y).max(0.0);
+            for ch in 0..3 {
+                dp[ch] += albedo_p[ch] * sky_color[ch] * hemi;
+            }
+        }
         for ch in 0..3 {
             dp[ch] += albedo_p[ch] * (acc[ch] / f64::from(WC_BUILD_RAYS)) as f32;
         }
@@ -1817,6 +1871,7 @@ fn render_frame(
     smooth: bool,
     lights: Option<&LightSeedSet>,
     multibounce: bool,
+    sky_ibl: bool,
 ) -> RenderOut {
     let (w, h) = (c.res_w, c.res_h);
     // 契约：sun.direction = 传播方向；GiScene.sun_dir = 指向光源（= −direction）。
@@ -1837,11 +1892,14 @@ fn render_frame(
     let mut direct = vec![[0.0f32; 3]; (w * h) as usize];
     // G11.4 旗标面：emissive 逐实例 Le（契约光照 JSON 登记消费）+ 主射线
     // emissive 直出缓冲 + 登记计数。旗标关 = 全零缓冲零消费（0-byte parity）。
-    let mut g114 = if lights.is_some() || multibounce {
+    let mut g114 = if lights.is_some() || multibounce || sky_ibl {
         Some(G114Stats::default())
     } else {
         None
     };
+    if let Some(st) = g114.as_mut() {
+        st.sky_ibl = sky_ibl;
+    }
     let mut emissive_inst = vec![[0.0f32; 3]; load.instances.len()];
     let mut emissive_gi = vec![[0.0f32; 3]; load.instances.len()];
     let mut emissive_px = vec![[0.0f32; 3]; (w * h) as usize];
@@ -1872,6 +1930,8 @@ fn render_frame(
         Some(Vec3::new(v4[0] / v4[3], v4[1] / v4[3], v4[2] / v4[3]))
     };
     let mut covered = 0usize;
+    // G11.5b（RXS-0397）：--sky-ibl 直接天光项帧均值累加器（登记面）。
+    let mut sky_acc = 0.0f64;
     for y in 0..h {
         for x in 0..w {
             let u = (x as f32 + 0.5) / w as f32;
@@ -2094,6 +2154,22 @@ fn render_frame(
                     direct[idx][ch] += pl[ch];
                 }
             }
+            // ── G11.5b 天光直接漫反射 IBL 面（旗标 --sky-ibl；RXS-0397）：契约
+            // 天光 = 全向常量辐射度 L_sky（UE SkyLight 指定 cubemap 口径对齐），
+            // E = π·L·(1+n·up)/2（下半球黑半球混合）⇒ Lo = albedo·L·(1+n·up)/2；
+            // 解析式确定性、零采样面；GI 侧 miss 射线同期整零（双重计数排除）。
+            if sky_ibl {
+                let hemi = 0.5 * (1.0 + n.y).max(0.0);
+                for ch in 0..3 {
+                    direct[idx][ch] += albedo[ch] * scene.sky_color[ch] * hemi;
+                }
+                sky_acc += f64::from(
+                    scene.sky_color[0] * 0.2126 + scene.sky_color[1] * 0.7152
+                        + scene.sky_color[2] * 0.0722,
+                ) * f64::from(
+                    albedo[0] * 0.2126 + albedo[1] * 0.7152 + albedo[2] * 0.0722,
+                ) * f64::from(hemi);
+            }
         }
     }
 
@@ -2146,6 +2222,7 @@ fn render_frame(
                 &emissive_gi,
                 c.random_seed,
                 it,
+                sky_ibl,
             );
             if let Some(st) = g114.as_mut() {
                 st.energy_per_iter.push(wc.stats.energy);
@@ -2164,6 +2241,7 @@ fn render_frame(
             lights,
             emissive_inst: &emissive_gi,
             cache: caches.last().expect("multibounce 面至少一级缓存"),
+            sky_ibl,
         };
         render_gi(&depth, &normals, camera, &wc_tracer, None, None, &gi_params)
     } else {
@@ -2215,12 +2293,18 @@ fn render_frame(
                             gi_e = [pi * lq[0], pi * lq[1], pi * lq[2]];
                         } else {
                             st.last_resort_px += 1;
-                            let pi = core::f32::consts::PI;
-                            gi_e = [
-                                pi * scene.sky_color[0],
-                                pi * scene.sky_color[1],
-                                pi * scene.sky_color[2],
-                            ];
+                            // G11.5b（RXS-0397 修订行口径）：--sky-ibl 开时天光
+                            // 末级兜底由主射线直接项承接（天光已单计数），GI 零值
+                            // = 有效零间接，不再重复注入 π×sky；last_resort_px
+                            // 计数显式登记维持。关 = π×sky 旧口径 0-byte。
+                            if !sky_ibl {
+                                let pi = core::f32::consts::PI;
+                                gi_e = [
+                                    pi * scene.sky_color[0],
+                                    pi * scene.sky_color[1],
+                                    pi * scene.sky_color[2],
+                                ];
+                            }
                         }
                     }
                 }
@@ -2244,6 +2328,7 @@ fn render_frame(
         st.gi_mean = sum_gi / nc;
         st.direct_mean = sum_direct / nc;
         st.emissive_mean = sum_emissive / nc;
+        st.sky_ibl_direct_mean = sky_acc / nc;
     }
     // G11.4 远场探针集（RXS-0396 L5 锚①场景标定面）：场景三角形质心确定性
     // 步进采样（≤64），分类 = 相机不可达（画幅外/背面/被遮蔽）⇒ 远场探针；
@@ -2497,6 +2582,370 @@ fn main() {
         std::process::exit(0);
     }
 
+    // ───────────────── G11.5b 诊断面（只读诊断模式，零渲染/派生语义影响） ─────────────────
+    // --diag-aces13-sweep：aces13 view transform + 共享 sRGB 编码器的实际输入→输出
+    // 曲线采样（与 --derive-ldr 同一代码路径单源消费；诊断取证面，禁假设）。
+    if args.iter().any(|a| a == "--diag-aces13-sweep") {
+        let aces = Aces13::new();
+        let mut parts: Vec<String> = Vec::new();
+        let mut push = |inp: [f64; 3], tag: &str, parts: &mut Vec<String>| {
+            let disp = aces.to_display_linear(inp);
+            let enc = [
+                srgb_encode(disp[0].clamp(0.0, 1.0)),
+                srgb_encode(disp[1].clamp(0.0, 1.0)),
+                srgb_encode(disp[2].clamp(0.0, 1.0)),
+            ];
+            parts.push(format!(
+                "{{\"tag\":\"{tag}\",\"in\":[{},{},{}],\"display_linear\":[{},{},{}],\"srgb\":[{},{},{}]}}",
+                inp[0], inp[1], inp[2], disp[0], disp[1], disp[2], enc[0], enc[1], enc[2]
+            ));
+        };
+        for (k, l) in [
+            0.0f64, 1e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 0.09, 0.18, 0.36,
+            1.0, 3.0, 10.0, 30.0, 100.0,
+        ]
+        .iter()
+        .enumerate()
+        {
+            push([*l, *l, *l], &format!("neutral_{k}_{l}"), &mut parts);
+        }
+        push([1.0, 0.0, 0.0], "red", &mut parts);
+        push([0.0, 1.0, 0.0], "green", &mut parts);
+        push([0.0, 0.0, 1.0], "blue", &mut parts);
+        push([0.5, 0.25, 0.1], "chroma_mixed", &mut parts);
+        push([0.02, 0.02, 0.02], "shadow_neutral", &mut parts);
+        println!(
+            "{{\"view_transform\":\"aces13\",\"chain\":\"hdr*exposure->aces13->clamp01->srgb_encode\",\"samples\":[{}]}}",
+            parts.join(",")
+        );
+        std::process::exit(0);
+    }
+
+    // --diag-ldr-stages：HDR→LDR 派生链逐段中间帧落盘（stage1 曝光后 scene-linear /
+    // stage2 view transform 后显示线性 / stage3 sRGB 后 = --derive-ldr 产物逐位一致面），
+    // 供逐段亮度统计定位发散段（G11.5b LDR 残差分解诊断面）。
+    if args.iter().any(|a| a == "--diag-ldr-stages") {
+        let mut hdr_path = None;
+        let mut out_prefix = None;
+        let mut source_end = None;
+        let mut exposure_scale = None;
+        let mut params_digest = None;
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--hdr" => hdr_path = Some(take_arg(&args, &mut i)),
+                "--out-prefix" => out_prefix = Some(take_arg(&args, &mut i)),
+                "--source-end" => source_end = Some(take_arg(&args, &mut i)),
+                "--exposure-scale" => exposure_scale = Some(take_arg(&args, &mut i)),
+                "--params-digest" => params_digest = Some(take_arg(&args, &mut i)),
+                _ => {}
+            }
+            i += 1;
+        }
+        let end = match source_end.as_deref() {
+            Some("rurix") => ExrSourceEnd::Rurix,
+            Some("ue5") => ExrSourceEnd::Ue5,
+            other => fail(&format!("--source-end 闭集外: {other:?}")),
+        };
+        let scale: f64 = exposure_scale
+            .unwrap_or_else(|| fail("缺 --exposure-scale"))
+            .parse()
+            .unwrap_or_else(|_| fail("--exposure-scale 非 f64"));
+        let digest = params_digest.unwrap_or_else(|| fail("缺 --params-digest"));
+        let bytes = std::fs::read(hdr_path.unwrap())
+            .unwrap_or_else(|e| fail(&format!("HDR 帧读取失败: {e}")));
+        let hdr =
+            decode_exr(&bytes, end).unwrap_or_else(|e| fail(&format!("HDR 帧解码失败: {e}")));
+        let aces = Aces13::new();
+        let mut s1: Vec<f32> = Vec::with_capacity(hdr.pixels.len());
+        let mut s2: Vec<f32> = Vec::with_capacity(hdr.pixels.len());
+        let mut s3: Vec<f32> = Vec::with_capacity(hdr.pixels.len());
+        for px in hdr.pixels.chunks_exact(3) {
+            let lin = [
+                f64::from(px[0]) * scale,
+                f64::from(px[1]) * scale,
+                f64::from(px[2]) * scale,
+            ];
+            for ch in lin {
+                s1.push(ch as f32);
+            }
+            let disp = aces.to_display_linear(lin);
+            for ch in disp {
+                let cl = ch.clamp(0.0, 1.0);
+                s2.push(cl as f32);
+                s3.push(srgb_encode(cl) as f32);
+            }
+        }
+        let prefix = out_prefix.unwrap_or_else(|| fail("缺 --out-prefix"));
+        let write_stage = |path: &str, pixels: Vec<f32>, md: ExrMetadata| {
+            let img = ExrImage::new(hdr.width, hdr.height, ExrChannelLayout::Rgb, pixels, md)
+                .unwrap_or_else(|e| fail(&format!("阶段帧构造失败: {e}")));
+            let bytes = encode_exr(&img).unwrap_or_else(|e| fail(&format!("阶段帧编码失败: {e}")));
+            std::fs::write(path, &bytes).unwrap_or_else(|e| fail(&format!("阶段帧落盘失败: {e}")));
+        };
+        let base_md = || ExrMetadata {
+            schema_version: "1".to_owned(),
+            domain: ExrDomain::SceneLinearHdr,
+            transfer: ExrTransfer::Linear,
+            bit_depth: ExrBitDepth::Float32,
+            source_end: ExrSourceEnd::Rurix,
+            view_transform: None,
+            capture_params_digest: format!("sha256:{digest}"),
+            derivation: ExrDerivation::Capture,
+            source_frame_digest: None,
+            chromaticities_origin: Some(ChromaticitiesOrigin::Writer),
+        };
+        write_stage(&format!("{prefix}_stage1_post_exposure.exr"), s1, base_md());
+        let mut md2 = base_md();
+        md2.view_transform = Some(ExrViewTransform::Aces13);
+        write_stage(&format!("{prefix}_stage2_view_linear.exr"), s2, md2);
+        let src_digest = frame_content_digest(hdr.width, hdr.height, 3, &hdr.pixels);
+        let md3 = ExrMetadata {
+            schema_version: "1".to_owned(),
+            domain: ExrDomain::DisplayReferredLdr,
+            transfer: ExrTransfer::Srgb,
+            bit_depth: ExrBitDepth::Float32,
+            source_end: ExrSourceEnd::Rurix,
+            view_transform: Some(ExrViewTransform::Aces13),
+            capture_params_digest: format!("sha256:{digest}"),
+            derivation: ExrDerivation::DerivedHostSrgbEncoderV1,
+            source_frame_digest: Some(src_digest.clone()),
+            chromaticities_origin: Some(ChromaticitiesOrigin::Writer),
+        };
+        write_stage(&format!("{prefix}_stage3_srgb.exr"), s3, md3);
+        eprintln!("[{TAG}] LDR 逐段诊断帧落盘（源帧 content digest {src_digest}）");
+        std::process::exit(0);
+    }
+
+    // --diag-sky-vis：天空/太阳可见性审计（逐跨距像素主射线命中点 K 条余弦半球
+    // 射线逃逸率 + 遮挡者材质直方图 + 太阳验证射线遮挡归属；Pcg32/契约 seed 确定性；
+    // 只读诊断，零像素输出影响）——G11.5b LDR 残差空间分布定位面。
+    if args.iter().any(|a| a == "--diag-sky-vis") {
+        let mut gltf_path = None;
+        let mut contract_path = None;
+        let mut scene_id = None;
+        let mut stride = 8usize;
+        let mut rays_k = 32usize;
+        let mut i = 0;
+        while i < args.len() {
+            match args[i].as_str() {
+                "--gltf" => gltf_path = Some(take_arg(&args, &mut i)),
+                "--contract" => contract_path = Some(take_arg(&args, &mut i)),
+                "--scene-id" => scene_id = Some(take_arg(&args, &mut i)),
+                "--stride" => {
+                    stride = take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--stride 非 usize"))
+                }
+                "--rays" => {
+                    rays_k = take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--rays 非 usize"))
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        let text = std::fs::read_to_string(contract_path.unwrap())
+            .unwrap_or_else(|e| fail(&format!("契约参数读取失败: {e}")));
+        let c = parse_contract(&text, u64_seed).unwrap_or_else(|e| fail(&e));
+        let scene_id = scene_id.unwrap_or_else(|| fail("缺 --scene-id"));
+        let load = load_gltf_scene(Path::new(&gltf_path.unwrap()), false)
+            .unwrap_or_else(|e| fail(&format!("场景装载失败: {e}")));
+        let sun_toward = [
+            -c.sun_direction[0],
+            -c.sun_direction[1],
+            -c.sun_direction[2],
+        ];
+        let sun_color = [
+            (c.sun_color[0] * c.sun_intensity_lux) as f32,
+            (c.sun_color[1] * c.sun_intensity_lux) as f32,
+            (c.sun_color[2] * c.sun_intensity_lux) as f32,
+        ];
+        let sky_i = c.sky_intensity as f32;
+        let scene = GiScene::build(
+            &load.instances,
+            f32v(sun_toward),
+            sun_color,
+            [sky_i, sky_i, sky_i],
+        );
+        let camera = contract_camera(&c);
+        let sun_toward_v = Vec3::from_array(normalize3([
+            -c.sun_direction[0] as f32,
+            -c.sun_direction[1] as f32,
+            -c.sun_direction[2] as f32,
+        ]));
+        let (w, h) = (c.res_w, c.res_h);
+        let unproject = |nx: f32, ny: f32, z: f32| -> Option<Vec3> {
+            let v4 = camera.inv_view_proj.transform_vec4([nx, ny, z, 1.0]);
+            if !v4[3].is_finite() || v4[3].abs() < 1e-8 {
+                return None;
+            }
+            Some(Vec3::new(v4[0] / v4[3], v4[1] / v4[3], v4[2] / v4[3]))
+        };
+        let glass_of: Vec<bool> = load
+            .materials
+            .iter()
+            .map(|m| m.name.to_lowercase().contains("glass"))
+            .collect();
+        const GW: usize = 32;
+        const GH: usize = 18;
+        let mut grid_cnt = vec![0u64; GW * GH];
+        let mut grid_vis = vec![0f64; GW * GH];
+        let mut grid_glass = vec![0f64; GW * GH];
+        let mut vis_samples: Vec<f32> = Vec::new();
+        let mut blocker: std::collections::BTreeMap<String, u64> = std::collections::BTreeMap::new();
+        let mut sun_blocker: std::collections::BTreeMap<String, u64> =
+            std::collections::BTreeMap::new();
+        let (mut covered, mut sky_px) = (0u64, 0u64);
+        let (mut total_rays, mut glass_rays) = (0u64, 0u64);
+        let (mut sun_vis, mut sun_block) = (0u64, 0u64);
+        for y in (0..h).step_by(stride) {
+            for x in (0..w).step_by(stride) {
+                let u = (x as f32 + 0.5) / w as f32;
+                let v = (y as f32 + 0.5) / h as f32;
+                let (nx, ny) = (2.0 * u - 1.0, 1.0 - 2.0 * v);
+                let (Some(p0), Some(p1)) = (unproject(nx, ny, 0.0), unproject(nx, ny, 1.0))
+                else {
+                    continue;
+                };
+                let dir = (p1 - p0).normalize();
+                let Some(hit) = scene
+                    .tlas
+                    .intersect(&scene.blases, &Ray { origin: p0, dir })
+                else {
+                    sky_px += 1;
+                    continue;
+                };
+                covered += 1;
+                let p = p0 + dir * hit.t;
+                let mut n = Vec3::from_array(hit.normal);
+                if n.dot(dir) > 0.0 {
+                    n = -n;
+                }
+                let n = n.normalize();
+                let origin = p + n * RAY_EPS;
+                let pidx = (y * w + x) as u32;
+                let mut rng = Pcg32::new(probe_seed(c.random_seed, pidx));
+                let mut miss = 0u64;
+                let mut glass_hit = 0u64;
+                for _ in 0..rays_k {
+                    let d = cosine_sample_hemisphere(n, rng.next_f32(), rng.next_f32());
+                    total_rays += 1;
+                    match scene.tlas.intersect(&scene.blases, &Ray { origin, dir: d }) {
+                        None => miss += 1,
+                        Some(h2) => {
+                            let mi = load.shade[h2.instance as usize].material;
+                            let name = mi
+                                .and_then(|mm| load.materials.get(mm))
+                                .map(|m| m.name.as_str())
+                                .unwrap_or("<none>")
+                                .to_owned();
+                            *blocker.entry(name).or_insert(0) += 1;
+                            if mi.map(|mm| glass_of.get(mm).copied().unwrap_or(false))
+                                .unwrap_or(false)
+                            {
+                                glass_hit += 1;
+                                glass_rays += 1;
+                            }
+                        }
+                    }
+                }
+                if c.sun_intensity_lux > 0.0 && n.dot(sun_toward_v) > 0.0 {
+                    match scene.tlas.intersect(
+                        &scene.blases,
+                        &Ray {
+                            origin,
+                            dir: sun_toward_v,
+                        },
+                    ) {
+                        None => sun_vis += 1,
+                        Some(h2) => {
+                            sun_block += 1;
+                            let name = load.shade[h2.instance as usize]
+                                .material
+                                .and_then(|mm| load.materials.get(mm))
+                                .map(|m| m.name.as_str())
+                                .unwrap_or("<none>")
+                                .to_owned();
+                            *sun_blocker.entry(name).or_insert(0) += 1;
+                        }
+                    }
+                }
+                let vf = miss as f32 / rays_k as f32;
+                vis_samples.push(vf);
+                let gx = ((x as usize) * GW / (w as usize)).min(GW - 1);
+                let gy = ((y as usize) * GH / (h as usize)).min(GH - 1);
+                let cell = gy * GW + gx;
+                grid_cnt[cell] += 1;
+                grid_vis[cell] += f64::from(vf);
+                grid_glass[cell] += glass_hit as f64 / rays_k as f64;
+            }
+        }
+        vis_samples.sort_by(|a, b| a.total_cmp(b));
+        let n_s = vis_samples.len().max(1);
+        let q = |qnt: f64| vis_samples[(n_s as f64 * qnt) as usize].min(vis_samples[n_s - 1]);
+        let mean_vis = vis_samples.iter().map(|v| f64::from(*v)).sum::<f64>() / n_s as f64;
+        let below_001 = vis_samples.iter().filter(|v| **v < 0.01).count();
+        let mut blocker_vec: Vec<(String, u64)> = blocker.into_iter().collect();
+        blocker_vec.sort_by(|a, b| b.1.cmp(&a.1));
+        let blocker_json = blocker_vec
+            .iter()
+            .take(12)
+            .map(|(nm, ct)| format!("{{\"material\":\"{nm}\",\"rays\":{ct}}}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut sun_vec: Vec<(String, u64)> = sun_blocker.into_iter().collect();
+        sun_vec.sort_by(|a, b| b.1.cmp(&a.1));
+        let sun_json = sun_vec
+            .iter()
+            .take(12)
+            .map(|(nm, ct)| format!("{{\"material\":\"{nm}\",\"points\":{ct}}}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let glass_names = load
+            .materials
+            .iter()
+            .filter(|m| m.name.to_lowercase().contains("glass"))
+            .map(|m| {
+                format!(
+                    "{{\"name\":\"{}\",\"alpha_mode\":\"{}\",\"base_color_alpha\":{},\"metallic\":{},\"roughness\":{}}}",
+                    m.name, m.alpha_mode, m.base_color_alpha, m.metallic, m.roughness
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let grid_vis_json = (0..GW * GH)
+            .map(|c| {
+                if grid_cnt[c] > 0 {
+                    format!("{}", grid_vis[c] / grid_cnt[c] as f64)
+                } else {
+                    "null".to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let grid_glass_json = (0..GW * GH)
+            .map(|c| {
+                if grid_cnt[c] > 0 {
+                    format!("{}", grid_glass[c] / grid_cnt[c] as f64)
+                } else {
+                    "null".to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        println!(
+            "{{\"scene_id\":\"{scene_id}\",\"stride\":{stride},\"rays_per_point\":{rays_k},\"covered_points\":{covered},\"sky_pixels\":{sky_px},\"sky_intensity\":{sky_i},\"sky_visibility\":{{\"mean\":{mean_vis},\"p10\":{},\"median\":{},\"p90\":{},\"frac_below_0.01\":{}}},\"glass_blocked_ray_share\":{},\"sun\":{{\"visible_points\":{sun_vis},\"blocked_points\":{sun_block}}},\"hemisphere_blockers\":[{blocker_json}],\"sun_blockers\":[{sun_json}],\"glass_materials\":[{glass_names}],\"grid\":{{\"w\":{GW},\"h\":{GH},\"sky_vis_mean\":[{grid_vis_json}],\"glass_block_frac\":[{grid_glass_json}]}}}}",
+            q(0.10),
+            q(0.50),
+            q(0.90),
+            below_001 as f64 / n_s as f64,
+            glass_rays as f64 / total_rays.max(1) as f64,
+        );
+        std::process::exit(0);
+    }
+
     if args.iter().any(|a| a == "--render") {
         let mut gltf_path = None;
         let mut contract_path = None;
@@ -2507,6 +2956,8 @@ fn main() {
         let smooth_normals = args.iter().any(|a| a == "--smooth-normals");
         // G11.4 旗标面（默认关 = G10.5/G11.3 逐字节 parity）
         let gi_multibounce = args.iter().any(|a| a == "--gi-multibounce");
+        // G11.5b 旗标面（默认关 = 逐字节 parity）：天光直接漫反射 IBL（RXS-0397）
+        let sky_ibl = args.iter().any(|a| a == "--sky-ibl");
         let mut light_seed_path: Option<String> = None;
         let mut i = 0;
         while i < args.len() {
@@ -2593,6 +3044,7 @@ fn main() {
             smooth_normals,
             light_seed.as_ref(),
             gi_multibounce,
+            sky_ibl,
         );
         let mut px = frame.pixels;
         if exposure_scale != 1.0 {
@@ -2708,8 +3160,16 @@ fn main() {
             }
             None => "{\"enabled\":false}".to_owned(),
         };
+        // G11.5b 登记块（闭集；旗标关 = enabled:false 显式登记不冒充）。
+        let sky_json = match frame.g114.as_ref() {
+            Some(st) if st.sky_ibl => format!(
+                "{{\"enabled\":true,\"mode\":\"diffuse_omni_ibl_lower_hemi_black\",\"direct_sky_mean\":{}}}",
+                st.sky_ibl_direct_mean
+            ),
+            _ => "{\"enabled\":false}".to_owned(),
+        };
         println!(
-            "{{\"scene_id\":\"{scene_id}\",\"param_digest\":\"sha256:{digest}\",\"frame\":\"{}\",\"frame_content_digest\":\"{content}\",\"covered_px\":{},\"triangles\":{},\"animations\":{{\"package_count\":{},\"channels\":{},\"consumed_channels\":0,\"policy\":\"strip_static_contract\"}},\"lights\":{lights_json},\"world_cache\":{wc_json},\"materials\":{{\"count\":{},\"textured\":{},\"normal_mapped\":{},\"textures_consumed\":{},\"texture_formats\":[{}],\"textures_declared_unconsumed\":[{}],\"material_pbr\":{material_pbr},\"smooth_normals\":{smooth_normals},\"gi_multibounce\":{gi_multibounce}}}}}",
+            "{{\"scene_id\":\"{scene_id}\",\"param_digest\":\"sha256:{digest}\",\"frame\":\"{}\",\"frame_content_digest\":\"{content}\",\"covered_px\":{},\"triangles\":{},\"animations\":{{\"package_count\":{},\"channels\":{},\"consumed_channels\":0,\"policy\":\"strip_static_contract\"}},\"lights\":{lights_json},\"world_cache\":{wc_json},\"sky_ibl\":{sky_json},\"materials\":{{\"count\":{},\"textured\":{},\"normal_mapped\":{},\"textures_consumed\":{},\"texture_formats\":[{}],\"textures_declared_unconsumed\":[{}],\"material_pbr\":{material_pbr},\"smooth_normals\":{smooth_normals},\"gi_multibounce\":{gi_multibounce}}}}}",
             frame_path.display(),
             frame.covered,
             load.triangle_count,
@@ -2782,7 +3242,7 @@ fn main() {
         let mut warmup_ms = Vec::with_capacity(warmup);
         for _ in 0..warmup {
             let t = std::time::Instant::now();
-            let _ = render_frame(&scene, &camera, &c, &load, false, false, None, false);
+            let _ = render_frame(&scene, &camera, &c, &load, false, false, None, false, false);
             warmup_ms.push(t.elapsed().as_secs_f64() * 1000.0);
         }
         let mut frame_ms = Vec::with_capacity(frames);
@@ -2791,7 +3251,7 @@ fn main() {
         let mut covered = 0usize;
         for k in 0..frames {
             let t = std::time::Instant::now();
-            let fr = render_frame(&scene, &camera, &c, &load, false, false, None, false);
+            let fr = render_frame(&scene, &camera, &c, &load, false, false, None, false, false);
             frame_ms.push(t.elapsed().as_secs_f64() * 1000.0);
             let d = frame_content_digest(c.res_w, c.res_h, 3, &fr.pixels);
             if k == 0 {
@@ -2963,6 +3423,7 @@ fn main() {
                 &emissive_gi,
                 path_trace::M96_SEED,
                 it,
+                false,
             );
             caches.push(wc);
         }
@@ -3019,6 +3480,7 @@ fn main() {
                             Some(&proxy),
                             &emissive_gi,
                             None,
+                            false,
                         ),
                     };
                     for ch in 0..3 {

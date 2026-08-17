@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "subject": "g9_m94_clas_rt_convergence",
+  "symbolic_gate_key": "g9.p0.m94.clas_rt_convergence",
+  "matrix_row": "M94",
+  "milestone": "M94",
+  "assertion_id": "g9.p0.m94.clas_rt_convergence",
+  "status": "pass",
+  "wave": "G9.3",
+  "numeric_step": 140,
+  "source_ref": "RFC-0022 §4.3;spec/virtual_geometry.md RXS-0351;G9_ACCEPTANCE_MAP §2 M94",
+  "base_commit": "b50642fdc585feb85ee7715b82eb680d1cd59547",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "host_rt_clas_tests_anchored": true,
+    "host_vk_m94_layout_anchors": true,
+    "conformance_red_corpus_anchored": true,
+    "device_pass_validation_on": true,
+    "device_static_frame_zero_build": true,
+    "device_red_arms_ok": true,
+    "device_fallback_host_parity": true,
+    "device_main_leg_executed": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-rt --features vulkan --lib rt_clas",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo test -p rurix-rt --features vulkan --lib vk::m94",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "cargo build -p rurix-rt --features vulkan --bin vk_clas_rt",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "vk_clas_rt (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "vk_clas_rt (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=0 主腿真跑)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T033859Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "device 双臂:validation=on 复跑(零报错)+ validation=off 主腿 CLAS 真跑"
+}

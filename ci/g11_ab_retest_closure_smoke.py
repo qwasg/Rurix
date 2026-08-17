@@ -132,8 +132,8 @@ def validate_registry_row_set(doc: dict, locked: dict) -> list[str]:
     problems: list[str] = []
     if not isinstance(doc, dict):
         return ["复测清单非 object"]
-    if doc.get("registry") != "g11_5_retest_gap_registry":
-        problems.append(f"registry 字段漂移: {doc.get('registry')!r}")
+    if doc.get("registry") != rl.REGISTRY_NAME:
+        problems.append(f"registry 字段漂移: {doc.get('registry')!r}（当前复测集 {rl.REGISTRY_NAME}）")
     items = doc.get("items")
     if not isinstance(items, list):
         return problems + ["items 缺失或非数组"]
@@ -222,12 +222,12 @@ def run_selftest() -> int:
             print(f"[{TAG}] selftest FAIL: 真树清单终态误判", file=sys.stderr)
             return 1
     # 红臂①：清单缺行必检出。
-    forged = {"registry": "g11_5_retest_gap_registry", "items": [dict(it) for it in locked["items"][:-1]]}
+    forged = {"registry": rl.REGISTRY_NAME, "items": [dict(it) for it in locked["items"][:-1]]}
     if not any("缺行" in p for p in validate_registry_row_set(forged, locked)):
         print(f"[{TAG}] selftest FAIL: 清单缺行未检出", file=sys.stderr)
         return 1
     # 红臂②：新项静默混入必检出。
-    forged2 = {"registry": "g11_5_retest_gap_registry",
+    forged2 = {"registry": rl.REGISTRY_NAME,
                "items": [dict(it) for it in locked["items"]] + [dict(locked["items"][0], gap_id="f" * 16)]}
     if not any("静默混入" in p for p in validate_registry_row_set(forged2, locked)):
         print(f"[{TAG}] selftest FAIL: 新项静默混入未检出", file=sys.stderr)
@@ -297,7 +297,7 @@ def main() -> int:
     report: dict = {}
     report_problems: list[str] = []
     if not rl.REPORT_PATH.is_file():
-        report_problems.append("g11_5_rerun_report.json 缺失（未复跑冒充即 RED）")
+        report_problems.append(f"{rl.REPORT_PATH.name} 缺失（未复跑冒充即 RED；当前复测集 {rl.REGISTRY_NAME}）")
     else:
         report = rl.load_report()
         stages = report.get("stages") or {}
@@ -369,7 +369,7 @@ def main() -> int:
     registry: dict = {}
     rowset_problems: list[str] = []
     if not rl.RETEST_REGISTRY_PATH.is_file():
-        rowset_problems.append("g11_5_retest_gap_registry.json 缺失（清单未落盘即 RED）")
+        rowset_problems.append(f"{rl.RETEST_REGISTRY_PATH.name} 缺失（清单未落盘即 RED；当前复测集 {rl.REGISTRY_NAME}）")
     else:
         registry = rl.load_retest_registry()
         rowset_problems = validate_registry_row_set(registry, locked)
@@ -539,7 +539,7 @@ def main() -> int:
     check(r.returncode == 0, f"budget_eval --strict FAIL: {tail[-300:]}")
 
     # ⑭ RED 臂①：清单缺行必检出。
-    forged_missing = {"registry": "g11_5_retest_gap_registry", "items": [dict(it) for it in locked["items"][:-1]]}
+    forged_missing = {"registry": rl.REGISTRY_NAME, "items": [dict(it) for it in locked["items"][:-1]]}
     checks["red_missing_registry_row_detected"] = any("缺行" in p for p in validate_registry_row_set(forged_missing, locked))
     check(checks["red_missing_registry_row_detected"], "清单缺行未检出")
 

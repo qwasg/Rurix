@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,10 +37,26 @@ GAP_REGISTRY = cl.GAP_REGISTRY
 BUDGET_PATH = cl.BUDGET_PATH
 LOCKED_DIGEST = cl.LOCKED_DIGEST
 LOCKED_DIGEST_JOINT = cl.LOCKED_DIGEST_JOINT
-REPORT_PATH = ROOT / "milestones" / "g11" / "g11_5_rerun_report.json"
-RETEST_REGISTRY_PATH = ROOT / "milestones" / "g11" / "g11_5_retest_gap_registry.json"
+# G11.5b 复测集选择面（G11.5b 追加子波同构接线，CI_GATES v1.6 注记）：环境变量
+# RURIX_G11_RETEST_SET ∈ {g11_5b（缺省——当前复测闭环面 = 诊断修复后复测集）,
+# g11_5（G11.5 首跑集，0-byte 历史面回访用）}，闭集外值 fail-closed；门禁检集 /
+# 锁定基线 / 标定阈消费面 0-byte 不动——仅复测输入集（帧区/报告/清单）随集切换，
+# evidence 面经 registry_digest/report_digest 字段自证消费集（G11.5 首跑 FAIL
+# evidence 0-byte 保留）。
+_RETEST_SET = os.environ.get("RURIX_G11_RETEST_SET", "g11_5b")
+if _RETEST_SET == "g11_5b":
+    REPORT_PATH = ROOT / "milestones" / "g11" / "g11_5b_rerun_report.json"
+    RETEST_REGISTRY_PATH = ROOT / "milestones" / "g11" / "g11_5b_retest_gap_registry.json"
+    FRAMES_G11_5 = Path(r"K:\rurix-ext\g11-frames\g11_5b")
+    REGISTRY_NAME = "g11_5b_retest_gap_registry"
+elif _RETEST_SET == "g11_5":
+    REPORT_PATH = ROOT / "milestones" / "g11" / "g11_5_rerun_report.json"
+    RETEST_REGISTRY_PATH = ROOT / "milestones" / "g11" / "g11_5_retest_gap_registry.json"
+    FRAMES_G11_5 = Path(r"K:\rurix-ext\g11-frames\g11_5")
+    REGISTRY_NAME = "g11_5_retest_gap_registry"
+else:
+    raise ValueError(f"RURIX_G11_RETEST_SET 闭集外: {_RETEST_SET!r}（g11_5|g11_5b）")
 RESIDUAL_PATH = cl.RESIDUAL_PATH
-FRAMES_G11_5 = Path(r"K:\rurix-ext\g11-frames\g11_5")
 FRAMES_G10_5 = fl.FRAMES_G10_5
 RUST_RELEASE_BIN = cl.RUST_RELEASE_BIN
 
