@@ -628,6 +628,12 @@ def check_evidence_files() -> None:
     g11_closure_baseline_schema = load(
         ROOT / "milestones/g11/g11_closure_baseline_evidence_schema.json"
     )
+    g12_baseline_schema = load(
+        ROOT / "milestones/g12/g12_baseline_evidence_schema.json"
+    )
+    g12_pt_ref_curve_schema = load(
+        ROOT / "milestones/g12/g12_pt_ref_curve_evidence_schema.json"
+    )
     g11_m144_caliber_c1_schema = load(
         ROOT / "milestones/g11/g11_m144_caliber_c1_indoor_luminance_evidence_schema.json"
     )
@@ -1474,6 +1480,16 @@ def check_evidence_files() -> None:
     g11_closure_baseline_validator = (
         jsonschema.Draft7Validator(g11_closure_baseline_schema)
         if g11_closure_baseline_schema is not None
+        else None
+    )
+    g12_baseline_validator = (
+        jsonschema.Draft7Validator(g12_baseline_schema)
+        if g12_baseline_schema is not None
+        else None
+    )
+    g12_pt_ref_curve_validator = (
+        jsonschema.Draft7Validator(g12_pt_ref_curve_schema)
+        if g12_pt_ref_curve_schema is not None
         else None
     )
     g11_m144_caliber_c1_validator = (
@@ -3222,6 +3238,30 @@ def check_evidence_files() -> None:
             # 通用 measured entry 判读（ci/budget_eval.py eval_entry 通用路），零新
             # evaluator 分支。前缀与 g10_baseline_ 及既有全族互不包含，置于 g10 族后安全。
             validator = g11_baseline_validator
+        elif (
+            f.name.startswith("g12_pt_ref_curve_")
+            and g12_pt_ref_curve_validator is not None
+        ):
+            # G12.1 governance-only PT 参照器收敛曲线基线锚（D-G12-5）→
+            # milestones/g12/g12_pt_ref_curve_evidence_schema.json：M96 参照器本回合
+            # 真跑（固定 seed 确定性协议，双跑位级一致 + golden digest 全等 + pbrt 带内）
+            # 双场景收敛曲线逐 spp 档转录，pt_anchor 块含 harness 直出件 digest 与
+            # G9 冻结带回溯；results.trimmed_mean = curve_rurix 供 g12_budget.json
+            # g12.pt.ref_curve_* 通用 measured entry 判读（eval_entry 通用路），零新
+            # evaluator 分支。前缀与 g12_baseline_ 及既有全族互不包含，置于 g11 族后安全。
+            validator = g12_pt_ref_curve_validator
+        elif (
+            f.name.startswith("g12_baseline_")
+            and g12_baseline_validator is not None
+        ):
+            # G12.1 governance-only measured baseline（D-G12-5）→
+            # milestones/g12/g12_baseline_evidence_schema.json：沿 G10.1/G11.1 同协议
+            # 本回合复测重登记（sr_pipeline L3 1080p 帧墙钟 / d2h_pinned 读回带宽，
+            # BENCH_PROTOCOL §3 50x3 协议）+ 会话环境画像随档；锁频漂移诚实边界经
+            # clock_lock_note 存档，阈值 = 实测 ×1.5（min 向 ÷1.5）。results.trimmed_mean
+            # 供 g12_budget.json 通用 measured entry 判读（eval_entry 通用路），零新
+            # evaluator 分支。前缀与 g10/g11_baseline_ 及既有全族互不包含，置于 g11 族后安全。
+            validator = g12_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

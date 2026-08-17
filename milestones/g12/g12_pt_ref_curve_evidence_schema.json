@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.1 PT 参照器收敛曲线基线锚 evidence（M96 参照器本回合真跑收敛曲线登记）",
+  "description": "evidence/g12_pt_ref_curve_<scene>_spp<N>_<UTC>.json。G12.1 governance-only PT 参照器收敛曲线基线锚：M96 参照器（src/rurix-render/src/bin/g9_m96_path_tracer.rs，G9.4 已验收）本回合真跑（RTX 4070 Ti，RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1，固定 seed 11400714819323198485，双跑位级一致 + golden digest 全等 + pbrt 带内）的双场景（m96_cornell / m96_direct）收敛曲线逐 spp 档转录——pt_anchor 块含 scene/spp/seed_device/ref_spp/curve_rurix/curve_pbrt/rel_dev/golden_digest/frozen_band_ref/harness_evidence_digest（回溯本回合 harness 直出件 digest 与 G9 冻结带）；results.trimmed_mean = curve_rurix（rel-MAE vs pbrt-v4 1024spp 参照），供 g12_budget.json g12.pt.ref_curve_* entries 经 ci/budget_eval.py eval_entry 通用路判读，零新 evaluator 分支。本族只登记基线锚（direction=max 语义：生产化门重登记同场景同 spp 收敛曲线值不得大于本锚），不断言任何 G12 生产化实现已发生或不劣于。",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G12.1 治理波 baseline）",
+    "created_utc": "2026-08-17T10:29:07Z"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "evidence_level", "milestone", "base_commit", "timestamp", "environment", "commands", "pt_anchor", "results", "notes"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "enum": ["g12_pt_ref_curve_anchor"] },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "milestone": { "type": "string" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "note"],
+      "properties": {
+        "os": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "pt_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene", "spp", "seed_device", "ref_spp", "curve_rurix", "curve_pbrt", "rel_dev", "golden_digest", "frozen_band_ref", "harness_evidence_digest"],
+      "properties": {
+        "scene": { "type": "string", "enum": ["m96_cornell", "m96_direct"] },
+        "spp": { "type": "integer", "enum": [1, 4, 16, 64] },
+        "seed_device": { "type": "string" },
+        "ref_spp": { "type": "integer", "const": 1024 },
+        "curve_rurix": { "type": "number", "minimum": 0 },
+        "curve_pbrt": { "type": "number", "minimum": 0 },
+        "rel_dev": { "type": "number", "minimum": 0 },
+        "golden_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "frozen_band_ref": { "type": "string", "const": "milestones/g9/g9_m96_pbrt_tolerance_band.json" },
+        "harness_evidence_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "unit", "trimmed_mean", "note"],
+      "properties": {
+        "metric": { "type": "string", "const": "pt_ref_curve_rel_mae" },
+        "unit": { "type": "string", "const": "1" },
+        "trimmed_mean": { "type": "number", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

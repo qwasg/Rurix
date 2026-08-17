@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g12_sr_pipeline_l3_frame",
+  "evidence_level": "measured_local",
+  "milestone": "G12.1",
+  "base_commit": "5ae83aa7",
+  "timestamp": "2026-08-17T10:29:07Z",
+  "environment": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "cuda_driver_version": "13.2",
+    "driver_model": "WDDM",
+    "hags_enabled": true,
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "clocks": {
+      "locked": false,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10251,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "os_build": "Windows 10.0.28120",
+    "thermal": {
+      "temp_start_c": 41,
+      "temp_end_c": 42,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 24
+    },
+    "clock_lock_note": "GPU 锁频状态会话内漂移：治理波 env_probe 起探测 locked=true（sm 2610/mem 10501），本回合 bench harness 直出件探测 locked=false（sm 2610/mem 10251）——按未锁频诚实边界登记；阈值 = 实测 ×1.5 余量覆盖频率漂移（沿 G9.1/G10.1/G11.1 measured 冻结先例，P-09）；harness 协议直出件按 BENCH_PROTOCOL 标 evidence_level=unlocked，本档按 G9.1/G10.1/G11.1 治理波先例以 measured_local 登记并将锁频漂移边界诚实存档。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 bench/env_probe.py --validate",
+      "exit_code": 0,
+      "note": "环境画像 + evidence_schema environment 子 schema 校验 PASS；画像关键字段已并入本档 environment（锁频漂移见 clock_lock_note / WDDM / driver 620.02 / CUDA 13.2 / other_compute_processes 起 23）。"
+    },
+    {
+      "seq": 2,
+      "command": "py -3 bench/sr_pipeline_bench.py --emit build/g12_baseline_scratch/sr_pipeline_l3.json",
+      "exit_code": 0,
+      "note": "L3 协议采样：correctness PASS (frame 1920x1080, prims 4096, 四 stage 逐 stage 参考一致) 后 50x3 timed；直出件 [protocol] evidence written (level=unlocked, 1.214 ms，直出时间戳 2026-08-17T10:23:52Z)。本档 results 逐字段转录自该直出件。"
+    }
+  ],
+  "sampling": {
+    "trials": 3,
+    "warmup_iterations": 15,
+    "timed_iterations": 50,
+    "timer": "cuda_event",
+    "method": "BENCH_PROTOCOL.md §3：warmup 至稳态（窗口 5，CV<0.05；实测 warmup 15 次、steady_state_cv 0.004669）→ 50x3 timed → IQR 去离群（拒 23）→ trial medians 的 trimmed mean(0.2)；每 timed iteration 前 256MB L2 清理；CUDA Event 计时区前后 stream_sync（WDDM batch flush）；problem_size = 1920x1080 frame; binning 4096 prims/240x135 tiles cap32, raster 1 big-tri, depth 2073600px x4 frags, tonemap 6220800 comp。"
+  },
+  "results": {
+    "metric": "frame_time",
+    "unit": "ms",
+    "trial_medians": [1.2176, 1.2144, 1.21],
+    "trimmed_mean": 1.214,
+    "cv": 0.010814,
+    "ci95": [1.2103, 1.2142],
+    "min": 1.1766,
+    "max": 1.6098,
+    "outliers_rejected_iqr": 23,
+    "correctness_check": "pass"
+  },
+  "notes": "G12.1 路径追踪生产化期 baseline 锚①（沿 G10.1/G11.1 同协议本回合复测重登记）：G0 软光栅四 stage（binning/raster/depth/tonemap，RXS-0118~0121）device kernel 背靠背 launch 单帧 1080p GPU 墙钟——G12 生产化期出图/帧捕获面 Rurix 侧出帧耗时回归守护锚（生产化不得降级出帧链路）。数值逐字段转录自 harness 协议直出件 build/g12_baseline_scratch/sr_pipeline_l3.json（harness_commit 5ae83aa7 = G12.0 不可变 ref，直出时间戳 2026-08-17T10:23:52Z，本回合真实运行）；kernel 签名未改（M7.3 PTX golden 冻结面 0-byte）。只证明测量已建立，不证明任何 G12 实现达标；G12 不设绝对 UE PT 画质通过线（契约 §1/§5），本条目为回归守护锚非通过线。"
+}

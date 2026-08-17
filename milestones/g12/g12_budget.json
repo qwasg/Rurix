@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "namespace": "g12",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G12.1 治理波 baseline）",
+    "created_utc": "2026-08-17T10:29:07Z",
+    "base_commit": "5ae83aa7"
+  },
+  "description": "G12 路径追踪生产化期预算（D-G12-5）。G12.1 governance-only 即为非空 measured_local、零 estimated：①两条 bench 回归守护锚（g12.bench.sr_pipeline_l3_frame_ms / g12.bench.bandwidth_d2h_pinned_gbps）= 沿 G10.1/G11.1 同协议本回合复测重登记（RTX 4070 Ti，BENCH_PROTOCOL §3，evidence/g12_baseline_*_20260817T102907Z.json），语义 = 生产化期出帧/读回链路回归守护锚（生产化不得降级），非通过线；②八条 PT 参照器收敛曲线基线锚（g12.pt.ref_curve_{cornell,direct}_spp{1,4,16,64}）= M96 参照器本回合真跑收敛曲线逐 spp 档转录（2026-08-17，base_commit 5ae83aa7 = G12.0 不可变 ref，RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1，双跑位级一致 + golden digest 全等 + pbrt 带内，harness 直出件 digest sha256:f420ac62…，evidence/g12_pt_ref_curve_*_20260817T102907Z.json）——direction=max 语义：G12 生产化门（M158~M161）重登记同场景同 spp 收敛曲线值不得大于本锚（不劣于判定）；生产化容差由 G12.2 标定程序（M166）measured 追加为本预算新条目（沿 G10.4 M138/G11.2 M157 追加先例，禁手写）。诚实边界：GPU 锁频状态会话内漂移（env_probe 起探测 locked=true，bench 直出件探测 locked=false，随证据 environment.clock_lock_note 存档；×1.5 / ÷1.5 余量沿 G9.1/G10.1/G11.1 measured 冻结先例覆盖频率漂移，P-09）；PT 曲线锚为固定 seed 确定性协议面确定函数输出（非时序采样），本回合真跑值与 G9 冻结带 curve_rurix 列逐位一致（确定性协议兑现）。本预算只证明测量已建立与基线锚已登记，不证明任何 G12 实现达标、不断言任何生产化已发生或不劣于；G12 不设绝对 UE PT 画质通过线（G12_CONTRACT §1/§5）。前瞻预算项（各生产化门收敛容差 / 吞吐基线 M165 / 标定值 M166）一律等实现波标定回填——无实测证据的阈值不写入（零 estimated 硬约束）；counter_assertions 本波留空：未知 counter id 会被 ci/budget_eval.py 强制 FAIL（14 §5 防僵尸纪律），G12 计数器断言须随实现波次连同 evaluator 一并落盘，本波不建空形态。",
+  "source_docs": [
+    "milestones/g12/G12_PLAN.md",
+    "milestones/g12/G12_CONTRACT.md",
+    "milestones/g9/g9_m96_pbrt_tolerance_band.json"
+  ],
+  "entries": [
+    {
+      "id": "g12.bench.sr_pipeline_l3_frame_ms",
+      "description": "G12 生产化期出图/帧捕获面 Rurix 侧出帧耗时回归守护锚：G0 软光栅四 stage（binning/raster/depth/tonemap，RXS-0118~0121）device kernel 背靠背 launch，1920x1080 帧单帧 GPU 墙钟（BENCH_PROTOCOL §3：warmup 15 至稳态 CV 0.004669 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时）。阈值 = 实测 1.214 × 1.5 = 1.821 ms（四舍五入 4 位）。诚实边界：锁频状态会话内漂移（随证据存档）；四 stage 各按 L3 独立放大代表一帧大分辨率软光栅；沿 G10.1/G11.1 同协议本回合复测（2026-08-17T10:23:52Z 直出件转录），非 G12 渲染器实现达标证明。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1.821,
+      "evidence_file": "evidence/g12_baseline_sr_pipeline_l3_20260817T102907Z.json",
+      "measured_value": 1.214
+    },
+    {
+      "id": "g12.bench.bandwidth_d2h_pinned_gbps",
+      "description": "G12 生产化期帧捕获/帧读回面上界回归守护锚：D2H pinned 256MB Driver API memcpy 带宽（bandwidthTest 等价，BENCH_PROTOCOL §3：warmup 10 至稳态 CV 0.001649 + 50x3 timed + IQR + trimmed mean 0.2，CUDA Event 计时前后 stream_sync）。阈值 = 实测 26.3119 ÷ 1.5 = 17.5413 GB/s（min 向，四舍五入 4 位）。诚实边界：锁频状态会话内漂移（随证据存档）；此为读回链路上界能力锚，非 G12 帧捕获管线实现达标证明；沿 G10.1/G11.1 同协议本回合复测（2026-08-17T10:24:33Z 直出件转录）。",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "threshold": 17.5413,
+      "evidence_file": "evidence/g12_baseline_bandwidth_d2h_pinned_20260817T102907Z.json",
+      "measured_value": 26.3119
+    },
+    {
+      "id": "g12.pt.ref_curve_cornell_spp1",
+      "description": "PT 参照器收敛曲线基线锚（m96_cornell spp=1）：M96 参照器本回合真跑 curve_rurix（rel-MAE vs pbrt-v4 1024spp 参照）转录。direction=max 语义 = G12 生产化门（M158~M161）重登记同场景同 spp 收敛曲线值不得大于本锚（不劣于判定）；生产化容差由 G12.2 标定程序（M166）measured 追加（禁手写）。本条目只登记基线锚，不断言任何生产化已发生；M96 既有判据 0-byte（golden digest 与冻结带全等）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.2931720247639041,
+      "evidence_file": "evidence/g12_pt_ref_curve_cornell_spp1_20260817T102907Z.json",
+      "measured_value": 0.2931720247639041
+    },
+    {
+      "id": "g12.pt.ref_curve_cornell_spp4",
+      "description": "PT 参照器收敛曲线基线锚（m96_cornell spp=4）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.17710069794666713,
+      "evidence_file": "evidence/g12_pt_ref_curve_cornell_spp4_20260817T102907Z.json",
+      "measured_value": 0.17710069794666713
+    },
+    {
+      "id": "g12.pt.ref_curve_cornell_spp16",
+      "description": "PT 参照器收敛曲线基线锚（m96_cornell spp=16）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.12422206054630583,
+      "evidence_file": "evidence/g12_pt_ref_curve_cornell_spp16_20260817T102907Z.json",
+      "measured_value": 0.12422206054630583
+    },
+    {
+      "id": "g12.pt.ref_curve_cornell_spp64",
+      "description": "PT 参照器收敛曲线基线锚（m96_cornell spp=64）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.09022782888026709,
+      "evidence_file": "evidence/g12_pt_ref_curve_cornell_spp64_20260817T102907Z.json",
+      "measured_value": 0.09022782888026709
+    },
+    {
+      "id": "g12.pt.ref_curve_direct_spp1",
+      "description": "PT 参照器收敛曲线基线锚（m96_direct spp=1）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.20455188486043177,
+      "evidence_file": "evidence/g12_pt_ref_curve_direct_spp1_20260817T102907Z.json",
+      "measured_value": 0.20455188486043177
+    },
+    {
+      "id": "g12.pt.ref_curve_direct_spp4",
+      "description": "PT 参照器收敛曲线基线锚（m96_direct spp=4）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.10163445661612792,
+      "evidence_file": "evidence/g12_pt_ref_curve_direct_spp4_20260817T102907Z.json",
+      "measured_value": 0.10163445661612792
+    },
+    {
+      "id": "g12.pt.ref_curve_direct_spp16",
+      "description": "PT 参照器收敛曲线基线锚（m96_direct spp=16）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.051394150300600565,
+      "evidence_file": "evidence/g12_pt_ref_curve_direct_spp16_20260817T102907Z.json",
+      "measured_value": 0.051394150300600565
+    },
+    {
+      "id": "g12.pt.ref_curve_direct_spp64",
+      "description": "PT 参照器收敛曲线基线锚（m96_direct spp=64）：M96 参照器本回合真跑 curve_rurix 转录。direction=max 语义 = 生产化门重登记同场景同 spp 收敛曲线值不得大于本锚；容差由 G12.2 标定程序 measured 追加（禁手写）。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.028991059755816284,
+      "evidence_file": "evidence/g12_pt_ref_curve_direct_spp64_20260817T102907Z.json",
+      "measured_value": 0.028991059755816284
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

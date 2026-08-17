@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "subject": "g12_pt_ref_curve_anchor",
+  "evidence_level": "measured_local",
+  "milestone": "G12.1",
+  "base_commit": "5ae83aa7",
+  "timestamp": "2026-08-17T10:29:07Z",
+  "environment": {
+    "os": "Windows 10.0.28120",
+    "note": "RTX 4070 Ti（compute 8.9，driver 620.02，CUDA 13.2，WDDM）；RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1；M96 固定 seed 确定性协议面，收敛曲线值为确定函数输出（非时序采样），双跑位级一致。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "target/debug/rurixc.exe src/rurix-render/kernels/g9_m96_path_tracer.rx --target vulkan -o .tmp/g12_gov_baseline/m96/g9_m96_path_tracer.spv",
+      "exit_code": 0,
+      "note": "SPIR-V module emitted + spirv-val accepted（rurixc vulkan 后端产线）。"
+    },
+    {
+      "seq": 2,
+      "command": "target/debug/g9_m96_path_tracer.exe --spv .tmp/g12_gov_baseline/m96/g9_m96_path_tracer.spv --pbrt external/pbrt-v4/build/Release/pbrt.exe --imgtool external/pbrt-v4/build/Release/imgtool.exe --work-dir .tmp/g12_gov_baseline/m96/pbrt_work --evidence .tmp/g12_gov_baseline/m96/harness_evidence.json",
+      "exit_code": 0,
+      "note": "RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档真跑 PASS：双跑位级一致 + golden digest 全等 + pbrt 带内 + 三臂 RED 有效（validation=on 0 error）。harness 直出件 digest sha256:f420ac62c68ef22ca7fb5f9bfca2e88de099745cd38ad966f4f41a1846a7b80f。"
+    }
+  ],
+  "pt_anchor": {
+    "scene": "m96_cornell",
+    "spp": 64,
+    "seed_device": "11400714819323198485",
+    "ref_spp": 1024,
+    "curve_rurix": 0.09022782888026709,
+    "curve_pbrt": 0.0664190118121971,
+    "rel_dev": 0.11445491577880104,
+    "golden_digest": "301ae330d9afac2b370105369dfdaacb6c8a6c15ce5ba030c88c6b97fb9af3bb",
+    "frozen_band_ref": "milestones/g9/g9_m96_pbrt_tolerance_band.json",
+    "harness_evidence_digest": "sha256:f420ac62c68ef22ca7fb5f9bfca2e88de099745cd38ad966f4f41a1846a7b80f"
+  },
+  "results": {
+    "metric": "pt_ref_curve_rel_mae",
+    "unit": "1",
+    "trimmed_mean": 0.09022782888026709,
+    "note": "curve_rurix = rel-MAE(rurix device spp=64 帧, pbrt-v4 1024spp 参照帧)；本回合真跑值与 G9 冻结带 curve_rurix 列逐位一致（固定 seed 确定性协议兑现）。"
+  },
+  "notes": "G12.1 PT 参照器收敛曲线基线锚（m96_cornell spp=64）：M96 参照器本回合真跑（2026-08-17，base_commit 5ae83aa7 = G12.0 不可变 ref）收敛曲线值转录。direction=max 语义：G12 生产化门（M158~M161）重登记同场景同 spp 收敛曲线值不得大于本锚（不劣于判定，容差由 G12.2 标定程序 measured 追加禁手写）。本档只登记基线锚，不断言任何 G12 生产化实现已发生或不劣于；M96 既有判据 0-byte（golden digest 与冻结带全等即证）。"
+}
