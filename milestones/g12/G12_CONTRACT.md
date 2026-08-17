@@ -2,8 +2,8 @@
 contract: G12
 title: G12 路径追踪生产化期
 status: active
-implementation_status: blocked
-active_scope: g12_1_governance_only
+implementation_status: unlocked
+active_scope: g12_1_governance_only + g12_2_production_core_wave
 version: v1.0
 date: 2026-08-17
 timebox: "G12.1 治理波即刻执行（G11 已 closed）；G12.2~G12.7b 严格波次，工期在实现互锁开放后由 measured baseline 校准"
@@ -242,3 +242,46 @@ G-G12-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
 ## 8. Implementation activation / Close-out（只追加区）
 
 <!-- 首条未来记录只能是 G-G12-3 互锁实测与 implementation_status 解锁凭据；其后追加逐波验收与 close-out。当前不得写 PASS、不得预填 run URL。 -->
+
+### §8.1 G-G12-3 implementation_status 解锁记录（2026-08-17）——G12.1 治理波验收：互锁 VERDICT=READY（事实门①~④全绿 + 一致性门 C1~C4 全绿）+ 守卫套件全 PASS + registry 补落同批；G12.2 生产化核心波开工面开放
+
+- **① 独立断言全绿清单（`g12.gov.implementation_interlock` 事实门四条 + 一致性门 C1~C4，全 host 治理断言面，无 device 面——治理波零 device 交付）**：
+
+  | gate（脚本内断言标识） | 独立布尔断言 | host/device | evidence 路径 | 结果 |
+  |---|---|---|---|---|
+  | `g12.gov.implementation_interlock` 事实门① | G11_CONTRACT status==closed 且 §8.8 签署块在位 + G12.0 不可变 ref `5ae83aa7` 登记 | host | milestones/g11/G11_CONTRACT.md §8.8 + milestones/g12/G12_CONTRACT.md §7 | PASS |
+  | `g12.gov.implementation_interlock` 事实门② | RFC-0029 在树 Agent Approved + §9.1 ≠起草 provenance 独立评审记录（D-409） | host | rfcs/0029-g12-path-tracer-productionization.md（Agent Approved 2026-08-17）+ milestones/g12/design/rfc0029_adversarial_review.md（第 1 轮 10 findings 全 disposition，v0.2 修法批） | PASS |
+  | `g12.gov.implementation_interlock` 事实门③ | 候选决策表 37 行闭集零空行 + deferred.json history 只追加（vs G12.0 base 条目四字段 0-byte）+ 验收映射 §1 八行 P0（M158~M165 闭集全等）+ §2 一行 P1（M166）无缺行 | host | milestones/g12/G12_CANDIDATE_DECISIONS.md + registry/deferred.json + milestones/g12/G12_ACCEPTANCE_MAP.md | PASS |
+  | `g12.gov.implementation_interlock` 事实门④ | 用户 G12.2 开工指令留痕（2026-08-15 全期授权面「支持 dlss、超分采样、路径追踪等前沿技术」字面）+ workflow 实测末号 216 == ledger CI_step on_tree_max 216 且 next_free 217 == +1 | host | milestones/g12/G12_CONTRACT.md §7 + .github/workflows/pr-smoke.yml + registry/number_ledger.json | PASS |
+  | `g12.gov.implementation_interlock` 一致性门 C1~C4 | C1 双状态诚实 / C2 §8 记录一致 / C3 数字步骤零预占（unlocked 态 not_applicable 两态登记，实测 0 处）/ C4 src-spec-conformance 0-byte（unlocked 态 not_applicable 两态登记，实测 0 处） | host | 本契约 front matter + §8.1 本条 + ci/check_g12_implementation_interlock.py | PASS |
+
+  治理波 measured baseline 事实面（D-G12-5，门消费面非独立门断言）：g12_budget.json 10 条 measured_local 零 estimated——2 bench 回归守护锚沿 G10.1/G11.1 同协议本回合复测重登记（evidence/g12_baseline_sr_pipeline_l3_20260817T102907Z.json / evidence/g12_baseline_bandwidth_d2h_pinned_20260817T102907Z.json）+ 8 条 PT 参照器收敛曲线基线锚（evidence/g12_pt_ref_curve_{cornell,direct}_spp{1,4,16,64}_20260817T102907Z.json，M96 本回合 RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 真跑，双跑位级一致 + golden digest 全等 + pbrt 冻结带内）。
+
+- **② 波聚合门实测输出**：G12.1 治理波**不设 `g12.wave.N.exit` 波聚合门**（波聚合门属 G12.2+ 实现波面，契约 §2.2 波次序列）——SKIP=not-triggered 如实登记不充绿。治理期唯一机器聚合核验面 = 互锁 validator 只读汇总：事实门①~④ 逐条独立断言 + 一致性门 C1~C4，聚合 VERDICT 不遮蔽任一子断言 RED/FAIL（validator 逐行打印 + selftest 红臂实证）；实测 **VERDICT=READY，exit=0**（逐字输出见块③）。验收映射机核由 validator 事实门③承载（M158~M165 闭集全等 + key/script/schema 字面齐备）；契约 §4.2 冻结的 key 命名空间三方逐字一致（契约↔MAP↔CI_GATES）为文档冻结面，G12.2 门 materialize 时由数字机器门逐字对账（post-interlock actual-next-free allocation）。
+
+- **③ 验收命令逐字输出（2026-08-17 真跑留痕，仓库根目录）**：
+  - `py -3 ci/check_g12_implementation_interlock.py --require-ready` → **VERDICT=READY，exit=0**，完整输出：
+    ```text
+    [check_g12_implementation_interlock] 事实门（当前可为红）：
+      PASS ① G11_CONTRACT status = 'closed'（要求 closed）且 §8.8 签署块在位 = True；G12.0 不可变 ref 5ae83aa7 登记 = True
+      PASS ② rfcs/0029-g12-path-tracer-productionization.md：Agent Approved；独立评审 provenance ['Kimi-K3（D-409 独立评审轮次，与起草轮次隔离）']
+      PASS ③ 决策表/ deferred/ 验收映射三面：候选决策表 37 行零空行；deferred history 只追加（vs G12.0 base 四字段 0-byte）；验收映射 §1 八行 P0 + §2 一行 P1 无缺行
+      PASS ④ 用户 G12.2 开工指令留痕（2026-08-15 全期授权面「支持 dlss、超分采样、路径追踪等前沿技术」字面） = True；workflow 实测末号 = 216、ledger CI_step on_tree_max = 216、next_free = 217（一致 = True）
+    [check_g12_implementation_interlock] 一致性门（红即脚本失败）：
+      PASS C1 G12_CONTRACT implementation_status = 'unlocked'；事实门全绿 = True（事实未全绿时必须保持 blocked，禁止治理完成冒充实现开工）
+      PASS C2 §8 G-G12-3 解锁记录存在 = True；事实门全绿 = True、implementation_status = 'unlocked'（双状态与 §8 记录必须一致）
+      PASS C3 数字步骤零预占：not_applicable（implementation_status='unlocked' 已解锁，治理期口径不适用；skipped_reason=实现波合法 materialize，实测 numeric_step 违例 0 处 / workflow g12 token 0 处 / ci/g12_*_smoke.py 0 件均为解锁后合法实现面，非预占；blocked 态恢复原机核，判据语义 0-byte）
+      PASS C4 src/spec/conformance 治理期 0-byte：not_applicable（implementation_status='unlocked' 已解锁，治理期口径不适用；skipped_reason=实现波合法改动三面，实测 g12 实现面 token/命名命中 0 处均为解锁后合法实现面，非治理期预放；blocked 态恢复原机核，判据语义 0-byte）
+    [check_g12_implementation_interlock] VERDICT = READY
+    ```
+  - `py -3 ci/check_g12_implementation_interlock.py --selftest` → **SELFTEST PASS (16 RED + 1 GREEN + 1 TREE)，exit=0**：16 红臂全过（事实门①~④ 红臂 ×10 + C3/C4 预占注入 FAIL 臂 ×2 + C2 记录/状态不一致 FAIL 臂 + unlocked 态 C3/C4 not_applicable 两态校准臂 + unlocked 态事实门红 C1 仍 FAIL 臂 + closed 态全门 not_applicable VERDICT=CLOSED 三态臂）+ 合成正本 GREEN + 当前树 TREE ok（VERDICT=READY，exit=0）。
+  - 守卫套件全 PASS（逐字输出行）：`py -3 ci/check_structure.py` → `[check_structure] PASS (11 dirs, 6 files)`；`py -3 ci/check_schemas.py` → `[check_schemas] PASS`；`py -3 ci/check_number_ledger.py` → `[check_number_ledger] PASS(spec RXS 头 379 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)`；`py -3 ci/trace_matrix.py --check` → `[trace_matrix] PASS (379/379 clauses anchored, 843 test files scanned)`；`py -3 ci/budget_eval.py` → `[budget_eval] PASS (176 pass, 0 skip, normal mode)`（g12.bench 2 条 + g12.pt 8 条 measured_local 全 PASS 零 estimated）。
+
+- **④ 门序 / not-triggered / no-go 登记面摘要**：
+  - **门序**：G-G12-1（治理激活门：用户 2026-08-15 指令留痕 + 十项立项裁决 + G12.0 不可变 ref=5ae83aa7 登记）与 G-G12-2（G12.1 完成门：D-G12-1~5 齐备、验收映射无缺行、零 src/spec/conformance 语义实现、零数字 workflow 空步骤）于 commit `46ac9dcf` 留痕；本批 G-G12-3 三条件齐备——①互锁 validator VERDICT=READY（块①/③机器事实，不以叙述替代）+ ②用户 G12.2 开工指令留痕（契约 §7 指令字面，G12.1 立项与 G12.2+ 开工授权同源）+ ③共享编号按 actual next_free 重新校准（快照：RXS next_free=398 / CI_step next_free=217 / RD next_free=45 / U next_free=58 / RFC next_free=30——一律 `post-interlock actual-next-free allocation`，禁推测号与草案建议值；`py -3 ci/check_number_ledger.py` PASS）。
+  - **front matter flip（本条同批）**：`implementation_status: blocked` → `unlocked`；`active_scope: g12_1_governance_only` → `g12_1_governance_only + g12_2_production_core_wave`（G11 §8.1 flip 先例同模；正文冻结 0-byte——§1 双状态表与「当前裁决」行维持立项时字面，flip 事实以本条为准）。G12.2 起每个实现 PR 必须把 `py -3 ci/check_g12_implementation_interlock.py --require-ready` 作为前置 required check，spec-first + RED 先行，数字 CI 步骤按落盘前实测 actual next_free 顺位领取。
+  - **registry 补落（同批，G12.1 治理波声明未落面）**：number_ledger `reserved_in_flight[G12]` 命名空间登记（RFC-0029 单号 claim + RXS/CI_step/RD/U/RX_error/MR/SG/D 零数字 claim 字面，G10/G11 条目格式同模）+ RFC 命名空间校准（on_tree_max 28→29、next_free 29→30，RFC-0029 已 materialize 在树——v1.113 G11.1 收口先例同模）+ revision_log v1.124；deferred.json history 只追加两条——**RD-039 +1**（M61 G12.1 治理门承接登记：defer-to-G12+ → defer-to-G13+，承接锚字面 0-byte 维持，G13+ 重评窗顺延不关闭）/ **RD-040 +1**（M52 G12 重评窗核验：①真实集成需求未至〔G12.1 治理波零实现〕+ ②capability rt.ser 设备面未实测〔树内零 rt.ser 探针〕双条件未命中 → **maintain-defer**，复评点 = G12.2 生产化核心波 materialize 高分歧 RT workload 集成面时按只追加程序重判）；条目级字段与 status 0-byte。
+  - **not-triggered / no-go / defer 登记面**（如实保持 open，不写进全绿叙述）：M52 maintain-defer（G12.2 复评窗登记）；M61 defer-to-G13+；M100-high 维持 defer（G12.4 触发评估登记——双端 PT 对标若产多灯 workload measured 对照面则按只追加程序重判，未命中锚定 G14）；G10-N17 维持 defer（G12.4 触发评估登记）；G11-N5 度量口径修订评估面维持 defer（G12.6 触发评估登记）；G11-N8/G11-N9 锚定 G15（焦散/透射/specular IBL 面——M96 起步范围冻结维持）；G10-N11/N16/G11-N3/M114-strand 锚定 G14；G10-N5 锚定 G13（DLSS/Streamline 零接线）；SAFE-GPU/M127/M98-l4/M118-hdr-cal/M125-adopt3/G10-N6/G10-N8 维持 defer 承接锚字面 0-byte；G12-N10 材质链 defer-to-G13+ 锚定 G15；G12-N11 no-go（异己会话 src/ 未提交面严禁消费/混入/冒充 G12 任何门绿）；SG-010 软保留 not_triggered 维持。
+  - **异己并发工作树面**：本批只含 registry/number_ledger.json + registry/deferred.json + 本契约（front matter 双字段 + §8.1 本条）三文件；异己会话 src/ 未提交面（rurix-asset/rurix-render geometry/gi/shadow/ssr/ktx2_read/hzb/restir/sdf_trace/smrt 声明面，含 untracked `src/rurix-render/src/gi/restir.rs`）与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交、不混入本批（立项裁决 1，G10.8b §8.10/G11 先例同模——`git add` 按文件名显式择取，异己面零混入）。
+
+- **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.1 同模）。`Assisted-by: Kimi-K3（G12.1 互锁解锁）`（影响范围：registry/number_ledger.json〔reserved_in_flight[G12] + RFC 命名空间校准 + revision_log v1.124〕+ registry/deferred.json〔RD-039/RD-040 history 各 +1〕+ G12_CONTRACT.md〔front matter 双字段 flip + §8.1 本条〕；验证方式：`py -3 ci/check_g12_implementation_interlock.py --require-ready` VERDICT=READY exit=0 + `--selftest` 16 RED+1 GREEN+1 TREE + 守卫套件〔check_structure / check_schemas / check_number_ledger / trace_matrix --check / budget_eval〕全 PASS 实测输出留痕，逐字见块③）。

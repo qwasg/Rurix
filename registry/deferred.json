@@ -1133,6 +1133,11 @@
           "date": "2026-08-16",
           "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G11.1 候选决策表承接逐字复核(defer-to-G12+ 维持);G11.2~G11.5b 五波修复面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现;承接锚:重判条件 = G12+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G12+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G12+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g11/G11_P2_DECISIONS.md §1 M61 行 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/G11_CONTRACT.md §8.6"
+        },
+        {
+          "date": "2026-08-17",
+          "event": "G12.1 治理门承接登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G12.1 候选决策表逐行承接 G11.6 裁决(defer-to-G12+ → defer-to-G13+);G12 路径追踪生产化面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现(M158~M166 生产化项只消费 M96 参照器冻结面光线路径,不触光栅路径面);承接锚:重判条件 = G13+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G13+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G13+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g12/G12_CANDIDATE_DECISIONS.md §1 M61 行/§2 RD-039 行 / milestones/g12/G12_CONTRACT.md §6"
         }
       ]
     },
@@ -1234,6 +1239,11 @@
           "date": "2026-08-16",
           "event": "G11.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——**G11.6 触发评估兑现**:R3 修复(G11.4 点/面光源表达,bistro 4 点光派生 + 18 emissive 实例实测消费,g11_4_light_derivation.json 逐盏 provenance)已落地,但 A/B 复测臂 = host CPU 参考管线(G11 立项裁决 8),未消费 G9 低档 MegaLights GPU 管线——「低档在多灯 workload 下不足」measured 对照面未产出,重判条件未命中维持 defer-to-G12+;不以低档绿色冒充高档触发;承接锚:重判条件 = G12+ 多灯 workload measured 证据齐备(低档 MegaLights GPU 管线在多灯场景 measured 对照)后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)维持,M15 维持 open-留档——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g11/G11_P2_DECISIONS.md §1 M100-high 行 / ci/g11_p2_decisions_check.py(步骤 214) / milestones/g11/g11_4_light_derivation.json / milestones/g11/G11_CONTRACT.md §8.6"
+        },
+        {
+          "date": "2026-08-17",
+          "event": "G12.1 M52 SER 重评窗核验登记(agent 完全自主 D-406 v2.0;G12 立项裁决 5 兑现):M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G12 重评窗核验(G10.6/G10.7 锚定 G12 = 高分歧 RT workload 真实集成面字面兑现)= **maintain-defer**:①真实集成需求未至——G12.1 治理波零实现,高分歧 RT workload 集成面 G12.2 生产化核心波才 materialize;②capability rt.ser 设备面未实测——树内零 rt.ser 探针(grep 实测 src/ 零 rt.ser/HitObject/reorderThread/hit_object 命中,2026-08-17);双条件均未命中 → maintain-defer;复评点 = G12.2 生产化核心波 materialize 高分歧 RT workload 集成面时按只追加程序重判(真实集成需求出现且 capability rt.ser 设备面实测可用 → 独立 Full RFC 评估〔语言层原语面,RFC-0023 冻结面衔接〕;未命中维持 defer 顺延 G13+);承接锚字面 0-byte 维持(G9_P2_DECISIONS §3 原文逐字),兜底 = 语言层不加 SER 原语维持(无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线);RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g12/G12_CONTRACT.md §7 裁决 5 / milestones/g12/G12_CANDIDATE_DECISIONS.md §1 M52 行/§2 RD-040 行"
         }
       ]
     },
