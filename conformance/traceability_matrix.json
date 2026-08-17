@@ -2032,6 +2032,11 @@
       "conformance/gi/accept/adaptive_convergence_minimal.rx",
       "conformance/gi/reject/early_stop_masquerade.rx",
       "conformance/gi/reject/unconverged_pixel_underreport.rx"
+    ],
+    "RXS-0402": [
+      "conformance/gi/accept/denoise_pipeline_minimal.rx",
+      "conformance/gi/reject/denoise_energy_bias.rx",
+      "conformance/gi/reject/temporal_base_rewire.rx"
     ]
   }
 }

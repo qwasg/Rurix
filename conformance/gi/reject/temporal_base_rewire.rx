@@ -1,0 +1,16 @@
+//@ spec: RXS-0402
+// G12.3 M162 RED 语料（spec/global_illumination.md RXS-0402 L4：temporal
+// 底座 0-byte 不接线——任何 TAA/TSR 语义面/代码面改动判 RED；本条款只
+// 消费不接线）。
+// **转正（G12.3 波语料转正批）**：负例数据面——降噪管线时域累积只能
+//   只读消费 temporal::common 历史输出接口面与历史验证参数面
+//   （compute_camera_mv / reproject_sample / validate_history /
+//   depth_rel_tol=0.1 / blend_alpha=0.1）。
+//   负例臂：temporal 底座接线（src/rurix-render/src/temporal/ 相对 G12.0
+//   不可变 ref 任何语义面/代码面改动——目录级 git diff 非空）未被机核
+//   检出 = 底座接线冒充只读消费漏检，必须 RED；该臂独立于正例臂成立，
+//   不红即漏检、本条款整体 FAIL。
+// 预期 RED 面（实现 PR 接线）：底座 diff 机核负例 +
+//   ci/g12_denoise_pipeline_tsr_smoke.py 门 RED 臂（symbolic key
+//   g12.p0.m162.denoise_pipeline_tsr，G12.1 冻结字面不动）。
+fn main() {}

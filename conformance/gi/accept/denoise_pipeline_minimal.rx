@@ -1,0 +1,16 @@
+//@ spec: RXS-0402
+// G12.3 M162 accept 正例语料（spec/global_illumination.md RXS-0402 L1~L6）：
+// 降噪管线与 TSR 底座联动最小正例——时域累积消费既有 TAA/TSR 历史接口面
+// （历史帧重投影 + 深度相对差/法线点积/重投影出屏三判据历史验证 + YCoCg
+// 邻域裁剪；temporal 底座 0-byte 不接线）+ 空域 A-trous 类滤波（小波域多
+// 尺度逐级步长 2^ℓ + 边缘停止函数消费法线/深度/亮度）+ 噪声谱高频能量
+// 下降 ≥ 标定阈（标定程序 measured 产禁手写）+ 帧均值能量守恒容差内
+// （不引入系统性变暗/变亮偏置）+ NRD 类 vendor 降噪评估报告落盘（评估不
+// 接线）+ golden 对拍面不降级 + 帧型标签闭集 {raw, denoised}。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   G12.2 生产化场景集（m96_cornell/m96_direct）+ 双帧序列（帧间相机微移）
+//   + 低 spp 原生帧 + 全 spp 参照帧 + 固定 seed S；降噪帧 vs 原生帧噪声谱
+//   高频能量下降 measured；M96 既有判据 0-byte。
+// 消费锚：ci/g12_denoise_pipeline_tsr_smoke.py
+//   （g12.p0.m162.denoise_pipeline_tsr）正例臂（实现 PR 接线）。
+fn main() {}

@@ -387,3 +387,4 @@
 | RXS-0399 | spec/global_illumination.md | 3 | `conformance/gi/accept/rr_throughput_adaptive_minimal.rx`, `conformance/gi/reject/rr_compensation_missing.rx`, `conformance/gi/reject/rr_early_kill_bias.rx` |
 | RXS-0400 | spec/global_illumination.md | 2 | `conformance/gi/accept/lds_deterministic_minimal.rx`, `conformance/gi/reject/lds_nondeterministic_inject.rx` |
 | RXS-0401 | spec/global_illumination.md | 3 | `conformance/gi/accept/adaptive_convergence_minimal.rx`, `conformance/gi/reject/early_stop_masquerade.rx`, `conformance/gi/reject/unconverged_pixel_underreport.rx` |
+| RXS-0402 | spec/global_illumination.md | 3 | `conformance/gi/accept/denoise_pipeline_minimal.rx`, `conformance/gi/reject/denoise_energy_bias.rx`, `conformance/gi/reject/temporal_base_rewire.rx` |

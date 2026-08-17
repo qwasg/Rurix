@@ -828,7 +828,85 @@
 
 ---
 
-## 17. 修订记录
+## 17. 条款（RXS-0402，G12.3 M162 降噪管线与 TSR 底座联动）
+
+### RXS-0402 降噪管线与 TSR 底座联动：时域累积消费既有历史接口面（temporal 底座 0-byte）、空域 A-trous 类滤波、噪声谱高频能量下降标定、帧均值能量守恒与 NRD 类 vendor 降噪评估（评估不接线）
+
+**Legality**
+
+1. **降噪管线形态**（RFC-0029 §4.5 L1 冻结语义；判据逐字引
+   G12_CONTRACT §4.2 M162 行）：降噪管线 = **时域累积**（消费既有
+   TAA/TSR 历史接口面——历史帧重投影 + 历史验证 + 邻域裁剪，接口面 =
+   `temporal::common` 的 `compute_camera_mv` / `reproject_sample` /
+   `validate_history` / YCoCg 邻域裁剪族与历史验证参数面〔TSR
+   `depth_rel_tol=0.1` / 法线判据 / TAA `blend_alpha=0.1`〕，**temporal
+   底座 0-byte 不接线**：不改 TAA/TSR 任何语义面/代码面，只读消费其
+   历史输出接口面与参数面）+ **空域 A-trous 类滤波**（小波域多尺度
+   逐级步长 2^ℓ，边缘停止函数消费法线/深度/亮度三面）。降噪输入 =
+   PT 原生帧（adaptive 或 full），输出 = 降噪帧；帧型标签闭集
+   `{raw, denoised}` 进 evidence，混标即 RED。
+2. **噪声底回归**（RFC-0029 §4.5 L2 冻结语义）：降噪帧噪声谱高频
+   能量 < 原生帧高频能量（噪声谱 = 帧误差〔对同场景同 spp 上界参照
+   帧〕的高频能量谱——高通段能量占比口径进 evidence），下降幅度 ≥
+   **标定阈**（标定程序 measured 产入 `g12_budget.json`，禁手写
+   P-09）；**噪声底未降冒充降噪即 RED**。
+3. **均值能量守恒**（RFC-0029 §4.5 L3 冻结语义）：降噪前后帧均值
+   能量差 ≤ measured 容差（标定程序产禁手写）——不引入系统性变暗/
+   变亮偏置；区域均值能量差分布（p90）进 evidence；**降噪引入系统性
+   偏置即 RED**——人为 ±k 亮度注入臂必须被均值能量断言检出（偏置
+   注入 RED 臂）。
+4. **历史验证与去鬼影**（RFC-0029 §4.5 L4 冻结语义）：时域累积带
+   历史验证（深度相对差 + 法线点积 + 重投影出屏三判据拒绝失效历史，
+   公式面与 `temporal::common::validate_history`/`reproject_sample`
+   逐字同源）——历史污染鬼影面登记（验证拒绝计数进 evidence）；
+   **temporal 底座接线即 RED**——`src/rurix-render/src/temporal/` 相对
+   G12.0 不可变 ref 任何语义面/代码面改动判 RED（机器核验 = 目录级
+   git diff 0-byte）；本条款只消费不接线。
+5. **NRD 类 vendor 降噪评估（评估不接线）**（RFC-0029 §4.5 L5 冻结
+   语义；RD040-nrd 承接锚口径逐字引 `registry/deferred.json` RD-040
+   backfill_condition「NRD/vendor 降噪经 UpscaleBackend 同构输入契约
+   接入（MV/深度/法线），接入时不改 temporal 底座」）：NRD 类 vendor
+   降噪**评估报告**落盘——UpscaleBackend 同构输入契约（MV/深度/
+   法线）接入面评估 + 许可/ABI/集成形态取证 + 与自研降噪面 measured
+   对照（对照数字来自本门 evidence measured 面，禁凭空引述）；**评估
+   不接线**——接入另判 G13+ 窗；**评估冒充接入即 RED**（树内出现
+   vendor 降噪 SDK 任何接线符号/依赖即 RED）。
+6. **正确性锚 0-byte + golden 对拍面不降级**（G12_CONTRACT §4.2
+   生产化判据统一形态字面）：M96 既有判据 0-byte（起步范围冻结/固定
+   seed 位级确定性协议/pbrt-v4 容差带/golden 门序 D2-Q7 维持）；降噪
+   消费面 = G12.2 生产化模块（`gi::path_trace::prod` 输出面）与 M96
+   参照器冻结面，只消费不回写；**golden 对拍面不降级**——固定全 spp
+   golden 对拍不偏离冻结带（`g9_m96_pbrt_tolerance_band.json`
+   measured×2.0 带继承，RXS-0401 L4 同口径）；固定 seed 双跑位级一致
+   （降噪管线输出 = 输入帧/参数/seed 的确定函数）；不降级既有 62 门
+   绿面。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`src/rurix-render` 维持 `forbid(unsafe_code)`
+  纪律）：降噪 host 面 `gi::path_trace::prod_denoise`（时域累积 host
+  oracle + A-trous host oracle + 噪声谱/均值能量测量面 + G-buffer 主
+  光线深度/法线派生〔消费场景几何与相机面，输入面纪律承 G7.4「输入
+  是输入」先例〕+ MV 经 `temporal::common::compute_camera_mv` 消费
+  〔0-byte 只读〕）+ device 降噪 kernel
+  `src/rurix-render/kernels/g12_pt_denoise.rx`（时域累积 + A-trous
+  逐级 dispatch；公式面与 host oracle 逐字同源，RXS-0357 host oracle
+  纪律继承：仅 host 输出不能充绿，门绿由 device 腿承载）。
+- RED 锚定计划（实现 PR 落）：降噪系统性偏置注入（±k 亮度）→ RED；
+  temporal 底座接线（目录级 diff 非空）→ RED；评估冒充接入（vendor
+  降噪接线符号在树）→ RED；噪声底未降冒充降噪（旁路旁通冒充降噪帧）
+  → RED；历史验证关闭（验证全接受冒充有效历史）→ RED。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/gi/accept/denoise_pipeline_minimal.rx` 与
+  `conformance/gi/reject/denoise_energy_bias.rx`、
+  `conformance/gi/reject/temporal_base_rewire.rx`（条款锚定占位，
+  inert 锚定口径与转正路径见各文件头注释）；锚点目标（实现 PR 转正）
+  = `ci/g12_denoise_pipeline_tsr_smoke.py` 门（symbolic key
+  `g12.p0.m162.denoise_pipeline_tsr`，G12.1 冻结字面 0-byte 不动）。
+
+---
+
+## 18. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
@@ -836,3 +914,4 @@
 | v1.1 | 2026-08-16 | 追加（G11.4 光照与 GI 修复波 spec-first，硬规则 7 条款先行；G11 已解锁 implementation_status=unblocked，G11_CONTRACT §8.1）登记 **RXS-0394 ~ RXS-0396**：RXS-0394（M153 R3 灯种子集表达：光源集五元闭集〔契约 sun/sky + glTF 点光源/面光源/emissive 表面，缺类显式登记〕+ 契约光照面单通道〔corpus/lighting_*.json 唯一事实源，glTF 字段 = 派生输入经 M133 只追加修订程序，直读绕过即 RED〕+ 点光源辐射链〔E = color×I/d²、L = E·ndl·albedo/π·vis，强度派生 = 灯具 emissive 通量换算 Φ=Le·A·π / I=Φ/(2π)，逐盏 provenance〕+ emissive 双级能量贡献语义 + cornell 契约 sun+sky 灯面 0-byte + M100 低档面联动评估登记〔不新造，M100-high 维持 defer〕）/ RXS-0395（M154 R4 多反弹 GI：屏幕探针近场 + 世界辐射缓存远场兜底双级语义〔失效必须回落 + 回落路径逐帧计数 + 禁静默零辐射〕+ 多反弹 ≥2 级〔第二次及以上经世界缓存查询 + 反弹级数/逐级能量计数 + 只丢能量不漏光 RXS-0358 口径继承〕+ 逐级能量单调不增 + host 同构世界缓存兑现面〔解析式否决；不冒充 GPU 管线世界级，GPU 面锚定 G14〕+ RXS-0357 L6 门序继承）/ RXS-0396（M154 M99-clipmap 世界级辐射缓存承接：**RXS-0360 世界级 not-triggered 登记翻转修订行**〔G10.6 rejudged-go 承接锚逐字 + measured 举证 R4 行 4.697253086805343 / C1 行 ≈21×；RXS-0360 既有字面 0-byte〕+ 空间哈希世界缓存〔对数族量化 level=clamp(floor(log2(1+dist/d_ref)),0,LEVELS−1)，s(ℓ)=s0×2^ℓ，LEVELS=4 / s0=scene_diag×2^-8 / d_ref=scene_diag×2^-4 实测标定冻结〔bistro 25.962 m / cornell 958.659 单位〕+ 双哈希步长线性探测 + 在线构建零离线预处理〕+ 距离自适应辐射 LOD clipmap 级〔层级/距离带/命中率计数 + 禁静默降级〕+ 级间回落链 → 天光末级兜底显式登记 + 世界级双锚判定〔远场探针集能量回归达标定阈 + M96 golden 匹配深度对拍，UE 对拍归 G11.5 不混用〕+ ≠RXS-0359 L4 Far Field 边界声明〔M98-l4 defer 0-byte〕）。条款号自 ledger 实测 `RXS.next_free=394` 顺位领取（0394~0396 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料六件（conformance/gi/accept 三件：light_seed_set_minimal.rx / gi_multibounce_two_level_minimal.rx / world_radiance_cache_minimal.rx；reject 三件：light_seed_gltf_direct_bypass.rx / gi_single_bounce_masquerade.rx / world_cache_farfield_zero_energy.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.2 spec 波先例）同 PR 落；symbolic key `g11.p0.m153/m154.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（375→378 全锚定）；stable 快照因条款计数 375→378 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§5 + G11_CONTRACT §4.2 M153/M154 行（判据逐字）+ G11_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§9 修订记录节号顺延 §12，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.4 波）` | **Full RFC**（RFC-0028） |
 | v1.2 | 2026-08-16 | 追加（G11.5b 追加子波 spec-first，硬规则 7 条款先行；G11.5 R1 行整波 FAIL 停线后诊断修复面，G11_CONTRACT §8.5b）登记 **RXS-0397**（天光直接漫反射 IBL 消费面 --sky-ibl：全向口径〔UE SkyLight 指定 cubemap 无遮蔽投递对齐——G11.5b measured 诊断 g11_5b_ldr_residual_diag.md：UE 侧 SkyLight 漫反射占帧均值 95.4%、镜面 ≤0.03%、r.DynamicGlobalIlluminationMethod=0/距离场关机制取证〕+ 下半球黑半球混合闭式 Lo = albedo×L_sky×(1+n·up)/2 + GI 双重计数排除〔旗标开时间接估计子 miss 射线整零，天光首反弹 = 直接项单计数；沉积直接项同式〕+ **RXS-0396 L4 末级兜底修订行**〔旗标开时末级兜底由直接项承接，RXS-0396 既有字面 0-byte〕+ 镜面天光不消费登记〔c1_ue_specular_ibl 维持 G15 候选〕+ 消费面边界〔--gi-multibounce 组合面；cornell 契约灯面 0-byte〕+ 门序继承 + 闭环断言面 = M155/M147 g11.5 phase 字面不改判据）。条款号自 ledger 实测 `RXS.next_free=397` 顺位领取（0397 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料两件（accept sky_ibl_direct_diffuse_minimal.rx + reject sky_ibl_gi_double_count.rx；inert + `//@ spec` 锚定 + 转正路径旁注，G9.2~G11.4 spec 波先例）同 PR 落；symbolic key `g11.p0.m155/m147.*`（G11.1 冻结字面，G11_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（378→379 全锚定）；stable 快照因条款计数 378→379 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0028](../rfcs/0028-g11-gi-quality-closure.md)（Agent Approved 2026-08-16，D-409 评审后）§4.5 伞形「GI/天光遮蔽语义面」+ §5 映射表 + G11_CONTRACT §4.2 M155 行判据逐字承接 + 主会话 G11.5b 裁决（先诊断修复后评 metric，禁改判据充绿）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§12 修订记录节号顺延 §13，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G11.5b 波）` | **Full RFC**（RFC-0028 伞形 §4.5 面承接） |
 | v1.3 | 2026-08-17 | 追加（G12.2 生产化核心波 spec-first，硬规则 7 条款先行；G12 已解锁 implementation_status=unlocked，G12_CONTRACT §8.1 G-G12-3 互锁 READY）登记 **RXS-0398 ~ RXS-0401**：RXS-0398（M158 MIS 完整面生产化：NEE×BSDF 双策略逐顶点 balance heuristic〔w_nee=p_nee/(p_nee+p_bsdf)，delta 光源退化 w_nee=1 无除零〕+ 多光源 MIS〔联合 PDF=离散×连续，光源分布构建确定性 digest〕+ 能量守恒〔白炉均值=入射能量 measured 标定容差 + 逐级能量增量单调不增 RXS-0395 口径继承 + 只丢能量不漏光 RXS-0358 口径继承〕+ 正确性锚 0-byte + 同 spp 收敛不劣于 g12_budget ref_curve 锚〔容差 M166 标定产〕+ **RXS-0357 参照器面生产化演进显式修订行**〔RXS-0357 既有字面 0-byte，起步范围冻结维持〕）/ RXS-0399（M159 俄罗斯轮盘生产化：吞吐自适应 p_kill=clamp(1−T/τ,0,p_max)〔τ 标定程序产 + p_max<1 恒成立 + N_min≥2 最小反弹保障〕+ 无偏补偿闭式 1/(1−p_kill)〔上界登记〕+ 终止率/补偿计数非空 + 跳 RR 偏移 RED 面继承 RXS-0357 三臂）/ RXS-0400（M160 采样策略升级与低差异序列：stratified/Sobol 类候选 benchmark measured 裁决选型 + 确定性协议加性扩展〔样本值=f(像素,采样,维度,seed) 确定函数寻址 + 固定 seed 位级一致维持 + RNG 流布局 provenance；RXS-0357 L2 既有字面 0-byte〕+ 收敛不劣于独立 PCG 流锚）/ RXS-0401（M161 收敛判据生产化：逐像素方差驱动自适应 spp 终止〔阈值标定程序产 p100×k 入 g12_budget + spp 下界 N_floor 保障〕+ 收敛报告〔spp 分布/方差/未收敛像素计数非空〕+ 误判率 ≤ 标定阈 + 全 spp golden 对拍不偏离 measured×2.0 冻结带 + 帧型标签闭集 {adaptive, full_reference}）。条款号自 ledger 实测 `RXS.next_free=398` 顺位领取（0398~0401 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料十一件（conformance/gi/accept 四件：mis_full_surface_minimal.rx / rr_throughput_adaptive_minimal.rx / lds_deterministic_minimal.rx / adaptive_convergence_minimal.rx；reject 七件：mis_weight_missing.rx / mis_energy_bias_inject.rx / rr_early_kill_bias.rx / rr_compensation_missing.rx / lds_nondeterministic_inject.rx / early_stop_masquerade.rx / unconverged_pixel_underreport.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G11.5b spec 波先例）同 PR 落；symbolic key `g12.p0.m158/m159/m160/m161.*`（G12.1 冻结字面，G12_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（379→383 全锚定）；stable 快照因条款计数 379→383 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0029](../rfcs/0029-g12-path-tracer-productionization.md)（Agent Approved 2026-08-17，D-409 评审后）§4.1/§4.2/§4.3/§4.4/§4.7/§5 + G12_CONTRACT §4.2 M158/M159/M160/M161 行判据逐字承接 + G12_ACCEPTANCE_MAP §1。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§13 修订记录节号顺延 §17，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G12.2 生产化核心波）` | **Full RFC**（RFC-0029） |
+| v1.4 | 2026-08-17 | 追加（G12.3 降噪波 spec-first，硬规则 7 条款先行；G12 已解锁 implementation_status=unlocked，G12_CONTRACT §8.1 G-G12-3 互锁 READY）登记 **RXS-0402**（M162 降噪管线与 TSR 底座联动：时域累积消费既有 TAA/TSR 历史接口面〔历史帧重投影 + 历史验证 + 邻域裁剪，`temporal::common` 接口面与历史验证参数面 0-byte 只读消费——**temporal 底座 0-byte 不接线**，目录级 git diff 机核〕+ 空域 A-trous 类滤波〔小波域多尺度逐级步长 2^ℓ + 边缘停止函数消费法线/深度/亮度〕+ 噪声谱高频能量下降 ≥ 标定阈〔标定程序 measured 产入 g12_budget 禁手写 P-09；噪声底未降冒充降噪即 RED〕+ 帧均值能量守恒容差内〔不引入系统性变暗/变亮偏置；偏置注入 RED 臂必检出〕+ 历史验证与去鬼影〔深度相对差 + 法线点积 + 重投影出屏三判据，验证拒绝计数进 evidence〕+ NRD 类 vendor 降噪评估报告落盘〔RD040-nrd 承接锚口径：UpscaleBackend 同构输入契约 MV/深度/法线接入面评估 + 许可/ABI/集成形态取证 + 与自研降噪面 measured 对照；评估不接线，接入另判 G13+ 窗；评估冒充接入即 RED〕+ golden 对拍面不降级〔measured×2.0 冻结带继承，RXS-0401 L4 同口径〕+ 帧型标签闭集 {raw, denoised}）。**目标 spec 落点裁决**：RFC-0029 §5 映射表 §4.5 行候选（global_illumination.md 或 display_pipeline.md——落点裁决 spec-first 波定）裁定落本卷新条款（降噪消费面 = GI 路径追踪生产化输出面，与 RXS-0398~0401 同轴同卷；候选 display_pipeline.md 本体 0-byte，F7 disposition 承接）。条款号自 ledger 实测 `RXS.next_free=402` 顺位领取（0402 单号不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 最小锚定语料三件（conformance/gi/accept 一件：denoise_pipeline_minimal.rx；reject 两件：denoise_energy_bias.rx / temporal_base_rewire.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G12.2 spec 波先例）同 PR 落；symbolic key `g12.p0.m162.denoise_pipeline_tsr`（G12.1 冻结字面，G12_ACCEPTANCE_MAP §1 / CI_GATES §4）0-byte 不动；trace_matrix 重生成 CRLF 字节纪律维持（383→384 全锚定）；stable 快照因条款计数 383→384 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。依据 [RFC-0029](../rfcs/0029-g12-path-tracer-productionization.md)（Agent Approved 2026-08-17，D-409 评审后）§4.5/§4.7/§5 + G12_CONTRACT §4.2 M162 行判据逐字承接 + G12_ACCEPTANCE_MAP §1 + registry/deferred.json RD-040 backfill_condition nrd 分项字面。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§17 修订记录节号顺延 §18，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G12.3 降噪波）` | **Full RFC**（RFC-0029） |
