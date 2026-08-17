@@ -697,6 +697,9 @@ def check_evidence_files() -> None:
     g11_stabilization_soak_schema = load(
         ROOT / "milestones/g11/g11_stabilization_soak_evidence_schema.json"
     )
+    g11_wave7b_closeout_schema = load(
+        ROOT / "milestones/g11/g11_wave7b_closeout_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1576,6 +1579,11 @@ def check_evidence_files() -> None:
     g11_stabilization_soak_validator = (
         jsonschema.Draft7Validator(g11_stabilization_soak_schema)
         if g11_stabilization_soak_schema is not None
+        else None
+    )
+    g11_wave7b_closeout_validator = (
+        jsonschema.Draft7Validator(g11_wave7b_closeout_schema)
+        if g11_wave7b_closeout_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3137,6 +3145,14 @@ def check_evidence_files() -> None:
             # milestones/g11/g11_stabilization_soak_evidence_schema.json：
             # 19 门回归行 + soak 块 honesty 字段全必填 + checks 七键闭集。
             validator = g11_stabilization_soak_validator
+        elif (
+            f.name.startswith("g11_wave7b_closeout_")
+            and g11_wave7b_closeout_validator is not None
+        ):
+            # G11.7b close-out 终审门（步骤 216）→
+            # milestones/g11/g11_wave7b_closeout_evidence_schema.json：
+            # 八 facts READY|BLOCKED + checks 八键闭集 + required_gates 20 行。
+            validator = g11_wave7b_closeout_validator
         elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None

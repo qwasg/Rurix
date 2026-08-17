@@ -2518,6 +2518,27 @@ jobs:
         shell: powershell
         run: py -3 ci/g11_stabilization_soak.py --verify-latest
 
+      # 步骤 216（G11.7b close-out 终审门 g11.wave.7b.closeout;G11 CI_GATES §5 v1.9;
+      # G11_CONTRACT G-G11-10;落盘前实测 CI_step.next_free=216 顺位领取）。只读汇总
+      # 八 facts:①14 key(13 P0 + 1 go P1)最新 evidence 逐门 PASS(wel 口径 + 顶层
+      # status==pass + M147 双 phase 机核:最新 phase==g11.3 件 status==pass 且最新
+      # g11.5 phase 件 verdict==converged,§8.3a 不遮蔽);②wave2~7a 六聚合/决策门
+      # (exit×4 + decisions + soak)全 PASS;③MAP 三向 check_g11_acceptance_map
+      # exit=0;④P2 表 28 行闭集最终状态无漂移(最新 evidence host_section_pass +
+      # FROZEN_IDS 在树);⑤budget_eval --strict 非空零 estimated/skip;⑥7a
+      # full-run 先行(最新 g11_stabilization_soak evidence host_section_pass,
+      # base_commit_7a 留痕;立项裁决 7 同日放行——7a full-run 先行完成后允许同日
+      # close-out);⑦RD 最终状态逐字一致(deferred.json RD-034/039~044 七条目级
+      # status 全 open 逐字 + G11_P2_DECISIONS 28 行 FROZEN_IDS 闭集在树两面一致;
+      # G11 无重评窗表);⑧复测差距清单终审锁定(g11_5b_retest_gap_registry.json
+      # 11 行闭集 gap_id 集 == G10.8b 锁定清单逐字对账 + summary 8/3/0 重算一致 +
+      # C1 残余归属非空——残余差距/未闭环行如实登记不冒充全闭环)+ 最后新绿 UTC
+      # 日留痕。VERDICT=READY|BLOCKED;status flip 独立 commit。evidence 落盘
+      # evidence/g11_wave7b_closeout_<UTC>.json。
+      - name: G11.7b closeout check (G11 CI_GATES §5.216, g11.wave.7b.closeout)
+        shell: powershell
+        run: py -3 ci/g11_closeout_check.py --gate g11.wave.7b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

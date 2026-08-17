@@ -528,3 +528,29 @@ G-G11-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
 - **⑥ 纪律面与同日放行登记**：G5~G10 closed 判据与既有门脚本 0-byte；G11.5b 终态产物（报告/清单/帧区）0-byte（装配腿幂等复核在树回写恢复，不重写终态）；evidence/ 只增不删不改；RXS/RD/U/SG/RX_error/MR/D/RFC 字段 0-byte（本波纯收口面零新 spec 条款/零新 RD/U/SG/MR/RFC）；异己 src/ 未提交面与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交不混入（git add 按文件名显式择取）；本批 commit 只含本车道文件。**同日放行**：7a full-run 先行完成（evidence `…T064847Z` PASS）后允许同日进 G11.7b close-out（立项裁决 7 / G-G11-9 字面，base_commit_7a=`413c58af` 留痕）。
 - **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2~§8.6 同模）。`Assisted-by: Kimi-K3（G11.6/G11.7 收口波）`（影响范围：§8.7a 本条 + 同批文件集（④ 节字面）；验证方式：①~④ 节门禁真跑实测 + ⑤ 节验收命令逐字输出 + evidence g11_stabilization_soak_20260817T064847Z.json 在树）。
 
+### §8.7b G-G11-10 G11.7b close-out 终审记录（2026-08-17）——**八 facts 全 PASS，VERDICT=READY；复测差距清单终审锁定（converged 8 + aligned_closed 3 + partial 0，残余归属如实登记不冒充全闭环）；status flip 独立 commit**
+
+- **波次来源与法定输入**：G-G11-10「G11.7b 收口门：验收映射、候选决策、RD 最终状态逐字一致；全部 P0 独立断言均 PASS；evidence/schema/预算终审；复测差距清单终审锁定（残余差距/未闭环行如实登记不冒充全闭环）；§8 只追加后 status active→closed」。门 = `ci/g11_closeout_check.py --gate g11.wave.7b.closeout`（步骤 216，落盘前实测 `CI_step.next_free=216` 顺位领取；同构 ci/g10_closeout_check.py 只读终审形态），同日放行按立项裁决 7（7a full-run 先行完成 evidence `g11_stabilization_soak_20260817T064847Z.json` PASS，base_commit_7a=`413c58af` 留痕）。
+- **① 八 facts 全 PASS（evidence 落盘 `evidence/g11_wave7b_closeout_20260817T065600Z.json`，VERDICT=READY，checks 八键全真）**：
+  1. `fourteen_keys_pass` 14/14——13 P0 + 1 go P1 逐门最新 evidence wel 口径 PASS + 顶层 `status=="pass"` 字面 + **M147 双 phase 机核**（最新 phase==g11.3 件 status==pass + 最新 g11.5 phase 件 closure.verdict==converged，§8.3a definitive 收敛断言面不遮蔽）；
+  2. `wave_exits_2_to_7a` 6/6——wave2/wave3/wave4/wave5 exit + wave6 decisions + wave7a soak 最新 evidence 全 PASS；
+  3. `acceptance_map_triple`——`check_g11_acceptance_map.py` 三向 exit=0（13 P0 + 1 已 go P1 逐字一致）；
+  4. `p2_decisions_28_frozen`——最新 P2 evidence `g11_p2_decisions_20260817T061746Z.json` host_section_pass + `G11_P2_DECISIONS.md` 28 行 `FROZEN_IDS` 闭集逐 ID 在树（最终状态无漂移）；
+  5. `budget_strict`——`budget_eval --strict` PASS 166 pass 0 skip（非空零 estimated/skip，evidence/schema/预算终审字面）；
+  6. `soak_7a_precedes`——最新 soak evidence host_section_pass + base_commit_7a=`413c58af` 留痕（7a full-run 先行，同日放行立项裁决 7）；
+  7. `rd_final_state_consistent`——deferred.json RD-034/039/040/041/042/043/044 七条目级 status 全 `open` 逐字 + P2 28 行闭集在树（G11 无 defer 重评窗表——G11.1 如实登记法定输入直消费无独立重评窗波次，两面一致；全表深对账由 wave6 门承载不重复）；
+  8. `retest_registry_locked_and_green_recorded`——**复测差距清单终审锁定**：`g11_5b_retest_gap_registry.json` 11 行闭集 gap_id 集 == G10.8b 锁定清单 11 id 逐字对账（多/少/换一行即漂移机核）+ summary 计数重算一致（total 11 / converged 8 / aligned_closed 3 / partial 0 / partial_rows [] / new_items 0）+ C1 行 attribution 残余归属五元非空（R3/R4 残余 + sky-ibl 落地残余 + c1_ue_specular_ibl ≤0.03% + c3_source_bit_depth_quantization + g11_5b_sun_through_glass_tail——**残余差距/未闭环行如实登记不冒充全闭环**，G-G11-10 字面）+ generated_by == g11_5b harness 字面；最后新绿 UTC 日 `last_new_green_utc_date=20260817` 留痕（信息不阻断）。
+- **② 门禁落地**：`ci/g11_closeout_check.py`（只读终审，同构 G10.8b）+ evidence schema `milestones/g11/g11_wave7b_closeout_evidence_schema.json`（numeric_step const 216，verdict enum READY|BLOCKED，required_gates 20 行，extra_facts 8，checks 八键闭集）+ `ci/check_schemas.py` 三处纯追加（load/validator/`g11_wave7b_closeout_` 前缀路由，与既有全族互不包含，既有路由 0-byte）+ pr-smoke.yml 步骤 216（步骤 215 块后追加）+ CI_GATES v1.9 修订行（§5 表体 0-byte）+ ledger CI_step on_tree_max 215→216、next_free 216→217（v1.123）同批。
+- **③ 验收命令逐字输出（守卫套件）**：
+  ```text
+  py -3 ci/g11_closeout_check.py --gate g11.wave.7b.closeout
+    → 八 facts 全 PASS → VERDICT=READY（evidence g11_wave7b_closeout_20260817T065600Z.json）
+  py -3 ci/g11_closeout_check.py --selftest → OK materialized step 216
+  py -3 ci/check_schemas.py            → PASS（g11_wave7b_closeout_ 前缀路由消费新 evidence，既有路由 0-byte）
+  py -3 ci/check_number_ledger.py      → PASS（CI_step on_tree_max=216/next_free=217，v1.123 登记在树）
+  py -3 ci/check_g11_acceptance_map.py → PASS（13 P0 + 1 已 go P1 三向逐字一致）
+  py -3 ci/check_structure.py          → PASS (11 dirs, 6 files)
+  ```
+- **④ 纪律面**：只读终审不重跑子门 smoke、不设 RURIX_REQUIRE_REAL；G5~G10 closed 判据与既有门脚本 0-byte；evidence/ 只增不删不改；RD 条目级 status 与四字段 0-byte；复测清单终态 0-byte（终审锁定不重写）；异己 src/ 未提交面与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交不混入；本批 commit 只含本车道文件。**VERDICT=READY ⇒ status flip 独立洁净 commit（active→closed + §8.8 签署块）**。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.1 / G11 §8.2~§8.7a 同模）。`Assisted-by: Kimi-K3（G11.6/G11.7 收口波）`（影响范围：§8.7b 本条 + 同批文件集（② 节字面）；验证方式：① 节八 facts 终审实测 + ③ 节验收命令逐字输出 + evidence g11_wave7b_closeout_20260817T065600Z.json 在树）。
+
