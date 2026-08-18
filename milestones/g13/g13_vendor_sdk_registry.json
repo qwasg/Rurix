@@ -1,0 +1,37 @@
+{
+  "schema": "rurix.g13.vendor_sdk_registry.v1",
+  "description": "G13.2 M-a(M167) vendor SDK 外部缓存 + 许可/digest 登记面（G13 立项裁决 10 / RFC-0027 许可边界字面：vendor SDK 二进制不入 git，以 gitignored external/ 缓存 + 本登记形态承载）。digest = 2026-08-18 本机实测（Get-FileHash SHA256）；zip digest = GitHub Releases 资产登记 digest 逐字核对一致。",
+  "registered_at": "2026-08-18",
+  "sdks": {
+    "streamline": {
+      "version": "2.10.3",
+      "path": "external/streamline-2.10.3",
+      "source_url": "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.10.3/streamline-sdk-v2.10.3.zip",
+      "source_zip_sha256": "8564646ca6dd7c3960370d05b06054549563f499bfb93d160b46b7494a47bb3c",
+      "license": "NVIDIA RTX SDKs LICENSE（自定义非 OSI；owner 2026-08-18 法律面清结接受，见 milestones/g13/design/vendor_upscale_license_clearance.md）",
+      "integration_arm": "vulkan_interop",
+      "dlls": {
+        "sl.interposer.dll": "fabb19bb6495d743182c1bc51bcbbdc4481acc3dcaf445403f0b304a31a56ccc",
+        "sl.common.dll": "eca8c0f1d4af654103a2f8b315e91fcd54ee4437570ac20c90ab78131c791274",
+        "sl.dlss.dll": "164750168cb36a79e7552e7fc74bf5723347f97f69e5d466167aa09623615c03",
+        "nvngx_dlss.dll": "a8f23de8116727a160a196f9f43604284cd973d801a62bb68c19c828f78e5f3b"
+      },
+      "headers_dir_sha256_note": "include/ 头文件仅作 FFI 声明核对参照，零复制进 src/（手写 Rust repr(C) 声明面，对齐 sys.rs/vk.rs 零外部依赖纪律）"
+    },
+    "fidelityfx": {
+      "version": "2.0.0",
+      "fsr_upscaler_version": "3.1.5",
+      "path": "external/fidelityfx-sdk-2.0.0",
+      "source_url": "https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/releases/download/v2.0.0/FidelityFX-SDK-v2.0.0.zip",
+      "source_zip_sha256": "2c353f94a20a233e033a15c0ddfecaa93500846fc399f13e753f0ac27b9f63dd",
+      "license": "MIT（OSI 批准；许可文本 external/fidelityfx-sdk-2.0.0/license.md）",
+      "integration_arm": "d3d12",
+      "integration_arm_note": "FSR SDK 2.x 已全面移除 Vulkan 后端（v2.0.0/v2.3.0 实测 Kits/FidelityFX/backend 仅存 dx12 面、signedbin 仅存 *_dx12.dll）——FSR 3.1.5 唯一交付通道 = DX12 预编译签名 DLL；DLSS 维持 Streamline Vulkan interop 臂（契约字面），FSR 契约未钉 API 臂（同接口档 = 同一 UpscaleBackend 冻结面）",
+      "dlls": {
+        "amd_fidelityfx_loader_dx12.dll": "11633127b050ec02e147987713900f403056147df529851b1388f987897d5b0e",
+        "amd_fidelityfx_upscaler_dx12.dll": "241e6e5e4d848424eb8ec9a6b22c43fe34cf0cf52d30002ca435ba42e53a9ca0"
+      },
+      "headers_dir_sha256_note": "api/include 与 upscalers/include 头文件仅作 FFI 声明核对参照，零复制进 src/"
+    }
+  }
+}

@@ -92,6 +92,12 @@ pub mod sys;
 /// launch + `ti_export_vulkan_memory` 导出 buffer 的 host readback。
 #[cfg(feature = "taichi-tirt")]
 pub mod tirt;
+/// G13.2 M-a(M167) vendor 超分 FFI 边界(U58;G13_CONTRACT §4.2 M-a 行):DLSS SR
+/// 经 Streamline SDK 2.10.3 Vulkan interop 臂 + FSR 3.1.5 经 FidelityFX SDK 2.0.0
+/// 预编译签名 DLL DX12 臂(FSR SDK 2.x 已无 Vulkan 后端);运行时装载 fail-closed,
+/// 对上全 safe。feature `vendor-upscale`(依赖 `vulkan`)gate,默认关闭。
+#[cfg(feature = "vendor-upscale")]
+pub mod vendor_upscale;
 #[cfg(feature = "vulkan")]
 pub mod vk;
 

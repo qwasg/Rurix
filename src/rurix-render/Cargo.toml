@@ -24,6 +24,9 @@ default = []
 # vulkan:device 执行腿(经 rurix-rt vk 底座真派发)。默认关闭:无 Vulkan SDK 环境
 # `cargo build --workspace` 仍全绿(uc04-demo real-shim 先例,host 逻辑常驻回归网)。
 vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
+# vendor-upscale:G13.2 M-a(M167) vendor 超分 harness 门(DLSS/FSR session 经
+# rurix-rt vendor_upscale 双臂;G13_CONTRACT §4.2 M-a 行)。默认关闭。
+vendor-upscale = ["vulkan", "rurix-rt/vendor-upscale"]
 
 [[bin]]
 name = "g8_m19_probe"
@@ -232,6 +235,18 @@ required-features = ["vulkan"]
 [[bin]]
 name = "g10_m137_diff_report"
 path = "src/bin/g10_m137_diff_report.rs"
+
+# G13.2 M-a(M167) vendor 超分接入 harness(RFC-0016 §4.H3/§9 Q-F;门
+# g13.p0.m_a.vendor_upscale_integration):DLSS SR(Streamline 2.10.3 Vulkan
+# interop)/ FSR 3.1.5(FFX SDK 2.0.0 DX12)双臂经 bin-local adapter 实现
+# UpscaleBackend 冻结面(rurix-rt vendor_upscale safe 公共面消费;temporal/
+# 底座 0-byte)+ TSR host 金标准(tsr.rs)三后端同场景同内部分辨率运行时
+# 切换 + 静态收敛对拍 4×4 超采样参照(SSIM deficit 标定冻结带)+ 双端对拍
+# measured 登记 + DLL provenance 对账 + RED 臂(mock 充真跑/私接面/单臂缺)。
+[[bin]]
+name = "g13_vendor_upscale"
+path = "src/bin/g13_vendor_upscale.rs"
+required-features = ["vendor-upscale"]
 
 [lints]
 workspace = true

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "namespace": "g13",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G13.2 vendor 超分接入波）",
+    "created_utc": "2026-08-18T11:08:26Z",
+    "base_commit": "c1fada728ffc5edbd696ab223de6c95eaf61c490"
+  },
+  "description": "G13 超分/画质期预算。G13.2 M-a(M167)首批三条目 = TSR/DLSS/FSR 静态场景收敛 SSIM deficit 冻结带(threshold = measured × 2.0,协议冻结 k,方向 max;标定腿两跑位级一致程序产,禁手写 P-09)。本预算只证明测量已建立与冻结带已登记,不断言任何超分画质达标——G13 不设 DLSS/超分画质绝对通过线(契约 §4.2 M-a 行字面)。前瞻预算项(M-b TSR device 化质量/帧时三档对照等)一律等后续实现波标定回填——无实测证据的阈值不写入(零 estimated 硬约束);counter_assertions 留空(未知 counter id 会被 budget_eval 强制 FAIL,14 §5 防僵尸纪律)。",
+  "source_docs": [
+    "milestones/g13/G13_CONTRACT.md",
+    "milestones/g13/G13_ACCEPTANCE_MAP.md"
+  ],
+  "entries": [
+    {
+      "id": "g13.upscale.static_converge_ssim_deficit_tsr",
+      "description": "TSR host 金标准静态场景收敛 SSIM deficit 冻结带(320×180→640×360,32 帧 Halton jitter,终帧 1−SSIM 对拍 4×4 超采样参照,RXS-0387 LDR 8×8 窗口径;threshold = measured × 2.0 协议冻结 k;M-a 标定腿产,禁手写 P-09);样本集 digest sha256:588207c962332b239603a34e909cb481c514be10adc46e1546f65f3cc6dfc436(count=32);标定程序 ci/g13_vendor_upscale_integration_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.177664432969282,
+      "evidence_file": "evidence/g13_m_a_calibration_tsr_20260818T111205Z.json",
+      "measured_value": 0.088832216484641
+    },
+    {
+      "id": "g13.upscale.static_converge_ssim_deficit_dlss",
+      "description": "DLSS SR(Streamline 2.10.3 + NGX 签名 DLL,Vulkan interop 臂)静态场景收敛 SSIM deficit 冻结带(同场景同内部分辨率同协议;threshold = measured × 2.0;DLL provenance digest 入 provenance;M-a 标定腿产,禁手写 P-09);样本集 digest sha256:3a09c9186c2871b41c596bed137730eb3fdccc56be55efe930c5a4745c762d3a(count=32);标定程序 ci/g13_vendor_upscale_integration_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.726137284543098,
+      "evidence_file": "evidence/g13_m_a_calibration_dlss_20260818T111205Z.json",
+      "measured_value": 0.363068642271549
+    },
+    {
+      "id": "g13.upscale.static_converge_ssim_deficit_fsr",
+      "description": "FSR 3.1.5(FidelityFX SDK 2.0.0 预编译签名 DLL,D3D12 臂)静态场景收敛 SSIM deficit 冻结带(同场景同内部分辨率同协议;threshold = measured × 2.0;DLL provenance digest 入 provenance;M-a 标定腿产,禁手写 P-09);样本集 digest sha256:b567296c69f5466d9987c372fada7daf1c68483d9075a06408bf682f752638f1(count=32);标定程序 ci/g13_vendor_upscale_integration_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.649858414914936,
+      "evidence_file": "evidence/g13_m_a_calibration_fsr_20260818T111205Z.json",
+      "measured_value": 0.324929207457468
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

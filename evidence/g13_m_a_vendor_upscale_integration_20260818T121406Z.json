@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "subject": "g13_m_a_vendor_upscale_integration",
+  "symbolic_gate_key": "g13.p0.m_a.vendor_upscale_integration",
+  "matrix_row": "M167",
+  "milestone": "M167",
+  "assertion_id": "g13.p0.m_a.vendor_upscale_integration",
+  "status": "pass",
+  "wave": "G13.2",
+  "numeric_step": 236,
+  "source_ref": "G13_CONTRACT §4.2 M-a/G-G13-4;G13_ACCEPTANCE_MAP §1;rfcs/0016-native-renderer.md §4.H3/§9 Q-F;spec/visual_comparison.md RXS-0387/RXS-0388;milestones/g13/design/vendor_upscale_license_clearance.md",
+  "base_commit": "c1fada728ffc5edbd696ab223de6c95eaf61c490",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "license_clearance_present": true,
+    "temporal_base_0byte": true,
+    "no_vendor_source_vendoring": true,
+    "no_private_bypass_surface": true,
+    "sdk_registry_present": true,
+    "host_upscale_tests_anchored": true,
+    "budget_anchors_present": true,
+    "calibration_two_run_bitexact": true,
+    "calibration_budget_entries_measured": true,
+    "budget_eval_all_pass": true,
+    "device_harness_full_pass": true,
+    "device_dlss_real_run": true,
+    "device_fsr_real_run": true,
+    "device_fsr4_ml_fallback_registered": true,
+    "device_three_backend_runtime_switch": true,
+    "device_static_converge_band_within": true,
+    "device_pairwise_tsr_measured_registered": true,
+    "device_dll_provenance_match": true,
+    "device_mock_passthrough_detected": true,
+    "device_red_arm_submodes_detected": true,
+    "device_validation_zero": true,
+    "device_double_run_bitexact": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib temporal:: (TSR 金标准单测逐名锚定)",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "git diff --name-only 8c5dc5ee -- src/rurix-render/src/temporal (0-byte 机核 + 工作树双面)",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g13_vendor_upscale --calibrate tsr|dlss|fsr ×2 (标定腿两跑位级一致)",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurix-render --features vendor-upscale --bin g13_vendor_upscale",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g13_vendor_upscale --band-tsr <g13.upscale..tsr> --band-dlss <..dlss> --band-fsr <..fsr> (RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档;DLSS 校验面经 --validation-probe 自举子进程)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g13_vendor_upscale --red-arm mock-passthrough|mv-garbage|fsr-mv-garbage (逐臂独立复跑)",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T121406Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g13.upscale.static_converge_ssim_deficit_{tsr,dlss,fsr}(本门标定腿产出入 g13_budget)",
+    "measured_value": "tsr deficit=0.0888322165; dlss deficit=0.3555856719; fsr deficit=0.3249292075; dlss_vs_tsr_ssim=0.7318790609; dlss_vs_tsr_maxdiff=0.509642303; fsr_vs_tsr_ssim=0.7831488142; fsr_vs_tsr_maxdiff=0.448202312",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "g13_budget.json M-a 标定条目(标定腿两跑位级一致程序产,threshold = measured × 2.0 冻结 k,禁手写 P-09)",
+    "evolution_register": "DLSS validation 覆盖口径:NGX slEvaluateFeature 段排除(层在下 NGX CUDA interop 触发 nvoglv64.dll 0xc0000005 驱动内崩溃,vendor 已知 SL+validation 不兼容类 Streamline issue #84)——覆盖 = 我方 Vulkan 全表面 + SL 代理建链/簿记(--validation-probe 独立子进程);FSR zero-exposure RED 注入面废止(pre_exposure LDR 路径不消费,实测 deficit 位级一致),fsr-mv-garbage 臂接替"
+  },
+  "notes": "M-a 许可前置清结留痕在树且五要素齐备(Streamline/NGX/FSR/owner/清结); temporal/ vs 8c5dc5ee 目录级 0-byte(提交面 + 工作树双面); git ls-files 全树零 vendor SDK 源码/二进制 vendoring(external/ gitignored 缓存形态); vendor SDK 调用 token 仅见于登记集成面 ['src/rurix-render/src/bin/g13_vendor_upscale.rs', 'src/rurix-rt/src/vendor_upscale.rs']; vendor SDK registry 在树且 Streamline/FSR 双段许可/digest 字段齐备(二进制零入 git); 6 temporal 单测逐名锚定全绿; 标定 tsr: deficit=0.088832216484641; 标定 dlss: deficit=0.363068642271549; 标定 fsr: deficit=0.324929207457468; device:DLSS SR(SL 2.10.3/NGX Vulkan interop)+ FSR 3.1.5(D3D12)+ TSR host 三后端同进程运行时切换真跑;RED 三臂独立复跑;validation 双臂零实错"
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.2 M-a(M167) vendor upscale calibration entry evidence",
+  "description": "evidence/g13_m_a_calibration_<slug>_<UTC>.json。G13.2 M-a 标定腿逐条目 measured 面(标定程序 ci/g13_vendor_upscale_integration_smoke.py 标定腿产,两跑逐字节一致,禁手写 P-09;results.trimmed_mean 供 budget_eval 通用路判读)。静态场景收敛对拍原生参照 SSIM deficit(1−SSIM,RXS-0387 LDR 口径)冻结带标定:三后端(TSR host 金标准/DLSS SR/FSR 3.1.5)各自一条,threshold = measured × 2.0(协议冻结 k,方向 max)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g13upscale.calibration_entry.v1"
+    },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^g13\\.upscale\\."
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": {
+          "type": "number"
+        }
+      }
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest"],
+      "properties": {
+        "count": { "type": "integer" },
+        "digest": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "backend", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "backend": { "type": "string" },
+        "base_commit": { "type": "string" },
+        "dll_digest": { "type": "string" }
+      }
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}

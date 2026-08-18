@@ -46,6 +46,15 @@ d3d12-interop-real = ["d3d12-interop", "rurix-d3d12/real-shim"]
 # launch + ti_export_vulkan_memory 导出 → 同 device vkCmdCopyBuffer readback。
 # 依赖 feature vulkan(vk loader/设备骨架);零新外部依赖。默认关闭。
 taichi-tirt = ["vulkan"]
+# vendor-upscale:G13.2 M-a(M167) vendor 超分 FFI 边界(U58;G13_CONTRACT §4.2):
+# Streamline SDK 2.10.3(DLSS SR,Vulkan interop 臂)+ FidelityFX SDK 2.0.0
+# (FSR 3.1.5,DX12 臂——FSR SDK 2.x 已无 Vulkan 后端)运行时装载 + 各自建并行
+# 设备上下文 + 帧级上传/evaluate/回读。SDK 目录经环境变量 RURIX_STREAMLINE_SDK_DIR /
+# RURIX_FSR_SDK_DIR 或默认 external/ 相对路径;fail-closed P-01;零新外部依赖;
+# SDK 二进制零入 git(external/ gitignored + milestones/g13/g13_vendor_sdk_registry.json
+# 许可/digest 登记)。依赖 feature vulkan(rurix-pkg sha256 用于 DLL provenance)。
+# 默认关闭,default/vulkan 构建零改动零回归。
+vendor-upscale = ["vulkan"]
 # **默认关闭全部**:常驻回归网 `cargo build/test/clippy --workspace` 不触 interop / D3D12 而绿。
 
 # build.rs 经 rurixc 库把 kernels/saxpy.rx 全管线产 PTX 嵌入 EXE(M4.4,D-M4-5);

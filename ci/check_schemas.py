@@ -775,6 +775,15 @@ def check_evidence_files() -> None:
     g13_interlock_check_schema = load(
         ROOT / "milestones/g13/g13_interlock_check_evidence_schema.json"
     )
+    g13_m_a_vendor_upscale_integration_schema = load(
+        ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
+    )
+    g13_m_a_calibration_entry_schema = load(
+        ROOT / "milestones/g13/g13_m_a_calibration_entry_evidence_schema.json"
+    )
+    g13_wave2_exit_schema = load(
+        ROOT / "milestones/g13/g13_wave2_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1784,6 +1793,21 @@ def check_evidence_files() -> None:
     g13_interlock_check_validator = (
         jsonschema.Draft7Validator(g13_interlock_check_schema)
         if g13_interlock_check_schema is not None
+        else None
+    )
+    g13_m_a_vendor_upscale_integration_validator = (
+        jsonschema.Draft7Validator(g13_m_a_vendor_upscale_integration_schema)
+        if g13_m_a_vendor_upscale_integration_schema is not None
+        else None
+    )
+    g13_m_a_calibration_entry_validator = (
+        jsonschema.Draft7Validator(g13_m_a_calibration_entry_schema)
+        if g13_m_a_calibration_entry_schema is not None
+        else None
+    )
+    g13_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g13_wave2_exit_schema)
+        if g13_wave2_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3401,6 +3425,30 @@ def check_evidence_files() -> None:
             # milestones/g13/g13_interlock_check_evidence_schema.json：
             # 事实门①~④（含 M-a 许可前置硬门）+ C1~C4 + VERDICT 字面 8 facts。
             validator = g13_interlock_check_validator
+        elif (
+            f.name.startswith("g13_m_a_vendor_upscale_integration_")
+            and g13_m_a_vendor_upscale_integration_validator is not None
+        ):
+            # G13.2 P0 硬门 M-a(M167) vendor 超分接入（步骤 236）→
+            # milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json：
+            # 22 checks 闭集（许可清结/底座 0-byte/零 vendoring/零私接面/registry/
+            # host 锚定/标定两腿/device 十二面）。
+            validator = g13_m_a_vendor_upscale_integration_validator
+        elif (
+            f.name.startswith("g13_m_a_calibration_")
+            and g13_m_a_calibration_entry_validator is not None
+        ):
+            # G13.2 M-a 标定条目 evidence（步骤 236 标定腿逐条目 measured 面；
+            # results.trimmed_mean 供 budget_eval 通用路判读）→
+            # milestones/g13/g13_m_a_calibration_entry_evidence_schema.json。
+            validator = g13_m_a_calibration_entry_validator
+        elif (
+            f.name.startswith("g13_wave2_exit_")
+            and g13_wave2_exit_validator is not None
+        ):
+            # G13.2 波聚合门（步骤 237）→ required_gates 1 行 + 六 facts +
+            # aggregate_read_only const true。
+            validator = g13_wave2_exit_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g13_wave2_exit",
+  "symbolic_gate_key": "g13.wave.2.exit",
+  "matrix_row": "G13.2",
+  "wave": "G13.2",
+  "numeric_step": 237,
+  "source_ref": "G13_CONTRACT G-G13-4/§2.2;G13_ACCEPTANCE_MAP §1;M-a gate red arms independently effective;temporal base 0-byte;g13_budget M-a calibration entries measured_local;license clearance five tokens;vendor SDK registry digests;zero private bypass surface",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g13.p0.m_a.vendor_upscale_integration",
+      "subject_prefix": "g13_m_a_vendor_upscale_integration",
+      "evidence_path": "evidence/g13_m_a_vendor_upscale_integration_20260818T121406Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T121406Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "temporal_base_0byte",
+      "status": "PASS",
+      "detail": "temporal/ vs 8c5dc5ee 目录级 0-byte(提交面 + 工作树双面)"
+    },
+    {
+      "id": "m_a_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M-a 门最新 evidence red 面 checks 全真(共 6 臂独立有效)"
+    },
+    {
+      "id": "budget_calibration_entries_measured",
+      "status": "PASS",
+      "detail": "g13_budget M-a 标定条目齐备 measured_local 零 estimated + budget_eval 全 PASS(P-09)"
+    },
+    {
+      "id": "license_clearance_present",
+      "status": "PASS",
+      "detail": "M-a 许可前置清结留痕在树且五要素齐备(Streamline/NGX/FSR/owner/清结)"
+    },
+    {
+      "id": "vendor_sdk_registry_present",
+      "status": "PASS",
+      "detail": "vendor SDK registry 在树且 Streamline/FSR 双段许可/digest 字段齐备(二进制零入 git)"
+    },
+    {
+      "id": "zero_private_bypass_surface",
+      "status": "PASS",
+      "detail": "vendor SDK 调用 token 仅见于登记集成面 ['src/rurix-render/src/bin/g13_vendor_upscale.rs', 'src/rurix-rt/src/vendor_upscale.rs']"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T121755Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G13.2 M-a(M167) vendor upscale integration gate (step 236); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: temporal base 0-byte + red arms + g13_budget calibration measured + license clearance + SDK registry + zero bypass; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

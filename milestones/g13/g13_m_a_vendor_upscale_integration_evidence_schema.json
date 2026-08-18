@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.2 M-a(M167) vendor_upscale_integration evidence",
+  "description": "evidence/g13_m_a_vendor_upscale_integration_<UTC>.json。G13.2 P0 硬门 g13.p0.m_a.vendor_upscale_integration(G13_CONTRACT §4.2 M-a 行判据逐字;G13_ACCEPTANCE_MAP §1;RFC-0016 §4.H3/§9 Q-F):vendor 超分接入——许可前置 owner 法律面清结留痕(vendor_upscale_license_clearance.md 五要素机核,未清结即 blocked 不充绿)+ DLSS SR 经 Streamline SDK(2.10.3 + NGX 签名 DLL,Vulkan interop 臂)真跑出帧(RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 validation 零错误,RTX 4070 Ti)+ FSR 3.1.5 同接口档(同一 UpscaleBackend 冻结面 RFC-0016 §4.0-3,FSR4 ML 不可用自动回退 FSR 3.1.5 分析版如实登记)+ 双端超分帧对拍 measured 登记(vs 自研 TSR host 金标准 tsr.rs 同输入帧集,SSIM 口径 RXS-0387/逐像素 diff 口径 RXS-0388 继承)+ 静态场景收敛对拍原生参照不偏离标定冻结带(g13_budget 标定条目消费,标定程序产禁手写 P-09)+ 三后端(TSR/DLSS/FSR)运行时切换同进程有效出帧 + UpscaleBackend trait 签名面与 temporal 底座 0-byte 机核(目录级 git diff vs G13.0 不可变 ref 8c5dc5ee)+ 树内零 UE/vendor 源码 vendoring + 零绕过 UpscaleBackend 私接面(vendor SDK 调用 token 仅允许在登记 FFI 边界文件);许可未清结开工即 RED;底座接线即 RED;mock/stub 充真跑即 RED;单 vendor 缺臂聚合 PASS 即 RED。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g13_m_a_vendor_upscale_integration"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g13.p0.m_a.vendor_upscale_integration"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M167"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M167"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g13.p0.m_a.vendor_upscale_integration"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G13.2"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 236
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G13_CONTRACT §4.2 M-a/G-G13-4;G13_ACCEPTANCE_MAP §1;rfcs/0016-native-renderer.md §4.H3/§9 Q-F;spec/visual_comparison.md RXS-0387/RXS-0388;milestones/g13/design/vendor_upscale_license_clearance.md"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "license_clearance_present",
+        "temporal_base_0byte",
+        "no_vendor_source_vendoring",
+        "no_private_bypass_surface",
+        "sdk_registry_present",
+        "host_upscale_tests_anchored",
+        "budget_anchors_present",
+        "calibration_two_run_bitexact",
+        "calibration_budget_entries_measured",
+        "budget_eval_all_pass",
+        "device_harness_full_pass",
+        "device_dlss_real_run",
+        "device_fsr_real_run",
+        "device_fsr4_ml_fallback_registered",
+        "device_three_backend_runtime_switch",
+        "device_static_converge_band_within",
+        "device_pairwise_tsr_measured_registered",
+        "device_dll_provenance_match",
+        "device_mock_passthrough_detected",
+        "device_red_arm_submodes_detected",
+        "device_validation_zero",
+        "device_double_run_bitexact"
+      ],
+      "properties": {
+        "license_clearance_present": { "type": "boolean" },
+        "temporal_base_0byte": { "type": "boolean" },
+        "no_vendor_source_vendoring": { "type": "boolean" },
+        "no_private_bypass_surface": { "type": "boolean" },
+        "sdk_registry_present": { "type": "boolean" },
+        "host_upscale_tests_anchored": { "type": "boolean" },
+        "budget_anchors_present": { "type": "boolean" },
+        "calibration_two_run_bitexact": { "type": "boolean" },
+        "calibration_budget_entries_measured": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_dlss_real_run": { "type": "boolean" },
+        "device_fsr_real_run": { "type": "boolean" },
+        "device_fsr4_ml_fallback_registered": { "type": "boolean" },
+        "device_three_backend_runtime_switch": { "type": "boolean" },
+        "device_static_converge_band_within": { "type": "boolean" },
+        "device_pairwise_tsr_measured_registered": { "type": "boolean" },
+        "device_dll_provenance_match": { "type": "boolean" },
+        "device_mock_passthrough_detected": { "type": "boolean" },
+        "device_red_arm_submodes_detected": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": {
+          "type": "boolean"
+        },
+        "baseline_anchor_id": {
+          "type": "string"
+        },
+        "measured_value": {
+          "type": "string"
+        },
+        "not_worse_than_anchor": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string"
+        },
+        "evolution_register": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

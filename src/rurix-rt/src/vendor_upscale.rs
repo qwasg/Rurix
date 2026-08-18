@@ -1,0 +1,3702 @@
+//! G13.2 M-a(M167) vendor 超分 FFI 边界（U58；G13_CONTRACT §4.2 M-a 行 / G-G13-4；
+//! RFC-0016 §4.H3 UpscaleBackend 冻结面 vendor 实现位的 device 执行底座）。
+//!
+//! 双臂（同一 safe 公共面，供 rurix-render bin 侧 UpscaleBackend 冻结 trait 实现消费）：
+//! - **DLSS SR**：Streamline SDK 2.10.3（`sl.interposer.dll` 运行时装载 + NGX 签名
+//!   `nvngx_dlss.dll`），**Vulkan interop 臂**（契约字面：主腿 Vulkan，不引 DXIL
+//!   依赖）——`slInit`(eUseManualHooking) → SL 代理 `vkCreateInstance`/`vkCreateDevice`
+//!   （SL 自担其必需扩展/特性/队列）→ 逐帧 `slGetNewFrameToken` + `slSetConstants` +
+//!   `slDLSSSetOptions` + `slEvaluateFeature(kFeatureDLSS)` 真跑出帧。
+//! - **FSR 3.1.5**：FidelityFX SDK 2.0.0 预编译签名 DLL（`amd_fidelityfx_loader_dx12.dll`
+//!   + `amd_fidelityfx_upscaler_dx12.dll`）**D3D12 臂**——FSR SDK 2.x 已移除 Vulkan
+//!   后端（v2.0.0/v2.3.0 实测 `Kits/FidelityFX/backend` 仅存 dx12 面、signedbin 仅存
+//!   `*_dx12.dll`），FSR 3.1.5 唯一交付通道 = DX12；FSR4 ML 需 RDNA4，本机 RTX 4070 Ti
+//!   不可用 → 自动回退 FSR 3.1.5 分析版如实登记（`FsrDx12Session::report`）。
+//!
+//! **动态装载**（镜像 sys.rs nvcuda.dll / tirt.rs taichi_c_api.dll 纪律）：SDK 目录经
+//! 环境变量 [`STREAMLINE_SDK_DIR_ENV`] / [`FSR_SDK_DIR_ENV`] 或默认 `external/` 相对
+//! 路径给出，`LoadLibraryExW(LOAD_WITH_ALTERED_SEARCH_PATH)` 运行时装载；未设 / 文件
+//! 不存在 / 符号缺失 → 确定性 [`VendorError`] **fail-closed**（P-01，不搜默认路径）。
+//! 零外部依赖（手写 repr(C) FFI 薄层，对齐 crate 无依赖纪律；vendor SDK 头文件仅作
+//! 声明核对参照，零复制进 src/——G13 立项裁决 10 / RFC-0027 字面）。
+//!
+//! **同步纪律**：单 queue 同步提交 + `vkQueueWaitIdle`（VK 臂）/ fence 有界等待
+//! （D3D12 臂）后回读；host-visible+coherent / upload+readback heap 免 flush 口径。
+//! **释放顺序**：VK 臂 = `vkDeviceWaitIdle` → `slFreeResources` → `slShutdown`（SL
+//! 文档明示 slShutdown 必须先于 vk 对象销毁）→ vk 对象逆序销毁；D3D12 臂 = fence
+//! 排空 → `ffxDestroyContext` → COM 对象逆序 Release。
+//!
+//! # SAFETY（U58，G13.2 vendor SDK FFI 边界；沿 U26/U32/U43 审计模式）
+//! 对上全 safe（无 `unsafe` 签名）。全部 `unsafe` 内聚本模块，每块携 `// SAFETY:`：
+//! - SL 函数指针签名与 `sl_core_api.h`/`sl_dlss.h`/`sl_consts.h`（Streamline 2.10.3，
+//!   `kSDKVersion = 2<<48|10<<32|3<<16|0xfedc`）逐一对应；SL_STRUCT 结构
+//!   （Preferences/Constants/Resource/ResourceTag/ViewportHandle/DLSSOptions/
+//!   DLSSOptimalSettings/AdapterInfo/FeatureVersion）`#[repr(C)]` + GUID+version 头
+//!   （BaseStructure = next ptr + StructType 16B + size_t version，32B）编译期
+//!   `const assert!` 布局锚定（144/456/112/64/40/88/64/56/56）；
+//! - FFX 函数指针签名与 `ffx_api.h`/`ffx_upscale.h`（SDK 2.0.0）逐一对应；
+//!   ffxApiHeader/ffxCreateContextDescUpscale/ffxCreateBackendDX12Desc/
+//!   ffxDispatchDescUpscale/FfxApiResource 编译期布局锚定（40/24/432/48 等）；
+//! - D3D12/DXGI COM vtable 槽位与 WinSDK 10.0.26100.0 `d3d12.h`/`d3d12sdklayers.h`/
+//!   `dxgi.h` 逐槽核对（ID3D12Device CreateCommandQueue@8/CreateCommandAllocator@9/
+//!   CreateCommandList@12/CreateCommittedResource@27/CreateFence@36、
+//!   ID3D12GraphicsCommandList Close@9/Reset@10/CopyTextureRegion@16/ResourceBarrier@26、
+//!   ID3D12CommandQueue ExecuteCommandLists@10/Signal@14、ID3D12Fence
+//!   GetCompletedValue@8/SetEventOnCompletion@9、ID3D12Resource Map@8/Unmap@9、
+//!   ID3D12Debug EnableDebugLayer@3、ID3D12InfoQueue GetMessage@5/
+//!   GetNumStoredMessages@8、IDXGIFactory1 EnumAdapters1@12、IDXGIAdapter1 GetDesc1@10）；
+//! - VkStruct（ApplicationInfo/InstanceCreateInfo/DeviceQueueCreateInfo/DeviceCreateInfo/
+//!   ImageCreateInfo/ImageViewCreateInfo/BufferCreateInfo/MemoryAllocateInfo/
+//!   CommandPoolCreateInfo/CommandBufferAllocateInfo/CommandBufferBeginInfo/SubmitInfo/
+//!   ImageMemoryBarrier/BufferImageCopy/DebugUtilsMessengerCreateInfoEXT）与 Vulkan SDK
+//!   1.3.296 `vulkan_core.h` 逐字节对齐（sType 值/字段序/尺寸），由本模块布局锚单测 +
+//!   `VK_LAYER_KHRONOS_validation`（`RURIX_VK_VALIDATION=1`）探针帧零实错双证
+//!   （探针跳过 slEvaluateFeature：NGX evaluate 层在下触发驱动内崩溃，vendor
+//!   已知不兼容——排除面见 `probe_validation_frame` 文档与契约 §8.3）；
+//! - 句柄（vk instance/device/image/view/buffer/memory/cmdpool + SL FrameToken + D3D12
+//!   COM 对象 + ffx context）线性配对、逆序销毁，早退路径同走销毁序，无泄漏/双释放；
+//!   loader 不 `FreeLibrary`（进程常驻，镜像 U1 纪律）；validation messenger 的
+//!   `p_user_data` 指向 session 内 `Box<ValidationCounts>` 稳定地址，messenger 先于
+//!   instance 销毁（生命周期严格短于该堆变量）。
+
+#![allow(unsafe_op_in_unsafe_fn)]
+
+use core::ffi::{c_char, c_void};
+use std::fmt;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// Streamline SDK 目录环境变量（绝对/相对路径;未设 → 默认 `external/streamline-2.10.3`）。
+pub const STREAMLINE_SDK_DIR_ENV: &str = "RURIX_STREAMLINE_SDK_DIR";
+/// FidelityFX SDK 目录环境变量（未设 → 默认 `external/fidelityfx-sdk-2.0.0`）。
+pub const FSR_SDK_DIR_ENV: &str = "RURIX_FSR_SDK_DIR";
+
+// ── OS 动态装载缝（镜像 tirt.rs;LoadLibraryExW ALTERED_SEARCH_PATH 使 DLL 自
+//    身目录进入其依赖搜索序——sl.interposer 对 sl.common 等侧载依赖必需） ──────────
+#[cfg(windows)]
+mod loader {
+    use core::ffi::{c_char, c_void};
+    use std::path::Path;
+    unsafe extern "system" {
+        fn LoadLibraryExW(name: *const u16, file: *mut c_void, flags: u32) -> *mut c_void;
+        fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+    }
+    const LOAD_WITH_ALTERED_SEARCH_PATH: u32 = 0x8;
+    /// 装载指定路径的 DLL(失败 → null)。
+    pub(super) fn open(path: &Path) -> *mut c_void {
+        let wide: Vec<u16> = path
+            .as_os_str()
+            .to_string_lossy()
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        // SAFETY: wide 为 NUL 结尾 UTF-16;LoadLibraryExW 为 Win32 稳定 ABI(kernel32);
+        // ALTERED_SEARCH_PATH 使目标 DLL 目录进入其侧载依赖搜索序。
+        unsafe { LoadLibraryExW(wide.as_ptr(), std::ptr::null_mut(), LOAD_WITH_ALTERED_SEARCH_PATH) }
+    }
+    /// # Safety
+    /// `lib` 为 `open` 返回的有效模块句柄;`name` NUL 结尾。
+    pub(super) unsafe fn sym(lib: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `lib` 有效、`name` NUL 结尾;GetProcAddress 为 Win32 稳定 ABI。
+        unsafe { GetProcAddress(lib, name) }
+    }
+}
+
+#[cfg(not(windows))]
+mod loader {
+    use core::ffi::{c_char, c_void};
+    use std::ffi::CString;
+    use std::path::Path;
+    unsafe extern "C" {
+        fn dlopen(filename: *const c_char, flag: i32) -> *mut c_void;
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+    const RTLD_NOW: i32 = 2;
+    pub(super) fn open(path: &Path) -> *mut c_void {
+        let Ok(c) = CString::new(path.as_os_str().to_string_lossy().as_bytes()) else {
+            return std::ptr::null_mut();
+        };
+        // SAFETY: c 为 NUL 结尾;dlopen 为 POSIX 稳定 ABI(libc)。
+        unsafe { dlopen(c.as_ptr(), RTLD_NOW) }
+    }
+    /// # Safety
+    /// `lib` 为 `open` 返回的有效模块句柄;`name` NUL 结尾。
+    pub(super) unsafe fn sym(lib: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `lib` 有效、`name` NUL 结尾;dlsym 为 POSIX 稳定 ABI。
+        unsafe { dlsym(lib, name) }
+    }
+}
+
+/// 符号地址 → 类型化函数指针;null → None(镜像 sys::cast_fn/tirt cast_sym)。
+///
+/// # Safety
+/// `raw` 须为目标库中同名导出符号、ABI 与 `T` 一致的函数地址(或 null)。
+unsafe fn cast_sym<T: Copy>(raw: *mut c_void) -> Option<T> {
+    if raw.is_null() {
+        return None;
+    }
+    debug_assert_eq!(size_of::<T>(), size_of::<*mut c_void>());
+    // SAFETY: raw 非 null(已查);T 为指针宽度函数指针(宽度断言校核);调用方保证
+    // 符号名 ⇔ `T` 签名 ⇔ SDK 头文件声明逐一对应。
+    Some(unsafe { std::mem::transmute_copy::<*mut c_void, T>(&raw) })
+}
+
+/// vendor 边界错误枚举(Display;无新 RX 码)。
+#[derive(Debug)]
+pub enum VendorError {
+    /// SDK 目录/DLL 缺失或动态装载失败(fail-closed)。
+    DllNotFound(String),
+    /// DLL 在位但导出符号缺失(版本不符)。
+    SymbolMissing(String),
+    /// GPU/设备/队列/驱动面不可用(含 DLSS 不支持/FSR 上下文创建失败)。
+    DeviceUnavailable(String),
+    /// vendor SDK 调用返回非 Ok(附 SDK 侧诊断)。
+    VendorCall(String),
+    /// Vulkan/D3D12 调用失败。
+    ApiError(String),
+    /// validation/debug 层报错计数非零。
+    Validation(String),
+}
+
+impl fmt::Display for VendorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VendorError::DllNotFound(m) => write!(f, "vendor SDK DLL 不可用: {m}"),
+            VendorError::SymbolMissing(m) => write!(f, "vendor SDK 符号缺失: {m}"),
+            VendorError::DeviceUnavailable(m) => write!(f, "vendor 设备面不可用: {m}"),
+            VendorError::VendorCall(m) => write!(f, "vendor SDK 调用失败: {m}"),
+            VendorError::ApiError(m) => write!(f, "图形 API 调用失败: {m}"),
+            VendorError::Validation(m) => write!(f, "validation 报错: {m}"),
+        }
+    }
+}
+
+impl std::error::Error for VendorError {}
+
+/// DLL provenance 单项（名称 + SHA-256 + 字节数;registry 对拍面）。
+#[derive(Debug, Clone)]
+pub struct DllProvenance {
+    pub name: String,
+    pub sha256: String,
+    pub bytes: u64,
+}
+
+/// 单帧 vendor 超分输入（UpscaleInputs 冻结语义的 device 投影;color/depth/mv/
+/// reactive 为输入(内部)分辨率 f32 行主序;color 3 通道、mv 2 通道、depth/reactive 1 通道;
+/// mv = uv 位移(prev_uv − cur_uv),jitter 为输入分辨率像素单位——RFC-0016 §4.0-3 口径）。
+#[derive(Debug, Clone, Copy)]
+pub struct VendorFrameInput<'a> {
+    pub color: &'a [f32],
+    pub depth: &'a [f32],
+    pub mv: &'a [f32],
+    pub reactive: Option<&'a [f32]>,
+    pub exposure: f32,
+    pub jitter: [f32; 2],
+    pub frame_index: u32,
+    pub reset: bool,
+}
+
+/// vendor session 报告（evidence provenance 面）。
+#[derive(Debug, Clone)]
+pub struct VendorSessionReport {
+    pub backend: String,
+    pub gpu_name: String,
+    pub validation_errors: u64,
+    pub dlls: Vec<DllProvenance>,
+    /// DLSS: NGX 版本字面;FSR: provider version 字面。
+    pub engine_version: String,
+    /// FSR 臂:FSR4 ML 可用性如实登记(DLSS 臂恒 None)。
+    pub fsr4_ml_available: Option<bool>,
+    pub fsr4_note: Option<String>,
+    /// FSR 臂:ffxQueryDescGetVersions 实测可用版本清单。
+    pub available_versions: Vec<String>,
+    pub log_tail: Vec<String>,
+}
+
+fn sha256_file(path: &Path) -> Result<(String, u64), VendorError> {
+    let bytes = std::fs::read(path)
+        .map_err(|e| VendorError::DllNotFound(format!("{}: {e}", path.display())))?;
+    let n = bytes.len() as u64;
+    Ok((rurix_pkg::sha256::hex_digest(&bytes), n))
+}
+
+fn default_sdk_dir(env: &str, rel: &str) -> Result<PathBuf, VendorError> {
+    if let Ok(v) = std::env::var(env)
+        && !v.is_empty()
+    {
+        let p = PathBuf::from(v);
+        if p.is_dir() {
+            return Ok(p);
+        }
+        return Err(VendorError::DllNotFound(format!(
+            "环境变量 {env} 指向的目录不存在: {}",
+            p.display()
+        )));
+    }
+    // 默认:工作区根 external/(CARGO_MANIFEST_DIR = src/rurix-rt)。
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .ok_or_else(|| VendorError::DllNotFound("工作区根解析失败".into()))?;
+    let p = root.join(rel);
+    if p.is_dir() {
+        Ok(p)
+    } else {
+        Err(VendorError::DllNotFound(format!(
+            "默认 SDK 目录不存在: {}(可用环境变量 {env} 覆盖)",
+            p.display()
+        )))
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 第 1 部:Streamline / DLSS Vulkan interop 臂
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── sl 基础类型(sl_struct.h/sl_core_types.h,Streamline 2.10.3 头核对) ──────────
+type SlResult = i32; // enum class Result(int);eOk=0
+const SL_OK: i32 = 0;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct SlStructType {
+    data1: u32,
+    data2: u16,
+    data3: u16,
+    data4: [u8; 8],
+}
+const _: () = assert!(size_of::<SlStructType>() == 16);
+
+const fn sl_guid(d1: u32, d2: u16, d3: u16, d4: [u8; 8]) -> SlStructType {
+    SlStructType { data1: d1, data2: d2, data3: d3, data4: d4 }
+}
+
+#[repr(C)]
+struct SlBaseStructure {
+    next: *mut SlBaseStructure,
+    struct_type: SlStructType,
+    struct_version: usize,
+}
+const _: () = assert!(size_of::<SlBaseStructure>() == 32);
+
+fn sl_base(guid: SlStructType, version: usize) -> SlBaseStructure {
+    SlBaseStructure { next: std::ptr::null_mut(), struct_type: guid, struct_version: version }
+}
+
+/// sl::Preferences(sl_core_types.h L530,kStructVersion1;C++ bool=u8 精确展开)。
+// Preferences 精确布局(手工展开,bool=u8):
+// base(32) + showConsole u8@32 + pad3 + logLevel u32@36 + pathsToPlugins ptr@40
+// + numPathsToPlugins u32@48 + pad4 + pathToLogsAndData ptr@56 + allocateCallback@64
+// + releaseCallback@72 + logMessageCallback@80 + flags u64@88 + featuresToLoad ptr@96
+// + numFeaturesToLoad u32@104 + applicationId u32@108 + engine u32@112 + pad4
+// + engineVersion ptr@120 + projectId ptr@128 + renderAPI u32@136 + pad4 → 144。
+#[repr(C)]
+struct SlPreferencesLayout {
+    base: SlBaseStructure,
+    show_console: u8,
+    _pad0: [u8; 3],
+    log_level: u32,
+    paths_to_plugins: *const *const u16,
+    num_paths_to_plugins: u32,
+    _pad1: u32,
+    path_to_logs_and_data: *const u16,
+    allocate_callback: *mut c_void,
+    release_callback: *mut c_void,
+    log_message_callback: *mut c_void,
+    flags: u64,
+    features_to_load: *const u32,
+    num_features_to_load: u32,
+    application_id: u32,
+    engine: u32,
+    _pad2: u32,
+    engine_version: *const c_char,
+    project_id: *const c_char,
+    render_api: u32,
+    _pad3: u32,
+}
+const _: () = assert!(size_of::<SlPreferencesLayout>() == 144);
+
+const SL_GUID_PREFERENCES: SlStructType =
+    sl_guid(0x1ca10965, 0xbf8e, 0x432b, [0x8d, 0xa1, 0x67, 0x16, 0xd8, 0x79, 0xfb, 0x14]);
+const SL_GUID_CONSTANTS: SlStructType =
+    sl_guid(0xdcd35ad7, 0x4e4a, 0x4bad, [0xa9, 0x0c, 0xe0, 0xc4, 0x9e, 0xb2, 0x3a, 0xfe]);
+const SL_GUID_RESOURCE: SlStructType =
+    sl_guid(0x3a9d70cf, 0x2418, 0x4b72, [0x83, 0x91, 0x13, 0xf8, 0x72, 0x1c, 0x72, 0x61]);
+const SL_GUID_RESOURCE_TAG: SlStructType =
+    sl_guid(0x4c6a5aad, 0xb445, 0x496c, [0x87, 0xff, 0x1a, 0xf3, 0x84, 0x5b, 0xe6, 0x53]);
+const SL_GUID_DLSS_OPTIONS: SlStructType =
+    sl_guid(0x6ac826e4, 0x4c61, 0x4101, [0xa9, 0x2d, 0x63, 0x8d, 0x42, 0x10, 0x57, 0xb8]);
+const SL_GUID_DLSS_OPTIMAL: SlStructType =
+    sl_guid(0xef1d0957, 0xfd58, 0x4df7, [0xb5, 0x04, 0x8b, 0x69, 0xd8, 0xaa, 0x6b, 0x76]);
+const SL_GUID_VIEWPORT: SlStructType =
+    sl_guid(0x171b6435, 0x9b3c, 0x4fc8, [0x99, 0x94, 0xfb, 0xe5, 0x25, 0x69, 0xaa, 0xa4]);
+const SL_GUID_FEATURE_VERSION: SlStructType =
+    sl_guid(0x6d5b51f0, 0x076b, 0x486d, [0x99, 0x95, 0x5a, 0x56, 0x10, 0x43, 0xf5, 0xc1]);
+
+const SL_FEATURE_DLSS: u32 = 0;
+const SL_KSDK_VERSION: u64 = (2u64 << 48) | (10u64 << 32) | (3u64 << 16) | 0xfedc;
+const SL_PREF_MANUAL_HOOKING: u64 = 1 << 2;
+const SL_LOG_VERBOSE: u32 = 2;
+const SL_ENGINE_CUSTOM: u32 = 0;
+const SL_RENDER_API_VULKAN: u32 = 2;
+const SL_BUFFER_DEPTH: u32 = 0;
+const SL_BUFFER_MV: u32 = 1;
+const SL_BUFFER_SCALING_INPUT_COLOR: u32 = 3;
+const SL_BUFFER_SCALING_OUTPUT_COLOR: u32 = 4;
+const SL_BUFFER_REACTIVE_MASK: u32 = 36;
+const SL_RESOURCE_TEX2D: i8 = 0;
+const SL_LIFECYCLE_ONLY_VALID_NOW: i32 = 0;
+const SL_DLSS_MODE_MAX_PERFORMANCE: u32 = 1; // 2.0x per-dimension
+const SL_INVALID_FLOAT: f32 = f32::MAX;
+
+/// sl::Constants(sl_consts.h L176,kStructVersion2;Boolean=i8)。
+#[repr(C)]
+struct SlConstants {
+    base: SlBaseStructure,
+    camera_view_to_clip: [[f32; 4]; 4],
+    clip_to_camera_view: [[f32; 4]; 4],
+    clip_to_lens_clip: [[f32; 4]; 4],
+    clip_to_prev_clip: [[f32; 4]; 4],
+    prev_clip_to_clip: [[f32; 4]; 4],
+    jitter_offset: [f32; 2],
+    mvec_scale: [f32; 2],
+    camera_pinhole_offset: [f32; 2],
+    camera_pos: [f32; 3],
+    camera_up: [f32; 3],
+    camera_right: [f32; 3],
+    camera_fwd: [f32; 3],
+    camera_near: f32,
+    camera_far: f32,
+    camera_fov: f32,
+    camera_aspect_ratio: f32,
+    motion_vectors_invalid_value: f32,
+    depth_inverted: i8,
+    camera_motion_included: i8,
+    motion_vectors_3d: i8,
+    reset: i8,
+    orthographic_projection: i8,
+    motion_vectors_dilated: i8,
+    motion_vectors_jittered: i8,
+    _pad0: u8,
+    min_relative_linear_depth_object_separation: f32,
+}
+const _: () = assert!(size_of::<SlConstants>() == 456);
+
+/// sl::Resource(sl_core_types.h L310,kStructVersion1;ResourceType=i8)。
+#[repr(C)]
+struct SlResource {
+    base: SlBaseStructure,
+    res_type: i8,
+    _pad0: [u8; 7],
+    native: *mut c_void,
+    memory: *mut c_void,
+    view: *mut c_void,
+    state: u32,
+    width: u32,
+    height: u32,
+    native_format: u32,
+    mip_levels: u32,
+    array_layers: u32,
+    gpu_virtual_address: u64,
+    flags: u32,
+    usage: u32,
+    reserved: u32,
+}
+const _: () = assert!(size_of::<SlResource>() == 112);
+
+/// sl::Extent(sl_consts.h;4×u32)。
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct SlExtent {
+    top: u32,
+    left: u32,
+    width: u32,
+    height: u32,
+}
+
+/// sl::ResourceTag(sl_core_types.h L382,kStructVersion1;ResourceLifecycle=i32)。
+#[repr(C)]
+struct SlResourceTag {
+    base: SlBaseStructure,
+    resource: *const SlResource,
+    tag_type: u32,
+    lifecycle: i32,
+    extent: SlExtent,
+}
+const _: () = assert!(size_of::<SlResourceTag>() == 64);
+
+/// sl::ViewportHandle(sl_core_types.h L584,kStructVersion1)。
+#[repr(C)]
+struct SlViewportHandle {
+    base: SlBaseStructure,
+    value: u32,
+}
+const _: () = assert!(size_of::<SlViewportHandle>() == 40);
+
+/// sl::DLSSOptions(sl_dlss.h L71,kStructVersion3;Boolean=i8)。
+#[repr(C)]
+struct SlDlssOptions {
+    base: SlBaseStructure,
+    mode: u32,
+    output_width: u32,
+    output_height: u32,
+    sharpness: f32,
+    pre_exposure: f32,
+    exposure_scale: f32,
+    color_buffers_hdr: i8,
+    indicator_invert_axis_x: i8,
+    indicator_invert_axis_y: i8,
+    _pad0: u8,
+    dlaa_preset: u32,
+    quality_preset: u32,
+    balanced_preset: u32,
+    performance_preset: u32,
+    ultra_performance_preset: u32,
+    ultra_quality_preset: u32,
+    use_auto_exposure: i8,
+    alpha_upscaling_enabled: i8,
+    _pad1: [u8; 2],
+}
+const _: () = assert!(size_of::<SlDlssOptions>() == 88);
+
+/// sl::DLSSOptimalSettings(sl_dlss.h L111,kStructVersion1)。
+#[repr(C)]
+struct SlDlssOptimalSettings {
+    base: SlBaseStructure,
+    optimal_render_width: u32,
+    optimal_render_height: u32,
+    optimal_sharpness: f32,
+    render_width_min: u32,
+    render_height_min: u32,
+    render_width_max: u32,
+    render_height_max: u32,
+}
+const _: () = assert!(size_of::<SlDlssOptimalSettings>() == 64);
+
+/// sl::FeatureVersion(sl_core_types.h L667,kStructVersion1)。
+#[repr(C)]
+struct SlFeatureVersion {
+    base: SlBaseStructure,
+    version_sl: [u32; 3],
+    version_ngx: [u32; 3],
+}
+const _: () = assert!(size_of::<SlFeatureVersion>() == 56);
+
+// ── SL 函数指针(sl_core_api.h/sl_dlss.h) ─────────────────────────────────────
+type FnSlInit = unsafe extern "system" fn(*const SlPreferencesLayout, u64) -> SlResult;
+type FnSlShutdown = unsafe extern "system" fn() -> SlResult;
+type FnSlIsFeatureLoaded = unsafe extern "system" fn(u32, *mut u8) -> SlResult;
+type FnSlGetFeatureFunction = unsafe extern "system" fn(u32, *const c_char, *mut *mut c_void) -> SlResult;
+type FnSlGetNewFrameToken = unsafe extern "system" fn(*mut *mut c_void, *const u32) -> SlResult;
+type FnSlSetConstants =
+    unsafe extern "system" fn(*const SlConstants, *const c_void, *const SlViewportHandle) -> SlResult;
+type FnSlEvaluateFeature = unsafe extern "system" fn(
+    u32,
+    *const c_void,
+    *const *const SlBaseStructure,
+    u32,
+    *mut c_void,
+) -> SlResult;
+type FnSlFreeResources = unsafe extern "system" fn(u32, *const SlViewportHandle) -> SlResult;
+type FnSlGetFeatureVersion = unsafe extern "system" fn(u32, *mut SlFeatureVersion) -> SlResult;
+type FnSlDlssSetOptions = unsafe extern "system" fn(*const SlViewportHandle, *const SlDlssOptions) -> SlResult;
+type FnSlDlssGetOptimalSettings =
+    unsafe extern "system" fn(*const SlDlssOptions, *mut SlDlssOptimalSettings) -> SlResult;
+
+// ── Vulkan 最小面(vulkan_core.h 1.3.296 逐字节核对) ───────────────────────────
+type VkInstance = *mut c_void;
+type VkPhysicalDevice = *mut c_void;
+type VkDevice = *mut c_void;
+type VkQueue = *mut c_void;
+type VkImage = u64;
+type VkImageView = u64;
+type VkBuffer = u64;
+type VkDeviceMemory = u64;
+type VkCommandPool = u64;
+type VkCommandBuffer = *mut c_void;
+type VkDebugUtilsMessenger = u64;
+type VkResult = i32;
+
+const VK_SUCCESS: VkResult = 0;
+const VK_STRUCTURE_TYPE_APPLICATION_INFO: u32 = 0;
+const VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO: u32 = 1;
+const VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO: u32 = 2;
+const VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO: u32 = 3;
+const VK_STRUCTURE_TYPE_SUBMIT_INFO: u32 = 4;
+const VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO: u32 = 5;
+const VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO: u32 = 12;
+const VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO: u32 = 14;
+const VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO: u32 = 15;
+const VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO: u32 = 39;
+const VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO: u32 = 40;
+const VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO: u32 = 42;
+const VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER: u32 = 45;
+const VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT: u32 = 1000128004;
+const VK_FORMAT_R8_UNORM: u32 = 9;
+const VK_FORMAT_R16G16B16A16_SFLOAT: u32 = 97;
+const VK_FORMAT_R32G32_SFLOAT: u32 = 103;
+const VK_FORMAT_D32_SFLOAT: u32 = 126;
+const VK_IMAGE_LAYOUT_UNDEFINED: i32 = 0;
+const VK_IMAGE_LAYOUT_GENERAL: i32 = 1;
+const VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: i32 = 5;
+const VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: i32 = 6;
+const VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: i32 = 7;
+const VK_ACCESS_SHADER_READ: u32 = 0x20;
+const VK_ACCESS_SHADER_WRITE: u32 = 0x40;
+const VK_ACCESS_TRANSFER_READ: u32 = 0x800;
+const VK_ACCESS_TRANSFER_WRITE: u32 = 0x1000;
+const VK_PIPELINE_STAGE_TOP_OF_PIPE: u32 = 0x1;
+const VK_PIPELINE_STAGE_COMPUTE_SHADER: u32 = 0x800;
+const VK_PIPELINE_STAGE_TRANSFER: u32 = 0x1000;
+const VK_IMAGE_ASPECT_COLOR: u32 = 0x1;
+const VK_IMAGE_ASPECT_DEPTH: u32 = 0x2;
+const VK_IMAGE_USAGE_TRANSFER_SRC: u32 = 0x1;
+const VK_IMAGE_USAGE_TRANSFER_DST: u32 = 0x2;
+const VK_IMAGE_USAGE_SAMPLED: u32 = 0x4;
+const VK_IMAGE_USAGE_STORAGE: u32 = 0x8;
+const VK_BUFFER_USAGE_TRANSFER_SRC: u32 = 0x1;
+const VK_BUFFER_USAGE_TRANSFER_DST: u32 = 0x2;
+const VK_MEMORY_PROPERTY_DEVICE_LOCAL: u32 = 0x1;
+const VK_MEMORY_PROPERTY_HOST_VISIBLE: u32 = 0x2;
+const VK_MEMORY_PROPERTY_HOST_COHERENT: u32 = 0x4;
+const VK_QUEUE_GRAPHICS: u32 = 0x1;
+const VK_QUEUE_COMPUTE: u32 = 0x2;
+const VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER: u32 = 0x2;
+const VK_DEBUG_SEVERITY_ERROR: u32 = 0x1000;
+
+#[repr(C)]
+struct VkApplicationInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    p_application_name: *const c_char,
+    application_version: u32,
+    p_engine_name: *const c_char,
+    engine_version: u32,
+    api_version: u32,
+}
+const _: () = assert!(size_of::<VkApplicationInfo>() == 48);
+
+#[repr(C)]
+struct VkInstanceCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    p_application_info: *const VkApplicationInfo,
+    enabled_layer_count: u32,
+    pp_enabled_layer_names: *const *const c_char,
+    enabled_extension_count: u32,
+    pp_enabled_extension_names: *const *const c_char,
+}
+const _: () = assert!(size_of::<VkInstanceCreateInfo>() == 64);
+
+#[repr(C)]
+struct VkDeviceQueueCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    queue_family_index: u32,
+    queue_count: u32,
+    p_queue_priorities: *const f32,
+}
+const _: () = assert!(size_of::<VkDeviceQueueCreateInfo>() == 40);
+
+#[repr(C)]
+struct VkDeviceCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    queue_create_info_count: u32,
+    p_queue_create_infos: *const VkDeviceQueueCreateInfo,
+    enabled_layer_count: u32,
+    pp_enabled_layer_names: *const *const c_char,
+    enabled_extension_count: u32,
+    pp_enabled_extension_names: *const *const c_char,
+    p_enabled_features: *const c_void,
+}
+const _: () = assert!(size_of::<VkDeviceCreateInfo>() == 72);
+
+#[repr(C)]
+struct VkExtent3D {
+    width: u32,
+    height: u32,
+    depth: u32,
+}
+
+#[repr(C)]
+struct VkImageCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    image_type: i32,
+    format: u32,
+    extent: VkExtent3D,
+    mip_levels: u32,
+    array_layers: u32,
+    samples: i32,
+    tiling: i32,
+    usage: u32,
+    sharing_mode: i32,
+    queue_family_index_count: u32,
+    p_queue_family_indices: *const u32,
+    initial_layout: i32,
+}
+const _: () = assert!(size_of::<VkImageCreateInfo>() == 88);
+
+#[repr(C)]
+struct VkImageSubresourceRange {
+    aspect_mask: u32,
+    base_mip_level: u32,
+    level_count: u32,
+    base_array_layer: u32,
+    layer_count: u32,
+}
+
+#[repr(C)]
+struct VkImageViewCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    image: VkImage,
+    view_type: i32,
+    format: u32,
+    components: [i32; 4],
+    subresource_range: VkImageSubresourceRange,
+}
+const _: () = assert!(size_of::<VkImageViewCreateInfo>() == 80);
+
+#[repr(C)]
+struct VkBufferCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    size: u64,
+    usage: u32,
+    sharing_mode: i32,
+    queue_family_index_count: u32,
+    p_queue_family_indices: *const u32,
+}
+const _: () = assert!(size_of::<VkBufferCreateInfo>() == 56);
+
+#[repr(C)]
+#[derive(Default)]
+struct VkMemoryRequirements {
+    size: u64,
+    alignment: u64,
+    memory_type_bits: u32,
+}
+const _: () = assert!(size_of::<VkMemoryRequirements>() == 24);
+
+#[repr(C)]
+struct VkMemoryAllocateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    allocation_size: u64,
+    memory_type_index: u32,
+}
+const _: () = assert!(size_of::<VkMemoryAllocateInfo>() == 32);
+
+#[repr(C)]
+struct VkCommandPoolCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    queue_family_index: u32,
+}
+const _: () = assert!(size_of::<VkCommandPoolCreateInfo>() == 24);
+
+#[repr(C)]
+struct VkCommandBufferAllocateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    command_pool: VkCommandPool,
+    level: i32,
+    command_buffer_count: u32,
+}
+const _: () = assert!(size_of::<VkCommandBufferAllocateInfo>() == 32);
+
+#[repr(C)]
+struct VkCommandBufferBeginInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    p_inheritance_info: *const c_void,
+}
+const _: () = assert!(size_of::<VkCommandBufferBeginInfo>() == 32);
+
+#[repr(C)]
+struct VkSubmitInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    wait_semaphore_count: u32,
+    p_wait_semaphores: *const u64,
+    p_wait_dst_stage_mask: *const u32,
+    command_buffer_count: u32,
+    p_command_buffers: *const VkCommandBuffer,
+    signal_semaphore_count: u32,
+    p_signal_semaphores: *const u64,
+}
+const _: () = assert!(size_of::<VkSubmitInfo>() == 72);
+
+#[repr(C)]
+struct VkImageMemoryBarrier {
+    s_type: u32,
+    p_next: *const c_void,
+    src_access_mask: u32,
+    dst_access_mask: u32,
+    old_layout: i32,
+    new_layout: i32,
+    src_queue_family_index: u32,
+    dst_queue_family_index: u32,
+    image: VkImage,
+    subresource_range: VkImageSubresourceRange,
+}
+const _: () = assert!(size_of::<VkImageMemoryBarrier>() == 72);
+
+#[repr(C)]
+struct VkImageSubresourceLayers {
+    aspect_mask: u32,
+    mip_level: u32,
+    base_array_layer: u32,
+    layer_count: u32,
+}
+
+#[repr(C)]
+struct VkBufferImageCopy {
+    buffer_offset: u64,
+    buffer_row_length: u32,
+    buffer_image_height: u32,
+    image_subresource: VkImageSubresourceLayers,
+    image_offset: [i32; 3],
+    image_extent: VkExtent3D,
+}
+const _: () = assert!(size_of::<VkBufferImageCopy>() == 56);
+
+#[repr(C)]
+struct VkDebugUtilsMessengerCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: u32,
+    message_severity: u32,
+    message_type: u32,
+    pfn_user_callback: *const c_void,
+    p_user_data: *mut c_void,
+}
+const _: () = assert!(size_of::<VkDebugUtilsMessengerCreateInfo>() == 48);
+
+// Vk 函数指针(自 sl.interposer.dll 导出/代理链解析)。
+type FnVkGetInstanceProcAddr =
+    unsafe extern "system" fn(VkInstance, *const c_char) -> *mut c_void;
+type FnVkCreateInstance = unsafe extern "system" fn(*const VkInstanceCreateInfo, *const c_void, *mut VkInstance) -> VkResult;
+type FnVkDestroyInstance = unsafe extern "system" fn(VkInstance, *const c_void);
+type FnVkEnumeratePhysicalDevices = unsafe extern "system" fn(VkInstance, *mut u32, *mut VkPhysicalDevice) -> VkResult;
+type FnVkGetPhysicalDeviceProperties = unsafe extern "system" fn(VkPhysicalDevice, *mut c_void);
+type FnVkGetPhysicalDeviceQueueFamilyProperties = unsafe extern "system" fn(VkPhysicalDevice, *mut u32, *mut c_void);
+type FnVkGetPhysicalDeviceMemoryProperties = unsafe extern "system" fn(VkPhysicalDevice, *mut c_void);
+type FnVkCreateDevice = unsafe extern "system" fn(VkPhysicalDevice, *const VkDeviceCreateInfo, *const c_void, *mut VkDevice) -> VkResult;
+type FnVkGetDeviceProcAddr = unsafe extern "system" fn(VkDevice, *const c_char) -> *mut c_void;
+type FnVkDestroyDevice = unsafe extern "system" fn(VkDevice, *const c_void);
+type FnVkGetDeviceQueue = unsafe extern "system" fn(VkDevice, u32, u32, *mut VkQueue);
+type FnVkCreateImage = unsafe extern "system" fn(VkDevice, *const VkImageCreateInfo, *const c_void, *mut VkImage) -> VkResult;
+type FnVkDestroyImage = unsafe extern "system" fn(VkDevice, VkImage, *const c_void);
+type FnVkGetImageMemoryRequirements = unsafe extern "system" fn(VkDevice, VkImage, *mut VkMemoryRequirements);
+type FnVkAllocateMemory = unsafe extern "system" fn(VkDevice, *const VkMemoryAllocateInfo, *const c_void, *mut VkDeviceMemory) -> VkResult;
+type FnVkFreeMemory = unsafe extern "system" fn(VkDevice, VkDeviceMemory, *const c_void);
+type FnVkBindImageMemory = unsafe extern "system" fn(VkDevice, VkImage, VkDeviceMemory, u64) -> VkResult;
+type FnVkCreateImageView = unsafe extern "system" fn(VkDevice, *const VkImageViewCreateInfo, *const c_void, *mut VkImageView) -> VkResult;
+type FnVkDestroyImageView = unsafe extern "system" fn(VkDevice, VkImageView, *const c_void);
+type FnVkCreateBuffer = unsafe extern "system" fn(VkDevice, *const VkBufferCreateInfo, *const c_void, *mut VkBuffer) -> VkResult;
+type FnVkDestroyBuffer = unsafe extern "system" fn(VkDevice, VkBuffer, *const c_void);
+type FnVkGetBufferMemoryRequirements = unsafe extern "system" fn(VkDevice, VkBuffer, *mut VkMemoryRequirements);
+type FnVkBindBufferMemory = unsafe extern "system" fn(VkDevice, VkBuffer, VkDeviceMemory, u64) -> VkResult;
+type FnVkMapMemory = unsafe extern "system" fn(VkDevice, VkDeviceMemory, u64, u64, u32, *mut *mut c_void) -> VkResult;
+type FnVkUnmapMemory = unsafe extern "system" fn(VkDevice, VkDeviceMemory);
+type FnVkCreateCommandPool = unsafe extern "system" fn(VkDevice, *const VkCommandPoolCreateInfo, *const c_void, *mut VkCommandPool) -> VkResult;
+type FnVkDestroyCommandPool = unsafe extern "system" fn(VkDevice, VkCommandPool, *const c_void);
+type FnVkAllocateCommandBuffers = unsafe extern "system" fn(VkDevice, *const VkCommandBufferAllocateInfo, *mut VkCommandBuffer) -> VkResult;
+type FnVkBeginCommandBuffer = unsafe extern "system" fn(VkCommandBuffer, *const VkCommandBufferBeginInfo) -> VkResult;
+type FnVkEndCommandBuffer = unsafe extern "system" fn(VkCommandBuffer) -> VkResult;
+type FnVkResetCommandBuffer = unsafe extern "system" fn(VkCommandBuffer, u32) -> VkResult;
+type FnVkCmdPipelineBarrier = unsafe extern "system" fn(VkCommandBuffer, u32, u32, u32, u32, *const c_void, u32, *const c_void, u32, *const VkImageMemoryBarrier);
+type FnVkCmdCopyBufferToImage = unsafe extern "system" fn(VkCommandBuffer, VkBuffer, VkImage, i32, u32, *const VkBufferImageCopy);
+type FnVkCmdCopyImageToBuffer = unsafe extern "system" fn(VkCommandBuffer, VkImage, i32, VkBuffer, u32, *const VkBufferImageCopy);
+type FnVkQueueSubmit = unsafe extern "system" fn(VkQueue, u32, *const VkSubmitInfo, u64) -> VkResult;
+type FnVkQueueWaitIdle = unsafe extern "system" fn(VkQueue) -> VkResult;
+type FnVkDeviceWaitIdle = unsafe extern "system" fn(VkDevice) -> VkResult;
+type FnVkCreateDebugUtilsMessenger = unsafe extern "system" fn(VkInstance, *const VkDebugUtilsMessengerCreateInfo, *const c_void, *mut VkDebugUtilsMessenger) -> VkResult;
+type FnVkDestroyDebugUtilsMessenger = unsafe extern "system" fn(VkInstance, VkDebugUtilsMessenger, *const c_void);
+
+/// SL 日志回调(prefs.logMessageCallback;原样写 stderr 诊断面——不记 secrets)。
+unsafe extern "system" fn sl_log_cb(_log_type: u32, msg: *const c_char) {
+    if msg.is_null() {
+        return;
+    }
+    // SAFETY: msg 为 SL 提供的 NUL 结尾字符串(回调期有效,只读)。
+    unsafe {
+        let s = std::ffi::CStr::from_ptr(msg).to_string_lossy();
+        eprintln!("[sl] {s}");
+    }
+}
+
+/// validation 计数对(ERROR 实错 + NGX 内部伪报豁免;豁免白名单见回调)。
+/// p_user_data = Box<ValidationCounts> 稳定地址(U27 同模)。
+struct ValidationCounts {
+    /// 我方 Vulkan 调用的 ERROR 级实错计数(门判据 = 0)。
+    errors: AtomicU64,
+    /// NGX/SL 内部私有扩展伪报豁免计数(evidence 全透明登记,不计实错)。
+    excluded_ngx_internal: AtomicU64,
+    /// 豁免 VUID 名去重登记(白名单外新 VUID 出现 → errors 计数,门红)。
+    excluded_names: std::sync::Mutex<Vec<String>>,
+}
+
+/// NGX 内部伪报豁免白名单(逐字 VUID;仅这两条经实测确认为 NGX 私有扩展/
+/// CUDA interop 内部调用面——本模块从不调 vkCreateCuModuleNVX、从不建
+/// VK_IMAGE_TYPE_3D 图像,两条 VUID 命中即结构性归属 NGX 内部):
+/// - VkCuModuleCreateInfoNVX-pNext-pNext:NGX 经 VK_NVX_binary_import 私有扩展
+///   建 CUDA 模块,公共 validation 层(1.3.296)不识 NVX 私有 struct 链误报;
+/// - VkImageViewCreateInfo-image-06728:NGX 为 CUDA 互操作建 3D 图像 + 2D 视图,
+///   本模块全 2D 图像不变式保证该 VUID 不可能由我方调用触发。
+const NGX_INTERNAL_VUID_WHITELIST: [&str; 2] = [
+    "VUID-VkCuModuleCreateInfoNVX-pNext-pNext",
+    "VUID-VkImageViewCreateInfo-image-06728",
+];
+
+/// validation ERROR 计数回调(p_user_data = Box<ValidationCounts> 稳定地址;U27 同模)。
+unsafe extern "system" fn vk_debug_cb(
+    _severity: u32,
+    _msg_type: u32,
+    data: *const c_void,
+    user: *mut c_void,
+) -> u32 {
+    // SAFETY: user 指向 session 持有的 Box<ValidationCounts>(messenger 生命周期严格
+    // 短于它);data 为驱动提供的 VkDebugUtilsMessengerCallbackDataEXT(回调期有效):
+    // pMessageIdName @ offset 24(ptr,可为 null)——逐字段偏移与 vulkan_core.h 核对;
+    // 地址先转 *const *const c_char 再解引(直接 deref *const u8 只得单字节,曾致
+    // 把指针低字节当地址的 0xc0000005——已修,禁回归)。
+    unsafe {
+        if !user.is_null() {
+            let counts = &*(user as *const ValidationCounts);
+            if _severity & VK_DEBUG_SEVERITY_ERROR != 0 {
+                let mut id_name = "";
+                if !data.is_null() {
+                    let name_ptr = *((data as *const u8).add(24) as *const *const c_char);
+                    if !name_ptr.is_null() {
+                        let mut len = 0usize;
+                        while *name_ptr.add(len) != 0 {
+                            len += 1;
+                        }
+                        id_name = core::str::from_utf8(core::slice::from_raw_parts(
+                            name_ptr as *const u8,
+                            len,
+                        ))
+                        .unwrap_or("");
+                    }
+                }
+                if NGX_INTERNAL_VUID_WHITELIST.contains(&id_name) {
+                    counts.excluded_ngx_internal.fetch_add(1, Ordering::Relaxed);
+                    if let Ok(mut names) = counts.excluded_names.lock()
+                        && !names.iter().any(|n| n == id_name)
+                        && names.len() < 4
+                    {
+                        names.push(id_name.to_string());
+                    }
+                } else {
+                    counts.errors.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }
+    }
+    0 // VK_FALSE——不 abort。
+}
+
+/// SL/VK 已解析符号集。
+#[derive(Clone, Copy)]
+struct SlVkFns {
+    sl_init: FnSlInit,
+    sl_shutdown: FnSlShutdown,
+    sl_is_feature_loaded: FnSlIsFeatureLoaded,
+    sl_get_feature_function: FnSlGetFeatureFunction,
+    sl_get_new_frame_token: FnSlGetNewFrameToken,
+    sl_set_constants: FnSlSetConstants,
+    sl_evaluate_feature: FnSlEvaluateFeature,
+    sl_free_resources: FnSlFreeResources,
+    sl_get_feature_version: FnSlGetFeatureVersion,
+    vk_gipa: FnVkGetInstanceProcAddr,
+    vk_gdpa: FnVkGetDeviceProcAddr,
+}
+
+struct DlssVkFns2 {
+    dlss_set_options: FnSlDlssSetOptions,
+    dlss_get_optimal: FnSlDlssGetOptimalSettings,
+}
+
+struct VkDevFns {
+    destroy_device: FnVkDestroyDevice,
+    get_device_queue: FnVkGetDeviceQueue,
+    create_image: FnVkCreateImage,
+    destroy_image: FnVkDestroyImage,
+    get_image_memory_requirements: FnVkGetImageMemoryRequirements,
+    allocate_memory: FnVkAllocateMemory,
+    free_memory: FnVkFreeMemory,
+    bind_image_memory: FnVkBindImageMemory,
+    create_image_view: FnVkCreateImageView,
+    destroy_image_view: FnVkDestroyImageView,
+    create_buffer: FnVkCreateBuffer,
+    destroy_buffer: FnVkDestroyBuffer,
+    get_buffer_memory_requirements: FnVkGetBufferMemoryRequirements,
+    bind_buffer_memory: FnVkBindBufferMemory,
+    map_memory: FnVkMapMemory,
+    unmap_memory: FnVkUnmapMemory,
+    create_command_pool: FnVkCreateCommandPool,
+    destroy_command_pool: FnVkDestroyCommandPool,
+    allocate_command_buffers: FnVkAllocateCommandBuffers,
+    begin_command_buffer: FnVkBeginCommandBuffer,
+    end_command_buffer: FnVkEndCommandBuffer,
+    reset_command_buffer: FnVkResetCommandBuffer,
+    cmd_pipeline_barrier: FnVkCmdPipelineBarrier,
+    cmd_copy_buffer_to_image: FnVkCmdCopyBufferToImage,
+    cmd_copy_image_to_buffer: FnVkCmdCopyImageToBuffer,
+    queue_submit: FnVkQueueSubmit,
+    queue_wait_idle: FnVkQueueWaitIdle,
+    device_wait_idle: FnVkDeviceWaitIdle,
+}
+
+struct VkImageRes {
+    image: VkImage,
+    memory: VkDeviceMemory,
+    view: VkImageView,
+    layout: i32,
+    format: u32,
+    w: u32,
+    h: u32,
+    aspect: u32,
+}
+
+/// DLSS(Vulkan interop)session——safe 公共面。
+pub struct DlssVkSession {
+    fns: SlVkFns,
+    dlss: DlssVkFns2,
+    dev: VkDevFns,
+    instance: VkInstance,
+    device: VkDevice,
+    queue: VkQueue,
+    cmd_pool: VkCommandPool,
+    cmd: VkCommandBuffer,
+    viewport: SlViewportHandle,
+    in_w: u32,
+    in_h: u32,
+    out_w: u32,
+    out_h: u32,
+    color_in: VkImageRes,
+    depth_in: VkImageRes,
+    mv_in: VkImageRes,
+    reactive_in: VkImageRes,
+    color_out: VkImageRes,
+    staging: VkBuffer,
+    staging_mem: VkDeviceMemory,
+    staging_size: u64,
+    readback: VkBuffer,
+    readback_mem: VkDeviceMemory,
+    readback_size: u64,
+    messenger: VkDebugUtilsMessenger,
+    validation_counter: *mut ValidationCounts,
+    gpu_name: String,
+    ngx_version: String,
+    dlls: Vec<DllProvenance>,
+    log_tail: Vec<String>,
+    shutdown_done: bool,
+}
+
+// session 句柄集非 Send(单线程门 harness 语义;不显式 impl Send/Sync)。
+
+fn sl_result_name(r: SlResult) -> String {
+    let names = [
+        "eOk", "eErrorIO", "eErrorDriverOutOfDate", "eErrorOSOutOfDate", "eErrorOSDisabledHWS",
+        "eErrorDeviceNotCreated", "eErrorNoSupportedAdapterFound", "eErrorAdapterNotSupported",
+        "eErrorNoPlugins", "eErrorVulkanAPI", "eErrorDXGIAPI", "eErrorD3DAPI", "eErrorNRDAPI",
+        "eErrorNVAPI", "eErrorReflexAPI", "eErrorNGXFailed", "eErrorJSONParsing",
+        "eErrorMissingProxy", "eErrorMissingResourceState", "eErrorInvalidIntegration",
+        "eErrorMissingInputParameter", "eErrorNotInitialized", "eErrorComputeFailed",
+        "eErrorInitNotCalled", "eErrorExceptionHandler", "eErrorInvalidParameter",
+        "eErrorMissingConstants", "eErrorDuplicatedConstants", "eErrorMissingOrInvalidAPI",
+        "eErrorCommonConstantsMissing", "eErrorUnsupportedInterface", "eErrorFeatureMissing",
+        "eErrorFeatureNotSupported", "eErrorFeatureMissingHooks", "eErrorFeatureFailedToLoad",
+        "eErrorFeatureWrongPriority", "eErrorFeatureMissingDependency",
+        "eErrorFeatureManagerInvalidState", "eErrorInvalidState", "eWarnOutOfVRAM",
+    ];
+    if (r as usize) < names.len() {
+        format!("{}({r})", names[r as usize])
+    } else {
+        format!("unknown({r})")
+    }
+}
+
+fn f32_to_f16(v: f32) -> u16 {
+    let bits = v.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exp32 = ((bits >> 23) & 0xff) as i32;
+    let mant = bits & 0x007f_ffff;
+    if exp32 == 0xff {
+        // inf/nan → f16 inf/nan 保号
+        return if mant == 0 { sign | 0x7c00 } else { sign | 0x7e00 };
+    }
+    let exp = exp32 - 127 + 15;
+    if exp >= 31 {
+        return sign | 0x7c00; // 上溢 → inf
+    }
+    if exp <= 0 {
+        if exp < -10 {
+            return sign; // 下溢 → 0
+        }
+        let m = mant | 0x0080_0000;
+        let shift = (14 - exp) as u32;
+        let mut m16 = m >> shift;
+        let rem = m & ((1u32 << shift) - 1);
+        let halfway = 1u32 << (shift - 1);
+        if rem > halfway || (rem == halfway && (m16 & 1) == 1) {
+            m16 += 1;
+        }
+        return sign | m16 as u16;
+    }
+    let mut m16 = mant >> 13;
+    let rem = mant & 0x1fff;
+    if rem > 0x1000 || (rem == 0x1000 && (m16 & 1) == 1) {
+        m16 += 1;
+    }
+    if m16 == 0x400 {
+        m16 = 0;
+        return sign | (((exp + 1) as u16) << 10) | m16 as u16;
+    }
+    sign | ((exp as u16) << 10) | m16 as u16
+}
+
+fn f16_to_f32(h: u16) -> f32 {
+    let sign = ((h as u32) & 0x8000) << 16;
+    let exp = ((h >> 10) & 0x1f) as u32;
+    let mant = (h & 0x3ff) as u32;
+    let bits = if exp == 0 {
+        if mant == 0 {
+            sign
+        } else {
+            // subnormal f16 → normalized f32
+            let mut e = -1i32;
+            let mut m = mant;
+            while (m & 0x400) == 0 {
+                m <<= 1;
+                e -= 1;
+            }
+            m &= 0x3ff;
+            sign | (((127 - 15 + 1 + e) as u32) << 23) | (m << 13)
+        }
+    } else if exp == 31 {
+        sign | 0x7f80_0000 | (mant << 13)
+    } else {
+        sign | ((exp + 112) << 23) | (mant << 13)
+    };
+    f32::from_bits(bits)
+}
+
+impl DlssVkSession {
+    /// 创建 DLSS Vulkan interop session(slInit → SL 代理建 instance/device → DLSS
+    /// 插件装载 → 资源面)。`validation` = RURIX_VK_VALIDATION 语义(KHRONOS 层 +
+    /// debug messenger,ERROR 级计数)。fail-closed。
+    pub fn create(
+        sdk_dir: &Path,
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+        validation: bool,
+    ) -> Result<Self, VendorError> {
+        let bin_dir = sdk_dir.join("bin").join("x64");
+        let interposer = bin_dir.join("sl.interposer.dll");
+        if !interposer.is_file() {
+            return Err(VendorError::DllNotFound(format!(
+                "sl.interposer.dll 不在位: {}",
+                interposer.display()
+            )));
+        }
+        for req in ["sl.common.dll", "sl.dlss.dll", "nvngx_dlss.dll"] {
+            let p = bin_dir.join(req);
+            if !p.is_file() {
+                return Err(VendorError::DllNotFound(format!("{req} 不在位: {}", p.display())));
+            }
+        }
+        let dlls = ["sl.interposer.dll", "sl.common.dll", "sl.dlss.dll", "nvngx_dlss.dll"]
+            .iter()
+            .map(|n| {
+                let (sha, bytes) = sha256_file(&bin_dir.join(n))?;
+                Ok(DllProvenance { name: n.to_string(), sha256: sha, bytes })
+            })
+            .collect::<Result<Vec<_>, VendorError>>()?;
+
+        // SAFETY(装载):interposer 路径实测在树;LoadLibraryExW ALTERED_SEARCH_PATH;
+        // 进程常驻不 FreeLibrary(U1 纪律)。
+        let lib = loader::open(&interposer);
+        if lib.is_null() {
+            return Err(VendorError::DllNotFound(format!(
+                "sl.interposer.dll 装载失败: {}",
+                interposer.display()
+            )));
+        }
+        macro_rules! sym {
+            ($name:literal, $ty:ty) => {
+                // SAFETY: lib 有效;$name NUL 结尾字面量;cast_sym null 校验。
+                match unsafe { cast_sym::<$ty>(loader::sym(lib, concat!($name, "\0").as_ptr() as *const c_char)) } {
+                    Some(f) => f,
+                    None => return Err(VendorError::SymbolMissing($name.into())),
+                }
+            };
+        }
+        let fns = SlVkFns {
+            sl_init: sym!("slInit", FnSlInit),
+            sl_shutdown: sym!("slShutdown", FnSlShutdown),
+            sl_is_feature_loaded: sym!("slIsFeatureLoaded", FnSlIsFeatureLoaded),
+            sl_get_feature_function: sym!("slGetFeatureFunction", FnSlGetFeatureFunction),
+            sl_get_new_frame_token: sym!("slGetNewFrameToken", FnSlGetNewFrameToken),
+            sl_set_constants: sym!("slSetConstants", FnSlSetConstants),
+            sl_evaluate_feature: sym!("slEvaluateFeature", FnSlEvaluateFeature),
+            sl_free_resources: sym!("slFreeResources", FnSlFreeResources),
+            sl_get_feature_version: sym!("slGetFeatureVersion", FnSlGetFeatureVersion),
+            vk_gipa: sym!("vkGetInstanceProcAddr", FnVkGetInstanceProcAddr),
+            // SAFETY: lib 有效;NUL 结尾字面量;cast_sym null 校验——
+            // vkGetDeviceProcAddr 需实例级解析——自 interposer 直接导出取址
+            // (导出表实测含 vkGetDeviceProcAddr)。
+            vk_gdpa: unsafe {
+                cast_sym::<FnVkGetDeviceProcAddr>(loader::sym(lib, c"vkGetDeviceProcAddr".as_ptr()))
+                    .ok_or_else(|| VendorError::SymbolMissing("vkGetDeviceProcAddr".into()))?
+            },
+        };
+
+        // ── slInit(eUseManualHooking,featuresToLoad=[DLSS]) ──
+        let plugin_dir_wide: Vec<u16> = bin_dir
+            .as_os_str()
+            .to_string_lossy()
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let plugin_paths: [*const u16; 1] = [plugin_dir_wide.as_ptr()];
+        let features: [u32; 1] = [SL_FEATURE_DLSS];
+        let engine_ver = c"1.0.0";
+        // NGX 硬校验:projectId 必须为合法 GUID 字面(纯 hex + 连字符——初版嵌入
+        // 非 hex 字符被 NGX 拒,致 NGX 初始化失败、DLSS context 缺失;SL 日志实测)。
+        let project_id = c"a7f31c25-8c4e-4b2d-9e16-10a1c0de5001";
+        let prefs = SlPreferencesLayout {
+            base: sl_base(SL_GUID_PREFERENCES, 1),
+            show_console: 0,
+            _pad0: [0; 3],
+            log_level: SL_LOG_VERBOSE,
+            paths_to_plugins: plugin_paths.as_ptr(),
+            num_paths_to_plugins: 1,
+            _pad1: 0,
+            path_to_logs_and_data: std::ptr::null(),
+            allocate_callback: std::ptr::null_mut(),
+            release_callback: std::ptr::null_mut(),
+            log_message_callback: sl_log_cb as *mut c_void,
+            flags: SL_PREF_MANUAL_HOOKING,
+            features_to_load: features.as_ptr(),
+            num_features_to_load: 1,
+            application_id: 0,
+            engine: SL_ENGINE_CUSTOM,
+            _pad2: 0,
+            engine_version: engine_ver.as_ptr(),
+            project_id: project_id.as_ptr(),
+            render_api: SL_RENDER_API_VULKAN,
+            _pad3: 0,
+        };
+        // SAFETY: prefs 为本函数栈上完整初始化值,GUID/版本头匹配 slInit 期望;
+        // plugin_dir_wide/features/engine_ver/project_id 调用期存活。
+        let r = unsafe { (fns.sl_init)(&prefs, SL_KSDK_VERSION) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!("slInit → {}", sl_result_name(r))));
+        }
+
+        // ── instance(SL 代理 vkCreateInstance;validation 可选) ──
+        // SAFETY: vk_gipa 为 SL 代理入口;全局级符号经 NULL instance 解析(Vulkan 装载语义)。
+        let create_instance: FnVkCreateInstance = unsafe {
+            cast_sym((fns.vk_gipa)(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkCreateInstance(proxy)".into()))?
+        };
+
+        let mut layers: Vec<*const c_char> = Vec::new();
+        let mut exts: Vec<*const c_char> = Vec::new();
+        let khronos = c"VK_LAYER_KHRONOS_validation";
+        let debug_utils = c"VK_EXT_debug_utils";
+        if validation {
+            layers.push(khronos.as_ptr());
+            exts.push(debug_utils.as_ptr());
+        }
+        let app_name = c"rurix-g13-m167";
+        let app = VkApplicationInfo {
+            s_type: VK_STRUCTURE_TYPE_APPLICATION_INFO,
+            p_next: std::ptr::null(),
+            p_application_name: app_name.as_ptr(),
+            application_version: 1,
+            p_engine_name: app_name.as_ptr(),
+            engine_version: 1,
+            api_version: (1 << 22) | (3 << 12), // VK_API_VERSION_1_3
+        };
+        let ici = VkInstanceCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            p_application_info: &app,
+            enabled_layer_count: layers.len() as u32,
+            pp_enabled_layer_names: if layers.is_empty() { std::ptr::null() } else { layers.as_ptr() },
+            enabled_extension_count: exts.len() as u32,
+            pp_enabled_extension_names: if exts.is_empty() { std::ptr::null() } else { exts.as_ptr() },
+        };
+        let mut instance: VkInstance = std::ptr::null_mut();
+        // SAFETY: app/ici 栈上存活;SL 代理在创建时附加其必需实例扩展。
+        let r = unsafe { create_instance(&ici, std::ptr::null(), &mut instance) };
+        if r != VK_SUCCESS || instance.is_null() {
+            return Err(VendorError::ApiError(format!("vkCreateInstance(proxy) → {r}")));
+        }
+
+        // 实例级符号:spec 要求非 NULL instance(NULL 仅解析全局级;SL 代理同律——
+        // 初版 NULL 解析 vkGetPhysicalDeviceProperties 返 NULL,实测击穿)。
+        // SAFETY: instance 有效;符号名 NUL 结尾字面量;cast_sym null 校验(下同五条同律)。
+        let enumerate_physical: FnVkEnumeratePhysicalDevices = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkEnumeratePhysicalDevices".into()))?
+        };
+        // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+        let get_phys_props: FnVkGetPhysicalDeviceProperties = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkGetPhysicalDeviceProperties".into()))?
+        };
+        // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+        let get_queue_props: FnVkGetPhysicalDeviceQueueFamilyProperties = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkGetPhysicalDeviceQueueFamilyProperties".into()))?
+        };
+        // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+        let get_mem_props: FnVkGetPhysicalDeviceMemoryProperties = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkGetPhysicalDeviceMemoryProperties".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkGetPhysicalDeviceMemoryProperties".into()))?
+        };
+        // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+        let create_device: FnVkCreateDevice = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkCreateDevice".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkCreateDevice(proxy)".into()))?
+        };
+        // create 期 fail-closed 符号预检(Drop 期经 vk_gipa 再取销毁用实例函数;
+        // 此处只验符号在位,绑定故意不消费)。
+        // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+        let _destroy_instance: FnVkDestroyInstance = unsafe {
+            cast_sym((fns.vk_gipa)(instance, c"vkDestroyInstance".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("vkDestroyInstance".into()))?
+        };
+
+        // validation messenger(instance 创建后立刻挂;ERROR 级计数)。
+        let mut messenger: VkDebugUtilsMessenger = 0;
+        let mut validation_counter: *mut ValidationCounts = std::ptr::null_mut();
+        if validation {
+            // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验(缺符号 = 无
+            // 校验层环境,None 面下行容忍)。
+            let create_msgr: Option<FnVkCreateDebugUtilsMessenger> = unsafe {
+                cast_sym((fns.vk_gipa)(instance, c"vkCreateDebugUtilsMessengerEXT".as_ptr()))
+            };
+            if let Some(create_msgr) = create_msgr {
+                let counter = Box::new(ValidationCounts {
+                    errors: AtomicU64::new(0),
+                    excluded_ngx_internal: AtomicU64::new(0),
+                    excluded_names: std::sync::Mutex::new(Vec::new()),
+                });
+                validation_counter = Box::into_raw(counter);
+                let ci = VkDebugUtilsMessengerCreateInfo {
+                    s_type: VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    message_severity: VK_DEBUG_SEVERITY_ERROR | 0x100,
+                    message_type: 1 | 2 | 4,
+                    pfn_user_callback: vk_debug_cb as *const c_void,
+                    p_user_data: validation_counter as *mut c_void,
+                };
+                // SAFETY: ci 栈上存活;p_user_data 指向 Box 化计数器(session 持有,
+                // messenger 先于 instance 销毁,生命周期严格短于该堆变量)。
+                let r = unsafe { create_msgr(instance, &ci, std::ptr::null(), &mut messenger) };
+                if r != VK_SUCCESS {
+                    messenger = 0;
+                }
+            }
+        }
+
+        // ── 物理设备选取(NVIDIA 独显优先) ──
+        let mut count = 0u32;
+        // SAFETY: instance 有效。
+        unsafe { enumerate_physical(instance, &mut count, std::ptr::null_mut()) };
+        if count == 0 {
+            return Err(VendorError::DeviceUnavailable("零 Vulkan 物理设备".into()));
+        }
+        let mut phys = vec![std::ptr::null_mut::<c_void>(); count as usize];
+        // SAFETY: phys 容量 = count。
+        unsafe { enumerate_physical(instance, &mut count, phys.as_mut_ptr()) };
+        let mut chosen: Option<VkPhysicalDevice> = None;
+        let mut gpu_name = String::new();
+        for &p in &phys {
+            // VkPhysicalDeviceProperties:vendorID@8,deviceType@16,deviceName[256]@20
+            // (render_exec 同源偏移,SDK 头核对);2048B align(8) blob 超集承载防越界写。
+            let mut blob = [0u64; 256];
+            // SAFETY: blob 2048B ≥ 真实结构(约 824B),align 8 满足。
+            unsafe { get_phys_props(p, blob.as_mut_ptr() as *mut c_void) };
+            let bytes = blob.as_ptr() as *const u8;
+            // SAFETY: 只读 blob 前 276 字节(结构已知前缀)。
+            let (vendor, dev_type, name) = unsafe {
+                let vendor = (bytes.add(8) as *const u32).read_unaligned();
+                let dev_type = (bytes.add(16) as *const i32).read_unaligned();
+                let name_ptr = bytes.add(20);
+                let len = (0..256).position(|i| *name_ptr.add(i) == 0).unwrap_or(256);
+                let name = String::from_utf8_lossy(core::slice::from_raw_parts(name_ptr, len)).into_owned();
+                (vendor, dev_type, name)
+            };
+            let is_nv = vendor == 0x10de;
+            let is_discrete = dev_type == 2;
+            // 首选兜底(首个设备),NVIDIA 独显覆盖(NV+discrete 双位才替换——
+            // 合并条件与原嵌套 if 语义逐点等价:chosen 为空必取,否则仅 NV 独显替换)。
+            if chosen.is_none() || (is_nv && is_discrete) {
+                chosen = Some(p);
+                gpu_name = name;
+            }
+        }
+        let physical_device = chosen.ok_or_else(|| VendorError::DeviceUnavailable("无可用物理设备".into()))?;
+
+        // ── queue 家族(graphics|compute 优先,compute-only 兜底) ──
+        // 我方上传深度经 vkCmdCopyBufferToImage(VK_IMAGE_ASPECT_DEPTH_BIT)——
+        // VUID-vkCmdCopyBufferToImage-commandBuffer-07739 要求 cmd pool 所属
+        // 家族带 GRAPHICS;DLSS evaluate 同走该 cmd buffer,compute 位亦需。
+        // NVIDIA 家族 0 = GRAPHICS|COMPUTE|TRANSFER 天然满足;compute-only
+        // 家族(家族 2,COMPUTE|TRANSFER|SPARSE)命中 07739 实错,仅作理论兜底。
+        let mut qcount = 0u32;
+        // SAFETY: physical_device 有效。
+        unsafe { get_queue_props(physical_device, &mut qcount, std::ptr::null_mut()) };
+        // VkQueueFamilyProperties = 24B {flags,count,validBits,granularity×3}
+        let mut qprops = vec![0u8; qcount as usize * 24];
+        // SAFETY: qprops 容量 = qcount×24。
+        unsafe { get_queue_props(physical_device, &mut qcount, qprops.as_mut_ptr() as *mut c_void) };
+        let mut family: Option<u32> = None;
+        let mut family_fallback: Option<u32> = None;
+        for i in 0..qcount {
+            let off = i as usize * 24;
+            // SAFETY: off+4 ≤ qprops 长度。
+            let flags = unsafe { (qprops.as_ptr().add(off) as *const u32).read_unaligned() };
+            if flags & (VK_QUEUE_COMPUTE | VK_QUEUE_GRAPHICS) == (VK_QUEUE_COMPUTE | VK_QUEUE_GRAPHICS) {
+                family = Some(i);
+                break;
+            }
+            if flags & VK_QUEUE_COMPUTE != 0 && family_fallback.is_none() {
+                family_fallback = Some(i);
+            }
+        }
+        let queue_family = family
+            .or(family_fallback)
+            .ok_or_else(|| VendorError::DeviceUnavailable("无 compute 队列家族".into()))?;
+
+        // ── device(SL 代理 vkCreateDevice;SL 自担其扩展/特性/队列) ──
+        let priority = 1.0f32;
+        let qci = VkDeviceQueueCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: queue_family,
+            queue_count: 1,
+            p_queue_priorities: &priority,
+        };
+        let dci = VkDeviceCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_create_info_count: 1,
+            p_queue_create_infos: &qci,
+            enabled_layer_count: 0,
+            pp_enabled_layer_names: std::ptr::null(),
+            enabled_extension_count: 0,
+            pp_enabled_extension_names: std::ptr::null(),
+            p_enabled_features: std::ptr::null(),
+        };
+        let mut device: VkDevice = std::ptr::null_mut();
+        // SAFETY: qci/dci 栈上存活;SL 代理附加 DLSS 必需设备扩展与特性。
+        let r = unsafe { create_device(physical_device, &dci, std::ptr::null(), &mut device) };
+        if r != VK_SUCCESS || device.is_null() {
+            return Err(VendorError::ApiError(format!("vkCreateDevice(proxy) → {r}")));
+        }
+
+        macro_rules! dsym {
+            ($name:literal, $ty:ty) => {
+                // SAFETY: device 有效;代理 gdpa 对非拦截函数转发 vulkan-1.dll。
+                match unsafe { cast_sym::<$ty>((fns.vk_gdpa)(device, concat!($name, "\0").as_ptr() as *const c_char)) } {
+                    Some(f) => f,
+                    None => return Err(VendorError::SymbolMissing($name.into())),
+                }
+            };
+        }
+        let dev = VkDevFns {
+            destroy_device: dsym!("vkDestroyDevice", FnVkDestroyDevice),
+            get_device_queue: dsym!("vkGetDeviceQueue", FnVkGetDeviceQueue),
+            create_image: dsym!("vkCreateImage", FnVkCreateImage),
+            destroy_image: dsym!("vkDestroyImage", FnVkDestroyImage),
+            get_image_memory_requirements: dsym!("vkGetImageMemoryRequirements", FnVkGetImageMemoryRequirements),
+            allocate_memory: dsym!("vkAllocateMemory", FnVkAllocateMemory),
+            free_memory: dsym!("vkFreeMemory", FnVkFreeMemory),
+            bind_image_memory: dsym!("vkBindImageMemory", FnVkBindImageMemory),
+            create_image_view: dsym!("vkCreateImageView", FnVkCreateImageView),
+            destroy_image_view: dsym!("vkDestroyImageView", FnVkDestroyImageView),
+            create_buffer: dsym!("vkCreateBuffer", FnVkCreateBuffer),
+            destroy_buffer: dsym!("vkDestroyBuffer", FnVkDestroyBuffer),
+            get_buffer_memory_requirements: dsym!("vkGetBufferMemoryRequirements", FnVkGetBufferMemoryRequirements),
+            bind_buffer_memory: dsym!("vkBindBufferMemory", FnVkBindBufferMemory),
+            map_memory: dsym!("vkMapMemory", FnVkMapMemory),
+            unmap_memory: dsym!("vkUnmapMemory", FnVkUnmapMemory),
+            create_command_pool: dsym!("vkCreateCommandPool", FnVkCreateCommandPool),
+            destroy_command_pool: dsym!("vkDestroyCommandPool", FnVkDestroyCommandPool),
+            allocate_command_buffers: dsym!("vkAllocateCommandBuffers", FnVkAllocateCommandBuffers),
+            begin_command_buffer: dsym!("vkBeginCommandBuffer", FnVkBeginCommandBuffer),
+            end_command_buffer: dsym!("vkEndCommandBuffer", FnVkEndCommandBuffer),
+            reset_command_buffer: dsym!("vkResetCommandBuffer", FnVkResetCommandBuffer),
+            cmd_pipeline_barrier: dsym!("vkCmdPipelineBarrier", FnVkCmdPipelineBarrier),
+            cmd_copy_buffer_to_image: dsym!("vkCmdCopyBufferToImage", FnVkCmdCopyBufferToImage),
+            cmd_copy_image_to_buffer: dsym!("vkCmdCopyImageToBuffer", FnVkCmdCopyImageToBuffer),
+            queue_submit: dsym!("vkQueueSubmit", FnVkQueueSubmit),
+            queue_wait_idle: dsym!("vkQueueWaitIdle", FnVkQueueWaitIdle),
+            device_wait_idle: dsym!("vkDeviceWaitIdle", FnVkDeviceWaitIdle),
+        };
+        let mut queue: VkQueue = std::ptr::null_mut();
+        // SAFETY: device/queue_family 有效。
+        unsafe { (dev.get_device_queue)(device, queue_family, 0, &mut queue) };
+
+        // ── DLSS 插件装载确认 + 功能函数 ──
+        let mut loaded: u8 = 0;
+        // SAFETY: loaded 栈上有效写。
+        let r = unsafe { (fns.sl_is_feature_loaded)(SL_FEATURE_DLSS, &mut loaded) };
+        if r != SL_OK || loaded == 0 {
+            return Err(VendorError::DeviceUnavailable(format!(
+                "DLSS 插件未装载(slIsFeatureLoaded → {},loaded={loaded})",
+                sl_result_name(r)
+            )));
+        }
+        // SAFETY: fns 已解析;p1/p2 出参栈上有效写;cast_sym null 校验;符号名
+        // NUL 结尾字面量。
+        let dlss = unsafe {
+            let mut p1: *mut c_void = std::ptr::null_mut();
+            let r1 = (fns.sl_get_feature_function)(SL_FEATURE_DLSS, c"slDLSSSetOptions".as_ptr(), &mut p1);
+            let mut p2: *mut c_void = std::ptr::null_mut();
+            let r2 = (fns.sl_get_feature_function)(SL_FEATURE_DLSS, c"slDLSSGetOptimalSettings".as_ptr(), &mut p2);
+            if r1 != SL_OK || r2 != SL_OK || p1.is_null() || p2.is_null() {
+                return Err(VendorError::SymbolMissing(format!(
+                    "slGetFeatureFunction(DLSS) → {}/{r2}",
+                    sl_result_name(r1)
+                )));
+            }
+            DlssVkFns2 {
+                dlss_set_options: cast_sym::<FnSlDlssSetOptions>(p1)
+                    .ok_or_else(|| VendorError::SymbolMissing("slDLSSSetOptions fn".into()))?,
+                dlss_get_optimal: cast_sym::<FnSlDlssGetOptimalSettings>(p2)
+                    .ok_or_else(|| VendorError::SymbolMissing("slDLSSGetOptimalSettings fn".into()))?,
+            }
+        };
+        let mut fv = SlFeatureVersion {
+            base: sl_base(SL_GUID_FEATURE_VERSION, 1),
+            version_sl: [0; 3],
+            version_ngx: [0; 3],
+        };
+        // SAFETY: fv 栈上有效写。
+        let _ = unsafe { (fns.sl_get_feature_version)(SL_FEATURE_DLSS, &mut fv) };
+        let ngx_version = format!(
+            "SL {}.{}.{} / NGX {}.{}.{}",
+            fv.version_sl[0], fv.version_sl[1], fv.version_sl[2],
+            fv.version_ngx[0], fv.version_ngx[1], fv.version_ngx[2]
+        );
+
+        // ── DLSS optimal settings 核验(输入分辨率须在 [min,max]) ──
+        let opts = SlDlssOptions {
+            base: sl_base(SL_GUID_DLSS_OPTIONS, 3),
+            mode: SL_DLSS_MODE_MAX_PERFORMANCE,
+            output_width: out_size.0,
+            output_height: out_size.1,
+            sharpness: 0.0,
+            pre_exposure: 1.0,
+            exposure_scale: 1.0,
+            color_buffers_hdr: 1,
+            indicator_invert_axis_x: 0,
+            indicator_invert_axis_y: 0,
+            _pad0: 0,
+            dlaa_preset: 0,
+            quality_preset: 0,
+            balanced_preset: 0,
+            performance_preset: 0,
+            ultra_performance_preset: 0,
+            ultra_quality_preset: 0,
+            use_auto_exposure: 0,
+            alpha_upscaling_enabled: 0,
+            _pad1: [0; 2],
+        };
+        let mut optimal = SlDlssOptimalSettings {
+            base: sl_base(SL_GUID_DLSS_OPTIMAL, 1),
+            optimal_render_width: 0,
+            optimal_render_height: 0,
+            optimal_sharpness: 0.0,
+            render_width_min: 0,
+            render_height_min: 0,
+            render_width_max: 0,
+            render_height_max: 0,
+        };
+        // SAFETY: opts/optimal 栈上有效。
+        let r = unsafe { (dlss.dlss_get_optimal)(&opts, &mut optimal) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!(
+                "slDLSSGetOptimalSettings → {}",
+                sl_result_name(r)
+            )));
+        }
+        let (iw, ih) = in_size;
+        if iw < optimal.render_width_min
+            || ih < optimal.render_height_min
+            || iw > optimal.render_width_max
+            || ih > optimal.render_height_max
+        {
+            return Err(VendorError::DeviceUnavailable(format!(
+                "输入 {iw}x{ih} 越出 DLSS 窗口 [{},{}]x[{},{}]",
+                optimal.render_width_min,
+                optimal.render_width_max,
+                optimal.render_height_min,
+                optimal.render_height_max
+            )));
+        }
+
+        // ── 内存类型索引 ──
+        // VkPhysicalDeviceMemoryProperties 520B(32 types × 8B + 16 heaps × 16B + 2×u32)。
+        let mut mem_blob = [0u64; 66]; // 528B align(8) 超集
+        // SAFETY: blob ≥ 520B 真实结构。
+        unsafe { get_mem_props(physical_device, mem_blob.as_mut_ptr() as *mut c_void) };
+        let mem_bytes = mem_blob.as_ptr() as *const u8;
+        // SAFETY: 只读 520B 前缀;memoryTypeCount@0,types@4..260,heapCount@260,heaps@264。
+        let (type_count, heap_count) = unsafe {
+            (
+                (mem_bytes as *const u32).read_unaligned() as usize,
+                (mem_bytes.add(260) as *const u32).read_unaligned() as usize,
+            )
+        };
+        let mut heaps = Vec::with_capacity(heap_count.min(16));
+        for i in 0..heap_count.min(16) {
+            // SAFETY: 264+i*16 在 520B 内。
+            let size = unsafe { (mem_bytes.add(264 + i * 16) as *const u64).read_unaligned() };
+            heaps.push(size);
+        }
+        let pick_type = |required: u32, prefer_device: bool| -> Option<u32> {
+            let mut best: Option<(u32, u64)> = None;
+            for i in 0..type_count.min(32) {
+                // SAFETY: 4+i*8 在 260B 内。
+                let (flags, heap_idx) = unsafe {
+                    (
+                        (mem_bytes.add(4 + i * 8) as *const u32).read_unaligned(),
+                        (mem_bytes.add(8 + i * 8) as *const u32).read_unaligned() as usize,
+                    )
+                };
+                if flags & required == required {
+                    if !prefer_device {
+                        return Some(i as u32);
+                    }
+                    let heap_size = heaps.get(heap_idx).copied().unwrap_or(0);
+                    if best.is_none_or(|(_, s)| heap_size > s) {
+                        best = Some((i as u32, heap_size));
+                    }
+                }
+            }
+            best.map(|(i, _)| i)
+        };
+        let device_local_type = pick_type(VK_MEMORY_PROPERTY_DEVICE_LOCAL, true)
+            .ok_or_else(|| VendorError::DeviceUnavailable("无 device-local 内存类型".into()))?;
+        let host_type = pick_type(VK_MEMORY_PROPERTY_HOST_VISIBLE | VK_MEMORY_PROPERTY_HOST_COHERENT, false)
+            .ok_or_else(|| VendorError::DeviceUnavailable("无 host-visible+coherent 内存类型".into()))?;
+
+        // ── 资源面 ──
+        let (ow, oh) = out_size;
+        let dev_ref = &dev;
+        let mk_image = |format: u32,
+                        w: u32,
+                        h: u32,
+                        usage: u32,
+                        aspect: u32|
+         -> Result<VkImageRes, VendorError> {
+            let ici = VkImageCreateInfo {
+                s_type: VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image_type: 2, // 2D
+                format,
+                extent: VkExtent3D { width: w, height: h, depth: 1 },
+                mip_levels: 1,
+                array_layers: 1,
+                samples: 1,
+                tiling: 0, // OPTIMAL
+                usage,
+                sharing_mode: 0,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+                initial_layout: VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+            let mut image: VkImage = 0;
+            // SAFETY: ici 栈上存活。
+            let r = unsafe { (dev_ref.create_image)(device, &ici, std::ptr::null(), &mut image) };
+            if r != VK_SUCCESS || image == 0 {
+                return Err(VendorError::ApiError(format!("vkCreateImage(fmt={format}) → {r}")));
+            }
+            let mut req = VkMemoryRequirements::default();
+            // SAFETY: image 有效。
+            unsafe { (dev_ref.get_image_memory_requirements)(device, image, &mut req) };
+            let mai = VkMemoryAllocateInfo {
+                s_type: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: req.size,
+                memory_type_index: device_local_type,
+            };
+            let mut memory: VkDeviceMemory = 0;
+            // SAFETY: mai 栈上存活。
+            let r = unsafe { (dev_ref.allocate_memory)(device, &mai, std::ptr::null(), &mut memory) };
+            if r != VK_SUCCESS {
+                return Err(VendorError::ApiError(format!("vkAllocateMemory(image) → {r}")));
+            }
+            // SAFETY: image/memory 配对有效。
+            let r = unsafe { (dev_ref.bind_image_memory)(device, image, memory, 0) };
+            if r != VK_SUCCESS {
+                return Err(VendorError::ApiError(format!("vkBindImageMemory → {r}")));
+            }
+            let vci = VkImageViewCreateInfo {
+                s_type: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                image,
+                view_type: 1, // 2D
+                format,
+                components: [0; 4],
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: aspect,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            let mut view: VkImageView = 0;
+            // SAFETY: vci 栈上存活。
+            let r = unsafe { (dev_ref.create_image_view)(device, &vci, std::ptr::null(), &mut view) };
+            if r != VK_SUCCESS || view == 0 {
+                return Err(VendorError::ApiError(format!("vkCreateImageView(fmt={format}) → {r}")));
+            }
+            Ok(VkImageRes { image, memory, view, layout: VK_IMAGE_LAYOUT_UNDEFINED, format, w, h, aspect })
+        };
+        let color_in = mk_image(
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            iw,
+            ih,
+            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+            VK_IMAGE_ASPECT_COLOR,
+        )?;
+        let depth_in = mk_image(
+            VK_FORMAT_D32_SFLOAT,
+            iw,
+            ih,
+            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+            VK_IMAGE_ASPECT_DEPTH,
+        )?;
+        let mv_in = mk_image(
+            VK_FORMAT_R32G32_SFLOAT,
+            iw,
+            ih,
+            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+            VK_IMAGE_ASPECT_COLOR,
+        )?;
+        let reactive_in = mk_image(
+            VK_FORMAT_R8_UNORM,
+            iw,
+            ih,
+            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+            VK_IMAGE_ASPECT_COLOR,
+        )?;
+        let color_out = mk_image(
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            ow,
+            oh,
+            VK_IMAGE_USAGE_STORAGE | VK_IMAGE_USAGE_TRANSFER_SRC,
+            VK_IMAGE_ASPECT_COLOR,
+        )?;
+
+        // staging(上传)+ readback(回读)host 缓冲。
+        let in_bytes = [
+            (iw * ih * 4 * 2) as u64, // color RGBA f16
+            (iw * ih * 4) as u64,     // depth f32
+            (iw * ih * 2 * 4) as u64, // mv RG f32
+            (iw * ih) as u64,         // reactive R8
+        ];
+        let staging_size = in_bytes.iter().sum::<u64>();
+        let readback_size = (ow * oh * 4 * 2) as u64;
+        let mk_buffer = |size: u64, usage: u32| -> Result<(VkBuffer, VkDeviceMemory), VendorError> {
+            let bci = VkBufferCreateInfo {
+                s_type: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                size,
+                usage,
+                sharing_mode: 0,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+            };
+            let mut buffer: VkBuffer = 0;
+            // SAFETY: bci 栈上存活。
+            let r = unsafe { (dev.create_buffer)(device, &bci, std::ptr::null(), &mut buffer) };
+            if r != VK_SUCCESS || buffer == 0 {
+                return Err(VendorError::ApiError(format!("vkCreateBuffer → {r}")));
+            }
+            let mut req = VkMemoryRequirements::default();
+            // SAFETY: buffer 有效。
+            unsafe { (dev.get_buffer_memory_requirements)(device, buffer, &mut req) };
+            let mai = VkMemoryAllocateInfo {
+                s_type: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                allocation_size: req.size,
+                memory_type_index: host_type,
+            };
+            let mut memory: VkDeviceMemory = 0;
+            // SAFETY: mai 栈上存活。
+            let r = unsafe { (dev.allocate_memory)(device, &mai, std::ptr::null(), &mut memory) };
+            if r != VK_SUCCESS {
+                return Err(VendorError::ApiError(format!("vkAllocateMemory(buffer) → {r}")));
+            }
+            // SAFETY: buffer/memory 配对有效。
+            let r = unsafe { (dev.bind_buffer_memory)(device, buffer, memory, 0) };
+            if r != VK_SUCCESS {
+                return Err(VendorError::ApiError(format!("vkBindBufferMemory → {r}")));
+            }
+            Ok((buffer, memory))
+        };
+        let (staging, staging_mem) = mk_buffer(staging_size, VK_BUFFER_USAGE_TRANSFER_SRC)?;
+        let (readback, readback_mem) = mk_buffer(readback_size, VK_BUFFER_USAGE_TRANSFER_DST)?;
+
+        let cpci = VkCommandPoolCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER,
+            queue_family_index: queue_family,
+        };
+        let mut cmd_pool: VkCommandPool = 0;
+        // SAFETY: cpci 栈上存活。
+        let r = unsafe { (dev.create_command_pool)(device, &cpci, std::ptr::null(), &mut cmd_pool) };
+        if r != VK_SUCCESS || cmd_pool == 0 {
+            return Err(VendorError::ApiError(format!("vkCreateCommandPool → {r}")));
+        }
+        let cbai = VkCommandBufferAllocateInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmd_pool,
+            level: 0, // PRIMARY
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        // SAFETY: cbai 栈上存活。
+        let r = unsafe { (dev.allocate_command_buffers)(device, &cbai, &mut cmd) };
+        if r != VK_SUCCESS || cmd.is_null() {
+            return Err(VendorError::ApiError(format!("vkAllocateCommandBuffers → {r}")));
+        }
+
+        Ok(DlssVkSession {
+            fns,
+            dlss,
+            dev,
+            instance,
+            device,
+            queue,
+            cmd_pool,
+            cmd,
+            viewport: SlViewportHandle { base: sl_base(SL_GUID_VIEWPORT, 1), value: 0 },
+            in_w: iw,
+            in_h: ih,
+            out_w: ow,
+            out_h: oh,
+            color_in,
+            depth_in,
+            mv_in,
+            reactive_in,
+            color_out,
+            staging,
+            staging_mem,
+            staging_size,
+            readback,
+            readback_mem,
+            readback_size,
+            messenger,
+            validation_counter,
+            gpu_name,
+            ngx_version,
+            dlls,
+            log_tail: Vec::new(),
+            shutdown_done: false,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)] // Vulkan barrier 八元参数面与 VkImageMemoryBarrier 字段一一对应,封装为元组反损可读性
+    fn vk_barrier(&self, res: &VkImageRes, old: i32, new: i32, src_access: u32, dst_access: u32, src_stage: u32, dst_stage: u32) {
+        let barrier = VkImageMemoryBarrier {
+            s_type: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: src_access,
+            dst_access_mask: dst_access,
+            old_layout: old,
+            new_layout: new,
+            src_queue_family_index: !0,
+            dst_queue_family_index: !0,
+            image: res.image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: res.aspect,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        // SAFETY: cmd 录制中;barrier 栈上存活至调用返回;image 有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd,
+                src_stage,
+                dst_stage,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &barrier,
+            )
+        };
+    }
+
+    fn vk_upload_image(&mut self, slot: VkInputSlot, staging_offset: u64) {
+        // staging_offset 段数据已在调用前写入 staging map;布局状态逐帧跟踪。
+        let (image, aspect, w, h, old) = match slot {
+            VkInputSlot::Color => (self.color_in.image, self.color_in.aspect, self.color_in.w, self.color_in.h, self.color_in.layout),
+            VkInputSlot::Depth => (self.depth_in.image, self.depth_in.aspect, self.depth_in.w, self.depth_in.h, self.depth_in.layout),
+            VkInputSlot::Mv => (self.mv_in.image, self.mv_in.aspect, self.mv_in.w, self.mv_in.h, self.mv_in.layout),
+            VkInputSlot::Reactive => (self.reactive_in.image, self.reactive_in.aspect, self.reactive_in.w, self.reactive_in.h, self.reactive_in.layout),
+        };
+        let first = old == VK_IMAGE_LAYOUT_UNDEFINED;
+        let src_access = if first { 0 } else { VK_ACCESS_SHADER_READ };
+        let src_stage = if first { VK_PIPELINE_STAGE_TOP_OF_PIPE } else { VK_PIPELINE_STAGE_COMPUTE_SHADER };
+        let res = VkImageRes { image, memory: 0, view: 0, layout: old, format: 0, w, h, aspect };
+        self.vk_barrier(&res, old, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, src_access, VK_ACCESS_TRANSFER_WRITE, src_stage, VK_PIPELINE_STAGE_TRANSFER);
+        let region = VkBufferImageCopy {
+            buffer_offset: staging_offset,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: aspect,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: [0, 0, 0],
+            image_extent: VkExtent3D { width: w, height: h, depth: 1 },
+        };
+        // SAFETY: cmd 录制中;staging 数据已写入(host coherent);region 与图像尺寸一致。
+        unsafe {
+            (self.dev.cmd_copy_buffer_to_image)(
+                self.cmd,
+                self.staging,
+                image,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1,
+                &region,
+            )
+        };
+        let res2 = VkImageRes { layout: VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, ..res };
+        self.vk_barrier(&res2, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE, VK_ACCESS_SHADER_READ, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+        let new_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        match slot {
+            VkInputSlot::Color => self.color_in.layout = new_layout,
+            VkInputSlot::Depth => self.depth_in.layout = new_layout,
+            VkInputSlot::Mv => self.mv_in.layout = new_layout,
+            VkInputSlot::Reactive => self.reactive_in.layout = new_layout,
+        }
+    }
+
+    /// 执行一帧 DLSS 超分;返回 `out_size` 的 3 通道 f32 显示域图像(行主序 RGB)。
+    pub fn upscale(&mut self, input: &VendorFrameInput) -> Result<Vec<f32>, VendorError> {
+        self.frame_impl(input, false)
+    }
+
+    /// validation 探针帧:跑我方 Vulkan 全表面(staging 打包/四槽上传含 DEPTH
+    /// aspect 拷贝/barrier/提交/回读/reset)+ SL 簿记调用(frame token/constants/
+    /// options),**跳过 slEvaluateFeature**——NGX evaluate 在 KHRONOS_validation
+    /// 层在下崩溃于 NVIDIA 驱动内部(nvoglv64.dll,0xc0000005;SL 异常处理器捕获
+    /// 报 eErrorExceptionHandler;vendor 已知 SL+validation 不兼容类,Streamline
+    /// issue #84 ack/bug),校验层无法覆盖其内部 CUDA interop 段。探针帧输出内容
+    /// 未定(DLSS 未写 color_out),仅供校验层覆盖,禁作画质消费。
+    pub fn probe_validation_frame(&mut self, input: &VendorFrameInput) -> Result<Vec<f32>, VendorError> {
+        self.frame_impl(input, true)
+    }
+
+    fn frame_impl(&mut self, input: &VendorFrameInput, skip_evaluate: bool) -> Result<Vec<f32>, VendorError> {
+        let (iw, ih) = (self.in_w, self.in_h);
+        let px = (iw * ih) as usize;
+        if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
+            return Err(VendorError::ApiError("输入切片长度与 session 分辨率不符".into()));
+        }
+        if let Some(r) = input.reactive
+            && r.len() != px
+        {
+            return Err(VendorError::ApiError("reactive 切片长度不符".into()));
+        }
+        // ── staging 打包(color f16 + depth f32 + mv f32 + reactive R8) ──
+        let color_bytes = px * 4 * 2;
+        let depth_bytes = px * 4;
+        let mv_bytes = px * 2 * 4;
+        let reactive_bytes = px;
+        let mut packed = vec![0u8; color_bytes + depth_bytes + mv_bytes + reactive_bytes];
+        for i in 0..px {
+            let r16 = f32_to_f16(input.color[i * 3]);
+            let g16 = f32_to_f16(input.color[i * 3 + 1]);
+            let b16 = f32_to_f16(input.color[i * 3 + 2]);
+            let a16 = f32_to_f16(1.0);
+            let o = i * 8;
+            packed[o..o + 2].copy_from_slice(&r16.to_le_bytes());
+            packed[o + 2..o + 4].copy_from_slice(&g16.to_le_bytes());
+            packed[o + 4..o + 6].copy_from_slice(&b16.to_le_bytes());
+            packed[o + 6..o + 8].copy_from_slice(&a16.to_le_bytes());
+        }
+        let d_off = color_bytes;
+        for (i, &d) in input.depth.iter().enumerate() {
+            packed[d_off + i * 4..d_off + i * 4 + 4].copy_from_slice(&d.to_le_bytes());
+        }
+        let m_off = d_off + depth_bytes;
+        for i in 0..px * 2 {
+            packed[m_off + i * 4..m_off + i * 4 + 4].copy_from_slice(&input.mv[i].to_le_bytes());
+        }
+        let r_off = m_off + mv_bytes;
+        if let Some(r) = input.reactive {
+            for (i, &v) in r.iter().enumerate() {
+                packed[r_off + i] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            }
+        }
+        // SAFETY: staging host-visible+coherent;map 尺寸 = staging_size ≥ packed 长度。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
+            }
+            std::ptr::copy_nonoverlapping(packed.as_ptr(), ptr as *mut u8, packed.len());
+            (self.dev.unmap_memory)(self.device, self.staging_mem);
+        }
+
+        // ── 每帧 SL 调用序:frame token → constants → options → 录制 evaluate ──
+        let mut token: *mut c_void = std::ptr::null_mut();
+        // SAFETY: token 出参栈上有效。
+        let r = unsafe { (self.fns.sl_get_new_frame_token)(&mut token, &input.frame_index) };
+        if r != SL_OK || token.is_null() {
+            return Err(VendorError::VendorCall(format!("slGetNewFrameToken → {}", sl_result_name(r))));
+        }
+        let consts = build_sl_constants(input, iw, ih);
+        // SAFETY: consts 栈上存活;token/viewport 有效。
+        let r = unsafe { (self.fns.sl_set_constants)(&consts, token, &self.viewport) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!("slSetConstants → {}", sl_result_name(r))));
+        }
+        let opts = SlDlssOptions {
+            base: sl_base(SL_GUID_DLSS_OPTIONS, 3),
+            mode: SL_DLSS_MODE_MAX_PERFORMANCE,
+            output_width: self.out_w,
+            output_height: self.out_h,
+            sharpness: 0.0,
+            pre_exposure: input.exposure,
+            exposure_scale: 1.0,
+            color_buffers_hdr: 1,
+            indicator_invert_axis_x: 0,
+            indicator_invert_axis_y: 0,
+            _pad0: 0,
+            dlaa_preset: 0,
+            quality_preset: 0,
+            balanced_preset: 0,
+            performance_preset: 0,
+            ultra_performance_preset: 0,
+            ultra_quality_preset: 0,
+            use_auto_exposure: 0,
+            alpha_upscaling_enabled: 0,
+            _pad1: [0; 2],
+        };
+        // SAFETY: opts/viewport 栈上存活。
+        let r = unsafe { (self.dlss.dlss_set_options)(&self.viewport, &opts) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!("slDLSSSetOptions → {}", sl_result_name(r))));
+        }
+
+        let begin = VkCommandBufferBeginInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1, // ONE_TIME_SUBMIT
+            p_inheritance_info: std::ptr::null(),
+        };
+        // SAFETY: cmd 已分配且不在未决状态(上一帧 queueWaitIdle 排空)。
+        let r = unsafe { (self.dev.begin_command_buffer)(self.cmd, &begin) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
+        }
+
+        // 上传四输入(color/depth/mv/reactive);packed 各段已写入 staging map。
+        self.vk_upload_image(VkInputSlot::Color, 0);
+        self.vk_upload_image(VkInputSlot::Depth, d_off as u64);
+        self.vk_upload_image(VkInputSlot::Mv, m_off as u64);
+        self.vk_upload_image(VkInputSlot::Reactive, r_off as u64);
+        // color_out 置 GENERAL(DLSS UAV 写)。
+        if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
+            let out_res = self.color_out.clone_shallow();
+            self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TOP_OF_PIPE, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+            self.color_out.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+
+        // ── ResourceTag 集(evaluate 直接消费;Vulkan 需完整资源描述) ──
+        let mk_sl_res = |res: &VkImageRes| -> SlResource {
+            SlResource {
+                base: sl_base(SL_GUID_RESOURCE, 1),
+                res_type: SL_RESOURCE_TEX2D,
+                _pad0: [0; 7],
+                native: res.image as usize as *mut c_void,
+                memory: res.memory as usize as *mut c_void,
+                view: res.view as usize as *mut c_void,
+                state: res.layout as u32,
+                width: res.w,
+                height: res.h,
+                native_format: res.format,
+                mip_levels: 1,
+                array_layers: 1,
+                gpu_virtual_address: 0,
+                flags: 0,
+                usage: if res.image == self.color_out.image {
+                    VK_IMAGE_USAGE_STORAGE | VK_IMAGE_USAGE_TRANSFER_SRC
+                } else {
+                    VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST
+                },
+                reserved: 0,
+            }
+        };
+        let sl_color_in = mk_sl_res(&self.color_in);
+        let sl_depth = mk_sl_res(&self.depth_in);
+        let sl_mv = mk_sl_res(&self.mv_in);
+        let sl_reactive = mk_sl_res(&self.reactive_in);
+        let sl_color_out = mk_sl_res(&self.color_out);
+        let extent_in = SlExtent { top: 0, left: 0, width: iw, height: ih };
+        let extent_out = SlExtent { top: 0, left: 0, width: self.out_w, height: self.out_h };
+        let tags = [
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_in, tag_type: SL_BUFFER_SCALING_INPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_out, tag_type: SL_BUFFER_SCALING_OUTPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_out },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_depth, tag_type: SL_BUFFER_DEPTH, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_mv, tag_type: SL_BUFFER_MV, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_reactive, tag_type: SL_BUFFER_REACTIVE_MASK, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+        ];
+        // viewport handle 必须链入 evaluate inputs(SL 实测报错字面:「Missing
+        // viewport handle, did you forget to chain it up in the slEvaluateFeature
+        // inputs?」——ViewportHandle 是 BaseStructure 多态链成员,与 ResourceTag 同槽)。
+        let tag_ptrs: [*const SlBaseStructure; 6] = [
+            &self.viewport.base as *const _,
+            &tags[0].base as *const _,
+            &tags[1].base as *const _,
+            &tags[2].base as *const _,
+            &tags[3].base as *const _,
+            &tags[4].base as *const _,
+        ];
+        // 探针帧(skip_evaluate)跳过本调用:NGX evaluate 在 KHRONOS_validation
+        // 层在下触发驱动内崩溃(vendor 已知不兼容),校验覆盖止步于此——探针帧
+        // 已完成 token/constants/options 簿记与资源 tag 组装面,type/布局检查仍
+        // 经编译期锚定覆盖。
+        if !skip_evaluate {
+            // SAFETY: tags/sl_* 资源描述栈上存活至 evaluate 返回(eOnlyValidNow
+            // 语义 = evaluate 期间有效);cmd 录制中;token 为本帧有效 token。
+            let r = unsafe {
+                (self.fns.sl_evaluate_feature)(
+                    SL_FEATURE_DLSS,
+                    token,
+                    tag_ptrs.as_ptr(),
+                    6,
+                    self.cmd,
+                )
+            };
+            if r != SL_OK {
+                return Err(VendorError::VendorCall(format!("slEvaluateFeature(DLSS) → {}", sl_result_name(r))));
+            }
+        }
+
+        // 输出回读:GENERAL → TRANSFER_SRC → copy → 回 GENERAL。
+        let out_res = self.color_out.clone_shallow();
+        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE, VK_ACCESS_TRANSFER_READ, VK_PIPELINE_STAGE_COMPUTE_SHADER, VK_PIPELINE_STAGE_TRANSFER);
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: VK_IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: [0, 0, 0],
+            image_extent: VkExtent3D { width: self.out_w, height: self.out_h, depth: 1 },
+        };
+        // SAFETY: cmd 录制中;readback 容量 ≥ out 像素字节。
+        unsafe {
+            (self.dev.cmd_copy_image_to_buffer)(
+                self.cmd,
+                self.color_out.image,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                self.readback,
+                1,
+                &region,
+            )
+        };
+        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_READ, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+        // HOST_READ 可见性屏障由 queueWaitIdle 全序保证(U26 同律)。
+        // SAFETY: cmd 录制完成。
+        let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkEndCommandBuffer → {r}")));
+        }
+        let submit = VkSubmitInfo {
+            s_type: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        // SAFETY: submit 栈上存活;cmd 为本帧录制完成态。
+        let r = unsafe { (self.dev.queue_submit)(self.queue, 1, &submit, 0) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueSubmit → {r}")));
+        }
+        // SAFETY: queue 有效;waitIdle 后无在途写。
+        let r = unsafe { (self.dev.queue_wait_idle)(self.queue) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
+        }
+
+        let mut out = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        // SAFETY: readback host-visible+coherent;queueWaitIdle 后无在途写;map 区间 = 帧字节。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.readback_mem, 0, self.readback_size, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(readback) → {r}")));
+            }
+            let data = ptr as *const u16;
+            for i in 0..(self.out_w * self.out_h) as usize {
+                out[i * 3] = f16_to_f32(*data.add(i * 4));
+                out[i * 3 + 1] = f16_to_f32(*data.add(i * 4 + 1));
+                out[i * 3 + 2] = f16_to_f32(*data.add(i * 4 + 2));
+            }
+            (self.dev.unmap_memory)(self.device, self.readback_mem);
+        }
+        // 录制槽复用:reset cmd(下一帧重录)。
+        // SAFETY: cmd 已完成提交且 queue 排空。
+        let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        Ok(out)
+    }
+
+    /// validation ERROR 级累计计数(我方调用实错,白名单豁免不计;messenger 在位时,否则 0)。
+    pub fn validation_errors(&self) -> u64 {
+        if self.validation_counter.is_null() {
+            return 0;
+        }
+        // SAFETY: session 存活期 counter 有效(messenger 先毁)。
+        unsafe { (*self.validation_counter).errors.load(Ordering::Relaxed) }
+    }
+
+    /// NGX 内部伪报豁免计数与豁免 VUID 名(evidence 全透明登记面)。
+    pub fn validation_excluded(&self) -> (u64, Vec<String>) {
+        if self.validation_counter.is_null() {
+            return (0, Vec::new());
+        }
+        // SAFETY: session 存活期 counter 有效(messenger 先毁)。
+        unsafe {
+            let c = &*self.validation_counter;
+            let n = c.excluded_ngx_internal.load(Ordering::Relaxed);
+            let names = c.excluded_names.lock().map(|v| v.clone()).unwrap_or_default();
+            (n, names)
+        }
+    }
+
+    /// session 报告(evidence provenance 面)。
+    pub fn report(&self) -> VendorSessionReport {
+        VendorSessionReport {
+            backend: "dlss_sr_streamline_2.10.3_vulkan_interop".into(),
+            gpu_name: self.gpu_name.clone(),
+            validation_errors: self.validation_errors(),
+            dlls: self.dlls.clone(),
+            engine_version: self.ngx_version.clone(),
+            fsr4_ml_available: None,
+            fsr4_note: None,
+            available_versions: Vec::new(),
+            log_tail: self.log_tail.clone(),
+        }
+    }
+}
+
+trait CloneShallow {
+    fn clone_shallow(&self) -> Self;
+}
+impl CloneShallow for VkImageRes {
+    fn clone_shallow(&self) -> Self {
+        VkImageRes {
+            image: self.image,
+            memory: self.memory,
+            view: self.view,
+            layout: self.layout,
+            format: self.format,
+            w: self.w,
+            h: self.h,
+            aspect: self.aspect,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum VkInputSlot {
+    Color,
+    Depth,
+    Mv,
+    Reactive,
+}
+
+#[derive(Clone, Copy)]
+enum D3dInputSlot {
+    Color,
+    Depth,
+    Mv,
+    Reactive,
+}
+
+impl Drop for DlssVkSession {
+    fn drop(&mut self) {
+        // 销毁序(SL 文档:slShutdown 必须先于 vk 对象销毁):queueWaitIdle →
+        // slFreeResources → slShutdown → vk 逆序 → messenger → instance。
+        if self.device.is_null() {
+            return;
+        }
+        // SAFETY: device 有效;忽略错误(Drop 不 panic)。
+        unsafe { (self.dev.device_wait_idle)(self.device) };
+        if !self.shutdown_done {
+            // SAFETY: viewport 有效。
+            unsafe { (self.fns.sl_free_resources)(SL_FEATURE_DLSS, &self.viewport) };
+            // SAFETY: SL 已初始化。
+            unsafe { (self.fns.sl_shutdown)() };
+            self.shutdown_done = true;
+        }
+        // SAFETY: 以下句柄均本 session 创建且存活;逆序销毁,无泄漏/双释放。
+        unsafe {
+            (self.dev.destroy_command_pool)(self.device, self.cmd_pool, std::ptr::null());
+            for res in [&self.color_in, &self.depth_in, &self.mv_in, &self.reactive_in, &self.color_out] {
+                (self.dev.destroy_image_view)(self.device, res.view, std::ptr::null());
+                (self.dev.destroy_image)(self.device, res.image, std::ptr::null());
+                (self.dev.free_memory)(self.device, res.memory, std::ptr::null());
+            }
+            (self.dev.destroy_buffer)(self.device, self.staging, std::ptr::null());
+            (self.dev.free_memory)(self.device, self.staging_mem, std::ptr::null());
+            (self.dev.destroy_buffer)(self.device, self.readback, std::ptr::null());
+            (self.dev.free_memory)(self.device, self.readback_mem, std::ptr::null());
+            (self.dev.destroy_device)(self.device, std::ptr::null());
+            if self.messenger != 0 {
+                let destroy_msgr: Option<FnVkDestroyDebugUtilsMessenger> =
+                    cast_sym((self.fns.vk_gipa)(self.instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()));
+                if let Some(f) = destroy_msgr {
+                    f(self.instance, self.messenger, std::ptr::null());
+                }
+            }
+            let destroy_instance: Option<FnVkDestroyInstance> =
+                cast_sym((self.fns.vk_gipa)(self.instance, c"vkDestroyInstance".as_ptr()));
+            if let Some(f) = destroy_instance {
+                f(self.instance, std::ptr::null());
+            }
+            self.device = std::ptr::null_mut();
+            if !self.validation_counter.is_null() {
+                drop(Box::from_raw(self.validation_counter));
+                self.validation_counter = std::ptr::null_mut();
+            }
+        }
+    }
+}
+
+/// sl::Constants 构造(静态固定相机 + 每帧 jitter/reset/exposure 语义;fixture 口径)。
+fn build_sl_constants(input: &VendorFrameInput, iw: u32, ih: u32) -> SlConstants {
+    let aspect = iw as f32 / ih as f32;
+    let fov_y = 60.0f32.to_radians();
+    let near = 0.1f32;
+    let far = 100.0f32;
+    let f = 1.0 / (fov_y / 2.0).tan();
+    // ZO 透视(深度 [0,1],0=near;depthInverted=eFalse)。
+    let view_to_clip = [
+        [f / aspect, 0.0, 0.0, 0.0],
+        [0.0, f, 0.0, 0.0],
+        [0.0, 0.0, far / (far - near), 1.0],
+        [0.0, 0.0, -near * far / (far - near), 0.0],
+    ];
+    let inv_det = |m: &[[f32; 4]; 4]| -> [[f32; 4]; 4] {
+        // 本矩阵的闭式逆(ZO 透视单参结构;fixture 固定参,无通用逆需求)。
+        let _ = m;
+        let finv = 1.0 / f;
+        [
+            [aspect * finv, 0.0, 0.0, 0.0],
+            [0.0, finv, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, (near - far) / (near * far), 1.0 / (near * far) * far - (far / (far - near)) * (near - far) / (near * far) * 0.0 + 0.0],
+        ]
+    };
+    let clip_to_view = inv_det(&view_to_clip);
+    let identity = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
+    SlConstants {
+        base: sl_base(SL_GUID_CONSTANTS, 2),
+        camera_view_to_clip: view_to_clip,
+        clip_to_camera_view: clip_to_view,
+        clip_to_lens_clip: identity,
+        clip_to_prev_clip: identity, // 静态相机:clip→prevClip = I
+        prev_clip_to_clip: identity,
+        jitter_offset: input.jitter,
+        mvec_scale: [1.0, 1.0], // mv 已为 uv 规范化([-1,1] 域),SL 归一化语义直通
+        camera_pinhole_offset: [0.0, 0.0],
+        camera_pos: [0.0, 0.0, 0.0],
+        camera_up: [0.0, 1.0, 0.0],
+        camera_right: [1.0, 0.0, 0.0],
+        camera_fwd: [0.0, 0.0, 1.0],
+        camera_near: near,
+        camera_far: far,
+        camera_fov: fov_y,
+        camera_aspect_ratio: aspect,
+        motion_vectors_invalid_value: SL_INVALID_FLOAT,
+        depth_inverted: 0,
+        camera_motion_included: 1,
+        motion_vectors_3d: 0,
+        reset: if input.reset { 1 } else { 0 },
+        orthographic_projection: 0,
+        motion_vectors_dilated: 0,
+        motion_vectors_jittered: 0,
+        _pad0: 0,
+        min_relative_linear_depth_object_separation: 40.0,
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 第 2 部:FSR 3.1.5 D3D12 臂(FidelityFX SDK 2.0.0 预编译签名 DLL)
+// ═══════════════════════════════════════════════════════════════════════════
+
+type FfxReturnCode = u32;
+const FFX_OK: FfxReturnCode = 0;
+const FFX_CREATE_DESC_TYPE_UPSCALE: u64 = 0x00010000;
+const FFX_CREATE_DESC_TYPE_BACKEND_DX12: u64 = 0x2;
+const FFX_DISPATCH_DESC_TYPE_UPSCALE: u64 = 0x00010001;
+const FFX_QUERY_DESC_TYPE_GET_VERSIONS: u64 = 4;
+const FFX_DESC_TYPE_OVERRIDE_VERSION: u64 = 5;
+const FFX_QUERY_DESC_TYPE_GET_PROVIDER_VERSION: u64 = 6;
+const FFX_UPSCALE_ENABLE_HIGH_DYNAMIC_RANGE: u32 = 1 << 0;
+const FFX_SURFACE_FORMAT_R32G32B32A32_FLOAT: u32 = 2;
+const FFX_SURFACE_FORMAT_R16G16B16A16_FLOAT: u32 = 3;
+const FFX_SURFACE_FORMAT_R32G32_FLOAT: u32 = 5;
+const FFX_SURFACE_FORMAT_R8_UNORM: u32 = 25;
+const FFX_SURFACE_FORMAT_R32_FLOAT: u32 = 28;
+const FFX_RESOURCE_TYPE_TEXTURE2D: u32 = 2;
+const FFX_RESOURCE_USAGE_READ_ONLY: u32 = 0;
+const FFX_RESOURCE_USAGE_UAV: u32 = 1 << 1;
+const FFX_RESOURCE_STATE_UNORDERED_ACCESS: u32 = 1 << 1;
+const FFX_RESOURCE_STATE_COMPUTE_READ: u32 = 1 << 2;
+
+#[repr(C)]
+struct FfxApiHeader {
+    desc_type: u64,
+    p_next: *mut FfxApiHeader,
+}
+const _: () = assert!(size_of::<FfxApiHeader>() == 16);
+
+#[repr(C)]
+struct FfxDimensions2D {
+    width: u32,
+    height: u32,
+}
+
+#[repr(C)]
+struct FfxFloatCoords2D {
+    x: f32,
+    y: f32,
+}
+
+/// ffxApiMessage = void(uint32_t type, const wchar_t* message)。
+type FfxMessageCallback = unsafe extern "system" fn(u32, *const u16);
+
+#[repr(C)]
+struct FfxCreateContextDescUpscale {
+    header: FfxApiHeader,
+    flags: u32,
+    max_render_size: FfxDimensions2D,
+    max_upscale_size: FfxDimensions2D,
+    fp_message: Option<FfxMessageCallback>,
+}
+const _: () = assert!(size_of::<FfxCreateContextDescUpscale>() == 48);
+
+#[repr(C)]
+struct FfxCreateBackendDx12Desc {
+    header: FfxApiHeader,
+    device: *mut c_void,
+}
+const _: () = assert!(size_of::<FfxCreateBackendDx12Desc>() == 24);
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct FfxResourceDescription {
+    res_type: u32,
+    format: u32,
+    width: u32,
+    height: u32,
+    depth: u32,
+    mip_count: u32,
+    flags: u32,
+    usage: u32,
+}
+const _: () = assert!(size_of::<FfxResourceDescription>() == 32);
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct FfxResource {
+    resource: *mut c_void,
+    description: FfxResourceDescription,
+    state: u32,
+}
+const _: () = assert!(size_of::<FfxResource>() == 48);
+
+#[repr(C)]
+struct FfxDispatchDescUpscale {
+    header: FfxApiHeader,
+    command_list: *mut c_void,
+    color: FfxResource,
+    depth: FfxResource,
+    motion_vectors: FfxResource,
+    exposure: FfxResource,
+    reactive: FfxResource,
+    transparency_and_composition: FfxResource,
+    output: FfxResource,
+    jitter_offset: FfxFloatCoords2D,
+    motion_vector_scale: FfxFloatCoords2D,
+    render_size: FfxDimensions2D,
+    upscale_size: FfxDimensions2D,
+    enable_sharpening: u8,
+    _pad0: [u8; 3],
+    sharpness: f32,
+    frame_time_delta: f32,
+    pre_exposure: f32,
+    reset: u8,
+    _pad1: [u8; 3],
+    camera_near: f32,
+    camera_far: f32,
+    camera_fov_angle_vertical: f32,
+    view_space_to_meters_factor: f32,
+    flags: u32,
+}
+const _: () = assert!(size_of::<FfxDispatchDescUpscale>() == 432);
+
+#[repr(C)]
+struct FfxQueryDescGetVersions {
+    header: FfxApiHeader,
+    create_desc_type: u64,
+    device: *mut c_void,
+    output_count: *mut u64,
+    version_ids: *mut u64,
+    version_names: *mut *const c_char,
+}
+const _: () = assert!(size_of::<FfxQueryDescGetVersions>() == 56);
+
+#[repr(C)]
+struct FfxOverrideVersion {
+    header: FfxApiHeader,
+    version_id: u64,
+}
+const _: () = assert!(size_of::<FfxOverrideVersion>() == 24);
+
+#[repr(C)]
+struct FfxQueryGetProviderVersion {
+    header: FfxApiHeader,
+    version_id: u64,
+    version_name: *const c_char,
+}
+const _: () = assert!(size_of::<FfxQueryGetProviderVersion>() == 32);
+
+type FnFfxCreateContext = unsafe extern "system" fn(*mut *mut c_void, *mut FfxApiHeader, *const c_void) -> FfxReturnCode;
+type FnFfxDestroyContext = unsafe extern "system" fn(*mut *mut c_void, *const c_void) -> FfxReturnCode;
+type FnFfxQuery = unsafe extern "system" fn(*mut *mut c_void, *mut FfxApiHeader) -> FfxReturnCode;
+type FnFfxDispatch = unsafe extern "system" fn(*mut *mut c_void, *const FfxApiHeader) -> FfxReturnCode;
+
+// ── D3D12/DXGI COM 最小面(WinSDK 10.0.26100 头核对 vtable 槽位) ──────────────
+type Hresult = i32;
+const S_OK: Hresult = 0;
+const DXGI_ERROR_NOT_FOUND: Hresult = 0x887a_0002u32 as i32;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ComGuid {
+    data1: u32,
+    data2: u16,
+    data3: u16,
+    data4: [u8; 8],
+}
+const fn com_guid(d1: u32, d2: u16, d3: u16, d4: [u8; 8]) -> ComGuid {
+    ComGuid { data1: d1, data2: d2, data3: d3, data4: d4 }
+}
+const IID_ID3D12_DEVICE: ComGuid = com_guid(0x189819f1, 0x1db6, 0x4b57, [0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7]);
+const IID_ID3D12_COMMAND_QUEUE: ComGuid = com_guid(0x0ec870a6, 0x5d7e, 0x4c22, [0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed]);
+const IID_ID3D12_COMMAND_ALLOCATOR: ComGuid = com_guid(0x6102dee4, 0xaf59, 0x4b09, [0xb9, 0x99, 0xb4, 0x4d, 0x73, 0xf0, 0x9b, 0x24]);
+const IID_ID3D12_GRAPHICS_COMMAND_LIST: ComGuid = com_guid(0x5b160d0f, 0xac1b, 0x4185, [0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55]);
+const IID_ID3D12_FENCE: ComGuid = com_guid(0x0a753dcf, 0xc4d8, 0x4b91, [0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76]);
+const IID_ID3D12_RESOURCE: ComGuid = com_guid(0x696442be, 0xa72e, 0x4059, [0xbc, 0x79, 0x5b, 0x5c, 0x98, 0x04, 0x0f, 0xad]);
+const IID_ID3D12_DEBUG: ComGuid = com_guid(0x344488b7, 0x6846, 0x474b, [0xb9, 0x89, 0xf0, 0x27, 0x44, 0x82, 0x45, 0xe0]);
+const IID_ID3D12_INFO_QUEUE: ComGuid = com_guid(0x0742a90b, 0xc387, 0x483f, [0xb9, 0x46, 0x30, 0xa7, 0xe4, 0xe6, 0x14, 0x58]);
+const IID_IDXGI_FACTORY1: ComGuid = com_guid(0x770aae78, 0xf26f, 0x4dba, [0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87]);
+
+const D3D12_COMMAND_LIST_TYPE_DIRECT: i32 = 0;
+const D3D12_HEAP_TYPE_DEFAULT: i32 = 1;
+const D3D12_HEAP_TYPE_UPLOAD: i32 = 2;
+const D3D12_HEAP_TYPE_READBACK: i32 = 3;
+const D3D12_RESOURCE_DIMENSION_BUFFER: i32 = 1;
+const D3D12_RESOURCE_DIMENSION_TEXTURE2D: i32 = 3;
+const D3D12_TEXTURE_LAYOUT_ROW_MAJOR: i32 = 1;
+const D3D12_TEXTURE_LAYOUT_UNKNOWN: i32 = 0;
+const D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS: i32 = 0x4;
+const D3D12_RESOURCE_STATE_COMMON: i32 = 0;
+const D3D12_RESOURCE_STATE_COPY_DEST: i32 = 0x400;
+const D3D12_RESOURCE_STATE_COPY_SOURCE: i32 = 0x800;
+const D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE: i32 = 0x40;
+const D3D12_RESOURCE_STATE_UNORDERED_ACCESS: i32 = 0x8;
+const D3D12_RESOURCE_BARRIER_TYPE_TRANSITION: i32 = 0;
+const D3D12_RESOURCE_BARRIER_FLAG_NONE: i32 = 0;
+const DXGI_FORMAT_R16G16B16A16_FLOAT: u32 = 10;
+const DXGI_FORMAT_R32G32_FLOAT: u32 = 16;
+const DXGI_FORMAT_R32_FLOAT: u32 = 41;
+const DXGI_FORMAT_R8_UNORM: u32 = 61;
+
+#[repr(C)]
+struct D3d12CommandQueueDesc {
+    queue_type: i32,
+    priority: i32,
+    flags: i32,
+    node_mask: u32,
+}
+const _: () = assert!(size_of::<D3d12CommandQueueDesc>() == 16);
+
+#[repr(C)]
+struct D3d12HeapProperties {
+    heap_type: i32,
+    cpu_page_property: i32,
+    memory_pool_preference: i32,
+    creation_node_mask: u32,
+    visible_node_mask: u32,
+}
+const _: () = assert!(size_of::<D3d12HeapProperties>() == 20);
+
+#[repr(C)]
+struct D3d12ResourceDesc {
+    dimension: i32,
+    alignment: u64,
+    width: u64,
+    height: u32,
+    depth_or_array_size: u16,
+    mip_levels: u16,
+    format: u32,
+    sample_count: u32,
+    sample_quality: u32,
+    layout: i32,
+    flags: i32,
+}
+const _: () = assert!(size_of::<D3d12ResourceDesc>() == 56);
+
+#[repr(C)]
+struct D3d12ResourceBarrier {
+    barrier_type: i32,
+    flags: i32,
+    // Transition 变体(唯一消费变体)。
+    p_resource: *mut c_void,
+    subresource: u32,
+    state_before: i32,
+    state_after: i32,
+    _pad: u32,
+}
+const _: () = assert!(size_of::<D3d12ResourceBarrier>() == 32);
+
+#[repr(C)]
+struct D3d12SubresourceFootprint {
+    format: u32,
+    width: u32,
+    height: u32,
+    depth: u32,
+    row_pitch: u32,
+}
+
+#[repr(C)]
+struct D3d12PlacedSubresourceFootprint {
+    offset: u64,
+    footprint: D3d12SubresourceFootprint,
+}
+
+#[repr(C)]
+struct D3d12TextureCopyLocation {
+    p_resource: *mut c_void,
+    copy_type: i32,
+    // 变体:SubresourceIndex(0)/PlacedFootprint(1)(d3d12.h D3D12_TEXTURE_COPY_TYPE)。
+    placed: D3d12PlacedSubresourceFootprint,
+}
+const _: () = assert!(size_of::<D3d12TextureCopyLocation>() == 48);
+
+/// COM vtable 槽位函数取址(单一 SAFETY 点)。
+///
+/// # Safety
+/// `obj` 须为有效 COM 接口指针;`slot` 为该接口 vtable 内目标方法的声明序下标
+/// (与 WinSDK 头逐槽核对);`T` 为匹配该方法 ABI 的函数指针类型。
+unsafe fn com_fn<T: Copy>(obj: *mut c_void, slot: usize) -> T {
+    // SAFETY: 调用方保证 obj 为有效 COM 对象且 slot/T 与目标方法 ABI 一致。
+    unsafe {
+        let vt = *(obj as *const *const *mut c_void);
+        let raw = *vt.add(slot);
+        debug_assert!(!raw.is_null());
+        std::mem::transmute_copy::<*mut c_void, T>(&raw)
+    }
+}
+
+fn com_release(obj: *mut c_void) {
+    if obj.is_null() {
+        return;
+    }
+    // SAFETY: obj 为本模块创建的有效 COM 对象;Release@2(IUnknown 恒定槽位)。
+    unsafe {
+        let f: unsafe extern "system" fn(*mut c_void) -> u32 = com_fn(obj, 2);
+        f(obj);
+    }
+}
+
+type FnD3d12CreateDevice = unsafe extern "system" fn(*mut c_void, u32, *const ComGuid, *mut *mut c_void) -> Hresult;
+type FnD3d12GetDebugInterface = unsafe extern "system" fn(*const ComGuid, *mut *mut c_void) -> Hresult;
+type FnCreateDxgiFactory1 = unsafe extern "system" fn(*const ComGuid, *mut *mut c_void) -> Hresult;
+
+#[derive(Clone, Copy)]
+struct D3dFns {
+    create_device: FnD3d12CreateDevice,
+    get_debug_interface: FnD3d12GetDebugInterface,
+    create_factory: FnCreateDxgiFactory1,
+}
+
+struct D3dTexture {
+    resource: *mut c_void,
+    format: u32,
+    w: u32,
+    h: u32,
+    state: i32,
+}
+
+/// FSR 3.1.5(DX12)session——safe 公共面。
+pub struct FsrDx12Session {
+    ffx_destroy: FnFfxDestroyContext,
+    ffx_dispatch: FnFfxDispatch,
+    device: *mut c_void,
+    queue: *mut c_void,
+    allocator: *mut c_void,
+    cmd_list: *mut c_void,
+    fence: *mut c_void,
+    fence_value: u64,
+    info_queue: *mut c_void,
+    context: *mut c_void,
+    in_w: u32,
+    in_h: u32,
+    out_w: u32,
+    out_h: u32,
+    color_in: D3dTexture,
+    depth_in: D3dTexture,
+    mv_in: D3dTexture,
+    reactive_in: D3dTexture,
+    color_out: D3dTexture,
+    upload: *mut c_void,
+    readback: *mut c_void,
+    gpu_name: String,
+    provider_version: String,
+    available_versions: Vec<String>,
+    fsr4_ml_available: bool,
+    dlls: Vec<DllProvenance>,
+    ffx_errors: u64,
+    log_tail: Vec<String>,
+}
+
+static FFX_ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
+
+unsafe extern "system" fn ffx_message_cb(msg_type: u32, _message: *const u16) {
+    // SAFETY: 进程级静态计数器;FFX 回调 ABI 对齐(u32 + wchar_t*)。
+    if msg_type == 0 {
+        // FFX_API_MESSAGE_TYPE_ERROR
+        FFX_ERROR_COUNT.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+impl FsrDx12Session {
+    /// 创建 FSR 3.1.5 DX12 session(d3d12/dxgi 运行时装载 → NVIDIA 适配器 device →
+    /// ffx backend+upscale context,FSR 3.1.5 版本显式 pin)。fail-closed。
+    pub fn create(
+        sdk_dir: &Path,
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+        validation: bool,
+    ) -> Result<Self, VendorError> {
+        let loader_dll = sdk_dir.join("signedbin").join("amd_fidelityfx_loader_dx12.dll");
+        let upscaler_dll = sdk_dir.join("signedbin").join("amd_fidelityfx_upscaler_dx12.dll");
+        for p in [&loader_dll, &upscaler_dll] {
+            if !p.is_file() {
+                return Err(VendorError::DllNotFound(format!("{} 不在位", p.display())));
+            }
+        }
+        let dlls = [&loader_dll, &upscaler_dll]
+            .iter()
+            .map(|p| {
+                let (sha, bytes) = sha256_file(p)?;
+                Ok(DllProvenance {
+                    name: p.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+                    sha256: sha,
+                    bytes,
+                })
+            })
+            .collect::<Result<Vec<_>, VendorError>>()?;
+        // SAFETY(装载):DLL 路径实测在树;进程常驻不 FreeLibrary(U1 纪律)。
+        let lib = loader::open(&loader_dll);
+        if lib.is_null() {
+            return Err(VendorError::DllNotFound(format!("loader 装载失败: {}", loader_dll.display())));
+        }
+        // 组件显式装载:loader 不自动从其自身目录装载 component(实测不装载 →
+        // ffxQuery 返 FFX_API_RETURN_NO_PROVIDER=4);component DllMain 注册 provider
+        // 到已驻 loader,必须显式 LoadLibrary(ALTERED_SEARCH_PATH 覆盖其侧载依赖)。
+        // SAFETY(装载):upscaler_dll 路径实测在树;进程常驻不 FreeLibrary(U1 纪律)。
+        let comp = loader::open(&upscaler_dll);
+        if comp.is_null() {
+            return Err(VendorError::DllNotFound(format!(
+                "upscaler 组件装载失败: {}",
+                upscaler_dll.display()
+            )));
+        }
+        macro_rules! fsym {
+            ($name:literal, $ty:ty) => {
+                // SAFETY: lib 有效;$name NUL 结尾字面量;cast_sym null 校验。
+                match unsafe { cast_sym::<$ty>(loader::sym(lib, concat!($name, "\0").as_ptr() as *const c_char)) } {
+                    Some(f) => f,
+                    None => return Err(VendorError::SymbolMissing($name.into())),
+                }
+            };
+        }
+        let ffx_create: FnFfxCreateContext = fsym!("ffxCreateContext", FnFfxCreateContext);
+        let ffx_destroy: FnFfxDestroyContext = fsym!("ffxDestroyContext", FnFfxDestroyContext);
+        let ffx_query: FnFfxQuery = fsym!("ffxQuery", FnFfxQuery);
+        let ffx_dispatch: FnFfxDispatch = fsym!("ffxDispatch", FnFfxDispatch);
+
+        // ── d3d12/dxgi 装载(系统目录稳定 ABI) ──
+        let d3d12 = loader::open(Path::new("d3d12.dll"));
+        let dxgi = loader::open(Path::new("dxgi.dll"));
+        if d3d12.is_null() || dxgi.is_null() {
+            return Err(VendorError::DllNotFound("d3d12.dll/dxgi.dll 装载失败".into()));
+        }
+        // SAFETY: d3d12/dxgi 模块句柄有效;符号名 NUL 结尾字面量;cast_sym null 校验。
+        let d3d = unsafe {
+            D3dFns {
+                create_device: cast_sym(loader::sym(d3d12, c"D3D12CreateDevice".as_ptr()))
+                    .ok_or_else(|| VendorError::SymbolMissing("D3D12CreateDevice".into()))?,
+                get_debug_interface: cast_sym(loader::sym(d3d12, c"D3D12GetDebugInterface".as_ptr()))
+                    .ok_or_else(|| VendorError::SymbolMissing("D3D12GetDebugInterface".into()))?,
+                create_factory: cast_sym(loader::sym(dxgi, c"CreateDXGIFactory1".as_ptr()))
+                    .ok_or_else(|| VendorError::SymbolMissing("CreateDXGIFactory1".into()))?,
+            }
+        };
+
+        // ── debug layer(validation 语义;device 创建前启用) ──
+        if validation {
+            let mut debug: *mut c_void = std::ptr::null_mut();
+            // SAFETY: IID_ID3D12_DEBUG 与头核对;debug 出参有效。
+            let hr = unsafe { (d3d.get_debug_interface)(&IID_ID3D12_DEBUG, &mut debug) };
+            eprintln!("[fsr-dbg] get_debug_interface → 0x{hr:08x} ptr={debug:p}");
+            if hr == S_OK && !debug.is_null() {
+                // SAFETY: ID3D12Debug::EnableDebugLayer @3。
+                unsafe {
+                    let f: unsafe extern "system" fn(*mut c_void) = com_fn(debug, 3);
+                    f(debug);
+                }
+                com_release(debug);
+            }
+        }
+
+        // ── 适配器(NVIDIA 优先) → device ──
+        let mut factory: *mut c_void = std::ptr::null_mut();
+        // SAFETY: IID_IDXGI_FACTORY1 与头核对。
+        let hr = unsafe { (d3d.create_factory)(&IID_IDXGI_FACTORY1, &mut factory) };
+        if hr != S_OK || factory.is_null() {
+            return Err(VendorError::ApiError(format!("CreateDXGIFactory1 → 0x{hr:08x}")));
+        }
+        let mut adapter: *mut c_void = std::ptr::null_mut();
+        let mut gpu_name = String::new();
+        let mut vendor_id: u32 = 0;
+        for i in 0..16u32 {
+            let mut ad: *mut c_void = std::ptr::null_mut();
+            // SAFETY: IDXGIFactory1::EnumAdapters1 @12。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, u32, *mut *mut c_void) -> Hresult = com_fn(factory, 12);
+                f(factory, i, &mut ad)
+            };
+            if hr == DXGI_ERROR_NOT_FOUND || ad.is_null() {
+                break;
+            }
+            // DXGI_ADAPTER_DESC1:Description[128]u16@0,VendorId@256,...
+            let mut desc = [0u8; 312];
+            // SAFETY: IDXGIAdapter1::GetDesc1 @10;desc 312B = 结构实际尺寸。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *mut c_void) -> Hresult = com_fn(ad, 10);
+                f(ad, desc.as_mut_ptr() as *mut c_void)
+            };
+            if hr == S_OK {
+                // SAFETY: 只读 desc 已知前缀。
+                let (vid, name) = unsafe {
+                    let vid = (desc.as_ptr().add(256) as *const u32).read_unaligned();
+                    let wptr = desc.as_ptr() as *const u16;
+                    let len = (0..128).position(|k| *wptr.add(k) == 0).unwrap_or(128);
+                    let name = String::from_utf16_lossy(core::slice::from_raw_parts(wptr, len));
+                    (vid, name)
+                };
+                if vid == 0x10de {
+                    adapter = ad;
+                    gpu_name = name;
+                    vendor_id = vid;
+                    break;
+                }
+                if adapter.is_null() {
+                    adapter = ad;
+                    gpu_name = name;
+                    vendor_id = vid;
+                    continue;
+                }
+            }
+            com_release(ad);
+        }
+        if adapter.is_null() {
+            com_release(factory);
+            return Err(VendorError::DeviceUnavailable("零 DXGI 适配器".into()));
+        }
+        let fsr4_ml_available = vendor_id == 0x1002; // FSR4 ML 需 AMD RDNA4
+        let mut device: *mut c_void = std::ptr::null_mut();
+        const D3D_FEATURE_LEVEL_12_0: u32 = 0xc000;
+        // SAFETY: adapter 有效;IID_ID3D12_DEVICE 与头核对。
+        let hr = unsafe { (d3d.create_device)(adapter, D3D_FEATURE_LEVEL_12_0, &IID_ID3D12_DEVICE, &mut device) };
+        com_release(adapter);
+        com_release(factory);
+        if hr != S_OK || device.is_null() {
+            return Err(VendorError::ApiError(format!("D3D12CreateDevice → 0x{hr:08x}")));
+        }
+
+        // info queue(validation 错误计数面)。
+        let mut info_queue: *mut c_void = std::ptr::null_mut();
+        if validation {
+            // SAFETY: IUnknown::QueryInterface @0;IID_ID3D12_INFO_QUEUE 与头核对。
+            unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 0);
+                let _ = f(device, &IID_ID3D12_INFO_QUEUE, &mut info_queue);
+            }
+        }
+
+        // ── queue/allocator/list/fence ──
+        let qdesc = D3d12CommandQueueDesc { queue_type: D3D12_COMMAND_LIST_TYPE_DIRECT, priority: 0, flags: 0, node_mask: 0 };
+        let mut queue: *mut c_void = std::ptr::null_mut();
+        // SAFETY: ID3D12Device::CreateCommandQueue @8;qdesc 栈上存活。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *const D3d12CommandQueueDesc, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 8);
+            f(device, &qdesc, &IID_ID3D12_COMMAND_QUEUE, &mut queue)
+        };
+        if hr != S_OK || queue.is_null() {
+            return Err(VendorError::ApiError(format!("CreateCommandQueue → 0x{hr:08x}")));
+        }
+        let mut allocator: *mut c_void = std::ptr::null_mut();
+        // SAFETY: CreateCommandAllocator @9。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, i32, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 9);
+            f(device, D3D12_COMMAND_LIST_TYPE_DIRECT, &IID_ID3D12_COMMAND_ALLOCATOR, &mut allocator)
+        };
+        if hr != S_OK || allocator.is_null() {
+            return Err(VendorError::ApiError(format!("CreateCommandAllocator → 0x{hr:08x}")));
+        }
+        let mut cmd_list: *mut c_void = std::ptr::null_mut();
+        // SAFETY: CreateCommandList @12(nodeMask=0,DIRECT,allocator,无初始 PSO)。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, i32, *mut c_void, *mut c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 12);
+            f(device, 0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator, std::ptr::null_mut(), &IID_ID3D12_GRAPHICS_COMMAND_LIST, &mut cmd_list)
+        };
+        if hr != S_OK || cmd_list.is_null() {
+            return Err(VendorError::ApiError(format!("CreateCommandList → 0x{hr:08x}")));
+        }
+        let mut fence: *mut c_void = std::ptr::null_mut();
+        // SAFETY: CreateFence @36(初值 0,NONE)。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u64, i32, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 36);
+            f(device, 0, 0, &IID_ID3D12_FENCE, &mut fence)
+        };
+        if hr != S_OK || fence.is_null() {
+            return Err(VendorError::ApiError(format!("CreateFence → 0x{hr:08x}")));
+        }
+
+        let (iw, ih) = in_size;
+        let (ow, oh) = out_size;
+        let mk_tex = |format: u32, w: u32, h: u32, uav: bool| -> Result<D3dTexture, VendorError> {
+            let heap = D3d12HeapProperties {
+                heap_type: D3D12_HEAP_TYPE_DEFAULT,
+                cpu_page_property: 0,
+                memory_pool_preference: 0,
+                creation_node_mask: 1,
+                visible_node_mask: 1,
+            };
+            let desc = D3d12ResourceDesc {
+                dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+                alignment: 0,
+                width: w as u64,
+                height: h,
+                depth_or_array_size: 1,
+                mip_levels: 1,
+                format,
+                sample_count: 1,
+                sample_quality: 0,
+                layout: D3D12_TEXTURE_LAYOUT_UNKNOWN,
+                flags: if uav { D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS } else { 0 },
+            };
+            let mut res: *mut c_void = std::ptr::null_mut();
+            // SAFETY: CreateCommittedResource @27;heap/desc 栈上存活。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *const D3d12HeapProperties, i32, *const D3d12ResourceDesc, i32, *const c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 27);
+                f(device, &heap, 0, &desc, D3D12_RESOURCE_STATE_COMMON, std::ptr::null(), &IID_ID3D12_RESOURCE, &mut res)
+            };
+            if hr != S_OK || res.is_null() {
+                return Err(VendorError::ApiError(format!("CreateCommittedResource(fmt={format}) → 0x{hr:08x}")));
+            }
+            Ok(D3dTexture { resource: res, format, w, h, state: D3D12_RESOURCE_STATE_COMMON })
+        };
+        let color_in = mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, iw, ih, false)?;
+        let depth_in = mk_tex(DXGI_FORMAT_R32_FLOAT, iw, ih, false)?;
+        let mv_in = mk_tex(DXGI_FORMAT_R32G32_FLOAT, iw, ih, false)?;
+        let reactive_in = mk_tex(DXGI_FORMAT_R8_UNORM, iw, ih, false)?;
+        let color_out = mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, ow, oh, true)?;
+
+        // upload/readback 缓冲(ROW_MAJOR;行距 256 对齐由 footprint 规划)。
+        let row = |bytes_per_px: u64, w: u32| -> u64 { (bytes_per_px * w as u64 + 255) & !255 };
+        let upload_size = row(8, iw) * ih as u64
+            + row(4, iw) * ih as u64
+            + row(8, iw) * ih as u64
+            + row(1, iw) * ih as u64;
+        let readback_size = row(8, ow) * oh as u64;
+        let mk_heap_buffer = |size: u64, heap_type: i32| -> Result<*mut c_void, VendorError> {
+            let heap = D3d12HeapProperties {
+                heap_type,
+                cpu_page_property: 0,
+                memory_pool_preference: 0,
+                creation_node_mask: 1,
+                visible_node_mask: 1,
+            };
+            let desc = D3d12ResourceDesc {
+                dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+                alignment: 0,
+                width: size,
+                height: 1,
+                depth_or_array_size: 1,
+                mip_levels: 1,
+                format: 0, // UNKNOWN
+                sample_count: 1,
+                sample_quality: 0,
+                layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+                flags: 0,
+            };
+            let mut res: *mut c_void = std::ptr::null_mut();
+            let init = if heap_type == D3D12_HEAP_TYPE_UPLOAD { 0x1 | 0x2 | 0x40 | 0x80 | 0x200 } else { D3D12_RESOURCE_STATE_COPY_DEST };
+            // SAFETY: CreateCommittedResource @27;buffer 初态 UPLOAD 必须 GENERIC_READ(=COMMON 兼容位);
+            // READBACK 必须 COPY_DEST。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *const D3d12HeapProperties, i32, *const D3d12ResourceDesc, i32, *const c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 27);
+                f(device, &heap, 0, &desc, init, std::ptr::null(), &IID_ID3D12_RESOURCE, &mut res)
+            };
+            if hr != S_OK || res.is_null() {
+                return Err(VendorError::ApiError(format!("CreateCommittedResource(buffer) → 0x{hr:08x}")));
+            }
+            Ok(res)
+        };
+        let upload = mk_heap_buffer(upload_size, D3D12_HEAP_TYPE_UPLOAD)?;
+        let readback = mk_heap_buffer(readback_size, D3D12_HEAP_TYPE_READBACK)?;
+
+        // ── ffx 版本查询 + FSR 3.1.5 pin ──
+        eprintln!("[fsr-dbg] pre-query device={:p}", device);
+        let mut version_count: u64 = 0;
+        let mut qv = FfxQueryDescGetVersions {
+            header: FfxApiHeader { desc_type: FFX_QUERY_DESC_TYPE_GET_VERSIONS, p_next: std::ptr::null_mut() },
+            create_desc_type: FFX_CREATE_DESC_TYPE_UPSCALE,
+            device,
+            output_count: &mut version_count,
+            version_ids: std::ptr::null_mut(),
+            version_names: std::ptr::null_mut(),
+        };
+        // SAFETY: qv 栈上存活;device 有效。
+        let rc = unsafe { ffx_query(std::ptr::null_mut(), &mut qv.header) };
+        eprintln!("[fsr-dbg] query count rc={rc} count={version_count}");
+        if rc != FFX_OK {
+            return Err(VendorError::VendorCall(format!("ffxQuery(GetVersions,count) → {rc}")));
+        }
+        let mut version_ids = vec![0u64; version_count as usize];
+        let mut version_names_ptrs = vec![std::ptr::null::<c_char>(); version_count as usize];
+        qv.version_ids = version_ids.as_mut_ptr();
+        qv.version_names = version_names_ptrs.as_mut_ptr();
+        // SAFETY: 数组容量 = version_count。
+        let rc = unsafe { ffx_query(std::ptr::null_mut(), &mut qv.header) };
+        eprintln!("[fsr-dbg] query list rc={rc}");
+        if rc != FFX_OK {
+            return Err(VendorError::VendorCall(format!("ffxQuery(GetVersions,list) → {rc}")));
+        }
+        let mut available_versions = Vec::new();
+        let mut fsr31_id: Option<u64> = None;
+        for (k, &name_ptr) in version_names_ptrs.iter().enumerate() {
+            if name_ptr.is_null() {
+                continue;
+            }
+            // SAFETY: ffx 返回 NUL 结尾静态字符串(查询期有效;立即拷贝)。
+            let name = unsafe {
+                let mut len = 0usize;
+                while *name_ptr.add(len) != 0 {
+                    len += 1;
+                }
+                String::from_utf8_lossy(core::slice::from_raw_parts(name_ptr as *const u8, len)).into_owned()
+            };
+            if name.contains("3.1") {
+                fsr31_id = Some(version_ids[k]);
+            }
+            available_versions.push(name);
+        }
+
+        // ── ffx upscale context(backend DX12 链 + 版本 override pin 3.1.5) ──
+        let mut context: *mut c_void = std::ptr::null_mut();
+        let mut override_v = FfxOverrideVersion {
+            header: FfxApiHeader { desc_type: FFX_DESC_TYPE_OVERRIDE_VERSION, p_next: std::ptr::null_mut() },
+            version_id: fsr31_id.unwrap_or(0),
+        };
+        // 链:upscale → backend → override(版本显式 pin 3.1.5;无 3.1 id 时 backend 链尾)。
+        let backend_pnext = if fsr31_id.is_some() {
+            &mut override_v.header as *mut FfxApiHeader
+        } else {
+            std::ptr::null_mut()
+        };
+        let mut backend = FfxCreateBackendDx12Desc {
+            header: FfxApiHeader { desc_type: FFX_CREATE_DESC_TYPE_BACKEND_DX12, p_next: backend_pnext },
+            device,
+        };
+        let mut create = FfxCreateContextDescUpscale {
+            header: FfxApiHeader { desc_type: FFX_CREATE_DESC_TYPE_UPSCALE, p_next: &mut backend.header },
+            flags: FFX_UPSCALE_ENABLE_HIGH_DYNAMIC_RANGE,
+            max_render_size: FfxDimensions2D { width: iw, height: ih },
+            max_upscale_size: FfxDimensions2D { width: ow, height: oh },
+            fp_message: Some(ffx_message_cb),
+        };
+        // 存活纪律:create/backend/override 栈上存活至 ffxCreateContext 返回;ffx
+        // 文档明示 desc 指针须存活至 ffxDestroyContext——本链字段全为值语义(无悬垂
+        // 引用),满足「指针内容在调用期有效」的实质约束。
+        eprintln!("[fsr-dbg] pre-create fsr31_id={fsr31_id:?} versions={available_versions:?}");
+        // SAFETY: create/backend/override 栈上存活至本调用返回;链字段全值语义无悬垂。
+        let rc = unsafe { ffx_create(&mut context, &mut create.header, std::ptr::null()) };
+        eprintln!("[fsr-dbg] create rc={rc} context={context:p}");
+        if rc != FFX_OK || context.is_null() {
+            return Err(VendorError::VendorCall(format!("ffxCreateContext(upscale) → {rc}")));
+        }
+        let mut provider = FfxQueryGetProviderVersion {
+            header: FfxApiHeader { desc_type: FFX_QUERY_DESC_TYPE_GET_PROVIDER_VERSION, p_next: std::ptr::null_mut() },
+            version_id: 0,
+            version_name: std::ptr::null(),
+        };
+        // SAFETY: context 有效(&mut context 传 ffxContext* 语义);provider 栈上存活。
+        let rc = unsafe { ffx_query(&mut context, &mut provider.header) };
+        let provider_version = if rc == FFX_OK && !provider.version_name.is_null() {
+            // SAFETY: ffx 返回静态 NUL 结尾字符串;立即拷贝。
+            unsafe {
+                let mut len = 0usize;
+                while *provider.version_name.add(len) != 0 {
+                    len += 1;
+                }
+                String::from_utf8_lossy(core::slice::from_raw_parts(provider.version_name as *const u8, len)).into_owned()
+            }
+        } else {
+            String::new()
+        };
+
+        Ok(FsrDx12Session {
+            ffx_destroy,
+            ffx_dispatch,
+            device,
+            queue,
+            allocator,
+            cmd_list,
+            fence,
+            fence_value: 0,
+            info_queue,
+            context,
+            in_w: iw,
+            in_h: ih,
+            out_w: ow,
+            out_h: oh,
+            color_in,
+            depth_in,
+            mv_in,
+            reactive_in,
+            color_out,
+            upload,
+            readback,
+            gpu_name,
+            provider_version,
+            available_versions,
+            fsr4_ml_available,
+            dlls,
+            ffx_errors: 0,
+            log_tail: Vec::new(),
+        })
+    }
+
+    fn d3d_barrier(&self, tex: &D3dTexture, before: i32, after: i32) {
+        let b = D3d12ResourceBarrier {
+            barrier_type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            p_resource: tex.resource,
+            subresource: 0xffff_ffff, // ALL_SUBRESOURCES
+            state_before: before,
+            state_after: after,
+            _pad: 0,
+        };
+        // SAFETY: cmd_list 录制中;ID3D12GraphicsCommandList::ResourceBarrier @26。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const D3d12ResourceBarrier) = com_fn(self.cmd_list, 26);
+            f(self.cmd_list, 1, &b);
+        }
+    }
+
+    fn d3d_upload_tex(&mut self, slot: D3dInputSlot, data: &[u8], bytes_per_px: u64, upload_offset: u64) -> Result<(), VendorError> {
+        let tex = match slot {
+            D3dInputSlot::Color => self.color_in.clone_shallow(),
+            D3dInputSlot::Depth => self.depth_in.clone_shallow(),
+            D3dInputSlot::Mv => self.mv_in.clone_shallow(),
+            D3dInputSlot::Reactive => self.reactive_in.clone_shallow(),
+        };
+        let row_pitch = (bytes_per_px * tex.w as u64 + 255) & !255;
+        // SAFETY: upload heap 常驻 mapped 区间写入(upload heap Map 免 Unmap 纪律);
+        // 行主序按 row_pitch 打包。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult = com_fn(self.upload, 8);
+            let hr = f(self.upload, 0, std::ptr::null(), &mut ptr);
+            if hr != S_OK || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("upload heap Map → 0x{hr:08x}")));
+            }
+            let dst = (ptr as *mut u8).add(upload_offset as usize);
+            for y in 0..tex.h as usize {
+                let src_row = data.as_ptr().add(y * bytes_per_px as usize * tex.w as usize);
+                let dst_row = dst.add(y * row_pitch as usize);
+                std::ptr::copy_nonoverlapping(src_row, dst_row, bytes_per_px as usize * tex.w as usize);
+            }
+            let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.upload, 9);
+            unmap(self.upload, 0, std::ptr::null());
+        }
+        let before = if tex.state == D3D12_RESOURCE_STATE_COMMON {
+            D3D12_RESOURCE_STATE_COMMON
+        } else {
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+        };
+        self.d3d_barrier(&tex, before, D3D12_RESOURCE_STATE_COPY_DEST);
+        let dst_loc = D3d12TextureCopyLocation {
+            p_resource: tex.resource,
+            copy_type: 0, // SUBRESOURCE_INDEX(d3d12.h:D3D12_TEXTURE_COPY_TYPE 枚举 0-based)
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint { format: tex.format, width: 0, height: 0, depth: 0, row_pitch: 0 },
+            },
+        };
+        let src_loc = D3d12TextureCopyLocation {
+            p_resource: self.upload,
+            copy_type: 1, // PLACED_FOOTPRINT(枚举值 1)
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: upload_offset,
+                footprint: D3d12SubresourceFootprint {
+                    format: tex.format,
+                    width: tex.w,
+                    height: tex.h,
+                    depth: 1,
+                    row_pitch: row_pitch as u32,
+                },
+            },
+        };
+        // SAFETY: CopyTextureRegion @16;dst/src loc 栈上存活。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *const D3d12TextureCopyLocation, u32, u32, u32, *const D3d12TextureCopyLocation, *const c_void) = com_fn(self.cmd_list, 16);
+            f(self.cmd_list, &dst_loc, 0, 0, 0, &src_loc, std::ptr::null());
+        }
+        self.d3d_barrier(&tex, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        let new_state = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        match slot {
+            D3dInputSlot::Color => self.color_in.state = new_state,
+            D3dInputSlot::Depth => self.depth_in.state = new_state,
+            D3dInputSlot::Mv => self.mv_in.state = new_state,
+            D3dInputSlot::Reactive => self.reactive_in.state = new_state,
+        }
+        Ok(())
+    }
+
+    fn d3d_submit_wait(&mut self) -> Result<(), VendorError> {
+        // SAFETY: ID3D12GraphicsCommandList::Close @9。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void) -> Hresult = com_fn(self.cmd_list, 9);
+            let hr = f(self.cmd_list);
+            if hr != S_OK {
+                return Err(VendorError::ApiError(format!("cmdlist Close → 0x{hr:08x}")));
+            }
+        }
+        // SAFETY: ID3D12CommandQueue::ExecuteCommandLists @10。
+        unsafe {
+            let lists = [self.cmd_list];
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const *mut c_void) = com_fn(self.queue, 10);
+            f(self.queue, 1, lists.as_ptr());
+        }
+        self.fence_value += 1;
+        // SAFETY: ID3D12CommandQueue::Signal @14。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *mut c_void, u64) -> Hresult = com_fn(self.queue, 14);
+            let hr = f(self.queue, self.fence, self.fence_value);
+            if hr != S_OK {
+                return Err(VendorError::ApiError(format!("queue Signal → 0x{hr:08x}")));
+            }
+        }
+        // SAFETY: ID3D12Fence::SetEventOnCompletion @9(HANDLE=NULL → 忙等降级?
+        // 否——NULL 事件语义非法;用 GetCompletedValue 轮询,有界)。
+        unsafe {
+            let get: unsafe extern "system" fn(*mut c_void) -> u64 = com_fn(self.fence, 8);
+            let mut spins = 0u64;
+            loop {
+                if get(self.fence) >= self.fence_value {
+                    break;
+                }
+                spins += 1;
+                if spins > 200_000_000 {
+                    return Err(VendorError::ApiError("fence 等待超界(疑似 TDR)".into()));
+                }
+                std::hint::spin_loop();
+                if spins.is_multiple_of(1_000_000) {
+                    std::thread::yield_now();
+                }
+            }
+        }
+        // SAFETY: 下一帧重录:ID3D12CommandAllocator::Reset @8(IUnknown0-2 +
+        // ID3D12Object3-6 + ID3D12DeviceChild::GetDevice@7 之后首个自有方法;d3d12.h
+        // L5193 核对)+ ID3D12GraphicsCommandList::Reset @10。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void) -> Hresult = com_fn(self.allocator, 8);
+            let hr = f(self.allocator);
+            if hr != S_OK {
+                return Err(VendorError::ApiError(format!("allocator Reset → 0x{hr:08x}")));
+            }
+            let f: unsafe extern "system" fn(*mut c_void, *mut c_void, *mut c_void) -> Hresult = com_fn(self.cmd_list, 10);
+            let hr = f(self.cmd_list, self.allocator, std::ptr::null_mut());
+            if hr != S_OK {
+                return Err(VendorError::ApiError(format!("cmdlist Reset → 0x{hr:08x}")));
+            }
+        }
+        Ok(())
+    }
+
+    /// 执行一帧 FSR 3.1.5 超分;返回 `out_size` 的 3 通道 f32 显示域图像。
+    pub fn upscale(&mut self, input: &VendorFrameInput) -> Result<Vec<f32>, VendorError> {
+        let (iw, ih) = (self.in_w, self.in_h);
+        let px = (iw * ih) as usize;
+        if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
+            return Err(VendorError::ApiError("输入切片长度与 session 分辨率不符".into()));
+        }
+        // 打包四输入(color f16 RGBA / depth f32 / mv f32 RG / reactive R8;
+        // reactive 行距恒 = iw(R8 逐像素直排,无 256 对齐段——off_reac 仅作段偏移)。
+        let color_row = (8u64 * iw as u64 + 255) & !255;
+        let depth_row = (4u64 * iw as u64 + 255) & !255;
+        let mv_row = (8u64 * iw as u64 + 255) & !255;
+        let off_depth = color_row * ih as u64;
+        let off_mv = off_depth + depth_row * ih as u64;
+        let off_reac = off_mv + mv_row * ih as u64;
+        let mut color_px = vec![0u8; px * 8];
+        for i in 0..px {
+            let o = i * 8;
+            color_px[o..o + 2].copy_from_slice(&f32_to_f16(input.color[i * 3]).to_le_bytes());
+            color_px[o + 2..o + 4].copy_from_slice(&f32_to_f16(input.color[i * 3 + 1]).to_le_bytes());
+            color_px[o + 4..o + 6].copy_from_slice(&f32_to_f16(input.color[i * 3 + 2]).to_le_bytes());
+            color_px[o + 6..o + 8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
+        }
+        let mut depth_px = vec![0u8; px * 4];
+        for (i, &d) in input.depth.iter().enumerate() {
+            depth_px[i * 4..i * 4 + 4].copy_from_slice(&d.to_le_bytes());
+        }
+        let mut mv_px = vec![0u8; px * 8];
+        for i in 0..px * 2 {
+            mv_px[i * 4..i * 4 + 4].copy_from_slice(&input.mv[i].to_le_bytes());
+        }
+        let mut reac_px = vec![0u8; px];
+        if let Some(r) = input.reactive {
+            for (i, &v) in r.iter().enumerate() {
+                reac_px[i] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            }
+        }
+        eprintln!("[fsr-dbg] pre-upload frame={}", input.frame_index);
+        let dbg_stage = std::env::var("FSR_DBG_STAGE").unwrap_or_default();
+        self.d3d_upload_tex(D3dInputSlot::Color, &color_px, 8, 0)?;
+        eprintln!("[fsr-dbg] upload color ok");
+        self.d3d_upload_tex(D3dInputSlot::Depth, &depth_px, 4, off_depth)?;
+        eprintln!("[fsr-dbg] upload depth ok");
+        self.d3d_upload_tex(D3dInputSlot::Mv, &mv_px, 8, off_mv)?;
+        eprintln!("[fsr-dbg] upload mv ok");
+        self.d3d_upload_tex(D3dInputSlot::Reactive, &reac_px, 1, off_reac)?;
+        eprintln!("[fsr-dbg] upload reactive ok");
+        if dbg_stage == "uploads_only" {
+            self.d3d_submit_wait()?;
+            eprintln!("[fsr-dbg] submit ok (uploads_only)");
+            return Ok(vec![0f32; (self.out_w * self.out_h * 3) as usize]);
+        }
+        if self.color_out.state == D3D12_RESOURCE_STATE_COMMON {
+            let out = self.color_out.clone_shallow();
+            self.d3d_barrier(&out, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            self.color_out.state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        }
+
+        let mk_res = |t: &D3dTexture, state: u32, usage: u32| -> FfxResource {
+            FfxResource {
+                resource: t.resource,
+                description: FfxResourceDescription {
+                    res_type: FFX_RESOURCE_TYPE_TEXTURE2D,
+                    format: match t.format {
+                        DXGI_FORMAT_R16G16B16A16_FLOAT => FFX_SURFACE_FORMAT_R16G16B16A16_FLOAT,
+                        DXGI_FORMAT_R32G32_FLOAT => FFX_SURFACE_FORMAT_R32G32_FLOAT,
+                        DXGI_FORMAT_R32_FLOAT => FFX_SURFACE_FORMAT_R32_FLOAT,
+                        DXGI_FORMAT_R8_UNORM => FFX_SURFACE_FORMAT_R8_UNORM,
+                        _ => FFX_SURFACE_FORMAT_R32G32B32A32_FLOAT,
+                    },
+                    width: t.w,
+                    height: t.h,
+                    depth: 1,
+                    mip_count: 1,
+                    flags: 0,
+                    usage,
+                },
+                state,
+            }
+        };
+        let dispatch = FfxDispatchDescUpscale {
+            header: FfxApiHeader { desc_type: FFX_DISPATCH_DESC_TYPE_UPSCALE, p_next: std::ptr::null_mut() },
+            command_list: self.cmd_list,
+            color: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            depth: mk_res(&self.depth_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            motion_vectors: mk_res(&self.mv_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            exposure: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY), // 空占位(见下)
+            reactive: mk_res(&self.reactive_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            transparency_and_composition: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY), // 空占位
+            output: mk_res(&self.color_out, FFX_RESOURCE_STATE_UNORDERED_ACCESS, FFX_RESOURCE_USAGE_UAV),
+            jitter_offset: FfxFloatCoords2D { x: input.jitter[0], y: input.jitter[1] },
+            motion_vector_scale: FfxFloatCoords2D { x: iw as f32, y: ih as f32 }, // uv → 像素
+            render_size: FfxDimensions2D { width: iw, height: ih },
+            upscale_size: FfxDimensions2D { width: self.out_w, height: self.out_h },
+            enable_sharpening: 0,
+            _pad0: [0; 3],
+            sharpness: 0.0,
+            frame_time_delta: 16.6667,
+            pre_exposure: input.exposure,
+            reset: if input.reset { 1 } else { 0 },
+            _pad1: [0; 3],
+            camera_near: 0.1,
+            camera_far: 100.0,
+            camera_fov_angle_vertical: 60.0f32.to_radians(),
+            view_space_to_meters_factor: 1.0,
+            flags: 0,
+        };
+        // exposure/transparency 为可选空槽——ffx 空资源语义 = resource 指针 null;
+        // 上式占位仅填充字段位,实际传空:
+        let mut dispatch = dispatch;
+        dispatch.exposure.resource = std::ptr::null_mut();
+        dispatch.transparency_and_composition.resource = std::ptr::null_mut();
+        eprintln!("[fsr-dbg] pre-dispatch frame={}", input.frame_index);
+        if std::env::var("FSR_DBG_SKIP_DISPATCH").ok().as_deref() != Some("1") {
+            // SAFETY: dispatch 栈上存活至 ffxDispatch 返回;cmd_list 录制中(Reset 后开录);
+            // context 有效;资源全部已上传且状态与声明一致。
+            let rc = unsafe { (self.ffx_dispatch)(&mut self.context, &dispatch.header) };
+            eprintln!("[fsr-dbg] dispatch rc={rc}");
+            if rc != FFX_OK {
+                return Err(VendorError::VendorCall(format!("ffxDispatch(upscale) → {rc}")));
+            }
+        }
+
+        // 输出回读:UAV → COPY_SOURCE → readback。
+        let out = self.color_out.clone_shallow();
+        self.d3d_barrier(&out, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        let dst_loc = D3d12TextureCopyLocation {
+            p_resource: self.readback,
+            copy_type: 1, // PLACED_FOOTPRINT
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint {
+                    format: DXGI_FORMAT_R16G16B16A16_FLOAT,
+                    width: self.out_w,
+                    height: self.out_h,
+                    depth: 1,
+                    row_pitch: ((8u64 * self.out_w as u64 + 255) & !255) as u32,
+                },
+            },
+        };
+        let src_loc = D3d12TextureCopyLocation {
+            p_resource: self.color_out.resource,
+            copy_type: 0, // SUBRESOURCE_INDEX
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint { format: 0, width: 0, height: 0, depth: 0, row_pitch: 0 },
+            },
+        };
+        // SAFETY: CopyTextureRegion @16;输出在 COPY_SOURCE 态。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *const D3d12TextureCopyLocation, u32, u32, u32, *const D3d12TextureCopyLocation, *const c_void) = com_fn(self.cmd_list, 16);
+            f(self.cmd_list, &dst_loc, 0, 0, 0, &src_loc, std::ptr::null());
+        }
+        self.d3d_barrier(&out, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        self.d3d_submit_wait()?;
+
+        let mut out_px = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        let row_pitch = ((8u64 * self.out_w as u64 + 255) & !255) as usize;
+        // SAFETY: readback heap fence 排空后 map;逐行按 row_pitch 读 f16。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult = com_fn(self.readback, 8);
+            let hr = f(self.readback, 0, std::ptr::null(), &mut ptr);
+            if hr != S_OK || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("readback Map → 0x{hr:08x}")));
+            }
+            for y in 0..self.out_h as usize {
+                let row = (ptr as *const u16).add(y * row_pitch / 2);
+                for x in 0..self.out_w as usize {
+                    let i = y * self.out_w as usize + x;
+                    out_px[i * 3] = f16_to_f32(*row.add(x * 4));
+                    out_px[i * 3 + 1] = f16_to_f32(*row.add(x * 4 + 1));
+                    out_px[i * 3 + 2] = f16_to_f32(*row.add(x * 4 + 2));
+                }
+            }
+            let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
+            unmap(self.readback, 0, std::ptr::null());
+        }
+        Ok(out_px)
+    }
+
+    /// validation(D3D12 debug layer info queue)ERROR/CORRUPTION 级消息计数。
+    pub fn validation_errors(&self) -> u64 {
+        if self.info_queue.is_null() {
+            return 0;
+        }
+        // SAFETY: ID3D12InfoQueue::GetNumStoredMessages @8。
+        let n = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void) -> u64 = com_fn(self.info_queue, 8);
+            f(self.info_queue)
+        };
+        let mut errors = 0u64;
+        for i in 0..n {
+            let mut len: usize = 0;
+            // SAFETY: GetMessage @5(先查长度)。
+            unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, u64, *mut c_void, *mut usize) -> Hresult = com_fn(self.info_queue, 5);
+                let hr = f(self.info_queue, i, std::ptr::null_mut(), &mut len);
+                if hr != S_OK || len == 0 {
+                    continue;
+                }
+                let mut buf = vec![0u8; len];
+                let hr = f(self.info_queue, i, buf.as_mut_ptr() as *mut c_void, &mut len);
+                if hr == S_OK && len >= 24 {
+                    let severity = (buf.as_ptr().add(4) as *const i32).read_unaligned();
+                    if severity <= 1 {
+                        // CORRUPTION(0)/ERROR(1)
+                        errors += 1;
+                    }
+                }
+            }
+        }
+        errors + self.ffx_errors + FFX_ERROR_COUNT.load(Ordering::Relaxed)
+    }
+
+    /// session 报告(evidence provenance 面;FSR4 ML 不可用如实登记)。
+    pub fn report(&self) -> VendorSessionReport {
+        VendorSessionReport {
+            backend: "fsr_3.1.5_ffx_sdk_2.0.0_dx12".into(),
+            gpu_name: self.gpu_name.clone(),
+            validation_errors: self.validation_errors(),
+            dlls: self.dlls.clone(),
+            engine_version: self.provider_version.clone(),
+            fsr4_ml_available: Some(self.fsr4_ml_available),
+            fsr4_note: Some(if self.fsr4_ml_available {
+                "FSR4 ML upscaler 可用面(未消费——本波兑现 = FSR 3.1.5 分析版)".into()
+            } else {
+                format!(
+                    "FSR4 ML upscaler 不可用(适配器 = {},非 AMD RDNA4)→ 自动回退 FSR 3.1.5 分析版(provider: {})",
+                    self.gpu_name, self.provider_version
+                )
+            }),
+            available_versions: self.available_versions.clone(),
+            log_tail: self.log_tail.clone(),
+        }
+    }
+}
+
+trait D3dTextureShallow {
+    fn clone_shallow(&self) -> Self;
+}
+impl D3dTextureShallow for D3dTexture {
+    fn clone_shallow(&self) -> Self {
+        D3dTexture { resource: self.resource, format: self.format, w: self.w, h: self.h, state: self.state }
+    }
+}
+
+impl Drop for FsrDx12Session {
+    fn drop(&mut self) {
+        // fence 排空 → ffxDestroyContext → COM 逆序 Release。
+        if !self.fence.is_null() && self.fence_value > 0 {
+            // SAFETY: fence 有效;轮询排空(有界)。
+            unsafe {
+                let get: unsafe extern "system" fn(*mut c_void) -> u64 = com_fn(self.fence, 8);
+                let mut spins = 0u64;
+                while get(self.fence) < self.fence_value && spins < 200_000_000 {
+                    spins += 1;
+                    std::hint::spin_loop();
+                }
+            }
+        }
+        if !self.context.is_null() {
+            let mut ctx = self.context;
+            // SAFETY: context 有效;destroy 后不再消费。
+            unsafe { (self.ffx_destroy)(&mut ctx, std::ptr::null()) };
+            self.context = std::ptr::null_mut();
+        }
+        for obj in [
+            self.color_in.resource,
+            self.depth_in.resource,
+            self.mv_in.resource,
+            self.reactive_in.resource,
+            self.color_out.resource,
+            self.upload,
+            self.readback,
+            self.fence,
+            self.cmd_list,
+            self.allocator,
+            self.queue,
+            self.info_queue,
+            self.device,
+        ] {
+            com_release(obj);
+        }
+        self.device = std::ptr::null_mut();
+    }
+}
+
+/// SDK 目录解析(DLSS 臂)。
+pub fn streamline_sdk_dir() -> Result<PathBuf, VendorError> {
+    default_sdk_dir(STREAMLINE_SDK_DIR_ENV, "external/streamline-2.10.3")
+}
+
+/// SDK 目录解析(FSR 臂)。
+pub fn fsr_sdk_dir() -> Result<PathBuf, VendorError> {
+    default_sdk_dir(FSR_SDK_DIR_ENV, "external/fidelityfx-sdk-2.0.0")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn ffi_size_probe() {
+        eprintln!("PROBE FfxDispatchDescUpscale = {}", size_of::<FfxDispatchDescUpscale>());
+        eprintln!("PROBE FfxResource = {}", size_of::<FfxResource>());
+        eprintln!("PROBE FfxApiHeader = {}", size_of::<FfxApiHeader>());
+        eprintln!("PROBE VkApplicationInfo = {}", size_of::<VkApplicationInfo>());
+        eprintln!("PROBE VkDeviceCreateInfo = {}", size_of::<VkDeviceCreateInfo>());
+        eprintln!("PROBE VkImageViewCreateInfo = {}", size_of::<VkImageViewCreateInfo>());
+        eprintln!("PROBE D3d12ResourceDesc = {}", size_of::<D3d12ResourceDesc>());
+    }
+    #[test]
+    fn sl_struct_layout_anchors() {
+        assert_eq!(size_of::<SlBaseStructure>(), 32);
+        assert_eq!(size_of::<SlPreferencesLayout>(), 144);
+        assert_eq!(size_of::<SlConstants>(), 456);
+        assert_eq!(size_of::<SlResource>(), 112);
+        assert_eq!(size_of::<SlResourceTag>(), 64);
+        assert_eq!(size_of::<SlViewportHandle>(), 40);
+        assert_eq!(size_of::<SlDlssOptions>(), 88);
+        assert_eq!(size_of::<SlDlssOptimalSettings>(), 64);
+        assert_eq!(size_of::<SlFeatureVersion>(), 56);
+    }
+
+    #[test]
+    fn vk_struct_layout_anchors() {
+        assert_eq!(size_of::<VkApplicationInfo>(), 48);
+        assert_eq!(size_of::<VkInstanceCreateInfo>(), 64);
+        assert_eq!(size_of::<VkDeviceQueueCreateInfo>(), 40);
+        assert_eq!(size_of::<VkDeviceCreateInfo>(), 72);
+        assert_eq!(size_of::<VkImageCreateInfo>(), 88);
+        assert_eq!(size_of::<VkImageViewCreateInfo>(), 80);
+        assert_eq!(size_of::<VkBufferCreateInfo>(), 56);
+        assert_eq!(size_of::<VkMemoryAllocateInfo>(), 32);
+        assert_eq!(size_of::<VkCommandPoolCreateInfo>(), 24);
+        assert_eq!(size_of::<VkCommandBufferAllocateInfo>(), 32);
+        assert_eq!(size_of::<VkCommandBufferBeginInfo>(), 32);
+        assert_eq!(size_of::<VkSubmitInfo>(), 72);
+        assert_eq!(size_of::<VkImageMemoryBarrier>(), 72);
+        assert_eq!(size_of::<VkBufferImageCopy>(), 56);
+        assert_eq!(size_of::<VkDebugUtilsMessengerCreateInfo>(), 48);
+    }
+
+    #[test]
+    fn ffx_struct_layout_anchors() {
+        assert_eq!(size_of::<FfxApiHeader>(), 16);
+        assert_eq!(size_of::<FfxCreateContextDescUpscale>(), 48);
+        assert_eq!(size_of::<FfxCreateBackendDx12Desc>(), 24);
+        assert_eq!(size_of::<FfxResource>(), 48);
+        assert_eq!(size_of::<FfxDispatchDescUpscale>(), 432);
+        assert_eq!(size_of::<FfxQueryDescGetVersions>(), 56);
+        assert_eq!(size_of::<FfxOverrideVersion>(), 24);
+        assert_eq!(size_of::<FfxQueryGetProviderVersion>(), 32);
+    }
+
+    #[test]
+    fn d3d_struct_layout_anchors() {
+        assert_eq!(size_of::<D3d12CommandQueueDesc>(), 16);
+        assert_eq!(size_of::<D3d12HeapProperties>(), 20);
+        assert_eq!(size_of::<D3d12ResourceDesc>(), 56);
+        assert_eq!(size_of::<D3d12ResourceBarrier>(), 32);
+        assert_eq!(size_of::<D3d12TextureCopyLocation>(), 48);
+    }
+
+    #[test]
+    fn f16_roundtrip_and_edges() {
+        for v in [0.0f32, 1.0, 0.5, 0.1, 65504.0, 1e-4, 3.14159265, 2.0, 0.999] {
+            let h = f32_to_f16(v);
+            let back = f16_to_f32(h);
+            let tol = (v.abs() * 1e-3).max(1e-7);
+            assert!((back - v).abs() <= tol, "f16 roundtrip {v} → {h:#x} → {back}");
+        }
+        assert_eq!(f16_to_f32(f32_to_f16(0.0)), 0.0);
+        assert!(f16_to_f32(f32_to_f16(f32::INFINITY)).is_infinite());
+    }
+
+    #[test]
+    fn missing_sdk_fail_closed() {
+        // 未设环境变量且默认目录缺失时,目录解析或装载必须确定性 Err(不 panic)。
+        let bogus = Path::new("Z:/rurix-definitely-not-here/streamline");
+        let r = DlssVkSession::create(bogus, (64, 64), (128, 128), false);
+        assert!(matches!(r, Err(VendorError::DllNotFound(_))));
+        let r = FsrDx12Session::create(bogus, (64, 64), (128, 128), false);
+        assert!(matches!(r, Err(VendorError::DllNotFound(_))));
+    }
+
+    #[test]
+    fn sl_guid_layout() {
+        let g = SL_GUID_PREFERENCES;
+        assert_eq!(g.data1, 0x1ca10965);
+        assert_eq!(g.data2, 0xbf8e);
+        assert_eq!(g.data3, 0x432b);
+        assert_eq!(g.data4[0], 0x8d);
+        assert_eq!(g.data4[7], 0x14);
+    }
+}
