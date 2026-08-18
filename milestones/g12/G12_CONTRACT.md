@@ -1,7 +1,7 @@
 ---
 contract: G12
 title: G12 路径追踪生产化期
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g12_1_governance_only + g12_2_production_core_wave
 version: v1.0
@@ -517,3 +517,14 @@ G-G12-1~10 以 YAML 头为可提取摘要。[CI_GATES.md](CI_GATES.md) 冻结脚
   - **工具链/环境偏差登记（不阻断本波判据，沿 §8.2~§8.7a 同模）**：`cargo fmt --check` / `cargo clippy -D warnings` 在本机 pinned 1.93.1 下对 HEAD 既有文件即报预存差异（与 G12.7b 无关，CI 面以流水线工具链为准）——本波新增文件（g12_closeout_check.py / schema 一件 / evidence 二件）为 Python/JSON 面无 rustfmt/clippy 消费面；`check_guardrails`/`check_contribution` 为 advisory（evidence/d3d12_interop_smoke.json 异己会话未提交修改面维持不混入本批）。
 
 - **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10/G11/本契约 §8.1~§8.7a 同模）。`Assisted-by: Kimi-K3（G12.6/G12.7 收口波）`（影响范围：ci/g12_closeout_check.py 新建 + milestones/g12/g12_wave7b_closeout_evidence_schema.json 新建 + ci/check_schemas.py〔g12_wave7b_closeout_ 三处纯追加〕+ .github/workflows/pr-smoke.yml〔步骤 232〕+ registry/number_ledger.json〔CI_step 231→232/next_free 233 + revision_log v1.134〕+ milestones/g12/CI_GATES.md v1.7 修订行 + 本契约 §8.7b 本条 + evidence/g12_wave7b_closeout_20260818T024429Z.json〔终版 READY；首跑登记件 20260818T023148Z 在档〕；验证方式：块③逐字命令输出——终审门 VERDICT=READY（8 facts + checks 八键 + required_gates 15 行）+ selftest materialized step 232 + 7a verify-latest PASS + 守卫套件全 PASS + 互锁 VERDICT=READY）。
+
+---
+
+### §8.8 Close-out 终审签署块（2026-08-17）
+
+**裁决**：G-G12-1~10 对应波次与硬门已 materialize 并逐波验收（G12.1 治理四件套 §8.1、G12.2 生产化核心波 §8.2、G12.3 降噪波 §8.3、G12.4 UE Path Tracer 对标波 §8.4、G12.5 性能面波 §8.5、G12.6 P2 穷举决策 §8.6、G12.7a stabilization soak §8.7a、G12.7b close-out 终审 §8.7b）；7a full-run PASS（`g12_stabilization_soak_20260818T022404Z`——14 门全量回归真跑全绿 + PT 生产化链路 33 迭代 1813.6s 零失败 honest 口径）；7b `VERDICT=READY`（`g12_wave7b_closeout_20260818T024429Z`——八 facts + checks 八键 + required_gates 15 行）。
+
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-034/039/040/041/042/043/044 总体维持 open（分项 go/no-go/defer 已由候选决策表、G12_P2_DECISIONS 33 行闭集与 deferred history 只追加留痕）。**生产化差距清单 `g12_ue_pt_gap_registry.json` 10 行终态（quality_gap 6 + caliber_diff 4）终审锁定**——残余差距/未闭环行如实登记不冒充全闭环（G-G12-10）；**锁定面 = G13 法定输入**（G13 期只消费本清单与 G12_P2_DECISIONS 承接锚，不得另起无锚差距面）。本条为 close-out 终审签署块。
+
+- **异己并发工作树面**：本 flip commit 只含 front matter `status` 字段 + §8.8 追加 + README/00_MASTER_INDEX 勘误行；工作树异己 src 面（hzb/restir/sdf_trace/smrt/ssr/ktx2_read 及 mod.rs/lib.rs 异己注册行、render_exec.rs 异己改写面、apps/ 异己面）与 evidence/d3d12_interop_smoke.json 异己改写面维持未提交、不混入本 commit（立项裁决 1 / §8.6 ⑤ / §8.7b ④ / G11 §8.8 先例同模）；milestones/g12/g12_pt_sampler_selection.json M166 复跑同值重写面维持未提交（批次 B 处置同模）。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.10 / G11 §8.8 同模）。`Assisted-by: Kimi-K3（G12.6/G12.7 收口波）`（影响范围：§8.8 本条 + front matter `status` 字段 + README/00_MASTER_INDEX 勘误行；验证方式：§8.7b 八 facts READY evidence + 守卫终扫全绿）。
