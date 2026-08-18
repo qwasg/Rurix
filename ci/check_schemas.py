@@ -766,6 +766,15 @@ def check_evidence_files() -> None:
     g12_wave7b_closeout_schema = load(
         ROOT / "milestones/g12/g12_wave7b_closeout_evidence_schema.json"
     )
+    g13_acceptance_map_check_schema = load(
+        ROOT / "milestones/g13/g13_acceptance_map_check_evidence_schema.json"
+    )
+    g13_candidate_decisions_check_schema = load(
+        ROOT / "milestones/g13/g13_candidate_decisions_check_evidence_schema.json"
+    )
+    g13_interlock_check_schema = load(
+        ROOT / "milestones/g13/g13_interlock_check_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1760,6 +1769,21 @@ def check_evidence_files() -> None:
     g12_wave7b_closeout_validator = (
         jsonschema.Draft7Validator(g12_wave7b_closeout_schema)
         if g12_wave7b_closeout_schema is not None
+        else None
+    )
+    g13_acceptance_map_check_validator = (
+        jsonschema.Draft7Validator(g13_acceptance_map_check_schema)
+        if g13_acceptance_map_check_schema is not None
+        else None
+    )
+    g13_candidate_decisions_check_validator = (
+        jsonschema.Draft7Validator(g13_candidate_decisions_check_schema)
+        if g13_candidate_decisions_check_schema is not None
+        else None
+    )
+    g13_interlock_check_validator = (
+        jsonschema.Draft7Validator(g13_interlock_check_schema)
+        if g13_interlock_check_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3353,6 +3377,30 @@ def check_evidence_files() -> None:
             # milestones/g12/g12_wave7b_closeout_evidence_schema.json：
             # 八 facts READY|BLOCKED + checks 八键闭集 + required_gates 15 行。
             validator = g12_wave7b_closeout_validator
+        elif (
+            f.name.startswith("g13_acceptance_map_check_")
+            and g13_acceptance_map_check_validator is not None
+        ):
+            # G13.1 治理门 g13.wave.1.acceptance_map（步骤 233）→
+            # milestones/g13/g13_acceptance_map_check_evidence_schema.json：
+            # 5 P0 闭集 + 零 go P1 空集 + 命名空间同 slug + 双向逐字一致 12 facts。
+            validator = g13_acceptance_map_check_validator
+        elif (
+            f.name.startswith("g13_candidate_decisions_check_")
+            and g13_candidate_decisions_check_validator is not None
+        ):
+            # G13.1 治理门 g13.wave.1.candidate_decisions（步骤 234）→
+            # milestones/g13/g13_candidate_decisions_check_evidence_schema.json：
+            # 36 行闭集 + 锚纪律 + 三横向对账 41 facts。
+            validator = g13_candidate_decisions_check_validator
+        elif (
+            f.name.startswith("g13_interlock_check_")
+            and g13_interlock_check_validator is not None
+        ):
+            # G13.1 治理门 g13.gov.implementation_interlock（步骤 235）→
+            # milestones/g13/g13_interlock_check_evidence_schema.json：
+            # 事实门①~④（含 M-a 许可前置硬门）+ C1~C4 + VERDICT 字面 8 facts。
+            validator = g13_interlock_check_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

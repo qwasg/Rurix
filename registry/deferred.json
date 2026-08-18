@@ -1143,6 +1143,11 @@
           "date": "2026-08-17",
           "event": "G12.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M61 mesh shader → M109 可选 geometry pipeline 分项——G12.1 候选决策表承接逐字复核(defer-to-G13+ 维持);G12.2~G12.5 生产化面(PT megakernel 光线路径)与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现;承接锚:重判条件 = G13+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判,兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持(G13+ 前零实现痕迹)——承接锚字面 0-byte 维持(G10_P2_DECISIONS §3 原文逐字),G13+ 重评窗顺延不关闭;RD-039 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g12/G12_P2_DECISIONS.md §1 M61 行 / ci/g12_p2_decisions_check.py(步骤 230) / milestones/g12/G12_CONTRACT.md §8.6"
+        },
+        {
+          "date": "2026-08-18",
+          "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M61 mesh shader 第三光栅路径（M109 可选 geometry pipeline）——G12.6 逐字承接（defer-to-G13+ → defer-to-G14+）：G13 超分/Lumen 对照面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现；承接锚字面 0-byte 维持（重判条件 = G14+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判；兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持，G14+ 前零实现痕迹）；G14+ 重评窗顺延不关闭；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 M61 行 / milestones/g13/G13_CONTRACT.md §6"
         }
       ]
     },
@@ -1269,6 +1274,21 @@
           "date": "2026-08-17",
           "event": "G12.6 P2 穷举裁决登记(agent 完全自主 D-406 v2.0):M100-high ReSTIR GI/DI 高档 reservoir 条件分项——**G12.6 触发重判兑现**:G12.4 UE PT 对标已产多灯 workload measured 对照面(bistro-interior 4 点光〔RXS-0394 L3 I₀=Le×A 逐盏 provenance〕+ 4 emissive 三角网格光,双端 spp 1/4/16/64/256/1024 对拍,evidence/g12_m163_ue_pt_parity_20260817T223129Z.json;触发条件命中 G12.4 已登记)——但承接锚字面 = 低档 MegaLights GPU 管线在多灯场景 measured 对照,G12.4 对照面 = 双端 PT 对拍(Rurix PT megakernel vs UE Path Tracer),未消费 G9 低档 MegaLights GPU 光栅管线(PT megakernel ≠ MegaLights 管线),「低档在多灯 workload 下不足」measured 对照证据仍未齐备 → **maintain-defer**;异己 untracked gi/restir.rs 零消费维持(立项裁决 1);锚定 G14(GPU 管线多灯对照面 = G14 帧率面天然产出窗)字面不动;承接锚:重判条件 = G13+(锚定 G14)低档 MegaLights GPU 管线在多灯场景 measured 对照齐备后按只追加程序重判(高档 ReSTIR reservoir + 海量灯阴影统一接口随动),兜底 = 低档 MegaLights 默认档(g9.p1.m100 门绿)+ M15 open-留档维持——承接锚字面 0-byte 维持;RD-040 总体 status 维持 open,backfill_condition 0-byte 不回写",
           "evidence": "milestones/g12/G12_P2_DECISIONS.md §1 M100-high 行 / ci/g12_p2_decisions_check.py(步骤 230) / milestones/g12/g12_ue_pt_gap_registry.json / milestones/g12/G12_CONTRACT.md §8.6"
+        },
+        {
+          "date": "2026-08-18",
+          "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M52 SER → M108 语言层原语 + capability rt.ser 可选分项——G12.1/G12.6 双窗核验（真实集成需求未至 + capability rt.ser 设备面未实测）逐字承接，裁决 defer-to-G14+；**G13 登记：G13.4 Lumen GI 对照波若上 Lumen 化 workload 自然 materialize 高分歧 RT workload 面，按只追加程序重评登记**（双条件 = 真实集成需求出现且 capability rt.ser 设备面实测可用；go 须独立 Full RFC 评估，语言层原语面 RFC-0023 冻结面衔接）；未命中维持 defer 顺延 G14+；承接锚字面 0-byte 维持（G9_P2_DECISIONS §3 原文逐字），兜底 = 语言层不加 SER 原语维持（无 capability 设备 fail-closed 降级语义留 RFC-0023 冻结面不接线）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 M52 行 / milestones/g13/G13_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-18",
+          "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M100-high ReSTIR GI/DI 高档 reservoir 条件分项——G12.6 触发重判结论（多灯 workload 对照面已产但未消费低档 MegaLights GPU 管线 → 证据未齐备 maintain-defer）逐字承接，裁决 defer-to-G14+（锚定 G14 字面维持）：G13 超分/Lumen 对照面不产低档 MegaLights GPU 管线多灯 measured 对照（M-d = GI 模块级对照面，非低档管线对照面）；异己 restir 面零消费维持；承接锚字面 0-byte 维持（重判条件 = G14+〔锚定 G14〕低档 MegaLights GPU 管线在多灯场景 measured 对照齐备后按只追加程序重判；兜底 = 低档 MegaLights 默认档〔g9.p1.m100 门绿〕+ M15 open-留档维持）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 M100-high 行 / milestones/g13/G13_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-18",
+          "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：RD040-nrd NRD 类 vendor 降噪接入分项——**G13 决策窗登记**：G12.3 评估已完结不接线（评估报告 milestones/g12/design/nrd_vendor_denoise_evaluation.md v1.0 在树，许可取证 = 自定义 NVIDIA RTX SDKs LICENSE 非 OSI——owner 法律面审为接入硬前置）；G13 接入裁决三条件 = 接入真实需求 + owner 法律面许可清结 + measured 对拍面齐备，截至 G13.1 未齐备维持不接线——不以评估报告冒充接入；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §2 RD-040 行 / milestones/g12/design/nrd_vendor_denoise_evaluation.md / milestones/g13/G13_CONTRACT.md §6"
         }
       ]
     },
@@ -1285,6 +1305,11 @@
           "date": "2026-07-29",
           "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;材质流送时域主线 P0–P2 已落地(material::/streaming::/temporal::,SSIM 门与三预算扣账单测全量)",
           "evidence": "rfcs/0016-native-renderer.md §8/§9.1 R-4/§9 Q-F / 渲染器调研/调研报告5~7 各 §7~8"
+        },
+        {
+          "date": "2026-08-18",
+          "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：G10-N5 DLSS/Streamline 接入方向 + FSR/DirectSR 类 vendor 超分 SDK 接入分项——**G13 兑现窗登记**：承接锚「DLSS/超分立项」条件命中（G13.1 立项本身即兑现，G13 = DLSS/超分期）；M-a vendor 超分接入波（DLSS SR 经 Streamline SDK + FSR 3.1.5 同接口档，经 UpscaleBackend 冻结面——接口已冻结不改底座字面）即本分项接入评估兑现面；许可与 ABI 评估齐备面 = M-a 开工硬门承载（owner 法律面清结留痕，未清结 M-a blocked 不充绿）；FG/MFG「独立层另判」字面不动（G13-N7 defer-to-G14+）；M28/M40-svt/M26-fg/M05-mv/M56-wg 维持 no-go 留档；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 G10-N5 行/§2 RD-041 行 / milestones/g13/G13_ACCEPTANCE_MAP.md §1 M-a 行 / milestones/g13/G13_CONTRACT.md §6/§7 裁决 5"
         }
       ]
     },
@@ -1763,6 +1788,11 @@
       "version": "v1.82",
       "date": "2026-08-16",
       "change": "G11.1 治理门承接登记(agent 完全自主 D-406 v2.0,Assisted-by: Kimi-K3（G11.1 治理波）):RD-039 history +1 行(M61 defer-to-G12+ 维持,承接锚字面 0-byte)、RD-040 history +3 行(M52 defer-to-G12+ 锚定 G12 维持;M99-clipmap **承接兑现启动登记**——G10.6 rejudged-go 逐字承接,G11.4 承接世界辐射缓存世界 clipmap 级落地,语义面 Full RFC-0028 Agent Approved 冻结,RXS-0360 世界级登记翻转走显式修订行;M100-high defer-to-G12+ 维持,G11.6 触发评估登记);四行均只追加且含「G11.1 治理门」字面与承接锚(重判条件 + 兜底),id/title/reason/backfill_condition 四字段与既有 history 全部 0-byte;RD-039/040 总体 status 维持 open;零新 RD 编号(RD next_free=45 不动——SAFE-GPU/M127/M98-l4/M114-strand/M118-hdr-cal/M125-adopt3/G10-N5~N17/G11-N1~N3 无 RD 条目归属不新设 RD,沿 v1.79~v1.81 先例,留痕于 milestones/g11/G11_CANDIDATE_DECISIONS.md + G11_CONTRACT §6 登记面);其余 entry 与 revision_log v1.0~v1.81 行 0-byte"
+    },
+    {
+      "version": "v1.83",
+      "date": "2026-08-18",
+      "change": "G13.1 治理门承接登记（只追加 history，既有 history 行与条目四字段 0-byte）：RD-039 +1〔M61 defer-to-G14+ 承接〕/ RD-040 +3〔M52 defer-to-G14+ + G13.4 Lumen 化 workload 重评窗登记 / M100-high 锚定 G14 维持 / RD040-nrd G13 决策窗登记三条件未齐备维持不接线〕/ RD-041 +1〔G10-N5 G13 兑现窗 + FSR/DirectSR 分项 M-a 承载登记〕；全部 RD 条目级 status 维持 open；零新 RD（RD-044 不动）。详见 milestones/g13/G13_CONTRACT.md §6 + milestones/g13/G13_CANDIDATE_DECISIONS.md §1/§2"
     }
   ]
 }

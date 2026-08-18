@@ -2788,6 +2788,49 @@ jobs:
         shell: powershell
         run: py -3 ci/g12_closeout_check.py --gate g12.wave.7b.closeout
 
+      # 步骤 233（G13.1 治理门 g13.wave.1.acceptance_map；G13_CONTRACT §4.3/G-G13-2；
+      # 落盘前实测 CI_step.next_free=233 顺位领取）。验收映射覆盖/空行/双向命名空间
+      # 一致性：G13_ACCEPTANCE_MAP §1 五行 P0（M-a vendor 超分接入/M-b 自研 TSR device
+      # 化/M-c UE5 超分双端对拍/M-d UE Lumen GI 对照/M-e 回归门+漂移监控）闭集全等 +
+      # §2 零 go P1 空集 + key/脚本/schema 单一命名空间同 slug + numeric_step 全列
+      # post-interlock actual-next-free allocation 字面零预占 + MAP §1 ↔ G13_CONTRACT
+      # §4.2 双向逐字一致（G13 治理三件套无独立 CI_GATES，沿 G12 三向体例精简为双向）。
+      # 纯 host 治理核验门，不代绿实现门；本门 PASS 只表示映射完整。evidence 落盘
+      # evidence/g13_acceptance_map_check_<UTC>.json。
+      - name: G13.1 acceptance map check (G13_CONTRACT §4.3.233, g13.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g13_acceptance_map_check.py --gate g13.wave.1.acceptance_map
+
+      # 步骤 234（G13.1 治理门 g13.wave.1.candidate_decisions；G13_CONTRACT §4.3/G-G13-2；
+      # 落盘前实测 CI_step.next_free=234 顺位领取）。候选决策表 36 行闭集全等（§1 G12
+      # defer-to-G13+ 22 行承接 + §2 open RD 7 行映射 + §3 G13 新增候选 7 行）+ 裁决枚举
+      # 合法（go/no-go/defer-to-G14+/strategic_override）+ 零空行 + 承接锚纪律（§1 字面
+      # 0-byte 转引含「→」分节；§3 含「重判条件+兜底」）+ defer 行 G14+ 重评窗 + go 行
+      # 验收映射锚义务 + §2 RD 行 status==open；横向机核：MAP 5 key 互斥 + deferred
+      # history 对账（RD-039 +1〔M61〕/RD-040 +3〔M52/M100-high/nrd〕/RD-041 +1〔G10-N5〕，
+      # 零新 RD max=RD-044）+ G12_P2_DECISIONS 承接源行对账 n=22/22。纯 host 治理核验门；
+      # no-go/defer 如实保持 open 不写进全绿叙述。evidence 落盘
+      # evidence/g13_candidate_decisions_check_<UTC>.json。
+      - name: G13.1 candidate decisions check (G13_CONTRACT §4.3.234, g13.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g13_candidate_decisions_check.py --gate g13.wave.1.candidate_decisions
+
+      # 步骤 235（G13.1 治理门 g13.gov.implementation_interlock；G13_CONTRACT §4.3/G-G13-3；
+      # 落盘前实测 CI_step.next_free=235 顺位领取）。G13.2 实现互锁 validator 诚实报告面：
+      # 事实门①G12 closed + §8.8 在位 + G13.0 不可变 ref 8c5dc5ee 登记②候选决策表 36 行
+      # 零空行 + deferred history 只追加（vs G13.0 base 四字段 0-byte）+ 验收映射 §1 五行
+      # P0 + §2 零 go P1 无缺行③M-a 许可前置（owner 法律面清结留痕五要素齐备——未清结即
+      # RED，G12.3 NRD 许可取证先例同模）④用户 G13.2 开工指令留痕（「支持 dlss、超分采样」
+      # 字面）+ workflow 实测末号 == ledger CI_step on_tree_max 且 next_free == +1；一致性门
+      # C1 双状态诚实/C2 §8 记录一致/C3 数字步骤零预占（治理三门 233~235 白名单豁免）/C4
+      # src-spec-conformance 0-byte（两态口径沿 G10.4b/G11/G12 先例）。VERDICT 字面入档——
+      # G13.1 期 = BLOCKED（M-a 许可前置未清结，正确结论不充绿，不以叙述替代机器事实）；
+      # --require-ready 供未来 G13.2 实现 PR 前置 required check。evidence 落盘
+      # evidence/g13_interlock_check_<UTC>.json。
+      - name: G13.1 implementation interlock check (G13_CONTRACT §4.3.235, g13.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g13_interlock_check.py --gate g13.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

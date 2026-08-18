@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g13_interlock_check",
+  "symbolic_gate_key": "g13.gov.implementation_interlock",
+  "matrix_row": "G13.1",
+  "wave": "G13.1",
+  "numeric_step": 235,
+  "source_ref": "G13_CONTRACT G-G13-3/§4.3/§7;G13_ACCEPTANCE_MAP §5/§6;registry/number_ledger.json;registry/deferred.json;milestones/g13/design/vendor_upscale_license_clearance.md（M-a 许可前置面）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "fact_gate_1_prior_milestone_closed",
+      "status": "PASS",
+      "detail": "state=GREEN——① G12_CONTRACT status = 'closed'（要求 closed）且 §8.8 签署块在位 = True；G13.0 不可变 ref 8c5dc5ee 登记 = True"
+    },
+    {
+      "id": "fact_gate_2_governance_docs",
+      "status": "PASS",
+      "detail": "state=GREEN——② 决策表/ deferred/ 验收映射三面：候选决策表 36 行零空行；deferred history 只追加（vs G13.0 base 四字段 0-byte）；验收映射 §1 五行 P0 + §2 零 go P1 空集无缺行"
+    },
+    {
+      "id": "fact_gate_3_license_precondition",
+      "status": "PASS",
+      "detail": "state=RED（诚实登记，不充绿）——③ M-a 许可前置（owner 法律面清结硬门）：milestones/g13/design/vendor_upscale_license_clearance.md 未在树——owner 法律面清结未落地（M-a 保持 blocked；G12.3 NRD 许可取证先例同模）"
+    },
+    {
+      "id": "fact_gate_4_instruction_ledger",
+      "status": "PASS",
+      "detail": "state=GREEN——④ 用户 G13.2 开工指令留痕（2026-08-15 全期授权面「支持 dlss、超分采样」字面） = True；workflow 实测末号 = 235、ledger CI_step on_tree_max = 235、next_free = 236（一致 = True）"
+    },
+    {
+      "id": "consistency_gates_green",
+      "status": "PASS",
+      "detail": "C1~C4 全绿"
+    },
+    {
+      "id": "verdict_honest",
+      "status": "PASS",
+      "detail": "VERDICT=BLOCKED 与事实门真值一致（READY ⇔ 事实门全绿；CLOSED ⇔ status closed）"
+    },
+    {
+      "id": "verdict_recorded",
+      "status": "PASS",
+      "detail": "VERDICT=BLOCKED 字面入档（evidence notes 同字面）"
+    },
+    {
+      "id": "blocked_not_masqueraded",
+      "status": "PASS",
+      "detail": "VERDICT=BLOCKED 且 implementation_status='blocked'：实现面硬阻断不充绿"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T043744Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G13.1 治理门——实现互锁 validator 诚实报告：VERDICT=BLOCKED（BLOCKED 是当前正确结论：M-a 许可前置 owner 法律面清结未落地，G13.2 不得开工；不充绿、不以叙述替代机器事实）；一致性门 C1~C4 全绿；--require-ready 供未来 G13.2 实现 PR 前置 required check"
+}

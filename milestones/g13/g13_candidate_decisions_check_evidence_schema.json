@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.1 candidate decisions check evidence",
+  "description": "evidence/g13_candidate_decisions_check_<UTC>.json。G13.1 治理门 g13.wave.1.candidate_decisions（步骤 234，ci/g13_candidate_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g13/G13_CANDIDATE_DECISIONS.md v1.0——36 行冻结候选闭集全等（§1 G12 defer-to-G13+ 22 行承接 + §2 open RD 7 行映射 + §3 G13 新增候选 7 行）、裁决枚举合法（go/no-go/defer-to-G14+/strategic_override）、零空行（全列非空）、承接锚纪律（§1 行 G12.6 承接锚字面 0-byte 转引含「→」分节；§3 行含「重判条件 + 兜底」字面）、defer 行必含 G14+ 重评窗、go 行验收映射锚义务、no-go 行 RD/契约锚义务、§2 RD 行条目级 status==open；横向机核①与 G13_ACCEPTANCE_MAP 5 key（M-a~M-e）互斥（候选行 ID 不得命中已 go 门裸 token）②deferred.json history 对账（G13.1 治理门登记恰好 RD-039 +1〔M61〕/RD-040 +3〔M52 G13.4 重评窗登记 + M100-high 锚定 G14 维持 + RD040-nrd G13 决策窗登记〕/RD-041 +1〔G10-N5 兑现窗 + FSR/DirectSR 分项 M-a 承载登记〕，零新 RD max=RD-044，RD-039/040/041 status open 0-byte）③G12_P2_DECISIONS 对账（§1 22 行 ID 全数在树——G12 defer-to-G13+ 闭集 = G13 法定输入；G10-N5 go 兑现窗 + 其余 21 行 defer-to-G14+ 字面承接）。只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g13_candidate_decisions_check" },
+    "symbolic_gate_key": { "type": "string", "const": "g13.wave.1.candidate_decisions" },
+    "matrix_row": { "type": "string", "const": "G13.1" },
+    "wave": { "type": "string", "const": "G13.1" },
+    "numeric_step": { "type": "integer", "const": 234 },
+    "source_ref": {
+      "type": "string",
+      "const": "G13_CONTRACT G-G13-2/§6/§7;G13_CANDIDATE_DECISIONS.md v1.0;G13_ACCEPTANCE_MAP §1/§2;G12_P2_DECISIONS.md v1.0（22 行承接锚法定输入）;registry/deferred.json（G13.1 治理门登记行）"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 41,
+      "maxItems": 41,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
