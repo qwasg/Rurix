@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.5 M165 pt_throughput_baseline evidence",
+  "description": "evidence/g12_m165_pt_throughput_baseline_<UTC>.json。G12.5 P0 硬门 g12.p0.m165.pt_throughput_baseline（步骤 228；G12_CONTRACT §4.2 M165 行 / G-G12-7；G12_ACCEPTANCE_MAP §1 M165 行；CI_GATES §4/§7；milestones/m0/BENCH_PROTOCOL.md §3；G10.5 M141 50×3 trimmed mean 同协议继承；RFC-0029 §4.7 基线锚消费面）。host+device 门（device_section_state=executed——生产化 PT megakernel device 真跑，release harness + RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1，采样腿持 gpu_device_lock 串行）：PT 吞吐基线 measured（rays/sec 主射线口径 + 帧时 at 固定 spp{16,64} × M133 双场景闭集，warmup 10 + timed 150 = 3×50 块 IQR → 块中位数 → 3 块均值 M141 冻结统计口径）+ 8 条目入 g12_budget（measured_local 零 estimated，阈 = 实测 ×1.5/÷1.5 回归守护语义非通过线）+ 不设通过线登记（zero_pass_line 字面 + 条目逐个携带「不构成帧率对标通过线」字面，正式帧率对标锚定 G14）+ 优化前后正确性锚（固定 seed digest 0-byte == M163 Rurix 臂 receipt 冻结锚 + 全 160 帧 distinct digest==1 + 演进位 null）；统计面独立第二实现重算核验；基线冒充帧率对标/digest 漂移未登记/estimated 冒充 measured 三 RED 臂全检出（digest 臂含 tamper 子进程真跑面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "baseline",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_m165_pt_throughput_baseline" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.p0.m165.pt_throughput_baseline" },
+    "matrix_row": { "type": "string", "const": "M165" },
+    "milestone": { "type": "string", "const": "M165" },
+    "assertion_id": { "type": "string", "const": "g12.p0.m165.pt_throughput_baseline" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G12.5" },
+    "numeric_step": { "type": "integer", "const": 228 },
+    "source_ref": {
+      "type": "string",
+      "const": "G12_CONTRACT §4.2 M165 + G-G12-7;G12_ACCEPTANCE_MAP §1 M165;CI_GATES §4/§7;milestones/m0/BENCH_PROTOCOL.md §3;G10.5 M141 50×3 trimmed mean 同协议继承;RFC-0029 §4.7 基线锚消费面;正确性锚 = M163 Rurix 臂 receipt 冻结 digest"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "const": "executed" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "l0_environment_profile_complete",
+        "clock_lock_state_registered",
+        "benchmark_real_run_release",
+        "sampling_protocol_rounds_complete",
+        "sampling_order_registered",
+        "stats_recompute_match",
+        "throughput_baseline_measured",
+        "correctness_anchor_digest_match",
+        "within_run_digest_deterministic",
+        "budget_entries_measured_local",
+        "no_pass_line_registered",
+        "red_fps_parity_masquerade_detected",
+        "red_digest_drift_unregistered_detected",
+        "red_estimated_masquerade_detected"
+      ],
+      "properties": {
+        "l0_environment_profile_complete": { "type": "boolean" },
+        "clock_lock_state_registered": { "type": "boolean" },
+        "benchmark_real_run_release": { "type": "boolean" },
+        "sampling_protocol_rounds_complete": { "type": "boolean" },
+        "sampling_order_registered": { "type": "boolean" },
+        "stats_recompute_match": { "type": "boolean" },
+        "throughput_baseline_measured": { "type": "boolean" },
+        "correctness_anchor_digest_match": { "type": "boolean" },
+        "within_run_digest_deterministic": { "type": "boolean" },
+        "budget_entries_measured_local": { "type": "boolean" },
+        "no_pass_line_registered": { "type": "boolean" },
+        "red_fps_parity_masquerade_detected": { "type": "boolean" },
+        "red_digest_drift_unregistered_detected": { "type": "boolean" },
+        "red_estimated_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "description": "吞吐基线报告：cells（2 场景 × 2 spp：stats 块面/trimmed_mean_ms/primary_rays_per_sec/digest 锚比对/逐腿 UTC）+ sampling_order + stats_caliber/timer_caliber/rays_caliber 冻结口径 + fixed_spp_cells/scene_set 闭集 + clock_lock_note 诚实存档 + zero_pass_line 字面 + correctness_anchor（固定 seed digest 0-byte + 冻结锚集 + evolution_register null）+ budget_entry_ids 8 行 + 逐条目 evidence_file",
+      "required": [
+        "cells",
+        "sampling_order",
+        "stats_caliber",
+        "timer_caliber",
+        "rays_caliber",
+        "fixed_spp_cells",
+        "scene_set",
+        "clock_lock_note",
+        "zero_pass_line",
+        "correctness_anchor",
+        "budget_entry_ids",
+        "budget_entry_evidence_files"
+      ],
+      "properties": {
+        "cells": { "type": "array", "minItems": 4, "maxItems": 4 },
+        "sampling_order": { "type": "array", "minItems": 4, "maxItems": 4 },
+        "stats_caliber": { "type": "string" },
+        "timer_caliber": { "type": "string" },
+        "rays_caliber": { "type": "string" },
+        "fixed_spp_cells": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 },
+        "scene_set": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+        "clock_lock_note": { "type": "string" },
+        "zero_pass_line": { "type": "string" },
+        "correctness_anchor": {
+          "type": "object",
+          "required": ["kind", "source", "frozen_digests", "evolution_register"],
+          "properties": {
+            "kind": { "type": "string", "const": "固定 seed digest 0-byte" },
+            "source": { "type": "string" },
+            "frozen_digests": { "type": "object" },
+            "evolution_register": { "type": "null" }
+          }
+        },
+        "budget_entry_ids": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "string" } },
+        "budget_entry_evidence_files": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version", "gpu"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" },
+        "gpu": {
+          "type": "object",
+          "description": "env_probe.collect_environment() 全字段画像（gpu_name/driver_version/nvml_version/cuda_driver_version/driver_model/hags_enabled/tdr/clocks/thermal/isolation_check/os_build；受限字段降级取值 schema 不变，14 §5）",
+          "additionalProperties": true
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "l0_environment_profile_complete": { "const": true },
+              "clock_lock_state_registered": { "const": true },
+              "benchmark_real_run_release": { "const": true },
+              "sampling_protocol_rounds_complete": { "const": true },
+              "sampling_order_registered": { "const": true },
+              "stats_recompute_match": { "const": true },
+              "throughput_baseline_measured": { "const": true },
+              "correctness_anchor_digest_match": { "const": true },
+              "within_run_digest_deterministic": { "const": true },
+              "budget_entries_measured_local": { "const": true },
+              "no_pass_line_registered": { "const": true },
+              "red_fps_parity_masquerade_detected": { "const": true },
+              "red_digest_drift_unregistered_detected": { "const": true },
+              "red_estimated_masquerade_detected": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

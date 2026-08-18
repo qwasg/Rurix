@@ -748,6 +748,15 @@ def check_evidence_files() -> None:
     g12_wave4_exit_schema = load(
         ROOT / "milestones/g12/g12_wave4_exit_evidence_schema.json"
     )
+    g12_m165_pt_throughput_baseline_schema = load(
+        ROOT / "milestones/g12/g12_m165_pt_throughput_baseline_evidence_schema.json"
+    )
+    g12_m165_baseline_entry_schema = load(
+        ROOT / "milestones/g12/g12_m165_baseline_entry_evidence_schema.json"
+    )
+    g12_wave5_exit_schema = load(
+        ROOT / "milestones/g12/g12_wave5_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1712,6 +1721,21 @@ def check_evidence_files() -> None:
     g12_wave4_exit_validator = (
         jsonschema.Draft7Validator(g12_wave4_exit_schema)
         if g12_wave4_exit_schema is not None
+        else None
+    )
+    g12_m165_pt_throughput_baseline_validator = (
+        jsonschema.Draft7Validator(g12_m165_pt_throughput_baseline_schema)
+        if g12_m165_pt_throughput_baseline_schema is not None
+        else None
+    )
+    g12_m165_baseline_entry_validator = (
+        jsonschema.Draft7Validator(g12_m165_baseline_entry_schema)
+        if g12_m165_baseline_entry_schema is not None
+        else None
+    )
+    g12_wave5_exit_validator = (
+        jsonschema.Draft7Validator(g12_wave5_exit_schema)
+        if g12_wave5_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3373,6 +3397,27 @@ def check_evidence_files() -> None:
         ):
             # G12.4 波聚合门（步骤 227）→ required_gates 2 行 + aggregate_read_only。
             validator = g12_wave4_exit_validator
+        elif (
+            f.name.startswith("g12_m165_pt_throughput_baseline_")
+            and g12_m165_pt_throughput_baseline_validator is not None
+        ):
+            # G12.5 P0 硬门 M165 PT 吞吐优化基线（步骤 228）→ baseline 节闭集
+            # （4 cell 50×3 统计面 + zero_pass_line + 正确性锚）。
+            validator = g12_m165_pt_throughput_baseline_validator
+        elif (
+            f.name.startswith("g12_m165_baseline_")
+            and g12_m165_baseline_entry_validator is not None
+        ):
+            # G12.5 M165 吞吐基线条目 evidence（步骤 228 逐条目 measured 面;
+            # results.trimmed_mean 供 budget_eval 通用路判读）→
+            # milestones/g12/g12_m165_baseline_entry_evidence_schema.json。
+            validator = g12_m165_baseline_entry_validator
+        elif (
+            f.name.startswith("g12_wave5_exit_")
+            and g12_wave5_exit_validator is not None
+        ):
+            # G12.5 波聚合门（步骤 229）→ required_gates 1 行 + aggregate_read_only。
+            validator = g12_wave5_exit_validator
         elif (
             f.name.startswith("g11_wave3_exit_")
             and g11_wave3_exit_validator is not None

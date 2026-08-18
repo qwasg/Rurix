@@ -2695,6 +2695,38 @@ jobs:
         shell: powershell
         run: py -3 ci/g12_wave4_exit_check.py --gate g12.wave.4.exit
 
+      # 步骤 228(G12.5 M165 PT 吞吐优化基线门 g12.p0.m165.pt_throughput_baseline;
+      # G12 CI_GATES §4;G12_CONTRACT §4.2 M165 行判据逐字;milestones/m0/
+      # BENCH_PROTOCOL.md §3;G10.5 M141 50×3 trimmed mean 同协议继承;落盘前实测
+      # CI_step.next_free=228 顺位领取 228~229)。host+device 门,env 双置:吞吐
+      # 基线 measured(rays/sec 主射线口径 + 帧时 at 固定 spp{16,64} × M133 双
+      # 场景闭集;warmup 10 + timed 150 = 3×50 块 IQR → 块中位数 → 3 块均值
+      # M141 冻结统计口径;计时口径 = host Instant 墙钟 around run_device 全帧
+      # 生产化出图路径逐帧全链路,采样腿持锁串行)+ 8 条目入 g12_budget
+      # measured_local 零 estimated(阈 = 实测 ×1.5/÷1.5 回归守护语义)+ 不设
+      # 通过线登记(基线冒充帧率对标即 RED——正式帧率对标锚定 G14)+ 正确性锚
+      # 固定 seed digest 0-byte(== M163 Rurix 臂 receipt 冻结锚;漂移未登记即
+      # RED)+ RED 三臂独立有效。evidence 落盘
+      # evidence/g12_m165_pt_throughput_baseline_<UTC>.json。
+      - name: G12.5 M165 PT throughput baseline (G12 CI_GATES §4.228, g12.p0.m165.pt_throughput_baseline)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+          RURIX_VK_VALIDATION: "1"
+        run: py -3 ci/g12_pt_throughput_baseline_smoke.py --gate g12.p0.m165.pt_throughput_baseline
+
+      # 步骤 229(G12.5 波聚合门 g12.wave.5.exit;G12 CI_GATES §5;G12_CONTRACT
+      # G-G12-7)。只读汇总 M165 最新 evidence(步骤 228)+ 六 facts(M96 正确性
+      # 锚 0-byte / 吞吐基线 8 条目入 budget measured_local + budget_eval 全
+      # PASS / 不设通过线登记机核 / 正确性锚固定 seed digest 0-byte 断言 / M165
+      # RED 臂独立有效 / 62 门零降级 + M163 复跑 base_commit 同窗二进制回归锚);
+      # 聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL;聚合 PASS 不遮蔽任一
+      # 子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g12_wave5_exit_<UTC>.json。
+      - name: G12.5 wave5 exit aggregate (G12 CI_GATES §5.229, g12.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g12_wave5_exit_check.py --gate g12.wave.5.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

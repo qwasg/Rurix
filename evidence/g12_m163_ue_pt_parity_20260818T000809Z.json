@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "subject": "g12_m163_ue_pt_parity",
+  "symbolic_gate_key": "g12.p0.m163.ue_pt_parity",
+  "matrix_row": "M163",
+  "milestone": "M163",
+  "assertion_id": "g12.p0.m163.ue_pt_parity",
+  "status": "pass",
+  "wave": "G12.4",
+  "numeric_step": 225,
+  "source_ref": "G12_CONTRACT §4.2 M163 + G-G12-6;G12_ACCEPTANCE_MAP §1 M163 + §3.4;CI_GATES §4/§7;spec/visual_comparison.md RXS-0403;RFC-0029 §4.6;UE 5.8.1 PT MRQ 臂 + Rurix 生产化 PT 臂",
+  "base_commit": "6734633ca5030145be3a263baef0af8b7c06d818",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "contract_digest_three_way_consistent": true,
+    "contract_digest_matches_frozen": true,
+    "ue_build_id_matches_m128": true,
+    "m133_manifest_digest_referenced": true,
+    "rurix_arm_frames_complete": true,
+    "ue_arm_frames_complete": true,
+    "ue_pt_engagement_verified": true,
+    "rurix_double_run_bitexact": true,
+    "curve_segments_measured": true,
+    "noise_spectrum_delta_measured": true,
+    "energy_conservation_delta_measured": true,
+    "calibration_tolerances_measured": true,
+    "budget_entries_measured_local": true,
+    "gap_registry_landed": true,
+    "over_tolerance_fully_registered": true,
+    "residual_caliber_registered": true,
+    "red_digest_mismatch_report_detected": true,
+    "red_over_tolerance_silent_detected": true,
+    "red_gap_silent_mix_detected": true,
+    "red_single_end_missing_frame_detected": true,
+    "red_residual_caliber_silent_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "H:\\rurix\\target\\release\\g12_4_ue_pt_parity_render.exe --contract-digest H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "l-box --spp 1 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "-box --spp 1 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "l-box --spp 4 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "-box --spp 4 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "-box --spp 16 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "box --spp 16 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "-box --spp 64 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "box --spp 64 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "box --spp 256 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "ox --spp 256 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "ox --spp 1024 --seed 9182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "x --spp 1024 --seed 9182346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\cornell-box\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 14,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 15,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 16,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 17,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 18,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 19,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 20,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 21,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 22,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 23,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 24,
+      "command": "182346301 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\main --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 25,
+      "command": "82346302 --tau 0.2449999898672 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --spv H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\g12_pt_production.spv --out-dir K:\\rurix-ext\\g12-frames\\rurix_pt\\bistro-interior\\calib --expect-digest sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+      "exit_code": 0
+    },
+    {
+      "seq": 26,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py build --all --skip-import",
+      "exit_code": 0
+    },
+    {
+      "seq": 27,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 1",
+      "exit_code": 0
+    },
+    {
+      "seq": 28,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 4",
+      "exit_code": 0
+    },
+    {
+      "seq": 29,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 16",
+      "exit_code": 0
+    },
+    {
+      "seq": 30,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 64",
+      "exit_code": 0
+    },
+    {
+      "seq": 31,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 256",
+      "exit_code": 0
+    },
+    {
+      "seq": 32,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render cornell-box --spp 1024",
+      "exit_code": 0
+    },
+    {
+      "seq": 33,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 1",
+      "exit_code": 0
+    },
+    {
+      "seq": 34,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 4",
+      "exit_code": 0
+    },
+    {
+      "seq": 35,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 16",
+      "exit_code": 0
+    },
+    {
+      "seq": 36,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 64",
+      "exit_code": 0
+    },
+    {
+      "seq": 37,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 256",
+      "exit_code": 0
+    },
+    {
+      "seq": 38,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\milestones\\g12\\harness\\g12_4_ue_render.py render bistro-interior --spp 1024",
+      "exit_code": 0
+    },
+    {
+      "seq": 39,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 40,
+      "command": "et\\release\\g12_4_ue_pt_parity_render.exe --render --scene cornell-box --spp 1 --seed 9182346301 --tau 0.245 --contract H:\\rurix\\milestones\\g12\\g12_ue_pt_parity_contract.json --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --spv nul --out-dir H:\\rurix\\.tmp\\g12_gates\\ue_pt_parity\\red_arm_never --expect-digest sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "exit_code": 1
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T000809Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "",
+  "parity": {
+    "contract_digest": "sha256:4515625e0797e500c95e9903bcced286976902327166155e4f75bf4804ac77b4",
+    "ue_build_id": "5.8.1-56057345",
+    "curve_segments": [
+      {
+        "scene": "cornell-box",
+        "spp": 1,
+        "rel_err_ue": 0.2609876727376128,
+        "rel_err_rurix": 0.3386422108857531,
+        "delta": 0.07765453814814027,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "spp": 4,
+        "rel_err_ue": 0.24330853604257577,
+        "rel_err_rurix": 0.14833328099782614,
+        "delta": 0.09497525504474963,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "spp": 16,
+        "rel_err_ue": 0.20314762223836247,
+        "rel_err_rurix": 0.07282894824714363,
+        "delta": 0.13031867399121883,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "spp": 64,
+        "rel_err_ue": 0.1891077286334347,
+        "rel_err_rurix": 0.033432084322628335,
+        "delta": 0.15567564431080635,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "spp": 256,
+        "rel_err_ue": 0.14552403044365922,
+        "rel_err_rurix": 0.01709723711322448,
+        "delta": 0.12842679333043475,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "spp": 1,
+        "rel_err_ue": 0.27298420195616446,
+        "rel_err_rurix": 0.6628787485368837,
+        "delta": 0.3898945465807192,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": true,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "spp": 4,
+        "rel_err_ue": 0.24583106256253726,
+        "rel_err_rurix": 0.55945831682154,
+        "delta": 0.31362725425900273,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": true,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "spp": 16,
+        "rel_err_ue": 0.17803312874651483,
+        "rel_err_rurix": 0.3192456042413889,
+        "delta": 0.1412124754948741,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "spp": 64,
+        "rel_err_ue": 0.13180546941576016,
+        "rel_err_rurix": 0.1005552291151497,
+        "delta": 0.03125024030061045,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "spp": 256,
+        "rel_err_ue": 0.0773952324776226,
+        "rel_err_rurix": 0.04436498893004478,
+        "delta": 0.033030243547577824,
+        "tolerance": 0.23919679712747455,
+        "over_tolerance": false,
+        "registered": true
+      }
+    ],
+    "noise_spectrum_delta": {
+      "cornell-box": {
+        "ue": 0.9097349214788788,
+        "rurix": 0.9660312634118327,
+        "delta": 0.05629634193295385
+      },
+      "bistro-interior": {
+        "ue": 0.8303323798232056,
+        "rurix": 0.9804317846976327,
+        "delta": 0.15009940487442708
+      }
+    },
+    "energy_conservation_delta": {
+      "cornell-box": {
+        "ue_mean": 0.1453627206744092,
+        "rurix_mean_scaled": 0.09868238755301614,
+        "exposure_scale_2pow_neg_ev100": 1.0,
+        "delta": 0.3211300181010648
+      },
+      "bistro-interior": {
+        "ue_mean": 0.04641306018068776,
+        "rurix_mean_scaled": 0.014252178548159912,
+        "exposure_scale_2pow_neg_ev100": 16.0,
+        "delta": 0.6929274111063642
+      }
+    },
+    "gap_registry_file": "milestones/g12/g12_ue_pt_gap_registry.json",
+    "residual_caliber_note": "残余口径差逐环节登记:emissive Le 均值口径（双端同均值,逐纹素不消费）+ AA 滤波策略（UE FilterWidth=0 点采样 vs Rurix 全像素抖动）+ EXR 位深 fp16/f32 + 材质纹理均值扁平化——4 行进差距登记表 caliber_diff 面;未登记残余不存在（消费面已对齐/已登记）。",
+    "gap_item_count": 10
+  }
+}

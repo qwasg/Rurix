@@ -35,9 +35,26 @@
 //! g12_4_ue_pt_parity_render --render --scene <cornell-box|bistro-interior> \
 //!     --spp <n> --seed <u64> --contract <contract.json> --gltf <scene.gltf> \
 //!     --spv <g12_pt_production.spv> --out-dir <dir> --expect-digest <sha256:…>
+//! g12_4_ue_pt_parity_render --benchmark --scene <cornell-box|bistro-interior> \
+//!     --spp <n> --seed <u64> --tau <f32> --contract <contract.json> \
+//!     --gltf <scene.gltf> --spv <g12_pt_production.spv> --warmup <n> \
+//!     --frames <n> --expect-digest <sha256:…>
 //! ```
 //!
-//! Assisted-by: Kimi-K3（G12.4 UE PT 对标波）
+//! ## G12.5 M165 加性子模式（--benchmark；既有 --contract-digest/--render 面 0-byte）
+//!
+//! PT 吞吐优化基线测量面（G12_CONTRACT §4.2 M165；milestones/m0/BENCH_PROTOCOL.md
+//! §3 同族协议）：warmup ≥10 + timed 50×3，逐帧 host Instant 墙钟 around
+//! `run_device` 全帧——计时口径 = G12.4 生产化出图路径逐帧全链路成本（host RNG
+//! 流生成 + 打包 + Vulkan 初始化/BLAS 构建/dispatch/回读同步），随 evidence 显式
+//! 登记；逐帧内容 digest 追踪（固定 seed 确定性协议断言面）；rays/sec 口径 =
+//! 主射线（像素数 × spp，次级射线未计——口径显式登记不冒充全光线计数）。统计
+//! 口径（IQR/trimmed mean）由门侧 python 冻结实现承载（M141 同口径继承）。RED
+//! 注入面：`G12_5_BENCH_TAMPER=1` → 帧像素 0 篡改（digest 漂移注入，门侧锚比对
+//! 必检出）。本模式只建基线数据，不设任何帧率对标通过线（正式帧率对标锚定 G14，
+//! G10-N11/N16 承接锚字面维持）。
+//!
+//! Assisted-by: Kimi-K3（G12.4 UE PT 对标波；G12.5 吞吐基线波 --benchmark 加性扩展）
 
 #![forbid(unsafe_code)]
 
@@ -1438,10 +1455,218 @@ fn load_spv(path: &Path) -> Vec<u32> {
         .collect()
 }
 
+// ---------------------------------------------------------------------------
+// G12.5 M165 吞吐基线测量（--benchmark 加性子模式;--render/--contract-digest
+// 既有面 0-byte——同一契约解析/装配/ProdConfig/run_device 消费面逐字同源）
+// ---------------------------------------------------------------------------
+
+fn flip_dump_dir(args: &[String]) -> Option<&Path> {
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--flip-dump-dir" {
+            return args.get(i + 1).map(|s| Path::new(s.as_str()));
+        }
+        i += 1;
+    }
+    None
+}
+
+fn dump_flip_frames(dir: &Path, flipped: &ProdImage, base_rgb: &[f32], digest: &str, k: u32) {
+    if std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    for (name, rgb) in [("flip", &flipped.rgb), ("base", &base_rgb.to_vec())] {
+        if let Ok(img) = ExrImage::new(
+            flipped.width,
+            flipped.height,
+            ExrChannelLayout::Rgb,
+            rgb.clone(),
+            hdr_metadata(digest),
+        ) {
+            if let Ok(bytes) = encode_exr(&img) {
+                let _ = std::fs::write(dir.join(format!("frame_{name}_k{k}.exr")), bytes);
+            }
+        }
+    }
+}
+
+fn run_benchmark(args: &[String]) {
+    let mut scene_id = String::new();
+    let mut spp: u32 = 0;
+    let mut seed: u64 = 0;
+    let mut tau: f32 = 0.0;
+    let mut contract_path = String::new();
+    let mut gltf_path = String::new();
+    let mut spv_path = String::new();
+    let mut expect = String::new();
+    let mut warmup: u32 = 0;
+    let mut frames: u32 = 0;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--benchmark" => {}
+            "--scene" => scene_id = take_arg(args, &mut i),
+            "--spp" => {
+                spp = take_arg(args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--spp 非 u32"))
+            }
+            "--seed" => {
+                seed = take_arg(args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--seed 非 u64"))
+            }
+            "--tau" => {
+                tau = take_arg(args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--tau 非 f32"))
+            }
+            "--contract" => contract_path = take_arg(args, &mut i),
+            "--gltf" => gltf_path = take_arg(args, &mut i),
+            "--spv" => spv_path = take_arg(args, &mut i),
+            "--warmup" => {
+                warmup = take_arg(args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--warmup 非 u32"))
+            }
+            "--frames" => {
+                frames = take_arg(args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--frames 非 u32"))
+            }
+            "--expect-digest" => expect = take_arg(args, &mut i),
+            "--flip-dump-dir" => {
+                let _ = take_arg(args, &mut i);
+            }
+            other => fail(&format!("未知参数 {other}")),
+        }
+        i += 1;
+    }
+    if scene_id.is_empty()
+        || spp == 0
+        || contract_path.is_empty()
+        || gltf_path.is_empty()
+        || spv_path.is_empty()
+        || expect.is_empty()
+        || tau <= 0.0
+        || warmup == 0
+        || frames == 0
+    {
+        fail(
+            "--benchmark 参数闭集缺行（scene/spp/seed/tau/contract/gltf/spv/warmup/frames/expect-digest）",
+        );
+    }
+    let text =
+        std::fs::read_to_string(&contract_path).unwrap_or_else(|e| fail(&format!("契约读取: {e}")));
+    let contract = parse_contract(&text).unwrap_or_else(|e| fail(&e));
+    if contract.digest != expect {
+        fail(&format!(
+            "契约 digest 不等仍出报告即 RED：harness 实算 {} ≠ 期望 {}——拒测量",
+            contract.digest, expect
+        ));
+    }
+    let asm = load_prod_scene(&contract.raw, &scene_id, Path::new(&gltf_path))
+        .unwrap_or_else(|e| fail(&e));
+    let spv = load_spv(Path::new(&spv_path));
+    let dist = prod::build_light_distribution(&asm.scene);
+    // 与 --render 同一生产化配置面（M166 选型 winner Sobol + τ 标定值经 --tau
+    // 传入 + 固定全 spp 帧型 full_reference）——测量对象即 G12.4 对标出图路径。
+    let mut cfg = ProdConfig::production(spp, SamplerFamily::Sobol, tau);
+    cfg.seed = seed;
+    cfg.adaptive = None;
+    if !vk::vulkan_available() {
+        skip("无 Vulkan loader/设备面");
+    }
+    let entry = vk::entry_point_name(&spv).unwrap_or_else(|| fail("SPIR-V 无 OpEntryPoint"));
+    let tamper = std::env::var("G12_5_BENCH_TAMPER").as_deref() == Ok("1");
+    // 诊断面（G12.5 间歇非确定性表征用，G12_5_BENCH_FLIP_TRACE=1 开启）：逐帧
+    // digest eprintln；首个非首帧 digest 漂移帧 → 首帧/漂移帧 EXR 双双落盘
+    // --flip-dump-dir（像素级对照面）。默认关闭，stdout JSON 形态 0-byte。
+    let flip_trace = std::env::var("G12_5_BENCH_FLIP_TRACE").as_deref() == Ok("1");
+    let pixels = (asm.scene.camera.width * asm.scene.camera.height) as u64;
+    let total = warmup + frames;
+    let mut warmup_ms: Vec<f64> = Vec::with_capacity(warmup as usize);
+    let mut frame_ms: Vec<f64> = Vec::with_capacity(frames as usize);
+    let mut digests: Vec<String> = Vec::with_capacity(total as usize);
+    let mut first_rgb: Option<Vec<f32>> = None;
+    let mut flip_dumped = false;
+    for k in 0..total {
+        let t0 = std::time::Instant::now();
+        let mut img =
+            run_device(&asm.scene, &dist, &cfg, &spv, &entry).unwrap_or_else(|e| fail(&e));
+        let ms = t0.elapsed().as_secs_f64() * 1000.0;
+        if tamper {
+            // RED 注入面:像素 0 篡改 ⇒ 帧内容 digest 漂移(门侧锚比对必检出)。
+            img.rgb[0] += 0.5;
+        }
+        let d = frame_content_digest(img.width, img.height, 3, &img.rgb);
+        if flip_trace {
+            if k == warmup {
+                first_rgb = Some(img.rgb.clone());
+            }
+            let anchor_d = digests.get(warmup as usize).map(|s| s.as_str());
+            eprintln!("[{TAG}] flip-trace 帧 {k} digest={d}");
+            if !flip_dumped && anchor_d.is_some() && Some(d.as_str()) != anchor_d {
+                if let (Some(dir), Some(base)) = (flip_dump_dir(args), first_rgb.as_ref()) {
+                    dump_flip_frames(dir, &img, base, &contract.digest, k);
+                }
+                flip_dumped = true;
+                eprintln!("[{TAG}] flip-trace 帧 {k} 漂移检出（digest {d} ≠ 首帧锚）");
+            }
+        }
+        if k < warmup {
+            warmup_ms.push(ms);
+        } else {
+            frame_ms.push(ms);
+        }
+        digests.push(d);
+        if (k + 1) % 10 == 0 || k + 1 == total {
+            eprintln!(
+                "[{TAG}] benchmark {scene_id} spp{spp} 帧 {}/{total}（{ms:.3} ms）",
+                k + 1
+            );
+        }
+    }
+    let first = digests[warmup as usize].clone();
+    let distinct = {
+        let mut s = digests.clone();
+        s.sort();
+        s.dedup();
+        s.len()
+    };
+    let join = |v: &[f64]| {
+        v.iter()
+            .map(|x| format!("{x:.6}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    println!(
+        "{{\"schema\":\"rurix.g12.pt_throughput_bench.v1\",\"profile\":\"release\",\"scene_id\":\"{}\",\"spp\":{},\"seed\":{},\"width\":{},\"height\":{},\"warmup_count\":{},\"timed_count\":{},\"warmup_ms\":[{}],\"frame_ms\":[{}],\"first_frame_digest\":\"{}\",\"distinct_frame_digests\":{},\"rays_per_frame\":{},\"rays_caliber\":\"主射线口径(像素数×spp;次级射线未计——显式登记不冒充全光线计数)\",\"timer\":\"host Instant 墙钟 around run_device 全帧(G12.4 生产化出图路径逐帧全链路:host RNG 流生成+打包+Vulkan 初始化/BLAS 构建/dispatch/回读同步)\",\"tamper_injected\":{},\"contract_digest\":\"{}\"}}",
+        json_escape(&scene_id),
+        spp,
+        seed,
+        asm.scene.camera.width,
+        asm.scene.camera.height,
+        warmup,
+        frames,
+        join(&warmup_ms),
+        join(&frame_ms),
+        json_escape(&first),
+        distinct,
+        pixels * spp as u64,
+        tamper,
+        json_escape(&contract.digest),
+    );
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
-        fail("缺子模式（--contract-digest / --render）");
+        fail("缺子模式（--contract-digest / --render / --benchmark）");
+    }
+    if args[1] == "--benchmark" {
+        run_benchmark(&args);
+        return;
     }
     if args[1] == "--contract-digest" {
         let path = args.get(2).unwrap_or_else(|| fail("缺契约路径"));

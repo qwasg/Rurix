@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.5 M165 吞吐基线条目 evidence（g12.pt.throughput_* 八条基线条目的逐条目 measured 面）",
+  "description": "evidence/g12_m165_baseline_<metric>_<scene>_spp<spp>_<UTC>.json。G12.5 M165 PT 吞吐优化基线门（g12.p0.m165.pt_throughput_baseline）逐条目 measured 面：results.trimmed_mean = 该条目基线 measured 值（frame_ms = 50×3 trimmed mean 帧时 / primary_rays_sec = 主射线口径 rays/sec〔像素数 × spp，次级射线未计——显式登记不冒充全光线计数〕），供 g12_budget.json g12.pt.throughput_* entries 经 ci/budget_eval.py eval_entry 通用路判读（threshold = 实测 ×1.5〔frame_ms max 向〕/ ÷1.5〔rays_sec min 向〕，回归守护语义非通过线——沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移，P-09 禁手写），零新 evaluator 分支；sample_manifest digest（150 样本集 sha256）与 timer/seed provenance 随档；no_pass_line_declaration = 不设通过线登记字面（本基线不构成帧率对标通过线——正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "entry_id", "results", "protocol", "sample_manifest", "provenance", "no_pass_line_declaration", "timestamp"],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g12pt.throughput_baseline_entry.v1" },
+    "entry_id": {
+      "type": "string",
+      "enum": [
+        "g12.pt.throughput_frame_ms_cornell_box_spp16",
+        "g12.pt.throughput_frame_ms_cornell_box_spp64",
+        "g12.pt.throughput_frame_ms_bistro_interior_spp16",
+        "g12.pt.throughput_frame_ms_bistro_interior_spp64",
+        "g12.pt.throughput_primary_rays_sec_cornell_box_spp16",
+        "g12.pt.throughput_primary_rays_sec_cornell_box_spp64",
+        "g12.pt.throughput_primary_rays_sec_bistro_interior_spp16",
+        "g12.pt.throughput_primary_rays_sec_bistro_interior_spp64"
+      ]
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number" }
+      }
+    },
+    "protocol": { "type": "string" },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest", "lower_bound"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 150 },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "lower_bound": { "type": "integer", "const": 150 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["seed", "host", "timer"],
+      "properties": {
+        "seed": { "type": "string" },
+        "host": { "type": "string" },
+        "timer": { "type": "string" }
+      }
+    },
+    "no_pass_line_declaration": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

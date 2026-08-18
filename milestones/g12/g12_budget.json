@@ -254,6 +254,94 @@
       "threshold": 0.0013802290235563413,
       "evidence_file": "evidence/g12_m163_calibration_parity_energy_tol_20260817T223929Z.json",
       "measured_value": 0.0006901145117781707
+    },
+    {
+      "id": "g12.pt.throughput_frame_ms_cornell_box_spp16",
+      "description": "PT 吞吐基线帧时（cornell-box spp16，128×128，固定 seed 9182346301，生产化出图路径逐帧全链路墙钟；50×3 trimmed mean 协议〔BENCH_PROTOCOL §3 同族，M141 同口径〕）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ×1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:fb5706d5992a2e8a92fa7623dc126c8e50f0c535b0cbd7a7977c52f2e7520b97(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 214.46460000000002,
+      "evidence_file": "evidence/g12_m165_baseline_frame_ms_cornell_box_spp16_20260817T233025Z.json",
+      "measured_value": 142.9764
+    },
+    {
+      "id": "g12.pt.throughput_primary_rays_sec_cornell_box_spp16",
+      "description": "PT 吞吐基线主射线吞吐（cornell-box spp16，128×128，主射线口径 = 像素数 × spp〔次级射线未计，显式登记不冒充全光线计数〕；50×3 trimmed mean 协议帧时派生）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ÷1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:fb5706d5992a2e8a92fa7623dc126c8e50f0c535b0cbd7a7977c52f2e7520b97(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "rays/s",
+      "threshold": 1222318.2753703874,
+      "evidence_file": "evidence/g12_m165_baseline_primary_rays_sec_cornell_box_spp16_20260817T233025Z.json",
+      "measured_value": 1833477.413055581
+    },
+    {
+      "id": "g12.pt.throughput_frame_ms_cornell_box_spp64",
+      "description": "PT 吞吐基线帧时（cornell-box spp64，128×128，固定 seed 9182346301，生产化出图路径逐帧全链路墙钟；50×3 trimmed mean 协议〔BENCH_PROTOCOL §3 同族，M141 同口径〕）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ×1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:5f2d618a17d3724312671da08ed9e3f1ef0d82caa828779f7fd0b964147dc434(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 450.07382499999994,
+      "evidence_file": "evidence/g12_m165_baseline_frame_ms_cornell_box_spp64_20260817T233025Z.json",
+      "measured_value": 300.0492166666666
+    },
+    {
+      "id": "g12.pt.throughput_primary_rays_sec_cornell_box_spp64",
+      "description": "PT 吞吐基线主射线吞吐（cornell-box spp64，128×128，主射线口径 = 像素数 × spp〔次级射线未计，显式登记不冒充全光线计数〕；50×3 trimmed mean 协议帧时派生）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ÷1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:5f2d618a17d3724312671da08ed9e3f1ef0d82caa828779f7fd0b964147dc434(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "rays/s",
+      "threshold": 2329786.6744416878,
+      "evidence_file": "evidence/g12_m165_baseline_primary_rays_sec_cornell_box_spp64_20260817T233025Z.json",
+      "measured_value": 3494680.0116625316
+    },
+    {
+      "id": "g12.pt.throughput_frame_ms_bistro_interior_spp16",
+      "description": "PT 吞吐基线帧时（bistro-interior spp16，128×128，固定 seed 9182346301，生产化出图路径逐帧全链路墙钟；50×3 trimmed mean 协议〔BENCH_PROTOCOL §3 同族，M141 同口径〕）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ×1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:91f2d4206b1f3e9d6e305a4c0cc19b5ec581f532b49c901e43ba20bc4c8c9aec(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 340.787575,
+      "evidence_file": "evidence/g12_m165_baseline_frame_ms_bistro_interior_spp16_20260817T233025Z.json",
+      "measured_value": 227.19171666666668
+    },
+    {
+      "id": "g12.pt.throughput_primary_rays_sec_bistro_interior_spp16",
+      "description": "PT 吞吐基线主射线吞吐（bistro-interior spp16，128×128，主射线口径 = 像素数 × spp〔次级射线未计，显式登记不冒充全光线计数〕；50×3 trimmed mean 协议帧时派生）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ÷1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:91f2d4206b1f3e9d6e305a4c0cc19b5ec581f532b49c901e43ba20bc4c8c9aec(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "rays/s",
+      "threshold": 769229.9227752067,
+      "evidence_file": "evidence/g12_m165_baseline_primary_rays_sec_bistro_interior_spp16_20260817T233025Z.json",
+      "measured_value": 1153844.8841628102
+    },
+    {
+      "id": "g12.pt.throughput_frame_ms_bistro_interior_spp64",
+      "description": "PT 吞吐基线帧时（bistro-interior spp64，128×128，固定 seed 9182346301，生产化出图路径逐帧全链路墙钟；50×3 trimmed mean 协议〔BENCH_PROTOCOL §3 同族，M141 同口径〕）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ×1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:95b19365ef789c9c1fe58911788550ec5d2185150ae8310ea0a6f924789ad523(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 594.201825,
+      "evidence_file": "evidence/g12_m165_baseline_frame_ms_bistro_interior_spp64_20260817T233025Z.json",
+      "measured_value": 396.13455
+    },
+    {
+      "id": "g12.pt.throughput_primary_rays_sec_bistro_interior_spp64",
+      "description": "PT 吞吐基线主射线吞吐（bistro-interior spp64，128×128，主射线口径 = 像素数 × spp〔次级射线未计，显式登记不冒充全光线计数〕；50×3 trimmed mean 协议帧时派生）。G12.5 M165 吞吐优化基线 measured（G14 备料）——回归守护阈 = 实测 ÷1.5（沿 G9.1/G10.1/G11.1/G12.1 measured 冻结先例覆盖频率漂移），不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面维持）；样本集 digest sha256:95b19365ef789c9c1fe58911788550ec5d2185150ae8310ea0a6f924789ad523(count=150 ≥ 150)；测量程序 ci/g12_pt_throughput_baseline_smoke.py 可复跑",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "rays/s",
+      "threshold": 1764679.8711868648,
+      "evidence_file": "evidence/g12_m165_baseline_primary_rays_sec_bistro_interior_spp64_20260817T233025Z.json",
+      "measured_value": 2647019.8067802973
     }
   ],
   "ratio_assertions": [],

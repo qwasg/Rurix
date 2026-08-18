@@ -1,0 +1,20 @@
+{
+  "schema": "rurix.g12pt.throughput_baseline_entry.v1",
+  "entry_id": "g12.pt.throughput_frame_ms_cornell_box_spp16",
+  "results": {
+    "trimmed_mean": 142.9764
+  },
+  "protocol": "PT 吞吐基线帧时（cornell-box spp16，128×128，固定 seed 9182346301，生产化出图路径逐帧全链路墙钟；50×3 trimmed mean 协议〔BENCH_PROTOCOL §3 同族，M141 同口径〕）；统计口径 = 逐块 IQR 去离群（numpy linear Q1/Q3，1.5·IQR 围栏）→ 块中位数 → 3 块均值（M141 冻结口径）",
+  "sample_manifest": {
+    "count": 150,
+    "digest": "sha256:fb5706d5992a2e8a92fa7623dc126c8e50f0c535b0cbd7a7977c52f2e7520b97",
+    "lower_bound": 150
+  },
+  "provenance": {
+    "seed": "9182346301",
+    "host": "g12_4_ue_pt_parity_render --benchmark release device 真跑（持锁串行）",
+    "timer": "host Instant 墙钟 around run_device 全帧（生产化出图路径逐帧全链路）"
+  },
+  "no_pass_line_declaration": "本基线不构成帧率对标通过线——只建 PT 吞吐基线数据（rays/sec + 帧时，G14 备料）；正式帧率对标锚定 G14（G10-N11/N16 承接锚字面维持）；budget 8 条目阈 = 实测 ×1.5（min 向 ÷1.5）为生产化回归守护语义（吞吐不得降级），非帧率对标通过线。",
+  "timestamp": "20260817T233025Z"
+}
