@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g12_m160_sampling_lds_upgrade",
+  "symbolic_gate_key": "g12.p0.m160.sampling_lds_upgrade",
+  "matrix_row": "M160",
+  "milestone": "M160",
+  "assertion_id": "g12.p0.m160.sampling_lds_upgrade",
+  "status": "pass",
+  "wave": "G12.2",
+  "numeric_step": 220,
+  "source_ref": "G12_CONTRACT §4.2 M160;G12_ACCEPTANCE_MAP §1;spec/global_illumination.md RXS-0400;RFC-0029 §4.3",
+  "base_commit": "d7348d23fd71c388a764a92eb02f0094633a8236",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "host_prod_tests_anchored": true,
+    "conformance_corpus_anchored": true,
+    "budget_anchors_present": true,
+    "m96_frozen_surface_0byte": true,
+    "selection_artifact_consistent": true,
+    "device_harness_full_pass": true,
+    "device_stream_bitexact_index_deterministic": true,
+    "device_provenance_registered": true,
+    "device_selection_benchmark_deterministic": true,
+    "device_double_run_bitexact": true,
+    "device_curve_not_worse": true,
+    "device_red_arms_effective": true,
+    "device_red_arm_submodes_detected": true,
+    "device_validation_zero": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo test -p rurix-render --lib gi::path_trace::prod",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build -p rurixc --features vulkan-backend --bin rurixc",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "rurixc src/rurix-render/kernels/g12_pt_production.rx --target vulkan -o .tmp/g12_gates/pt_prod/g12_pt_production.spv",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "cargo build -p rurix-render --features vulkan --bin g12_pt_production",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g12_pt_production --gate g12.p0.m160.sampling_lds_upgrade --spv .. --pbrt .. --imgtool .. --tau <g12.pt.rr_tau> --sampler <winner> --curve-tol <g12.pt.curve_tol_rel> --anchor-* <g12.pt.ref_curve_*>(RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全档)",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "g12_pt_production --red-arm nondeterministic|seed-change --spv .. (子模式抽检)",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T012420Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "4 单测逐名锚定全绿; band 0-byte + path_trace.rs 差分 ⊆ prod 模块注册块(纯追加); 选型 winner = sobol_class_seed_perturbed(benchmark measured 裁决,artifact 一致); device:全档真跑(流确定性 + 双跑位级 + 曲线锚)+ RED 臂子模式独立复跑",
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g12.pt.ref_curve_{cornell,direct}_spp{1,4,16,64}",
+    "measured_value": "max(curve/anchor) = 1.163608e+00",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "g12_budget.json 标定条目(M166 标定程序 measured 产,禁手写 P-09);阈值经 g12_budget 标定条目传入(M166)",
+    "evolution_register": null
+  }
+}

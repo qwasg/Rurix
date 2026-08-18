@@ -760,6 +760,9 @@ def check_evidence_files() -> None:
     g12_p2_decisions_schema = load(
         ROOT / "milestones/g12/g12_p2_decisions_evidence_schema.json"
     )
+    g12_stabilization_soak_schema = load(
+        ROOT / "milestones/g12/g12_stabilization_soak_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1744,6 +1747,11 @@ def check_evidence_files() -> None:
     g12_p2_decisions_validator = (
         jsonschema.Draft7Validator(g12_p2_decisions_schema)
         if g12_p2_decisions_schema is not None
+        else None
+    )
+    g12_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g12_stabilization_soak_schema)
+        if g12_stabilization_soak_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3321,6 +3329,14 @@ def check_evidence_files() -> None:
             # 33 行闭集全等 + 裁决枚举/零空行/承接锚纪律 + MAP 9 key 互斥 +
             # deferred history 对账 + 候选决策表对账；required_gates 空（普通检查门非聚合门）。
             validator = g12_p2_decisions_validator
+        elif (
+            f.name.startswith("g12_stabilization_soak_")
+            and g12_stabilization_soak_validator is not None
+        ):
+            # G12.7a stabilization soak 聚合门（步骤 231）→
+            # milestones/g12/g12_stabilization_soak_evidence_schema.json：
+            # 14 门回归行 + soak 块 honesty 字段全必填 + checks 七键闭集。
+            validator = g12_stabilization_soak_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

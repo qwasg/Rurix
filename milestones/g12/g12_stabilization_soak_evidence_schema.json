@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G12.7a stabilization soak aggregate evidence",
+  "description": "evidence/g12_stabilization_soak_<UTC>.json。四腿 + G5~G11 既有判据 0-byte fact:①全量回归(8 P0 + 1 go P1 = 9 key 逐门真跑 --gate 后机器核验最新 evidence 顶层 status==pass 字面——G12 证据形态统一无豁免面〔缺字段即红〕;wave2~wave5 exit + wave6 decisions 五聚合/决策门真跑核验;9 门 evidence base_commit 同值=HEAD 且 14 门 stamp 新鲜度机核=同一候选 close-out 基线,沿 G11.7a/G10.8a MAP §7 口径)+ ②PT 生产化链路(出图/降噪/对标装配/吞吐基线)连续复跑 soak(≥1800s 沿 G11.7a/G10.8a/G9.8a 30min 继承,迭代计数与各环节计数非空、零失败)+ ③budget_eval --strict 非空零 estimated/skip + ④纪律日期锚 + G5~G11 既有判据 0-byte(git status --porcelain 闭集面空集,与 M164 门 ③ 同闭集字面)。诚实语义沿 G11.7a/G10.8a/G9.8a/G8.8a 2026-08-08 口径:soak 墙钟=真实 PT 生产化链路复跑实测(sleep_seconds 恒 0,active_chain_seconds 逐迭代计时求和,gate 外测墙钟交叉核验);chain-soak 无 validation/device_lost 字面量 0 硬门(device 面归回归腿 9 门本体);G12 无 legacy 兼容——首份 evidence 即 honesty 格式,soak 块 honesty 字段全必填。schema 为形态面(字段闭集 + honesty 常量:soak_subject/sleep_seconds 恒 0 + min_iterations/min_seconds const 登记);双阈值与计数非空的 PASS 语义由门逻辑 checks.soak_dual_threshold 与 --verify-latest 的 judge_chain_soak 机器复核承载——FAIL 留档件(如首跑 20260818T013012Z)同形态落盘不删,evidence/ 只增不删不改纪律与 check_schemas 共存(G12.5 M165 偏差 FAIL 件同模)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "base_commit",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "soak",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g12_stabilization_soak" },
+    "symbolic_gate_key": { "type": "string", "const": "g12.wave.7a.soak" },
+    "matrix_row": { "type": "string", "const": "G12.7a" },
+    "wave": { "type": "string", "const": "G12.7a" },
+    "numeric_step": { "type": "integer", "const": 231 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "required_gates": { "type": "array", "minItems": 14, "maxItems": 14 },
+    "extra_facts": { "type": "array", "minItems": 1 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regression_all_pass",
+        "base_commit_uniform",
+        "soak_dual_threshold",
+        "soak_no_sleep_padding",
+        "budget_strict_pass",
+        "legacy_criteria_0byte",
+        "date_anchor_recorded"
+      ],
+      "properties": {
+        "regression_all_pass": { "type": "boolean" },
+        "base_commit_uniform": { "type": "boolean" },
+        "soak_dual_threshold": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" },
+        "budget_strict_pass": { "type": "boolean" },
+        "legacy_criteria_0byte": { "type": "boolean" },
+        "date_anchor_recorded": { "type": "boolean" }
+      }
+    },
+    "soak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations",
+        "seconds",
+        "min_iterations",
+        "min_seconds",
+        "soak_subject",
+        "active_chain_seconds",
+        "sleep_seconds",
+        "outer_wall_seconds",
+        "failures",
+        "pt_frames_rendered",
+        "denoise_pipeline_runs",
+        "gap_registry_assemblies",
+        "throughput_baseline_reruns",
+        "throughput_frames_timed"
+      ],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 0 },
+        "seconds": { "type": "number", "minimum": 0 },
+        "min_iterations": { "type": "integer", "const": 3 },
+        "min_seconds": { "type": "integer", "const": 1800 },
+        "soak_subject": { "type": "string", "const": "chain-soak" },
+        "active_chain_seconds": { "type": "number", "minimum": 0 },
+        "sleep_seconds": { "type": "number", "const": 0 },
+        "outer_wall_seconds": { "type": "number", "minimum": 0 },
+        "failures": { "type": "integer", "minimum": 0 },
+        "pt_frames_rendered": { "type": "integer", "minimum": 0 },
+        "denoise_pipeline_runs": { "type": "integer", "minimum": 0 },
+        "gap_registry_assemblies": { "type": "integer", "minimum": 0 },
+        "throughput_baseline_reruns": { "type": "integer", "minimum": 0 },
+        "throughput_frames_timed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

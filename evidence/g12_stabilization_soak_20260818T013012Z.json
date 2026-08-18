@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "subject": "g12_stabilization_soak",
+  "symbolic_gate_key": "g12.wave.7a.soak",
+  "matrix_row": "G12.7a",
+  "wave": "G12.7a",
+  "numeric_step": 231,
+  "source_ref": "G12_CONTRACT G-G12-9;G12_PLAN §2 G12.7a;CI_GATES §5 wave7a;8 P0 + 1 go P1 全量回归(顶层 status==pass 字面)+ wave2~wave5 exit + wave6 decisions 聚合/决策门 + PT 生产化链路(出图/降噪/对标装配/吞吐基线)连续复跑 soak ≥1800s + budget --strict + G5~G11 既有判据 0-byte",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "base_commit": "d7348d23fd71c388a764a92eb02f0094633a8236",
+  "utc_date": "20260818",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g12.p1.m166.pt_production_calibration",
+      "subject_prefix": "g12_pt_production_calibration",
+      "evidence_path": "evidence/g12_pt_production_calibration_20260818T010729Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T010729Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m158.mis_full_surface",
+      "subject_prefix": "g12_m158_mis_full_surface",
+      "evidence_path": "evidence/g12_m158_mis_full_surface_20260818T011016Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011016Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m159.russian_roulette_prod",
+      "subject_prefix": "g12_m159_russian_roulette_prod",
+      "evidence_path": "evidence/g12_m159_russian_roulette_prod_20260818T011043Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011043Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m160.sampling_lds_upgrade",
+      "subject_prefix": "g12_m160_sampling_lds_upgrade",
+      "evidence_path": "evidence/g12_m160_sampling_lds_upgrade_20260818T011109Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011109Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m161.convergence_criterion_prod",
+      "subject_prefix": "g12_m161_convergence_criterion_prod",
+      "evidence_path": "evidence/g12_m161_convergence_criterion_prod_20260818T011131Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011131Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m162.denoise_pipeline_tsr",
+      "subject_prefix": "g12_m162_denoise_pipeline_tsr",
+      "evidence_path": "evidence/g12_m162_denoise_pipeline_tsr_20260818T011131Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011131Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m163.ue_pt_parity",
+      "subject_prefix": "g12_m163_ue_pt_parity",
+      "evidence_path": "evidence/g12_m163_ue_pt_parity_20260818T011329Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011329Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m164.regression_guard",
+      "subject_prefix": "g12_m164_regression_guard",
+      "evidence_path": "evidence/g12_m164_regression_guard_20260818T012259Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T012259Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m165.pt_throughput_baseline",
+      "subject_prefix": "g12_m165_pt_throughput_baseline",
+      "evidence_path": "evidence/g12_m165_pt_throughput_baseline_20260818T013000Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013000Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.wave.2.exit",
+      "subject_prefix": "g12_wave2_exit",
+      "evidence_path": "evidence/g12_wave2_exit_20260818T013001Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013001Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.wave.3.exit",
+      "subject_prefix": "g12_wave3_exit",
+      "evidence_path": "evidence/g12_wave3_exit_20260818T013010Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013010Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.wave.4.exit",
+      "subject_prefix": "g12_wave4_exit",
+      "evidence_path": "evidence/g12_wave4_exit_20260818T013011Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013011Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.wave.5.exit",
+      "subject_prefix": "g12_wave5_exit",
+      "evidence_path": "evidence/g12_wave5_exit_20260818T013011Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013011Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.wave.6.decisions",
+      "subject_prefix": "g12_p2_decisions",
+      "evidence_path": "evidence/g12_p2_decisions_20260818T013012Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T013012Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "regression_8p0_1p1_5wave",
+      "status": "PASS",
+      "detail": "gates=14 base_commit=d7348d23fd71c388a764a92eb02f0094633a8236"
+    },
+    {
+      "id": "base_commit_uniform",
+      "status": "PASS",
+      "detail": "9 门 evidence base_commit 同值且=HEAD(同一候选 close-out 基线,沿 G11.7a/G10.8a MAP §7 口径)"
+    },
+    {
+      "id": "soak_dual_threshold",
+      "status": "FAIL",
+      "detail": "problems=['soak 前置构建失败(release g12_4_ue_pt_parity_render)']"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0; [budget_eval] PASS (196 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "exit=0; 闭集面空集"
+    },
+    {
+      "id": "date_anchor",
+      "status": "PASS",
+      "detail": "utc_date=20260818"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "regression_all_pass": true,
+    "base_commit_uniform": true,
+    "soak_dual_threshold": false,
+    "soak_no_sleep_padding": false,
+    "budget_strict_pass": true,
+    "legacy_criteria_0byte": true,
+    "date_anchor_recorded": true
+  },
+  "soak": {
+    "iterations": 0,
+    "seconds": 0.0,
+    "min_iterations": 3,
+    "min_seconds": 1800,
+    "soak_subject": "chain-soak",
+    "active_chain_seconds": 0.0,
+    "sleep_seconds": 0.0,
+    "outer_wall_seconds": 0.132,
+    "failures": 0,
+    "pt_frames_rendered": 0,
+    "denoise_pipeline_runs": 0,
+    "gap_registry_assemblies": 0,
+    "throughput_baseline_reruns": 0,
+    "throughput_frames_timed": 0
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T013012Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G12.7a full soak; four legs + G5~G11 既有判据 0-byte fact; honest semantics(沿 G11.7a/G10.8a/G9.8a/G8.8a 2026-08-08 口径): soak 墙钟=真实 PT 生产化链路复跑实测(禁 sleep 充时,sleep_seconds 恒 0,active_chain_seconds 逐迭代计时求和,gate 外测墙钟交叉核验);soak 载体=PT 生产化链路四面(出图 g12_4_ue_pt_parity_render --render 双场景 spp16 receipt digest == M163 Rurix 臂冻结锚 → 降噪 g12_pt_production --gate g12.p0.m162.denoise_pipeline_tsr 双 kernel 全档真跑 → 对标装配 最新 M163 evidence parity 节重建 metrics 重装配与在树 g12_ue_pt_gap_registry.json 幂等复核(evidence_digest 自证指针 == metrics 重算 digest) → 吞吐基线 --benchmark 轻量链复跑(warmup 4 + timed 8 场景轮转,首帧 digest == 冻结锚 + distinct==1 + timed_count==8——链复跑口径如实登记,不冒充 M165 冻结 50×3 协议;吞吐守护阈归 M165 门本体〔①回归腿 50×3 全协议 ×1.5/÷1.5 守护〕,轻量腿帧时不充守护判定));subject=chain-soak 无 validation/device_lost 字面量 0 硬门(device 面归回归腿 9 门本体);9 门 evidence base_commit 同值一致(同一候选 close-out 基线)"
+}

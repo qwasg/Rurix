@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "subject": "g12_wave2_exit",
+  "symbolic_gate_key": "g12.wave.2.exit",
+  "matrix_row": "G12.2",
+  "wave": "G12.2",
+  "numeric_step": 222,
+  "source_ref": "milestones/g12/CI_GATES.md §5;G12_CONTRACT G-G12-4;G12_ACCEPTANCE_MAP §1/§2;five gates red arms independently effective;M96 correctness anchor 0-byte;g12_budget 15 anchors/entries measured_local;spec-first RXS-0398~0401 + RFC-0029 approved;conformance 11 corpus;M166 calibration provenance",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g12.p0.m158.mis_full_surface",
+      "subject_prefix": "g12_m158_mis_full_surface",
+      "evidence_path": "evidence/g12_m158_mis_full_surface_20260818T012354Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T012354Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m159.russian_roulette_prod",
+      "subject_prefix": "g12_m159_russian_roulette_prod",
+      "evidence_path": "evidence/g12_m159_russian_roulette_prod_20260818T011043Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011043Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m160.sampling_lds_upgrade",
+      "subject_prefix": "g12_m160_sampling_lds_upgrade",
+      "evidence_path": "evidence/g12_m160_sampling_lds_upgrade_20260818T012420Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T012420Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m161.convergence_criterion_prod",
+      "subject_prefix": "g12_m161_convergence_criterion_prod",
+      "evidence_path": "evidence/g12_m161_convergence_criterion_prod_20260818T011131Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T011131Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p1.m166.pt_production_calibration",
+      "subject_prefix": "g12_pt_production_calibration",
+      "evidence_path": "evidence/g12_pt_production_calibration_20260818T010729Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T010729Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m96_correctness_anchor_0byte",
+      "status": "PASS",
+      "detail": "M96 门最新 PASS(PASS);冻结面: band 0-byte + path_trace.rs 差分 ⊆ prod 模块注册块(纯追加)"
+    },
+    {
+      "id": "five_gates_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "五门最新 evidence red 面 checks 全真(共 23 臂独立有效)"
+    },
+    {
+      "id": "budget_anchors_and_calibration_measured",
+      "status": "PASS",
+      "detail": "8 锚 + 7 标定条目齐备 measured_local 零 estimated + budget_eval 全 PASS(P-09)"
+    },
+    {
+      "id": "spec_first_clauses_and_rfc_approved",
+      "status": "PASS",
+      "detail": "RXS-0398~0401 条款头在树 + RFC-0029 Agent Approved"
+    },
+    {
+      "id": "conformance_corpus_11_anchored",
+      "status": "PASS",
+      "detail": "conformance/gi 11 件(accept 4 + reject 7)锚定在位"
+    },
+    {
+      "id": "m166_calibration_provenance_complete",
+      "status": "PASS",
+      "detail": "两跑逐位一致 + 样本集 digest + 选型 artifact winner 合法 + 7 条目 evidence 在档"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T013001Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: five G12.2 gates (P1 M166 calibration step 217 / P0 M158 step 218 / P0 M159 step 219 / P0 M160 step 220 / P0 M161 step 221); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M96 anchor 0-byte + red arms + budget 15 entries measured + spec-first + corpus 11 + M166 provenance; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

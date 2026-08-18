@@ -2745,6 +2745,27 @@ jobs:
         shell: powershell
         run: py -3 ci/g12_p2_decisions_check.py --gate g12.wave.6.decisions
 
+      # 步骤 231（G12.7a stabilization soak 聚合门 g12.wave.7a.soak;G12 CI_GATES §5
+      # v1.6;G12_CONTRACT G-G12-9;落盘前实测 CI_step.next_free=231 顺位领取）。
+      # pr-smoke 侧 = --verify-latest 秒级核最新 full-run evidence(schema +
+      # host_section_pass + checks 七键全真 + soak 双阈值与 honesty 字段复核);
+      # full-run 本地/workflow_dispatch 产 evidence——四腿 + 0-byte fact:①全量
+      # 回归(8 P0 + 1 go P1 = 9 key 逐门真跑 --gate 后机器核验最新 evidence 顶层
+      # status==pass 字面〔G12 证据形态统一无豁免面〕,9 门 base_commit 同值=同一
+      # 候选 close-out 基线)+ 波聚合/决策门 wave2~wave5 exit + wave6 decisions
+      # 真跑核验;②PT 生产化链路(出图→降噪→对标装配→吞吐基线)连续复跑 soak
+      # (≥1800s 沿 G11.7a 30min 继承:出图 --render 双场景 spp16 receipt digest
+      # == M163 冻结锚 + 降噪 g12_pt_production 双 kernel 全档真跑 + 差距登记表
+      # 重装配与在树幂等复核〔evidence_digest 自证指针机核〕+ --benchmark 轻量
+      # 链复跑〔warmup 4 + timed 8 场景轮转,首帧 digest == 冻结锚——不冒充 M165
+      # 冻结 50×3 协议〕,sleep_seconds 恒 0,active_chain_seconds≈seconds,迭代/
+      # 出图/降噪/装配/吞吐计数非空零失败);③budget_eval --strict 非空零
+      # estimated/skip;④日期锚 + G5~G11 既有判据 0-byte(与 M164 门 ③ 同闭集)。
+      # evidence 落盘 evidence/g12_stabilization_soak_<UTC>.json。
+      - name: G12.7a stabilization soak verify-latest (G12 CI_GATES §5.231, g12.wave.7a.soak)
+        shell: powershell
+        run: py -3 ci/g12_stabilization_soak.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
