@@ -664,8 +664,14 @@ def run_gate() -> int:
         evidence_basename=SUBJECT,
         notes=(
             f"G13.1 治理门——实现互锁 validator 诚实报告：VERDICT={verdict}"
-            "（BLOCKED 是当前正确结论：M-a 许可前置 owner 法律面清结未落地，G13.2 不得开工；"
-            "不充绿、不以叙述替代机器事实）；一致性门 C1~C4 全绿；"
+            + (
+                "（BLOCKED 是当前正确结论：M-a 许可前置 owner 法律面清结未落地，G13.2 不得开工；"
+                "不充绿、不以叙述替代机器事实）"
+                if verdict == "BLOCKED"
+                else "（READY 是当前正确结论：事实门①~④全绿——M-a 许可前置 owner 法律面清结留痕 "
+                "2026-08-18 落盘（pending → cleared），G13.2 开工面开放；不以叙述替代机器事实）"
+            )
+            + "；一致性门 C1~C4 全绿；"
             "--require-ready 供未来 G13.2 实现 PR 前置 required check"
         ),
         host_section_pass=overall,

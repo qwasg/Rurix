@@ -2,7 +2,7 @@
 contract: G13
 title: G13 超分采样与 Lumen 对照期
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g13_1_governance_only
 version: v1.0
 date: 2026-08-18
@@ -268,3 +268,48 @@ G-G13-1~9 以 YAML 头为可提取摘要。治理三门（g13.wave.1.acceptance_
   - **异己并发工作树面**：本批只含 G13 车道文件（块⑤清单按文件名显式择取）；异己会话 src/ 未提交面（2026-08-18 git status 实测：apps/uc06-renderer、apps/uc08-physics、src/rurix-asset/src/lib.rs、src/rurix-render/src/{bin/g10_m134_frame_capture.rs, bin/g9_m95_visbuffer_swhw.rs, geometry/mod.rs, gi/mod.rs, lib.rs, shadow/mod.rs}、src/rurix-rt/src/render_exec.rs 改写面 + evidence/d3d12_interop_smoke.json、milestones/g12/g12_pt_sampler_selection.json 异己改写面及各 evidence/ 异己新件）维持未提交、零消费、零混入（立项裁决 1）。
 
 - **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10/G11/G12 §8.x 同模）。`Assisted-by: Kimi-K3（G13.1 治理波）`（影响范围：milestones/g13/G13_CONTRACT.md + G13_ACCEPTANCE_MAP.md + G13_CANDIDATE_DECISIONS.md 三新建 + 三 evidence schema〔g13_acceptance_map_check_/g13_candidate_decisions_check_/g13_interlock_check_evidence_schema.json〕+ ci/g13_acceptance_map_check.py + ci/g13_candidate_decisions_check.py + ci/g13_interlock_check.py 三新建 + ci/check_schemas.py〔G13 三前缀 load/validator/路由三处纯追加〕+ .github/workflows/pr-smoke.yml〔步骤 233~235，步骤 232 块后追加〕+ registry/number_ledger.json〔CI_step 232→235/next_free 236 + reserved_in_flight[G13] + revision_log v1.135〕+ registry/deferred.json〔RD-039 +1/RD-040 +3/RD-041 +1 + revision_log v1.83〕+ 本契约 §8.1 本条 + evidence/g13_{acceptance_map_check,candidate_decisions_check,interlock_check}_20260818T0437{27,28,44}Z 三件真跑件；验证方式：块③逐字命令输出——三门 PASS + 全量 selftest 红绿留痕 + 守卫套件全 PASS + G12 面零降级 + 互锁 --require-ready 诚实非零退出）。
+
+---
+
+### §8.2 G-G13-3 implementation_status 解锁记录（2026-08-18）——互锁 VERDICT=READY（事实门①~④全绿：③ M-a 许可前置 owner 法律面清结留痕落盘 = 唯一缺项补齐）+ 一致性门 C1~C4 全绿；G13.2 vendor 超分接入波开工面开放
+
+- **① 独立断言全绿清单（`g13.gov.implementation_interlock` 事实门四条 + 一致性门 C1~C4，全 host 治理断言面，无 device 面——许可清结与互锁重跑零 device 交付）**：
+
+  | gate（脚本内断言标识） | 独立布尔断言 | host/device | evidence 路径 | 结果 |
+  |---|---|---|---|---|
+  | `g13.gov.implementation_interlock` 事实门① | G12_CONTRACT status==closed 且 §8.8 签署块在位 + G13.0 不可变 ref `8c5dc5ee` 登记 | host | milestones/g12/G12_CONTRACT.md §8.8 + 本契约 §7 | PASS |
+  | `g13.gov.implementation_interlock` 事实门② | 候选决策表 36 行零空行 + deferred.json history 只追加（vs G13.0 base 四字段 0-byte）+ 验收映射 §1 五行 P0（M-a~M-e 闭集全等）+ §2 零 go P1 空集无缺行 | host | milestones/g13/G13_CANDIDATE_DECISIONS.md + registry/deferred.json + milestones/g13/G13_ACCEPTANCE_MAP.md | PASS |
+  | `g13.gov.implementation_interlock` 事实门③ | M-a 许可前置：许可清结留痕在树且五要素字面齐备（Streamline/NGX/FSR/owner/清结）——owner 2026-08-18 主会话明确接受 NVIDIA RTX SDKs LICENSE（DLSS/Streamline 面）+ FSR 3.1.5 MIT 零障碍确认 + NRD 与 DLSS 同批清结登记；清结状态 pending → cleared | host | milestones/g13/design/vendor_upscale_license_clearance.md §1/§2 | PASS |
+  | `g13.gov.implementation_interlock` 事实门④ | 用户 G13.2 开工指令留痕（2026-08-15 全期授权面「支持 dlss、超分采样」字面）+ workflow 实测末号 235 == ledger CI_step on_tree_max 235 且 next_free 236 == +1 | host | 本契约 §7 + .github/workflows/pr-smoke.yml + registry/number_ledger.json | PASS |
+  | `g13.gov.implementation_interlock` 一致性门 C1~C4 | C1 双状态诚实 / C2 §8 记录一致 / C3 数字步骤零预占（unlocked 态 not_applicable 两态登记，实测 0 处）/ C4 src-spec-conformance 0-byte（unlocked 态 not_applicable 两态登记，实测 0 处） | host | 本契约 front matter + §8.2 本条 + ci/g13_interlock_check.py | PASS |
+
+- **② 波聚合门实测输出**：治理期唯一机器聚合核验面 = 互锁 validator 只读汇总：事实门①~④逐条独立断言 + 一致性门 C1~C4，聚合 VERDICT 不遮蔽任一子断言 RED/FAIL（validator 逐行打印 + selftest 红臂实证）；实测 **VERDICT=READY，exit=0**（逐字输出见块③）——G-G13-3 四条件齐备：①互锁 validator VERDICT=READY（机器事实，不以叙述替代）+ ②用户 G13.2 开工指令留痕（契约 §7 指令字面，G13.1 立项与 G13.2+ 开工授权同源）+ ③M-a 许可前置 owner 法律面清结留痕（milestones/g13/design/vendor_upscale_license_clearance.md，pending → cleared）+ ④共享编号按 actual next_free 重新校准（CI_step next_free=236 实测维持——本批零数字步骤消费，status flip 不占数字步骤，G11/G12 flip 先例同模；P0 实现门数字一律 post-interlock actual-next-free allocation，禁推测号与草案建议值）。
+
+- **③ 验收命令逐字输出（2026-08-18 真跑留痕，仓库根目录）**：
+  - `py -3 ci/g13_interlock_check.py --require-ready` → **VERDICT=READY，exit=0**，完整输出：
+    ```text
+    [g13_interlock] 事实门（当前可为红）：
+      PASS ① G12_CONTRACT status = 'closed'（要求 closed）且 §8.8 签署块在位 = True；G13.0 不可变 ref 8c5dc5ee 登记 = True
+      PASS ② 决策表/ deferred/ 验收映射三面：候选决策表 36 行零空行；deferred history 只追加（vs G13.0 base 四字段 0-byte）；验收映射 §1 五行 P0 + §2 零 go P1 空集无缺行
+      PASS ③ M-a 许可前置（owner 法律面清结硬门）：许可清结留痕在树且五要素齐备（Streamline/NGX/FSR/owner/清结）
+      PASS ④ 用户 G13.2 开工指令留痕（2026-08-15 全期授权面「支持 dlss、超分采样」字面） = True；workflow 实测末号 = 235、ledger CI_step on_tree_max = 235、next_free = 236（一致 = True）
+    [g13_interlock] 一致性门（红即脚本失败）：
+      PASS C1 G13_CONTRACT implementation_status = 'unlocked'；事实门全绿 = True（事实未全绿时必须保持 blocked，禁止治理完成冒充实现开工）
+      PASS C2 §8 G-G13-3 解锁记录存在 = True；事实门全绿 = True、implementation_status = 'unlocked'（双状态与 §8 记录必须一致）
+      PASS C3 数字步骤零预占：not_applicable（implementation_status='unlocked' 已解锁，治理期口径不适用；skipped_reason=实现波合法 materialize，实测 numeric_step 违例 0 处 / workflow g13 实现面 token 0 处 / ci/g13_*_smoke.py 0 件均为解锁后合法实现面，非预占；blocked 态恢复原机核，判据语义 0-byte）
+      PASS C4 src/spec/conformance 治理期 0-byte：not_applicable（implementation_status='unlocked' 已解锁，治理期口径不适用；skipped_reason=实现波合法改动三面，实测 g13 实现面 token/命名命中 0 处均为解锁后合法实现面，非治理期预放；blocked 态恢复原机核，判据语义 0-byte）
+    [g13_interlock] VERDICT = READY
+    ```
+  - `py -3 ci/g13_interlock_check.py --gate g13.gov.implementation_interlock` → **VERDICT=PASS（门面），exit=0**；validator 内层 VERDICT=READY 字面入档——evidence/g13_interlock_check_20260818T045601Z.json（facts 8/8：fact_gate_1_prior_milestone_closed / fact_gate_2_governance_docs / fact_gate_3_license_precondition / fact_gate_4_instruction_ledger 全 GREEN + consistency_gates_green + verdict_honest + verdict_recorded + blocked_not_masqueraded〔READY 态 = 事实门全绿机器事实，不以叙述替代〕；notes 同字面 VERDICT=READY）。
+  - `py -3 ci/g13_interlock_check.py --selftest` → **SELFTEST PASS (17 RED + 1 GREEN + 1 TREE)，exit=0**：17 红臂全过（事实门①~④ 红臂 ×11 + C3/C4 预占注入 FAIL 臂 ×2 + C2 记录不一致 FAIL 臂 + unblocked 两态校准臂 + unblocked 态事实门红 C1 仍 FAIL 臂 + closed 三态臂）+ 合成正本 GREEN + 当前树 TREE ok（VERDICT=READY，exit=0——G-G13-3 解锁条件已齐，符合当前事实预期）。
+  - 同族治理门零回归：`py -3 ci/g13_acceptance_map_check.py --selftest` → **SELFTEST PASS (9 RED + 1 GREEN + 真表臂)**；`py -3 ci/g13_candidate_decisions_check.py --selftest` → **SELFTEST PASS (8 RED + 真表/合成双臂 GREEN)**。
+  - 守卫套件全 PASS（逐字输出行）：`py -3 ci/check_structure.py` → `[check_structure] PASS (11 dirs, 6 files)`；`py -3 ci/check_schemas.py` → `[check_schemas] PASS`（本批新 evidence 经 G13 前缀路由 schema 校验过）；`py -3 ci/check_number_ledger.py` → `[check_number_ledger] PASS(spec RXS 头 385 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)`（CI_step on_tree_max 235 / next_free 236 维持——本批零数字步骤消费）；`py -3 ci/trace_matrix.py --check` → `[trace_matrix] PASS (385/385 clauses anchored, 861 test files scanned)`；`py -3 ci/budget_eval.py` → `[budget_eval] PASS (196 pass, 0 skip, normal mode)`。
+
+- **④ 门序 / 偏差 / not-triggered 登记面摘要**：
+  - **门序**：G-G13-1/G-G13-2 于 commit `fa077746` 留痕（§8.1）；本批 G-G13-3 唯一缺项③补齐——owner 2026-08-18 主会话明确回复「我接受 DLSS 许可，继续」，许可清结留痕落盘（五要素机器核验过），互锁 VERDICT BLOCKED → READY；implementation_status flip 同批。
+  - **front matter flip（本条同批）**：`implementation_status: blocked` → `unlocked`（G11 §8.1/G12 §8.1 flip 先例同模；正文冻结 0-byte——§1 双状态表与「当前裁决」行维持立项时字面，flip 事实以本条为准）。G13.2 起每个实现 PR 必须把 `py -3 ci/g13_interlock_check.py --require-ready` 作为前置 required check，spec-first + RED 先行，数字 CI 步骤按落盘前实测 actual next_free 顺位领取。
+  - **门脚本同批修缮（偏差如实登记）**：`ci/g13_interlock_check.py` run_gate evidence notes 原硬编码「BLOCKED 是当前正确结论」叙述（G13.1 期事实面），本批按 verdict 条件化（BLOCKED/READY 两态字面），validator 机核断言面 0-byte；selftest 全红绿臂复核过。
+  - **not-triggered / 维持 open 面**（如实保持 open，不写进全绿叙述）：M52（G13.4 重评窗登记）/ M100-high（锚定 G14）/ RD040-nrd（G13 决策窗三条件未齐备维持不接线——许可清结只兑现 owner 法律面一条件，接入真实需求 + measured 对拍面另判）/ G10-N17（G13.4 触发评估）/ G11-N5（G13.5a 触发评估）/ G12-N13（M-e 漂移监控臂承接）维持 defer；G10-N11/N16/G11-N3/M114-strand 锚定 G14；G11-N8/N9/G12-N10/G12-N12 锚定 G15（G12 gap registry 只消费不回写）；G13-N6 异己面 no-go；G13-N7 FG/MFG defer-to-G14+；SG-010 软保留 not_triggered 维持。
+  - **异己并发工作树面**：本批只含 G13 车道文件（milestones/g13/design/vendor_upscale_license_clearance.md 新建 + 本契约 front matter 单字段 flip + §8.2 本条 + ci/g13_interlock_check.py notes 条件化 + evidence/g13_interlock_check 本批真跑件）；异己会话 src/ 未提交面与各 evidence/ 异己新件维持未提交、零消费、零混入（立项裁决 1——git add 按文件名显式择取）。
+
+- **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10/G11/G12 §8.x 同模）。`Assisted-by: Kimi-K3（G13 许可清结+互锁解锁）`（影响范围：milestones/g13/design/vendor_upscale_license_clearance.md 新建〔M-a 许可前置清结凭据：DLSS/Streamline NVIDIA RTX SDKs LICENSE owner 接受 + FSR MIT 零障碍 + NRD 同批清结〕+ G13_CONTRACT.md〔front matter implementation_status blocked→unlocked + §8.2 本条〕+ ci/g13_interlock_check.py〔evidence notes verdict 条件化，机核 0-byte〕+ evidence/g13_interlock_check 本批真跑件；验证方式：块③逐字命令输出——互锁 --require-ready VERDICT=READY exit=0 + --gate VERDICT=READY evidence 落盘 + selftest 红绿留痕 + 守卫套件全 PASS）。
