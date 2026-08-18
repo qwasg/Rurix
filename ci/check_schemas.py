@@ -757,6 +757,9 @@ def check_evidence_files() -> None:
     g12_wave5_exit_schema = load(
         ROOT / "milestones/g12/g12_wave5_exit_evidence_schema.json"
     )
+    g12_p2_decisions_schema = load(
+        ROOT / "milestones/g12/g12_p2_decisions_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1736,6 +1739,11 @@ def check_evidence_files() -> None:
     g12_wave5_exit_validator = (
         jsonschema.Draft7Validator(g12_wave5_exit_schema)
         if g12_wave5_exit_schema is not None
+        else None
+    )
+    g12_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g12_p2_decisions_schema)
+        if g12_p2_decisions_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3305,6 +3313,14 @@ def check_evidence_files() -> None:
             # milestones/g11/g11_wave7b_closeout_evidence_schema.json：
             # 八 facts READY|BLOCKED + checks 八键闭集 + required_gates 20 行。
             validator = g11_wave7b_closeout_validator
+        elif (
+            f.name.startswith("g12_p2_decisions_")
+            and g12_p2_decisions_validator is not None
+        ):
+            # G12.6 P2 穷举决策门（步骤 230）→ milestones/g12/g12_p2_decisions_evidence_schema.json：
+            # 33 行闭集全等 + 裁决枚举/零空行/承接锚纪律 + MAP 9 key 互斥 +
+            # deferred history 对账 + 候选决策表对账；required_gates 空（普通检查门非聚合门）。
+            validator = g12_p2_decisions_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None
