@@ -311,8 +311,76 @@
 
 ---
 
-## 8. 修订记录
+## 8. 条款（RXS-0404，G13.3 M-b(M168) 自研 TSR device 化）
+
+### RXS-0404 自研 TSR device 化 kernel：resample/resolve 双腿公式面与 host 金标准逐字同源、temporal 底座 0-byte、确定性协议继承与 device vs host 逐帧对拍容差标定产
+
+**Legality**
+
+1. **TSR device 化形态**（判据逐字引 G13_CONTRACT §4.2 M-b 行 /
+   G13_ACCEPTANCE_MAP §1 M-b 行）：tsr.rs host 金标准
+   （`temporal::tsr::TsrUpscaler`）→ **.rx kernel device 面**——双腿纯图像
+   空间 compute kernel `src/rurix-render/kernels/g13_tsr_resample.rx`
+   （jitter 对齐 Catmull-Rom 重采样 × exposure 转显示域 + 抗振铃 4×4
+   采集邻域 min/max 钳制 + 深度最近邻上采样 + YCoCg Y 亮度导出）与
+   `src/rurix-render/kernels/g13_tsr_resolve.rx`（闪烁时域分析 EMA + MV
+   最近邻上采样 + 历史双线性重投影 + 深度相对差历史验证 + 当前帧 YCoCg
+   3×3 邻域 AABB 闪烁松弛钳制 + reactive 优先 alpha 调制混合 +
+   YCoCg→RGB 显示域输出）；**公式面与 host 金标准逐字同源**（RXS-0357
+   host oracle 纪律继承：仅 host 输出不能充绿，门绿由 device 腿承载）。
+   编译链 = `rurixc --target vulkan` 产 SPV + spirv-val 通过（G12 PT
+   megakernel 车道复用，`vk::run_compute` 同一 compute 派发面）。
+2. **temporal 底座 0-byte 不接线**（G13 立项裁决 6 字面）：device 化只
+   实现 host 金标准公式面的 device 同源兑现——UpscaleBackend trait 签名
+   面与 temporal 底座历史接口面 0-byte（`src/rurix-render/src/temporal/`
+   相对 G13.0 不可变 ref `8c5dc5ee` 目录级 git diff + 工作树双面机核）；
+   device 后端经 UpscaleBackend 冻结接口面（RFC-0016 §4.0-3 三实现位
+   预留位之自研 TSR 位）bin-local adapter 接入，不改底座任何语义面/代码
+   面；**底座接线即 RED**。
+3. **device vs host 金标准同输入逐帧对拍**（判据逐字引 G13_CONTRACT
+   §4.2 M-b 行）：50%/67%/100% 三档内部分辨率（640×360 / 858×482 /
+   1280×720 → 统一输出 1280×720）× 32 帧 Halton jitter 静态收敛序列，
+   逐帧逐像素最大绝对差 p100 ≤ **标定容差**（标定程序产入
+   `g13_budget.json`，threshold = measured × 2.0 冻结 k，禁手写 P-09）；
+   **对拍超容差静默即 RED**。
+4. **三档质量/帧时 measured 对照**（判据逐字引 G13_CONTRACT §4.2 M-b
+   行）：质量 = 终帧 SSIM deficit（1−SSIM，RXS-0387 LDR 8×8 窗口径）
+   对拍 4×4 超采样参照；帧时 = host Instant 墙钟 around 逐帧 device
+   全链路（打包 + 双 dispatch + 回读同步 + 状态轮换），50×3 trimmed
+   mean 协议沿 M141/M165 冻结统计口径（warmup 10 + timed 150 = 3 块
+   × 50，逐块 IQR 去离群 → 块中位数 → 3 块均值）；全入 g13_budget
+   measured_local **零 estimated**——**回归守护语义，不构成超分画质/
+   帧率对标通过线**（G13 不设画质通过线归 G15；正式帧率对标锚定 G14）；
+   **estimated 冒充 measured 即 RED**。
+5. **固定 seed 位级确定性协议维持**（RXS-0357 L2 继承）：逐像素独立顺序
+   求值，禁 atomic 顺序敏感累加；输出直写无跨像素交互；同档同参双跑
+   digest 位级一致；**确定性协议漂移即 RED**。
+
+**Implementation Requirements**
+
+- 实现锚定（实现期命名，`src/rurix-render` 维持 `forbid(unsafe_code)`
+  纪律）：device 后端 = 门 harness
+  `src/rurix-render/src/bin/g13_tsr_device.rs` 内 bin-local
+  `TsrDeviceBackend` 实现 UpscaleBackend 冻结面，逐帧经
+  `rurix_rt::vk::run_compute` 双 dispatch 驱动双腿，历史状态（颜色/深度/
+  亮度/翻转符号/闪烁分数，输出分辨率）host 侧双缓冲轮换（G12 PT
+  megakernel 车道 host 簿记同模）。
+- RED 锚定计划（实现 PR 落）：kernel 输出面加性偏置（kernel-bias 臂）
+  → device vs host 对拍必超容差检出；jitter 序列相位偏移（seed-change
+  臂）→ 终帧 digest 必异检出；estimated 注入 budget/evidence 面 → 必拒
+  （CI 脚本 selftest 合成红臂承载）。
+- 本 spec PR 先行落最小锚定占位语料
+  `conformance/display_pipeline/accept/tsr_device_kernel_minimal.rx` 与
+  `conformance/display_pipeline/reject/tsr_device_temporal_base_rewire.rx`
+  （条款锚定占位，inert 锚定口径与转正路径见各文件头注释）；锚点目标
+  （实现 PR 转正）= `ci/g13_tsr_device_kernel_smoke.py` 门（symbolic key
+  `g13.p0.m_b.tsr_device_kernel`，G13.1 冻结字面不动）。
+
+---
+
+## 9. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.1 | 2026-08-18 | 追加（G13.3 M-b(M168) 自研 TSR device 化波 spec-first，硬规则 7 条款先行；G13 已解锁 implementation_status=unlocked，G13_CONTRACT §8.2 G-G13-3 互锁 READY）登记 **RXS-0404**（自研 TSR device 化 kernel：resample/resolve 双腿公式面与 host 金标准 `temporal::tsr::TsrUpscaler` 逐字同源〔RXS-0357 host oracle 纪律继承——仅 host 输出不能充绿，门绿由 device 腿承载〕+ `rurixc --target vulkan` 产 SPV + spirv-val 通过〔G12 PT megakernel 车道 `vk::run_compute` 复用〕+ temporal 底座 0-byte 不接线〔UpscaleBackend trait 签名面与历史接口面目录级 diff 机核 vs G13.0 不可变 ref 8c5dc5ee；底座接线即 RED〕+ device vs host 同输入逐帧对拍 p100 ≤ 标定容差〔threshold = measured × 2.0 冻结 k，标定程序产禁手写 P-09；超容差静默即 RED〕+ 50/67/100% 三档质量〔SSIM deficit，RXS-0387 口径〕/帧时〔50×3 trimmed mean，M141/M165 冻结统计口径〕measured 对照入 g13_budget 零 estimated〔回归守护语义不构成画质/帧率通过线；estimated 冒充 measured 即 RED〕+ 固定 seed 位级确定性协议维持〔漂移即 RED〕）。**落点裁决**：候选 global_illumination.md（RXS-0402 TSR 底座联动轴）与 display_pipeline.md（M24 TSR/TAA 生产契约引用轴，§1 头注）——裁定落本卷：TSR device 化 = 时域重建/超分显示链环节（M24 契约同轴），非 GI 语义面；候选 global_illumination.md 本体 0-byte。判档 = **加性 spec 条款**（G13_CONTRACT §7 裁决 4 Full RFC 触发面——UpscaleBackend trait 签名面/temporal 底座历史接口面/RXS-0357 参照器面/M137 scalars.flip 演进位——逐条未命中：本条款零冻结面消费，语义事实源 = G13_CONTRACT §4.2 M-b 行判据逐字 + RFC-0016 §4.0-3 冻结接口面，条款只登记不加语义）。条款号自 ledger 实测 `RXS.next_free=404` 顺位领取（0404 单号不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；零 RFC 消费（RFC 命名空间 0-byte，实测 next_free=30 维持）；conformance 最小锚定语料两件（accept tsr_device_kernel_minimal.rx + reject tsr_device_temporal_base_rewire.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G12.3 spec 波先例）同 PR 落；symbolic key `g13.p0.m_b.tsr_device_kernel`（G13.1 冻结字面，G13_ACCEPTANCE_MAP §1）0-byte 不动；trace_matrix 重生成（385→386 全锚定）；stable 快照因条款计数 385→386 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行；§8 修订记录节号顺延 §9，节体 0-byte），不触红线/禁区。`Assisted-by: Kimi-K3（G13.3 TSR device 化波）` | **加性条款**（G13 治理波冻结判据 spec 面登记；零 RFC 触发面） |
 | v1.0 | 2026-08-12 | 新建（G9.5 spec-first，大世界×专项波帧图输出与材质着色专项轴，硬规则 7 条款先行）：RXS-0369（M118 SDR/scRGB/PQ 三交换链路径运行时切换 + ACES 1.3/2.0/AgX/中性四内置插件逐一 golden〔含已知差异记录〕+ 非 HDR 交换链携带 PQ 输出即 RED + HDR 设备标定未触发 SKIP=not-triggered 不充绿且不反向否决 SDR 验证面）/ RXS-0370（M119 后处理骨架显式排序〔曝光/bloom/tonemap/LUT/输出变换〕+ 全程 HDR 线性域〔隐式 SDR clamp 注入 RED〕+ 曝光状态帧间持久 + 与 TAA/TSR 显式排序）/ RXS-0371（M120 OIT benchmark harness 七算法对照 evidence 非空 + 仅测量不定档 + 无 benchmark 数据选型提交判 RED + 排序 fallback 永保留）/ RXS-0372（M114 毛发 Marschner R/TT/TRT 三瓣逐瓣 golden + 几何三档 + strand 档强制精确 OIT 依赖 M120 精确档数据不足分项 not-triggered 不充绿〔承接锚 M120 精确档 + G9.7 穷举〕）/ RXS-0373（M115 皮肤 Burley 屏单 pass + 扩散 profile 资产化 + pre-integrated LUT 回退档 + profile 全零衰减未退化纯漫反射 RED + 触 MaterialClosure 32B 经 RFC-0025 §4.L 修订行〔资产化侧表扩展通道，32B 布局 0-byte，禁静默扩〕）。**目标 spec 新建裁决**：RFC-0025 §5 映射表裁定 D4 两轴新建两卷——world_partition.md 承载场景数据模型轴（RXS-0363~0368），本卷承载帧图输出与着色专项轴（M118/M119/M120/M114/M115，RXS-0369~0373）；既有卷本体 0-byte（头注留痕，沿 G9.2/G9.4 新建先例）。条款号自 ledger 实测 `RXS.next_free=363` 顺位领取（0369~0373 与 world_partition.md 0363~0368 连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。conformance 最小锚定语料同 PR 落（conformance/display_pipeline/{accept,reject}/，inert + `//@ spec` 锚定 + 预期诊断注释 + 转正路径旁注，G9.2~G9.4 spec 波先例）；symbolic key `g9.p0.m118.display_pipeline_view_transform`（G9.1 冻结字面）与 `g9.p1.m119/m120/m114/m115.*`（G9.5 波 P1 全进裁决登记，G9_ACCEPTANCE_MAP §3 / CI_GATES §4A）0-byte 不动。零新 RX 码（诊断码实现期按实际可达类别领取不预造）、零新 U/RD/SG、零 src/ 改动、零 workflow 步骤。依据 [RFC-0025](../rfcs/0025-world-and-specialty-renderers.md)（Agent Approved 2026-08-12）§4.E/§4.F/§4.I~§4.L + G9_ACCEPTANCE_MAP §2 M118 行 + §3 M119/M120/M114/M115 行（判据逐字）+ G9_CANDIDATE_DECISIONS §5 M45~M47 行、§6 M49 行与 v1.4 校准注 | **Full RFC**（RFC-0025） |

@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g13tsrdevice.measured_entry.v1",
+  "entry_id": "g13.tsr_device.host_device_maxdiff_tol",
+  "results": {
+    "trimmed_mean": 0.003209769725799561
+  },
+  "protocol": "device vs host 金标准同输入逐帧对拍容差(三档 50% 640×360/67% 858×482/100% 1280×720 → 1280×720,各 32 帧 Halton jitter 静态收敛序列,逐帧逐像素最大绝对差 p100;threshold = measured × 2.0 冻结 k,方向 max);budget 条目 g13.tsr_device.host_device_maxdiff_tol 派生面",
+  "sample_manifest": {
+    "count": 96,
+    "digest": "sha256:f9eda0c249eb84a29650b4b01914c50e4882c64c6f3d38afe56e52b4649c8ac7"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device",
+    "base_commit": "64b7894a16c9b2332d7aa5ab3c1c13046b984f01"
+  },
+  "timestamp": "20260818T142333Z"
+}

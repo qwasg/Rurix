@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.3 M-b(M168) tsr_device_kernel evidence",
+  "description": "evidence/g13_m_b_tsr_device_kernel_<UTC>.json。G13.3 P0 硬门 g13.p0.m_b.tsr_device_kernel(G13_CONTRACT §4.2 M-b 行判据逐字;G13_ACCEPTANCE_MAP §1;spec/display_pipeline.md RXS-0404;RFC-0016 §4.H3):自研 TSR device 化——tsr.rs host 金标准 → .rx kernel device 面(kernels/g13_tsr_resample.rx + g13_tsr_resolve.rx 双腿,rurixc --target vulkan 产 SPV + spirv-val 通过,G12 PT megakernel 车道 vk::run_compute 复用)+ device vs host 金标准同输入逐帧对拍(三档 50%/67%/100% → 1280×720 各 32 帧 Halton jitter 静态收敛序列,逐帧逐像素最大绝对差 p100 ≤ 标定容差,threshold = measured × 2.0 冻结 k,标定腿两跑位级一致程序产禁手写 P-09)+ 三档质量/帧时 measured 对照入 g13_budget(质量 = 终帧 SSIM deficit 对拍 4×4 超采样参照;帧时 = host Instant 墙钟 around 逐帧 device 全链路 50×3 trimmed mean M141/M165 冻结统计口径;measured_local 零 estimated;回归守护语义不构成超分画质/帧率对标通过线)+ 固定 seed 位级确定性协议维持(双跑 digest 位级一致)+ UpscaleBackend trait 签名面与 temporal 底座 0-byte 机核(目录级 git diff vs G13.0 不可变 ref 8c5dc5ee + 工作树双面)+ RURIX_VK_VALIDATION=1 层在跑 stderr VUID/Validation Error token 计数 = 0;对拍超容差静默即 RED;estimated 冒充 measured 即 RED;确定性协议漂移即 RED;底座接线即 RED。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g13_m_b_tsr_device_kernel"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g13.p0.m_b.tsr_device_kernel"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "M168"
+    },
+    "milestone": {
+      "type": "string",
+      "const": "M168"
+    },
+    "assertion_id": {
+      "type": "string",
+      "const": "g13.p0.m_b.tsr_device_kernel"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "const": "G13.3"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "const": 238
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G13_CONTRACT §4.2 M-b/G-G13-5;G13_ACCEPTANCE_MAP §1;spec/display_pipeline.md RXS-0404;rfcs/0016-native-renderer.md §4.H3;spec/visual_comparison.md RXS-0387/RXS-0388;milestones/m0/BENCH_PROTOCOL.md §3（M141/M165 50×3 trimmed mean 冻结统计口径继承）"
+    },
+    "base_commit": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "executed",
+        "skipped_dev_env",
+        "pass",
+        "fail",
+        "not_applicable",
+        "dev_env_degrade"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_base_0byte",
+        "host_upscale_tests_anchored",
+        "kernel_sources_anchored",
+        "conformance_corpus_anchored",
+        "spv_compile_spirv_val_pass",
+        "budget_anchors_present",
+        "calibration_two_run_bitexact",
+        "calibration_budget_entries_measured",
+        "bench_three_tiers_measured",
+        "budget_eval_all_pass",
+        "device_harness_full_pass",
+        "device_host_device_maxdiff_within_tol",
+        "device_tier_deficit_band_within",
+        "device_converge_monotonic",
+        "device_double_run_bitexact",
+        "device_red_kernel_bias_detected",
+        "device_red_seed_change_detected",
+        "device_validation_zero"
+      ],
+      "properties": {
+        "temporal_base_0byte": { "type": "boolean" },
+        "host_upscale_tests_anchored": { "type": "boolean" },
+        "kernel_sources_anchored": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "spv_compile_spirv_val_pass": { "type": "boolean" },
+        "budget_anchors_present": { "type": "boolean" },
+        "calibration_two_run_bitexact": { "type": "boolean" },
+        "calibration_budget_entries_measured": { "type": "boolean" },
+        "bench_three_tiers_measured": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "device_harness_full_pass": { "type": "boolean" },
+        "device_host_device_maxdiff_within_tol": { "type": "boolean" },
+        "device_tier_deficit_band_within": { "type": "boolean" },
+        "device_converge_monotonic": { "type": "boolean" },
+        "device_double_run_bitexact": { "type": "boolean" },
+        "device_red_kernel_bias_detected": { "type": "boolean" },
+        "device_red_seed_change_detected": { "type": "boolean" },
+        "device_validation_zero": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "command",
+          "exit_code"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": {
+          "type": "boolean"
+        },
+        "baseline_anchor_id": {
+          "type": "string"
+        },
+        "measured_value": {
+          "type": "string"
+        },
+        "not_worse_than_anchor": {
+          "type": "boolean"
+        },
+        "threshold_provenance": {
+          "type": "string"
+        },
+        "evolution_register": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

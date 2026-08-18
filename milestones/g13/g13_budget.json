@@ -44,6 +44,83 @@
       "threshold": 0.649858414914936,
       "evidence_file": "evidence/g13_m_a_calibration_fsr_20260818T111205Z.json",
       "measured_value": 0.324929207457468
+    },
+    {
+      "id": "g13.tsr_device.host_device_maxdiff_tol",
+      "description": "TSR device vs host 金标准同输入逐帧对拍容差冻结带(三档 50%/67%/100% → 1280×720 各 32 帧 Halton jitter 静态收敛序列,逐帧逐像素最大绝对差 p100;threshold = measured × 2.0 协议冻结 k,方向 max;M-b 标定腿产,禁手写 P-09);样本集 digest sha256:f9eda0c249eb84a29650b4b01914c50e4882c64c6f3d38afe56e52b4649c8ac7(count=96);标定程序 ci/g13_tsr_device_kernel_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.006419539451599122,
+      "evidence_file": "evidence/g13_m_b_calibration_maxdiff_20260818T142333Z.json",
+      "measured_value": 0.003209769725799561
+    },
+    {
+      "id": "g13.tsr_device.tier_ssim_deficit_50",
+      "description": "TSR device 50% 档(640×360→1280×720)终帧 SSIM deficit 冻结带(1−SSIM 对拍 4×4 超采样参照,RXS-0387 LDR 8×8 窗口径;threshold = measured × 2.0;M-b 标定腿产,禁手写 P-09;回归守护语义不构成超分画质通过线);样本集 digest sha256:0e40eb4712f5ef7485ae63f84576c181335a329ac4e6c207dd37d6c09a9eccf6:tier50(count=1);标定程序 ci/g13_tsr_device_kernel_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.17795148873357824,
+      "evidence_file": "evidence/g13_m_b_calibration_quality_50_20260818T142333Z.json",
+      "measured_value": 0.08897574436678912
+    },
+    {
+      "id": "g13.tsr_device.tier_ssim_deficit_67",
+      "description": "TSR device 67% 档(858×482→1280×720)终帧 SSIM deficit 冻结带(同口径;threshold = measured × 2.0;M-b 标定腿产,禁手写 P-09;回归守护语义不构成超分画质通过线);样本集 digest sha256:0e40eb4712f5ef7485ae63f84576c181335a329ac4e6c207dd37d6c09a9eccf6:tier67(count=1);标定程序 ci/g13_tsr_device_kernel_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.2226452626199422,
+      "evidence_file": "evidence/g13_m_b_calibration_quality_67_20260818T142333Z.json",
+      "measured_value": 0.1113226313099711
+    },
+    {
+      "id": "g13.tsr_device.tier_ssim_deficit_100",
+      "description": "TSR device 100% 档(1280×720→1280×720)终帧 SSIM deficit 冻结带(同口径;threshold = measured × 2.0;M-b 标定腿产,禁手写 P-09;回归守护语义不构成超分画质通过线);样本集 digest sha256:0e40eb4712f5ef7485ae63f84576c181335a329ac4e6c207dd37d6c09a9eccf6:tier100(count=1);标定程序 ci/g13_tsr_device_kernel_smoke.py 标定腿可复跑(两跑位级一致)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01600310477402589,
+      "evidence_file": "evidence/g13_m_b_calibration_quality_100_20260818T142333Z.json",
+      "measured_value": 0.008001552387012945
+    },
+    {
+      "id": "g13.tsr_device.frame_ms_tier_50",
+      "description": "TSR device 50% 档逐帧全链路帧时基线(host Instant 墙钟 around 打包 + 双 dispatch + 回读同步 + 状态轮换;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;阈 = 实测 ×1.5 沿 G9.1~G12.5 measured 冻结先例覆盖频率漂移)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14,G10-N11/N16 承接锚字面维持);样本集 150 帧(trimmed mean 1132.795317 ms,cv 0.2829);采样程序 ci/g13_tsr_device_kernel_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1699.192975,
+      "evidence_file": "evidence/g13_m_b_bench_50_20260818T142333Z.json",
+      "measured_value": 1132.7953166666666
+    },
+    {
+      "id": "g13.tsr_device.frame_ms_tier_67",
+      "description": "TSR device 67% 档逐帧全链路帧时基线(同口径;阈 = 实测 ×1.5)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14);样本集 150 帧(trimmed mean 2177.996317 ms,cv 0.3331);采样程序 ci/g13_tsr_device_kernel_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 3266.994475,
+      "evidence_file": "evidence/g13_m_b_bench_67_20260818T142333Z.json",
+      "measured_value": 2177.9963166666666
+    },
+    {
+      "id": "g13.tsr_device.frame_ms_tier_100",
+      "description": "TSR device 100% 档逐帧全链路帧时基线(同口径;阈 = 实测 ×1.5)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14);样本集 150 帧(trimmed mean 1349.503000 ms,cv 0.0065);采样程序 ci/g13_tsr_device_kernel_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 2024.2545,
+      "evidence_file": "evidence/g13_m_b_bench_100_20260818T142333Z.json",
+      "measured_value": 1349.503
     }
   ],
   "ratio_assertions": [],

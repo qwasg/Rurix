@@ -1,0 +1,21 @@
+//@ spec: RXS-0404
+// G13.3 M-b(M168) accept 正例语料（spec/display_pipeline.md RXS-0404 L1~L5）：
+// 自研 TSR device 化最小正例——tsr.rs host 金标准公式面 → .rx kernel device
+// 面双腿（g13_tsr_resample.rx jitter 对齐 Catmull-Rom 重采样 × exposure 转
+// 显示域 + 抗振铃 4×4 min/max 钳制 + 深度最近邻上采样 + YCoCg Y 亮度导出；
+// g13_tsr_resolve.rx 闪烁时域分析 EMA + MV 最近邻上采样 + 历史双线性重投影
+// + 深度相对差历史验证 + YCoCg 3×3 邻域 AABB 闪烁松弛钳制 + reactive 优先
+// alpha 调制混合）；公式面与 host 金标准逐字同源；temporal 底座 0-byte
+// 不接线（UpscaleBackend trait 签名面与历史接口面 0-byte，bin-local
+// adapter 经冻结面接入）；device vs host 同输入逐帧对拍容差标定程序产
+// （threshold = measured × 2.0，禁手写 P-09）；50/67/100% 三档质量/帧时
+// measured 对照入 g13_budget（零 estimated，回归守护语义不构成通过线）；
+// 固定 seed 位级确定性协议维持（RXS-0357 L2 继承）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：
+//   静态合成场景三档内部分辨率（640×360 / 858×482 / 1280×720 → 1280×720）
+//   × 32 帧 Halton jitter 收敛序列；device 双腿 SPV（rurixc --target vulkan
+//   + spirv-val 通过）经 vk::run_compute 真跑；device vs host 逐帧 p100、
+//   终帧 SSIM deficit 对拍 4×4 超采样参照、双跑 digest 位级一致。
+// 消费锚：ci/g13_tsr_device_kernel_smoke.py
+//   （g13.p0.m_b.tsr_device_kernel）正例臂（实现 PR 接线）。
+fn main() {}

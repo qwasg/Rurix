@@ -1,0 +1,18 @@
+//@ spec: RXS-0404
+// G13.3 M-b(M168) RED 语料（spec/display_pipeline.md RXS-0404 L2：temporal
+// 底座 0-byte 不接线——任何 TAA/TSR/UpscaleBackend 语义面/代码面改动判
+// RED；TSR device 化只经冻结接口面兑现，不改底座）。
+// **转正（G13.3 波语料转正批）**：负例数据面——TSR device kernel 只能
+//   只读消费 temporal::tsr host 金标准公式面（逐字同源兑现）与
+//   UpscaleBackend 冻结接口面（RFC-0016 §4.0-3 自研 TSR 实现位），
+//   `src/rurix-render/src/temporal/` 相对 G13.0 不可变 ref 8c5dc5ee 任何
+//   语义面/代码面改动（目录级 git diff 非空或工作树未提交面）= 底座接线。
+//   负例臂：temporal 底座接线未被机核检出 = 底座接线冒充 device 化漏检，
+//   必须 RED；该臂独立于正例臂成立，不红即漏检、本条款整体 FAIL。
+//   关联 RED 面：device vs host 对拍超容差静默（kernel-bias 臂漏检）/
+//   estimated 冒充 measured / 确定性协议漂移（seed-change 臂漏检）同条款
+//   L3/L4/L5 判据，各臂独立有效。
+// 预期 RED 面（实现 PR 接线）：底座 diff 机核负例 +
+//   ci/g13_tsr_device_kernel_smoke.py 门 RED 臂（symbolic key
+//   g13.p0.m_b.tsr_device_kernel，G13.1 冻结字面不动）。
+fn main() {}

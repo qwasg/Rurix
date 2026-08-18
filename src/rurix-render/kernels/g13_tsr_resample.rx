@@ -1,0 +1,160 @@
+//@ spec: RXS-0404
+// G13.3 M-b(M168) 自研 TSR device 化 kernel —— 重采样腿（门
+// `g13.p0.m_b.tsr_device_kernel`；G13_CONTRACT §4.2 M-b 行逐字；
+// G13_ACCEPTANCE_MAP §1 M-b 行）。
+//
+// ## 架构（G13.2 M-a 接入面冻结继承 + G12 PT megakernel 车道复用）
+// 纯图像空间 compute kernel（无 AccelStruct——TSR 不追光线;G-buffer 颜色/深度
+// 与 MV 为 host 预备输入面,G7.4「输入是输入」先例与 RNG 流同纪律）。本文件 =
+// 重采样腿（mode 独立 kernel 文件;G9.8 M98 l1/l3 双 kernel 文件先例同模）:
+// jitter 对齐 Catmull-Rom(a=-0.5 Keys 三次)重采样,当前帧(输入分辨率)散射到
+// 输出网格 × exposure 转显示域 + 抗振铃钳入 4×4 采集邻域 min/max + 深度最近
+// 邻上采样 + 亮度(YCoCg Y)导出。公式面与 host 金标准
+// `temporal::tsr::TsrUpscaler::resample_current_frame` + `upsample_nearest` +
+// `luma_image` 逐字同源（RXS-0357 host oracle 纪律继承:仅 host 输出不能充绿,
+// 门绿由 device 腿承载）。**temporal 底座 0-byte 不接线**——本 kernel 只实现
+// host 金标准公式面的 device 同源兑现,不改 tsr.rs/common.rs/upscale.rs 任何
+// 语义面/代码面（目录级 git diff vs G13.0 不可变 ref 8c5dc5ee 机核）。
+//
+// ## 重采样公式面（host tsr.rs 逐字同源）
+// 输出像素中心 → 输入纹素空间连续坐标 px = (ox+0.5)·(iw/ow) − 0.5;样本实际
+// 位置 = 纹素中心 + jitter → 绕 (px − jitter) 的 4×4 窗;核参缩放 rx =
+// (ow/iw > 1) ? (ow/iw)·0.75 : 1.0（Catmull-Rom t=1 零点相位坍缩规避,host
+// 注释面同字面）;w = cr((gx−bx−dx)·rx)·cr((gy−by−dy)·ry);acc/wsum 后钳入
+// 4×4 采集邻域 min/max(抗振铃)再 × exposure 转显示域并 max(0)。cr 三分段
+// (|t|≤1 / 1<|t|<2 / 其余 0)经 min/max 算术门无分支兑现（G12 确定性协议
+// 纪律:big=1e30 门放大器;分段边界 t=1/t=2 处两式均恒 0,门选位级等价）。
+// 深度最近邻上采样 = floor((ox+0.5)/ow·iw) clamp(host sample_nearest 同式)。
+// 亮度 = 显示域 YCoCg Y = 0.25·r + 0.5·g + 0.25·b（host luma_image 同式）。
+//
+// ## 确定性协议（RXS-0357 L2 继承）
+// 逐像素独立顺序求值,禁 atomic;输出直写无跨像素交互;固定输入双跑位级一致。
+// 全 f32;分支判定一律 min/max 算术门 + 短 selection 臂。
+//
+// ## 参数面（host bin `g13_tsr_device::pack_tsr_params` 逐字同源;32 f32）
+//   params[0]=out_pixel_count [1]=out_width [2]=out_height [3]=in_width
+//   [4]=in_height [5]=jitter_x [6]=jitter_y [7]=exposure
+//   [8]=has_history（resolve 腿消费;本腿不消费） [9]=base_alpha [10]=min_alpha
+//   [11]=flicker_ema_k [12]=flicker_tighten [13]=flicker_deadzone_abs
+//   [14]=flicker_deadzone_rel [15]=depth_rel_tol [16]=has_reactive
+//   [17]=red_bias（RED 臂,正常=0;resolve 腿输出面加性偏置——device vs host
+//        对拍超容差检出面）
+//   [18]=red_passthrough（RED 臂,正常=0;resolve 腿时域累积恒等旁通——冒充
+//        已累积注入面）
+//   [19..32]=reserved(恒 0)。
+//   in_color: 3 f32/px 输入分辨率(预曝光光空间);in_depth: 1 f32/px。
+//   cur_rgb: 3 f32/px 输出分辨率(显示域);cur_luma: 1 f32/px;depth_hi:
+//   1 f32/px(最近邻上采样深度,resolve 腿历史验证当前深度面)。
+kernel fn g13_tsr_resample(
+    t: ThreadCtx<1>,
+    in_color: View<global, f32>,
+    in_depth: View<global, f32>,
+    params: View<global, f32>,
+    cur_rgb: ViewMut<global, f32>,
+    cur_luma: ViewMut<global, f32>,
+    depth_hi: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let ow = params[1] as usize;
+    let iw = params[3] as usize;
+    let ih = params[4] as usize;
+    let jx = params[5];
+    let jy = params[6];
+    let exposure = params[7];
+    let big: f32 = 1e30;
+    if i < pixel_count {
+        let ox = i % ow;
+        let oy = i / ow;
+        let wf = ow as f32;
+        let hf = (pixel_count / ow) as f32;
+        let iwf = iw as f32;
+        let ihf = ih as f32;
+        // 核参缩放(host kernel_scale 同式:>1 比例 ×0.75;1:1 保持单位核)。
+        let ratio_x = wf / iwf;
+        let ratio_y = hf / ihf;
+        let gate_x = ((ratio_x - 1.0) * big).min(1.0).max(0.0);
+        let gate_y = ((ratio_y - 1.0) * big).min(1.0).max(0.0);
+        let rx = 1.0 + gate_x * (ratio_x * 0.75 - 1.0);
+        let ry = 1.0 + gate_y * (ratio_y * 0.75 - 1.0);
+        // 输出像素中心 → 输入纹素空间;jitter 对齐(绕 px−j 的 4×4 窗)。
+        let sx = iwf / wf;
+        let sy = ihf / hf;
+        let px = ((ox as f32) + 0.5) * sx - 0.5;
+        let py = ((oy as f32) + 0.5) * sy - 0.5;
+        let gx = px - jx;
+        let gy = py - jy;
+        let bxf = gx.floor();
+        let byf = gy.floor();
+        let iwm1 = iwf - 1.0;
+        let ihm1 = ihf - 1.0;
+        let mut acc0 = 0.0;
+        let mut acc1 = 0.0;
+        let mut acc2 = 0.0;
+        let mut wsum = 0.0;
+        let mut mn0: f32 = 1e30;
+        let mut mn1: f32 = 1e30;
+        let mut mn2: f32 = 1e30;
+        let mut mx0: f32 = 0.0 - 1e30;
+        let mut mx1: f32 = 0.0 - 1e30;
+        let mut mx2: f32 = 0.0 - 1e30;
+        let mut dyi = 0usize;
+        while dyi < 4 {
+            let dyf = (dyi as f32) - 1.0;
+            let tyf = (byf + dyf).min(ihm1).max(0.0);
+            let ty = tyf as usize;
+            // Catmull-Rom y 向(三分段算术门;a=|t|)。
+            let ay = ((gy - (byf + dyf)) * ry).abs();
+            let le1y = ((1.0 - ay) * big).min(1.0).max(0.0);
+            let lt2y = ((2.0 - ay) * big).min(1.0).max(0.0);
+            let p1y = 1.5 * ay * ay * ay - 2.5 * ay * ay + 1.0;
+            let p2y = (0.0 - 0.5) * ay * ay * ay + 2.5 * ay * ay - 4.0 * ay + 2.0;
+            let wy = le1y * p1y + (lt2y - le1y) * p2y;
+            let mut dxi = 0usize;
+            while dxi < 4 {
+                let dxf = (dxi as f32) - 1.0;
+                let txf = (bxf + dxf).min(iwm1).max(0.0);
+                let tx = txf as usize;
+                let ax = ((gx - (bxf + dxf)) * rx).abs();
+                let le1x = ((1.0 - ax) * big).min(1.0).max(0.0);
+                let lt2x = ((2.0 - ax) * big).min(1.0).max(0.0);
+                let p1x = 1.5 * ax * ax * ax - 2.5 * ax * ax + 1.0;
+                let p2x = (0.0 - 0.5) * ax * ax * ax + 2.5 * ax * ax - 4.0 * ax + 2.0;
+                let wx = le1x * p1x + (lt2x - le1x) * p2x;
+                let w = wx * wy;
+                let ti = (ty * iw + tx) * 3;
+                let c0 = in_color[ti];
+                let c1 = in_color[ti + 1];
+                let c2 = in_color[ti + 2];
+                acc0 = acc0 + w * c0;
+                acc1 = acc1 + w * c1;
+                acc2 = acc2 + w * c2;
+                mn0 = mn0.min(c0);
+                mx0 = mx0.max(c0);
+                mn1 = mn1.min(c1);
+                mx1 = mx1.max(c1);
+                mn2 = mn2.min(c2);
+                mx2 = mx2.max(c2);
+                wsum = wsum + w;
+                dxi = dxi + 1;
+            }
+            dyi = dyi + 1;
+        }
+        // 抗振铃钳入采集邻域色域后 × exposure 转显示域(host 同序)。
+        let v0 = (acc0 / wsum).min(mx0).max(mn0);
+        let v1 = (acc1 / wsum).min(mx1).max(mn1);
+        let v2 = (acc2 / wsum).min(mx2).max(mn2);
+        let o0 = (v0 * exposure).max(0.0);
+        let o1 = (v1 * exposure).max(0.0);
+        let o2 = (v2 * exposure).max(0.0);
+        cur_rgb[i * 3] = o0;
+        cur_rgb[i * 3 + 1] = o1;
+        cur_rgb[i * 3 + 2] = o2;
+        // 亮度(YCoCg Y,显示域;host luma_image 同式)。
+        cur_luma[i] = 0.25 * o0 + 0.5 * o1 + 0.25 * o2;
+        // 深度最近邻上采样(host upsample_nearest/sample_nearest 同式)。
+        let nx = ((((ox as f32) + 0.5) / wf) * iwf).floor().min(iwm1).max(0.0) as usize;
+        let ny = ((((oy as f32) + 0.5) / hf) * ihf).floor().min(ihm1).max(0.0) as usize;
+        depth_hi[i] = in_depth[ny * iw + nx];
+    }
+}

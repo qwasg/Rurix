@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g13tsrdevice.measured_entry.v1",
+  "entry_id": "g13.tsr_device.tier_ssim_deficit_100",
+  "results": {
+    "trimmed_mean": 0.008001552387012945
+  },
+  "protocol": "三档质量 measured(device TSR 终帧 SSIM deficit 1−SSIM 对拍 4×4 超采样参照,RXS-0387 LDR 8×8 窗口径;50% 640×360/67% 858×482/100% 1280×720 → 1280×720 各 32 帧 Halton jitter 静态收敛;threshold = measured × 2.0 冻结 k,方向 max;回归守护语义不构成画质通过线);budget 条目 g13.tsr_device.tier_ssim_deficit_100 派生面",
+  "sample_manifest": {
+    "count": 1,
+    "digest": "sha256:0e40eb4712f5ef7485ae63f84576c181335a329ac4e6c207dd37d6c09a9eccf6:tier100"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device",
+    "base_commit": "64b7894a16c9b2332d7aa5ab3c1c13046b984f01"
+  },
+  "timestamp": "20260818T142333Z",
+  "cells": {
+    "50": 0.08897574436678912,
+    "67": 0.1113226313099711,
+    "100": 0.008001552387012945
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "schema": "rurix.g13tsrdevice.measured_entry.v1",
+  "entry_id": "g13.tsr_device.frame_ms_tier_50",
+  "results": {
+    "trimmed_mean": 1132.7953166666666
+  },
+  "protocol": "TSR device tier 50 逐帧全链路帧时(host Instant 墙钟;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;阈 = 实测 ×1.5 回归守护,不构成帧率对标通过线)",
+  "sample_manifest": {
+    "count": 150,
+    "digest": "sha256-samples:8ec4af23e8b6faf9ec0901279a8c686562d6a8759ac9ed21898446b9f066a71b"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device",
+    "base_commit": "64b7894a16c9b2332d7aa5ab3c1c13046b984f01"
+  },
+  "timestamp": "20260818T142333Z",
+  "stats": {
+    "blocks": [
+      {
+        "block": 0,
+        "median_ms": 1128.1938,
+        "kept": 38,
+        "rejected_iqr": 12
+      },
+      {
+        "block": 1,
+        "median_ms": 1126.3901999999998,
+        "kept": 40,
+        "rejected_iqr": 10
+      },
+      {
+        "block": 2,
+        "median_ms": 1143.80195,
+        "kept": 50,
+        "rejected_iqr": 0
+      }
+    ],
+    "trimmed_mean_ms": 1132.7953166666666,
+    "cv": 0.2829402124004257,
+    "ci95_ms": [
+      1127.3487545833334,
+      1132.4703333333334
+    ],
+    "min_ms": 1114.3547,
+    "max_ms": 2228.5689,
+    "outliers_rejected_iqr": 22,
+    "kept_total": 128
+  }
+}

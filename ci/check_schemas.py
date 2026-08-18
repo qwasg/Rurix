@@ -784,6 +784,15 @@ def check_evidence_files() -> None:
     g13_wave2_exit_schema = load(
         ROOT / "milestones/g13/g13_wave2_exit_evidence_schema.json"
     )
+    g13_m_b_tsr_device_kernel_schema = load(
+        ROOT / "milestones/g13/g13_m_b_tsr_device_kernel_evidence_schema.json"
+    )
+    g13_m_b_measured_entry_schema = load(
+        ROOT / "milestones/g13/g13_m_b_measured_entry_evidence_schema.json"
+    )
+    g13_wave3_exit_schema = load(
+        ROOT / "milestones/g13/g13_wave3_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1808,6 +1817,21 @@ def check_evidence_files() -> None:
     g13_wave2_exit_validator = (
         jsonschema.Draft7Validator(g13_wave2_exit_schema)
         if g13_wave2_exit_schema is not None
+        else None
+    )
+    g13_m_b_tsr_device_kernel_validator = (
+        jsonschema.Draft7Validator(g13_m_b_tsr_device_kernel_schema)
+        if g13_m_b_tsr_device_kernel_schema is not None
+        else None
+    )
+    g13_m_b_measured_entry_validator = (
+        jsonschema.Draft7Validator(g13_m_b_measured_entry_schema)
+        if g13_m_b_measured_entry_schema is not None
+        else None
+    )
+    g13_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g13_wave3_exit_schema)
+        if g13_wave3_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3449,6 +3473,37 @@ def check_evidence_files() -> None:
             # G13.2 波聚合门（步骤 237）→ required_gates 1 行 + 六 facts +
             # aggregate_read_only const true。
             validator = g13_wave2_exit_validator
+        elif (
+            f.name.startswith("g13_m_b_tsr_device_kernel_")
+            and g13_m_b_tsr_device_kernel_validator is not None
+        ):
+            # G13.3 P0 硬门 M-b(M168) 自研 TSR device 化（步骤 238）→
+            # milestones/g13/g13_m_b_tsr_device_kernel_evidence_schema.json：
+            # 18 checks 闭集（temporal 底座 0-byte/kernel 锚定/conformance 语料/
+            # SPV+spirv-val/标定两腿/bench 三档/device 八面）。
+            validator = g13_m_b_tsr_device_kernel_validator
+        elif (
+            f.name.startswith("g13_m_b_calibration_")
+            and g13_m_b_measured_entry_validator is not None
+        ):
+            # G13.3 M-b 标定条目 evidence（步骤 238 标定腿逐条目 measured 面；
+            # results.trimmed_mean 供 budget_eval 通用路判读）→
+            # milestones/g13/g13_m_b_measured_entry_evidence_schema.json。
+            validator = g13_m_b_measured_entry_validator
+        elif (
+            f.name.startswith("g13_m_b_bench_")
+            and g13_m_b_measured_entry_validator is not None
+        ):
+            # G13.3 M-b 帧时基线条目 evidence（步骤 238 bench 腿 50×3 trimmed
+            # mean measured 面）→ 同一 g13_m_b_measured_entry schema。
+            validator = g13_m_b_measured_entry_validator
+        elif (
+            f.name.startswith("g13_wave3_exit_")
+            and g13_wave3_exit_validator is not None
+        ):
+            # G13.3 波聚合门（步骤 239）→ required_gates 1 行 + 六 facts +
+            # aggregate_read_only const true。
+            validator = g13_wave3_exit_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

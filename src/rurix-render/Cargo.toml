@@ -248,5 +248,18 @@ name = "g13_vendor_upscale"
 path = "src/bin/g13_vendor_upscale.rs"
 required-features = ["vendor-upscale"]
 
+# G13.3 M-b(M168) 自研 TSR device 化 harness(G13_CONTRACT §4.2 M-b 行;门
+# g13.p0.m_b.tsr_device_kernel):tsr.rs host 金标准 → .rx kernel device 面
+# (kernels/g13_tsr_{resample,resolve}.rx,rurixc --target vulkan 产 SPV +
+# spirv-val 通过;G12 PT megakernel 车道 vk::run_compute 复用)——bin-local
+# TsrDeviceBackend 经 UpscaleBackend 冻结面接入(temporal/ 底座 0-byte)+
+# device vs host 同输入逐帧对拍(容差标定程序产禁手写)+ 50/67/100% 三档
+# 质量/帧时 measured 对照(50×3 trimmed mean 沿 M141/M165 字面)+ 固定 seed
+# 双跑位级 + RED 臂(kernel-bias/seed-change)。
+[[bin]]
+name = "g13_tsr_device"
+path = "src/bin/g13_tsr_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

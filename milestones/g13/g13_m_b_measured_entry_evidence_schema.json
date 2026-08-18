@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.3 M-b(M168) TSR device measured entry evidence",
+  "description": "evidence/g13_m_b_calibration_<slug>_<UTC>.json 与 evidence/g13_m_b_bench_<tier>_<UTC>.json。G13.3 M-b 标定/bench 腿逐条目 measured 面(标定程序 ci/g13_tsr_device_kernel_smoke.py 产,标定腿两跑位级一致,禁手写 P-09;results.trimmed_mean 供 budget_eval 通用路判读)。确定性面(device vs host 逐帧对拍容差 p100 + 三档 SSIM deficit)threshold = measured × 2.0(协议冻结 k,方向 max);帧时面(三档逐帧全链路 host Instant 墙钟,50×3 trimmed mean M141/M165 冻结统计口径)阈 = 实测 ×1.5 回归守护——不构成帧率对标通过线(正式帧率对标锚定 G14)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g13tsrdevice.measured_entry.v1"
+    },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^g13\\.tsr_device\\."
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": {
+          "type": "number"
+        }
+      }
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest"],
+      "properties": {
+        "count": { "type": "integer" },
+        "digest": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "backend", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "backend": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "cells": {
+      "type": "object"
+    },
+    "stats": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}
