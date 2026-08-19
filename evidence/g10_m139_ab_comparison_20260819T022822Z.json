@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m139_ab_comparison",
+  "symbolic_gate_key": "g10.p0.m139.ab_comparison",
+  "matrix_row": "M139",
+  "milestone": "M139",
+  "assertion_id": "g10.p0.m139.ab_comparison",
+  "status": "fail",
+  "wave": "G10.5",
+  "numeric_step": 188,
+  "source_ref": "G10_CONTRACT §4.2 M139 + G-G10-7;G10_ACCEPTANCE_MAP §1 M139 + §3.2/§3.3;RFC-0026 §4.4/§4.5/§4.6 + §4.0 不变量 4;spec/visual_comparison.md RXS-0386/RXS-0390/RXS-0391",
+  "base_commit": "8958ea5cfb0165eb368ed66a9d15063a48fa20c5",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "spec_rxs0391_clause_on_tree": true,
+    "m130_g10_5_leg_fresh_pass": true,
+    "three_binding_verified": true,
+    "dual_end_frames_present_full_scene_set": true,
+    "rurix_frames_reproduced_bit_exact": true,
+    "ldr_derivation_reproduced_bit_exact": false,
+    "ue_frames_provenance_and_digest_match": false,
+    "derivation_chain_metadata_consistent": false,
+    "metric_report_recomputed_golden": false,
+    "diff_reports_regenerated_consistent": true,
+    "gap_registry_materialized_valid": false,
+    "red_missing_scene_row_detected": false,
+    "red_single_end_missing_frame_detected": true,
+    "red_caliber_drift_detected": true,
+    "red_digest_unequal_report_blocked": true,
+    "red_stale_binding_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe H:\\rurix\\ci\\g10_dual_determinism_contract_smoke.py --gate g10.p0.m130.dual_determinism_contract --phase g10.5",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g10_5_scene_render",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\cornell-box-generated\\v1\\cornell_box.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_cornell_box.json --out-dir K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\cornell-box --scene-id cornell-box",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g10-frames\\g10_5\\rurix\\cornell-box.exr --source-end rurix --out K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\cornell-box\\cornell-box_rurix_ldr.exr --exposure-scale 0.25 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g10-frames\\g10_5\\ue\\cornell-box\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\cornell-box\\cornell-box_ue5_ldr.exr --exposure-scale 1.0 --params-digest 80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --render --gltf K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf --contract H:\\rurix\\milestones\\g10\\corpus\\contract_params_bistro_interior.json --out-dir K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\bistro-interior --scene-id bistro-interior",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g10-frames\\g10_5\\rurix\\bistro-interior.exr --source-end rurix --out K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\bistro-interior\\bistro-interior_rurix_ldr.exr --exposure-scale 0.5 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --derive-ldr --hdr K:\\rurix-ext\\g10-frames\\g10_5\\ue\\bistro-interior\\.0000.exr --source-end ue5 --out K:\\rurix-ext\\g10-frames\\g10_5\\repro_m139\\bistro-interior\\bistro-interior_ue5_ldr.exr --exposure-scale 1.0 --params-digest ad45951ba641106b24e7d91d49ebf5992fb6a42cb70a3082520e8de19a6cf514",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "cargo build -p rurix-render --bin g10_m137_diff_report",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "H:\\rurix\\target\\debug\\g10_m137_diff_report.exe --frame-a K:\\rurix-ext\\g10-frames\\g10_5\\ldr\\cornell-box_ue5_ldr.exr --frame-b K:\\rurix-ext\\g10-frames\\g10_5\\ldr\\cornell-box_rurix_ldr.exr --out-dir K:\\rurix-ext\\g10-frames\\g10_5\\diff\\cornell-box --evidence K:\\rurix-ext\\g10-frames\\g10_5\\diff\\cornell-box\\diff_report.json --scene-id cornell-box --camera-id g10_contract_camera --frame-index 0 --threshold 0.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "H:\\rurix\\target\\debug\\g10_m137_diff_report.exe --frame-a K:\\rurix-ext\\g10-frames\\g10_5\\ldr\\bistro-interior_ue5_ldr.exr --frame-b K:\\rurix-ext\\g10-frames\\g10_5\\ldr\\bistro-interior_rurix_ldr.exr --out-dir K:\\rurix-ext\\g10-frames\\g10_5\\diff\\bistro-interior --evidence K:\\rurix-ext\\g10-frames\\g10_5\\diff\\bistro-interior\\diff_report.json --scene-id bistro-interior --camera-id g10_contract_camera --frame-index 0 --threshold 0.0",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "H:\\rurix\\target\\release\\g10_5_scene_render.exe --contract-digest C:\\Users\\苍\\AppData\\Local\\Temp\\tmpnet_s7l6.json",
+      "exit_code": 1
+    }
+  ],
+  "ab_report": {
+    "three_binding": {
+      "param_digest": "sha256:64fd54df6e9be522d6dbb3bec8fac1eb30a0a421c7a5a8185a3452c381178aa4",
+      "param_digest_rurix": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "param_digest_ue5": "sha256:80305791a68ccc66c5b046efaf193244796b52570494cf00aa1c86efa55be118",
+      "session_run_id": "g10ab-20260819T022721Z",
+      "base_commit": "8958ea5cfb0165eb368ed66a9d15063a48fa20c5",
+      "m130_evidence_path": "evidence/g10_m130_dual_determinism_contract_20260819T022721Z.json"
+    },
+    "scenes": {
+      "cornell-box": {
+        "resolution": [
+          512,
+          512
+        ],
+        "metrics": {
+          "flip_ldr": 0.338644611302288,
+          "ssim": 0.34829777885646934,
+          "psnr_db": 13.982872203129087
+        },
+        "hdr_stats": {
+          "hdr_rurix": {
+            "median": 0.13765611151754856,
+            "p90": 1.2159505246400832,
+            "max": 1.4381704081773758,
+            "nonzero_ratio": 0.9290046691894531
+          },
+          "hdr_ue5": {
+            "median": 0.09894569091796875,
+            "p90": 0.585063671875,
+            "max": 0.586040234375,
+            "nonzero_ratio": 0.93280029296875
+          }
+        },
+        "ldr_stats": {
+          "ldr_rurix": {
+            "median": 0.08358066641539334,
+            "p90": 0.5009738778293134,
+            "max": 0.5498988258123397,
+            "nonzero_ratio": 0.9290046691894531
+          },
+          "ldr_ue5": {
+            "median": 0.0,
+            "p90": 0.6963858742475509,
+            "max": 0.6970374228715897,
+            "nonzero_ratio": 0.18301010131835938
+          }
+        },
+        "metric_report_digest": "sha256:4f36a2f81f37e120353450e1b36627ac30206f38c2bd35dd9c16fd9de92547bf",
+        "diff_report_digest": "sha256:f56fe47fed04095e8b1da935ae5d8db6fb21972c221c47b71f0bd37606153c48",
+        "diff_scalars": {
+          "err_mean": 0.15214514716781968,
+          "err_p95": 0.4725396,
+          "err_max": 0.55182767,
+          "over_threshold_ratio": 0.9290046691894531
+        }
+      },
+      "bistro-interior": {
+        "resolution": [
+          1920,
+          1080
+        ],
+        "metrics": {
+          "flip_ldr": 0.9403171994233143,
+          "ssim": 0.16710192121627712,
+          "psnr_db": 2.5845420330788715
+        },
+        "hdr_stats": {
+          "hdr_rurix": {
+            "median": 0.1333588808774948,
+            "p90": 0.30276253819465637,
+            "max": 2.9937067031860347,
+            "nonzero_ratio": 0.9567592592592593
+          },
+          "hdr_ue5": {
+            "median": 2.798138671875,
+            "p90": 5.000015625,
+            "max": 77.82171249999999,
+            "nonzero_ratio": 1.0
+          }
+        },
+        "ldr_stats": {
+          "ldr_rurix": {
+            "median": 0.16252008080482483,
+            "p90": 0.3130713999271392,
+            "max": 0.8724713325500488,
+            "nonzero_ratio": 0.9439134837962962
+          },
+          "ldr_ue5": {
+            "median": 0.9324080557703971,
+            "p90": 0.9666675288200379,
+            "max": 1.0,
+            "nonzero_ratio": 1.0
+          }
+        },
+        "metric_report_digest": "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+        "diff_report_digest": "sha256:2448cfc0c7625e65a0c8d5925fa1ad2566dd378e6314d52ca81a719620d50a82",
+        "diff_scalars": {
+          "err_mean": 0.7208936006809408,
+          "err_p95": 0.9231632,
+          "err_max": 1.0,
+          "over_threshold_ratio": 1.0
+        }
+      }
+    },
+    "metric_caliber": {
+      "flip_ldr": "flip-ldr{colorspace=YCxCz,gqc=0.7,gpc=0.4,gpt=0.95,gw=0.082,gqf=0.5,a1=(1.0,1.0,34.1),b1=(0.0047,0.0053,0.04),a2=(0.0,0.0,13.5),b2=(1e-5,1e-5,0.025),ppd=67.02064514160156,ppd_strategy=reference-default-single-value,spatial_pooling=weighted-mean,error_map_output=on,domain=ldr}",
+      "digest": "sha256:927c8ba25325396c4bd541557791e37095a067b8d9290d1b1dc47e167adb53db"
+    },
+    "gap_registry": {
+      "path": "milestones/g10/g10_gap_registry.json",
+      "digest": "sha256:6d0f7bdd0a1d8ade50ddf1730b2263d81fbcd44da63de539d3eb6ca1058f1ba5",
+      "item_count": 0,
+      "kind_split": {
+        "quality_gap": 0,
+        "caliber_diff": 0
+      },
+      "other_module_rows": 0
+    },
+    "probes": {
+      "seed_probe": "sha256:9e302e054fe953d7d5b69ec49a43cf6e0ded49f0a698dd8857f5c7f6e1beb4c6",
+      "gltf_probe": "sha256:ad95e5bf71048bb4ad77b99354a0273f868a0ec2d9a09792e552bffad78ce785"
+    },
+    "artifact_digests": [
+      "sha256:2448cfc0c7625e65a0c8d5925fa1ad2566dd378e6314d52ca81a719620d50a82",
+      "sha256:3b3d6065755c8a90b03bb5b9b2bf161debd9ccdd7b148768e52a8c7728330a60",
+      "sha256:4f36a2f81f37e120353450e1b36627ac30206f38c2bd35dd9c16fd9de92547bf",
+      "sha256:5bfe1f4965e72e85d4c75f21879f8c89bf1f4e292348fa7e82cd9faf0245cc19",
+      "sha256:6dd9c77811f35ed4e72d0c4855f7f5dbe50925e50b87f0b1a9b4e56d27786ce1",
+      "sha256:8519cc67c917e7b8c2c5a9bb5633ea5ee9e72deb8cf63b3b187b0d3ac5bb9935",
+      "sha256:8db0abc8c335a7dd70929e3bcaf7ee052ecf55c22c405cf0d9d14acb18f95666",
+      "sha256:9e302e054fe953d7d5b69ec49a43cf6e0ded49f0a698dd8857f5c7f6e1beb4c6",
+      "sha256:ad95e5bf71048bb4ad77b99354a0273f868a0ec2d9a09792e552bffad78ce785",
+      "sha256:b3e6b53056033b40c8984ed8c94f96ab74b98e33646ab8b48b7756aaae06ae34",
+      "sha256:c2000ebfbe90359d55e668f8af3b7df24d64c3f72e637904f614821b7ad0d727",
+      "sha256:c2529fe41fd545292b61803492ea95f8820a89d7206b51c69882b2925fa56d9a",
+      "sha256:d5f5d6444d46b46e8b05f4bef172f3c96a8fbbbdf253aae75cd411fa9dfedc4e",
+      "sha256:f56fe47fed04095e8b1da935ae5d8db6fb21972c221c47b71f0bd37606153c48"
+    ],
+    "zero_pass_line": "G10 零通过线维持：本报告全部数字为 measured_local 登记，不构成任何画质/帧率通过判定（契约 G-G10-7 / 立项裁决 5）"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260819T022822Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "三重绑定核验通过：param_digest=sha256:64fd54df6e9be522d…（host 独立重算对账）session_run_id=g10ab-20260819T022721Z base_commit=8958ea5cfb01; R5 探针：u64 顶格 seed Rust 端 exit=1（fail-closed 拒绝实测）; U3 探针：bistro glTF animations=1 channels=2（双端消费 0）; LDR 派生未逐字节复现（cornell-box/ue5）; LDR 派生逐字节复现失败; UE HDR 库帧 digest 漂移（cornell-box）: sha256:b3e6b53056033b40c8984ed8c94f96ab74b98e33646ab8b48b7756aaae06ae34 ≠ sha256:c7c6f2cf1644ba79512da1f4f3fceeb2001826f4723681a35ab7a8ca9dc853a2; UE 帧 provenance/digest 核验失败; 派生链互证失败（cornell-box/ue5）: sha256:c7c6f2cf1644ba79512da1f4f3fceeb2001826f4723681a35ab7a8ca9dc853a2 ≠ sha256:b3e6b53056033b40c8984ed8c94f96ab74b98e33646ab8b48b7756aaae06ae34; 度量重算 ≠ G10.5a golden（cornell-box）: {'flip_ldr': 0.338644611302288, 'ssim': 0.34829777885646934, 'psnr_db': 13.982872203129087}; 派生链元数据互证失败; 度量重算与 golden 不逐位相等（口径/工具链漂移）"
+}

@@ -808,6 +808,15 @@ def check_evidence_files() -> None:
     g13_wave4_exit_schema = load(
         ROOT / "milestones/g13/g13_wave4_exit_evidence_schema.json"
     )
+    g13_p2_decisions_schema = load(
+        ROOT / "milestones/g13/g13_p2_decisions_evidence_schema.json"
+    )
+    g13_m_e_regression_drift_guard_schema = load(
+        ROOT / "milestones/g13/g13_m_e_regression_drift_guard_evidence_schema.json"
+    )
+    g13_stabilization_soak_schema = load(
+        ROOT / "milestones/g13/g13_stabilization_soak_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1872,6 +1881,21 @@ def check_evidence_files() -> None:
     g13_wave4_exit_validator = (
         jsonschema.Draft7Validator(g13_wave4_exit_schema)
         if g13_wave4_exit_schema is not None
+        else None
+    )
+    g13_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g13_p2_decisions_schema)
+        if g13_p2_decisions_schema is not None
+        else None
+    )
+    g13_m_e_regression_drift_guard_validator = (
+        jsonschema.Draft7Validator(g13_m_e_regression_drift_guard_schema)
+        if g13_m_e_regression_drift_guard_schema is not None
+        else None
+    )
+    g13_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g13_stabilization_soak_schema)
+        if g13_stabilization_soak_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3578,6 +3602,27 @@ def check_evidence_files() -> None:
             # G13.4 波聚合门（步骤 242）→ required_gates 2 行 + 六 facts +
             # aggregate_read_only const true。
             validator = g13_wave4_exit_validator
+        elif (
+            f.name.startswith("g13_p2_decisions_")
+            and g13_p2_decisions_validator is not None
+        ):
+            # G13.5a P2 穷举决策门（步骤 243）→
+            # milestones/g13/g13_p2_decisions_evidence_schema.json。
+            validator = g13_p2_decisions_validator
+        elif (
+            f.name.startswith("g13_m_e_regression_drift_guard_")
+            and g13_m_e_regression_drift_guard_validator is not None
+        ):
+            # G13.5a P0 硬门 M-e(M171) 回归门 + 漂移监控（步骤 244）→
+            # milestones/g13/g13_m_e_regression_drift_guard_evidence_schema.json。
+            validator = g13_m_e_regression_drift_guard_validator
+        elif (
+            f.name.startswith("g13_stabilization_soak_")
+            and g13_stabilization_soak_validator is not None
+        ):
+            # G13.5a stabilization soak 聚合门（步骤 245）→
+            # milestones/g13/g13_stabilization_soak_evidence_schema.json。
+            validator = g13_stabilization_soak_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

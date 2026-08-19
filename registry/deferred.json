@@ -1289,6 +1289,10 @@
           "date": "2026-08-18",
           "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：RD040-nrd NRD 类 vendor 降噪接入分项——**G13 决策窗登记**：G12.3 评估已完结不接线（评估报告 milestones/g12/design/nrd_vendor_denoise_evaluation.md v1.0 在树，许可取证 = 自定义 NVIDIA RTX SDKs LICENSE 非 OSI——owner 法律面审为接入硬前置）；G13 接入裁决三条件 = 接入真实需求 + owner 法律面许可清结 + measured 对拍面齐备，截至 G13.1 未齐备维持不接线——不以评估报告冒充接入；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §2 RD-040 行 / milestones/g12/design/nrd_vendor_denoise_evaluation.md / milestones/g13/G13_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-19",
+          "event": "G13.5a P2 穷举裁决登记（agent 完全自主 D-406 v2.0）：M52 SER/hit-object 重排分项——**G13.4 Lumen 化 workload 重评窗结论 = 未命中**：M-d 门真跑消费面 = M98/M99/M154 GPU GI 链（屏幕探针近场 + 世界辐射缓存远场 + 多反弹，G11.4 已验收面只消费不改写），非高分歧 RT workload 新真实集成需求；capability rt.ser 设备面实测仍未做——双条件均未命中，maintain-defer（defer-to-G14+，承接锚字面 0-byte）；语言层不加 SER 原语维持（RFC-0023 冻结面不接线）。留痕 = milestones/g13/G13_P2_DECISIONS.md §1 M52 行 + §4 RD-040 行。"
         }
       ]
     },
@@ -1310,6 +1314,10 @@
           "date": "2026-08-18",
           "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：G10-N5 DLSS/Streamline 接入方向 + FSR/DirectSR 类 vendor 超分 SDK 接入分项——**G13 兑现窗登记**：承接锚「DLSS/超分立项」条件命中（G13.1 立项本身即兑现，G13 = DLSS/超分期）；M-a vendor 超分接入波（DLSS SR 经 Streamline SDK + FSR 3.1.5 同接口档，经 UpscaleBackend 冻结面——接口已冻结不改底座字面）即本分项接入评估兑现面；许可与 ABI 评估齐备面 = M-a 开工硬门承载（owner 法律面清结留痕，未清结 M-a blocked 不充绿）；FG/MFG「独立层另判」字面不动（G13-N7 defer-to-G14+）；M28/M40-svt/M26-fg/M05-mv/M56-wg 维持 no-go 留档；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 G10-N5 行/§2 RD-041 行 / milestones/g13/G13_ACCEPTANCE_MAP.md §1 M-a 行 / milestones/g13/G13_CONTRACT.md §6/§7 裁决 5"
+        },
+        {
+          "date": "2026-08-19",
+          "event": "G13.5a P2 穷举裁决登记（agent 完全自主 D-406 v2.0）：G10-N5/RD-041 FSR-DirectSR 类 vendor 超分 SDK 接入分项——**G13.2 M-a 兑现完结 closed-go 登记**：承接锚「DLSS/超分立项 + 许可与 ABI 评估齐备」全要素兑现（G13.1 立项 + owner 法律面清结 2026-08-18 留痕 + M-a 门 22/22 真跑全绿 evidence/g13_m_a_vendor_upscale_integration_20260818T111205Z.json）；条目级 status open 维持（M28/M40-svt/M26-fg/M05-mv/M56-wg 其余子项未闭环 + FG/MFG 独立层另判 G13-N7 defer-to-G14+）。留痕 = milestones/g13/G13_P2_DECISIONS.md §1 G10-N5 行 + §4 RD-041 行。"
         }
       ]
     },

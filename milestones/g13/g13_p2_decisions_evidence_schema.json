@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.5a P2 decisions evidence",
+  "description": "evidence/g13_p2_decisions_<UTC>.json。G13.5a P2/留档/未触发分项穷举决策门 g13.wave.5.decisions（步骤 243，ci/g13_p2_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g13/G13_P2_DECISIONS.md v1.0——31 行冻结候选闭集全等（§1 G12 defer 承接 22 行终态裁决 + §2 G13 新增候选 7 行终态裁决 + §3 G13 期内新增 G13-N8/N9 双差距登记表处置行）、裁决枚举合法（go/no-go/defer-to-G14+/strategic_override）、零空行（全列非空）、承接锚「重判条件 + 兜底」字面、defer 行必含 G14+ 重评窗、go 行 evidence 义务、no-go 行 RD/矩阵/契约锚义务；横向机核①与 G13_ACCEPTANCE_MAP §1 五 P0（M-a~M-e）互斥（P2 行 ID 不得命中已 go M### 裸 token M167~M171，G13-N1~N5 分项级 closed-go 留痕行不互斥）②deferred.json history 对账（G13.5a P2 登记恰好 RD-040 +1〔M52 G13.4 重评窗结论未命中〕/RD-041 +1〔G10-N5 兑现完结 closed-go〕，零新 RD max=RD-044，RD-034~RD-044 status 全 open 0-byte）③G13.1 候选决策表对账（§1 22 行承接 ID 在册 + 裁决字面承接：唯一 go = G10-N5，其余 defer-to-G14+）④G13.4 门产双差距登记表对账（upscale 8 行 + lumen 2 行全 P2 机核；g12 表 10 行终态 0-byte porcelain 空）。只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g13_p2_decisions" },
+    "symbolic_gate_key": { "type": "string", "const": "g13.wave.5.decisions" },
+    "matrix_row": { "type": "string", "const": "G13.5a" },
+    "wave": { "type": "string", "const": "G13.5a" },
+    "numeric_step": { "type": "integer", "const": 243 },
+    "source_ref": {
+      "type": "string",
+      "const": "G13_CONTRACT G-G13-7;G13_P2_DECISIONS.md v1.0;G13_CANDIDATE_DECISIONS v1.0;G13_ACCEPTANCE_MAP §1/§3.3;registry/deferred.json（G13.5a P2 行）;g13_ue_upscale_gap_registry/g13_ue_lumen_gap_registry（G13.4 门产 P2 行集）;g12_ue_pt_gap_registry（10 行终态只消费不回写）;G13_CONTRACT §8.3~§8.5"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 37,
+      "maxItems": 37,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

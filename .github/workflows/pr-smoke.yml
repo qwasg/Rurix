@@ -2937,6 +2937,34 @@ jobs:
         shell: powershell
         run: py -3 ci/g13_wave4_exit_check.py --gate g13.wave.4.exit
 
+      # 步骤 243（G13.5a P2 穷举决策门 g13.wave.5.decisions；G13_CONTRACT G-G13-7；
+      # 落盘前实测 CI_step.next_free=243 顺位领取）。31 行闭集全等（§1 G12 defer
+      # 承接 22 行 + §2 G13 新增候选 7 行 + §3 期内新增 G13-N8/N9 双差距登记表
+      # 处置 2 行）+ 裁决枚举合法 + 零空行 + 承接锚「重判条件+兜底」字面 +
+      # defer 必含 G14+ 重评窗 + go 行 evidence 义务；横向机核四面（MAP §1 五 P0
+      # 互斥 / deferred.json history 对账 RD-040+1〔M52 重评窗未命中〕RD-041+1
+      # 〔G10-N5 closed-go〕零新 RD / G13.1 候选决策表 22 行承接对账 / G13.4 双
+      # 差距登记表 8+2 行全 P2 + G12 表 10 行 0-byte）。evidence 落盘
+      # evidence/g13_p2_decisions_<UTC>.json。
+      - name: G13.5a P2 exhaustive decisions (G13_CONTRACT G-G13-7, g13.wave.5.decisions)
+        shell: powershell
+        run: py -3 ci/g13_p2_decisions_check.py --gate g13.wave.5.decisions
+
+      # 步骤 244（G13.5a P0 硬门 M-e(M171) 回归门+漂移监控
+      # g13.p0.m_e.regression_drift_guard；G13_CONTRACT §4.2 M-e/G-G13-8；落盘前
+      # 实测 CI_step.next_free=244 顺位领取）。既有 71 门（G9 34 + G10 14 +
+      # G11 14 + G12 9 key）最新 evidence 全绿只读汇总（聚合不遮蔽）+ G13 触改面
+      # 既有门重跑回归零降级（M96 golden 门序面真跑抽检 + G10 M139/M140 真跑 +
+      # G12 wave5 exit + G13 wave2/3/4 exit 聚合复跑——子进程 exit 0 + 最新
+      # evidence PASS + 新鲜度机核）+ M165 漂移监控登记（G13 复跑面确定性键族
+      # 零检出字面 + FAIL 件 0-byte 在档 + flip-trace 诊断臂在树）+ G5~G12 既有
+      # 判据 0-byte（已提交 diff ⊆ {g10_gap_registry_lib.py 加性演进位}，工作树
+      # ⊆ {g12_pt_sampler_selection.json 异己登记面}）；RED 三臂独立有效。
+      # evidence 落盘 evidence/g13_m_e_regression_drift_guard_<UTC>.json。
+      - name: G13.5a M-e regression drift guard (G13_CONTRACT §4.2 M-e, g13.p0.m_e.regression_drift_guard)
+        shell: powershell
+        run: py -3 ci/g13_regression_drift_guard_smoke.py --gate g13.p0.m_e.regression_drift_guard
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
