@@ -1,7 +1,7 @@
 ---
 contract: G13
 title: G13 超分采样与 Lumen 对照期
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g13_1_governance_only
 version: v1.0
@@ -504,4 +504,15 @@ G-G13-1~9 以 YAML 头为可提取摘要。治理三门（g13.wave.1.acceptance_
   - **工作树并发面留痕（沿 §8.6/§8.7 同模）**：本波接线期 `ci/check_schemas.py`、`.github/workflows/pr-smoke.yml`、`registry/number_ledger.json` 三面经 `.tmp/g13_5b_replay.py` 脚本原子重放落盘（幂等三面：check_schemas 三处路由 + workflow 步骤 246 + ledger v1.141）并以 check_schemas / check_number_ledger / 互锁 validator `--require-ready` 真跑复核（PASS/READY 留痕）；G13 车道其余文件未受影响；`.tmp/g13_5b_replay.py` 为一次性落盘工具不入 commit。
 
 - **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10/G11/G12 §8.x 同模）。`Assisted-by: Kimi-K3（G13.5b 收口波）`（影响范围：ci/g13_closeout_check.py 新建 + milestones/g13/g13_wave5b_closeout_evidence_schema.json 新建 + ci/check_schemas.py〔g13_wave5b_closeout_ 三处纯追加〕+ .github/workflows/pr-smoke.yml〔步骤 246，步骤 245 块后追加〕+ registry/number_ledger.json〔CI_step 245→246/next_free 247 + revision_log v1.141〕+ 本契约 §8.8 本条 + evidence/g13_wave5b_closeout_20260819T114727Z.json〔READY〕+ g13_acceptance_map_check_20260819T114725Z.json〔MAP 双向新鲜件〕；验证方式：块③逐字命令输出——终审门 VERDICT=READY（8 facts + checks 八键 + required_gates 10 行）+ selftest materialized step 246 + 5a verify-latest PASS + 守卫套件全 PASS + 互锁 VERDICT=READY）。
+
+---
+
+### §8.9 Close-out 终审签署块（2026-08-19）
+
+**裁决**：G-G13-1~9 对应波次与硬门已 materialize 并逐波验收（G13.1 治理四件套 §8.1、许可清结+互锁解锁 §8.2、G13.2 vendor 超分接入波 M-a §8.3、G13.3 TSR device 化波 M-b §8.4、G13.4 UE 对拍波 M-c+M-d §8.5、G13.5a P2 穷举决策+M-e 回归门 §8.6、G13.5a stabilization soak §8.7、G13.5b close-out 终审 §8.8）；5a full-run PASS（`g13_stabilization_soak_20260819T090227Z`——9 门全量回归真跑全绿 + 超分链路 409 迭代 1805.97s ≥1800s 零失败 honest 口径）；5b `VERDICT=READY`（`g13_wave5b_closeout_20260819T114727Z`——八 facts + checks 八键 + required_gates 10 行）。
+
+front matter **`status: active` → `status: closed`**（洁净独行）。RD-034/039/040/041/042/043/044 总体维持 open（分项 go/no-go/defer 已由候选决策表、G13_P2_DECISIONS 31 行闭集与 deferred history 只追加留痕）。**超分/Lumen 双差距登记表 `g13_ue_upscale_gap_registry.json` 8 行 + `g13_ue_lumen_gap_registry.json` 2 行终态（全 quality_gap/P2）终审锁定**——残余差距/未闭环行如实登记不冒充全闭环（G-G13-9）；**锁定面 = G14/G15 法定输入**（G14 帧率对标期与 G15 画质收口期只消费本双表、G12 表 10 行终态与 G13_P2_DECISIONS 承接锚，不得另起无锚差距面）。本条为 close-out 终审签署块。
+
+- **异己并发工作树面**：本 flip commit 只含 front matter `status` 字段 + §8.9 追加 + README/00_MASTER_INDEX 勘误行；工作树异己 src 面（apps/、src/rurix-asset、src/rurix-render 多面、src/rurix-rt/render_exec.rs 等）与 milestones/g12/g12_pt_sampler_selection.json 异己登记面维持未提交、不混入本 commit（立项裁决 1 / §8.7/§8.8 ④ 同模）。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10 §8.10 / G11 §8.8 / G12 §8.8 同模）。`Assisted-by: Kimi-K3（G13.5b 收口波）`（影响范围：§8.9 本条 + front matter `status` 字段 + README/00_MASTER_INDEX 勘误行；验证方式：§8.8 八 facts READY evidence + 守卫终扫全绿）。
 
