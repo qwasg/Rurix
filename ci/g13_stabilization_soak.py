@@ -43,6 +43,7 @@ pr-smoke 默认 --verify-latest（秒级核最新 full-run evidence）；
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import re
 import subprocess
@@ -157,7 +158,7 @@ def run_regression(*, skip_rerun: bool = False) -> tuple[bool, list[dict], str, 
                 continue
             print(f"[{TAG}] regression {key}", flush=True)
             r = subprocess.run(
-                [sys.executable, str(script), "--gate", gate_arg],
+                [sys.executable, str(script), "--gate", key],
                 cwd=ROOT,
             )
             if r.returncode != 0:
