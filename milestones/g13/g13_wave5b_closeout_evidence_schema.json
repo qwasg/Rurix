@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.5b close-out aggregate evidence",
+  "description": "evidence/g13_wave5b_closeout_<UTC>.json。只读汇总八 facts：①5 P0 key（M-a~M-e）逐门 PASS（wel 口径 + 顶层 status==pass 字面——G13 证据形态统一无豁免面）+ ②wave2/3/4 exit + wave5 decisions + wave5a soak 五聚合/决策门全 PASS + ③g13_acceptance_map_check 双向 exit=0 + ④P2 决策表 31 行闭集最终状态无漂移（最新 evidence host_section_pass + FROZEN_IDS 31 行闭集在树）+ ⑤budget_eval --strict 非空零 estimated/skip + ⑥5a full-run 先行（最新 g13_stabilization_soak evidence host_section_pass，base_commit_5a 留痕；立项裁决 7 同日放行）+ ⑦RD 最终状态逐字一致（deferred.json RD-034/039/040/041/042/043/044 七条目级 status 全 open 逐字 + G13_P2_DECISIONS 31 行 FROZEN_IDS 闭集在树；G13 无 defer 重评窗表，两面一致）+ ⑧超分/Lumen 双差距登记表终审锁定（g13_ue_upscale_gap_registry.json 8 行闭集 + g13_ue_lumen_gap_registry.json 2 行闭集：gap_id 集逐字对账 + 计数重算一致〔upscale 8/cornell 5/bistro 3，lumen 2/cornell 1/bistro 1，not_ready_scenes==[]〕+ generated_by == M-c/M-d 门字面 + 全行 quality_gap/P2 + measured_delta 非空 + delta==b−a 可溯源 + evidence_digest 溯源 + g11_anchor 锚定 G15——残余差距/未闭环行如实登记不冒充全闭环，G-G13-9 字面；终审锁定面 = G14/G15 法定输入）+ 最后新绿 UTC 日留痕。VERDICT=READY|BLOCKED；status flip 独立 commit。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "verdict",
+    "utc_date",
+    "last_new_green_utc_date",
+    "base_commit_5a",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g13_wave5b_closeout" },
+    "symbolic_gate_key": { "type": "string", "const": "g13.wave.5b.closeout" },
+    "matrix_row": { "type": "string", "const": "G13.5b" },
+    "wave": { "type": "string", "const": "G13.5b" },
+    "numeric_step": { "type": "integer", "const": 246 },
+    "source_ref": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "verdict": { "type": "string", "enum": ["READY", "BLOCKED"] },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "last_new_green_utc_date": { "type": ["string", "null"], "pattern": "^[0-9]{8}$" },
+    "base_commit_5a": { "type": ["string", "null"] },
+    "required_gates": { "type": "array", "minItems": 10, "maxItems": 10 },
+    "extra_facts": { "type": "array", "minItems": 8, "maxItems": 8 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "five_p0_pass",
+        "wave_gates_pass",
+        "acceptance_map_ok",
+        "p2_ok",
+        "budget_strict_ok",
+        "soak_5a_ok",
+        "rd_final_state_ok",
+        "gap_registries_locked"
+      ],
+      "properties": {
+        "five_p0_pass": { "type": "boolean" },
+        "wave_gates_pass": { "type": "boolean" },
+        "acceptance_map_ok": { "type": "boolean" },
+        "p2_ok": { "type": "boolean" },
+        "budget_strict_ok": { "type": "boolean" },
+        "soak_5a_ok": { "type": "boolean" },
+        "rd_final_state_ok": { "type": "boolean" },
+        "gap_registries_locked": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

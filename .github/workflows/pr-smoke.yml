@@ -2983,6 +2983,25 @@ jobs:
         shell: powershell
         run: py -3 ci/g13_stabilization_soak.py --verify-latest
 
+      # 步骤 246（G13.5b close-out 终审门 g13.wave.5b.closeout；G13_CONTRACT
+      # G-G13-9；落盘前实测 CI_step.next_free=246 顺位领取）。host 只读终审门
+      # （不重跑子门 smoke、不设 RURIX_REQUIRE_REAL）八 facts：①5 P0 key
+      # （M-a~M-e）逐门 PASS（wel 口径 + 顶层 status==pass 字面）②wave2/3/4
+      # exit + wave5 decisions + wave5a soak 五聚合/决策门全 PASS ③MAP 双向
+      # g13_acceptance_map_check exit=0 ④P2 表 31 行闭集最终状态无漂移
+      # ⑤budget_eval --strict 非空零 estimated/skip ⑥5a full-run 先行
+      # （base_commit_5a 留痕；立项裁决 7 同日放行）⑦RD 最终状态逐字一致
+      # （RD-034/039/040/041/042/043/044 七条目级 status 全 open + P2 31 行
+      # 闭集在树）⑧超分/Lumen 双差距登记表 8+2 行闭集终审锁定（gap_id 集
+      # 逐字对账 + 计数重算一致 + generated_by 字面 + 全行 quality_gap/P2 +
+      # measured_delta 对账齐 + 锚定 G15——残余差距如实登记不冒充全闭环，
+      # 终审锁定面 = G14/G15 法定输入）+ 最后新绿 UTC 日留痕。
+      # VERDICT=READY|BLOCKED；status flip 独立 commit。evidence 落盘
+      # evidence/g13_wave5b_closeout_<UTC>.json。
+      - name: G13.5b closeout check (G13_CONTRACT G-G13-9, g13.wave.5b.closeout)
+        shell: powershell
+        run: py -3 ci/g13_closeout_check.py --gate g13.wave.5b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
