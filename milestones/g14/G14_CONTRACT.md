@@ -2,7 +2,7 @@
 contract: G14
 title: G14 正式帧率对标与渲染管线性能期
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g14_1_governance_only
 version: v1.0
 date: 2026-08-19
@@ -174,6 +174,13 @@ RD-034/039/040/041/042/043/044 七条总体 status 全维持 open（条目级四
   - **候选决策窗结论如实登记（不写进全绿叙述）**：M100-high（G14 窗 = 未齐备）/ M114-strand（G14 窗 = 数据面部分落地）/ G10-N17（G14 窗 = 未消费）/ G11-N5（G14 窗 = 未齐备）/ G13-N7（G14 重评窗 = 不立项——真实渲染帧率口径字面）/ G11-N3（部分兑现 = A/B 出图面 M-d 承载，画质差距清单锚定 G15）。
   - **异己并发工作树面**：本批只含 G14 车道文件（按文件名显式择取）；异己会话 src/ 未提交面维持未提交、零消费、零混入（立项裁决 1）；共享面（check_schemas/workflow/ledger/deferred）经 `.tmp/g14_1_replay.py` 幂等重放落盘 + 提交前单命令链压死竞态窗口（一次性工具不入 commit）。
 - **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10~G13 §8.x 同模）。`Assisted-by: Kimi-K3（G14.1 治理波）`（影响范围：milestones/g14/ 三件套新建〔G14_CONTRACT.md v1.0 + G14_CANDIDATE_DECISIONS.md v1.0 + G14_ACCEPTANCE_MAP.md v1.0〕+ ci/g14_acceptance_map_check.py + ci/g14_candidate_decisions_check.py + ci/g14_interlock_check.py 三新建 + milestones/g14 三 evidence schema 新建 + ci/check_schemas.py〔g14 治理三前缀 load/validator/路由三处纯追加〕+ .github/workflows/pr-smoke.yml〔步骤 247~249，步骤 246 块后追加〕+ registry/number_ledger.json〔CI_step 246→249/next_free 250 + reserved_in_flight[G14] + revision_log v1.142〕+ registry/deferred.json〔RD-039 +1/RD-040 +1/RD-041 +1 history 只追加〕+ 本契约 §8.1 本条 + evidence/g14_acceptance_map_check_{130605Z,131711Z,131824Z} + g14_candidate_decisions_check_20260819T131825Z + g14_interlock_check_20260819T131031Z 真跑件；验证方式：块③逐字命令输出——治理双门 PASS + 互锁诚实 BLOCKED 留痕 + 三 selftest 红绿留痕 + 守卫套件全 PASS）。
+
+### §8.2 G-G14-3 实现互锁解锁记录（2026-08-19）——implementation_status blocked→unlocked：事实门四项全绿 + 一致性门 C1~C4 全绿 + 用户开工指令留痕核验 + 共享编号 actual next_free 校准在案；G14.2 修订与测量波开工面开放
+
+- **解锁前状态**：G14.1 治理批（dab50472）落盘后 `py -3 ci/g14_interlock_check.py --require-ready` → **VERDICT=READY，exit=0**（事实门四项全绿：① G13 closed + §8.9 + G14.0 ref f4c8da0b 登记；② 候选决策 31 行零空行 + deferred history 只追加 + MAP 无缺行；③ 用户开工指令留痕「帧率对标UE5略高（不降级画质）」字面在树 + workflow 实测末号 249 == ledger on_tree_max 249 == next_free−1 一致 + 治理三门 247~249 接线面在树；④ 治理两门独立 PASS——一致性门 C1~C4 全绿）。用户 G14.2 开工指令 = 2026-08-19 全期授权面（本契约 §7 裁决 2 逐字登记），共享编号按 actual next_free 校准（ledger v1.142）。
+- **解锁动作**：front matter `implementation_status: blocked → unlocked`（洁净单行翻转）；`status: active` 维持（治理激活面不动）；G14.2 修订与测量波（M-a 登记表 UE 方差带结构化对账修订 + M-b UE benchmark 臂正式帧率测量）开工面开放。
+- **纪律面**：解锁后 C3/C4 治理期口径自动不适用（两态口径沿 G10.4b~G13 先例，判据语义 0-byte）；P0 实现门数字步骤仍按各实现波落盘前实测 actual next_free 顺位领取（禁推测号维持）；异己面纪律 0-byte。
+- **签署**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G13 §8.2 同模）。`Assisted-by: Kimi-K3（G14.1 治理波）`（影响范围：本契约 front matter `implementation_status` 字段 + §8.2 本条 + evidence/g14_interlock_check_<UTC> READY 真跑件；验证方式：`py -3 ci/g14_interlock_check.py --require-ready` VERDICT=READY exit=0 + 守卫套件全 PASS）。
 
 ## 修订记录
 
