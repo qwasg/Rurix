@@ -147,9 +147,9 @@
    "measured_delta": [
     {
      "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
-     "a_value": 0.854056011938486,
+     "a_value": 0.8527892386663012,
      "b_value": 0.3622313729720505,
-     "delta": -0.4918246389664355,
+     "delta": -0.4905578656942507,
      "evidence_digest": "sha256:8923e4cd677d42f1a6b3db8078240555741346b07f1596ca5623446cccf8c92b"
     }
    ],
@@ -170,9 +170,9 @@
    "measured_delta": [
     {
      "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
-     "a_value": 0.854056011938486,
+     "a_value": 0.8527892386663012,
      "b_value": 0.5704238454826939,
-     "delta": -0.28363216645579215,
+     "delta": -0.2823653931836073,
      "evidence_digest": "sha256:f9c09ee6f60da70b3cc6e34f9d7a9273b6a6fdcdfd9dce37a51e8cfee9d91659"
     }
    ],
@@ -193,9 +193,9 @@
    "measured_delta": [
     {
      "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
-     "a_value": 0.854056011938486,
+     "a_value": 0.8527892386663012,
      "b_value": 0.43900226953049754,
-     "delta": -0.4150537424079885,
+     "delta": -0.41378696913580365,
      "evidence_digest": "sha256:d789b0ff6c8a2b445aca58d23ac30fdde7fddca5972fe41e331cb7b616adf506"
     }
    ],

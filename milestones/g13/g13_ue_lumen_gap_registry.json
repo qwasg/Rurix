@@ -55,23 +55,23 @@
    "measured_delta": [
     {
      "metric": "gi_energy_rel@bistro-interior",
-     "a_value": 0.0370764189718855,
+     "a_value": 0.03711463719353902,
      "b_value": 3.0016998075316033,
-     "delta": 2.9646233885597177,
+     "delta": 2.964585170338064,
      "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
     },
     {
      "metric": "indirect_ssim@bistro-interior",
      "a_value": 1.0,
-     "b_value": 0.00651277010829783,
-     "delta": -0.9934872298917021,
+     "b_value": 0.006566911636724374,
+     "delta": -0.9934330883632756,
      "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
     },
     {
      "metric": "indirect_flip@bistro-interior",
      "a_value": 0.0,
-     "b_value": 0.9671369354654047,
-     "delta": 0.9671369354654047,
+     "b_value": 0.9671355491209283,
+     "delta": 0.9671355491209283,
      "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
     }
    ],

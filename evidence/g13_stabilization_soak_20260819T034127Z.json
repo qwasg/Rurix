@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "subject": "g13_stabilization_soak",
+  "symbolic_gate_key": "g13.wave.5a.soak",
+  "matrix_row": "G13.5a",
+  "wave": "G13.5a",
+  "numeric_step": 245,
+  "source_ref": "G13_CONTRACT G-G13-8/§2.2;G13 5 P0（M-a~M-e）逐门真跑 + 聚合/决策门核验;超分链路连续复跑 soak ≥1800s（G12.7a 继承）;budget_eval --strict;G5~G12 0-byte",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "base_commit": "563bda686beb7959a6288ed3165c9a989ad5b3ff",
+  "utc_date": "20260819",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g13.p0.m_a.vendor_upscale_integration",
+      "subject_prefix": "g13_m_a_vendor_upscale_integration",
+      "evidence_path": "evidence/g13_m_a_vendor_upscale_integration_20260819T034127Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T034127Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_b.tsr_device_kernel",
+      "subject_prefix": "g13_m_b_tsr_device_kernel",
+      "evidence_path": "evidence/g13_m_b_tsr_device_kernel_20260819T034455Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T034455Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+      "subject_prefix": "g13_m_c_ue_upscale_parity",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "smoke exit=1"
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+      "subject_prefix": "g13_m_d_ue_lumen_gi_parity",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "smoke exit=1"
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_e.regression_drift_guard",
+      "subject_prefix": "g13_m_e_regression_drift_guard",
+      "evidence_path": "evidence/g13_m_e_regression_drift_guard_20260819T052913Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T052913Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.2.exit",
+      "subject_prefix": "g13_wave2_exit",
+      "evidence_path": "evidence/g13_wave2_exit_20260819T053346Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T053346Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.3.exit",
+      "subject_prefix": "g13_wave3_exit",
+      "evidence_path": "evidence/g13_wave3_exit_20260819T053347Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T053347Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.4.exit",
+      "subject_prefix": "g13_wave4_exit",
+      "evidence_path": "evidence/g13_wave4_exit_20260819T053348Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T053348Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.5.decisions",
+      "subject_prefix": "g13_p2_decisions",
+      "evidence_path": "evidence/g13_p2_decisions_20260819T053348Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T053348Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "regression_gates_all_pass",
+      "status": "FAIL",
+      "detail": "回归面见 required_gates 行集"
+    },
+    {
+      "id": "base_commit_uniform",
+      "status": "FAIL",
+      "detail": "5 门 evidence base_commit 同值=563bda686beb（同一候选 close-out 基线）"
+    },
+    {
+      "id": "soak_dual_threshold",
+      "status": "PASS",
+      "detail": "iterations=406 seconds=1800.6 active=1800.6 outer=1800.6 sleep=0.0 failures=0 frames=12992 registries=406 subject='upscale-chain-soak'"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0   PASS ms1.counter.uc07_offline_golden_frames: PASS — 1 份 UC-07 离线 golden 端到端证据(要求 ≥1) / [budget_eval] PASS (212 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['ci/g10_gap_registry_lib.py']（允许面=['ci/g10_gap_registry_lib.py']）;工作树闭集=['milestones/g12/g12_pt_sampler_selection.json']（允许面=['milestones/g12/g12_pt_sampler_selection.json'] 异己登记）"
+    },
+    {
+      "id": "date_anchor",
+      "status": "PASS",
+      "detail": "utc_date=20260819"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "regression_all_pass": false,
+    "base_commit_uniform": false,
+    "soak_dual_threshold": true,
+    "soak_no_sleep_padding": true,
+    "budget_strict_pass": true,
+    "legacy_criteria_0byte": true,
+    "date_anchor_recorded": true
+  },
+  "soak": {
+    "soak_subject": "upscale-chain-soak",
+    "iterations": 406,
+    "seconds": 1800.5822241306305,
+    "min_iterations": 3,
+    "min_seconds": 1800,
+    "active_chain_seconds": 1800.5807213783264,
+    "sleep_seconds": 0.0,
+    "outer_wall_seconds": 1800.593748807907,
+    "failures": 0,
+    "upscale_frames_rendered": 12992,
+    "registry_assemblies": 406,
+    "backend_digest_anchors": {
+      "tsr_device": "sha256:3c05f44f097631ce617638ec5677a229abee4609c4e942991eb64207678829b9",
+      "dlss_sr": "sha256:6d0d4fc6bc8f343db6671cd6b70a7f4440a2012f29c1e41956769438edb24a14",
+      "fsr_3_1_5": "sha256:cdf28f51f0b0d201b915c1b612ba3c5051d8bb3732244a5c5b6cefe0a5c6fcab"
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260819T034127Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G13.5a full soak；四腿 + G5~G12 既有判据 0-byte fact；诚实语义（沿 G12.7a/G11.7a/G10.8a/G9.8a 口径）：soak 墙钟=真实超分链路复跑实测（禁 sleep 充时，sleep_seconds 恒 0，active_chain_seconds 逐迭代计时求和，gate 外测墙钟交叉核验）；soak 载体=G13 超分链路二面（出图 g13_4_ue_upscale_parity_render --render cornell-box tier67 三后端轮转，receipt converged_digest == 首轮锚位级复现——跨迭代 digest 漂移即 M165 同型监控面检出 → 登记表装配最新 M-c/M-d evidence 超容差格与在树 g13_ue_{upscale,lumen}_gap_registry.json 行集对账幂等复核）；subject=upscale-chain-soak 无 validation/device_lost 字面量 0 硬门（device 面归回归腿 5 门本体）；5 门 evidence base_commit 同值一致（同一候选 close-out 基线）"
+}

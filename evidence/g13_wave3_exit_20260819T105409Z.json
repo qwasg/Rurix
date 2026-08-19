@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g13_wave3_exit",
+  "symbolic_gate_key": "g13.wave.3.exit",
+  "matrix_row": "G13.3",
+  "wave": "G13.3",
+  "numeric_step": 239,
+  "source_ref": "G13_CONTRACT G-G13-5/§2.2;G13_ACCEPTANCE_MAP §1;spec/display_pipeline.md RXS-0404;M-b gate red arms independently effective;temporal base 0-byte;g13_budget M-b seven entries measured_local;kernel RXS-0404 anchors + conformance corpus;three-tier device criteria all true;frame-time entries zero_pass_line registered",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g13.p0.m_b.tsr_device_kernel",
+      "subject_prefix": "g13_m_b_tsr_device_kernel",
+      "evidence_path": "evidence/g13_m_b_tsr_device_kernel_20260819T090602Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T090602Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "temporal_base_0byte",
+      "status": "PASS",
+      "detail": "temporal/ vs 8c5dc5ee 目录级 0-byte(提交面 + 工作树双面)"
+    },
+    {
+      "id": "m_b_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M-b 门最新 evidence red 面 checks 全真(共 2 臂独立有效)"
+    },
+    {
+      "id": "budget_calibration_entries_measured",
+      "status": "PASS",
+      "detail": "g13_budget M-b 七条目齐备 measured_local 零 estimated + budget_eval 全 PASS(P-09;共 7 条目)"
+    },
+    {
+      "id": "kernel_and_corpus_anchored",
+      "status": "PASS",
+      "detail": "双 kernel 在树且 `//@ spec: RXS-0404` + 门 key 字面锚定齐备;conformance accept/reject 语料锚定齐备 + trace_matrix 全锚定 PASS"
+    },
+    {
+      "id": "three_tier_device_criteria_true",
+      "status": "PASS",
+      "detail": "M-b 门最新 evidence 三档 device 判据全真(对拍容差/冻结带/收敛单调/双跑位级/validation 零命中)"
+    },
+    {
+      "id": "frame_time_zero_pass_line_registered",
+      "status": "PASS",
+      "detail": "三档帧时条目描述逐个携带「不构成帧率对标通过线」字面(正式帧率对标锚定 G14)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260819T105409Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G13.3 M-b(M168) TSR device kernel gate (step 238); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: temporal base 0-byte + red arms + g13_budget seven entries measured + RXS-0404 anchors + three-tier device criteria + zero_pass_line; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

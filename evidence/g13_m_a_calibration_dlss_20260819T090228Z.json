@@ -1,0 +1,19 @@
+{
+  "schema": "rurix.g13upscale.calibration_entry.v1",
+  "entry_id": "g13.upscale.static_converge_ssim_deficit_dlss",
+  "results": {
+    "trimmed_mean": 0.363068642271549
+  },
+  "protocol": "静态合成 shade 场景 320×180→640×360,32 帧 Halton jitter(均值趋 0 长程无偏),终帧 SSIM deficit(1−SSIM,RXS-0387 LDR 8×8 窗口径)对拍 4×4 超采样参照;threshold = measured × 2.0(冻结 k,方向 max)",
+  "sample_manifest": {
+    "count": 32,
+    "digest": "sha256:3a09c9186c2871b41c596bed137730eb3fdccc56be55efe930c5a4745c762d3a"
+  },
+  "provenance": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "backend": "dlss_sr",
+    "base_commit": "563bda686beb7959a6288ed3165c9a989ad5b3ff",
+    "dll_digest": "sl.interposer.dll:fabb19bb6495d743182c1bc51bcbbdc4481acc3dcaf445403f0b304a31a56ccc;sl.common.dll:eca8c0f1d4af654103a2f8b315e91fcd54ee4437570ac20c90ab78131c791274;sl.dlss.dll:164750168cb36a79e7552e7fc74bf5723347f97f69e5d466167aa09623615c03;nvngx_dlss.dll:a8f23de8116727a160a196f9f43604284cd973d801a62bb68c19c828f78e5f3b"
+  },
+  "timestamp": "2026-08-19T11:36:48+08:00"
+}

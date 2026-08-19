@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g12_wave5_exit",
+  "symbolic_gate_key": "g12.wave.5.exit",
+  "matrix_row": "G12.5",
+  "wave": "G12.5",
+  "numeric_step": 229,
+  "source_ref": "milestones/g12/CI_GATES.md §5;G12_CONTRACT G-G12-7;G12_ACCEPTANCE_MAP §1;M165 throughput baseline 8 budget entries measured_local + zero pass-line registration;correctness anchor fixed-seed digest 0-byte (M163 receipt frozen);62 gates zero-degrade + M163 rerun same-base_commit binary regression anchor",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g12.p0.m165.pt_throughput_baseline",
+      "subject_prefix": "g12_m165_pt_throughput_baseline",
+      "evidence_path": "evidence/g12_m165_pt_throughput_baseline_20260818T015338Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T015338Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m96_correctness_anchor_0byte",
+      "status": "PASS",
+      "detail": "M96 门最新 PASS(PASS);冻结面: band 0-byte + path_trace.rs 差分 ⊆ prod 模块注册块(纯追加)"
+    },
+    {
+      "id": "throughput_baseline_8_entries_measured_and_eval_pass",
+      "status": "PASS",
+      "detail": "8 基线条目(frame_ms×4 + primary_rays_sec×4)齐备 measured_local 零 estimated + 逐条目 evidence 在档 + budget_eval 全 PASS(P-09)"
+    },
+    {
+      "id": "no_pass_line_registration_machine_check",
+      "status": "PASS",
+      "detail": "zero_pass_line 字面=True;8 条目登记校验=True;门 checks 登记=True"
+    },
+    {
+      "id": "correctness_anchor_fixed_seed_digest_0byte",
+      "status": "PASS",
+      "detail": "cell 数=4 digest_match 全真=True distinct 单值=True 演进位 null=True 冻结锚集字面一致=True"
+    },
+    {
+      "id": "m165_red_arms_independently_valid",
+      "status": "PASS",
+      "detail": "RED 臂 3 条全真=True(基线冒充帧率对标/digest 漂移未登记/estimated 冒充)"
+    },
+    {
+      "id": "regression_62_zero_degrade_and_m163_rerun_same_base",
+      "status": "PASS",
+      "detail": "62 门零降级(M164 PASS);M163 复跑 PASS;base_commit 同窗=True(M163=d7348d23 vs M165=d7348d23)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260819T105404Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G12.5 P0 gate (M165 pt_throughput_baseline step 228); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M96 anchor 0-byte + 8 baseline entries measured + zero pass-line + digest 0-byte anchor + RED arms + 62 zero-degrade/M163 rerun same-base; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}
