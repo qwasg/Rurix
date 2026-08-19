@@ -3002,6 +3002,42 @@ jobs:
         shell: powershell
         run: py -3 ci/g13_closeout_check.py --gate g13.wave.5b.closeout
 
+      # 步骤 247（G14.1 治理门 g14.wave.1.acceptance_map；G14_CONTRACT §4.3/G-G14-2；
+      # 落盘前实测 CI_step.next_free=247 顺位领取）。验收映射覆盖/空行/双向命名空间
+      # 一致性：G14_ACCEPTANCE_MAP §1 五行 P0（M-a 登记表 UE 方差带结构化对账修订/
+      # M-b UE benchmark 臂正式帧率测量/M-c Rurix 生产管线性能面/M-d 双端帧率正式
+      # 对标+画质零降级守护/M-e 回归门+漂移监控）闭集全等 + §2 零 go P1 空集 +
+      # key/脚本/schema 单一命名空间同 slug + numeric_step 全列 post-interlock
+      # actual-next-free allocation 字面零预占 + MAP §1 ↔ G14_CONTRACT §4.2 双向
+      # 逐字一致（G14 治理三件套无独立 CI_GATES，沿 G13 双向体例）。纯 host 治理
+      # 核验门，不代绿实现门；本门 PASS 只表示映射完整。evidence 落盘
+      # evidence/g14_acceptance_map_check_<UTC>.json。
+      - name: G14.1 acceptance map check (G14_CONTRACT §4.3.247, g14.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g14_acceptance_map_check.py --gate g14.wave.1.acceptance_map
+
+      # 步骤 248（G14.1 治理门 g14.wave.1.candidate_decisions；G14_CONTRACT §4.3/
+      # G-G14-2；落盘前实测 CI_step.next_free=248 顺位领取）。候选决策表 31 行闭集
+      # 全等（§1 G13 defer-to-G14+ 24 行逐行处置〔G10-N11/G10-N16 go 兑现窗 + 22 行
+        defer-to-G15+〕+ §2 open RD 7 行映射 + §3 G14 新增候选 7 行）+ 裁决枚举
+      # 合法 + 零空行 + 承接锚纪律 + defer 行 G15+ 重评窗字面 + go 行验收映射锚
+      # 义务 + RD 条目级 status==open + 与 MAP 5 key 互斥。纯 host 治理核验门。
+      # evidence 落盘 evidence/g14_candidate_decisions_check_<UTC>.json。
+      - name: G14.1 candidate decisions check (G14_CONTRACT §4.3.248, g14.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g14_candidate_decisions_check.py --gate g14.wave.1.candidate_decisions
+
+      # 步骤 249（G14.1 治理门 g14.gov.implementation_interlock；G14_CONTRACT §4.3/
+      # G-G14-3；落盘前实测 CI_step.next_free=249 顺位领取）。实现互锁：事实门四项
+      # （G13 closed+§8.9+f4c8da0b 登记 / 候选决策+deferred+MAP 三面 / 用户开工指令
+      # 留痕+workflow 末号一致 / 治理两门独立 PASS）+ 一致性门 C1~C4（双状态诚实/
+      # §8 记录一致/数字步骤零预占/src-spec-conformance 治理期 0-byte）；closed
+      # 三态口径（status==closed → CLOSED）。G14.1 期间诚实输出 BLOCKED 不充绿。
+      # evidence 落盘 evidence/g14_interlock_check_<UTC>.json。
+      - name: G14.1 implementation interlock (G14_CONTRACT §4.3.249, g14.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g14_interlock_check.py --gate g14.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

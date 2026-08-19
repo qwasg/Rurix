@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.1 implementation interlock check evidence",
+  "description": "evidence/g14_interlock_check_<UTC>.json。G14.1 治理门 g14.gov.implementation_interlock（ci/g14_interlock_check.py 写；普通检查门非聚合门，required_gates 空）：G14.2 实现互锁 validator 诚实报告面——事实门①G13 closed + §8.9 在位 + G14.0 不可变 ref f4c8da0b 登记②候选决策表 31 行零空行 + deferred history 只追加（vs G14.0 base 四字段 0-byte）+ 验收映射 §1 五行 P0 + §2 零 go P1 无缺行③用户 G14.2 开工指令留痕（「帧率对标UE5略高（不降级画质）」字面）+ workflow 实测末号 == ledger CI_step on_tree_max 且 next_free == +1 且治理三门步骤 247~249 workflow/ledger 接线面在树（G14.1 期主会话提交批统一接线，接线前 = RED 诚实 BLOCKED）④G14.1 治理两门（acceptance_map + candidate_decisions）独立 PASS（MAP §6 条件 3 字面；G14 无许可前置门，事实门四项非五项）；一致性门 C1 双状态诚实 / C2 §8 记录一致 / C3 数字步骤零预占（治理三门 247~249 白名单豁免）/ C4 src-spec-conformance 0-byte（两态口径沿 G10.4b/G11/G12/G13 先例）；VERDICT 字面入档（G14.1 期 = BLOCKED——正确结论不充绿，不以叙述替代机器事实）；--require-ready 供未来 G14.2 实现 PR 前置 required check。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_interlock_check" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.gov.implementation_interlock" },
+    "matrix_row": { "type": "string", "const": "G14.1" },
+    "wave": { "type": "string", "const": "G14.1" },
+    "numeric_step": { "type": "integer", "description": "post-materialize actual-next-free 回填" },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT G-G14-3/§6/§7;G14_ACCEPTANCE_MAP §5/§6;registry/number_ledger.json;registry/deferred.json"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

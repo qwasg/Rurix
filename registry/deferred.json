@@ -1148,6 +1148,11 @@
           "date": "2026-08-18",
           "event": "G13.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M61 mesh shader 第三光栅路径（M109 可选 geometry pipeline）——G12.6 逐字承接（defer-to-G13+ → defer-to-G14+）：G13 超分/Lumen 对照面与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现；承接锚字面 0-byte 维持（重判条件 = G14+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判；兜底 = VS 光栅唯一 fallback 与既有 SW/HW 光栅路径维持，G14+ 前零实现痕迹）；G14+ 重评窗顺延不关闭；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g13/G13_CANDIDATE_DECISIONS.md §1 M61 行 / milestones/g13/G13_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-19",
+          "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M61 mesh shader 第三光栅路径（M109 可选 geometry pipeline）——G13.5a 逐字承接（defer-to-G14+ → defer-to-G15+）：G14 帧率对标面（既有光栅管线性能面）与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现；承接锚字面 0-byte 维持（重判条件 = G15+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判；兜底 = VS 光栅唯一 fallback 维持，G15+ 前零实现痕迹）；G15+ 重评窗顺延不关闭；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 M61 行 / milestones/g14/G14_CONTRACT.md §6"
         }
       ]
     },
@@ -1293,6 +1298,11 @@
         {
           "date": "2026-08-19",
           "event": "G13.5a P2 穷举裁决登记（agent 完全自主 D-406 v2.0）：M52 SER/hit-object 重排分项——**G13.4 Lumen 化 workload 重评窗结论 = 未命中**：M-d 门真跑消费面 = M98/M99/M154 GPU GI 链（屏幕探针近场 + 世界辐射缓存远场 + 多反弹，G11.4 已验收面只消费不改写），非高分歧 RT workload 新真实集成需求；capability rt.ser 设备面实测仍未做——双条件均未命中，maintain-defer（defer-to-G14+，承接锚字面 0-byte）；语言层不加 SER 原语维持（RFC-0023 冻结面不接线）。留痕 = milestones/g13/G13_P2_DECISIONS.md §1 M52 行 + §4 RD-040 行。"
+        },
+        {
+          "date": "2026-08-19",
+          "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M100-high ReSTIR GI/DI 高档 reservoir 分项——**G14 性能对标期窗结论 = 未齐备**：G14 对标场景面 = cornell-box + bistro-interior 双场景闭集（M133 清单 digest 注册在树，G13 对拍面继承），不新增低档 MegaLights 多灯压测场景——「低档 MegaLights GPU 管线多灯场景 measured 对照齐备」条件未命中，maintain-defer（defer-to-G15+，承接锚字面 0-byte）；M52 G14 窗维持未命中（帧率对标面非高分歧 RT workload 新真实集成需求）；RD040-nrd 维持不接线（G13 决策窗结论字面 0-byte）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 M100-high/M52 行 + §2 RD-040 行 / milestones/g14/G14_CONTRACT.md §6"
         }
       ]
     },
@@ -1318,6 +1328,11 @@
         {
           "date": "2026-08-19",
           "event": "G13.5a P2 穷举裁决登记（agent 完全自主 D-406 v2.0）：G10-N5/RD-041 FSR-DirectSR 类 vendor 超分 SDK 接入分项——**G13.2 M-a 兑现完结 closed-go 登记**：承接锚「DLSS/超分立项 + 许可与 ABI 评估齐备」全要素兑现（G13.1 立项 + owner 法律面清结 2026-08-18 留痕 + M-a 门 22/22 真跑全绿 evidence/g13_m_a_vendor_upscale_integration_20260818T111205Z.json）；条目级 status open 维持（M28/M40-svt/M26-fg/M05-mv/M56-wg 其余子项未闭环 + FG/MFG 独立层另判 G13-N7 defer-to-G14+）。留痕 = milestones/g13/G13_P2_DECISIONS.md §1 G10-N5 行 + §4 RD-041 行。"
+        },
+        {
+          "date": "2026-08-19",
+          "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：G13-N7 帧生成 FG/MFG 分项——**G14 重评窗结论 = 不立项**：G13 超分接入面稳定条件命中（M-a/M-b 门绿 + G13.5a soak 409 迭代零失败在案），但 G14 帧率通过线 = 真实渲染帧率（用户 2026-08-19 指令「帧率对标UE5略高（不降级画质）」字面——生成帧不计入真实渲染帧率口径，FG 面混淆对标语义）；FG/MFG 独立层立项 = 商用收口后独立期面（G15+ 重评窗顺延，承接锚字面 0-byte）；FSR/DirectSR 分项兑现完结维持（G13.2 M-a closed-go 登记字面 0-byte）；M28/M40-svt/M26-fg/M05-mv/M56-wg 维持 no-go 留档；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 G13-N7 行 + §2 RD-041 行 / milestones/g14/G14_CONTRACT.md §6"
         }
       ]
     },

@@ -775,6 +775,15 @@ def check_evidence_files() -> None:
     g13_interlock_check_schema = load(
         ROOT / "milestones/g13/g13_interlock_check_evidence_schema.json"
     )
+    g14_acceptance_map_check_schema = load(
+        ROOT / "milestones/g14/g14_acceptance_map_check_evidence_schema.json"
+    )
+    g14_candidate_decisions_check_schema = load(
+        ROOT / "milestones/g14/g14_candidate_decisions_check_evidence_schema.json"
+    )
+    g14_interlock_check_schema = load(
+        ROOT / "milestones/g14/g14_interlock_check_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1829,6 +1838,21 @@ def check_evidence_files() -> None:
     g13_interlock_check_validator = (
         jsonschema.Draft7Validator(g13_interlock_check_schema)
         if g13_interlock_check_schema is not None
+        else None
+    )
+    g14_acceptance_map_check_validator = (
+        jsonschema.Draft7Validator(g14_acceptance_map_check_schema)
+        if g14_acceptance_map_check_schema is not None
+        else None
+    )
+    g14_candidate_decisions_check_validator = (
+        jsonschema.Draft7Validator(g14_candidate_decisions_check_schema)
+        if g14_candidate_decisions_check_schema is not None
+        else None
+    )
+    g14_interlock_check_validator = (
+        jsonschema.Draft7Validator(g14_interlock_check_schema)
+        if g14_interlock_check_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3521,6 +3545,27 @@ def check_evidence_files() -> None:
             # milestones/g13/g13_interlock_check_evidence_schema.json：
             # 事实门①~④（含 M-a 许可前置硬门）+ C1~C4 + VERDICT 字面 8 facts。
             validator = g13_interlock_check_validator
+        elif (
+            f.name.startswith("g14_acceptance_map_check_")
+            and g14_acceptance_map_check_validator is not None
+        ):
+            # G14.1 治理门验收映射核验（步骤 247）→
+            # milestones/g14/g14_acceptance_map_check_evidence_schema.json。
+            validator = g14_acceptance_map_check_validator
+        elif (
+            f.name.startswith("g14_candidate_decisions_check_")
+            and g14_candidate_decisions_check_validator is not None
+        ):
+            # G14.1 治理门候选决策核验（步骤 248）→
+            # milestones/g14/g14_candidate_decisions_check_evidence_schema.json。
+            validator = g14_candidate_decisions_check_validator
+        elif (
+            f.name.startswith("g14_interlock_check_")
+            and g14_interlock_check_validator is not None
+        ):
+            # G14.1 治理门实现互锁（步骤 249）→
+            # milestones/g14/g14_interlock_check_evidence_schema.json。
+            validator = g14_interlock_check_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None
