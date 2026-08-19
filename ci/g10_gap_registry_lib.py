@@ -276,6 +276,105 @@ def validate_registry(doc: Any, scene_set: list[str] | None = None,
     return errs
 
 
+# ---------------------------------------------------------------------------
+# G14 M-a 加性面：登记表结构化对账（UE 厂商随机运行间方差带吸收，G13 §8.7 承接锚）
+# ---------------------------------------------------------------------------
+
+# provenance 三值闭集：classify(metric, field, old_value) 返回值语义——
+#   "ue"         = UE 侧测量值（厂商随机运行间方差面，方差带吸收）；
+#   "rurix"      = Rurix 侧测量值（固定 seed 位级确定性面，位级一致硬门）；
+#   "structural" = 结构常量（0.0/1.0 等参照面常量，位级一致硬门）。
+PROVENANCE_UE = "ue"
+PROVENANCE_RURIX = "rurix"
+PROVENANCE_STRUCTURAL = "structural"
+
+# 行级身份字段闭集（measured_delta 数值三面之外的逐字节面）。
+_ITEM_IDENTITY_KEYS = (
+    "gap_id", "scene_id", "camera_id", "domain", "kind",
+    "ue5_module_primary", "ue5_module_secondary", "suggested_priority",
+    "g11_anchor", "title", "description", "attachments",
+)
+
+
+def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float,
+                                  classify: Any) -> list[str]:
+    """在树冻结登记表 vs 当次重算登记表的结构化对账（返回错误列表，空 = 通过）。
+
+    G13 §8.7 承接锚字面兑现——三面：
+    ① 身份面逐字节：顶层 registry/generated_by/scene_set/scene_summary/
+       not_ready_scenes/schema_version + 行集序与行级身份字段 + measured_delta
+       的 metric 名与 evidence_digest（Rurix 侧 digest 位级稳定面）；
+    ② Rurix 侧与结构常量数值位级一致（classify 判 "rurix"/"structural" 的
+       a_value/b_value 位，== 比对）；
+    ③ UE 侧数值程序产方差带内（classify 判 "ue" 的位：|new−old| ≤
+       ue_band_rel × max(|old|, 1e-30)；ue_band_rel 由门内 UE 探针格双跑
+       方差底 ×headroom 程序产，本函数只消费不产阈——P-09 禁手写；band==0.0
+       时 UE 侧面退化为位级一致〔最严〕）。
+    双面 delta == b−a（f64 精确）关系核验维持（构造不变式）。
+    """
+    errs: list[str] = []
+    if not isinstance(old_doc, dict) or not isinstance(new_doc, dict):
+        return ["结构化对账输入非 object"]
+    for key in ("schema_version", "registry", "generated_by", "scene_set",
+                "scene_summary", "not_ready_scenes"):
+        if old_doc.get(key) != new_doc.get(key):
+            errs.append(f"顶层身份面漂移 {key}: {old_doc.get(key)!r} vs {new_doc.get(key)!r}")
+    old_items = old_doc.get("items") or []
+    new_items = new_doc.get("items") or []
+    if len(old_items) != len(new_items):
+        errs.append(f"行集行数漂移: {len(old_items)} vs {len(new_items)}")
+        return errs
+    if not _is_num(ue_band_rel) or ue_band_rel < 0.0:
+        errs.append(f"ue_band_rel 非法（非数值/负值）: {ue_band_rel!r}")
+        return errs
+    for idx, (oi, ni) in enumerate(zip(old_items, new_items)):
+        tag = f"items[{idx}]"
+        for key in _ITEM_IDENTITY_KEYS:
+            if oi.get(key) != ni.get(key):
+                errs.append(f"{tag}.{key} 身份面漂移: {oi.get(key)!r} vs {ni.get(key)!r}")
+        omd = oi.get("measured_delta") or []
+        nmd = ni.get("measured_delta") or []
+        if len(omd) != len(nmd):
+            errs.append(f"{tag}.measured_delta 行数漂移: {len(omd)} vs {len(nmd)}")
+            continue
+        for j, (od, nd) in enumerate(zip(omd, nmd)):
+            tj = f"{tag}.measured_delta[{j}]"
+            if od.get("metric") != nd.get("metric"):
+                errs.append(f"{tj}.metric 身份面漂移: {od.get('metric')!r} vs {nd.get('metric')!r}")
+                continue
+            if od.get("evidence_digest") != nd.get("evidence_digest"):
+                errs.append(f"{tj}.evidence_digest 位级漂移（Rurix 侧 digest 面）")
+            metric = str(od.get("metric"))
+            for field in ("a_value", "b_value"):
+                ov = od.get(field)
+                nv = nd.get(field)
+                if not (_is_num(ov) and _is_num(nv)):
+                    errs.append(f"{tj}.{field} 非数值: {ov!r} vs {nv!r}")
+                    continue
+                side = classify(metric, field, float(ov))
+                if side == PROVENANCE_UE:
+                    band = ue_band_rel * max(abs(float(ov)), 1e-30)
+                    if abs(float(nv) - float(ov)) > band:
+                        errs.append(
+                            f"{tj}.{field} UE 侧超方差带（{metric}）: "
+                            f"|{nv!r}−{ov!r}|={abs(float(nv) - float(ov))!r} > {band!r}"
+                            f"（band_rel={ue_band_rel!r} 程序产）"
+                        )
+                elif side in (PROVENANCE_RURIX, PROVENANCE_STRUCTURAL):
+                    if float(nv) != float(ov):
+                        errs.append(
+                            f"{tj}.{field} {side} 面位级漂移（{metric}）: {ov!r} vs {nv!r}"
+                        )
+                else:
+                    errs.append(f"{tj}.{field} provenance 闭集外: {side!r}")
+            # delta == b−a 构造不变式双面核验（f64 精确，沿 validate_registry 口径）
+            for lbl, dd in (("在树", od), ("当次", nd)):
+                if _is_num(dd.get("a_value")) and _is_num(dd.get("b_value")) and _is_num(dd.get("delta")):
+                    if float(dd["b_value"]) - float(dd["a_value"]) != float(dd["delta"]):
+                        errs.append(f"{tj}（{lbl}）delta ≠ b−a 构造不变式破坏")
+    return errs
+
+
 def selftest() -> int:
     """红绿两臂自检（不依赖树上文件）。"""
     good_delta = {"metric": "m", "a_value": 1.0, "b_value": 2.5,
@@ -331,10 +430,55 @@ def selftest() -> int:
         failures += 1
     else:
         print("  GREEN ok — 合形清单过检")
+
+    # ── G14 M-a 结构化对账面（2 GREEN + 5 RED）──
+    import copy as _copy
+
+    def _cls(metric: str, field: str, value: float) -> str:
+        return PROVENANCE_UE if field == "a_value" else PROVENANCE_RURIX
+
+    base = _copy.deepcopy(good)
+    red2_cases = []
+
+    def red2(name: str, mutate, band: float = 0.01) -> None:
+        nonlocal failures
+        doc = _copy.deepcopy(base)
+        mutate(doc)
+        errs2 = reconcile_registry_structured(base, doc, band, _cls)
+        if errs2:
+            print(f"  RED ok   — {name}（{errs2[0][:80]}）")
+        else:
+            print(f"  RED MISS — {name}：负样本过检")
+            failures += 1
+
+    red2("UE 侧超带", lambda d: d["items"][0]["measured_delta"][0].update(
+        a_value=1.0 * 1.05, delta=2.5 * 1.0 - 1.0 * 1.05), band=0.01)
+    red2("Rurix 侧 1 ulp 级漂移", lambda d: d["items"][0]["measured_delta"][0].update(
+        b_value=2.5 + 1e-12, delta=1.5 + 1e-12), band=0.5)
+    red2("身份面 gap_id 漂移", lambda d: d["items"][0].update(gap_id="f" * 16))
+    red2("metric 名漂移", lambda d: d["items"][0]["measured_delta"][0].update(metric="m2"))
+    red2("行数漂移", lambda d: d["items"].append(_copy.deepcopy(d["items"][0])))
+    green_small = _copy.deepcopy(base)
+    green_small["items"][0]["measured_delta"][0].update(
+        a_value=1.0 * 1.005, delta=2.5 - 1.0 * 1.005)
+    errs3 = reconcile_registry_structured(base, green_small, 0.01, _cls)
+    if errs3:
+        print(f"  GREEN MISS — UE 侧带内小方差被误拒: {errs3}")
+        failures += 1
+    else:
+        print("  GREEN ok — UE 侧带内小方差吸收")
+    green_zero_band = _copy.deepcopy(base)
+    errs4 = reconcile_registry_structured(base, green_zero_band, 0.0, _cls)
+    if errs4:
+        print(f"  GREEN MISS — 恒等面零带被误拒: {errs4}")
+        failures += 1
+    else:
+        print("  GREEN ok — band=0 恒等位级面过检")
+
     if failures:
         print(f"[g10_gap_registry_lib] SELFTEST FAIL ({failures})")
         return 1
-    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN）")
+    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN + 结构化对账 5 RED + 2 GREEN）")
     return 0
 
 

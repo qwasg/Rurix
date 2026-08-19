@@ -469,6 +469,8 @@ def run_gate() -> int:
     registry_rows: list[dict] = []
     cell_digests: dict[str, str] = {}
     red_results: dict[str, bool] = {}
+    ue_band_rel = 0.0
+    ue_run_samples: list[float] = []
     # 锁面纪律（D5 定案沿 G10.5b/G12.4）：本门不嵌套持锁——UE 臂经
     # g13_4_ue_render.py 子进程自持 gpu_device_lock 串行；Rurix GI 臂 =
     # g10_5_scene_render host CPU 车道（M139 同模）无需门侧持锁；cargo/LDR 段
@@ -526,6 +528,36 @@ def run_gate() -> int:
                     rr = run([sys.executable, str(UE_RENDER), "render", "lumen", scene, "--mode", mode], timeout=7200)
                     if rr.returncode != 0:
                         check(False, f"UE Lumen 臂渲染失败 {scene}/{mode}")
+            # ── G14 M-a 加性：UE 探针格（bistro-interior/lumen-on）运行间方差底标定 ──
+            # （G13 §8.7 承接锚「门内 UE 探针格双跑方差底 ×headroom 程序产」字面兑现：
+            # 样本 3 = 主臂一探针格 + 本段两复跑；带 = max 两两相对差 × 2.0，P-09 禁手写；
+            # 采样指标 = 探针格 lumen-on 末帧平均亮度〔GI 能量面 UE 侧载体〕；
+            # 样本恒等 → 带 0.0 退化位级）
+            probe_dir = FRAMES / "ue_lumen" / "bistro-interior" / "on"
+
+            def _probe_luma() -> float:
+                rec = load_json(probe_dir / "render_receipt.json")
+                frs = rec.get("frames") or []
+                if len(frs) != FRAME_COUNT:
+                    check(False, f"UE 探针格帧集异常（{len(frs)}≠{FRAME_COUNT}）")
+                last = exr.decode_exr_file(probe_dir / frs[-1]["name"], "ue5")
+                return frame_mean_luma(last)
+
+            ue_run_samples.append(_probe_luma())
+            for _probe_rep in range(2):
+                rr = run([sys.executable, str(UE_RENDER), "render", "lumen",
+                          "bistro-interior", "--mode", "on"], timeout=7200)
+                if rr.returncode != 0:
+                    check(False, "UE 探针格方差标定复跑失败")
+                ue_run_samples.append(_probe_luma())
+            for _i in range(len(ue_run_samples)):
+                for _j in range(_i + 1, len(ue_run_samples)):
+                    _a, _b = ue_run_samples[_i], ue_run_samples[_j]
+                    ue_band_rel = max(ue_band_rel, abs(_a - _b) / max(abs(_a), abs(_b), 1e-30))
+            ue_band_rel *= 2.0
+            note("UE 探针格运行间方差标定：samples="
+                 + "/".join(f"{s:.16f}" for s in ue_run_samples)
+                 + f" band_rel={ue_band_rel:.8f}（max 两两相对差 ×2.0 程序产）")
             # Rurix 臂 gi on/off × 2 场景（main seed）
             for scene in SCENES:
                 for gi_mode in ("on", "off"):
@@ -786,9 +818,26 @@ def run_gate() -> int:
         if checks["gap_registry_schema_valid"]:
             new_text = json.dumps(registry_doc, ensure_ascii=False, indent=1) + "\n"
             if REGISTRY_PATH.is_file():
-                old = REGISTRY_PATH.read_text(encoding="utf-8")
-                if old != new_text:
-                    check(False, "登记表漂移（在树非逐字节相等）")
+                # ── G14 M-a 加性：结构化对账替换在树逐字节冻结（G13 §8.7 承接锚）──
+                # 身份面逐字节 + Rurix 侧/结构常量位级 + UE 侧与跨端派生面程序产
+                # 方差带内；gaplib 正典单源（RXS-0391 IR2 禁第二份手写维持）。
+                old_doc = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+
+                def _classify_m_d(metric: str, field: str, _value: float) -> str:
+                    # 端侧归属声明（结构知识非阈值——构造面字面）：
+                    # gi_energy_rel@：a=UE 侧能量 / b=Rurix 侧能量；
+                    # indirect_ssim@/indirect_flip@：a=结构常量参照（1.0/0.0）/
+                    # b=跨端派生值（UE 方差影响面，按 UE 侧方差带吸收）。
+                    if metric.startswith("gi_energy_rel@"):
+                        return (gaplib.PROVENANCE_UE if field == "a_value"
+                                else gaplib.PROVENANCE_RURIX)
+                    return (gaplib.PROVENANCE_STRUCTURAL if field == "a_value"
+                            else gaplib.PROVENANCE_UE)
+
+                drift = gaplib.reconcile_registry_structured(
+                    old_doc, registry_doc, ue_band_rel, _classify_m_d)
+                check(not drift,
+                      f"登记表结构化对账漂移（身份面/位级面/UE 超带 {ue_band_rel:.8f}）: {drift[:3]}")
             else:
                 REGISTRY_PATH.write_text(new_text, encoding="utf-8")
                 note("Lumen 差距登记表首落盘")

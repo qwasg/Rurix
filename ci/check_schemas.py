@@ -784,6 +784,18 @@ def check_evidence_files() -> None:
     g14_interlock_check_schema = load(
         ROOT / "milestones/g14/g14_interlock_check_evidence_schema.json"
     )
+    g14_m_a_registry_variance_band_reconciliation_schema = load(
+        ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
+    )
+    g14_m_a_measured_entry_schema = load(
+        ROOT / "milestones/g14/g14_m_a_measured_entry_evidence_schema.json"
+    )
+    g14_m_b_ue_benchmark_arm_measurement_schema = load(
+        ROOT / "milestones/g14/g14_m_b_ue_benchmark_arm_measurement_evidence_schema.json"
+    )
+    g14_m_b_measured_entry_schema = load(
+        ROOT / "milestones/g14/g14_m_b_measured_entry_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1853,6 +1865,26 @@ def check_evidence_files() -> None:
     g14_interlock_check_validator = (
         jsonschema.Draft7Validator(g14_interlock_check_schema)
         if g14_interlock_check_schema is not None
+        else None
+    )
+    g14_m_a_registry_variance_band_reconciliation_validator = (
+        jsonschema.Draft7Validator(g14_m_a_registry_variance_band_reconciliation_schema)
+        if g14_m_a_registry_variance_band_reconciliation_schema is not None
+        else None
+    )
+    g14_m_a_measured_entry_validator = (
+        jsonschema.Draft7Validator(g14_m_a_measured_entry_schema)
+        if g14_m_a_measured_entry_schema is not None
+        else None
+    )
+    g14_m_b_ue_benchmark_arm_measurement_validator = (
+        jsonschema.Draft7Validator(g14_m_b_ue_benchmark_arm_measurement_schema)
+        if g14_m_b_ue_benchmark_arm_measurement_schema is not None
+        else None
+    )
+    g14_m_b_measured_entry_validator = (
+        jsonschema.Draft7Validator(g14_m_b_measured_entry_schema)
+        if g14_m_b_measured_entry_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3566,6 +3598,34 @@ def check_evidence_files() -> None:
             # G14.1 治理门实现互锁（步骤 249）→
             # milestones/g14/g14_interlock_check_evidence_schema.json。
             validator = g14_interlock_check_validator
+        elif (
+            f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
+            and g14_m_a_registry_variance_band_reconciliation_validator is not None
+        ):
+            # G14.2 P0 硬门 M-a(M172) 登记表 UE 方差带结构化对账修订（步骤 250）→
+            # milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json。
+            validator = g14_m_a_registry_variance_band_reconciliation_validator
+        elif (
+            f.name.startswith("g14_m_a_band_")
+            and g14_m_a_measured_entry_validator is not None
+        ):
+            # G14.2 M-a 方差带标定条目 evidence（measured entry 面）→
+            # milestones/g14/g14_m_a_measured_entry_evidence_schema.json。
+            validator = g14_m_a_measured_entry_validator
+        elif (
+            f.name.startswith("g14_m_b_ue_benchmark_arm_measurement_")
+            and g14_m_b_ue_benchmark_arm_measurement_validator is not None
+        ):
+            # G14.2 P0 硬门 M-b(M173) UE benchmark 臂正式帧率测量（步骤 251）→
+            # milestones/g14/g14_m_b_ue_benchmark_arm_measurement_evidence_schema.json。
+            validator = g14_m_b_ue_benchmark_arm_measurement_validator
+        elif (
+            f.name.startswith("g14_m_b_bench_")
+            and g14_m_b_measured_entry_validator is not None
+        ):
+            # G14.2 M-b 逐格帧时条目 evidence（measured entry 面）→
+            # milestones/g14/g14_m_b_measured_entry_evidence_schema.json。
+            validator = g14_m_b_measured_entry_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None

@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.2 M-a(M172) registry_variance_band_reconciliation evidence",
+  "description": "evidence/g14_m_a_registry_variance_band_reconciliation_<UTC>.json。G14.2 P0 硬门 g14.p0.m_a.registry_variance_band_reconciliation（G14_CONTRACT §4.2 M-a 行判据逐字；G14_ACCEPTANCE_MAP §1；G13_CONTRACT §8.7 结构性修复承接锚兑现面）：gaplib 结构化对账正典面在树 + selftest 绿 + M-c/M-d 双门脚本接线面在树（旧字节冻结面移除字面机核）+ 修订后 M-c/M-d 全门复跑双绿（子进程真跑，exit/status/新鲜度三机核）+ G13 锁定双登记表 8+2 行终态 0-byte（复跑前后逐字节一致 + gap_id 闭集 == G13.5b 终审锁定清单）+ UE 方差带程序产入 g14_budget 两条目 measured_local + RED 四臂独立有效（UE 大方差检出/带内吸收/Rurix 位级检出/身份面检出）+ UE 确定性控制面调研结论登记 + budget_eval 全 PASS。device_section_state=executed（M-c/M-d 复跑面子进程真跑 device 面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_m_a_registry_variance_band_reconciliation" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.p0.m_a.registry_variance_band_reconciliation" },
+    "matrix_row": { "type": "string", "const": "M172" },
+    "milestone": { "type": "string", "const": "M172" },
+    "assertion_id": { "type": "string", "const": "g14.p0.m_a.registry_variance_band_reconciliation" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G14.2" },
+    "numeric_step": { "type": "integer", "const": 250 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT §4.2 M-a/G-G14-4;G14_ACCEPTANCE_MAP §1;G13_CONTRACT §8.7 承接锚;RXS-0391 IR2（gaplib 正典单源）/P-09（程序产阈禁手写）"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gaplib_structured_reconcile_present",
+        "gate_amendments_present",
+        "g13_registries_frozen_ids_locked",
+        "m_c_rerun_pass",
+        "m_d_rerun_pass",
+        "registries_0byte_post_rerun",
+        "ue_variance_bands_measured_into_budget",
+        "red_arms_effective",
+        "ue_determinism_research_registered",
+        "budget_eval_all_pass"
+      ],
+      "properties": {
+        "gaplib_structured_reconcile_present": { "type": "boolean" },
+        "gate_amendments_present": { "type": "boolean" },
+        "g13_registries_frozen_ids_locked": { "type": "boolean" },
+        "m_c_rerun_pass": { "type": "boolean" },
+        "m_d_rerun_pass": { "type": "boolean" },
+        "registries_0byte_post_rerun": { "type": "boolean" },
+        "ue_variance_bands_measured_into_budget": { "type": "boolean" },
+        "red_arms_effective": { "type": "boolean" },
+        "ue_determinism_research_registered": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

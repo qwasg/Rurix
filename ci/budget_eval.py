@@ -210,6 +210,32 @@ def eval_g13_dual_seed(entry: dict) -> None:
         err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
 
 
+def eval_g14_run_variance_band(entry: dict) -> None:
+    """G14.2 M-a 标定条目判读面：evidence results.run_variance_band_rel（UE 探针格
+    三样本运行间方差底 max 两两相对差 ×2.0 程序产单值，threshold = measured × 2.0
+    守护带 方向 max，禁手写 P-09；g14_m_a measured entry schema 既定字段，供本通用
+    路判读）。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    res = doc.get("results", {})
+    if "run_variance_band_rel" not in res:
+        err(f"{eid}: evidence results 缺 run_variance_band_rel 字段")
+        return
+    value = float(res["run_variance_band_rel"])
+    threshold = entry.get("threshold")
+    direction = entry.get("direction", "max")
+    ok = value <= threshold if direction == "max" else value >= threshold
+    if ok:
+        PASSES.append(f"{eid}: PASS — {value} {entry.get('unit', '')} vs {direction} {threshold}")
+    else:
+        err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
+
+
 def eval_entry(entry: dict, strict: bool) -> None:
     eid = entry["id"]
     ev = entry.get("evidence")
@@ -236,6 +262,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if eid.startswith(("g13.ue_upscale.", "g13.ue_lumen.")):
         eval_g13_dual_seed(entry)
+        return
+    if eid.startswith("g14.ue_variance_band."):
+        eval_g14_run_variance_band(entry)
         return
     value = measured_value(entry)
     if value is None:

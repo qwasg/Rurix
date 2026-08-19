@@ -3038,6 +3038,28 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_interlock_check.py --gate g14.gov.implementation_interlock
 
+      # 步骤 250（G14.2 P0 硬门 M-a(M172) g14.p0.m_a.registry_variance_band_reconciliation；
+      # G14_CONTRACT §4.2 M-a/G-G14-4；落盘前实测 CI_step.next_free=250 顺位领取）。
+      # M-c/M-d 门登记表 UE 方差带结构化对账修订（G13 §8.7 承接锚兑现）：gaplib 正典
+      # 结构化对账面 + 双门脚本接线面机核 + 修订后 M-c/M-d 全门复跑双绿（子进程真跑
+      # 新鲜度机核）+ G13 锁定双登记表 8+2 行终态 0-byte（复跑前后逐字节一致）+
+      # UE 方差带程序产入 g14_budget + RED 四臂 + 调研结论登记。evidence 落盘
+      # evidence/g14_m_a_registry_variance_band_reconciliation_<UTC>.json。
+      - name: G14.2 M-a registry variance band reconciliation (G14_CONTRACT §4.2 M-a, g14.p0.m_a.registry_variance_band_reconciliation)
+        shell: powershell
+        run: py -3 ci/g14_registry_variance_band_reconciliation_smoke.py --gate g14.p0.m_a.registry_variance_band_reconciliation
+
+      # 步骤 251（G14.2 P0 硬门 M-b(M173) g14.p0.m_b.ue_benchmark_arm_measurement；
+      # G14_CONTRACT §4.2 M-b/G-G14-4；落盘前实测 CI_step.next_free=251 顺位领取）。
+      # UE benchmark 臂正式帧率测量（G10-N11 承接锚兑现）：臂 B -game -benchmark +
+      # CsvProfile 逐帧 CSV 双场景三档三轮进程级独立运行 + MRQ 开销剥离 measured
+      # 量化 + 环境画像七元组 + 50×3 trimmed mean 入 g14_budget 六条目 + DLSS
+      # engagement 机核 + 契约相机对齐面；RED 三臂独立有效。evidence 落盘
+      # evidence/g14_m_b_ue_benchmark_arm_measurement_<UTC>.json。
+      - name: G14.2 M-b UE benchmark arm measurement (G14_CONTRACT §4.2 M-b, g14.p0.m_b.ue_benchmark_arm_measurement)
+        shell: powershell
+        run: py -3 ci/g14_ue_benchmark_arm_measurement_smoke.py --gate g14.p0.m_b.ue_benchmark_arm_measurement
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

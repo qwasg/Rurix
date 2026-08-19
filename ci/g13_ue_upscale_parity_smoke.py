@@ -662,12 +662,42 @@ def run_gate() -> int:
         note("三方 digest 全等且 == 冻结注册值")
 
     # UE 臂逐（场景 × 档位）真跑（子进程自持锁）
+    ue_band_rel = 0.0
+    ue_run_samples: list[float] = []
     if checks["contract_digest_three_way_equal"]:
         for scene in ("cornell-box", "bistro-interior"):
             for tier in TIERS:
                 rr = run([sys.executable, str(UE_RENDER), "render", "upscale", scene, "--tier", str(tier)], timeout=7200)
                 if rr.returncode != 0:
                     check(False, f"UE 臂渲染失败 {scene}/tier{tier}")
+        # ── G14 M-a 加性：UE 探针格（bistro-interior/tier67）运行间方差底标定 ──
+        # （G13 §8.7 承接锚「门内 UE 探针格双跑方差底 ×headroom 程序产」字面兑现：
+        # 样本 3 = 主臂一探针格 + 本段两复跑；带 = max 两两相对差 × 2.0，P-09 禁手写；
+        # 厂商随机方差吸收面，真实内容变更 ≫带 检出面维持；样本恒等 → 带 0.0 退化位级）
+        probe_dir = FRAMES / "ue_upscale" / "bistro-interior" / f"tier{PROBE_TIER}"
+
+        def _probe_hf() -> float:
+            rec = load_json(probe_dir / "render_receipt.json")
+            frs = [probe_dir / fr["name"] for fr in (rec.get("frames") or [])]
+            if len(frs) != FRAME_COUNT:
+                check(False, f"UE 探针格帧集异常（{len(frs)}≠{FRAME_COUNT}）")
+            return noise_hf(frs, "ue5")
+
+        ue_run_samples.append(_probe_hf())
+        for _probe_rep in range(2):
+            rr = run([sys.executable, str(UE_RENDER), "render", "upscale",
+                      "bistro-interior", "--tier", str(PROBE_TIER)], timeout=7200)
+            if rr.returncode != 0:
+                check(False, "UE 探针格方差标定复跑失败")
+            ue_run_samples.append(_probe_hf())
+        for _i in range(len(ue_run_samples)):
+            for _j in range(_i + 1, len(ue_run_samples)):
+                _a, _b = ue_run_samples[_i], ue_run_samples[_j]
+                ue_band_rel = max(ue_band_rel, abs(_a - _b) / max(abs(_a), abs(_b), 1e-30))
+        ue_band_rel *= 2.0
+        note("UE 探针格运行间方差标定：samples="
+             + "/".join(f"{s:.16f}" for s in ue_run_samples)
+             + f" band_rel={ue_band_rel:.8f}（max 两两相对差 ×2.0 程序产）")
         # Rurix 臂逐（场景 × 档位 × 后端）真跑（门侧持锁段：harness 直接调用面）
         with gpu_device_lock(purpose=f"{TAG} Rurix 臂逐格渲染 + 双跑 + 标定腿"):
             for scene in ("cornell-box", "bistro-interior"):
@@ -920,9 +950,19 @@ def run_gate() -> int:
         if checks["gap_registry_schema_valid"]:
             new_text = json.dumps(registry_doc, ensure_ascii=False, indent=1) + "\n"
             if REGISTRY_PATH.is_file():
-                old = REGISTRY_PATH.read_text(encoding="utf-8")
-                if old != new_text:
-                    check(False, "登记表漂移（在树非逐字节相等）")
+                # ── G14 M-a 加性：结构化对账替换在树逐字节冻结（G13 §8.7 承接锚）──
+                # 身份面逐字节 + Rurix 侧（b_value）位级 + UE 侧（a_value）程序产
+                # 方差带内；gaplib 正典单源（RXS-0391 IR2 禁第二份手写维持）。
+                old_doc = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+
+                def _classify_m_c(metric: str, field: str, _value: float) -> str:
+                    # 端侧归属声明（结构知识非阈值——构造面字面：a=UE 侧 / b=Rurix 侧）
+                    return gaplib.PROVENANCE_UE if field == "a_value" else gaplib.PROVENANCE_RURIX
+
+                drift = gaplib.reconcile_registry_structured(
+                    old_doc, registry_doc, ue_band_rel, _classify_m_c)
+                check(not drift,
+                      f"登记表结构化对账漂移（身份面/Rurix 位级/UE 超带 {ue_band_rel:.8f}）: {drift[:3]}")
             else:
                 REGISTRY_PATH.write_text(new_text, encoding="utf-8")
                 note("差距登记表首落盘")

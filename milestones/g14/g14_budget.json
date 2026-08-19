@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "namespace": "g14",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G14.2 修订与测量波）",
+    "created_utc": "2026-08-19T15:10:36Z",
+    "base_commit": "97b5964629880c72010463e1546e69d409ec2c50"
+  },
+  "description": "G14 帧率对标与管线性能期预算。G14.2 M-a 首批两条目 = UE 运行间方差带（M-c/M-d 门探针格标定程序产）回归守护面。本预算只证明测量已建立与守护带已登记，不断言任何帧率对标达标——M-d 通过线 = G-G14-6 契约面。前瞻预算项（M-b UE benchmark 臂帧时 / M-c 生产管线帧时等）一律等后续实现波标定回填——无实测证据的阈值不写入（零 estimated 硬约束）；counter_assertions 留空。",
+  "source_docs": [
+    "milestones/g14/G14_CONTRACT.md",
+    "milestones/g14/G14_ACCEPTANCE_MAP.md"
+  ],
+  "entries": [
+    {
+      "id": "g14.ue_variance_band.upscale_probe_rel",
+      "description": "M-c 门 UE 探针格（bistro-interior/tier67 末帧 HF share）运行间方差带（门内三样本 max 两两相对差 ×2.0 程序产，禁手写 P-09；G13 §8.7 承接锚兑现面——厂商随机方差吸收带，真实内容变更 ≫带 检出面维持）；本条目 = 带的回归守护阈（阈 = 带实测 ×2.0），标定程序 ci/g13_ue_upscale_parity_smoke.py 探针格段可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01535976,
+      "evidence_file": "evidence/g14_m_a_band_upscale_20260819T151636Z.json",
+      "measured_value": 0.00767988
+    },
+    {
+      "id": "g14.ue_variance_band.lumen_probe_rel",
+      "description": "M-d 门 UE 探针格（bistro-interior/lumen-on 末帧平均亮度）运行间方差带（同口径 ×2.0 程序产）；回归守护阈 = 带实测 ×2.0；标定程序 ci/g13_ue_lumen_gi_parity_smoke.py 探针格段可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.00435148,
+      "evidence_file": "evidence/g14_m_a_band_lumen_20260819T151636Z.json",
+      "measured_value": 0.00217574
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.cornell-box_t50",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）cornell-box tier50 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 3.0925000000000002,
+      "evidence_file": "evidence/g14_m_b_bench_cornell-box_t50_20260819T165451Z.json",
+      "measured_value": 2.061666666666667
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.cornell-box_t67",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）cornell-box tier67 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 3.4452000000000003,
+      "evidence_file": "evidence/g14_m_b_bench_cornell-box_t67_20260819T165451Z.json",
+      "measured_value": 2.2968
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.cornell-box_t100",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）cornell-box tier100 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 3.101425,
+      "evidence_file": "evidence/g14_m_b_bench_cornell-box_t100_20260819T165451Z.json",
+      "measured_value": 2.0676166666666664
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.bistro-interior_t50",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）bistro-interior tier50 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 4.7092,
+      "evidence_file": "evidence/g14_m_b_bench_bistro-interior_t50_20260819T165451Z.json",
+      "measured_value": 3.139466666666667
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.bistro-interior_t67",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）bistro-interior tier67 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 4.785575,
+      "evidence_file": "evidence/g14_m_b_bench_bistro-interior_t67_20260819T165451Z.json",
+      "measured_value": 3.190383333333333
+    },
+    {
+      "id": "g14.ue_benchmark.frame_ms.bistro-interior_t100",
+      "description": "UE benchmark 臂（-game -benchmark + CsvProfile 逐帧 CSV）bistro-interior tier100 稳态帧时基线——三轮进程级独立运行 50×3 trimmed mean 跨轮中位数（M141/M165 冻结协议 + G10-N11 三轮口径兑现；阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；本条目为回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 6.39565,
+      "evidence_file": "evidence/g14_m_b_bench_bistro-interior_t100_20260819T165451Z.json",
+      "measured_value": 4.263766666666666
+    }
+  ]
+}

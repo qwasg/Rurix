@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g14uevariance.measured_entry.v1",
+  "entry_id": "g14.ue_variance_band.lumen_probe_rel",
+  "results": {
+    "run_variance_band_rel": 0.00131301
+  },
+  "protocol": "M-d 门内 UE 探针格三样本运行间方差底同口径（standalone 验证腿）",
+  "sample_manifest": {
+    "count": 3,
+    "digest": "sha256:4d6627b6b3ba1ab5d2b1595e1cbb524f87de780ed82989a721e1a4026c67ff18"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-mrq-arm",
+    "base_commit": "97b5964629880c72010463e1546e69d409ec2c50"
+  },
+  "timestamp": "20260819T135504Z"
+}

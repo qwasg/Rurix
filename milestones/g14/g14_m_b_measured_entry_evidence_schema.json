@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.2 M-b(M173) UE benchmark 臂 measured entry evidence",
+  "description": "evidence/g14_m_b_bench_<scene>_t<tier>_<UTC>.json。G14.2 M-b benchmark 臂逐格 measured 面（测量程序 ci/g14_ue_benchmark_arm_measurement_smoke.py 经 milestones/g14/harness/g14_2_ue_bench.py 产：-game -benchmark + CsvProfile 逐帧 CSV，三轮进程级独立运行，50×3 trimmed mean 跨轮中位数 M141/M165 冻结统计口径；results.trimmed_mean 供 budget_eval 通用路判读）。阈 = 实测 ×1.5 回归守护带——不构成帧率对标通过线（M-d 正式对标 = 三轮全量面，G-G14-6）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g14uebench.measured_entry.v1"
+    },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^g14\\.ue_benchmark\\."
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": {
+          "type": "number"
+        }
+      }
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest"],
+      "properties": {
+        "count": { "type": "integer" },
+        "digest": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "backend", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "backend": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "cells": {
+      "type": "object"
+    },
+    "stats": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}
