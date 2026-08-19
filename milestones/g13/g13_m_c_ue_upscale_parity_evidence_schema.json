@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G13.4 M-c(M169) ue_upscale_parity evidence",
+  "description": "evidence/g13_m_c_ue_upscale_parity_<UTC>.json。G13.4 P0 硬门 g13.p0.m_c.ue_upscale_parity(G13_CONTRACT §4.2 M-c 行判据逐字;G13_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0405):UE5 超分双端对拍——契约 digest 三方独立实现全等机核(host python/Rurix Rust --contract-digest/UE 内嵌 CPython,== 门内冻结注册值,不等仍出报告即 RED)+ 同场景同档位双端出图(UE 5.8.1 DLSS 插件 MRQ 臂 MoviePipelineDLSSSetting 逐档注入,ue_build_id == M128 机核;Rurix M-a/M-b 超分面经 UpscaleBackend 冻结接口三后端逐格 32 帧 Halton 静态收敛序列;单端缺帧聚合不得 PASS)+ measured 对拍三面(端内参照 SSIM/FLIP deficit 逐格 + probe 档噪声谱双端差 + 帧率 measured 基线 zero_pass_line 不设通过线,容差标定腿双 seed 方差底 p100×2.0 程序产禁手写 P-09)+ UE DLSS·超分模块归属差距登记表落盘(超容差显式登记不静默混入+行集对账)+ 残余口径差显式登记不拟合 + 不设绝对通过线(归 G15)。device 腿必需;RURIX_REQUIRE_REAL=1 下 SKIP 不充绿。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g13_m_c_ue_upscale_parity" },
+    "symbolic_gate_key": { "type": "string", "const": "g13.p0.m_c.ue_upscale_parity" },
+    "matrix_row": { "type": "string", "const": "M169" },
+    "milestone": { "type": "string", "const": "M169" },
+    "assertion_id": { "type": "string", "const": "g13.p0.m_c.ue_upscale_parity" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G13.4" },
+    "numeric_step": { "type": "integer", "const": 240 },
+    "source_ref": {
+      "type": "string",
+      "const": "G13_CONTRACT §4.2 M-c/G-G13-6;G13_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0405;RXS-0384 L5/RXS-0386/RXS-0387/RXS-0388/RXS-0391/RXS-0392/RXS-0403 口径继承"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_base_0byte",
+        "conformance_corpus_anchored",
+        "contract_digest_three_way_equal",
+        "ue_build_id_matches_m128",
+        "budget_anchors_present",
+        "calibration_dual_seed_bitexact",
+        "budget_eval_all_pass",
+        "ue_arm_frames_all_present",
+        "ue_dlss_engagement_logged",
+        "rurix_arm_frames_all_present",
+        "rurix_double_run_bitexact",
+        "frame_digests_recomputed_match",
+        "gap_registry_schema_valid",
+        "gap_registry_reconciled",
+        "fps_baseline_zero_pass_line",
+        "residual_caliber_note_registered",
+        "device_red_digest_mismatch_detected",
+        "device_red_silent_gap_detected",
+        "device_red_missing_frame_detected",
+        "device_red_fps_masquerade_detected"
+      ],
+      "properties": {
+        "temporal_base_0byte": { "type": "boolean" },
+        "conformance_corpus_anchored": { "type": "boolean" },
+        "contract_digest_three_way_equal": { "type": "boolean" },
+        "ue_build_id_matches_m128": { "type": "boolean" },
+        "budget_anchors_present": { "type": "boolean" },
+        "calibration_dual_seed_bitexact": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "ue_arm_frames_all_present": { "type": "boolean" },
+        "ue_dlss_engagement_logged": { "type": "boolean" },
+        "rurix_arm_frames_all_present": { "type": "boolean" },
+        "rurix_double_run_bitexact": { "type": "boolean" },
+        "frame_digests_recomputed_match": { "type": "boolean" },
+        "gap_registry_schema_valid": { "type": "boolean" },
+        "gap_registry_reconciled": { "type": "boolean" },
+        "fps_baseline_zero_pass_line": { "type": "boolean" },
+        "residual_caliber_note_registered": { "type": "boolean" },
+        "device_red_digest_mismatch_detected": { "type": "boolean" },
+        "device_red_silent_gap_detected": { "type": "boolean" },
+        "device_red_missing_frame_detected": { "type": "boolean" },
+        "device_red_fps_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_digest",
+        "ue_build_id",
+        "cells",
+        "noise_spectrum",
+        "fps_baseline",
+        "gap_registry_file",
+        "residual_caliber_note"
+      ],
+      "properties": {
+        "contract_digest": { "type": "string" },
+        "ue_build_id": { "type": "string" },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["scene", "tier", "backend", "ssim_ue", "ssim_rurix", "flip_ue", "flip_rurix", "over_tolerance", "registered"],
+            "properties": {
+              "scene": { "type": "string" },
+              "tier": { "type": "integer" },
+              "backend": { "type": "string" },
+              "ssim_ue": { "type": "number" },
+              "ssim_rurix": { "type": "number" },
+              "flip_ue": { "type": "number" },
+              "flip_rurix": { "type": "number" },
+              "ssim_delta": { "type": "number" },
+              "flip_delta": { "type": "number" },
+              "tolerance": { "type": ["object", "null"] },
+              "over_tolerance": { "type": "boolean" },
+              "registered": { "type": "boolean" }
+            }
+          }
+        },
+        "noise_spectrum": { "type": "array" },
+        "fps_baseline": {
+          "type": "object",
+          "required": ["zero_pass_line", "cells"],
+          "properties": {
+            "zero_pass_line": { "type": "boolean", "const": true },
+            "cells": { "type": "array", "minItems": 1 }
+          }
+        },
+        "gap_registry_file": { "type": "string" },
+        "residual_caliber_note": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

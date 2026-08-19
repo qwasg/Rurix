@@ -793,6 +793,21 @@ def check_evidence_files() -> None:
     g13_wave3_exit_schema = load(
         ROOT / "milestones/g13/g13_wave3_exit_evidence_schema.json"
     )
+    g13_m_c_ue_upscale_parity_schema = load(
+        ROOT / "milestones/g13/g13_m_c_ue_upscale_parity_evidence_schema.json"
+    )
+    g13_m_c_measured_entry_schema = load(
+        ROOT / "milestones/g13/g13_m_c_measured_entry_evidence_schema.json"
+    )
+    g13_m_d_ue_lumen_gi_parity_schema = load(
+        ROOT / "milestones/g13/g13_m_d_ue_lumen_gi_parity_evidence_schema.json"
+    )
+    g13_m_d_measured_entry_schema = load(
+        ROOT / "milestones/g13/g13_m_d_measured_entry_evidence_schema.json"
+    )
+    g13_wave4_exit_schema = load(
+        ROOT / "milestones/g13/g13_wave4_exit_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -1832,6 +1847,31 @@ def check_evidence_files() -> None:
     g13_wave3_exit_validator = (
         jsonschema.Draft7Validator(g13_wave3_exit_schema)
         if g13_wave3_exit_schema is not None
+        else None
+    )
+    g13_m_c_ue_upscale_parity_validator = (
+        jsonschema.Draft7Validator(g13_m_c_ue_upscale_parity_schema)
+        if g13_m_c_ue_upscale_parity_schema is not None
+        else None
+    )
+    g13_m_c_measured_entry_validator = (
+        jsonschema.Draft7Validator(g13_m_c_measured_entry_schema)
+        if g13_m_c_measured_entry_schema is not None
+        else None
+    )
+    g13_m_d_ue_lumen_gi_parity_validator = (
+        jsonschema.Draft7Validator(g13_m_d_ue_lumen_gi_parity_schema)
+        if g13_m_d_ue_lumen_gi_parity_schema is not None
+        else None
+    )
+    g13_m_d_measured_entry_validator = (
+        jsonschema.Draft7Validator(g13_m_d_measured_entry_schema)
+        if g13_m_d_measured_entry_schema is not None
+        else None
+    )
+    g13_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g13_wave4_exit_schema)
+        if g13_wave4_exit_schema is not None
         else None
     )
     g11_wave3_exit_validator = (
@@ -3504,6 +3544,40 @@ def check_evidence_files() -> None:
             # G13.3 波聚合门（步骤 239）→ required_gates 1 行 + 六 facts +
             # aggregate_read_only const true。
             validator = g13_wave3_exit_validator
+        elif (
+            f.name.startswith("g13_m_c_ue_upscale_parity_")
+            and g13_m_c_ue_upscale_parity_validator is not None
+        ):
+            # G13.4 P0 硬门 M-c UE 超分双端对拍（步骤 240）→
+            # milestones/g13/g13_m_c_ue_upscale_parity_evidence_schema.json。
+            validator = g13_m_c_ue_upscale_parity_validator
+        elif (
+            f.name.startswith("g13_m_c_calibration_")
+            and g13_m_c_measured_entry_validator is not None
+        ):
+            # G13.4 M-c 标定条目 evidence（步骤 240 标定腿逐条目 measured 面;
+            # results.dual_seed_p100 供 budget_eval 通用路判读）。
+            validator = g13_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g13_m_d_ue_lumen_gi_parity_")
+            and g13_m_d_ue_lumen_gi_parity_validator is not None
+        ):
+            # G13.4 P0 硬门 M-d UE Lumen GI 对照（步骤 241）→
+            # milestones/g13/g13_m_d_ue_lumen_gi_parity_evidence_schema.json。
+            validator = g13_m_d_ue_lumen_gi_parity_validator
+        elif (
+            f.name.startswith("g13_m_d_calibration_")
+            and g13_m_d_measured_entry_validator is not None
+        ):
+            # G13.4 M-d 标定条目 evidence（步骤 241 标定腿逐条目 measured 面）。
+            validator = g13_m_d_measured_entry_validator
+        elif (
+            f.name.startswith("g13_wave4_exit_")
+            and g13_wave4_exit_validator is not None
+        ):
+            # G13.4 波聚合门（步骤 242）→ required_gates 2 行 + 六 facts +
+            # aggregate_read_only const true。
+            validator = g13_wave4_exit_validator
         elif (
             f.name.startswith("g12_m158_mis_full_surface_")
             and g12_m158_mis_full_surface_validator is not None

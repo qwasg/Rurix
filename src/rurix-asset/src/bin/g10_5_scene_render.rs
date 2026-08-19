@@ -61,6 +61,10 @@
 //! - `--world-cache-fixture`（M154 锚②面）：M96 cornell fixture 对拍——
 //!   本路径多反弹 host 渲染 vs M96 host oracle（trace_host 匹配深度 full
 //!   档 spp=64）rel_dev measured 产冻结带（P-09，M99 同程序纪律）。
+//! - `--gi-off`（G13.4 M-d 加性旗标，RXS-0406 L1 indirect_derivation 面）：
+//!   GI 贡献零面——合成式自然退化为 direct + emissive（gi_on_minus_gi_off
+//!   双端同构派生的 GI 关臂语义）；跳过 GI/世界缓存构建；与 --gi-multibounce
+//!   互斥 fail-closed；默认关 = 既有路径逐字节 parity 0-byte。
 //!
 //! ## 用法
 //!
@@ -1860,7 +1864,9 @@ fn build_world_cache_level(
 /// G11.4 旗标面（默认关 = 0-byte parity）：`lights` = R3 灯种子集（契约光照
 /// JSON 单通道消费——点光源直接光 + emissive 表面主射线直出，RXS-0394）；
 /// `multibounce` = R4 多反弹 + 世界辐射缓存世界级承接（双级 GI：近场屏幕探针
-/// + 远场世界缓存兜底 + 像素级失效回落 → 天光末级兜底显式登记，RXS-0395/0396）。
+/// + 远场世界缓存兜底 + 像素级失效回落 → 天光末级兜底显式登记，RXS-0395/0396）；
+/// `gi_off` = G13.4 M-d 加性旗标（GI 贡献零面，gi_on_minus_gi_off 派生 GI 关臂，
+/// RXS-0406 L1；默认关 = 既有路径逐字节 parity）。
 #[allow(clippy::too_many_arguments)]
 fn render_frame(
     scene: &GiScene,
@@ -1872,6 +1878,7 @@ fn render_frame(
     lights: Option<&LightSeedSet>,
     multibounce: bool,
     sky_ibl: bool,
+    gi_off: bool,
 ) -> RenderOut {
     let (w, h) = (c.res_w, c.res_h);
     // 契约：sun.direction = 传播方向；GiScene.sun_dir = 指向光源（= −direction）。
@@ -2174,14 +2181,18 @@ fn render_frame(
     }
 
     // GI 面：默认 = 屏幕探针单反弹（G10.5 口径 0-byte）；--gi-multibounce =
-    // 双级 GI（近场屏幕探针 + 远场世界缓存，WC_BOUNCE_ITERS 级迭代在线构建）。
+    // 双级 GI（近场屏幕探针 + 远场世界缓存，WC_BOUNCE_ITERS 级迭代在线构建）；
+    // --gi-off（G13.4 M-d 加性旗标）= GI 贡献零面（gi_on_minus_gi_off 双端同构
+    // 派生的 GI 关臂语义；跳过 GI/世界缓存构建；默认关 = 既有逐字节 parity）。
     let gi_params = GiParams {
         seed: c.random_seed,
         temporal: false,
         ..GiParams::default()
     };
     let mut caches: Vec<WorldCache> = Vec::new();
-    let gi = if multibounce {
+    let gi = if gi_off {
+        None
+    } else if multibounce {
         let cam_pos = [
             c.cam_position[0] as f32,
             c.cam_position[1] as f32,
@@ -2243,11 +2254,11 @@ fn render_frame(
             cache: caches.last().expect("multibounce 面至少一级缓存"),
             sky_ibl,
         };
-        render_gi(&depth, &normals, camera, &wc_tracer, None, None, &gi_params)
+        Some(render_gi(&depth, &normals, camera, &wc_tracer, None, None, &gi_params))
     } else {
         // GI 单反弹（host 参考管线；seed = 契约 random_seed；temporal off 单帧口径）。
         let tracer = RayTracedRadiance::new(scene.clone());
-        render_gi(&depth, &normals, camera, &tracer, None, None, &gi_params)
+        Some(render_gi(&depth, &normals, camera, &tracer, None, None, &gi_params))
     };
     if let (Some(st), Some(wc)) = (g114.as_mut(), caches.last()) {
         for lv in 0..WC_LEVELS as usize {
@@ -2271,7 +2282,7 @@ fn render_frame(
             if depth.get(x, y, 0) >= 1.0 {
                 continue; // 主射线未命中 = 黑（UE 侧无天空网格同口径）
             }
-            let mut gi_e = gi.irradiance.pixel3(x, y);
+            let mut gi_e = gi.as_ref().map(|g| g.irradiance.pixel3(x, y)).unwrap_or([0.0; 3]);
             // G11.4 像素级失效回落（RXS-0395 L1/RXS-0396 L4）：屏幕探针辐照度
             // 全零（查询失效面）→ 世界缓存直接查询 → 天光/常量环境末级兜底
             //（π×sky_color 与探针全 miss 估计子同口径）——逐级计数显式登记，
@@ -2958,6 +2969,12 @@ fn main() {
         let gi_multibounce = args.iter().any(|a| a == "--gi-multibounce");
         // G11.5b 旗标面（默认关 = 逐字节 parity）：天光直接漫反射 IBL（RXS-0397）
         let sky_ibl = args.iter().any(|a| a == "--sky-ibl");
+        // G13.4 M-d 旗标面（默认关 = 逐字节 parity）：GI 关臂（gi_on_minus_gi_off
+        // 双端同构派生面；与 --gi-multibounce 互斥 fail-closed）
+        let gi_off = args.iter().any(|a| a == "--gi-off");
+        if gi_off && gi_multibounce {
+            fail("--gi-off 与 --gi-multibounce 互斥");
+        }
         let mut light_seed_path: Option<String> = None;
         let mut i = 0;
         while i < args.len() {
@@ -3045,6 +3062,7 @@ fn main() {
             light_seed.as_ref(),
             gi_multibounce,
             sky_ibl,
+            gi_off,
         );
         let mut px = frame.pixels;
         if exposure_scale != 1.0 {
@@ -3242,7 +3260,7 @@ fn main() {
         let mut warmup_ms = Vec::with_capacity(warmup);
         for _ in 0..warmup {
             let t = std::time::Instant::now();
-            let _ = render_frame(&scene, &camera, &c, &load, false, false, None, false, false);
+            let _ = render_frame(&scene, &camera, &c, &load, false, false, None, false, false, false);
             warmup_ms.push(t.elapsed().as_secs_f64() * 1000.0);
         }
         let mut frame_ms = Vec::with_capacity(frames);
@@ -3251,7 +3269,7 @@ fn main() {
         let mut covered = 0usize;
         for k in 0..frames {
             let t = std::time::Instant::now();
-            let fr = render_frame(&scene, &camera, &c, &load, false, false, None, false, false);
+            let fr = render_frame(&scene, &camera, &c, &load, false, false, None, false, false, false);
             frame_ms.push(t.elapsed().as_secs_f64() * 1000.0);
             let d = frame_content_digest(c.res_w, c.res_h, 3, &fr.pixels);
             if k == 0 {

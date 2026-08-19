@@ -755,12 +755,194 @@
   出报告 / 逐段对拍超容差静默 / 差距项静默混入 / 单端缺帧聚合 PASS
   / 残余口径差未登记消费 delta——各臂注入必检出，漏检即 FAIL。
 
+### RXS-0405 UE 超分双端对拍口径：对拍契约独立冻结与 digest 门序 / 双端同场景同档位出图 / SSIM·FLIP·噪声谱 measured 对拍与帧率 zero_pass_line 基线 / UE DLSS·超分模块归属差距登记（M169，G13.4）
+
+**Legality**
+
+- L1 **对拍契约独立冻结**：G13.4 UE 超分对拍契约 =
+  `milestones/g13/g13_ue_upscale_parity_contract.json`（schema
+  `rurix.g13.ue_upscale_parity_contract.v1`），字段闭集：`schema` const /
+  `contract_id` / `version`（u32）/ `tier_sequence`（u32 数组闭集
+  `[50, 67, 100]`，渲染比例百分数，严格递增）/ `frame_count`（u32，
+  Halton 静态收敛序列帧数 == 32）/ `seed`（u64）/ `calibration_seed`
+  （u64，≠ `seed`）/ `noise_probe_tier`（u32，∈ `tier_sequence`）/
+  `scenes`（恰二行，场景闭集 {`cornell-box`, `bistro-interior`}——M133
+  清单 digest 注册面转引只读不回写，RXS-0383 口径）/ `rurix_backends`
+  （字符串数组闭集 `[tsr_device, dlss_sr, fsr_3_1_5]`——M-a/M-b 三
+  后端逐一出帧面）/ `ue_dlss_quality_map`（tier → UE DLSS 质量枚举
+  映射闭集：`50 → Performance` / `67 → Quality` / `100 → DLAA`）/
+  `rendering_policy`（`tonemap` const `"off"` / `denoiser` const `"off"`
+  / `ue_temporal_upscaler` const `"dlss_plugin"` / `jitter` const
+  `"halton_static"`）/ `provenance`（**不入 digest preimage**）；逐场景
+  行字段闭集：`scene_id` / `m133_manifest_digest` / `gltf_product_digest`
+  / `camera`（`position` f64×3 / `orientation_quat` f64×4〔unit-norm
+  2^-40 谓词常量，RXS-0384 L2 口径继承〕/ `fov_y_deg` / `near` / `far` /
+  `resolution{w,h}` u32——输出分辨率，内部分辨率 = 输出 × tier%）/
+  `exposure`（`mode` enum 仅 `"manual"` / `ev100` f64）/ `lighting`
+  与 `material_policy` 字段面同 RXS-0403 L1 逐场景行闭集转引。schema
+  外字段注入即拒（fail-closed）；null 禁入。**契约参数独立冻结：不动
+  G10.5/G11.5b/G12.4 锁定值**（G10/G11/G12 closed 复测对照面 0-byte，
+  RXS-0393 L4 锁定值不消费不承接）。
+- L2 **canonical 字节布局与 digest 门序**：契约 digest =
+  SHA-256(canonical preimage)——字节布局 = 版本前缀 ASCII `G13USP-1`
+  + NUL（`47 31 33 55 53 50 2D 31 00`）+ RXS-0384 L3 同构规则（类型
+  标签/键序/宽度 schema 驱动/NaN·±Inf 禁入全口径继承）；digest 域 =
+  L1 字段闭集（`provenance` 块不入）。**三方独立实现 digest 全等机
+  核**：① host python（门脚本内嵌解析器）② Rurix Rust harness
+  （`--contract-digest` 面）③ UE 内嵌 CPython（harness 解析器）——三
+  值全等且 == 门内冻结注册值（实现 PR 落盘时实测回填）；**契约
+  digest 不等仍出报告即 RED**（M130/M139/M155/M163 门序硬约束继承，
+  RXS-0384 L5 / RXS-0403 L2 同族）。
+- L3 **双端出图**：同场景同档位双端出图——UE 臂 = UE 5.8.1 DLSS 插
+  件 MRQ 臂（F:\UE_5.8；**UE build digest == M128 登记 ue_build_id
+  机核**〔ci/g10_ue5_lib.py `EXPECTED_UE_BUILD_ID` 注册面消费〕；
+  `MoviePipelineDLSSSetting` 逐档注入 MRQ PrimaryConfig，
+  `DLSSQuality` ∈ `ue_dlss_quality_map` 值域闭集；EXR〔NONE 压缩 +
+  tone curve 关闭捕获点，RXS-0386 L1〕)；Rurix 臂 = M-a vendor 超分面
+  （DLSS SR 经 Streamline Vulkan interop 臂 + FSR 3.1.5）+ M-b 自研
+  TSR device 面（.rx kernel SPV），经 UpscaleBackend 冻结接口面逐后
+  端出帧（**trait 签名面与 temporal 底座 0-byte**，G13 裁决 6 字面）；
+  逐（场景 × 档位 × 后端）内部分辨率 = 输出分辨率 × tier%，Halton
+  jitter 32 帧静态收敛序列，固定 seed 位级一致确定性协议继承
+  RXS-0357 L2 / RXS-0400。**单端缺帧聚合不得 PASS**：任一端任一场景
+  任一档位（Rurix 臂任一后端）缺帧/非真 EXR/非新鲜出帧，聚合门必须
+  FAIL（单端缺帧聚合 PASS 即 RED）。
+- L4 **measured 对拍三面**（容差一律标定程序 measured 产，禁手写
+  P-09，入 `g13_budget.json` measured_local；**不设绝对通过线**——
+  超容差项显式登记即 RED 评审面，**超容差静默即 RED**）：
+  - **SSIM/FLIP 逐格对拍**：逐（场景 × 档位 × 后端）收敛末帧 LDR 派
+    生域 SSIM/FLIP 双端 measured（RXS-0387/RXS-0388 口径继承，LDR
+    派生链 RXS-0386 L2）+ 双端度量差 measured。
+  - **噪声谱对拍**：`noise_probe_tier` 档逐端残余帧（逐帧 − 32 帧均
+    值收敛参照）亮度 2D FFT 高频能量份额（径向 |f|>Nyquist/4 带，
+    RXS-0403 L4 噪声谱口径继承）逐端 measured + 双端谱差 measured。
+  - **帧率 measured 基线登记 zero_pass_line**：逐（场景 × 档位）双端
+    单帧渲染耗时 measured 登记（UE 臂 = MRQ 出帧耗时面；Rurix 臂 =
+    50×3 trimmed mean 统计口径 M141/M165 字面继承），**不设通过
+    线**——正式帧率对标锚定 G14（G10-N11/N16 承接锚字面 0-byte）；
+    **以基线冒充帧率对标即 RED**。
+- L5 **UE DLSS·超分模块归属差距登记**：差距登记表落盘
+  （`milestones/g13/g13_ue_upscale_gap_registry.json`）——差距逐项登
+  记 UE5 模块归属（`Engine/Source/Runtime/Renderer/Private/` 超分相
+  关模块行集 + DLSS/Streamline 插件模块行集，**RXS-0391 归属枚举闭
+  集口径继承**，插件模块归属只追加演进不改写既有枚举；Other 终值须
+  attribution_note 非空）；差距项显式登记，不冒充全闭环（**差距项静
+  默混入即 RED**）；登记表行集与对拍报告**对账**——L4 全部超容差
+  项必有对应登记表行，每行 measured_delta 可溯源（delta == b−a f64
+  精确 + evidence_digest 回溯，RXS-0391 口径）。
+- L6 **口径对齐先行 + 不设绝对通过线**：曝光/位深口径沿 G11.2/G12.4
+  对齐口径（RXS-0385/RXS-0392 继承）；残余口径差逐环节显式登记（载
+  体 = 门 evidence `residual_caliber_note` + 差距登记表 caliber_diff
+  行）；**未对齐口径消费对拍 delta 即 RED**；**不设绝对「已达 UE5
+  DLSS/超分画质」通过线**——绝对判定归 G15 商用收口期（G13_CONTRACT
+  §1/§5 字面，RXS-0403 L6 同族）。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 G13.4 P0 门 `g13.p0.m_c.ue_upscale_parity`
+  （`ci/g13_ue_upscale_parity_smoke.py`，G13_CONTRACT §4.2 M-c 行 +
+  G13_ACCEPTANCE_MAP §1 判据逐字）；测试锚定 =
+  `conformance/visual_comparison/accept/ue_upscale_parity_contract_minimal.rx`
+  + `conformance/visual_comparison/reject/upscale_parity_digest_mismatch_report.rx`
+  + `conformance/visual_comparison/reject/upscale_fps_baseline_masquerade.rx`。
+- IR2 门 evidence 对拍节机器形态 = `parity = { contract_digest,
+  ue_build_id, cells, noise_spectrum_delta, fps_baseline,
+  gap_registry_file, residual_caliber_note }`——`cells` 逐（场景 × 档
+  位 × 后端）数组非空（每格 {scene, tier, backend, ssim_ue,
+  ssim_rurix, flip_ue, flip_rurix, delta, tolerance, over_tolerance,
+  registered}）；`fps_baseline` 逐（场景 × 档位）双端 measured 登记
+  且 `zero_pass_line` const true；`residual_caliber_note` 无残余须为
+  null 字面；`gap_registry_file` 行集对账机核 = L5。
+- IR3 RED 臂独立有效（契约 §4.2 M-c 判据字面）：契约 digest 不等仍
+  出报告 / 超容差静默 / 差距项静默混入 / 单端缺帧聚合 PASS / 帧率
+  基线冒充帧率对标——各臂注入必检出，漏检即 FAIL。
+
+### RXS-0406 UE Lumen GI 对照口径：对照契约独立冻结与 digest 门序 / 双端同场景 GI 出图 / GI 能量·间接光 measured 对拍 / UE Lumen 模块归属差距登记与 G11 GI 面 0-byte（M170，G13.4）
+
+**Legality**
+
+- L1 **对照契约独立冻结**：G13.4 UE Lumen GI 对照契约 =
+  `milestones/g13/g13_ue_lumen_gi_parity_contract.json`（schema
+  `rurix.g13.ue_lumen_gi_parity_contract.v1`），字段闭集：`schema`
+  const / `contract_id` / `version`（u32）/ `seed`（u64）/
+  `calibration_seed`（u64，≠ `seed`）/ `scenes`（恰二行，场景闭集
+  {`cornell-box`, `bistro-interior`}——M133 清单 digest 转引只读，
+  RXS-0383 口径；逐场景行字段闭集同 RXS-0405 L1 逐场景行转引）/
+  `rendering_policy`（`ue_gi_method` const `"lumen"` /
+  `ue_reflection_method` const `"lumen"` / `tonemap` const `"off"` /
+  `denoiser` const `"off"` / `indirect_derivation` const
+  `"gi_on_minus_gi_off"`——间接光贡献项 = 同场景同参数 GI 开帧 − GI 关
+  帧逐像素差双端同构派生面）/ `rurix_gi_surface`（三锚闭集
+  {`screen_probe_near_field`, `world_cache_far_field`,
+  `multibounce_chain`}——M98/M99/M154 已验收面锚定只消费，G9.4/
+  G11.4 evidence digest 注册面转引）/ `provenance`（**不入 digest
+  preimage**）。schema 外字段注入即拒（fail-closed）；null 禁入。
+  **契约参数独立冻结：不动 G9.4/G10.5/G11.4/G11.5b 锁定值**
+  （RXS-0393 L4 口径继承）。
+- L2 **canonical 字节布局与 digest 门序**：契约 digest =
+  SHA-256(canonical preimage)——字节布局 = 版本前缀 ASCII `G13LGP-1`
+  + NUL（`47 31 33 4C 47 50 2D 31 00`）+ RXS-0384 L3 同构规则全口径
+  继承；**三方独立实现 digest 全等机核**（host python / Rurix Rust
+  harness `--contract-digest` / UE 内嵌 CPython）三值全等且 == 门内
+  冻结注册值（实现 PR 落盘时实测回填）；**契约 digest 不等仍出报告
+  即 RED**（RXS-0403 L2 / RXS-0405 L2 同族）。
+- L3 **双端出图**：同场景双端 GI 出图——UE 臂 = UE 5.8.1 deferred
+  管线 + Lumen GI MRQ 臂（`r.DynamicGlobalIlluminationMethod=1` 等
+  Lumen 设置面经 MRQ ConsoleVariableSetting 注入；**UE build digest
+  == M128 登记 ue_build_id 机核**；EXR〔NONE 压缩 + tone curve 关闭，
+  RXS-0386 L1〕)；Rurix 臂 = M98 屏幕探针近场 + M99 世界辐射缓存远
+  场 + M154 多反弹链 GPU GI 面（G9.4/G11.4 已验收面**只消费不改写**
+  ——既有判据 0-byte 机核，GI 实现面目录级 diff 对账）。**单端缺帧
+  聚合不得 PASS**：任一端任一场景缺帧/非真 EXR/非新鲜出帧，聚合门
+  必须 FAIL（单端缺帧聚合 PASS 即 RED）。
+- L4 **measured 对拍两面**（容差一律标定程序 measured 产，禁手写
+  P-09，入 `g13_budget.json` measured_local；**不设绝对通过线**——
+  超容差项显式登记即 RED 评审面，**超容差静默即 RED**）：
+  - **GI 能量对拍**：逐场景帧均值能量双端相对差 measured（口径链对
+    齐后消费——曝光派生尺度链 RXS-0392 C1 / RXS-0403 L4 能量守恒口
+    径继承）。
+  - **间接光对拍**：逐场景间接光辐照面（GI 贡献项）LDR 派生域
+    SSIM/FLIP 双端 measured（RXS-0387/RXS-0388 口径继承）+ 双端度
+    量差 measured。
+- L5 **UE Lumen 模块归属差距登记**：差距登记表落盘
+  （`milestones/g13/g13_ue_lumen_gap_registry.json`）——差距逐项登
+  记 UE5 模块归属（`Engine/Source/Runtime/Renderer/Private/Lumen/`
+  模块行集，**RXS-0391 归属枚举闭集口径继承**，只追加演进）；差距
+  项显式登记不冒充全闭环（**Lumen 差距项静默混入即 RED**）；登记表
+  行集与对拍报告对账（L4 全部超容差项必有对应行 + measured_delta
+  可溯源，RXS-0391 口径）。
+- L6 **G11 GI 面 0-byte + 不设绝对通过线**：G11 GI 面既有判据
+  0-byte（**GI 既有门降级即 RED**）；残余口径差逐环节显式登记（载
+  体 = 门 evidence `residual_caliber_note` + 差距登记表 caliber_diff
+  行；未对齐口径消费 delta 即 RED）；**不设绝对「已达 UE5 Lumen
+  画质」通过线**——绝对判定归 G15 商用收口期（G13_CONTRACT §1/§5
+  字面）。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 G13.4 P0 门 `g13.p0.m_d.ue_lumen_gi_parity`
+  （`ci/g13_ue_lumen_gi_parity_smoke.py`，G13_CONTRACT §4.2 M-d 行 +
+  G13_ACCEPTANCE_MAP §1 判据逐字）；测试锚定 =
+  `conformance/visual_comparison/accept/ue_lumen_gi_parity_contract_minimal.rx`
+  + `conformance/visual_comparison/reject/lumen_parity_digest_mismatch_report.rx`
+  + `conformance/visual_comparison/reject/lumen_gap_silent.rx`。
+- IR2 门 evidence 对照节机器形态 = `parity = { contract_digest,
+  ue_build_id, cells, gap_registry_file, residual_caliber_note }`——
+  `cells` 逐场景数组非空（每格 {scene, energy_ue, energy_rurix,
+  energy_delta, indirect_ssim, indirect_flip, tolerance,
+  over_tolerance, registered}）；`residual_caliber_note` 无残余须为
+  null 字面；`gap_registry_file` 行集对账机核 = L5。
+- IR3 RED 臂独立有效（契约 §4.2 M-d 判据字面）：契约 digest 不等仍
+  出报告 / 超容差静默 / Lumen 差距项静默混入 / 单端缺帧聚合 PASS /
+  GI 既有门降级——各臂注入必检出，漏检即 FAIL。
+
 ---
 
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.7 | 2026-08-19 | G13.4 UE 对拍波 spec-first（硬规则 7 条款先行；G13 已解锁 implementation_status=unlocked，G13_CONTRACT §8.2 G-G13-3 互锁 READY）：**RXS-0405 / RXS-0406 双号 materialize 为条款头**——RXS-0405 UE 超分双端对拍口径（对拍契约独立冻结〔schema `rurix.g13.ue_upscale_parity_contract.v1` 字段闭集 + tier_sequence=[50,67,100] ↔ ue_dlss_quality_map {50:Performance, 67:Quality, 100:DLAA} 名义档映射 + rurix_backends=[tsr_device, dlss_sr, fsr_3_1_5] M-a/M-b 三后端面 + 场景闭集 M133 清单 digest 转引 + 不动 G10.5/G11.5b/G12.4 锁定值〕+ canonical 字节布局与 digest 门序〔版本前缀 `G13USP-1\0` + RXS-0384 L3 同构 + 三方独立实现 digest 全等机核 + 不等仍出报告即 RED〕+ 双端同场景同档位出图〔UE 5.8.1 DLSS 插件 MRQ 臂 MoviePipelineDLSSSetting 逐档注入 + ue_build_id == M128 机核 + Rurix 超分面经 UpscaleBackend 冻结接口逐后端出帧 + 单端缺帧聚合不得 PASS〕+ measured 对拍三面〔SSIM/FLIP 逐格 LDR 派生域 + 噪声谱 + 帧率 measured 基线 zero_pass_line 不设通过线锚定 G14〕+ UE DLSS·超分模块归属差距登记 + 不设绝对通过线归 G15）；RXS-0406 UE Lumen GI 对照口径（对照契约独立冻结〔schema `rurix.g13.ue_lumen_gi_parity_contract.v1` 字段闭集 + rurix_gi_surface 三锚闭集 M98/M99/M154 已验收面只消费 + indirect_derivation=gi_on_minus_gi_off 双端同构派生 + 不动 G9.4/G10.5/G11.4/G11.5b 锁定值〕+ digest 门序〔`G13LGP-1\0` 前缀同构〕+ 双端同场景 GI 出图〔UE 5.8.1 deferred + Lumen GI MRQ 臂 + Rurix GPU GI 面只消费不改写 + 单端缺帧聚合不得 PASS〕+ GI 能量·间接光 measured 对拍 + UE Lumen 模块归属差距登记 + G11 GI 面既有判据 0-byte + 不设绝对通过线归 G15）。判档 = **加性 spec 条款**（G13_CONTRACT §7 裁决 4 Full RFC 触发面——UpscaleBackend trait 签名面/temporal 底座历史接口面/RXS-0357 参照器面/M137 scalars.flip 演进位——逐条未命中：双条款零冻结面消费，语义事实源 = G13_CONTRACT §4.2 M-c/M-d 行判据逐字 + RXS-0384/0386/0387/0388/0391/0392/0403 口径继承转引，条款只登记不加语义）。条款号自落盘前实测 `RXS.next_free=405` 顺位领取（0405/0406 双号连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；零 RFC 消费（RFC 命名空间 0-byte，实测 next_free=30 维持）；conformance 锚定语料六件同 PR 落（accept ue_upscale_parity_contract_minimal.rx + ue_lumen_gi_parity_contract_minimal.rx；reject upscale_parity_digest_mismatch_report.rx + upscale_fps_baseline_masquerade.rx + lumen_parity_digest_mismatch_report.rx + lumen_gap_silent.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G13.3 spec 波先例）；symbolic key `g13.p0.m_c.ue_upscale_parity` / `g13.p0.m_d.ue_lumen_gi_parity`（G13.1 冻结字面，G13_ACCEPTANCE_MAP §1）0-byte 不动；trace_matrix 重生成（386→388 全锚定）；stable 快照因条款计数 386→388 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行），不触红线/禁区。`Assisted-by: Kimi-K3（G13.4 UE 对拍波）` | **加性条款**（G13.4 波冻结判据 spec 面登记；零 RFC 触发面） |
 | v1.1 | 2026-08-15 | **errata（RXS-0384 L2 四元数共轭公式勘误；零既有字面改写，本行 = 唯一生效勘误）**：L2 冻结公式行「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射矩阵 M **数学上不成立**——正交共轭的一般律为 R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**，det(M) = −1 时转角反号：**R_ue = R(M·axis, −θ)**，四元数向量部应为 **−M·v**、标量部不变，即 q = (w, x, y, z) ⇒ **q_ue = (w, z, −x, −y)**（harness 缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向）。**实证**（G10.5a 波，2026-08-15）：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组）/ 1.39e0（pytest 5000 组首例），修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 UE 映射 = 绕 +Z 转 −90°，缺陷式给 +90°）镜像成立；`tests/test_g10_param_contract.py` RED 先行 commit 后修复转 GREEN。cornell-box 相机（绕 +Y 180°）为该缺陷不变量特例（R(a,180°) ≡ R(a,−180°)），bistro-interior 一般旋转取景全暴露。**生效面**：harness `g10_param_contract.py quat_contract_to_ue` 按修订式修复（G10.5a 实现批）；L2 既有字面 0-byte 不回改，RFC-0026 §4.6 同文理勘误 = RFC 章 E1 errata 段（只追加）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026 errata） |
 | v1.2 | 2026-08-15 | G10.5a 双端出图波 spec-first（硬规则 7 条款先行）：**RXS-0390 单号 materialize 为条款头**——应用层探针（冻结标志物集〔cornell-box 后墙五点毫米数值面 / bistro-interior 相机系合成五点米，逐值字面冻结〕+ 双端各自管线投影像素一致性断言〔`pixel_delta ≤ 1e-3 px` 合法性谓词常量不走 budget〕+ M130 `--phase g10.5` 与 M139 evidence `application_probes[]` 机核面 + UE 端内嵌 CPython 载体纪律），依据 RFC-0026（Agent Approved 2026-08-15）§4.6 应用层探针末节（「标志物世界坐标集进 spec 条款」兑现点）+ G10_ACCEPTANCE_MAP §1 M130 行 + §3.3（判据逐字）；条款号自落盘前实测 `RXS.next_free=390` 顺位领取（0390 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件（application_probe_minimal.rx）同 PR 落；trace_matrix 371→372 全锚定 + stable 快照 371→372 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026） |
 | v1.3 | 2026-08-15 | G10.5b 首轮 A/B 对比波 B 段 spec-first（硬规则 7 条款先行）：**RXS-0391 单号 materialize 为条款头**——差距清单 schema（顶层/差距项字段闭集〔13 键 + attribution_note 条件可选键〕+ gap_id 派生冻结字节规则〔sha256 五节 0x00 分隔 utf8 拼接前 16 hex〕+ kind 两值分列〔quality_gap / caliber_diff〕+ UE5 模块归属枚举闭集〔目录级 23 + 文件级 57 + Other 终值，公共前缀 `Engine/Source/Runtime/Renderer/Private/`，Other 须 attribution_note 非空〕+ measured_delta 可溯源〔≥1 项、delta == b−a f64 精确、evidence_digest 须回溯 M137/M139 evidence 登记 artifact digest，纯叙述无测量即 RED〕+ 建议 P 级三值 + g11_anchor 非空 + 场景全集零空行对账〔scene_summary 全等 + no_gap_explicit 显式 + not_ready_scenes 显式在列〕+ domain 两值互证），依据 RFC-0026（Agent Approved 2026-08-15）§4.5 + §3.3 + G10_ACCEPTANCE_MAP §1 M140 行（判据逐字）+ G10_CONTRACT G-G10-7；条款号自落盘前实测 `RXS.next_free=391` 顺位领取（0391 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件 + reject 两件（gap_registry_minimal.rx / gap_registry_missing_attribution.rx / gap_registry_unmeasured_narrative.rx）同 PR 落；trace_matrix 372→373 全锚定 + stable 快照 372→373 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5b 波）` | **Full RFC**（RFC-0026） |

@@ -1,0 +1,21 @@
+//@ spec: RXS-0406
+// G13.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0406 L1~L6：UE
+// Lumen GI 对照口径——对照契约独立冻结〔schema
+// rurix.g13.ue_lumen_gi_parity_contract.v1 字段闭集 + 场景闭集 {cornell-box,
+// bistro-interior} M133 清单 digest 转引只读 + rurix_gi_surface 三锚闭集
+// {screen_probe_near_field, world_cache_far_field, multibounce_chain} M98/M99/
+// M154 已验收面只消费 + indirect_derivation=gi_on_minus_gi_off 双端同构派生 +
+// 不动 G9.4/G10.5/G11.4/G11.5b 锁定值〕+ canonical 字节布局与 digest 门序
+// 〔版本前缀 G13LGP-1\0 + RXS-0384 L3 同构规则 + 三方独立实现 digest 全等机核
+// + 契约 digest 不等仍出报告即 RED〕+ 双端同场景 GI 出图〔UE 5.8.1 deferred +
+// Lumen GI MRQ 臂 ue_build_id == M128 登记机核 + Rurix GPU GI 面只消费不改写
+// + 单端缺帧聚合不得 PASS〕+ measured 对拍两面〔GI 能量对拍 + 间接光对拍，
+// 容差标定程序产禁手写 P-09〕+ UE Lumen 模块归属差距登记〔RXS-0391 归属枚举
+// 口径继承 + 行集对账〕+ G11 GI 面既有判据 0-byte + 不设绝对通过线〔归 G15〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：契约 JSON 经三方解析 digest
+// 全等且 == 门内冻结注册值；双端逐场景 GI 开/关双臂帧齐备（真 EXR + 新鲜度机
+// 核）；GI 能量差/间接光度量差 measured 入 evidence；超容差项在差距登记表有对
+// 应行；G11 GI 面既有判据 0-byte 机核通过。
+// 转正路径（G13.4 波接线）：ci/g13_ue_lumen_gi_parity_smoke.py 门（symbolic key
+// g13.p0.m_d.ue_lumen_gi_parity，G13.1 冻结字面不动）。
+fn main() {}

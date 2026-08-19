@@ -1,0 +1,22 @@
+//@ spec: RXS-0405
+// G13.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0405 L1~L6：UE 超分
+// 双端对拍口径——对拍契约独立冻结〔schema rurix.g13.ue_upscale_parity_contract.v1
+// 字段闭集 + tier_sequence=[50,67,100] ↔ ue_dlss_quality_map {50:Performance,
+// 67:Quality, 100:DLAA} + 场景闭集 {cornell-box, bistro-interior} M133 清单 digest
+// 转引只读 + rurix_backends=[tsr_device, dlss_sr, fsr_3_1_5] + 不动
+// G10.5/G11.5b/G12.4 锁定值〕+ canonical 字节布局与 digest 门序〔版本前缀
+// G13USP-1\0 + RXS-0384 L3 同构规则 + host python / Rurix Rust / UE 内嵌
+// CPython 三方独立实现 digest 全等机核 + 契约 digest 不等仍出报告即 RED〕+
+// 双端同场景同档位出图〔UE 5.8.1 DLSS 插件 MRQ 臂 MoviePipelineDLSSSetting 逐档
+// 注入 + ue_build_id == M128 登记机核 + Rurix M-a/M-b 超分面经 UpscaleBackend
+// 冻结接口逐后端出帧 + 单端缺帧聚合不得 PASS〕+ measured 对拍三面〔SSIM/FLIP
+// 逐格 LDR 派生域 + 噪声谱 + 帧率 measured 基线 zero_pass_line 不设通过线，容差
+// 标定程序产禁手写 P-09〕+ UE DLSS·超分模块归属差距登记〔RXS-0391 归属枚举口径
+// 继承 + 行集对账〕+ 不设绝对通过线〔归 G15〕）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：契约 JSON 经三方解析 digest
+// 全等且 == 门内冻结注册值；双端逐（场景 × 档位 × 后端）帧齐备（真 EXR + 新鲜度
+// 机核）；逐格度量差/谱差 measured 入 evidence；超容差项在差距登记表有对应行；
+// 帧率基线 zero_pass_line=true 字面登记。
+// 转正路径（G13.4 波接线）：ci/g13_ue_upscale_parity_smoke.py 门（symbolic key
+// g13.p0.m_c.ue_upscale_parity，G13.1 冻结字面不动）。
+fn main() {}

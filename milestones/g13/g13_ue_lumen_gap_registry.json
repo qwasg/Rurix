@@ -1,0 +1,98 @@
+{
+ "schema_version": 1,
+ "registry": "g13_ue_lumen_gap_registry",
+ "generated_by": "ci/g13_ue_lumen_gi_parity_smoke.py --gate g13.p0.m_d.ue_lumen_gi_parity",
+ "scene_set": [
+  "cornell-box",
+  "bistro-interior"
+ ],
+ "items": [
+  {
+   "gap_id": "2f6331a41404dfcd",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_lumen_gi_parity",
+   "domain": "scene-linear-hdr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Lumen",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "gi_energy_rel@cornell-box",
+     "a_value": 0.0,
+     "b_value": 0.535625027781919,
+     "delta": 0.535625027781919,
+     "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+    },
+    {
+     "metric": "indirect_ssim@cornell-box",
+     "a_value": 1.0,
+     "b_value": 0.033384483786469556,
+     "delta": -0.9666155162135305,
+     "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+    },
+    {
+     "metric": "indirect_flip@cornell-box",
+     "a_value": 0.0,
+     "b_value": 0.6127988976249465,
+     "delta": 0.6127988976249465,
+     "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0406（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "lumen_gi_parity@cornell-box",
+   "description": "UE Lumen GI 对照超容差：cornell-box GI 能量/间接光派生 LDR 双端差（×2^(−ev100) 派生尺度链对齐后消费；容差 = g13_budget 标定三条目双 seed 方差底 p100×2.0 程序产）；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "b7527c980cdd1d46",
+   "scene_id": "bistro-interior",
+   "camera_id": "g13_ue_lumen_gi_parity",
+   "domain": "scene-linear-hdr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/Lumen",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "gi_energy_rel@bistro-interior",
+     "a_value": 0.0370764189718855,
+     "b_value": 3.0016998075316033,
+     "delta": 2.9646233885597177,
+     "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+    },
+    {
+     "metric": "indirect_ssim@bistro-interior",
+     "a_value": 1.0,
+     "b_value": 0.00651277010829783,
+     "delta": -0.9934872298917021,
+     "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+    },
+    {
+     "metric": "indirect_flip@bistro-interior",
+     "a_value": 0.0,
+     "b_value": 0.9671369354654047,
+     "delta": 0.9671369354654047,
+     "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0406（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "lumen_gi_parity@bistro-interior",
+   "description": "UE Lumen GI 对照超容差：bistro-interior GI 能量/间接光派生 LDR 双端差（×2^(−ev100) 派生尺度链对齐后消费；容差 = g13_budget 标定三条目双 seed 方差底 p100×2.0 程序产）；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  }
+ ],
+ "scene_summary": [
+  {
+   "scene_id": "cornell-box",
+   "gap_count": 1,
+   "no_gap_explicit": false
+  },
+  {
+   "scene_id": "bistro-interior",
+   "gap_count": 1,
+   "no_gap_explicit": false
+  }
+ ],
+ "not_ready_scenes": []
+}

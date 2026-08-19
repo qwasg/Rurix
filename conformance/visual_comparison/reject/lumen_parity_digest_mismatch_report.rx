@@ -1,0 +1,12 @@
+//@ spec: RXS-0406
+// G13.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0406 L2 门序面）。
+// 预期 RED：契约 digest 不等仍出报告——三方独立实现（host python / Rurix
+// Rust harness / UE 内嵌 CPython）任一 digest 不等或 ≠ 门内冻结注册值时，
+// 仍产出对照报告/evidence = 门序硬约束违例（RXS-0403 L2 / RXS-0405 L2 同族），
+// 判 RED。
+// 负例数据面：篡改契约任一参数（场景行/GI 政策面/rurix_gi_surface 三锚/seed）
+// 后 digest 漂移，门必须拒绝出报告并 FAIL；RED 臂注入（篡改契约仍强行出报告）
+// 必检出。
+// 转正路径（G13.4 波接线）：ci/g13_ue_lumen_gi_parity_smoke.py 门（symbolic key
+// g13.p0.m_d.ue_lumen_gi_parity，G13.1 冻结字面不动）。
+fn main() {}

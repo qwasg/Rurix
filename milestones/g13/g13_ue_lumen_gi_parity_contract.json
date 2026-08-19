@@ -1,0 +1,130 @@
+{
+  "schema": "rurix.g13.ue_lumen_gi_parity_contract.v1",
+  "contract_id": "g13_ue_lumen_gi_parity",
+  "version": 1,
+  "seed": 7312026601,
+  "calibration_seed": 7312026602,
+  "rendering_policy": {
+    "ue_gi_method": "lumen",
+    "ue_reflection_method": "lumen",
+    "tonemap": "off",
+    "denoiser": "off",
+    "indirect_derivation": "gi_on_minus_gi_off"
+  },
+  "rurix_gi_surface": ["screen_probe_near_field", "world_cache_far_field", "multibounce_chain"],
+  "scenes": [
+    {
+      "scene_id": "cornell-box",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+      "camera": {
+        "position": [278.0, 273.0, -800.0],
+        "orientation_quat": [-0.0, 0.0, 1.0, -0.0],
+        "fov_y_deg": 39.31,
+        "near": 10.0,
+        "far": 3000.0,
+        "resolution": { "w": 512, "h": 512 }
+      },
+      "exposure": { "mode": "manual", "ev100": 0.0 },
+      "lighting": {
+        "quad_lights": [
+          {
+            "p00": [213.0, 548.7, 227.0],
+            "e1": [130.0, 0.0, 0.0],
+            "e2": [0.0, 0.0, 105.0],
+            "le_linear_rgb": [10.0, 9.5, 8.5]
+          }
+        ],
+        "point_lights": [],
+        "emissive_materials": [],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": { "texture_mean_albedo": false, "white_tex_to_white": true }
+    },
+    {
+      "scene_id": "bistro-interior",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:4dae7c0d22cda6922a4541de3b41a0d63d22846c381ee7f06954a264a23f2565",
+      "camera": {
+        "position": [0.05216281, 1.44432855, -1.42984402],
+        "orientation_quat": [0.746508205404612, -0.013931941501891327, -0.665114516358613, -0.01241291257610259],
+        "fov_y_deg": 43.197681669907375,
+        "near": 0.1,
+        "far": 200.0,
+        "resolution": { "w": 1920, "h": 1080 }
+      },
+      "exposure": { "mode": "manual", "ev100": -4.0 },
+      "lighting": {
+        "quad_lights": [],
+        "point_lights": [
+          {
+            "id": "pointLight1",
+            "position": [4.99128818511963, 3.03062701225281, -0.488619118928909],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.0182327231840096
+          },
+          {
+            "id": "pointLight2",
+            "position": [7.98878049850464, 3.07426261901855, 1.01506114006042],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.018232727297410593
+          },
+          {
+            "id": "pointLight3",
+            "position": [4.2630033493042, 3.09528660774231, -4.91985368728638],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.01823272829210542
+          },
+          {
+            "id": "pointLight4",
+            "position": [6.10688591003418, 2.93938684463501, -8.46832180023193],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.018232712634885177
+          }
+        ],
+        "emissive_materials": [
+          {
+            "material_name": "MASTER_Interior_01_Paris_Lantern",
+            "material_index": 38,
+            "le_linear_rgb": [0.09250373992864466, 0.09254488353712752, 0.09250366850103448],
+            "area_m2": 1.0216790940526566
+          },
+          {
+            "material_name": "Paris_Ceiling_Lamp",
+            "material_index": 39,
+            "le_linear_rgb": [0.022303046620219962, 0.022294407522146363, 0.022303050183191876],
+            "area_m2": 3.2709029255651823
+          },
+          {
+            "material_name": "Paris_CeilingFan",
+            "material_index": 40,
+            "le_linear_rgb": [0.02230393520866327, 0.01585528684005825, 0.0066437204704917815],
+            "area_m2": 2.8216118446875447
+          },
+          {
+            "material_name": "Paris_Wall_Light_Interior",
+            "material_index": 59,
+            "le_linear_rgb": [0.22171508590621858, 0.221896437368776, 0.22171508590621858],
+            "area_m2": 2.6090147497318235
+          }
+        ],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": { "texture_mean_albedo": true, "white_tex_to_white": false }
+    }
+  ],
+  "provenance": {
+    "frozen_by": "ci/g13_ue_lumen_gi_parity_smoke.py（g13.p0.m_d.ue_lumen_gi_parity，G13.4 波；spec RXS-0406 L1 字段闭集）",
+    "frozen_at": "2026-08-19",
+    "scene_source": "M133 清单双场景闭集转引只读（g13_ue_upscale_parity_contract.json provenance 同面）；gltf_product_digest 与 G12.4 契约同源转引",
+    "camera_source": "逐场景相机位姿值沿用 G10.5 取景校准登记值（本契约独立冻结，G9.4/G10.5/G11.4/G11.5b 锁定契约面 0-byte 不消费不承接）；分辨率 = G10.5 出图画幅（cornell-box 512×512 / bistro-interior 1920×1080）",
+    "gi_surface_note": "Rurix GI 臂 = M98 屏幕探针近场 + M99 世界辐射缓存远场 + M154 多反弹链（G9.4/G11.4 已验收面只消费不改写，G11 GI 面既有判据 0-byte 机核）；UE 臂 = 5.8.1 deferred 管线 + Lumen GI（r.DynamicGlobalIlluminationMethod=1 / r.ReflectionMethod=1 MRQ ConsoleVariableSetting 注入面）",
+    "indirect_note": "indirect_derivation=gi_on_minus_gi_off：间接光贡献项 = 同场景同参数 GI 开帧 − GI 关帧逐像素差（UE 臂 r.DynamicGlobalIlluminationMethod 1 vs 0 双 config；Rurix 臂 GI 面开/关双跑）双端同构派生面，LDR 派生域度量 RXS-0387/RXS-0388 口径继承",
+    "lighting_note": "灯面同 G12.4 契约逐字转引；sun/sky = 0.0 显式登记；deferred 臂灯面物理单计数纪律偏差 G12.4 lighting_note 同型登记不冒充物理精确",
+    "seed_note": "seed=7312026601 / calibration_seed=7312026602（≠seed；与 M-c 契约同 seed 面——同波双契约共享收敛序列种子面，标定腿双 seed 方差底实测面纪律同 G12.4）",
+    "exposure_note": "ev100：cornell-box=0.0 / bistro-interior=−4.0（G12.4 同值转引；×2^(−ev100) 派生尺度链对齐消费，RXS-0392 口径继承）",
+    "assisted_by": "Kimi-K3（G13.4 UE 对拍波）"
+  }
+}

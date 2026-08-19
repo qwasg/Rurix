@@ -1,0 +1,222 @@
+{
+ "schema_version": 1,
+ "registry": "g13_ue_upscale_gap_registry",
+ "generated_by": "ci/g13_ue_upscale_parity_smoke.py --gate g13.p0.m_c.ue_upscale_parity",
+ "scene_set": [
+  "cornell-box",
+  "bistro-interior"
+ ],
+ "items": [
+  {
+   "gap_id": "fda2892b148edc2f",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+     "a_value": 1.0,
+     "b_value": 0.9838595313284846,
+     "delta": -0.016140468671515418,
+     "evidence_digest": "sha256:e734276f2ac0600ff370a9574efef402025f9f68e46f43451b9a25eae38200d9"
+    },
+    {
+     "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+     "a_value": 0.0,
+     "b_value": 0.012392328138129766,
+     "delta": 0.012392328138129766,
+     "evidence_digest": "sha256:e734276f2ac0600ff370a9574efef402025f9f68e46f43451b9a25eae38200d9"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "upscale_deficit_delta@cornell-box/t50/dlss_sr",
+   "description": "端内参照 deficit 对拍超容差：cornell-box tier50 dlss_sr（参照 = 本端 tier100 收敛帧；容差 = g13_budget 标定三条目双 seed 方差底 p100×2.0 程序产）；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "20f125548f145335",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+     "a_value": 1.0,
+     "b_value": 0.9933499560087599,
+     "delta": -0.00665004399124014,
+     "evidence_digest": "sha256:6d0d4fc6bc8f343db6671cd6b70a7f4440a2012f29c1e41956769438edb24a14"
+    },
+    {
+     "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+     "a_value": 0.0,
+     "b_value": 0.009216660401404246,
+     "delta": 0.009216660401404246,
+     "evidence_digest": "sha256:6d0d4fc6bc8f343db6671cd6b70a7f4440a2012f29c1e41956769438edb24a14"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "upscale_deficit_delta@cornell-box/t67/dlss_sr",
+   "description": "端内参照 deficit 对拍超容差：cornell-box tier67 dlss_sr（参照 = 本端 tier100 收敛帧；容差 = g13_budget 标定三条目双 seed 方差底 p100×2.0 程序产）；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "58fd4c7e2ef98efe",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+     "a_value": 0.0,
+     "b_value": 0.4309534598101071,
+     "delta": 0.4309534598101071,
+     "evidence_digest": "sha256:1e74b271be1d6133a8ebd1184f8eff01539603f9794a9407d9f808d683daaf3a"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@cornell-box/t67/tsr_device",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：cornell-box tsr_device；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "2631811751d63e0a",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+     "a_value": 0.0,
+     "b_value": 0.6127225210587912,
+     "delta": 0.6127225210587912,
+     "evidence_digest": "sha256:b1fbc694ced2757ca9c0d80f6f007236a36fd631a6917d7664b2231b250ec926"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@cornell-box/t67/dlss_sr",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：cornell-box dlss_sr；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "d36e8cb107d579d9",
+   "scene_id": "cornell-box",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+     "a_value": 0.0,
+     "b_value": 0.4610425867087926,
+     "delta": 0.4610425867087926,
+     "evidence_digest": "sha256:0b386d9c64fcf18713cd20e47023656942966aa986e3d4091e1add4bc2635c53"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：cornell-box fsr_3_1_5；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "5b65327b903ac6bc",
+   "scene_id": "bistro-interior",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+     "a_value": 0.854056011938486,
+     "b_value": 0.3622313729720505,
+     "delta": -0.4918246389664355,
+     "evidence_digest": "sha256:8923e4cd677d42f1a6b3db8078240555741346b07f1596ca5623446cccf8c92b"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@bistro-interior/t67/tsr_device",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：bistro-interior tsr_device；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "bdf94acf4691fd74",
+   "scene_id": "bistro-interior",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+     "a_value": 0.854056011938486,
+     "b_value": 0.5704238454826939,
+     "delta": -0.28363216645579215,
+     "evidence_digest": "sha256:f9c09ee6f60da70b3cc6e34f9d7a9273b6a6fdcdfd9dce37a51e8cfee9d91659"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：bistro-interior dlss_sr；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "20e8950296211aae",
+   "scene_id": "bistro-interior",
+   "camera_id": "g13_ue_upscale_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+     "a_value": 0.854056011938486,
+     "b_value": 0.43900226953049754,
+     "delta": -0.4150537424079885,
+     "evidence_digest": "sha256:d789b0ff6c8a2b445aca58d23ac30fdde7fddca5972fe41e331cb7b616adf506"
+    }
+   ],
+   "suggested_priority": "P2",
+   "g11_anchor": "RXS-0405（G13.5/G15 承接；G13 不设绝对画质通过线）",
+   "title": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+   "description": "probe 档（tier67）残余帧亮度 2D FFT 高频能量份额双端谱差超容差：bistro-interior fsr_3_1_5；容差 = g13_budget 标定条目双 seed 方差底 p100×2.0 程序产；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  }
+ ],
+ "scene_summary": [
+  {
+   "scene_id": "cornell-box",
+   "gap_count": 5,
+   "no_gap_explicit": false
+  },
+  {
+   "scene_id": "bistro-interior",
+   "gap_count": 3,
+   "no_gap_explicit": false
+  }
+ ],
+ "not_ready_scenes": []
+}

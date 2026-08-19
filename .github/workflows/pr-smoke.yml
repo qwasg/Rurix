@@ -2888,6 +2888,55 @@ jobs:
         shell: powershell
         run: py -3 ci/g13_wave3_exit_check.py --gate g13.wave.3.exit
 
+      # 步骤 240（G13.4 M-c(M169) UE 超分双端对拍门 g13.p0.m_c.ue_upscale_parity；
+      # G13_CONTRACT §4.2 M-c 行/G-G13-6 + G13_ACCEPTANCE_MAP §1 +
+      # spec/visual_comparison.md RXS-0405；落盘前实测 CI_step.next_free=240 顺位
+      # 领取）。契约 digest 三方独立实现全等机核（host python / Rurix Rust
+      # --contract-digest / UE 内嵌 CPython，== 门内冻结注册值，不等仍出报告即
+      # RED）+ 同场景同档位双端出图（UE 5.8.1 DLSS 插件 MRQ 臂
+      # MoviePipelineDLSSSetting 逐档注入 tier50/67/100 ↔ Performance/Quality/DLAA
+      # + DLSS engagement NGX 日志机核；Rurix M-a/M-b 超分面经 UpscaleBackend 冻结
+      # 接口三后端逐格 32 帧 Halton 静态收敛序列，RURIX_REQUIRE_REAL=1；ue_build_id
+      # == M128 机核；单端缺帧聚合不得 PASS）+ measured 对拍三面（端内参照
+      # SSIM/FLIP deficit 逐格 + probe 档噪声谱双端差 + 帧率 measured 基线
+      # zero_pass_line 不设通过线锚定 G14，以基线冒充帧率对标即 RED；容差标定腿
+      # 双 seed 方差底 p100×2.0 程序产禁手写 P-09 入 g13_budget）+ UE DLSS·超分
+      # 模块归属差距登记表落盘（超容差显式登记不静默混入 + 行集对账）+ 残余口径
+      # 差显式登记不拟合 + 不设绝对通过线（归 G15）。device 腿必需，SKIP 不充绿。
+      # evidence 落盘 evidence/g13_m_c_ue_upscale_parity_<UTC>.json。
+      - name: G13.4 M-c UE upscale parity (G13_CONTRACT §4.2 M-c, g13.p0.m_c.ue_upscale_parity)
+        shell: powershell
+        run: py -3 ci/g13_ue_upscale_parity_smoke.py --gate g13.p0.m_c.ue_upscale_parity
+
+      # 步骤 241（G13.4 M-d(M170) UE Lumen GI 对照门 g13.p0.m_d.ue_lumen_gi_parity；
+      # G13_CONTRACT §4.2 M-d 行/G-G13-6 + G13_ACCEPTANCE_MAP §1 +
+      # spec/visual_comparison.md RXS-0406；落盘前实测 CI_step.next_free=241 顺位
+      # 领取）。对照契约 digest 三方独立实现全等机核（G13LGP-1 前缀分派面）+ 同
+      # 场景双端 GI 出图（UE 5.8.1 deferred + Lumen GI MRQ 臂 on/off 双 config；
+      # Rurix M98/M99/M154 GPU GI 面 --gi-multibounce vs --gi-off 双臂只消费不改写；
+      # 单端缺帧聚合不得 PASS）+ GI 能量/间接光 measured 对拍（帧均值能量双端相对
+      # 差 ×2^(−ev100) 派生尺度链 + indirect=gi_on−gi_off 双端同构派生 LDR 域
+      # SSIM/FLIP，容差标定腿双 seed 方差底 p100×2.0 程序产禁手写 P-09；超容差
+      # 静默即 RED）+ UE Lumen 模块归属差距登记表落盘（行集对账）+ G11 GI 面既
+      # 有判据 0-byte（gi/ 实现面与 G11 GI 门脚本面 vs G13.0 ref 机核 + G10.5 默认
+      # 渲染路径逐字节 parity 机证；GI 既有门降级即 RED）+ 不设绝对通过线（归
+      # G15）。evidence 落盘 evidence/g13_m_d_ue_lumen_gi_parity_<UTC>.json。
+      - name: G13.4 M-d UE Lumen GI parity (G13_CONTRACT §4.2 M-d, g13.p0.m_d.ue_lumen_gi_parity)
+        shell: powershell
+        run: py -3 ci/g13_ue_lumen_gi_parity_smoke.py --gate g13.p0.m_d.ue_lumen_gi_parity
+
+      # 步骤 242（G13.4 波聚合门 g13.wave.4.exit；G13_CONTRACT G-G13-6/§2.2；落盘前
+      # 实测 CI_step.next_free=242 顺位领取）。只读汇总 M-c/M-d 双门最新 evidence +
+      # 六 facts（temporal 底座 0-byte / RED 臂独立有效 M-c 四臂+M-d 四臂 /
+      # g13_budget M-c/M-d 六条目 measured_local 零 estimated + budget_eval 全
+      # PASS / RXS-0405/0406 锚定 + conformance 六件 / 双门关键判据全真 / 帧率基线
+      # zero_pass_line 登记）；不重跑 smoke、不代绿、不设 RURIX_REQUIRE_REAL；聚合
+      # PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。evidence 落盘
+      # evidence/g13_wave4_exit_<UTC>.json。
+      - name: G13.4 wave4 exit aggregate (G13_CONTRACT §2.2, g13.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g13_wave4_exit_check.py --gate g13.wave.4.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

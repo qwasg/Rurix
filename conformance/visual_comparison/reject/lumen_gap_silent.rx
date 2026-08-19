@@ -1,0 +1,10 @@
+//@ spec: RXS-0406
+// G13.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0406 L5 差距登记面）。
+// 预期 RED：Lumen 差距项静默混入——对拍超容差项（GI 能量差/间接光度量差）未在
+// milestones/g13/g13_ue_lumen_gap_registry.json 登记表落行，或登记表行集与对拍
+// 报告对账失配（超容差项无对应行 / measured_delta 不可溯源），判 RED。
+// 负例数据面：注入一处超容差项但差距登记表缺行（静默混入），门必须检出并
+// FAIL；RED 臂注入（超容差静默）必检出。
+// 转正路径（G13.4 波接线）：ci/g13_ue_lumen_gi_parity_smoke.py 门（symbolic key
+// g13.p0.m_d.ue_lumen_gi_parity，G13.1 冻结字面不动）。
+fn main() {}

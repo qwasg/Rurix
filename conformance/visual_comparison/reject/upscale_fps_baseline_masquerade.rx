@@ -1,0 +1,11 @@
+//@ spec: RXS-0405
+// G13.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0405 L4 帧率面）。
+// 预期 RED：帧率基线冒充帧率对标——M-c 帧率面 = measured 基线登记
+// zero_pass_line 不设通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面
+// 0-byte）；evidence 或差距登记表中把 fps_baseline  measured 基线叙述/判定为
+// 「帧率对标已达标/略高」即冒充，判 RED。
+// 负例数据面：fps_baseline 节 zero_pass_line ≠ true 字面，或出现通过判定字段/
+// 叙述冒充帧率对标结论，门必须检出并 FAIL；RED 臂注入（基线冒充对标）必检出。
+// 转正路径（G13.4 波接线）：ci/g13_ue_upscale_parity_smoke.py 门（symbolic key
+// g13.p0.m_c.ue_upscale_parity，G13.1 冻结字面不动）。
+fn main() {}

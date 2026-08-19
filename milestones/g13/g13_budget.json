@@ -121,6 +121,72 @@
       "threshold": 2024.2545,
       "evidence_file": "evidence/g13_m_b_bench_100_20260818T142333Z.json",
       "measured_value": 1349.503
+    },
+    {
+      "id": "g13.ue_upscale.ssim_deficit_delta_tol",
+      "description": "UE 超分对拍 ssim_deficit_delta_tol 容差冻结带（M-c 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；端内参照口径 RXS-0403 L4 同族——跨端曝光/灯面口径差尺度消去不消费）；样本集 digest sha256:7c0a61ef420e13898e1496fcfa953cf9952fe406fbeff4657b6580cb1b3311fa（count=18）；标定程序 ci/g13_ue_upscale_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0069383200966242065,
+      "evidence_file": "evidence/g13_m_c_calibration_ssim_deficit_delta_tol_20260818T203510Z.json",
+      "measured_value": 0.0034691600483121032
+    },
+    {
+      "id": "g13.ue_upscale.flip_deficit_delta_tol",
+      "description": "UE 超分对拍 flip_deficit_delta_tol 容差冻结带（M-c 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；端内参照口径 RXS-0403 L4 同族——跨端曝光/灯面口径差尺度消去不消费）；样本集 digest sha256:7c0a61ef420e13898e1496fcfa953cf9952fe406fbeff4657b6580cb1b3311fa（count=18）；标定程序 ci/g13_ue_upscale_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0073001003229083705,
+      "evidence_file": "evidence/g13_m_c_calibration_flip_deficit_delta_tol_20260818T203510Z.json",
+      "measured_value": 0.0036500501614541853
+    },
+    {
+      "id": "g13.ue_upscale.noise_hf_delta_tol",
+      "description": "UE 超分对拍 noise_hf_delta_tol 容差冻结带（M-c 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；端内参照口径 RXS-0403 L4 同族——跨端曝光/灯面口径差尺度消去不消费）；样本集 digest sha256:7c0a61ef420e13898e1496fcfa953cf9952fe406fbeff4657b6580cb1b3311fa（count=18）；标定程序 ci/g13_ue_upscale_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.12171771690652311,
+      "evidence_file": "evidence/g13_m_c_calibration_noise_hf_delta_tol_20260818T203510Z.json",
+      "measured_value": 0.060858858453261555
+    },
+    {
+      "id": "g13.ue_lumen.gi_energy_rel_tol",
+      "description": "UE Lumen GI 对照 gi_energy_rel_tol 容差冻结带（M-d 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；能量面 ×2^(−ev100) 派生尺度链对齐后消费，RXS-0392 C1 口径继承）；样本集 digest sha256:81ba2b147fd35cb831031eb203a9358875a29eecd8fdacd44f31eed4900174b3（count=6）；标定程序 ci/g13_ue_lumen_gi_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01752196170822843,
+      "evidence_file": "evidence/g13_m_d_calibration_gi_energy_rel_tol_20260819T001914Z.json",
+      "measured_value": 0.008760980854114215
+    },
+    {
+      "id": "g13.ue_lumen.indirect_ssim_delta_tol",
+      "description": "UE Lumen GI 对照 indirect_ssim_delta_tol 容差冻结带（M-d 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；能量面 ×2^(−ev100) 派生尺度链对齐后消费，RXS-0392 C1 口径继承）；样本集 digest sha256:81ba2b147fd35cb831031eb203a9358875a29eecd8fdacd44f31eed4900174b3（count=6）；标定程序 ci/g13_ue_lumen_gi_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.6675224733382197,
+      "evidence_file": "evidence/g13_m_d_calibration_indirect_ssim_delta_tol_20260819T001914Z.json",
+      "measured_value": 0.33376123666910984
+    },
+    {
+      "id": "g13.ue_lumen.indirect_flip_delta_tol",
+      "description": "UE Lumen GI 对照 indirect_flip_delta_tol 容差冻结带（M-d 标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09；能量面 ×2^(−ev100) 派生尺度链对齐后消费，RXS-0392 C1 口径继承）；样本集 digest sha256:81ba2b147fd35cb831031eb203a9358875a29eecd8fdacd44f31eed4900174b3（count=6）；标定程序 ci/g13_ue_lumen_gi_parity_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.34203315774945187,
+      "evidence_file": "evidence/g13_m_d_calibration_indirect_flip_delta_tol_20260819T001914Z.json",
+      "measured_value": 0.17101657887472593
     }
   ],
   "ratio_assertions": [],

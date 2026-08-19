@@ -185,6 +185,31 @@ def eval_cold_start(entry: dict) -> None:
         err(f"{eid}: FAIL — {value:.2f} s 违反 max {thr}")
 
 
+def eval_g13_dual_seed(entry: dict) -> None:
+    """G13.4 M-c/M-d 标定条目判读面：evidence results.dual_seed_p100（双 seed
+    方差底 p100 单值，threshold = measured × 2.0 冻结 k 方向 max，禁手写 P-09；
+    g13_m_c/g13_m_d measured entry schema 既定字段，供本通用路判读）。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    res = doc.get("results", {})
+    if "dual_seed_p100" not in res:
+        err(f"{eid}: evidence results 缺 dual_seed_p100 字段")
+        return
+    value = float(res["dual_seed_p100"])
+    threshold = entry.get("threshold")
+    direction = entry.get("direction", "max")
+    ok = value <= threshold if direction == "max" else value >= threshold
+    if ok:
+        PASSES.append(f"{eid}: PASS — {value} {entry.get('unit', '')} vs {direction} {threshold}")
+    else:
+        err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
+
+
 def eval_entry(entry: dict, strict: bool) -> None:
     eid = entry["id"]
     ev = entry.get("evidence")
@@ -208,6 +233,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if eid.startswith("ea1.bench.cold_start_"):
         eval_cold_start(entry)
+        return
+    if eid.startswith(("g13.ue_upscale.", "g13.ue_lumen.")):
+        eval_g13_dual_seed(entry)
         return
     value = measured_value(entry)
     if value is None:

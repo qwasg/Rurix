@@ -119,11 +119,15 @@ def _is_sha256(v: Any) -> bool:
     )
 
 
-def validate_registry(doc: Any, scene_set: list[str] | None = None) -> list[str]:
+def validate_registry(doc: Any, scene_set: list[str] | None = None,
+                      registry_name: str | None = None) -> list[str]:
     """差距清单校验器（RXS-0391 L1~L9；返回错误列表，空 = 通过）。
 
     scene_set 参数给定时机核与清单 scene_set 精确全等（M140 门传 M133
-    冻结清单行集）；None 时只做清单自洽核验。"""
+    冻结清单行集）；None 时只做清单自洽核验。
+    registry_name 为 G13.4 起加性可选参数（G13 波登记表自带命名，
+    缺省 None = REGISTRY_NAME 既有行为 0-byte，G10 消费面不变）。"""
+    want_name = registry_name if registry_name is not None else REGISTRY_NAME
     errs: list[str] = []
     if not isinstance(doc, dict):
         return ["清单顶层非 object"]
@@ -134,8 +138,8 @@ def validate_registry(doc: Any, scene_set: list[str] | None = None) -> list[str]
         return errs
     if doc.get("schema_version") != SCHEMA_VERSION:
         errs.append(f"schema_version ≠ {SCHEMA_VERSION}: {doc.get('schema_version')!r}")
-    if doc.get("registry") != REGISTRY_NAME:
-        errs.append(f"registry ≠ {REGISTRY_NAME!r}: {doc.get('registry')!r}")
+    if doc.get("registry") != want_name:
+        errs.append(f"registry ≠ {want_name!r}: {doc.get('registry')!r}")
     if not isinstance(doc.get("generated_by"), str) or not doc["generated_by"].strip():
         errs.append("generated_by 空/非字符串")
     scenes = doc.get("scene_set")
