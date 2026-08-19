@@ -3060,6 +3060,17 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_ue_benchmark_arm_measurement_smoke.py --gate g14.p0.m_b.ue_benchmark_arm_measurement
 
+      # 步骤 252（G14.2 波聚合门 g14.wave.2.exit；G14_CONTRACT G-G14-4/§2.2；
+      # 落盘前实测 CI_step.next_free=252 顺位领取）。只读汇总 M-a(M172)/M-b(M173)
+      # 双门最新 evidence + 六 facts（G13 锁定双登记表 0-byte/双门 RED 臂独立有效/
+      # g14_budget 8 条目 measured_local+budget_eval 全 PASS/M-a 承接锚兑现面/
+      # M-b 三轮独立性+MRQ 开销剥离 6 格/G5~G13 closed 面 0-byte 闭集 diff）。
+      # 聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL。evidence 落盘
+      # evidence/g14_wave2_exit_<UTC>.json。
+      - name: G14.2 wave2 exit check (G14_CONTRACT G-G14-4, g14.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g14_wave2_exit_check.py --gate g14.wave.2.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

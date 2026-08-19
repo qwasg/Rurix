@@ -796,6 +796,9 @@ def check_evidence_files() -> None:
     g14_m_b_measured_entry_schema = load(
         ROOT / "milestones/g14/g14_m_b_measured_entry_evidence_schema.json"
     )
+    g14_wave2_exit_schema = load(
+        ROOT / "milestones/g14/g14_wave2_exit_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1885,6 +1888,11 @@ def check_evidence_files() -> None:
     g14_m_b_measured_entry_validator = (
         jsonschema.Draft7Validator(g14_m_b_measured_entry_schema)
         if g14_m_b_measured_entry_schema is not None
+        else None
+    )
+    g14_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g14_wave2_exit_schema)
+        if g14_wave2_exit_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3626,6 +3634,13 @@ def check_evidence_files() -> None:
             # G14.2 M-b 逐格帧时条目 evidence（measured entry 面）→
             # milestones/g14/g14_m_b_measured_entry_evidence_schema.json。
             validator = g14_m_b_measured_entry_validator
+        elif (
+            f.name.startswith("g14_wave2_exit_")
+            and g14_wave2_exit_validator is not None
+        ):
+            # G14.2 波聚合门（步骤 252）→ required_gates 2 行 + 六 facts +
+            # aggregate_read_only const true。
+            validator = g14_wave2_exit_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None
