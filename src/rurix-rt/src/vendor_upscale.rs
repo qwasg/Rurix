@@ -559,6 +559,7 @@ const VK_BUFFER_USAGE_TRANSFER_DST: u32 = 0x2;
 const VK_MEMORY_PROPERTY_DEVICE_LOCAL: u32 = 0x1;
 const VK_MEMORY_PROPERTY_HOST_VISIBLE: u32 = 0x2;
 const VK_MEMORY_PROPERTY_HOST_COHERENT: u32 = 0x4;
+const VK_MEMORY_PROPERTY_HOST_CACHED: u32 = 0x8;
 const VK_QUEUE_GRAPHICS: u32 = 0x1;
 const VK_QUEUE_COMPUTE: u32 = 0x2;
 const VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER: u32 = 0x2;
@@ -1004,6 +1005,10 @@ pub struct DlssVkSession {
     dlls: Vec<DllProvenance>,
     log_tail: Vec<String>,
     shutdown_done: bool,
+    /// G14.3 性能波:staging 打包缓冲 session 常驻(原逐帧 `vec![0u8; ~px*21]`
+    /// 新分配+清零 = 实测 pack 分项主构成之一;尺寸创建期钉死,逐帧全量重写,
+    /// 上传字节面与逐帧新分配逐位一致——digest 不变机核)。
+    pack_buf: Vec<u8>,
 }
 
 // session 句柄集非 Send(单线程门 harness 语义;不显式 impl Send/Sync)。
@@ -1605,6 +1610,19 @@ impl DlssVkSession {
             .ok_or_else(|| VendorError::DeviceUnavailable("无 device-local 内存类型".into()))?;
         let host_type = pick_type(VK_MEMORY_PROPERTY_HOST_VISIBLE | VK_MEMORY_PROPERTY_HOST_COHERENT, false)
             .ok_or_else(|| VendorError::DeviceUnavailable("无 host-visible+coherent 内存类型".into()))?;
+        // G14.3 性能波:readback 专用 host-cached 型(原 readback 落首个
+        // host-visible+coherent 型——NVIDIA 该型为 uncached/WC,逐元素 host 读
+        // = PCIe 往返延迟,实测 readback 分项 ~325ms@1080p 输出/41ms@512²;
+        // HOST_CACHED 块读/逐元素读均为缓存命中口径,内容面与 WC 逐位一致——
+        // coherent 免 invalidate 语义不变,digest 不变机核;缺该型回退既有
+        // host_type,行为零漂移)。
+        let host_cached_type = pick_type(
+            VK_MEMORY_PROPERTY_HOST_VISIBLE
+                | VK_MEMORY_PROPERTY_HOST_COHERENT
+                | VK_MEMORY_PROPERTY_HOST_CACHED,
+            false,
+        )
+        .unwrap_or(host_type);
 
         // ── 资源面 ──
         let (ow, oh) = out_size;
@@ -1727,7 +1745,7 @@ impl DlssVkSession {
         ];
         let staging_size = in_bytes.iter().sum::<u64>();
         let readback_size = (ow * oh * 4 * 2) as u64;
-        let mk_buffer = |size: u64, usage: u32| -> Result<(VkBuffer, VkDeviceMemory), VendorError> {
+        let mk_buffer = |size: u64, usage: u32, mem_type: u32| -> Result<(VkBuffer, VkDeviceMemory), VendorError> {
             let bci = VkBufferCreateInfo {
                 s_type: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 p_next: std::ptr::null(),
@@ -1751,7 +1769,7 @@ impl DlssVkSession {
                 s_type: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
                 p_next: std::ptr::null(),
                 allocation_size: req.size,
-                memory_type_index: host_type,
+                memory_type_index: mem_type,
             };
             let mut memory: VkDeviceMemory = 0;
             // SAFETY: mai 栈上存活。
@@ -1766,8 +1784,9 @@ impl DlssVkSession {
             }
             Ok((buffer, memory))
         };
-        let (staging, staging_mem) = mk_buffer(staging_size, VK_BUFFER_USAGE_TRANSFER_SRC)?;
-        let (readback, readback_mem) = mk_buffer(readback_size, VK_BUFFER_USAGE_TRANSFER_DST)?;
+        let (staging, staging_mem) = mk_buffer(staging_size, VK_BUFFER_USAGE_TRANSFER_SRC, host_type)?;
+        let (readback, readback_mem) =
+            mk_buffer(readback_size, VK_BUFFER_USAGE_TRANSFER_DST, host_cached_type)?;
 
         let cpci = VkCommandPoolCreateInfo {
             s_type: VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -1827,6 +1846,7 @@ impl DlssVkSession {
             dlls,
             log_tail: Vec::new(),
             shutdown_done: false,
+            pack_buf: vec![0u8; (iw * ih) as usize * 21],
         })
     }
 
@@ -1942,36 +1962,51 @@ impl DlssVkSession {
         {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
+        // G14.3 性能波:内部分解遥测(env `RURIX_VENDOR_TIMING=1` 门控,默认关,
+        // 零行为变更;轴 = pack 打包 / sl_book 簿记 / upload 上传录制 / evaluate
+        // vendor 调用 / submit_wait GPU 执行+同步 / readback 回读转换)。
+        let vtm_on = std::env::var("RURIX_VENDOR_TIMING").ok().as_deref() == Some("1");
+        let vtm_t0 = std::time::Instant::now();
         // ── staging 打包(color f16 + depth f32 + mv f32 + reactive R8) ──
+        // G14.3 性能波:session 常驻 pack_buf 复用(消逐帧 ~px·21B 新分配+清零)
+        // + chunks_exact 定长块写(消逐元素边界检查);上传字节面与逐帧新分配
+        // 逐位一致(reactive None 臂 fill(0) ≡ 新零 vec 字面)。
         let color_bytes = px * 4 * 2;
         let depth_bytes = px * 4;
         let mv_bytes = px * 2 * 4;
         let reactive_bytes = px;
-        let mut packed = vec![0u8; color_bytes + depth_bytes + mv_bytes + reactive_bytes];
-        for i in 0..px {
-            let r16 = f32_to_f16(input.color[i * 3]);
-            let g16 = f32_to_f16(input.color[i * 3 + 1]);
-            let b16 = f32_to_f16(input.color[i * 3 + 2]);
-            let a16 = f32_to_f16(1.0);
-            let o = i * 8;
-            packed[o..o + 2].copy_from_slice(&r16.to_le_bytes());
-            packed[o + 2..o + 4].copy_from_slice(&g16.to_le_bytes());
-            packed[o + 4..o + 6].copy_from_slice(&b16.to_le_bytes());
-            packed[o + 6..o + 8].copy_from_slice(&a16.to_le_bytes());
+        let packed = self.pack_buf.as_mut_slice();
+        for (o, rgb) in packed[..color_bytes]
+            .chunks_exact_mut(8)
+            .zip(input.color.chunks_exact(3))
+        {
+            o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
+            o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
+            o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
+            o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
         }
         let d_off = color_bytes;
-        for (i, &d) in input.depth.iter().enumerate() {
-            packed[d_off + i * 4..d_off + i * 4 + 4].copy_from_slice(&d.to_le_bytes());
+        for (o, &d) in packed[d_off..d_off + depth_bytes]
+            .chunks_exact_mut(4)
+            .zip(input.depth.iter())
+        {
+            o.copy_from_slice(&d.to_le_bytes());
         }
         let m_off = d_off + depth_bytes;
-        for i in 0..px * 2 {
-            packed[m_off + i * 4..m_off + i * 4 + 4].copy_from_slice(&input.mv[i].to_le_bytes());
+        for (o, &m) in packed[m_off..m_off + mv_bytes]
+            .chunks_exact_mut(4)
+            .zip(input.mv.iter())
+        {
+            o.copy_from_slice(&m.to_le_bytes());
         }
         let r_off = m_off + mv_bytes;
-        if let Some(r) = input.reactive {
-            for (i, &v) in r.iter().enumerate() {
-                packed[r_off + i] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        match input.reactive {
+            Some(r) => {
+                for (o, &v) in packed[r_off..r_off + reactive_bytes].iter_mut().zip(r.iter()) {
+                    *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                }
             }
+            None => packed[r_off..r_off + reactive_bytes].fill(0),
         }
         // SAFETY: staging host-visible+coherent;map 尺寸 = staging_size ≥ packed 长度。
         unsafe {
@@ -1983,6 +2018,7 @@ impl DlssVkSession {
             std::ptr::copy_nonoverlapping(packed.as_ptr(), ptr as *mut u8, packed.len());
             (self.dev.unmap_memory)(self.device, self.staging_mem);
         }
+        let vtm_pack = vtm_t0.elapsed();
 
         // ── 每帧 SL 调用序:frame token → constants → options → 录制 evaluate ──
         let mut token: *mut c_void = std::ptr::null_mut();
@@ -2024,6 +2060,7 @@ impl DlssVkSession {
         if r != SL_OK {
             return Err(VendorError::VendorCall(format!("slDLSSSetOptions → {}", sl_result_name(r))));
         }
+        let vtm_book = vtm_t0.elapsed();
 
         let begin = VkCommandBufferBeginInfo {
             s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -2048,6 +2085,7 @@ impl DlssVkSession {
             self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TOP_OF_PIPE, VK_PIPELINE_STAGE_COMPUTE_SHADER);
             self.color_out.layout = VK_IMAGE_LAYOUT_GENERAL;
         }
+        let vtm_upload = vtm_t0.elapsed();
 
         // ── ResourceTag 集(evaluate 直接消费;Vulkan 需完整资源描述) ──
         let mk_sl_res = |res: &VkImageRes| -> SlResource {
@@ -2119,6 +2157,7 @@ impl DlssVkSession {
                 return Err(VendorError::VendorCall(format!("slEvaluateFeature(DLSS) → {}", sl_result_name(r))));
             }
         }
+        let vtm_eval = vtm_t0.elapsed();
 
         // 输出回读:GENERAL → TRANSFER_SRC → copy → 回 GENERAL。
         let out_res = self.color_out.clone_shallow();
@@ -2175,6 +2214,7 @@ impl DlssVkSession {
         if r != VK_SUCCESS {
             return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
         }
+        let vtm_wait = vtm_t0.elapsed();
 
         let mut out = vec![0f32; (self.out_w * self.out_h * 3) as usize];
         // SAFETY: readback host-visible+coherent;queueWaitIdle 后无在途写;map 区间 = 帧字节。
@@ -2185,16 +2225,33 @@ impl DlssVkSession {
                 return Err(VendorError::ApiError(format!("vkMapMemory(readback) → {r}")));
             }
             let data = ptr as *const u16;
-            for i in 0..(self.out_w * self.out_h) as usize {
-                out[i * 3] = f16_to_f32(*data.add(i * 4));
-                out[i * 3 + 1] = f16_to_f32(*data.add(i * 4 + 1));
-                out[i * 3 + 2] = f16_to_f32(*data.add(i * 4 + 2));
+            // G14.3:chunks_exact 定长块写(消逐元素边界检查;f16→f32 逐值同式)。
+            for (i, o) in out.chunks_exact_mut(3).enumerate() {
+                let px4 = data.add(i * 4);
+                o[0] = f16_to_f32(*px4);
+                o[1] = f16_to_f32(*px4.add(1));
+                o[2] = f16_to_f32(*px4.add(2));
             }
             (self.dev.unmap_memory)(self.device, self.readback_mem);
         }
         // 录制槽复用:reset cmd(下一帧重录)。
         // SAFETY: cmd 已完成提交且 queue 排空。
         let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        if vtm_on {
+            let total = vtm_t0.elapsed().as_secs_f64() * 1e3;
+            let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+            eprintln!(
+                "[vendor-timing dlss] frame={} pack={:.3} sl_book={:.3} upload={:.3} evaluate={:.3} submit_wait={:.3} readback={:.3} total={:.3}ms",
+                input.frame_index,
+                ms(vtm_pack),
+                ms(vtm_book - vtm_pack),
+                ms(vtm_upload - vtm_book),
+                ms(vtm_eval - vtm_upload),
+                ms(vtm_wait - vtm_eval),
+                ms(vtm_t0.elapsed() - vtm_wait),
+                total,
+            );
+        }
         Ok(out)
     }
 
@@ -2720,6 +2777,13 @@ pub struct FsrDx12Session {
     dlls: Vec<DllProvenance>,
     ffx_errors: u64,
     log_tail: Vec<String>,
+    /// G14.3 性能波:四输入打包缓冲 session 常驻(原逐帧 4× `vec![0u8; …]`
+    /// 新分配+清零 ≈ 19MB@1080p 输出档位——实测 pack 分项主构成;逐帧全量
+    /// 重写,上传字节面逐位一致——digest 不变机核)。
+    pack_color: Vec<u8>,
+    pack_depth: Vec<u8>,
+    pack_mv: Vec<u8>,
+    pack_reac: Vec<u8>,
 }
 
 static FFX_ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -3144,6 +3208,10 @@ impl FsrDx12Session {
             color_out,
             upload,
             readback,
+            pack_color: vec![0u8; (iw * ih) as usize * 8],
+            pack_depth: vec![0u8; (iw * ih) as usize * 4],
+            pack_mv: vec![0u8; (iw * ih) as usize * 8],
+            pack_reac: vec![0u8; (iw * ih) as usize],
             gpu_name,
             provider_version,
             available_versions,
@@ -3309,6 +3377,10 @@ impl FsrDx12Session {
         if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
             return Err(VendorError::ApiError("输入切片长度与 session 分辨率不符".into()));
         }
+        // G14.3 性能波:内部分解遥测(env `RURIX_VENDOR_TIMING=1` 门控,默认关,
+        // 零行为变更;轴同 DLSS 臂——pack/upload/evaluate/submit_wait/readback)。
+        let vtm_on = std::env::var("RURIX_VENDOR_TIMING").ok().as_deref() == Some("1");
+        let vtm_t0 = std::time::Instant::now();
         // 打包四输入(color f16 RGBA / depth f32 / mv f32 RG / reactive R8;
         // reactive 行距恒 = iw(R8 逐像素直排,无 256 对齐段——off_reac 仅作段偏移)。
         let color_row = (8u64 * iw as u64 + 255) & !255;
@@ -3317,41 +3389,70 @@ impl FsrDx12Session {
         let off_depth = color_row * ih as u64;
         let off_mv = off_depth + depth_row * ih as u64;
         let off_reac = off_mv + mv_row * ih as u64;
-        let mut color_px = vec![0u8; px * 8];
-        for i in 0..px {
-            let o = i * 8;
-            color_px[o..o + 2].copy_from_slice(&f32_to_f16(input.color[i * 3]).to_le_bytes());
-            color_px[o + 2..o + 4].copy_from_slice(&f32_to_f16(input.color[i * 3 + 1]).to_le_bytes());
-            color_px[o + 4..o + 6].copy_from_slice(&f32_to_f16(input.color[i * 3 + 2]).to_le_bytes());
-            color_px[o + 6..o + 8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
+        // G14.3 性能波:session 常驻打包缓冲 take/复用(消逐帧 4 次新分配+清零)
+        // + chunks_exact 定长块写;上传字节面与逐帧新分配逐位一致(reactive
+        // None 臂 fill(0) ≡ 新零 vec 字面)。take/restore 全路径配对(上传错误
+        // 经 up_res 缓传,恢复后再 `?`)。
+        let mut color_px = std::mem::take(&mut self.pack_color);
+        for (o, rgb) in color_px.chunks_exact_mut(8).zip(input.color.chunks_exact(3)) {
+            o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
+            o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
+            o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
+            o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
         }
-        let mut depth_px = vec![0u8; px * 4];
-        for (i, &d) in input.depth.iter().enumerate() {
-            depth_px[i * 4..i * 4 + 4].copy_from_slice(&d.to_le_bytes());
+        let mut depth_px = std::mem::take(&mut self.pack_depth);
+        for (o, &d) in depth_px.chunks_exact_mut(4).zip(input.depth.iter()) {
+            o.copy_from_slice(&d.to_le_bytes());
         }
-        let mut mv_px = vec![0u8; px * 8];
-        for i in 0..px * 2 {
-            mv_px[i * 4..i * 4 + 4].copy_from_slice(&input.mv[i].to_le_bytes());
+        let mut mv_px = std::mem::take(&mut self.pack_mv);
+        for (o, &m) in mv_px.chunks_exact_mut(4).zip(input.mv.iter()) {
+            o.copy_from_slice(&m.to_le_bytes());
         }
-        let mut reac_px = vec![0u8; px];
-        if let Some(r) = input.reactive {
-            for (i, &v) in r.iter().enumerate() {
-                reac_px[i] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        let mut reac_px = std::mem::take(&mut self.pack_reac);
+        match input.reactive {
+            Some(r) => {
+                for (o, &v) in reac_px.iter_mut().zip(r.iter()) {
+                    *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                }
             }
+            None => reac_px.fill(0),
         }
+        let vtm_pack = vtm_t0.elapsed();
         eprintln!("[fsr-dbg] pre-upload frame={}", input.frame_index);
         let dbg_stage = std::env::var("FSR_DBG_STAGE").unwrap_or_default();
-        self.d3d_upload_tex(D3dInputSlot::Color, &color_px, 8, 0)?;
-        eprintln!("[fsr-dbg] upload color ok");
-        self.d3d_upload_tex(D3dInputSlot::Depth, &depth_px, 4, off_depth)?;
-        eprintln!("[fsr-dbg] upload depth ok");
-        self.d3d_upload_tex(D3dInputSlot::Mv, &mv_px, 8, off_mv)?;
-        eprintln!("[fsr-dbg] upload mv ok");
-        self.d3d_upload_tex(D3dInputSlot::Reactive, &reac_px, 1, off_reac)?;
+        let up_res = self
+            .d3d_upload_tex(D3dInputSlot::Color, &color_px, 8, 0)
+            .and_then(|()| {
+                eprintln!("[fsr-dbg] upload color ok");
+                self.d3d_upload_tex(D3dInputSlot::Depth, &depth_px, 4, off_depth)
+            })
+            .and_then(|()| {
+                eprintln!("[fsr-dbg] upload depth ok");
+                self.d3d_upload_tex(D3dInputSlot::Mv, &mv_px, 8, off_mv)
+            })
+            .and_then(|()| {
+                eprintln!("[fsr-dbg] upload mv ok");
+                self.d3d_upload_tex(D3dInputSlot::Reactive, &reac_px, 1, off_reac)
+            });
+        self.pack_color = color_px;
+        self.pack_depth = depth_px;
+        self.pack_mv = mv_px;
+        self.pack_reac = reac_px;
+        up_res?;
         eprintln!("[fsr-dbg] upload reactive ok");
+        let vtm_upload = vtm_t0.elapsed();
         if dbg_stage == "uploads_only" {
             self.d3d_submit_wait()?;
             eprintln!("[fsr-dbg] submit ok (uploads_only)");
+            if vtm_on {
+                let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+                eprintln!(
+                    "[vendor-timing fsr] frame={} pack={:.3} upload={:.3} (uploads_only 探针臂)",
+                    input.frame_index,
+                    ms(vtm_pack),
+                    ms(vtm_upload - vtm_pack),
+                );
+            }
             return Ok(vec![0f32; (self.out_w * self.out_h * 3) as usize]);
         }
         if self.color_out.state == D3D12_RESOURCE_STATE_COMMON {
@@ -3424,6 +3525,7 @@ impl FsrDx12Session {
                 return Err(VendorError::VendorCall(format!("ffxDispatch(upscale) → {rc}")));
             }
         }
+        let vtm_eval = vtm_t0.elapsed();
 
         // 输出回读:UAV → COPY_SOURCE → readback。
         let out = self.color_out.clone_shallow();
@@ -3457,6 +3559,7 @@ impl FsrDx12Session {
         }
         self.d3d_barrier(&out, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
         self.d3d_submit_wait()?;
+        let vtm_wait = vtm_t0.elapsed();
 
         let mut out_px = vec![0f32; (self.out_w * self.out_h * 3) as usize];
         let row_pitch = ((8u64 * self.out_w as u64 + 255) & !255) as usize;
@@ -3468,17 +3571,34 @@ impl FsrDx12Session {
             if hr != S_OK || ptr.is_null() {
                 return Err(VendorError::ApiError(format!("readback Map → 0x{hr:08x}")));
             }
+            let ow = self.out_w as usize;
+            // G14.3:chunks_exact 定长块写(消逐元素边界检查;f16→f32 逐值同式)。
             for y in 0..self.out_h as usize {
                 let row = (ptr as *const u16).add(y * row_pitch / 2);
-                for x in 0..self.out_w as usize {
-                    let i = y * self.out_w as usize + x;
-                    out_px[i * 3] = f16_to_f32(*row.add(x * 4));
-                    out_px[i * 3 + 1] = f16_to_f32(*row.add(x * 4 + 1));
-                    out_px[i * 3 + 2] = f16_to_f32(*row.add(x * 4 + 2));
+                let out_row = &mut out_px[y * ow * 3..(y + 1) * ow * 3];
+                for (x, o) in out_row.chunks_exact_mut(3).enumerate() {
+                    let px4 = row.add(x * 4);
+                    o[0] = f16_to_f32(*px4);
+                    o[1] = f16_to_f32(*px4.add(1));
+                    o[2] = f16_to_f32(*px4.add(2));
                 }
             }
             let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
             unmap(self.readback, 0, std::ptr::null());
+        }
+        if vtm_on {
+            let total = vtm_t0.elapsed().as_secs_f64() * 1e3;
+            let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+            eprintln!(
+                "[vendor-timing fsr] frame={} pack={:.3} upload={:.3} evaluate={:.3} submit_wait={:.3} readback={:.3} total={:.3}ms",
+                input.frame_index,
+                ms(vtm_pack),
+                ms(vtm_upload - vtm_pack),
+                ms(vtm_eval - vtm_upload),
+                ms(vtm_wait - vtm_eval),
+                ms(vtm_t0.elapsed() - vtm_wait),
+                total,
+            );
         }
         Ok(out_px)
     }

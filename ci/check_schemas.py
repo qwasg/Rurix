@@ -799,6 +799,15 @@ def check_evidence_files() -> None:
     g14_wave2_exit_schema = load(
         ROOT / "milestones/g14/g14_wave2_exit_evidence_schema.json"
     )
+    g14_m_c_rurix_pipeline_perf_schema = load(
+        ROOT / "milestones/g14/g14_m_c_rurix_pipeline_perf_evidence_schema.json"
+    )
+    g14_m_c_measured_entry_schema = load(
+        ROOT / "milestones/g14/g14_m_c_measured_entry_evidence_schema.json"
+    )
+    g14_wave3_exit_schema = load(
+        ROOT / "milestones/g14/g14_wave3_exit_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1893,6 +1902,21 @@ def check_evidence_files() -> None:
     g14_wave2_exit_validator = (
         jsonschema.Draft7Validator(g14_wave2_exit_schema)
         if g14_wave2_exit_schema is not None
+        else None
+    )
+    g14_m_c_rurix_pipeline_perf_validator = (
+        jsonschema.Draft7Validator(g14_m_c_rurix_pipeline_perf_schema)
+        if g14_m_c_rurix_pipeline_perf_schema is not None
+        else None
+    )
+    g14_m_c_measured_entry_validator = (
+        jsonschema.Draft7Validator(g14_m_c_measured_entry_schema)
+        if g14_m_c_measured_entry_schema is not None
+        else None
+    )
+    g14_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g14_wave3_exit_schema)
+        if g14_wave3_exit_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3641,6 +3665,26 @@ def check_evidence_files() -> None:
             # G14.2 波聚合门（步骤 252）→ required_gates 2 行 + 六 facts +
             # aggregate_read_only const true。
             validator = g14_wave2_exit_validator
+        elif (
+            f.name.startswith("g14_m_c_rurix_pipeline_perf_")
+            and g14_m_c_rurix_pipeline_perf_validator is not None
+        ):
+            # G14.3 P0 硬门 M-c(M174) Rurix 生产管线性能面（步骤 253）→
+            # milestones/g14/g14_m_c_rurix_pipeline_perf_evidence_schema.json。
+            validator = g14_m_c_rurix_pipeline_perf_validator
+        elif (
+            f.name.startswith(("g14_m_c_perf_", "g14_m_c_quality_anchor_"))
+            and g14_m_c_measured_entry_validator is not None
+        ):
+            # G14.3 M-c 逐格帧时/画质锚条目 evidence（measured entry 面）→
+            # milestones/g14/g14_m_c_measured_entry_evidence_schema.json。
+            validator = g14_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g14_wave3_exit_")
+            and g14_wave3_exit_validator is not None
+        ):
+            # G14.3 波聚合门（步骤 255）→ required_gates 1 行 + 六 facts。
+            validator = g14_wave3_exit_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None

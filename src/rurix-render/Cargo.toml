@@ -261,5 +261,34 @@ name = "g13_tsr_device"
 path = "src/bin/g13_tsr_device.rs"
 required-features = ["vulkan"]
 
+# G13.4 M-c UE 超分对拍 Rurix 臂 render harness(RXS-0405 L1/L2/L3;门
+# g13.p0.m_c.ue_upscale_parity):契约严格解析 + canonical digest 第二实现
+# (--contract-digest 三方互证)+ M133 双场景真几何真灯面 Halton jitter 帧序
+# (内部分辨率 = floor(输出×tier%);host TriBvh 主射线 + 双面 Lambert 直接光)
+# → UpscaleBackend 冻结面逐后端(tsr_device = M-b TsrDeviceBackend 同模式 /
+# dlss_sr·fsr_3_1_5 = M-a vendor session 同模式)+ EXR 帧库 + render_receipt。
+[[bin]]
+name = "g13_4_ue_upscale_parity_render"
+path = "src/bin/g13_4_ue_upscale_parity_render.rs"
+required-features = ["vendor-upscale"]
+
+# G14.3 M-c Rurix 生产管线性能面 harness(G14_CONTRACT §4.2 M-c 行;门
+# g14.p0.m_c.rurix_pipeline_perf):生产 GPU 场景车道(DeviceFrameSession 持久
+# 车道——new_with_accel_structs AS 常驻 + 场景 SSBO 创建期一次上传 +
+# execute_with_frame_update 逐帧 192B 帧参数上传/readback 子集)+ 新
+# RayQuery compute kernel(kernels/g14_3_direct_gi.rx,rurixc --target vulkan
+# 产 SPV + spirv-val 通过;逐三角 albedo/emission + quad 4×4 分层 + point
+# delta + 逐灯阴影射线 + emissive 主命中,内容模型与 G13.4 逐字同模=M-d 画质
+# 守护可比性锚)→ 三后端 UpscaleBackend 冻结面(G13.2/G13.3 同型 adapter);
+# --render 32 帧 Halton 收敛序列 + converged.exr + render_receipt(固定 seed
+# 位级双跑一致面),--bench 持续帧循环逐帧 host 墙钟 + DeviceFrameTelemetry
+# 逐 pass GPU ns 双分项 + warmup 后稳态统计(程序产禁手写阈)。GI 多反弹臂
+# not-triggered 如实登记(--gi on fail-closed;g9_m98/g9_m99 GI kernel 面与
+# G13.4 直接光锚内容模型不同构,复用即破坏位级对拍锚)。
+[[bin]]
+name = "g14_3_pipeline_perf"
+path = "src/bin/g14_3_pipeline_perf.rs"
+required-features = ["vendor-upscale"]
+
 [lints]
 workspace = true

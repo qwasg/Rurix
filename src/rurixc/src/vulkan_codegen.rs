@@ -911,10 +911,15 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
             "内部不一致:发射了 ray query 类型但未判定升 SPIR-V 1.4(RXS-0300 并集判定)",
         ));
     }
+    // G14.3:compute 根 `#[numthreads(x,y,z)]` 标注 → `LocalSize` execution mode
+    // 操作数(`wg` 标注系首片);无标注恒 `(1, 1, 1)` 既有默认——既有 kernel
+    // SPV 字节零漂移(`Body::compute_numthreads` 仅 compute 根在图形后端
+    // feature 下携带,PTX/DXIL 路径不消费)。
+    let local_size = body.compute_numthreads.unwrap_or((1, 1, 1));
     if b.emit_1_4 {
-        Ok(assemble_ray_query(&mut b, &body.symbol))
+        Ok(assemble_ray_query(&mut b, &body.symbol, local_size))
     } else {
-        Ok(assemble(&mut b, &body.symbol))
+        Ok(assemble(&mut b, &body.symbol, local_size))
     }
 }
 
@@ -2599,8 +2604,9 @@ fn emit_call(
 
 // ───────────────────────── 模块组装 ─────────────────────────
 
-/// 按 SPIR-V logical layout 组装最终字流。
-fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
+/// 按 SPIR-V logical layout 组装最终字流。`local_size` = compute 根
+/// `#[numthreads(x,y,z)]` 标注值(G14.3),无标注调用方传 `(1, 1, 1)` 既有默认。
+fn assemble(b: &mut Builder, entry_name: &str, local_size: (u32, u32, u32)) -> Vec<u32> {
     let void_id = b.t_void();
     let fn_ty = {
         let id = b.fresh();
@@ -2639,7 +2645,7 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
     emit(
         &mut m,
         OP_EXECUTION_MODE,
-        &[b.main_id, EXEC_MODE_LOCAL_SIZE, 1, 1, 1],
+        &[b.main_id, EXEC_MODE_LOCAL_SIZE, local_size.0, local_size.1, local_size.2],
     );
     // decorations。
     m.extend_from_slice(&b.decorations);
@@ -2666,7 +2672,7 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
 /// (承 RXS-0247 既有机制),故 W1/W2 五 kernel 与全部既有 vulkan golden 字节零漂移。
 /// 与 [`assemble_mesh`] 的差异仅在 capability/extension/执行模型三处;其余 logical
 /// layout 逐节同序。
-fn assemble_ray_query(b: &mut Builder, entry_name: &str) -> Vec<u32> {
+fn assemble_ray_query(b: &mut Builder, entry_name: &str, local_size: (u32, u32, u32)) -> Vec<u32> {
     let void_id = b.t_void();
     let fn_ty = {
         let id = b.fresh();
@@ -2714,7 +2720,7 @@ fn assemble_ray_query(b: &mut Builder, entry_name: &str) -> Vec<u32> {
     emit(
         &mut m,
         OP_EXECUTION_MODE,
-        &[b.main_id, EXEC_MODE_LOCAL_SIZE, 1, 1, 1],
+        &[b.main_id, EXEC_MODE_LOCAL_SIZE, local_size.0, local_size.1, local_size.2],
     );
     m.extend_from_slice(&b.decorations);
     m.extend_from_slice(&b.types_globals);

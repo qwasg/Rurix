@@ -339,6 +339,11 @@ fn attach_accel_params(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: 
         return;
     }
     body.accel_params = dxil_io::accel_params_for(cx.ast(), &krate.item(def).name, decl.stage);
+    // G14.3:compute 根 `#[numthreads(x,y,z)]` workgroup 维度标注提取(`wg` 标注
+    // 系首片;无标注 → `None` → vulkan_codegen 落既有 (1,1,1) 默认,既有 kernel
+    // SPV 字节零漂移)。
+    body.compute_numthreads =
+        dxil_io::compute_numthreads_for(cx.ast(), cx.src(), &krate.item(def).name, decl.stage);
 }
 
 /// 默认 / 非图形后端:compute 根不携 `AccelStruct` 形参表,`accel_params` 维持
@@ -493,6 +498,10 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             // `attach_accel_params` 在 `dxil-backend`/`vulkan-backend` 下携带;
             // 默认路径恒空,零漂移。
             accel_params: Vec::new(),
+            // G14.3:compute 根 `#[numthreads(x,y,z)]` 标注同样由
+            // `attach_accel_params` 在 `dxil-backend`/`vulkan-backend` 下携带;
+            // 默认路径恒 `None`(codegen 落 (1,1,1) 既有默认),零漂移。
+            compute_numthreads: None,
         },
         b.callees,
         b.const_err,

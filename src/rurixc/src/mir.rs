@@ -77,6 +77,14 @@ pub struct Body {
     /// 行为零漂移。消费者 = [`crate::vulkan_codegen`](AS descriptor + SPIR-V 1.4
     /// per-entry 升版并集判定)。
     pub accel_params: Vec<u32>,
+    /// compute 根 `#[numthreads(x, y, z)]` workgroup 维度(G14.3 生产管线性能波;
+    /// `wg` 标注系首片——compute 面 workgroup 尺寸契约,与 mesh/task 的
+    /// `#[numthreads]`(RXS-0243)同字面量机械、同 Option 缺省纪律):仅 compute
+    /// 根(`kernel fn`/`compute fn`)在 `dxil-backend`/`vulkan-backend` 下由
+    /// `attach_accel_params` 携带;无标注/其余阶段恒 `None` → Vulkan codegen
+    /// 落既有 `(1, 1, 1)` 默认,既有 kernel SPV 字节零漂移。消费者 =
+    /// [`crate::vulkan_codegen`](`LocalSize` execution mode 发射)。
+    pub compute_numthreads: Option<(u32, u32, u32)>,
 }
 
 /// mesh 入口标注元数据(G4.2,RXS-0275;`#[numthreads]` + `#[outputs]` 参数)。
@@ -910,6 +918,7 @@ mod tests {
             resources: Vec::new(),
             mesh_meta: None,
             accel_params: Vec::new(),
+            compute_numthreads: None,
         }
     }
 

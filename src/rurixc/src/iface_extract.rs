@@ -131,16 +131,30 @@ fn find_compute_fn<'a>(
     name: &str,
     stage: Option<ShaderStage>,
 ) -> Option<&'a ast::FnItem> {
+    find_compute_item(items, name, stage).and_then(|it| match &it.kind {
+        ast::ItemKind::Fn(f) => Some(f),
+        _ => None,
+    })
+}
+
+/// [`find_compute_fn`] 的 `ast::Item` 携带变体(属性面在 Item 上;G14.3
+/// compute `#[numthreads]` 提取消费)。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn find_compute_item<'a>(
+    items: &'a [ast::Item],
+    name: &str,
+    stage: Option<ShaderStage>,
+) -> Option<&'a ast::Item> {
     for it in items {
         match &it.kind {
             ast::ItemKind::Fn(f) if f.name.name == name && f.stage == stage => {
                 // `stage == None` 时另核着色为 Kernel(排除同名 host fn)。
                 if stage.is_some() || matches!(f.color, crate::ast::FnColor::Kernel) {
-                    return Some(f);
+                    return Some(it);
                 }
             }
             ast::ItemKind::Mod(m) => {
-                if let Some(found) = find_compute_fn(&m.items, name, stage) {
+                if let Some(found) = find_compute_item(&m.items, name, stage) {
                     return Some(found);
                 }
             }
@@ -148,6 +162,22 @@ fn find_compute_fn<'a>(
         }
     }
     None
+}
+
+/// compute 根(`kernel fn`/`compute fn`)`#[numthreads(x, y, z)]` 标注提取
+/// (G14.3 生产管线性能波;`wg` 标注系首片——compute 面 workgroup 尺寸契约)。
+/// 查找/字面量机械与 mesh/task 面同一([`find_compute_item`] + [`parse_numthreads`]);
+/// 无标注/形态非法 → `None`(codegen 落既有 `(1, 1, 1)` 默认,既有 kernel SPV
+/// 字节零漂移)。本函数只做无损提取不发诊断(同 [`accel_params_for`] 纪律)。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+pub(crate) fn compute_numthreads_for(
+    file: &ast::SourceFile,
+    src: &str,
+    fn_name: &str,
+    stage: Option<ShaderStage>,
+) -> Option<(u32, u32, u32)> {
+    let item = find_compute_item(&file.items, fn_name, stage)?;
+    parse_numthreads(&item.attrs, src)
 }
 
 /// 简单绑定形参名(`name: Ty` → "name");非简单绑定模式 → None。

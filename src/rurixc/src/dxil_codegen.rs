@@ -1481,6 +1481,7 @@ mod tests {
             resources: Vec::new(),
             mesh_meta: None,
             accel_params: Vec::new(),
+            compute_numthreads: None,
         }
     }
 

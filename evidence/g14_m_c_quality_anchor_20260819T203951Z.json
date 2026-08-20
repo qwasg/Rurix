@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g14pipelineperf.measured_entry.v1",
+  "entry_id": "g14.pipeline_perf.quality_anchor_ssim_deficit",
+  "results": {
+    "trimmed_mean": 0.005389924642694499
+  },
+  "protocol": "G14.3 生产车道 vs G13.4 车道 cornell t67 tsr_device converged.exr 端内 SSIM （LDR clamp[0,1] 双端同一预处理，Wang2004 口径 ci/g10_ssim_psnr_lib.py 单源）；deficit = 1−SSIM，带 = 首跑实测 ×2.0 程序产禁手写",
+  "sample_manifest": {
+    "count": 1,
+    "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device",
+    "base_commit": "66df869c08f22564169623f1d08f18d27f947eed"
+  },
+  "timestamp": "20260819T203951Z"
+}

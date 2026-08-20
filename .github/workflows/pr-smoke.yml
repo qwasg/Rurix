@@ -3071,6 +3071,32 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_wave2_exit_check.py --gate g14.wave.2.exit
 
+      # 步骤 253（G14.3 P0 硬门 M-c(M174) g14.p0.m_c.rurix_pipeline_perf；
+      # G14_CONTRACT §4.2 M-c/G-G14-5；落盘前实测 CI_step.next_free=253 顺位领取）。
+      # Rurix 生产管线性能面：release 生产管线（DeviceFrameSession 持久车道）三后端
+      # 双场景三档三轮进程级独立运行 50×3 measured 入 budget + G13.4 倒挂消除核验 +
+      # 优化前后对照（G13.3 基线锚）+ 双跑位级 + temporal 底座 0-byte + G13.4 车道
+      # 画质锚带守护 + RED 三臂。evidence 落盘
+      # evidence/g14_m_c_rurix_pipeline_perf_<UTC>.json。
+      - name: G14.3 M-c rurix pipeline perf (G14_CONTRACT §4.2 M-c, g14.p0.m_c.rurix_pipeline_perf)
+        shell: powershell
+        run: py -3 ci/g14_rurix_pipeline_perf_smoke.py --gate g14.p0.m_c.rurix_pipeline_perf
+
+      # 步骤 254（G14.4 P0 硬门 M-d(M175) g14.p0.m_d.dual_end_fps_parity；
+      # G14_CONTRACT §4.2 M-d/G-G14-6；落盘前实测 CI_step.next_free=254 顺位领取）。
+      # 双端帧率正式对标（通过线 Rurix ≥ UE ×1.00 略高下限）+ 画质零降级守护 +
+      # 差距登记表落盘。evidence 落盘 evidence/g14_m_d_dual_end_fps_parity_<UTC>.json。
+      - name: G14.4 M-d dual-end fps parity (G14_CONTRACT §4.2 M-d, g14.p0.m_d.dual_end_fps_parity)
+        shell: powershell
+        run: py -3 ci/g14_dual_end_fps_parity_smoke.py --gate g14.p0.m_d.dual_end_fps_parity
+
+      # 步骤 255（G14.3 波聚合门 g14.wave.3.exit；G14_CONTRACT G-G14-5/§2.2；
+      # 落盘前实测 CI_step.next_free=255 顺位领取）。只读汇总 M-c 门最新 evidence
+      # + 六 facts。evidence 落盘 evidence/g14_wave3_exit_<UTC>.json。
+      - name: G14.3 wave3 exit check (G14_CONTRACT G-G14-5, g14.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g14_wave3_exit_check.py --gate g14.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

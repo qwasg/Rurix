@@ -1,0 +1,612 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_c_rurix_pipeline_perf",
+  "milestone": "M174",
+  "assertion_id": "g14.p0.m_c.rurix_pipeline_perf",
+  "symbolic_gate_key": "g14.p0.m_c.rurix_pipeline_perf",
+  "matrix_row": "M174",
+  "status": "pass",
+  "wave": "G14.3",
+  "numeric_step": 253,
+  "source_ref": "G14_CONTRACT §4.2 M-c/G-G14-5;G14_ACCEPTANCE_MAP §1;G13.4 倒挂登记面消除 + G13.3 帧时基线对照锚 + M141/M165 50×3 冻结统计口径",
+  "base_commit": "66df869c08f22564169623f1d08f18d27f947eed",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "release_build_and_lane_form": true,
+    "inversion_eliminated": true,
+    "three_run_measured": true,
+    "before_after_measured": true,
+    "double_run_bitexact": true,
+    "temporal_base_0byte": true,
+    "quality_parity_anchor": true,
+    "budget_entries_written": true,
+    "budget_eval_all_pass": true,
+    "red_arms_effective": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-render --bin g14_3_pipeline_perf --features vendor-upscale",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g14_3_pipeline_perf --render cornell-box 67 tsr_device ×2（双跑位级）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g14_3_pipeline_perf --bench ×54（2 场景×3 档×3 后端×3 轮进程级独立运行）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "RED 三臂（kernel-tamper/seed-change/one-shot-masquerade）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260820T000025Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g14.pipeline_perf.frame_ms.<scene>_t<tier>_<backend>（本门产出入 g14_budget 18 条目）",
+    "measured_value": "cornell-box/t50/tsr_device: 25.86ms; cornell-box/t50/dlss_sr: 15.06ms; cornell-box/t50/fsr_3_1_5: 14.48ms; cornell-box/t67/tsr_device: 27.03ms; cornell-box/t67/dlss_sr: 17.38ms; cornell-box/t67/fsr_3_1_5: 16.77ms; cornell-box/t100/tsr_device: 38.38ms; cornell-box/t100/dlss_sr: 29.07ms; cornell-box/t100/fsr_3_1_5: 27.40ms; bistro-interior/t50/tsr_device: 214.12ms; bistro-interior/t50/dlss_sr: 160.85ms; bistro-interior/t50/fsr_3_1_5: 146.04ms; bistro-interior/t67/tsr_device: 243.03ms; bistro-interior/t67/dlss_sr: 180.35ms; bistro-interior/t67/fsr_3_1_5: 186.80ms; bistro-interior/t100/tsr_device: 351.00ms; bistro-interior/t100/dlss_sr: 329.54ms; bistro-interior/t100/fsr_3_1_5: 269.93ms",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "50×3 trimmed mean 协议面（M141/M165 冻结口径）三轮跨轮中位数；budget 守护阈 = 实测 ×1.5；倒挂消除 = G13.4 登记面核验",
+    "evolution_register": "G13.4 倒挂登记面（debug 构建+逐帧回读同步口径 host 拷贝/同步主导）消除核验 + G13.3 帧时基线优化前后对照（before_after 面）"
+  },
+  "notes": "bench cornell-box/t50/tsr_device/r1…; bench cornell-box/t50/tsr_device/r2…; bench cornell-box/t50/tsr_device/r3…; bench cornell-box/t50/dlss_sr/r1…; bench cornell-box/t50/dlss_sr/r2…; bench cornell-box/t50/dlss_sr/r3…; bench cornell-box/t50/fsr_3_1_5/r1…; bench cornell-box/t50/fsr_3_1_5/r2…; bench cornell-box/t50/fsr_3_1_5/r3…; bench cornell-box/t67/tsr_device/r1…; bench cornell-box/t67/tsr_device/r2…; bench cornell-box/t67/tsr_device/r3…; bench cornell-box/t67/dlss_sr/r1…; bench cornell-box/t67/dlss_sr/r2…; bench cornell-box/t67/dlss_sr/r3…; bench cornell-box/t67/fsr_3_1_5/r1…; bench cornell-box/t67/fsr_3_1_5/r2…; bench cornell-box/t67/fsr_3_1_5/r3…; bench cornell-box/t100/tsr_device/r1…; bench cornell-box/t100/tsr_device/r2…; bench cornell-box/t100/tsr_device/r3…; bench cornell-box/t100/dlss_sr/r1…; bench cornell-box/t100/dlss_sr/r2…; bench cornell-box/t100/dlss_sr/r3…; bench cornell-box/t100/fsr_3_1_5/r1…; bench cornell-box/t100/fsr_3_1_5/r2…; bench cornell-box/t100/fsr_3_1_5/r3…; bench bistro-interior/t50/tsr_device/r1…; bench bistro-interior/t50/tsr_device/r2…; bench bistro-interior/t50/tsr_device/r3…; bench bistro-interior/t50/dlss_sr/r1…; bench bistro-interior/t50/dlss_sr/r2…; bench bistro-interior/t50/dlss_sr/r3…; bench bistro-interior/t50/fsr_3_1_5/r1…; bench bistro-interior/t50/fsr_3_1_5/r2…; bench bistro-interior/t50/fsr_3_1_5/r3…; bench bistro-interior/t67/tsr_device/r1…; bench bistro-interior/t67/tsr_device/r2…; bench bistro-interior/t67/tsr_device/r3…; bench bistro-interior/t67/dlss_sr/r1…; bench bistro-interior/t67/dlss_sr/r2…; bench bistro-interior/t67/dlss_sr/r3…; bench bistro-interior/t67/fsr_3_1_5/r1…; bench bistro-interior/t67/fsr_3_1_5/r2…; bench bistro-interior/t67/fsr_3_1_5/r3…; bench bistro-interior/t100/tsr_device/r1…; bench bistro-interior/t100/tsr_device/r2…; bench bistro-interior/t100/tsr_device/r3…; bench bistro-interior/t100/dlss_sr/r1…; bench bistro-interior/t100/dlss_sr/r2…; bench bistro-interior/t100/dlss_sr/r3…; bench bistro-interior/t100/fsr_3_1_5/r1…; bench bistro-interior/t100/fsr_3_1_5/r2…; bench bistro-interior/t100/fsr_3_1_5/r3…; 优化前后对照（G13.3 tsr 基线 → G14.3 车道）: t50: 1132.8→25.9ms; t67: 2178.0→27.0ms; t100: 1349.5→38.4ms; G13.4 车道对照锚：SSIM=0.99461008 deficit=0.00538992 ≤ 锚定带 0.0107798 = True（守护带复核）",
+  "parity": {
+    "cells": [
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 26.301334,
+            "cv": 0.177304,
+            "fps": 38.021,
+            "scene_gpu_ms_mean": 0.849428
+          },
+          {
+            "frame_ms_mean": 25.857058,
+            "cv": 0.153278,
+            "fps": 38.674,
+            "scene_gpu_ms_mean": 0.847006
+          },
+          {
+            "frame_ms_mean": 25.34123,
+            "cv": 0.141999,
+            "fps": 39.461,
+            "scene_gpu_ms_mean": 0.837035
+          }
+        ],
+        "median_ms": 25.857058,
+        "fps": 38.674160068790506,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 15.063376,
+            "cv": 0.095253,
+            "fps": 66.386,
+            "scene_gpu_ms_mean": 0.785627
+          },
+          {
+            "frame_ms_mean": 14.747293,
+            "cv": 0.063821,
+            "fps": 67.809,
+            "scene_gpu_ms_mean": 0.728101
+          },
+          {
+            "frame_ms_mean": 15.373234,
+            "cv": 0.077506,
+            "fps": 65.048,
+            "scene_gpu_ms_mean": 0.800617
+          }
+        ],
+        "median_ms": 15.063376,
+        "fps": 66.38618062776897,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 14.244276,
+            "cv": 0.025455,
+            "fps": 70.204,
+            "scene_gpu_ms_mean": 0.636655
+          },
+          {
+            "frame_ms_mean": 14.518994,
+            "cv": 0.047343,
+            "fps": 68.875,
+            "scene_gpu_ms_mean": 0.684736
+          },
+          {
+            "frame_ms_mean": 14.484331,
+            "cv": 0.048251,
+            "fps": 69.04,
+            "scene_gpu_ms_mean": 0.644692
+          }
+        ],
+        "median_ms": 14.484331,
+        "fps": 69.04012342717107,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 27.016886,
+            "cv": 0.122227,
+            "fps": 37.014,
+            "scene_gpu_ms_mean": 1.383163
+          },
+          {
+            "frame_ms_mean": 27.030772,
+            "cv": 0.12848,
+            "fps": 36.995,
+            "scene_gpu_ms_mean": 1.340399
+          },
+          {
+            "frame_ms_mean": 27.266651,
+            "cv": 0.147835,
+            "fps": 36.675,
+            "scene_gpu_ms_mean": 1.406099
+          }
+        ],
+        "median_ms": 27.030772,
+        "fps": 36.99487384230092,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 16.709699,
+            "cv": 0.042813,
+            "fps": 59.845,
+            "scene_gpu_ms_mean": 1.186241
+          },
+          {
+            "frame_ms_mean": 17.380686,
+            "cv": 0.072836,
+            "fps": 57.535,
+            "scene_gpu_ms_mean": 1.287828
+          },
+          {
+            "frame_ms_mean": 18.510217,
+            "cv": 0.117056,
+            "fps": 54.024,
+            "scene_gpu_ms_mean": 1.55289
+          }
+        ],
+        "median_ms": 17.380686,
+        "fps": 57.53512836029602,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 16.768215,
+            "cv": 0.056387,
+            "fps": 59.637,
+            "scene_gpu_ms_mean": 1.502802
+          },
+          {
+            "frame_ms_mean": 16.688266,
+            "cv": 0.036449,
+            "fps": 59.922,
+            "scene_gpu_ms_mean": 1.455839
+          },
+          {
+            "frame_ms_mean": 17.018104,
+            "cv": 0.065013,
+            "fps": 58.761,
+            "scene_gpu_ms_mean": 1.611286
+          }
+        ],
+        "median_ms": 16.768215,
+        "fps": 59.63663991665182,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 38.296564,
+            "cv": 0.172641,
+            "fps": 26.112,
+            "scene_gpu_ms_mean": 3.277701
+          },
+          {
+            "frame_ms_mean": 38.383565,
+            "cv": 0.186843,
+            "fps": 26.053,
+            "scene_gpu_ms_mean": 3.247238
+          },
+          {
+            "frame_ms_mean": 41.014439,
+            "cv": 0.215765,
+            "fps": 24.382,
+            "scene_gpu_ms_mean": 3.718143
+          }
+        ],
+        "median_ms": 38.383565,
+        "fps": 26.052817136709425,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 29.478589,
+            "cv": 0.109905,
+            "fps": 33.923,
+            "scene_gpu_ms_mean": 3.68552
+          },
+          {
+            "frame_ms_mean": 29.010719,
+            "cv": 0.112055,
+            "fps": 34.47,
+            "scene_gpu_ms_mean": 3.494471
+          },
+          {
+            "frame_ms_mean": 29.072161,
+            "cv": 0.111506,
+            "fps": 34.397,
+            "scene_gpu_ms_mean": 3.559212
+          }
+        ],
+        "median_ms": 29.072161,
+        "fps": 34.39716779223945,
+        "runs_independent": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 27.404127,
+            "cv": 0.084393,
+            "fps": 36.491,
+            "scene_gpu_ms_mean": 3.106314
+          },
+          {
+            "frame_ms_mean": 27.385164,
+            "cv": 0.082426,
+            "fps": 36.516,
+            "scene_gpu_ms_mean": 3.228317
+          },
+          {
+            "frame_ms_mean": 27.842371,
+            "cv": 0.087836,
+            "fps": 35.916,
+            "scene_gpu_ms_mean": 3.27661
+          }
+        ],
+        "median_ms": 27.404127,
+        "fps": 36.49085409653809,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 212.059924,
+            "cv": 0.109114,
+            "fps": 4.716,
+            "scene_gpu_ms_mean": 8.706962
+          },
+          {
+            "frame_ms_mean": 222.346134,
+            "cv": 0.135004,
+            "fps": 4.497,
+            "scene_gpu_ms_mean": 7.476439
+          },
+          {
+            "frame_ms_mean": 214.123887,
+            "cv": 0.107683,
+            "fps": 4.67,
+            "scene_gpu_ms_mean": 9.472056
+          }
+        ],
+        "median_ms": 214.123887,
+        "fps": 4.670193568828685,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 157.012797,
+            "cv": 0.143017,
+            "fps": 6.369,
+            "scene_gpu_ms_mean": 14.26307
+          },
+          {
+            "frame_ms_mean": 160.845478,
+            "cv": 0.142262,
+            "fps": 6.217,
+            "scene_gpu_ms_mean": 15.350125
+          },
+          {
+            "frame_ms_mean": 170.230764,
+            "cv": 0.126438,
+            "fps": 5.874,
+            "scene_gpu_ms_mean": 17.210519
+          }
+        ],
+        "median_ms": 160.845478,
+        "fps": 6.2171471180557525,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 146.896574,
+            "cv": 0.084394,
+            "fps": 6.808,
+            "scene_gpu_ms_mean": 18.386621
+          },
+          {
+            "frame_ms_mean": 146.036041,
+            "cv": 0.08659,
+            "fps": 6.848,
+            "scene_gpu_ms_mean": 18.090049
+          },
+          {
+            "frame_ms_mean": 141.86868,
+            "cv": 0.085085,
+            "fps": 7.049,
+            "scene_gpu_ms_mean": 16.465836
+          }
+        ],
+        "median_ms": 146.036041,
+        "fps": 6.847624690127007,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 244.342166,
+            "cv": 0.101085,
+            "fps": 4.093,
+            "scene_gpu_ms_mean": 15.187436
+          },
+          {
+            "frame_ms_mean": 232.376904,
+            "cv": 0.107543,
+            "fps": 4.303,
+            "scene_gpu_ms_mean": 14.948926
+          },
+          {
+            "frame_ms_mean": 243.034071,
+            "cv": 0.10352,
+            "fps": 4.115,
+            "scene_gpu_ms_mean": 17.243871
+          }
+        ],
+        "median_ms": 243.034071,
+        "fps": 4.114649422960947,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 180.352527,
+            "cv": 0.129459,
+            "fps": 5.545,
+            "scene_gpu_ms_mean": 18.384881
+          },
+          {
+            "frame_ms_mean": 172.295176,
+            "cv": 0.122009,
+            "fps": 5.804,
+            "scene_gpu_ms_mean": 16.861127
+          },
+          {
+            "frame_ms_mean": 186.296566,
+            "cv": 0.138017,
+            "fps": 5.368,
+            "scene_gpu_ms_mean": 19.782006
+          }
+        ],
+        "median_ms": 180.352527,
+        "fps": 5.5446963601458155,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 188.889153,
+            "cv": 0.090762,
+            "fps": 5.294,
+            "scene_gpu_ms_mean": 32.239788
+          },
+          {
+            "frame_ms_mean": 186.799989,
+            "cv": 0.103715,
+            "fps": 5.353,
+            "scene_gpu_ms_mean": 30.596518
+          },
+          {
+            "frame_ms_mean": 186.428724,
+            "cv": 0.107125,
+            "fps": 5.364,
+            "scene_gpu_ms_mean": 30.8651
+          }
+        ],
+        "median_ms": 186.799989,
+        "fps": 5.353319373054139,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "frame_ms_mean": 353.224966,
+            "cv": 0.150411,
+            "fps": 2.831,
+            "scene_gpu_ms_mean": 37.33489
+          },
+          {
+            "frame_ms_mean": 340.656205,
+            "cv": 0.144503,
+            "fps": 2.936,
+            "scene_gpu_ms_mean": 34.051742
+          },
+          {
+            "frame_ms_mean": 351.002862,
+            "cv": 0.130841,
+            "fps": 2.849,
+            "scene_gpu_ms_mean": 36.150024
+          }
+        ],
+        "median_ms": 351.002862,
+        "fps": 2.848979618861341,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "frame_ms_mean": 329.543038,
+            "cv": 0.060584,
+            "fps": 3.035,
+            "scene_gpu_ms_mean": 58.452093
+          },
+          {
+            "frame_ms_mean": 331.296864,
+            "cv": 0.078954,
+            "fps": 3.018,
+            "scene_gpu_ms_mean": 57.447179
+          },
+          {
+            "frame_ms_mean": 326.590993,
+            "cv": 0.069147,
+            "fps": 3.062,
+            "scene_gpu_ms_mean": 57.226663
+          }
+        ],
+        "median_ms": 329.543038,
+        "fps": 3.034505010541294,
+        "runs_independent": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "frame_ms_mean": 264.919107,
+            "cv": 0.120146,
+            "fps": 3.775,
+            "scene_gpu_ms_mean": 49.199301
+          },
+          {
+            "frame_ms_mean": 269.925126,
+            "cv": 0.103877,
+            "fps": 3.705,
+            "scene_gpu_ms_mean": 51.49465
+          },
+          {
+            "frame_ms_mean": 273.432319,
+            "cv": 0.087145,
+            "fps": 3.657,
+            "scene_gpu_ms_mean": 52.973813
+          }
+        ],
+        "median_ms": 269.925126,
+        "fps": 3.704731066792204,
+        "runs_independent": true
+      }
+    ],
+    "before_after": [
+      {
+        "tier": 50,
+        "g13_3_baseline_ms": 1132.7953166666666,
+        "g14_3_lane_ms": 25.857058,
+        "ratio": 0.02282588709501933,
+        "improvement_rel": 0.9771741129049806
+      },
+      {
+        "tier": 67,
+        "g13_3_baseline_ms": 2177.9963166666666,
+        "g14_3_lane_ms": 27.030772,
+        "ratio": 0.012410843761834033,
+        "improvement_rel": 0.9875891562381659
+      },
+      {
+        "tier": 100,
+        "g13_3_baseline_ms": 1349.503,
+        "g14_3_lane_ms": 38.383565,
+        "ratio": 0.028442741512986633,
+        "improvement_rel": 0.9715572584870134
+      }
+    ],
+    "quality_anchor": "SSIM=0.99461008 deficit=0.00538992 ≤ 锚定带 0.0107798 = True（守护带复核）",
+    "bitexact_anchor": {
+      "cell": [
+        "cornell-box",
+        67,
+        "tsr_device"
+      ],
+      "digest": "sha256:e9bc79a78b6ef3dbafdfe6886abbe6291d311ecafa0724f67b27103ea9ab903a"
+    }
+  }
+}

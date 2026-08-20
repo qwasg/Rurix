@@ -4408,6 +4408,7 @@ mod tests {
             resources: Vec::new(),
             mesh_meta: None,
             accel_params: Vec::new(),
+            compute_numthreads: None,
         }
     }
 
@@ -5197,6 +5198,7 @@ mod tests {
             resources,
             mesh_meta: None,
             accel_params: Vec::new(),
+            compute_numthreads: None,
         };
         emit_spirv_body(ShaderStage::Fragment, &body)
     }
