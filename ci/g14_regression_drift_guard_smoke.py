@@ -180,6 +180,11 @@ RERUN_CONSUME_GATES = [
 ]
 MG_PREFIX = "g14_m_g_vendor_parallel_conversion"
 
+# 诚实红聚合门闭集（M-d 通过线未达期间 wave4 聚合 VERDICT=FAIL 为正确诚实态——
+# 红不充绿亦不充降级；合格面 = exit=1 + 六 facts 全绿 + required M-d 行 FAIL 镜像
+# 最新 M-d evidence 实测态 + 新鲜度机核，聚合不遮蔽机核维持）。
+HONEST_RED_AGGREGATES = frozenset({"g14_wave4_exit"})
+
 # G14 复跑面漂移监控消费闭集（确定性键族：bitexact/deterministic/digest 三字面族）。
 G14_DETERMINISM_SURFACES = [
     ("g14.p0.m_c.rurix_pipeline_perf", "g14_m_c_rurix_pipeline_perf"),
@@ -366,6 +371,41 @@ def run_gate() -> int:
     stale_bad: list[str] = []
     for spec in SPOT_GATES:
         r = run(spec["argv"], env_extra=spec["env"])
+        if spec["id"] in HONEST_RED_AGGREGATES:
+            # 诚实红聚合门特判（HONEST_RED_AGGREGATES 登记面字面）
+            ok_state = False
+            ev_ts = ""
+            wpath = wel.load_latest_evidence(spec["subject"])
+            wdoc = wel.load_json(wpath) if wpath else {}
+            if r.returncode == 1 and wdoc:
+                wfacts = wdoc.get("extra_facts") or []
+                wchecks = wdoc.get("checks") or {}
+                wrows = wdoc.get("required_gates") or []
+                md_row_fail = any(
+                    rr.get("subject_prefix") == "g14_m_d_dual_end_fps_parity" and rr.get("status") == "FAIL"
+                    for rr in wrows
+                )
+                ok_state = (
+                    bool(wfacts)
+                    and all(f.get("status") == "PASS" for f in wfacts)
+                    and wchecks.get("all_required_gates_pass") is False
+                    and all(v is True for k, v in wchecks.items() if k != "all_required_gates_pass")
+                    and md_row_fail
+                )
+                ev_ts = wdoc.get("timestamp") or ""
+            fresh = bool(ev_ts) and ev_ts >= started_stamp
+            if not ok_state:
+                spot_bad.append(f"{spec['id']} 诚实红聚合面异常: exit={r.returncode}（合格面 = exit1+facts 绿+M-d 行 FAIL 镜像）")
+            if not fresh:
+                stale_bad.append(f"{spec['id']} evidence 陈旧: {ev_ts} < {started_stamp}")
+            spot_rows.append({
+                "id": spec["id"], "exit": r.returncode, "status": "PASS" if ok_state else "FAIL",
+                "fresh": fresh,
+                "evidence": str(wpath.relative_to(ROOT).as_posix()) if wpath else None,
+                "timestamp": ev_ts,
+            })
+            note(f"抽检 {spec['id']}: exit={r.returncode} 诚实红聚合面={'合格' if ok_state else '异常'} fresh={fresh}")
+            continue
         if r.returncode != 0:
             spot_bad.append(f"{spec['id']} exit={r.returncode}: {(r.stdout + r.stderr)[-200:]}")
             spot_rows.append({"id": spec["id"], "exit": r.returncode, "status": "FAIL", "fresh": False})

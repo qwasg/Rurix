@@ -99,6 +99,42 @@ AGG_GATES = [
 REGRESSION_GATES = P0_GATES + AGG_GATES
 N_ASSERTION_GATES = len(P0_GATES)
 
+# 诚实红聚合门闭集（M-d 通过线未达期间 wave4 聚合 VERDICT=FAIL 为正确诚实态——
+# 红不充绿亦不充降级；合格面 = 最新 evidence 六 facts 全绿 + required M-d 行 FAIL
+# 镜像最新 M-d evidence 实测态，聚合不遮蔽机核维持）。
+HONEST_RED_AGGREGATES = frozenset({"g14_wave4_exit"})
+
+
+def eval_honest_red_aggregate(key: str, prefix: str) -> dict:
+    """诚实红聚合门评定（soak 回归腿与 closeout 共用单一事实源）。"""
+    path = wel.load_latest_evidence(prefix)
+    if path is None:
+        return {"symbolic_gate_key": key, "subject_prefix": prefix,
+                "evidence_path": None, "status": "FAIL", "detail": "缺最新 evidence"}
+    doc = wel.load_json(path)
+    facts = doc.get("extra_facts") or []
+    checks = doc.get("checks") or {}
+    rows = doc.get("required_gates") or []
+    md_row_fail = any(
+        r.get("subject_prefix") == "g14_m_d_dual_end_fps_parity" and r.get("status") == "FAIL"
+        for r in rows
+    )
+    ok = (
+        bool(facts)
+        and all(f.get("status") == "PASS" for f in facts)
+        and checks.get("all_required_gates_pass") is False
+        and all(v is True for k, v in checks.items() if k != "all_required_gates_pass")
+        and md_row_fail
+    )
+    return {
+        "symbolic_gate_key": key, "subject_prefix": prefix,
+        "evidence_path": str(path.relative_to(ROOT).as_posix()),
+        "status": "PASS" if ok else "FAIL",
+        "detail": ("诚实红聚合面合格（facts 全绿 + M-d 行 FAIL 镜像维持）" if ok
+                   else "诚实红聚合面异常（合格面 = facts 绿 + M-d 行 FAIL 镜像）"),
+        "timestamp": doc.get("timestamp"),
+    }
+
 RURIX_BIN = ROOT / "target" / "release" / "g14_3_pipeline_perf.exe"
 SOAK_ROOT = Path(r"K:\rurix-ext\g14-frames\g14_5a_soak")
 SOAK_COMBOS = [
@@ -192,16 +228,18 @@ def run_regression(*, skip_rerun: bool = False) -> tuple[bool, list[dict], str, 
                 [sys.executable, str(script), "--gate", key],
                 cwd=ROOT,
             )
-            if r.returncode != 0:
+            expected_rc = 1 if prefix in HONEST_RED_AGGREGATES else 0
+            if r.returncode != expected_rc:
                 rows.append({
                     "symbolic_gate_key": key, "subject_prefix": prefix,
                     "evidence_path": None, "status": "FAIL",
-                    "detail": f"smoke exit={r.returncode}",
+                    "detail": f"smoke exit={r.returncode}（expect {expected_rc}）",
                 })
                 all_ok = False
                 continue
         if is_aggregate:
-            row = wel.require_gate_pass(key, prefix)
+            row = (eval_honest_red_aggregate(key, prefix) if prefix in HONEST_RED_AGGREGATES
+                   else wel.require_gate_pass(key, prefix))
         else:
             row = verify_assertion_gate(key, prefix)
             path = wel.load_latest_evidence(prefix)

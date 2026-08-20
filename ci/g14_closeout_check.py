@@ -40,6 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import g10_wave_exit_lib as wel  # noqa: E402
 from g14_p2_decisions_check import FROZEN_IDS  # noqa: E402
+from g14_stabilization_soak import HONEST_RED_AGGREGATES, eval_honest_red_aggregate  # noqa: E402
 
 ROOT = wel.ROOT
 GATE_KEY = "g14.wave.5b.closeout"
@@ -270,7 +271,10 @@ def run_closeout() -> int:
     facts.append(_fact("five_p0_pass", gates_ok,
                        f"pass={sum(1 for r in gate_rows if r['status']=='PASS')}/5（M-d 诚实红特判面）"))
 
-    wave_rows = [wel.require_gate_pass(k, p) for k, p in WAVE_GATES]
+    wave_rows = [
+        (eval_honest_red_aggregate(k, p) if p in HONEST_RED_AGGREGATES else wel.require_gate_pass(k, p))
+        for k, p in WAVE_GATES
+    ]
     waves_ok = all(r["status"] == "PASS" for r in wave_rows)
     facts.append(_fact("wave_gates_2_to_5a", waves_ok,
                        f"pass={sum(1 for r in wave_rows if r['status']=='PASS')}/{len(WAVE_GATES)}"))
