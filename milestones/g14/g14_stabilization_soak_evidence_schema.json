@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.5a stabilization soak evidence",
+  "description": "evidence/g14_stabilization_soak_<UTC>.json。G14.5a 稳定门 g14.wave.5a.soak（步骤 263；G14_CONTRACT G-G14-8；同构 G13.5a 先例）：四腿——①全量回归（G14 5 P0 M-a~M-e 逐门真跑 --gate + wave2/3/4/6/7 exit + wave5a decisions 六聚合/决策门核验；M-d 诚实红门面特判 = checks 全绿 ∧ status==fail ∧ unmet_count == g14_fps_gap_registry 行数，不充绿亦不充降级；5 门 evidence base_commit 同值=HEAD + 11 门 evidence UTC stamp ≥ run 起点同一候选 close-out 基线）②帧率对标链路连续复跑 soak ≥1800s（g14_3_pipeline_perf --bench 六组合轮转 canonical 协议 160 帧，last_frame_digest == g14_3_stage_a_digest_anchor 冻结锚位级复现 + 登记表装配幂等复核；零 sleep，active≈wall 双字段 + 外测墙钟交叉核验）③budget_eval --strict 非空零 estimated/skip ④日期锚 + G5~G13 既有判据 0-byte fact。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "base_commit",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "soak",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_stabilization_soak" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.wave.5a.soak" },
+    "matrix_row": { "type": "string", "const": "G14.5a" },
+    "wave": { "type": "string", "const": "G14.5a" },
+    "numeric_step": { "type": "integer", "const": 263 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT G-G14-8/§2.2;G14 5 P0（M-a~M-e）逐门真跑 + 聚合/决策门核验;帧率对标链路连续复跑 soak ≥1800s（G13.5a 继承）;budget_eval --strict;G5~G13 0-byte"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "required_gates": { "type": "array", "minItems": 11, "maxItems": 11 },
+    "extra_facts": { "type": "array", "minItems": 6, "maxItems": 6 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regression_all_pass",
+        "base_commit_uniform",
+        "soak_dual_threshold",
+        "soak_no_sleep_padding",
+        "budget_strict_pass",
+        "legacy_criteria_0byte",
+        "date_anchor_recorded"
+      ],
+      "properties": {
+        "regression_all_pass": { "type": "boolean" },
+        "base_commit_uniform": { "type": "boolean" },
+        "soak_dual_threshold": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" },
+        "budget_strict_pass": { "type": "boolean" },
+        "legacy_criteria_0byte": { "type": "boolean" },
+        "date_anchor_recorded": { "type": "boolean" }
+      }
+    },
+    "soak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations",
+        "seconds",
+        "min_iterations",
+        "min_seconds",
+        "soak_subject",
+        "active_chain_seconds",
+        "sleep_seconds",
+        "outer_wall_seconds",
+        "failures",
+        "bench_frames_measured",
+        "registry_assemblies",
+        "backend_digest_anchors"
+      ],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 0 },
+        "seconds": { "type": "number", "minimum": 0 },
+        "min_iterations": { "type": "integer", "const": 3 },
+        "min_seconds": { "type": "integer", "const": 1800 },
+        "soak_subject": { "type": "string", "const": "fps-parity-chain-soak" },
+        "active_chain_seconds": { "type": "number", "minimum": 0 },
+        "sleep_seconds": { "type": "number", "const": 0 },
+        "outer_wall_seconds": { "type": "number", "minimum": 0 },
+        "failures": { "type": "integer", "minimum": 0 },
+        "bench_frames_measured": { "type": "integer", "minimum": 0 },
+        "registry_assemblies": { "type": "integer", "minimum": 0 },
+        "backend_digest_anchors": { "type": "object" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

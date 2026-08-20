@@ -1303,6 +1303,11 @@
           "date": "2026-08-19",
           "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M100-high ReSTIR GI/DI 高档 reservoir 分项——**G14 性能对标期窗结论 = 未齐备**：G14 对标场景面 = cornell-box + bistro-interior 双场景闭集（M133 清单 digest 注册在树，G13 对拍面继承），不新增低档 MegaLights 多灯压测场景——「低档 MegaLights GPU 管线多灯场景 measured 对照齐备」条件未命中，maintain-defer（defer-to-G15+，承接锚字面 0-byte）；M52 G14 窗维持未命中（帧率对标面非高分歧 RT workload 新真实集成需求）；RD040-nrd 维持不接线（G13 决策窗结论字面 0-byte）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 M100-high/M52 行 + §2 RD-040 行 / milestones/g14/G14_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-20",
+          "event": "G14.5a P2 穷举终态登记（agent 完全自主 D-406 v2.0）：M52 SER/hit-object 重排分项——**G14 重评窗结论 = 维持未命中**（G13.4 重评窗未命中在案逐字承接后本期核验：G14 帧率对标面 = 既有 Vulkan RayQuery 管线性能面〔M-c 生产管线/M-d 双端对标真跑〕，非高分歧 RT workload 新真实集成需求；capability rt.ser 设备面实测仍未做——双条件均未命中，maintain-defer defer-to-G15+；语言层不加 SER 原语维持，RFC-0023 冻结面不接线）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g14/G14_P2_DECISIONS.md §1 M52 行 + §4 RD-040 行"
         }
       ]
     },

@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.5a P2 decisions evidence",
+  "description": "evidence/g14_p2_decisions_<UTC>.json。G14.5a P2/留档/未触发分项穷举决策门 g14.wave.5a.decisions（步骤 261，ci/g14_p2_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g14/G14_P2_DECISIONS.md v1.0——42 行冻结候选闭集全等（§1 G13 defer 承接 24 行终态裁决 + §2 G14 新增候选 7 行终态裁决 + §3 G14.2~G14.7 期内新增 11 行——M-d 通过线未达标处置 + 结构性优化六面 G16+ 承接 + 延续波双门留痕 + workgroup/evaluate 双留痕面）、裁决枚举合法（go/no-go/defer-to-G15+/strategic_override）、零空行（全列非空）、承接锚「重判条件 + 兜底」字面、defer 行必含 G15+/G16+ 重评窗、go 行 evidence 义务、no-go 行 RD/矩阵/契约锚义务；横向机核①与 G14_ACCEPTANCE_MAP §1 五 P0（M-a~M-e）互斥（P2 行 ID 不得命中已 go M### 裸 token M172~M175/M178，分项级 closed-go 留痕行不互斥）②deferred.json history 对账（G14.5a P2 登记恰好 RD-040 +1〔M52 G14 重评窗维持未命中终态登记〕，零新 RD max=RD-044，RD-034~RD-044 status 全 open 0-byte）③G14.1 候选决策表对账（§1 24 行承接 ID 在册 + 裁决字面承接：go = G10-N11/G10-N16 双行，其余 defer-to-G15+）④差距登记表对账（g14_fps_gap_registry 18 行 == 最新 M-d evidence unmet_count；g13 upscale 8 行/lumen 2 行/g12 pt 10 行终态 0-byte porcelain 空）。只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述；M-d 通过线未达标如实登记不冒充。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_p2_decisions" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.wave.5a.decisions" },
+    "matrix_row": { "type": "string", "const": "G14.5a" },
+    "wave": { "type": "string", "const": "G14.5a" },
+    "numeric_step": { "type": "integer", "const": 261 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT G-G14-7;G14_P2_DECISIONS.md v1.0;G14_CANDIDATE_DECISIONS v1.0;G14_ACCEPTANCE_MAP §1/附录 A;registry/deferred.json（G14.5a P2 行）;g14_fps_gap_registry（M-d 门产 18 行 P2 行集）;g13/g12 三表终态只消费不回写;G14_CONTRACT §8.3~§8.7"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 48,
+      "maxItems": 48,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

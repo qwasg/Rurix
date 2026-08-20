@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "subject": "g14_wave7_exit",
+  "symbolic_gate_key": "g14.wave.7.exit",
+  "matrix_row": "G14.7",
+  "wave": "G14.7",
+  "numeric_step": 260,
+  "source_ref": "G14_CONTRACT §7 裁决 7/§2.2 同律;G14_ACCEPTANCE_MAP 附录 A;M-g gate red arms independently effective;M-c regression latest green;M-d v3 caliber+digest guards green;budget production bistro entries measured;M-d pass-line honest red registered;G5~G13 closed 0-byte",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g14.p0.m_g.vendor_parallel_conversion",
+      "subject_prefix": "g14_m_g_vendor_parallel_conversion",
+      "evidence_path": null,
+      "status": "FAIL",
+      "detail": "缺最新 evidence(g14_m_g_vendor_parallel_conversion_*.json)"
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m_g_red_arms_independently_effective",
+      "status": "FAIL",
+      "detail": "缺 red 面"
+    },
+    {
+      "id": "m_c_regression_latest_green",
+      "status": "PASS",
+      "detail": "M-c 最新 evidence PASS（g14_m_c_rurix_pipeline_perf_20260820T034925Z.json，checks 全真）"
+    },
+    {
+      "id": "m_d_v3_guards_green",
+      "status": "PASS",
+      "detail": "M-d v3 守护双真 + digest 锚 18/18 格在树（并行化后全矩阵位级零漂移）"
+    },
+    {
+      "id": "budget_production_bistro_entries_measured",
+      "status": "FAIL",
+      "detail": "缺条目 g14.pipeline_perf.prod_frame_ms.bistro-interior_t67_dlss_sr; 缺条目 g14.pipeline_perf.prod_frame_ms.bistro-interior_t67_fsr_3_1_5"
+    },
+    {
+      "id": "m_d_pass_line_honest_face_registered",
+      "status": "PASS",
+      "detail": "M-d 红面如实登记：unmet=18 == 登记表 18 行（不充绿）"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']；工作树闭集=['milestones/g12/g12_pt_sampler_selection.json']"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": false,
+    "all_extra_facts_pass": false,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260820T100227Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G14.7 M-g(M177) vendor parallel conversion gate (step 259); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M-g red arms + M-c regression + M-d v3 guards + budget bistro entries + honest red face + legacy 0-byte; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE; M-d pass line red stays registered in wave4 exit / future continuation waves (G-G14-6 green face pending)"
+}

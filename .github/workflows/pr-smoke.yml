@@ -3120,6 +3120,23 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_wave6_exit_check.py --gate g14.wave.6.exit
 
+      # 步骤 259（G14.7 延续波门 M-g(M177) g14.p0.m_g.vendor_parallel_conversion；
+      # G14_CONTRACT §7 裁决 7 延续波程序面/G14_ACCEPTANCE_MAP 附录 A M-g 行；落盘前
+      # 实测 CI_step.next_free=259 顺位领取）。vendor 转换并行化位级零漂移三机核
+      # （探针格 digest 锚 + 串行对照臂同锚三角 + Rust 函数面单测）+ 同码 A/B
+      # measured 方向机核 + 双探针格 production 条目入 budget。evidence 落盘
+      # evidence/g14_m_g_vendor_parallel_conversion_<UTC>.json。
+      - name: G14.7 M-g vendor parallel conversion gate (G14_CONTRACT §7 裁决 7, g14.p0.m_g.vendor_parallel_conversion)
+        shell: powershell
+        run: py -3 ci/g14_vendor_parallel_conversion_smoke.py --gate g14.p0.m_g.vendor_parallel_conversion
+
+      # 步骤 260（G14.7 波聚合门 g14.wave.7.exit；G14_CONTRACT §7 裁决 7/§2.2 同律；
+      # 落盘前实测 CI_step.next_free=260 顺位领取）。只读汇总 M-g 门最新 evidence
+      # + 六 facts。evidence 落盘 evidence/g14_wave7_exit_<UTC>.json。
+      - name: G14.7 wave7 exit check (G14_CONTRACT §7 裁决 7, g14.wave.7.exit)
+        shell: powershell
+        run: py -3 ci/g14_wave7_exit_check.py --gate g14.wave.7.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

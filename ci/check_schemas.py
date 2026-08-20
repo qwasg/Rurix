@@ -820,6 +820,25 @@ def check_evidence_files() -> None:
     g14_wave6_exit_schema = load(
         ROOT / "milestones/g14/g14_wave6_exit_evidence_schema.json"
     )
+    # G14.7 延续波 + G14.5a/5b 收口六前缀纯追加（重放幂等面）
+    g14_m_g_vendor_parallel_conversion_schema = load(
+        ROOT / "milestones/g14/g14_m_g_vendor_parallel_conversion_evidence_schema.json"
+    )
+    g14_wave7_exit_schema = load(
+        ROOT / "milestones/g14/g14_wave7_exit_evidence_schema.json"
+    )
+    g14_p2_decisions_schema = load(
+        ROOT / "milestones/g14/g14_p2_decisions_evidence_schema.json"
+    )
+    g14_m_e_regression_drift_guard_schema = load(
+        ROOT / "milestones/g14/g14_m_e_regression_drift_guard_evidence_schema.json"
+    )
+    g14_stabilization_soak_schema = load(
+        ROOT / "milestones/g14/g14_stabilization_soak_evidence_schema.json"
+    )
+    g14_wave5b_closeout_schema = load(
+        ROOT / "milestones/g14/g14_wave5b_closeout_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1949,6 +1968,37 @@ def check_evidence_files() -> None:
     g14_wave6_exit_validator = (
         jsonschema.Draft7Validator(g14_wave6_exit_schema)
         if g14_wave6_exit_schema is not None
+        else None
+    )
+    # G14.7 延续波 + G14.5a/5b 收口六前缀纯追加（重放幂等面）
+    g14_m_g_vendor_parallel_conversion_validator = (
+        jsonschema.Draft7Validator(g14_m_g_vendor_parallel_conversion_schema)
+        if g14_m_g_vendor_parallel_conversion_schema is not None
+        else None
+    )
+    g14_wave7_exit_validator = (
+        jsonschema.Draft7Validator(g14_wave7_exit_schema)
+        if g14_wave7_exit_schema is not None
+        else None
+    )
+    g14_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g14_p2_decisions_schema)
+        if g14_p2_decisions_schema is not None
+        else None
+    )
+    g14_m_e_regression_drift_guard_validator = (
+        jsonschema.Draft7Validator(g14_m_e_regression_drift_guard_schema)
+        if g14_m_e_regression_drift_guard_schema is not None
+        else None
+    )
+    g14_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g14_stabilization_soak_schema)
+        if g14_stabilization_soak_schema is not None
+        else None
+    )
+    g14_wave5b_closeout_validator = (
+        jsonschema.Draft7Validator(g14_wave5b_closeout_schema)
+        if g14_wave5b_closeout_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3748,6 +3798,49 @@ def check_evidence_files() -> None:
         ):
             # G14.6 波聚合门（步骤 258）→ required_gates 1 行 + 六 facts。
             validator = g14_wave6_exit_validator
+        elif (
+            f.name.startswith("g14_m_g_vendor_parallel_conversion_")
+            and g14_m_g_vendor_parallel_conversion_validator is not None
+        ):
+            # G14.7 延续波门 M-g vendor 转换并行化（步骤 259）→ parity 节闭集。
+            validator = g14_m_g_vendor_parallel_conversion_validator
+        elif (
+            f.name.startswith("g14_m_g_probe_")
+            and g14_m_c_measured_entry_validator is not None
+        ):
+            # G14.7 M-g 探针格 production 口径条目 evidence（measured entry 面，
+            # 与 g14_m_c_perf_ 同 schema 复用）→ g14_m_c_measured_entry schema。
+            validator = g14_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g14_wave7_exit_")
+            and g14_wave7_exit_validator is not None
+        ):
+            # G14.7 波聚合门（步骤 260）→ required_gates 1 行 + 六 facts。
+            validator = g14_wave7_exit_validator
+        elif (
+            f.name.startswith("g14_p2_decisions_")
+            and g14_p2_decisions_validator is not None
+        ):
+            # G14.5a P2 穷举决策门（步骤 261）→ extra_facts 48 行闭集。
+            validator = g14_p2_decisions_validator
+        elif (
+            f.name.startswith("g14_m_e_regression_drift_guard_")
+            and g14_m_e_regression_drift_guard_validator is not None
+        ):
+            # G14.5a M-e 回归门+漂移监控（步骤 262）→ gates_76/spot 行集闭集。
+            validator = g14_m_e_regression_drift_guard_validator
+        elif (
+            f.name.startswith("g14_stabilization_soak_")
+            and g14_stabilization_soak_validator is not None
+        ):
+            # G14.5a soak 聚合门（步骤 263）→ required_gates 11 行 + soak 诚实面闭集。
+            validator = g14_stabilization_soak_validator
+        elif (
+            f.name.startswith("g14_wave5b_closeout_")
+            and g14_wave5b_closeout_validator is not None
+        ):
+            # G14.5b close-out 终审门（步骤 264）→ required_gates 12 行 + 八 facts。
+            validator = g14_wave5b_closeout_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None

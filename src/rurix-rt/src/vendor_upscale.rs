@@ -1096,6 +1096,208 @@ fn f16_to_f32(h: u16) -> f32 {
     f32::from_bits(bits)
 }
 
+/// G14.7 延续波：逐元素独立转换的像素带并行带数（`RURIX_VENDOR_PAR=0` → 单带
+/// 串行对照臂；显式 N → N 带；缺省 = min(可用并行度, 8)）。< 128Kpx 小格维持
+/// 单带——线程 spawn 开销（约 0.05ms/线程）在小格上无净收益。带数仅改 host
+/// 写入的线程归属：每元素经同一 `f32_to_f16`/`f16_to_f32` 同式转换、元素间
+/// 零依赖，输出最终字节面与单带串行逐位一致（M-d 末帧 digest 冻结锚守护
+/// 机核面，漂移即 RED）。
+fn par_band_count(px: usize) -> usize {
+    par_band_count_with(px, std::env::var("RURIX_VENDOR_PAR").ok().as_deref())
+}
+
+/// 带数决策纯函数（env 面剥离，host 可测）：< PAR_MIN_PX 小格恒单带；
+/// `Some("0")` → 单带串行对照臂；显式 N → N 带；None → min(可用并行度, 8)。
+fn par_band_count_with(px: usize, par_env: Option<&str>) -> usize {
+    const PAR_MIN_PX: usize = 1 << 17; // 131072px
+    if px < PAR_MIN_PX {
+        return 1;
+    }
+    let n = match par_env {
+        Some("0") => 1,
+        Some(v) => v.parse::<usize>().ok().map_or(8, |m| m.max(1)),
+        None => std::thread::available_parallelism()
+            .map_or(1, |n| n.get())
+            .min(8),
+    };
+    // 每带至少 64Kpx（spawn 开销摊薄）；带数不超像素容量。
+    n.min(px.div_ceil(1 << 16)).max(1)
+}
+
+/// G14.7：四区打包串行主体（G14.3/G14.6 原循环逐字保留，参数化为带内切片；
+/// DLSS 臂 mapped staging 直写与 FSR 臂常驻 pack vec 共用同一事实源）。
+#[allow(clippy::too_many_arguments)]
+fn pack_vendor_inputs_serial(
+    color: &[f32],
+    depth: &[f32],
+    mv: &[f32],
+    reactive: Option<&[f32]>,
+    color_out: &mut [u8],
+    depth_out: &mut [u8],
+    mv_out: &mut [u8],
+    reac_out: &mut [u8],
+) {
+    for (o, rgb) in color_out.chunks_exact_mut(8).zip(color.chunks_exact(3)) {
+        o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
+        o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
+        o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
+        o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
+    }
+    for (o, &d) in depth_out.chunks_exact_mut(4).zip(depth.iter()) {
+        o.copy_from_slice(&d.to_le_bytes());
+    }
+    for (o, &m) in mv_out.chunks_exact_mut(4).zip(mv.iter()) {
+        o.copy_from_slice(&m.to_le_bytes());
+    }
+    match reactive {
+        Some(r) => {
+            for (o, &v) in reac_out.iter_mut().zip(r.iter()) {
+                *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+            }
+        }
+        None => reac_out.fill(0),
+    }
+}
+
+/// G14.7：四区打包像素带并行（输入切片长度 = 全帧像素口径；输出切片长度 =
+/// px*8 / px*4 / px*8 / px 精确贴合）。带切分仅改线程归属，带内逐值同式
+/// 同序——上传/驻留字节面与串行逐位一致。
+#[allow(clippy::too_many_arguments)]
+fn pack_vendor_inputs(
+    px: usize,
+    color: &[f32],
+    depth: &[f32],
+    mv: &[f32],
+    reactive: Option<&[f32]>,
+    color_out: &mut [u8],
+    depth_out: &mut [u8],
+    mv_out: &mut [u8],
+    reac_out: &mut [u8],
+) {
+    let bands = par_band_count(px);
+    pack_vendor_inputs_bands(px, color, depth, mv, reactive, color_out, depth_out, mv_out, reac_out, bands);
+}
+
+/// 显式带数变体（测试面直接驱动，绕 env）。
+#[allow(clippy::too_many_arguments)]
+fn pack_vendor_inputs_bands(
+    px: usize,
+    color: &[f32],
+    depth: &[f32],
+    mv: &[f32],
+    reactive: Option<&[f32]>,
+    color_out: &mut [u8],
+    depth_out: &mut [u8],
+    mv_out: &mut [u8],
+    reac_out: &mut [u8],
+    bands: usize,
+) {
+    if bands <= 1 {
+        pack_vendor_inputs_serial(color, depth, mv, reactive, color_out, depth_out, mv_out, reac_out);
+        return;
+    }
+    let band_px = px.div_ceil(bands);
+    std::thread::scope(|s| {
+        let mut co_it = color_out.chunks_mut(band_px * 8);
+        let mut do_it = depth_out.chunks_mut(band_px * 4);
+        let mut mo_it = mv_out.chunks_mut(band_px * 8);
+        let mut ro_it = reac_out.chunks_mut(band_px);
+        let mut ci_it = color.chunks(band_px * 3);
+        let mut di_it = depth.chunks(band_px);
+        let mut mi_it = mv.chunks(band_px * 2);
+        let mut b_lo = 0usize; // 当前带像素起点（reactive 输入带定位用）
+        loop {
+            let (Some(cb), Some(db), Some(mb), Some(rb)) =
+                (co_it.next(), do_it.next(), mo_it.next(), ro_it.next())
+            else {
+                break;
+            };
+            let (Some(ci), Some(di), Some(mi)) = (ci_it.next(), di_it.next(), mi_it.next())
+            else {
+                break;
+            };
+            let npx = cb.len() / 8;
+            let ri = reactive.map(|r| &r[b_lo..b_lo + npx]);
+            b_lo += npx;
+            s.spawn(move || {
+                pack_vendor_inputs_serial(ci, di, mi, ri, cb, db, mb, rb);
+            });
+        }
+    });
+}
+
+/// G14.7：f16→f32 输出转换串行主体（逐值同式同序，RGB 三通道、alpha 跳过）。
+fn convert_out_serial(data: &[u16], out: &mut [f32]) {
+    for (o, px4) in out.chunks_exact_mut(3).zip(data.chunks_exact(4)) {
+        o[0] = f16_to_f32(px4[0]);
+        o[1] = f16_to_f32(px4[1]);
+        o[2] = f16_to_f32(px4[2]);
+    }
+}
+
+/// G14.7：连续 RGBA f16 回读 → f32 转换像素带并行（DLSS 臂；data 长度 =
+/// px*4，out 长度 = px*3）。
+fn convert_out_par(data: &[u16], out: &mut [f32]) {
+    let px = out.len() / 3;
+    let bands = par_band_count(px);
+    convert_out_par_bands(data, out, bands);
+}
+
+/// 显式带数变体（测试面直接驱动，绕 env）。
+fn convert_out_par_bands(data: &[u16], out: &mut [f32], bands: usize) {
+    let px = out.len() / 3;
+    if bands <= 1 {
+        convert_out_serial(data, out);
+        return;
+    }
+    let band_px = px.div_ceil(bands);
+    std::thread::scope(|s| {
+        let mut o_it = out.chunks_mut(band_px * 3);
+        let mut d_it = data.chunks(band_px * 4);
+        loop {
+            let (Some(ob), Some(db)) = (o_it.next(), d_it.next()) else {
+                break;
+            };
+            s.spawn(move || convert_out_serial(db, ob));
+        }
+    });
+}
+
+/// G14.7：行距对齐 RGBA f16 回读 → f32 转换行带并行（FSR 臂；data 覆盖
+/// (oh−1)·rp2 + ow·4 个 u16 的触及区间，行内只消费前 ow·4）。
+fn convert_out_pitched_par(data: &[u16], rp2: usize, ow: usize, oh: usize, out: &mut [f32]) {
+    let bands = par_band_count(ow * oh).min(oh);
+    convert_out_pitched_par_bands(data, rp2, ow, oh, out, bands);
+}
+
+/// 显式带数变体（测试面直接驱动，绕 env）。
+fn convert_out_pitched_par_bands(data: &[u16], rp2: usize, ow: usize, oh: usize, out: &mut [f32], bands: usize) {
+    let bands = bands.min(oh);
+    if bands <= 1 {
+        for (y, out_row) in out.chunks_exact_mut(ow * 3).enumerate() {
+            let row = &data[y * rp2..y * rp2 + ow * 4];
+            convert_out_serial(row, out_row);
+        }
+        return;
+    }
+    let band_rows = oh.div_ceil(bands);
+    let mut o_it = out.chunks_mut(band_rows * ow * 3);
+    let mut r0 = 0usize;
+    std::thread::scope(|s| {
+        while let Some(ob) = o_it.next() {
+            let rows = ob.len() / (ow * 3);
+            let db = &data[r0 * rp2..];
+            s.spawn(move || {
+                for (y, out_row) in ob.chunks_exact_mut(ow * 3).enumerate() {
+                    let row = &db[y * rp2..y * rp2 + ow * 4];
+                    convert_out_serial(row, out_row);
+                }
+            });
+            r0 += rows;
+        }
+    });
+}
+
 impl DlssVkSession {
     /// 创建 DLSS Vulkan interop session(slInit → SL 代理建 instance/device → DLSS
     /// 插件装载 → 资源面)。`validation` = RURIX_VK_VALIDATION 语义(KHRONOS 层 +
@@ -2001,7 +2203,10 @@ impl DlssVkSession {
         let m_off = d_off + depth_bytes;
         let r_off = m_off + mv_bytes;
         // SAFETY: staging host-visible+coherent;map 尺寸 = staging_size ≥ pack_total;
-        // 切片不越 map 区间;unmap 前无其它别名访问(本帧单线程路径)。
+        // 切片不越 map 区间;G14.7 像素带并行——四区经 split_at_mut 切分为互不重叠
+        // 区段,pack_vendor_inputs 内 chunks_mut 再切带,scoped threads 汇前 join
+        // (unmap 在 join 后),无别名/无悬垂访问;带内转换与串行同式同序,最终字节
+        // 面与 G14.6 面逐位一致。
         unsafe {
             let mut ptr: *mut c_void = std::ptr::null_mut();
             let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
@@ -2009,35 +2214,20 @@ impl DlssVkSession {
                 return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
             }
             let packed = std::slice::from_raw_parts_mut(ptr as *mut u8, pack_total);
-            for (o, rgb) in packed[..color_bytes]
-                .chunks_exact_mut(8)
-                .zip(input.color.chunks_exact(3))
-            {
-                o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
-                o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
-                o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
-                o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
-            }
-            for (o, &d) in packed[d_off..d_off + depth_bytes]
-                .chunks_exact_mut(4)
-                .zip(input.depth.iter())
-            {
-                o.copy_from_slice(&d.to_le_bytes());
-            }
-            for (o, &m) in packed[m_off..m_off + mv_bytes]
-                .chunks_exact_mut(4)
-                .zip(input.mv.iter())
-            {
-                o.copy_from_slice(&m.to_le_bytes());
-            }
-            match input.reactive {
-                Some(r) => {
-                    for (o, &v) in packed[r_off..r_off + reactive_bytes].iter_mut().zip(r.iter()) {
-                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                    }
-                }
-                None => packed[r_off..r_off + reactive_bytes].fill(0),
-            }
+            let (color_r, rest) = packed.split_at_mut(color_bytes);
+            let (depth_r, rest) = rest.split_at_mut(depth_bytes);
+            let (mv_r, reac_r) = rest.split_at_mut(mv_bytes);
+            pack_vendor_inputs(
+                px,
+                input.color,
+                input.depth,
+                input.mv,
+                input.reactive,
+                color_r,
+                depth_r,
+                mv_r,
+                reac_r,
+            );
             (self.dev.unmap_memory)(self.device, self.staging_mem);
         }
         let vtm_pack = vtm_t0.elapsed();
@@ -2247,14 +2437,14 @@ impl DlssVkSession {
             if r != VK_SUCCESS || ptr.is_null() {
                 return Err(VendorError::ApiError(format!("vkMapMemory(readback) → {r}")));
             }
-            let data = ptr as *const u16;
-            // G14.3:chunks_exact 定长块写(消逐元素边界检查;f16→f32 逐值同式)。
-            for (i, o) in out.chunks_exact_mut(3).enumerate() {
-                let px4 = data.add(i * 4);
-                o[0] = f16_to_f32(*px4);
-                o[1] = f16_to_f32(*px4.add(1));
-                o[2] = f16_to_f32(*px4.add(2));
-            }
+            let data = std::slice::from_raw_parts(
+                ptr as *const u16,
+                (self.out_w * self.out_h) as usize * 4,
+            );
+            // G14.7:裸指针步行改 from_raw_parts 视图(U8 镜像纪律,0 新 U 号——U58
+            // 扩注)+ 像素带并行转换;带内逐值同式同序,输出字节面与 G14.6 面逐位
+            // 一致。切片长度 = out_px·4 = readback 分配字节/2,不越 map 区间。
+            convert_out_par(data, out);
             (self.dev.unmap_memory)(self.device, self.readback_mem);
         }
         // 录制槽复用:reset cmd(下一帧重录)。
@@ -3436,45 +3626,49 @@ impl FsrDx12Session {
         // + chunks_exact 定长块写;上传字节面与逐帧新分配逐位一致(reactive
         // None 臂 fill(0) ≡ 新零 vec 字面)。take/restore 全路径配对(上传错误
         // 经 up_res 缓传,恢复后再 `?`)。
+        // G14.7:四缓冲像素带并行(pack_vendor_inputs 共用主体;四缓冲精确贴合
+        // px*8/px*4/px*8/px,带内同式同序,字节面与 G14.3 面逐位一致)。
         let mut color_px = std::mem::take(&mut self.pack_color);
-        for (o, rgb) in color_px.chunks_exact_mut(8).zip(input.color.chunks_exact(3)) {
-            o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
-            o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
-            o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
-            o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
-        }
         let mut depth_px = std::mem::take(&mut self.pack_depth);
-        for (o, &d) in depth_px.chunks_exact_mut(4).zip(input.depth.iter()) {
-            o.copy_from_slice(&d.to_le_bytes());
-        }
         let mut mv_px = std::mem::take(&mut self.pack_mv);
-        for (o, &m) in mv_px.chunks_exact_mut(4).zip(input.mv.iter()) {
-            o.copy_from_slice(&m.to_le_bytes());
-        }
         let mut reac_px = std::mem::take(&mut self.pack_reac);
-        match input.reactive {
-            Some(r) => {
-                for (o, &v) in reac_px.iter_mut().zip(r.iter()) {
-                    *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                }
-            }
-            None => reac_px.fill(0),
-        }
+        pack_vendor_inputs(
+            px,
+            input.color,
+            input.depth,
+            input.mv,
+            input.reactive,
+            &mut color_px,
+            &mut depth_px,
+            &mut mv_px,
+            &mut reac_px,
+        );
         let vtm_pack = vtm_t0.elapsed();
-        eprintln!("[fsr-dbg] pre-upload frame={}", input.frame_index);
+        // G14.7:fsr-dbg 逐帧诊断打印门控(FSR_DBG_STAGE 置位才打印;缺省零 stderr
+        // IO——诊断面非生产路径固有面,CI 零消费)。
         let dbg_stage = std::env::var("FSR_DBG_STAGE").unwrap_or_default();
+        let dbg_on = !dbg_stage.is_empty();
+        if dbg_on {
+            eprintln!("[fsr-dbg] pre-upload frame={}", input.frame_index);
+        }
         let up_res = self
             .d3d_upload_tex(D3dInputSlot::Color, &color_px, 8, 0)
             .and_then(|()| {
-                eprintln!("[fsr-dbg] upload color ok");
+                if dbg_on {
+                    eprintln!("[fsr-dbg] upload color ok");
+                }
                 self.d3d_upload_tex(D3dInputSlot::Depth, &depth_px, 4, off_depth)
             })
             .and_then(|()| {
-                eprintln!("[fsr-dbg] upload depth ok");
+                if dbg_on {
+                    eprintln!("[fsr-dbg] upload depth ok");
+                }
                 self.d3d_upload_tex(D3dInputSlot::Mv, &mv_px, 8, off_mv)
             })
             .and_then(|()| {
-                eprintln!("[fsr-dbg] upload mv ok");
+                if dbg_on {
+                    eprintln!("[fsr-dbg] upload mv ok");
+                }
                 self.d3d_upload_tex(D3dInputSlot::Reactive, &reac_px, 1, off_reac)
             });
         self.pack_color = color_px;
@@ -3482,7 +3676,9 @@ impl FsrDx12Session {
         self.pack_mv = mv_px;
         self.pack_reac = reac_px;
         up_res?;
-        eprintln!("[fsr-dbg] upload reactive ok");
+        if dbg_on {
+            eprintln!("[fsr-dbg] upload reactive ok");
+        }
         let vtm_upload = vtm_t0.elapsed();
         if dbg_stage == "uploads_only" {
             self.d3d_submit_wait()?;
@@ -3620,17 +3816,16 @@ impl FsrDx12Session {
                 return Err(VendorError::ApiError(format!("readback Map → 0x{hr:08x}")));
             }
             let ow = self.out_w as usize;
-            // G14.3:chunks_exact 定长块写(消逐元素边界检查;f16→f32 逐值同式)。
-            for y in 0..self.out_h as usize {
-                let row = (ptr as *const u16).add(y * row_pitch / 2);
-                let out_row = &mut out_px[y * ow * 3..(y + 1) * ow * 3];
-                for (x, o) in out_row.chunks_exact_mut(3).enumerate() {
-                    let px4 = row.add(x * 4);
-                    o[0] = f16_to_f32(*px4);
-                    o[1] = f16_to_f32(*px4.add(1));
-                    o[2] = f16_to_f32(*px4.add(2));
-                }
-            }
+            let oh = self.out_h as usize;
+            // G14.7:裸指针步行改 from_raw_parts 视图(U8 镜像纪律,0 新 U 号——U58
+            // 扩注)+ 行带并行转换;带内逐行逐值同式同序,输出字节面与 G14.3 面逐位
+            // 一致。切片长度 = (oh−1)·row_pitch/2 + ow·4 = 触及区间精确界,不越
+            // map 区间(readback 分配 = row_pitch·oh 字节 ≥ 触及界·2)。
+            let data = std::slice::from_raw_parts(
+                ptr as *const u16,
+                (oh - 1) * (row_pitch / 2) + ow * 4,
+            );
+            convert_out_pitched_par(data, row_pitch / 2, ow, oh, out_px);
             let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
             unmap(self.readback, 0, std::ptr::null());
         }
@@ -3846,6 +4041,120 @@ mod tests {
         }
         assert_eq!(f16_to_f32(f32_to_f16(0.0)), 0.0);
         assert!(f16_to_f32(f32_to_f16(f32::INFINITY)).is_infinite());
+    }
+
+    #[test]
+    fn g14_7_parallel_conversion_bitexact() {
+        // G14.7 延续波：像素带并行 vs 单带串行的输出字节面必须逐位一致（带切分
+        // 仅改线程归属，元素间零依赖）。覆盖面：并行阈上 px（真多带）/ 阈下小格
+        // （强制单带）+ NaN/Inf/subnormal/上溢边角值 + reactive Some/None 双臂
+        // + 连续 RGBA 回读 / 行距对齐回读双转换面。单测试内聚（env 互斥面）。
+        let px = 200_000usize; // ≥ PAR_MIN_PX(131072) → 真多带面
+        let mut color = vec![0.0f32; px * 3];
+        let mut depth = vec![0.0f32; px];
+        let mut mv = vec![0.0f32; px * 2];
+        for i in 0..px {
+            color[i * 3] = (i as f32) * 0.001;
+            color[i * 3 + 1] = match i % 5 {
+                0 => f32::NAN,
+                1 => f32::INFINITY,
+                2 => f32::NEG_INFINITY,
+                3 => 1e-7 * (i as f32), // f16 subnormal/下溢域
+                _ => 70000.0,           // f16 上溢 → inf
+            };
+            color[i * 3 + 2] = 0.5;
+            depth[i] = ((i as f32) * 0.000_002).min(1.0);
+            mv[i * 2] = -0.5;
+            mv[i * 2 + 1] = 1e-6 * (i as f32);
+        }
+        let reac: Vec<f32> = (0..px).map(|i| (i % 997) as f32 / 997.0).collect();
+        for reactive in [None, Some(reac.as_slice())] {
+            let mut refer: Option<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = None;
+            for bands in [1usize, 8] {
+                let (mut c, mut d, mut m, mut r8) =
+                    (vec![0u8; px * 8], vec![0u8; px * 4], vec![0u8; px * 8], vec![0u8; px]);
+                pack_vendor_inputs_bands(px, &color, &depth, &mv, reactive, &mut c, &mut d, &mut m, &mut r8, bands);
+                match &refer {
+                    None => refer = Some((c, d, m, r8)),
+                    Some((rc, rd, rm, rr)) => assert!(
+                        c == *rc && d == *rd && m == *rm && r8 == *rr,
+                        "pack 并行/串行字节面不一致（reactive={}）",
+                        reactive.is_some()
+                    ),
+                }
+            }
+        }
+        // 带数决策纯函数锚（阈下小格恒单带；PAR=0 串行对照臂；显式 N 带）
+        assert_eq!(par_band_count_with(1000, Some("8")), 1);
+        assert_eq!(par_band_count_with(200_000, Some("0")), 1);
+        assert_eq!(par_band_count_with(200_000, Some("3")), 3);
+        assert!(par_band_count_with(200_000, None) >= 1);
+        // 阈下小格字节面（显式带数直驱）
+        let spx = 1000usize;
+        let mut refs: Option<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> = None;
+        for bands in [1usize, 8] {
+            let (mut c, mut d, mut m, mut r8) =
+                (vec![0u8; spx * 8], vec![0u8; spx * 4], vec![0u8; spx * 8], vec![0u8; spx]);
+            pack_vendor_inputs_bands(
+                spx,
+                &color[..spx * 3],
+                &depth[..spx],
+                &mv[..spx * 2],
+                None,
+                &mut c,
+                &mut d,
+                &mut m,
+                &mut r8,
+                bands,
+            );
+            match &refs {
+                None => refs = Some((c, d, m, r8)),
+                Some((rc, rd, rm, rr)) => assert!(c == *rc && d == *rd && m == *rm && r8 == *rr),
+            }
+        }
+        // 连续 RGBA f16 → f32 回读转换面（含任意位型）
+        let mut h = vec![0u16; px * 4];
+        for (i, v) in h.iter_mut().enumerate() {
+            *v = match i % 6 {
+                0 => 0x7c00,              // +inf
+                1 => 0x7e01,              // NaN
+                2 => 0x0001,              // subnormal
+                3 => 0x8000,              // −0
+                4 => 0xfc00,              // −inf
+                _ => (i as u16).wrapping_mul(7),
+            };
+        }
+        let mut ref_out: Option<Vec<f32>> = None;
+        for bands in [1usize, 8] {
+            let mut out = vec![9.9f32; px * 3];
+            convert_out_par_bands(&h, &mut out, bands);
+            match &ref_out {
+                None => ref_out = Some(out),
+                Some(r) => assert!(
+                    out.iter().zip(r.iter()).all(|(a, b)| a.to_bits() == b.to_bits()),
+                    "连续回读并行/串行位级不一致"
+                ),
+            }
+        }
+        // 行距对齐回读转换面（行距余量区零消费）
+        let (ow, oh) = (642usize, 362usize);
+        let rp2 = ow * 4 + 32; // 人为行距余量
+        let mut pdata = vec![0u16; (oh - 1) * rp2 + ow * 4];
+        for (i, v) in pdata.iter_mut().enumerate() {
+            *v = (i as u16).wrapping_mul(13) ^ 0x5555;
+        }
+        let mut refp: Option<Vec<f32>> = None;
+        for bands in [1usize, 8] {
+            let mut out = vec![0.0f32; ow * oh * 3];
+            convert_out_pitched_par_bands(&pdata, rp2, ow, oh, &mut out, bands);
+            match &refp {
+                None => refp = Some(out),
+                Some(r) => assert!(
+                    out.iter().zip(r.iter()).all(|(a, b)| a.to_bits() == b.to_bits()),
+                    "行距回读并行/串行位级不一致"
+                ),
+            }
+        }
     }
 
     #[test]

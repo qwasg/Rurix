@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.7 M-g(M177) vendor_parallel_conversion evidence",
+  "description": "evidence/g14_m_g_vendor_parallel_conversion_<UTC>.json。G14.7 延续波门 g14.p0.m_g.vendor_parallel_conversion（G14_CONTRACT §7 裁决 7 延续波程序面；G14_ACCEPTANCE_MAP 附录 A M-g 行）：vendor 四区打包与双臂输出回读转换像素带并行化位级零漂移三机核（三探针格末帧 digest == g14_3_stage_a_digest_anchor 冻结锚 + RURIX_VENDOR_PAR=0 串行对照臂同锚三角 + Rust 函数面 g14_7_parallel_conversion_bitexact 单测）+ 同码 A/B measured（交错四跑 pack/readback 双段方向机核，改善量 measured 登记不设先验阈值 P-09）+ 双探针格 production 口径入 g14_budget（阈 = 实测 ×1.5 程序产）+ RED 双臂（digest-drift/direction-masquerade）。device_section_state=executed（探针格真跑面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_m_g_vendor_parallel_conversion" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.p0.m_g.vendor_parallel_conversion" },
+    "matrix_row": { "type": "string", "const": "M177" },
+    "milestone": { "type": "string", "const": "M177" },
+    "assertion_id": { "type": "string", "const": "g14.p0.m_g.vendor_parallel_conversion" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G14.7" },
+    "numeric_step": { "type": "integer", "const": 259 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT §7 裁决 7 延续波程序面;G14_ACCEPTANCE_MAP 附录 A M-g 行;G14.4 调研取证面（§8.5 d）;G14.6 Stage A 冻结锚 g14_3_stage_a_digest_anchor.json;M141/M165 50×3 冻结统计口径"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bitexact_digest_anchor",
+        "serial_control_arm_bitexact",
+        "rust_unit_bitexact",
+        "parallel_ab_delta_measured",
+        "budget_entries_written",
+        "budget_eval_all_pass",
+        "red_arms_effective"
+      ],
+      "properties": {
+        "bitexact_digest_anchor": { "type": "boolean" },
+        "serial_control_arm_bitexact": { "type": "boolean" },
+        "rust_unit_bitexact": { "type": "boolean" },
+        "parallel_ab_delta_measured": { "type": "boolean" },
+        "budget_entries_written": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "red_arms_effective": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probe_cells", "digest_anchor_file", "bitexact_rows", "serial_control_arm", "ab_delta_segments_ms", "red"],
+      "properties": {
+        "probe_cells": { "type": "array" },
+        "digest_anchor_file": { "type": "string" },
+        "bitexact_rows": { "type": "array" },
+        "serial_control_arm": { "type": "object" },
+        "ab_delta_segments_ms": { "type": "object" },
+        "red": { "type": "object" }
+      }
+    }
+  }
+}
