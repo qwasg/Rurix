@@ -808,6 +808,12 @@ def check_evidence_files() -> None:
     g14_wave3_exit_schema = load(
         ROOT / "milestones/g14/g14_wave3_exit_evidence_schema.json"
     )
+    g14_m_d_dual_end_fps_parity_schema = load(
+        ROOT / "milestones/g14/g14_m_d_dual_end_fps_parity_evidence_schema.json"
+    )
+    g14_wave4_exit_schema = load(
+        ROOT / "milestones/g14/g14_wave4_exit_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1917,6 +1923,16 @@ def check_evidence_files() -> None:
     g14_wave3_exit_validator = (
         jsonschema.Draft7Validator(g14_wave3_exit_schema)
         if g14_wave3_exit_schema is not None
+        else None
+    )
+    g14_m_d_dual_end_fps_parity_validator = (
+        jsonschema.Draft7Validator(g14_m_d_dual_end_fps_parity_schema)
+        if g14_m_d_dual_end_fps_parity_schema is not None
+        else None
+    )
+    g14_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g14_wave4_exit_schema)
+        if g14_wave4_exit_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3685,6 +3701,18 @@ def check_evidence_files() -> None:
         ):
             # G14.3 波聚合门（步骤 255）→ required_gates 1 行 + 六 facts。
             validator = g14_wave3_exit_validator
+        elif (
+            f.name.startswith("g14_m_d_dual_end_fps_parity_")
+            and g14_m_d_dual_end_fps_parity_validator is not None
+        ):
+            # G14.4 P0 硬门 M-d 双端帧率对标（步骤 254）→ parity 节闭集。
+            validator = g14_m_d_dual_end_fps_parity_validator
+        elif (
+            f.name.startswith("g14_wave4_exit_")
+            and g14_wave4_exit_validator is not None
+        ):
+            # G14.4 波聚合门（步骤 256）→ required_gates 1 行 + 六 facts。
+            validator = g14_wave4_exit_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None

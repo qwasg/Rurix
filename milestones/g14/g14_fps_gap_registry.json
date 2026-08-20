@@ -1,0 +1,438 @@
+{
+ "schema_version": 1,
+ "registry": "g14_fps_gap_registry",
+ "generated_by": "ci/g14_dual_end_fps_parity_smoke.py --gate g14.p0.m_d.dual_end_fps_parity",
+ "scene_set": [
+  "cornell-box",
+  "bistro-interior"
+ ],
+ "items": [
+  {
+   "gap_id": "871cfe1abd90715e",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t50/tsr_device",
+     "a_value": 474.79623328321594,
+     "b_value": 41.04695176100658,
+     "delta": -433.74928152220934,
+     "evidence_digest": "sha256:0bfbf3f2e72d0b9199aa1004211149daf5120d1ed0d0888b6793b80eb447c2c9"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t50/tsr_device",
+   "description": "双端帧率对标未达标：cornell-box tier50 tsr_device Rurix/UE fps 比 0.0865 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "22a838e2e33d6043",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t50/dlss_sr",
+     "a_value": 474.79623328321594,
+     "b_value": 67.6057328309326,
+     "delta": -407.19050045228335,
+     "evidence_digest": "sha256:31383d473d492ed6652ac275ec2f40a3c4a833850eec18a99b8bb3b5f3d43153"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t50/dlss_sr",
+   "description": "双端帧率对标未达标：cornell-box tier50 dlss_sr Rurix/UE fps 比 0.1424 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "b94ae169f856c115",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t50/fsr_3_1_5",
+     "a_value": 474.79623328321594,
+     "b_value": 71.39797229758675,
+     "delta": -403.3982609856292,
+     "evidence_digest": "sha256:5b185e8f71135aea3c29058bdd49e6ce5f3bdaa71c1ac13398a044e5ca4664d7"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t50/fsr_3_1_5",
+   "description": "双端帧率对标未达标：cornell-box tier50 fsr_3_1_5 Rurix/UE fps 比 0.1504 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "967b7ecdf14f226c",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t67/tsr_device",
+     "a_value": 464.6984107314353,
+     "b_value": 39.16000995447453,
+     "delta": -425.53840077696077,
+     "evidence_digest": "sha256:4a407c0615a0a1669b0bfd2a9cf691d1c2a1cacea52d5dc278fe03ebd40afd11"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t67/tsr_device",
+   "description": "双端帧率对标未达标：cornell-box tier67 tsr_device Rurix/UE fps 比 0.0843 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "61bb90a0c954861b",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t67/dlss_sr",
+     "a_value": 464.6984107314353,
+     "b_value": 60.02902163079763,
+     "delta": -404.66938910063766,
+     "evidence_digest": "sha256:748b7825a2d33f768fd5fcef9d92b8dd4a6a6ea826fed94d8b1105a84586f0d1"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t67/dlss_sr",
+   "description": "双端帧率对标未达标：cornell-box tier67 dlss_sr Rurix/UE fps 比 0.1292 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "1fb5468095485fcf",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t67/fsr_3_1_5",
+     "a_value": 464.6984107314353,
+     "b_value": 60.30255965068898,
+     "delta": -404.3958510807463,
+     "evidence_digest": "sha256:bd22494e96bb71738b3d86ae2df18a2d2db6f5edd793c3b2728eff473c5eb1b2"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t67/fsr_3_1_5",
+   "description": "双端帧率对标未达标：cornell-box tier67 fsr_3_1_5 Rurix/UE fps 比 0.1298 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "d01607e698c1e017",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t100/tsr_device",
+     "a_value": 454.87972222011626,
+     "b_value": 27.58831806880891,
+     "delta": -427.29140415130735,
+     "evidence_digest": "sha256:2799a8f69b287ca52f85dab68ea8e450d652340e02cc10fc7bf339e114f76a17"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t100/tsr_device",
+   "description": "双端帧率对标未达标：cornell-box tier100 tsr_device Rurix/UE fps 比 0.0606 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "800d53792a920393",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t100/dlss_sr",
+     "a_value": 454.87972222011626,
+     "b_value": 36.17450029087915,
+     "delta": -418.7052219292371,
+     "evidence_digest": "sha256:b1dffd6d424a3a78e05393c5e755b698999f9e5f0088b87700509d2dcd7e9dcf"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t100/dlss_sr",
+   "description": "双端帧率对标未达标：cornell-box tier100 dlss_sr Rurix/UE fps 比 0.0795 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "cd685fe61d66a881",
+   "scene_id": "cornell-box",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@cornell-box/t100/fsr_3_1_5",
+     "a_value": 454.87972222011626,
+     "b_value": 37.420487544796536,
+     "delta": -417.45923467531975,
+     "evidence_digest": "sha256:99deb76585a151d4baaf93299ef3b9c04edcdd24fbe31b9291a2155dc88691fc"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@cornell-box/t100/fsr_3_1_5",
+   "description": "双端帧率对标未达标：cornell-box tier100 fsr_3_1_5 Rurix/UE fps 比 0.0823 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "f491f4444796f105",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t50/tsr_device",
+     "a_value": 328.1521751020006,
+     "b_value": 4.530074592162934,
+     "delta": -323.6221005098377,
+     "evidence_digest": "sha256:57b99252b614271fb4b5d5d6bbedcdce9cd01e53ec58fad2b77fe1763f297970"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t50/tsr_device",
+   "description": "双端帧率对标未达标：bistro-interior tier50 tsr_device Rurix/UE fps 比 0.0138 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "4737182a0741d03a",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t50/dlss_sr",
+     "a_value": 328.1521751020006,
+     "b_value": 6.323450473714652,
+     "delta": -321.82872462828595,
+     "evidence_digest": "sha256:c9e33c3a2c3a7cca491e0f7ddd749f5a93e40d39f39bd266a624f66a7554922b"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t50/dlss_sr",
+   "description": "双端帧率对标未达标：bistro-interior tier50 dlss_sr Rurix/UE fps 比 0.0193 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "a9201d54384e20ae",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t50/fsr_3_1_5",
+     "a_value": 328.1521751020006,
+     "b_value": 7.260610238317189,
+     "delta": -320.8915648636834,
+     "evidence_digest": "sha256:b481f14a8d32b05e9bb098652f2a5e9da942db2207d2e2868a7785458b74569b"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t50/fsr_3_1_5",
+   "description": "双端帧率对标未达标：bistro-interior tier50 fsr_3_1_5 Rurix/UE fps 比 0.0221 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "135c105f3d08505e",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t67/tsr_device",
+     "a_value": 318.20447819768987,
+     "b_value": 3.8041655734762867,
+     "delta": -314.4003126242136,
+     "evidence_digest": "sha256:fb453558e5488e5fde0b72cc301c5de0c745d2b269a33db863cfeab58db7c7de"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t67/tsr_device",
+   "description": "双端帧率对标未达标：bistro-interior tier67 tsr_device Rurix/UE fps 比 0.0120 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "f74fc1cba6306b0b",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t67/dlss_sr",
+     "a_value": 318.20447819768987,
+     "b_value": 5.048525136235587,
+     "delta": -313.1559530614543,
+     "evidence_digest": "sha256:c4fe7adf1114a0b3f74e482219e27f8129e1d87e8c6f25a3e207ad3eae5e3ad1"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t67/dlss_sr",
+   "description": "双端帧率对标未达标：bistro-interior tier67 dlss_sr Rurix/UE fps 比 0.0159 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "ff5bdbea51a590e9",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t67/fsr_3_1_5",
+     "a_value": 318.20447819768987,
+     "b_value": 5.723820782019876,
+     "delta": -312.48065741567,
+     "evidence_digest": "sha256:1ca39c72e990f174599cfcb75e2a7d5b3187c61068392cd2d38aca996b7b0f03"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t67/fsr_3_1_5",
+   "description": "双端帧率对标未达标：bistro-interior tier67 fsr_3_1_5 Rurix/UE fps 比 0.0180 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "2ee7a38ddd037c74",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t100/tsr_device",
+     "a_value": 252.1739495904275,
+     "b_value": 2.9286222851433465,
+     "delta": -249.24532730528415,
+     "evidence_digest": "sha256:72d66f1cda5befb4903e4dc4036e8ac4089757bc959f8f528c0182a1b86261c5"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t100/tsr_device",
+   "description": "双端帧率对标未达标：bistro-interior tier100 tsr_device Rurix/UE fps 比 0.0116 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "51a150cb4523e8b6",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t100/dlss_sr",
+     "a_value": 252.1739495904275,
+     "b_value": 3.0449623463914697,
+     "delta": -249.12898724403604,
+     "evidence_digest": "sha256:de33dcead0cd94a1f7f180189f6793f62c9bd7de16e80c798cb20203ec667876"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t100/dlss_sr",
+   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.0121 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  },
+  {
+   "gap_id": "1d0205d958e01739",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t100/fsr_3_1_5",
+     "a_value": 252.1739495904275,
+     "b_value": 3.5981757781334878,
+     "delta": -248.57577381229402,
+     "evidence_digest": "sha256:3b0f7552e0a1fdc81f663c19a0fdb95ae53f525401db7ccbbe31af3815abaaa9"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t100/fsr_3_1_5",
+   "description": "双端帧率对标未达标：bistro-interior tier100 fsr_3_1_5 Rurix/UE fps 比 0.0143 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  }
+ ],
+ "scene_summary": [
+  {
+   "scene_id": "cornell-box",
+   "gap_count": 9,
+   "no_gap_explicit": false
+  },
+  {
+   "scene_id": "bistro-interior",
+   "gap_count": 9,
+   "no_gap_explicit": false
+  }
+ ],
+ "not_ready_scenes": []
+}

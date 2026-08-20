@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.4 wave4.exit evidence",
+  "description": "evidence/g14_wave4_exit_<UTC>.json。G14.4 双端对标波聚合门 g14.wave.4.exit（步骤 256；G14_CONTRACT G-G14-6/§2.2；G14_ACCEPTANCE_MAP §1）：M-d(M175) 双端帧率正式对标门（步骤 254）最新 evidence 只读汇总 + 六 facts：①M-d 门 RED 臂独立有效（single-round/mixed-caliber/unmet-masquerade）②双端三轮进程级独立运行 measured 面（18 格 cells 齐备 + 50×3 冻结口径）③通过线逐格判定 + 差距登记表落盘（g14_fps_gap_registry.json 行数 == unmet_count 一致性复核）④画质零降级守护（G13 锁定双门最新 evidence PASS 消费面 + G14.3 车道锚带在树）⑤逐轮守护带登记（逐格 per_run_ratios 三件非空）⑥G5~G13 closed 面 0-byte（committed diff 闭集 ⊆ 授权面）。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE；M-d 通过线未达标时本门 verdict 红 = 诚实面（差距登记表已落盘，G14.x 延续波/G16+ 承接继续优化，G14_CONTRACT §7 裁决 7 字面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_wave4_exit" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.wave.4.exit" },
+    "matrix_row": { "type": "string", "const": "G14.4" },
+    "wave": { "type": "string", "const": "G14.4" },
+    "numeric_step": { "type": "integer", "const": 256 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT G-G14-6/§2.2/§7 裁决 7;G14_ACCEPTANCE_MAP §1;M-d gate red arms independently effective;dual-end three-run measured 18 cells;pass line per-cell evaluated + gap registry written;quality guard green;per-run guard band registered;G5~G13 closed 0-byte"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "required_gates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["symbolic_gate_key", "status"],
+        "properties": {
+          "symbolic_gate_key": { "type": "string" },
+          "subject_prefix": { "type": "string" },
+          "evidence_path": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
+          "detail": { "type": "string" },
+          "timestamp": { "type": ["string", "null"] },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

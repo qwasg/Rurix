@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.4 M-d(M175) dual_end_fps_parity evidence",
+  "description": "evidence/g14_m_d_dual_end_fps_parity_<UTC>.json。G14.4 P0 硬门 g14.p0.m_d.dual_end_fps_parity（G14_CONTRACT §4.2 M-d 行判据逐字；G14_ACCEPTANCE_MAP §1；G10-N16/G11-N3 帧率面兑现 + 用户「帧率对标UE5略高（不降级画质）」字面兑现面）：同场景同输出分辨率同超分档 GPU 管线双端 A/B（UE 臂 = benchmark 臂复跑三轮进程级独立运行；Rurix 臂 = G14.3 生产管线三轮进程级独立运行）+ 通过线 = Rurix 三轮 trimmed mean 帧率 ≥ UE 同口径 ×1.00（G14-N7 口径裁决，逐轮守护带登记）+ 画质零降级守护（G13 锁定对拍 deficit 基线带内经 M-a 修订面复跑绿 + G14.3 车道锚带复核）+ 对标差距/未达标项显式登记 g14_fps_gap_registry.json（gaplib 正典形不静默混入）；未达标冒充达标即 RED（未达标如实登记，verdict 红 = 通过线未达诚实面，不阻塞 G14.5a 穷举）。device_section_state=executed（双端真跑面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_m_d_dual_end_fps_parity" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.p0.m_d.dual_end_fps_parity" },
+    "matrix_row": { "type": "string", "const": "M175" },
+    "milestone": { "type": "string", "const": "M175" },
+    "assertion_id": { "type": "string", "const": "g14.p0.m_d.dual_end_fps_parity" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G14.4" },
+    "numeric_step": { "type": "integer", "const": 254 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT §4.2 M-d/G-G14-6;G14_ACCEPTANCE_MAP §1;G10-N16/G11-N3 帧率面;G14-N7 通过线 ×1.00 口径裁决;M141/M165 50×3 冻结统计口径"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dual_end_measurement_fresh",
+        "three_run_independence",
+        "sampling_protocol_50x3",
+        "pass_line_evaluated",
+        "quality_guard_green",
+        "gap_registry_written",
+        "budget_eval_all_pass",
+        "red_arms_effective"
+      ],
+      "properties": {
+        "dual_end_measurement_fresh": { "type": "boolean" },
+        "three_run_independence": { "type": "boolean" },
+        "sampling_protocol_50x3": { "type": "boolean" },
+        "pass_line_evaluated": { "type": "boolean" },
+        "quality_guard_green": { "type": "boolean" },
+        "gap_registry_written": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "red_arms_effective": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pass_line_ratio", "met_count", "unmet_count", "cells", "quality_guard", "gap_registry_file"],
+      "properties": {
+        "pass_line_ratio": { "type": "number" },
+        "met_count": { "type": "integer" },
+        "unmet_count": { "type": "integer" },
+        "cells": { "type": "array" },
+        "quality_guard": { "type": "array" },
+        "gap_registry_file": { "type": "string" }
+      }
+    }
+  }
+}
