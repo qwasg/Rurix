@@ -140,3 +140,13 @@ no-empty 组的 PASS 判据：
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-19 | G14.1 初版：冻结 5 个 P0 的 symbolic gate、目标脚本/schema、独立判据（契约 §4.2 逐字）与最晚波次——登记表 UE 方差带结构化对账修订 1 行（M-a，G14.2，G13 §8.7 承接锚兑现）+ UE benchmark 臂正式帧率测量 1 行（M-b，G14.2，G10-N11 兑现窗）+ Rurix 生产管线性能面 1 行（M-c，G14.3）+ 双端帧率正式对标 + 画质零降级守护 1 行（M-d，G14.4，G10-N16 兑现窗 + 通过线 ×1.00 略高下限）+ 回归门+漂移监控 1 行（M-e，G14.5a）；§2 零 go P1 声明；§3 条件型/not-triggered 登记面（异己并发工作树面 / 八行触发评估与决策窗 / 帧率通过线·画质面·材质链边界 / 对标测量口径面）；§4 key 命名空间双方逐字一致机器可核声明（G14 无独立 CI_GATES，契约 ↔ MAP 双向）+ 基线锚溯源；单一命名空间 `g14.p0.m_<a~e>.<slug>` + `ci/g14_<slug>_smoke.py` + `g14_m_<a~e>_<slug>_evidence_schema.json` 由 `ci/g14_acceptance_map_check.py` 双向比对强制；§5 治理三门（步骤按落盘前实测 actual next_free 领取）、§6 G14.2 硬互锁五条件、§7 Close-out 审计。P0 行数字 CI 步骤全部 `post-interlock actual-next-free allocation`（当前实测 CI_step next_free=247），零 P0 workflow/script/schema 预放。 |
+
+---
+
+## 附录 A. 延续波门（G14.x 只追加程序面——G14_CONTRACT §7 裁决 7 字面；§1 冻结 5 行闭集 0-byte 不动，本附录行不进 G14.5b 阻断闭集，其绿面为其所属延续波退出门输入；非数字节首不参与 §1/§2 行集机核）
+
+| M 行 | Symbolic CI gate key / 稳定脚本 | Evidence schema（目标路径） | 独立硬判据（逐字） | 负例 RED 臂 | device/host 性质 | 所属波次 | numeric_step |
+|---|---|---|---|---|---|---|---|
+| **M-f** | `g14.p0.m_f.production_caliber_stage_a`<br>`py -3 ci/g14_production_caliber_stage_a_smoke.py --gate g14.p0.m_f.production_caliber_stage_a` | `milestones/g14/g14_m_f_production_caliber_stage_a_evidence_schema.json` | 生产口径双列 + vendor Stage A 位级零漂移（G14.4 调研取证面契约 §8.5 a/d 兑现）：bench receipt 双列口径落盘（frame_ms 全量 G14.3 兼容 + frame_ms_production = 全量 − bench 测量面 tail〔is_finite 全帧校验 + frame_content_digest payload 重建+sha256 = 非生产路径固有面〕）逐格不变量机核 production ≤ full + DLSS 臂 pack 直写 mapped staging（消 ~px·21B 二次 memcpy）与 DLSS/FSR 双臂输出驻留写（消逐帧 ~out_px·12B 分配）位级零漂移——三探针格（cornell-box t67 × 三后端）末帧 digest == g14_3_stage_a_digest_anchor.json 冻结锚逐字一致 + RURIX_VENDOR_TIMING=1 分解遥测六段（pack/sl_book/upload/evaluate/submit_wait/readback）measured 非空（evaluate 黑盒段裁决登记——G14.4 调研 R1 动作）+ Stage A 前后全量口径对照行（pre 锚 = M-d 012652Z evidence）+ 三探针格 production 口径 measured 入 g14_budget（阈 = 实测 ×1.5 守护带程序产禁手写 P-09）+ budget_eval 全 PASS；以全量口径冒充生产口径即 RED；Stage A 输出漂移静默即 RED；estimated 冒充 measured 即 RED | 内联：以全量口径冒充生产口径即 RED；Stage A 输出漂移静默即 RED；estimated 冒充 measured 即 RED | host+device | **G14.6** | 257（落盘前实测 actual next_free 顺位领取） |
+
+- 附录 A 行纪律：与 §1 同构（独立 symbolic key + 独立 evidence subject + 独立布尔断言）；§1 冻结 5 行集合机核面（`ci/g14_acceptance_map_check.py` EXPECTED_P0）0-byte 不扩——延续波门由契约 §8 波验收记录与本附录双向引用承载一致性，不混入 G14.5b 阻断闭集；后续延续波门只追加进本附录。

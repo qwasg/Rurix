@@ -1005,10 +1005,6 @@ pub struct DlssVkSession {
     dlls: Vec<DllProvenance>,
     log_tail: Vec<String>,
     shutdown_done: bool,
-    /// G14.3 性能波:staging 打包缓冲 session 常驻(原逐帧 `vec![0u8; ~px*21]`
-    /// 新分配+清零 = 实测 pack 分项主构成之一;尺寸创建期钉死,逐帧全量重写,
-    /// 上传字节面与逐帧新分配逐位一致——digest 不变机核)。
-    pack_buf: Vec<u8>,
 }
 
 // session 句柄集非 Send(单线程门 harness 语义;不显式 impl Send/Sync)。
@@ -1846,7 +1842,6 @@ impl DlssVkSession {
             dlls,
             log_tail: Vec::new(),
             shutdown_done: false,
-            pack_buf: vec![0u8; (iw * ih) as usize * 21],
         })
     }
 
@@ -1952,6 +1947,23 @@ impl DlssVkSession {
     }
 
     fn frame_impl(&mut self, input: &VendorFrameInput, skip_evaluate: bool) -> Result<Vec<f32>, VendorError> {
+        let mut out = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        self.frame_impl_into(input, skip_evaluate, &mut out)?;
+        Ok(out)
+    }
+
+    /// G14.6 Stage A：驻留输出变体（upscale 字节面与 `frame_impl` 逐位一致——
+    /// 同一 frame_impl_into 主体，调用方驻留 Vec 消逐帧 ~out_px·12B 分配+清零；
+    /// dst 长度不符时由本层 resize（首帧一次），其后逐帧零分配）。
+    pub fn upscale_into(&mut self, input: &VendorFrameInput, dst: &mut Vec<f32>) -> Result<(), VendorError> {
+        let need = (self.out_w * self.out_h * 3) as usize;
+        if dst.len() != need {
+            dst.resize(need, 0.0);
+        }
+        self.frame_impl_into(input, false, dst)
+    }
+
+    fn frame_impl_into(&mut self, input: &VendorFrameInput, skip_evaluate: bool, out: &mut [f32]) -> Result<(), VendorError> {
         let (iw, ih) = (self.in_w, self.in_h);
         let px = (iw * ih) as usize;
         if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
@@ -1962,6 +1974,9 @@ impl DlssVkSession {
         {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
+        if out.len() != (self.out_w * self.out_h * 3) as usize {
+            return Err(VendorError::ApiError("输出切片长度与 session 输出分辨率不符".into()));
+        }
         // G14.3 性能波:内部分解遥测(env `RURIX_VENDOR_TIMING=1` 门控,默认关,
         // 零行为变更;轴 = pack 打包 / sl_book 簿记 / upload 上传录制 / evaluate
         // vendor 调用 / submit_wait GPU 执行+同步 / readback 回读转换)。
@@ -1971,51 +1986,58 @@ impl DlssVkSession {
         // G14.3 性能波:session 常驻 pack_buf 复用(消逐帧 ~px·21B 新分配+清零)
         // + chunks_exact 定长块写(消逐元素边界检查);上传字节面与逐帧新分配
         // 逐位一致(reactive None 臂 fill(0) ≡ 新零 vec 字面)。
+        // G14.6 Stage A:pack 直写 mapped staging(消 pack_buf→staging ~px·21B
+        // 二次 memcpy;staging 最终字节面与 G14.3 面逐位一致——同序同式写入,
+        // 仅落点由中转 vec 改为映射指针)。
         let color_bytes = px * 4 * 2;
         let depth_bytes = px * 4;
         let mv_bytes = px * 2 * 4;
         let reactive_bytes = px;
-        let packed = self.pack_buf.as_mut_slice();
-        for (o, rgb) in packed[..color_bytes]
-            .chunks_exact_mut(8)
-            .zip(input.color.chunks_exact(3))
-        {
-            o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
-            o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
-            o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
-            o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
+        let pack_total = color_bytes + depth_bytes + mv_bytes + reactive_bytes;
+        if (pack_total as u64) > self.staging_size {
+            return Err(VendorError::ApiError("pack 总长超 staging 容量".into()));
         }
         let d_off = color_bytes;
-        for (o, &d) in packed[d_off..d_off + depth_bytes]
-            .chunks_exact_mut(4)
-            .zip(input.depth.iter())
-        {
-            o.copy_from_slice(&d.to_le_bytes());
-        }
         let m_off = d_off + depth_bytes;
-        for (o, &m) in packed[m_off..m_off + mv_bytes]
-            .chunks_exact_mut(4)
-            .zip(input.mv.iter())
-        {
-            o.copy_from_slice(&m.to_le_bytes());
-        }
         let r_off = m_off + mv_bytes;
-        match input.reactive {
-            Some(r) => {
-                for (o, &v) in packed[r_off..r_off + reactive_bytes].iter_mut().zip(r.iter()) {
-                    *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                }
-            }
-            None => packed[r_off..r_off + reactive_bytes].fill(0),
-        }
-        // SAFETY: staging host-visible+coherent;map 尺寸 = staging_size ≥ packed 长度。
+        // SAFETY: staging host-visible+coherent;map 尺寸 = staging_size ≥ pack_total;
+        // 切片不越 map 区间;unmap 前无其它别名访问(本帧单线程路径)。
         unsafe {
             let mut ptr: *mut c_void = std::ptr::null_mut();
             let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
             if r != VK_SUCCESS || ptr.is_null() {
                 return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
             }
-            std::ptr::copy_nonoverlapping(packed.as_ptr(), ptr as *mut u8, packed.len());
+            let packed = std::slice::from_raw_parts_mut(ptr as *mut u8, pack_total);
+            for (o, rgb) in packed[..color_bytes]
+                .chunks_exact_mut(8)
+                .zip(input.color.chunks_exact(3))
+            {
+                o[0..2].copy_from_slice(&f32_to_f16(rgb[0]).to_le_bytes());
+                o[2..4].copy_from_slice(&f32_to_f16(rgb[1]).to_le_bytes());
+                o[4..6].copy_from_slice(&f32_to_f16(rgb[2]).to_le_bytes());
+                o[6..8].copy_from_slice(&f32_to_f16(1.0).to_le_bytes());
+            }
+            for (o, &d) in packed[d_off..d_off + depth_bytes]
+                .chunks_exact_mut(4)
+                .zip(input.depth.iter())
+            {
+                o.copy_from_slice(&d.to_le_bytes());
+            }
+            for (o, &m) in packed[m_off..m_off + mv_bytes]
+                .chunks_exact_mut(4)
+                .zip(input.mv.iter())
+            {
+                o.copy_from_slice(&m.to_le_bytes());
+            }
+            match input.reactive {
+                Some(r) => {
+                    for (o, &v) in packed[r_off..r_off + reactive_bytes].iter_mut().zip(r.iter()) {
+                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                    }
+                }
+                None => packed[r_off..r_off + reactive_bytes].fill(0),
+            }
             (self.dev.unmap_memory)(self.device, self.staging_mem);
         }
         let vtm_pack = vtm_t0.elapsed();
@@ -2216,7 +2238,8 @@ impl DlssVkSession {
         }
         let vtm_wait = vtm_t0.elapsed();
 
-        let mut out = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        // G14.6 Stage A:输出直写调用方驻留切片(消逐帧 ~out_px·12B 新分配+清零;
+        // 转换逐值同式同序,字节面与 G14.3 面逐位一致)。
         // SAFETY: readback host-visible+coherent;queueWaitIdle 后无在途写;map 区间 = 帧字节。
         unsafe {
             let mut ptr: *mut c_void = std::ptr::null_mut();
@@ -2252,7 +2275,7 @@ impl DlssVkSession {
                 total,
             );
         }
-        Ok(out)
+        Ok(())
     }
 
     /// validation ERROR 级累计计数(我方调用实错,白名单豁免不计;messenger 在位时,否则 0)。
@@ -3372,10 +3395,30 @@ impl FsrDx12Session {
 
     /// 执行一帧 FSR 3.1.5 超分;返回 `out_size` 的 3 通道 f32 显示域图像。
     pub fn upscale(&mut self, input: &VendorFrameInput) -> Result<Vec<f32>, VendorError> {
+        let mut out = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        self.frame_impl_into(input, &mut out)?;
+        Ok(out)
+    }
+
+    /// G14.6 Stage A：驻留输出变体（与 `upscale` 逐位一致——同一 frame_impl_into
+    /// 主体，调用方驻留 Vec 消逐帧 ~out_px·12B 分配+清零；pack 直写上传堆面归
+    /// G14.x wave 2 登记，本波不动 FSR pack/upload 路径）。
+    pub fn upscale_into(&mut self, input: &VendorFrameInput, dst: &mut Vec<f32>) -> Result<(), VendorError> {
+        let need = (self.out_w * self.out_h * 3) as usize;
+        if dst.len() != need {
+            dst.resize(need, 0.0);
+        }
+        self.frame_impl_into(input, dst)
+    }
+
+    fn frame_impl_into(&mut self, input: &VendorFrameInput, out_px: &mut [f32]) -> Result<(), VendorError> {
         let (iw, ih) = (self.in_w, self.in_h);
         let px = (iw * ih) as usize;
         if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
             return Err(VendorError::ApiError("输入切片长度与 session 分辨率不符".into()));
+        }
+        if out_px.len() != (self.out_w * self.out_h * 3) as usize {
+            return Err(VendorError::ApiError("输出切片长度与 session 输出分辨率不符".into()));
         }
         // G14.3 性能波:内部分解遥测(env `RURIX_VENDOR_TIMING=1` 门控,默认关,
         // 零行为变更;轴同 DLSS 臂——pack/upload/evaluate/submit_wait/readback)。
@@ -3453,7 +3496,11 @@ impl FsrDx12Session {
                     ms(vtm_upload - vtm_pack),
                 );
             }
-            return Ok(vec![0f32; (self.out_w * self.out_h * 3) as usize]);
+            return {
+                // G14.6 Stage A:探针臂产出面 = 全零帧(与旧逐帧新零 vec 字面一致)。
+                out_px.fill(0.0);
+                Ok(())
+            };
         }
         if self.color_out.state == D3D12_RESOURCE_STATE_COMMON {
             let out = self.color_out.clone_shallow();
@@ -3561,7 +3608,8 @@ impl FsrDx12Session {
         self.d3d_submit_wait()?;
         let vtm_wait = vtm_t0.elapsed();
 
-        let mut out_px = vec![0f32; (self.out_w * self.out_h * 3) as usize];
+        // G14.6 Stage A:输出直写调用方驻留切片(消逐帧 ~out_px·12B 新分配+清零;
+        // 转换逐值同式同序,字节面与 G14.3 面逐位一致)。
         let row_pitch = ((8u64 * self.out_w as u64 + 255) & !255) as usize;
         // SAFETY: readback heap fence 排空后 map;逐行按 row_pitch 读 f16。
         unsafe {
@@ -3600,7 +3648,7 @@ impl FsrDx12Session {
                 total,
             );
         }
-        Ok(out_px)
+        Ok(())
     }
 
     /// validation(D3D12 debug layer info queue)ERROR/CORRUPTION 级消息计数。

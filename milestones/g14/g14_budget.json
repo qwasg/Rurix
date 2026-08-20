@@ -112,15 +112,48 @@
       "measured_value": 0.005389924642694499
     },
     {
+      "id": "g14.pipeline_perf.prod_frame_ms.cornell-box_t67_tsr_device",
+      "description": "G14.6 生产口径（frame_ms_production = 全量 − bench 测量面 tail〔is_finite+digest〕）探针格 cornell-box_t67_tsr_device 帧时——单轮 160 帧 warmup 10 稳态 mean（阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；回归守护/对标输入面；M-d v2 对标 = 三轮全量面",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 27.134150625000025,
+      "evidence_file": "evidence/g14_m_f_probe_cornell-box_t67_tsr_device_20260820T034312Z.json",
+      "measured_value": 18.089433750000016
+    },
+    {
+      "id": "g14.pipeline_perf.prod_frame_ms.cornell-box_t67_dlss_sr",
+      "description": "G14.6 生产口径（frame_ms_production = 全量 − bench 测量面 tail〔is_finite+digest〕）探针格 cornell-box_t67_dlss_sr 帧时——单轮 160 帧 warmup 10 稳态 mean（阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；回归守护/对标输入面；M-d v2 对标 = 三轮全量面",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 11.578015312499996,
+      "evidence_file": "evidence/g14_m_f_probe_cornell-box_t67_dlss_sr_20260820T034312Z.json",
+      "measured_value": 7.718676874999997
+    },
+    {
+      "id": "g14.pipeline_perf.prod_frame_ms.cornell-box_t67_fsr_3_1_5",
+      "description": "G14.6 生产口径（frame_ms_production = 全量 − bench 测量面 tail〔is_finite+digest〕）探针格 cornell-box_t67_fsr_3_1_5 帧时——单轮 160 帧 warmup 10 稳态 mean（阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；回归守护/对标输入面；M-d v2 对标 = 三轮全量面",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 10.214588437499998,
+      "evidence_file": "evidence/g14_m_f_probe_cornell-box_t67_fsr_3_1_5_20260820T034312Z.json",
+      "measured_value": 6.809725624999999
+    },
+    {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t50_tsr_device",
       "description": "G14.3 生产管线车道（DeviceFrameSession 持久面 + GPU telemetry）cornell-box tier50 tsr_device 帧时——三轮进程级独立运行 50×3 稳态 mean 跨轮中位数（阈 = 实测 ×1.5 守护带沿 G9.1~G12.5 先例）；回归守护/对标输入面，不构成帧率对标通过线单轮数据（M-d 正式对标 = 三轮全量面）",
       "direction": "max",
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 38.785587,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_tsr_device_20260820T000025Z.json",
-      "measured_value": 25.857058
+      "threshold": 36.047061,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_tsr_device_20260820T034925Z.json",
+      "measured_value": 24.031374
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t50_dlss_sr",
@@ -129,9 +162,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 22.595064,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_dlss_sr_20260820T000025Z.json",
-      "measured_value": 15.063376
+      "threshold": 21.287671500000002,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_dlss_sr_20260820T034925Z.json",
+      "measured_value": 14.191781
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t50_fsr_3_1_5",
@@ -140,9 +173,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 21.7264965,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 14.484331
+      "threshold": 20.5094685,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t50_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 13.672979
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t67_tsr_device",
@@ -151,9 +184,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 40.546158,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_tsr_device_20260820T000025Z.json",
-      "measured_value": 27.030772
+      "threshold": 40.563804,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_tsr_device_20260820T034925Z.json",
+      "measured_value": 27.042536
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t67_dlss_sr",
@@ -162,9 +195,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 26.071029000000003,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_dlss_sr_20260820T000025Z.json",
-      "measured_value": 17.380686
+      "threshold": 24.4053075,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_dlss_sr_20260820T034925Z.json",
+      "measured_value": 16.270205
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t67_fsr_3_1_5",
@@ -173,9 +206,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 25.152322500000004,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 16.768215
+      "threshold": 24.4220145,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t67_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 16.281343
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t100_tsr_device",
@@ -184,9 +217,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 57.57534749999999,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_tsr_device_20260820T000025Z.json",
-      "measured_value": 38.383565
+      "threshold": 54.269844,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_tsr_device_20260820T034925Z.json",
+      "measured_value": 36.179896
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t100_dlss_sr",
@@ -195,9 +228,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 43.608241500000005,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_dlss_sr_20260820T000025Z.json",
-      "measured_value": 29.072161
+      "threshold": 41.656431,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_dlss_sr_20260820T034925Z.json",
+      "measured_value": 27.770954
     },
     {
       "id": "g14.pipeline_perf.frame_ms.cornell-box_t100_fsr_3_1_5",
@@ -206,9 +239,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 41.1061905,
-      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 27.404127
+      "threshold": 39.7520655,
+      "evidence_file": "evidence/g14_m_c_perf_cornell-box_t100_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 26.501377
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t50_tsr_device",
@@ -217,9 +250,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 321.1858305,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_tsr_device_20260820T000025Z.json",
-      "measured_value": 214.123887
+      "threshold": 344.507244,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_tsr_device_20260820T034925Z.json",
+      "measured_value": 229.671496
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t50_dlss_sr",
@@ -228,9 +261,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 241.26821700000002,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_dlss_sr_20260820T000025Z.json",
-      "measured_value": 160.845478
+      "threshold": 238.4943465,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_dlss_sr_20260820T034925Z.json",
+      "measured_value": 158.996231
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t50_fsr_3_1_5",
@@ -239,9 +272,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 219.05406150000002,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 146.036041
+      "threshold": 205.446687,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t50_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 136.964458
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t67_tsr_device",
@@ -250,9 +283,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 364.5511065,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_tsr_device_20260820T000025Z.json",
-      "measured_value": 243.034071
+      "threshold": 402.18315299999995,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_tsr_device_20260820T034925Z.json",
+      "measured_value": 268.122102
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t67_dlss_sr",
@@ -261,9 +294,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 270.5287905,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_dlss_sr_20260820T000025Z.json",
-      "measured_value": 180.352527
+      "threshold": 298.5859185,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_dlss_sr_20260820T034925Z.json",
+      "measured_value": 199.057279
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t67_fsr_3_1_5",
@@ -272,9 +305,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 280.19998350000003,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 186.799989
+      "threshold": 267.53910299999995,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t67_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 178.359402
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t100_tsr_device",
@@ -283,9 +316,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 526.504293,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_tsr_device_20260820T000025Z.json",
-      "measured_value": 351.002862
+      "threshold": 505.56556950000004,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_tsr_device_20260820T034925Z.json",
+      "measured_value": 337.043713
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t100_dlss_sr",
@@ -294,9 +327,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 494.31455700000004,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_dlss_sr_20260820T000025Z.json",
-      "measured_value": 329.543038
+      "threshold": 365.483394,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_dlss_sr_20260820T034925Z.json",
+      "measured_value": 243.655596
     },
     {
       "id": "g14.pipeline_perf.frame_ms.bistro-interior_t100_fsr_3_1_5",
@@ -305,9 +338,9 @@
       "evidence": "measured_local",
       "skip_reason": null,
       "unit": "ms",
-      "threshold": 404.88768899999997,
-      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_fsr_3_1_5_20260820T000025Z.json",
-      "measured_value": 269.925126
+      "threshold": 419.45167050000003,
+      "evidence_file": "evidence/g14_m_c_perf_bistro-interior_t100_fsr_3_1_5_20260820T034925Z.json",
+      "measured_value": 279.634447
     }
   ]
 }

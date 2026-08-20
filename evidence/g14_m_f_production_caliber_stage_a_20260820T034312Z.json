@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_f_production_caliber_stage_a",
+  "milestone": "M176",
+  "assertion_id": "g14.p0.m_f.production_caliber_stage_a",
+  "symbolic_gate_key": "g14.p0.m_f.production_caliber_stage_a",
+  "matrix_row": "M176",
+  "status": "pass",
+  "wave": "G14.6",
+  "numeric_step": 257,
+  "source_ref": "G14_CONTRACT §4.2 M-f/§7 裁决 7;G14_ACCEPTANCE_MAP §1;G14.4 调研取证面（§8.5 a~f）;M141/M165 50×3 冻结统计口径;G14.3 digest 冻结锚 g14_3_stage_a_digest_anchor.json",
+  "base_commit": "c2ed3434753763c0cb91203f584b1ca4dd87fb2a",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "double_column_receipt": true,
+    "stage_a_bitexact_probe": true,
+    "vendor_timing_axis_measured": true,
+    "before_after_registered": true,
+    "budget_entries_written": true,
+    "budget_eval_all_pass": true,
+    "red_arms_effective": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g14_3_pipeline_perf --bench ×3 探针格（双列口径真跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "RURIX_VENDOR_TIMING=1 g14_3_pipeline_perf --bench cornell-box 67 dlss_sr 30 帧（分解遥测）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "RED 双臂（caliber-masquerade/digest-drift）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260820T034312Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g14.ue_benchmark.frame_ms.*（UE 臂）+ g14.pipeline_perf.frame_ms.*（G14.3 全量口径）+ g14_3_stage_a_digest_anchor（位级锚）",
+    "measured_value": "cornell-box_t67_tsr_device: full=26.908/prod=18.089ms; cornell-box_t67_dlss_sr: full=16.557/prod=7.719ms; cornell-box_t67_fsr_3_1_5: full=15.748/prod=6.810ms; vtm evaluate=0.083ms",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "budget 阈 = 实测 ×1.5 守护带（G9.1~G12.5 先例程序产，禁手写 P-09）；位级锚 = G14.3 digest 冻结面",
+    "evolution_register": "Stage A 位级零漂移 3/3 格；双列口径不变量机核过；vendor evaluate 段 measured=0.083ms 登记（R1 裁决面）"
+  },
+  "notes": "探针格 cornell-box/t67/tsr_device…; 探针格 cornell-box/t67/dlss_sr…; 探针格 cornell-box/t67/fsr_3_1_5…;   cornell-box_t67_tsr_device: full=26.908ms prod=18.089ms tail=8.818ms;   cornell-box_t67_dlss_sr: full=16.557ms prod=7.719ms tail=8.838ms;   cornell-box_t67_fsr_3_1_5: full=15.748ms prod=6.810ms tail=8.938ms; Stage A 位级对拍：cornell-box_t67_tsr_device=同; cornell-box_t67_dlss_sr=同; cornell-box_t67_fsr_3_1_5=同; vendor 分解遥测（cornell t67 dlss 稳态 mean, ms）：pack=1.255 sl_book=0.010 upload=0.018 evaluate=0.083 submit_wait=0.554 readback=0.842;   前后对照 cornell-box_t67_tsr_device: pre-full=25.536 → post-full=26.908 / post-prod=18.089ms;   前后对照 cornell-box_t67_dlss_sr: pre-full=16.659 → post-full=16.557 / post-prod=7.719ms;   前后对照 cornell-box_t67_fsr_3_1_5: pre-full=16.583 → post-full=15.748 / post-prod=6.810ms",
+  "parity": {
+    "probe_cells": [
+      {
+        "cell": "cornell-box_t67_tsr_device",
+        "full_ms": 26.907674,
+        "production_ms": 18.089433750000016,
+        "tail_ms": 8.818240625000005,
+        "last_frame_digest": "sha256:4ba365f4d7f0c36dcd3eccc7df60cfd7300cc72e75cac39d326eaa73972f6eec"
+      },
+      {
+        "cell": "cornell-box_t67_dlss_sr",
+        "full_ms": 16.556734,
+        "production_ms": 7.718676874999997,
+        "tail_ms": 8.838057500000009,
+        "last_frame_digest": "sha256:bf06a1a54ec5504be8d79db499c7209e1dea9c2c771e07a29ea47b793a60d28f"
+      },
+      {
+        "cell": "cornell-box_t67_fsr_3_1_5",
+        "full_ms": 15.747552,
+        "production_ms": 6.809725624999999,
+        "tail_ms": 8.937826249999997,
+        "last_frame_digest": "sha256:9d6cda50906183665bfb3f0a91945e460d744b15f8f466d2238050380f93bd67"
+      }
+    ],
+    "digest_anchor_file": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+    "bitexact_rows": [
+      {
+        "cell": "cornell-box_t67_tsr_device",
+        "anchor": "sha256:4ba365f4d7f0c36dcd3eccc7df60cfd7300cc72e75cac39d326eaa73972f6eec",
+        "measured": "sha256:4ba365f4d7f0c36dcd3eccc7df60cfd7300cc72e75cac39d326eaa73972f6eec",
+        "match": true
+      },
+      {
+        "cell": "cornell-box_t67_dlss_sr",
+        "anchor": "sha256:bf06a1a54ec5504be8d79db499c7209e1dea9c2c771e07a29ea47b793a60d28f",
+        "measured": "sha256:bf06a1a54ec5504be8d79db499c7209e1dea9c2c771e07a29ea47b793a60d28f",
+        "match": true
+      },
+      {
+        "cell": "cornell-box_t67_fsr_3_1_5",
+        "anchor": "sha256:9d6cda50906183665bfb3f0a91945e460d744b15f8f466d2238050380f93bd67",
+        "measured": "sha256:9d6cda50906183665bfb3f0a91945e460d744b15f8f466d2238050380f93bd67",
+        "match": true
+      }
+    ],
+    "vendor_timing_segments_ms": {
+      "pack": 1.2553,
+      "sl_book": 0.010233,
+      "upload": 0.0178,
+      "evaluate": 0.083,
+      "submit_wait": 0.5539,
+      "readback": 0.8423
+    },
+    "before_after": [
+      {
+        "cell": "cornell-box_t67_tsr_device",
+        "pre_stage_a_full_ms": 25.536255,
+        "post_stage_a_full_ms": 26.907674,
+        "post_stage_a_production_ms": 18.089433750000016
+      },
+      {
+        "cell": "cornell-box_t67_dlss_sr",
+        "pre_stage_a_full_ms": 16.658609,
+        "post_stage_a_full_ms": 16.556734,
+        "post_stage_a_production_ms": 7.718676874999997
+      },
+      {
+        "cell": "cornell-box_t67_fsr_3_1_5",
+        "pre_stage_a_full_ms": 16.583044,
+        "post_stage_a_full_ms": 15.747552,
+        "post_stage_a_production_ms": 6.809725624999999
+      }
+    ],
+    "red": {
+      "caliber_masquerade_detected": true,
+      "digest_drift_detected": true
+    }
+  }
+}

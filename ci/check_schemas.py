@@ -814,6 +814,12 @@ def check_evidence_files() -> None:
     g14_wave4_exit_schema = load(
         ROOT / "milestones/g14/g14_wave4_exit_evidence_schema.json"
     )
+    g14_m_f_production_caliber_stage_a_schema = load(
+        ROOT / "milestones/g14/g14_m_f_production_caliber_stage_a_evidence_schema.json"
+    )
+    g14_wave6_exit_schema = load(
+        ROOT / "milestones/g14/g14_wave6_exit_evidence_schema.json"
+    )
     g13_m_a_vendor_upscale_integration_schema = load(
         ROOT / "milestones/g13/g13_m_a_vendor_upscale_integration_evidence_schema.json"
     )
@@ -1933,6 +1939,16 @@ def check_evidence_files() -> None:
     g14_wave4_exit_validator = (
         jsonschema.Draft7Validator(g14_wave4_exit_schema)
         if g14_wave4_exit_schema is not None
+        else None
+    )
+    g14_m_f_production_caliber_stage_a_validator = (
+        jsonschema.Draft7Validator(g14_m_f_production_caliber_stage_a_schema)
+        if g14_m_f_production_caliber_stage_a_schema is not None
+        else None
+    )
+    g14_wave6_exit_validator = (
+        jsonschema.Draft7Validator(g14_wave6_exit_schema)
+        if g14_wave6_exit_schema is not None
         else None
     )
     g13_m_a_vendor_upscale_integration_validator = (
@@ -3713,6 +3729,25 @@ def check_evidence_files() -> None:
         ):
             # G14.4 波聚合门（步骤 256）→ required_gates 1 行 + 六 facts。
             validator = g14_wave4_exit_validator
+        elif (
+            f.name.startswith("g14_m_f_production_caliber_stage_a_")
+            and g14_m_f_production_caliber_stage_a_validator is not None
+        ):
+            # G14.6 P0 硬门 M-f 生产口径+Stage A（步骤 257）→ parity 节闭集。
+            validator = g14_m_f_production_caliber_stage_a_validator
+        elif (
+            f.name.startswith("g14_m_f_probe_")
+            and g14_m_c_measured_entry_validator is not None
+        ):
+            # G14.6 M-f 探针格 production 口径条目 evidence（measured entry 面，
+            # 与 g14_m_c_perf_ 同 schema 复用）→ g14_m_c_measured_entry schema。
+            validator = g14_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g14_wave6_exit_")
+            and g14_wave6_exit_validator is not None
+        ):
+            # G14.6 波聚合门（步骤 258）→ required_gates 1 行 + 六 facts。
+            validator = g14_wave6_exit_validator
         elif (
             f.name.startswith("g13_m_a_vendor_upscale_integration_")
             and g13_m_a_vendor_upscale_integration_validator is not None

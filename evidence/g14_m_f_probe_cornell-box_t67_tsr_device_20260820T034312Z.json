@@ -1,0 +1,21 @@
+{
+  "schema": "rurix.g14pipelineperf.measured_entry.v1",
+  "entry_id": "g14.pipeline_perf.prod_frame_ms.cornell-box_t67_tsr_device",
+  "results": {
+    "trimmed_mean": 18.089433750000016
+  },
+  "protocol": "G14.6 生产口径（frame_ms_production = 全量 − bench 测量面 tail）探针格单轮 160 帧 warmup 10 稳态 mean；双列同测零行为变更（G14.6 M-f 门字面）",
+  "sample_manifest": {
+    "count": 160,
+    "digest": "sha256:1cc829a1d6926c360ac17166667938c8fd1bf5bf09ed8814c762abd580512c86"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "device",
+    "base_commit": "c2ed3434753763c0cb91203f584b1ca4dd87fb2a"
+  },
+  "cells": {
+    "probe_cell": "cornell-box_t67_tsr_device"
+  },
+  "timestamp": "20260820T034312Z"
+}

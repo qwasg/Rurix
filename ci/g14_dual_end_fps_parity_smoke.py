@@ -59,6 +59,7 @@ SOURCE_REF = (
 )
 SCHEMA_PATH = ROOT / "milestones" / "g14" / "g14_m_d_dual_end_fps_parity_evidence_schema.json"
 REGISTRY_PATH = ROOT / "milestones" / "g14" / "g14_fps_gap_registry.json"
+DIGEST_ANCHOR_PATH = ROOT / "milestones" / "g14" / "g14_3_stage_a_digest_anchor.json"
 REGISTRY_NAME = "g14_fps_gap_registry"
 
 UE_BENCH = ROOT / "milestones" / "g14" / "harness" / "g14_2_ue_bench.py"
@@ -77,6 +78,8 @@ CHECK_KEYS = [
     "dual_end_measurement_fresh",
     "three_run_independence",
     "sampling_protocol_50x3",
+    "production_caliber_v2",
+    "stage_a_digest_drift_guard",
     "pass_line_evaluated",
     "quality_guard_green",
     "gap_registry_written",
@@ -133,7 +136,8 @@ def run_ue_cell(scene: str, tier: int) -> dict | None:
 
 
 def run_rurix_cell(scene: str, tier: int, backend: str) -> dict | None:
-    """Rurix 臂三轮（g14_3 bench）。"""
+    """Rurix 臂三轮（g14_3 bench；G14.6 v2 起消费生产口径列——frame_ms_production
+    = 全量 − bench 测量面 tail〔is_finite+digest 非生产固有面〕；全量列随行登记）。"""
     sys.path.insert(0, str(MC_SMOKE.parent))
     import g14_rurix_pipeline_perf_smoke as mc  # noqa: E402
     runs = []
@@ -141,10 +145,16 @@ def run_rurix_cell(scene: str, tier: int, backend: str) -> dict | None:
         res = mc.run_bench(scene, tier, backend, run_index)
         if not res.get("ok"):
             return None
-        runs.append({"run_index": run_index, "frame_ms_mean": res["frame_ms_mean"],
+        runs.append({"run_index": run_index,
+                     "frame_ms_mean": res["frame_ms_production_mean"],
+                     "frame_ms_full_caliber": res["frame_ms_mean"],
+                     "tail_ms_mean": res["tail_ms_mean"],
+                     "last_frame_digest": res.get("last_frame_digest", ""),
                      "cv": res["cv"], "started_epoch": res["started_epoch"]})
     means = sorted(r["frame_ms_mean"] for r in runs)
-    return {"runs": runs, "median_ms": means[len(means) // 2]}
+    fulls = sorted(r["frame_ms_full_caliber"] for r in runs)
+    return {"runs": runs, "median_ms": means[len(means) // 2],
+            "median_full_caliber_ms": fulls[len(fulls) // 2]}
 
 
 def run_gate() -> int:
@@ -184,13 +194,38 @@ def run_gate() -> int:
                     "scene": scene, "tier": tier, "backend": backend,
                     "ue_median_ms": ue["median_ms"],
                     "rurix_median_ms": ru["median_ms"],
+                    "rurix_full_caliber_ms": ru["median_full_caliber_ms"],
                     "fps_ratio": ratio,
                     "per_run_ratios": per_run_ratios,
+                    "runs": ru["runs"],
                     "pass": ratio >= PASS_LINE_RATIO,
                 })
     checks["dual_end_measurement_fresh"] = meas_ok and len(cells) == len(SCENES) * len(TIERS) * 3
     checks["three_run_independence"] = meas_ok
     checks["sampling_protocol_50x3"] = meas_ok
+
+    # ── ①b G14.6 生产口径 v2 机核 + Stage A digest 漂移守护（逐格逐轮） ──
+    def _caliber_ok(prod: float, full: float) -> bool:
+        return 0.0 < prod <= full
+    cal_ok = bool(cells)
+    dig_ok = bool(cells)
+    anchors_doc = wel.load_json(DIGEST_ANCHOR_PATH) if DIGEST_ANCHOR_PATH.is_file() else {}
+    anchors = anchors_doc.get("anchors") or {}
+    for c in cells:
+        for rr in c["runs"]:
+            if not _caliber_ok(rr["frame_ms_mean"], rr["frame_ms_full_caliber"]):
+                cal_ok = False
+                check(False, f"口径不变量破 {c['scene']}/t{c['tier']}/{c['backend']}/r{rr['run_index']}: "
+                             f"prod={rr['frame_ms_mean']:.3f} > full={rr['frame_ms_full_caliber']:.3f}")
+        key = f"{c['scene']}_t{c['tier']}_{c['backend']}"
+        anchor_dig = (anchors.get(key) or {}).get("last_frame_digest", "")
+        cell_digs = {rr.get("last_frame_digest", "") for rr in c["runs"]}
+        if not anchor_dig or cell_digs != {anchor_dig}:
+            dig_ok = False
+            check(False, f"Stage A digest 漂移 {key}: anchor={anchor_dig[:32]}… cell={sorted(d[:32] for d in cell_digs)}")
+    checks["production_caliber_v2"] = cal_ok
+    checks["stage_a_digest_drift_guard"] = dig_ok
+    note(f"生产口径 v2 机核（prod≤full 逐轮不变量）= {cal_ok}；Stage A digest 守护（18 格 × 3 轮 == 冻结锚）= {dig_ok}")
 
     # ── ② 通过线判定（逐格 Rurix fps ≥ UE ×1.00 + 逐轮守护带登记） ──
     unmet = [c for c in cells if not c["pass"]]
@@ -310,6 +345,8 @@ def run_gate() -> int:
     def _pass_of(ratio: float) -> bool:
         return ratio >= PASS_LINE_RATIO
     red["unmet_masquerade_detected"] = (not _pass_of(0.97)) and _pass_of(1.0)
+    # 全量口径冒充生产口径：prod>full 伪值必被不变量拒（G14.6 v2 加性臂）
+    red["production_masquerade_detected"] = (not _caliber_ok(16.3, 7.4)) and _caliber_ok(7.4, 16.3)
     red_ok = all(red.values())
     checks["red_arms_effective"] = red_ok
     check(red_ok, f"RED 臂面: {red}")
@@ -401,7 +438,12 @@ def verify_latest() -> int:
 def selftest() -> int:
     failures = 0
     schema = wel.load_json(SCHEMA_PATH) if SCHEMA_PATH.is_file() else {}
-    req = set(schema.get("properties", {}).get("checks", {}).get("required", []))
+    checks_prop = schema.get("properties", {}).get("checks", {})
+    if "anyOf" in checks_prop:
+        # v2 = anyOf 末支（10 键闭集；首支 8 键 = G14.4 首跑面冻结形态，沿 M130 双相 anyOf 先例）
+        req = set(checks_prop["anyOf"][-1].get("required", []))
+    else:
+        req = set(checks_prop.get("required", []))
     if req != set(CHECK_KEYS):
         print(f"[{TAG}] selftest FAIL: schema required 与 CHECK_KEYS 闭集不等 {req ^ set(CHECK_KEYS)}", file=sys.stderr)
         failures += 1

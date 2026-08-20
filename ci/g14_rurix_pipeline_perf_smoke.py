@@ -126,7 +126,7 @@ def run_bench(scene: str, tier: int, backend: str, run_index: int) -> dict:
     if r.returncode != 0 or not m:
         return {"ok": False, "tail": out[-300:]}
     # 逐帧序列从 receipt/stdout 不可得——本门读 bench 汇总 + telemetry 分项（稳态构成）。
-    return {
+    result = {
         "ok": True,
         "frame_ms_mean": float(m.group(6)),
         "cv": float(m.group(7)),
@@ -135,6 +135,19 @@ def run_bench(scene: str, tier: int, backend: str, run_index: int) -> dict:
         "wall_s": wall,
         "started_epoch": t0,
     }
+    # G14.6：receipt 生产口径面（production/tail 双列 + 末帧 digest——M-f/M-d v2 消费面；
+    # 缺字段 = pre-G14.6 旧版 receipt 混充 → fail-closed 不静默回落）。新鲜度机核：
+    # receipt mtime ≥ 本轮启动−5s（PASS 行先于 receipt 不成立——bin 先落盘后打印）。
+    rp = OUT_ROOT / scene / f"tier{tier}" / backend / "bench_receipt.json"
+    rec = wel.load_json(rp) if rp.is_file() else {}
+    sp = rec.get("stats_post_warmup") or {}
+    fresh = rp.is_file() and rp.stat().st_mtime >= t0 - 5.0
+    if not rec or not fresh or "frame_ms_production_mean" not in sp:
+        return {"ok": False, "tail": "bench_receipt 缺 production 口径字段或非本轮新鲜件"}
+    result["frame_ms_production_mean"] = float(sp["frame_ms_production_mean"])
+    result["tail_ms_mean"] = float(sp["tail_ms_mean"])
+    result["last_frame_digest"] = str(rec.get("last_frame_digest", ""))
+    return result
 
 
 def run_render_bitexact(scene: str, tier: int, backend: str) -> tuple[str, str]:

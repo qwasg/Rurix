@@ -1,0 +1,206 @@
+{
+ "schema": "rurix.g14.stage_a_digest_anchor.v1",
+ "description": "G14.3 生产管线（pre-Stage-A 码面）18 格 bench 末帧 digest 冻结锚——Stage A 位级零漂移对拍基准；来源 = M-d 门 20260820T012652Z 复跑面 K:\\\\rurix-ext\\\\g14-frames\\\\rurix_prod 收据（G14.3 码面 c2ed3434~1 双亲前态真跑产出，程序收割禁手写 P-09）。",
+ "harvested_utc": "2026-08-20T02:40:00Z",
+ "source_gate_run": "g14.p0.m_d.dual_end_fps_parity evidence 20260820T012652Z（Rurix 臂 54 轮）",
+ "anchors": {
+  "cornell-box_t50_tsr_device": {
+   "last_frame_digest": "sha256:77ab09ed3e226dfecafd8e9525d4ff2dd25510bfcc60008a1ed32ccd7697d74e",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189351.3907137
+  },
+  "cornell-box_t50_dlss_sr": {
+   "last_frame_digest": "sha256:94cfa1400ee92fa4783934ff6e3ab67bf65044320076dbf6c5371712236fe6d0",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189364.0407014
+  },
+  "cornell-box_t50_fsr_3_1_5": {
+   "last_frame_digest": "sha256:476f51c423b81f7fd09a8dbd99aba37d8b1801008e289d9bfbb7d24ef9562d6c",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189375.8074043
+  },
+  "cornell-box_t67_tsr_device": {
+   "last_frame_digest": "sha256:4ba365f4d7f0c36dcd3eccc7df60cfd7300cc72e75cac39d326eaa73972f6eec",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189439.9577408
+  },
+  "cornell-box_t67_dlss_sr": {
+   "last_frame_digest": "sha256:bf06a1a54ec5504be8d79db499c7209e1dea9c2c771e07a29ea47b793a60d28f",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189452.9808962
+  },
+  "cornell-box_t67_fsr_3_1_5": {
+   "last_frame_digest": "sha256:9d6cda50906183665bfb3f0a91945e460d744b15f8f466d2238050380f93bd67",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189465.6105075
+  },
+  "cornell-box_t100_tsr_device": {
+   "last_frame_digest": "sha256:a204d4e9e757f8a8ac05c38f9fdc047011196ce30f872ddc7f87a658da58a496",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189537.1135771
+  },
+  "cornell-box_t100_dlss_sr": {
+   "last_frame_digest": "sha256:2e1856cbd4de9f12b0e64c27f807f5932a4993677ed6eac7da231fe3cb9ea662",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189555.8147206
+  },
+  "cornell-box_t100_fsr_3_1_5": {
+   "last_frame_digest": "sha256:61af74f88bfeea6de2e257b7efa1765f996c013787a1d52ceb9430cfcd0ae65a",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    512,
+    512
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189575.7408907
+  },
+  "bistro-interior_t50_tsr_device": {
+   "last_frame_digest": "sha256:cd35a878bdcede952d28d18a6450cbb32508c6ff3f443892c58b67b3fb989ce8",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787189945.6987042
+  },
+  "bistro-interior_t50_dlss_sr": {
+   "last_frame_digest": "sha256:6ee78059a9faf524448b37c59ee1c2ff3e7c60ff5124b5d9662724d95e8584ab",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787190213.852426
+  },
+  "bistro-interior_t50_fsr_3_1_5": {
+   "last_frame_digest": "sha256:e880369131684f1a22a60b642341aca4453b0583114e2332d941f1f679136a5a",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787190467.9189186
+  },
+  "bistro-interior_t67_tsr_device": {
+   "last_frame_digest": "sha256:b7568a9a58fbce9926a0418aa429d1c877cccf47d7e70268b63ea2449102dc00",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787190841.3409405
+  },
+  "bistro-interior_t67_dlss_sr": {
+   "last_frame_digest": "sha256:e67276bc483e4916f620675965c5f811d22d1fe2b531caf4c0149f9f7dedba60",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787191134.9753208
+  },
+  "bistro-interior_t67_fsr_3_1_5": {
+   "last_frame_digest": "sha256:303836e79e6ba23dd021297fc40b0493dc0b38a4932f8f43ce7cf5a52f71b112",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787191411.8600721
+  },
+  "bistro-interior_t100_tsr_device": {
+   "last_frame_digest": "sha256:cba7ed30df4ccf2a099d49763c28005ab16cfcee72ef6a1dd2697f8e35e10264",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787191890.0232868
+  },
+  "bistro-interior_t100_dlss_sr": {
+   "last_frame_digest": "sha256:9f619da3099c29b0a252a749cf021e127f83725e3a871ee8147fe44fa709f5e2",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787192238.988173
+  },
+  "bistro-interior_t100_fsr_3_1_5": {
+   "last_frame_digest": "sha256:638715bdd65b1a268abda067a60555c03018ad789dfc183181d7b228b497a516",
+   "seed": 7312026601,
+   "jitter_base": 14043,
+   "output_size": [
+    1920,
+    1080
+   ],
+   "frames_measured": 160,
+   "receipt_mtime": 1787192563.8146234
+  }
+ }
+}

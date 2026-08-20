@@ -49,28 +49,60 @@
       "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
     },
     "checks": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "dual_end_measurement_fresh",
-        "three_run_independence",
-        "sampling_protocol_50x3",
-        "pass_line_evaluated",
-        "quality_guard_green",
-        "gap_registry_written",
-        "budget_eval_all_pass",
-        "red_arms_effective"
-      ],
-      "properties": {
-        "dual_end_measurement_fresh": { "type": "boolean" },
-        "three_run_independence": { "type": "boolean" },
-        "sampling_protocol_50x3": { "type": "boolean" },
-        "pass_line_evaluated": { "type": "boolean" },
-        "quality_guard_green": { "type": "boolean" },
-        "gap_registry_written": { "type": "boolean" },
-        "budget_eval_all_pass": { "type": "boolean" },
-        "red_arms_effective": { "type": "boolean" }
-      }
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dual_end_measurement_fresh",
+            "three_run_independence",
+            "sampling_protocol_50x3",
+            "pass_line_evaluated",
+            "quality_guard_green",
+            "gap_registry_written",
+            "budget_eval_all_pass",
+            "red_arms_effective"
+          ],
+          "properties": {
+            "dual_end_measurement_fresh": { "type": "boolean" },
+            "three_run_independence": { "type": "boolean" },
+            "sampling_protocol_50x3": { "type": "boolean" },
+            "pass_line_evaluated": { "type": "boolean" },
+            "quality_guard_green": { "type": "boolean" },
+            "gap_registry_written": { "type": "boolean" },
+            "budget_eval_all_pass": { "type": "boolean" },
+            "red_arms_effective": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dual_end_measurement_fresh",
+            "three_run_independence",
+            "sampling_protocol_50x3",
+            "production_caliber_v2",
+            "stage_a_digest_drift_guard",
+            "pass_line_evaluated",
+            "quality_guard_green",
+            "gap_registry_written",
+            "budget_eval_all_pass",
+            "red_arms_effective"
+          ],
+          "properties": {
+            "dual_end_measurement_fresh": { "type": "boolean" },
+            "three_run_independence": { "type": "boolean" },
+            "sampling_protocol_50x3": { "type": "boolean" },
+            "production_caliber_v2": { "type": "boolean" },
+            "stage_a_digest_drift_guard": { "type": "boolean" },
+            "pass_line_evaluated": { "type": "boolean" },
+            "quality_guard_green": { "type": "boolean" },
+            "gap_registry_written": { "type": "boolean" },
+            "budget_eval_all_pass": { "type": "boolean" },
+            "red_arms_effective": { "type": "boolean" }
+          }
+        }
+      ]
     },
     "commands": {
       "type": "array",

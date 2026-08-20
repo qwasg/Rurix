@@ -2372,6 +2372,34 @@ impl DlssBackend {
             pending_reset: true,
         })
     }
+
+    /// G14.6 Stage A：驻留输出面（bench 腿专用；与 trait upscale 逐位一致——
+    /// vendor session upscale_into 驻留写，消逐帧 ~out_px·12B 分配+清零）。
+    fn upscale_into(&mut self, inputs: &UpscaleInputs, dst: &mut ImageF32) {
+        let (iw, ih, ow, oh) = inputs.validated();
+        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
+        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
+        let vi = VendorFrameInput {
+            color: &inputs.color.data,
+            depth: &inputs.depth.data,
+            mv: &inputs.mv.data,
+            reactive: inputs.reactive.map(|r| &r.data[..]),
+            exposure: inputs.exposure,
+            jitter: inputs.jitter,
+            frame_index: inputs.frame_index,
+            reset: inputs.reset || self.pending_reset,
+        };
+        self.pending_reset = false;
+        if dst.data.len() != (ow * oh * 3) as usize {
+            dst.data.resize((ow * oh * 3) as usize, 0.0);
+        }
+        dst.w = ow;
+        dst.h = oh;
+        dst.c = 3;
+        self.session
+            .upscale_into(&vi, &mut dst.data)
+            .unwrap_or_else(|e| panic!("DLSS upscale 失败: {e}"));
+    }
 }
 
 impl UpscaleBackend for DlssBackend {
@@ -2426,6 +2454,34 @@ impl FsrBackend {
             out_size,
             pending_reset: true,
         })
+    }
+
+    /// G14.6 Stage A：驻留输出面（bench 腿专用；与 trait upscale 逐位一致——
+    /// vendor session upscale_into 驻留写，消逐帧 ~out_px·12B 分配+清零）。
+    fn upscale_into(&mut self, inputs: &UpscaleInputs, dst: &mut ImageF32) {
+        let (iw, ih, ow, oh) = inputs.validated();
+        assert_eq!((iw, ih), self.in_size, "FSR adapter 输入分辨率与 session 不符");
+        assert_eq!((ow, oh), self.out_size, "FSR adapter 输出分辨率与 session 不符");
+        let vi = VendorFrameInput {
+            color: &inputs.color.data,
+            depth: &inputs.depth.data,
+            mv: &inputs.mv.data,
+            reactive: inputs.reactive.map(|r| &r.data[..]),
+            exposure: inputs.exposure,
+            jitter: inputs.jitter,
+            frame_index: inputs.frame_index,
+            reset: inputs.reset || self.pending_reset,
+        };
+        self.pending_reset = false;
+        if dst.data.len() != (ow * oh * 3) as usize {
+            dst.data.resize((ow * oh * 3) as usize, 0.0);
+        }
+        dst.w = ow;
+        dst.h = oh;
+        dst.c = 3;
+        self.session
+            .upscale_into(&vi, &mut dst.data)
+            .unwrap_or_else(|e| panic!("FSR upscale 失败: {e}"));
     }
 }
 
@@ -2487,6 +2543,19 @@ impl UpscaleBackend for Backend<'_> {
             Backend::Tsr(b) => b.reset_history(),
             Backend::Dlss(b) => b.reset_history(),
             Backend::Fsr(b) => b.reset_history(),
+        }
+    }
+}
+
+impl Backend<'_> {
+    /// G14.6 Stage A：bench 腿驻留输出统一面——vendor 双臂走 session upscale_into
+    /// 驻留写（逐位一致）；TSR 面维持 trait 路径整体替换（其分配面在 device 车道
+    /// 内部，host 侧替换语义等价）。
+    fn upscale_into(&mut self, inputs: &UpscaleInputs, dst: &mut ImageF32) {
+        match self {
+            Backend::Tsr(b) => *dst = b.upscale(inputs),
+            Backend::Dlss(b) => b.upscale_into(inputs, dst),
+            Backend::Fsr(b) => b.upscale_into(inputs, dst),
         }
     }
 }
@@ -3455,8 +3524,12 @@ fn bench_leg(
     let mut cpu_record_ns: Vec<f64> = Vec::new();
     let mut cpu_submit_ns: Vec<f64> = Vec::new();
     let mut cpu_fence_wait_ns: Vec<f64> = Vec::new();
+    let mut tail_ms: Vec<f64> = Vec::new();
+    let mut prod_ms: Vec<f64> = Vec::new();
     let mut prev_vp: Option<Mat4> = None;
     let mut last_digest = String::new();
+    // G14.6：bench 腿驻留输出缓冲（Stage A 消逐帧分配；字节面逐位一致）
+    let mut out_img = ImageF32::new(out_w, out_h, 3);
     for i in 0..total {
         let t_frame = std::time::Instant::now();
         let j = [
@@ -3503,12 +3576,20 @@ fn bench_leg(
             frame_index: i,
             reset: i == 0,
         };
-        let out = backend.upscale(&inputs);
+        let out = {
+            backend.upscale_into(&inputs, &mut out_img);
+            &out_img
+        };
         let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
+        // G14.6 口径分解：tail = bench 测量面（is_finite 全帧校验 + frame_content_digest
+        // payload 重建+sha256）——非生产路径固有面；frame_ms（全量口径，G14.3 兼容）
+        // 与 frame_ms_production（= frame − tail，M-d 对标消费面）双列同测，零行为变更。
+        let t_tail = std::time::Instant::now();
         if !out.data.iter().all(|v| v.is_finite()) {
             fail(&format!("bench 帧 {i} upscale 输出非有限"));
         }
         last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
+        let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
         let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
         if i >= warmup {
             frame_ms.push(frame_el);
@@ -3519,6 +3600,8 @@ fn bench_leg(
             cpu_record_ns.push(rec.cpu_record_ns as f64);
             cpu_submit_ns.push(rec.cpu_submit_ns as f64);
             cpu_fence_wait_ns.push(rec.cpu_fence_wait_ns as f64);
+            tail_ms.push(tail_el);
+            prod_ms.push(frame_el - tail_el);
         }
         if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
             eprintln!(
@@ -3551,6 +3634,8 @@ fn bench_leg(
     let (rec_mean, _, _, _, _) = stats(&cpu_record_ns);
     let (sub_mean, _, _, _, _) = stats(&cpu_submit_ns);
     let (wait_mean, _, _, _, _) = stats(&cpu_fence_wait_ns);
+    let (t_mean, _, _, _, _) = stats(&tail_ms);
+    let (p_mean, p_sd, p_cv, p_min, p_max) = stats(&prod_ms);
     let join_ms = |v: &[f64]| {
         v.iter()
             .map(|x| format!("{x:.6}"))
@@ -3563,7 +3648,7 @@ fn bench_leg(
         .join(backend.name());
     std::fs::create_dir_all(&out_dir).unwrap_or_else(|e| fail(&format!("输出目录: {e}")));
     let receipt = format!(
-        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_bench_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed\": {},\n  \"jitter_base\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"exposure\": {},\n  \"warmup\": {},\n  \"frames_measured\": {},\n  \"iterations_total\": {},\n  \"frame_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"cpu_record_ns\": [{}],\n  \"cpu_submit_ns\": [{}],\n  \"cpu_fence_wait_ns\": [{}],\n  \"stats_post_warmup\": {{\"frame_ms_mean\": {}, \"frame_ms_sd\": {}, \"frame_ms_cv\": {}, \"frame_ms_min\": {}, \"frame_ms_max\": {}, \"scene_render_ms_mean\": {}, \"mv_ms_mean\": {}, \"upscale_ms_mean\": {}, \"scene_gpu_ns_mean\": {}, \"cpu_record_ns_mean\": {}, \"cpu_submit_ns_mean\": {}, \"cpu_fence_wait_ns_mean\": {}}},\n  \"steady_state_fps_mean\": {},\n  \"render_lane\": \"DeviceFrameSession 持久车道 + kernels/g14_3_direct_gi.rx RayQuery compute（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；逐帧 192B 帧参数上传 + readback 子集）\",\n  \"timer\": \"host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）\",\n  \"last_frame_digest\": {},\n  \"gi_arm\": \"direct_only（--gi off；GI 臂 not-triggered 登记见 render_receipt 面）\"\n}}\n",
+        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_bench_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed\": {},\n  \"jitter_base\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"exposure\": {},\n  \"warmup\": {},\n  \"frames_measured\": {},\n  \"iterations_total\": {},\n  \"frame_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"cpu_record_ns\": [{}],\n  \"cpu_submit_ns\": [{}],\n  \"cpu_fence_wait_ns\": [{}],\n  \"tail_ms\": [{}],\n  \"frame_ms_production\": [{}],\n  \"stats_post_warmup\": {{\"frame_ms_mean\": {}, \"frame_ms_sd\": {}, \"frame_ms_cv\": {}, \"frame_ms_min\": {}, \"frame_ms_max\": {}, \"scene_render_ms_mean\": {}, \"mv_ms_mean\": {}, \"upscale_ms_mean\": {}, \"scene_gpu_ns_mean\": {}, \"cpu_record_ns_mean\": {}, \"cpu_submit_ns_mean\": {}, \"cpu_fence_wait_ns_mean\": {}, \"tail_ms_mean\": {}, \"frame_ms_production_mean\": {}, \"frame_ms_production_sd\": {}, \"frame_ms_production_cv\": {}, \"frame_ms_production_min\": {}, \"frame_ms_production_max\": {}}},\n  \"caliber\": \"G14.6 双列口径：frame_ms = 全量（G14.3 兼容，含 bench 测量面 tail）；frame_ms_production = frame − tail（tail = is_finite 全帧校验 + frame_content_digest payload 重建+sha256，非生产路径固有面）；M-d 对标消费 production 列，双列同测零行为变更\",\n  \"steady_state_fps_mean\": {},\n  \"render_lane\": \"DeviceFrameSession 持久车道 + kernels/g14_3_direct_gi.rx RayQuery compute（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；逐帧 192B 帧参数上传 + readback 子集）\",\n  \"timer\": \"host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）\",\n  \"last_frame_digest\": {},\n  \"gi_arm\": \"direct_only（--gi off；GI 臂 not-triggered 登记见 render_receipt 面）\"\n}}\n",
         jstr(&contract_path.replace('\\', "/")),
         jstr(&contract.digest),
         jstr(scene_id),
@@ -3587,6 +3672,8 @@ fn bench_leg(
         join_ms(&cpu_record_ns),
         join_ms(&cpu_submit_ns),
         join_ms(&cpu_fence_wait_ns),
+        join_ms(&tail_ms),
+        join_ms(&prod_ms),
         f_mean,
         f_sd,
         f_cv,
@@ -3599,13 +3686,19 @@ fn bench_leg(
         rec_mean,
         sub_mean,
         wait_mean,
+        t_mean,
+        p_mean,
+        p_sd,
+        p_cv,
+        p_min,
+        p_max,
         1000.0 / f_mean,
         jstr(&last_digest),
     );
     let receipt_path = out_dir.join("bench_receipt.json");
     std::fs::write(&receipt_path, &receipt).unwrap_or_else(|e| fail(&format!("bench receipt 落盘: {e}")));
     println!(
-        "{TAG}: BENCH PASS scene={scene_id} tier={tier} backend={} warmup={warmup} frames={frames} frame_ms_mean={f_mean:.6} cv={f_cv:.6} fps={:.3} scene_gpu_ms_mean={:.6} out={}",
+        "{TAG}: BENCH PASS scene={scene_id} tier={tier} backend={} warmup={warmup} frames={frames} frame_ms_mean={f_mean:.6} cv={f_cv:.6} fps={:.3} scene_gpu_ms_mean={:.6} prod_ms_mean={p_mean:.6} tail_ms_mean={t_mean:.6} out={}",
         backend.name(),
         1000.0 / f_mean,
         g_mean / 1e6,

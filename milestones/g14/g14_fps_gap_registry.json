@@ -18,16 +18,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t50/tsr_device",
-     "a_value": 474.79623328321594,
-     "b_value": 41.04695176100658,
-     "delta": -433.74928152220934,
-     "evidence_digest": "sha256:0bfbf3f2e72d0b9199aa1004211149daf5120d1ed0d0888b6793b80eb447c2c9"
+     "a_value": 434.0685973073279,
+     "b_value": 68.62470388976406,
+     "delta": -365.4438934175638,
+     "evidence_digest": "sha256:cea4ba0141c712a2744400d12696ac365ac77ddfecb7b3368dfa1b89241ebd7a"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t50/tsr_device",
-   "description": "双端帧率对标未达标：cornell-box tier50 tsr_device Rurix/UE fps 比 0.0865 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier50 tsr_device Rurix/UE fps 比 0.1581 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -41,16 +41,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t50/dlss_sr",
-     "a_value": 474.79623328321594,
-     "b_value": 67.6057328309326,
-     "delta": -407.19050045228335,
-     "evidence_digest": "sha256:31383d473d492ed6652ac275ec2f40a3c4a833850eec18a99b8bb3b5f3d43153"
+     "a_value": 434.0685973073279,
+     "b_value": 189.3814081194202,
+     "delta": -244.68718918790768,
+     "evidence_digest": "sha256:21ecdf6a2d43fefbbd8fca69ed0b5af84c4840832ce54256ccfae9d66b7778ff"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t50/dlss_sr",
-   "description": "双端帧率对标未达标：cornell-box tier50 dlss_sr Rurix/UE fps 比 0.1424 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier50 dlss_sr Rurix/UE fps 比 0.4363 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -64,16 +64,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t50/fsr_3_1_5",
-     "a_value": 474.79623328321594,
-     "b_value": 71.39797229758675,
-     "delta": -403.3982609856292,
-     "evidence_digest": "sha256:5b185e8f71135aea3c29058bdd49e6ce5f3bdaa71c1ac13398a044e5ca4664d7"
+     "a_value": 434.0685973073279,
+     "b_value": 185.59262974548756,
+     "delta": -248.47596756184032,
+     "evidence_digest": "sha256:413e9a090cdcb883f589f7a65f4e07ee8f9f226cc1d09636e661ae0fd14c4bd5"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t50/fsr_3_1_5",
-   "description": "双端帧率对标未达标：cornell-box tier50 fsr_3_1_5 Rurix/UE fps 比 0.1504 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier50 fsr_3_1_5 Rurix/UE fps 比 0.4276 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -87,16 +87,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t67/tsr_device",
-     "a_value": 464.6984107314353,
-     "b_value": 39.16000995447453,
-     "delta": -425.53840077696077,
-     "evidence_digest": "sha256:4a407c0615a0a1669b0bfd2a9cf691d1c2a1cacea52d5dc278fe03ebd40afd11"
+     "a_value": 475.68836069862766,
+     "b_value": 55.118676884429185,
+     "delta": -420.56968381419847,
+     "evidence_digest": "sha256:236654ac5c1b9f6024a553c7899d5dbb366a8549b43aaaa059bd84c9910b986f"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t67/tsr_device",
-   "description": "双端帧率对标未达标：cornell-box tier67 tsr_device Rurix/UE fps 比 0.0843 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier67 tsr_device Rurix/UE fps 比 0.1159 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -110,16 +110,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t67/dlss_sr",
-     "a_value": 464.6984107314353,
-     "b_value": 60.02902163079763,
-     "delta": -404.66938910063766,
-     "evidence_digest": "sha256:748b7825a2d33f768fd5fcef9d92b8dd4a6a6ea826fed94d8b1105a84586f0d1"
+     "a_value": 475.68836069862766,
+     "b_value": 131.67583089300987,
+     "delta": -344.01252980561776,
+     "evidence_digest": "sha256:a964083bb306a8a19119ff83ff1479b7e4163efab52fbd2ef9e41612f559e2a7"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t67/dlss_sr",
-   "description": "双端帧率对标未达标：cornell-box tier67 dlss_sr Rurix/UE fps 比 0.1292 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier67 dlss_sr Rurix/UE fps 比 0.2768 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -133,16 +133,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t67/fsr_3_1_5",
-     "a_value": 464.6984107314353,
-     "b_value": 60.30255965068898,
-     "delta": -404.3958510807463,
-     "evidence_digest": "sha256:bd22494e96bb71738b3d86ae2df18a2d2db6f5edd793c3b2728eff473c5eb1b2"
+     "a_value": 475.68836069862766,
+     "b_value": 136.30927142438833,
+     "delta": -339.37908927423933,
+     "evidence_digest": "sha256:ee6f93a3f16141457b54cdca38925c512e2be702b3a92a1a95eec42ca3a1029f"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t67/fsr_3_1_5",
-   "description": "双端帧率对标未达标：cornell-box tier67 fsr_3_1_5 Rurix/UE fps 比 0.1298 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier67 fsr_3_1_5 Rurix/UE fps 比 0.2866 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -156,16 +156,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t100/tsr_device",
-     "a_value": 454.87972222011626,
-     "b_value": 27.58831806880891,
-     "delta": -427.29140415130735,
-     "evidence_digest": "sha256:2799a8f69b287ca52f85dab68ea8e450d652340e02cc10fc7bf339e114f76a17"
+     "a_value": 463.9007870850021,
+     "b_value": 36.69548278836223,
+     "delta": -427.20530429663984,
+     "evidence_digest": "sha256:c6ebdc5976fdaca883f8408d5ae7d05d100119866ef75588230dfec02cee009b"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t100/tsr_device",
-   "description": "双端帧率对标未达标：cornell-box tier100 tsr_device Rurix/UE fps 比 0.0606 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier100 tsr_device Rurix/UE fps 比 0.0791 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -179,16 +179,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t100/dlss_sr",
-     "a_value": 454.87972222011626,
-     "b_value": 36.17450029087915,
-     "delta": -418.7052219292371,
-     "evidence_digest": "sha256:b1dffd6d424a3a78e05393c5e755b698999f9e5f0088b87700509d2dcd7e9dcf"
+     "a_value": 463.9007870850021,
+     "b_value": 52.70554354930592,
+     "delta": -411.1952435356962,
+     "evidence_digest": "sha256:47797cb39973315092554861347bbbdb57c81238a9bfe3156f14115b974e54c1"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t100/dlss_sr",
-   "description": "双端帧率对标未达标：cornell-box tier100 dlss_sr Rurix/UE fps 比 0.0795 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier100 dlss_sr Rurix/UE fps 比 0.1136 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -202,16 +202,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@cornell-box/t100/fsr_3_1_5",
-     "a_value": 454.87972222011626,
-     "b_value": 37.420487544796536,
-     "delta": -417.45923467531975,
-     "evidence_digest": "sha256:99deb76585a151d4baaf93299ef3b9c04edcdd24fbe31b9291a2155dc88691fc"
+     "a_value": 463.9007870850021,
+     "b_value": 55.67236313245282,
+     "delta": -408.2284239525493,
+     "evidence_digest": "sha256:78dfc725bbf11d0d362d4a6ad88a7eb31f1bf883900660611fa08625dc767983"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@cornell-box/t100/fsr_3_1_5",
-   "description": "双端帧率对标未达标：cornell-box tier100 fsr_3_1_5 Rurix/UE fps 比 0.0823 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：cornell-box tier100 fsr_3_1_5 Rurix/UE fps 比 0.1200 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -225,16 +225,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t50/tsr_device",
-     "a_value": 328.1521751020006,
-     "b_value": 4.530074592162934,
-     "delta": -323.6221005098377,
-     "evidence_digest": "sha256:57b99252b614271fb4b5d5d6bbedcdce9cd01e53ec58fad2b77fe1763f297970"
+     "a_value": 332.30687432154014,
+     "b_value": 6.083586277760892,
+     "delta": -326.22328804377923,
+     "evidence_digest": "sha256:1cd5603a453d76830e7209ae03e4e53549a86987aebd718b114d1560d6d9969a"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t50/tsr_device",
-   "description": "双端帧率对标未达标：bistro-interior tier50 tsr_device Rurix/UE fps 比 0.0138 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier50 tsr_device Rurix/UE fps 比 0.0183 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -248,16 +248,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t50/dlss_sr",
-     "a_value": 328.1521751020006,
-     "b_value": 6.323450473714652,
-     "delta": -321.82872462828595,
-     "evidence_digest": "sha256:c9e33c3a2c3a7cca491e0f7ddd749f5a93e40d39f39bd266a624f66a7554922b"
+     "a_value": 332.30687432154014,
+     "b_value": 13.114554370147385,
+     "delta": -319.19231995139273,
+     "evidence_digest": "sha256:129cf56d55c8d77ec9f3a607ca3eb58d62a1cef2543a437068a4e41a323c8821"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t50/dlss_sr",
-   "description": "双端帧率对标未达标：bistro-interior tier50 dlss_sr Rurix/UE fps 比 0.0193 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier50 dlss_sr Rurix/UE fps 比 0.0395 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -271,16 +271,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t50/fsr_3_1_5",
-     "a_value": 328.1521751020006,
-     "b_value": 7.260610238317189,
-     "delta": -320.8915648636834,
-     "evidence_digest": "sha256:b481f14a8d32b05e9bb098652f2a5e9da942db2207d2e2868a7785458b74569b"
+     "a_value": 332.30687432154014,
+     "b_value": 15.142951926919814,
+     "delta": -317.16392239462033,
+     "evidence_digest": "sha256:2772ad5b2841f0d299c9e19a95886ab48b1348757bfeafe77ab4ff9fa6dd6f88"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t50/fsr_3_1_5",
-   "description": "双端帧率对标未达标：bistro-interior tier50 fsr_3_1_5 Rurix/UE fps 比 0.0221 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier50 fsr_3_1_5 Rurix/UE fps 比 0.0456 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -294,16 +294,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t67/tsr_device",
-     "a_value": 318.20447819768987,
-     "b_value": 3.8041655734762867,
-     "delta": -314.4003126242136,
-     "evidence_digest": "sha256:fb453558e5488e5fde0b72cc301c5de0c745d2b269a33db863cfeab58db7c7de"
+     "a_value": 315.71968301743823,
+     "b_value": 5.774350633309481,
+     "delta": -309.94533238412873,
+     "evidence_digest": "sha256:a2b74b5d0e4e14b2de46604d3fe6ba1168254696d89f64bb89e65c153e1c418d"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t67/tsr_device",
-   "description": "双端帧率对标未达标：bistro-interior tier67 tsr_device Rurix/UE fps 比 0.0120 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier67 tsr_device Rurix/UE fps 比 0.0183 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -317,16 +317,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t67/dlss_sr",
-     "a_value": 318.20447819768987,
-     "b_value": 5.048525136235587,
-     "delta": -313.1559530614543,
-     "evidence_digest": "sha256:c4fe7adf1114a0b3f74e482219e27f8129e1d87e8c6f25a3e207ad3eae5e3ad1"
+     "a_value": 315.71968301743823,
+     "b_value": 7.409126599190516,
+     "delta": -308.3105564182477,
+     "evidence_digest": "sha256:f5157ab16d45c36836aac940fd7b37742f3520b2db52858aa4b843d06b231fe0"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t67/dlss_sr",
-   "description": "双端帧率对标未达标：bistro-interior tier67 dlss_sr Rurix/UE fps 比 0.0159 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier67 dlss_sr Rurix/UE fps 比 0.0235 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -340,16 +340,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t67/fsr_3_1_5",
-     "a_value": 318.20447819768987,
-     "b_value": 5.723820782019876,
-     "delta": -312.48065741567,
-     "evidence_digest": "sha256:1ca39c72e990f174599cfcb75e2a7d5b3187c61068392cd2d38aca996b7b0f03"
+     "a_value": 315.71968301743823,
+     "b_value": 5.501991622963287,
+     "delta": -310.21769139447497,
+     "evidence_digest": "sha256:0b09c4c106b19fae76d4dfb18f4bdc11f58b1f966cf185fb0da93d60619d8de3"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t67/fsr_3_1_5",
-   "description": "双端帧率对标未达标：bistro-interior tier67 fsr_3_1_5 Rurix/UE fps 比 0.0180 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier67 fsr_3_1_5 Rurix/UE fps 比 0.0174 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -363,10 +363,10 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t100/tsr_device",
-     "a_value": 252.1739495904275,
-     "b_value": 2.9286222851433465,
-     "delta": -249.24532730528415,
-     "evidence_digest": "sha256:72d66f1cda5befb4903e4dc4036e8ac4089757bc959f8f528c0182a1b86261c5"
+     "a_value": 204.41885423232202,
+     "b_value": 2.3635435915959637,
+     "delta": -202.05531064072605,
+     "evidence_digest": "sha256:052a171ac080261e1843daa4db2db447ab31e8faa0c583f95a74705a22e4b76f"
     }
    ],
    "suggested_priority": "P1",
@@ -386,16 +386,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t100/dlss_sr",
-     "a_value": 252.1739495904275,
-     "b_value": 3.0449623463914697,
-     "delta": -249.12898724403604,
-     "evidence_digest": "sha256:de33dcead0cd94a1f7f180189f6793f62c9bd7de16e80c798cb20203ec667876"
+     "a_value": 204.41885423232202,
+     "b_value": 2.4239872518389647,
+     "delta": -201.99486698048307,
+     "evidence_digest": "sha256:b89cf7261b6bced7c296fa8a2952d3b1b5d84f1cdd664bfad1f8d2e3895576a7"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t100/dlss_sr",
-   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.0121 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.0119 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   },
   {
@@ -409,16 +409,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t100/fsr_3_1_5",
-     "a_value": 252.1739495904275,
-     "b_value": 3.5981757781334878,
-     "delta": -248.57577381229402,
-     "evidence_digest": "sha256:3b0f7552e0a1fdc81f663c19a0fdb95ae53f525401db7ccbbe31af3815abaaa9"
+     "a_value": 204.41885423232202,
+     "b_value": 2.8603460667633316,
+     "delta": -201.5585081655587,
+     "evidence_digest": "sha256:cca585622c9f14d13e46932060d0e09c6fd41c3542d69bab54f92ed076a850fb"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t100/fsr_3_1_5",
-   "description": "双端帧率对标未达标：bistro-interior tier100 fsr_3_1_5 Rurix/UE fps 比 0.0143 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier100 fsr_3_1_5 Rurix/UE fps 比 0.0140 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   }
  ],

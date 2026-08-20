@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.6 M-f(M176) production_caliber_stage_a evidence",
+  "description": "evidence/g14_m_f_production_caliber_stage_a_<UTC>.json。G14.6 P0 硬门 g14.p0.m_f.production_caliber_stage_a（G14_CONTRACT §4.2 M-f 行/G14.x 延续波程序面〔§7 裁决 7〕；G14_ACCEPTANCE_MAP §1）：bench receipt 双列口径（frame_ms 全量 G14.3 兼容 + frame_ms_production = 全量 − bench 测量面 tail）逐格不变量机核 + vendor Stage A 位级零漂移（DLSS pack 直写 staging + DLSS/FSR 输出驻留写，三探针格末帧 digest == g14_3_stage_a_digest_anchor 冻结锚）+ vendor 分解遥测六段 measured（evaluate 黑盒段裁决登记）+ Stage A 前后全量口径对照行（pre 锚 = M-d 012652Z evidence）+ 三探针格 production 口径入 g14_budget（阈 = 实测 ×1.5 程序产）+ RED 双臂（caliber-masquerade/digest-drift）。device_section_state=executed（探针格真跑面）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_m_f_production_caliber_stage_a" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.p0.m_f.production_caliber_stage_a" },
+    "matrix_row": { "type": "string", "const": "M176" },
+    "milestone": { "type": "string", "const": "M176" },
+    "assertion_id": { "type": "string", "const": "g14.p0.m_f.production_caliber_stage_a" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G14.6" },
+    "numeric_step": { "type": "integer", "const": 257 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_CONTRACT §4.2 M-f/§7 裁决 7;G14_ACCEPTANCE_MAP §1;G14.4 调研取证面（§8.5 a~f）;M141/M165 50×3 冻结统计口径;G14.3 digest 冻结锚 g14_3_stage_a_digest_anchor.json"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "double_column_receipt",
+        "stage_a_bitexact_probe",
+        "vendor_timing_axis_measured",
+        "before_after_registered",
+        "budget_entries_written",
+        "budget_eval_all_pass",
+        "red_arms_effective"
+      ],
+      "properties": {
+        "double_column_receipt": { "type": "boolean" },
+        "stage_a_bitexact_probe": { "type": "boolean" },
+        "vendor_timing_axis_measured": { "type": "boolean" },
+        "before_after_registered": { "type": "boolean" },
+        "budget_entries_written": { "type": "boolean" },
+        "budget_eval_all_pass": { "type": "boolean" },
+        "red_arms_effective": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probe_cells", "digest_anchor_file", "bitexact_rows", "vendor_timing_segments_ms", "before_after", "red"],
+      "properties": {
+        "probe_cells": { "type": "array" },
+        "digest_anchor_file": { "type": "string" },
+        "bitexact_rows": { "type": "array" },
+        "vendor_timing_segments_ms": { "type": "object" },
+        "before_after": { "type": "array" },
+        "red": { "type": "object" }
+      }
+    }
+  }
+}
