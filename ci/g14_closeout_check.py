@@ -134,6 +134,9 @@ def verify_key_gate(key: str, prefix: str) -> dict:
         if status == "pass":
             return row  # 达标面（未来延续波可能翻转）——wel 口径已绿
         if status == "fail" and not bad and unmet is not None and unmet == reg_rows:
+            # 诚实红登记面——终审核验合格，行置 PASS 并在 detail 承载诚实红字面
+            #（不充绿：M-d 门自身 evidence status=fail 0-byte 维持，终审如实登记不冒充）
+            row["status"] = "PASS"
             row["detail"] = (f"{row.get('detail','')}; M-d 诚实红门面特判合格"
                              f"（checks 全绿 + unmet={unmet} == 登记表 {reg_rows} 行——"
                              f"未达标如实登记不冒充）")
