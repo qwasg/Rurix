@@ -228,7 +228,7 @@ def run_regression(*, skip_rerun: bool = False) -> tuple[bool, list[dict], str, 
                 [sys.executable, str(script), "--gate", key],
                 cwd=ROOT,
             )
-            expected_rc = 1 if prefix in HONEST_RED_AGGREGATES else 0
+            expected_rc = 1 if (prefix in HONEST_RED_AGGREGATES or prefix == MD_PREFIX) else 0
             if r.returncode != expected_rc:
                 rows.append({
                     "symbolic_gate_key": key, "subject_prefix": prefix,
