@@ -1406,7 +1406,9 @@
           "event": "G14.5a 后事件升级登记（agent 完全自主 D-406 v2.0）：M-d v5 复跑检出 bistro-interior/t50/tsr_device run1 末帧 digest 漂移（run2/run3 == 冻结锚）——M165 同型族间歇事件，G12-N13 承接锚升级条件命中，新立 RD-045 生产化缺陷修复项（Full RFC 评估面）；M165 原 FAIL 件 evidence/g12_m165_pt_throughput_baseline_20260817T235251Z.json 0-byte 保留纪律继承；本期 v5 检出件 evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json 0-byte 在档",
           "evidence": "evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json（v5 检出件）/ evidence/g12_m165_pt_throughput_baseline_20260817T235251Z.json（M165 原 FAIL 件）"
         }
-      ]
+      ],
+      "owner_milestone": "G14(登记;RD-045 间歇漂移修复项存续——G16+ 生产化缺陷修复窗承接)",
+      "raised_in": "G14.5a"
     }
   ],
   "revision_log": [
