@@ -3137,6 +3137,43 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_wave7_exit_check.py --gate g14.wave.7.exit
 
+      # 步骤 261（G14.5a P2 穷举决策门 g14.wave.5a.decisions；G14_CONTRACT G-G14-7；
+      # 落盘前实测 CI_step.next_free=261 顺位领取）。42 行闭集全等 + 裁决枚举合法
+      # + 零空行 + 承接锚纪律 + 四横向机核（MAP 互斥/deferred history/候选表对账/
+      # 差距登记表对账）。evidence 落盘 evidence/g14_p2_decisions_<UTC>.json。
+      - name: G14.5a P2 exhaustive decisions (G14_CONTRACT G-G14-7, g14.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g14_p2_decisions_check.py --gate g14.wave.5a.decisions
+
+      # 步骤 262（G14.5a P0 硬门 M-e(M178) g14.p0.m_e.regression_drift_guard；
+      # G14_CONTRACT §4.2 M-e/G-G14-8 联动；落盘前实测 CI_step.next_free=262 顺位
+      # 领取）。既有 76 门最新 evidence 全绿只读汇总不遮蔽 + 触改面真跑抽检零降级
+      # + M165 漂移监控登记 + RED 三臂。evidence 落盘
+      # evidence/g14_m_e_regression_drift_guard_<UTC>.json。
+      - name: G14.5a M-e regression + drift guard (G14_CONTRACT §4.2 M-e, g14.p0.m_e.regression_drift_guard)
+        shell: powershell
+        run: py -3 ci/g14_regression_drift_guard_smoke.py --gate g14.p0.m_e.regression_drift_guard
+
+      # 步骤 263（G14.5a 稳定门 g14.wave.5a.soak；G14_CONTRACT G-G14-8；落盘前实测
+      # CI_step.next_free=263 顺位领取）。pr-smoke 侧 --verify-latest 秒级核最新
+      # full-run evidence；full-run 本地/workflow_dispatch --gate 产 evidence
+      # （沿 G13.5a 步骤 245 体例）：四腿 = 全量回归（5 P0 逐门真跑 + 6 聚合/决策门，
+      # M-d 诚实红门面特判）+ 帧率对标链路连续复跑 soak ≥1800s（digest 冻结锚位级
+      # 复现）+ budget_eval --strict 非空零 estimated/skip + G5~G13 0-byte。
+      - name: G14.5a stabilization soak verify-latest (G14_CONTRACT G-G14-8, g14.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g14_stabilization_soak.py --verify-latest
+
+      # 步骤 264（G14.5b 收口终审门 g14.wave.5b.closeout；G14_CONTRACT G-G14-9；
+      # 落盘前实测 CI_step.next_free=264 顺位领取）。只读汇总八 facts：5 P0（M-d
+      # 诚实红特判）+ 七聚合/决策门 + MAP 双向 + P2 42 行闭集 + budget --strict +
+      # 5a 先行 + RD 最终状态 + 帧率对标终审定盘与 g14 帧率差距登记表 18 行终审
+      # 锁定（未达标如实登记不冒充）。VERDICT=READY|BLOCKED；status flip 独立
+      # commit。evidence 落盘 evidence/g14_wave5b_closeout_<UTC>.json。
+      - name: G14.5b closeout check (G14_CONTRACT G-G14-9, g14.wave.5b.closeout)
+        shell: powershell
+        run: py -3 ci/g14_closeout_check.py --gate g14.wave.5b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

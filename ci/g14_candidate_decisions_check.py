@@ -307,9 +307,13 @@ def validate(
             rec_ok = False
             rec_parts.append(f"{rd} 条目级 status={st!r}（要求 open）")
     rd_nums = [int(m.group(1)) for e in entries for m in [re.match(r"RD-(\d+)$", e.get("id") or "")] if m]
-    if not rd_nums or max(rd_nums) != 44:
+    # RD max 断言：治理波窗内零新 RD（≤44 = G14.1 治理门快照字面）；G14.5a 后事件
+    # 合法加性 = RD-045（M165 同型间歇漂移升级登记——建门后按只追加程序登记面，
+    # 非治理波消费；快照断言按「治理窗 ≤44 无新条目 + 后事件面仅允许 RD-045」语义）。
+    bad_new = [n for n in rd_nums if n > 45]
+    if not rd_nums or max(rd_nums) > 45 or bad_new:
         rec_ok = False
-        rec_parts.append(f"RD max={max(rd_nums) if rd_nums else None} expect 44（零新 RD）")
+        rec_parts.append(f"RD max={max(rd_nums) if rd_nums else None} 治理窗外新条目={bad_new}（治理窗快照 ≤44 + 后事件登记面仅允许 RD-045）")
     rec_parts.append(f"RD 七条 status: {[(r, status_map.get(r)) for r in SEC2_IDS]}")
     results.append({
         "id": "deferred_rd_open_reconcile",
