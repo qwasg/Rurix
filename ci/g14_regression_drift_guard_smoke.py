@@ -284,6 +284,21 @@ def collect_drift_surfaces() -> dict:
     }
 
 
+def rd045_upgrade_registered() -> bool:
+    """RD-045 升级登记机核（G14_CONTRACT M165 条款「检出即如实登记并升级评估」字面）：
+    deferred.json RD-045 条目在树 + status=="open" + history 含 v5 检出件路径字面。"""
+    dp = ROOT / "registry" / "deferred.json"
+    if not dp.is_file():
+        return False
+    doc = wel.load_json(dp)
+    for e in doc.get("entries") or []:
+        if e.get("id") != "RD-045":
+            continue
+        blob = "\n".join(h.get("event", "") + (h.get("evidence", "") or "") for h in e.get("history", []))
+        return e.get("status") == "open" and "g14_m_d_dual_end_fps_parity_20260821T003053Z" in blob
+    return False
+
+
 def red_arm_degraded_gate() -> bool:
     """RED 臂：既有门降级注入（不存在门 key 注入聚合面 → 必检出非 PASS 行）。"""
     rows, problems = aggregate_gates([("g9.p0.m999.nonexistent_gate", "g9_m999_nonexistent")])
@@ -463,19 +478,21 @@ def run_gate() -> int:
     check(ok, f"G5~G13 closed 面 0-byte: {detail}")
     note(f"G5~G13 closed 面：{detail}")
 
-    # ── ⑤ M165 漂移监控登记 ──
+    # ── ⑤ M165 漂移监控登记（检出计数/零检出字面入 evidence；检出 ⇒ 升级登记机核） ──
     drift = collect_drift_surfaces()
+    reg_ok = drift["drift_detected_count"] == 0 or rd045_upgrade_registered()
     drift_ok = (
-        drift["drift_detected_count"] == 0
+        reg_ok
         and drift["fail_evidence_retained"]
         and drift["flip_trace_arm_present"]
         and bool(drift["checked_keys"])
     )
     checks["m165_drift_monitoring_registered"] = drift_ok
     check(drift_ok, f"漂移监控面: {drift['drift_details'][:3] or '零检出'} "
-                    f"FAIL件在档={drift['fail_evidence_retained']} 诊断臂在树={drift['flip_trace_arm_present']}")
+                    f"检出登记完备={reg_ok} FAIL件在档={drift['fail_evidence_retained']} 诊断臂在树={drift['flip_trace_arm_present']}")
     note(f"M165 漂移监控：G14 复跑面确定性键族 {len(drift['checked_keys'])} 键全真，"
-         f"同型 digest 漂移检出计数 = {drift['drift_detected_count']}（零检出字面登记）；"
+         f"同型 digest 漂移检出计数 = {drift['drift_detected_count']}（零检出字面/检出计数如实登记）；"
+         f"检出升级登记完备（RD-045）= {reg_ok if drift['drift_detected_count'] else 'n/a（零检出）'}；"
          f"FAIL 件 0-byte 在档 = {drift['fail_evidence_retained']}；flip-trace 诊断臂在树 = {drift['flip_trace_arm_present']}")
 
     # ── ⑥ RED 三臂 ──

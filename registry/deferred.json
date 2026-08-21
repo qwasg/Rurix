@@ -1393,6 +1393,20 @@
           "evidence": "milestones/g9/g9_m126_rapier_benchmark.json / evidence/g9_m126_rapier_benchmark_ab_<UTC>.json / ci/g9_rapier_benchmark_ab_smoke.py / spec/physics.md RXS-0378 / G9_CANDIDATE_DECISIONS.md v1.6 校准注 / registry/number_ledger.json v1.96"
         }
       ]
+    },
+    {
+      "id": "RD-045",
+      "title": "间歇性 digest 漂移生产化缺陷修复项（M165 同型升级——bistro TSR device 车道单轮末帧漂移事件）",
+      "reason": "G14.5a soak 全量回归腿 M-d 门第五次复跑（evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json）bistro-interior/t50/tsr_device 格 run1 末帧 digest sha256:a79feebfa379ca1f… ≠ 冻结锚 sha256:cd35a878bdcede95…（run2/run3 == 锚；v3 122608Z/v4 170911Z 全矩阵 18 格 × 3 轮零漂移在案）——M165 同型间歇非确定性事件（G12 期 bistro spp16 腿 1/~1760 帧单帧漂移未定位事件的同型族）；G12-N13 承接锚升级条件命中（后续生产复跑检出同型 digest 漂移）→ 升级生产化缺陷修复项 + Full RFC 评估；TSR device 车道为 G14.6/G14.7 优化波零触碰面（vendor_upscale.rs 双臂与 temporal 底座 0-byte——v3/v4 全矩阵零漂移双证并行化/non-causal），事件非本期优化引入",
+      "backfill_condition": "定位间歇漂移根因（候选面：首进程冷启动态/异步拷贝竞争/未初始化读取/浮点归约序——flip-trace 诊断臂扩展至 g14_3_pipeline_perf TSR 车道逐帧 digest 轨迹取证）+ 生产化缺陷修复 + Full RFC 评估（触 RXS-0357 L2 确定性协议面）——修复落地前既有固定 seed 确定性协议与 M-d/M-e 漂移监控面维持逐波登记",
+      "status": "open",
+      "history": [
+        {
+          "date": "2026-08-21",
+          "event": "G14.5a 后事件升级登记（agent 完全自主 D-406 v2.0）：M-d v5 复跑检出 bistro-interior/t50/tsr_device run1 末帧 digest 漂移（run2/run3 == 冻结锚）——M165 同型族间歇事件，G12-N13 承接锚升级条件命中，新立 RD-045 生产化缺陷修复项（Full RFC 评估面）；M165 原 FAIL 件 evidence/g12_m165_pt_throughput_baseline_20260817T235251Z.json 0-byte 保留纪律继承；本期 v5 检出件 evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json 0-byte 在档",
+          "evidence": "evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json（v5 检出件）/ evidence/g12_m165_pt_throughput_baseline_20260817T235251Z.json（M165 原 FAIL 件）"
+        }
+      ]
     }
   ],
   "revision_log": [

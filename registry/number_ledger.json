@@ -42,8 +42,8 @@
       "scope": "shared",
       "pattern": "RD-###",
       "main_fact_source": "registry/deferred.json entries",
-      "on_tree_max": 44,
-      "next_free": 45,
+      "on_tree_max": 45,
+      "next_free": 46,
       "shadow_reserved": [],
       "main_skipped": [
         16,
@@ -426,6 +426,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.150",
+      "date": "2026-08-21",
+      "change": "G14.5a 后事件升级登记——RD-045 新立（agent 完全自主 D-406 v2.0，Assisted-by: Kimi-K3（G14.5a P2 穷举 + soak 波）；判据事实源 = G14_CONTRACT front matter M165 漂移监控登记条款 + G12-N13 承接锚升级条件字面）：**RD on_tree_max 44→45、next_free 45→46**——M-d v5 复跑（evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json）bistro-interior/t50/tsr_device run1 末帧 digest 漂移（run2/run3 == 冻结锚；v3/v4 全矩阵零漂移双证），M165 同型间歇事件族升级条件命中 → 生产化缺陷修复项 + Full RFC 评估面登记（根因候选面/诊断臂扩展面入 backfill_condition）；CI_step/RFC/RXS/U/SG/RX_error/MR/D 字段 0-byte；G5~G13 closed 判据 0-byte；异己面零混入。下一个可用 RD=46、CI_step=265。"
+    },
     {
       "version": "v1.149",
       "date": "2026-08-20",

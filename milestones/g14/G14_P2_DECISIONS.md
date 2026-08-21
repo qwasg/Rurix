@@ -122,4 +122,9 @@
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.0 | 2026-08-20 | 首版（G14.5a P2 穷举决策波定稿）：§1 G13 defer 24 行终态裁决（2 closed-go + 22 defer-to-G15+，六行 G14 窗结论 + G11-N3 部分兑现 + G13-N7 不立项如实登记）+ §2 G14 新增候选 7 行终态（6 closed-go + 1 no-go）+ §3 期内新增 11 行（M-d 通过线未达标处置 G14-N8 + 结构性优化六面 G14-N9~N14 defer-to-G15+ G16+ 承接 + M-f/M-g 延续波 G14-N15/N16 closed-go + workgroup 形态 G14-N17 no-go 留档 + evaluate 先验证伪 G14-N18 closed-go）+ §4 open RD 七条映射（RD-040 +1 M52 窗结论）+ §5 承接锚清单 29 行；行数汇总 closed-go 13 / no-go 2 / defer-to-G15+ 27 / 维持 open 7，全表 42 行零空项；0-byte 边界与 M-d 终审定盘字面如实登记。 |
+| v1.0 | 2026-08-20 | 首版（G14.5a P2 穷举决策波定稿）：§1 G13 defer 24 行终态裁决（2 closed-go + 22 defer-to-G15+，六行 G14 窗结论 + G11-N3 部分兑现 + G13-N7 不立项如实登记）+ §2 G14 新增候选 7 行终态（6 closed-go + 1 no-go）+ §3 期内新增 11 行（M-d 通过线未达标处置 G14-N8 + 结构性优化六面 G14-N9~N14 defer-to-G15+ G16+ 承接 + M-f/M-g 延续波 G14-N15/N16 closed-go + workgroup 形态 G14-N17 no-go 留档 + evaluate 先验证伪 G14-N18 closed-go）+ §4 open RD 七条映射（RD-040 +1 M52 窗结论）+ §5 承接锚清单 29 行；行数汇总 closed-go 11 / no-go 2 / defer-to-G15+ 29 / 维持 open 7，全表 42 行零空项；0-byte 边界与 M-d 终审定盘字面如实登记。 |
+
+## 表后事件登记（只追加区——穷举闭集 42 行 0-byte 不回写）
+
+- **2026-08-21 M165 同型间歇 digest 漂移检出 + 升级登记（RD-045 新立）**：G14.5a soak 全量回归腿 M-d 门第五次复跑（evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json）bistro-interior/t50/tsr_device 格 run1 末帧 digest `sha256:a79feebfa379ca1f…` ≠ 冻结锚 `sha256:cd35a878bdcede95…`（run2/run3 == 锚逐字一致；M-d v3 122608Z / v4 170911Z 全矩阵 18 格 × 3 轮零漂移双证在案）——**M165 同型族间歇非确定性事件**（G12 期 bistro spp16 腿 1/~1760 帧单帧漂移未定位事件同型；TSR device 车道为 G14.6 Stage A / G14.7 并行化双波零触碰面，v3/v4 双零漂移证非本期优化引入）。§1 G12-N13 行承接锚升级条件命中（「后续生产复跑检出同型 digest 漂移时升级生产化缺陷修复项（Full RFC 评估）」字面）→ **新立 RD-045**（registry/deferred.json，status=open；根因候选面 + flip-trace 诊断臂 TSR 车道扩展面入 backfill_condition）；v5 检出件 0-byte 在档纪律继承（M165 原 FAIL 件同）。本事件不回写 §1~§5 任何行；G14.5b close-out 终审面 = 最新 M-d evidence 复跑面 + RD-045 升级登记完备性双机核。
+

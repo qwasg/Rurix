@@ -80,8 +80,10 @@ HEADERS = [
     "ID", "分项名", "来源波次", "原触发条件字面", "裁决",
     "裁决理由", "依据/证据路径", "承接锚", "登记留痕位置", "最终状态",
 ]
-# deferred.json history 对账期望：G14.5a P2 登记恰好 RD-040 +1（M52 G14 重评窗维持未命中终态登记）。
-EXPECTED_DEFER_HISTORY = {"RD-040": ["M52"]}
+# deferred.json history 对账期望：G14.5a P2 登记恰好 RD-040 +1（M52 G14 重评窗维持未命中终态登记）
+# + RD-045 新立 1 条（G14.5a 后事件升级登记——M-d v5 检出 M165 同型间歇 digest 漂移，
+# G12-N13 承接锚升级条件命中 → 生产化缺陷修复项 + Full RFC 评估面；P2 表后事件登记段承载）。
+EXPECTED_DEFER_HISTORY = {"RD-040": ["M52"], "RD-045": ["M165"]}
 HISTORY_MARKER = "G14.5a"
 # G14.1 候选决策表 §1 承接行 24 闭集（对账字面：go = G10-N11/G10-N16 双行，其余 defer-to-G15+）。
 CANDIDATE_CARRY_IDS = FROZEN_IDS[:24]
@@ -259,13 +261,13 @@ def validate_rows(
         reconcile_ok = False
         rec_parts.append(f"非期望 RD 含{HISTORY_MARKER}行: {extra}")
     rd_nums = [int(m.group(1)) for e in entries for m in [re.match(r"RD-(\d+)$", e.get("id") or "")] if m]
-    if not rd_nums or max(rd_nums) != 44:
+    if not rd_nums or max(rd_nums) != 45:
         reconcile_ok = False
-        rec_parts.append(f"RD max={max(rd_nums) if rd_nums else None} expect 44（零新 RD）")
+        rec_parts.append(f"RD max={max(rd_nums) if rd_nums else None} expect 45（RD-045 = G14.5a 后事件升级登记唯一新 RD）")
     status_map = {e.get("id"): e.get("status") for e in entries}
-    if any(status_map.get(f"RD-0{n}") != "open" for n in ("34", "39", "40", "41", "42", "43", "44")):
+    if any(status_map.get(f"RD-0{n}") != "open" for n in ("34", "39", "40", "41", "42", "43", "44", "45")):
         reconcile_ok = False
-        rec_parts.append("RD-034/039/040/041/042/043/044 status 非全 open")
+        rec_parts.append("RD-034~RD-045 status 非全 open")
     rec_parts.append(f"{HISTORY_MARKER} history: {sorted((r, len(g)) for r, g in holders.items())}")
     results.append(
         {

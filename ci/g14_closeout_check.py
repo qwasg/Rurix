@@ -79,8 +79,8 @@ WAVE_GATES = [
 
 # G14_CONTRACT §6 Deferred 处置表字面：七条目总体 status 全维持 open
 # （分项 go/defer 由候选决策表、G14_P2_DECISIONS 与 deferred history 只追加留痕，
-# 条目级 0-byte）。
-RD_FINAL_OPEN_IDS = ["RD-034", "RD-039", "RD-040", "RD-041", "RD-042", "RD-043", "RD-044"]
+# 条目级 0-byte）+ RD-045（G14.5a 后事件升级登记——M165 同型间歇漂移修复项，open）。
+RD_FINAL_OPEN_IDS = ["RD-034", "RD-039", "RD-040", "RD-041", "RD-042", "RD-043", "RD-044", "RD-045"]
 
 # G14.4 门产帧率差距登记表终审锁定清单（G14.5b 终审锁定面 = G15+/G16+ 法定输入；
 # 多一行/少一行/换一行即漂移；gap_id = 身份面派生，与测量值再锚定无关）。
@@ -206,7 +206,7 @@ def check_rd_final_state() -> tuple[bool, str]:
         if len(FROZEN_IDS) != 42:
             problems.append(f"FROZEN_IDS n={len(FROZEN_IDS)} ≠ 42（闭集口径漂移）")
     return (not problems), "; ".join(problems) if problems else (
-        "7 RD open 逐字一致 + P2 42 行闭集在树（全表深对账由 wave5a decisions 门承载）"
+        "8 RD open 逐字一致（含 RD-045 升级登记）+ P2 42 行闭集在树（全表深对账由 wave5a decisions 门承载）"
     )
 
 
