@@ -1,0 +1,333 @@
+{
+  "schema": "rurix.g14.ue_variance_samples.v1",
+  "entries": [
+    {
+      "key": "2f6331a41404dfcd|gi_energy_rel@cornell-box|a_value",
+      "gap_id": "2f6331a41404dfcd",
+      "metric": "gi_energy_rel@cornell-box",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "2f6331a41404dfcd|indirect_ssim@cornell-box|b_value",
+      "gap_id": "2f6331a41404dfcd",
+      "metric": "indirect_ssim@cornell-box",
+      "field": "b_value",
+      "values": [
+        {
+          "value": 0.033384483786469556,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.033384483786469556,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.033384483786469556,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "2f6331a41404dfcd|indirect_flip@cornell-box|b_value",
+      "gap_id": "2f6331a41404dfcd",
+      "metric": "indirect_flip@cornell-box",
+      "field": "b_value",
+      "values": [
+        {
+          "value": 0.6127988976249465,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.6127988976249465,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.6127988976249465,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "b7527c980cdd1d46|gi_energy_rel@bistro-interior|a_value",
+      "gap_id": "b7527c980cdd1d46",
+      "metric": "gi_energy_rel@bistro-interior",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.03711463719353902,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.03710041005572064,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.0371176304998833,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "b7527c980cdd1d46|indirect_ssim@bistro-interior|b_value",
+      "gap_id": "b7527c980cdd1d46",
+      "metric": "indirect_ssim@bistro-interior",
+      "field": "b_value",
+      "values": [
+        {
+          "value": 0.006566911636724374,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.00652531309093751,
+          "source": "evidence/g13_m_d_ue_lumen_gi_parity_20260821T034829Z.json（跨会话漂移实证样本）",
+          "timestamp": "20260821T034829Z"
+        },
+        {
+          "value": 0.006855205570226454,
+          "source": "evidence/g13_m_d_ue_lumen_gi_parity_20260821T071403Z.json（跨会话漂移实证样本）",
+          "timestamp": "20260821T071403Z"
+        },
+        {
+          "value": 0.006541991804726112,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.00657051559852026,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "b7527c980cdd1d46|indirect_flip@bistro-interior|b_value",
+      "gap_id": "b7527c980cdd1d46",
+      "metric": "indirect_flip@bistro-interior",
+      "field": "b_value",
+      "values": [
+        {
+          "value": 0.9671355491209283,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.9671353847096467,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T073700Z"
+        },
+        {
+          "value": 0.9671369128037447,
+          "source": "g13.p0.m_d.ue_lumen_gi_parity",
+          "timestamp": "20260821T091408Z"
+        }
+      ]
+    },
+    {
+      "key": "fda2892b148edc2f|ssim_deficit_delta@cornell-box/t50/dlss_sr|a_value",
+      "gap_id": "fda2892b148edc2f",
+      "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 1.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 1.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "fda2892b148edc2f|flip_deficit_delta@cornell-box/t50/dlss_sr|a_value",
+      "gap_id": "fda2892b148edc2f",
+      "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "20f125548f145335|ssim_deficit_delta@cornell-box/t67/dlss_sr|a_value",
+      "gap_id": "20f125548f145335",
+      "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 1.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 1.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "20f125548f145335|flip_deficit_delta@cornell-box/t67/dlss_sr|a_value",
+      "gap_id": "20f125548f145335",
+      "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "58fd4c7e2ef98efe|noise_hf_delta@cornell-box/t67/tsr_device|a_value",
+      "gap_id": "58fd4c7e2ef98efe",
+      "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "2631811751d63e0a|noise_hf_delta@cornell-box/t67/dlss_sr|a_value",
+      "gap_id": "2631811751d63e0a",
+      "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "d36e8cb107d579d9|noise_hf_delta@cornell-box/t67/fsr_3_1_5|a_value",
+      "gap_id": "d36e8cb107d579d9",
+      "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.0,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "5b65327b903ac6bc|noise_hf_delta@bistro-interior/t67/tsr_device|a_value",
+      "gap_id": "5b65327b903ac6bc",
+      "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.8527892386663012,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.8528795331267404,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "bdf94acf4691fd74|noise_hf_delta@bistro-interior/t67/dlss_sr|a_value",
+      "gap_id": "bdf94acf4691fd74",
+      "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.8527892386663012,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.8528795331267404,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    },
+    {
+      "key": "20e8950296211aae|noise_hf_delta@bistro-interior/t67/fsr_3_1_5|a_value",
+      "gap_id": "20e8950296211aae",
+      "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+      "field": "a_value",
+      "values": [
+        {
+          "value": 0.8527892386663012,
+          "source": "g13.p0.m_c.ue_upscale_parity（G13 终态冻结值种子）",
+          "timestamp": "20260819T000000Z"
+        },
+        {
+          "value": 0.8528795331267404,
+          "source": "g13.p0.m_c.ue_upscale_parity",
+          "timestamp": "20260821T074612Z"
+        }
+      ]
+    }
+  ]
+}

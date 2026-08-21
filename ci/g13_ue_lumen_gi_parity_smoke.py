@@ -60,6 +60,9 @@ EVIDENCE_DIR = ROOT / "evidence"
 SCHEMA_PATH = ROOT / "milestones" / "g13" / "g13_m_d_ue_lumen_gi_parity_evidence_schema.json"
 CONTRACT_PATH = ROOT / "milestones" / "g13" / "g13_ue_lumen_gi_parity_contract.json"
 REGISTRY_PATH = ROOT / "milestones" / "g13" / "g13_ue_lumen_gap_registry.json"
+# G14.5a 后事件加性面：UE 侧跨会话方差样本级联登记面（G14 车道所有，只追加；
+# G13 冻结登记表本体 0-byte 不回写维持）
+G14_UE_SAMPLES_PATH = ROOT / "milestones" / "g14" / "g14_ue_variance_samples.json"
 REGISTRY_NAME = "g13_ue_lumen_gap_registry"
 UE_RENDER = ROOT / "milestones" / "g13" / "harness" / "g13_4_ue_render.py"
 FRAMES = Path(r"K:\rurix-ext\g13-frames")
@@ -834,8 +837,40 @@ def run_gate() -> int:
                     return (gaplib.PROVENANCE_STRUCTURAL if field == "a_value"
                             else gaplib.PROVENANCE_UE)
 
+                # ── G14.5a 后事件加性（G14-N1 重判条件命中兑现——只追加程序重判
+                # 对账语义面）：跨会话样本级联逐位带 map。带 = 历史样本极差率 ×2.0
+                # 与当次同会话探针带取 max（双程序产面取严）；带面于 fresh 样本
+                # 追加前派生（不拟合当次测量，RXS-0392/P-09 维持）——实证事件：
+                # indirect_ssim@bistro 跨会话 ±4.4% vs 同会话探针带 0.15%
+                #（2026-08-21 evidence 034829Z/071403Z 在档）。
+                _ue_band_map: dict = {}
+                _ue_fresh_rows: list = []
+                _old_vals: dict = {}
+                for _it in (old_doc.get("items") or []):
+                    for _d in (_it.get("measured_delta") or []):
+                        for _f in ("a_value", "b_value"):
+                            if isinstance(_d.get(_f), (int, float)):
+                                _old_vals[f"{_it.get('gap_id')}|{_d.get('metric')}|{_f}"] = float(_d[_f])
+                for _it in (registry_doc.get("items") or []):
+                    for _d in (_it.get("measured_delta") or []):
+                        for _f in ("a_value", "b_value"):
+                            _mk = f"{_it.get('gap_id')}|{_d.get('metric')}|{_f}"
+                            if (_classify_m_d(str(_d.get("metric")), _f, 0.0) == gaplib.PROVENANCE_UE
+                                    and isinstance(_d.get(_f), (int, float)) and _mk in _old_vals):
+                                _ue_fresh_rows.append({"gap_id": _it.get("gap_id"),
+                                                       "metric": _d.get("metric"),
+                                                       "field": _f, "value": _d.get(_f)})
+                                _ue_band_map[_mk] = gaplib.ue_cross_session_band(
+                                    G14_UE_SAMPLES_PATH, _it.get("gap_id"), _d.get("metric"),
+                                    _f, _old_vals[_mk])
+
                 drift = gaplib.reconcile_registry_structured(
-                    old_doc, registry_doc, ue_band_rel, _classify_m_d)
+                    old_doc, registry_doc, ue_band_rel, _classify_m_d,
+                    ue_band_rel_map=_ue_band_map)
+                # 跨会话样本登记（verdict 后追加，带面于追加前派生——不拟合当次测量，
+                # RXS-0392/P-09 维持；样本面只追加审计轨迹）
+                gaplib.ue_samples_append(G14_UE_SAMPLES_PATH, _ue_fresh_rows,
+                                         source="g13.p0.m_d.ue_lumen_gi_parity", timestamp=ts)
                 check(not drift,
                       f"登记表结构化对账漂移（身份面/位级面/UE 超带 {ue_band_rel:.8f}）: {drift[:3]}")
             else:

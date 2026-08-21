@@ -297,7 +297,7 @@ _ITEM_IDENTITY_KEYS = (
 
 
 def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float,
-                                  classify: Any) -> list[str]:
+                                  classify: Any, ue_band_rel_map: Any = None) -> list[str]:
     """在树冻结登记表 vs 当次重算登记表的结构化对账（返回错误列表，空 = 通过）。
 
     G13 §8.7 承接锚字面兑现——三面：
@@ -310,6 +310,13 @@ def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float
        ue_band_rel × max(|old|, 1e-30)；ue_band_rel 由门内 UE 探针格双跑
        方差底 ×headroom 程序产，本函数只消费不产阈——P-09 禁手写；band==0.0
        时 UE 侧面退化为位级一致〔最严〕）。
+       **G14.5a 后事件加性（G14-N1 重判条件命中兑现——只追加程序重判对账语义面）**：
+       可选 `ue_band_rel_map`（{f"{gap_id}|{metric}|{field}" → band_rel}）逐位带
+       覆盖标量带——跨会话厂商随机方差包络面（同会话探针带对跨会话漂移欠覆盖的
+       实证事件：indirect_ssim@bistro 跨会话 ±4.4% vs 同会话探针带 0.15%），
+       样本级联登记面 = g14_ue_variance_samples.json（只追加），带 = 历史样本
+       极差率 × headroom 与同会话探针带取 max（双程序产面取严，不拟合当次差值——
+       RXS-0392/P-09 维持）。
     双面 delta == b−a（f64 精确）关系核验维持（构造不变式）。
     """
     errs: list[str] = []
@@ -353,12 +360,18 @@ def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float
                     continue
                 side = classify(metric, field, float(ov))
                 if side == PROVENANCE_UE:
-                    band = ue_band_rel * max(abs(float(ov)), 1e-30)
+                    band_rel_eff = ue_band_rel
+                    if ue_band_rel_map is not None:
+                        _mk = f"{oi.get('gap_id')}|{metric}|{field}"
+                        _mv = (ue_band_rel_map.get(_mk) if hasattr(ue_band_rel_map, "get") else None)
+                        if _mv is not None and _is_num(_mv):
+                            band_rel_eff = max(float(_mv), float(ue_band_rel))
+                    band = band_rel_eff * max(abs(float(ov)), 1e-30)
                     if abs(float(nv) - float(ov)) > band:
                         errs.append(
                             f"{tj}.{field} UE 侧超方差带（{metric}）: "
                             f"|{nv!r}−{ov!r}|={abs(float(nv) - float(ov))!r} > {band!r}"
-                            f"（band_rel={ue_band_rel!r} 程序产）"
+                            f"（band_rel={band_rel_eff!r} 程序产）"
                         )
                 elif side in (PROVENANCE_RURIX, PROVENANCE_STRUCTURAL):
                     if float(nv) != float(ov):
@@ -373,6 +386,75 @@ def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float
                     if float(dd["b_value"]) - float(dd["a_value"]) != float(dd["delta"]):
                         errs.append(f"{tj}（{lbl}）delta ≠ b−a 构造不变式破坏")
     return errs
+
+
+# ---------------------------------------------------------------------------
+# G14.5a 后事件加性面：UE 侧跨会话方差样本级联登记（G14-N1 重判条件命中兑现）
+# ---------------------------------------------------------------------------
+# 语义：同会话探针带（max 两两相对差 ×2.0）只覆盖同窗口运行间方差；跨会话
+# （跨日/跨 gate 运行窗口）厂商随机漂移实证可达 ±4.4%（2026-08-21 indirect_ssim@
+# bistro-interior 三样本 {0.0065669, 0.0065253, 0.0068552}，evidence 034829Z/
+# 071403Z 在档）——带面须从**历史样本级联**派生：逐 UE 位（gap_id|metric|field）
+# 登记每次门运行的 fresh 测量值（只追加），带 = 历史样本极差率 × headroom 与
+# 当次同会话探针带取 max（双程序产面取严；不带入当次差值——不拟合，RXS-0392/
+# P-09 维持）。样本面永不回写 G13/G12 冻结登记表本体（0-byte 纪律维持）。
+
+def ue_samples_load(path: Any) -> dict:
+    """读取跨会话样本登记面（缺文件 → 空集骨架）。"""
+    import json as _json
+    from pathlib import Path as _P
+    p = _P(str(path))
+    if not p.is_file():
+        return {"schema": "rurix.g14.ue_variance_samples.v1", "entries": []}
+    return _json.loads(p.read_text(encoding="utf-8"))
+
+
+def ue_samples_append(path: Any, rows: list, *, source: str, timestamp: str) -> None:
+    """追加 UE 位测量样本（rows = [{gap_id, metric, field, value}]；幂等键 =
+    (gap_id|metric|field, source, timestamp)——同源同戳重放不重复登记）。"""
+    import json as _json
+    from pathlib import Path as _P
+    p = _P(str(path))
+    doc = ue_samples_load(p)
+    entries = doc.setdefault("entries", [])
+    for row in rows:
+        key = f"{row.get('gap_id')}|{row.get('metric')}|{row.get('field')}"
+        hit = None
+        for e in entries:
+            if e.get("key") == key:
+                hit = e
+                break
+        if hit is None:
+            hit = {"key": key, "gap_id": row.get("gap_id"), "metric": row.get("metric"),
+                   "field": row.get("field"), "values": []}
+            entries.append(hit)
+        dup = any(v.get("source") == source and v.get("timestamp") == timestamp
+                  for v in hit["values"])
+        if not dup:
+            hit["values"].append({
+                "value": float(row["value"]),
+                "source": source,
+                "timestamp": timestamp,
+            })
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def ue_cross_session_band(path: Any, gap_id: str, metric: str, field: str,
+                          old_value: float, *, headroom: float = 2.0) -> float:
+    """逐位跨会话带：样本级联（冻结在树值为首样本 + 历次 fresh 登记值）极差率
+    × headroom——样本 < 2 点时返回 0.0（调用方与同会话探针带取 max 兜住）。"""
+    doc = ue_samples_load(path)
+    key = f"{gap_id}|{metric}|{field}"
+    series = [float(old_value)]
+    for e in doc.get("entries") or []:
+        if e.get("key") == key:
+            series += [float(v["value"]) for v in e.get("values") or [] if _is_num(v.get("value"))]
+            break
+    if len(series) < 2:
+        return 0.0
+    lo, hi = min(series), max(series)
+    return (hi - lo) / max(abs(lo), 1e-30) * headroom
 
 
 def selftest() -> int:
@@ -475,10 +557,63 @@ def selftest() -> int:
     else:
         print("  GREEN ok — band=0 恒等位级面过检")
 
+    # ── G14.5a 后事件加性面（逐位带 map + 跨会话样本级联；2 RED + 2 GREEN）──
+    import tempfile as _tmp
+    gid = base["items"][0]["gap_id"]
+    map_key = f"{gid}|m|a_value"
+    # RED③：逐位带面大漂移（×1.5）超 map 带（0.20）必检出
+    big_map = _copy.deepcopy(base)
+    big_map["items"][0]["measured_delta"][0].update(a_value=1.5, delta=2.5 - 1.5)
+    errs5 = reconcile_registry_structured(base, big_map, 0.01, _cls,
+                                          ue_band_rel_map={map_key: 0.20})
+    if not errs5:
+        print("  RED MISS — 逐位带面大漂移未检出")
+        failures += 1
+    else:
+        print("  RED ok   — 逐位带面大漂移（×1.5 > map 带 0.20）检出")
+    # GREEN③：逐位带内（×1.10 ≤ map 带 0.20）吸收（标量带 0.01 本拒——map 生效面）
+    in_map = _copy.deepcopy(base)
+    in_map["items"][0]["measured_delta"][0].update(a_value=1.10, delta=2.5 - 1.10)
+    errs6 = reconcile_registry_structured(base, in_map, 0.01, _cls,
+                                          ue_band_rel_map={map_key: 0.20})
+    if errs6:
+        print(f"  GREEN MISS — 逐位带内吸收被误拒: {errs6}")
+        failures += 1
+    else:
+        print("  GREEN ok — 逐位带内（×1.10 ≤ map 带 0.20）吸收（map 覆盖标量带生效）")
+    # 样本级联面：append 幂等 + 跨会话带派生（series {1.00, 1.04} → 极差率 4% × 2.0 = 0.08）
+    with _tmp.TemporaryDirectory(prefix="gaplib_g14_5a_") as td:
+        sp = f"{td}/samples.json"
+        ue_samples_append(sp, [{"gap_id": gid, "metric": "m", "field": "a_value", "value": 1.04}],
+                          source="selftest", timestamp="20260821T000000Z")
+        ue_samples_append(sp, [{"gap_id": gid, "metric": "m", "field": "a_value", "value": 1.04}],
+                          source="selftest", timestamp="20260821T000000Z")  # 重放幂等
+        band_cs = ue_cross_session_band(sp, gid, "m", "a_value", 1.00)
+        n_vals = 0
+        for e in ue_samples_load(sp).get("entries") or []:
+            if e.get("key") == map_key:
+                n_vals = len(e.get("values") or [])
+        if n_vals != 1:
+            print(f"  RED MISS — 样本级联幂等面破坏（values={n_vals} ≠ 1）")
+            failures += 1
+        elif abs(band_cs - 0.08) > 1e-12:
+            print(f"  RED MISS — 跨会话带派生漂移（{band_cs} ≠ 0.08）")
+            failures += 1
+        else:
+            print("  RED ok   — 样本级联幂等 + 跨会话带派生（series {1.00,1.04} → 0.08）")
+    # GREEN④：单点样本带 0.0 退化面（由调用方与探针带取 max 兜住字面）
+    with _tmp.TemporaryDirectory(prefix="gaplib_g14_5b_") as td:
+        band_one = ue_cross_session_band(f"{td}/none.json", gid, "m", "a_value", 1.00)
+    if band_one != 0.0:
+        print(f"  GREEN MISS — 单点样本带非零退化: {band_one}")
+        failures += 1
+    else:
+        print("  GREEN ok — 样本 < 2 点带 0.0 退化（调用方 max 探针带兜住）")
+
     if failures:
         print(f"[g10_gap_registry_lib] SELFTEST FAIL ({failures})")
         return 1
-    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN + 结构化对账 5 RED + 2 GREEN）")
+    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN + 结构化对账 5 RED + 2 GREEN + 跨会话带面 2 RED + 2 GREEN）")
     return 0
 
 
