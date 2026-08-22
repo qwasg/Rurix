@@ -5,202 +5,64 @@
  "source_gate_run": "g14.p0.m_d.dual_end_fps_parity evidence 20260820T012652Z（Rurix 臂 54 轮）",
  "anchors": {
   "cornell-box_t50_tsr_device": {
-   "last_frame_digest": "sha256:77ab09ed3e226dfecafd8e9525d4ff2dd25510bfcc60008a1ed32ccd7697d74e",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189351.3907137
+   "last_frame_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45"
   },
   "cornell-box_t50_dlss_sr": {
-   "last_frame_digest": "sha256:94cfa1400ee92fa4783934ff6e3ab67bf65044320076dbf6c5371712236fe6d0",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189364.0407014
+   "last_frame_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851"
   },
   "cornell-box_t50_fsr_3_1_5": {
-   "last_frame_digest": "sha256:476f51c423b81f7fd09a8dbd99aba37d8b1801008e289d9bfbb7d24ef9562d6c",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189375.8074043
+   "last_frame_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041"
   },
   "cornell-box_t67_tsr_device": {
-   "last_frame_digest": "sha256:4ba365f4d7f0c36dcd3eccc7df60cfd7300cc72e75cac39d326eaa73972f6eec",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189439.9577408
+   "last_frame_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297"
   },
   "cornell-box_t67_dlss_sr": {
-   "last_frame_digest": "sha256:bf06a1a54ec5504be8d79db499c7209e1dea9c2c771e07a29ea47b793a60d28f",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189452.9808962
+   "last_frame_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43"
   },
   "cornell-box_t67_fsr_3_1_5": {
-   "last_frame_digest": "sha256:9d6cda50906183665bfb3f0a91945e460d744b15f8f466d2238050380f93bd67",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189465.6105075
+   "last_frame_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23"
   },
   "cornell-box_t100_tsr_device": {
-   "last_frame_digest": "sha256:a204d4e9e757f8a8ac05c38f9fdc047011196ce30f872ddc7f87a658da58a496",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189537.1135771
+   "last_frame_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190"
   },
   "cornell-box_t100_dlss_sr": {
-   "last_frame_digest": "sha256:2e1856cbd4de9f12b0e64c27f807f5932a4993677ed6eac7da231fe3cb9ea662",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189555.8147206
+   "last_frame_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d"
   },
   "cornell-box_t100_fsr_3_1_5": {
-   "last_frame_digest": "sha256:61af74f88bfeea6de2e257b7efa1765f996c013787a1d52ceb9430cfcd0ae65a",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    512,
-    512
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189575.7408907
+   "last_frame_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616"
   },
   "bistro-interior_t50_tsr_device": {
-   "last_frame_digest": "sha256:cd35a878bdcede952d28d18a6450cbb32508c6ff3f443892c58b67b3fb989ce8",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787189945.6987042
+   "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba"
   },
   "bistro-interior_t50_dlss_sr": {
-   "last_frame_digest": "sha256:6ee78059a9faf524448b37c59ee1c2ff3e7c60ff5124b5d9662724d95e8584ab",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787190213.852426
+   "last_frame_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53"
   },
   "bistro-interior_t50_fsr_3_1_5": {
-   "last_frame_digest": "sha256:e880369131684f1a22a60b642341aca4453b0583114e2332d941f1f679136a5a",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787190467.9189186
+   "last_frame_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272"
   },
   "bistro-interior_t67_tsr_device": {
-   "last_frame_digest": "sha256:b7568a9a58fbce9926a0418aa429d1c877cccf47d7e70268b63ea2449102dc00",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787190841.3409405
+   "last_frame_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6"
   },
   "bistro-interior_t67_dlss_sr": {
-   "last_frame_digest": "sha256:e67276bc483e4916f620675965c5f811d22d1fe2b531caf4c0149f9f7dedba60",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787191134.9753208
+   "last_frame_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89"
   },
   "bistro-interior_t67_fsr_3_1_5": {
-   "last_frame_digest": "sha256:303836e79e6ba23dd021297fc40b0493dc0b38a4932f8f43ce7cf5a52f71b112",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787191411.8600721
+   "last_frame_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421"
   },
   "bistro-interior_t100_tsr_device": {
-   "last_frame_digest": "sha256:cba7ed30df4ccf2a099d49763c28005ab16cfcee72ef6a1dd2697f8e35e10264",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787191890.0232868
+   "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02"
   },
   "bistro-interior_t100_dlss_sr": {
-   "last_frame_digest": "sha256:9f619da3099c29b0a252a749cf021e127f83725e3a871ee8147fe44fa709f5e2",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787192238.988173
+   "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a"
   },
   "bistro-interior_t100_fsr_3_1_5": {
-   "last_frame_digest": "sha256:638715bdd65b1a268abda067a60555c03018ad789dfc183181d7b228b497a516",
-   "seed": 7312026601,
-   "jitter_base": 14043,
-   "output_size": [
-    1920,
-    1080
-   ],
-   "frames_measured": 160,
-   "receipt_mtime": 1787192563.8146234
+   "last_frame_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504"
   }
+ },
+ "reharvest": {
+  "harvested_utc": "20260822T183502Z",
+  "source_gate_run": "ci/g14_anchor_reharvest.py（canonical 160 帧×双跑位级同值,18/18）",
+  "base_commit": "1a9c561a4e6b41484f50c3a0f9c090933829d0ce",
+  "double_harvest_bitexact": true
  }
 }
