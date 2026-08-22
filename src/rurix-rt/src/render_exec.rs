@@ -114,6 +114,16 @@ pub enum TexFormat {
     R32Uint,
     /// `VK_FORMAT_R32G32_UINT`(101;VisBuffer 64 位 atomicMax u64 载体)。
     Rg32Uint,
+    /// `VK_FORMAT_R32_SFLOAT`(100;G14.10b vendor 输入驻留:depth 单通道 f32
+    /// 直通格式——D32 不可作 storage image 写,R32F 可 compute 直写)。
+    R32Float,
+    /// `VK_FORMAT_R32G32_SFLOAT`(103;G14.10b:motion vector RG f32 直通,
+    /// 与 vendor(DLSS)mv 输入格式同一;storage 写需
+    /// `shaderStorageImageExtendedFormats`)。
+    Rg32Float,
+    /// `VK_FORMAT_R32G32B32A32_SFLOAT`(109;G14.10b:color RGBA f32 直通候选
+    /// ——SL color tag 格式容忍度探明面)。
+    Rgba32Float,
     /// `VK_FORMAT_D32_SFLOAT`(126)。
     Depth32Float,
 }
@@ -126,7 +136,10 @@ impl TexFormat {
             TexFormat::Rgba8Unorm => 37,
             TexFormat::Rgba16Float => 97,
             TexFormat::R32Uint => 98,
+            TexFormat::R32Float => 100,
             TexFormat::Rg32Uint => 101,
+            TexFormat::Rg32Float => 103,
+            TexFormat::Rgba32Float => 109,
             TexFormat::Depth32Float => 126,
         }
     }
@@ -135,8 +148,12 @@ impl TexFormat {
     #[must_use]
     pub fn bytes_per_texel(self) -> usize {
         match self {
-            TexFormat::Rgba8Unorm | TexFormat::R32Uint | TexFormat::Depth32Float => 4,
-            TexFormat::Rgba16Float | TexFormat::Rg32Uint => 8,
+            TexFormat::Rgba8Unorm
+            | TexFormat::R32Uint
+            | TexFormat::R32Float
+            | TexFormat::Depth32Float => 4,
+            TexFormat::Rgba16Float | TexFormat::Rg32Uint | TexFormat::Rg32Float => 8,
+            TexFormat::Rgba32Float => 16,
         }
     }
 
@@ -183,15 +200,24 @@ pub struct TextureUsage {
     pub depth: bool,
 }
 
-/// buffer 资源描述(host-visible+coherent 建面,免 flush;初始数据创建即上传)。
+/// buffer 资源描述。内存驻留按 `device_local` 分路(G14.10d,RFC-0030 §4.3):
+/// `false` = host-visible+coherent(既有态;免 flush,初始数据创建期 map 上传,
+/// `FrameUpdate::buffer_uploads` 逐帧覆盖写的小参数 buffer 用之);`true` =
+/// DEVICE_LOCAL 独占 VRAM(GPU 全速;不可 map——初始数据经 one-shot staging copy
+/// 上传,被 readback 的输出经帧尾 copy 到 session 级 cached staging 回读;内存型
+/// 只改驻留位置不改数据内容,copy 字节精确 → 位级零漂移)。
 #[derive(Debug, Clone)]
 pub struct BufferDesc<'a> {
     /// 字节数(≥4;0 长 buffer 无意义且 VUID 拒)。
     pub size: u64,
     /// 用途位。
     pub usage: BufferUsage,
-    /// 可选初始数据(长度 ≤ `size`;创建期 map 上传)。
+    /// 可选初始数据(长度 ≤ `size`;host 路创建期 map 上传,device-local 路
+    /// staging copy 上传)。
     pub data: Option<&'a [u8]>,
+    /// `true` = DEVICE_LOCAL 驻留(GPU 独占 VRAM;上传目标 buffer 禁用——
+    /// `FrameUpdate::buffer_uploads` 目标须 host-visible,校验期 fail-closed)。
+    pub device_local: bool,
 }
 
 /// texture2d 资源描述(device-local optimal tiling;初始数据经 staging 上传)。
@@ -940,6 +966,34 @@ pub struct NativeVkHandles {
     pub device: usize,
 }
 
+/// G14.10b(RFC-0030 §4.3)exportable 纹理的 Win32 导出簿记:导入方
+/// (vendor/DLSS session 或任意同 LUID 物理设备上的 VkDevice)据此重建
+/// **参数一致**的 external image 并导入同一块 device memory。
+///
+/// 所有权与生命周期:`handle` 为 NT handle,归产出它的 [`DeviceFrameSession`]
+/// 所有(Drop 单点 `CloseHandle`)——消费侧**不得关闭**;句柄仅在 session
+/// 存活期有效(导入完成后导入方持有自己的引用,session 先亡不影响已导入内存,
+/// 但不得再用本簿记导入)。跨界内容有效性:session 每帧 cmd 末已对 exportable
+/// image 录 `VK_QUEUE_FAMILY_EXTERNAL` release barrier(layout 恒 GENERAL),
+/// 导入方消费前须录对应 acquire barrier(EXTERNAL→本家族,GENERAL→GENERAL),
+/// 且须在该帧 fence 完成(`collect`/顺序 execute 返回)之后才提交消费。
+#[derive(Debug, Clone, Copy)]
+pub struct ExportedTextureWin32 {
+    /// NT handle 地址值(`VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT`)。
+    pub handle: usize,
+    pub width: u32,
+    pub height: u32,
+    /// VkFormat 数值(导入侧 image 须同格式)。
+    pub vk_format: u32,
+    /// 导出 image 的 `VkImageUsageFlags`(导入侧 image 须同 usage)。
+    pub usage_flags: u32,
+    /// 导出 allocation 字节数(导入侧 `allocationSize` 须一致)。
+    pub allocation_size: u64,
+    /// 导出 allocation 的 memory type index(同 physical device 上类型序一致,
+    /// 导入侧直接复用;LUID 对拍先行)。
+    pub memory_type_index: u32,
+}
+
 /// FIF 流水帧票据(G14plus RFC-0030 §4.3 L2;
 /// [`DeviceFrameSession::submit_with_frame_update`] 产、
 /// [`DeviceFrameSession::collect`] 消费,须交还产出它的同一 session)。
@@ -1001,6 +1055,41 @@ impl<'a> DeviceFrameSession<'a> {
         frame_slots: usize,
         accel_structs: &[AccelStructDesc<'a>],
     ) -> Result<Self, String> {
+        Self::new_with_exportable_textures(
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            frame_slots,
+            accel_structs,
+            &[],
+        )
+    }
+
+    /// G14.10b(RFC-0030 §4.3)[`Self::new_with_accel_structs`] + exportable
+    /// 纹理集:`exportable_textures` 列出的 `resources` 下标(须为 Texture 资源,
+    /// 不重复)以 external memory chain 建面——`VkExternalMemoryImageCreateInfo`
+    /// (OPAQUE_WIN32)+ `VkExportMemoryAllocateInfo` + **dedicated allocation**
+    /// (NVIDIA 上 Win32 导出实务强制,`VkMemoryDedicatedAllocateInfo` 必挂);
+    /// device 启用 `VK_KHR_external_memory` + `VK_KHR_external_memory_win32`,
+    /// 缺扩展确定性 `Err`(fail-closed,不降级)。集内资源的绑定/屏障/readback/
+    /// provenance 面与普通 Texture 完全一致(既有资源路径 0-byte,新分支仅改
+    /// 分配链);每帧 cmd 末自动追加:layout→GENERAL 收敛 +
+    /// `VK_QUEUE_FAMILY_EXTERNAL` release barrier(跨 device 内容有效性;导入方
+    /// acquire 契约见 [`ExportedTextureWin32`])。设备支持时一并启用
+    /// `shaderStorageImageExtendedFormats`(RG32F 等扩展 storage 格式 compute
+    /// 直写面)。`exportable_textures` 为空时与
+    /// [`Self::new_with_accel_structs`] 逐字节同行为。
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_exportable_textures(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        frame_slots: usize,
+        accel_structs: &[AccelStructDesc<'a>],
+        exportable_textures: &[u32],
+    ) -> Result<Self, String> {
         validate_frame_with_as(
             resources,
             passes,
@@ -1008,6 +1097,22 @@ impl<'a> DeviceFrameSession<'a> {
             readbacks,
             accel_structs.len() as u32,
         )?;
+        // exportable 集校验(fail-closed;越界/非 Texture/重复均确定性拒)。
+        for (k, &res) in exportable_textures.iter().enumerate() {
+            let Some(desc) = resources.get(res as usize) else {
+                return Err(format!("exportable_textures[{k}]: 资源下标 {res} 越界"));
+            };
+            if !matches!(desc, ResourceDesc::Texture(_)) {
+                return Err(format!("exportable_textures[{k}]: 资源 {res} 非 Texture"));
+            }
+            if exportable_textures[..k].contains(&res) {
+                return Err(format!("exportable_textures[{k}]: 资源 {res} 重复声明"));
+            }
+        }
+        #[cfg(not(windows))]
+        if !exportable_textures.is_empty() {
+            return Err("exportable textures 仅支持 Windows(OPAQUE_WIN32 导出面)".into());
+        }
         if frame_slots < 2 {
             return Err("persistent frame session 须至少 2 个 fence frame slots".into());
         }
@@ -1024,6 +1129,7 @@ impl<'a> DeviceFrameSession<'a> {
                 readbacks,
                 frame_slots,
                 accel_structs,
+                exportable_textures,
             )?
         };
         let as_count = native.as_count();
@@ -1400,6 +1506,26 @@ impl<'a> DeviceFrameSession<'a> {
             physical_device: self.native.pd as usize,
             device: self.native.device as usize,
         }
+    }
+
+    /// G14.10b 加性只读 accessor:session 物理设备 LUID
+    /// (`VkPhysicalDeviceIDProperties::deviceLUID`,创建期一次性实采)。
+    /// `None` = 驱动报 `deviceLUIDValid=false`。消费侧与 vendor(DLSS)session
+    /// 的 LUID 对拍——**同 adapter 才可共享 external memory**,不同即 fail-closed。
+    pub fn physical_device_luid(&self) -> Option<[u8; 8]> {
+        self.native.device_luid
+    }
+
+    /// G14.10b:exportable 纹理的 Win32 NT handle 导出(仅
+    /// [`Self::new_with_exportable_textures`] 声明过的下标合法;其余 → `Err`)。
+    /// 首次调用经 `vkGetMemoryWin32HandleKHR` 真导出并缓存,重复调用返回同一
+    /// 句柄(免句柄泄漏);句柄归 session 所有,Drop 单点 `CloseHandle`——
+    /// 调用方**不得关闭**。导入参数契约见 [`ExportedTextureWin32`]。
+    pub fn export_texture_win32_handle(
+        &mut self,
+        resource_index: usize,
+    ) -> Result<ExportedTextureWin32, String> {
+        self.native.export_texture_win32_handle(resource_index)
     }
 }
 
@@ -2129,6 +2255,12 @@ fn validate_frame_update(
                 "FrameUpdate.buffer_uploads: StableResourceId({index}) 非 buffer"
             ));
         };
+        if desc.device_local {
+            return Err(format!(
+                "FrameUpdate.buffer_uploads: StableResourceId({index}) 为 DEVICE_LOCAL 驻留\
+                 (不可 map;上传目标须 host-visible——device_local=false,G14.10d fail-closed)"
+            ));
+        }
         if bytes.is_empty() {
             return Err("FrameUpdate.buffer_uploads: 空上传段(无意义,fail-closed)".into());
         }
@@ -2543,6 +2675,35 @@ const ST_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES: u32 = 1_000_180_000;
 const ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES: u32 = 1_000_314_007;
 const ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES: u32 = 1_000_161_001;
 const ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR: u32 = 1_000_150_013;
+
+// ── G14.10b external memory 导出面(RFC-0030 §4.3;vendor 输入驻留)──
+// sType 值经 SDK 1.3.296 `vulkan_core.h` 核对(扩展号:VK_KHR_external_memory_
+// capabilities #72 → 1000071xxx;VK_KHR_external_memory #73 → 1000072xxx;
+// VK_KHR_external_memory_win32 #74 → 1000073xxx;VK_KHR_dedicated_allocation
+// #128 → 1000127xxx;均 Vulkan 1.1 core 收编,win32 仍为扩展)。
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES`(1.1 core;deviceLUID 载体)。
+const ST_PHYSICAL_DEVICE_ID_PROPERTIES: u32 = 1_000_071_004;
+/// `VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO`。
+const ST_EXTERNAL_MEMORY_IMAGE_CREATE_INFO: u32 = 1_000_072_001;
+/// `VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO`。
+const ST_EXPORT_MEMORY_ALLOCATE_INFO: u32 = 1_000_072_002;
+/// `VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR`(导入侧;单测跨
+/// device 闭环消费——产品面导入端在 vendor_upscale.rs,本侧仅测试用)。
+#[cfg(test)]
+const ST_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR: u32 = 1_000_073_000;
+/// `VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR`。
+const ST_MEMORY_GET_WIN32_HANDLE_INFO_KHR: u32 = 1_000_073_003;
+/// `VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO`(1.1 core;NVIDIA 上
+/// Win32 导出/导入 image 常强制 dedicated,必挂)。
+const ST_MEMORY_DEDICATED_ALLOCATE_INFO: u32 = 1_000_127_001;
+/// `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT`(= 0x2,NT handle;位 0x1
+/// 是 OPAQUE_FD——初版误用 0x1 被 validation 层 VUID-00990/00656/00664 三连抓,
+/// SDK 1.3.296 核对后钉死 0x2)。同 LUID 物理设备的两个 VkDevice 间共享;
+/// D3D12 OpenSharedHandle **不可**消费此类句柄,FSR D3D12 臂需反向
+/// D3D12→Vulkan 导入路线,见 G14.10b 登记。
+const EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32: u32 = 0x2;
+/// `VK_QUEUE_FAMILY_EXTERNAL`(= ~1u32;跨 device release/acquire 家族哨兵)。
+const QUEUE_FAMILY_EXTERNAL: u32 = !1u32;
 const ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES: u32 = 1_000_257_000;
 const ST_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR: u32 = 1_000_348_013;
 const ST_MEMORY_BARRIER_2: u32 = 1_000_314_000;
@@ -3452,6 +3613,88 @@ struct PipelineRasterizationConservativeStateCreateInfo {
 struct ExtensionProperties {
     extension_name: [c_char; 256],
     spec_version: u32,
+}
+
+// ── G14.10b external memory 导出面结构(SDK 1.3.296 `vulkan_core.h` 字段序
+// 逐一核对;布局锚定见 `ffi_layout_anchors`)──
+
+/// `VkPhysicalDeviceIDProperties`(1.1 core;sType@0 / pNext@8 / deviceUUID[16]@16 /
+/// driverUUID[16]@32 / deviceLUID[8]@48 / deviceNodeMask@56 / deviceLUIDValid@60,
+/// size 64 align 8)。G14.10b 同 physical device 前置断言的 LUID 事实源。
+#[repr(C)]
+struct PhysicalDeviceIDProperties {
+    s_type: u32,
+    p_next: *mut c_void,
+    device_uuid: [u8; 16],
+    driver_uuid: [u8; 16],
+    device_luid: [u8; 8],
+    device_node_mask: u32,
+    device_luid_valid: u32,
+}
+
+/// `VkExternalMemoryImageCreateInfo`(sType@0 / pNext@8 / handleTypes@16,
+/// size 24 align 8)。挂 [`ImageCreateInfo::p_next`] 声明该 image 内存可导出。
+#[repr(C)]
+struct ExternalMemoryImageCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_types: u32,
+}
+
+/// `VkExportMemoryAllocateInfo`(sType@0 / pNext@8 / handleTypes@16,size 24)。
+/// 挂 [`MemoryAllocateInfo::p_next`] 声明该分配可经 win32 handle 导出。
+#[repr(C)]
+struct ExportMemoryAllocateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_types: u32,
+}
+
+/// `VkMemoryDedicatedAllocateInfo`(sType@0 / pNext@8 / image@16 / buffer@24,
+/// size 32)。NVIDIA 上 OPAQUE_WIN32 image 导出/导入实务上强制 dedicated。
+#[repr(C)]
+struct MemoryDedicatedAllocateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    image: VkImage,
+    buffer: VkBuffer,
+}
+
+/// `VkMemoryGetWin32HandleInfoKHR`(sType@0 / pNext@8 / memory@16 / handleType@24,
+/// size 32)。`vkGetMemoryWin32HandleKHR` 入参。
+#[repr(C)]
+struct MemoryGetWin32HandleInfoKHR {
+    s_type: u32,
+    p_next: *const c_void,
+    memory: VkDeviceMemory,
+    handle_type: u32,
+}
+
+/// `VkImportMemoryWin32HandleInfoKHR`(sType@0 / pNext@8 / handleType@16 /
+/// handle@24 / name@32,size 40)。导入侧(单测跨 device 闭环消费;DLSS 侧
+/// vendor_upscale.rs 持同族独立定义——两模块 FFI 自足纪律)。
+#[cfg(test)]
+#[repr(C)]
+struct ImportMemoryWin32HandleInfoKHR {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_type: u32,
+    handle: *mut c_void,
+    name: *const u16,
+}
+
+type FnGetMemoryWin32HandleKHR = unsafe extern "system" fn(
+    VkDevice,
+    *const MemoryGetWin32HandleInfoKHR,
+    *mut *mut c_void,
+) -> VkResult;
+
+// kernel32 `CloseHandle`(导出 NT handle 归 session 所有,Drop 单点关闭——
+// 调用方不得 CloseHandle,防双关)。
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn CloseHandle(handle: *mut c_void) -> i32;
 }
 
 // ── debug messenger(U27 同律 fail-closed) ──
@@ -4411,6 +4654,9 @@ struct RtImage {
     width: u32,
     height: u32,
     format: TexFormat,
+    /// 建面最终 `VkImageUsageFlags`(`texture_usage_flags` 产;G14.10b 导出簿记
+    /// 消费——导入侧 image 须同 usage)。
+    usage_flags: u32,
     /// 初始数据 staging(host-visible;命令流首段 copy 后于帧末销毁)。
     staging: Option<VkBuffer>,
 }
@@ -4429,17 +4675,31 @@ impl RtRes {
     }
 }
 
-/// 建 buffer + host-visible+coherent 内存 + 绑定 + 可选初始数据上传。登记 cleanup,
-/// 返回 (buffer, mem) 句柄对。
-///
-/// `prefer_cached`(G14plus RFC-0030 §4.3 L1,vendor_upscale.rs DLSS readback
-/// 同型先例):readback 用途(GPU 写、CPU 读)缓冲优选
-/// `HOST_VISIBLE|HOST_COHERENT|HOST_CACHED`——原恒取首个 HV+HC 型,NVIDIA 上
-/// 命中 uncached/WC,逐元素 host 读 = PCIe 往返延迟(bistro t100 回读损失
-/// ~71ms);HOST_CACHED 块读/逐元素读均为缓存命中口径,内容面与 WC 逐位一致、
-/// coherent 免 invalidate 语义不变、digest 不变机核。缺该型回退既有 HV+HC
-/// (行为零漂移);两条路径均含 HOST_COHERENT → map 后免
-/// vkInvalidateMappedMemoryRanges 的既有纪律不变(防御性注释)。
+/// buffer 内存分路(G14.10d 三路判定,RFC-0030 §4.3;内存型只改驻留位置不改
+/// 数据内容——位级零漂移机核)。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BufferMemClass {
+    /// DEVICE_LOCAL 独占 VRAM(GPU 全速 ~500GB/s;不可 map——初始数据/回读均经
+    /// staging copy)。session SSBO 的默认新态:TSR 访存归因 = 恒 HOST_VISIBLE
+    /// 把 SSBO 放 PCIe 侧 ~25GB/s,bistro t50 每帧跨 PCIe 净流量 135MB → 物理
+    /// 下限 7-8ms;DEVICE_LOCAL 同流量 ~0.3ms。
+    DeviceLocal,
+    /// host-visible+coherent 首匹配(NVIDIA 上 = uncached/WC;host 写向最优)。
+    /// 既有态保留:被 `FrameUpdate::buffer_uploads` 逐帧覆盖写的小参数 buffer
+    /// 与上传 staging 用之。
+    HostWc,
+    /// `HOST_VISIBLE|HOST_COHERENT|HOST_CACHED` 优选,缺型回退 HostWc(G14plus
+    /// §4.3 L1,vendor_upscale.rs DLSS readback 同型先例):readback staging
+    /// (GPU copy 写、CPU map 读)专用——WC 逐元素 host 读 = PCIe 往返延迟
+    /// (bistro t100 回读损失 ~71ms),cached 块读/逐元素读均缓存命中口径。
+    /// 两条路径均含 HOST_COHERENT → map 后免 vkInvalidateMappedMemoryRanges
+    /// 的既有纪律不变(防御性注释)。
+    HostCachedPreferred,
+}
+
+/// 建 buffer + 按 `mem_class` 选型内存 + 绑定 + 可选初始数据上传(host 路 map
+/// 写;DEVICE_LOCAL 路不可 map,`data` 须 `None`——初始数据由调用方 staging copy
+/// 承载,传入即内部纪律 Err)。登记 cleanup,返回 (buffer, mem) 句柄对。
 ///
 /// # Safety
 /// dev/device 有效;desc 已经 validate;memprops 为本物理设备内存属性。
@@ -4453,8 +4713,11 @@ unsafe fn create_device_buffer(
     data: Option<&[u8]>,
     resource_id: Option<StableResourceId>,
     cleanup: &mut Cleanup,
-    prefer_cached: bool,
+    mem_class: BufferMemClass,
 ) -> Result<(VkBuffer, VkDeviceMemory), String> {
+    if mem_class == BufferMemClass::DeviceLocal && data.is_some() {
+        return Err("内部纪律:DEVICE_LOCAL buffer 初始数据须走 staging copy(不可 map)".into());
+    }
     let bci = BufferCreateInfo {
         s_type: ST_BUFFER_CREATE_INFO,
         p_next: std::ptr::null(),
@@ -4471,25 +4734,39 @@ unsafe fn create_device_buffer(
     }
     let mut req = std::mem::zeroed::<MemoryRequirements>();
     (dev.buf_mem_req)(device, buffer, &mut req);
-    // readback 优选 cached 型(缺型回退既有 HV+HC——同一 pick_mem_type 事实源)。
-    let cached_mt = if prefer_cached {
-        pick_mem_type(
-            memprops,
-            req.memory_type_bits,
-            MEM_HOST_VISIBLE | MEM_HOST_COHERENT | MEM_HOST_CACHED,
-        )
-    } else {
-        None
-    };
-    let Some(mt) = cached_mt.or_else(|| {
-        pick_mem_type(
-            memprops,
-            req.memory_type_bits,
-            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
-        )
-    }) else {
-        (dev.destroy_buffer)(device, buffer, std::ptr::null());
-        return Err("无 host-visible+coherent 内存类型".into());
+    // 三路选型(同一 pick_mem_type 事实源):DeviceLocal 首匹配 DEVICE_LOCAL
+    // (image 建面同律,缺型 fail-closed);HostCachedPreferred 优选 cached、
+    // 缺型回退 HV+HC;HostWc 首匹配 HV+HC(既有行为 0-byte)。
+    let mt = match mem_class {
+        BufferMemClass::DeviceLocal => {
+            let Some(mt) = pick_mem_type(memprops, req.memory_type_bits, MEM_DEVICE_LOCAL) else {
+                (dev.destroy_buffer)(device, buffer, std::ptr::null());
+                return Err("无 device-local 内存类型(buffer)".into());
+            };
+            mt
+        }
+        BufferMemClass::HostWc | BufferMemClass::HostCachedPreferred => {
+            let cached_mt = if mem_class == BufferMemClass::HostCachedPreferred {
+                pick_mem_type(
+                    memprops,
+                    req.memory_type_bits,
+                    MEM_HOST_VISIBLE | MEM_HOST_COHERENT | MEM_HOST_CACHED,
+                )
+            } else {
+                None
+            };
+            let Some(mt) = cached_mt.or_else(|| {
+                pick_mem_type(
+                    memprops,
+                    req.memory_type_bits,
+                    MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+                )
+            }) else {
+                (dev.destroy_buffer)(device, buffer, std::ptr::null());
+                return Err("无 host-visible+coherent 内存类型".into());
+            };
+            mt
+        }
     };
     let mai = MemoryAllocateInfo {
         s_type: ST_MEMORY_ALLOCATE_INFO,
@@ -4740,6 +5017,11 @@ struct FrameBodyParams<'a> {
     inline_vbs: &'a [Option<VkBuffer>],
     readbacks: &'a [Readback],
     record_upload_segment: bool,
+    /// G14.10b exportable 纹理下标集(帧末 layout→GENERAL 收敛 + EXTERNAL
+    /// release barrier;空 = 无导出面,命令流 0-byte)。
+    exportable: &'a [u32],
+    /// release barrier 的 src queue family(session 单 graphics queue)。
+    queue_family_index: u32,
 }
 
 /// 帧命令体录制:[可选上传段] → [可选 TLAS update + consume barrier] → 逐 pass
@@ -4764,15 +5046,17 @@ unsafe fn record_frame_body(
     let cmd = p.cmd;
     let rt = p.rt;
     let query_pool = p.query_pool;
-    // 状态跟踪初值(buffer 数据→HOST_WRITE;image→UNDEFINED;带 staging 的 image
+    // 状态跟踪初值(host 路 buffer 数据→HOST_WRITE;G14.10d DEVICE_LOCAL buffer
+    // 数据经创建期 one-shot copy submit + fence 有界等待——写已完成且可用,帧内
+    // 无待序 host 写,初值同无数据 = NONE;image→UNDEFINED;带 staging 的 image
     // 在命令流首段迁 TRANSFER_DST 后 = TRANSFER_DST 态)。创建录制与重录同一
-    // 确定性初值规则。
+    // 确定性初值规则(仅由 ResourceDesc 决定,不依赖运行态)。
     let mut tracked: Vec<TrackedState> = p
         .resources
         .iter()
         .map(|r| match r {
             ResourceDesc::Buffer(b) => {
-                if b.data.is_some() {
+                if b.data.is_some() && !b.device_local {
                     (0, STAGE2_HOST, ACCESS2_HOST_WRITE)
                 } else {
                     (0, STAGE2_NONE, 0)
@@ -5092,10 +5376,15 @@ unsafe fn record_frame_body(
         );
     }
 
-    // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;buffer 免录制 ──
-    // 创建录制(cleanup=Some)顺带建持久 readback buffer(host-visible TRANSFER_DST,
-    // image copy 目的)并登记 ledger;重录路 rb_buffers 已逐位对齐,不新建分配。
-    for rb in p.readbacks.iter() {
+    // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;host-visible
+    // buffer 免录制(collect/execute 直接 map 资源本体);DEVICE_LOCAL buffer
+    // (G14.10d)= 帧尾 copy 到 session 级 cached readback staging(不可 map,
+    // staging 即回读事实源;copy 字节精确 → 位级零漂移)──
+    // 创建录制(cleanup=Some)顺带建持久 readback staging(cached 优选 TRANSFER_DST)
+    // 并登记 ledger;重录路 rb_buffers 已逐位对齐,不新建分配——readback_subset
+    // 动态子集下 staging 布局按 session readback 表项固定预分配,copy 只录
+    // subset 内的(rb_buffers 有效项即录制判据,创建/重录同一确定性规则)。
+    for (i, rb) in p.readbacks.iter().enumerate() {
         match *rb {
             Readback::Texture { res } => {
                 let Some(ri) = rt[res as usize].image() else {
@@ -5115,21 +5404,57 @@ unsafe fn record_frame_body(
                         None,
                         c,
                         // readback 专用(GPU copy 写、CPU map 读)→ cached 优选。
-                        true,
+                        BufferMemClass::HostCachedPreferred,
                     )?;
                     rb_buffers.push(Some((rbuf, rmem)));
                 }
                 transit!(res, TargetState::TransferSrc);
             }
-            Readback::Buffer { .. } => {
-                if cleanup.is_some() {
-                    rb_buffers.push(None);
+            Readback::Buffer { res, size, .. } => {
+                if let Some(c) = cleanup.as_deref_mut() {
+                    let staged = matches!(
+                        p.resources.get(res as usize),
+                        Some(ResourceDesc::Buffer(b)) if b.device_local
+                    );
+                    if staged {
+                        let (rbuf, rmem) = create_device_buffer(
+                            dev,
+                            p.device,
+                            p.memprops,
+                            size.max(4),
+                            0x2, // TRANSFER_DST
+                            None,
+                            None,
+                            c,
+                            // readback staging(GPU copy 写、CPU map 读)→ cached 优选。
+                            BufferMemClass::HostCachedPreferred,
+                        )?;
+                        rb_buffers.push(Some((rbuf, rmem)));
+                    } else {
+                        rb_buffers.push(None);
+                    }
+                }
+                // staging 有效项 = DEVICE_LOCAL 源:pass 链写完后迁 TRANSFER_READ
+                // (SHADER_WRITE→TRANSFER barrier),copy 于 flush 后录制。
+                if rb_buffers[i].is_some() {
+                    transit!(res, TargetState::TransferSrc);
                 }
             }
         }
     }
     flush_barriers!(img_barriers, buf_barriers);
     for (i, rb) in p.readbacks.iter().enumerate() {
+        if let (Readback::Buffer { res, offset, size }, Some((buf, _))) = (rb, rb_buffers[i]) {
+            let RtRes::Buf(src) = &rt[*res as usize] else {
+                return Err(format!("readbacks[{i}]: 资源号 {res} 非 buffer"));
+            };
+            let region = VkBufferCopy {
+                src_offset: *offset,
+                dst_offset: 0,
+                size: *size,
+            };
+            (dev.cmd_copy_buf)(cmd, src.buffer, buf, 1, &region);
+        }
         if let (Readback::Texture { res }, Some((buf, _))) = (rb, rb_buffers[i]) {
             let Some(ri) = rt[*res as usize].image() else {
                 return Err(format!("readbacks[{i}]: 资源号 {res} 非 texture"));
@@ -5154,6 +5479,43 @@ unsafe fn record_frame_body(
             (dev.cmd_copy_img2buf)(cmd, ri.image, LAYOUT_TRANSFER_SRC_OPTIMAL, buf, 1, &region);
         }
     }
+
+    // ── G14.10b exportable 帧末段(集空 = 0 命令,既有命令流 0-byte)──
+    // ① layout→GENERAL 收敛(跨界 layout 协定恒 GENERAL:release/acquire 两侧
+    //   old/newLayout 规范要求一致,固定 GENERAL 免跨模块状态协商;跟踪态已
+    //   GENERAL 时 barrier_fields 返 None 自然跳过);② EXTERNAL release
+    //   (qfi→VK_QUEUE_FAMILY_EXTERNAL,GENERAL→GENERAL 零转换,src=ALL_COMMANDS/
+    //   MEMORY_WRITE 全域可用性;release 侧 dst scope 规范上被忽略,取合法保守值)。
+    // 下一帧本 session 重写该 image 时按既有状态机从 UNDEFINED 重初始化(内容
+    // 不保留语义),规范允许跳过 re-acquire——与「每帧 UNDEFINED 初值」既有
+    // 纪律天然一致,无需帧首 acquire。
+    for &res in p.exportable {
+        transit!(res, TargetState::StorageImageReadWrite);
+        let RtRes::Img(ri) = &rt[res as usize] else {
+            return Err(format!("exportable {res} 非 image(校验漏网)"));
+        };
+        img_barriers.push(ImageMemoryBarrier2 {
+            s_type: ST_IMAGE_MEMORY_BARRIER_2,
+            p_next: std::ptr::null(),
+            src_stage_mask: STAGE2_ALL_COMMANDS,
+            src_access_mask: ACCESS2_MEMORY_WRITE,
+            dst_stage_mask: STAGE2_ALL_COMMANDS,
+            dst_access_mask: 0,
+            old_layout: LAYOUT_GENERAL,
+            new_layout: LAYOUT_GENERAL,
+            src_queue_family_index: p.queue_family_index,
+            dst_queue_family_index: QUEUE_FAMILY_EXTERNAL,
+            image: ri.image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: ri.format.aspect_mask(),
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        });
+    }
+    flush_barriers!(img_barriers, buf_barriers);
     Ok(())
 }
 
@@ -5196,6 +5558,12 @@ struct NativeDeviceFrame {
     setups: Vec<PassSetup>,
     /// inline VB 句柄(重录路 vertex 绑定复用)。
     inline_vbs: Vec<Option<VkBuffer>>,
+    /// G14.10b exportable 纹理簿记(资源下标, allocation 字节, memory type index;
+    /// 空 = 无导出面,全旧行为)。record_frame_body 帧末 release barrier 与
+    /// win32 导出 accessor 共用事实源。
+    exportable_meta: Vec<(u32, u64, u32)>,
+    /// 建面 queue family(release barrier 的 src 家族;既有单 graphics queue 策略)。
+    queue_family_index: u32,
 }
 
 /// FIF 流水 per-slot 资源(G14plus RFC-0030 §4.3 L2;懒建于首次
@@ -5254,12 +5622,79 @@ struct NativePersistentFrame {
     /// submit → Err(fence 已 reset 会悬垂 collect);顺序 execute 入口在任何
     /// 票据未清时 → Err(共享 query 区间/fence 轮转不可交错)。
     slot_busy: Vec<bool>,
+    /// G14.10b:物理设备 LUID(创建期 `VkPhysicalDeviceIDProperties` 实采;
+    /// `None` = 驱动报 LUID 无效)。
+    device_luid: Option<[u8; 8]>,
+    /// G14.10b:`vkGetMemoryWin32HandleKHR`(仅 exportable session 解析;
+    /// `None` = 无导出面)。
+    get_memory_win32: Option<FnGetMemoryWin32HandleKHR>,
+    /// G14.10b:已导出 NT handle 缓存((资源下标, handle 地址);Drop 单点
+    /// CloseHandle,重复导出请求返缓存——免句柄泄漏)。
+    exported_handles: Vec<(u32, usize)>,
 }
 
 impl NativePersistentFrame {
     /// session AS 表项数。
     fn as_count(&self) -> usize {
         self.as_state.as_ref().map_or(0, |s| s.managers.len())
+    }
+
+    /// G14.10b:exportable 纹理 Win32 NT handle 导出本体(缓存;契约见
+    /// [`DeviceFrameSession::export_texture_win32_handle`])。
+    fn export_texture_win32_handle(
+        &mut self,
+        resource_index: usize,
+    ) -> Result<ExportedTextureWin32, String> {
+        let Some(&(res, alloc_size, mem_type)) = self
+            .frame
+            .exportable_meta
+            .iter()
+            .find(|&&(r, _, _)| r as usize == resource_index)
+        else {
+            return Err(format!(
+                "资源 {resource_index} 未声明为 exportable(new_with_exportable_textures)"
+            ));
+        };
+        let img = self
+            .frame
+            .rt
+            .get(resource_index)
+            .and_then(RtRes::image)
+            .ok_or_else(|| format!("资源 {resource_index} 非 image(exportable 簿记不一致)"))?;
+        // 描述面(尺寸/格式/usage 与建面同一事实源——RtImage 建面时定格)。
+        let mut out = ExportedTextureWin32 {
+            handle: 0,
+            width: img.width,
+            height: img.height,
+            vk_format: img.format.vk_format(),
+            usage_flags: img.usage_flags,
+            allocation_size: alloc_size,
+            memory_type_index: mem_type,
+        };
+        let memory = img.mem;
+        if let Some(&(_, h)) = self.exported_handles.iter().find(|&&(r, _)| r == res) {
+            out.handle = h;
+            return Ok(out);
+        }
+        let get_fn = self
+            .get_memory_win32
+            .ok_or("vkGetMemoryWin32HandleKHR 未解析(非 exportable session)")?;
+        let info = MemoryGetWin32HandleInfoKHR {
+            s_type: ST_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+            p_next: std::ptr::null(),
+            memory,
+            handle_type: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+        };
+        let mut handle: *mut c_void = std::ptr::null_mut();
+        // SAFETY: device 存活(self 持有);info 栈上存活;memory 为本 session
+        // exportable 分配(建面挂 VkExportMemoryAllocateInfo);出参栈上有效写。
+        let r = unsafe { get_fn(self.device, &info, &mut handle) };
+        if r != VK_SUCCESS || handle.is_null() {
+            return Err(format!("vkGetMemoryWin32HandleKHR 失败: {r}"));
+        }
+        self.exported_handles.push((res, handle as usize));
+        out.handle = handle as usize;
+        Ok(out)
     }
 }
 
@@ -5436,6 +5871,7 @@ unsafe fn execute_frame_inner(
             true,
             &[],
             1,
+            &[],
         );
 
         let dev_destroy: Option<FnDestroyDevice> =
@@ -5478,6 +5914,10 @@ unsafe fn execute_on_device(
     // slot k 用区间 [k*passes*2, (k+1)*passes*2);ephemeral 路恒 1——池对象数与
     // 既有用法 [0, passes*2) 均 0-byte,仅容量加性扩大)。
     query_slots: usize,
+    // G14.10b exportable 纹理下标集(已校验;空 = 无导出面,建面/录制全旧行为。
+    // device 须已启用 VK_KHR_external_memory(+_win32)——create_persistent_frame
+    // 侧 fail-closed 保证;ephemeral 路恒空)。
+    exportable: &[u32],
 ) -> Result<Vec<Vec<u8>>, String> {
     let dev = Dev::load(gdpa, device)?;
     let mut queue: VkQueue = std::ptr::null_mut();
@@ -5491,34 +5931,77 @@ unsafe fn execute_on_device(
     let result = (|| {
         // ── 资源建面(buffer 上传即写;image staging 就绪,命令流首段 copy)──
         let mut rt: Vec<RtRes> = Vec::with_capacity(resources.len());
+        // G14.10b exportable 簿记((资源下标, allocation 字节, memory type);
+        // 建面处一次定格,导出 accessor/release barrier 共用。
+        let mut exportable_meta: Vec<(u32, u64, u32)> = Vec::new();
+        // G14.10d DEVICE_LOCAL 初始数据一次性上传表:(staging buffer, 目标 buffer,
+        // 字节数)——资源建面期收集,cmdpool 就绪后单次 one-shot copy submit + 有界
+        // 等待,staging 随即销毁(稳态零驻留)。
+        let mut init_copies: Vec<(VkBuffer, VkDeviceMemory, VkBuffer, u64)> = Vec::new();
         for (i, r) in resources.iter().enumerate() {
             match r {
                 ResourceDesc::Buffer(b) => {
-                    // readback 资源识别裁决修订(G14plus §4.3 L1 实测归因):初版把
-                    // Readback::Buffer 引用的 SSBO 本体切 cached 优选——实测 GPU
-                    // kernel 直写 snooped(HOST_CACHED)内存吃 cache 一致性惩罚,
-                    // bistro t50 scene GPU 8.58→30.5ms(≈3.5×劣化);故 session
-                    // SSBO 本体恒保持既有首匹配 WC 型(GPU 散写 WC 最优,HEAD 行为
-                    // 0-byte),cached 优选仅用于 staging 类用途(FIF per-slot 回读
-                    // staging / texture readback buffer——CPU 读向)。输出 SSBO 的
-                    // DEVICE_LOCAL 终态 + 锚点帧 staged 回读归 G14.10 并 session 波。
+                    // G14.10d 三路判定(RFC-0030 §4.3;§4.3 L1 波的实测归因先例:
+                    // SSBO 本体切 HOST_CACHED 使 GPU 直写吃 snoop 惩罚 3.5×——
+                    // cached 仅用于 staging 类,SSBO 本体 host 路恒 WC):
+                    // ① `device_local=true` → DEVICE_LOCAL 独占 VRAM(GPU 全速;
+                    //   初始数据经 one-shot staging copy,回读经帧尾 copy 到
+                    //   cached staging——见 record_frame_body readback 段);
+                    // ② `device_local=false` → 既有首匹配 HV+HC(WC;
+                    //   FrameUpdate.buffer_uploads 逐帧覆盖写的小参数 buffer,
+                    //   host map 写向最优,HEAD 行为 0-byte)。
+                    let mem_class = if b.device_local {
+                        BufferMemClass::DeviceLocal
+                    } else {
+                        BufferMemClass::HostWc
+                    };
+                    let staged_init = b.device_local && b.data.is_some_and(|d| !d.is_empty());
                     let (buf, mem) = create_device_buffer(
                         &dev,
                         device,
                         &memprops,
                         b.size,
                         buffer_usage_flags(b.usage),
-                        b.data,
+                        if staged_init { None } else { b.data },
                         Some(StableResourceId(i as u64 + 1)),
                         &mut cleanup,
-                        false,
+                        mem_class,
                     )?;
+                    if staged_init {
+                        let d = b.data.unwrap_or(&[]);
+                        let (sbuf, smem) = create_device_buffer(
+                            &dev,
+                            device,
+                            &memprops,
+                            d.len().max(4) as u64,
+                            0x1, // TRANSFER_SRC(copy 源)
+                            Some(d),
+                            None,
+                            &mut cleanup,
+                            // host 写向 one-shot staging:WC 型即最优。
+                            BufferMemClass::HostWc,
+                        )?;
+                        init_copies.push((sbuf, smem, buf, d.len() as u64));
+                    }
                     rt.push(RtRes::Buf(RtBuffer { buffer: buf, mem }));
                 }
                 ResourceDesc::Texture(t) => {
+                    // G14.10b:exportable 纹理走 external memory chain 新分支
+                    // (集外资源 p_next 恒 null——既有路径 0-byte)。
+                    let is_exportable = exportable.contains(&(i as u32));
+                    let ext_img_info = ExternalMemoryImageCreateInfo {
+                        s_type: ST_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+                        p_next: std::ptr::null(),
+                        handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                    };
+                    let usage_flags = texture_usage_flags(t.usage);
                     let ici = ImageCreateInfo {
                         s_type: ST_IMAGE_CREATE_INFO,
-                        p_next: std::ptr::null(),
+                        p_next: if is_exportable {
+                            (&ext_img_info as *const ExternalMemoryImageCreateInfo).cast()
+                        } else {
+                            std::ptr::null()
+                        },
                         flags: 0,
                         image_type: IMAGE_TYPE_2D,
                         format: t.format.vk_format(),
@@ -5531,7 +6014,7 @@ unsafe fn execute_on_device(
                         array_layers: 1,
                         samples: SAMPLE_COUNT_1,
                         tiling: IMAGE_TILING_OPTIMAL,
-                        usage: texture_usage_flags(t.usage),
+                        usage: usage_flags,
                         sharing_mode: SHARING_MODE_EXCLUSIVE,
                         queue_family_index_count: 0,
                         p_queue_family_indices: std::ptr::null(),
@@ -5549,9 +6032,26 @@ unsafe fn execute_on_device(
                         (dev.destroy_image)(device, image, std::ptr::null());
                         return Err(format!("resources[{i}]: 无 device-local 内存类型"));
                     };
+                    // exportable 分配链:export(OPAQUE_WIN32)→ dedicated(image)。
+                    // NVIDIA 上 Win32 导出 image 实务强制 dedicated,必挂。
+                    let dedicated = MemoryDedicatedAllocateInfo {
+                        s_type: ST_MEMORY_DEDICATED_ALLOCATE_INFO,
+                        p_next: std::ptr::null(),
+                        image,
+                        buffer: VK_NULL_HANDLE,
+                    };
+                    let export_info = ExportMemoryAllocateInfo {
+                        s_type: ST_EXPORT_MEMORY_ALLOCATE_INFO,
+                        p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
+                        handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                    };
                     let mai = MemoryAllocateInfo {
                         s_type: ST_MEMORY_ALLOCATE_INFO,
-                        p_next: std::ptr::null(),
+                        p_next: if is_exportable {
+                            (&export_info as *const ExportMemoryAllocateInfo).cast()
+                        } else {
+                            std::ptr::null()
+                        },
                         allocation_size: req.size,
                         memory_type_index: mt,
                     };
@@ -5568,6 +6068,9 @@ unsafe fn execute_on_device(
                         memprops.memory_types[mt as usize].heap_index,
                         Some(StableResourceId(i as u64 + 1)),
                     );
+                    if is_exportable {
+                        exportable_meta.push((i as u32, req.size, mt));
+                    }
                     let ivci = ImageViewCreateInfo {
                         s_type: ST_IMAGE_VIEW_CREATE_INFO,
                         p_next: std::ptr::null(),
@@ -5609,7 +6112,7 @@ unsafe fn execute_on_device(
                             Some(d),
                             None,
                             &mut cleanup,
-                            false, // host 写向 staging:WC 型最优,不切 cached
+                            BufferMemClass::HostWc, // host 写向 staging:WC 型最优
                         )?;
                         Some(sbuf)
                     } else {
@@ -5622,6 +6125,7 @@ unsafe fn execute_on_device(
                         width: t.width,
                         height: t.height,
                         format: t.format,
+                        usage_flags,
                         staging,
                     }));
                 }
@@ -5643,7 +6147,7 @@ unsafe fn execute_on_device(
                             Some(data),
                             None,
                             &mut cleanup,
-                            false, // host 写向:WC 型最优,不切 cached
+                            BufferMemClass::HostWc, // host 写向:WC 型最优
                         )?;
                         inline_vbs.push(Some(vbuf));
                     }
@@ -6444,6 +6948,95 @@ unsafe fn execute_on_device(
             return Err("vkCreateCommandPool 失败".to_owned());
         }
         cleanup.cmdpool = cmdpool;
+
+        // ── G14.10d DEVICE_LOCAL 初始数据 one-shot 上传:专用一次性 cmd + 单 fence
+        // 有界等待(AS 初始 build 同型纪律;创建期一次,正常帧循环仍禁
+        // vkQueueWaitIdle)。fence 等待后 GPU copy 已完成且写已可用(fence signal
+        // 含全域 availability),后续帧提交经 host 序 happens-after——免跨提交
+        // barrier。staging 随即销毁 + cleanup/ledger 同步摘除(稳态零驻留)──
+        if !init_copies.is_empty() {
+            const INIT_UPLOAD_WAIT_NS: u64 = 5_000_000_000;
+            let cbai = CommandBufferAllocateInfo {
+                s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+                p_next: std::ptr::null(),
+                command_pool: cmdpool,
+                level: CMD_BUFFER_LEVEL_PRIMARY,
+                command_buffer_count: 1,
+            };
+            let mut up_cmd: VkCommandBuffer = std::ptr::null_mut();
+            if (dev.alloc_cmd)(device, &cbai, &mut up_cmd) != VK_SUCCESS {
+                return Err("初始数据上传: vkAllocateCommandBuffers 失败".into());
+            }
+            let fci = FenceCreateInfo {
+                s_type: ST_FENCE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+            };
+            let mut fence = VK_NULL_HANDLE;
+            if (dev.create_fence)(device, &fci, std::ptr::null(), &mut fence) != VK_SUCCESS {
+                (dev.free_cmd)(device, cmdpool, 1, &up_cmd);
+                return Err("初始数据上传: vkCreateFence 失败".into());
+            }
+            let one_shot: Result<(), String> = (|| {
+                let cbi = CommandBufferBeginInfo {
+                    s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+                    p_next: std::ptr::null(),
+                    flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+                    p_inheritance_info: std::ptr::null(),
+                };
+                if (dev.begin_cmd)(up_cmd, &cbi) != VK_SUCCESS {
+                    return Err("初始数据上传: vkBeginCommandBuffer 失败".into());
+                }
+                for &(sbuf, _, dst, len) in &init_copies {
+                    let region = VkBufferCopy {
+                        src_offset: 0,
+                        dst_offset: 0,
+                        size: len,
+                    };
+                    (dev.cmd_copy_buf)(up_cmd, sbuf, dst, 1, &region);
+                }
+                if (dev.end_cmd)(up_cmd) != VK_SUCCESS {
+                    return Err("初始数据上传: vkEndCommandBuffer 失败".into());
+                }
+                let si = SubmitInfo {
+                    s_type: ST_SUBMIT_INFO,
+                    p_next: std::ptr::null(),
+                    wait_semaphore_count: 0,
+                    p_wait_semaphores: std::ptr::null(),
+                    p_wait_dst_stage_mask: std::ptr::null(),
+                    command_buffer_count: 1,
+                    p_command_buffers: &up_cmd,
+                    signal_semaphore_count: 0,
+                    p_signal_semaphores: std::ptr::null(),
+                };
+                if (dev.queue_submit)(queue, 1, &si, fence) != VK_SUCCESS {
+                    return Err("初始数据上传: vkQueueSubmit 失败".into());
+                }
+                let done = (dev.wait_fences)(device, 1, &fence, 1, INIT_UPLOAD_WAIT_NS);
+                if done == VK_TIMEOUT {
+                    return Err(format!(
+                        "初始数据上传 fence 有界等待超时({INIT_UPLOAD_WAIT_NS}ns;TDR-suspected)"
+                    ));
+                }
+                if done != VK_SUCCESS {
+                    return Err(queue_result_error("初始数据上传 vkWaitForFences", done));
+                }
+                Ok(())
+            })();
+            (dev.destroy_fence)(device, fence, std::ptr::null());
+            (dev.free_cmd)(device, cmdpool, 1, &up_cmd);
+            one_shot?;
+            // staging 销毁 + cleanup/ledger 摘除(ensure_upload_staging 同型纪律:
+            // 不摘则 Drop 期双重销毁/ledger 假账)。
+            for &(sbuf, smem, _, _) in &init_copies {
+                (dev.destroy_buffer)(device, sbuf, std::ptr::null());
+                (dev.free_mem)(device, smem, std::ptr::null());
+                cleanup.buffers.retain(|&(b, _)| b != sbuf);
+                cleanup.allocations.retain(|a| a.memory != smem);
+            }
+            init_copies.clear();
+        }
+
         let cbai = CommandBufferAllocateInfo {
             s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
             p_next: std::ptr::null(),
@@ -6493,6 +7086,8 @@ unsafe fn execute_on_device(
                 inline_vbs: &inline_vbs,
                 readbacks,
                 record_upload_segment: true,
+                exportable,
+                queue_family_index: qfi,
             },
             &mut rb_buffers,
             Some(&mut cleanup),
@@ -6529,6 +7124,8 @@ unsafe fn execute_on_device(
                 resource_allocations,
                 setups,
                 inline_vbs,
+                exportable_meta,
+                queue_family_index: qfi,
             });
             retained = true;
             return Ok(Vec::new());
@@ -6557,14 +7154,20 @@ unsafe fn execute_on_device(
                     let RtRes::Buf(rbuf) = &rt[res as usize] else {
                         return Err(format!("readbacks[{i}]: 资源号 {res} 非 buffer"));
                     };
-                    // host-visible+coherent 直接 map(免 flush;queueWaitIdle 后无在途写)。
+                    // G14.10d:DEVICE_LOCAL 源不可 map——读帧尾 copy 产物 cached
+                    // staging(rb_buffers 有效项即判据,offset 已在 copy 侧消化);
+                    // host 路直接 map 资源本体(免 flush;queueWaitIdle 后无在途写)。
+                    let (mem, map_offset) = match rb_buffers[i] {
+                        Some((_, rmem)) => (rmem, 0),
+                        None => (rbuf.mem, offset),
+                    };
                     let mut ptr: *mut c_void = std::ptr::null_mut();
-                    if (dev.map_mem)(device, rbuf.mem, offset, size, 0, &mut ptr) != VK_SUCCESS {
+                    if (dev.map_mem)(device, mem, map_offset, size, 0, &mut ptr) != VK_SUCCESS {
                         return Err(format!("readbacks[{i}]: vkMapMemory 失败"));
                     }
                     let mut v = vec![0u8; size as usize];
                     std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), v.as_mut_ptr(), size as usize);
-                    (dev.unmap_mem)(device, rbuf.mem);
+                    (dev.unmap_mem)(device, mem);
                     out.push(v);
                 }
                 Readback::Texture { res } => {
@@ -6610,6 +7213,7 @@ unsafe fn create_persistent_frame(
     readbacks: &[Readback],
     frame_slots: usize,
     accel_structs: &[AccelStructDesc<'_>],
+    exportable: &[u32],
 ) -> Result<NativePersistentFrame, String> {
     let (instance, validation) = create_instance(gipa, c"rurix-persistent-frame")?;
     // soak 取证关闭 validation layer(开销/误报);健康靠 fence/telemetry/device-lost。
@@ -6684,6 +7288,77 @@ unsafe fn create_persistent_frame(
         }
         // RXS-0303 L3:conservative pass × 无扩展 → 确定性 Err(任何 pipeline 创建前)。
         validate_conservative_raster(passes, &caps)?;
+
+        // ── G14.10b exportable 能力面(集空 = 全跳过,0-byte)──
+        // ① VK_KHR_external_memory_win32 设备扩展探测(external_memory 本体
+        //   1.1 core 免探)+ shaderStorageImageExtendedFormats feature 探测;
+        // ② 物理设备 LUID 实采(1.1 core vkGetPhysicalDeviceProperties2 链
+        //   VkPhysicalDeviceIDProperties;LUID 无效 → None,消费侧对拍自决)。
+        let mut storage_ext_formats = false;
+        if !exportable.is_empty() {
+            let vk_enum_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+                instance,
+                c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+            ))
+            .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+            let mut ext_count = 0u32;
+            vk_enum_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+            let mut exts_list = vec![
+                ExtensionProperties {
+                    extension_name: [0; 256],
+                    spec_version: 0,
+                };
+                ext_count as usize
+            ];
+            vk_enum_ext(pd, std::ptr::null(), &mut ext_count, exts_list.as_mut_ptr());
+            let has_win32_ext = exts_list.iter().any(|e| {
+                // SAFETY: 驱动写入的 extensionName 为 256 字节定长槽内 NUL 结尾 C 串。
+                let bytes = unsafe { CStr::from_ptr(e.extension_name.as_ptr()) }.to_bytes();
+                bytes == c"VK_KHR_external_memory_win32".to_bytes()
+            });
+            if !has_win32_ext {
+                return Err(format!(
+                    "VK_KHR_external_memory_win32 不可用(device `{}`;exportable 纹理\
+                     导出面硬依赖,fail-closed 不降级)",
+                    caps.device_name
+                ));
+            }
+            let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+                cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+                    .ok_or("缺 vkGetPhysicalDeviceFeatures2(须 Vulkan 1.1)")?;
+            let mut feat2 = PhysicalDeviceFeatures2 {
+                s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+                p_next: std::ptr::null_mut(),
+                features: [0; 55],
+            };
+            vk_get_features2(pd, &mut feat2);
+            // VkPhysicalDeviceFeatures 字段序第 29 位 = shaderStorageImageExtendedFormats
+            // (SDK 1.3.296 `vulkan_core.h` 字段序核对;RG32F 等扩展 storage 格式门)。
+            storage_ext_formats = feat2.features[29] != 0;
+        }
+        let device_luid: Option<[u8; 8]> = {
+            let vk_get_props2: Option<FnGetPhysicalDeviceProperties2> =
+                cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()));
+            vk_get_props2.and_then(|get2| {
+                let mut id_props = PhysicalDeviceIDProperties {
+                    s_type: ST_PHYSICAL_DEVICE_ID_PROPERTIES,
+                    p_next: std::ptr::null_mut(),
+                    device_uuid: [0; 16],
+                    driver_uuid: [0; 16],
+                    device_luid: [0; 8],
+                    device_node_mask: 0,
+                    device_luid_valid: 0,
+                };
+                let mut props2 = PhysicalDeviceProperties2Chain {
+                    s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+                    p_next: (&mut id_props as *mut PhysicalDeviceIDProperties).cast::<c_void>(),
+                    properties: PropertiesBlob { bytes: [0; 2048] },
+                };
+                get2(pd, &mut props2);
+                (id_props.device_luid_valid != 0).then_some(id_props.device_luid)
+            })
+        };
+
         let get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
             instance,
             c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
@@ -6813,6 +7488,12 @@ unsafe fn create_persistent_frame(
                 (&mut bda_feat as *mut PhysicalDeviceBufferDeviceAddressFeatures).cast();
             as_feat.p_next = (&mut rq_feat as *mut PhysicalDeviceRayQueryFeatures).cast();
         }
+        // G14.10b:exportable 面两扩展(win32 在位已核;external_memory 1.1 core
+        // 收编但显式列出——两名皆注册扩展名,驱动恒接受;集空不列,0-byte)。
+        if !exportable.is_empty() {
+            exts.push(c"VK_KHR_external_memory".as_ptr());
+            exts.push(c"VK_KHR_external_memory_win32".as_ptr());
+        }
         let priority = [1.0f32];
         let dqci = DeviceQueueCreateInfo {
             s_type: ST_DEVICE_QUEUE_CREATE_INFO,
@@ -6829,6 +7510,9 @@ unsafe fn create_persistent_frame(
         core_features[40] = u32::from(caps.shader_int64);
         // fragmentStoresAndAtomics 机会性启用(同 execute_frame 路;字段序注同上)。
         core_features[26] = u32::from(caps.fragment_stores_and_atomics);
+        // G14.10b:shaderStorageImageExtendedFormats(仅 exportable session 且
+        // 设备支持时启用——RG32F storage 直写面;集空恒 0,既有 feature 位 0-byte)。
+        core_features[29] = u32::from(storage_ext_formats);
         let dci = DeviceCreateInfo {
             s_type: ST_DEVICE_CREATE_INFO,
             p_next: if as_count > 0 {
@@ -6904,6 +7588,22 @@ unsafe fn create_persistent_frame(
             };
         }
 
+        // G14.10b:vkGetMemoryWin32HandleKHR 解析(仅 exportable session;扩展
+        // 已启用,缺符号 = 驱动异常,fail-closed;bail_as! 走 AS 面收尾序)。
+        let get_memory_win32: Option<FnGetMemoryWin32HandleKHR> = if exportable.is_empty() {
+            None
+        } else {
+            match cast_fn::<FnGetMemoryWin32HandleKHR>(gdpa(
+                device,
+                c"vkGetMemoryWin32HandleKHR".as_ptr(),
+            )) {
+                Some(f) => Some(f),
+                None => {
+                    bail_as!("缺 vkGetMemoryWin32HandleKHR(扩展已启用仍不可解析)".into());
+                }
+            }
+        };
+
         let mut captured = None;
         let prepare = execute_on_device(
             gdpa,
@@ -6919,6 +7619,7 @@ unsafe fn create_persistent_frame(
             false,
             &as_handles,
             frame_slots,
+            exportable,
         );
         if let Err(error) = prepare {
             bail_as!(error);
@@ -7076,6 +7777,9 @@ unsafe fn create_persistent_frame(
             as_state,
             pipelined_slots: (0..frame_slots).map(|_| None).collect(),
             slot_busy: vec![false; frame_slots],
+            device_luid,
+            get_memory_win32,
+            exported_handles: Vec::new(),
         })
     })();
 
@@ -7291,6 +7995,12 @@ unsafe fn submit_persistent_frame(
                 .iter()
                 .map(|&source| native.frame.rb_buffers[source])
                 .collect();
+            let exportable_indices: Vec<u32> = native
+                .frame
+                .exportable_meta
+                .iter()
+                .map(|&(r, _, _)| r)
+                .collect();
             record_frame_body(
                 &FrameBodyParams {
                     dev: &native.frame.dev,
@@ -7308,6 +8018,8 @@ unsafe fn submit_persistent_frame(
                     inline_vbs: &native.frame.inline_vbs,
                     readbacks: up.effective_readbacks,
                     record_upload_segment: false,
+                    exportable: &exportable_indices,
+                    queue_family_index: native.frame.queue_family_index,
                 },
                 &mut effective_rb,
                 None,
@@ -7466,6 +8178,10 @@ unsafe fn collect_persistent_frame(
                         return Err(format!("readbacks[{i}] 流水 slot 面缺失"));
                     };
                     (slot_state.rb_staging[*source].1, 0, size)
+                } else if let Some((_, staging_mem)) = native.frame.rb_buffers[*source] {
+                    // G14.10d:DEVICE_LOCAL 源不可 map——读帧尾 copy 产物 session 级
+                    // cached staging(offset 已在 copy 侧消化)。
+                    (staging_mem, 0, size)
                 } else {
                     (buffer.mem, offset, size)
                 }
@@ -7670,7 +8386,8 @@ unsafe fn ensure_pipelined_slot(
             None,
             None,
             &mut native.frame.cleanup,
-            true, // readback staging(GPU copy 写、CPU map 读)→ cached 优选
+            // readback staging(GPU copy 写、CPU map 读)→ cached 优选。
+            BufferMemClass::HostCachedPreferred,
         )?;
         rb_staging.push((buf, mem));
     }
@@ -7720,7 +8437,7 @@ unsafe fn ensure_upload_staging(
         None,
         None,
         &mut native.frame.cleanup,
-        false, // host 写向 staging:WC 型最优,不切 cached
+        BufferMemClass::HostWc, // host 写向 staging:WC 型最优
     )?;
     let Some(slot_state) = native.pipelined_slots[slot].as_mut() else {
         return Err(format!("FIF slot {slot}: slot 面缺失(建面序漂移)"));
@@ -7889,8 +8606,10 @@ unsafe fn submit_pipelined_frame(
             ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
         );
     }
-    // texture readback copy 目的 = 本 slot staging;buffer readback 由帧尾
-    // staged copy 承载(record_frame_body 对 Buffer 项免录制,None 占位)。
+    // texture readback copy 目的 = 本 slot staging;buffer readback 由流水路
+    // 自己的帧尾 staged copy 承载(per-slot 隔离)——恒 None 占位,即便源为
+    // DEVICE_LOCAL(G14.10d session 级 staging 只服务顺序路;record_frame_body
+    // 对 None 项免录制,不会双写)。
     let mut effective_rb: Vec<Option<(VkBuffer, VkDeviceMemory)>> = prepared
         .effective_readbacks
         .iter()
@@ -7899,6 +8618,12 @@ unsafe fn submit_pipelined_frame(
             Readback::Texture { .. } => Some(slot_state.rb_staging[source]),
             Readback::Buffer { .. } => None,
         })
+        .collect();
+    let exportable_indices: Vec<u32> = native
+        .frame
+        .exportable_meta
+        .iter()
+        .map(|&(r, _, _)| r)
         .collect();
     record_frame_body(
         &FrameBodyParams {
@@ -7917,6 +8642,8 @@ unsafe fn submit_pipelined_frame(
             inline_vbs: &native.frame.inline_vbs,
             readbacks: prepared.effective_readbacks,
             record_upload_segment: false,
+            exportable: &exportable_indices,
+            queue_family_index: native.frame.queue_family_index,
         },
         &mut effective_rb,
         None,
@@ -8009,8 +8736,14 @@ impl Drop for NativePersistentFrame {
         // SAFETY: NativePersistentFrame 单所有者；最终 teardown 允许 queueWaitIdle。所有 fence /
         // frame object / AS manager(经 as fns,单所有者逆序)/ device / messenger / instance
         // 均按创建逆序且只销毁一次;AS 分配在 ledger 仅记账,不由 Cleanup 释放(无双重释放)。
+        // G14.10b:导出 NT handle 先于 memory 释放单点 CloseHandle(handle 引用
+        // 由 OS 计数,导入方已 import 的内存不受影响;本 session 不再持有)。
         unsafe {
             let _ = (self.frame.dev.queue_wait)(self.frame.queue);
+            #[cfg(windows)]
+            for (_, h) in self.exported_handles.drain(..) {
+                let _ = CloseHandle(h as *mut c_void);
+            }
             for fence in self.fences.drain(..) {
                 (self.frame.dev.destroy_fence)(self.device, fence, std::ptr::null());
             }
@@ -8129,6 +8862,15 @@ mod tests {
             32
         );
         assert_eq!(align_of::<PhysicalDeviceProperties2Chain>(), 8);
+        // G14.10b external memory 导出面(SDK 1.3.296 `vulkan_core.h` 逐字段核对):
+        // IDProperties sType@0/pNext@8/UUID×2@16..48/LUID@48/nodeMask@56/valid@60 → 64;
+        // 三个 24/32 小节点与 win32 get/import 结构。
+        assert_eq!(size_of::<PhysicalDeviceIDProperties>(), 64);
+        assert_eq!(size_of::<ExternalMemoryImageCreateInfo>(), 24);
+        assert_eq!(size_of::<ExportMemoryAllocateInfo>(), 24);
+        assert_eq!(size_of::<MemoryDedicatedAllocateInfo>(), 32);
+        assert_eq!(size_of::<MemoryGetWin32HandleInfoKHR>(), 32);
+        assert_eq!(size_of::<ImportMemoryWin32HandleInfoKHR>(), 40);
     }
 
     #[test]
@@ -8142,6 +8884,7 @@ mod tests {
                     ..BufferUsage::default()
                 },
                 data: Some(&data),
+                device_local: false,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: 4,
@@ -8150,6 +8893,7 @@ mod tests {
                     ..BufferUsage::default()
                 },
                 data: None,
+                device_local: false,
             }),
         ];
         let pass = Pass::Compute(ComputePass {
@@ -8520,6 +9264,7 @@ mod tests {
                     ..BufferUsage::default()
                 },
                 data: None,
+                device_local: false,
             })
         };
         let resources = vec![mkbuf(), mkbuf()];
@@ -8804,6 +9549,7 @@ mod tests {
                     indirect: false,
                 },
                 data: None,
+                device_local: false,
             }),
         ];
         let passes = vec![Pass::Compute(ComputePass {
@@ -9367,6 +10113,7 @@ mod tests {
                 indirect: false,
             },
             data: Some(&[0u8; 32]),
+            device_local: false,
         })];
         let mut pc = Vec::new();
         pc.extend_from_slice(&100u32.to_le_bytes());
@@ -9417,6 +10164,7 @@ mod tests {
                 ..BufferUsage::default()
             },
             data: Some(&initial),
+            device_local: false,
         })];
         let passes = [Pass::Compute(ComputePass {
             name: "persistent-c0",
@@ -9501,6 +10249,7 @@ mod tests {
                     ..BufferUsage::default()
                 },
                 data: Some(&zero4),
+                device_local: false,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: 32,
@@ -9509,6 +10258,7 @@ mod tests {
                     ..BufferUsage::default()
                 },
                 data: Some(&zero32),
+                device_local: false,
             }),
         ];
         let passes = [
@@ -9745,6 +10495,7 @@ mod tests {
                     indirect: false,
                 },
                 data: None,
+                device_local: false,
             }),
         ];
         let passes = vec![
@@ -9808,5 +10559,582 @@ mod tests {
         );
         assert!((a - 1.0).abs() < 1e-3, "alpha 须 1.0,实得 {a}");
         eprintln!("[render_exec] ④ 混合两 pass: texel(32,32)=({r:.3},{g:.3},{b:.3},{a:.3})");
+    }
+
+    // ── G14.10b external memory 导出面 ──
+
+    /// exportable 集校验 fail-closed(host 恒跑):越界 / 非 Texture / 重复。
+    #[test]
+    fn g14_10b_exportable_validation_fail_closed() {
+        let spv = spv_bytes(&sample_compute_spv_words());
+        let resources = vec![
+            ResourceDesc::Buffer(BufferDesc {
+                size: 32,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: Some(&[0u8; 32]),
+                device_local: false,
+            }),
+            ResourceDesc::Texture(TextureDesc {
+                width: 4,
+                height: 4,
+                format: TexFormat::Rgba8Unorm,
+                usage: TextureUsage {
+                    sampled: true,
+                    storage: false,
+                    color: false,
+                    depth: false,
+                },
+                data: None,
+            }),
+        ];
+        let mut pc = Vec::new();
+        pc.extend_from_slice(&0u32.to_le_bytes());
+        let passes = vec![Pass::Compute(ComputePass {
+            name: "c0",
+            spirv: &spv,
+            entry: None,
+            dispatch: DispatchSpec::Direct([8, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![0],
+                push_constants: pc,
+                ..Bindings::default()
+            },
+        })];
+        let plan: Vec<Vec<(u32, TargetState)>> = vec![vec![(0, TargetState::StorageWrite)]];
+        let brefs: Vec<&[(u32, TargetState)]> = plan.iter().map(Vec::as_slice).collect();
+        for (exportable, needle) in [
+            (vec![9u32], "越界"),
+            (vec![0u32], "非 Texture"),
+            (vec![1u32, 1u32], "重复"),
+        ] {
+            let r = DeviceFrameSession::new_with_exportable_textures(
+                &resources,
+                &passes,
+                &brefs,
+                &[],
+                2,
+                &[],
+                &exportable,
+            );
+            let err = r.err().unwrap_or_else(|| panic!("{needle} 臂须拒"));
+            assert!(err.contains(needle), "{needle} 臂错误字面不符: {err}");
+        }
+    }
+
+    /// GPU 真跑:exportable image 创建/导出/第二 device 导入/读回闭环。
+    /// session A(初始数据上传 + 帧末 EXTERNAL release)→ 导出 NT handle →
+    /// 手写导入方(独立 instance/device,acquire + copy 到 host buffer)→
+    /// 与源图案及 session 侧 readback **位级比对**。LUID 同 adapter 前置断言。
+    ///
+    /// 已知 validation 假阳性(RURIX_VK_VALIDATION=1 时):导入方 layer 报
+    /// `InvalidImageLayout ... expects GENERAL, current layout is UNDEFINED`——
+    /// 跨 instance 的 external memory layout 无法被单 instance layout tracker
+    /// 跟踪;acquire 侧 oldLayout=GENERAL 与导出侧 release 配对是规范 7.7.4 的
+    /// 正确做法(oldLayout=UNDEFINED 会许可驱动丢内容,不可用)。内容面由本
+    /// 测试位级比对判定,不受该假阳性影响。
+    #[test]
+    #[cfg(windows)]
+    fn g14_10b_exportable_cross_device_roundtrip() {
+        if !crate::vk::vulkan_available() {
+            eprintln!("[render_exec] SKIP: vulkan loader 不可用(g14.10b 闭环)");
+            return;
+        }
+        const W: u32 = 64;
+        const H: u32 = 64;
+        // 确定性测试图案(RGBA8 逐字节;含 0/255 边界值)。
+        let pattern: Vec<u8> = (0..(W * H * 4) as usize)
+            .map(|i| ((i * 31 + 7) % 256) as u8)
+            .collect();
+        let spv = spv_bytes(&sample_compute_spv_words());
+        let resources = vec![
+            ResourceDesc::Texture(TextureDesc {
+                width: W,
+                height: H,
+                format: TexFormat::Rgba8Unorm,
+                usage: TextureUsage {
+                    sampled: true,
+                    storage: false,
+                    color: false,
+                    depth: false,
+                },
+                data: Some(&pattern),
+            }),
+            ResourceDesc::Buffer(BufferDesc {
+                size: 32,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: Some(&[0u8; 32]),
+                device_local: false,
+            }),
+        ];
+        let mut pc = Vec::new();
+        pc.extend_from_slice(&5u32.to_le_bytes());
+        let passes = vec![Pass::Compute(ComputePass {
+            name: "c0",
+            spirv: &spv,
+            entry: None,
+            dispatch: DispatchSpec::Direct([8, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![1],
+                push_constants: pc,
+                ..Bindings::default()
+            },
+        })];
+        let plan: Vec<Vec<(u32, TargetState)>> = vec![vec![(1, TargetState::StorageWrite)]];
+        let brefs: Vec<&[(u32, TargetState)]> = plan.iter().map(Vec::as_slice).collect();
+        let readbacks = vec![Readback::Texture { res: 0 }];
+        let mut session = match DeviceFrameSession::new_with_exportable_textures(
+            &resources, &passes, &brefs, &readbacks, 2, &[], &[0],
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                // 扩展缺位环境如实 SKIP(RTX 4070 Ti 在位环境走全链)。
+                eprintln!("[render_exec] SKIP: exportable session 不可用({e})");
+                return;
+            }
+        };
+        let Some(luid) = session.physical_device_luid() else {
+            eprintln!("[render_exec] SKIP: 驱动报 deviceLUIDValid=false");
+            return;
+        };
+        // 帧 1:上传段写入图案 → 帧末 release;session 侧 readback 对照。
+        let out = session.execute().expect("exportable 帧应执行成功");
+        assert_eq!(out.readbacks[0], pattern, "session 侧 readback 须与源图案位级一致");
+        let exported = session
+            .export_texture_win32_handle(0)
+            .expect("导出 win32 handle");
+        assert!(exported.handle != 0, "NT handle 须非零");
+        assert_eq!((exported.width, exported.height), (W, H));
+        assert_eq!(exported.vk_format, TexFormat::Rgba8Unorm.vk_format());
+        // 重复导出返缓存同句柄(免泄漏)。
+        let again = session
+            .export_texture_win32_handle(0)
+            .expect("重复导出走缓存");
+        assert_eq!(again.handle, exported.handle, "重复导出须返同一缓存句柄");
+        // 非 exportable 下标 fail-closed。
+        assert!(session.export_texture_win32_handle(1).is_err());
+
+        // 导入方(独立 instance/device;同 physical device LUID 前置断言)。
+        // SAFETY: 全部句柄本函数内创建、末尾逆序销毁;handle 归 session 所有不关闭;
+        // acquire barrier 与 session 帧末 release 配对(GENERAL→GENERAL)。
+        let imported = unsafe { import_and_readback_rgba8(&exported, luid, W, H) }
+            .expect("导入方闭环");
+        assert_eq!(
+            imported, pattern,
+            "跨 device 导入读回须与源图案位级一致(external memory 闭环)"
+        );
+        eprintln!(
+            "[render_exec] g14.10b 闭环 PASS: {}×{} RGBA8 {}B 位级一致(handle={:#x}, alloc={}B, memType={})",
+            W,
+            H,
+            pattern.len(),
+            exported.handle,
+            exported.allocation_size,
+            exported.memory_type_index
+        );
+    }
+
+    /// 手写导入方:第二 VkInstance/VkDevice 导入 OPAQUE_WIN32 handle →
+    /// acquire(EXTERNAL→qf)→ GENERAL→TRANSFER_SRC → copy 到 host buffer → map 读出。
+    ///
+    /// # Safety
+    /// `exported.handle` 为有效 NT handle 且导出 session 存活;调用方保证导出帧
+    /// fence 已完成(execute 已返回)。
+    #[cfg(windows)]
+    unsafe fn import_and_readback_rgba8(
+        exported: &ExportedTextureWin32,
+        expect_luid: [u8; 8],
+        w: u32,
+        h: u32,
+    ) -> Result<Vec<u8>, String> {
+        let gipa = load_vulkan_loader().ok_or("vulkan loader 不可用")?;
+        let (instance, _validation) = create_instance(gipa, c"rurix-g14-10b-import")?;
+        let destroy_instance: FnDestroyInstance =
+            cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+        let result = (|| {
+            let pd = pick_physical_device(gipa, instance)?;
+            // LUID 对拍(同 adapter 才可共享;不同即 fail-closed)。
+            let get2: FnGetPhysicalDeviceProperties2 =
+                cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+                    .ok_or("缺 vkGetPhysicalDeviceProperties2")?;
+            let mut id_props = PhysicalDeviceIDProperties {
+                s_type: ST_PHYSICAL_DEVICE_ID_PROPERTIES,
+                p_next: std::ptr::null_mut(),
+                device_uuid: [0; 16],
+                driver_uuid: [0; 16],
+                device_luid: [0; 8],
+                device_node_mask: 0,
+                device_luid_valid: 0,
+            };
+            let mut props2 = PhysicalDeviceProperties2Chain {
+                s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+                p_next: (&mut id_props as *mut PhysicalDeviceIDProperties).cast::<c_void>(),
+                properties: PropertiesBlob { bytes: [0; 2048] },
+            };
+            get2(pd, &mut props2);
+            if id_props.device_luid_valid == 0 || id_props.device_luid != expect_luid {
+                return Err(format!(
+                    "导入方物理设备 LUID 不匹配(valid={}, luid={:?} vs {:?})——不同 adapter \
+                     不可共享,fail-closed",
+                    id_props.device_luid_valid, id_props.device_luid, expect_luid
+                ));
+            }
+            let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+                instance,
+                c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+            ))
+            .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+            let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+                instance,
+                c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+            ))
+            .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+            let vk_create_device: FnCreateDevice =
+                cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+            let gdpa: FnGetDeviceProcAddr =
+                cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr()))
+                    .ok_or("缺 vkGetDeviceProcAddr")?;
+            let mut qf_count = 0u32;
+            vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+            let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+                .map(|_| QueueFamilyProperties {
+                    queue_flags: 0,
+                    queue_count: 0,
+                    timestamp_valid_bits: 0,
+                    min_image_transfer_granularity: VkExtent3D {
+                        width: 0,
+                        height: 0,
+                        depth: 0,
+                    },
+                })
+                .collect();
+            vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+            let qfi = qfs
+                .iter()
+                .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+                .ok_or("无 graphics queue family")? as u32;
+            let mut sync2_feat = PhysicalDeviceSynchronization2Features {
+                s_type: ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+                p_next: std::ptr::null_mut(),
+                synchronization2: 1,
+            };
+            let exts = [
+                c"VK_KHR_synchronization2".as_ptr(),
+                c"VK_KHR_external_memory".as_ptr(),
+                c"VK_KHR_external_memory_win32".as_ptr(),
+            ];
+            let priority = [1.0f32];
+            let dqci = DeviceQueueCreateInfo {
+                s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                queue_family_index: qfi,
+                queue_count: 1,
+                p_queue_priorities: priority.as_ptr(),
+            };
+            let dci = DeviceCreateInfo {
+                s_type: ST_DEVICE_CREATE_INFO,
+                p_next: (&mut sync2_feat as *mut PhysicalDeviceSynchronization2Features)
+                    .cast::<c_void>()
+                    .cast_const(),
+                flags: 0,
+                queue_create_info_count: 1,
+                p_queue_create_infos: &dqci,
+                enabled_layer_count: 0,
+                pp_enabled_layer_names: std::ptr::null(),
+                enabled_extension_count: exts.len() as u32,
+                pp_enabled_extension_names: exts.as_ptr(),
+                p_enabled_features: std::ptr::null(),
+            };
+            let mut device: VkDevice = std::ptr::null_mut();
+            let r = vk_create_device(pd, &dci, std::ptr::null(), &mut device);
+            if r != VK_SUCCESS {
+                return Err(format!("vkCreateDevice(import) 失败: {r}"));
+            }
+            let vk_destroy_device: FnDestroyDevice =
+                cast_fn(gdpa(device, c"vkDestroyDevice".as_ptr())).ok_or("缺 vkDestroyDevice")?;
+            let dev = Dev::load(gdpa, device)?;
+            let import_result = (|| {
+                let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+                vk_get_mem(pd, &mut memprops);
+                // 导入 image:与导出侧参数一致(format/extent/tiling/usage)+ external chain。
+                let ext_info = ExternalMemoryImageCreateInfo {
+                    s_type: ST_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                };
+                let ici = ImageCreateInfo {
+                    s_type: ST_IMAGE_CREATE_INFO,
+                    p_next: (&ext_info as *const ExternalMemoryImageCreateInfo).cast(),
+                    flags: 0,
+                    image_type: IMAGE_TYPE_2D,
+                    format: exported.vk_format,
+                    extent: VkExtent3D {
+                        width: w,
+                        height: h,
+                        depth: 1,
+                    },
+                    mip_levels: 1,
+                    array_layers: 1,
+                    samples: SAMPLE_COUNT_1,
+                    tiling: IMAGE_TILING_OPTIMAL,
+                    usage: exported.usage_flags,
+                    sharing_mode: SHARING_MODE_EXCLUSIVE,
+                    queue_family_index_count: 0,
+                    p_queue_family_indices: std::ptr::null(),
+                    initial_layout: LAYOUT_UNDEFINED,
+                };
+                let mut image: VkImage = VK_NULL_HANDLE;
+                if (dev.create_image)(device, &ici, std::ptr::null(), &mut image) != VK_SUCCESS {
+                    return Err("vkCreateImage(import) 失败".to_owned());
+                }
+                let cleanup_image = |img: VkImage, mem: VkDeviceMemory| {
+                    if img != VK_NULL_HANDLE {
+                        (dev.destroy_image)(device, img, std::ptr::null());
+                    }
+                    if mem != VK_NULL_HANDLE {
+                        (dev.free_mem)(device, mem, std::ptr::null());
+                    }
+                };
+                // 导入分配:import(handle)→ dedicated(image);allocationSize /
+                // memoryTypeIndex 采导出侧簿记(同 LUID 物理设备类型序一致)。
+                let dedicated = MemoryDedicatedAllocateInfo {
+                    s_type: ST_MEMORY_DEDICATED_ALLOCATE_INFO,
+                    p_next: std::ptr::null(),
+                    image,
+                    buffer: VK_NULL_HANDLE,
+                };
+                let import_info = ImportMemoryWin32HandleInfoKHR {
+                    s_type: ST_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                    p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
+                    handle_type: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                    handle: exported.handle as *mut c_void,
+                    name: std::ptr::null(),
+                };
+                let mai = MemoryAllocateInfo {
+                    s_type: ST_MEMORY_ALLOCATE_INFO,
+                    p_next: (&import_info as *const ImportMemoryWin32HandleInfoKHR).cast(),
+                    allocation_size: exported.allocation_size,
+                    memory_type_index: exported.memory_type_index,
+                };
+                let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+                if (dev.alloc_mem)(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+                    cleanup_image(image, VK_NULL_HANDLE);
+                    return Err("vkAllocateMemory(import win32) 失败".to_owned());
+                }
+                if (dev.bind_img)(device, image, mem, 0) != VK_SUCCESS {
+                    cleanup_image(image, mem);
+                    return Err("vkBindImageMemory(import) 失败".to_owned());
+                }
+                // host 可见 readback buffer。
+                let byte_len = (w as u64) * (h as u64) * 4;
+                let bci = BufferCreateInfo {
+                    s_type: ST_BUFFER_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    size: byte_len,
+                    usage: 0x2, // TRANSFER_DST
+                    sharing_mode: SHARING_MODE_EXCLUSIVE,
+                    queue_family_index_count: 0,
+                    p_queue_family_indices: std::ptr::null(),
+                };
+                let mut rbuf: VkBuffer = VK_NULL_HANDLE;
+                if (dev.create_buffer)(device, &bci, std::ptr::null(), &mut rbuf) != VK_SUCCESS {
+                    cleanup_image(image, mem);
+                    return Err("vkCreateBuffer(import readback) 失败".to_owned());
+                }
+                let mut breq = std::mem::zeroed::<MemoryRequirements>();
+                (dev.buf_mem_req)(device, rbuf, &mut breq);
+                let Some(bmt) = pick_mem_type(
+                    &memprops,
+                    breq.memory_type_bits,
+                    MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+                ) else {
+                    (dev.destroy_buffer)(device, rbuf, std::ptr::null());
+                    cleanup_image(image, mem);
+                    return Err("无 host-visible+coherent 内存类型".to_owned());
+                };
+                let bmai = MemoryAllocateInfo {
+                    s_type: ST_MEMORY_ALLOCATE_INFO,
+                    p_next: std::ptr::null(),
+                    allocation_size: breq.size,
+                    memory_type_index: bmt,
+                };
+                let mut bmem: VkDeviceMemory = VK_NULL_HANDLE;
+                if (dev.alloc_mem)(device, &bmai, std::ptr::null(), &mut bmem) != VK_SUCCESS {
+                    (dev.destroy_buffer)(device, rbuf, std::ptr::null());
+                    cleanup_image(image, mem);
+                    return Err("vkAllocateMemory(import readback) 失败".to_owned());
+                }
+                (dev.bind_buf)(device, rbuf, bmem, 0);
+                let cleanup_all = |cmdpool: VkCommandPool| {
+                    if cmdpool != VK_NULL_HANDLE {
+                        (dev.destroy_cmdpool)(device, cmdpool, std::ptr::null());
+                    }
+                    (dev.destroy_buffer)(device, rbuf, std::ptr::null());
+                    (dev.free_mem)(device, bmem, std::ptr::null());
+                    cleanup_image(image, mem);
+                };
+                // cmd:acquire(EXTERNAL→qfi,GENERAL→GENERAL 与导出侧 release 配对)
+                // → GENERAL→TRANSFER_SRC → copy → submit → wait。
+                let cpci = CommandPoolCreateInfo {
+                    s_type: ST_COMMAND_POOL_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    queue_family_index: qfi,
+                };
+                let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+                if (dev.create_cmdpool)(device, &cpci, std::ptr::null(), &mut cmdpool)
+                    != VK_SUCCESS
+                {
+                    cleanup_all(VK_NULL_HANDLE);
+                    return Err("vkCreateCommandPool(import) 失败".to_owned());
+                }
+                let cbai = CommandBufferAllocateInfo {
+                    s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+                    p_next: std::ptr::null(),
+                    command_pool: cmdpool,
+                    level: CMD_BUFFER_LEVEL_PRIMARY,
+                    command_buffer_count: 1,
+                };
+                let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+                if (dev.alloc_cmd)(device, &cbai, &mut cmd) != VK_SUCCESS {
+                    cleanup_all(cmdpool);
+                    return Err("vkAllocateCommandBuffers(import) 失败".to_owned());
+                }
+                let cbi = CommandBufferBeginInfo {
+                    s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+                    p_next: std::ptr::null(),
+                    flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+                    p_inheritance_info: std::ptr::null(),
+                };
+                if (dev.begin_cmd)(cmd, &cbi) != VK_SUCCESS {
+                    cleanup_all(cmdpool);
+                    return Err("vkBeginCommandBuffer(import) 失败".to_owned());
+                }
+                let subrange = || VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                };
+                let barriers2 = [
+                    // acquire:EXTERNAL→qfi(GENERAL→GENERAL 零转换,与 release 配对)。
+                    ImageMemoryBarrier2 {
+                        s_type: ST_IMAGE_MEMORY_BARRIER_2,
+                        p_next: std::ptr::null(),
+                        src_stage_mask: STAGE2_ALL_COMMANDS,
+                        src_access_mask: 0,
+                        dst_stage_mask: STAGE2_TRANSFER,
+                        dst_access_mask: ACCESS2_TRANSFER_READ,
+                        old_layout: LAYOUT_GENERAL,
+                        new_layout: LAYOUT_GENERAL,
+                        src_queue_family_index: QUEUE_FAMILY_EXTERNAL,
+                        dst_queue_family_index: qfi,
+                        image,
+                        subresource_range: subrange(),
+                    },
+                    // 本 device 内 GENERAL→TRANSFER_SRC。
+                    ImageMemoryBarrier2 {
+                        s_type: ST_IMAGE_MEMORY_BARRIER_2,
+                        p_next: std::ptr::null(),
+                        src_stage_mask: STAGE2_TRANSFER,
+                        src_access_mask: 0,
+                        dst_stage_mask: STAGE2_TRANSFER,
+                        dst_access_mask: ACCESS2_TRANSFER_READ,
+                        old_layout: LAYOUT_GENERAL,
+                        new_layout: LAYOUT_TRANSFER_SRC_OPTIMAL,
+                        src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        image,
+                        subresource_range: subrange(),
+                    },
+                ];
+                for b in &barriers2 {
+                    let di = DependencyInfo {
+                        s_type: ST_DEPENDENCY_INFO,
+                        p_next: std::ptr::null(),
+                        dependency_flags: 0,
+                        memory_barrier_count: 0,
+                        p_memory_barriers: std::ptr::null(),
+                        buffer_memory_barrier_count: 0,
+                        p_buffer_memory_barriers: std::ptr::null(),
+                        image_memory_barrier_count: 1,
+                        p_image_memory_barriers: b,
+                    };
+                    (dev.cmd_barrier2)(cmd, &di);
+                }
+                let region = VkBufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_row_length: 0,
+                    buffer_image_height: 0,
+                    image_subresource: VkImageSubresourceLayers {
+                        aspect_mask: IMAGE_ASPECT_COLOR,
+                        mip_level: 0,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                    image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                    image_extent: VkExtent3D {
+                        width: w,
+                        height: h,
+                        depth: 1,
+                    },
+                };
+                (dev.cmd_copy_img2buf)(cmd, image, LAYOUT_TRANSFER_SRC_OPTIMAL, rbuf, 1, &region);
+                if (dev.end_cmd)(cmd) != VK_SUCCESS {
+                    cleanup_all(cmdpool);
+                    return Err("vkEndCommandBuffer(import) 失败".to_owned());
+                }
+                let mut queue: VkQueue = std::ptr::null_mut();
+                (dev.get_device_queue)(device, qfi, 0, &mut queue);
+                let si = SubmitInfo {
+                    s_type: ST_SUBMIT_INFO,
+                    p_next: std::ptr::null(),
+                    wait_semaphore_count: 0,
+                    p_wait_semaphores: std::ptr::null(),
+                    p_wait_dst_stage_mask: std::ptr::null(),
+                    command_buffer_count: 1,
+                    p_command_buffers: &cmd,
+                    signal_semaphore_count: 0,
+                    p_signal_semaphores: std::ptr::null(),
+                };
+                if (dev.queue_submit)(queue, 1, &si, 0) != VK_SUCCESS {
+                    cleanup_all(cmdpool);
+                    return Err("vkQueueSubmit(import) 失败".to_owned());
+                }
+                if (dev.queue_wait)(queue) != VK_SUCCESS {
+                    cleanup_all(cmdpool);
+                    return Err("vkQueueWaitIdle(import) 失败".to_owned());
+                }
+                let mut ptr: *mut c_void = std::ptr::null_mut();
+                if (dev.map_mem)(device, bmem, 0, byte_len, 0, &mut ptr) != VK_SUCCESS
+                    || ptr.is_null()
+                {
+                    cleanup_all(cmdpool);
+                    return Err("vkMapMemory(import readback) 失败".to_owned());
+                }
+                let bytes =
+                    std::slice::from_raw_parts(ptr.cast::<u8>(), byte_len as usize).to_vec();
+                (dev.unmap_mem)(device, bmem);
+                cleanup_all(cmdpool);
+                Ok(bytes)
+            })();
+            let _ = (dev.queue_wait)({
+                let mut q: VkQueue = std::ptr::null_mut();
+                (dev.get_device_queue)(device, qfi, 0, &mut q);
+                q
+            });
+            vk_destroy_device(device, std::ptr::null());
+            import_result
+        })();
+        destroy_instance(instance, std::ptr::null());
+        result
     }
 }

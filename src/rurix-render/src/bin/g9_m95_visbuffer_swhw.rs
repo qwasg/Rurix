@@ -90,6 +90,8 @@ fn storage(size: usize, data: Option<&[u8]>) -> ResourceDesc<'_> {
             ..Default::default()
         },
         data,
+        // G14.10d 加字段后的最小修复:保持既有 host-visible 行为(0-byte)。
+        device_local: false,
     })
 }
 

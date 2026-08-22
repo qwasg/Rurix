@@ -2324,11 +2324,15 @@ fn unified_lane_descs<'x>(
         storage: true,
         ..BufferUsage::default()
     };
+    // G14.10d 判定规则：凡 FrameUpdate.buffer_uploads 目标（params 三小件）
+    // = host-visible（device_local:false）；其余（创建期一次上传 + GPU 链内
+    // 中间缓冲 + 回读输出）= DEVICE_LOCAL 驻留。
     let init = |bytes: &'x [u8]| {
         ResourceDesc::Buffer(BufferDesc {
             size: bytes.len() as u64,
             usage: storage,
             data: Some(bytes),
+            device_local: true,
         })
     };
     let buf = |size: u64| {
@@ -2336,31 +2340,48 @@ fn unified_lane_descs<'x>(
             size,
             usage: storage,
             data: None,
+            device_local: true,
+        })
+    };
+    let host_init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: false,
+        })
+    };
+    let host_buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: false,
         })
     };
     let resources = [
-        init(&assets.tris_bytes),    // U_TRIS
-        init(&assets.mats_bytes),    // U_MATS
-        init(&assets.quads_bytes),   // U_QUADS
-        init(&assets.points_bytes),  // U_POINTS
-        init(&assets.params0_bytes), // U_SCENE_PARAMS（逐帧 192B 覆盖）
-        buf(assets.out_color_size),  // U_SCENE_COLOR（GPU 链内直读，零回读）
-        buf(assets.out_depth_size),  // U_SCENE_DEPTH（同上）
-        buf(40 * 4),                 // U_MV_PARAMS（逐帧 160B 覆盖）
-        buf(ipc * 8),                // U_MV_OUT（2 f32/px；GPU 链内直读）
-        buf(32 * 4),                 // U_TSR_PARAMS（逐帧 128B 覆盖）
-        init(&bits.reactive_zeros),  // U_REACTIVE（has_reactive=0 面恒零，创建期一次）
-        buf(opc * 12),               // U_CUR_RGB
-        buf(opc * 4),                // U_LUMA[0]
-        buf(opc * 4),                // U_LUMA[1]
-        buf(opc * 4),                // U_DEPTH_HI[0]
-        buf(opc * 4),                // U_DEPTH_HI[1]
-        buf(opc * 12),               // U_OUT_COLOR[0]
-        buf(opc * 12),               // U_OUT_COLOR[1]
-        buf(opc * 4),                // U_OUT_SIGN[0]
-        buf(opc * 4),                // U_OUT_SIGN[1]
-        buf(opc * 4),                // U_OUT_SCORE[0]
-        buf(opc * 4),                // U_OUT_SCORE[1]
+        init(&assets.tris_bytes),         // U_TRIS
+        init(&assets.mats_bytes),         // U_MATS
+        init(&assets.quads_bytes),        // U_QUADS
+        init(&assets.points_bytes),       // U_POINTS
+        host_init(&assets.params0_bytes), // U_SCENE_PARAMS（逐帧 192B 覆盖）
+        buf(assets.out_color_size),       // U_SCENE_COLOR（GPU 链内直读，零回读）
+        buf(assets.out_depth_size),       // U_SCENE_DEPTH（同上）
+        host_buf(40 * 4),                 // U_MV_PARAMS（逐帧 160B 覆盖）
+        buf(ipc * 8),                     // U_MV_OUT（2 f32/px；GPU 链内直读）
+        host_buf(32 * 4),                 // U_TSR_PARAMS（逐帧 128B 覆盖）
+        init(&bits.reactive_zeros),       // U_REACTIVE（has_reactive=0 面恒零，创建期一次）
+        buf(opc * 12),                    // U_CUR_RGB
+        buf(opc * 4),                     // U_LUMA[0]
+        buf(opc * 4),                     // U_LUMA[1]
+        buf(opc * 4),                     // U_DEPTH_HI[0]
+        buf(opc * 4),                     // U_DEPTH_HI[1]
+        buf(opc * 12),                    // U_OUT_COLOR[0]
+        buf(opc * 12),                    // U_OUT_COLOR[1]
+        buf(opc * 4),                     // U_OUT_SIGN[0]
+        buf(opc * 4),                     // U_OUT_SIGN[1]
+        buf(opc * 4),                     // U_OUT_SCORE[0]
+        buf(opc * 4),                     // U_OUT_SCORE[1]
     ];
     let passes = [
         Pass::Compute(ComputePass {
@@ -2508,11 +2529,14 @@ fn unified_lane_descs_split<'x>(
         storage: true,
         ..BufferUsage::default()
     };
+    // G14.10d 判定规则同 Mega 形态：params 三小件 = host-visible，其余 =
+    // DEVICE_LOCAL 驻留（hitinfo/blk 中间缓冲 GPU 链内直读写，收益最大）。
     let init = |bytes: &'x [u8]| {
         ResourceDesc::Buffer(BufferDesc {
             size: bytes.len() as u64,
             usage: storage,
             data: Some(bytes),
+            device_local: true,
         })
     };
     let buf = |size: u64| {
@@ -2520,34 +2544,51 @@ fn unified_lane_descs_split<'x>(
             size,
             usage: storage,
             data: None,
+            device_local: true,
+        })
+    };
+    let host_init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: false,
+        })
+    };
+    let host_buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: false,
         })
     };
     let resources = [
-        init(&assets.tris_bytes),    // U_TRIS
-        init(&assets.mats_bytes),    // U_MATS
-        init(&assets.quads_bytes),   // U_QUADS
-        init(&assets.points_bytes),  // U_POINTS
-        init(&assets.params0_bytes), // U_SCENE_PARAMS
-        buf(assets.out_color_size),  // U_SCENE_COLOR
-        buf(assets.out_depth_size),  // U_SCENE_DEPTH
-        buf(40 * 4),                 // U_MV_PARAMS
-        buf(ipc * 8),                // U_MV_OUT
-        buf(32 * 4),                 // U_TSR_PARAMS
-        init(&bits.reactive_zeros),  // U_REACTIVE
-        buf(opc * 12),               // U_CUR_RGB
-        buf(opc * 4),                // U_LUMA[0]
-        buf(opc * 4),                // U_LUMA[1]
-        buf(opc * 4),                // U_DEPTH_HI[0]
-        buf(opc * 4),                // U_DEPTH_HI[1]
-        buf(opc * 12),               // U_OUT_COLOR[0]
-        buf(opc * 12),               // U_OUT_COLOR[1]
-        buf(opc * 4),                // U_OUT_SIGN[0]
-        buf(opc * 4),                // U_OUT_SIGN[1]
-        buf(opc * 4),                // U_OUT_SCORE[0]
-        buf(opc * 4),                // U_OUT_SCORE[1]
-        buf(ipc * 4),                // U_HIT_T
-        buf(ipc * 4),                // U_HIT_PRIM
-        buf(ipc * 16 * 4),           // U_BLK（16 层 blk 布尔面，px-major）
+        init(&assets.tris_bytes),         // U_TRIS
+        init(&assets.mats_bytes),         // U_MATS
+        init(&assets.quads_bytes),        // U_QUADS
+        init(&assets.points_bytes),       // U_POINTS
+        host_init(&assets.params0_bytes), // U_SCENE_PARAMS
+        buf(assets.out_color_size),       // U_SCENE_COLOR
+        buf(assets.out_depth_size),       // U_SCENE_DEPTH
+        host_buf(40 * 4),                 // U_MV_PARAMS
+        buf(ipc * 8),                     // U_MV_OUT
+        host_buf(32 * 4),                 // U_TSR_PARAMS
+        init(&bits.reactive_zeros),       // U_REACTIVE
+        buf(opc * 12),                    // U_CUR_RGB
+        buf(opc * 4),                     // U_LUMA[0]
+        buf(opc * 4),                     // U_LUMA[1]
+        buf(opc * 4),                     // U_DEPTH_HI[0]
+        buf(opc * 4),                     // U_DEPTH_HI[1]
+        buf(opc * 12),                    // U_OUT_COLOR[0]
+        buf(opc * 12),                    // U_OUT_COLOR[1]
+        buf(opc * 4),                     // U_OUT_SIGN[0]
+        buf(opc * 4),                     // U_OUT_SIGN[1]
+        buf(opc * 4),                     // U_OUT_SCORE[0]
+        buf(opc * 4),                     // U_OUT_SCORE[1]
+        buf(ipc * 4),                     // U_HIT_T
+        buf(ipc * 4),                     // U_HIT_PRIM
+        buf(ipc * 16 * 4),                // U_BLK（16 层 blk 布尔面，px-major）
     ];
     let passes = [
         Pass::Compute(ComputePass {
@@ -3813,6 +3854,8 @@ fn render_leg(
             .iter()
             .flat_map(|w| w.to_le_bytes())
             .collect();
+        // G14.10d：vendor 臂 scene session 同规则——params（资源 4，逐帧上传
+        // 目标）= host-visible，其余（场景常量 + 回读输出）= DEVICE_LOCAL。
         let resources = [
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.tris_bytes.len() as u64,
@@ -3821,6 +3864,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: Some(&assets.tris_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.mats_bytes.len() as u64,
@@ -3829,6 +3873,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: Some(&assets.mats_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.quads_bytes.len() as u64,
@@ -3837,6 +3882,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: Some(&assets.quads_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.points_bytes.len() as u64,
@@ -3845,6 +3891,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: Some(&assets.points_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.params0_bytes.len() as u64,
@@ -3853,6 +3900,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: Some(&assets.params0_bytes),
+                device_local: false,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.out_color_size,
@@ -3861,6 +3909,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: None,
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.out_depth_size,
@@ -3869,6 +3918,7 @@ fn render_leg(
                     ..BufferUsage::default()
                 },
                 data: None,
+                device_local: true,
             }),
         ];
         let passes = [Pass::Compute(ComputePass {
@@ -4323,41 +4373,50 @@ fn bench_leg(
             storage: true,
             ..BufferUsage::default()
         };
+        // G14.10d：同 vendor 臂规则——params（资源 4，逐帧上传目标）=
+        // host-visible，其余 = DEVICE_LOCAL。
         let resources = [
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.tris_bytes.len() as u64,
                 usage: storage,
                 data: Some(&assets.tris_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.mats_bytes.len() as u64,
                 usage: storage,
                 data: Some(&assets.mats_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.quads_bytes.len() as u64,
                 usage: storage,
                 data: Some(&assets.quads_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.points_bytes.len() as u64,
                 usage: storage,
                 data: Some(&assets.points_bytes),
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.params0_bytes.len() as u64,
                 usage: storage,
                 data: Some(&assets.params0_bytes),
+                device_local: false,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.out_color_size,
                 usage: storage,
                 data: None,
+                device_local: true,
             }),
             ResourceDesc::Buffer(BufferDesc {
                 size: assets.out_depth_size,
                 usage: storage,
                 data: None,
+                device_local: true,
             }),
         ];
         let passes = [Pass::Compute(ComputePass {
