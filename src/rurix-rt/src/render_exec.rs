@@ -5264,11 +5264,19 @@ unsafe fn record_frame_body(
     // create_persistent_frame 的 layout_init_imgs 段)。跨帧写-写序由上一帧帧末
     // EXTERNAL release(ALL_COMMANDS/MEMORY_WRITE 全域可用性)+ host 侧 fence
     // 等待共同保证,故本 pass 无需再补 layout 转换。
-    for &res in p.exportable {
-        if matches!(p.rt[res as usize], RtRes::Img(_)) {
-            tracked[res as usize] = state_fields(TargetState::StorageImageReadWrite);
-        }
-    }
+    // G14.12 **撤销**「跨界 image layout 跨帧常驻 GENERAL」优化(原 G14.11 ②,
+    // 值 ~0.165ms/帧 @1920×1080 三标)——**确定性优先裁决**:锚重收割门实测
+    // cornell-box/t50/dlss_sr(输入 256×256)双跑 digest 不等,5 跑 5 值;单变量
+    // bisect 实证归因于本优化(恢复每帧 `UNDEFINED→GENERAL` 即回到双跑位级
+    // 一致)。机理:每帧那次 UNDEFINED 转换会把 image 的压缩元数据/未写 padding
+    // 重初始化为确定态;常驻 GENERAL 后这些从未被 pack 写到的位面保留跨运行
+    // 不定的陈值,经 DLSS 时域累积放大为全图微幅抖动(实测 58.6% 像素有差但
+    // 均值差仅 1.5e-3、总亮度几乎不变、边界 8px 带完全一致 = 数值抖动而非
+    // 结构性垃圾)。RFC-0030 §4.8「漂移即弃」同律处置。
+    // 后续可攻面(G15+ 承接):建面期一次性 `vkCmdClearColorImage` 把整幅(含
+    // padding)定义为确定态,再恢复常驻 GENERAL——需 FFI 新增且须逐格复验,
+    // 本期不追(余量已足:去本优化后 bistro t100 dlss 仍 ratio ≥1.05)。
+    let _ = &p.exportable;
     // inline VB 跟踪(独立于 resources;上传后 = HOST_WRITE)。
     let mut inline_vb_tracked: Vec<TrackedState> = p
         .inline_vbs
