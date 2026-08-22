@@ -32,9 +32,18 @@
 //!      经 NoContraction 消除），miss 像素病态反投影放大至 max ~1e-2（mean
 //!      ~3e-6），TSR 输出 digest 与旧两 session 架构（host mv）锚不等——
 //!      RFC-0030 §4.1 L3 预期内改图 L1 级，本 bin 双跑位级确定性不受影响。
-//!    - **dlss_sr/fsr_3_1_5 臂 = 现状结构**（场景 session 逐帧回读 + host
+//!    - **dlss_sr 臂 = G14.10e 驻留统一车道**（RFC-0030 §4.3 vendor 输入驻留
+//!      接线）：单一 exportable DeviceFrameSession 三 pass（scene → mv →
+//!      pack 手编 SPV 直写 RGBA32F/R32F/RG32F exportable image）→ OPAQUE_WIN32
+//!      导入 → DLSS `upscale_resident_external` 驻留 evaluate（LUID 对拍
+//!      fail-closed）；scene 逐帧回读 + host mv + vendor host pack 三段中转税
+//!      全消；digest 语义 = DLSS 输出（`readback_output_into` 按需回读）。
+//!      **数值面登记**：mv=GPU mv（ULP 级差 vs host）+ color f32 直通（vs 现状
+//!      f16 pack）+ depth R32F（vs D32）——evaluate 输入位面变化，输出 digest
+//!      相对旧锚预期 L1 漂移，双跑位级确定性为门檩。
+//!    - **fsr_3_1_5 臂 = 现状结构**（场景 session 逐帧回读 + host
 //!      `compute_camera_mv` 单源 + vendor host pack；G13.2 M-a adapter 同
-//!      模式，驻留化归后续 vendor 波）。
+//!      模式，FSR resident 归 external memory 波另判）。
 //! 3. **双模式**：`--render` 产 32 帧 Halton 收敛序列 + converged.exr +
 //!    render_receipt（converged_digest 固定 seed 位级——双跑位级一致面）；
 //!    `--bench <scene> --tier <50|67|100> --backend <B> --frames 160
@@ -108,10 +117,11 @@ use rurix_render::temporal::upscale::{UpscaleBackend, UpscaleInputs};
 use rurix_rt::render_exec::{
     AccelStructDesc, Bindings, BufferDesc, BufferUsage, ComputePass, DeviceFrameSession,
     DispatchSpec, FrameUpdate, Pass, RayQueryInstanceDesc, RayQuerySceneDesc, Readback,
-    ResourceDesc, StableResourceId, TargetState,
+    ResourceDesc, StableResourceId, TargetState, TexFormat, TextureDesc, TextureUsage,
 };
 use rurix_rt::vendor_upscale::{
-    DlssVkSession, FsrDx12Session, VendorFrameInput, VendorSessionReport, fsr_sdk_dir,
+    DlssVkSession, ExternalImageImportDesc, ExternalInputSlot, FsrDx12Session,
+    VendorExternalFrameParams, VendorFrameInput, VendorSessionReport, fsr_sdk_dir,
     streamline_sdk_dir,
 };
 use rurix_rt::vk;
@@ -2028,8 +2038,9 @@ fn pack_tsr_params(
 // in_color/in_depth/in_mv 不再是独立资源）；bench 测量循环 readback_subset=
 // Some([]) 零回读、仅末帧回读 TSR 输出算 digest（同一 GPU 状态机，历史链
 // 演化与回读无关——末帧 digest 与逐帧回读版位级同语义）；render 腿逐帧回读
-// 出 EXR（出图面凌驾性能）。dlss_sr/fsr_3_1_5 臂维持场景 session + host mv +
-// vendor host pack 现状结构（驻留化归后续 vendor 波）。
+// 出 EXR（出图面凌驾性能）。dlss_sr 臂 G14.10e 已迁驻留统一车道（见
+// DlssResidentLane 区注释）；fsr_3_1_5 臂维持场景 session + host mv + vendor
+// host pack 现状结构（FSR resident 归 external memory 波另判）。
 // ---------------------------------------------------------------------------
 
 /// 统一 session 资源下标闭集（场景区 0..=6 与场景车道逐字同布局；mv 区
@@ -2962,121 +2973,673 @@ impl<'a> UnifiedTsrLane<'a> {
     }
 }
 
-/// DLSS SR（Streamline Vulkan interop）→ UpscaleBackend 适配（M-a 同模式，
-/// 尺寸参数化——session 创建时钉 (in,out)，逐帧断言一致）。
-struct DlssBackend {
-    session: DlssVkSession,
-    in_size: (u32, u32),
-    out_size: (u32, u32),
-    pending_reset: bool,
+// ---------------------------------------------------------------------------
+// G14.10e dlss_sr 臂驻留统一车道（RFC-0030 §4.3 vendor 输入驻留接线）：单一
+// render_exec DeviceFrameSession 三 pass（pass0=scene(g14_3_direct_gi) →
+// pass1=mv(g14_mv+NoContraction) → pass2=pack(手编 SPV)）全 GPU 链内，pack
+// 直写三 exportable image（RGBA32F color / R32F depth / RG32F mv——SL 输入
+// 格式容忍度 G14.10b 冒烟臂①实证），DLSS session 经 OPAQUE_WIN32 导入同一块
+// device memory 后 `upscale_resident_external` 驻留 evaluate。原现状结构的
+// scene 逐帧回读（~24.9MB@1080p）+ host compute_camera_mv + vendor host
+// pack/upload 三段中转税全消；scene session readback 表恒空（dlss 臂的
+// last_frame_digest 语义 = **DLSS 输出**，回读靠 DlssVkSession::
+// readback_output_into，scene 输出不再落 host）。
+//
+// 形态登记：dlss 臂恒 Mega 单 kernel（bistro/cornell 同构通用；cornell 拆散
+// 三 pass（primary/scatter/reduce）仅 tsr_device 臂消费——本车道不接线，
+// 简化裁决如实登记）。
+//
+// 数值面登记（digest 锚影响，G14.10e 如实预告）：① mv = GPU g14_mv 输出
+// （与 host compute_camera_mv 存在 ULP 级运算差——tsr 臂 mv GPU 化同族 L1）；
+// ② color 输入 RGBA32F f32 直通（现状 host pack 路径 = f32→f16 RGBA16F）；
+// ③ depth 输入 R32F（现状 D32，数值同 f32 位面）。DLSS evaluate 输入位面
+// 变化 ⇒ 输出 digest 相对现状锚预期漂移（改图 L1 级），双跑位级确定性不受
+// 影响——按门纪律如实报告新 digest 与双跑一致性，不硬凑。
+// ---------------------------------------------------------------------------
+
+/// dlss 驻留车道资源下标闭集（场景区 0..=6 + mv 区 7..=8 与统一车道 U_* 逐字
+/// 同布局同下标——常量直接复用；9..=11 = 三 exportable 纹理）。
+const D_TEX_COLOR: u32 = 9;
+const D_TEX_DEPTH: u32 = 10;
+const D_TEX_MV: u32 = 11;
+const D_RESOURCE_COUNT: usize = 12;
+
+/// pack pass 屏障计划（保守超集逐字声明同律：SSBO 三源 = StorageReadWrite，
+/// storage image 三标 = StorageImageReadWrite/GENERAL——exportable 面 layout
+/// 恒 GENERAL，与帧末 EXTERNAL release 收敛态一致）。
+const D_PLAN_PACK: &[(u32, TargetState)] = &[
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+    (U_MV_OUT, TargetState::StorageReadWrite),
+    (D_TEX_COLOR, TargetState::StorageImageReadWrite),
+    (D_TEX_DEPTH, TargetState::StorageImageReadWrite),
+    (D_TEX_MV, TargetState::StorageImageReadWrite),
+];
+
+/// G14.10e 手编 pack compute SPIR-V（SPIR-V 1.0；LocalSize 8×8；沿
+/// geometry/visbuffer_swhw_spv.rs inst/words 手编体例）：scene 车道 SSBO 三源
+/// （color 3f32/px、depth 1f32/px、mv 2f32/px；binding 0/1/2）逐像素直写三
+/// exportable storage image（Rgba32f/R32f/Rg32f；binding 3/4/5 = storage_images
+/// 区段 [N..N+K)，layout GENERAL）。push constants = {w:u32, h:u32}；越界门
+/// px<w && py<h；i = py·w+px；color 写 vec4(c[3i],c[3i+1],c[3i+2],1.0)、depth
+/// 写 vec4(d[i],0,0,0)、mv 写 vec4(m[2i],m[2i+1],0,0)。数值面 = f32 位拷贝零
+/// 浮点算术（OpLoad→OpCompositeConstruct→OpImageWrite）——image 内容与 scene/
+/// mv SSBO 输出位级同一。Rg32f storage 格式须 StorageImageExtendedFormats
+/// capability（49；设备特性经 new_with_exportable_textures 启用）。
+#[allow(clippy::too_many_lines)]
+fn g14_pack_spv() -> Vec<u32> {
+    fn inst(v: &mut Vec<u32>, op: u32, ops: &[u32]) {
+        v.push(op | ((ops.len() as u32 + 1) << 16));
+        v.extend_from_slice(ops);
+    }
+    fn words(s: &str) -> Vec<u32> {
+        let mut b = s.as_bytes().to_vec();
+        b.push(0);
+        while !b.len().is_multiple_of(4) {
+            b.push(0);
+        }
+        b.chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
+    }
+    // id 布局：类型/常量/全局 < 100；函数体自 100（visbuffer_swhw_spv 同律）。
+    let t_void = 1u32;
+    let t_fn = 2;
+    let t_bool = 3;
+    let t_u32 = 4;
+    let t_f32 = 5;
+    let t_v3u = 6;
+    let p_in_v3u = 7;
+    let v_gid = 8;
+    let t_v2u = 9;
+    let t_v4f = 10;
+    let t_rt_f32 = 11;
+    let t_st_f32 = 12;
+    let p_uni_st = 13;
+    let p_uni_f32 = 14;
+    let v_color = 15;
+    let v_depth = 16;
+    let v_mv = 17;
+    let t_img_c = 18;
+    let p_img_c = 19;
+    let v_img_c = 20;
+    let t_img_d = 21;
+    let p_img_d = 22;
+    let v_img_d = 23;
+    let t_img_m = 24;
+    let p_img_m = 25;
+    let v_img_m = 26;
+    let t_pc = 27;
+    let p_pc = 28;
+    let v_pc = 29;
+    let p_pc_u32 = 30;
+    let c_u0 = 31;
+    let c_u1 = 32;
+    let c_u2 = 33;
+    let c_u3 = 34;
+    let c_f0 = 35;
+    let c_f1 = 36;
+    let fn_id = 100u32;
+    let l_entry = 101;
+    let l_then = 102;
+    let l_merge = 103;
+
+    let mut pre = Vec::new();
+    inst(&mut pre, 17, &[1]); // OpCapability Shader
+    // Rg32f storage image 格式（SPIR-V Image Format 6）须
+    // StorageImageExtendedFormats（capability 49）。
+    inst(&mut pre, 17, &[49]);
+    inst(&mut pre, 14, &[0, 1]); // OpMemoryModel Logical GLSL450
+    let mut ep = vec![5u32, fn_id];
+    ep.extend(words("main"));
+    ep.push(v_gid);
+    inst(&mut pre, 15, &ep); // OpEntryPoint GLCompute %main "main" %gid
+    inst(&mut pre, 16, &[fn_id, 17, 8, 8, 1]); // OpExecutionMode LocalSize 8 8 1
+
+    let mut ann = Vec::new();
+    inst(&mut ann, 71, &[v_gid, 11, 28]); // BuiltIn GlobalInvocationId
+    inst(&mut ann, 71, &[t_rt_f32, 6, 4]); // ArrayStride 4
+    inst(&mut ann, 71, &[t_st_f32, 3]); // BufferBlock（SPIR-V 1.0 SSBO 形态）
+    inst(&mut ann, 72, &[t_st_f32, 0, 35, 0]); // member0 Offset 0
+    for (v, b) in [
+        (v_color, 0u32),
+        (v_depth, 1),
+        (v_mv, 2),
+        (v_img_c, 3),
+        (v_img_d, 4),
+        (v_img_m, 5),
+    ] {
+        inst(&mut ann, 71, &[v, 34, 0]); // DescriptorSet 0
+        inst(&mut ann, 71, &[v, 33, b]); // Binding b
+    }
+    inst(&mut ann, 71, &[t_pc, 2]); // Block（push constants）
+    inst(&mut ann, 72, &[t_pc, 0, 35, 0]); // w Offset 0
+    inst(&mut ann, 72, &[t_pc, 1, 35, 4]); // h Offset 4
+
+    let mut typ = Vec::new();
+    inst(&mut typ, 19, &[t_void]);
+    inst(&mut typ, 33, &[t_fn, t_void]);
+    inst(&mut typ, 20, &[t_bool]);
+    inst(&mut typ, 21, &[t_u32, 32, 0]);
+    inst(&mut typ, 22, &[t_f32, 32]);
+    inst(&mut typ, 23, &[t_v3u, t_u32, 3]);
+    inst(&mut typ, 32, &[p_in_v3u, 1, t_v3u]);
+    inst(&mut typ, 59, &[p_in_v3u, v_gid, 1]);
+    inst(&mut typ, 23, &[t_v2u, t_u32, 2]);
+    inst(&mut typ, 23, &[t_v4f, t_f32, 4]);
+    inst(&mut typ, 29, &[t_rt_f32, t_f32]);
+    inst(&mut typ, 30, &[t_st_f32, t_rt_f32]);
+    inst(&mut typ, 32, &[p_uni_st, 2, t_st_f32]);
+    inst(&mut typ, 32, &[p_uni_f32, 2, t_f32]);
+    inst(&mut typ, 59, &[p_uni_st, v_color, 2]);
+    inst(&mut typ, 59, &[p_uni_st, v_depth, 2]);
+    inst(&mut typ, 59, &[p_uni_st, v_mv, 2]);
+    // OpTypeImage：SampledType Dim=2D(1) Depth=0 Arrayed=0 MS=0 Sampled=2(storage)
+    // Format（Rgba32f=1 / R32f=3 / Rg32f=6）。
+    inst(&mut typ, 25, &[t_img_c, t_f32, 1, 0, 0, 0, 2, 1]);
+    inst(&mut typ, 32, &[p_img_c, 0, t_img_c]); // UniformConstant
+    inst(&mut typ, 59, &[p_img_c, v_img_c, 0]);
+    inst(&mut typ, 25, &[t_img_d, t_f32, 1, 0, 0, 0, 2, 3]);
+    inst(&mut typ, 32, &[p_img_d, 0, t_img_d]);
+    inst(&mut typ, 59, &[p_img_d, v_img_d, 0]);
+    inst(&mut typ, 25, &[t_img_m, t_f32, 1, 0, 0, 0, 2, 6]);
+    inst(&mut typ, 32, &[p_img_m, 0, t_img_m]);
+    inst(&mut typ, 59, &[p_img_m, v_img_m, 0]);
+    inst(&mut typ, 30, &[t_pc, t_u32, t_u32]);
+    inst(&mut typ, 32, &[p_pc, 9, t_pc]); // PushConstant
+    inst(&mut typ, 59, &[p_pc, v_pc, 9]);
+    inst(&mut typ, 32, &[p_pc_u32, 9, t_u32]);
+    inst(&mut typ, 43, &[t_u32, c_u0, 0]);
+    inst(&mut typ, 43, &[t_u32, c_u1, 1]);
+    inst(&mut typ, 43, &[t_u32, c_u2, 2]);
+    inst(&mut typ, 43, &[t_u32, c_u3, 3]);
+    inst(&mut typ, 43, &[t_f32, c_f0, 0.0f32.to_bits()]);
+    inst(&mut typ, 43, &[t_f32, c_f1, 1.0f32.to_bits()]);
+
+    let mut body = Vec::new();
+    let mut nid = 104u32;
+    macro_rules! alloc {
+        () => {{
+            let i = nid;
+            nid += 1;
+            i
+        }};
+    }
+    macro_rules! iadd {
+        ($x:expr, $y:expr) => {{
+            let r = alloc!();
+            inst(&mut body, 128, &[t_u32, r, $x, $y]);
+            r
+        }};
+    }
+    macro_rules! ld {
+        ($buf:expr, $idx:expr) => {{
+            let (a, r) = (alloc!(), alloc!());
+            inst(&mut body, 65, &[p_uni_f32, a, $buf, c_u0, $idx]);
+            inst(&mut body, 61, &[t_f32, r, a]);
+            r
+        }};
+    }
+    inst(&mut body, 54, &[t_void, fn_id, 0, t_fn]); // OpFunction
+    inst(&mut body, 248, &[l_entry]);
+    let gid3 = alloc!();
+    inst(&mut body, 61, &[t_v3u, gid3, v_gid]);
+    let px = alloc!();
+    inst(&mut body, 81, &[t_u32, px, gid3, 0]); // OpCompositeExtract gid.x
+    let py = alloc!();
+    inst(&mut body, 81, &[t_u32, py, gid3, 1]);
+    let (aw, w) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_u32, aw, v_pc, c_u0]);
+    inst(&mut body, 61, &[t_u32, w, aw]);
+    let (ah, h) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_u32, ah, v_pc, c_u1]);
+    inst(&mut body, 61, &[t_u32, h, ah]);
+    let c1 = alloc!();
+    inst(&mut body, 176, &[t_bool, c1, px, w]); // ULessThan
+    let c2 = alloc!();
+    inst(&mut body, 176, &[t_bool, c2, py, h]);
+    let cc = alloc!();
+    inst(&mut body, 167, &[t_bool, cc, c1, c2]); // LogicalAnd
+    inst(&mut body, 247, &[l_merge, 0]); // OpSelectionMerge
+    inst(&mut body, 250, &[cc, l_then, l_merge]);
+    inst(&mut body, 248, &[l_then]);
+    let row = alloc!();
+    inst(&mut body, 132, &[t_u32, row, py, w]); // IMul
+    let i_px = iadd!(row, px);
+    let coord = alloc!();
+    inst(&mut body, 80, &[t_v2u, coord, px, py]); // uvec2(px,py)
+    // color：base = i*3，写 vec4(r,g,b,1)。
+    let cb = alloc!();
+    inst(&mut body, 132, &[t_u32, cb, i_px, c_u3]);
+    let cr = ld!(v_color, cb);
+    let cgi = iadd!(cb, c_u1);
+    let cg = ld!(v_color, cgi);
+    let cbi = iadd!(cb, c_u2);
+    let cbl = ld!(v_color, cbi);
+    let texel_c = alloc!();
+    inst(&mut body, 80, &[t_v4f, texel_c, cr, cg, cbl, c_f1]);
+    let img_c = alloc!();
+    inst(&mut body, 61, &[t_img_c, img_c, v_img_c]);
+    inst(&mut body, 99, &[img_c, coord, texel_c]); // OpImageWrite
+    // depth：写 vec4(d,0,0,0)。
+    let d = ld!(v_depth, i_px);
+    let texel_d = alloc!();
+    inst(&mut body, 80, &[t_v4f, texel_d, d, c_f0, c_f0, c_f0]);
+    let img_d = alloc!();
+    inst(&mut body, 61, &[t_img_d, img_d, v_img_d]);
+    inst(&mut body, 99, &[img_d, coord, texel_d]);
+    // mv：base = i*2，写 vec4(mx,my,0,0)。
+    let mb = alloc!();
+    inst(&mut body, 132, &[t_u32, mb, i_px, c_u2]);
+    let mx = ld!(v_mv, mb);
+    let myi = iadd!(mb, c_u1);
+    let my = ld!(v_mv, myi);
+    let texel_m = alloc!();
+    inst(&mut body, 80, &[t_v4f, texel_m, mx, my, c_f0, c_f0]);
+    let img_m = alloc!();
+    inst(&mut body, 61, &[t_img_m, img_m, v_img_m]);
+    inst(&mut body, 99, &[img_m, coord, texel_m]);
+    inst(&mut body, 249, &[l_merge]);
+    inst(&mut body, 248, &[l_merge]);
+    inst(&mut body, 253, &[]); // OpReturn
+    inst(&mut body, 56, &[]); // OpFunctionEnd
+
+    let mut v = vec![0x0723_0203u32, 0x0001_0000, 0, nid, 0];
+    v.extend_from_slice(&pre);
+    v.extend_from_slice(&ann);
+    v.extend_from_slice(&typ);
+    v.extend_from_slice(&body);
+    v
 }
 
-impl DlssBackend {
-    fn create(in_size: (u32, u32), out_size: (u32, u32)) -> Result<Self, String> {
+/// dlss 驻留车道 SPV/常量字节所有者（借用纪律同 UnifiedLaneBits：bits →
+/// descs → session 声明序 = drop 逆序）。pack SPV = 手编内存构建（无文件面；
+/// provenance 以内容 sha256 登记）；dispatch 组数恒从 SPV LocalSize 派生
+/// （SPV 单一事实源纪律）。
+struct DlssLaneBits {
+    spv_scene: Vec<u8>,
+    spv_mv: Vec<u8>,
+    spv_pack: Vec<u8>,
+    /// pack pass push constants（{w,h} u32×2 LE；创建期恒定零逐帧覆盖）。
+    pack_pc: Vec<u8>,
+    /// pack SPV 内容 sha256（provenance 登记面）。
+    pack_sha256: String,
+    scene_dispatch: [u32; 3],
+    mv_dispatch: [u32; 3],
+    pack_dispatch: [u32; 3],
+}
+
+impl DlssLaneBits {
+    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32) -> Self {
+        let to_bytes = |words: &[u32]| -> Vec<u8> {
+            words.iter().flat_map(|w| w.to_le_bytes()).collect()
+        };
+        let scene_words = load_spv(spv_scene);
+        // mv kernel 注入 NoContraction（统一车道同律；见 spv_inject_no_contraction）。
+        let mv_words = spv_inject_no_contraction(&load_spv(spv_mv));
+        let pack_words = g14_pack_spv();
+        // 诊断面：RURIX_G14_PACK_SPV_DUMP=<path> 时落盘手编 pack SPV（spirv-val
+        // 独立验证臂；常态零成本）。
+        if let Ok(p) = std::env::var("RURIX_G14_PACK_SPV_DUMP")
+            && !p.is_empty()
+        {
+            let bytes = to_bytes(&pack_words);
+            std::fs::write(&p, &bytes)
+                .unwrap_or_else(|e| fail(&format!("pack SPV dump {p}: {e}")));
+        }
+        let (sx, sy, _) = spv_local_size(&scene_words);
+        let (mx, my, _) = spv_local_size(&mv_words);
+        let (px, py, _) = spv_local_size(&pack_words);
+        let mut pack_pc = Vec::with_capacity(8);
+        pack_pc.extend_from_slice(&iw.to_le_bytes());
+        pack_pc.extend_from_slice(&ih.to_le_bytes());
+        let spv_pack = to_bytes(&pack_words);
+        let pack_sha256 = sha256_hex(&spv_pack);
+        Self {
+            spv_scene: to_bytes(&scene_words),
+            spv_mv: to_bytes(&mv_words),
+            pack_sha256,
+            spv_pack,
+            pack_pc,
+            scene_dispatch: [iw.div_ceil(sx), ih.div_ceil(sy), 1],
+            mv_dispatch: [iw.div_ceil(mx), ih.div_ceil(my), 1],
+            pack_dispatch: [iw.div_ceil(px), ih.div_ceil(py), 1],
+        }
+    }
+}
+
+/// dlss 驻留车道描述组（12 资源 = 场景区 7 SSBO + mv 区 2 + 三 exportable
+/// 纹理；三 pass scene→mv→pack；readback 表**恒空**——digest 语义在 DLSS 输出
+/// 侧，scene 输出零 host 回读）。场景/mv 区布局与统一车道逐字同（G14.10d 驻留
+/// 判定规则同律：params 二小件 host-visible，其余 DEVICE_LOCAL）；纹理 usage =
+/// storage（pack compute 直写）+ sampled（DLSS 侧 sampled 消费,导入参数一致面）。
+#[allow(clippy::type_complexity)]
+fn dlss_lane_descs<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x DlssLaneBits,
+    iw: u32,
+    ih: u32,
+) -> (
+    [ResourceDesc<'x>; D_RESOURCE_COUNT],
+    [Pass<'x>; 3],
+    [&'static [(u32, TargetState)]; 3],
+    [Readback; 0],
+) {
+    let ipc = (iw * ih) as u64;
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })
+    };
+    let host_init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: false,
+        })
+    };
+    let host_buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: false,
+        })
+    };
+    let tex = |format: TexFormat| {
+        ResourceDesc::Texture(TextureDesc {
+            width: iw,
+            height: ih,
+            format,
+            usage: TextureUsage {
+                sampled: true,
+                storage: true,
+                color: false,
+                depth: false,
+            },
+            data: None,
+        })
+    };
+    let resources = [
+        init(&assets.tris_bytes),         // U_TRIS
+        init(&assets.mats_bytes),         // U_MATS
+        init(&assets.quads_bytes),        // U_QUADS
+        init(&assets.points_bytes),       // U_POINTS
+        host_init(&assets.params0_bytes), // U_SCENE_PARAMS（逐帧 192B 覆盖）
+        buf(assets.out_color_size),       // U_SCENE_COLOR（GPU 链内直读，零回读）
+        buf(assets.out_depth_size),       // U_SCENE_DEPTH（同上）
+        host_buf(40 * 4),                 // U_MV_PARAMS（逐帧 160B 覆盖）
+        buf(ipc * 8),                     // U_MV_OUT（2 f32/px；GPU 链内直读）
+        tex(TexFormat::Rgba32Float),      // D_TEX_COLOR（exportable）
+        tex(TexFormat::R32Float),         // D_TEX_DEPTH（exportable）
+        tex(TexFormat::Rg32Float),        // D_TEX_MV（exportable）
+    ];
+    let passes = [
+        Pass::Compute(ComputePass {
+            name: "g14_3_direct_gi",
+            spirv: &bits.spv_scene,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_mv",
+            spirv: &bits.spv_mv,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.mv_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_SCENE_DEPTH, U_MV_PARAMS, U_MV_OUT],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_pack",
+            spirv: &bits.spv_pack,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.pack_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_SCENE_COLOR, U_SCENE_DEPTH, U_MV_OUT],
+                storage_images: vec![D_TEX_COLOR, D_TEX_DEPTH, D_TEX_MV],
+                push_constants: bits.pack_pc.clone(),
+                ..Bindings::default()
+            },
+        }),
+    ];
+    let barriers = [U_PLAN_SCENE, U_PLAN_MV, D_PLAN_PACK];
+    (resources, passes, barriers, [])
+}
+
+/// dlss 驻留车道一帧产物（scene/mv/pack = DeviceFrameTelemetry 逐 pass GPU
+/// timestamp；upscale = `upscale_resident_external` 墙钟——vendor 独立 device
+/// 域无本执行器 telemetry 面，submit_wait 同步口径）。
+struct DlssResidentFrameRec {
+    scene_gpu_ns: f64,
+    mv_gpu_ns: f64,
+    pack_gpu_ns: f64,
+    cpu_record_ns: u64,
+    cpu_submit_ns: u64,
+    cpu_fence_wait_ns: u64,
+    validation_error_count: u64,
+    upscale_wall_ms: f64,
+}
+
+/// dlss 驻留统一车道状态机（render_exec exportable session + DLSS 外部导入
+/// session + prev_vp_j mv 状态；render/bench 双腿同一执行面）。跨界同步纪律：
+/// `execute_with_frame_update` 返回 = 该帧 fence 完成且 cmd 末已录
+/// VK_QUEUE_FAMILY_EXTERNAL release（layout GENERAL 收敛）→ 此后 evaluate 于
+/// cmd 首段录对应 acquire——release/acquire 逐帧配对（G14.10b 冒烟臂同律）。
+struct DlssResidentLane<'a> {
+    session: DeviceFrameSession<'a>,
+    dlss: DlssVkSession,
+    out_size: (u32, u32),
+    prev_vp_j: Option<Mat4>,
+}
+
+impl<'a> DlssResidentLane<'a> {
+    /// 创建：exportable session（exportable=[9,10,11]）→ DLSS session →
+    /// external_memory 能力门 → LUID 对拍（不等 = 接线硬错，fail-closed 直退
+    /// ——非环境缺失不走 dev_env 三态）→ 导出×3 → 导入×3（Color/Depth/Mv）。
+    /// 环境性缺失（loader/SDK/设备扩展）→ Err（调用方 dev_env 三态）。
+    #[allow(clippy::type_complexity)]
+    fn create(
+        descs: &'a (
+            [ResourceDesc<'a>; D_RESOURCE_COUNT],
+            [Pass<'a>; 3],
+            [&'static [(u32, TargetState)]; 3],
+            [Readback; 0],
+        ),
+        accel_structs: &[AccelStructDesc<'a>],
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+    ) -> Result<Self, String> {
+        if !vk::vulkan_available() {
+            return Err("vulkan loader 不可用".into());
+        }
+        let mut session = DeviceFrameSession::new_with_exportable_textures(
+            &descs.0,
+            &descs.1,
+            &descs.2,
+            &descs.3,
+            2,
+            accel_structs,
+            &[D_TEX_COLOR, D_TEX_DEPTH, D_TEX_MV],
+        )?;
         let dir = streamline_sdk_dir().map_err(|e| e.to_string())?;
-        let session =
+        // validation=false 沿现状 DlssBackend 口径（SL 代理 device 域自持；
+        // render_exec 侧 session 的 validation 由 RURIX_VK_VALIDATION 常规生效）。
+        let mut dlss =
             DlssVkSession::create(&dir, in_size, out_size, false).map_err(|e| e.to_string())?;
+        if !dlss.external_memory_enabled() {
+            return Err("DLSS 侧 VK_KHR_external_memory_win32 不在位（输入驻留面不可用）".into());
+        }
+        let src_luid = session
+            .physical_device_luid()
+            .ok_or("render_exec 侧 deviceLUIDValid=false")?;
+        let dst_luid = dlss
+            .physical_device_luid()
+            .ok_or("DLSS 侧 deviceLUIDValid=false")?;
+        if src_luid != dst_luid {
+            fail(&format!(
+                "dlss 驻留车道 LUID 不匹配（render_exec {src_luid:?} vs DLSS {dst_luid:?}）——不同 adapter 不可共享 device memory，fail-closed"
+            ));
+        }
+        for (idx, slot) in [
+            (D_TEX_COLOR, ExternalInputSlot::Color),
+            (D_TEX_DEPTH, ExternalInputSlot::Depth),
+            (D_TEX_MV, ExternalInputSlot::Mv),
+        ] {
+            let e = session.export_texture_win32_handle(idx as usize)?;
+            let desc = ExternalImageImportDesc {
+                handle: e.handle,
+                width: e.width,
+                height: e.height,
+                vk_format: e.vk_format,
+                usage_flags: e.usage_flags,
+                allocation_size: e.allocation_size,
+                memory_type_index: e.memory_type_index,
+            };
+            dlss.import_win32_input(slot, &desc)
+                .map_err(|err| format!("导入 {slot:?}: {err}"))?;
+        }
         Ok(Self {
             session,
-            in_size,
+            dlss,
             out_size,
-            pending_reset: true,
+            prev_vp_j: None,
         })
     }
 
-    /// G14.10 vendor 驻留输出接线（RFC-0030 §4.3；vendor 域退档方案 B）：测量帧
-    /// 跑满 pack→upload→evaluate→submit_wait 但跳过输出回读（时域历史链完整），
-    /// 末帧/需回读帧经 [`Self::readback_into`] 按需回读（与 upscale_into 同一
-    /// 转换事实源——evaluate 输出 image 内容相同，回读值位级同）。
-    fn upscale_resident(&mut self, inputs: &UpscaleInputs) {
-        let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
-        let vi = VendorFrameInput {
-            color: &inputs.color.data,
-            depth: &inputs.depth.data,
-            mv: &inputs.mv.data,
-            reactive: None,
-            exposure: inputs.exposure,
-            jitter: inputs.jitter,
-            frame_index: inputs.frame_index,
-            reset: inputs.reset,
+    /// 一帧：参数二小件上传（scene 192B + mv 160B）→ 三 pass GPU 链内执行
+    /// （readback_subset 恒 Some([]) 零回读；cmd 末 exportable 三标 EXTERNAL
+    /// release）→ DLSS `upscale_resident_external` 驻留 evaluate（acquire 配
+    /// 对）。mv prev_vp_j 状态机与 UnifiedTsrLane 同律（首帧 has_prev=0，
+    /// kernel 门直写零）。输出回读独立走 [`Self::readback_into`]（末帧/render
+    /// 逐帧/flip-trace 按需）。
+    #[allow(clippy::too_many_arguments)]
+    fn frame(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        jitter: [f32; 2],
+        eps: f32,
+        quad_count: usize,
+        point_count: usize,
+        inv_vp: &Mat4,
+        vp: &Mat4,
+        vp_j: &Mat4,
+        exposure: f32,
+        frame_index: u32,
+        reset: bool,
+    ) -> Result<DlssResidentFrameRec, String> {
+        let scene_params =
+            pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
+        let inv_cur = vp_j
+            .inverse()
+            .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
+        let prev = self.prev_vp_j.unwrap_or(*vp_j);
+        let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
+        let update = FrameUpdate {
+            tlas_update: None,
+            buffer_uploads: vec![
+                (
+                    StableResourceId(u64::from(U_SCENE_PARAMS) + 1),
+                    0,
+                    bytes_f32(&scene_params),
+                ),
+                (
+                    StableResourceId(u64::from(U_MV_PARAMS) + 1),
+                    0,
+                    bytes_f32(&mv_params),
+                ),
+            ],
+            binding_overrides: vec![],
+            push_constant_overrides: vec![],
+            readback_subset: Some(vec![]),
         };
-        self.session
-            .upscale_resident(&vi)
-            .unwrap_or_else(|e| panic!("DLSS upscale_resident 失败: {e}"));
+        let prov = self.session.next_provenance_with_update(&update)?;
+        let out = self.session.execute_with_frame_update(&prov, &update)?;
+        if !out.readbacks.is_empty() {
+            return Err(format!(
+                "dlss 驻留车道零回读面回读路数 {} ≠ 0",
+                out.readbacks.len()
+            ));
+        }
+        let gpu = |name: &str| -> Result<f64, String> {
+            out.telemetry
+                .passes
+                .iter()
+                .find(|pp| pp.name == name)
+                .map(|pp| pp.gpu_ns)
+                .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))
+        };
+        let scene_gpu_ns = gpu("g14_3_direct_gi")?;
+        let mv_gpu_ns = gpu("g14_mv")?;
+        let pack_gpu_ns = gpu("g14_pack")?;
+        // evaluate：execute 返回即该帧 fence 完成 + release 已录——内容有效性
+        // 契约满足（ExportedTextureWin32 文档面）。
+        let t_up = std::time::Instant::now();
+        self.dlss
+            .upscale_resident_external(&VendorExternalFrameParams {
+                reactive: None,
+                exposure,
+                jitter,
+                frame_index,
+                reset,
+            })
+            .map_err(|e| format!("DLSS upscale_resident_external: {e}"))?;
+        let upscale_wall_ms = t_up.elapsed().as_secs_f64() * 1000.0;
+        self.prev_vp_j = Some(*vp_j);
+        Ok(DlssResidentFrameRec {
+            scene_gpu_ns,
+            mv_gpu_ns,
+            pack_gpu_ns,
+            cpu_record_ns: out.telemetry.cpu_record_ns,
+            cpu_submit_ns: out.telemetry.cpu_submit_ns,
+            cpu_fence_wait_ns: out.telemetry.cpu_fence_wait_ns,
+            validation_error_count: out.telemetry.validation_error_count,
+            upscale_wall_ms,
+        })
     }
 
-    /// 驻留输出按需回读（末帧 digest/画质锚面）。
+    /// 驻留输出按需回读（DLSS 输出 image → 3ch f32；digest/EXR/画质锚面——
+    /// 与既有 readback_output_into 同一转换事实源）。
     fn readback_into(&mut self, dst: &mut ImageF32) {
         let (ow, oh) = self.out_size;
         dst.data.resize((ow * oh * 3) as usize, 0.0);
         dst.w = ow;
         dst.h = oh;
         dst.c = 3;
-        self.session
+        self.dlss
             .readback_output_into(&mut dst.data)
-            .unwrap_or_else(|e| panic!("DLSS readback_output_into 失败: {e}"));
-    }
-
-    /// G14.6 Stage A：驻留输出面（bench 腿专用；与 trait upscale 逐位一致——
-    /// vendor session upscale_into 驻留写，消逐帧 ~out_px·12B 分配+清零）。
-    fn upscale_into(&mut self, inputs: &UpscaleInputs, dst: &mut ImageF32) {
-        let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
-        let vi = VendorFrameInput {
-            color: &inputs.color.data,
-            depth: &inputs.depth.data,
-            mv: &inputs.mv.data,
-            reactive: inputs.reactive.map(|r| &r.data[..]),
-            exposure: inputs.exposure,
-            jitter: inputs.jitter,
-            frame_index: inputs.frame_index,
-            reset: inputs.reset || self.pending_reset,
-        };
-        self.pending_reset = false;
-        if dst.data.len() != (ow * oh * 3) as usize {
-            dst.data.resize((ow * oh * 3) as usize, 0.0);
-        }
-        dst.w = ow;
-        dst.h = oh;
-        dst.c = 3;
-        self.session
-            .upscale_into(&vi, &mut dst.data)
-            .unwrap_or_else(|e| panic!("DLSS upscale 失败: {e}"));
-    }
-}
-
-impl UpscaleBackend for DlssBackend {
-    fn name(&self) -> &str {
-        "dlss_sr"
-    }
-
-    fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
-        let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
-        let vi = VendorFrameInput {
-            color: &inputs.color.data,
-            depth: &inputs.depth.data,
-            mv: &inputs.mv.data,
-            reactive: inputs.reactive.map(|r| &r.data[..]),
-            exposure: inputs.exposure,
-            jitter: inputs.jitter,
-            frame_index: inputs.frame_index,
-            reset: inputs.reset || self.pending_reset,
-        };
-        self.pending_reset = false;
-        let data = self
-            .session
-            .upscale(&vi)
-            .unwrap_or_else(|e| panic!("DLSS upscale 失败: {e}"));
-        ImageF32 { w: ow, h: oh, c: 3, data }
-    }
-
-    fn reset_history(&mut self) {
-        self.pending_reset = true;
+            .unwrap_or_else(|e| fail(&format!("DLSS readback_output_into: {e}")));
     }
 }
 
@@ -3163,44 +3726,31 @@ impl UpscaleBackend for FsrBackend {
     }
 }
 
-/// vendor 双臂后端（tsr_device 臂已迁统一四 pass 车道 [`UnifiedTsrLane`]，
-/// 不再经 UpscaleBackend trait——本枚举仅承载 dlss_sr/fsr_3_1_5 现状结构）。
+/// vendor 后端（tsr_device 臂已迁统一四 pass 车道 [`UnifiedTsrLane`]；dlss_sr
+/// 臂 G14.10e 已迁驻留统一车道 [`DlssResidentLane`]——本枚举仅承载 fsr_3_1_5
+/// 现状结构，FSR resident 归 external memory 波另判）。
 enum Backend {
-    Dlss(DlssBackend),
     Fsr(FsrBackend),
 }
 
 impl UpscaleBackend for Backend {
     fn name(&self) -> &str {
         match self {
-            Backend::Dlss(b) => b.name(),
             Backend::Fsr(b) => b.name(),
         }
     }
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
         match self {
-            Backend::Dlss(b) => b.upscale(inputs),
             Backend::Fsr(b) => b.upscale(inputs),
         }
     }
     fn reset_history(&mut self) {
         match self {
-            Backend::Dlss(b) => b.reset_history(),
             Backend::Fsr(b) => b.reset_history(),
         }
     }
 }
 
-impl Backend {
-    /// G14.6 Stage A：bench 腿驻留输出统一面——vendor 双臂走 session upscale_into
-    /// 驻留写（逐位一致）。
-    fn upscale_into(&mut self, inputs: &UpscaleInputs, dst: &mut ImageF32) {
-        match self {
-            Backend::Dlss(b) => b.upscale_into(inputs, dst),
-            Backend::Fsr(b) => b.upscale_into(inputs, dst),
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // EXR 落盘（RXS-0385 rurix strict 元数据闭集；G10.5/G12.4/G13.4 同 image-io
@@ -3359,6 +3909,37 @@ fn unified_provenance_json(
         jstr(&sha(spv_resample)),
         jstr(&spv_resolve.replace('\\', "/")),
         jstr(&sha(spv_resolve)),
+    )
+}
+
+/// dlss 驻留统一车道 provenance（G14.10e：三 kernel SPV + vendor DLL 全登记；
+/// pack SPV 为手编内存构建无文件面，sha256 为内容面）。
+fn dlss_resident_provenance_json(
+    report: &VendorSessionReport,
+    spv_scene: &str,
+    spv_mv: &str,
+    pack_sha256: &str,
+) -> String {
+    let sha = |p: &str| {
+        std::fs::read(p)
+            .map(|b| format!("sha256:{}", sha256_hex(&b)))
+            .unwrap_or_else(|_| "unreadable".into())
+    };
+    let dlls: Vec<String> = report
+        .dlls
+        .iter()
+        .map(|d| format!("[{},{},{}]", jstr(&d.name), jstr(&d.sha256), d.bytes))
+        .collect();
+    format!(
+        "{{\"kind\":\"dlss_sr_resident\",\"lane\":\"render_exec exportable 三 pass（scene→mv→pack）GPU 链内直写 RGBA32F/R32F/RG32F exportable image → OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate（RFC-0030 §4.3；scene 回读/host mv/vendor host pack 中转税全消；LUID 对拍 fail-closed）\",\"spv_mv_no_contraction\":\"bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（统一车道同律；sha256 为文件面）\",\"spv_scene\":{},\"spv_scene_sha256\":{},\"spv_mv\":{},\"spv_mv_sha256\":{},\"spv_pack\":\"<hand-assembled in-memory：g14_pack_spv()，SPIR-V 1.0 LocalSize 8×8，SSBO 三源→storage image 三标 f32 位拷贝零浮点算术>\",\"spv_pack_sha256\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
+        jstr(&spv_scene.replace('\\', "/")),
+        jstr(&sha(spv_scene)),
+        jstr(&spv_mv.replace('\\', "/")),
+        jstr(&sha(spv_mv)),
+        jstr(&format!("sha256:{pack_sha256}")),
+        jstr(&report.gpu_name),
+        jstr(&report.engine_version),
+        dlls.join(","),
     )
 }
 
@@ -3848,6 +4429,105 @@ fn render_leg(
             "统一 DeviceFrameSession 四 pass 车道（new_with_accel_structs + execute_with_frame_update；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV → pass2/3=kernels/g14_8_tsr_{resample,resolve}.rx；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B/tsr 128B 参数上传 + TSR parity binding_overrides + 逐帧回读 TSR 输出出 EXR；GPU 链内零 host 往返——RFC-0030 §4.5 L2 + §4.3 L3）".to_owned(),
             "host Instant 墙钟；frame_ms = 逐帧全链路（参数打包+四 pass submit+fence+回读+EXR 落盘），scene_render_ms/mv_ms/upscale_ms = DeviceFrameTelemetry 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1，upscale=pass2+pass3——统一 session 后不再是独立 host 段，列名不变值语义改为 GPU 段），scene_gpu_ns = pass0 GPU ns".to_owned(),
         )
+    } else if backend_name == "dlss_sr" {
+        // G14.10e dlss 驻留统一车道（render 出图腿：逐帧 evaluate 后回读 DLSS
+        // 输出出 EXR——出图面凌驾性能）。dlss 臂恒 Mega 单 kernel（cornell 拆散
+        // 三 pass 仅 tsr_device 臂消费，本车道不接线——形态简化登记）。
+        let bits = DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let descs = dlss_lane_descs(&assets, &bits, in_w, in_h);
+        let blas_refs: [&[f32]; 1] = [&assets.tris];
+        let accel_structs = [AccelStructDesc {
+            scene: RayQuerySceneDesc {
+                blas_triangles: &blas_refs,
+                instances: &assets.instances,
+            },
+            transforms: None,
+        }];
+        let mut lane = match DlssResidentLane::create(
+            &descs,
+            &accel_structs,
+            (in_w, in_h),
+            (out_w, out_h),
+        ) {
+            Ok(l) => l,
+            Err(e) => dev_env_or_fail("dlss_sr", &e),
+        };
+        eprintln!(
+            "{TAG}: dlss 驻留统一车道就绪（scene→mv→pack 单 session 直写 exportable 三标；DLSS 外部导入驻留 evaluate；AS 常驻；逐帧参数二小件 352B）"
+        );
+        let mut out_img = ImageF32::new(out_w, out_h, 3);
+        for i in 0..frames {
+            let t_frame = std::time::Instant::now();
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let rec = match lane.frame(
+                in_w,
+                in_h,
+                j,
+                eps,
+                scene.quads.len(),
+                scene.points.len(),
+                &inv_vp,
+                &vp,
+                &vp_j,
+                exposure,
+                i,
+                i == 0,
+            ) {
+                Ok(r) => r,
+                Err(e) => fail(&format!("帧 {i} dlss 驻留车道: {e}")),
+            };
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "帧 {i} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            let t_rb = std::time::Instant::now();
+            lane.readback_into(&mut out_img);
+            let rb_el = t_rb.elapsed().as_secs_f64() * 1000.0;
+            if !out_img.data.iter().all(|v| v.is_finite()) {
+                fail(&format!("帧 {i} upscale 输出非有限"));
+            }
+            let name = format!("frame_{i:04}.exr");
+            let path = frames_dir.join(&name);
+            let bytes = write_exr(&path, out_w, out_h, &out_img.data, &contract.digest)
+                .unwrap_or_else(|e| fail(&e));
+            let digest = frame_content_digest(out_w, out_h, 3, &out_img.data);
+            frames_json.push(format!(
+                "{{\"name\":{},\"bytes\":{},\"digest\":{}}}",
+                jstr(&format!("frames/{name}")),
+                bytes,
+                jstr(&digest)
+            ));
+            converged_digest = digest;
+            converged = Some(out_img.clone());
+            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+            scene_ms.push(rec.scene_gpu_ns / 1e6);
+            mv_ms.push(rec.mv_gpu_ns / 1e6);
+            upscale_ms.push(rec.upscale_wall_ms + rb_el);
+            frame_ms.push(frame_el);
+            scene_gpu_ns.push(rec.scene_gpu_ns);
+            if i == 0 || (i + 1) % 8 == 0 || i + 1 == frames {
+                eprintln!(
+                    "{TAG}: 帧 {}/{frames} scene_gpu={:.3}ms mv_gpu={:.3}ms pack_gpu={:.3}ms upscale={:.3}ms(rb={rb_el:.3}ms) frame={frame_el:.3}ms",
+                    i + 1,
+                    rec.scene_gpu_ns / 1e6,
+                    rec.mv_gpu_ns / 1e6,
+                    rec.pack_gpu_ns / 1e6,
+                    rec.upscale_wall_ms,
+                );
+            }
+        }
+        let report = lane.dlss.report();
+        (
+            dlss_resident_provenance_json(&report, spv_scene, spv_mv, &bits.pack_sha256),
+            "dlss 驻留统一车道（new_with_exportable_textures 单 session 三 pass：pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F exportable image；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate → 逐帧 readback_output_into 出 EXR——RFC-0030 §4.3 G14.10e）".to_owned(),
+            "host Instant 墙钟；frame_ms = 逐帧全链路（参数打包+三 pass submit+fence+evaluate+DLSS 输出回读+EXR 落盘），scene_render_ms/mv_ms = DeviceFrameTelemetry 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段在 stderr 逐帧登记不入列），upscale_ms = upscale_resident_external 墙钟 + DLSS 输出回读墙钟（render 出图面），scene_gpu_ns = pass0 GPU ns".to_owned(),
+        )
     } else {
         let spv_scene_words = load_spv(spv_scene);
         let spv_scene_bytes: Vec<u8> = spv_scene_words
@@ -3987,12 +4667,8 @@ fn render_leg(
         );
 
         // vendor backend 创建（DEV_ENV 三态：GPU/vendor DLL 缺失 = dev_env
-        // degrade；tsr_device 已走统一车道分支，本 match 不再承载）。
+        // degrade；tsr_device/dlss_sr 已各走统一车道分支，本 match 仅承载 fsr）。
         let mut backend = match backend_name {
-            "dlss_sr" => match DlssBackend::create((in_w, in_h), (out_w, out_h)) {
-                Ok(b) => Backend::Dlss(b),
-                Err(e) => dev_env_or_fail("dlss_sr", &e),
-            },
             "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
                 Ok(b) => Backend::Fsr(b),
                 Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
@@ -4083,7 +4759,6 @@ fn render_leg(
             }
         }
         let vendor_report = match &backend {
-            Backend::Dlss(b) => Some(b.session.report()),
             Backend::Fsr(b) => Some(b.session.report()),
         };
         (
@@ -4363,6 +5038,131 @@ fn bench_leg(
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms = 全链墙钟（参数三小件打包+四 pass submit+fence[+回读帧回读]）；scene_render_ms/mv_ms/upscale_ms = 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1，upscale=pass2+pass3——统一 session 后不再是独立 host 段，列名不变值语义改为 GPU 段）".to_owned(),
             "G14plus 统一车道口径：测量循环零回读（readback_subset=[]）→ 测量帧 tail=0、frame_ms_production=frame_ms（生产帧本来就无回读/校验/digest 面，诚实口径）；末帧回读 TSR 输出 → tail = 回读字节→f32 转换 + is_finite 全帧校验 + digest（仅末帧有值；回读 GPU copy/fence 段留在 frame_ms/production——execute 内不可拆，量级 ~几 ms）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能，frame_ms 含回读税）；scene_render_ms/mv_ms/upscale_ms 列名不变值语义改为逐 pass GPU 毫秒段；M-c 门 smoke 消费 frame_ms_production_mean 与 last_frame_digest，不消费 mv_ms 语义".to_owned(),
         )
+    } else if backend_name == "dlss_sr" {
+        // G14.10e dlss 驻留统一车道（bench 测量腿：测量循环零 scene 回读 +
+        // DLSS 驻留 evaluate；末帧/flip-trace 帧按需回读 DLSS 输出做 digest）。
+        // dlss 臂恒 Mega 单 kernel（cornell 拆散三 pass 仅 tsr_device 臂消费，
+        // 本车道不接线——形态简化登记）。
+        let bits = DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let descs = dlss_lane_descs(&assets, &bits, in_w, in_h);
+        let blas_refs: [&[f32]; 1] = [&assets.tris];
+        let accel_structs = [AccelStructDesc {
+            scene: RayQuerySceneDesc {
+                blas_triangles: &blas_refs,
+                instances: &assets.instances,
+            },
+            transforms: None,
+        }];
+        let mut lane = match DlssResidentLane::create(
+            &descs,
+            &accel_structs,
+            (in_w, in_h),
+            (out_w, out_h),
+        ) {
+            Ok(l) => l,
+            Err(e) => dev_env_or_fail("dlss_sr", &e),
+        };
+        eprintln!(
+            "{TAG}: bench dlss 驻留统一车道就绪 warmup={warmup} frames={frames}（session 不销毁；scene→mv→pack 直写 exportable 三标 + DLSS 驻留 evaluate；测量循环零 scene 回读，末帧回读 DLSS 输出；flip_trace={}）",
+            flip_trace.is_some()
+        );
+        let mut out_img = ImageF32::new(out_w, out_h, 3);
+        let mut pack_probe_ms: Vec<f64> = Vec::new();
+        for i in 0..total {
+            let t_frame = std::time::Instant::now();
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let rec = match lane.frame(
+                in_w,
+                in_h,
+                j,
+                eps,
+                scene.quads.len(),
+                scene.points.len(),
+                &inv_vp,
+                &vp,
+                &vp_j,
+                exposure,
+                i,
+                i == 0,
+            ) {
+                Ok(r) => r,
+                Err(e) => fail(&format!("bench 帧 {i} dlss 驻留车道: {e}")),
+            };
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            // tail = DLSS 输出按需回读（墙钟）+ is_finite 全帧校验 + digest
+            // （末帧/flip-trace 帧；测量帧 resident 零回读 → tail=0，
+            // frame_ms_production=frame_ms——统一车道同律诚实口径）。
+            let is_last = i + 1 == total;
+            let need_readback = is_last || flip_trace.is_some();
+            let t_tail = std::time::Instant::now();
+            if need_readback {
+                lane.readback_into(&mut out_img);
+                if !out_img.data.iter().all(|v| v.is_finite()) {
+                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
+                }
+                last_digest = frame_content_digest(out_w, out_h, 3, &out_img.data);
+                if let Some(w) = flip_trace.as_mut() {
+                    use std::io::Write as _;
+                    writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
+                        .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                }
+            }
+            let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
+            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+            if i >= warmup {
+                frame_ms.push(frame_el);
+                scene_ms.push(rec.scene_gpu_ns / 1e6);
+                mv_ms.push(rec.mv_gpu_ns / 1e6);
+                upscale_ms.push(rec.upscale_wall_ms);
+                pack_probe_ms.push(rec.pack_gpu_ns / 1e6);
+                scene_gpu_ns.push(rec.scene_gpu_ns);
+                cpu_record_ns.push(rec.cpu_record_ns as f64);
+                cpu_submit_ns.push(rec.cpu_submit_ns as f64);
+                cpu_fence_wait_ns.push(rec.cpu_fence_wait_ns as f64);
+                tail_ms.push(tail_el);
+                prod_ms.push(frame_el - tail_el);
+            }
+            if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
+                eprintln!(
+                    "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms scene_gpu={:.3}ms mv_gpu={:.3}ms pack_gpu={:.3}ms upscale={:.3}ms rec={:.3}ms sub={:.3}ms fence={:.3}ms",
+                    i + 1,
+                    rec.scene_gpu_ns / 1e6,
+                    rec.mv_gpu_ns / 1e6,
+                    rec.pack_gpu_ns / 1e6,
+                    rec.upscale_wall_ms,
+                    rec.cpu_record_ns as f64 / 1e6,
+                    rec.cpu_submit_ns as f64 / 1e6,
+                    rec.cpu_fence_wait_ns as f64 / 1e6,
+                );
+            }
+        }
+        // pack 段 post-warmup 统计（receipt schema 无 pack 列——stderr 登记面；
+        // 性能瀑布报告消费）。
+        if !pack_probe_ms.is_empty() {
+            let mean = pack_probe_ms.iter().sum::<f64>() / pack_probe_ms.len() as f64;
+            let min = pack_probe_ms.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max = pack_probe_ms
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
+            eprintln!(
+                "{TAG}: DLSS_RESIDENT pack_gpu_ms mean={mean:.6} min={min:.6} max={max:.6}"
+            );
+        }
+        (
+            "dlss 驻留统一车道（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F exportable image；逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate——scene 回读/host mv/vendor host pack 中转税全消，RFC-0030 §4.3 G14.10e）".to_owned(),
+            "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms = 全链墙钟（参数二小件打包+三 pass submit+fence+evaluate[+回读帧 DLSS 输出回读]）；scene_render_ms/mv_ms = 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段 stderr DLSS_RESIDENT 行登记不入列）；upscale_ms = upscale_resident_external 墙钟（vendor 独立 device 域 submit_wait 同步口径，不含输出回读）".to_owned(),
+            "G14.10e dlss 驻留车道口径：测量循环零 scene 回读（readback 表恒空）+ DLSS 输出驻留（不回读）→ 测量帧 tail=0、frame_ms_production=frame_ms（诚实口径）；末帧回读 DLSS 输出 → tail = readback_output_into 墙钟 + is_finite 全帧校验 + digest（仅末帧有值）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能）；last_frame_digest 语义 = DLSS 输出（upscale 后 1080p 图），非 scene 输出；digest 锚登记：mv=GPU mv（vs host mv ULP 级差）+ color RGBA32F f32 直通（vs 现状 f16 pack）+ depth R32F（vs D32）——evaluate 输入位面变化，输出 digest 相对现状锚预期 L1 漂移，双跑位级确定性为门檩".to_owned(),
+        )
     } else {
         let spv_scene_words = load_spv(spv_scene);
         let spv_scene_bytes: Vec<u8> = spv_scene_words
@@ -4478,12 +5278,9 @@ fn bench_leg(
             Ok(s) => s,
             Err(e) => dev_env_or_fail("device_lane", &e),
         };
-        // vendor backend 创建（tsr_device 已走统一车道分支，本 match 不再承载）。
+        // vendor backend 创建（tsr_device/dlss_sr 已各走统一车道分支，本 match
+        // 仅承载 fsr）。
         let mut backend = match backend_name {
-            "dlss_sr" => match DlssBackend::create((in_w, in_h), (out_w, out_h)) {
-                Ok(b) => Backend::Dlss(b),
-                Err(e) => dev_env_or_fail("dlss_sr", &e),
-            },
             "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
                 Ok(b) => Backend::Fsr(b),
                 Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
@@ -4545,23 +5342,9 @@ fn bench_leg(
                 frame_index: i,
                 reset: i == 0,
             };
-            // G14.10 dlss 臂驻留输出接线（RFC-0030 §4.3 vendor 退档方案 B）：
-            // 测量帧 resident（跳过 24.9MB 输出回读——时域历史链在 vendor 侧完整
-            // 演化，末帧输出与逐帧回读版位级同）；末帧/flip-trace 帧按需回读做
-            // digest/is_finite。fsr 臂维持 upscale_into 逐帧回读（FSR resident
-            // 归 external memory 波另判）。
-            let is_last = i + 1 == total;
-            let need_readback = is_last || flip_trace.is_some();
+            // fsr 臂维持 upscale_into 逐帧回读（FSR resident 归 external memory
+            // 波另判；dlss_sr 已走驻留统一车道分支不再经本路径）。
             let out_ready = match &mut backend {
-                Backend::Dlss(b) => {
-                    b.upscale_resident(&inputs);
-                    if need_readback {
-                        b.readback_into(&mut out_img);
-                        true
-                    } else {
-                        false
-                    }
-                }
                 Backend::Fsr(b) => {
                     b.upscale_into(&inputs, &mut out_img);
                     true
@@ -4572,7 +5355,6 @@ fn bench_leg(
             // G14.6 口径分解：tail = bench 测量面（is_finite 全帧校验 + frame_content_digest
             // payload 重建+sha256）——非生产路径固有面；frame_ms（全量口径，G14.3 兼容）
             // 与 frame_ms_production（= frame − tail，M-d 对标消费面）双列同测，零行为变更。
-            // dlss 臂测量帧无输出数据（resident 面）——tail=0（与 tsr 统一车道同律）。
             let t_tail = std::time::Instant::now();
             if out_ready {
                 if !out.data.iter().all(|v| v.is_finite()) {
