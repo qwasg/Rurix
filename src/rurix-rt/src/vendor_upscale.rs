@@ -660,6 +660,10 @@ const VK_FORMAT_R8_UNORM: u32 = 9;
 const VK_FORMAT_R16G16B16A16_SFLOAT: u32 = 97;
 const VK_FORMAT_R32G32_SFLOAT: u32 = 103;
 const VK_FORMAT_D32_SFLOAT: u32 = 126;
+/// `VK_IMAGE_TYPE_2D`(= 1;3D = 2)。跨 device 共享 image 的 `imageType` 两侧
+/// 必须同值——否则同一块显存被按不同 tiling 布局解释(G14.12 实锤,见
+/// `import_win32_input`)。
+const VK_IMAGE_TYPE_2D: i32 = 1;
 const VK_IMAGE_LAYOUT_UNDEFINED: i32 = 0;
 const VK_IMAGE_LAYOUT_GENERAL: i32 = 1;
 const VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: i32 = 5;
@@ -3131,7 +3135,15 @@ impl DlssVkSession {
             s_type: VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             p_next: (&ext_info as *const VkExternalMemoryImageCreateInfo).cast(),
             flags: 0,
-            image_type: 2, // 2D
+            // `VK_IMAGE_TYPE_2D` = **1**(3D = 2)。G14.12 实锤:本处原为 `2` 且
+            // 注为 "2D"——即导入侧把导出侧的 2D image 当 3D 重建,同一块显存被
+            // 两侧按不同 tiling 布局解释,读出确定性块状乱序。这正是 G14.10f
+            // 把 image 共享判为「OPAQUE_WIN32 跨 device 布局解释不一致」并退回
+            // buffer+copy 的**真实根因**(驱动无过)。本机 memreq 对拍实证:
+            // 1920×1080 RGBA16F OPTIMAL,imageType=2D 需 17694720 字节、
+            // 3D 需 16588800 字节——尺寸不同 ⇒ 布局不同。render_exec 导出侧恒
+            // `IMAGE_TYPE_2D`(=1),此处必须同值。
+            image_type: VK_IMAGE_TYPE_2D,
             format: desc.vk_format,
             extent: VkExtent3D { width: desc.width, height: desc.height, depth: 1 },
             mip_levels: 1,
@@ -3255,6 +3267,16 @@ impl DlssVkSession {
         p: &VendorExternalFrameParams<'_>,
     ) -> Result<(), VendorError> {
         let px = (self.in_w * self.in_h) as usize;
+        // 分解遥测(`RURIX_VENDOR_TIMING=1` 门控,默认关零行为变更;轴 =
+        // staging〔reactive〕/ sl_book / record〔acquire+reactive 上传〕/
+        // evaluate〔slEvaluateFeature CPU 录制〕/ submit_wait〔GPU 执行+同步〕
+        // ——与 buffer 路 `dlss-buf` 行同轴,便于逐项对拍 copy 消除的收益)。
+        let vtm_on = std::env::var("RURIX_VENDOR_TIMING").ok().as_deref() == Some("1");
+        let vtm_t0 = std::time::Instant::now();
+        let mut vtm_staging = std::time::Duration::ZERO;
+        let mut vtm_book = std::time::Duration::ZERO;
+        let mut vtm_record = std::time::Duration::ZERO;
+        let mut vtm_eval = std::time::Duration::ZERO;
         let [Some((c, cu)), Some((d, du)), Some((m, mu))] = &self.ext_inputs else {
             return Err(VendorError::ApiError(
                 "外部输入未齐(color/depth/mv 三槽均须先 import_win32_input)".into(),
@@ -3269,6 +3291,9 @@ impl DlssVkSession {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
         // ── reactive staging(区段 [0, px);Some→R8 pack,None→零填充)──
+        // G14.12:恒零 mask 已驻留 → 跳过 map/fill/unmap(t100 面每帧省 2MB
+        // memset;image 内容与 layout 均恒定,跳过安全)。
+        if p.reactive.is_some() || !self.reactive_zero_resident {
         // SAFETY: staging host-visible+coherent;px ≤ staging_size(建面 21B/px);
         // map/写/unmap 单线程序列化。
         unsafe {
@@ -3287,6 +3312,10 @@ impl DlssVkSession {
                 None => reac.fill(0),
             }
             (self.dev.unmap_memory)(self.device, self.staging_mem);
+        }
+        }
+        if vtm_on {
+            vtm_staging = vtm_t0.elapsed();
         }
 
         // ── SL 簿记:frame token → constants → options(与 frame_impl_ext 同序;
@@ -3351,6 +3380,9 @@ impl DlssVkSession {
             )));
         }
 
+        if vtm_on {
+            vtm_book = vtm_t0.elapsed();
+        }
         let begin = VkCommandBufferBeginInfo {
             s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             p_next: std::ptr::null(),
@@ -3363,12 +3395,16 @@ impl DlssVkSession {
             return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
         }
         // ── acquire ×3(EXTERNAL→本家族,GENERAL→GENERAL 零转换;与 render_exec
-        // 帧末 release 逐帧配对——本方法每帧调用,render_exec 每帧 release)──
-        for res in [&ext_color, &ext_depth, &ext_mv] {
-            self.vk_barrier_acquire_external(res);
+        // 帧末 release 逐帧配对——本方法每帧调用,render_exec 每帧 release)。
+        // G14.12:三条并入单次 barrier 调用。──
+        self.vk_images_acquire_external_batched(&[&ext_color, &ext_depth, &ext_mv]);
+        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。G14.12:
+        // `reactive=None` 的恒零 mask 内容逐帧不变,首帧上传后跳过(buffer 路
+        // 同族收益;`Some(..)` 帧照常上传并复位标志)。
+        if p.reactive.is_some() || !self.reactive_zero_resident {
+            self.vk_upload_image(VkInputSlot::Reactive, 0);
+            self.reactive_zero_resident = p.reactive.is_none();
         }
-        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。
-        self.vk_upload_image(VkInputSlot::Reactive, 0);
         // color_out 置 GENERAL(DLSS UAV 写;与 frame_impl_ext 同律)。
         if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
             let out_res = self.color_out.clone_shallow();
@@ -3426,11 +3462,17 @@ impl DlssVkSession {
             &tags[3].base as *const _,
             &tags[4].base as *const _,
         ];
+        if vtm_on {
+            vtm_record = vtm_t0.elapsed();
+        }
         // SAFETY: tags/sl_* 栈上存活至 evaluate 返回(eOnlyValidNow 语义);cmd
         // 录制中;token 本帧有效。
         let r = unsafe {
             (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), 6, self.cmd)
         };
+        if vtm_on {
+            vtm_eval = vtm_t0.elapsed();
+        }
         if r != SL_OK {
             // cmd 处于录制态,收敛后返错(end+reset,不提交)。
             // SAFETY: cmd 录制中 → end;错误路径不提交。
@@ -3471,6 +3513,19 @@ impl DlssVkSession {
         }
         // SAFETY: cmd 已提交且 queue 排空。
         let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        if vtm_on {
+            let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+            eprintln!(
+                "[vendor-timing dlss-ext] frame={} staging={:.3} sl_book={:.3} record={:.3} evaluate={:.3} submit_wait={:.3} total={:.3}ms",
+                p.frame_index,
+                ms(vtm_staging),
+                ms(vtm_book - vtm_staging),
+                ms(vtm_record - vtm_book),
+                ms(vtm_eval - vtm_record),
+                ms(vtm_t0.elapsed() - vtm_eval),
+                ms(vtm_t0.elapsed()),
+            );
+        }
         Ok(())
     }
 
@@ -4006,6 +4061,51 @@ impl DlssVkSession {
                 &barrier as *const VkBufferMemoryBarrier as *const c_void,
                 0,
                 std::ptr::null(),
+            )
+        };
+    }
+
+    /// G14.12:外部导入 image 的 EXTERNAL acquire **批量**版——单次
+    /// `vkCmdPipelineBarrier` 承载 n 条 image barrier(逐条独立提交会串成 n 段
+    /// pipeline flush;buffer 路的批量屏障同族收益已实测 evaluate 0.25→0.055ms)。
+    fn vk_images_acquire_external_batched(&self, imgs: &[&VkImageRes]) {
+        if imgs.is_empty() {
+            return;
+        }
+        let bs: Vec<VkImageMemoryBarrier> = imgs
+            .iter()
+            .map(|res| VkImageMemoryBarrier {
+                s_type: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: VK_ACCESS_SHADER_READ,
+                old_layout: VK_IMAGE_LAYOUT_GENERAL,
+                new_layout: VK_IMAGE_LAYOUT_GENERAL,
+                src_queue_family_index: VK_QUEUE_FAMILY_EXTERNAL,
+                dst_queue_family_index: self.queue_family,
+                image: res.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: res.aspect,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            })
+            .collect();
+        // SAFETY: cmd 录制中;barrier 数组栈上存活至调用返回;image 均有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                bs.len() as u32,
+                bs.as_ptr(),
             )
         };
     }

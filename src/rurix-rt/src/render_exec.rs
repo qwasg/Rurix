@@ -1454,10 +1454,15 @@ impl<'a> DeviceFrameSession<'a> {
             ),
             None => (Vec::new(), Vec::new()),
         };
+        // G14.12:readback 子集「同形」时命令体逐字节不变 → 跳过重录(见
+        // NativeDeviceFrame::recorded_rb_sources)。TLAS update / binding override /
+        // push override 任一存在则命令体确实变化,照旧重录。
+        let rb_shape_stale = self.native.frame.recorded_rb_sources.as_deref()
+            != Some(effective_rb_sources.as_slice());
         let needs_rerecord = tlas.is_some()
             || !descriptor_overrides.is_empty()
             || !update.push_constant_overrides.is_empty()
-            || update.readback_subset.is_some();
+            || rb_shape_stale;
         let prepared = PreparedFrameUpdate {
             uploads: &uploads,
             tlas,
@@ -5251,6 +5256,19 @@ unsafe fn record_frame_body(
             ResourceDesc::Texture(_) => (LAYOUT_UNDEFINED, STAGE2_NONE, 0),
         })
         .collect();
+    // G14.12：跨界(exportable/D3D12 imported)image 的 layout 跨帧常驻 GENERAL
+    // ——帧末收敛态 = 帧首初值,免掉每帧一次 UNDEFINED→GENERAL 全表面压缩元数据
+    // 重初始化(1920×1080 三标实测 ≈0.3ms/帧)。初值仍只由资源种别 + 静态
+    // release 集决定(不依赖运行态),创建录制与重录同一规则;建面期
+    // initial_layout=UNDEFINED 由创建段 one-shot 迁移一次性补齐(见
+    // create_persistent_frame 的 layout_init_imgs 段)。跨帧写-写序由上一帧帧末
+    // EXTERNAL release(ALL_COMMANDS/MEMORY_WRITE 全域可用性)+ host 侧 fence
+    // 等待共同保证,故本 pass 无需再补 layout 转换。
+    for &res in p.exportable {
+        if matches!(p.rt[res as usize], RtRes::Img(_)) {
+            tracked[res as usize] = state_fields(TargetState::StorageImageReadWrite);
+        }
+    }
     // inline VB 跟踪(独立于 resources;上传后 = HOST_WRITE)。
     let mut inline_vb_tracked: Vec<TrackedState> = p
         .inline_vbs
@@ -5775,6 +5793,13 @@ struct NativeDeviceFrame {
     imported_indices: Vec<u32>,
     /// 建面 queue family(release barrier 的 src 家族;既有单 graphics queue 策略)。
     queue_family_index: u32,
+    /// G14.12:`cmd` 当前所载命令体的 readback 源集形(`None` = 创建期录制,含
+    /// 初始上传段,不可原样重放跳过重录)。`readback_subset` 逐帧同形(驻留车道
+    /// 恒 `Some([])`)且无 TLAS/binding/push override 时,命令体逐字节不变——
+    /// 据此跳过 `vkResetCommandBuffer`+重录,省下每帧 CPU 录制税(1080p 三 pass
+    /// 驻留车道实测 ≈0.23ms/帧)。host 上传段在 cmd 外(重录路
+    /// `record_upload_segment=false`),跳过重录不影响逐帧参数写入。
+    recorded_rb_sources: Option<Vec<usize>>,
 }
 
 /// FIF 流水 per-slot 资源(G14plus RFC-0030 §4.3 L2;懒建于首次
@@ -7471,7 +7496,20 @@ unsafe fn execute_on_device(
         // vkQueueWaitIdle)。fence 等待后 GPU copy 已完成且写已可用(fence signal
         // 含全域 availability),后续帧提交经 host 序 happens-after——免跨提交
         // barrier。staging 随即销毁 + cleanup/ledger 同步摘除(稳态零驻留)──
-        if !init_copies.is_empty() {
+        // G14.12：exportable/imported 跨界 image 的 layout 常驻 GENERAL——建面期
+        // 一次性 UNDEFINED→GENERAL 迁移(与初始数据上传共用同一 one-shot cmd +
+        // fence 有界等待),此后帧内初值/收敛态恒 GENERAL,免掉每帧一次全表面
+        // 压缩元数据重初始化(实测 1920×1080 三标 ≈0.3ms/帧)。
+        let layout_init_imgs: Vec<(VkImage, u32)> = exportable
+            .iter()
+            .copied()
+            .chain(imported_d3d12.iter().map(|&(r, _)| r))
+            .filter_map(|res| match &rt[res as usize] {
+                RtRes::Img(ri) => Some((ri.image, ri.format.aspect_mask())),
+                RtRes::Buf(_) => None,
+            })
+            .collect();
+        if !init_copies.is_empty() || !layout_init_imgs.is_empty() {
             const INIT_UPLOAD_WAIT_NS: u64 = 5_000_000_000;
             let cbai = CommandBufferAllocateInfo {
                 s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -7511,6 +7549,43 @@ unsafe fn execute_on_device(
                         size: len,
                     };
                     (dev.cmd_copy_buf)(up_cmd, sbuf, dst, 1, &region);
+                }
+                if !layout_init_imgs.is_empty() {
+                    let bs: Vec<ImageMemoryBarrier2> = layout_init_imgs
+                        .iter()
+                        .map(|&(image, aspect_mask)| ImageMemoryBarrier2 {
+                            s_type: ST_IMAGE_MEMORY_BARRIER_2,
+                            p_next: std::ptr::null(),
+                            src_stage_mask: STAGE2_ALL_COMMANDS,
+                            src_access_mask: 0,
+                            dst_stage_mask: STAGE2_ALL_COMMANDS,
+                            dst_access_mask: ACCESS2_MEMORY_WRITE,
+                            old_layout: LAYOUT_UNDEFINED,
+                            new_layout: LAYOUT_GENERAL,
+                            src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                            image,
+                            subresource_range: VkImageSubresourceRange {
+                                aspect_mask,
+                                base_mip_level: 0,
+                                level_count: 1,
+                                base_array_layer: 0,
+                                layer_count: 1,
+                            },
+                        })
+                        .collect();
+                    let di = DependencyInfo {
+                        s_type: ST_DEPENDENCY_INFO,
+                        p_next: std::ptr::null(),
+                        dependency_flags: 0,
+                        memory_barrier_count: 0,
+                        p_memory_barriers: std::ptr::null(),
+                        buffer_memory_barrier_count: 0,
+                        p_buffer_memory_barriers: std::ptr::null(),
+                        image_memory_barrier_count: bs.len() as u32,
+                        p_image_memory_barriers: bs.as_ptr(),
+                    };
+                    (dev.cmd_barrier2)(up_cmd, &di);
                 }
                 if (dev.end_cmd)(up_cmd) != VK_SUCCESS {
                     return Err("初始数据上传: vkEndCommandBuffer 失败".into());
@@ -7653,6 +7728,8 @@ unsafe fn execute_on_device(
                 exportable_buf_sizes,
                 imported_indices,
                 queue_family_index: qfi,
+                // 创建期录制(含初始上传段)：首次 FrameUpdate 必重录后才可跳过。
+                recorded_rb_sources: None,
             });
             retained = true;
             return Ok(Vec::new());
@@ -8563,6 +8640,8 @@ unsafe fn submit_persistent_frame(
             if (native.frame.dev.end_cmd)(cmd) != VK_SUCCESS {
                 return Err("FrameUpdate: vkEndCommandBuffer 失败".into());
             }
+            // 命令体所载 readback 源集形登记(下一帧同形即可原样重放)。
+            native.frame.recorded_rb_sources = Some(up.effective_rb_sources.to_vec());
         }
         record_ns = elapsed_ns(record_started);
     }
