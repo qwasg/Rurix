@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G14.12 M-h(M179) continuation_closeout evidence",
+  "description": "evidence/g14_m_h_continuation_closeout_<UTC>.json。G14plus 延续波收口门 g14.p0.m_h.continuation_closeout（G14_ACCEPTANCE_MAP 附录 A M-h 行/G14_CONTRACT §7 裁决 7 延续波程序面/RFC-0030 §4.7 锚重收割程序/G14PLUS_RECORD §2）：digest 锚重收割合法性三证（锚 reharvest 字段完备〔harvested_utc/source_gate_run/base_commit/double_harvest_bitexact〕+ 收割前置 M-c 复跑绿〔double_run_bitexact〕+ 锚 18 格与最新 M-d evidence digest 守护面逐字一致）+ M-d 18/18 达标（status=pass）+ fps 差距登记表空表终态（items=[] + 双场景 no_gap_explicit）+ RD-045 修复/缓解登记完备（history 只追加 + status open 维持）+ G14plus 波验收记录在树（契约 §8.8/§8.9/§8.10/§8.12 标题机核，§8.11 条件波如实登记）+ RED 双臂（anchor-tamper 检出/unmet-masquerade 拒绝）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g14_m_h_continuation_closeout" },
+    "symbolic_gate_key": { "type": "string", "const": "g14.p0.m_h.continuation_closeout" },
+    "matrix_row": { "type": "string", "const": "M179" },
+    "milestone": { "type": "string", "const": "M179" },
+    "assertion_id": { "type": "string", "const": "g14.p0.m_h.continuation_closeout" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G14.12" },
+    "numeric_step": { "type": "integer", "const": 265 },
+    "source_ref": {
+      "type": "string",
+      "const": "G14_ACCEPTANCE_MAP 附录 A M-h;G14_CONTRACT §7 裁决 7;RFC-0030 §4.7 锚重收割三证;G14PLUS_RECORD §2;G14_P2_DECISIONS 表后事件登记（G14plus 立项条）"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "not_applicable"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_reharvest_three_proofs",
+        "md_full_pass_18_of_18",
+        "fps_registry_empty_final",
+        "rd045_mitigation_registered",
+        "wave_records_on_tree",
+        "red_arms_effective"
+      ],
+      "properties": {
+        "anchor_reharvest_three_proofs": { "type": "boolean" },
+        "md_full_pass_18_of_18": { "type": "boolean" },
+        "fps_registry_empty_final": { "type": "boolean" },
+        "rd045_mitigation_registered": { "type": "boolean" },
+        "wave_records_on_tree": { "type": "boolean" },
+        "red_arms_effective": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_file",
+        "anchor_reharvest",
+        "md_evidence",
+        "fps_registry",
+        "rd045",
+        "wave_records",
+        "red"
+      ],
+      "properties": {
+        "anchor_file": { "type": "string" },
+        "anchor_reharvest": { "type": "object" },
+        "md_evidence": { "type": "object" },
+        "fps_registry": { "type": "object" },
+        "rd045": { "type": "object" },
+        "wave_records": { "type": "object" },
+        "red": { "type": "object" }
+      }
+    }
+  }
+}

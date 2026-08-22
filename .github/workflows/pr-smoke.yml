@@ -3174,6 +3174,18 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_closeout_check.py --gate g14.wave.5b.closeout
 
+      # 步骤 265（G14plus 延续波收口门 g14.p0.m_h.continuation_closeout；
+      # G14_ACCEPTANCE_MAP 附录 A M-h 行/RFC-0030 §4.7/G14PLUS_RECORD §2；
+      # 落盘前实测 CI_step.next_free=265 顺位领取——G14plus 波0 治理批 materialize
+      # 真脚本真步骤，pr-smoke 侧 --verify-latest 秒级核最新 evidence；full-run
+      # 本地 --gate 产 evidence）。六 checks：digest 锚重收割合法性三证 +
+      # M-d 18/18 达标 + fps 登记表空表终态 + RD-045 修复/缓解登记完备 +
+      # G14plus 波验收记录在树 + RED 双臂（anchor-tamper/unmet-masquerade）。
+      # evidence 落盘 evidence/g14_m_h_continuation_closeout_<UTC>.json。
+      - name: G14plus M-h continuation closeout verify-latest (g14.p0.m_h.continuation_closeout)
+        shell: powershell
+        run: py -3 ci/g14_continuation_closeout_smoke.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

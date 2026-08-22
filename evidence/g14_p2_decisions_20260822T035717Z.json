@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "subject": "g14_p2_decisions",
+  "symbolic_gate_key": "g14.wave.5a.decisions",
+  "matrix_row": "G14.5a",
+  "wave": "G14.5a",
+  "numeric_step": 261,
+  "source_ref": "G14_CONTRACT G-G14-7;G14_P2_DECISIONS.md v1.0;G14_CANDIDATE_DECISIONS v1.0;G14_ACCEPTANCE_MAP §1/附录 A;registry/deferred.json（G14.5a P2 行）;g14_fps_gap_registry（M-d 门产 18 行 P2 行集）;g13/g12 三表终态只消费不回写;G14_CONTRACT §8.3~§8.7",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_frozen",
+      "status": "PASS",
+      "detail": "got n=42 unique=42; expect frozen 42"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G15+（**G14 重评窗结论 = 维持未命中**）"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 窗登记 = 未齐备，G14.1 已追记）"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G15+（独立期）"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 窗登记 = 数据面部分落地）"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G15+"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 窗登记 = benchmark/窗口双臂维持）"
+    },
+    {
+      "id": "row_G10-N11",
+      "status": "PASS",
+      "detail": "**go（G14.2 M-b 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G10-N16",
+      "status": "PASS",
+      "detail": "**go（G14.4 M-d 兑现完结，closed-go 留痕——通过线未达标面归 §3 G14-N8 行）**"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 窗登记 = 未消费）"
+    },
+    {
+      "id": "row_G11-N3",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 部分兑现登记 = A/B 出图面产出）"
+    },
+    {
+      "id": "row_G11-N5",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 窗登记 = 未齐备）"
+    },
+    {
+      "id": "row_G11-N8",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15 字面维持）"
+    },
+    {
+      "id": "row_G11-N9",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15 字面维持）"
+    },
+    {
+      "id": "row_G12-N10",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15 字面维持）"
+    },
+    {
+      "id": "row_G12-N12",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15；G14 只消费不回写）"
+    },
+    {
+      "id": "row_G12-N13",
+      "status": "PASS",
+      "detail": "defer-to-G15+（**M-e 漂移监控臂承接兑现**——G14 复跑面监控结果入 M-e 门 evidence）"
+    },
+    {
+      "id": "row_G13-N7",
+      "status": "PASS",
+      "detail": "defer-to-G15+（G14 重评窗结论 = 不立项，G14.1 已追记）"
+    },
+    {
+      "id": "row_G13-N8",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15；G14 只消费不回写）"
+    },
+    {
+      "id": "row_G13-N9",
+      "status": "PASS",
+      "detail": "defer-to-G15+（锚定 G15；G14 只消费不回写）"
+    },
+    {
+      "id": "row_G14-N1",
+      "status": "PASS",
+      "detail": "**go（G14.2 M-a 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N2",
+      "status": "PASS",
+      "detail": "**go（G14.2 M-b 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N3",
+      "status": "PASS",
+      "detail": "**go（G14.3 M-c 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N4",
+      "status": "PASS",
+      "detail": "**go（G14.4 M-d 兑现完结，closed-go 留痕——通过线未达标面归 §3 G14-N8 行）**"
+    },
+    {
+      "id": "row_G14-N5",
+      "status": "PASS",
+      "detail": "**go（G14.5a M-e 承载——本波真跑面）**"
+    },
+    {
+      "id": "row_G14-N6",
+      "status": "PASS",
+      "detail": "no-go（维持未提交不混入）"
+    },
+    {
+      "id": "row_G14-N7",
+      "status": "PASS",
+      "detail": "**go（口径裁决登记完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N8",
+      "status": "PASS",
+      "detail": "defer-to-G15+（**未达标如实登记不冒充**；继续优化面 G16+ 承接）"
+    },
+    {
+      "id": "row_G14-N9",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；**异己面阻塞如实登记**）"
+    },
+    {
+      "id": "row_G14-N10",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；异己面 + 结构性大改双阻塞）"
+    },
+    {
+      "id": "row_G14-N11",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；**temporal 底座 0-byte 面，须独立 Full RFC**）"
+    },
+    {
+      "id": "row_G14-N12",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；G14.6 遥测重估让位在案）"
+    },
+    {
+      "id": "row_G14-N13",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；诚实边界在案）"
+    },
+    {
+      "id": "row_G14-N14",
+      "status": "PASS",
+      "detail": "defer-to-G15+（继续优化面 G16+ 承接；独立立项评估面）"
+    },
+    {
+      "id": "row_G14-N15",
+      "status": "PASS",
+      "detail": "**go（G14.6 M-f 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N16",
+      "status": "PASS",
+      "detail": "**go（G14.7 M-g 兑现完结，closed-go 留痕）**"
+    },
+    {
+      "id": "row_G14-N17",
+      "status": "PASS",
+      "detail": "no-go（留档——实测量级预期不成立如实登记）"
+    },
+    {
+      "id": "row_G14-N18",
+      "status": "PASS",
+      "detail": "**go（G14.6 遥测证伪完结，closed-go 留痕）**"
+    },
+    {
+      "id": "acceptance_map_mutex",
+      "status": "PASS",
+      "detail": "MAP §1 P0 行=5（expect 5）；P2 表命中已 go M### 裸 token: 无"
+    },
+    {
+      "id": "deferred_history_reconcile",
+      "status": "PASS",
+      "detail": "G14.5a history: [('RD-040', 1), ('RD-045', 1)]"
+    },
+    {
+      "id": "candidate_decisions_reconcile",
+      "status": "PASS",
+      "detail": "承接行对账 n=24/24"
+    },
+    {
+      "id": "gap_registries_reconcile",
+      "status": "PASS",
+      "detail": "g14 帧率表 18 行 == 最新 M-d unmet_count（g14_m_d_dual_end_fps_parity_20260821T132325Z.json）; g13_upscale 8 行终态 0-byte（porcelain 空）; g13_lumen 2 行终态 0-byte（porcelain 空）; g12_pt 10 行终态 0-byte（porcelain 空）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260822T035717Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G14.5a P2/留档/未触发分项穷举决策（42 行闭集：closed-go 11 + no-go 2 + defer-to-G15+ 29，strategic_override 0）；defer 必有承接锚（重判条件+兜底+G15+/G16+ 重评窗）；与 MAP §1 五 P0 互斥；deferred.json history 对账（RD-040 +1〔M52 G14 重评窗维持未命中终态登记〕，零新 RD，status 全 open）；G14.1 候选决策表 24 行承接对账；g14 帧率差距表 18 行 == 最新 M-d unmet_count + g13/g12 三表终态 0-byte；触发评估窗结论如实登记（M52 双窗未命中/M100-high 未齐备/M114-strand 部分落地/G10-N17 未消费/G11-N5 未齐备/G13-N7 不立项）；M-d 通过线 ×1.00 未达标如实登记不冒充（G14-N8 承载，继续优化面 G16+ 承接）；no-go/defer 如实保持 open 不写进全绿叙述"
+}

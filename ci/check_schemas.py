@@ -824,6 +824,10 @@ def check_evidence_files() -> None:
     g14_m_g_vendor_parallel_conversion_schema = load(
         ROOT / "milestones/g14/g14_m_g_vendor_parallel_conversion_evidence_schema.json"
     )
+    # G14plus 波0 治理批：M-h 延续波收口门前缀纯追加
+    g14_m_h_continuation_closeout_schema = load(
+        ROOT / "milestones/g14/g14_m_h_continuation_closeout_evidence_schema.json"
+    )
     g14_wave7_exit_schema = load(
         ROOT / "milestones/g14/g14_wave7_exit_evidence_schema.json"
     )
@@ -1974,6 +1978,12 @@ def check_evidence_files() -> None:
     g14_m_g_vendor_parallel_conversion_validator = (
         jsonschema.Draft7Validator(g14_m_g_vendor_parallel_conversion_schema)
         if g14_m_g_vendor_parallel_conversion_schema is not None
+        else None
+    )
+    # G14plus 波0 治理批：M-h 延续波收口门前缀纯追加
+    g14_m_h_continuation_closeout_validator = (
+        jsonschema.Draft7Validator(g14_m_h_continuation_closeout_schema)
+        if g14_m_h_continuation_closeout_schema is not None
         else None
     )
     g14_wave7_exit_validator = (
@@ -3804,6 +3814,12 @@ def check_evidence_files() -> None:
         ):
             # G14.7 延续波门 M-g vendor 转换并行化（步骤 259）→ parity 节闭集。
             validator = g14_m_g_vendor_parallel_conversion_validator
+        elif (
+            f.name.startswith("g14_m_h_continuation_closeout_")
+            and g14_m_h_continuation_closeout_validator is not None
+        ):
+            # G14plus M-h 延续波收口门（步骤 265）→ parity 节闭集。
+            validator = g14_m_h_continuation_closeout_validator
         elif (
             f.name.startswith("g14_m_g_probe_")
             and g14_m_c_measured_entry_validator is not None
