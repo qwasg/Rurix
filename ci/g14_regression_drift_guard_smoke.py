@@ -387,30 +387,47 @@ def run_gate() -> int:
     for spec in SPOT_GATES:
         r = run(spec["argv"], env_extra=spec["env"])
         if spec["id"] in HONEST_RED_AGGREGATES:
-            # 诚实红聚合门特判（HONEST_RED_AGGREGATES 登记面字面）
+            # 聚合门双分支特判(HONEST_RED_AGGREGATES 登记面字面;G14plus
+            # RFC-0030/G14.12 达标分支加性):
+            #   达标分支 = exit0 + facts 全绿 + checks 全真 + M-d 行 PASS 镜像
+            #   诚实红分支 = exit1 + facts 全绿 + 余 checks 全真 + M-d 行 FAIL 镜像
+            # 两分支互斥,均要求聚合如实镜像最新 M-d 实测态(不遮蔽机核维持)。
             ok_state = False
             ev_ts = ""
             wpath = wel.load_latest_evidence(spec["subject"])
             wdoc = wel.load_json(wpath) if wpath else {}
-            if r.returncode == 1 and wdoc:
+            if wdoc:
                 wfacts = wdoc.get("extra_facts") or []
                 wchecks = wdoc.get("checks") or {}
                 wrows = wdoc.get("required_gates") or []
-                md_row_fail = any(
-                    rr.get("subject_prefix") == "g14_m_d_dual_end_fps_parity" and rr.get("status") == "FAIL"
-                    for rr in wrows
+                md_status = next(
+                    (rr.get("status") for rr in wrows
+                     if rr.get("subject_prefix") == "g14_m_d_dual_end_fps_parity"),
+                    None,
                 )
-                ok_state = (
-                    bool(wfacts)
-                    and all(f.get("status") == "PASS" for f in wfacts)
+                facts_ok = bool(wfacts) and all(f.get("status") == "PASS" for f in wfacts)
+                others_ok = all(
+                    v is True for k, v in wchecks.items() if k != "all_required_gates_pass"
+                )
+                ok_green = (
+                    r.returncode == 0 and facts_ok and others_ok
+                    and wchecks.get("all_required_gates_pass") is True
+                    and md_status == "PASS"
+                )
+                ok_red = (
+                    r.returncode == 1 and facts_ok and others_ok
                     and wchecks.get("all_required_gates_pass") is False
-                    and all(v is True for k, v in wchecks.items() if k != "all_required_gates_pass")
-                    and md_row_fail
+                    and md_status == "FAIL"
                 )
+                ok_state = ok_green or ok_red
                 ev_ts = wdoc.get("timestamp") or ""
             fresh = bool(ev_ts) and ev_ts >= started_stamp
             if not ok_state:
-                spot_bad.append(f"{spec['id']} 诚实红聚合面异常: exit={r.returncode}（合格面 = exit1+facts 绿+M-d 行 FAIL 镜像）")
+                spot_bad.append(
+                    f"{spec['id']} 聚合面异常: exit={r.returncode}"
+                    "（合格面 = exit0+facts 绿+M-d 行 PASS 镜像〔达标〕"
+                    " 或 exit1+facts 绿+M-d 行 FAIL 镜像〔诚实红〕）"
+                )
             if not fresh:
                 stale_bad.append(f"{spec['id']} evidence 陈旧: {ev_ts} < {started_stamp}")
             spot_rows.append({
