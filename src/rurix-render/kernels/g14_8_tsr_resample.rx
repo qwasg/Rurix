@@ -6,13 +6,24 @@
 // ## 变体身份（与 g13_tsr_resample.rx 的关系）
 // 本文件 = `g13_tsr_resample.rx` 的**调度面变体**：`ThreadCtx<1>` 无
 // numthreads（LocalSize 1,1,1 × dispatch [n,1,1]——百万工作组×1 线程调度
-// 灾难，bistro TSR upscale 实测 ~120ms 三档锁死）→ `#[numthreads(8, 8, 1)]`
-// 2D 线程组 + 越界门。**逐像素数学全式逐字不变**（Catmull-Rom 重采样/抗振铃
+// 灾难，bistro TSR upscale 实测 ~120ms 三档锁死）→ 2D 线程组 + 越界门。
+// **逐像素数学全式逐字不变**（Catmull-Rom 重采样/抗振铃
 // 钳/深度最近邻/YCoCg 亮度全部与原 kernel 同式同序）；逐像素独立无跨像素
 // 交互 → 调度重排位级不变（digest 机核 = 变体输出 == 原 kernel 输出，同输入
 // 同 seed）。原 `g13_tsr_resample.rx` 逐字节 0-byte 保留（G13 M-b 门消费面
 // 维持 + RD-045 归因对照臂——「TSR 车道零触碰」对照可回溯）。
-// host 调用面：dispatch = [ceil(ow/8), ceil(oh/8), 1]（原 [ow*oh,1,1]）。
+// host 调用面：dispatch = [ceil(ow/LSx), ceil(oh/LSy), 1]（bin 自 SPV
+// LocalSize 派生——SPV 单一事实源，G14.10c 起与 scene/mv 腿同律）。
+//
+// ## G14.10c LocalSize 形态调优（访存优化波；数学面 0-byte）
+// G14.9 首落 8×8（64 线程/组）→ **32×4（128 线程/组）**：warp=完整 32 宽
+// 输出行 → 行主序 SSBO 读写整 warp 连续合并（3 f32/px 交织下 384B/warp 连续
+// 段），显著降 host-visible（PCIe）SSBO 的事务浪费。实测 bistro t50
+// resample 6.64→~4.4ms、resolve 20.65→~11.7ms（tsr_gpu 27.3→~16.1ms，同
+// 时钟态对照；候选面 16×16/32×8/32×4/64×4/16×8/32×16 扫描后 32×4 于
+// bistro t50 与 cornell t67 双场景一致最优）；digest 位级不变（逐像素独立，
+// LocalSize 仅改调度形态不触数学序——优化前后既有锚逐字复现：cornell
+// render converged=86dda848… / bistro t50 bench 160 帧=8baadc14…）。
 //
 // ## 重采样公式面/确定性协议/参数面
 // 与 g13_tsr_resample.rx 文件头 §重采样公式面/§确定性协议/§参数面逐字同源
@@ -20,7 +31,7 @@
 // 缓冲布局不变）——本文件不复述，唯一差异 = 线程组形态与索引推导：
 // i = py·ow + px（px<ow ∧ py<oh 越界门，与 1D 形态 i<pixel_count 同覆盖域，
 // pixel_count = ow·oh 恒成立于本车道）。
-#[numthreads(8, 8, 1)]
+#[numthreads(32, 4, 1)]
 kernel fn g14_8_tsr_resample(
     t: ThreadCtx<2>,
     in_color: View<global, f32>,

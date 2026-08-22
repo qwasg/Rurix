@@ -5,18 +5,27 @@
 //
 // ## 变体身份（与 g13_tsr_resolve.rx 的关系）
 // 本文件 = `g13_tsr_resolve.rx` 的**调度面变体**：`ThreadCtx<1>` 无 numthreads
-// （LocalSize 1,1,1）→ `#[numthreads(8, 8, 1)]` 2D 线程组 + 越界门。**逐像素
+// （LocalSize 1,1,1）→ 2D 线程组 + 越界门。**逐像素
 // 数学全式逐字不变**（闪烁时域分析/MV 上采样/历史重投影/深度验证/reactive
 // 双通道/YCoCg AABB 裁剪/alpha 混合/RED 注入位全部与原 kernel 同式同序）；
 // 逐像素独立无跨像素交互 → 调度重排位级不变（digest 机核）。原
 // `g13_tsr_resolve.rx` 逐字节 0-byte 保留（G13 M-b 门消费面维持 + RD-045
-// 归因对照臂）。host 调用面：dispatch = [ceil(ow/8), ceil(oh/8), 1]。
+// 归因对照臂）。host 调用面：dispatch = [ceil(ow/LSx), ceil(oh/LSy), 1]
+// （bin 自 SPV LocalSize 派生——SPV 单一事实源，G14.10c 起与 scene/mv 同律）。
+//
+// ## G14.10c LocalSize 形态调优（访存优化波；数学面 0-byte）
+// G14.9 首落 8×8（64 线程/组）→ **32×4（128 线程/组）**：warp=完整 32 宽
+// 输出行 → 行主序 SSBO 读写整 warp 连续合并，显著降 host-visible（PCIe）
+// SSBO 的事务浪费（本 kernel ~57 读/px 为 tsr_gpu 大头）。实测 bistro t50
+// resolve 20.65→~11.7ms（候选面 16×16/32×8/32×4/64×4/16×8/32×16 扫描后
+// 32×4 双场景一致最优）；digest 位级不变（逐像素独立，LocalSize 仅改调度
+// 形态不触数学序）。
 //
 // ## 公式面/RED 注入位/确定性协议/参数面
 // 与 g13_tsr_resolve.rx 文件头各节逐字同源（params 32 f32 布局与全部缓冲
 // 布局不变）——本文件不复述，唯一差异 = 线程组形态与索引推导：
 // i = py·ow + px（px<ow ∧ py<oh 越界门，与 1D 形态 i<pixel_count 同覆盖域）。
-#[numthreads(8, 8, 1)]
+#[numthreads(32, 4, 1)]
 kernel fn g14_8_tsr_resolve(
     t: ThreadCtx<2>,
     cur_rgb: View<global, f32>,

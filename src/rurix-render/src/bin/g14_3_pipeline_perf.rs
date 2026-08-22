@@ -2053,6 +2053,14 @@ const U_OUT_COLOR: [u32; 2] = [16, 17];
 const U_OUT_SIGN: [u32; 2] = [18, 19];
 const U_OUT_SCORE: [u32; 2] = [20, 21];
 const U_RESOURCE_COUNT: usize = 22;
+/// G14.10b cornell 拆散车道追加资源（Split 形态专属；RFC-0030 授权 G14.4 取证
+/// f 条兑现——16 样本拆散重排：primary 写 hitinfo → scatter 16 层每 invocation
+/// 1 条 first-hit 阴影 ray → reduce 固定 0..15 序重算几何项累加与原串行循环
+/// 位级同序）。
+const U_HIT_T: u32 = 22;
+const U_HIT_PRIM: u32 = 23;
+const U_BLK: u32 = 24;
+const U_RESOURCE_COUNT_SPLIT: usize = 25;
 
 /// 统一车道逐 pass 屏障计划（保守 StorageReadWrite 超集逐字声明，与执行器
 /// 隐式补全超集逐位一致——场景/TSR 车道同一见证体例；'static 常量面）。
@@ -2072,6 +2080,32 @@ const U_PLAN_MV: &[(u32, TargetState)] = &[
     (U_SCENE_DEPTH, TargetState::StorageReadWrite),
     (U_MV_PARAMS, TargetState::StorageReadWrite),
     (U_MV_OUT, TargetState::StorageReadWrite),
+];
+/// Split 形态三 pass 屏障计划（cornell 拆散车道；保守超集同律）。
+const U_PLAN_PRIMARY: &[(u32, TargetState)] = &[
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (U_HIT_T, TargetState::StorageReadWrite),
+    (U_HIT_PRIM, TargetState::StorageReadWrite),
+];
+const U_PLAN_SCATTER: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (U_HIT_T, TargetState::StorageReadWrite),
+    (U_HIT_PRIM, TargetState::StorageReadWrite),
+    (U_BLK, TargetState::StorageReadWrite),
+];
+const U_PLAN_REDUCE: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (U_HIT_T, TargetState::StorageReadWrite),
+    (U_HIT_PRIM, TargetState::StorageReadWrite),
+    (U_BLK, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
 ];
 const U_PLAN_RESAMPLE: &[(u32, TargetState)] = &[
     (U_SCENE_COLOR, TargetState::StorageReadWrite),
@@ -2177,13 +2211,31 @@ struct UnifiedLaneBits {
     spv_mv: Vec<u8>,
     spv_resample: Vec<u8>,
     spv_resolve: Vec<u8>,
+    /// Split 形态三 kernel（cornell 拆散车道；Mega 形态恒空零消费）。
+    spv_primary: Vec<u8>,
+    spv_scatter: Vec<u8>,
+    spv_reduce: Vec<u8>,
     reactive_zeros: Vec<u8>,
-    /// dispatch 组数 = ceil(内部分辨率/SPV LocalSize)——SPV 单一事实源纪律。
+    /// dispatch 组数 = ceil(内部分辨率/SPV LocalSize)——SPV 单一事实源纪律
+    /// （G14.10c 起 TSR 双 pass 同律：dispatch 形态随 SPV LocalSize 派生，
+    /// 变体 kernel 换线程组形态零 bin 改动；逐像素独立+越界门 → 覆盖域不变）。
     scene_dispatch: [u32; 3],
     mv_dispatch: [u32; 3],
+    resample_dispatch: [u32; 3],
+    resolve_dispatch: [u32; 3],
+    primary_dispatch: [u32; 3],
+    scatter_dispatch: [u32; 3],
+    reduce_dispatch: [u32; 3],
 }
 
+/// Split 形态默认 SPV 路径（cornell 拆散三 kernel；--spv-* CLI 覆盖面暂不开，
+/// M-c 门 _ensure_spv 同步编译）。
+const DEFAULT_SPV_PRIMARY: &str = ".tmp/g14_gates/m_c/g14_3_primary.spv";
+const DEFAULT_SPV_SCATTER: &str = ".tmp/g14_gates/m_c/g14_3_shadow_scatter.spv";
+const DEFAULT_SPV_REDUCE: &str = ".tmp/g14_gates/m_c/g14_3_shade_reduce.spv";
+
 impl UnifiedLaneBits {
+    #[allow(clippy::too_many_arguments)]
     fn load(
         spv_scene: &str,
         spv_mv: &str,
@@ -2191,6 +2243,9 @@ impl UnifiedLaneBits {
         spv_resolve: &str,
         iw: u32,
         ih: u32,
+        ow: u32,
+        oh: u32,
+        split: bool,
     ) -> Self {
         let to_bytes = |words: &[u32]| -> Vec<u8> {
             words.iter().flat_map(|w| w.to_le_bytes()).collect()
@@ -2199,16 +2254,48 @@ impl UnifiedLaneBits {
         // mv kernel 注入 NoContraction（见 spv_inject_no_contraction 文档——
         // GPU mv 与 host compute_camera_mv 位级对齐面；scene/TSR SPV 不触碰）。
         let mv_words = spv_inject_no_contraction(&load_spv(spv_mv));
+        let resample_words = load_spv(spv_resample);
+        let resolve_words = load_spv(spv_resolve);
         let (sx, sy, _) = spv_local_size(&scene_words);
         let (mx, my, _) = spv_local_size(&mv_words);
+        let (rsx, rsy, _) = spv_local_size(&resample_words);
+        let (rvx, rvy, _) = spv_local_size(&resolve_words);
+        // Split 形态三 kernel（scatter dispatch 的 y 维打包 16 采样层）。
+        let (spv_primary, spv_scatter, spv_reduce, primary_dispatch, scatter_dispatch, reduce_dispatch) =
+            if split {
+                let pw = load_spv(DEFAULT_SPV_PRIMARY);
+                let sw = load_spv(DEFAULT_SPV_SCATTER);
+                let rw = load_spv(DEFAULT_SPV_REDUCE);
+                let (px, py, _) = spv_local_size(&pw);
+                let (scx, scy, _) = spv_local_size(&sw);
+                let (rdx, rdy, _) = spv_local_size(&rw);
+                (
+                    to_bytes(&pw),
+                    to_bytes(&sw),
+                    to_bytes(&rw),
+                    [iw.div_ceil(px), ih.div_ceil(py), 1],
+                    [iw.div_ceil(scx), (ih * 16).div_ceil(scy), 1],
+                    [iw.div_ceil(rdx), ih.div_ceil(rdy), 1],
+                )
+            } else {
+                (Vec::new(), Vec::new(), Vec::new(), [0; 3], [0; 3], [0; 3])
+            };
         Self {
             spv_scene: to_bytes(&scene_words),
             spv_mv: to_bytes(&mv_words),
-            spv_resample: to_bytes(&load_spv(spv_resample)),
-            spv_resolve: to_bytes(&load_spv(spv_resolve)),
+            spv_resample: to_bytes(&resample_words),
+            spv_resolve: to_bytes(&resolve_words),
+            spv_primary,
+            spv_scatter,
+            spv_reduce,
             reactive_zeros: vec![0u8; (iw * ih * 4) as usize],
             scene_dispatch: [iw.div_ceil(sx), ih.div_ceil(sy), 1],
             mv_dispatch: [iw.div_ceil(mx), ih.div_ceil(my), 1],
+            resample_dispatch: [ow.div_ceil(rsx), oh.div_ceil(rsy), 1],
+            resolve_dispatch: [ow.div_ceil(rvx), oh.div_ceil(rvy), 1],
+            primary_dispatch,
+            scatter_dispatch,
+            reduce_dispatch,
         }
     }
 }
@@ -2309,7 +2396,7 @@ fn unified_lane_descs<'x>(
             name: "g14_8_tsr_resample",
             spirv: &bits.spv_resample,
             entry: None,
-            dispatch: DispatchSpec::Direct([ow.div_ceil(8), oh.div_ceil(8), 1]),
+            dispatch: DispatchSpec::Direct(bits.resample_dispatch),
             bindings: Bindings {
                 storage_buffers: vec![
                     U_SCENE_COLOR,
@@ -2326,7 +2413,7 @@ fn unified_lane_descs<'x>(
             name: "g14_8_tsr_resolve",
             spirv: &bits.spv_resolve,
             entry: None,
-            dispatch: DispatchSpec::Direct([ow.div_ceil(8), oh.div_ceil(8), 1]),
+            dispatch: DispatchSpec::Direct(bits.resolve_dispatch),
             bindings: Bindings {
                 storage_buffers: vec![
                     U_CUR_RGB,
@@ -2374,6 +2461,232 @@ fn unified_lane_descs<'x>(
     (resources, passes, barriers, readbacks)
 }
 
+/// 统一车道双形态（G14.10b）：Mega = 既有四 pass（bistro 等通用）；Split =
+/// cornell 拆散六 pass（primary→scatter→reduce→mv→resample→resolve；quad 面光
+/// 16 样本拆散重排——RT 单元延迟隐藏，reduce 固定层序求和与 megakernel 位级
+/// 同序）。
+#[allow(clippy::type_complexity)]
+enum UnifiedDescs<'x> {
+    Mega(
+        (
+            [ResourceDesc<'x>; U_RESOURCE_COUNT],
+            [Pass<'x>; 4],
+            [&'static [(u32, TargetState)]; 4],
+            [Readback; 4],
+        ),
+    ),
+    Split(
+        (
+            [ResourceDesc<'x>; U_RESOURCE_COUNT_SPLIT],
+            [Pass<'x>; 6],
+            [&'static [(u32, TargetState)]; 6],
+            [Readback; 4],
+        ),
+    ),
+}
+
+/// Split 形态描述组（cornell 拆散车道：25 SSBO + 六 pass；资源 0..=21 与 Mega
+/// 逐字同布局，追加 hitinfo 双缓冲 + blk 16 层缓冲）。bin 侧 fail-closed 前置
+/// 断言 = quad_count==1（16 层映射单灯语义）。
+#[allow(clippy::type_complexity)]
+fn unified_lane_descs_split<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> (
+    [ResourceDesc<'x>; U_RESOURCE_COUNT_SPLIT],
+    [Pass<'x>; 6],
+    [&'static [(u32, TargetState)]; 6],
+    [Readback; 4],
+) {
+    let ipc = (iw * ih) as u64;
+    let opc = (ow * oh) as u64;
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+        })
+    };
+    let buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+        })
+    };
+    let resources = [
+        init(&assets.tris_bytes),    // U_TRIS
+        init(&assets.mats_bytes),    // U_MATS
+        init(&assets.quads_bytes),   // U_QUADS
+        init(&assets.points_bytes),  // U_POINTS
+        init(&assets.params0_bytes), // U_SCENE_PARAMS
+        buf(assets.out_color_size),  // U_SCENE_COLOR
+        buf(assets.out_depth_size),  // U_SCENE_DEPTH
+        buf(40 * 4),                 // U_MV_PARAMS
+        buf(ipc * 8),                // U_MV_OUT
+        buf(32 * 4),                 // U_TSR_PARAMS
+        init(&bits.reactive_zeros),  // U_REACTIVE
+        buf(opc * 12),               // U_CUR_RGB
+        buf(opc * 4),                // U_LUMA[0]
+        buf(opc * 4),                // U_LUMA[1]
+        buf(opc * 4),                // U_DEPTH_HI[0]
+        buf(opc * 4),                // U_DEPTH_HI[1]
+        buf(opc * 12),               // U_OUT_COLOR[0]
+        buf(opc * 12),               // U_OUT_COLOR[1]
+        buf(opc * 4),                // U_OUT_SIGN[0]
+        buf(opc * 4),                // U_OUT_SIGN[1]
+        buf(opc * 4),                // U_OUT_SCORE[0]
+        buf(opc * 4),                // U_OUT_SCORE[1]
+        buf(ipc * 4),                // U_HIT_T
+        buf(ipc * 4),                // U_HIT_PRIM
+        buf(ipc * 16 * 4),           // U_BLK（16 层 blk 布尔面，px-major）
+    ];
+    let passes = [
+        Pass::Compute(ComputePass {
+            name: "g14_3_primary",
+            spirv: &bits.spv_primary,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.primary_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![U_SCENE_PARAMS, U_HIT_T, U_HIT_PRIM],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_3_shadow_scatter",
+            spirv: &bits.spv_scatter,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.scatter_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_QUADS,
+                    U_SCENE_PARAMS,
+                    U_HIT_T,
+                    U_HIT_PRIM,
+                    U_BLK,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_3_shade_reduce",
+            spirv: &bits.spv_reduce,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.reduce_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    U_HIT_T,
+                    U_HIT_PRIM,
+                    U_BLK,
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_mv",
+            spirv: &bits.spv_mv,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.mv_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_SCENE_DEPTH, U_MV_PARAMS, U_MV_OUT],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_8_tsr_resample",
+            spirv: &bits.spv_resample,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.resample_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                    U_TSR_PARAMS,
+                    U_CUR_RGB,
+                    U_LUMA[0],
+                    U_DEPTH_HI[0],
+                ],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_8_tsr_resolve",
+            spirv: &bits.spv_resolve,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.resolve_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![
+                    U_CUR_RGB,
+                    U_LUMA[0],
+                    U_DEPTH_HI[0],
+                    U_MV_OUT,
+                    U_REACTIVE,
+                    U_OUT_COLOR[1],
+                    U_DEPTH_HI[1],
+                    U_LUMA[1],
+                    U_OUT_SIGN[1],
+                    U_OUT_SCORE[1],
+                    U_TSR_PARAMS,
+                    U_OUT_COLOR[0],
+                    U_OUT_SIGN[0],
+                    U_OUT_SCORE[0],
+                ],
+                ..Bindings::default()
+            },
+        }),
+    ];
+    let barriers = [
+        U_PLAN_PRIMARY,
+        U_PLAN_SCATTER,
+        U_PLAN_REDUCE,
+        U_PLAN_MV,
+        U_PLAN_RESAMPLE,
+        U_PLAN_RESOLVE,
+    ];
+    let readbacks = [
+        Readback::Buffer {
+            res: U_OUT_COLOR[0],
+            offset: 0,
+            size: opc * 12,
+        },
+        Readback::Buffer {
+            res: U_OUT_COLOR[1],
+            offset: 0,
+            size: opc * 12,
+        },
+        Readback::Buffer {
+            res: U_MV_OUT,
+            offset: 0,
+            size: ipc * 8,
+        },
+        Readback::Buffer {
+            res: U_SCENE_DEPTH,
+            offset: 0,
+            size: ipc * 4,
+        },
+    ];
+    (resources, passes, barriers, readbacks)
+}
+
 /// 统一车道状态机（session + parity/历史/prev_vp_j；render/bench 双腿同一
 /// 执行面）。parity 轮换与历史门与原 TsrDeviceBackend 逐字同律：帧 i
 /// parity=i%2，resolve 读 [1−p] 写 [p]；首帧 has_history=0 且 has_prev=0。
@@ -2386,6 +2699,8 @@ struct UnifiedTsrLane<'a> {
     /// 供 host compute_camera_mv 逐分量对拍——digest 漂移归因臂，常态恒 false
     /// 零成本）。
     probe: bool,
+    /// Split 形态（cornell 拆散六 pass 车道；false = Mega 四 pass）。
+    split: bool,
 }
 
 /// 统一车道一帧产物（GPU 分段 = DeviceFrameTelemetry 逐 pass timestamp；
@@ -2410,31 +2725,29 @@ struct UnifiedFrameRec {
 impl<'a> UnifiedTsrLane<'a> {
     #[allow(clippy::type_complexity)]
     fn create(
-        descs: &'a (
-            [ResourceDesc<'a>; U_RESOURCE_COUNT],
-            [Pass<'a>; 4],
-            [&'static [(u32, TargetState)]; 4],
-            [Readback; 4],
-        ),
+        descs: &'a UnifiedDescs<'a>,
         accel_structs: &[AccelStructDesc<'a>],
     ) -> Result<Self, String> {
         if !vk::vulkan_available() {
             return Err("vulkan loader 不可用".into());
         }
-        let session = DeviceFrameSession::new_with_accel_structs(
-            &descs.0,
-            &descs.1,
-            &descs.2,
-            &descs.3,
-            2,
-            accel_structs,
-        )?;
+        let (session, split) = match descs {
+            UnifiedDescs::Mega(d) => (
+                DeviceFrameSession::new_with_accel_structs(&d.0, &d.1, &d.2, &d.3, 2, accel_structs)?,
+                false,
+            ),
+            UnifiedDescs::Split(d) => (
+                DeviceFrameSession::new_with_accel_structs(&d.0, &d.1, &d.2, &d.3, 2, accel_structs)?,
+                true,
+            ),
+        };
         Ok(Self {
             session,
             parity: 0,
             has_history_state: false,
             prev_vp_j: None,
             probe: std::env::var("RURIX_G14_MV_PROBE").ok().as_deref() == Some("1"),
+            split,
         })
     }
 
@@ -2523,10 +2836,16 @@ impl<'a> UnifiedTsrLane<'a> {
             ],
             ..Bindings::default()
         };
+        // parity override 的 pass 索引按形态（Mega: resample=2/resolve=3；
+        // Split: 六 pass 车道 resample=4/resolve=5）。
+        let (idx_resample, idx_resolve) = if self.split { (4, 5) } else { (2, 3) };
         let update = FrameUpdate {
             tlas_update: None,
             buffer_uploads: uploads,
-            binding_overrides: vec![(2, bindings_resample), (3, bindings_resolve)],
+            binding_overrides: vec![
+                (idx_resample, bindings_resample),
+                (idx_resolve, bindings_resolve),
+            ],
             push_constant_overrides: vec![],
             readback_subset: Some(match (readback_out, self.probe) {
                 (false, _) => vec![],
@@ -2545,7 +2864,13 @@ impl<'a> UnifiedTsrLane<'a> {
                 .map(|pp| pp.gpu_ns)
                 .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))
         };
-        let scene_gpu_ns = gpu("g14_3_direct_gi")?;
+        // scene 段：Mega = 单 megakernel；Split = primary+scatter+reduce 三和
+        // （拆散车道的场景直接光工作总量,与 megakernel 同语义段）。
+        let scene_gpu_ns = if self.split {
+            gpu("g14_3_primary")? + gpu("g14_3_shadow_scatter")? + gpu("g14_3_shade_reduce")?
+        } else {
+            gpu("g14_3_direct_gi")?
+        };
         let mv_gpu_ns = gpu("g14_mv")?;
         let resample_gpu_ns = gpu("g14_8_tsr_resample")?;
         let resolve_gpu_ns = gpu("g14_8_tsr_resolve")?;
@@ -2616,6 +2941,41 @@ impl DlssBackend {
             out_size,
             pending_reset: true,
         })
+    }
+
+    /// G14.10 vendor 驻留输出接线（RFC-0030 §4.3；vendor 域退档方案 B）：测量帧
+    /// 跑满 pack→upload→evaluate→submit_wait 但跳过输出回读（时域历史链完整），
+    /// 末帧/需回读帧经 [`Self::readback_into`] 按需回读（与 upscale_into 同一
+    /// 转换事实源——evaluate 输出 image 内容相同，回读值位级同）。
+    fn upscale_resident(&mut self, inputs: &UpscaleInputs) {
+        let (iw, ih, ow, oh) = inputs.validated();
+        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
+        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
+        let vi = VendorFrameInput {
+            color: &inputs.color.data,
+            depth: &inputs.depth.data,
+            mv: &inputs.mv.data,
+            reactive: None,
+            exposure: inputs.exposure,
+            jitter: inputs.jitter,
+            frame_index: inputs.frame_index,
+            reset: inputs.reset,
+        };
+        self.session
+            .upscale_resident(&vi)
+            .unwrap_or_else(|e| panic!("DLSS upscale_resident 失败: {e}"));
+    }
+
+    /// 驻留输出按需回读（末帧 digest/画质锚面）。
+    fn readback_into(&mut self, dst: &mut ImageF32) {
+        let (ow, oh) = self.out_size;
+        dst.data.resize((ow * oh * 3) as usize, 0.0);
+        dst.w = ow;
+        dst.h = oh;
+        dst.c = 3;
+        self.session
+            .readback_output_into(&mut dst.data)
+            .unwrap_or_else(|e| panic!("DLSS readback_output_into 失败: {e}"));
     }
 
     /// G14.6 Stage A：驻留输出面（bench 腿专用；与 trait upscale 逐位一致——
@@ -3259,9 +3619,17 @@ fn render_leg(
     let (provenance, render_lane, timer): (String, String, String) = if backend_name
         == "tsr_device"
     {
-        let bits =
-            UnifiedLaneBits::load(spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h);
-        let descs = unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h);
+        // G14.10b 形态选择：cornell 拆散六 pass（quad_count==1 且零点光——16 层
+        // 映射单灯语义 fail-closed 前置断言）；其余 Mega 四 pass。
+        let use_split = scene.quads.len() == 1 && scene.points.is_empty();
+        let bits = UnifiedLaneBits::load(
+            spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
+        );
+        let descs = if use_split {
+            UnifiedDescs::Split(unified_lane_descs_split(&assets, &bits, in_w, in_h, out_w, out_h))
+        } else {
+            UnifiedDescs::Mega(unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h))
+        };
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
             scene: RayQuerySceneDesc {
@@ -3798,6 +4166,12 @@ fn bench_leg(
     let mut tail_ms: Vec<f64> = Vec::new();
     let mut prod_ms: Vec<f64> = Vec::new();
     let mut last_digest = String::new();
+    // G14.10c TSR 访存优化测量臂（env RURIX_TSR_PROBE=1 门控临时探针）：
+    // upscale_ms 合并列拆分为 resample/resolve 双 pass GPU 毫秒各自统计
+    // （telemetry 本就逐 pass，仅加打印面；常态恒零成本不改 receipt schema）。
+    let tsr_probe = std::env::var("RURIX_TSR_PROBE").ok().as_deref() == Some("1");
+    let mut resample_probe_ms: Vec<f64> = Vec::new();
+    let mut resolve_probe_ms: Vec<f64> = Vec::new();
     // G14.8 flip-trace 诊断臂（RD-045 backfill_condition 字面动作，RFC-0030 §4.2 L1）：
     // env RURIX_G14_FLIP_TRACE=<dir> 时逐帧 digest 轨迹追加写 <dir>/frame_digests.jsonl。
     // 统一车道下测量循环常态零回读——trace 模式强制逐帧回读（诊断模式凌驾性能，
@@ -3826,9 +4200,17 @@ fn bench_leg(
     let (render_lane, timer, caliber): (String, String, String) = if backend_name
         == "tsr_device"
     {
-        let bits =
-            UnifiedLaneBits::load(spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h);
-        let descs = unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h);
+        // G14.10b 形态选择：cornell 拆散六 pass（quad_count==1 且零点光——16 层
+        // 映射单灯语义 fail-closed 前置断言）；其余 Mega 四 pass。
+        let use_split = scene.quads.len() == 1 && scene.points.is_empty();
+        let bits = UnifiedLaneBits::load(
+            spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
+        );
+        let descs = if use_split {
+            UnifiedDescs::Split(unified_lane_descs_split(&assets, &bits, in_w, in_h, out_w, out_h))
+        } else {
+            UnifiedDescs::Mega(unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h))
+        };
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
             scene: RayQuerySceneDesc {
@@ -3902,6 +4284,10 @@ fn bench_leg(
                 scene_ms.push(rec.scene_gpu_ns / 1e6);
                 mv_ms.push(rec.mv_gpu_ns / 1e6);
                 upscale_ms.push((rec.resample_gpu_ns + rec.resolve_gpu_ns) / 1e6);
+                if tsr_probe {
+                    resample_probe_ms.push(rec.resample_gpu_ns / 1e6);
+                    resolve_probe_ms.push(rec.resolve_gpu_ns / 1e6);
+                }
                 scene_gpu_ns.push(rec.scene_gpu_ns);
                 cpu_record_ns.push(rec.cpu_record_ns as f64);
                 cpu_submit_ns.push(rec.cpu_submit_ns as f64);
@@ -4100,23 +4486,45 @@ fn bench_leg(
                 frame_index: i,
                 reset: i == 0,
             };
-            let out = {
-                backend.upscale_into(&inputs, &mut out_img);
-                &out_img
+            // G14.10 dlss 臂驻留输出接线（RFC-0030 §4.3 vendor 退档方案 B）：
+            // 测量帧 resident（跳过 24.9MB 输出回读——时域历史链在 vendor 侧完整
+            // 演化，末帧输出与逐帧回读版位级同）；末帧/flip-trace 帧按需回读做
+            // digest/is_finite。fsr 臂维持 upscale_into 逐帧回读（FSR resident
+            // 归 external memory 波另判）。
+            let is_last = i + 1 == total;
+            let need_readback = is_last || flip_trace.is_some();
+            let out_ready = match &mut backend {
+                Backend::Dlss(b) => {
+                    b.upscale_resident(&inputs);
+                    if need_readback {
+                        b.readback_into(&mut out_img);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Backend::Fsr(b) => {
+                    b.upscale_into(&inputs, &mut out_img);
+                    true
+                }
             };
+            let out = &out_img;
             let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
             // G14.6 口径分解：tail = bench 测量面（is_finite 全帧校验 + frame_content_digest
             // payload 重建+sha256）——非生产路径固有面；frame_ms（全量口径，G14.3 兼容）
             // 与 frame_ms_production（= frame − tail，M-d 对标消费面）双列同测，零行为变更。
+            // dlss 臂测量帧无输出数据（resident 面）——tail=0（与 tsr 统一车道同律）。
             let t_tail = std::time::Instant::now();
-            if !out.data.iter().all(|v| v.is_finite()) {
-                fail(&format!("bench 帧 {i} upscale 输出非有限"));
-            }
-            last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
-            if let Some(w) = flip_trace.as_mut() {
-                use std::io::Write as _;
-                writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
-                    .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+            if out_ready {
+                if !out.data.iter().all(|v| v.is_finite()) {
+                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
+                }
+                last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
+                if let Some(w) = flip_trace.as_mut() {
+                    use std::io::Write as _;
+                    writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
+                        .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                }
             }
             let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
             let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
@@ -4165,6 +4573,15 @@ fn bench_leg(
     let (s_mean, _, _, _, _) = stats(&scene_ms);
     let (m_mean, _, _, _, _) = stats(&mv_ms);
     let (u_mean, _, _, _, _) = stats(&upscale_ms);
+    // G14.10c TSR 探针出报（门控见 tsr_probe 声明处；vendor 双臂无 TSR pass
+    // → 容器空，探针静默）。
+    if tsr_probe && !resample_probe_ms.is_empty() {
+        let (rs_mean, _, _, rs_min, rs_max) = stats(&resample_probe_ms);
+        let (rv_mean, _, _, rv_min, rv_max) = stats(&resolve_probe_ms);
+        eprintln!(
+            "{TAG}: TSR_PROBE resample_ms mean={rs_mean:.6} min={rs_min:.6} max={rs_max:.6} | resolve_ms mean={rv_mean:.6} min={rv_min:.6} max={rv_max:.6}"
+        );
+    }
     let (g_mean, _, _, _, _) = stats(&scene_gpu_ns);
     let (rec_mean, _, _, _, _) = stats(&cpu_record_ns);
     let (sub_mean, _, _, _, _) = stats(&cpu_submit_ns);
