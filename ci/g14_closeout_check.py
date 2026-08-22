@@ -166,13 +166,20 @@ def evidence_utc_date(path: Path | None) -> str | None:
 
 
 def max_first_pass_date() -> tuple[str | None, list[str]]:
-    """对非 M-d 4 P0 取最新 PASS evidence 的 UTC 日期的 max（近似『最后新绿』）。"""
+    """对 P0 取最新 PASS evidence 的 UTC 日期的 max（近似『最后新绿』）。
+
+    M-d 双态：诚实红期无 PASS 态跳过（终审定盘归 fact⑧）；G14plus 18/18 达标
+    后（status=="pass"）纳入日期面（达标态即新绿事件）。"""
     dates: list[str] = []
     missing: list[str] = []
     for key, prefix in P0_KEYS:
-        if prefix == MD_PREFIX:
-            continue  # M-d 诚实红门面——无 PASS 态，终审定盘归 fact⑧
         p = wel.load_latest_evidence(prefix)
+        if prefix == MD_PREFIX:
+            if p is not None and wel.load_json(p).get("status") == "pass":
+                d = evidence_utc_date(p)
+                if d:
+                    dates.append(d)
+            continue  # 诚实红期无 PASS 态——终审定盘归 fact⑧,不计缺失
         if p is None:
             missing.append(key)
             continue
@@ -212,51 +219,82 @@ def check_rd_final_state() -> tuple[bool, str]:
 
 def check_fps_registry_lock() -> tuple[bool, str]:
     """G-G14-9「帧率对标结果终审定盘 + 画质零降级守护面终态锁定」机器化面
-    （终审锁定面 = G15+/G16+ 法定输入）：g14 帧率表 18 行闭集逐字对账 +
-    M-d 最新 evidence unmet 一致 + G13 双门画质守护消费面绿。"""
+    （终审锁定面 = G15+/G16+ 法定输入）。
+
+    双分支（互斥,均要求 registry ↔ 最新 M-d evidence 镜像一致 + G13 双门绿）：
+    - **达标分支**（G14plus 18/18,RFC-0030/G14.12）：M-d status=="pass" +
+      unmet_count==0 + registry 空表显式登记（items n=0 + 双场景
+      no_gap_explicit=true）。
+    - **诚实红分支**（G14.5b 原字面）：M-d status=="fail" + unmet==18 +
+      registry 18 行闭集逐字对账（FROZEN_FPS_GAP_IDS）。"""
     problems: list[str] = []
+    md_path = wel.load_latest_evidence(MD_PREFIX)
+    md_doc: dict = {}
+    md_status = None
+    unmet = None
+    if md_path is None:
+        problems.append("缺最新 M-d evidence")
+    else:
+        md_doc = wel.load_json(md_path)
+        md_status = md_doc.get("status")
+        unmet = (md_doc.get("parity") or {}).get("unmet_count")
+        md_checks = md_doc.get("checks") or {}
+        qbad = [k for k, v in md_checks.items() if "quality" in k and v is not True]
+        if qbad:
+            problems.append(f"M-d 画质零降级守护面 checks 非真: {qbad}")
+    met_branch = md_status == "pass" and unmet == 0
     if not FPS_REGISTRY_PATH.is_file():
         problems.append("g14_fps_gap_registry 缺失")
     else:
         doc = wel.load_json(FPS_REGISTRY_PATH)
         items = doc.get("items") or []
         ids = {it.get("gap_id") for it in items}
-        if len(items) != 18 or ids != FROZEN_FPS_GAP_IDS:
-            problems.append(
-                f"g14 帧率表 gap_id 闭集漂移: n={len(items)} extra={sorted(ids - FROZEN_FPS_GAP_IDS)} "
-                f"missing={sorted(FROZEN_FPS_GAP_IDS - ids)}"
-            )
+        if met_branch:
+            # 达标分支：空表显式登记 + 双场景 no_gap_explicit 全真。
+            if items:
+                problems.append(f"达标态 registry 非空: n={len(items)}（空表显式登记面漂移）")
+            summ = {s.get("scene_id"): s for s in (doc.get("scene_summary") or [])}
+            for scene in ("cornell-box", "bistro-interior"):
+                if not (summ.get(scene) or {}).get("no_gap_explicit"):
+                    problems.append(f"达标态 {scene} no_gap_explicit 非真")
+        else:
+            if len(items) != 18 or ids != FROZEN_FPS_GAP_IDS:
+                problems.append(
+                    f"g14 帧率表 gap_id 闭集漂移: n={len(items)} extra={sorted(ids - FROZEN_FPS_GAP_IDS)} "
+                    f"missing={sorted(FROZEN_FPS_GAP_IDS - ids)}"
+                )
+            for it in items:
+                if it.get("kind") != "quality_gap":
+                    problems.append(f"行 kind 漂移: {it.get('gap_id')} {it.get('kind')!r}")
+                ds = it.get("measured_delta") or []
+                if not ds and not it.get("measured"):
+                    problems.append(f"行 measured 面空: {it.get('gap_id')}")
+            for scene, want in (("cornell-box", 9), ("bistro-interior", 9)):
+                recount = sum(1 for i in items if i.get("scene_id") == scene)
+                if recount != want:
+                    problems.append(f"scene 计数重算 {scene}: {recount} ≠ {want}")
         if doc.get("registry") != "g14_fps_gap_registry":
             problems.append(f"registry 名字面漂移: {doc.get('registry')!r}")
         if doc.get("generated_by") != FPS_GENERATED_BY:
             problems.append(f"generated_by 漂移: {doc.get('generated_by')!r}")
-        for it in items:
-            if it.get("kind") != "quality_gap":
-                problems.append(f"行 kind 漂移: {it.get('gap_id')} {it.get('kind')!r}")
-            ds = it.get("measured_delta") or []
-            if not ds and not it.get("measured"):
-                problems.append(f"行 measured 面空: {it.get('gap_id')}")
-        for scene, want in (("cornell-box", 9), ("bistro-interior", 9)):
-            recount = sum(1 for i in items if i.get("scene_id") == scene)
-            if recount != want:
-                problems.append(f"scene 计数重算 {scene}: {recount} ≠ {want}")
-    md_path = wel.load_latest_evidence(MD_PREFIX)
-    if md_path is None:
-        problems.append("缺最新 M-d evidence")
-    else:
-        md_doc = wel.load_json(md_path)
-        unmet = (md_doc.get("parity") or {}).get("unmet_count")
-        if unmet != 18:
-            problems.append(f"最新 M-d unmet_count={unmet} ≠ 18（终审定盘面漂移）")
-        md_checks = md_doc.get("checks") or {}
-        qbad = [k for k, v in md_checks.items() if "quality" in k and v is not True]
-        if qbad:
-            problems.append(f"M-d 画质零降级守护面 checks 非真: {qbad}")
+    if md_path is not None and not met_branch and unmet != 18:
+        problems.append(
+            f"最新 M-d unmet_count={unmet} status={md_status!r} 非达标(0/pass)亦非诚实红(18/fail)"
+            "（终审定盘面漂移）"
+        )
     for key, prefix in G13_QUALITY_GATES:
         row = wel.require_gate_pass(key, prefix)
         if row["status"] != "PASS":
             problems.append(f"G13 画质守护消费面非绿: {key}: {row['detail']}")
-    return (not problems), "; ".join(problems) if problems else (
+    if problems:
+        return False, "; ".join(problems)
+    if met_branch:
+        return True, (
+            "g14 帧率对标 18/18 达标终审锁定（最新 M-d status=pass + unmet==0 + registry "
+            "空表显式登记 + 双场景 no_gap_explicit + G13 双门画质守护消费面绿）——"
+            "G14plus 延续波达标定盘（RFC-0030），画质零降级守护面终态锁定"
+        )
+    return True, (
         "g14 帧率差距登记表 18 行闭集终审锁定（gap_id 集逐字对账 + 计数 9/9 重算一致 + "
         "generated_by 字面 + 最新 M-d unmet==18 + G13 双门画质守护消费面绿）——"
         "通过线 ×1.00 未达标如实登记不冒充（继续优化面 G16+ 承接），画质零降级守护面终态锁定"
@@ -385,13 +423,14 @@ def run_closeout() -> int:
         "environment": wel.collect_environment(),
         "notes": (
             "same-day closeout allowed after 5a full-run（立项裁决 3，沿 G9.8b/G10.8b/"
-            "G11.7b/G12.7b/G13.5b 先例链）；g14 帧率差距登记表 18 行终审锁定"
-            "（cornell 9 + bistro 9 终态——通过线 ×1.00 未达标 0/18 如实登记不冒充，"
-            "G-G14-9 字面；继续优化面 = 用户 2026-08-19 授权新建 G16+ 里程碑承接结构性优化六面"
-            "〔G14-N9~N14 承接锚齐备〕；画质零降级守护面终态锁定〔G13 锁定双门最新 evidence "
-            "PASS 消费〕；终审锁定面 = G15+/G16+ 法定输入——G15 画质收口期与 G16+ 结构性优化面"
-            "只消费本表与 G14_P2_DECISIONS 承接锚，不得另起无锚差距面）；M-d 诚实红门面特判"
-            "（checks 全绿 + status=fail + unmet==登记表行数 = 红不充绿亦不充降级）；"
+            "G11.7b/G12.7b/G13.5b 先例链）；g14 帧率对标终审定盘双分支"
+            "（达标分支 = G14plus 18/18〔RFC-0030 延续波〕M-d pass + unmet==0 + registry "
+            "空表显式登记；诚实红分支 = 18 行闭集如实登记不冒充〔G-G14-9 字面，"
+            "继续优化面 G16+ 承接〕——fact⑧ detail 承载实测分支）；画质零降级守护面终态锁定"
+            "〔G13 锁定双门最新 evidence PASS 消费〕；终审锁定面 = G15+/G16+ 法定输入——"
+            "G15 画质收口期与 G16+ 结构性优化面只消费本表与 G14_P2_DECISIONS 承接锚，"
+            "不得另起无锚差距面；M-d 门面特判双态（达标 status=pass 直通/诚实红 checks 全绿 + "
+            "status=fail + unmet==登记表行数 = 红不充绿亦不充降级）；"
             "status flip is a separate commit after READY"
         ),
     }

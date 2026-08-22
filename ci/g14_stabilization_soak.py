@@ -101,12 +101,15 @@ N_ASSERTION_GATES = len(P0_GATES)
 
 # 诚实红聚合门闭集（M-d 通过线未达期间 wave4 聚合 VERDICT=FAIL 为正确诚实态——
 # 红不充绿亦不充降级；合格面 = 最新 evidence 六 facts 全绿 + required M-d 行 FAIL
-# 镜像最新 M-d evidence 实测态，聚合不遮蔽机核维持）。
+# 镜像最新 M-d evidence 实测态，聚合不遮蔽机核维持）。G14plus 达标分支
+# （RFC-0030/G14.12）：M-d 18/18 达标后 wave4 聚合 VERDICT=PASS 为正确达标态
+# ——facts 全绿 + checks 全真 + M-d 行 PASS 镜像即合格（双分支互斥,均如实
+# 镜像最新 M-d evidence 实测态,无中间降级态）。
 HONEST_RED_AGGREGATES = frozenset({"g14_wave4_exit"})
 
 
 def eval_honest_red_aggregate(key: str, prefix: str) -> dict:
-    """诚实红聚合门评定（soak 回归腿与 closeout 共用单一事实源）。"""
+    """诚实红/达标双分支聚合门评定（soak 回归腿与 closeout 共用单一事实源）。"""
     path = wel.load_latest_evidence(prefix)
     if path is None:
         return {"symbolic_gate_key": key, "subject_prefix": prefix,
@@ -115,23 +118,36 @@ def eval_honest_red_aggregate(key: str, prefix: str) -> dict:
     facts = doc.get("extra_facts") or []
     checks = doc.get("checks") or {}
     rows = doc.get("required_gates") or []
-    md_row_fail = any(
-        r.get("subject_prefix") == "g14_m_d_dual_end_fps_parity" and r.get("status") == "FAIL"
-        for r in rows
+    md_status = next(
+        (r.get("status") for r in rows
+         if r.get("subject_prefix") == "g14_m_d_dual_end_fps_parity"),
+        None,
     )
-    ok = (
-        bool(facts)
-        and all(f.get("status") == "PASS" for f in facts)
+    facts_ok = bool(facts) and all(f.get("status") == "PASS" for f in facts)
+    others_ok = all(v is True for k, v in checks.items() if k != "all_required_gates_pass")
+    # 达标分支：聚合全绿 + M-d 行 PASS 镜像（G14plus 18/18 达标态）。
+    ok_green = (
+        facts_ok and others_ok
+        and checks.get("all_required_gates_pass") is True
+        and md_status == "PASS"
+    )
+    # 诚实红分支：聚合 FAIL 仅因 M-d 行 FAIL 镜像（通过线未达如实登记态）。
+    ok_red = (
+        facts_ok and others_ok
         and checks.get("all_required_gates_pass") is False
-        and all(v is True for k, v in checks.items() if k != "all_required_gates_pass")
-        and md_row_fail
+        and md_status == "FAIL"
+    )
+    ok = ok_green or ok_red
+    detail = (
+        "达标聚合面合格（facts 全绿 + M-d 行 PASS 镜像——18/18 达标态）" if ok_green
+        else "诚实红聚合面合格（facts 全绿 + M-d 行 FAIL 镜像维持）" if ok_red
+        else "聚合面异常（合格面 = facts 绿 + M-d 行 PASS/FAIL 镜像二择一致）"
     )
     return {
         "symbolic_gate_key": key, "subject_prefix": prefix,
         "evidence_path": str(path.relative_to(ROOT).as_posix()),
         "status": "PASS" if ok else "FAIL",
-        "detail": ("诚实红聚合面合格（facts 全绿 + M-d 行 FAIL 镜像维持）" if ok
-                   else "诚实红聚合面异常（合格面 = facts 绿 + M-d 行 FAIL 镜像）"),
+        "detail": detail,
         "timestamp": doc.get("timestamp"),
     }
 
