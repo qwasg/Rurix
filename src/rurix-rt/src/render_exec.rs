@@ -994,6 +994,23 @@ pub struct ExportedTextureWin32 {
     pub memory_type_index: u32,
 }
 
+/// G14.10f exportable **buffer** 的 Win32 导出簿记(所有权/生命周期/跨界
+/// 有效性契约与 [`ExportedTextureWin32`] 同律;buffer 线性布局跨 device 无
+/// 歧义——vendor 输入驻留正道)。导入方以同 `allocation_size`/
+/// `memory_type_index` import + dedicated(buffer) 绑定自建 VkBuffer(usage
+/// 可异构,如导入侧 TRANSFER_SRC)。
+#[derive(Debug, Clone, Copy)]
+pub struct ExportedBufferWin32 {
+    /// NT handle 地址值(`VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT`)。
+    pub handle: usize,
+    /// buffer 声明字节数(导入侧 VkBuffer size 须一致)。
+    pub size: u64,
+    /// 导出 allocation 字节数(导入侧 `allocationSize` 须一致)。
+    pub allocation_size: u64,
+    /// 导出 allocation 的 memory type index(同 physical device 类型序一致)。
+    pub memory_type_index: u32,
+}
+
 /// FIF 流水帧票据(G14plus RFC-0030 §4.3 L2;
 /// [`DeviceFrameSession::submit_with_frame_update`] 产、
 /// [`DeviceFrameSession::collect`] 消费,须交还产出它的同一 session)。
@@ -1090,6 +1107,68 @@ impl<'a> DeviceFrameSession<'a> {
         accel_structs: &[AccelStructDesc<'a>],
         exportable_textures: &[u32],
     ) -> Result<Self, String> {
+        Self::new_with_external_textures(
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            frame_slots,
+            accel_structs,
+            exportable_textures,
+            &[],
+        )
+    }
+
+    /// G14.11(RFC-0030 §4.3)[`Self::new_with_exportable_textures`] +
+    /// **D3D12 反向导入**纹理集:`imported_d3d12_textures` 各 `(资源下标, NT
+    /// handle 地址值)`(handle = D3D12 `CreateSharedHandle` 产出,
+    /// `D3D12_HEAP_FLAG_SHARED` committed 资源)以
+    /// `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT` external chain 建
+    /// image 并 `VkImportMemoryWin32HandleInfoKHR` + dedicated 导入同一块显存
+    /// (memoryTypeIndex 取 image requirements ∩ handle properties 的
+    /// DEVICE_LOCAL 首匹配)。集内资源的绑定/屏障/provenance 面与 exportable
+    /// 集同律:layout 状态机每帧 UNDEFINED 重初始化(内容不保留——本 session
+    /// 恒为生产者),帧末自动追加 GENERAL 收敛 + `VK_QUEUE_FAMILY_EXTERNAL`
+    /// release barrier(D3D12 侧消费窗内容有效性;跨 API 同步契约 = 本 session
+    /// 该帧 fence 完成后 D3D12 才提交消费)。handle 归 D3D12 侧所有,本 session
+    /// 不关闭。LUID 对拍(D3D12 adapter vs 本 session physical device)由调用
+    /// 方先行,不匹配时导入确定性失败(fail-closed)。两集不得重叠;
+    /// `imported_d3d12_textures` 为空时与
+    /// [`Self::new_with_exportable_textures`] 逐字节同行为。
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_imported_d3d12_textures(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        frame_slots: usize,
+        accel_structs: &[AccelStructDesc<'a>],
+        exportable_textures: &[u32],
+        imported_d3d12_textures: &[(u32, usize)],
+    ) -> Result<Self, String> {
+        Self::new_with_external_textures(
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            frame_slots,
+            accel_structs,
+            exportable_textures,
+            imported_d3d12_textures,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_external_textures(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        frame_slots: usize,
+        accel_structs: &[AccelStructDesc<'a>],
+        exportable_textures: &[u32],
+        imported_d3d12_textures: &[(u32, usize)],
+    ) -> Result<Self, String> {
         validate_frame_with_as(
             resources,
             passes,
@@ -1097,21 +1176,79 @@ impl<'a> DeviceFrameSession<'a> {
             readbacks,
             accel_structs.len() as u32,
         )?;
-        // exportable 集校验(fail-closed;越界/非 Texture/重复均确定性拒)。
+        // exportable 集校验(fail-closed;越界/重复/非法类均确定性拒)。G14.10f
+        // 语义拓宽:Texture **或** Buffer(Buffer 须 data=None + device_local
+        // ——external dedicated 分配与创建期 staging 上传互斥,且导出面必须
+        // DEVICE_LOCAL;跨 device OPTIMAL tiling image 布局解释不保证一致
+        // (NVIDIA 实测乱序),buffer 线性布局无歧义——vendor 输入驻留正道)。
         for (k, &res) in exportable_textures.iter().enumerate() {
             let Some(desc) = resources.get(res as usize) else {
                 return Err(format!("exportable_textures[{k}]: 资源下标 {res} 越界"));
             };
-            if !matches!(desc, ResourceDesc::Texture(_)) {
-                return Err(format!("exportable_textures[{k}]: 资源 {res} 非 Texture"));
+            match desc {
+                ResourceDesc::Texture(_) => {}
+                ResourceDesc::Buffer(b) => {
+                    if b.data.is_some() {
+                        return Err(format!(
+                            "exportable_textures[{k}]: buffer 资源 {res} 带初始数据(export 面须 data=None)"
+                        ));
+                    }
+                    if !b.device_local {
+                        return Err(format!(
+                            "exportable_textures[{k}]: buffer 资源 {res} 非 device_local(export 面强制)"
+                        ));
+                    }
+                }
             }
             if exportable_textures[..k].contains(&res) {
                 return Err(format!("exportable_textures[{k}]: 资源 {res} 重复声明"));
             }
         }
+        // G14.11 imported 集校验(同律;附 handle 非零 + 与 exportable 不重叠)。
+        // 语义与 exportable 集同步拓宽:Texture **或** Buffer(Buffer 须
+        // data=None + device_local——D3D12_RESOURCE 导入 dedicated 分配与创建
+        // 期 staging 上传互斥;texture 直共享跨 API tiling 解释不一致弃案,
+        // buffer 线性布局无歧义——FSR 驻留正道)。
+        for (k, &(res, handle)) in imported_d3d12_textures.iter().enumerate() {
+            let Some(desc) = resources.get(res as usize) else {
+                return Err(format!("imported_d3d12_textures[{k}]: 资源下标 {res} 越界"));
+            };
+            match desc {
+                ResourceDesc::Texture(t) => {
+                    if t.data.is_some() {
+                        return Err(format!(
+                            "imported_d3d12_textures[{k}]: 资源 {res} 声明初始数据(导入面内容归 GPU 链,不受理 staging 初值)"
+                        ));
+                    }
+                }
+                ResourceDesc::Buffer(b) => {
+                    if b.data.is_some() {
+                        return Err(format!(
+                            "imported_d3d12_textures[{k}]: buffer 资源 {res} 带初始数据(导入面须 data=None)"
+                        ));
+                    }
+                    if !b.device_local {
+                        return Err(format!(
+                            "imported_d3d12_textures[{k}]: buffer 资源 {res} 非 device_local(导入面强制)"
+                        ));
+                    }
+                }
+            }
+            if handle == 0 {
+                return Err(format!("imported_d3d12_textures[{k}]: 资源 {res} handle 为空"));
+            }
+            if imported_d3d12_textures[..k].iter().any(|&(r, _)| r == res) {
+                return Err(format!("imported_d3d12_textures[{k}]: 资源 {res} 重复声明"));
+            }
+            if exportable_textures.contains(&res) {
+                return Err(format!(
+                    "imported_d3d12_textures[{k}]: 资源 {res} 同时声明 exportable(两集互斥)"
+                ));
+            }
+        }
         #[cfg(not(windows))]
-        if !exportable_textures.is_empty() {
-            return Err("exportable textures 仅支持 Windows(OPAQUE_WIN32 导出面)".into());
+        if !exportable_textures.is_empty() || !imported_d3d12_textures.is_empty() {
+            return Err("exportable/imported 纹理仅支持 Windows(win32 handle 面)".into());
         }
         if frame_slots < 2 {
             return Err("persistent frame session 须至少 2 个 fence frame slots".into());
@@ -1130,6 +1267,7 @@ impl<'a> DeviceFrameSession<'a> {
                 frame_slots,
                 accel_structs,
                 exportable_textures,
+                imported_d3d12_textures,
             )?
         };
         let as_count = native.as_count();
@@ -1526,6 +1664,16 @@ impl<'a> DeviceFrameSession<'a> {
         resource_index: usize,
     ) -> Result<ExportedTextureWin32, String> {
         self.native.export_texture_win32_handle(resource_index)
+    }
+
+    /// G14.10f:exportable **buffer** 的 Win32 NT handle 导出(缓存/所有权
+    /// 纪律与 [`Self::export_texture_win32_handle`] 同律;导入参数契约见
+    /// [`ExportedBufferWin32`])。
+    pub fn export_buffer_win32_handle(
+        &mut self,
+        resource_index: usize,
+    ) -> Result<ExportedBufferWin32, String> {
+        self.native.export_buffer_win32_handle(resource_index)
     }
 }
 
@@ -2683,14 +2831,19 @@ const ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR: u32 = 1_000_150_01
 // #128 → 1000127xxx;均 Vulkan 1.1 core 收编,win32 仍为扩展)。
 /// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES`(1.1 core;deviceLUID 载体)。
 const ST_PHYSICAL_DEVICE_ID_PROPERTIES: u32 = 1_000_071_004;
+/// `VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO`(G14.10f buffer
+/// 共享面)。
+const ST_EXTERNAL_MEMORY_BUFFER_CREATE_INFO: u32 = 1_000_072_000;
 /// `VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO`。
 const ST_EXTERNAL_MEMORY_IMAGE_CREATE_INFO: u32 = 1_000_072_001;
 /// `VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO`。
 const ST_EXPORT_MEMORY_ALLOCATE_INFO: u32 = 1_000_072_002;
-/// `VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR`(导入侧;单测跨
-/// device 闭环消费——产品面导入端在 vendor_upscale.rs,本侧仅测试用)。
-#[cfg(test)]
+/// `VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR`(导入侧;G14.11
+/// 起产品面消费——D3D12_RESOURCE 反向导入;单测跨 device 闭环同用)。
 const ST_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR: u32 = 1_000_073_000;
+/// `VK_STRUCTURE_TYPE_MEMORY_WIN32_HANDLE_PROPERTIES_KHR`(G14.11:导入 handle
+/// 的 memoryTypeBits 查询出参;`vkGetMemoryWin32HandlePropertiesKHR`)。
+const ST_MEMORY_WIN32_HANDLE_PROPERTIES_KHR: u32 = 1_000_073_002;
 /// `VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR`。
 const ST_MEMORY_GET_WIN32_HANDLE_INFO_KHR: u32 = 1_000_073_003;
 /// `VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO`(1.1 core;NVIDIA 上
@@ -2702,6 +2855,11 @@ const ST_MEMORY_DEDICATED_ALLOCATE_INFO: u32 = 1_000_127_001;
 /// D3D12 OpenSharedHandle **不可**消费此类句柄,FSR D3D12 臂需反向
 /// D3D12→Vulkan 导入路线,见 G14.10b 登记。
 const EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32: u32 = 0x2;
+/// `VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT`(= 0x20;G14.11 反向
+/// 共享:D3D12 `CreateSharedHandle` 产出的 resource NT handle 经
+/// `VkImportMemoryWin32HandleInfoKHR` 导入——G14.10b 已证 OPAQUE_WIN32 正向
+/// 不可被 D3D12 消费,本位是唯一可行方向;SDK 1.3.296 `vulkan_core.h` 核对)。
+const EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE: u32 = 0x20;
 /// `VK_QUEUE_FAMILY_EXTERNAL`(= ~1u32;跨 device release/acquire 家族哨兵)。
 const QUEUE_FAMILY_EXTERNAL: u32 = !1u32;
 const ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES: u32 = 1_000_257_000;
@@ -3641,6 +3799,16 @@ struct ExternalMemoryImageCreateInfo {
     handle_types: u32,
 }
 
+/// `VkExternalMemoryBufferCreateInfo`(布局同 image 版;sType = 1000072000)。
+/// 挂 [`BufferCreateInfo::p_next`] 声明该 buffer 内存可导出(G14.10f buffer
+/// 共享面:跨 device OPTIMAL image 布局解释不一致的正解——buffer 线性无歧义)。
+#[repr(C)]
+struct ExternalMemoryBufferCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_types: u32,
+}
+
 /// `VkExportMemoryAllocateInfo`(sType@0 / pNext@8 / handleTypes@16,size 24)。
 /// 挂 [`MemoryAllocateInfo::p_next`] 声明该分配可经 win32 handle 导出。
 #[repr(C)]
@@ -3671,9 +3839,9 @@ struct MemoryGetWin32HandleInfoKHR {
 }
 
 /// `VkImportMemoryWin32HandleInfoKHR`(sType@0 / pNext@8 / handleType@16 /
-/// handle@24 / name@32,size 40)。导入侧(单测跨 device 闭环消费;DLSS 侧
-/// vendor_upscale.rs 持同族独立定义——两模块 FFI 自足纪律)。
-#[cfg(test)]
+/// handle@24 / name@32,size 40)。导入侧(G14.11 D3D12_RESOURCE 反向导入
+/// 产品面 + 单测跨 device 闭环;DLSS 侧 vendor_upscale.rs 持同族独立定义
+/// ——两模块 FFI 自足纪律)。
 #[repr(C)]
 struct ImportMemoryWin32HandleInfoKHR {
     s_type: u32,
@@ -3683,10 +3851,28 @@ struct ImportMemoryWin32HandleInfoKHR {
     name: *const u16,
 }
 
+/// `VkMemoryWin32HandlePropertiesKHR`(sType@0 / pNext@8 / memoryTypeBits@16,
+/// size 24)。G14.11:导入 D3D12 resource handle 的兼容内存类型查询出参。
+#[repr(C)]
+struct MemoryWin32HandlePropertiesKHR {
+    s_type: u32,
+    p_next: *mut c_void,
+    memory_type_bits: u32,
+}
+
 type FnGetMemoryWin32HandleKHR = unsafe extern "system" fn(
     VkDevice,
     *const MemoryGetWin32HandleInfoKHR,
     *mut *mut c_void,
+) -> VkResult;
+
+/// `vkGetMemoryWin32HandlePropertiesKHR`(G14.11;OPAQUE 类 handle 不可查,
+/// D3D12_RESOURCE 可查——VUID-00666)。
+type FnGetMemoryWin32HandlePropertiesKHR = unsafe extern "system" fn(
+    VkDevice,
+    u32,
+    *mut c_void,
+    *mut MemoryWin32HandlePropertiesKHR,
 ) -> VkResult;
 
 // kernel32 `CloseHandle`(导出 NT handle 归 session 所有,Drop 单点关闭——
@@ -5490,9 +5676,27 @@ unsafe fn record_frame_body(
     // 不保留语义),规范允许跳过 re-acquire——与「每帧 UNDEFINED 初值」既有
     // 纪律天然一致,无需帧首 acquire。
     for &res in p.exportable {
+        // G14.10f exportable buffer:EXTERNAL release(buffer 无 layout 面,
+        // 仅所有权/可用性;导入方消费前录对应 acquire——契约同 image)。
+        if let RtRes::Buf(rb) = &rt[res as usize] {
+            buf_barriers.push(BufferMemoryBarrier2 {
+                s_type: ST_BUFFER_MEMORY_BARRIER_2,
+                p_next: std::ptr::null(),
+                src_stage_mask: STAGE2_ALL_COMMANDS,
+                src_access_mask: ACCESS2_MEMORY_WRITE,
+                dst_stage_mask: STAGE2_ALL_COMMANDS,
+                dst_access_mask: 0,
+                src_queue_family_index: p.queue_family_index,
+                dst_queue_family_index: QUEUE_FAMILY_EXTERNAL,
+                buffer: rb.buffer,
+                offset: 0,
+                size: !0u64, // VK_WHOLE_SIZE
+            });
+            continue;
+        }
         transit!(res, TargetState::StorageImageReadWrite);
         let RtRes::Img(ri) = &rt[res as usize] else {
-            return Err(format!("exportable {res} 非 image(校验漏网)"));
+            return Err(format!("exportable {res} 非 image/buffer(校验漏网)"));
         };
         img_barriers.push(ImageMemoryBarrier2 {
             s_type: ST_IMAGE_MEMORY_BARRIER_2,
@@ -5562,6 +5766,13 @@ struct NativeDeviceFrame {
     /// 空 = 无导出面,全旧行为)。record_frame_body 帧末 release barrier 与
     /// win32 导出 accessor 共用事实源。
     exportable_meta: Vec<(u32, u64, u32)>,
+    /// G14.10f exportable buffer 声明尺寸簿记(资源下标, 声明字节;导出
+    /// accessor 的 [`ExportedBufferWin32::size`] 事实源——allocation 有对齐,
+    /// 声明尺寸须单列)。
+    exportable_buf_sizes: Vec<(u32, u64)>,
+    /// G14.11 D3D12 导入纹理下标(空 = 无导入面;帧末 EXTERNAL release 集 =
+    /// exportable ∪ imported——D3D12 消费窗内容有效性同律)。
+    imported_indices: Vec<u32>,
     /// 建面 queue family(release barrier 的 src 家族;既有单 graphics queue 策略)。
     queue_family_index: u32,
 }
@@ -5688,6 +5899,65 @@ impl NativePersistentFrame {
         let mut handle: *mut c_void = std::ptr::null_mut();
         // SAFETY: device 存活(self 持有);info 栈上存活;memory 为本 session
         // exportable 分配(建面挂 VkExportMemoryAllocateInfo);出参栈上有效写。
+        let r = unsafe { get_fn(self.device, &info, &mut handle) };
+        if r != VK_SUCCESS || handle.is_null() {
+            return Err(format!("vkGetMemoryWin32HandleKHR 失败: {r}"));
+        }
+        self.exported_handles.push((res, handle as usize));
+        out.handle = handle as usize;
+        Ok(out)
+    }
+
+    /// G14.10f:exportable buffer Win32 NT handle 导出本体(缓存;契约见
+    /// [`DeviceFrameSession::export_buffer_win32_handle`])。
+    fn export_buffer_win32_handle(
+        &mut self,
+        resource_index: usize,
+    ) -> Result<ExportedBufferWin32, String> {
+        let Some(&(res, alloc_size, mem_type)) = self
+            .frame
+            .exportable_meta
+            .iter()
+            .find(|&&(r, _, _)| r as usize == resource_index)
+        else {
+            return Err(format!(
+                "资源 {resource_index} 未声明为 exportable(new_with_exportable_textures)"
+            ));
+        };
+        let RtRes::Buf(rb) = &self.frame.rt[resource_index] else {
+            return Err(format!(
+                "资源 {resource_index} 非 buffer(exportable 簿记不一致)"
+            ));
+        };
+        let size = self
+            .frame
+            .exportable_buf_sizes
+            .iter()
+            .find(|&&(r, _)| r as usize == resource_index)
+            .map(|&(_, s)| s)
+            .ok_or_else(|| format!("资源 {resource_index} 无 buffer 尺寸簿记"))?;
+        let memory = rb.mem;
+        let mut out = ExportedBufferWin32 {
+            handle: 0,
+            size,
+            allocation_size: alloc_size,
+            memory_type_index: mem_type,
+        };
+        if let Some(&(_, h)) = self.exported_handles.iter().find(|&&(r, _)| r == res) {
+            out.handle = h;
+            return Ok(out);
+        }
+        let get_fn = self
+            .get_memory_win32
+            .ok_or("vkGetMemoryWin32HandleKHR 未解析(非 exportable session)")?;
+        let info = MemoryGetWin32HandleInfoKHR {
+            s_type: ST_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+            p_next: std::ptr::null(),
+            memory,
+            handle_type: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+        };
+        let mut handle: *mut c_void = std::ptr::null_mut();
+        // SAFETY: 同 texture 导出本体(export chain 分配已在建面保证)。
         let r = unsafe { get_fn(self.device, &info, &mut handle) };
         if r != VK_SUCCESS || handle.is_null() {
             return Err(format!("vkGetMemoryWin32HandleKHR 失败: {r}"));
@@ -5872,6 +6142,7 @@ unsafe fn execute_frame_inner(
             &[],
             1,
             &[],
+            &[],
         );
 
         let dev_destroy: Option<FnDestroyDevice> =
@@ -5918,8 +6189,25 @@ unsafe fn execute_on_device(
     // device 须已启用 VK_KHR_external_memory(+_win32)——create_persistent_frame
     // 侧 fail-closed 保证;ephemeral 路恒空)。
     exportable: &[u32],
+    // G14.11 D3D12 反向导入纹理表(已校验 (资源下标, NT handle);空 = 无导入面,
+    // 建面/录制全旧行为;device 扩展保证同上;ephemeral 路恒空)。
+    imported_d3d12: &[(u32, usize)],
 ) -> Result<Vec<Vec<u8>>, String> {
     let dev = Dev::load(gdpa, device)?;
+    // G14.11:导入 handle 兼容内存类型查询 fn(仅导入面解析;缺符号 = 驱动异常
+    // fail-closed——扩展已启用)。
+    let get_win32_props: Option<FnGetMemoryWin32HandlePropertiesKHR> = if imported_d3d12.is_empty()
+    {
+        None
+    } else {
+        match cast_fn::<FnGetMemoryWin32HandlePropertiesKHR>(gdpa(
+            device,
+            c"vkGetMemoryWin32HandlePropertiesKHR".as_ptr(),
+        )) {
+            Some(f) => Some(f),
+            None => return Err("缺 vkGetMemoryWin32HandlePropertiesKHR(扩展已启用仍不可解析)".into()),
+        }
+    };
     let mut queue: VkQueue = std::ptr::null_mut();
     (dev.get_device_queue)(device, qfi, 0, &mut queue);
     let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
@@ -5934,6 +6222,7 @@ unsafe fn execute_on_device(
         // G14.10b exportable 簿记((资源下标, allocation 字节, memory type);
         // 建面处一次定格,导出 accessor/release barrier 共用。
         let mut exportable_meta: Vec<(u32, u64, u32)> = Vec::new();
+        let mut exportable_buf_sizes: Vec<(u32, u64)> = Vec::new();
         // G14.10d DEVICE_LOCAL 初始数据一次性上传表:(staging buffer, 目标 buffer,
         // 字节数)——资源建面期收集,cmdpool 就绪后单次 one-shot copy submit + 有界
         // 等待,staging 随即销毁(稳态零驻留)。
@@ -5941,6 +6230,183 @@ unsafe fn execute_on_device(
         for (i, r) in resources.iter().enumerate() {
             match r {
                 ResourceDesc::Buffer(b) => {
+                    // G14.11:imported(D3D12_RESOURCE)buffer 独立分支(创建期
+                    // 已校验 data=None + device_local + handle 非零):external
+                    // chain 建 buffer → handle properties ∩ requirements 选
+                    // DEVICE_LOCAL → import + dedicated(buffer) 分配绑定。D3D12
+                    // 侧 SHARED committed BUFFER 线性字节,跨 API 布局无歧义
+                    // (texture 直共享 tiling 弃案的 fallback 正道)。
+                    if let Some(&(_, h)) = imported_d3d12.iter().find(|&&(r, _)| r as usize == i) {
+                        let ext_buf_info = ExternalMemoryBufferCreateInfo {
+                            s_type: ST_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+                            p_next: std::ptr::null(),
+                            handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE,
+                        };
+                        let bci = BufferCreateInfo {
+                            s_type: ST_BUFFER_CREATE_INFO,
+                            p_next: (&ext_buf_info as *const ExternalMemoryBufferCreateInfo)
+                                .cast(),
+                            flags: 0,
+                            size: b.size,
+                            usage: buffer_usage_flags(b.usage),
+                            sharing_mode: SHARING_MODE_EXCLUSIVE,
+                            queue_family_index_count: 0,
+                            p_queue_family_indices: std::ptr::null(),
+                        };
+                        let mut buf: VkBuffer = VK_NULL_HANDLE;
+                        if (dev.create_buffer)(device, &bci, std::ptr::null(), &mut buf)
+                            != VK_SUCCESS
+                        {
+                            return Err(format!(
+                                "resources[{i}]: vkCreateBuffer(imported d3d12) 失败"
+                            ));
+                        }
+                        let mut req = std::mem::zeroed::<MemoryRequirements>();
+                        (dev.buf_mem_req)(device, buf, &mut req);
+                        let mut props = MemoryWin32HandlePropertiesKHR {
+                            s_type: ST_MEMORY_WIN32_HANDLE_PROPERTIES_KHR,
+                            p_next: std::ptr::null_mut(),
+                            memory_type_bits: 0,
+                        };
+                        let get_props = get_win32_props
+                            .expect("imported 非空时 get_win32_props 已解析(前置 fail-closed)");
+                        let r = get_props(
+                            device,
+                            EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE,
+                            h as *mut c_void,
+                            &mut props,
+                        );
+                        if r != VK_SUCCESS {
+                            (dev.destroy_buffer)(device, buf, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: vkGetMemoryWin32HandlePropertiesKHR(buffer) 失败: {r}(D3D12 handle 无效或跨 adapter——LUID 对拍先行)"
+                            ));
+                        }
+                        let type_bits = req.memory_type_bits & props.memory_type_bits;
+                        let Some(mt) = pick_mem_type(&memprops, type_bits, MEM_DEVICE_LOCAL)
+                        else {
+                            (dev.destroy_buffer)(device, buf, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: 无 device-local 内存类型(imported buffer)"
+                            ));
+                        };
+                        let dedicated = MemoryDedicatedAllocateInfo {
+                            s_type: ST_MEMORY_DEDICATED_ALLOCATE_INFO,
+                            p_next: std::ptr::null(),
+                            image: VK_NULL_HANDLE,
+                            buffer: buf,
+                        };
+                        let import_info = ImportMemoryWin32HandleInfoKHR {
+                            s_type: ST_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                            p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
+                            handle_type: EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE,
+                            handle: h as *mut c_void,
+                            name: std::ptr::null(),
+                        };
+                        let mai = MemoryAllocateInfo {
+                            s_type: ST_MEMORY_ALLOCATE_INFO,
+                            p_next: (&import_info as *const ImportMemoryWin32HandleInfoKHR)
+                                .cast(),
+                            allocation_size: req.size,
+                            memory_type_index: mt,
+                        };
+                        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+                        if (dev.alloc_mem)(device, &mai, std::ptr::null(), &mut mem)
+                            != VK_SUCCESS
+                        {
+                            (dev.destroy_buffer)(device, buf, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: vkAllocateMemory(import d3d12 buffer) 失败"
+                            ));
+                        }
+                        (dev.bind_buf)(device, buf, mem, 0);
+                        cleanup.buffers.push((buf, mem));
+                        cleanup.register_allocation(
+                            mem,
+                            req.size,
+                            memprops.memory_types[mt as usize].heap_index,
+                            Some(StableResourceId(i as u64 + 1)),
+                        );
+                        rt.push(RtRes::Buf(RtBuffer { buffer: buf, mem }));
+                        continue;
+                    }
+                    // G14.10f:exportable buffer 走 external memory chain 独立
+                    // 分支(创建期已校验 data=None + device_local;export +
+                    // dedicated(buffer) 分配,DEVICE_LOCAL 首匹配)。
+                    if exportable.contains(&(i as u32)) {
+                        let ext_buf_info = ExternalMemoryBufferCreateInfo {
+                            s_type: ST_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+                            p_next: std::ptr::null(),
+                            handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                        };
+                        let bci = BufferCreateInfo {
+                            s_type: ST_BUFFER_CREATE_INFO,
+                            p_next: (&ext_buf_info as *const ExternalMemoryBufferCreateInfo)
+                                .cast(),
+                            flags: 0,
+                            size: b.size,
+                            usage: buffer_usage_flags(b.usage),
+                            sharing_mode: SHARING_MODE_EXCLUSIVE,
+                            queue_family_index_count: 0,
+                            p_queue_family_indices: std::ptr::null(),
+                        };
+                        let mut buf: VkBuffer = VK_NULL_HANDLE;
+                        if (dev.create_buffer)(device, &bci, std::ptr::null(), &mut buf)
+                            != VK_SUCCESS
+                        {
+                            return Err(format!(
+                                "resources[{i}]: vkCreateBuffer(exportable) 失败"
+                            ));
+                        }
+                        let mut req = std::mem::zeroed::<MemoryRequirements>();
+                        (dev.buf_mem_req)(device, buf, &mut req);
+                        let Some(mt) =
+                            pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL)
+                        else {
+                            (dev.destroy_buffer)(device, buf, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: 无 device-local 内存类型(exportable buffer)"
+                            ));
+                        };
+                        let dedicated = MemoryDedicatedAllocateInfo {
+                            s_type: ST_MEMORY_DEDICATED_ALLOCATE_INFO,
+                            p_next: std::ptr::null(),
+                            image: VK_NULL_HANDLE,
+                            buffer: buf,
+                        };
+                        let export_info = ExportMemoryAllocateInfo {
+                            s_type: ST_EXPORT_MEMORY_ALLOCATE_INFO,
+                            p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
+                            handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                        };
+                        let mai = MemoryAllocateInfo {
+                            s_type: ST_MEMORY_ALLOCATE_INFO,
+                            p_next: (&export_info as *const ExportMemoryAllocateInfo).cast(),
+                            allocation_size: req.size,
+                            memory_type_index: mt,
+                        };
+                        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+                        if (dev.alloc_mem)(device, &mai, std::ptr::null(), &mut mem)
+                            != VK_SUCCESS
+                        {
+                            (dev.destroy_buffer)(device, buf, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: vkAllocateMemory(exportable buffer) 失败"
+                            ));
+                        }
+                        (dev.bind_buf)(device, buf, mem, 0);
+                        cleanup.buffers.push((buf, mem));
+                        cleanup.register_allocation(
+                            mem,
+                            req.size,
+                            memprops.memory_types[mt as usize].heap_index,
+                            Some(StableResourceId(i as u64 + 1)),
+                        );
+                        exportable_meta.push((i as u32, req.size, mt));
+                        exportable_buf_sizes.push((i as u32, b.size));
+                        rt.push(RtRes::Buf(RtBuffer { buffer: buf, mem }));
+                        continue;
+                    }
                     // G14.10d 三路判定(RFC-0030 §4.3;§4.3 L1 波的实测归因先例:
                     // SSBO 本体切 HOST_CACHED 使 GPU 直写吃 snoop 惩罚 3.5×——
                     // cached 仅用于 staging 类,SSBO 本体 host 路恒 WC):
@@ -5987,17 +6453,27 @@ unsafe fn execute_on_device(
                 }
                 ResourceDesc::Texture(t) => {
                     // G14.10b:exportable 纹理走 external memory chain 新分支
-                    // (集外资源 p_next 恒 null——既有路径 0-byte)。
+                    // (集外资源 p_next 恒 null——既有路径 0-byte);
+                    // G14.11:imported(D3D12_RESOURCE)同链异位——external
+                    // chain handleTypes 与分配链 import/export 按集切换。
                     let is_exportable = exportable.contains(&(i as u32));
+                    let imported = imported_d3d12
+                        .iter()
+                        .find(|&&(r, _)| r as usize == i)
+                        .map(|&(_, h)| h);
                     let ext_img_info = ExternalMemoryImageCreateInfo {
                         s_type: ST_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
                         p_next: std::ptr::null(),
-                        handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+                        handle_types: if imported.is_some() {
+                            EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE
+                        } else {
+                            EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32
+                        },
                     };
                     let usage_flags = texture_usage_flags(t.usage);
                     let ici = ImageCreateInfo {
                         s_type: ST_IMAGE_CREATE_INFO,
-                        p_next: if is_exportable {
+                        p_next: if is_exportable || imported.is_some() {
                             (&ext_img_info as *const ExternalMemoryImageCreateInfo).cast()
                         } else {
                             std::ptr::null()
@@ -6027,13 +6503,38 @@ unsafe fn execute_on_device(
                     }
                     let mut req = std::mem::zeroed::<MemoryRequirements>();
                     (dev.img_mem_req)(device, image, &mut req);
-                    let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL)
+                    // G14.11:导入面内存类型位 = image requirements ∩ handle
+                    // properties(vkGetMemoryWin32HandlePropertiesKHR;
+                    // D3D12_RESOURCE 可查——OPAQUE 类不可,VUID-00666)。
+                    let mut type_bits = req.memory_type_bits;
+                    if let (Some(h), Some(get_props)) = (imported, get_win32_props) {
+                        let mut props = MemoryWin32HandlePropertiesKHR {
+                            s_type: ST_MEMORY_WIN32_HANDLE_PROPERTIES_KHR,
+                            p_next: std::ptr::null_mut(),
+                            memory_type_bits: 0,
+                        };
+                        let r = get_props(
+                            device,
+                            EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE,
+                            h as *mut c_void,
+                            &mut props,
+                        );
+                        if r != VK_SUCCESS {
+                            (dev.destroy_image)(device, image, std::ptr::null());
+                            return Err(format!(
+                                "resources[{i}]: vkGetMemoryWin32HandlePropertiesKHR 失败: {r}(D3D12 handle 无效或跨 adapter——LUID 对拍先行)"
+                            ));
+                        }
+                        type_bits &= props.memory_type_bits;
+                    }
+                    let Some(mt) = pick_mem_type(&memprops, type_bits, MEM_DEVICE_LOCAL)
                     else {
                         (dev.destroy_image)(device, image, std::ptr::null());
                         return Err(format!("resources[{i}]: 无 device-local 内存类型"));
                     };
-                    // exportable 分配链:export(OPAQUE_WIN32)→ dedicated(image)。
-                    // NVIDIA 上 Win32 导出 image 实务强制 dedicated,必挂。
+                    // 分配链:exportable = export(OPAQUE_WIN32)→ dedicated;
+                    // imported = import(D3D12_RESOURCE handle)→ dedicated。
+                    // NVIDIA 上 Win32 导出/导入 image 实务强制 dedicated,必挂。
                     let dedicated = MemoryDedicatedAllocateInfo {
                         s_type: ST_MEMORY_DEDICATED_ALLOCATE_INFO,
                         p_next: std::ptr::null(),
@@ -6045,9 +6546,18 @@ unsafe fn execute_on_device(
                         p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
                         handle_types: EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
                     };
+                    let import_info = ImportMemoryWin32HandleInfoKHR {
+                        s_type: ST_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+                        p_next: (&dedicated as *const MemoryDedicatedAllocateInfo).cast(),
+                        handle_type: EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE,
+                        handle: imported.unwrap_or(0) as *mut c_void,
+                        name: std::ptr::null(),
+                    };
                     let mai = MemoryAllocateInfo {
                         s_type: ST_MEMORY_ALLOCATE_INFO,
-                        p_next: if is_exportable {
+                        p_next: if imported.is_some() {
+                            (&import_info as *const ImportMemoryWin32HandleInfoKHR).cast()
+                        } else if is_exportable {
                             (&export_info as *const ExportMemoryAllocateInfo).cast()
                         } else {
                             std::ptr::null()
@@ -6058,7 +6568,14 @@ unsafe fn execute_on_device(
                     let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
                     if (dev.alloc_mem)(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
                         (dev.destroy_image)(device, image, std::ptr::null());
-                        return Err(format!("resources[{i}]: vkAllocateMemory 失败(image)"));
+                        return Err(format!(
+                            "resources[{i}]: vkAllocateMemory 失败(image{})",
+                            if imported.is_some() {
+                                ",D3D12_RESOURCE 导入——handle/LUID/参数对齐检查"
+                            } else {
+                                ""
+                            }
+                        ));
                     }
                     (dev.bind_img)(device, image, mem, 0);
                     cleanup.images.push((image, mem));
@@ -7065,6 +7582,14 @@ unsafe fn execute_on_device(
 
         // ── 录制帧命令体(上传段 → 逐 pass → readback 段;record_frame_body 单一
         // 事实源,FrameUpdate 重录路共用;创建期 effective bindings = 声明绑定)──
+        // G14.11:帧末 EXTERNAL release 集 = exportable ∪ imported(D3D12 消费
+        // 窗同律;重录路从 NativeDeviceFrame 两簿记同式合成)。
+        let imported_indices: Vec<u32> = imported_d3d12.iter().map(|&(r, _)| r).collect();
+        let release_set: Vec<u32> = exportable
+            .iter()
+            .copied()
+            .chain(imported_indices.iter().copied())
+            .collect();
         let declared_bindings: Vec<Bindings> =
             passes.iter().map(|p| pass_bindings(p).clone()).collect();
         let mut rb_buffers: Vec<Option<(VkBuffer, VkDeviceMemory)>> =
@@ -7086,7 +7611,7 @@ unsafe fn execute_on_device(
                 inline_vbs: &inline_vbs,
                 readbacks,
                 record_upload_segment: true,
-                exportable,
+                exportable: &release_set,
                 queue_family_index: qfi,
             },
             &mut rb_buffers,
@@ -7125,6 +7650,8 @@ unsafe fn execute_on_device(
                 setups,
                 inline_vbs,
                 exportable_meta,
+                exportable_buf_sizes,
+                imported_indices,
                 queue_family_index: qfi,
             });
             retained = true;
@@ -7214,6 +7741,7 @@ unsafe fn create_persistent_frame(
     frame_slots: usize,
     accel_structs: &[AccelStructDesc<'_>],
     exportable: &[u32],
+    imported_d3d12: &[(u32, usize)],
 ) -> Result<NativePersistentFrame, String> {
     let (instance, validation) = create_instance(gipa, c"rurix-persistent-frame")?;
     // soak 取证关闭 validation layer(开销/误报);健康靠 fence/telemetry/device-lost。
@@ -7289,13 +7817,16 @@ unsafe fn create_persistent_frame(
         // RXS-0303 L3:conservative pass × 无扩展 → 确定性 Err(任何 pipeline 创建前)。
         validate_conservative_raster(passes, &caps)?;
 
-        // ── G14.10b exportable 能力面(集空 = 全跳过,0-byte)──
+        // ── G14.10b exportable / G14.11 imported 能力面(两集皆空 = 全跳过,
+        // 0-byte)──
         // ① VK_KHR_external_memory_win32 设备扩展探测(external_memory 本体
-        //   1.1 core 免探)+ shaderStorageImageExtendedFormats feature 探测;
+        //   1.1 core 免探;导出/导入同一扩展)+ shaderStorageImageExtendedFormats
+        //   feature 探测;
         // ② 物理设备 LUID 实采(1.1 core vkGetPhysicalDeviceProperties2 链
         //   VkPhysicalDeviceIDProperties;LUID 无效 → None,消费侧对拍自决)。
+        let external_any = !exportable.is_empty() || !imported_d3d12.is_empty();
         let mut storage_ext_formats = false;
-        if !exportable.is_empty() {
+        if external_any {
             let vk_enum_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
                 instance,
                 c"vkEnumerateDeviceExtensionProperties".as_ptr(),
@@ -7318,8 +7849,8 @@ unsafe fn create_persistent_frame(
             });
             if !has_win32_ext {
                 return Err(format!(
-                    "VK_KHR_external_memory_win32 不可用(device `{}`;exportable 纹理\
-                     导出面硬依赖,fail-closed 不降级)",
+                    "VK_KHR_external_memory_win32 不可用(device `{}`;exportable/\
+                     imported 纹理面硬依赖,fail-closed 不降级)",
                     caps.device_name
                 ));
             }
@@ -7488,9 +8019,10 @@ unsafe fn create_persistent_frame(
                 (&mut bda_feat as *mut PhysicalDeviceBufferDeviceAddressFeatures).cast();
             as_feat.p_next = (&mut rq_feat as *mut PhysicalDeviceRayQueryFeatures).cast();
         }
-        // G14.10b:exportable 面两扩展(win32 在位已核;external_memory 1.1 core
-        // 收编但显式列出——两名皆注册扩展名,驱动恒接受;集空不列,0-byte)。
-        if !exportable.is_empty() {
+        // G14.10b/G14.11:external 面两扩展(win32 在位已核;external_memory
+        // 1.1 core 收编但显式列出——两名皆注册扩展名,驱动恒接受;导出/导入
+        // 同一对扩展;两集皆空不列,0-byte)。
+        if external_any {
             exts.push(c"VK_KHR_external_memory".as_ptr());
             exts.push(c"VK_KHR_external_memory_win32".as_ptr());
         }
@@ -7620,6 +8152,7 @@ unsafe fn create_persistent_frame(
             &as_handles,
             frame_slots,
             exportable,
+            imported_d3d12,
         );
         if let Err(error) = prepare {
             bail_as!(error);
@@ -7995,11 +8528,13 @@ unsafe fn submit_persistent_frame(
                 .iter()
                 .map(|&source| native.frame.rb_buffers[source])
                 .collect();
+            // G14.11:release 集 = exportable ∪ imported(创建期录制同式)。
             let exportable_indices: Vec<u32> = native
                 .frame
                 .exportable_meta
                 .iter()
                 .map(|&(r, _, _)| r)
+                .chain(native.frame.imported_indices.iter().copied())
                 .collect();
             record_frame_body(
                 &FrameBodyParams {
@@ -8619,11 +9154,13 @@ unsafe fn submit_pipelined_frame(
             Readback::Buffer { .. } => None,
         })
         .collect();
+    // G14.11:release 集 = exportable ∪ imported(创建期录制同式)。
     let exportable_indices: Vec<u32> = native
         .frame
         .exportable_meta
         .iter()
         .map(|&(r, _, _)| r)
+        .chain(native.frame.imported_indices.iter().copied())
         .collect();
     record_frame_body(
         &FrameBodyParams {

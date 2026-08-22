@@ -120,7 +120,7 @@ use rurix_rt::render_exec::{
     ResourceDesc, StableResourceId, TargetState, TexFormat, TextureDesc, TextureUsage,
 };
 use rurix_rt::vendor_upscale::{
-    DlssVkSession, ExternalImageImportDesc, ExternalInputSlot, FsrDx12Session,
+    DlssVkSession, ExternalBufferImportDesc, ExternalInputSlot, FsrDx12Session,
     VendorExternalFrameParams, VendorFrameInput, VendorSessionReport, fsr_sdk_dir,
     streamline_sdk_dir,
 };
@@ -2998,34 +2998,37 @@ impl<'a> UnifiedTsrLane<'a> {
 // ---------------------------------------------------------------------------
 
 /// dlss 驻留车道资源下标闭集（场景区 0..=6 + mv 区 7..=8 与统一车道 U_* 逐字
-/// 同布局同下标——常量直接复用；9..=11 = 三 exportable 纹理）。
-const D_TEX_COLOR: u32 = 9;
-const D_TEX_DEPTH: u32 = 10;
-const D_TEX_MV: u32 = 11;
-const D_RESOURCE_COUNT: usize = 12;
+/// 同布局同下标——常量直接复用；9 = pack 输出 exportable buffer,G14.10f
+/// buffer 共享版——U_SCENE_DEPTH(6)/U_MV_OUT(8) 亦声明 exportable 直接导出,
+/// 三 exportable 纹理弃案:跨 device OPTIMAL tiling 布局解释不一致,DLSS 侧
+/// device 读同 memory 为确定性块状乱序,读图抓获）。
+const D_BUF_PACK: u32 = 9;
+const D_RESOURCE_COUNT: usize = 10;
 
-/// pack pass 屏障计划（保守超集逐字声明同律：SSBO 三源 = StorageReadWrite，
-/// storage image 三标 = StorageImageReadWrite/GENERAL——exportable 面 layout
-/// 恒 GENERAL，与帧末 EXTERNAL release 收敛态一致）。
+/// pack pass 屏障计划（保守超集逐字声明同律：SSBO 源/标均 StorageReadWrite）。
 const D_PLAN_PACK: &[(u32, TargetState)] = &[
     (U_SCENE_COLOR, TargetState::StorageReadWrite),
     (U_SCENE_DEPTH, TargetState::StorageReadWrite),
     (U_MV_OUT, TargetState::StorageReadWrite),
-    (D_TEX_COLOR, TargetState::StorageImageReadWrite),
-    (D_TEX_DEPTH, TargetState::StorageImageReadWrite),
-    (D_TEX_MV, TargetState::StorageImageReadWrite),
+    (D_BUF_PACK, TargetState::StorageReadWrite),
 ];
 
-/// G14.10e 手编 pack compute SPIR-V（SPIR-V 1.0；LocalSize 8×8；沿
-/// geometry/visbuffer_swhw_spv.rs inst/words 手编体例）：scene 车道 SSBO 三源
-/// （color 3f32/px、depth 1f32/px、mv 2f32/px；binding 0/1/2）逐像素直写三
-/// exportable storage image（Rgba32f/R32f/Rg32f；binding 3/4/5 = storage_images
-/// 区段 [N..N+K)，layout GENERAL）。push constants = {w:u32, h:u32}；越界门
-/// px<w && py<h；i = py·w+px；color 写 vec4(c[3i],c[3i+1],c[3i+2],1.0)、depth
-/// 写 vec4(d[i],0,0,0)、mv 写 vec4(m[2i],m[2i+1],0,0)。数值面 = f32 位拷贝零
-/// 浮点算术（OpLoad→OpCompositeConstruct→OpImageWrite）——image 内容与 scene/
-/// mv SSBO 输出位级同一。Rg32f storage 格式须 StorageImageExtendedFormats
-/// capability（49；设备特性经 new_with_exportable_textures 启用）。
+// （fsr 车道的三纹理常量/屏障计划/descs/bits 见 F_* 区段——G14.11 fsr 域
+// 自持,D3D12 SHARED 导入路线与本 dlss buffer 共享路线并存。）
+
+/// G14.10f 手编 pack compute SPIR-V（SPIR-V 1.0；LocalSize 8×8；沿
+/// geometry/visbuffer_swhw_spv.rs inst/words 手编体例）：scene 车道 color SSBO
+/// （3f32/px，binding 0）→ pack 输出 SSBO（u32 对/px = RGBA16F 8B/px 紧凑,
+/// binding 1）。**rgb × exposure 转显示域**（G14.10f 语义修正:TSR resample
+/// `o = v·exposure` 同律——vendor 臂输出与 tsr 臂/UE 基准同域;bistro
+/// ev100=−4 时 scene 域直通实测暗 2^4,G13.4 M-a 门为 scene 域语义+度量侧
+/// 尺度链,host `pack_vendor_inputs` 共享面零触碰,乘法仅落本 G14.3 车道）
+/// 后 PackHalf2x16(GLSL.std.450 #58,RTE 舍入) ×2/px——(r·e, g·e)/(b·e, 1.0)。
+/// push constants = {w:u32, h:u32, exposure:f32}；越界门 px<w && py<h；
+/// i = py·w+px。depth/mv 不经 pack——scene depth(1f32/px=R32F 紧凑)/
+/// mv(2f32/px=RG32F 紧凑) SSBO 直接导出（数值域不随 exposure 变）。
+/// cornell ev100=0（exposure=1.0,IEEE x·1.0 位保持）⇒ cornell digest 锚零漂
+/// 判据。
 #[allow(clippy::too_many_lines)]
 fn g14_pack_spv() -> Vec<u32> {
     fn inst(v: &mut Vec<u32>, op: u32, ops: &[u32]) {
@@ -3043,6 +3046,10 @@ fn g14_pack_spv() -> Vec<u32> {
             .collect()
     }
     // id 布局：类型/常量/全局 < 100；函数体自 100（visbuffer_swhw_spv 同律）。
+    // G14.10f buffer 共享版：SSBO(3f32 color) → SSBO(u32 对 = RGBA16F 8B/px
+    // 紧凑)——PackHalf2x16(GLSL.std.450 #58,RTE 舍入,与 host `f32_to_f16`
+    // 同语义) ×2/px。depth/mv 退出 pack(scene/mv 输出 SSBO 本就紧凑,直接
+    // 导出);storage image 面全删(跨 device OPTIMAL 布局解释不一致弃案)。
     let t_void = 1u32;
     let t_fn = 2;
     let t_bool = 3;
@@ -3051,24 +3058,18 @@ fn g14_pack_spv() -> Vec<u32> {
     let t_v3u = 6;
     let p_in_v3u = 7;
     let v_gid = 8;
-    let t_v2u = 9;
-    let t_v4f = 10;
+    let t_v2f = 9;
+    let ext_glsl = 10;
     let t_rt_f32 = 11;
     let t_st_f32 = 12;
-    let p_uni_st = 13;
+    let p_uni_st_f = 13;
     let p_uni_f32 = 14;
     let v_color = 15;
-    let v_depth = 16;
-    let v_mv = 17;
-    let t_img_c = 18;
-    let p_img_c = 19;
-    let v_img_c = 20;
-    let t_img_d = 21;
-    let p_img_d = 22;
-    let v_img_d = 23;
-    let t_img_m = 24;
-    let p_img_m = 25;
-    let v_img_m = 26;
+    let t_rt_u32 = 16;
+    let t_st_u32 = 17;
+    let p_uni_st_u = 18;
+    let p_uni_u32 = 19;
+    let v_pack = 20;
     let t_pc = 27;
     let p_pc = 28;
     let v_pc = 29;
@@ -3077,8 +3078,8 @@ fn g14_pack_spv() -> Vec<u32> {
     let c_u1 = 32;
     let c_u2 = 33;
     let c_u3 = 34;
-    let c_f0 = 35;
     let c_f1 = 36;
+    let p_pc_f32 = 37;
     let fn_id = 100u32;
     let l_entry = 101;
     let l_then = 102;
@@ -3086,9 +3087,9 @@ fn g14_pack_spv() -> Vec<u32> {
 
     let mut pre = Vec::new();
     inst(&mut pre, 17, &[1]); // OpCapability Shader
-    // Rg32f storage image 格式（SPIR-V Image Format 6）须
-    // StorageImageExtendedFormats（capability 49）。
-    inst(&mut pre, 17, &[49]);
+    let mut ei = vec![ext_glsl];
+    ei.extend(words("GLSL.std.450"));
+    inst(&mut pre, 11, &ei); // OpExtInstImport
     inst(&mut pre, 14, &[0, 1]); // OpMemoryModel Logical GLSL450
     let mut ep = vec![5u32, fn_id];
     ep.extend(words("main"));
@@ -3101,20 +3102,17 @@ fn g14_pack_spv() -> Vec<u32> {
     inst(&mut ann, 71, &[t_rt_f32, 6, 4]); // ArrayStride 4
     inst(&mut ann, 71, &[t_st_f32, 3]); // BufferBlock（SPIR-V 1.0 SSBO 形态）
     inst(&mut ann, 72, &[t_st_f32, 0, 35, 0]); // member0 Offset 0
-    for (v, b) in [
-        (v_color, 0u32),
-        (v_depth, 1),
-        (v_mv, 2),
-        (v_img_c, 3),
-        (v_img_d, 4),
-        (v_img_m, 5),
-    ] {
+    inst(&mut ann, 71, &[t_rt_u32, 6, 4]); // ArrayStride 4
+    inst(&mut ann, 71, &[t_st_u32, 3]); // BufferBlock
+    inst(&mut ann, 72, &[t_st_u32, 0, 35, 0]); // member0 Offset 0
+    for (v, b) in [(v_color, 0u32), (v_pack, 1)] {
         inst(&mut ann, 71, &[v, 34, 0]); // DescriptorSet 0
         inst(&mut ann, 71, &[v, 33, b]); // Binding b
     }
     inst(&mut ann, 71, &[t_pc, 2]); // Block（push constants）
     inst(&mut ann, 72, &[t_pc, 0, 35, 0]); // w Offset 0
     inst(&mut ann, 72, &[t_pc, 1, 35, 4]); // h Offset 4
+    inst(&mut ann, 72, &[t_pc, 2, 35, 8]); // exposure Offset 8
 
     let mut typ = Vec::new();
     inst(&mut typ, 19, &[t_void]);
@@ -3125,35 +3123,26 @@ fn g14_pack_spv() -> Vec<u32> {
     inst(&mut typ, 23, &[t_v3u, t_u32, 3]);
     inst(&mut typ, 32, &[p_in_v3u, 1, t_v3u]);
     inst(&mut typ, 59, &[p_in_v3u, v_gid, 1]);
-    inst(&mut typ, 23, &[t_v2u, t_u32, 2]);
-    inst(&mut typ, 23, &[t_v4f, t_f32, 4]);
+    inst(&mut typ, 23, &[t_v2f, t_f32, 2]);
     inst(&mut typ, 29, &[t_rt_f32, t_f32]);
     inst(&mut typ, 30, &[t_st_f32, t_rt_f32]);
-    inst(&mut typ, 32, &[p_uni_st, 2, t_st_f32]);
+    inst(&mut typ, 32, &[p_uni_st_f, 2, t_st_f32]);
     inst(&mut typ, 32, &[p_uni_f32, 2, t_f32]);
-    inst(&mut typ, 59, &[p_uni_st, v_color, 2]);
-    inst(&mut typ, 59, &[p_uni_st, v_depth, 2]);
-    inst(&mut typ, 59, &[p_uni_st, v_mv, 2]);
-    // OpTypeImage：SampledType Dim=2D(1) Depth=0 Arrayed=0 MS=0 Sampled=2(storage)
-    // Format（Rgba32f=1 / R32f=3 / Rg32f=6）。
-    inst(&mut typ, 25, &[t_img_c, t_f32, 1, 0, 0, 0, 2, 1]);
-    inst(&mut typ, 32, &[p_img_c, 0, t_img_c]); // UniformConstant
-    inst(&mut typ, 59, &[p_img_c, v_img_c, 0]);
-    inst(&mut typ, 25, &[t_img_d, t_f32, 1, 0, 0, 0, 2, 3]);
-    inst(&mut typ, 32, &[p_img_d, 0, t_img_d]);
-    inst(&mut typ, 59, &[p_img_d, v_img_d, 0]);
-    inst(&mut typ, 25, &[t_img_m, t_f32, 1, 0, 0, 0, 2, 6]);
-    inst(&mut typ, 32, &[p_img_m, 0, t_img_m]);
-    inst(&mut typ, 59, &[p_img_m, v_img_m, 0]);
-    inst(&mut typ, 30, &[t_pc, t_u32, t_u32]);
+    inst(&mut typ, 59, &[p_uni_st_f, v_color, 2]);
+    inst(&mut typ, 29, &[t_rt_u32, t_u32]);
+    inst(&mut typ, 30, &[t_st_u32, t_rt_u32]);
+    inst(&mut typ, 32, &[p_uni_st_u, 2, t_st_u32]);
+    inst(&mut typ, 32, &[p_uni_u32, 2, t_u32]);
+    inst(&mut typ, 59, &[p_uni_st_u, v_pack, 2]);
+    inst(&mut typ, 30, &[t_pc, t_u32, t_u32, t_f32]);
     inst(&mut typ, 32, &[p_pc, 9, t_pc]); // PushConstant
     inst(&mut typ, 59, &[p_pc, v_pc, 9]);
     inst(&mut typ, 32, &[p_pc_u32, 9, t_u32]);
+    inst(&mut typ, 32, &[p_pc_f32, 9, t_f32]);
     inst(&mut typ, 43, &[t_u32, c_u0, 0]);
     inst(&mut typ, 43, &[t_u32, c_u1, 1]);
     inst(&mut typ, 43, &[t_u32, c_u2, 2]);
     inst(&mut typ, 43, &[t_u32, c_u3, 3]);
-    inst(&mut typ, 43, &[t_f32, c_f0, 0.0f32.to_bits()]);
     inst(&mut typ, 43, &[t_f32, c_f1, 1.0f32.to_bits()]);
 
     let mut body = Vec::new();
@@ -3206,39 +3195,43 @@ fn g14_pack_spv() -> Vec<u32> {
     let row = alloc!();
     inst(&mut body, 132, &[t_u32, row, py, w]); // IMul
     let i_px = iadd!(row, px);
-    let coord = alloc!();
-    inst(&mut body, 80, &[t_v2u, coord, px, py]); // uvec2(px,py)
-    // color：base = i*3，写 vec4(r,g,b,1)。
+    // exposure（push constant [2]）载入——rgb × exposure 转显示域（TSR
+    // resample o=v·exposure 同律;cornell exposure=1.0 位保持）。
+    let (ae, e) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_f32, ae, v_pc, c_u2]);
+    inst(&mut body, 61, &[t_f32, e, ae]);
+    // color：base = i*3 读 (r,g,b)·e；PackHalf2x16(r·e, g·e) / (b·e, 1.0) → u32 对。
     let cb = alloc!();
     inst(&mut body, 132, &[t_u32, cb, i_px, c_u3]);
-    let cr = ld!(v_color, cb);
+    let cr0 = ld!(v_color, cb);
     let cgi = iadd!(cb, c_u1);
-    let cg = ld!(v_color, cgi);
+    let cg0 = ld!(v_color, cgi);
     let cbi = iadd!(cb, c_u2);
-    let cbl = ld!(v_color, cbi);
-    let texel_c = alloc!();
-    inst(&mut body, 80, &[t_v4f, texel_c, cr, cg, cbl, c_f1]);
-    let img_c = alloc!();
-    inst(&mut body, 61, &[t_img_c, img_c, v_img_c]);
-    inst(&mut body, 99, &[img_c, coord, texel_c]); // OpImageWrite
-    // depth：写 vec4(d,0,0,0)。
-    let d = ld!(v_depth, i_px);
-    let texel_d = alloc!();
-    inst(&mut body, 80, &[t_v4f, texel_d, d, c_f0, c_f0, c_f0]);
-    let img_d = alloc!();
-    inst(&mut body, 61, &[t_img_d, img_d, v_img_d]);
-    inst(&mut body, 99, &[img_d, coord, texel_d]);
-    // mv：base = i*2，写 vec4(mx,my,0,0)。
-    let mb = alloc!();
-    inst(&mut body, 132, &[t_u32, mb, i_px, c_u2]);
-    let mx = ld!(v_mv, mb);
-    let myi = iadd!(mb, c_u1);
-    let my = ld!(v_mv, myi);
-    let texel_m = alloc!();
-    inst(&mut body, 80, &[t_v4f, texel_m, mx, my, c_f0, c_f0]);
-    let img_m = alloc!();
-    inst(&mut body, 61, &[t_img_m, img_m, v_img_m]);
-    inst(&mut body, 99, &[img_m, coord, texel_m]);
+    let cbl0 = ld!(v_color, cbi);
+    let cr = alloc!();
+    inst(&mut body, 133, &[t_f32, cr, cr0, e]); // OpFMul
+    let cg = alloc!();
+    inst(&mut body, 133, &[t_f32, cg, cg0, e]);
+    let cbl = alloc!();
+    inst(&mut body, 133, &[t_f32, cbl, cbl0, e]);
+    let v_rg = alloc!();
+    inst(&mut body, 80, &[t_v2f, v_rg, cr, cg]); // OpCompositeConstruct
+    let lo = alloc!();
+    inst(&mut body, 12, &[t_u32, lo, ext_glsl, 58, v_rg]); // PackHalf2x16
+    let v_ba = alloc!();
+    inst(&mut body, 80, &[t_v2f, v_ba, cbl, c_f1]);
+    let hi = alloc!();
+    inst(&mut body, 12, &[t_u32, hi, ext_glsl, 58, v_ba]);
+    // 写 pack[i*2] = lo, pack[i*2+1] = hi。
+    let ob = alloc!();
+    inst(&mut body, 132, &[t_u32, ob, i_px, c_u2]);
+    let a_lo = alloc!();
+    inst(&mut body, 65, &[p_uni_u32, a_lo, v_pack, c_u0, ob]);
+    inst(&mut body, 62, &[a_lo, lo]); // OpStore
+    let ob1 = iadd!(ob, c_u1);
+    let a_hi = alloc!();
+    inst(&mut body, 65, &[p_uni_u32, a_hi, v_pack, c_u0, ob1]);
+    inst(&mut body, 62, &[a_hi, hi]);
     inst(&mut body, 249, &[l_merge]);
     inst(&mut body, 248, &[l_merge]);
     inst(&mut body, 253, &[]); // OpReturn
@@ -3270,7 +3263,7 @@ struct DlssLaneBits {
 }
 
 impl DlssLaneBits {
-    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32) -> Self {
+    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32, exposure: f32) -> Self {
         let to_bytes = |words: &[u32]| -> Vec<u8> {
             words.iter().flat_map(|w| w.to_le_bytes()).collect()
         };
@@ -3290,9 +3283,12 @@ impl DlssLaneBits {
         let (sx, sy, _) = spv_local_size(&scene_words);
         let (mx, my, _) = spv_local_size(&mv_words);
         let (px, py, _) = spv_local_size(&pack_words);
-        let mut pack_pc = Vec::with_capacity(8);
+        let mut pack_pc = Vec::with_capacity(12);
         pack_pc.extend_from_slice(&iw.to_le_bytes());
         pack_pc.extend_from_slice(&ih.to_le_bytes());
+        // exposure（显示域乘子;G14.10f 语义修正——TSR resample o=v·exposure
+        // 同律,vendor 臂输出与 tsr 臂/UE 基准同域;cornell=1.0 位保持）。
+        pack_pc.extend_from_slice(&exposure.to_le_bytes());
         let spv_pack = to_bytes(&pack_words);
         let pack_sha256 = sha256_hex(&spv_pack);
         Self {
@@ -3323,7 +3319,7 @@ fn dlss_lane_descs<'x>(
     [ResourceDesc<'x>; D_RESOURCE_COUNT],
     [Pass<'x>; 3],
     [&'static [(u32, TargetState)]; 3],
-    [Readback; 0],
+    [Readback; 1],
 ) {
     let ipc = (iw * ih) as u64;
     let storage = BufferUsage {
@@ -3362,20 +3358,6 @@ fn dlss_lane_descs<'x>(
             device_local: false,
         })
     };
-    let tex = |format: TexFormat| {
-        ResourceDesc::Texture(TextureDesc {
-            width: iw,
-            height: ih,
-            format,
-            usage: TextureUsage {
-                sampled: true,
-                storage: true,
-                color: false,
-                depth: false,
-            },
-            data: None,
-        })
-    };
     let resources = [
         init(&assets.tris_bytes),         // U_TRIS
         init(&assets.mats_bytes),         // U_MATS
@@ -3383,12 +3365,10 @@ fn dlss_lane_descs<'x>(
         init(&assets.points_bytes),       // U_POINTS
         host_init(&assets.params0_bytes), // U_SCENE_PARAMS（逐帧 192B 覆盖）
         buf(assets.out_color_size),       // U_SCENE_COLOR（GPU 链内直读，零回读）
-        buf(assets.out_depth_size),       // U_SCENE_DEPTH（同上）
+        buf(assets.out_depth_size),       // U_SCENE_DEPTH（exportable 直出 R32F 位面）
         host_buf(40 * 4),                 // U_MV_PARAMS（逐帧 160B 覆盖）
-        buf(ipc * 8),                     // U_MV_OUT（2 f32/px；GPU 链内直读）
-        tex(TexFormat::Rgba32Float),      // D_TEX_COLOR（exportable）
-        tex(TexFormat::R32Float),         // D_TEX_DEPTH（exportable）
-        tex(TexFormat::Rg32Float),        // D_TEX_MV（exportable）
+        buf(ipc * 8),                     // U_MV_OUT（2 f32/px；exportable 直出 RG32F 位面）
+        buf(ipc * 8),                     // D_BUF_PACK（u32 对/px = RGBA16F 紧凑；exportable）
     ];
     let passes = [
         Pass::Compute(ComputePass {
@@ -3426,15 +3406,25 @@ fn dlss_lane_descs<'x>(
             entry: None,
             dispatch: DispatchSpec::Direct(bits.pack_dispatch),
             bindings: Bindings {
-                storage_buffers: vec![U_SCENE_COLOR, U_SCENE_DEPTH, U_MV_OUT],
-                storage_images: vec![D_TEX_COLOR, D_TEX_DEPTH, D_TEX_MV],
+                storage_buffers: vec![U_SCENE_COLOR, D_BUF_PACK],
                 push_constants: bits.pack_pc.clone(),
                 ..Bindings::default()
             },
         }),
     ];
     let barriers = [U_PLAN_SCENE, U_PLAN_MV, D_PLAN_PACK];
-    (resources, passes, barriers, [])
+    // readback 表声明 pack 输出 buffer（诊断臂;常态 readback_subset=[] 零成本
+    // 零执行,仅 RURIX_G14_DLSS_DUMP_PACK 诊断帧 subset=[0] 取内容——f16 对位面）。
+    (
+        resources,
+        passes,
+        barriers,
+        [Readback::Buffer {
+            res: D_BUF_PACK,
+            offset: 0,
+            size: ipc * 8,
+        }],
+    )
 }
 
 /// dlss 驻留车道一帧产物（scene/mv/pack = DeviceFrameTelemetry 逐 pass GPU
@@ -3464,9 +3454,11 @@ struct DlssResidentLane<'a> {
 }
 
 impl<'a> DlssResidentLane<'a> {
-    /// 创建：exportable session（exportable=[9,10,11]）→ DLSS session →
-    /// external_memory 能力门 → LUID 对拍（不等 = 接线硬错，fail-closed 直退
-    /// ——非环境缺失不走 dev_env 三态）→ 导出×3 → 导入×3（Color/Depth/Mv）。
+    /// 创建：exportable session（G14.10f buffer 共享:exportable =
+    /// [D_BUF_PACK, U_SCENE_DEPTH, U_MV_OUT] 三 buffer——OPTIMAL image 跨
+    /// device 布局解释不一致弃案）→ DLSS session → external_memory 能力门 →
+    /// LUID 对拍（不等 = 接线硬错，fail-closed 直退——非环境缺失不走 dev_env
+    /// 三态）→ 导出×3 → 导入×3（Color/Depth/Mv buffer）。
     /// 环境性缺失（loader/SDK/设备扩展）→ Err（调用方 dev_env 三态）。
     #[allow(clippy::type_complexity)]
     fn create(
@@ -3474,7 +3466,7 @@ impl<'a> DlssResidentLane<'a> {
             [ResourceDesc<'a>; D_RESOURCE_COUNT],
             [Pass<'a>; 3],
             [&'static [(u32, TargetState)]; 3],
-            [Readback; 0],
+            [Readback; 1],
         ),
         accel_structs: &[AccelStructDesc<'a>],
         in_size: (u32, u32),
@@ -3490,7 +3482,7 @@ impl<'a> DlssResidentLane<'a> {
             &descs.3,
             2,
             accel_structs,
-            &[D_TEX_COLOR, D_TEX_DEPTH, D_TEX_MV],
+            &[D_BUF_PACK, U_SCENE_DEPTH, U_MV_OUT],
         )?;
         let dir = streamline_sdk_dir().map_err(|e| e.to_string())?;
         // validation=false 沿现状 DlssBackend 口径（SL 代理 device 域自持；
@@ -3512,22 +3504,19 @@ impl<'a> DlssResidentLane<'a> {
             ));
         }
         for (idx, slot) in [
-            (D_TEX_COLOR, ExternalInputSlot::Color),
-            (D_TEX_DEPTH, ExternalInputSlot::Depth),
-            (D_TEX_MV, ExternalInputSlot::Mv),
+            (D_BUF_PACK, ExternalInputSlot::Color),
+            (U_SCENE_DEPTH, ExternalInputSlot::Depth),
+            (U_MV_OUT, ExternalInputSlot::Mv),
         ] {
-            let e = session.export_texture_win32_handle(idx as usize)?;
-            let desc = ExternalImageImportDesc {
+            let e = session.export_buffer_win32_handle(idx as usize)?;
+            let desc = ExternalBufferImportDesc {
                 handle: e.handle,
-                width: e.width,
-                height: e.height,
-                vk_format: e.vk_format,
-                usage_flags: e.usage_flags,
+                size: e.size,
                 allocation_size: e.allocation_size,
                 memory_type_index: e.memory_type_index,
             };
-            dlss.import_win32_input(slot, &desc)
-                .map_err(|err| format!("导入 {slot:?}: {err}"))?;
+            dlss.import_win32_buffer_input(slot, &desc)
+                .map_err(|err| format!("导入 buffer {slot:?}: {err}"))?;
         }
         Ok(Self {
             session,
@@ -3558,6 +3547,7 @@ impl<'a> DlssResidentLane<'a> {
         exposure: f32,
         frame_index: u32,
         reset: bool,
+        dump_pack: Option<&mut Vec<u8>>,
     ) -> Result<DlssResidentFrameRec, String> {
         let scene_params =
             pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
@@ -3566,6 +3556,7 @@ impl<'a> DlssResidentLane<'a> {
             .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
         let prev = self.prev_vp_j.unwrap_or(*vp_j);
         let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
+        let want_dump = dump_pack.is_some();
         let update = FrameUpdate {
             tlas_update: None,
             buffer_uploads: vec![
@@ -3582,11 +3573,18 @@ impl<'a> DlssResidentLane<'a> {
             ],
             binding_overrides: vec![],
             push_constant_overrides: vec![],
-            readback_subset: Some(vec![]),
+            readback_subset: Some(if want_dump { vec![0] } else { vec![] }),
         };
         let prov = self.session.next_provenance_with_update(&update)?;
         let out = self.session.execute_with_frame_update(&prov, &update)?;
-        if !out.readbacks.is_empty() {
+        if let Some(dst) = dump_pack {
+            let rb = out
+                .readbacks
+                .first()
+                .ok_or("dump_pack 诊断帧无回读内容")?;
+            dst.clear();
+            dst.extend_from_slice(rb);
+        } else if !out.readbacks.is_empty() {
             return Err(format!(
                 "dlss 驻留车道零回读面回读路数 {} ≠ 0",
                 out.readbacks.len()
@@ -3604,17 +3602,17 @@ impl<'a> DlssResidentLane<'a> {
         let mv_gpu_ns = gpu("g14_mv")?;
         let pack_gpu_ns = gpu("g14_pack")?;
         // evaluate：execute 返回即该帧 fence 完成 + release 已录——内容有效性
-        // 契约满足（ExportedTextureWin32 文档面）。
+        // 契约满足（ExportedBufferWin32 文档面;G14.10f buffer 共享版）。
         let t_up = std::time::Instant::now();
         self.dlss
-            .upscale_resident_external(&VendorExternalFrameParams {
+            .upscale_resident_buffers(&VendorExternalFrameParams {
                 reactive: None,
                 exposure,
                 jitter,
                 frame_index,
                 reset,
             })
-            .map_err(|e| format!("DLSS upscale_resident_external: {e}"))?;
+            .map_err(|e| format!("DLSS upscale_resident_buffers: {e}"))?;
         let upscale_wall_ms = t_up.elapsed().as_secs_f64() * 1000.0;
         self.prev_vp_j = Some(*vp_j);
         Ok(DlssResidentFrameRec {
@@ -3640,6 +3638,729 @@ impl<'a> DlssResidentLane<'a> {
         self.dlss
             .readback_output_into(&mut dst.data)
             .unwrap_or_else(|e| fail(&format!("DLSS readback_output_into: {e}")));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// G14.11 fsr 驻留统一车道（D3D12 反向共享）。与 dlss 车道（G14.10f buffer
+// 共享）**分面自持**：dlss 弃案的"三 exportable 纹理"是 OPAQUE_WIN32 跨两个
+// VkDevice 的 OPTIMAL 布局歧义；fsr 面是 **D3D12 创建 SHARED 纹理 → 本
+// render_exec 唯一 VkDevice 以 D3D12_RESOURCE handle 导入**——布局由 D3D12
+// 资源定义、驱动跨 API 协定对拍（Vulkan spec VK_KHR_external_memory_win32
+// D3D12 互操作面），非同族问题。内容对拍诊断臂（dump-pack Vulkan 侧 vs
+// dump-import D3D12 侧同一纹理双读逐字节比）为实证门，乱序即落 buffer 反向
+// fallback。pack SPV = HEAD 版 image 写形态（dlss 已迁 buffer 版,故 fsr 区
+// 自持副本 fsr_pack_spv,SSBO 三源→storage image 三标位拷贝）。
+// ---------------------------------------------------------------------------
+
+/// fsr 驻留车道资源下标闭集（场景区 0..=6 + mv 区 7..=8 与统一车道 U_* 逐字
+/// 同布局同下标；9 = D3D12 SHARED 导入 staging buffer——texture 直共享弃案：
+/// D3D12_RESOURCE handle 导入 OPTIMAL VkImage 跨 API tiling 解释不一致，D3D12
+/// 侧读为确定性条纹乱序（读图实锤，与 dlss 臂 OPAQUE_WIN32 跨 device 弃案
+/// 同族）；buffer 线性字节无歧义，D3D12 侧逐帧 CopyTextureRegion 搬入）。
+const F_BUF_STAGING: u32 = 9;
+const F_RESOURCE_COUNT: usize = 10;
+
+/// fsr pack pass 屏障计划（保守超集逐字声明同律：SSBO 三源 + staging 标全
+/// StorageReadWrite；staging 帧末由 render_exec 追加 EXTERNAL release buffer
+/// barrier——imported 集自动纳入 release 集）。
+const F_PLAN_PACK: &[(u32, TargetState)] = &[
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+    (U_MV_OUT, TargetState::StorageReadWrite),
+    (F_BUF_STAGING, TargetState::StorageReadWrite),
+];
+
+/// G14.11 staging buffer 段布局（bin 侧先建 descs 的事实源；公式与
+/// `FsrDx12Session::create_impl` **逐字同**——create 后与
+/// `FsrSharedInputHandles` 全字段对拍，不等 fail-closed）。返回
+/// `(color_row, depth_row, mv_row, off_depth, off_mv, size)`：三段行距 256B
+/// 对齐（D3D12 CopyTextureRegion PLACED_FOOTPRINT 契约），总长 64KB 对齐；
+/// color f16 RGBA 8B/px @off 0、depth f32 4B/px、mv f32 RG 8B/px。
+fn fsr_staging_layout(iw: u32, ih: u32) -> (u64, u64, u64, u64, u64, u64) {
+    let row256 = |bytes_per_px: u64| -> u64 { (bytes_per_px * iw as u64 + 255) & !255 };
+    let color_row = row256(8);
+    let depth_row = row256(4);
+    let mv_row = row256(8);
+    let off_depth = color_row * ih as u64;
+    let off_mv = off_depth + depth_row * ih as u64;
+    let size = (off_mv + mv_row * ih as u64 + 0xFFFF) & !0xFFFF;
+    (color_row, depth_row, mv_row, off_depth, off_mv, size)
+}
+
+/// G14.11 fsr 手编 pack compute SPIR-V v2（buffer 共享形态；SPIR-V 1.0；
+/// LocalSize 8×8）：scene 车道 SSBO 三源（color 3f32/px、depth 1f32/px、mv
+/// 2f32/px；binding 0/1/2）逐像素直写 D3D12 SHARED 导入 staging SSBO
+/// （u32 词面；binding 3），按 [`fsr_staging_layout`] 三段 256B 对齐行距
+/// 布局——与 host 链 upload 堆布局逐字同，D3D12 侧 CopyTextureRegion
+/// PLACED_FOOTPRINT 直搬。数值面与 host 链 pack **同语义**：color
+/// PackHalf2x16（GLSL.std.450 #58，RTE 舍入 = host `f32_to_f16` 同式）×2/px
+/// （rgb + alpha=1.0，**无 exposure 乘**——曝光归 ffx pre_exposure，与现
+/// 路径同律）；depth/mv f32 OpBitcast 位拷贝零浮点算术。push constants =
+/// {w,h,crw,drw,mrw,odw,omw} u32×7（行距/偏移均为 u32 词数——256B 对齐保证
+/// 4 整除）；越界门 px<w && py<h。
+#[allow(clippy::too_many_lines)]
+fn fsr_pack_spv() -> Vec<u32> {
+    fn inst(v: &mut Vec<u32>, op: u32, ops: &[u32]) {
+        v.push(op | ((ops.len() as u32 + 1) << 16));
+        v.extend_from_slice(ops);
+    }
+    fn words(s: &str) -> Vec<u32> {
+        let mut b = s.as_bytes().to_vec();
+        b.push(0);
+        while !b.len().is_multiple_of(4) {
+            b.push(0);
+        }
+        b.chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
+    }
+    // id 布局：类型/常量/全局 < 100；函数体自 100（visbuffer_swhw_spv 同律）。
+    let t_void = 1u32;
+    let t_fn = 2;
+    let t_bool = 3;
+    let t_u32 = 4;
+    let t_f32 = 5;
+    let t_v3u = 6;
+    let p_in_v3u = 7;
+    let v_gid = 8;
+    let t_v2f = 9;
+    let ext_glsl = 10;
+    let t_rt_f32 = 11;
+    let t_st_f32 = 12;
+    let p_uni_st_f = 13;
+    let p_uni_f32 = 14;
+    let v_color = 15;
+    let v_depth = 16;
+    let v_mv = 17;
+    let t_rt_u32 = 18;
+    let t_st_u32 = 19;
+    let p_uni_st_u = 20;
+    let p_uni_u32 = 21;
+    let v_stag = 22;
+    let t_pc = 27;
+    let p_pc = 28;
+    let v_pc = 29;
+    let p_pc_u32 = 30;
+    let c_u0 = 31;
+    let c_u1 = 32;
+    let c_u2 = 33;
+    let c_u3 = 34;
+    let c_u4 = 35;
+    let c_u5 = 36;
+    let c_u6 = 37;
+    let c_f1 = 38;
+    let fn_id = 100u32;
+    let l_entry = 101;
+    let l_then = 102;
+    let l_merge = 103;
+
+    let mut pre = Vec::new();
+    inst(&mut pre, 17, &[1]); // OpCapability Shader
+    let mut ei = vec![ext_glsl];
+    ei.extend(words("GLSL.std.450"));
+    inst(&mut pre, 11, &ei); // OpExtInstImport（PackHalf2x16 #58）
+    inst(&mut pre, 14, &[0, 1]); // OpMemoryModel Logical GLSL450
+    let mut ep = vec![5u32, fn_id];
+    ep.extend(words("main"));
+    ep.push(v_gid);
+    inst(&mut pre, 15, &ep); // OpEntryPoint GLCompute %main "main" %gid
+    inst(&mut pre, 16, &[fn_id, 17, 8, 8, 1]); // OpExecutionMode LocalSize 8 8 1
+
+    let mut ann = Vec::new();
+    inst(&mut ann, 71, &[v_gid, 11, 28]); // BuiltIn GlobalInvocationId
+    inst(&mut ann, 71, &[t_rt_f32, 6, 4]); // ArrayStride 4
+    inst(&mut ann, 71, &[t_st_f32, 3]); // BufferBlock（SPIR-V 1.0 SSBO 形态）
+    inst(&mut ann, 72, &[t_st_f32, 0, 35, 0]); // member0 Offset 0
+    inst(&mut ann, 71, &[t_rt_u32, 6, 4]); // ArrayStride 4
+    inst(&mut ann, 71, &[t_st_u32, 3]); // BufferBlock
+    inst(&mut ann, 72, &[t_st_u32, 0, 35, 0]); // member0 Offset 0
+    for (v, b) in [(v_color, 0u32), (v_depth, 1), (v_mv, 2), (v_stag, 3)] {
+        inst(&mut ann, 71, &[v, 34, 0]); // DescriptorSet 0
+        inst(&mut ann, 71, &[v, 33, b]); // Binding b
+    }
+    inst(&mut ann, 71, &[t_pc, 2]); // Block（push constants）
+    for (m, off) in (0u32..7).map(|m| (m, m * 4)) {
+        inst(&mut ann, 72, &[t_pc, m, 35, off]); // w/h/crw/drw/mrw/odw/omw
+    }
+
+    let mut typ = Vec::new();
+    inst(&mut typ, 19, &[t_void]);
+    inst(&mut typ, 33, &[t_fn, t_void]);
+    inst(&mut typ, 20, &[t_bool]);
+    inst(&mut typ, 21, &[t_u32, 32, 0]);
+    inst(&mut typ, 22, &[t_f32, 32]);
+    inst(&mut typ, 23, &[t_v3u, t_u32, 3]);
+    inst(&mut typ, 32, &[p_in_v3u, 1, t_v3u]);
+    inst(&mut typ, 59, &[p_in_v3u, v_gid, 1]);
+    inst(&mut typ, 23, &[t_v2f, t_f32, 2]);
+    inst(&mut typ, 29, &[t_rt_f32, t_f32]);
+    inst(&mut typ, 30, &[t_st_f32, t_rt_f32]);
+    inst(&mut typ, 32, &[p_uni_st_f, 2, t_st_f32]);
+    inst(&mut typ, 32, &[p_uni_f32, 2, t_f32]);
+    inst(&mut typ, 59, &[p_uni_st_f, v_color, 2]);
+    inst(&mut typ, 59, &[p_uni_st_f, v_depth, 2]);
+    inst(&mut typ, 59, &[p_uni_st_f, v_mv, 2]);
+    inst(&mut typ, 29, &[t_rt_u32, t_u32]);
+    inst(&mut typ, 30, &[t_st_u32, t_rt_u32]);
+    inst(&mut typ, 32, &[p_uni_st_u, 2, t_st_u32]);
+    inst(&mut typ, 32, &[p_uni_u32, 2, t_u32]);
+    inst(&mut typ, 59, &[p_uni_st_u, v_stag, 2]);
+    inst(&mut typ, 30, &[t_pc, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32]);
+    inst(&mut typ, 32, &[p_pc, 9, t_pc]); // PushConstant
+    inst(&mut typ, 59, &[p_pc, v_pc, 9]);
+    inst(&mut typ, 32, &[p_pc_u32, 9, t_u32]);
+    inst(&mut typ, 43, &[t_u32, c_u0, 0]);
+    inst(&mut typ, 43, &[t_u32, c_u1, 1]);
+    inst(&mut typ, 43, &[t_u32, c_u2, 2]);
+    inst(&mut typ, 43, &[t_u32, c_u3, 3]);
+    inst(&mut typ, 43, &[t_u32, c_u4, 4]);
+    inst(&mut typ, 43, &[t_u32, c_u5, 5]);
+    inst(&mut typ, 43, &[t_u32, c_u6, 6]);
+    inst(&mut typ, 43, &[t_f32, c_f1, 1.0f32.to_bits()]);
+
+    let mut body = Vec::new();
+    let mut nid = 104u32;
+    macro_rules! alloc {
+        () => {{
+            let i = nid;
+            nid += 1;
+            i
+        }};
+    }
+    macro_rules! iadd {
+        ($x:expr, $y:expr) => {{
+            let r = alloc!();
+            inst(&mut body, 128, &[t_u32, r, $x, $y]);
+            r
+        }};
+    }
+    macro_rules! ld {
+        ($buf:expr, $idx:expr) => {{
+            let (a, r) = (alloc!(), alloc!());
+            inst(&mut body, 65, &[p_uni_f32, a, $buf, c_u0, $idx]);
+            inst(&mut body, 61, &[t_f32, r, a]);
+            r
+        }};
+    }
+    inst(&mut body, 54, &[t_void, fn_id, 0, t_fn]); // OpFunction
+    inst(&mut body, 248, &[l_entry]);
+    let gid3 = alloc!();
+    inst(&mut body, 61, &[t_v3u, gid3, v_gid]);
+    let px = alloc!();
+    inst(&mut body, 81, &[t_u32, px, gid3, 0]); // OpCompositeExtract gid.x
+    let py = alloc!();
+    inst(&mut body, 81, &[t_u32, py, gid3, 1]);
+    let (aw, w) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_u32, aw, v_pc, c_u0]);
+    inst(&mut body, 61, &[t_u32, w, aw]);
+    let (ah, h) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_u32, ah, v_pc, c_u1]);
+    inst(&mut body, 61, &[t_u32, h, ah]);
+    let c1 = alloc!();
+    inst(&mut body, 176, &[t_bool, c1, px, w]); // ULessThan
+    let c2 = alloc!();
+    inst(&mut body, 176, &[t_bool, c2, py, h]);
+    let cc = alloc!();
+    inst(&mut body, 167, &[t_bool, cc, c1, c2]); // LogicalAnd
+    inst(&mut body, 247, &[l_merge, 0]); // OpSelectionMerge
+    inst(&mut body, 250, &[cc, l_then, l_merge]);
+    inst(&mut body, 248, &[l_then]);
+    // push constants 载入（crw/drw/mrw = 段行距 u32 词数；odw/omw = 段偏移
+    // u32 词数——256B 对齐恒 4 整除，fsr_lane_descs 侧断言）。
+    macro_rules! pc {
+        ($m:expr) => {{
+            let (a, r) = (alloc!(), alloc!());
+            inst(&mut body, 65, &[p_pc_u32, a, v_pc, $m]);
+            inst(&mut body, 61, &[t_u32, r, a]);
+            r
+        }};
+    }
+    macro_rules! st {
+        ($idx:expr, $val:expr) => {{
+            let a = alloc!();
+            inst(&mut body, 65, &[p_uni_u32, a, v_stag, c_u0, $idx]);
+            inst(&mut body, 62, &[a, $val]); // OpStore
+        }};
+    }
+    macro_rules! bitcast {
+        ($val:expr) => {{
+            let r = alloc!();
+            inst(&mut body, 124, &[t_u32, r, $val]); // OpBitcast f32→u32
+            r
+        }};
+    }
+    let row = alloc!();
+    inst(&mut body, 132, &[t_u32, row, py, w]); // IMul
+    let i_px = iadd!(row, px);
+    let px2 = alloc!();
+    inst(&mut body, 132, &[t_u32, px2, px, c_u2]); // px·2（color/mv 双词步距）
+    // color：base = i*3 读 (r,g,b)；PackHalf2x16(r,g)/(b,1.0) → u32 对，
+    // 写 staging[py·crw + px·2 .. +1]（f16 RGBA 8B/px 段，off 0）。
+    let cb = alloc!();
+    inst(&mut body, 132, &[t_u32, cb, i_px, c_u3]);
+    let cr = ld!(v_color, cb);
+    let cgi = iadd!(cb, c_u1);
+    let cg = ld!(v_color, cgi);
+    let cbi = iadd!(cb, c_u2);
+    let cbl = ld!(v_color, cbi);
+    let v_rg = alloc!();
+    inst(&mut body, 80, &[t_v2f, v_rg, cr, cg]); // OpCompositeConstruct
+    let lo = alloc!();
+    inst(&mut body, 12, &[t_u32, lo, ext_glsl, 58, v_rg]); // PackHalf2x16
+    let v_ba = alloc!();
+    inst(&mut body, 80, &[t_v2f, v_ba, cbl, c_f1]);
+    let hi = alloc!();
+    inst(&mut body, 12, &[t_u32, hi, ext_glsl, 58, v_ba]);
+    let crw = pc!(c_u2);
+    let cro = alloc!();
+    inst(&mut body, 132, &[t_u32, cro, py, crw]);
+    let cdst = iadd!(cro, px2);
+    st!(cdst, lo);
+    let cdst1 = iadd!(cdst, c_u1);
+    st!(cdst1, hi);
+    // depth：f32 位拷贝，写 staging[odw + py·drw + px]。
+    let d = ld!(v_depth, i_px);
+    let du = bitcast!(d);
+    let drw = pc!(c_u3);
+    let odw = pc!(c_u5);
+    let dro = alloc!();
+    inst(&mut body, 132, &[t_u32, dro, py, drw]);
+    let ddst0 = iadd!(odw, dro);
+    let ddst = iadd!(ddst0, px);
+    st!(ddst, du);
+    // mv：base = i*2 读 (mx,my)，f32 位拷贝×2，写 staging[omw + py·mrw + px·2]。
+    let mb = alloc!();
+    inst(&mut body, 132, &[t_u32, mb, i_px, c_u2]);
+    let mx = ld!(v_mv, mb);
+    let myi = iadd!(mb, c_u1);
+    let my = ld!(v_mv, myi);
+    let mxu = bitcast!(mx);
+    let myu = bitcast!(my);
+    let mrw = pc!(c_u4);
+    let omw = pc!(c_u6);
+    let mro = alloc!();
+    inst(&mut body, 132, &[t_u32, mro, py, mrw]);
+    let mdst0 = iadd!(omw, mro);
+    let mdst = iadd!(mdst0, px2);
+    st!(mdst, mxu);
+    let mdst1 = iadd!(mdst, c_u1);
+    st!(mdst1, myu);
+    inst(&mut body, 249, &[l_merge]);
+    inst(&mut body, 248, &[l_merge]);
+    inst(&mut body, 253, &[]); // OpReturn
+    inst(&mut body, 56, &[]); // OpFunctionEnd
+
+    let mut v = vec![0x0723_0203u32, 0x0001_0000, 0, nid, 0];
+    v.extend_from_slice(&pre);
+    v.extend_from_slice(&ann);
+    v.extend_from_slice(&typ);
+    v.extend_from_slice(&body);
+    v
+}
+
+/// fsr 驻留车道 SPV/常量字节所有者（借用纪律同 DlssLaneBits：bits → descs →
+/// session 声明序 = drop 逆序）。pack SPV = 手编内存构建（无文件面；
+/// provenance 以内容 sha256 登记）；dispatch 组数恒从 SPV LocalSize 派生。
+struct FsrLaneBits {
+    spv_scene: Vec<u8>,
+    spv_mv: Vec<u8>,
+    spv_pack: Vec<u8>,
+    /// pack pass push constants（{w,h} u32×2 LE；创建期恒定零逐帧覆盖）。
+    pack_pc: Vec<u8>,
+    /// pack SPV 内容 sha256（provenance 登记面）。
+    pack_sha256: String,
+    scene_dispatch: [u32; 3],
+    mv_dispatch: [u32; 3],
+    pack_dispatch: [u32; 3],
+}
+
+impl FsrLaneBits {
+    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32) -> Self {
+        let to_bytes = |words: &[u32]| -> Vec<u8> {
+            words.iter().flat_map(|w| w.to_le_bytes()).collect()
+        };
+        let scene_words = load_spv(spv_scene);
+        // mv kernel 注入 NoContraction（统一车道同律）。
+        let mv_words = spv_inject_no_contraction(&load_spv(spv_mv));
+        let pack_words = fsr_pack_spv();
+        // 诊断面：RURIX_G14_FSR_PACK_SPV_DUMP=<path> 时落盘手编 pack SPV
+        // （spirv-val 独立验证臂；常态零成本）。
+        if let Ok(p) = std::env::var("RURIX_G14_FSR_PACK_SPV_DUMP")
+            && !p.is_empty()
+        {
+            let bytes = to_bytes(&pack_words);
+            std::fs::write(&p, &bytes)
+                .unwrap_or_else(|e| fail(&format!("fsr pack SPV dump {p}: {e}")));
+        }
+        let (sx, sy, _) = spv_local_size(&scene_words);
+        let (mx, my, _) = spv_local_size(&mv_words);
+        let (px, py, _) = spv_local_size(&pack_words);
+        // pack push constants = {w,h,crw,drw,mrv,odw,omw} u32×7(行距/偏移
+        // 以 u32 词数下发——staging 布局 256B 对齐恒 4 整除)。
+        let (color_row, depth_row, mv_row, off_depth, off_mv, _) = fsr_staging_layout(iw, ih);
+        let mut pack_pc = Vec::with_capacity(28);
+        for v in [
+            iw,
+            ih,
+            (color_row / 4) as u32,
+            (depth_row / 4) as u32,
+            (mv_row / 4) as u32,
+            (off_depth / 4) as u32,
+            (off_mv / 4) as u32,
+        ] {
+            pack_pc.extend_from_slice(&v.to_le_bytes());
+        }
+        let spv_pack = to_bytes(&pack_words);
+        let pack_sha256 = sha256_hex(&spv_pack);
+        Self {
+            spv_scene: to_bytes(&scene_words),
+            spv_mv: to_bytes(&mv_words),
+            pack_sha256,
+            spv_pack,
+            pack_pc,
+            scene_dispatch: [iw.div_ceil(sx), ih.div_ceil(sy), 1],
+            mv_dispatch: [iw.div_ceil(mx), ih.div_ceil(my), 1],
+            pack_dispatch: [iw.div_ceil(px), ih.div_ceil(py), 1],
+        }
+    }
+}
+
+/// fsr 驻留车道描述组（10 资源 = 场景区 7 SSBO + mv 区 2 + D3D12 SHARED 导入
+/// staging buffer；三 pass scene→mv→pack；readback 表声明 staging color 段
+/// （行距对齐 f16 RGBA）——常态 readback_subset=[] 零成本零执行，仅 dump-pack
+/// 诊断帧 subset=[0] 取内容做跨 API 对拍）。场景/mv 区布局与统一车道逐字同；
+/// staging 尺寸由 [`fsr_staging_layout`] 本地推导（创建后与
+/// FsrSharedInputHandles 对拍 fail-closed）。
+#[allow(clippy::type_complexity)]
+fn fsr_lane_descs<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x FsrLaneBits,
+    iw: u32,
+    ih: u32,
+) -> (
+    [ResourceDesc<'x>; F_RESOURCE_COUNT],
+    [Pass<'x>; 3],
+    [&'static [(u32, TargetState)]; 3],
+    [Readback; 1],
+) {
+    let ipc = (iw * ih) as u64;
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })
+    };
+    let host_init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: false,
+        })
+    };
+    let host_buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: false,
+        })
+    };
+    let (_, _, _, off_depth, _, staging_size) = fsr_staging_layout(iw, ih);
+    assert!(
+        off_depth.is_multiple_of(4),
+        "staging 段偏移须 4B 对齐（256B 行距下恒真）"
+    );
+    let resources = [
+        init(&assets.tris_bytes),         // U_TRIS
+        init(&assets.mats_bytes),         // U_MATS
+        init(&assets.quads_bytes),        // U_QUADS
+        init(&assets.points_bytes),       // U_POINTS
+        host_init(&assets.params0_bytes), // U_SCENE_PARAMS（逐帧 192B 覆盖）
+        buf(assets.out_color_size),       // U_SCENE_COLOR（GPU 链内直读，零回读）
+        buf(assets.out_depth_size),       // U_SCENE_DEPTH（同上）
+        host_buf(40 * 4),                 // U_MV_PARAMS（逐帧 160B 覆盖）
+        buf(ipc * 8),                     // U_MV_OUT（2 f32/px；GPU 链内直读）
+        buf(staging_size),                // F_BUF_STAGING（D3D12 SHARED 导入）
+    ];
+    let passes = [
+        Pass::Compute(ComputePass {
+            name: "g14_3_direct_gi",
+            spirv: &bits.spv_scene,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_mv",
+            spirv: &bits.spv_mv,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.mv_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_SCENE_DEPTH, U_MV_PARAMS, U_MV_OUT],
+                ..Bindings::default()
+            },
+        }),
+        Pass::Compute(ComputePass {
+            name: "g14_pack",
+            spirv: &bits.spv_pack,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.pack_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_SCENE_COLOR, U_SCENE_DEPTH, U_MV_OUT, F_BUF_STAGING],
+                push_constants: bits.pack_pc.clone(),
+                ..Bindings::default()
+            },
+        }),
+    ];
+    let barriers = [U_PLAN_SCENE, U_PLAN_MV, F_PLAN_PACK];
+    // readback 表声明 staging color 段（[0, off_depth)，行距对齐 f16 RGBA;
+    // 跨 API 对拍诊断臂——常态 readback_subset=[] 零成本零执行）。
+    (
+        resources,
+        passes,
+        barriers,
+        [Readback::Buffer {
+            res: F_BUF_STAGING,
+            offset: 0,
+            size: off_depth,
+        }],
+    )
+}
+
+/// fsr 驻留车道一帧产物（字段口径与 [`DlssResidentFrameRec`] 同律；
+/// `upscale_wall_ms` = ffx dispatch_resident 墙钟，含 D3D12 submit_wait）。
+struct FsrResidentFrameRec {
+    scene_gpu_ns: f64,
+    mv_gpu_ns: f64,
+    pack_gpu_ns: f64,
+    cpu_record_ns: u64,
+    cpu_submit_ns: u64,
+    cpu_fence_wait_ns: u64,
+    validation_error_count: u64,
+    upscale_wall_ms: f64,
+}
+
+/// G14.11 fsr 驻留统一车道状态机（D3D12 反向共享：FsrDx12Session 创建 shared
+/// 三纹理 → render_exec 以 D3D12_RESOURCE handle 导入为持久帧目标直写；scene/
+/// mv 三 pass 与 dlss 车道同构,pack 用 image 版 SPV）。
+/// 跨界同步纪律（CPU 序，与 dlss 车道同律）：`execute_with_frame_update` 返回
+/// = 该帧 Vulkan fence 完成且 cmd 末已录 VK_QUEUE_FAMILY_EXTERNAL release →
+/// 此后 `dispatch_resident` 于 D3D12 侧消费（SIMULTANEOUS_ACCESS 资源 decay
+/// 态 COMMON 读窗）且 submit_wait 返回 = D3D12 读窗关闭 → 下帧 Vulkan 重写
+/// 共享纹理安全——两侧访问窗零重叠，无须 GPU 级 timeline 交叉信号。
+struct FsrResidentLane<'a> {
+    session: DeviceFrameSession<'a>,
+    fsr: FsrDx12Session,
+    out_size: (u32, u32),
+    prev_vp_j: Option<Mat4>,
+}
+
+impl<'a> FsrResidentLane<'a> {
+    /// 创建：FsrDx12Session 驻留态（shared staging buffer + NT handle +
+    /// LUID）→ staging 布局对拍（bin 侧 fsr_staging_layout 推导 vs D3D12 侧
+    /// 实建,任一字段不等 = 公式漂移接线硬错）→ render_exec 导入 session
+    /// （F_BUF_STAGING ← D3D12 handle）→ LUID 对拍（不等 = 接线硬错
+    /// fail-closed 直退——非环境缺失不走 dev_env 三态）。
+    /// 环境性缺失（loader/SDK/设备扩展）→ Err（调用方 dev_env 三态）。
+    #[allow(clippy::type_complexity)]
+    fn create(
+        descs: &'a (
+            [ResourceDesc<'a>; F_RESOURCE_COUNT],
+            [Pass<'a>; 3],
+            [&'static [(u32, TargetState)]; 3],
+            [Readback; 1],
+        ),
+        accel_structs: &[AccelStructDesc<'a>],
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+    ) -> Result<Self, String> {
+        if !vk::vulkan_available() {
+            return Err("vulkan loader 不可用".into());
+        }
+        let dir = fsr_sdk_dir().map_err(|e| e.to_string())?;
+        let validation = std::env::var("RURIX_VK_VALIDATION").ok().as_deref() == Some("1");
+        let (fsr, handles) = FsrDx12Session::create_resident(&dir, in_size, out_size, validation)
+            .map_err(|e| e.to_string())?;
+        // staging 布局对拍（descs 先建于 session,布局由 bin 侧同式公式推导——
+        // 双侧任一字段漂移即接线硬错,fail-closed）。
+        let local = fsr_staging_layout(in_size.0, in_size.1);
+        let remote = (
+            handles.color_row,
+            handles.depth_row,
+            handles.mv_row,
+            handles.off_depth,
+            handles.off_mv,
+            handles.staging_size,
+        );
+        if local != remote {
+            fail(&format!(
+                "fsr 驻留车道 staging 布局不匹配（bin {local:?} vs D3D12 {remote:?}）——fsr_staging_layout 与 create_impl 公式漂移,fail-closed"
+            ));
+        }
+        let session = DeviceFrameSession::new_with_imported_d3d12_textures(
+            &descs.0,
+            &descs.1,
+            &descs.2,
+            &descs.3,
+            2,
+            accel_structs,
+            &[],
+            &[(F_BUF_STAGING, handles.staging)],
+        )?;
+        let vk_luid = session
+            .physical_device_luid()
+            .ok_or("render_exec 侧 deviceLUIDValid=false")?;
+        if vk_luid != handles.adapter_luid {
+            fail(&format!(
+                "fsr 驻留车道 LUID 不匹配（render_exec {vk_luid:?} vs D3D12 adapter {:?}）——不同 adapter 不可共享 device memory，fail-closed",
+                handles.adapter_luid
+            ));
+        }
+        eprintln!(
+            "{TAG}: fsr 驻留车道 LUID 对拍通过 {vk_luid:?}（D3D12 adapter == Vulkan physical device；shared staging buffer 已导入,{}B）",
+            handles.staging_size
+        );
+        Ok(Self {
+            session,
+            fsr,
+            out_size,
+            prev_vp_j: None,
+        })
+    }
+
+    /// 一帧：参数二小件上传 → 三 pass GPU 链内执行（readback_subset 恒
+    /// Some([]) 零回读；cmd 末导入 staging 标 EXTERNAL release）→ ffx
+    /// `dispatch_resident`（D3D12 侧 staging → 三纹理 CopyTextureRegion 后
+    /// dispatch）。mv prev_vp_j 状态机与 dlss 车道同律。`dump_pack`：诊断帧
+    /// 回读 staging color 段（行距对齐 f16 RGBA,跨 API 对拍臂——与 D3D12 侧
+    /// debug_readback_input_color(f16→f32 紧凑)换算后逐像素对比）。
+    #[allow(clippy::too_many_arguments)]
+    fn frame(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        jitter: [f32; 2],
+        eps: f32,
+        quad_count: usize,
+        point_count: usize,
+        inv_vp: &Mat4,
+        vp: &Mat4,
+        vp_j: &Mat4,
+        exposure: f32,
+        frame_index: u32,
+        reset: bool,
+        dump_pack: Option<&mut Vec<u8>>,
+    ) -> Result<FsrResidentFrameRec, String> {
+        let scene_params =
+            pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
+        let inv_cur = vp_j
+            .inverse()
+            .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
+        let prev = self.prev_vp_j.unwrap_or(*vp_j);
+        let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
+        let want_dump = dump_pack.is_some();
+        let update = FrameUpdate {
+            tlas_update: None,
+            buffer_uploads: vec![
+                (
+                    StableResourceId(u64::from(U_SCENE_PARAMS) + 1),
+                    0,
+                    bytes_f32(&scene_params),
+                ),
+                (
+                    StableResourceId(u64::from(U_MV_PARAMS) + 1),
+                    0,
+                    bytes_f32(&mv_params),
+                ),
+            ],
+            binding_overrides: vec![],
+            push_constant_overrides: vec![],
+            readback_subset: Some(if want_dump { vec![0] } else { vec![] }),
+        };
+        let prov = self.session.next_provenance_with_update(&update)?;
+        let out = self.session.execute_with_frame_update(&prov, &update)?;
+        if let Some(dst) = dump_pack {
+            let rb = out
+                .readbacks
+                .first()
+                .ok_or("dump_pack 诊断帧无回读内容")?;
+            dst.clear();
+            dst.extend_from_slice(rb);
+        } else if !out.readbacks.is_empty() {
+            return Err(format!(
+                "fsr 驻留车道零回读面回读路数 {} ≠ 0",
+                out.readbacks.len()
+            ));
+        }
+        let gpu = |name: &str| -> Result<f64, String> {
+            out.telemetry
+                .passes
+                .iter()
+                .find(|pp| pp.name == name)
+                .map(|pp| pp.gpu_ns)
+                .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))
+        };
+        let scene_gpu_ns = gpu("g14_3_direct_gi")?;
+        let mv_gpu_ns = gpu("g14_mv")?;
+        let pack_gpu_ns = gpu("g14_pack")?;
+        // dispatch：execute 返回即该帧 fence 完成 + release 已录——D3D12 读窗
+        // 内容有效性契约满足（FsrSharedInputHandles 文档面）。
+        let t_up = std::time::Instant::now();
+        self.fsr
+            .dispatch_resident(jitter, exposure, frame_index, reset)
+            .map_err(|e| format!("FSR dispatch_resident: {e}"))?;
+        let upscale_wall_ms = t_up.elapsed().as_secs_f64() * 1000.0;
+        self.prev_vp_j = Some(*vp_j);
+        Ok(FsrResidentFrameRec {
+            scene_gpu_ns,
+            mv_gpu_ns,
+            pack_gpu_ns,
+            cpu_record_ns: out.telemetry.cpu_record_ns,
+            cpu_submit_ns: out.telemetry.cpu_submit_ns,
+            cpu_fence_wait_ns: out.telemetry.cpu_fence_wait_ns,
+            validation_error_count: out.telemetry.validation_error_count,
+            upscale_wall_ms,
+        })
+    }
+
+    /// 驻留输出按需回读（FSR color_out UAV → 3ch f32；digest/EXR/画质锚面）。
+    fn readback_into(&mut self, dst: &mut ImageF32) {
+        let (ow, oh) = self.out_size;
+        dst.data.resize((ow * oh * 3) as usize, 0.0);
+        dst.w = ow;
+        dst.h = oh;
+        dst.c = 3;
+        self.fsr
+            .readback_output_resident(&mut dst.data)
+            .unwrap_or_else(|e| fail(&format!("FSR readback_output_resident: {e}")));
     }
 }
 
@@ -3932,6 +4653,37 @@ fn dlss_resident_provenance_json(
         .collect();
     format!(
         "{{\"kind\":\"dlss_sr_resident\",\"lane\":\"render_exec exportable 三 pass（scene→mv→pack）GPU 链内直写 RGBA32F/R32F/RG32F exportable image → OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate（RFC-0030 §4.3；scene 回读/host mv/vendor host pack 中转税全消；LUID 对拍 fail-closed）\",\"spv_mv_no_contraction\":\"bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（统一车道同律；sha256 为文件面）\",\"spv_scene\":{},\"spv_scene_sha256\":{},\"spv_mv\":{},\"spv_mv_sha256\":{},\"spv_pack\":\"<hand-assembled in-memory：g14_pack_spv()，SPIR-V 1.0 LocalSize 8×8，SSBO 三源→storage image 三标 f32 位拷贝零浮点算术>\",\"spv_pack_sha256\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
+        jstr(&spv_scene.replace('\\', "/")),
+        jstr(&sha(spv_scene)),
+        jstr(&spv_mv.replace('\\', "/")),
+        jstr(&sha(spv_mv)),
+        jstr(&format!("sha256:{pack_sha256}")),
+        jstr(&report.gpu_name),
+        jstr(&report.engine_version),
+        dlls.join(","),
+    )
+}
+
+/// fsr 驻留统一车道 provenance（G14.11：D3D12 反向共享；三 kernel SPV +
+/// vendor DLL 全登记；pack SPV 手编内存构建，sha256 为内容面）。
+fn fsr_resident_provenance_json(
+    report: &VendorSessionReport,
+    spv_scene: &str,
+    spv_mv: &str,
+    pack_sha256: &str,
+) -> String {
+    let sha = |p: &str| {
+        std::fs::read(p)
+            .map(|b| format!("sha256:{}", sha256_hex(&b)))
+            .unwrap_or_else(|_| "unreadable".into())
+    };
+    let dlls: Vec<String> = report
+        .dlls
+        .iter()
+        .map(|d| format!("[{},{},{}]", jstr(&d.name), jstr(&d.sha256), d.bytes))
+        .collect();
+    format!(
+        "{{\"kind\":\"fsr_3_1_5_resident\",\"lane\":\"D3D12 反向共享：FsrDx12Session 创建 SHARED 三纹理（RGBA32F/R32F/RG32F，ALLOW_SIMULTANEOUS_ACCESS）→ NT handle → render_exec D3D12_RESOURCE 导入为持久帧目标 → 三 pass（scene→mv→pack）GPU 链内直写 → ffx dispatch D3D12 侧直读（host readback/host mv/host pack/upload 中转税全消；CPU 序跨界同步；LUID 对拍 fail-closed）\",\"spv_mv_no_contraction\":\"bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（统一车道同律；sha256 为文件面）\",\"spv_scene\":{},\"spv_scene_sha256\":{},\"spv_mv\":{},\"spv_mv_sha256\":{},\"spv_pack\":\"<hand-assembled in-memory：g14_pack_spv()，dlss 车道零改动复用>\",\"spv_pack_sha256\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
         jstr(&spv_scene.replace('\\', "/")),
         jstr(&sha(spv_scene)),
         jstr(&spv_mv.replace('\\', "/")),
@@ -4433,7 +5185,8 @@ fn render_leg(
         // G14.10e dlss 驻留统一车道（render 出图腿：逐帧 evaluate 后回读 DLSS
         // 输出出 EXR——出图面凌驾性能）。dlss 臂恒 Mega 单 kernel（cornell 拆散
         // 三 pass 仅 tsr_device 臂消费，本车道不接线——形态简化登记）。
-        let bits = DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let bits =
+            DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h, 2.0f32.powf(-scene.ev100));
         let descs = dlss_lane_descs(&assets, &bits, in_w, in_h);
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
@@ -4456,6 +5209,10 @@ fn render_leg(
             "{TAG}: dlss 驻留统一车道就绪（scene→mv→pack 单 session 直写 exportable 三标；DLSS 外部导入驻留 evaluate；AS 常驻；逐帧参数二小件 352B）"
         );
         let mut out_img = ImageF32::new(out_w, out_h, 3);
+        // 诊断臂：RURIX_G14_DLSS_DUMP_PACK=<path> 时末帧回读 pack 输出 color
+        // image（RGBA32F 紧凑字节）落盘 EXR——pack 链 / DLSS evaluate 二分面。
+        let dump_pack_path = std::env::var("RURIX_G14_DLSS_DUMP_PACK").ok().filter(|p| !p.is_empty());
+        let mut dump_buf: Vec<u8> = Vec::new();
         for i in 0..frames {
             let t_frame = std::time::Instant::now();
             let j = [
@@ -4463,6 +5220,7 @@ fn render_leg(
                 halton(jitter_base + i + 1, 3) - 0.5,
             ];
             let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let want_dump = dump_pack_path.is_some() && i + 1 == frames;
             let rec = match lane.frame(
                 in_w,
                 in_h,
@@ -4476,10 +5234,59 @@ fn render_leg(
                 exposure,
                 i,
                 i == 0,
+                if want_dump { Some(&mut dump_buf) } else { None },
             ) {
                 Ok(r) => r,
                 Err(e) => fail(&format!("帧 {i} dlss 驻留车道: {e}")),
             };
+            if want_dump {
+                let p = dump_pack_path.as_deref().unwrap();
+                let px = (in_w * in_h) as usize;
+                if dump_buf.len() != px * 8 {
+                    fail(&format!(
+                        "dump pack 字节数 {} ≠ {}（RGBA16F 紧凑）",
+                        dump_buf.len(),
+                        px * 8
+                    ));
+                }
+                // f16 → f32(诊断可视化;RGB 三通道,A 忽略)。
+                let f16_to_f32 = |h: u16| -> f32 {
+                    let sign = u32::from(h >> 15) << 31;
+                    let exp = u32::from((h >> 10) & 0x1f);
+                    let man = u32::from(h & 0x3ff);
+                    let bits = if exp == 0 {
+                        if man == 0 {
+                            sign
+                        } else {
+                            let mut e = 127 - 15 + 1;
+                            let mut m = man;
+                            while m & 0x400 == 0 {
+                                m <<= 1;
+                                e -= 1;
+                            }
+                            sign | ((e as u32) << 23) | ((m & 0x3ff) << 13)
+                        }
+                    } else if exp == 31 {
+                        sign | 0x7f80_0000 | (man << 13)
+                    } else {
+                        sign | ((exp + 127 - 15) << 23) | (man << 13)
+                    };
+                    f32::from_bits(bits)
+                };
+                let mut rgb = Vec::with_capacity(px * 3);
+                for k in 0..px {
+                    let o = k * 8;
+                    for c in 0..3 {
+                        let h = u16::from_le_bytes([dump_buf[o + c * 2], dump_buf[o + c * 2 + 1]]);
+                        rgb.push(f16_to_f32(h));
+                    }
+                }
+                write_exr(Path::new(p), in_w, in_h, &rgb, &contract.digest)
+                    .unwrap_or_else(|e| fail(&e));
+                eprintln!("{TAG}: [dump-pack] 帧 {i} pack color buffer(f16) → {p}");
+            }
+            // （G14.10e 的 dump-import 诊断臂已随 image 共享弃案退役——OPTIMAL
+            // tiling 跨 device 布局不一致经该臂实锤,正解 = buffer 共享。）
             if rec.validation_error_count != 0 {
                 fail(&format!(
                     "帧 {i} validation ERROR 计数 {} ≠ 0",
@@ -4527,6 +5334,165 @@ fn render_leg(
             dlss_resident_provenance_json(&report, spv_scene, spv_mv, &bits.pack_sha256),
             "dlss 驻留统一车道（new_with_exportable_textures 单 session 三 pass：pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F exportable image；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate → 逐帧 readback_output_into 出 EXR——RFC-0030 §4.3 G14.10e）".to_owned(),
             "host Instant 墙钟；frame_ms = 逐帧全链路（参数打包+三 pass submit+fence+evaluate+DLSS 输出回读+EXR 落盘），scene_render_ms/mv_ms = DeviceFrameTelemetry 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段在 stderr 逐帧登记不入列），upscale_ms = upscale_resident_external 墙钟 + DLSS 输出回读墙钟（render 出图面），scene_gpu_ns = pass0 GPU ns".to_owned(),
+        )
+    } else if backend_name == "fsr_3_1_5"
+        && std::env::var("RURIX_G14_FSR_HOST").ok().as_deref() != Some("1")
+    {
+        // G14.11 fsr 驻留统一车道（render 出图腿；D3D12 反向共享——fsr 区自持
+        // image 版 descs/pack SPV；RURIX_G14_FSR_HOST=1 逃生门走旧 host 链，
+        // 跨 API 布局对拍参照面）。fsr 臂恒 Mega 单 kernel（同 dlss 车道登记）。
+        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let descs = fsr_lane_descs(&assets, &bits, in_w, in_h);
+        let blas_refs: [&[f32]; 1] = [&assets.tris];
+        let accel_structs = [AccelStructDesc {
+            scene: RayQuerySceneDesc {
+                blas_triangles: &blas_refs,
+                instances: &assets.instances,
+            },
+            transforms: None,
+        }];
+        let mut lane = match FsrResidentLane::create(
+            &descs,
+            &accel_structs,
+            (in_w, in_h),
+            (out_w, out_h),
+        ) {
+            Ok(l) => l,
+            Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
+        };
+        eprintln!(
+            "{TAG}: fsr 驻留统一车道就绪（D3D12 SHARED 三纹理 → render_exec 导入直写 → ffx dispatch 直读；AS 常驻；逐帧参数二小件 352B）"
+        );
+        let mut out_img = ImageF32::new(out_w, out_h, 3);
+        // 诊断臂（跨 API tiling 对拍）：RURIX_G14_FSR_DUMP_PACK=<path> 末帧
+        // Vulkan 侧回读 pack 输出 color；RURIX_G14_FSR_DUMP_IMPORT=<path> 末帧
+        // D3D12 侧回读同一共享纹理——两图逐像素一致 = 布局协定成立。
+        let dump_pack_path = std::env::var("RURIX_G14_FSR_DUMP_PACK").ok().filter(|p| !p.is_empty());
+        let mut dump_buf: Vec<u8> = Vec::new();
+        for i in 0..frames {
+            let t_frame = std::time::Instant::now();
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let want_dump = dump_pack_path.is_some() && i + 1 == frames;
+            let rec = match lane.frame(
+                in_w,
+                in_h,
+                j,
+                eps,
+                scene.quads.len(),
+                scene.points.len(),
+                &inv_vp,
+                &vp,
+                &vp_j,
+                exposure,
+                i,
+                i == 0,
+                if want_dump { Some(&mut dump_buf) } else { None },
+            ) {
+                Ok(r) => r,
+                Err(e) => fail(&format!("帧 {i} fsr 驻留车道: {e}")),
+            };
+            if want_dump {
+                let p = dump_pack_path.as_deref().unwrap();
+                let px = (in_w * in_h) as usize;
+                if dump_buf.len() != px * 16 {
+                    fail(&format!(
+                        "dump pack 字节数 {} ≠ {}（RGBA32F 紧凑）",
+                        dump_buf.len(),
+                        px * 16
+                    ));
+                }
+                let mut rgb = Vec::with_capacity(px * 3);
+                for k in 0..px {
+                    for c in 0..3 {
+                        let o = k * 16 + c * 4;
+                        rgb.push(f32::from_le_bytes([
+                            dump_buf[o],
+                            dump_buf[o + 1],
+                            dump_buf[o + 2],
+                            dump_buf[o + 3],
+                        ]));
+                    }
+                }
+                write_exr(Path::new(p), in_w, in_h, &rgb, &contract.digest)
+                    .unwrap_or_else(|e| fail(&e));
+                eprintln!("{TAG}: [dump-pack] 帧 {i} pack color image（Vulkan 侧）→ {p}");
+            }
+            if i + 1 == frames
+                && let Ok(p) = std::env::var("RURIX_G14_FSR_DUMP_IMPORT")
+                && !p.is_empty()
+            {
+                let mut rgba = Vec::new();
+                lane.fsr
+                    .debug_readback_input_color(&mut rgba)
+                    .unwrap_or_else(|e| fail(&format!("D3D12 侧诊断回读: {e}")));
+                let px = (in_w * in_h) as usize;
+                let mut rgb = Vec::with_capacity(px * 3);
+                for k in 0..px {
+                    for c in 0..3 {
+                        let o = k * 16 + c * 4;
+                        rgb.push(f32::from_le_bytes([
+                            rgba[o],
+                            rgba[o + 1],
+                            rgba[o + 2],
+                            rgba[o + 3],
+                        ]));
+                    }
+                }
+                write_exr(Path::new(&p), in_w, in_h, &rgb, &contract.digest)
+                    .unwrap_or_else(|e| fail(&e));
+                eprintln!("{TAG}: [dump-import] 帧 {i} 共享 color image（D3D12 侧）→ {p}");
+            }
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "帧 {i} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            let t_rb = std::time::Instant::now();
+            lane.readback_into(&mut out_img);
+            let rb_el = t_rb.elapsed().as_secs_f64() * 1000.0;
+            if !out_img.data.iter().all(|v| v.is_finite()) {
+                fail(&format!("帧 {i} upscale 输出非有限"));
+            }
+            let name = format!("frame_{i:04}.exr");
+            let path = frames_dir.join(&name);
+            let bytes = write_exr(&path, out_w, out_h, &out_img.data, &contract.digest)
+                .unwrap_or_else(|e| fail(&e));
+            let digest = frame_content_digest(out_w, out_h, 3, &out_img.data);
+            frames_json.push(format!(
+                "{{\"name\":{},\"bytes\":{},\"digest\":{}}}",
+                jstr(&format!("frames/{name}")),
+                bytes,
+                jstr(&digest)
+            ));
+            converged_digest = digest;
+            converged = Some(out_img.clone());
+            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+            scene_ms.push(rec.scene_gpu_ns / 1e6);
+            mv_ms.push(rec.mv_gpu_ns / 1e6);
+            upscale_ms.push(rec.upscale_wall_ms + rb_el);
+            frame_ms.push(frame_el);
+            scene_gpu_ns.push(rec.scene_gpu_ns);
+            if i == 0 || (i + 1) % 8 == 0 || i + 1 == frames {
+                eprintln!(
+                    "{TAG}: 帧 {}/{frames} scene_gpu={:.3}ms mv_gpu={:.3}ms pack_gpu={:.3}ms upscale={:.3}ms(rb={rb_el:.3}ms) frame={frame_el:.3}ms",
+                    i + 1,
+                    rec.scene_gpu_ns / 1e6,
+                    rec.mv_gpu_ns / 1e6,
+                    rec.pack_gpu_ns / 1e6,
+                    rec.upscale_wall_ms,
+                );
+            }
+        }
+        let report = lane.fsr.report();
+        (
+            fsr_resident_provenance_json(&report, spv_scene, spv_mv, &bits.pack_sha256),
+            "fsr 驻留统一车道（new_with_imported_d3d12_textures 单 session 三 pass：pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv_image 直写 RGBA32F/R32F/RG32F **D3D12 SHARED 导入** image；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧直读共享纹理 → 逐帧 readback_output_resident 出 EXR——G14.11 D3D12 反向共享）".to_owned(),
+            "host Instant 墙钟；frame_ms = 逐帧全链路（参数打包+三 pass submit+fence+ffx dispatch+FSR 输出回读+EXR 落盘），scene_render_ms/mv_ms = DeviceFrameTelemetry 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段在 stderr 逐帧登记不入列），upscale_ms = dispatch_resident 墙钟 + FSR 输出回读墙钟（render 出图面），scene_gpu_ns = pass0 GPU ns".to_owned(),
         )
     } else {
         let spv_scene_words = load_spv(spv_scene);
@@ -5043,7 +6009,8 @@ fn bench_leg(
         // DLSS 驻留 evaluate；末帧/flip-trace 帧按需回读 DLSS 输出做 digest）。
         // dlss 臂恒 Mega 单 kernel（cornell 拆散三 pass 仅 tsr_device 臂消费，
         // 本车道不接线——形态简化登记）。
-        let bits = DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let bits =
+            DlssLaneBits::load(spv_scene, spv_mv, in_w, in_h, 2.0f32.powf(-scene.ev100));
         let descs = dlss_lane_descs(&assets, &bits, in_w, in_h);
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
@@ -5088,6 +6055,7 @@ fn bench_leg(
                 exposure,
                 i,
                 i == 0,
+                None,
             ) {
                 Ok(r) => r,
                 Err(e) => fail(&format!("bench 帧 {i} dlss 驻留车道: {e}")),
@@ -5162,6 +6130,133 @@ fn bench_leg(
             "dlss 驻留统一车道（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F exportable image；逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；OPAQUE_WIN32 导入 → DLSS upscale_resident_external 驻留 evaluate——scene 回读/host mv/vendor host pack 中转税全消，RFC-0030 §4.3 G14.10e）".to_owned(),
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms = 全链墙钟（参数二小件打包+三 pass submit+fence+evaluate[+回读帧 DLSS 输出回读]）；scene_render_ms/mv_ms = 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段 stderr DLSS_RESIDENT 行登记不入列）；upscale_ms = upscale_resident_external 墙钟（vendor 独立 device 域 submit_wait 同步口径，不含输出回读）".to_owned(),
             "G14.10e dlss 驻留车道口径：测量循环零 scene 回读（readback 表恒空）+ DLSS 输出驻留（不回读）→ 测量帧 tail=0、frame_ms_production=frame_ms（诚实口径）；末帧回读 DLSS 输出 → tail = readback_output_into 墙钟 + is_finite 全帧校验 + digest（仅末帧有值）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能）；last_frame_digest 语义 = DLSS 输出（upscale 后 1080p 图），非 scene 输出；digest 锚登记：mv=GPU mv（vs host mv ULP 级差）+ color RGBA32F f32 直通（vs 现状 f16 pack）+ depth R32F（vs D32）——evaluate 输入位面变化，输出 digest 相对现状锚预期 L1 漂移，双跑位级确定性为门檩".to_owned(),
+        )
+    } else if backend_name == "fsr_3_1_5"
+        && std::env::var("RURIX_G14_FSR_HOST").ok().as_deref() != Some("1")
+    {
+        // G14.11 fsr 驻留统一车道（bench 测量腿：测量循环零 scene 回读 + ffx
+        // dispatch D3D12 侧直读共享纹理；末帧/flip-trace 帧按需回读 FSR 输出
+        // 做 digest）。fsr 区自持 image 版 descs/pack SPV；
+        // RURIX_G14_FSR_HOST=1 逃生门走旧 host 链（跨 API 布局对拍参照面）。
+        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let descs = fsr_lane_descs(&assets, &bits, in_w, in_h);
+        let blas_refs: [&[f32]; 1] = [&assets.tris];
+        let accel_structs = [AccelStructDesc {
+            scene: RayQuerySceneDesc {
+                blas_triangles: &blas_refs,
+                instances: &assets.instances,
+            },
+            transforms: None,
+        }];
+        let mut lane = match FsrResidentLane::create(
+            &descs,
+            &accel_structs,
+            (in_w, in_h),
+            (out_w, out_h),
+        ) {
+            Ok(l) => l,
+            Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
+        };
+        eprintln!(
+            "{TAG}: bench fsr 驻留统一车道就绪 warmup={warmup} frames={frames}（session 不销毁；scene→mv→pack 直写 D3D12 SHARED 导入三标 + ffx dispatch 直读；测量循环零 scene 回读，末帧回读 FSR 输出；flip_trace={}）",
+            flip_trace.is_some()
+        );
+        let mut out_img = ImageF32::new(out_w, out_h, 3);
+        let mut pack_probe_ms: Vec<f64> = Vec::new();
+        for i in 0..total {
+            let t_frame = std::time::Instant::now();
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let rec = match lane.frame(
+                in_w,
+                in_h,
+                j,
+                eps,
+                scene.quads.len(),
+                scene.points.len(),
+                &inv_vp,
+                &vp,
+                &vp_j,
+                exposure,
+                i,
+                i == 0,
+                None,
+            ) {
+                Ok(r) => r,
+                Err(e) => fail(&format!("bench 帧 {i} fsr 驻留车道: {e}")),
+            };
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            // tail = FSR 输出按需回读（墙钟）+ is_finite 全帧校验 + digest
+            // （末帧/flip-trace 帧；测量帧 resident 零回读 → tail=0，
+            // frame_ms_production=frame_ms——统一车道同律诚实口径）。
+            let is_last = i + 1 == total;
+            let need_readback = is_last || flip_trace.is_some();
+            let t_tail = std::time::Instant::now();
+            if need_readback {
+                lane.readback_into(&mut out_img);
+                if !out_img.data.iter().all(|v| v.is_finite()) {
+                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
+                }
+                last_digest = frame_content_digest(out_w, out_h, 3, &out_img.data);
+                if let Some(w) = flip_trace.as_mut() {
+                    use std::io::Write as _;
+                    writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
+                        .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                }
+            }
+            let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
+            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+            if i >= warmup {
+                frame_ms.push(frame_el);
+                scene_ms.push(rec.scene_gpu_ns / 1e6);
+                mv_ms.push(rec.mv_gpu_ns / 1e6);
+                upscale_ms.push(rec.upscale_wall_ms);
+                pack_probe_ms.push(rec.pack_gpu_ns / 1e6);
+                scene_gpu_ns.push(rec.scene_gpu_ns);
+                cpu_record_ns.push(rec.cpu_record_ns as f64);
+                cpu_submit_ns.push(rec.cpu_submit_ns as f64);
+                cpu_fence_wait_ns.push(rec.cpu_fence_wait_ns as f64);
+                tail_ms.push(tail_el);
+                prod_ms.push(frame_el - tail_el);
+            }
+            if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
+                eprintln!(
+                    "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms scene_gpu={:.3}ms mv_gpu={:.3}ms pack_gpu={:.3}ms upscale={:.3}ms rec={:.3}ms sub={:.3}ms fence={:.3}ms",
+                    i + 1,
+                    rec.scene_gpu_ns / 1e6,
+                    rec.mv_gpu_ns / 1e6,
+                    rec.pack_gpu_ns / 1e6,
+                    rec.upscale_wall_ms,
+                    rec.cpu_record_ns as f64 / 1e6,
+                    rec.cpu_submit_ns as f64 / 1e6,
+                    rec.cpu_fence_wait_ns as f64 / 1e6,
+                );
+            }
+        }
+        // pack 段 post-warmup 统计（receipt schema 无 pack 列——stderr 登记面）。
+        if !pack_probe_ms.is_empty() {
+            let mean = pack_probe_ms.iter().sum::<f64>() / pack_probe_ms.len() as f64;
+            let min = pack_probe_ms.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max = pack_probe_ms
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
+            eprintln!(
+                "{TAG}: FSR_RESIDENT pack_gpu_ms mean={mean:.6} min={min:.6} max={max:.6}"
+            );
+        }
+        (
+            "fsr 驻留统一车道（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F **D3D12 SHARED 导入** image；逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧直读共享纹理——scene 回读/host mv/vendor host pack/upload 中转税全消，G14.11 D3D12 反向共享）".to_owned(),
+            "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms = 全链墙钟（参数二小件打包+三 pass submit+fence+ffx dispatch[+回读帧 FSR 输出回读]）；scene_render_ms/mv_ms = 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段 stderr FSR_RESIDENT 行登记不入列）；upscale_ms = dispatch_resident 墙钟（D3D12 submit_wait 同步口径，不含输出回读）".to_owned(),
+            "G14.11 fsr 驻留车道口径：测量循环零 scene 回读（readback 表恒空）+ FSR 输出驻留（不回读）→ 测量帧 tail=0、frame_ms_production=frame_ms（诚实口径）；末帧回读 FSR 输出 → tail = readback_output_resident 墙钟 + is_finite 全帧校验 + digest（仅末帧有值）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能）；last_frame_digest 语义 = FSR 输出（upscale 后 1080p 图）；digest 锚登记：mv=GPU mv（vs host mv ULP 级差）+ color RGBA32F f32 直通（vs 现状 f16 pack）+ depth R32F 反转深度直通 + 输入驻留免 host 量化——dispatch 输入位面变化，输出 digest 相对现状锚预期 L1 漂移（dlss 臂同族），双跑位级确定性为门檩".to_owned(),
         )
     } else {
         let spv_scene_words = load_spv(spv_scene);

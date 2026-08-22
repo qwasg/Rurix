@@ -207,6 +207,100 @@ pub struct VendorFrameInput<'a> {
     pub reset: bool,
 }
 
+/// G14.10b(RFC-0030 §4.3)外部导入 image 描述(render_exec exportable 纹理的
+/// `ExportedTextureWin32` 簿记逐字段对应;bin 侧拆字段传递,两模块类型不互引)。
+/// `handle` 归导出 session 所有——本模块**不关闭**;导入完成后本 session 持有
+/// 自己的 VkImage/VkDeviceMemory 引用(Drop 释放),导出侧内容跨界有效性契约:
+/// 导出帧 fence 完成(collect/execute 返回)后才可 evaluate。
+#[derive(Debug, Clone, Copy)]
+pub struct ExternalImageImportDesc {
+    /// NT handle 地址值(OPAQUE_WIN32;导出侧 `ExportedTextureWin32::handle`)。
+    pub handle: usize,
+    pub width: u32,
+    pub height: u32,
+    /// VkFormat 数值(与导出 image 一致;SL tag `native_format` 同源)。
+    pub vk_format: u32,
+    /// 导出 image 的 usage 位(导入 image 参数须一致)。
+    pub usage_flags: u32,
+    /// 导出 allocation 字节数。
+    pub allocation_size: u64,
+    /// 导出 allocation memory type index(同 LUID 物理设备类型序一致)。
+    pub memory_type_index: u32,
+}
+
+/// G14.10f buffer 共享导入簿记(render_exec `ExportedBufferWin32` 对侧;
+/// 跨 device OPTIMAL image 布局解释不一致的正解——buffer 线性无歧义,DLSS 侧
+/// 每帧 `vkCmdCopyBufferToImage` 进 session 自建输入 image)。handle 所有权
+/// 契约同 [`ExternalImageImportDesc`](导出 session 持有,导入方不得关闭)。
+#[derive(Debug, Clone, Copy)]
+pub struct ExternalBufferImportDesc {
+    /// NT handle 地址值(OPAQUE_WIN32)。
+    pub handle: usize,
+    /// buffer 声明字节数(导入侧 VkBuffer size 同值;内容布局 = 紧凑纹素:
+    /// color RGBA16F 8B/px、depth f32 4B/px、mv RG32F 8B/px)。
+    pub size: u64,
+    /// 导出 allocation 字节数。
+    pub allocation_size: u64,
+    /// 导出 allocation memory type index(同 LUID 物理设备类型序一致)。
+    pub memory_type_index: u32,
+}
+
+/// G14.11(RFC-0030 §4.3)FSR D3D12 反向共享输入簿记(**buffer 形态**——
+/// texture 直共享弃案:D3D12_RESOURCE handle 导入 OPTIMAL VkImage 在 NVIDIA
+/// 驱动上跨 API tiling 解释不一致,D3D12 侧读为确定性条纹乱序,读图抓获,
+/// 证据 evidence/g14_11_fsr_dump_{pack,import}.png;与 dlss 臂 OPAQUE_WIN32
+/// 跨 device 弃案同族)。现方案:D3D12 侧 `D3D12_HEAP_FLAG_SHARED` committed
+/// **BUFFER**(线性字节,布局无歧义)经 `CreateSharedHandle` 导出 NT handle,
+/// Vulkan 侧(render_exec)以 D3D12_RESOURCE handle 导入 bind 为 SSBO,pack
+/// kernel 按 host 链 upload 布局直写(color f16 RGBA / depth f32 / mv f32
+/// RG,行距 256 对齐);D3D12 侧逐帧 `CopyTextureRegion` 搬入三输入纹理
+/// (GPU 内拷,formats 与 host 链逐字同)。handle 归产出它的
+/// [`FsrDx12Session`] 所有(Drop 单点 CloseHandle)——导入方**不得关闭**。
+#[derive(Debug, Clone, Copy)]
+pub struct FsrSharedInputHandles {
+    /// staging buffer NT handle 地址值(D3D12 SHARED committed BUFFER)。
+    pub staging: usize,
+    /// buffer 字节数(64KB 对齐;Vulkan 侧资源声明须同值)。
+    pub staging_size: u64,
+    /// color 段行距(字节;= align256(8·iw),f16 RGBA 8B/px,段偏移 0)。
+    pub color_row: u64,
+    /// depth 段行距(字节;= align256(4·iw),f32 4B/px)。
+    pub depth_row: u64,
+    /// mv 段行距(字节;= align256(8·iw),f32 RG 8B/px)。
+    pub mv_row: u64,
+    /// depth 段字节偏移(= color_row·ih)。
+    pub off_depth: u64,
+    /// mv 段字节偏移(= off_depth + depth_row·ih)。
+    pub off_mv: u64,
+    /// D3D12 adapter LUID(DXGI_ADAPTER_DESC1.AdapterLuid 8B;与 Vulkan
+    /// `VkPhysicalDeviceIDProperties::deviceLUID` 对拍,不等 fail-closed)。
+    pub adapter_luid: [u8; 8],
+}
+
+/// G14.10b 外部输入槽(DLSS 三输入;reactive 仍走 session 自建 image 的 host
+/// 上传路径——可选输入,驻留收益边际)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalInputSlot {
+    /// scaling input color(导出侧建议 RGBA16F;RGBA32F 容忍度见冒烟探明)。
+    Color,
+    /// depth(D32 或 R32F——R32F 可被 render_exec compute 直写)。
+    Depth,
+    /// motion vectors(RG32F,与 DLSS 现输入格式同一)。
+    Mv,
+}
+
+/// G14.10b 外部输入 evaluate 帧参数(输入内容驻留外部导入 image,host 仅传
+/// 相机/jitter 簿记与可选 reactive;字段语义与 [`VendorFrameInput`] 同名同义)。
+#[derive(Debug, Clone, Copy)]
+pub struct VendorExternalFrameParams<'a> {
+    /// 可选 reactive mask(长度 = in_w×in_h;None = 全零上传)。
+    pub reactive: Option<&'a [f32]>,
+    pub exposure: f32,
+    pub jitter: [f32; 2],
+    pub frame_index: u32,
+    pub reset: bool,
+}
+
 /// vendor session 报告（evidence provenance 面）。
 #[derive(Debug, Clone)]
 pub struct VendorSessionReport {
@@ -595,6 +689,94 @@ const VK_QUEUE_COMPUTE: u32 = 0x2;
 const VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER: u32 = 0x2;
 const VK_DEBUG_SEVERITY_ERROR: u32 = 0x1000;
 
+// ── G14.10b external memory 导入面(SDK 1.3.296 `vulkan_core.h` 核对;与
+// render_exec.rs 导出面同族**独立**定义——两模块 FFI 自足纪律)──
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2`(1.1 core)。
+const VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2: u32 = 1_000_059_001;
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES`(1.1 core;deviceLUID)。
+const VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES: u32 = 1_000_071_004;
+/// `VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO`(G14.10f buffer 共享)。
+const VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO: u32 = 1_000_072_000;
+/// `VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO`。
+const VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO: u32 = 1_000_072_001;
+/// `VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR`。
+const VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR: u32 = 1_000_073_000;
+/// `VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO`(1.1 core;OPAQUE_WIN32
+/// image 导入实务强制 dedicated,必挂)。
+const VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: u32 = 1_000_127_001;
+/// `VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT`(= **0x2**;0x1 是
+/// OPAQUE_FD——render_exec 侧初版误用被 validation VUID 三连抓,同错勿犯)。
+const VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32: u32 = 0x2;
+/// `VK_QUEUE_FAMILY_EXTERNAL`(= ~1u32;acquire barrier 的 src 家族哨兵)。
+const VK_QUEUE_FAMILY_EXTERNAL: u32 = !1u32;
+
+/// `VkExternalMemoryImageCreateInfo`(sType@0/pNext@8/handleTypes@16,size 24)。
+#[repr(C)]
+struct VkExternalMemoryImageCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_types: u32,
+}
+
+/// `VkExternalMemoryBufferCreateInfo`(布局同 image 版;G14.10f buffer 共享)。
+#[repr(C)]
+struct VkExternalMemoryBufferCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_types: u32,
+}
+
+/// `VkImportMemoryWin32HandleInfoKHR`(sType@0/pNext@8/handleType@16/handle@24/
+/// name@32,size 40)。
+#[repr(C)]
+struct VkImportMemoryWin32HandleInfoKHR {
+    s_type: u32,
+    p_next: *const c_void,
+    handle_type: u32,
+    handle: *mut c_void,
+    name: *const u16,
+}
+
+/// `VkMemoryDedicatedAllocateInfo`(sType@0/pNext@8/image@16/buffer@24,size 32)。
+#[repr(C)]
+struct VkMemoryDedicatedAllocateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    image: VkImage,
+    buffer: VkBuffer,
+}
+
+/// `VkPhysicalDeviceIDProperties`(sType@0/pNext@8/deviceUUID[16]@16/
+/// driverUUID[16]@32/deviceLUID[8]@48/nodeMask@56/luidValid@60,size 64)。
+#[repr(C)]
+struct VkPhysicalDeviceIDProperties {
+    s_type: u32,
+    p_next: *mut c_void,
+    device_uuid: [u8; 16],
+    driver_uuid: [u8; 16],
+    device_luid: [u8; 8],
+    device_node_mask: u32,
+    device_luid_valid: u32,
+}
+
+/// `VkPhysicalDeviceProperties2` 链头(properties 以 2048B blob 超集承载,
+/// 本文件 get_phys_props 同律)。
+#[repr(C)]
+struct VkPhysicalDeviceProperties2Blob {
+    s_type: u32,
+    p_next: *mut c_void,
+    properties: [u64; 256],
+}
+
+type FnVkGetPhysicalDeviceProperties2 =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut VkPhysicalDeviceProperties2Blob);
+type FnVkEnumerateDeviceExtensionProperties = unsafe extern "system" fn(
+    VkPhysicalDevice,
+    *const c_char,
+    *mut u32,
+    *mut c_void,
+) -> i32;
+
 #[repr(C)]
 struct VkApplicationInfo {
     s_type: u32,
@@ -782,6 +964,21 @@ struct VkImageMemoryBarrier {
     subresource_range: VkImageSubresourceRange,
 }
 const _: () = assert!(size_of::<VkImageMemoryBarrier>() == 72);
+
+/// `VkBufferMemoryBarrier`(sType=44;G14.10f 导入 buffer 的 EXTERNAL acquire)。
+#[repr(C)]
+struct VkBufferMemoryBarrier {
+    s_type: u32,
+    p_next: *const c_void,
+    src_access_mask: u32,
+    dst_access_mask: u32,
+    src_queue_family_index: u32,
+    dst_queue_family_index: u32,
+    buffer: VkBuffer,
+    offset: u64,
+    size: u64,
+}
+const _: () = assert!(size_of::<VkBufferMemoryBarrier>() == 56);
 
 #[repr(C)]
 struct VkImageSubresourceLayers {
@@ -1035,6 +1232,23 @@ pub struct DlssVkSession {
     dlls: Vec<DllProvenance>,
     log_tail: Vec<String>,
     shutdown_done: bool,
+    /// G14.10b:device 创建时 external memory 两扩展是否已启用(设备扩展在位
+    /// 才启;不在位 → 导入入口 fail-closed,既有路径行为不变)。
+    external_memory_enabled: bool,
+    /// G14.10b:物理设备 LUID(创建期实采;`None` = 驱动报无效/符号缺)。
+    device_luid: Option<[u8; 8]>,
+    /// G14.10b:外部导入输入([color, depth, mv] = (资源, 导出侧 usage 位);
+    /// `None` = 未导入。image/memory/view 归本 session,Drop 逆序释放——导入
+    /// memory 的 vkFreeMemory 仅解引用,不影响导出侧分配。
+    ext_inputs: [Option<(VkImageRes, u32)>; 3],
+    /// G14.10f:外部导入输入 **buffer**([color, depth, mv] = (buffer, memory,
+    /// 字节数);`None` = 未导入)。跨 device OPTIMAL image 布局解释不一致的
+    /// 正解——buffer 线性布局无歧义,消费经每帧 `vkCmdCopyBufferToImage` 进
+    /// session 自建输入 image(与 host staging 路同一批 image/同一 tag 面)。
+    /// buffer/memory 归本 session,Drop 逆序释放(free 仅解引用)。
+    ext_input_bufs: [Option<(VkBuffer, VkDeviceMemory, u64)>; 3],
+    /// G14.10b:cmd/queue 所属家族(acquire barrier 的 dst 家族;创建期定格)。
+    queue_family: u32,
 }
 
 // session 句柄集非 Send(单线程门 harness 语义;不显式 impl Send/Sync)。
@@ -1622,7 +1836,69 @@ impl DlssVkSession {
             .or(family_fallback)
             .ok_or_else(|| VendorError::DeviceUnavailable("无 compute 队列家族".into()))?;
 
-        // ── device(SL 代理 vkCreateDevice;SL 自担其扩展/特性/队列) ──
+        // ── G14.10b:external memory 扩展探测(在位才启用——不在位维持旧空
+        // 扩展表,导入入口 fail-closed;LUID 一并实采供同 adapter 对拍)──
+        // SL manual hooking 的 vkCreateDevice 代理把应用扩展表与 SL 自需扩展
+        // 合并转发(SL 文档:应用可在 DeviceCreateInfo 里追加自己的扩展)。
+        let mut external_memory_enabled = false;
+        {
+            // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验。
+            let enum_dev_ext: Option<FnVkEnumerateDeviceExtensionProperties> = unsafe {
+                cast_sym((fns.vk_gipa)(instance, c"vkEnumerateDeviceExtensionProperties".as_ptr()))
+            };
+            if let Some(enum_ext) = enum_dev_ext {
+                let mut n = 0u32;
+                // SAFETY: physical_device 有效;计数出参栈上有效写。
+                unsafe { enum_ext(physical_device, std::ptr::null(), &mut n, std::ptr::null_mut()) };
+                // VkExtensionProperties = 260B {char[256], u32}。
+                let mut blob = vec![0u8; n as usize * 260];
+                // SAFETY: blob 容量 = n×260。
+                unsafe {
+                    enum_ext(
+                        physical_device,
+                        std::ptr::null(),
+                        &mut n,
+                        blob.as_mut_ptr() as *mut c_void,
+                    )
+                };
+                let target = c"VK_KHR_external_memory_win32".to_bytes();
+                external_memory_enabled = (0..n as usize).any(|i| {
+                    let name = &blob[i * 260..i * 260 + 256];
+                    let len = name.iter().position(|&b| b == 0).unwrap_or(256);
+                    &name[..len] == target
+                });
+            }
+        }
+        let device_luid: Option<[u8; 8]> = {
+            // SAFETY: instance 有效;符号名 NUL 结尾;cast_sym null 校验(1.1 core,
+            // 缺符号 = 异常 loader,None 面下行容忍)。
+            let get_props2: Option<FnVkGetPhysicalDeviceProperties2> = unsafe {
+                cast_sym((fns.vk_gipa)(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+            };
+            get_props2.and_then(|get2| {
+                let mut id_props = VkPhysicalDeviceIDProperties {
+                    s_type: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES,
+                    p_next: std::ptr::null_mut(),
+                    device_uuid: [0; 16],
+                    driver_uuid: [0; 16],
+                    device_luid: [0; 8],
+                    device_node_mask: 0,
+                    device_luid_valid: 0,
+                };
+                let mut props2 = VkPhysicalDeviceProperties2Blob {
+                    s_type: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+                    p_next: (&mut id_props as *mut VkPhysicalDeviceIDProperties).cast(),
+                    properties: [0; 256],
+                };
+                // SAFETY: physical_device 有效;props2/id_props 栈上存活,blob 2048B
+                // ≥ 真实 properties(约 824B)。
+                unsafe { get2(physical_device, &mut props2) };
+                (id_props.device_luid_valid != 0).then_some(id_props.device_luid)
+            })
+        };
+
+        // ── device(SL 代理 vkCreateDevice;SL 自担其扩展/特性/队列;G14.10b
+        // 应用侧追加 external memory 两扩展——SL 代理合并转发) ──
         let priority = 1.0f32;
         let qci = VkDeviceQueueCreateInfo {
             s_type: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -1632,6 +1908,10 @@ impl DlssVkSession {
             queue_count: 1,
             p_queue_priorities: &priority,
         };
+        let ext_mem_exts: [*const c_char; 2] = [
+            c"VK_KHR_external_memory".as_ptr(),
+            c"VK_KHR_external_memory_win32".as_ptr(),
+        ];
         let dci = VkDeviceCreateInfo {
             s_type: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
             p_next: std::ptr::null(),
@@ -1640,12 +1920,16 @@ impl DlssVkSession {
             p_queue_create_infos: &qci,
             enabled_layer_count: 0,
             pp_enabled_layer_names: std::ptr::null(),
-            enabled_extension_count: 0,
-            pp_enabled_extension_names: std::ptr::null(),
+            enabled_extension_count: if external_memory_enabled { 2 } else { 0 },
+            pp_enabled_extension_names: if external_memory_enabled {
+                ext_mem_exts.as_ptr()
+            } else {
+                std::ptr::null()
+            },
             p_enabled_features: std::ptr::null(),
         };
         let mut device: VkDevice = std::ptr::null_mut();
-        // SAFETY: qci/dci 栈上存活;SL 代理附加 DLSS 必需设备扩展与特性。
+        // SAFETY: qci/dci/ext_mem_exts 栈上存活;SL 代理附加 DLSS 必需设备扩展与特性。
         let r = unsafe { create_device(physical_device, &dci, std::ptr::null(), &mut device) };
         if r != VK_SUCCESS || device.is_null() {
             return Err(VendorError::ApiError(format!("vkCreateDevice(proxy) → {r}")));
@@ -2074,6 +2358,11 @@ impl DlssVkSession {
             dlls,
             log_tail: Vec::new(),
             shutdown_done: false,
+            external_memory_enabled,
+            device_luid,
+            ext_inputs: [None, None, None],
+            ext_input_bufs: [None, None, None],
+            queue_family,
         })
     }
 
@@ -2115,7 +2404,14 @@ impl DlssVkSession {
     }
 
     fn vk_upload_image(&mut self, slot: VkInputSlot, staging_offset: u64) {
-        // staging_offset 段数据已在调用前写入 staging map;布局状态逐帧跟踪。
+        self.vk_upload_image_src(slot, self.staging, staging_offset);
+    }
+
+    /// [`Self::vk_upload_image`] 的 copy 源参数化本体(G14.10f:导入 buffer
+    /// 直接作 copy 源——同一 barrier/region/layout 状态机,仅源 buffer 异)。
+    fn vk_upload_image_src(&mut self, slot: VkInputSlot, src: VkBuffer, src_offset: u64) {
+        // src_offset 段数据契约:staging 路 = 调用前已写 map;导入 buffer 路 =
+        // 导出侧该帧 fence 已完成 + EXTERNAL release 已录(acquire 由调用方先录)。
         let (image, aspect, w, h, old) = match slot {
             VkInputSlot::Color => (self.color_in.image, self.color_in.aspect, self.color_in.w, self.color_in.h, self.color_in.layout),
             VkInputSlot::Depth => (self.depth_in.image, self.depth_in.aspect, self.depth_in.w, self.depth_in.h, self.depth_in.layout),
@@ -2128,7 +2424,7 @@ impl DlssVkSession {
         let res = VkImageRes { image, memory: 0, view: 0, layout: old, format: 0, w, h, aspect };
         self.vk_barrier(&res, old, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, src_access, VK_ACCESS_TRANSFER_WRITE, src_stage, VK_PIPELINE_STAGE_TRANSFER);
         let region = VkBufferImageCopy {
-            buffer_offset: staging_offset,
+            buffer_offset: src_offset,
             buffer_row_length: 0,
             buffer_image_height: 0,
             image_subresource: VkImageSubresourceLayers {
@@ -2140,11 +2436,11 @@ impl DlssVkSession {
             image_offset: [0, 0, 0],
             image_extent: VkExtent3D { width: w, height: h, depth: 1 },
         };
-        // SAFETY: cmd 录制中;staging 数据已写入(host coherent);region 与图像尺寸一致。
+        // SAFETY: cmd 录制中;src 数据契约见方法注释;region 与图像尺寸一致。
         unsafe {
             (self.dev.cmd_copy_buffer_to_image)(
                 self.cmd,
-                self.staging,
+                src,
                 image,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1,
@@ -2603,6 +2899,104 @@ impl DlssVkSession {
         Ok(())
     }
 
+    /// G14.10e 诊断臂:从 **DLSS 侧 device** 回读已导入的 color 输入 image
+    /// (RGBA32F 紧凑 f32×4/px 直写 `out`)——跨 device OPTIMAL tiling 解释
+    /// 一致性二分面(render_exec 侧 dump 对拍:一致 → 问题在 evaluate 参数;
+    /// 乱 → 跨 device tiling 布局不一致实锤)。复用 session readback buffer
+    /// (容量校验 fail-closed);诊断专用,不入常规帧路径。
+    pub fn debug_readback_input_color(&mut self, out: &mut Vec<f32>) -> Result<(), VendorError> {
+        let Some((c, _)) = &self.ext_inputs[0] else {
+            return Err(VendorError::ApiError("color 槽未导入".into()));
+        };
+        let img = c.clone_shallow();
+        let px_bytes = u64::from(img.w) * u64::from(img.h) * 16;
+        if px_bytes > self.readback_size {
+            return Err(VendorError::ApiError(format!(
+                "诊断回读 {px_bytes}B 超 readback 容量 {}B",
+                self.readback_size
+            )));
+        }
+        let begin = VkCommandBufferBeginInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1,
+            p_inheritance_info: std::ptr::null(),
+        };
+        // SAFETY: cmd 空闲(上次提交已排空后 reset)。
+        let r = unsafe { (self.dev.begin_command_buffer)(self.cmd, &begin) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
+        }
+        self.vk_barrier(&img, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_READ, VK_ACCESS_TRANSFER_READ, VK_PIPELINE_STAGE_COMPUTE_SHADER, VK_PIPELINE_STAGE_TRANSFER);
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: VK_IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: [0, 0, 0],
+            image_extent: VkExtent3D { width: img.w, height: img.h, depth: 1 },
+        };
+        // SAFETY: cmd 录制中;容量已验。
+        unsafe {
+            (self.dev.cmd_copy_image_to_buffer)(
+                self.cmd,
+                img.image,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                self.readback,
+                1,
+                &region,
+            )
+        };
+        self.vk_barrier(&img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_READ, VK_ACCESS_SHADER_READ, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+        // SAFETY: cmd 录制完成。
+        let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkEndCommandBuffer → {r}")));
+        }
+        let submit = VkSubmitInfo {
+            s_type: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        // SAFETY: submit 栈上存活。
+        let r = unsafe { (self.dev.queue_submit)(self.queue, 1, &submit, 0) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueSubmit → {r}")));
+        }
+        // SAFETY: queue 有效。
+        let r = unsafe { (self.dev.queue_wait_idle)(self.queue) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
+        }
+        out.clear();
+        out.reserve((img.w * img.h * 4) as usize);
+        // SAFETY: readback host-visible+coherent;queue 已排空;区间=px_bytes。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.readback_mem, 0, px_bytes, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(诊断回读) → {r}")));
+            }
+            let data = std::slice::from_raw_parts(ptr as *const f32, (img.w * img.h * 4) as usize);
+            out.extend_from_slice(data);
+            (self.dev.unmap_memory)(self.device, self.readback_mem);
+        }
+        // SAFETY: cmd 已排空。
+        let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        Ok(())
+    }
+
     /// G14plus vendor 域(RFC-0030)输出 image 原生句柄簿记导出(只读;句柄归
     /// session 所有,调用方**不得销毁/越 session 生命周期持有**)。注意:DLSS
     /// session 持**独立** VkInstance/VkDevice(SL 代理创建)——本句柄不可直接
@@ -2657,6 +3051,810 @@ impl DlssVkSession {
             available_versions: Vec::new(),
             log_tail: self.log_tail.clone(),
         }
+    }
+
+    // ── G14.10b external memory 导入面(RFC-0030 §4.3;输入驻留)──
+
+    /// 物理设备 LUID(创建期实采;`None` = 驱动报无效)。消费侧与 render_exec
+    /// session 的 [`physical_device_luid`](crate::render_exec::DeviceFrameSession::physical_device_luid)
+    /// 对拍——**同 adapter 才可共享 external memory**,不同即 fail-closed。
+    pub fn physical_device_luid(&self) -> Option<[u8; 8]> {
+        self.device_luid
+    }
+
+    /// device 创建时 external memory 两扩展是否已启用(设备扩展在位才启;
+    /// false 时 [`Self::import_win32_input`] 确定性 `Err`)。
+    pub fn external_memory_enabled(&self) -> bool {
+        self.external_memory_enabled
+    }
+
+    /// G14.10b:导入 render_exec exportable 纹理为 DLSS 外部输入(OPAQUE_WIN32
+    /// NT handle → 参数一致的 external image + `VkImportMemoryWin32HandleInfoKHR`
+    /// dedicated 导入 + bind + view)。fail-closed:扩展未启用 / 尺寸与 session
+    /// 输入分辨率不符 / 槽已导入 → 确定性 `Err`。导入后经
+    /// [`Self::upscale_resident_external`] evaluate;调用纪律(内容有效性):
+    /// 每帧须先等 render_exec 侧该帧 fence 完成(其 cmd 末已录 EXTERNAL
+    /// release),本方法产物在 evaluate cmd 首段录对应 acquire。
+    pub fn import_win32_input(
+        &mut self,
+        slot: ExternalInputSlot,
+        desc: &ExternalImageImportDesc,
+    ) -> Result<(), VendorError> {
+        if !self.external_memory_enabled {
+            return Err(VendorError::DeviceUnavailable(
+                "VK_KHR_external_memory_win32 未启用(设备扩展不在位),导入面不可用".into(),
+            ));
+        }
+        if desc.width != self.in_w || desc.height != self.in_h {
+            return Err(VendorError::ApiError(format!(
+                "导入 image 尺寸 {}x{} 与 session 输入 {}x{} 不符",
+                desc.width, desc.height, self.in_w, self.in_h
+            )));
+        }
+        if desc.handle == 0 {
+            return Err(VendorError::ApiError("导入 handle 为空".into()));
+        }
+        let idx = match slot {
+            ExternalInputSlot::Color => 0,
+            ExternalInputSlot::Depth => 1,
+            ExternalInputSlot::Mv => 2,
+        };
+        if self.ext_inputs[idx].is_some() {
+            return Err(VendorError::ApiError(format!(
+                "槽 {slot:?} 已导入(单次导入纪律,重导请重建 session)"
+            )));
+        }
+        let aspect = if desc.vk_format == VK_FORMAT_D32_SFLOAT {
+            VK_IMAGE_ASPECT_DEPTH
+        } else {
+            VK_IMAGE_ASPECT_COLOR
+        };
+        // image:参数与导出侧一致(format/extent/OPTIMAL/usage)+ external chain。
+        let ext_info = VkExternalMemoryImageCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            handle_types: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+        };
+        let ici = VkImageCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            p_next: (&ext_info as *const VkExternalMemoryImageCreateInfo).cast(),
+            flags: 0,
+            image_type: 2, // 2D
+            format: desc.vk_format,
+            extent: VkExtent3D { width: desc.width, height: desc.height, depth: 1 },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: 1,
+            tiling: 0, // OPTIMAL
+            usage: desc.usage_flags,
+            sharing_mode: 0,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: VK_IMAGE_LAYOUT_UNDEFINED,
+        };
+        let mut image: VkImage = 0;
+        // SAFETY: ici/ext_info 栈上存活;device 有效。
+        let r = unsafe { (self.dev.create_image)(self.device, &ici, std::ptr::null(), &mut image) };
+        if r != VK_SUCCESS || image == 0 {
+            return Err(VendorError::ApiError(format!(
+                "vkCreateImage(import fmt={}) → {r}",
+                desc.vk_format
+            )));
+        }
+        // 导入分配:import(handle)→ dedicated(image);allocationSize/
+        // memoryTypeIndex 采导出侧簿记(LUID 对拍先行,类型序一致)。
+        let dedicated = VkMemoryDedicatedAllocateInfo {
+            s_type: VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            image,
+            buffer: 0,
+        };
+        let import_info = VkImportMemoryWin32HandleInfoKHR {
+            s_type: VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+            p_next: (&dedicated as *const VkMemoryDedicatedAllocateInfo).cast(),
+            handle_type: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+            handle: desc.handle as *mut c_void,
+            name: std::ptr::null(),
+        };
+        let mai = VkMemoryAllocateInfo {
+            s_type: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            p_next: (&import_info as *const VkImportMemoryWin32HandleInfoKHR).cast(),
+            allocation_size: desc.allocation_size,
+            memory_type_index: desc.memory_type_index,
+        };
+        let mut memory: VkDeviceMemory = 0;
+        // SAFETY: mai/import_info/dedicated 栈上存活;handle 归导出 session 所有
+        // (导入不夺所有权,vkAllocateMemory import 语义引用计数)。
+        let r = unsafe { (self.dev.allocate_memory)(self.device, &mai, std::ptr::null(), &mut memory) };
+        if r != VK_SUCCESS || memory == 0 {
+            // SAFETY: image 本函数创建,未 bind。
+            unsafe { (self.dev.destroy_image)(self.device, image, std::ptr::null()) };
+            return Err(VendorError::ApiError(format!(
+                "vkAllocateMemory(import win32) → {r}"
+            )));
+        }
+        // SAFETY: image/memory 配对有效(dedicated 导入,offset 0)。
+        let r = unsafe { (self.dev.bind_image_memory)(self.device, image, memory, 0) };
+        if r != VK_SUCCESS {
+            // SAFETY: 本函数创建,逆序释放。
+            unsafe {
+                (self.dev.destroy_image)(self.device, image, std::ptr::null());
+                (self.dev.free_memory)(self.device, memory, std::ptr::null());
+            }
+            return Err(VendorError::ApiError(format!("vkBindImageMemory(import) → {r}")));
+        }
+        let vci = VkImageViewCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image,
+            view_type: 1, // 2D
+            format: desc.vk_format,
+            components: [0; 4],
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: aspect,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        let mut view: VkImageView = 0;
+        // SAFETY: vci 栈上存活。
+        let r = unsafe { (self.dev.create_image_view)(self.device, &vci, std::ptr::null(), &mut view) };
+        if r != VK_SUCCESS || view == 0 {
+            // SAFETY: 本函数创建,逆序释放。
+            unsafe {
+                (self.dev.destroy_image)(self.device, image, std::ptr::null());
+                (self.dev.free_memory)(self.device, memory, std::ptr::null());
+            }
+            return Err(VendorError::ApiError(format!("vkCreateImageView(import) → {r}")));
+        }
+        // 跨界 layout 协定:恒 GENERAL(render_exec 帧末 release 已转换;acquire
+        // 于 evaluate cmd 首段配对)。
+        self.ext_inputs[idx] = Some((
+            VkImageRes {
+                image,
+                memory,
+                view,
+                layout: VK_IMAGE_LAYOUT_GENERAL,
+                format: desc.vk_format,
+                w: desc.width,
+                h: desc.height,
+                aspect,
+            },
+            desc.usage_flags,
+        ));
+        Ok(())
+    }
+
+    /// G14.10b:外部输入(三槽均已 [`Self::import_win32_input`])的驻留
+    /// evaluate——**零 host 输入中转**:color/depth/mv 内容驻留导入 image,
+    /// cmd 首段录三条 acquire barrier(`VK_QUEUE_FAMILY_EXTERNAL`→本家族,
+    /// GENERAL→GENERAL,与 render_exec 帧末 release 配对——跨 device 内容
+    /// 有效性经 queue 提交边界 + release/acquire 对保证;CPU 侧调用纪律:
+    /// render_exec 该帧 fence 完成后才调本方法)。reactive 仍走 session 自建
+    /// image 的 staging 上传(`Some` = pack 上传,`None` = 零填充,与既有
+    /// pack 语义一致)。输出驻留 `color_out`(GENERAL),按需
+    /// [`Self::readback_output_into`]。既有 upscale/upscale_into/
+    /// upscale_resident 行为 0-byte(本方法独立 cmd 录制面)。
+    pub fn upscale_resident_external(
+        &mut self,
+        p: &VendorExternalFrameParams<'_>,
+    ) -> Result<(), VendorError> {
+        let px = (self.in_w * self.in_h) as usize;
+        let [Some((c, cu)), Some((d, du)), Some((m, mu))] = &self.ext_inputs else {
+            return Err(VendorError::ApiError(
+                "外部输入未齐(color/depth/mv 三槽均须先 import_win32_input)".into(),
+            ));
+        };
+        let (ext_color, color_usage) = (c.clone_shallow(), *cu);
+        let (ext_depth, depth_usage) = (d.clone_shallow(), *du);
+        let (ext_mv, mv_usage) = (m.clone_shallow(), *mu);
+        if let Some(r) = p.reactive
+            && r.len() != px
+        {
+            return Err(VendorError::ApiError("reactive 切片长度不符".into()));
+        }
+        // ── reactive staging(区段 [0, px);Some→R8 pack,None→零填充)──
+        // SAFETY: staging host-visible+coherent;px ≤ staging_size(建面 21B/px);
+        // map/写/unmap 单线程序列化。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
+            }
+            let reac = std::slice::from_raw_parts_mut(ptr as *mut u8, px);
+            match p.reactive {
+                Some(rv) => {
+                    for (o, &v) in reac.iter_mut().zip(rv.iter()) {
+                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                    }
+                }
+                None => reac.fill(0),
+            }
+            (self.dev.unmap_memory)(self.device, self.staging_mem);
+        }
+
+        // ── SL 簿记:frame token → constants → options(与 frame_impl_ext 同序;
+        // constants 经临时 VendorFrameInput 借 build_sl_constants 单一事实源,
+        // 内容切片不消费)──
+        let mut token: *mut c_void = std::ptr::null_mut();
+        // SAFETY: token 出参栈上有效。
+        let r = unsafe { (self.fns.sl_get_new_frame_token)(&mut token, &p.frame_index) };
+        if r != SL_OK || token.is_null() {
+            return Err(VendorError::VendorCall(format!(
+                "slGetNewFrameToken → {}",
+                sl_result_name(r)
+            )));
+        }
+        let tmp_input = VendorFrameInput {
+            color: &[],
+            depth: &[],
+            mv: &[],
+            reactive: None,
+            exposure: p.exposure,
+            jitter: p.jitter,
+            frame_index: p.frame_index,
+            reset: p.reset,
+        };
+        let consts = build_sl_constants(&tmp_input, self.in_w, self.in_h);
+        // SAFETY: consts 栈上存活;token/viewport 有效。
+        let r = unsafe { (self.fns.sl_set_constants)(&consts, token, &self.viewport) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!(
+                "slSetConstants → {}",
+                sl_result_name(r)
+            )));
+        }
+        let opts = SlDlssOptions {
+            base: sl_base(SL_GUID_DLSS_OPTIONS, 3),
+            mode: SL_DLSS_MODE_MAX_PERFORMANCE,
+            output_width: self.out_w,
+            output_height: self.out_h,
+            sharpness: 0.0,
+            pre_exposure: p.exposure,
+            exposure_scale: 1.0,
+            color_buffers_hdr: 1,
+            indicator_invert_axis_x: 0,
+            indicator_invert_axis_y: 0,
+            _pad0: 0,
+            dlaa_preset: 0,
+            quality_preset: 0,
+            balanced_preset: 0,
+            performance_preset: 0,
+            ultra_performance_preset: 0,
+            ultra_quality_preset: 0,
+            use_auto_exposure: 0,
+            alpha_upscaling_enabled: 0,
+            _pad1: [0; 2],
+        };
+        // SAFETY: opts/viewport 栈上存活。
+        let r = unsafe { (self.dlss.dlss_set_options)(&self.viewport, &opts) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!(
+                "slDLSSSetOptions → {}",
+                sl_result_name(r)
+            )));
+        }
+
+        let begin = VkCommandBufferBeginInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1, // ONE_TIME_SUBMIT
+            p_inheritance_info: std::ptr::null(),
+        };
+        // SAFETY: cmd 不在未决状态(上次提交已 queueWaitIdle 排空后 reset)。
+        let r = unsafe { (self.dev.begin_command_buffer)(self.cmd, &begin) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
+        }
+        // ── acquire ×3(EXTERNAL→本家族,GENERAL→GENERAL 零转换;与 render_exec
+        // 帧末 release 逐帧配对——本方法每帧调用,render_exec 每帧 release)──
+        for res in [&ext_color, &ext_depth, &ext_mv] {
+            self.vk_barrier_acquire_external(res);
+        }
+        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。
+        self.vk_upload_image(VkInputSlot::Reactive, 0);
+        // color_out 置 GENERAL(DLSS UAV 写;与 frame_impl_ext 同律)。
+        if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
+            let out_res = self.color_out.clone_shallow();
+            self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TOP_OF_PIPE, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+            self.color_out.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+
+        // ── ResourceTag 集(外部输入 state=GENERAL,usage=导出侧位;reactive/
+        // color_out 沿既有簿记)──
+        let mk_ext_res = |res: &VkImageRes, usage: u32| -> SlResource {
+            SlResource {
+                base: sl_base(SL_GUID_RESOURCE, 1),
+                res_type: SL_RESOURCE_TEX2D,
+                _pad0: [0; 7],
+                native: res.image as usize as *mut c_void,
+                memory: res.memory as usize as *mut c_void,
+                view: res.view as usize as *mut c_void,
+                state: res.layout as u32,
+                width: res.w,
+                height: res.h,
+                native_format: res.format,
+                mip_levels: 1,
+                array_layers: 1,
+                gpu_virtual_address: 0,
+                flags: 0,
+                usage,
+                reserved: 0,
+            }
+        };
+        let sl_color_in = mk_ext_res(&ext_color, color_usage);
+        let sl_depth = mk_ext_res(&ext_depth, depth_usage);
+        let sl_mv = mk_ext_res(&ext_mv, mv_usage);
+        let sl_reactive = mk_ext_res(
+            &self.reactive_in.clone_shallow(),
+            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+        );
+        let sl_color_out = mk_ext_res(
+            &self.color_out.clone_shallow(),
+            VK_IMAGE_USAGE_STORAGE | VK_IMAGE_USAGE_TRANSFER_SRC,
+        );
+        let extent_in = SlExtent { top: 0, left: 0, width: self.in_w, height: self.in_h };
+        let extent_out = SlExtent { top: 0, left: 0, width: self.out_w, height: self.out_h };
+        let tags = [
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_in, tag_type: SL_BUFFER_SCALING_INPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_out, tag_type: SL_BUFFER_SCALING_OUTPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_out },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_depth, tag_type: SL_BUFFER_DEPTH, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_mv, tag_type: SL_BUFFER_MV, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_reactive, tag_type: SL_BUFFER_REACTIVE_MASK, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+        ];
+        let tag_ptrs: [*const SlBaseStructure; 6] = [
+            &self.viewport.base as *const _,
+            &tags[0].base as *const _,
+            &tags[1].base as *const _,
+            &tags[2].base as *const _,
+            &tags[3].base as *const _,
+            &tags[4].base as *const _,
+        ];
+        // SAFETY: tags/sl_* 栈上存活至 evaluate 返回(eOnlyValidNow 语义);cmd
+        // 录制中;token 本帧有效。
+        let r = unsafe {
+            (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), 6, self.cmd)
+        };
+        if r != SL_OK {
+            // cmd 处于录制态,收敛后返错(end+reset,不提交)。
+            // SAFETY: cmd 录制中 → end;错误路径不提交。
+            unsafe {
+                let _ = (self.dev.end_command_buffer)(self.cmd);
+                let _ = (self.dev.reset_command_buffer)(self.cmd, 0);
+            }
+            return Err(VendorError::VendorCall(format!(
+                "slEvaluateFeature(DLSS external) → {}",
+                sl_result_name(r)
+            )));
+        }
+        // SAFETY: cmd 录制完成。
+        let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkEndCommandBuffer → {r}")));
+        }
+        let submit = VkSubmitInfo {
+            s_type: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        // SAFETY: submit 栈上存活;cmd 录制完成态。
+        let r = unsafe { (self.dev.queue_submit)(self.queue, 1, &submit, 0) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueSubmit → {r}")));
+        }
+        // SAFETY: queue 有效;waitIdle 后无在途写(第一版 CPU 顺序化同步纪律)。
+        let r = unsafe { (self.dev.queue_wait_idle)(self.queue) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
+        }
+        // SAFETY: cmd 已提交且 queue 排空。
+        let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        Ok(())
+    }
+
+    /// G14.10f:导入 exportable **buffer**(OPAQUE_WIN32;render_exec
+    /// [`ExportedBufferWin32`] 对侧)。usage 恒 TRANSFER_SRC(每帧 copy 源;
+    /// buffer usage 为 per-device 对象属性,可异于导出侧 STORAGE)。
+    /// memoryTypeIndex 采导出侧簿记(LUID 对拍先行,类型序一致);dedicated
+    /// (buffer) 绑定。单次导入纪律同 image 版。
+    pub fn import_win32_buffer_input(
+        &mut self,
+        slot: ExternalInputSlot,
+        desc: &ExternalBufferImportDesc,
+    ) -> Result<(), VendorError> {
+        if !self.external_memory_enabled {
+            return Err(VendorError::DeviceUnavailable(
+                "VK_KHR_external_memory_win32 未启用(设备扩展不在位),导入面不可用".into(),
+            ));
+        }
+        if desc.handle == 0 {
+            return Err(VendorError::ApiError("导入 handle 为空".into()));
+        }
+        let idx = match slot {
+            ExternalInputSlot::Color => 0,
+            ExternalInputSlot::Depth => 1,
+            ExternalInputSlot::Mv => 2,
+        };
+        if self.ext_input_bufs[idx].is_some() {
+            return Err(VendorError::ApiError(format!(
+                "buffer 槽 {slot:?} 已导入(单次导入纪律,重导请重建 session)"
+            )));
+        }
+        let ext_info = VkExternalMemoryBufferCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            handle_types: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+        };
+        let bci = VkBufferCreateInfo {
+            s_type: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            p_next: (&ext_info as *const VkExternalMemoryBufferCreateInfo).cast(),
+            flags: 0,
+            size: desc.size,
+            usage: VK_BUFFER_USAGE_TRANSFER_SRC,
+            sharing_mode: 0,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut buffer: VkBuffer = 0;
+        // SAFETY: bci/ext_info 栈上存活;device 有效。
+        let r = unsafe { (self.dev.create_buffer)(self.device, &bci, std::ptr::null(), &mut buffer) };
+        if r != VK_SUCCESS || buffer == 0 {
+            return Err(VendorError::ApiError(format!(
+                "vkCreateBuffer(import,size={}) → {r}",
+                desc.size
+            )));
+        }
+        let dedicated = VkMemoryDedicatedAllocateInfo {
+            s_type: VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            image: 0,
+            buffer,
+        };
+        let import_info = VkImportMemoryWin32HandleInfoKHR {
+            s_type: VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+            p_next: (&dedicated as *const VkMemoryDedicatedAllocateInfo).cast(),
+            handle_type: VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+            handle: desc.handle as *mut c_void,
+            name: std::ptr::null(),
+        };
+        let mai = VkMemoryAllocateInfo {
+            s_type: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            p_next: (&import_info as *const VkImportMemoryWin32HandleInfoKHR).cast(),
+            allocation_size: desc.allocation_size,
+            memory_type_index: desc.memory_type_index,
+        };
+        let mut memory: VkDeviceMemory = 0;
+        // SAFETY: mai/import_info/dedicated 栈上存活;import 引用计数语义。
+        let r = unsafe { (self.dev.allocate_memory)(self.device, &mai, std::ptr::null(), &mut memory) };
+        if r != VK_SUCCESS || memory == 0 {
+            // SAFETY: buffer 本函数创建,未 bind。
+            unsafe { (self.dev.destroy_buffer)(self.device, buffer, std::ptr::null()) };
+            return Err(VendorError::ApiError(format!(
+                "vkAllocateMemory(import buffer win32) → {r}"
+            )));
+        }
+        // SAFETY: buffer/memory 配对有效(dedicated 导入,offset 0)。
+        let r = unsafe { (self.dev.bind_buffer_memory)(self.device, buffer, memory, 0) };
+        if r != VK_SUCCESS {
+            // SAFETY: 本函数创建,逆序释放。
+            unsafe {
+                (self.dev.destroy_buffer)(self.device, buffer, std::ptr::null());
+                (self.dev.free_memory)(self.device, memory, std::ptr::null());
+            }
+            return Err(VendorError::ApiError(format!(
+                "vkBindBufferMemory(import) → {r}"
+            )));
+        }
+        self.ext_input_bufs[idx] = Some((buffer, memory, desc.size));
+        Ok(())
+    }
+
+    /// G14.10f:**buffer 共享**驻留 evaluate——外部输入三槽为导入 buffer
+    /// (线性布局跨 device 无歧义;OPTIMAL image 共享的布局解释不一致缺陷的
+    /// 正解)。cmd 首段:三条 EXTERNAL acquire buffer barrier(与 render_exec
+    /// 帧末 buffer release 配对)→ 三条 `vkCmdCopyBufferToImage` 进 session
+    /// **自建输入 image**(与 host staging 路同一批 color_in/depth_in/mv_in,
+    /// 同一 SL tag 面/布局状态机——buffer 内容契约:color RGBA16F 8B/px 紧凑、
+    /// depth f32 4B/px(D32 image)、mv RG32F 8B/px)→ reactive staging 上传
+    /// → evaluate。输入位面与 host 路径逐位同构(f16 pack 语义一致时)。
+    /// 输出驻留 `color_out`,按需 [`Self::readback_output_into`]。
+    pub fn upscale_resident_buffers(
+        &mut self,
+        p: &VendorExternalFrameParams<'_>,
+    ) -> Result<(), VendorError> {
+        let px = (self.in_w * self.in_h) as usize;
+        let [Some((cb, _, cbs)), Some((db, _, dbs)), Some((mb, _, mbs))] = self.ext_input_bufs
+        else {
+            return Err(VendorError::ApiError(
+                "外部输入 buffer 未齐(color/depth/mv 三槽均须先 import_win32_buffer_input)".into(),
+            ));
+        };
+        if let Some(r) = p.reactive
+            && r.len() != px
+        {
+            return Err(VendorError::ApiError("reactive 切片长度不符".into()));
+        }
+        // ── reactive staging(区段 [0, px);Some→R8 pack,None→零填充)──
+        // SAFETY: staging host-visible+coherent;px ≤ staging_size;单线程序列化。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
+            }
+            let reac = std::slice::from_raw_parts_mut(ptr as *mut u8, px);
+            match p.reactive {
+                Some(rv) => {
+                    for (o, &v) in reac.iter_mut().zip(rv.iter()) {
+                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                    }
+                }
+                None => reac.fill(0),
+            }
+            (self.dev.unmap_memory)(self.device, self.staging_mem);
+        }
+
+        // ── SL 簿记(frame_impl_ext 同序;constants 单一事实源)──
+        let mut token: *mut c_void = std::ptr::null_mut();
+        // SAFETY: token 出参栈上有效。
+        let r = unsafe { (self.fns.sl_get_new_frame_token)(&mut token, &p.frame_index) };
+        if r != SL_OK || token.is_null() {
+            return Err(VendorError::VendorCall(format!(
+                "slGetNewFrameToken → {}",
+                sl_result_name(r)
+            )));
+        }
+        let tmp_input = VendorFrameInput {
+            color: &[],
+            depth: &[],
+            mv: &[],
+            reactive: None,
+            exposure: p.exposure,
+            jitter: p.jitter,
+            frame_index: p.frame_index,
+            reset: p.reset,
+        };
+        let consts = build_sl_constants(&tmp_input, self.in_w, self.in_h);
+        // SAFETY: consts 栈上存活;token/viewport 有效。
+        let r = unsafe { (self.fns.sl_set_constants)(&consts, token, &self.viewport) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!(
+                "slSetConstants → {}",
+                sl_result_name(r)
+            )));
+        }
+        let opts = SlDlssOptions {
+            base: sl_base(SL_GUID_DLSS_OPTIONS, 3),
+            mode: SL_DLSS_MODE_MAX_PERFORMANCE,
+            output_width: self.out_w,
+            output_height: self.out_h,
+            sharpness: 0.0,
+            pre_exposure: p.exposure,
+            exposure_scale: 1.0,
+            color_buffers_hdr: 1,
+            indicator_invert_axis_x: 0,
+            indicator_invert_axis_y: 0,
+            _pad0: 0,
+            dlaa_preset: 0,
+            quality_preset: 0,
+            balanced_preset: 0,
+            performance_preset: 0,
+            ultra_performance_preset: 0,
+            ultra_quality_preset: 0,
+            use_auto_exposure: 0,
+            alpha_upscaling_enabled: 0,
+            _pad1: [0; 2],
+        };
+        // SAFETY: opts/viewport 栈上存活。
+        let r = unsafe { (self.dlss.dlss_set_options)(&self.viewport, &opts) };
+        if r != SL_OK {
+            return Err(VendorError::VendorCall(format!(
+                "slDLSSSetOptions → {}",
+                sl_result_name(r)
+            )));
+        }
+
+        let begin = VkCommandBufferBeginInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1, // ONE_TIME_SUBMIT
+            p_inheritance_info: std::ptr::null(),
+        };
+        // SAFETY: cmd 不在未决状态(上次提交已 queueWaitIdle 排空后 reset)。
+        let r = unsafe { (self.dev.begin_command_buffer)(self.cmd, &begin) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
+        }
+        // ── acquire buffer ×3(EXTERNAL→本家族;与 render_exec 帧末 buffer
+        // release 逐帧配对)──
+        self.vk_buffer_acquire_external(cb, cbs);
+        self.vk_buffer_acquire_external(db, dbs);
+        self.vk_buffer_acquire_external(mb, mbs);
+        // ── copy ×3:导入 buffer → session 自建输入 image(布局状态机/后置
+        // SHADER_READ_ONLY 转换均由 vk_upload_image_src 承担)──
+        self.vk_upload_image_src(VkInputSlot::Color, cb, 0);
+        self.vk_upload_image_src(VkInputSlot::Depth, db, 0);
+        self.vk_upload_image_src(VkInputSlot::Mv, mb, 0);
+        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。
+        self.vk_upload_image(VkInputSlot::Reactive, 0);
+        // color_out 置 GENERAL(DLSS UAV 写;frame_impl_ext 同律)。
+        if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
+            let out_res = self.color_out.clone_shallow();
+            self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TOP_OF_PIPE, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+            self.color_out.layout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+
+        // ── ResourceTag 集(session 自建输入 image——frame_impl_ext 同一批
+        // image/同一 usage 规则,tag 面逐字同构)──
+        let mk_sl_res = |res: &VkImageRes, usage: u32| -> SlResource {
+            SlResource {
+                base: sl_base(SL_GUID_RESOURCE, 1),
+                res_type: SL_RESOURCE_TEX2D,
+                _pad0: [0; 7],
+                native: res.image as usize as *mut c_void,
+                memory: res.memory as usize as *mut c_void,
+                view: res.view as usize as *mut c_void,
+                state: res.layout as u32,
+                width: res.w,
+                height: res.h,
+                native_format: res.format,
+                mip_levels: 1,
+                array_layers: 1,
+                gpu_virtual_address: 0,
+                flags: 0,
+                usage,
+                reserved: 0,
+            }
+        };
+        let in_usage = VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST;
+        let sl_color_in = mk_sl_res(&self.color_in.clone_shallow(), in_usage);
+        let sl_depth = mk_sl_res(&self.depth_in.clone_shallow(), in_usage);
+        let sl_mv = mk_sl_res(&self.mv_in.clone_shallow(), in_usage);
+        let sl_reactive = mk_sl_res(&self.reactive_in.clone_shallow(), in_usage);
+        let sl_color_out = mk_sl_res(
+            &self.color_out.clone_shallow(),
+            VK_IMAGE_USAGE_STORAGE | VK_IMAGE_USAGE_TRANSFER_SRC,
+        );
+        let extent_in = SlExtent { top: 0, left: 0, width: self.in_w, height: self.in_h };
+        let extent_out = SlExtent { top: 0, left: 0, width: self.out_w, height: self.out_h };
+        let tags = [
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_in, tag_type: SL_BUFFER_SCALING_INPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_out, tag_type: SL_BUFFER_SCALING_OUTPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_out },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_depth, tag_type: SL_BUFFER_DEPTH, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_mv, tag_type: SL_BUFFER_MV, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_reactive, tag_type: SL_BUFFER_REACTIVE_MASK, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
+        ];
+        let tag_ptrs: [*const SlBaseStructure; 6] = [
+            &self.viewport.base as *const _,
+            &tags[0].base as *const _,
+            &tags[1].base as *const _,
+            &tags[2].base as *const _,
+            &tags[3].base as *const _,
+            &tags[4].base as *const _,
+        ];
+        // SAFETY: tags/sl_* 栈上存活至 evaluate 返回;cmd 录制中;token 本帧有效。
+        let r = unsafe {
+            (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), 6, self.cmd)
+        };
+        if r != SL_OK {
+            // SAFETY: cmd 录制中 → end;错误路径不提交。
+            unsafe {
+                let _ = (self.dev.end_command_buffer)(self.cmd);
+                let _ = (self.dev.reset_command_buffer)(self.cmd, 0);
+            }
+            return Err(VendorError::VendorCall(format!(
+                "slEvaluateFeature(DLSS buffers) → {}",
+                sl_result_name(r)
+            )));
+        }
+        // SAFETY: cmd 录制完成。
+        let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkEndCommandBuffer → {r}")));
+        }
+        let submit = VkSubmitInfo {
+            s_type: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        // SAFETY: submit 栈上存活;cmd 录制完成态。
+        let r = unsafe { (self.dev.queue_submit)(self.queue, 1, &submit, 0) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueSubmit → {r}")));
+        }
+        // SAFETY: queue 有效;waitIdle 后无在途写(CPU 顺序化同步纪律)。
+        let r = unsafe { (self.dev.queue_wait_idle)(self.queue) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
+        }
+        // SAFETY: cmd 已提交且 queue 排空。
+        let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        Ok(())
+    }
+
+    /// G14.10f:导入 buffer 的 EXTERNAL acquire(与 render_exec 帧末 buffer
+    /// release 配对;dst = TRANSFER|TRANSFER_READ——本 cmd 内消费为 copy 源)。
+    fn vk_buffer_acquire_external(&self, buffer: VkBuffer, size: u64) {
+        let barrier = VkBufferMemoryBarrier {
+            s_type: 44, // VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER
+            p_next: std::ptr::null(),
+            src_access_mask: 0,
+            dst_access_mask: VK_ACCESS_TRANSFER_READ,
+            src_queue_family_index: VK_QUEUE_FAMILY_EXTERNAL,
+            dst_queue_family_index: self.queue_family,
+            buffer,
+            offset: 0,
+            size,
+        };
+        // SAFETY: cmd 录制中;barrier 栈上存活至调用返回;buffer 有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE,
+                VK_PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                1,
+                &barrier as *const VkBufferMemoryBarrier as *const c_void,
+                0,
+                std::ptr::null(),
+            )
+        };
+    }
+
+    /// acquire barrier(`VK_QUEUE_FAMILY_EXTERNAL`→本家族,GENERAL→GENERAL
+    /// 零转换;dst = COMPUTE|SHADER_READ——NGX 内部 compute 采样)。
+    fn vk_barrier_acquire_external(&self, res: &VkImageRes) {
+        let barrier = VkImageMemoryBarrier {
+            s_type: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: 0,
+            dst_access_mask: VK_ACCESS_SHADER_READ,
+            old_layout: VK_IMAGE_LAYOUT_GENERAL,
+            new_layout: VK_IMAGE_LAYOUT_GENERAL,
+            src_queue_family_index: VK_QUEUE_FAMILY_EXTERNAL,
+            dst_queue_family_index: self.queue_family,
+            image: res.image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: res.aspect,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        // SAFETY: cmd 录制中;barrier 栈上存活至调用返回;image 有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &barrier,
+            )
+        };
     }
 }
 
@@ -2713,6 +3911,18 @@ impl Drop for DlssVkSession {
         // SAFETY: 以下句柄均本 session 创建且存活;逆序销毁,无泄漏/双释放。
         unsafe {
             (self.dev.destroy_command_pool)(self.device, self.cmd_pool, std::ptr::null());
+            // G14.10b 外部导入输入(view/image/导入 memory 归本 session;free
+            // 导入 memory 仅解引用外部分配,导出侧不受影响)。
+            for (res, _) in self.ext_inputs.iter().flatten() {
+                (self.dev.destroy_image_view)(self.device, res.view, std::ptr::null());
+                (self.dev.destroy_image)(self.device, res.image, std::ptr::null());
+                (self.dev.free_memory)(self.device, res.memory, std::ptr::null());
+            }
+            // G14.10f 外部导入输入 buffer(同律:free 导入 memory 仅解引用)。
+            for (buf, mem, _) in self.ext_input_bufs.iter().flatten() {
+                (self.dev.destroy_buffer)(self.device, *buf, std::ptr::null());
+                (self.dev.free_memory)(self.device, *mem, std::ptr::null());
+            }
             for res in [&self.color_in, &self.depth_in, &self.mv_in, &self.reactive_in, &self.color_out] {
                 (self.dev.destroy_image_view)(self.device, res.view, std::ptr::null());
                 (self.dev.destroy_image)(self.device, res.image, std::ptr::null());
@@ -2823,6 +4033,10 @@ const FFX_SURFACE_FORMAT_R32_FLOAT: u32 = 28;
 const FFX_RESOURCE_TYPE_TEXTURE2D: u32 = 2;
 const FFX_RESOURCE_USAGE_READ_ONLY: u32 = 0;
 const FFX_RESOURCE_USAGE_UAV: u32 = 1 << 1;
+/// `FFX_API_RESOURCE_STATE_COMMON`(G14.11 驻留共享输入声明态:资源经
+/// SIMULTANEOUS_ACCESS decay 恒于 COMMON,ffx 内部录 COMMON→读态→COMMON
+/// 显式转换,与 D3D12 实际状态逐帧恒真)。
+const FFX_RESOURCE_STATE_COMMON: u32 = 1 << 0;
 const FFX_RESOURCE_STATE_UNORDERED_ACCESS: u32 = 1 << 1;
 const FFX_RESOURCE_STATE_COMPUTE_READ: u32 = 1 << 2;
 
@@ -2979,11 +4193,19 @@ const D3D12_COMMAND_LIST_TYPE_DIRECT: i32 = 0;
 const D3D12_HEAP_TYPE_DEFAULT: i32 = 1;
 const D3D12_HEAP_TYPE_UPLOAD: i32 = 2;
 const D3D12_HEAP_TYPE_READBACK: i32 = 3;
+/// `D3D12_HEAP_FLAG_SHARED`(G14.11 反向共享:committed 资源可
+/// `CreateSharedHandle` 导出 NT handle → Vulkan `D3D12_RESOURCE_BIT` 导入)。
+const D3D12_HEAP_FLAG_SHARED: i32 = 0x1;
 const D3D12_RESOURCE_DIMENSION_BUFFER: i32 = 1;
 const D3D12_RESOURCE_DIMENSION_TEXTURE2D: i32 = 3;
 const D3D12_TEXTURE_LAYOUT_ROW_MAJOR: i32 = 1;
 const D3D12_TEXTURE_LAYOUT_UNKNOWN: i32 = 0;
 const D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS: i32 = 0x4;
+/// `D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS`(共享纹理跨 API 交替访问
+/// 机核:ExecuteCommandLists 边界状态自动 decay 回 COMMON——Vulkan 写窗恒见
+/// COMMON,D3D12 读窗经 implicit promotion/显式 COMMON before 转换,双侧状态
+/// 机免协商;d3d12.h 头值 0x20)。
+const D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS: i32 = 0x20;
 const D3D12_RESOURCE_STATE_COMMON: i32 = 0;
 const D3D12_RESOURCE_STATE_COPY_DEST: i32 = 0x400;
 const D3D12_RESOURCE_STATE_COPY_SOURCE: i32 = 0x800;
@@ -2991,6 +4213,9 @@ const D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE: i32 = 0x40;
 const D3D12_RESOURCE_STATE_UNORDERED_ACCESS: i32 = 0x8;
 const D3D12_RESOURCE_BARRIER_TYPE_TRANSITION: i32 = 0;
 const D3D12_RESOURCE_BARRIER_FLAG_NONE: i32 = 0;
+/// G14.11 驻留共享输入格式(与 Vulkan 侧 pack 直写 Rgba32f/R32f/Rg32f 位面
+/// 逐字对齐:RGBA32F=2 / RG32F=16 / R32F=41,dxgiformat.h 头值)。
+const DXGI_FORMAT_R32G32B32A32_FLOAT: u32 = 2;
 const DXGI_FORMAT_R16G16B16A16_FLOAT: u32 = 10;
 const DXGI_FORMAT_R32G32_FLOAT: u32 = 16;
 const DXGI_FORMAT_R32_FLOAT: u32 = 41;
@@ -3150,6 +4375,16 @@ pub struct FsrDx12Session {
     pack_depth: Vec<u8>,
     pack_mv: Vec<u8>,
     pack_reac: Vec<u8>,
+    /// G14.11:D3D12 adapter LUID(DXGI desc @296 实采;驻留面 LUID 对拍)。
+    adapter_luid: [u8; 8],
+    /// G14.11:驻留共享 staging buffer(资源指针 + NT handle;null/0 = 非驻留
+    /// session。Drop 单点 Release + CloseHandle——导入方不得关闭)。
+    staging_buf: *mut c_void,
+    staging_handle: usize,
+    /// staging 段布局(与 [`FsrSharedInputHandles`] 同源:color_row/depth_row/
+    /// mv_row/off_depth/off_mv/size;dispatch_resident 的 CopyTextureRegion
+    /// footprint 事实源)。
+    staging_layout: [u64; 6],
 }
 
 static FFX_ERROR_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -3170,6 +4405,53 @@ impl FsrDx12Session {
         in_size: (u32, u32),
         out_size: (u32, u32),
         validation: bool,
+    ) -> Result<Self, VendorError> {
+        Self::create_impl(sdk_dir, in_size, out_size, validation, false)
+    }
+
+    /// G14.11 驻留变体(buffer 共享形态,texture 直共享弃案见
+    /// [`FsrSharedInputHandles`]):`D3D12_HEAP_FLAG_SHARED` committed BUFFER
+    /// 建面并 `CreateSharedHandle` 导出(Vulkan D3D12_RESOURCE handle 导入
+    /// bind 为 SSBO,pack kernel 按 host 链 upload 布局直写);三输入纹理与
+    /// 现路径**逐字同**(f16 color/f32 depth/f32 RG mv,非共享);reactive 仍
+    /// session 本地(创建期一次零上传,语义 = 现路径逐帧零上传);upload 堆缩
+    /// 为 reactive 单段,host pack 缓冲三路归零(驻留面零 host 输入中转)。
+    /// 输入内容契约:调用方(Vulkan 侧)写完并 fence 完成后才可
+    /// [`Self::dispatch_resident`](内部先 CopyTextureRegion 搬入纹理)。
+    pub fn create_resident(
+        sdk_dir: &Path,
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+        validation: bool,
+    ) -> Result<(Self, FsrSharedInputHandles), VendorError> {
+        let mut s = Self::create_impl(sdk_dir, in_size, out_size, validation, true)?;
+        // reactive 一次性零上传(现路径 reactive=None 臂 = 逐帧零上传;驻留面
+        // 内容恒零,创建期一次落定,之后状态粘 NON_PIXEL_SHADER_RESOURCE)。
+        let zeros = std::mem::take(&mut s.pack_reac);
+        let up = s.d3d_upload_tex(D3dInputSlot::Reactive, &zeros, 1, 0);
+        s.pack_reac = zeros;
+        up?;
+        s.d3d_submit_wait()?;
+        let [color_row, depth_row, mv_row, off_depth, off_mv, size] = s.staging_layout;
+        let handles = FsrSharedInputHandles {
+            staging: s.staging_handle,
+            staging_size: size,
+            color_row,
+            depth_row,
+            mv_row,
+            off_depth,
+            off_mv,
+            adapter_luid: s.adapter_luid,
+        };
+        Ok((s, handles))
+    }
+
+    fn create_impl(
+        sdk_dir: &Path,
+        in_size: (u32, u32),
+        out_size: (u32, u32),
+        validation: bool,
+        resident: bool,
     ) -> Result<Self, VendorError> {
         let loader_dll = sdk_dir.join("signedbin").join("amd_fidelityfx_loader_dx12.dll");
         let upscaler_dll = sdk_dir.join("signedbin").join("amd_fidelityfx_upscaler_dx12.dll");
@@ -3263,6 +4545,7 @@ impl FsrDx12Session {
         let mut adapter: *mut c_void = std::ptr::null_mut();
         let mut gpu_name = String::new();
         let mut vendor_id: u32 = 0;
+        let mut adapter_luid = [0u8; 8];
         for i in 0..16u32 {
             let mut ad: *mut c_void = std::ptr::null_mut();
             // SAFETY: IDXGIFactory1::EnumAdapters1 @12。
@@ -3273,7 +4556,9 @@ impl FsrDx12Session {
             if hr == DXGI_ERROR_NOT_FOUND || ad.is_null() {
                 break;
             }
-            // DXGI_ADAPTER_DESC1:Description[128]u16@0,VendorId@256,...
+            // DXGI_ADAPTER_DESC1:Description[128]u16@0,VendorId@256,...,
+            // AdapterLuid@296(8B;G14.11 LUID 对拍源——免 GetAdapterLuid 的
+            // 成员函数结构体返回 ABI 坑)。
             let mut desc = [0u8; 312];
             // SAFETY: IDXGIAdapter1::GetDesc1 @10;desc 312B = 结构实际尺寸。
             let hr = unsafe {
@@ -3282,23 +4567,27 @@ impl FsrDx12Session {
             };
             if hr == S_OK {
                 // SAFETY: 只读 desc 已知前缀。
-                let (vid, name) = unsafe {
+                let (vid, name, luid) = unsafe {
                     let vid = (desc.as_ptr().add(256) as *const u32).read_unaligned();
                     let wptr = desc.as_ptr() as *const u16;
                     let len = (0..128).position(|k| *wptr.add(k) == 0).unwrap_or(128);
                     let name = String::from_utf16_lossy(core::slice::from_raw_parts(wptr, len));
-                    (vid, name)
+                    let mut luid = [0u8; 8];
+                    luid.copy_from_slice(&desc[296..304]);
+                    (vid, name, luid)
                 };
                 if vid == 0x10de {
                     adapter = ad;
                     gpu_name = name;
                     vendor_id = vid;
+                    adapter_luid = luid;
                     break;
                 }
                 if adapter.is_null() {
                     adapter = ad;
                     gpu_name = name;
                     vendor_id = vid;
+                    adapter_luid = luid;
                     continue;
                 }
             }
@@ -3370,7 +4659,7 @@ impl FsrDx12Session {
 
         let (iw, ih) = in_size;
         let (ow, oh) = out_size;
-        let mk_tex = |format: u32, w: u32, h: u32, uav: bool| -> Result<D3dTexture, VendorError> {
+        let mk_tex = |format: u32, w: u32, h: u32, flags: i32, heap_flags: i32| -> Result<D3dTexture, VendorError> {
             let heap = D3d12HeapProperties {
                 heap_type: D3D12_HEAP_TYPE_DEFAULT,
                 cpu_page_property: 0,
@@ -3389,31 +4678,105 @@ impl FsrDx12Session {
                 sample_count: 1,
                 sample_quality: 0,
                 layout: D3D12_TEXTURE_LAYOUT_UNKNOWN,
-                flags: if uav { D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS } else { 0 },
+                flags,
             };
             let mut res: *mut c_void = std::ptr::null_mut();
             // SAFETY: CreateCommittedResource @27;heap/desc 栈上存活。
             let hr = unsafe {
                 let f: unsafe extern "system" fn(*mut c_void, *const D3d12HeapProperties, i32, *const D3d12ResourceDesc, i32, *const c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 27);
-                f(device, &heap, 0, &desc, D3D12_RESOURCE_STATE_COMMON, std::ptr::null(), &IID_ID3D12_RESOURCE, &mut res)
+                f(device, &heap, heap_flags, &desc, D3D12_RESOURCE_STATE_COMMON, std::ptr::null(), &IID_ID3D12_RESOURCE, &mut res)
             };
             if hr != S_OK || res.is_null() {
-                return Err(VendorError::ApiError(format!("CreateCommittedResource(fmt={format}) → 0x{hr:08x}")));
+                return Err(VendorError::ApiError(format!("CreateCommittedResource(fmt={format},flags=0x{flags:x},heap=0x{heap_flags:x}) → 0x{hr:08x}")));
             }
             Ok(D3dTexture { resource: res, format, w, h, state: D3D12_RESOURCE_STATE_COMMON })
         };
-        let color_in = mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, iw, ih, false)?;
-        let depth_in = mk_tex(DXGI_FORMAT_R32_FLOAT, iw, ih, false)?;
-        let mv_in = mk_tex(DXGI_FORMAT_R32G32_FLOAT, iw, ih, false)?;
-        let reactive_in = mk_tex(DXGI_FORMAT_R8_UNORM, iw, ih, false)?;
-        let color_out = mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, ow, oh, true)?;
+        // 三输入纹理:驻留/现路径**逐字同形态**(f16 color/f32 depth/f32 RG
+        // mv,非共享——G14.11 buffer 共享形态下纹理内容由 CopyTextureRegion
+        // 从 shared staging buffer 搬入,texture 直共享弃案见
+        // FsrSharedInputHandles)。
+        let (color_in, depth_in, mv_in) = (
+            mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, iw, ih, 0, 0)?,
+            mk_tex(DXGI_FORMAT_R32_FLOAT, iw, ih, 0, 0)?,
+            mk_tex(DXGI_FORMAT_R32G32_FLOAT, iw, ih, 0, 0)?,
+        );
+        let reactive_in = mk_tex(DXGI_FORMAT_R8_UNORM, iw, ih, 0, 0)?;
+        let color_out = mk_tex(DXGI_FORMAT_R16G16B16A16_FLOAT, ow, oh, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, 0)?;
+        // G14.11 驻留:shared staging BUFFER(DEFAULT heap + SHARED;布局 =
+        // host 链 upload 三段同律:color f16 @align256(8·iw) / depth f32
+        // @align256(4·iw) / mv f32 RG @align256(8·iw);总长 64KB 对齐)+
+        // CreateSharedHandle @31 导出 NT handle(GENERIC_ALL,匿名;Drop 单点
+        // CloseHandle)。
+        let row256 = |bytes_per_px: u64, w: u32| -> u64 { (bytes_per_px * w as u64 + 255) & !255 };
+        let mut staging_buf: *mut c_void = std::ptr::null_mut();
+        let mut staging_handle = 0usize;
+        let mut staging_layout = [0u64; 6];
+        if resident {
+            let color_row = row256(8, iw);
+            let depth_row = row256(4, iw);
+            let mv_row = row256(8, iw);
+            let off_depth = color_row * ih as u64;
+            let off_mv = off_depth + depth_row * ih as u64;
+            let size = (off_mv + mv_row * ih as u64 + 0xFFFF) & !0xFFFF;
+            staging_layout = [color_row, depth_row, mv_row, off_depth, off_mv, size];
+            let heap = D3d12HeapProperties {
+                heap_type: D3D12_HEAP_TYPE_DEFAULT,
+                cpu_page_property: 0,
+                memory_pool_preference: 0,
+                creation_node_mask: 1,
+                visible_node_mask: 1,
+            };
+            let desc = D3d12ResourceDesc {
+                dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+                alignment: 0,
+                width: size,
+                height: 1,
+                depth_or_array_size: 1,
+                mip_levels: 1,
+                format: 0, // UNKNOWN
+                sample_count: 1,
+                sample_quality: 0,
+                layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+                flags: 0,
+            };
+            // SAFETY: CreateCommittedResource @27;SHARED heap 初态 COMMON
+            // (buffer 状态隐式提升,copy source 免显式 barrier)。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *const D3d12HeapProperties, i32, *const D3d12ResourceDesc, i32, *const c_void, *const ComGuid, *mut *mut c_void) -> Hresult = com_fn(device, 27);
+                f(device, &heap, D3D12_HEAP_FLAG_SHARED, &desc, D3D12_RESOURCE_STATE_COMMON, std::ptr::null(), &IID_ID3D12_RESOURCE, &mut staging_buf)
+            };
+            if hr != S_OK || staging_buf.is_null() {
+                return Err(VendorError::ApiError(format!(
+                    "CreateCommittedResource(shared staging buffer,{size}B) → 0x{hr:08x}"
+                )));
+            }
+            const GENERIC_ALL: u32 = 0x1000_0000;
+            let mut handle: *mut c_void = std::ptr::null_mut();
+            // SAFETY: ID3D12Device::CreateSharedHandle @31(WinSDK 头核对);
+            // resource 为 SHARED heap committed 资源;出参栈上有效。
+            let hr = unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *mut c_void, *const c_void, u32, *const u16, *mut *mut c_void) -> Hresult = com_fn(device, 31);
+                f(device, staging_buf, std::ptr::null(), GENERIC_ALL, std::ptr::null(), &mut handle)
+            };
+            if hr != S_OK || handle.is_null() {
+                return Err(VendorError::ApiError(format!(
+                    "CreateSharedHandle(staging buffer) → 0x{hr:08x}"
+                )));
+            }
+            staging_handle = handle as usize;
+        }
 
-        // upload/readback 缓冲(ROW_MAJOR;行距 256 对齐由 footprint 规划)。
+        // upload/readback 缓冲(ROW_MAJOR;行距 256 对齐由 footprint 规划;
+        // 驻留面 upload 缩为 reactive 单段——三输入零 host 上传)。
         let row = |bytes_per_px: u64, w: u32| -> u64 { (bytes_per_px * w as u64 + 255) & !255 };
-        let upload_size = row(8, iw) * ih as u64
-            + row(4, iw) * ih as u64
-            + row(8, iw) * ih as u64
-            + row(1, iw) * ih as u64;
+        let upload_size = if resident {
+            row(1, iw) * ih as u64
+        } else {
+            row(8, iw) * ih as u64
+                + row(4, iw) * ih as u64
+                + row(8, iw) * ih as u64
+                + row(1, iw) * ih as u64
+        };
         let readback_size = row(8, ow) * oh as u64;
         let mk_heap_buffer = |size: u64, heap_type: i32| -> Result<*mut c_void, VendorError> {
             let heap = D3d12HeapProperties {
@@ -3574,9 +4937,11 @@ impl FsrDx12Session {
             color_out,
             upload,
             readback,
-            pack_color: vec![0u8; (iw * ih) as usize * 8],
-            pack_depth: vec![0u8; (iw * ih) as usize * 4],
-            pack_mv: vec![0u8; (iw * ih) as usize * 8],
+            // 驻留面 host pack 三路归零(零 host 输入中转;reactive 段保留——
+            // create_resident 创建期一次零上传消费)。
+            pack_color: if resident { Vec::new() } else { vec![0u8; (iw * ih) as usize * 8] },
+            pack_depth: if resident { Vec::new() } else { vec![0u8; (iw * ih) as usize * 4] },
+            pack_mv: if resident { Vec::new() } else { vec![0u8; (iw * ih) as usize * 8] },
             pack_reac: vec![0u8; (iw * ih) as usize],
             gpu_name,
             provider_version,
@@ -3585,6 +4950,10 @@ impl FsrDx12Session {
             dlls,
             ffx_errors: 0,
             log_tail: Vec::new(),
+            adapter_luid,
+            staging_buf,
+            staging_handle,
+            staging_layout,
         })
     }
 
@@ -3999,6 +5368,296 @@ impl FsrDx12Session {
         Ok(())
     }
 
+    /// G14.11 驻留 dispatch(buffer 共享形态):输入内容驻留共享 staging
+    /// buffer(Vulkan pack kernel 直写,调用方保证该帧 Vulkan fence 已完成 +
+    /// EXTERNAL release 已录),**零 host 输入上传/打包**;本方法先录三段
+    /// `CopyTextureRegion`(staging placed footprint → color/depth/mv 纹理,
+    /// GPU 内拷,barrier 律与 d3d_upload_tex 逐字同),再 ffx dispatch 录制 →
+    /// 提交 → fence 有界等待(返回 = D3D12 读窗关闭,下帧 Vulkan 重写 staging
+    /// 安全——CPU 序同步,与 DLSS 驻留车道 submit_wait 同律)。输入声明态 =
+    /// COMPUTE_READ(拷后 barrier 至 NON_PIXEL_SHADER_RESOURCE,与现路径
+    /// frame_impl_into 逐字同);输出驻留 color_out(UAV),digest/出图帧按需
+    /// [`Self::readback_output_resident`]。jitter/mv scale/camera 等 dispatch
+    /// 参数与现路径 frame_impl_into 逐字同值。
+    pub fn dispatch_resident(
+        &mut self,
+        jitter: [f32; 2],
+        exposure: f32,
+        _frame_index: u32,
+        reset: bool,
+    ) -> Result<(), VendorError> {
+        if self.staging_handle == 0 {
+            return Err(VendorError::ApiError(
+                "dispatch_resident 仅驻留 session 可用(create_resident)".into(),
+            ));
+        }
+        let (iw, ih) = (self.in_w, self.in_h);
+        // staging → 三输入纹理 GPU 内拷(staging buffer 恒 COMMON,buffer 隐式
+        // 提升 COPY_SOURCE 免 barrier;纹理走显式 COPY_DEST 往返)。
+        let [color_row, depth_row, mv_row, off_depth, off_mv, _] = self.staging_layout;
+        let copies: [(D3dTexture, u64, u64); 3] = [
+            (self.color_in.clone_shallow(), 0, color_row),
+            (self.depth_in.clone_shallow(), off_depth, depth_row),
+            (self.mv_in.clone_shallow(), off_mv, mv_row),
+        ];
+        for (tex, offset, row) in &copies {
+            let before = if tex.state == D3D12_RESOURCE_STATE_COMMON {
+                D3D12_RESOURCE_STATE_COMMON
+            } else {
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+            };
+            self.d3d_barrier(tex, before, D3D12_RESOURCE_STATE_COPY_DEST);
+            let dst_loc = D3d12TextureCopyLocation {
+                p_resource: tex.resource,
+                copy_type: 0, // SUBRESOURCE_INDEX
+                placed: D3d12PlacedSubresourceFootprint {
+                    offset: 0,
+                    footprint: D3d12SubresourceFootprint { format: tex.format, width: 0, height: 0, depth: 0, row_pitch: 0 },
+                },
+            };
+            let src_loc = D3d12TextureCopyLocation {
+                p_resource: self.staging_buf,
+                copy_type: 1, // PLACED_FOOTPRINT
+                placed: D3d12PlacedSubresourceFootprint {
+                    offset: *offset,
+                    footprint: D3d12SubresourceFootprint {
+                        format: tex.format,
+                        width: tex.w,
+                        height: tex.h,
+                        depth: 1,
+                        row_pitch: *row as u32,
+                    },
+                },
+            };
+            // SAFETY: CopyTextureRegion @16;dst/src loc 栈上存活;staging_buf
+            // 驻留 session 恒非空(staging_handle 已判)。
+            unsafe {
+                let f: unsafe extern "system" fn(*mut c_void, *const D3d12TextureCopyLocation, u32, u32, u32, *const D3d12TextureCopyLocation, *const c_void) = com_fn(self.cmd_list, 16);
+                f(self.cmd_list, &dst_loc, 0, 0, 0, &src_loc, std::ptr::null());
+            }
+            self.d3d_barrier(tex, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        }
+        self.color_in.state = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        self.depth_in.state = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        self.mv_in.state = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        if self.color_out.state == D3D12_RESOURCE_STATE_COMMON {
+            let out = self.color_out.clone_shallow();
+            self.d3d_barrier(&out, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+            self.color_out.state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        }
+        let mk_res = |t: &D3dTexture, state: u32, usage: u32| -> FfxResource {
+            FfxResource {
+                resource: t.resource,
+                description: FfxResourceDescription {
+                    res_type: FFX_RESOURCE_TYPE_TEXTURE2D,
+                    format: match t.format {
+                        DXGI_FORMAT_R32G32B32A32_FLOAT => FFX_SURFACE_FORMAT_R32G32B32A32_FLOAT,
+                        DXGI_FORMAT_R16G16B16A16_FLOAT => FFX_SURFACE_FORMAT_R16G16B16A16_FLOAT,
+                        DXGI_FORMAT_R32G32_FLOAT => FFX_SURFACE_FORMAT_R32G32_FLOAT,
+                        DXGI_FORMAT_R32_FLOAT => FFX_SURFACE_FORMAT_R32_FLOAT,
+                        _ => FFX_SURFACE_FORMAT_R8_UNORM,
+                    },
+                    width: t.w,
+                    height: t.h,
+                    depth: 1,
+                    mip_count: 1,
+                    flags: 0,
+                    usage,
+                },
+                state,
+            }
+        };
+        let mut dispatch = FfxDispatchDescUpscale {
+            header: FfxApiHeader { desc_type: FFX_DISPATCH_DESC_TYPE_UPSCALE, p_next: std::ptr::null_mut() },
+            command_list: self.cmd_list,
+            color: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            depth: mk_res(&self.depth_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            motion_vectors: mk_res(&self.mv_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            exposure: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY), // 空占位(下方置 null)
+            reactive: mk_res(&self.reactive_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY),
+            transparency_and_composition: mk_res(&self.color_in, FFX_RESOURCE_STATE_COMPUTE_READ, FFX_RESOURCE_USAGE_READ_ONLY), // 空占位
+            output: mk_res(&self.color_out, FFX_RESOURCE_STATE_UNORDERED_ACCESS, FFX_RESOURCE_USAGE_UAV),
+            jitter_offset: FfxFloatCoords2D { x: jitter[0], y: jitter[1] },
+            motion_vector_scale: FfxFloatCoords2D { x: iw as f32, y: ih as f32 }, // uv → 像素
+            render_size: FfxDimensions2D { width: iw, height: ih },
+            upscale_size: FfxDimensions2D { width: self.out_w, height: self.out_h },
+            enable_sharpening: 0,
+            _pad0: [0; 3],
+            sharpness: 0.0,
+            frame_time_delta: 16.6667,
+            pre_exposure: exposure,
+            reset: if reset { 1 } else { 0 },
+            _pad1: [0; 3],
+            camera_near: 0.1,
+            camera_far: 100.0,
+            camera_fov_angle_vertical: 60.0f32.to_radians(),
+            view_space_to_meters_factor: 1.0,
+            flags: 0,
+        };
+        dispatch.exposure.resource = std::ptr::null_mut();
+        dispatch.transparency_and_composition.resource = std::ptr::null_mut();
+        // SAFETY: dispatch 栈上存活至 ffxDispatch 返回;cmd_list 录制中(Reset 后
+        // 开录);context 有效;共享输入内容有效性由调用方 Vulkan fence 契约保证。
+        let rc = unsafe { (self.ffx_dispatch)(&mut self.context, &dispatch.header) };
+        if rc != FFX_OK {
+            return Err(VendorError::VendorCall(format!("ffxDispatch(upscale,resident) → {rc}")));
+        }
+        self.d3d_submit_wait()
+    }
+
+    /// G14.11 驻留输出按需回读(color_out UAV → COPY_SOURCE → readback 堆 →
+    /// f16→f32 转换直写调用方切片;与 frame_impl_into 尾段逐字同式——digest/
+    /// EXR 面同一转换事实源)。
+    pub fn readback_output_resident(&mut self, out_px: &mut [f32]) -> Result<(), VendorError> {
+        if out_px.len() != (self.out_w * self.out_h * 3) as usize {
+            return Err(VendorError::ApiError("输出切片长度与 session 输出分辨率不符".into()));
+        }
+        let out = self.color_out.clone_shallow();
+        self.d3d_barrier(&out, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        let dst_loc = D3d12TextureCopyLocation {
+            p_resource: self.readback,
+            copy_type: 1, // PLACED_FOOTPRINT
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint {
+                    format: DXGI_FORMAT_R16G16B16A16_FLOAT,
+                    width: self.out_w,
+                    height: self.out_h,
+                    depth: 1,
+                    row_pitch: ((8u64 * self.out_w as u64 + 255) & !255) as u32,
+                },
+            },
+        };
+        let src_loc = D3d12TextureCopyLocation {
+            p_resource: self.color_out.resource,
+            copy_type: 0, // SUBRESOURCE_INDEX
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint { format: 0, width: 0, height: 0, depth: 0, row_pitch: 0 },
+            },
+        };
+        // SAFETY: CopyTextureRegion @16;输出在 COPY_SOURCE 态。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *const D3d12TextureCopyLocation, u32, u32, u32, *const D3d12TextureCopyLocation, *const c_void) = com_fn(self.cmd_list, 16);
+            f(self.cmd_list, &dst_loc, 0, 0, 0, &src_loc, std::ptr::null());
+        }
+        self.d3d_barrier(&out, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        self.d3d_submit_wait()?;
+        let row_pitch = ((8u64 * self.out_w as u64 + 255) & !255) as usize;
+        // SAFETY: readback heap fence 排空后 map;逐行按 row_pitch 读 f16(转换
+        // 面与 frame_impl_into 同一事实源 convert_out_pitched_par)。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult = com_fn(self.readback, 8);
+            let hr = f(self.readback, 0, std::ptr::null(), &mut ptr);
+            if hr != S_OK || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("readback Map → 0x{hr:08x}")));
+            }
+            let ow = self.out_w as usize;
+            let oh = self.out_h as usize;
+            let data = std::slice::from_raw_parts(
+                ptr as *const u16,
+                (oh - 1) * (row_pitch / 2) + ow * 4,
+            );
+            convert_out_pitched_par(data, row_pitch / 2, ow, oh, out_px);
+            let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
+            unmap(self.readback, 0, std::ptr::null());
+        }
+        Ok(())
+    }
+
+    /// G14.11:D3D12 adapter LUID(Vulkan deviceLUID 对拍面)。
+    pub fn adapter_luid(&self) -> [u8; 8] {
+        self.adapter_luid
+    }
+
+    /// G14.11 诊断臂:从 **D3D12 侧** 回读共享 color 输入纹理(RGBA32F 紧凑
+    /// 字节直写 `out`)——跨 API tiling 解释一致性对拍(Vulkan 侧写入 → 两侧
+    /// 各自 readback 逐字节对比;G14.10e dlss 臂 OPAQUE_WIN32 跨 VkDevice
+    /// OPTIMAL 布局乱序前科,本方向官方 cross-API 协定仍须实证)。复用输出
+    /// readback 堆(须 iw·ih·16 ≤ 堆容量——t67 及以下成立;越界确定性 Err)。
+    pub fn debug_readback_input_color(&mut self, out: &mut Vec<u8>) -> Result<(), VendorError> {
+        if self.staging_handle == 0 {
+            return Err(VendorError::ApiError("仅驻留 session 可用".into()));
+        }
+        let (iw, ih) = (self.in_w, self.in_h);
+        // color_in 为 f16 RGBA(8B/px,与 host 链逐字同);回读后 host 侧
+        // f16→f32 转换,输出契约保持紧凑 f32 RGBA 字节(对拍脚本免改)。
+        let row_pitch = ((8u64 * iw as u64 + 255) & !255) as usize;
+        let need = row_pitch as u64 * ih as u64;
+        let cap = ((8u64 * self.out_w as u64 + 255) & !255) * self.out_h as u64;
+        if need > cap {
+            return Err(VendorError::ApiError(format!(
+                "诊断回读需 {need}B > readback 堆 {cap}B(用 t67 及以下档位对拍)"
+            )));
+        }
+        // dispatch_resident 后 color_in 粘 NON_PIXEL_SHADER_RESOURCE;拷前显式
+        // 转 COPY_SOURCE,拷后还原(状态机字段同步)。
+        let tex = self.color_in.clone_shallow();
+        let before = if tex.state == D3D12_RESOURCE_STATE_COMMON {
+            D3D12_RESOURCE_STATE_COMMON
+        } else {
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+        };
+        self.d3d_barrier(&tex, before, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        let dst_loc = D3d12TextureCopyLocation {
+            p_resource: self.readback,
+            copy_type: 1, // PLACED_FOOTPRINT
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint {
+                    format: DXGI_FORMAT_R16G16B16A16_FLOAT,
+                    width: iw,
+                    height: ih,
+                    depth: 1,
+                    row_pitch: row_pitch as u32,
+                },
+            },
+        };
+        let src_loc = D3d12TextureCopyLocation {
+            p_resource: tex.resource,
+            copy_type: 0, // SUBRESOURCE_INDEX
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint { format: 0, width: 0, height: 0, depth: 0, row_pitch: 0 },
+            },
+        };
+        // SAFETY: CopyTextureRegion @16;src 在 COPY_SOURCE 态。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *const D3d12TextureCopyLocation, u32, u32, u32, *const D3d12TextureCopyLocation, *const c_void) = com_fn(self.cmd_list, 16);
+            f(self.cmd_list, &dst_loc, 0, 0, 0, &src_loc, std::ptr::null());
+        }
+        self.d3d_barrier(&tex, D3D12_RESOURCE_STATE_COPY_SOURCE, before);
+        self.d3d_submit_wait()?;
+        out.clear();
+        out.reserve((iw * ih) as usize * 16);
+        // SAFETY: readback heap fence 排空后 map;逐行按 row_pitch 取 f16 紧凑
+        // 段,逐通道 f16_to_f32(与输出面同一转换事实源)后追加。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult = com_fn(self.readback, 8);
+            let hr = f(self.readback, 0, std::ptr::null(), &mut ptr);
+            if hr != S_OK || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("readback Map(诊断) → 0x{hr:08x}")));
+            }
+            for y in 0..ih as usize {
+                let row = std::slice::from_raw_parts(
+                    (ptr as *const u8).add(y * row_pitch),
+                    iw as usize * 8,
+                );
+                for px in row.chunks_exact(8) {
+                    for c in 0..4 {
+                        let h = u16::from_le_bytes([px[c * 2], px[c * 2 + 1]]);
+                        out.extend_from_slice(&f16_to_f32(h).to_le_bytes());
+                    }
+                }
+            }
+            let unmap: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
+            unmap(self.readback, 0, std::ptr::null());
+        }
+        Ok(())
+    }
+
     /// validation(D3D12 debug layer info queue)ERROR/CORRUPTION 级消息计数。
     pub fn validation_errors(&self) -> u64 {
         if self.info_queue.is_null() {
@@ -4065,8 +5724,27 @@ impl D3dTextureShallow for D3dTexture {
     }
 }
 
+// kernel32 `CloseHandle`(G14.11:CreateSharedHandle 导出的 NT handle 归
+// session 所有,Drop 单点关闭——导入方不得 CloseHandle,防双关)。
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn CloseHandle(handle: *mut c_void) -> i32;
+}
+
 impl Drop for FsrDx12Session {
     fn drop(&mut self) {
+        // G14.11:shared NT handle 单点关闭(先于资源 Release;导入侧 Vulkan
+        // device memory 自持引用,句柄关闭不影响已导入内存)。
+        #[cfg(windows)]
+        if self.staging_handle != 0 {
+            // SAFETY: handle 为本 session CreateSharedHandle 产出的有效 NT
+            // handle,单点关闭不重入。
+            unsafe {
+                let _ = CloseHandle(self.staging_handle as *mut c_void);
+            }
+        }
+        self.staging_handle = 0;
         // fence 排空 → ffxDestroyContext → COM 逆序 Release。
         if !self.fence.is_null() && self.fence_value > 0 {
             // SAFETY: fence 有效;轮询排空(有界)。
@@ -4091,6 +5769,7 @@ impl Drop for FsrDx12Session {
             self.mv_in.resource,
             self.reactive_in.resource,
             self.color_out.resource,
+            self.staging_buf,
             self.upload,
             self.readback,
             self.fence,
@@ -4320,6 +5999,11 @@ mod tests {
         assert!(matches!(r, Err(VendorError::DllNotFound(_))));
     }
 
+    /// SL 全局态串行门(slInit/slShutdown 进程级单例;多 SL 测试在 cargo test
+    /// 默认并行下互斥——G14.10b 加第二个 SL 真跑测试后必需)。poisoned 锁照拿
+    /// (前测试 panic 不连坐后测试)。
+    static SL_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// G14plus vendor 域(RFC-0030)驻留输出真跑冒烟:SDK/GPU 环境缺失 → SKIP
     /// (eprintln 登记,不硬红——真跑硬门在 bin/smoke 层,RURIX_REQUIRE_REAL
     /// 纪律同律);环境在位则全链断言。覆盖:① 未评估前按需回读 fail-closed;
@@ -4328,6 +6012,7 @@ mod tests {
     /// 长度错 fail-closed;⑤ 既有 `upscale` 路径同 session 继跑(0-byte 回归面)。
     #[test]
     fn g14plus_resident_output_gpu_smoke() {
+        let _gate = SL_GATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let Ok(sdk) = streamline_sdk_dir() else {
             eprintln!("SKIP g14plus_resident_output_gpu_smoke: Streamline SDK 目录不可用");
             return;
@@ -4399,5 +6084,259 @@ mod tests {
         assert_eq!(g.data3, 0x432b);
         assert_eq!(g.data4[0], 0x8d);
         assert_eq!(g.data4[7], 0x14);
+    }
+
+    // ── G14.10b external memory 导入面 ──
+
+    /// G14.10b FFI 布局锚(SDK 1.3.296 `vulkan_core.h` 逐字段核对)。
+    #[test]
+    fn g14_10b_external_ffi_layout_anchors() {
+        assert_eq!(size_of::<VkExternalMemoryImageCreateInfo>(), 24);
+        assert_eq!(size_of::<VkImportMemoryWin32HandleInfoKHR>(), 40);
+        assert_eq!(size_of::<VkMemoryDedicatedAllocateInfo>(), 32);
+        assert_eq!(size_of::<VkPhysicalDeviceIDProperties>(), 64);
+        assert_eq!(align_of::<VkPhysicalDeviceProperties2Blob>(), 8);
+        // OPAQUE_WIN32 = 0x2(0x1 是 OPAQUE_FD——两侧同值锚死,防再犯)。
+        assert_eq!(VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32, 0x2);
+        assert_eq!(VK_QUEUE_FAMILY_EXTERNAL, u32::MAX - 1);
+    }
+
+    /// G14.10b 最小 noop compute SPIR-V(render_exec exportable session 的
+    /// 占位 pass;无绑定无 push,LocalSize 1×1×1 空 main)。
+    #[cfg(windows)]
+    fn noop_compute_spv() -> Vec<u8> {
+        fn inst(v: &mut Vec<u32>, opcode: u32, operands: &[u32]) {
+            v.push(((operands.len() as u32 + 1) << 16) | opcode);
+            v.extend_from_slice(operands);
+        }
+        // header:magic / version 1.3 / generator 0 / bound 5 / schema 0。
+        let mut w = vec![0x0723_0203u32, 0x0001_0300, 0, 5, 0];
+        inst(&mut w, 17, &[1]); // OpCapability Shader
+        inst(&mut w, 14, &[0, 1]); // OpMemoryModel Logical GLSL450
+        inst(&mut w, 15, &[5, 3, 0x6E69_616D, 0]); // OpEntryPoint GLCompute %3 "main"
+        inst(&mut w, 16, &[3, 17, 1, 1, 1]); // OpExecutionMode %3 LocalSize 1 1 1
+        inst(&mut w, 19, &[1]); // %1 = OpTypeVoid
+        inst(&mut w, 33, &[2, 1]); // %2 = OpTypeFunction %1
+        inst(&mut w, 54, &[1, 3, 0, 2]); // %3 = OpFunction %1 None %2
+        inst(&mut w, 248, &[4]); // %4 = OpLabel
+        inst(&mut w, 253, &[]); // OpReturn
+        inst(&mut w, 56, &[]); // OpFunctionEnd
+        w.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+
+    /// G14.10b 探明臂:render_exec exportable(color_fmt/depth_fmt/RG32F mv,
+    /// 合成图案 data 上传 + 帧末 EXTERNAL release)→ LUID 对拍 → DLSS 导入
+    /// 三输入 → `upscale_resident_external` 两帧 → 按需回读。返回诊断字面
+    /// (Ok = 臂全链通过且输出有限非全零)。
+    #[cfg(windows)]
+    #[allow(clippy::too_many_lines)]
+    fn run_external_input_arm(
+        sdk: &Path,
+        color_fmt: crate::render_exec::TexFormat,
+        depth_fmt: crate::render_exec::TexFormat,
+    ) -> Result<String, String> {
+        use crate::render_exec::{
+            Bindings, BufferUsage, ComputePass, DeviceFrameSession, DispatchSpec, Pass,
+            ResourceDesc, TexFormat, TextureDesc, TextureUsage,
+        };
+        let _ = BufferUsage::default(); // 引用面稳定(无 buffer 资源)
+        let (iw, ih, ow, oh) = (64u32, 64u32, 128u32, 128u32);
+        let px = (iw * ih) as usize;
+        // 合成输入:color 渐变(a=1),depth 常量 0.5,mv 零。
+        let color_f32: Vec<f32> = (0..px)
+            .flat_map(|i| {
+                let x = (i as u32 % iw) as f32 / (iw - 1) as f32;
+                let y = (i as u32 / iw) as f32 / (ih - 1) as f32;
+                [x, y, 0.25, 1.0]
+            })
+            .collect();
+        let color_bytes: Vec<u8> = match color_fmt {
+            TexFormat::Rgba32Float => color_f32.iter().flat_map(|v| v.to_le_bytes()).collect(),
+            TexFormat::Rgba16Float => color_f32
+                .iter()
+                .flat_map(|&v| f32_to_f16(v).to_le_bytes())
+                .collect(),
+            other => return Err(format!("臂不支持 color 格式 {other:?}")),
+        };
+        let depth_bytes: Vec<u8> = std::iter::repeat_n(0.5f32.to_le_bytes(), px)
+            .flatten()
+            .collect();
+        let mv_bytes: Vec<u8> = vec![0u8; px * 8];
+        let spv = noop_compute_spv();
+        let mk_usage = || TextureUsage {
+            sampled: true,
+            storage: false,
+            color: false,
+            depth: false,
+        };
+        let resources = vec![
+            ResourceDesc::Texture(TextureDesc {
+                width: iw,
+                height: ih,
+                format: color_fmt,
+                usage: mk_usage(),
+                data: Some(&color_bytes),
+            }),
+            ResourceDesc::Texture(TextureDesc {
+                width: iw,
+                height: ih,
+                format: depth_fmt,
+                usage: mk_usage(),
+                data: Some(&depth_bytes),
+            }),
+            ResourceDesc::Texture(TextureDesc {
+                width: iw,
+                height: ih,
+                format: TexFormat::Rg32Float,
+                usage: mk_usage(),
+                data: Some(&mv_bytes),
+            }),
+        ];
+        let passes = vec![Pass::Compute(ComputePass {
+            name: "noop",
+            spirv: &spv,
+            entry: None,
+            dispatch: DispatchSpec::Direct([1, 1, 1]),
+            bindings: Bindings::default(),
+        })];
+        let plan: Vec<Vec<(u32, crate::render_exec::TargetState)>> = vec![vec![]];
+        let brefs: Vec<&[(u32, crate::render_exec::TargetState)]> =
+            plan.iter().map(Vec::as_slice).collect();
+        let mut session = DeviceFrameSession::new_with_exportable_textures(
+            &resources,
+            &passes,
+            &brefs,
+            &[],
+            2,
+            &[],
+            &[0, 1, 2],
+        )
+        .map_err(|e| format!("exportable session: {e}"))?;
+        let src_luid = session
+            .physical_device_luid()
+            .ok_or("render_exec 侧 deviceLUIDValid=false")?;
+        // 帧 1:上传三输入图案 + 帧末 EXTERNAL release。
+        session.execute().map_err(|e| format!("export 帧 1: {e}"))?;
+        let exp_color = session
+            .export_texture_win32_handle(0)
+            .map_err(|e| format!("导出 color: {e}"))?;
+        let exp_depth = session
+            .export_texture_win32_handle(1)
+            .map_err(|e| format!("导出 depth: {e}"))?;
+        let exp_mv = session
+            .export_texture_win32_handle(2)
+            .map_err(|e| format!("导出 mv: {e}"))?;
+
+        let mut dlss = DlssVkSession::create(sdk, (iw, ih), (ow, oh), false)
+            .map_err(|e| format!("DLSS session: {e}"))?;
+        if !dlss.external_memory_enabled() {
+            return Err("DLSS 侧 VK_KHR_external_memory_win32 不在位".into());
+        }
+        let dst_luid = dlss
+            .physical_device_luid()
+            .ok_or("DLSS 侧 deviceLUIDValid=false")?;
+        if src_luid != dst_luid {
+            return Err(format!(
+                "LUID 不匹配({src_luid:?} vs {dst_luid:?})——不同 adapter 不可共享,fail-closed"
+            ));
+        }
+        let to_desc = |e: &crate::render_exec::ExportedTextureWin32| ExternalImageImportDesc {
+            handle: e.handle,
+            width: e.width,
+            height: e.height,
+            vk_format: e.vk_format,
+            usage_flags: e.usage_flags,
+            allocation_size: e.allocation_size,
+            memory_type_index: e.memory_type_index,
+        };
+        dlss.import_win32_input(ExternalInputSlot::Color, &to_desc(&exp_color))
+            .map_err(|e| format!("导入 color: {e}"))?;
+        dlss.import_win32_input(ExternalInputSlot::Depth, &to_desc(&exp_depth))
+            .map_err(|e| format!("导入 depth: {e}"))?;
+        dlss.import_win32_input(ExternalInputSlot::Mv, &to_desc(&exp_mv))
+            .map_err(|e| format!("导入 mv: {e}"))?;
+        // 重复导入 fail-closed(单次导入纪律)。
+        if dlss
+            .import_win32_input(ExternalInputSlot::Color, &to_desc(&exp_color))
+            .is_ok()
+        {
+            return Err("重复导入未被拒(fail-closed 漏)".into());
+        }
+        // 两帧 evaluate(帧间 render_exec 再 execute 一帧维持 release/acquire
+        // 逐帧配对纪律;CPU 顺序化:execute 返回 = fence 完成)。
+        for (fi, reset) in [(1u32, true), (2u32, false)] {
+            if fi > 1 {
+                session
+                    .execute()
+                    .map_err(|e| format!("export 帧 {fi}: {e}"))?;
+            }
+            dlss.upscale_resident_external(&VendorExternalFrameParams {
+                reactive: None,
+                exposure: 1.0,
+                jitter: [0.0, 0.0],
+                frame_index: fi,
+                reset,
+            })
+            .map_err(|e| format!("evaluate 帧 {fi}: {e}"))?;
+        }
+        let out_px = (ow * oh) as usize;
+        let mut out = vec![0f32; out_px * 3];
+        dlss.readback_output_into(&mut out)
+            .map_err(|e| format!("readback: {e}"))?;
+        if !out.iter().all(|v| v.is_finite()) {
+            return Err("输出含非有限值".into());
+        }
+        let nonzero = out.iter().filter(|&&v| v > 0.0).count();
+        if nonzero == 0 {
+            return Err("输出全零(evaluate 未产内容)".into());
+        }
+        Ok(format!(
+            "color={color_fmt:?} depth={depth_fmt:?} 两帧 evaluate 输出非全零({nonzero}/{} 正值)",
+            out_px * 3
+        ))
+    }
+
+    /// G14.10b DLSS resident-input 全链真跑冒烟 + **SL 输入格式容忍度探明**
+    /// (SKIP 纪律同 g14plus smoke)。臂序(降级链,如实登记):
+    /// ① RGBA32F color + R32F depth(全 f32 直通——copy 路线零转换理想);
+    /// ② RGBA16F color + R32F depth(compute 直写路线:imageStore 硬件 f32→f16,
+    ///   depth R32F 是 storage 直写关键——D32 不可 storage 写);
+    /// ③ RGBA16F color + D32 depth(与 DLSS 现自建输入完全同格式,保底臂)。
+    /// 任一臂过 = 全链闭环(exportable→导出→导入→evaluate→非全零);全臂败才红。
+    #[test]
+    #[cfg(windows)]
+    fn g14_10b_dlss_external_input_gpu_smoke() {
+        use crate::render_exec::TexFormat;
+        let _gate = SL_GATE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Ok(sdk) = streamline_sdk_dir() else {
+            eprintln!("SKIP g14_10b_dlss_external_input_gpu_smoke: Streamline SDK 目录不可用");
+            return;
+        };
+        if !crate::vk::vulkan_available() {
+            eprintln!("SKIP g14_10b_dlss_external_input_gpu_smoke: vulkan loader 不可用");
+            return;
+        }
+        let arms = [
+            (TexFormat::Rgba32Float, TexFormat::R32Float, "①全f32直通"),
+            (TexFormat::Rgba16Float, TexFormat::R32Float, "②f16color+R32F depth"),
+            (TexFormat::Rgba16Float, TexFormat::Depth32Float, "③现状同格式保底"),
+        ];
+        let mut failures: Vec<String> = Vec::new();
+        for (color_fmt, depth_fmt, label) in arms {
+            match run_external_input_arm(&sdk, color_fmt, depth_fmt) {
+                Ok(diag) => {
+                    eprintln!("[g14.10b] 臂{label} PASS: {diag}");
+                    if !failures.is_empty() {
+                        eprintln!("[g14.10b] 先行臂失败登记(格式容忍度探明): {failures:?}");
+                    }
+                    return;
+                }
+                Err(e) => {
+                    eprintln!("[g14.10b] 臂{label} 失败: {e}");
+                    failures.push(format!("{label}: {e}"));
+                }
+            }
+        }
+        panic!("g14.10b 全臂失败(含现状同格式保底臂——非格式问题,链路有病): {failures:?}");
     }
 }
