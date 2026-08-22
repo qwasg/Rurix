@@ -2164,7 +2164,13 @@ impl DlssVkSession {
                 s_type: VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                 p_next: std::ptr::null(),
                 flags: 0,
-                image_type: 2, // 2D
+                // G14.12 勘误:`VK_IMAGE_TYPE_2D` = **1**(2 是 3D)。本处原为
+                // `2` 且注释写 "2D"——与 `import_win32_input` 同源笔误(该处
+                // 曾致跨 device 共享块状乱序、被误判为硬件布局不一致)。本处
+                // 为 session 自有输入/输出 image(同 device 写读,内容自洽故
+                // 无可见损坏),但 3D image 上建 2D view 触
+                // VUID-VkImageViewCreateInfo-image-06728(validation 10 条)。
+                image_type: VK_IMAGE_TYPE_2D,
                 format,
                 extent: VkExtent3D { width: w, height: h, depth: 1 },
                 mip_levels: 1,
