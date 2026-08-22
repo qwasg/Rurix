@@ -86,7 +86,20 @@
 - **`f16_to_f32` subnormal 解码缺陷修复（同批）**：fsr 双侧对拍暴露 173 处 a=2b 表观差 → 归因 = 解码函数 `e` 初值 −1 使 f32 指数字段恒 113−k 少 1（应 113−k），**全体 f16 次正规数（<2⁻¹⁴≈6.1e-5，即深阴影像素）解码为正确值的一半**；该函数被 host 链与 vendor 输出转换共用、涉 digest 锚（G14.12 统一重收割吸收）。加**全 65536 位型枚举 vs 位精确公式**回归锚测试永久钉死。治理登记：G13.4 M-a 门为容差带口径（无输出 digest 锚），既存 evidence 不因本修复失效，深阴影修正为严格正确性改善。
 - **DLSS 侧批量屏障（同批）**：三条 buffer→image copy 原各夹两道全局 `vkCmdPipelineBarrier`，把本可并发的三条 copy 串成「copy→流水 drain→copy→drain→copy→drain」；合并为 [3 barrier]→[3 copy]→[3 barrier]（acquire 同理）——**数据面零变化 digest 不变**，bistro t100 evaluate CPU 0.25→0.055ms、upscale 3.02→2.977ms。附 reactive 恒零内容驻留跳过 + `RURIX_VENDOR_TIMING` 驻留路分解遥测 + `RURIX_G14_DLSS_SKIP_COPY` 诊断门。
 - **测量口径勘误**：中间快扫脚本内联的 UE 线有误，真值 = 最新 M-d evidence 逐格 `ue_median_ms`（cornell t50/67/100 = 2.193/2.141/2.054；bistro = 3.274/3.431/4.322），已按门事实源校准；本波前的"MISS/PASS"判读以校准后为准。
-- **末格攻坚（bistro t100 dlss）**：批量屏障后 prod 4.358ms vs UE 4.322ms（ratio 0.992）。时间解剖：Vulkan 侧 GPU 1.08（scene 0.93 + mv 0.03 + pack 0.12）+ 墙钟 1.381；DLSS 侧 2.977（submit_wait 2.70 = **三条跨设备 copy 0.6 + DLSS 网络 2.1**，经 `RURIX_G14_DLSS_SKIP_COPY` 差分实测分离）。硬件能力预查（`vulkaninfo --json`）：R16G16B16A16_SFLOAT / R32G32_SFLOAT linearTilingFeatures 含 SAMPLED+STORAGE、D32_SFLOAT 含 SAMPLED —— linear image 别名到导入内存以消 copy 的路线在硬件层可行（阻碍点 = 现导出侧 dedicated allocation 不可别名，需改非 dedicated）。治理裁决：**"按 tier 切 SL DLSS mode" 路线否决**——G13.4 契约 `ue_dlss_quality_map` 的 `tier_note` 字面限定该映射为 **UE 臂**插件质量枚举面，并规定 **Rurix 臂档位语义 = tier% 内部渲染分辨率**，改 mode 反偏离契约。
+- **末格攻坚（bistro t100 dlss）与根因勘误(37ac2688 / d6eab741)**：批量屏障后 prod 4.358 vs UE 4.322（ratio 0.992），时间解剖 = Vulkan 侧 GPU 1.08（scene 0.93 + mv 0.03 + pack 0.12）+ 墙钟 1.381；DLSS 侧 2.977（submit_wait 2.70 = **三条跨设备 copy 0.6 + DLSS 网络 2.1**，经 `RURIX_G14_DLSS_SKIP_COPY` 差分实测分离）。攻坚中**推翻了本记录 §4 G14.10f 与 G14.11 两处的错误结论**——见下条勘误。三项优化收益:①消 copy(pack 直写三 exportable storage image)upscale 2.977→2.19~2.52,但 SSBO→image 引入每帧布局转换税,prod 仅到 4.24;②**跨界 image layout 跨帧常驻 GENERAL**(建面期 one-shot `UNDEFINED→GENERAL`,帧内初值 = 帧末收敛态,免每帧 3 次全表面压缩元数据重初始化)4.24→4.075;③**同形帧跳过命令体重录**(`readback_subset` 逐帧同形〔驻留车道恒 `Some([])`〕且无 TLAS/binding/push override 时命令体逐字节不变,原样重放)`cpu_record` 229µs→5.9µs、prod 4.075→**3.545**——②③是①的必要配套。终态 prod 3.846(7 样本均值;中位 3.911/最好 3.545/最差 4.032)、ratio 1.124(最差样本仍 1.072);7 跑 digest 位级一致;lum mean 0.009795 + 读图无乱序;四格无回归。治理裁决：**"按 tier 切 SL DLSS mode" 路线否决**——G13.4 契约 `ue_dlss_quality_map` 的 `tier_note` 字面限定该映射为 **UE 臂**插件质量枚举面，并规定 **Rurix 臂档位语义 = tier% 内部渲染分辨率**，改 mode 反偏离契约（另:NGX 日志实证 t100 in=out 时内部已走 `NGXDLAA::DLSS_GetOptimalSettings`,即本就在跑 DLAA 路径）。
+
+> **⚠ 勘误(2026-08-23,凌驾本记录 §4 G14.10f「①跨 device 布局解释不一致」与 G14.11「texture 直共享…同族」两处结论)**：跨 device 共享 OPTIMAL tiling image 的块状乱序,**真因不是两个 VkDevice 对同一显存的布局解释不一致(该"硬件事实"判定错误)**,而是 `vendor_upscale.rs::import_win32_input` 的 `image_type: 2`(= `VK_IMAGE_TYPE_3D`,注释却写 "2D")与导出侧 `render_exec` 的 `IMAGE_TYPE_2D`(=1)不匹配——同一块显存被两侧按 2D/3D 两种布局解释。memreq 实证:1920×1080 RGBA16F OPTIMAL,**2D 需 17694720B、3D 需 16588800B**。改为 1 后跨 device image 共享**直接成立**,DLSS 侧三条 buffer→image copy(41.5MB/帧、0.6ms)整体消失,读图结构完整。同源笔误另存于 `mk_image`(session 自有 image,同 device 写读故内容自洽无可见损坏,但 3D image 上建 2D view 触 VUID-…-06728 十条 validation);裁决=修,实测 digest 逐字不变(纯收益)。
+> **教训(与 G14.10f「digest 双跑一致 ≠ 内容正确」并列登记)**:**把可复现的自研缺陷误判为"平台/硬件固有限制"并据此绕道,代价是两条独立路线(dlss OPAQUE_WIN32 / fsr D3D12_RESOURCE)各绕一次远路 + 每帧 0.6ms 的常驻税**。判定"硬件不支持"前必须逐字段对拍两侧 create info(本例中导出/导入侧 `imageType` 字面不同,且错误侧注释与取值自相矛盾——代码审查即可发现)。
+> **附带实测(供后人省一轮)**:硬件 `linearTilingFeatures` 全支持 ≠ NGX 接受——NGX 在 `vkCreateImage(LINEAR, fmt=97)` 返回 `VK_ERROR_FORMAT_NOT_SUPPORTED` 并崩于 `slEvaluateFeature`(内部另建副本不接受 linear 源),LINEAR 别名路线已弃并回退。`RURIX_G14_DLSS_VK_VALIDATION=1` 是陷阱:开启后 NGX 首帧崩在 `vkCreateCuModuleNVX`(validation 层 × NVX CUDA 模块 pNext 链兼容问题,与共享面无关),仅可用于建面期查错。
+
+### G14.11 终态：18/18 全绿（2026-08-23 快扫，UE 线 = M-d 逐格 `ue_median_ms`）
+
+| 场景 | tier | tsr_device | dlss_sr | fsr_3_1_5 |
+|---|---|---|---|---|
+| cornell-box | 50 / 67 / 100 | 8.030 / 6.706 / 4.097 | 3.192 / 2.342 / 1.895 | 3.501 / 3.058 / 2.376 |
+| bistro-interior | 50 / 67 / 100 | 2.364 / 2.080 / 1.856 | 1.918 / 1.528 / **1.177** | 2.940 / 2.522 / 1.753 |
+
+（表值 = ratio = UE ÷ Rurix prod；60 帧快扫顺序跑含热漂，最紧格 bistro t100 dlss 1.177。正式判定以 G14.12 的 M-d 门 160 帧×3 轮跨轮中位数为准。）
 
 ## 5. 复测轨迹（M-d 逐版 ratio 收敛表——逐波追加）
 
