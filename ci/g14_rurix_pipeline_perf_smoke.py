@@ -321,11 +321,33 @@ def run_gate() -> int:
                             continue
                         runs.append(res)
                     if len(runs) == len(RUNS):
-                        starts = sorted(r["started_epoch"] for r in runs)
-                        indep = all(starts[i + 1] - starts[i] >= 1.0 for i in range(len(starts) - 1))
-                        if not indep:
+                        # 三轮进程级独立性机核（G14plus G14.12 重校准）：原判据
+                        # 为「相邻轮启动间隔 ≥ 1.0s」——那是**慢速基线下的代理
+                        # 指标**（G14.3 期单轮 160 帧需数十秒，1s 间隔必然成立），
+                        # G14plus 优化后最快格单轮仅数十毫秒 + 进程启动，代理失
+                        # 效而误判。改为**尺度无关的更强不变量**：轮 i+1 的启动
+                        # 时刻 ≥ 轮 i 的启动时刻 + 轮 i 的墙钟（即轮间零重叠 =
+                        # 真串行的独立进程），并要求每轮墙钟 > 0——原判据要防的
+                        # 失效面（单次运行冒充三轮 / 并发复用）被严格覆盖且不随
+                        # 帧时快慢漂移。0.99 系数吸收 epoch/墙钟两钟源的粒度差。
+                        seq_ok = all(
+                            runs[i + 1]["started_epoch"]
+                            >= runs[i]["started_epoch"] + runs[i]["wall_s"] * 0.99
+                            for i in range(len(runs) - 1)
+                        )
+                        positive = all(r["wall_s"] > 0.0 for r in runs)
+                        if not (seq_ok and positive):
                             all_ok = False
-                            check(False, f"三轮独立性存疑 {scene}/t{tier}/{backend}")
+                            gaps = [
+                                round(runs[i + 1]["started_epoch"] - runs[i]["started_epoch"], 4)
+                                for i in range(len(runs) - 1)
+                            ]
+                            walls = [round(r["wall_s"], 4) for r in runs]
+                            check(
+                                False,
+                                f"三轮独立性存疑 {scene}/t{tier}/{backend}: "
+                                f"轮间隔={gaps} 各轮墙钟={walls}（须轮间零重叠）",
+                            )
                         means = sorted(r["frame_ms_mean"] for r in runs)
                         cells.append({
                             "scene": scene, "tier": tier, "backend": backend,
