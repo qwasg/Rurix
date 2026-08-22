@@ -22,8 +22,9 @@ G14_CONTRACT §7 裁决 7 延续波程序面/RFC-0030 §4.7/G14PLUS_RECORD §2�
 - ④ rd045_mitigation_registered：registry/deferred.json RD-045 存在 ∧
   条目 status=open 维持 ∧ history 含 G14plus 修复/缓解登记条目
   （date ≥ 2026-08-22）；
-- ⑤ wave_records_on_tree：G14_CONTRACT.md §8.8/§8.9/§8.10/§8.12 标题在树
-  （G14plus 波验收记录；§8.11 条件波有无如实登记不阻断）；
+- ⑤ wave_records_on_tree：G14_CONTRACT.md §8.8/§8.9/§8.10/§8.11 标题在树
+  （G14plus 恒发生四波验收记录 = 波0/G14.8/G14.9/G14.10；§8.12 = G14.11
+  结构条件波,有无如实登记不阻断；§8.13 = G14.12 收口记录,本门之后才写）；
 - ⑥ red_arms_effective：RED 双臂——anchor-tamper（内存篡改锚一格 digest →
   与 M-d 守护面比对必检出不等）+ unmet-masquerade（合成 met=18 ∧ unmet 非空
   伪 evidence → 达标判定函数必拒绝）。
@@ -237,14 +238,19 @@ def run_gate(write_evidence: bool = True) -> int:
     ok5 = True
     try:
         contract_text = CONTRACT_PATH.read_text(encoding="utf-8")
-        required_secs = ["### §8.8", "### §8.9", "### §8.10", "### §8.12"]
+        # 实际节号(落盘编号,波0 起草时的占位映射已按实际校准):
+        #   §8.8=波0 治理立项 / §8.9=G14.8 / §8.10=G14.9 / §8.11=G14.10
+        #   (以上四波恒发生 → 强制);§8.12=G14.11 结构条件波(仅当 G14.10 后
+        #   仍有未达格才发生 → 在树即登记、不在树不阻断);§8.13=G14.12 收口
+        #   记录(本门之后才写,不可自锚)。
+        required_secs = ["### §8.8", "### §8.9", "### §8.10", "### §8.11"]
         found = {}
         for sec in required_secs:
             present = sec in contract_text
             found[sec] = present
             if not check(present, f"契约 {sec} 波验收记录标题缺失"):
                 ok5 = False
-        found["### §8.11"] = "### §8.11" in contract_text  # 条件波如实登记不阻断
+        found["### §8.12"] = "### §8.12" in contract_text  # 条件波如实登记不阻断
         parity["wave_records"] = found
     except Exception as e:  # noqa: BLE001
         ok5 = check(False, f"契约读取失败: {e}")
