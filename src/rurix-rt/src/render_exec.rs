@@ -908,6 +908,38 @@ pub struct DeviceFrameOutput {
     pub telemetry: DeviceFrameTelemetry,
 }
 
+/// G14plus vendor 域(RFC-0030)session Texture 资源原生 Vulkan 句柄簿记
+/// (加性只读导出面;见 [`DeviceFrameSession::texture_native_handles`])。
+/// 句柄归 session 所有——调用方不得销毁/越 session 生命周期持有;本 session
+/// 与 vendor(DLSS)session 各持**独立** VkInstance/VkDevice,句柄跨 device
+/// 不可直接消费(需 VK_KHR_external_memory 导出/导入改造,RFC-0030 裁决面)。
+#[derive(Debug, Clone, Copy)]
+pub struct NativeTextureHandles {
+    /// VkImage(non-dispatchable u64)。
+    pub image: u64,
+    /// VkDeviceMemory。
+    pub memory: u64,
+    /// VkImageView。
+    pub view: u64,
+    pub width: u32,
+    pub height: u32,
+    /// VkFormat 数值([`TexFormat::vk_format`] 同源)。
+    pub vk_format: u32,
+}
+
+/// G14plus vendor 域(RFC-0030)session Vulkan 顶层句柄簿记(加性只读导出面;
+/// 见 [`DeviceFrameSession::native_vk_raw`])。dispatchable 句柄以地址值承载
+/// (usize;不暴露裸指针类型,消费侧仅作同一性/拓扑对拍,不得解引用)。
+#[derive(Debug, Clone, Copy)]
+pub struct NativeVkHandles {
+    /// VkInstance 地址值。
+    pub instance: usize,
+    /// VkPhysicalDevice 地址值。
+    pub physical_device: usize,
+    /// VkDevice 地址值。
+    pub device: usize,
+}
+
 /// FIF 流水帧票据(G14plus RFC-0030 §4.3 L2;
 /// [`DeviceFrameSession::submit_with_frame_update`] 产、
 /// [`DeviceFrameSession::collect`] 消费,须交还产出它的同一 session)。
@@ -1340,6 +1372,33 @@ impl<'a> DeviceFrameSession<'a> {
                     self.resource_generations[(r.resource_id.0 - 1) as usize] = generation;
                 }
             }
+        }
+    }
+
+    /// G14plus vendor 域(RFC-0030)加性只读 accessor:`resource_index`(创建
+    /// 时 `resources` 下标)对应 Texture 资源的原生 Vulkan 句柄簿记。越界或该
+    /// 下标为 Buffer 资源 → `None`。执行语义 0-byte(纯簿记读,不触碰任何
+    /// 录制/提交/生命周期面);句柄所有权约束见 [`NativeTextureHandles`]。
+    pub fn texture_native_handles(&self, resource_index: usize) -> Option<NativeTextureHandles> {
+        let img = self.native.frame.rt.get(resource_index)?.image()?;
+        Some(NativeTextureHandles {
+            image: img.image,
+            memory: img.mem,
+            view: img.view,
+            width: img.width,
+            height: img.height,
+            vk_format: img.format.vk_format(),
+        })
+    }
+
+    /// G14plus vendor 域(RFC-0030)加性只读 accessor:session 的 Vulkan 顶层
+    /// 句柄地址簿记(instance/physical device/device)。消费侧仅作同一性/
+    /// 拓扑对拍(如与 vendor session 的 device 独立性核对),不得解引用。
+    pub fn native_vk_raw(&self) -> NativeVkHandles {
+        NativeVkHandles {
+            instance: self.native.instance as usize,
+            physical_device: self.native.pd as usize,
+            device: self.native.device as usize,
         }
     }
 }

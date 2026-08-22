@@ -26,6 +26,17 @@
 //! 文档明示 slShutdown 必须先于 vk 对象销毁）→ vk 对象逆序销毁；D3D12 臂 = fence
 //! 排空 → `ffxDestroyContext` → COM 对象逆序 Release。
 //!
+//! **G14plus vendor 域加性面**（RFC-0030；既有 `upscale`/`upscale_into`/
+//! `probe_validation_frame` 行为 0-byte，FSR 臂零触碰）：DLSS 臂驻留输出——
+//! [`DlssVkSession::upscale_resident`]（evaluate 后输出驻留 `color_out`，跳过
+//! 逐帧回读与 host f16→f32 转换）+ [`DlssVkSession::readback_output_into`]
+//! （按需回读，转换面与 `upscale` 同一事实源）+
+//! [`DlssVkSession::output_image_raw`]（句柄簿记导出）。device 拓扑事实：DLSS
+//! session 经 SL 代理**自建** instance/device，与 render_exec session 的 device
+//! 相互独立——输入驻留（外部 VkImage 直 tag）需 VK_KHR_external_memory 跨
+//! device 导出/导入或同 device 化改造，超出本波加性边界，pack/upload 面维持
+//! （拓扑发现与裁决面见 RFC-0030 G14plus 实施记录）。
+//!
 //! # SAFETY（U58，G13.2 vendor SDK FFI 边界；沿 U26/U32/U43 审计模式）
 //! 对上全 safe（无 `unsafe` 签名）。全部 `unsafe` 内聚本模块，每块携 `// SAFETY:`：
 //! - SL 函数指针签名与 `sl_core_api.h`/`sl_dlss.h`/`sl_consts.h`（Streamline 2.10.3，
@@ -211,6 +222,25 @@ pub struct VendorSessionReport {
     /// FSR 臂:ffxQueryDescGetVersions 实测可用版本清单。
     pub available_versions: Vec<String>,
     pub log_tail: Vec<String>,
+}
+
+/// G14plus vendor 域(RFC-0030)DLSS 输出 image 原生句柄簿记(vendor 侧
+/// **独立** VkDevice 域——DLSS session 经 SL 代理自建 instance/device,句柄
+/// 跨 VkDevice 不可直接消费;见 [`DlssVkSession::output_image_raw`])。
+#[derive(Debug, Clone, Copy)]
+pub struct DlssOutputImageRaw {
+    /// VkImage(non-dispatchable u64)。
+    pub image: u64,
+    /// VkDeviceMemory。
+    pub memory: u64,
+    /// VkImageView。
+    pub view: u64,
+    /// VkFormat 数值(R16G16B16A16_SFLOAT = 97)。
+    pub vk_format: u32,
+    /// 当前 VkImageLayout(0=UNDEFINED 无内容;1=GENERAL 已有评估内容)。
+    pub layout: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 fn sha256_file(path: &Path) -> Result<(String, u64), VendorError> {
@@ -2166,6 +2196,16 @@ impl DlssVkSession {
     }
 
     fn frame_impl_into(&mut self, input: &VendorFrameInput, skip_evaluate: bool, out: &mut [f32]) -> Result<(), VendorError> {
+        self.frame_impl_ext(input, skip_evaluate, Some(out))
+    }
+
+    /// G14plus vendor 域(RFC-0030)帧主体参数化:`out=Some` = 既有回读路径
+    /// (`frame_impl_into` 全量委托本函数——调用序/上传字节面/输出字节面与
+    /// G14.7 面逐位一致);`out=None` = **驻留输出路径**(跳过输出回读录制段与
+    /// host f16→f32 转换——输出驻留 session 自建 `color_out` image(GENERAL
+    /// layout),按需经 [`Self::readback_output_into`] 回读)。pack/upload/
+    /// evaluate/submit_wait 两路径同一代码面。
+    fn frame_impl_ext(&mut self, input: &VendorFrameInput, skip_evaluate: bool, mut out: Option<&mut [f32]>) -> Result<(), VendorError> {
         let (iw, ih) = (self.in_w, self.in_h);
         let px = (iw * ih) as usize;
         if input.color.len() != px * 3 || input.depth.len() != px || input.mv.len() != px * 2 {
@@ -2176,7 +2216,9 @@ impl DlssVkSession {
         {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
-        if out.len() != (self.out_w * self.out_h * 3) as usize {
+        if let Some(o) = out.as_deref()
+            && o.len() != (self.out_w * self.out_h * 3) as usize
+        {
             return Err(VendorError::ApiError("输出切片长度与 session 输出分辨率不符".into()));
         }
         // G14.3 性能波:内部分解遥测(env `RURIX_VENDOR_TIMING=1` 门控,默认关,
@@ -2371,34 +2413,11 @@ impl DlssVkSession {
         }
         let vtm_eval = vtm_t0.elapsed();
 
-        // 输出回读:GENERAL → TRANSFER_SRC → copy → 回 GENERAL。
-        let out_res = self.color_out.clone_shallow();
-        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE, VK_ACCESS_TRANSFER_READ, VK_PIPELINE_STAGE_COMPUTE_SHADER, VK_PIPELINE_STAGE_TRANSFER);
-        let region = VkBufferImageCopy {
-            buffer_offset: 0,
-            buffer_row_length: 0,
-            buffer_image_height: 0,
-            image_subresource: VkImageSubresourceLayers {
-                aspect_mask: VK_IMAGE_ASPECT_COLOR,
-                mip_level: 0,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            image_offset: [0, 0, 0],
-            image_extent: VkExtent3D { width: self.out_w, height: self.out_h, depth: 1 },
-        };
-        // SAFETY: cmd 录制中;readback 容量 ≥ out 像素字节。
-        unsafe {
-            (self.dev.cmd_copy_image_to_buffer)(
-                self.cmd,
-                self.color_out.image,
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                self.readback,
-                1,
-                &region,
-            )
-        };
-        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_READ, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+        // 输出回读:GENERAL → TRANSFER_SRC → copy → 回 GENERAL(驻留输出路径
+        // (out=None)跳过——color_out 留 GENERAL,内容驻留待按需回读)。
+        if out.is_some() {
+            self.record_output_readback();
+        }
         // HOST_READ 可见性屏障由 queueWaitIdle 全序保证(U26 同律)。
         // SAFETY: cmd 录制完成。
         let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
@@ -2429,23 +2448,10 @@ impl DlssVkSession {
         let vtm_wait = vtm_t0.elapsed();
 
         // G14.6 Stage A:输出直写调用方驻留切片(消逐帧 ~out_px·12B 新分配+清零;
-        // 转换逐值同式同序,字节面与 G14.3 面逐位一致)。
-        // SAFETY: readback host-visible+coherent;queueWaitIdle 后无在途写;map 区间 = 帧字节。
-        unsafe {
-            let mut ptr: *mut c_void = std::ptr::null_mut();
-            let r = (self.dev.map_memory)(self.device, self.readback_mem, 0, self.readback_size, 0, &mut ptr);
-            if r != VK_SUCCESS || ptr.is_null() {
-                return Err(VendorError::ApiError(format!("vkMapMemory(readback) → {r}")));
-            }
-            let data = std::slice::from_raw_parts(
-                ptr as *const u16,
-                (self.out_w * self.out_h) as usize * 4,
-            );
-            // G14.7:裸指针步行改 from_raw_parts 视图(U8 镜像纪律,0 新 U 号——U58
-            // 扩注)+ 像素带并行转换;带内逐值同式同序,输出字节面与 G14.6 面逐位
-            // 一致。切片长度 = out_px·4 = readback 分配字节/2,不越 map 区间。
-            convert_out_par(data, out);
-            (self.dev.unmap_memory)(self.device, self.readback_mem);
+        // 转换逐值同式同序,字节面与 G14.3 面逐位一致)。驻留输出路径(out=None)
+        // 跳过——无回读内容可转换。
+        if let Some(o) = out.take() {
+            self.map_convert_readback(o)?;
         }
         // 录制槽复用:reset cmd(下一帧重录)。
         // SAFETY: cmd 已完成提交且 queue 排空。
@@ -2466,6 +2472,153 @@ impl DlssVkSession {
             );
         }
         Ok(())
+    }
+
+    /// 录制输出回读段(GENERAL → TRANSFER_SRC → copy → 回 GENERAL;调用方保证
+    /// cmd 在录制态;G14.7 面原回读录制语句逐字提取——`frame_impl_ext(out=Some)`
+    /// 与 [`Self::readback_output_into`] 共用同一事实源)。
+    fn record_output_readback(&mut self) {
+        let out_res = self.color_out.clone_shallow();
+        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE, VK_ACCESS_TRANSFER_READ, VK_PIPELINE_STAGE_COMPUTE_SHADER, VK_PIPELINE_STAGE_TRANSFER);
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: VK_IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: [0, 0, 0],
+            image_extent: VkExtent3D { width: self.out_w, height: self.out_h, depth: 1 },
+        };
+        // SAFETY: cmd 录制中;readback 容量 ≥ out 像素字节。
+        unsafe {
+            (self.dev.cmd_copy_image_to_buffer)(
+                self.cmd,
+                self.color_out.image,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                self.readback,
+                1,
+                &region,
+            )
+        };
+        self.vk_barrier(&out_res, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_READ, VK_ACCESS_SHADER_WRITE, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER);
+    }
+
+    /// map readback 缓冲 → f16→f32 像素带并行转换直写 `out`(G14.7 面原转换
+    /// 语句逐字提取;调用方保证 queue 已排空、readback 含本帧回读内容、
+    /// `out.len()` 已验 = out_px·3)。
+    fn map_convert_readback(&mut self, out: &mut [f32]) -> Result<(), VendorError> {
+        // SAFETY: readback host-visible+coherent;queueWaitIdle 后无在途写;map 区间 = 帧字节。
+        unsafe {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let r = (self.dev.map_memory)(self.device, self.readback_mem, 0, self.readback_size, 0, &mut ptr);
+            if r != VK_SUCCESS || ptr.is_null() {
+                return Err(VendorError::ApiError(format!("vkMapMemory(readback) → {r}")));
+            }
+            let data = std::slice::from_raw_parts(
+                ptr as *const u16,
+                (self.out_w * self.out_h) as usize * 4,
+            );
+            // G14.7:裸指针步行改 from_raw_parts 视图(U8 镜像纪律,0 新 U 号——U58
+            // 扩注)+ 像素带并行转换;带内逐值同式同序,输出字节面与 G14.6 面逐位
+            // 一致。切片长度 = out_px·4 = readback 分配字节/2,不越 map 区间。
+            convert_out_par(data, out);
+            (self.dev.unmap_memory)(self.device, self.readback_mem);
+        }
+        Ok(())
+    }
+
+    /// G14plus vendor 域(RFC-0030)**驻留输出**变体:跑满 pack→upload→
+    /// evaluate→submit_wait,**跳过输出回读与 host f16→f32 转换**(cornell t67
+    /// readback 分项 ~0.84ms、bistro ~5.8ms 消除面)。输出驻留 session 自建
+    /// `color_out` image(R16G16B16A16_SFLOAT,GENERAL layout,句柄面见
+    /// [`Self::output_image_raw`]);调用方决定回读时机——按需(如 N 帧一测/
+    /// 末帧)调 [`Self::readback_output_into`]。既有 [`Self::upscale`]/
+    /// [`Self::upscale_into`]/[`Self::probe_validation_frame`] 行为 0-byte
+    /// (共用 `frame_impl_ext` 同一代码面,`out=Some` 臂调用序逐字保持)。
+    pub fn upscale_resident(&mut self, input: &VendorFrameInput) -> Result<(), VendorError> {
+        self.frame_impl_ext(input, false, None)
+    }
+
+    /// G14plus vendor 域(RFC-0030)**按需回读**:把驻留 `color_out` 内容回读
+    /// 转换为 3 通道 f32(行主序 RGB;f16→f32 转换与 [`Self::upscale`] 同式同
+    /// 序——同一 `map_convert_readback` 事实源,内容逐位一致)。单独录制
+    /// copy 命令 + 同步提交 + `vkQueueWaitIdle`(同步纪律与帧路径同律)。
+    /// fail-closed:`out` 长度不符或输出 image 尚无已评估内容(未跑过任何
+    /// evaluate 帧,layout 仍 UNDEFINED)→ 确定性 Err。
+    pub fn readback_output_into(&mut self, out: &mut [f32]) -> Result<(), VendorError> {
+        if out.len() != (self.out_w * self.out_h * 3) as usize {
+            return Err(VendorError::ApiError("输出切片长度与 session 输出分辨率不符".into()));
+        }
+        if self.color_out.layout != VK_IMAGE_LAYOUT_GENERAL {
+            return Err(VendorError::ApiError(
+                "输出 image 无已评估内容(先跑 upscale_resident/upscale)".into(),
+            ));
+        }
+        let begin = VkCommandBufferBeginInfo {
+            s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: 0x1, // ONE_TIME_SUBMIT
+            p_inheritance_info: std::ptr::null(),
+        };
+        // SAFETY: cmd 已分配且不在未决状态(上次提交已 queueWaitIdle 排空后 reset)。
+        let r = unsafe { (self.dev.begin_command_buffer)(self.cmd, &begin) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkBeginCommandBuffer → {r}")));
+        }
+        self.record_output_readback();
+        // SAFETY: cmd 录制完成。
+        let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkEndCommandBuffer → {r}")));
+        }
+        let submit = VkSubmitInfo {
+            s_type: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &self.cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        // SAFETY: submit 栈上存活;cmd 为录制完成态。
+        let r = unsafe { (self.dev.queue_submit)(self.queue, 1, &submit, 0) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueSubmit → {r}")));
+        }
+        // SAFETY: queue 有效;waitIdle 后无在途写。
+        let r = unsafe { (self.dev.queue_wait_idle)(self.queue) };
+        if r != VK_SUCCESS {
+            return Err(VendorError::ApiError(format!("vkQueueWaitIdle → {r}")));
+        }
+        self.map_convert_readback(out)?;
+        // 录制槽复用:reset cmd(与帧路径同律)。
+        // SAFETY: cmd 已完成提交且 queue 排空。
+        let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        Ok(())
+    }
+
+    /// G14plus vendor 域(RFC-0030)输出 image 原生句柄簿记导出(只读;句柄归
+    /// session 所有,调用方**不得销毁/越 session 生命周期持有**)。注意:DLSS
+    /// session 持**独立** VkInstance/VkDevice(SL 代理创建)——本句柄不可直接
+    /// 作其它 VkDevice(如 render_exec session)的 image 消费;跨 device 共享需
+    /// VK_KHR_external_memory 导出/导入改造(RFC-0030 裁决面,本 accessor 仅
+    /// 暴露簿记事实供 bin 侧遥测/评估)。
+    pub fn output_image_raw(&self) -> DlssOutputImageRaw {
+        DlssOutputImageRaw {
+            image: self.color_out.image,
+            memory: self.color_out.memory,
+            view: self.color_out.view,
+            vk_format: self.color_out.format,
+            layout: self.color_out.layout,
+            width: self.color_out.w,
+            height: self.color_out.h,
+        }
     }
 
     /// validation ERROR 级累计计数(我方调用实错,白名单豁免不计;messenger 在位时,否则 0)。
@@ -4165,6 +4318,77 @@ mod tests {
         assert!(matches!(r, Err(VendorError::DllNotFound(_))));
         let r = FsrDx12Session::create(bogus, (64, 64), (128, 128), false);
         assert!(matches!(r, Err(VendorError::DllNotFound(_))));
+    }
+
+    /// G14plus vendor 域(RFC-0030)驻留输出真跑冒烟:SDK/GPU 环境缺失 → SKIP
+    /// (eprintln 登记,不硬红——真跑硬门在 bin/smoke 层,RURIX_REQUIRE_REAL
+    /// 纪律同律);环境在位则全链断言。覆盖:① 未评估前按需回读 fail-closed;
+    /// ② `upscale_resident` 两帧真 evaluate;③ `output_image_raw` 簿记
+    /// (GENERAL/尺寸/RGBA16F);④ `readback_output_into` 输出有限非全零 +
+    /// 长度错 fail-closed;⑤ 既有 `upscale` 路径同 session 继跑(0-byte 回归面)。
+    #[test]
+    fn g14plus_resident_output_gpu_smoke() {
+        let Ok(sdk) = streamline_sdk_dir() else {
+            eprintln!("SKIP g14plus_resident_output_gpu_smoke: Streamline SDK 目录不可用");
+            return;
+        };
+        let (iw, ih, ow, oh) = (64u32, 64u32, 128u32, 128u32);
+        let mut sess = match DlssVkSession::create(&sdk, (iw, ih), (ow, oh), false) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("SKIP g14plus_resident_output_gpu_smoke: DLSS session 不可用({e})");
+                return;
+            }
+        };
+        let px = (iw * ih) as usize;
+        let out_px = (ow * oh) as usize;
+        // ① 未评估前回读 fail-closed(layout 仍 UNDEFINED)。
+        let mut out = vec![0f32; out_px * 3];
+        assert!(matches!(sess.readback_output_into(&mut out), Err(VendorError::ApiError(_))));
+        // 合成输入(渐变 color / 常深度 / 零 MV)。
+        let color: Vec<f32> = (0..px * 3).map(|i| (i % 255) as f32 / 255.0).collect();
+        let depth = vec![0.5f32; px];
+        let mv = vec![0f32; px * 2];
+        // ② 驻留输出两帧(真 evaluate;输出不回读)。
+        for (fi, reset) in [(1u32, true), (2u32, false)] {
+            let input = VendorFrameInput {
+                color: &color,
+                depth: &depth,
+                mv: &mv,
+                reactive: None,
+                exposure: 1.0,
+                jitter: [0.0, 0.0],
+                frame_index: fi,
+                reset,
+            };
+            sess.upscale_resident(&input).expect("upscale_resident 真跑");
+        }
+        // ③ 输出 image 簿记:已有评估内容(GENERAL)+ 尺寸/格式锚。
+        let raw = sess.output_image_raw();
+        assert_eq!(raw.layout, VK_IMAGE_LAYOUT_GENERAL);
+        assert_eq!((raw.width, raw.height), (ow, oh));
+        assert_eq!(raw.vk_format, VK_FORMAT_R16G16B16A16_SFLOAT);
+        assert!(raw.image != 0 && raw.view != 0 && raw.memory != 0);
+        // ④ 按需回读:长度错 fail-closed;正确长度输出有限且非全零。
+        let mut short = vec![0f32; out_px];
+        assert!(matches!(sess.readback_output_into(&mut short), Err(VendorError::ApiError(_))));
+        sess.readback_output_into(&mut out).expect("readback_output_into");
+        assert!(out.iter().all(|v| v.is_finite()), "回读输出须全有限");
+        assert!(out.iter().any(|&v| v > 0.0), "回读输出须非全零");
+        // ⑤ 既有 upscale 路径同 session 继跑(行为 0-byte 回归面)。
+        let input3 = VendorFrameInput {
+            color: &color,
+            depth: &depth,
+            mv: &mv,
+            reactive: None,
+            exposure: 1.0,
+            jitter: [0.0, 0.0],
+            frame_index: 3,
+            reset: false,
+        };
+        let legacy = sess.upscale(&input3).expect("既有 upscale 路径");
+        assert_eq!(legacy.len(), out_px * 3);
+        assert!(legacy.iter().all(|v| v.is_finite()));
     }
 
     #[test]

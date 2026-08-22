@@ -1,0 +1,86 @@
+//@ spec: RXS-0404
+// G14plus G14.10 相机 MV GPU 化 kernel（RFC-0030 §4.1 授权行——temporal 底座
+// 演进显式修订行；G14-N11 承接锚兑现；G14PLUS_RECORD §3 优化清单 #8）。
+//
+// ## 单源纪律守恒（RFC-0030 §4.1 L2）
+// 重投影公式单源仍在 `temporal::common::compute_camera_mv`（host 函数 0-byte
+// 保留为对照 oracle，「禁私写重投影”纪律的守恒表述）；本 kernel 为其**机械
+// 转写**（同式同序）：
+//   u = (x+0.5)/w, v = (y+0.5)/h
+//   ndc = [2u−1, 1−2v, depth, 1]
+//   world4 = inv_cur · ndc（行主序逐行 ((m0·x + m1·y) + m2·z) + m3·w 左结合，
+//            host `Mat4::transform_vec4` 迭代 sum 同序）
+//   |world4.w| < 1e-8 → mv=(0,0)（host `continue` 留 0 同语义）
+//   world = [x/w, y/w, z/w, 1]
+//   prev_clip = prev_vp · world（同上左结合）
+//   prev_clip.w ≤ 1e-8 → mv=(0,0)
+//   prev_u = 0.5·(px/pw + 1), prev_v = 0.5·(1 − py/pw)
+//   mv = (prev_u − u, prev_v − v)
+// 逆矩阵在 host 算（`Mat4::inverse` 伴随法同一实现）经 params 上传——GPU 侧
+// 零求逆（RFC-0030 §4.1 L1 字面）。
+//
+// ## 确定性协议（RXS-0357 L2 继承）
+// 逐像素独立顺序求值，禁 atomic；输出直写无跨像素交互；固定输入双跑位级一致。
+// 全 f32；w 门经 if 短臂兑现（host continue 同语义——mv 保持 0 初值面）。
+//
+// ## 参数面（host bin `pack_mv_params` 逐字同源；40 f32）
+//   params[0]=width [1]=height
+//   [2..18]=inv_cur（行主序 m[r][c] → [2+r*4+c]；host 预算逆矩阵）
+//   [18..34]=prev_vp（同布局）
+//   [34]=has_prev（<0.5 时 mv 恒 (0,0)——host 首帧 `None => ImageF32::new`
+//        零图同语义的显式门；prev_vp=cur 重投影自身数值上不精确为 0，故禁以
+//        占位矩阵冒充首帧，必须走本门）
+//   [35..40]=reserved（恒 0）。
+//   in_depth: 1 f32/px（scene session 资源 6 驻留直读——零 host 往返）；
+//   out_mv: 2 f32/px uv 偏移（TSR resolve in_mv / vendor mv 输入同约定）。
+#[numthreads(8, 8, 1)]
+kernel fn g14_mv(
+    t: ThreadCtx<2>,
+    in_depth: View<global, f32>,
+    params: View<global, f32>,
+    out_mv: ViewMut<global, f32>,
+) {
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[0] as usize;
+    let height = params[1] as usize;
+    if px < width && py < height {
+        let i = py * width + px;
+        let wf = params[0];
+        let hf = params[1];
+        let u = ((px as f32) + 0.5) / wf;
+        let v = ((py as f32) + 0.5) / hf;
+        let ndx = 2.0 * u - 1.0;
+        let ndy = 1.0 - 2.0 * v;
+        let ndz = in_depth[i];
+        // world4 = inv_cur · [ndx, ndy, ndz, 1]（左结合同序）。
+        let w4x = ((params[2] * ndx + params[3] * ndy) + params[4] * ndz) + params[5];
+        let w4y = ((params[6] * ndx + params[7] * ndy) + params[8] * ndz) + params[9];
+        let w4z = ((params[10] * ndx + params[11] * ndy) + params[12] * ndz) + params[13];
+        let w4w = ((params[14] * ndx + params[15] * ndy) + params[16] * ndz) + params[17];
+        let mut mvx = 0.0;
+        let mut mvy = 0.0;
+        let w4w_abs = w4w.max(0.0 - w4w);
+        // has_prev 门（params[34]）：首帧无上一帧 vp → mv 恒 (0,0)，与 host
+        // 首帧零图逐位同语义（门外不消费 inv_cur/prev_vp 占位值）。
+        if params[34] > 0.5 {
+            if w4w_abs >= 0.00000001 {
+                let wx = w4x / w4w;
+                let wy = w4y / w4w;
+                let wz = w4z / w4w;
+                // prev_clip = prev_vp · [wx, wy, wz, 1]（左结合同序）。
+                let pcx = ((params[18] * wx + params[19] * wy) + params[20] * wz) + params[21];
+                let pcy = ((params[22] * wx + params[23] * wy) + params[24] * wz) + params[25];
+                let pcw = ((params[30] * wx + params[31] * wy) + params[32] * wz) + params[33];
+                if pcw > 0.00000001 {
+                    let prev_u = 0.5 * (pcx / pcw + 1.0);
+                    let prev_v = 0.5 * (1.0 - pcy / pcw);
+                    mvx = prev_u - u;
+                    mvy = prev_v - v;
+                }
+            }
+        }
+        out_mv[i * 2] = mvx;
+        out_mv[i * 2 + 1] = mvy;
+    }
+}
