@@ -1,0 +1,243 @@
+//@ spec: RXS-0404
+// G14plus G14.9 TSR kernel 调度变体 —— 时域累积 resolve 腿（RFC-0030 §4.5 L1
+// 授权行；G14_CONTRACT §4.2 M-c 行「TSR device kernel 效率面」判据字面兑现
+// 对象；G14PLUS_RECORD §3 优化清单 #2）。
+//
+// ## 变体身份（与 g13_tsr_resolve.rx 的关系）
+// 本文件 = `g13_tsr_resolve.rx` 的**调度面变体**：`ThreadCtx<1>` 无 numthreads
+// （LocalSize 1,1,1）→ `#[numthreads(8, 8, 1)]` 2D 线程组 + 越界门。**逐像素
+// 数学全式逐字不变**（闪烁时域分析/MV 上采样/历史重投影/深度验证/reactive
+// 双通道/YCoCg AABB 裁剪/alpha 混合/RED 注入位全部与原 kernel 同式同序）；
+// 逐像素独立无跨像素交互 → 调度重排位级不变（digest 机核）。原
+// `g13_tsr_resolve.rx` 逐字节 0-byte 保留（G13 M-b 门消费面维持 + RD-045
+// 归因对照臂）。host 调用面：dispatch = [ceil(ow/8), ceil(oh/8), 1]。
+//
+// ## 公式面/RED 注入位/确定性协议/参数面
+// 与 g13_tsr_resolve.rx 文件头各节逐字同源（params 32 f32 布局与全部缓冲
+// 布局不变）——本文件不复述，唯一差异 = 线程组形态与索引推导：
+// i = py·ow + px（px<ow ∧ py<oh 越界门，与 1D 形态 i<pixel_count 同覆盖域）。
+#[numthreads(8, 8, 1)]
+kernel fn g14_8_tsr_resolve(
+    t: ThreadCtx<2>,
+    cur_rgb: View<global, f32>,
+    cur_luma: View<global, f32>,
+    depth_hi: View<global, f32>,
+    in_mv: View<global, f32>,
+    in_reactive: View<global, f32>,
+    hist_color: View<global, f32>,
+    hist_depth: View<global, f32>,
+    prev_luma: View<global, f32>,
+    prev_sign: View<global, f32>,
+    prev_score: View<global, f32>,
+    params: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_sign: ViewMut<global, f32>,
+    out_score: ViewMut<global, f32>,
+) {
+    let px_id = t.global_id();
+    let py_id = t.global_id_y();
+    let pixel_count = params[0] as usize;
+    let ow = params[1] as usize;
+    let iw = params[3] as usize;
+    let ih = params[4] as usize;
+    let has_history = params[8];
+    let base_alpha = params[9];
+    let min_alpha = params[10];
+    let ema_k = params[11];
+    let tighten = params[12];
+    let dz_abs = params[13];
+    let dz_rel = params[14];
+    let depth_tol = params[15];
+    let has_reactive = params[16];
+    let red_bias = params[17];
+    let red_passthrough = params[18];
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let oh = pixel_count / ow;
+    if px_id < ow && py_id < oh {
+        let i = py_id * ow + px_id;
+        let ox = i % ow;
+        let oy = i / ow;
+        let wf = ow as f32;
+        let hf = (pixel_count / ow) as f32;
+        let iwf = iw as f32;
+        let ihf = ih as f32;
+        let cr = cur_rgb[i * 3];
+        let cg = cur_rgb[i * 3 + 1];
+        let cb = cur_rgb[i * 3 + 2];
+        let mut o_r = cr;
+        let mut o_g = cg;
+        let mut o_b = cb;
+        let mut s_out = 0.0;
+        let mut sc_out = 0.0;
+        if has_history > 0.5 {
+            // ── 闪烁时域分析(帧间亮度差分 → 死区符号 → 翻转 EMA)──
+            let lc = cur_luma[i];
+            let lp = prev_luma[i];
+            let d = lc - lp;
+            let dead = dz_abs.max(dz_rel * lc.abs().max(lp.abs()));
+            let s_pos = ((d - dead) * big).min(1.0).max(0.0);
+            let s_neg = (((0.0 - dead) - d) * big).min(1.0).max(0.0);
+            let s = s_pos - s_neg;
+            let ps = prev_sign[i];
+            let s_nz = (s * s * big).min(1.0).max(0.0);
+            let ps_nz = (ps * ps * big).min(1.0).max(0.0);
+            let s_ne = ((s - ps) * (s - ps) * big).min(1.0).max(0.0);
+            let flip = s_nz * ps_nz * s_ne;
+            let score = prev_score[i] * (1.0 - ema_k) + flip * ema_k;
+            sc_out = score;
+            s_out = s + (1.0 - s_nz) * ps;
+            // ── MV 最近邻上采样(host upsample_nearest 同式)──
+            let u = ((ox as f32) + 0.5) / wf;
+            let v = ((oy as f32) + 0.5) / hf;
+            let mx = (u * iwf).floor().min(iwf - 1.0).max(0.0) as usize;
+            let my = (v * ihf).floor().min(ihf - 1.0).max(0.0) as usize;
+            let su = u + in_mv[(my * iw + mx) * 2];
+            let sv = v + in_mv[(my * iw + mx) * 2 + 1];
+            // 屏内判(出屏 = disocclusion 拒)。
+            let inx = su.min(1.0 - su).min(sv).min(1.0 - sv);
+            let inside = (inx * big).min(1.0).max(0.0);
+            // ── 历史双线性重投影(output res grid;边界 clamp)──
+            let xf = su * wf - 0.5;
+            let yf = sv * hf - 0.5;
+            let x0f = xf.floor();
+            let y0f = yf.floor();
+            let fx = xf - x0f;
+            let fy = yf - y0f;
+            let wm1 = wf - 1.0;
+            let hm1 = hf - 1.0;
+            let xa = x0f.min(wm1).max(0.0) as usize;
+            let xb = (x0f + 1.0).min(wm1).max(0.0) as usize;
+            let ya = y0f.min(hm1).max(0.0) as usize;
+            let yb = (y0f + 1.0).min(hm1).max(0.0) as usize;
+            let i00 = ya * ow + xa;
+            let i10 = ya * ow + xb;
+            let i01 = yb * ow + xa;
+            let i11 = yb * ow + xb;
+            let h00 = hist_color[i00 * 3];
+            let h10 = hist_color[i10 * 3];
+            let h01 = hist_color[i01 * 3];
+            let h11 = hist_color[i11 * 3];
+            let hr = (h00 * (1.0 - fx) + h10 * fx) * (1.0 - fy)
+                + (h01 * (1.0 - fx) + h11 * fx) * fy;
+            let g00 = hist_color[i00 * 3 + 1];
+            let g10 = hist_color[i10 * 3 + 1];
+            let g01 = hist_color[i01 * 3 + 1];
+            let g11 = hist_color[i11 * 3 + 1];
+            let hg = (g00 * (1.0 - fx) + g10 * fx) * (1.0 - fy)
+                + (g01 * (1.0 - fx) + g11 * fx) * fy;
+            let b00 = hist_color[i00 * 3 + 2];
+            let b10 = hist_color[i10 * 3 + 2];
+            let b01 = hist_color[i01 * 3 + 2];
+            let b11 = hist_color[i11 * 3 + 2];
+            let hb = (b00 * (1.0 - fx) + b10 * fx) * (1.0 - fy)
+                + (b01 * (1.0 - fx) + b11 * fx) * fy;
+            let d00 = hist_depth[i00];
+            let d10 = hist_depth[i10];
+            let d01 = hist_depth[i01];
+            let d11 = hist_depth[i11];
+            let dp = (d00 * (1.0 - fx) + d10 * fx) * (1.0 - fy)
+                + (d01 * (1.0 - fx) + d11 * fx) * fy;
+            // ── 历史验证:深度相对差判据(法线恒过——host 金标准法线填均匀
+            //    常量,验证实质 = 深度相对差 + 出屏检测,tsr.rs 文档 d)──
+            let dc = depth_hi[i];
+            let depth_ok = ((depth_tol * dc.max(dp).max(tiny) - (dc - dp).abs()) * big)
+                .min(1.0)
+                .max(0.0);
+            let valid = inside * depth_ok;
+            // ── reactive 双线性上采样(input res;先验软权重)──
+            let rxf = u * iwf - 0.5;
+            let ryf = v * ihf - 0.5;
+            let rx0 = rxf.floor();
+            let ry0 = ryf.floor();
+            let rfx = rxf - rx0;
+            let rfy = ryf - ry0;
+            let rwm1 = iwf - 1.0;
+            let rhm1 = ihf - 1.0;
+            let rxa = rx0.min(rwm1).max(0.0) as usize;
+            let rxb = (rx0 + 1.0).min(rwm1).max(0.0) as usize;
+            let rya = ry0.min(rhm1).max(0.0) as usize;
+            let ryb = (ry0 + 1.0).min(rhm1).max(0.0) as usize;
+            let r00 = in_reactive[rya * iw + rxa];
+            let r10 = in_reactive[rya * iw + rxb];
+            let r01 = in_reactive[ryb * iw + rxa];
+            let r11 = in_reactive[ryb * iw + rxb];
+            let reactive = has_reactive
+                * ((r00 * (1.0 - rfx) + r10 * rfx) * (1.0 - rfy)
+                    + (r01 * (1.0 - rfx) + r11 * rfx) * rfy);
+            // ── 当前帧 YCoCg 3×3 邻域 AABB(边界复制)──
+            let mut mn0: f32 = 1e30;
+            let mut mn1: f32 = 1e30;
+            let mut mn2: f32 = 1e30;
+            let mut mx0: f32 = 0.0 - 1e30;
+            let mut mx1: f32 = 0.0 - 1e30;
+            let mut mx2: f32 = 0.0 - 1e30;
+            let mut dy = 0usize;
+            while dy < 3 {
+                let mut dx = 0usize;
+                while dx < 3 {
+                    let qxf = ((ox as f32) + (dx as f32 - 1.0)).min(wm1).max(0.0);
+                    let qyf = ((oy as f32) + (dy as f32 - 1.0)).min(hm1).max(0.0);
+                    let qi = (qyf as usize) * ow + (qxf as usize);
+                    let qr = cur_rgb[qi * 3];
+                    let qg = cur_rgb[qi * 3 + 1];
+                    let qb = cur_rgb[qi * 3 + 2];
+                    let y0 = 0.25 * qr + 0.5 * qg + 0.25 * qb;
+                    let co0 = 0.5 * qr - 0.5 * qb;
+                    let cg0 = 0.0 - 0.25 * qr + 0.5 * qg - 0.25 * qb;
+                    mn0 = mn0.min(y0);
+                    mx0 = mx0.max(y0);
+                    mn1 = mn1.min(co0);
+                    mx1 = mx1.max(co0);
+                    mn2 = mn2.min(cg0);
+                    mx2 = mx2.max(cg0);
+                    dx = dx + 1;
+                }
+                dy = dy + 1;
+            }
+            // ── 历史色 → YCoCg → 闪烁松弛钳入邻域 AABB ──
+            let hy = 0.25 * hr + 0.5 * hg + 0.25 * hb;
+            let hco = 0.5 * hr - 0.5 * hb;
+            let hcg = 0.0 - 0.25 * hr + 0.5 * hg - 0.25 * hb;
+            let relax = (score * (1.0 - reactive)).min(1.0).max(0.0);
+            let cy = hy.min(mx0).max(mn0) * (1.0 - relax) + hy * relax;
+            let cco = hco.min(mx1).max(mn1) * (1.0 - relax) + hco * relax;
+            let ccg = hcg.min(mx2).max(mn2) * (1.0 - relax) + hcg * relax;
+            // ── alpha 调制(reactive 优先于闪烁收紧)──
+            let alpha = (base_alpha * (1.0 - tighten * score * (1.0 - reactive)))
+                .max(reactive)
+                .min(1.0)
+                .max(min_alpha);
+            // 当前帧 YCoCg。
+            let cy0 = 0.25 * cr + 0.5 * cg + 0.25 * cb;
+            let cco0 = 0.5 * cr - 0.5 * cb;
+            let ccg0 = 0.0 - 0.25 * cr + 0.5 * cg - 0.25 * cb;
+            let by = alpha * cy0 + (1.0 - alpha) * cy;
+            let bco = alpha * cco0 + (1.0 - alpha) * cco;
+            let bcg = alpha * ccg0 + (1.0 - alpha) * ccg;
+            let tmp = by - bcg;
+            let fr = (tmp + bco).max(0.0);
+            let fg = (by + bcg).max(0.0);
+            let fb = (tmp - bco).max(0.0);
+            // valid 选择(valid=0 取当前帧——宁可锯齿回归不拖影)。
+            o_r = valid * fr + (1.0 - valid) * cr;
+            o_g = valid * fg + (1.0 - valid) * cg;
+            o_b = valid * fb + (1.0 - valid) * cb;
+        }
+        if red_passthrough > 0.5 {
+            // RED 臂:时域累积恒等旁通(冒充已累积)。
+            o_r = cr;
+            o_g = cg;
+            o_b = cb;
+        }
+        // RED 注入位:输出面加性偏置(device vs host 对拍超容差检出面)。
+        o_r = o_r + red_bias;
+        o_g = o_g + red_bias;
+        o_b = o_b + red_bias;
+        out_color[i * 3] = o_r;
+        out_color[i * 3 + 1] = o_g;
+        out_color[i * 3 + 2] = o_b;
+        out_sign[i] = s_out;
+        out_score[i] = sc_out;
+    }
+}

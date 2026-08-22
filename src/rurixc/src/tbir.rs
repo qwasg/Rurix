@@ -127,7 +127,8 @@ pub enum ExprKind {
         receiver: Box<Expr>,
         args: Vec<Expr>,
     },
-    /// RayQuery 遍历器调用(G7.2 W3a,RXS-0298):`ray_query_initialize` 自由函数
+    /// RayQuery 遍历器调用(G7.2 W3a,RXS-0298):`ray_query_initialize` /
+    /// `ray_query_initialize_first_hit`(RFC-0030 §4.6)自由函数
     /// (receiver=None,args=5 实参)与 `RayQuery` 方法族(receiver=Some,args 空)。
     RayQueryCall {
         op: crate::hir::RayQueryOp,

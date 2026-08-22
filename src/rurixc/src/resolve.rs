@@ -180,6 +180,11 @@ pub struct LangItems {
     /// 兜底,可被用户遮蔽;签名为 typeck 编译器已知,沿 `write_ppm`/`trace_ray`
     /// 先例)。
     pub ray_query_initialize: Option<DefId>,
+    /// `ray_query_initialize_first_hit` 编译器已知自由函数(RFC-0030 §4.6;
+    /// 签名/三态协议与 `ray_query_initialize` 完全同形,唯一差异在 SPIR-V
+    /// RayFlags = `OpaqueKHR|TerminateOnFirstHitKHR`(0x5,阴影射线早退);
+    /// 值位置兜底,可被用户遮蔽,沿 `ray_query_initialize` 纪律)。
+    pub ray_query_initialize_first_hit: Option<DefId>,
 }
 
 /// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
@@ -271,6 +276,8 @@ impl LangItems {
             // RayQuery 构造自由函数(G7.2 W3a,RXS-0298):值位置兜底(模块值 ns
             // 优先 = 用户同名定义遮蔽);签名为 typeck 编译器已知。
             "ray_query_initialize" => self.ray_query_initialize,
+            // first-hit 变体(RFC-0030 §4.6):同 `ray_query_initialize` 兜底纪律。
+            "ray_query_initialize_first_hit" => self.ray_query_initialize_first_hit,
             _ => None,
         }
     }
@@ -415,6 +422,12 @@ impl LangItems {
     /// 分支识别)。
     pub fn is_ray_query_initialize(&self, d: DefId) -> bool {
         Some(d) == self.ray_query_initialize
+    }
+
+    /// `ray_query_initialize_first_hit` 构造自由函数判定(RFC-0030 §4.6;typeck
+    /// 已知签名分支识别,与 `is_ray_query_initialize` 同形)。
+    pub fn is_ray_query_initialize_first_hit(&self, d: DefId) -> bool {
+        Some(d) == self.ray_query_initialize_first_hit
     }
 
     /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
@@ -630,6 +643,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             ordering: None,
             ray_query: None,
             ray_query_initialize: None,
+            ray_query_initialize_first_hit: None,
         };
     }
     r.collect_items(&file.items, 0);
@@ -784,6 +798,17 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             Some(r.new_def(DefKind::Struct, "VertexBuffer", Vis::Pub, span, 0));
         r.out.lang_items.rhi_index_buffer =
             Some(r.new_def(DefKind::Struct, "IndexBuffer", Vis::Pub, span, 0));
+        // `ray_query_initialize_first_hit` 构造自由函数(RFC-0030 §4.6):first-hit
+        // 早退变体,签名/三态协议同 `ray_query_initialize`。**追加于全部既有 lang
+        // items 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性);同
+        // `ray_query_initialize` 兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.ray_query_initialize_first_hit = Some(r.new_def(
+            DefKind::Fn,
+            "ray_query_initialize_first_hit",
+            Vis::Pub,
+            span,
+            0,
+        ));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

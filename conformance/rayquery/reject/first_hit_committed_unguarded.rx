@@ -1,0 +1,16 @@
+//@ spec: RXS-0299
+//@ expect-error: RX3018
+// RFC-0030 §4.6 语料(spec 条款 post-interlock 领号,锚定行暂用既有 RXS-0299):
+// first-hit query 的三态协议与基线内建完全同形——本反例复用 S3 支配域真实错误:
+// `ray_query_initialize_first_hit` 构造后**未经 proceed/has_committed 守卫**直接
+// 消费 `committed_t` → RX3018(MIR S3 支配域检查,保守拒,编译期拦截)。
+//
+// 裁决说明:「first-hit query 上消费 committed_t」本身属**语义警示面**——类型与
+// 三态协议均合法(其值为首个命中而非最近命中),编译器不拒;而 reject 语料机制
+// = `//@ expect-error: RX####` 编译错误码断言(rayquery_corpus.rs 反例全拦截
+// 口径),语义警示不适用。故本反例改用真实协议错误形态(未守卫消费),
+// committed_t 语义边界在 accept 侧 `../accept/ray_query_first_hit.rx` 注释登记。
+kernel fn first_hit_committed_unguarded(tlas: AccelStruct, t: ThreadCtx<1>) {
+    let mut rq = ray_query_initialize_first_hit(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+    let t_hit = rq.committed_t();
+}

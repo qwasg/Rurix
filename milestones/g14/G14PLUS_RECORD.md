@@ -51,7 +51,24 @@
   - 三张 G14 登记表（g14_budget / g14_fps_gap_registry / g14_ue_variance_samples）为 G14 车道门产刷新与只追加样本，**保留工作树态**（回退将删除合法只追加样本；G14.12 复测将全量重写）。
 - **治理产物**：RFC-0030 v1.0 Agent Approved（[rfcs/0030](../../rfcs/0030-g14plus-pipeline-structural-optimization.md) + [D-409 评审](design/rfc0030_adversarial_review.md)）；P2 表后事件登记（G14plus 立项条，[G14_P2_DECISIONS](G14_P2_DECISIONS.md) 表后区）；MAP 附录 A M-h 行（步骤 265 实测领取）；`ci/g14_continuation_closeout_smoke.py` + schema materialize；契约 §8.8 立项记录；ledger v1.150 校准（RFC 30 消费 + CI_step 265 消费）。
 
-<!-- G14.8 起逐波追加 -->
+### G14.8 测量与确定性基线波（2026-08-22）
+
+- **锁频降级如实登记**：`nvidia-smi -lgc 2400,2400` 普通权限被拒（exit 4）；UAC 提权尝试被用户取消（"The operation was canceled by the user"）——**锁频不可用**。降级处置（方案登记面）：环境画像登记（`nvidia-smi --query-gpu` 时钟/温度读取面可用）+ 重型 bench 前冷却门控（热态等待）替代；M-b/M-d 复测时环境画像入 receipt。UE 臂基线重测取消（锁频不可用后无新环境态，M-d 复测时自然重测同口径 UE 臂——裁决登记）。
+- **flip-trace 诊断臂扩展落地**（RD-045 backfill_condition 字面动作，RFC-0030 §4.2 L1）：`g14_3_pipeline_perf.rs` bench 腿 env `RURIX_G14_FLIP_TRACE=<dir>` 逐帧 digest 轨迹追加写 `frame_digests_<scene>_t<tier>_<backend>.jsonl`（digest 本就逐帧计算，trace 仅多一次文件追加，数据面位级零漂移）。
+- **RD-045 基线漂移率 N=20**：HEAD 基线码面（47cd0750 副本 binary `.tmp/g14plus_rd045/g14_3_pipeline_perf_head.exe`）bistro-interior/t50/tsr_device 20 轮进程级独立 bench（~101s/轮，逐轮末帧 digest 对 stage_a 锚）——**drift=0/20**（统计诚实：p≈1.9% 历史检出率下 N=20 零检出置信 ~68%，快筛非闭环证据；full log `.tmp/g14plus_rd045/summary.txt`）。前两次脚本启动失败留痕（缺 RURIX_VK_VALIDATION env / --expect-digest 语义误用为契约 digest 断言——修正后重跑，失败轮 0 有效数据）。
+
+### G14.9 host 面与 RT 白给波（2026-08-22）
+
+三个并行实施域（波序与 L0 验证协议沿 RFC-0030 + 方案 C 分级验证）：
+
+- **编译器域**（rurixc 13 文件 + conformance 4 文件）：`ray_query_initialize_first_hit` 内建全链——HIR `InitializeFirstHit` 变体 + MIR `Rvalue::RayQueryInitialize` 加 `first_hit: bool` 字段（默认 false 路径 W1/W2 五 kernel golden manifest 重编 **BYTE-IDENTICAL** 位级 0-byte 实证）+ vulkan_codegen 按字段发射 RayFlags `0x1|0x4=0x5` + `ray_query_check` 三态协议 by-construction 列入初始化集 + dxil/PTX/host 腿通配自动同态拒绝（零改动）+ conformance accept/reject 语料（reject 裁决：committed_t 语义警示不适用错误码机制，改用 S3 未守卫真实错误 RX3018）+ trace_matrix 再生成 388/388；`cargo test -p rurixc` 524+ 全绿含 5 个新单测。
+- **执行器域**（render_exec.rs + vk.rs）：① FIF=2 submit/collect 分离——`execute_persistent_frame` 拆 `submit_persistent_frame`+`collect_persistent_frame`（代码逐字搬移顺序路位级等价，GPU 真跑两帧 readback 逐位相等实证）+ 公共 API `submit_with_frame_update`/`collect`（FrameTicket 线性令牌）+ per-slot cmd/query 区间/上传/回读 staging（懒建，顺序 session 零增量）；② readback HOST_CACHED 选择器（`create_device_buffer` 加 `prefer_cached` 参数，优选 HV|HC|CACHED 缺型回退）;③ AS flags（BLAS PREFER_FAST_TRACE + TLAS 叠加）。`cargo test -p rurix-rt` 209 过/2 败——两败为 HEAD 基线既有（m103_descriptor_buffer_ffi_layout_anchors 常量锚 + binding_supply_chain Cargo.toml vulkan feature 断言），非本批引入，如实登记待查。
+- **kernel 域**：TSR 调度变体 `g14_8_tsr_resample/resolve.rx`（`#[numthreads(8,8,1)]` 2D + 越界门，数学全式与 g13_tsr_* 逐字同源；原 g13 kernel 0-byte 保留）+ bin 侧 dispatch 2D 化与 SPV 路径切换 + M-c 门脚本 SPV 路径同步；`g14_3_direct_gi.rx` 背光 keep 预判跳射线（quad/point 双臂，恒 0 keep 门乘掉 vis 位级不变）+ 阴影臂 first-hit 切换（spirv-dis 字面：主射线 `%uint_1` 维持 / 两处阴影 `%uint_5`）。
+- **L0 位级探针与两起实测归因修订（诚实登记）**：
+  1. **AS PREFER_FAST_TRACE 漂移即弃**：bistro t50 tsr 末帧 digest ≠ 锚（c099fc86… ≠ cd35a878…）——bisect（revert flags 单变量）确认 AS flags 为漂移源（105 万三角共面 tie-break 随 BVH 遍历序改变；cornell 36 三角无 tie 故 PASS）；按 RFC-0030 §4.8「漂移即弃」字面**放弃本项并 revert**（vk.rs 两处回退基线 flags，探针注释留痕）。
+  2. **SSBO 本体切 cached 的 GPU snoop 惩罚修订**：初版把 Readback::Buffer 引用的 SSBO 本体切 HOST_CACHED——实测 bistro t50 scene GPU 8.58→30.5ms（≈3.5×劣化，GPU kernel 散写 snooped 内存 cache 一致性惩罚；HEAD kernel + 新 render_exec 隔离测试归因排除 kernel 改动嫌疑）；修订 = session SSBO 本体恒保持 WC（HEAD 行为 0-byte），cached 优选仅用于 staging 类用途；输出 SSBO 的 DEVICE_LOCAL 终态 + 锚点帧 staged 回读归 G14.10。
+  - 修订后 L0 终态：**cornell t67 tsr 双跑 converged digest 三方一致 PASS**（== pre 锚 e9bc79a7…）+ **bistro t50 tsr 末帧 digest == stage_a 锚 PASS**。
+- **性能过渡态登记**（G14.10 前不作对标输入）：bistro t50 tsr prod 156.06ms（vs 立项基线 139.67——TSR OUT_COLOR 24.9MB 回读走 WC 的过渡态；TSR kernel 8×8 已实证生效〔cached 对照轮 upscale 120.29→38.24ms 旁证〕，回读/上传税待 G14.10 并 session + 关生产回读一次性消灭）；scene GPU 12.49ms（vs 8.58 基线 +3.9ms，first-hit/跳射线在 bistro 点光臂的微扰待 G14.10 后复核归因）。
 
 ## 5. 复测轨迹（M-d 逐版 ratio 收敛表——逐波追加）
 

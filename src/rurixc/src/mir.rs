@@ -437,6 +437,11 @@ pub enum Rvalue {
         t_min: Operand,
         dir: Operand,
         t_max: Operand,
+        /// first-hit 早退变体(RFC-0030 §4.6:`ray_query_initialize_first_hit`)。
+        /// 仅影响 SPIR-V RayFlags 操作数:false = `OpaqueKHR`(0x1,既有面,
+        /// RXS-0298 钉死);true = `OpaqueKHR|TerminateOnFirstHitKHR`(0x5,
+        /// 阴影射线早退)。三态协议(RXS-0299)两变体同形。
+        first_hit: bool,
     },
     /// RayQuery 方法族(G7.2 W3a,RXS-0298/0299):对 `rq_local` 指向的 RayQuery
     /// 遍历器局部执行 `op`(proceed/terminate/has_committed/committed_* 五查询)。
@@ -795,15 +800,22 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
                 }
             )
         }
-        // RayQuery(G7.2 W3a,RXS-0298):句柄 local 下标直印(沿 ResourceSample 先例)。
+        // RayQuery(G7.2 W3a,RXS-0298):句柄 local 下标直印(沿 ResourceSample 先例;
+        // first-hit 变体印语言面同名内建,RFC-0030 §4.6)。
         Rvalue::RayQueryInitialize {
             tlas_local,
             origin,
             t_min,
             dir,
             t_max,
+            first_hit,
         } => format!(
-            "ray_query_initialize(_{}, {}, {}, {}, {})",
+            "{}(_{}, {}, {}, {}, {})",
+            if *first_hit {
+                "ray_query_initialize_first_hit"
+            } else {
+                "ray_query_initialize"
+            },
             tlas_local.0,
             print_operand(origin),
             print_operand(t_min),

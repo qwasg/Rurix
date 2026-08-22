@@ -184,7 +184,8 @@ impl DeviceIntrinsic {
 }
 
 /// RayQuery 遍历器方法族 + 构造算子(G7.2 W3a,RXS-0298;方法族沿 `ThreadCtx`
-/// DeviceIntrinsic 先例,构造经已知自由函数 `ray_query_initialize`)。
+/// DeviceIntrinsic 先例,构造经已知自由函数 `ray_query_initialize` /
+/// `ray_query_initialize_first_hit`)。
 /// typeck 记录调用点 → tbir/MIR/codegen 消费;committed 查询族支配域约束见
 /// RXS-0299 S3。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -192,6 +193,11 @@ pub enum RayQueryOp {
     /// `ray_query_initialize(tlas, origin, t_min, dir, t_max)` → `RayQuery`
     /// (Call 节点;产 `Initialized`)。
     Initialize,
+    /// `ray_query_initialize_first_hit(tlas, origin, t_min, dir, t_max)` →
+    /// `RayQuery`(Call 节点;产 `Initialized`;RFC-0030 §4.6)。签名/三态协议
+    /// 与 `Initialize` 完全同形,唯一差异在 SPIR-V RayFlags 操作数
+    /// (`OpaqueKHR|TerminateOnFirstHitKHR` = 0x5,阴影射线早退)。
+    InitializeFirstHit,
     /// `proceed()` → `bool`(遍历推进,自环 `Initialized`)。
     Proceed,
     /// `terminate()` → unit(可选早退,`Initialized` → `Terminated`)。
@@ -211,8 +217,9 @@ pub enum RayQueryOp {
 }
 
 impl RayQueryOp {
-    /// 方法名 → 遍历器方法(RXS-0298 首期开放面;`Initialize` 不由方法名产生,
-    /// 构造经自由函数 `ray_query_initialize`)。
+    /// 方法名 → 遍历器方法(RXS-0298 首期开放面;`Initialize`/`InitializeFirstHit`
+    /// 不由方法名产生,构造经自由函数 `ray_query_initialize` /
+    /// `ray_query_initialize_first_hit`)。
     pub fn from_method(name: &str) -> Option<Self> {
         Some(match name {
             "proceed" => RayQueryOp::Proceed,
@@ -230,6 +237,7 @@ impl RayQueryOp {
     pub fn name(self) -> &'static str {
         match self {
             RayQueryOp::Initialize => "ray_query_initialize",
+            RayQueryOp::InitializeFirstHit => "ray_query_initialize_first_hit",
             RayQueryOp::Proceed => "proceed",
             RayQueryOp::Terminate => "terminate",
             RayQueryOp::HasCommitted => "has_committed",
@@ -1249,15 +1257,26 @@ mod tests {
             assert_eq!(RayQueryOp::from_method(name), Some(expected));
             assert_eq!(expected.name(), name);
         }
-        // Initialize 不由方法名产生
+        // Initialize / InitializeFirstHit 不由方法名产生
         assert_eq!(RayQueryOp::from_method("ray_query_initialize"), None);
+        assert_eq!(
+            RayQueryOp::from_method("ray_query_initialize_first_hit"),
+            None
+        );
         assert_eq!(RayQueryOp::from_method("unknown"), None);
+        // 构造算子 name 单列(RFC-0030 §4.6:命名严格镜像)
+        assert_eq!(RayQueryOp::Initialize.name(), "ray_query_initialize");
+        assert_eq!(
+            RayQueryOp::InitializeFirstHit.name(),
+            "ray_query_initialize_first_hit"
+        );
     }
 
     #[test]
     fn ray_query_op_is_committed_query_boundary() {
         // 非 committed
         assert!(!RayQueryOp::Initialize.is_committed_query());
+        assert!(!RayQueryOp::InitializeFirstHit.is_committed_query());
         assert!(!RayQueryOp::Proceed.is_committed_query());
         assert!(!RayQueryOp::Terminate.is_committed_query());
         assert!(!RayQueryOp::HasCommitted.is_committed_query());

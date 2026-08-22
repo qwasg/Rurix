@@ -124,8 +124,12 @@ const UNIT_NORM_TOL: f64 = 9.094947017729282e-13; // 2^-40（RXS-0384 L2 谓词�
 const DEFAULT_CONTRACT: &str = "milestones/g13/g13_ue_upscale_parity_contract.json";
 const DEFAULT_OUT_ROOT: &str = "K:/rurix-ext/g14-frames/rurix_prod";
 const DEFAULT_SPV_SCENE: &str = ".tmp/g14_gates/m_c/g14_3_direct_gi.spv";
-const DEFAULT_SPV_RESAMPLE: &str = ".tmp/g13_gates/m_b/g13_tsr_resample.spv";
-const DEFAULT_SPV_RESOLVE: &str = ".tmp/g13_gates/m_b/g13_tsr_resolve.spv";
+// G14.9（RFC-0030 §4.5 L1）：TSR 双腿默认切换到 g14_8 调度变体 SPV（8×8 2D
+// 线程组，数学面与 g13_tsr_* 逐字同源位级不变；原 g13 kernel/SPV 0-byte 保留
+// ——G13 M-b 门消费面 + RD-045 归因对照臂，--spv-resample/--spv-resolve 可
+// 显式指回旧面做对照）。
+const DEFAULT_SPV_RESAMPLE: &str = ".tmp/g14_gates/m_c/g14_8_tsr_resample.spv";
+const DEFAULT_SPV_RESOLVE: &str = ".tmp/g14_gates/m_c/g14_8_tsr_resolve.spv";
 /// jitter 派生窗口模数（素数；base = seed % 65521，与 g13_4 同模——M-d 锚）。
 const JITTER_WINDOW_MOD: u64 = 65521;
 /// 主射线 t_max（host TriBvh 无界求交面的 device 兑现；1e30 常量族沿 M96/M100）。
@@ -2123,12 +2127,15 @@ fn tsr_lane_descs(
         buf(opc * 4),  // TSR_OUT_SCORE[0]
         buf(opc * 4),  // TSR_OUT_SCORE[1]
     ];
+    // G14.9（RFC-0030 §4.5 L1）：dispatch 2D 化——[ceil(ow/8), ceil(oh/8), 1]
+    // × LocalSize(8,8,1)（原 [ow·oh,1,1] × LocalSize 1,1,1 百万工作组×1 线程
+    // 调度灾难面消除）；kernel 逐像素独立，调度重排位级不变（L0 digest 机核）。
     let passes = [
         Pass::Compute(ComputePass {
-            name: "g13_tsr_resample",
+            name: "g14_8_tsr_resample",
             spirv: &bits.spv_resample,
             entry: None,
-            dispatch: DispatchSpec::Direct([ow * oh, 1, 1]),
+            dispatch: DispatchSpec::Direct([ow.div_ceil(8), oh.div_ceil(8), 1]),
             bindings: Bindings {
                 storage_buffers: vec![
                     TSR_IN_COLOR,
@@ -2142,10 +2149,10 @@ fn tsr_lane_descs(
             },
         }),
         Pass::Compute(ComputePass {
-            name: "g13_tsr_resolve",
+            name: "g14_8_tsr_resolve",
             spirv: &bits.spv_resolve,
             entry: None,
-            dispatch: DispatchSpec::Direct([ow * oh, 1, 1]),
+            dispatch: DispatchSpec::Direct([ow.div_ceil(8), oh.div_ceil(8), 1]),
             bindings: Bindings {
                 storage_buffers: vec![
                     TSR_CUR_RGB,
@@ -3528,6 +3535,26 @@ fn bench_leg(
     let mut prod_ms: Vec<f64> = Vec::new();
     let mut prev_vp: Option<Mat4> = None;
     let mut last_digest = String::new();
+    // G14.8 flip-trace 诊断臂（RD-045 backfill_condition 字面动作，RFC-0030 §4.2 L1）：
+    // env RURIX_G14_FLIP_TRACE=<dir> 时逐帧 digest 轨迹追加写 <dir>/frame_digests.jsonl
+    // （digest 本就逐帧计算——L3591 tail 测量面，trace 仅多一次文件追加，数据面位级零漂移；
+    // G12_5_BENCH_FLIP_TRACE 前例同模）。漂移定位分型：首帧漂=冷启/未初始化、中途单帧漂=
+    // 拷贝竞争/归约序、漂后链式污染=进历史链。
+    let flip_trace: Option<std::io::BufWriter<std::fs::File>> =
+        std::env::var("RURIX_G14_FLIP_TRACE").ok().map(|dir| {
+            let d = PathBuf::from(&dir);
+            std::fs::create_dir_all(&d)
+                .unwrap_or_else(|e| fail(&format!("flip-trace 目录 {dir}: {e}")));
+            let p = d.join(format!(
+                "frame_digests_{scene_id}_t{tier}_{}.jsonl",
+                backend.name()
+            ));
+            std::io::BufWriter::new(
+                std::fs::File::create(&p)
+                    .unwrap_or_else(|e| fail(&format!("flip-trace 文件 {}: {e}", p.display()))),
+            )
+        });
+    let mut flip_trace = flip_trace;
     // G14.6：bench 腿驻留输出缓冲（Stage A 消逐帧分配；字节面逐位一致）
     let mut out_img = ImageF32::new(out_w, out_h, 3);
     for i in 0..total {
@@ -3589,6 +3616,11 @@ fn bench_leg(
             fail(&format!("bench 帧 {i} upscale 输出非有限"));
         }
         last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
+        if let Some(w) = flip_trace.as_mut() {
+            use std::io::Write as _;
+            writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
+                .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+        }
         let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
         let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
         if i >= warmup {

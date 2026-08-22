@@ -908,6 +908,17 @@ pub struct DeviceFrameOutput {
     pub telemetry: DeviceFrameTelemetry,
 }
 
+/// FIF 流水帧票据(G14plus RFC-0030 §4.3 L2;
+/// [`DeviceFrameSession::submit_with_frame_update`] 产、
+/// [`DeviceFrameSession::collect`] 消费,须交还产出它的同一 session)。
+/// 线性令牌:不可克隆;弃置未 collect 的票据将使对应 frame slot 持续占用
+/// (后续对该 slot 的 submit 与全部顺序 execute 入口确定性 `Err`——
+/// fail-closed,不悬垂 fence)。
+pub struct FrameTicket {
+    inner: PersistentFrameTicket,
+    provenance: SubmissionProvenance,
+}
+
 /// 持久 Vulkan device-frame session。
 ///
 /// instance/device/queue/resources/descriptors/pipelines/command buffer/readback/history 均在
@@ -1203,6 +1214,123 @@ impl<'a> DeviceFrameSession<'a> {
         })
     }
 
+    /// FIF 流水提交半程(G14plus RFC-0030 §4.3 L2,G14.10 消费面):校验序与
+    /// [`Self::execute_with_frame_update`] 同源(① `validate_frame_update`
+    /// ② effective 态重推 expected provenance ③ `validate_submission_provenance`),
+    /// 但 submit 后**不等完成 fence**,返回 [`FrameTicket`] 交
+    /// [`Self::collect`] 收集——CPU 侧 submit/collect 解耦即 FIF 流水收益。
+    /// GPU 帧间由 per-slot cmd 首条全局守卫 barrier 全序化,逐帧图像与顺序
+    /// execute(FIF=1)**位级一致**(per-slot cmd/timestamp 区间/上传 staging/
+    /// 回读 staging 隔离;同 slot 复用前 fence 等待;见
+    /// `submit_pipelined_frame` 确定性论证)。
+    ///
+    /// 流水约束(fail-closed 确定性 `Err`,不静默降级):
+    /// - `binding_overrides` 非空——descriptor set 为 session 共享对象,在飞帧
+    ///   使用中不可重写(SSBO 常驻绑定不变面无此需求;需改绑走顺序入口);
+    /// - `tlas_update`——TLAS instance buffer 为共享 host 写面,在飞帧读取中
+    ///   不可改写(需 TLAS 更新走顺序入口);
+    /// - 同 slot 票据未 collect 再 submit(FIF 深度 = `frame_slots` 已满);
+    /// - 任何票据未 collect 时调用顺序 `execute*` 入口。
+    ///
+    /// 提交成功即落账 generation/frame 计数(流水语义:下帧 provenance 须见
+    /// 本帧内容代;collect 失败属会话级失败,不回滚)。
+    pub fn submit_with_frame_update(
+        &mut self,
+        supplied: &SubmissionProvenance,
+        update: &FrameUpdate,
+    ) -> Result<FrameTicket, String> {
+        let record_started = std::time::Instant::now();
+        let (effective, generations) = self.frame_update_state(update)?;
+        let expected = build_runtime_provenance_ext(
+            self.passes,
+            &effective,
+            &self.native.resource_allocations,
+            &generations,
+            self.frame_generation + 1,
+            self.resources.len() as u32,
+        );
+        validate_submission_provenance(&expected, supplied)?;
+        let validate_ns = elapsed_ns(record_started);
+        if !update.binding_overrides.is_empty() {
+            return Err(
+                "FIF 流水不支持 binding_overrides(descriptor set 为共享对象,在飞帧使用中\
+                 不可重写;需逐帧改绑请走顺序 execute_with_frame_update)"
+                    .into(),
+            );
+        }
+        if update.tlas_update.is_some() {
+            return Err(
+                "FIF 流水不支持 tlas_update(TLAS instance buffer 为共享 host 写面,在飞帧\
+                 读取中不可改写;需 TLAS 更新请走顺序 execute_with_frame_update)"
+                    .into(),
+            );
+        }
+        let uploads: Vec<(u32, u64, &[u8])> = update
+            .buffer_uploads
+            .iter()
+            .map(|(resource_id, offset, bytes)| {
+                ((resource_id.0 - 1) as u32, *offset, bytes.as_slice())
+            })
+            .collect();
+        let (effective_readbacks, effective_rb_sources) = match &update.readback_subset {
+            Some(indices) => (
+                indices
+                    .iter()
+                    .map(|&i| self.readbacks[i as usize])
+                    .collect::<Vec<Readback>>(),
+                indices.iter().map(|&i| i as usize).collect::<Vec<usize>>(),
+            ),
+            None => (Vec::new(), Vec::new()),
+        };
+        let prepared = PreparedFrameUpdate {
+            uploads: &uploads,
+            tlas: None,
+            descriptor_overrides: &[],
+            effective_bindings: &effective,
+            effective_readbacks: &effective_readbacks,
+            effective_rb_sources: &effective_rb_sources,
+            // 流水路恒重录本 slot cmd(slot query 区间与 staged 段皆帧相关)。
+            needs_rerecord: true,
+        };
+        // SAFETY: native session 独占 &mut self;prepared 全部引用本帧栈上数据,
+        // 随调用结束失效;slot fence 纪律见 submit_pipelined_frame 契约。
+        let mut inner = unsafe {
+            submit_pipelined_frame(
+                &mut self.native,
+                self.resources,
+                self.passes,
+                self.barriers,
+                self.readbacks,
+                &prepared,
+            )?
+        };
+        inner.record_ns += validate_ns;
+        self.resource_generations = generations;
+        self.commit_provenance(&expected);
+        Ok(FrameTicket {
+            inner,
+            provenance: expected,
+        })
+    }
+
+    /// FIF 流水收集半程:等待票据帧 fence(有界)→ timestamp(slot 区间)→
+    /// per-slot staging 回读 → telemetry,释放 slot 占用。任意顺序 collect 均
+    /// 正确(各票据等各自 fence);典型消费为 FIFO(submit N+1 后 collect N,
+    /// FIF=2)。`cpu_fence_wait_ns` 如实包含 submit 与 collect 之间的应用侧
+    /// 时间(诚实计量,不掩饰)。
+    pub fn collect(&mut self, ticket: FrameTicket) -> Result<DeviceFrameOutput, String> {
+        let FrameTicket { inner, provenance } = ticket;
+        // SAFETY: native session 独占 &mut self;票据由本 session submit 产出,
+        // slot/fence/staging 均存活;collect_persistent_frame 只等 fence 不 reset。
+        let (readbacks, telemetry) =
+            unsafe { collect_persistent_frame(&mut self.native, self.passes, inner)? };
+        Ok(DeviceFrameOutput {
+            readbacks,
+            provenance,
+            telemetry,
+        })
+    }
+
     /// 提交成功后的 generation/frame 计数落账(两入口共用)。
     fn commit_provenance(&mut self, expected: &SubmissionProvenance) {
         self.frame_generation += 1;
@@ -1300,6 +1428,9 @@ const ACCESS2_DEPTH_STENCIL_ATTACHMENT_WRITE: u64 = 0x400;
 const ACCESS2_TRANSFER_READ: u64 = 0x800;
 const ACCESS2_TRANSFER_WRITE: u64 = 0x1000;
 const ACCESS2_HOST_WRITE: u64 = 0x4000;
+// 全域 access2(G14plus FIF 流水帧间守卫 memory barrier 用;SDK 1.3.296)。
+const ACCESS2_MEMORY_READ: u64 = 0x8000;
+const ACCESS2_MEMORY_WRITE: u64 = 0x1_0000;
 
 /// 全部着色阶段 stage2(VS|FS|CS;descriptor/push 约定的 stage 超集同律)。
 const STAGE2_ALL_SHADERS: u64 =
@@ -2355,6 +2486,7 @@ const ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES: u32 = 1_000_161_001;
 const ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR: u32 = 1_000_150_013;
 const ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES: u32 = 1_000_257_000;
 const ST_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR: u32 = 1_000_348_013;
+const ST_MEMORY_BARRIER_2: u32 = 1_000_314_000;
 const ST_BUFFER_MEMORY_BARRIER_2: u32 = 1_000_314_001;
 const ST_IMAGE_MEMORY_BARRIER_2: u32 = 1_000_314_002;
 const ST_DEPENDENCY_INFO: u32 = 1_000_314_003;
@@ -2364,6 +2496,9 @@ const QUEUE_GRAPHICS_BIT: u32 = 0x1;
 const MEM_DEVICE_LOCAL: u32 = 0x1;
 const MEM_HOST_VISIBLE: u32 = 0x2;
 const MEM_HOST_COHERENT: u32 = 0x4;
+/// `VK_MEMORY_PROPERTY_HOST_CACHED_BIT`(G14plus RFC-0030 §4.3 L1:readback
+/// 用途缓冲优选;vendor_upscale.rs DLSS readback 同型先例)。
+const MEM_HOST_CACHED: u32 = 0x8;
 const SHARING_MODE_EXCLUSIVE: u32 = 0;
 /// instance apiVersion = Vulkan 1.3(`VK_KHR_synchronization2` 于 1.3 收编 core;
 /// 1.1 实例下本机 loader 的 feature 链查询不填 sync2/atomic int64——实测怪癖,
@@ -3078,6 +3213,27 @@ struct SamplerCreateInfo {
 
 // ── synchronization2 + feature 探测结构(SDK 头核对 sType) ──
 
+/// `VkMemoryBarrier2`(全局 memory barrier;G14plus FIF 流水帧间守卫 /
+/// staged copy 冲刷专用——pass 图内资源级转换仍走 buffer/image barrier2,
+/// 不混用)。
+#[repr(C)]
+struct MemoryBarrier2 {
+    s_type: u32,
+    p_next: *const c_void,
+    src_stage_mask: u64,
+    src_access_mask: u64,
+    dst_stage_mask: u64,
+    dst_access_mask: u64,
+}
+
+/// `VkBufferCopy`(staged 上传 / staged buffer readback 的 buffer→buffer 区段)。
+#[repr(C)]
+struct VkBufferCopy {
+    src_offset: u64,
+    dst_offset: u64,
+    size: u64,
+}
+
 #[repr(C)]
 struct BufferMemoryBarrier2 {
     s_type: u32,
@@ -3568,6 +3724,8 @@ type FnCmdCopyBufferToImage = unsafe extern "system" fn(
     u32,
     *const VkBufferImageCopy,
 );
+type FnCmdCopyBuffer =
+    unsafe extern "system" fn(VkCommandBuffer, VkBuffer, VkBuffer, u32, *const VkBufferCopy);
 type FnQueueSubmit =
     unsafe extern "system" fn(VkQueue, u32, *const SubmitInfo, VkFence) -> VkResult;
 type FnQueueWaitIdle = unsafe extern "system" fn(VkQueue) -> VkResult;
@@ -3930,6 +4088,7 @@ struct Dev {
     cmd_barrier2: FnCmdPipelineBarrier2,
     cmd_copy_img2buf: FnCmdCopyImageToBuffer,
     cmd_copy_buf2img: FnCmdCopyBufferToImage,
+    cmd_copy_buf: FnCmdCopyBuffer,
     queue_submit: FnQueueSubmit,
     queue_wait: FnQueueWaitIdle,
     create_fence: FnCreateFence,
@@ -4019,6 +4178,7 @@ impl Dev {
             cmd_barrier2: dp!(c"vkCmdPipelineBarrier2KHR", FnCmdPipelineBarrier2),
             cmd_copy_img2buf: dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer),
             cmd_copy_buf2img: dp!(c"vkCmdCopyBufferToImage", FnCmdCopyBufferToImage),
+            cmd_copy_buf: dp!(c"vkCmdCopyBuffer", FnCmdCopyBuffer),
             queue_submit: dp!(c"vkQueueSubmit", FnQueueSubmit),
             queue_wait: dp!(c"vkQueueWaitIdle", FnQueueWaitIdle),
             create_fence: dp!(c"vkCreateFence", FnCreateFence),
@@ -4213,6 +4373,15 @@ impl RtRes {
 /// 建 buffer + host-visible+coherent 内存 + 绑定 + 可选初始数据上传。登记 cleanup,
 /// 返回 (buffer, mem) 句柄对。
 ///
+/// `prefer_cached`(G14plus RFC-0030 §4.3 L1,vendor_upscale.rs DLSS readback
+/// 同型先例):readback 用途(GPU 写、CPU 读)缓冲优选
+/// `HOST_VISIBLE|HOST_COHERENT|HOST_CACHED`——原恒取首个 HV+HC 型,NVIDIA 上
+/// 命中 uncached/WC,逐元素 host 读 = PCIe 往返延迟(bistro t100 回读损失
+/// ~71ms);HOST_CACHED 块读/逐元素读均为缓存命中口径,内容面与 WC 逐位一致、
+/// coherent 免 invalidate 语义不变、digest 不变机核。缺该型回退既有 HV+HC
+/// (行为零漂移);两条路径均含 HOST_COHERENT → map 后免
+/// vkInvalidateMappedMemoryRanges 的既有纪律不变(防御性注释)。
+///
 /// # Safety
 /// dev/device 有效;desc 已经 validate;memprops 为本物理设备内存属性。
 #[allow(clippy::too_many_arguments)]
@@ -4225,6 +4394,7 @@ unsafe fn create_device_buffer(
     data: Option<&[u8]>,
     resource_id: Option<StableResourceId>,
     cleanup: &mut Cleanup,
+    prefer_cached: bool,
 ) -> Result<(VkBuffer, VkDeviceMemory), String> {
     let bci = BufferCreateInfo {
         s_type: ST_BUFFER_CREATE_INFO,
@@ -4242,11 +4412,23 @@ unsafe fn create_device_buffer(
     }
     let mut req = std::mem::zeroed::<MemoryRequirements>();
     (dev.buf_mem_req)(device, buffer, &mut req);
-    let Some(mt) = pick_mem_type(
-        memprops,
-        req.memory_type_bits,
-        MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
-    ) else {
+    // readback 优选 cached 型(缺型回退既有 HV+HC——同一 pick_mem_type 事实源)。
+    let cached_mt = if prefer_cached {
+        pick_mem_type(
+            memprops,
+            req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT | MEM_HOST_CACHED,
+        )
+    } else {
+        None
+    };
+    let Some(mt) = cached_mt.or_else(|| {
+        pick_mem_type(
+            memprops,
+            req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        )
+    }) else {
         (dev.destroy_buffer)(device, buffer, std::ptr::null());
         return Err("无 host-visible+coherent 内存类型".into());
     };
@@ -4493,6 +4675,9 @@ struct FrameBodyParams<'a> {
     effective_bindings: &'a [Bindings],
     setups: &'a [PassSetup],
     query_pool: VkQueryPool,
+    /// timestamp query 首下标(G14plus FIF:slot k 用区间
+    /// `[k*passes*2, (k+1)*passes*2)`;顺序路恒 0——既有行为 0-byte)。
+    query_base: u32,
     inline_vbs: &'a [Option<VkBuffer>],
     readbacks: &'a [Readback],
     record_upload_segment: bool,
@@ -4711,7 +4896,12 @@ unsafe fn record_frame_body(
         flush_barriers!(img_barriers, buf_barriers);
 
         // ③ pass 本体;timestamp 覆盖该 pass 的实际 GPU 命令区间。
-        (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2);
+        (dev.cmd_write_timestamp2)(
+            cmd,
+            STAGE2_ALL_COMMANDS,
+            query_pool,
+            p.query_base + (pi as u32) * 2,
+        );
         let setup = &p.setups[pi];
         let push_constants = &p.effective_bindings[pi].push_constants;
         match pass {
@@ -4835,7 +5025,12 @@ unsafe fn record_frame_body(
                 }
             }
         }
-        (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2 + 1);
+        (dev.cmd_write_timestamp2)(
+            cmd,
+            STAGE2_ALL_COMMANDS,
+            query_pool,
+            p.query_base + (pi as u32) * 2 + 1,
+        );
     }
 
     // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;buffer 免录制 ──
@@ -4860,6 +5055,8 @@ unsafe fn record_frame_body(
                         None,
                         None,
                         c,
+                        // readback 专用(GPU copy 写、CPU map 读)→ cached 优选。
+                        true,
                     )?;
                     rb_buffers.push(Some((rbuf, rmem)));
                 }
@@ -4942,6 +5139,35 @@ struct NativeDeviceFrame {
     inline_vbs: Vec<Option<VkBuffer>>,
 }
 
+/// FIF 流水 per-slot 资源(G14plus RFC-0030 §4.3 L2;懒建于首次
+/// [`DeviceFrameSession::submit_with_frame_update`]——纯顺序 session 零对象/
+/// 零分配增量,既有 telemetry 计数 0-byte)。所有缓冲经 `create_device_buffer`
+/// 建面 → cleanup 登记(对象/ledger 计数与销毁单点纪律不变);cmd 出自同一
+/// cmdpool(RESET flag 已开,随 pool 销毁)。
+///
+/// per-slot 化裁决(按实际代码判断,注释说明):
+/// - **cmd + timestamp query 区间**:slot 独立(单条 cmd 在 FIF=2 下重录竞争
+///   在飞帧;query 区间 `[slot*passes*2, ..)` 同池分段,免第二池对象)。
+/// - **上传缓冲(params 类)**:per-slot host staging + cmd 首段 GPU copy 至目标
+///   SSBO——帧 N 在飞时帧 N+1 host 只写自己的 staging 槽,GPU copy 按队列序
+///   落在帧 N 之后(帧间守卫 barrier),共享 SSBO 无 host/GPU 竞争,绑定不变。
+/// - **readback staging**:per-slot(Buffer readback 原为直接 map 共享 SSBO——
+///   FIF 下在飞帧改写同一 SSBO 即竞争,故帧尾 GPU copy 至 slot staging 后 map;
+///   Texture readback 的 rb buffer 同理 per-slot 化)。
+/// - **descriptor set**:**无需 per-slot**——session set 创建期一次写入、SSBO
+///   常驻绑定不变(staged 上传/回读均为 copy,不改绑定);binding_overrides
+///   会重写共享 set,流水入口 fail-closed 拒绝(见 submit_with_frame_update)。
+struct PipelinedSlot {
+    cmd: VkCommandBuffer,
+    /// 上传 staging(host 写 → cmd 首段 copy;(buffer, memory, 容量) grow-only,
+    /// 扩容仅发生于 slot fence 已等待后——旧分配无在途使用,cleanup 登记同步换新)。
+    upload_staging: Option<(VkBuffer, VkDeviceMemory, u64)>,
+    /// 逐 session readback 的 per-slot staging(与 session readbacks 等长;
+    /// Buffer = SSBO 区段 copy 目的,Texture = image copy 目的;尺寸 = 声明尺寸,
+    /// cached 优选——G14plus §4.3 L1 同型)。
+    rb_staging: Vec<(VkBuffer, VkDeviceMemory)>,
+}
+
 struct NativePersistentFrame {
     instance: VkInstance,
     destroy_instance: FnDestroyInstance,
@@ -4963,6 +5189,12 @@ struct NativePersistentFrame {
     resource_allocations: Vec<StableAllocationId>,
     /// session AS 面(G7.6 Wave B;`None` = 无 AS 表,全旧行为)。
     as_state: Option<PersistentAsState>,
+    /// FIF 流水 per-slot 面(G14plus L2;下标 = frame slot,懒建)。
+    pipelined_slots: Vec<Option<PipelinedSlot>>,
+    /// 已 submit 未 collect 的 slot(票据在外)。fail-closed 纪律:同 slot 重
+    /// submit → Err(fence 已 reset 会悬垂 collect);顺序 execute 入口在任何
+    /// 票据未清时 → Err(共享 query 区间/fence 轮转不可交错)。
+    slot_busy: Vec<bool>,
 }
 
 impl NativePersistentFrame {
@@ -5144,6 +5376,7 @@ unsafe fn execute_frame_inner(
             None,
             true,
             &[],
+            1,
         );
 
         let dev_destroy: Option<FnDestroyDevice> =
@@ -5182,6 +5415,10 @@ unsafe fn execute_on_device(
     mut capture: Option<&mut Option<NativeDeviceFrame>>,
     submit_now: bool,
     as_handles: &[u64],
+    // timestamp query pool 容量倍数(G14plus FIF:persistent 路 = frame_slots,
+    // slot k 用区间 [k*passes*2, (k+1)*passes*2);ephemeral 路恒 1——池对象数与
+    // 既有用法 [0, passes*2) 均 0-byte,仅容量加性扩大)。
+    query_slots: usize,
 ) -> Result<Vec<Vec<u8>>, String> {
     let dev = Dev::load(gdpa, device)?;
     let mut queue: VkQueue = std::ptr::null_mut();
@@ -5198,6 +5435,14 @@ unsafe fn execute_on_device(
         for (i, r) in resources.iter().enumerate() {
             match r {
                 ResourceDesc::Buffer(b) => {
+                    // readback 资源识别裁决修订(G14plus §4.3 L1 实测归因):初版把
+                    // Readback::Buffer 引用的 SSBO 本体切 cached 优选——实测 GPU
+                    // kernel 直写 snooped(HOST_CACHED)内存吃 cache 一致性惩罚,
+                    // bistro t50 scene GPU 8.58→30.5ms(≈3.5×劣化);故 session
+                    // SSBO 本体恒保持既有首匹配 WC 型(GPU 散写 WC 最优,HEAD 行为
+                    // 0-byte),cached 优选仅用于 staging 类用途(FIF per-slot 回读
+                    // staging / texture readback buffer——CPU 读向)。输出 SSBO 的
+                    // DEVICE_LOCAL 终态 + 锚点帧 staged 回读归 G14.10 并 session 波。
                     let (buf, mem) = create_device_buffer(
                         &dev,
                         device,
@@ -5207,6 +5452,7 @@ unsafe fn execute_on_device(
                         b.data,
                         Some(StableResourceId(i as u64 + 1)),
                         &mut cleanup,
+                        false,
                     )?;
                     rt.push(RtRes::Buf(RtBuffer { buffer: buf, mem }));
                 }
@@ -5304,6 +5550,7 @@ unsafe fn execute_on_device(
                             Some(d),
                             None,
                             &mut cleanup,
+                            false, // host 写向 staging:WC 型最优,不切 cached
                         )?;
                         Some(sbuf)
                     } else {
@@ -5337,6 +5584,7 @@ unsafe fn execute_on_device(
                             Some(data),
                             None,
                             &mut cleanup,
+                            false, // host 写向:WC 型最优,不切 cached
                         )?;
                         inline_vbs.push(Some(vbuf));
                     }
@@ -6112,7 +6360,7 @@ unsafe fn execute_on_device(
             p_next: std::ptr::null(),
             flags: 0,
             query_type: QUERY_TYPE_TIMESTAMP,
-            query_count: (passes.len() as u32) * 2,
+            query_count: (passes.len() as u32) * 2 * (query_slots.max(1) as u32),
             pipeline_statistics: 0,
         };
         let mut query_pool = VK_NULL_HANDLE;
@@ -6182,6 +6430,7 @@ unsafe fn execute_on_device(
                 effective_bindings: &declared_bindings,
                 setups: &setups,
                 query_pool,
+                query_base: 0,
                 inline_vbs: &inline_vbs,
                 readbacks,
                 record_upload_segment: true,
@@ -6610,6 +6859,7 @@ unsafe fn create_persistent_frame(
             Some(&mut captured),
             false,
             &as_handles,
+            frame_slots,
         );
         if let Err(error) = prepare {
             bail_as!(error);
@@ -6765,6 +7015,8 @@ unsafe fn create_persistent_frame(
             memprops,
             resource_allocations,
             as_state,
+            pipelined_slots: (0..frame_slots).map(|_| None).collect(),
+            slot_busy: vec![false; frame_slots],
         })
     })();
 
@@ -6778,10 +7030,45 @@ unsafe fn create_persistent_frame(
     }
 }
 
+/// 持久帧 slot fence 有界等待共用超时(submit 的 slot-reuse 等待与 collect 的
+/// 完成等待同一口径;拆分前为 `execute_persistent_frame` 内局部常量,值不变)。
+const PERSISTENT_WAIT_TIMEOUT_NS: u64 = 5_000_000_000;
+
+/// 持久帧内部票据(G14plus RFC-0030 §4.3 L2:submit/collect 拆分承载体)。
+/// [`submit_persistent_frame`] / [`submit_pipelined_frame`] 产,
+/// [`collect_persistent_frame`] 消费。
+struct PersistentFrameTicket {
+    /// 本帧占用的 fence frame slot。
+    slot: usize,
+    /// 计时起点(slot-reuse 等待前采样;collect 完成等待后
+    /// `cpu_fence_wait_ns = elapsed(wait_started)`——顺序路与拆分前逐字同口径;
+    /// 流水路该值如实包含 submit 与 collect 之间的应用侧时间,诚实计量不掩饰)。
+    wait_started: std::time::Instant,
+    /// 帧前段(校验 + host 写 + 重录)耗时。
+    record_ns: u64,
+    /// vkQueueSubmit 耗时。
+    cpu_submit_ns: u64,
+    /// submit 起点的 validation ERROR 计数快照(collect 侧差分 fail-closed;
+    /// 流水路差分可能含相邻在飞帧的消息——归因粗化但任何 ERROR 仍必致某帧 Err)。
+    validation_before: u64,
+    /// 回读计划((readback, session readbacks 下标);submit 期由 update 解析,
+    /// collect 免持 update 引用)。
+    rb_plan: Vec<(Readback, usize)>,
+    /// true = FIF 流水路(collect 从 per-slot staging 读、timestamp 取 slot 区间、
+    /// 完成后清 slot_busy);false = 顺序路(与拆分前行为逐字等价)。
+    pipelined: bool,
+}
+
 /// 持久帧提交:fence slot 轮转(有界等待 + reset)→ [可选 FrameUpdate 帧前段:
 /// host 上传 / TLAS transforms 写 / descriptor 重写 / cmd 重录] → submit → 完成
 /// 有界等待 → timestamp / readback / heap budget / ledger telemetry。
 /// `update = None` 为 Wave A 原样重放路径(行为 0-byte,不重录、不重写 descriptor)。
+///
+/// G14plus §4.3 L2:主体拆为 [`submit_persistent_frame`](到 vkQueueSubmit 为止)
+/// 与 [`collect_persistent_frame`](当帧 fence 等待 + timestamp + 回读 + telemetry),
+/// 本函数改为顺序调用两者——命令序/等待序/回读序与拆分前**逐字等价**
+/// (位级零漂移的关键设计;FIF 流水消费走
+/// [`DeviceFrameSession::submit_with_frame_update`]/[`DeviceFrameSession::collect`])。
 #[allow(clippy::too_many_arguments)]
 unsafe fn execute_persistent_frame(
     native: &mut NativePersistentFrame,
@@ -6791,7 +7078,32 @@ unsafe fn execute_persistent_frame(
     readbacks: &[Readback],
     update: Option<&PreparedFrameUpdate<'_>>,
 ) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
-    const WAIT_TIMEOUT_NS: u64 = 5_000_000_000;
+    let ticket = submit_persistent_frame(native, resources, passes, barriers, readbacks, update)?;
+    collect_persistent_frame(native, passes, ticket)
+}
+
+/// 持久帧提交半程(顺序路;G14plus §4.3 L2 拆分体):slot-reuse 有界等待 + reset
+/// → FrameUpdate 帧前段 → vkQueueSubmit,返回票据。命令与调用序 = 拆分前
+/// `execute_persistent_frame` 前半段逐字保序。
+#[allow(clippy::too_many_arguments)]
+unsafe fn submit_persistent_frame(
+    native: &mut NativePersistentFrame,
+    resources: &[ResourceDesc<'_>],
+    passes: &[Pass<'_>],
+    barriers: &[&[(u32, TargetState)]],
+    readbacks: &[Readback],
+    update: Option<&PreparedFrameUpdate<'_>>,
+) -> Result<PersistentFrameTicket, String> {
+    const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
+    // 顺序入口与流水票据不可交错(fail-closed):流水在飞帧占用 fence/query 区间/
+    // 共享 SSBO,顺序路的单 cmd + [0,2P) query 区间会与之竞争。
+    if native.slot_busy.iter().any(|&busy| busy) {
+        return Err(
+            "存在未 collect 的 FIF 流水票据:顺序 execute 入口须待全部票据 collect 后使用\
+             (fail-closed,不静默交错)"
+                .into(),
+        );
+    }
     let slot = native.next_slot;
     native.next_slot = (native.next_slot + 1) % native.fences.len();
     let fence = native.fences[slot];
@@ -6820,8 +7132,9 @@ unsafe fn execute_persistent_frame(
     let mut record_ns = 0u64;
     if let Some(up) = update {
         let record_started = std::time::Instant::now();
-        // buffer 上传:目标 buffer host-visible+coherent(create_device_buffer 恒
-        // HOST_VISIBLE|HOST_COHERENT 单内存路径,故无 staging 分支——最简诚实路径),
+        // buffer 上传:目标 buffer host-visible+coherent(create_device_buffer 两条
+        // 内存路径——首匹配 HV+HC 与 readback cached 优选——均含 HOST_COHERENT,
+        // 故无 staging 分支、免 flush/invalidate——最简诚实路径),
         // submit 前 memcpy;Vulkan 保证 submit 后提交的工作可见 host 写。
         for &(res, offset, bytes) in up.uploads {
             let RtRes::Buf(rb) = &native.frame.rt[res as usize] else {
@@ -6932,6 +7245,7 @@ unsafe fn execute_persistent_frame(
                     effective_bindings: up.effective_bindings,
                     setups: &native.frame.setups,
                     query_pool: native.frame.cleanup.query_pool,
+                    query_base: 0,
                     inline_vbs: &native.frame.inline_vbs,
                     readbacks: up.effective_readbacks,
                     record_upload_segment: false,
@@ -6967,6 +7281,61 @@ unsafe fn execute_persistent_frame(
             submit,
         ));
     }
+
+    // readback 计划(拆分前于完成等待后计算;仅依赖 update/readbacks,前移至
+    // submit 期语义不变——collect 免持 update 引用):重放路径 = 全量 session
+    // readbacks(下标恒等);update 路径 = readback_subset 解析结果。
+    let rb_plan: Vec<(Readback, usize)> = match &update {
+        Some(up) => up
+            .effective_readbacks
+            .iter()
+            .copied()
+            .zip(up.effective_rb_sources.iter().copied())
+            .collect(),
+        None => readbacks
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(i, r)| (r, i))
+            .collect(),
+    };
+    Ok(PersistentFrameTicket {
+        slot,
+        wait_started,
+        record_ns,
+        cpu_submit_ns,
+        validation_before,
+        rb_plan,
+        pipelined: false,
+    })
+}
+
+/// 持久帧收集半程(G14plus §4.3 L2 拆分体):当帧 fence 有界等待 → timestamp
+/// 查询 → 按票据回读计划 map 拷出 → heap budget / ledger / validation telemetry。
+/// 顺序票据(`pipelined = false`)与拆分前 `execute_persistent_frame` 后半段
+/// 逐字等价;流水票据从 per-slot staging 读、timestamp 取 slot 区间、完成后
+/// 释放 slot 占用。
+unsafe fn collect_persistent_frame(
+    native: &mut NativePersistentFrame,
+    passes: &[Pass<'_>],
+    ticket: PersistentFrameTicket,
+) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
+    const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
+    let PersistentFrameTicket {
+        slot,
+        wait_started,
+        record_ns,
+        cpu_submit_ns,
+        validation_before,
+        rb_plan,
+        pipelined,
+    } = ticket;
+    if pipelined && !native.slot_busy[slot] {
+        return Err(format!(
+            "collect: frame slot {slot} 无在飞流水票据(重复 collect 或票据伪造;fail-closed)"
+        ));
+    }
+    let fence = native.fences[slot];
     let done = (native.frame.dev.wait_fences)(native.device, 1, &fence, 1, WAIT_TIMEOUT_NS);
     let cpu_fence_wait_ns = elapsed_ns(wait_started);
     if done == VK_TIMEOUT {
@@ -6981,11 +7350,17 @@ unsafe fn execute_persistent_frame(
         ));
     }
 
+    // timestamp:顺序路恒 [0, passes*2)(拆分前逐字);流水路取本 slot 区间。
+    let query_base = if pipelined {
+        (slot * passes.len() * 2) as u32
+    } else {
+        0
+    };
     let mut ticks = vec![0u64; passes.len() * 2];
     let query_result = (native.frame.dev.get_query_pool_results)(
         native.device,
         native.frame.cleanup.query_pool,
-        0,
+        query_base,
         ticks.len() as u32,
         ticks.len() * std::mem::size_of::<u64>(),
         ticks.as_mut_ptr().cast(),
@@ -7015,22 +7390,11 @@ unsafe fn execute_persistent_frame(
         })
         .collect();
 
-    // readback 计划:重放路径 = 全量 session readbacks(下标恒等);update 路径 =
-    // readback_subset 解析结果(源下标对齐持久 rb buffer)。
-    let rb_plan: Vec<(Readback, usize)> = match &update {
-        Some(up) => up
-            .effective_readbacks
-            .iter()
-            .copied()
-            .zip(up.effective_rb_sources.iter().copied())
-            .collect(),
-        None => readbacks
-            .iter()
-            .copied()
-            .enumerate()
-            .map(|(i, r)| (r, i))
-            .collect(),
-    };
+    // 回读:顺序路 = 直接 map 资源/共享 rb buffer(拆分前逐字;fence 已等待 +
+    // 分配恒 HOST_COHERENT → 免 vkInvalidateMappedMemoryRanges,cached 优选型
+    // 同为 coherent,防御性注明);流水路 = map 本 slot staging(帧尾 GPU copy
+    // 产物;共享 SSBO 可能已被后续在飞帧改写,故不可直接 map——per-slot 隔离
+    // 即 FIF 位级确定性的承载)。
     let mut out = Vec::with_capacity(rb_plan.len());
     for (i, (readback, source)) in rb_plan.iter().enumerate() {
         let (memory, offset, size) = match *readback {
@@ -7038,22 +7402,33 @@ unsafe fn execute_persistent_frame(
                 let RtRes::Buf(buffer) = &native.frame.rt[res as usize] else {
                     return Err(format!("readbacks[{i}] buffer 资源类型漂移"));
                 };
-                (buffer.mem, offset, size)
+                if pipelined {
+                    let Some(slot_state) = native.pipelined_slots[slot].as_ref() else {
+                        return Err(format!("readbacks[{i}] 流水 slot 面缺失"));
+                    };
+                    (slot_state.rb_staging[*source].1, 0, size)
+                } else {
+                    (buffer.mem, offset, size)
+                }
             }
             Readback::Texture { res } => {
                 let RtRes::Img(image) = &native.frame.rt[res as usize] else {
                     return Err(format!("readbacks[{i}] texture 资源类型漂移"));
                 };
-                let Some((_, memory)) = native.frame.rb_buffers[*source] else {
-                    return Err(format!("readbacks[{i}] 持久 readback allocation 缺失"));
-                };
-                (
-                    memory,
-                    0,
-                    image.width as u64
-                        * image.height as u64
-                        * image.format.bytes_per_texel() as u64,
-                )
+                let size = image.width as u64
+                    * image.height as u64
+                    * image.format.bytes_per_texel() as u64;
+                if pipelined {
+                    let Some(slot_state) = native.pipelined_slots[slot].as_ref() else {
+                        return Err(format!("readbacks[{i}] 流水 slot 面缺失"));
+                    };
+                    (slot_state.rb_staging[*source].1, 0, size)
+                } else {
+                    let Some((_, memory)) = native.frame.rb_buffers[*source] else {
+                        return Err(format!("readbacks[{i}] 持久 readback allocation 缺失"));
+                    };
+                    (memory, 0, size)
+                }
             }
         };
         let map_size = size.max(4);
@@ -7121,6 +7496,12 @@ unsafe fn execute_persistent_frame(
     let outstanding_object_count =
         native.frame.cleanup.object_count() + as_objects + native.fences.len() as u64 + 3;
     let outstanding_allocation_count = allocations.len() as u64;
+    // 流水票据成功收集 → 释放 slot 占用(fence 保持 signaled,下次 submit 时
+    // wait+reset;Err 早退不清——TDR/device-lost/validation 级失败为会话性,
+    // fail-closed 保持占用防悬垂 fence 竞态)。
+    if pipelined {
+        native.slot_busy[slot] = false;
+    }
     Ok((
         out,
         DeviceFrameTelemetry {
@@ -7140,6 +7521,420 @@ unsafe fn execute_persistent_frame(
             leaked_allocation_count: 0,
         },
     ))
+}
+
+/// 全局 memory barrier2 录制(FIF 流水专用:帧间守卫 / staged copy 冲刷;
+/// pass 图内资源级转换仍走 `record_frame_body` 单一事实源,不混用)。
+///
+/// # Safety
+/// `cmd` 处于录制态;dev/device 同源。
+unsafe fn cmd_global_barrier2(
+    dev: &Dev,
+    cmd: VkCommandBuffer,
+    src_stage: u64,
+    src_access: u64,
+    dst_stage: u64,
+    dst_access: u64,
+) {
+    let mb = MemoryBarrier2 {
+        s_type: ST_MEMORY_BARRIER_2,
+        p_next: std::ptr::null(),
+        src_stage_mask: src_stage,
+        src_access_mask: src_access,
+        dst_stage_mask: dst_stage,
+        dst_access_mask: dst_access,
+    };
+    let di = DependencyInfo {
+        s_type: ST_DEPENDENCY_INFO,
+        p_next: std::ptr::null(),
+        dependency_flags: 0,
+        memory_barrier_count: 1,
+        p_memory_barriers: (&mb as *const MemoryBarrier2).cast::<c_void>(),
+        buffer_memory_barrier_count: 0,
+        p_buffer_memory_barriers: std::ptr::null(),
+        image_memory_barrier_count: 0,
+        p_image_memory_barriers: std::ptr::null(),
+    };
+    (dev.cmd_barrier2)(cmd, &di);
+}
+
+/// FIF 流水 slot 面懒建(G14plus §4.3 L2):per-slot cmd(同一 cmdpool——
+/// persistent 路 RESET flag 已开,随 pool 销毁)+ 逐 session readback 的
+/// per-slot staging(尺寸 = 声明尺寸;cached 优选——CPU 读向,§4.3 L1 同型)。
+/// 缓冲经 `create_device_buffer` → cleanup 登记(对象/ledger/销毁单点纪律不变)。
+///
+/// # Safety
+/// native 有效;slot < frame_slots;调用点在 slot fence 等待之后(无在途使用)。
+unsafe fn ensure_pipelined_slot(
+    native: &mut NativePersistentFrame,
+    resources: &[ResourceDesc<'_>],
+    readbacks: &[Readback],
+    slot: usize,
+) -> Result<(), String> {
+    if native.pipelined_slots[slot].is_some() {
+        return Ok(());
+    }
+    let cbai = CommandBufferAllocateInfo {
+        s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+        p_next: std::ptr::null(),
+        command_pool: native.frame.cleanup.cmdpool,
+        level: CMD_BUFFER_LEVEL_PRIMARY,
+        command_buffer_count: 1,
+    };
+    let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+    if (native.frame.dev.alloc_cmd)(native.device, &cbai, &mut cmd) != VK_SUCCESS {
+        return Err(format!(
+            "FIF slot {slot}: vkAllocateCommandBuffers 失败"
+        ));
+    }
+    let mut rb_staging = Vec::with_capacity(readbacks.len());
+    for (k, rb) in readbacks.iter().enumerate() {
+        let size = match *rb {
+            Readback::Buffer { size, .. } => size,
+            Readback::Texture { res } => match &resources[res as usize] {
+                ResourceDesc::Texture(t) => {
+                    t.width as u64 * t.height as u64 * t.format.bytes_per_texel() as u64
+                }
+                ResourceDesc::Buffer(_) => {
+                    return Err(format!(
+                        "FIF slot {slot}: readbacks[{k}] texture 资源类型漂移"
+                    ));
+                }
+            },
+        };
+        let (buf, mem) = create_device_buffer(
+            &native.frame.dev,
+            native.device,
+            &native.memprops,
+            size.max(4),
+            0x2, // TRANSFER_DST(copy 目的)
+            None,
+            None,
+            &mut native.frame.cleanup,
+            true, // readback staging(GPU copy 写、CPU map 读)→ cached 优选
+        )?;
+        rb_staging.push((buf, mem));
+    }
+    native.pipelined_slots[slot] = Some(PipelinedSlot {
+        cmd,
+        upload_staging: None,
+        rb_staging,
+    });
+    Ok(())
+}
+
+/// FIF slot 上传 staging 保障(grow-only;扩容仅发生于 slot fence 已等待后——
+/// 旧分配无在途使用;cleanup buffers/ledger 同步换新,销毁单点纪律不变——
+/// 稳态上传尺寸固定(params 192B 类)即零 churn)。
+///
+/// # Safety
+/// slot 面已建([`ensure_pipelined_slot`]);slot fence 已等待。
+unsafe fn ensure_upload_staging(
+    native: &mut NativePersistentFrame,
+    slot: usize,
+    needed: u64,
+) -> Result<(VkBuffer, VkDeviceMemory), String> {
+    let existing = native.pipelined_slots[slot]
+        .as_ref()
+        .and_then(|s| s.upload_staging);
+    if let Some((buf, mem, capacity)) = existing {
+        if capacity >= needed {
+            return Ok((buf, mem));
+        }
+        // 扩容:旧缓冲销毁 + cleanup 登记同步摘除(否则 Drop 期双重销毁/ledger 假账)。
+        (native.frame.dev.destroy_buffer)(native.device, buf, std::ptr::null());
+        (native.frame.dev.free_mem)(native.device, mem, std::ptr::null());
+        native.frame.cleanup.buffers.retain(|&(b, _)| b != buf);
+        native
+            .frame
+            .cleanup
+            .allocations
+            .retain(|a| a.memory != mem);
+    }
+    let capacity = needed.max(256);
+    let (buf, mem) = create_device_buffer(
+        &native.frame.dev,
+        native.device,
+        &native.memprops,
+        capacity,
+        0x1, // TRANSFER_SRC(copy 源)
+        None,
+        None,
+        &mut native.frame.cleanup,
+        false, // host 写向 staging:WC 型最优,不切 cached
+    )?;
+    let Some(slot_state) = native.pipelined_slots[slot].as_mut() else {
+        return Err(format!("FIF slot {slot}: slot 面缺失(建面序漂移)"));
+    };
+    slot_state.upload_staging = Some((buf, mem, capacity));
+    Ok((buf, mem))
+}
+
+/// FIF 流水帧提交(G14plus RFC-0030 §4.3 L2):slot 占用检查 → slot-reuse 有界
+/// 等待 + reset → per-slot 面懒建 → 上传写入本 slot staging → per-slot cmd 全量
+/// 重录(帧间守卫 barrier → staged 上传 copies → 冲刷 barrier →
+/// `record_frame_body` **同一录制事实源**(slot timestamp 区间)→ 帧尾 staged
+/// buffer readback copies)→ submit(**不等完成 fence**——collect 侧等),返回
+/// 流水票据。
+///
+/// 确定性论证(FIF=2 逐帧图像与 FIF=1 位级一致,§4.3 L2 D4):
+/// - **GPU 帧间全序**:cmd 首条全局守卫 barrier(ALL_COMMANDS/MEMORY_WRITE →
+///   ALL_COMMANDS/MEMORY_READ|WRITE)使帧 N+1 全部 GPU 访问序于帧 N 之后——
+///   共享 SSBO 的跨帧数据依赖与顺序执行逐位同构(流水收益 = CPU 侧 submit 与
+///   fence 等待解耦,非 GPU 帧重叠;GPU 帧间重叠留后续演进,登记)。
+/// - **host 面隔离**:上传只写本 slot staging(同 slot 复用前 fence 等待保证无
+///   在途消费);回读只读本 slot staging(帧尾 copy 产物,后续在飞帧不触碰)。
+/// - staged 段均为 copy(内容逐位透传),不改任何 pass 命令/绑定/数据内容。
+///
+/// 拒绝面(公共入口 fail-closed,此处防御性复核):descriptor 重写(共享 set
+/// 在飞使用中)与 TLAS update(共享 instance buffer host 写面)不入流水。
+///
+/// # Safety
+/// U32 契约同 [`submit_persistent_frame`];`prepared` 引用调用方栈上数据,
+/// 生命周期限于本次调用。
+unsafe fn submit_pipelined_frame(
+    native: &mut NativePersistentFrame,
+    resources: &[ResourceDesc<'_>],
+    passes: &[Pass<'_>],
+    barriers: &[&[(u32, TargetState)]],
+    readbacks: &[Readback],
+    prepared: &PreparedFrameUpdate<'_>,
+) -> Result<PersistentFrameTicket, String> {
+    const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
+    if prepared.tlas.is_some() || !prepared.descriptor_overrides.is_empty() {
+        return Err(
+            "FIF 流水不支持 tlas_update/binding_overrides(公共入口已拒;防御性复核)".into(),
+        );
+    }
+    let slot = native.next_slot;
+    if native.slot_busy[slot] {
+        return Err(format!(
+            "frame slot {slot} 票据未 collect(FIF 深度已满:先 collect 最早票据再 submit;\
+             fail-closed 防 fence reset 悬垂)"
+        ));
+    }
+    native.next_slot = (native.next_slot + 1) % native.fences.len();
+    let fence = native.fences[slot];
+    let validation_before = native
+        .validation_errors
+        .load(std::sync::atomic::Ordering::Relaxed);
+
+    let wait_started = std::time::Instant::now();
+    let prior = (native.frame.dev.wait_fences)(native.device, 1, &fence, 1, WAIT_TIMEOUT_NS);
+    if prior == VK_TIMEOUT {
+        return Err(format!(
+            "frame slot {slot} fence reuse bounded-wait 超时({WAIT_TIMEOUT_NS}ns;TDR-suspected)"
+        ));
+    }
+    if prior != VK_SUCCESS {
+        return Err(queue_result_error("vkWaitForFences(slot reuse)", prior));
+    }
+    let reset = (native.frame.dev.reset_fences)(native.device, 1, &fence);
+    if reset != VK_SUCCESS {
+        return Err(queue_result_error("vkResetFences", reset));
+    }
+
+    let record_started = std::time::Instant::now();
+    ensure_pipelined_slot(native, resources, readbacks, slot)?;
+
+    // ── 上传 → 本 slot staging(host 写;GPU copy 录于 cmd 首段)──
+    let total_upload: u64 = prepared
+        .uploads
+        .iter()
+        .map(|&(_, _, bytes)| bytes.len() as u64)
+        .sum();
+    // (staging 内偏移, 目标资源, 目标偏移, 字节数)。
+    let mut staged_copies: Vec<(u64, u32, u64, u64)> = Vec::with_capacity(prepared.uploads.len());
+    let mut upload_src: VkBuffer = VK_NULL_HANDLE;
+    if total_upload > 0 {
+        let (sbuf, smem) = ensure_upload_staging(native, slot, total_upload)?;
+        upload_src = sbuf;
+        let mut ptr: *mut c_void = std::ptr::null_mut();
+        let map = (native.frame.dev.map_mem)(native.device, smem, 0, total_upload, 0, &mut ptr);
+        if map != VK_SUCCESS || ptr.is_null() {
+            return Err(format!(
+                "FIF slot {slot}: 上传 staging vkMapMemory 失败: {map}"
+            ));
+        }
+        let mut staging_offset = 0u64;
+        for &(res, dst_offset, bytes) in prepared.uploads {
+            if !matches!(&native.frame.rt[res as usize], RtRes::Buf(_)) {
+                (native.frame.dev.unmap_mem)(native.device, smem);
+                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(校验漏网)"));
+            }
+            std::ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                ptr.cast::<u8>().add(staging_offset as usize),
+                bytes.len(),
+            );
+            staged_copies.push((staging_offset, res, dst_offset, bytes.len() as u64));
+            staging_offset += bytes.len() as u64;
+        }
+        (native.frame.dev.unmap_mem)(native.device, smem);
+    }
+
+    // ── per-slot cmd 全量重录(流水路恒重录:slot query 区间与 staged 段皆帧相关)──
+    let query_base = (slot * passes.len() * 2) as u32;
+    let dev = &native.frame.dev;
+    let Some(slot_state) = native.pipelined_slots[slot].as_ref() else {
+        return Err(format!("FIF slot {slot}: slot 面缺失(建面序漂移)"));
+    };
+    let slot_cmd = slot_state.cmd;
+    if (dev.reset_cmd)(slot_cmd, 0) != VK_SUCCESS {
+        return Err("FIF: vkResetCommandBuffer 失败".into());
+    }
+    let cbi = CommandBufferBeginInfo {
+        s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_inheritance_info: std::ptr::null(),
+    };
+    if (dev.begin_cmd)(slot_cmd, &cbi) != VK_SUCCESS {
+        return Err("FIF: vkBeginCommandBuffer 失败".into());
+    }
+    (dev.cmd_reset_query_pool)(
+        slot_cmd,
+        native.frame.cleanup.query_pool,
+        query_base,
+        (passes.len() as u32) * 2,
+    );
+    // 帧间守卫(见函数头确定性论证)。
+    cmd_global_barrier2(
+        dev,
+        slot_cmd,
+        STAGE2_ALL_COMMANDS,
+        ACCESS2_MEMORY_WRITE,
+        STAGE2_ALL_COMMANDS,
+        ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
+    );
+    if !staged_copies.is_empty() {
+        for &(src_offset, res, dst_offset, size) in &staged_copies {
+            let RtRes::Buf(rb) = &native.frame.rt[res as usize] else {
+                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(上判已拒)"));
+            };
+            let region = VkBufferCopy {
+                src_offset,
+                dst_offset,
+                size,
+            };
+            (dev.cmd_copy_buf)(slot_cmd, upload_src, rb.buffer, 1, &region);
+        }
+        // staged 上传冲刷:pass 图 tracked 初值屏障 src=HOST 不覆盖 TRANSFER 写,
+        // 此处显式冲刷后 record_frame_body 命令流与顺序路逐字同形。
+        cmd_global_barrier2(
+            dev,
+            slot_cmd,
+            STAGE2_TRANSFER,
+            ACCESS2_TRANSFER_WRITE,
+            STAGE2_ALL_COMMANDS,
+            ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
+        );
+    }
+    // texture readback copy 目的 = 本 slot staging;buffer readback 由帧尾
+    // staged copy 承载(record_frame_body 对 Buffer 项免录制,None 占位)。
+    let mut effective_rb: Vec<Option<(VkBuffer, VkDeviceMemory)>> = prepared
+        .effective_readbacks
+        .iter()
+        .zip(prepared.effective_rb_sources.iter())
+        .map(|(rb, &source)| match rb {
+            Readback::Texture { .. } => Some(slot_state.rb_staging[source]),
+            Readback::Buffer { .. } => None,
+        })
+        .collect();
+    record_frame_body(
+        &FrameBodyParams {
+            dev,
+            device: native.device,
+            memprops: &native.memprops,
+            cmd: slot_cmd,
+            resources,
+            rt: &native.frame.rt,
+            passes,
+            barriers,
+            effective_bindings: prepared.effective_bindings,
+            setups: &native.frame.setups,
+            query_pool: native.frame.cleanup.query_pool,
+            query_base,
+            inline_vbs: &native.frame.inline_vbs,
+            readbacks: prepared.effective_readbacks,
+            record_upload_segment: false,
+        },
+        &mut effective_rb,
+        None,
+        None,
+    )?;
+    // ── 帧尾 staged buffer readback copies(pass 链写完 → TRANSFER copy 至本
+    // slot staging;后续在飞帧改写共享 SSBO 不再影响本帧回读内容)──
+    let has_buffer_rb = prepared
+        .effective_readbacks
+        .iter()
+        .any(|rb| matches!(rb, Readback::Buffer { .. }));
+    if has_buffer_rb {
+        cmd_global_barrier2(
+            dev,
+            slot_cmd,
+            STAGE2_ALL_COMMANDS,
+            ACCESS2_MEMORY_WRITE,
+            STAGE2_TRANSFER,
+            ACCESS2_TRANSFER_READ,
+        );
+        for (rb, &source) in prepared
+            .effective_readbacks
+            .iter()
+            .zip(prepared.effective_rb_sources.iter())
+        {
+            if let Readback::Buffer { res, offset, size } = *rb {
+                let RtRes::Buf(src) = &native.frame.rt[res as usize] else {
+                    return Err(format!("FIF: readback 资源 {res} 非 buffer(类型漂移)"));
+                };
+                let region = VkBufferCopy {
+                    src_offset: offset,
+                    dst_offset: 0,
+                    size,
+                };
+                (dev.cmd_copy_buf)(slot_cmd, src.buffer, slot_state.rb_staging[source].0, 1, &region);
+            }
+        }
+    }
+    if (dev.end_cmd)(slot_cmd) != VK_SUCCESS {
+        return Err("FIF: vkEndCommandBuffer 失败".into());
+    }
+    let record_ns = elapsed_ns(record_started);
+
+    let si = SubmitInfo {
+        s_type: ST_SUBMIT_INFO,
+        p_next: std::ptr::null(),
+        wait_semaphore_count: 0,
+        p_wait_semaphores: std::ptr::null(),
+        p_wait_dst_stage_mask: std::ptr::null(),
+        command_buffer_count: 1,
+        p_command_buffers: &slot_cmd,
+        signal_semaphore_count: 0,
+        p_signal_semaphores: std::ptr::null(),
+    };
+    let submit_started = std::time::Instant::now();
+    let submit = (native.frame.dev.queue_submit)(native.frame.queue, 1, &si, fence);
+    let cpu_submit_ns = elapsed_ns(submit_started);
+    if submit != VK_SUCCESS {
+        return Err(queue_result_error("vkQueueSubmit(FIF pipelined frame)", submit));
+    }
+    native.slot_busy[slot] = true;
+
+    let rb_plan: Vec<(Readback, usize)> = prepared
+        .effective_readbacks
+        .iter()
+        .copied()
+        .zip(prepared.effective_rb_sources.iter().copied())
+        .collect();
+    Ok(PersistentFrameTicket {
+        slot,
+        wait_started,
+        record_ns,
+        cpu_submit_ns,
+        validation_before,
+        rb_plan,
+        pipelined: true,
+    })
 }
 
 fn queue_result_error(op: &str, result: VkResult) -> String {
@@ -7226,6 +8021,8 @@ mod tests {
         assert_eq!(size_of::<SamplerCreateInfo>(), 80);
         assert_eq!(size_of::<BufferMemoryBarrier2>(), 80);
         assert_eq!(size_of::<ImageMemoryBarrier2>(), 96);
+        assert_eq!(size_of::<MemoryBarrier2>(), 48);
+        assert_eq!(size_of::<VkBufferCopy>(), 24);
         assert_eq!(size_of::<DependencyInfo>(), 64);
         assert_eq!(size_of::<PhysicalDeviceSynchronization2Features>(), 24);
         assert_eq!(size_of::<PhysicalDeviceShaderAtomicInt64Features>(), 24);

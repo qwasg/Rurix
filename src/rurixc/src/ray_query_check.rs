@@ -9,8 +9,10 @@
 //! (`Initialized` → `Terminated`,RXS-0298 三态)的两个编译期结构约束:
 //!
 //! - **S2 terminate 后使用 / 二次 terminate**(前向 **may-terminated** 数据流,
-//!   复用 [`crate::dataflow`] 骨架):`terminate` 置位、`ray_query_initialize`
-//!   重初始化清位;置位态下任何方法族调用(含二次 `terminate`)→ RX3018。
+//!   复用 [`crate::dataflow`] 骨架):`terminate` 置位、`ray_query_initialize` /
+//!   `ray_query_initialize_first_hit`(RFC-0030 §4.6;两构造内建同属"初始化"
+//!   集合,同一 `Rvalue::RayQueryInitialize` MIR 节点)重初始化清位;置位态下
+//!   任何方法族调用(含二次 `terminate`)→ RX3018。
 //!   may 汇合(按位或)= 分支任一路径可能 terminated 即保守拒(07 §4)。
 //! - **S3 committed_* 支配域约束**(新建支配集计算 + 守卫边识别):committed
 //!   查询族(`committed_t` 等五查询)须被 `proceed`/`has_committed` 真值分支
@@ -90,7 +92,8 @@ impl Analysis for MayTerminated {
             } => {
                 state.insert(rq_local.0 as usize);
             }
-            // 重初始化重置状态(仅整体写;投影写不重置,保守)
+            // 重初始化重置状态(仅整体写;投影写不重置,保守)。first-hit 变体
+            // 同节点(`first_hit` 位不改三态协议,RFC-0030 §4.6)故自然同覆盖。
             Rvalue::RayQueryInitialize { .. } if place.proj.is_empty() => {
                 state.remove(place.local.0 as usize);
             }
@@ -361,8 +364,21 @@ mod tests {
     let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
 "#;
 
+    /// first-hit 变体壳(RFC-0030 §4.6):构造经 `ray_query_initialize_first_hit`,
+    /// 三态协议(S2/S3)与基线内建完全同形——两构造同属"初始化"集合。
+    const HEAD_FIRST_HIT: &str = r#"kernel fn k(tlas: AccelStruct, t: ThreadCtx<1>) {
+    let mut rq = ray_query_initialize_first_hit(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+"#;
+
     fn kernel_src(body: &str) -> String {
         let mut s = String::from(HEAD);
+        s.push_str(body);
+        s.push_str("}\n");
+        s
+    }
+
+    fn kernel_src_first_hit(body: &str) -> String {
+        let mut s = String::from(HEAD_FIRST_HIT);
         s.push_str(body);
         s.push_str("}\n");
         s
@@ -490,6 +506,36 @@ mod tests {
         // S3 循环后无守卫拒:while proceed 循环体不支配循环出口后的 committed_*。
         let src =
             kernel_src("    while rq.proceed() {\n    }\n    let t_hit = rq.committed_t();\n");
+        assert_eq!(check(&src), vec![3018]);
+    }
+
+    // ---- first-hit 变体(RFC-0030 §4.6):三态协议与基线内建同形 ----
+
+    //@ spec: RXS-0299
+    #[test]
+    fn first_hit_full_traversal_flow_is_clean() {
+        // first_hit 构造同入"初始化"集合(Initialized 起点):initialize_first_hit
+        // → while proceed → if has_committed → committed_t → terminate 全流程 0 诊断。
+        let src = kernel_src_first_hit(
+            "    while rq.proceed() {\n        if rq.has_committed() {\n            let t_hit = rq.committed_t();\n        }\n    }\n    rq.terminate();\n",
+        );
+        assert!(check(&src).is_empty(), "{:?}", check(&src));
+    }
+
+    //@ spec: RXS-0299
+    #[test]
+    fn first_hit_use_after_terminate_is_rx3018() {
+        // S2 对 first_hit 构造的遍历器同律:terminate 置位后 proceed → RX3018。
+        let src = kernel_src_first_hit("    rq.terminate();\n    rq.proceed();\n");
+        assert_eq!(check(&src), vec![3018]);
+    }
+
+    //@ spec: RXS-0299
+    #[test]
+    fn first_hit_committed_query_without_guard_is_rx3018() {
+        // S3 对 first_hit 构造的遍历器同律:无守卫 committed_t → RX3018
+        // (与 conformance/rayquery/reject/first_hit_committed_unguarded.rx 同形)。
+        let src = kernel_src_first_hit("    let t_hit = rq.committed_t();\n");
         assert_eq!(check(&src), vec![3018]);
     }
 }

@@ -396,13 +396,15 @@ fn rvalue_read_locals(rv: &Rvalue) -> Vec<LocalIdx> {
             }
         }
         // RayQuery(G7.2 W3a,RXS-0298):origin/t_min/dir/t_max 读 + tlas 句柄 local
-        // 计为活跃读(沿 ResourceSample 的 texture_local 先例)。
+        // 计为活跃读(沿 ResourceSample 的 texture_local 先例;first_hit flags 位
+        // 非 operand)。
         Rvalue::RayQueryInitialize {
             tlas_local,
             origin,
             t_min,
             dir,
             t_max,
+            ..
         } => {
             push(origin);
             push(t_min);

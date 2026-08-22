@@ -232,8 +232,11 @@ def _rurixc() -> Path | None:
 
 
 SPV_SCENE = ROOT / ".tmp" / "g14_gates" / "m_c" / "g14_3_direct_gi.spv"
-SPV_RESAMPLE = ROOT / ".tmp" / "g13_gates" / "m_b" / "g13_tsr_resample.spv"
-SPV_RESOLVE = ROOT / ".tmp" / "g13_gates" / "m_b" / "g13_tsr_resolve.spv"
+# G14.9（RFC-0030 §4.5 L1，门脚本内部修订面沿 §8 只追加验收记录口径）：TSR 双腿
+# SPV 消费切换到 g14_8 调度变体（8×8 2D 线程组，数学面与 g13_tsr_* 逐字同源位级
+# 不变）；原 g13_tsr_*.rx/SPV 0-byte 保留（G13 M-b 门消费面 + RD-045 归因对照臂）。
+SPV_RESAMPLE = ROOT / ".tmp" / "g14_gates" / "m_c" / "g14_8_tsr_resample.spv"
+SPV_RESOLVE = ROOT / ".tmp" / "g14_gates" / "m_c" / "g14_8_tsr_resolve.spv"
 
 
 def _compile_kernel(src: Path, out: Path) -> bool:
@@ -249,8 +252,8 @@ def _ensure_spv() -> bool:
     """车道 SPV 三件套存在性保障（缺则编译；.tmp 构建产物不入 git，源 = kernels/*.rx）。"""
     pairs = [
         (ROOT / "src" / "rurix-render" / "kernels" / "g14_3_direct_gi.rx", SPV_SCENE),
-        (ROOT / "src" / "rurix-render" / "kernels" / "g13_tsr_resample.rx", SPV_RESAMPLE),
-        (ROOT / "src" / "rurix-render" / "kernels" / "g13_tsr_resolve.rx", SPV_RESOLVE),
+        (ROOT / "src" / "rurix-render" / "kernels" / "g14_8_tsr_resample.rx", SPV_RESAMPLE),
+        (ROOT / "src" / "rurix-render" / "kernels" / "g14_8_tsr_resolve.rx", SPV_RESOLVE),
     ]
     for src, out in pairs:
         if not src.is_file():

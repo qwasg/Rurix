@@ -1387,8 +1387,9 @@ impl Builder<'_, '_> {
         self.consume(Place::local(dest), &ret_ty)
     }
 
-    /// RayQuery 遍历器调用 lowering(G7.2 W3a,RXS-0298)。Initialize(自由函数,
-    /// receiver=None):args 恰 5,`args[0]` tlas 须为 `AccelStruct` 句柄形参的
+    /// RayQuery 遍历器调用 lowering(G7.2 W3a,RXS-0298)。Initialize /
+    /// InitializeFirstHit(自由函数,receiver=None;RFC-0030 §4.6 first-hit 变体
+    /// 仅置 `first_hit` 位):args 恰 5,`args[0]` tlas 须为 `AccelStruct` 句柄形参的
     /// 裸 local 引用(句柄非值,无投影,沿 atomic receiver / `ResourceSample`
     /// 资源句柄先例),origin/t_min/dir/t_max 为值操作数 →
     /// `Rvalue::RayQueryInitialize`。方法族(receiver=Some):接收者须为直引
@@ -1429,6 +1430,9 @@ impl Builder<'_, '_> {
                         t_min,
                         dir,
                         t_max,
+                        // first-hit 早退变体(RFC-0030 §4.6)仅在此判别一次,
+                        // 后续各层按 MIR 字段透传。
+                        first_hit: op == crate::hir::RayQueryOp::InitializeFirstHit,
                     },
                     ty,
                     e.span,

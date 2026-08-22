@@ -540,13 +540,17 @@ impl IntrinsicVisitor<'_> {
             && let [seg] = p.segments.as_slice()
         {
             let name = seg.ident.name.as_str();
-            // ray_query_initialize → rt.ray_query(DefId 级优先)。
+            // ray_query_initialize / ray_query_initialize_first_hit(RFC-0030 §4.6)
+            // → rt.ray_query(DefId 级优先)。
             let is_rq_init = match self.res {
                 Some(res) => matches!(
                     res.path_res.get(&p.span),
                     Some(Res::Def(d)) if res.lang_items.is_ray_query_initialize(*d)
+                        || res.lang_items.is_ray_query_initialize_first_hit(*d)
                 ),
-                None => name == "ray_query_initialize",
+                None => {
+                    name == "ray_query_initialize" || name == "ray_query_initialize_first_hit"
+                }
             };
             if is_rq_init {
                 self.caps.insert(CapabilityId::RtRayQuery);
@@ -2047,6 +2051,31 @@ kernel fn kmain() {}
         assert!(
             caps2.is_empty(),
             "用户同名 trace_ray 非 RT intrinsic,不推导"
+        );
+    }
+
+    /// 隐式推导:`ray_query_initialize_first_hit`(RFC-0030 §4.6)→ rt.ray_query,
+    /// 与基线 `ray_query_initialize` 同映射(名兜底与 DefId 级两路)。
+    //@ spec: RXS-0311
+    #[test]
+    fn implicit_intrinsic_mapping_first_hit() {
+        // 名兜底路(res 缺席)。
+        let (file, _) = parse_src("kernel fn k() { ray_query_initialize_first_hit(); }\n");
+        let ast::ItemKind::Fn(f) = &file.items[0].kind else {
+            panic!("首项须为 fn");
+        };
+        assert_eq!(names(&implicit_for_fn(f, &[], None)), ["rt.ray_query"]);
+        // DefId 级路(resolve 在场,lang item 值位置兜底解析;无 AccelStruct 形参,
+        // 排除形参映射同因,推导只可能来自 intrinsic 识别)。
+        let (file2, res) =
+            parse_and_resolve("kernel fn k() { ray_query_initialize_first_hit(); }\n");
+        let ast::ItemKind::Fn(f2) = &file2.items[0].kind else {
+            panic!("首项须为 fn");
+        };
+        assert_eq!(
+            names(&implicit_for_fn(f2, &[], Some(&res))),
+            ["rt.ray_query"],
+            "DefId 级识别 first_hit 构造 → rt.ray_query"
         );
     }
 

@@ -2128,12 +2128,20 @@ impl Tck<'_, '_> {
         }
         // RayQuery 遍历器构造(G7.2 W3a,RXS-0298):`ray_query_initialize(tlas,
         // origin, t_min, dir, t_max)` 编译器已知自由函数(沿 `write_ppm`/`trace_ray`
-        // 已知签名先例,拦截在通用 `DefKind::Fn` 解析臂之前)。tlas/origin/dir 为
-        // 容忍位(`Ty::Err`:AccelStruct 头名匹配已在 AST 层 [`crate::shader_stages`]
-        // 裁决、vec 结构性 Err,沿 `expect_vec_arg` 容忍口径);t_min/t_max 精确 f32。
+        // 已知签名先例,拦截在通用 `DefKind::Fn` 解析臂之前);first-hit 早退变体
+        // `ray_query_initialize_first_hit`(RFC-0030 §4.6)签名/门禁/三态协议完全
+        // 同形,唯一差异在 codegen RayFlags。tlas/origin/dir 为容忍位(`Ty::Err`:
+        // AccelStruct 头名匹配已在 AST 层 [`crate::shader_stages`] 裁决、vec 结构性
+        // Err,沿 `expect_vec_arg` 容忍口径);t_min/t_max 精确 f32。
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
-            && self.res.lang_items.is_ray_query_initialize(*d)
+            && (self.res.lang_items.is_ray_query_initialize(*d)
+                || self.res.lang_items.is_ray_query_initialize_first_hit(*d))
         {
+            let op = if self.res.lang_items.is_ray_query_initialize_first_hit(*d) {
+                crate::hir::RayQueryOp::InitializeFirstHit
+            } else {
+                crate::hir::RayQueryOp::Initialize
+            };
             // 上下文门禁(RXS-0297):仅 compute fn(device kernel/其可达 device fn)
             // 体内可调;host 体 / RT 阶段 fn → RX3013 扩类别(资源/遍历器句柄位置
             // 违例,沿 AccelStruct/RXS-0245 扩类别先例)。
@@ -2145,16 +2153,16 @@ impl Tck<'_, '_> {
                     )
                     .arg(
                         "detail",
-                        "`ray_query_initialize` may only be called inside compute fns \
-                         (device kernels / their reachable device fns, RXS-0297)"
-                            .to_owned(),
+                        format!(
+                            "`{}` may only be called inside compute fns \
+                             (device kernels / their reachable device fns, RXS-0297)",
+                            op.name()
+                        ),
                     )
                     .span_label(span, "ray query constructor outside compute context")
                     .emit();
             }
-            self.results
-                .ray_query_calls
-                .insert(call_id, crate::hir::RayQueryOp::Initialize);
+            self.results.ray_query_calls.insert(call_id, op);
             let ray_query = self
                 .res
                 .lang_items
@@ -2424,8 +2432,9 @@ impl Tck<'_, '_> {
                     crate::hir::RayQueryOp::CommittedInstanceIndex
                     | crate::hir::RayQueryOp::CommittedPrimitiveIndex
                     | crate::hir::RayQueryOp::CommittedGeometryIndex => Ty::Prim(PrimTy::U32),
-                    // `from_method` 不产 Initialize(构造经自由函数)。
-                    crate::hir::RayQueryOp::Initialize => unreachable!(),
+                    // `from_method` 不产 Initialize/InitializeFirstHit(构造经自由函数)。
+                    crate::hir::RayQueryOp::Initialize
+                    | crate::hir::RayQueryOp::InitializeFirstHit => unreachable!(),
                 }
             }
             // 宿主 GPU 编排编译器已知签名(MS1.2,RXS-0189/0190):`Context` /

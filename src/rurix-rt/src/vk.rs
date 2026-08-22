@@ -10581,6 +10581,10 @@ const GEOMETRY_TYPE_TRIANGLES: u32 = 0;
 const GEOMETRY_TYPE_INSTANCES: u32 = 2;
 const GEOMETRY_OPAQUE_BIT: u32 = 0x1;
 const BUILD_ACCEL_STRUCTURE_ALLOW_UPDATE_BIT: u32 = 0x1;
+/// `VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR`(SDK 1.3.296
+/// `vulkan_core.h`;G14plus RFC-0030 §4.8:BLAS/TLAS 构建优选 trace 速度——
+/// flags 只影响驱动内部 BVH 布局,不改任何交点/命中语义面)。
+const BUILD_ACCEL_STRUCTURE_PREFER_FAST_TRACE_BIT: u32 = 0x4;
 const BUILD_ACCEL_STRUCTURE_MODE_BUILD: u32 = 0;
 const BUILD_ACCEL_STRUCTURE_MODE_UPDATE: u32 = 1;
 const ACCEL_STRUCTURE_BUILD_TYPE_DEVICE: u32 = 1;
@@ -12829,6 +12833,8 @@ impl VkAsManager {
                 s_type: ST_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
                 p_next: std::ptr::null(),
                 ty: ACCEL_STRUCTURE_TYPE_BOTTOM_LEVEL,
+                // G14plus RFC-0030 §4.8 bisect 探针:临时回退 flags=0 归因
+                // bistro digest 漂移(PREFER_FAST_TRACE 共面 tie-break 嫌疑)。
                 flags: 0,
                 mode: BUILD_ACCEL_STRUCTURE_MODE_BUILD,
                 src_acceleration_structure: VK_NULL_HANDLE,
@@ -12989,6 +12995,7 @@ impl VkAsManager {
             s_type: ST_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
             p_next: std::ptr::null(),
             ty: ACCEL_STRUCTURE_TYPE_TOP_LEVEL,
+            // G14plus RFC-0030 §4.8 bisect 探针:临时回退基线 flags 归因。
             flags: BUILD_ACCEL_STRUCTURE_ALLOW_UPDATE_BIT,
             mode: BUILD_ACCEL_STRUCTURE_MODE_BUILD,
             src_acceleration_structure: VK_NULL_HANDLE,

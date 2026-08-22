@@ -1,0 +1,32 @@
+//@ spec: RXS-0297, RXS-0298, RXS-0299, RXS-0300
+// RFC-0030 §4.6 语料:`ray_query_initialize_first_hit` first-hit 早退构造内建
+// (spec 条款 post-interlock 领号,归 G14.9 实施批统一落;锚定行暂用既有
+// RXS-0297~0300——trace_matrix 幽灵锚定守卫拒未领号条款,领号后本行随批改写)。
+//
+// 语义:签名/类型/三态协议(RXS-0298/0299)与 `ray_query_initialize` 完全同形,
+// 唯一差异 = SPIR-V `OpRayQueryInitializeKHR` 的 RayFlags 操作数
+// `OpaqueKHR|TerminateOnFirstHitKHR`(0x5;既有内建 0x1 面位级不动)。用途:
+// 阴影射线早退——全 opaque 场景下与穷尽遍历的**存在性**判定等价
+// (`has_committed` 同值),遍历在首个命中即终止。
+//
+// 形态:initialize_first_hit → while proceed 空循环(遍历推进;flags 含 Opaque
+// 故候选不可达)→ if has_committed 存在性消费(RXS-0299 S3 守卫形态 ②)分
+// hit / miss 两臂写 1.0 / 0.0 遮蔽因子。
+//
+// committed_t 语义边界登记(RFC-0030 §4.6):first-hit query 上 `committed_t` /
+// committed_* 查询族在类型与三态协议上**合法**(守卫支配纪律同基线),但其值为
+// **首个命中**(TerminateOnFirstHitKHR 终止点)的属性,不保证是最近命中——
+// 消费侧若假设 closest-hit 语义属**语义警示面**,编译器不拒(存在性判定
+// `has_committed` 不受此边界影响)。协议错误形态(未守卫消费)见
+// `../reject/first_hit_committed_unguarded.rx`。
+kernel fn ray_query_first_hit(tlas: AccelStruct, out: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut rq = ray_query_initialize_first_hit(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+    while rq.proceed() {
+    }
+    if rq.has_committed() {
+        out[i] = 1.0;
+    } else {
+        out[i] = 0.0;
+    }
+}

@@ -176,10 +176,12 @@ const CAP_RAY_QUERY_KHR: u32 = 4472;
 /// `SPV_KHR_ray_query` extension 名。声明条件 = 模块含 `OpTypeRayQueryKHR` 或
 /// `OpTypeAccelerationStructureKHR`(与升版并集判定同源,RXS-0300)。
 const EXT_SPV_KHR_RAY_QUERY: &str = "SPV_KHR_ray_query";
-// `OpRayQueryInitializeKHR` 的 RayFlags / CullMask 实参:首期恒 `OpaqueKHR`(=1)
-// 与 `0xFF`(RXS-0298 钉死,与 RXS-0245 `trace_ray` 同一纪律)→ 复用下方 RT 腿
-// 既有 `RAY_FLAG_OPAQUE` / `CULL_MASK_ALL` 常量(单一事实源)。二者为 `IdRef`,
-// 须经 `const_uint` 物化为 `OpConstant`。
+// `OpRayQueryInitializeKHR` 的 RayFlags / CullMask 实参:`ray_query_initialize`
+// 面恒 `OpaqueKHR`(=1)与 `0xFF`(RXS-0298 钉死,与 RXS-0245 `trace_ray` 同一
+// 纪律);first-hit 变体 `ray_query_initialize_first_hit`(RFC-0030 §4.6)flags
+// = `OpaqueKHR|TerminateOnFirstHitKHR`(=0x5),mask 同 `0xFF` → 复用下方 RT 腿
+// 既有 `RAY_FLAG_OPAQUE` / `RAY_FLAG_TERMINATE_ON_FIRST_HIT` / `CULL_MASK_ALL`
+// 常量(单一事实源)。二者为 `IdRef`,须经 `const_uint` 物化为 `OpConstant`。
 /// `RayQueryIntersection` 枚举:committed 侧(=1)。首期只读 committed
 /// (candidate 面 RXS-0298 首期不开放)。
 const RAY_QUERY_COMMITTED_INTERSECTION_KHR: u32 = 1;
@@ -1652,7 +1654,10 @@ fn emit_assign(
             t_min,
             dir,
             t_max,
-        } => emit_ray_query_initialize(b, body, place, *tlas_local, origin, t_min, dir, t_max),
+            first_hit,
+        } => emit_ray_query_initialize(
+            b, body, place, *tlas_local, origin, t_min, dir, t_max, *first_hit,
+        ),
         Rvalue::RayQueryMethod { op, rq_local } => {
             emit_ray_query_method(b, body, place, *op, *rq_local)
         }
@@ -1669,7 +1674,9 @@ fn emit_assign(
 /// `RayQuery, Accel, RayFlags, CullMask, RayOrigin, RayTMin, RayDirection, RayTMax`
 /// —— 注意 `RayTMin` 在 `RayOrigin` **之后**、`RayDirection` 在 `RayTMin` **之后**
 /// (与语言面 `ray_query_initialize(tlas, origin, t_min, dir, t_max)` 的实参序同形,
-/// 非字母序)。flags 恒 `OpaqueKHR`、mask 恒 `0xFF`(RXS-0298 钉死),二者为
+/// 非字母序)。flags:既有面恒 `OpaqueKHR`(0x1,RXS-0298 钉死);first-hit 变体
+/// (`ray_query_initialize_first_hit`,RFC-0030 §4.6)= `OpaqueKHR |
+/// TerminateOnFirstHitKHR`(0x5,阴影射线早退)。mask 恒 `0xFF`。二者为
 /// `IdRef` 故须物化为 `OpConstant`。
 ///
 /// `place` = 目标 RayQuery local。`OpRayQueryInitializeKHR` 无结果 id:遍历器
@@ -1685,6 +1692,7 @@ fn emit_ray_query_initialize(
     t_min: &Operand,
     dir: &Operand,
     t_max: &Operand,
+    first_hit: bool,
 ) -> Result<(), VulkanCodegenError> {
     let span = body.locals[tlas_local.0 as usize].span;
     let accel_var = *b.accel_var.get(&tlas_local.0).ok_or_else(|| {
@@ -1703,7 +1711,11 @@ fn emit_ray_query_initialize(
     let dir_id = vec3_f32_operand(b, body, dir, span, "ray direction")?;
     let t_min_id = f32_operand(b, body, t_min, span, "ray t_min")?;
     let t_max_id = f32_operand(b, body, t_max, span, "ray t_max")?;
-    let flags = b.const_uint(RAY_FLAG_OPAQUE);
+    let flags = b.const_uint(if first_hit {
+        RAY_FLAG_OPAQUE | RAY_FLAG_TERMINATE_ON_FIRST_HIT
+    } else {
+        RAY_FLAG_OPAQUE
+    });
     let mask = b.const_uint(CULL_MASK_ALL);
     emit(
         &mut b.func_body,
@@ -1818,9 +1830,10 @@ fn emit_ray_query_method(
             emit(&mut b.func_body, OP_STORE, &[ptr, value]);
             Ok(())
         }
-        Rq::Initialize => Err(VulkanCodegenError::unsupported(
+        Rq::Initialize | Rq::InitializeFirstHit => Err(VulkanCodegenError::unsupported(
             span,
-            "`ray_query_initialize` 经 Rvalue::RayQueryInitialize 降级,不入方法族",
+            "`ray_query_initialize`/`ray_query_initialize_first_hit` 经 \
+             Rvalue::RayQueryInitialize 降级,不入方法族",
         )),
     }
 }
@@ -2969,6 +2982,10 @@ const IMAGE_FORMAT_RGBA8: u32 = 4;
 
 // RayFlags / cull mask(§4.E4 已知签名固定:opaque / 0xFF / SBT 恒 0)。
 const RAY_FLAG_OPAQUE: u32 = 1;
+/// `TerminateOnFirstHitKHR` RayFlags 位(=0x4)。仅 first-hit 变体
+/// `ray_query_initialize_first_hit`(RFC-0030 §4.6)与 `OpaqueKHR` 并置为 0x5
+/// 消费;既有 `ray_query_initialize` 面恒 `RAY_FLAG_OPAQUE`(0x1)不动。
+const RAY_FLAG_TERMINATE_ON_FIRST_HIT: u32 = 4;
 const CULL_MASK_ALL: u32 = 0xFF;
 
 /// 固定最小合规 SPIR-V 模块构造器(mesh/task/RT;E5/E6)。分节累积,末尾按 SPIR-V logical
@@ -4018,6 +4035,55 @@ mod tests {
             storage,
             Some(STORAGE_FUNCTION),
             "RayQuery 变量须 Function 存储类"
+        );
+    }
+
+    /// first-hit 早退变体(RFC-0030 §4.6):与 `ray_query_initialize` 唯一差异 =
+    /// RayFlags 操作数 `OpaqueKHR|TerminateOnFirstHitKHR`(0x5);操作数形状
+    /// (恰 8)与 cull mask(0xFF)不变。既有 0x1 面由
+    /// [`ray_query_initialize_operand_shape_and_frozen_flags`] 锚定,0-byte 不动。
+    //@ spec: RXS-0298
+    #[test]
+    fn ray_query_initialize_first_hit_emits_terminate_on_first_hit_flags() {
+        let src = "kernel fn rq_fh(tlas: AccelStruct, t: ThreadCtx<1>) {\n\
+             \x20   let mut rq = ray_query_initialize_first_hit(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);\n\
+             \x20   while rq.proceed() {\n\
+             \x20   }\n\
+             \x20   if rq.has_committed() {\n\
+             \x20       let a = rq.committed_t();\n\
+             \x20   }\n\
+             }\n";
+        let words = compile_compute(src);
+        let ops = first_inst(&words, OP_RAY_QUERY_INITIALIZE_KHR).expect("须有 initialize");
+        assert_eq!(ops.len(), 8, "initialize 恰 8 个操作数: {ops:?}");
+        let const_value = |id: u32| -> Option<u32> {
+            let mut i = 5;
+            while i < words.len() {
+                let wc = (words[i] >> 16) as usize;
+                if wc == 0 {
+                    break;
+                }
+                if (words[i] & 0xffff) as u16 == OP_CONSTANT && words[i + 2] == id {
+                    return Some(words[i + 3]);
+                }
+                i += wc;
+            }
+            None
+        };
+        assert_eq!(
+            const_value(ops[2]),
+            Some(RAY_FLAG_OPAQUE | RAY_FLAG_TERMINATE_ON_FIRST_HIT),
+            "first-hit 变体 ray flags = OpaqueKHR|TerminateOnFirstHitKHR(0x5,RFC-0030 §4.6)"
+        );
+        assert_eq!(
+            RAY_FLAG_OPAQUE | RAY_FLAG_TERMINATE_ON_FIRST_HIT,
+            5,
+            "flags 字面 = 0x5"
+        );
+        assert_eq!(
+            const_value(ops[3]),
+            Some(CULL_MASK_ALL),
+            "cull mask 恒 0xFF(变体不动)"
         );
     }
 

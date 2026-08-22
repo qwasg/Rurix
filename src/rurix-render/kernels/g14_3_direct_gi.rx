@@ -207,25 +207,36 @@ kernel fn g14_3_direct_gi(
                     let t_sh = d - 2.0 * ray_eps;
                     let gate_far = (t_sh * big).min(1.0).max(0.0);
                     let t_fire = t_sh.max(ray_eps);
-                    let mut sq = ray_query_initialize(
-                        tlas,
-                        (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
-                        0.0,
-                        (wix, wiy, wiz),
-                        t_fire,
-                    );
-                    while sq.proceed() {
-                    }
+                    // G14.9 背光 keep 预判跳射线（RFC-0030 §4.4 L2 ①，严格位级不变）：
+                    // keep = hit_f·gate_d·gate_cs·gate_cl·vis——前置四门任一为 0 时
+                    // keep 恒 0，vis 值不被消费（acc 贡献 = qle·g·0 = +0.0 与原逐位
+                    // 同），阴影 ray query 发射可跳过；四门非 0 时行为与原逐字一致。
+                    // G14.9 first-hit 早退（RFC-0030 §4.6 L2）：阴影臂仅消费
+                    // has_committed 存在性布尔——全 opaque 场景 first-hit 与
+                    // closest-hit 存在性等价，图像位级不变；主射线（需最近命中）
+                    // 禁用本内建维持 ray_query_initialize。
+                    let keep_pre = hit_f * gate_d * gate_cs * gate_cl;
                     let mut blk = 0.0;
-                    if sq.has_committed() {
-                        blk = 1.0;
-                    } else {
-                        blk = 0.0;
+                    if keep_pre > 0.0 {
+                        let mut sq = ray_query_initialize_first_hit(
+                            tlas,
+                            (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                            0.0,
+                            (wix, wiy, wiz),
+                            t_fire,
+                        );
+                        while sq.proceed() {
+                        }
+                        if sq.has_committed() {
+                            blk = 1.0;
+                        } else {
+                            blk = 0.0;
+                        }
                     }
                     let vis = 1.0 - gate_far * blk;
                     // g = cos_s·cos_l/d²·sample_area（host 左结合同序）。
                     let g = (cos_s * cos_l / d2s) * sample_area;
-                    let keep = hit_f * gate_d * gate_cs * gate_cl * vis;
+                    let keep = keep_pre * vis;
                     acc_r = acc_r + qle_r * g * keep;
                     acc_g = acc_g + qle_g * g * keep;
                     acc_b = acc_b + qle_b * g * keep;
@@ -260,24 +271,29 @@ kernel fn g14_3_direct_gi(
             let t_sh = d - 2.0 * ray_eps;
             let gate_far = (t_sh * big).min(1.0).max(0.0);
             let t_fire = t_sh.max(ray_eps);
-            let mut sq = ray_query_initialize(
-                tlas,
-                (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
-                0.0,
-                (wix, wiy, wiz),
-                t_fire,
-            );
-            while sq.proceed() {
-            }
+            // G14.9 背光 keep 预判跳射线（quad 臂同律；三门任一为 0 时 vis 不被
+            // 消费，跳过发射位级不变）+ first-hit 早退（阴影臂存在性消费等价）。
+            let keep_pre = hit_f * gate_d * gate_cs;
             let mut blk = 0.0;
-            if sq.has_committed() {
-                blk = 1.0;
-            } else {
-                blk = 0.0;
+            if keep_pre > 0.0 {
+                let mut sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                    0.0,
+                    (wix, wiy, wiz),
+                    t_fire,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    blk = 1.0;
+                } else {
+                    blk = 0.0;
+                }
             }
             let vis = 1.0 - gate_far * blk;
             let g = cos_s / d2s;
-            let keep = hit_f * gate_d * gate_cs * vis;
+            let keep = keep_pre * vis;
             dir_r = dir_r + li_r * g * keep;
             dir_g = dir_g + li_g * g * keep;
             dir_b = dir_b + li_b * g * keep;

@@ -114,17 +114,25 @@ fn reject_corpus_all_intercepted() {
 #[test]
 fn corpus_contains_expected_files() {
     let accept = rx_files(&rayquery_dir("accept"));
-    assert!(
-        accept
-            .iter()
-            .any(|f| f.file_name().is_some_and(|n| n == "ray_query_basic.rx")),
-        "rayquery/accept 缺 ray_query_basic.rx"
-    );
+    for name in [
+        "ray_query_basic.rx",
+        // first-hit 早退构造内建(RFC-0030 §4.6)。
+        "ray_query_first_hit.rx",
+    ] {
+        assert!(
+            accept
+                .iter()
+                .any(|f| f.file_name().is_some_and(|n| n == name)),
+            "rayquery/accept 缺 {name}"
+        );
+    }
     let reject = rx_files(&rayquery_dir("reject"));
     for name in [
         "ray_query_escape.rx",
         "ray_query_after_terminate.rx",
         "committed_unguarded.rx",
+        // first-hit 变体的 S3 协议反例(RFC-0030 §4.6)。
+        "first_hit_committed_unguarded.rx",
     ] {
         assert!(
             reject
