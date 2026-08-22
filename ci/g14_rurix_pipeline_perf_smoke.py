@@ -336,7 +336,8 @@ def run_gate() -> int:
                             for i in range(len(runs) - 1)
                         )
                         positive = all(r["wall_s"] > 0.0 for r in runs)
-                        if not (seq_ok and positive):
+                        indep = seq_ok and positive
+                        if not indep:
                             all_ok = False
                             gaps = [
                                 round(runs[i + 1]["started_epoch"] - runs[i]["started_epoch"], 4)
