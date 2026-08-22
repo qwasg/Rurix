@@ -117,7 +117,7 @@ use rurix_render::temporal::upscale::{UpscaleBackend, UpscaleInputs};
 use rurix_rt::render_exec::{
     AccelStructDesc, Bindings, BufferDesc, BufferUsage, ComputePass, DeviceFrameSession,
     DispatchSpec, FrameUpdate, Pass, RayQueryInstanceDesc, RayQuerySceneDesc, Readback,
-    ResourceDesc, StableResourceId, TargetState, TexFormat, TextureDesc, TextureUsage,
+    ResourceDesc, StableResourceId, TargetState,
 };
 use rurix_rt::vendor_upscale::{
     DlssVkSession, ExternalBufferImportDesc, ExternalInputSlot, FsrDx12Session,
@@ -2552,9 +2552,9 @@ fn unified_lane_descs_split<'x>(
     };
     let buf = |size: u64| {
         ResourceDesc::Buffer(BufferDesc {
-            size,
-            usage: storage,
-            data: None,
+        size,
+        usage: storage,
+        data: None,
             device_local: true,
         })
     };
@@ -2934,8 +2934,8 @@ impl<'a> UnifiedTsrLane<'a> {
                     "统一车道回读路数 {} ≠ {want}",
                     out.readbacks.len()
                 ));
-            }
-            let data = read_f32(&out.readbacks[0]);
+        }
+        let data = read_f32(&out.readbacks[0]);
             if data.len() != (ow * oh * 3) as usize {
                 return Err("统一车道回读字节数与输出分辨率不符".into());
             }
@@ -3642,15 +3642,18 @@ impl<'a> DlssResidentLane<'a> {
 }
 
 // ---------------------------------------------------------------------------
-// G14.11 fsr 驻留统一车道（D3D12 反向共享）。与 dlss 车道（G14.10f buffer
-// 共享）**分面自持**：dlss 弃案的"三 exportable 纹理"是 OPAQUE_WIN32 跨两个
-// VkDevice 的 OPTIMAL 布局歧义；fsr 面是 **D3D12 创建 SHARED 纹理 → 本
-// render_exec 唯一 VkDevice 以 D3D12_RESOURCE handle 导入**——布局由 D3D12
-// 资源定义、驱动跨 API 协定对拍（Vulkan spec VK_KHR_external_memory_win32
-// D3D12 互操作面），非同族问题。内容对拍诊断臂（dump-pack Vulkan 侧 vs
-// dump-import D3D12 侧同一纹理双读逐字节比）为实证门，乱序即落 buffer 反向
-// fallback。pack SPV = HEAD 版 image 写形态（dlss 已迁 buffer 版,故 fsr 区
-// 自持副本 fsr_pack_spv,SSBO 三源→storage image 三标位拷贝）。
+// G14.11 fsr 驻留统一车道（D3D12 反向共享 **buffer 形态**）。演进登记:
+// ① texture 直共享首选案已实证弃案——D3D12 SHARED 纹理经 D3D12_RESOURCE
+// handle 导入 OPTIMAL VkImage,NVIDIA 驱动跨 API tiling 解释不一致,D3D12 侧
+// 读为确定性条纹乱序(dump-pack/dump-import 内容对拍 + 读图实锤,证据
+// evidence/g14_11_fsr_dump_{pack,import}.png;与 dlss 臂 OPAQUE_WIN32 跨
+// device 弃案同族,"官方跨 API 协定"在该驱动上不含 tiling 互认)。
+// ② 现方案 = buffer 共享:D3D12 SHARED staging BUFFER(线性字节无歧义)→
+// Vulkan 导入 bind 为 SSBO → pack SPV v2 按 host 链 upload 布局(三段 256B
+// 行距)直写 → D3D12 侧逐帧 CopyTextureRegion 搬入三输入纹理(GPU 内拷,
+// formats 与 host 链逐字同)→ ffx dispatch。与 dlss 车道(Vulkan 导出向
+// buffer 共享)**分面自持**:fsr 为 D3D12 创建/Vulkan 导入反向,且 FFX 输入
+// 须为纹理故有搬入段。
 // ---------------------------------------------------------------------------
 
 /// fsr 驻留车道资源下标闭集（场景区 0..=6 + mv 区 7..=8 与统一车道 U_* 逐字
@@ -3693,12 +3696,15 @@ fn fsr_staging_layout(iw: u32, ih: u32) -> (u64, u64, u64, u64, u64, u64) {
 /// 2f32/px；binding 0/1/2）逐像素直写 D3D12 SHARED 导入 staging SSBO
 /// （u32 词面；binding 3），按 [`fsr_staging_layout`] 三段 256B 对齐行距
 /// 布局——与 host 链 upload 堆布局逐字同，D3D12 侧 CopyTextureRegion
-/// PLACED_FOOTPRINT 直搬。数值面与 host 链 pack **同语义**：color
-/// PackHalf2x16（GLSL.std.450 #58，RTE 舍入 = host `f32_to_f16` 同式）×2/px
-/// （rgb + alpha=1.0，**无 exposure 乘**——曝光归 ffx pre_exposure，与现
-/// 路径同律）；depth/mv f32 OpBitcast 位拷贝零浮点算术。push constants =
-/// {w,h,crw,drw,mrw,odw,omw} u32×7（行距/偏移均为 u32 词数——256B 对齐保证
-/// 4 整除）；越界门 px<w && py<h。
+/// PLACED_FOOTPRINT 直搬。数值面：color rgb **×exposure 转显示域**（TSR
+/// resample o=v·exposure 同律,vendor 臂 scene 域直通为 G14.3 以来存量语义
+/// 分裂,bistro ev100=−4 暗 2^4 读图抓获——dlss 臂 g14_pack_spv 同款修正已
+/// 验证;cornell ev100=0 时 ×1.0 IEEE 位恒等 = digest 位保持判据;host 共享
+/// 面 pack_vendor_inputs 零触碰保 M-a 锚;ffx pre_exposure 保持现值）后
+/// PackHalf2x16（GLSL.std.450 #58,RTE 舍入 = host `f32_to_f16` 同式）×2/px
+/// （rgb + alpha=1.0）；depth/mv f32 OpBitcast 位拷贝零浮点算术**不乘**。
+/// push constants = {w,h,crw,drw,mrw,odw,omw:u32×7, exposure:f32}
+/// （行距/偏移均为 u32 词数——256B 对齐保证 4 整除）；越界门 px<w && py<h。
 #[allow(clippy::too_many_lines)]
 fn fsr_pack_spv() -> Vec<u32> {
     fn inst(v: &mut Vec<u32>, op: u32, ops: &[u32]) {
@@ -3750,6 +3756,8 @@ fn fsr_pack_spv() -> Vec<u32> {
     let c_u5 = 36;
     let c_u6 = 37;
     let c_f1 = 38;
+    let c_u7 = 39;
+    let p_pc_f32 = 40;
     let fn_id = 100u32;
     let l_entry = 101;
     let l_then = 102;
@@ -3780,8 +3788,8 @@ fn fsr_pack_spv() -> Vec<u32> {
         inst(&mut ann, 71, &[v, 33, b]); // Binding b
     }
     inst(&mut ann, 71, &[t_pc, 2]); // Block（push constants）
-    for (m, off) in (0u32..7).map(|m| (m, m * 4)) {
-        inst(&mut ann, 72, &[t_pc, m, 35, off]); // w/h/crw/drw/mrw/odw/omw
+    for (m, off) in (0u32..8).map(|m| (m, m * 4)) {
+        inst(&mut ann, 72, &[t_pc, m, 35, off]); // w/h/crw/drw/mrw/odw/omw/exposure
     }
 
     let mut typ = Vec::new();
@@ -3806,10 +3814,15 @@ fn fsr_pack_spv() -> Vec<u32> {
     inst(&mut typ, 32, &[p_uni_st_u, 2, t_st_u32]);
     inst(&mut typ, 32, &[p_uni_u32, 2, t_u32]);
     inst(&mut typ, 59, &[p_uni_st_u, v_stag, 2]);
-    inst(&mut typ, 30, &[t_pc, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32]);
+    inst(
+        &mut typ,
+        30,
+        &[t_pc, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32, t_u32, t_f32],
+    );
     inst(&mut typ, 32, &[p_pc, 9, t_pc]); // PushConstant
     inst(&mut typ, 59, &[p_pc, v_pc, 9]);
     inst(&mut typ, 32, &[p_pc_u32, 9, t_u32]);
+    inst(&mut typ, 32, &[p_pc_f32, 9, t_f32]);
     inst(&mut typ, 43, &[t_u32, c_u0, 0]);
     inst(&mut typ, 43, &[t_u32, c_u1, 1]);
     inst(&mut typ, 43, &[t_u32, c_u2, 2]);
@@ -3817,6 +3830,7 @@ fn fsr_pack_spv() -> Vec<u32> {
     inst(&mut typ, 43, &[t_u32, c_u4, 4]);
     inst(&mut typ, 43, &[t_u32, c_u5, 5]);
     inst(&mut typ, 43, &[t_u32, c_u6, 6]);
+    inst(&mut typ, 43, &[t_u32, c_u7, 7]);
     inst(&mut typ, 43, &[t_f32, c_f1, 1.0f32.to_bits()]);
 
     let mut body = Vec::new();
@@ -3895,15 +3909,26 @@ fn fsr_pack_spv() -> Vec<u32> {
     let i_px = iadd!(row, px);
     let px2 = alloc!();
     inst(&mut body, 132, &[t_u32, px2, px, c_u2]); // px·2（color/mv 双词步距）
-    // color：base = i*3 读 (r,g,b)；PackHalf2x16(r,g)/(b,1.0) → u32 对，
-    // 写 staging[py·crw + px·2 .. +1]（f16 RGBA 8B/px 段，off 0）。
+    // color：base = i*3 读 (r,g,b)·exposure（push constant [7]——显示域转换,
+    // TSR resample o=v·exposure 同律;cornell exposure=1.0 位保持）;
+    // PackHalf2x16(r·e,g·e)/(b·e,1.0) → u32 对，写 staging[py·crw + px·2 ..
+    // +1]（f16 RGBA 8B/px 段，off 0）。
+    let (ae, e) = (alloc!(), alloc!());
+    inst(&mut body, 65, &[p_pc_f32, ae, v_pc, c_u7]);
+    inst(&mut body, 61, &[t_f32, e, ae]);
     let cb = alloc!();
     inst(&mut body, 132, &[t_u32, cb, i_px, c_u3]);
-    let cr = ld!(v_color, cb);
+    let cr0 = ld!(v_color, cb);
     let cgi = iadd!(cb, c_u1);
-    let cg = ld!(v_color, cgi);
+    let cg0 = ld!(v_color, cgi);
     let cbi = iadd!(cb, c_u2);
-    let cbl = ld!(v_color, cbi);
+    let cbl0 = ld!(v_color, cbi);
+    let cr = alloc!();
+    inst(&mut body, 133, &[t_f32, cr, cr0, e]); // OpFMul
+    let cg = alloc!();
+    inst(&mut body, 133, &[t_f32, cg, cg0, e]);
+    let cbl = alloc!();
+    inst(&mut body, 133, &[t_f32, cbl, cbl0, e]);
     let v_rg = alloc!();
     inst(&mut body, 80, &[t_v2f, v_rg, cr, cg]); // OpCompositeConstruct
     let lo = alloc!();
@@ -3976,7 +4001,7 @@ struct FsrLaneBits {
 }
 
 impl FsrLaneBits {
-    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32) -> Self {
+    fn load(spv_scene: &str, spv_mv: &str, iw: u32, ih: u32, exposure: f32) -> Self {
         let to_bytes = |words: &[u32]| -> Vec<u8> {
             words.iter().flat_map(|w| w.to_le_bytes()).collect()
         };
@@ -3996,10 +4021,11 @@ impl FsrLaneBits {
         let (sx, sy, _) = spv_local_size(&scene_words);
         let (mx, my, _) = spv_local_size(&mv_words);
         let (px, py, _) = spv_local_size(&pack_words);
-        // pack push constants = {w,h,crw,drw,mrv,odw,omw} u32×7(行距/偏移
-        // 以 u32 词数下发——staging 布局 256B 对齐恒 4 整除)。
+        // pack push constants = {w,h,crw,drw,mrv,odw,omw:u32×7, exposure:f32}
+        // (行距/偏移以 u32 词数下发——staging 布局 256B 对齐恒 4 整除;
+        // exposure 创建期恒定烧入 = 2^(−ev100),显示域转换面)。
         let (color_row, depth_row, mv_row, off_depth, off_mv, _) = fsr_staging_layout(iw, ih);
-        let mut pack_pc = Vec::with_capacity(28);
+        let mut pack_pc = Vec::with_capacity(32);
         for v in [
             iw,
             ih,
@@ -4011,6 +4037,7 @@ impl FsrLaneBits {
         ] {
             pack_pc.extend_from_slice(&v.to_le_bytes());
         }
+        pack_pc.extend_from_slice(&exposure.to_le_bytes());
         let spv_pack = to_bytes(&pack_words);
         let pack_sha256 = sha256_hex(&spv_pack);
         Self {
@@ -4168,14 +4195,16 @@ struct FsrResidentFrameRec {
     upscale_wall_ms: f64,
 }
 
-/// G14.11 fsr 驻留统一车道状态机（D3D12 反向共享：FsrDx12Session 创建 shared
-/// 三纹理 → render_exec 以 D3D12_RESOURCE handle 导入为持久帧目标直写；scene/
-/// mv 三 pass 与 dlss 车道同构,pack 用 image 版 SPV）。
+/// G14.11 fsr 驻留统一车道状态机（D3D12 反向共享 **buffer 形态**：
+/// FsrDx12Session 创建 shared staging BUFFER → render_exec 以 D3D12_RESOURCE
+/// handle 导入 bind 为 SSBO,pack SPV v2 按 256B 行距三段直写;D3D12 侧逐帧
+/// CopyTextureRegion 搬入三输入纹理后 ffx dispatch。texture 直共享弃案:跨
+/// API tiling 解释不一致读图实锤,见 F_BUF_STAGING 注）。
 /// 跨界同步纪律（CPU 序，与 dlss 车道同律）：`execute_with_frame_update` 返回
 /// = 该帧 Vulkan fence 完成且 cmd 末已录 VK_QUEUE_FAMILY_EXTERNAL release →
-/// 此后 `dispatch_resident` 于 D3D12 侧消费（SIMULTANEOUS_ACCESS 资源 decay
-/// 态 COMMON 读窗）且 submit_wait 返回 = D3D12 读窗关闭 → 下帧 Vulkan 重写
-/// 共享纹理安全——两侧访问窗零重叠，无须 GPU 级 timeline 交叉信号。
+/// 此后 `dispatch_resident` 于 D3D12 侧消费（staging buffer 恒 COMMON,拷入
+/// 纹理 + dispatch）且 submit_wait 返回 = D3D12 读窗关闭 → 下帧 Vulkan 重写
+/// staging 安全——两侧访问窗零重叠，无须 GPU 级 timeline 交叉信号。
 struct FsrResidentLane<'a> {
     session: DeviceFrameSession<'a>,
     fsr: FsrDx12Session,
@@ -4683,7 +4712,7 @@ fn fsr_resident_provenance_json(
         .map(|d| format!("[{},{},{}]", jstr(&d.name), jstr(&d.sha256), d.bytes))
         .collect();
     format!(
-        "{{\"kind\":\"fsr_3_1_5_resident\",\"lane\":\"D3D12 反向共享：FsrDx12Session 创建 SHARED 三纹理（RGBA32F/R32F/RG32F，ALLOW_SIMULTANEOUS_ACCESS）→ NT handle → render_exec D3D12_RESOURCE 导入为持久帧目标 → 三 pass（scene→mv→pack）GPU 链内直写 → ffx dispatch D3D12 侧直读（host readback/host mv/host pack/upload 中转税全消；CPU 序跨界同步；LUID 对拍 fail-closed）\",\"spv_mv_no_contraction\":\"bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（统一车道同律；sha256 为文件面）\",\"spv_scene\":{},\"spv_scene_sha256\":{},\"spv_mv\":{},\"spv_mv_sha256\":{},\"spv_pack\":\"<hand-assembled in-memory：g14_pack_spv()，dlss 车道零改动复用>\",\"spv_pack_sha256\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
+        "{{\"kind\":\"fsr_3_1_5_resident\",\"lane\":\"D3D12 反向共享（buffer 形态）：FsrDx12Session 创建 SHARED staging BUFFER（三段 256B 行距：color f16 RGBA/depth f32/mv f32 RG）→ NT handle → render_exec D3D12_RESOURCE 导入 bind 为 SSBO → 三 pass（scene→mv→pack v2 行距直写）GPU 链内 → D3D12 侧逐帧 CopyTextureRegion 搬入三输入纹理（与 host 链 formats 逐字同）→ ffx dispatch（host readback/host mv/host pack/upload 中转税全消；CPU 序跨界同步；LUID+布局双对拍 fail-closed；texture 直共享弃案：D3D12_RESOURCE 导入 OPTIMAL VkImage 跨 API tiling 解释不一致读图实锤）\",\"spv_mv_no_contraction\":\"bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（统一车道同律；sha256 为文件面）\",\"spv_scene\":{},\"spv_scene_sha256\":{},\"spv_mv\":{},\"spv_mv_sha256\":{},\"spv_pack\":\"<hand-assembled in-memory：fsr_pack_spv() v2（buffer 行距版：color PackHalf2x16 + depth/mv Bitcast 位拷贝）>\",\"spv_pack_sha256\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
         jstr(&spv_scene.replace('\\', "/")),
         jstr(&sha(spv_scene)),
         jstr(&spv_mv.replace('\\', "/")),
@@ -5341,7 +5370,7 @@ fn render_leg(
         // G14.11 fsr 驻留统一车道（render 出图腿；D3D12 反向共享——fsr 区自持
         // image 版 descs/pack SPV；RURIX_G14_FSR_HOST=1 逃生门走旧 host 链，
         // 跨 API 布局对拍参照面）。fsr 臂恒 Mega 单 kernel（同 dlss 车道登记）。
-        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h, 2.0f32.powf(-scene.ev100));
         let descs = fsr_lane_descs(&assets, &bits, in_w, in_h);
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
@@ -5361,12 +5390,13 @@ fn render_leg(
             Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
         };
         eprintln!(
-            "{TAG}: fsr 驻留统一车道就绪（D3D12 SHARED 三纹理 → render_exec 导入直写 → ffx dispatch 直读；AS 常驻；逐帧参数二小件 352B）"
+            "{TAG}: fsr 驻留统一车道就绪（D3D12 SHARED staging buffer → render_exec 导入 SSBO 直写 → D3D12 CopyTextureRegion 搬入 → ffx dispatch；AS 常驻；逐帧参数二小件 352B）"
         );
         let mut out_img = ImageF32::new(out_w, out_h, 3);
-        // 诊断臂（跨 API tiling 对拍）：RURIX_G14_FSR_DUMP_PACK=<path> 末帧
-        // Vulkan 侧回读 pack 输出 color；RURIX_G14_FSR_DUMP_IMPORT=<path> 末帧
-        // D3D12 侧回读同一共享纹理——两图逐像素一致 = 布局协定成立。
+        // 诊断臂（跨 API 内容对拍）：RURIX_G14_FSR_DUMP_PACK=<path> 末帧
+        // Vulkan 侧回读 staging color 段（行距对齐 f16 RGBA）；
+        // RURIX_G14_FSR_DUMP_IMPORT=<path> 末帧 D3D12 侧回读 CopyTextureRegion
+        // 搬入后的 color_in 纹理——两图逐像素一致 = buffer 共享链成立。
         let dump_pack_path = std::env::var("RURIX_G14_FSR_DUMP_PACK").ok().filter(|p| !p.is_empty());
         let mut dump_buf: Vec<u8> = Vec::new();
         for i in 0..frames {
@@ -5397,29 +5427,49 @@ fn render_leg(
             };
             if want_dump {
                 let p = dump_pack_path.as_deref().unwrap();
-                let px = (in_w * in_h) as usize;
-                if dump_buf.len() != px * 16 {
+                let (color_row, _, _, off_depth, _, _) = fsr_staging_layout(in_w, in_h);
+                if dump_buf.len() as u64 != off_depth {
                     fail(&format!(
-                        "dump pack 字节数 {} ≠ {}（RGBA32F 紧凑）",
-                        dump_buf.len(),
-                        px * 16
+                        "dump pack 字节数 {} ≠ {off_depth}（staging color 段,行距对齐 f16 RGBA）",
+                        dump_buf.len()
                     ));
                 }
+                // f16→f32 展开（IEEE 754 半精,含 subnormal/inf/nan——与
+                // vendor_upscale f16_to_f32 同语义;EXR 对拍面）。
+                let half = |h: u16| -> f32 {
+                    let (s, e, m) = ((h >> 15) as u32, ((h >> 10) & 0x1F) as u32, (h & 0x3FF) as u32);
+                    let bits = if e == 0 {
+                        if m == 0 {
+                            s << 31
+                        } else {
+                            let lz = m.leading_zeros() - 22;
+                            let mm = (m << (lz + 1)) & 0x3FF;
+                            (s << 31) | ((127 - 15 - lz) << 23) | (mm << 13)
+                        }
+                    } else if e == 0x1F {
+                        (s << 31) | 0x7F80_0000 | (m << 13)
+                    } else {
+                        (s << 31) | ((e + 127 - 15) << 23) | (m << 13)
+                    };
+                    f32::from_bits(bits)
+                };
+                let px = (in_w * in_h) as usize;
                 let mut rgb = Vec::with_capacity(px * 3);
-                for k in 0..px {
-                    for c in 0..3 {
-                        let o = k * 16 + c * 4;
-                        rgb.push(f32::from_le_bytes([
-                            dump_buf[o],
-                            dump_buf[o + 1],
-                            dump_buf[o + 2],
-                            dump_buf[o + 3],
-                        ]));
+                for y in 0..in_h as usize {
+                    for x in 0..in_w as usize {
+                        let o = y * color_row as usize + x * 8;
+                        for c in 0..3 {
+                            let h = u16::from_le_bytes([
+                                dump_buf[o + c * 2],
+                                dump_buf[o + c * 2 + 1],
+                            ]);
+                            rgb.push(half(h));
+                        }
                     }
                 }
                 write_exr(Path::new(p), in_w, in_h, &rgb, &contract.digest)
                     .unwrap_or_else(|e| fail(&e));
-                eprintln!("{TAG}: [dump-pack] 帧 {i} pack color image（Vulkan 侧）→ {p}");
+                eprintln!("{TAG}: [dump-pack] 帧 {i} staging color 段（Vulkan 侧,f16→f32）→ {p}");
             }
             if i + 1 == frames
                 && let Ok(p) = std::env::var("RURIX_G14_FSR_DUMP_IMPORT")
@@ -5444,7 +5494,7 @@ fn render_leg(
                 }
                 write_exr(Path::new(&p), in_w, in_h, &rgb, &contract.digest)
                     .unwrap_or_else(|e| fail(&e));
-                eprintln!("{TAG}: [dump-import] 帧 {i} 共享 color image（D3D12 侧）→ {p}");
+                eprintln!("{TAG}: [dump-import] 帧 {i} CopyTextureRegion 后 color_in 纹理（D3D12 侧,f16→f32）→ {p}");
             }
             if rec.validation_error_count != 0 {
                 fail(&format!(
@@ -5491,239 +5541,239 @@ fn render_leg(
         let report = lane.fsr.report();
         (
             fsr_resident_provenance_json(&report, spv_scene, spv_mv, &bits.pack_sha256),
-            "fsr 驻留统一车道（new_with_imported_d3d12_textures 单 session 三 pass：pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv_image 直写 RGBA32F/R32F/RG32F **D3D12 SHARED 导入** image；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧直读共享纹理 → 逐帧 readback_output_resident 出 EXR——G14.11 D3D12 反向共享）".to_owned(),
+            "fsr 驻留统一车道（new_with_imported_d3d12_textures 单 session 三 pass：pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 fsr_pack_spv v2 按 256B 行距三段直写 **D3D12 SHARED 导入 staging buffer**（color f16 RGBA/depth f32/mv f32 RG）；AS 常驻 + 场景 SSBO 创建期一次上传 + 逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧 CopyTextureRegion 搬入三输入纹理后 dispatch → 逐帧 readback_output_resident 出 EXR——G14.11 D3D12 反向共享 buffer 形态）".to_owned(),
             "host Instant 墙钟；frame_ms = 逐帧全链路（参数打包+三 pass submit+fence+ffx dispatch+FSR 输出回读+EXR 落盘），scene_render_ms/mv_ms = DeviceFrameTelemetry 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段在 stderr 逐帧登记不入列），upscale_ms = dispatch_resident 墙钟 + FSR 输出回读墙钟（render 出图面），scene_gpu_ns = pass0 GPU ns".to_owned(),
         )
     } else {
-        let spv_scene_words = load_spv(spv_scene);
-        let spv_scene_bytes: Vec<u8> = spv_scene_words
-            .iter()
-            .flat_map(|w| w.to_le_bytes())
-            .collect();
+    let spv_scene_words = load_spv(spv_scene);
+    let spv_scene_bytes: Vec<u8> = spv_scene_words
+        .iter()
+        .flat_map(|w| w.to_le_bytes())
+        .collect();
         // G14.10d：vendor 臂 scene session 同规则——params（资源 4，逐帧上传
         // 目标）= host-visible，其余（场景常量 + 回读输出）= DEVICE_LOCAL。
-        let resources = [
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.tris_bytes.len() as u64,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: Some(&assets.tris_bytes),
+    let resources = [
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.tris_bytes.len() as u64,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&assets.tris_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.mats_bytes.len() as u64,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: Some(&assets.mats_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.mats_bytes.len() as u64,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&assets.mats_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.quads_bytes.len() as u64,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: Some(&assets.quads_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.quads_bytes.len() as u64,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&assets.quads_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.points_bytes.len() as u64,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: Some(&assets.points_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.points_bytes.len() as u64,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&assets.points_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.params0_bytes.len() as u64,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: Some(&assets.params0_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.params0_bytes.len() as u64,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&assets.params0_bytes),
                 device_local: false,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.out_color_size,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: None,
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.out_color_size,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: None,
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.out_depth_size,
-                usage: BufferUsage {
-                    storage: true,
-                    ..BufferUsage::default()
-                },
-                data: None,
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.out_depth_size,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: None,
                 device_local: true,
-            }),
-        ];
-        let passes = [Pass::Compute(ComputePass {
-            name: "g14_3_direct_gi",
-            spirv: &spv_scene_bytes,
-            entry: None,
-            dispatch: DispatchSpec::Direct([
-                in_w.div_ceil(spv_local_size(&spv_scene_words).0),
-                in_h.div_ceil(spv_local_size(&spv_scene_words).1),
-                1,
-            ]),
-            bindings: Bindings {
-                accel_structs: vec![0],
-                storage_buffers: vec![0, 1, 2, 3, 4, 5, 6],
-                ..Bindings::default()
-            },
-        })];
-        // 屏障计划：输入读 / 帧参数读 / 输出写 = 保守 StorageReadWrite 超集逐字
-        // 声明（与执行器隐式补全超集逐位一致；显式见证面）。
-        let plan = [
-            (0u32, TargetState::StorageReadWrite),
-            (1u32, TargetState::StorageReadWrite),
-            (2u32, TargetState::StorageReadWrite),
-            (3u32, TargetState::StorageReadWrite),
-            (4u32, TargetState::StorageReadWrite),
-            (5u32, TargetState::StorageReadWrite),
-            (6u32, TargetState::StorageReadWrite),
-        ];
-        let barriers: [&[(u32, TargetState)]; 1] = [&plan];
-        let readbacks = [
-            Readback::Buffer {
-                res: 5,
-                offset: 0,
-                size: assets.out_color_size,
-            },
-            Readback::Buffer {
-                res: 6,
-                offset: 0,
-                size: assets.out_depth_size,
-            },
-        ];
-        let blas_refs: [&[f32]; 1] = [&assets.tris];
-        let accel_structs = [AccelStructDesc {
-            scene: RayQuerySceneDesc {
-                blas_triangles: &blas_refs,
-                instances: &assets.instances,
-            },
-            transforms: None,
-        }];
-        if !vk::vulkan_available() {
-            dev_env_or_fail("device_lane", "vulkan loader 不可用");
-        }
-        let mut session = match DeviceFrameSession::new_with_accel_structs(
-            &resources,
-            &passes,
-            &barriers,
-            &readbacks,
-            2,
-            &accel_structs,
-        ) {
-            Ok(s) => s,
-            Err(e) => dev_env_or_fail("device_lane", &e),
-        };
-        eprintln!(
-            "{TAG}: device 持久车道就绪（AS 常驻 1 BLAS × 1 实例；场景 SSBO 创建期一次上传）"
-        );
+        }),
+    ];
+    let passes = [Pass::Compute(ComputePass {
+        name: "g14_3_direct_gi",
+        spirv: &spv_scene_bytes,
+        entry: None,
+        dispatch: DispatchSpec::Direct([
+            in_w.div_ceil(spv_local_size(&spv_scene_words).0),
+            in_h.div_ceil(spv_local_size(&spv_scene_words).1),
+            1,
+        ]),
+        bindings: Bindings {
+            accel_structs: vec![0],
+            storage_buffers: vec![0, 1, 2, 3, 4, 5, 6],
+            ..Bindings::default()
+        },
+    })];
+    // 屏障计划：输入读 / 帧参数读 / 输出写 = 保守 StorageReadWrite 超集逐字
+    // 声明（与执行器隐式补全超集逐位一致；显式见证面）。
+    let plan = [
+        (0u32, TargetState::StorageReadWrite),
+        (1u32, TargetState::StorageReadWrite),
+        (2u32, TargetState::StorageReadWrite),
+        (3u32, TargetState::StorageReadWrite),
+        (4u32, TargetState::StorageReadWrite),
+        (5u32, TargetState::StorageReadWrite),
+        (6u32, TargetState::StorageReadWrite),
+    ];
+    let barriers: [&[(u32, TargetState)]; 1] = [&plan];
+    let readbacks = [
+        Readback::Buffer {
+            res: 5,
+            offset: 0,
+            size: assets.out_color_size,
+        },
+        Readback::Buffer {
+            res: 6,
+            offset: 0,
+            size: assets.out_depth_size,
+        },
+    ];
+    let blas_refs: [&[f32]; 1] = [&assets.tris];
+    let accel_structs = [AccelStructDesc {
+        scene: RayQuerySceneDesc {
+            blas_triangles: &blas_refs,
+            instances: &assets.instances,
+        },
+        transforms: None,
+    }];
+    if !vk::vulkan_available() {
+        dev_env_or_fail("device_lane", "vulkan loader 不可用");
+    }
+    let mut session = match DeviceFrameSession::new_with_accel_structs(
+        &resources,
+        &passes,
+        &barriers,
+        &readbacks,
+        2,
+        &accel_structs,
+    ) {
+        Ok(s) => s,
+        Err(e) => dev_env_or_fail("device_lane", &e),
+    };
+    eprintln!(
+        "{TAG}: device 持久车道就绪（AS 常驻 1 BLAS × 1 实例；场景 SSBO 创建期一次上传）"
+    );
 
         // vendor backend 创建（DEV_ENV 三态：GPU/vendor DLL 缺失 = dev_env
         // degrade；tsr_device/dlss_sr 已各走统一车道分支，本 match 仅承载 fsr）。
-        let mut backend = match backend_name {
-            "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
-                Ok(b) => Backend::Fsr(b),
-                Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
-            },
-            other => fail(&format!(
-                "未知 backend: {other}（tsr_device|dlss_sr|fsr_3_1_5）"
-            )),
+    let mut backend = match backend_name {
+        "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
+            Ok(b) => Backend::Fsr(b),
+            Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
+        },
+        other => fail(&format!(
+            "未知 backend: {other}（tsr_device|dlss_sr|fsr_3_1_5）"
+        )),
+    };
+    eprintln!("{TAG}: backend {} 就绪", backend.name());
+    let mut prev_vp: Option<Mat4> = None;
+    for i in 0..frames {
+        let t_frame = std::time::Instant::now();
+        let j = [
+            halton(jitter_base + i + 1, 2) - 0.5,
+            halton(jitter_base + i + 1, 3) - 0.5,
+        ];
+        let rec = match device_frame(
+            &mut session,
+            in_w,
+            in_h,
+            j,
+            eps,
+            scene.quads.len(),
+            scene.points.len(),
+            &inv_vp,
+            &vp,
+        ) {
+            Ok(r) => r,
+            Err(e) => fail(&format!("帧 {i} device 车道: {e}")),
         };
-        eprintln!("{TAG}: backend {} 就绪", backend.name());
-        let mut prev_vp: Option<Mat4> = None;
-        for i in 0..frames {
-            let t_frame = std::time::Instant::now();
-            let j = [
-                halton(jitter_base + i + 1, 2) - 0.5,
-                halton(jitter_base + i + 1, 3) - 0.5,
-            ];
-            let rec = match device_frame(
-                &mut session,
-                in_w,
-                in_h,
-                j,
-                eps,
-                scene.quads.len(),
-                scene.points.len(),
-                &inv_vp,
-                &vp,
-            ) {
-                Ok(r) => r,
-                Err(e) => fail(&format!("帧 {i} device 车道: {e}")),
-            };
-            if rec.validation_error_count != 0 {
-                fail(&format!(
-                    "帧 {i} validation ERROR 计数 {} ≠ 0",
-                    rec.validation_error_count
-                ));
-            }
-            let vp_j = jittered_vp(&vp, j, in_w, in_h);
-            let t_mv = std::time::Instant::now();
-            let mv = match prev_vp {
-                Some(prev) => compute_camera_mv(&rec.depth, &vp_j, &prev),
-                None => ImageF32::new(in_w, in_h, 2),
-            };
-            prev_vp = Some(vp_j);
-            let mv_el = t_mv.elapsed().as_secs_f64() * 1000.0;
-            let t_up = std::time::Instant::now();
-            let inputs = UpscaleInputs {
-                color: &rec.color,
-                depth: &rec.depth,
-                mv: &mv,
-                reactive: None,
-                exposure,
-                jitter: j,
-                output_size: (out_w, out_h),
-                frame_index: i,
-                reset: i == 0,
-            };
-            let out = backend.upscale(&inputs);
-            let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
-            if !out.data.iter().all(|v| v.is_finite()) {
-                fail(&format!("帧 {i} upscale 输出非有限"));
-            }
-            let name = format!("frame_{i:04}.exr");
-            let path = frames_dir.join(&name);
-            let bytes = write_exr(&path, out_w, out_h, &out.data, &contract.digest)
-                .unwrap_or_else(|e| fail(&e));
-            let digest = frame_content_digest(out.w, out.h, 3, &out.data);
-            frames_json.push(format!(
-                "{{\"name\":{},\"bytes\":{},\"digest\":{}}}",
-                jstr(&format!("frames/{name}")),
-                bytes,
-                jstr(&digest)
+        if rec.validation_error_count != 0 {
+            fail(&format!(
+                "帧 {i} validation ERROR 计数 {} ≠ 0",
+                rec.validation_error_count
             ));
-            converged_digest = digest;
-            converged = Some(out);
-            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
-            scene_ms.push(rec.scene_host_ms);
-            mv_ms.push(mv_el);
-            upscale_ms.push(up_el);
-            frame_ms.push(frame_el);
-            scene_gpu_ns.push(rec.scene_gpu_ns);
-            if i == 0 || (i + 1) % 8 == 0 || i + 1 == frames {
-                eprintln!(
-                    "{TAG}: 帧 {}/{frames} scene={:.3}ms(gpu={:.3}ms) mv={mv_el:.3}ms upscale={up_el:.3}ms",
-                    i + 1,
-                    rec.scene_host_ms,
-                    rec.scene_gpu_ns / 1e6,
-                );
-            }
         }
+        let vp_j = jittered_vp(&vp, j, in_w, in_h);
+        let t_mv = std::time::Instant::now();
+        let mv = match prev_vp {
+            Some(prev) => compute_camera_mv(&rec.depth, &vp_j, &prev),
+            None => ImageF32::new(in_w, in_h, 2),
+        };
+        prev_vp = Some(vp_j);
+        let mv_el = t_mv.elapsed().as_secs_f64() * 1000.0;
+        let t_up = std::time::Instant::now();
+        let inputs = UpscaleInputs {
+            color: &rec.color,
+            depth: &rec.depth,
+            mv: &mv,
+            reactive: None,
+            exposure,
+            jitter: j,
+            output_size: (out_w, out_h),
+            frame_index: i,
+            reset: i == 0,
+        };
+        let out = backend.upscale(&inputs);
+        let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
+        if !out.data.iter().all(|v| v.is_finite()) {
+            fail(&format!("帧 {i} upscale 输出非有限"));
+        }
+        let name = format!("frame_{i:04}.exr");
+        let path = frames_dir.join(&name);
+        let bytes = write_exr(&path, out_w, out_h, &out.data, &contract.digest)
+            .unwrap_or_else(|e| fail(&e));
+        let digest = frame_content_digest(out.w, out.h, 3, &out.data);
+        frames_json.push(format!(
+            "{{\"name\":{},\"bytes\":{},\"digest\":{}}}",
+            jstr(&format!("frames/{name}")),
+            bytes,
+            jstr(&digest)
+        ));
+        converged_digest = digest;
+        converged = Some(out);
+        let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+        scene_ms.push(rec.scene_host_ms);
+        mv_ms.push(mv_el);
+        upscale_ms.push(up_el);
+        frame_ms.push(frame_el);
+        scene_gpu_ns.push(rec.scene_gpu_ns);
+        if i == 0 || (i + 1) % 8 == 0 || i + 1 == frames {
+            eprintln!(
+                "{TAG}: 帧 {}/{frames} scene={:.3}ms(gpu={:.3}ms) mv={mv_el:.3}ms upscale={up_el:.3}ms",
+                i + 1,
+                rec.scene_host_ms,
+                rec.scene_gpu_ns / 1e6,
+            );
+        }
+    }
         let vendor_report = match &backend {
             Backend::Fsr(b) => Some(b.session.report()),
         };
@@ -6138,7 +6188,7 @@ fn bench_leg(
         // dispatch D3D12 侧直读共享纹理；末帧/flip-trace 帧按需回读 FSR 输出
         // 做 digest）。fsr 区自持 image 版 descs/pack SPV；
         // RURIX_G14_FSR_HOST=1 逃生门走旧 host 链（跨 API 布局对拍参照面）。
-        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h);
+        let bits = FsrLaneBits::load(spv_scene, spv_mv, in_w, in_h, 2.0f32.powf(-scene.ev100));
         let descs = fsr_lane_descs(&assets, &bits, in_w, in_h);
         let blas_refs: [&[f32]; 1] = [&assets.tris];
         let accel_structs = [AccelStructDesc {
@@ -6158,7 +6208,7 @@ fn bench_leg(
             Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
         };
         eprintln!(
-            "{TAG}: bench fsr 驻留统一车道就绪 warmup={warmup} frames={frames}（session 不销毁；scene→mv→pack 直写 D3D12 SHARED 导入三标 + ffx dispatch 直读；测量循环零 scene 回读，末帧回读 FSR 输出；flip_trace={}）",
+            "{TAG}: bench fsr 驻留统一车道就绪 warmup={warmup} frames={frames}（session 不销毁；scene→mv→pack v2 直写 D3D12 SHARED 导入 staging buffer + D3D12 CopyTextureRegion 搬入 + ffx dispatch；测量循环零 scene 回读，末帧回读 FSR 输出；flip_trace={}）",
             flip_trace.is_some()
         );
         let mut out_img = ImageF32::new(out_w, out_h, 3);
@@ -6254,189 +6304,189 @@ fn bench_leg(
             );
         }
         (
-            "fsr 驻留统一车道（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 g14_pack_spv 直写 RGBA32F/R32F/RG32F **D3D12 SHARED 导入** image；逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧直读共享纹理——scene 回读/host mv/vendor host pack/upload 中转税全消，G14.11 D3D12 反向共享）".to_owned(),
+            "fsr 驻留统一车道（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；pass0=kernels/g14_3_direct_gi.rx RayQuery compute → pass1=kernels/g14_mv.rx 相机 MV（NoContraction） → pass2=手编 fsr_pack_spv v2 按 256B 行距三段直写 **D3D12 SHARED 导入 staging buffer**（color f16 RGBA/depth f32/mv f32 RG）；逐帧 scene 192B/mv 160B 参数上传 + readback 表恒空；ffx dispatch_resident D3D12 侧 CopyTextureRegion 搬入三输入纹理后 dispatch——scene 回读/host mv/vendor host pack/upload 中转税全消，G14.11 D3D12 反向共享 buffer 形态）".to_owned(),
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms = 全链墙钟（参数二小件打包+三 pass submit+fence+ffx dispatch[+回读帧 FSR 输出回读]）；scene_render_ms/mv_ms = 逐 pass GPU timestamp 毫秒（scene=pass0，mv=pass1——mv 值语义为 GPU 段；pack=pass2 GPU 段 stderr FSR_RESIDENT 行登记不入列）；upscale_ms = dispatch_resident 墙钟（D3D12 submit_wait 同步口径，不含输出回读）".to_owned(),
-            "G14.11 fsr 驻留车道口径：测量循环零 scene 回读（readback 表恒空）+ FSR 输出驻留（不回读）→ 测量帧 tail=0、frame_ms_production=frame_ms（诚实口径）；末帧回读 FSR 输出 → tail = readback_output_resident 墙钟 + is_finite 全帧校验 + digest（仅末帧有值）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能）；last_frame_digest 语义 = FSR 输出（upscale 后 1080p 图）；digest 锚登记：mv=GPU mv（vs host mv ULP 级差）+ color RGBA32F f32 直通（vs 现状 f16 pack）+ depth R32F 反转深度直通 + 输入驻留免 host 量化——dispatch 输入位面变化，输出 digest 相对现状锚预期 L1 漂移（dlss 臂同族），双跑位级确定性为门檩".to_owned(),
+            "G14.11 fsr 驻留车道口径：测量循环零 scene 回读（readback 表恒空）+ FSR 输出驻留（不回读）→ 测量帧 tail=0、frame_ms_production=frame_ms（诚实口径）；末帧回读 FSR 输出 → tail = readback_output_resident 墙钟 + is_finite 全帧校验 + digest（仅末帧有值）；RURIX_G14_FLIP_TRACE 诊断模式强制逐帧回读（诊断凌驾性能）；last_frame_digest 语义 = FSR 输出（upscale 后 1080p 图）；digest 锚登记：mv=GPU mv（vs host mv ULP 级差）+ color f16 PackHalf2x16 RTE ×exposure 显示域转换（vendor 臂 scene 域直通存量语义分裂修正，dlss 臂 2da40f4c 同款；cornell ev100=0 位保持）+ depth f32 位拷贝直通——输出 digest 相对现状锚预期 L1 漂移（dlss 臂同族），双跑位级确定性为门檩".to_owned(),
         )
     } else {
-        let spv_scene_words = load_spv(spv_scene);
-        let spv_scene_bytes: Vec<u8> = spv_scene_words
-            .iter()
-            .flat_map(|w| w.to_le_bytes())
-            .collect();
-        let storage = BufferUsage {
-            storage: true,
-            ..BufferUsage::default()
-        };
+    let spv_scene_words = load_spv(spv_scene);
+    let spv_scene_bytes: Vec<u8> = spv_scene_words
+        .iter()
+        .flat_map(|w| w.to_le_bytes())
+        .collect();
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
         // G14.10d：同 vendor 臂规则——params（资源 4，逐帧上传目标）=
         // host-visible，其余 = DEVICE_LOCAL。
-        let resources = [
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.tris_bytes.len() as u64,
-                usage: storage,
-                data: Some(&assets.tris_bytes),
+    let resources = [
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.tris_bytes.len() as u64,
+            usage: storage,
+            data: Some(&assets.tris_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.mats_bytes.len() as u64,
-                usage: storage,
-                data: Some(&assets.mats_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.mats_bytes.len() as u64,
+            usage: storage,
+            data: Some(&assets.mats_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.quads_bytes.len() as u64,
-                usage: storage,
-                data: Some(&assets.quads_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.quads_bytes.len() as u64,
+            usage: storage,
+            data: Some(&assets.quads_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.points_bytes.len() as u64,
-                usage: storage,
-                data: Some(&assets.points_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.points_bytes.len() as u64,
+            usage: storage,
+            data: Some(&assets.points_bytes),
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.params0_bytes.len() as u64,
-                usage: storage,
-                data: Some(&assets.params0_bytes),
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.params0_bytes.len() as u64,
+            usage: storage,
+            data: Some(&assets.params0_bytes),
                 device_local: false,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.out_color_size,
-                usage: storage,
-                data: None,
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.out_color_size,
+            usage: storage,
+            data: None,
                 device_local: true,
-            }),
-            ResourceDesc::Buffer(BufferDesc {
-                size: assets.out_depth_size,
-                usage: storage,
-                data: None,
+        }),
+        ResourceDesc::Buffer(BufferDesc {
+            size: assets.out_depth_size,
+            usage: storage,
+            data: None,
                 device_local: true,
-            }),
-        ];
-        let passes = [Pass::Compute(ComputePass {
-            name: "g14_3_direct_gi",
-            spirv: &spv_scene_bytes,
-            entry: None,
-            dispatch: DispatchSpec::Direct([
-                in_w.div_ceil(spv_local_size(&spv_scene_words).0),
-                in_h.div_ceil(spv_local_size(&spv_scene_words).1),
-                1,
-            ]),
-            bindings: Bindings {
-                accel_structs: vec![0],
-                storage_buffers: vec![0, 1, 2, 3, 4, 5, 6],
-                ..Bindings::default()
-            },
-        })];
-        let plan = [
-            (0u32, TargetState::StorageReadWrite),
-            (1u32, TargetState::StorageReadWrite),
-            (2u32, TargetState::StorageReadWrite),
-            (3u32, TargetState::StorageReadWrite),
-            (4u32, TargetState::StorageReadWrite),
-            (5u32, TargetState::StorageReadWrite),
-            (6u32, TargetState::StorageReadWrite),
-        ];
-        let barriers: [&[(u32, TargetState)]; 1] = [&plan];
-        let readbacks = [
-            Readback::Buffer {
-                res: 5,
-                offset: 0,
-                size: assets.out_color_size,
-            },
-            Readback::Buffer {
-                res: 6,
-                offset: 0,
-                size: assets.out_depth_size,
-            },
-        ];
-        let blas_refs: [&[f32]; 1] = [&assets.tris];
-        let accel_structs = [AccelStructDesc {
-            scene: RayQuerySceneDesc {
-                blas_triangles: &blas_refs,
-                instances: &assets.instances,
-            },
-            transforms: None,
-        }];
-        if !vk::vulkan_available() {
-            dev_env_or_fail("device_lane", "vulkan loader 不可用");
-        }
-        let mut session = match DeviceFrameSession::new_with_accel_structs(
-            &resources,
-            &passes,
-            &barriers,
-            &readbacks,
-            2,
-            &accel_structs,
-        ) {
-            Ok(s) => s,
-            Err(e) => dev_env_or_fail("device_lane", &e),
-        };
+        }),
+    ];
+    let passes = [Pass::Compute(ComputePass {
+        name: "g14_3_direct_gi",
+        spirv: &spv_scene_bytes,
+        entry: None,
+        dispatch: DispatchSpec::Direct([
+            in_w.div_ceil(spv_local_size(&spv_scene_words).0),
+            in_h.div_ceil(spv_local_size(&spv_scene_words).1),
+            1,
+        ]),
+        bindings: Bindings {
+            accel_structs: vec![0],
+            storage_buffers: vec![0, 1, 2, 3, 4, 5, 6],
+            ..Bindings::default()
+        },
+    })];
+    let plan = [
+        (0u32, TargetState::StorageReadWrite),
+        (1u32, TargetState::StorageReadWrite),
+        (2u32, TargetState::StorageReadWrite),
+        (3u32, TargetState::StorageReadWrite),
+        (4u32, TargetState::StorageReadWrite),
+        (5u32, TargetState::StorageReadWrite),
+        (6u32, TargetState::StorageReadWrite),
+    ];
+    let barriers: [&[(u32, TargetState)]; 1] = [&plan];
+    let readbacks = [
+        Readback::Buffer {
+            res: 5,
+            offset: 0,
+            size: assets.out_color_size,
+        },
+        Readback::Buffer {
+            res: 6,
+            offset: 0,
+            size: assets.out_depth_size,
+        },
+    ];
+    let blas_refs: [&[f32]; 1] = [&assets.tris];
+    let accel_structs = [AccelStructDesc {
+        scene: RayQuerySceneDesc {
+            blas_triangles: &blas_refs,
+            instances: &assets.instances,
+        },
+        transforms: None,
+    }];
+    if !vk::vulkan_available() {
+        dev_env_or_fail("device_lane", "vulkan loader 不可用");
+    }
+    let mut session = match DeviceFrameSession::new_with_accel_structs(
+        &resources,
+        &passes,
+        &barriers,
+        &readbacks,
+        2,
+        &accel_structs,
+    ) {
+        Ok(s) => s,
+        Err(e) => dev_env_or_fail("device_lane", &e),
+    };
         // vendor backend 创建（tsr_device/dlss_sr 已各走统一车道分支，本 match
         // 仅承载 fsr）。
-        let mut backend = match backend_name {
-            "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
-                Ok(b) => Backend::Fsr(b),
-                Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
-            },
-            other => fail(&format!(
-                "未知 backend: {other}（tsr_device|dlss_sr|fsr_3_1_5）"
-            )),
+    let mut backend = match backend_name {
+        "fsr_3_1_5" => match FsrBackend::create((in_w, in_h), (out_w, out_h)) {
+            Ok(b) => Backend::Fsr(b),
+            Err(e) => dev_env_or_fail("fsr_3_1_5", &e),
+        },
+        other => fail(&format!(
+            "未知 backend: {other}（tsr_device|dlss_sr|fsr_3_1_5）"
+        )),
+    };
+    eprintln!(
+        "{TAG}: bench 就绪 backend={} warmup={warmup} frames={frames}（session 不销毁持续帧循环）",
+        backend.name()
+    );
+    let mut prev_vp: Option<Mat4> = None;
+    // G14.6：bench 腿驻留输出缓冲（Stage A 消逐帧分配；字节面逐位一致）
+    let mut out_img = ImageF32::new(out_w, out_h, 3);
+    for i in 0..total {
+        let t_frame = std::time::Instant::now();
+        let j = [
+            halton(jitter_base + i + 1, 2) - 0.5,
+            halton(jitter_base + i + 1, 3) - 0.5,
+        ];
+        let rec = match device_frame(
+            &mut session,
+            in_w,
+            in_h,
+            j,
+            eps,
+            scene.quads.len(),
+            scene.points.len(),
+            &inv_vp,
+            &vp,
+        ) {
+            Ok(r) => r,
+            Err(e) => fail(&format!("bench 帧 {i} device 车道: {e}")),
         };
-        eprintln!(
-            "{TAG}: bench 就绪 backend={} warmup={warmup} frames={frames}（session 不销毁持续帧循环）",
-            backend.name()
-        );
-        let mut prev_vp: Option<Mat4> = None;
-        // G14.6：bench 腿驻留输出缓冲（Stage A 消逐帧分配；字节面逐位一致）
-        let mut out_img = ImageF32::new(out_w, out_h, 3);
-        for i in 0..total {
-            let t_frame = std::time::Instant::now();
-            let j = [
-                halton(jitter_base + i + 1, 2) - 0.5,
-                halton(jitter_base + i + 1, 3) - 0.5,
-            ];
-            let rec = match device_frame(
-                &mut session,
-                in_w,
-                in_h,
-                j,
-                eps,
-                scene.quads.len(),
-                scene.points.len(),
-                &inv_vp,
-                &vp,
-            ) {
-                Ok(r) => r,
-                Err(e) => fail(&format!("bench 帧 {i} device 车道: {e}")),
-            };
-            if rec.validation_error_count != 0 {
-                fail(&format!(
-                    "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
-                    rec.validation_error_count
-                ));
-            }
-            let vp_j = jittered_vp(&vp, j, in_w, in_h);
-            let t_mv = std::time::Instant::now();
-            let mv = match prev_vp {
-                Some(prev) => compute_camera_mv(&rec.depth, &vp_j, &prev),
-                None => ImageF32::new(in_w, in_h, 2),
-            };
-            prev_vp = Some(vp_j);
-            let mv_el = t_mv.elapsed().as_secs_f64() * 1000.0;
-            let t_up = std::time::Instant::now();
-            let inputs = UpscaleInputs {
-                color: &rec.color,
-                depth: &rec.depth,
-                mv: &mv,
-                reactive: None,
-                exposure,
-                jitter: j,
-                output_size: (out_w, out_h),
-                frame_index: i,
-                reset: i == 0,
-            };
+        if rec.validation_error_count != 0 {
+            fail(&format!(
+                "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
+                rec.validation_error_count
+            ));
+        }
+        let vp_j = jittered_vp(&vp, j, in_w, in_h);
+        let t_mv = std::time::Instant::now();
+        let mv = match prev_vp {
+            Some(prev) => compute_camera_mv(&rec.depth, &vp_j, &prev),
+            None => ImageF32::new(in_w, in_h, 2),
+        };
+        prev_vp = Some(vp_j);
+        let mv_el = t_mv.elapsed().as_secs_f64() * 1000.0;
+        let t_up = std::time::Instant::now();
+        let inputs = UpscaleInputs {
+            color: &rec.color,
+            depth: &rec.depth,
+            mv: &mv,
+            reactive: None,
+            exposure,
+            jitter: j,
+            output_size: (out_w, out_h),
+            frame_index: i,
+            reset: i == 0,
+        };
             // fsr 臂维持 upscale_into 逐帧回读（FSR resident 归 external memory
             // 波另判；dlss_sr 已走驻留统一车道分支不再经本路径）。
             let out_ready = match &mut backend {
@@ -6446,48 +6496,48 @@ fn bench_leg(
                 }
             };
             let out = &out_img;
-            let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
-            // G14.6 口径分解：tail = bench 测量面（is_finite 全帧校验 + frame_content_digest
-            // payload 重建+sha256）——非生产路径固有面；frame_ms（全量口径，G14.3 兼容）
-            // 与 frame_ms_production（= frame − tail，M-d 对标消费面）双列同测，零行为变更。
-            let t_tail = std::time::Instant::now();
+        let up_el = t_up.elapsed().as_secs_f64() * 1000.0;
+        // G14.6 口径分解：tail = bench 测量面（is_finite 全帧校验 + frame_content_digest
+        // payload 重建+sha256）——非生产路径固有面；frame_ms（全量口径，G14.3 兼容）
+        // 与 frame_ms_production（= frame − tail，M-d 对标消费面）双列同测，零行为变更。
+        let t_tail = std::time::Instant::now();
             if out_ready {
-                if !out.data.iter().all(|v| v.is_finite()) {
-                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
-                }
-                last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
+        if !out.data.iter().all(|v| v.is_finite()) {
+            fail(&format!("bench 帧 {i} upscale 输出非有限"));
+        }
+        last_digest = frame_content_digest(out.w, out.h, 3, &out.data);
                 if let Some(w) = flip_trace.as_mut() {
                     use std::io::Write as _;
                     writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
                         .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
                 }
             }
-            let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
-            let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
-            if i >= warmup {
-                frame_ms.push(frame_el);
-                scene_ms.push(rec.scene_host_ms);
-                mv_ms.push(mv_el);
-                upscale_ms.push(up_el);
-                scene_gpu_ns.push(rec.scene_gpu_ns);
-                cpu_record_ns.push(rec.cpu_record_ns as f64);
-                cpu_submit_ns.push(rec.cpu_submit_ns as f64);
-                cpu_fence_wait_ns.push(rec.cpu_fence_wait_ns as f64);
-                tail_ms.push(tail_el);
-                prod_ms.push(frame_el - tail_el);
-            }
-            if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
-                eprintln!(
-                    "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms scene={:.3}ms(gpu={:.3}ms rec={:.3}ms sub={:.3}ms fence={:.3}ms) mv={mv_el:.3}ms upscale={up_el:.3}ms",
-                    i + 1,
-                    rec.scene_host_ms,
-                    rec.scene_gpu_ns / 1e6,
-                    rec.cpu_record_ns as f64 / 1e6,
-                    rec.cpu_submit_ns as f64 / 1e6,
-                    rec.cpu_fence_wait_ns as f64 / 1e6,
-                );
-            }
+        let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0;
+        let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+        if i >= warmup {
+            frame_ms.push(frame_el);
+            scene_ms.push(rec.scene_host_ms);
+            mv_ms.push(mv_el);
+            upscale_ms.push(up_el);
+            scene_gpu_ns.push(rec.scene_gpu_ns);
+            cpu_record_ns.push(rec.cpu_record_ns as f64);
+            cpu_submit_ns.push(rec.cpu_submit_ns as f64);
+            cpu_fence_wait_ns.push(rec.cpu_fence_wait_ns as f64);
+            tail_ms.push(tail_el);
+            prod_ms.push(frame_el - tail_el);
         }
+        if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
+            eprintln!(
+                "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms scene={:.3}ms(gpu={:.3}ms rec={:.3}ms sub={:.3}ms fence={:.3}ms) mv={mv_el:.3}ms upscale={up_el:.3}ms",
+                i + 1,
+                rec.scene_host_ms,
+                rec.scene_gpu_ns / 1e6,
+                rec.cpu_record_ns as f64 / 1e6,
+                rec.cpu_submit_ns as f64 / 1e6,
+                rec.cpu_fence_wait_ns as f64 / 1e6,
+            );
+        }
+    }
         (
             "DeviceFrameSession 持久车道 + kernels/g14_3_direct_gi.rx RayQuery compute（session 不销毁；AS 常驻；场景 SSBO 创建期一次上传；逐帧 192B 帧参数上传 + readback 子集）".to_owned(),
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）".to_owned(),

@@ -1232,6 +1232,13 @@ pub struct DlssVkSession {
     dlls: Vec<DllProvenance>,
     log_tail: Vec<String>,
     shutdown_done: bool,
+    /// G14.11:reactive 恒零内容已上传一次(驻留 evaluate 路径专用)。
+    /// `reactive=None` 语义 = 全零 mask,内容逐帧不变——首帧上传后 image 内容
+    /// 与 layout(SHADER_READ_ONLY_OPTIMAL)均恒定,后续帧跳过 staging
+    /// map/fill/unmap 与 buffer→image copy(t100 面每帧省 2MB memset + 2MB
+    /// 拷贝);`reactive=Some(..)` 帧照常上传并复位本标志(内容已被覆写)。
+    /// host 路径 `frame_impl_ext` 不消费本标志(M-a 锚共享面 0-byte)。
+    reactive_zero_resident: bool,
     /// G14.10b:device 创建时 external memory 两扩展是否已启用(设备扩展在位
     /// 才启;不在位 → 导入入口 fail-closed,既有路径行为不变)。
     external_memory_enabled: bool,
@@ -1322,8 +1329,12 @@ fn f16_to_f32(h: u16) -> f32 {
         if mant == 0 {
             sign
         } else {
-            // subnormal f16 → normalized f32
-            let mut e = -1i32;
+            // subnormal f16 → normalized f32。推导:mant 左移 k 次至 hidden
+            // 位(0x400),值 = 1.frac × 2^(−14−k) → f32 指数字段 = 113 − k。
+            // G14.11 修正(fsr 对拍臂检出):e 初值曾为 −1 使字段恒 112 − k,
+            // 全体 subnormal 解码为正确值一半——e 初值归 0(涉 vendor 臂
+            // digest 锚,修复后 G14.12 统一重收割)。
+            let mut e = 0i32;
             let mut m = mant;
             while (m & 0x400) == 0 {
                 m <<= 1;
@@ -2358,6 +2369,7 @@ impl DlssVkSession {
             dlls,
             log_tail: Vec::new(),
             shutdown_done: false,
+            reactive_zero_resident: false,
             external_memory_enabled,
             device_luid,
             ext_inputs: [None, None, None],
@@ -3585,24 +3597,36 @@ impl DlssVkSession {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
         // ── reactive staging(区段 [0, px);Some→R8 pack,None→零填充)──
-        // SAFETY: staging host-visible+coherent;px ≤ staging_size;单线程序列化。
-        unsafe {
-            let mut ptr: *mut c_void = std::ptr::null_mut();
-            let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
-            if r != VK_SUCCESS || ptr.is_null() {
-                return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
-            }
-            let reac = std::slice::from_raw_parts_mut(ptr as *mut u8, px);
-            match p.reactive {
-                Some(rv) => {
-                    for (o, &v) in reac.iter_mut().zip(rv.iter()) {
-                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                    }
+        // G14.11:None 且零内容已驻留 → 整段跳过(内容恒定,见
+        // `reactive_zero_resident` 字段契约);首帧/Some 帧照常。
+        let skip_reactive = p.reactive.is_none() && self.reactive_zero_resident;
+        // 分解遥测(`RURIX_VENDOR_TIMING=1` 门控,默认关零行为变更;轴 =
+        // staging / sl_book / record〔acquire+三 copy+reactive〕/ evaluate /
+        // submit_wait)。
+        let vtm_on = std::env::var("RURIX_VENDOR_TIMING").ok().as_deref() == Some("1");
+        let vtm_t0 = std::time::Instant::now();
+        if !skip_reactive {
+            // SAFETY: staging host-visible+coherent;px ≤ staging_size;单线程序列化。
+            unsafe {
+                let mut ptr: *mut c_void = std::ptr::null_mut();
+                let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
+                if r != VK_SUCCESS || ptr.is_null() {
+                    return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
                 }
-                None => reac.fill(0),
+                let reac = std::slice::from_raw_parts_mut(ptr as *mut u8, px);
+                match p.reactive {
+                    Some(rv) => {
+                        for (o, &v) in reac.iter_mut().zip(rv.iter()) {
+                            *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+                        }
+                    }
+                    None => reac.fill(0),
+                }
+                (self.dev.unmap_memory)(self.device, self.staging_mem);
             }
-            (self.dev.unmap_memory)(self.device, self.staging_mem);
         }
+
+        let vtm_staging = vtm_t0.elapsed();
 
         // ── SL 簿记(frame_impl_ext 同序;constants 单一事实源)──
         let mut token: *mut c_void = std::ptr::null_mut();
@@ -3664,6 +3688,8 @@ impl DlssVkSession {
             )));
         }
 
+        let vtm_book = vtm_t0.elapsed();
+
         let begin = VkCommandBufferBeginInfo {
             s_type: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             p_next: std::ptr::null(),
@@ -3677,16 +3703,24 @@ impl DlssVkSession {
         }
         // ── acquire buffer ×3(EXTERNAL→本家族;与 render_exec 帧末 buffer
         // release 逐帧配对)──
-        self.vk_buffer_acquire_external(cb, cbs);
-        self.vk_buffer_acquire_external(db, dbs);
-        self.vk_buffer_acquire_external(mb, mbs);
+        self.vk_buffers_acquire_external_batched([(cb, cbs), (db, dbs), (mb, mbs)]);
         // ── copy ×3:导入 buffer → session 自建输入 image(布局状态机/后置
         // SHADER_READ_ONLY 转换均由 vk_upload_image_src 承担)──
-        self.vk_upload_image_src(VkInputSlot::Color, cb, 0);
-        self.vk_upload_image_src(VkInputSlot::Depth, db, 0);
-        self.vk_upload_image_src(VkInputSlot::Mv, mb, 0);
-        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。
-        self.vk_upload_image(VkInputSlot::Reactive, 0);
+        // 诊断实验门:RURIX_G14_DLSS_SKIP_COPY=1 跳过三条 buffer→image copy
+        // (输出内容无效,仅用于分离 copy 与 DLSS 网络的 GPU 时间占比)。
+        if std::env::var("RURIX_G14_DLSS_SKIP_COPY").ok().as_deref() != Some("1") {
+            self.vk_upload_images_batched([
+                (VkInputSlot::Color, cb, 0),
+                (VkInputSlot::Depth, db, 0),
+                (VkInputSlot::Mv, mb, 0),
+            ]);
+        }
+        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)——零内容
+        // 已驻留时跳过(layout 保持 SHADER_READ_ONLY_OPTIMAL,tag 面不变)。
+        if !skip_reactive {
+            self.vk_upload_image(VkInputSlot::Reactive, 0);
+            self.reactive_zero_resident = p.reactive.is_none();
+        }
         // color_out 置 GENERAL(DLSS UAV 写;frame_impl_ext 同律)。
         if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
             let out_res = self.color_out.clone_shallow();
@@ -3742,6 +3776,7 @@ impl DlssVkSession {
             &tags[3].base as *const _,
             &tags[4].base as *const _,
         ];
+        let vtm_record = vtm_t0.elapsed();
         // SAFETY: tags/sl_* 栈上存活至 evaluate 返回;cmd 录制中;token 本帧有效。
         let r = unsafe {
             (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), 6, self.cmd)
@@ -3757,6 +3792,7 @@ impl DlssVkSession {
                 sl_result_name(r)
             )));
         }
+        let vtm_eval = vtm_t0.elapsed();
         // SAFETY: cmd 录制完成。
         let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
         if r != VK_SUCCESS {
@@ -3785,11 +3821,166 @@ impl DlssVkSession {
         }
         // SAFETY: cmd 已提交且 queue 排空。
         let _ = unsafe { (self.dev.reset_command_buffer)(self.cmd, 0) };
+        if vtm_on {
+            let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
+            eprintln!(
+                "[vendor-timing dlss-buf] frame={} staging={:.3} sl_book={:.3} record={:.3} evaluate={:.3} submit_wait={:.3} total={:.3}ms",
+                p.frame_index,
+                ms(vtm_staging),
+                ms(vtm_book - vtm_staging),
+                ms(vtm_record - vtm_book),
+                ms(vtm_eval - vtm_record),
+                ms(vtm_t0.elapsed() - vtm_eval),
+                ms(vtm_t0.elapsed()),
+            );
+        }
         Ok(())
+    }
+
+    /// G14.11:三输入 buffer→image 的**批量屏障**上传(逐 image 独立
+    /// `vk_upload_image_src` 会在三条 copy 之间夹 4 道全局
+    /// `vkCmdPipelineBarrier`,把本可并发的三条 copy 串成「copy→流水 drain→
+    /// copy→drain→copy→drain」;本方法合并为 [3 barrier] → [3 copy] →
+    /// [3 barrier],命令内容/copy region/最终 layout 与逐 image 路逐字同,
+    /// 仅去掉中间 drain——**数据面零变化(digest 不变)**,GPU 段实测 t100 面
+    /// 显著收窄)。调用方保证 cmd 录制中、三 src buffer 已 acquire。
+    fn vk_upload_images_batched(&mut self, srcs: [(VkInputSlot, VkBuffer, u64); 3]) {
+        let pick = |s: &Self, slot: VkInputSlot| -> (VkImage, u32, u32, u32, i32) {
+            match slot {
+                VkInputSlot::Color => (s.color_in.image, s.color_in.aspect, s.color_in.w, s.color_in.h, s.color_in.layout),
+                VkInputSlot::Depth => (s.depth_in.image, s.depth_in.aspect, s.depth_in.w, s.depth_in.h, s.depth_in.layout),
+                VkInputSlot::Mv => (s.mv_in.image, s.mv_in.aspect, s.mv_in.w, s.mv_in.h, s.mv_in.layout),
+                VkInputSlot::Reactive => (s.reactive_in.image, s.reactive_in.aspect, s.reactive_in.w, s.reactive_in.h, s.reactive_in.layout),
+            }
+        };
+        let mk_barrier = |image: VkImage, aspect: u32, old: i32, new: i32,
+                          src_access: u32, dst_access: u32| VkImageMemoryBarrier {
+            s_type: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: src_access,
+            dst_access_mask: dst_access,
+            old_layout: old,
+            new_layout: new,
+            src_queue_family_index: !0,
+            dst_queue_family_index: !0,
+            image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: aspect,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        let mut infos = Vec::with_capacity(3);
+        for (slot, buf, off) in srcs {
+            let (image, aspect, w, h, old) = pick(self, slot);
+            infos.push((slot, buf, off, image, aspect, w, h, old));
+        }
+        // 首帧(UNDEFINED)与稳态(SHADER_READ_ONLY)混合时取保守 src scope:
+        // 任一 UNDEFINED → TOP_OF_PIPE/0,否则 COMPUTE_SHADER/SHADER_READ。
+        let any_first = infos.iter().any(|i| i.7 == VK_IMAGE_LAYOUT_UNDEFINED);
+        let (src_stage, src_access) = if any_first {
+            (VK_PIPELINE_STAGE_TOP_OF_PIPE, 0)
+        } else {
+            (VK_PIPELINE_STAGE_COMPUTE_SHADER, VK_ACCESS_SHADER_READ)
+        };
+        let pre: Vec<VkImageMemoryBarrier> = infos
+            .iter()
+            .map(|i| mk_barrier(i.3, i.4, i.7, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                src_access, VK_ACCESS_TRANSFER_WRITE))
+            .collect();
+        // SAFETY: cmd 录制中;barrier 数组栈上存活至调用返回;image 均有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd, src_stage, VK_PIPELINE_STAGE_TRANSFER, 0,
+                0, std::ptr::null(), 0, std::ptr::null(),
+                pre.len() as u32, pre.as_ptr(),
+            )
+        };
+        for i in &infos {
+            let region = VkBufferImageCopy {
+                buffer_offset: i.2,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                image_subresource: VkImageSubresourceLayers {
+                    aspect_mask: i.4,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+                image_offset: [0, 0, 0],
+                image_extent: VkExtent3D { width: i.5, height: i.6, depth: 1 },
+            };
+            // SAFETY: cmd 录制中;src buffer 已 acquire;region 与 image 尺寸一致。
+            unsafe {
+                (self.dev.cmd_copy_buffer_to_image)(
+                    self.cmd, i.1, i.3, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region,
+                )
+            };
+        }
+        let post: Vec<VkImageMemoryBarrier> = infos
+            .iter()
+            .map(|i| mk_barrier(i.3, i.4, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_ACCESS_TRANSFER_WRITE, VK_ACCESS_SHADER_READ))
+            .collect();
+        // SAFETY: 同上。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd, VK_PIPELINE_STAGE_TRANSFER, VK_PIPELINE_STAGE_COMPUTE_SHADER, 0,
+                0, std::ptr::null(), 0, std::ptr::null(),
+                post.len() as u32, post.as_ptr(),
+            )
+        };
+        for i in &infos {
+            match i.0 {
+                VkInputSlot::Color => self.color_in.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VkInputSlot::Depth => self.depth_in.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VkInputSlot::Mv => self.mv_in.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VkInputSlot::Reactive => self.reactive_in.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            }
+        }
     }
 
     /// G14.10f:导入 buffer 的 EXTERNAL acquire(与 render_exec 帧末 buffer
     /// release 配对;dst = TRANSFER|TRANSFER_READ——本 cmd 内消费为 copy 源)。
+    /// G14.11:三导入 buffer 的 EXTERNAL acquire 批量版(单次
+    /// `vkCmdPipelineBarrier` 三 buffer barrier;与逐条版语义逐字同,去两道
+    /// 冗余流水 drain)。
+    fn vk_buffers_acquire_external_batched(&self, bufs: [(VkBuffer, u64); 3]) {
+        let bs: Vec<VkBufferMemoryBarrier> = bufs
+            .iter()
+            .map(|&(buffer, size)| VkBufferMemoryBarrier {
+                s_type: 44, // VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: VK_ACCESS_TRANSFER_READ,
+                src_queue_family_index: VK_QUEUE_FAMILY_EXTERNAL,
+                dst_queue_family_index: self.queue_family,
+                buffer,
+                offset: 0,
+                size,
+            })
+            .collect();
+        // SAFETY: cmd 录制中;barrier 数组栈上存活至调用返回;buffer 均有效。
+        unsafe {
+            (self.dev.cmd_pipeline_barrier)(
+                self.cmd,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE,
+                VK_PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                bs.len() as u32,
+                bs.as_ptr().cast::<c_void>(),
+                0,
+                std::ptr::null(),
+            )
+        };
+    }
+
+    #[allow(dead_code)]
     fn vk_buffer_acquire_external(&self, buffer: VkBuffer, size: u64) {
         let barrier = VkBufferMemoryBarrier {
             s_type: 44, // VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER
@@ -5873,6 +6064,39 @@ mod tests {
         }
         assert_eq!(f16_to_f32(f32_to_f16(0.0)), 0.0);
         assert!(f16_to_f32(f32_to_f16(f32::INFINITY)).is_infinite());
+    }
+
+    /// G14.11 修正回归锚:f16→f32 全 65536 位型枚举 vs 位精确公式参考
+    /// (f32 可精确表示一切 f16 值——subnormal = mant·2⁻²⁴、normal =
+    /// (1024+mant)·2^(exp−25);NaN 仅验类别)。fsr 对拍臂检出的 subnormal
+    /// 减半缺陷(e 初值 −1)由本测试永久钉死。
+    #[test]
+    fn f16_to_f32_exhaustive_bitexact() {
+        for h in 0u32..=0xffff {
+            let h = h as u16;
+            let exp = (h >> 10) & 0x1f;
+            let mant = (h & 0x3ff) as f64;
+            let sgn = if h & 0x8000 != 0 { -1.0f64 } else { 1.0 };
+            let got = f16_to_f32(h);
+            if exp == 31 {
+                if mant == 0.0 {
+                    assert!(got.is_infinite() && (got < 0.0) == (sgn < 0.0), "inf {h:#06x}");
+                } else {
+                    assert!(got.is_nan(), "nan {h:#06x}");
+                }
+                continue;
+            }
+            let want = if exp == 0 {
+                sgn * mant * (-24f64).exp2()
+            } else {
+                sgn * (1024.0 + mant) * f64::from(exp as i32 - 25).exp2()
+            } as f32;
+            assert_eq!(
+                got.to_bits(),
+                want.to_bits(),
+                "f16 {h:#06x} → got {got:e} ≠ want {want:e}"
+            );
+        }
     }
 
     #[test]

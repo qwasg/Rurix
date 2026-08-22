@@ -11100,7 +11100,8 @@ mod tests {
 
     // ── G14.10b external memory 导出面 ──
 
-    /// exportable 集校验 fail-closed(host 恒跑):越界 / 非 Texture / 重复。
+    /// exportable 集校验 fail-closed(host 恒跑):越界 / buffer 非法形态
+    /// (G14.10f 语义拓宽后 Buffer 合法,但须 data=None ∧ device_local)/ 重复。
     #[test]
     fn g14_10b_exportable_validation_fail_closed() {
         let spv = spv_bytes(&sample_compute_spv_words());
@@ -11144,7 +11145,10 @@ mod tests {
         let brefs: Vec<&[(u32, TargetState)]> = plan.iter().map(Vec::as_slice).collect();
         for (exportable, needle) in [
             (vec![9u32], "越界"),
-            (vec![0u32], "非 Texture"),
+            // G14.10f:资源 0 = buffer 带初始数据 + 非 device_local,两条
+            // buffer 形态门任一命中即拒(external dedicated 分配与创建期
+            // staging 上传互斥;导出面强制 DEVICE_LOCAL)。
+            (vec![0u32], "带初始数据"),
             (vec![1u32, 1u32], "重复"),
         ] {
             let r = DeviceFrameSession::new_with_exportable_textures(
@@ -11158,6 +11162,35 @@ mod tests {
             );
             let err = r.err().unwrap_or_else(|| panic!("{needle} 臂须拒"));
             assert!(err.contains(needle), "{needle} 臂错误字面不符: {err}");
+        }
+        // G14.10f 加性臂:合法 buffer 形态(data=None + device_local)须**通过
+        // 校验段**——不得被形态门误拒(后续失败只可能来自设备面,非校验面)。
+        let ok_resources = vec![
+            ResourceDesc::Buffer(BufferDesc {
+                size: 32,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: None,
+                device_local: true,
+            }),
+            resources[1].clone(),
+        ];
+        let r = DeviceFrameSession::new_with_exportable_textures(
+            &ok_resources,
+            &passes,
+            &brefs,
+            &[],
+            2,
+            &[],
+            &[0u32],
+        );
+        if let Err(e) = &r {
+            assert!(
+                !e.contains("exportable_textures[0]"),
+                "合法 buffer 形态被校验段误拒: {e}"
+            );
         }
     }
 
