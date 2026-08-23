@@ -3273,6 +3273,37 @@ jobs:
         shell: powershell
         run: py -3 ci/g15_wave3_exit_check.py --gate g15.wave.3.exit
 
+      # 步骤 273（G15.4 P0 硬门 M-c g15.p0.m_c.absolute_quality_final_review；
+      # G15_CONTRACT §4.2 M-c/G-G15-5 + spec/visual_comparison.md RXS-0407；落盘前实测
+      # CI_step.next_free=273 顺位领取）。绝对画质终审：绝对通过线程序产标定（UE 参照
+      # deficit 双 seed 方差底场景内 p100×2.0 程序产禁手写 P-09，标定链路全要素入
+      # evidence + g15_budget 四条目 measured_local）+ 双场景 × 三档 × 三后端 18 格
+      # 逐格判定（生产管线 --render 真跑 vs UE 同场景同档参照帧，display-referred LDR
+      # 臂双端同一派生链单源）+ 逐格 AI 读图严格画面审查记录（18 格闭集零空行与 PNG
+      # digest 逐格绑定，缺格即 RED）+ 商用收口判定（达标格数 x/18 如实定盘，未达标
+      # 如实登记不冒充 + 未达格逐格归因 + G16+ 承接锚字面）+ UE 参照内容有效性机核
+      #（死黑退化失败模式字面编码显式登记）+ RED 五臂。device 真跑门——pr-smoke 侧
+      # --verify-latest 秒级核最新 full-run evidence（沿 M-h/soak 重门先例）；
+      # full-run 本地/workflow_dispatch 用 --gate。
+      # evidence 落盘 evidence/g15_m_c_absolute_quality_final_review_<UTC>.json。
+      - name: G15.4 M-c absolute quality final review verify-latest (G15_CONTRACT §4.2 M-c, g15.p0.m_c.absolute_quality_final_review)
+        shell: powershell
+        run: py -3 ci/g15_absolute_quality_review_smoke.py --verify-latest
+
+      # 步骤 274（G15.4 波聚合门 g15.wave.4.exit；G15_CONTRACT G-G15-5/§2 G15.4；
+      # 落盘前实测 CI_step.next_free=274 顺位领取）。只读汇总 M-c 最新 evidence + 六
+      # facts：M-c fresh PASS + RED 臂 ≥4 独立有效 / 18 格判定矩阵 + 读图记录重算绿
+      #（PNG digest 逐格绑定）/ 标定链程序产机核（g15_budget 九条目 + threshold==
+      # measured×2.0 重算 + budget_eval 全 PASS）/ 商用收口判定定盘字面（达标/未达标
+      # 如实登记不冒充 + 未达格逐格归因 + G16+ 承接锚 + findings 登记）/ 三契约三冻结
+      # 表 0-byte + RXS-0407 锚定维持（trace_matrix/stable_snapshot --check）/ G5~G14
+      # closed 面 0-byte + 零 src 变更机核（G14 M-d 复跑义务 not-triggered 如实登记）
+      # + RFC/RXS 命名空间机核。聚合不代绿不遮蔽。
+      # evidence 落盘 evidence/g15_wave4_exit_<UTC>.json。
+      - name: G15.4 wave4 exit check (G15_CONTRACT G-G15-5, g15.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g15_wave4_exit_check.py --gate g15.wave.4.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g15_wave4_exit",
+  "symbolic_gate_key": "g15.wave.4.exit",
+  "matrix_row": "G15.4",
+  "wave": "G15.4",
+  "numeric_step": 274,
+  "source_ref": "G15_CONTRACT G-G15-5/§2 G15.4;G15_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0407;M-c gate red arms independently effective;verdict matrix and reading records revalidate green;calibration chain program-produced recompute + g15_budget nine entries measured_local;commercial closure verdict honest registration;frozen 0-byte + spec anchors maintained;G5~G14 closed 0-byte + zero src change (G14 M-d rerun not-triggered) + RFC/RXS namespace check",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g15.p0.m_c.absolute_quality_final_review",
+      "subject_prefix": "g15_m_c_absolute_quality_final_review",
+      "evidence_path": "evidence/g15_m_c_absolute_quality_final_review_20260823T145400Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T145400Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m_c_gate_pass_red_arms_effective",
+      "status": "PASS",
+      "detail": "M-c 最新 evidence PASS + red 面 checks 全真（5 臂独立有效）"
+    },
+    {
+      "id": "verdict_matrix_and_reading_records_revalidate_green",
+      "status": "PASS",
+      "detail": "18 格判定矩阵交叉核验重算 == 存储标签 + 读图记录 18 格闭集与 PNG digest 逐格绑定重算全绿"
+    },
+    {
+      "id": "calibration_chain_program_produced",
+      "status": "PASS",
+      "detail": "g15_budget 九条目齐备 measured_local + threshold==measured×2.0 f64 精确重算 + budget_eval 全 PASS（P-09）"
+    },
+    {
+      "id": "commercial_closure_verdict_honest",
+      "status": "PASS",
+      "detail": "商用收口判定定盘字面 = 未达标 0/18（未达格逐格归因 + 承接锚 + findings 登记面全量；未达标如实登记不冒充为合法定盘）"
+    },
+    {
+      "id": "frozen_0byte_and_spec_anchors_maintained",
+      "status": "PASS",
+      "detail": "三 parity 契约 + 三冻结登记表在树 == HEAD 逐字节 + RXS-0407 锚定（trace_matrix/stable_snapshot --check 全 PASS）"
+    },
+    {
+      "id": "legacy_closed_zero_src_change_and_namespace",
+      "status": "PASS",
+      "detail": "committed 闭集=['milestones/g14/g14_budget.json', 'milestones/g14/g14_ue_variance_samples.json']；工作树闭集=空；src/ 零变更机核绿（G14 M-d 复跑义务 not-triggered——出图链路零 src 改动如实登记）；RFC next_free=31 维持 / RXS next_free=408（RXS-0407 消费校准）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T150418Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G15.4 M-c absolute quality final review (step 273) — absolute pass line program-produced calibration (dual-seed variance floor p100×2.0) + 18-cell verdicts + AI reading records + honest commercial closure verdict; aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M-c PASS + red arms + matrix/records revalidate + calibration/budget recompute + closure honesty + frozen/spec anchors + zero-src-change/namespace; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

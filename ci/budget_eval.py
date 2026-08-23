@@ -274,6 +274,11 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # G15.2 M-a 重收割复跑 fresh 带条目（本波门产 measured）→ 同判读面复用。
         eval_g14_run_variance_band(entry)
         return
+    if eid.startswith("g15.m_c.absolute_pass_line_"):
+        # G15.4 M-c 绝对通过线标定四条目（UE 参照 deficit 双 seed 方差底场景内
+        # p100 × 2.0 程序产，RXS-0407 L4 沿 G13.4 标定三条目范式）→ 同判读面复用。
+        eval_g13_dual_seed(entry)
+        return
     value = measured_value(entry)
     if value is None:
         return

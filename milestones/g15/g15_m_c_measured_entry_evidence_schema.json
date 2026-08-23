@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.4 M-c 绝对通过线标定 measured entry evidence",
+  "description": "evidence/g15_m_c_calibration_<metric>_<scene>_<UTC>.json。G15.4 M-c 绝对画质通过线标定腿逐条目 measured 件（标定程序 = 本门 18 格逐格双 seed〔契约 seed vs calibration_seed〕生产管线 --render 真跑，UE 参照 deficit 双 seed 方差场景内 p100，threshold = p100 × 2.0 冻结 k 程序产禁手写 P-09，RXS-0407 L4 沿 G13.4 标定三条目范式；results.dual_seed_p100 供 budget_eval 通用路判读〔g15.m_c.absolute_pass_line_ 前缀分派，沿 g13.ue_upscale./g15.m_a.ue_variance_band_ 同模加性面〕）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g15mcar.measured_entry.v1"
+    },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^g15\\.m_c\\.absolute_pass_line_"
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dual_seed_p100"],
+      "properties": {
+        "dual_seed_p100": {
+          "type": "number"
+        }
+      }
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest"],
+      "properties": {
+        "count": { "type": "integer" },
+        "digest": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "backend", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "backend": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g15mcar.measured_entry.v1",
+  "entry_id": "g15.m_c.absolute_pass_line_ssim_deficit_tol_cornell_box",
+  "results": {
+    "dual_seed_p100": 0.003773166739952538
+  },
+  "protocol": "G15.4 M-c 绝对通过线标定腿（RXS-0407 L4）：18 格逐格双 seed（契约 seed vs calibration_seed）生产管线 --render 真跑，逐格 UE 参照 deficit（display-referred LDR 臂双端同一派生链单源，双端尺度 1.0）双 seed 方差 |main−cal|，场景内九格 p100，threshold = p100 × 2.0 冻结 k（禁手写 P-09；沿 G13.4 标定三条目范式）；样本面 = cornell-box 3 档 × 3 后端 × 32 帧 Halton 静态收敛序列双 seed",
+  "sample_manifest": {
+    "count": 9,
+    "digest": "sha256:4dccae2eba8327e854cfb7b01c5aa0e7715a0c9677722bc9b88aa75b7287b4a0"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device/dlss_sr/fsr_3_1_5",
+    "base_commit": "b2c58b7ff4e8a4424cec19ba726301fc95017b74"
+  },
+  "timestamp": "20260823T141249Z"
+}

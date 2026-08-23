@@ -17,8 +17,9 @@ evidence + 六 facts:
 ④ 材质链表达面立项评估结论 + G15-MA-F1 定论登记（not-triggered 未命中/
    closed-caliber-registered 字面；triggered/fix-project 须 Full RFC Agent
    Approved 面——本波未触发如实登记不充绿）;
-⑤ g15_budget 五条目齐备 measured_local 零 estimated + budget_eval 全 PASS
-   （P-09 禁手写；本波零修复零追加维持字面）;
+⑤ g15_budget 条目齐备 measured_local 零 estimated + budget_eval 全 PASS
+   （P-09 禁手写；G15.3 波时点 = 五条目零追加，G15.4 M-c 标定四条目纯追加后
+   校准为九条目——同里程碑车道门期内修订沿 G14.6 先例，见本脚本 ⑤ 注释）;
 ⑥ G5~G14 closed 面 0-byte（vs G15.0 不可变 ref f061487efaf7816684de18a6ef86554e5c392a75
    committed diff 闭集 ⊆ G14 战后归档授权面 {milestones/g14/g14_budget.json,
    milestones/g14/g14_ue_variance_samples.json}；工作树闭集 ⊆
@@ -197,8 +198,11 @@ def collect_facts() -> list[dict]:
                 bud_bad.append(f"缺条目 {eid}")
             elif e.get("evidence") != "measured_local":
                 bud_bad.append(f"{eid} 非 measured_local")
-        if len(budget.get("entries") or []) != 5:
-            bud_bad.append("g15_budget 条目数 ≠ 5（本波零修复零追加维持字面）")
+        # G15.4 加性校准（同里程碑车道门期内修订沿 G14.6 M-c/M-d 门先例）：M-c 标定
+        # 四条目纯追加（g15.m_c.absolute_pass_line_ 命名空间，measured_local 程序产）落盘
+        # 后条目数 5→9；G15.3 波时点快照字面「五条目/零追加」由契约 §8.3 验收记录承载。
+        if len(budget.get("entries") or []) != 9:
+            bud_bad.append("g15_budget 条目数 ≠ 9（五既有 + G15.4 M-c 标定四条目纯追加面）")
     r = subprocess.run([sys.executable, str(ROOT / "ci" / "budget_eval.py")], cwd=ROOT,
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -206,7 +210,7 @@ def collect_facts() -> list[dict]:
     facts.append(_fact(
         "budget_entries_measured",
         not bud_bad,
-        "g15_budget 五条目齐备 measured_local 零 estimated + budget_eval 全 PASS（P-09；本波零追加维持）"
+        "g15_budget 九条目齐备（五既有 + G15.4 M-c 标定四条目纯追加校准面）measured_local 零 estimated + budget_eval 全 PASS（P-09）"
         if not bud_bad else "; ".join(bud_bad[:3]),
     ))
 

@@ -808,6 +808,15 @@ def check_evidence_files() -> None:
     g15_wave3_exit_schema = load(
         ROOT / "milestones/g15/g15_wave3_exit_evidence_schema.json"
     )
+    g15_m_c_absolute_quality_final_review_schema = load(
+        ROOT / "milestones/g15/g15_m_c_absolute_quality_final_review_evidence_schema.json"
+    )
+    g15_m_c_measured_entry_schema = load(
+        ROOT / "milestones/g15/g15_m_c_measured_entry_evidence_schema.json"
+    )
+    g15_wave4_exit_schema = load(
+        ROOT / "milestones/g15/g15_wave4_exit_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -1976,6 +1985,21 @@ def check_evidence_files() -> None:
     g15_wave3_exit_validator = (
         jsonschema.Draft7Validator(g15_wave3_exit_schema)
         if g15_wave3_exit_schema is not None
+        else None
+    )
+    g15_m_c_absolute_quality_final_review_validator = (
+        jsonschema.Draft7Validator(g15_m_c_absolute_quality_final_review_schema)
+        if g15_m_c_absolute_quality_final_review_schema is not None
+        else None
+    )
+    g15_m_c_measured_entry_validator = (
+        jsonschema.Draft7Validator(g15_m_c_measured_entry_schema)
+        if g15_m_c_measured_entry_schema is not None
+        else None
+    )
+    g15_wave4_exit_validator = (
+        jsonschema.Draft7Validator(g15_wave4_exit_schema)
+        if g15_wave4_exit_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3840,6 +3864,26 @@ def check_evidence_files() -> None:
         ):
             # G15.3 波聚合门（步骤 272）→ required_gates 1 行 + 六 facts。
             validator = g15_wave3_exit_validator
+        elif (
+            f.name.startswith("g15_m_c_absolute_quality_final_review_")
+            and g15_m_c_absolute_quality_final_review_validator is not None
+        ):
+            # G15.4 P0 硬门 M-c 绝对画质终审（步骤 273）→ parity 节闭集
+            # milestones/g15/g15_m_c_absolute_quality_final_review_evidence_schema.json。
+            validator = g15_m_c_absolute_quality_final_review_validator
+        elif (
+            f.name.startswith("g15_m_c_calibration_")
+            and g15_m_c_measured_entry_validator is not None
+        ):
+            # G15.4 M-c 标定腿四条目 evidence（measured entry 面）→
+            # milestones/g15/g15_m_c_measured_entry_evidence_schema.json。
+            validator = g15_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g15_wave4_exit_")
+            and g15_wave4_exit_validator is not None
+        ):
+            # G15.4 波聚合门（步骤 274）→ required_gates 1 行 + 六 facts。
+            validator = g15_wave4_exit_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None

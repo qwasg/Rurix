@@ -66,6 +66,50 @@
       "threshold": 0.00202436,
       "evidence_file": "evidence/g15_m_a_band_lumen_20260823T110103Z.json",
       "measured_value": 0.00101218
+    },
+    {
+      "id": "g15.m_c.absolute_pass_line_ssim_deficit_tol_cornell_box",
+      "description": "G15.4 M-c 绝对画质通过线 ssim deficit 绝对阈 @cornell-box（UE 同场景同档参照 deficit 双 seed 方差底场景内 p100 × 2.0 程序产，禁手写 P-09，RXS-0407 L4；display-referred LDR 臂双端同一派生链单源，双端派生尺度 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100) 已施 receipt exposure 机核；scene-linear 域面 = G15-MA-F1 caliber 已登记面不混入）；样本集 digest sha256:4dccae2eba8327e854cfb7b01c5aa0e7715a0c9677722bc9b88aa75b7287b4a0（count=9）；标定程序 ci/g15_absolute_quality_review_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.007546333479905076,
+      "evidence_file": "evidence/g15_m_c_calibration_ssim_cornell_box_20260823T145400Z.json",
+      "measured_value": 0.003773166739952538
+    },
+    {
+      "id": "g15.m_c.absolute_pass_line_flip_deficit_tol_cornell_box",
+      "description": "G15.4 M-c 绝对画质通过线 flip deficit 绝对阈 @cornell-box（UE 同场景同档参照 deficit 双 seed 方差底场景内 p100 × 2.0 程序产，禁手写 P-09，RXS-0407 L4；display-referred LDR 臂双端同一派生链单源，双端派生尺度 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100) 已施 receipt exposure 机核；scene-linear 域面 = G15-MA-F1 caliber 已登记面不混入）；样本集 digest sha256:e4d4ffd4a8dee1876c4f7aa89756b368d698937fdca7709a1954114033faac1e（count=9）；标定程序 ci/g15_absolute_quality_review_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0024577474937364507,
+      "evidence_file": "evidence/g15_m_c_calibration_flip_cornell_box_20260823T145400Z.json",
+      "measured_value": 0.0012288737468682254
+    },
+    {
+      "id": "g15.m_c.absolute_pass_line_ssim_deficit_tol_bistro_interior",
+      "description": "G15.4 M-c 绝对画质通过线 ssim deficit 绝对阈 @bistro-interior（UE 同场景同档参照 deficit 双 seed 方差底场景内 p100 × 2.0 程序产，禁手写 P-09，RXS-0407 L4；display-referred LDR 臂双端同一派生链单源，双端派生尺度 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100) 已施 receipt exposure 机核；scene-linear 域面 = G15-MA-F1 caliber 已登记面不混入）；样本集 digest sha256:5099c8d3c6780f3134d8fff774861ec6bc71d335be7135517aa35ca047759176（count=9）；标定程序 ci/g15_absolute_quality_review_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0039748560133805455,
+      "evidence_file": "evidence/g15_m_c_calibration_ssim_bistro_interior_20260823T145400Z.json",
+      "measured_value": 0.0019874280066902728
+    },
+    {
+      "id": "g15.m_c.absolute_pass_line_flip_deficit_tol_bistro_interior",
+      "description": "G15.4 M-c 绝对画质通过线 flip deficit 绝对阈 @bistro-interior（UE 同场景同档参照 deficit 双 seed 方差底场景内 p100 × 2.0 程序产，禁手写 P-09，RXS-0407 L4；display-referred LDR 臂双端同一派生链单源，双端派生尺度 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100) 已施 receipt exposure 机核；scene-linear 域面 = G15-MA-F1 caliber 已登记面不混入）；样本集 digest sha256:91b78883463bdbdda5d7bf639a5e4196c79d72dd8ed55902821ab820deb31c03（count=9）；标定程序 ci/g15_absolute_quality_review_smoke.py 标定腿可复跑（帧面位级确定性双跑承载）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.001341543844948008,
+      "evidence_file": "evidence/g15_m_c_calibration_flip_bistro_interior_20260823T145400Z.json",
+      "measured_value": 0.000670771922474004
     }
   ],
   "counter_assertions": []

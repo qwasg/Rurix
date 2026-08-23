@@ -1,0 +1,306 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.4 M-c absolute quality final review evidence",
+  "description": "evidence/g15_m_c_absolute_quality_final_review_<UTC>.json。G15.4 P0 硬门 M-c（g15.p0.m_c.absolute_quality_final_review，步骤 273；G15_CONTRACT §4.2 M-c/G-G15-5；G15_ACCEPTANCE_MAP §1 M-c 行；spec/visual_comparison.md RXS-0407 L1~L6）：绝对画质通过线程序产标定（UE 参照 deficit 双 seed 方差底场景内 p100 × 2.0 程序产禁手写 P-09，标定链路全要素入 evidence + 四条目入 g15_budget measured_local + 同 seed 双跑位级核验 + 重算 f64 精确核验）+ 双场景 × 三档（t50/t67/t100）× 三后端（tsr_device/dlss_sr/fsr_3_1_5）18 格逐格判定（Rurix 生产管线 --render 真跑 vs UE 同场景同档参照帧，display-referred LDR 臂双端同一派生链单源）+ 逐格 AI 读图严格画面审查记录（18 格闭集零空行 + PNG digest 逐格绑定 + 无乱序/无错位/无全黑/关键结构可见 + 暗部态诚实区分）+ 商用收口判定（达标格数 x/18 如实定盘，未达标如实登记不冒充 + 未达格逐格归因 + G16+ 承接锚字面）+ UE 参照内容有效性机核（死黑退化失败模式字面编码显式登记 G15-MC-F<n>）+ RED 五臂独立有效（handwritten-threshold/reading-record-missing/verdict-masquerade/calibration-single-run/stale-ue-reference）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_m_c_absolute_quality_final_review" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_c.absolute_quality_final_review" },
+    "matrix_row": { "type": "string", "const": "M-c" },
+    "milestone": { "type": "string", "const": "M-c" },
+    "assertion_id": { "type": "string", "const": "g15.p0.m_c.absolute_quality_final_review" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G15.4" },
+    "numeric_step": { "type": "integer", "const": 273 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT §4.2 M-c/G-G15-5;G15_ACCEPTANCE_MAP §1 M-c/§3.4;spec/visual_comparison.md RXS-0407 L1~L6;RXS-0386/0387/0389/0392 口径继承;G14PLUS_RECORD §6.3 G15 承接锚;G13.4 标定三条目范式（双 seed 方差底 p100×2.0 程序产禁手写 P-09）;G14.10f AI 读图强制门字面"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["executed", "fail", "dev_env_degrade"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_clause_407_anchored",
+        "frozen_contracts_registries_0byte",
+        "m_a_chain_anchor_fresh",
+        "ue_reference_fresh",
+        "ue_reference_degeneracy_detected_registered",
+        "rurix_production_frames_valid",
+        "double_run_bitexact",
+        "calibration_dual_seed_program_produced",
+        "budget_entries_measured_appended",
+        "metric_domain_rxs0386_ldr",
+        "verdict_matrix_18_cells_crosschecked",
+        "ai_reading_records_18_cells_valid",
+        "commercial_closure_honest",
+        "red_arm_handwritten_threshold_detected",
+        "red_arm_reading_record_missing_detected",
+        "red_arm_verdict_masquerade_detected",
+        "red_arm_calibration_single_run_detected",
+        "red_arm_stale_ue_reference_detected"
+      ],
+      "properties": {
+        "spec_clause_407_anchored": { "type": "boolean" },
+        "frozen_contracts_registries_0byte": { "type": "boolean" },
+        "m_a_chain_anchor_fresh": { "type": "boolean" },
+        "ue_reference_fresh": { "type": "boolean" },
+        "ue_reference_degeneracy_detected_registered": { "type": "boolean" },
+        "rurix_production_frames_valid": { "type": "boolean" },
+        "double_run_bitexact": { "type": "boolean" },
+        "calibration_dual_seed_program_produced": { "type": "boolean" },
+        "budget_entries_measured_appended": { "type": "boolean" },
+        "metric_domain_rxs0386_ldr": { "type": "boolean" },
+        "verdict_matrix_18_cells_crosschecked": { "type": "boolean" },
+        "ai_reading_records_18_cells_valid": { "type": "boolean" },
+        "commercial_closure_honest": { "type": "boolean" },
+        "red_arm_handwritten_threshold_detected": { "type": "boolean" },
+        "red_arm_reading_record_missing_detected": { "type": "boolean" },
+        "red_arm_verdict_masquerade_detected": { "type": "boolean" },
+        "red_arm_calibration_single_run_detected": { "type": "boolean" },
+        "red_arm_stale_ue_reference_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wave_anchor",
+        "ue_reference_status",
+        "calibration",
+        "double_run_detail",
+        "frames_reused_count",
+        "cells",
+        "ai_reading_manifest",
+        "ai_reading_records_file",
+        "findings",
+        "commercial_closure"
+      ],
+      "properties": {
+        "wave_anchor": { "type": "string" },
+        "ue_reference_status": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scene", "tier", "fresh", "digest_recompute_ok", "hdr_luma_max", "degenerate", "receipt_started"],
+            "properties": {
+              "scene": { "type": "string" },
+              "tier": { "type": "integer" },
+              "fresh": { "type": "boolean" },
+              "digest_recompute_ok": { "type": "boolean" },
+              "hdr_luma_max": { "type": ["number", "null"] },
+              "degenerate": { "type": ["boolean", "null"] },
+              "receipt_started": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "calibration": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scene", "metric", "variance_samples", "measured_p100", "threshold", "budget_entry_id", "evidence_file"],
+            "properties": {
+              "scene": { "type": "string" },
+              "metric": { "type": "string", "enum": ["ssim", "flip"] },
+              "variance_samples": { "type": "array", "items": { "type": "number" } },
+              "measured_p100": { "type": ["number", "null"] },
+              "threshold": { "type": ["number", "null"] },
+              "budget_entry_id": { "type": "string" },
+              "evidence_file": { "type": "string" }
+            }
+          }
+        },
+        "double_run_detail": { "type": "string" },
+        "frames_reused_count": { "type": "integer" },
+        "cells": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cell", "scene", "tier", "backend", "ssim_deficit", "flip_deficit",
+              "threshold_ssim", "threshold_flip", "ssim_pass", "flip_pass",
+              "metric_pass", "ai_verdict", "reference_state", "verdict", "attribution", "png_sha256"
+            ],
+            "properties": {
+              "cell": { "type": "string" },
+              "scene": { "type": "string" },
+              "tier": { "type": "integer" },
+              "backend": { "type": "string" },
+              "ssim_deficit": { "type": "number" },
+              "flip_deficit": { "type": "number" },
+              "threshold_ssim": { "type": "number" },
+              "threshold_flip": { "type": "number" },
+              "ssim_pass": { "type": "boolean" },
+              "flip_pass": { "type": "boolean" },
+              "metric_pass": { "type": "boolean" },
+              "ai_verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+              "reference_state": { "type": "string", "enum": ["ok", "degenerate_black"] },
+              "verdict": { "type": "string", "enum": ["pass", "fail"] },
+              "attribution": { "type": "string" },
+              "png_sha256": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "ai_reading_manifest": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cell", "png", "png_sha256", "source_exr", "width", "height",
+              "mean_luma", "std_luma", "histogram_occupied_bins",
+              "histogram_max_bin_share", "flat_block_fraction",
+              "structural_proxies", "proxies_pass"
+            ],
+            "properties": {
+              "cell": { "type": "string" },
+              "png": { "type": "string" },
+              "png_sha256": { "type": "string" },
+              "source_exr": { "type": "string" },
+              "source_domain": { "type": "string", "enum": ["display-referred", "scene-linear-hdr"] },
+              "display_scale": { "type": "number" },
+              "width": { "type": "integer" },
+              "height": { "type": "integer" },
+              "mean_luma": { "type": "number" },
+              "std_luma": { "type": "number" },
+              "histogram_occupied_bins": { "type": "integer" },
+              "histogram_max_bin_share": { "type": "number" },
+              "flat_block_fraction": { "type": "number" },
+              "structural_proxies": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "non_black", "non_white", "std_non_degenerate",
+                  "histogram_occupied_ge_4", "flat_block_fraction_lt_0p95"
+                ],
+                "properties": {
+                  "non_black": { "type": "boolean" },
+                  "non_white": { "type": "boolean" },
+                  "std_non_degenerate": { "type": "boolean" },
+                  "histogram_occupied_ge_4": { "type": "boolean" },
+                  "flat_block_fraction_lt_0p95": { "type": "boolean" }
+                }
+              },
+              "proxies_pass": { "type": "boolean" }
+            }
+          }
+        },
+        "ai_reading_records_file": { "type": "string", "const": "milestones/g15/g15_m_c_ai_reading_records.json" },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "kind", "measured", "disposition_hint", "detection_vector"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "kind": { "type": "string" },
+              "measured": { "type": "string" },
+              "disposition_hint": { "type": "string" },
+              "detection_vector": { "type": "string" }
+            }
+          }
+        },
+        "commercial_closure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verdict", "met_count", "total", "unmet_cells", "unmet_attribution", "g16_anchor"],
+          "properties": {
+            "verdict": { "type": "string", "enum": ["达标", "未达标"] },
+            "met_count": { "type": "integer" },
+            "total": { "type": "integer", "const": 18 },
+            "unmet_cells": { "type": "array", "items": { "type": "string" } },
+            "unmet_attribution": { "type": "object" },
+            "g16_anchor": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
