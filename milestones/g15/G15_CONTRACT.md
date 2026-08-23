@@ -1,7 +1,7 @@
 ---
 contract: G15
 title: G15 画质量级收口与商用终审期
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g15_1_governance_only
 version: v1.0
