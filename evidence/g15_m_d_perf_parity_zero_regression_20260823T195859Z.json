@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "subject": "g15_m_d_perf_parity_zero_regression",
+  "symbolic_gate_key": "g15.p0.m_d.perf_parity_zero_regression",
+  "matrix_row": "M-d",
+  "milestone": "M-d",
+  "assertion_id": "g15.p0.m_d.perf_parity_zero_regression",
+  "status": "fail",
+  "wave": "G15.5",
+  "numeric_step": 275,
+  "source_ref": "G15_CONTRACT §4.2 M-d/G-G15-6;G15_ACCEPTANCE_MAP §1 M-d;G14_CONTRACT §4.2 M-d 同口径复跑（g14.p0.m_d.dual_end_fps_parity）;G14-N7 通过线 ×1.00 维持;M141/M165 50×3 冻结统计口径;G14 M-c 画质锚带 ≤0.010779849285388998 复核;RD-045 漂移监控登记条款",
+  "base_commit": "e0a0676ab099bffc859889e664d1cde2a2c46276",
+  "host_section_pass": false,
+  "device_section_state": "fail",
+  "checks": {
+    "g14_m_d_rerun_fresh_pass": false,
+    "eighteen_cells_ratio_pass_line": false,
+    "three_run_guard_band_complete": false,
+    "production_caliber_invariant": false,
+    "digest_anchor_zero_drift": false,
+    "quality_anchor_band_recheck": true,
+    "g14_budget_zero_estimated": true,
+    "comparison_vs_g14_12_rerun": false,
+    "red_arm_ratio_tamper_detected": true,
+    "red_arm_stale_evidence_detected": true,
+    "red_arm_missing_run_detected": true,
+    "red_arm_anchor_drift_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g14_dual_end_fps_parity_smoke.py --gate g14.p0.m_d.dual_end_fps_parity（本波同口径复跑真跑面，本门只读消费）",
+      "exit_code": 1
+    },
+    {
+      "seq": 2,
+      "command": "18 格逐格 ratio ≥ ×1.00 + 三轮守护带 + 口径不变量 + digest 锚 全量重算",
+      "exit_code": 1
+    },
+    {
+      "seq": 3,
+      "command": "G14 M-c 画质锚带复核（converged.exr 双件 SSIM deficit 重算 ≤ 0.010779849285388998）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "g14_budget 零 estimated 机核 + G14.12 soak 复跑同口径对照",
+      "exit_code": 1
+    },
+    {
+      "seq": 5,
+      "command": "RED 臂 ×4（ratio-tamper/stale-evidence/missing-run/anchor-drift）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T195859Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": false,
+    "baseline_anchor_id": "g14_3_stage_a_digest_anchor 18 格冻结锚 + g14.pipeline_perf.quality_anchor_ssim_deficit 锚带 + G14.12 soak 复跑定盘件对照",
+    "measured_value": "n/a（G14 M-d 复跑未就绪）",
+    "not_worse_than_anchor": false,
+    "threshold_provenance": "通过线 = G14-N7 口径裁决 ×1.00 契约面维持（不新设不放宽）；统计 = M141/M165 冻结 50×3 三轮跨轮中位数；画质锚带 = G14.3 首跑 measured×2.0 程序产（P-09 禁手写）",
+    "evolution_register": "G15 全期零 src 变更面下 G14 M-d 同口径复跑 18 格 ×1.00 维持核验；digest 锚漂移零检出维持 RD-045 open-defer（检出即如实登记升级）；画质修复致性能劣化静默即 RED 守护机核面"
+  },
+  "notes": "wave_start=20260823T183000Z（本波启动锚；freshness 机核面）; G14 M-d 复跑：FAIL（非全绿: host_section_pass=False (要求 True)）; 逐格重算：18 格 ratio/守护带/口径/锚 错误面 n/a（drift 0）; 画质锚带复核：SSIM deficit 重算=0.005389118830 ≤ 带 0.010779849285388998 = True（g14_m_c 最新件 g14_m_c_rurix_pipeline_perf_20260823T044803Z.json PASS + 锚定条目 f64 对账绿）; g14_budget 32 条目零 estimated/skip 维持 = True; RED 臂 ratio_tamper: 有效; RED 臂 stale_evidence: 有效; RED 臂 missing_run: 有效; RED 臂 anchor_drift: 有效; G14 M-d 复跑 fresh 核验: 非全绿: host_section_pass=False (要求 True); 逐格重算: G14 M-d 复跑 evidence 未就绪——逐格重算跳过（诚实红不充绿）",
+  "parity": {
+    "wave_start": "20260823T183000Z",
+    "g14_m_d_evidence": "evidence/g14_m_d_dual_end_fps_parity_20260823T192244Z.json",
+    "g14_m_d_evidence_timestamp": "20260823T192244Z",
+    "g14_m_d_base_commit": "e0a0676ab099bffc859889e664d1cde2a2c46276",
+    "pass_line_ratio": 1.0,
+    "met_count": 0,
+    "unmet_count": 0,
+    "cells": [],
+    "comparison_vs_g14_12": {
+      "reference_evidence": "evidence/g14_m_d_dual_end_fps_parity_20260823T051754Z.json",
+      "cells": [],
+      "all_ge_pass_line_both": false
+    },
+    "digest_anchor": {
+      "file": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+      "cells_checked": 0,
+      "drift_count": 0
+    },
+    "drift_monitoring": {
+      "rd_045_type_digest_drift_detected": 0,
+      "drifts": [],
+      "note": "零检出维持 RD-045 open-defer 不写进全绿叙述；检出即 RD-045 同型事件如实登记升级"
+    },
+    "quality_anchor": {
+      "band": 0.010779849285388998,
+      "deficit_recomputed": 0.005389118829897455,
+      "within_band": true,
+      "detail": "SSIM deficit 重算=0.005389118830 ≤ 带 0.010779849285388998 = True（g14_m_c 最新件 g14_m_c_rurix_pipeline_perf_20260823T044803Z.json PASS + 锚定条目 f64 对账绿）"
+    },
+    "g14_budget": {
+      "entries": 32,
+      "zero_estimated": true
+    }
+  }
+}

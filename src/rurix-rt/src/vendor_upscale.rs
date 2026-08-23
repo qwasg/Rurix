@@ -3296,12 +3296,18 @@ impl DlssVkSession {
         {
             return Err(VendorError::ApiError("reactive 切片长度不符".into()));
         }
-        // ── reactive staging(区段 [0, px);Some→R8 pack,None→零填充)──
-        // G14.12:恒零 mask 已驻留 → 跳过 map/fill/unmap(t100 面每帧省 2MB
-        // memset;image 内容与 layout 均恒定,跳过安全)。
-        if p.reactive.is_some() || !self.reactive_zero_resident {
+        // ── reactive staging(区段 [0, px);仅 Some→R8 pack)──
+        // G15plus-II 候选 b(reactive 按需化):生产车道恒 `reactive=None`——
+        // SL 注册面 reactive 非 required tag(kBufferTypeDepth/MotionVectors/
+        // ScalingInputColor/ScalingOutputColor 四项为 required;SL verbose 日志
+        // 逐字在案),NGX 缺省 = 零 mask 语义 ⇒ None 帧不再上传零 mask、不再
+        // 附带 reactive tag(位级同一以 L0 digest 探针钉死:bistro t50/t100 +
+        // cornell t67 末帧 digest == G14.12 冻结锚);Some 帧维持原 R8 pack +
+        // 上传 + tag 全链(该形态语义 0-byte)。原 G14.12「恒零 mask 驻留跳过」
+        // 面由「无 tag 即零 mask」结构性吸收。
+        if let Some(rv) = p.reactive {
         // SAFETY: staging host-visible+coherent;px ≤ staging_size(建面 21B/px);
-        // map/写/unmap 单线程序列化。
+        // map/写/unmap 单线程序列化;rv.len()==px 上方校验。
         unsafe {
             let mut ptr: *mut c_void = std::ptr::null_mut();
             let r = (self.dev.map_memory)(self.device, self.staging_mem, 0, self.staging_size, 0, &mut ptr);
@@ -3309,13 +3315,8 @@ impl DlssVkSession {
                 return Err(VendorError::ApiError(format!("vkMapMemory(staging) → {r}")));
             }
             let reac = std::slice::from_raw_parts_mut(ptr as *mut u8, px);
-            match p.reactive {
-                Some(rv) => {
-                    for (o, &v) in reac.iter_mut().zip(rv.iter()) {
-                        *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-                    }
-                }
-                None => reac.fill(0),
+            for (o, &v) in reac.iter_mut().zip(rv.iter()) {
+                *o = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
             }
             (self.dev.unmap_memory)(self.device, self.staging_mem);
         }
@@ -3404,12 +3405,11 @@ impl DlssVkSession {
         // 帧末 release 逐帧配对——本方法每帧调用,render_exec 每帧 release)。
         // G14.12:三条并入单次 barrier 调用。──
         self.vk_images_acquire_external_batched(&[&ext_color, &ext_depth, &ext_mv]);
-        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。G14.12:
-        // `reactive=None` 的恒零 mask 内容逐帧不变,首帧上传后跳过(buffer 路
-        // 同族收益;`Some(..)` 帧照常上传并复位标志)。
-        if p.reactive.is_some() || !self.reactive_zero_resident {
+        // reactive 上传(staging 区段 0;自建 image,既有布局状态机)。G15plus-II
+        // 候选 b:仅 `Some(..)` 帧上传并附带 tag;None 帧不上传不 tag(缺省 =
+        // 零 mask 语义,见 staging 段登记)。
+        if p.reactive.is_some() {
             self.vk_upload_image(VkInputSlot::Reactive, 0);
-            self.reactive_zero_resident = p.reactive.is_none();
         }
         // color_out 置 GENERAL(DLSS UAV 写;与 frame_impl_ext 同律)。
         if self.color_out.layout == VK_IMAGE_LAYOUT_UNDEFINED {
@@ -3443,38 +3443,40 @@ impl DlssVkSession {
         let sl_color_in = mk_ext_res(&ext_color, color_usage);
         let sl_depth = mk_ext_res(&ext_depth, depth_usage);
         let sl_mv = mk_ext_res(&ext_mv, mv_usage);
-        let sl_reactive = mk_ext_res(
-            &self.reactive_in.clone_shallow(),
-            VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
-        );
+        // G15plus-II 候选 b:reactive SlResource/tag 仅 Some 帧构建(缺省 =
+        // 零 mask;None 帧 4 tag 集 = required 四面齐备)。
+        let sl_reactive = p.reactive.map(|_| {
+            mk_ext_res(
+                &self.reactive_in.clone_shallow(),
+                VK_IMAGE_USAGE_SAMPLED | VK_IMAGE_USAGE_TRANSFER_DST,
+            )
+        });
         let sl_color_out = mk_ext_res(
             &self.color_out.clone_shallow(),
             VK_IMAGE_USAGE_STORAGE | VK_IMAGE_USAGE_TRANSFER_SRC,
         );
         let extent_in = SlExtent { top: 0, left: 0, width: self.in_w, height: self.in_h };
         let extent_out = SlExtent { top: 0, left: 0, width: self.out_w, height: self.out_h };
-        let tags = [
-            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_in, tag_type: SL_BUFFER_SCALING_INPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
-            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_out, tag_type: SL_BUFFER_SCALING_OUTPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_out },
-            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_depth, tag_type: SL_BUFFER_DEPTH, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
-            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_mv, tag_type: SL_BUFFER_MV, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
-            SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_reactive, tag_type: SL_BUFFER_REACTIVE_MASK, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in },
-        ];
-        let tag_ptrs: [*const SlBaseStructure; 6] = [
-            &self.viewport.base as *const _,
-            &tags[0].base as *const _,
-            &tags[1].base as *const _,
-            &tags[2].base as *const _,
-            &tags[3].base as *const _,
-            &tags[4].base as *const _,
-        ];
+        let mut tags: Vec<SlResourceTag> = Vec::with_capacity(5);
+        tags.push(SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_in, tag_type: SL_BUFFER_SCALING_INPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in });
+        tags.push(SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_color_out, tag_type: SL_BUFFER_SCALING_OUTPUT_COLOR, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_out });
+        tags.push(SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_depth, tag_type: SL_BUFFER_DEPTH, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in });
+        tags.push(SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: &sl_mv, tag_type: SL_BUFFER_MV, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in });
+        if let Some(reac) = &sl_reactive {
+            tags.push(SlResourceTag { base: sl_base(SL_GUID_RESOURCE_TAG, 1), resource: reac, tag_type: SL_BUFFER_REACTIVE_MASK, lifecycle: SL_LIFECYCLE_ONLY_VALID_NOW, extent: extent_in });
+        }
+        let mut tag_ptrs: Vec<*const SlBaseStructure> = Vec::with_capacity(6);
+        tag_ptrs.push(&self.viewport.base as *const _);
+        for t in &tags {
+            tag_ptrs.push(&t.base as *const _);
+        }
         if vtm_on {
             vtm_record = vtm_t0.elapsed();
         }
-        // SAFETY: tags/sl_* 栈上存活至 evaluate 返回(eOnlyValidNow 语义);cmd
-        // 录制中;token 本帧有效。
+        // SAFETY: tags/tag_ptrs/sl_* 栈上存活至 evaluate 返回(eOnlyValidNow
+        // 语义);cmd 录制中;token 本帧有效;tag 计数与 tags 长度一致。
         let r = unsafe {
-            (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), 6, self.cmd)
+            (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), tag_ptrs.len() as u32, self.cmd)
         };
         if vtm_on {
             vtm_eval = vtm_t0.elapsed();
