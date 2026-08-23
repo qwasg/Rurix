@@ -32,6 +32,7 @@ RD-034/039/040/041/042/043/044 七条目级 status 全 open 逐字 + G14_P2_DECI
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys

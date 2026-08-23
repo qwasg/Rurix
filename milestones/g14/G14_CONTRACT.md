@@ -348,8 +348,46 @@ RD-034/039/040/041/042/043/044 七条总体 status 全维持 open（条目级四
 - **⑤ 波终态**：**18/18 全绿**（60 帧快扫 ratio 1.177~8.030，最紧格 bistro t100 dlss 1.177；正式判定以 G14.12 M-d 门 160 帧×3 轮跨轮中位数为准）。附测量口径勘误：中间快扫脚本内联 UE 线有误，真值 = 最新 M-d evidence 逐格 `ue_median_ms`（cornell 2.193/2.141/2.054；bistro 3.274/3.431/4.322），已按门事实源校准。
 - **⑥ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署）。`Assisted-by: Claude Fable 5（fsr 驻留执行域）+ Claude Opus 5 max（末格攻坚执行域）`（影响范围：src/rurix-rt/{vendor_upscale.rs,render_exec.rs} + src/rurix-render/src/bin/g14_3_pipeline_perf.rs + ci/{g14_regression_drift_guard_smoke.py,g14_continuation_closeout_smoke.py,g14_stabilization_soak.py,g14_closeout_check.py,g14_anchor_reharvest.py} + milestones/g14/{G14_ACCEPTANCE_MAP.md,G14PLUS_RECORD.md} + registry/deferred.json〔RD-045 缓解条〕+ 本契约 §8.11/§8.12；验证方式：18 格快扫表 + memreq 对拍实证 + digest 双跑/位保持逐字 + 读图 PNG + 四格无回归 + 门 selftest 全 PASS）。
 
+### §8.13 G14.12 复测收口波验收记录（2026-08-23）——digest 锚 18 格程序重收割三证 + M-c→M-d（18/18 正式判定）+ soak≥1800s + M-h PASS + closeout READY；RD-045 维持 open
+
+- **① 授权/载体**：用户 2026-08-22 指令「帮我一次性完成G14硬收尾，要求门禁严格全绿……本次任务可附加为G14plus作为文档记录」（[G14PLUS_RECORD.md](G14PLUS_RECORD.md) §1 逐字登记）+ 2026-08-19 全期授权「帧率对标UE5略高（不降级画质）」（本契约 §7 裁决 2）。载体 = §7 裁决 7 取 **G14.x 延续波** 之 **G14.12 复测收口波**。唯一新门 = 附录 A **M-h**（`g14.p0.m_h.continuation_closeout`，步骤 265）。语义依据 = RFC-0030 §1 第 7 条 / §4.7 锚重收割三证。G13 M-c 容差重派生（`2bcf3e19`）与 vendor 臂 `evidence_digest` 重派生（`e97eb9d8`）+ noise_hf Rurix `b_value` 绝对值带（`121f4ccd`，带 = `g13.ue_upscale.noise_hf_delta_tol` measured_value 程序产）均按 RFC-0030 §4.7 / G14-N1 同类：度量派生面，不是放宽画质通过线。
+
+- **② 门/步骤**（与 `.tmp/g14plus_close/run_g14_12.ps1` Stage 1~7 一一对应）：
+  | Stage | 门/步骤 | 事实 |
+  |---|---|---|
+  | 1 | M-c `g14.p0.m_c.rurix_pipeline_perf` | 收割前置件 `evidence/g14_m_c_rurix_pipeline_perf_20260822T165046Z.json` `status=pass`；soak 回归复跑 `20260823T044803Z` 10/10 PASS（`double_run_bitexact=true`，SSIM deficit 0.00538912 ≤ 0.0107798） |
+  | 2 | digest 锚 18 格程序重收割 | `milestones/g14/g14_3_stage_a_digest_anchor.json` `reharvest` 四字段齐（`harvested_utc=20260822T183502Z` / `base_commit=1a9c561a…` / `double_harvest_bitexact=true`） |
+  | 3 | M-d `g14.p0.m_d.dual_end_fps_parity` | 首判定 `20260822T183532Z` 与 soak 回归 `20260823T051754Z` 均为 `status=pass` / `met_count=18` / `unmet_count=0` / `stage_a_digest_drift_guard=true`；空表终态 `g14_fps_gap_registry.json` `items=[]` ∧ 双场景 `no_gap_explicit=true` |
+  | 4 | M-a / M-b / M-e | soak 回归件 `g14_m_a_…_20260823T033849Z` 10/10、`g14_m_b_…_20260823T044132Z` 13/13、`g14_m_e_…_20260823T055347Z` 9/9 全 PASS；base_commit 同值 `afe090d5` |
+  | 5 | wave2/3/4/6/7 + `g14.wave.5a.decisions` | 聚合件 `20260823T055758Z`~`055801Z` 全 PASS（wave4 达标分支：M-d 行 PASS 镜像） |
+  | 6 | soak `g14.wave.5a.soak` | `evidence/g14_stabilization_soak_20260823T033849Z.json`：58 迭代 / 1835.7s ≥1800s / sleep=0 / failures=0 / 9280 帧；`budget_eval --strict` 244 pass 0 skip；`VERDICT = PASS` |
+  | 7 | M-h + closeout | M-h `20260823T062856Z` 6/6 PASS；closeout `20260823T062927Z` 八 facts 全 PASS，`VERDICT = READY`（18/18 达标终审锁定） |
+
+- **③ 验证命令**（仓库根；`RURIX_REQUIRE_REAL=1` + `RURIX_VK_VALIDATION=1`）：
+  - `py -3 ci/g14_rurix_pipeline_perf_smoke.py --gate g14.p0.m_c.rurix_pipeline_perf` → PASS（`20260823T044803Z`）。
+  - `py -3 ci/g14_anchor_reharvest.py` → `double_harvest_bitexact=true` 18/18。
+  - `py -3 ci/g14_dual_end_fps_parity_smoke.py --gate g14.p0.m_d.dual_end_fps_parity` → PASS 18/18（`20260823T051754Z`；cornell ratio 2.0701~8.2261，bistro 1.0831~2.7920，最紧格 bistro t100 dlss 1.0831）。
+  - `py -3 ci/g14_registry_variance_band_reconciliation_smoke.py --gate g14.p0.m_a.registry_variance_band_reconciliation` → `[g14_m_a] VERDICT=PASS checks=10/10`。
+  - `py -3 ci/g14_ue_benchmark_arm_measurement_smoke.py --gate g14.p0.m_b.ue_benchmark_arm_measurement` → `VERDICT=PASS checks=13/13`。
+  - `py -3 ci/g14_regression_drift_guard_smoke.py --gate g14.p0.m_e.regression_drift_guard` → `VERDICT=PASS checks=9/9`。
+  - wave2/3/4/6/7 + `g14_p2_decisions_check.py --gate g14.wave.5a.decisions` → 聚合 `VERDICT = PASS`。
+  - `py -3 ci/g14_stabilization_soak.py --gate g14.wave.5a.soak` → `VERDICT = PASS`（墙钟 1835.7s）。
+  - `py -3 ci/g14_continuation_closeout_smoke.py --gate g14.p0.m_h.continuation_closeout` → `VERDICT = PASS` 6/6（本条在 M-h 之后写入，不自锚）。
+  - `py -3 ci/g14_closeout_check.py --gate g14.wave.5b.closeout` → `VERDICT = READY`（补 `import json` 落盘面后复跑；判定函数未改）。
+
+- **④ 终态**：
+  - **18/18 达标定盘**：首判定 `20260822T183532Z` cornell 1.7796~8.4972 / bistro 1.2096~2.8844；soak 回归 `20260823T051754Z` cornell 2.0701~8.2261 / bistro 1.0831~2.7920。空表终态维持。
+  - **锚重收割三证齐**：`reharvest.double_harvest_bitexact=true`；新锚下两次 M-d `stage_a_digest_drift_guard=true`。
+  - **画质零降级带内**：M-c deficit 0.00538912 ≤ 0.0107798；G13 双门消费面 `g13_m_c_ue_upscale_parity_20260823T033850Z` / `g13_m_d_ue_lumen_gi_parity_20260823T043416Z` PASS。
+  - **RD-045 维持 open**：`registry/deferred.json`；18/18 与 soak 58 轮零漂移不关闭该条目（RFC-0030 §1 第 2 条 / MAP 附录 A M-h）。
+  - **G15 承接锚不因本波关闭**：绝对画质通过线仍归 G15；G13 超分 8 行 + Lumen 2 行只消费不回写。
+  - **status flip** 为本条之后的独立 commit（本条不翻 front matter）。
+
+- **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10~G14 §8.x 同模）。`Assisted-by: Cursor Grok 4.6（G14plus G14.12 复测收口波，主会话）`（影响范围：本契约 §8.13 本条 + [G14PLUS_RECORD.md](G14PLUS_RECORD.md) §5/§6 + `ci/g14_closeout_check.py`〔补 `import json`〕+ evidence 本波真跑件〔M-c 044803Z / M-d 051754Z 18/18 / soak 033849Z / M-h 062856Z / closeout 062927Z READY〕；验证方式：块③逐字命令输出 + closeout 八 facts PASS + 守卫套件 / `budget_eval --strict` 244 pass）。
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-19 | 首版（G14.1 治理波立项）：双门状态 + 五波结构 + 5 P0 独立断言表（M-a 登记表方差带修订 / M-b UE benchmark 臂测量 / M-c Rurix 管线性能 / M-d 双端帧率对标+画质零降级守护 / M-e 回归门+漂移监控）+ guardrails 十三条 + Deferred 处置 + 立项裁决七条。 |
+| v1.1 | 2026-08-23 | 只追加 §8.13：G14.12 复测收口波验收（18/18 + soak≥1800s + M-h PASS + closeout READY）；front matter status 本批不翻。 |

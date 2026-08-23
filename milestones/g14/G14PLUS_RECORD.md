@@ -110,15 +110,39 @@
 | v3 | 2026-08-20 122608Z | 生产 | 0/18 | — | vendor 重格 +19~+97% | vendor 并行化（M-g） |
 | v5 | 2026-08-21 003053Z | 生产 | 0/18 | — | — | RD-045 首检出（bistro t50 tsr run1） |
 | v6 | 2026-08-21 132325Z | 生产 | 0/18 | 0.0741~0.4566 | 0.0186~0.0595 | RD-045 复发（bistro t67 tsr run3）；G14plus 立项基线 |
+| v_g14plus_md | 2026-08-22 183532Z | 生产 | **18/18** | 1.7796~8.4972 | 1.2096~2.8844 | G14.12 首判定（160 帧×3 轮；`parity.met_count=18`）；最紧格 bistro t100 dlss 1.2096；`evidence/g14_m_d_dual_end_fps_parity_20260822T183532Z.json` |
+| v_g14plus_soak | 2026-08-23 051754Z | 生产 | **18/18** | 2.0701~8.2261 | 1.0831~2.7920 | soak 回归复跑同口径确认；最紧格 bistro t100 dlss 1.0831 仍 ≥1.00；`evidence/g14_m_d_dual_end_fps_parity_20260823T051754Z.json` |
 
-<!-- G14plus 复测版本逐波追加；目标终态 = 18/18 -->
+（档内既有版本号惯例为 v1/v2/v3/v5/v6；`v_g14plus_md` / `v_g14plus_soak` 标识 G14plus 正式 18/18，不与 §4 六十帧快扫表混口径。）
 
-## 6. 终审（G14.12 收口后回填）
+## 6. 终审（G14.12 收口——达标定盘 + 遗留面）
 
-<!-- 达标定盘 + 遗留面（RD-045 观察窗、G15 承接锚）登记 -->
+closeout `VERDICT = READY`（`evidence/g14_wave5b_closeout_20260823T062927Z.json` 八 facts 全 PASS；`last_green_utc=20260823`）。
+
+### 6.1 达标定盘
+
+- **18/18**：`parity.met_count=18` / `unmet_count=0` / 通过线 ×1.00。首判定最紧格 1.2096；soak 回归最紧格 1.0831。空表终态：`g14_fps_gap_registry.json` `items=[]` 且双场景 `no_gap_explicit=true`。
+- **锚重收割**：`reharvest.harvested_utc=20260822T183502Z` / `base_commit=1a9c561a4e6b41484f50c3a0f9c090933829d0ce` / `double_harvest_bitexact=true`。两次正式 M-d `stage_a_digest_drift_guard=true`。
+- **画质**：最新 soak M-c `SSIM=0.99461088 deficit=0.00538912 ≤ 0.0107798`（`g14_m_c_rurix_pipeline_perf_20260823T044803Z.json`）。G13 双门 `g13_m_c_ue_upscale_parity_20260823T033850Z` / `g13_m_d_ue_lumen_gi_parity_20260823T043416Z` PASS。
+- **soak**：58 迭代 / 1835.7s / sleep=0 / failures=0 / 9280 帧；5 P0 `base_commit` 同值 `afe090d5`；`budget_eval --strict` 244 pass。
+- **M-h**：`g14_m_h_continuation_closeout_20260823T062856Z.json` 6/6 PASS。
+
+### 6.2 遗留面：RD-045 观察窗
+
+RD-045 维持 `status=open`，不因 18/18、锚重收割或 soak 零漂移关闭（`registry/deferred.json`；RFC-0030 §1 第 2 条 / MAP 附录 A M-h）。G14.10 已结构性消除候选根因面，根因未逐字定位；长窗生产化闭环归 G15+/G16+。本波 soak 58 轮 / 9280 帧零检出只证明该观察窗，不把条目判 closed。
+
+### 6.3 遗留面：G15 承接锚
+
+绝对画质通过线不在 G14 设立（契约 `out_of_scope.absolute_image_quality_pass_line` / MAP §7）。G13 超分登记表 8 行与 Lumen 登记表 2 行只消费不回写，逐项重评锚定 G15：
+
+- Lumen `gap_id=2f6331a41404dfcd` cornell：`gi_energy_rel` delta=0.535625027781919，`indirect_ssim` b=0.033384483786469556，`indirect_flip` delta=0.6127988976249465。
+- Lumen `gap_id=b7527c980cdd1d46` bistro：`gi_energy_rel` delta=2.964585170338064，`indirect_ssim` b=0.006566911636724374，`indirect_flip` delta=0.9671355491209283。
+
+G15 法定输入 = 上述 8+2 行 + 本表 §5 18/18 定盘 + RD-045 仍 open 的观察窗，不得另起无锚差距面。
 
 ## 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-22 | 首建（波0 治理立项批）：立项授权双字面 + 波次结构 + 优化清单十项 + 波0 处置档案 + 复测轨迹基线表 |
+| v1.1 | 2026-08-23 | G14.12 收口终审：§5 追加 v_g14plus_md / v_g14plus_soak 18/18 行；§6 达标定盘 + RD-045 观察窗 + G15 承接锚 |
