@@ -1,0 +1,11 @@
+//@ spec: RXS-0407
+// G15.4 spec-first 锚定语料（RXS-0407 L4 负例面）：手写阈值冒充标定——绝对
+// 通过线 threshold 无标定程序 provenance（≠ 双 seed 方差底 p100 × 2.0 重算
+// 口径）、estimated 冒充 measured_local、或标定腿缺 calibration_seed 复跑
+// （单跑无双跑）仍以叙述冒充程序产标定，均即 RED（RXS-0393 L3 同族）。
+// 负例数据面（最小说明性 fixture）：budget 条目 threshold ≠ measured_value
+// × 2.0 / evidence results.dual_seed_p100 缺字段 / 标定腿样本集缺 calibration
+// 臂——门侧重算口径 fail-closed。
+// 转正路径（G15.4 波接线）：ci/g15_absolute_quality_review_smoke.py 门 RED 臂
+//（red_arm_handwritten_threshold / red_arm_calibration_single_run）。
+fn main() {}

@@ -936,12 +936,104 @@
   出报告 / 超容差静默 / Lumen 差距项静默混入 / 单端缺帧聚合 PASS /
   GI 既有门降级——各臂注入必检出，漏检即 FAIL。
 
+### RXS-0407 绝对画质通过线口径：UE 参照 deficit 双 seed 方差底 p100×2.0 程序产标定 / 18 格逐格判定与 AI 读图强制 / 商用收口诚实定盘（G15 M-c，G15.4）
+
+**Legality**
+
+- L1 **适用面与不 retroactive**：本条款冻结 G15 商用收口期绝对画质
+  通过线口径，**唯一挂接面 = G15.4 M-c 终审门**（G15_CONTRACT §4.2
+  M-c 行 / G-G15-5）。RXS-0403 L6 / RXS-0405 L6 / RXS-0406 L6「不设
+  绝对通过线」字面 **0-byte 维持**——G13/G14 closed 门判据语义不
+  回写、不重审、不 retroactive 改写；本条款只前向适用于 G15 终审面
+  （G15_CONTRACT guardrails 绝对画质通过线纪律字面）。G13.4 起
+  端内参照 deficit delta 容差带面（RXS-0405 L4）与本条款跨端绝对
+  deficit 通过线面 = **两套口径并存、各自登记、互不冒充**（RFC-0026
+  §4.3 0-byte 声明同律）。
+- L2 **判定对象与参照帧**：判定矩阵 = 场景闭集 {`cornell-box`,
+  `bistro-interior`}（M133 清单 digest 转引只读，RXS-0383 口径）×
+  档位闭集 {t50, t67, t100} × 后端闭集 {`tsr_device`, `dlss_sr`,
+  `fsr_3_1_5`} = **18 格** Rurix **生产管线**出图（生产车道
+  `--render` 32 帧 Halton jitter 静态收敛序列末帧 converged.exr，
+  `RURIX_REQUIRE_REAL=1` + validation 零错误 + GPU 锁纪律；mock /
+  host 替代 / 人工截图充数即 RED）。**UE 参照帧 = G15.2 M-a 复跑产出
+  的 UE 臂同场景同档帧列末帧**：新鲜度机核 = receipt
+  `started_epoch` ≥ M-a 波启动锚 ∧ 抽帧 canonical digest 重算 ==
+  receipt 登记值——**陈旧参照注入即 RED**；参照内容有效性机核 =
+  失败模式字面编码（HDR 亮度 max ≤ 1e-3 = 死黑退化面）——**参照
+  退化格不得冒充达标亦不得静默消费**：显式登记 finding + 该格判定
+  面如实标注参照退化态（digest 面不替代内容面，G14.10f 教训字面
+  兑现）。
+- L3 **度量域（RXS-0386 字面维持）**：度量唯一域 = display-referred
+  LDR 臂，双端同一派生链单源——UE 帧（MRQ 管线内 ev100 手动曝光
+  已施 + tone curve 关闭捕获点，RXS-0386 L1）派生尺度 = 1.0；Rurix
+  生产出图（全后端管线内 ×2^(−ev100) 显示域转换已施，receipt
+  `exposure == 2^(−ev100)` 机核）派生尺度 = 1.0；双端经同一 aces13
+  view transform + 同一 host 侧 sRGB 编码步骤（RXS-0386 L2 单源）
+  产 LDR 帧。**scene-linear 域直比 = G15-MA-F1 caliber 已登记面
+  （RXS-0392 不拟合），不得混入本条款度量——混入即 RED**；HDR 帧
+  直算 SSIM/FLIP 即口径混用 RED（RXS-0387 L1 / RXS-0389 L2 继承，
+  度量实现 fail-closed）。
+- L4 **绝对阈程序产标定（禁手写 P-09）**：逐格双度量 deficit——
+  `deficit_ssim = 1 − SSIM(rurix_ldr, ue_ldr)`（Wang 2004 闭集，
+  RXS-0387 L2）；`deficit_flip = FLIP_LDR(ref=ue_ldr, tst=rurix_ldr)`
+  （RXS-0389 闭集）。绝对阈 **T(scene, metric) = 双 seed 标定腿方差
+  底 p100 × 2.0 程序产**（沿 G13.4 标定三条目范式）：标定腿 = 18 格
+  逐格双 seed（契约 `seed` vs `calibration_seed`）生产渲染，逐格逐
+  度量取 `|deficit_main − deficit_calibration|` 为方差样本，场景内
+  九格取 p100（= max），阈 = p100 × 2.0（冻结安全系数 k = 2.0，
+  RXS-0387 L4 / RXS-0389 k ∈ [1.0, 3.0] 面内）；标定四条目（2 场景
+  × 2 度量）入 `g15_budget.json` `measured_local` 零 estimated，
+  标定链路全要素（双 seed 帧 digest、逐格 deficit、方差样本集、
+  参数面）入 evidence，标定程序可复跑。**标定腿双跑核验**：同 seed
+  双跑 converged_digest 位级一致（RXS-0357 固定 seed 位级确定性
+  协议继承）+ 标定值自在档帧面重算 f64 精确相等——不等即 RED；
+  **手写 / estimated 阈值冒充标定即 RED**（RXS-0393 L3 同族）。
+- L5 **18 格逐格判定与 AI 读图强制**：逐格 verdict =
+  `deficit_ssim ≤ T(scene, ssim)` ∧ `deficit_flip ≤ T(scene, flip)`
+  ∧ **AI 读图 PASS**，逐格判定逐字入 evidence。AI 读图 = 逐格 PNG
+  导出 + 逐格审查记录（18 格闭集零空行）：无乱序 / 无错位 / 无全黑 /
+  关键结构可见（cornell 盒体结构〔左绿墙/右红墙/白后墙/顶部面光/
+  双箱〕、bistro 吊灯群/吧台/桌椅/墙板）+ 斑块伪影有无 + 暗部态
+  诚实区分（「暗但结构在」与「死黑无内容」分列——bistro 夜景固有
+  暗态与无 GI 直接光口径边界态如实登记不冒充清晰）+ 三后端互一致
+  性；读图记录与导出 PNG digest 逐格绑定（读图对象机核）；**读图
+  记录缺格即 RED**；digest 双跑一致不替代内容审查（G14.10f 字面）。
+- L6 **商用收口判定（诚实定盘）**：格达标 = L5 三条件全立；商用
+  收口判定 = 达标格数 x/18 如实定盘——x = 18 → 「达标」；x < 18 →
+  「未达标」如实登记不冒充 + 未达格逐格归因 + G16+ 承接锚字面
+  （用户 2026-08-19 授权面「允许在G15后无限制新建里程碑继续优化」
+  逐字承接）。**未达格报达标即 RED（判定冒充）**；判定结论以
+  measured 面为准，不得受期望影响；判定面新发现缺陷显式登记
+  G15-MC-F<n> 进 G15 处置面（法定来源唯一纪律），不得静默放过。
+
+**Implementation Requirements**
+
+- IR1 本条款挂接 G15.4 P0 门 `g15.p0.m_c.absolute_quality_final_review`
+  （`ci/g15_absolute_quality_review_smoke.py`，G15_CONTRACT §4.2 M-c
+  行 + G-G15-5 + G15_ACCEPTANCE_MAP §1 M-c 行判据逐字）；测试锚定 =
+  `conformance/visual_comparison/accept/absolute_pass_line_minimal.rx`
+  + `conformance/visual_comparison/reject/absolute_pass_handwritten_threshold.rx`
+  + `conformance/visual_comparison/reject/absolute_pass_verdict_masquerade.rx`。
+- IR2 门 evidence 终审节机器形态 = `parity = { wave_anchor,
+  ue_reference_status, calibration, cells, ai_reading_manifest,
+  findings, commercial_closure }`——`cells` 18 格数组非空（每格
+  {cell, scene, tier, backend, ssim_deficit, flip_deficit,
+  threshold_ssim, threshold_flip, metric_pass, ai_verdict,
+  reference_state, verdict, attribution}）；`calibration` 逐场景逐
+  度量 {measured_p100, threshold, variance_samples, budget_entry_id,
+  evidence_file}；`commercial_closure` = {verdict ∈ {"达标",
+  "未达标"}, met_count, total, unmet_cells, g16_anchor}。
+- IR3 RED 臂独立有效（契约 §4.2 M-c 判据字面）：标定阈手写注入 /
+  读图记录缺格 / 判定冒充（未达格报达标）/ 标定腿单跑无双跑 /
+  UE 参照帧陈旧注入——各臂注入必检出，漏检即 FAIL。
+
 ---
 
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.8 | 2026-08-23 | G15.4 绝对画质终审波 spec-first（硬规则 7 条款先行；G15 已解锁 implementation_status=unlocked，G15_CONTRACT §8.1 G-G15-2 互锁 READY + §8.2/§8.3 G-G15-3/G-G15-4 兑现）：**RXS-0407 单号 materialize 为条款头**——绝对画质通过线口径（适用面与不 retroactive〔唯一挂接面 = G15.4 M-c 终审门，RXS-0403/0405/0406 L6「不设绝对通过线」字面 0-byte 维持，端内参照容差带面与跨端绝对通过线面两套口径并存互不冒充〕+ 判定对象与参照帧〔双场景 × 三档 × 三后端 18 格 Rurix 生产管线 --render 真跑出图 + UE 参照帧 = G15.2 M-a 复跑产出 UE 臂同场景同档帧〔新鲜度机核 + 抽帧 digest 重算对账，陈旧注入即 RED〕+ 参照内容有效性失败模式字面编码〔死黑退化面显式登记不冒充不静默〕〕+ 度量域 RXS-0386 字面维持〔display-referred LDR 臂双端同一派生链单源，双端派生尺度均 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100) 已施〔receipt exposure 机核〕；scene-linear 域直比 = G15-MA-F1 caliber 已登记面不得混入，混入即 RED〕+ 绝对阈程序产标定〔UE 参照 deficit 双 seed 方差底 p100 × 2.0 沿 G13.4 标定三条目范式，禁手写 P-09，四条目入 g15_budget measured_local，标定链路全要素入 evidence，双跑位级 + 重算 f64 精确核验，手写冒充即 RED〕+ 18 格逐格判定与 AI 读图强制〔逐格 verdict 逐字入 evidence + 读图记录 18 格闭集零空行与 PNG digest 逐格绑定，缺格即 RED，digest 面不替代内容面〕+ 商用收口诚实定盘〔达标格数 x/18 如实定盘，未达格如实登记不冒充 + 逐格归因 + G16+ 承接锚字面，未达格报达标即 RED，新发现显式登记 G15-MC-F<n>〕）。判档 = **加性 spec 条款**（G15_CONTRACT front matter rfc_required 触发面逐条未命中——RXS-0386~0393 锁定度量口径面/RXS-0357 面/UpscaleBackend trait 签名面/temporal 底座面/G13 双表 G12 单表终态/G12~G14 既有门判据语义全部 0-byte 不触，本条款 = G15 新设通过线唯一面 M-c 的口径登记，语义事实源 = G15_CONTRACT §4.2 M-c 行判据逐字 + G15_ACCEPTANCE_MAP §3.4 口径面 + RXS-0386/0387/0389/0392/0393/0403/0405 口径继承转引，条款只登记不加语义；零 RFC 消费，实测 RFC next_free=31 维持）。条款号自落盘前实测 `RXS.next_free=407` 顺位领取（0407 单号不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；conformance 锚定语料三件同 PR 落（accept absolute_pass_line_minimal.rx + reject absolute_pass_handwritten_threshold.rx + reject absolute_pass_verdict_masquerade.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G13.4 spec 波先例）；trace_matrix 重生成（388→389 全锚定）；stable 快照因条款计数 388→389 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行），不触红线/禁区。`Assisted-by: Kimi-K3（G15.4 绝对画质终审波）` | **加性条款**（G15.4 波新设通过线口径 spec 面登记；零 RFC 触发面） |
 | v1.7 | 2026-08-19 | G13.4 UE 对拍波 spec-first（硬规则 7 条款先行；G13 已解锁 implementation_status=unlocked，G13_CONTRACT §8.2 G-G13-3 互锁 READY）：**RXS-0405 / RXS-0406 双号 materialize 为条款头**——RXS-0405 UE 超分双端对拍口径（对拍契约独立冻结〔schema `rurix.g13.ue_upscale_parity_contract.v1` 字段闭集 + tier_sequence=[50,67,100] ↔ ue_dlss_quality_map {50:Performance, 67:Quality, 100:DLAA} 名义档映射 + rurix_backends=[tsr_device, dlss_sr, fsr_3_1_5] M-a/M-b 三后端面 + 场景闭集 M133 清单 digest 转引 + 不动 G10.5/G11.5b/G12.4 锁定值〕+ canonical 字节布局与 digest 门序〔版本前缀 `G13USP-1\0` + RXS-0384 L3 同构 + 三方独立实现 digest 全等机核 + 不等仍出报告即 RED〕+ 双端同场景同档位出图〔UE 5.8.1 DLSS 插件 MRQ 臂 MoviePipelineDLSSSetting 逐档注入 + ue_build_id == M128 机核 + Rurix 超分面经 UpscaleBackend 冻结接口逐后端出帧 + 单端缺帧聚合不得 PASS〕+ measured 对拍三面〔SSIM/FLIP 逐格 LDR 派生域 + 噪声谱 + 帧率 measured 基线 zero_pass_line 不设通过线锚定 G14〕+ UE DLSS·超分模块归属差距登记 + 不设绝对通过线归 G15）；RXS-0406 UE Lumen GI 对照口径（对照契约独立冻结〔schema `rurix.g13.ue_lumen_gi_parity_contract.v1` 字段闭集 + rurix_gi_surface 三锚闭集 M98/M99/M154 已验收面只消费 + indirect_derivation=gi_on_minus_gi_off 双端同构派生 + 不动 G9.4/G10.5/G11.4/G11.5b 锁定值〕+ digest 门序〔`G13LGP-1\0` 前缀同构〕+ 双端同场景 GI 出图〔UE 5.8.1 deferred + Lumen GI MRQ 臂 + Rurix GPU GI 面只消费不改写 + 单端缺帧聚合不得 PASS〕+ GI 能量·间接光 measured 对拍 + UE Lumen 模块归属差距登记 + G11 GI 面既有判据 0-byte + 不设绝对通过线归 G15）。判档 = **加性 spec 条款**（G13_CONTRACT §7 裁决 4 Full RFC 触发面——UpscaleBackend trait 签名面/temporal 底座历史接口面/RXS-0357 参照器面/M137 scalars.flip 演进位——逐条未命中：双条款零冻结面消费，语义事实源 = G13_CONTRACT §4.2 M-c/M-d 行判据逐字 + RXS-0384/0386/0387/0388/0391/0392/0403 口径继承转引，条款只登记不加语义）。条款号自落盘前实测 `RXS.next_free=405` 顺位领取（0405/0406 双号连续不跳号，0295/0296 burned 与 shadow_reserved 181~184 维持）。零新 RX 码；零新 U/RD/SG；零 RFC 消费（RFC 命名空间 0-byte，实测 next_free=30 维持）；conformance 锚定语料六件同 PR 落（accept ue_upscale_parity_contract_minimal.rx + ue_lumen_gi_parity_contract_minimal.rx；reject upscale_parity_digest_mismatch_report.rx + upscale_fps_baseline_masquerade.rx + lumen_parity_digest_mismatch_report.rx + lumen_gap_silent.rx；inert + `//@ spec` 锚定 + 预期 RED 注释 + 转正路径旁注，G9.2~G13.3 spec 波先例）；symbolic key `g13.p0.m_c.ue_upscale_parity` / `g13.p0.m_d.ue_lumen_gi_parity`（G13.1 冻结字面，G13_ACCEPTANCE_MAP §1）0-byte 不动；trace_matrix 重生成（386→388 全锚定）；stable 快照因条款计数 386→388 同 PR 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。既有 spec 条款字面 0-byte（只追加新条款/修订记录行），不触红线/禁区。`Assisted-by: Kimi-K3（G13.4 UE 对拍波）` | **加性条款**（G13.4 波冻结判据 spec 面登记；零 RFC 触发面） |
 | v1.1 | 2026-08-15 | **errata（RXS-0384 L2 四元数共轭公式勘误；零既有字面改写，本行 = 唯一生效勘误）**：L2 冻结公式行「旋转四元数向量部经同一 M 变换、标量部不变（相似变换 R_ue = M·R·M⁻¹，**转角保持**）」对 det(M) = −1 的反射矩阵 M **数学上不成立**——正交共轭的一般律为 R_ue = M·R(axis, θ)·M⁻¹ = **R(M·axis, det(M)·θ)**，det(M) = −1 时转角反号：**R_ue = R(M·axis, −θ)**，四元数向量部应为 **−M·v**、标量部不变，即 q = (w, x, y, z) ⇒ **q_ue = (w, z, −x, −y)**（harness 缺陷实现 (w, −z, x, y) = R(M·axis, +θ) 为镜像朝向）。**实证**（G10.5a 波，2026-08-15）：共轭恒等式 R(q_ue)·(M·v) == M·(R(q)·v) 随机对拍——缺陷式最大偏差 6.35e0（2000 组）/ 1.39e0（pytest 5000 组首例），修订式偏差 0.0；黄金个案（契约绕 +Y 转 +90° ⇒ 正确 UE 映射 = 绕 +Z 转 −90°，缺陷式给 +90°）镜像成立；`tests/test_g10_param_contract.py` RED 先行 commit 后修复转 GREEN。cornell-box 相机（绕 +Y 180°）为该缺陷不变量特例（R(a,180°) ≡ R(a,−180°)），bistro-interior 一般旋转取景全暴露。**生效面**：harness `g10_param_contract.py quat_contract_to_ue` 按修订式修复（G10.5a 实现批）；L2 既有字面 0-byte 不回改，RFC-0026 §4.6 同文理勘误 = RFC 章 E1 errata 段（只追加）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026 errata） |
 | v1.2 | 2026-08-15 | G10.5a 双端出图波 spec-first（硬规则 7 条款先行）：**RXS-0390 单号 materialize 为条款头**——应用层探针（冻结标志物集〔cornell-box 后墙五点毫米数值面 / bistro-interior 相机系合成五点米，逐值字面冻结〕+ 双端各自管线投影像素一致性断言〔`pixel_delta ≤ 1e-3 px` 合法性谓词常量不走 budget〕+ M130 `--phase g10.5` 与 M139 evidence `application_probes[]` 机核面 + UE 端内嵌 CPython 载体纪律），依据 RFC-0026（Agent Approved 2026-08-15）§4.6 应用层探针末节（「标志物世界坐标集进 spec 条款」兑现点）+ G10_ACCEPTANCE_MAP §1 M130 行 + §3.3（判据逐字）；条款号自落盘前实测 `RXS.next_free=390` 顺位领取（0390 单号，0295/0296 burned 与 shadow_reserved 181~184 维持）；conformance 锚定 accept 一件（application_probe_minimal.rx）同 PR 落；trace_matrix 371→372 全锚定 + stable 快照 371→372 重 bless（RXS-0180 L2 加性演进，error_codes/editions/subcommands 三段 0 变化）。`Assisted-by: Kimi-K3（G10.5a 波续）` | **Full RFC**（RFC-0026） |

@@ -2061,6 +2061,11 @@
       "conformance/visual_comparison/accept/ue_lumen_gi_parity_contract_minimal.rx",
       "conformance/visual_comparison/reject/lumen_gap_silent.rx",
       "conformance/visual_comparison/reject/lumen_parity_digest_mismatch_report.rx"
+    ],
+    "RXS-0407": [
+      "conformance/visual_comparison/accept/absolute_pass_line_minimal.rx",
+      "conformance/visual_comparison/reject/absolute_pass_handwritten_threshold.rx",
+      "conformance/visual_comparison/reject/absolute_pass_verdict_masquerade.rx"
     ]
   }
 }

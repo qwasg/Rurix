@@ -1,0 +1,12 @@
+//@ spec: RXS-0407
+// G15.4 spec-first 锚定语料（RXS-0407 L5/L6 负例面）：判定冒充——未达格
+//（deficit 超阈或 AI 读图 FAIL）在判定矩阵/商用收口判定中报达标、met_count
+// 大于逐格重算达标计数、读图记录缺格仍出 18 格判定、或 UE 参照帧陈旧/死黑
+// 退化仍消费出判定而不显式登记，均即 RED（未达格如实登记不冒充字面）。
+// 负例数据面（最小说明性 fixture）：cells[i].verdict = "pass" 而
+// deficit > threshold 或 ai_verdict = "FAIL"——门内交叉核验重算面 fail-closed；
+// commercial_closure.met_count ≠ 逐格 verdict 重算计数——即检出。
+// 转正路径（G15.4 波接线）：ci/g15_absolute_quality_review_smoke.py 门 RED 臂
+//（red_arm_verdict_masquerade / red_arm_reading_record_missing /
+// red_arm_stale_ue_reference）。
+fn main() {}

@@ -1,0 +1,23 @@
+//@ spec: RXS-0407
+// G15.4 spec-first 锚定语料（spec/visual_comparison.md RXS-0407 L1~L6：绝对画质
+// 通过线口径——适用面 = G15.4 M-c 终审门唯一面，RXS-0403/0405/0406 L6「不设绝对
+// 通过线」0-byte 不 retroactive；判定矩阵 = 双场景 × 三档 × 三后端 18 格 Rurix
+// 生产管线 --render 真跑出图（RURIX_REQUIRE_REAL=1 + GPU 锁纪律）vs UE 同场景
+// 同档参照帧（G15.2 M-a 复跑产出面，receipt started_epoch ≥ 波启动锚 + 抽帧
+// digest 重算对账，陈旧注入即 RED；死黑退化参照失败模式字面编码显式登记不冒充
+// 不静默）；度量域 display-referred LDR 臂双端同一派生链单源（双端派生尺度均
+// 1.0——UE 帧管线内 ev100 曝光已施 / Rurix 生产出图全后端管线内 ×2^(−ev100)
+// 已施，receipt exposure 机核；scene-linear 域直比 = G15-MA-F1 caliber 已登记
+// 面不得混入）；绝对阈 T(scene, metric) = 双 seed 标定腿逐格 deficit 方差底
+// 场景内 p100 × 2.0 程序产（禁手写 P-09，入 g15_budget measured_local，标定链
+// 路全要素入 evidence，同 seed 双跑位级 + 重算 f64 精确核验）；逐格 verdict =
+// 双度量 deficit 均进阈 ∧ AI 读图 PASS（读图记录 18 格闭集零空行 + PNG digest
+// 逐格绑定，缺格即 RED）；商用收口判定 = 达标格数 x/18 如实定盘（未达格如实
+// 登记不冒充 + 逐格归因 + G16+ 承接锚字面，未达格报达标即 RED）。
+// 正例数据面（最小说明性 fixture，未来 CI 消费）：18 格逐格 deficit 双度量
+// measured + 标定阈 == 标定 p100 × 2.0 重算精确相等 + 读图记录 18 格齐备且与
+// 导出 PNG digest 逐格绑定 + 逐格 verdict 由 measured 面重算一致 + 商用收口
+// 判定 met_count == 逐格达标计数重算一致。
+// 转正路径（G15.4 波接线）：ci/g15_absolute_quality_review_smoke.py 门
+//（symbolic key g15.p0.m_c.absolute_quality_final_review，G15.1 冻结字面不动）。
+fn main() {}
