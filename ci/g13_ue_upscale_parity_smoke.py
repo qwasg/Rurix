@@ -987,9 +987,20 @@ def run_gate() -> int:
                                     G14_UE_SAMPLES_PATH, _it.get("gap_id"), _d.get("metric"),
                                     _f, _old_vals[_mk])
 
+                _rurix_abs: dict = {}
+                _noise_p100 = (mb.budget_entry(budget, "g13.ue_upscale.noise_hf_delta_tol") or {}).get(
+                    "measured_value")
+                if isinstance(_noise_p100, (int, float)) and float(_noise_p100) >= 0.0:
+                    for _it in (registry_doc.get("items") or []):
+                        for _d in (_it.get("measured_delta") or []):
+                            if str(_d.get("metric") or "").startswith("noise_hf_delta@"):
+                                _rurix_abs[
+                                    f"{_it.get('gap_id')}|{_d.get('metric')}|b_value"
+                                ] = float(_noise_p100)
                 drift = gaplib.reconcile_registry_structured(
                     old_doc, registry_doc, ue_band_rel, _classify_m_c,
-                    ue_band_rel_map=_ue_band_map)
+                    ue_band_rel_map=_ue_band_map,
+                    rurix_abs_band_map=_rurix_abs or None)
                 # 跨会话样本登记（verdict 后追加，带面于追加前派生——不拟合当次测量）
                 gaplib.ue_samples_append(G14_UE_SAMPLES_PATH, _ue_fresh_rows,
                                          source="g13.p0.m_c.ue_upscale_parity", timestamp=ts)

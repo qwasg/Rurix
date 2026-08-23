@@ -297,7 +297,8 @@ _ITEM_IDENTITY_KEYS = (
 
 
 def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float,
-                                  classify: Any, ue_band_rel_map: Any = None) -> list[str]:
+                                  classify: Any, ue_band_rel_map: Any = None,
+                                  rurix_abs_band_map: Any = None) -> list[str]:
     """在树冻结登记表 vs 当次重算登记表的结构化对账（返回错误列表，空 = 通过）。
 
     G13 §8.7 承接锚字面兑现——三面：
@@ -374,7 +375,23 @@ def reconcile_registry_structured(old_doc: Any, new_doc: Any, ue_band_rel: float
                             f"（band_rel={band_rel_eff!r} 程序产）"
                         )
                 elif side in (PROVENANCE_RURIX, PROVENANCE_STRUCTURAL):
-                    if float(nv) != float(ov):
+                    # 可选绝对值带（G14.12 加性）：32 帧 FFT noise_hf 等归约面
+                    # 不是单帧 digest，vendor 臂跨 run 可有 1e-8~1e-5 级抖动；
+                    # 带须程序产（标定腿 dual-seed p100），缺省仍位级 ==。
+                    abs_band = None
+                    if (rurix_abs_band_map is not None and side == PROVENANCE_RURIX
+                            and hasattr(rurix_abs_band_map, "get")):
+                        _mk = f"{oi.get('gap_id')}|{metric}|{field}"
+                        _bv = rurix_abs_band_map.get(_mk)
+                        if _bv is not None and _is_num(_bv) and float(_bv) >= 0.0:
+                            abs_band = float(_bv)
+                    if abs_band is not None:
+                        if abs(float(nv) - float(ov)) > abs_band:
+                            errs.append(
+                                f"{tj}.{field} rurix 面超绝对值带（{metric}）: "
+                                f"|{nv!r}−{ov!r}|={abs(float(nv) - float(ov))!r} > {abs_band!r}"
+                            )
+                    elif float(nv) != float(ov):
                         errs.append(
                             f"{tj}.{field} {side} 面位级漂移（{metric}）: {ov!r} vs {nv!r}"
                         )
@@ -557,6 +574,30 @@ def selftest() -> int:
     else:
         print("  GREEN ok — band=0 恒等位级面过检")
 
+    # G14.12：Rurix 绝对值带（noise_hf 归约面）——带内吸收 / 超带检出 / 无带仍位级
+    gid0 = base["items"][0]["gap_id"]
+    rkey = f"{gid0}|m|b_value"
+    in_r = _copy.deepcopy(base)
+    _b_in = 2.5 + 1e-6
+    in_r["items"][0]["measured_delta"][0].update(b_value=_b_in, delta=_b_in - 1.0)
+    errs_r_ok = reconcile_registry_structured(
+        base, in_r, 0.01, _cls, rurix_abs_band_map={rkey: 1e-5})
+    if errs_r_ok:
+        print(f"  GREEN MISS — Rurix 绝对值带内被误拒: {errs_r_ok}")
+        failures += 1
+    else:
+        print("  GREEN ok — Rurix 绝对值带内吸收")
+    over_r = _copy.deepcopy(base)
+    _b_over = 2.5 + 1e-3
+    over_r["items"][0]["measured_delta"][0].update(b_value=_b_over, delta=_b_over - 1.0)
+    errs_r_bad = reconcile_registry_structured(
+        base, over_r, 0.01, _cls, rurix_abs_band_map={rkey: 1e-5})
+    if not errs_r_bad:
+        print("  RED MISS — Rurix 绝对值超带未检出")
+        failures += 1
+    else:
+        print("  RED ok   — Rurix 绝对值超带检出")
+
     # ── G14.5a 后事件加性面（逐位带 map + 跨会话样本级联；2 RED + 2 GREEN）──
     import tempfile as _tmp
     gid = base["items"][0]["gap_id"]
@@ -613,7 +654,7 @@ def selftest() -> int:
     if failures:
         print(f"[g10_gap_registry_lib] SELFTEST FAIL ({failures})")
         return 1
-    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN + 结构化对账 5 RED + 2 GREEN + 跨会话带面 2 RED + 2 GREEN）")
+    print(f"[g10_gap_registry_lib] SELFTEST PASS（枚举闭集 {len(UE5_MODULE_ENUM)} 值；10 RED + 1 GREEN + 结构化对账 6 RED + 3 GREEN + 跨会话带面 2 RED + 2 GREEN）")
     return 0
 
 
