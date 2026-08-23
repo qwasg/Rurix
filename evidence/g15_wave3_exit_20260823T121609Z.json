@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g15_wave3_exit",
+  "symbolic_gate_key": "g15.wave.3.exit",
+  "matrix_row": "G15.3",
+  "wave": "G15.3",
+  "numeric_step": 272,
+  "source_ref": "G15_CONTRACT G-G15-4/§2 G15.3;G15_ACCEPTANCE_MAP §1;M-b gate red arms independently effective;closure registry 20 rows zero-empty recompute;three contracts and frozen registries 0-byte;material chain and G15-MA-F1 verdicts registered;g15_budget entries measured_local maintained;G5~G14 closed 0-byte closed-set diff vs G15.0 ref + RFC namespace 0-byte",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g15.p0.m_b.gap_fix_closure_loop",
+      "subject_prefix": "g15_m_b_gap_fix_closure_loop",
+      "evidence_path": "evidence/g15_m_b_gap_fix_closure_loop_20260823T121607Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T121607Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m_b_gate_pass_red_arms_effective",
+      "status": "PASS",
+      "detail": "M-b 最新 evidence PASS + red 面 checks 全真（5 臂独立有效）"
+    },
+    {
+      "id": "closure_registry_20_rows_revalidate_green",
+      "status": "PASS",
+      "detail": "闭环登记表 20 行零空行 + gap_id 闭集逐字对账 + 三态逐态义务 + 汇总 tally 重算全绿"
+    },
+    {
+      "id": "frozen_contracts_and_registries_0byte",
+      "status": "PASS",
+      "detail": "三 parity 契约 + 三冻结登记表在树 == HEAD 逐字节（8+2+10 行终态 0-byte 只消费不回写）"
+    },
+    {
+      "id": "material_chain_and_f1_verdicts_registered",
+      "status": "PASS",
+      "detail": "材质链评估 not-triggered 未命中 + G15-MA-F1 closed-caliber-registered 定论登记（未触发如实登记不充绿）"
+    },
+    {
+      "id": "budget_entries_measured",
+      "status": "PASS",
+      "detail": "g15_budget 五条目齐备 measured_local 零 estimated + budget_eval 全 PASS（P-09；本波零追加维持）"
+    },
+    {
+      "id": "legacy_closed_and_rfc_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['milestones/g14/g14_budget.json', 'milestones/g14/g14_ue_variance_samples.json']（允许面=['milestones/g14/g14_budget.json', 'milestones/g14/g14_ue_variance_samples.json']）；工作树闭集=空；RFC next_free=31（=31 维持）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T121609Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G15.3 M-b gap fix closure loop (step 271) — 20-row final dispositions three-state zero-empty + zero fix projects (evaluation-complete legal exit) + material chain not-triggered + G15-MA-F1 closed-caliber-registered; aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M-b PASS + red arms + closure registry revalidate + frozen 0-byte + verdicts registered + g15_budget measured + legacy/RFC 0-byte; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

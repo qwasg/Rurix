@@ -3246,6 +3246,33 @@ jobs:
         shell: powershell
         run: py -3 ci/g15_wave2_exit_check.py --gate g15.wave.2.exit
 
+      # 步骤 271（G15.3 P0 硬门 M-b g15.p0.m_b.gap_fix_closure_loop；
+      # G15_CONTRACT §4.2 M-b/G-G15-4；落盘前实测 CI_step.next_free=271 顺位领取）。
+      # measured 主差修复闭环：处置表 20 行逐行终态处置三态闭集零空行
+      # （closed-resolved/closed-caliber-registered/open-defer-G16+——open-defer
+      # 承接锚「重判条件 = …；兜底 = …」字面 + closed-caliber 行 RXS-0392 不拟合
+      # 字面 + kind==caliber_diff 向上取严）+ 修复项 RED 先行纪律（本波零修复
+      # 立项 vacuous 成立如实登记——修复评估完结合法退出形态）+ 触冻结面独立
+      # Full RFC 留痕面机核（RFC next_free=31 维持 + 冻结面 tracked diff 空）+
+      # 材质链表达面立项评估结论登记（G11-N8/G11-N9/G12-N10 承接锚命中判定逐字）
+      # + G15-MA-F1 评估定论 + RED 五臂。
+      # evidence 落盘 evidence/g15_m_b_gap_fix_closure_loop_<UTC>.json。
+      - name: G15.3 M-b gap fix closure loop (G15_CONTRACT §4.2 M-b, g15.p0.m_b.gap_fix_closure_loop)
+        shell: powershell
+        run: py -3 ci/g15_gap_fix_closure_smoke.py --gate g15.p0.m_b.gap_fix_closure_loop
+
+      # 步骤 272（G15.3 波聚合门 g15.wave.3.exit；G15_CONTRACT G-G15-4/§2 G15.3；
+      # 落盘前实测 CI_step.next_free=272 顺位领取）。只读汇总 M-b 最新 evidence
+      # + 六 facts：M-b fresh PASS + RED 臂 ≥4 独立有效 / 闭环登记表 20 行零空行
+      # 重算绿 / 三契约三冻结表 0-byte / 材质链评估 + G15-MA-F1 定论登记 /
+      # g15_budget 五条目 measured_local + budget_eval 全 PASS（本波零追加维持）/
+      # G5~G14 closed 面 0-byte（vs G15.0 ref f061487e committed 闭集 ⊆ 归档授权
+      # 双面）+ RFC 命名空间 0-byte（next_free=31 维持）。聚合不代绿不遮蔽。
+      # evidence 落盘 evidence/g15_wave3_exit_<UTC>.json。
+      - name: G15.3 wave3 exit check (G15_CONTRACT G-G15-4, g15.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g15_wave3_exit_check.py --gate g15.wave.3.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

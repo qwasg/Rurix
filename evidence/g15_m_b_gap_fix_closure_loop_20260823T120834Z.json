@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "subject": "g15_m_b_gap_fix_closure_loop",
+  "symbolic_gate_key": "g15.p0.m_b.gap_fix_closure_loop",
+  "matrix_row": "M-b",
+  "milestone": "M-b",
+  "assertion_id": "g15.p0.m_b.gap_fix_closure_loop",
+  "status": "pass",
+  "wave": "G15.3",
+  "numeric_step": 271,
+  "source_ref": "G15_CONTRACT §4.2 M-b/G-G15-4;G15_ACCEPTANCE_MAP §1 M-b;RXS-0392 不拟合/RXS-0393 修复闭环判据两款;P-09 程序产阈禁手写;G11-N8/G11-N9/G12-N10 承接锚命中判定;G15-MA-F1 评估定论",
+  "base_commit": "64bfbb993e282856c7bbd56b36976d1ca3f04f14",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "m_a_evidence_pass_and_chain_anchor": true,
+    "disposition_table_valid_fresh": true,
+    "frozen_contracts_and_registries_0byte": true,
+    "closure_registry_20_rows_zero_empty": true,
+    "gap_id_closed_set_match": true,
+    "final_disposition_three_state_closed_set": true,
+    "open_defer_anchor_verbatim": true,
+    "closed_caliber_registration_rxs0392": true,
+    "closed_resolved_rxs0393_red_first": true,
+    "fix_projects_red_first_discipline": true,
+    "frozen_face_zero_rfc_zero": true,
+    "material_chain_verdict_registered": true,
+    "g15_ma_f1_adjudicated": true,
+    "per_row_fix_evaluation_non_empty": true,
+    "red_arm_missing_row_detected": true,
+    "red_arm_out_of_enum_disposition_detected": true,
+    "red_arm_open_defer_anchor_missing_literal_detected": true,
+    "red_arm_material_chain_verdict_missing_detected": true,
+    "red_arm_fix_project_without_red_first_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "M-a 最新 evidence 只读核验（g15_m_a_dual_end_quality_reharvest，链锚 wave_start 对账）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "M-a 处置表同族校验 + 方向交叉核验重算（20 行消费面）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "三 parity 契约 + 三冻结登记表 0-byte git 机核",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "闭环登记表结构化校验（20 行零空行 + 三态逐态义务 + 材质链 + G15-MA-F1）",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "冻结面/RFC 机核（ledger RFC next_free + tracked diff 空 + 异己闭集）",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "RED 臂 ×5（missing-row/out-of-enum/anchor-literal/material-chain-verdict/fix-no-red-first）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T120834Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "milestones/g15/g15_quality_gap_disposition.json（M-a 重收割 fresh measured 面——本门只消费不回写）",
+    "measured_value": "终态三态分布：closed-resolved=0 closed-caliber-registered=4 open-defer-G16+=16；修复立项 0 项",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "容差带 = M-a 处置表 fresh measured_delta tolerance 面（g13_budget/g12_budget 标定条目双 seed 方差底 p100×2.0 程序产，禁手写 P-09）——本门零新阈零手写",
+    "evolution_register": "三冻结表 20 行终态 0-byte 只消费不回写；M-a 处置表只消费不回写；终态处置面另立 milestones/g15/g15_gap_fix_closure_registry.json（逐行评估论证 + 承接锚字面 + 材质链评估 + G15-MA-F1 定论）；零修复立项零 src 变更零 RFC 消费"
+  },
+  "notes": "M-a 最新 evidence g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json: PASS（wave_start=20260823T084242Z）; M-a 处置表 20 行有效 + 链锚一致（wave_start=20260823T084242Z）; 三 parity 契约 + 三冻结登记表在树 == HEAD 逐字节（0-byte 门序维持）; 闭环登记表 20 行零空行（三态逐态义务字面机核绿）; 修复立项 = 零（修复评估完结 + 零修复立项 + 20 行终态处置全量——合法退出形态；RED 先行纪律 vacuous 成立如实登记不充绿）; 触冻结面零发生：RFC next_free=31 维持 + src/spec/conformance/G5~G14 面 tracked diff 空 + 异己 untracked 闭集机核绿; 材质链评估 verdict=not-triggered（三锚命中判定逐字登记）; G15-MA-F1 定论 = closed-caliber-registered（vendor 输出域评估面登记）; RED 臂 missing_row: 有效; RED 臂 out_of_enum_disposition: 有效; RED 臂 open_defer_anchor_missing_literal: 有效; RED 臂 material_chain_verdict_missing: 有效; RED 臂 fix_project_without_red_first: 有效",
+  "closure": {
+    "m_a_evidence": "evidence/g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json",
+    "m_a_wave_start": "20260823T084242Z",
+    "disposition_file": "milestones/g15/g15_quality_gap_disposition.json",
+    "closure_registry_file": "milestones/g15/g15_gap_fix_closure_registry.json",
+    "closure_registry_sha256": "sha256:ffc674b956fd99bbd9127d062eae36d1f7ea14bcbb5f8e4a7570c6e87e35ce5f",
+    "final_state_counts": {
+      "closed-resolved": 0,
+      "closed-caliber-registered": 4,
+      "open-defer-G16+": 16
+    },
+    "fix_projects": [],
+    "material_chain_verdict": "not-triggered",
+    "g15_ma_f1_verdict": "closed-caliber-registered",
+    "upstream_m_a": {
+      "symbolic_gate_key": "g15.p0.m_a.dual_end_quality_reharvest",
+      "subject_prefix": "g15_m_a_dual_end_quality_reharvest",
+      "evidence_path": "evidence/g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json",
+      "status": "PASS",
+      "timestamp": "20260823T110103Z"
+    }
+  }
+}

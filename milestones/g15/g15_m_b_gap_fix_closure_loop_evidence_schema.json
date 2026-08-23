@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.3 M-b gap fix closure loop evidence",
+  "description": "evidence/g15_m_b_gap_fix_closure_loop_<UTC>.json。G15.3 P0 硬门 M-b（g15.p0.m_b.gap_fix_closure_loop，步骤 271；G15_CONTRACT §4.2 M-b/G-G15-4；G15_ACCEPTANCE_MAP §1 M-b 行）：M-a 最新 evidence PASS 只读核验 + 链锚对账（parity.wave_start == 处置表 wave_start）+ M-a 处置表同族校验与方向交叉核验重算绿（20 行消费面 0-byte 不回写）+ 三 parity 契约与三冻结登记表 0-byte git 机核 + 闭环登记表 milestones/g15/g15_gap_fix_closure_registry.json 结构化校验（20 行逐行终态处置三态闭集 {closed-resolved/closed-caliber-registered/open-defer-G16+} 零空行 + open-defer 承接锚「重判条件 = …；兜底 = …」字面 + closed-caliber-registered 行 RXS-0392 不拟合字面且 kind==caliber_diff 向上取严 + 逐行 fix_evaluation 修复面论证非空 + 汇总 tally 重算一致）+ 修复项 RED 先行纪律（本波零修复立项 vacuous 成立如实登记——修复评估完结 + 零修复立项 + 20 行终态处置全量合法退出形态）+ 触冻结面独立 Full RFC 留痕面机核（frozen_face_touched==false + rfc_consumed==0 + ledger RFC next_free==31 维持 + src/spec/conformance/G5~G14 面 tracked diff 空 + 异己 untracked 闭集机核）+ 材质链表达面立项评估结论登记（G11-N8/G11-N9/G12-N10 承接锚命中判定逐字——verdict=not-triggered 未命中如实登记不充绿）+ G15-MA-F1 评估定论登记（closed-caliber-registered——契约语义内形态，G14.10f 生产面已修 + G13.4 parity 锚定语义面字面）+ RED 五臂独立有效（missing-row/out-of-enum-disposition/open-defer-anchor-missing-literal/material-chain-verdict-missing/fix-project-without-red-first）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "closure"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_m_b_gap_fix_closure_loop" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_b.gap_fix_closure_loop" },
+    "matrix_row": { "type": "string", "const": "M-b" },
+    "milestone": { "type": "string", "const": "M-b" },
+    "assertion_id": { "type": "string", "const": "g15.p0.m_b.gap_fix_closure_loop" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G15.3" },
+    "numeric_step": { "type": "integer", "const": 271 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT §4.2 M-b/G-G15-4;G15_ACCEPTANCE_MAP §1 M-b;RXS-0392 不拟合/RXS-0393 修复闭环判据两款;P-09 程序产阈禁手写;G11-N8/G11-N9/G12-N10 承接锚命中判定;G15-MA-F1 评估定论"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["executed", "fail", "dev_env_degrade"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "m_a_evidence_pass_and_chain_anchor",
+        "disposition_table_valid_fresh",
+        "frozen_contracts_and_registries_0byte",
+        "closure_registry_20_rows_zero_empty",
+        "gap_id_closed_set_match",
+        "final_disposition_three_state_closed_set",
+        "open_defer_anchor_verbatim",
+        "closed_caliber_registration_rxs0392",
+        "closed_resolved_rxs0393_red_first",
+        "fix_projects_red_first_discipline",
+        "frozen_face_zero_rfc_zero",
+        "material_chain_verdict_registered",
+        "g15_ma_f1_adjudicated",
+        "per_row_fix_evaluation_non_empty",
+        "red_arm_missing_row_detected",
+        "red_arm_out_of_enum_disposition_detected",
+        "red_arm_open_defer_anchor_missing_literal_detected",
+        "red_arm_material_chain_verdict_missing_detected",
+        "red_arm_fix_project_without_red_first_detected"
+      ],
+      "properties": {
+        "m_a_evidence_pass_and_chain_anchor": { "type": "boolean" },
+        "disposition_table_valid_fresh": { "type": "boolean" },
+        "frozen_contracts_and_registries_0byte": { "type": "boolean" },
+        "closure_registry_20_rows_zero_empty": { "type": "boolean" },
+        "gap_id_closed_set_match": { "type": "boolean" },
+        "final_disposition_three_state_closed_set": { "type": "boolean" },
+        "open_defer_anchor_verbatim": { "type": "boolean" },
+        "closed_caliber_registration_rxs0392": { "type": "boolean" },
+        "closed_resolved_rxs0393_red_first": { "type": "boolean" },
+        "fix_projects_red_first_discipline": { "type": "boolean" },
+        "frozen_face_zero_rfc_zero": { "type": "boolean" },
+        "material_chain_verdict_registered": { "type": "boolean" },
+        "g15_ma_f1_adjudicated": { "type": "boolean" },
+        "per_row_fix_evaluation_non_empty": { "type": "boolean" },
+        "red_arm_missing_row_detected": { "type": "boolean" },
+        "red_arm_out_of_enum_disposition_detected": { "type": "boolean" },
+        "red_arm_open_defer_anchor_missing_literal_detected": { "type": "boolean" },
+        "red_arm_material_chain_verdict_missing_detected": { "type": "boolean" },
+        "red_arm_fix_project_without_red_first_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" },
+    "closure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "m_a_evidence",
+        "m_a_wave_start",
+        "disposition_file",
+        "closure_registry_file",
+        "closure_registry_sha256",
+        "final_state_counts",
+        "fix_projects",
+        "material_chain_verdict",
+        "g15_ma_f1_verdict",
+        "upstream_m_a"
+      ],
+      "properties": {
+        "m_a_evidence": { "type": ["string", "null"] },
+        "m_a_wave_start": { "type": "string" },
+        "disposition_file": { "type": "string", "const": "milestones/g15/g15_quality_gap_disposition.json" },
+        "closure_registry_file": { "type": "string", "const": "milestones/g15/g15_gap_fix_closure_registry.json" },
+        "closure_registry_sha256": { "type": "string" },
+        "final_state_counts": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "closed-resolved": { "type": "integer" },
+            "closed-caliber-registered": { "type": "integer" },
+            "open-defer-G16+": { "type": "integer" }
+          }
+        },
+        "fix_projects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "material_chain_verdict": { "type": ["string", "null"], "enum": ["triggered", "not-triggered", null] },
+        "g15_ma_f1_verdict": { "type": ["string", "null"], "enum": ["closed-caliber-registered", "open-defer-G16+", "fix-project", null] },
+        "upstream_m_a": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["symbolic_gate_key", "status"],
+          "properties": {
+            "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_a.dual_end_quality_reharvest" },
+            "subject_prefix": { "type": "string" },
+            "evidence_path": { "type": ["string", "null"] },
+            "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+            "timestamp": { "type": ["string", "null"] }
+          }
+        }
+      }
+    }
+  }
+}

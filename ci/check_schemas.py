@@ -802,6 +802,12 @@ def check_evidence_files() -> None:
     g15_wave2_exit_schema = load(
         ROOT / "milestones/g15/g15_wave2_exit_evidence_schema.json"
     )
+    g15_m_b_gap_fix_closure_loop_schema = load(
+        ROOT / "milestones/g15/g15_m_b_gap_fix_closure_loop_evidence_schema.json"
+    )
+    g15_wave3_exit_schema = load(
+        ROOT / "milestones/g15/g15_wave3_exit_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -1960,6 +1966,16 @@ def check_evidence_files() -> None:
     g15_wave2_exit_validator = (
         jsonschema.Draft7Validator(g15_wave2_exit_schema)
         if g15_wave2_exit_schema is not None
+        else None
+    )
+    g15_m_b_gap_fix_closure_loop_validator = (
+        jsonschema.Draft7Validator(g15_m_b_gap_fix_closure_loop_schema)
+        if g15_m_b_gap_fix_closure_loop_schema is not None
+        else None
+    )
+    g15_wave3_exit_validator = (
+        jsonschema.Draft7Validator(g15_wave3_exit_schema)
+        if g15_wave3_exit_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3812,6 +3828,18 @@ def check_evidence_files() -> None:
             # G15.2 波聚合门（步骤 270）→ required_gates 1 行 + 六 facts +
             # aggregate_read_only const true。
             validator = g15_wave2_exit_validator
+        elif (
+            f.name.startswith("g15_m_b_gap_fix_closure_loop_")
+            and g15_m_b_gap_fix_closure_loop_validator is not None
+        ):
+            # G15.3 P0 硬门 M-b 修复闭环（步骤 271）→ closure 节闭集。
+            validator = g15_m_b_gap_fix_closure_loop_validator
+        elif (
+            f.name.startswith("g15_wave3_exit_")
+            and g15_wave3_exit_validator is not None
+        ):
+            # G15.3 波聚合门（步骤 272）→ required_gates 1 行 + 六 facts。
+            validator = g15_wave3_exit_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None
