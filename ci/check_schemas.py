@@ -793,6 +793,15 @@ def check_evidence_files() -> None:
     g15_interlock_check_schema = load(
         ROOT / "milestones/g15/g15_interlock_check_evidence_schema.json"
     )
+    g15_m_a_dual_end_quality_reharvest_schema = load(
+        ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
+    )
+    g15_m_a_measured_entry_schema = load(
+        ROOT / "milestones/g15/g15_m_a_measured_entry_evidence_schema.json"
+    )
+    g15_wave2_exit_schema = load(
+        ROOT / "milestones/g15/g15_wave2_exit_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -1936,6 +1945,21 @@ def check_evidence_files() -> None:
     g15_interlock_check_validator = (
         jsonschema.Draft7Validator(g15_interlock_check_schema)
         if g15_interlock_check_schema is not None
+        else None
+    )
+    g15_m_a_dual_end_quality_reharvest_validator = (
+        jsonschema.Draft7Validator(g15_m_a_dual_end_quality_reharvest_schema)
+        if g15_m_a_dual_end_quality_reharvest_schema is not None
+        else None
+    )
+    g15_m_a_measured_entry_validator = (
+        jsonschema.Draft7Validator(g15_m_a_measured_entry_schema)
+        if g15_m_a_measured_entry_schema is not None
+        else None
+    )
+    g15_wave2_exit_validator = (
+        jsonschema.Draft7Validator(g15_wave2_exit_schema)
+        if g15_wave2_exit_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3767,6 +3791,27 @@ def check_evidence_files() -> None:
             # G15.1 治理门实现互锁（步骤 268）→
             # milestones/g15/g15_interlock_check_evidence_schema.json。
             validator = g15_interlock_check_validator
+        elif (
+            f.name.startswith("g15_m_a_dual_end_quality_reharvest_")
+            and g15_m_a_dual_end_quality_reharvest_validator is not None
+        ):
+            # G15.2 P0 硬门 M-a 双端画质重收割（步骤 269）→
+            # milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json。
+            validator = g15_m_a_dual_end_quality_reharvest_validator
+        elif (
+            f.name.startswith("g15_m_a_band_")
+            and g15_m_a_measured_entry_validator is not None
+        ):
+            # G15.2 M-a 方差带标定条目 evidence（measured entry 面）→
+            # milestones/g15/g15_m_a_measured_entry_evidence_schema.json。
+            validator = g15_m_a_measured_entry_validator
+        elif (
+            f.name.startswith("g15_wave2_exit_")
+            and g15_wave2_exit_validator is not None
+        ):
+            # G15.2 波聚合门（步骤 270）→ required_gates 1 行 + 六 facts +
+            # aggregate_read_only const true。
+            validator = g15_wave2_exit_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None

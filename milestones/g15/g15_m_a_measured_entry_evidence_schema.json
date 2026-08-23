@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.2 M-a UE 运行间方差带 measured entry evidence",
+  "description": "evidence/g15_m_a_band_<slug>_<UTC>.json。G15.2 M-a 重收割复跑面逐条目 measured 件（标定程序 = 本波复跑 M-c/M-d 门内 UE 探针格三样本复跑段产，max 两两相对差 ×2.0 程序产禁手写 P-09；results.run_variance_band_rel 供 budget_eval 通用路判读〔g15.m_a.ue_variance_band_ 前缀分派，沿 g14.ue_variance_band. 同模加性面〕）。G14 M-a 双程序产面取严口径继承——厂商随机运行间方差吸收带，真实内容变更 ≫带 检出面维持。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "entry_id",
+    "results",
+    "protocol",
+    "sample_manifest",
+    "provenance",
+    "timestamp"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g15mavar.measured_entry.v1"
+    },
+    "entry_id": {
+      "type": "string",
+      "pattern": "^g15\\.m_a\\.ue_variance_band_"
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_variance_band_rel"],
+      "properties": {
+        "run_variance_band_rel": {
+          "type": "number"
+        }
+      }
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "sample_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "digest"],
+      "properties": {
+        "count": { "type": "integer" },
+        "digest": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "backend", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "backend": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.2 M-a dual-end quality reharvest evidence",
+  "description": "evidence/g15_m_a_dual_end_quality_reharvest_<UTC>.json。G15.2 P0 硬门 M-a（g15.p0.m_a.dual_end_quality_reharvest，步骤 269；G15_CONTRACT §4.2 M-a/G-G15-3；G15_ACCEPTANCE_MAP §1 M-a 行；G14PLUS_RECORD §6.3 G15 承接锚兑现面）：上游三门（G13 M-c ue_upscale_parity + G13 M-d ue_lumen_gi_parity + G12 M163 ue_pt_parity）同口径复跑 fresh evidence（timestamp ≥ 本波启动锚）全 PASS 只读核验 + 三 parity 契约与三冻结登记表 0-byte git 机核 + 20 行登记表逐项重评（gap_id 逐字转引 + fresh measured_delta f64 精确可溯源 + 方向判定 converged/maintained/degraded 交叉核验）+ G15 差距处置表 milestones/g15/g15_quality_gap_disposition.json 落盘零空行（gaplib 正典形同族 schema）+ UE 方差带程序产（跨会话样本级联 ×2.0 与同会话探针带取 max，G14 M-a 双程序产面取严口径继承，fresh 带入 g15_budget 双条目 measured_local）+ AI 读图基线臂（双场景 × 三档 × 三后端 18 格 Rurix 臂收敛帧 PNG 导出 .tmp/g15_m_a_preview/ + 机器结构代理断言〔非全黑/非全白/亮度直方图非退化/无大块纯色斑块乱序〕+ manifest 入 evidence；AI 画面审查逐格记录归 G15_CONTRACT §8.2）+ RED 五臂独立有效（missing-row/gap-id-tamper/direction-lie/stale-evidence/fresh-delta-missing-field）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_m_a_dual_end_quality_reharvest" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_a.dual_end_quality_reharvest" },
+    "matrix_row": { "type": "string", "const": "M-a" },
+    "milestone": { "type": "string", "const": "M-a" },
+    "assertion_id": { "type": "string", "const": "g15.p0.m_a.dual_end_quality_reharvest" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G15.2" },
+    "numeric_step": { "type": "integer", "const": 269 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT §4.2 M-a/G-G15-3;G15_ACCEPTANCE_MAP §1 M-a;G14PLUS_RECORD §6.3 G15 承接锚;RXS-0391 IR2（gaplib 正典同族）/RXS-0392 不拟合/P-09 程序产阈禁手写;G14 M-a 双程序产面取严口径继承"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["executed", "fail", "dev_env_degrade"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "upstream_m_c_fresh_pass",
+        "upstream_m_d_fresh_pass",
+        "upstream_m163_fresh_pass",
+        "parity_contracts_and_registries_0byte",
+        "frozen_gap_id_closed_set_match",
+        "disposition_table_20_rows_zero_empty",
+        "fresh_measured_delta_traceable",
+        "direction_judgments_consistent",
+        "ue_variance_band_program_produced",
+        "ai_reading_baseline_18_cells",
+        "budget_entries_measured_appended",
+        "red_arm_missing_row_detected",
+        "red_arm_gap_id_tamper_detected",
+        "red_arm_direction_lie_detected",
+        "red_arm_stale_evidence_detected",
+        "red_arm_fresh_delta_missing_field_detected"
+      ],
+      "properties": {
+        "upstream_m_c_fresh_pass": { "type": "boolean" },
+        "upstream_m_d_fresh_pass": { "type": "boolean" },
+        "upstream_m163_fresh_pass": { "type": "boolean" },
+        "parity_contracts_and_registries_0byte": { "type": "boolean" },
+        "frozen_gap_id_closed_set_match": { "type": "boolean" },
+        "disposition_table_20_rows_zero_empty": { "type": "boolean" },
+        "fresh_measured_delta_traceable": { "type": "boolean" },
+        "direction_judgments_consistent": { "type": "boolean" },
+        "ue_variance_band_program_produced": { "type": "boolean" },
+        "ai_reading_baseline_18_cells": { "type": "boolean" },
+        "budget_entries_measured_appended": { "type": "boolean" },
+        "red_arm_missing_row_detected": { "type": "boolean" },
+        "red_arm_gap_id_tamper_detected": { "type": "boolean" },
+        "red_arm_direction_lie_detected": { "type": "boolean" },
+        "red_arm_stale_evidence_detected": { "type": "boolean" },
+        "red_arm_fresh_delta_missing_field_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wave_start",
+        "upstream_gates",
+        "disposition_file",
+        "direction_counts",
+        "suggestion_counts",
+        "ue_variance_bands",
+        "ai_reading_baseline_manifest"
+      ],
+      "properties": {
+        "wave_start": { "type": "string" },
+        "upstream_gates": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["symbolic_gate_key", "status"],
+            "properties": {
+              "symbolic_gate_key": { "type": "string" },
+              "subject_prefix": { "type": "string" },
+              "evidence_path": { "type": ["string", "null"] },
+              "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+              "detail": { "type": "string" },
+              "timestamp": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "disposition_file": { "type": "string", "const": "milestones/g15/g15_quality_gap_disposition.json" },
+        "direction_counts": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "converged": { "type": "integer" },
+            "maintained": { "type": "integer" },
+            "degraded": { "type": "integer" }
+          }
+        },
+        "suggestion_counts": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "closed-resolved": { "type": "integer" },
+            "closed-caliber-registered": { "type": "integer" },
+            "open-defer-G16+": { "type": "integer" }
+          }
+        },
+        "ue_variance_bands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["upscale_probe_rel", "lumen_probe_rel"],
+          "properties": {
+            "upscale_probe_rel": { "type": ["number", "null"] },
+            "lumen_probe_rel": { "type": ["number", "null"] }
+          }
+        },
+        "ai_reading_baseline_manifest": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cell", "png", "png_sha256", "source_exr", "width", "height",
+              "mean_luma", "std_luma", "histogram_occupied_bins",
+              "histogram_max_bin_share", "flat_block_fraction",
+              "structural_proxies", "proxies_pass"
+            ],
+            "properties": {
+              "cell": { "type": "string" },
+              "png": { "type": "string" },
+              "png_sha256": { "type": "string" },
+              "source_exr": { "type": "string" },
+              "source_domain": { "type": "string", "enum": ["display-referred", "scene-linear-hdr"] },
+              "display_scale": { "type": "number" },
+              "width": { "type": "integer" },
+              "height": { "type": "integer" },
+              "mean_luma": { "type": "number" },
+              "std_luma": { "type": "number" },
+              "histogram_occupied_bins": { "type": "integer" },
+              "histogram_max_bin_share": { "type": "number" },
+              "flat_block_fraction": { "type": "number" },
+              "structural_proxies": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "non_black", "non_white", "std_non_degenerate",
+                      "histogram_occupied_ge_4",
+                      "flat_block_fraction_lt_0p95"
+                    ],
+                    "properties": {
+                      "non_black": { "type": "boolean" },
+                      "non_white": { "type": "boolean" },
+                      "std_non_degenerate": { "type": "boolean" },
+                      "histogram_occupied_ge_4": { "type": "boolean" },
+                      "flat_block_fraction_lt_0p95": { "type": "boolean" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "non_black", "non_white", "std_non_degenerate",
+                      "histogram_occupied_ge_8", "histogram_max_share_lt_0p98",
+                      "flat_block_fraction_lt_0p95"
+                    ],
+                    "properties": {
+                      "non_black": { "type": "boolean" },
+                      "non_white": { "type": "boolean" },
+                      "std_non_degenerate": { "type": "boolean" },
+                      "histogram_occupied_ge_8": { "type": "boolean" },
+                      "histogram_max_share_lt_0p98": { "type": "boolean" },
+                      "flat_block_fraction_lt_0p95": { "type": "boolean" }
+                    }
+                  }
+                ]
+              },
+              "proxies_pass": { "type": "boolean" }
+            }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "kind", "measured", "disposition_hint", "baseline_arm_handling"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "kind": { "type": "string" },
+              "measured": { "type": "string" },
+              "disposition_hint": { "type": "string" },
+              "baseline_arm_handling": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

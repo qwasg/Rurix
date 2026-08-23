@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.2 wave2.exit evidence",
+  "description": "evidence/g15_wave2_exit_<UTC>.json。G15.2 测量重收割波聚合门 g15.wave.2.exit（步骤 270；G15_CONTRACT G-G15-3/§2.2；G15_ACCEPTANCE_MAP §1）：M-a 双端画质重收割门（g15.p0.m_a.dual_end_quality_reharvest，步骤 269）最新 evidence 只读汇总 + 六 facts：①上游三门（G13 M-c/M-d + G12 M163）fresh evidence 全 PASS（timestamp ≥ 本波启动锚，红面诚实登记不充绿）②三 parity 契约 + 三冻结登记表（G13 upscale 8 行/Lumen 2 行 + G12 PT 10 行）终态 0-byte（在树 == HEAD 提交态逐字节）③M-a 门 RED 臂独立有效（最新 evidence red 面 checks 非空且全真，≥4 臂）④G15 差距处置表 20 行零空行（gap_id 闭集逐字对账 + 方向判定交叉核验面重算绿）⑤g15_budget 五条目齐备 measured_local 零 estimated 且 budget_eval 全 PASS（P-09）⑥G5~G14 closed 面 0-byte（vs G15.0 不可变 ref f061487efaf7816684de18a6ef86554e5c392a75 committed diff 闭集 ⊆ G14 战后归档授权面 {milestones/g14/g14_budget.json, milestones/g14/g14_ue_variance_samples.json}，工作树闭集 ⊆ {milestones/g14/g14_ue_variance_samples.json} 样本只追加面）。聚合不代绿、不重跑 smoke、不设 RURIX_REQUIRE_REAL；聚合 PASS 不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_wave2_exit" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.wave.2.exit" },
+    "matrix_row": { "type": "string", "const": "G15.2" },
+    "wave": { "type": "string", "const": "G15.2" },
+    "numeric_step": { "type": "integer", "const": 270 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT G-G15-3/§2.2;G15_ACCEPTANCE_MAP §1;M-a gate red arms independently effective;upstream three gates fresh PASS;three frozen registries 0-byte;disposition table 20 rows zero-empty;g15_budget entries measured_local;G5~G14 closed 0-byte closed-set diff vs G15.0 ref"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "required_gates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["symbolic_gate_key", "status"],
+        "properties": {
+          "symbolic_gate_key": { "type": "string" },
+          "subject_prefix": { "type": "string" },
+          "evidence_path": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "SKIP"] },
+          "detail": { "type": "string" },
+          "timestamp": { "type": ["string", "null"] },
+          "device_section_state": {},
+          "host_section_pass": {}
+        }
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,805 @@
+{
+  "schema_version": 1,
+  "registry": "g15_quality_gap_disposition",
+  "generated_by": "ci/g15_dual_end_quality_reharvest_smoke.py --gate g15.p0.m_a.dual_end_quality_reharvest",
+  "wave_start": "20260823T084242Z",
+  "scene_set": [
+    "cornell-box",
+    "bistro-interior"
+  ],
+  "items": [
+    {
+      "gap_id": "fda2892b148edc2f",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "upscale_deficit_delta@cornell-box/t50/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9838595313284846,
+          "delta": -0.016140468671515418,
+          "tolerance": null
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.012392328138129766,
+          "delta": 0.012392328138129766,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9838595313284846,
+          "delta": -0.016140468671515418,
+          "tolerance": 0.006938320062914283
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.012392328138129766,
+          "delta": 0.012392328138129766,
+          "tolerance": 0.0073001003229083705
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "ssim_deficit_delta@cornell-box/t50/dlss_sr": "maintained",
+        "flip_deficit_delta@cornell-box/t50/dlss_sr": "maintained"
+      },
+      "ue_variance_band": {
+        "ssim_deficit_delta@cornell-box/t50/dlss_sr": 0.00601379,
+        "flip_deficit_delta@cornell-box/t50/dlss_sr": 6.01379e-33
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "20f125548f145335",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "upscale_deficit_delta@cornell-box/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9933499560087599,
+          "delta": -0.00665004399124014,
+          "tolerance": null
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.009216660401404246,
+          "delta": 0.009216660401404246,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9933499560087599,
+          "delta": -0.00665004399124014,
+          "tolerance": 0.006938320062914283
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.009216660401404246,
+          "delta": 0.009216660401404246,
+          "tolerance": 0.0073001003229083705
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "ssim_deficit_delta@cornell-box/t67/dlss_sr": "converged",
+        "flip_deficit_delta@cornell-box/t67/dlss_sr": "maintained"
+      },
+      "ue_variance_band": {
+        "ssim_deficit_delta@cornell-box/t67/dlss_sr": 0.00601379,
+        "flip_deficit_delta@cornell-box/t67/dlss_sr": 6.01379e-33
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "58fd4c7e2ef98efe",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/tsr_device",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+          "a_value": 0.0,
+          "b_value": 0.4309534598101071,
+          "delta": 0.4309534598101071,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+          "a_value": 0.0,
+          "b_value": 0.4309534598101071,
+          "delta": 0.4309534598101071,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@cornell-box/t67/tsr_device": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@cornell-box/t67/tsr_device": 0.060858875695727566
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "2631811751d63e0a",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.6127225210587912,
+          "delta": 0.6127225210587912,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.6127225783593943,
+          "delta": 0.6127225783593943,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@cornell-box/t67/dlss_sr": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@cornell-box/t67/dlss_sr": 0.060858875695727566
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "d36e8cb107d579d9",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+          "a_value": 0.0,
+          "b_value": 0.4610425867087926,
+          "delta": 0.4610425867087926,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+          "a_value": 0.0,
+          "b_value": 0.4610425900579406,
+          "delta": 0.4610425900579406,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@cornell-box/t67/fsr_3_1_5": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@cornell-box/t67/fsr_3_1_5": 0.060858875695727566
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "5b65327b903ac6bc",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/tsr_device",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.3622313729720505,
+          "delta": -0.4905578656942507,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.3622313729720505,
+          "delta": -0.4880005252194399,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@bistro-interior/t67/tsr_device": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@bistro-interior/t67/tsr_device": 0.07437202400425759
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "bdf94acf4691fd74",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.5704238454826939,
+          "delta": -0.2823653931836073,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.570430187074088,
+          "delta": -0.2798017111174024,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@bistro-interior/t67/dlss_sr": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@bistro-interior/t67/dlss_sr": 0.07437202400425759
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "20e8950296211aae",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.43900226953049754,
+          "delta": -0.41378696913580365,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.4390137834830334,
+          "delta": -0.411218114708457,
+          "tolerance": 0.12171775139145513
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_hf_delta@bistro-interior/t67/fsr_3_1_5": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_hf_delta@bistro-interior/t67/fsr_3_1_5": 0.07437202400425759
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_upscale_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "2f6331a41404dfcd",
+      "source_registry": "g13_ue_lumen_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "lumen_gi_parity@cornell-box",
+      "registered_delta": [
+        {
+          "metric": "gi_energy_rel@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.535625027781919,
+          "delta": 0.535625027781919,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_ssim@cornell-box",
+          "a_value": 1.0,
+          "b_value": 0.033384483786469556,
+          "delta": -0.9666155162135305,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_flip@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.6127988976249465,
+          "delta": 0.6127988976249465,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "gi_energy_rel@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.535625027781919,
+          "delta": 0.535625027781919,
+          "tolerance": 0.01752196170822843
+        },
+        {
+          "metric": "indirect_ssim@cornell-box",
+          "a_value": 1.0,
+          "b_value": 0.033384483786469556,
+          "delta": -0.9666155162135305,
+          "tolerance": 0.6675224733382197
+        },
+        {
+          "metric": "indirect_flip@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.6127988976249465,
+          "delta": 0.6127988976249465,
+          "tolerance": 0.34203315774945187
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "gi_energy_rel@cornell-box": "maintained",
+        "indirect_ssim@cornell-box": "maintained",
+        "indirect_flip@cornell-box": "maintained"
+      },
+      "ue_variance_band": {
+        "gi_energy_rel@cornell-box": 1.01218e-33,
+        "indirect_ssim@cornell-box": 3.379110679898875e-05,
+        "indirect_flip@cornell-box": 0.0006202627881980184
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_lumen_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "b7527c980cdd1d46",
+      "source_registry": "g13_ue_lumen_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "lumen_gi_parity@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "gi_energy_rel@bistro-interior",
+          "a_value": 0.03711463719353902,
+          "b_value": 3.0016998075316033,
+          "delta": 2.964585170338064,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_ssim@bistro-interior",
+          "a_value": 1.0,
+          "b_value": 0.006566911636724374,
+          "delta": -0.9934330883632756,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_flip@bistro-interior",
+          "a_value": 0.0,
+          "b_value": 0.9671355491209283,
+          "delta": 0.9671355491209283,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "gi_energy_rel@bistro-interior",
+          "a_value": 0.03708603093179476,
+          "b_value": 3.0016998075316033,
+          "delta": 2.9646137765998084,
+          "tolerance": 0.01752196170822843
+        },
+        {
+          "metric": "indirect_ssim@bistro-interior",
+          "a_value": 1.0,
+          "b_value": 0.006521552716019591,
+          "delta": -0.9934784472839804,
+          "tolerance": 0.6675224733382197
+        },
+        {
+          "metric": "indirect_flip@bistro-interior",
+          "a_value": 0.0,
+          "b_value": 0.9671365990951583,
+          "delta": 0.9671365990951583,
+          "tolerance": 0.34203315774945187
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "gi_energy_rel@bistro-interior": "maintained",
+        "indirect_ssim@bistro-interior": "maintained",
+        "indirect_flip@bistro-interior": "maintained"
+      },
+      "ue_variance_band": {
+        "gi_energy_rel@bistro-interior": 8.059498946905226e-05,
+        "indirect_ssim@bistro-interior": 0.0006719469753070292,
+        "indirect_flip@bistro-interior": 0.000978915260109221
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g13_ue_lumen_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "8bb75b6657d6b10c",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_spectrum@cornell-box",
+      "registered_delta": [
+        {
+          "metric": "noise_spectrum@cornell-box",
+          "a_value": 0.9660312634118327,
+          "b_value": 0.9097349214788788,
+          "delta": -0.05629634193295385,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_spectrum@cornell-box",
+          "a_value": 0.9660312634118327,
+          "b_value": 0.9097349214788788,
+          "delta": -0.05629634193295385,
+          "tolerance": 0.012169321007880152
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_spectrum@cornell-box": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_spectrum@cornell-box": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "525dcf5fe42a5a37",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "energy_conservation@cornell-box",
+      "registered_delta": [
+        {
+          "metric": "energy_conservation@cornell-box",
+          "a_value": 0.09868238755301614,
+          "b_value": 0.1453627206744092,
+          "delta": 0.04668033312139305,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "energy_conservation@cornell-box",
+          "a_value": 0.09868238755301614,
+          "b_value": 0.1453627206744092,
+          "delta": 0.04668033312139305,
+          "tolerance": 0.0013802290235563413
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "energy_conservation@cornell-box": "maintained"
+      },
+      "ue_variance_band": {
+        "energy_conservation@cornell-box": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "e6796378ebae6108",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "curve_segment_spp1@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "curve_segment_spp1@bistro-interior",
+          "a_value": 0.6628787485368837,
+          "b_value": 0.27298420195616446,
+          "delta": -0.3898945465807192,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "curve_segment_spp1@bistro-interior",
+          "a_value": 0.6628787485368837,
+          "b_value": 0.27298420195616446,
+          "delta": -0.3898945465807192,
+          "tolerance": 0.23919679712747455
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "curve_segment_spp1@bistro-interior": "maintained"
+      },
+      "ue_variance_band": {
+        "curve_segment_spp1@bistro-interior": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "000f1899da9f087d",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "curve_segment_spp4@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "curve_segment_spp4@bistro-interior",
+          "a_value": 0.55945831682154,
+          "b_value": 0.24583106256253726,
+          "delta": -0.31362725425900273,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "curve_segment_spp4@bistro-interior",
+          "a_value": 0.55945831682154,
+          "b_value": 0.24583106256253726,
+          "delta": -0.31362725425900273,
+          "tolerance": 0.23919679712747455
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "curve_segment_spp4@bistro-interior": "maintained"
+      },
+      "ue_variance_band": {
+        "curve_segment_spp4@bistro-interior": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "7ea11b30c1bc7f18",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_spectrum@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "noise_spectrum@bistro-interior",
+          "a_value": 0.9804317846976327,
+          "b_value": 0.8303323798232056,
+          "delta": -0.15009940487442708,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_spectrum@bistro-interior",
+          "a_value": 0.9804317846976327,
+          "b_value": 0.8303323798232056,
+          "delta": -0.15009940487442708,
+          "tolerance": 0.012169321007880152
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "noise_spectrum@bistro-interior": "maintained"
+      },
+      "ue_variance_band": {
+        "noise_spectrum@bistro-interior": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "3fd88ba1c1b25684",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "energy_conservation@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "energy_conservation@bistro-interior",
+          "a_value": 0.014252178548159912,
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "energy_conservation@bistro-interior",
+          "a_value": 0.014252178548159912,
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "tolerance": 0.0013802290235563413
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "energy_conservation@bistro-interior": "maintained"
+      },
+      "ue_variance_band": {
+        "energy_conservation@bistro-interior": 0.0
+      },
+      "suggestion": "open-defer-G16+",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（仍超带未劣化——M-b 修复评估面，未决如实 open）"
+    },
+    {
+      "gap_id": "1cd456377445d16c",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "caliber_diff",
+      "title": "bistro_material_texture_mean_vs_per_texel",
+      "registered_delta": [
+        {
+          "metric": "bistro_material_texture_mean_vs_per_texel",
+          "a_value": 0.014252178548159912,
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "bistro_material_texture_mean_vs_per_texel",
+          "a_value": 0.014252178548159912,
+          "b_value": 0.04641306018068776,
+          "delta": 0.03216088163252785,
+          "tolerance": null
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "bistro_material_texture_mean_vs_per_texel": "maintained"
+      },
+      "ue_variance_band": {
+        "bistro_material_texture_mean_vs_per_texel": 0.0
+      },
+      "suggestion": "closed-caliber-registered",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（口径差登记维持未漂移——closed-caliber-registered 候选）"
+    },
+    {
+      "gap_id": "499b752ce1d25f1d",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "caliber_diff",
+      "title": "emissive_le_mean_vs_textured_emissive",
+      "registered_delta": [
+        {
+          "metric": "emissive_le_mean_vs_textured_emissive",
+          "a_value": 0.022303,
+          "b_value": 0.022303,
+          "delta": 0.0,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "emissive_le_mean_vs_textured_emissive",
+          "a_value": 0.022303,
+          "b_value": 0.022303,
+          "delta": 0.0,
+          "tolerance": null
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "emissive_le_mean_vs_textured_emissive": "maintained"
+      },
+      "ue_variance_band": {
+        "emissive_le_mean_vs_textured_emissive": 0.0
+      },
+      "suggestion": "closed-caliber-registered",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（口径差登记维持未漂移——closed-caliber-registered 候选）"
+    },
+    {
+      "gap_id": "21a61c9da0f3122e",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "caliber_diff",
+      "title": "aa_filter_policy_residual",
+      "registered_delta": [
+        {
+          "metric": "aa_filter_policy_residual",
+          "a_value": 1.0,
+          "b_value": 0.0,
+          "delta": -1.0,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "aa_filter_policy_residual",
+          "a_value": 1.0,
+          "b_value": 0.0,
+          "delta": -1.0,
+          "tolerance": null
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "aa_filter_policy_residual": "maintained"
+      },
+      "ue_variance_band": {
+        "aa_filter_policy_residual": 0.0
+      },
+      "suggestion": "closed-caliber-registered",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（口径差登记维持未漂移——closed-caliber-registered 候选）"
+    },
+    {
+      "gap_id": "802a48548e2e64fe",
+      "source_registry": "g12_ue_pt_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "caliber_diff",
+      "title": "exr_bit_depth_fp16_vs_f32",
+      "registered_delta": [
+        {
+          "metric": "exr_bit_depth_fp16_vs_f32",
+          "a_value": 32.0,
+          "b_value": 16.0,
+          "delta": -16.0,
+          "tolerance": null
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "exr_bit_depth_fp16_vs_f32",
+          "a_value": 32.0,
+          "b_value": 16.0,
+          "delta": -16.0,
+          "tolerance": null
+        }
+      ],
+      "direction": "maintained",
+      "direction_per_metric": {
+        "exr_bit_depth_fp16_vs_f32": "maintained"
+      },
+      "ue_variance_band": {
+        "exr_bit_depth_fp16_vs_f32": 0.0
+      },
+      "suggestion": "closed-caliber-registered",
+      "rationale": "fresh measured_delta 自当次复跑 evidence 提取（g12_ue_pt_gap_registry 行逐字转引）；方向逐度量判定聚合最差态 = maintained（口径差登记维持未漂移——closed-caliber-registered 候选）"
+    }
+  ],
+  "scene_summary": [
+    {
+      "scene_id": "cornell-box",
+      "row_count": 10,
+      "converged": 0,
+      "maintained": 10,
+      "degraded": 0
+    },
+    {
+      "scene_id": "bistro-interior",
+      "row_count": 10,
+      "converged": 0,
+      "maintained": 10,
+      "degraded": 0
+    }
+  ],
+  "not_ready_scenes": []
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g13ueupscale.measured_entry.v1",
+  "entry_id": "g13.ue_upscale.flip_deficit_delta_tol",
+  "results": {
+    "dual_seed_p100": 0.0036500501614541853
+  },
+  "protocol": "M-c 标定腿：probe 档（tier67）双 seed（seed vs calibration_seed）Rurix 臂端内参照 deficit/噪声谱方差底 p100，threshold = measured × 2.0 冻结 k（禁手写 P-09）；样本面 = 2 场景 × 3 后端 × 32 帧 Halton 静态收敛序列",
+  "sample_manifest": {
+    "count": 18,
+    "digest": "sha256:d54147269443e640f92683c2964f7ffbf3cf4f877807cf70ffd0e4660e831db9"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device/dlss_sr/fsr_3_1_5",
+    "base_commit": "c944569ffb0dcddc910634088359f6140c63f995"
+  },
+  "timestamp": "20260823T084323Z"
+}

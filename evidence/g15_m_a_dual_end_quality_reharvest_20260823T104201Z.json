@@ -1,0 +1,530 @@
+{
+  "schema_version": 1,
+  "subject": "g15_m_a_dual_end_quality_reharvest",
+  "symbolic_gate_key": "g15.p0.m_a.dual_end_quality_reharvest",
+  "matrix_row": "M-a",
+  "milestone": "M-a",
+  "assertion_id": "g15.p0.m_a.dual_end_quality_reharvest",
+  "status": "fail",
+  "wave": "G15.2",
+  "numeric_step": 269,
+  "source_ref": "G15_CONTRACT §4.2 M-a/G-G15-3;G15_ACCEPTANCE_MAP §1 M-a;G14PLUS_RECORD §6.3 G15 承接锚;RXS-0391 IR2（gaplib 正典同族）/RXS-0392 不拟合/P-09 程序产阈禁手写;G14 M-a 双程序产面取严口径继承",
+  "base_commit": "c944569ffb0dcddc910634088359f6140c63f995",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "upstream_m_c_fresh_pass": true,
+    "upstream_m_d_fresh_pass": true,
+    "upstream_m163_fresh_pass": true,
+    "parity_contracts_and_registries_0byte": true,
+    "frozen_gap_id_closed_set_match": true,
+    "disposition_table_20_rows_zero_empty": true,
+    "fresh_measured_delta_traceable": true,
+    "direction_judgments_consistent": true,
+    "ue_variance_band_program_produced": true,
+    "ai_reading_baseline_18_cells": false,
+    "budget_entries_measured_appended": false,
+    "red_arm_missing_row_detected": true,
+    "red_arm_gap_id_tamper_detected": true,
+    "red_arm_direction_lie_detected": true,
+    "red_arm_stale_evidence_detected": true,
+    "red_arm_fresh_delta_missing_field_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g13_ue_upscale_parity_smoke.py --gate g13.p0.m_c.ue_upscale_parity（本波复跑，上游真跑面）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/g13_ue_lumen_gi_parity_smoke.py --gate g13.p0.m_d.ue_lumen_gi_parity（本波复跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/g12_ue_pt_parity_smoke.py --gate g12.p0.m163.ue_pt_parity（本波复跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "处置表装配 + 同族校验 + 落盘（20 行零空行，三冻结表 0-byte 只消费）",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "AI 读图基线臂 18 格 PNG 导出 + 结构代理断言",
+      "exit_code": 1
+    },
+    {
+      "seq": 6,
+      "command": "py -3 ci/budget_eval.py（g15_budget M-a 双条目入账后）",
+      "exit_code": 1
+    },
+    {
+      "seq": 7,
+      "command": "RED 臂 ×5（missing-row/gap-id-tamper/direction-lie/stale-evidence/fresh-delta-missing-field）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T104201Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g15.m_a.ue_variance_band_{upscale,lumen}_probe_rel（本门 fresh 带入 g15_budget）",
+    "measured_value": "方向判定汇总：converged=0 maintained=20 degraded=0；建议：closed-resolved=0 closed-caliber-registered=4 open-defer-G16+=16",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "容差 = g13_budget/g12_budget 标定条目双 seed 方差底 p100×2.0 程序产（禁手写 P-09）；UE 方差带 = gaplib 跨会话样本级联 ×2.0 与同会话探针带取 max（双程序产面取严）",
+    "evolution_register": "三冻结表 20 行终态 0-byte 只消费不回写；处置面另立 milestones/g15/g15_quality_gap_disposition.json（gap_id 逐字转引 + fresh measured_delta 可溯源）；AI 读图基线臂结构代理全格入 manifest；AI 画面审查逐格记录归 G15_CONTRACT §8.2 验收记录"
+  },
+  "notes": "wave_start=20260823T084242Z（本波启动锚；freshness 机核面）; 上游门 m_c: PASS（PASS（fresh ≥ 本波启动锚）；evidence=evidence/g13_m_c_ue_upscale_parity_20260823T084323Z.json）; 上游门 m_d: PASS（PASS（fresh ≥ 本波启动锚）；evidence=evidence/g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json）; 上游门 m163: PASS（PASS（fresh ≥ 本波启动锚）；evidence=evidence/g12_m163_ue_pt_parity_20260823T103107Z.json）; 三 parity 契约 + 三冻结登记表在树 == HEAD 逐字节（0-byte 门序维持）; 冻结行集装载 20 行（upscale 8 + lumen 2 + PT 10）; 处置表落盘 → milestones\\g15\\g15_quality_gap_disposition.json（20 行零空行）; UE 方差带程序产：upscale band_rel=0.00601379 lumen band_md=0.00101218；跨会话带抽样 fda2892b148edc2f|ssim_deficit_delta@cornell-box/t50/dlss_sr|a_value → 0.00000000; AI 读图基线臂：18 格 PNG → .tmp\\g15_m_a_preview（结构代理 18 格全绿=False）; RED 臂 missing_row: 有效; RED 臂 gap_id_tamper: 有效; RED 臂 direction_lie: 有效; RED 臂 stale_evidence: 有效; RED 臂 fresh_delta_missing_field: 有效; UE 方差带程序产面: upscale=0.00601379 lumen=0.00101218; AI 读图基线臂: 导出 18/18，问题 [\"bistro-interior/t50/dlss_sr 结构代理失败: ['histogram_max_share_lt_0p98']\", \"bistro-interior/t50/fsr_3_1_5 结构代理失败: ['histogram_max_share_lt_0p98']\", \"bistro-interior/t67/dlss_sr 结构代理失败: ['histogram_max_share_lt_0p98']\"]; g15_budget M-a 双条目入账/budget_eval 异常",
+  "parity": {
+    "wave_start": "20260823T084242Z",
+    "upstream_gates": [
+      {
+        "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+        "subject_prefix": "g13_m_c_ue_upscale_parity",
+        "evidence_path": "evidence/g13_m_c_ue_upscale_parity_20260823T084323Z.json",
+        "status": "PASS",
+        "detail": "PASS（fresh ≥ 本波启动锚）",
+        "timestamp": "20260823T084323Z"
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+        "subject_prefix": "g13_m_d_ue_lumen_gi_parity",
+        "evidence_path": "evidence/g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json",
+        "status": "PASS",
+        "detail": "PASS（fresh ≥ 本波启动锚）",
+        "timestamp": "20260823T102425Z"
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m163.ue_pt_parity",
+        "subject_prefix": "g12_m163_ue_pt_parity",
+        "evidence_path": "evidence/g12_m163_ue_pt_parity_20260823T103107Z.json",
+        "status": "PASS",
+        "detail": "PASS（fresh ≥ 本波启动锚）",
+        "timestamp": "20260823T103107Z"
+      }
+    ],
+    "disposition_file": "milestones/g15/g15_quality_gap_disposition.json",
+    "direction_counts": {
+      "converged": 0,
+      "maintained": 20,
+      "degraded": 0
+    },
+    "suggestion_counts": {
+      "closed-resolved": 0,
+      "closed-caliber-registered": 4,
+      "open-defer-G16+": 16
+    },
+    "ue_variance_bands": {
+      "upscale_probe_rel": 0.00601379,
+      "lumen_probe_rel": 0.00101218
+    },
+    "ai_reading_baseline_manifest": [
+      {
+        "cell": "cornell-box/t50/tsr_device",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t50_tsr_device.png",
+        "png_sha256": "sha256:87e82582b41b91d90874b253d41278e235c399bf4ddeb684fb90cd95dbd672bd",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier50\\tsr_device\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.08121988793944529,
+        "std_luma": 0.7128452935720037,
+        "histogram_occupied_bins": 33,
+        "histogram_max_bin_share": 0.5615615844726562,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t50/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t50_dlss_sr.png",
+        "png_sha256": "sha256:a2c48b33b7286964c8e3fa13ed8384aecfc2abdc8b529d9414685d5521e05599",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier50\\dlss_sr\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07842601055582904,
+        "std_luma": 0.707286695707599,
+        "histogram_occupied_bins": 36,
+        "histogram_max_bin_share": 0.5627212524414062,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t50/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t50_fsr_3_1_5.png",
+        "png_sha256": "sha256:4949f3b04ebccad34b0fd4facf9ddb2a2df9a81e77e04514b3757b243a7a1051",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier50\\fsr_3_1_5\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07879116874535602,
+        "std_luma": 0.6956529711186135,
+        "histogram_occupied_bins": 43,
+        "histogram_max_bin_share": 0.5590362548828125,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t67/tsr_device",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t67_tsr_device.png",
+        "png_sha256": "sha256:a2ab7290497ad9f1add455f5a7c8534531061a29fb51cd006e25d7916d217c55",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier67\\tsr_device\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.08028421237730143,
+        "std_luma": 0.7029580669315236,
+        "histogram_occupied_bins": 32,
+        "histogram_max_bin_share": 0.5597343444824219,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t67/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t67_dlss_sr.png",
+        "png_sha256": "sha256:46a96fa6dde46c06ffc78f10d5af14913be1c9b3ec7f887c62ff1662e48bd0bc",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier67\\dlss_sr\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07823658074732993,
+        "std_luma": 0.7142210079779034,
+        "histogram_occupied_bins": 29,
+        "histogram_max_bin_share": 0.5634346008300781,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t67/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t67_fsr_3_1_5.png",
+        "png_sha256": "sha256:8cd4b03f229eff63804091e8ca4e1553941e62acc453ad58865e1244e38e1c87",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier67\\fsr_3_1_5\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07750242043260568,
+        "std_luma": 0.6904101350990755,
+        "histogram_occupied_bins": 41,
+        "histogram_max_bin_share": 0.5610618591308594,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t100/tsr_device",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t100_tsr_device.png",
+        "png_sha256": "sha256:cad7c7f9647fb4a1040d2edcd1ab414783727f0a0b8a2e517a9a76061da16f11",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier100\\tsr_device\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.08077118278649235,
+        "std_luma": 0.7062914304594837,
+        "histogram_occupied_bins": 32,
+        "histogram_max_bin_share": 0.5592918395996094,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t100/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t100_dlss_sr.png",
+        "png_sha256": "sha256:11e401e211cca65ecd354e4a98f2324546782b8a4fc188cfd6c8ced4b2b4267c",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier100\\dlss_sr\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07921279898579336,
+        "std_luma": 0.71561639222717,
+        "histogram_occupied_bins": 24,
+        "histogram_max_bin_share": 0.564544677734375,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "cornell-box/t100/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/cornell-box_t100_fsr_3_1_5.png",
+        "png_sha256": "sha256:57b06b682eb70ed800600822a3b61a206c4df353d899bf0513db5a95744aee50",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\cornell-box\\tier100\\fsr_3_1_5\\converged.exr",
+        "width": 512,
+        "height": 512,
+        "mean_luma": 0.07991453552399756,
+        "std_luma": 0.7094720600677802,
+        "histogram_occupied_bins": 32,
+        "histogram_max_bin_share": 0.5630264282226562,
+        "flat_block_fraction": 0.078125,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "bistro-interior/t50/tsr_device",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t50_tsr_device.png",
+        "png_sha256": "sha256:a7ea8d98dfa54ba549e11a252abd8995fe38a18ea6097a9e557394d4ceae2f79",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier50\\tsr_device\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.1555707314053915,
+        "std_luma": 1.7768752616519303,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9049532214506173,
+        "flat_block_fraction": 0.0,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "bistro-interior/t50/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t50_dlss_sr.png",
+        "png_sha256": "sha256:5e8e7d0263acc9b2def9e7211b6798924be86f45f7d3b3db2b7418041a98705a",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier50\\dlss_sr\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009566236924894061,
+        "std_luma": 0.11423167066385896,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9892230902777778,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      },
+      {
+        "cell": "bistro-interior/t50/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t50_fsr_3_1_5.png",
+        "png_sha256": "sha256:99ed1b498221b9ef384de4a17d38c3578e9bf9079bf359a7ccd2b980ec3b21dc",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier50\\fsr_3_1_5\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009646617974074902,
+        "std_luma": 0.11191761714660842,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.98796875,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      },
+      {
+        "cell": "bistro-interior/t67/tsr_device",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t67_tsr_device.png",
+        "png_sha256": "sha256:1744c083949cca2d662e2f1790b1c79b088d5f2f998afb405fe80ec56a98f954",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier67\\tsr_device\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.15665935300528838,
+        "std_luma": 1.7728035874076649,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9039356674382716,
+        "flat_block_fraction": 0.0,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "bistro-interior/t67/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t67_dlss_sr.png",
+        "png_sha256": "sha256:7fa04099a07a641191a40f6afcc8a22bb6837beea14ef0cbc2c3fbf864255ceb",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier67\\dlss_sr\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009659573749081128,
+        "std_luma": 0.11633402011715009,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9893436535493827,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      },
+      {
+        "cell": "bistro-interior/t67/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t67_fsr_3_1_5.png",
+        "png_sha256": "sha256:ef1142901aaab434ae8d8c7b4340376eba3e6c2bf52be8cfb23ec60915db6eb7",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier67\\fsr_3_1_5\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009677176676053416,
+        "std_luma": 0.11260820897071996,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9882007137345679,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      },
+      {
+        "cell": "bistro-interior/t100/tsr_device",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t100_tsr_device.png",
+        "png_sha256": "sha256:584ba0ccdd67db02a1f05ef24f89a2ed8f6a29db2b3c38023d24736fb3be79dc",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier100\\tsr_device\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.15720583449587455,
+        "std_luma": 1.7889275435044913,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9036279899691358,
+        "flat_block_fraction": 0.0,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": true,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": true
+      },
+      {
+        "cell": "bistro-interior/t100/dlss_sr",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t100_dlss_sr.png",
+        "png_sha256": "sha256:39006094b434d625acc749502b6e647b4a641d3a8cb208f3e31d5920c235a816",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier100\\dlss_sr\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009816914620609745,
+        "std_luma": 0.12138393543225477,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.989356674382716,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      },
+      {
+        "cell": "bistro-interior/t100/fsr_3_1_5",
+        "png": ".tmp/g15_m_a_preview/bistro-interior_t100_fsr_3_1_5.png",
+        "png_sha256": "sha256:d91244521b832a7cbff2a27e9267e7d91fdb5bad2e020cc223b8eb60450c5fcc",
+        "source_exr": "K:\\rurix-ext\\g13-frames\\rurix_upscale\\bistro-interior\\tier100\\fsr_3_1_5\\converged.exr",
+        "width": 1920,
+        "height": 1080,
+        "mean_luma": 0.009747247614695701,
+        "std_luma": 0.1149789771709054,
+        "histogram_occupied_bins": 64,
+        "histogram_max_bin_share": 0.9885267168209877,
+        "flat_block_fraction": 0.109375,
+        "structural_proxies": {
+          "non_black": true,
+          "non_white": true,
+          "std_non_degenerate": true,
+          "histogram_occupied_ge_8": true,
+          "histogram_max_share_lt_0p98": false,
+          "flat_block_fraction_lt_0p95": true
+        },
+        "proxies_pass": false
+      }
+    ]
+  }
+}

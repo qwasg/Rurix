@@ -270,6 +270,10 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # G15.1 治理波结转条目（G14 门产 measured 逐字结转对照面）→ 同判读面复用。
         eval_g14_run_variance_band(entry)
         return
+    if eid.startswith("g15.m_a.ue_variance_band_"):
+        # G15.2 M-a 重收割复跑 fresh 带条目（本波门产 measured）→ 同判读面复用。
+        eval_g14_run_variance_band(entry)
+        return
     value = measured_value(entry)
     if value is None:
         return

@@ -44,6 +44,28 @@
       "threshold": 0.00279044,
       "evidence_file": "evidence/g14_m_a_band_lumen_20260823T033849Z.json",
       "measured_value": 0.00139522
+    },
+    {
+      "id": "g15.m_a.ue_variance_band_upscale_probe_rel",
+      "description": "G15.2 M-a 重收割复跑 M-c 门 UE 探针格（bistro-interior/tier67 末帧 HF share）运行间方差带 fresh 实测（门内三样本 max 两两相对差 ×2.0 程序产，禁手写 P-09；G14 M-a 双程序产面取严口径继承——跨会话样本级联带与同会话探针带取 max）；本条目 = fresh 带的回归守护阈（阈 = 带实测 ×2.0），标定程序 ci/g13_ue_upscale_parity_smoke.py 探针格段可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01202758,
+      "evidence_file": "evidence/g15_m_a_band_upscale_20260823T110103Z.json",
+      "measured_value": 0.00601379
+    },
+    {
+      "id": "g15.m_a.ue_variance_band_lumen_probe_rel",
+      "description": "G15.2 M-a 重收割复跑 M-d 门 UE 探针格（bistro-interior/lumen-on 末帧平均亮度）运行间方差带 fresh 实测（同口径 ×2.0 程序产）；回归守护阈 = 带实测 ×2.0；标定程序 ci/g13_ue_lumen_gi_parity_smoke.py 探针格段可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.00202436,
+      "evidence_file": "evidence/g15_m_a_band_lumen_20260823T110103Z.json",
+      "measured_value": 0.00101218
     }
   ],
   "counter_assertions": []

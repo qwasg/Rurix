@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g15mavar.measured_entry.v1",
+  "entry_id": "g15.m_a.ue_variance_band_upscale_probe_rel",
+  "results": {
+    "run_variance_band_rel": 0.00601379
+  },
+  "protocol": "G15.2 M-a 重收割复跑 M-c 门内 UE 探针格（bistro-interior/tier67 末帧 HF share）三样本运行间方差底 max 两两相对差 ×2.0 程序产（禁手写 P-09；G14 M-a 取严口径继承）",
+  "sample_manifest": {
+    "count": 3,
+    "digest": "sha256:a29ebf5e2df482177caf3c6a2b4b4eece3eac737185b3abcaba35863f843b6cf"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-mrq-arm",
+    "base_commit": "c944569ffb0dcddc910634088359f6140c63f995"
+  },
+  "timestamp": "20260823T104201Z"
+}
