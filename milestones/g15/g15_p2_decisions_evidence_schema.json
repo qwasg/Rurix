@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.6a P2 decisions evidence",
+  "description": "evidence/g15_p2_decisions_<UTC>.json。G15.6a P2/留档/未触发分项穷举决策门 g15.wave.6a.decisions（步骤 277，ci/g15_p2_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g15/G15_P2_DECISIONS.md v1.0——40 行冻结候选闭集全等（§1 G15 候选表 35 行终态裁决〔go 行兑现完结转 closed-go 留痕沿 G15.1 §5.5 范式，14 行 defer-to-G16+ 维持字面〕+ §2 期内新增 5 行〔G15-MA-F1 closed-caliber-registered 终态 / G15-MC-F1 UE 参照臂黑帧 open-defer-G16+ / G15-MD-F1 DLSS t100 格 open-defer-G16+ 承接锚字面 + G15plus 双延续波留痕行〕）、裁决枚举合法（go/closed-go/no-go/defer-to-G16+/strategic_override）、零空行（全列非空）、承接锚「重判条件 + 兜底」字面、defer 行必含 G16+ 重评窗、closed-go/go 行 evidence 义务；横向机核①与 G15_ACCEPTANCE_MAP §1 五 P0（M-a~M-e）互斥（P2 行 ID 不得命中字母行裸 token）②deferred.json 对账（RD-034~045 八条 open 0-byte + 零新 RD max=RD-045 + 本波零 G15.6a history 追加 + vs G15.0 base 只追加——RD-045 零检出维持 open 不关闭字面）③G15.1 候选决策表对账（§1 35 行 ID 在册 + 裁决迁移合法：candidate go→closed-go 兑现转留痕 / closed-go→closed-go 维持 / defer→defer 维持）④差距登记表对账（g15 处置/闭环双表 20 行 gap_id 闭集全等 + 三态 tally 0/4/16 重算 + open-defer 锚字面 + G15-MA-F1 定论在案 + g14 帧率表 1 行 gap_id 51a150cb4523e8b6 == 最新 G14 M-d unmet_count〔诚实红登记面一致〕+ g13 upscale 8 行/lumen 2 行/g12 pt 10 行终态 0-byte porcelain 空 + G15-MC-F1/G15-MD-F1 契约登记字面）。只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述；双未达标定盘面（商用收口 0/18 + 性能 17/18 单格环境事件面）如实登记不冒充。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_p2_decisions" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.wave.6a.decisions" },
+    "matrix_row": { "type": "string", "const": "G15.6a" },
+    "wave": { "type": "string", "const": "G15.6a" },
+    "numeric_step": { "type": "integer", "const": 277 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT G-G15-7;G15_P2_DECISIONS.md v1.0;G15_CANDIDATE_DECISIONS v1.0;G15_ACCEPTANCE_MAP §1;registry/deferred.json（RD-034~045 八条 open 0-byte）;g15_quality_gap_disposition/g15_gap_fix_closure_registry（20 行双表）;g14_fps_gap_registry（gap_id 51a150cb4523e8b6 门产登记行）;g13/g12 三表终态只消费不回写;G15_CONTRACT §8.1~§8.7"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 46,
+      "maxItems": 46,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.6a M-e regression_drift_guard evidence",
+  "description": "evidence/g15_m_e_regression_drift_guard_<UTC>.json。G15.6a P0 硬门 g15.p0.m_e.regression_drift_guard（步骤 278；G15_CONTRACT §4.2 M-e 行判据逐字/G-G15-8 联动；G15_ACCEPTANCE_MAP §1 M-e 行；同构 G14.5a M178 先例）：既有 84 门（G9 34 key + G10 14 key + G11 14 key + G12 9 key + G13 5 key + G14 8 key）最新 evidence 全绿只读汇总不遮蔽（聚合不遮蔽任一子断言 FAIL/SKIP/DEV_ENV_DEGRADE，行集全量入 evidence；G14 M-d 诚实红门面特判 = checks 全绿 ∧ status==fail ∧ unmet_count == g14_fps_gap_registry 行数〔1 行 gap_id 51a150cb4523e8b6〕——红面维持红登记不遮蔽不代绿，回归门判据 = 零降级机核）+ 触改面真跑抽检零降级（G15 期 src 触改面 = G15plus-II vendor_upscale.rs candidate-b 单文件：cargo test -p rurix-rt --features vendor-upscale --no-fail-fast 子进程真跑失败集 ⊆ 登记基线三面 + G14 M-c 门最新件复核画质锚带重算带内 + src 触改闭集机核）+ RD-045/M165 漂移监控登记（G15 全期复跑面确定性键族逐键读值 + 同型 digest 漂移检出计数/零检出字面 + FAIL 件 0-byte 在档 + flip-trace 诊断臂在树 + RD-045 open 维持——零检出维持 open 不关闭字面）+ G5~G14 closed 判据 0-byte（vs G15.0 ref f061487e committed diff 闭集 ⊆ {g14_budget.json / g14_ue_variance_samples.json / g14_fps_gap_registry.json}，工作树 porcelain 闭集空）。RED 四臂：既有门降级/聚合遮蔽/漂移检出未登记/诚实红冒充——注入必检出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "regression"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_m_e_regression_drift_guard" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_e.regression_drift_guard" },
+    "matrix_row": { "type": "string", "const": "M-e" },
+    "milestone": { "type": "string", "const": "M-e" },
+    "assertion_id": { "type": "string", "const": "g15.p0.m_e.regression_drift_guard" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G15.6a" },
+    "numeric_step": { "type": "integer", "const": 278 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT §4.2 M-e/G-G15-8;G15_ACCEPTANCE_MAP §1 M-e;G9 34 + G10 14 + G11 14 + G12 9 + G13 5 + G14 8 keys latest evidence read-only summary（G14 M-d 诚实红特判）;touched-face cargo test + quality anchor recheck zero-degrade;RD-045/M165 drift monitoring（G12-N13 承接）"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_upscale_trait_0byte",
+        "gates_84_zero_degrade",
+        "honest_red_faces_registered",
+        "touched_face_spot_zero_degrade",
+        "g5_g14_closed_surface_0byte",
+        "rd045_m165_drift_monitoring_registered",
+        "red_degraded_gate_detected",
+        "red_aggregate_masking_detected",
+        "red_drift_unregistered_detected",
+        "red_honest_red_masquerade_detected"
+      ],
+      "properties": {
+        "temporal_upscale_trait_0byte": { "type": "boolean" },
+        "gates_84_zero_degrade": { "type": "boolean" },
+        "honest_red_faces_registered": { "type": "boolean" },
+        "touched_face_spot_zero_degrade": { "type": "boolean" },
+        "g5_g14_closed_surface_0byte": { "type": "boolean" },
+        "rd045_m165_drift_monitoring_registered": { "type": "boolean" },
+        "red_degraded_gate_detected": { "type": "boolean" },
+        "red_aggregate_masking_detected": { "type": "boolean" },
+        "red_drift_unregistered_detected": { "type": "boolean" },
+        "red_honest_red_masquerade_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" },
+    "regression": {
+      "type": "object",
+      "required": ["gates_84", "honest_red_faces", "spot_reruns", "cargo_test", "session_started_utc", "drift_monitoring"],
+      "properties": {
+        "gates_84": {
+          "type": "array",
+          "minItems": 84,
+          "maxItems": 84,
+          "items": { "type": "object" }
+        },
+        "honest_red_faces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "spot_reruns": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "object" }
+        },
+        "cargo_test": { "type": "object" },
+        "session_started_utc": { "type": "string" },
+        "drift_monitoring": {
+          "type": "object",
+          "required": [
+            "checked_keys",
+            "drift_detected_count",
+            "drift_details",
+            "fail_evidence_retained",
+            "flip_trace_arm_present",
+            "rd045_open"
+          ],
+          "properties": {
+            "checked_keys": { "type": "array", "items": { "type": "string" } },
+            "drift_detected_count": { "type": "integer" },
+            "drift_details": { "type": "array", "items": { "type": "string" } },
+            "fail_evidence_retained": { "type": "boolean" },
+            "flip_trace_arm_present": { "type": "boolean" },
+            "rd045_open": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

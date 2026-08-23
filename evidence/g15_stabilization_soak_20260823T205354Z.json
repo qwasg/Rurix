@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "subject": "g15_stabilization_soak",
+  "symbolic_gate_key": "g15.wave.6a.soak",
+  "matrix_row": "G15.6a",
+  "wave": "G15.6a",
+  "numeric_step": 279,
+  "source_ref": "G15_CONTRACT G-G15-8;G15_ACCEPTANCE_MAP §7;G15 5 P0（M-a~M-e）最新 evidence 核验（M-d 诚实红特判）+ 聚合/决策门核验（wave5 红面特判同型）;画质/帧率链路连续复跑 soak ≥1800s（g14_3_pipeline_perf --bench 轮转 digest==冻结锚，G14.5a 继承）;budget_eval --strict;G5~G14 0-byte",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "base_commit": "6a0b25ea52a2473fe7cb762647611d2d6331f9b9",
+  "utc_date": "20260823",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g15.p0.m_a.dual_end_quality_reharvest",
+      "subject_prefix": "g15_m_a_dual_end_quality_reharvest",
+      "evidence_path": "evidence/g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T110103Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.p0.m_b.gap_fix_closure_loop",
+      "subject_prefix": "g15_m_b_gap_fix_closure_loop",
+      "evidence_path": "evidence/g15_m_b_gap_fix_closure_loop_20260823T121607Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T121607Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.p0.m_c.absolute_quality_final_review",
+      "subject_prefix": "g15_m_c_absolute_quality_final_review",
+      "evidence_path": "evidence/g15_m_c_absolute_quality_final_review_20260823T145400Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T145400Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.p0.m_d.perf_parity_zero_regression",
+      "subject_prefix": "g15_m_d_perf_parity_zero_regression",
+      "evidence_path": "evidence/g15_m_d_perf_parity_zero_regression_20260823T195859Z.json",
+      "status": "PASS",
+      "detail": "host_section_pass=False (要求 True); G15 M-d 诚实红门面特判合格（status=fail + 绿键 6 全真 + 红键 6 全假闭集 + 消费的 G14 M-d 复跑件 checks 全绿 ∧ status=fail ∧ unmet==1==登记表行数〔evidence/g14_m_d_dual_end_fps_parity_20260823T192244Z.json〕+ G15-MD-F1 承接锚在案——未达标如实登记不充绿亦不充降级）",
+      "timestamp": "20260823T195859Z",
+      "device_section_state": "fail",
+      "host_section_pass": false
+    },
+    {
+      "symbolic_gate_key": "g15.p0.m_e.regression_drift_guard",
+      "subject_prefix": "g15_m_e_regression_drift_guard",
+      "evidence_path": "evidence/g15_m_e_regression_drift_guard_20260823T204851Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T204851Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.wave.2.exit",
+      "subject_prefix": "g15_wave2_exit",
+      "evidence_path": "evidence/g15_wave2_exit_20260823T150508Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T150508Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.wave.3.exit",
+      "subject_prefix": "g15_wave3_exit",
+      "evidence_path": "evidence/g15_wave3_exit_20260823T150511Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T150511Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.wave.4.exit",
+      "subject_prefix": "g15_wave4_exit",
+      "evidence_path": "evidence/g15_wave4_exit_20260823T152122Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T152122Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g15.wave.5.exit",
+      "subject_prefix": "g15_wave5_exit",
+      "evidence_path": "evidence/g15_wave5_exit_20260823T195904Z.json",
+      "status": "PASS",
+      "detail": "wave5 诚实红聚合面合格（M-d 行 FAIL 镜像 + facts ④⑤ 绿 + 红 facts ['digest_anchor_zero_drift', 'legacy_closed_zero_src_change_and_namespace', 'm_d_gate_pass_red_arms_effective', 'rerun_real_and_18_cells_all_met'] ⊆ M-d 红同源闭集 + G15 M-d 诚实红结构链合格——红面如实登记不充绿不充降级；G15 M-d 诚实红门面特判合格（status=fail + 绿键 6 全真 + 红键 6 全假闭集 + 消费的 G14 M-d 复跑件 checks 全绿 ∧ status=fail ∧ unmet==1==登记表行数〔evidence/g14_m_d_dual_end_fps_parity_20260823T192244Z.json〕+ G15-MD-F1 承接锚在案——未达标如实登记不充绿亦不充降级））",
+      "timestamp": "20260823T195904Z"
+    },
+    {
+      "symbolic_gate_key": "g15.wave.6a.decisions",
+      "subject_prefix": "g15_p2_decisions",
+      "evidence_path": "evidence/g15_p2_decisions_20260823T204316Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T204316Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "regression_gates_zero_degrade",
+      "status": "PASS",
+      "detail": "5 P0 + 5 聚合/决策门最新 evidence 核验全合格（M-d/wave5 诚实红门面特判合格——回归腿零降级）"
+    },
+    {
+      "id": "honest_red_faces_registered",
+      "status": "PASS",
+      "detail": "红面登记完备：登记红面 == [g15_m_d, g15_wave5_exit]（如实登记不充绿不充降级）"
+    },
+    {
+      "id": "soak_dual_threshold",
+      "status": "PASS",
+      "detail": "iterations=59 seconds=1852.5 active=1852.5 outer=1852.5 sleep=0.0 failures=0 frames=9440 registries=59 subject='fps-parity-chain-soak'"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0   PASS ms1.counter.uc07_offline_golden_frames: PASS — 1 份 UC-07 离线 golden 端到端证据(要求 ≥1) / [budget_eval] PASS (253 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['milestones/g14/g14_budget.json', 'milestones/g14/g14_fps_gap_registry.json', 'milestones/g14/g14_ue_variance_samples.json']（允许面=['milestones/g14/g14_budget.json', 'milestones/g14/g14_fps_gap_registry.json', 'milestones/g14/g14_ue_variance_samples.json']）；工作树闭集=空"
+    },
+    {
+      "id": "date_anchor",
+      "status": "PASS",
+      "detail": "utc_date=20260823"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "regression_gates_zero_degrade": true,
+    "honest_red_faces_registered": true,
+    "soak_dual_threshold": true,
+    "soak_no_sleep_padding": true,
+    "budget_strict_pass": true,
+    "legacy_criteria_0byte": true,
+    "date_anchor_recorded": true
+  },
+  "soak": {
+    "soak_subject": "fps-parity-chain-soak",
+    "iterations": 59,
+    "seconds": 1852.513682126999,
+    "min_iterations": 3,
+    "min_seconds": 1800,
+    "active_chain_seconds": 1852.5111589431763,
+    "sleep_seconds": 0.0,
+    "outer_wall_seconds": 1852.5221989154816,
+    "failures": 0,
+    "bench_frames_measured": 9440,
+    "registry_assemblies": 59,
+    "backend_digest_anchors": {
+      "bistro-interior_t67_dlss_sr": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+      "bistro-interior_t67_fsr_3_1_5": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+      "bistro-interior_t67_tsr_device": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+      "cornell-box_t67_dlss_sr": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+      "cornell-box_t67_fsr_3_1_5": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+      "cornell-box_t67_tsr_device": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297"
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T205354Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G15.6a full soak；四腿 + G5~G14 既有判据 0-byte fact；诚实语义（沿 G14.5a/G13.5a 口径）：soak 墙钟=真实画质/帧率链路复跑实测（禁 sleep 充时，sleep_seconds 恒 0，active_chain_seconds 逐迭代计时求和，gate 外测墙钟交叉核验）；soak 载体=帧率对标链路二面（bench g14_3_pipeline_perf --bench 六组合轮转 canonical 协议 160 帧，receipt last_frame_digest == g14_3_stage_a_digest_anchor 冻结锚位级复现——跨迭代 digest 漂移即 M165 同型监控面检出，RD-045 零检出预期 → 登记表装配最新 G14 M-d evidence unmet_count 与在树 g14_fps_gap_registry.json 行集对账幂等复核）；M-d/wave5 诚实红门面特判（G14 closeout 先例同型字面：红面如实登记不充绿不充降级，soak 门 VERDICT 语义 = 回归腿零降级 + 红面登记完备）；subject=fps-parity-chain-soak 无 validation/device_lost 字面量 0 硬门（device 面归 5 P0 本体）"
+}

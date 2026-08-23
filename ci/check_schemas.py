@@ -823,6 +823,19 @@ def check_evidence_files() -> None:
     g15_wave5_exit_schema = load(
         ROOT / "milestones/g15/g15_wave5_exit_evidence_schema.json"
     )
+    # G15.6a/6b 收官波四前缀纯追加（重放幂等面）
+    g15_p2_decisions_schema = load(
+        ROOT / "milestones/g15/g15_p2_decisions_evidence_schema.json"
+    )
+    g15_m_e_regression_drift_guard_schema = load(
+        ROOT / "milestones/g15/g15_m_e_regression_drift_guard_evidence_schema.json"
+    )
+    g15_stabilization_soak_schema = load(
+        ROOT / "milestones/g15/g15_stabilization_soak_evidence_schema.json"
+    )
+    g15_wave6b_closeout_schema = load(
+        ROOT / "milestones/g15/g15_wave6b_closeout_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -2016,6 +2029,26 @@ def check_evidence_files() -> None:
     g15_wave5_exit_validator = (
         jsonschema.Draft7Validator(g15_wave5_exit_schema)
         if g15_wave5_exit_schema is not None
+        else None
+    )
+    g15_p2_decisions_validator = (
+        jsonschema.Draft7Validator(g15_p2_decisions_schema)
+        if g15_p2_decisions_schema is not None
+        else None
+    )
+    g15_m_e_regression_drift_guard_validator = (
+        jsonschema.Draft7Validator(g15_m_e_regression_drift_guard_schema)
+        if g15_m_e_regression_drift_guard_schema is not None
+        else None
+    )
+    g15_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g15_stabilization_soak_schema)
+        if g15_stabilization_soak_schema is not None
+        else None
+    )
+    g15_wave6b_closeout_validator = (
+        jsonschema.Draft7Validator(g15_wave6b_closeout_schema)
+        if g15_wave6b_closeout_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3915,6 +3948,31 @@ def check_evidence_files() -> None:
         ):
             # G15.5 波聚合门（步骤 276）→ required_gates 1 行 + 六 facts。
             validator = g15_wave5_exit_validator
+        elif (
+            f.name.startswith("g15_p2_decisions_")
+            and g15_p2_decisions_validator is not None
+        ):
+            # G15.6a P2 穷举决策门（步骤 277）→ 46 facts（40 行闭集 + 四横向机核）。
+            validator = g15_p2_decisions_validator
+        elif (
+            f.name.startswith("g15_m_e_regression_drift_guard_")
+            and g15_m_e_regression_drift_guard_validator is not None
+        ):
+            # G15.6a P0 硬门 M-e（步骤 278）→ checks 10 键闭集（84 门零降级/
+            # 诚实红登记/触改面抽检/closed 0-byte/RD-045 监控/RED 四臂）。
+            validator = g15_m_e_regression_drift_guard_validator
+        elif (
+            f.name.startswith("g15_stabilization_soak_")
+            and g15_stabilization_soak_validator is not None
+        ):
+            # G15.6a soak 聚合门（步骤 279）→ required_gates 10 行 + 六 facts + soak 块。
+            validator = g15_stabilization_soak_validator
+        elif (
+            f.name.startswith("g15_wave6b_closeout_")
+            and g15_wave6b_closeout_validator is not None
+        ):
+            # G15.6b closeout 终审门（步骤 280）→ required_gates 10 行 + 八 facts + verdict。
+            validator = g15_wave6b_closeout_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None

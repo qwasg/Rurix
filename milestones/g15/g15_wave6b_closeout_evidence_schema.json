@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.6b closeout evidence",
+  "description": "evidence/g15_wave6b_closeout_<UTC>.json。G15.6b close-out 终审 g15.wave.6b.closeout（步骤 280；G15_CONTRACT G-G15-9；同构 G14.5b 先例）：只读汇总八 facts——①5 P0 key（M-a~M-e）逐门 PASS（M-d 诚实红门面特判 = G15 M-d status==fail ∧ 绿键 6 全真 ∧ 红键 6 全假闭集 ∧ 消费的 G14 M-d 复跑件 checks 全绿 ∧ status==fail ∧ unmet_count == g14_fps_gap_registry 行数〔1 行 gap_id 51a150cb4523e8b6〕∧ G15-MD-F1 承接锚在案，未达标如实登记不充绿亦不充降级）②wave2/3/4/5 exit + wave6a decisions 五聚合/决策门全 PASS（wave5 红面特判同型）③MAP 双向 exit=0 ④P2 40 行闭集最终状态无漂移 ⑤budget --strict 非空零 estimated/skip ⑥6a full-run 先行（base_commit_6a 留痕，同日放行沿 G14 立项裁决先例）⑦RD 最终状态逐字一致（RD-034~045 八条 open——RD-045 零检出维持 open 不关闭字面）⑧双未达标终审定盘（商用收口 0/18 画质面 + 性能 17/18 单格环境事件面——如实登记不冒充 + G16+ 承接锚三面齐备〔GI 表达面 + UE 参照臂修复 / DLSS NGX 版本与宿主车道 / 绝对画质 deficit 收口〕，用户 2026-08-19 授权面逐字承接，性能零降级守护面终态锁定）+ 最后新绿 UTC 日留痕。VERDICT=READY|BLOCKED；status flip 独立 commit。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "verdict",
+    "utc_date",
+    "last_new_green_utc_date",
+    "base_commit_6a",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_wave6b_closeout" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.wave.6b.closeout" },
+    "matrix_row": { "type": "string", "const": "G15.6b" },
+    "wave": { "type": "string", "const": "G15.6b" },
+    "numeric_step": { "type": "integer", "const": 280 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT G-G15-9;G15_ACCEPTANCE_MAP §7;5 P0（M-d 诚实红特判）+ wave2/3/4/5/6a 聚合/决策（wave5 红面特判同型）+ MAP 双向 + P2 40 行闭集 + budget --strict + 6a 先行（同日放行沿 G14 立项裁决先例）+ RD 最终状态逐字一致（八条 open——RD-045 零检出维持 open 不关闭）+ 双未达标终审定盘（商用收口 0/18 画质面 + 性能 17/18 单格环境事件面——如实登记不冒充 + G16+ 承接锚三面齐备）"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "verdict": { "type": "string", "enum": ["READY", "BLOCKED"] },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "last_new_green_utc_date": { "type": ["string", "null"] },
+    "base_commit_6a": { "type": ["string", "null"] },
+    "required_gates": { "type": "array", "minItems": 10, "maxItems": 10 },
+    "extra_facts": { "type": "array", "minItems": 8, "maxItems": 8 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "five_p0_pass",
+        "wave_gates_pass",
+        "acceptance_map_ok",
+        "p2_ok",
+        "budget_strict_ok",
+        "soak_6a_ok",
+        "rd_final_state_ok",
+        "dual_unmet_finalized"
+      ],
+      "properties": {
+        "five_p0_pass": { "type": "boolean" },
+        "wave_gates_pass": { "type": "boolean" },
+        "acceptance_map_ok": { "type": "boolean" },
+        "p2_ok": { "type": "boolean" },
+        "budget_strict_ok": { "type": "boolean" },
+        "soak_6a_ok": { "type": "boolean" },
+        "rd_final_state_ok": { "type": "boolean" },
+        "dual_unmet_finalized": { "type": "boolean" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

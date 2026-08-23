@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.6a stabilization soak evidence",
+  "description": "evidence/g15_stabilization_soak_<UTC>.json。G15.6a 稳定门 g15.wave.6a.soak（步骤 279；G15_CONTRACT G-G15-8；G15_ACCEPTANCE_MAP §7；同构 G14.5a 先例）：四腿——①全量回归（G15 5 P0 M-a~M-e 逐门最新 evidence 核验〔wel 口径 + 顶层 status==pass 字面〕+ wave2/3/4/5 exit + wave6a decisions 五聚合/决策门核验；M-d 诚实红门面特判 = G15 M-d status==fail ∧ 绿键 6 全真 ∧ 红键 6 全假闭集 ∧ 消费的 G14 M-d 复跑件 checks 全绿 ∧ status==fail ∧ unmet_count == g14_fps_gap_registry 行数〔1 行 gap_id 51a150cb4523e8b6〕∧ G15-MD-F1 承接锚在案；wave5 红面特判同型 = M-d 行 FAIL 镜像 + facts ④⑤ 绿 + 红 facts ⊆ M-d 红同源闭集——红面如实登记不充绿不充降级，soak 门 VERDICT 语义 = 回归腿零降级 + 红面登记完备）②画质/帧率链路连续复跑 soak ≥1800s（g14_3_pipeline_perf --bench 六组合轮转 canonical 协议 160 帧，last_frame_digest == g14_3_stage_a_digest_anchor 冻结锚位级复现——RD-045 零检出预期 + 登记表装配幂等复核；零 sleep，active≈wall 双字段 + 外测墙钟交叉核验）③budget_eval --strict 非空零 estimated/skip ④日期锚 + G5~G14 既有判据 0-byte（vs G15.0 ref f061487e committed diff 闭集 ⊆ {g14_budget.json / g14_ue_variance_samples.json / g14_fps_gap_registry.json}，工作树闭集空）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "base_commit",
+    "utc_date",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "soak",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_stabilization_soak" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.wave.6a.soak" },
+    "matrix_row": { "type": "string", "const": "G15.6a" },
+    "wave": { "type": "string", "const": "G15.6a" },
+    "numeric_step": { "type": "integer", "const": 279 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT G-G15-8;G15_ACCEPTANCE_MAP §7;G15 5 P0（M-a~M-e）最新 evidence 核验（M-d 诚实红特判）+ 聚合/决策门核验（wave5 红面特判同型）;画质/帧率链路连续复跑 soak ≥1800s（g14_3_pipeline_perf --bench 轮转 digest==冻结锚，G14.5a 继承）;budget_eval --strict;G5~G14 0-byte"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "utc_date": { "type": "string", "pattern": "^[0-9]{8}$" },
+    "required_gates": { "type": "array", "minItems": 10, "maxItems": 10 },
+    "extra_facts": { "type": "array", "minItems": 6, "maxItems": 6 },
+    "subjects": { "type": "array" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "regression_gates_zero_degrade",
+        "honest_red_faces_registered",
+        "soak_dual_threshold",
+        "soak_no_sleep_padding",
+        "budget_strict_pass",
+        "legacy_criteria_0byte",
+        "date_anchor_recorded"
+      ],
+      "properties": {
+        "regression_gates_zero_degrade": { "type": "boolean" },
+        "honest_red_faces_registered": { "type": "boolean" },
+        "soak_dual_threshold": { "type": "boolean" },
+        "soak_no_sleep_padding": { "type": "boolean" },
+        "budget_strict_pass": { "type": "boolean" },
+        "legacy_criteria_0byte": { "type": "boolean" },
+        "date_anchor_recorded": { "type": "boolean" }
+      }
+    },
+    "soak": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations",
+        "seconds",
+        "min_iterations",
+        "min_seconds",
+        "soak_subject",
+        "active_chain_seconds",
+        "sleep_seconds",
+        "outer_wall_seconds",
+        "failures",
+        "bench_frames_measured",
+        "registry_assemblies",
+        "backend_digest_anchors"
+      ],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 0 },
+        "seconds": { "type": "number", "minimum": 0 },
+        "min_iterations": { "type": "integer", "const": 3 },
+        "min_seconds": { "type": "integer", "const": 1800 },
+        "soak_subject": { "type": "string", "const": "fps-parity-chain-soak" },
+        "active_chain_seconds": { "type": "number", "minimum": 0 },
+        "sleep_seconds": { "type": "number", "const": 0 },
+        "outer_wall_seconds": { "type": "number", "minimum": 0 },
+        "failures": { "type": "integer", "minimum": 0 },
+        "bench_frames_measured": { "type": "integer", "minimum": 0 },
+        "registry_assemblies": { "type": "integer", "minimum": 0 },
+        "backend_digest_anchors": { "type": "object" }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

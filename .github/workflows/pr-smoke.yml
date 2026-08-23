@@ -3335,6 +3335,71 @@ jobs:
         shell: powershell
         run: py -3 ci/g15_wave5_exit_check.py --gate g15.wave.5.exit
 
+      # 步骤 277（G15.6a P2 穷举决策门 g15.wave.6a.decisions；G15_CONTRACT G-G15-7；
+      # 落盘前实测 CI_step.next_free=277 顺位领取）。40 行闭集全等（§1 G15 候选表
+      # 35 行终态裁决〔go 行兑现完结转 closed-go 留痕沿 G15.1 §5.5 范式，14 行
+      # defer-to-G16+ 维持字面〕+ §2 期内新增 5 行〔G15-MA-F1/G15-MC-F1/G15-MD-F1
+      # + G15plus 双延续波留痕〕）+ 裁决枚举合法 + 零空行 + 承接锚纪律 + 四横向
+      # 机核（MAP 互斥/deferred 对账〔八条 open 0-byte、零新 RD、RD-045 零检出
+      # 维持 open 不关闭〕/候选表迁移对账/差距登记表对账）。evidence 落盘
+      # evidence/g15_p2_decisions_<UTC>.json。
+      - name: G15.6a P2 exhaustive decisions (G15_CONTRACT G-G15-7, g15.wave.6a.decisions)
+        shell: powershell
+        run: py -3 ci/g15_p2_decisions_check.py --gate g15.wave.6a.decisions
+
+      # 步骤 278（G15.6a P0 硬门 M-e g15.p0.m_e.regression_drift_guard；
+      # G15_CONTRACT §4.2 M-e/G-G15-8 联动；落盘前实测 CI_step.next_free=278 顺位
+      # 领取）。既有 84 门（G9 34 + G10 14 + G11 14 + G12 9 + G13 5 + G14 8）最新
+      # evidence 全绿只读汇总不遮蔽（G14 M-d 诚实红门面特判 = checks 全绿 ∧
+      # status==fail ∧ unmet==g14_fps_gap_registry 行数——红面维持红登记不遮蔽
+      # 不代绿，回归门判据 = 零降级机核）+ 触改面真跑抽检零降级（G15plus-II
+      # candidate-b 单文件：cargo test -p rurix-rt --features vendor-upscale
+      # --no-fail-fast 失败集 ⊆ 登记基线 + G14 M-c 最新件复核画质锚带重算带内）
+      # + RD-045/M165 漂移监控登记（G15 全期复跑面确定性键族零检出字面）+
+      # G5~G14 closed 判据 0-byte + RED 四臂。evidence 落盘
+      # evidence/g15_m_e_regression_drift_guard_<UTC>.json。
+      - name: G15.6a M-e regression + drift guard (G15_CONTRACT §4.2 M-e, g15.p0.m_e.regression_drift_guard)
+        shell: powershell
+        run: py -3 ci/g15_regression_drift_guard_smoke.py --gate g15.p0.m_e.regression_drift_guard
+
+      # 步骤 279（G15.6a stabilization soak 聚合门 g15.wave.6a.soak；G15_CONTRACT
+      # G-G15-8；落盘前实测 CI_step.next_free=279 顺位领取）。pr-smoke 侧 =
+      # --verify-latest 秒级核最新 full-run evidence（schema + checks 七键 +
+      # soak 判读面复核）；full-run 本地/workflow_dispatch 产 evidence。四腿：
+      # ①全量回归（G15 5 P0 = M-a~M-e 逐门最新 evidence 核验 + wave2/3/4/5 exit
+      # + wave6a decisions 五聚合/决策门核验——M-d/wave5 诚实红门面特判同 G14
+      # closeout 先例字面：红面如实登记不充绿不充降级，soak 门 VERDICT 语义 =
+      # 回归腿零降级 + 红面登记完备）②画质/帧率链路连续复跑 soak ≥1800s
+      # （g14_3_pipeline_perf --bench 六组合轮转 canonical 协议 160 帧，
+      # last_frame_digest == 冻结锚位级复现——RD-045 零检出预期 + 登记表装配
+      # 幂等复核，零 sleep）③budget_eval --strict 非空零 estimated/skip
+      # ④日期锚 + G5~G14 既有判据 0-byte。evidence 落盘
+      # evidence/g15_stabilization_soak_<UTC>.json。
+      - name: G15.6a stabilization soak verify-latest (G15_CONTRACT G-G15-8, g15.wave.6a.soak)
+        shell: powershell
+        run: py -3 ci/g15_stabilization_soak.py --verify-latest
+
+      # 步骤 280（G15.6b close-out 终审门 g15.wave.6b.closeout；G15_CONTRACT
+      # G-G15-9；落盘前实测 CI_step.next_free=280 顺位领取）。host 只读终审门
+      # （不重跑子门 smoke、不设 RURIX_REQUIRE_REAL）八 facts：①5 P0 key
+      # （M-a~M-e）逐门 PASS（M-d 诚实红门面特判 = G15 M-d status==fail ∧ 绿键
+      # 6 全真 ∧ 红键 6 全假闭集 ∧ 消费的 G14 M-d 复跑件 checks 全绿 ∧
+      # status==fail ∧ unmet==帧率表行数 ∧ G15-MD-F1 承接锚在案——未达标如实
+      # 登记不充绿亦不充降级）②wave2/3/4/5 exit + wave6a decisions 五聚合/决策
+      # 门全 PASS（wave5 红面特判同型）③MAP 双向 exit=0 ④P2 表 40 行闭集最终
+      # 状态无漂移 ⑤budget_eval --strict 非空零 estimated/skip ⑥6a full-run
+      # 先行（base_commit_6a 留痕；同日放行沿 G14 立项裁决先例）⑦RD 最终状态
+      # 逐字一致（RD-034~045 八条 open——RD-045 零检出维持 open 不关闭）⑧双
+      # 未达标终审定盘（商用收口 0/18 画质面 + 性能 17/18 单格环境事件面——
+      # 如实登记不冒充 + G16+ 承接锚三面齐备〔GI 表达面 + UE 参照臂修复 /
+      # DLSS NGX 版本与宿主车道 / 绝对画质 deficit 收口〕，用户 2026-08-19
+      # 授权面逐字承接，性能零降级守护面终态锁定）+ 最后新绿 UTC 日留痕。
+      # VERDICT=READY|BLOCKED；status flip 独立 commit。evidence 落盘
+      # evidence/g15_wave6b_closeout_<UTC>.json。
+      - name: G15.6b closeout check (G15_CONTRACT G-G15-9, g15.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g15_closeout_check.py --gate g15.wave.6b.closeout
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
