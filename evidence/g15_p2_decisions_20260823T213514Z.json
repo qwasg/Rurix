@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "subject": "g15_p2_decisions",
+  "symbolic_gate_key": "g15.wave.6a.decisions",
+  "matrix_row": "G15.6a",
+  "wave": "G15.6a",
+  "numeric_step": 277,
+  "source_ref": "G15_CONTRACT G-G15-7;G15_P2_DECISIONS.md v1.0;G15_CANDIDATE_DECISIONS v1.0;G15_ACCEPTANCE_MAP §1;registry/deferred.json（RD-034~045 八条 open 0-byte）;g15_quality_gap_disposition/g15_gap_fix_closure_registry（20 行双表）;g14_fps_gap_registry（gap_id 51a150cb4523e8b6 门产登记行）;g13/g12 三表终态只消费不回写;G15_CONTRACT §8.1~§8.7",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_frozen",
+      "status": "PASS",
+      "detail": "got n=40 unique=40; expect frozen 40"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 维持未命中）"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 未齐备维持）"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 非独立期维持）"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 数据面不交集维持）"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 未出现维持）"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 无评估窗维持）"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 未出现维持）"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = benchmark/窗口双臂维持）"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 未消费维持）"
+    },
+    {
+      "id": "row_G11-N5",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 未齐备维持）"
+    },
+    {
+      "id": "row_G13-N7",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15 全期窗结论 = 不立项维持）"
+    },
+    {
+      "id": "row_G11-N3",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-a/M-c 承载面真跑绿转留痕）"
+    },
+    {
+      "id": "row_G11-N8",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-b 材质链表达面立项评估程序兑现，结论 = 未命中如实登记）"
+    },
+    {
+      "id": "row_G11-N9",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-b 材质链表达面立项评估程序兑现，结论 = 未命中如实登记）"
+    },
+    {
+      "id": "row_G12-N10",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-b 材质链表达面立项评估程序兑现，结论 = 未命中如实登记）"
+    },
+    {
+      "id": "row_G12-N12",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-a 逐项重评 + M-b 三态处置兑现）"
+    },
+    {
+      "id": "row_G12-N13",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-e 门漂移监控臂承载，G15 全期复跑面零检出登记完结，条目维持 open 不关闭）"
+    },
+    {
+      "id": "row_G13-N8",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-a 逐项重评 + M-b 三态处置兑现）"
+    },
+    {
+      "id": "row_G13-N9",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-a 逐项重评 + M-b 三态处置兑现）"
+    },
+    {
+      "id": "row_G14-N8",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持——G15.5 环境事件新事实归 §2 G15-MD-F1 行承接，本行 0-byte 不回翻）"
+    },
+    {
+      "id": "row_G14-N9",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持）"
+    },
+    {
+      "id": "row_G14-N10",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持）"
+    },
+    {
+      "id": "row_G14-N11",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持）"
+    },
+    {
+      "id": "row_G14-N12",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持）"
+    },
+    {
+      "id": "row_G14-N13",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持——条件波因 18/18 达标不再立项登记维持）"
+    },
+    {
+      "id": "row_G14-N14",
+      "status": "PASS",
+      "detail": "closed-go（G14plus 窗兑现完结留痕维持——条件波因 18/18 达标不再立项登记维持）"
+    },
+    {
+      "id": "row_G15-N1",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-c 承载面真跑绿转留痕）"
+    },
+    {
+      "id": "row_G15-N2",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-a 基线臂 + M-c 终审承载面真跑绿转留痕）"
+    },
+    {
+      "id": "row_G15-N3",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-b 承载面真跑绿转留痕，结论 = 未命中如实登记）"
+    },
+    {
+      "id": "row_G15-N4",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-c 承载面真跑绿转留痕，判定 = 未达标 0/18 如实定盘不冒充）"
+    },
+    {
+      "id": "row_G15-N5",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-b 承载面真跑绿转留痕）"
+    },
+    {
+      "id": "row_G15-N6",
+      "status": "PASS",
+      "detail": "closed-go（G15 期窗兑现完结——M-d 守护门真跑兑现转留痕，结果 = 17/18 诚实红如实登记不冒充）"
+    },
+    {
+      "id": "row_G15-MA-F1",
+      "status": "PASS",
+      "detail": "closed-go（G15.3 M-b 定论登记完结——closed-caliber-registered 终态，RXS-0392 口径差显式登记不拟合）"
+    },
+    {
+      "id": "row_G15-MC-F1",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15.6a 窗结论 = 测量链缺陷如实登记，UE 参照臂修复归 G16+）"
+    },
+    {
+      "id": "row_G15-MD-F1",
+      "status": "PASS",
+      "detail": "defer-to-G16+（G15.6a 窗结论 = 单格环境事件面如实登记不冒充，四轮全协议复跑 17/18 定盘维持）"
+    },
+    {
+      "id": "row_G15PLUS-W1",
+      "status": "PASS",
+      "detail": "closed-go（G15.6a 定盘——延续波诊断/攻坚程序兑现完结留痕，定论归 G15-MD-F1 行承接）"
+    },
+    {
+      "id": "row_G15PLUS-W2",
+      "status": "PASS",
+      "detail": "closed-go（G15.6a 定盘——NGX 深潜/候选 b 落地程序兑现完结留痕，定论归 G15-MD-F1 行承接）"
+    },
+    {
+      "id": "acceptance_map_mutex",
+      "status": "PASS",
+      "detail": "MAP §1 P0 行=5（expect 5）；P2 表命中字母行裸 token: 无"
+    },
+    {
+      "id": "deferred_history_reconcile",
+      "status": "PASS",
+      "detail": "RD-034~045 八条 open 0-byte + 零新 RD（max=RD-045）+ 本波零追加 + vs G15.0 base 只追加（RD-045 零检出维持 open 不关闭字面）"
+    },
+    {
+      "id": "candidate_decisions_reconcile",
+      "status": "PASS",
+      "detail": "承接行对账 n=35/35（candidate go→closed-go 兑现转留痕 / closed-go→closed-go 维持 / defer→defer 维持字面）"
+    },
+    {
+      "id": "gap_registries_reconcile",
+      "status": "PASS",
+      "detail": "G15 处置/闭环双表 20 行 gap_id 闭集全等 + 三态 tally 0/4/16 重算一致 + open-defer 锚字面 + G15-MA-F1 定论在案; g14 帧率表 1 行（51a150cb4523e8b6）== 最新 G14 M-d unmet_count=1（诚实红登记面一致）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T213514Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G15.6a P2/留档/未触发分项穷举决策（40 行闭集：closed-go 24 + defer-to-G16+ 16，go/no-go/strategic_override 0；维持 open 8 行 RD 映射不重复计入）；defer 必有承接锚（重判条件+兜底+G16+ 重评窗）；与 MAP §1 五 P0 互斥；deferred.json 对账（八条 open 0-byte、零新 RD max=RD-045、本波零追加、vs G15.0 base 只追加——RD-045 零检出维持 open 不关闭字面）；G15.1 候选决策表 35 行承接对账（go→closed-go 兑现转留痕 G15.1 §5.5 范式）；G15 处置/闭环双表 20 行三态 tally 0/4/16 重算 + g14 帧率表 1 行 == 最新 G14 M-d unmet_count（诚实红登记面一致）+ g13/g12 三表终态 0-byte + G15-MA-F1/G15-MC-F1/G15-MD-F1 登记字面在案；双未达标定盘面（商用收口 0/18 + 性能 17/18 单格环境事件面）如实登记不冒充 + G16+ 承接锚三面齐备；no-go/defer 如实保持 open 不写进全绿叙述"
+}
