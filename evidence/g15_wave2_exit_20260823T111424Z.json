@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g15_wave2_exit",
+  "symbolic_gate_key": "g15.wave.2.exit",
+  "matrix_row": "G15.2",
+  "wave": "G15.2",
+  "numeric_step": 270,
+  "source_ref": "G15_CONTRACT G-G15-3/§2.2;G15_ACCEPTANCE_MAP §1;M-a gate red arms independently effective;upstream three gates fresh PASS;three frozen registries 0-byte;disposition table 20 rows zero-empty;g15_budget entries measured_local;G5~G14 closed 0-byte closed-set diff vs G15.0 ref",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g15.p0.m_a.dual_end_quality_reharvest",
+      "subject_prefix": "g15_m_a_dual_end_quality_reharvest",
+      "evidence_path": "evidence/g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T110103Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "upstream_three_gates_fresh_pass",
+      "status": "PASS",
+      "detail": "上游三门 fresh 全 PASS（wave_start=20260823T084242Z；复跑件 timestamp ≥ 本波启动锚）"
+    },
+    {
+      "id": "frozen_contracts_and_registries_0byte",
+      "status": "PASS",
+      "detail": "三 parity 契约 + 三冻结登记表在树 == HEAD 逐字节（8+2+10 行终态 0-byte 只消费不回写）"
+    },
+    {
+      "id": "m_a_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M-a 最新 evidence red 面 checks 全真（5 臂独立有效）"
+    },
+    {
+      "id": "disposition_table_20_rows_zero_empty",
+      "status": "PASS",
+      "detail": "处置表 20 行零空行 + gap_id 闭集逐字对账 + 方向判定交叉核验重算全绿"
+    },
+    {
+      "id": "budget_entries_measured",
+      "status": "PASS",
+      "detail": "g15_budget 五条目齐备 measured_local 零 estimated + budget_eval 全 PASS（P-09）"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['milestones/g14/g14_budget.json', 'milestones/g14/g14_ue_variance_samples.json']（允许面=['milestones/g14/g14_budget.json', 'milestones/g14/g14_ue_variance_samples.json']）；工作树闭集=空"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T111424Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G15.2 M-a dual-end quality reharvest (step 269) — upstream three gates fresh rerun consumed + 20-row disposition + UE variance bands + AI reading baseline arm; aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: upstream fresh PASS + frozen 0-byte + M-a red arms + disposition 20 rows + g15_budget measured + legacy 0-byte; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}
