@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.1 acceptance map check evidence",
+  "description": "evidence/g15_acceptance_map_check_<UTC>.json。G15.1 治理门 g15.wave.1.acceptance_map（ci/g15_acceptance_map_check.py 写；普通检查门非聚合门，required_gates 空）：核验 milestones/g15/G15_ACCEPTANCE_MAP.md v1.0——§1 五行 P0 闭集全等（{M-a 双端画质对拍链路全量复跑+20 行登记表逐项重评+G15 差距处置表落盘+UE 方差带程序产+AI 读图基线臂 / M-b measured 主差修复闭环逐项处置三态穷举+材质链表达面立项评估结论登记 / M-c 绝对画质通过线程序产标定+18 格逐格 AI 读图严格画面审查+商用收口判定 / M-d 性能零降级守护（G14 M-d 同口径复跑 18 格 ×1.00 维持+画质锚带复核）/ M-e 回归门+RD-045/M165 漂移监控}）+ §2 零 go P1 空集 + key/脚本/schema 单一命名空间同 slug（g15.p0.m_<a~e>.<slug> + ci/g15_<slug>_smoke.py + g15_m_<a~e>_<slug>_evidence_schema.json）+ numeric_step 全列 post-interlock actual-next-free allocation 字面零预占 + 零空行/占位 + MAP §1 ↔ G15_CONTRACT §4.2 判据/波次双向逐字一致（G15 治理三件套无独立 CI_GATES，沿 G14 体例精简为双向）。只读文档，不代绿实现门；本门 PASS 只表示映射完整，不表示任何 P0 能力已实现。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_acceptance_map_check" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.wave.1.acceptance_map" },
+    "matrix_row": { "type": "string", "const": "G15.1" },
+    "wave": { "type": "string", "const": "G15.1" },
+    "numeric_step": { "type": "integer", "description": "post-materialize actual-next-free 回填" },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT G-G15-1/§4.2;G15_ACCEPTANCE_MAP.md §1/§2/§4/§5;G14PLUS_RECORD.md §6.3 G15 承接锚 + G14_P2_DECISIONS.md §5 defer-to-G15+ 29 行 + G13/G12 三表 20 行终态（G15 法定输入）P0 清单 M-a~M-e"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

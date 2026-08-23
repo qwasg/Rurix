@@ -3186,6 +3186,40 @@ jobs:
         shell: powershell
         run: py -3 ci/g14_continuation_closeout_smoke.py --verify-latest
 
+      # 步骤 266（G15.1 治理门 g15.wave.1.acceptance_map；G15_CONTRACT §4.3/
+      # G-G15-1；落盘前实测 CI_step.next_free=266 顺位领取）。验收映射核验：MAP §1
+      # 五行 P0 闭集全等 + 行面齐备（key/script/schema 路径/判据列）+ §2 零 go P1 +
+      # actual-next-free allocation 字面零预占 + MAP §1 ↔ G15_CONTRACT §4.2 双向
+      # 逐字一致（G15 治理三件套无独立 CI_GATES，沿 G13/G14 双向体例）。纯 host 治理
+      # 核验门，不代绿实现门；本门 PASS 只表示映射完整。evidence 落盘
+      # evidence/g15_acceptance_map_check_<UTC>.json。
+      - name: G15.1 acceptance map check (G15_CONTRACT §4.3.266, g15.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g15_acceptance_map_check.py --gate g15.wave.1.acceptance_map
+
+      # 步骤 267（G15.1 治理门 g15.wave.1.candidate_decisions；G15_CONTRACT §4.3/
+      # G-G15-1；落盘前实测 CI_step.next_free=267 顺位领取）。候选决策表 35 行闭集
+      # （§1 G14 defer-to-G15+ 29 行承接转引〔7 closed-go + 8 go + 14 defer-to-G16+〕
+      # + §2 open RD 8 行映射 + §3 G15 新增候选 6 行）+ 裁决枚举合法 + 零空行 +
+      # 承接锚纪律 + defer 行 G16+ 重评窗字面 + go 行验收映射锚义务 + RD 条目级
+      # status==open + 与 MAP 5 key 互斥。纯 host 治理核验门。
+      # evidence 落盘 evidence/g15_candidate_decisions_check_<UTC>.json。
+      - name: G15.1 candidate decisions check (G15_CONTRACT §4.3.267, g15.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g15_candidate_decisions_check.py --gate g15.wave.1.candidate_decisions
+
+      # 步骤 268（G15.1 治理门 g15.gov.implementation_interlock；G15_CONTRACT §4.3/
+      # G-G15-2；落盘前实测 CI_step.next_free=268 顺位领取）。实现互锁：事实门四项
+      # （G14 closed+§8.13 签署块+G15.0 不可变 ref 登记 / 决策表+deferred+MAP 三面 /
+      # 用户开工指令留痕「一次性完成G15里程碑」+workflow 末号一致 / 治理两门独立
+      # PASS）+ 一致性门 C1~C4（双状态诚实/§8 记录一致/数字步骤零预占/
+      # src-spec-conformance 治理期 0-byte）；closed 三态口径（status==closed →
+      # CLOSED）。诚实输出 BLOCKED/READY 均不充绿。
+      # evidence 落盘 evidence/g15_interlock_check_<UTC>.json。
+      - name: G15.1 implementation interlock (G15_CONTRACT §4.3.268, g15.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g15_interlock_check.py --gate g15.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

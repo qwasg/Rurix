@@ -784,6 +784,15 @@ def check_evidence_files() -> None:
     g14_interlock_check_schema = load(
         ROOT / "milestones/g14/g14_interlock_check_evidence_schema.json"
     )
+    g15_acceptance_map_check_schema = load(
+        ROOT / "milestones/g15/g15_acceptance_map_check_evidence_schema.json"
+    )
+    g15_candidate_decisions_check_schema = load(
+        ROOT / "milestones/g15/g15_candidate_decisions_check_evidence_schema.json"
+    )
+    g15_interlock_check_schema = load(
+        ROOT / "milestones/g15/g15_interlock_check_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -1912,6 +1921,21 @@ def check_evidence_files() -> None:
     g14_interlock_check_validator = (
         jsonschema.Draft7Validator(g14_interlock_check_schema)
         if g14_interlock_check_schema is not None
+        else None
+    )
+    g15_acceptance_map_check_validator = (
+        jsonschema.Draft7Validator(g15_acceptance_map_check_schema)
+        if g15_acceptance_map_check_schema is not None
+        else None
+    )
+    g15_candidate_decisions_check_validator = (
+        jsonschema.Draft7Validator(g15_candidate_decisions_check_schema)
+        if g15_candidate_decisions_check_schema is not None
+        else None
+    )
+    g15_interlock_check_validator = (
+        jsonschema.Draft7Validator(g15_interlock_check_schema)
+        if g15_interlock_check_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3722,6 +3746,27 @@ def check_evidence_files() -> None:
             # G14.1 治理门实现互锁（步骤 249）→
             # milestones/g14/g14_interlock_check_evidence_schema.json。
             validator = g14_interlock_check_validator
+        elif (
+            f.name.startswith("g15_acceptance_map_check_")
+            and g15_acceptance_map_check_validator is not None
+        ):
+            # G15.1 治理门验收映射核验（步骤 266）→
+            # milestones/g15/g15_acceptance_map_check_evidence_schema.json。
+            validator = g15_acceptance_map_check_validator
+        elif (
+            f.name.startswith("g15_candidate_decisions_check_")
+            and g15_candidate_decisions_check_validator is not None
+        ):
+            # G15.1 治理门候选决策核验（步骤 267）→
+            # milestones/g15/g15_candidate_decisions_check_evidence_schema.json。
+            validator = g15_candidate_decisions_check_validator
+        elif (
+            f.name.startswith("g15_interlock_check_")
+            and g15_interlock_check_validator is not None
+        ):
+            # G15.1 治理门实现互锁（步骤 268）→
+            # milestones/g15/g15_interlock_check_evidence_schema.json。
+            validator = g15_interlock_check_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None

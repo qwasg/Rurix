@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "namespace": "g15",
+  "_meta": {
+    "provenance": "Assisted-by: Kimi-K3（G15.1 治理波）",
+    "created_utc": "2026-08-23T08:00:00Z",
+    "base_commit": "34f96ac3"
+  },
+  "description": "G15 画质量级收口与商用终审期预算。G15.1 首批三条目 = G14 门产 measured 基线逐字结转（画质锚带守护 + UE 方差带双条目），作 G15 复跑对照与回归守护输入面。本预算只证明测量链路与守护带已登记，不断言任何画质/帧率达标——绝对画质通过线 = G-G15-5 契约面。前瞻预算项（M-a 重收割 / M-c 绝对通过线标定等）一律等后续实现波标定回填——无实测证据的阈值不写入（零 estimated 硬约束）；counter_assertions 留空。",
+  "source_docs": [
+    "milestones/g15/G15_CONTRACT.md",
+    "milestones/g15/G15_ACCEPTANCE_MAP.md"
+  ],
+  "entries": [
+    {
+      "id": "g15.quality_guard.g14_anchor_ssim_deficit_band",
+      "description": "G14.3 生产车道 vs G13.4 车道 cornell t67 tsr_device converged SSIM deficit 守护带（G14 门产 measured 逐字结转 = G15 画质修复零降级守护对照面；阈 = 首跑 measured deficit ×2.0 程序产禁手写 P-09；G15 M-d 门复核判据字面来源）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.010779849285388998,
+      "evidence_file": "evidence/g14_m_c_quality_anchor_20260819T203951Z.json",
+      "measured_value": 0.005389924642694499
+    },
+    {
+      "id": "g15.quality_guard.ue_variance_band_upscale_probe_rel",
+      "description": "M-c 门 UE 探针格（bistro-interior/tier67 末帧 HF share）运行间方差带回归守护阈（G14 M-a 门产 20260823T033849Z 逐字结转 = G15.2 重收割复跑对照面；阈 = 带实测 ×2.0 程序产禁手写 P-09；厂商随机方差吸收带，真实内容变更 ≫带 检出面维持）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.01579084,
+      "evidence_file": "evidence/g14_m_a_band_upscale_20260823T033849Z.json",
+      "measured_value": 0.00789542
+    },
+    {
+      "id": "g15.quality_guard.ue_variance_band_lumen_probe_rel",
+      "description": "M-d 门 UE 探针格（bistro-interior/lumen-on 末帧平均亮度）运行间方差带回归守护阈（G14 M-a 门产 20260823T033849Z 逐字结转 = G15.2 重收割复跑对照面；同口径 ×2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.00279044,
+      "evidence_file": "evidence/g14_m_a_band_lumen_20260823T033849Z.json",
+      "measured_value": 0.00139522
+    }
+  ],
+  "counter_assertions": []
+}
