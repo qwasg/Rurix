@@ -249,3 +249,54 @@ G-G15-2 三条件全齐（互锁 READY + 开工指令留痕 + 编号校准）→
   - **not-triggered / 维持 open 面**：M-d/M-e 未跑（后续波次面）；RD-034/039/040/041/042/043/044/045 八条 open 维持 0-byte；G14 defer 29 行承接锚 0-byte；G14 M-d 复跑义务 not-triggered（零 src 变更机核字面）；G15.6a 穷举面承接本波 G15-MC-F1 与 16 行 open-defer-G16+ 终态（承接锚字面在档）。
   - **异己并发工作树面**：本批只含 G15 车道文件（按文件名显式择取）；异己会话 src/ 未提交面（ktx2_read/hzb/restir/sdf_trace/smrt/ssr 等 untracked 面）维持未提交、零消费、零混入（立项裁决 3——wave4 fact⑥ 机核面把守：src/ tracked diff 空 + untracked ⊆ 异己登记六件闭集，越界即 FAIL）。
 - **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10~G14 §8.x 同模）。`Assisted-by: Kimi-K3（G15.4 绝对画质终审波）`（影响范围：spec-first 条款批 commit b2c58b7f〔spec/visual_comparison.md RXS-0407 + v1.8 修订行 + conformance 锚定三件 + traceability_matrix 双产物 + stable_api.snapshot + bless_log + ledger v1.155〕+ 门批〔ci/g15_absolute_quality_review_smoke.py + ci/g15_wave4_exit_check.py 新建 + milestones/g15 三 evidence schema 新建〔g15_m_c_absolute_quality_final_review_/g15_m_c_measured_entry_/g15_wave4_exit_〕+ milestones/g15/g15_m_c_ai_reading_records.json 首建 18 格 + g15_budget.json 四条目纯追加〔既有五条目 0-byte，44+/0−〕+ ci/check_schemas.py 九处纯追加 + ci/budget_eval.py g15.m_c.absolute_pass_line_ 分派支纯追加 + ci/g15_wave3_exit_check.py budget 条目数快照 5→9 加性校准〔同里程碑车道门期内修订沿 G14.6 先例〕+ pr-smoke.yml 步骤 273/274〔步骤 272 块后追加，273 = device 真跑门 --verify-latest 沿 M-h/soak 重门先例〕+ registry/number_ledger.json v1.156〔CI_step 272→274/next_free 275〕+ 本契约 §8.4 本条 + evidence 本批真跑件〔M-c 141249Z 起草 FAIL 留痕 + 145400Z PASS + 标定四条目件 + wave4 150418Z PASS + 自检负样本 FAIL 件 141206Z/141208Z + wave2/wave3 复跑 150508Z/150511Z + G14 M-e 复跑 150723Z PASS〕+ .tmp/g15_m_c_preview/ 20 格 PNG〔一次性预览面不入 commit〕；验证方式：块③逐字命令输出——M-c 门 18/18 checks 全绿 + 波聚合门六 facts PASS + 双 selftest 红绿留痕 + 守卫套件全 PASS + budget_eval --strict 253 pass + pytest 136 passed 零回归 + G14 M-e 回归门复跑 9/9 零降级 + 互锁 READY 维持）。
+### §8.5 G15.5 性能零降级波验收记录（2026-08-23）——G-G15-6 **未通过如实定盘**：M-d 性能零降级守护门（g15.p0.m_d.perf_parity_zero_regression，步骤 275，6/12 checks VERDICT=FAIL）+ 波聚合门 g15.wave.5.exit（步骤 276）VERDICT=FAIL——G14 M-d 同口径复跑 17/18（bistro-interior/t100/dlss_sr ratio ≈0.83 跨两轮全协议复跑一致未达 ×1.00）诚实红不冒充
+
+- **① 独立断言清单（未全绿如实登记，红面不遮蔽）**：
+
+  | gate（symbolic key） | 独立布尔断言 | host/device | evidence 路径 | 结果 |
+  |---|---|---|---|---|
+  | `g15.p0.m_d.perf_parity_zero_regression`（步骤 275） | 契约 §4.2 M-d 逐字：**G14 M-d 门同口径复跑 fresh PASS**（g14_m_d_dual_end_fps_parity 本波复跑件 timestamp ≥ 本波启动锚 20260823T153347Z + base_commit==HEAD 同树机核 + device executed——**复跑件本体 status=fail（17/18）故 freshness 链 PASS 面不成立，诚实红**）+ **逐格 ratio ≥ ×1.00 维持**（fps_ratio f64 精确重算 == 存储值 + 三轮守护带 + 跨轮中位数口径 + 生产口径不变量——复跑件红面下逐格重算跳过不充绿）+ **digest 锚漂移守护**（复跑件本体面 Stage A digest 守护 18 格 × 3 轮 == 冻结锚全等零漂移〔双跑机核绿在档〕，本门消费面因复跑件红而同红不遮蔽）+ **G14 M-c 画质锚带复核 = 绿**（SSIM deficit 重算 0.005389118830 ≤ 0.010779849285388998 带内，g14_m_c 最新件 044803Z PASS + 锚定条目 measured×2.0==threshold f64 对账绿）+ **G14 门产 budget 零 estimated 维持 = 绿**（32 条目全 measured_local 零 skip）+ RED 四臂独立有效 = 绿（ratio 篡改/旧 evidence 冒充 fresh/缺轮两轮冒充三轮/锚漂移静默——函数面注入全检出） | host+device（G14 M-d 复跑 = 本波子进程双臂真跑面消费，GPU 锁纪律沿脚本本体面） | evidence/g15_m_d_perf_parity_zero_regression_20260823T165103Z.json（6/12） | **FAIL** |
+  | `g15.wave.5.exit`（步骤 276） | 波聚合门只读汇总六 facts 不遮蔽：**①红**（M-d 最新 evidence 非 PASS）**②红**（复跑真跑面——双轮复跑件均 status=fail；18 格全达不成立）**③红**（M-d evidence 锚覆盖面 0/18——复跑件红面消费跳过如实红；复跑件本体 digest 守护双跑绿在案不冒充）**④绿**（画质锚带复核重算 0.005389118830 ≤ 带，M-d 存储面与聚合侧重算位级一致）**⑤绿**（g14_budget 32 条目零 estimated + g15_budget 九条目 measured_local + budget_eval 全 PASS）**⑥红**（工作树闭集越界 = milestones/g14/g14_fps_gap_registry.json 门产登记行——未达格如实登记面，见 ④） | host 只读（不重跑子门） | evidence/g15_wave5_exit_20260823T165117Z.json（facts 2/6 PASS 不遮蔽） | **FAIL** |
+
+- **② 波聚合门实测输出**：`py -3 ci/g15_wave5_exit_check.py --gate g15.wave.5.exit` → **VERDICT = FAIL，exit=1**（required_gates M-d FAIL + 六 facts 逐行打印不遮蔽：④⑤ 绿、①②③⑥ 红）；`py -3 ci/g15_wave5_exit_check.py --selftest` → ALL PASS（负样本空目录红 165139Z + 真树聚合 VERDICT==FAIL==子门实测态不遮蔽机核双臂 165142Z——红树下面聚合不充绿字面兑现）。
+- **③ 验收命令逐字输出（2026-08-23 真跑留痕，仓库根目录）**：
+  - **G14 M-d 门同口径复跑（本波两轮全协议真跑，GPU 锁纪律沿脚本既有面——UE 臂 harness 子进程自持锁 / Rurix 臂门侧逐格持锁，无嵌套持锁；三轮进程级独立运行 160 帧协议，零缩短）**：
+    - 复跑① `py -3 ci/g14_dual_end_fps_parity_smoke.py --gate g14.p0.m_d.dual_end_fps_parity` → VERDICT=FAIL checks=10/10 pass_line=未达标（evidence 153359Z——达标 17/18；bistro-interior/t100/dlss_sr UE=2.962ms Rurix=3.540ms ratio=0.8368 未达标；生产口径 v2 机核=True + Stage A digest 守护 18 格 × 3 轮 == 冻结锚=True）；
+    - 复跑②（确认跑——单格翻线 + UE 臂跨会话摆幅假设鉴别，同全协议不缩短）→ VERDICT=FAIL checks=10/10（evidence 161302Z——达标 17/18；同格 UE=2.968ms Rurix=3.562ms ratio=0.8332 未达标；digest 守护=True；**两轮一致 = 非单次抖动，当前环境下定盘面**）。
+  - `py -3 ci/g15_perf_parity_guard_smoke.py --selftest` → selftest PASS checks=12（schema 闭集 + 4 RED + 4 GREEN 函数面臂）；`--gate g15.p0.m_d.perf_parity_zero_regression --wave-start 20260823T153347Z` → **VERDICT=FAIL checks=6/12**（evidence 165103Z——绿键：quality_anchor_band_recheck / g14_budget_zero_estimated / RED 四臂；红键：g14_m_d_rerun_fresh_pass + 逐格四面 + comparison_vs_g14_12_rerun，诚实红不充绿）；`--verify-latest` → FAIL（165103Z 六红键逐字列出，诚实面）。
+  - 守卫套件全 PASS：`py -3 ci/check_structure.py` → PASS（11 dirs, 6 files）；`py -3 ci/check_schemas.py` → PASS（本批新增 g15_m_d_perf_parity_zero_regression_ / g15_wave5_exit_ 双前缀 × load/validator/路由六处纯追加，io.open 补丁法 + count==1 断言 + Select-String 核实——G15.1/G15.3 两起 Edit 静默失效教训字面执行；含本批红件 schema 校验全过）；`py -3 ci/check_number_ledger.py` → PASS（CI_step on_tree_max 276/next_free 277 校准后实测）；`py -3 ci/budget_eval.py --strict` → PASS（253 pass/0 skip——g14 画质锚 0.005 vs 带 0.010779849285388998 + g15 九条目维持，本波零追加）；`py -3 -m pytest tests/ -q` → 136 passed 零回归；`py -3 ci/g15_interlock_check.py --require-ready` → READY 维持（workflow 实测末号 276 == ledger on_tree_max 276 一致面）。
+  - 起草期 FAIL 轨迹（诚实留档不删）：ledger v1.157 补丁首跑 notes 锚点撞车（「下一个可用 CI_step=269」短语在 CI_step notes 与 revision_log 双处命中，count==2 断言拒写——即修锚点加长后复跑绿，写盘前断言零污染在案）；G14 M-d 复跑双 FAIL 件 153359Z/161302Z + M-d 门 FAIL 件 165103Z + wave5 FAIL 件 165117Z/自检双件 165139Z/165142Z 全量在档不删（evidence 只增不删不改纪律）。
+- **④ 门序 / 偏差 / not-triggered / no-go 登记面摘要**：
+  - **门序**：G-G15-5 兑现（§8.4）→ 本波 **G-G15-6 未通过如实定盘**（M-d 判据「逐格 ratio ≥ ×1.00 维持」于 bistro-interior/t100/dlss_sr 格当前测量面不成立——红 = 诚实面，不阻塞 G15.6a 穷举面对本格的承接处置登记；数字步骤 275/276 按落盘前实测 actual next_free 顺位领取，ledger v1.157 校准同批）。
+  - **本波复跑与 G14.12 soak 复跑 ratio 对照表（18 格逐格，跨轮中位数口径）**：
+
+    | 格 | G14.12 soak 复跑（051754Z） | 本波复跑①（153359Z） | 本波复跑②（161302Z） |
+    |---|---|---|---|
+    | cornell-box/t50/tsr_device | 8.2261 | 7.7906 | 8.2380 |
+    | cornell-box/t50/dlss_sr | 3.4031 | 3.0658 | 3.1446 |
+    | cornell-box/t50/fsr_3_1_5 | 3.4059 | 3.2724 | 3.4659 |
+    | cornell-box/t67/tsr_device | 6.3505 | 6.4812 | 6.7475 |
+    | cornell-box/t67/dlss_sr | 2.7493 | 2.5000 | 2.9230 |
+    | cornell-box/t67/fsr_3_1_5 | 2.9440 | 3.0157 | 3.2051 |
+    | cornell-box/t100/tsr_device | 4.0629 | 4.3671 | 4.3520 |
+    | cornell-box/t100/dlss_sr | 2.0701 | 2.1469 | 2.2925 |
+    | cornell-box/t100/fsr_3_1_5 | 2.5562 | 2.4958 | 2.5971 |
+    | bistro-interior/t50/tsr_device | 2.3750 | 2.2068 | 2.4289 |
+    | bistro-interior/t50/dlss_sr | 1.9771 | 1.7999 | 1.8164 |
+    | bistro-interior/t50/fsr_3_1_5 | 2.7920 | 2.4713 | 2.4104 |
+    | bistro-interior/t67/tsr_device | 2.3226 | 1.9496 | 1.9740 |
+    | bistro-interior/t67/dlss_sr | 1.5723 | 1.3432 | 1.3031 |
+    | bistro-interior/t67/fsr_3_1_5 | 2.2909 | 1.9794 | 1.9824 |
+    | bistro-interior/t100/tsr_device | 1.7987 | 1.4242 | 1.4017 |
+    | bistro-interior/t100/dlss_sr | **1.0831** | **0.8368 未达** | **0.8332 未达** |
+    | bistro-interior/t100/fsr_3_1_5 | 1.6135 | 1.2451 | 1.2539 |
+
+    汇总：G14.12 = 18/18 达标；本波复跑①/② = 17/18（同格双轮一致未达）。
+  - **未达格归因（measured 面，不拟合 RXS-0392）**：bistro-interior/t100/dlss_sr——**Rurix 臂零降级证据面**：跨四会话 3.482（G14plus 波0 定盘）→ 3.657（G14.12）→ 3.540 → 3.562ms 稳定带内，G15 全期零 src 变更机核（src/ tracked diff 空 + Stage A digest 锚 18 格 × 3 轮位级全等双跑零漂移 = 生产管线码面位级同 G14.12）；**UE 参照臂跨会话摆幅**：同格 UE median 4.212 → 3.961 → 2.962/2.968ms（今日午后两轮一致 −25% vs G14.12；cornell 三格反向 +3~+10% 旁证双臂环境面非单向）——通过线棒（UE 臂）环境位移致边界格跨线；同格同档 vendor/自研对照：tsr_device 1.4017 / fsr_3_1_5 1.2539 双达，dlss_sr 0.8332 未达 = Rurix DLSS 车道 t100 档当前真实性能特征（逐轮比值双轮 0.786~0.848 一致，非噪声）。UE 臂 receipt 三面机核绿（command_digest 三轮位级同值 = 同命令面同口径 + DLSS-SR engagement 日志令牌在档 + CSV 新鲜度机核过）——测量链口径内事件，非测量缺陷。
+  - **处置与承接锚**：未达格已经 G14 M-d 门自身登记面写入 `milestones/g14/g14_fps_gap_registry.json`（gap_id `51a150cb4523e8b6` fps_parity_deficit@bistro-interior/t100/dlss_sr，gaplib 正典形校验绿，只登记不拟合 RXS-0392——门产如实登记不静默，本批随文提交显式登记）+ 本波 M-d 门 evidence 定盘红 + **G16+ 承接锚**：商用收口未达标定盘面引用 §8.4 字面「**商用收口判定结论：未达标 0/18（如实登记不冒充）**」同律——本波性能守护面叠加一例未达格（bistro-interior/t100/dlss_sr ratio 0.8332 < ×1.00），重判条件 = G16+ 立项窗本格双端复测 + Rurix DLSS 车道 t100 档优化面评估；兜底 = 维持未达标登记不冒充（用户 2026-08-19 授权面「最终交付产物需要真实可商用，否则不要停止优化，并在此时允许在G15后无限制新建里程碑继续优化」逐字承接——G15.6b 终审面双未达标登记在案：画质 0/18 + 性能 17/18）。
+  - **RD-045/M165 漂移监控登记（G15 复跑面）**：本波 G14 M-d 双轮复跑面 Stage A digest 守护 18 格 × 3 轮 == 冻结锚位级全等（双跑机核绿在档）——同型 digest 漂移**零检出**（维持 open-defer 不写进全绿叙述，M-e 门面承接）。
+  - **画质锚带复核（M-d 判据第二分项 = 绿）**：G14 M-c 最新 evidence 044803Z PASS + 在树 converged.exr 双件 SSIM deficit 重算 **0.005389118830 ≤ 0.010779849285388998** 带内（g14_budget 锚定条目 threshold f64 精确 == 契约字面 + measured×2.0==threshold 程序产对账绿）。
+  - **budget 零 estimated 维持（M-d 判据第三分项 = 绿）**：g14_budget 32 条目全 measured_local 零 skip + g15_budget 九条目维持 measured_local（本波零追加）+ budget_eval --strict 253 pass/0 skip。
+  - **not-triggered / 维持 open 面**：M-e 未跑（G15.6a 面）；RD-034/039/040/041/042/043/044/045 八条 open 维持 0-byte（本波零追加零新 RD——未达格走 g14_fps_gap_registry 门产登记面 + G15.6a 穷举承接，不私设 RD）；G14 defer 29 行承接锚 0-byte；G14 M-d 门脚本与其 G14.12 定盘 evidence 0-byte（本波只消费复跑件不改门）。
+  - **异己并发工作树面**：本批只含 G15 车道文件 + G14 M-d 门产登记面刷新（g14_fps_gap_registry.json 1 行——门自身登记面如实落盘显式提交，非判据/契约面；wave5 fact⑥ 红 = 该登记面在树越界字面，与 M-d 红同源不遮蔽）+ evidence 本批真跑件；异己会话 src/ 未提交面（ktx2_read/hzb/restir/sdf_trace/smrt/ssr 等 untracked 面）维持未提交、零消费、零混入（立项裁决 3——wave5 fact⑥ src/ 零变更机核绿）。
+- **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v2.0 agent 完全自主签署，G10~G14 §8.x 同模；本波 = 未通过如实定盘签署——红面签署不充绿）。`Assisted-by: Kimi-K3（G15.5 性能零降级波）`（影响范围：ci/g15_perf_parity_guard_smoke.py + ci/g15_wave5_exit_check.py 新建 + milestones/g15 双 evidence schema 新建〔g15_m_d_perf_parity_zero_regression_/g15_wave5_exit_〕+ ci/check_schemas.py〔双前缀 × load/validator/路由六处纯追加，io.open 补丁法〕+ .github/workflows/pr-smoke.yml〔步骤 275/276，步骤 274 块后追加，io.open 补丁法；275 = device 真跑门消费面 --verify-latest 沿 M-c/M-h/soak 重门先例〕+ registry/number_ledger.json〔CI_step 274→276/next_free 277 + revision_log v1.157〕+ milestones/g14/g14_fps_gap_registry.json〔G14 M-d 门产未达格登记 1 行，gaplib 正典形〕+ 本契约 §8.5 本条 + evidence 本批真跑件〔G14 M-d 复跑双 FAIL 件 153359Z/161302Z + M-d 门 FAIL 件 165103Z + wave5 FAIL 件 165117Z + 自检负样本/真树一致性双件 165139Z/165142Z 在档不删〕；g15_budget.json/budget_eval.py 0-byte〔本波零追加〕；G14 M-d 门脚本与 G14.12 定盘 evidence 0-byte〔本波只消费复跑件不改门〕；验证方式：块③逐字命令输出——M-d 门 6/12 诚实红 + 波聚合门 facts 2/6 不遮蔽红 + 双 selftest 红绿留痕（含红树下聚合不充绿字面兑现）+ 守卫套件全 PASS + pytest 136 passed 零回归 + 互锁 READY 维持）。

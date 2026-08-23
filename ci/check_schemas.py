@@ -817,6 +817,12 @@ def check_evidence_files() -> None:
     g15_wave4_exit_schema = load(
         ROOT / "milestones/g15/g15_wave4_exit_evidence_schema.json"
     )
+    g15_m_d_perf_parity_zero_regression_schema = load(
+        ROOT / "milestones/g15/g15_m_d_perf_parity_zero_regression_evidence_schema.json"
+    )
+    g15_wave5_exit_schema = load(
+        ROOT / "milestones/g15/g15_wave5_exit_evidence_schema.json"
+    )
     g14_m_a_registry_variance_band_reconciliation_schema = load(
         ROOT / "milestones/g14/g14_m_a_registry_variance_band_reconciliation_evidence_schema.json"
     )
@@ -2000,6 +2006,16 @@ def check_evidence_files() -> None:
     g15_wave4_exit_validator = (
         jsonschema.Draft7Validator(g15_wave4_exit_schema)
         if g15_wave4_exit_schema is not None
+        else None
+    )
+    g15_m_d_perf_parity_zero_regression_validator = (
+        jsonschema.Draft7Validator(g15_m_d_perf_parity_zero_regression_schema)
+        if g15_m_d_perf_parity_zero_regression_schema is not None
+        else None
+    )
+    g15_wave5_exit_validator = (
+        jsonschema.Draft7Validator(g15_wave5_exit_schema)
+        if g15_wave5_exit_schema is not None
         else None
     )
     g14_m_a_registry_variance_band_reconciliation_validator = (
@@ -3884,6 +3900,21 @@ def check_evidence_files() -> None:
         ):
             # G15.4 波聚合门（步骤 274）→ required_gates 1 行 + 六 facts。
             validator = g15_wave4_exit_validator
+        elif (
+            f.name.startswith("g15_m_d_perf_parity_zero_regression_")
+            and g15_m_d_perf_parity_zero_regression_validator is not None
+        ):
+            # G15.5 P0 硬门 M-d 性能零降级守护（步骤 275）→
+            # milestones/g15/g15_m_d_perf_parity_zero_regression_evidence_schema.json：
+            # 12 checks 闭集（复跑 fresh/18 格 ratio/三轮守护带/口径不变量/锚零漂移/
+            # 画质锚带复核/budget 零 estimated/G14.12 对照/RED 四臂）。
+            validator = g15_m_d_perf_parity_zero_regression_validator
+        elif (
+            f.name.startswith("g15_wave5_exit_")
+            and g15_wave5_exit_validator is not None
+        ):
+            # G15.5 波聚合门（步骤 276）→ required_gates 1 行 + 六 facts。
+            validator = g15_wave5_exit_validator
         elif (
             f.name.startswith("g14_m_a_registry_variance_band_reconciliation_")
             and g14_m_a_registry_variance_band_reconciliation_validator is not None

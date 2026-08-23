@@ -3304,6 +3304,37 @@ jobs:
         shell: powershell
         run: py -3 ci/g15_wave4_exit_check.py --gate g15.wave.4.exit
 
+      # 步骤 275（G15.5 P0 硬门 M-d g15.p0.m_d.perf_parity_zero_regression；
+      # G15_CONTRACT §4.2 M-d/G-G15-6；落盘前实测 CI_step.next_free=275 顺位领取）。
+      # 性能零降级守护：G14 M-d 门同口径复跑消费（freshness 机核 ts ≥ 本波启动锚 +
+      # base_commit==HEAD 同树 + device executed）+ 双场景 × 三档 × 三后端 18 格
+      # 逐格 ratio ≥ ×1.00 维持（fps_ratio f64 精确重算 == 存储值 + 三轮进程级独立
+      # 运行守护带齐备 + 跨轮中位数口径 + 生产口径不变量 prod≤full 逐轮）+ G14 门产
+      # 18 格 digest 锚漂移守护核验（g14_3_stage_a_digest_anchor 冻结锚位级全等，
+      # 检出漂移 = RD-045 同型事件如实登记升级不静默）+ G14 M-c 画质锚带复核
+      #（SSIM deficit ≤ 0.010779849285388998 带内重算）+ G14 门产 budget 条目零
+      # estimated 维持 + G14.12 soak 复跑定盘件同口径对照 + RED 四臂（ratio 篡改/
+      # 旧 evidence 冒充 fresh/缺轮/锚漂移静默）。device 真跑门消费面——pr-smoke
+      # 侧 --verify-latest 秒级核最新 full-run evidence（沿 M-c/M-h/soak 重门先例）；
+      # full-run 本地/workflow_dispatch 用 --gate。
+      # evidence 落盘 evidence/g15_m_d_perf_parity_zero_regression_<UTC>.json。
+      - name: G15.5 M-d perf parity zero regression verify-latest (G15_CONTRACT §4.2 M-d, g15.p0.m_d.perf_parity_zero_regression)
+        shell: powershell
+        run: py -3 ci/g15_perf_parity_guard_smoke.py --verify-latest
+
+      # 步骤 276（G15.5 波聚合门 g15.wave.5.exit；G15_CONTRACT G-G15-6/§2 G15.5；
+      # 落盘前实测 CI_step.next_free=276 顺位领取）。只读汇总 M-d 最新 evidence + 六
+      # facts：M-d fresh PASS + RED 臂 ≥4 独立有效 / 复跑真跑面 + 18 格全达（链锚
+      # 对账 + validate_cells 全量重算绿 + G14.12 对照双件全达）/ digest 锚零漂移
+      #（18 格 × 3 轮位级全等重算 + 零检出字面）/ 画质锚带复核（SSIM deficit ≤
+      # 0.010779849285388998 重算绿）/ g14_budget 零 estimated + g15_budget 九条目
+      # measured_local + budget_eval 全 PASS / G5~G14 closed 面 0-byte + 零 src
+      # 变更机核 + RFC/RXS 命名空间机核。聚合不代绿不遮蔽。
+      # evidence 落盘 evidence/g15_wave5_exit_<UTC>.json。
+      - name: G15.5 wave5 exit check (G15_CONTRACT G-G15-6, g15.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g15_wave5_exit_check.py --gate g15.wave.5.exit
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

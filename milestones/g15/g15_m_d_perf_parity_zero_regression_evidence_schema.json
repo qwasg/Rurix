@@ -1,0 +1,210 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G15.5 M-d perf_parity_zero_regression evidence",
+  "description": "evidence/g15_m_d_perf_parity_zero_regression_<UTC>.json。G15.5 P0 硬门 g15.p0.m_d.perf_parity_zero_regression（步骤 275；G15_CONTRACT §4.2 M-d 行判据逐字 / G-G15-6；G15_ACCEPTANCE_MAP §1 M-d 行）：性能零降级守护——G14 M-d 门同口径复跑（g14.p0.m_d.dual_end_fps_parity 本波真跑件，双场景 × 三档 × 三后端 18 格，三轮进程级独立运行 50×3 trimmed mean 跨轮中位数 + 逐轮守护带）fresh PASS（timestamp ≥ 本波启动锚 + base_commit==HEAD 同树 + device executed）+ 逐格 ratio ≥ ×1.00 维持（fps_ratio f64 精确重算 == 存储值，单轮口径冒充三轮跨轮中位数即 RED；met/unmet 重算一致）+ 逐轮守护带齐备（runs==3 严格递增 + per_run_ratios==3 + 跨轮中位数 f64 重算）+ 生产口径不变量 0<prod≤full 逐轮维持 + G14 门产 18 格 digest 锚漂移守护核验（g14_3_stage_a_digest_anchor 冻结锚位级全等，检出漂移 = RD-045 同型事件如实登记升级不静默）+ G14 M-c 画质锚带复核（最新 evidence PASS + 在树 converged.exr 双件 SSIM deficit 重算 ≤ 0.010779849285388998 带内，g14_budget 锚定条目 threshold f64 精确对账）+ G14 门产 budget 条目零 estimated 维持 + G14.12 soak 复跑定盘件同口径对照（双件 18 格全达逐格对账）+ RED 四臂独立有效（ratio 篡改/旧 evidence 冒充 fresh/缺轮两轮冒充三轮/锚漂移静默）。host 消费门（device 真跑面 = G14 M-d 门本波复跑子进程面，本门只读核验不重跑）；device_section_state=executed（复跑真跑面消费）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "milestone",
+    "assertion_id",
+    "status",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "base_commit",
+    "host_section_pass",
+    "device_section_state",
+    "checks",
+    "commands",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "production",
+    "notes",
+    "parity"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g15_m_d_perf_parity_zero_regression" },
+    "symbolic_gate_key": { "type": "string", "const": "g15.p0.m_d.perf_parity_zero_regression" },
+    "matrix_row": { "type": "string", "const": "M-d" },
+    "milestone": { "type": "string", "const": "M-d" },
+    "assertion_id": { "type": "string", "const": "g15.p0.m_d.perf_parity_zero_regression" },
+    "status": { "type": "string", "enum": ["pass", "fail"] },
+    "wave": { "type": "string", "const": "G15.5" },
+    "numeric_step": { "type": "integer", "const": 275 },
+    "source_ref": {
+      "type": "string",
+      "const": "G15_CONTRACT §4.2 M-d/G-G15-6;G15_ACCEPTANCE_MAP §1 M-d;G14_CONTRACT §4.2 M-d 同口径复跑（g14.p0.m_d.dual_end_fps_parity）;G14-N7 通过线 ×1.00 维持;M141/M165 50×3 冻结统计口径;G14 M-c 画质锚带 ≤0.010779849285388998 复核;RD-045 漂移监控登记条款"
+    },
+    "base_commit": { "type": "string" },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["executed", "skipped_dev_env", "pass", "fail", "not_applicable", "dev_env_degrade"]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g14_m_d_rerun_fresh_pass",
+        "eighteen_cells_ratio_pass_line",
+        "three_run_guard_band_complete",
+        "production_caliber_invariant",
+        "digest_anchor_zero_drift",
+        "quality_anchor_band_recheck",
+        "g14_budget_zero_estimated",
+        "comparison_vs_g14_12_rerun",
+        "red_arm_ratio_tamper_detected",
+        "red_arm_stale_evidence_detected",
+        "red_arm_missing_run_detected",
+        "red_arm_anchor_drift_detected"
+      ],
+      "properties": {
+        "g14_m_d_rerun_fresh_pass": { "type": "boolean" },
+        "eighteen_cells_ratio_pass_line": { "type": "boolean" },
+        "three_run_guard_band_complete": { "type": "boolean" },
+        "production_caliber_invariant": { "type": "boolean" },
+        "digest_anchor_zero_drift": { "type": "boolean" },
+        "quality_anchor_band_recheck": { "type": "boolean" },
+        "g14_budget_zero_estimated": { "type": "boolean" },
+        "comparison_vs_g14_12_rerun": { "type": "boolean" },
+        "red_arm_ratio_tamper_detected": { "type": "boolean" },
+        "red_arm_stale_evidence_detected": { "type": "boolean" },
+        "red_arm_missing_run_detected": { "type": "boolean" },
+        "red_arm_anchor_drift_detected": { "type": "boolean" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness_anchor_unchanged",
+        "baseline_anchor_id",
+        "measured_value",
+        "not_worse_than_anchor",
+        "threshold_provenance",
+        "evolution_register"
+      ],
+      "properties": {
+        "correctness_anchor_unchanged": { "type": "boolean" },
+        "baseline_anchor_id": { "type": "string" },
+        "measured_value": { "type": "string" },
+        "not_worse_than_anchor": { "type": "boolean" },
+        "threshold_provenance": { "type": "string" },
+        "evolution_register": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wave_start",
+        "g14_m_d_evidence",
+        "g14_m_d_evidence_timestamp",
+        "g14_m_d_base_commit",
+        "pass_line_ratio",
+        "met_count",
+        "unmet_count",
+        "cells",
+        "comparison_vs_g14_12",
+        "digest_anchor",
+        "drift_monitoring",
+        "quality_anchor",
+        "g14_budget"
+      ],
+      "properties": {
+        "wave_start": { "type": "string" },
+        "g14_m_d_evidence": { "type": ["string", "null"] },
+        "g14_m_d_evidence_timestamp": { "type": ["string", "null"] },
+        "g14_m_d_base_commit": { "type": ["string", "null"] },
+        "pass_line_ratio": { "type": "number" },
+        "met_count": { "type": "integer" },
+        "unmet_count": { "type": "integer" },
+        "cells": { "type": "array" },
+        "comparison_vs_g14_12": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference_evidence", "cells", "all_ge_pass_line_both"],
+          "properties": {
+            "reference_evidence": { "type": "string" },
+            "cells": { "type": "array" },
+            "all_ge_pass_line_both": { "type": "boolean" }
+          }
+        },
+        "digest_anchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "cells_checked", "drift_count"],
+          "properties": {
+            "file": { "type": "string" },
+            "cells_checked": { "type": "integer" },
+            "drift_count": { "type": "integer" }
+          }
+        },
+        "drift_monitoring": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rd_045_type_digest_drift_detected", "drifts", "note"],
+          "properties": {
+            "rd_045_type_digest_drift_detected": { "type": "integer" },
+            "drifts": { "type": "array" },
+            "note": { "type": "string" }
+          }
+        },
+        "quality_anchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["band", "deficit_recomputed", "within_band", "detail"],
+          "properties": {
+            "band": { "type": "number" },
+            "deficit_recomputed": { "type": ["number", "null"] },
+            "within_band": { "type": "boolean" },
+            "detail": { "type": "string" }
+          }
+        },
+        "g14_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entries", "zero_estimated"],
+          "properties": {
+            "entries": { "type": "integer" },
+            "zero_estimated": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

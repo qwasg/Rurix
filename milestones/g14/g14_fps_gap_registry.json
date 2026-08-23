@@ -6,7 +6,31 @@
   "cornell-box",
   "bistro-interior"
  ],
- "items": [],
+ "items": [
+  {
+   "gap_id": "51a150cb4523e8b6",
+   "scene_id": "bistro-interior",
+   "camera_id": "g14_dual_end_fps_parity",
+   "domain": "display-referred-ldr",
+   "kind": "quality_gap",
+   "ue5_module_primary": "Engine/Source/Runtime/Renderer/Private/PostProcess",
+   "ue5_module_secondary": [],
+   "measured_delta": [
+    {
+     "metric": "fps_ratio@bistro-interior/t100/dlss_sr",
+     "a_value": 336.95371379151555,
+     "b_value": 280.7642121089393,
+     "delta": -56.189501682576235,
+     "evidence_digest": "sha256:d754e9e1cdb4bffa4b7f5f0529373cad64dec6d1aa353e0011fe57d5127986a2"
+    }
+   ],
+   "suggested_priority": "P1",
+   "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
+   "title": "fps_parity_deficit@bistro-interior/t100/dlss_sr",
+   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.8332 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "attachments": []
+  }
+ ],
  "scene_summary": [
   {
    "scene_id": "cornell-box",
@@ -15,8 +39,8 @@
   },
   {
    "scene_id": "bistro-interior",
-   "gap_count": 0,
-   "no_gap_explicit": true
+   "gap_count": 1,
+   "no_gap_explicit": false
   }
  ],
  "not_ready_scenes": []
