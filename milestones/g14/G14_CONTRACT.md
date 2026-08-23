@@ -1,7 +1,7 @@
 ---
 contract: G14
 title: G14 正式帧率对标与渲染管线性能期
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g14_1_governance_only
 version: v1.0
