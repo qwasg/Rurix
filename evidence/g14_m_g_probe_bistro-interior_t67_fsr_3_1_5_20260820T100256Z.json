@@ -1,0 +1,21 @@
+{
+  "schema": "rurix.g14pipelineperf.measured_entry.v1",
+  "entry_id": "g14.pipeline_perf.prod_frame_ms.bistro-interior_t67_fsr_3_1_5",
+  "results": {
+    "trimmed_mean": 140.42519062499997
+  },
+  "protocol": "G14.7 生产口径（frame_ms_production = 全量 − bench 测量面 tail）探针格单轮 160 帧 warmup 10 稳态 mean（vendor 转换并行化落地面；G14.6 双列口径继承）",
+  "sample_manifest": {
+    "count": 160,
+    "digest": "sha256:4503a62e0da514759ffcf8df8fbd2714de1dbffdc47898709527348a784f1fe1"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "fsr_3_1_5",
+    "base_commit": "789986362aa98f27bdb725c2b2ff6aec4e31fd71"
+  },
+  "cells": {
+    "probe_cell": "bistro-interior_t67_fsr_3_1_5"
+  },
+  "timestamp": "20260820T100256Z"
+}

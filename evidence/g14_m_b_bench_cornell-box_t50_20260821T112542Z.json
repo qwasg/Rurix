@@ -1,0 +1,44 @@
+{
+  "schema": "rurix.g14uebench.measured_entry.v1",
+  "entry_id": "g14.ue_benchmark.frame_ms.cornell-box_t50",
+  "results": {
+    "trimmed_mean": 3.509983333333333
+  },
+  "protocol": "UE benchmark 臂三轮进程级独立运行（-game -benchmark + CsvProfile 逐帧 CSV；逐轮稳态 150 帧 = 3 块 × 50 trimmed mean，跨轮中位数为本格值；M141/M165 冻结统计口径 ci/g10_perf_baseline_smoke.py 单源）",
+  "sample_manifest": {
+    "count": 450,
+    "digest": "sha256:6269c52899fb59e8ed7662fe787c718217a81c813860764fdd4bd71446604ffe"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-benchmark-arm",
+    "base_commit": "0af2b801856200d96ab44b974563efd79361185f"
+  },
+  "cells": {
+    "scene": "cornell-box",
+    "tier": 50
+  },
+  "stats": {
+    "runs": [
+      {
+        "run_index": 1,
+        "trimmed_mean_ms": 3.4177,
+        "fps": 292.59443485384907,
+        "cv": 0.13269496853002016
+      },
+      {
+        "run_index": 2,
+        "trimmed_mean_ms": 3.5993,
+        "fps": 277.8318006278999,
+        "cv": 0.13971641115086603
+      },
+      {
+        "run_index": 3,
+        "trimmed_mean_ms": 3.509983333333333,
+        "fps": 284.90163770958077,
+        "cv": 0.13965405218805574
+      }
+    ]
+  },
+  "timestamp": "20260821T112542Z"
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "rurix.g14uebench.measured_entry.v1",
+  "entry_id": "g14.ue_benchmark.frame_ms.bistro-interior_t50",
+  "results": {
+    "trimmed_mean": 4.679883333333334
+  },
+  "protocol": "UE benchmark 臂三轮进程级独立运行（-game -benchmark + CsvProfile 逐帧 CSV；逐轮稳态 150 帧 = 3 块 × 50 trimmed mean，跨轮中位数为本格值；M141/M165 冻结统计口径 ci/g10_perf_baseline_smoke.py 单源）",
+  "sample_manifest": {
+    "count": 450,
+    "digest": "sha256:a29c269c381afe0b27a2abcd583b609d6f10496dc79a0ef6f266f4a3536637bb"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-benchmark-arm",
+    "base_commit": "0af2b801856200d96ab44b974563efd79361185f"
+  },
+  "cells": {
+    "scene": "bistro-interior",
+    "tier": 50
+  },
+  "stats": {
+    "runs": [
+      {
+        "run_index": 1,
+        "trimmed_mean_ms": 4.677166666666667,
+        "fps": 213.80465381463134,
+        "cv": 0.11402791180690895
+      },
+      {
+        "run_index": 2,
+        "trimmed_mean_ms": 4.7100333333333335,
+        "fps": 212.31272248604043,
+        "cv": 0.12106432408997637
+      },
+      {
+        "run_index": 3,
+        "trimmed_mean_ms": 4.679883333333334,
+        "fps": 213.68054046931368,
+        "cv": 0.11109450714297424
+      }
+    ]
+  },
+  "timestamp": "20260821T112542Z"
+}

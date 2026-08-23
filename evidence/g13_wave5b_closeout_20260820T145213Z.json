@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "subject": "g13_wave5b_closeout",
+  "symbolic_gate_key": "g13.wave.5b.closeout",
+  "matrix_row": "G13.5b",
+  "wave": "G13.5b",
+  "numeric_step": 246,
+  "source_ref": "G13_CONTRACT G-G13-9;G13_PLAN §2 G13.5b;CI_GATES §5 wave5b;5 P0 + wave2/3/4/5/5a 聚合/决策 + MAP 三向 + P2 31 行闭集 + budget --strict + 5a 先行（同日放行立项裁决 7）+ RD 最终状态逐字一致 + 超分/Lumen 双差距登记表终审锁定（8+2 行终态→G14/G15 法定输入）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "verdict": "READY",
+  "utc_date": "20260820",
+  "last_new_green_utc_date": "20260819",
+  "base_commit_5a": "563bda686beb7959a6288ed3165c9a989ad5b3ff",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g13.p0.m_a.vendor_upscale_integration",
+      "subject_prefix": "g13_m_a_vendor_upscale_integration",
+      "evidence_path": "evidence/g13_m_a_vendor_upscale_integration_20260819T090228Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T090228Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_b.tsr_device_kernel",
+      "subject_prefix": "g13_m_b_tsr_device_kernel",
+      "evidence_path": "evidence/g13_m_b_tsr_device_kernel_20260819T090602Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T090602Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+      "subject_prefix": "g13_m_c_ue_upscale_parity",
+      "evidence_path": "evidence/g13_m_c_ue_upscale_parity_20260819T151636Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T151636Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+      "subject_prefix": "g13_m_d_ue_lumen_gi_parity",
+      "evidence_path": "evidence/g13_m_d_ue_lumen_gi_parity_20260819T161339Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T161339Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_e.regression_drift_guard",
+      "subject_prefix": "g13_m_e_regression_drift_guard",
+      "evidence_path": "evidence/g13_m_e_regression_drift_guard_20260819T105009Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T105009Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.2.exit",
+      "subject_prefix": "g13_wave2_exit",
+      "evidence_path": "evidence/g13_wave2_exit_20260819T105408Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T105408Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.3.exit",
+      "subject_prefix": "g13_wave3_exit",
+      "evidence_path": "evidence/g13_wave3_exit_20260819T105409Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T105409Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.4.exit",
+      "subject_prefix": "g13_wave4_exit",
+      "evidence_path": "evidence/g13_wave4_exit_20260819T105410Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T105410Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.5.decisions",
+      "subject_prefix": "g13_p2_decisions",
+      "evidence_path": "evidence/g13_p2_decisions_20260819T105410Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T105410Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.wave.5a.soak",
+      "subject_prefix": "g13_stabilization_soak",
+      "evidence_path": "evidence/g13_stabilization_soak_20260819T090227Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T090227Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "five_p0_pass",
+      "status": "PASS",
+      "detail": "pass=5/5"
+    },
+    {
+      "id": "wave_gates_2_to_5a",
+      "status": "PASS",
+      "detail": "pass=5/5"
+    },
+    {
+      "id": "acceptance_map_check",
+      "status": "PASS",
+      "detail": "g13.wave.1.acceptance_map exit=0"
+    },
+    {
+      "id": "p2_decisions_31_frozen",
+      "status": "PASS",
+      "detail": "evidence\\g13_p2_decisions_20260819T105410Z.json; frozen_31_in_tree=True"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0"
+    },
+    {
+      "id": "soak_5a_precedes",
+      "status": "PASS",
+      "detail": "evidence\\g13_stabilization_soak_20260819T090227Z.json; base_commit_5a=563bda686beb7959a6288ed3165c9a989ad5b3ff（同日放行立项裁决 7：5a full-run 先行完成后允许同日 close-out）"
+    },
+    {
+      "id": "rd_final_state_consistent",
+      "status": "PASS",
+      "detail": "7 RD open 逐字一致 + P2 31 行闭集在树（G13 无重评窗表，两面一致）"
+    },
+    {
+      "id": "gap_registries_locked_and_green_recorded",
+      "status": "PASS",
+      "detail": "超分/Lumen 双差距登记表 8+2 行闭集终审锁定（gap_id 集逐字对账 + 计数 8/5/3 与 2/1/1 重算一致 + 全行 quality_gap/P2 + measured_delta 对账齐 + 锚定 G15 ——残余差距如实登记不冒充全闭环；终审锁定面 = G14/G15 法定输入）; last_green_utc=20260819 today=20260820 missing=[]"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "five_p0_pass": true,
+    "wave_gates_pass": true,
+    "acceptance_map_ok": true,
+    "p2_ok": true,
+    "budget_strict_ok": true,
+    "soak_5a_ok": true,
+    "rd_final_state_ok": true,
+    "gap_registries_locked": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260820T145213Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "same-day closeout allowed after 5a full-run（立项裁决 7，沿 G12.7b/G11.7b/G10.8b/G9.8b 先例链）；超分/Lumen 双差距登记表终审锁定（g13_ue_upscale_gap_registry.json 8 行 + g13_ue_lumen_gap_registry.json 2 行终态——全 quality_gap/P2，残余差距/未闭环行如实登记不冒充全闭环，G-G13-9 字面；终审锁定面 = G14/G15 法定输入——G14 帧率对标期与 G15 画质收口期只消费本双表与 G13_P2_DECISIONS 承接锚，不得另起无锚差距面）；status flip is a separate commit after READY"
+}

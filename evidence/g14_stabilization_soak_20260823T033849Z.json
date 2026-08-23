@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "subject": "g14_stabilization_soak",
+  "symbolic_gate_key": "g14.wave.5a.soak",
+  "matrix_row": "G14.5a",
+  "wave": "G14.5a",
+  "numeric_step": 263,
+  "source_ref": "G14_CONTRACT G-G14-8/§2.2;G14 5 P0（M-a~M-e）逐门真跑 + 聚合/决策门核验;帧率对标链路连续复跑 soak ≥1800s（G13.5a 继承）;budget_eval --strict;G5~G13 0-byte",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "base_commit": "afe090d5e5d43d0b081c1096c63b280ddab626d5",
+  "utc_date": "20260823",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g14.p0.m_a.registry_variance_band_reconciliation",
+      "subject_prefix": "g14_m_a_registry_variance_band_reconciliation",
+      "evidence_path": "evidence/g14_m_a_registry_variance_band_reconciliation_20260823T033849Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T033849Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.p0.m_b.ue_benchmark_arm_measurement",
+      "subject_prefix": "g14_m_b_ue_benchmark_arm_measurement",
+      "evidence_path": "evidence/g14_m_b_ue_benchmark_arm_measurement_20260823T044132Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T044132Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.p0.m_c.rurix_pipeline_perf",
+      "subject_prefix": "g14_m_c_rurix_pipeline_perf",
+      "evidence_path": "evidence/g14_m_c_rurix_pipeline_perf_20260823T044803Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T044803Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.p0.m_d.dual_end_fps_parity",
+      "subject_prefix": "g14_m_d_dual_end_fps_parity",
+      "evidence_path": "evidence/g14_m_d_dual_end_fps_parity_20260823T051754Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T051754Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.p0.m_e.regression_drift_guard",
+      "subject_prefix": "g14_m_e_regression_drift_guard",
+      "evidence_path": "evidence/g14_m_e_regression_drift_guard_20260823T055347Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055347Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.wave.2.exit",
+      "subject_prefix": "g14_wave2_exit",
+      "evidence_path": "evidence/g14_wave2_exit_20260823T055758Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055758Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.wave.3.exit",
+      "subject_prefix": "g14_wave3_exit",
+      "evidence_path": "evidence/g14_wave3_exit_20260823T055759Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055759Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.wave.4.exit",
+      "subject_prefix": "g14_wave4_exit",
+      "evidence_path": "evidence/g14_wave4_exit_20260823T055759Z.json",
+      "status": "PASS",
+      "detail": "达标聚合面合格（facts 全绿 + M-d 行 PASS 镜像——18/18 达标态）",
+      "timestamp": "20260823T055759Z"
+    },
+    {
+      "symbolic_gate_key": "g14.wave.6.exit",
+      "subject_prefix": "g14_wave6_exit",
+      "evidence_path": "evidence/g14_wave6_exit_20260823T055800Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055800Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.wave.7.exit",
+      "subject_prefix": "g14_wave7_exit",
+      "evidence_path": "evidence/g14_wave7_exit_20260823T055801Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055801Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.wave.5a.decisions",
+      "subject_prefix": "g14_p2_decisions",
+      "evidence_path": "evidence/g14_p2_decisions_20260823T055801Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260823T055801Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "regression_gates_all_pass",
+      "status": "PASS",
+      "detail": "5 P0 真跑 + 6 聚合/决策门核验全绿（M-d 诚实红门面特判合格）"
+    },
+    {
+      "id": "base_commit_uniform",
+      "status": "PASS",
+      "detail": "5 门 evidence base_commit 同值=afe090d5e5d4（同一候选 close-out 基线）"
+    },
+    {
+      "id": "soak_dual_threshold",
+      "status": "PASS",
+      "detail": "iterations=58 seconds=1835.7 active=1835.7 outer=1835.7 sleep=0.0 failures=0 frames=9280 registries=58 subject='fps-parity-chain-soak'"
+    },
+    {
+      "id": "budget_strict",
+      "status": "PASS",
+      "detail": "exit=0   PASS ms1.counter.uc07_offline_golden_frames: PASS — 1 份 UC-07 离线 golden 端到端证据(要求 ≥1) / [budget_eval] PASS (244 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py', 'milestones/g13/g13_budget.json', 'milestones/g13/g13_ue_upscale_gap_registry.json']（允许面=['ci/budget_eval.py', 'ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py', 'milestones/g13/g13_budget.json', 'milestones/g13/g13_ue_upscale_gap_registry.json']）;工作树闭集=空（允许面=['milestones/g12/g12_pt_sampler_selection.json'] 异己登记）"
+    },
+    {
+      "id": "date_anchor",
+      "status": "PASS",
+      "detail": "utc_date=20260823"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "regression_all_pass": true,
+    "base_commit_uniform": true,
+    "soak_dual_threshold": true,
+    "soak_no_sleep_padding": true,
+    "budget_strict_pass": true,
+    "legacy_criteria_0byte": true,
+    "date_anchor_recorded": true
+  },
+  "soak": {
+    "soak_subject": "fps-parity-chain-soak",
+    "iterations": 58,
+    "seconds": 1835.6928594112396,
+    "min_iterations": 3,
+    "min_seconds": 1800,
+    "active_chain_seconds": 1835.6928594112396,
+    "sleep_seconds": 0.0,
+    "outer_wall_seconds": 1835.6978590488434,
+    "failures": 0,
+    "bench_frames_measured": 9280,
+    "registry_assemblies": 58,
+    "backend_digest_anchors": {
+      "bistro-interior_t67_dlss_sr": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+      "bistro-interior_t67_fsr_3_1_5": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+      "bistro-interior_t67_tsr_device": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+      "cornell-box_t67_dlss_sr": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+      "cornell-box_t67_fsr_3_1_5": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+      "cornell-box_t67_tsr_device": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297"
+    }
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T033849Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G14.5a full soak；四腿 + G5~G13 既有判据 0-byte fact；诚实语义（沿 G13.5a/G12.7a/G11.7a/G10.8a/G9.8a 口径）：soak 墙钟=真实帧率对标链路复跑实测（禁 sleep 充时，sleep_seconds 恒 0，active_chain_seconds 逐迭代计时求和，gate 外测墙钟交叉核验）；soak 载体=G14 帧率对标链路二面（bench g14_3_pipeline_perf --bench 六组合轮转 canonical 协议 160 帧，receipt last_frame_digest == g14_3_stage_a_digest_anchor 冻结锚位级复现——跨迭代 digest 漂移即 M165 同型监控面检出 → 登记表装配最新 M-d evidence unmet_count 与在树 g14_fps_gap_registry.json 行集对账幂等复核）；M-d 诚实红门面特判（checks 全绿 + status=fail + unmet==登记表行数 = 通过线未达标如实登记，不充绿亦不充降级）；subject=fps-parity-chain-soak 无 validation/device_lost 字面量 0 硬门（device 面归回归腿 5 门本体）；5 门 evidence base_commit 同值一致（同一候选 close-out 基线）"
+}

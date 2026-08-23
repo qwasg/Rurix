@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g13_wave4_exit",
+  "symbolic_gate_key": "g13.wave.4.exit",
+  "matrix_row": "G13.4",
+  "wave": "G13.4",
+  "numeric_step": 242,
+  "source_ref": "G13_CONTRACT G-G13-6/§2.2;G13_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0405/RXS-0406;M-c/M-d gate red arms independently effective;temporal base 0-byte;g13_budget M-c/M-d six entries measured_local;RXS-0405/0406 anchors + conformance corpus;both gates key criteria all true;fps baseline zero_pass_line registered",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+      "subject_prefix": "g13_m_c_ue_upscale_parity",
+      "evidence_path": "evidence/g13_m_c_ue_upscale_parity_20260818T232935Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260818T232935Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+      "subject_prefix": "g13_m_d_ue_lumen_gi_parity",
+      "evidence_path": "evidence/g13_m_d_ue_lumen_gi_parity_20260819T002556Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260819T002556Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "temporal_base_0byte",
+      "status": "PASS",
+      "detail": "temporal/ vs 8c5dc5ee 目录级 0-byte(提交面 + 工作树双面)"
+    },
+    {
+      "id": "m_c_m_d_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M-c/M-d 门最新 evidence red 面 checks 全真（共 8 臂独立有效）"
+    },
+    {
+      "id": "budget_calibration_entries_measured",
+      "status": "PASS",
+      "detail": "g13_budget M-c/M-d 六条目齐备 measured_local 零 estimated + budget_eval 全 PASS（P-09；共 6 条目）"
+    },
+    {
+      "id": "spec_clauses_and_corpus_anchored",
+      "status": "PASS",
+      "detail": "RXS-0405/0406 条款锚定 + conformance 六件齐备 + trace_matrix 全锚定 PASS"
+    },
+    {
+      "id": "both_gates_key_criteria_true",
+      "status": "PASS",
+      "detail": "M-c/M-d 门最新 evidence 关键判据全真（三方 digest/双臂帧齐/登记表对账/标定位级/ue_build/0-byte 面）"
+    },
+    {
+      "id": "fps_baseline_zero_pass_line_registered",
+      "status": "PASS",
+      "detail": "帧率基线 zero_pass_line 登记（M-c fps_baseline 字面 + M-d 不设绝对通过线字面；锚定 G14/G15）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260819T032412Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G13.4 M-c(M169) UE upscale parity gate (step 240) + M-d(M170) UE Lumen GI parity gate (step 241); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: temporal base 0-byte + red arms + g13_budget six entries measured + RXS-0405/0406 anchors + both gates key criteria + fps zero_pass_line; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

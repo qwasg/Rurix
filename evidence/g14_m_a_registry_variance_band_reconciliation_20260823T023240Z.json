@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_a_registry_variance_band_reconciliation",
+  "milestone": "M172",
+  "assertion_id": "g14.p0.m_a.registry_variance_band_reconciliation",
+  "symbolic_gate_key": "g14.p0.m_a.registry_variance_band_reconciliation",
+  "matrix_row": "M172",
+  "status": "pass",
+  "wave": "G14.2",
+  "numeric_step": 250,
+  "source_ref": "G14_CONTRACT §4.2 M-a/G-G14-4;G14_ACCEPTANCE_MAP §1;G13_CONTRACT §8.7 承接锚;RXS-0391 IR2（gaplib 正典单源）/P-09（程序产阈禁手写）",
+  "base_commit": "121f4ccd3f3a9829137211c7dbba972f61f1e143",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "gaplib_structured_reconcile_present": true,
+    "gate_amendments_present": true,
+    "g13_registries_frozen_ids_locked": true,
+    "m_c_rerun_pass": true,
+    "m_d_rerun_pass": true,
+    "registries_0byte_post_rerun": true,
+    "ue_variance_bands_measured_into_budget": true,
+    "red_arms_effective": true,
+    "ue_determinism_research_registered": true,
+    "budget_eval_all_pass": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/g10_gap_registry_lib.py --selftest（gaplib 正典面）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "py -3 ci/g13_ue_upscale_parity_smoke.py --gate g13.p0.m_c.ue_upscale_parity（修订后复跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/g13_ue_lumen_gi_parity_smoke.py --gate g13.p0.m_d.ue_lumen_gi_parity（修订后复跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "RED 臂 ×4（ue-large-variance/ue-in-band/rurix-bit-drift/identity-tamper）",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T023240Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g14.ue_variance_band.{upscale,lumen}_probe_rel（本门标定产出入 g14_budget）",
+    "measured_value": "upscale band_rel=0.00563844 lumen band_rel=0.00139399",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "门内 UE 探针格三样本 max 两两相对差 ×2.0 程序产（P-09 禁手写）；budget 守护阈 = 带实测 ×2.0",
+    "evolution_register": "G13 §8.7 承接锚兑现面：M-c/M-d 门「在树逐字节相等」字节冻结面 → gaplib 结构化对账（身份面逐字节 + Rurix 侧/结构常量位级 + UE 侧程序产方差带）；G13 锁定双登记表 8+2 行终态 0-byte（复跑前后逐字节一致机核在案）；真实内容变更检出面维持（RED 臂①④）"
+  },
+  "notes": "gaplib 结构化对账面在树=True，selftest exit=0; 复跑 g13.p0.m_c.ue_upscale_parity（子进程真跑，UE MRQ + Rurix device 双臂）…; g13.p0.m_c.ue_upscale_parity 复跑 exit=0 status_pass=True fresh=True; 复跑 g13.p0.m_d.ue_lumen_gi_parity（子进程真跑，UE MRQ + Rurix device 双臂）…; g13.p0.m_d.ue_lumen_gi_parity 复跑 exit=0 status_pass=True fresh=True; 双登记表复跑前后逐字节一致 = True; UE 方差带程序产：upscale band_rel=0.00563844 lumen band_rel=0.00139399（入 g14_budget 两条目）; RED 臂 red_ue_large_variance_detected: 有效; RED 臂 green_ue_in_band_absorbed: 有效; RED 臂 red_rurix_bit_drift_detected: 有效; RED 臂 red_identity_tamper_detected: 有效; 调研结论登记：UE 确定性控制面调研结论（2026-08-19 主会话留痕转引）：UE 5.8.1 deferred+Lumen+DLSS MRQ 臂 32 帧静态收敛序列末…；UE 确定性控制面调研结论（2026-08-19 主会话留痕转引）：UE 5.8.1 deferred+Lumen+DLSS MRQ 臂 32 帧静态收敛序列末帧残余随机噪声（Lumen 随机采样面）为跨进程运行间方差根因（G13 §8.7 四跑取证 0.854056/0.851862/0.854550/0.852789 ≈0.32%，Rurix 侧位级一致）；cvar/收敛面（r.RandomSeed 固定、MRQ warm-up 帧、收敛帧数加严）可压缩方差底但不能消除至位级——厂商侧不承诺跨进程位级确定性（DLSS 内部历史/调度面）；故结构化对账（方差带吸收 + 身份面/位级面硬门）为稳健处置面，n≥3 样本 max 两两相对差 ×2.0 程序产带（P-09 禁手写）+ G15 画面终审期按只追加程序评估更大样本标定面"
+}

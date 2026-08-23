@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g14uevariance.measured_entry.v1",
+  "entry_id": "g14.ue_variance_band.lumen_probe_rel",
+  "results": {
+    "run_variance_band_rel": 0.00159252
+  },
+  "protocol": "M-d 门内 UE 探针格（bistro-interior/lumen-on 末帧平均亮度）三样本运行间方差底 max 两两相对差 ×2.0 程序产（同口径）",
+  "sample_manifest": {
+    "count": 3,
+    "digest": "sha256:f35ac991c7470ffe4dc9d40b6d650a60abbc7e39f3255c8e78d18cca16302319"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-mrq-arm",
+    "base_commit": "0af2b801856200d96ab44b974563efd79361185f"
+  },
+  "timestamp": "20260821T093507Z"
+}

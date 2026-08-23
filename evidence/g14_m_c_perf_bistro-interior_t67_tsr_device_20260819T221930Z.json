@@ -1,0 +1,45 @@
+{
+  "schema": "rurix.g14pipelineperf.measured_entry.v1",
+  "entry_id": "g14.pipeline_perf.frame_ms.bistro-interior_t67_tsr_device",
+  "results": {
+    "trimmed_mean": 235.481342
+  },
+  "protocol": "G14.3 生产管线车道三轮进程级独立运行（DeviceFrameSession 持久面；逐轮 160 帧 warmup 10 + 稳态 mean，跨轮中位数为本格值；M141/M165 冻结统计口径）",
+  "sample_manifest": {
+    "count": 450,
+    "digest": "sha256:5f24764c7aecabf3c5a28b6a330cf72c088cba7b308964a15d2bf339f82b981a"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device",
+    "base_commit": "66df869c08f22564169623f1d08f18d27f947eed"
+  },
+  "cells": {
+    "scene": "bistro-interior",
+    "tier": 67,
+    "backend": "tsr_device"
+  },
+  "stats": {
+    "runs": [
+      {
+        "frame_ms_mean": 232.780141,
+        "cv": 0.081488,
+        "fps": 4.296,
+        "scene_gpu_ms_mean": 15.362953
+      },
+      {
+        "frame_ms_mean": 252.791607,
+        "cv": 0.136358,
+        "fps": 3.956,
+        "scene_gpu_ms_mean": 15.863703
+      },
+      {
+        "frame_ms_mean": 235.481342,
+        "cv": 0.094077,
+        "fps": 4.247,
+        "scene_gpu_ms_mean": 15.182878
+      }
+    ]
+  },
+  "timestamp": "20260819T221930Z"
+}

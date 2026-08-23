@@ -1,0 +1,76 @@
+{
+ "schema_version": 1,
+ "subject": "g14_m_h_continuation_closeout",
+ "symbolic_gate_key": "g14.p0.m_h.continuation_closeout",
+ "matrix_row": "M179",
+ "milestone": "M179",
+ "assertion_id": "g14.p0.m_h.continuation_closeout",
+ "status": "pass",
+ "wave": "G14.12",
+ "numeric_step": 265,
+ "source_ref": "G14_ACCEPTANCE_MAP 附录 A M-h;G14_CONTRACT §7 裁决 7;RFC-0030 §4.7 锚重收割三证;G14PLUS_RECORD §2;G14_P2_DECISIONS 表后事件登记（G14plus 立项条）",
+ "base_commit": "afe090d5e5d43d0b081c1096c63b280ddab626d5",
+ "host_section_pass": true,
+ "device_section_state": "not_applicable",
+ "checks": {
+  "anchor_reharvest_three_proofs": true,
+  "md_full_pass_18_of_18": true,
+  "fps_registry_empty_final": true,
+  "rd045_mitigation_registered": true,
+  "wave_records_on_tree": true,
+  "red_arms_effective": true
+ },
+ "commands": [
+  {
+   "seq": 1,
+   "command": "py -3 ci/g14_continuation_closeout_smoke.py --gate g14.p0.m_h.continuation_closeout",
+   "exit_code": 0
+  }
+ ],
+ "evidence_level": "measured_local",
+ "run_url": "local interactive runner",
+ "timestamp": "20260823T062856Z",
+ "environment": {
+  "os": "Windows-11-10.0.28120-SP0",
+  "python_version": "3.12.1"
+ },
+ "notes": "check anchor_reharvest_three_proofs = True; check md_full_pass_18_of_18 = True; check fps_registry_empty_final = True; check rd045_mitigation_registered = True; check wave_records_on_tree = True; check red_arms_effective = True; VERDICT = PASS checks=6/6",
+ "parity": {
+  "anchor_file": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+  "anchor_reharvest": {
+   "harvested_utc": "20260822T183502Z",
+   "source_gate_run": "ci/g14_anchor_reharvest.py（canonical 160 帧×双跑位级同值,18/18）",
+   "base_commit": "1a9c561a4e6b41484f50c3a0f9c090933829d0ce",
+   "double_harvest_bitexact": true
+  },
+  "md_evidence": {
+   "mc_file": "g14_m_c_rurix_pipeline_perf_20260823T044803Z.json",
+   "md_file": "g14_m_d_dual_end_fps_parity_20260823T051754Z.json",
+   "status": "pass",
+   "met_count": 18,
+   "unmet_count": 0
+  },
+  "fps_registry": {
+   "items_count": 0,
+   "no_gap_explicit": {
+    "cornell-box": true,
+    "bistro-interior": true
+   }
+  },
+  "rd045": {
+   "status": "open",
+   "mitigation_entries": 1
+  },
+  "wave_records": {
+   "### §8.8": true,
+   "### §8.9": true,
+   "### §8.10": true,
+   "### §8.11": true,
+   "### §8.12": true
+  },
+  "red": {
+   "anchor_tamper_detected": true,
+   "unmet_masquerade_rejected": true
+  }
+ }
+}

@@ -1,0 +1,492 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_b_ue_benchmark_arm_measurement",
+  "milestone": "M173",
+  "assertion_id": "g14.p0.m_b.ue_benchmark_arm_measurement",
+  "symbolic_gate_key": "g14.p0.m_b.ue_benchmark_arm_measurement",
+  "matrix_row": "M173",
+  "status": "pass",
+  "wave": "G14.2",
+  "numeric_step": 251,
+  "source_ref": "G14_CONTRACT §4.2 M-b/G-G14-4;G14_ACCEPTANCE_MAP §1;G10-N11 承接锚;spec/external_reference.md RXS-0380 L2 臂 B/L3 provenance;M141/M165 50×3 冻结统计口径",
+  "base_commit": "e4d00dc6c468cfb57b5567187448509ebd311b04",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "camera_alignment_ok": true,
+    "command_surface_closed": true,
+    "ue_build_id_matches_m128": true,
+    "dlss_engagement_logged": true,
+    "three_process_independent_runs": true,
+    "sampling_protocol_50x3_recompute": true,
+    "mrq_overhead_measured": true,
+    "env_profile_complete": true,
+    "budget_entries_written": true,
+    "budget_eval_all_pass": true,
+    "red_arm_single_run_detected": true,
+    "red_arm_mrq_masquerade_detected": true,
+    "red_arm_estimated_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g14_2_ue_bench.py build --all（契约相机 auto-activation 对齐）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g14_2_ue_bench.py <scene> --tier <50|67|100> --run-index <1..3> ×18（UE benchmark 臂三轮进程级独立运行）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "RED 三臂（single-run/mrq-masquerade/estimated）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260820T195414Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g14.ue_benchmark.frame_ms.<scene>_t<tier>（本门产出入 g14_budget 六条目）",
+    "measured_value": "cornell-box/t50: 3.413ms; cornell-box/t67: 3.341ms; cornell-box/t100: 3.400ms; bistro-interior/t50: 4.732ms; bistro-interior/t67: 4.771ms; bistro-interior/t100: 4.875ms",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "50×3 trimmed mean（M141/M165 冻结协议 g10_perf_baseline_smoke 单源）三轮跨轮中位数；budget 守护阈 = 实测 ×1.5",
+    "evolution_register": "G10-N11 承接锚兑现面：三轮进程级独立运行 + MRQ 开销剥离 measured 量化（逐格 overhead 入 parity 面）"
+  },
+  "notes": "契约相机对齐 = True; benchmark 臂 cornell-box/t50/r1…; benchmark 臂 cornell-box/t50/r2…; benchmark 臂 cornell-box/t50/r3…; benchmark 臂 cornell-box/t67/r1…; benchmark 臂 cornell-box/t67/r2…; benchmark 臂 cornell-box/t67/r3…; benchmark 臂 cornell-box/t100/r1…; benchmark 臂 cornell-box/t100/r2…; benchmark 臂 cornell-box/t100/r3…; benchmark 臂 bistro-interior/t50/r1…; benchmark 臂 bistro-interior/t50/r2…; benchmark 臂 bistro-interior/t50/r3…; benchmark 臂 bistro-interior/t67/r1…; benchmark 臂 bistro-interior/t67/r2…; benchmark 臂 bistro-interior/t67/r3…; benchmark 臂 bistro-interior/t100/r1…; benchmark 臂 bistro-interior/t100/r2…; benchmark 臂 bistro-interior/t100/r3…; MRQ 开销剥离：6 格（overhead 逐格入 evidence）",
+  "parity": {
+    "cells": [
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 3.4294499999999997,
+            "fps": 291.59194623044516,
+            "cv": 0.1354329455109944,
+            "ci95_ms": [
+              3.3441633333333334,
+              3.5360416666666667
+            ],
+            "gpu_mean_ms": 0.7564413333333333,
+            "csv_bytes": 856099,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:e84ae033a35ab24ba8b101825d73558a2d87f33f2a93bfeefd0981be7dccfeb6"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 3.3049999999999997,
+            "fps": 302.571860816944,
+            "cv": 0.09528976224855344,
+            "ci95_ms": [
+              3.2328770833333333,
+              3.3293191666666666
+            ],
+            "gpu_mean_ms": 0.774952,
+            "csv_bytes": 855640,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:e84ae033a35ab24ba8b101825d73558a2d87f33f2a93bfeefd0981be7dccfeb6"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 3.4129166666666664,
+            "fps": 293.0045171529728,
+            "cv": 0.13217043126280986,
+            "ci95_ms": [
+              3.2228424999999996,
+              3.3902704166666666
+            ],
+            "gpu_mean_ms": 0.757468,
+            "csv_bytes": 855834,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:e84ae033a35ab24ba8b101825d73558a2d87f33f2a93bfeefd0981be7dccfeb6"
+          }
+        ],
+        "median_ms": 3.4129166666666664,
+        "fps": 293.0045171529728,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 3.259066666666667,
+            "fps": 306.8363130548623,
+            "cv": 0.1098226279593951,
+            "ci95_ms": [
+              3.178231666666667,
+              3.3050691666666667
+            ],
+            "gpu_mean_ms": 0.8913486666666667,
+            "csv_bytes": 853456,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:0e5aa8ac36e15629c8c9221855d5949087edae9541c75a62614030453a2d8977"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 3.3411500000000003,
+            "fps": 299.29814584798646,
+            "cv": 0.11448789938495475,
+            "ci95_ms": [
+              3.2495,
+              3.39713625
+            ],
+            "gpu_mean_ms": 0.888378,
+            "csv_bytes": 854589,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:0e5aa8ac36e15629c8c9221855d5949087edae9541c75a62614030453a2d8977"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 3.3739500000000002,
+            "fps": 296.3885060537352,
+            "cv": 0.12570738979240445,
+            "ci95_ms": [
+              3.281242916666667,
+              3.4475362500000006
+            ],
+            "gpu_mean_ms": 0.8743713333333333,
+            "csv_bytes": 854368,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:0e5aa8ac36e15629c8c9221855d5949087edae9541c75a62614030453a2d8977"
+          }
+        ],
+        "median_ms": 3.3411500000000003,
+        "fps": 299.29814584798646,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 3.3999,
+            "fps": 294.1262978322892,
+            "cv": 0.11016305801234673,
+            "ci95_ms": [
+              3.3021295833333335,
+              3.440002916666667
+            ],
+            "gpu_mean_ms": 0.9263853333333333,
+            "csv_bytes": 852853,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:edf4b4e9ced9b1ca241f97b0e4421f185e589b772e19f03a57a34d651c213c79"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 3.3272333333333335,
+            "fps": 300.5500065119168,
+            "cv": 0.05689267580967953,
+            "ci95_ms": [
+              3.2962820833333333,
+              3.3534333333333333
+            ],
+            "gpu_mean_ms": 0.932116,
+            "csv_bytes": 852145,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:edf4b4e9ced9b1ca241f97b0e4421f185e589b772e19f03a57a34d651c213c79"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 3.44075,
+            "fps": 290.63430938022236,
+            "cv": 0.12148259810954562,
+            "ci95_ms": [
+              3.3502591666666666,
+              3.5007220833333337
+            ],
+            "gpu_mean_ms": 0.9599226666666667,
+            "csv_bytes": 854250,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:edf4b4e9ced9b1ca241f97b0e4421f185e589b772e19f03a57a34d651c213c79"
+          }
+        ],
+        "median_ms": 3.3999,
+        "fps": 294.1262978322892,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 4.720400000000001,
+            "fps": 211.8464536903652,
+            "cv": 0.11267867027744342,
+            "ci95_ms": [
+              4.616479583333334,
+              4.8063520833333335
+            ],
+            "gpu_mean_ms": 2.340104,
+            "csv_bytes": 920452,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:fa18a0eec52cad8f3e1bff8d8b2057a728afffea4301c970231467373c6b929c"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 4.731933333333333,
+            "fps": 211.33011172318575,
+            "cv": 0.12118340385468025,
+            "ci95_ms": [
+              4.618545833333333,
+              4.800584166666666
+            ],
+            "gpu_mean_ms": 2.343561333333333,
+            "csv_bytes": 919257,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:fa18a0eec52cad8f3e1bff8d8b2057a728afffea4301c970231467373c6b929c"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 4.80055,
+            "fps": 208.3094645405214,
+            "cv": 0.14067085292543755,
+            "ci95_ms": [
+              4.646769166666667,
+              4.933869583333333
+            ],
+            "gpu_mean_ms": 2.3505833333333332,
+            "csv_bytes": 918688,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:fa18a0eec52cad8f3e1bff8d8b2057a728afffea4301c970231467373c6b929c"
+          }
+        ],
+        "median_ms": 4.731933333333333,
+        "fps": 211.33011172318575,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 4.613333333333333,
+            "fps": 216.76300578034682,
+            "cv": 0.12255353825679824,
+            "ci95_ms": [
+              4.523071666666667,
+              4.720184166666667
+            ],
+            "gpu_mean_ms": 2.5367706666666665,
+            "csv_bytes": 919397,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:c654fff7b5541e45f4ee0a7d6db9ce411381c5747d6bd7bc96a98b88a4d4ce08"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 4.7707500000000005,
+            "fps": 209.6106482209296,
+            "cv": 0.11916613088969778,
+            "ci95_ms": [
+              4.624127916666667,
+              4.835204166666666
+            ],
+            "gpu_mean_ms": 2.5841873333333334,
+            "csv_bytes": 918289,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:c654fff7b5541e45f4ee0a7d6db9ce411381c5747d6bd7bc96a98b88a4d4ce08"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 4.7758666666666665,
+            "fps": 209.38608001340071,
+            "cv": 0.11820320357507971,
+            "ci95_ms": [
+              4.673335416666667,
+              4.848362083333333
+            ],
+            "gpu_mean_ms": 2.5645106666666666,
+            "csv_bytes": 918889,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:c654fff7b5541e45f4ee0a7d6db9ce411381c5747d6bd7bc96a98b88a4d4ce08"
+          }
+        ],
+        "median_ms": 4.7707500000000005,
+        "fps": 209.6106482209296,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "runs": [
+          {
+            "run_index": 1,
+            "trimmed_mean_ms": 4.9812,
+            "fps": 200.7548381916004,
+            "cv": 0.1441258603917319,
+            "ci95_ms": [
+              4.777913333333333,
+              5.102494583333333
+            ],
+            "gpu_mean_ms": 3.527742,
+            "csv_bytes": 919847,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:b24553a57cd40b8d22738dc2e1c70a3766f6f650218557a1cd8594ab2526b2b2"
+          },
+          {
+            "run_index": 2,
+            "trimmed_mean_ms": 4.865266666666667,
+            "fps": 205.5385795913893,
+            "cv": 0.12154807532983893,
+            "ci95_ms": [
+              4.7486162499999995,
+              5.000954999999999
+            ],
+            "gpu_mean_ms": 3.5588,
+            "csv_bytes": 918389,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:b24553a57cd40b8d22738dc2e1c70a3766f6f650218557a1cd8594ab2526b2b2"
+          },
+          {
+            "run_index": 3,
+            "trimmed_mean_ms": 4.875416666666666,
+            "fps": 205.1106743013418,
+            "cv": 0.1447383609011101,
+            "ci95_ms": [
+              4.755798333333334,
+              5.017772916666667
+            ],
+            "gpu_mean_ms": 3.5800666666666667,
+            "csv_bytes": 918509,
+            "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）",
+            "command_digest": "sha256:b24553a57cd40b8d22738dc2e1c70a3766f6f650218557a1cd8594ab2526b2b2"
+          }
+        ],
+        "median_ms": 4.875416666666666,
+        "fps": 205.1106743013418,
+        "engine_version": "5.8.1-56057345+++UE5+Release-5.8",
+        "dlss_engaged": true
+      }
+    ],
+    "mrq_overhead": [
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "mrq_frame_render_duration_ms": 792.75,
+        "benchmark_arm_ms": 3.4129166666666664,
+        "mrq_capture_overhead_ms": 789.3370833333333,
+        "mrq_capture_overhead_rel": 231.2793309730192
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "mrq_frame_render_duration_ms": 790.8125,
+        "benchmark_arm_ms": 3.3411500000000003,
+        "mrq_capture_overhead_ms": 787.47135,
+        "mrq_capture_overhead_rel": 235.6887149634108
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "mrq_frame_render_duration_ms": 775.84375,
+        "benchmark_arm_ms": 3.3999,
+        "mrq_capture_overhead_ms": 772.44385,
+        "mrq_capture_overhead_rel": 227.1960498838201
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "mrq_frame_render_duration_ms": 934.90625,
+        "benchmark_arm_ms": 4.731933333333333,
+        "mrq_capture_overhead_ms": 930.1743166666666,
+        "mrq_capture_overhead_rel": 196.57384226320463
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "mrq_frame_render_duration_ms": 968.375,
+        "benchmark_arm_ms": 4.7707500000000005,
+        "mrq_capture_overhead_ms": 963.60425,
+        "mrq_capture_overhead_rel": 201.98171147094268
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "mrq_frame_render_duration_ms": 937.3125,
+        "benchmark_arm_ms": 4.875416666666666,
+        "mrq_capture_overhead_ms": 932.4370833333334,
+        "mrq_capture_overhead_rel": 191.25279890607644
+      }
+    ],
+    "env_profiles": [
+      {
+        "scene_id": "cornell-box",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      },
+      {
+        "scene_id": "cornell-box",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      },
+      {
+        "scene_id": "cornell-box",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      },
+      {
+        "scene_id": "bistro-interior",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      },
+      {
+        "scene_id": "bistro-interior",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      },
+      {
+        "scene_id": "bistro-interior",
+        "camera_params_digest": "g13_contract_camera（auto-activation 对齐读回面）",
+        "lighting_params_digest": "g13_parity_contract 冻结面（契约 digest 机核继承）",
+        "ue_build_id": "5.8.1-56057345+++UE5+Release-5.8",
+        "gpu_driver_version": "620.02（CSV 元数据 gpudriver 面）",
+        "clock_lock_state": "benchmark 固定虚拟步进 + 实测墙钟帧时（锁频面登记沿 r11 调研面）",
+        "capture_arm": "B-benchmark-csvprofile（RXS-0380 L2 臂 B + CsvProfile 双臂逗号链）"
+      }
+    ]
+  }
+}

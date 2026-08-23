@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g14_wave3_exit",
+  "symbolic_gate_key": "g14.wave.3.exit",
+  "matrix_row": "G14.3",
+  "wave": "G14.3",
+  "numeric_step": 255,
+  "source_ref": "G14_CONTRACT G-G14-5/§2.2;G14_ACCEPTANCE_MAP §1;M-c gate red arms independently effective;g14_budget M-c entries measured_local;inversion eliminated + before/after measured;double-run bitexact + temporal base 0-byte;G13.4 lane quality anchor;G5~G13 closed 0-byte",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g14.p0.m_c.rurix_pipeline_perf",
+      "subject_prefix": "g14_m_c_rurix_pipeline_perf",
+      "evidence_path": "evidence/g14_m_c_rurix_pipeline_perf_20260820T234449Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260820T234449Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m_c_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "M-c 门 red 面 checks 全真（3 臂）"
+    },
+    {
+      "id": "budget_entries_measured",
+      "status": "PASS",
+      "detail": "g14_budget M-c 18 条目 + 画质锚守护位齐备 measured_local + budget_eval 全 PASS"
+    },
+    {
+      "id": "inversion_eliminated_and_before_after",
+      "status": "PASS",
+      "detail": "倒挂消除 + 优化前后对照 3 档（t50: 1133→25.5ms; t67: 2178→28.0ms; t100: 1350→38.9ms）"
+    },
+    {
+      "id": "bitexact_and_temporal_0byte",
+      "status": "PASS",
+      "detail": "双跑位级 digest=sha256:e9bc79a78b6ef3dbafdfe6886… + temporal 底座 0-byte"
+    },
+    {
+      "id": "quality_anchor_guard",
+      "status": "PASS",
+      "detail": "画质锚带守护复核 PASS（SSIM=0.99461008 deficit=0.00538992 ≤ 锚定带 0.0107798 = True（守护带复核））"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']；工作树闭集=['milestones/g12/g12_pt_sampler_selection.json']"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260821T013018Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G14.3 M-c(M174) rurix pipeline perf gate (step 253); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: red arms + budget measured + inversion/before-after + bitexact/temporal + quality anchor + legacy 0-byte; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

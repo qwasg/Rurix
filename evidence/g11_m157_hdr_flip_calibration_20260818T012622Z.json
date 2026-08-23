@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "subject": "g11_m157_hdr_flip_calibration",
+  "symbolic_gate_key": "g11.p1.m157.hdr_flip_calibration",
+  "matrix_row": "M157",
+  "milestone": "M157",
+  "assertion_id": "g11.p1.m157.hdr_flip_calibration",
+  "status": "pass",
+  "wave": "G11.2",
+  "numeric_step": 199,
+  "source_ref": "G11_ACCEPTANCE_MAP §2 M157;G11_CONTRACT G-G11-4;CI_GATES §4A;G10-N10 承接锚;spec/visual_comparison.md RXS-0389/RXS-0393;RFC-0026 §4.2 F10",
+  "base_commit": "d7348d23fd71c388a764a92eb02f0094633a8236",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "hdr_sample_set_real_frames": true,
+    "estimator_semantics_frozen": true,
+    "calibration_rerun_deterministic": true,
+    "hdr_flip_identity_zero": true,
+    "budget_entries_appended_measured_local": true,
+    "budget_eval_strict_all_pass": true,
+    "red_handwritten_threshold_detected": true,
+    "red_estimated_masquerade_detected": true,
+    "red_nonrerunnable_detected": true,
+    "red_below_bound_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "py -3 ci/budget_eval.py --strict",
+      "exit_code": 0
+    }
+  ],
+  "calibration_report": {
+    "estimator": "p100",
+    "estimator_semantics": "统计量 = 全样本集逐对 |自实现 − 参考实现| 差样本最大值（p100）；容差 = p100 × k（RFC-0026 §4.2 F10；标量差与误差图逐像素差分列 RXS-0389 L5）",
+    "sample_set_digest": "sha256:123fbbe54d42828aae93b2a77f4d892c4ac4e931106a9c93d734a6ce4ec71a0d",
+    "sample_pair_count": 32,
+    "sample_grid": 4,
+    "sample_lower_bound": 24,
+    "sample_manifest": {
+      "pair_count": 32,
+      "grid": 4,
+      "scenes": [
+        "bistro-interior",
+        "cornell-box"
+      ],
+      "manifest_digest": "sha256:123fbbe54d42828aae93b2a77f4d892c4ac4e931106a9c93d734a6ce4ec71a0d",
+      "frames_root": "K:\\rurix-ext\\g11-frames\\g11_2"
+    },
+    "rerun_deterministic": true,
+    "entries": [
+      {
+        "budget_entry_id": "g11.metric.hdr_flip_pairwise_scalar_tol",
+        "calibrated_p100": 0.00024002098852837772,
+        "safety_factor_k": 2.0,
+        "threshold": 0.00048004197705675544
+      },
+      {
+        "budget_entry_id": "g11.metric.hdr_flip_pairwise_error_map_tol",
+        "calibrated_p100": 0.00012026192255236087,
+        "safety_factor_k": 2.0,
+        "threshold": 0.00024052384510472175
+      }
+    ],
+    "budget_path": "milestones/g11/g11_budget.json",
+    "budget_append_only": true,
+    "budget_eval_strict_exit": 0
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260818T012622Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "样本集: 32 对（双场景 4×4 瓦片，真实 HDR 帧双臂）digest=sha256:123fbbe54d42828aa…; HDR-FLIP 标定两跑逐位一致: scalar=2.400210e-04 error_map=1.202619e-04; g11_budget.json 字节级纯追加 2 条（g11.metric.hdr_flip_pairwise_scalar_tol / g11.metric.hdr_flip_pairwise_error_map_tol）; budget_eval --strict: exit 0（[budget_eval] PASS (196 pass, 0 skip, strict mode)）"
+}

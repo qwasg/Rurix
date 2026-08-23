@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g12_wave4_exit",
+  "symbolic_gate_key": "g12.wave.4.exit",
+  "matrix_row": "G12.4",
+  "wave": "G12.4",
+  "numeric_step": 227,
+  "source_ref": "milestones/g12/CI_GATES.md §5;G12_CONTRACT G-G12-6;G12_ACCEPTANCE_MAP §1;M163 parity contract digest frozen + ue_build_id M128 machine check;gap registry landed + RXS-0391 enum;g12_budget 20 entries measured_local;spec-first RXS-0403 + RFC-0029 approved;62 gates zero-degrade + RD-040 M100-high trigger evaluated",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g12.p0.m163.ue_pt_parity",
+      "subject_prefix": "g12_m163_ue_pt_parity",
+      "evidence_path": "evidence/g12_m163_ue_pt_parity_20260817T233051Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260817T233051Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g12.p0.m164.regression_guard",
+      "subject_prefix": "g12_m164_regression_guard",
+      "evidence_path": "evidence/g12_m164_regression_guard_20260817T224055Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260817T224055Z",
+      "device_section_state": "not_applicable",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m96_correctness_anchor_0byte",
+      "status": "PASS",
+      "detail": "M96 门最新 PASS(PASS);冻结面: band 0-byte + path_trace.rs 差分 ⊆ prod 模块注册块(纯追加)"
+    },
+    {
+      "id": "parity_contract_digest_frozen_and_ue_build_m128",
+      "status": "PASS",
+      "detail": "contract_digest=sha256:4515625e0797e500c… ue_build_id=5.8.1-56057345 段数=10 三向=True"
+    },
+    {
+      "id": "gap_registry_landed_with_enum_attribution",
+      "status": "PASS",
+      "detail": "登记表 10 行(quality 6 + caliber 4);归属枚举越集=[];场景集=True"
+    },
+    {
+      "id": "budget_20_entries_measured_and_eval_pass",
+      "status": "PASS",
+      "detail": "8 锚 + 7 标定 + 2 降噪标定 + 3 对标标定条目齐备 measured_local 零 estimated + budget_eval 全 PASS(P-09)"
+    },
+    {
+      "id": "spec_first_clause_and_rfc_and_corpus",
+      "status": "PASS",
+      "detail": "RXS-0403 条款头在树 + RFC-0029 Agent Approved + conformance 3 件锚定在位"
+    },
+    {
+      "id": "regression_62_zero_degrade_and_rd040_m100high_registered",
+      "status": "PASS",
+      "detail": "62 门零降级(M164 PASS);RD-040 status=open history 末条=G12.4 M100-high 触发评估登记(agent 完全自主 D-406 v2.0;G12 立项裁决 9 / G1…"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260817T234642Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: two G12.4 P0 gates (M163 ue_pt_parity step 225 / M164 regression_guard step 226); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M96 anchor 0-byte + parity digest frozen + gap registry + budget 20 measured + spec-first + 62 zero-degrade + RD-040 trigger; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g14uevariance.measured_entry.v1",
+  "entry_id": "g14.ue_variance_band.upscale_probe_rel",
+  "results": {
+    "run_variance_band_rel": 0.00756445
+  },
+  "protocol": "M-c 门内 UE 探针格（bistro-interior/tier67 末帧 HF share）三样本运行间方差底 max 两两相对差 ×2.0 程序产（禁手写 P-09；G13 §8.7 承接锚兑现面）",
+  "sample_manifest": {
+    "count": 3,
+    "digest": "sha256:e2d6031f9635423b01f2fca8a47fe9386f91e38871deef0944995a86e442c738"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "ue5.8.1-mrq-arm",
+    "base_commit": "6942bc046758738f5aa3d51297608ba8b1a1ef23"
+  },
+  "timestamp": "20260820T145506Z"
+}

@@ -1,0 +1,616 @@
+{
+  "schema_version": 1,
+  "subject": "g13_m_c_ue_upscale_parity",
+  "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+  "matrix_row": "M169",
+  "milestone": "M169",
+  "assertion_id": "g13.p0.m_c.ue_upscale_parity",
+  "status": "fail",
+  "wave": "G13.4",
+  "numeric_step": 240,
+  "source_ref": "G13_CONTRACT §4.2 M-c/G-G13-6;G13_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0405;RXS-0384 L5/RXS-0386/RXS-0387/RXS-0388/RXS-0391/RXS-0392/RXS-0403 口径继承",
+  "base_commit": "fd1e600c518f0d0242ece73cd2f46b3a84759341",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "temporal_base_0byte": true,
+    "conformance_corpus_anchored": true,
+    "contract_digest_three_way_equal": true,
+    "ue_build_id_matches_m128": true,
+    "budget_anchors_present": true,
+    "calibration_dual_seed_bitexact": false,
+    "budget_eval_all_pass": false,
+    "ue_arm_frames_all_present": true,
+    "ue_dlss_engagement_logged": false,
+    "rurix_arm_frames_all_present": true,
+    "rurix_double_run_bitexact": true,
+    "frame_digests_recomputed_match": true,
+    "gap_registry_schema_valid": true,
+    "gap_registry_reconciled": true,
+    "fps_baseline_zero_pass_line": true,
+    "residual_caliber_note_registered": true,
+    "device_red_digest_mismatch_detected": true,
+    "device_red_silent_gap_detected": true,
+    "device_red_missing_frame_detected": true,
+    "device_red_fps_masquerade_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-render --bin g13_4_ue_upscale_parity_render --features vendor-upscale",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g13_4_ue_upscale_parity_render --contract-digest（三方 digest 臂②）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g13_4_ue_render.py build --all --skip-import（UE Phase A + 三方 digest 臂③）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "g13_4_ue_render.py render upscale <scene> --tier <50|67|100> ×6（UE DLSS 臂 MRQ 真跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g13_4_ue_upscale_parity_render --render --scene <s> --tier <t> --backend <b> ×18（Rurix 三后端 32 帧 Halton 序列）",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "标定腿 calibration_seed 复跑（probe 档 × 3 后端 + tier100 参照 × 2 场景）",
+      "exit_code": 1
+    },
+    {
+      "seq": 7,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 1
+    },
+    {
+      "seq": 8,
+      "command": "RED 臂 ×4（digest-mismatch/silent-gap/missing-frame/fps-masquerade）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260822T192806Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g13.ue_upscale.{ssim_deficit_delta_tol,flip_deficit_delta_tol,noise_hf_delta_tol}（本门标定腿产出入 g13_budget）",
+    "measured_value": "cornell-box/t50/tsr_device: ssim_delta=0.00369341 flip_delta=0.00687889; cornell-box/t50/dlss_sr: ssim_delta=0.0161405 flip_delta=0.0123923 OVER; cornell-box/t50/fsr_3_1_5: ssim_delta=0.00456592 flip_delta=0.00657205; cornell-box/t67/tsr_device: ssim_delta=0.000926688 flip_delta=0.00461304; cornell-box/t67/dlss_sr: ssim_delta=0.00665004 flip_delta=0.00921666 OVER; cornell-box/t67/fsr_3_1_5: ssim_delta=0.00130712 flip_delta=0.00424016; cornell-box/t100/tsr_device: ssim_delta=0 flip_delta=0; cornell-box/t100/dlss_sr: ssim_delta=0 flip_delta=0; cornell-box/t100/fsr_3_1_5: ssim_delta=0 flip_delta=0; bistro-interior/t50/tsr_device: ssim_delta=0.00197516 flip_delta=0.00212688; bistro-interior/t50/dlss_sr: ssim_delta=0.0008536 flip_delta=0.000679758; bistro-interior/t50/fsr_3_1_5: ssim_delta=0.00271296 flip_delta=0.00147888; bistro-interior/t67/tsr_device: ssim_delta=0.00296866 flip_delta=0.003581; bistro-interior/t67/dlss_sr: ssim_delta=0.00187386 flip_delta=0.00169315; bistro-interior/t67/fsr_3_1_5: ssim_delta=0.00084843 flip_delta=0.00118943; bistro-interior/t100/tsr_device: ssim_delta=0 flip_delta=0; bistro-interior/t100/dlss_sr: ssim_delta=0 flip_delta=0; bistro-interior/t100/fsr_3_1_5: ssim_delta=0 flip_delta=0",
+    "not_worse_than_anchor": false,
+    "threshold_provenance": "g13_budget.json M-c 标定三条目（标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09）",
+    "evolution_register": "帧率基线 zero_pass_line 登记：measured 基线不构成帧率对标通过线（正式帧率对标锚定 G14，G10-N11/N16 承接锚字面 0-byte）；G13 不设绝对超分画质通过线（归 G15）；fps_baseline=[{\"scene\": \"cornell-box\", \"tier\": 50, \"ue_ms_per_frame_mrq\": 1824.78125, \"rurix\": {\"tsr_device\": {\"mean_ms\": 199.26391875, \"p50_ms\": 191.9269, \"p90_ms\": 203.1849}, \"dlss_sr\": {\"mean_ms\": 31.2049875, \"p50_ms\": 29.5155, \"p90_ms\": 33.7318}, \"fsr_3_1_5\": {\"mean_ms\": 29.571328125, \"p50_ms\": 29.0458, \"p90_ms\": 30.8131}}}, {\"scene\": \"cornell-box\", \"tier\": 67, \"ue_ms_per_frame_mrq\": 1721.71875, \"rurix\": {\"tsr_device\": {\"mean_ms\": 212.6161875, \"p50_ms\": 205.2725, \"p90_ms\": 225.5366}, \"dlss_sr\": {\"mean_ms\": 44.6053125, \"p50_ms\": 42.5029, \"p90_ms\": 48.2773}, \"fsr_3_1_5\": {\"mean_ms\": 43.16729375, \"p50_ms\""
+  },
+  "notes": "temporal/ vs 8c5dc5ee 目录级 0-byte(提交面 + 工作树双面); conformance 三件锚定 + trace_matrix PASS; host contract digest=sha256:137483a1696481971fc0da03f…（三方机核待 device 段补齐）; ue_build_id=5.8.1-56057345 vs M128 登记 5.8.1-56057345; 三方 digest 全等且 == 冻结注册值; UE 探针格运行间方差标定：samples=0.8522195618253017/0.9177688581287536/0.9177688581287536 band_rel=0.14284489（max 两两相对差 ×2.0 程序产）; DLSS engagement 日志缺: ['bistro-interior/tier67', 'bistro-interior/tier100']; 标定腿: ['g13.ue_upscale.ssim_deficit_delta_tol 已在树且值漂移(只追加禁改写)', 'g13.ue_upscale.flip_deficit_delta_tol 已在树且值漂移(只追加禁改写)', 'g13.ue_upscale.noise_hf_delta_tol 已在树且值漂移(只追加禁改写)']; 登记表结构化对账漂移（身份面/Rurix 位级/UE 超带 0.14284489）: [\"顶层身份面漂移 scene_summary: [{'scene_id': 'cornell-box', 'gap_count': 5, 'no_gap_explicit': False}, {'scene_id': 'bistro-interior', 'gap_count': 3, 'no_gap_explicit': False}] vs [{'scene_id': 'cornell-box', 'gap_count': 2, 'no_gap_explicit': False}, {'scene_id': 'bistro-interior', 'gap_count': 0, 'no_gap_explicit': True}]\", '行集行数漂移: 8 vs 2']",
+  "parity": {
+    "contract_digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f",
+    "ue_build_id": "5.8.1-56057345",
+    "cells": [
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "tsr_device",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9963065891440489,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.006878888629990156,
+        "ssim_delta": 0.003693410855951096,
+        "flip_delta": 0.006878888629990156,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9838595313284846,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.012392328138129766,
+        "ssim_delta": 0.016140468671515418,
+        "flip_delta": 0.012392328138129766,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": true,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9954340765361206,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.006572052200371609,
+        "ssim_delta": 0.004565923463879407,
+        "flip_delta": 0.006572052200371609,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9990733119266237,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.004613044636500105,
+        "ssim_delta": 0.0009266880733762584,
+        "flip_delta": 0.004613044636500105,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9933499560087599,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.009216660401404246,
+        "ssim_delta": 0.00665004399124014,
+        "flip_delta": 0.009216660401404246,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": true,
+        "registered": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9986928782609027,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0042401643774346975,
+        "ssim_delta": 0.0013071217390973056,
+        "flip_delta": 0.0042401643774346975,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "tsr_device",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "tsr_device",
+        "ssim_ue": 0.9959182135996434,
+        "ssim_rurix": 0.993943055395738,
+        "flip_ue": 0.0029965881729653505,
+        "flip_rurix": 0.005123468873098524,
+        "ssim_delta": 0.0019751582039053694,
+        "flip_delta": 0.0021268807001331735,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "ssim_ue": 0.9959182135996434,
+        "ssim_rurix": 0.9967718138539826,
+        "flip_ue": 0.0029965881729653505,
+        "flip_rurix": 0.0023168304325793866,
+        "ssim_delta": 0.0008536002543392263,
+        "flip_delta": 0.0006797577403859639,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 0.9959182135996434,
+        "ssim_rurix": 0.9986311763318291,
+        "flip_ue": 0.0029965881729653505,
+        "flip_rurix": 0.0015177098106603079,
+        "ssim_delta": 0.0027129627321856864,
+        "flip_delta": 0.0014788783623050426,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9970313398715486,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.003581004835894179,
+        "ssim_delta": 0.002968660128451428,
+        "flip_delta": 0.003581004835894179,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9981261396194517,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.001693146172667008,
+        "ssim_delta": 0.0018738603805482645,
+        "flip_delta": 0.001693146172667008,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 0.9991515695906689,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0011894279220221043,
+        "ssim_delta": 0.0008484304093311357,
+        "flip_delta": 0.0011894279220221043,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "tsr_device",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "ssim_ue": 1.0,
+        "ssim_rurix": 1.0,
+        "flip_ue": 0.0,
+        "flip_rurix": 0.0,
+        "ssim_delta": 0.0,
+        "flip_delta": 0.0,
+        "tolerance": {
+          "ssim": null,
+          "flip": 0.0073001003229083705
+        },
+        "over_tolerance": false,
+        "registered": false
+      }
+    ],
+    "noise_spectrum": [
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ue_hf_share": 0.0,
+        "rurix_hf_share": 0.4309534598101071,
+        "delta": 0.4309534598101071,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ue_hf_share": 0.0,
+        "rurix_hf_share": 0.6127225783593943,
+        "delta": 0.6127225783593943,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ue_hf_share": 0.0,
+        "rurix_hf_share": 0.4610425900579406,
+        "delta": 0.4610425900579406,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ue_hf_share": 0.9177688581287536,
+        "rurix_hf_share": 0.3622313729720505,
+        "delta": 0.5555374851567032,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ue_hf_share": 0.9177688581287536,
+        "rurix_hf_share": 0.570430187074088,
+        "delta": 0.34733867105466565,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ue_hf_share": 0.9177688581287536,
+        "rurix_hf_share": 0.4390137834830334,
+        "delta": 0.47875507464572026,
+        "tolerance": null,
+        "over_tolerance": false,
+        "registered": false
+      }
+    ],
+    "fps_baseline": {
+      "zero_pass_line": true,
+      "cells": [
+        {
+          "scene": "cornell-box",
+          "tier": 50,
+          "ue_ms_per_frame_mrq": 1824.78125,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 199.26391875,
+              "p50_ms": 191.9269,
+              "p90_ms": 203.1849
+            },
+            "dlss_sr": {
+              "mean_ms": 31.2049875,
+              "p50_ms": 29.5155,
+              "p90_ms": 33.7318
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 29.571328125,
+              "p50_ms": 29.0458,
+              "p90_ms": 30.8131
+            }
+          }
+        },
+        {
+          "scene": "cornell-box",
+          "tier": 67,
+          "ue_ms_per_frame_mrq": 1721.71875,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 212.6161875,
+              "p50_ms": 205.2725,
+              "p90_ms": 225.5366
+            },
+            "dlss_sr": {
+              "mean_ms": 44.6053125,
+              "p50_ms": 42.5029,
+              "p90_ms": 48.2773
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 43.16729375,
+              "p50_ms": 42.5954,
+              "p90_ms": 44.0583
+            }
+          }
+        },
+        {
+          "scene": "cornell-box",
+          "tier": 100,
+          "ue_ms_per_frame_mrq": 2480.09375,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 252.93764375,
+              "p50_ms": 245.9403,
+              "p90_ms": 256.6602
+            },
+            "dlss_sr": {
+              "mean_ms": 77.149553125,
+              "p50_ms": 75.4062,
+              "p90_ms": 80.4445
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 76.862825,
+              "p50_ms": 75.536,
+              "p90_ms": 84.4388
+            }
+          }
+        },
+        {
+          "scene": "bistro-interior",
+          "tier": 50,
+          "ue_ms_per_frame_mrq": 1522.625,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 1096.05998125,
+              "p50_ms": 1080.4789,
+              "p90_ms": 1130.9595
+            },
+            "dlss_sr": {
+              "mean_ms": 538.7281875,
+              "p50_ms": 528.6844,
+              "p90_ms": 561.5592
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 525.20398125,
+              "p50_ms": 517.7145,
+              "p90_ms": 540.53
+            }
+          }
+        },
+        {
+          "scene": "bistro-interior",
+          "tier": 67,
+          "ue_ms_per_frame_mrq": 941.03125,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 1393.633684375,
+              "p50_ms": 1389.1638,
+              "p90_ms": 1433.0874
+            },
+            "dlss_sr": {
+              "mean_ms": 829.73536875,
+              "p50_ms": 828.6942,
+              "p90_ms": 850.6621
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 805.8213625,
+              "p50_ms": 800.2689,
+              "p90_ms": 832.7856
+            }
+          }
+        },
+        {
+          "scene": "bistro-interior",
+          "tier": 100,
+          "ue_ms_per_frame_mrq": 2450.21875,
+          "rurix": {
+            "tsr_device": {
+              "mean_ms": 2215.3735625,
+              "p50_ms": 2208.2092,
+              "p90_ms": 2232.705
+            },
+            "dlss_sr": {
+              "mean_ms": 1629.2798875,
+              "p50_ms": 1626.1363,
+              "p90_ms": 1656.3555
+            },
+            "fsr_3_1_5": {
+              "mean_ms": 1580.283728125,
+              "p50_ms": 1581.9972,
+              "p90_ms": 1613.5113
+            }
+          }
+        }
+      ]
+    },
+    "gap_registry_file": "milestones/g13/g13_ue_upscale_gap_registry.json",
+    "residual_caliber_note": "Rurix 臂直接光口径（direct_only_lambert + emissive_primary，无 GI/天光——契约 sun/sky=0.0）vs UE 臂 deferred+Lumen 默认面：跨端直比不消费（端内参照 deficit 面尺度消去，RXS-0403 L4 同族）；Rurix DLSS 后端 SL_DLSS_MODE_MAX_PERFORMANCE 钉定面（vendor_upscale.rs 0-byte）vs UE 逐档名义映射——名义档对拍口径（契约 provenance tier_note 登记）；UE DLSS 实际内部分辨率以 NGX 窗口为准（实测 tier67 bistro=1281×721）vs Rurix floor(tier%×输出) 口径——残余口径差登记不拟合（RXS-0392）。"
+  }
+}

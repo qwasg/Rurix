@@ -1,0 +1,45 @@
+{
+  "schema": "rurix.g14pipelineperf.measured_entry.v1",
+  "entry_id": "g14.pipeline_perf.frame_ms.cornell-box_t50_fsr_3_1_5",
+  "results": {
+    "trimmed_mean": 34.139881
+  },
+  "protocol": "G14.3 生产管线车道三轮进程级独立运行（DeviceFrameSession 持久面；逐轮 160 帧 warmup 10 + 稳态 mean，跨轮中位数为本格值；M141/M165 冻结统计口径）",
+  "sample_manifest": {
+    "count": 450,
+    "digest": "sha256:2ba1bf2e1219161be3aa00ce0f4b010be8578852bfb69d156c9333f622166d14"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "fsr_3_1_5",
+    "base_commit": "789986362aa98f27bdb725c2b2ff6aec4e31fd71"
+  },
+  "cells": {
+    "scene": "cornell-box",
+    "tier": 50,
+    "backend": "fsr_3_1_5"
+  },
+  "stats": {
+    "runs": [
+      {
+        "frame_ms_mean": 32.354121,
+        "cv": 0.115124,
+        "fps": 30.908,
+        "scene_gpu_ms_mean": 1.084992
+      },
+      {
+        "frame_ms_mean": 34.139881,
+        "cv": 0.065579,
+        "fps": 29.291,
+        "scene_gpu_ms_mean": 1.159462
+      },
+      {
+        "frame_ms_mean": 34.953671,
+        "cv": 0.108121,
+        "fps": 28.609,
+        "scene_gpu_ms_mean": 1.301849
+      }
+    ]
+  },
+  "timestamp": "20260820T102952Z"
+}

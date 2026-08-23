@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g13uelumengi.measured_entry.v1",
+  "entry_id": "g13.ue_lumen.indirect_flip_delta_tol",
+  "results": {
+    "dual_seed_p100": 0.17101657887472593
+  },
+  "protocol": "M-d 标定腿：Rurix GI 臂双 seed（契约 random_seed vs M-d calibration_seed 副本）能量/间接光方差底 p100，threshold = measured × 2.0 冻结 k（禁手写 P-09）；样本面 = 2 场景 × gi on/off 双臂",
+  "sample_manifest": {
+    "count": 6,
+    "digest": "sha256:81ba2b147fd35cb831031eb203a9358875a29eecd8fdacd44f31eed4900174b3"
+  },
+  "provenance": {
+    "gpu": "host-cpu",
+    "backend": "g10_5_scene_render --gi-multibounce/--gi-off",
+    "base_commit": "fd1e600c518f0d0242ece73cd2f46b3a84759341"
+  },
+  "timestamp": "20260822T202957Z"
+}

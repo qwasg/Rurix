@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "subject": "g10_m140_gap_registry",
+  "symbolic_gate_key": "g10.p0.m140.gap_registry",
+  "matrix_row": "M140",
+  "milestone": "M140",
+  "assertion_id": "g10.p0.m140.gap_registry",
+  "status": "pass",
+  "wave": "G10.5",
+  "numeric_step": 189,
+  "source_ref": "G10_CONTRACT §4.2 M140 + G-G10-7;G10_ACCEPTANCE_MAP §1 M140 + §3.2;RFC-0026 §4.5 + §3.3;spec/visual_comparison.md RXS-0391",
+  "base_commit": "afe090d5e5d43d0b081c1096c63b280ddab626d5",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "checks": {
+    "spec_rxs0391_clause_on_tree": true,
+    "registry_on_tree_parseable": true,
+    "registry_schema_closed_set_valid": true,
+    "scene_set_matches_m133_manifest": true,
+    "module_attribution_enum_closed_set": true,
+    "measured_delta_traceable_to_m139": true,
+    "kind_split_caliber_vs_quality": true,
+    "g11_anchor_nonempty_all": true,
+    "suggested_priority_enum_all": true,
+    "scene_summary_full_set_zero_empty": true,
+    "gap_id_derivation_recompute": true,
+    "preview_candidate_items_all_present": true,
+    "red_missing_attribution_detected": true,
+    "red_missing_g11_anchor_detected": true,
+    "red_unmeasured_narrative_detected": true,
+    "red_module_outside_enum_detected": true,
+    "red_missing_scene_row_detected": true,
+    "red_untraceable_digest_detected": true
+  },
+  "commands": [],
+  "gap_registry_report": {
+    "registry_path": "milestones/g10/g10_gap_registry.json",
+    "registry_digest": "sha256:6d0f7bdd0a1d8ade50ddf1730b2263d81fbcd44da63de539d3eb6ca1058f1ba5",
+    "item_count": 11,
+    "kind_split": {
+      "quality_gap": 8,
+      "caliber_diff": 3
+    },
+    "other_module_rows": 2,
+    "per_scene": {
+      "cornell-box": 4,
+      "bistro-interior": 7
+    },
+    "not_ready_scenes": [],
+    "m139_evidence_path": "evidence/g10_m139_ab_comparison_20260823T055752Z.json",
+    "traceability": "每 measured_delta.evidence_digest ∈ M139 最新 evidence ab_report.artifact_digests 登记集（机核）",
+    "zero_pass_line": "G10 零通过线维持：差距全量 measured 登记即绿，不设 FLIP/SSIM/帧率通过判据（契约 G-G10-7 / 立项裁决 5）"
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T055752Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "Other 终值行计数 = 2（防滥用登记，RXS-0391 L5）"
+}

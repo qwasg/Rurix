@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "subject": "g14_wave2_exit",
+  "symbolic_gate_key": "g14.wave.2.exit",
+  "matrix_row": "G14.2",
+  "wave": "G14.2",
+  "numeric_step": 252,
+  "source_ref": "G14_CONTRACT G-G14-4/§2.2;G14_ACCEPTANCE_MAP §1;M-a/M-b gate red arms independently effective;g13 locked registries 0-byte;g14_budget entries measured_local;G13 §8.7 anchor fulfilled;three-run independence + MRQ overhead measured;G5~G13 closed 0-byte closed-set diff",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g14.p0.m_a.registry_variance_band_reconciliation",
+      "subject_prefix": "g14_m_a_registry_variance_band_reconciliation",
+      "evidence_path": "evidence/g14_m_a_registry_variance_band_reconciliation_20260821T093507Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260821T093507Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    },
+    {
+      "symbolic_gate_key": "g14.p0.m_b.ue_benchmark_arm_measurement",
+      "subject_prefix": "g14_m_b_ue_benchmark_arm_measurement",
+      "evidence_path": "evidence/g14_m_b_ue_benchmark_arm_measurement_20260821T112542Z.json",
+      "status": "PASS",
+      "detail": "PASS",
+      "timestamp": "20260821T112542Z",
+      "device_section_state": "executed",
+      "host_section_pass": true
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "g13_locked_registries_0byte",
+      "status": "PASS",
+      "detail": "G13 锁定双登记表在树 == HEAD 提交态逐字节（8+2 行终态 0-byte）"
+    },
+    {
+      "id": "m_a_m_b_red_arms_independently_effective",
+      "status": "PASS",
+      "detail": "双门最新 evidence red 面 checks 全真（共 6 臂独立有效）"
+    },
+    {
+      "id": "budget_entries_measured",
+      "status": "PASS",
+      "detail": "g14_budget M-a 两条目 + M-b 六条目齐备 measured_local 零 estimated + budget_eval 全 PASS（P-09）"
+    },
+    {
+      "id": "m_a_anchor_fulfilled",
+      "status": "PASS",
+      "detail": "修订后 M-c/M-d 复跑双绿 + 双登记表 0-byte + 方差带程序产入 budget（G13 §8.7 承接锚兑现）"
+    },
+    {
+      "id": "m_b_three_run_and_overhead",
+      "status": "PASS",
+      "detail": "三轮进程级独立运行 + MRQ 开销剥离 6 格 measured（G10-N11 兑现）"
+    },
+    {
+      "id": "legacy_criteria_0byte",
+      "status": "PASS",
+      "detail": "committed 闭集=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']（允许面=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']）；工作树闭集=['milestones/g12/g12_pt_sampler_selection.json']"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260821T142014Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G14.2 M-a(M172) registry variance band reconciliation (step 250) + M-b(M173) UE benchmark arm measurement (step 251); aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: g13 registries 0-byte + red arms + g14_budget measured + M-a anchor + M-b three-run/overhead + legacy 0-byte; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}

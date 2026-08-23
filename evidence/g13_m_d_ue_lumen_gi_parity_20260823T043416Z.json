@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "subject": "g13_m_d_ue_lumen_gi_parity",
+  "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+  "matrix_row": "M170",
+  "milestone": "M170",
+  "assertion_id": "g13.p0.m_d.ue_lumen_gi_parity",
+  "status": "pass",
+  "wave": "G13.4",
+  "numeric_step": 241,
+  "source_ref": "G13_CONTRACT §4.2 M-d/G-G13-6;G13_ACCEPTANCE_MAP §1;spec/visual_comparison.md RXS-0406;RXS-0384 L5/RXS-0386/RXS-0387/RXS-0388/RXS-0391/RXS-0392/RXS-0395/RXS-0396 口径继承",
+  "base_commit": "afe090d5e5d43d0b081c1096c63b280ddab626d5",
+  "host_section_pass": true,
+  "device_section_state": "executed",
+  "checks": {
+    "g11_gi_surface_0byte": true,
+    "g10_5_default_path_bitexact": true,
+    "conformance_corpus_anchored": true,
+    "contract_digest_three_way_equal": true,
+    "ue_build_id_matches_m128": true,
+    "budget_anchors_present": true,
+    "calibration_dual_seed_bitexact": true,
+    "budget_eval_all_pass": true,
+    "ue_arm_frames_all_present": true,
+    "rurix_arm_frames_all_present": true,
+    "rurix_double_run_bitexact": true,
+    "frame_digests_recomputed_match": true,
+    "gap_registry_schema_valid": true,
+    "gap_registry_reconciled": true,
+    "residual_caliber_note_registered": true,
+    "device_red_digest_mismatch_detected": true,
+    "device_red_silent_gap_detected": true,
+    "device_red_missing_frame_detected": true,
+    "device_red_gi_gate_drift_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-asset --bin g10_5_scene_render + G10.5 默认路径 digest == M139 登记（--gi-off 加性旗标行为保持机证）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g13_4_ue_upscale_parity_render --contract-digest --contract <lumen>（三方 digest 臂② G13LGP-1 分派）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "g13_4_ue_render.py build --all --skip-import（UE Phase A + contract_digest_ue_lumen 臂③）",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "g13_4_ue_render.py render lumen <scene> --mode on|off ×4（UE Lumen GI MRQ 真跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "g10_5_scene_render --render --gi-multibounce / --gi-off ×4（Rurix GI 双臂；M98/M99/M154 面只消费）",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "标定腿 calibration_seed 契约副本 × gi on/off × 2 场景",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "RED 臂 ×4（digest-mismatch/silent-gap/missing-frame/gi-gate-drift）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T043416Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g13.ue_lumen.{gi_energy_rel_tol,indirect_ssim_delta_tol,indirect_flip_delta_tol}（本门标定腿产出入 g13_budget）",
+    "measured_value": "cornell-box: energy_delta=5.35625e+08 indirect_ssim=0.0333845 indirect_flip=0.612799 OVER; bistro-interior: energy_delta=79.9401 indirect_ssim=0.0065272 indirect_flip=0.967137 OVER",
+    "not_worse_than_anchor": false,
+    "threshold_provenance": "g13_budget.json M-d 标定三条目（标定腿双 seed 方差底 p100 × 2.0 程序产，禁手写 P-09）",
+    "evolution_register": "G13 不设绝对 Lumen 画质通过线（归 G15）；G11 GI 面既有判据 0-byte 机核 + G10.5 默认路径逐字节 parity 机证"
+  },
+  "notes": "GI 实现面+G11 GI 门脚本面 0-byte（vs G13.0 ref 已提交面）; conformance 三件锚定 + trace_matrix PASS; host contract digest=sha256:d9d5bf5a0b721866846f0fb6c…; ue_build_id=5.8.1-56057345 vs M128 登记 5.8.1-56057345; UE 探针格运行间方差标定：samples=0.0371113462697593/0.0370932904308215/0.0370854570989624 band_rel=0.00139522（max 两两相对差 ×2.0 程序产）",
+  "parity": {
+    "contract_digest": "sha256:d9d5bf5a0b721866846f0fb6c2294a844c1ba1a48d67ace6c435e7158dc5fb20",
+    "ue_build_id": "5.8.1-56057345",
+    "cells": [
+      {
+        "scene": "cornell-box",
+        "energy_ue": 0.0,
+        "energy_rurix": 0.535625027781919,
+        "energy_delta": 535625027.78191894,
+        "indirect_ssim": 0.033384483786469556,
+        "indirect_flip": 0.6127988976249465,
+        "tolerance": {
+          "energy": 0.01752196170822843,
+          "ssim": 0.6675224733382197,
+          "flip": 0.34203315774945187
+        },
+        "over_tolerance": true,
+        "registered": true
+      },
+      {
+        "scene": "bistro-interior",
+        "energy_ue": 0.03708545709896236,
+        "energy_rurix": 3.0016998075316033,
+        "energy_delta": 79.94007846584125,
+        "indirect_ssim": 0.00652719685793643,
+        "indirect_flip": 0.96713742272207,
+        "tolerance": {
+          "energy": 0.01752196170822843,
+          "ssim": 0.6675224733382197,
+          "flip": 0.34203315774945187
+        },
+        "over_tolerance": true,
+        "registered": true
+      }
+    ],
+    "gap_registry_file": "milestones/g13/g13_ue_lumen_gap_registry.json",
+    "residual_caliber_note": "UE Lumen cornell 面：lumen on/off 逐帧全等（Lumen GI 贡献在 555m 巨大尺度单 RectLight 场景物理面为零——Lumen Scene 覆盖口径），Rurix GI cornell 面 gi_mean=1.50 vs direct_mean=0.30 （颜色溢出显著）——跨端 GI 能量差为真实场景物理口径差，逐项入差距登记表不拟合（RXS-0392）；UE 侧 MRQ EXR 捕获点 = SCS_FinalColorHDR tone curve 关（RXS-0386 L1），Rurix 侧 scene-linear HDR ×2^(−ev100) 派生尺度链对齐后消费。"
+  }
+}

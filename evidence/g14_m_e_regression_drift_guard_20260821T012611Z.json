@@ -1,0 +1,958 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_e_regression_drift_guard",
+  "symbolic_gate_key": "g14.p0.m_e.regression_drift_guard",
+  "matrix_row": "M178",
+  "milestone": "M178",
+  "assertion_id": "g14.p0.m_e.regression_drift_guard",
+  "status": "fail",
+  "wave": "G14.5a",
+  "numeric_step": 262,
+  "source_ref": "G14_CONTRACT §4.2 M-e/G-G14-8;G14_ACCEPTANCE_MAP §1 M-e;G9 34 + G10 14 + G11 14 + G12 9 + G13 5 keys latest evidence read-only summary;touched-face spot rerun zero-degrade;M165 drift monitoring（G12-N13 承接）",
+  "base_commit": "6a14556a11b7fc96c4e95ecfa0ac64f62fc5cf75",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "temporal_base_0byte": true,
+    "gates_76_latest_all_pass": true,
+    "spot_rerun_zero_degrade": false,
+    "spot_rerun_evidence_fresh": true,
+    "g5_g13_closed_surface_0byte": true,
+    "m165_drift_monitoring_registered": false,
+    "red_degraded_gate_detected": true,
+    "red_aggregate_masking_detected": true,
+    "red_drift_unregistered_detected": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g9_path_tracer_reference_smoke.py --gate g9.p0.m96.path_tracer_reference",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g10_ab_comparison_smoke.py --gate g10.p0.m139.ab_comparison",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g10_gap_registry_smoke.py --gate g10.p0.m140.gap_registry",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g13_closeout_check.py --gate g13.wave.5b.closeout",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g14_wave2_exit_check.py --gate g14.wave.2.exit",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g14_wave3_exit_check.py --gate g14.wave.3.exit",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g14_wave4_exit_check.py --gate g14.wave.4.exit",
+      "exit_code": 1
+    },
+    {
+      "seq": 8,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g14_wave6_exit_check.py --gate g14.wave.6.exit",
+      "exit_code": 1
+    },
+    {
+      "seq": 9,
+      "command": "C:\\Users\\苍\\AppData\\Local\\Programs\\Python\\Python312\\python.exe ci/g14_wave7_exit_check.py --gate g14.wave.7.exit",
+      "exit_code": 1
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260821T012611Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "n/a（回归门不产新锚；G9~G13 绿面 0-byte 维持）",
+    "measured_value": "76 门聚合 PASS=76/76；抽检 9 门真跑零降级 + M-c/M-d 复跑面 post-G14.7 机证；漂移检出计数=1",
+    "not_worse_than_anchor": false,
+    "threshold_provenance": "n/a（回归门面；抽检门各自 budget 面自持）",
+    "evolution_register": "G14.2 M-a 授权四面（gaplib 结构化对账/g13 双门脚本/budget_eval g14 分派支）committed 闭集允许项；M-d 诚实红门面 status=fail 字面维持不充降级"
+  },
+  "notes": "76 门只读汇总：76/76 PASS（行集全量入 evidence 不折叠）; 抽检 g9_m96: exit=0 status=PASS fresh=True; 抽检 g10_m139: exit=0 status=PASS fresh=True; 抽检 g10_m140: exit=0 status=PASS fresh=True; 抽检 g13_wave5b_closeout: exit=0 status=PASS fresh=True; 抽检 g14_wave2_exit: exit=0 status=PASS fresh=True; 抽检 g14_wave3_exit: exit=0 status=PASS fresh=True; 抽检 g14_wave4_exit: exit=1 诚实红聚合面=合格 fresh=True; 复跑面 g14_m_c_rurix_pipeline_perf: checks 全绿=True post-G14.7=True（status=pass）; 复跑面 g14_m_d_dual_end_fps_parity: checks 全绿=False post-G14.7=True（status=fail）; G5~G13 closed 面：committed 闭集=['ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']（允许面=['ci/budget_eval.py', 'ci/g10_gap_registry_lib.py', 'ci/g13_ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']）;工作树闭集=['milestones/g12/g12_pt_sampler_selection.json']（允许面=['milestones/g12/g12_pt_sampler_selection.json'] 异己登记）; M165 漂移监控：G14 复跑面确定性键族 6 键全真，同型 digest 漂移检出计数 = 1（零检出字面登记）；FAIL 件 0-byte 在档 = True；flip-trace 诊断臂在树 = True; 抽检/复跑面降级: [\"g14_wave6_exit exit=1: _ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']；工作树闭集=['milestones/g12/g12_pt_sampler_selection.json'])\\n  → evidence evidence\\\\g14_wave6_exit_20260821T013016Z.json\\n  VERDICT = FAIL\\n\", \"g14_wave7_exit exit=1: _ue_lumen_gi_parity_smoke.py', 'ci/g13_ue_upscale_parity_smoke.py']；工作树闭集=['milestones/g12/g12_pt_sampler_selection.json'])\\n  → evidence evidence\\\\g14_wave7_exit_20260821T013016Z.json\\n  VERDICT = FAIL\\n\", \"g14_m_d_dual_end_fps_parity 复跑面 checks 非全绿/status 异常: bad=['stage_a_digest_drift_guard'] status='fail'\"]; 漂移监控面: ['g14_m_d_dual_end_fps_parity:stage_a_digest_drift_guard=False（确定性键族非真——同型漂移嫌疑登记）'] FAIL件在档=True 诊断臂在树=True",
+  "regression": {
+    "gates_76": [
+      {
+        "symbolic_gate_key": "g9.p0.m90.cluster_dag_deepening",
+        "subject_prefix": "g9_m90_cluster_dag_deepening",
+        "evidence_path": "evidence/g9_m90_cluster_dag_deepening_20260815T030259Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030259Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m91.page_format_v2_abi",
+        "subject_prefix": "g9_m91_page_format_v2_abi",
+        "evidence_path": "evidence/g9_m91_page_format_v2_abi_20260815T030301Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030301Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m102.dgc_abstraction",
+        "subject_prefix": "g9_m102_dgc_abstraction",
+        "evidence_path": "evidence/g9_m102_dgc_abstraction_20260815T030258Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030258Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m103.descriptor_global_table",
+        "subject_prefix": "g9_m103_descriptor_global_table",
+        "evidence_path": "evidence/g9_m103_descriptor_global_table_20260815T030317Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030317Z",
+        "device_section_state": "pass",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m104.accesskind_indirect_edge",
+        "subject_prefix": "g9_m104_accesskind_indirect_edge",
+        "evidence_path": "evidence/g9_m104_accesskind_indirect_edge_20260815T030320Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030320Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m121.physics_particle_view",
+        "subject_prefix": "g9_m121_physics_particle_view",
+        "evidence_path": "evidence/g9_m121_physics_particle_view_20260815T030320Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030320Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m122.gameplay_field",
+        "subject_prefix": "g9_m122_gameplay_field",
+        "evidence_path": "evidence/g9_m122_gameplay_field_20260815T030321Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030321Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m93.visible_cluster_set",
+        "subject_prefix": "g9_m93_visible_cluster_set",
+        "evidence_path": "evidence/g9_m93_visible_cluster_set_20260815T030322Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030322Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m94.clas_rt_convergence",
+        "subject_prefix": "g9_m94_clas_rt_convergence",
+        "evidence_path": "evidence/g9_m94_clas_rt_convergence_20260817T061614Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T061614Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m95.single_source_truth",
+        "subject_prefix": "g9_m95_single_source_truth",
+        "evidence_path": "evidence/g9_m95_single_source_truth_20260815T030325Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030325Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m96.path_tracer_reference",
+        "subject_prefix": "g9_m96_path_tracer_reference",
+        "evidence_path": "evidence/g9_m96_path_tracer_reference_20260820T214800Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T214800Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m97.surface_cache",
+        "subject_prefix": "g9_m97_surface_cache",
+        "evidence_path": "evidence/g9_m97_surface_cache_20260815T030350Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030350Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m98.tracing_fallback_chain",
+        "subject_prefix": "g9_m98_tracing_fallback_chain",
+        "evidence_path": "evidence/g9_m98_tracing_fallback_chain_20260815T030353Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030353Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m110.world_partition",
+        "subject_prefix": "g9_m110_world_partition",
+        "evidence_path": "evidence/g9_m110_world_partition_20260817T061737Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T061737Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p0.m118.display_pipeline_view_transform",
+        "subject_prefix": "g9_m118_display_pipeline_view_transform",
+        "evidence_path": "evidence/g9_m118_display_pipeline_view_transform_20260815T030407Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030407Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m92.gpu_skinning_lod_update",
+        "subject_prefix": "g9_m92_gpu_skinning_lod_update",
+        "evidence_path": "evidence/g9_m92_gpu_skinning_lod_update_20260815T030327Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030327Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m105.command_build_node",
+        "subject_prefix": "g9_m105_command_build_node",
+        "evidence_path": "evidence/g9_m105_command_build_node_20260815T030328Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030328Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m106.execution_set_pso",
+        "subject_prefix": "g9_m106_execution_set_pso",
+        "evidence_path": "evidence/g9_m106_execution_set_pso_20260815T030330Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030330Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m107.shader_library_ir_link",
+        "subject_prefix": "g9_m107_shader_library_ir_link",
+        "evidence_path": "evidence/g9_m107_shader_library_ir_link_20260815T030330Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030330Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m99.spg_radiance_cache",
+        "subject_prefix": "g9_m99_spg_radiance_cache",
+        "evidence_path": "evidence/g9_m99_spg_radiance_cache_20260815T030355Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030355Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m100.multi_light_low",
+        "subject_prefix": "g9_m100_multi_light_low",
+        "evidence_path": "evidence/g9_m100_multi_light_low_20260815T030403Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030403Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m101.if_tier_ladder",
+        "subject_prefix": "g9_m101_if_tier_ladder",
+        "evidence_path": "evidence/g9_m101_if_tier_ladder_20260815T030406Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030406Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m111.hlod_baking",
+        "subject_prefix": "g9_m111_hlod_baking",
+        "evidence_path": "evidence/g9_m111_hlod_baking_20260815T030408Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030408Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m112.atmosphere_froxel",
+        "subject_prefix": "g9_m112_atmosphere_froxel",
+        "evidence_path": "evidence/g9_m112_atmosphere_froxel_20260815T030410Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030410Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m113.water_dual_pipeline",
+        "subject_prefix": "g9_m113_water_dual_pipeline",
+        "evidence_path": "evidence/g9_m113_water_dual_pipeline_20260815T030411Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030411Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m114.hair_marschner",
+        "subject_prefix": "g9_m114_hair_marschner",
+        "evidence_path": "evidence/g9_m114_hair_marschner_20260815T030412Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030412Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m115.skin_burley_diffusion",
+        "subject_prefix": "g9_m115_skin_burley_diffusion",
+        "evidence_path": "evidence/g9_m115_skin_burley_diffusion_20260815T030412Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030412Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m116.terrain_chunk_cell",
+        "subject_prefix": "g9_m116_terrain_chunk_cell",
+        "evidence_path": "evidence/g9_m116_terrain_chunk_cell_20260815T030413Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030413Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m117.decal_dbuffer",
+        "subject_prefix": "g9_m117_decal_dbuffer",
+        "evidence_path": "evidence/g9_m117_decal_dbuffer_20260815T030414Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030414Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m119.post_processing_skeleton",
+        "subject_prefix": "g9_m119_post_processing_skeleton",
+        "evidence_path": "evidence/g9_m119_post_processing_skeleton_20260815T030415Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030415Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m120.oit_benchmark_harness",
+        "subject_prefix": "g9_m120_oit_benchmark_harness",
+        "evidence_path": "evidence/g9_m120_oit_benchmark_harness_20260815T030517Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030517Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m124.buoyancy_field_channel",
+        "subject_prefix": "g9_m124_buoyancy_field_channel",
+        "evidence_path": "evidence/g9_m124_buoyancy_field_channel_20260815T030518Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030518Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m125.jolt_56_ab_evaluation",
+        "subject_prefix": "g9_m125_jolt_56_ab_evaluation",
+        "evidence_path": "evidence/g9_m125_jolt_56_ab_evaluation_20260815T030521Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030521Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g9.p1.m126.rapier_benchmark_ab",
+        "subject_prefix": "g9_m126_rapier_benchmark_ab",
+        "evidence_path": "evidence/g9_m126_rapier_benchmark_ab_20260815T030520Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260815T030520Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m128.ue5_capture_environment",
+        "subject_prefix": "g10_m128_ue5_capture_environment",
+        "evidence_path": "evidence/g10_m128_ue5_capture_environment_20260816T060338Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060338Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m129.ue5_reference_frames",
+        "subject_prefix": "g10_m129_ue5_reference_frames",
+        "evidence_path": "evidence/g10_m129_ue5_reference_frames_20260816T060416Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060416Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m130.dual_determinism_contract",
+        "subject_prefix": "g10_m130_dual_determinism_contract",
+        "evidence_path": "evidence/g10_m130_dual_determinism_contract_20260820T215117Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T215117Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m131.asset_license_registry",
+        "subject_prefix": "g10_m131_asset_license_registry",
+        "evidence_path": "evidence/g10_m131_asset_license_registry_20260816T060531Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060531Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m132.corpus_loading",
+        "subject_prefix": "g10_m132_corpus_loading",
+        "evidence_path": "evidence/g10_m132_corpus_loading_20260816T060548Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060548Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p1.m133.corpus_list_freeze",
+        "subject_prefix": "g10_m133_corpus_list_freeze",
+        "evidence_path": "evidence/g10_m133_corpus_list_freeze_20260816T060549Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060549Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m134.frame_capture_pipeline",
+        "subject_prefix": "g10_m134_frame_capture_pipeline",
+        "evidence_path": "evidence/g10_m134_frame_capture_pipeline_20260816T060611Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060611Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m135.flip_metric",
+        "subject_prefix": "g10_m135_flip_metric",
+        "evidence_path": "evidence/g10_m135_flip_metric_20260816T060613Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060613Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m136.ssim_psnr_metric",
+        "subject_prefix": "g10_m136_ssim_psnr_metric",
+        "evidence_path": "evidence/g10_m136_ssim_psnr_metric_20260816T060616Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060616Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m137.pixel_diff_report",
+        "subject_prefix": "g10_m137_pixel_diff_report",
+        "evidence_path": "evidence/g10_m137_pixel_diff_report_20260816T060617Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060617Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p1.m138.metric_threshold_calibration",
+        "subject_prefix": "g10_m138_metric_threshold_calibration",
+        "evidence_path": "evidence/g10_m138_metric_threshold_calibration_20260816T060621Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260816T060621Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m139.ab_comparison",
+        "subject_prefix": "g10_m139_ab_comparison",
+        "evidence_path": "evidence/g10_m139_ab_comparison_20260820T215219Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T215219Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m140.gap_registry",
+        "subject_prefix": "g10_m140_gap_registry",
+        "evidence_path": "evidence/g10_m140_gap_registry_20260820T215219Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T215219Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g10.p0.m141.perf_baseline",
+        "subject_prefix": "g10_m141_perf_baseline",
+        "evidence_path": "evidence/g10_m141_perf_baseline_20260817T061545Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T061545Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m144.caliber_c1_indoor_luminance",
+        "subject_prefix": "g11_m144_caliber_c1_indoor_luminance",
+        "evidence_path": "evidence/g11_m144_caliber_c1_indoor_luminance_20260817T051504Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051504Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m145.caliber_c2_exposure_chain",
+        "subject_prefix": "g11_m145_caliber_c2_exposure_chain",
+        "evidence_path": "evidence/g11_m145_caliber_c2_exposure_chain_20260817T051528Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051528Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m146.caliber_c3_exr_bit_depth",
+        "subject_prefix": "g11_m146_caliber_c3_exr_bit_depth",
+        "evidence_path": "evidence/g11_m146_caliber_c3_exr_bit_depth_20260817T051538Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051538Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m147.fix_r1_material_subset",
+        "subject_prefix": "g11_m147_fix_r1_material_subset",
+        "evidence_path": "evidence/g11_m147_fix_r1_material_subset_20260817T051835Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051835Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m148.fix_r2_geometry_normals",
+        "subject_prefix": "g11_m148_fix_r2_geometry_normals",
+        "evidence_path": "evidence/g11_m148_fix_r2_geometry_normals_20260817T051706Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051706Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m149.fix_r5_json_u64_seed",
+        "subject_prefix": "g11_m149_fix_r5_json_u64_seed",
+        "evidence_path": "evidence/g11_m149_fix_r5_json_u64_seed_20260817T051714Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051714Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m150.fix_u1_cornell_shell_radiance",
+        "subject_prefix": "g11_m150_fix_u1_cornell_shell_radiance",
+        "evidence_path": "evidence/g11_m150_fix_u1_cornell_shell_radiance_20260817T051715Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051715Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m151.fix_u2_bistro_texture_dds",
+        "subject_prefix": "g11_m151_fix_u2_bistro_texture_dds",
+        "evidence_path": "evidence/g11_m151_fix_u2_bistro_texture_dds_20260817T051721Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051721Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m152.fix_u3_bistro_animation",
+        "subject_prefix": "g11_m152_fix_u3_bistro_animation",
+        "evidence_path": "evidence/g11_m152_fix_u3_bistro_animation_20260817T051741Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051741Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m153.fix_r3_light_subset",
+        "subject_prefix": "g11_m153_fix_r3_light_subset",
+        "evidence_path": "evidence/g11_m153_fix_r3_light_subset_20260817T051742Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051742Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m154.fix_r4_gi_multibounce_world_cache",
+        "subject_prefix": "g11_m154_fix_r4_gi_multibounce_world_cache",
+        "evidence_path": "evidence/g11_m154_fix_r4_gi_multibounce_world_cache_20260817T051754Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051754Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m155.ab_retest_closure",
+        "subject_prefix": "g11_m155_ab_retest_closure",
+        "evidence_path": "evidence/g11_m155_ab_retest_closure_20260817T051807Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051807Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p0.m156.regression_guard",
+        "subject_prefix": "g11_m156_regression_guard",
+        "evidence_path": "evidence/g11_m156_regression_guard_20260817T051834Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260817T051834Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g11.p1.m157.hdr_flip_calibration",
+        "subject_prefix": "g11_m157_hdr_flip_calibration",
+        "evidence_path": "evidence/g11_m157_hdr_flip_calibration_20260818T014955Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T014955Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m158.mis_full_surface",
+        "subject_prefix": "g12_m158_mis_full_surface",
+        "evidence_path": "evidence/g12_m158_mis_full_surface_20260818T014726Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T014726Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m159.russian_roulette_prod",
+        "subject_prefix": "g12_m159_russian_roulette_prod",
+        "evidence_path": "evidence/g12_m159_russian_roulette_prod_20260818T013415Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T013415Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m160.sampling_lds_upgrade",
+        "subject_prefix": "g12_m160_sampling_lds_upgrade",
+        "evidence_path": "evidence/g12_m160_sampling_lds_upgrade_20260818T014752Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T014752Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m161.convergence_criterion_prod",
+        "subject_prefix": "g12_m161_convergence_criterion_prod",
+        "evidence_path": "evidence/g12_m161_convergence_criterion_prod_20260818T013505Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T013505Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m162.denoise_pipeline_tsr",
+        "subject_prefix": "g12_m162_denoise_pipeline_tsr",
+        "evidence_path": "evidence/g12_m162_denoise_pipeline_tsr_20260818T014752Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T014752Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m163.ue_pt_parity",
+        "subject_prefix": "g12_m163_ue_pt_parity",
+        "evidence_path": "evidence/g12_m163_ue_pt_parity_20260818T013657Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T013657Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m164.regression_guard",
+        "subject_prefix": "g12_m164_regression_guard",
+        "evidence_path": "evidence/g12_m164_regression_guard_20260818T014631Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T014631Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p0.m165.pt_throughput_baseline",
+        "subject_prefix": "g12_m165_pt_throughput_baseline",
+        "evidence_path": "evidence/g12_m165_pt_throughput_baseline_20260818T015338Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T015338Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g12.p1.m166.pt_production_calibration",
+        "subject_prefix": "g12_pt_production_calibration",
+        "evidence_path": "evidence/g12_pt_production_calibration_20260818T013105Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260818T013105Z",
+        "device_section_state": "not_applicable",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_a.vendor_upscale_integration",
+        "subject_prefix": "g13_m_a_vendor_upscale_integration",
+        "evidence_path": "evidence/g13_m_a_vendor_upscale_integration_20260819T090228Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260819T090228Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_b.tsr_device_kernel",
+        "subject_prefix": "g13_m_b_tsr_device_kernel",
+        "evidence_path": "evidence/g13_m_b_tsr_device_kernel_20260819T090602Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260819T090602Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_c.ue_upscale_parity",
+        "subject_prefix": "g13_m_c_ue_upscale_parity",
+        "evidence_path": "evidence/g13_m_c_ue_upscale_parity_20260820T222955Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T222955Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_d.ue_lumen_gi_parity",
+        "subject_prefix": "g13_m_d_ue_lumen_gi_parity",
+        "evidence_path": "evidence/g13_m_d_ue_lumen_gi_parity_20260820T232632Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260820T232632Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      },
+      {
+        "symbolic_gate_key": "g13.p0.m_e.regression_drift_guard",
+        "subject_prefix": "g13_m_e_regression_drift_guard",
+        "evidence_path": "evidence/g13_m_e_regression_drift_guard_20260819T105009Z.json",
+        "status": "PASS",
+        "detail": "PASS",
+        "timestamp": "20260819T105009Z",
+        "device_section_state": "executed",
+        "host_section_pass": true
+      }
+    ],
+    "spot_reruns": [
+      {
+        "id": "g9_m96",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g9_m96_path_tracer_reference_20260821T012635Z.json",
+        "timestamp": "20260821T012635Z"
+      },
+      {
+        "id": "g10_m139",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g10_m139_ab_comparison_20260821T013012Z.json",
+        "timestamp": "20260821T013012Z"
+      },
+      {
+        "id": "g10_m140",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g10_m140_gap_registry_20260821T013012Z.json",
+        "timestamp": "20260821T013012Z"
+      },
+      {
+        "id": "g13_wave5b_closeout",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g13_wave5b_closeout_20260821T013013Z.json",
+        "timestamp": "20260821T013013Z"
+      },
+      {
+        "id": "g14_wave2_exit",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g14_wave2_exit_20260821T013014Z.json",
+        "timestamp": "20260821T013014Z"
+      },
+      {
+        "id": "g14_wave3_exit",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g14_wave3_exit_20260821T013015Z.json",
+        "timestamp": "20260821T013015Z"
+      },
+      {
+        "id": "g14_wave4_exit",
+        "exit": 1,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g14_wave4_exit_20260821T013015Z.json",
+        "timestamp": "20260821T013015Z"
+      },
+      {
+        "id": "g14_wave6_exit",
+        "exit": 1,
+        "status": "FAIL",
+        "fresh": false
+      },
+      {
+        "id": "g14_wave7_exit",
+        "exit": 1,
+        "status": "FAIL",
+        "fresh": false
+      },
+      {
+        "id": "g14_m_c_rurix_pipeline_perf",
+        "exit": 0,
+        "status": "PASS",
+        "fresh": true,
+        "evidence": "evidence/g14_m_c_rurix_pipeline_perf_20260820T234449Z.json",
+        "timestamp": "20260820T234449Z"
+      },
+      {
+        "id": "g14_m_d_dual_end_fps_parity",
+        "exit": 0,
+        "status": "FAIL",
+        "fresh": true,
+        "evidence": "evidence/g14_m_d_dual_end_fps_parity_20260821T003053Z.json",
+        "timestamp": "20260821T003053Z"
+      }
+    ],
+    "session_started_utc": "20260821T012611Z",
+    "drift_monitoring": {
+      "checked_keys": [
+        "g14_m_c_rurix_pipeline_perf:double_run_bitexact=True",
+        "g14_m_d_dual_end_fps_parity:stage_a_digest_drift_guard=False",
+        "g14_m_f_production_caliber_stage_a:stage_a_bitexact_probe=True",
+        "g14_m_g_vendor_parallel_conversion:bitexact_digest_anchor=True",
+        "g14_m_g_vendor_parallel_conversion:serial_control_arm_bitexact=True",
+        "g14_m_g_vendor_parallel_conversion:rust_unit_bitexact=True"
+      ],
+      "drift_detected_count": 1,
+      "drift_details": [
+        "g14_m_d_dual_end_fps_parity:stage_a_digest_drift_guard=False（确定性键族非真——同型漂移嫌疑登记）"
+      ],
+      "fail_evidence_retained": true,
+      "flip_trace_arm_present": true
+    }
+  }
+}
