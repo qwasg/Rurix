@@ -57,6 +57,7 @@ ALLOWED_CLOSED_DIFF = {
     "ci/g13_ue_upscale_parity_smoke.py",
     "ci/g13_ue_lumen_gi_parity_smoke.py",
     "milestones/g13/g13_budget.json",
+    "milestones/g13/g13_ue_upscale_gap_registry.json",
     "ci/budget_eval.py",
 }
 

@@ -17,8 +17,9 @@ no-go 行 RD/矩阵/契约锚义务；外加四横向机核——
     维持未命中终态登记），零新 RD（max=RD-044），status 全 open 0-byte；
   ③ G14.1 候选决策表对账：§1 24 行 G13 defer 承接行 ID 在 G14_CANDIDATE_DECISIONS
     在册 + 裁决面字面承接（go 行 = G10-N11/G10-N16 双行，其余 22 行 defer-to-G15+）；
-  ④ 差距登记表对账：g14_fps_gap_registry.json 18 行 == 最新 M-d evidence
-    unmet_count（只登记不拟合 RXS-0392 字面维持）+ g13_ue_upscale 8 行 /
+  ④ 差距登记表对账：g14_fps_gap_registry.json 行数 == 最新 M-d evidence
+    unmet_count（诚实红 18 行 或 达标空表 0 行 + 双场景 no_gap_explicit；
+    只登记不拟合 RXS-0392 字面维持）+ g13_ue_upscale 8 行 /
     g13_ue_lumen 2 行 / g12_ue_pt 10 行终态 0-byte（git porcelain 空）。
 只读文档与 registry，不代绿实现门；no-go/defer 如实保持 open 不写进全绿叙述；
 M-d 通过线未达标 = 如实登记不冒充（G14-N8 行承载，不充绿叙述面）。
@@ -311,7 +312,8 @@ def validate_rows(
         }
     )
 
-    # 横向机核④：差距登记表对账（g14 帧率表 18 行 == 最新 M-d unmet_count；g13/g12 表终态 0-byte）
+    # 横向机核④：差距登记表对账（g14 帧率表行数 == 最新 M-d unmet_count；
+    # 达标空表 0/0 + 双场景 no_gap_explicit，或诚实红 18/18；g13/g12 表终态 0-byte）
     reg_ok = True
     reg_parts: list[str] = []
     if not REG_G14_FPS.is_file():
@@ -323,9 +325,22 @@ def validate_rows(
         md_path = wel.load_latest_evidence(MD_PREFIX)
         md_doc = wel.load_json(md_path) if md_path else {}
         unmet = ((md_doc.get("parity") or {}).get("unmet_count"))
-        if len(g14_items) != 18 or unmet is None or len(g14_items) != unmet:
+        summaries = g14_doc.get("scene_summary") or []
+        empty_explicit = (
+            len(g14_items) == 0
+            and unmet == 0
+            and {s.get("scene_id") for s in summaries} >= {"cornell-box", "bistro-interior"}
+            and all(s.get("no_gap_explicit") is True for s in summaries)
+        )
+        honest_18 = len(g14_items) == 18 and unmet == 18
+        if unmet is None or not (empty_explicit or honest_18):
             reg_ok = False
-            reg_parts.append(f"g14 帧率表行数={len(g14_items)}（expect 18）最新 M-d unmet={unmet}")
+            reg_parts.append(
+                f"g14 帧率表行数={len(g14_items)} unmet={unmet}"
+                "（合格面 = 空表 0/0+no_gap_explicit 或诚实红 18/18）"
+            )
+        elif empty_explicit:
+            reg_parts.append(f"g14 帧率表空表终态 == 最新 M-d unmet_count=0（{md_path.name}）")
         else:
             reg_parts.append(f"g14 帧率表 18 行 == 最新 M-d unmet_count（{md_path.name}）")
     for path, want_n, name in (

@@ -247,12 +247,24 @@ def run_regression(*, skip_rerun: bool = False) -> tuple[bool, list[dict], str, 
                 [sys.executable, str(script), "--gate", key],
                 cwd=ROOT,
             )
-            expected_rc = 1 if (prefix in HONEST_RED_AGGREGATES or prefix == MD_PREFIX) else 0
-            if r.returncode != expected_rc:
+            # M-d / wave4 双分支：达标 exit=0 与诚实红 exit=1 均为合法镜像，
+            # 合格面由 verify_assertion_gate / eval_honest_red_aggregate 机核。
+            # 不以诚实红时代的 expect=1 在 18/18 绿态误红（RFC-0030/G14.12）。
+            dual_branch = prefix in HONEST_RED_AGGREGATES or prefix == MD_PREFIX
+            if dual_branch:
+                if r.returncode not in (0, 1):
+                    rows.append({
+                        "symbolic_gate_key": key, "subject_prefix": prefix,
+                        "evidence_path": None, "status": "FAIL",
+                        "detail": f"smoke exit={r.returncode}（双分支 expect 0|1）",
+                    })
+                    all_ok = False
+                    continue
+            elif r.returncode != 0:
                 rows.append({
                     "symbolic_gate_key": key, "subject_prefix": prefix,
                     "evidence_path": None, "status": "FAIL",
-                    "detail": f"smoke exit={r.returncode}（expect {expected_rc}）",
+                    "detail": f"smoke exit={r.returncode}（expect 0）",
                 })
                 all_ok = False
                 continue
