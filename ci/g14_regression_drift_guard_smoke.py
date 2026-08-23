@@ -36,7 +36,8 @@ evidence 独立落盘自持 device 面；本门只读汇总 + 子进程退出码
 4. **既有判据 0-byte**：G5~G13 closed 门脚本与里程碑面（ci/g5_*~g13_* +
    milestones/g9~g13）git 面机核——已提交面 diff f4c8da0b..HEAD 闭集 ⊆
    {ci/g10_gap_registry_lib.py / ci/g13_ue_upscale_parity_smoke.py /
-   ci/g13_ue_lumen_gi_parity_smoke.py / ci/budget_eval.py}（G14.2 M-a 授权面）；
+   ci/g13_ue_lumen_gi_parity_smoke.py / milestones/g13/g13_budget.json /
+   ci/budget_eval.py}（G14.2 M-a 授权面 + G14.12 RFC-0030 §4.7 测量派生冻结件重派生）；
    工作树 porcelain 闭集 = {milestones/g12/g12_pt_sampler_selection.json}
    （异己并发会话登记面，立项裁决 1——不在本闭集消费/混入）。
 
@@ -344,6 +345,7 @@ def git_closed_surface() -> tuple[bool, str]:
         "ci/g10_gap_registry_lib.py",
         "ci/g13_ue_upscale_parity_smoke.py",
         "ci/g13_ue_lumen_gi_parity_smoke.py",
+        "milestones/g13/g13_budget.json",
         "ci/budget_eval.py",
     }
     bad_committed = [f for f in committed if f not in allowed_committed]

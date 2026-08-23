@@ -16,7 +16,8 @@ G14_ACCEPTANCE_MAP §1；同构 ci/g13_wave2_exit_check.py）。
 ⑤ M-b 三轮进程级独立运行 + MRQ 开销剥离 measured 面（逐格 overhead 非空）;
 ⑥ G5~G13 closed 面 0-byte（vs G14.0 不可变 ref f4c8da0b committed diff 闭集
    ⊆ {ci/g10_gap_registry_lib.py, ci/g13_ue_upscale_parity_smoke.py,
-   ci/g13_ue_lumen_gi_parity_smoke.py}——G14 M-a 修订授权面 + G13.5a 加性演进位，
+   ci/g13_ue_lumen_gi_parity_smoke.py, milestones/g13/g13_budget.json}——G14 M-a
+   修订授权面 + G14.12 RFC-0030 §4.7 测量派生冻结件重派生 + G13.5a 加性演进位，
    沿 G13.5a M-e git_closed_surface 同构口径）。
 不重跑 smoke、不代绿、不设 RURIX_REQUIRE_REAL。聚合 PASS 不遮蔽任一子断言
 FAIL/SKIP/DEV_ENV_DEGRADE。
@@ -60,6 +61,7 @@ ALLOWED_CLOSED_DIFF = {
     "ci/g10_gap_registry_lib.py",
     "ci/g13_ue_upscale_parity_smoke.py",
     "ci/g13_ue_lumen_gi_parity_smoke.py",
+    "milestones/g13/g13_budget.json",
 }
 REGISTRY_FILES = [
     ROOT / "milestones" / "g13" / "g13_ue_upscale_gap_registry.json",
