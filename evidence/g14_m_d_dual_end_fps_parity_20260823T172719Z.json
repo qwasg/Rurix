@@ -1,0 +1,872 @@
+{
+  "schema_version": 1,
+  "subject": "g14_m_d_dual_end_fps_parity",
+  "milestone": "M175",
+  "assertion_id": "g14.p0.m_d.dual_end_fps_parity",
+  "symbolic_gate_key": "g14.p0.m_d.dual_end_fps_parity",
+  "matrix_row": "M175",
+  "status": "fail",
+  "wave": "G14.4",
+  "numeric_step": 254,
+  "source_ref": "G14_CONTRACT §4.2 M-d/G-G14-6;G14_ACCEPTANCE_MAP §1;G10-N16/G11-N3 帧率面;G14-N7 通过线 ×1.00 口径裁决;M141/M165 50×3 冻结统计口径",
+  "base_commit": "fcfac94460fc5cbd54b68906a01c5e4b53e7ba53",
+  "host_section_pass": false,
+  "device_section_state": "executed",
+  "checks": {
+    "dual_end_measurement_fresh": true,
+    "three_run_independence": true,
+    "sampling_protocol_50x3": true,
+    "production_caliber_v2": true,
+    "stage_a_digest_drift_guard": true,
+    "pass_line_evaluated": true,
+    "quality_guard_green": true,
+    "gap_registry_written": true,
+    "budget_eval_all_pass": true,
+    "red_arms_effective": true
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "g14_2_ue_bench <scene> --tier <t> --run-index <1..3> ×6（UE 臂复跑）",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "g14_3_pipeline_perf --bench ×18（Rurix 臂三轮逐格）",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "RED 三臂（single-round/mixed-caliber/unmet-masquerade）",
+      "exit_code": 0
+    }
+  ],
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T172719Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "production": {
+    "correctness_anchor_unchanged": true,
+    "baseline_anchor_id": "g14.ue_benchmark.frame_ms.*（UE 臂）+ g14.pipeline_perf.frame_ms.*（Rurix 臂）",
+    "measured_value": "达标 17/18；cornell-box/t50/tsr_device: ratio=7.5685; cornell-box/t50/dlss_sr: ratio=3.1826; cornell-box/t50/fsr_3_1_5: ratio=3.1804; cornell-box/t67/tsr_device: ratio=5.9920; cornell-box/t67/dlss_sr: ratio=2.2468; cornell-box/t67/fsr_3_1_5: ratio=2.7787; cornell-box/t100/tsr_device: ratio=3.5759; cornell-box/t100/dlss_sr: ratio=2.1224; cornell-box/t100/fsr_3_1_5: ratio=2.4564; bistro-interior/t50/tsr_device: ratio=2.2242; bistro-interior/t50/dlss_sr: ratio=1.6819; bistro-interior/t50/fsr_3_1_5: ratio=2.4819; bistro-interior/t67/tsr_device: ratio=1.8508; bistro-interior/t67/dlss_sr: ratio=1.3602; bistro-interior/t67/fsr_3_1_5: ratio=1.9775; bistro-interior/t100/tsr_device: ratio=1.3997; bistro-interior/t100/dlss_sr: ratio=0.8571; bistro-interior/t100/fsr_3_1_5: ratio=1.2666",
+    "not_worse_than_anchor": true,
+    "threshold_provenance": "通过线 = 契约面（G14-N7 口径裁决 ×1.00 下限，非 measured 标定面——判档理由契约登记）；统计 = M141/M165 冻结 50×3 口径",
+    "evolution_register": "通过线判定：达标 17/18 格；未达标 1 格显式登记 g14_fps_gap_registry.json（不静默混入）；未达标如实登记不冒充（G-G14-6 诚实面）"
+  },
+  "notes": "UE 臂 cornell-box/t50 三轮…; Rurix 臂 cornell-box/t50/tsr_device 三轮…; Rurix 臂 cornell-box/t50/dlss_sr 三轮…; Rurix 臂 cornell-box/t50/fsr_3_1_5 三轮…; UE 臂 cornell-box/t67 三轮…; Rurix 臂 cornell-box/t67/tsr_device 三轮…; Rurix 臂 cornell-box/t67/dlss_sr 三轮…; Rurix 臂 cornell-box/t67/fsr_3_1_5 三轮…; UE 臂 cornell-box/t100 三轮…; Rurix 臂 cornell-box/t100/tsr_device 三轮…; Rurix 臂 cornell-box/t100/dlss_sr 三轮…; Rurix 臂 cornell-box/t100/fsr_3_1_5 三轮…; UE 臂 bistro-interior/t50 三轮…; Rurix 臂 bistro-interior/t50/tsr_device 三轮…; Rurix 臂 bistro-interior/t50/dlss_sr 三轮…; Rurix 臂 bistro-interior/t50/fsr_3_1_5 三轮…; UE 臂 bistro-interior/t67 三轮…; Rurix 臂 bistro-interior/t67/tsr_device 三轮…; Rurix 臂 bistro-interior/t67/dlss_sr 三轮…; Rurix 臂 bistro-interior/t67/fsr_3_1_5 三轮…; UE 臂 bistro-interior/t100 三轮…; Rurix 臂 bistro-interior/t100/tsr_device 三轮…; Rurix 臂 bistro-interior/t100/dlss_sr 三轮…; Rurix 臂 bistro-interior/t100/fsr_3_1_5 三轮…; 生产口径 v2 机核（prod≤full 逐轮不变量）= True；Stage A digest 守护（18 格 × 3 轮 == 冻结锚）= True; 通过线判定（×1.00）：达标 17/18 格；未达标 1 格;   cornell-box/t50/tsr_device: UE=2.148ms Rurix=0.284ms ratio=7.5685 达标;   cornell-box/t50/dlss_sr: UE=2.148ms Rurix=0.675ms ratio=3.1826 达标;   cornell-box/t50/fsr_3_1_5: UE=2.148ms Rurix=0.675ms ratio=3.1804 达标;   cornell-box/t67/tsr_device: UE=2.056ms Rurix=0.343ms ratio=5.9920 达标;   cornell-box/t67/dlss_sr: UE=2.056ms Rurix=0.915ms ratio=2.2468 达标;   cornell-box/t67/fsr_3_1_5: UE=2.056ms Rurix=0.740ms ratio=2.7787 达标;   cornell-box/t100/tsr_device: UE=2.102ms Rurix=0.588ms ratio=3.5759 达标;   cornell-box/t100/dlss_sr: UE=2.102ms Rurix=0.990ms ratio=2.1224 达标;   cornell-box/t100/fsr_3_1_5: UE=2.102ms Rurix=0.856ms ratio=2.4564 达标;   bistro-interior/t50/tsr_device: UE=2.643ms Rurix=1.188ms ratio=2.2242 达标;   bistro-interior/t50/dlss_sr: UE=2.643ms Rurix=1.572ms ratio=1.6819 达标;   bistro-interior/t50/fsr_3_1_5: UE=2.643ms Rurix=1.065ms ratio=2.4819 达标;   bistro-interior/t67/tsr_device: UE=2.715ms Rurix=1.467ms ratio=1.8508 达标;   bistro-interior/t67/dlss_sr: UE=2.715ms Rurix=1.996ms ratio=1.3602 达标;   bistro-interior/t67/fsr_3_1_5: UE=2.715ms Rurix=1.373ms ratio=1.9775 达标;   bistro-interior/t100/tsr_device: UE=3.001ms Rurix=2.144ms ratio=1.3997 达标;   bistro-interior/t100/dlss_sr: UE=3.001ms Rurix=3.502ms ratio=0.8571 未达标;   bistro-interior/t100/fsr_3_1_5: UE=3.001ms Rurix=2.370ms ratio=1.2666 达标; 画质零降级守护：g13_m_c_ue_upscale_parity PASS（g13_m_c_ue_upscale_parity_20260823T084323Z.json）; g13_m_d_ue_lumen_gi_parity PASS（g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json）; 画质锚带在树（threshold=0.0107798）",
+  "parity": {
+    "pass_line_ratio": 1.0,
+    "met_count": 17,
+    "unmet_count": 1,
+    "cells": [
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "tsr_device",
+        "ue_median_ms": 2.147816666666667,
+        "rurix_median_ms": 0.2837831249999999,
+        "rurix_full_caliber_ms": 0.342321,
+        "fps_ratio": 7.5685143951623886,
+        "per_run_ratios": [
+          7.745328324138529,
+          7.251039000590092,
+          7.966647065430689
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.27699062499999993,
+            "frame_ms_full_caliber": 0.339841,
+            "tail_ms_mean": 0.06284999999999999,
+            "last_frame_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+            "cv": 2.477171,
+            "started_epoch": 1787506090.6015606
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.2962081250000002,
+            "frame_ms_full_caliber": 0.356578,
+            "tail_ms_mean": 0.06036937499999999,
+            "last_frame_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+            "cv": 2.274711,
+            "started_epoch": 1787506090.987238
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.2837831249999999,
+            "frame_ms_full_caliber": 0.342321,
+            "tail_ms_mean": 0.0585375,
+            "last_frame_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+            "cv": 2.302505,
+            "started_epoch": 1787506091.352702
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "ue_median_ms": 2.147816666666667,
+        "rurix_median_ms": 0.6748687500000001,
+        "rurix_full_caliber_ms": 0.737841,
+        "fps_ratio": 3.1825694502326063,
+        "per_run_ratios": [
+          3.1844492066584413,
+          3.1825694502326063,
+          3.2157115844665674
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.67370625,
+            "frame_ms_full_caliber": 0.734889,
+            "tail_ms_mean": 0.061182499999999994,
+            "last_frame_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+            "cv": 1.058004,
+            "started_epoch": 1787506091.748531
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.6748687500000001,
+            "frame_ms_full_caliber": 0.737841,
+            "tail_ms_mean": 0.0629725,
+            "last_frame_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+            "cv": 1.09193,
+            "started_epoch": 1787506100.9202244
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.7030481250000001,
+            "frame_ms_full_caliber": 0.86472,
+            "tail_ms_mean": 0.16167187499999996,
+            "last_frame_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+            "cv": 2.411677,
+            "started_epoch": 1787506107.9568312
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 2.147816666666667,
+        "rurix_median_ms": 0.6753224999999999,
+        "rurix_full_caliber_ms": 0.745579,
+        "fps_ratio": 3.1804310779911336,
+        "per_run_ratios": [
+          3.1768278612564127,
+          3.1611426882370277,
+          3.355565986452614
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.6753224999999999,
+            "frame_ms_full_caliber": 0.745579,
+            "tail_ms_mean": 0.070256875,
+            "last_frame_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+            "cv": 1.196003,
+            "started_epoch": 1787506114.9907227
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.6794431249999999,
+            "frame_ms_full_caliber": 0.747677,
+            "tail_ms_mean": 0.06823437499999999,
+            "last_frame_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+            "cv": 1.159473,
+            "started_epoch": 1787506115.7326677
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.67374625,
+            "frame_ms_full_caliber": 0.742512,
+            "tail_ms_mean": 0.068765625,
+            "last_frame_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+            "cv": 1.173522,
+            "started_epoch": 1787506116.4205983
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ue_median_ms": 2.0557,
+        "rurix_median_ms": 0.3430731249999999,
+        "rurix_full_caliber_ms": 0.401714,
+        "fps_ratio": 5.992017008035824,
+        "per_run_ratios": [
+          5.940938283179333,
+          5.992017008035824,
+          6.026266917652833
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.34132375000000026,
+            "frame_ms_full_caliber": 0.399901,
+            "tail_ms_mean": 0.05857749999999999,
+            "last_frame_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+            "cv": 1.989963,
+            "started_epoch": 1787506212.6687658
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.3430731249999999,
+            "frame_ms_full_caliber": 0.401714,
+            "tail_ms_mean": 0.058640625,
+            "last_frame_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+            "cv": 1.980948,
+            "started_epoch": 1787506213.0804505
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.34630062500000014,
+            "frame_ms_full_caliber": 0.405408,
+            "tail_ms_mean": 0.0591075,
+            "last_frame_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+            "cv": 1.972081,
+            "started_epoch": 1787506213.4535894
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ue_median_ms": 2.0557,
+        "rurix_median_ms": 0.9149449999999998,
+        "rurix_full_caliber_ms": 1.023361,
+        "fps_ratio": 2.246801720321987,
+        "per_run_ratios": [
+          2.2162898680612866,
+          2.232477321396452,
+          2.4418807887933722
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.9149449999999998,
+            "frame_ms_full_caliber": 1.023361,
+            "tail_ms_mean": 0.10841562499999999,
+            "last_frame_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+            "cv": 1.358525,
+            "started_epoch": 1787506213.8306193
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.9208156250000001,
+            "frame_ms_full_caliber": 1.038008,
+            "tail_ms_mean": 0.1171925,
+            "last_frame_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+            "cv": 1.443799,
+            "started_epoch": 1787506246.9690218
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.8546281249999998,
+            "frame_ms_full_caliber": 0.926097,
+            "tail_ms_mean": 0.07146937499999999,
+            "last_frame_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+            "cv": 1.005377,
+            "started_epoch": 1787506260.2198088
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 2.0557,
+        "rurix_median_ms": 0.7397950000000002,
+        "rurix_full_caliber_ms": 0.809115,
+        "fps_ratio": 2.7787427598185976,
+        "per_run_ratios": [
+          2.69128633917857,
+          2.867857538336249,
+          2.820916605275786
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.7534625,
+            "frame_ms_full_caliber": 0.827194,
+            "tail_ms_mean": 0.073731875,
+            "last_frame_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+            "cv": 1.132144,
+            "started_epoch": 1787506267.5325544
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.7168068750000003,
+            "frame_ms_full_caliber": 0.786176,
+            "tail_ms_mean": 0.06936874999999999,
+            "last_frame_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+            "cv": 1.122091,
+            "started_epoch": 1787506268.2826476
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.7397950000000002,
+            "frame_ms_full_caliber": 0.809115,
+            "tail_ms_mean": 0.06932,
+            "last_frame_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+            "cv": 1.085242,
+            "started_epoch": 1787506268.9837794
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "tsr_device",
+        "ue_median_ms": 2.1016999999999997,
+        "rurix_median_ms": 0.587735,
+        "rurix_full_caliber_ms": 0.655253,
+        "fps_ratio": 3.575931329595821,
+        "per_run_ratios": [
+          3.2698469745213283,
+          3.8431018165714654,
+          3.575931329595821
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.61909625,
+            "frame_ms_full_caliber": 0.716152,
+            "tail_ms_mean": 0.097055625,
+            "last_frame_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+            "cv": 1.868759,
+            "started_epoch": 1787506319.9025571
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.5560612500000001,
+            "frame_ms_full_caliber": 0.634238,
+            "tail_ms_mean": 0.07817625,
+            "last_frame_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+            "cv": 1.670243,
+            "started_epoch": 1787506320.3452961
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.587735,
+            "frame_ms_full_caliber": 0.655253,
+            "tail_ms_mean": 0.06751750000000001,
+            "last_frame_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+            "cv": 1.406167,
+            "started_epoch": 1787506320.7856412
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "ue_median_ms": 2.1016999999999997,
+        "rurix_median_ms": 0.9902374999999994,
+        "rurix_full_caliber_ms": 1.053951,
+        "fps_ratio": 2.122420126484809,
+        "per_run_ratios": [
+          2.05921770376907,
+          1.785294710427412,
+          2.122420126484809
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.9830675,
+            "frame_ms_full_caliber": 1.046211,
+            "tail_ms_mean": 0.063143125,
+            "last_frame_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+            "cv": 0.819975,
+            "started_epoch": 1787506321.202969
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.19700125,
+            "frame_ms_full_caliber": 1.296901,
+            "tail_ms_mean": 0.0999,
+            "last_frame_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+            "cv": 0.986778,
+            "started_epoch": 1787506344.498104
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.9902374999999994,
+            "frame_ms_full_caliber": 1.053951,
+            "tail_ms_mean": 0.063713125,
+            "last_frame_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+            "cv": 0.790016,
+            "started_epoch": 1787506359.7402766
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "cornell-box",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 2.1016999999999997,
+        "rurix_median_ms": 0.8555874999999998,
+        "rurix_full_caliber_ms": 0.929006,
+        "fps_ratio": 2.4564407497772,
+        "per_run_ratios": [
+          2.358514678094087,
+          2.497698949552209,
+          2.559260606632561
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 0.858315625,
+            "frame_ms_full_caliber": 0.929006,
+            "tail_ms_mean": 0.07069,
+            "last_frame_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+            "cv": 0.960213,
+            "started_epoch": 1787506370.4075387
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 0.8555874999999998,
+            "frame_ms_full_caliber": 0.931048,
+            "tail_ms_mean": 0.075460625,
+            "last_frame_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+            "cv": 1.025278,
+            "started_epoch": 1787506371.1599383
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 0.8212137499999997,
+            "frame_ms_full_caliber": 0.888464,
+            "tail_ms_mean": 0.067250625,
+            "last_frame_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+            "cv": 0.955161,
+            "started_epoch": 1787506371.8698611
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "tsr_device",
+        "ue_median_ms": 2.643266666666667,
+        "rurix_median_ms": 1.188389375,
+        "rurix_full_caliber_ms": 1.659254,
+        "fps_ratio": 2.224242931039893,
+        "per_run_ratios": [
+          2.074884527219504,
+          2.2478178980636354,
+          2.243989545373824
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 1.2199393750000005,
+            "frame_ms_full_caliber": 1.696163,
+            "tail_ms_mean": 0.4762231250000001,
+            "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+            "cv": 3.941219,
+            "started_epoch": 1787506443.4132857
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.175925625,
+            "frame_ms_full_caliber": 1.655489,
+            "tail_ms_mean": 0.47956374999999996,
+            "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+            "cv": 4.116857,
+            "started_epoch": 1787506505.2784352
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.188389375,
+            "frame_ms_full_caliber": 1.659254,
+            "tail_ms_mean": 0.47086437499999995,
+            "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+            "cv": 3.930187,
+            "started_epoch": 1787506567.249787
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "dlss_sr",
+        "ue_median_ms": 2.643266666666667,
+        "rurix_median_ms": 1.5715593749999996,
+        "rurix_full_caliber_ms": 2.033616,
+        "fps_ratio": 1.681938785587829,
+        "per_run_ratios": [
+          1.6106507801102543,
+          1.812412567958258,
+          1.588486540270975
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 1.5715593749999996,
+            "frame_ms_full_caliber": 2.033616,
+            "tail_ms_mean": 0.46205625,
+            "last_frame_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+            "cv": 2.857618,
+            "started_epoch": 1787506629.3669002
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.4584243749999999,
+            "frame_ms_full_caliber": 1.973222,
+            "tail_ms_mean": 0.5147981249999999,
+            "last_frame_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+            "cv": 3.298512,
+            "started_epoch": 1787506693.2809756
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.678788749999999,
+            "frame_ms_full_caliber": 2.199076,
+            "tail_ms_mean": 0.5202875,
+            "last_frame_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+            "cv": 2.982868,
+            "started_epoch": 1787506757.2663264
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 50,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 2.643266666666667,
+        "rurix_median_ms": 1.0650062500000002,
+        "rurix_full_caliber_ms": 1.523372,
+        "fps_ratio": 2.4819259667881446,
+        "per_run_ratios": [
+          2.409083752992537,
+          2.4819259667881446,
+          2.4734846179189818
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 1.0507037500000003,
+            "frame_ms_full_caliber": 1.510649,
+            "tail_ms_mean": 0.459945,
+            "last_frame_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+            "cv": 3.840513,
+            "started_epoch": 1787506821.6697276
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.0650062500000002,
+            "frame_ms_full_caliber": 1.523372,
+            "tail_ms_mean": 0.458365625,
+            "last_frame_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+            "cv": 3.790045,
+            "started_epoch": 1787506883.8799605
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.0781281249999999,
+            "frame_ms_full_caliber": 1.536752,
+            "tail_ms_mean": 0.45862375,
+            "last_frame_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+            "cv": 3.760871,
+            "started_epoch": 1787506946.018949
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "tsr_device",
+        "ue_median_ms": 2.7148833333333333,
+        "rurix_median_ms": 1.466868125,
+        "rurix_full_caliber_ms": 1.952647,
+        "fps_ratio": 1.8508025957230025,
+        "per_run_ratios": [
+          1.8523592708393946,
+          1.8399813847782165,
+          1.8694250377824528
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 1.4502406249999995,
+            "frame_ms_full_caliber": 1.957924,
+            "tail_ms_mean": 0.507683125,
+            "last_frame_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+            "cv": 3.723704,
+            "started_epoch": 1787507064.9707015
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.4754949999999993,
+            "frame_ms_full_caliber": 1.951781,
+            "tail_ms_mean": 0.47628624999999997,
+            "last_frame_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+            "cv": 3.434629,
+            "started_epoch": 1787507127.0713534
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.466868125,
+            "frame_ms_full_caliber": 1.952647,
+            "tail_ms_mean": 0.48577875,
+            "last_frame_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+            "cv": 3.581324,
+            "started_epoch": 1787507189.065006
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "dlss_sr",
+        "ue_median_ms": 2.7148833333333333,
+        "rurix_median_ms": 1.9959237500000016,
+        "rurix_full_caliber_ms": 2.458023,
+        "fps_ratio": 1.3602139527290715,
+        "per_run_ratios": [
+          1.2969933471375559,
+          1.3897921183925108,
+          1.3739001803049833
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 2.071226249999999,
+            "frame_ms_full_caliber": 2.599233,
+            "tail_ms_mean": 0.52800625,
+            "last_frame_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+            "cv": 2.587872,
+            "started_epoch": 1787507251.1463823
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.953445625000001,
+            "frame_ms_full_caliber": 2.41882,
+            "tail_ms_mean": 0.465374375,
+            "last_frame_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+            "cv": 2.42306,
+            "started_epoch": 1787507315.3274362
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.9959237500000016,
+            "frame_ms_full_caliber": 2.458023,
+            "tail_ms_mean": 0.46209875,
+            "last_frame_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+            "cv": 2.364719,
+            "started_epoch": 1787507379.5761204
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 67,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 2.7148833333333333,
+        "rurix_median_ms": 1.3728768750000002,
+        "rurix_full_caliber_ms": 1.841414,
+        "fps_ratio": 1.977514067554917,
+        "per_run_ratios": [
+          1.94764456109061,
+          1.977514067554917,
+          2.0111837349494257
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 1.37929,
+            "frame_ms_full_caliber": 1.85397,
+            "tail_ms_mean": 0.47468000000000005,
+            "last_frame_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+            "cv": 3.228124,
+            "started_epoch": 1787507443.660993
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 1.3728768750000002,
+            "frame_ms_full_caliber": 1.835769,
+            "tail_ms_mean": 0.4628925,
+            "last_frame_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+            "cv": 3.177647,
+            "started_epoch": 1787507505.8690672
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 1.363475624999999,
+            "frame_ms_full_caliber": 1.841414,
+            "tail_ms_mean": 0.47793875,
+            "last_frame_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+            "cv": 3.270343,
+            "started_epoch": 1787507568.187457
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "tsr_device",
+        "ue_median_ms": 3.0014,
+        "rurix_median_ms": 2.144374375,
+        "rurix_full_caliber_ms": 2.616728,
+        "fps_ratio": 1.3996623140956903,
+        "per_run_ratios": [
+          1.3996623140956903,
+          1.4539229313229667,
+          1.3652661913102981
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 2.144374375,
+            "frame_ms_full_caliber": 2.616728,
+            "tail_ms_mean": 0.472353125,
+            "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+            "cv": 2.550044,
+            "started_epoch": 1787507688.6955192
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 2.081460624999999,
+            "frame_ms_full_caliber": 2.557192,
+            "tail_ms_mean": 0.47573125000000005,
+            "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+            "cv": 2.657374,
+            "started_epoch": 1787507750.8358107
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 2.17012625,
+            "frame_ms_full_caliber": 2.644096,
+            "tail_ms_mean": 0.47396937499999997,
+            "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+            "cv": 2.507768,
+            "started_epoch": 1787507813.000445
+          }
+        ],
+        "pass": true
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "dlss_sr",
+        "ue_median_ms": 3.0014,
+        "rurix_median_ms": 3.501822500000002,
+        "rurix_full_caliber_ms": 4.030512,
+        "fps_ratio": 0.8570965547225761,
+        "per_run_ratios": [
+          0.8619763400935201,
+          0.8558519306448233,
+          0.8460737230399309
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 3.4819981250000005,
+            "frame_ms_full_caliber": 4.003569,
+            "tail_ms_mean": 0.5215712499999999,
+            "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+            "cv": 1.643621,
+            "started_epoch": 1787507875.1984475
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 3.535989375000001,
+            "frame_ms_full_caliber": 4.071002,
+            "tail_ms_mean": 0.535013125,
+            "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+            "cv": 1.654816,
+            "started_epoch": 1787507939.1722884
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 3.501822500000002,
+            "frame_ms_full_caliber": 4.030512,
+            "tail_ms_mean": 0.528689375,
+            "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+            "cv": 1.653124,
+            "started_epoch": 1787508003.1066735
+          }
+        ],
+        "pass": false
+      },
+      {
+        "scene": "bistro-interior",
+        "tier": 100,
+        "backend": "fsr_3_1_5",
+        "ue_median_ms": 3.0014,
+        "rurix_median_ms": 2.3696718749999994,
+        "rurix_full_caliber_ms": 2.834807,
+        "fps_ratio": 1.2665888605358075,
+        "per_run_ratios": [
+          1.2665888605358075,
+          1.2996445834200068,
+          1.2403340922851187
+        ],
+        "runs": [
+          {
+            "run_index": 1,
+            "frame_ms_mean": 2.3696718749999994,
+            "frame_ms_full_caliber": 2.834807,
+            "tail_ms_mean": 0.46513499999999997,
+            "last_frame_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+            "cv": 2.067843,
+            "started_epoch": 1787508067.0869193
+          },
+          {
+            "run_index": 2,
+            "frame_ms_mean": 2.328546875,
+            "frame_ms_full_caliber": 2.812642,
+            "tail_ms_mean": 0.48409562500000003,
+            "last_frame_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+            "cv": 2.184296,
+            "started_epoch": 1787508129.6036968
+          },
+          {
+            "run_index": 3,
+            "frame_ms_mean": 2.3887112499999987,
+            "frame_ms_full_caliber": 2.848147,
+            "tail_ms_mean": 0.45943562500000007,
+            "last_frame_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+            "cv": 2.029473,
+            "started_epoch": 1787508191.9548874
+          }
+        ],
+        "pass": true
+      }
+    ],
+    "quality_guard": [
+      "g13_m_c_ue_upscale_parity PASS（g13_m_c_ue_upscale_parity_20260823T084323Z.json）",
+      "g13_m_d_ue_lumen_gi_parity PASS（g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json）",
+      "画质锚带在树（threshold=0.0107798）"
+    ],
+    "gap_registry_file": "milestones/g14/g14_fps_gap_registry.json"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "subject": "g15_wave5_exit",
+  "symbolic_gate_key": "g15.wave.5.exit",
+  "matrix_row": "G15.5",
+  "wave": "G15.5",
+  "numeric_step": 276,
+  "source_ref": "G15_CONTRACT G-G15-6/§2 G15.5;G15_ACCEPTANCE_MAP §1;M-d gate red arms independently effective;rerun real + 18 cells all met revalidate green;digest anchor zero drift + quality anchor band recheck;g14_budget zero estimated + budget_eval PASS;G5~G14 closed 0-byte + zero src change maintained + RFC/RXS namespace check",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "required_gates": [
+    {
+      "symbolic_gate_key": "g15.p0.m_d.perf_parity_zero_regression",
+      "subject_prefix": "g15_m_d_perf_parity_zero_regression",
+      "evidence_path": "evidence/g15_m_d_perf_parity_zero_regression_20260823T180618Z.json",
+      "status": "FAIL",
+      "detail": "host_section_pass=False (要求 True)",
+      "timestamp": "20260823T180618Z",
+      "device_section_state": "fail",
+      "host_section_pass": false
+    }
+  ],
+  "extra_facts": [
+    {
+      "id": "m_d_gate_pass_red_arms_effective",
+      "status": "FAIL",
+      "detail": "M-d 行: host_section_pass=False (要求 True)；red_arm_ 面臂数/真值异常"
+    },
+    {
+      "id": "rerun_real_and_18_cells_all_met",
+      "status": "FAIL",
+      "detail": "M-d device_section_state ≠ executed; G14 M-d 复跑件非全绿: host_section_pass=False (要求 True); G14.12 soak 复跑同口径对照面非 18 格双达"
+    },
+    {
+      "id": "digest_anchor_zero_drift",
+      "status": "FAIL",
+      "detail": "M-d evidence drift 计数/覆盖面非零漂移字面"
+    },
+    {
+      "id": "quality_anchor_band_recheck",
+      "status": "PASS",
+      "detail": "画质锚带复核重算绿：SSIM deficit 重算=0.005389118830 ≤ 带 0.010779849285388998 = True（g14_m_c 最新件 g14_m_c_rurix_pipeline_perf_20260823T044803Z.json PASS + 锚定条目 f64 对账绿）（M-d evidence 存储面与聚合侧重算位级一致）"
+    },
+    {
+      "id": "budgets_zero_estimated_and_eval_pass",
+      "status": "PASS",
+      "detail": "g14_budget 32 条目零 estimated/skip + g15_budget 九条目 measured_local + budget_eval 全 PASS（P-09）"
+    },
+    {
+      "id": "legacy_closed_zero_src_change_and_namespace",
+      "status": "FAIL",
+      "detail": "越界 committed=['milestones/g14/g14_fps_gap_registry.json'] working=['milestones/g14/g14_fps_gap_registry.json'] src_diff=[] src_porc=[] rfc=31 rxs=408"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": false,
+    "all_extra_facts_pass": false,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260823T180709Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "implemented: G15.5 M-d perf parity zero regression guard (step 275) — G14 M-d gate same-caliber rerun consumed fresh + 18-cell ratio >= x1.00 maintained + quality anchor band recheck + budget zero estimated + digest anchor drift guard; aggregate read-only: no smoke re-run, no substitute green, no RURIX_REQUIRE_REAL; facts: M-d PASS + red arms + rerun-real/18-cell revalidate + anchor zero drift + quality band recheck + budgets/eval + closed 0-byte/namespace; aggregate PASS does not mask any child FAIL/SKIP/DEV_ENV_DEGRADE"
+}
