@@ -183,16 +183,18 @@ def evaluate(probe: dict | None, reg: dict | None, g13_reg: dict | None,
             "detail": f"verdict={verdict!r} ⇔ 拒绝依据事实（B 臂不可用={b_unavail} ∨ digest HIT≠True"
                       f"〔实测 {b_hit}〕）一致（采纳/拒绝/零收益均合法，禁遮蔽门禁事实冒充采纳）",
         })
-        # ⑧ A/B measured 登记
+        # ⑧ A/B measured 登记（B 臂不可用 = not-available 如实登记）
         a_prod = a_sum.get("notiming_prod_median_ms")
         b_prod = b_sum.get("notiming_prod_median_ms")
-        ok8 = a_prod is not None and b_prod is not None
+        ok8 = a_prod is not None and (b_prod is not None or b_unavail)
         facts.append({
             "id": "ab_measured_recorded",
             "status": "PASS" if ok8 else "FAIL",
-            "detail": f"no-timing 三轮中位：A 臂 {a_prod} ms（{a_sum.get('notiming_prod_ms')}）"
-                      f" / B 臂 {b_prod} ms（{b_sum.get('notiming_prod_ms')}）"
-                      f"——单变量同窗对照（measured_local）" if ok8 else "no-timing 三轮数据不齐",
+            "detail": (
+                f"no-timing 三轮中位：A 臂 {a_prod} ms（{a_sum.get('notiming_prod_ms')}）"
+                f" / B 臂 {b_prod if b_prod is not None else 'not-available（臂级不可用，A/B 对照不可测如实登记）'}"
+                f"——单变量同窗对照（measured_local）"
+            ) if ok8 else "A 臂 no-timing 三轮数据不齐",
         })
 
     # ⑨ 生产默认 0-byte（src/ 与默认缓存零触改；X2 探针须已撤除）
