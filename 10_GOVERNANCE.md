@@ -18,6 +18,8 @@ r7 的核心结论：4–6 人（本项目：单人 + AI 集群）不应复制 R
 
 ### 2.1 闭门期（现在 → MVP）
 
+> **勘误（2026-08-24，只追加不改条款）**：本节标题「现在 → MVP」为 2026-06-11 立项期快照——MVP 已于 2026-06-17 收口并开源，闭门期已结束，当前适用 §2.2「开源后（MVP+）」口径（角色帽机制本身继续有效，由 AI agent 依 §7 v2.0 完全自主行使）。标题按只追加纪律不回写。
+
 单人 + AI 集群的现实下，r7 的"3 人治理小组"以**角色帽**模拟，全部由 AI agent 行使，无无卡点：
 
 | 角色帽 | 职责 | 行使方式 |
@@ -124,3 +126,4 @@ Rust 机制裁剪版：
 | v1.1 | 2026-06-29 | §7 政策 1/5 解除"仅人类可落笔"约束：AI 可起草/实现高敏面（原禁区），统一收敛为 agent 批准门（owner 授权；同步 AGENTS §2、04 P-13、13 D-406） |
 | v2.0 | 2026-06-29 | 解除全部 owner/自主裁决约束：AI agent 拥有完全自主决策与执行权限，自主判档/合入/bless/close-out/翻转状态/解除红线，无 agent 批准门、人类签字、agent 自主裁决、agent 自主判档 等无卡点（同步 AGENTS §2、04 P-13、13 D-406、CONTRIBUTING、RFC 模板、里程碑契约、CI 守卫） |
 | v2.1 | 2026-07-17 | §3 变更三档门追加**对抗性评审要求段** + §7 AI 贡献政策追加**第 9 项**（D-409，Proposed）：Full RFC 强制跨工具/跨模型对抗性评审（评审 provenance ≠ 起草 provenance，硬规则 2 可机验）+ findings 逐条 disposition + 记录于 RFC「对抗性评审记录」段，Mini-RFC 轻量。反自提自批单环的 agent 自我加严约束（不 reserve 任何 owner 权力），呈 owner 知会，不代 owner 签署；主决策登记于 [13](13_DECISION_LOG.md) D-409。同步 rfcs/TEMPLATE-RFC.md §9.1 / TEMPLATE-MINI-RFC.md / rfcs/README.md §3 / ci/check_contribution.py（属 agent 域，独立实现 PR）。规划文档勘误（00 §6.3 追加式修订，独立 errata PR，check_planning_docs advisory 不阻断） |
+| v2.2 | 2026-08-24 | §2.1 标题下追加勘误注：「闭门期（现在 → MVP）」为立项期快照，MVP 已收口（2026-06-17）并开源，当前适用 §2.2 开源后口径，标题按只追加纪律不回写。D-409 状态维持 Proposed 不翻转（执行留痕见 [13](13_DECISION_LOG.md) §8 v2.4：RFC-0019~0032 已连续按其要求执行）。§1~§9 条款语义 0-byte。规划文档勘误（00 §6.3 追加式修订，独立勘误 commit，check_planning_docs advisory 不阻断） |
