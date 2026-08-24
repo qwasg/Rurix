@@ -57,7 +57,7 @@ SOURCE_REF = (
     "registry/number_ledger.json;registry/deferred.json"
 )
 
-G21_0_IMMUTABLE_REF = "G21REFPENDING"  # tag g20-closed flip commit
+G21_0_IMMUTABLE_REF = "2b521523a660a7dd3c98106d08c4470e295a03fc"  # tag g20-closed flip commit
 G21_USER_INSTRUCTION_LITERAL = "帮我一次性完成G19-G25"
 GOVERNANCE_MAX_STEP = 367
 

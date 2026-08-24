@@ -96,6 +96,8 @@
 >
 > **RFC 台账校准（2026-08-24，G20.1 治理波）**：**RFC-0037**（[`0037-virtualized-geometry-p4-hzb.md`](0037-virtualized-geometry-p4-hzb.md)，G20 虚拟化几何 P4：HZB 遮挡剔除 host 参考臂 + cluster 流送 P4 评估 + M61/M98-l4 重判程序）经 D-409 对抗性评审（评审 `milestones/g20/design/rfc0037_adversarial_review.md`）后 **Agent Approved**——编号按 G20.1 实测 `namespaces.RFC next_free=37` 领取（ledger 校准：on_tree_max 36→37、next_free 37→38）。此后自由号以 ledger 实测为准（当前 RFC-0038）。
 >
+> **RFC 台账校准（2026-08-24，G21.1 治理波）**：**RFC-0038**（[`0038-lighting-p3-deepening.md`](0038-lighting-p3-deepening.md)，G21 光照 P3+ 深化：ReSTIR 高档 reservoir host 参考臂 + SER 两半实测重判 + RD-040 五分项处置 + RD-034 上游复查程序）经 D-409 对抗性评审（评审 `milestones/g21/design/rfc0038_adversarial_review.md`）后 **Agent Approved**——编号按 G21.1 实测 `namespaces.RFC next_free=38` 领取（ledger 校准：on_tree_max 37→38、next_free 38→39）。此后自由号以 ledger 实测为准（当前 RFC-0039）。
+>
 > spec 条款号 `RXS-####`、错误码、deferred `RD-###`、spike-gating `SG-###` 的台账各自在 `spec/`、`registry/error_codes.json`、`registry/deferred.json`、`registry/spike_gating.json` 维护，均永不复用。
 >
 > **跨分支/off-tree 编号消费**（如 GRX 影子分支对 `MR-0006/0007`、`RXS-0181~0184` 的 claim + 私有 `GRX-0xx`/`patch-00xx`/`D-GRX`/`G-GRX` 段）登记于 [`../registry/number_ledger.json`](../registry/number_ledger.json)（MR-0010），并由守卫 [`../ci/check_number_ledger.py`](../ci/check_number_ledger.py) 强制『树内同号异义碰撞 + 已登记保留号被尊重』（10 §9.5 跨分支执行面）。守卫能力边界：CI 只见当前树，无法枚举未合分支，新影子工作流登记为人工/agent 前置动作。

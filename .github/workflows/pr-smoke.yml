@@ -3872,6 +3872,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g20_closeout_check.py --verify-latest
 
+      # 步骤 365（G21.1 治理门 acceptance_map g21.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=365 顺位领取）。
+      - name: G21.1 acceptance map (G21_CONTRACT G-G21-1, g21.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g21_acceptance_map_check.py --gate g21.wave.1.acceptance_map
+
+      # 步骤 366（G21.1 治理门 candidate_decisions g21.wave.1.candidate_decisions）。
+      - name: G21.1 candidate decisions (G21_CONTRACT G-G21-1, g21.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g21_candidate_decisions_check.py --gate g21.wave.1.candidate_decisions
+
+      # 步骤 367（G21 实现互锁 g21.gov.implementation_interlock）。
+      - name: G21 implementation interlock (G21_CONTRACT G-G21-2, g21.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g21_interlock_check.py --gate g21.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

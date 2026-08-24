@@ -2,7 +2,7 @@
 contract: G21
 title: G21 光照 P3+ 深化期（ReSTIR 高档 reservoir host 参考臂 + SER 重判 + RD-040 分项处置 + RD-034 上游复查）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g21_lighting_p3_deepening
 version: v1.0
 date: 2026-08-24
@@ -64,7 +64,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G21 = 战役第三期：M100-high 重判条件「高档 reservoir 证据齐备」的证据产出（WRS/RIS + 时域合并 host 参考臂），M52 SER 两半条件实测重判（capability 设备面 + workload 宿主车道面），RD-040 五分项处置闭集，RD-034 上游探针复查。
 
-G21.0 不可变 ref = `G21_0_REF_PENDING`（G20 close-out flip commit，tag `g20-closed`）。
+G21.0 不可变 ref = `2b521523a660a7dd3c98106d08c4470e295a03fc`（G20 close-out flip commit，tag `g20-closed`）。
 
 ## 2. 范围与波次
 
@@ -119,3 +119,9 @@ D-G21-1：PLAN/CONTRACT/CI_GATES/g21_budget.json + G21_CANDIDATE_DECISIONS + G21
 6. 先优化后测试：G21.2~G21.3 纯实现；G21.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G21-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G20 closed + tag `g20-closed` + G21.0 不可变 ref `2b521523a660a7dd3c98106d08c4470e295a03fc`；候选表 13 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 367 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g21_interlock_check.py --gate g21.gov.implementation_interlock` VERDICT=READY；治理三门 365/366/367 PASS。
+- **解锁**：`implementation_status: blocked → unlocked`。G21.2+ 实现波（M-a~M-e）现可开工。
