@@ -237,28 +237,41 @@ def eval_g14_run_variance_band(entry: dict) -> None:
 
 
 def eval_g17_dual_end_cell(entry: dict) -> None:
-    """G17 双端复测条目判读面：evidence parity.cells 内 bistro-interior/t100/dlss_sr
-    格 ue_median_ms / rurix_median_ms 单值提取（G14 M-d 门 evidence 既定形态），
-    threshold = measured × 2.0 程序产宽上界守护 方向 max，禁手写 P-09；id 尾段
-    _ue / _rurix 选择臂（G17.0 baseline 与 G17.2 M-a 暖态重标定条目共用本判读面）。
+    """G17 双端复测条目判读面：evidence parity.cells 格 ue_median_ms /
+    rurix_median_ms 单值提取（G14 M-d 门 evidence 既定形态），threshold =
+    measured × 2.0 程序产宽上界守护 方向 max，禁手写 P-09。格从 id 末段解析：
+    scene token（cornell_box/bistro_interior）+ _t<tier> + 可选 backend token
+    （UE 值同 scene/tier 全 backend 共享，缺 backend 取首格）+ 尾缀 _ue/_rurix
+    选择臂（G17.0 baseline 与 G17.2 M-a 暖态重标定条目共用本判读面）。
     """
     eid = entry["id"]
     ef = entry.get("evidence_file")
     if not ef or not (ROOT / ef).is_file():
         err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
         return
+    scene = None
+    for tok, lit in (("cornell_box", "cornell-box"), ("bistro_interior", "bistro-interior")):
+        if tok in eid:
+            scene = lit
+            break
+    m_tier = re.search(r"_t(\d+)(?:_|$)", eid)
+    backend = next((b for b in ("tsr_device", "dlss_sr", "fsr_3_1_5") if b in eid), None)
+    if scene is None or m_tier is None:
+        err(f"{eid}: id 无法解析 scene/tier（期望含 cornell_box|bistro_interior + _t<tier>）")
+        return
+    tier = int(m_tier.group(1))
     doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
     cells = doc.get("parity", {}).get("cells", [])
     cell = next(
         (
             c for c in cells
-            if c.get("scene") == "bistro-interior" and c.get("tier") == 100
-            and c.get("backend") == "dlss_sr"
+            if c.get("scene") == scene and c.get("tier") == tier
+            and (backend is None or c.get("backend") == backend)
         ),
         None,
     )
     if cell is None:
-        err(f"{eid}: evidence parity.cells 缺 bistro-interior/t100/dlss_sr 格")
+        err(f"{eid}: evidence parity.cells 缺 {scene}/t{tier}/{backend or '*'} 格")
         return
     field = "ue_median_ms" if eid.endswith("_ue") else "rurix_median_ms"
     if field not in cell:
@@ -325,9 +338,10 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # G16plus M-g 收口标定四条目（GI on vs 新 UE；不改 g15_budget / 不改 M-c 四条目）。
         eval_g13_dual_seed(entry)
         return
-    if eid.startswith("g17.baseline.dual_end_frame_ms."):
-        # G17.0 治理波 baseline 双端条目（G14 M-d evidence parity.cells 提取，
-        # threshold = measured × 2.0 程序产宽上界守护；不改 g14/g15/g16_budget）。
+    if eid.startswith(("g17.baseline.dual_end_frame_ms.", "g17.m_a.warm_ue_frame_ms.")):
+        # G17.0 baseline 双端条目 + G17.2 M-a 暖态包络条目（G14 M-d evidence
+        # parity.cells 提取，threshold = measured/窗 max × 2.0 程序产宽上界守护；
+        # 不改 g14/g15/g16_budget）。
         eval_g17_dual_end_cell(entry)
         return
     value = measured_value(entry)

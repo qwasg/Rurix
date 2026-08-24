@@ -27,6 +27,72 @@
       "threshold": 7.590966250000003,
       "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T054145Z.json",
       "measured_value": 3.7954831250000014
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.cornell_box_t50_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @cornell-box/t50（复测窗 4 轮包络 min=2.542933/median=2.930867/max=3.364367 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 6.7287333333333335,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 2.54955
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.cornell_box_t67_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @cornell-box/t67（复测窗 4 轮包络 min=2.559583/median=3.284392/max=3.420433 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 6.840866666666667,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 3.2418666666666667
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.cornell_box_t100_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @cornell-box/t100（复测窗 4 轮包络 min=2.224917/median=2.802875/max=3.318583 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 6.637166666666666,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 2.3051999999999997
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.bistro_interior_t50_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @bistro-interior/t50（复测窗 4 轮包络 min=2.868967/median=3.828458/max=3.965050 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.9301,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 3.96505
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.bistro_interior_t67_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @bistro-interior/t67（复测窗 4 轮包络 min=2.864583/median=3.417000/max=3.973367 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.946733333333333,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 2.935333333333334
+    },
+    {
+      "id": "g17.m_a.warm_ue_frame_ms.bistro_interior_t100_ue",
+      "description": "G17.2 M-a UE 参照臂暖态基线 @bistro-interior/t100（复测窗 4 轮包络 min=2.983300/median=3.192200/max=3.723267 ms，窗锚 20260824T054145Z；threshold = 窗 max × 2.0 程序产）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.446533333333334,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json",
+      "measured_value": 3.3997666666666664
     }
   ],
   "ratio_assertions": [],
