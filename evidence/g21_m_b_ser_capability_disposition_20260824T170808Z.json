@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g21_m_b_ser_capability_disposition",
+  "symbolic_gate_key": "g21.p0.m_b.ser_capability_disposition",
+  "matrix_row": "G21.2",
+  "wave": "G21.2",
+  "numeric_step": 370,
+  "source_ref": "G21_CONTRACT §4.2;G21_ACCEPTANCE_MAP §1 M-b 行;RFC-0038 §1.4",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "capability_probe_present",
+      "status": "PASS",
+      "detail": "milestones\\g21\\g21_ser_capability_probe_results.json"
+    },
+    {
+      "id": "capability_verdict_legal",
+      "status": "PASS",
+      "detail": "capability 半边 = available（vulkaninfo 实测取证；三态均合法）"
+    },
+    {
+      "id": "capability_tokens_archived",
+      "status": "PASS",
+      "detail": "扩展字面取证 3/3 + 全量 log 存档"
+    },
+    {
+      "id": "workload_half_verified",
+      "status": "PASS",
+      "detail": "workload 半边 = RT pipeline/SBT 宿主车道零实现（RD-040 分项 defer 如实）→ 未命中"
+    },
+    {
+      "id": "verdict_maintain_defer",
+      "status": "PASS",
+      "detail": "M52 裁决 = maintain-defer（capability-hit + workload-miss；语言层不加 SER 原语兜底 0-byte；maintain-defer/go 均合法）"
+    },
+    {
+      "id": "rfc_0038_archived",
+      "status": "PASS",
+      "detail": "RFC-0038 §1.4 SER 重判程序在档"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T170808Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G21.2 M-b：M52 SER 两半实测重判 = maintain-defer（capability available + workload 车道缺）"
+}

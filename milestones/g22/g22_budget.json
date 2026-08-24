@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "namespace": "g22",
+  "description": "G22 预算面。baseline = G22.0 Stage A digest 锚在档快检 + G21 ReSTIR 方差收益实测 carry（承接锚新鲜度）。",
+  "source_docs": [
+    "milestones/g22/G22_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "g22.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G22.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g22_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g22.baseline.g21_restir_gain.ratio",
+      "description": "G22.0 baseline G21 ReSTIR 方差收益（要求 >2 收益带维持）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ratio",
+      "threshold": 2.0,
+      "evidence_file": "evidence/g22_baseline_g21_restir_gain.json",
+      "measured_value": 15.955327
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

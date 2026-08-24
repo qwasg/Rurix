@@ -282,7 +282,7 @@ def run_selftest() -> int:
     cases = [
         ("删除 §1 M52 行 → 闭集红", "\n".join(l for l in text.splitlines() if not l.startswith("| M52 ")),
          deferred, "sec1_closed_set"),
-        ("裁决改 defer-to-G22+ → 枚举红", text.replace("| defer-to-G22+ |", "| defer-to-G22+ |", 1),
+        ("裁决改 defer-to-G21+ → 枚举红", text.replace("| defer-to-G22+ |", "| defer-to-G21+ |", 1),
          deferred, "decision_enum_legal"),
         ("承接锚去掉兜底 → 锚纪律红", text.replace("重判条件 = G21 窗；兜底 = 维持", "重判条件 = G21 窗", 1),
          deferred, "anchor_discipline"),

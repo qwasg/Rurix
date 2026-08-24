@@ -1,0 +1,17 @@
+{
+  "schema": "rurix.g22.svt_gap.v1",
+  "description": "RD-041 SVT 稀疏虚拟纹理分项差距闭集（M-b 唯一消费面）：streaming/ 页式现面 vs SVT 目标。",
+  "current_surface": {
+    "modules": ["streaming/pool.rs", "streaming/feedback.rs", "streaming/engine.rs", "streaming/resource.rs"],
+    "capability": "资源页式流送（RXPL 页 ABI + 反馈驱动驻留池 + 优先级）——per-resource 粒度，无虚拟纹理地址空间"
+  },
+  "gap_rows": [
+    {"id": "SVT-1", "gap": "虚拟纹理页表（128K² 虚拟地址空间 → 物理瓦片缓存间接寻址）", "status": "open", "anchor": "SVT 立项窗（RD-041 长线）"},
+    {"id": "SVT-2", "gap": "GPU 反馈 pass（采样 miss 记录 → host 请求队列）", "status": "open", "anchor": "依赖剔除/材质 pass 反馈链（G20 P4-2 同族缺口）"},
+    {"id": "SVT-3", "gap": "瓦片边界过滤（border texel 复制/各向异性跨瓦片）", "status": "open", "anchor": "SVT-1 落地后"},
+    {"id": "SVT-4", "gap": "地形/贴花消费方接线（world/terrain.rs 现零 SVT 依赖断言维持）", "status": "open", "anchor": "M116 地形 SVT 需求成立窗"}
+  ],
+  "disposition": "defer",
+  "disposition_basis": "SVT 四行差距全 open：虚拟纹理地址空间与 GPU 反馈 pass 均零实现；现压测闭集（cornell/bistro-interior）纹理驻留足量无 SVT 需求证据；M116 地形面显式零 SVT 依赖断言维持——defer 合法终态",
+  "reeval_anchor": "大世界纹理驻留压力 measured 检出（流送预算违约事件）或地形 SVT 需求成立"
+}

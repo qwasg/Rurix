@@ -1,0 +1,26 @@
+{
+  "schema": "rurix.g21.ser_capability_probe.v1",
+  "started_utc": "20260824T170453Z",
+  "tool_available": true,
+  "tokens_found": {
+    "VK_NV_ray_tracing_invocation_reorder": true,
+    "VK_EXT_ray_tracing_invocation_reorder": true,
+    "rayTracingInvocationReorderReorderingHint": true
+  },
+  "token_lines": {
+    "VK_NV_ray_tracing_invocation_reorder": [
+      "VK_NV_ray_tracing_invocation_reorder          : extension revision 1"
+    ],
+    "VK_EXT_ray_tracing_invocation_reorder": [
+      "VK_EXT_ray_tracing_invocation_reorder         : extension revision 2"
+    ],
+    "rayTracingInvocationReorderReorderingHint": [
+      "rayTracingInvocationReorderReorderingHint = RAY_TRACING_INVOCATION_REORDER_MODE_REORDER_EXT"
+    ]
+  },
+  "device_lines": [
+    "deviceName        = NVIDIA GeForce RTX 4070 Ti"
+  ],
+  "capability_verdict": "available",
+  "log_path": ".tmp/g21_mb/vulkaninfo.log"
+}

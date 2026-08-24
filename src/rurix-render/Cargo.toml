@@ -308,5 +308,13 @@ path = "src/bin/g19_frame_gen_probe.rs"
 name = "g20_hzb_probe"
 path = "src/bin/g20_hzb_probe.rs"
 
+# G21.2 M-a ReSTIR 高档 reservoir host 参考臂 probe(RFC-0038;门
+# g21.p0.m_a.restir_high_reservoir_realization):gi/restir_reservoir 64 灯夹具
+# 20k trial 三估计子无偏 3σ + 等验证预算方差收益 measured + 双跑位级。
+# 纯 host 确定性面。
+[[bin]]
+name = "g21_restir_probe"
+path = "src/bin/g21_restir_probe.rs"
+
 [lints]
 workspace = true

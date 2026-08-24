@@ -1,0 +1,16 @@
+{
+  "schema": "rurix.g22.ktx2_disposition.v1",
+  "description": "RD-041 KTX2-BasisU 转码链分项处置（M-c 唯一消费面）：G11.3 DDS 转码链现面 vs KTX2-BasisU 目标。",
+  "current_surface": {
+    "chain": "G11.3 DDS 转码 manifest（milestones/g11/g11_3_dds_transcode_manifest.json）——glTF 源纹理 → DDS（BC 压缩）离线转码 + 运行时直通装载",
+    "coverage": "压测闭集双场景全纹理面已覆盖；装载路径确定性（digest 锚在案）"
+  },
+  "gap_rows": [
+    {"id": "KTX2-1", "gap": "KTX2 容器解析（supercompression 元数据 + mip 级布局）", "status": "open", "anchor": "KTX2 立项窗"},
+    {"id": "KTX2-2", "gap": "BasisU 转码器集成（basis_universal C++ vendor 面 → BC7/ASTC 目标）", "status": "open", "anchor": "vendor C++ 桥判档（外部依赖 fail-closed DEV_ENV 纪律）"},
+    {"id": "KTX2-3", "gap": "通用转码收益证据（分发体积 vs 转码耗时 A/B measured）", "status": "open", "anchor": "资产分发面需求成立窗（现闭集资产本地直通零分发压力）"}
+  ],
+  "disposition": "defer",
+  "disposition_basis": "三行差距全 open：现 DDS 链覆盖压测闭集全纹理面且装载确定性锚在案；KTX2-BasisU 的收益前提（跨平台分发/超压缩体积）在 Windows-first 本地资产闭集下无 measured 需求证据——defer 合法终态，DDS 链维持",
+  "reeval_anchor": "资产分发面需求成立（跨平台目标或分发体积预算门出现）"
+}

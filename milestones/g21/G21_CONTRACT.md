@@ -125,3 +125,18 @@ D-G21-1：PLAN/CONTRACT/CI_GATES/g21_budget.json + G21_CANDIDATE_DECISIONS + G21
 - **事实门全绿**：G20 closed + tag `g20-closed` + G21.0 不可变 ref `2b521523a660a7dd3c98106d08c4470e295a03fc`；候选表 13 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 367 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g21_interlock_check.py --gate g21.gov.implementation_interlock` VERDICT=READY；治理三门 365/366/367 PASS。
 - **解锁**：`implementation_status: blocked → unlocked`。G21.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G21.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G21-6 前置：P2 穷举决策门（g21.wave.5a.decisions，步骤 378，VERDICT=PASS）+ 稳定门 soak（g21.wave.5a.soak，步骤 379，8/8 facts VERDICT=PASS——69 迭代 wall=1854.7s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G21_P2_DECISIONS.md` 穷举闭集 **13 行零空行**（§1 八行：closed-go 2〔M100-high 兑现 + M52 重判窗兑现（裁决 maintain-defer 留档）〕 + defer-to-G22+ 6；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open——RD-040/RD-034 history 只追加）。
+- **② soak 定盘**：`py -3 ci/g21_stabilization_soak.py --gate` → VERDICT=PASS 8/8（evidence/g21_stabilization_soak_20260824T174318Z 系列最新件）——M-d 前置绿 + **wall=1854.7s ≥1800s + 69 迭代零失败（含 ReSTIR 方差收益车道穿插 13 次复跑）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS；budget_eval --strict 279 pass 零 skip 零 estimated；cargo test -p rurix-render --lib 486 passed 0 failed。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G21.5 P2/soak 波）`。
+
+### §8.7 G21.6 close-out 终审签署块（2026-08-24）——G-G21-6 字面兑现：close-out 终审门（g21.wave.6b.closeout，步骤 380）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g21-closed`
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / restir_realization_chain（方差收益 15.955×、时域再收益 7.27×、无偏 3σ、双跑位级）/ rfc_0038_archived / old_gates_no_regression / rd_open_maintained（RD 八条 open；RD-040 五分项闭集 + RD-034 复查 history 只追加）/ soak_ge_1800_zero_fail / closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g21_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：光照 P3+ 深化字面兑现——**M-a ReSTIR 高档 reservoir implemented**（M100-high「高档 reservoir 证据齐备」兑现：var(uniform)/var(RIS)=15.955×、时域 7.27×、无偏 3σ、双跑位级；低档 MegaLights 生产默认面 0-byte）；**M-b M52 SER 重判 = maintain-defer**（capability 半边实测 available〔vulkaninfo 三 token〕+ workload 半边未命中〔RT pipeline/SBT 车道零实现〕；语言层不加 SER 原语兜底 0-byte）；**M-c RD-040 五分项全 defer**（SMRT/世界辐射缓存/NRD/OMM/RT-pipeline+SBT 各附 basis+reeval_anchor）；**M-d RD-034 复查 = 维持 blocked**（探针真跑：spirv-cross 仍拒 raygen）；M-e 旧门零降级全绿。**maintain-defer/blocked 维持均为合法收口态**；G22 承接锚齐备（slab 预制件已在树：material/slab.rs 5 测全绿）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g21-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G21 战役第三期收口）`。

@@ -999,6 +999,11 @@
           "date": "2026-07-19",
           "event": "G3.6 执行期登记(open;agent 完全自主签署,AGENTS v3.0 硬规则 1;RFC-0013 §4.E9 RXS-0249 条件分支『RT 预判 blocked 以探针证据落地非以预判落地』兑现):DXIL RT 腿 blocked-on-upstream 由 probe 实证落地(非预判)——spirv-cross HLSL 拒 raygen(builtin 5319);RD-012 RT 分量承接至本 RD;步骤 69 blocked 探针入 CI 防腐烂。Vulkan RT 主腿(RD-029 close)不受牵连。RD-033 = EA1 reserved 未 materialize(跳号),本 RD 自 RD-034 起(G3 契约 §7 ⑥ / number_ledger reserved_in_flight[G3].RD)。",
           "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G21.3 M-d 上游复查窗登记（agent 完全自主 D-406 v3.0）:blocked 恒跑探针真跑复查（ci/meshrt_probe_smoke.py——步骤 68 mesh B 链绿〔spirv-cross ms_6_5+dxc 2900B DXIL〕+ 步骤 69 RT blocked 探针新鲜〔spirv-cross 如期拒 raygen〕）→ 上游 SPV_KHR_ray_tracing 消费路径仍未出现,维持 blocked 诚实登记;RD-034 open 维持",
+          "evidence": "ci/meshrt_probe_smoke.py 真跑输出（G21.3 复查窗）"
         }
       ]
     },
@@ -1313,6 +1318,11 @@
           "date": "2026-08-24",
           "event": "G16plus GI 表达窗登记（agent 完全自主 D-406 v2.0）：RFC-0031 立项生产加性 --gi on（次级 NEE + ≥2 反弹 + 远场只丢能量不漏光）。M100-high ReSTIR 维持 defer-to-G17+（对照未齐备，本战役不立项）。RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "rfcs/0031-g16plus-gi-expression-quality-closure.md / milestones/g16/G16_CONTRACT.md §8.3 / milestones/g16/G16_CANDIDATE_DECISIONS.md §6"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G21.3 M-c 五分项处置闭集登记（agent 完全自主 D-406 v3.0）:SMRT/世界辐射缓存演进/NRD/OMM/RT-pipeline+SBT 五分项逐项 disposition=defer（各附 basis+reeval_anchor，milestones/g21/g21_rd040_subitem_registry.json 闭集落档）;同期 M100-high 高档 reservoir 证据齐备兑现（gi/restir_reservoir.rs host 参考臂 + g21_restir_probe 无偏 3σ/方差收益 measured）+ M52 SER capability 半边实测 available（vulkaninfo VK_NV/EXT_ray_tracing_invocation_reorder 三 token 取证 milestones/g21/g21_ser_capability_probe_results.json）、workload 半边未命中（RT pipeline/SBT 车道零实现=本表 RT-PIPELINE-SBT 分项 open）→ M52 maintain-defer;RD-040 维持 open",
+          "evidence": "milestones/g21/g21_rd040_subitem_registry.json / milestones/g21/g21_ser_capability_probe_results.json / evidence/g21_restir_probe_*.json"
         }
       ]
     },

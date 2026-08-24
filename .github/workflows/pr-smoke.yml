@@ -3888,6 +3888,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g21_interlock_check.py --gate g21.gov.implementation_interlock
 
+      # 步骤 368（G21.2 P0 M-a g21.p0.m_a.restir_high_reservoir_realization；
+      # post-interlock 实测 CI_step.next_free=368 顺位领取）。
+      - name: G21.2 M-a ReSTIR high reservoir verify-latest
+        shell: powershell
+        run: py -3 ci/g21_restir_high_reservoir_realization_smoke.py --verify-latest
+
+      # 步骤 369（G21.2 波聚合门 g21.wave.2.exit）。
+      - name: G21.2 wave exit verify-latest (g21.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g21_wave_exit_check.py --gate g21.wave.2.exit
+
+      # 步骤 370（G21.2 P0 M-b g21.p0.m_b.ser_capability_disposition）。
+      - name: G21.2 M-b SER capability disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g21_ser_capability_disposition_smoke.py --verify-latest
+
+      # 步骤 371（G21.3 波聚合门 g21.wave.3.exit）。
+      - name: G21.3 wave exit verify-latest (g21.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g21_wave_exit_check.py --gate g21.wave.3.exit
+
+      # 步骤 372（G21.3 P0 M-c g21.p0.m_c.rd040_subitem_disposition）。
+      - name: G21.3 M-c RD-040 subitem disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g21_rd040_subitem_disposition_smoke.py --verify-latest
+
+      # 步骤 373（G21.4 波聚合门 g21.wave.4.exit）。
+      - name: G21.4 wave exit verify-latest (g21.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g21_wave_exit_check.py --gate g21.wave.4.exit
+
+      # 步骤 374（G21.3 P0 M-d g21.p0.m_d.rd034_upstream_recheck）。
+      - name: G21.3 M-d RD-034 upstream recheck verify-latest
+        shell: powershell
+        run: py -3 ci/g21_rd034_upstream_recheck_smoke.py --verify-latest
+
+      # 步骤 375（G21.5 波聚合门 g21.wave.5.exit）。
+      - name: G21.5 wave exit verify-latest (g21.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g21_wave_exit_check.py --gate g21.wave.5.exit
+
+      # 步骤 376（G21.4 P0 M-e g21.p0.m_e.closed_gate_no_regression）。
+      - name: G21.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g21_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 377（G21.6 波聚合门 g21.wave.6.exit）。
+      - name: G21.6 wave exit verify-latest (g21.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g21_wave_exit_check.py --gate g21.wave.6.exit
+
+      # 步骤 378（G21.5 P2 穷举 g21.wave.5a.decisions）。
+      - name: G21.5 P2 decisions verify-latest (g21.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g21_p2_decisions_check.py --verify-latest
+
+      # 步骤 379（G21.5 soak g21.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G21.5 stabilization soak verify-latest (g21.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g21_stabilization_soak.py --verify-latest
+
+      # 步骤 380（G21.6 close-out g21.wave.6b.closeout）。
+      - name: G21.6 close-out verify-latest (G21_CONTRACT G-G21-6, g21.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g21_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
