@@ -125,3 +125,18 @@ D-G24-1：PLAN/CONTRACT/CI_GATES/g24_budget.json + G24_CANDIDATE_DECISIONS + G24
 - **事实门全绿**：G23 closed + tag `g23-closed` + G24.0 不可变 ref `2e3e8ae2d1f59a0752ad66ab359bd77512e69d18`；候选表 9 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 415 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g24_interlock_check.py --gate g24.gov.implementation_interlock` VERDICT=READY；治理三门 413/414/415 PASS。
 - **解锁**：`implementation_status: blocked → unlocked`。G24.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G24.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G24-6 前置：P2 穷举决策门（g24.wave.5a.decisions，步骤 426，VERDICT=PASS）+ 稳定门 soak（g24.wave.5a.soak，步骤 427，8/8 facts VERDICT=PASS——69 迭代 wall=1847.4s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G24_P2_DECISIONS.md` 穷举闭集 **9 行零空行**（§1 四行：closed-go 3〔M114-strand/M118-hdr-cal/G10-N6 重判窗兑现〕 + defer-to-G25+ 1〔SAFE-GPU〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open——历史清册十一条 history 只追加）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1847.4s ≥1800s + 69 迭代零失败（含 HDR 探针取证车道穿插 13 次）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS；budget_eval --strict 283 pass 零 skip 零 estimated；pytest 163 passed + check_schemas/number_ledger/trace_matrix PASS。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G24.5 P2/soak 波）`。
+
+### §8.7 G24.6 close-out 终审签署块（2026-08-24）——G-G24-6 字面兑现：close-out 终审门（g24.wave.6b.closeout，步骤 428）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g24-closed`
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / legacy_ledger_chain / rfc_0041_archived / old_gates_no_regression / rd_open_maintained（八条 open + 历史十一条 history 只追加）/ soak_ge_1800_zero_fail / closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g24_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：呈现与尾门清理字面兑现——**M-a M114-strand 重判 = maintain card/mesh**（M120 数据半命中 + 需求半未命中）；**M-b M118-hdr-cal 重判 = maintain-SDR**（设备半 vulkaninfo 实测 not-available：HDR10_ST2084/BT2020/HLG token 全 absent）；**M-c G10-N6 复查 = 维持双场景闭集**（工具链三缺 + 独立源资产缺实测）；**M-d SAFE-GPU defer-to-G25+ + 历史 RD 十一条清册零 close 诚实**（backfill 字面无一成立，逐条 history 只追加）；M-e 旧门零降级全绿。**G18 承接池本期全量消化清零**；G25 收官承接面 = SAFE-GPU 归档行 + fps 终判锚。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g24-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G24 战役第六期收口）`。

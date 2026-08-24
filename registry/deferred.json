@@ -278,6 +278,11 @@
           "date": "2026-07-15",
           "event": "MS1 close-out 处置(维持 inherited,owner_milestone 维持 MS1;agent 完全自主签署,AGENTS v3.0 硬规则 1):MS1.3 真实评估点兑现——ruridrop 全部 kernel 以标量实参传递物理/渲染常数(params 只被入口 mod 的既定模式),未使用 turbofish const 实参,未触发 const 泛型值运行期单态化接通点,**非 MS1 验收门**,MS1 未接通。维持 inherited 不强制翻转(对齐 M5~V1 close-out 顺延先例;无接通证据即 force-close 违硬规则 3);post-MS1 里程碑未定义,owner_milestone 维持 MS1 待后续阶段顺延,RXS-0064 语义条款不变。MS1 整体 close-out 见 MS1_CONTRACT §8.5",
           "evidence": "milestones/ms1/MS1_CONTRACT.md §8 / apps/ruridrop/src/sim.rx / registry/deferred.json v1.51"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——接通点（运行期单态化消费方）出现——G19~G24 渲染/物理主线零 const 泛型运行期单态化需求，接通点未出现;disposition=maintain-inherited;reeval_anchor=语言面 const 泛型运行期需求成立（编译器主线窗）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -458,6 +463,11 @@
           "date": "2026-06-25",
           "event": "PR-C2 分片3 RXS-0159 签名映射真达产物补证(维持 open,owner_milestone 维持 G2.2,append-only,既有 history 行 0-byte):在 RD-011 patched llc 环境(RURIX_LLC=H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe,SHA256 BF6C0868...745261,LLVM 23.0.0git assertions,dxil target 在位 + dxc/dxv 1.9.2602.24)补齐分片3 此前 SKIP 的 dxc validation。vs_io/ps_io 既有 .dxil-ll(含 !rurix.dxil.sig.*)经 patched llc -filetype=obj 产 DXContainer,IDxcValidator ×25 = 25/25 accept({0x0:25}) + dxv.exe ×20 = 20/20 Validation succeeded.。**但产物 ISG1/OSG1 签名 part elemcount=0**——无 SV_Position/SV_Target/SV_VertexID 任何 SV 元素:validator accept 仅因 void 入口空签名结构合法,**非** SV 映射真达。根因定位到 LLVM 后端函数/行:DXContainerGlobals.cpp addSignature() 对图形着色器无条件构造空 InputSig/OutputSig 直接 write(// FIXME: support graphics shader,上游 issue https://github.com/llvm/llvm-project/issues/90504),!rurix.dxil.sig.* 自有元数据被完全忽略;且 Signature::addParam 填元素强制要 Register/Mask/ExclusiveMask,经全后端检索图形 ISG1/OSG1 无任何 addParam 调用点——当前后端无图形签名填充路径,**任何元数据形态(rurix.*/hlsl.*/标准 dx.entryPoints)均无 lower 路径**,分支『改 lowering 为后端可消费形态』对当前后端不成立。让 SV 真达产物唯一途径 = patch 后端实现图形签名填充,必经 Register/Mask 二进制布局 = RFC-0003 §4.6/§9 Q-Builtin 🔒 FFI ABI 禁区,越出 RXS-0159 类型面 → 硬规则 5 **停手标需升档**:需 owner 独立 Full RFC(承 RD-013 backfill 已声明的签名元素二进制布局由 agent 后续独立 Full RFC 定义)+ 上游 #90504 图形签名支持落地。处置:不录 .dxil-disasm golden(签名空,录入即伪造)、不 patch LLVM 后端(禁区)、不改 RXS-0159 语义、不动 PTX/committed D-205 pin,trace 维持 159/159;bless_log 追加补证结果(disasm 关卡由 SKIP 收紧为 measured『accept 但签名空』),RD-013 backfill 条件被本发现强化。上游 #90504(图形签名支持)为退役/接通前置,随本 history 留痕。本登记为 agent 自主记录真发现,以 agent 合并 PR 生效(硬规则 1);非 G2 验收门翻转项,G-G2-2 仍 open(agent 自主签署)。",
           "evidence": "evidence/dxil_slice3_rxs0159_sig_disasm_round8.md(签名 part dump elemcount=0 + validator accept ×N + 根因后端 addSignature 空签名/#90504 + patched llc digest/dxc 版本)/ tests/dxil/bless_log.md(disasm 补证行)/ https://github.com/llvm/llvm-project/issues/90504(上游图形签名支持 gap)"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——上游 merge + D-205 pin bump——LLVM 上游 #90504/#57928 未见 merge 信号（RD-015 同源跟踪面），pin bump 无据;disposition=maintain-open;reeval_anchor=LLVM 上游 merge + pin bump 窗（与 RD-015 联动）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -478,6 +488,11 @@
           "date": "2026-07-19",
           "event": "G3.6 DXIL 腿分层处置(维持 open,owner_milestone G2.2→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-012(DXIL mesh/task/RT 降级)分量处置——**mesh/task DXIL 分量兑现**:B 链 probe 绿(evidence/meshrt_bchain_probe_20260719.md:mesh GL_EXT_mesh_shader→spirv-cross ms_6_5→dxc OK 2900B)+ **RX6008 预留码正式改接**(dxil_codegen StageRoute::Stub RX6007→RX6008 codegen.dxil_stage_deferred,RD-012 预留码兑现;RX6009 随 RD-013 close 未 materialize 正式 burn,SC-1)+ 步骤 68 mesh DXIL 探针入 CI;**RT DXIL 分量 blocked-on-upstream → 新登 RD-034 承接**(spirv-cross HLSL 无 SPV_KHR_ray_tracing 消费路径,probe 红 Unsupported builtin 5319;A 路 RD-015 签名钳制未解)。RD-012 维持 open——RT DXIL 降级实现分量未落(force-close 违硬规则 3),余项由 RD-034 专门尾门跟踪;mesh/task DXIL 全量 B 链贯通落地为后续 PR-Me(probe 绿已解锁,步骤 68 骨架在位)。G-G3-6 签署归 close-out 终审。",
           "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——mesh/task 分量已兑现（RX6008 改接在案）；RT 分量已转 RD-034（G21.3 复查 = 上游仍拒 raygen）——残余面全部由 RD-034 承载;disposition=maintain-open;reeval_anchor=RD-034 解锁时同窗收口（尾项合并评估）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -538,6 +553,11 @@
           "date": "2026-06-25",
           "event": "B 路 strict-only 达标取证完结(维持 open,owner_milestone 维持 G2.2;只追加 history;agent 代录机器事实,不裁 P-01 规范线 / 不裁 A/B / 自主签署,硬规则 1 / P-13):agent 定调 P-01(strict-only,准永久公理)不开例外 → RFC-0004 §4.4 由『边界/例外声明』转为『达标判据』,本轮取证 B 链能否配置成语言层零静默降级、不靠任何 P-01 例外达标。承 dxil_b_graphics_sig_report.md 默认参数三类损耗基线,用 SPIRV-Cross 语义名保持配置(dxc -spirv -fspv-reflect 携 OpName + UserSemantic 原 HLSL 语义串 + spirv-cross --set-hlsl-named-vertex-input-semantic,经新增 spirv_reflect.py 解 SPIR-V 二进制自动导出,非硬编码)重跑 B 全链。**①语义名保真重测(measured,签名 part dump 实证)**:① 顶点阶段输入语义名(POSITION/NORMAL,IA 顶点缓冲按名绑定,外部可见)经保名配置端到端**存活**——vs_sig ISG1 默认 [TEXCOORD0,TEXCOORD1,TEXCOORD2,SV_VertexID0] → 保名 [POSITION0,NORMAL0,TEXCOORD0,SV_VertexID0];vs_passthrough ISG1 默认 [TEXCOORD0,TEXCOORD1] → 保名 [POSITION0,TEXCOORD0];即损耗①顶点输入侧**经配置可消除**;② varying 语义名(vs-out→ps-in 阶段间)spirv-cross HLSL 后端硬绑 TEXCOORD#、无输出语义保名 flag、保名后仍 TEXCOORD#(vs_sig OSG1 保名 [TEXCOORD0,TEXCOORD1,TEXCOORD2,SV_Position0]);SV_* 系统值名恒保留(SV_VertexID/SV_Position/SV_IsFrontFace/SV_Target0/1)。**逐损耗拟分类(摆事实+拟判,规范性裁断留 agent)**:① varying 名→**拟判契约线下**(RXS-0155 阶段间接口契约=类型级字段匹配,非 HLSL 语义串;两阶段同经 B 链产 → 双侧 location 对齐 TEXCOORD# → 链接正确;用户从未将 varying 名声明为外部绑定契约);② 寄存器/顺序重排(vs_sig ISG1 SV_VertexID register direct 0→B 3、OSG1 SV_Position 0→3,保名后仍重排)→**拟判契约线下**(RXS-0154/0155 不约束寄存器/二进制布局,属 §4.6(a) 签名 ABI 二进制布局禁区,dxc/D3D12 conformance 既定算法,用户不控制);③ 未用 SV_Position **输入**消除(ps_sig ISG1 direct 4→B 3、ps_texture ISG1 direct 2→B 1,保名后仍消除,与名保真正交)→**拟判标准死 I/O 消除**(body 未读元素,对用户意图不可见,输出 SV_Position 与所有被使用 SV 恒存活)。**strict-only 失败模式(设计级论证,不落 codegen)**:真 Rurix MIR→SPIR-V 降级侧自有 lowering,可为所有用户命名 I/O by-construction emit UserSemantic + 驱动名保持确定;对任何处契约线、回译路径可证无法保真的用户命名元素,MIR→SPIR-V 侧(或译后签名校验器,对照发出 ISG1/OSG1 vs MIR I/O 意图)显式检测分歧 → 结构化 6xxx 编译错误,无静默丢。**确定性 + validator(各 ×25)**:保名配置 4 语料 IDxcValidator ×25=25/25 accept({0x0:25})+ dxv.exe ×25=25/25 succeeded(direct 基线同);保名 B 全链同输入 ×25 容器 SHA256 各样例一致(deterministic)。**判定落点**:①顶点输入名经配置可消除(measured)+ ①varying/②/③拟判落契约线下或标准 DCE(规范性裁断留 agent)→ 若 owner 拟判成立,B 可零静默降级达标 P-01、无需例外(解锁 RFC-0004 §4.4 写成『经名保真达 strict-only』,agent 落笔);本轮纯取证不裁 P-01 规范线。新增 schema milestones/g2/dxil_b_strict_only_evidence_schema.json + ci/check_schemas.py 接线(dxil_b_strict_only_ 前缀路由);新增探针 spike/dxil-path-probe/probe_b_strict_only.py + spirv_reflect.py(SPIR-V 二进制最小反射)隔离于 spike/ 标 SPIKE(RD-014);复用 corpus(vs_sig/ps_sig/vs_passthrough/ps_texture)+ dxil_container.parse_signature_part。不改 src/spec/codegen、不动 D-131/D-205 pin/toolchain.rs、不入 golden、不登 spike_gating、零新 RXS、不签/不翻 G-G2-2;dxc/SPIRV-Cross/glslang 产物 + 中间 SPIR-V/HLSL/DXIL 隔离不入库(version/digest 进证据 JSON);既有 evidence 全 byte-unchanged,仅新增 dxil_b_strict_only_20260625.json + report.md。",
           "evidence": "evidence/dxil_b_strict_only_20260625.json(ci/check_schemas.py PASS)/ evidence/dxil_b_strict_only_report.md(保名重测 + 默认 TEXCOORD vs 保名签名 part dump 对照 + 三类损耗逐项事实+拟分类表(标 owner-裁断)+ strict-only 失败模式设计论证 + 确定性 + 复现清单)/ milestones/g2/dxil_b_strict_only_evidence_schema.json / spike/dxil-path-probe/probe_b_strict_only.py + spirv_reflect.py"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——供应链 pin 跟踪为存续型条目（非一次性 backfill）；本窗 pin 面 0-byte 无漂移;disposition=maintain-open;reeval_anchor=任一上游 pin bump 需求出现（安全公告/功能依赖）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -553,6 +573,11 @@
           "date": "2026-06-25",
           "event": "D-131 v1.4 图形=B 增补下游跟踪执行期登记(open;agent 自主裁决并合入):承 RD-010 close(D-131 = 混合,图形=B 为当前路径 / A-graphics 为迁移目标)。A-graphics 工作量评估(evidence/dxil_a_graphics_sig_effort_report.md)established 缺口横跨 clang 前端 + LLVM 后端 + PSV 三处 FIXME(#90504 后端签名 part / #57928 签名元数据 / CGHLSLRuntime 前端 packing 占位),GitHub API 2026-06-25 查 #90504/#57928 均 open 无在途实现 PR、基础设施 #67346 闲置;estimated ~800-1500 LOC、carry-patch partial-blocked。迁移条件 = 上游 #90504+#57928 merge + release + D-205 pin bump(agent 独立决策),载 RFC-0004 §4.5。非 G2 验收门翻转项,迁移由 agent 届时裁决,上游进展随本 history 留痕。packing 属 conformance 非自由 ABI(dxil_a_graphics_sig_effort_report.md §4,事实陈述供 agent 判禁区降级,agent 自主落笔)。",
           "evidence": "rfcs/0004-spirv-dxil-graphics-backend.md §4.5 / evidence/dxil_a_graphics_sig_effort_report.md §3(上游 #90504/#57928/#67346/#143523 状态+URL)/ https://github.com/llvm/llvm-project/issues/90504 / https://github.com/llvm/llvm-project/issues/57928"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——长期上游跟踪；两 issue 未见解决信号（RD-011 联动）;disposition=maintain-open;reeval_anchor=LLVM 上游任一 issue 关闭（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -843,6 +868,11 @@
           "date": "2026-07-15",
           "event": "MS1 close-out 处置(维持 open,owner_milestone 维持 MS1;agent 完全自主签署,AGENTS v3.0 硬规则 1):std::gpu 首期收敛子集在 MS1.2~MS1.4 全程够用——ruridrop(SPH 11 kernel + DDA 渲染 + present 帧循环 + 落盘)未出现子集外硬需求(AsyncBuffer/Event/多 stream 重叠/宽元素/Result/跨包/argv 均未触发;多入口 EXE 兑现模式分派)。维持 open 待硬需求按 10 §3 判档接通,**非 MS1 验收门**",
           "evidence": "milestones/ms1/MS1_CONTRACT.md §8 / apps/ruridrop / registry/deferred.json v1.51"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——硬需求按 10 §3 判档接通——G19~G24 渲染主线经 rurix-rt 库面编排，std::gpu 扩面硬需求未出现;disposition=maintain-open;reeval_anchor=宿主编排硬需求成立（第三方消费面）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -873,6 +903,11 @@
           "date": "2026-07-18",
           "event": "G3.1 处置尾项落地(处置 PR;agent 完全自主签署,AGENTS v3.0 硬规则 1):(一) 护栏 = MR-0011 `RURIXC_PTXAS_OPT ∈ {0,1,2,3}` 环境开关(rfcs/mini-0011-ptxas-opt-pin.md Approved + 轻量对抗评审 4 findings 全 disposition,评审 provenance claude-code:claude-opus-4-8 ≠ 起草)——ptxas.rs opt_flag_from_env(空串=未设)+ compile_cubin 条件注入 + driver 构建前预检(非法值构建 exit 1 携锚);缺省路径 0-byte;dry_gate 不受影响;仅 =0 具护栏效力(=1/2/3 复现毒径,文档如实限定);端到端红绿:默认档毒径挂(E0a 在案)/ env=0 同源毒径 0.7s 完成 / 非法值构建拒。(二) 上游备包 = evidence/upstream-reports/rd027-pt-spin/ 四件(PROVENANCE/ISSUE_DRAFT(英)/repro_log/ptx_excerpt,全部首行 DRAFT — do NOT file,owner 复核门 4 处 <FILL> 占位;SASS 证据带行号,PTX/SASS 再生命令+sha256 对账入 PROVENANCE;提报动作 owner 亲自,EA1 G-EA1-7 先例)。JIT fallback 腿无对应开关如实记限界;上游缺陷本体未修,维持 open;完整生产档升档回填(backfill_condition)维持待上游修复或 owner 另裁护栏档口径,不静默充绿",
           "evidence": "rfcs/mini-0011-ptxas-opt-pin.md / src/rurixc/src/{ptxas.rs,driver.rs} / evidence/upstream-reports/rd027-pt-spin/ / build/spike-rd027/campaign.jsonl(guardrail_redgreen/guardrail_invalid_value_retest 记录,工件不入库)"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——MR-0011 护栏（RURIXC_PTXAS_OPT）在案存续；PTX 工具链侧无新版本验证窗（CUDA 驱动 pin 0-byte）;disposition=maintain-open;reeval_anchor=CUDA 工具链 pin bump 窗（护栏复测）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -918,6 +953,11 @@
           "date": "2026-07-16",
           "event": "MB1 close-out 处置(维持 open,owner_milestone 维持 MB1;agent 完全自主签署,AGENTS v3.0 硬规则 1):PR #141 合流后 rxrt_launch / rurix-rt-cabi(MS1.2 交付物)已与 Vulkan 后端同树,defer 时『对象缺席』前提解除;但 rxrt_launch 符号面字节回归测试本体仍未落地(未接通,不静默充数)。维持 open 承接后续里程碑按 backfill_condition 补齐,**非 MB1 验收门**,MB1 整体 close-out 见 MB1_CONTRACT.md §8",
           "evidence": "milestones/mb1/MB1_CONTRACT.md §8 / registry/deferred.json v1.55"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——后续里程碑补齐型条目；G19~G24 未触 rxrt_launch ABI 面（渲染主线 vk 腿），字节回归缺口存续如实;disposition=maintain-open;reeval_anchor=rxrt_launch ABI 触改面出现（CUDA 腿演进窗）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -968,6 +1008,11 @@
           "date": "2026-07-16",
           "event": "MB1 close-out 处置(维持 open,owner_milestone 维持 MB1;agent 完全自主签署,AGENTS v3.0 硬规则 1):win32 swapchain present 已 discharge(W6)+ Android surface present 经 G-MB1-7 四要素 measured(NativeActivity APK 壳,HONOR BKQ-AN10 真机 ANativeWindow present 3 帧 + validation RED→GREEN;owner 明确授权代录签署 2026-07-16)——backfill 的 win32/android 平台 surface 两支均落地;余 AMD 真卡 present 像素校验 = G-MB1-6 唯一存续 open 尾门(越过 close-out 继续存续,获得 AMD 硬件后按 DoD 补证据)。维持 open,**非 MB1 验收门**,MB1 整体 close-out 见 MB1_CONTRACT.md §8",
           "evidence": "milestones/mb1/MB1_CONTRACT.md §8 / evidence/mb1-android-ondevice/android_present_smoke_report.md / registry/deferred.json v1.55"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——win32/Android 已 discharge 在案；余量平台面（其余 surface 后端）无目标平台需求;disposition=maintain-open;reeval_anchor=新目标平台立项（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -984,6 +1029,11 @@
           "date": "2026-07-28",
           "event": "EA1.3 close-out 登记(open;agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):裁决 C 两段式口径 A 段(vm_rxcheck)缺干净 Win11 VM 环境(owner-dependent),agent 无法自主推进;EA1.3 close-out 以 B 段(gpu_first_kernel)measured 26.56s 达成 + A 段 pending 留痕收口。G-EA1-6 标注『A 段 pending RD-033,B 段达成』。A 段补测后 G-EA1-6 完全闭合。RD-033 = EA1 earmark 在途 claim(number_ledger reserved_in_flight[EA1].RD)兑现消费。",
           "evidence": "milestones/ea1/EA1_CONTRACT.md §6 G-EA1-6 / §8 EA1.3 close-out 最终签署块 / milestones/ea1/OWNER_DECISION_PACKAGE.md §0-C / evidence/ea1_install_e2e_20260717_gpu_first_kernel_a2.json(B 段达成)/ registry/deferred.json v1.70"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——owner-dependent（需人备 VM）——agent 侧不可自动化，维持如实;disposition=maintain-open;reeval_anchor=用户提供干净 VM 环境窗（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },
@@ -1040,6 +1090,11 @@
           "date": "2026-07-24",
           "event": "G4.5 PR-G C ABI v2 判档不成立（两项判据均不成立）→ 超界硬需求存续登记。判档依据留痕 G4_CONTRACT §8.PR-G。先例：RD-009 close 注（subset v1 边界，超界硬需求自 RD-036+ 判档）。",
           "evidence": "G4_CONTRACT §8.PR-G / rfcs/0015-engine-rendering.md §3.4 §4.D / spec/rhi.md RXS-0277 / apps/uc05-rhi/src/embed.rx / src/rurix-engine/harness/engine_host_v3.cpp / registry/number_ledger.json（RXS-0295/0296 burned 登记）"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——判档条件（超界硬需求）未成立——G19~G24 FFI 面（vendor/Jolt/SL）均在 v1 包络内;disposition=maintain-open;reeval_anchor=超界 FFI 需求成立（判档程序）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
+          "evidence": "milestones/g24/g24_legacy_rd_registry.json"
         }
       ]
     },

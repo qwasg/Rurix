@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g24_m_c_bistro_exterior_conversion_rejudgment",
+  "symbolic_gate_key": "g24.p0.m_c.bistro_exterior_conversion_rejudgment",
+  "matrix_row": "G24.3",
+  "wave": "G24.3",
+  "numeric_step": 420,
+  "source_ref": "G24_CONTRACT §4.2;G24_ACCEPTANCE_MAP §1 M-c 行;G10-N6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "recheck_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g24\\g24_bistro_exterior_recheck.json"
+    },
+    {
+      "id": "toolchain_check_fresh",
+      "status": "PASS",
+      "detail": "工具链 PATH 实测复核 = {'fbx2gltf': False, 'assimp': False, 'blender': False}（与登记一致=True）"
+    },
+    {
+      "id": "asset_check_registered",
+      "status": "PASS",
+      "detail": "BistroExterior 独立源资产在树性 = 未命中（搜索命中均为 BistroInterior 立面构件）"
+    },
+    {
+      "id": "disposition_maintain_dual_scene",
+      "status": "PASS",
+      "detail": "裁决 = maintain-dual-scene-closed-set（工具链三缺 + 源资产缺 ⇒ 维持双场景闭集）"
+    },
+    {
+      "id": "scene_closed_set_unchanged",
+      "status": "PASS",
+      "detail": "BistroInterior + CornellBox 双场景闭集 0-byte（兜底字面）"
+    },
+    {
+      "id": "reeval_anchor_registered",
+      "status": "PASS",
+      "detail": "顺延锚 = FBX2glTF 上游修复在树，或替代臂工具 + 源资产同窗齐备"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T190256Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G24.3 M-c：G10-N6 复查 = 维持双场景闭集（工具链三缺 + 源资产缺实测）"
+}

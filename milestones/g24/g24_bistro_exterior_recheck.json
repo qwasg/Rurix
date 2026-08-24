@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g24.bistro_exterior_recheck.v1",
+  "description": "G10-N6 复查登记（M-c 唯一消费面）：FBX2glTF/替代转换臂工具链在树性 + BistroExterior 源资产在树性实测。",
+  "toolchain_check": {
+    "fbx2gltf_on_path": false,
+    "assimp_on_path": false,
+    "blender_on_path": false,
+    "note": "三工具 PATH 实测全缺（G24.3 复查窗；原 G10 检出 = FBX2glTF 转换失败上游缺陷）"
+  },
+  "asset_check": {
+    "bistro_exterior_source_found": false,
+    "search_roots": ["K:/rurix-ext", "assets", "external"],
+    "note": "搜索命中均为 BistroInterior 场景内的 exterior 立面构件（uasset），非 BistroExterior 独立场景源（FBX/glTF）"
+  },
+  "disposition": "maintain-dual-scene-closed-set",
+  "disposition_basis": "工具链三缺 + 独立源资产缺 ⇒ 转换臂无法成立；BistroInterior + CornellBox 双场景闭集维持（兜底字面 0-byte）",
+  "reeval_anchor": "FBX2glTF 上游修复发布并在树，或替代转换臂工具 + BistroExterior 源资产同窗齐备"
+}

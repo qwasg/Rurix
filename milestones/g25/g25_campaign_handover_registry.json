@@ -1,0 +1,33 @@
+{
+  "schema": "rurix.g25.campaign_handover_registry.v1",
+  "description": "G19-G25 七期串行战役承接锚归档闭集（M-d 唯一消费面；G26+ 唯一法定输入面——各期 P2 表原始锚不回写，本表为汇总镜像）。",
+  "campaign_period_rows": [
+    {"period": "G19", "id": "G13-N7", "final": "closed-go（FG/MFG host 参考臂 implemented）", "g26_anchor": "device kernel 车道重判（RFC-0036 §1.5）", "source": "milestones/g19/G19_P2_DECISIONS.md §1"},
+    {"period": "G19", "id": "RD-045-window", "final": "maintain-open（12/12 零漂移观察窗）", "g26_anchor": "backfill 三件（定位+修复+Full RFC 评估）", "source": "milestones/g19/G19_P2_DECISIONS.md §2"},
+    {"period": "G20", "id": "M61", "final": "maintain-no-go（HZB 半边兑现 + cluster 半边差距闭集）", "g26_anchor": "cluster P4 差距闭集清零 + HZB device 化落地后只追加再判", "source": "milestones/g20/G20_P2_DECISIONS.md §1"},
+    {"period": "G20", "id": "M98-l4", "final": "maintain-no-go（接口面就绪 + L4 计数可测未命中）", "g26_anchor": "HLOD proxy 追踪 device 腿 + L4 计数器接入", "source": "milestones/g20/G20_P2_DECISIONS.md §1"},
+    {"period": "G21", "id": "M100-high", "final": "closed-go（ReSTIR 高档 reservoir 证据齐备兑现：15.955×/7.27×/无偏 3σ）", "g26_anchor": "device 化/空间重用/M100 车道集成窗（RFC-0038 out-of-scope）", "source": "milestones/g21/G21_P2_DECISIONS.md §1"},
+    {"period": "G21", "id": "M52", "final": "closed-go（重判窗兑现：capability available 实测 + workload 未命中 → maintain-defer）", "g26_anchor": "RT pipeline/SBT 宿主车道出现（RD-040 分项 reeval_anchor）", "source": "milestones/g21/G21_P2_DECISIONS.md §1"},
+    {"period": "G22", "id": "RD-041-slab", "final": "closed-go（slab 能量守恒参考臂 implemented：白炉 dev=0）", "g26_anchor": "device kernel/侧表集成波（RFC-0039 out-of-scope）", "source": "milestones/g22/G22_P2_DECISIONS.md §3"},
+    {"period": "G22", "id": "RD-041-svt-ktx2-wg", "final": "defer（SVT 四行/KTX2 三行差距闭集 + WG not-available 实测）", "g26_anchor": "各差距表 reeval_anchor 字面", "source": "milestones/g22/g22_svt_gap.json + g22_ktx2_disposition.json + g22_work_graphs_probe_results.json"},
+    {"period": "G23", "id": "M125-adopt3", "final": "closed-go（重判窗兑现：maintain-5.3，三件条件 1/3）", "g26_anchor": "需求证据三类任一命中（5.6 独有 API 引用/5.3 缺陷命中/A/B 超带）", "source": "milestones/g23/G23_P2_DECISIONS.md §1"},
+    {"period": "G23", "id": "M127", "final": "closed-go（重判窗兑现：maintain 研究子轨，两半未命中）", "g26_anchor": "corpus + PhysicsAsset residual 消费方出现（搜索面闭集只追加扩面）", "source": "milestones/g23/G23_P2_DECISIONS.md §1"},
+    {"period": "G24", "id": "M114-strand", "final": "closed-go（重判窗兑现：maintain card/mesh，数据半命中+需求半未命中）", "g26_anchor": "毛发资产入压测闭集", "source": "milestones/g24/G24_P2_DECISIONS.md §1"},
+    {"period": "G24", "id": "M118-hdr-cal", "final": "closed-go（重判窗兑现：maintain-SDR，设备半 not-available 实测）", "g26_anchor": "显示链变化 + HDR 资产需求成立", "source": "milestones/g24/G24_P2_DECISIONS.md §1"},
+    {"period": "G24", "id": "G10-N6", "final": "closed-go（复查窗兑现：维持双场景闭集，工具链三缺+源资产缺实测）", "g26_anchor": "FBX2glTF 上游修复在树或替代臂+源资产同窗齐备", "source": "milestones/g24/G24_P2_DECISIONS.md §1"},
+    {"period": "G25", "id": "SAFE-GPU", "final": "defer-to-G26+（独立期立项判据未成立：专属资源窗不存在 + 平台需求方零出现；G9~G25 零交付维持）", "g26_anchor": "独立期资源窗 + 平台需求方（外部采纳生态）出现时立项评估", "source": "milestones/g24/g24_legacy_rd_registry.json + 本表归档行"},
+    {"period": "G25", "id": "G17-MD-F1", "final": "17/18 诚实红终判（M-b 定盘；G15 物理不可达兜底同源）", "g26_anchor": "NGX 分解 profiling 或 UE 侧插桩（宿主差可分离 measured 证据，RFC-0032 重判条件同源）", "source": "milestones/g25/G25_P2_DECISIONS.md §1（M-b 落档后）"}
+  ],
+  "rd_eight": [
+    {"id": "RD-034", "status": "open", "g26_anchor": "spirv-cross SPV_KHR_ray_tracing 消费路径或 LLVM A 路解锁（G21.3 探针复查在案）"},
+    {"id": "RD-039", "status": "open", "g26_anchor": "HZB device 化 + cluster P4 差距闭集（G20 落档）+ mesh shader 再判链"},
+    {"id": "RD-040", "status": "open", "g26_anchor": "五分项 reeval_anchor（G21 闭集落档）+ ReSTIR device 化窗"},
+    {"id": "RD-041", "status": "open", "g26_anchor": "SVT/KTX2/WG 差距表 reeval_anchor（G22 闭集落档）+ slab device 集成窗"},
+    {"id": "RD-042", "status": "open", "g26_anchor": "可微仿真需求场景出现（G23 四轨 maintain-observe 落档）"},
+    {"id": "RD-043", "status": "open", "g26_anchor": "GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据"},
+    {"id": "RD-044", "status": "open", "g26_anchor": "三分项 reeval_anchor（G23 闭集落档）"},
+    {"id": "RD-045", "status": "open", "g26_anchor": "backfill 三件；累计观察 = G19.3 观察窗 12/12 中锚零漂移 + G19~G24 六期 soak（63+67+69+69+69+G24 轮次）全零失败零漂移事件"}
+  ],
+  "legacy_eleven_source": "milestones/g24/g24_legacy_rd_registry.json（十一条逐条 backfill 核验零 close + history 只追加在案）",
+  "summary": "campaign_period_rows 15 + rd_eight 8 + legacy 清册 11（引用源）——G26+ 法定输入闭集；各期 P2 表原始锚 0-byte 不回写"
+}

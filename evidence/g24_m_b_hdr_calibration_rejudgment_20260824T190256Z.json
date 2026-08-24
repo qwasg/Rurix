@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g24_m_b_hdr_calibration_rejudgment",
+  "symbolic_gate_key": "g24.p0.m_b.hdr_calibration_rejudgment",
+  "matrix_row": "G24.2",
+  "wave": "G24.2",
+  "numeric_step": 418,
+  "source_ref": "G24_CONTRACT §4.2;G24_ACCEPTANCE_MAP §1 M-b 行;M118-hdr-cal",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "hdr_probe_present",
+      "status": "PASS",
+      "detail": "milestones\\g24\\g24_hdr_probe_results.json"
+    },
+    {
+      "id": "device_half_measured",
+      "status": "PASS",
+      "detail": "设备半 = not-available（vulkaninfo 表面色彩空间枚举实测：HDR10_ST2084/BT2020/HLG token 全 absent + 全量 log 存档）"
+    },
+    {
+      "id": "demand_half_verified",
+      "status": "PASS",
+      "detail": "需求半 = 未命中（压测闭集 SDR 全量验证面现状；HDR 资产/产品需求方零出现）"
+    },
+    {
+      "id": "verdict_maintain_sdr",
+      "status": "PASS",
+      "detail": "两半未命中 ⇒ 裁决 = maintain-SDR（g9.p0.m118 门绿 SDR 面维持；设备半 available 时须走需求半独立重判）"
+    },
+    {
+      "id": "m118_gate_readonly",
+      "status": "PASS",
+      "detail": "g9_m118 显示管线门绿件只读消费（禁 --gate 重跑）"
+    },
+    {
+      "id": "reeval_anchor_registered",
+      "status": "PASS",
+      "detail": "顺延锚 = 显示链变化（HDR 显示器/驱动 HDR 使能）+ HDR 资产需求成立（RFC-0041 F2）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T190256Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G24.2 M-b：M118-hdr-cal 重判 = maintain-SDR（设备半 not-available 实测 + 需求半未命中）"
+}

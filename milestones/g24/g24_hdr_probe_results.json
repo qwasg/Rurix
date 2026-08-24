@@ -1,0 +1,16 @@
+{
+  "schema": "rurix.g24.hdr_probe.v1",
+  "started_utc": "20260824T193243Z",
+  "tool_available": true,
+  "hdr_colorspace_tokens": {
+    "VK_COLOR_SPACE_HDR10_ST2084_EXT": false,
+    "VK_COLOR_SPACE_BT2020_LINEAR_EXT": false,
+    "VK_COLOR_SPACE_HDR10_HLG_EXT": false
+  },
+  "aux_tokens": {
+    "VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT": false,
+    "VK_EXT_swapchain_colorspace": true
+  },
+  "device_half_verdict": "not-available",
+  "log_path": ".tmp/g24_mb/vulkaninfo.log"
+}
