@@ -79,3 +79,4 @@ src/rurix-physics-sys56/**/*.obj
 
 # G10 机器局部缓存根配置（RXS-0382 L2 解析序兜底；本机绝对路径不入签名面、不入 git）
 g10_cache_root.local.json
+.cursor/
