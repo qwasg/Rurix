@@ -2,7 +2,7 @@
 contract: G23
 title: G23 物理平台深化期（Jolt 5.6 采纳臂重判 + 神经变形重判 + 研究轨/物理 P3+ 处置）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g23_physics_platform_deepening
 version: v1.0
 date: 2026-08-24
@@ -63,7 +63,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G23 = 战役第五期：物理面三条 open RD（RD-042/043/044）与两行 defer（M125-adopt3/M127）的机器取证重判——Jolt 5.6 评估臂新鲜度真跑 + 采纳三件条件核验，神经变形两半条件实测，研究轨与 P3+ 分项处置闭集。
 
-G23.0 不可变 ref = `G23_0_REF_PENDING`（G22 close-out flip commit，tag `g22-closed`）。
+G23.0 不可变 ref = `1ac8b12956eced1a3a08e03c1f91aa7e0949b23c`（G22 close-out flip commit，tag `g22-closed`）。
 
 ## 2. 范围与波次
 
@@ -118,3 +118,9 @@ D-G23-1：PLAN/CONTRACT/CI_GATES/g23_budget.json + G23_CANDIDATE_DECISIONS + G23
 6. 先优化后测试：G23.2~G23.3 纯实现；G23.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G23-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G22 closed + tag `g22-closed` + G23.0 不可变 ref `1ac8b12956eced1a3a08e03c1f91aa7e0949b23c`；候选表 11 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 399 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g23_interlock_check.py --gate g23.gov.implementation_interlock` VERDICT=READY；治理三门 397/398/399 PASS。
+- **解锁**：`implementation_status: blocked → unlocked`。G23.2+ 实现波（M-a~M-e）现可开工。
