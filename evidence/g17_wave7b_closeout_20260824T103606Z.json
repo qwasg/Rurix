@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g17_wave7b_closeout",
+  "symbolic_gate_key": "g17.wave.7b.closeout",
+  "matrix_row": "G17.7b",
+  "wave": "G17.7b",
+  "numeric_step": 308,
+  "source_ref": "G17_CONTRACT G-G17-9;G17_PLAN §2 阶段⑧;registry/deferred.json",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "five_p0_evidence_green",
+      "status": "PASS",
+      "detail": "M-a~M-e 五 P0 最新 evidence 全绿"
+    },
+    {
+      "id": "p2_exhaustive_zero_empty",
+      "status": "PASS",
+      "detail": "g17_p2_decisions_check_20260824T100216Z.json host=True"
+    },
+    {
+      "id": "final_verdict_chain_complete",
+      "status": "PASS",
+      "detail": "终判两态如实登记 + ratio 证据链：verdict=unmet_honest_registered；终判 = 维持未达标登记不冒充（达标 17/18；未达格 ['bistro-interior/t100/dlss_sr(ratio=0.8563)']）——兜底字面与 G15 同源（用户 2026-08-19 授权面逐字承接），合法收口态"
+    },
+    {
+      "id": "rfc_0032_terminal_state_archived",
+      "status": "PASS",
+      "detail": "RFC-0032 Approved 在树 + M-c 终态 = 'defer'（approved-implement/no-go/defer 均合法终态）"
+    },
+    {
+      "id": "old_gates_no_regression",
+      "status": "PASS",
+      "detail": "g17_m_e_closed_gate_no_regression_20260824T095834Z.json host=True"
+    },
+    {
+      "id": "rd_eight_open",
+      "status": "PASS",
+      "detail": "RD 八条 status: [('RD-034', 'open'), ('RD-039', 'open'), ('RD-040', 'open'), ('RD-041', 'open'), ('RD-042', 'open'), ('RD-043', 'open'), ('RD-044', 'open'), ('RD-045', 'open')]"
+    },
+    {
+      "id": "soak_ge_1800_zero_fail",
+      "status": "PASS",
+      "detail": "soak g17_stabilization_soak_20260824T103430Z.json host=True（wall=1914.487s）+ budget --strict [budget_eval] PASS (269 pass, 0 skip, strict mode)"
+    },
+    {
+      "id": "closeout_ready",
+      "status": "PASS",
+      "detail": "VERDICT=READY（前七 facts 全绿；READY 后 status active→closed 独立洁净 commit + tag g17-closed）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T103606Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17.7b close-out 终审八 facts：VERDICT=READY（五 P0 全绿 + P2 穷举零空行 + 终判 ratio 证据链完整〔两态均合法收口〕+ RFC-0032 终态留档 + 旧门零降级 + RD 八条 open + soak ≥1800s 零失败 + budget --strict 零 estimated；READY 后 status flip 独立洁净 commit + tag g17-closed）"
+}

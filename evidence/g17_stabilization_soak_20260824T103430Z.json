@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g17_stabilization_soak",
+  "symbolic_gate_key": "g17.wave.7a.soak",
+  "matrix_row": "G17.7a",
+  "wave": "G17.7a",
+  "numeric_step": 307,
+  "source_ref": "G17_CONTRACT G-G17-8;G17_PLAN §2 阶段⑦",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_d_verdict_precondition",
+      "status": "PASS",
+      "detail": "g17_m_d_t100_final_verdict_20260824T095624Z.json host=True verdict_fact=verdict=unmet_honest_registered；终判 = 维持未达标登记不冒充（达标 17/18；未达格 ['bistro-interior/t100/dlss_sr(ratio=0.8563)']）——兜底字面与 G15 "
+    },
+    {
+      "id": "sleep_seconds_zero",
+      "status": "PASS",
+      "detail": "迭代间零 sleep 字面"
+    },
+    {
+      "id": "soak_wall_clock_ge_1800",
+      "status": "PASS",
+      "detail": "wall=1914.487s"
+    },
+    {
+      "id": "iterations_nonzero",
+      "status": "PASS",
+      "detail": "iters=49"
+    },
+    {
+      "id": "failures_zero",
+      "status": "PASS",
+      "detail": "fails=0/49"
+    },
+    {
+      "id": "active_chain_matches_wall",
+      "status": "PASS",
+      "detail": "active=1914.487 wall=1914.487 drift=0.000（谎报秒数交叉核验）"
+    },
+    {
+      "id": "no_sleep_between_iters",
+      "status": "PASS",
+      "detail": "sleep=0"
+    },
+    {
+      "id": "dlss_lane_used",
+      "status": "PASS",
+      "detail": "迭代体含 dlss_sr 车道（bistro/cornell t100）+ tsr/fsr 轮换，默认臂零 --gi 参数"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T103430Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17 soak wall=1914.487s iters=49 fails=0（≥1800s 零失败连续复跑）"
+}

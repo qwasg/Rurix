@@ -97,7 +97,7 @@ def evaluate() -> tuple[list[dict], str]:
     rfc_ok = RFC_PATH.is_file() and "Agent Approved" in RFC_PATH.read_text(encoding="utf-8")
     disp = ""
     if mc_doc:
-        m = re.search(r"terminal_disposition = (\S+)", mc_doc.get("notes", ""))
+        m = re.search(r"terminal_disposition = ([a-z-]+)", mc_doc.get("notes", ""))
         disp = m.group(1) if m else ""
     ok4 = rfc_ok and disp in ("implement", "no-go", "defer")
     facts.append(fact("rfc_0032_terminal_state_archived", ok4,
