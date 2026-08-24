@@ -3483,6 +3483,35 @@ jobs:
         shell: powershell
         run: py -3 ci/g16_closeout_check.py --verify-latest
 
+      # 步骤 293（G17.1 治理门 g17.wave.1.acceptance_map；G17_CONTRACT §4.3/
+      # G-G17-1；落盘前实测 CI_step.next_free=293 顺位领取）。验收映射核验：MAP §1
+      # 五行 P0 闭集全等 + 行面齐备 + §2 零 go P1 + actual-next-free allocation
+      # 字面零预占 + MAP §1 ↔ G17_CONTRACT §4.2 双向逐字一致。纯 host 治理核验门。
+      # evidence 落盘 evidence/g17_acceptance_map_check_<UTC>.json。
+      - name: G17.1 acceptance map check (G17_CONTRACT §4.3.293, g17.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g17_acceptance_map_check.py --gate g17.wave.1.acceptance_map
+
+      # 步骤 294（G17.1 治理门 g17.wave.1.candidate_decisions；G17_CONTRACT §4.3/
+      # G-G17-1；落盘前实测 CI_step.next_free=294 顺位领取）。候选决策表 19 行闭集
+      # （§1 G16 defer-to-G17+ 承接 15 行〔十四行 defer-to-G18+ + G15-MD-F1 go〕
+      # + §3 G17-N1~N4）+ 裁决枚举合法 + 零空行 + 承接锚纪律 + defer 行 G18+
+      # 重评窗 + go 行验收映射锚 + RD 条目级 status==open。纯 host 治理核验门。
+      # evidence 落盘 evidence/g17_candidate_decisions_check_<UTC>.json。
+      - name: G17.1 candidate decisions check (G17_CONTRACT §4.3.294, g17.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g17_candidate_decisions_check.py --gate g17.wave.1.candidate_decisions
+
+      # 步骤 295（G17.1 治理门 g17.gov.implementation_interlock；G17_CONTRACT §4.3/
+      # G-G17-2；落盘前实测 CI_step.next_free=295 顺位领取）。实现互锁：事实门四项
+      # （G16 closed+§8.4+G17.0 不可变 ref / 决策表+deferred+MAP 三面 /
+      # 用户开工指令留痕「帮我一次性完成G17」+workflow 末号一致 /
+      # 治理两门独立 PASS）+ 一致性门 C1~C4。诚实输出 BLOCKED/READY 均不充绿。
+      # evidence 落盘 evidence/g17_interlock_check_<UTC>.json。
+      - name: G17.1 implementation interlock (G17_CONTRACT §4.3.295, g17.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g17_interlock_check.py --gate g17.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "namespace": "g17",
+  "description": "G17 双端复测与暖态重标定预算面。baseline 条目 = G17.0 治理波双端现状复测（G14 M-d 门同口径一轮）程序产；threshold = measured × 2.0 程序产宽上界守护（性能上界防爆炸面，非通过线——通过线 ×1.00 判定由门脚本承载）。M-a 暖态重标定条目后续按只追加程序产追加（禁手写 P-09；g14/g15/g16_budget 既有条目 0-byte）。",
+  "source_docs": [
+    "milestones/g17/G17_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "g17.baseline.dual_end_frame_ms.bistro_interior_t100_dlss_sr_ue",
+      "description": "G17.0 baseline UE 参照臂 bistro-interior/t100 跨轮中位帧时（暖态包络双向波动实证格——G15 期暖态 2.96~3.00ms → 本 baseline 回升；M-a 重标定输入面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.446533333333334,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T054145Z.json",
+      "measured_value": 3.723266666666667
+    },
+    {
+      "id": "g17.baseline.dual_end_frame_ms.bistro_interior_t100_dlss_sr_rurix",
+      "description": "G17.0 baseline Rurix 生产管线 bistro-interior/t100/dlss_sr 跨轮中位帧时（G15 期跨会话 3.482~3.657ms 带 → 本 baseline；M-d 终判对照输入面）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.590966250000003,
+      "evidence_file": "evidence/g14_m_d_dual_end_fps_parity_20260824T054145Z.json",
+      "measured_value": 3.7954831250000014
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

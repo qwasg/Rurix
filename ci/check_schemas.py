@@ -832,6 +832,15 @@ def check_evidence_files() -> None:
     g16_wave6b_closeout_schema = load(
         ROOT / "milestones/g16/g16_wave6b_closeout_evidence_schema.json"
     )
+    g17_acceptance_map_check_schema = load(
+        ROOT / "milestones/g17/g17_acceptance_map_check_evidence_schema.json"
+    )
+    g17_candidate_decisions_check_schema = load(
+        ROOT / "milestones/g17/g17_candidate_decisions_check_evidence_schema.json"
+    )
+    g17_interlock_check_schema = load(
+        ROOT / "milestones/g17/g17_interlock_check_evidence_schema.json"
+    )
     g15_m_a_dual_end_quality_reharvest_schema = load(
         ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
     )
@@ -2083,6 +2092,21 @@ def check_evidence_files() -> None:
     g16_wave6b_closeout_validator = (
         jsonschema.Draft7Validator(g16_wave6b_closeout_schema)
         if g16_wave6b_closeout_schema is not None
+        else None
+    )
+    g17_acceptance_map_check_validator = (
+        jsonschema.Draft7Validator(g17_acceptance_map_check_schema)
+        if g17_acceptance_map_check_schema is not None
+        else None
+    )
+    g17_candidate_decisions_check_validator = (
+        jsonschema.Draft7Validator(g17_candidate_decisions_check_schema)
+        if g17_candidate_decisions_check_schema is not None
+        else None
+    )
+    g17_interlock_check_validator = (
+        jsonschema.Draft7Validator(g17_interlock_check_schema)
+        if g17_interlock_check_schema is not None
         else None
     )
     g15_m_a_dual_end_quality_reharvest_validator = (
@@ -4005,6 +4029,27 @@ def check_evidence_files() -> None:
             # G16.1 治理门实现互锁（步骤 283）→
             # milestones/g16/g16_interlock_check_evidence_schema.json。
             validator = g16_interlock_check_validator
+        elif (
+            f.name.startswith("g17_acceptance_map_check_")
+            and g17_acceptance_map_check_validator is not None
+        ):
+            # G17.1 治理门验收映射核验（步骤 293）→
+            # milestones/g17/g17_acceptance_map_check_evidence_schema.json。
+            validator = g17_acceptance_map_check_validator
+        elif (
+            f.name.startswith("g17_candidate_decisions_check_")
+            and g17_candidate_decisions_check_validator is not None
+        ):
+            # G17.1 治理门候选决策核验（步骤 294）→
+            # milestones/g17/g17_candidate_decisions_check_evidence_schema.json。
+            validator = g17_candidate_decisions_check_validator
+        elif (
+            f.name.startswith("g17_interlock_check_")
+            and g17_interlock_check_validator is not None
+        ):
+            # G17.1 治理门实现互锁（步骤 295）→
+            # milestones/g17/g17_interlock_check_evidence_schema.json。
+            validator = g17_interlock_check_validator
         elif (
             f.name.startswith("g16_m_a_ue_reference_arm_repair_")
             and g16_m_a_ue_reference_arm_repair_validator is not None

@@ -236,6 +236,44 @@ def eval_g14_run_variance_band(entry: dict) -> None:
         err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
 
 
+def eval_g17_dual_end_cell(entry: dict) -> None:
+    """G17 双端复测条目判读面：evidence parity.cells 内 bistro-interior/t100/dlss_sr
+    格 ue_median_ms / rurix_median_ms 单值提取（G14 M-d 门 evidence 既定形态），
+    threshold = measured × 2.0 程序产宽上界守护 方向 max，禁手写 P-09；id 尾段
+    _ue / _rurix 选择臂（G17.0 baseline 与 G17.2 M-a 暖态重标定条目共用本判读面）。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    cells = doc.get("parity", {}).get("cells", [])
+    cell = next(
+        (
+            c for c in cells
+            if c.get("scene") == "bistro-interior" and c.get("tier") == 100
+            and c.get("backend") == "dlss_sr"
+        ),
+        None,
+    )
+    if cell is None:
+        err(f"{eid}: evidence parity.cells 缺 bistro-interior/t100/dlss_sr 格")
+        return
+    field = "ue_median_ms" if eid.endswith("_ue") else "rurix_median_ms"
+    if field not in cell:
+        err(f"{eid}: cells 格缺 {field} 字段")
+        return
+    value = float(cell[field])
+    threshold = entry.get("threshold")
+    direction = entry.get("direction", "max")
+    ok = value <= threshold if direction == "max" else value >= threshold
+    if ok:
+        PASSES.append(f"{eid}: PASS — {value} {entry.get('unit', '')} vs {direction} {threshold}")
+    else:
+        err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
+
+
 def eval_entry(entry: dict, strict: bool) -> None:
     eid = entry["id"]
     ev = entry.get("evidence")
@@ -286,6 +324,11 @@ def eval_entry(entry: dict, strict: bool) -> None:
     if eid.startswith("g16.m_g.absolute_pass_line_"):
         # G16plus M-g 收口标定四条目（GI on vs 新 UE；不改 g15_budget / 不改 M-c 四条目）。
         eval_g13_dual_seed(entry)
+        return
+    if eid.startswith("g17.baseline.dual_end_frame_ms."):
+        # G17.0 治理波 baseline 双端条目（G14 M-d evidence parity.cells 提取，
+        # threshold = measured × 2.0 程序产宽上界守护；不改 g14/g15/g16_budget）。
+        eval_g17_dual_end_cell(entry)
         return
     value = measured_value(entry)
     if value is None:

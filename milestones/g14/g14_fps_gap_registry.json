@@ -18,16 +18,16 @@
    "measured_delta": [
     {
      "metric": "fps_ratio@bistro-interior/t100/dlss_sr",
-     "a_value": 333.0835206928137,
-     "b_value": 282.5607064017661,
-     "delta": -50.52281429104761,
-     "evidence_digest": "sha256:da23abdaf47be7ef4cdcef46c3f214360a7334d947a1ae13b5690a8e3972598f"
+     "a_value": 268.5813532919121,
+     "b_value": 263.4710699708353,
+     "delta": -5.110283321076793,
+     "evidence_digest": "sha256:5ef778f245db6dbdcd061109e2fbaf6fe985ec3581c6c15e9e6f67cf9cb5ae2a"
     }
    ],
    "suggested_priority": "P1",
    "g11_anchor": "G14-N7 通过线口径（G15+/G16 继续优化承接；G14 如实登记不冒充）",
    "title": "fps_parity_deficit@bistro-interior/t100/dlss_sr",
-   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.8483 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
+   "description": "双端帧率对标未达标：bistro-interior tier100 dlss_sr Rurix/UE fps 比 0.9810 < 1.00 通过线（三轮进程级独立运行 50×3 trimmed mean 跨轮中位数）；逐轮比值入 evidence；只登记不拟合（RXS-0392）。",
    "attachments": []
   }
  ],
