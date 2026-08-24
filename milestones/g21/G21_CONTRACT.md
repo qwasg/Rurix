@@ -1,7 +1,7 @@
 ---
 contract: G21
 title: G21 光照 P3+ 深化期（ReSTIR 高档 reservoir host 参考臂 + SER 重判 + RD-040 分项处置 + RD-034 上游复查）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g21_lighting_p3_deepening
 version: v1.0
