@@ -1,7 +1,7 @@
 ---
 contract: G25
 title: G25 全量商用终审收官期（画质终态维持核验 + 性能 18 格终判 + 全链零降级 + 战役承接锚归档）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g25_campaign_final_review
 version: v1.0
