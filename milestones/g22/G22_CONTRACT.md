@@ -1,7 +1,7 @@
 ---
 contract: G22
 title: G22 材质/流送/时域期（slab 材质 host 参考臂 + SVT/KTX2/Work Graphs/FSR 分项处置）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g22_material_streaming_temporal
 version: v1.0
