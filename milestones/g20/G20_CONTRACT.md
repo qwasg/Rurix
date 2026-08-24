@@ -125,3 +125,26 @@ D-G20-1：PLAN/CONTRACT/CI_GATES/g20_budget.json + G20_CANDIDATE_DECISIONS + G20
 - **事实门全绿**：G19 closed + tag `g19-closed` + G20.0 不可变 ref `3c138867f94af31101591b8b2103bb1622175d4c`；候选表 14 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 351 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g20_interlock_check.py --gate g20.gov.implementation_interlock` VERDICT=READY；治理三门 349/350/351 PASS（acceptance_map 162039Z / candidate_decisions 162108Z / interlock）。
 - **解锁**：`implementation_status: blocked → unlocked`。G20.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G20.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G20-6 前置：P2 穷举决策门（g20.wave.5a.decisions，步骤 362，VERDICT=PASS）+ 稳定门 soak（g20.wave.5a.soak，步骤 363，8/8 facts VERDICT=PASS——67 迭代 wall=1845.0s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G20_P2_DECISIONS.md` 穷举闭集 **14 行零空行**（§1 九行：maintain-no-go 2〔M61/M98-l4〕 + defer-to-G21+ 7；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open）；汇总 closed-go 5 + maintain-no-go 2 + defer-to-G21+ 7。
+- **② soak 定盘**：`py -3 ci/g20_stabilization_soak.py --gate` → VERDICT=PASS 8/8（evidence/g20_stabilization_soak_20260824T170025Z.json）——M-d 前置绿 + **wall=1845.0s ≥1800s + 67 迭代零失败（fails=0/67，含 HZB 零假阳性车道穿插 13 次复跑）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（evidence/g20_p2_decisions_check_20260824T162931Z.json）；budget_eval --strict 277 pass 零 skip 零 estimated；cargo test -p rurix-render --lib 486 passed 0 failed（hzb 5 测 + slab 5 测〔G22 预制〕计入）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G20.5 P2/soak 波）`。
+
+### §8.7 G20.6 close-out 终审签署块（2026-08-24）——G-G20-6 字面兑现：close-out 终审门（g20.wave.6b.closeout，步骤 364）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g20-closed`
+
+- **① 终审八 facts 逐条（evidence/g20_wave6b_closeout_20260824T170042Z.json）**：
+  1. **five_p0_evidence_green = PASS**（M-a~M-e 五 P0 最新 evidence host_section_pass 全真）。
+  2. **p2_exhaustive_zero_empty = PASS**（14 行零空行）。
+  3. **hzb_realization_chain = PASS**（g20_hzb_probe：双约定 800 rect 零假阳性 + 剔除 231/800 + 双跑位级）。
+  4. **rfc_0037_archived = PASS**（RFC-0037 approved-implemented；RFC-0034 重判记录只追加在档）。
+  5. **old_gates_no_regression = PASS**（M-e G19 链零降级全绿）。
+  6. **rd_open_maintained = PASS**（RD 八条 open 维持）。
+  7. **soak_ge_1800_zero_fail = PASS**（170025Z：67 迭代 wall=1845.0s ≥1800s 零失败）。
+  8. **closeout_ready = PASS**（VERDICT=READY）。
+- **② 终审命令逐字输出**：`py -3 ci/g20_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：虚拟化几何 P4 字面兑现——**M-a HZB host 参考臂 implemented**（geometry 头注「HZB 两阶段 P3 预留」第一阶段兑现，保守零假阳性硬不变量）；**M-b cluster P4 defer**（差距闭集四行全 open 如实登记）；**M-c M61 maintain-no-go**（HZB 半边兑现 + cluster 半边未清零 + HW 性能差 measured 证据缺，RFC-0034 重判记录只追加）；**M-d M98-l4 维持三级链**（接口面就绪命中 + L4 计数可测未命中）；M-e 旧门零降级全绿。**maintain-no-go/defer 均为合法收口态**；G21 承接锚齐备（M100-high 重判窗 ReSTIR 预制件已在树：gi/restir_reservoir.rs 5 测全绿 + SER capability vulkaninfo 预测得）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g20-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G20 战役第二期收口）`。

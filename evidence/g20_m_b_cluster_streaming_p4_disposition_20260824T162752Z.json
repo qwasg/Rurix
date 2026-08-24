@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g20_m_b_cluster_streaming_p4_disposition",
+  "symbolic_gate_key": "g20.p0.m_b.cluster_streaming_p4_disposition",
+  "matrix_row": "G20.2",
+  "wave": "G20.2",
+  "numeric_step": 354,
+  "source_ref": "G20_CONTRACT §4.2;G20_ACCEPTANCE_MAP §1 M-b 行;RD-039",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "gap_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g20\\g20_cluster_streaming_p4_gap.json"
+    },
+    {
+      "id": "gap_rows_closed_set",
+      "status": "PASS",
+      "detail": "gap_rows=['P4-1', 'P4-2', 'P4-3', 'P4-4']（闭集四行）"
+    },
+    {
+      "id": "gap_rows_complete",
+      "status": "PASS",
+      "detail": "逐行 gap/anchor/status 齐"
+    },
+    {
+      "id": "disposition_legal",
+      "status": "PASS",
+      "detail": "disposition=defer（go/no-go/defer 均合法；basis 在档）"
+    },
+    {
+      "id": "current_surface_verified",
+      "status": "PASS",
+      "detail": "streaming/ 四模块现面实测在树"
+    },
+    {
+      "id": "rd039_anchor_carried",
+      "status": "PASS",
+      "detail": "RD-039 长线承接（reeval_anchor = HZB device 化 + 剔除 pass 反馈链）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T162752Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G20.2 M-b：cluster 流送 P4 评估 disposition=defer（差距闭集四行全 open 如实登记）"
+}

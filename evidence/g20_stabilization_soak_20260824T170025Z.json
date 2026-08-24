@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g20_stabilization_soak",
+  "symbolic_gate_key": "g20.wave.5a.soak",
+  "matrix_row": "G20.5",
+  "wave": "G20.5",
+  "numeric_step": 363,
+  "source_ref": "G20_CONTRACT G-G20-6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_d_precondition",
+      "status": "PASS",
+      "detail": "g20_m_d_far_field_l4_disposition_20260824T162832Z.json"
+    },
+    {
+      "id": "sleep_seconds_zero",
+      "status": "PASS",
+      "detail": "迭代间零 sleep"
+    },
+    {
+      "id": "soak_wall_clock_ge_1800",
+      "status": "PASS",
+      "detail": "wall=1845.0s"
+    },
+    {
+      "id": "iterations_nonzero",
+      "status": "PASS",
+      "detail": "iters=67"
+    },
+    {
+      "id": "failures_zero",
+      "status": "PASS",
+      "detail": "fails=0"
+    },
+    {
+      "id": "active_chain_matches_wall",
+      "status": "PASS",
+      "detail": "active=1845.0s wall=1845.0s"
+    },
+    {
+      "id": "no_sleep_between_iters",
+      "status": "PASS",
+      "detail": "sleep=0"
+    },
+    {
+      "id": "hzb_lane_interleaved",
+      "status": "PASS",
+      "detail": "hzb_iters=13（HZB 零假阳性车道穿插复跑）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T170025Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G20 soak ≥1800s（管线四组合 + HZB 车道穿插）"
+}

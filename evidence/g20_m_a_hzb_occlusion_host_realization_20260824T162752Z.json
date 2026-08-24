@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g20_m_a_hzb_occlusion_host_realization",
+  "symbolic_gate_key": "g20.p0.m_a.hzb_occlusion_host_realization",
+  "matrix_row": "G20.2",
+  "wave": "G20.2",
+  "numeric_step": 352,
+  "source_ref": "G20_CONTRACT §4.2;G20_ACCEPTANCE_MAP §1 M-a 行;RFC-0037",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "hzb_module_on_tree",
+      "status": "PASS",
+      "detail": "geometry/hzb.rs（farther-of 归约金字塔 + ≤2×2 窗保守测试 + 双约定）"
+    },
+    {
+      "id": "probe_harness_on_tree",
+      "status": "PASS",
+      "detail": "bin/g20_hzb_probe.rs（800 rect 夹具 vs 逐像素精确真值）"
+    },
+    {
+      "id": "dual_convention_arms",
+      "status": "PASS",
+      "detail": "arms=['reverse_z', 'standard_z']"
+    },
+    {
+      "id": "zero_false_positive_invariant",
+      "status": "PASS",
+      "detail": "保守零假阳性硬不变量（判遮挡 ⇒ 精确真值同判）；fp=[0, 0]"
+    },
+    {
+      "id": "cull_rate_nonzero",
+      "status": "PASS",
+      "detail": "occluded=[231, 231]/800"
+    },
+    {
+      "id": "double_run_bitexact",
+      "status": "PASS",
+      "detail": "金字塔字节 + 判定轨迹 sha256 双跑位级一致"
+    },
+    {
+      "id": "cull_visbuffer_0byte",
+      "status": "PASS",
+      "detail": "既有 cull/visbuffer 面 vs g19-closed 0-byte（rc=[0, 0]）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T162752Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G20.2 M-a：HZB 遮挡剔除 host 参考臂实现（RFC-0037；「HZB 两阶段 P3 预留」第一阶段兑现）"
+}

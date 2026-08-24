@@ -3806,6 +3806,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g20_interlock_check.py --gate g20.gov.implementation_interlock
 
+      # 步骤 352（G20.2 P0 M-a g20.p0.m_a.hzb_occlusion_host_realization；
+      # post-interlock 实测 CI_step.next_free=352 顺位领取）。
+      - name: G20.2 M-a HZB occlusion host realization verify-latest
+        shell: powershell
+        run: py -3 ci/g20_hzb_occlusion_host_realization_smoke.py --verify-latest
+
+      # 步骤 353（G20.2 波聚合门 g20.wave.2.exit）。
+      - name: G20.2 wave exit verify-latest (g20.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g20_wave_exit_check.py --gate g20.wave.2.exit
+
+      # 步骤 354（G20.2 P0 M-b g20.p0.m_b.cluster_streaming_p4_disposition）。
+      - name: G20.2 M-b cluster streaming P4 disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g20_cluster_streaming_p4_disposition_smoke.py --verify-latest
+
+      # 步骤 355（G20.3 波聚合门 g20.wave.3.exit）。
+      - name: G20.3 wave exit verify-latest (g20.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g20_wave_exit_check.py --gate g20.wave.3.exit
+
+      # 步骤 356（G20.3 P0 M-c g20.p0.m_c.mesh_shader_rejudgment）。
+      - name: G20.3 M-c mesh shader rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g20_mesh_shader_rejudgment_smoke.py --verify-latest
+
+      # 步骤 357（G20.4 波聚合门 g20.wave.4.exit）。
+      - name: G20.4 wave exit verify-latest (g20.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g20_wave_exit_check.py --gate g20.wave.4.exit
+
+      # 步骤 358（G20.3 P0 M-d g20.p0.m_d.far_field_l4_disposition）。
+      - name: G20.3 M-d far field L4 disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g20_far_field_l4_disposition_smoke.py --verify-latest
+
+      # 步骤 359（G20.5 波聚合门 g20.wave.5.exit）。
+      - name: G20.5 wave exit verify-latest (g20.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g20_wave_exit_check.py --gate g20.wave.5.exit
+
+      # 步骤 360（G20.4 P0 M-e g20.p0.m_e.closed_gate_no_regression）。
+      - name: G20.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g20_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 361（G20.6 波聚合门 g20.wave.6.exit）。
+      - name: G20.6 wave exit verify-latest (g20.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g20_wave_exit_check.py --gate g20.wave.6.exit
+
+      # 步骤 362（G20.5 P2 穷举 g20.wave.5a.decisions）。
+      - name: G20.5 P2 decisions verify-latest (g20.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g20_p2_decisions_check.py --verify-latest
+
+      # 步骤 363（G20.5 soak g20.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G20.5 stabilization soak verify-latest (g20.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g20_stabilization_soak.py --verify-latest
+
+      # 步骤 364（G20.6 close-out g20.wave.6b.closeout）。
+      - name: G20.6 close-out verify-latest (G20_CONTRACT G-G20-6, g20.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g20_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

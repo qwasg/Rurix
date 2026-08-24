@@ -1,0 +1,42 @@
+{
+  "schema": "rurix.g21.rd040_subitem_registry.v1",
+  "description": "RD-040 光照 P3+ 五分项处置闭集（M-c 唯一消费面）。",
+  "subitems": [
+    {
+      "id": "SMRT",
+      "name": "SMRT 阴影贴图射线追踪",
+      "disposition": "defer",
+      "basis": "VSM clipmap 阴影面（shadow/ 模块）为现生产档；SMRT 需 RT 采样与 VSM page 联动车道，收益面依赖多灯动态场景资产（现闭集 cornell/bistro 静态灯不构成需求证据）",
+      "reeval_anchor": "多灯动态场景资产入压测清单 + shadow page 采样车道出现"
+    },
+    {
+      "id": "WORLD-RC",
+      "name": "世界辐射缓存演进（M99-clipmap 后续）",
+      "disposition": "defer",
+      "basis": "G11 已兑现 M99-clipmap 世界缓存承接（RXS-0360 翻转在案）；进一步演进（持久化/跨帧失效精化）无新需求证据",
+      "reeval_anchor": "世界级持久 GI 需求场景出现（大世界流送 + GI 联动窗）"
+    },
+    {
+      "id": "NRD",
+      "name": "NRD 降噪器 vendor 集成",
+      "disposition": "defer",
+      "basis": "G18 M-a 已落自研降噪加性 profile（g18_light_transport_depth 链)；NRD vendor 集成需 C++ 桥 + 输入布局对齐，画质收益 vs 自研面无 measured 对照证据",
+      "reeval_anchor": "自研降噪画质差距 measured 检出（G25 终审窗或后续画质门）"
+    },
+    {
+      "id": "OMM",
+      "name": "Opacity Micro-Map",
+      "disposition": "defer",
+      "basis": "现压测闭集（cornell/bistro-interior）零 alpha-tested 几何主导面；OMM 收益前提（植被/镂空材质海量 alpha 测试）不成立",
+      "reeval_anchor": "alpha-tested 几何主导场景入压测清单（BistroExterior 植被面 = G24 转换臂窗联动）"
+    },
+    {
+      "id": "RT-PIPELINE-SBT",
+      "name": "RT pipeline + SBT 宿主车道",
+      "disposition": "defer",
+      "basis": "Rurix 生产车道 = RayQuery compute 单 kernel（RXS-0357 谱系）；RT pipeline/SBT 需 kernel 子语言 hit/miss 着色阶段语义扩展（语言面 Full RFC 级）+ SER 适用形态载体——本期 SER capability 已实测可用（M-b），workload 载体即本分项",
+      "reeval_anchor": "hit/miss 着色阶段语义需求成立（多材质 RT 分派需求证据）+ SER 收益 measured 预估窗"
+    }
+  ],
+  "summary": "五分项全 defer（各附 basis + reeval_anchor；RD-040 open 维持，history 只追加登记）"
+}

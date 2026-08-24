@@ -10,6 +10,9 @@
 pub mod closure;
 pub mod pso_cache;
 pub mod side_table;
+// G22.2 波（RFC-0039）：Substrate 类双层 slab 能量守恒闭合 host 参考臂——
+// RD-041 slab 分层材质分项语义参考面（closure 单层面 0-byte 不接线）。
+pub mod slab;
 pub mod table;
 
 pub use closure::{

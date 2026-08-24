@@ -300,5 +300,13 @@ required-features = ["vendor-upscale"]
 name = "g19_frame_gen_probe"
 path = "src/bin/g19_frame_gen_probe.rs"
 
+# G20.2 M-a HZB 遮挡剔除 host 参考臂 probe(RFC-0037;门
+# g20.p0.m_a.hzb_occlusion_host_realization):geometry/hzb 保守零假阳性硬
+# 不变量(800 rect 夹具 vs 逐像素精确真值)+ 剔除率非零 + 双跑位级 digest,
+# reverse-Z/standard-Z 双约定非 2 幂 193×117。纯 host 确定性面。
+[[bin]]
+name = "g20_hzb_probe"
+path = "src/bin/g20_hzb_probe.rs"
+
 [lints]
 workspace = true

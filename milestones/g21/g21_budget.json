@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g21",
+  "description": "G21 预算面。baseline = G21.0 Stage A digest 锚在档快检 + G20 HZB 双约定零假阳性臂计数（承接锚新鲜度）。",
+  "source_docs": ["milestones/g21/G21_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g21.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G21.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g21_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g21.baseline.g20_hzb_zero_fp.arm_count",
+      "description": "G21.0 baseline G20 HZB 双约定零假阳性臂计数（期望 2/2）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 2.0,
+      "evidence_file": "evidence/g21_baseline_g20_hzb_zero_fp.json",
+      "measured_value": 2.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
