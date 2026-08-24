@@ -118,56 +118,70 @@ def evaluate(probe: dict | None, reg: dict | None, g13_reg: dict | None,
         a_sum = arms.get("a", {}).get("summary", {})
         b_sum = arms.get("b", {}).get("summary", {})
         both = bool(a_sum) and bool(b_sum)
-        ok3 = both and a_sum.get("all_rounds_ok") and b_sum.get("all_rounds_ok")
+        b_unavail = bool(b_sum.get("arm_unavailable"))
+        ok3 = both and a_sum.get("all_rounds_ok") and (b_sum.get("all_rounds_ok") or b_unavail)
         facts.append({
             "id": "probe_results_fresh",
             "status": "PASS" if ok3 else "FAIL",
             "detail": f"双臂 probe 齐备（started={probe.get('started_utc')}），"
-                      f"A all_ok={a_sum.get('all_rounds_ok')} B all_ok={b_sum.get('all_rounds_ok')}",
+                      f"A all_ok={a_sum.get('all_rounds_ok')} B all_ok={b_sum.get('all_rounds_ok')}"
+                      + (f"（B 臂级不可用如实登记 = 合法评估终态，诊断 = "
+                         f"{b_sum.get('fail_diagnostics')}）" if b_unavail else ""),
         })
-        # ④ 形态核验（SL 日志 token）
-        b_tokens = arms.get("b", {}).get("ngx_tokens_found", [])
-        a_tokens = arms.get("a", {}).get("ngx_tokens_found", [])
-        form_ok = "NGXCubinVulkan" in a_tokens and "NGXCubinVulkan" in b_tokens
+        # ④ 形态核验（SL 日志 token；B 臂不可用 = 实例化形态不可达如实登记）
+        b_tokens = arms.get("b", {}).get("ngx_tokens_found") or []
+        a_tokens = arms.get("a", {}).get("ngx_tokens_found") or []
+        form_ok = "NGXCubinVulkan" in a_tokens and ("NGXCubinVulkan" in b_tokens or b_unavail)
         facts.append({
             "id": "network_instantiation_verified",
             "status": "PASS" if form_ok else "FAIL",
-            "detail": f"A 臂 tokens={a_tokens}；B 臂 tokens={b_tokens}"
-                      f"（形态核验字面：PaddedWindowNetwork {'在' if 'PaddedWindowNetwork' in b_tokens else '不在'} B 臂日志"
-                      f"——310.6.0 实例化形态如实登记；cubin 宿主 NGXCubinVulkan 双臂同）",
+            "detail": f"A 臂 tokens={a_tokens}（NGXCubinVulkan cubin 宿主面在档）；B 臂 = "
+                      + (f"tokens={b_tokens}（PaddedWindowNetwork "
+                         f"{'在' if 'PaddedWindowNetwork' in b_tokens else '不在'} B 臂日志）"
+                         if not b_unavail else
+                         "310.6.0 在 SL 2.10.3 下 DLSSContext 不可用——实例化形态不可达"
+                         "（形态核验的诚实产出 = 兼容性失败留档 .tmp/g17_mb/arm_b_fail.log，"
+                         "PaddedWindowNetwork 形态对齐评估结论 = 当前 SL pin 下不可评）"),
         })
-        # ⑤ X2 分解重测（对照 1.90+0.10 基线）
+        # ⑤ X2 分解重测（对照 1.90+0.10 基线；B 臂不可用 = not-available 如实登记）
         a_marg = a_sum.get("in_stream_marginal_median_ms")
         b_marg = b_sum.get("in_stream_marginal_median_ms")
         base = probe.get("g15_baseline_literal", {})
-        ok5 = a_marg is not None and b_marg is not None
+        ok5 = a_marg is not None and (b_marg is not None or b_unavail)
         facts.append({
             "id": "in_stream_decomposition_retested",
             "status": "PASS" if ok5 else "FAIL",
             "detail": (
-                f"X2 边际（新鲜命令输出）：A 臂 310.5.2 = {a_marg} ms / B 臂 310.6.0 = {b_marg} ms"
-                f"（G15 §8.7 对照基线字面 = in-stream {base.get('in_stream_ms')} + 提交固定 {base.get('submit_fixed_ms')} ms；"
-                f"submit_wait x1：A={a_sum.get('submit_wait_x1_median_ms')} B={b_sum.get('submit_wait_x1_median_ms')} ms）"
-            ) if ok5 else "X2 边际数据缺失（timing_x1/timing_x2 轮不齐）",
+                f"X2 边际（新鲜命令输出）：A 臂 310.5.2 = {a_marg} ms（submit_wait x1 = "
+                f"{a_sum.get('submit_wait_x1_median_ms')} / x2 = {a_sum.get('submit_wait_x2_median_ms')} ms）"
+                f"；B 臂 310.6.0 = {b_marg if b_marg is not None else 'not-available（臂级不可用）'}"
+                f"（G15 §8.7 对照基线字面 = in-stream {base.get('in_stream_ms')} + 提交固定 "
+                f"{base.get('submit_fixed_ms')} ms——vendor SDK 演进 in-stream 成本变化面：当前 SL pin"
+                f" 下 310.6.0 不可运行，变化不可测如实登记）"
+            ) if ok5 else "A 臂 X2 边际数据缺失（timing_x1/timing_x2 轮不齐）",
         })
-        # ⑥ 画质守护双门禁第一门（digest 锚）
+        # ⑥ 画质守护双门禁第一门（digest 锚；B 臂不可用 = 门禁不适用如实登记）
         a_hit = a_sum.get("digest_anchor_hit")
         b_hit = b_sum.get("digest_anchor_hit")
-        ok6 = a_hit is True and b_hit is not None
+        ok6 = a_hit is True
         facts.append({
             "id": "digest_guard_gate",
             "status": "PASS" if ok6 else "FAIL",
-            "detail": f"A 臂（310.5.2 生产默认）digest == G14.12 冻结锚 HIT={a_hit}；"
-                      f"B 臂（310.6.0）HIT={b_hit}（{'新网络输出位面 ≠ 冻结锚——超锚即拒绝换版门禁触发' if b_hit is False else 'B 臂位级同一'}，如实登记）",
+            "detail": f"A 臂（310.5.2 生产默认）notiming digest == G14.12 冻结锚 HIT={a_hit}；"
+                      f"B 臂（310.6.0）HIT={b_hit}"
+                      + ("（臂级不可用——门禁不适用，换版已被兼容性面拒绝）" if b_unavail
+                         else ("（新网络输出位面 ≠ 冻结锚——超锚即拒绝换版门禁触发，如实登记）"
+                               if b_hit is False else "（位级同一）")),
         })
         # ⑦ 采纳结论与门禁事实一致（诚实机核）
         verdict = (probe.get("adoption_verdict") or {}).get("verdict", "")
-        honest = (verdict == "reject_version_swap") == (b_hit is False)
+        should_reject = b_unavail or (b_hit is not True)
+        honest = (verdict == "reject_version_swap") == should_reject
         facts.append({
             "id": "adoption_verdict_honest",
             "status": "PASS" if honest and verdict else "FAIL",
-            "detail": f"verdict={verdict!r} ⇔ B 臂 digest 门禁事实（HIT={b_hit}）一致"
-                      f"（采纳/拒绝/零收益均合法，禁遮蔽门禁事实冒充采纳）",
+            "detail": f"verdict={verdict!r} ⇔ 拒绝依据事实（B 臂不可用={b_unavail} ∨ digest HIT≠True"
+                      f"〔实测 {b_hit}〕）一致（采纳/拒绝/零收益均合法，禁遮蔽门禁事实冒充采纳）",
         })
         # ⑧ A/B measured 登记
         a_prod = a_sum.get("notiming_prod_median_ms")
@@ -250,10 +264,15 @@ def run_red_arms() -> tuple[bool, str]:
         arms = (probe or {}).get("arms", {})
         b_sum = arms.get("b", {}).get("summary", {})
         a_sum = arms.get("a", {}).get("summary", {})
-        out["probe"] = bool(a_sum) and bool(b_sum) and a_sum.get("all_rounds_ok") and b_sum.get("all_rounds_ok")
-        out["x2"] = a_sum.get("in_stream_marginal_median_ms") is not None and b_sum.get("in_stream_marginal_median_ms") is not None
+        b_unavail = bool(b_sum.get("arm_unavailable"))
+        out["probe"] = (bool(a_sum) and bool(b_sum) and a_sum.get("all_rounds_ok")
+                        and (b_sum.get("all_rounds_ok") or b_unavail))
+        out["x2"] = a_sum.get("in_stream_marginal_median_ms") is not None and (
+            b_sum.get("in_stream_marginal_median_ms") is not None or b_unavail
+        )
         verdict = ((probe or {}).get("adoption_verdict") or {}).get("verdict", "")
-        out["honest"] = bool(verdict) and (verdict == "reject_version_swap") == (b_sum.get("digest_anchor_hit") is False)
+        should_reject = b_unavail or (b_sum.get("digest_anchor_hit") is not True)
+        out["honest"] = bool(verdict) and (verdict == "reject_version_swap") == should_reject
         return out
 
     base = core(_synth_probe())
@@ -274,9 +293,16 @@ def run_red_arms() -> tuple[bool, str]:
     r4 = core(p4)
     if r4["probe"]:
         fails.append("probe 缺臂未检出")
+    # B 臂不可用 + verdict=adopt（遮蔽不可用面冒充采纳）→ 红
+    p5 = _synth_probe(b_hit=False, verdict="candidate_adopt_pending_quality_band")
+    p5["arms"]["b"]["summary"]["arm_unavailable"] = True
+    p5["arms"]["b"]["summary"]["all_rounds_ok"] = False
+    r5 = core(p5)
+    if r5["honest"]:
+        fails.append("B 臂不可用遮蔽采纳未检出")
     if fails:
         return False, "RED 臂失效: " + "; ".join(fails)
-    return True, "RED 四臂独立有效（门禁遮蔽采纳/登记 sha 不符/X2 缺失/probe 缺臂——函数面注入全检出）"
+    return True, "RED 五臂独立有效（门禁遮蔽采纳/登记 sha 不符/X2 缺失/probe 缺臂/不可用遮蔽采纳——函数面注入全检出）"
 
 
 def run_gate() -> int:

@@ -1,0 +1,181 @@
+{
+  "schema": "rurix.g17.mb_ngx_probe.v1",
+  "started_utc": "20260824T090243Z",
+  "cell": "bistro-interior/t100/dlss_sr",
+  "anchor_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+  "eval_sdk_dir": "external/streamline-2.10.3-ngx310.6.0",
+  "g15_baseline_literal": {
+    "in_stream_ms": 1.9,
+    "submit_fixed_ms": 0.1,
+    "source": "G15_CONTRACT §8.7 X2 边际探针分解字面（对照基线，非本窗实测）"
+  },
+  "arms": {
+    "a": {
+      "rounds": [
+        {
+          "arm": "a",
+          "kind": "notiming_1",
+          "exit": 0,
+          "ok": true,
+          "frame_ms_mean": 4.7283,
+          "frame_ms_production_mean": 4.04722375,
+          "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+          "submit_wait_median_ms": null,
+          "submit_wait_mean_ms": null,
+          "evaluate_cpu_median_ms": null,
+          "timing_frames_n": 0,
+          "fail_diagnostics": [
+            "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:840us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+            "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:851us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+            "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:868us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+          ]
+        },
+        {
+          "arm": "a",
+          "kind": "notiming_2",
+          "exit": 0,
+          "ok": true,
+          "frame_ms_mean": 4.68786,
+          "frame_ms_production_mean": 4.1652,
+          "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+          "submit_wait_median_ms": null,
+          "submit_wait_mean_ms": null,
+          "evaluate_cpu_median_ms": null,
+          "timing_frames_n": 0,
+          "fail_diagnostics": [
+            "[sl] [17-06-29][streamline][info][tid:90768][1s:097ms:030us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+            "[sl] [17-06-29][streamline][info][tid:90768][1s:097ms:047us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+            "[sl] [17-06-29][streamline][info][tid:90768][1s:097ms:061us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+          ]
+        },
+        {
+          "arm": "a",
+          "kind": "notiming_3",
+          "exit": 0,
+          "ok": true,
+          "frame_ms_mean": 4.45634,
+          "frame_ms_production_mean": 3.90548875,
+          "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+          "submit_wait_median_ms": null,
+          "submit_wait_mean_ms": null,
+          "evaluate_cpu_median_ms": null,
+          "timing_frames_n": 0,
+          "fail_diagnostics": [
+            "[sl] [17-07-39][streamline][info][tid:94848][1s:102ms:145us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+            "[sl] [17-07-39][streamline][info][tid:94848][1s:102ms:158us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+            "[sl] [17-07-39][streamline][info][tid:94848][1s:102ms:184us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+          ]
+        },
+        {
+          "arm": "a",
+          "kind": "timing_x1",
+          "exit": 0,
+          "ok": true,
+          "frame_ms_mean": 4.632264,
+          "frame_ms_production_mean": 4.130036249999999,
+          "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+          "submit_wait_median_ms": 2.2205,
+          "submit_wait_mean_ms": 2.2820266666666664,
+          "evaluate_cpu_median_ms": 0.105,
+          "timing_frames_n": 150,
+          "fail_diagnostics": [
+            "[sl] [17-08-49][streamline][info][tid:90156][1s:195ms:272us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+            "[sl] [17-08-49][streamline][info][tid:90156][1s:195ms:282us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+            "[sl] [17-08-49][streamline][info][tid:90156][1s:195ms:292us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+          ]
+        },
+        {
+          "arm": "a",
+          "kind": "timing_x2",
+          "exit": 0,
+          "ok": true,
+          "frame_ms_mean": 6.946132,
+          "frame_ms_production_mean": 6.336120625000002,
+          "last_frame_digest": "sha256:262af0a7122d94b0273df3c17f37b3f0c08c860c21db0972742c681ae0ec89bf",
+          "submit_wait_median_ms": 4.4445,
+          "submit_wait_mean_ms": 4.443126666666667,
+          "evaluate_cpu_median_ms": 0.145,
+          "timing_frames_n": 150,
+          "fail_diagnostics": [
+            "[sl] [17-10-00][streamline][info][tid:94028][1s:151ms:457us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+            "[sl] [17-10-00][streamline][info][tid:94028][1s:151ms:469us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+            "[sl] [17-10-00][streamline][info][tid:94028][1s:151ms:478us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+          ]
+        }
+      ],
+      "sl_log_path": ".tmp/g17_mb/arm_a_sl.log",
+      "ngx_tokens_found": [
+        "CreateDlssInstance",
+        "DLTSS",
+        "InternalHistory",
+        "NGXCubinKernelMap",
+        "NGXCubinVulkan",
+        "NGXDLAA"
+      ],
+      "summary": {
+        "notiming_prod_ms": [
+          3.90548875,
+          4.04722375,
+          4.1652
+        ],
+        "notiming_prod_median_ms": 4.04722375,
+        "submit_wait_x1_median_ms": 2.2205,
+        "submit_wait_x2_median_ms": 4.4445,
+        "in_stream_marginal_median_ms": 2.2239999999999998,
+        "digests": [
+          "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a"
+        ],
+        "digest_anchor_hit": true,
+        "all_rounds_ok": true,
+        "arm_unavailable": false,
+        "fail_diagnostics": [
+          "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:840us]dlssEntry.cpp:479[dlssBeginEvent] Created DLSSContext feature (960,540)(optimal) -> (1920,1080) for viewport 0",
+          "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:851us]dlssEntry.cpp:481[dlssBeginEvent] DLSSContext color_in extents (0,0,1920,1080)",
+          "[sl] [17-05-19][streamline][info][tid:86064][1s:149ms:868us]dlssEntry.cpp:482[dlssBeginEvent] DLSSContext color_out extents (0,0,1920,1080)"
+        ]
+      }
+    },
+    "b": {
+      "rounds": [
+        {
+          "arm": "b",
+          "kind": "notiming_1",
+          "exit": 1,
+          "ok": false,
+          "frame_ms_mean": null,
+          "frame_ms_production_mean": null,
+          "last_frame_digest": "",
+          "submit_wait_median_ms": null,
+          "submit_wait_mean_ms": null,
+          "evaluate_cpu_median_ms": null,
+          "timing_frames_n": 0,
+          "fail_diagnostics": [
+            "[sl] [17-11-09][streamline][error][tid:50964][0s:891ms:443us]dlssEntry.cpp:974[slOnPluginStartup] NGX indicates DLSSContext is not available - DLSSContext cannot run",
+            "[g14_3_pipeline_perf]: FAIL dlss_sr 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: vendor 设备面不可用: DLSS 插件未装载(slIsFeatureLoaded → eErrorFeatureMissing(31),loaded=0)"
+          ]
+        }
+      ],
+      "fail_log_path": ".tmp/g17_mb/arm_b_fail.log",
+      "arm_unavailable": true,
+      "summary": {
+        "notiming_prod_ms": [],
+        "notiming_prod_median_ms": null,
+        "submit_wait_x1_median_ms": null,
+        "submit_wait_x2_median_ms": null,
+        "in_stream_marginal_median_ms": null,
+        "digests": [],
+        "digest_anchor_hit": null,
+        "all_rounds_ok": false,
+        "arm_unavailable": true,
+        "fail_diagnostics": [
+          "[sl] [17-11-09][streamline][error][tid:50964][0s:891ms:443us]dlssEntry.cpp:974[slOnPluginStartup] NGX indicates DLSSContext is not available - DLSSContext cannot run",
+          "[g14_3_pipeline_perf]: FAIL dlss_sr 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: vendor 设备面不可用: DLSS 插件未装载(slIsFeatureLoaded → eErrorFeatureMissing(31),loaded=0)"
+        ]
+      }
+    }
+  },
+  "adoption_verdict": {
+    "verdict": "reject_version_swap",
+    "basis": "B 臂（310.6.0）臂级不可用：SL 2.10.3 sl.dlss.dll 加载 nvngx_dlss.dll 310.6.0 时 NGX 报 DLSSContext is not available（vendor 栈耦合兼容性失败，诊断行 = ['[sl] [17-11-09][streamline][error][tid:50964][0s:891ms:443us]dlssEntry.cpp:974[slOnPluginStartup] NGX indicates DLSSContext is not available - DLSSContext cannot run', '[g14_3_pipeline_perf]: FAIL dlss_sr 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: vendor 设备面不可用: DLSS 插件未装载(slIsFeatureLoaded → eErrorFeatureMissing(31),loaded=0)']）——换版在当前 Streamline 2.10.3 pin 下不可行，拒绝换版如实登记；SL 运行时升级面 = G18+ 换版程序前置（Streamline pin 演进触 g13 契约vendor pin 面另立程序）"
+  }
+}

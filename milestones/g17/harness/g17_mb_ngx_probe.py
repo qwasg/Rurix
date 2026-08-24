@@ -73,13 +73,22 @@ def run_bench(arm: str, kind: str, extra_env: dict[str, str]) -> dict:
     )
     out = (r.stdout or "") + (r.stderr or "")
     m = BENCH_RE.search(out)
-    rec = wel.load_json(RECEIPT) if RECEIPT.is_file() and RECEIPT.stat().st_mtime >= t0 - 5 else {}
+    ok = r.returncode == 0 and bool(m)
+    # 失败轮不消费 receipt（防旧件残留污染——mtime 容差 5s 在紧邻轮间不充分，
+    # ok=False 时 receipt 语义不可信一律置空）。
+    rec = (
+        wel.load_json(RECEIPT)
+        if ok and RECEIPT.is_file() and RECEIPT.stat().st_mtime >= t0 - 5
+        else {}
+    )
     sp = rec.get("stats_post_warmup") or {}
     frames = TIMING_RE.findall(out)
     sw = [float(f[5]) for f in frames][WARMUP_DROP:]
     ev = [float(f[4]) for f in frames][WARMUP_DROP:]
+    diag = [ln.strip()[:200] for ln in out.splitlines()
+            if "DLSSContext" in ln or "eErrorFeatureMissing" in ln or "FAIL dlss_sr" in ln][:3]
     return {
-        "arm": arm, "kind": kind, "exit": r.returncode, "ok": r.returncode == 0 and bool(m),
+        "arm": arm, "kind": kind, "exit": r.returncode, "ok": ok,
         "frame_ms_mean": float(m.group(1)) if m else None,
         "frame_ms_production_mean": float(sp["frame_ms_production_mean"]) if "frame_ms_production_mean" in sp else None,
         "last_frame_digest": str(rec.get("last_frame_digest", "")),
@@ -87,6 +96,7 @@ def run_bench(arm: str, kind: str, extra_env: dict[str, str]) -> dict:
         "submit_wait_mean_ms": statistics.fmean(sw) if sw else None,
         "evaluate_cpu_median_ms": statistics.median(ev) if ev else None,
         "timing_frames_n": len(sw),
+        "fail_diagnostics": diag,
         "_stderr": out,
     }
 
@@ -130,12 +140,24 @@ def main() -> int:
                 arm_out["rounds"].append(rr)
                 if not rr["ok"]:
                     print(f"[g17_mb_probe] arm={arm} kind={kind} FAIL exit={rr['exit']}", flush=True)
-        # 汇总
+                    if kind == "notiming_1":
+                        # fail-fast：首轮即失败 = 臂级不可用（如兼容性握手失败），
+                        # 余轮重复失败无信息量——诊断行留档后跳过（诚实登记不可用）。
+                        fl = LOG_DIR / f"arm_{arm}_fail.log"
+                        io.open(fl, "w", encoding="utf-8", newline="\n").write(stderr)
+                        arm_out["fail_log_path"] = str(fl.relative_to(ROOT)).replace("\\", "/")
+                        arm_out["arm_unavailable"] = True
+                        break
+        # 汇总（digest 判定只取 no-timing 成功轮——X2 探针轮双 evaluate 输出漂移是
+        # 注入预期行为，不入锚判定；timing_x1 轮 digest 同型可入但保守取 notiming）。
         nt = [r["frame_ms_production_mean"] for r in arm_out["rounds"]
-              if r["kind"].startswith("notiming") and r["frame_ms_production_mean"]]
+              if r["kind"].startswith("notiming") and r["ok"] and r["frame_ms_production_mean"]]
         x1 = next((r for r in arm_out["rounds"] if r["kind"] == "timing_x1"), {})
         x2 = next((r for r in arm_out["rounds"] if r["kind"] == "timing_x2"), {})
-        digs = {r["last_frame_digest"] for r in arm_out["rounds"] if r.get("last_frame_digest")}
+        digs = {r["last_frame_digest"] for r in arm_out["rounds"]
+                if r["kind"].startswith("notiming") and r["ok"] and r.get("last_frame_digest")}
+        unavailable = bool(arm_out.get("arm_unavailable"))
+        fail_diag = [d for r in arm_out["rounds"] for d in r.get("fail_diagnostics", [])][:3]
         arm_out["summary"] = {
             "notiming_prod_ms": sorted(nt),
             "notiming_prod_median_ms": statistics.median(nt) if nt else None,
@@ -147,22 +169,34 @@ def main() -> int:
                 else None
             ),
             "digests": sorted(digs),
-            "digest_anchor_hit": digs == {anchor_digest} if digs else False,
+            "digest_anchor_hit": (digs == {anchor_digest}) if digs else None,
             "all_rounds_ok": all(r["ok"] for r in arm_out["rounds"]),
+            "arm_unavailable": unavailable,
+            "fail_diagnostics": fail_diag,
         }
         results["arms"][arm] = arm_out
     a, b = results["arms"]["a"]["summary"], results["arms"]["b"]["summary"]
-    verdict = "reject_version_swap" if not b["digest_anchor_hit"] else "candidate_adopt_pending_quality_band"
-    results["adoption_verdict"] = {
-        "verdict": verdict,
-        "basis": (
+    if b["arm_unavailable"]:
+        verdict = "reject_version_swap"
+        basis = (
+            "B 臂（310.6.0）臂级不可用：SL 2.10.3 sl.dlss.dll 加载 nvngx_dlss.dll 310.6.0 "
+            "时 NGX 报 DLSSContext is not available（vendor 栈耦合兼容性失败，诊断行 = "
+            f"{b['fail_diagnostics']}）——换版在当前 Streamline 2.10.3 pin 下不可行，拒绝换版"
+            "如实登记；SL 运行时升级面 = G18+ 换版程序前置（Streamline pin 演进触 g13 契约"
+            "vendor pin 面另立程序）"
+        )
+    elif b["digest_anchor_hit"] is not True:
+        verdict = "reject_version_swap"
+        basis = (
             "画质守护双门禁第一门（Stage A digest 锚零漂移）："
-            f"B 臂 digest_anchor_hit={b['digest_anchor_hit']}"
-            + ("——310.6.0 新网络输出位面 ≠ 冻结锚，超锚即拒绝换版（如实登记，判据字面）；"
-               "in-stream 分解对照数据留档为 M-c 决策树与 G18+ 锚重收割立项输入面"
-               if not b["digest_anchor_hit"] else "——第一门禁 HIT，进入画质锚带复核第二门禁"),
-        ),
-    }
+            f"B 臂 digest_anchor_hit={b['digest_anchor_hit']}——310.6.0 新网络输出位面 ≠ "
+            "冻结锚，超锚即拒绝换版（如实登记，判据字面）；in-stream 分解对照数据留档为 "
+            "M-c 决策树与 G18+ 锚重收割立项输入面"
+        )
+    else:
+        verdict = "candidate_adopt_pending_quality_band"
+        basis = "第一门禁 HIT，进入画质锚带复核第二门禁"
+    results["adoption_verdict"] = {"verdict": verdict, "basis": basis}
     OUT_JSON.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n",
                         encoding="utf-8", newline="\n")
     print(f"[g17_mb_probe] 完成 → {OUT_JSON}")
@@ -171,7 +205,9 @@ def main() -> int:
     print(f"  B 臂: prod={b['notiming_prod_median_ms']} x1={b['submit_wait_x1_median_ms']} "
           f"x2={b['submit_wait_x2_median_ms']} 边际={b['in_stream_marginal_median_ms']} hit={b['digest_anchor_hit']}")
     print(f"  verdict = {verdict}")
-    return 0 if (a["all_rounds_ok"] and b["all_rounds_ok"]) else 1
+    # A 臂全轮 ok 必须；B 臂 = 全轮 ok 或臂级不可用如实登记（兼容性失败是合法评估终态）。
+    ok = a["all_rounds_ok"] and (b["all_rounds_ok"] or b["arm_unavailable"])
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
