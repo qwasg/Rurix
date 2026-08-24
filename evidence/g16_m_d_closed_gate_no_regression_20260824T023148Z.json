@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_d_closed_gate_no_regression",
+  "symbolic_gate_key": "g16.p0.m_d.closed_gate_no_regression",
+  "matrix_row": "G16.5",
+  "wave": "G16.5",
+  "numeric_step": 287,
+  "source_ref": "G16_CONTRACT §4.2 M-d/G-G16-6;G16_ACCEPTANCE_MAP §1 M-d",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "verify_g15_dual_end_quality_reharvest",
+      "status": "PASS",
+      "detail": "rc=0 [g15_m_a] verify-latest PASS（g15_m_a_dual_end_quality_reharvest_20260823T110103Z.json，checks 16 键全绿） "
+    },
+    {
+      "id": "verify_g15_absolute_quality_review",
+      "status": "PASS",
+      "detail": "rc=0 [g15_m_c] verify-latest PASS（g15_m_c_absolute_quality_final_review_20260823T145400Z.json，checks 18 键全绿；商用收口判定 = 未达标 0/18 如实定盘面） "
+    },
+    {
+      "id": "verify_g13_ue_upscale_parity",
+      "status": "PASS",
+      "detail": "g13_m_c_ue_upscale_parity_20260823T084323Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g13_ue_lumen_gi_parity",
+      "status": "PASS",
+      "detail": "g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g13_closeout",
+      "status": "PASS",
+      "detail": "g13_wave5b_closeout_20260823T151321Z.json status='' verdict='READY' host=True"
+    },
+    {
+      "id": "verify_g15_closeout",
+      "status": "PASS",
+      "detail": "g15_wave6b_closeout_20260823T213954Z.json status='' verdict='READY' host=True"
+    },
+    {
+      "id": "verify_g15_regression_drift_guard",
+      "status": "PASS",
+      "detail": "g15_m_e_regression_drift_guard_20260823T204851Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g14_regression_drift_guard",
+      "status": "PASS",
+      "detail": "g14_m_e_regression_drift_guard_20260823T150723Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "latest_prefix_not_stolen",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "no_gate_invoked_on_old_scripts",
+      "status": "PASS",
+      "detail": "本门只发 --verify-latest，零 --gate 旧脚本"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T023148Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16.5 M-d：G13/G15/G14 受影响门 --verify-latest 零降级；g16_ 前缀不抢旧 latest。"
+}

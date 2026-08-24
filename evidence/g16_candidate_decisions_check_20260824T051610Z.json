@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "subject": "g16_candidate_decisions_check",
+  "symbolic_gate_key": "g16.wave.1.candidate_decisions",
+  "matrix_row": "G16.1",
+  "wave": "G16.1",
+  "numeric_step": 282,
+  "source_ref": "G16_CONTRACT G-G16-1/§6/§7;G16_CANDIDATE_DECISIONS.md v1.0;G16_ACCEPTANCE_MAP §1/§2;G15_CANDIDATE_DECISIONS.md v1.0（16 行承接锚法定输入）;registry/deferred.json（RD 八条目级 status open 机核）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_frozen",
+      "status": "PASS",
+      "detail": "got n=20 unique=20; expect frozen 20"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "defer-to-G17+（G16 重评窗结论 = 不交集）"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G17+（G16 重评窗结论 = 维持未命中）"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "defer-to-G17+（G16 窗登记 = 未齐备）"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G17+（独立期）"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_G11-N5",
+      "status": "PASS",
+      "detail": "defer-to-G17+"
+    },
+    {
+      "id": "row_G13-N7",
+      "status": "PASS",
+      "detail": "defer-to-G17+（不立项）"
+    },
+    {
+      "id": "row_G15-MC-F1",
+      "status": "PASS",
+      "detail": "go（G16.2 M-a 承载）"
+    },
+    {
+      "id": "row_G15-MD-F1",
+      "status": "PASS",
+      "detail": "defer-to-G17+（本波不交集）"
+    },
+    {
+      "id": "row_RD-034",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-039",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-040",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-041",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-042",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-043",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-044",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-045",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_G16-N1",
+      "status": "PASS",
+      "detail": "go（G16.2 M-a 承载）"
+    },
+    {
+      "id": "row_G16-N2",
+      "status": "PASS",
+      "detail": "go（G16.3 M-b 承载）"
+    },
+    {
+      "id": "row_G16-N3",
+      "status": "PASS",
+      "detail": "go（G16.4 M-c 承载）"
+    },
+    {
+      "id": "row_G16-N4",
+      "status": "PASS",
+      "detail": "go（G16.5 M-d 承载）"
+    },
+    {
+      "id": "sec2_rd_set",
+      "status": "PASS",
+      "detail": "got ['RD-034', 'RD-039', 'RD-040', 'RD-041', 'RD-042', 'RD-043', 'RD-044', 'RD-045']; expect ['RD-034', 'RD-039', 'RD-040', 'RD-041', 'RD-042', 'RD-043', 'RD-044', 'RD-045']"
+    },
+    {
+      "id": "acceptance_map_mutex",
+      "status": "PASS",
+      "detail": "MAP 实解 P0=4（expect 4）；候选表命中已 go 门裸 token: 无"
+    },
+    {
+      "id": "deferred_rd_open_reconcile",
+      "status": "PASS",
+      "detail": "RD 八条 status: [('RD-034', 'open'), ('RD-039', 'open'), ('RD-040', 'open'), ('RD-041', 'open'), ('RD-042', 'open'), ('RD-043', 'open'), ('RD-044', 'open'), ('RD-045', 'open')]"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T051610Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16.1 治理门——候选决策表 20 行闭集（§1 G15 defer-to-G16+ 14 行 + G15-MC-F1/G15-MD-F1 承接 + §3 G16-N1~N4 新增 4 行；§2 RD 映射 8 行维持 open 不重复计入三值枚举）：裁决枚举合法（go/closed-go/no-go/defer-to-G17+/strategic_override——G16 即本期，defer-to-G16+ 不再合法）/零空行/承接锚纪律（全表「重判条件 = …；兜底 = …」字面零缺项；§1 原触发条件字面转引含「→」分节）+ defer 行 G17+ 重评窗字面 + go 行验收映射锚义务（同族登记经契约 §4.2 M 行锚定同满足）+ closed-go 行 evidence/ 真跑件义务 + MAP 4 key 互斥 + deferred 对账（RD-034/039/040/041/042/043/044/045 条目级 status 全 open，零新 RD max=RD-045）；no-go/defer 如实保持 open 不写进全绿叙述"
+}

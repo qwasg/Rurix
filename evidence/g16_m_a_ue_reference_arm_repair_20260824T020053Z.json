@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_a_ue_reference_arm_repair",
+  "symbolic_gate_key": "g16.p0.m_a.ue_reference_arm_repair",
+  "matrix_row": "G16.2",
+  "wave": "G16.2",
+  "numeric_step": 284,
+  "source_ref": "G16_CONTRACT §4.2 M-a/G-G16-3;G16_ACCEPTANCE_MAP §1 M-a;G15-MC-F1 承接",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "probe_confirms_default_1000cm",
+      "status": "PASS",
+      "detail": "pre-patch attenuation_radius=1000.0"
+    },
+    {
+      "id": "harness_patch_present",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "rebuild_probe_radius_ge_300000",
+      "status": "PASS",
+      "detail": "rebuild radius=300000.0 probes=[{'label': 'G13_QuadLight_0', 'attenuation_radius': 300000.0, 'intensity': 10000.0, 'intensity_units': '<LightUnits.NITS: 4>', 'units_label': 'NITS', 'source_width': 10500.0, 'source_height': 13000.0, 'mobility': '<ComponentMobility.MOVABLE: 2>', 'cast_shadows': False, 'requested_radius_cm': 300000.0, 'pulled_into_room_cm': 100.0, 'location_cm': [-27950.0, 27800.0, 54770.00000000001]}]"
+    },
+    {
+      "id": "five_jobs_receipts_ok",
+      "status": "PASS",
+      "detail": "upscale_t50:exit=0 frames=32 started=1787536665.8647814; upscale_t67:exit=0 frames=32 started=1787536691.6215858; upscale_t100:exit=0 frames=32 started=1787536717.8918948; lumen_on:exit=0 frames=32 started=1787536743.788481; lumen_off:exit=0 frames=32 started=1787536773.8323019"
+    },
+    {
+      "id": "five_last_frames_luma_gt_1e_3",
+      "status": "PASS",
+      "detail": "upscale_t50=9.993750e+01; upscale_t67=9.993750e+01; upscale_t100=9.993750e+01; lumen_on=9.993750e+01; lumen_off=9.993750e+01"
+    },
+    {
+      "id": "cornell_preview_not_black_reading",
+      "status": "PASS",
+      "detail": "upscale_t50:body_frac>1e-3=0.0534 body_max=1.3782e+01 (need ≥0.04); upscale_t67:body_frac>1e-3=0.0565 body_max=1.2814e+01 (need ≥0.04); upscale_t100:body_frac>1e-3=0.0559 body_max=1.3549e+01 (need ≥0.04); lumen_on:body_frac>1e-3=0.1662 body_max=1.2788e+01 (need ≥0.04); lumen_off:body_frac>1e-3=0.0565 body_max=1.2845e+01 (need ≥0.04)"
+    },
+    {
+      "id": "bistro_witness_not_degraded",
+      "status": "PASS",
+      "detail": "exit=0 frames=32 started=1787475547.8890238 luma_max=9.1969e+01"
+    },
+    {
+      "id": "red_arm_luma_threshold",
+      "status": "PASS",
+      "detail": "luma_thresh=1e-3 失败模式字面编码（P-09 不适用面）; room_body 机核在档"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T020053Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16.2 M-a：G15-MC-F1 探针确认默认 attenuation_radius=1000cm；harness 补丁半径≥300000 + Candela + 关自阴影；五份 cornell 末帧内容有效性；读图机核 room_body=True；bistro 旁证不退化。RED 占位=True"
+}

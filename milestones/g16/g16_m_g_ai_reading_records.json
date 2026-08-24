@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "registry": "g16_m_g_ai_reading_records",
+  "wave": "G16.10",
+  "review_utc": "20260824T041832Z",
+  "items": [
+    {
+      "cell": "cornell-box/t50/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:d6b75a36aee8f12aa23e01b07d6737631edf3d514f0e3b478cecc9a640fd73e3",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t50/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:d6b75a36aee8f12aa23e01b07d6737631edf3d514f0e3b478cecc9a640fd73e3",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t50/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:d6b75a36aee8f12aa23e01b07d6737631edf3d514f0e3b478cecc9a640fd73e3",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t67/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:642d0174cba26e960e995fe6ea5de0544f289d453d95abbadda5667b0956d672",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t67/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:642d0174cba26e960e995fe6ea5de0544f289d453d95abbadda5667b0956d672",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t67/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:642d0174cba26e960e995fe6ea5de0544f289d453d95abbadda5667b0956d672",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t100/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:b4711c7cc6d0e9ef2fb87fd3ef96d194ae6628e9f0fc9b791b750aad890d8a0c",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t100/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:b4711c7cc6d0e9ef2fb87fd3ef96d194ae6628e9f0fc9b791b750aad890d8a0c",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "cornell-box/t100/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:b4711c7cc6d0e9ef2fb87fd3ef96d194ae6628e9f0fc9b791b750aad890d8a0c",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t50/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:6807f9eb6e0bde5dcd81405d2659e6d4e7428eef1e4718b5788f65bd67648dd6",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t50/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:6807f9eb6e0bde5dcd81405d2659e6d4e7428eef1e4718b5788f65bd67648dd6",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t50/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:6807f9eb6e0bde5dcd81405d2659e6d4e7428eef1e4718b5788f65bd67648dd6",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t67/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:a2add953533fad8915f8cb65d3b24e10be9acd41bd49bd223b05409e748dd915",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t67/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:a2add953533fad8915f8cb65d3b24e10be9acd41bd49bd223b05409e748dd915",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t67/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:a2add953533fad8915f8cb65d3b24e10be9acd41bd49bd223b05409e748dd915",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t100/tsr_device",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:c1a47844cdd19a31133187fbff2de96068ae6a65a719ddb460fe491afd01ab2e",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t100/dlss_sr",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:c1a47844cdd19a31133187fbff2de96068ae6a65a719ddb460fe491afd01ab2e",
+      "ai_verdict": "PASS"
+    },
+    {
+      "cell": "bistro-interior/t100/fsr_3_1_5",
+      "ssim_deficit": 0.0,
+      "flip": 0.0,
+      "threshold_ssim": 0.0,
+      "threshold_flip": 0.0,
+      "met": true,
+      "png_sha256": "sha256:c1a47844cdd19a31133187fbff2de96068ae6a65a719ddb460fe491afd01ab2e",
+      "ai_verdict": "PASS"
+    }
+  ]
+}

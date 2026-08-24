@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g16mcar.measured_entry.v1",
+  "entry_id": "g16.m_c.absolute_pass_line_ssim_deficit_tol_cornell_box",
+  "results": {
+    "dual_seed_p100": 0.0012602119124087707
+  },
+  "protocol": "G16.4 M-c 双 seed 方差底 p100×2.0 程序产（禁手写 P-09）；新 UE 参照",
+  "sample_manifest": {
+    "count": 9,
+    "digest": "sha256:2d9bb79d6da3b37fb9ec38ffb2baa9fe0353c82a9fcbc8904e603b6e2d35dd95"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device/dlss_sr/fsr_3_1_5",
+    "base_commit": "b5ebae538d09837361f95871f821319063d9371d"
+  },
+  "timestamp": "20260824T022335Z"
+}

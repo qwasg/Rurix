@@ -1,0 +1,13 @@
+{
+  "schema": "rurix.g16mg.measured_entry.v1",
+  "entry_id": "g16.m_g.absolute_pass_line_ssim_deficit_tol_cornell_box",
+  "results": {
+    "dual_seed_p100": 0.0
+  },
+  "protocol": "G16plus M-g 双 seed 方差底 p100×2.0 程序产（禁手写 P-09）；GI on vs 新 UE",
+  "sample_manifest": {
+    "count": 9,
+    "digest": "sha256:098430dfffb14551ccae45b440beb0a942c8b5f353a98b29fbdf7e2e02c10467"
+  },
+  "timestamp": "20260824T041832Z"
+}

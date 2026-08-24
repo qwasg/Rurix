@@ -3400,6 +3400,89 @@ jobs:
         shell: powershell
         run: py -3 ci/g15_closeout_check.py --gate g15.wave.6b.closeout
 
+      # 步骤 281（G16.1 治理门 g16.wave.1.acceptance_map；G16_CONTRACT §4.3/
+      # G-G16-1；落盘前实测 CI_step.next_free=281 顺位领取）。验收映射核验：MAP §1
+      # 四行 P0 闭集全等 + 行面齐备 + §2 零 go P1 + actual-next-free allocation
+      # 字面零预占 + MAP §1 ↔ G16_CONTRACT §4.2 双向逐字一致。纯 host 治理核验门。
+      # evidence 落盘 evidence/g16_acceptance_map_check_<UTC>.json。
+      - name: G16.1 acceptance map check (G16_CONTRACT §4.3.281, g16.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g16_acceptance_map_check.py --gate g16.wave.1.acceptance_map
+
+      # 步骤 282（G16.1 治理门 g16.wave.1.candidate_decisions；G16_CONTRACT §4.3/
+      # G-G16-1；落盘前实测 CI_step.next_free=282 顺位领取）。候选决策表 20 行闭集
+      # （§1 G15 defer 十四行 + G15-MC-F1/G15-MD-F1 + §3 G16-N1~N4）+ 裁决枚举
+      # 合法 + 零空行 + 承接锚纪律 + defer 行 G17+ 重评窗 + go 行验收映射锚 +
+      # RD 条目级 status==open。纯 host 治理核验门。
+      # evidence 落盘 evidence/g16_candidate_decisions_check_<UTC>.json。
+      - name: G16.1 candidate decisions check (G16_CONTRACT §4.3.282, g16.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g16_candidate_decisions_check.py --gate g16.wave.1.candidate_decisions
+
+      # 步骤 283（G16.1 治理门 g16.gov.implementation_interlock；G16_CONTRACT §4.3/
+      # G-G16-2；落盘前实测 CI_step.next_free=283 顺位领取）。实现互锁：事实门四项
+      # （G15 closed+§8.9+G16.0 不可变 ref / 决策表+deferred+MAP 三面 /
+      # 用户开工指令留痕「修复UE5参考臂全黑的问题」+workflow 末号一致 /
+      # 治理两门独立 PASS）+ 一致性门 C1~C4。诚实输出 BLOCKED/READY 均不充绿。
+      # evidence 落盘 evidence/g16_interlock_check_<UTC>.json。
+      - name: G16.1 implementation interlock (G16_CONTRACT §4.3.283, g16.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g16_interlock_check.py --gate g16.gov.implementation_interlock
+
+      # 步骤 284（G16.2 P0 硬门 M-a g16.p0.m_a.ue_reference_arm_repair；
+      # G16_CONTRACT §4.2 M-a/G-G16-3；落盘前实测 CI_step.next_free=284 顺位领取）。
+      # pr-smoke 侧 --verify-latest（秒级核最新 full-run evidence）；full-run 本地 --gate。
+      # evidence 落盘 evidence/g16_m_a_ue_reference_arm_repair_<UTC>.json。
+      - name: G16.2 M-a UE reference arm repair verify-latest (G16_CONTRACT §4.2 M-a, g16.p0.m_a.ue_reference_arm_repair)
+        shell: powershell
+        run: py -3 ci/g16_ue_reference_arm_repair_smoke.py --verify-latest
+
+      # 步骤 285（G16.3 P0 硬门 M-b g16.p0.m_b.dual_end_reharvest；
+      # G16_CONTRACT §4.2 M-b/G-G16-4；落盘前实测 CI_step.next_free=285 顺位领取）。
+      # evidence 落盘 evidence/g16_m_b_dual_end_reharvest_<UTC>.json。
+      - name: G16.3 M-b dual-end reharvest verify-latest (G16_CONTRACT §4.2 M-b, g16.p0.m_b.dual_end_reharvest)
+        shell: powershell
+        run: py -3 ci/g16_dual_end_reharvest_smoke.py --verify-latest
+
+      # 步骤 286（G16.4 P0 硬门 M-c g16.p0.m_c.absolute_quality_rereview；
+      # G16_CONTRACT §4.2 M-c/G-G16-5；落盘前实测 CI_step.next_free=286 顺位领取）。
+      # evidence 落盘 evidence/g16_m_c_absolute_quality_rereview_<UTC>.json。
+      - name: G16.4 M-c absolute quality rereview verify-latest (G16_CONTRACT §4.2 M-c, g16.p0.m_c.absolute_quality_rereview)
+        shell: powershell
+        run: py -3 ci/g16_absolute_quality_rereview_smoke.py --verify-latest
+
+      # 步骤 287（G16.5 P0 硬门 M-d g16.p0.m_d.closed_gate_no_regression；
+      # G16_CONTRACT §4.2 M-d/G-G16-6；落盘前实测 CI_step.next_free=287 顺位领取）。
+      # evidence 落盘 evidence/g16_m_d_closed_gate_no_regression_<UTC>.json。
+      - name: G16.5 M-d closed-gate no-regression verify-latest (G16_CONTRACT §4.2 M-d, g16.p0.m_d.closed_gate_no_regression)
+        shell: powershell
+        run: py -3 ci/g16_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 288（G16plus M-e g16.p0.m_e.gi_expression；落盘前实测 CI_step.next_free=288）。
+      - name: G16plus M-e GI expression verify-latest (G16_CONTRACT G-G16-8, g16.p0.m_e.gi_expression)
+        shell: powershell
+        run: py -3 ci/g16_gi_expression_smoke.py --verify-latest
+
+      # 步骤 289（G16plus M-f g16.p0.m_f.lumen_reharvest）。
+      - name: G16plus M-f Lumen reharvest verify-latest (G16_CONTRACT G-G16-9, g16.p0.m_f.lumen_reharvest)
+        shell: powershell
+        run: py -3 ci/g16_lumen_reharvest_smoke.py --verify-latest
+
+      # 步骤 290（G16plus M-g g16.p0.m_g.absolute_quality_closure）。
+      - name: G16plus M-g absolute quality closure verify-latest (G16_CONTRACT G-G16-10, g16.p0.m_g.absolute_quality_closure)
+        shell: powershell
+        run: py -3 ci/g16_absolute_quality_closure_smoke.py --verify-latest
+
+      # 步骤 291（G16plus soak g16.wave.6a.soak）。
+      - name: G16plus soak verify-latest (G16_CONTRACT G-G16-11, g16.wave.6a.soak)
+        shell: powershell
+        run: py -3 ci/g16_stabilization_soak.py --verify-latest
+
+      # 步骤 292（G16plus close-out g16.wave.6b.closeout）。
+      - name: G16plus close-out verify-latest (G16_CONTRACT G-G16-11, g16.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g16_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

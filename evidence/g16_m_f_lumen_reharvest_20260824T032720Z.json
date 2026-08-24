@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_f_lumen_reharvest",
+  "symbolic_gate_key": "g16.p0.m_f.lumen_reharvest",
+  "matrix_row": "G16.9",
+  "wave": "G16.9",
+  "numeric_step": 289,
+  "source_ref": "G16_CONTRACT G-G16-9;G16_ACCEPTANCE_MAP 附录 A M-f",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "g13_registries_0byte",
+      "status": "PASS",
+      "detail": "up= lm="
+    },
+    {
+      "id": "disposition_has_lumen_rows",
+      "status": "PASS",
+      "detail": "lumen_rows=2"
+    },
+    {
+      "id": "cornell_energy_traceable",
+      "status": "PASS",
+      "detail": "energy_ue=7.226183114643608"
+    },
+    {
+      "id": "cornell_indirect_ssim_traceable",
+      "status": "PASS",
+      "detail": "indirect_ssim=0.05041818798040531"
+    },
+    {
+      "id": "no_g13_write",
+      "status": "PASS",
+      "detail": "不写 G13 两表"
+    },
+    {
+      "id": "disposition_nonzero",
+      "status": "PASS",
+      "detail": "items=10"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T032720Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16plus M-f"
+}

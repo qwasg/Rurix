@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "registry": "g16_quality_gap_disposition",
+  "generated_by": "ci/g16_dual_end_reharvest_smoke.py --gate g16.p0.m_b.dual_end_reharvest",
+  "wave": "G16.3",
+  "scene_set": [
+    "cornell-box",
+    "bistro-interior"
+  ],
+  "items": [
+    {
+      "gap_id": "fda2892b148edc2f",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "upscale_deficit_delta@cornell-box/t50/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9838595313284846,
+          "delta": -0.016140468671515418,
+          "evidence_digest": "sha256:0c93ee5e4c7494bff7a7be92a48e6ea2db0cbcb5ef26189f2a34c26e8a51445c"
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.012392328138129766,
+          "delta": 0.012392328138129766,
+          "evidence_digest": "sha256:0c93ee5e4c7494bff7a7be92a48e6ea2db0cbcb5ef26189f2a34c26e8a51445c"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 0.9931842643905036,
+          "b_value": 0.9838595313284846,
+          "delta": -0.009324733062018975,
+          "tolerance": null
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t50/dlss_sr",
+          "a_value": 0.010848746946236316,
+          "b_value": 0.012392328138129766,
+          "delta": 0.0015435811918934495,
+          "tolerance": null
+        }
+      ],
+      "direction": "degraded"
+    },
+    {
+      "gap_id": "20f125548f145335",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "upscale_deficit_delta@cornell-box/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 1.0,
+          "b_value": 0.9933499560087599,
+          "delta": -0.00665004399124014,
+          "evidence_digest": "sha256:049e530ac7fa1d9d269d5603395cc487560f594997c93da7498ce7d619a8fb7f"
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.009216660401404246,
+          "delta": 0.009216660401404246,
+          "evidence_digest": "sha256:049e530ac7fa1d9d269d5603395cc487560f594997c93da7498ce7d619a8fb7f"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "ssim_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.9967519033919604,
+          "b_value": 0.9933499560087599,
+          "delta": -0.003401947383200543,
+          "tolerance": null
+        },
+        {
+          "metric": "flip_deficit_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.006863990657627832,
+          "b_value": 0.009216660401404246,
+          "delta": 0.0023526697437764145,
+          "tolerance": null
+        }
+      ],
+      "direction": "degraded"
+    },
+    {
+      "gap_id": "58fd4c7e2ef98efe",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/tsr_device",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+          "a_value": 0.0,
+          "b_value": 0.4309534598101071,
+          "delta": 0.4309534598101071,
+          "evidence_digest": "sha256:1e74b271be1d6133a8ebd1184f8eff01539603f9794a9407d9f808d683daaf3a"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/tsr_device",
+          "a_value": 0.7413504667265159,
+          "b_value": 0.4309534598101071,
+          "delta": -0.31039700691640887,
+          "tolerance": null
+        }
+      ],
+      "direction": "degraded"
+    },
+    {
+      "gap_id": "2631811751d63e0a",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.0,
+          "b_value": 0.6127225210587912,
+          "delta": 0.6127225210587912,
+          "evidence_digest": "sha256:113a061acd41a3ceca4cd1c79425cd1da94b576caa60a7331fe81789c4c1c817"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/dlss_sr",
+          "a_value": 0.7413504667265159,
+          "b_value": 0.6127225783593943,
+          "delta": -0.1286278883671217,
+          "tolerance": null
+        }
+      ],
+      "direction": "degraded"
+    },
+    {
+      "gap_id": "d36e8cb107d579d9",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+          "a_value": 0.0,
+          "b_value": 0.4610425867087926,
+          "delta": 0.4610425867087926,
+          "evidence_digest": "sha256:22817e06d3c9e2cb4600255e3cc03030ed3a8db41f8eb982feaed8a0a18d0d15"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@cornell-box/t67/fsr_3_1_5",
+          "a_value": 0.7413504667265159,
+          "b_value": 0.4610425900579406,
+          "delta": -0.2803078766685753,
+          "tolerance": null
+        }
+      ],
+      "direction": "degraded"
+    },
+    {
+      "gap_id": "5b65327b903ac6bc",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/tsr_device",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.3622313729720505,
+          "delta": -0.4905578656942507,
+          "evidence_digest": "sha256:8923e4cd677d42f1a6b3db8078240555741346b07f1596ca5623446cccf8c92b"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/tsr_device",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.3622313729720505,
+          "delta": -0.4880005252194399,
+          "tolerance": null
+        }
+      ],
+      "direction": "converged"
+    },
+    {
+      "gap_id": "bdf94acf4691fd74",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.5704238454826939,
+          "delta": -0.2823653931836073,
+          "evidence_digest": "sha256:0a5da84f79a39efadcd782a52c52b49a8122e964c9b740d24db45b7b864742cf"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/dlss_sr",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.570430187074088,
+          "delta": -0.2798017111174024,
+          "tolerance": null
+        }
+      ],
+      "direction": "converged"
+    },
+    {
+      "gap_id": "20e8950296211aae",
+      "source_registry": "g13_ue_upscale_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+      "registered_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+          "a_value": 0.8527892386663012,
+          "b_value": 0.43900226953049754,
+          "delta": -0.41378696913580365,
+          "evidence_digest": "sha256:5a1f9ade731fb59fa2ec882fd0abf7e208bbbcea9032b70390d4ab590f431775"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "noise_hf_delta@bistro-interior/t67/fsr_3_1_5",
+          "a_value": 0.8502318981914904,
+          "b_value": 0.4390137834830334,
+          "delta": -0.411218114708457,
+          "tolerance": null
+        }
+      ],
+      "direction": "converged"
+    },
+    {
+      "gap_id": "2f6331a41404dfcd",
+      "source_registry": "g13_ue_lumen_gap_registry",
+      "scene_id": "cornell-box",
+      "kind": "quality_gap",
+      "title": "lumen_gi_parity@cornell-box",
+      "registered_delta": [
+        {
+          "metric": "gi_energy_rel@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.535625027781919,
+          "delta": 0.535625027781919,
+          "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+        },
+        {
+          "metric": "indirect_ssim@cornell-box",
+          "a_value": 1.0,
+          "b_value": 0.033384483786469556,
+          "delta": -0.9666155162135305,
+          "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+        },
+        {
+          "metric": "indirect_flip@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.6127988976249465,
+          "delta": 0.6127988976249465,
+          "evidence_digest": "sha256:2b32692e3e667aae35af83aa5dd006ea8c042fc6711ac4842b44d15c4d2c5628"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "gi_energy_rel@cornell-box",
+          "a_value": 7.226183114643608,
+          "b_value": 0.535625027781919,
+          "delta": -6.690558086861689,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_ssim@cornell-box",
+          "a_value": 1.0,
+          "b_value": 0.05041818798040531,
+          "delta": -0.9495818120195947,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_flip@cornell-box",
+          "a_value": 0.0,
+          "b_value": 0.6257846535499262,
+          "delta": 0.6257846535499262,
+          "tolerance": null
+        }
+      ],
+      "direction": "measured",
+      "lumen_gi_honest_note": "cornell energy_ue=7.226183e+00 indirect_ssim=0.050418 （直接光复绿 ≠ GI 差分复绿；如实登记不宣称 GI 达标）"
+    },
+    {
+      "gap_id": "b7527c980cdd1d46",
+      "source_registry": "g13_ue_lumen_gap_registry",
+      "scene_id": "bistro-interior",
+      "kind": "quality_gap",
+      "title": "lumen_gi_parity@bistro-interior",
+      "registered_delta": [
+        {
+          "metric": "gi_energy_rel@bistro-interior",
+          "a_value": 0.03711463719353902,
+          "b_value": 3.0016998075316033,
+          "delta": 2.964585170338064,
+          "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+        },
+        {
+          "metric": "indirect_ssim@bistro-interior",
+          "a_value": 1.0,
+          "b_value": 0.006566911636724374,
+          "delta": -0.9934330883632756,
+          "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+        },
+        {
+          "metric": "indirect_flip@bistro-interior",
+          "a_value": 0.0,
+          "b_value": 0.9671355491209283,
+          "delta": 0.9671355491209283,
+          "evidence_digest": "sha256:151fddddf0cc60fbef12b76d4a07da6ba8829562045fcdfcdbdf8ecffb9f1888"
+        }
+      ],
+      "fresh_measured_delta": [
+        {
+          "metric": "gi_energy_rel@bistro-interior",
+          "a_value": 0.03708603093179476,
+          "b_value": 3.0016998075316033,
+          "delta": 2.9646137765998084,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_ssim@bistro-interior",
+          "a_value": 1.0,
+          "b_value": 0.006521552716019591,
+          "delta": -0.9934784472839804,
+          "tolerance": null
+        },
+        {
+          "metric": "indirect_flip@bistro-interior",
+          "a_value": 0.0,
+          "b_value": 0.9671365990951583,
+          "delta": 0.9671365990951583,
+          "tolerance": null
+        }
+      ],
+      "direction": "measured",
+      "lumen_gi_honest_note": "bistro energy_ue=3.708603e-02"
+    }
+  ],
+  "note": "不写 G13 两张冻结登记表；G12 PT 不在本波。"
+}

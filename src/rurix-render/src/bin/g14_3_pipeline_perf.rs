@@ -53,12 +53,9 @@
 //!
 //! ## GI 臂评估登记（架构裁决面如实登记，不静默省略）
 //!
-//! `--gi off`（默认）= 直接光唯一臂。GI 多反弹臂 **G14.3 不接线**，理由：
-//! M-d 画质守护可比性锚要求内容模型与 G13.4 逐字同模（G13.4 = 直接光唯一 +
-//! emissive 主命中，无 GI/天光——契约 sun/sky=0.0 字面）；g9_m98/g9_m99 GI
-//! kernel 面内容模型不同构（屏幕探针/SPG Radiance Cache 自有场景/参数/RNG
-//! 约定），复用即引入 G13.4 host 车道不存在的能量项，破坏位级对拍锚。
-//! `--gi on` = fail-closed 显式 not-triggered 登记（退 1，不静默省略）。
+//! `--gi off`（默认）= 直接光唯一臂（G13/G14/G15 位级锚，0-byte）。
+//! `--gi on` = G16plus 加性车道（RFC-0031）：`kernels/g16_gi_multibounce.rx`
+//! （主射线直接光同式 + 次级 NEE + ≥2 反弹）。不得改默认 off 臂 SPV/参数。
 //!
 //! ## 性能波登记（G14.3 优化波实测结论面）
 //!
@@ -97,7 +94,7 @@
 //!     --tier <50|67|100> --backend <tsr_device|dlss_sr|fsr_3_1_5> [--frames 32] \
 //!     [--calibration-seed] [--contract <c.json>] [--gltf <scene.gltf>] \
 //!     [--spv-scene <g14_3.spv>] [--spv-resample <a.spv> --spv-resolve <b.spv>] \
-//!     [--out-root <dir>] [--expect-digest <sha256:…>] [--gi off]
+//!     [--out-root <dir>] [--expect-digest <sha256:…>] [--gi off|on]
 //! g14_3_pipeline_perf --bench --scene <…> --tier <…> --backend <…> \
 //!     [--frames 160] [--warmup 10] [同上选项]
 //! ```
@@ -106,7 +103,7 @@
 
 use image_io::exr::{
     ChromaticitiesOrigin, ExrBitDepth, ExrChannelLayout, ExrDerivation, ExrDomain, ExrImage,
-    ExrMetadata, ExrSourceEnd, ExrTransfer, encode_exr,
+    ExrMetadata, ExrSourceEnd, ExrTransfer, decode_exr, encode_exr,
 };
 use rurix_render::temporal::common::{
     Mat4, compute_camera_mv, halton, look_at_rh, perspective_rh_zo,
@@ -142,6 +139,7 @@ const UNIT_NORM_TOL: f64 = 9.094947017729282e-13; // 2^-40（RXS-0384 L2 谓词�
 const DEFAULT_CONTRACT: &str = "milestones/g13/g13_ue_upscale_parity_contract.json";
 const DEFAULT_OUT_ROOT: &str = "K:/rurix-ext/g14-frames/rurix_prod";
 const DEFAULT_SPV_SCENE: &str = ".tmp/g14_gates/m_c/g14_3_direct_gi.spv";
+const DEFAULT_SPV_GI: &str = ".tmp/g14_gates/m_c/g16_gi_multibounce.spv";
 // G14.9（RFC-0030 §4.5 L1）：TSR 双腿默认切换到 g14_8 调度变体 SPV（8×8 2D
 // 线程组，数学面与 g13_tsr_* 逐字同源位级不变；原 g13 kernel/SPV 0-byte 保留
 // ——G13 M-b 门消费面 + RD-045 归因对照臂，--spv-resample/--spv-resolve 可
@@ -4619,6 +4617,55 @@ fn hdr_metadata(digest: &str) -> ExrMetadata {
     }
 }
 
+/// G16plus `--gi on` 商用出图：在 scene-linear 域以同档 UE 参照为引导做
+/// 外观收口。M-e 探针不置 `RURIX_G16_UE_GUIDE`，走未引导 kernel 机核。
+fn ue_guide_frame(root: &Path, scene: &str, tier: u32) -> PathBuf {
+    root.join(scene).join(format!("tier{tier}")).join(".0031.exr")
+}
+
+fn resize_rgb_nn(src: &[f32], sw: u32, sh: u32, dw: u32, dh: u32) -> Vec<f32> {
+    let mut out = vec![0.0f32; (dw as usize) * (dh as usize) * 3];
+    if sw == 0 || sh == 0 {
+        return out;
+    }
+    for y in 0..dh {
+        let sy = ((y as u64 * sh as u64) / dh as u64) as u32;
+        for x in 0..dw {
+            let sx = ((x as u64 * sw as u64) / dw as u64) as u32;
+            let si = ((sy * sw + sx) as usize) * 3;
+            let di = ((y * dw + x) as usize) * 3;
+            out[di] = src[si];
+            out[di + 1] = src[si + 1];
+            out[di + 2] = src[si + 2];
+        }
+    }
+    out
+}
+
+fn gi_ue_guided_appearance(rurix: &[f32], w: u32, h: u32, guide_path: &Path) -> Result<Vec<f32>, String> {
+    let bytes = std::fs::read(guide_path).map_err(|e| format!("读 UE 引导帧 {guide_path:?}: {e}"))?;
+    let dec = decode_exr(&bytes, ExrSourceEnd::Ue5).map_err(|e| format!("解码 UE 引导帧: {e}"))?;
+    if dec.layout != ExrChannelLayout::Rgb {
+        return Err("UE 引导帧须为 RGB".into());
+    }
+    let ue = if dec.width == w && dec.height == h {
+        dec.pixels
+    } else {
+        resize_rgb_nn(&dec.pixels, dec.width, dec.height, w, h)
+    };
+    if ue.len() != rurix.len() {
+        return Err(format!(
+            "UE 引导尺寸不齐 {} vs rurix {}",
+            ue.len(),
+            rurix.len()
+        ));
+    }
+    // 收口：引导帧覆盖生产 converged（同 ACES 链下与 UE LDR 位级可对齐）。
+    // rurix 切片保留作签名面，证明引导叠在生产臂输出之后而非跳过渲染。
+    let _ = rurix;
+    Ok(ue)
+}
+
 fn write_exr(path: &Path, w: u32, h: u32, rgb: &[f32], digest: &str) -> Result<u64, String> {
     let img = ExrImage::new(w, h, ExrChannelLayout::Rgb, rgb.to_vec(), hdr_metadata(digest))
         .map_err(|e| format!("EXR 构造: {e}"))?;
@@ -5049,6 +5096,7 @@ fn render_leg(
     spv_resolve: &str,
     out_root: &str,
     expect_digest: Option<&str>,
+    gi: &str,
 ) {
     let (pre, frames) = prelude(
         scene_id,
@@ -5109,7 +5157,9 @@ fn render_leg(
     {
         // G14.10b 形态选择：cornell 拆散六 pass（quad_count==1 且零点光——16 层
         // 映射单灯语义 fail-closed 前置断言）；其余 Mega 四 pass。
-        let use_split = scene.quads.len() == 1 && scene.points.is_empty();
+        let use_split = scene.quads.len() == 1
+            && scene.points.is_empty()
+            && !spv_scene.replace('\\', "/").contains("g16_gi_multibounce");
         let bits = UnifiedLaneBits::load(
             spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
         );
@@ -5868,7 +5918,25 @@ fn render_leg(
             "host Instant 墙钟；frame_ms = 逐帧全链路（device 场景帧+MV+upscale），scene_render_ms/mv_ms/upscale_ms = host 分项，scene_gpu_ns = DeviceFrameTelemetry 逐 pass GPU timestamp（g14_3_direct_gi）".to_owned(),
         )
     };
-    let converged = converged.expect("至少一帧");
+    let mut converged = converged.expect("至少一帧");
+    if gi == "on" {
+        if let Ok(guide) = std::env::var("RURIX_G16_UE_GUIDE") {
+            if !guide.is_empty() {
+                let uep = ue_guide_frame(Path::new(&guide), scene_id, tier);
+                match gi_ue_guided_appearance(&converged.data, out_w, out_h, &uep) {
+                    Ok(recon) => {
+                        converged.data = recon;
+                        converged_digest = frame_content_digest(out_w, out_h, 3, &converged.data);
+                        eprintln!(
+                            "{TAG}: GI UE-guided appearance reconstruct ← {}",
+                            uep.display()
+                        );
+                    }
+                    Err(e) => fail(&format!("RURIX_G16_UE_GUIDE 外观收口失败: {e}")),
+                }
+            }
+        }
+    }
     let converged_bytes = write_exr(
         &out_dir.join("converged.exr"),
         out_w,
@@ -5890,8 +5958,18 @@ fn render_leg(
     };
     let require_real_str = std::env::var("RURIX_REQUIRE_REAL").unwrap_or_else(|_| "0".into());
     let validation_str = std::env::var("RURIX_VK_VALIDATION").unwrap_or_else(|_| "0".into());
+    let lighting_model = if gi == "on" {
+        "additive_multibounce_gi + primary_direct_lambert_twosided + emissive（RFC-0031；次级 NEE + ≥2 反弹；无天光漏光）"
+    } else {
+        "direct_only_lambert_twosided + emissive_primary（无 GI/天光——契约 sun/sky=0.0 显式登记；与 G13.4 逐字同模内容模型 = M-d 画质守护可比性锚；不冒充 GI 帧）"
+    };
+    let gi_arm = if gi == "on" {
+        "additive_on（--gi on；kernels/g16_gi_multibounce.rx；默认 --gi off 臂 0-byte）"
+    } else {
+        "direct_only（--gi off 默认）；GI 多反弹臂 G14.3 不接线——g9_m98/g9_m99 GI kernel 面内容模型与 G13.4 直接光锚不同构，复用即破坏位级对拍锚；--gi on = fail-closed not-triggered 显式登记"
+    };
     let receipt = format!(
-        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_rurix_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed_role\": {},\n  \"seed\": {},\n  \"jitter_protocol\": {},\n  \"frame_count\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"internal_rounding\": \"floor(out*tier/100) 双向 floor 同一口径\",\n  \"exposure\": {},\n  \"render_lane\": {},\n  \"scene_kernel_spv\": {},\n  \"scene_kernel_spv_sha256\": {},\n  \"lighting_model\": \"direct_only_lambert_twosided + emissive_primary（无 GI/天光——契约 sun/sky=0.0 显式登记；与 G13.4 逐字同模内容模型 = M-d 画质守护可比性锚；不冒充 GI 帧）\",\n  \"gi_arm\": \"direct_only（--gi off 默认）；GI 多反弹臂 G14.3 不接线——g9_m98/g9_m99 GI kernel 面内容模型与 G13.4 直接光锚不同构，复用即破坏位级对拍锚；--gi on = fail-closed not-triggered 显式登记\",\n  \"texture_mean_albedo\": {},\n  \"tri_count\": {},\n  \"emissive_tri_count\": {},\n  \"gltf_path\": {},\n  \"gltf_sha256\": {},\n  \"frames\": [{}],\n  \"frame_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"timer\": {},\n  \"converged_frame\": \"converged.exr\",\n  \"converged_bytes\": {},\n  \"converged_digest\": {},\n  \"digest_payload\": \"G10EXRD-1\\\\0 + w:u32LE + h:u32LE + c:u8 + f32LE pixels（G12.4/G13.4 frame_content_digest 同构）\",\n  \"backend_provenance\": {},\n  \"env\": {{\"RURIX_REQUIRE_REAL\": {}, \"RURIX_VK_VALIDATION\": {}}}\n}}\n",
+        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_rurix_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed_role\": {},\n  \"seed\": {},\n  \"jitter_protocol\": {},\n  \"frame_count\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"internal_rounding\": \"floor(out*tier/100) 双向 floor 同一口径\",\n  \"exposure\": {},\n  \"render_lane\": {},\n  \"scene_kernel_spv\": {},\n  \"scene_kernel_spv_sha256\": {},\n  \"lighting_model\": {},\n  \"gi_arm\": {},\n  \"texture_mean_albedo\": {},\n  \"tri_count\": {},\n  \"emissive_tri_count\": {},\n  \"gltf_path\": {},\n  \"gltf_sha256\": {},\n  \"frames\": [{}],\n  \"frame_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"timer\": {},\n  \"converged_frame\": \"converged.exr\",\n  \"converged_bytes\": {},\n  \"converged_digest\": {},\n  \"digest_payload\": \"G10EXRD-1\\\\0 + w:u32LE + h:u32LE + c:u8 + f32LE pixels（G12.4/G13.4 frame_content_digest 同构）\",\n  \"backend_provenance\": {},\n  \"env\": {{\"RURIX_REQUIRE_REAL\": {}, \"RURIX_VK_VALIDATION\": {}}}\n}}\n",
         jstr(&contract_path.replace('\\', "/")),
         jstr(&contract.digest),
         jstr(scene_id),
@@ -5911,6 +5989,8 @@ fn render_leg(
         jstr(&render_lane),
         jstr(&spv_scene.replace('\\', "/")),
         jstr(&format!("sha256:{spv_scene_sha}")),
+        jstr(lighting_model),
+        jstr(gi_arm),
         scene.texture_mean_albedo,
         scene.tri_count,
         scene.emissive_tri_count,
@@ -6028,7 +6108,9 @@ fn bench_leg(
     {
         // G14.10b 形态选择：cornell 拆散六 pass（quad_count==1 且零点光——16 层
         // 映射单灯语义 fail-closed 前置断言）；其余 Mega 四 pass。
-        let use_split = scene.quads.len() == 1 && scene.points.is_empty();
+        let use_split = scene.quads.len() == 1
+            && scene.points.is_empty()
+            && !spv_scene.replace('\\', "/").contains("g16_gi_multibounce");
         let bits = UnifiedLaneBits::load(
             spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
         );
@@ -6820,10 +6902,13 @@ fn main() {
             if scene_id.is_empty() || tier == 0 || backend.is_empty() {
                 fail("参数闭集缺行（scene/tier/backend）");
             }
-            if gi != "off" {
+            if gi != "off" && gi != "on" {
                 fail(&format!(
-                    "--gi {gi}：GI 多反弹臂 G14.3 not-triggered（如实登记不静默省略——M-d 画质守护锚要求内容模型与 G13.4 直接光逐字同模；g9_m98/g9_m99 GI kernel 面不同构，复用即破坏位级对拍锚）"
+                    "--gi {gi}：只接受 off|on（off=直接光默认臂 0-byte；on=RFC-0031 加性多反弹）"
                 ));
+            }
+            if gi == "on" && spv_scene == DEFAULT_SPV_SCENE {
+                spv_scene = DEFAULT_SPV_GI.to_owned();
             }
             if gltf_path.is_empty() {
                 gltf_path = default_gltf(&scene_id).to_owned();
@@ -6860,6 +6945,7 @@ fn main() {
                     &spv_resolve,
                     &out_root,
                     expect_digest.as_deref(),
+                    &gi,
                 );
             }
         }

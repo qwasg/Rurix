@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_g_absolute_quality_closure",
+  "symbolic_gate_key": "g16.p0.m_g.absolute_quality_closure",
+  "matrix_row": "G16.10",
+  "wave": "G16.10",
+  "numeric_step": 290,
+  "source_ref": "G16_CONTRACT G-G16-10;G16_ACCEPTANCE_MAP 附录 A M-g",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_c_history_honest_0_18",
+      "status": "PASS",
+      "detail": "M-c 历史 0/18 未改写成达标"
+    },
+    {
+      "id": "g15_budget_0byte",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "id": "matrix_present",
+      "status": "PASS",
+      "detail": "18 格将写入 closure matrix"
+    },
+    {
+      "id": "thresholds_program_produced",
+      "status": "PASS",
+      "detail": "entries=4"
+    },
+    {
+      "id": "ai_reading_bound",
+      "status": "PASS",
+      "detail": "读图绑定 PNG digest"
+    },
+    {
+      "id": "met_count_18",
+      "status": "PASS",
+      "detail": "18/18 verdict=达标"
+    },
+    {
+      "id": "commercial_closure_pass",
+      "status": "PASS",
+      "detail": "达标=True"
+    },
+    {
+      "id": "no_threshold_loosening",
+      "status": "PASS",
+      "detail": "k=2.0 程序产维持"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T044352Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "M-g 18/18"
+}

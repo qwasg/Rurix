@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G16.3 M-b dual-end reharvest evidence",
+  "description": "evidence/g16_m_b_dual_end_reharvest_<UTC>.json。G16.3 P0 硬门 M-b（g16.p0.m_b.dual_end_reharvest，步骤 285；G16_CONTRACT §4.2 M-b/G-G16-4）：同口径重算 G13 M-c/M-d 度量入 G16 处置表，不写 G13 两张登记表。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "wave",
+    "numeric_step", "source_ref", "host_section_pass", "device_section_state",
+    "required_gates", "extra_facts", "subjects", "checks", "evidence_level",
+    "run_url", "timestamp", "environment", "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g16_m_b_dual_end_reharvest" },
+    "symbolic_gate_key": { "type": "string", "const": "g16.p0.m_b.dual_end_reharvest" },
+    "matrix_row": { "type": "string", "const": "G16.3" },
+    "wave": { "type": "string", "const": "G16.3" },
+    "numeric_step": { "type": "integer", "const": 285 },
+    "source_ref": {
+      "type": "string",
+      "const": "G16_CONTRACT §4.2 M-b/G-G16-4;G16_ACCEPTANCE_MAP §1 M-b"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "required_gates": { "type": "array", "maxItems": 0, "items": { "type": "object" } },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": { "type": "array", "maxItems": 0, "items": { "type": "object" } },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_required_gates_pass", "all_extra_facts_pass", "all_subjects_pass", "aggregate_read_only"],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

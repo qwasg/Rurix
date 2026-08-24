@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G16.2 M-a UE reference arm repair evidence",
+  "description": "evidence/g16_m_a_ue_reference_arm_repair_<UTC>.json。G16.2 P0 硬门 M-a（g16.p0.m_a.ue_reference_arm_repair，步骤 284；G16_CONTRACT §4.2 M-a/G-G16-3；G16_ACCEPTANCE_MAP §1 M-a）：探针定因 + harness 补丁 + 只重建 cornell + 重采 5 job + 内容有效性（五份末帧 HDR luma max > 1e-3、非全黑读图可见盒体/红绿墙/双箱、bistro 旁证不退化）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "wave",
+    "numeric_step", "source_ref", "host_section_pass", "device_section_state",
+    "required_gates", "extra_facts", "subjects", "checks", "evidence_level",
+    "run_url", "timestamp", "environment", "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g16_m_a_ue_reference_arm_repair" },
+    "symbolic_gate_key": { "type": "string", "const": "g16.p0.m_a.ue_reference_arm_repair" },
+    "matrix_row": { "type": "string", "const": "G16.2" },
+    "wave": { "type": "string", "const": "G16.2" },
+    "numeric_step": { "type": "integer", "const": 284 },
+    "source_ref": {
+      "type": "string",
+      "const": "G16_CONTRACT §4.2 M-a/G-G16-3;G16_ACCEPTANCE_MAP §1 M-a;G15-MC-F1 承接"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": { "type": "string", "enum": ["not_applicable"] },
+    "required_gates": { "type": "array", "maxItems": 0, "items": { "type": "object" } },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": { "type": "array", "maxItems": 0, "items": { "type": "object" } },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_required_gates_pass", "all_extra_facts_pass", "all_subjects_pass", "aggregate_read_only"],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

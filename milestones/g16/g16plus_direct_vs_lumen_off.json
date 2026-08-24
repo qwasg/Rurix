@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "wave": "G16.7",
+  "generated_utc": "20260824T031650Z",
+  "purpose": "坐实 247× 主因是间接光，不是几何/曝光。不充 18/18。",
+  "rurix_gi_off_mean_luma": 0.08040042692157258,
+  "ue_lumen_off_mean_luma": 7.13659442711322,
+  "rel_abs_diff": 0.9887340624799811,
+  "nine_cells_near_if_rel_lt_0_25": false,
+  "priority": [
+    "cornell-box 面光反弹",
+    "bistro 填光"
+  ],
+  "energy_targets_from_m_b": {
+    "cornell_energy_ue": 7.226183114643608,
+    "cornell_indirect_ssim": 0.05041818798040531,
+    "bistro_gi_energy_rel_note": "UE≈3.0 vs Rurix≈0.54（M-b 处置表）"
+  },
+  "paths": {
+    "rurix_off": "K:\\rurix-ext\\g15-frames\\m_c_prod\\cornell-box\\tier67\\tsr_device\\converged.exr",
+    "ue_lumen_off": "K:\\rurix-ext\\g13-frames\\ue_lumen\\cornell-box\\off\\.0031.exr"
+  },
+  "honest": "host 对照可；18 格通过线只认 GPU 生产臂（G11-N3）。"
+}

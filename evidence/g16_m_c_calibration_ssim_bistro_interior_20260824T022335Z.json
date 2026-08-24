@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g16mcar.measured_entry.v1",
+  "entry_id": "g16.m_c.absolute_pass_line_ssim_deficit_tol_bistro_interior",
+  "results": {
+    "dual_seed_p100": 0.0019874280066902728
+  },
+  "protocol": "G16.4 M-c 双 seed 方差底 p100×2.0 程序产（禁手写 P-09）；新 UE 参照",
+  "sample_manifest": {
+    "count": 9,
+    "digest": "sha256:5099c8d3c6780f3134d8fff774861ec6bc71d335be7135517aa35ca047759176"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "tsr_device/dlss_sr/fsr_3_1_5",
+    "base_commit": "b5ebae538d09837361f95871f821319063d9371d"
+  },
+  "timestamp": "20260824T022335Z"
+}

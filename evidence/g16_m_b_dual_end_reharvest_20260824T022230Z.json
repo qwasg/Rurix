@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_b_dual_end_reharvest",
+  "symbolic_gate_key": "g16.p0.m_b.dual_end_reharvest",
+  "matrix_row": "G16.3",
+  "wave": "G16.3",
+  "numeric_step": 285,
+  "source_ref": "G16_CONTRACT §4.2 M-b/G-G16-4;G16_ACCEPTANCE_MAP §1 M-b",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "g13_registries_0byte",
+      "status": "PASS",
+      "detail": "upscale='' lumen=''"
+    },
+    {
+      "id": "upscale_metrics_recomputed",
+      "status": "PASS",
+      "detail": "n=8 []"
+    },
+    {
+      "id": "lumen_metrics_recomputed",
+      "status": "PASS",
+      "detail": "n=2 []"
+    },
+    {
+      "id": "cornell_a_value_not_black_perfect",
+      "status": "PASS",
+      "detail": "cornell a_values=[('ssim_deficit_delta@cornell-box/t50/dlss_sr', 0.9931842643905036), ('flip_deficit_delta@cornell-box/t50/dlss_sr', 0.010848746946236316), ('ssim_deficit_delta@cornell-box/t67/dlss_sr', 0.9967519033919604), ('flip_deficit_delta@cornell-box/t67/dlss_sr', 0.006863990657627832)]"
+    },
+    {
+      "id": "lumen_gi_delta_honest",
+      "status": "PASS",
+      "detail": "cornell energy_ue=7.226183e+00 indirect_ssim=0.050418 （直接光复绿 ≠ GI 差分复绿；如实登记不宣称 GI 达标）; bistro energy_ue=3.708603e-02"
+    },
+    {
+      "id": "disposition_written",
+      "status": "PASS",
+      "detail": "items=10 path=H:\\rurix\\milestones\\g16\\g16_quality_gap_disposition.json"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T022230Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16.3 M-b：G13 M-c/M-d 同口径重算入 G16 处置表；G13 登记表 git 0-byte。"
+}

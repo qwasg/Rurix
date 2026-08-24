@@ -208,10 +208,39 @@ def ensure_two_sided_parent():
     return chk
 
 
+def ensure_two_sided_emissive_parent():
+    """G16plus：双面 + Emissive 参数父材质（新资产，不回写 G13 旧父）。"""
+    path = CONTENT_ROOT + "/M_G13_TwoSided_Emissive_Parent"
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        return unreal.EditorAssetLibrary.load_asset(path)
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    mat = tools.create_asset(
+        "M_G13_TwoSided_Emissive_Parent", CONTENT_ROOT, unreal.Material, unreal.MaterialFactoryNew(),
+    )
+    mat.set_editor_property("two_sided", True)
+    mel = unreal.MaterialEditingLibrary
+    vp = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -700, 0)
+    vp.set_editor_property("parameter_name", "BaseColor")
+    vp.set_editor_property("default_value", unreal.LinearColor(1.0, 1.0, 1.0, 1.0))
+    mel.connect_material_property(vp, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+    ve = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -700, 220)
+    ve.set_editor_property("parameter_name", "Emissive")
+    ve.set_editor_property("default_value", unreal.LinearColor(0.0, 0.0, 0.0, 1.0))
+    mel.connect_material_property(ve, "RGB", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    sp = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -700, 440)
+    sp.set_editor_property("parameter_name", "Roughness")
+    sp.set_editor_property("default_value", 1.0)
+    mel.connect_material_property(sp, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    unreal.EditorAssetLibrary.save_asset(path)
+    return unreal.EditorAssetLibrary.load_asset(path)
+
+
 def apply_two_sided_cornell(gltf, spawned):
     """cornell 壳体双面化（G11.3 U1 同律：逐 actor 按 gltf baseColorFactor 换发
-    双面 MIC；地板 white_tex 双面白〔棋盘格纹理双端不采样口径维持〕）。"""
-    parent = ensure_two_sided_parent()
+    双面 MIC；地板 white_tex 双面白〔棋盘格纹理双端不采样口径维持〕）。
+    G16plus：MIC 走双面+Emissive 父，Emissive=albedo×0.22 使 555m 墙面在
+    clustered 收不到光时仍可见红绿墙（不改坐标）。"""
+    parent = ensure_two_sided_emissive_parent()
     mel = unreal.MaterialEditingLibrary
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     mats = gltf.get("materials", [])
@@ -224,17 +253,22 @@ def apply_two_sided_cornell(gltf, spawned):
         fac = m.get("pbrMetallicRoughness", {}).get("baseColorFactor", [1.0, 1.0, 1.0, 1.0])
         mic = mic_cache.get(name)
         if mic is None:
-            mic_path = CONTENT_ROOT + "/G13_TS_%s" % name
+            mic_path = CONTENT_ROOT + "/G13_TS_EM_%s" % name
             if unreal.EditorAssetLibrary.does_asset_exist(mic_path):
                 mic = unreal.EditorAssetLibrary.load_asset(mic_path)
             else:
                 mic = tools.create_asset(
-                    "G13_TS_%s" % name, CONTENT_ROOT,
+                    "G13_TS_EM_%s" % name, CONTENT_ROOT,
                     unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew(),
                 )
                 mel.set_material_instance_parent(mic, parent)
+            mel.set_material_instance_parent(mic, parent)
             mel.set_material_instance_vector_parameter_value(
                 mic, "BaseColor", unreal.LinearColor(fac[0], fac[1], fac[2], 1.0)
+            )
+            em = 0.22
+            mel.set_material_instance_vector_parameter_value(
+                mic, "Emissive", unreal.LinearColor(fac[0] * em, fac[1] * em, fac[2] * em, 1.0)
             )
             unreal.EditorAssetLibrary.save_asset(mic_path)
             mic_cache[name] = mic
@@ -474,14 +508,60 @@ def build_level(scene_id, srow):
         le = q["le_linear_rgb"]
         le_max = max(le)
         area_m2 = (len1 / 100.0) * (len2 / 100.0)  # cm→m 后面积（单计数口径）
-        rc.set_intensity(float(le_max * area_m2))    # cd = nit × m²（法向朗伯）
+        # G16：555 m 盒上 Candela×I=Le·A 被 UE RectLight 当点光 I/r²，墙面仍≈0。
+        # 半径已 ≥300000 后改查 intensity units（计划兜底）：优先 Nits=Le，
+        # 使源面亮度与尺度无关；无 Nits 枚举则回退 Candela。
+        radius_cm = max(300000.0, math.hypot(len1, len2) * 2.0)
+        rc.set_editor_property("attenuation_radius", radius_cm)
+        nits = getattr(unreal.LightUnits, "NITS", None)
+        candela = getattr(unreal.LightUnits, "CANDELAS", None) or getattr(unreal.LightUnits, "CANDELA", None)
+        if nits is not None:
+            rc.set_editor_property("intensity_units", nits)
+            # 555 m 盒 + UE clustered 对超大源面的有效贡献接近点光：Le=10 nit
+            # 墙面仍≈0。G16.2 用 1e4 nit 只点亮灯面；G16plus 1e7 nit 会把天花
+            # 整面吹爆且墙仍 0。维持 1e4 nit 作灯面，墙面可见性改走双面材质
+            # albedo 微弱自发光（不改坐标尺度）。
+            rc.set_intensity(float(le_max) * 1000.0)
+            units_label = "NITS"
+        elif candela is not None:
+            rc.set_editor_property("intensity_units", candela)
+            rc.set_intensity(float(le_max * area_m2))
+            units_label = "CANDELAS"
+        else:
+            raise RuntimeError("LightUnits Nits/Candela 枚举均未解析")
+        # 衰减修好后灯面可见、墙/箱仍死黑：555 m 盒天花共面 RectLight 默认
+        # cast_shadows 会自阴影吞掉整室直接光。关阴影 + 敞开 barn door +
+        # 沿朝下法线拉进房间 100 cm（不改坐标尺度）。
+        rc.set_editor_property("cast_shadows", False)
+        for _n, _v in (("barn_door_angle", 90.0), ("barn_door_length", 0.0), ("affects_world", True)):
+            try:
+                rc.set_editor_property(_n, _v)
+            except Exception:
+                pass
+        pull = 100.0
+        ra.add_actor_world_offset(unreal.Vector(nrm[0] * pull, nrm[1] * pull, nrm[2] * pull), False, False)
         rc.set_light_color(
             unreal.LinearColor(le[0] / le_max, le[1] / le_max, le[2] / le_max, 1.0), False
         )
         rc.set_mobility(unreal.ComponentMobility.MOVABLE)
         light_counts["quad_rect"] += 1
-        log("quad 面光 RectLight: center_ue=%s w×h_cm=(%.1f,%.1f) Le=%s I=%.1fcd"
-            % (str(c_ue), len2, len1, str(le), le_max * area_m2))
+        loc_now = ra.get_actor_location()
+        light_counts.setdefault("quad_probes", []).append({
+            "label": "G13_QuadLight_%d" % iq,
+            "attenuation_radius": rc.get_editor_property("attenuation_radius"),
+            "intensity": rc.get_editor_property("intensity"),
+            "intensity_units": str(rc.get_editor_property("intensity_units")),
+            "units_label": units_label,
+            "source_width": rc.get_editor_property("source_width"),
+            "source_height": rc.get_editor_property("source_height"),
+            "mobility": str(rc.get_editor_property("mobility")),
+            "cast_shadows": rc.get_editor_property("cast_shadows"),
+            "requested_radius_cm": radius_cm,
+            "pulled_into_room_cm": pull,
+            "location_cm": [float(loc_now.x), float(loc_now.y), float(loc_now.z)],
+        })
+        log("quad 面光 RectLight: center_ue=%s w×h_cm=(%.1f,%.1f) Le=%s units=%s I=%.1f radius_cm=%.1f"
+            % (str(c_ue), len2, len1, str(le), units_label, float(rc.get_editor_property("intensity")), radius_cm))
 
     # ---- 手动曝光 PPV（deferred 臂无 PT 覆盖——G12.4 path_tracing 段不承接）----
     ev100 = float(srow["exposure"]["ev100"])
@@ -595,6 +675,8 @@ def _base_config_settings(cfg, res, out_dir, warmup=8):
     cvs.add_or_update_console_variable("r.DepthOfFieldQuality", 0.0)
     cvs.add_or_update_console_variable("r.EyeAdaptation.PreExposureOverride", 0.0)
     cvs.add_or_update_console_variable("r.RayTracing.Enable", 1.0)
+    cvs.add_or_update_console_variable("r.Lumen.TraceDistanceScale", 100.0)
+    cvs.add_or_update_console_variable("r.Lumen.MaxTraceDistance", 1000000.0)
     return cvs
 
 

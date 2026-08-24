@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g16_m_e_gi_expression",
+  "symbolic_gate_key": "g16.p0.m_e.gi_expression",
+  "matrix_row": "G16.8",
+  "wave": "G16.8",
+  "numeric_step": 288,
+  "source_ref": "G16_CONTRACT G-G16-8;G16_ACCEPTANCE_MAP 附录 A M-e;RFC-0031",
+  "host_section_pass": false,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "rfc0031_approved",
+      "status": "PASS",
+      "detail": "0031-g16plus-gi-expression-quality-closure.md"
+    },
+    {
+      "id": "kernel_on_present",
+      "status": "PASS",
+      "detail": "compiled=True g16_gi_multibounce.spv"
+    },
+    {
+      "id": "kernel_off_unmodified_no_gi",
+      "status": "PASS",
+      "detail": "off kernel 仍直接光"
+    },
+    {
+      "id": "gi_on_not_fail_closed",
+      "status": "PASS",
+      "detail": "加性 --gi on"
+    },
+    {
+      "id": "cornell_indirect_energy_nonzero",
+      "status": "FAIL",
+      "detail": "indirect_mean=0.0"
+    },
+    {
+      "id": "cornell_color_bleed_reading",
+      "status": "FAIL",
+      "detail": "left_rg=None right_gr=None"
+    },
+    {
+      "id": "off_arm_source_present",
+      "status": "PASS",
+      "detail": "sha256:5ef6d498c0645a48ea4152fda2b96be093c85fe5ba8b43fb368c8b1d586ae3f3"
+    },
+    {
+      "id": "no_handwritten_threshold",
+      "status": "PASS",
+      "detail": "P-09 字面在 RFC"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": false,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T031712Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G16plus M-e"
+}

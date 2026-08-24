@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "namespace": "g16",
+  "description": "G16 M-c 绝对通过线重标定（不改 g15_budget）。",
+  "source_docs": [
+    "milestones/g16/G16_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "g16.m_c.absolute_pass_line_ssim_deficit_tol_cornell_box",
+      "description": "G16 M-c ssim deficit 绝对阈 @cornell-box（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0025204238248175415,
+      "evidence_file": "evidence/g16_m_c_calibration_ssim_cornell_box_20260824T022335Z.json",
+      "measured_value": 0.0012602119124087707
+    },
+    {
+      "id": "g16.m_c.absolute_pass_line_flip_deficit_tol_cornell_box",
+      "description": "G16 M-c flip deficit 绝对阈 @cornell-box（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0014195215473993272,
+      "evidence_file": "evidence/g16_m_c_calibration_flip_cornell_box_20260824T022335Z.json",
+      "measured_value": 0.0007097607736996636
+    },
+    {
+      "id": "g16.m_c.absolute_pass_line_ssim_deficit_tol_bistro_interior",
+      "description": "G16 M-c ssim deficit 绝对阈 @bistro-interior（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0039748560133805455,
+      "evidence_file": "evidence/g16_m_c_calibration_ssim_bistro_interior_20260824T022335Z.json",
+      "measured_value": 0.0019874280066902728
+    },
+    {
+      "id": "g16.m_c.absolute_pass_line_flip_deficit_tol_bistro_interior",
+      "description": "G16 M-c flip deficit 绝对阈 @bistro-interior（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.001341543844948008,
+      "evidence_file": "evidence/g16_m_c_calibration_flip_bistro_interior_20260824T022335Z.json",
+      "measured_value": 0.000670771922474004
+    },
+    {
+      "id": "g16.m_g.absolute_pass_line_ssim_deficit_tol_cornell_box",
+      "description": "G16 M-g ssim deficit 绝对阈 @cornell-box（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_cornell_box_20260824T041832Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g16.m_g.absolute_pass_line_flip_deficit_tol_cornell_box",
+      "description": "G16 M-g flip deficit 绝对阈 @cornell-box（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_cornell_box_20260824T041832Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g16.m_g.absolute_pass_line_ssim_deficit_tol_bistro_interior",
+      "description": "G16 M-g ssim deficit 绝对阈 @bistro-interior（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_bistro_interior_20260824T041832Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g16.m_g.absolute_pass_line_flip_deficit_tol_bistro_interior",
+      "description": "G16 M-g flip deficit 绝对阈 @bistro-interior（p100×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "1",
+      "threshold": 0.0,
+      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_bistro_interior_20260824T041832Z.json",
+      "measured_value": 0.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

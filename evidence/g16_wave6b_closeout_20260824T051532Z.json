@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g16_wave6b_closeout",
+  "symbolic_gate_key": "g16.wave.6b.closeout",
+  "matrix_row": "G16.6b",
+  "wave": "G16.6b",
+  "numeric_step": 292,
+  "source_ref": "G16_CONTRACT G-G16-11;G16_ACCEPTANCE_MAP 附录 A M-h",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "old_p0_still_green",
+      "status": "PASS",
+      "detail": "g16_m_a_ue_reference_arm_repair_20260824T020053Z.json host=True; g16_m_b_dual_end_reharvest_20260824T022230Z.json host=True; g16_m_c_absolute_quality_rereview_20260824T023111Z.json host=True; g16_m_d_closed_gate_no_regression_20260824T023148Z.json host=True"
+    },
+    {
+      "id": "appendix_a_meg_green",
+      "status": "PASS",
+      "detail": "g16_m_e_gi_expression_20260824T034444Z.json host=True; g16_m_f_lumen_reharvest_20260824T032720Z.json host=True; g16_m_g_absolute_quality_closure_20260824T044352Z.json host=True"
+    },
+    {
+      "id": "rfc0031_approved",
+      "status": "PASS",
+      "detail": "0031-g16plus-gi-expression-quality-closure.md"
+    },
+    {
+      "id": "rd_eight_open",
+      "status": "PASS",
+      "detail": "RD-034/039/040/041/042/043/044/045"
+    },
+    {
+      "id": "commercial_18_18",
+      "status": "PASS",
+      "detail": "M-g met_count==18"
+    },
+    {
+      "id": "direct_arm_latest_unstolen",
+      "status": "PASS",
+      "detail": "G14 M-d latest 未被 GI 抢"
+    },
+    {
+      "id": "soak_fullrun_first",
+      "status": "PASS",
+      "detail": "g16_stabilization_soak_20260824T051517Z.json host=True"
+    },
+    {
+      "id": "closeout_ready",
+      "status": "PASS",
+      "detail": "READY"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T051532Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "VERDICT=READY"
+}

@@ -279,6 +279,14 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # p100 × 2.0 程序产，RXS-0407 L4 沿 G13.4 标定三条目范式）→ 同判读面复用。
         eval_g13_dual_seed(entry)
         return
+    if eid.startswith("g16.m_c.absolute_pass_line_"):
+        # G16.4 M-c 重标定四条目（新 UE 参照；不改 g15_budget）→ 同判读面复用。
+        eval_g13_dual_seed(entry)
+        return
+    if eid.startswith("g16.m_g.absolute_pass_line_"):
+        # G16plus M-g 收口标定四条目（GI on vs 新 UE；不改 g15_budget / 不改 M-c 四条目）。
+        eval_g13_dual_seed(entry)
+        return
     value = measured_value(entry)
     if value is None:
         return

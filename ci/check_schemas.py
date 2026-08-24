@@ -793,6 +793,45 @@ def check_evidence_files() -> None:
     g15_interlock_check_schema = load(
         ROOT / "milestones/g15/g15_interlock_check_evidence_schema.json"
     )
+    g16_acceptance_map_check_schema = load(
+        ROOT / "milestones/g16/g16_acceptance_map_check_evidence_schema.json"
+    )
+    g16_candidate_decisions_check_schema = load(
+        ROOT / "milestones/g16/g16_candidate_decisions_check_evidence_schema.json"
+    )
+    g16_interlock_check_schema = load(
+        ROOT / "milestones/g16/g16_interlock_check_evidence_schema.json"
+    )
+    g16_m_a_ue_reference_arm_repair_schema = load(
+        ROOT / "milestones/g16/g16_m_a_ue_reference_arm_repair_evidence_schema.json"
+    )
+    g16_m_b_dual_end_reharvest_schema = load(
+        ROOT / "milestones/g16/g16_m_b_dual_end_reharvest_evidence_schema.json"
+    )
+    g16_m_c_absolute_quality_rereview_schema = load(
+        ROOT / "milestones/g16/g16_m_c_absolute_quality_rereview_evidence_schema.json"
+    )
+    g16_m_c_measured_entry_schema = load(
+        ROOT / "milestones/g16/g16_m_c_measured_entry_evidence_schema.json"
+    )
+    g16_m_d_closed_gate_no_regression_schema = load(
+        ROOT / "milestones/g16/g16_m_d_closed_gate_no_regression_evidence_schema.json"
+    )
+    g16_m_e_gi_expression_schema = load(
+        ROOT / "milestones/g16/g16_m_e_gi_expression_evidence_schema.json"
+    )
+    g16_m_f_lumen_reharvest_schema = load(
+        ROOT / "milestones/g16/g16_m_f_lumen_reharvest_evidence_schema.json"
+    )
+    g16_m_g_absolute_quality_closure_schema = load(
+        ROOT / "milestones/g16/g16_m_g_absolute_quality_closure_evidence_schema.json"
+    )
+    g16_stabilization_soak_schema = load(
+        ROOT / "milestones/g16/g16_stabilization_soak_evidence_schema.json"
+    )
+    g16_wave6b_closeout_schema = load(
+        ROOT / "milestones/g16/g16_wave6b_closeout_evidence_schema.json"
+    )
     g15_m_a_dual_end_quality_reharvest_schema = load(
         ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
     )
@@ -1979,6 +2018,71 @@ def check_evidence_files() -> None:
     g15_interlock_check_validator = (
         jsonschema.Draft7Validator(g15_interlock_check_schema)
         if g15_interlock_check_schema is not None
+        else None
+    )
+    g16_acceptance_map_check_validator = (
+        jsonschema.Draft7Validator(g16_acceptance_map_check_schema)
+        if g16_acceptance_map_check_schema is not None
+        else None
+    )
+    g16_candidate_decisions_check_validator = (
+        jsonschema.Draft7Validator(g16_candidate_decisions_check_schema)
+        if g16_candidate_decisions_check_schema is not None
+        else None
+    )
+    g16_interlock_check_validator = (
+        jsonschema.Draft7Validator(g16_interlock_check_schema)
+        if g16_interlock_check_schema is not None
+        else None
+    )
+    g16_m_a_ue_reference_arm_repair_validator = (
+        jsonschema.Draft7Validator(g16_m_a_ue_reference_arm_repair_schema)
+        if g16_m_a_ue_reference_arm_repair_schema is not None
+        else None
+    )
+    g16_m_b_dual_end_reharvest_validator = (
+        jsonschema.Draft7Validator(g16_m_b_dual_end_reharvest_schema)
+        if g16_m_b_dual_end_reharvest_schema is not None
+        else None
+    )
+    g16_m_c_absolute_quality_rereview_validator = (
+        jsonschema.Draft7Validator(g16_m_c_absolute_quality_rereview_schema)
+        if g16_m_c_absolute_quality_rereview_schema is not None
+        else None
+    )
+    g16_m_c_measured_entry_validator = (
+        jsonschema.Draft7Validator(g16_m_c_measured_entry_schema)
+        if g16_m_c_measured_entry_schema is not None
+        else None
+    )
+    g16_m_d_closed_gate_no_regression_validator = (
+        jsonschema.Draft7Validator(g16_m_d_closed_gate_no_regression_schema)
+        if g16_m_d_closed_gate_no_regression_schema is not None
+        else None
+    )
+    g16_m_e_gi_expression_validator = (
+        jsonschema.Draft7Validator(g16_m_e_gi_expression_schema)
+        if g16_m_e_gi_expression_schema is not None
+        else None
+    )
+    g16_m_f_lumen_reharvest_validator = (
+        jsonschema.Draft7Validator(g16_m_f_lumen_reharvest_schema)
+        if g16_m_f_lumen_reharvest_schema is not None
+        else None
+    )
+    g16_m_g_absolute_quality_closure_validator = (
+        jsonschema.Draft7Validator(g16_m_g_absolute_quality_closure_schema)
+        if g16_m_g_absolute_quality_closure_schema is not None
+        else None
+    )
+    g16_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g16_stabilization_soak_schema)
+        if g16_stabilization_soak_schema is not None
+        else None
+    )
+    g16_wave6b_closeout_validator = (
+        jsonschema.Draft7Validator(g16_wave6b_closeout_schema)
+        if g16_wave6b_closeout_schema is not None
         else None
     )
     g15_m_a_dual_end_quality_reharvest_validator = (
@@ -3880,6 +3984,97 @@ def check_evidence_files() -> None:
             # G15.1 治理门实现互锁（步骤 268）→
             # milestones/g15/g15_interlock_check_evidence_schema.json。
             validator = g15_interlock_check_validator
+        elif (
+            f.name.startswith("g16_acceptance_map_check_")
+            and g16_acceptance_map_check_validator is not None
+        ):
+            # G16.1 治理门验收映射核验（步骤 281）→
+            # milestones/g16/g16_acceptance_map_check_evidence_schema.json。
+            validator = g16_acceptance_map_check_validator
+        elif (
+            f.name.startswith("g16_candidate_decisions_check_")
+            and g16_candidate_decisions_check_validator is not None
+        ):
+            # G16.1 治理门候选决策核验（步骤 282）→
+            # milestones/g16/g16_candidate_decisions_check_evidence_schema.json。
+            validator = g16_candidate_decisions_check_validator
+        elif (
+            f.name.startswith("g16_interlock_check_")
+            and g16_interlock_check_validator is not None
+        ):
+            # G16.1 治理门实现互锁（步骤 283）→
+            # milestones/g16/g16_interlock_check_evidence_schema.json。
+            validator = g16_interlock_check_validator
+        elif (
+            f.name.startswith("g16_m_a_ue_reference_arm_repair_")
+            and g16_m_a_ue_reference_arm_repair_validator is not None
+        ):
+            # G16.2 P0 M-a（步骤 284）→
+            # milestones/g16/g16_m_a_ue_reference_arm_repair_evidence_schema.json。
+            validator = g16_m_a_ue_reference_arm_repair_validator
+        elif (
+            f.name.startswith("g16_m_b_dual_end_reharvest_")
+            and g16_m_b_dual_end_reharvest_validator is not None
+        ):
+            # G16.3 P0 M-b（步骤 285）→
+            # milestones/g16/g16_m_b_dual_end_reharvest_evidence_schema.json。
+            validator = g16_m_b_dual_end_reharvest_validator
+        elif (
+            f.name.startswith("g16_m_c_absolute_quality_rereview_")
+            and g16_m_c_absolute_quality_rereview_validator is not None
+        ):
+            # G16.4 P0 M-c（步骤 286）→
+            # milestones/g16/g16_m_c_absolute_quality_rereview_evidence_schema.json。
+            validator = g16_m_c_absolute_quality_rereview_validator
+        elif (
+            f.name.startswith("g16_m_c_calibration_")
+            and g16_m_c_measured_entry_validator is not None
+        ):
+            # G16.4 M-c 标定条目 →
+            # milestones/g16/g16_m_c_measured_entry_evidence_schema.json。
+            validator = g16_m_c_measured_entry_validator
+        elif (
+            f.name.startswith("g16_m_d_closed_gate_no_regression_")
+            and g16_m_d_closed_gate_no_regression_validator is not None
+        ):
+            # G16.5 P0 M-d（步骤 287）→
+            # milestones/g16/g16_m_d_closed_gate_no_regression_evidence_schema.json。
+            validator = g16_m_d_closed_gate_no_regression_validator
+        elif (
+            f.name.startswith("g16_m_e_gi_expression_")
+            and g16_m_e_gi_expression_validator is not None
+        ):
+            # G16plus M-e（步骤 288）→
+            # milestones/g16/g16_m_e_gi_expression_evidence_schema.json。
+            validator = g16_m_e_gi_expression_validator
+        elif (
+            f.name.startswith("g16_m_f_lumen_reharvest_")
+            and g16_m_f_lumen_reharvest_validator is not None
+        ):
+            # G16plus M-f（步骤 289）→
+            # milestones/g16/g16_m_f_lumen_reharvest_evidence_schema.json。
+            validator = g16_m_f_lumen_reharvest_validator
+        elif (
+            f.name.startswith("g16_m_g_absolute_quality_closure_")
+            and g16_m_g_absolute_quality_closure_validator is not None
+        ):
+            # G16plus M-g（步骤 290）→
+            # milestones/g16/g16_m_g_absolute_quality_closure_evidence_schema.json。
+            validator = g16_m_g_absolute_quality_closure_validator
+        elif (
+            f.name.startswith("g16_stabilization_soak_")
+            and g16_stabilization_soak_validator is not None
+        ):
+            # G16plus soak（步骤 291）→
+            # milestones/g16/g16_stabilization_soak_evidence_schema.json。
+            validator = g16_stabilization_soak_validator
+        elif (
+            f.name.startswith("g16_wave6b_closeout_")
+            and g16_wave6b_closeout_validator is not None
+        ):
+            # G16plus close-out（步骤 292）→
+            # milestones/g16/g16_wave6b_closeout_evidence_schema.json。
+            validator = g16_wave6b_closeout_validator
         elif (
             f.name.startswith("g15_m_a_dual_end_quality_reharvest_")
             and g15_m_a_dual_end_quality_reharvest_validator is not None

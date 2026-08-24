@@ -1,0 +1,30 @@
+{
+  "map": "/Game/Maps/G13_CornellBox",
+  "target_label": "G13_QuadLight_0",
+  "found": true,
+  "lights": [
+    {
+      "label": "G13_QuadLight_0",
+      "class": "RectLight",
+      "attenuation_radius": 1000.0,
+      "intensity": 136500.0,
+      "intensity_units": "<LightUnits.CANDELAS: 1>",
+      "source_width": 10500.0,
+      "source_height": 13000.0,
+      "mobility": "<ComponentMobility.MOVABLE: 2>",
+      "cast_shadows": true
+    }
+  ],
+  "note": "readonly probe; no save",
+  "target": {
+    "label": "G13_QuadLight_0",
+    "class": "RectLight",
+    "attenuation_radius": 1000.0,
+    "intensity": 136500.0,
+    "intensity_units": "<LightUnits.CANDELAS: 1>",
+    "source_width": 10500.0,
+    "source_height": 13000.0,
+    "mobility": "<ComponentMobility.MOVABLE: 2>",
+    "cast_shadows": true
+  }
+}
