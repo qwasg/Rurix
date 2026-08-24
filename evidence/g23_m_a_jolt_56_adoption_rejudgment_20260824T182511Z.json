@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g23_m_a_jolt_56_adoption_rejudgment",
+  "symbolic_gate_key": "g23.p0.m_a.jolt_56_adoption_rejudgment",
+  "matrix_row": "G23.2",
+  "wave": "G23.2",
+  "numeric_step": 400,
+  "source_ref": "G23_CONTRACT §4.2;G23_ACCEPTANCE_MAP §1 M-a 行;RFC-0040 §1.1",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "sys56_arm_on_tree",
+      "status": "PASS",
+      "detail": "rurix-physics-sys56（JoltC@2982004 + Jolt v5.6.0 隔离评估臂）在树"
+    },
+    {
+      "id": "vendor56_provenance",
+      "status": "PASS",
+      "detail": "VENDOR56.md 上游 pin/裁剪/补丁全字段 provenance 在档"
+    },
+    {
+      "id": "ab_evidence_readonly_green",
+      "status": "PASS",
+      "detail": "g9_m125 A/B 绿件只读盘点（g9_m125_jolt_56_ab_evaluation_20260815T030521Z.json；禁 --gate 重跑）"
+    },
+    {
+      "id": "arm_build_freshness",
+      "status": "PASS",
+      "detail": "cargo check -p rurix-physics-sys56 rc=0（评估臂构建新鲜真跑）"
+    },
+    {
+      "id": "three_pieces_registered",
+      "status": "PASS",
+      "detail": "采纳三件逐件 state+basis 登记（升格证据/生产切换/退役程序）"
+    },
+    {
+      "id": "verdict_maintain_53_honest",
+      "status": "PASS",
+      "detail": "裁决=maintain-5.3（需求证据三类全空 ⇒ maintain-5.3；maintain/adopt 均合法）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T182511Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G23.2 M-a：M125-adopt3 重判 = maintain-5.3（三件条件 1/3，需求证据全空）"
+}

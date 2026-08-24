@@ -4052,6 +4052,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g23_interlock_check.py --gate g23.gov.implementation_interlock
 
+      # 步骤 400（G23.2 P0 M-a g23.p0.m_a.jolt_56_adoption_rejudgment；
+      # post-interlock 实测 CI_step.next_free=400 顺位领取）。
+      - name: G23.2 M-a Jolt 5.6 adoption rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g23_jolt_56_adoption_rejudgment_smoke.py --verify-latest
+
+      # 步骤 401（G23.2 波聚合门 g23.wave.2.exit）。
+      - name: G23.2 wave exit verify-latest (g23.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g23_wave_exit_check.py --gate g23.wave.2.exit
+
+      # 步骤 402（G23.2 P0 M-b g23.p0.m_b.neural_deform_rejudgment）。
+      - name: G23.2 M-b neural deform rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g23_neural_deform_rejudgment_smoke.py --verify-latest
+
+      # 步骤 403（G23.3 波聚合门 g23.wave.3.exit）。
+      - name: G23.3 wave exit verify-latest (g23.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g23_wave_exit_check.py --gate g23.wave.3.exit
+
+      # 步骤 404（G23.3 P0 M-c g23.p0.m_c.research_track_disposition）。
+      - name: G23.3 M-c research track disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g23_research_track_disposition_smoke.py --verify-latest
+
+      # 步骤 405（G23.4 波聚合门 g23.wave.4.exit）。
+      - name: G23.4 wave exit verify-latest (g23.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g23_wave_exit_check.py --gate g23.wave.4.exit
+
+      # 步骤 406（G23.3 P0 M-d g23.p0.m_d.physics_p3_subitem_disposition）。
+      - name: G23.3 M-d physics P3+ subitem disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g23_physics_p3_subitem_disposition_smoke.py --verify-latest
+
+      # 步骤 407（G23.5 波聚合门 g23.wave.5.exit）。
+      - name: G23.5 wave exit verify-latest (g23.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g23_wave_exit_check.py --gate g23.wave.5.exit
+
+      # 步骤 408（G23.4 P0 M-e g23.p0.m_e.closed_gate_no_regression）。
+      - name: G23.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g23_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 409（G23.6 波聚合门 g23.wave.6.exit）。
+      - name: G23.6 wave exit verify-latest (g23.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g23_wave_exit_check.py --gate g23.wave.6.exit
+
+      # 步骤 410（G23.5 P2 穷举 g23.wave.5a.decisions）。
+      - name: G23.5 P2 decisions verify-latest (g23.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g23_p2_decisions_check.py --verify-latest
+
+      # 步骤 411（G23.5 soak g23.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G23.5 stabilization soak verify-latest (g23.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g23_stabilization_soak.py --verify-latest
+
+      # 步骤 412（G23.6 close-out g23.wave.6b.closeout）。
+      - name: G23.6 close-out verify-latest (G23_CONTRACT G-G23-6, g23.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g23_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

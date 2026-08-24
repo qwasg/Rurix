@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g25",
+  "description": "G25 预算面。baseline = G25.0 Stage A digest 锚在档快检 + 战役六期收口 tag 计数实测。",
+  "source_docs": ["milestones/g25/G25_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g25.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G25.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g25_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g25.baseline.campaign_tags.count",
+      "description": "G25.0 baseline 战役六期收口 tag 计数（期望 6/6：g19~g24-closed）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 6.0,
+      "evidence_file": "evidence/g25_baseline_campaign_tags.json",
+      "measured_value": 6.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

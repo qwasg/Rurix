@@ -124,3 +124,18 @@ D-G23-1：PLAN/CONTRACT/CI_GATES/g23_budget.json + G23_CANDIDATE_DECISIONS + G23
 - **事实门全绿**：G22 closed + tag `g22-closed` + G23.0 不可变 ref `1ac8b12956eced1a3a08e03c1f91aa7e0949b23c`；候选表 11 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 399 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g23_interlock_check.py --gate g23.gov.implementation_interlock` VERDICT=READY；治理三门 397/398/399 PASS。
 - **解锁**：`implementation_status: blocked → unlocked`。G23.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G23.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G23-6 前置：P2 穷举决策门（g23.wave.5a.decisions，步骤 410，VERDICT=PASS）+ 稳定门 soak（g23.wave.5a.soak，步骤 411，8/8 facts VERDICT=PASS——69 迭代 wall=1836.9s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G23_P2_DECISIONS.md` 穷举闭集 **11 行零空行**（§1 六行：closed-go 2〔M125-adopt3 重判兑现（裁决 maintain-5.3）+ M127 重判兑现（裁决 maintain）〕 + defer-to-G24+ 4；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open——RD-042/043/044 history 只追加）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1836.9s ≥1800s + 69 迭代零失败（含 sys56 评估臂构建新鲜车道穿插 13 次）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS；budget_eval --strict 283 pass 零 skip 零 estimated。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G23.5 P2/soak 波）`。
+
+### §8.7 G23.6 close-out 终审签署块（2026-08-24）——G-G23-6 字面兑现：close-out 终审门（g23.wave.6b.closeout，步骤 412）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g23-closed`
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / jolt_adoption_chain / rfc_0040_archived / old_gates_no_regression / rd_open_maintained（RD 八条 open；RD-042/043/044 history 只追加）/ soak_ge_1800_zero_fail / closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g23_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：物理平台深化字面兑现——**M-a M125-adopt3 重判 = maintain-5.3**（三件条件 1/3：证据新鲜面命中〔sys56 cargo check 绿 + g9_m125 A/B 绿件只读盘点〕，生产切换需求证据三类全空；5.3 生产默认 VENDOR.md pin 0-byte）；**M-b M127 重判 = maintain 研究子轨**（两半实测未命中：corpus NONE + 消费方 NONE）；**M-c RD-042/043 四轨全 maintain-observe**；**M-d RD-044 三分项**（defer 2 + Rapier maintain-no-go M126 measured 转引）；M-e 旧门零降级全绿。**maintain/defer/no-go 均为合法收口态**；G24 承接锚齐备（M114-strand/M118-hdr-cal/G10-N6/SAFE-GPU 四行 = G18 承接池尾）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g23-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G23 战役第五期收口）`。

@@ -1374,6 +1374,16 @@
           "date": "2026-08-01",
           "event": "G6.6 close-out P3+/研究轨登记:G6 三线(Jolt 主物理 G6.2 / Rapier 快路径 G6.4 / Taichi Vulkan AOT spike G6.5 成功臂四段闭合)已兑现,研究轨(Newton/Genesis/MuJoCo Warp)全期维持库外观察,零代码消费、零 CI 面;编号自 number_ledger reserved_in_flight[G6].RD claim(RD-042 起)顺位消费——G6.5 成功臂未消费失败登记位,RD-042 转 close-out 研究轨观察登记",
           "evidence": "milestones/g6/G6_PLAN.md §0.1/§1 G6.6/§3 / milestones/g6/G6_CONTRACT.md out_of_scope research_track_main_ci / rfcs/0017-engine-physics.md §4 / registry/number_ledger.json reserved_in_flight[G6].RD"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:Newton/Genesis/MuJoCo-Warp 三轨逐轨 disposition=maintain-observe（各附 basis+reeval_anchor,milestones/g23/g23_research_track_registry.json 闭集落档）;可微物理与渲染主线零交集、无生产消费方;RD-042 维持 open-观察",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:Newton/Genesis/MuJoCo-Warp 三轨逐轨 disposition=maintain-observe（各附 basis+reeval_anchor,milestones/g23/g23_research_track_registry.json 闭集落档）;可微物理与渲染主线零交集、无生产消费方;RD-042 维持 open-观察",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
         }
       ]
     },
@@ -1390,6 +1400,16 @@
           "date": "2026-08-01",
           "event": "G6.6 close-out 登记:GPU 主刚体否决线全期维持(G6.2~G6.5 主物理 Jolt CPU + Rapier CPU 快路径 + Taichi 副轨只产粒子/体积场不进刚体求解,零 GPU 刚体路径、零验收依赖);wgrapier 纯 Rust GPU 刚体作为生态观察项存续,零代码消费;编号自 number_ledger reserved_in_flight[G6].RD claim 顺位消费",
           "evidence": "milestones/g6/G6_PLAN.md §0.1(GPU 主刚体不做段)/§0.4 禁止线/§3 / milestones/g6/G6_CONTRACT.md out_of_scope gpu_rigid_body_main / registry/number_ledger.json reserved_in_flight[G6].RD"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:wgrapier 轨 disposition=maintain-observe（GPU 主刚体 out_of_scope 否决维持 + Jolt CPU measured 优势在案 M126 40400ns vs Rapier 197900ns;g23_research_track_registry.json 闭集落档）;RD-043 维持 open-观察",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:wgrapier 轨 disposition=maintain-observe（GPU 主刚体 out_of_scope 否决维持 + Jolt CPU measured 优势在案 M126 40400ns vs Rapier 197900ns;g23_research_track_registry.json 闭集落档）;RD-043 维持 open-观察",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
         }
       ]
     },
@@ -1411,6 +1431,16 @@
           "date": "2026-08-14",
           "event": "G9.6 M126 Rapier 深造对标基准落地 → Rapier 快路径深造分项重判 = 维持 no-go(条件制):canonical 大堆叠 6 层 A/B 同场景同输入同 determinism 画像(input_digest 两臂逐位相等;Jolt/Rapier 各自后端双跑位级一致),Jolt step 中位 40400ns vs Rapier 197900ns(measured_local 真实采样,禁 estimated)——Rapier 臂无 measured 优势,RD-044 条件字面「快路径被真实 workload 采用时」不变,verdict=maintain_no_go;跨 solver 差异如实记录(world 链非逐位一致,max translation abs diff ≈ 3.9e-2 m 在 0.05m 容差内,接触事件计数差 11,rest_above_ground 不变量成立);基准不作 replay oracle(replay 对拍唯一权威 = 同 solver 同版本 capture/replay 逐 tick hash,RFC-0021 §4.A1);本门只产基准报告,不升格深造、不作验收依赖与生产默认;RD-044 status 维持 open,id/title/reason/backfill_condition 四字段 0-byte(沿 v1.76 RD-040 history 只尾追加先例);Continuum/Fluid 分项观察维持不碰",
           "evidence": "milestones/g9/g9_m126_rapier_benchmark.json / evidence/g9_m126_rapier_benchmark_ab_<UTC>.json / ci/g9_rapier_benchmark_ab_smoke.py / spec/physics.md RXS-0378 / G9_CANDIDATE_DECISIONS.md v1.6 校准注 / registry/number_ledger.json v1.96"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-d 分项处置窗登记（agent 完全自主 D-406 v3.0）:三分项闭集（milestones/g23/g23_rd044_subitem_registry.json）——Jolt 软体/布料/流体 defer(绑定面未暴露+零需求场景)/Taichi MPM defer(体积场消费方缺)/Rapier 快路径 maintain-no-go(M126 measured 转引,条件字面未变);同期 M125-adopt3 采纳臂重判 = maintain-5.3（三件条件 1/3:证据新鲜面命中〔sys56 cargo check 0.74s 绿 + g9_m125 A/B 绿件在案〕,生产切换需求证据三类全空,g23_jolt_adoption_registry.json 落档）+ M127 两半实测未命中（corpus 目录 NONE + neural residual 消费方 NONE〔PhysicsAsset 命中面仅 M121 gate harness〕）→ maintain 研究子轨;RD-044 维持 open",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G23.3 M-d 分项处置窗登记（agent 完全自主 D-406 v3.0）:三分项闭集（milestones/g23/g23_rd044_subitem_registry.json）——Jolt 软体/布料/流体 defer(绑定面未暴露+零需求场景)/Taichi MPM defer(体积场消费方缺)/Rapier 快路径 maintain-no-go(M126 measured 转引,条件字面未变);同期 M125-adopt3 采纳臂重判 = maintain-5.3（三件条件 1/3:证据新鲜面命中〔sys56 cargo check 0.74s 绿 + g9_m125 A/B 绿件在案〕,生产切换需求证据三类全空,g23_jolt_adoption_registry.json 落档）+ M127 两半实测未命中（corpus 目录 NONE + neural residual 消费方 NONE〔PhysicsAsset 命中面仅 M121 gate harness〕）→ maintain 研究子轨;RD-044 维持 open",
+          "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
         }
       ]
     },

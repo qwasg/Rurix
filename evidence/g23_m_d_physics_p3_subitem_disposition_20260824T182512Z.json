@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g23_m_d_physics_p3_subitem_disposition",
+  "symbolic_gate_key": "g23.p0.m_d.physics_p3_subitem_disposition",
+  "matrix_row": "G23.3",
+  "wave": "G23.3",
+  "numeric_step": 406,
+  "source_ref": "G23_CONTRACT §4.2;G23_ACCEPTANCE_MAP §1 M-d 行;RD-044",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "subitem_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g23\\g23_rd044_subitem_registry.json"
+    },
+    {
+      "id": "three_subitems_closed_set",
+      "status": "PASS",
+      "detail": "subitems=['JOLT-SOFT', 'TAICHI-MPM', 'RAPIER-FAST']"
+    },
+    {
+      "id": "dispositions_legal_with_basis",
+      "status": "PASS",
+      "detail": "逐分项 disposition 合法 + basis + reeval_anchor 齐"
+    },
+    {
+      "id": "rd044_history_appended",
+      "status": "PASS",
+      "detail": "RD-044 history 含 G23.3 处置窗只追加登记"
+    },
+    {
+      "id": "rd044_status_open",
+      "status": "PASS",
+      "detail": "RD-044 status=open（分项 defer/no-go ⇒ open 维持诚实）"
+    },
+    {
+      "id": "rapier_m126_measured_cited",
+      "status": "PASS",
+      "detail": "Rapier 分项转引 M126 measured（40400ns vs 197900ns，条件字面未变——RFC-0040 F5）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T182512Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G23.3 M-d：RD-044 三分项处置闭集（defer 2 + maintain-no-go 1；history 只追加）"
+}
