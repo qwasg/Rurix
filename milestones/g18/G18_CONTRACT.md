@@ -1,7 +1,7 @@
 ---
 contract: G18
 title: G18 全量方向一次性收口期（光线画质 + 性能 + 虚拟化几何 + 帧生成）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g18_full_campaign
 version: v1.0
