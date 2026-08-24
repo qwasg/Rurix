@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g20",
+  "description": "G20 预算面。baseline = G20.0 Stage A digest 锚在档快检 + G19 FG 三档质量绿计数（承接锚新鲜度）。",
+  "source_docs": ["milestones/g20/G20_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g20.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G20.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g20_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g20.baseline.g19_fg_lanes_pass.count",
+      "description": "G20.0 baseline G19 FG 三档（×2/×3/×4）质量绿计数（期望 3/3）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 3.0,
+      "evidence_file": "evidence/g20_baseline_g19_fg_lanes_pass.json",
+      "measured_value": 3.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

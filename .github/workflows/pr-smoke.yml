@@ -3724,6 +3724,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g19_interlock_check.py --gate g19.gov.implementation_interlock
 
+      # 步骤 336（G19.2 P0 M-a g19.p0.m_a.frame_generation_host_realization；
+      # post-interlock 实测 CI_step.next_free=336 顺位领取）。
+      - name: G19.2 M-a frame generation host realization verify-latest
+        shell: powershell
+        run: py -3 ci/g19_frame_generation_host_realization_smoke.py --verify-latest
+
+      # 步骤 337（G19.2 波聚合门 g19.wave.2.exit）。
+      - name: G19.2 wave exit verify-latest (g19.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g19_wave_exit_check.py --gate g19.wave.2.exit
+
+      # 步骤 338（G19.2 P0 M-b g19.p0.m_b.frame_generation_vendor_disposition）。
+      - name: G19.2 M-b frame generation vendor disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g19_frame_generation_vendor_disposition_smoke.py --verify-latest
+
+      # 步骤 339（G19.3 波聚合门 g19.wave.3.exit）。
+      - name: G19.3 wave exit verify-latest (g19.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g19_wave_exit_check.py --gate g19.wave.3.exit
+
+      # 步骤 340（G19.3 P0 M-c g19.p0.m_c.rd045_drift_observation_window）。
+      - name: G19.3 M-c RD-045 drift observation window verify-latest
+        shell: powershell
+        run: py -3 ci/g19_rd045_drift_observation_window_smoke.py --verify-latest
+
+      # 步骤 341（G19.4 波聚合门 g19.wave.4.exit）。
+      - name: G19.4 wave exit verify-latest (g19.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g19_wave_exit_check.py --gate g19.wave.4.exit
+
+      # 步骤 342（G19.4 P0 M-d g19.p0.m_d.fps_parity_window_registration）。
+      - name: G19.4 M-d fps parity window registration verify-latest
+        shell: powershell
+        run: py -3 ci/g19_fps_parity_window_registration_smoke.py --verify-latest
+
+      # 步骤 343（G19.5 波聚合门 g19.wave.5.exit）。
+      - name: G19.5 wave exit verify-latest (g19.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g19_wave_exit_check.py --gate g19.wave.5.exit
+
+      # 步骤 344（G19.4 P0 M-e g19.p0.m_e.closed_gate_no_regression）。
+      - name: G19.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g19_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 345（G19.6 波聚合门 g19.wave.6.exit）。
+      - name: G19.6 wave exit verify-latest (g19.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g19_wave_exit_check.py --gate g19.wave.6.exit
+
+      # 步骤 346（G19.5 P2 穷举 g19.wave.5a.decisions）。
+      - name: G19.5 P2 decisions verify-latest (g19.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g19_p2_decisions_check.py --verify-latest
+
+      # 步骤 347（G19.5 soak g19.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G19.5 stabilization soak verify-latest (g19.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g19_stabilization_soak.py --verify-latest
+
+      # 步骤 348（G19.6 close-out g19.wave.6b.closeout）。
+      - name: G19.6 close-out verify-latest (G19_CONTRACT G-G19-6, g19.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g19_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

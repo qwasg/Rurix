@@ -127,3 +127,26 @@ D-G19-1：PLAN/CONTRACT/CI_GATES/g19_budget.json + G19_CANDIDATE_DECISIONS + G19
 - **事实门全绿**：G18 closed + tag `g18-closed` + G19.0 不可变 ref `9dda737bca0b2026f1e9672c5e70f6b807c172b9`；候选表 14 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 335 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g19_interlock_check.py --gate g19.gov.implementation_interlock` VERDICT=READY（evidence/g19_interlock_check_20260824T145212Z.json）；治理三门 333/334/335 PASS（`g19_acceptance_map_check` 20260824T145202Z / `g19_candidate_decisions_check` 20260824T145203Z / `g19_interlock_check`）。
 - **解锁**：`implementation_status: blocked → unlocked`。G19.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G19.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G19-6 前置：P2 穷举决策门（g19.wave.5a.decisions，步骤 346，VERDICT=PASS）+ 稳定门 soak（g19.wave.5a.soak，步骤 347，8/8 facts VERDICT=PASS——63 迭代 wall=1832.1s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G19_P2_DECISIONS.md` 穷举闭集 **14 行零空行**（§1 九行：closed-go 1〔G13-N7〕 + defer-to-G20+ 8；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open——RD-045 观察窗 history 只追加）；汇总 closed-go 6 + defer-to-G20+ 8。
+- **② soak 定盘**：`py -3 ci/g19_stabilization_soak.py --gate` → VERDICT=PASS 8/8（evidence/g19_stabilization_soak_20260824T161628Z.json）——M-d 前置绿 + **wall=1832.1s ≥1800s + 63 迭代零失败（fails=0/63，含 FG 独立层车道穿插 12 次复跑）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（evidence/g19_p2_decisions_check_20260824T154542Z.json）；budget_eval --strict 275 pass 零 skip 零 estimated；cargo test -p rurix-render --lib 481 passed 0 failed（framegen 6 测 + hzb 5 测 + restir_reservoir 5 测新增全绿）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G19.5 P2/soak 波）`。
+
+### §8.7 G19.6 close-out 终审签署块（2026-08-24）——G-G19-6 字面兑现：close-out 终审门（g19.wave.6b.closeout，步骤 348）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g19-closed`
+
+- **① 终审八 facts 逐条（evidence/g19_wave6b_closeout_20260824T161658Z.json）**：
+  1. **five_p0_evidence_green = PASS**（M-a~M-e 五 P0 最新 evidence host_section_pass 全真）。
+  2. **p2_exhaustive_zero_empty = PASS**（14 行零空行）。
+  3. **fg_realization_chain = PASS**（g19_frame_gen_probe：×2/×3/×4 三档逐帧 SSIM(interp)>SSIM(frame-hold)〔min_margin +0.0166〕+ 双跑位级 + 口径恒等式）。
+  4. **rfc_0036_archived = PASS**（RFC-0036 approved-implemented；RFC-0035 重判记录只追加在档）。
+  5. **old_gates_no_regression = PASS**（M-e G18 链零降级全绿）。
+  6. **rd_open_maintained = PASS**（RD-045 open + G19.3 观察窗 history：canonical 160 帧 12/12 中锚零漂移）。
+  7. **soak_ge_1800_zero_fail = PASS**（161628Z：63 迭代 wall=1832.1s ≥1800s 零失败）。
+  8. **closeout_ready = PASS**（VERDICT=READY）。
+- **② 终审命令逐字输出**：`py -3 ci/g19_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：帧生成独立层字面兑现——**M-a host 参考臂 implemented**（G13-N7 兑现，G18 唯一 M 级 defer 消化；真实渲染帧率口径 0-byte，presented 独立登记面）；**M-b vendor 三臂 disposition**（fsr3_fg rejected / dlss_g not_available / sl_310_6_0 not_available——均有 rationale + 证据锚，310.5.2 生产默认维持）；**M-c RD-045 观察窗 maintain-open**（12/12 零漂移，backfill 三件未全齐不冒充 close）；**M-d fps 窗登记 17/18 诚实红 carry**（终判归 G25）；M-e 旧门零降级全绿。**rejected/not-available/maintain-open/诚实红均为合法收口态**；G20 承接锚齐备（M61 重判窗 HZB 半边预制件已在树：geometry/hzb.rs 5 测全绿）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g19-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G19 战役第一期收口）`。

@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g18_wave9b_closeout",
+  "symbolic_gate_key": "g18.wave.9b.closeout",
+  "matrix_row": "G18.9",
+  "wave": "G18.9",
+  "numeric_step": 332,
+  "source_ref": "G18_CONTRACT G-G18-9",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "nine_p0_evidence_green",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "p2_exhaustive_zero_empty",
+      "status": "PASS",
+      "detail": "g18_p2_decisions_check_20260824T132800Z.json"
+    },
+    {
+      "id": "fps_reeval_chain",
+      "status": "PASS",
+      "detail": "g18_m_f_fps_parity_reeval_20260824T132703Z.json"
+    },
+    {
+      "id": "rfc_0033_archived",
+      "status": "PASS",
+      "detail": "0033-g18-light-quality-presentation-dual-profile.md"
+    },
+    {
+      "id": "rfc_0034_archived",
+      "status": "PASS",
+      "detail": "0034-virtualized-geometry-p3-mesh-shader.md"
+    },
+    {
+      "id": "rfc_0035_archived",
+      "status": "PASS",
+      "detail": "0035-frame-generation-independent-layer.md"
+    },
+    {
+      "id": "old_gates_no_regression",
+      "status": "PASS",
+      "detail": "g18_m_i_closed_gate_no_regression_20260824T150833Z.json host=True"
+    },
+    {
+      "id": "rd_open_maintained",
+      "status": "PASS",
+      "detail": "RD 条目 open 维持（§2 只读）"
+    },
+    {
+      "id": "soak_ge_1800_zero_fail",
+      "status": "PASS",
+      "detail": "g18_stabilization_soak_20260824T135718Z.json"
+    },
+    {
+      "id": "closeout_ready",
+      "status": "PASS",
+      "detail": "VERDICT=READY"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T150833Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18.9 closeout 八 facts VERDICT=READY"
+}

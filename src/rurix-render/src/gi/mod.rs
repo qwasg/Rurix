@@ -63,6 +63,10 @@ pub mod multi_light;
 pub mod path_trace;
 pub mod pipeline;
 pub mod probe;
+// G21.2 波（RFC-0038）：ReSTIR DI 高档 reservoir host 参考臂——M100-high
+// 重判条件「高档 reservoir 证据齐备」的证据产出面（WRS/RIS + 时域合并；
+// multi_light 低档生产默认档与其 fail-closed 登记面 0-byte 不接线）。
+pub mod restir_reservoir;
 pub mod sh;
 pub mod spg_rc;
 pub mod surface_cache;

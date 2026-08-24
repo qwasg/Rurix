@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g19_m_b_frame_generation_vendor_disposition",
+  "symbolic_gate_key": "g19.p0.m_b.frame_generation_vendor_disposition",
+  "matrix_row": "G19.2",
+  "wave": "G19.2",
+  "numeric_step": 338,
+  "source_ref": "G19_CONTRACT §4.2;G19_ACCEPTANCE_MAP §1 M-b 行;RFC-0036;RFC-0032 v0.3",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "vendor_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g19\\g19_vendor_sdk_registry.json"
+    },
+    {
+      "id": "three_arms_closed_set",
+      "status": "PASS",
+      "detail": "arms=['dlss_g', 'fsr3_fg', 'sl_310_6_0']（闭集 fsr3_fg/dlss_g/sl_310_6_0）"
+    },
+    {
+      "id": "dispositions_legal_with_rationale",
+      "status": "PASS",
+      "detail": "逐臂 disposition 合法 + rationale + reeval_anchor 齐"
+    },
+    {
+      "id": "host_reference_arm_implemented",
+      "status": "PASS",
+      "detail": "host 参考臂 = implemented（RFC-0036 兑现面）"
+    },
+    {
+      "id": "sl_disposition_evidence_backed",
+      "status": "PASS",
+      "detail": "SL-310.6.0 臂级不可用有 G17.3 双臂探针实测件（reject_version_swap）"
+    },
+    {
+      "id": "rfc_0036_and_review_archived",
+      "status": "PASS",
+      "detail": "RFC-0036 + 对抗评审在档"
+    },
+    {
+      "id": "baseline_310_5_2_maintained",
+      "status": "PASS",
+      "detail": "310.5.2 生产默认维持（G17-MB-F1 兜底字面 0-byte）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T150750Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G19.2 M-b：RFC-0035 重判兑现——vendor 三臂 disposition（三态均合法终态）+ host 参考臂 implemented"
+}

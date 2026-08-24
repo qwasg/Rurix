@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g19_m_c_rd045_drift_observation_window",
+  "symbolic_gate_key": "g19.p0.m_c.rd045_drift_observation_window",
+  "matrix_row": "G19.3",
+  "wave": "G19.3",
+  "numeric_step": 340,
+  "source_ref": "G19_CONTRACT §4.2;G19_ACCEPTANCE_MAP §1 M-c 行;registry/deferred.json RD-045",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "observation_results_present",
+      "status": "PASS",
+      "detail": "milestones\\g19\\g19_rd045_observation_results.json"
+    },
+    {
+      "id": "rounds_ge_12",
+      "status": "PASS",
+      "detail": "rounds_ok=12/12（要求 ≥12 全 ok）"
+    },
+    {
+      "id": "digest_trace_vs_anchor",
+      "status": "PASS",
+      "detail": "anchor_hits=12/12 drift_rounds=[]"
+    },
+    {
+      "id": "disposition_legal_honest",
+      "status": "PASS",
+      "detail": "disposition=maintain-open-with-extended-zero-recurrence（close/maintain-open 均合法；不冒充）"
+    },
+    {
+      "id": "rd045_history_appended",
+      "status": "PASS",
+      "detail": "RD-045 history 含 G19.3 观察窗只追加登记"
+    },
+    {
+      "id": "rd045_status_honest",
+      "status": "PASS",
+      "detail": "RD-045 status=open（根因未逐字定位 → maintain-open 不冒充 close）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T154303Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G19.3 M-c：RD-045 长窗观察兑现（bistro-interior/t50/tsr_device ≥12 轮 digest 锚对拍）"
+}

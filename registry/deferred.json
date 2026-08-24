@@ -1415,6 +1415,11 @@
           "date": "2026-08-22",
           "event": "G14plus G14.10 帧循环重构波缓解登记（RFC-0030 §4.2;agent 完全自主 D-406 v2.0）:候选根因面结构性消除——TSR 并入场景统一 DeviceFrameSession 单 session 四 pass（消『TSR 输入 host 再上传 + 独立 session 逐帧建面调度』候选根因面,b75c773d/e2d84cd3/df6c985d 三批）+ 生产帧关回读（readback_subset=[],消异步拷贝竞争窗）+ SSBO DEVICE_LOCAL 驻留（消 host-visible 内存跨 PCIe 读写竞争面）;G14.8 基线 N=20 双跑 drift=0/20 在案 + flip-trace 诊断臂在树（backfill_condition 字面动作兑现);根因未逐字定位（间歇 ~0.6%/run 事件重构后未复现——观察窗不足以 closed,维持 open 长窗观察归 G15+/G16+,G14.12 soak full-run ≥1800s 为下一观察点",
           "evidence": "milestones/g14/G14PLUS_RECORD.md §4 G14.10 波记录 / evidence/g14_m_c_rurix_pipeline_perf_*（G14.12 复跑将产 double_run_bitexact 新证）"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G19.3 M-c 长窗观察窗兑现登记（agent 完全自主 D-406 v3.0）:bistro-interior/t50/tsr_device canonical 160 帧口径连续 12 轮真跑（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1），逐轮 receipt last_frame_digest 对 G14.12 程序重收割锚 12/12 全中、零漂移（walls 62.65~99.05s）——G14.10 结构性消除后零复现观察面再扩展（G18 soak 49 迭代 + G19 本窗 12 轮 + G19 soak 待续）;根因未逐字定位，backfill_condition 三件（定位+修复+Full RFC 评估）未全齐不冒充 close → maintain-open + 本 history 只追加登记;disposition = maintain-open-with-extended-zero-recurrence",
+          "evidence": "milestones/g19/g19_rd045_observation_results.json（12 轮逐轮 digest 轨迹）"
         }
       ],
       "owner_milestone": "G14(登记;RD-045 间歇漂移修复项存续——G16+ 生产化缺陷修复窗承接)",

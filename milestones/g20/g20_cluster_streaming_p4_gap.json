@@ -1,0 +1,17 @@
+{
+  "schema": "rurix.g20.cluster_streaming_p4_gap.v1",
+  "description": "RD-039 cluster 流送 P4 分项差距闭集（M-b 评估 disposition 唯一消费面）：streaming/ 现面（页式流送 pool/feedback/engine/resource，G5 RFC-0016 章 C 页式面）vs P4 目标（Nanite 式 cluster 页驻留流送）。",
+  "current_surface": {
+    "modules": ["streaming/pool.rs", "streaming/feedback.rs", "streaming/engine.rs", "streaming/resource.rs"],
+    "capability": "纹理/资源页式流送（RXPL 页 ABI + 反馈驱动驻留），几何 cluster 页流送零实现"
+  },
+  "gap_rows": [
+    {"id": "P4-1", "gap": "cluster 页磁盘布局与驻留池（RXPL v2 页 ABI 的 cluster 载荷扩展）", "status": "open", "anchor": "后续期 device 波（RD-039 长线）"},
+    {"id": "P4-2", "gap": "GPU 请求反馈链（剔除 pass 产 cluster 缺页请求 → host 驻留调度）", "status": "open", "anchor": "依赖 HZB device 化（RFC-0037 out-of-scope 登记面）"},
+    {"id": "P4-3", "gap": "LOD cut 与驻留联动（cut 选择受驻留集约束的回退语义）", "status": "open", "anchor": "后续期；现 LOD cut 全驻留假设维持"},
+    {"id": "P4-4", "gap": "异步 IO 优先级链（近处/大屏占比 cluster 优先）", "status": "open", "anchor": "后续期；现页式流送优先级面复用评估"}
+  ],
+  "disposition": "defer",
+  "disposition_basis": "P4 四行差距全 open：cluster 页流送依赖 HZB device 化与剔除 pass 反馈链（本期 HZB 仅 host 参考臂）；现 streaming 页式面 0-byte 维持——defer 合法终态（RD-039 history 承接，不冒充实现）",
+  "reeval_anchor": "HZB device 化落地 + 剔除 pass 反馈链出现（RD-039 长线窗）"
+}

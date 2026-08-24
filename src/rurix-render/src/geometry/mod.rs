@@ -14,6 +14,9 @@
 
 pub mod cull;
 pub mod gpu_layout;
+// G20.2 波（RFC-0037）：HZB 层级深度金字塔遮挡剔除 host 参考臂——兑现本头注
+// 「HZB 两阶段 P3 预留」第一阶段 host 面（保守零假阳性硬不变量 + 双跑位级）。
+pub mod hzb;
 pub mod gpu_scene;
 pub mod material_pass;
 // G9.3 波:蒙皮 host 参照(M92 RXS-0353)+ VisibleClusterSet 单源真相

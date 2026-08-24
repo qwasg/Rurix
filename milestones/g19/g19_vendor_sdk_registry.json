@@ -1,0 +1,28 @@
+{
+  "schema": "rurix.g19.vendor_sdk_registry.v1",
+  "baseline": "external/streamline-2.10.3（SL 310.5.2 生产默认维持，G17-MB-F1 兜底字面）",
+  "arms": {
+    "fsr3_fg": {
+      "disposition": "rejected",
+      "sdk_on_tree": "external/fidelityfx-sdk-2.0.0",
+      "reason": "FSR3 FG 固有依赖 DX12 present/frameinterpolation swapchain 代理面；Rurix 生产车道为 Vulkan compute headless（RFC-0032 v0.3 终态 = defer，Vulkan interop 生产默认维持），本窗拒绝集成；帧生成独立层语义由 host 参考臂兑现（RFC-0036 §1.1）",
+      "reeval_anchor": "G25 全量终审窗，或 D3D12 宿主车道 implement 态出现（RFC-0032 重判条件命中）"
+    },
+    "dlss_g": {
+      "disposition": "not_available",
+      "reason": "DLSS-G 需 D3D12 swapchain 宿主车道；RFC-0032 v0.3 终态 = defer（宿主差可分离 measured 证据不可得，Vulkan interop 生产默认维持）——宿主车道不在树，臂级不可用",
+      "reeval_anchor": "RFC-0032 重判条件命中（宿主差可分离 measured 证据出现：NGX 分解 profiling 或 UE 侧插桩）"
+    },
+    "sl_310_6_0": {
+      "disposition": "not_available",
+      "reason": "G17.3 M-b 双臂探针实测臂级不可用：SL 2.10.3 sl.dlss.dll 加载 nvngx_dlss.dll 310.6.0 → NGX 报 DLSSContext is not available（milestones/g17/g17_mb_ngx_probe_results.json adoption_verdict = reject_version_swap，B 臂 arm_unavailable=true）；无新版 Streamline interposer 候选在树，310.5.2 生产默认维持",
+      "reeval_anchor": "新版 Streamline interposer 发布并在树后按换版程序面重评（G17-MB-F1 兜底：换版程序面争议时按只追加程序重判）"
+    }
+  },
+  "host_reference_arm": {
+    "disposition": "implemented",
+    "evidence": "evidence/g19_frame_gen_probe_20260824T150117Z.json",
+    "rfc": "rfcs/0036-frame-generation-realization.md",
+    "summary": "FG/MFG host 参考臂三档（×2/×3/×4）全绿：逐帧 SSIM(interp)>SSIM(frame-hold) 程序产对照阈 + 双跑位级 digest + 两口径账目恒等式（真实渲染帧率禁计生成帧）"
+  }
+}

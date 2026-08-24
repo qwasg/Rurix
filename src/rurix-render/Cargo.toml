@@ -290,5 +290,15 @@ name = "g14_3_pipeline_perf"
 path = "src/bin/g14_3_pipeline_perf.rs"
 required-features = ["vendor-upscale"]
 
+# G19.2 M-a FG/MFG 帧生成独立层 host 参考臂 probe(RFC-0036;门
+# g19.p0.m_a.frame_generation_host_realization):temporal/framegen host 实现
+# (mv 双向 warp + 遮挡感知混合 + MFG ×2/×3/×4)对解析式 GT 全帧率序列——
+# 逐帧程序产对照阈 SSIM(interp)>SSIM(frame-hold) + 双跑位级 digest + 两口径
+# 账目恒等式(真实渲染帧率禁计生成帧,presented 独立登记面)。纯 host 确定性
+# 面(无 device 依赖,故无 required-features)。
+[[bin]]
+name = "g19_frame_gen_probe"
+path = "src/bin/g19_frame_gen_probe.rs"
+
 [lints]
 workspace = true

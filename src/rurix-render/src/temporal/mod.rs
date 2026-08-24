@@ -20,6 +20,7 @@ pub mod abi;
 pub mod cas;
 pub mod common;
 pub mod contract;
+pub mod framegen;
 pub mod image;
 pub mod ssim;
 pub mod taa;
