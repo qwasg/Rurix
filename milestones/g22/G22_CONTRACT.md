@@ -62,7 +62,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G22 = 战役第四期：RD-041 材质/流送/时域长线的分项深化——slab 分层材质语义参考面实现 + SVT/KTX2/Work Graphs/FSR 四分项机器取证处置。
 
-G22.0 不可变 ref = `G22_0_REF_PENDING`（G21 close-out flip commit，tag `g21-closed`）。
+G22.0 不可变 ref = `0a4b1df397ed79ab30380fe0b12a822027a18d78`（G21 close-out flip commit，tag `g21-closed`）。
 
 ## 2. 范围与波次
 
