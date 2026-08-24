@@ -1,7 +1,7 @@
 ---
 contract: G24
 title: G24 呈现与尾门清理期（毛发精确 OIT 重判 + HDR 标定重判 + BistroExterior 转换臂复查 + SAFE-GPU/历史 RD 清册）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g24_presentation_tail_gate_cleanup
 version: v1.0
