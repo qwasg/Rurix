@@ -1,0 +1,33 @@
+{
+  "schema": "rurix.g23.jolt_adoption_registry.v1",
+  "description": "M125-adopt3 采纳臂三件重判登记（M-a 唯一消费面）。",
+  "evaluation_arm": {
+    "crate": "src/rurix-physics-sys56",
+    "upstream": "JoltC@2982004 + JoltPhysics v5.6.0（VENDOR56.md 全字段 provenance）",
+    "isolation": "JPC56_/JPH56 符号隔离，与 5.3 基线 rurix-physics-sys 并存同进程零冲突",
+    "ab_evidence": "evidence/g9_m125_jolt_56_ab_evaluation_*.json（G9.6 两臂诚实登记 checks 闭集绿件，只读盘点禁 --gate 重跑）"
+  },
+  "three_pieces": [
+    {
+      "id": "ADOPT-1",
+      "name": "升格裁决（A/B 证据面）",
+      "state": "evidence-fresh",
+      "basis": "g9_m125 A/B 绿件在案 + sys56 构建新鲜真跑（cargo check）——评估臂存续可用"
+    },
+    {
+      "id": "ADOPT-2",
+      "name": "生产默认切换（5.3→5.6 flip）",
+      "state": "condition-not-met",
+      "basis": "需求证据三类机器可核面全空：①5.6 独有 API 生产代码零引用（rurix-physics 只消费 sys 5.3 绑定面）②5.3 已知缺陷零命中（uc08/物理门全绿零 workaround）③A/B measured 性能差在 M125 绿件登记带内无超带证据——flip 无据"
+    },
+    {
+      "id": "ADOPT-3",
+      "name": "5.3 退役程序（pin 退役 + 审计迁移）",
+      "state": "blocked-on-adopt-2",
+      "basis": "ADOPT-2 未成立 ⇒ 退役程序不启动"
+    }
+  ],
+  "verdict": "maintain-5.3",
+  "verdict_basis": "采纳三件成立条件 1/3（仅证据新鲜面）；生产切换需求证据面全空 ⇒ maintain-5.3 生产默认（VENDOR.md pin 0-byte）+ sys56 评估臂存续；RFC-0040 §1.1 程序字面",
+  "reeval_anchor": "需求证据三类任一命中（5.6 独有 API 引用 / 5.3 缺陷命中 / A/B 超带 measured）"
+}

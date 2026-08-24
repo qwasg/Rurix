@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g22_m_d_work_graphs_fsr_reeval_disposition",
+  "symbolic_gate_key": "g22.p0.m_d.work_graphs_fsr_reeval_disposition",
+  "matrix_row": "G22.3",
+  "wave": "G22.3",
+  "numeric_step": 390,
+  "source_ref": "G22_CONTRACT §4.2;G22_ACCEPTANCE_MAP §1 M-d 行;RD-041",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "wg_probe_present",
+      "status": "PASS",
+      "detail": "milestones\\g22\\g22_work_graphs_probe_results.json"
+    },
+    {
+      "id": "work_graphs_verdict_measured",
+      "status": "PASS",
+      "detail": "Work Graphs Vulkan 车道 = not-available（VK_AMDX_shader_enqueue 扩展枚举实测）"
+    },
+    {
+      "id": "dgc_surface_measured",
+      "status": "PASS",
+      "detail": "DGC 设备三扩展 = available + dgc.rs M102 抽象层现面在树（GPU-driven 提交载体）"
+    },
+    {
+      "id": "fsr_sdk_on_tree",
+      "status": "PASS",
+      "detail": "fidelityfx-sdk-2.0.0（FSR 3.1.5 集成基线）在树"
+    },
+    {
+      "id": "fsr_reeval_maintain",
+      "status": "PASS",
+      "detail": "FSR 第二超分臂重评 = maintain 3.1.5（无新版 SDK 在树；G13.2 集成面 0-byte）"
+    },
+    {
+      "id": "disposition_honest",
+      "status": "PASS",
+      "detail": "Work Graphs 裁决 = not-available（Vulkan 车道 AMDX absent 实测；D3D12 车道 RFC-0032 defer 终态维持）——不冒充"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T174722Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G22.3 M-d：Work Graphs not-available 实测 + DGC 现面 + FSR maintain"
+}

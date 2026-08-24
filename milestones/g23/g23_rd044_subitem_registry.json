@@ -1,0 +1,28 @@
+{
+  "schema": "rurix.g23.rd044_subitem_registry.v1",
+  "description": "RD-044 物理 P3+ 三分项处置闭集（M-d 唯一消费面）。",
+  "subitems": [
+    {
+      "id": "JOLT-SOFT",
+      "name": "Jolt 软体/布料/流体生产化",
+      "disposition": "defer",
+      "basis": "现生产 workload（uc08 刚体 demo + 渲染主线）零软体需求；Jolt 5.3 SoftBody API 在绑定面未暴露（按需扩绑定为先决）",
+      "reeval_anchor": "软体/布料需求场景入 workload（角色布料/破坏效果需求证据）"
+    },
+    {
+      "id": "TAICHI-MPM",
+      "name": "Taichi MPM·体积场生产 external-import",
+      "disposition": "defer",
+      "basis": "G6.5 spike 最低判据在案；生产 import 需离线烘焙链 + 体积场消费方（大气/水体现面为解析式非 MPM）",
+      "reeval_anchor": "体积模拟资产需求成立（MPM 烘焙序列消费方出现）"
+    },
+    {
+      "id": "RAPIER-FAST",
+      "name": "Rapier 快路径深造",
+      "disposition": "maintain-no-go",
+      "basis": "M126 measured 在案转引：canonical 大堆叠 A/B 同 determinism 画像，Jolt step 中位 40400ns vs Rapier 197900ns——Rapier 臂无 measured 优势；条件字面「快路径被真实 workload 采用时」未变",
+      "reeval_anchor": "Rapier 上游快路径重构发布 + 真实 workload 采用证据"
+    }
+  ],
+  "summary": "defer 2 + maintain-no-go 1（各附 basis + reeval_anchor；RD-044 open 维持，history 只追加登记）"
+}

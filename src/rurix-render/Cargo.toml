@@ -316,5 +316,13 @@ path = "src/bin/g20_hzb_probe.rs"
 name = "g21_restir_probe"
 path = "src/bin/g21_restir_probe.rs"
 
+# G22.2 M-a slab 材质能量守恒 host 参考臂 probe(RFC-0039;门
+# g22.p0.m_a.slab_material_host_realization):material/slab 128×128 参数网格
+# 白炉审计(白炉恒等/能量上界/单调/闭式↔级数+尾和恒等式/lerp 连续)+ 双跑
+# 位级。纯 host 确定性面。
+[[bin]]
+name = "g22_slab_probe"
+path = "src/bin/g22_slab_probe.rs"
+
 [lints]
 workspace = true

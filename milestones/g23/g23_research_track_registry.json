@@ -1,0 +1,39 @@
+{
+  "schema": "rurix.g23.research_track_registry.v1",
+  "description": "RD-042/RD-043 研究轨处置闭集（M-c 唯一消费面）。",
+  "tracks": [
+    {
+      "id": "RD042-NEWTON",
+      "rd": "RD-042",
+      "name": "Newton 可微物理",
+      "disposition": "maintain-observe",
+      "basis": "可微物理研究轨与渲染主线零交集；无生产消费方；上游活跃存续",
+      "reeval_anchor": "可微仿真需求场景出现（训练/优化 loop 消费方）"
+    },
+    {
+      "id": "RD042-GENESIS",
+      "rd": "RD-042",
+      "name": "Genesis 生成式物理平台",
+      "disposition": "maintain-observe",
+      "basis": "同上；平台形态与 Rurix 引擎库面无接口交集",
+      "reeval_anchor": "同 RD042-NEWTON"
+    },
+    {
+      "id": "RD042-MUJOCO-WARP",
+      "rd": "RD-042",
+      "name": "MuJoCo Warp",
+      "disposition": "maintain-observe",
+      "basis": "同上；Warp 生态为 Python DSL 面（上一项目终止结论的宿主形态）",
+      "reeval_anchor": "同 RD042-NEWTON"
+    },
+    {
+      "id": "RD043-WGRAPIER",
+      "rd": "RD-043",
+      "name": "wgrapier GPU 刚体",
+      "disposition": "maintain-observe",
+      "basis": "GPU 主刚体为 out_of_scope 否决项（G6 契约）；Jolt CPU 刚体 measured 优势在案（M126 40400ns vs Rapier 197900ns）；wgrapier 生态早期",
+      "reeval_anchor": "GPU 刚体 out_of_scope 否决被新立项程序翻转 + wgrapier 生产成熟度证据"
+    }
+  ],
+  "summary": "四轨全 maintain-observe（各附 basis + reeval_anchor；RD-042/RD-043 open 维持，history 只追加登记）"
+}

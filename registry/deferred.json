@@ -1353,6 +1353,11 @@
           "date": "2026-08-19",
           "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：G13-N7 帧生成 FG/MFG 分项——**G14 重评窗结论 = 不立项**：G13 超分接入面稳定条件命中（M-a/M-b 门绿 + G13.5a soak 409 迭代零失败在案），但 G14 帧率通过线 = 真实渲染帧率（用户 2026-08-19 指令「帧率对标UE5略高（不降级画质）」字面——生成帧不计入真实渲染帧率口径，FG 面混淆对标语义）；FG/MFG 独立层立项 = 商用收口后独立期面（G15+ 重评窗顺延，承接锚字面 0-byte）；FSR/DirectSR 分项兑现完结维持（G13.2 M-a closed-go 登记字面 0-byte）；M28/M40-svt/M26-fg/M05-mv/M56-wg 维持 no-go 留档；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 G13-N7 行 + §2 RD-041 行 / milestones/g14/G14_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-24",
+          "event": "G22.2~G22.3 材质/流送/时域四分项处置窗登记（agent 完全自主 D-406 v3.0）:①Substrate 类 slab 分项——能量守恒混合语义 host 参考臂实现（material/slab.rs 白炉审计 16641 样本白炉恒等 dev=0/能量上界/单调/闭式恒等式 1e-15 + g22_slab_probe 绿件）;②SVT 分项 defer（四行差距闭集 g22_svt_gap.json——虚拟纹理地址空间/GPU 反馈 pass 零实现,现闭集无需求证据）;③KTX2-BasisU 分项 defer（三行差距闭集 g22_ktx2_disposition.json——现 DDS 链覆盖全纹理面,分发收益前提不成立）;④Work Graphs 分项 not-available 实测（vulkaninfo VK_AMDX_shader_enqueue absent 取证 g22_work_graphs_probe_results.json;DGC 三扩展 available + dgc.rs M102 现面为 GPU-driven 提交载体）+ FSR 3.1.5 第二超分臂重评 maintain（无新版 SDK 在树）;RD-041 维持 open",
+          "evidence": "evidence/g22_slab_probe_*.json / milestones/g22/g22_svt_gap.json / milestones/g22/g22_ktx2_disposition.json / milestones/g22/g22_work_graphs_probe_results.json"
         }
       ]
     },

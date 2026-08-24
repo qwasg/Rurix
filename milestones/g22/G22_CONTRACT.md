@@ -2,7 +2,7 @@
 contract: G22
 title: G22 材质/流送/时域期（slab 材质 host 参考臂 + SVT/KTX2/Work Graphs/FSR 分项处置）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g22_material_streaming_temporal
 version: v1.0
 date: 2026-08-24
@@ -117,3 +117,24 @@ D-G22-1：PLAN/CONTRACT/CI_GATES/g22_budget.json + G22_CANDIDATE_DECISIONS + G22
 6. 先优化后测试：G22.2~G22.3 纯实现；G22.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G22-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G21 closed + tag `g21-closed` + G22.0 不可变 ref `0a4b1df397ed79ab30380fe0b12a822027a18d78`；候选表 11 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 383 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g22_interlock_check.py --gate g22.gov.implementation_interlock` VERDICT=READY；治理三门 381/382/383 PASS（治理批 commit e304a275 落盘时 front matter 尚 blocked——本解锁记录与 flip 随实现批补落，符合 C2 双态一致性：解锁记录 ⇔ unlocked）。
+- **解锁**：`implementation_status: blocked → unlocked`。G22.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G22.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G22-6 前置：P2 穷举决策门（g22.wave.5a.decisions，步骤 394，VERDICT=PASS）+ 稳定门 soak（g22.wave.5a.soak，步骤 395，8/8 facts VERDICT=PASS——69 迭代 wall=1846.2s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G22_P2_DECISIONS.md` 穷举闭集 **11 行零空行**（§1 六行 defer-to-G23+ 6；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open——RD-041 四分项处置 history 只追加）。
+- **② soak 定盘**：`py -3 ci/g22_stabilization_soak.py --gate` → VERDICT=PASS 8/8——M-d 前置绿 + **wall=1846.2s ≥1800s + 69 迭代零失败（含 slab 白炉审计车道穿插 13 次复跑）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS；budget_eval --strict 283 pass 零 skip 零 estimated；cargo test -p rurix-render --lib 486 passed 0 failed。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G22.5 P2/soak 波）`。
+
+### §8.7 G22.6 close-out 终审签署块（2026-08-24）——G-G22-6 字面兑现：close-out 终审门（g22.wave.6b.closeout，步骤 396）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g22-closed`
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / slab_realization_chain（白炉恒等 dev=0 + 恒等式 1e-15 + 双跑位级）/ rfc_0039_archived / old_gates_no_regression / rd_open_maintained（RD 八条 open；RD-041 history 只追加）/ soak_ge_1800_zero_fail / closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g22_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决**：材质/流送/时域字面兑现——**M-a slab 能量守恒参考臂 implemented**（RD-041 slab 分项兑现：白炉恒等 dev=0、能量上界 16641 样本、单调、恒等式 1e-15、lerp 连续、双跑位级；closure 单层生产面 0-byte）；**M-b SVT defer**（四行差距闭集）；**M-c KTX2-BasisU defer**（三行差距闭集，DDS 链维持）；**M-d Work Graphs not-available 实测**（AMDX absent）+ DGC available 实测 + FSR maintain；M-e 旧门零降级全绿。**defer/not-available/maintain 均为合法收口态**；G23 承接锚齐备（Jolt 5.6 评估臂/M127 重判窗）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g22-closed`。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G22 战役第四期收口）`。

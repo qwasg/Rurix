@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "subject": "g22_wave3_exit",
+  "symbolic_gate_key": "g22.wave.3.exit",
+  "matrix_row": "G22.3",
+  "wave": "G22.3",
+  "numeric_step": 387,
+  "source_ref": "G22_CONTRACT §2",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "required_m_gate_latest_pass",
+      "status": "PASS",
+      "detail": "g22_m_b_svt_disposition"
+    },
+    {
+      "id": "guards_pass",
+      "status": "PASS",
+      "detail": "[0, 0, 0]"
+    },
+    {
+      "id": "budget_eval_pass",
+      "status": "PASS",
+      "detail": "0"
+    },
+    {
+      "id": "aggregate_read_only",
+      "status": "PASS",
+      "detail": "只读聚合"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T174737Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G22 wave 3 exit"
+}

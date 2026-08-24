@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g22_m_c_ktx2_basisu_disposition",
+  "symbolic_gate_key": "g22.p0.m_c.ktx2_basisu_disposition",
+  "matrix_row": "G22.3",
+  "wave": "G22.3",
+  "numeric_step": 388,
+  "source_ref": "G22_CONTRACT §4.2;G22_ACCEPTANCE_MAP §1 M-c 行;RD-041",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "disposition_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g22\\g22_ktx2_disposition.json"
+    },
+    {
+      "id": "gap_rows_closed_set",
+      "status": "PASS",
+      "detail": "gap_rows=['KTX2-1', 'KTX2-2', 'KTX2-3']（闭集三行）"
+    },
+    {
+      "id": "gap_rows_complete",
+      "status": "PASS",
+      "detail": "逐行 gap/anchor/status 齐"
+    },
+    {
+      "id": "disposition_legal",
+      "status": "PASS",
+      "detail": "disposition=defer（basis 在档）"
+    },
+    {
+      "id": "dds_chain_current_surface",
+      "status": "PASS",
+      "detail": "G11.3 DDS 转码 manifest 现面实测在树（0-byte 只读消费）"
+    },
+    {
+      "id": "dds_chain_maintained",
+      "status": "PASS",
+      "detail": "DDS 转码链维持生产默认（KTX2 收益前提〔分发面〕不成立如实登记）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T174722Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G22.3 M-c：KTX2-BasisU 分项 disposition=defer（DDS 链维持）"
+}

@@ -1,0 +1,103 @@
+{
+  "schema": "rurix.g24.legacy_rd_registry.v1",
+  "description": "历史 open/inherited RD 十一条清册逐条重判闭集（M-d 唯一消费面；backfill 条件字面逐条核验，close 仅当字面成立）。",
+  "entries": [
+    {
+      "id": "RD-007",
+      "title_digest": "const 泛型值运行期单态化",
+      "current_status": "inherited",
+      "backfill_check": "接通点（运行期单态化消费方）出现——G19~G24 渲染/物理主线零 const 泛型运行期单态化需求，接通点未出现",
+      "disposition": "maintain-inherited",
+      "reeval_anchor": "语言面 const 泛型运行期需求成立（编译器主线窗）"
+    },
+    {
+      "id": "RD-011",
+      "title_digest": "DXIL A 路 LLVM PSV patch（dev-only 偏差）",
+      "current_status": "open",
+      "backfill_check": "上游 merge + D-205 pin bump——LLVM 上游 #90504/#57928 未见 merge 信号（RD-015 同源跟踪面），pin bump 无据",
+      "disposition": "maintain-open",
+      "reeval_anchor": "LLVM 上游 merge + pin bump 窗（与 RD-015 联动）"
+    },
+    {
+      "id": "RD-012",
+      "title_digest": "DXIL mesh/task/RT 阶段合规降级",
+      "current_status": "open",
+      "backfill_check": "mesh/task 分量已兑现（RX6008 改接在案）；RT 分量已转 RD-034（G21.3 复查 = 上游仍拒 raygen）——残余面全部由 RD-034 承载",
+      "disposition": "maintain-open",
+      "reeval_anchor": "RD-034 解锁时同窗收口（尾项合并评估）"
+    },
+    {
+      "id": "RD-014",
+      "title_digest": "图形=B 转译链供应链跟踪（SPIRV-Cross/dxc/glslang pin）",
+      "current_status": "open",
+      "backfill_check": "供应链 pin 跟踪为存续型条目（非一次性 backfill）；本窗 pin 面 0-byte 无漂移",
+      "disposition": "maintain-open",
+      "reeval_anchor": "任一上游 pin bump 需求出现（安全公告/功能依赖）"
+    },
+    {
+      "id": "RD-015",
+      "title_digest": "图形分支 B 迁回 A 跟踪（LLVM #90504/#57928）",
+      "current_status": "open",
+      "backfill_check": "长期上游跟踪；两 issue 未见解决信号（RD-011 联动）",
+      "disposition": "maintain-open",
+      "reeval_anchor": "LLVM 上游任一 issue 关闭"
+    },
+    {
+      "id": "RD-026",
+      "title_digest": "std::gpu 首期收敛子集外宿主编排面",
+      "current_status": "open",
+      "backfill_check": "硬需求按 10 §3 判档接通——G19~G24 渲染主线经 rurix-rt 库面编排，std::gpu 扩面硬需求未出现",
+      "disposition": "maintain-open",
+      "reeval_anchor": "宿主编排硬需求成立（第三方消费面）"
+    },
+    {
+      "id": "RD-027",
+      "title_digest": "UC-07 生产档路径追踪毒径挂起（疑 PTX 工具链缺陷）",
+      "current_status": "open",
+      "backfill_check": "MR-0011 护栏（RURIXC_PTXAS_OPT）在案存续；PTX 工具链侧无新版本验证窗（CUDA 驱动 pin 0-byte）",
+      "disposition": "maintain-open",
+      "reeval_anchor": "CUDA 工具链 pin bump 窗（护栏复测）"
+    },
+    {
+      "id": "RD-030",
+      "title_digest": "rxrt_launch ABI 字节回归测试",
+      "current_status": "open",
+      "backfill_check": "后续里程碑补齐型条目；G19~G24 未触 rxrt_launch ABI 面（渲染主线 vk 腿），字节回归缺口存续如实",
+      "disposition": "maintain-open",
+      "reeval_anchor": "rxrt_launch ABI 触改面出现（CUDA 腿演进窗）"
+    },
+    {
+      "id": "RD-032",
+      "title_digest": "swapchain/present 平台 surface 尾项",
+      "current_status": "open",
+      "backfill_check": "win32/Android 已 discharge 在案；余量平台面（其余 surface 后端）无目标平台需求",
+      "disposition": "maintain-open",
+      "reeval_anchor": "新目标平台立项"
+    },
+    {
+      "id": "RD-033",
+      "title_digest": "EA1 冷启动 A 段（干净 Win11 VM）measured 补测",
+      "current_status": "open",
+      "backfill_check": "owner-dependent（需人备 VM）——agent 侧不可自动化，维持如实",
+      "disposition": "maintain-open",
+      "reeval_anchor": "用户提供干净 VM 环境窗"
+    },
+    {
+      "id": "RD-036",
+      "title_digest": "C ABI v2 超界硬需求存续（struct 按值/回调/数组按值）",
+      "current_status": "open",
+      "backfill_check": "判档条件（超界硬需求）未成立——G19~G24 FFI 面（vendor/Jolt/SL）均在 v1 包络内",
+      "disposition": "maintain-open",
+      "reeval_anchor": "超界 FFI 需求成立（判档程序）"
+    },
+    {
+      "id": "SAFE-GPU",
+      "title_digest": "Safe GPU Operator Platform 独立期立项评估（非 RD 条目，G17 承接池行）",
+      "current_status": "open-defer",
+      "backfill_check": "独立期立项判据 = 专属资源窗 + 平台需求方——G9~G24 均为渲染对标主线期，独立期资源窗不存在；平台需求方（外部采纳生态）未出现",
+      "disposition": "defer-to-G25+",
+      "reeval_anchor": "G25 战役终审窗归档处置（战役后路线重排窗点名）"
+    }
+  ],
+  "summary": "maintain-open 9 + maintain-inherited 1 + defer-to-G25+ 1（SAFE-GPU）；零 close（backfill 字面无一成立——诚实清册不冒充）"
+}

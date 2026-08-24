@@ -3970,6 +3970,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g22_interlock_check.py --gate g22.gov.implementation_interlock
 
+      # 步骤 384（G22.2 P0 M-a g22.p0.m_a.slab_material_host_realization；
+      # post-interlock 实测 CI_step.next_free=384 顺位领取）。
+      - name: G22.2 M-a slab material host realization verify-latest
+        shell: powershell
+        run: py -3 ci/g22_slab_material_host_realization_smoke.py --verify-latest
+
+      # 步骤 385（G22.2 波聚合门 g22.wave.2.exit）。
+      - name: G22.2 wave exit verify-latest (g22.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g22_wave_exit_check.py --gate g22.wave.2.exit
+
+      # 步骤 386（G22.2 P0 M-b g22.p0.m_b.svt_disposition）。
+      - name: G22.2 M-b SVT disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g22_svt_disposition_smoke.py --verify-latest
+
+      # 步骤 387（G22.3 波聚合门 g22.wave.3.exit）。
+      - name: G22.3 wave exit verify-latest (g22.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g22_wave_exit_check.py --gate g22.wave.3.exit
+
+      # 步骤 388（G22.3 P0 M-c g22.p0.m_c.ktx2_basisu_disposition）。
+      - name: G22.3 M-c KTX2-BasisU disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g22_ktx2_basisu_disposition_smoke.py --verify-latest
+
+      # 步骤 389（G22.4 波聚合门 g22.wave.4.exit）。
+      - name: G22.4 wave exit verify-latest (g22.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g22_wave_exit_check.py --gate g22.wave.4.exit
+
+      # 步骤 390（G22.3 P0 M-d g22.p0.m_d.work_graphs_fsr_reeval_disposition）。
+      - name: G22.3 M-d Work Graphs/FSR reeval verify-latest
+        shell: powershell
+        run: py -3 ci/g22_work_graphs_fsr_reeval_disposition_smoke.py --verify-latest
+
+      # 步骤 391（G22.5 波聚合门 g22.wave.5.exit）。
+      - name: G22.5 wave exit verify-latest (g22.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g22_wave_exit_check.py --gate g22.wave.5.exit
+
+      # 步骤 392（G22.4 P0 M-e g22.p0.m_e.closed_gate_no_regression）。
+      - name: G22.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g22_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 393（G22.6 波聚合门 g22.wave.6.exit）。
+      - name: G22.6 wave exit verify-latest (g22.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g22_wave_exit_check.py --gate g22.wave.6.exit
+
+      # 步骤 394（G22.5 P2 穷举 g22.wave.5a.decisions）。
+      - name: G22.5 P2 decisions verify-latest (g22.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g22_p2_decisions_check.py --verify-latest
+
+      # 步骤 395（G22.5 soak g22.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G22.5 stabilization soak verify-latest (g22.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g22_stabilization_soak.py --verify-latest
+
+      # 步骤 396（G22.6 close-out g22.wave.6b.closeout）。
+      - name: G22.6 close-out verify-latest (G22_CONTRACT G-G22-6, g22.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g22_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

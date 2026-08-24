@@ -1,0 +1,17 @@
+{
+  "schema": "rurix.g22.work_graphs_probe.v1",
+  "started_utc": "20260824T174503Z",
+  "tool_available": true,
+  "work_graphs_tokens": {
+    "VK_AMDX_shader_enqueue": false
+  },
+  "dgc_tokens": {
+    "VK_EXT_device_generated_commands": true,
+    "VK_NV_device_generated_commands": true,
+    "VK_NV_device_generated_commands_compute": true
+  },
+  "work_graphs_verdict": "not-available",
+  "dgc_verdict": "available",
+  "dgc_host_surface": "src/rurix-rt/src/dgc.rs（M102 DGC 抽象层 token 闭集 + 装配期核验）",
+  "log_path": ".tmp/g22_md/vulkaninfo.log"
+}

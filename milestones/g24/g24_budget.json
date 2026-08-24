@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g24",
+  "description": "G24 预算面。baseline = G24.0 Stage A digest 锚在档快检 + 历史 open RD 清册行数实测。",
+  "source_docs": ["milestones/g24/G24_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g24.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G24.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g24_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g24.baseline.legacy_rd_count.count",
+      "description": "G24.0 baseline 历史 open/inherited RD 清册行数（期望 11/11 全数在册）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 11.0,
+      "evidence_file": "evidence/g24_baseline_legacy_rd_count.json",
+      "measured_value": 11.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
