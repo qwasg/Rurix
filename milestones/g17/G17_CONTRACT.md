@@ -1,7 +1,7 @@
 ---
 contract: G17
 title: G17 DLSS 性能缺口收口期（G15-MD-F1 字面兑现）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g17_full_campaign
 version: v1.0
@@ -205,6 +205,22 @@ RD-034/039/040/041/042/043/044/045 八条 open 维持（条目级 status 0-byte�
 - **② soak 定盘**：`py -3 ci/g17_stabilization_soak.py --gate g17.wave.7a.soak` → VERDICT=PASS 8/8（evidence/g17_stabilization_soak_20260824T103430Z.json）——M-d 终判在档前置绿（两态均合法字面）+ **wall=1914.487s ≥1800s + 49 迭代零失败（fails=0/49）+ active==wall drift=0.000（谎报秒数交叉核验）+ 零 sleep** + dlss_sr 车道迭代体（bistro/cornell t100 + tsr/fsr 轮换双场景默认臂 32 帧真跑）。
 - **③ 命令输出**：P2 门 → VERDICT=PASS 25 facts（evidence/g17_p2_decisions_check_20260824T100216Z.json）；soak → VERDICT=PASS 8 facts；pytest 142 passed 零回归；budget_eval --strict 269 pass 零 skip。
 - **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Claude Fable 5（G17.7a P2 + soak 波）`（影响范围：G17_P2_DECISIONS.md v1.0 落盘 + P2/soak 双门真跑；deferred.json 0-byte 零新 RD；验证方式：块③逐字命令输出）。
+
+### §8.7 G17.7b close-out 终审签署块（2026-08-24）——G-G17-9 字面兑现：close-out 终审门（g17.wave.7b.closeout，步骤 308）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g17-closed`
+
+- **① 终审八 facts 逐条（evidence/g17_wave7b_closeout_20260824T103606Z.json）**：
+  1. **five_p0_evidence_green = PASS**（M-a 083524Z 10/10 + M-b 091311Z 10/10 + M-c 091333Z 10/10 + M-d 095624Z 11/11 + M-e 095834Z 18/18——五 P0 最新 evidence host_section_pass 全真）。
+  2. **p2_exhaustive_zero_empty = PASS**（P2 门 100216Z 25 facts——穷举闭集 21 行零空行：closed-go 5 + defer-to-G18+ 16）。
+  3. **final_verdict_chain_complete = PASS**（终判 verdict=unmet_honest_registered，**ratio 终值 0.856326** evidence JSON 字段直取——**维持未达标登记不冒充（17/18）**，兜底字面与 G15 同源，两态均合法收口 G-G17-9 字面兑现）。
+  4. **rfc_0032_terminal_state_archived = PASS**（RFC-0032 Agent Approved 在树 + M-c 终态 = defer——approved-implement/no-go/defer 三态均合法终态字面兑现）。
+  5. **old_gates_no_regression = PASS**（M-e 18/18——G16 九门子进程 + 六 latest + G15 M-d 诚实红终态维持面 + g17_ 前缀零抢占 + 禁 --gate）。
+  6. **rd_eight_open = PASS**（RD-034/039/040/041/042/043/044/045 条目级 status 全 open，零新 RD max=RD-045）。
+  7. **soak_ge_1800_zero_fail = PASS**（103430Z：49 迭代 wall=1914.487s ≥1800s 零失败，active==wall drift=0.000；budget_eval --strict 269 pass 零 skip 零 estimated）。
+  8. **closeout_ready = PASS**（VERDICT=READY）。
+- **② 终审命令逐字输出（2026-08-24 真跑留痕，仓库根目录）**：`py -3 ci/g17_closeout_check.py --gate g17.wave.7b.closeout` → **VERDICT=READY，exit=0**。守卫：check_structure PASS（11 dirs, 6 files）+ check_schemas PASS + check_number_ledger PASS（v1.163 CI_step on_tree_max=308/next_free=309）+ budget_eval --strict 269 pass 零 skip + pytest 142 passed 零回归；治理三门（acceptance_map 12 facts / candidate_decisions 32 facts / interlock READY）全绿在案。
+- **③ 收口裁决（G-G17-9 逐字兑现面）**：G15-MD-F1 承接锚三件套字面全要素兑现完结（① 双端同协议复测与暖态重标定 = M-a；② NGX 版本演进面对齐评估 = M-b〔310.6.0 在 SL 2.10.3 pin 下 DLSSContext 兼容性不可用，拒绝换版如实登记，in-stream 分解 A 臂 2.224ms 新鲜留档〕；③ 车道架构面 D3D12 宿主 NGX = M-c〔RFC-0032 Full RFC 经 D-409 对抗评审 Agent Approved，§5 决策树终态 = defer 分支③留档，单 device 化结构性 no-go 维持〕）+ P2 穷举 21 行零空行 + 终判维持未达标登记（17/18，本格五轮 ratio 0.7966~0.9810 期窗定盘——G15 物理不可达定论在本窗环境下维持，兜底字面逐字兑现）。**两种结局均允许 close 的字面下，本期终局 = 维持未达标登记不冒充**；G18+ 承接锚三面齐备（SL 运行时升级换版程序〔G17-MB-F1〕/ 宿主差可分离证据〔RFC-0032 v0.3〕/ UE 暖态包络演进重标定〔M-a 包络条目〕）。G13/G15/G16 冻结面 0-byte；`--gi off` 默认臂 0-byte；坐标尺度 0-byte；G14 M-d 门判据/锚/协议 0-byte（全程只消费复跑件）；src 终态 0-byte（X2 探针撤除复核）。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g17-closed`（沿 `g15-closed`/`g16-closed` 先例，guardrail 基准链切换）。
+- **⑤ 签署块**：白栀（依 10 §7 / P-13 / D-406 v3.0 agent 完全自主签署）。`Assisted-by: Cursor Claude Fable 5（G17 一次性收口战役）`。
 
 ### §8.2 G17.2 M-a 双端复测与暖态重标定波验收记录（2026-08-24，不收口）
 
