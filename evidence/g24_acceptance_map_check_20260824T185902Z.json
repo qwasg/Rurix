@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "subject": "g24_acceptance_map_check",
+  "symbolic_gate_key": "g24.wave.1.acceptance_map",
+  "matrix_row": "G24.1",
+  "wave": "G24.1",
+  "numeric_step": 413,
+  "source_ref": "G24_CONTRACT G-G24-1/§4.2;G24_ACCEPTANCE_MAP.md §1/§2/§4/§5;G23_P2_DECISIONS.md §1 defer-to-G25+ 九行 + G23_CONTRACT.md §8.7 承接锚 + 用户战役指令（帮我一次性完成G19-G25）P0 清单 M-a~M-e",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "coverage_p0_set",
+      "status": "PASS",
+      "detail": "got ['M-a', 'M-b', 'M-c', 'M-d', 'M-e']; expect ['M-a', 'M-b', 'M-c', 'M-d', 'M-e']"
+    },
+    {
+      "id": "coverage_p1_empty",
+      "status": "PASS",
+      "detail": "§2 零 go P1 空集（G24.1 字面）"
+    },
+    {
+      "id": "row_M-a",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "two_way_M-a",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M-b",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "two_way_M-b",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M-c",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "two_way_M-c",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M-d",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "two_way_M-d",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M-e",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "two_way_M-e",
+      "status": "PASS",
+      "detail": "ok"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T185902Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G24.1 治理门——验收映射覆盖/空行/双向命名空间一致性：5 P0（M-a~M-e）闭集全等 + §2 零 go P1 空集 + key/脚本/schema 单一命名空间同 slug + numeric_step 全列 post-interlock 字面零预占 + MAP §1 ↔ CONTRACT §4.2 判据/波次双向逐字一致；本门 PASS 只表示映射完整，不表示任何 P0 能力已实现"
+}

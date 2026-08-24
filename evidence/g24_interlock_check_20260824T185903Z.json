@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g24_interlock_check",
+  "symbolic_gate_key": "g24.gov.implementation_interlock",
+  "matrix_row": "G24.1",
+  "wave": "G24.1",
+  "numeric_step": 415,
+  "source_ref": "G24_CONTRACT G-G24-2/§6/§7;G24_ACCEPTANCE_MAP §5/§6;registry/number_ledger.json;registry/deferred.json",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "fact_gate_1_prior_milestone_closed",
+      "status": "PASS",
+      "detail": "state=GREEN——① G23_CONTRACT status = 'closed'（要求 closed）且 close-out 签署块在位 = True；G24.0 不可变 ref 2e3e8ae2d1f59a0752ad66ab359bd77512e69d18 登记 = True"
+    },
+    {
+      "id": "fact_gate_2_governance_docs",
+      "status": "PASS",
+      "detail": "state=GREEN——② 决策表/ deferred/ 验收映射三面：候选决策表 9 行零空行；deferred history 只追加（vs G24.0 base 四字段 0-byte）；验收映射 §1 五行 P0 + §2 零 go P1 空集无缺行"
+    },
+    {
+      "id": "fact_gate_3_instruction_ledger",
+      "status": "PASS",
+      "detail": "state=GREEN——③ 用户 G24.2 开工指令留痕（「帮我一次性完成G19-G25」字面） = True；workflow 实测末号 = 415、ledger CI_step on_tree_max = 415、next_free = 416（一致 = True；治理三门步骤 413~415 workflow/ledger 接线面在树 = True）"
+    },
+    {
+      "id": "fact_gate_4_governance_gates_pass",
+      "status": "PASS",
+      "detail": "state=GREEN——④ G24.1 治理两门独立 PASS（g24.wave.1.acceptance_map + g24.wave.1.candidate_decisions 实测 run_check 全绿）= True"
+    },
+    {
+      "id": "consistency_gates_green",
+      "status": "PASS",
+      "detail": "C1~C4 全绿"
+    },
+    {
+      "id": "verdict_honest",
+      "status": "PASS",
+      "detail": "VERDICT=READY 与事实门真值一致（READY ⇔ 事实门全绿；CLOSED ⇔ status closed）"
+    },
+    {
+      "id": "verdict_recorded",
+      "status": "PASS",
+      "detail": "VERDICT=READY 字面入档（evidence notes 同字面）"
+    },
+    {
+      "id": "blocked_not_masqueraded",
+      "status": "PASS",
+      "detail": "VERDICT=READY：事实门全绿机器事实（不以叙述替代）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T185903Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G24.1 治理门——实现互锁 validator 诚实报告：VERDICT=READY（READY 是当前正确结论：事实门①~④全绿——G23 closed + 治理文档三面 + 战役开工指令留痕与共享编号校准 + 治理两门独立 PASS，G24.2 开工面开放）；一致性门 C1~C4 全绿；--require-ready 供 G24.2 实现 PR 前置 required check"
+}

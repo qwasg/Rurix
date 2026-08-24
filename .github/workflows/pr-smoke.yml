@@ -4118,6 +4118,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g23_closeout_check.py --verify-latest
 
+      # 步骤 413（G24.1 治理门 acceptance_map g24.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=413 顺位领取）。
+      - name: G24.1 acceptance map (G24_CONTRACT G-G24-1, g24.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g24_acceptance_map_check.py --gate g24.wave.1.acceptance_map
+
+      # 步骤 414（G24.1 治理门 candidate_decisions g24.wave.1.candidate_decisions）。
+      - name: G24.1 candidate decisions (G24_CONTRACT G-G24-1, g24.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g24_candidate_decisions_check.py --gate g24.wave.1.candidate_decisions
+
+      # 步骤 415（G24 实现互锁 g24.gov.implementation_interlock）。
+      - name: G24 implementation interlock (G24_CONTRACT G-G24-2, g24.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g24_interlock_check.py --gate g24.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

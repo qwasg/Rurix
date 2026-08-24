@@ -2,7 +2,7 @@
 contract: G24
 title: G24 呈现与尾门清理期（毛发精确 OIT 重判 + HDR 标定重判 + BistroExterior 转换臂复查 + SAFE-GPU/历史 RD 清册）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g24_presentation_tail_gate_cleanup
 version: v1.0
 date: 2026-08-24
@@ -64,7 +64,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G24 = 战役第六期：G18 承接池最后四行（M114-strand/M118-hdr-cal/G10-N6/SAFE-GPU）机器取证重判 + 历史 open RD 全量清册逐条重判（G25 全量终审前的尾门清理）。
 
-G24.0 不可变 ref = `G24_0_REF_PENDING`（G23 close-out flip commit，tag `g23-closed`）。
+G24.0 不可变 ref = `2e3e8ae2d1f59a0752ad66ab359bd77512e69d18`（G23 close-out flip commit，tag `g23-closed`）。
 
 ## 2. 范围与波次
 
@@ -119,3 +119,9 @@ D-G24-1：PLAN/CONTRACT/CI_GATES/g24_budget.json + G24_CANDIDATE_DECISIONS + G24
 6. 先优化后测试：G24.2~G24.3 纯实现；G24.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G24-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G23 closed + tag `g23-closed` + G24.0 不可变 ref `2e3e8ae2d1f59a0752ad66ab359bd77512e69d18`；候选表 9 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 415 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g24_interlock_check.py --gate g24.gov.implementation_interlock` VERDICT=READY；治理三门 413/414/415 PASS。
+- **解锁**：`implementation_status: blocked → unlocked`。G24.2+ 实现波（M-a~M-e）现可开工。

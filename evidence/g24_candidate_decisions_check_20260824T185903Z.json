@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g24_candidate_decisions_check",
+  "symbolic_gate_key": "g24.wave.1.candidate_decisions",
+  "matrix_row": "G24.1",
+  "wave": "G24.1",
+  "numeric_step": 414,
+  "source_ref": "G24_CONTRACT G-G24-1/§6/§7;G24_CANDIDATE_DECISIONS.md v1.0;G24_ACCEPTANCE_MAP §1/§2;G23_P2_DECISIONS.md §1（承接锚法定输入）+ G23_CONTRACT.md §8.7;registry/deferred.json（RD 八条目级 status open 机核）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "sec1_closed_set",
+      "status": "PASS",
+      "detail": "§1 4/4 行"
+    },
+    {
+      "id": "sec3_closed_set",
+      "status": "PASS",
+      "detail": "§3 5/5 行"
+    },
+    {
+      "id": "zero_empty_rows",
+      "status": "PASS",
+      "detail": "14 行全列非空"
+    },
+    {
+      "id": "decision_enum_legal",
+      "status": "PASS",
+      "detail": "裁决枚举合法（defer-to-G25+ 不再合法）"
+    },
+    {
+      "id": "anchor_discipline",
+      "status": "PASS",
+      "detail": "承接锚「重判条件/兜底」纪律齐"
+    },
+    {
+      "id": "defer_rows_g2x_window",
+      "status": "PASS",
+      "detail": "defer 行承接锚含 G2x 期别窗字面"
+    },
+    {
+      "id": "go_rows_map_anchor",
+      "status": "PASS",
+      "detail": "go 行验收映射锚义务齐"
+    },
+    {
+      "id": "sec2_rd_closed_set",
+      "status": "PASS",
+      "detail": "§2 8/4 行"
+    },
+    {
+      "id": "rd_status_open_machine",
+      "status": "PASS",
+      "detail": "RD 八条目级 status 全 open（机核）"
+    },
+    {
+      "id": "no_new_rd",
+      "status": "PASS",
+      "detail": "deferred max=RD-045（要求 RD-045 零新 RD）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T185903Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G24.1 治理门——候选决策表 14 行闭集（§1 九行 + §3 五行）+ 裁决枚举合法（defer 合法值 = defer-to-G25+ 点名期别）+ 零空行 + 承接锚纪律 + defer 行 G2x 窗 + go 行验收映射锚 + §2 RD 八条 status open 机核 + 零新 RD；只读文档与 registry，不代绿实现门"
+}
