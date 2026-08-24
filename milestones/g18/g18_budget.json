@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g18",
+  "description": "G18 预算面。baseline = G18.0 治理波 Stage A digest 快检 + G16 M-g 最新绿件确认；threshold = measured × 2.0 程序产宽上界守护（非通过线）。",
+  "source_docs": ["milestones/g18/G18_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g18.baseline.stage_a_digest_guard.pass_count",
+      "description": "G18.0 baseline Stage A 18 格 digest 锚快检通过格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g18_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g18.baseline.g16_m_g_closure.met_count",
+      "description": "G18.0 baseline G16 M-g 商用画质 closure matrix 达标格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g18_baseline_g16_m_g_closure_met.json",
+      "measured_value": 18.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

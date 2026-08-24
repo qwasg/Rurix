@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g18.1 candidate decisions check evidence",
+  "description": "evidence/g18_candidate_decisions_check_<UTC>.json。g18.1 治理门 g18.wave.1.candidate_decisions（ci/g18_candidate_decisions_check.py 写；普通检查门非聚合门，required_gates 空）：候选决策表 25 行闭集（§1 G16 defer-to-g18+ 承接 15 行 = 十四行 defer-to-G18+ + G15-MD-F1 go 主承接；§3 g18-N1~N4 新增 4 行全 go；§2 RD 映射 8 行维持 open 不重复计入三值枚举）——裁决枚举合法（go/closed-go/no-go/defer-to-G18+/strategic_override，g18 即本期 defer-to-g18+ 不再合法）/零空行/承接锚纪律（「重判条件 = …；兜底 = …」字面零缺项；§1 原触发条件字面转引含「→」分节）+ defer 行 G18+ 重评窗字面 + go 行验收映射锚义务 + closed-go 行 evidence/ 真跑件义务 + MAP 5 key 互斥 + deferred 对账（RD 八条目级 status 全 open，零新 RD max=RD-045）；no-go/defer 如实保持 open 不写进全绿叙述。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g18_candidate_decisions_check" },
+    "symbolic_gate_key": { "type": "string", "const": "g18.wave.1.candidate_decisions" },
+    "matrix_row": { "type": "string", "const": "G18.1" },
+    "wave": { "type": "string", "const": "G18.1" },
+    "numeric_step": { "type": "integer", "description": "落盘前实测 CI_step.next_free=293 顺位领取（本门 310）" },
+    "source_ref": {
+      "type": "string",
+      "const": "G18_CONTRACT G-G18-1/§6/§7;G18_CANDIDATE_DECISIONS.md v1.0;G18_ACCEPTANCE_MAP §1/§2;G17_P2_DECISIONS.md §3（承接锚法定输入）+ G17_CONTRACT.md §8.7;registry/deferred.json（RD 八条目级 status open 机核）"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 34,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
+

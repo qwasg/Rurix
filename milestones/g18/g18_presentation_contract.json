@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "description": "G18 presentation 出图契约（夜/日双 profile；G13 冻结契约 0-byte 加性面）",
+  "converged_frames_min": 128,
+  "profiles": {
+    "night": {
+      "tonemap": "aces13",
+      "ev_offset": 0.0,
+      "bloom_strength": 0.15,
+      "scenes": {
+        "cornell-box": { "ev100_delta": 0.0 },
+        "bistro-interior": { "ev100_delta": 1.5, "warm_lift": 0.08 }
+      }
+    },
+    "day": {
+      "tonemap": "aces13",
+      "ev_offset": 0.0,
+      "bloom_strength": 0.08,
+      "scenes": {
+        "cornell-box": { "ev100_delta": 0.0 },
+        "bistro-interior": { "ev100_delta": 2.0, "sun_intensity": 1.0, "sky_intensity": 0.6 }
+      }
+    }
+  }
+}

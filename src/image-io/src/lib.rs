@@ -199,9 +199,91 @@ pub type ImageResult<T> = Result<T, ImageError>;
 pub fn encode<P: Pixel>(buf: &ImageBuffer<P>, fmt: ImageFormat) -> ImageResult<Vec<u8>> {
     match fmt {
         ImageFormat::Ppm => Ok(encode_ppm(buf)),
-        // PNG 为加性后续(RXS-0115);本轮以库层错误值表达,不分配 RX 段位。
-        ImageFormat::Png => Err(ImageError::UnsupportedFormat),
+        ImageFormat::Png => encode_png(buf),
     }
+}
+
+/// PNG CRC32（IEEE 多项式；RFC 2083 / PNG spec）。
+fn crc32(data: &[u8]) -> u32 {
+    let mut crc: u32 = 0xffff_ffff;
+    for &b in data {
+        crc ^= u32::from(b);
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                0xedb8_8320 ^ (crc >> 1)
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
+}
+
+fn png_chunk(tag: &[u8; 4], data: &[u8], out: &mut Vec<u8>) {
+    out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+    out.extend_from_slice(tag);
+    out.extend_from_slice(data);
+    let mut chk = Vec::with_capacity(4 + data.len());
+    chk.extend_from_slice(tag);
+    chk.extend_from_slice(data);
+    out.extend_from_slice(&crc32(&chk).to_be_bytes());
+}
+
+/// zlib stored deflate（BTYPE=00）包裹 raw 字节；分块 ≤65535。
+fn zlib_stored(raw: &[u8]) -> Vec<u8> {
+    let mut out = vec![0x78, 0x01]; // CMF/FLG 低压缩
+    let mut off = 0usize;
+    while off < raw.len() {
+        let remain = raw.len() - off;
+        let take = remain.min(65535);
+        let final_block = off + take >= raw.len();
+        out.push(if final_block { 1 } else { 0 });
+        let len = take as u16;
+        out.extend_from_slice(&len.to_le_bytes());
+        out.extend_from_slice(&(!len).to_le_bytes());
+        out.extend_from_slice(&raw[off..off + take]);
+        off += take;
+    }
+    out.extend_from_slice(&crc32(raw).to_be_bytes());
+    out
+}
+
+/// PNG RGB8 无损编码（filter 0 逐行；确定性）。
+fn encode_png<P: Pixel>(buf: &ImageBuffer<P>) -> ImageResult<Vec<u8>> {
+    let w = buf.width;
+    let h = buf.height;
+    if w == 0 || h == 0 {
+        return Err(ImageError::WriteFailed("PNG 空图像".into()));
+    }
+    let mut raw = Vec::with_capacity((1 + w as usize * 3) * h as usize);
+    for y in 0..h {
+        raw.push(0); // filter none
+        for x in 0..w {
+            let i = y as usize * w as usize + x as usize;
+            let [r, g, b] = buf.pixels[i].to_rgb8();
+            raw.push(r);
+            raw.push(g);
+            raw.push(b);
+        }
+    }
+    let ihdr = {
+        let mut v = Vec::with_capacity(13);
+        v.extend_from_slice(&w.to_be_bytes());
+        v.extend_from_slice(&h.to_be_bytes());
+        v.push(8); // bit depth
+        v.push(2); // color type RGB
+        v.push(0); // compression
+        v.push(0); // filter
+        v.push(0); // interlace
+        v
+    };
+    let idat = zlib_stored(&raw);
+    let mut png = Vec::new();
+    png.extend_from_slice(b"\x89PNG\r\n\x1a\n");
+    png_chunk(b"IHDR", &ihdr, &mut png);
+    png_chunk(b"IDAT", &idat, &mut png);
+    png_chunk(b"IEND", &[], &mut png);
+    Ok(png)
 }
 
 /// PPM P6 确定编码(RXS-0116):规范化 header `"P6\n{w} {h}\n255\n"` + 行主序
@@ -337,10 +419,8 @@ mod tests {
         let ppm = encode(&buf, ImageFormat::Ppm);
         assert!(ppm.is_ok());
         assert!(!ppm.unwrap().is_empty());
-        assert_eq!(
-            encode(&buf, ImageFormat::Png),
-            Err(ImageError::UnsupportedFormat)
-        );
+        let png = encode(&buf, ImageFormat::Png).unwrap();
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
     }
 
     //@ spec: RXS-0116

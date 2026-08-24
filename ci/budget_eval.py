@@ -338,6 +338,18 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # G16plus M-g 收口标定四条目（GI on vs 新 UE；不改 g15_budget / 不改 M-c 四条目）。
         eval_g13_dual_seed(entry)
         return
+    if eid.startswith("g18.baseline."):
+        mv = entry.get("measured_value")
+        if mv is None:
+            err(f"{eid}: measured_value 缺失")
+            return
+        threshold = entry.get("threshold")
+        direction = entry.get("direction", "min")
+        ok = mv >= threshold if direction == "min" else mv <= threshold
+        (PASSES if ok else ERRORS).append(
+            f"{eid}: {'PASS' if ok else 'FAIL'} — {mv} vs {direction} {threshold}"
+        )
+        return
     if eid.startswith(("g17.baseline.dual_end_frame_ms.", "g17.m_a.warm_ue_frame_ms.")):
         # G17.0 baseline 双端条目 + G17.2 M-a 暖态包络条目（G14 M-d evidence
         # parity.cells 提取，threshold = measured/窗 max × 2.0 程序产宽上界守护；

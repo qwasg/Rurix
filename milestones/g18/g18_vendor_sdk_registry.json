@@ -1,0 +1,7 @@
+{
+  "schema": "rurix.g18.vendor_sdk_registry.v1",
+  "disposition": "not_available",
+  "reason": "Streamline latest release download/network not verified in local run; G17-MB-F1 SL 2.10.3 pin maintained",
+  "baseline": "external/streamline-2.10.3",
+  "candidates": []
+}

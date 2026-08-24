@@ -868,6 +868,16 @@ def check_evidence_files() -> None:
     g17_wave7b_closeout_schema = load(
         ROOT / "milestones/g17/g17_wave7b_closeout_evidence_schema.json"
     )
+    g18_wave_exit_schema = load(
+        ROOT / "milestones/g18/g18_wave_exit_evidence_schema.json"
+    )
+    g18_evidence_schema_paths: dict[str, Path] = {}
+    for _gp in sorted((ROOT / "milestones/g18").glob("*_evidence_schema.json")):
+        if _gp.name == "g18_wave_exit_evidence_schema.json":
+            continue
+        _pfx = _gp.name.replace("_evidence_schema.json", "_")
+        g18_evidence_schema_paths[_pfx] = _gp
+    g18_evidence_schemas = {k: load(v) for k, v in g18_evidence_schema_paths.items()}
     g15_m_a_dual_end_quality_reharvest_schema = load(
         ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
     )
@@ -2181,6 +2191,14 @@ def check_evidence_files() -> None:
         if g17_wave7b_closeout_schema is not None
         else None
     )
+    g18_wave_exit_validator = (
+        jsonschema.Draft7Validator(g18_wave_exit_schema)
+        if g18_wave_exit_schema is not None
+        else None
+    )
+    g18_evidence_validators = {
+        k: jsonschema.Draft7Validator(s) for k, s in g18_evidence_schemas.items() if s is not None
+    }
     g15_m_a_dual_end_quality_reharvest_validator = (
         jsonschema.Draft7Validator(g15_m_a_dual_end_quality_reharvest_schema)
         if g15_m_a_dual_end_quality_reharvest_schema is not None
@@ -4853,6 +4871,20 @@ def check_evidence_files() -> None:
             # 『全包』口径外」的窗口(RXS-0265 诚实缺口纪律);步骤 75 ci/uc05_report_check.py
             # 另核该披露必须同步出现在 evidence/uc05_comparison_report.md 叙事面。
             validator = uc05_check_bench_validator
+        elif (
+            f.name.startswith(tuple(f"g18_wave{n}_exit_" for n in range(2, 11)))
+            and g18_wave_exit_validator is not None
+        ):
+            validator = g18_wave_exit_validator
+        elif f.name.startswith("g18_"):
+            _g18v = None
+            for _pfx, _val in g18_evidence_validators.items():
+                if f.name.startswith(_pfx):
+                    _g18v = _val
+                    break
+            if _g18v is None:
+                continue
+            validator = _g18v
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

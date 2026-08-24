@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g18_m_b_presentation_pipeline_dual_profile",
+  "symbolic_gate_key": "g18.p0.m_b.presentation_pipeline_dual_profile",
+  "matrix_row": "G18.2",
+  "wave": "G18.2",
+  "numeric_step": 314,
+  "source_ref": "G18_CONTRACT §4.2;G18_ACCEPTANCE_MAP §1 M-b 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "contract_dual_profile",
+      "status": "PASS",
+      "detail": "night=True day=True"
+    },
+    {
+      "id": "converged_frames_min_128",
+      "status": "PASS",
+      "detail": "converged_frames_min=128"
+    },
+    {
+      "id": "cli_presentation_profile",
+      "status": "PASS",
+      "detail": "g14_3 --presentation-profile night|day"
+    },
+    {
+      "id": "cli_export_png",
+      "status": "PASS",
+      "detail": "g14_3 --export-png 加性出图臂"
+    },
+    {
+      "id": "post_chain_wired",
+      "status": "PASS",
+      "detail": "post_chain + ACES + PNG"
+    },
+    {
+      "id": "g13_frozen_contract_0byte",
+      "status": "PASS",
+      "detail": "默认臂仍消费 milestones/g13 冻结契约（presentation 加性面不改 digest 路径）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T132701Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18.2 M-b：presentation 双 profile + PNG 出图接线"
+}

@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g18_m_e_sl_runtime_upgrade_disposition evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g18_m_e_sl_runtime_upgrade_disposition"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g18.p0.m_e.sl_runtime_upgrade_disposition"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G18.4"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G18.4"
+    },
+    "numeric_step": {
+      "type": "integer"
+    },
+    "source_ref": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "skipped_dev_env"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

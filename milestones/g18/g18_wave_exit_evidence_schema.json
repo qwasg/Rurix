@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G18 wave exit evidence (parametrized waves 2..10)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject", "symbolic_gate_key", "matrix_row", "wave",
+    "numeric_step", "source_ref", "host_section_pass", "device_section_state",
+    "required_gates", "extra_facts", "subjects", "checks",
+    "evidence_level", "run_url", "timestamp", "environment", "notes"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "subject": {
+      "type": "string",
+      "enum": [
+        "g18_wave2_exit", "g18_wave3_exit", "g18_wave4_exit", "g18_wave5_exit",
+        "g18_wave6_exit", "g18_wave7_exit", "g18_wave8_exit", "g18_wave9_exit", "g18_wave10_exit"
+      ]
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "enum": [
+        "g18.wave.2.exit", "g18.wave.3.exit", "g18.wave.4.exit", "g18.wave.5.exit",
+        "g18.wave.6.exit", "g18.wave.7.exit", "g18.wave.8.exit", "g18.wave.9.exit", "g18.wave.10.exit"
+      ]
+    },
+    "matrix_row": {
+      "type": "string",
+      "enum": ["G18.2", "G18.3", "G18.4", "G18.5", "G18.6", "G18.7", "G18.8", "G18.9", "G18.10"]
+    },
+    "wave": {
+      "type": "string",
+      "enum": ["G18.2", "G18.3", "G18.4", "G18.5", "G18.6", "G18.7", "G18.8", "G18.9", "G18.10"]
+    },
+    "numeric_step": {"type": "integer"},
+    "source_ref": {"type": "string"},
+    "host_section_pass": {"type": "boolean"},
+    "device_section_state": {"type": "string", "enum": ["not_applicable"]},
+    "required_gates": {"type": "array", "maxItems": 0},
+    "extra_facts": {"type": "array", "minItems": 4, "maxItems": 4},
+    "subjects": {"type": "array", "maxItems": 0},
+    "checks": {"type": "object"},
+    "evidence_level": {"type": "string", "const": "measured_local"},
+    "run_url": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "environment": {"type": "object"},
+    "notes": {"type": "string"}
+  }
+}

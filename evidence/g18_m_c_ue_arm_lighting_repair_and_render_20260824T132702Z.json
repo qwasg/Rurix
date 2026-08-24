@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g18_m_c_ue_arm_lighting_repair_and_render",
+  "symbolic_gate_key": "g18.p0.m_c.ue_arm_lighting_repair_and_render",
+  "matrix_row": "G18.3",
+  "wave": "G18.3",
+  "numeric_step": 316,
+  "source_ref": "G18_CONTRACT §4.2;G18_ACCEPTANCE_MAP §1 M-c 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "ue_project_present",
+      "status": "PASS",
+      "detail": "K:\\rurix-ext\\g10-ue\\G10RefRender（在档）"
+    },
+    {
+      "id": "mrq_harness_present",
+      "status": "PASS",
+      "detail": "milestones\\g13\\harness\\g13_4_ue_render.py"
+    },
+    {
+      "id": "g18_harness_dir",
+      "status": "PASS",
+      "detail": "milestones/g18/harness/"
+    },
+    {
+      "id": "g18_ue_presentation_harness",
+      "status": "PASS",
+      "detail": "夜/日 × 两场景 MRQ lane"
+    },
+    {
+      "id": "rfc_0033_archived",
+      "status": "PASS",
+      "detail": "RFC-0033 在档"
+    },
+    {
+      "id": "renderoffscreen_lane",
+      "status": "PASS",
+      "detail": "g18_ue_presentation_render rc=0（G10-N8 探测登记）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T132702Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18 M-c smoke"
+}

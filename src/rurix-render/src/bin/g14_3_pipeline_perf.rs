@@ -105,6 +105,10 @@ use image_io::exr::{
     ChromaticitiesOrigin, ExrBitDepth, ExrChannelLayout, ExrDerivation, ExrDomain, ExrImage,
     ExrMetadata, ExrSourceEnd, ExrTransfer, decode_exr, encode_exr,
 };
+use image_io::{ImageBuffer, ImageFormat, Rgb, encode as encode_image};
+use rurix_render::display::aces13::Aces13;
+use rurix_render::display::post_chain::{ExposureState, PostProcessChain};
+use rurix_render::display::view_transform::{DisplayParams, OutputEncoding};
 use rurix_render::temporal::common::{
     Mat4, compute_camera_mv, halton, look_at_rh, perspective_rh_zo,
 };
@@ -140,6 +144,10 @@ const DEFAULT_CONTRACT: &str = "milestones/g13/g13_ue_upscale_parity_contract.js
 const DEFAULT_OUT_ROOT: &str = "K:/rurix-ext/g14-frames/rurix_prod";
 const DEFAULT_SPV_SCENE: &str = ".tmp/g14_gates/m_c/g14_3_direct_gi.spv";
 const DEFAULT_SPV_GI: &str = ".tmp/g14_gates/m_c/g16_gi_multibounce.spv";
+/// G18 M-a 加性光照纵深 profile（禁动 --gi off 默认臂 SPV/digest 锚）。
+const DEFAULT_SPV_G18_LIGHT: &str = ".tmp/g14_gates/m_c/g18_light_transport_depth.spv";
+const G18_PRESENTATION_CONTRACT: &str = "milestones/g18/g18_presentation_contract.json";
+const G18_PRESENTATION_FRAMES_MIN: u32 = 128;
 // G14.9（RFC-0030 §4.5 L1）：TSR 双腿默认切换到 g14_8 调度变体 SPV（8×8 2D
 // 线程组，数学面与 g13_tsr_* 逐字同源位级不变；原 g13 kernel/SPV 0-byte 保留
 // ——G13 M-b 门消费面 + RD-045 归因对照臂，--spv-resample/--spv-resolve 可
@@ -1933,6 +1941,13 @@ fn pack_frame_params(
     }
     v.push(INV_PI);
     v.resize(PARAMS_LEN, 0.0);
+    if let Ok(s) = std::env::var("RURIX_G18_SKY_INTENSITY") {
+        if let Ok(f) = s.parse::<f32>() {
+            if f.is_finite() && f >= 0.0 {
+                v[42] = f;
+            }
+        }
+    }
     v
 }
 
@@ -4674,6 +4689,115 @@ fn write_exr(path: &Path, w: u32, h: u32, rgb: &[f32], digest: &str) -> Result<u
     Ok(bytes.len() as u64)
 }
 
+/// G18 presentation 契约面（夜/日双 profile；加性面，默认臂 0-byte）。
+struct PresentationProfile {
+    name: String,
+    ev_offset: f64,
+    ev100_delta: f64,
+    warm_lift: f64,
+}
+
+fn load_presentation_profile(profile: &str, scene_id: &str) -> Result<PresentationProfile, String> {
+    if profile != "night" && profile != "day" {
+        return Err(format!(
+            "--presentation-profile {profile}：只接受 night|day（G18 加性契约面）"
+        ));
+    }
+    let text = std::fs::read_to_string(G18_PRESENTATION_CONTRACT)
+        .map_err(|e| format!("读 {G18_PRESENTATION_CONTRACT}: {e}"))?;
+    let root = json_parse(&text)?;
+    let profiles = root
+        .get("profiles")
+        .and_then(|v| match v {
+            Json::Obj(p) => Some(p),
+            _ => None,
+        })
+        .ok_or_else(|| "presentation 契约缺 profiles".to_string())?;
+    let (_, prof) = profiles
+        .iter()
+        .find(|(k, _)| k == profile)
+        .ok_or_else(|| format!("presentation 契约缺 profile={profile}"))?;
+    let ev_offset = prof
+        .get("ev_offset")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let scenes = prof
+        .get("scenes")
+        .and_then(|v| match v {
+            Json::Obj(p) => Some(p),
+            _ => None,
+        })
+        .ok_or_else(|| format!("profile {profile} 缺 scenes"))?;
+    let (_, scene) = scenes
+        .iter()
+        .find(|(k, _)| k == scene_id)
+        .ok_or_else(|| format!("profile {profile} 缺 scene={scene_id}"))?;
+    let ev100_delta = scene
+        .get("ev100_delta")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let warm_lift = scene
+        .get("warm_lift")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    Ok(PresentationProfile {
+        name: profile.to_owned(),
+        ev_offset,
+        ev100_delta,
+        warm_lift,
+    })
+}
+
+/// converged HDR → post_chain(曝光/bloom/ACES) → PNG（G18 M-b 出图臂）。
+fn export_presentation_png(
+    rgb: &[f32],
+    w: u32,
+    h: u32,
+    profile: &PresentationProfile,
+    out_path: &Path,
+) -> Result<u64, String> {
+    let aces = Aces13::new();
+    let display = DisplayParams {
+        peak_luminance_nits: 100.0,
+        encoding: OutputEncoding::SdrBt1886,
+    };
+    let ev_target = profile.ev_offset + profile.ev100_delta;
+    let mut chain = PostProcessChain {
+        plugin: &aces,
+        params: &display,
+        exposure: ExposureState::init(0, ev_target),
+        lut_slope: [
+            1.0 + profile.warm_lift,
+            1.0,
+            1.0 - profile.warm_lift * 0.5,
+        ],
+        lut_offset: [0.0, 0.0, 0.0],
+    };
+    let hdr: Vec<[f64; 3]> = rgb
+        .chunks_exact(3)
+        .map(|px| [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])])
+        .collect();
+    let ldr = chain
+        .process(0, &hdr, w as usize)
+        .map_err(|e| format!("post_chain: {e}"))?;
+    let mut pixels = Vec::with_capacity(ldr.len() * 3);
+    for px in &ldr {
+        pixels.push(px[0].clamp(0.0, 1.0) as f32);
+        pixels.push(px[1].clamp(0.0, 1.0) as f32);
+        pixels.push(px[2].clamp(0.0, 1.0) as f32);
+    }
+    let buf = ImageBuffer::new(w, h, Rgb::new(0.0, 0.0, 0.0));
+    let mut buf = buf;
+    for (i, chunk) in pixels.chunks_exact(3).enumerate() {
+        let x = (i as u32) % w;
+        let y = (i as u32) / w;
+        buf.set(x, y, Rgb::new(chunk[0], chunk[1], chunk[2]));
+    }
+    let bytes = encode_image(&buf, ImageFormat::Png).map_err(|e| format!("PNG 编码: {e}"))?;
+    std::fs::write(out_path, &bytes).map_err(|e| format!("PNG 落盘: {e}"))?;
+    Ok(bytes.len() as u64)
+}
+
 // ---------------------------------------------------------------------------
 // JSON 出报（手写，零新依赖）
 // G14.3：g13_4 同型复制子集（bin-local 惯例）
@@ -5097,6 +5221,8 @@ fn render_leg(
     out_root: &str,
     expect_digest: Option<&str>,
     gi: &str,
+    presentation_profile: Option<&str>,
+    export_png: bool,
 ) {
     let (pre, frames) = prelude(
         scene_id,
@@ -5945,6 +6071,30 @@ fn render_leg(
         &contract.digest,
     )
     .unwrap_or_else(|e| fail(&e));
+
+    if let Some(prof_name) = presentation_profile {
+        if frames > 0 && frames < G18_PRESENTATION_FRAMES_MIN {
+            fail(&format!(
+                "--presentation-profile 要求 --frames ≥ {G18_PRESENTATION_FRAMES_MIN}（契约 converged_frames_min）"
+            ));
+        }
+        let prof = load_presentation_profile(prof_name, scene_id)
+            .unwrap_or_else(|e| fail(&e));
+        if export_png {
+            let png_path = out_dir.join(format!("presentation_{prof_name}.png"));
+            let png_bytes = export_presentation_png(&converged.data, out_w, out_h, &prof, &png_path)
+                .unwrap_or_else(|e| fail(&e));
+            eprintln!(
+                "{TAG}: presentation PNG ← {} ({} bytes, profile={}, evΔ={:.3})",
+                png_path.display(),
+                png_bytes,
+                prof.name,
+                prof.ev100_delta
+            );
+        }
+    } else if export_png {
+        fail("--export-png 须与 --presentation-profile night|day 同用（加性面禁动默认臂 receipt）");
+    }
 
     // ⑦ receipt（provenance/render_lane/timer 已在双臂分支内生成）。
     let spv_scene_sha = std::fs::read(spv_scene)
@@ -6865,6 +7015,8 @@ fn main() {
             let mut spv_resolve = DEFAULT_SPV_RESOLVE.to_owned();
             let mut out_root = DEFAULT_OUT_ROOT.to_owned();
             let mut expect_digest: Option<String> = None;
+            let mut presentation_profile: Option<String> = None;
+            let mut export_png = false;
             let mut i = 2;
             while i < args.len() {
                 match args[i].as_str() {
@@ -6895,6 +7047,10 @@ fn main() {
                     "--spv-resolve" => spv_resolve = take_arg(&args, &mut i),
                     "--out-root" => out_root = take_arg(&args, &mut i),
                     "--expect-digest" => expect_digest = Some(take_arg(&args, &mut i)),
+                    "--presentation-profile" => {
+                        presentation_profile = Some(take_arg(&args, &mut i))
+                    }
+                    "--export-png" => export_png = true,
                     other => fail(&format!("未知参数 {other}")),
                 }
                 i += 1;
@@ -6909,6 +7065,9 @@ fn main() {
             }
             if gi == "on" && spv_scene == DEFAULT_SPV_SCENE {
                 spv_scene = DEFAULT_SPV_GI.to_owned();
+            }
+            if presentation_profile.is_some() && spv_scene == DEFAULT_SPV_SCENE && gi == "off" {
+                spv_scene = DEFAULT_SPV_G18_LIGHT.to_owned();
             }
             if gltf_path.is_empty() {
                 gltf_path = default_gltf(&scene_id).to_owned();
@@ -6946,6 +7105,8 @@ fn main() {
                     &out_root,
                     expect_digest.as_deref(),
                     &gi,
+                    presentation_profile.as_deref(),
+                    export_png,
                 );
             }
         }

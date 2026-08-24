@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g18_stabilization_soak",
+  "symbolic_gate_key": "g18.wave.8a.soak",
+  "matrix_row": "G18.8",
+  "wave": "G18.8",
+  "numeric_step": 331,
+  "source_ref": "G18_CONTRACT G-G18-8",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_f_precondition",
+      "status": "PASS",
+      "detail": "g18_m_f_fps_parity_reeval_20260824T130624Z.json"
+    },
+    {
+      "id": "sleep_seconds_zero",
+      "status": "PASS",
+      "detail": "迭代间零 sleep"
+    },
+    {
+      "id": "soak_wall_clock_ge_1800",
+      "status": "PASS",
+      "detail": "wall=1821.0s"
+    },
+    {
+      "id": "iterations_nonzero",
+      "status": "PASS",
+      "detail": "iters=49"
+    },
+    {
+      "id": "failures_zero",
+      "status": "PASS",
+      "detail": "fails=0"
+    },
+    {
+      "id": "active_chain_matches_wall",
+      "status": "PASS",
+      "detail": "active=1821.0s wall=1821.0s"
+    },
+    {
+      "id": "no_sleep_between_iters",
+      "status": "PASS",
+      "detail": "sleep=0"
+    },
+    {
+      "id": "presentation_lane_unused",
+      "status": "PASS",
+      "detail": "soak 走默认 --gi off 臂"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T135718Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18 soak ≥1800s"
+}

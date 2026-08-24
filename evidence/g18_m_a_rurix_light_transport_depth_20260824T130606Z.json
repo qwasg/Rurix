@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g18_m_a_rurix_light_transport_depth",
+  "symbolic_gate_key": "g18.p0.m_a.rurix_light_transport_depth",
+  "matrix_row": "G18.2",
+  "wave": "G18.2",
+  "numeric_step": 312,
+  "source_ref": "G18_CONTRACT §4.2;G18_ACCEPTANCE_MAP §1 M-a 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "g18_kernel_source",
+      "status": "PASS",
+      "detail": "src\\rurix-render\\kernels\\g18_light_transport_depth.rx"
+    },
+    {
+      "id": "gi_multibounce_kernel",
+      "status": "PASS",
+      "detail": "RFC-0031 加性 GI 臂"
+    },
+    {
+      "id": "stage_a_digest_anchor",
+      "status": "PASS",
+      "detail": "18 格 digest 锚在档"
+    },
+    {
+      "id": "presentation_contract_dual",
+      "status": "PASS",
+      "detail": "夜/日双 profile 契约"
+    },
+    {
+      "id": "g18_kernel_compiles",
+      "status": "PASS",
+      "detail": "rc=0 spv=True"
+    },
+    {
+      "id": "default_arm_additive_discipline",
+      "status": "PASS",
+      "detail": "默认 --gi off + 无 --presentation-profile 走 g14_3_direct_gi SPV（digest 锚红线 0-byte）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T130606Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18.2 M-a：加性光照纵深 profile 面 + Stage A digest 锚纪律"
+}

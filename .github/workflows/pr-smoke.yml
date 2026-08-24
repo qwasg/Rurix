@@ -3588,6 +3588,126 @@ jobs:
         shell: powershell
         run: py -3 ci/g17_closeout_check.py --verify-latest
 
+      # 步骤 309（G18.1 治理门 acceptance_map g18.wave.1.acceptance_map）。
+      - name: G18.1 acceptance map (G18_CONTRACT G-G18-1, g18.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g18_acceptance_map_check.py --gate g18.wave.1.acceptance_map
+
+      # 步骤 310（G18.1 治理门 candidate_decisions g18.wave.1.candidate_decisions）。
+      - name: G18.1 candidate decisions (G18_CONTRACT G-G18-1, g18.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g18_candidate_decisions_check.py --gate g18.wave.1.candidate_decisions
+
+      # 步骤 311（G18 实现互锁 g18.gov.implementation_interlock）。
+      - name: G18 implementation interlock (G18_CONTRACT G-G18-2, g18.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g18_interlock_check.py --gate g18.gov.implementation_interlock
+
+      # 步骤 312（G18.2 P0 M-a g18.p0.m_a.rurix_light_transport_depth）。
+      - name: G18.2 M-a rurix light transport depth verify-latest
+        shell: powershell
+        run: py -3 ci/g18_rurix_light_transport_depth_smoke.py --gate
+
+      # 步骤 313（G18.2 波聚合门 g18.wave.2.exit）。
+      - name: G18.2 wave exit verify-latest (g18.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.2.exit
+
+      # 步骤 314（G18.2 P0 M-b g18.p0.m_b.presentation_pipeline_dual_profile）。
+      - name: G18.2 M-b presentation dual profile verify-latest
+        shell: powershell
+        run: py -3 ci/g18_presentation_pipeline_dual_profile_smoke.py --gate
+
+      # 步骤 315（G18.3 波聚合门 g18.wave.3.exit）。
+      - name: G18.3 wave exit verify-latest (g18.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.3.exit
+
+      # 步骤 316（G18.3 P0 M-c g18.p0.m_c.ue_arm_lighting_repair_and_render）。
+      - name: G18.3 M-c UE arm lighting repair verify-latest
+        shell: powershell
+        run: py -3 ci/g18_ue_arm_lighting_repair_and_render_smoke.py --gate
+
+      # 步骤 317（G18.4 波聚合门 g18.wave.4.exit）。
+      - name: G18.4 wave exit verify-latest (g18.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.4.exit
+
+      # 步骤 318（G18.7 P0 M-d g18.p0.m_d.dual_end_commercial_quality_verdict）。
+      - name: G18.7 M-d dual end commercial quality verify-latest
+        shell: powershell
+        run: py -3 ci/g18_dual_end_commercial_quality_verdict_smoke.py --gate
+
+      # 步骤 319（G18.5 波聚合门 g18.wave.5.exit）。
+      - name: G18.5 wave exit verify-latest (g18.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.5.exit
+
+      # 步骤 320（G18.4 P0 M-e g18.p0.m_e.sl_runtime_upgrade_disposition）。
+      - name: G18.4 M-e SL runtime upgrade disposition verify-latest
+        shell: powershell
+        run: py -3 ci/g18_sl_runtime_upgrade_disposition_smoke.py --gate
+
+      # 步骤 321（G18.6 波聚合门 g18.wave.6.exit）。
+      - name: G18.6 wave exit verify-latest (g18.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.6.exit
+
+      # 步骤 322（G18.4 P0 M-f g18.p0.m_f.fps_parity_reeval）。
+      - name: G18.4 M-f fps parity reeval verify-latest
+        shell: powershell
+        run: py -3 ci/g18_fps_parity_reeval_smoke.py --gate
+
+      # 步骤 323（G18.7 波聚合门 g18.wave.7.exit）。
+      - name: G18.7 wave exit verify-latest (g18.wave.7.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.7.exit
+
+      # 步骤 324（G18.5 P0 M-g g18.p0.m_g.virtualized_geometry_p3）。
+      - name: G18.5 M-g virtualized geometry P3 verify-latest
+        shell: powershell
+        run: py -3 ci/g18_virtualized_geometry_p3_smoke.py --gate
+
+      # 步骤 325（G18.8 波聚合门 g18.wave.8.exit）。
+      - name: G18.8 wave exit verify-latest (g18.wave.8.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.8.exit
+
+      # 步骤 326（G18.6 P0 M-h g18.p0.m_h.frame_generation_independent_layer）。
+      - name: G18.6 M-h frame generation independent layer verify-latest
+        shell: powershell
+        run: py -3 ci/g18_frame_generation_independent_layer_smoke.py --gate
+
+      # 步骤 327（G18.9 波聚合门 g18.wave.9.exit）。
+      - name: G18.9 wave exit verify-latest (g18.wave.9.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.9.exit
+
+      # 步骤 328（G18.7 P0 M-i g18.p0.m_i.closed_gate_no_regression）。
+      - name: G18.7 M-i closed gate no regression verify-latest
+        shell: powershell
+        run: py -3 ci/g18_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 329（G18.10 波聚合门 g18.wave.10.exit）。
+      - name: G18.10 wave exit verify-latest (g18.wave.10.exit)
+        shell: powershell
+        run: py -3 ci/g18_wave_exit_check.py --gate g18.wave.10.exit
+
+      # 步骤 330（G18.8 P2 穷举 g18.wave.8a.decisions）。
+      - name: G18.8 P2 decisions verify-latest (g18.wave.8a.decisions)
+        shell: powershell
+        run: py -3 ci/g18_p2_decisions_check.py --verify-latest
+
+      # 步骤 331（G18.8 soak g18.wave.8a.soak）。
+      - name: G18.8 stabilization soak verify-latest (g18.wave.8a.soak)
+        shell: powershell
+        run: py -3 ci/g18_stabilization_soak.py --verify-latest
+
+      # 步骤 332（G18.9 close-out g18.wave.9b.closeout）。
+      - name: G18.9 close-out verify-latest (G18_CONTRACT G-G18-9, g18.wave.9b.closeout)
+        shell: powershell
+        run: py -3 ci/g18_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

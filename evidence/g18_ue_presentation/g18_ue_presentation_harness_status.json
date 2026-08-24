@@ -1,0 +1,15 @@
+{
+  "schema": "rurix.g18.ue_presentation_harness.v1",
+  "ue_project": "K:\\rurix-ext\\g10-ue\\G10RefRender",
+  "ue_present": true,
+  "profiles": [
+    "night",
+    "day"
+  ],
+  "scenes": [
+    "cornell-box",
+    "bistro-interior"
+  ],
+  "renderoffscreen_probed": false,
+  "disposition": "harness_ready"
+}

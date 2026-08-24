@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "subject": "g18_candidate_decisions_check",
+  "symbolic_gate_key": "g18.wave.1.candidate_decisions",
+  "matrix_row": "G18.1",
+  "wave": "G18.1",
+  "numeric_step": 310,
+  "source_ref": "G18_CONTRACT G-G18-1/§6/§7;G18_CANDIDATE_DECISIONS.md v1.0;G18_ACCEPTANCE_MAP §1/§2;G17_P2_DECISIONS.md §3（承接锚法定输入）+ G17_CONTRACT.md §8.7;registry/deferred.json（RD 八条目级 status open 机核）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "set_equality_frozen",
+      "status": "PASS",
+      "detail": "got n=25 unique=25; expect frozen 25"
+    },
+    {
+      "id": "no_duplicate_ids",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G19+"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G11-N5",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G13-N7",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G17-MB-F1",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G17-MD-F1",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_RD-034",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-039",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-040",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-041",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-042",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-043",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-044",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_RD-045",
+      "status": "PASS",
+      "detail": "open 维持"
+    },
+    {
+      "id": "row_G18-N1",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N2",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N3",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N4",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N5",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N6",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N7",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N8",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "row_G18-N9",
+      "status": "PASS",
+      "detail": "go"
+    },
+    {
+      "id": "sec2_rd_set",
+      "status": "PASS",
+      "detail": "got ['RD-034', 'RD-039', 'RD-040', 'RD-041', 'RD-042', 'RD-043', 'RD-044', 'RD-045']; expect ['RD-034', 'RD-039', 'RD-040', 'RD-041', 'RD-042', 'RD-043', 'RD-044', 'RD-045']"
+    },
+    {
+      "id": "acceptance_map_mutex",
+      "status": "PASS",
+      "detail": "MAP 实解 P0=9（expect 9）；候选表命中已 go 门裸 token: 无"
+    },
+    {
+      "id": "deferred_rd_open_reconcile",
+      "status": "PASS",
+      "detail": "RD 八条 status: [('RD-034', 'open'), ('RD-039', 'open'), ('RD-040', 'open'), ('RD-041', 'open'), ('RD-042', 'open'), ('RD-043', 'open'), ('RD-044', 'open'), ('RD-045', 'open')]"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T125549Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18.1 治理门——候选决策表 25 行闭集（§1 G16 defer-to-G19+ 承接 16 行 = 十四行 defer-to-G19+ + G17-MB-F1/G17-MD-F1 go 主承接；§3 G18-N1~N4 新增 4 行全 go；§2 RD 映射 8 行维持 open 不重复计入三值枚举）：裁决枚举合法（go/closed-go/no-go/defer-to-G19+/strategic_override——G18 即本期，defer-to-G19+ 不再合法）/零空行/承接锚纪律（全表「重判条件 = …；兜底 = …」字面零缺项；§1 原触发条件字面转引含「→」分节）+ defer 行 G19+ 重评窗字面 + go 行验收映射锚义务 + closed-go 行 evidence/ 真跑件义务 + MAP 5 key 互斥 + deferred 对账（RD 八条目级 status 全 open，零新 RD max=RD-045）；no-go/defer 如实保持 open 不写进全绿叙述"
+}

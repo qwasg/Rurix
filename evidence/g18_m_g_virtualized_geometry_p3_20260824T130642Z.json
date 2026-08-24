@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g18_m_g_virtualized_geometry_p3",
+  "symbolic_gate_key": "g18.p0.m_g.virtualized_geometry_p3",
+  "matrix_row": "G18.5",
+  "wave": "G18.5",
+  "numeric_step": 324,
+  "source_ref": "G18_CONTRACT §4.2;G18_ACCEPTANCE_MAP §1 M-g 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "rfc_0034_archived",
+      "status": "PASS",
+      "detail": "rfcs\\0034-virtualized-geometry-p3-mesh-shader.md"
+    },
+    {
+      "id": "terminal_state_no_go",
+      "status": "PASS",
+      "detail": "RFC-0034 终态=no-go（VK_EXT_mesh_shader 第三光栅路径本期不接线；HZB P4 defer）"
+    },
+    {
+      "id": "ser_applicability",
+      "status": "PASS",
+      "detail": "M52 SER 适用性=no-go 如实登记（ray query 形态不适用）"
+    },
+    {
+      "id": "pixel_identity_criterion",
+      "status": "PASS",
+      "detail": "像素零差判据留档（未触发实现）"
+    },
+    {
+      "id": "vs_fallback_maintained",
+      "status": "PASS",
+      "detail": "VS 光栅 fallback 维持（M61 defer 承接）"
+    },
+    {
+      "id": "adversarial_review",
+      "status": "PASS",
+      "detail": "D-4xx 对抗评审"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T130642Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G18 M-g smoke"
+}
