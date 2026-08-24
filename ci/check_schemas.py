@@ -878,6 +878,23 @@ def check_evidence_files() -> None:
         _pfx = _gp.name.replace("_evidence_schema.json", "_")
         g18_evidence_schema_paths[_pfx] = _gp
     g18_evidence_schemas = {k: load(v) for k, v in g18_evidence_schema_paths.items()}
+    # G19~G25 七期串行战役通用装载（G18 同构：wave_exit 参数化 schema 单列，
+    # 其余按文件名前缀映射；无映射前缀的 gN_ evidence（如 baseline 快检件）跳过）。
+    gnext_wave_exit_schemas: dict[str, object] = {}
+    gnext_evidence_schemas: dict[str, dict[str, object]] = {}
+    for _gn in ("g19", "g20", "g21", "g22", "g23", "g24", "g25"):
+        _gdir = ROOT / f"milestones/{_gn}"
+        if not _gdir.is_dir():
+            continue
+        _wx = _gdir / f"{_gn}_wave_exit_evidence_schema.json"
+        if _wx.is_file():
+            gnext_wave_exit_schemas[_gn] = load(_wx)
+        _gm: dict[str, Path] = {}
+        for _gp in sorted(_gdir.glob("*_evidence_schema.json")):
+            if _gp.name == f"{_gn}_wave_exit_evidence_schema.json":
+                continue
+            _gm[_gp.name.replace("_evidence_schema.json", "_")] = _gp
+        gnext_evidence_schemas[_gn] = {k: load(v) for k, v in _gm.items()}
     g15_m_a_dual_end_quality_reharvest_schema = load(
         ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
     )
@@ -2198,6 +2215,13 @@ def check_evidence_files() -> None:
     )
     g18_evidence_validators = {
         k: jsonschema.Draft7Validator(s) for k, s in g18_evidence_schemas.items() if s is not None
+    }
+    gnext_wave_exit_validators = {
+        k: jsonschema.Draft7Validator(s) for k, s in gnext_wave_exit_schemas.items() if s is not None
+    }
+    gnext_evidence_validators = {
+        _gn: {k: jsonschema.Draft7Validator(s) for k, s in _gm.items() if s is not None}
+        for _gn, _gm in gnext_evidence_schemas.items()
     }
     g15_m_a_dual_end_quality_reharvest_validator = (
         jsonschema.Draft7Validator(g15_m_a_dual_end_quality_reharvest_schema)
@@ -4885,6 +4909,19 @@ def check_evidence_files() -> None:
             if _g18v is None:
                 continue
             validator = _g18v
+        elif f.name.startswith(("g19_", "g20_", "g21_", "g22_", "g23_", "g24_", "g25_")):
+            _gn = f.name[:3]
+            if re.match(r"g\d+_wave\d+_exit_", f.name) and _gn in gnext_wave_exit_validators:
+                validator = gnext_wave_exit_validators[_gn]
+            else:
+                _gv = None
+                for _pfx, _val in gnext_evidence_validators.get(_gn, {}).items():
+                    if f.name.startswith(_pfx):
+                        _gv = _val
+                        break
+                if _gv is None:
+                    continue
+                validator = _gv
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

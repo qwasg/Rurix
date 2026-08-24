@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g19",
+  "description": "G19 预算面。baseline = G19.0 Stage A digest 锚在档快检 + G14 M-d 最新 met 计数（17/18 诚实红 carry，终判归 G25）。",
+  "source_docs": ["milestones/g19/G19_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g19.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G19.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g19_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g19.baseline.fps_parity_met.count",
+      "description": "G19.0 baseline G14 M-d 最新 18 格 met 计数（17/18 诚实红 carry，不冒充，终判归 G25）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 17.0,
+      "evidence_file": "evidence/g19_baseline_fps_parity_met.json",
+      "measured_value": 17.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
