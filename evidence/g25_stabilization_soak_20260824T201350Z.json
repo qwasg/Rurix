@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g25_stabilization_soak",
+  "symbolic_gate_key": "g25.wave.5a.soak",
+  "matrix_row": "G25.5",
+  "wave": "G25.5",
+  "numeric_step": 443,
+  "source_ref": "G25_CONTRACT G-G25-6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_d_precondition",
+      "status": "PASS",
+      "detail": "g25_m_d_campaign_handover_ledger_20260824T194159Z.json"
+    },
+    {
+      "id": "sleep_seconds_zero",
+      "status": "PASS",
+      "detail": "迭代间零 sleep"
+    },
+    {
+      "id": "soak_wall_clock_ge_1800",
+      "status": "PASS",
+      "detail": "wall=1840.4s"
+    },
+    {
+      "id": "iterations_nonzero",
+      "status": "PASS",
+      "detail": "iters=69"
+    },
+    {
+      "id": "failures_zero",
+      "status": "PASS",
+      "detail": "fails=0"
+    },
+    {
+      "id": "active_chain_matches_wall",
+      "status": "PASS",
+      "detail": "active=1840.4s wall=1840.4s"
+    },
+    {
+      "id": "no_sleep_between_iters",
+      "status": "PASS",
+      "detail": "sleep=0"
+    },
+    {
+      "id": "probe_lane_interleaved",
+      "status": "PASS",
+      "detail": "probe_iters=13（战役四实现件探针轮换穿插复跑）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T201350Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G25 soak ≥1800s（管线四组合 + 战役探针轮换穿插）"
+}

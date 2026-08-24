@@ -4216,6 +4216,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g25_interlock_check.py --gate g25.gov.implementation_interlock
 
+      # 步骤 432（G25.2 P0 M-a g25.p0.m_a.quality_final_state_verification；
+      # post-interlock 实测 CI_step.next_free=432 顺位领取）。
+      - name: G25.2 M-a quality final state verification verify-latest
+        shell: powershell
+        run: py -3 ci/g25_quality_final_state_verification_smoke.py --verify-latest
+
+      # 步骤 433（G25.2 波聚合门 g25.wave.2.exit）。
+      - name: G25.2 wave exit verify-latest (g25.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g25_wave_exit_check.py --gate g25.wave.2.exit
+
+      # 步骤 434（G25.2 P0 M-b g25.p0.m_b.fps_parity_final_verdict）。
+      - name: G25.2 M-b fps parity final verdict verify-latest
+        shell: powershell
+        run: py -3 ci/g25_fps_parity_final_verdict_smoke.py --verify-latest
+
+      # 步骤 435（G25.3 波聚合门 g25.wave.3.exit）。
+      - name: G25.3 wave exit verify-latest (g25.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g25_wave_exit_check.py --gate g25.wave.3.exit
+
+      # 步骤 436（G25.3 P0 M-c g25.p0.m_c.campaign_full_chain_no_regression）。
+      - name: G25.3 M-c campaign full chain no regression verify-latest
+        shell: powershell
+        run: py -3 ci/g25_campaign_full_chain_no_regression_smoke.py --verify-latest
+
+      # 步骤 437（G25.4 波聚合门 g25.wave.4.exit）。
+      - name: G25.4 wave exit verify-latest (g25.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g25_wave_exit_check.py --gate g25.wave.4.exit
+
+      # 步骤 438（G25.3 P0 M-d g25.p0.m_d.campaign_handover_ledger）。
+      - name: G25.3 M-d campaign handover ledger verify-latest
+        shell: powershell
+        run: py -3 ci/g25_campaign_handover_ledger_smoke.py --verify-latest
+
+      # 步骤 439（G25.5 波聚合门 g25.wave.5.exit）。
+      - name: G25.5 wave exit verify-latest (g25.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g25_wave_exit_check.py --gate g25.wave.5.exit
+
+      # 步骤 440（G25.4 P0 M-e g25.p0.m_e.closed_gate_no_regression）。
+      - name: G25.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g25_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 441（G25.6 波聚合门 g25.wave.6.exit）。
+      - name: G25.6 wave exit verify-latest (g25.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g25_wave_exit_check.py --gate g25.wave.6.exit
+
+      # 步骤 442（G25.5 P2 穷举 g25.wave.5a.decisions）。
+      - name: G25.5 P2 decisions verify-latest (g25.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g25_p2_decisions_check.py --verify-latest
+
+      # 步骤 443（G25.5 soak g25.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G25.5 stabilization soak verify-latest (g25.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g25_stabilization_soak.py --verify-latest
+
+      # 步骤 444（G25.6 close-out g25.wave.6b.closeout；战役收官）。
+      - name: G25.6 close-out verify-latest (G25_CONTRACT G-G25-6, g25.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g25_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

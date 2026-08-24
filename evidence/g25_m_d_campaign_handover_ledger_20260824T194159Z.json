@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g25_m_d_campaign_handover_ledger",
+  "symbolic_gate_key": "g25.p0.m_d.campaign_handover_ledger",
+  "matrix_row": "G25.3",
+  "wave": "G25.3",
+  "numeric_step": 438,
+  "source_ref": "G25_CONTRACT §4.2;G25_ACCEPTANCE_MAP §1 M-d 行;RFC-0042 §1.4",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "handover_registry_present",
+      "status": "PASS",
+      "detail": "milestones\\g25\\g25_campaign_handover_registry.json"
+    },
+    {
+      "id": "period_rows_cover_seven",
+      "status": "PASS",
+      "detail": "七期覆盖 = ['G19', 'G20', 'G21', 'G22', 'G23', 'G24', 'G25']（15 行）"
+    },
+    {
+      "id": "rows_complete_with_anchors",
+      "status": "PASS",
+      "detail": "逐行 final/g26_anchor/source 齐"
+    },
+    {
+      "id": "rd_eight_archived",
+      "status": "PASS",
+      "detail": "RD 八条锚归档 = ['RD-034', 'RD-039', 'RD-040', 'RD-041', 'RD-042', 'RD-043', 'RD-044', 'RD-045']"
+    },
+    {
+      "id": "rd_statuses_consistent",
+      "status": "PASS",
+      "detail": "八条 status=open 与归档一致"
+    },
+    {
+      "id": "legacy_eleven_cited",
+      "status": "PASS",
+      "detail": "历史清册引用源在档（12 行 = 十一 RD + SAFE-GPU）"
+    },
+    {
+      "id": "rd045_cumulative_review",
+      "status": "PASS",
+      "detail": "RD-045 累计观察复核归档：G19.3 观察窗 12/12 中锚零漂移 + G19~G24 六期 soak（63/67/69/69/69/69 迭代）全零失败零漂移事件——maintain-open（backfill 三件未全齐不冒充）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T194159Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G25.3 M-d：战役承接锚归档闭集（15 行 + RD 八条 + 清册十二行引用——G26+ 法定输入面）"
+}

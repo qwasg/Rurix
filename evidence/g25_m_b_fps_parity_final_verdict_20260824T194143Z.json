@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g25_m_b_fps_parity_final_verdict",
+  "symbolic_gate_key": "g25.p0.m_b.fps_parity_final_verdict",
+  "matrix_row": "G25.2",
+  "wave": "G25.2",
+  "numeric_step": 434,
+  "source_ref": "G25_CONTRACT §4.2;G25_ACCEPTANCE_MAP §1 M-b 行;RFC-0042 §1.2;G17-MD-F1",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "grid_18_final_registration",
+      "status": "PASS",
+      "detail": "18 格终判定盘（g14_m_d_dual_end_fps_parity_20260824T091444Z.json）：met=17/18 焦点格 ratio=0.856326323057633"
+    },
+    {
+      "id": "perf_surface_0byte_campaign",
+      "status": "PASS",
+      "detail": "性能面三文件 vs g18-closed 全战役 0-byte（rc=0——ratio 定盘的机器前提）"
+    },
+    {
+      "id": "focus_cell_fresh_measure",
+      "status": "PASS",
+      "detail": "rc=0 焦点格 canonical 160 帧新鲜单测 frame_ms_production_mean=3.5519975ms（新鲜度登记，非达标判定输入——RFC-0042 F2）"
+    },
+    {
+      "id": "final_verdict_two_states",
+      "status": "PASS",
+      "detail": "终判 = 17/18 诚实红终判（焦点格 ratio 0.856326323057633；物理不可达维持未达标登记不冒充——G15 兜底同源，战役合法收官态）"
+    },
+    {
+      "id": "g17_md_f1_chain_closed",
+      "status": "PASS",
+      "detail": "G17-MD-F1 终判链闭合（G19 M-d「终判归 G25」字面兑现）"
+    },
+    {
+      "id": "g26_anchor_registered",
+      "status": "PASS",
+      "detail": "顺延锚 = NGX 分解 profiling / UE 侧插桩（宿主差可分离 measured 证据，RFC-0032 重判条件同源）——非关闭性定论"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T194143Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G25.2 M-b：fps 18 格终判（17/18 诚实红终判两态程序 + 焦点格新鲜单测真跑）"
+}

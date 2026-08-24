@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g25_m_a_quality_final_state_verification",
+  "symbolic_gate_key": "g25.p0.m_a.quality_final_state_verification",
+  "matrix_row": "G25.2",
+  "wave": "G25.2",
+  "numeric_step": 432,
+  "source_ref": "G25_CONTRACT §4.2;G25_ACCEPTANCE_MAP §1 M-a 行;RFC-0042 §1.1",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "quality_surfaces_0byte",
+      "status": "PASS",
+      "detail": "画质表面闭集 10 项 vs g18-closed 0-byte"
+    },
+    {
+      "id": "additive_modules_zero_wiring",
+      "status": "PASS",
+      "detail": "G19~G24 加性面（framegen/hzb/restir_reservoir/slab）生产 bin 零接线"
+    },
+    {
+      "id": "g18_quality_verdict_green",
+      "status": "PASS",
+      "detail": "G18 M-d 商用画质终审达标绿件只读盘点（g18_m_d_dual_end_commercial_quality_verdict_20260824T132702Z.json）"
+    },
+    {
+      "id": "verdict_final_state_maintained",
+      "status": "PASS",
+      "detail": "表面 0-byte ∧ 加性零接线 ⇒ G18 达标终态维持有效（重渲无信息增量；UE 全渲重跑触发条件 = 表面变化证据，未命中显式登记——RFC-0042 §1.1）"
+    },
+    {
+      "id": "rerun_trigger_not_hit",
+      "status": "PASS",
+      "detail": "UE 全渲重跑触发条件未命中（out_of_scope 字面：无表面变化证据的重跑禁止）"
+    },
+    {
+      "id": "campaign_additive_discipline",
+      "status": "PASS",
+      "detail": "战役期加性纪律回验（guardrail 字面兑现）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T194025Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G25.2 M-a：画质终态维持核验（表面 0-byte 机核 + 加性零接线 + G18 达标绿件盘点）"
+}

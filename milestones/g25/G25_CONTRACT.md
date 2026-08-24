@@ -123,3 +123,18 @@ D-G25-1：PLAN/CONTRACT/CI_GATES/g25_budget.json + G25_CANDIDATE_DECISIONS + G25
 - **事实门全绿**：G24 closed + tag `g24-closed` + G25.0 不可变 ref `4b65631c354340d3b7359a5b2561e57897e982e2`；候选表 7 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 431 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g25_interlock_check.py --gate g25.gov.implementation_interlock` VERDICT=READY；治理三门 429/430/431 PASS。
 - **解锁**：`implementation_status: blocked → unlocked`。G25.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G25.5 P2 穷举 + stabilization soak 验收记录（2026-08-24）——G-G25-6 前置：P2 穷举决策门（g25.wave.5a.decisions，步骤 442，VERDICT=PASS）+ 稳定门 soak（g25.wave.5a.soak，步骤 443，8/8 facts VERDICT=PASS——69 迭代 wall=1840.4s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G25_P2_DECISIONS.md` 穷举闭集 **7 行零空行**（§1 两行：closed-go 2〔SAFE-GPU 归档兑现（defer-to-G26+ 锚留档）+ G17-MD-F1 终判兑现（17/18 诚实红留档）〕；§3 期内行五行 closed-go 5；§2 open RD 八条归档锚化维持 open）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1840.4s ≥1800s + 69 迭代零失败（含战役四实现件探针轮换穿插 13 次：framegen/hzb/restir/slab 收官新鲜复跑全绿）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g25_p2_decisions_check_20260824T194256Z）；budget_eval --strict **285 pass 零 skip 零 estimated**（战役全量口径）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G25.5 P2/soak 波）`。
+
+### §8.7 G25.6 close-out 终审签署块（2026-08-24）——G-G25-6 字面兑现：close-out 终审门（g25.wave.6b.closeout，步骤 444）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g25-closed`（**G19-G25 七期串行战役收官**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain / rfc_0042_archived / old_gates_no_regression / rd_open_maintained（八条 open 归档锚化）/ soak_ge_1800_zero_fail（20260824T201350Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g25_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（战役终审四面定盘）**：**画质终态维持达标**（M-a：画质表面闭集 10 项 vs g18-closed 0-byte 机核 + 加性四模块零接线 + G18 M-d 达标绿件——重渲无信息增量）；**性能 17/18 诚实红终判**（M-b：焦点格 ratio 0.856326 定盘 + 性能面三文件全战役 0-byte + 焦点格 canonical 160 帧新鲜单测 frame_ms_production_mean=3.5520ms 真跑登记；G15 物理不可达兜底同源，顺延锚 = NGX 分解 profiling/UE 插桩）；**战役全链零降级**（M-c：G24 链递归 verify-latest 涵盖 G13~G23 + strict 285）；**承接锚归档闭集**（M-d：七期 15 行 + RD 八条 + 清册十二行引用 = G26+ 唯一法定输入面）；M-e 旧门零降级全绿。**达标维持/诚实红终判均为战役合法收官态，零冒充**。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g25-closed`——七期串行战役收官。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G19-G25 七期串行战役收官）`。

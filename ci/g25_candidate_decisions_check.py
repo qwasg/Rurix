@@ -280,7 +280,7 @@ def run_selftest() -> int:
          deferred, "decision_enum_legal"),
         ("承接锚去掉兜底 → 锚纪律红", text.replace("重判条件 = 只追加重判；兜底 = 维持", "重判条件 = 只追加重判", 1),
          deferred, "anchor_discipline"),
-        ("空单元格注入 → 零空行红", text.replace("| M114-strand | 名 |", "| M114-strand |  |", 1),
+        ("空单元格注入 → 零空行红", text.replace("| G17-MD-F1 | 名 |", "| G17-MD-F1 |  |", 1),
          deferred, "zero_empty_rows"),
         ("§2 删 RD-045 → RD 闭集红", "\n".join(l for l in text.splitlines() if not l.startswith("| RD-045 ")),
          deferred, "sec2_rd_closed_set"),
