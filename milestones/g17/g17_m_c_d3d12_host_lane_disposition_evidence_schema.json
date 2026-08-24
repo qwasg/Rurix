@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17.4 M-c D3D12 host lane disposition evidence",
+  "description": "evidence/g17_m_c_d3d12_host_lane_disposition_<UTC>.json。G17.4 P0 M-c（ci/g17_d3d12_host_lane_disposition_smoke.py 写；host 只读消费门——RFC-0032 §5 决策树以 M-a 复测窗 evidence + M-b probe 为输入程序产出终态 implement/no-go/defer，三态均合法终态）：①RFC Approved + D-409 评审在档②决策树输入齐备③F1 预估式字段引用④分支判定⑤F2 宿主差可分离性（UE 侧 NGX 份额 CSV 口径不可分解字面）⑥F3 同步税预算下界与参照锚方向性⑦终态与分支事实一致（F4 不回翻）⑧单 device 化结构性 no-go 留档⑨兜底字面维持⑩RED 臂。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g17_m_c_d3d12_host_lane_disposition"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g17.p0.m_c.d3d12_host_lane_disposition"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G17.4"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G17.4"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "description": "post-interlock 实测顺位领取（300）"
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT §4.2 M-c/G-G17-5;G17_ACCEPTANCE_MAP §1 M-c 行;rfcs/0032-d3d12-host-ngx-lane.md §5 决策树;M-a 复测窗 evidence + milestones/g17/g17_mb_ngx_probe_results.json（决策树输入面）"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

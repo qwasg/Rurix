@@ -1,0 +1,22 @@
+{
+  "schema": "rurix.g17.vendor_sdk_registry.v1",
+  "description": "G17.3 M-b NGX 版本演进面换版评估 provenance 登记面（G15-MD-F1 承接锚②字面「DllProvenance/g13_vendor_sdk_registry provenance 机核同步换版程序面」兑现；G13 立项裁决 10 形态沿用：vendor SDK 二进制不入 git，以 gitignored external/ 缓存 + 本登记承载）。g13_vendor_sdk_registry.json 既有登记 0-byte 不回写（310.5.2 生产默认维持）。digest = 2026-08-24 本机实测（python hashlib sha256 流式）。评估缓存 = external/streamline-2.10.3-ngx310.6.0/（Streamline 2.10.3 sl 三件原件复制〔sha256 与 g13 登记逐字一致〕+ nvngx_dlss.dll 换 310.6.0），运行时经 RURIX_STREAMLINE_SDK_DIR 环境变量显式 opt-in，生产默认目录 external/streamline-2.10.3 0-byte 不动。",
+  "registered_at": "2026-08-24",
+  "sdks": {
+    "streamline_ngx_310_6_0_eval": {
+      "version": "2.10.3 (sl runtime) + nvngx_dlss 310.6.0.0 (NGX snippet)",
+      "path": "external/streamline-2.10.3-ngx310.6.0",
+      "purpose": "G17.3 M-b NGX 版本演进面对齐评估专用缓存（A/B 评估臂，非生产默认；采纳须过画质守护双门禁——Stage A digest 锚零漂移 + 画质锚带复核带内，超带即拒绝换版如实登记）",
+      "ngx_dll_source": "K:/rurix-ext/g10-ue/G10RefRender/Plugins/DLSS/Binaries/ThirdParty/Win64/nvngx_dlss.dll（UE 5.8.1 参照臂 DLSS 插件同款——G15 §8.7 取证 UE Build v310.6.0 CL 37642667 对齐面；FileVersion 310,6,0,0 / ProductVersion 310,6,0,0 / FileDescription 'NVIDIA DLSS - DVS PRODUCTION' 版本资源实测 2026-08-24）",
+      "license": "NVIDIA RTX SDKs LICENSE（自定义非 OSI；沿 g13 登记 vendor_upscale_license_clearance.md 清结面——nvngx_dlss.dll 为同许可族 NGX snippet DLL，UE DLSS 插件再分发形态；评估用途本地缓存零 vendoring 零再分发）",
+      "integration_arm": "vulkan_interop（与生产默认同臂，仅 NGX snippet DLL 版本差）",
+      "dlls": {
+        "sl.interposer.dll": "fabb19bb6495d743182c1bc51bcbbdc4481acc3dcaf445403f0b304a31a56ccc",
+        "sl.common.dll": "eca8c0f1d4af654103a2f8b315e91fcd54ee4437570ac20c90ab78131c791274",
+        "sl.dlss.dll": "164750168cb36a79e7552e7fc74bf5723347f97f69e5d466167aa09623615c03",
+        "nvngx_dlss.dll": "099b3e1e3ad3f226de621fe570b26cc554cc775e2606be23eb222d6245674070"
+      },
+      "dlls_note": "sl 三件 sha256 与 milestones/g13/g13_vendor_sdk_registry.json 登记逐字一致（原件复制零改动）；nvngx_dlss.dll 310.6.0（58830448 bytes）≠ 生产默认 310.5.2（a8f23de8…，54779504 bytes）——版本差即评估对象；运行时 DllProvenance 逐件 sha256 登记入 receipt（vendor_upscale.rs 装载面既有机核，登记面非校验拒绝面）"
+    }
+  }
+}

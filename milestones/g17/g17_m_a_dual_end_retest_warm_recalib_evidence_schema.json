@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17.2 M-a dual end retest + warm recalibration evidence",
+  "description": "evidence/g17_m_a_dual_end_retest_warm_recalib_<UTC>.json。G17.2 P0 M-a（ci/g17_dual_end_retest_warm_recalib_smoke.py 写；host 只读消费门，device 真跑面在被消费的复测窗四轮 g14_m_d_dual_end_fps_parity evidence 链）：①复测窗（stamp ≥ 20260824T054145Z 窗锚）≥4 轮 G14 M-d 同口径全协议复跑②四轮 50×3 三轮进程级独立 + 生产口径 v2 零缩短③Stage A digest 锚 18 格 × 3 轮 == 冻结锚四轮全等（RD-045 监控面）④本格窗内逐轮 ratio 登记（达标判定归 M-d 终判门）⑤6 UE 格暖态包络条目程序产入 g17_budget（threshold = 窗 max × 2.0，f64 精确重算 == 存储值，禁手写 P-09）⑥g14/g15/g16_budget 冻结 0-byte git 机核⑦UE 侧暖态事件分解（vs G15 第四轮定盘件 20260823T192244Z）⑧Rurix 侧变化分列登记（禁混淆归因）⑨budget_eval 全绿⑩RED 四臂（三轮冒充四轮/窗外旧件/digest 漂移静默/手写阈——函数面注入全检出）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g17_m_a_dual_end_retest_warm_recalib" },
+    "symbolic_gate_key": { "type": "string", "const": "g17.p0.m_a.dual_end_retest_warm_recalib" },
+    "matrix_row": { "type": "string", "const": "G17.2" },
+    "wave": { "type": "string", "const": "G17.2" },
+    "numeric_step": { "type": "integer", "description": "post-interlock 实测 CI_step.next_free=296 顺位领取" },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT §4.2 M-a/G-G17-3;G17_ACCEPTANCE_MAP §1 M-a 行;G15_P2_DECISIONS.md §4 G15-MD-F1 行承接锚①;evidence/g14_m_d_dual_end_fps_parity_*.json（复测窗四轮消费面）"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17 wave exit evidence (parametrized waves 2..6)",
+  "description": "evidence/g17_wave{2..6}_exit_<UTC>.json。G17 波聚合门（ci/g17_wave_exit_check.py 参数化单脚本多 gate key——MAP 纪律：脚本可复用，workflow 按 --gate 独立调用独立产 evidence 独立结论；步骤 297/299/301/303/305 = post-interlock 实测顺位领取）：只读汇总四 facts——①对应 M 门最新 evidence host_section_pass + extra_facts 全 PASS（红即红不遮蔽）②守卫套件（structure/schemas/number_ledger 子进程实测）③budget_eval 全绿④聚合只读声明（零重跑零改写，红树下聚合红）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": {
+      "type": "string",
+      "enum": ["g17_wave2_exit", "g17_wave3_exit", "g17_wave4_exit", "g17_wave5_exit", "g17_wave6_exit"]
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "enum": ["g17.wave.2.exit", "g17.wave.3.exit", "g17.wave.4.exit", "g17.wave.5.exit", "g17.wave.6.exit"]
+    },
+    "matrix_row": { "type": "string", "enum": ["G17.2", "G17.3", "G17.4", "G17.5", "G17.6"] },
+    "wave": { "type": "string", "enum": ["G17.2", "G17.3", "G17.4", "G17.5", "G17.6"] },
+    "numeric_step": { "type": "integer", "description": "post-interlock 实测顺位领取（297/299/301/303/305）" },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT §2 波次条款;G17 CI_GATES §3;对应 M 门最新 evidence"
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_state": {
+      "type": "string",
+      "enum": ["not_applicable"]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": { "type": "object" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": { "type": "boolean" },
+        "all_extra_facts_pass": { "type": "boolean" },
+        "all_subjects_pass": { "type": "boolean" },
+        "aggregate_read_only": { "type": "boolean", "const": true }
+      }
+    },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "cargo_version", "rustc_version"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

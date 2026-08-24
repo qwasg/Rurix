@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17.7b closeout evidence",
+  "description": "evidence/g17_wave7b_closeout_<UTC>.json。G17.7b close-out 终审门（ci/g17_closeout_check.py 写）：八 facts——①五 P0 最新 evidence 全绿②P2 穷举零空行③终判 ratio 证据链完整（达标 18/18 或维持未达标如实登记均合法收口）④RFC-0032 终态留档（approved-implement/no-go/defer 均可）⑤旧门零降级⑥RD 八条 open⑦soak ≥1800s 零失败 + budget --strict 零 estimated⑧VERDICT=READY|BLOCKED（不充绿）。READY 后 status active→closed 独立洁净 commit + tag g17-closed（本门只判不翻）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g17_wave7b_closeout"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g17.wave.7b.closeout"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G17.7b"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G17.7b"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "description": "post-interlock 实测顺位领取（308）"
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT G-G17-9;G17_PLAN §2 阶段⑧;registry/deferred.json"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "maxItems": 8
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

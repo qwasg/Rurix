@@ -841,6 +841,33 @@ def check_evidence_files() -> None:
     g17_interlock_check_schema = load(
         ROOT / "milestones/g17/g17_interlock_check_evidence_schema.json"
     )
+    g17_m_a_dual_end_retest_warm_recalib_schema = load(
+        ROOT / "milestones/g17/g17_m_a_dual_end_retest_warm_recalib_evidence_schema.json"
+    )
+    g17_wave_exit_schema = load(
+        ROOT / "milestones/g17/g17_wave_exit_evidence_schema.json"
+    )
+    g17_m_b_ngx_evolution_alignment_schema = load(
+        ROOT / "milestones/g17/g17_m_b_ngx_evolution_alignment_evidence_schema.json"
+    )
+    g17_m_c_d3d12_host_lane_disposition_schema = load(
+        ROOT / "milestones/g17/g17_m_c_d3d12_host_lane_disposition_evidence_schema.json"
+    )
+    g17_m_d_t100_final_verdict_schema = load(
+        ROOT / "milestones/g17/g17_m_d_t100_final_verdict_evidence_schema.json"
+    )
+    g17_m_e_closed_gate_no_regression_schema = load(
+        ROOT / "milestones/g17/g17_m_e_closed_gate_no_regression_evidence_schema.json"
+    )
+    g17_p2_decisions_check_schema = load(
+        ROOT / "milestones/g17/g17_p2_decisions_check_evidence_schema.json"
+    )
+    g17_stabilization_soak_schema = load(
+        ROOT / "milestones/g17/g17_stabilization_soak_evidence_schema.json"
+    )
+    g17_wave7b_closeout_schema = load(
+        ROOT / "milestones/g17/g17_wave7b_closeout_evidence_schema.json"
+    )
     g15_m_a_dual_end_quality_reharvest_schema = load(
         ROOT / "milestones/g15/g15_m_a_dual_end_quality_reharvest_evidence_schema.json"
     )
@@ -2107,6 +2134,51 @@ def check_evidence_files() -> None:
     g17_interlock_check_validator = (
         jsonschema.Draft7Validator(g17_interlock_check_schema)
         if g17_interlock_check_schema is not None
+        else None
+    )
+    g17_m_a_dual_end_retest_warm_recalib_validator = (
+        jsonschema.Draft7Validator(g17_m_a_dual_end_retest_warm_recalib_schema)
+        if g17_m_a_dual_end_retest_warm_recalib_schema is not None
+        else None
+    )
+    g17_wave_exit_validator = (
+        jsonschema.Draft7Validator(g17_wave_exit_schema)
+        if g17_wave_exit_schema is not None
+        else None
+    )
+    g17_m_b_ngx_evolution_alignment_validator = (
+        jsonschema.Draft7Validator(g17_m_b_ngx_evolution_alignment_schema)
+        if g17_m_b_ngx_evolution_alignment_schema is not None
+        else None
+    )
+    g17_m_c_d3d12_host_lane_disposition_validator = (
+        jsonschema.Draft7Validator(g17_m_c_d3d12_host_lane_disposition_schema)
+        if g17_m_c_d3d12_host_lane_disposition_schema is not None
+        else None
+    )
+    g17_m_d_t100_final_verdict_validator = (
+        jsonschema.Draft7Validator(g17_m_d_t100_final_verdict_schema)
+        if g17_m_d_t100_final_verdict_schema is not None
+        else None
+    )
+    g17_m_e_closed_gate_no_regression_validator = (
+        jsonschema.Draft7Validator(g17_m_e_closed_gate_no_regression_schema)
+        if g17_m_e_closed_gate_no_regression_schema is not None
+        else None
+    )
+    g17_p2_decisions_check_validator = (
+        jsonschema.Draft7Validator(g17_p2_decisions_check_schema)
+        if g17_p2_decisions_check_schema is not None
+        else None
+    )
+    g17_stabilization_soak_validator = (
+        jsonschema.Draft7Validator(g17_stabilization_soak_schema)
+        if g17_stabilization_soak_schema is not None
+        else None
+    )
+    g17_wave7b_closeout_validator = (
+        jsonschema.Draft7Validator(g17_wave7b_closeout_schema)
+        if g17_wave7b_closeout_schema is not None
         else None
     )
     g15_m_a_dual_end_quality_reharvest_validator = (
@@ -4050,6 +4122,70 @@ def check_evidence_files() -> None:
             # G17.1 治理门实现互锁（步骤 295）→
             # milestones/g17/g17_interlock_check_evidence_schema.json。
             validator = g17_interlock_check_validator
+        elif (
+            f.name.startswith("g17_m_a_dual_end_retest_warm_recalib_")
+            and g17_m_a_dual_end_retest_warm_recalib_validator is not None
+        ):
+            # G17.2 P0 M-a（步骤 296）→
+            # milestones/g17/g17_m_a_dual_end_retest_warm_recalib_evidence_schema.json。
+            validator = g17_m_a_dual_end_retest_warm_recalib_validator
+        elif (
+            f.name.startswith(("g17_wave2_exit_", "g17_wave3_exit_", "g17_wave4_exit_",
+                               "g17_wave5_exit_", "g17_wave6_exit_"))
+            and g17_wave_exit_validator is not None
+        ):
+            # G17 波聚合门（参数化五 key，步骤 297/299/301/303/305）→
+            # milestones/g17/g17_wave_exit_evidence_schema.json。
+            validator = g17_wave_exit_validator
+        elif (
+            f.name.startswith("g17_m_b_ngx_evolution_alignment_")
+            and g17_m_b_ngx_evolution_alignment_validator is not None
+        ):
+            # G17.3 P0 M-b（步骤 298）→
+            # milestones/g17/g17_m_b_ngx_evolution_alignment_evidence_schema.json。
+            validator = g17_m_b_ngx_evolution_alignment_validator
+        elif (
+            f.name.startswith("g17_m_c_d3d12_host_lane_disposition_")
+            and g17_m_c_d3d12_host_lane_disposition_validator is not None
+        ):
+            # G17.4 P0 M-c（步骤 300）→
+            # milestones/g17/g17_m_c_d3d12_host_lane_disposition_evidence_schema.json。
+            validator = g17_m_c_d3d12_host_lane_disposition_validator
+        elif (
+            f.name.startswith("g17_m_d_t100_final_verdict_")
+            and g17_m_d_t100_final_verdict_validator is not None
+        ):
+            # G17.5 P0 M-d（步骤 302）→
+            # milestones/g17/g17_m_d_t100_final_verdict_evidence_schema.json。
+            validator = g17_m_d_t100_final_verdict_validator
+        elif (
+            f.name.startswith("g17_m_e_closed_gate_no_regression_")
+            and g17_m_e_closed_gate_no_regression_validator is not None
+        ):
+            # G17.6 P0 M-e（步骤 304）→
+            # milestones/g17/g17_m_e_closed_gate_no_regression_evidence_schema.json。
+            validator = g17_m_e_closed_gate_no_regression_validator
+        elif (
+            f.name.startswith("g17_p2_decisions_check_")
+            and g17_p2_decisions_check_validator is not None
+        ):
+            # G17.7a P2 穷举决策门（步骤 306）→
+            # milestones/g17/g17_p2_decisions_check_evidence_schema.json。
+            validator = g17_p2_decisions_check_validator
+        elif (
+            f.name.startswith("g17_stabilization_soak_")
+            and g17_stabilization_soak_validator is not None
+        ):
+            # G17.7a soak（步骤 307）→
+            # milestones/g17/g17_stabilization_soak_evidence_schema.json。
+            validator = g17_stabilization_soak_validator
+        elif (
+            f.name.startswith("g17_wave7b_closeout_")
+            and g17_wave7b_closeout_validator is not None
+        ):
+            # G17.7b close-out 终审（步骤 308）→
+            # milestones/g17/g17_wave7b_closeout_evidence_schema.json。
+            validator = g17_wave7b_closeout_validator
         elif (
             f.name.startswith("g16_m_a_ue_reference_arm_repair_")
             and g16_m_a_ue_reference_arm_repair_validator is not None

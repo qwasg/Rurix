@@ -3512,6 +3512,82 @@ jobs:
         shell: powershell
         run: py -3 ci/g17_interlock_check.py --gate g17.gov.implementation_interlock
 
+      # 步骤 296（G17.2 P0 硬门 M-a g17.p0.m_a.dual_end_retest_warm_recalib；
+      # G17_CONTRACT §4.2 M-a/G-G17-3；post-interlock 实测 CI_step.next_free=296 顺位领取）。
+      # pr-smoke 侧 --verify-latest（秒级核最新 full-run evidence）；full-run 本地 --gate。
+      # evidence 落盘 evidence/g17_m_a_dual_end_retest_warm_recalib_<UTC>.json。
+      - name: G17.2 M-a dual-end retest warm recalib verify-latest (G17_CONTRACT §4.2 M-a, g17.p0.m_a.dual_end_retest_warm_recalib)
+        shell: powershell
+        run: py -3 ci/g17_dual_end_retest_warm_recalib_smoke.py --verify-latest
+
+      # 步骤 297（G17.2 波聚合门 g17.wave.2.exit；参数化脚本独立调用独立 evidence）。
+      - name: G17.2 wave exit verify-latest (g17.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g17_wave_exit_check.py --gate g17.wave.2.exit
+
+      # 步骤 298（G17.3 P0 硬门 M-b g17.p0.m_b.ngx_evolution_alignment；
+      # G17_CONTRACT §4.2 M-b/G-G17-4）。
+      # evidence 落盘 evidence/g17_m_b_ngx_evolution_alignment_<UTC>.json。
+      - name: G17.3 M-b NGX evolution alignment verify-latest (G17_CONTRACT §4.2 M-b, g17.p0.m_b.ngx_evolution_alignment)
+        shell: powershell
+        run: py -3 ci/g17_ngx_evolution_alignment_smoke.py --verify-latest
+
+      # 步骤 299（G17.3 波聚合门 g17.wave.3.exit）。
+      - name: G17.3 wave exit verify-latest (g17.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g17_wave_exit_check.py --gate g17.wave.3.exit
+
+      # 步骤 300（G17.4 P0 硬门 M-c g17.p0.m_c.d3d12_host_lane_disposition；
+      # G17_CONTRACT §4.2 M-c/G-G17-5——RFC-0032 §5 决策树终态程序）。
+      # evidence 落盘 evidence/g17_m_c_d3d12_host_lane_disposition_<UTC>.json。
+      - name: G17.4 M-c D3D12 host lane disposition verify-latest (G17_CONTRACT §4.2 M-c, g17.p0.m_c.d3d12_host_lane_disposition)
+        shell: powershell
+        run: py -3 ci/g17_d3d12_host_lane_disposition_smoke.py --verify-latest
+
+      # 步骤 301（G17.4 波聚合门 g17.wave.4.exit）。
+      - name: G17.4 wave exit verify-latest (g17.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g17_wave_exit_check.py --gate g17.wave.4.exit
+
+      # 步骤 302（G17.5 P0 硬门 M-d g17.p0.m_d.t100_final_verdict；
+      # G17_CONTRACT §4.2 M-d/G-G17-6/立项裁决 5——终判两态均合法收口）。
+      # evidence 落盘 evidence/g17_m_d_t100_final_verdict_<UTC>.json。
+      - name: G17.5 M-d t100 final verdict verify-latest (G17_CONTRACT §4.2 M-d, g17.p0.m_d.t100_final_verdict)
+        shell: powershell
+        run: py -3 ci/g17_t100_final_verdict_smoke.py --verify-latest
+
+      # 步骤 303（G17.5 波聚合门 g17.wave.5.exit）。
+      - name: G17.5 wave exit verify-latest (g17.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g17_wave_exit_check.py --gate g17.wave.5.exit
+
+      # 步骤 304（G17.6 P0 硬门 M-e g17.p0.m_e.closed_gate_no_regression；
+      # G17_CONTRACT §4.2 M-e/G-G17-7——旧门 --verify-latest 零降级禁 --gate）。
+      # evidence 落盘 evidence/g17_m_e_closed_gate_no_regression_<UTC>.json。
+      - name: G17.6 M-e closed-gate no-regression verify-latest (G17_CONTRACT §4.2 M-e, g17.p0.m_e.closed_gate_no_regression)
+        shell: powershell
+        run: py -3 ci/g17_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 305（G17.6 波聚合门 g17.wave.6.exit）。
+      - name: G17.6 wave exit verify-latest (g17.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g17_wave_exit_check.py --gate g17.wave.6.exit
+
+      # 步骤 306（G17.7a P2 穷举决策门 g17.wave.7a.decisions；G17_CONTRACT G-G17-8）。
+      - name: G17.7a P2 decisions verify-latest (G17_CONTRACT G-G17-8, g17.wave.7a.decisions)
+        shell: powershell
+        run: py -3 ci/g17_p2_decisions_check.py --verify-latest
+
+      # 步骤 307（G17.7a soak g17.wave.7a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G17.7a soak verify-latest (G17_CONTRACT G-G17-8, g17.wave.7a.soak)
+        shell: powershell
+        run: py -3 ci/g17_stabilization_soak.py --verify-latest
+
+      # 步骤 308（G17.7b close-out 终审 g17.wave.7b.closeout；G17_CONTRACT G-G17-9）。
+      - name: G17.7b close-out verify-latest (G17_CONTRACT G-G17-9, g17.wave.7b.closeout)
+        shell: powershell
+        run: py -3 ci/g17_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

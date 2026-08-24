@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17.5 M-d t100 final verdict evidence",
+  "description": "evidence/g17_m_d_t100_final_verdict_<UTC>.json。G17.5 P0 M-d（ci/g17_t100_final_verdict_smoke.py 写；host 只读消费门，device 真跑面在终判轮 g14_m_d evidence）：①终判轮新鲜（波锚后最新件）②18 格全协议零缩短③Stage A digest 锚守护（scene 优化 L0 漂移即弃门禁）④ratio 终值 evidence JSON 字段直取⑤终判两态如实登记（met_18_18 / unmet_honest_registered 均合法收口态——门内双断言分离立项裁决 5）⑥met_count 零遮蔽⑦scene 优化触改清单如实登记（零优化 not-triggered 合法）⑧NGX 税源物理地板不冒充字面⑨G14 M-c 画质锚带复核（锚定条目 0-byte 消费）⑩budget --strict + RED 臂（合计 11——见 n_facts）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g17_m_d_t100_final_verdict"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g17.p0.m_d.t100_final_verdict"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G17.5"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G17.5"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "description": "post-interlock 实测顺位领取（302）"
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT §4.2 M-d/G-G17-6/立项裁决 5;G17_ACCEPTANCE_MAP §1 M-d 行;evidence/g14_m_d_dual_end_fps_parity_*.json（终判轮消费面）;milestones/g14/g14_budget.json（G14 M-c 画质锚带锚定条目 0-byte 消费）"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

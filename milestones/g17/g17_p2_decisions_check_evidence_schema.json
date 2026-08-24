@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G17.7a P2 decisions check evidence",
+  "description": "evidence/g17_p2_decisions_check_<UTC>.json。G17.7a P2 穷举决策门（ci/g17_p2_decisions_check.py 写）：§1 候选表 15 行终态（十四行 defer-to-G18+ 维持 + G15-MD-F1 期窗终态）+ §2 RD 八条 open + §3 G17-N1~N4 终态 + 期内新增 finding 行（G17-M*-F*/N* 形态开放追加）；裁决枚举合法（defer-to-G17+ 不再合法）/零空行/承接锚纪律/defer G18+ 字面/closed-go evidence 引用/deferred 对账。facts = 2 + 逐行（15+§3 行数）+ 2，minItems 23 开放上限（新增行合法追加）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "g17_p2_decisions_check"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g17.wave.7a.decisions"
+    },
+    "matrix_row": {
+      "type": "string",
+      "const": "G17.7a"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G17.7a"
+    },
+    "numeric_step": {
+      "type": "integer",
+      "description": "post-interlock 实测顺位领取（306）"
+    },
+    "source_ref": {
+      "type": "string",
+      "const": "G17_CONTRACT G-G17-8;G17_P2_DECISIONS.md v1.0;G17_CANDIDATE_DECISIONS.md v1.0（19 行闭集法定输入）;registry/deferred.json（RD 八条 open 机核）"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 23,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_required_gates_pass",
+        "all_extra_facts_pass",
+        "all_subjects_pass",
+        "aggregate_read_only"
+      ],
+      "properties": {
+        "all_required_gates_pass": {
+          "type": "boolean"
+        },
+        "all_extra_facts_pass": {
+          "type": "boolean"
+        },
+        "all_subjects_pass": {
+          "type": "boolean"
+        },
+        "aggregate_read_only": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python_version": {
+          "type": "string"
+        },
+        "cargo_version": {
+          "type": "string"
+        },
+        "rustc_version": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

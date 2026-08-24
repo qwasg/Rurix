@@ -3493,6 +3493,27 @@ impl DlssVkSession {
                 sl_result_name(r)
             )));
         }
+        // G17.3 M-b X2 边际探针(env `RURIX_G17_DLSS_EVAL_X2=1` 探针轮专用,默认关
+        // 零行为变更;同 cmd 第二次 slEvaluateFeature——submit_wait 边际差 = NGX 网络
+        // 单次 in-stream 净成本;分解完成即撤除,G15plus-II RURIX_G15_DLSS_EVAL_X2 同型)。
+        if std::env::var("RURIX_G17_DLSS_EVAL_X2").ok().as_deref() == Some("1") {
+            // SAFETY: 同上一 evaluate——tags/tag_ptrs/sl_* 栈上存活至本次返回
+            // (eOnlyValidNow 语义);cmd 仍录制中;token 本帧有效;计数一致。
+            let r2 = unsafe {
+                (self.fns.sl_evaluate_feature)(SL_FEATURE_DLSS, token, tag_ptrs.as_ptr(), tag_ptrs.len() as u32, self.cmd)
+            };
+            if r2 != SL_OK {
+                // SAFETY: cmd 录制中 → end;错误路径不提交。
+                unsafe {
+                    let _ = (self.dev.end_command_buffer)(self.cmd);
+                    let _ = (self.dev.reset_command_buffer)(self.cmd, 0);
+                }
+                return Err(VendorError::VendorCall(format!(
+                    "slEvaluateFeature(DLSS external X2 probe) → {}",
+                    sl_result_name(r2)
+                )));
+            }
+        }
         // SAFETY: cmd 录制完成。
         let r = unsafe { (self.dev.end_command_buffer)(self.cmd) };
         if r != VK_SUCCESS {
