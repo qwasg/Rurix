@@ -54,6 +54,9 @@ def transform(text: str, ref: str) -> str:
                 .replace("\x02cur\x02", "g20").replace("\x02prv\x02", "g19"))
     # 战役指令字面回正（跨期常量）
     text = text.replace("帮我一次性完成G20-G25", "帮我一次性完成G19-G25")
+    # defer 枚举滚动（G19 表的 defer-to-G20+ → G20 表的 defer-to-G21+；
+    # 里程碑号替换不触及 G20/G21 字面，须显式滚动）
+    text = text.replace("defer-to-G20+", "defer-to-G21+")
     # 治理步骤号
     text = text.replace("335", "351").replace("334", "350").replace("333", "349")
     # P0 slug 五元组

@@ -2,7 +2,7 @@
 contract: G20
 title: G20 虚拟化几何 P4 期（HZB 遮挡剔除 host 参考臂 + cluster 流送 P4 评估 + mesh shader/Far Field 重判）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g20_virtualized_geometry_p4
 version: v1.0
 date: 2026-08-24
@@ -64,7 +64,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G20 = 战役第二期：兑现 geometry 模块头注「HZB 两阶段 P3 预留」第一阶段 host 面（M61 重判条件「G19+ HZB/cluster P4 触发条件齐备」的 HZB 半边），cluster 流送 P4 差距闭集评估，M61 mesh shader 与 M98-l4 Far Field 两行重判。
 
-G20.0 不可变 ref = `G20_0_REF_PENDING`（G19 close-out flip commit，tag `g19-closed`）。
+G20.0 不可变 ref = `3c138867f94af31101591b8b2103bb1622175d4c`（G19 close-out flip commit，tag `g19-closed`）。
 
 ## 2. 范围与波次
 
@@ -119,3 +119,9 @@ D-G20-1：PLAN/CONTRACT/CI_GATES/g20_budget.json + G20_CANDIDATE_DECISIONS + G20
 6. 先优化后测试：G20.2~G20.3 纯实现；G20.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G20-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G19 closed + tag `g19-closed` + G20.0 不可变 ref `3c138867f94af31101591b8b2103bb1622175d4c`；候选表 14 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 351 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g20_interlock_check.py --gate g20.gov.implementation_interlock` VERDICT=READY；治理三门 349/350/351 PASS（acceptance_map 162039Z / candidate_decisions 162108Z / interlock）。
+- **解锁**：`implementation_status: blocked → unlocked`。G20.2+ 实现波（M-a~M-e）现可开工。

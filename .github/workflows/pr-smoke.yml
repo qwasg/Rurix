@@ -3790,6 +3790,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g19_closeout_check.py --verify-latest
 
+      # 步骤 349（G20.1 治理门 acceptance_map g20.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=349 顺位领取）。
+      - name: G20.1 acceptance map (G20_CONTRACT G-G20-1, g20.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g20_acceptance_map_check.py --gate g20.wave.1.acceptance_map
+
+      # 步骤 350（G20.1 治理门 candidate_decisions g20.wave.1.candidate_decisions）。
+      - name: G20.1 candidate decisions (G20_CONTRACT G-G20-1, g20.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g20_candidate_decisions_check.py --gate g20.wave.1.candidate_decisions
+
+      # 步骤 351（G20 实现互锁 g20.gov.implementation_interlock）。
+      - name: G20 implementation interlock (G20_CONTRACT G-G20-2, g20.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g20_interlock_check.py --gate g20.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
