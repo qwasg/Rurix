@@ -1,7 +1,7 @@
 ---
 contract: G20
 title: G20 虚拟化几何 P4 期（HZB 遮挡剔除 host 参考臂 + cluster 流送 P4 评估 + mesh shader/Far Field 重判）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g20_virtualized_geometry_p4
 version: v1.0
