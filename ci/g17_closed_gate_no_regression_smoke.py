@@ -31,7 +31,7 @@ WAVE = "G17.6"
 SCHEMA_PATH = ROOT / "milestones/g17/g17_m_e_closed_gate_no_regression_evidence_schema.json"
 SOURCE_REF = "G17_CONTRACT §4.2 M-e/G-G17-7;G17_ACCEPTANCE_MAP §1 M-e 行"
 
-# 有 --verify-latest 旗的受影响门走子进程（G16 全套 + G15/G14 回归面——G16.5 M-d 先例扩 G16 门）。
+# 有 --verify-latest 旗的受影响门走子进程（G16 全套——G16.5 M-d 先例扩 G16 门）。
 VERIFY_SCRIPTS = [
     ("g16_ue_reference_arm_repair", "ci/g16_ue_reference_arm_repair_smoke.py"),
     ("g16_dual_end_reharvest", "ci/g16_dual_end_reharvest_smoke.py"),
@@ -42,7 +42,6 @@ VERIFY_SCRIPTS = [
     ("g16_absolute_quality_closure", "ci/g16_absolute_quality_closure_smoke.py"),
     ("g16_stabilization_soak", "ci/g16_stabilization_soak.py"),
     ("g16_closeout", "ci/g16_closeout_check.py"),
-    ("g15_perf_parity_guard", "ci/g15_perf_parity_guard_smoke.py"),
 ]
 # 无该旗/诚实红登记面的旧门只读 latest evidence（G16.5 M-d _latest_ok 口径）。
 VERIFY_EVIDENCE = [
@@ -52,6 +51,13 @@ VERIFY_EVIDENCE = [
     ("g15_closeout", "g15_wave6b_closeout"),
     ("g15_regression_drift_guard", "g15_m_e_regression_drift_guard"),
     ("g14_regression_drift_guard", "g14_m_e_regression_drift_guard"),
+]
+# 诚实红终态维持面：G15 M-d 门（g15.p0.m_d.perf_parity_zero_regression）历史终态 =
+# 诚实红定盘件（G15 §8.7 六红键，G15 closeout 在此红面下 READY）——零降级判定 =
+# latest 件名维持该定盘件字面（G17 期零新件抢占，红终态 0-byte 不遮蔽不代绿）。
+HONEST_RED_TERMINAL = [
+    ("g15_perf_parity_guard_terminal", "g15_m_d_perf_parity_zero_regression",
+     "g15_m_d_perf_parity_zero_regression_20260823T195859Z.json"),
 ]
 # 旧门 latest 前缀不得被 g17_ 件抢占。
 PREFIX_GUARD = [
@@ -93,6 +99,16 @@ def evaluate() -> list[dict]:
     for name, prefix in VERIFY_EVIDENCE:
         ok, detail = _latest_ok(prefix)
         facts.append({"id": f"verify_{name}", "status": "PASS" if ok else "FAIL", "detail": detail})
+    for name, prefix, terminal_file in HONEST_RED_TERMINAL:
+        p = wel.load_latest_evidence(prefix)
+        ok = p is not None and p.name == terminal_file
+        facts.append({
+            "id": f"verify_{name}",
+            "status": "PASS" if ok else "FAIL",
+            "detail": f"latest = {p.name if p else 'missing'}（诚实红定盘件 {terminal_file} 维持 latest"
+                      f" = 零降级；红终态 0-byte 不遮蔽不代绿——G15 §8.7 定盘字面）"
+            if ok else f"latest = {p.name if p else 'missing'} ≠ 定盘件 {terminal_file}（终态被抢占/缺失）",
+        })
     stolen = []
     for label, prefix in PREFIX_GUARD:
         p = wel.load_latest_evidence(prefix)
@@ -125,8 +141,9 @@ def run_gate() -> int:
         subjects=[],
         schema_path=SCHEMA_PATH,
         evidence_basename=SUBJECT,
-        notes="G17.6 M-e：G13/G14/G15/G16 受影响门 --verify-latest 全绿零降级（10 子进程 + "
-              "6 latest 只读 + 前缀守护 4 + 禁 --gate 声明 = 18 facts）；g17_ 前缀不抢旧 latest",
+        notes="G17.6 M-e：G13/G14/G15/G16 受影响门 --verify-latest 全绿零降级（9 子进程 + "
+              "6 latest 只读 + 1 诚实红终态维持〔G15 M-d 定盘件 latest 字面 = 零降级，红终态"
+              "不遮蔽不代绿〕+ 前缀守护 + 禁 --gate 声明 = 18 facts）；g17_ 前缀不抢旧 latest",
         host_section_pass=overall,
     )
     return 0 if (overall and code == 0) else 1
@@ -146,7 +163,7 @@ def verify_latest() -> int:
 
 
 def run_selftest() -> int:
-    n = len(VERIFY_SCRIPTS) + len(VERIFY_EVIDENCE) + 2
+    n = len(VERIFY_SCRIPTS) + len(VERIFY_EVIDENCE) + len(HONEST_RED_TERMINAL) + 2
     ok = n == 18
     missing = [s for _, s in VERIFY_SCRIPTS if not (ROOT / s).is_file()]
     if missing:

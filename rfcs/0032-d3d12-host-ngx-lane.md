@@ -6,7 +6,7 @@
 | RFC 编号 | RFC-0032（按 2026-08-24 实测 `registry/number_ledger.json` namespaces.RFC `next_free=32` 领取，非推测号） |
 | 标题 | D3D12 宿主 NGX 车道评估与实现语义（NGXCubinD3D12 宿主形态 / 跨 device 资源桥接与同步 / 单 device 化评估 / 决策树终态程序） |
 | 档位 | **Full RFC**（① 触车道架构面——G15-MD-F1 承接锚②字面「车道架构面立项触冻结面独立 Full RFC」；② 潜在触 FFI ABI 高敏面（D3D12 device/fence/resource FFI 声明）；③ 触 vendor interop 生产车道形态。判档向上取严，10 §3） |
-| 状态 | **Agent Approved（决策程序 + 实现语义）**——D-409 第 1 轮 findings 全部 disposition（§9.1）；**终态 disposition（implement / no-go / defer）由 G17.4 M-c 按 §5 决策树以 M-a/M-b 实测为输入程序产出**，终态字面入 evidence 与本表修订记录（approved-implement / no-go / defer 三态均为合法终态） |
+| 状态 | **Agent Approved（决策程序 + 实现语义）**——D-409 第 1 轮 findings 全部 disposition（§9.1）；**终态 disposition = defer（G17.4 M-c 决策树分支③程序产出，2026-08-24；evidence/g17_m_c_d3d12_host_lane_disposition_20260824T091333Z.json；见 v0.3 修订行）** |
 | 承接里程碑 | G17（G17.4 M-c 波；验收面 = `g17.p0.m_c.d3d12_host_lane_disposition`） |
 | 关联条款 | 拟落 spec 条款号 **post-interlock actual-next-free allocation**（现快照 RXS next_free=408；禁推测号；仅当终态 = implement 时消费）。UpscaleBackend trait 签名 / temporal 底座 / RXS-0357 面 0-byte（触碰须另立独立 Full RFC） |
 | 依据决策 | D-406 v3.0 · D-409 · P-09 · P-13 · 用户 2026-08-24「帮我一次性完成G17」· 用户 2026-08-19 可商用授权 · [G15_CONTRACT](../milestones/g15/G15_CONTRACT.md) §8.6/§8.7 |
@@ -128,3 +128,4 @@ M-c 独立 evidence（`g17.p0.m_c.d3d12_host_lane_disposition`）；implement �
 |---|---|---|
 | v0.1 | 2026-08-24 | 起草 |
 | v0.2 | 2026-08-24 | D-409 修法批；翻 Agent Approved（决策程序 + 实现语义）；终态 disposition 待 G17.4 M-c |
+| v0.3 | 2026-08-24 | **终态 disposition = defer**（G17.4 M-c §5 决策树分支③程序产出）：est_rurix = M-a 窗 Rurix 中位 3.771125ms − M-b 采纳差值 0（拒绝换版态 ab_delta 零混入，F1）> ue_med 3.1922ms（Δ'=+0.5789ms 未达标预估）∧ 宿主差可分离收益上界估算不可紧化（UE 侧 NGX 份额 CSV GPUTime 口径不可分解 = G15 §8.7 归因三面之③；F2 口径限制）∧ 同步税预算下界 0.1ms 与 Δ' 同量级净收益判定不可得 → defer + 测算式留档（evidence/g17_m_c_d3d12_host_lane_disposition_20260824T091333Z.json 全字段引用链）。重判条件 = G18+ 宿主差可分离 measured 证据出现（NGX 分解 profiling 或 UE 侧插桩）；兜底 = Vulkan interop 车道生产默认维持。§4.3 单 device 化结构性 no-go 维持。M-d 翻转构成新事实时按只追加程序留档 G18+ 承接锚不回翻本终态（F4）。 |

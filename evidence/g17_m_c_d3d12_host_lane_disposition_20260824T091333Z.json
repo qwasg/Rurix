@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g17_m_c_d3d12_host_lane_disposition",
+  "symbolic_gate_key": "g17.p0.m_c.d3d12_host_lane_disposition",
+  "matrix_row": "G17.4",
+  "wave": "G17.4",
+  "numeric_step": 300,
+  "source_ref": "G17_CONTRACT §4.2 M-c/G-G17-5;G17_ACCEPTANCE_MAP §1 M-c 行;rfcs/0032-d3d12-host-ngx-lane.md §5 决策树;M-a 复测窗 evidence + milestones/g17/g17_mb_ngx_probe_results.json（决策树输入面）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "rfc_approved_with_adversarial_review",
+      "status": "PASS",
+      "detail": "RFC-0032 Agent Approved（决策程序+实现语义）+ D-409 对抗评审 findings 逐条 disposition 在档"
+    },
+    {
+      "id": "decision_tree_inputs_fresh",
+      "status": "PASS",
+      "detail": "M-a 复测窗 4 件 + M-b probe 在档（决策树输入 = 实测 evidence，禁拍脑袋）"
+    },
+    {
+      "id": "estimate_formula_f1",
+      "status": "PASS",
+      "detail": "预估式 = M-a 窗 Rurix 中位（evidence parity.cells rurix_median_ms 逐件） 3.771125 − M-b 采纳差值 0.000000（swap_adopted=False，probe adoption_verdict 字段）；est_rurix=3.771125ms；窗件 = ['evidence/g14_m_d_dual_end_fps_parity_20260824T054145Z.json', 'evidence/g14_m_d_dual_end_fps_parity_20260824T062859Z.json', 'evidence/g14_m_d_dual_end_fps_parity_20260824T070924Z.json', 'evidence/g14_m_d_dual_end_fps_parity_20260824T074948Z.json']"
+    },
+    {
+      "id": "branch_3_evaluated",
+      "status": "PASS",
+      "detail": "决策树分支 ③ 触发：归因无法分离：est_rurix=3.7711 > ue_med=3.1922（Δ'=+0.5789ms）但宿主差可分离收益上界估算不可紧化——UE 侧 NGX 份额在 CSV GPUTime 口径内不可分解（G15 §8.7 归因三面之③字面；F2 口径限制），且同步税预算下界 0.1ms 与 Δ' 同量级（净收益判定不可得）→ 决策树③ defer + 测算式留档；重判条件 = G18+ 宿主"
+    },
+    {
+      "id": "host_diff_separability_f2",
+      "status": "PASS",
+      "detail": "宿主差可分离性判定：UE 侧 NGX 份额 CSV GPUTime 口径不可分解（G15 §8.7 归因三面之③字面 0-byte 转引；F2 上界估算口径限制标注）；Vulkan 宿主 in-stream 实测：A 臂 310.5.2 = 2.2239999999999998ms / B 臂 310.6.0 = Nonems（版本差收益不冒充宿主差收益——归因分离纪律）"
+    },
+    {
+      "id": "sync_tax_bound_f3",
+      "status": "PASS",
+      "detail": "同步税预算下界 0.1ms（RFC §4.1 L2：2×fence + 队列提交；G14.11 FSR 臂参照锚方向性限制如实登记——F3）vs Δ'=+0.5789ms"
+    },
+    {
+      "id": "terminal_disposition_honest",
+      "status": "PASS",
+      "detail": "终态 = defer（分支 ③；三态均合法终态字面）——终态按当时输入定盘不回翻（F4 时序注：M-d 翻转构成新事实时按只追加程序留档 G18+ 承接锚，不 retroactive 改写本 evidence）"
+    },
+    {
+      "id": "single_device_no_go_recorded",
+      "status": "PASS",
+      "detail": "RFC §4.3 单 device 化结构性 no-go 留档（Vulkan 主腿契约字面 + RXS-0171 冻结面 + 工程量级三项结构性事实）"
+    },
+    {
+      "id": "fallback_literal_maintained",
+      "status": "PASS",
+      "detail": "兜底 = 既有 Vulkan interop 车道生产默认维持（vendor_upscale.rs 现状面 0-byte）"
+    },
+    {
+      "id": "red_arms_effective",
+      "status": "PASS",
+      "detail": "RED 三臂 + 采纳正臂独立有效（预估达标必①defer/归因不可分离禁 implement/拒绝换版 ab_delta 零混入/采纳态差值入式——函数面注入全检出）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T091333Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17.4 M-c RFC-0032 终态兑现：terminal_disposition = defer（分支 ③；approved-implement/no-go/defer 三态均合法终态）——决策树输入 = M-a 复测窗 evidence + M-b probe（F1 预估式写死字段引用/F2 上界口径限制/F3 同步税参照锚方向性/F4 终态不回翻）；单 device 化结构性 no-go RFC §4.3 留档；兜底 = Vulkan interop 车道生产默认维持；测算式 = 归因无法分离：est_rurix=3.7711 > ue_med=3.1922（Δ'=+0.5789ms）但宿主差可分离收益上界估算不可紧化——UE 侧 NGX 份额在 CSV GPUTime 口径内不可分解（G15 §8.7 归因三面之③字面；F2 口径限制），且同步税预算下界 0.1ms 与 Δ' 同量级（净收益判定不可得）→ 决策树③ defer + 测算式留档；重判条件 = G18+ 宿主差可分离 measured 证据出现（NGX 分解 profiling 或 UE 侧插桩）；兜底 = Vulkan interop 车道生产默认维持（维持未达标登记不冒充）"
+}

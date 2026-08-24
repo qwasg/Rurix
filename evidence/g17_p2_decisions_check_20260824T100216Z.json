@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "subject": "g17_p2_decisions_check",
+  "symbolic_gate_key": "g17.wave.7a.decisions",
+  "matrix_row": "G17.7a",
+  "wave": "G17.7a",
+  "numeric_step": 306,
+  "source_ref": "G17_CONTRACT G-G17-8;G17_P2_DECISIONS.md v1.0;G17_CANDIDATE_DECISIONS.md v1.0（19 行闭集法定输入）;registry/deferred.json（RD 八条 open 机核）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "sec1_set_equality",
+      "status": "PASS",
+      "detail": "§1 终态 15 行 vs 冻结 15 行"
+    },
+    {
+      "id": "sec3_new_rows_closed",
+      "status": "PASS",
+      "detail": "§3 = G17-N1~N4 必在（True）+ 期内新增 ['G17-MB-F1', 'G17-MD-F1']（形态 G17-M*-F*/N* 合法 = True）"
+    },
+    {
+      "id": "row_M61",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M52",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未命中维持）"
+    },
+    {
+      "id": "row_M100-high",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未齐备维持）"
+    },
+    {
+      "id": "row_SAFE-GPU",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 非独立期维持）"
+    },
+    {
+      "id": "row_M127",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M98-l4",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 不交集维持）"
+    },
+    {
+      "id": "row_M114-strand",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 数据面不交集维持）"
+    },
+    {
+      "id": "row_M118-hdr-cal",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未出现维持）"
+    },
+    {
+      "id": "row_M125-adopt3",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 无评估窗维持）"
+    },
+    {
+      "id": "row_G10-N6",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未出现维持）"
+    },
+    {
+      "id": "row_G10-N8",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = benchmark 臂维持）"
+    },
+    {
+      "id": "row_G10-N17",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未消费维持）"
+    },
+    {
+      "id": "row_G11-N5",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 未齐备维持）"
+    },
+    {
+      "id": "row_G13-N7",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17 全期窗结论 = 不立项维持）"
+    },
+    {
+      "id": "row_G15-MD-F1",
+      "status": "PASS",
+      "detail": "closed-go（G17 期窗承接锚程序全要素兑现完结留痕——重判执行完毕，结论 = 兜底字面维持；未达标面新事实归 §3 G17-MD-F1 行承接）"
+    },
+    {
+      "id": "row_G17-N1",
+      "status": "PASS",
+      "detail": "closed-go（G17 期窗兑现完结——M-a 承载面真跑绿转留痕）"
+    },
+    {
+      "id": "row_G17-N2",
+      "status": "PASS",
+      "detail": "closed-go（G17 期窗兑现完结——M-b 评估程序真跑完结转留痕，结论 = 拒绝换版如实登记）"
+    },
+    {
+      "id": "row_G17-N3",
+      "status": "PASS",
+      "detail": "closed-go（G17 期窗兑现完结——M-c 承载面真跑绿转留痕，终态 = defer 决策树分支③）"
+    },
+    {
+      "id": "row_G17-N4",
+      "status": "PASS",
+      "detail": "closed-go（G17 期窗兑现完结——M-d 承载面真跑绿转留痕，判定 = unmet_honest_registered 维持未达标登记不冒充）"
+    },
+    {
+      "id": "row_G17-MB-F1",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17.7a 窗结论 = 兼容性失败如实登记，SL 升级面归 G18+）"
+    },
+    {
+      "id": "row_G17-MD-F1",
+      "status": "PASS",
+      "detail": "defer-to-G18+（G17.7a 窗结论 = 维持未达标登记不冒充，G17 期窗五轮定盘）"
+    },
+    {
+      "id": "sec2_rd_open",
+      "status": "PASS",
+      "detail": "§2 RD 八条闭集 = True；非 open 行 = 无"
+    },
+    {
+      "id": "deferred_rd_open_reconcile",
+      "status": "PASS",
+      "detail": "deferred.json RD 八条 status 全 open（max=RD-045——战后新增 RD 按只追加程序合法）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T100216Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17.7a P2 穷举决策门：§1 15 行终态（十四行 defer-to-G18+ 维持 + G15-MD-F1 期窗终态）+ §2 RD 八条 open + §3 G17-N1~N4 终态 + 期内新增 finding 行；裁决枚举合法/零空行/承接锚纪律/defer G18+ 字面/closed-go evidence 引用/deferred 对账；no-go/defer 如实保持 open 不写进全绿叙述"
+}

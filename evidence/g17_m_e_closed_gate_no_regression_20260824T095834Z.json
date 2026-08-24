@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "subject": "g17_m_e_closed_gate_no_regression",
+  "symbolic_gate_key": "g17.p0.m_e.closed_gate_no_regression",
+  "matrix_row": "G17.6",
+  "wave": "G17.6",
+  "numeric_step": 304,
+  "source_ref": "G17_CONTRACT §4.2 M-e/G-G17-7;G17_ACCEPTANCE_MAP §1 M-e 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "verify_g16_ue_reference_arm_repair",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_a_ue_reference_arm_repair_20260824T020053Z.json "
+    },
+    {
+      "id": "verify_g16_dual_end_reharvest",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_b_dual_end_reharvest_20260824T022230Z.json "
+    },
+    {
+      "id": "verify_g16_absolute_quality_rereview",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_c_absolute_quality_rereview_20260824T023111Z.json "
+    },
+    {
+      "id": "verify_g16_closed_gate_no_regression",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_d_closed_gate_no_regression_20260824T023148Z.json "
+    },
+    {
+      "id": "verify_g16_gi_expression",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_e_gi_expression_20260824T034444Z.json "
+    },
+    {
+      "id": "verify_g16_lumen_reharvest",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_f_lumen_reharvest_20260824T032720Z.json "
+    },
+    {
+      "id": "verify_g16_absolute_quality_closure",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_m_g_absolute_quality_closure_20260824T044352Z.json "
+    },
+    {
+      "id": "verify_g16_stabilization_soak",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_stabilization_soak_20260824T051517Z.json "
+    },
+    {
+      "id": "verify_g16_closeout",
+      "status": "PASS",
+      "detail": "rc=0 [g16] verify-latest PASS g16_wave6b_closeout_20260824T051532Z.json "
+    },
+    {
+      "id": "verify_g13_ue_upscale_parity",
+      "status": "PASS",
+      "detail": "g13_m_c_ue_upscale_parity_20260823T084323Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g13_ue_lumen_gi_parity",
+      "status": "PASS",
+      "detail": "g13_m_d_ue_lumen_gi_parity_20260823T102425Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g13_closeout",
+      "status": "PASS",
+      "detail": "g13_wave5b_closeout_20260823T151321Z.json status='' verdict='READY' host=True"
+    },
+    {
+      "id": "verify_g15_closeout",
+      "status": "PASS",
+      "detail": "g15_wave6b_closeout_20260823T213954Z.json status='' verdict='READY' host=True"
+    },
+    {
+      "id": "verify_g15_regression_drift_guard",
+      "status": "PASS",
+      "detail": "g15_m_e_regression_drift_guard_20260823T204851Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g14_regression_drift_guard",
+      "status": "PASS",
+      "detail": "g14_m_e_regression_drift_guard_20260823T150723Z.json status='pass' verdict='' host=True"
+    },
+    {
+      "id": "verify_g15_perf_parity_guard_terminal",
+      "status": "PASS",
+      "detail": "latest = g15_m_d_perf_parity_zero_regression_20260823T195859Z.json（诚实红定盘件 g15_m_d_perf_parity_zero_regression_20260823T195859Z.json 维持 latest = 零降级；红终态 0-byte 不遮蔽不代绿——G15 §8.7 定盘字面）"
+    },
+    {
+      "id": "latest_prefix_not_stolen",
+      "status": "PASS",
+      "detail": "ok（g17_ 前缀零抢占）"
+    },
+    {
+      "id": "no_gate_invoked_on_old_scripts",
+      "status": "PASS",
+      "detail": "本门只发 --verify-latest，零 --gate 旧脚本（禁 --gate 字面）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T095834Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17.6 M-e：G13/G14/G15/G16 受影响门 --verify-latest 全绿零降级（9 子进程 + 6 latest 只读 + 1 诚实红终态维持〔G15 M-d 定盘件 latest 字面 = 零降级，红终态不遮蔽不代绿〕+ 前缀守护 + 禁 --gate 声明 = 18 facts）；g17_ 前缀不抢旧 latest"
+}

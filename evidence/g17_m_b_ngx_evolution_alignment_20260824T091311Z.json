@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g17_m_b_ngx_evolution_alignment",
+  "symbolic_gate_key": "g17.p0.m_b.ngx_evolution_alignment",
+  "matrix_row": "G17.3",
+  "wave": "G17.3",
+  "numeric_step": 298,
+  "source_ref": "G17_CONTRACT §4.2 M-b/G-G17-4;G17_ACCEPTANCE_MAP §1 M-b 行;G15_P2_DECISIONS.md §4 G15-MD-F1 行承接锚②;milestones/g17/g17_mb_ngx_probe_results.json（双臂 probe 消费面）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "eval_cache_provenance_registered",
+      "status": "PASS",
+      "detail": "四 DLL sha256 登记 == 实测重算；sl 三件 == g13 登记原件；nvngx 310.6.0 ≠ 310.5.2"
+    },
+    {
+      "id": "g13_registry_zero_byte",
+      "status": "PASS",
+      "detail": "g13_vendor_sdk_registry.json 0-byte（git diff HEAD 空）"
+    },
+    {
+      "id": "probe_results_fresh",
+      "status": "PASS",
+      "detail": "双臂 probe 齐备（started=20260824T090243Z），A all_ok=True B all_ok=False（B 臂级不可用如实登记 = 合法评估终态，诊断 = ['[sl] [17-11-09][streamline][error][tid:50964][0s:891ms:443us]dlssEntry.cpp:974[slOnPluginStartup] NGX indicates DLSSContext is not available - DLSSContext cannot run', '[g14_3_pipeline_perf]: FAIL dlss_sr 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: vendor 设备面不可用: DLSS 插件未装载(slIsFeatureLoaded → eErrorFeatureMissing(31),loaded=0)']）"
+    },
+    {
+      "id": "network_instantiation_verified",
+      "status": "PASS",
+      "detail": "A 臂 tokens=['CreateDlssInstance', 'DLTSS', 'InternalHistory', 'NGXCubinKernelMap', 'NGXCubinVulkan', 'NGXDLAA']（NGXCubinVulkan cubin 宿主面在档）；B 臂 = 310.6.0 在 SL 2.10.3 下 DLSSContext 不可用——实例化形态不可达（形态核验的诚实产出 = 兼容性失败留档 .tmp/g17_mb/arm_b_fail.log，PaddedWindowNetwork 形态对齐评估结论 = 当前 SL pin 下不可评）"
+    },
+    {
+      "id": "in_stream_decomposition_retested",
+      "status": "PASS",
+      "detail": "X2 边际（新鲜命令输出）：A 臂 310.5.2 = 2.2239999999999998 ms（submit_wait x1 = 2.2205 / x2 = 4.4445 ms）；B 臂 310.6.0 = not-available（臂级不可用）（G15 §8.7 对照基线字面 = in-stream 1.9 + 提交固定 0.1 ms——vendor SDK 演进 in-stream 成本变化面：当前 SL pin 下 310.6.0 不可运行，变化不可测如实登记）"
+    },
+    {
+      "id": "digest_guard_gate",
+      "status": "PASS",
+      "detail": "A 臂（310.5.2 生产默认）notiming digest == G14.12 冻结锚 HIT=True；B 臂（310.6.0）HIT=None（臂级不可用——门禁不适用，换版已被兼容性面拒绝）"
+    },
+    {
+      "id": "adoption_verdict_honest",
+      "status": "PASS",
+      "detail": "verdict='reject_version_swap' ⇔ 拒绝依据事实（B 臂不可用=True ∨ digest HIT≠True〔实测 None〕）一致（采纳/拒绝/零收益均合法，禁遮蔽门禁事实冒充采纳）"
+    },
+    {
+      "id": "ab_measured_recorded",
+      "status": "PASS",
+      "detail": "no-timing 三轮中位：A 臂 4.04722375 ms（[3.90548875, 4.04722375, 4.1652]） / B 臂 not-available（臂级不可用，A/B 对照不可测如实登记）——单变量同窗对照（measured_local）"
+    },
+    {
+      "id": "production_default_zero_byte",
+      "status": "PASS",
+      "detail": "src/ 0-byte（git diff HEAD 空——X2 探针已撤除，生产默认装载面零触改）"
+    },
+    {
+      "id": "red_arms_effective",
+      "status": "PASS",
+      "detail": "RED 五臂独立有效（门禁遮蔽采纳/登记 sha 不符/X2 缺失/probe 缺臂/不可用遮蔽采纳——函数面注入全检出）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260824T091311Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G17.3 M-b NGX 版本演进面对齐评估：新缓存目录 + G17 provenance 登记（四 DLL sha256 实测重算 == 登记，sl 三件 == g13 原件，g13 表 0-byte）+ PaddedWindowNetwork 实例化形态核验（SL verbose 日志 token）+ X2 边际探针重测分解（对照 G15 §8.7 1.90+0.10ms 基线字面）+ 画质守护双门禁第一门（Stage A digest 锚——B 臂 MISS 即拒绝换版如实登记）+ A/B measured 三轮单变量对照 + 采纳结论与门禁事实一致性机核（采纳/拒绝/零收益均合法）+ 生产默认 0-byte（X2 探针撤除义务）+ RED 四臂；device 真跑面在 probe 轮"
+}
