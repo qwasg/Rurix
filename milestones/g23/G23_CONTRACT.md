@@ -1,7 +1,7 @@
 ---
 contract: G23
 title: G23 物理平台深化期（Jolt 5.6 采纳臂重判 + 神经变形重判 + 研究轨/物理 P3+ 处置）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g23_physics_platform_deepening
 version: v1.0
