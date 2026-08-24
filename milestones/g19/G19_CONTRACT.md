@@ -1,7 +1,7 @@
 ---
 contract: G19
 title: G19 帧生成独立层兑现期（FG/MFG host 参考臂实现 + vendor disposition + RD-045 长窗观察）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g19_frame_generation_realization
 version: v1.0
