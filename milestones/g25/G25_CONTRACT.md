@@ -2,7 +2,7 @@
 contract: G25
 title: G25 全量商用终审收官期（画质终态维持核验 + 性能 18 格终判 + 全链零降级 + 战役承接锚归档）
 status: active
-implementation_status: blocked
+implementation_status: unlocked
 active_scope: g25_campaign_final_review
 version: v1.0
 date: 2026-08-24
@@ -62,7 +62,7 @@ guardrails:
 
 用户战役指令字面：**帮我一次性完成G19-G25**（2026-08-24，七期串行战役全期授权）。G25 = 战役收官期：双端商用画质/性能终态定盘（G18 达标面维持核验 + fps 17/18 诚实红终判两态程序）、G13~G24 全链零降级、战役承接锚归档闭集（G26+ 法定输入面）。
 
-G25.0 不可变 ref = `G25_0_REF_PENDING`（G24 close-out flip commit，tag `g24-closed`）。
+G25.0 不可变 ref = `4b65631c354340d3b7359a5b2561e57897e982e2`（G24 close-out flip commit，tag `g24-closed`）。
 
 ## 2. 范围与波次
 
@@ -117,3 +117,9 @@ D-G25-1：PLAN/CONTRACT/CI_GATES/g25_budget.json + G25_CANDIDATE_DECISIONS + G25
 6. 先优化后测试：G25.2~G25.3 纯核验；G25.4 全量测试波一次。
 
 ## 8. Close-out 区
+
+### §8.1 G-G25-2 implementation_status 解锁记录（2026-08-24）
+
+- **事实门全绿**：G24 closed + tag `g24-closed` + G25.0 不可变 ref `4b65631c354340d3b7359a5b2561e57897e982e2`；候选表 7 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G19-G25」字面 + workflow 末号 431 == ledger on_tree_max。
+- **机器事实**：`py -3 ci/g25_interlock_check.py --gate g25.gov.implementation_interlock` VERDICT=READY；治理三门 429/430/431 PASS。
+- **解锁**：`implementation_status: blocked → unlocked`。G25.2+ 实现波（M-a~M-e）现可开工。
