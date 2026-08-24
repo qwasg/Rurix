@@ -28,12 +28,12 @@
     "schema_version": { "type": "integer", "const": 1 },
     "subject": { "type": "string", "const": "g18_interlock_check" },
     "symbolic_gate_key": { "type": "string", "const": "g18.gov.implementation_interlock" },
-    "matrix_row": { "type": "string", "const": "g18.1" },
-    "wave": { "type": "string", "const": "g18.1" },
+    "matrix_row": { "type": "string", "const": "G18.1" },
+    "wave": { "type": "string", "const": "G18.1" },
     "numeric_step": { "type": "integer", "description": "落盘前实测 CI_step.next_free=293 顺位领取（本门 311）" },
     "source_ref": {
       "type": "string",
-      "const": "g18_CONTRACT G-g18-2/§6/§7;g18_ACCEPTANCE_MAP §5/§6;registry/number_ledger.json;registry/deferred.json"
+      "const": "G18_CONTRACT G-G18-2/§6/§7;G18_ACCEPTANCE_MAP §5/§6;registry/number_ledger.json;registry/deferred.json"
     },
     "host_section_pass": { "type": "boolean" },
     "device_section_state": {
