@@ -4610,6 +4610,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g29_closeout_check.py --verify-latest
 
+      # 步骤 509（G30.1 治理门 acceptance_map g30.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=509 顺位领取）。
+      - name: G30.1 acceptance map (G30_CONTRACT G-G30-1, g30.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g30_acceptance_map_check.py --gate g30.wave.1.acceptance_map
+
+      # 步骤 510（G30.1 治理门 candidate_decisions g30.wave.1.candidate_decisions）。
+      - name: G30.1 candidate decisions (G30_CONTRACT G-G30-1, g30.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g30_candidate_decisions_check.py --gate g30.wave.1.candidate_decisions
+
+      # 步骤 511（G30 实现互锁 g30.gov.implementation_interlock）。
+      - name: G30 implementation interlock (G30_CONTRACT G-G30-2, g30.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g30_interlock_check.py --gate g30.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

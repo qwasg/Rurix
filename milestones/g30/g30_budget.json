@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g30",
+  "description": "G30 预算面。baseline = G30.0 Stage A digest 锚在档快检 + 上游十一期收口 tag 计数实测（战役收官期零新增性能条目——三面终审消费既有绿件与新鲜单测登记面）。",
+  "source_docs": ["milestones/g30/G30_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g30.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G30.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g30_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g30.baseline.campaign_tags.count",
+      "description": "G30.0 baseline 上游十一期收口 tag 计数（期望 11/11：g19~g29-closed）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 11.0,
+      "evidence_file": "evidence/g30_baseline_campaign_tags.json",
+      "measured_value": 11.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
