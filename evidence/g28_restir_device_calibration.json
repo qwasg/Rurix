@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g28restir.calibration_entry.v1",
+  "entry_id": "g28.restir_device.host_device_estimate_tol",
+  "results": {
+    "trimmed_mean": 2.831220626831055e-06
+  },
+  "protocol": "ReSTIR device vs host 金标准(estimate_ris 直调)同输入逐 trial estimate 对拍容差(20000 trial × M=16 候选 × 64 灯环形夹具,随机带 host 单源预生成已对齐消费序 + 录制自检锚位级前置,逐 trial 绝对差 p100;threshold = measured × 2.0 冻结 k,方向 max,禁手写;实测 p100=0 → 零容差零条目;RFC-0045 §1.5)",
+  "sample_manifest": {
+    "count": 20000,
+    "digest": "sha256:d7d9e20b3e1145b1da84ec525781e9135d0413315b0147a5e44bdfee7bfe1aad"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "restir_device",
+    "base_commit": "d3dfde34a30ecab9002f6fc8bb1f2af837d64298"
+  },
+  "timestamp": "2026-08-25T14:11:07+08:00"
+}

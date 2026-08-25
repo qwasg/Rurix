@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g28_m_d_rd034_upstream_recheck",
+  "symbolic_gate_key": "g28.p0.m_d.rd034_upstream_recheck",
+  "matrix_row": "G28.3",
+  "wave": "G28.3",
+  "numeric_step": 486,
+  "source_ref": "G28_CONTRACT §4.2 M-d;RFC-0045 §4;registry/deferred.json RD-034;ci/meshrt_probe_smoke.py",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "probe_executed_fresh",
+      "status": "PASS",
+      "detail": "ci/meshrt_probe_smoke.py 真跑 rc=0（退出码判定非 grep）： 68 PASS: mesh B 链绿(spirv-cross ms_6_5 + dxc,2900B DXIL) [meshrt_probe] 步骤 69 PASS: RT blocked 探针新鲜(spirv-cross 如期拒 rayg"
+    },
+    {
+      "id": "probe_branch_verdict",
+      "status": "PASS",
+      "detail": "门态映射（F10 分支捕获非透传）：maintain-blocked——探针退 0 = spirv-cross 仍拒 raygen（blocked 证据新鲜，历史根因 HLSL builtin 5319=LaunchIdKHR）；两分支均合法零冒充"
+    },
+    {
+      "id": "rd034_status_honest",
+      "status": "PASS",
+      "detail": "RD-034 status=open（maintain-blocked 分支下与终态一致）"
+    },
+    {
+      "id": "rd034_history_appended",
+      "status": "PASS",
+      "detail": "RD-034 history 含 G28.3 复查只追加登记（断档口径注明）"
+    },
+    {
+      "id": "rd034_append_only_mechanized",
+      "status": "PASS",
+      "detail": "append-only 机核（vs G28.0 ref）"
+    },
+    {
+      "id": "backfill_branch2_zero_detection_declared",
+      "status": "PASS",
+      "detail": "backfill ②（LLVM A 路上游 RD-015 #90504/#57928）本期无本地机器检测面——①探针为唯一机器面，②以上游 issue 状态为人工复查面，如实登记不冒充覆盖"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T063852Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G28.3 M-d：RD-034 上游复查（探针真跑退出码分支 + maintain-blocked/relock-review-triggered 均合法 + history 只追加 + ②分支零检测声明）"
+}

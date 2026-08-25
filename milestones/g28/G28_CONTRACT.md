@@ -127,3 +127,18 @@ D-G28-1：PLAN/CONTRACT/CI_GATES/g28_budget.json + G28_CANDIDATE_DECISIONS + G28
 - **事实门全绿**：G27 closed + tag `g27-closed` + G28.0 不可变 ref `3122653014f6e7e39b626e7d932065014f30ce47`；候选表 8 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G26-G30」字面 + workflow 末号 479 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g28_interlock_check.py --require-ready` VERDICT=READY；治理三门 477/478/479 绿件；RFC-0045 经 D-409 对抗评审（12 findings 全 disposition，v0.2 修法批——含 F3 f64 幻影态删除）Agent Approved。
 - **解锁**：`implementation_status: blocked → unlocked`。G28.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G28.5 P2 穷举 + stabilization soak 验收记录（2026-08-25）——G-G28-6 前置：P2 穷举决策门（g28.wave.5a.decisions，步骤 490，VERDICT=PASS）+ 稳定门 soak（g28.wave.5a.soak，步骤 491，8/8 facts VERDICT=PASS——61 迭代 wall=1809.2s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G28_P2_DECISIONS.md` 穷举闭集 **8 行零空行**（§1 三行 closed-go 3〔M100-high（device 化 + 空间重用两件 implemented）+ M52 重判兑现（maintain-defer，两半 1/2）+ RD-034 复查兑现（maintain-blocked 新鲜）〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1809.2s ≥1800s + 61 迭代零失败（含七车道探针轮换穿插 12 次：g19/g20/g21/g22 四实现件 + g26 framegen + g27 hzb + g28 restir 三 device 快车道）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g28_p2_decisions_check_20260825T063957Z）；wave2~wave6 聚合门五绿。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G28.5 P2/soak 波）`。
+
+### §8.7 G28.6 close-out 终审签署块（2026-08-25）——G-G28-6 字面兑现：close-out 终审门（g28.wave.6b.closeout，步骤 492）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g28-closed`（**G26-G30 五期串行战役第三期收口**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain（ReSTIR device kernel 主锚绿件）/ rfc_0045_archived / old_gates_no_regression / rd_open_maintained（八条 open 维持）/ soak_ge_1800_zero_fail（20260825T071018Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g28_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（四面定盘）**：**ReSTIR device kernel implemented**（M-a：`kernels/g28_restir.rx` 真跑——随机带单源录制〔录制自检锚：录制终态 vs estimate_ris 直调逐 trial 位级〕+ y 整数锚 20000/20000 全等零翻转 + 对拍 p100=2.831e-6 ≤ 冻结容差 5.66e-6〔程序产 measured×2.0，tol < 0.025 F4 上界〕+ 无偏 3σ dev=3.04e-3 + 双跑位级 + RED 臂 + gi/ 两文件 0-byte）；**空间重用加性臂 implemented**（M-b：受点重评快照变换后直调冻结 merge 零复刻 + 聚合 3σ dev=3.54e-3 + 逐点 5σ 全过〔worst 2.75σ〕+ 方差再收益 0.899/2.063/2.733 如实登记含负收益点不设通过线）；**M52 maintain-defer 重判**（M-c：capability 现势 available〔新鲜 vulkaninfo 复测零漂移〕+ workload 零实现〔manifest + M50 库面不混同〕两半 1/2 单半不改判）；**RD-034 maintain-blocked 复查**（M-d：探针真跑 rc=0 blocked 新鲜 + ②分支零检测声明）；M-e 旧门零降级全绿。**implemented/maintain-defer/maintain-blocked 均为合法终态，零冒充**。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g28-closed`——五期串行战役第三期收口。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G28.6 close-out）`。

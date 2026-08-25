@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G28 wave exit evidence (parametrized waves 2..6)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "symbolic_gate_key",
+    "matrix_row",
+    "wave",
+    "numeric_step",
+    "source_ref",
+    "host_section_pass",
+    "device_section_state",
+    "required_gates",
+    "extra_facts",
+    "subjects",
+    "checks",
+    "evidence_level",
+    "run_url",
+    "timestamp",
+    "environment",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "enum": [
+        "g28_wave2_exit",
+        "g28_wave3_exit",
+        "g28_wave4_exit",
+        "g28_wave5_exit",
+        "g28_wave6_exit"
+      ]
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "enum": [
+        "g28.wave.2.exit",
+        "g28.wave.3.exit",
+        "g28.wave.4.exit",
+        "g28.wave.5.exit",
+        "g28.wave.6.exit"
+      ]
+    },
+    "matrix_row": {
+      "type": "string",
+      "enum": [
+        "G28.2",
+        "G28.3",
+        "G28.4",
+        "G28.5",
+        "G28.6"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "enum": [
+        "G28.2",
+        "G28.3",
+        "G28.4",
+        "G28.5",
+        "G28.6"
+      ]
+    },
+    "numeric_step": {
+      "type": "integer"
+    },
+    "source_ref": {
+      "type": "string"
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_state": {
+      "type": "string",
+      "enum": [
+        "not_applicable"
+      ]
+    },
+    "required_gates": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "extra_facts": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "maxItems": 4
+    },
+    "subjects": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {
+        "type": "object"
+      }
+    },
+    "checks": {
+      "type": "object"
+    },
+    "evidence_level": {
+      "type": "string",
+      "const": "measured_local"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

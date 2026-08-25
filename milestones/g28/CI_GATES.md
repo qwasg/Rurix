@@ -9,14 +9,24 @@
 | 478 | g28.wave.1.candidate_decisions | ci/g28_candidate_decisions_check.py |
 | 479 | g28.gov.implementation_interlock | ci/g28_interlock_check.py |
 
-## 2. P0 五门（post-interlock 实测顺位领取后登记）
+## 2. P0 五门（480–488，post-interlock 实测顺位）
 
-<!-- 占位：M-a~M-e 五 P0 门（gate key = g28.p0.m_<a~e>.<slug>，脚本 = ci/g28_<slug>_smoke.py）数字步骤 post-interlock 实测顺位领取后登记（零数字预占）。 -->
+| 步骤 | gate key | 脚本 |
+|---|---|---|
+| 480 | g28.p0.m_a.restir_device_kernel | ci/g28_restir_device_kernel_smoke.py |
+| 482 | g28.p0.m_b.restir_spatial_reuse_arm | ci/g28_restir_spatial_reuse_arm_smoke.py |
+| 484 | g28.p0.m_c.m52_rd040_workload_rejudgment | ci/g28_m52_rd040_workload_rejudgment_smoke.py |
+| 486 | g28.p0.m_d.rd034_upstream_recheck | ci/g28_rd034_upstream_recheck_smoke.py |
+| 488 | g28.p0.m_e.closed_gate_no_regression | ci/g28_closed_gate_no_regression_smoke.py |
 
-## 3. 波聚合门（post-interlock 实测顺位领取后登记）
+## 3. 波聚合门（481–489 奇数位）
 
-<!-- 占位：参数化脚本 ci/g28_wave_exit_check.py，gate key = g28.wave.{2..6}.exit；数字步骤 post-interlock 实测顺位领取后登记（零数字预占）。 -->
+参数化脚本 `ci/g28_wave_exit_check.py`，gate key `g28.wave.{2..6}.exit`。
 
-## 4. 收口三门（post-interlock 实测顺位领取后登记）
+## 4. 收口三门（490–492）
 
-<!-- 占位：g28.wave.5a.decisions / g28.wave.5a.soak / g28.wave.6b.closeout；数字步骤 post-interlock 实测顺位领取后登记（零数字预占）。 -->
+| 步骤 | gate key | 脚本 |
+|---|---|---|
+| 490 | g28.wave.5a.decisions | ci/g28_p2_decisions_check.py |
+| 491 | g28.wave.5a.soak | ci/g28_stabilization_soak.py |
+| 492 | g28.wave.6b.closeout | ci/g28_closeout_check.py |

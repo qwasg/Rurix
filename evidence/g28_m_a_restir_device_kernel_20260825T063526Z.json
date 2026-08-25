@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "g28_m_a_restir_device_kernel",
+  "symbolic_gate_key": "g28.p0.m_a.restir_device_kernel",
+  "matrix_row": "G28.2",
+  "wave": "G28.2",
+  "numeric_step": 480,
+  "source_ref": "G28_CONTRACT §4.2 M-a;rfcs/0045-lighting-device-realization.md §1;G28_ACCEPTANCE_MAP §1 M-a 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "spv_compile_spirv_val_pass",
+      "status": "PASS",
+      "detail": "rurixc --target vulkan 产 SPV + spirv-val 独立校验通过"
+    },
+    {
+      "id": "calibration_two_run_bitexact",
+      "status": "PASS",
+      "detail": "两跑位级一致;p100=2.831220626831055e-06(20000 trial 全集)"
+    },
+    {
+      "id": "calibration_budget_entry_measured",
+      "status": "PASS",
+      "detail": "程序产追加 measured=2.831220626831055e-06 threshold=5.662441253662110e-06"
+    },
+    {
+      "id": "tol_under_red_bias_bound",
+      "status": "PASS",
+      "detail": "tol=5.662441253662110e-06 vs 上界 0.025(RED_BIAS 0.05 × 0.5,F4)"
+    },
+    {
+      "id": "y_integer_anchor_all_equal",
+      "status": "PASS",
+      "detail": "保留样本 y 逐 trial 全等(真实承重锚)=True;判定带消费计数全等=True(钉死夹具下恒 16 平凡化事实照登:constant_16=True,恒跑防协议漂移,RFC-0045 §1.2);录制自检锚位级前置=True"
+    },
+    {
+      "id": "device_host_parity_p100",
+      "status": "PASS",
+      "detail": "全档 state=pass;p100=2.831220626831055e-06 ≤ tol=5.662441e-06(20000 trial 逐 trial estimate 绝对差)"
+    },
+    {
+      "id": "unbiased_3sigma_maintained",
+      "status": "PASS",
+      "detail": "device 20000 estimate 均值 7.616179429936 vs exact_direct 7.619224209338;dev=0.003044779402 < 3σ_mean+1e-9=0.02024390593(独立解析参考复核)"
+    },
+    {
+      "id": "device_double_run_bitexact",
+      "status": "PASS",
+      "detail": "固定输入双跑输出缓冲 digest 位级相等"
+    },
+    {
+      "id": "red_arm_kernel_bias_detected",
+      "status": "PASS",
+      "detail": "kernel-bias(RED_BIAS=0.05 输出面加性偏置)检出(honest p100=2.831221e-6 tampered p100=5.000275e-2 tol=5.662441e-6)"
+    },
+    {
+      "id": "host_frozen_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g27-closed -- restir_reservoir.rs+multi_light.rs 0-byte(提交面 + 工作树双面)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T063526Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G28.2 M-a:ReSTIR device kernel 兑现——g28_restir.rx 经 vk::run_compute 真跑(逐 trial 单 invocation WRS/RIS 链,dispatch [20000,1,1]);随机带单源纪律(PCG32 状态面留 host,已对齐消费序双带 + offset 三元组表 + 录制自检锚位级前置);y 整数锚前置(真实承重)+ 消费计数恒 16 平凡化照登 + estimate p100 ≤ 程序产标定容差(×2.0 冻结 k,F4 量化兜底 tol<0.025)+ 无偏 3σ 独立复核 + device 双跑位级 + kernel-bias RED 臂 + gi/ 两文件 0-byte(vs g27-closed);RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

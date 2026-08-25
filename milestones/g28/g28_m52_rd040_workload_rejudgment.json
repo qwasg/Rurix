@@ -1,0 +1,162 @@
+{
+  "schema": "rurix.g28.m52_rd040_workload_rejudgment.v1",
+  "m52": {
+    "capability_readonly": {
+      "verdict": "available",
+      "three_tokens_in_archive": true,
+      "source": "milestones/g21/g21_ser_capability_probe_results.json（0-byte 只读）"
+    },
+    "capability_fresh": {
+      "state": "available",
+      "tokens": {
+        "VK_NV_ray_tracing_invocation_reorder": true,
+        "VK_EXT_ray_tracing_invocation_reorder": true,
+        "rayTracingInvocationReorderReorderingHint": true
+      },
+      "log": ".tmp\\g28_mc\\vulkaninfo.log",
+      "rc": 0,
+      "drift_event": false,
+      "note": "三态闭集（F8）：现势优先；SKIP 态取在案态并登记降级口径"
+    },
+    "workload": {
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/kernels/*hit*.rx",
+          "anchor_keyword": "hit 着色阶段 kernel 痕迹",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/kernels/*miss*.rx",
+          "anchor_keyword": "miss 着色阶段 kernel 痕迹",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/kernels/*raygen*.rx",
+          "anchor_keyword": "raygen 阶段 kernel 痕迹",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/bin/*rt_pipeline*.rs",
+          "anchor_keyword": "生产 RT pipeline 派发形态",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/bin/*sbt*.rs",
+          "anchor_keyword": "生产 SBT 车道形态",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "hit": false,
+      "not_conflated": "rurix-rt 库面 SBT 底座（G8.2 M50，RFC-0019 冻结子集）不构成锚「宿主车道出现」命中——检索面显式区分库面底座与生产车道形态"
+    },
+    "conjunction": {
+      "capability_current": true,
+      "workload_hit": false,
+      "verdict": "maintain-defer",
+      "hardline": "capability 单半命中不得构成改判（G21 终判先例；两半布尔合取）"
+    }
+  },
+  "rd040_subitems": [
+    {
+      "id": "SMRT",
+      "manifest": [
+        {
+          "pattern": "K:/rurix-ext/assets/*hair*",
+          "anchor_keyword": "多灯动态场景资产入压测清单",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/shadow/*smrt*.rs",
+          "anchor_keyword": "shadow page 采样车道出现",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "anchor_hit": false,
+      "disposition": "maintain-defer"
+    },
+    {
+      "id": "WORLD-RC",
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/src/world/*gi_link*.rs",
+          "anchor_keyword": "大世界流送 + GI 联动窗",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "milestones/g2[6-8]/*world_gi_demand*.json",
+          "anchor_keyword": "世界级持久 GI 需求场景出现",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "anchor_hit": false,
+      "disposition": "maintain-defer"
+    },
+    {
+      "id": "NRD",
+      "manifest": [
+        {
+          "pattern": "evidence/*denoise_quality_gap*.json",
+          "anchor_keyword": "自研降噪画质差距 measured 检出",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "evidence/g2[5-8]_*nrd*.json",
+          "anchor_keyword": "G25 终审窗或后续画质门 measured artifact",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "anchor_hit": false,
+      "disposition": "maintain-defer"
+    },
+    {
+      "id": "OMM",
+      "manifest": [
+        {
+          "pattern": "K:/rurix-ext/assets/*bistro_exterior*",
+          "anchor_keyword": "alpha-tested 几何主导场景入压测清单",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "evidence/g2[4-8]_*fbx*conversion*success*.json",
+          "anchor_keyword": "BistroExterior 转换臂窗联动（G10-N6 维持 defer 互核）",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "anchor_hit": false,
+      "disposition": "maintain-defer"
+    },
+    {
+      "id": "RT-PIPELINE-SBT",
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/kernels/*hit*.rx",
+          "anchor_keyword": "hit/miss 着色阶段语义需求成立",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "evidence/*ser_gain_estimate*.json",
+          "anchor_keyword": "SER 收益 measured 预估窗",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "anchor_hit": false,
+      "disposition": "maintain-defer"
+    }
+  ],
+  "verdict": "maintain-defer-all"
+}

@@ -351,5 +351,22 @@ name = "g27_hzb_device"
 path = "src/bin/g27_hzb_device.rs"
 required-features = ["vulkan"]
 
+# G28.2 M-a/M-b ReSTIR device kernel + 空间重用加性臂 harness(RFC-0045 §1/§2;门
+# g28.p0.m_a.restir_device_kernel + g28.p0.m_b.restir_spatial_reuse_arm):
+# .rx 单 kernel(kernels/g28_restir.rx,rurixc --target vulkan 产 SPV + spirv-val
+# 通过,vk::run_compute 车道复用)逐 trial 单 invocation WRS/RIS 链与 host 金标准
+# gi/restir_reservoir.rs::estimate_ris 逐字同源(gi/ restir_reservoir+multi_light
+# 两文件 vs g27-closed 0-byte 冻结,机核归 CI)——随机带单源纪律(PCG32 u64 状态
+# 面留 host:已对齐消费序双带 + offset 三元组表 + 录制自检锚位级前置)+ 20000
+# trial 逐 trial 对拍(y 整数锚前置 + estimate p100 ≤ 标定容差程序产禁手写)+
+# 无偏 3σ 维持 + device 双跑位级 + kernel-bias RED 臂;--spatial 空间重用加性臂
+# (纯 host bin-local:8×8 网格 gather 快照 + 受点重评快照变换后直调冻结 merge
+# m_cap=60,聚合 3σ 硬门 + 逐点 5σ 结构兜底 + 逐点 3σ 诊断登记 + 方差再收益
+# measured 登记不设通过线 + 双跑位级)。
+[[bin]]
+name = "g28_restir_device"
+path = "src/bin/g28_restir_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g28_m_c_m52_rd040_workload_rejudgment",
+  "symbolic_gate_key": "g28.p0.m_c.m52_rd040_workload_rejudgment",
+  "matrix_row": "G28.3",
+  "wave": "G28.3",
+  "numeric_step": 484,
+  "source_ref": "G28_CONTRACT §4.2 M-c;RFC-0045 §3;G21_P2_DECISIONS.md §1 M52 行;g21_rd040_subitem_registry.json",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m52_capability_readonly_inventory",
+      "status": "PASS",
+      "detail": "G21 在案 verdict=available（三 token available 取证只读盘点）"
+    },
+    {
+      "id": "m52_capability_fresh_reprobe",
+      "status": "PASS",
+      "detail": "新鲜复测三态 = available（drift_event=False；tokens={'VK_NV_ray_tracing_invocation_reorder': True, 'VK_EXT_ray_tracing_invocation_reorder': True, 'rayTracingInvocationReorderReorderingHint': True}；F8 现势优先口径）"
+    },
+    {
+      "id": "m52_workload_search_manifest",
+      "status": "PASS",
+      "detail": "workload 半边 = 零实现（manifest 5 条 + 锚关键词映射；M50 库面底座不混同）"
+    },
+    {
+      "id": "m52_conjunction_verdict",
+      "status": "PASS",
+      "detail": "两半合取：capability=True workload=False → maintain-defer（capability 单半命中不得构成改判（G21 终判先例；两半布尔合取））"
+    },
+    {
+      "id": "rd040_five_subitem_manifests",
+      "status": "PASS",
+      "detail": "五分项逐锚重判：SMRT=maintain-defer; WORLD-RC=maintain-defer; NRD=maintain-defer; OMM=maintain-defer; RT-PIPELINE-SBT=maintain-defer（逐分项 ≥2 pattern + 锚映射表入档）"
+    },
+    {
+      "id": "rd040_history_appended",
+      "status": "PASS",
+      "detail": "RD-040 history 含 G28.3 重判只追加登记（断档口径注明）"
+    },
+    {
+      "id": "rd040_append_only_mechanized",
+      "status": "PASS",
+      "detail": "append-only 机核（vs G28.0 ref）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T063849Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G28.3 M-c：M52 两半盘点（capability 现势 + workload 零实现 → maintain-defer）+ RD-040 五分项逐锚重判（全维持 defer）+ manifest 忠实性映射表 + history 只追加"
+}

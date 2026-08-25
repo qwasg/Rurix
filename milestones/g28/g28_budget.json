@@ -25,6 +25,17 @@
       "threshold": 9.0,
       "evidence_file": "evidence/g28_baseline_campaign_tags.json",
       "measured_value": 9.0
+    },
+    {
+      "id": "g28.restir_device.host_device_estimate_tol",
+      "description": "ReSTIR device vs host 金标准(estimate_ris 直调)同输入逐 trial estimate 对拍容差冻结带(20000 trial × M=16 候选 × 64 灯环形夹具,随机带 host 单源预生成已对齐消费序 + 录制自检锚位级前置,逐 trial 绝对差 p100;threshold = measured × 2.0 协议冻结 k,方向 max;M-a 标定腿产,两跑位级一致,禁手写 P-09;量化兜底断言 tol < RED_BIAS 0.05 × 0.5(RFC-0045 §1.5 ④);样本集 digest sha256:d7d9e20b3e1145b1da84ec525781e9135d0413315b0147a5e44bdfee7bfe1aad(count=20000);标定程序 ci/g28_restir_device_kernel_smoke.py 标定腿可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 5.66244125366211e-06,
+      "evidence_file": "evidence/g28_restir_device_calibration.json",
+      "measured_value": 2.831220626831055e-06
     }
   ],
   "ratio_assertions": [],

@@ -4462,6 +4462,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g28_interlock_check.py --gate g28.gov.implementation_interlock
 
+      # 步骤 480（G28.2 P0 M-a g28.p0.m_a.restir_device_kernel；
+      # 落盘前实测 CI_step.next_free=480 顺位领取）。
+      - name: G28.2 M-a ReSTIR device kernel verify-latest
+        shell: powershell
+        run: py -3 ci/g28_restir_device_kernel_smoke.py --verify-latest
+
+      # 步骤 481（G28.2 波聚合门 g28.wave.2.exit）。
+      - name: G28.2 wave exit verify-latest (g28.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g28_wave_exit_check.py --gate g28.wave.2.exit
+
+      # 步骤 482（G28.2 P0 M-b g28.p0.m_b.restir_spatial_reuse_arm）。
+      - name: G28.2 M-b ReSTIR spatial reuse arm verify-latest
+        shell: powershell
+        run: py -3 ci/g28_restir_spatial_reuse_arm_smoke.py --verify-latest
+
+      # 步骤 483（G28.3 波聚合门 g28.wave.3.exit）。
+      - name: G28.3 wave exit verify-latest (g28.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g28_wave_exit_check.py --gate g28.wave.3.exit
+
+      # 步骤 484（G28.3 P0 M-c g28.p0.m_c.m52_rd040_workload_rejudgment）。
+      - name: G28.3 M-c M52/RD-040 workload rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g28_m52_rd040_workload_rejudgment_smoke.py --verify-latest
+
+      # 步骤 485（G28.4 波聚合门 g28.wave.4.exit）。
+      - name: G28.4 wave exit verify-latest (g28.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g28_wave_exit_check.py --gate g28.wave.4.exit
+
+      # 步骤 486（G28.3 P0 M-d g28.p0.m_d.rd034_upstream_recheck）。
+      - name: G28.3 M-d RD-034 upstream recheck verify-latest
+        shell: powershell
+        run: py -3 ci/g28_rd034_upstream_recheck_smoke.py --verify-latest
+
+      # 步骤 487（G28.5 波聚合门 g28.wave.5.exit）。
+      - name: G28.5 wave exit verify-latest (g28.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g28_wave_exit_check.py --gate g28.wave.5.exit
+
+      # 步骤 488（G28.4 P0 M-e g28.p0.m_e.closed_gate_no_regression）。
+      - name: G28.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g28_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 489（G28.6 波聚合门 g28.wave.6.exit）。
+      - name: G28.6 wave exit verify-latest (g28.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g28_wave_exit_check.py --gate g28.wave.6.exit
+
+      # 步骤 490（G28.5 P2 穷举 g28.wave.5a.decisions）。
+      - name: G28.5 P2 decisions verify-latest (g28.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g28_p2_decisions_check.py --verify-latest
+
+      # 步骤 491（G28.5 soak g28.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G28.5 stabilization soak verify-latest (g28.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g28_stabilization_soak.py --verify-latest
+
+      # 步骤 492（G28.6 close-out g28.wave.6b.closeout；五期串行战役第三期收口）。
+      - name: G28.6 close-out verify-latest (G28_CONTRACT G-G28-6, g28.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g28_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

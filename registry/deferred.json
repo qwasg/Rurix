@@ -1054,6 +1054,11 @@
           "date": "2026-08-24",
           "event": "G21.3 M-d 上游复查窗登记（agent 完全自主 D-406 v3.0）:blocked 恒跑探针真跑复查（ci/meshrt_probe_smoke.py——步骤 68 mesh B 链绿〔spirv-cross ms_6_5+dxc 2900B DXIL〕+ 步骤 69 RT blocked 探针新鲜〔spirv-cross 如期拒 raygen〕）→ 上游 SPV_KHR_ray_tracing 消费路径仍未出现,维持 blocked 诚实登记;RD-034 open 维持",
           "evidence": "ci/meshrt_probe_smoke.py 真跑输出（G21.3 复查窗）"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G28.3 M-d 上游复查窗登记（agent 完全自主 D-406 v3.0；RFC-0045 §4；断档口径注明：G22~G27 承接留痕在 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：真跑 ci/meshrt_probe_smoke.py 退出码判定（非 grep）——spirv-cross --hlsl 对最小 raygen SPIR-V 仍拒（历史根因 HLSL builtin 5319=LaunchIdKHR 谱系）→ maintain-blocked 分支（blocked 证据新鲜）；backfill ②（LLVM A 路上游 RD-015 #90504/#57928）本期无本地机器检测面——①探针为唯一机器面②以上游 issue 状态为人工复查面如实登记；RD-034 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "evidence/g28_m_d_rd034_upstream_recheck_*.json（探针真跑退出码 + 分支 verdict 入档）"
         }
       ]
     },
@@ -1383,6 +1388,11 @@
           "date": "2026-08-24",
           "event": "G21.3 M-c 五分项处置闭集登记（agent 完全自主 D-406 v3.0）:SMRT/世界辐射缓存演进/NRD/OMM/RT-pipeline+SBT 五分项逐项 disposition=defer（各附 basis+reeval_anchor，milestones/g21/g21_rd040_subitem_registry.json 闭集落档）;同期 M100-high 高档 reservoir 证据齐备兑现（gi/restir_reservoir.rs host 参考臂 + g21_restir_probe 无偏 3σ/方差收益 measured）+ M52 SER capability 半边实测 available（vulkaninfo VK_NV/EXT_ray_tracing_invocation_reorder 三 token 取证 milestones/g21/g21_ser_capability_probe_results.json）、workload 半边未命中（RT pipeline/SBT 车道零实现=本表 RT-PIPELINE-SBT 分项 open）→ M52 maintain-defer;RD-040 维持 open",
           "evidence": "milestones/g21/g21_rd040_subitem_registry.json / milestones/g21/g21_ser_capability_probe_results.json / evidence/g21_restir_probe_*.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G28.3 M-c workload 重判登记（agent 完全自主 D-406 v3.0；RFC-0045 §3；断档口径注明：G22~G27 承接留痕在各期 P2/候选表与 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：M100-high 分项本期 M-a/M-b 兑现（kernels/g28_restir.rx device kernel 真跑对拍 + 空间重用加性臂受点重评无偏 3σ——承接锚三件中「device 化/空间重用」两件命中事实登记，第三件 M100 车道集成窗不出现，登记≠车道锚整体兑现）；M52 两半盘点 = capability 现势 available（G21 三 token 在案只读盘点 + 新鲜 vulkaninfo 复测）+ workload 零实现（RT pipeline/SBT 宿主车道 manifest 检索，M50 库面底座不混同）→ maintain-defer 维持；五分项（SMRT/WORLD-RC/NRD/OMM/RT-PIPELINE-SBT）逐锚重判全未命中维持 defer（milestones/g28/g28_m52_rd040_workload_rejudgment.json 逐分项 manifest + 锚映射表）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g28/g28_m52_rd040_workload_rejudgment.json + evidence/g28_m_a_restir_device_kernel_*.json + evidence/g28_m_b_restir_spatial_reuse_arm_*.json"
         }
       ]
     },

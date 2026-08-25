@@ -1,0 +1,127 @@
+//@ spec: RFC-0045 §1(G28.2 M-a device 面;spec 条款号本期零新设)
+// G28.2 M-a ReSTIR device kernel —— 逐 trial 单 invocation WRS/RIS 链(门
+// `g28.p0.m_a.restir_device_kernel`;G28_CONTRACT §4.2 M-a 行逐字;
+// RFC-0045 §1 判据事实源)。
+//
+// ## 架构(g26_framegen.rx 同车道;单 trial 单 invocation)
+// host 金标准 `gi/restir_reservoir.rs::estimate_ris` 的逐字同源 device 兑现。
+// 随机流单源纪律(RFC-0045 §1.2):PCG32 u64 状态面整体留 host——kernel 零
+// RNG 状态算术、零整数取模;host 预生成「已对齐消费序」随机带两条(候选带 =
+// 每 trial 满长度 16 个 [0,63] 整数值;判定带 = 仅在 update 真实消费点
+// w_sum>0 产出的 next_f32 变长序列,短路点带内无位)+ 逐 trial offset 三元组
+// 表 [cand_offset, dec_offset, dec_len](F1;统一走表消除隐式闭式依赖)。
+// 灯表由 host `fixture_lights(64)` 单源生成一次原字节上传(cos/sin/TAU 超越
+// 函数只在 host 出现一次),device 不重生成。
+//
+// ## WRS 链(host estimate_ris/update/unbiased_weight 逐字;RFC-0045 §1.1)
+// Reservoir 局部变量:y 以 f32 承载(哨兵 -1.0 = 空,host usize::MAX 同义)/
+// phat_y / w_sum / m 全 f32(§1.3 唯一精度承载 = f32,f64 为 RX6026 构造性
+// 拒绝面;host f64 差异走标定容差对拍协议)。M=16 候选顺序:
+//   cand = cand_band[cand_offset + j];
+//   phat = target_phat 逐字复算(d = light.pos − [0,0,0];dist2 =
+//     dot(d,d).max(1e-6);dist = sqrt(dist2);ndotl = (dot([0,1,0],d)/dist)
+//     .max(0.0);phat = intensity·ndotl/dist2——乘除序逐字);
+//   w = phat·n_lights;w_sum += w;m += 1;
+//   判定 = w_sum>0 门(算术门 big=1e30 放大器;w_sum ≥ 0 域下门恒精确 0/1)
+//     + 条件读消费点语义(仅 w_sum>0 时读判定带下一位并递增消费计数——
+//     host `&&` 短路语义的无 && 承载;钉死夹具下全灯 phat>0 首候选起恒消费,
+//     协议面仍按短路语义写)+ `u < w/w_sum` 除法比较形不可改写(禁乘法移项);
+//   替换:y = cand、phat_y = phat。
+// 链毕 unbiased_weight 逐字:y 空 / phat_y ≤ 0 / m = 0 ⇒ W = 0(算术门形,
+// 安全分母防除零);estimate = phat_y·W + red_bias——**禁代数化简**(est 改写
+// 为 w_sum/m 同值不同舍入,禁)。
+//
+// ## 确定性协议(RXS-0357 L2 同律继承;RFC-0045 §1.7)
+// 禁 atomic、逐 trial 独立(invocation 间零交互)、trial 内 M 候选 WRS 链
+// 单线程固定求值序(浮点累加序 = host 字面序,w_sum 顺序累加禁归约树重排)、
+// 输出直写、随机性全部来自 host 预生成带、固定输入双跑位级一致。
+//
+// ## f32 精确可表域(RFC-0045 §1.2)
+// 候选索引 ∈ [0,63] 整数、next_f32 值 24 位尾数、offset ≤ 320000 < 2²⁴、
+// 消费计数 ≤ 16——两带、offset 表与计数输出全 f32 精确承载,u64 零下发。
+//
+// ## 参数面(host bin `g28_restir_device::pack_params` 逐字同源;8 f32)
+//   params[0]=n_trials [1]=n_lights [2]=m_candidates
+//   [3]=red_bias(RED 臂,正常 0;输出面 estimate 加性偏置——device vs host
+//       对拍超容差检出面,RFC-0045 §1.5 ④ kernel-bias RED 臂)
+//   [4..8]=reserved(恒 0)。
+//   lights: 4 f32/灯 [pos.x, pos.y, pos.z, intensity](host 原字节上传);
+//   cand_band: 1 f32/候选(值域 [0,63] 整数;trial t 的 16 个起于
+//     offsets[t·3]);
+//   dec_band: 1 f32/消费点(变长;trial t 的起于 offsets[t·3+1]);
+//   offsets: 3 f32/trial [cand_offset, dec_offset, dec_len];
+//   out: 4 f32/trial [estimate, y(−1=空), dec_consumed, phat_y]。
+//   dispatch = [n_trials, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g28_restir(
+    tc: ThreadCtx<1>,
+    lights: View<global, f32>,
+    cand_band: View<global, f32>,
+    dec_band: View<global, f32>,
+    offsets: View<global, f32>,
+    params: View<global, f32>,
+    out: ViewMut<global, f32>,
+) {
+    let t = tc.global_id();
+    let n_trials = params[0] as usize;
+    let n_lightsf = params[1];
+    let m_cand = params[2] as usize;
+    let red_bias = params[3];
+    let big: f32 = 1e30;
+    if t < n_trials {
+        let cand_off = offsets[t * 3] as usize;
+        let dec_off = offsets[t * 3 + 1] as usize;
+        // ── Reservoir::empty() 同义局部变量(y 哨兵 -1.0 = host usize::MAX)──
+        let mut y: f32 = 0.0 - 1.0;
+        let mut phat_y: f32 = 0.0;
+        let mut w_sum: f32 = 0.0;
+        let mut m: f32 = 0.0;
+        let mut consumed: f32 = 0.0;
+        let mut j = 0usize;
+        while j < m_cand {
+            let cand = cand_band[cand_off + j] as usize;
+            // ── target_phat 逐字复算(sp.pos=[0,0,0] normal=[0,1,0] 字面)──
+            let lbase = cand * 4;
+            let dx = lights[lbase] - 0.0;
+            let dy = lights[lbase + 1] - 0.0;
+            let dz = lights[lbase + 2] - 0.0;
+            let intensity = lights[lbase + 3];
+            let dist2 = (dx * dx + dy * dy + dz * dz).max(1e-6);
+            let dist = dist2.sqrt();
+            let ndotl = ((0.0 * dx + 1.0 * dy + 0.0 * dz) / dist).max(0.0);
+            let phat = intensity * ndotl / dist2;
+            // ── update 逐字:w = phat·L;w_sum += w;m += 1 ──
+            let w = phat * n_lightsf;
+            w_sum = w_sum + w;
+            m = m + 1.0;
+            // ── 判定:w_sum>0 算术门 + 条件读(短路消费点语义;w_sum ≥ 0 域
+            //    下 w_sum>0 ⇒ w_sum ≥ ~1e-3 ⇒ ×1e30 饱和,门恒精确 0/1)──
+            let consume_gate = (w_sum * big).min(1.0).max(0.0);
+            if consume_gate > 0.5 {
+                let u = dec_band[dec_off + consumed as usize];
+                consumed = consumed + 1.0;
+                // 除法比较形不可改写(RFC-0045 §1.3;禁 u·w_sum < w 移项)
+                if u < w / w_sum {
+                    y = cand as f32;
+                    phat_y = phat;
+                }
+            }
+            j = j + 1;
+        }
+        // ── unbiased_weight 逐字(算术门形:y 空/phat_y≤0/m=0 ⇒ W=0;
+        //    安全分母防除零——g=1 时 +0.0 位保恒)──
+        let g_nonempty = ((y + 1.0) * big).min(1.0).max(0.0);
+        let g_phat = (phat_y * big).min(1.0).max(0.0);
+        let g_m = (m * big).min(1.0).max(0.0);
+        let g_all = g_nonempty * g_phat * g_m;
+        let denom = phat_y * m;
+        let denom_safe = denom + (1.0 - g_all);
+        let w_y = (w_sum / denom_safe) * g_all;
+        // ── estimate = phat_y·W(禁代数化简)+ red_bias(RED 臂,正常 0)──
+        let estimate = phat_y * w_y + red_bias;
+        out[t * 4] = estimate;
+        out[t * 4 + 1] = y;
+        out[t * 4 + 2] = consumed;
+        out[t * 4 + 3] = phat_y;
+    }
+}
