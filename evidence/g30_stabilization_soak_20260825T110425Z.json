@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g30_stabilization_soak",
+  "symbolic_gate_key": "g30.wave.5a.soak",
+  "matrix_row": "G30.5",
+  "wave": "G30.5",
+  "numeric_step": 523,
+  "source_ref": "G30_CONTRACT G-G30-6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "m_d_precondition",
+      "status": "PASS",
+      "detail": "g30_m_d_campaign_handover_ledger_20260825T103120Z.json"
+    },
+    {
+      "id": "sleep_seconds_zero",
+      "status": "PASS",
+      "detail": "迭代间零 sleep"
+    },
+    {
+      "id": "soak_wall_clock_ge_1800",
+      "status": "PASS",
+      "detail": "wall=1817.7s"
+    },
+    {
+      "id": "iterations_nonzero",
+      "status": "PASS",
+      "detail": "iters=67"
+    },
+    {
+      "id": "failures_zero",
+      "status": "PASS",
+      "detail": "fails=0"
+    },
+    {
+      "id": "active_chain_matches_wall",
+      "status": "PASS",
+      "detail": "active=1817.7s wall=1817.7s"
+    },
+    {
+      "id": "no_sleep_between_iters",
+      "status": "PASS",
+      "detail": "sleep=0"
+    },
+    {
+      "id": "probe_lane_interleaved",
+      "status": "PASS",
+      "detail": "probe_iters=13（战役四实现件 + framegen/hzb/restir/slab 四 device 八车道探针轮换穿插复跑）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T110425Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30 soak ≥1800s（管线四组合 + 八车道探针轮换维持穿插，含 framegen/hzb/restir/slab 四 device 车道穿插（八车道轮换））"
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g30_m_e_closed_gate_no_regression",
+  "symbolic_gate_key": "g30.p0.m_e.closed_gate_no_regression",
+  "matrix_row": "G30.4",
+  "wave": "G30.4",
+  "numeric_step": 520,
+  "source_ref": "G30_CONTRACT §4.2 M-e;RFC-0047 §4.3",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "verify_g29_closed_gate",
+      "status": "PASS",
+      "detail": "rc=0 "
+    },
+    {
+      "id": "verify_g29_closeout",
+      "status": "PASS",
+      "detail": "rc=0 on)   FACT  PASS  closeout_ready  (VERDICT=READY)   → evidence evidence\\g29_wave6b_closeout_20260825T103137Z.json   VERDICT = PASS [g29_closeout] VERDICT=READY "
+    },
+    {
+      "id": "g30_prefix_no_steal",
+      "status": "PASS",
+      "detail": "ok(g29 subject latest 未被 g30_ 前缀抢占)"
+    },
+    {
+      "id": "no_gate_on_old_scripts",
+      "status": "PASS",
+      "detail": "只发 --verify-latest,禁 --gate 旧脚本重跑(RFC-0047 §4.3)"
+    },
+    {
+      "id": "stage_a_digest_anchor_unchanged",
+      "status": "PASS",
+      "detail": "Stage A 18 格锚消费面零漂移登记(g30.baseline.stage_a_digest_guard.anchor_count 18/18,G30.0 baseline 在档)"
+    },
+    {
+      "id": "quality_anchor_band",
+      "status": "PASS",
+      "detail": "ssim deficit 带零降级登记"
+    },
+    {
+      "id": "m_c_m_e_division",
+      "status": "PASS",
+      "detail": "M-c = G30.3 定盘(附 budget --strict 全量),M-e = G30.4 收官前复核(附前缀不抢 latest)——同集合两时点核验(RFC-0047 §4.3 F10 字面)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T103138Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.4 M-e:G29 受影响门零降级——M-c = G30.3 定盘(附 budget --strict 全量),M-e = G30.4 收官前复核(附前缀不抢 latest)——同集合两时点核验(RFC-0047 §4.3 F10)"
+}

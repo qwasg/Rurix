@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g30_m_c_campaign_full_chain_no_regression",
+  "symbolic_gate_key": "g30.p0.m_c.campaign_full_chain_no_regression",
+  "matrix_row": "G30.3",
+  "wave": "G30.3",
+  "numeric_step": 516,
+  "source_ref": "G30_CONTRACT §4.2 M-c;RFC-0047 §3",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "tag_count_11",
+      "status": "PASS",
+      "detail": "11/11 在树:g19-closed,g20-closed,g21-closed,g22-closed,g23-closed,g24-closed,g25-closed,g26-closed,g27-closed,g28-closed,g29-closed"
+    },
+    {
+      "id": "verify_g29_closed_gate",
+      "status": "PASS",
+      "detail": "rc=0 "
+    },
+    {
+      "id": "verify_g29_closeout",
+      "status": "PASS",
+      "detail": "rc=0 on)   FACT  PASS  closeout_ready  (VERDICT=READY)   → evidence evidence\\g29_wave6b_closeout_20260825T102837Z.json   VERDICT = PASS [g29_closeout] VERDICT=READY "
+    },
+    {
+      "id": "budget_strict_zero_skip_zero_estimated",
+      "status": "PASS",
+      "detail": "cmd='py -3 ci/budget_eval.py --strict'(无 --allow-pending,F18) rc=0 tail='[budget_eval] PASS (301 pass, 0 skip, strict mode)' SKIP 行=0;strict 下 estimated 违例必 rc≠0(rc=0 即零 estimated)"
+    },
+    {
+      "id": "verify_chain_semantics_honest",
+      "status": "PASS",
+      "detail": "verify-latest = 静态读档核验(evidence 链完整性),非现势重验;现势零回归由 M-b 表面 0-byte + 焦点格真跑 + G30.5 soak 承载(RFC-0047 §3 F4 如实化字面)"
+    },
+    {
+      "id": "no_gate_on_old_scripts",
+      "status": "PASS",
+      "detail": "只发 --verify-latest,禁 --gate 旧脚本重跑(RFC-0047 §3)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T102838Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.3 M-c:战役全链零降级——verify-latest = 静态读档核验(evidence 链完整性),非现势重验;现势零回归由 M-b 表面 0-byte + 焦点格真跑 + G30.5 soak 承载(RFC-0047 §3 F4)"
+}

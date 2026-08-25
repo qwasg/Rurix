@@ -1,0 +1,35 @@
+{
+  "schema": "rurix.g30.campaign_handover_registry.v1",
+  "description": "G26-G30 五期串行战役承接锚归档闭集（M-d 唯一消费面；G31+ 唯一法定输入面——各期 P2 表原始锚 0-byte 不回写，本表为汇总镜像；RFC-0047 §4，分 section 字段闭集 F5 钉死）。",
+  "campaign_period_rows": [
+    {"period": "G26", "id": "G13-N7", "final": "closed-go（FG/MFG device kernel implemented：kernels/g26_framegen.rx 真跑对拍 p100=3.576e-7 ≤ 冻结容差 + SSIM 全帧严格胜 frame-hold + device 双跑位级 + 双 RED 臂）", "g31_anchor": "生产接线窗（加性纪律维持——kernel 在树零接线，接线经 G31+ 立项程序）", "source": "milestones/g26/G26_P2_DECISIONS.md §1"},
+    {"period": "G26", "id": "RD-045-window", "final": "closed-go（重判窗兑现：新鲜观察窗 6/6 轮 digest 锚全中零漂移 + 三件盘点 0/3 → maintain-open 终态不冒充 close）", "g31_anchor": "backfill 三件（定位+修复+Full RFC 评估）", "source": "milestones/g26/G26_P2_DECISIONS.md §1"},
+    {"period": "G27", "id": "M61", "final": "closed-go（重判窗兑现：三项机器盘点 1/3〔HZB device 半边命中 + P4 四行仍 open + HW measured 零命中〕→ maintain-no-go，防冒充硬线兑现）", "g31_anchor": "cluster P4 差距闭集清零 + mesh shader HW 性能差 measured 证据（RFC-0034 重判表只追加）", "source": "milestones/g27/G27_P2_DECISIONS.md §1"},
+    {"period": "G27", "id": "M98-l4", "final": "closed-go（重判窗兑现：两半树内实测 0/2〔device 腿零实现 + 三处 fail-closed 入口在位〕→ 维持 L1/L2/L3 三级链）", "g31_anchor": "HLOD proxy 追踪 device 腿 + L4 计数器接入（两半全齐方改判，锚「+」合取）", "source": "milestones/g27/G27_P2_DECISIONS.md §1"},
+    {"period": "G28", "id": "M100-high", "final": "closed-go（ReSTIR device 化 implemented：M-a 对拍 p100=2.831e-6 + y 整数锚 20000/20000 + 无偏 3σ + M-b 空间重用加性臂——锚三件前两件命中事实登记）", "g31_anchor": "M100 车道集成窗（锚第三件余项；RFC-0038 out-of-scope 锚）", "source": "milestones/g28/G28_P2_DECISIONS.md §1"},
+    {"period": "G28", "id": "M52", "final": "closed-go（重判窗兑现：capability 现势 available 零漂移 + workload 零实现 → maintain-defer，单半命中不得改判）", "g31_anchor": "RT pipeline/SBT 宿主车道出现（RD-040 分项 reeval_anchor）", "source": "milestones/g28/G28_P2_DECISIONS.md §1"},
+    {"period": "G29", "id": "RD-041-slab", "final": "closed-go（slab device kernel + 侧表 16 槽 implemented：M-a 对拍 p100=1.192e-7〔恰 f32@1.0 一 ULP〕+ 角点 rc=ab=1 device 位级 1.0〔修法 A 兑现〕+ M-b 逐槽 p100=3.68e-8 + MaterialClosure 32B 零触碰）", "g31_anchor": "生产接线窗（closure 单层生产面 0-byte 维持；接线经 G31+ 立项程序）", "source": "milestones/g29/G29_P2_DECISIONS.md §1"},
+    {"period": "G29", "id": "RD-041-svt-ktx2-wg", "final": "closed-go（重判窗兑现：SVT/KTX2 七行逐锚重判全维持 defer〔零实现实测〕+ WG 新鲜复测 absent 维持 not-available + DGC 互核）", "g31_anchor": "各差距表 reeval_anchor 字面（G22 闭集落档）+ WG present 翻转时复评启动", "source": "milestones/g29/G29_P2_DECISIONS.md §1"},
+    {"period": "G30", "id": "G17-MD-F1", "final": "17/18 诚实红终判（G30.2 M-b 焦点格 canonical 160 帧新鲜真跑 frame_ms=3.5767ms、新鲜 ratio=0.960479 < 1.00 物理不可达；两半锚 6 pattern G30 新鲜检索零命中 ⇒ ratio 登记面即重判执行体；G26 M-d「终判归 G30 商用终审」carry 字面本期兑现——合法收官态零冒充）", "g31_anchor": "NGX 分解 profiling 或 UE 侧插桩（宿主差可分离 measured 证据，RFC-0032 重判条件同源）", "source": "evidence/g30_m_b_commercial_final_review_20260825T102813Z.json + milestones/g30/G30_P2_DECISIONS.md §1"}
+  ],
+  "rd_eight": [
+    {"id": "RD-034", "status": "open", "g31_anchor": "spirv-cross SPV_KHR_ray_tracing 消费路径或 LLVM A 路解锁（G28.3 探针新鲜 maintain-blocked 在案）"},
+    {"id": "RD-039", "status": "open", "g31_anchor": "cluster P4 四行 open + mesh shader 再判链（M61 maintain-no-go 三项 1/3）——HZB device 化分项 G27 M-a 已兑现"},
+    {"id": "RD-040", "status": "open", "g31_anchor": "五分项 reeval_anchor（G21 闭集落档）+ M52 workload 窗 maintain-defer——ReSTIR device 化/空间重用分项 G28 M-a/M-b 已兑现"},
+    {"id": "RD-041", "status": "open", "g31_anchor": "SVT/KTX2 七行差距表 reeval_anchor（G22 闭集落档，G29 M-c 重判全维持 defer）——slab device/侧表分项 G29 M-a/M-b 已兑现"},
+    {"id": "RD-042", "status": "open", "g31_anchor": "可微仿真需求场景出现（G23 四轨 maintain-observe 落档；G30.2 尾锚窗 2 pattern 零命中维持）"},
+    {"id": "RD-043", "status": "open", "g31_anchor": "GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据（G30.2 尾锚窗 3 pattern 零命中维持）"},
+    {"id": "RD-044", "status": "open", "g31_anchor": "三分项 reeval_anchor（G23 闭集落档：JOLT-SOFT/TAICHI-MPM/RAPIER-FAST；G30.2 尾锚窗 6 pattern 零命中维持）"},
+    {"id": "RD-045", "status": "open", "g31_anchor": "backfill 三件；累计观察 = G19.3 观察窗 12/12 中锚零漂移 + G19~G29 十一期 soak 全零失败零漂移事件（G30.2 M-b 复核在案）"}
+  ],
+  "legacy_eleven_source": "milestones/g24/g24_legacy_rd_registry.json（十一条逐条 backfill 核验零 close + history 只追加在案；G25 归档同律——引用不复制）",
+  "tail_six": [
+    {"id": "M125-adopt3", "final": "maintain-5.3（Jolt 5.6 采纳档：三类需求证据逐类独立 manifest 全空 + sys56 评估臂 cargo check 新鲜绿 + g9_m125 A/B latest 只读盘点——在案三件条件 1/3 不变）", "g31_anchor": "需求证据三类任一命中（5.6 独有 API 引用/5.3 缺陷命中/A/B 超带）", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"},
+    {"id": "M127", "final": "maintain 研究子轨（corpus 四目录存在性 NONE + PhysicsAsset residual 消费方 token NONE——g23 检索面逐字沿用禁缩面）", "g31_anchor": "corpus + PhysicsAsset residual 消费方出现（搜索面闭集只追加扩面）", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"},
+    {"id": "M114-strand", "final": "maintain card/mesh（契约 strand token NONE + 外部盘 hair 面检索根不可达 SKIP 如实登记 + 在案态兜底——F15 三态闭集）", "g31_anchor": "毛发资产入压测闭集", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"},
+    {"id": "M118-hdr-cal", "final": "maintain-SDR（vulkaninfo 新鲜探针三 token〔HDR10_ST2084/BT2020_LINEAR/HDR10_HLG〕全 absent——三态闭集 RFC-0046 §4.2 同律）", "g31_anchor": "显示链变化 + HDR 资产需求成立", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"},
+    {"id": "G10-N6", "final": "维持双场景闭集（fbx2gltf/assimp/blender 三工具 PATH 实测全缺 + BistroExterior 源资产三根检索 0 命中〔K: 根态逐根如实登记〕——BistroInterior + CornellBox 兜底字面 0-byte）", "g31_anchor": "FBX2glTF 上游修复在树或替代臂+源资产同窗齐备", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"},
+    {"id": "SAFE-GPU", "final": "defer 维持（收官期专属资源窗不成立〔判据字面直接不成立如实登记〕+ 平台需求方文档树内 0 命中——归档行改锚 defer-to-G31+）", "g31_anchor": "defer-to-G31+：独立期资源窗 + 平台需求方（外部采纳生态）出现时立项评估", "source": "evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json"}
+  ],
+  "summary": "campaign_period_rows 9（G26~G30 五期逐期 ≥1 行）+ rd_eight 8 + tail_six 6 + legacy 清册 11（引用源）——G31+ 唯一法定输入面；各期 P2 表原始锚 0-byte 不回写；G17-MD-F1 终判行归档槽位 = G30 期行（RFC-0047 §4.1 F5）"
+}

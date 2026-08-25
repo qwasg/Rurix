@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g30_wave6b_closeout",
+  "symbolic_gate_key": "g30.wave.6b.closeout",
+  "matrix_row": "G30.6",
+  "wave": "G30.6",
+  "numeric_step": 524,
+  "source_ref": "G30_CONTRACT G-G30-6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "five_p0_evidence_green",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "p2_exhaustive_zero_empty",
+      "status": "PASS",
+      "detail": "g30_p2_decisions_check_20260825T103353Z.json"
+    },
+    {
+      "id": "handover_ledger_chain",
+      "status": "PASS",
+      "detail": "g30_campaign_handover_registry.json+g30_m_d_campaign_handover_ledger_20260825T103120Z.json（campaign handover registry 主锚 + M-d 绿件在档）"
+    },
+    {
+      "id": "rfc_0047_archived",
+      "status": "PASS",
+      "detail": "| 状态 | Agent Approved（2026-08-25；D-409 对抗性评审 18 findings〔blocker 0/major 5/minor 13〕全处置为 v0.2——报告 `milestones/g30/design/rfc0047_adversarial_review.md`） |"
+    },
+    {
+      "id": "old_gates_no_regression",
+      "status": "PASS",
+      "detail": "g30_m_e_closed_gate_no_regression_20260825T103138Z.json host=True"
+    },
+    {
+      "id": "rd_open_maintained",
+      "status": "PASS",
+      "detail": "八条 open 维持=True"
+    },
+    {
+      "id": "soak_ge_1800_zero_fail",
+      "status": "PASS",
+      "detail": "g30_stabilization_soak_20260825T110425Z.json"
+    },
+    {
+      "id": "closeout_ready",
+      "status": "PASS",
+      "detail": "VERDICT=READY"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T110454Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.6 closeout 八 facts VERDICT=READY"
+}

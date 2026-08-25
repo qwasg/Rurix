@@ -1,0 +1,606 @@
+{
+  "schema_version": 1,
+  "subject": "g30_m_a_tail_anchor_rejudgment_closure",
+  "symbolic_gate_key": "g30.p0.m_a.tail_anchor_rejudgment_closure",
+  "matrix_row": "G30.2",
+  "wave": "G30.2",
+  "numeric_step": 512,
+  "source_ref": "G30_CONTRACT §4.2 M-a;RFC-0047 §1;milestones/g25/g25_campaign_handover_registry.json（g26_anchor 锚源）;milestones/g23/g23_rd044_subitem_registry.json（RD-044 三分项锚源）",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "anchor_source_pinned",
+      "status": "PASS",
+      "detail": "九组锚字面 = g25 registry g26_anchor / g23_rd044 reeval_anchor 逐行原文机核比对（F8）"
+    },
+    {
+      "id": "m125_demand_three_classes_manifest",
+      "status": "PASS",
+      "detail": "三类需求证据逐类独立 manifest（api56_unique_api_ref/defect53_hit/ab_overband 空判 = {'api56_unique_api_ref': True, 'defect53_hit': True, 'ab_overband': True}；类① G9.6 评估臂基线四件排除后净命中）",
+      "anchor_literal": "需求证据三类任一命中（5.6 独有 API 引用/5.3 缺陷命中/A/B 超带）",
+      "manifest": [
+        {
+          "kind": "grep",
+          "pattern": "rurix_physics_sys56|JPC56_|JPH56",
+          "search_roots": [
+            "src/rurix-physics/src",
+            "apps"
+          ],
+          "anchor_keyword": "API56/类① 5.6 独有 API 生产引用（锚「5.6 独有 API 引用」派生；G9.6 评估臂四件基线排除）",
+          "state": "ok",
+          "hits": 0,
+          "files": [],
+          "raw_hits": 3,
+          "baseline_excluded": [
+            "src/rurix-physics/src/ab_eval.rs",
+            "src/rurix-physics/src/bin/g9_m125_jolt56_ab.rs",
+            "src/rurix-physics/src/world.rs"
+          ]
+        },
+        {
+          "kind": "glob",
+          "pattern": "apps/**/*jolt56*",
+          "search_roots": [
+            "apps"
+          ],
+          "anchor_keyword": "API56/类① 5.6 面 workload 文件名（锚「5.6 独有 API 引用」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "jolt_53_defect|jolt53_workaround",
+          "search_roots": [
+            "src/rurix-physics/src",
+            "apps"
+          ],
+          "anchor_keyword": "DEFECT53/类② 5.3 缺陷 workaround 代码登记（锚「5.3 缺陷命中」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "evidence/*jolt_53_defect*",
+          "search_roots": [
+            "evidence"
+          ],
+          "anchor_keyword": "DEFECT53/类② 5.3 缺陷取证档（锚「5.3 缺陷命中」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "evidence/*jolt_56_ab_overband*",
+          "search_roots": [
+            "evidence"
+          ],
+          "anchor_keyword": "OVERBAND/类③ A/B 超带 measured 档（锚「A/B 超带」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "ab_overband",
+          "search_roots": [
+            "src/rurix-physics/src",
+            "apps"
+          ],
+          "anchor_keyword": "OVERBAND/类③ 超带登记面（锚「A/B 超带」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "m125_sys56_cargo_check_fresh",
+      "status": "PASS",
+      "detail": "cargo check -p rurix-physics-sys56 rc=0（评估臂可编译性硬前提，失败如实红；g23 源 crate 路径）"
+    },
+    {
+      "id": "m125_g9_ab_evidence_readonly_green",
+      "status": "PASS",
+      "detail": "g9_m125 A/B latest 只读盘点存在且绿（g9_m125_jolt_56_ab_evaluation_20260815T030521Z.json；禁 --gate 重跑——F17）"
+    },
+    {
+      "id": "m125_branch_verdict",
+      "status": "PASS",
+      "detail": "三类全空 ⇒ 维持 maintain-5.3（在案三件条件 1/3 不变）"
+    },
+    {
+      "id": "m127_two_halves_manifest",
+      "status": "PASS",
+      "detail": "corpus 四目录存在性 = NONE（搜索面闭集 ['corpus', 'assets/corpus', 'assets/neural', 'conformance/neural']）+ neural_deform 消费方（src/+apps/）= NONE——g23 检索面逐字沿用禁缩面",
+      "anchor_literal": "corpus + PhysicsAsset residual 消费方出现（搜索面闭集只追加扩面）",
+      "manifest": [
+        {
+          "kind": "dir",
+          "pattern": "corpus",
+          "search_roots": [
+            "corpus"
+          ],
+          "anchor_keyword": "corpus 半/离线语料目录（锚「corpus」派生；g23 搜索面闭集第 1 项）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "dir",
+          "pattern": "assets/corpus",
+          "search_roots": [
+            "assets/corpus"
+          ],
+          "anchor_keyword": "corpus 半（g23 搜索面闭集第 2 项）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "dir",
+          "pattern": "assets/neural",
+          "search_roots": [
+            "assets/neural"
+          ],
+          "anchor_keyword": "corpus 半（g23 搜索面闭集第 3 项）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "dir",
+          "pattern": "conformance/neural",
+          "search_roots": [
+            "conformance/neural"
+          ],
+          "anchor_keyword": "corpus 半（g23 搜索面闭集第 4 项）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "neural_deform",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "消费方半/PhysicsAsset residual 消费方 token（锚「PhysicsAsset residual 消费方出现」派生；g23 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "m127_branch_verdict",
+      "status": "PASS",
+      "detail": "两半未命中 ⇒ 维持研究子轨（无主线门口径 0-byte）"
+    },
+    {
+      "id": "m114_manifest_three_state",
+      "status": "PASS",
+      "detail": "契约 strand token = NONE（g24 面沿用）+ 外部盘 hair 面 state=skipped_root_unreachable hits=0（根 K:/rurix-ext/assets；不可达 SKIP 如实登记 + 在案态兜底，不 FAIL 不冒充命中——F15）",
+      "anchor_literal": "毛发资产入压测闭集",
+      "manifest": [
+        {
+          "kind": "grep",
+          "pattern": "strand",
+          "search_roots": [
+            "milestones/g13/g13_ue_upscale_parity_contract.json",
+            "milestones/g18/g18_presentation_contract.json"
+          ],
+          "anchor_keyword": "压测闭集契约毛发资产 token（锚「毛发资产入压测闭集」派生；g24 检索面沿用禁缩面）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "extglob",
+          "pattern": "**/*hair*",
+          "search_roots": [
+            "K:/rurix-ext/assets"
+          ],
+          "anchor_keyword": "毛发资产外部盘面（锚「毛发资产入压测闭集」派生；RFC-0047 §1.3 追加面；根不可达 SKIP——F15）",
+          "state": "skipped_root_unreachable",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "m114_branch_verdict",
+      "status": "PASS",
+      "detail": "检索根不可达 SKIP ⇒ 维持 card/mesh（在案态兜底）"
+    },
+    {
+      "id": "m118_fresh_probe_manifest",
+      "status": "PASS",
+      "detail": "vulkaninfo 新鲜探针三 token（g24 probe 常量逐字）state=absent（tool_available=True；全量 log 存档 .tmp/g30_ma/vulkaninfo.log；工具缺 SKIP 如实登记 + 在案态兜底——RFC-0046 §4.2 同律）",
+      "anchor_literal": "显示链变化 + HDR 资产需求成立",
+      "manifest": [
+        {
+          "kind": "vk_token",
+          "pattern": "VK_COLOR_SPACE_HDR10_ST2084_EXT",
+          "search_roots": [
+            "vulkaninfo"
+          ],
+          "anchor_keyword": "HDR10 ST2084 表面色彩空间（锚「显示链变化」派生；g24 probe 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "vk_token",
+          "pattern": "VK_COLOR_SPACE_BT2020_LINEAR_EXT",
+          "search_roots": [
+            "vulkaninfo"
+          ],
+          "anchor_keyword": "BT2020 LINEAR 表面色彩空间（锚「显示链变化」派生；g24 probe 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "vk_token",
+          "pattern": "VK_COLOR_SPACE_HDR10_HLG_EXT",
+          "search_roots": [
+            "vulkaninfo"
+          ],
+          "anchor_keyword": "HDR10 HLG 表面色彩空间（锚「显示链变化」派生；g24 probe 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "m118_branch_verdict",
+      "status": "PASS",
+      "detail": "absent ⇒ 维持 maintain-SDR（三 token 全 absent）"
+    },
+    {
+      "id": "g10n6_manifest",
+      "status": "PASS",
+      "detail": "三工具 PATH 实测 = {'fbx2gltf|FBX2glTF': False, 'assimp': False, 'blender': False}（g24 逐字含 FBX2glTF 变体）+ BistroExterior 源资产 hits=0（roots ['K:/rurix-ext', 'assets', 'external'] 逐根态 {'K:/rurix-ext': 'ok', 'assets': 'root_missing_or_unreachable', 'external': 'ok'}；K: 根不可达如实登记不冒充命中）",
+      "anchor_literal": "FBX2glTF 上游修复在树或替代臂+源资产同窗齐备",
+      "manifest": [
+        {
+          "kind": "which",
+          "pattern": "fbx2gltf|FBX2glTF",
+          "search_roots": [],
+          "anchor_keyword": "FBX2glTF 工具 PATH 实测（锚「FBX2glTF 上游修复在树」派生；g24 逐字含大写变体）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "which",
+          "pattern": "assimp",
+          "search_roots": [],
+          "anchor_keyword": "assimp 替代臂 PATH 实测（锚「替代臂」派生；g24 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "which",
+          "pattern": "blender",
+          "search_roots": [],
+          "anchor_keyword": "blender 替代臂 PATH 实测（锚「替代臂」派生；g24 逐字）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "multiglob",
+          "pattern": "**/*BistroExterior*",
+          "search_roots": [
+            "K:/rurix-ext",
+            "assets",
+            "external"
+          ],
+          "anchor_keyword": "BistroExterior 独立源资产（锚「源资产同窗齐备」派生；g24 recheck search_roots 字面三根）",
+          "state": "ok",
+          "hits": 0,
+          "files": [],
+          "root_states": {
+            "K:/rurix-ext": "ok",
+            "assets": "root_missing_or_unreachable",
+            "external": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "id": "g10n6_branch_verdict",
+      "status": "PASS",
+      "detail": "任一缺 ⇒ 维持双场景闭集（BistroInterior + CornellBox 兜底字面 0-byte）"
+    },
+    {
+      "id": "safegpu_manifest",
+      "status": "PASS",
+      "detail": "独立期资源窗核验：G30_CONTRACT「商用终审收官期」字面在案=True 且 in_scope 无 safe_gpu 立项 ⇒ 资源窗不成立=True（收官期无专属资源 = 判据字面直接不成立，如实登记——RFC-0047 §1.6）；平台需求方文档检索（docs/ 面）hits=0",
+      "anchor_literal": "独立期资源窗 + 平台需求方（外部采纳生态）出现时立项评估",
+      "manifest": [
+        {
+          "kind": "contract_window",
+          "pattern": "商用终审收官期",
+          "search_roots": [
+            "milestones/g30/G30_CONTRACT.md"
+          ],
+          "anchor_keyword": "独立期资源窗核验（锚「独立期资源窗」判据面：收官期字面在案 = 战役收官期无专属资源，判据字面直接不成立如实登记——RFC-0047 §1.6）",
+          "state": "ok",
+          "hits": 3,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "docs/**/*platform*demand*",
+          "search_roots": [
+            "docs"
+          ],
+          "anchor_keyword": "平台需求方文档面（锚「平台需求方」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "docs/**/*safe*gpu*",
+          "search_roots": [
+            "docs"
+          ],
+          "anchor_keyword": "SAFE-GPU 需求文档面（锚「平台需求方（外部采纳生态）」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "平台需求方|外部采纳生态",
+          "search_roots": [
+            "docs"
+          ],
+          "anchor_keyword": "平台需求方内容 token（锚字面派生；检索根限 docs/ 排除 registry/milestones/rfcs 登记面自命中）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "safegpu_branch_verdict",
+      "status": "PASS",
+      "detail": "未出现 ⇒ 维持 defer，归档行改锚 defer-to-G31+（RFC-0047 §1.6 字面登记）"
+    },
+    {
+      "id": "rd_042_manifest",
+      "status": "PASS",
+      "detail": "RD-042 锚 2 pattern 检索（常量表 + 锚派生映射）命中 = 零命中",
+      "anchor_literal": "可微仿真需求场景出现（G23 四轨 maintain-observe 落档）",
+      "manifest": [
+        {
+          "kind": "grep",
+          "pattern": "differentiable",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "可微仿真消费面 token（锚「可微仿真需求场景出现」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "autodiff",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "自动微分消费面 token（锚「可微仿真需求场景出现」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "rd_042_branch_verdict",
+      "status": "PASS",
+      "detail": "RD-042 零命中 ⇒ 维持 open + deferred history 只追加 G30 行（四不可变字段 0-byte）"
+    },
+    {
+      "id": "rd_043_manifest",
+      "status": "PASS",
+      "detail": "RD-043 锚 3 pattern 检索（常量表 + 锚派生映射）命中 = 零命中",
+      "anchor_literal": "GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据",
+      "manifest": [
+        {
+          "kind": "grep",
+          "pattern": "wgrapier",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "wgrapier 代码消费面（锚「wgrapier 成熟度证据」派生；登记面 registry/rfcs 不在根内）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "rfcs/*wgrapier*",
+          "search_roots": [
+            "rfcs"
+          ],
+          "anchor_keyword": "wgrapier 立项 RFC 面（锚「翻转程序」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "rfcs/*gpu*rigid*",
+          "search_roots": [
+            "rfcs"
+          ],
+          "anchor_keyword": "GPU 刚体翻转 RFC 面（锚「GPU 刚体 out_of_scope 翻转程序」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "rd_043_branch_verdict",
+      "status": "PASS",
+      "detail": "RD-043 零命中 ⇒ 维持 open + deferred history 只追加 G30 行（四不可变字段 0-byte）"
+    },
+    {
+      "id": "rd_044_manifest",
+      "status": "PASS",
+      "detail": "RD-044 锚 6 pattern 检索（常量表 + 锚派生映射）命中 = 零命中",
+      "anchor_literal": "三分项 reeval_anchor（G23 闭集落档）；三分项展开 = {'JOLT-SOFT': '软体/布料需求场景入 workload（角色布料/破坏效果需求证据）', 'TAICHI-MPM': '体积模拟资产需求成立（MPM 烘焙序列消费方出现）', 'RAPIER-FAST': 'Rapier 上游快路径重构发布 + 真实 workload 采用证据'}",
+      "manifest": [
+        {
+          "kind": "grep",
+          "pattern": "character_cloth|destructible",
+          "search_roots": [
+            "src/rurix-physics/src",
+            "apps"
+          ],
+          "anchor_keyword": "JOLT-SOFT/角色布料+破坏效果需求 token（分项锚「角色布料/破坏效果需求证据」派生；vendor 与在案 cloth 基建面外）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "apps/**/*cloth*",
+          "search_roots": [
+            "apps"
+          ],
+          "anchor_keyword": "JOLT-SOFT/布料 workload 文件面（分项锚「软体/布料需求场景入 workload」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "mpm_bake",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "TAICHI-MPM/MPM 烘焙序列消费方 token（分项锚「MPM 烘焙序列消费方出现」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "assets/**/*mpm*",
+          "search_roots": [
+            "assets"
+          ],
+          "anchor_keyword": "TAICHI-MPM/体积模拟资产面（分项锚「体积模拟资产需求成立」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "grep",
+          "pattern": "rapier_fast_path|rapier_fastpath",
+          "search_roots": [
+            "src",
+            "apps"
+          ],
+          "anchor_keyword": "RAPIER-FAST/快路径重构消费面 token（分项锚「上游快路径重构发布」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "kind": "glob",
+          "pattern": "evidence/*rapier_fastpath_adoption*",
+          "search_roots": [
+            "evidence"
+          ],
+          "anchor_keyword": "RAPIER-FAST/workload 采用证据档（分项锚「真实 workload 采用证据」派生）",
+          "state": "ok",
+          "hits": 0,
+          "files": []
+        }
+      ]
+    },
+    {
+      "id": "rd_044_branch_verdict",
+      "status": "PASS",
+      "detail": "RD-044 零命中 ⇒ 维持 open + deferred history 只追加 G30 行（四不可变字段 0-byte）"
+    },
+    {
+      "id": "f6_pattern_faithfulness_three_pieces",
+      "status": "PASS",
+      "detail": "F6 三件全承接：PATTERNS 脚本字面常量表（禁运行时构造）+ 逐 pattern 锚字面派生关键词旁注（pattern↔锚映射表 = 各 manifest anchor_keyword/anchor_literal 字段落档）+ evidence 逐件载 {pattern 表, 检索根, 逐 pattern 命中数}"
+    },
+    {
+      "id": "f10_gate_state_mapping",
+      "status": "PASS",
+      "detail": "F10 门态映射：维持 / 命中重判启动均合法门绿（分支捕获非透传，各分支终态字面在 detail 如实登记）；门 FAIL 只保留给程序未诚实执行"
+    },
+    {
+      "id": "searched_paths_manifest_mandatory",
+      "status": "PASS",
+      "detail": "九组 searched-paths manifest 必填（{'M125-adopt3': 6, 'M127': 5, 'M114-strand': 2, 'M118-hdr-cal': 3, 'G10-N6': 4, 'SAFE-GPU': 4, 'RD-042': 2, 'RD-043': 3, 'RD-044': 6}）"
+    },
+    {
+      "id": "deferred_rd_042_g30_row",
+      "status": "PASS",
+      "detail": "RD-042 history 尾部追加 G30.2 维持 open 行（g29 RD-041 先例位置同律）"
+    },
+    {
+      "id": "deferred_rd_043_g30_row",
+      "status": "PASS",
+      "detail": "RD-043 history 尾部追加 G30.2 维持 open 行（g29 RD-041 先例位置同律）"
+    },
+    {
+      "id": "deferred_rd_044_g30_row",
+      "status": "PASS",
+      "detail": "RD-044 history 尾部追加 G30.2 维持 open 行（g29 RD-041 先例位置同律）"
+    },
+    {
+      "id": "rd_preexisting_duplicate_history_rows",
+      "status": "PASS",
+      "detail": "在案历史重复行如实登记为既往数据质量事件，不回写清理（F9）：RD-042 在案重复行 1 对；RD-043 在案重复行 1 对；RD-044 在案重复行 1 对"
+    },
+    {
+      "id": "deferred_append_only_mechanized",
+      "status": "PASS",
+      "detail": "append-only 机核（vs G30.0 ref；四不可变字段 0-byte + history 前缀不变）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T102516Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.2 M-a：六件尾锚 + RD-042/043/044 同批 G30 收官窗重判（九组常量 pattern 表 + 锚派生映射；维持/SKIP 兜底/命中启动分支字面逐件在案；deferred G30 行尾部只追加幂等——F9）"
+}

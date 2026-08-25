@@ -129,3 +129,10 @@ G30.2+ 各波验收记录与收口签署块只追加登记于此（§8.1 解锁�
 - **事实门全绿**：G29 closed + close-out 签署块在位 + G30.0 不可变 ref `0d0a4c8a2821c8bab672418b67bcd078d7f8b267`；候选表 12 行零空行 + MAP 五行 P0 + §2 零 go P1 空集；用户战役指令「帮我一次性完成G26-G30」字面 + workflow 末号 511 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g30_interlock_check.py --gate g30.gov.implementation_interlock` VERDICT=READY（步骤 511，8/8 facts PASS）；治理三门 509/510/511 绿件；RFC-0047 经 D-409 对抗评审（18 findings 全 disposition：blocker 0/major 5/minor 13——F1 Jolt 错标、F2 零接线恒真判据重写两层、F3 两半锚 G30 新鲜检索补程序、F4 verify-latest 语义如实化、F5 归档字段分 section 钉死均已落字面，v0.2）Agent Approved。
 - **解锁**：`implementation_status: blocked → unlocked`。G30.2+ 纯核验波（M-a~M-e）现可开工。
+
+### §8.6 G30.5 P2 穷举 + stabilization soak 验收记录（2026-08-25）——G-G30-6 前置：P2 穷举决策门（g30.wave.5a.decisions，步骤 522，VERDICT=PASS）+ 稳定门 soak（g30.wave.5a.soak，步骤 523，8/8 facts VERDICT=PASS——67 迭代 wall=1817.7s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G30_P2_DECISIONS.md` 穷举闭集 **12 行零空行**（§1 七行 closed-go 7〔六件尾锚重判兑现全维持：M125 maintain-5.3〔三类 1/3〕+ M127 研究子轨〔两半 0/2〕+ M114 card/mesh〔SKIP 兜底〕+ M118 maintain-SDR〔三 token absent〕+ G10-N6 双场景闭集〔三工具缺〕+ SAFE-GPU defer 改锚 defer-to-G31+ + **G17-MD-F1 17/18 诚实红终判定盘**〔焦点格 160 帧新鲜真跑 ratio=0.960479 < 1.00，两半锚 6 pattern 零命中〕〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open〔RD-042/043/044 尾锚窗承载 + RD-045 复核承载〕）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1817.7s ≥1800s + 67 迭代零失败（含八车道探针轮换穿插 13 次：g19 framegen/g20 hzb/g21 restir/g22 slab 四实现件 + g26 framegen/g27 hzb/g28 restir/g29 slab 四 device 零容差快车道）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g30_p2_decisions_check_20260825T103353Z）；soak → VERDICT=PASS（g30_stabilization_soak_20260825T110425Z）；wave2~wave6 聚合门五绿（守卫三件 + budget_eval 现场通过）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G30.5 P2/soak 波）`。

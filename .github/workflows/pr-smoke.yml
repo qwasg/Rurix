@@ -4626,6 +4626,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g30_interlock_check.py --gate g30.gov.implementation_interlock
 
+      # 步骤 512（G30.2 P0 M-a g30.p0.m_a.tail_anchor_rejudgment_closure；
+      # 落盘前实测 CI_step.next_free=512 顺位领取）。
+      - name: G30.2 M-a tail anchor rejudgment closure verify-latest
+        shell: powershell
+        run: py -3 ci/g30_tail_anchor_rejudgment_closure_smoke.py --verify-latest
+
+      # 步骤 513（G30.2 波聚合门 g30.wave.2.exit）。
+      - name: G30.2 wave exit verify-latest (g30.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g30_wave_exit_check.py --gate g30.wave.2.exit
+
+      # 步骤 514（G30.2 P0 M-b g30.p0.m_b.commercial_final_review）。
+      - name: G30.2 M-b commercial final review verify-latest
+        shell: powershell
+        run: py -3 ci/g30_commercial_final_review_smoke.py --verify-latest
+
+      # 步骤 515（G30.3 波聚合门 g30.wave.3.exit）。
+      - name: G30.3 wave exit verify-latest (g30.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g30_wave_exit_check.py --gate g30.wave.3.exit
+
+      # 步骤 516（G30.3 P0 M-c g30.p0.m_c.campaign_full_chain_no_regression）。
+      - name: G30.3 M-c campaign full chain no regression verify-latest
+        shell: powershell
+        run: py -3 ci/g30_campaign_full_chain_no_regression_smoke.py --verify-latest
+
+      # 步骤 517（G30.4 波聚合门 g30.wave.4.exit）。
+      - name: G30.4 wave exit verify-latest (g30.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g30_wave_exit_check.py --gate g30.wave.4.exit
+
+      # 步骤 518（G30.3 P0 M-d g30.p0.m_d.campaign_handover_ledger）。
+      - name: G30.3 M-d campaign handover ledger verify-latest
+        shell: powershell
+        run: py -3 ci/g30_campaign_handover_ledger_smoke.py --verify-latest
+
+      # 步骤 519（G30.5 波聚合门 g30.wave.5.exit）。
+      - name: G30.5 wave exit verify-latest (g30.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g30_wave_exit_check.py --gate g30.wave.5.exit
+
+      # 步骤 520（G30.4 P0 M-e g30.p0.m_e.closed_gate_no_regression）。
+      - name: G30.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g30_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 521（G30.6 波聚合门 g30.wave.6.exit）。
+      - name: G30.6 wave exit verify-latest (g30.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g30_wave_exit_check.py --gate g30.wave.6.exit
+
+      # 步骤 522（G30.5 P2 穷举 g30.wave.5a.decisions）。
+      - name: G30.5 P2 decisions verify-latest (g30.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g30_p2_decisions_check.py --verify-latest
+
+      # 步骤 523（G30.5 soak g30.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G30.5 stabilization soak verify-latest (g30.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g30_stabilization_soak.py --verify-latest
+
+      # 步骤 524（G30.6 close-out g30.wave.6b.closeout；五期串行战役收官期收口）。
+      - name: G30.6 close-out verify-latest (G30_CONTRACT G-G30-6, g30.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g30_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

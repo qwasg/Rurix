@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "subject": "g30_m_b_commercial_final_review",
+  "symbolic_gate_key": "g30.p0.m_b.commercial_final_review",
+  "matrix_row": "G30.2",
+  "wave": "G30.2",
+  "numeric_step": 514,
+  "source_ref": "G30_CONTRACT §4.2 M-b;G30_ACCEPTANCE_MAP §1 M-b 行;RFC-0047 §2;G17-MD-F1 终判",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "q_surfaces_0byte_vs_g25_closed",
+      "status": "PASS",
+      "detail": "画质表面闭集 10 项 vs g25-closed 0-byte"
+    },
+    {
+      "id": "q_additive_zero_wiring_layer1_tokens",
+      "status": "PASS",
+      "detail": "层① G25 四 token 模块检索（framegen/hzb/restir_reservoir/slab，::m/ m:: 形态）生产 bin 零命中（禁缩面沿用）"
+    },
+    {
+      "id": "q_additive_zero_wiring_layer2_nine_names",
+      "status": "PASS",
+      "detail": "层② 战役九件名字面检索（五 kernel 文件名 + 四 device bin 名）生产 bin 三件源码零命中——.rx 引用判定 = 文件名字面命中（F2 恒真 import 半判据弃用）"
+    },
+    {
+      "id": "q_g18_quality_verdict_green",
+      "status": "PASS",
+      "detail": "G18 M-d 商用画质终审达标绿件只读盘点（g18_m_d_dual_end_commercial_quality_verdict_20260824T132702Z.json）"
+    },
+    {
+      "id": "q_g25_m_a_transfer_inventory",
+      "status": "PASS",
+      "detail": "g25 M-a latest 绿件只读盘点（G18→g25-closed 传递环在档面——F6；g25_m_a_quality_final_state_verification_20260824T194025Z.json）"
+    },
+    {
+      "id": "q_final_state_maintained",
+      "status": "PASS",
+      "detail": "表面 0-byte ∧ 加性零接线两层 ⇒ G18 达标终态维持有效——传递依据 = tag g25-closed 收官语义（vs g18-closed 0-byte 由 g25 M-a 绿件承载）∧ 本期 vs g25-closed 0-byte（RFC-0042 §1.1 同律）"
+    },
+    {
+      "id": "p_grid_18_final_registration",
+      "status": "PASS",
+      "detail": "18 格终判定盘（g14_m_d_dual_end_fps_parity_20260824T091444Z.json）：met=17/18 焦点格 ratio=0.856326323057633"
+    },
+    {
+      "id": "p_surfaces_0byte_vs_g25_closed",
+      "status": "PASS",
+      "detail": "性能面三文件（全路径——F11）vs g25-closed 0-byte（rc=0；ratio 定盘的机器前提）"
+    },
+    {
+      "id": "p_g25_m_b_transfer_inventory",
+      "status": "PASS",
+      "detail": "g25 M-b latest 绿件只读盘点（基线 g18→g25 换轨传递依据——F6；g25_m_b_fps_parity_final_verdict_20260824T194143Z.json）"
+    },
+    {
+      "id": "p_two_half_anchor_fresh_search",
+      "status": "PASS",
+      "detail": "两半锚 pattern G30 新鲜树内检索（G26 M-d manifest 6 条闭集只追加——F3）：零命中（evidence/g26_ngx_decomposition_profiling_*.json:0; evidence/*ngx_decomposition*.json:0; evidence/*ngx_profiling*.json:0; evidence/g26_ue_frame_instrumentation_*.json:0; evidence/*ue_instrumentation*.json:0; evidence/*ue_frame_decomposition*.json:0）⇒ 焦点格 ratio 登记面即为重判执行体（断言升格为机器取证）"
+    },
+    {
+      "id": "p_focus_cell_fresh_run",
+      "status": "PASS",
+      "detail": "焦点格 canonical 160 帧真跑（RURIX_REQUIRE_REAL=1 + GPU 独占窗 + bench_receipt 新鲜）：frame_ms_production_mean=3.5767062499999986ms，UE 暖态包络 ue_median_ms=3.4353499999999997ms，新鲜 ratio=0.960479（登记面 = G17-MD-F1 重判执行体）"
+    },
+    {
+      "id": "p_final_verdict_two_states",
+      "status": "PASS",
+      "detail": "终判 = 维持 17/18 诚实红终判（焦点格新鲜 ratio=0.960479 < 1.00 物理不可达——G15 兜底 + G25 M-b 两态同源，合法收官态零冒充）"
+    },
+    {
+      "id": "p_g17_md_f1_final_verdict_closed",
+      "status": "PASS",
+      "detail": "G17-MD-F1 终判链闭合：G26 M-d「终判归 G30 商用终审」字面本门兑现（两半锚零命中 ⇒ ratio 登记面即重判执行体；终态归档槽位 = g30_campaign_handover_registry campaign_period_rows G30 期行——RFC §4.1）"
+    },
+    {
+      "id": "d_stage_a_18_18",
+      "status": "PASS",
+      "detail": "Stage A 18 格 digest 锚在档 18/18（G30.0 baseline：g30_baseline_stage_a_digest_guard.json，measured=None，g30_budget anchor_count 同源）"
+    },
+    {
+      "id": "d_four_device_double_run_green",
+      "status": "PASS",
+      "detail": "战役四 device kernel 双跑位级绿件只读盘点（G26~G29 M-a 各含 device_double_run_bitexact PASS）"
+    },
+    {
+      "id": "d_rd045_cumulative_review",
+      "status": "PASS",
+      "detail": "RD-045 累计观察面复核（判定面钉死——F14）：g25~g29 五期 soak latest 逐期只读盘点全绿 + deferred RD-045 status=open（backfill 三件维持 open 如实；G19~G24 六期轮次锚 = g25 registry RD-045 行字面在案）"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T102813Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.2 M-b：三面商用终审（画质 0-byte+两层零接线/性能 18 格定盘+焦点格真跑 REAL+终判 维持 17/18 诚实红终判（焦点格新鲜 ratio=0.960479 < 1.00 物理不可达——G15 兜底 + G25 M-b 两态同源，合法收官态零冒充）/确定性 StageA+四 device+RD-045）——G17-MD-F1 终判定盘"
+}

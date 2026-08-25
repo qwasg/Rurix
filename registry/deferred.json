@@ -1459,6 +1459,11 @@
           "date": "2026-08-24",
           "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:Newton/Genesis/MuJoCo-Warp 三轨逐轨 disposition=maintain-observe（各附 basis+reeval_anchor,milestones/g23/g23_research_track_registry.json 闭集落档）;可微物理与渲染主线零交集、无生产消费方;RD-042 维持 open-观察",
           "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；锚源钉死 = g25 handover rd_eight g26_anchor 字面）：「可微仿真需求场景出现（G23 四轨 maintain-observe 落档）」锚 2 pattern 树内检索（differentiable/autodiff @ src/+apps/，常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
+          "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
         }
       ]
     },
@@ -1485,6 +1490,11 @@
           "date": "2026-08-24",
           "event": "G23.3 M-c 观察轨处置窗登记（agent 完全自主 D-406 v3.0）:wgrapier 轨 disposition=maintain-observe（GPU 主刚体 out_of_scope 否决维持 + Jolt CPU measured 优势在案 M126 40400ns vs Rapier 197900ns;g23_research_track_registry.json 闭集落档）;RD-043 维持 open-观察",
           "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；锚源钉死 = g25 handover rd_eight g26_anchor 字面）：「GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据」锚 3 pattern 检索（wgrapier @ src/+apps/ + rfcs/*wgrapier*/*gpu*rigid* 立项面，常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
+          "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
         }
       ]
     },
@@ -1516,6 +1526,11 @@
           "date": "2026-08-24",
           "event": "G23.3 M-d 分项处置窗登记（agent 完全自主 D-406 v3.0）:三分项闭集（milestones/g23/g23_rd044_subitem_registry.json）——Jolt 软体/布料/流体 defer(绑定面未暴露+零需求场景)/Taichi MPM defer(体积场消费方缺)/Rapier 快路径 maintain-no-go(M126 measured 转引,条件字面未变);同期 M125-adopt3 采纳臂重判 = maintain-5.3（三件条件 1/3:证据新鲜面命中〔sys56 cargo check 0.74s 绿 + g9_m125 A/B 绿件在案〕,生产切换需求证据三类全空,g23_jolt_adoption_registry.json 落档）+ M127 两半实测未命中（corpus 目录 NONE + neural residual 消费方 NONE〔PhysicsAsset 命中面仅 M121 gate harness〕）→ maintain 研究子轨;RD-044 维持 open",
           "evidence": "milestones/g23/g23_research_track_registry.json / milestones/g23/g23_rd044_subitem_registry.json / milestones/g23/g23_jolt_adoption_registry.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；检索面显式展开 = milestones/g23/g23_rd044_subitem_registry.json 三分项 reeval_anchor 字面——F8）：JOLT-SOFT（character_cloth|destructible + apps/*cloth* 面）/ TAICHI-MPM（mpm_bake + assets/*mpm* 面）/ RAPIER-FAST（rapier_fastpath + adoption 证据档）六 pattern（常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
+          "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
         }
       ]
     },

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g30_m_d_campaign_handover_ledger",
+  "symbolic_gate_key": "g30.p0.m_d.campaign_handover_ledger",
+  "matrix_row": "G30.3",
+  "wave": "G30.3",
+  "numeric_step": 518,
+  "source_ref": "G30_CONTRACT §4.2 M-d;RFC-0047 §4.1~§4.2",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "registry_exists_and_schema",
+      "status": "PASS",
+      "detail": "存在 + JSON 可解析 + 顶层键闭集 ok:campaign_period_rows/description/legacy_eleven_source/rd_eight/schema/summary/tail_six"
+    },
+    {
+      "id": "period_rows_closure",
+      "status": "PASS",
+      "detail": "9 行;期集合=['G26', 'G27', 'G28', 'G29', 'G30'];逐期行数={'G26': 2, 'G27': 2, 'G28': 2, 'G29': 2, 'G30': 1};行字段闭集 period/id/final/g31_anchor/source ok"
+    },
+    {
+      "id": "period_rows_g17_md_f1",
+      "status": "PASS",
+      "detail": "G30 期 G17-MD-F1 行在档,final='17/18 诚实红终判（G30.2 M-b 焦点格 canonical 160 帧新鲜真跑 frame_ms=3.5767ms、新鲜 ratio=0.960479 < 1.00 物理不可达；两半锚 6 pattern G30 新鲜检索零命中 ⇒ ratio 登记面即重判执行体；G26 M-d「终判归 G30 商用终审」carry 字面本期兑现——合法收官态零冒充）'(18/18|17/18 两态之一命中)"
+    },
+    {
+      "id": "rd_eight_closure",
+      "status": "PASS",
+      "detail": "8/8 行;id 集合 ok=True;行字段闭集 id/status/g31_anchor ok;逐行 status 与 registry/deferred.json 实测一致"
+    },
+    {
+      "id": "tail_six_closure",
+      "status": "PASS",
+      "detail": "6/6 行;id 集合 ok=True;行字段闭集 id/final/g31_anchor/source ok;逐行 source 含 evidence/g30_ 引用字面"
+    },
+    {
+      "id": "legacy_source_literal",
+      "status": "PASS",
+      "detail": "字面含 milestones/g24/g24_legacy_rd_registry.json=True;该文件在树=True(F13 字段名沿 g25 registry;引用不复制)"
+    },
+    {
+      "id": "m_a_linkage",
+      "status": "PASS",
+      "detail": "g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json host=True(tail_six 终态的上游绿件链)"
+    },
+    {
+      "id": "upstream_zero_byte",
+      "status": "PASS",
+      "detail": "git diff --quiet HEAD -- milestones/g25/g25_campaign_handover_registry.json rc=0(0=vs HEAD 0-byte,上游锚不回写)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T103120Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G30.3 M-d:战役承接锚归档闭集 + 归档完整性机核分 section 钉死(五期行 + rd_eight 8 + tail_six 6 + legacy 引用——G31+ 唯一法定输入面;RFC-0047 §4.2 F5)"
+}
