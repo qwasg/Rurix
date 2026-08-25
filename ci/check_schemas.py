@@ -882,7 +882,7 @@ def check_evidence_files() -> None:
     # 其余按文件名前缀映射；无映射前缀的 gN_ evidence（如 baseline 快检件）跳过）。
     gnext_wave_exit_schemas: dict[str, object] = {}
     gnext_evidence_schemas: dict[str, dict[str, object]] = {}
-    for _gn in ("g19", "g20", "g21", "g22", "g23", "g24", "g25"):
+    for _gn in ("g19", "g20", "g21", "g22", "g23", "g24", "g25", "g26", "g27", "g28", "g29", "g30"):
         _gdir = ROOT / f"milestones/{_gn}"
         if not _gdir.is_dir():
             continue
@@ -4909,7 +4909,7 @@ def check_evidence_files() -> None:
             if _g18v is None:
                 continue
             validator = _g18v
-        elif f.name.startswith(("g19_", "g20_", "g21_", "g22_", "g23_", "g24_", "g25_")):
+        elif f.name.startswith(("g19_", "g20_", "g21_", "g22_", "g23_", "g24_", "g25_", "g26_", "g27_", "g28_", "g29_", "g30_")):
             _gn = f.name[:3]
             if re.match(r"g\d+_wave\d+_exit_", f.name) and _gn in gnext_wave_exit_validators:
                 validator = gnext_wave_exit_validators[_gn]

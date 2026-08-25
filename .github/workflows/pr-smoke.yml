@@ -4282,6 +4282,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g25_closeout_check.py --verify-latest
 
+      # 步骤 445（G26.1 治理门 acceptance_map g26.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=445 顺位领取）。
+      - name: G26.1 acceptance map (G26_CONTRACT G-G26-1, g26.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g26_acceptance_map_check.py --gate g26.wave.1.acceptance_map
+
+      # 步骤 446（G26.1 治理门 candidate_decisions g26.wave.1.candidate_decisions）。
+      - name: G26.1 candidate decisions (G26_CONTRACT G-G26-1, g26.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g26_candidate_decisions_check.py --gate g26.wave.1.candidate_decisions
+
+      # 步骤 447（G26 实现互锁 g26.gov.implementation_interlock）。
+      - name: G26 implementation interlock (G26_CONTRACT G-G26-2, g26.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g26_interlock_check.py --gate g26.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
