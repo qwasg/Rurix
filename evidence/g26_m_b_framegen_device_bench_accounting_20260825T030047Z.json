@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g26_m_b_framegen_device_bench_accounting",
+  "symbolic_gate_key": "g26.p0.m_b.framegen_device_bench_accounting",
+  "matrix_row": "G26.2",
+  "wave": "G26.2",
+  "numeric_step": 450,
+  "source_ref": "G26_CONTRACT §4.2 M-b;rfcs/0043-framegen-device-kernel-realization.md §2;G26_ACCEPTANCE_MAP §1 M-b 行;milestones/m0/BENCH_PROTOCOL.md §3(M141/M165 冻结统计口径继承)",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "bench_three_tiers_measured",
+      "status": "PASS",
+      "detail": "x2:trimmed_mean=60.443333 ms cv=0.0279;x3:trimmed_mean=60.680300 ms cv=0.0340;x4:trimmed_mean=60.267700 ms cv=0.0193"
+    },
+    {
+      "id": "budget_entries_programmatic",
+      "status": "PASS",
+      "detail": "x2:在档守护复检 PASS:复测 60.443333 ms ≤ 阈 121.280300 ms;x3:在档守护复检 PASS:复测 60.680300 ms ≤ 阈 121.410933 ms;x4:在档守护复检 PASS:复测 60.267700 ms ≤ 阈 120.440200 ms"
+    },
+    {
+      "id": "accounting_identity_presented",
+      "status": "PASS",
+      "detail": "x2:presented=321 == real 161 + generated 160(重算 321);类型面核验 identity_presented_ok=True;x3:presented=241 == real 81 + generated 160(重算 241);类型面核验 identity_presented_ok=True;x4:presented=215 == real 55 + generated 160(重算 215);类型面核验 identity_presented_ok=True"
+    },
+    {
+      "id": "accounting_real_fps_isolated",
+      "status": "PASS",
+      "detail": "x2:real_render_fps=1078.6857721346657 重算 1078.6857721346657(rel=0.00e+00);generated=160 扰动无涉(公式面零消费);FgAccounting 类型面核验 recompute=True isolated=True;x3:real_render_fps=1044.2140870926119 重算 1044.2140870926119(rel=0.00e+00);generated=160 扰动无涉(公式面零消费);FgAccounting 类型面核验 recompute=True isolated=True;x4:real_render_fps=1065.864619689814 重算 1065.864619689814(rel=0.00e+00);generated=160 扰动无涉(公式面零消费);FgAccounting 类型面核验 recompute=True isolated=True"
+    },
+    {
+      "id": "perf_surface_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g25-closed -- g14_3_pipeline_perf.rs render_exec.rs vendor_upscale.rs 三文件 0-byte(提交面 + 工作树双面)"
+    },
+    {
+      "id": "no_pass_line_semantics",
+      "status": "PASS",
+      "detail": "三条帧时条目均登记「不构成帧率对标通过线」字面——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14;G6 无性能硬门纪律沿用)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T030047Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G26.2 M-b:FG device 车道帧时 measured 登记 + 口径纪律回验——三档 bench 腿真跑(warmup 10 + timed 150 逐生成帧墙钟,50×3 trimmed mean 冻结口径)程序产入 g26_budget(threshold = measured × 2.0 回归守护,不构成帧率对标通过线);FgAccounting F9 双恒等式类型面核验(presented=real+generated;real_render_fps 与 generated 无关);性能面三文件 0-byte vs g25-closed;RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "rurix.g26framegen.calibration_entry.v1",
+  "entry_id": "g26.framegen_device.host_device_maxdiff_tol",
+  "results": {
+    "trimmed_mean": 3.576278686523438e-07
+  },
+  "protocol": "FG/MFG device vs host 金标准同输入逐帧对拍容差(×2/×3/×4 三档 × 16 对恒速平移合成场景 128×72,t_i=i/(n+1) host 同式传参,逐插入帧逐像素最大绝对差 p100;threshold = measured × 2.0 冻结 k,方向 max,禁手写;RFC-0043 §1.4)",
+  "sample_manifest": {
+    "count": 96,
+    "digest": "sha256:129e32021b59d73273a0d747f6e049c93b1d025fea62d323976d9eb6bcc9ace7"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "framegen_device",
+    "base_commit": "2f81219379c12a9a1b5fa5e83daa8e258863e5d7"
+  },
+  "cells": {
+    "x2": 2.980232238769531e-07,
+    "x3": 3.576278686523438e-07,
+    "x4": 2.980232238769531e-07
+  },
+  "timestamp": "2026-08-25T10:34:42+08:00"
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "subject": "g26_m_a_framegen_device_kernel",
+  "symbolic_gate_key": "g26.p0.m_a.framegen_device_kernel",
+  "matrix_row": "G26.2",
+  "wave": "G26.2",
+  "numeric_step": 448,
+  "source_ref": "G26_CONTRACT §4.2 M-a;rfcs/0043-framegen-device-kernel-realization.md §1;G26_ACCEPTANCE_MAP §1 M-a 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "spv_compile_spirv_val_pass",
+      "status": "PASS",
+      "detail": "rurixc --target vulkan 产 SPV + spirv-val 独立校验通过"
+    },
+    {
+      "id": "calibration_two_run_bitexact",
+      "status": "PASS",
+      "detail": "两跑位级一致;p100=3.576278686523438e-07(96 插入帧全集)"
+    },
+    {
+      "id": "tol_under_red_bias_bound",
+      "status": "PASS",
+      "detail": "tol=7.152557373046876e-07 vs 上界 0.025(RED_BIAS 0.05 × 0.5,F4)"
+    },
+    {
+      "id": "device_host_parity_all_tiers",
+      "status": "PASS",
+      "detail": "全档 state=pass;x2 p100=2.980232238769531e-07;x3 p100=3.576278686523438e-07;x4 p100=2.980232238769531e-07;tol=7.152557e-07"
+    },
+    {
+      "id": "ssim_beats_frame_hold",
+      "status": "PASS",
+      "detail": "逐插入帧 SSIM(interp,GT)>SSIM(frame_hold,GT);x2 min_margin=0.0156974757;x3 min_margin=0.0070149941;x4 min_margin=0.0039507937"
+    },
+    {
+      "id": "device_double_run_bitexact",
+      "status": "PASS",
+      "detail": "三档固定输入双跑序列 digest 位级相等(F3)"
+    },
+    {
+      "id": "red_arms_detected",
+      "status": "PASS",
+      "detail": "kernel-bias:检出(honest p100=2.980232e-7 tampered p100=5.000031e-2 tol=7.152557e-7);seed-change:检出(末帧 digest 可分辨(dc4a9190e18d ≠ 6da8cf007a01))"
+    },
+    {
+      "id": "temporal_dir_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g25-closed -- src/rurix-render/src/temporal 0-byte(提交面 + 工作树双面)"
+    },
+    {
+      "id": "calibration_budget_entry_measured",
+      "status": "PASS",
+      "detail": "在档条目复跑位级一致 measured=3.576278686523438e-07 threshold=7.152557373046876e-07"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T030005Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G26.2 M-a:FG/MFG device kernel 兑现——g26_framegen.rx 经 vk::run_compute 真跑;device vs host interpolate 三档逐帧对拍 p100 ≤ 程序产标定容差(×2.0 冻结 k,F4 量化兜底 tol<0.025)+ SSIM 程序产对照 + device 双跑位级 + kernel-bias/seed-change 双 RED 臂 + temporal/ 目录 0-byte(vs g25-closed);RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

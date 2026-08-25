@@ -1,0 +1,59 @@
+{
+  "schema": "rurix.g26framegen.bench_entry.v1",
+  "entry_id": "g26.framegen_device.frame_ms_x4",
+  "results": {
+    "trimmed_mean": 60.2201
+  },
+  "stats": {
+    "blocks": [
+      {
+        "block": 0,
+        "median_ms": 60.387,
+        "kept": 42,
+        "rejected_iqr": 8
+      },
+      {
+        "block": 1,
+        "median_ms": 60.3756,
+        "kept": 39,
+        "rejected_iqr": 11
+      },
+      {
+        "block": 2,
+        "median_ms": 59.8977,
+        "kept": 41,
+        "rejected_iqr": 9
+      }
+    ],
+    "trimmed_mean_ms": 60.2201,
+    "cv": 0.017755957721174113,
+    "ci95_ms": [
+      59.993144166666674,
+      60.36727041666666
+    ],
+    "min_ms": 58.8887,
+    "max_ms": 64.402,
+    "outliers_rejected_iqr": 28,
+    "kept_total": 122
+  },
+  "protocol": "FG/MFG device ×4 档逐生成帧全链路帧时(host Instant 墙钟 around 打包 + dispatch + 回读同步;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;threshold = measured × 2.0 回归守护,不构成帧率对标通过线)",
+  "sample_manifest": {
+    "count": 150,
+    "digest": "sha256-first-frame:c428eb87243c82791651d71afb15c9c24e4cf78389ecd9669544f86588334f27"
+  },
+  "accounting": {
+    "real_frames": 55,
+    "generated_frames": 160,
+    "real_render_seconds": 0.0519196,
+    "generation_seconds": 10.088434600000001,
+    "real_render_fps": 1059.3301951478825,
+    "presented_fps": 21.20241519768609,
+    "presented_frames": 215
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "framegen_device",
+    "base_commit": "2f81219379c12a9a1b5fa5e83daa8e258863e5d7"
+  },
+  "timestamp": "20260825T025817Z"
+}

@@ -324,5 +324,19 @@ path = "src/bin/g21_restir_probe.rs"
 name = "g22_slab_probe"
 path = "src/bin/g22_slab_probe.rs"
 
+# G26.2 M-a/M-b FG/MFG device kernel harness(RFC-0043 §1/§2;门
+# g26.p0.m_a.framegen_device_kernel + g26.p0.m_b.framegen_device_bench_accounting):
+# .rx kernel(kernels/g26_framegen.rx,rurixc --target vulkan 产 SPV + spirv-val
+# 通过,G12/G13 vk::run_compute 车道复用)公式面与 host 金标准
+# temporal::framegen::interpolate 逐字同源(temporal/ 整目录 0-byte 冻结)——
+# 恒速平移合成场景 ×2/×3/×4 三档 device vs host 逐帧对拍(容差标定程序产禁
+# 手写)+ SSIM 程序产对照(interp > frame-hold)+ device 双跑位级 + RED 臂
+# (kernel-bias/seed-change)+ bench 腿(warmup+timed 逐帧墙钟 + FgAccounting
+# 两口径类型面核验,回归守护语义不构成帧率对标通过线)。
+[[bin]]
+name = "g26_framegen_device"
+path = "src/bin/g26_framegen_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

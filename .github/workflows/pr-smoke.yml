@@ -4298,6 +4298,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g26_interlock_check.py --gate g26.gov.implementation_interlock
 
+      # 步骤 448（G26.2 P0 M-a g26.p0.m_a.framegen_device_kernel；
+      # 落盘前实测 CI_step.next_free=448 顺位领取）。
+      - name: G26.2 M-a framegen device kernel verify-latest
+        shell: powershell
+        run: py -3 ci/g26_framegen_device_kernel_smoke.py --verify-latest
+
+      # 步骤 449（G26.2 波聚合门 g26.wave.2.exit）。
+      - name: G26.2 wave exit verify-latest (g26.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g26_wave_exit_check.py --gate g26.wave.2.exit
+
+      # 步骤 450（G26.2 P0 M-b g26.p0.m_b.framegen_device_bench_accounting）。
+      - name: G26.2 M-b framegen device bench accounting verify-latest
+        shell: powershell
+        run: py -3 ci/g26_framegen_device_bench_accounting_smoke.py --verify-latest
+
+      # 步骤 451（G26.3 波聚合门 g26.wave.3.exit）。
+      - name: G26.3 wave exit verify-latest (g26.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g26_wave_exit_check.py --gate g26.wave.3.exit
+
+      # 步骤 452（G26.3 P0 M-c g26.p0.m_c.rd045_backfill_rejudgment）。
+      - name: G26.3 M-c RD-045 backfill rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g26_rd045_backfill_rejudgment_smoke.py --verify-latest
+
+      # 步骤 453（G26.4 波聚合门 g26.wave.4.exit）。
+      - name: G26.4 wave exit verify-latest (g26.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g26_wave_exit_check.py --gate g26.wave.4.exit
+
+      # 步骤 454（G26.3 P0 M-d g26.p0.m_d.g17_md_f1_rejudgment_window）。
+      - name: G26.3 M-d G17-MD-F1 rejudgment window verify-latest
+        shell: powershell
+        run: py -3 ci/g26_g17_md_f1_rejudgment_window_smoke.py --verify-latest
+
+      # 步骤 455（G26.5 波聚合门 g26.wave.5.exit）。
+      - name: G26.5 wave exit verify-latest (g26.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g26_wave_exit_check.py --gate g26.wave.5.exit
+
+      # 步骤 456（G26.4 P0 M-e g26.p0.m_e.closed_gate_no_regression）。
+      - name: G26.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g26_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 457（G26.6 波聚合门 g26.wave.6.exit）。
+      - name: G26.6 wave exit verify-latest (g26.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g26_wave_exit_check.py --gate g26.wave.6.exit
+
+      # 步骤 458（G26.5 P2 穷举 g26.wave.5a.decisions）。
+      - name: G26.5 P2 decisions verify-latest (g26.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g26_p2_decisions_check.py --verify-latest
+
+      # 步骤 459（G26.5 soak g26.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G26.5 stabilization soak verify-latest (g26.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g26_stabilization_soak.py --verify-latest
+
+      # 步骤 460（G26.6 close-out g26.wave.6b.closeout；五期串行战役第一期收口）。
+      - name: G26.6 close-out verify-latest (G26_CONTRACT G-G26-6, g26.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g26_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

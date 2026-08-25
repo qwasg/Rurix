@@ -25,6 +25,50 @@
       "threshold": 7.0,
       "evidence_file": "evidence/g26_baseline_campaign_tags.json",
       "measured_value": 7.0
+    },
+    {
+      "id": "g26.framegen_device.host_device_maxdiff_tol",
+      "description": "FG/MFG device vs host 金标准同输入逐帧对拍容差冻结带(×2/×3/×4 三档 × 16 对恒速平移合成场景 128×72,逐插入帧逐像素最大绝对差 p100;threshold = measured × 2.0 协议冻结 k,方向 max;M-a 标定腿产,两跑位级一致,禁手写 P-09;量化兜底断言 tol < RED_BIAS 0.05 × 0.5(RFC-0043 §1.4 F4);样本集 digest sha256:129e32021b59d73273a0d747f6e049c93b1d025fea62d323976d9eb6bcc9ace7(count=96);标定程序 ci/g26_framegen_device_kernel_smoke.py 标定腿可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 7.152557373046876e-07,
+      "evidence_file": "evidence/g26_framegen_device_calibration.json",
+      "measured_value": 3.576278686523438e-07
+    },
+    {
+      "id": "g26.framegen_device.frame_ms_x2",
+      "description": "FG/MFG device ×2 档逐生成帧全链路帧时基线(host Instant 墙钟 around 打包+dispatch+回读同步,合成场景 128×72;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;threshold = measured × 2.0 回归守护)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14;生成帧禁计入真实渲染帧率,FgAccounting 两口径类型面分离);trimmed mean 60.640150 ms(cv 0.0251);采样程序 ci/g26_framegen_device_bench_accounting_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 121.28030000000001,
+      "evidence_file": "evidence/g26_framegen_device_bench_x2.json",
+      "measured_value": 60.640150000000006
+    },
+    {
+      "id": "g26.framegen_device.frame_ms_x3",
+      "description": "FG/MFG device ×3 档逐生成帧全链路帧时基线(host Instant 墙钟 around 打包+dispatch+回读同步,合成场景 128×72;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;threshold = measured × 2.0 回归守护)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14;生成帧禁计入真实渲染帧率,FgAccounting 两口径类型面分离);trimmed mean 60.705467 ms(cv 0.0290);采样程序 ci/g26_framegen_device_bench_accounting_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 121.41093333333333,
+      "evidence_file": "evidence/g26_framegen_device_bench_x3.json",
+      "measured_value": 60.705466666666666
+    },
+    {
+      "id": "g26.framegen_device.frame_ms_x4",
+      "description": "FG/MFG device ×4 档逐生成帧全链路帧时基线(host Instant 墙钟 around 打包+dispatch+回读同步,合成场景 128×72;warmup 10 + timed 150 = 3 块 × 50 trimmed mean,M141/M165 冻结统计口径;threshold = measured × 2.0 回归守护)——回归守护语义,不构成帧率对标通过线(正式帧率对标锚定 G14;生成帧禁计入真实渲染帧率,FgAccounting 两口径类型面分离);trimmed mean 60.220100 ms(cv 0.0178);采样程序 ci/g26_framegen_device_bench_accounting_smoke.py bench 腿可复跑(在档后守护复检)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 120.4402,
+      "evidence_file": "evidence/g26_framegen_device_bench_x4.json",
+      "measured_value": 60.2201
     }
   ],
   "ratio_assertions": [],

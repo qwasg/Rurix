@@ -125,3 +125,10 @@ D-G26-1：PLAN/CONTRACT/CI_GATES/g26_budget.json + G26_CANDIDATE_DECISIONS + G26
 - **事实门全绿**：G25 closed + tag `g25-closed` + G26.0 不可变 ref `ae49a15b73083953c268d24cf4e2df64c17ddc6a`；候选表 8 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G26-G30」字面 + workflow 末号 447 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g26_interlock_check.py --require-ready` VERDICT=READY；治理三门 445/446/447 绿件（acceptance_map/candidate_decisions PASS + interlock READY）；RFC-0043 经 D-409 对抗评审（11 findings 全 disposition，v0.2 修法批）Agent Approved。
 - **解锁**：`implementation_status: blocked → unlocked`。G26.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G26.5 P2 穷举 + stabilization soak 验收记录（2026-08-25）——G-G26-6 前置：P2 穷举决策门（g26.wave.5a.decisions，步骤 458，VERDICT=PASS）+ 稳定门 soak（g26.wave.5a.soak，步骤 459，8/8 facts VERDICT=PASS——67 迭代 wall=1950.7s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G26_P2_DECISIONS.md` 穷举闭集 **8 行零空行**（§1 三行 closed-go 3〔G13-N7 device kernel 兑现 implemented + RD-045-window 重判兑现（maintain-open，三件 0/3）+ G17-MD-F1 重判兑现（maintain 17/18 诚实红 carry 终判归 G30）〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1950.7s ≥1800s + 67 迭代零失败（含五车道探针轮换穿插 13 次：g19 framegen/g20 hzb/g21 restir/g22 slab 四实现件 + g26 framegen device --probe 快车道）+ active==wall + 零 sleep**；同窗独立第二实例 8/8 同绿（wall=1843.8s/67/0，双证并行）。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g26_p2_decisions_check_20260825T030532Z）；wave2~wave6 聚合门五绿（守卫三件 + budget_eval 现场通过）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G26.5 P2/soak 波）`。

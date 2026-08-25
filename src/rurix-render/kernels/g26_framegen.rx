@@ -1,0 +1,139 @@
+//@ spec: RFC-0043 §1(G26.2 M-a device 面;spec 条款号本期零新设)
+// G26.2 M-a FG/MFG device kernel —— 单帧插值腿(门
+// `g26.p0.m_a.framegen_device_kernel`;G26_CONTRACT §4.2 M-a 行逐字;
+// RFC-0043 §1 判据事实源)。
+//
+// ## 架构(G13.3 tsr device 车道同模)
+// 纯图像空间 compute kernel(无 AccelStruct);prev/cur/mv 为 host 预备输入面。
+// 公式面与 host 金标准 `temporal/framegen.rs::interpolate` **逐字同源**:
+// 双向 warp `a = prev.sample(uv − t·mv)`、`b = cur.sample(uv + (1−t)·mv)`;
+// 一致性权重 `w_cons = exp(−‖a−b‖²·inv_sigma2)`(host inv_sigma2 = 1/σ² 预乘
+// 同式,device 同预乘形——inv_sigma2 由 host 按同式算得经 params 传入);遮挡
+// 感知混合 `lin = a·(1−t) + b·t`、`near = (t<0.5 ? a : b)`(算术门形选臂,
+// t=0.5 取 b 与 host `<` 语义一致)、`out = lin·w_cons + near·(1−w_cons)`。
+// **temporal/ 整目录 0-byte 不接线**(RFC-0043 §1.7 目录级冻结):本 kernel 只
+// 实现 host 金标准公式面的 device 同源兑现,host 参考臂/默认渲染臂零触碰。
+//
+// ## 双线性采样语义(RFC-0043 §1.1 F1 钉死;host image.rs::sample_bilinear 字面)
+// xf = u·w − 0.5;bxf = xf.floor();**fx = xf − bxf 用未 clamp 的 floor**;
+// 取样坐标 bxf 与 bxf+1 各自在 **f32 域** .min(w−1).max(0) 后再转 usize
+// (禁负值→usize 转换未定义面;g13_tsr_resample.rx 同模);top/bot/mix 操作序
+// 与 host 逐字对齐:top = p00·(1−fx) + p10·fx;bot = p01·(1−fx) + p11·fx;
+// out = top·(1−fy) + bot·fy。
+//
+// ## MFG 三档 t 传参(RFC-0043 §1.2 F7 钉死)
+// t_i = i/(n+1) 由 host bin 按 host `mfg_between` 同式逐帧算得后经 params[3]
+// 传入(f32 位级同值),kernel 内不重算;端点即真渲帧不派发。
+//
+// ## 确定性协议(RXS-0357 L2 同律继承;RFC-0043 §1.3)
+// 禁 atomic、逐像素独立顺序求值、输出直写无跨像素交互、全 f32、分支判定
+// min/max 算术门白名单形(big=1e30 门放大器)、边界守卫 `if i < pixel_count`;
+// 固定输入双跑位级一致。
+//
+// ## 参数面(host bin `g26_framegen_device::pack_params` 逐字同源;16 f32)
+//   params[0]=pixel_count [1]=width [2]=height
+//   [3]=t(host 逐帧算好传入,kernel 不重算,F7)
+//   [4]=inv_sigma2(host 1/(σ·σ) 同式预算)
+//   [5]=red_bias(RED 臂,正常 0;输出面加性偏置——device vs host 对拍超容差
+//       检出面,RFC-0043 §1.4 kernel-bias RED 臂)
+//   [6..16]=reserved(恒 0)。
+//   prev/cur: 3 f32/px 行主序((y·w+x)·3+ch);mv: 2 f32/px(prev→cur uv 位移
+//   场);out_color: 3 f32/px 中间帧。dispatch = [w·h, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g26_framegen(
+    tc: ThreadCtx<1>,
+    prev: View<global, f32>,
+    cur: View<global, f32>,
+    mv: View<global, f32>,
+    params: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let pixel_count = params[0] as usize;
+    let w = params[1] as usize;
+    let wf = params[1];
+    let hf = params[2];
+    let t = params[3];
+    let inv_sigma2 = params[4];
+    let red_bias = params[5];
+    let big: f32 = 1e30;
+    if i < pixel_count {
+        let x = i % w;
+        let y = i / w;
+        // 纹素中心 uv(host interpolate 同式)。
+        let u = ((x as f32) + 0.5) / wf;
+        let v = ((y as f32) + 0.5) / hf;
+        let mvx = mv[i * 2];
+        let mvy = mv[i * 2 + 1];
+        let wm1 = wf - 1.0;
+        let hm1 = hf - 1.0;
+        // ── a = bilinear(prev, u − t·mvx, v − t·mvy)(host sample_bilinear 字面)──
+        let ua = u - t * mvx;
+        let va = v - t * mvy;
+        let xfa = ua * wf - 0.5;
+        let yfa = va * hf - 0.5;
+        let bxa = xfa.floor();
+        let bya = yfa.floor();
+        // fx/fy 用未 clamp 的 floor(F1);取样坐标 f32 域 clamp 后转 usize。
+        let fxa = xfa - bxa;
+        let fya = yfa - bya;
+        let xa0 = bxa.min(wm1).max(0.0) as usize;
+        let xa1 = (bxa + 1.0).min(wm1).max(0.0) as usize;
+        let ya0 = bya.min(hm1).max(0.0) as usize;
+        let ya1 = (bya + 1.0).min(hm1).max(0.0) as usize;
+        let ra00 = (ya0 * w + xa0) * 3;
+        let ra10 = (ya0 * w + xa1) * 3;
+        let ra01 = (ya1 * w + xa0) * 3;
+        let ra11 = (ya1 * w + xa1) * 3;
+        let ta0 = prev[ra00] * (1.0 - fxa) + prev[ra10] * fxa;
+        let bta0 = prev[ra01] * (1.0 - fxa) + prev[ra11] * fxa;
+        let a0 = ta0 * (1.0 - fya) + bta0 * fya;
+        let ta1 = prev[ra00 + 1] * (1.0 - fxa) + prev[ra10 + 1] * fxa;
+        let bta1 = prev[ra01 + 1] * (1.0 - fxa) + prev[ra11 + 1] * fxa;
+        let a1 = ta1 * (1.0 - fya) + bta1 * fya;
+        let ta2 = prev[ra00 + 2] * (1.0 - fxa) + prev[ra10 + 2] * fxa;
+        let bta2 = prev[ra01 + 2] * (1.0 - fxa) + prev[ra11 + 2] * fxa;
+        let a2 = ta2 * (1.0 - fya) + bta2 * fya;
+        // ── b = bilinear(cur, u + (1−t)·mvx, v + (1−t)·mvy)(同字面)──
+        let ub = u + (1.0 - t) * mvx;
+        let vb = v + (1.0 - t) * mvy;
+        let xfb = ub * wf - 0.5;
+        let yfb = vb * hf - 0.5;
+        let bxb = xfb.floor();
+        let byb = yfb.floor();
+        let fxb = xfb - bxb;
+        let fyb = yfb - byb;
+        let xb0 = bxb.min(wm1).max(0.0) as usize;
+        let xb1 = (bxb + 1.0).min(wm1).max(0.0) as usize;
+        let yb0 = byb.min(hm1).max(0.0) as usize;
+        let yb1 = (byb + 1.0).min(hm1).max(0.0) as usize;
+        let rb00 = (yb0 * w + xb0) * 3;
+        let rb10 = (yb0 * w + xb1) * 3;
+        let rb01 = (yb1 * w + xb0) * 3;
+        let rb11 = (yb1 * w + xb1) * 3;
+        let tb0 = cur[rb00] * (1.0 - fxb) + cur[rb10] * fxb;
+        let btb0 = cur[rb01] * (1.0 - fxb) + cur[rb11] * fxb;
+        let b0 = tb0 * (1.0 - fyb) + btb0 * fyb;
+        let tb1 = cur[rb00 + 1] * (1.0 - fxb) + cur[rb10 + 1] * fxb;
+        let btb1 = cur[rb01 + 1] * (1.0 - fxb) + cur[rb11 + 1] * fxb;
+        let b1 = tb1 * (1.0 - fyb) + btb1 * fyb;
+        let tb2 = cur[rb00 + 2] * (1.0 - fxb) + cur[rb10 + 2] * fxb;
+        let btb2 = cur[rb01 + 2] * (1.0 - fxb) + cur[rb11 + 2] * fxb;
+        let b2 = tb2 * (1.0 - fyb) + btb2 * fyb;
+        // ── 一致性权重(host `(-d2 * inv_sigma2).exp()` 同式)──
+        let d2 = (a0 - b0) * (a0 - b0) + (a1 - b1) * (a1 - b1) + (a2 - b2) * (a2 - b2);
+        let w_cons = (0.0 - d2 * inv_sigma2).exp();
+        // ── near 选臂算术门:t<0.5→gate=1 选 a;t≥0.5→gate=0 选 b(host `<` 一致)──
+        let gate = ((0.5 - t) * big).min(1.0).max(0.0);
+        let near0 = a0 * gate + b0 * (1.0 - gate);
+        let near1 = a1 * gate + b1 * (1.0 - gate);
+        let near2 = a2 * gate + b2 * (1.0 - gate);
+        // ── 遮挡感知混合(host 逐通道同序);red_bias 输出面加性偏置(正常 0)──
+        let lin0 = a0 * (1.0 - t) + b0 * t;
+        let lin1 = a1 * (1.0 - t) + b1 * t;
+        let lin2 = a2 * (1.0 - t) + b2 * t;
+        out_color[i * 3] = lin0 * w_cons + near0 * (1.0 - w_cons) + red_bias;
+        out_color[i * 3 + 1] = lin1 * w_cons + near1 * (1.0 - w_cons) + red_bias;
+        out_color[i * 3 + 2] = lin2 * w_cons + near2 * (1.0 - w_cons) + red_bias;
+    }
+}

@@ -1520,6 +1520,11 @@
           "date": "2026-08-24",
           "event": "G19.3 M-c 长窗观察窗兑现登记（agent 完全自主 D-406 v3.0）:bistro-interior/t50/tsr_device canonical 160 帧口径连续 12 轮真跑（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1），逐轮 receipt last_frame_digest 对 G14.12 程序重收割锚 12/12 全中、零漂移（walls 62.65~99.05s）——G14.10 结构性消除后零复现观察面再扩展（G18 soak 49 迭代 + G19 本窗 12 轮 + G19 soak 待续）;根因未逐字定位，backfill_condition 三件（定位+修复+Full RFC 评估）未全齐不冒充 close → maintain-open + 本 history 只追加登记;disposition = maintain-open-with-extended-zero-recurrence",
           "evidence": "milestones/g19/g19_rd045_observation_results.json（12 轮逐轮 digest 轨迹）"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G26.3 M-c backfill 三件重判窗兑现登记（agent 完全自主 D-406 v3.0;RFC-0043 §3）:新鲜观察窗 bistro-interior/t50/tsr_device canonical 160 帧口径 6 轮真跑（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1），逐轮 receipt last_frame_digest 对 G14.12 锚 6/6 全中、零漂移（walls 61.46~65.39s）——累计观察面 = G19.3 12/12 + G19~G25 七期 soak 全零失败 + 本窗 6/6;三件盘点机器实测 0/3（①根因确证记录指定落点 evidence/g26_rd045_root_cause_confirmation.json 不存在——F5 防冒充硬线:观察窗零漂移不充①件;②①未齐修复无法确证,G14.10 结构性缓解事实维持登记;③rfcs/ 主题检索零命中,RFC-0043 §3 只定重判程序不自动构成③件）→ maintain-open 只追加扩窗登记不冒充 close;disposition = maintain-open-with-extended-zero-recurrence",
+          "evidence": "milestones/g26/g26_rd045_fresh_window_results.json（6 轮逐轮 digest 轨迹 + 三件盘点）"
         }
       ],
       "owner_milestone": "G14(登记;RD-045 间歇漂移修复项存续——G16+ 生产化缺陷修复窗承接)",

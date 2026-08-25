@@ -1,0 +1,76 @@
+{
+  "schema": "rurix.g26.rd045_fresh_window.v1",
+  "started_utc": "20260825T024209Z",
+  "cell": "bistro-interior/t50/tsr_device",
+  "anchor_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+  "rounds_requested": 6,
+  "rounds": [
+    {
+      "round": 1,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 65.39
+    },
+    {
+      "round": 2,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 61.76
+    },
+    {
+      "round": 3,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 61.52
+    },
+    {
+      "round": 4,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 61.47
+    },
+    {
+      "round": 5,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 61.58
+    },
+    {
+      "round": 6,
+      "exit": 0,
+      "ok": true,
+      "last_frame_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "wall_s": 61.46
+    }
+  ],
+  "summary": {
+    "rounds_ok": 6,
+    "digest_anchor_hits": 6,
+    "drift_rounds": [],
+    "zero_drift": true
+  },
+  "backfill_inventory": {
+    "piece1_root_cause_located": {
+      "met": false,
+      "basis": "指定落点 evidence/g26_rd045_root_cause_confirmation.json 不存在（树内实测）",
+      "input_surface": "designated_confirmation_file_only（F5：不含观察窗结果）"
+    },
+    "piece2_production_fix": {
+      "met": false,
+      "basis": "①根因未确证 → 修复无法确证；G14.10 帧循环重构结构性缓解在案（registry/deferred.json RD-045 history 2026-08-22 行）——缓解事实 ≠ 确证修复，不充②件"
+    },
+    "piece3_full_rfc_evaluation": {
+      "met": false,
+      "basis": "rfcs/ 主题检索零命中（rd045/digest-drift/determinism-defect 文件名闭集）；RFC-0043 §3 只定重判程序不自动构成③件"
+    },
+    "met_count": 0
+  },
+  "disposition": "maintain-open-with-extended-zero-recurrence",
+  "disposition_basis": "三件盘点 0/3 未全齐（①根因确证记录缺 + ②修复无法确证 + ③Full RFC 评估缺）——新鲜窗零漂移只进累计观察面（F5：不充①件），maintain-open + history 只追加扩窗登记，不冒充 close",
+  "window_note": "新鲜度重判窗 6 轮口径（G19.3 ≥12 长窗协议同模不同窗长，如实登记）"
+}

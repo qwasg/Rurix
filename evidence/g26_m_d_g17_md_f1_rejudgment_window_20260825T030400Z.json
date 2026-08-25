@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g26_m_d_g17_md_f1_rejudgment_window",
+  "symbolic_gate_key": "g26.p0.m_d.g17_md_f1_rejudgment_window",
+  "matrix_row": "G26.3",
+  "wave": "G26.3",
+  "numeric_step": 454,
+  "source_ref": "G26_CONTRACT §4.2 M-d;G26_ACCEPTANCE_MAP §1 M-d 行;RFC-0043 §4;RFC-0032 重判条件",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "searched_paths_manifest_nonempty",
+      "status": "PASS",
+      "detail": "F6 必填清单：6 条 pattern 逐条登记（半① 3 + 半② 3）：evidence/g26_ngx_decomposition_profiling_*.json; evidence/*ngx_decomposition*.json; evidence/*ngx_profiling*.json; evidence/g26_ue_frame_instrumentation_*.json; evidence/*ue_instrumentation*.json; evidence/*ue_frame_decomposition*.json"
+    },
+    {
+      "id": "half1_ngx_profiling_search",
+      "status": "PASS",
+      "detail": "NGX 分解 profiling 树内闭集实测命中 = 0（['evidence/g26_ngx_decomposition_profiling_*.json:0', 'evidence/*ngx_decomposition*.json:0', 'evidence/*ngx_profiling*.json:0']）"
+    },
+    {
+      "id": "half2_ue_instrumentation_search",
+      "status": "PASS",
+      "detail": "UE 侧插桩树内闭集实测命中 = 0（['evidence/g26_ue_frame_instrumentation_*.json:0', 'evidence/*ue_instrumentation*.json:0', 'evidence/*ue_frame_decomposition*.json:0']）"
+    },
+    {
+      "id": "decision_tree_verdict",
+      "status": "PASS",
+      "detail": "两半命中 0+0 → maintain-17-18-honest-red-carry（均未命中 → 维持 17/18 诚实红 carry，终判归 G30 商用终审；不冒充）"
+    },
+    {
+      "id": "g25_final_verdict_anchor_present",
+      "status": "PASS",
+      "detail": "G25 M-b 终判锚（焦点格 ratio 0.856326）在档 = g25_m_b_fps_parity_final_verdict_20260824T194143Z.json"
+    },
+    {
+      "id": "carry_to_g30_registered",
+      "status": "PASS",
+      "detail": "重判锚字面 0-byte 只追加：NGX 分解 profiling 或 UE 侧插桩（宿主差可分离 measured 证据）→ G30 商用终审窗承接"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T030400Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G26.3 M-d：G17-MD-F1 重判窗条件核验（两半证据树内闭集搜索 + searched-paths manifest 必填 + 维持 17/18 诚实红 carry 终判归 G30）"
+}
