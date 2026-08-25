@@ -1,7 +1,7 @@
 ---
 contract: G29
 title: G29 材质 device 集成期（slab device kernel 兑现 + 侧表供参加性臂 + SVT/KTX2 差距重判 + Work Graphs/DGC capability 复测）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g29_material_device_integration
 version: v1.0
