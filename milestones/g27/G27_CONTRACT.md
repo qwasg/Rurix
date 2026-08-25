@@ -1,7 +1,7 @@
 ---
 contract: G27
 title: G27 几何 device 化期（HZB device kernel 兑现 + M61 mesh shader 重判窗 + cluster P4 差距闭集重判 + M98-l4 重判窗）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g27_geometry_device_realization
 version: v1.0
