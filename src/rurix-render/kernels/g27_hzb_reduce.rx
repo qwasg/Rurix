@@ -1,0 +1,85 @@
+//@ spec: RFC-0044 §1(G27.2 M-a device 面;spec 条款号本期零新设)
+// G27.2 M-a HZB device kernel —— 单级 2×2 farther-of 归约腿(门
+// `g27.p0.m_a.hzb_device_kernel`;G27_CONTRACT §4.2 M-a 行逐字;
+// RFC-0044 §1 判据事实源)。
+//
+// ## 架构(G26 framegen device 车道同模)
+// 纯图像空间 compute kernel(无 AccelStruct);上级深度 mip 为 host 预备输入面
+// (mip0 = host 深度场原字节直传,不经本 kernel——深度场 host 单源生成一次,
+// device 不重生成,`sin()` 等超越函数只在 host 出现一次,双端消费同一 f32 位型,
+// RFC-0044 §1.1 域前提字面)。公式面与 host 金标准
+// `geometry/hzb.rs::HzbPyramid::build` **逐字同源**:输出纹素 (x,y) = footprint
+// {(2x,2y),(2x+1,2y),(2x,2y+1),(2x+1,2y+1)} 内**最远**深度——reverse-Z 取 min /
+// standard-Z 取 max(host `DepthConvention::farther` 同律,保守遮挡语义唯一合法
+// 归约方向);越界 clamp 复采边纹素(坐标 min(·, 上级边长−1),host 逐字);
+// 非 2 幂 ceil 减半由 host 逐级 dispatch 面兑现(nw = ceil(pw/2) max 1)。
+// **geometry/ 冻结面 0-byte 不接线**(hzb.rs/cull.rs/visbuffer.rs vs g26-closed
+// git-diff 机核归 CI):本 kernel 只实现 host 金标准公式面的 device 同源兑现。
+//
+// ## 零容差协议(RFC-0044 §1.1 F1 钉死)
+// 纯 min/max 比较归约、零算术舍入、零乘加(FMA 收缩面不适用)⇒ device mips 与
+// host `HzbPyramid::build` 逐级**位级相等**(不设容差带;G26 标定容差协议不适用
+// 本面)。深度域 = [0,1] 有限正值闭集(NaN/±Inf/−0 构造上不可达),min/max 对
+// 有限 f32 为纯选择运算(只搬运既有位型、不产生新值);farther-of 约定选臂经
+// conv 乘法门合成 out = (1−conv)·min + conv·max——conv 恒 0.0/1.0,x·1.0 = x /
+// x·0.0 = 0.0 / x+0.0 = x 对正有限值位级恒等,门形保位级。
+//
+// ## 确定性协议(kernels/g18_light_transport_depth.rx 头注 RXS-0357 L2 同律继承)
+// 禁 atomic、逐纹素独立顺序求值、输出直写无跨 invocation 交互、全 f32、分支判定
+// min/max 算术门白名单形、边界守卫 `if i < out_count`;固定输入双跑位级一致。
+//
+// ## 参数面(host bin `g27_hzb_device::DeviceHzb::build_pyramid` 逐字同源;8 f32)
+//   params[0]=out_count(nw·nh) [1]=nw [2]=nh [3]=pw [4]=ph
+//   [5]=conv(0.0=reverse-Z 取 min / 1.0=standard-Z 取 max)
+//   [6..8]=reserved(恒 0)。
+//   prev_mip: 1 f32/纹素 上级 mip 行主序(y·pw+x);out_mip: 1 f32/纹素 本级。
+//   dispatch = [nw·nh, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g27_hzb_reduce(
+    tc: ThreadCtx<1>,
+    prev_mip: View<global, f32>,
+    params: View<global, f32>,
+    out_mip: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let out_count = params[0] as usize;
+    let nw = params[1] as usize;
+    let pw = params[3] as usize;
+    let pwf = params[3];
+    let phf = params[4];
+    let conv = params[5];
+    if i < out_count {
+        let x = i % nw;
+        let y = i / nw;
+        // footprint 四坐标各自 f32 域 clamp 到 [0,pw−1]/[0,ph−1] 后取样
+        // (host `(x*2).min(pw-1)` 整数 min 同选择;坐标 ≤ 2·nw ≤ pw+1 ≪ 2²⁴
+        // f32 精确,min/max 纯选择零舍入)。
+        let x0f = ((x * 2) as f32).min(pwf - 1.0).max(0.0);
+        let y0f = ((y * 2) as f32).min(phf - 1.0).max(0.0);
+        let x1f = ((x * 2 + 1) as f32).min(pwf - 1.0).max(0.0);
+        let y1f = ((y * 2 + 1) as f32).min(phf - 1.0).max(0.0);
+        let x0 = x0f as usize;
+        let y0 = y0f as usize;
+        let x1 = x1f as usize;
+        let y1 = y1f as usize;
+        let r00 = y0 * pw + x0;
+        let r10 = y0 * pw + x1;
+        let r01 = y1 * pw + x0;
+        let r11 = y1 * pw + x1;
+        let p00 = prev_mip[r00];
+        let p10 = prev_mip[r10];
+        let p01 = prev_mip[r01];
+        let p11 = prev_mip[r11];
+        // farther-of 归约(host farther(farther(p00,p10), farther(p01,p11)) 同序):
+        // conv 乘法门形选 min/max 臂——conv 恒 0.0/1.0 保位级(§1.1)。
+        let a_min = p00.min(p10);
+        let a_max = p00.max(p10);
+        let a = (1.0 - conv) * a_min + conv * a_max;
+        let b_min = p01.min(p11);
+        let b_max = p01.max(p11);
+        let b = (1.0 - conv) * b_min + conv * b_max;
+        let f_min = a.min(b);
+        let f_max = a.max(b);
+        out_mip[i] = (1.0 - conv) * f_min + conv * f_max;
+    }
+}

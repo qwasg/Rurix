@@ -4380,6 +4380,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g27_interlock_check.py --gate g27.gov.implementation_interlock
 
+      # 步骤 464（G27.2 P0 M-a g27.p0.m_a.hzb_device_kernel；
+      # 落盘前实测 CI_step.next_free=464 顺位领取）。
+      - name: G27.2 M-a HZB device kernel verify-latest
+        shell: powershell
+        run: py -3 ci/g27_hzb_device_kernel_smoke.py --verify-latest
+
+      # 步骤 465（G27.2 波聚合门 g27.wave.2.exit）。
+      - name: G27.2 wave exit verify-latest (g27.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g27_wave_exit_check.py --gate g27.wave.2.exit
+
+      # 步骤 466（G27.2 P0 M-b g27.p0.m_b.m61_mesh_shader_rejudgment）。
+      - name: G27.2 M-b M61 mesh shader rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g27_m61_mesh_shader_rejudgment_smoke.py --verify-latest
+
+      # 步骤 467（G27.3 波聚合门 g27.wave.3.exit）。
+      - name: G27.3 wave exit verify-latest (g27.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g27_wave_exit_check.py --gate g27.wave.3.exit
+
+      # 步骤 468（G27.3 P0 M-c g27.p0.m_c.cluster_p4_gap_rejudgment）。
+      - name: G27.3 M-c cluster P4 gap rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g27_cluster_p4_gap_rejudgment_smoke.py --verify-latest
+
+      # 步骤 469（G27.4 波聚合门 g27.wave.4.exit）。
+      - name: G27.4 wave exit verify-latest (g27.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g27_wave_exit_check.py --gate g27.wave.4.exit
+
+      # 步骤 470（G27.3 P0 M-d g27.p0.m_d.hlod_l4_counter_rejudgment）。
+      - name: G27.3 M-d HLOD L4 counter rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g27_hlod_l4_counter_rejudgment_smoke.py --verify-latest
+
+      # 步骤 471（G27.5 波聚合门 g27.wave.5.exit）。
+      - name: G27.5 wave exit verify-latest (g27.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g27_wave_exit_check.py --gate g27.wave.5.exit
+
+      # 步骤 472（G27.4 P0 M-e g27.p0.m_e.closed_gate_no_regression）。
+      - name: G27.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g27_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 473（G27.6 波聚合门 g27.wave.6.exit）。
+      - name: G27.6 wave exit verify-latest (g27.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g27_wave_exit_check.py --gate g27.wave.6.exit
+
+      # 步骤 474（G27.5 P2 穷举 g27.wave.5a.decisions）。
+      - name: G27.5 P2 decisions verify-latest (g27.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g27_p2_decisions_check.py --verify-latest
+
+      # 步骤 475（G27.5 soak g27.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G27.5 stabilization soak verify-latest (g27.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g27_stabilization_soak.py --verify-latest
+
+      # 步骤 476（G27.6 close-out g27.wave.6b.closeout；五期串行战役第二期收口）。
+      - name: G27.6 close-out verify-latest (G27_CONTRACT G-G27-6, g27.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g27_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g27_m_d_hlod_l4_counter_rejudgment",
+  "symbolic_gate_key": "g27.p0.m_d.hlod_l4_counter_rejudgment",
+  "matrix_row": "G27.3",
+  "wave": "G27.3",
+  "numeric_step": 470,
+  "source_ref": "G27_CONTRACT §4.2 M-d;RFC-0044 §4;G20_P2_DECISIONS.md §1 M98-l4 行;RXS-0359/RXS-0396 边界",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "device_leg_search_manifest",
+      "status": "PASS",
+      "detail": "①HLOD proxy 追踪 device 腿 = 零实现（manifest 5 条：src/rurix-render/kernels/*hlod*.rx:0; src/rurix-render/kernels/*far_field*.rx:0; src/rurix-render/src/gi/*hlod*device*.rs:0; src/rurix-render/src/world/*proxy_trace*.rs:0; src/rurix-render/src/bin/*hlod_proxy*.rs:0；排除面 = src/rurix-render/src/gi/world_radiance）"
+    },
+    {
+      "id": "l4_fail_closed_entries",
+      "status": "PASS",
+      "detail": "②L4 计数器接入 = 未接入——三处 fail-closed 入口实测在位：check_l4_trigger 恒 NotTriggered=True / l4_serve 恒 Err(L4InterfaceNotReady)=True / L4 槽位计数面=True（入口在位 ⇒ 计数器未接入）"
+    },
+    {
+      "id": "hlod_interface_ready_inventory",
+      "status": "PASS",
+      "detail": "world/hlod.rs 接口面就绪在案（g9.p1.m111 绿件 g9_m111_hlod_runtime_20260813T232631Z.json）——接口面就绪 ≠ 计数器接入（G20 M-d 终判字面：接口半命中不构成本半边命中）"
+    },
+    {
+      "id": "conjunctive_decision_verdict",
+      "status": "PASS",
+      "detail": "锚合取判定：①False ②False → maintain-three-tier-chain（均未命中 → 维持 L1/L2/L3 三级链，G20 M-d 兜底字面 0-byte；改判须两半全齐——判定形状与 M61 三项合取一致）"
+    },
+    {
+      "id": "rxs_boundary_not_conflated",
+      "status": "PASS",
+      "detail": "RXS-0396 世界级辐射缓存 ≠ RXS-0359 L4 Far Field——世界缓存落地事实不作任一半命中证据，检索面显式排除世界缓存实现路径"
+    },
+    {
+      "id": "anchor_carry_registered",
+      "status": "PASS",
+      "detail": "承接锚只追加：HLOD proxy 追踪 device 腿落地 + L4 计数器接入选档 evidence（两半全齐方改判）→ G28+ 窗承接"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T045037Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G27.3 M-d：M98-l4 重判窗（两半树内实测均未命中 → 维持 L1/L2/L3 三级链；三处 fail-closed 入口在位实测 + RXS-0396/0359 不混同）"
+}

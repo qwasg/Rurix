@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "subject": "g27_wave6b_closeout",
+  "symbolic_gate_key": "g27.wave.6b.closeout",
+  "matrix_row": "G27.6",
+  "wave": "G27.6",
+  "numeric_step": 476,
+  "source_ref": "G27_CONTRACT G-G27-6",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "five_p0_evidence_green",
+      "status": "PASS",
+      "detail": "ok"
+    },
+    {
+      "id": "p2_exhaustive_zero_empty",
+      "status": "PASS",
+      "detail": "g27_p2_decisions_check_20260825T045151Z.json"
+    },
+    {
+      "id": "handover_ledger_chain",
+      "status": "PASS",
+      "detail": "g27_m_a_hzb_device_kernel_20260825T044714Z.json（HZB device kernel 主锚绿件）"
+    },
+    {
+      "id": "rfc_0044_archived",
+      "status": "PASS",
+      "detail": "0044-geometry-device-realization.md"
+    },
+    {
+      "id": "old_gates_no_regression",
+      "status": "PASS",
+      "detail": "g27_m_e_closed_gate_no_regression_20260825T044926Z.json host=True"
+    },
+    {
+      "id": "rd_open_maintained",
+      "status": "PASS",
+      "detail": "八条 open 维持=True"
+    },
+    {
+      "id": "soak_ge_1800_zero_fail",
+      "status": "PASS",
+      "detail": "g27_stabilization_soak_20260825T052241Z.json"
+    },
+    {
+      "id": "closeout_ready",
+      "status": "PASS",
+      "detail": "VERDICT=READY"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T052319Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G27.6 closeout 八 facts VERDICT=READY"
+}

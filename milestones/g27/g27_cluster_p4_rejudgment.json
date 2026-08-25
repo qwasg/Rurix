@@ -1,0 +1,65 @@
+{
+  "schema": "rurix.g27.cluster_p4_rejudgment.v1",
+  "source_table": "milestones/g20/g20_cluster_streaming_p4_gap.json（0-byte 只读，原始锚字面不动）",
+  "dependency_release_fact": {
+    "anchor": "HZB device 化落地 + 剔除 pass 反馈链出现（表级 reeval_anchor 字面）",
+    "hzb_device_landed": true,
+    "note": "M-a 绿件 ⇒ reeval_anchor 半边命中（HZB device 化落地）——P4-2 依赖面本期解除的事实登记；登记≠该行兑现（剔除 pass 反馈链另半边本期不出现，生产接线 out-of-scope）；「HZB device 化落地」= 金字塔构建与保守测试 device 化的单件事实，不构成 RD-039「HZB 两阶段」分项整体兑现",
+    "evidence": "g27_m_a_hzb_device_kernel_20260825T044714Z.json"
+  },
+  "rows": [
+    {
+      "id": "P4-1",
+      "gap": "cluster 页磁盘布局与驻留池（RXPL v2 页 ABI 的 cluster 载荷扩展）",
+      "g20_anchor": "后续期 device 波（RD-039 长线）",
+      "impl_surface_found": false,
+      "search_manifest": [
+        "src/rurix-render/src/streaming/*cluster*.rs:0",
+        "src/rurix-render/src/geometry/cluster_page*.rs:0",
+        "token:cluster_page:0"
+      ],
+      "disposition": "maintain-open",
+      "basis": "现面零实现树内实测（检索清单在档）——维持 open 如实登记不冒充"
+    },
+    {
+      "id": "P4-2",
+      "gap": "GPU 请求反馈链（剔除 pass 产 cluster 缺页请求 → host 驻留调度）",
+      "g20_anchor": "依赖 HZB device 化（RFC-0037 out-of-scope 登记面）",
+      "impl_surface_found": false,
+      "search_manifest": [
+        "src/rurix-render/src/streaming/*cluster_feedback*.rs:0",
+        "src/rurix-render/src/geometry/*cluster*request*.rs:0",
+        "token:cluster_feedback:0"
+      ],
+      "disposition": "maintain-open",
+      "basis": "现面零实现树内实测（检索清单在档）——维持 open 如实登记不冒充"
+    },
+    {
+      "id": "P4-3",
+      "gap": "LOD cut 与驻留联动（cut 选择受驻留集约束的回退语义）",
+      "g20_anchor": "后续期；现 LOD cut 全驻留假设维持",
+      "impl_surface_found": false,
+      "search_manifest": [
+        "src/rurix-render/src/geometry/*lod_residency*.rs:0",
+        "src/rurix-render/src/streaming/*cluster_lod*.rs:0",
+        "token:residency_lod_cut:0"
+      ],
+      "disposition": "maintain-open",
+      "basis": "现面零实现树内实测（检索清单在档）——维持 open 如实登记不冒充"
+    },
+    {
+      "id": "P4-4",
+      "gap": "异步 IO 优先级链（近处/大屏占比 cluster 优先）",
+      "g20_anchor": "后续期；现页式流送优先级面复用评估",
+      "impl_surface_found": false,
+      "search_manifest": [
+        "src/rurix-render/src/streaming/*cluster_priority*.rs:0",
+        "src/rurix-render/src/streaming/*cluster_io*.rs:0",
+        "token:cluster_io_priority:0"
+      ],
+      "disposition": "maintain-open",
+      "basis": "现面零实现树内实测（检索清单在档）——维持 open 如实登记不冒充"
+    }
+  ],
+  "verdict": "maintain-open-four-rows"
+}

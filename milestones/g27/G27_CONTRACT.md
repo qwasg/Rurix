@@ -127,3 +127,18 @@ D-G27-1：PLAN/CONTRACT/CI_GATES/g27_budget.json + G27_CANDIDATE_DECISIONS + G27
 - **事实门全绿**：G26 closed + tag `g26-closed` + G27.0 不可变 ref `fc8c9fa2c0360997b95c559da1d0d68af0c37159`；候选表 8 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G26-G30」字面 + workflow 末号 463 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g27_interlock_check.py --require-ready` VERDICT=READY；治理三门 461/462/463 绿件（acceptance_map/candidate_decisions PASS + interlock READY）；RFC-0044 经 D-409 对抗评审（11 findings 全 disposition，v0.2 修法批）Agent Approved。
 - **解锁**：`implementation_status: blocked → unlocked`。G27.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G27.5 P2 穷举 + stabilization soak 验收记录（2026-08-25）——G-G27-6 前置：P2 穷举决策门（g27.wave.5a.decisions，步骤 474，VERDICT=PASS）+ 稳定门 soak（g27.wave.5a.soak，步骤 475，8/8 facts VERDICT=PASS——67 迭代 wall=1836.0s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G27_P2_DECISIONS.md` 穷举闭集 **8 行零空行**（§1 三行 closed-go 3〔M61 重判兑现（maintain-no-go，三项 1/3）+ M98-l4 重判兑现（maintain 三级链，两半 0/2）+ RD-039-mesh（M-a implemented + M-c 四行维持 open）〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1836.0s ≥1800s + 67 迭代零失败（含六车道探针轮换穿插 13 次：g19 framegen/g20 hzb/g21 restir/g22 slab 四实现件 + g26 framegen device + g27 hzb device 零容差快车道）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g27_p2_decisions_check_20260825T045151Z）；wave2~wave6 聚合门五绿（守卫三件 + budget_eval 现场通过）。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G27.5 P2/soak 波）`。
+
+### §8.7 G27.6 close-out 终审签署块（2026-08-25）——G-G27-6 字面兑现：close-out 终审门（g27.wave.6b.closeout，步骤 476）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g27-closed`（**G26-G30 五期串行战役第二期收口**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain（HZB device kernel 主锚绿件）/ rfc_0044_archived / old_gates_no_regression / rd_open_maintained（八条 open 维持）/ soak_ge_1800_zero_fail（20260825T052241Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g27_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（四面定盘）**：**HZB device 化 implemented**（M-a：`kernels/g27_hzb_reduce.rx` + `g27_hzb_test.rx` 真跑——mips 9 级双臂位级全等〔零容差〕+ 800 rect × 双约定判定序列逐字节全等 + 零假阳性独立复核 + device 双跑位级 + tamper 双臂检出〔序列异 4 rect + 假阳性哨兵 2〕+ 剔除数 231/800 与 host 一致 + geometry 三文件 0-byte 机核）；**M61 maintain-no-go 重判**（M-b：三项盘点 1/3——HZB device 半边命中 + P4 未清零 + HW 证据零命中，防冒充硬线兑现，RFC-0034 重判表 G27.2 行只追加）；**cluster P4 四行维持 open 重判**（M-c：cluster 专属检索零实现 + P4-2 依赖解除事实登记≠兑现 + RD-039 history G27.3 只追加断档口径注明）；**M98-l4 maintain 三级链重判**（M-d：两半 0/2——device 腿零实现 + 三处 fail-closed 入口在位实测，RXS-0396/0359 不混同）；M-e 旧门零降级全绿。**implemented/maintain-no-go/maintain 均为合法终态，零冒充**。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g27-closed`——五期串行战役第二期收口。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G27.6 close-out）`。

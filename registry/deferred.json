@@ -1213,6 +1213,11 @@
           "date": "2026-08-19",
           "event": "G14.1 治理门承接登记（agent 完全自主 D-406 v2.0）：M61 mesh shader 第三光栅路径（M109 可选 geometry pipeline）——G13.5a 逐字承接（defer-to-G14+ → defer-to-G15+）：G14 帧率对标面（既有光栅管线性能面）与可选 mesh shader geometry pipeline 零依赖、无真实消费方出现；承接锚字面 0-byte 维持（重判条件 = G15+ 重评窗内多厂商扩展行为收敛 + 性能差 measured 证据齐备且真实消费方出现时按只追加程序重判；兜底 = VS 光栅唯一 fallback 维持，G15+ 前零实现痕迹）；G15+ 重评窗顺延不关闭；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g14/G14_CANDIDATE_DECISIONS.md §1 M61 行 / milestones/g14/G14_CONTRACT.md §6"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G27.3 M-c cluster P4 差距重判登记（agent 完全自主 D-406 v3.0；RFC-0044 §3；断档口径注明：G15~G26 承接留痕在各期 P2 决策表未回写本条目，本行按只追加纪律补齐衔接）：HZB device 化分项本期兑现（kernels/g27_hzb_reduce.rx + g27_hzb_test.rx device kernel 真跑对拍，M-a 门 g27.p0.m_a.hzb_device_kernel 绿件）——表级 reeval_anchor「HZB device 化落地」半边命中，P4-2 依赖面解除事实登记（登记≠该行兑现，「HZB 两阶段」分项第二阶段两 pass 管线零实现维持）；cluster P4 四行逐行 reeval 现面零实现树内实测全维持 open（milestones/g27/g27_cluster_p4_rejudgment.json 四行 disposition + 检索清单）；M61 mesh shader 三项盘点 maintain-no-go 在案（RFC-0034 重判表 G27.2 行）；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g27/g27_cluster_p4_rejudgment.json + evidence/g27_m_a_hzb_device_kernel_*.json + rfcs/0034 重判表 G27.2 行"
         }
       ]
     },

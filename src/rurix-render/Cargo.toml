@@ -338,5 +338,18 @@ name = "g26_framegen_device"
 path = "src/bin/g26_framegen_device.rs"
 required-features = ["vulkan"]
 
+# G27.2 M-a HZB device kernel harness(RFC-0044 §1;门 g27.p0.m_a.hzb_device_kernel):
+# .rx 双 kernel(kernels/g27_hzb_{reduce,test}.rx,rurixc --target vulkan 产 SPV +
+# spirv-val 通过,vk::run_compute 车道复用)公式面与 host 金标准 geometry/hzb.rs
+# (HzbPyramid::build/test_rect)逐字同源(geometry/ hzb+cull+visbuffer 三文件 vs
+# g26-closed 0-byte 冻结,机核归 CI)——193×117 非 2 幂 g20_hzb_probe 夹具逐字同源
+# 800 rect × 双约定:金字塔逐级 farther-of 归约 device 化(mips 位级相等零容差)+
+# rect 保守遮挡测试 device 化(判定序列逐 rect 全等)+ 零假阳性独立复核
+# (exact_rect_occluded 裁判)+ device 双跑位级 + tamper RED 臂(构造性注入)。
+[[bin]]
+name = "g27_hzb_device"
+path = "src/bin/g27_hzb_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

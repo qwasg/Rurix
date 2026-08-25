@@ -1,0 +1,122 @@
+//@ spec: RFC-0044 §1(G27.2 M-a device 面;spec 条款号本期零新设)
+// G27.2 M-a HZB device kernel —— 逐 rect 保守遮挡测试腿(门
+// `g27.p0.m_a.hzb_device_kernel`;G27_CONTRACT §4.2 M-a 行逐字;
+// RFC-0044 §1 判据事实源)。
+//
+// ## 架构(g27_hzb_reduce.rx 同车道;单 rect 单 invocation)
+// 输入金字塔全 mips 单 SSBO 平铺(host 打包)+ 逐 mip offset/尺寸表 + rect 流;
+// 逐 rect 复算 host 金标准 `geometry/hzb.rs::test_rect` **字面**:
+// 像素化 x0 = floor(clamp(u_min,0,1)·w0) clamp [0,w0−1]、
+// x1 = ceil(clamp(u_max,0,1)·w0) clamp [1,w0] − 1(y 同律);
+// span = max(x1−x0+1, y1−y0+1);mip 选择 `while (span >> mip) > 2` 逐字
+// (定界迭代:span ≤ max(w0,h0) 有限故 mip 有界;上界另经 f32 域 clamp 至
+// n_mips−1);≤2×2 纹素窗(x0>>mip 起、min(x1>>mip, mip_w−1) 止)farther-of
+// 取最远(窗初值 = (mx0,my0) 纹素,行内 mx 递增、行 my 递增,host 同序);
+// is_farther(nearest, farthest)(reverse-Z `<` / standard-Z `>`)⇒ 1.0 =
+// Occluded,否则 0.0 = Visible(保守两态,host `Occlusion` 同义)。
+// **域前提(RFC-0044 §1.2 F2)**:夹具保证 0 ≤ u_min < u_max ≤ 1 ⇒ 像素化恒有
+// x1 ≥ x0、y1 ≥ y0,usize 下溢构造上不可达;f32→usize 转换前一律 f32 域
+// clamp 非负。**geometry/ 冻结面 0-byte 不接线**(机核归 CI)。
+//
+// ## 零容差协议(RFC-0044 §1.1;g27_hzb_reduce.rx 同律)
+// 像素化/选级/窗均整数与纯选择运算;farther-of 与 is_farther 经 conv 乘法门
+// 合成(conv 恒 0.0/1.0 保位级);is_farther 严格不等式经 big=1e30 门放大器
+// 兑现——深度域 [0,1] 正规 f32 差要么 0 要么 ≥ ~6e-9,×1e30 必 ≥ 1 且不溢出,
+// 门输出恒精确 0.0/1.0 ⇒ 判定序列与 host 逐 rect 逐字节全等(零容差)。
+//
+// ## 确定性协议(RXS-0357 L2 同律继承;g27_hzb_reduce.rx 同)
+// 禁 atomic、逐 rect 独立顺序求值、输出直写无跨 invocation 交互、分支判定
+// min/max 算术门白名单形、定界循环、边界守卫 `if i < n_rects`。
+//
+// ## 参数面(host bin `g27_hzb_device::DeviceHzb::test_rects` 逐字同源;8 f32)
+//   params[0]=n_rects [1]=n_mips [2]=w0 [3]=h0
+//   [4]=conv(0.0=reverse-Z / 1.0=standard-Z)
+//   [5..8]=reserved(恒 0)。
+//   pyramid: 全 mips 平铺 1 f32/纹素(逐级行主序拼接);
+//   mip_table: 3 f32/mip [offset, w, h](offset = 平铺内起始纹素下标);
+//   rects: 5 f32/rect [u_min, v_min, u_max, v_max, nearest_depth];
+//   verdicts: 1 f32/rect(0.0=Visible / 1.0=Occluded)。
+//   dispatch = [n_rects, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g27_hzb_test(
+    tc: ThreadCtx<1>,
+    pyramid: View<global, f32>,
+    mip_table: View<global, f32>,
+    rects: View<global, f32>,
+    params: View<global, f32>,
+    verdicts: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let n_rects = params[0] as usize;
+    let n_mipsf = params[1];
+    let w0f = params[2];
+    let h0f = params[3];
+    let conv = params[4];
+    let big: f32 = 1e30;
+    if i < n_rects {
+        let rbase = i * 5;
+        let u_min = rects[rbase];
+        let v_min = rects[rbase + 1];
+        let u_max = rects[rbase + 2];
+        let v_max = rects[rbase + 3];
+        let nearest = rects[rbase + 4];
+        // ── 像素化(host test_rect 字面:clamp→scale→floor/ceil→clamp)──
+        let x0f = (u_min.max(0.0).min(1.0) * w0f).floor().max(0.0).min(w0f - 1.0);
+        let y0f = (v_min.max(0.0).min(1.0) * h0f).floor().max(0.0).min(h0f - 1.0);
+        let x1cf = (u_max.max(0.0).min(1.0) * w0f).ceil().max(1.0).min(w0f);
+        let y1cf = (v_max.max(0.0).min(1.0) * h0f).ceil().max(1.0).min(h0f);
+        let x0 = x0f as usize;
+        let y0 = y0f as usize;
+        let x1c = x1cf as usize;
+        let y1c = y1cf as usize;
+        let x1 = x1c - 1;
+        let y1 = y1c - 1;
+        // ── span = max(跨度x, 跨度y)(f32 精确域纯选择;≤193 ≪ 2²⁴)──
+        let sx = x1 - x0 + 1;
+        let sy = y1 - y0 + 1;
+        let span_f = (sx as f32).max(sy as f32);
+        let span = span_f as usize;
+        // ── mip 选择:while (span >> mip) > 2 逐字;上界 clamp n_mips−1 ──
+        let mut mip_raw = 0usize;
+        while (span >> mip_raw) > 2usize {
+            mip_raw = mip_raw + 1;
+        }
+        let mipf = (mip_raw as f32).min(n_mipsf - 1.0);
+        let mip = mipf as usize;
+        // ── mip 表读出(offset/w/h;offset ≤ 全平铺纹素数 ≪ 2²⁴ f32 精确)──
+        let tbase = mip * 3;
+        let off = mip_table[tbase] as usize;
+        let mwf = mip_table[tbase + 1];
+        let mhf = mip_table[tbase + 2];
+        let mw = mwf as usize;
+        // ── ≤2×2 纹素窗(host 同律:mx0 = x0>>mip;mx1 = min(x1>>mip, mip_w−1))──
+        let mx0 = x0 >> mip;
+        let my0 = y0 >> mip;
+        let mx1f = (((x1 >> mip) as f32)).min(mwf - 1.0);
+        let my1f = (((y1 >> mip) as f32)).min(mhf - 1.0);
+        let mx1 = mx1f as usize;
+        let my1 = my1f as usize;
+        // ── 窗内 farther-of 取最远(host 同序:初值 (mx0,my0),farther(x,x)=x
+        //    幂等冗余同 host;conv 乘法门形选 min/max 臂)──
+        let r0 = off + my0 * mw + mx0;
+        let mut farthest = pyramid[r0];
+        let mut my = my0;
+        while my <= my1 {
+            let mut mx = mx0;
+            while mx <= mx1 {
+                let ri = off + my * mw + mx;
+                let v = pyramid[ri];
+                let f_min = farthest.min(v);
+                let f_max = farthest.max(v);
+                farthest = (1.0 - conv) * f_min + conv * f_max;
+                mx = mx + 1;
+            }
+            my = my + 1;
+        }
+        // ── is_farther(nearest, farthest) 算术门(reverse:nearest<farthest /
+        //    standard:nearest>farthest;严格不等式,差=0 ⇒ 门恒 0)──
+        let gate_r = ((farthest - nearest) * big).min(1.0).max(0.0);
+        let gate_s = ((nearest - farthest) * big).min(1.0).max(0.0);
+        verdicts[i] = (1.0 - conv) * gate_r + conv * gate_s;
+    }
+}
