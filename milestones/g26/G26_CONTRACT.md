@@ -1,7 +1,7 @@
 ---
 contract: G26
 title: G26 时域/帧生成 device 化期（FG/MFG device kernel 兑现 + device 帧时口径登记 + RD-045 backfill 重判 + G17-MD-F1 重判窗）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g26_framegen_device_realization
 version: v1.0
@@ -132,3 +132,11 @@ D-G26-1：PLAN/CONTRACT/CI_GATES/g26_budget.json + G26_CANDIDATE_DECISIONS + G26
 - **② soak 定盘**：VERDICT=PASS 8/8——**wall=1950.7s ≥1800s + 67 迭代零失败（含五车道探针轮换穿插 13 次：g19 framegen/g20 hzb/g21 restir/g22 slab 四实现件 + g26 framegen device --probe 快车道）+ active==wall + 零 sleep**；同窗独立第二实例 8/8 同绿（wall=1843.8s/67/0，双证并行）。
 - **③ 命令输出**：P2 门 → VERDICT=PASS（g26_p2_decisions_check_20260825T030532Z）；wave2~wave6 聚合门五绿（守卫三件 + budget_eval 现场通过）。
 - **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G26.5 P2/soak 波）`。
+
+### §8.7 G26.6 close-out 终审签署块（2026-08-25）——G-G26-6 字面兑现：close-out 终审门（g26.wave.6b.closeout，步骤 460）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g26-closed`（**G26-G30 五期串行战役第一期收口**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain（device kernel 主锚绿件）/ rfc_0043_archived / old_gates_no_regression / rd_open_maintained（八条 open 维持）/ soak_ge_1800_zero_fail（20260825T034617Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g26_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（四面定盘）**：**FG/MFG device kernel implemented**（M-a：kernels/g26_framegen.rx 真跑对拍 p100=3.576e-7 ≤ 冻结容差 7.153e-7〔F4 量化兜底 tol < 0.025 余量五个数量级〕+ SSIM 全帧严格胜 frame-hold + device 双跑位级 + kernel-bias/seed-change 双 RED 臂必检出 + spirv-val + temporal/ 目录 0-byte 机核）；**device 帧时 measured 登记**（M-b：×2/×3/×4 = 60.64/60.71/60.22ms 程序产入 budget ×2.0 回归守护 + FgAccounting 双恒等式 + 性能面三文件 0-byte——不构成帧率对标通过线）；**RD-045 maintain-open 重判**（M-c：新鲜窗 6/6 零漂移 + 三件盘点 0/3 机核〔F5 观察窗不充①件〕+ history 只追加）；**G17-MD-F1 maintain 诚实红 carry**（M-d：两半搜索 0+0〔F6 manifest 必填〕终判归 G30）；M-e 旧门零降级全绿。**implemented/maintain-open/诚实红 carry 均为合法终态，零冒充**。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g26-closed`——五期串行战役第一期收口。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G26.6 close-out）`。
