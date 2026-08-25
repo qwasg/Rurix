@@ -4446,6 +4446,22 @@ jobs:
         shell: powershell
         run: py -3 ci/g27_closeout_check.py --verify-latest
 
+      # 步骤 477（G28.1 治理门 acceptance_map g28.wave.1.acceptance_map；
+      # 落盘前实测 CI_step.next_free=477 顺位领取）。
+      - name: G28.1 acceptance map (G28_CONTRACT G-G28-1, g28.wave.1.acceptance_map)
+        shell: powershell
+        run: py -3 ci/g28_acceptance_map_check.py --gate g28.wave.1.acceptance_map
+
+      # 步骤 478（G28.1 治理门 candidate_decisions g28.wave.1.candidate_decisions）。
+      - name: G28.1 candidate decisions (G28_CONTRACT G-G28-1, g28.wave.1.candidate_decisions)
+        shell: powershell
+        run: py -3 ci/g28_candidate_decisions_check.py --gate g28.wave.1.candidate_decisions
+
+      # 步骤 479（G28 实现互锁 g28.gov.implementation_interlock）。
+      - name: G28 implementation interlock (G28_CONTRACT G-G28-2, g28.gov.implementation_interlock)
+        shell: powershell
+        run: py -3 ci/g28_interlock_check.py --gate g28.gov.implementation_interlock
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
