@@ -1,7 +1,7 @@
 ---
 contract: G30
 title: G30 商用终审收官期（尾锚重判闭集 + 三面商用终审 + 全链零降级 + 战役承接锚归档）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g30_campaign_final_review
 version: v1.0
@@ -136,3 +136,12 @@ G30.2+ 各波验收记录与收口签署块只追加登记于此（§8.1 解锁�
 - **② soak 定盘**：VERDICT=PASS 8/8——**wall=1817.7s ≥1800s + 67 迭代零失败（含八车道探针轮换穿插 13 次：g19 framegen/g20 hzb/g21 restir/g22 slab 四实现件 + g26 framegen/g27 hzb/g28 restir/g29 slab 四 device 零容差快车道）+ active==wall + 零 sleep**。
 - **③ 命令输出**：P2 门 → VERDICT=PASS（g30_p2_decisions_check_20260825T103353Z）；soak → VERDICT=PASS（g30_stabilization_soak_20260825T110425Z）；wave2~wave6 聚合门五绿（守卫三件 + budget_eval 现场通过）。
 - **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G30.5 P2/soak 波）`。
+
+### §8.7 G30.6 close-out 终审签署块（2026-08-25）——G-G30-6 字面兑现：close-out 终审门（g30.wave.6b.closeout，步骤 524）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g30-closed`（**G26-G30 五期串行战役收官**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain（`g30_campaign_handover_registry.json` 主锚 + M-d 绿件在档）/ rfc_0047_archived（Agent Approved 状态行字面）/ old_gates_no_regression（M-e verify g29 两门）/ rd_open_maintained（八条 open 维持）/ soak_ge_1800_zero_fail（20260825T110425Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g30_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（五面定盘）**：**尾锚六件重判闭集全维持**（M-a：M125 maintain-5.3〔三类 1/3〕/ M127 研究子轨〔两半 0/2〕/ M114 card/mesh〔外部盘 SKIP 兜底〕/ M118 maintain-SDR〔三 token absent 新鲜探针〕/ G10-N6 双场景闭集〔三工具缺〕/ SAFE-GPU defer 改锚 defer-to-G31+，九组常量 pattern 表 F6 三件 + F10 门态映射 + RD-042/043/044 同批零命中 history 只追加幂等）；**三面商用终审定盘**（M-b：画质十项 vs g25-closed 0-byte + 两层零接线〔F2〕⇒ G18 达标终态维持；性能焦点格 canonical 160 帧新鲜真跑 frame_ms=3.5767ms、新鲜 ratio=**0.960479 < 1.00** + 两半锚 6 pattern 零命中 ⇒ **G17-MD-F1 = 17/18 诚实红终判定盘**〔G26 carry「终判归 G30」兑现，合法收官态零冒充〕；确定性 Stage A 18/18 + 四 device 双跑位级绿件 + RD-045 复核〔F14〕）；**全链零回归**（M-c：11/11 tag + verify g29 链 rc=0 + budget --strict 301 pass 0 skip 禁 --allow-pending〔F18〕）；**承接归档闭集**（M-d：`g30_campaign_handover_registry.json` 9 期行 + rd 八条 + tail 六行 + legacy 11 引用，分 section 字段闭集〔F5〕= **G31+ 唯一法定输入面**）；**旧门零降级**（M-e：verify g29 两门 + g30_ 前缀零抢占 + M-c/M-e 分工〔F10〕）。**implemented/maintain/defer/诚实红均为合法终态，零冒充**。
+- **④ 战役总结报告（G30-N5 收官承载；G26-G30 五期串行战役商用标准收尾）**：（一）**步骤面**：五期 CI 步骤 445~524 共 80 步全数顺位领取并 pr-smoke.yml 接线（每期 16 步：治理 3 + P0 5 + 波聚合 5 + P2/soak/closeout 3），台账 v1.179~v1.188 十版链式登记零跳号。（二）**device 化交付**：四 device kernel + 一侧表臂 implemented——G26 framegen（对拍 p100=3.576e-7 + SSIM 严格胜 frame-hold）/ G27 hzb（mips 9 级位级全等零容差 + 800×2 判定序列全等）/ G28 restir（p100=2.831e-6 + y 整数锚 20000/20000 + 无偏 3σ）/ G29 slab（p100=1.192e-7 恰一 ULP + 角点位级 1.0）+ 侧表 16 槽（逐槽 p100=3.68e-8 + MaterialClosure 32B 零触碰）；全部含固定输入双跑位级一致 + RED 臂检出 + 冻结面 0-byte 机核；加性纪律全程维持（生产 bin 零接线两层机核在案）。（三）**诚实终态盘点**：G17-MD-F1 17/18 诚实红终判（五期两度重判 + 终判新鲜真跑 ratio 0.856→0.960 改善但未达 1.00）/ M61 maintain-no-go / M98-l4 三级链维持 / M52+SVT/KTX2 maintain-defer / WG not-available / 尾锚六件全维持 / RD 八条 open——零冒充零降级。（四）**稳定面**：五期 soak 累计 315 迭代（67+67+61+53+67）全零失败，探针车道 5→8 递增扩容；Stage A digest 锚 18/18 五期零漂移。（五）**治理面**：RFC-0043~0047 五份全经 D-409 零共享上下文对抗评审 Agent Approved（63 findings 全 disposition：11+11+12+11+18，含 RFC-0046 blocker F2 角点门形与 RFC-0047 major 五件）；deferred.json history 只追加纪律全程机核（在案重复行如实登记不回写）。（六）**交接面**：`milestones/g30/g30_campaign_handover_registry.json` = G31+ 唯一法定输入面（绕开归档表的立项无效——RFC-0047 §5.5）。
+- **⑤ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g30-closed`——**G26-G30 五期串行战役收官**。
+- **⑥ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G30.6 close-out）`。
