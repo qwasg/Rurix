@@ -1,0 +1,32 @@
+﻿{
+  "schema_version": 1,
+  "namespace": "g27",
+  "description": "g27 预算面模板。baseline = g27.0 Stage A digest 锚在档快检 + 上游战役八期收口 tag 计数实测；M-a 标定容差条目由实现波程序产追加（threshold = measured × 2.0 冻结 k，禁手写）。",
+  "source_docs": ["milestones/g27/g27_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g27.baseline.stage_a_digest_guard.anchor_count",
+      "description": "g27.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g27_baseline_stage_a_digest_guard.json",
+      "measured_value": null
+    },
+    {
+      "id": "g27.baseline.campaign_tags.count",
+      "description": "g27.0 baseline 上游战役八期收口 tag 计数（期望 8/8：g19~g26-closed）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 8.0,
+      "evidence_file": "evidence/g27_baseline_campaign_tags.json",
+      "measured_value": null
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}
