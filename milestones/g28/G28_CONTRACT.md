@@ -1,7 +1,7 @@
 ---
 contract: G28
 title: G28 光照 device 化期（ReSTIR device kernel 兑现 + 空间重用加性臂 + M52/RD-040 workload 重判 + RD-034 上游复查）
-status: active
+status: closed
 implementation_status: unlocked
 active_scope: g28_lighting_device_realization
 version: v1.0
