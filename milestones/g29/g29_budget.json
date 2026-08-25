@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "namespace": "g29",
+  "description": "G29 预算面。baseline = G29.0 Stage A digest 锚在档快检 + 上游十期收口 tag 计数实测；M-a 对拍容差条目由实现波程序产追加（threshold = measured × 2.0 冻结 k，禁手写；若实测位级可达则零容差零条目，以实现波实测定盘）。",
+  "source_docs": ["milestones/g29/G29_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g29.baseline.stage_a_digest_guard.anchor_count",
+      "description": "G29.0 baseline Stage A 18 格 digest 锚在档格数（期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g29_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g29.baseline.campaign_tags.count",
+      "description": "G29.0 baseline 上游十期收口 tag 计数（期望 10/10：g19~g28-closed）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 10.0,
+      "evidence_file": "evidence/g29_baseline_campaign_tags.json",
+      "measured_value": 10.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

@@ -112,6 +112,8 @@
 >
 > **RFC 台账校准（2026-08-25，G28.1 治理波）**：**RFC-0045**（[`0045-lighting-device-realization.md`](0045-lighting-device-realization.md)，G28 光照 device 化：ReSTIR device kernel 兑现语义〔随机带单源 + f32 容差协议——f64 幻影态经评审 F3 删除〕+ 空间重用加性臂〔受点重评零复刻〕+ M52/RD-040 workload 重判程序 + RD-034 上游复查程序）经 D-409 对抗性评审（评审 `milestones/g28/design/rfc0045_adversarial_review.md`，12 findings〔0 blocker/7 major/5 minor〕全部 disposition，v0.2 修法批）后 **Agent Approved**——编号按 G28.1 实测 `namespaces.RFC next_free=45` 领取（ledger 校准：on_tree_max 44→45、next_free 45→46）。此后自由号以 ledger 实测为准（当前 RFC-0046）。
 >
+> **RFC 台账校准（2026-08-25，G29.1 治理波）**：**RFC-0046**（[`0046-material-device-integration.md`](0046-material-device-integration.md)，G29 材质 device 集成：slab device kernel 兑现语义〔闭式同源 + 角点分母安全化——blocker F2 修法 A〕+ 侧表供参加性臂〔MaterialClosure 32B 冻结边界 + material/ 全目录机核〕+ SVT/KTX2 七行重判程序 + WG/DGC capability 复测程序）经 D-409 对抗性评审（评审 `milestones/g29/design/rfc0046_adversarial_review.md`，11 findings〔1 blocker/3 major/7 minor〕全部 disposition，v0.2 修法批）后 **Agent Approved**——编号按 G29.1 实测 `namespaces.RFC next_free=46` 领取（ledger 校准：on_tree_max 45→46、next_free 46→47）。此后自由号以 ledger 实测为准（当前 RFC-0047）。
+>
 > spec 条款号 `RXS-####`、错误码、deferred `RD-###`、spike-gating `SG-###` 的台账各自在 `spec/`、`registry/error_codes.json`、`registry/deferred.json`、`registry/spike_gating.json` 维护，均永不复用。
 >
 > **跨分支/off-tree 编号消费**（如 GRX 影子分支对 `MR-0006/0007`、`RXS-0181~0184` 的 claim + 私有 `GRX-0xx`/`patch-00xx`/`D-GRX`/`G-GRX` 段）登记于 [`../registry/number_ledger.json`](../registry/number_ledger.json)（MR-0010），并由守卫 [`../ci/check_number_ledger.py`](../ci/check_number_ledger.py) 强制『树内同号异义碰撞 + 已登记保留号被尊重』（10 §9.5 跨分支执行面）。守卫能力边界：CI 只见当前树，无法枚举未合分支，新影子工作流登记为人工/agent 前置动作。
