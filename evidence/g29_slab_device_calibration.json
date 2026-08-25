@@ -1,0 +1,18 @@
+{
+  "schema": "rurix.g29slab.calibration_entry.v1",
+  "entry_id": "g29.slab_device.host_device_reflectance_tol",
+  "results": {
+    "trimmed_mean": 1.192092895507812e-07
+  },
+  "protocol": "slab device vs host 金标准(material/slab.rs::total_reflectance f64 直调)同输入逐样本反照率对拍容差(16641 样本 = 129×129 参数网格 rc=i/128、ab=j/128〔g22_slab_probe GRID=128 (grid+1)² 格点口径〕,host 单源生成原字节上传,kernel 全 f32 修法 A 分母安全化,判据⓪有限性一等断言先于聚合;逐样本绝对差 p100;threshold = measured × 2.0 冻结 k,方向 max,禁手写;实测 p100=0 → 零容差零条目;RFC-0046 §1.3)",
+  "sample_manifest": {
+    "count": 16641,
+    "digest": "sha256:e6635fd23bba8fd2b4836d223eee44abd4b76564f0f0adb08b2de7b07359e8b9"
+  },
+  "provenance": {
+    "gpu": "device",
+    "backend": "slab_device",
+    "base_commit": "ccd342b024e3a0cebed67c08e042ff3b1c4efcf8"
+  },
+  "timestamp": "2026-08-25T16:18:50+08:00"
+}

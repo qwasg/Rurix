@@ -25,6 +25,17 @@
       "threshold": 10.0,
       "evidence_file": "evidence/g29_baseline_campaign_tags.json",
       "measured_value": 10.0
+    },
+    {
+      "id": "g29.slab_device.host_device_reflectance_tol",
+      "description": "slab device vs host 金标准(material/slab.rs::total_reflectance f64 直调)同输入逐样本反照率对拍容差冻结带(16641 样本 = 129×129 参数网格 rc=i/128、ab=j/128〔g22_slab_probe GRID=128 (grid+1)² 格点口径,F4 血缘钉死〕,host 单源生成原字节上传,kernel 全 f32 修法 A 分母安全化,判据⓪有限性一等断言先于聚合;逐样本绝对差 p100;threshold = measured × 2.0 协议冻结 k,方向 max;M-a 标定腿产,两跑位级一致,禁手写 P-09;量化兜底断言 tol < RED_BIAS 0.05 × 0.5(RFC-0046 §1.4 ⑤);样本集 digest sha256:e6635fd23bba8fd2b4836d223eee44abd4b76564f0f0adb08b2de7b07359e8b9(count=16641);标定程序 ci/g29_slab_device_kernel_smoke.py 标定腿可复跑",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 2.384185791015624e-07,
+      "evidence_file": "evidence/g29_slab_device_calibration.json",
+      "measured_value": 1.192092895507812e-07
     }
   ],
   "ratio_assertions": [],

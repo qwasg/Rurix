@@ -1428,6 +1428,11 @@
           "date": "2026-08-24",
           "event": "G22.2~G22.3 材质/流送/时域四分项处置窗登记（agent 完全自主 D-406 v3.0）:①Substrate 类 slab 分项——能量守恒混合语义 host 参考臂实现（material/slab.rs 白炉审计 16641 样本白炉恒等 dev=0/能量上界/单调/闭式恒等式 1e-15 + g22_slab_probe 绿件）;②SVT 分项 defer（四行差距闭集 g22_svt_gap.json——虚拟纹理地址空间/GPU 反馈 pass 零实现,现闭集无需求证据）;③KTX2-BasisU 分项 defer（三行差距闭集 g22_ktx2_disposition.json——现 DDS 链覆盖全纹理面,分发收益前提不成立）;④Work Graphs 分项 not-available 实测（vulkaninfo VK_AMDX_shader_enqueue absent 取证 g22_work_graphs_probe_results.json;DGC 三扩展 available + dgc.rs M102 现面为 GPU-driven 提交载体）+ FSR 3.1.5 第二超分臂重评 maintain（无新版 SDK 在树）;RD-041 维持 open",
           "evidence": "evidence/g22_slab_probe_*.json / milestones/g22/g22_svt_gap.json / milestones/g22/g22_ktx2_disposition.json / milestones/g22/g22_work_graphs_probe_results.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G29.3 M-c/M-d 重判窗登记（agent 完全自主 D-406 v3.0；RFC-0046 §3/§4；断档口径注明：G23~G28 承接留痕在各期 P2 表与 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：slab 分项本期 M-a/M-b 兑现（kernels/g29_slab.rx device kernel 真跑对拍〔角点 rc=ab=1 分母安全化位级还原 host 分支值〕+ 侧表供参加性臂 16 槽 bin-local 兑现〔MaterialClosure 32B 零触碰〕——「device kernel/侧表集成波」锚兑现登记，生产集成 out-of-scope 维持）；SVT 四行 + KTX2 三行逐锚重判全维持 defer（milestones/g29/g29_svt_ktx2_rejudgment.json 常量 pattern 表 + 锚派生映射七行零实现实测）；Work Graphs VK_AMDX_shader_enqueue 新鲜复测 + DGC 三扩展互核 + FSR 3.1.5 maintain 盘点（三态闭集如实登记）；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g29/g29_svt_ktx2_rejudgment.json + evidence/g29_m_a_slab_device_kernel_*.json + evidence/g29_m_b_slab_side_table_arm_*.json + evidence/g29_m_d_wg_dgc_capability_recheck_*.json"
         }
       ]
     },

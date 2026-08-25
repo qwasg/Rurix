@@ -4544,6 +4544,72 @@ jobs:
         shell: powershell
         run: py -3 ci/g29_interlock_check.py --gate g29.gov.implementation_interlock
 
+      # 步骤 496（G29.2 P0 M-a g29.p0.m_a.slab_device_kernel；
+      # 落盘前实测 CI_step.next_free=496 顺位领取）。
+      - name: G29.2 M-a slab device kernel verify-latest
+        shell: powershell
+        run: py -3 ci/g29_slab_device_kernel_smoke.py --verify-latest
+
+      # 步骤 497（G29.2 波聚合门 g29.wave.2.exit）。
+      - name: G29.2 wave exit verify-latest (g29.wave.2.exit)
+        shell: powershell
+        run: py -3 ci/g29_wave_exit_check.py --gate g29.wave.2.exit
+
+      # 步骤 498（G29.2 P0 M-b g29.p0.m_b.slab_side_table_arm）。
+      - name: G29.2 M-b slab side table arm verify-latest
+        shell: powershell
+        run: py -3 ci/g29_slab_side_table_arm_smoke.py --verify-latest
+
+      # 步骤 499（G29.3 波聚合门 g29.wave.3.exit）。
+      - name: G29.3 wave exit verify-latest (g29.wave.3.exit)
+        shell: powershell
+        run: py -3 ci/g29_wave_exit_check.py --gate g29.wave.3.exit
+
+      # 步骤 500（G29.3 P0 M-c g29.p0.m_c.svt_ktx2_gap_rejudgment）。
+      - name: G29.3 M-c SVT/KTX2 gap rejudgment verify-latest
+        shell: powershell
+        run: py -3 ci/g29_svt_ktx2_gap_rejudgment_smoke.py --verify-latest
+
+      # 步骤 501（G29.4 波聚合门 g29.wave.4.exit）。
+      - name: G29.4 wave exit verify-latest (g29.wave.4.exit)
+        shell: powershell
+        run: py -3 ci/g29_wave_exit_check.py --gate g29.wave.4.exit
+
+      # 步骤 502（G29.3 P0 M-d g29.p0.m_d.wg_dgc_capability_recheck）。
+      - name: G29.3 M-d WG/DGC capability recheck verify-latest
+        shell: powershell
+        run: py -3 ci/g29_wg_dgc_capability_recheck_smoke.py --verify-latest
+
+      # 步骤 503（G29.5 波聚合门 g29.wave.5.exit）。
+      - name: G29.5 wave exit verify-latest (g29.wave.5.exit)
+        shell: powershell
+        run: py -3 ci/g29_wave_exit_check.py --gate g29.wave.5.exit
+
+      # 步骤 504（G29.4 P0 M-e g29.p0.m_e.closed_gate_no_regression）。
+      - name: G29.4 M-e closed-gate no-regression verify-latest
+        shell: powershell
+        run: py -3 ci/g29_closed_gate_no_regression_smoke.py --verify-latest
+
+      # 步骤 505（G29.6 波聚合门 g29.wave.6.exit）。
+      - name: G29.6 wave exit verify-latest (g29.wave.6.exit)
+        shell: powershell
+        run: py -3 ci/g29_wave_exit_check.py --gate g29.wave.6.exit
+
+      # 步骤 506（G29.5 P2 穷举 g29.wave.5a.decisions）。
+      - name: G29.5 P2 decisions verify-latest (g29.wave.5a.decisions)
+        shell: powershell
+        run: py -3 ci/g29_p2_decisions_check.py --verify-latest
+
+      # 步骤 507（G29.5 soak g29.wave.5a.soak；≥1800s 零失败——full-run 本地 --gate）。
+      - name: G29.5 stabilization soak verify-latest (g29.wave.5a.soak)
+        shell: powershell
+        run: py -3 ci/g29_stabilization_soak.py --verify-latest
+
+      # 步骤 508（G29.6 close-out g29.wave.6b.closeout；五期串行战役第四期收口）。
+      - name: G29.6 close-out verify-latest (G29_CONTRACT G-G29-6, g29.wave.6b.closeout)
+        shell: powershell
+        run: py -3 ci/g29_closeout_check.py --verify-latest
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

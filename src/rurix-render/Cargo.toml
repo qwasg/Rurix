@@ -368,5 +368,23 @@ name = "g28_restir_device"
 path = "src/bin/g28_restir_device.rs"
 required-features = ["vulkan"]
 
+# G29.2 M-a/M-b slab device kernel + 侧表供参加性臂 harness(RFC-0046 §1/§2;门
+# g29.p0.m_a.slab_device_kernel + g29.p0.m_b.slab_side_table_arm):
+# .rx 单 kernel(kernels/g29_slab.rx,rurixc --target vulkan 产 SPV + spirv-val
+# 通过,vk::run_compute 车道复用)逐样本单 invocation 双层 slab 闭式反照率与
+# host 金标准 material/slab.rs::total_reflectance 公式面同源(修法 A 分母安全化
+# `max(denom,1e-30)` 直线代码零分支承载 host 角点分支;material/ 整目录 vs
+# g28-closed 0-byte 冻结,机核归 CI)——16641 样本 129×129 参数网格
+# (g22_slab_probe GRID=128 (grid+1)² 口径)host 单源生成原字节上传 + 判据⓪
+# 输出有限性一等断言(先于聚合硬 FAIL)+ 逐样本对拍 p100 ≤ 标定容差(程序产
+# 禁手写)+ 白炉行 dev 如实登记 + 能量上界 device 复核 + device 双跑位级 +
+# kernel-bias RED 臂(仅评判据①,F11);--side-table 侧表臂(bin 内合成 16 槽
+# 独立 SSBO,0.95 规避角点区;逐槽对拍 + 逐槽白炉互核 + 双跑位级;
+# MaterialClosure 32B 与生产资产侧表设施零触碰)。
+[[bin]]
+name = "g29_slab_device"
+path = "src/bin/g29_slab_device.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

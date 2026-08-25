@@ -1,0 +1,55 @@
+//@ spec: RFC-0046 §1(G29.2 M-a device 面;spec 条款号本期零新设)
+// G29.2 M-a slab device kernel —— 逐样本单 invocation 双层 slab 闭式反照率(门
+// `g29.p0.m_a.slab_device_kernel`;G29_CONTRACT §4.2 M-a 行逐字;
+// RFC-0046 §1 判据事实源)。
+//
+// ## 架构(g28_restir.rx 同车道;单样本单 invocation)
+// host 金标准 `material/slab.rs::total_reflectance` 的公式面 device 兑现
+// (公式面同源;host f64 内算 → device f32 承载走标定容差对拍协议,
+// RFC-0046 §1.3)。公式字面(修法 A:删角点算术门 → 分母安全化,直线代码
+// 零分支零门,RFC-0046 §1.1 / D-409 blocker F2 disposition):
+//   tc = 1 − rc;denom = 1 − rc·ab;
+//   R = rc + tc·tc·ab / max(denom, 1e-30)
+// 角点位级一致论证(RFC-0046 §1.1 字面):域内 denom ∈ {0} ∪ [1/128, 1]
+// (rc<1 时 rc·ab ≤ rc < 1,全域最小正 denom = 1/128 ≈ 7.8e-3 ≫ 1e-30
+// ⇒ max 不扰动任何正 denom 样本);唯一 denom=0 样本 = rc=ab=1 角点
+// (129×129 网格 i=j=128 必踩),该点分子 tc·tc·ab = 0(tc=0 精确)⇒
+// 0/1e-30 = 0 精确 ⇒ R = rc = 1.0 **位级等于 host `denom ≤ 0 ⇒ 1.0`
+// 分支值**——NaN/Inf 构造不可达宣称由此成立。
+//
+// ## 输入面(host 单源生成一次原字节上传,device 不重算格点/槽参数)
+//   samples: 2 f32/样本 [rc, ab]——M-a 网格 16641 样本(= 129×129,
+//     rc=i/128、ab=j/128,g22_slab_probe GRID=128 经 furnace_audit (grid+1)²
+//     格点口径,F4 血缘钉死)或 M-b 侧表 16 槽(rc_k=k/15·0.95、
+//     ab_k=(15−k)/15,0.95 有意规避 denom→0 角点区,F5)——kernel 面不感知
+//     来源,逐槽求值 = 逐样本求值同一寻址面;
+//   params: [0]=n_samples [1]=red_bias(RED 臂,正常 0;输出面加性偏置——
+//     device vs host 对拍超容差检出面,仅评判据①,RFC-0046 §1.4 ⑤/F11)
+//     [2..=7]=reserved(恒 0,F10c 区间写法钉死);
+//   out: 1 f32/样本,out[i] = R + red_bias。
+//   dispatch = [n_samples, 1, 1](LocalSize 1,1,1)。
+//
+// ## 确定性协议(RFC-0046 §1.6;RXS-0357 L2 同律继承)
+// 禁 atomic、逐样本独立(invocation 间零交互)、输出直写、全 f32(device
+// f64 为 RX6026 构造性拒绝面)、固定输入双跑位级一致。
+#[numthreads(1, 1, 1)]
+kernel fn g29_slab(
+    t: ThreadCtx<1>,
+    samples: View<global, f32>,
+    params: View<global, f32>,
+    out: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let n = params[0] as usize;
+    let red_bias = params[1];
+    if i < n {
+        let rc = samples[i * 2];
+        let ab = samples[i * 2 + 1];
+        // ── total_reflectance 公式面(slab.rs L46-56 同源;修法 A 分母
+        //    安全化承载 host `denom ≤ 0 ⇒ 1.0` 分支,零分支零门)──
+        let tc = 1.0 - rc;
+        let denom = 1.0 - rc * ab;
+        let r = rc + tc * tc * ab / denom.max(1e-30);
+        out[i] = r + red_bias;
+    }
+}

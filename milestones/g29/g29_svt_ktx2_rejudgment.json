@@ -1,0 +1,186 @@
+{
+  "schema": "rurix.g29.svt_ktx2_rejudgment.v1",
+  "source_tables": [
+    "milestones/g22/g22_svt_gap.json（0-byte 只读）",
+    "milestones/g22/g22_ktx2_disposition.json（0-byte 只读）"
+  ],
+  "pattern_discipline": "F6 三件：pattern 表脚本字面常量承载（禁运行时构造）+ 逐 pattern 为 gap/anchor 字面派生关键词 + 逐行载 {pattern 表, 检索根, 命中数}",
+  "rows": [
+    {
+      "id": "SVT-1",
+      "gap": "虚拟纹理页表（128K² 虚拟地址空间 → 物理瓦片缓存间接寻址）",
+      "g22_anchor": "SVT 立项窗（RD-041 长线）",
+      "source": "g22_svt_gap.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/src/streaming/*virtual_texture*.rs",
+          "anchor_keyword": "虚拟纹理页表（gap 字面「虚拟纹理页表」派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/streaming/*page_table*.rs",
+          "anchor_keyword": "128K² 虚拟地址空间间接寻址（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "SVT-2",
+      "gap": "GPU 反馈 pass（采样 miss 记录 → host 请求队列）",
+      "g22_anchor": "依赖剔除/材质 pass 反馈链（G20 P4-2 同族缺口）",
+      "source": "g22_svt_gap.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/kernels/*sample_miss*.rx",
+          "anchor_keyword": "GPU 反馈 pass 采样 miss 记录（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/streaming/*svt_feedback*.rs",
+          "anchor_keyword": "host 请求队列 SVT 反馈链（gap/anchor 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "SVT-3",
+      "gap": "瓦片边界过滤（border texel 复制/各向异性跨瓦片）",
+      "g22_anchor": "SVT-1 落地后",
+      "source": "g22_svt_gap.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/src/streaming/*tile_border*.rs",
+          "anchor_keyword": "瓦片边界过滤 border texel（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/streaming/*anisotropic_tile*.rs",
+          "anchor_keyword": "各向异性跨瓦片（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "SVT-4",
+      "gap": "地形/贴花消费方接线（world/terrain.rs 现零 SVT 依赖断言维持）",
+      "g22_anchor": "M116 地形 SVT 需求成立窗",
+      "source": "g22_svt_gap.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/src/world/*terrain_svt*.rs",
+          "anchor_keyword": "地形 SVT 消费方接线（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-render/src/world/*decal_svt*.rs",
+          "anchor_keyword": "贴花 SVT 消费方（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "KTX2-1",
+      "gap": "KTX2 容器解析（supercompression 元数据 + mip 级布局）",
+      "g22_anchor": "KTX2 立项窗",
+      "source": "g22_ktx2_disposition.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-render/src/streaming/*ktx2*.rs",
+          "anchor_keyword": "KTX2 容器解析（gap 字面「KTX2 容器解析」派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "src/rurix-pkg/src/*ktx2*.rs",
+          "anchor_keyword": "supercompression 元数据 + mip 级布局（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "KTX2-2",
+      "gap": "BasisU 转码器集成（basis_universal C++ vendor 面 → BC7/ASTC 目标）",
+      "g22_anchor": "vendor C++ 桥判档（外部依赖 fail-closed DEV_ENV 纪律）",
+      "source": "g22_ktx2_disposition.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "src/rurix-rt/src/*basisu*.rs",
+          "anchor_keyword": "BasisU 转码器 vendor 桥（gap 字面「BasisU 转码器集成」派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "external/*basis_universal*",
+          "anchor_keyword": "basis_universal C++ vendor 面（gap 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    },
+    {
+      "id": "KTX2-3",
+      "gap": "通用转码收益证据（分发体积 vs 转码耗时 A/B measured）",
+      "g22_anchor": "资产分发面需求成立窗（现闭集资产本地直通零分发压力）",
+      "source": "g22_ktx2_disposition.json",
+      "impl_surface_found": false,
+      "manifest": [
+        {
+          "pattern": "evidence/*ktx2_transcode_ab*.json",
+          "anchor_keyword": "通用转码收益 A/B measured（gap 字面「收益证据」派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        },
+        {
+          "pattern": "evidence/*distribution_size_budget*.json",
+          "anchor_keyword": "分发体积预算门（reeval_anchor 字面派生）",
+          "search_root": "src/rurix-render/src",
+          "hits": 0,
+          "files": []
+        }
+      ],
+      "disposition": "maintain-defer",
+      "basis": "现面零实现树内实测（常量 pattern 表 + 锚派生关键词映射在档）——维持 defer 如实登记"
+    }
+  ],
+  "verdict": "maintain-defer-seven-rows"
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g29_p2_decisions_check",
+  "symbolic_gate_key": "g29.wave.5a.decisions",
+  "matrix_row": "G29.5",
+  "wave": "G29.5",
+  "numeric_step": 506,
+  "source_ref": "G29_CONTRACT G-G29-6;G29_P2_DECISIONS.md",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "sec1_row_count",
+      "status": "PASS",
+      "detail": "§1 2/2 行"
+    },
+    {
+      "id": "sec3_row_count",
+      "status": "PASS",
+      "detail": "§3 5 行（≥5）"
+    },
+    {
+      "id": "zero_empty_rows",
+      "status": "PASS",
+      "detail": "零空行"
+    },
+    {
+      "id": "decision_enum_legal",
+      "status": "PASS",
+      "detail": "裁决枚举合法"
+    },
+    {
+      "id": "defer_has_g30_anchor",
+      "status": "PASS",
+      "detail": "defer 行 G30+ 承接锚字面（点名期别）"
+    },
+    {
+      "id": "candidate_table_0byte",
+      "status": "PASS",
+      "detail": "G29_CANDIDATE_DECISIONS 裁决字面 0-byte 不回写"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T084345Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G29 P2 穷举零空行"
+}

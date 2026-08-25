@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "subject": "g29_m_a_slab_device_kernel",
+  "symbolic_gate_key": "g29.p0.m_a.slab_device_kernel",
+  "matrix_row": "G29.2",
+  "wave": "G29.2",
+  "numeric_step": 496,
+  "source_ref": "G29_CONTRACT §4.2 M-a;rfcs/0046-material-device-integration.md §1;G29_ACCEPTANCE_MAP §1 M-a 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "spv_compile_spirv_val_pass",
+      "status": "PASS",
+      "detail": "rurixc --target vulkan 产 SPV + spirv-val 独立校验通过"
+    },
+    {
+      "id": "calibration_two_run_bitexact",
+      "status": "PASS",
+      "detail": "两跑位级一致;p100=1.192092895507812e-07(16641 样本全集)"
+    },
+    {
+      "id": "calibration_budget_entry_measured",
+      "status": "PASS",
+      "detail": "程序产追加 measured=1.192092895507812e-07 threshold=2.384185791015624e-07"
+    },
+    {
+      "id": "tol_under_red_bias_bound",
+      "status": "PASS",
+      "detail": "tol=2.384185791015624e-07 vs 上界 0.025(RED_BIAS 0.05 × 0.5,RFC-0046 §1.4 ⑤)"
+    },
+    {
+      "id": "finiteness_first_class_assertion",
+      "status": "PASS",
+      "detail": "判据⓪:16641 样本全量 is_finite=True,断言先于对拍聚合执行=True(封死 NaN 经 f64::max(NaN,x)=x 聚合静默吞掉的假绿路径,RFC-0046 §1.4 F3)"
+    },
+    {
+      "id": "device_host_parity_p100",
+      "status": "PASS",
+      "detail": "全档 state=pass;p100=1.192092895507812e-07 ≤ tol=2.384186e-07(16641 样本逐样本反照率绝对差);角点 rc=ab=1 device R=1.0(位级 1.0=True,修法 A 角点论证兑现)"
+    },
+    {
+      "id": "white_furnace_row_dev_registered",
+      "status": "PASS",
+      "detail": "白炉行(ab=1 列 129 样本):host R 位级 ≡ 1.0=True;device dev 最大值 1.192092896e-07 如实登记(来源 = OpFDiv ≤2.5 ULP + FMA 收缩可能性;登记面被判据①容差线传递覆盖,F1 不另设线)"
+    },
+    {
+      "id": "energy_upper_bound_device",
+      "status": "PASS",
+      "detail": "全样本 device max R=1.00000011920929 ≤ 1+tol=1.000000238418579(host energy_never_exceeds_unity 同律的 device 面)"
+    },
+    {
+      "id": "device_double_run_bitexact",
+      "status": "PASS",
+      "detail": "固定输入双跑输出缓冲 digest 位级相等"
+    },
+    {
+      "id": "red_arm_kernel_bias_detected",
+      "status": "PASS",
+      "detail": "kernel-bias(RED_BIAS=0.05 输出面加性偏置)检出(honest p100=1.192093e-7 tampered p100=5.000010e-2 tol=2.384186e-7(注入后白炉行 R ≈ 1.05 属预期注入效果,判据③不跨臂,F11));臂间判据归属 F11:仅评判据①,判据⓪②③④不跨臂"
+    },
+    {
+      "id": "material_dir_frozen_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g28-closed -- src/rurix-render/src/material 0-byte(整目录;提交面 + 工作树双面;reserved RED 守卫本体同受保护)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260825T083931Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G29.2 M-a:slab device kernel 兑现——g29_slab.rx 经 vk::run_compute 真跑(逐样本单 invocation,dispatch [16641,1,1];129×129 参数网格 host 单源生成原字节上传);公式面修法 A(max(denom,1e-30) 分母安全化直线代码零分支,角点rc=ab=1 → R=1.0 位级同 host 分支值,F2);判据⓪输出有限性一等断言先于聚合(F3)+ 逐样本 p100 ≤ 程序产标定容差(×2.0 冻结 k,量化兜底 tol<0.025)+ 白炉行 dev 如实登记(F1 覆盖论证)+ 能量上界 device 复核 + device 双跑位级 + kernel-bias RED 臂(仅评判据①,F11)+ material/ 整目录 0-byte(vs g28-closed,F8);RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

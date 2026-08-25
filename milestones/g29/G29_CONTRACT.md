@@ -129,3 +129,18 @@ D-G29-1：PLAN/CONTRACT/CI_GATES/g29_budget.json + G29_CANDIDATE_DECISIONS + G29
 - **事实门全绿**：G28 closed + tag `g28-closed` + G29.0 不可变 ref `2553abe651bc8daa3c044947e1ace9051db1b4d5`；候选表 7 行零空行 + MAP 五行 P0；用户战役指令「帮我一次性完成G26-G30」字面 + workflow 末号 495 == ledger on_tree_max。
 - **机器事实**：`py -3 ci/g29_interlock_check.py --require-ready` VERDICT=READY；治理三门 493/494/495 绿件；RFC-0046 经 D-409 对抗评审（11 findings 全 disposition，v0.2 修法批——blocker F2 角点门形以修法 A 消除 + F3 有限性一等断言先于开工已落）Agent Approved。
 - **解锁**：`implementation_status: blocked → unlocked`。G29.2+ 实现波（M-a~M-e）现可开工。
+
+### §8.6 G29.5 P2 穷举 + stabilization soak 验收记录（2026-08-25）——G-G29-6 前置：P2 穷举决策门（g29.wave.5a.decisions，步骤 506，VERDICT=PASS）+ 稳定门 soak（g29.wave.5a.soak，步骤 507，8/8 facts VERDICT=PASS——53 迭代 wall=1919.2s ≥1800s 零失败）
+
+- **① P2 穷举定盘**：`G29_P2_DECISIONS.md` 穷举闭集 **7 行零空行**（§1 两行 closed-go 2〔RD-041-slab（device kernel + 侧表两件 implemented）+ RD-041-svt-ktx2-wg（七行 maintain-defer + WG not-available 维持）〕；§3 期内行五行 closed-go 5；§2 open RD 八条维持 open）。
+- **② soak 定盘**：VERDICT=PASS 8/8——**wall=1919.2s ≥1800s + 53 迭代零失败（含八车道探针轮换穿插 10 次：g19/g20/g21/g22 四实现件 + framegen/hzb/restir/slab 四 device 快车道）+ active==wall + 零 sleep**。
+- **③ 命令输出**：P2 门 → VERDICT=PASS（g29_p2_decisions_check_20260825T084345Z）；wave2~wave6 聚合门五绿。
+- **④ 签署**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G29.5 P2/soak 波）`。
+
+### §8.7 G29.6 close-out 终审签署块（2026-08-25）——G-G29-6 字面兑现：close-out 终审门（g29.wave.6b.closeout，步骤 508）八 facts 全绿 **VERDICT=READY** → status active→closed + tag `g29-closed`（**G26-G30 五期串行战役第四期收口**）
+
+- **① 终审八 facts 逐条**：five_p0_evidence_green / p2_exhaustive_zero_empty / handover_ledger_chain（slab device kernel 主锚绿件）/ rfc_0046_archived / old_gates_no_regression / rd_open_maintained（八条 open 维持）/ soak_ge_1800_zero_fail（20260825T091600Z）/ closeout_ready —— 全 PASS。
+- **② 终审命令逐字输出**：`py -3 ci/g29_closeout_check.py --gate` → **VERDICT=READY，exit=0**。
+- **③ 收口裁决（四面定盘）**：**slab device kernel implemented**（M-a：`kernels/g29_slab.rx` 真跑——对拍 p100=1.192e-7〔恰 f32@1.0 一 ULP〕≤ 冻结容差 2.384e-7 + 角点 rc=ab=1 device **位级 1.0**〔blocker F2 修法 A 在真 GPU 兑现〕+ 有限性一等断言〔F3〕+ 白炉行 dev=1.19e-7 如实登记〔OpFDiv ≤2.5 ULP 来源注明〕+ 能量上界 + 双跑位级 + RED 臂仅评判据①〔F11〕+ material/ 整目录 0-byte）；**侧表供参加性臂 implemented**（M-b：16 槽逐槽对拍 p100=3.68e-8 + 逐槽白炉互核双端登记 + MaterialClosure 32B 零触碰 + 生产侧表零挂接防混淆）；**SVT/KTX2 七行 maintain-defer 重判**（M-c：常量 pattern 表 + 锚派生映射〔F6 三件〕零实现实测 + g22 两表 0-byte + RD-041 history G29.3 只追加断档口径注明）；**WG not-available 维持复测**（M-d：新鲜 vulkaninfo absent 零漂移 + DGC 三扩展全 true 互核 + FSR 3.1.5 maintain 盘点）；M-e 旧门零降级全绿。**implemented/maintain-defer/not-available 维持均为合法终态，零冒充**。
+- **④ status flip 与 tag**：§8 只追加区本块落盘后，`status: active → closed`；`implementation_status: unlocked` 字面不动。flip commit 独立洁净落盘，随后 tag `g29-closed`——五期串行战役第四期收口。
+- **⑤ 签署块**：白栀（D-406 v3.0）。`Assisted-by: Cursor Agent（G29.6 close-out）`。
