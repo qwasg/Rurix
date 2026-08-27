@@ -60,6 +60,28 @@
       "threshold": 0.0,
       "evidence_file": "evidence/g35_render_gate_20260827T115018Z.json",
       "measured_value": 0.0
+    },
+    {
+      "id": "g35.oit.parity_p100",
+      "description": "G35-4 排序臂近远见证容差冻结带(--oit-witness --oit sorted 两粒子视轴夹具:sorted 臂末帧全帧 scene_color vs host 金标准期望〔进程内 --oit off 影面基底 + particles/oit_arms.rs far→near painter's 串行合成〕p100 max abs diff;tilekey/blend SPV 注入 NoContraction 后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_sort_oit_smoke.py --gate g35.wave4.sort_oit 近远见证腿;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g35_sort_oit_gate_20260827T135322Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g35.oit.wboit_acc_tol",
+      "description": "G35-4 WBOIT 臂定点累加器整数差容差冻结带(--oit-witness --oit wboit 两粒子夹具:device acc〔Q12 u32×4px,g35_oit_wboit_accum 原子和〕vs host 定点累加金标准〔particles/oit_arms.rs wboit_frame〕最大整数差;accum SPV 注入 NoContraction 后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_sort_oit_smoke.py --gate g35.wave4.sort_oit WBOIT 见证腿;evidence_file = 门裁决件〔与 g35.oit.parity_p100 共享,results.trimmed_mean 槽为 sorted p100 镜像——本条目实测承载 = 门裁决件 wboit_witness.acc_max_int_diff,双条目零容差预期面登记;budget_eval 通用路以 trimmed_mean 判读时双零等价,非零漂移以门 facts wboit_fixedpoint_saturation 直判为准〕;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "u32_absdiff",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g35_sort_oit_gate_20260827T135322Z.json",
+      "measured_value": 0.0
     }
   ],
   "ratio_assertions": [],

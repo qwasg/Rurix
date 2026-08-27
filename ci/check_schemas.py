@@ -1131,6 +1131,17 @@ def check_evidence_files() -> None:
     g35_replay_gate_schema = load(
         ROOT / "milestones/g35/g35_replay_gate_evidence_schema.json"
     )
+    # G35 GPU 粒子系统 G35-4 半透明双臂门前缀纯追加（重放幂等面；仅门裁决件
+    # 注册——lane 真跑件（rurix.g35.particle_lane_run.v1）留 .tmp 不注册，
+    # 数字经门裁决件蒸馏登记；前缀 g35_sort_oit_ 首段 sort_oit 与族内其余
+    # 八支（primitives/particle_core/render/collision/events/fluids/
+    # authoring/replay）两两互不包含——族内无 g35_sort_ 独立前缀（W1 排序
+    # 基元门 = g35_primitives_）无遮蔽；与 g35_render_/g35_replay_ 在 g35_
+    # 后 s≠r 分岔，与 g19_~g30_ 元组/g31_/g34_ 各族及 gpu fallthrough 全串
+    # 互不包含）
+    g35_sort_oit_gate_schema = load(
+        ROOT / "milestones/g35/g35_sort_oit_gate_evidence_schema.json"
+    )
     # G31+ 波 C Task C2 渲染器文档与示例门前缀纯追加（重放幂等面；与既有
     # g31_* 全族及 gpu fallthrough 互不包含）
     g31_renderer_docs_schema = load(
@@ -2752,6 +2763,11 @@ def check_evidence_files() -> None:
     g35_replay_gate_validator = (
         jsonschema.Draft7Validator(g35_replay_gate_schema)
         if g35_replay_gate_schema is not None
+        else None
+    )
+    g35_sort_oit_gate_validator = (
+        jsonschema.Draft7Validator(g35_sort_oit_gate_schema)
+        if g35_sort_oit_gate_schema is not None
         else None
     )
     g31_renderer_docs_validator = (
@@ -5671,6 +5687,24 @@ def check_evidence_files() -> None:
             # g35_events_/g35_collision_ 首段分岔及 g19_~g30_ 元组/g31_/g34_
             # 各族全串互不包含）。
             validator = g35_replay_gate_validator
+        elif (
+            f.name.startswith("g35_sort_oit_")
+            and g35_sort_oit_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-4 半透明双臂门裁决证据（含双标定纪元件——
+            # g35_budget g35.oit.parity_p100 / g35.oit.wboit_acc_tol 双条目
+            # evidence_file 指向门裁决件，results.trimmed_mean = sorted 见证
+            # p100 镜像槽，budget_eval 通用路消费；wboit 条目实测承载 =
+            # wboit_witness.acc_max_int_diff，双条目零容差预期面登记）→
+            # milestones/g35/g35_sort_oit_gate_evidence_schema.json
+            # （ci/g35_sort_oit_smoke.py --gate g35.wave4.sort_oit 产；lane
+            # 真跑件〔rurix.g35.particle_lane_run.v1〕留 .tmp 不入 evidence/
+            # 不注册；前缀分岔分析：g35_sort_oit_ 首段 sort_oit 与族内其余
+            # 八支两两互不包含——族内无 g35_sort_ 独立前缀（W1 排序基元门 =
+            # g35_primitives_）无遮蔽；与 g35_render_/g35_replay_ 在 g35_ 后
+            # s≠r 分岔，与 g19_~g30_ 元组/g31_/g34_ 各族及 gpu fallthrough
+            # 全串互不包含）。
+            validator = g35_sort_oit_gate_validator
         elif f.name.startswith("g31_baseline_"):
             # G31 波 A 验收 baseline 快检件（results.trimmed_mean 通用 measured entry，
             # budget_eval eval_entry 通用路消费）——无映射前缀跳过，g19~g30 baseline 同律。

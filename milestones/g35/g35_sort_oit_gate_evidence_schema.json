@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-4 半透明双臂门裁决证据(ci/g35_sort_oit_smoke.py --gate 产)",
+  "description": "G35-4 半透明双臂门 g35.wave4.sort_oit 的 smoke 裁决证据(RFC-0049 §4.8 评审修订后冻结协议;host 金标准 = src/rurix-render/src/particles/oit_arms.rs):① kernels_spv_valid(rurixc 现编 24 kernel = 车道五件 + 粒子七件〔W1/W2 冻结消费面〕+ 渲染三件〔G35-3 冻结消费面〕+ sort 三件〔W1 冻结消费面〕+ OIT 六件〔g35_hash_clear W7 0-byte 消费 + 本波五件 g35_oit_tilekey/g35_oit_tilerange/g35_oit_blend_sorted/g35_oit_wboit_accum/g35_oit_wboit_resolve〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档)② sorted_arm_bitexact(--oit sorted 同参数双跑 render_digest + digest_seq_sha 位级——复合键 tile_id·4096+(4095−depth12) radix 稳定序 + 每像素区间升序固定序串行合成 = 位级确定基准臂)③ wboit_fixedpoint_saturation(--oit wboit 双跑位级〔u32 定点 Q12 fetch_add 可交换〕+ 饱和语义在档〔加前 clamp delta ≤ 65535 + 事件累计计数 + cap ≤ 65536 结构性防回绕论证〕+ 见证腿 acc 整数差 ≤ 冻结容差〔g35.oit.wboit_acc_tol,threshold = measured × 2.0 程序产禁手写〕)④ near_far_order_witness(--oit-witness 近远两粒子视轴夹具〔帧 0/30 各发 1,先发者更远且 age 大偏红〕:sorted 臂全帧 p100 vs host 金标准期望〔off 影面基底 + oit_arms 串行合成 = far→near painter's〕≤ 冻结容差〔g35.oit.parity_p100 程序产〕∧ 合成像素 ≥ 1)⑤ oit_arms_digest_discrimination(--oit off digest 位级 == 缺省〔加性 0 破坏机器证明〕∧ off/sorted/wboit 三臂 digest 两两互异)⑥ oit_retrigger_registered(milestones/g31/g31_oit_evaluation_window.json 只追加 re-trigger 记录在档:consumer = g35.wave4.sort_oit + 决策引 RFC-0049 §4.8 + M120 冻结测量;既有字段 0-byte)⑦ determinism_double_run(双臂四跑 digest_seq_sha 全链一致汇总判)⑧ red_arm_effective(--red-arm key-invert 键反转篡改:p100_red > max(冻结容差, 1e-3 名义底) ∧ 红臂 digest ≠ 正臂 digest——近远翻序必检出)⑨ frame_ms_measured(三臂逐帧墙钟 + OIT pass 组 GPU 段和 measured_local 诚实登记非帧率对标)。OIT 腿构型 = --tier 50(bistro 内部 960×540 ⇒ tile_cnt 2040 ≤ 4095 键域守卫;t100 1920×1080 ⇒ 8160 越域拒跑如实登记)。results.trimmed_mean = sorted 见证 p100 镜像(ci/budget_eval.py 通用路 evidence_file 消费面;g35.oit.wboit_acc_tol 条目共享本件,其实测承载 = wboit_witness.acc_max_int_diff,双条目零容差预期面登记)。三态:无 Vulkan loader/设备/资产 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "digest_matrix",
+    "determinism",
+    "sorted_witness",
+    "wboit_witness",
+    "red_arm",
+    "retrigger",
+    "results",
+    "frame_ms",
+    "run_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.sort_oit_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_sort_oit" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave4.sort_oit" },
+    "wave": { "type": "string", "const": "G35.4" },
+    "facts": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "sorted_arm_bitexact",
+              "wboit_fixedpoint_saturation",
+              "near_far_order_witness",
+              "oit_arms_digest_discrimination",
+              "oit_retrigger_registered",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "particle", "render", "sort", "oit", "spirv_val_all", "frozen_consumed_snapshot"],
+      "properties": {
+        "lane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g14_3_direct_gi", "g14_mv", "g14_8_tsr_resample", "g14_8_tsr_resolve", "g31_display_encode"],
+          "properties": {
+            "g14_3_direct_gi": { "$ref": "#/definitions/spv_entry" },
+            "g14_mv": { "$ref": "#/definitions/spv_entry" },
+            "g14_8_tsr_resample": { "$ref": "#/definitions/spv_entry" },
+            "g14_8_tsr_resolve": { "$ref": "#/definitions/spv_entry" },
+            "g31_display_encode": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "particle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_sim", "g35_scan_seg_sum", "g35_scan_spine", "g35_scan_seg_apply", "g35_particle_compact", "g35_emit", "g35_indirect_args"],
+          "properties": {
+            "g35_sim": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_seg_sum": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_spine": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_seg_apply": { "$ref": "#/definitions/spv_entry" },
+            "g35_particle_compact": { "$ref": "#/definitions/spv_entry" },
+            "g35_emit": { "$ref": "#/definitions/spv_entry" },
+            "g35_indirect_args": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "render": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_splat_clear", "g35_render_splat", "g35_render_resolve"],
+          "properties": {
+            "g35_splat_clear": { "$ref": "#/definitions/spv_entry" },
+            "g35_render_splat": { "$ref": "#/definitions/spv_entry" },
+            "g35_render_resolve": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "sort": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_sort_hist", "g35_sort_spine", "g35_sort_scatter"],
+          "properties": {
+            "g35_sort_hist": { "$ref": "#/definitions/spv_entry" },
+            "g35_sort_spine": { "$ref": "#/definitions/spv_entry" },
+            "g35_sort_scatter": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "oit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_hash_clear", "g35_oit_tilekey", "g35_oit_tilerange", "g35_oit_blend_sorted", "g35_oit_wboit_accum", "g35_oit_wboit_resolve"],
+          "properties": {
+            "g35_hash_clear": { "$ref": "#/definitions/spv_entry" },
+            "g35_oit_tilekey": { "$ref": "#/definitions/spv_entry" },
+            "g35_oit_tilerange": { "$ref": "#/definitions/spv_entry" },
+            "g35_oit_blend_sorted": { "$ref": "#/definitions/spv_entry" },
+            "g35_oit_wboit_accum": { "$ref": "#/definitions/spv_entry" },
+            "g35_oit_wboit_resolve": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(W1 sort 三 kernel .rx / W7 g35_hash_clear.rx / G35-3 渲染三 kernel .rx / 粒子七 kernel .rx / g14_3_lane_body.rs / particles mod+core+primitives——G35-4 消费不修改 + 共享体 0-byte 承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "digest_matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trajectory", "default_digest", "off_digest", "sorted_digest", "wboit_digest", "off_equals_default", "pairwise_distinct"],
+      "properties": {
+        "trajectory": { "type": "string", "const": "orbit" },
+        "default_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "--particles on 不带 --oit 的缺省面 digest" },
+        "off_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "--oit off 显式档 digest(必须位级 == 缺省 = 加性 0 破坏机器证明)" },
+        "sorted_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wboit_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "off_equals_default": { "type": "boolean", "description": "off == 缺省位级才许 true" },
+        "pairwise_distinct": { "type": "boolean", "description": "off/sorted/wboit 三臂两两互异才许 true" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sorted_bitexact", "wboit_bitexact", "sorted_digest_a", "sorted_digest_b", "sorted_seq_sha_a", "sorted_seq_sha_b", "wboit_digest_a", "wboit_digest_b", "wboit_seq_sha_a", "wboit_seq_sha_b"],
+      "properties": {
+        "sorted_bitexact": { "type": "boolean", "description": "sorted 臂双跑 render_digest + digest_seq_sha 双通道位级一致才许 true(radix 稳定序 + 固定序串行合成,与调度无关)" },
+        "wboit_bitexact": { "type": "boolean", "description": "wboit 臂双跑双通道位级一致才许 true(u32 定点加可交换 + delta clamp 结构性防回绕)" },
+        "sorted_digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sorted_digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sorted_seq_sha_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sorted_seq_sha_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wboit_digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wboit_digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wboit_seq_sha_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wboit_seq_sha_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "sorted_witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p100_vs_host", "changed_px", "threshold", "budget_entry", "calibrated_this_run", "within"],
+      "properties": {
+        "p100_vs_host": { "type": "number", "description": "sorted 臂末帧全帧 scene_color vs host 金标准期望(off 影面基底 + oit_arms 串行合成)最大绝对差(-1 = 见证腿缺失)" },
+        "changed_px": { "type": "integer", "minimum": 0, "description": "OIT 合成改动像素数(device vs 基底位级异;≥ 1 才许 near_far fact PASS)" },
+        "threshold": { "type": "number", "description": "= measured × 2.0 标定冻结(程序产禁手写;measured = 0 时 = 0 零容差零条目;-1 = 未标定)" },
+        "budget_entry": { "type": "string", "const": "g35.oit.parity_p100" },
+        "calibrated_this_run": { "type": "boolean" },
+        "within": { "type": "boolean" }
+      }
+    },
+    "wboit_witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acc_max_int_diff", "sat_device", "sat_host", "p100_vs_host", "threshold", "budget_entry", "calibrated_this_run", "within"],
+      "properties": {
+        "acc_max_int_diff": { "type": "integer", "minimum": -1, "description": "device acc(Q12 u32×4px)vs host 定点累加金标准最大整数差(-1 = 见证腿缺失)" },
+        "sat_device": { "type": "integer", "minimum": -1, "description": "device 饱和事件累计计数(u32 原子;登记面)" },
+        "sat_host": { "type": "integer", "minimum": -1, "description": "host 金标准饱和事件计数(对拍登记面,不硬判等)" },
+        "p100_vs_host": { "type": "number", "description": "wboit resolve 后全帧 vs host 期望最大绝对差(登记面)" },
+        "threshold": { "type": "number", "description": "= measured × 2.0 标定冻结(measured = acc_max_int_diff;程序产禁手写)" },
+        "budget_entry": { "type": "string", "const": "g35.oit.wboit_acc_tol" },
+        "calibrated_this_run": { "type": "boolean" },
+        "within": { "type": "boolean" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "p100_red", "digest_red", "digest_ok", "red_floor", "effective"],
+      "properties": {
+        "arm": { "type": "string", "const": "key-invert" },
+        "p100_red": { "type": "number", "description": "红臂(键反转篡改)vs 正协议 host 期望的 p100(必须 > max(threshold, red_floor) 才算检出)" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_ok": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "red_floor": { "type": "number", "const": 0.001, "description": "红臂检出名义底(近远夹具两粒子色差量级 ≫ 1e-3;防 threshold 过小空转)" },
+        "effective": { "type": "boolean", "description": "p100_red > max(threshold, red_floor) ∧ digest_red ≠ digest_ok 才许 true(翻序必检出)" }
+      }
+    },
+    "retrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "found", "consumer", "date", "decision"],
+      "properties": {
+        "path": { "type": "string", "const": "milestones/g31/g31_oit_evaluation_window.json" },
+        "found": { "type": "boolean", "description": "retriggers 数组含 consumer = g35.wave4.sort_oit 记录且既有字段(schema/frozen_at_utc/trigger_evaluation)未动才许 true" },
+        "consumer": { "type": "string", "const": "g35.wave4.sort_oit" },
+        "date": { "type": "string" },
+        "decision": { "type": "string", "description": "决策字面(须引 RFC-0049 §4.8 与 M120 冻结测量——选型提交引 benchmark 数据纪律)" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number", "description": "= sorted_witness.p100_vs_host 镜像(ci/budget_eval.py 通用路 doc.results.trimmed_mean 消费面;g35.oit.parity_p100 与 g35.oit.wboit_acc_tol 双条目 evidence_file 指向本件,后者实测承载 = wboit_witness.acc_max_int_diff)" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_frame_ms", "sorted_frame_ms", "wboit_frame_ms", "sorted_oit_gpu_ms", "wboit_oit_gpu_ms", "frames_measured", "measured", "note"],
+      "properties": {
+        "off_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "sorted_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "wboit_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "sorted_oit_gpu_ms": { "type": "number", "minimum": 0, "description": "sorted 臂 OIT pass 组(hash_clear+tilekey+sort 9 dispatch+tilerange+blend)GPU 段和均值" },
+        "wboit_oit_gpu_ms": { "type": "number", "minimum": 0, "description": "wboit 臂 OIT pass 组(accum+resolve;acc 清零段归 splat_clear 名下不重计)GPU 段和均值" },
+        "frames_measured": { "type": "integer", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "run_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "lane 真跑件(缺省/off/sorted×2/wboit×2/见证 sorted/见证 wboit/红臂,.tmp 工作区路径登记)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

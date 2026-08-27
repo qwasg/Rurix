@@ -36,5 +36,17 @@
     "src/rurix-render/src/display/hair.rs（毛发三档 + strand not-triggered 登记面）",
     "闭集机核（2026-08-26 真跑）：bistro gltf alphaMode 70×OPAQUE / BLEND=0 / MASK=0 / transmission=0；cornell gltf alphaMode 行=0"
   ],
-  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 B Task B7 评估窗）"
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 B Task B7 评估窗）",
+  "retriggers": [
+    {
+      "date": "2026-08-27",
+      "trigger": "G35-4 粒子半透明进画面(#13 触发条件命中)",
+      "consumer": "g35.wave4.sort_oit",
+      "decision": "WBOIT 定点 + 排序双臂,依 RFC-0049 §4.8 + M120 冻结测量",
+      "benchmark_basis": "milestones/g9/g9_m120_oit_measurements.json(2026-08-13 冻结)——weighted_blended 档 O(1) 存储模型 + 对排序真值质量误差 measured 面 = conditional_wiring_sketch ① 「消费 M120 冻结测量数据启动有界近似档(WBOIT 起步)」字面兑现;排序 fallback 永保留律经臂 A(排序臂 = 位级确定基准 + 正确性对照)承接;device 帧时腿 atomics 冲突裁决 = RFC-0049 §4.8 F5(撤销浮点位级承诺,WBOIT 改定点整数累加可交换 ⇒ 双跑位级,M120 冻结注记字面承接);精确 linked-list 档维持毛发 strand 唯一作用域不扩(RXS-0371 L4)",
+      "evidence": "evidence/g35_sort_oit_gate_20260827T135322Z.json",
+      "evidence_note": "门裁决件已回填(2026-08-27 真跑 verdict=PASS,symbolic_gate_key=g35.wave4.sort_oit,九 facts 全绿;原登记「待真跑回填」字面兑现)",
+      "discipline": "只追加登记:本文件既有字段(frozen_at_utc/oit_harness_inventory/production_lane_transparency_handling/trigger_evaluation/conclusion/conditional_wiring_sketch/discipline/evidence_refs)全部 0-byte 未动;trigger_evaluation.verdict = not_triggered 为 2026-08-26 冻结时点裁决如实保留,本记录 = 时点后触发条件命中的追加消费登记"
+    }
+  ]
 }

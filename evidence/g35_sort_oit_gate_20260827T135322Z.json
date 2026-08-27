@@ -1,0 +1,270 @@
+{
+  "schema": "rurix.g35.sort_oit_gate_evidence.v1",
+  "subject": "g35_sort_oit",
+  "symbolic_gate_key": "g35.wave4.sort_oit",
+  "wave": "G35.4",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 24 kernel(车道五 + 粒子七 + 渲染三 + sort 三 + OIT 六〔hash_clear W7 0-byte 消费 + 本波五件〕)+ spirv-val=绿;冻结消费面 sha256 快照在档=True(G35-4 消费不修改纪律漂移守护基线)"
+    },
+    {
+      "id": "sorted_arm_bitexact",
+      "status": "PASS",
+      "detail": "sorted 臂同参数双跑位级:digest 等=True digest_seq_sha 等=True(复合键 radix 稳定序 + 每像素区间升序固定序串行合成 = 位级确定基准臂)"
+    },
+    {
+      "id": "wboit_fixedpoint_saturation",
+      "status": "PASS",
+      "detail": "wboit 臂双跑位级=True(u32 Q12 fetch_add 可交换 + delta 加前 clamp 65535 + cap ≤ 65536 结构性防回绕);acc_max_int_diff=0 ≤ 冻结容差 0.0(g35.oit.wboit_acc_tol 本次标定);饱和事件登记 device=0 host=0"
+    },
+    {
+      "id": "near_far_order_witness",
+      "status": "PASS",
+      "detail": "近远见证(帧 0/30 两粒子视轴夹具,先发者更远 age 大偏红):sorted 臂 p100_vs_host=0.0 ≤ 冻结容差 0.0(g35.oit.parity_p100 本次标定)∧ changed_px=10 ≥ 1(host 期望 = far→near painter's 串行链,oit_arms 单测证远者先画)"
+    },
+    {
+      "id": "oit_arms_digest_discrimination",
+      "status": "PASS",
+      "detail": "--oit off == 缺省位级=True(加性 0 破坏机器证明)∧ off/sorted/wboit 两两互异:off=sha256:d7e44ccfa3f6ce5b… sorted=sha256:99b0eb0cf26ac993… wboit=sha256:8e045a7ea322904f…"
+    },
+    {
+      "id": "oit_retrigger_registered",
+      "status": "PASS",
+      "detail": "评估窗 g31_oit_evaluation_window.json retriggers 含 consumer=g35.wave4.sort_oit 记录(decision 引 RFC-0049 §4.8 + M120 冻结测量 = #13 conditional_wiring_sketch ① 选型提交引 benchmark 数据纪律)∧ 既有字段(schema/frozen_at_utc/trigger_evaluation/conclusion)在档"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "双臂四跑全链位级汇总:sorted=True wboit=True(digest + digest_seq_sha 双通道;臂 A 固定序串行/臂 B 整数可交换,与调度无关)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "红臂 key-invert(tilekey 去 4095− 反键翻转):p100_red=0.2193026543 > max(冻结容差 0.0, 名义底 0.001) ∧ 红臂 digest ≠ 正臂 digest(近远翻序必检出)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "三臂逐帧墙钟 off=45.048267 sorted=62.794052 wboit=55.202117 ms + OIT pass 组 GPU 段和 sorted=14.508307 wboit=3.389231 ms(measured_local 诚实登记,非帧率对标门)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "lane": {
+      "g14_3_direct_gi": {
+        "path": ".tmp/g35_gates/sort_oit/g14_3_direct_gi.spv",
+        "sha256": "sha256:970e13b9b13e66fe5c5f72f94ca0473d4e0771158af56bfb33f8891b7670da36"
+      },
+      "g14_mv": {
+        "path": ".tmp/g35_gates/sort_oit/g14_mv.spv",
+        "sha256": "sha256:0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc"
+      },
+      "g14_8_tsr_resample": {
+        "path": ".tmp/g35_gates/sort_oit/g14_8_tsr_resample.spv",
+        "sha256": "sha256:6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d"
+      },
+      "g14_8_tsr_resolve": {
+        "path": ".tmp/g35_gates/sort_oit/g14_8_tsr_resolve.spv",
+        "sha256": "sha256:4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732"
+      },
+      "g31_display_encode": {
+        "path": ".tmp/g35_gates/sort_oit/g31_display_encode.spv",
+        "sha256": "sha256:c4a7adf3649add55106522a09cd37c2401630811761eec68409cf40fec1b2469"
+      }
+    },
+    "particle": {
+      "g35_sim": {
+        "path": ".tmp/g35_gates/sort_oit/g35_sim.spv",
+        "sha256": "sha256:39ad22d3b042e5c78f18a2a37acc00ce827e1fc4f2cb4865cdeb7ae2754c9867"
+      },
+      "g35_scan_seg_sum": {
+        "path": ".tmp/g35_gates/sort_oit/g35_scan_seg_sum.spv",
+        "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be"
+      },
+      "g35_scan_spine": {
+        "path": ".tmp/g35_gates/sort_oit/g35_scan_spine.spv",
+        "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4"
+      },
+      "g35_scan_seg_apply": {
+        "path": ".tmp/g35_gates/sort_oit/g35_scan_seg_apply.spv",
+        "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939"
+      },
+      "g35_particle_compact": {
+        "path": ".tmp/g35_gates/sort_oit/g35_particle_compact.spv",
+        "sha256": "sha256:12cb319df7b9ba907b624e7f6f2cdfbc8db55c0a8f17479327244944b584a097"
+      },
+      "g35_emit": {
+        "path": ".tmp/g35_gates/sort_oit/g35_emit.spv",
+        "sha256": "sha256:042b4346bb6734e92067bf889705f73c8e3ddf06e6d8ee7e0b6c5234ec1d413e"
+      },
+      "g35_indirect_args": {
+        "path": ".tmp/g35_gates/sort_oit/g35_indirect_args.spv",
+        "sha256": "sha256:2498ebb929766c0ff30ac909a6f2c9aa29aecf210acc3e4828a2468e7f11f49c"
+      }
+    },
+    "render": {
+      "g35_splat_clear": {
+        "path": ".tmp/g35_gates/sort_oit/g35_splat_clear.spv",
+        "sha256": "sha256:0bb661859630930b2a098a2e760171de626bb8bd1a0fd5e69069d92771acdfb9"
+      },
+      "g35_render_splat": {
+        "path": ".tmp/g35_gates/sort_oit/g35_render_splat.spv",
+        "sha256": "sha256:34715f382656820c8197de76d7c136e78dc104a820f95639233086ec86069e09"
+      },
+      "g35_render_resolve": {
+        "path": ".tmp/g35_gates/sort_oit/g35_render_resolve.spv",
+        "sha256": "sha256:41848ce612feed9beb95fa4fbbb5d635274f73a395bac7f16b6f3abb36e6bb11"
+      }
+    },
+    "sort": {
+      "g35_sort_hist": {
+        "path": ".tmp/g35_gates/sort_oit/g35_sort_hist.spv",
+        "sha256": "sha256:2249a8cef7f8bbcaa6602112f35aa5b10b6002048aa9c7ef00f226950523323e"
+      },
+      "g35_sort_spine": {
+        "path": ".tmp/g35_gates/sort_oit/g35_sort_spine.spv",
+        "sha256": "sha256:afe2624f92efed73dc2e80ab577dfd1ea30071183611b8bd85518120df028297"
+      },
+      "g35_sort_scatter": {
+        "path": ".tmp/g35_gates/sort_oit/g35_sort_scatter.spv",
+        "sha256": "sha256:a57eace45fcb3bd196b50eb84904452c547b8c6328fc177644ee5d4d9c5a184c"
+      }
+    },
+    "oit": {
+      "g35_hash_clear": {
+        "path": ".tmp/g35_gates/sort_oit/g35_hash_clear.spv",
+        "sha256": "sha256:712e8066f6bb4ccbab360d8c66aefae8736e28a4db5f5f0197b1684fdcd6b39c"
+      },
+      "g35_oit_tilekey": {
+        "path": ".tmp/g35_gates/sort_oit/g35_oit_tilekey.spv",
+        "sha256": "sha256:91950ff766b818fcd0ee59752d792db36048602d700173c06b6ed51dc2587e8d"
+      },
+      "g35_oit_tilerange": {
+        "path": ".tmp/g35_gates/sort_oit/g35_oit_tilerange.spv",
+        "sha256": "sha256:4b4e7cb4a86691e1814d418b3a73944cc7342e1cdf817f73bb830feba5ad42da"
+      },
+      "g35_oit_blend_sorted": {
+        "path": ".tmp/g35_gates/sort_oit/g35_oit_blend_sorted.spv",
+        "sha256": "sha256:6b4aa6e1d01e59bb9271b241f1eb2aa85c26427d0104205f483b48acf74273a0"
+      },
+      "g35_oit_wboit_accum": {
+        "path": ".tmp/g35_gates/sort_oit/g35_oit_wboit_accum.spv",
+        "sha256": "sha256:1b516f9979470330cbd006fad2af5196fe25d7c53c5e1f6bc0d6cfb3f22ea7f0"
+      },
+      "g35_oit_wboit_resolve": {
+        "path": ".tmp/g35_gates/sort_oit/g35_oit_wboit_resolve.spv",
+        "sha256": "sha256:86220a7e8789b44da118189b12cae184a311b04b63cce23112a4b5860966e0c4"
+      }
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sort_hist.rx": "sha256:7261cc0b88c6ddb2f23785bd4dd6427d48ad1f1fe4d25152f624430c5dd7d342",
+      "src/rurix-render/kernels/g35_sort_spine.rx": "sha256:4eaef2294d87f831ac2592a27d6daf9f645f093b5b09824c34cc2dc435378b1b",
+      "src/rurix-render/kernels/g35_sort_scatter.rx": "sha256:cdf6e9b74775a4682b367588f0675666be571390b782651102c989aa76b60502",
+      "src/rurix-render/kernels/g35_hash_clear.rx": "sha256:e3c7672da84a6a3b16db0202959604c66e9313ba4df8786c1f6b3e045a168408",
+      "src/rurix-render/kernels/g35_splat_clear.rx": "sha256:68f9b36234e38125b4eb6c20262e42701ef4d182701f17ae708028eb83d2c3d4",
+      "src/rurix-render/kernels/g35_render_splat.rx": "sha256:e497aa99067b5e6e9bb0a6e9edbb5a46583e66eea84728e77e04a50a38e99ead",
+      "src/rurix-render/kernels/g35_render_resolve.rx": "sha256:aaca10375cd241bd5072ece2e52956904110930c56015b34f4b199cd5cee2076",
+      "src/rurix-render/kernels/g35_sim.rx": "sha256:06f8120bb2eedd6fbe8d5904f1b4b05388d3527bcb5ad95c66604e4365b1c10f",
+      "src/rurix-render/kernels/g35_scan_seg_sum.rx": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc",
+      "src/rurix-render/kernels/g35_scan_spine.rx": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7",
+      "src/rurix-render/kernels/g35_scan_seg_apply.rx": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7",
+      "src/rurix-render/kernels/g35_particle_compact.rx": "sha256:badd82426cc1b8bbd8d41a5f2b5cc2ed835946ca77f2aa844cb9586de376ab94",
+      "src/rurix-render/kernels/g35_emit.rx": "sha256:add637265604b5d7e471e4ce189f63ff6566c7d8303209ad1b6991173b97d282",
+      "src/rurix-render/kernels/g35_indirect_args.rx": "sha256:e00c60aef7591ab8741568ae3f0935df1c533f54fa53120794a21de95673b247",
+      "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "sha256:dfa3a67ec229c0e330a896f98c3895d61ffb5d70c541c783abba7534c5bd1dac",
+      "src/rurix-render/src/particles/mod.rs": "sha256:cbf586849b9420bb60692b2713aaf7cdd390e9b053993b3832bae48f5a2c77bf",
+      "src/rurix-render/src/particles/core.rs": "sha256:e226c0c1d7bb87e13572431ce5cb41f07b55768ff7340c6d5053ce816da21860",
+      "src/rurix-render/src/particles/primitives.rs": "sha256:b84f5ecfa0413d9bf834e1db0e9a599ec206f9976c3e8e25347499ac9969844e",
+      "src/rurix-render/src/oit/algorithms.rs": "sha256:85c62fa000e64b93f61597b60e0ef980bb69c27b9ae296713bbfc38b2f9d239d"
+    }
+  },
+  "digest_matrix": {
+    "trajectory": "orbit",
+    "default_digest": "sha256:d7e44ccfa3f6ce5b5b3adcb67b0e5bcbadd97bfe1e92cdab42fc4ff42c3e6ae7",
+    "off_digest": "sha256:d7e44ccfa3f6ce5b5b3adcb67b0e5bcbadd97bfe1e92cdab42fc4ff42c3e6ae7",
+    "sorted_digest": "sha256:99b0eb0cf26ac99349c23040ab826bcc642621736757fc02e388f6fa05154870",
+    "wboit_digest": "sha256:8e045a7ea322904fac7c37be209fc765bb48f1b4c7de787920adeee8b06b57fd",
+    "off_equals_default": true,
+    "pairwise_distinct": true
+  },
+  "determinism": {
+    "sorted_bitexact": true,
+    "wboit_bitexact": true,
+    "sorted_digest_a": "sha256:99b0eb0cf26ac99349c23040ab826bcc642621736757fc02e388f6fa05154870",
+    "sorted_digest_b": "sha256:99b0eb0cf26ac99349c23040ab826bcc642621736757fc02e388f6fa05154870",
+    "sorted_seq_sha_a": "sha256:3e284f2d14b0d4053dd11161830b4906f8c1a54e05598047e58bea1e254ed573",
+    "sorted_seq_sha_b": "sha256:3e284f2d14b0d4053dd11161830b4906f8c1a54e05598047e58bea1e254ed573",
+    "wboit_digest_a": "sha256:8e045a7ea322904fac7c37be209fc765bb48f1b4c7de787920adeee8b06b57fd",
+    "wboit_digest_b": "sha256:8e045a7ea322904fac7c37be209fc765bb48f1b4c7de787920adeee8b06b57fd",
+    "wboit_seq_sha_a": "sha256:22d396cfa431b0cd7997104569ce93522e9d3901f4d9323e9919d75653fc56d6",
+    "wboit_seq_sha_b": "sha256:22d396cfa431b0cd7997104569ce93522e9d3901f4d9323e9919d75653fc56d6"
+  },
+  "sorted_witness": {
+    "p100_vs_host": 0.0,
+    "changed_px": 10,
+    "threshold": 0.0,
+    "budget_entry": "g35.oit.parity_p100",
+    "calibrated_this_run": true,
+    "within": true
+  },
+  "wboit_witness": {
+    "acc_max_int_diff": 0,
+    "sat_device": 0,
+    "sat_host": 0,
+    "p100_vs_host": 0.0,
+    "threshold": 0.0,
+    "budget_entry": "g35.oit.wboit_acc_tol",
+    "calibrated_this_run": true,
+    "within": true
+  },
+  "red_arm": {
+    "arm": "key-invert",
+    "p100_red": 0.2193026543,
+    "digest_red": "sha256:3f73144fb562a760a2ce13120df9349a0944268e2aaafa3823fa29dc8ff13811",
+    "digest_ok": "sha256:596c0c3fc1402707b391d748d32c31fb1f5c70cf1f23d5d0536691ac266d9f99",
+    "red_floor": 0.001,
+    "effective": true
+  },
+  "retrigger": {
+    "path": "milestones/g31/g31_oit_evaluation_window.json",
+    "found": true,
+    "consumer": "g35.wave4.sort_oit",
+    "date": "2026-08-27",
+    "decision": "WBOIT 定点 + 排序双臂,依 RFC-0049 §4.8 + M120 冻结测量"
+  },
+  "results": {
+    "trimmed_mean": 0.0
+  },
+  "frame_ms": {
+    "off_frame_ms": 45.048267,
+    "sorted_frame_ms": 62.794052,
+    "wboit_frame_ms": 55.202117,
+    "sorted_oit_gpu_ms": 14.508307,
+    "wboit_oit_gpu_ms": 3.389231,
+    "frames_measured": 48,
+    "measured": "measured_local",
+    "note": "三臂逐帧墙钟均值(prepare+execute+回读)+ OIT pass 组 GPU timestamp 段和(sorted = hash_clear+tilekey+sort 9 dispatch+tilerange+blend;wboit = accum+resolve,acc 清零段归 splat_clear 名下不重计);登记语义非帧率对标,OIT 腿构型 = --tier 50(键域守卫,内部 960×540)"
+  },
+  "run_evidence": [
+    ".tmp/g35_gates/sort_oit/lane_default.json",
+    ".tmp/g35_gates/sort_oit/lane_oit_off.json",
+    ".tmp/g35_gates/sort_oit/lane_sorted_a.json",
+    ".tmp/g35_gates/sort_oit/lane_sorted_b.json",
+    ".tmp/g35_gates/sort_oit/lane_wboit_a.json",
+    ".tmp/g35_gates/sort_oit/lane_wboit_b.json",
+    ".tmp/g35_gates/sort_oit/lane_wit_sorted.json",
+    ".tmp/g35_gates/sort_oit/lane_wit_red.json",
+    ".tmp/g35_gates/sort_oit/lane_wit_wboit.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "378304b0a4f86cb676e482e1009eec224b3eae60"
+  },
+  "timestamp": "20260827T135322Z",
+  "notes": "G35-4 半透明双臂(RFC-0049 §4.8 评审修订后冻结协议;host 金标准 = particles/oit_arms.rs 四函数与 kernel 逐字同源):臂 A sorted = 复合键 tile_id·4096 + (4095−depth12)(tile = 16px 网格,中心像素单键归属 v1 冻结,rpx ≤ 3 < 16 跨 tile 截断带如实登记;屏外/被剔 = tile_cnt·4096 溢出 tile;键域论证 tile_cnt ≤ 4095 ⇒ 溢出键 ≤ 16773120 < 2^24)→ W1 sort 三 kernel 3-pass 9 dispatch(payload = slot,键/payload A→B→A→B)→ g35_oit_tilerange(按 key/4096 tile 段分组——g35_hash_cellrange 完整键分组不可直用故自写同形;哨兵 = g35_hash_clear 0-byte 消费)→ g35_oit_blend_sorted 每像素区间升序 far→near painter's 固定序串行 C = C·(1−α) + c·α(投影/调色/软深度三式 = g35_render_splat/g35_render_resolve 逐字同式;循环体 gate 代数化 = SPIR-V 结构化控制流承载)= 位级确定基准。臂 B wboit = g35_oit_wboit_accum u32 Q12 定点原子累加(SCALE = 4096 floor 舍入;饱和 = 加前 clamp delta ≤ 65535 + 事件累计计数;cap ≤ 65536 ⇒ 累加和 ≤ 2^32−2^16 < u32::MAX 结构性防回绕 = clamp 到 u32::MAX 语义不可达顶证明;w(z) = aw²·dist_w/3000 参照 oit/algorithms.rs run_weighted nvpro 权重式冻结)→ g35_oit_wboit_resolve(sum_w = acc_w/4096;c = (acc/4096)/max(sum_w,1e-5);α_out = min(1,sum_w) 替代 reveal 连乘诚实登记)⇒ 整数可交换双跑位级。车道 = bin/g35_particle_lane.rs 加性扩展:--oit off|sorted|wboit 三档闭集(off = G35-3 现面零追加,digest 位级 == 缺省结构性保证);sorted 档 presolve(11)后插 13 pass(28 pass)/wboit 档插 3 pass(18 pass),资源 54..=70 追加,FrameUpdate 重映射 TSR/encode 下标 +Δ;屏障计划全 StorageWrite 形态同律(全 RW 同态去重零屏障竞争教训)。#13 OIT 评估窗 re-trigger 消费登记于 milestones/g31/g31_oit_evaluation_window.json retriggers(只追加,既有字段 0-byte)。results.trimmed_mean = sorted 见证 p100 镜像(budget_eval 通用路)。"
+}

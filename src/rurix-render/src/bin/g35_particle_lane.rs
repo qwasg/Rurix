@@ -2117,8 +2117,8 @@ impl<'a> G35OnLane<'a> {
         // G35-4 重映射:OIT pass 组插入 presolve(11)之后 ⇒ TSR/encode 下标
         // 顺延 Δ = pass_delta(off 0 / sorted 13 / wboit 3);OIT parity 换绑
         // pass:sorted 13 tilekey + 24 blend,wboit 13 accum。
-        let delta = self.oit.pass_delta() as usize;
-        let mut binding_overrides = vec![
+        let delta = self.oit.pass_delta();
+        let mut binding_overrides: Vec<(u32, Bindings)> = vec![
             (2, g35l_bind_sim(p)),
             (6, g35l_bind_compact(p)),
             (7, g35l_bind_emit(p)),
@@ -2670,6 +2670,7 @@ fn main() {
             G35Mode::MvWitness => "mv_witness",
             G35Mode::OcclusionWitness => "occlusion_witness",
             G35Mode::MeshWitness => "mesh_witness",
+            G35Mode::OitWitness => "oit_witness",
         },
         particles_on,
     );
@@ -3486,6 +3487,7 @@ fn main() {
     } else {
         format!(
             "{{\"mode\":{},\"red_arm\":{red_arm},\"tile\":{{\"size_px\":16,\"tiles_x\":{oit_tiles_x},\"tiles_y\":{oit_tiles_y},\"tile_cnt\":{oit_tile_cnt},\"overflow_key\":{},\"key_domain_note\":{}}},\"wboit\":{},\"pass_layout\":{}}}",
+            jstr(oit.as_str()),
             u64::from(oit_tile_cnt) * 4096,
             jstr("复合键 = tile_id·4096 + (4095−depth12);tile_cnt ≤ 4095 拒跑守卫 ⇒ 溢出键 ≤ 4095·4096 = 16773120 < 2^24 = 16777216;最大合法键 = tile_cnt·4096 − 1 < 溢出键(排序后溢出粒子全落尾,blend 侧像素 tile_id < tile_cnt 恒不取)"),
             if oit == G35Oit::Wboit {
@@ -3660,6 +3662,22 @@ fn emit_evidence(path: &str, c: &EvidenceCtx) {
         spv_entry(&c.spv.splat),
         spv_entry(&c.spv.presolve),
     ));
+    // G35-4 OIT SPV 九件(oit ≠ off 腿才装载消费;off 腿如实登记路径 sha,
+    // 文件缺失 = MISSING)。
+    if c.oit != G35Oit::Off {
+        ev.push_str(&format!(
+            "\"spv_oit\":{{\"sort_hist\":{},\"sort_spine\":{},\"sort_scatter\":{},\"hash_clear\":{},\"tilekey\":{},\"tilerange\":{},\"blend_sorted\":{},\"wboit_accum\":{},\"wboit_resolve\":{}}},",
+            spv_entry(&c.spv.oit_sort_hist),
+            spv_entry(&c.spv.oit_sort_spine),
+            spv_entry(&c.spv.oit_sort_scatter),
+            spv_entry(&c.spv.oit_hash_clear),
+            spv_entry(&c.spv.oit_tilekey),
+            spv_entry(&c.spv.oit_tilerange),
+            spv_entry(&c.spv.oit_blend),
+            spv_entry(&c.spv.oit_accum),
+            spv_entry(&c.spv.oit_wresolve),
+        ));
+    }
     ev.push_str(&format!("\"render_digest\":{},", jstr(c.render_digest)));
     ev.push_str(&format!("\"digest_seq\":[{seq_json}],"));
     ev.push_str(&format!("\"digest_seq_sha\":{digest_seq_sha},"));
@@ -3679,6 +3697,8 @@ fn emit_evidence(path: &str, c: &EvidenceCtx) {
     ev.push_str(&format!("\"mv_witness\":{},", c.mv_witness_json));
     ev.push_str(&format!("\"occlusion_witness\":{},", c.occlusion_json));
     ev.push_str(&format!("\"mesh_particles\":{},", c.mesh_json));
+    ev.push_str(&format!("\"oit\":{},", c.oit_json));
+    ev.push_str(&format!("\"oit_witness\":{},", c.oit_witness_json));
     ev.push_str(&format!("\"frame_ms\":{},", c.frame_ms_json));
     ev.push_str(&format!("\"particle_stats\":{},", c.particle_stats_json));
     ev.push_str("\"headless\":true,");
