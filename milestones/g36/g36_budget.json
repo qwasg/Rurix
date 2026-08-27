@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "namespace": "g36",
+  "description": "G36 W1-W4 互斥项修复零新增容差条目：组合面全部机核为位级判据（digest 相等/覆盖机核/双跑一致——零容差结构性判据,无 f32 标定面）;唯一浮点容差 = g34 host 金标准对拍,消费既有冻结条目 milestones/g34/g34_budget.json g34.unified_lane.host_parity_tol（程序读禁手写,门 fact g34_mixed_host_parity 承载）——本文件为四件套完备性登记面,entries 空集如实登记不冒充。",
+  "source_docs": [
+    "milestones/g36/G36_CONTRACT.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

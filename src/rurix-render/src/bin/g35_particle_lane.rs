@@ -86,6 +86,8 @@
 //!     [--particles on|off] [--static-camera] [--auto-move orbit|dolly]
 //!     [--evidence <path>] [--expect-digest <sha256:…>] [--cap 65536] [--seed 42]
 //!     [--mv-witness] [--occlusion-witness] [--mesh-particles N] [--headless]
+//!     [--cluster-lod off|leaf|on --cluster-pack <RXCP> [--cluster-error-px 1.0]]
+//!     [--wp-hlod off|full|on --wp-pack <RXWH> [--wp-threshold-l0 1.0]]
 //! ```
 //!
 //! 闭集:--static-camera 与 --auto-move 互斥(缺省 = 静态契约相机);
@@ -93,6 +95,12 @@
 //! --mesh-particles 须随 --particles off(隔离见证);--headless 恒真登记
 //! (本 bin 即离屏,不开窗)。三态:无 Vulkan/资产缺失 → skipped_dev_env
 //! 退 0;RURIX_REQUIRE_REAL=1 翻硬红。
+//!
+//! G36 W4 geo 组合面(互斥解除;门 `g36.wave1.geo_composition` fact ⑩):
+//! --cluster-lod × --wp-hlod × --particles on|off × --oit sorted|wboit 组合
+//! 成立(粒子为生成几何,splat/OIT 在场景色之上与场景重组正交;W1 provenance
+//! 事实源,cut/选层冻结于装配期契约相机)。geo × 见证/RED 臂维持互斥(标定
+//! 夹具构型 = 语义互斥,如实拒跑不冒充)。
 #![forbid(unsafe_code)]
 // 共享体含本 bin 未消费面(render/bench 腿、dlss/fsr 双臂、EXR/PNG 出图、
 // GI 臂、SVT/蒙皮/HZB 面等)——dead_code 豁免如实登记;本 bin 消费面 = 契约
@@ -2452,6 +2460,14 @@ fn main() {
     let mut oit = G35Oit::Off;
     let mut oit_witness = false;
     let mut red_arm = false;
+    // G36 W4 geo 组合面（--cluster-lod × --wp-hlod × 粒子/OIT;off 默认 =
+    // 既有面 0-byte——W1 provenance 事实源,粒子为生成几何与场景重组正交）。
+    let mut cluster_lod_mode = String::from("off");
+    let mut cluster_pack = String::new();
+    let mut cluster_error_px: f32 = 1.0;
+    let mut wp_hlod_mode = String::from("off");
+    let mut wp_pack = String::new();
+    let mut wp_threshold_l0: f64 = 1.0;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -2542,6 +2558,21 @@ fn main() {
                     .unwrap_or_else(|_| fail("--mesh-particles 非 u32"))
             }
             "--headless" => {} // 本 bin 即离屏(登记面恒真);旗标闭集接受
+            // G36 W4 geo 组合面参数(g14_3/g34 同名旗标同语义)。
+            "--cluster-lod" => cluster_lod_mode = take_arg(&args, &mut i),
+            "--cluster-pack" => cluster_pack = take_arg(&args, &mut i),
+            "--cluster-error-px" => {
+                cluster_error_px = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--cluster-error-px 非 f32"))
+            }
+            "--wp-hlod" => wp_hlod_mode = take_arg(&args, &mut i),
+            "--wp-pack" => wp_pack = take_arg(&args, &mut i),
+            "--wp-threshold-l0" => {
+                wp_threshold_l0 = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-threshold-l0 非 f64"))
+            }
             other => fail(&format!("未知参数 {other}")),
         }
         i += 1;
@@ -2608,6 +2639,64 @@ fn main() {
             poit::OIT_WBOIT_CAP_MAX
         ));
     }
+    // ── G36 W4 geo 组合面闭集裁决(fail-closed)：模式闭集 + 包必填 + 参数域
+    //    (g14_3 同律字面)。互斥解除范围：geo × --particles on|off × --oit
+    //    sorted|wboit(粒子为生成几何,splat/OIT 在场景色之上,与场景重组
+    //    正交)。geo × 见证臂(mv/遮挡/mesh/oit-witness/red-arm)维持互斥——
+    //    见证 = 标定夹具构型(语义互斥,几何重组会改变夹具遮挡/像素判读域,
+    //    如实拒跑不冒充)。──
+    let cluster_opt = match cluster_lod_mode.as_str() {
+        "off" => ClusterLodOpt::off(),
+        m @ ("leaf" | "on") => {
+            if cluster_pack.is_empty() {
+                fail("--cluster-lod leaf|on 要求 --cluster-pack <RXCP>（g31_cluster_lod_bake 产物）");
+            }
+            if !(cluster_error_px.is_finite() && cluster_error_px > 0.0) {
+                fail("--cluster-error-px 必须为正有限 f32");
+            }
+            ClusterLodOpt {
+                mode: if m == "leaf" {
+                    ClusterLodMode::Leaf
+                } else {
+                    ClusterLodMode::On
+                },
+                pack_path: cluster_pack.clone(),
+                threshold_px: cluster_error_px,
+                resident_pages: 0,
+            }
+        }
+        other => fail(&format!("--cluster-lod {other}：只接受 off|leaf|on")),
+    };
+    let wp_opt = match wp_hlod_mode.as_str() {
+        "off" => WpHlodOpt::off(),
+        m @ ("full" | "on") => {
+            if wp_pack.is_empty() {
+                fail("--wp-hlod full|on 要求 --wp-pack <RXWH>（g31_wp_hlod_bake 产物）");
+            }
+            if !(wp_threshold_l0.is_finite() && wp_threshold_l0 > 0.0) {
+                fail("--wp-threshold-l0 必须为正有限 f64");
+            }
+            WpHlodOpt {
+                mode: if m == "full" {
+                    WpHlodMode::Full
+                } else {
+                    WpHlodMode::On
+                },
+                pack_path: wp_pack.clone(),
+                threshold_l0: wp_threshold_l0,
+                loading_radius_m: 64.0,
+                inner_radius_m: 16.0,
+                budget_cells: 4,
+                warmup_frames: 4,
+            }
+        }
+        other => fail(&format!("--wp-hlod {other}：只接受 off|full|on")),
+    };
+    let geo_on = cluster_opt.mode != ClusterLodMode::Off || wp_opt.mode != WpHlodMode::Off;
+    if geo_on && (mv_witness || occlusion_witness || mesh_particles > 0 || oit_witness || red_arm)
+    {
+        fail("--cluster-lod/--wp-hlod 与见证/RED 臂互斥（见证 = 标定夹具构型;几何重组改变夹具判读域,如实拒跑不冒充）");
+    }
     let mode = if mesh_particles > 0 {
         G35Mode::MeshWitness
     } else if mv_witness {
@@ -2653,6 +2742,64 @@ fn main() {
     let scene = match assemble_scene(&contract.raw, scene_id, Path::new(&gltf_path)) {
         Ok(s) => s,
         Err(e) => dev_env_or_fail("scene_assets", &e),
+    };
+    // ③.4 G36 W4：geo 组合施加（--cluster-lod/--wp-hlod × 粒子/OIT;off 默认 =
+    //     既有面 0-byte——粒子为生成几何,splat/OIT 在场景色之上与场景重组
+    //     正交;cut/选层冻结于装配期契约相机,g31 车道同纪律）。
+    let (scene, geo) = apply_geo_combined(scene, &cluster_opt, &wp_opt, in_w, in_h);
+    let geo_json = if let Some(g) = &geo {
+        if let Some((r, _)) = &g.cluster {
+            eprintln!(
+                "{G35L_TAG}: cluster-lod mode={} clusters={}/{} tris out={}/{} ({:.1}%)",
+                r.mode,
+                r.cut_clusters,
+                r.total_clusters,
+                r.out_tris,
+                r.src_tris,
+                100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
+            );
+        }
+        if let Some((r, _)) = &g.wp {
+            eprintln!(
+                "{G35L_TAG}: wp-hlod mode={} cells full/hlod/culled={}/{}/{} proxy_tris={}",
+                r.mode, r.cells_full, r.cells_hlod, r.cells_culled, r.proxy_tris,
+            );
+        }
+        if let Some(st) = &g.combined {
+            eprintln!(
+                "{G35L_TAG}: geo 组合 identity={} coarse={} straddle_fallback={} wp_proxy={} out={}",
+                st.identity_tris,
+                st.coarse_tris,
+                st.straddle_fallback_tris,
+                st.wp_proxy_tris,
+                st.out_tris,
+            );
+        }
+        let cl = g
+            .cluster
+            .as_ref()
+            .map(|(r, _)| format!("{{\"mode\":{},\"out_tris\":{}}}", jstr(r.mode), r.out_tris))
+            .unwrap_or_else(|| "null".to_owned());
+        let wp = g
+            .wp
+            .as_ref()
+            .map(|(r, _)| {
+                format!(
+                    "{{\"mode\":{},\"cells_full\":{},\"cells_hlod\":{},\"proxy_tris\":{},\"selection_digest\":{}}}",
+                    jstr(r.mode),
+                    r.cells_full,
+                    r.cells_hlod,
+                    r.proxy_tris,
+                    jstr(&r.selection_digest),
+                )
+            })
+            .unwrap_or_else(|| "null".to_owned());
+        format!(
+            "{{\"cluster\":{cl},\"wp\":{wp},\"out_tris\":{},\"frozen_at_assembly\":true}}",
+            scene.indices.len()
+        )
+    } else {
+        "null".to_owned()
     };
     let eps = scene_eps(&scene.positions);
     let ev100 = f64::from(scene.ev100);
@@ -2963,6 +3110,7 @@ fn main() {
                 oit: G35Oit::Off,
                 oit_json: "{\"mode\":\"off\"}".to_owned(),
                 oit_witness_json: "null".to_owned(),
+                geo_json: geo_json.clone(),
             },
         );
         eprintln!("{G35L_TAG}: PASS mesh 见证臂 discriminates={discriminates}");
@@ -3003,6 +3151,7 @@ fn main() {
                 oit: G35Oit::Off,
                 oit_json: "{\"mode\":\"off\"}".to_owned(),
                 oit_witness_json: "null".to_owned(),
+                geo_json: geo_json.clone(),
             },
         );
         eprintln!(
@@ -3541,6 +3690,7 @@ fn main() {
             oit,
             oit_json,
             oit_witness_json,
+            geo_json,
         },
     );
     eprintln!(
@@ -3581,6 +3731,8 @@ struct EvidenceCtx<'e> {
     oit_json: String,
     /// 近远见证腿判读块(--oit-witness;p100/acc 整数差/饱和计数)。
     oit_witness_json: String,
+    /// G36 W4 geo 组合块(--cluster-lod/--wp-hlod;off = "null" 0-byte)。
+    geo_json: String,
 }
 
 fn emit_evidence(path: &str, c: &EvidenceCtx) {
@@ -3699,6 +3851,7 @@ fn emit_evidence(path: &str, c: &EvidenceCtx) {
     ev.push_str(&format!("\"mesh_particles\":{},", c.mesh_json));
     ev.push_str(&format!("\"oit\":{},", c.oit_json));
     ev.push_str(&format!("\"oit_witness\":{},", c.oit_witness_json));
+    ev.push_str(&format!("\"geo\":{},", c.geo_json));
     ev.push_str(&format!("\"frame_ms\":{},", c.frame_ms_json));
     ev.push_str(&format!("\"particle_stats\":{},", c.particle_stats_json));
     ev.push_str("\"headless\":true,");

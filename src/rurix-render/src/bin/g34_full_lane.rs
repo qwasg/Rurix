@@ -121,8 +121,10 @@ const G34_ANCHOR_PATH: &str = "milestones/g14/g14_3_stage_a_digest_anchor.json";
 const G34_ANCHOR_CELL: &str = "bistro-interior_t100_tsr_device";
 /// G36 W3：geo 组合面门键/schema 字面（--cluster-lod/--wp-hlod 任一 on 时
 /// evidence 切换;off 默认 = G34 字面 0-byte——G34 harness schema
-/// additionalProperties:false 纪律下组合面另立 schema,不改 G34 注册面）。
-const G36_GATE: &str = "g36.wave3.unified_geo";
+/// additionalProperties:false 纪律下组合面另立 schema,不改 G34 注册面;
+/// harness 真跑件留 .tmp 不注册,门裁决件 = ci/g36_geo_composition_smoke.py
+/// 蒸馏,G34HZB/G35 lane 同律）。
+const G36_GATE: &str = "g36.wave1.geo_composition";
 const G36_SCHEMA: &str = "rurix.g36.unified_geo_evidence.v1";
 
 // ---------------------------------------------------------------------------

@@ -1157,6 +1157,13 @@ def check_evidence_files() -> None:
     g31_wp_hlod_schema = load(
         ROOT / "milestones/g31/g31_wp_hlod_evidence_schema.json"
     )
+    # G36 W1-W4 互斥项修复（geo 组合面）门前缀纯追加（重放幂等面；仅门裁决件
+    # 注册——lane 真跑件（rurix.g36.unified_geo_evidence.v1 / g35 lane run）留
+    # .tmp 不注册，数字经门裁决件蒸馏登记；前缀 g36_geo_composition_gate_ 为
+    # 全仓唯一 g36_ 族首件,与 g19_~g35_ 各族及 gpu fallthrough 全串互不包含）
+    g36_geo_composition_gate_schema = load(
+        ROOT / "milestones/g36/g36_geo_composition_gate_evidence_schema.json"
+    )
     # G31+ 波 C Task C3 设备兼容矩阵与能力降级链门前缀纯追加（重放幂等面；与既有
     # g31_* 全族及 gpu fallthrough 互不包含）
     g31_capability_fallback_schema = load(
@@ -2783,6 +2790,11 @@ def check_evidence_files() -> None:
     g31_wp_hlod_validator = (
         jsonschema.Draft7Validator(g31_wp_hlod_schema)
         if g31_wp_hlod_schema is not None
+        else None
+    )
+    g36_geo_composition_gate_validator = (
+        jsonschema.Draft7Validator(g36_geo_composition_gate_schema)
+        if g36_geo_composition_gate_schema is not None
         else None
     )
     g31_capability_fallback_validator = (
@@ -5928,6 +5940,17 @@ def check_evidence_files() -> None:
             # milestones/g31/g31_wp_hlod_evidence_schema.json
             # （ci/g31_wp_hlod_smoke.py --gate g31.wave95.wp_hlod 产）。
             validator = g31_wp_hlod_validator
+        elif (
+            f.name.startswith("g36_geo_composition_gate_")
+            and g36_geo_composition_gate_validator is not None
+        ):
+            # G36 W1-W4 互斥项修复（geo 组合面）门裁决证据 →
+            # milestones/g36/g36_geo_composition_gate_evidence_schema.json
+            # （ci/g36_geo_composition_smoke.py --gate g36.wave1.geo_composition
+            # 产；lane 真跑件〔rurix.g36.unified_geo_evidence.v1 与 g35 lane
+            # run〕留 .tmp 不入 evidence/ 不注册；前缀分岔分析：g36_ 族全仓
+            # 首件,与 g19_~g35_ 各族及 gpu fallthrough 全串互不包含）。
+            validator = g36_geo_composition_gate_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

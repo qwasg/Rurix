@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix.g36.geo_composition_gate_evidence.v1",
+  "title": "G36 W1-W4 互斥项修复（geo 组合面）门裁决证据（gate g36.wave1.geo_composition）",
+  "description": "ci/g36_geo_composition_smoke.py --gate 产出的门裁决件（PASS-only 落 evidence/）。判据闭集 = facts 十项：构建绿 / 双包确定性 / 单开零漂移（off==leaf==wpfull digest）/ leaf×full 组合极限位级锚 / 混合组合双跑确定（覆盖机核 fail-closed 在 bin 内嵌）/ cluster×dyn+cluster×skin 组合（位置核验/蒙皮对拍硬门在 bin 内嵌）/ g34 五特性 leaf×full digest_seq == --full 基线 / g34 混合组合 host 金标准对拍 ≤ 冻结容差 / HZB 六特性组合（重导出节点段金字塔位级 + 零假阳性在 bin 内嵌 + 真实剔除 measured）/ 粒子×OIT×geo 双跑位级。lane 真跑件（rurix.g36.unified_geo_evidence.v1 / g35 lane run）留 .tmp 不注册。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "verdict",
+    "facts",
+    "scene",
+    "tier",
+    "packs",
+    "single_open",
+    "combined",
+    "dyn_skin",
+    "g34_lane",
+    "particles",
+    "windowed_items",
+    "commands",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "rurix.g36.geo_composition_gate_evidence.v1" },
+    "gate": { "const": "g36.wave1.geo_composition" },
+    "verdict": { "const": "PASS" },
+    "facts": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "enum": [
+              "builds_green",
+              "packs_deterministic",
+              "single_open_zero_drift",
+              "combined_leafxfull_bitexact",
+              "combined_mixed_deterministic",
+              "dyn_skin_composition",
+              "g34_five_feature_leafxfull",
+              "g34_mixed_host_parity",
+              "hzb_six_feature_culling",
+              "particles_oit_geo_deterministic"
+            ]
+          },
+          "status": { "const": "PASS" }
+        }
+      }
+    },
+    "scene": { "const": "bistro-interior" },
+    "tier": { "const": 100 },
+    "packs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rxcp_sha256", "rxcp_double_build_equal", "rxwh_sha256", "rxwh_double_build_equal"],
+      "properties": {
+        "rxcp_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "rxcp_double_build_equal": { "const": true },
+        "rxwh_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "rxwh_double_build_equal": { "const": true }
+      }
+    },
+    "single_open": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_digest", "leaf_digest", "wpfull_digest", "bitexact"],
+      "properties": {
+        "off_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "leaf_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "wpfull_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "bitexact": { "const": true }
+      }
+    },
+    "combined": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["leafxfull_digest", "leafxfull_bitexact", "mixed"],
+      "properties": {
+        "leafxfull_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "leafxfull_bitexact": { "const": true },
+        "mixed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "wp_threshold_l0",
+            "cluster_error_px",
+            "identity_tris",
+            "coarse_tris",
+            "coarse_clusters",
+            "straddle_clusters",
+            "straddle_fallback_tris",
+            "wp_proxy_tris",
+            "out_tris",
+            "src_tris",
+            "digest_a",
+            "digest_b",
+            "deterministic"
+          ],
+          "properties": {
+            "wp_threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+            "cluster_error_px": { "type": "number", "exclusiveMinimum": 0 },
+            "identity_tris": { "type": "integer", "minimum": 0 },
+            "coarse_tris": { "type": "integer", "minimum": 0 },
+            "coarse_clusters": { "type": "integer", "minimum": 0 },
+            "straddle_clusters": { "type": "integer", "minimum": 0 },
+            "straddle_fallback_tris": { "type": "integer", "minimum": 0 },
+            "wp_proxy_tris": { "type": "integer", "minimum": 0 },
+            "out_tris": { "type": "integer", "minimum": 1 },
+            "src_tris": { "type": "integer", "minimum": 1 },
+            "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "deterministic": { "const": true }
+          }
+        }
+      }
+    },
+    "dyn_skin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cluster_dyn_pass", "cluster_skin_pass"],
+      "properties": {
+        "cluster_dyn_pass": { "const": true },
+        "cluster_skin_pass": { "const": true }
+      }
+    },
+    "g34_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_digest_seq_sha", "leafxfull_digest_seq_sha", "five_feature_seq_equal", "host_parity", "hzb"],
+      "properties": {
+        "base_digest_seq_sha": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "leafxfull_digest_seq_sha": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "five_feature_seq_equal": { "const": true },
+        "host_parity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["p100", "tol", "in_tol", "source"],
+          "properties": {
+            "p100": { "type": "number", "minimum": 0 },
+            "tol": { "type": "number", "exclusiveMinimum": 0 },
+            "in_tol": { "const": true },
+            "source": { "const": "milestones/g34/g34_budget.json g34.unified_lane.host_parity_tol（冻结容差程序读禁手写）" }
+          }
+        },
+        "hzb": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["regrouped_nodes", "occluded_p1", "pyramid_parity_witnessed"],
+          "properties": {
+            "regrouped_nodes": { "type": "integer", "minimum": 1 },
+            "occluded_p1": { "type": "integer", "minimum": 0 },
+            "pyramid_parity_witnessed": { "const": true }
+          }
+        }
+      }
+    },
+    "particles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oit", "tier", "digest_a", "digest_b", "deterministic", "out_tris"],
+      "properties": {
+        "oit": { "const": "wboit" },
+        "tier": { "const": 50 },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "deterministic": { "const": true },
+        "out_tris": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "windowed_items": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "type": "string" }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}
