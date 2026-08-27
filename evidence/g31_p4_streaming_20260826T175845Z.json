@@ -1,0 +1,78 @@
+{
+  "schema": "rurix.g31.p4_streaming_smoke_evidence.v1",
+  "subject": "g31_p4_streaming",
+  "symbolic_gate_key": "g31.waveC.p4stream",
+  "wave": "G31+.C",
+  "scene_id": "bistro-interior-derived",
+  "p4_1_page_pool": {
+    "meshes": 12,
+    "clusters": 16553,
+    "pages": 89,
+    "triangles": 112540,
+    "page_set_digest": "sha256:20437280073d3837103d2d2c1788085a1564c8f6b5a20bfda3af2bd375660924",
+    "pool_slots": 44,
+    "pool_less_than_total": true,
+    "root_pages": 17,
+    "evicted_total": 57,
+    "lru_eviction_observed": true,
+    "pages_within_contract": true
+  },
+  "p4_2_request_loop": {
+    "device_requests_total": 5364,
+    "io_submitted": 84,
+    "io_completed": 84,
+    "pages_loaded_total": 84,
+    "resident_growth_observed": true,
+    "checksum_consumes_upload": true,
+    "miss_frames": 26,
+    "final_frame_miss_zero": true
+  },
+  "p4_3_fallback_parity": {
+    "fallback_frames": 26,
+    "parity_all_frames": true,
+    "cover_all_frames": true,
+    "reference_zero_fallback": true,
+    "reference_double_run_bitexact": true
+  },
+  "p4_4_io_priority": {
+    "probe_ok": true,
+    "probe_first_is_high_priority": true,
+    "probe_order": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "probe_bytes_read": 193747,
+    "io_read_bytes_total": 4074660
+  },
+  "integration": {
+    "orbit_frames": 24,
+    "hold_frames": 8,
+    "frames_completed": 32,
+    "last2_bitexact": true,
+    "hold_bitexact_frames": 6,
+    "zero_fallback_frames_bitexact": true,
+    "miss_frames": 26,
+    "fallback_frames": 26,
+    "evicted_total": 57,
+    "io_bytes_total": 3739156,
+    "upload_bytes_total": 6030896,
+    "pool_slots": 44,
+    "total_pages": 89
+  },
+  "frozen_surfaces": {
+    "geom_pages_v1_files_0byte": true,
+    "streaming_v1_files_0byte": true,
+    "geometry_files_0byte": true,
+    "geom_build_v1_0byte": true
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T175845Z",
+  "notes": "G31+ 波 C Task C11 cluster 流送 P4 四行（RD-039 分项；TODO §3 #20~#23）：P4-1 RXPD major=2 加性磁盘面（disk_v2.rs）+ bistro 派生真实页集 + LRU 驻留池；P4-2 剔除 pass device 请求缓冲 → host 驻留调度（异步优先级读 + 三预算 tick + 页表/页池镜像上传 + 次帧消费校验）闭环；P4-3 驻留约束一致性 cut 回退（祖先-后代合并，禁空洞/禁重复覆盖）device vs host 逐帧对拍 + 覆盖不变量；P4-4 优先级堆异步 IO（投影直径重要度）+ 倒置探针 measured；整合 = 强制小池穿越轨迹，零回退帧与全驻留参考逐帧位级（回退帧允许 LOD 差——容差结构依据 = 一致性 cut 语义），末 2 帧收敛位级。facts: p4_1_page_pool=PASS; p4_2_request_loop=PASS; p4_3_fallback_parity=PASS; p4_4_io_priority=PASS; integration=PASS; frozen_surfaces_0byte=PASS"
+}

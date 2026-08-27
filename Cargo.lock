@@ -585,6 +585,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-renderer-sdk"
+version = "1.0.0"
+dependencies = [
+ "image-io",
+ "rurix-pkg",
+ "rurix-render",
+ "rurix-rt",
+]
+
+[[package]]
 name = "rurix-rt"
 version = "1.0.0"
 dependencies = [

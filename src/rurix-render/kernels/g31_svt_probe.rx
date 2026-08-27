@@ -1,0 +1,128 @@
+//@ spec: RXS-0405 L3 device 面（G31+ 波 C Task C13 SVT 探针臂；门 `g31.waveC.svt`）
+// G31+ 波 C Task C13 SVT **探针 kernel** —— 装配期一次性求值面（B4
+// g31_texture_probe.rx 同构体例）：逐探针 (slot, u, v) 单 invocation
+// （dispatch [N,1,1]），SVT 采样块与 kernels/g31_svt_gi.rx 生产采样段
+// **逐字同形**（同 f32 操作序 ⇒ 探针臂 = 生产采样链的隔离对拍面；host
+// 参考 = bin g14_3_lane_body::g31_svt_host_sample 同 op 序，位级对拍
+// p100 判据 = 0.0 硬门）。三用：
+//   ① SVT-1/SVT-3：全驻留页表 ⇒ device SVT 采样 vs host 整图直采参考
+//      （g31_tex_host_sample 同 op 序）位级硬门——页表间接寻址 + border
+//      复制正确性对拍（边界聚焦探针律法：页界 ±texel UV 闭集）；
+//   ② SVT-2：部分驻留页表 ⇒ miss 探针 out_req 编码与 host 请求队列同律
+//      位级 + host 消费（streaming/svt.rs consume）后重跑全 hit——请求-
+//      驻留闭环 device 面真跑；
+//   ③ 边界误差结构界：全驻留 SVT vs 直采误差 = 0（border 复制构建律结构
+//      性事实；各向异性跨瓦片 = 生产采样闭集双线性唯一过滤面,aniso 需求
+//      不成立如实登记）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐探针独立顺序求值，禁 atomic；全 f32（u32 纹素 unpack 经 usize 精确
+// 算术）；固定输入双跑位级一致；输出 digest 跨双跑位级一致门（CI 裁决面）。
+//
+// ## 参数面
+//   probes: 3 f32/probe [slot, u, v]（slot 整数值 f32 精确域）；
+//   texmeta/linlut: 与 g31_texture_probe.rx 逐字同布局；
+//   svtmeta/fallback/pagetable/pool: 与 g31_svt_gi.rx 逐字同布局；
+//   params: [0]=probe_count [1..8]=reserved（恒 0）；
+//   out: 3 f32/probe [al_r, al_g, al_b]（hit 门融合后终值）；
+//   out_req: 1 f32/probe（0 = 无 miss,page_id+1 = miss 页）。
+#[numthreads(1, 1, 1)]
+kernel fn g31_svt_probe(
+    t: ThreadCtx<1>,
+    probes: View<global, f32>,
+    texmeta: View<global, f32>,
+    linlut: View<global, f32>,
+    svtmeta: View<global, f32>,
+    fallback: View<global, f32>,
+    pagetable: View<global, u32>,
+    pool: View<global, u32>,
+    params: View<global, f32>,
+    out: ViewMut<global, f32>,
+    out_req: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let probe_count = params[0] as usize;
+    if i < probe_count {
+        // ── SVT 采样块（与 kernels/g31_svt_gi.rx 生产采样段逐字同形;
+        //    tex_gate 恒 1——探针恒纹理槽面）──
+        let slot = probes[i * 3].max(0.0) as usize;
+        let uu0 = probes[i * 3 + 1];
+        let vv0 = probes[i * 3 + 2];
+        let sb = 8 + slot * 8;
+        let ox = texmeta[sb];
+        let oy = texmeta[sb + 1];
+        let tw = texmeta[sb + 2];
+        let th2 = texmeta[sb + 3];
+        let mod_r = texmeta[sb + 4];
+        let mod_g = texmeta[sb + 5];
+        let mod_b = texmeta[sb + 6];
+        // REPEAT wrap（fract 域回绕；与生产 kernel 逐字同式）。
+        let uu = uu0 - uu0.floor();
+        let vv = vv0 - vv0.floor();
+        let xf = uu * tw - 0.5;
+        let yf = vv * th2 - 0.5;
+        let bxf = xf.floor();
+        let byf = yf.floor();
+        let fx = xf - bxf;
+        let fy = yf - byf;
+        let inv_tw = 1.0 / tw;
+        let inv_th = 1.0 / th2;
+        let x0 = bxf - (bxf * inv_tw).floor() * tw;
+        let y0 = byf - (byf * inv_th).floor() * th2;
+        // ── SVT-1 页表间接寻址（与生产 kernel 逐字同形）──
+        let ptd = svtmeta[0] as usize;
+        let tile_dim = svtmeta[1];
+        let phys_dim = svtmeta[2] as usize;
+        let phys_texels = svtmeta[3] as usize;
+        let ax0 = ox + x0;
+        let ay0 = oy + y0;
+        let vpx = (ax0 / tile_dim).floor();
+        let vpy = (ay0 / tile_dim).floor();
+        let lx0 = ax0 - vpx * tile_dim;
+        let ly0 = ay0 - vpy * tile_dim;
+        let page_id = (vpy as usize) * ptd + (vpx as usize);
+        let entry = pagetable[page_id] as usize;
+        let mut hit_f = 0.0;
+        let mut phys_base = 0usize;
+        if entry > 0usize {
+            hit_f = 1.0;
+            phys_base = (entry - 1usize) * phys_texels;
+        } else {
+            hit_f = 0.0;
+            phys_base = 0usize;
+        }
+        out_req[i] = (1.0 - hit_f) * ((page_id as f32) + 1.0);
+        let lxi = lx0 as usize;
+        let lyi = ly0 as usize;
+        let p00 = pool[phys_base + (lyi + 1usize) * phys_dim + (lxi + 1usize)] as usize;
+        let p10 = pool[phys_base + (lyi + 1usize) * phys_dim + (lxi + 2usize)] as usize;
+        let p01 = pool[phys_base + (lyi + 2usize) * phys_dim + (lxi + 1usize)] as usize;
+        let p11 = pool[phys_base + (lyi + 2usize) * phys_dim + (lxi + 2usize)] as usize;
+        // srgb→linear LUT + 双线性 × mod + hit 门融合 fallback（逐字同形）。
+        let p00_r = linlut[p00 % 256usize];
+        let p00_g = linlut[(p00 / 256usize) % 256usize];
+        let p00_b = linlut[(p00 / 65536usize) % 256usize];
+        let p10_r = linlut[p10 % 256usize];
+        let p10_g = linlut[(p10 / 256usize) % 256usize];
+        let p10_b = linlut[(p10 / 65536usize) % 256usize];
+        let p01_r = linlut[p01 % 256usize];
+        let p01_g = linlut[(p01 / 256usize) % 256usize];
+        let p01_b = linlut[(p01 / 65536usize) % 256usize];
+        let p11_r = linlut[p11 % 256usize];
+        let p11_g = linlut[(p11 / 256usize) % 256usize];
+        let p11_b = linlut[(p11 / 65536usize) % 256usize];
+        let fb = slot * 4;
+        let t0r = p00_r * (1.0 - fx) + p10_r * fx;
+        let b0r = p01_r * (1.0 - fx) + p11_r * fx;
+        let samp_r = hit_f * ((t0r * (1.0 - fy) + b0r * fy) * mod_r) + (1.0 - hit_f) * fallback[fb];
+        let t0g = p00_g * (1.0 - fx) + p10_g * fx;
+        let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+        let samp_g = hit_f * ((t0g * (1.0 - fy) + b0g * fy) * mod_g) + (1.0 - hit_f) * fallback[fb + 1];
+        let t0b = p00_b * (1.0 - fx) + p10_b * fx;
+        let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+        let samp_b = hit_f * ((t0b * (1.0 - fy) + b0b * fy) * mod_b) + (1.0 - hit_f) * fallback[fb + 2];
+        out[i * 3] = samp_r;
+        out[i * 3 + 1] = samp_g;
+        out[i * 3 + 2] = samp_b;
+    }
+}

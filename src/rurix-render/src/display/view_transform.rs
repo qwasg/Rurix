@@ -84,7 +84,10 @@ impl std::fmt::Display for DisplayError {
                 write!(f, "非 HDR 交换链({path})携带 PQ 输出(RED)")
             }
             DisplayError::EncodingPathMismatch { path, encoding } => {
-                write!(f, "交换链路径 {path} 与输出编码 {encoding} 不匹配(合法性闭集外)")
+                write!(
+                    f,
+                    "交换链路径 {path} 与输出编码 {encoding} 不匹配(合法性闭集外)"
+                )
             }
             DisplayError::NonFiniteValue { stage } => write!(f, "{stage} 阶段出现非有限值"),
             DisplayError::HdrCalibrationNotTriggered { reason } => {
@@ -300,7 +303,8 @@ mod tests {
         }
         // 重复注册 → typed Err。
         let mut r2 = ViewTransformRegistry::empty();
-        r2.register(Box::new(super::super::neutral::Neutral)).unwrap();
+        r2.register(Box::new(super::super::neutral::Neutral))
+            .unwrap();
         assert!(matches!(
             r2.register(Box::new(super::super::neutral::Neutral)),
             Err(DisplayError::DuplicatePlugin(_))

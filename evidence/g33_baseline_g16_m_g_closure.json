@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 18.0
+ },
+ "notes": "G33 商业化期波 C 验收 G16plus M-g 绝对画质收口 canonical 复跑达标格数实测（VERDICT=PASS 8/8 facts，met_count_18=18/18；UE 参照臂按在案锚只读消费不重跑）（源 evidence/g16_m_g_absolute_quality_closure_20260826T231716Z.json）"
+}

@@ -1,0 +1,174 @@
+{
+  "schema": "rurix.g35.replay_gate_evidence.v1",
+  "subject": "g35_replay",
+  "symbolic_gate_key": "g35.wave9.replay",
+  "wave": "G35.9",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 7 kernel 消费面(g35_sim/g35_particle_compact/g35_emit/g35_indirect_args + scan 三件,W1/W2 冻结面只消费不修改)+ spirv-val=绿;冻结消费面(七 .rx + mod.rs/core.rs/scan.rs)sha256 快照在档=True(漂移守护基线)"
+    },
+    {
+      "id": "journal_record_replay_bitexact",
+      "status": "PASS",
+      "detail": "仅凭 journal 重建输入 GPU 重仿真:逐帧 digest 与录制链位级全等 = True(首异帧 = -1;链尾 record/replay 三方互核 sha256:0afcedd2eeddde40…;journal 344 B sha 双件互核;host 平行整数位级 = record True / replay True)"
+    },
+    {
+      "id": "checkpoint_restore_bitexact",
+      "status": "PASS",
+      "detail": "检查点 k=16 上传恢复 device 缓冲:恢复帧自身 digest 与录制链位级全等 = True(消费检查点帧 = 16;digest 链种子 = 录制链 digest[k−1];九流+pid_base+n_curr 帧开始前捕获)"
+    },
+    {
+      "id": "rollback_resim_bitexact",
+      "status": "PASS",
+      "detail": "回滚重仿真 k=16→j=48:逐帧位级全等 = True + digest[48] 全等 = True(frames_resimmed = 33;网络回滚语义 = 检查点 + 输入重放)"
+    },
+    {
+      "id": "first_divergence_frame_witness",
+      "status": "PASS",
+      "detail": "分歧可定位见证:篡改 journal 帧 32 emit_count(+1)→ 回放 digest 链首异帧 = 32(要求精确 == 32;篡改帧前逐帧全等——确定性系统独有性质,Niagara GPU sim 做不到)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "同 journal 输入 GPU 重仿真双跑 digest 链位级一致 = True(run1 链尾 = sha256:0afcedd2eeddde40…;digest = 全流字节 sha256 逐帧链式,g35_particle_core_device 同式)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "RED 臂 journal-tamper:篡改后链尾 digest 必异 detected=True(recorded=sha256:0afcedd2eeddde40… tampered=sha256:9b6cfdd64292c2f4…)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "device 7 dispatch 链逐帧墙钟均值 record=436.574961 / replay=454.277355 / rollback=439.6868 ms(measured_local 诚实登记;含 run_compute 逐 dispatch instance/device 会话重建开销,登记语义非帧率对标)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "sim_spv": {
+      "path": ".tmp/g35_gates/replay/g35_sim.spv",
+      "sha256": "sha256:39ad22d3b042e5c78f18a2a37acc00ce827e1fc4f2cb4865cdeb7ae2754c9867"
+    },
+    "compact_spv": {
+      "path": ".tmp/g35_gates/replay/g35_particle_compact.spv",
+      "sha256": "sha256:12cb319df7b9ba907b624e7f6f2cdfbc8db55c0a8f17479327244944b584a097"
+    },
+    "emit_spv": {
+      "path": ".tmp/g35_gates/replay/g35_emit.spv",
+      "sha256": "sha256:042b4346bb6734e92067bf889705f73c8e3ddf06e6d8ee7e0b6c5234ec1d413e"
+    },
+    "indirect_args_spv": {
+      "path": ".tmp/g35_gates/replay/g35_indirect_args.spv",
+      "sha256": "sha256:2498ebb929766c0ff30ac909a6f2c9aa29aecf210acc3e4828a2468e7f11f49c"
+    },
+    "scan_seg_sum_spv": {
+      "path": ".tmp/g35_gates/replay/g35_scan_seg_sum.spv",
+      "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be"
+    },
+    "scan_spine_spv": {
+      "path": ".tmp/g35_gates/replay/g35_scan_spine.spv",
+      "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4"
+    },
+    "scan_seg_apply_spv": {
+      "path": ".tmp/g35_gates/replay/g35_scan_seg_apply.spv",
+      "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939"
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sim.rx": "sha256:06f8120bb2eedd6fbe8d5904f1b4b05388d3527bcb5ad95c66604e4365b1c10f",
+      "src/rurix-render/kernels/g35_particle_compact.rx": "sha256:badd82426cc1b8bbd8d41a5f2b5cc2ed835946ca77f2aa844cb9586de376ab94",
+      "src/rurix-render/kernels/g35_emit.rx": "sha256:add637265604b5d7e471e4ce189f63ff6566c7d8303209ad1b6991173b97d282",
+      "src/rurix-render/kernels/g35_indirect_args.rx": "sha256:e00c60aef7591ab8741568ae3f0935df1c533f54fa53120794a21de95673b247",
+      "src/rurix-render/kernels/g35_scan_seg_sum.rx": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc",
+      "src/rurix-render/kernels/g35_scan_spine.rx": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7",
+      "src/rurix-render/kernels/g35_scan_seg_apply.rx": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7",
+      "src/rurix-render/src/particles/mod.rs": "sha256:103ee027e9f92bcc56e984c8f65cfbc33bf11b282940ebded7d23d07a686e660",
+      "src/rurix-render/src/particles/core.rs": "sha256:e226c0c1d7bb87e13572431ce5cb41f07b55768ff7340c6d5053ce816da21860",
+      "src/rurix-render/src/particles/scan.rs": "sha256:8a9c790dd00146361fce12599dcb0fa05e4d1166c7e61c7440b68825cc5bc71b"
+    }
+  },
+  "journal_layout": {
+    "magic": "G35J",
+    "version": 1,
+    "byte_order": "little_endian",
+    "header_bytes": 88,
+    "record_bytes": 4,
+    "header_fields": "magic[4]=\"G35J\" version:u32=1 seed:u64 cap:u32 frames:u32 dt:f32 gravity_y:f32 emitter{pos[3],spread[3],vel_base[3],vel_spread[3],life_base,gravity_y}:f32x14",
+    "record_fields": "emit_count:u32",
+    "journal_path": ".tmp/g35_gates/replay/journal.g35j",
+    "journal_bytes": 344,
+    "journal_sha256": "sha256:a66856f4b1642a14cf000dd42745409984e782beaac294574ffaef2c78d5985f",
+    "frames": 64,
+    "cap": 65536,
+    "seed": 42,
+    "dt": 0.016666668,
+    "emit_schedule": "min(64 + frame*17 % 192, cap - n_curr)",
+    "checkpoint_interval": 16
+  },
+  "record": {
+    "digest_final": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "checkpoint_frames": [
+      0,
+      16,
+      32,
+      48
+    ],
+    "host_parallel_bitexact": true,
+    "n_final": 9608,
+    "pids_issued": 9952
+  },
+  "replay": {
+    "record_replay_bitexact": true,
+    "first_divergence": -1,
+    "determinism_double_run": true,
+    "digest_recorded_final": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "digest_replay_final": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "digest_run2_final": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "host_parallel_bitexact": true
+  },
+  "rollback": {
+    "k": 16,
+    "to": 48,
+    "checkpoint_frame": 16,
+    "restore_frame_digest_match": true,
+    "resim_bitexact": true,
+    "digest_at_j_match": true,
+    "frames_resimmed": 33,
+    "digest_recorded_at_j": "sha256:b721120c7ecd853fe7875a83c55304c71df0ef9455e82251d5cd332093d86583",
+    "digest_resim_at_j": "sha256:b721120c7ecd853fe7875a83c55304c71df0ef9455e82251d5cd332093d86583",
+    "host_parallel_bitexact": true
+  },
+  "red_arm": {
+    "arm": "journal-tamper",
+    "tamper": "emit_count+1",
+    "tampered_frame": 32,
+    "expected_divergence": 32,
+    "detected": true,
+    "first_divergence": 32,
+    "digest_recorded_final": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "digest_tampered_final": "sha256:9b6cfdd64292c2f402e9215e4ebaceee61dcab042e939cb741a0bd224ea4f423"
+  },
+  "frame_ms": {
+    "record_mean_ms": 436.574961,
+    "replay_mean_ms": 454.277355,
+    "rollback_mean_ms": 439.6868,
+    "measured": "measured_local",
+    "note": "device 7 dispatch 链逐帧墙钟均值(vk::run_compute 每 dispatch 重建 instance/device,该会话开销如实计入;登记语义非帧率对标,生产车道届时走 DeviceFrameSession 持久车道 + DispatchSpec::Indirect)"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/replay/probe_record.json",
+    ".tmp/g35_gates/replay/probe_replay.json",
+    ".tmp/g35_gates/replay/probe_rollback.json",
+    ".tmp/g35_gates/replay/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T122849Z",
+  "notes": "G35-9 确定性回放/回滚:粒子输入 journal(v1 冻结布局 \"G35J\":header 88 B = magic+version+seed u64+cap u32+frames u32+dt f32+gravity_y f32+emitter EmitterDesc 全字段 f32×14;逐帧记录 4 B = emit_count u32;全域小端手写 to_le_bytes 零外部 crate,写/读往返位级)+ 回放重仿真位级(仅凭 journal 重建输入〔seed→随机带/emitter/dt/emit 序列〕在 GPU 上重跑 W2 七 kernel 链——非 host 数据回放;逐帧 digest 与录制链位级全等)+ 回滚 N 帧重仿真位级(录制腿每 K=16 帧帧开始前 readback 九流+pid_base+n_curr 存检查点〔\"G35C\" v1〕;回滚 = 检查点 k=16 上传恢复 → 重仿真至 j=48,digest 链种子 = 录制链 digest[k−1] ⇒ 恢复帧自身与逐帧至 j 位级全等——网络回滚语义 = 检查点 + 输入重放)+ 首异帧见证(篡改帧 32 emit_count+1 → 首异帧精确 == 32,分歧可定位)。兑现「确定性 GPU 粒子」总口径,反打 Niagara(网络不复制粒子本体、GPU 模拟不可回放、GPU sim 非确定不可定位分歧)。device 帧链/digest 链式(全流字节 sha256 逐帧链式)与 g35_particle_core_device 逐字同模;host 金标准平行对拍维持(整数流 flags/scan_out/seg_offsets/pid/args 零容差)。本门全位级:整数/digest 域零容差,无 f32 budget 条目如实登记(f32 容差面归 g35.wave2 门,digest 已按字节覆盖 f32 流)。probe 真跑件与 journal/digest 链/检查点文件留 .tmp 工作区不入 evidence/。"
+}

@@ -1,0 +1,98 @@
+{
+  "schema": "rurix.g31.renderer_docs_walkthrough.v1",
+  "window": "G31+ 波 C Task C2 — 渲染器文档新用户走通验证（docs/renderer 三文档 + examples/minimal_host 最小 C++ 宿主示例；G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #49 交付判据『新用户按文档 <1 天完成最小集成』的实测兑现面）",
+  "walkthrough_at_utc": "2026-08-26T11:14:56Z",
+  "host": "RTX 4070 Ti + Vulkan（本机真跑；Windows 11 x64；MSVC 14.44.35207 + SDK 10.0.26100.0 + clang 22.1.x pin）",
+  "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a",
+  "actor": "文档作者以新用户视角逐字按 docs/renderer/integration_guide.md §2~§6 与 examples/minimal_host/README.md 手动逐步执行（非脚本回放）；每步记录退出码与墙钟",
+  "steps": [
+    {
+      "n": 1,
+      "doc_ref": "integration_guide.md §2 系统要求",
+      "action": "前提核验：clang 22.1.x（C:\\Program Files\\LLVM\\bin\\clang.exe）+ MSVC 14.44.35207 cl.exe + SDK 10.0.26100.0 + RTX 4070 Ti 逐一 Test-Path",
+      "exit": 0,
+      "wall_s": 5.0,
+      "blocker": null
+    },
+    {
+      "n": 2,
+      "doc_ref": "integration_guide.md §3 获取与构建",
+      "action": "工具链产物核验：target/debug/rurixc.exe + target/release/g14_3_pipeline_perf.exe + g31_window_present.exe 已在树（本机既有构建，缓存命中未重编）",
+      "exit": 0,
+      "wall_s": 2.0,
+      "blocker": null
+    },
+    {
+      "n": 3,
+      "doc_ref": "integration_guide.md §4 步骤 1（初始化：--emit=dll）",
+      "action": "target\\debug\\rurixc.exe apps\\uc05-rhi\\src\\embed.rx --emit=dll -o docs\\renderer\\examples\\minimal_host\\build\\rurix_rhi",
+      "exit": 0,
+      "wall_s": 0.76,
+      "blocker": "stderr 两条 `SPIR-V lowering failed … (RXS-0291)` note（gfx 演示着色器 position builtin 形态）——rc=0 产物三件齐（rurix_rhi.dll 3253248B / rurix_rhi.lib 2428B / rurix_rhi.h 448B），但文档未预告，新用户可能误判失败",
+      "fix": "integration_guide.md §4 步骤 1 + examples README 增补『预期内 stderr note』说明（以退出码为准，note ≠ 失败）——已落"
+    },
+    {
+      "n": 4,
+      "doc_ref": "integration_guide.md §4 步骤 2~4（宿主编译）",
+      "action": "cl /std:c++17 /EHsc /nologo minimal_host.cpp /Fe:build\\minimal_host.exe /link /LIBPATH:build rurix_rhi.lib（INCLUDE/LIB 按 README 手动节现配）",
+      "exit": 0,
+      "wall_s": 0.21,
+      "blocker": "文档初稿将 import lib 写作 rurix_rhi.dll.lib——实测 link.exe 副产名为 rurix_rhi.lib（-o 传词干或带 .dll 后缀两形产物同名，scratch 目双重验证）",
+      "fix": "integration_guide.md §4 步骤 1 产物清单/步骤 1 宿主侧/§4 末构建段三处 rurix_rhi.dll.lib → rurix_rhi.lib 修正 + 增补 -o 词干语义注——已落"
+    },
+    {
+      "n": 5,
+      "doc_ref": "integration_guide.md §4 步骤 3/5（帧循环真跑 + 关闭）",
+      "action": "build\\minimal_host.exe（rurix_rhi.dll 同目录；真 GPU 4 帧）",
+      "exit": 0,
+      "wall_s": 0.32,
+      "blocker": null,
+      "output": "RURIX_MINIMAL_HOST_OK passes=2 frames=4 pixel=0x00000000（与文档预期输出逐字一致；pixel=0x00000000 清色不变量 RXS-0277 Q-PixelCriterion）"
+    },
+    {
+      "n": 6,
+      "doc_ref": "examples/minimal_host/README.md 一键走通",
+      "action": "删除 build/ 全量重跑 powershell -ExecutionPolicy Bypass -File build.ps1（工具链定位→emit→cl→真跑+输出断言全链）",
+      "exit": 0,
+      "wall_s": 1.04,
+      "blocker": null,
+      "output": "[minimal_host] PASS 五步最小集成走通"
+    },
+    {
+      "n": 7,
+      "doc_ref": "integration_guide.md §6 形态 C 离屏 bench（离屏 digest 验证臂）",
+      "action": "target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 2 --warmup 1 --out-root .tmp\\g31_gates\\docs_walkthrough\\bench",
+      "exit": 0,
+      "wall_s": 62.12,
+      "blocker": "PowerShell 5.1 把 harness stderr 进度行显示为 NativeCommandError 样式——rc=0 正常，文档未预告",
+      "fix": "integration_guide.md §6 增补 stderr 进度日志注（以退出码与末行 PASS/BENCH PASS 为准）——已落",
+      "output": "BENCH PASS scene=bistro-interior tier=100 backend=tsr_device warmup=1 frames=2（receipt 落 .tmp/g31_gates/docs_walkthrough/bench/.../bench_receipt.json）"
+    },
+    {
+      "n": 8,
+      "doc_ref": "integration_guide.md §5 形态 B 真窗口（真跑验证臂）",
+      "action": "target\\release\\g31_window_present.exe --frames 3 --warmup 1 --hidden --auto-move orbit --evidence .tmp\\g31_gates\\docs_walkthrough\\window.json",
+      "exit": 0,
+      "wall_s": 62.57,
+      "blocker": null,
+      "output": "PASS frames=4 warmup=1 exit=frames_done resize_eras=0 real_render_frame_ms=7.098 present_frame_ms=0.9267 encode_gpu_ms=0.1058 digest=sha256:242c52365070…（headless=false 真 swapchain 逐帧 present；evidence 落 .tmp/g31_gates/docs_walkthrough/window.json）"
+    }
+  ],
+  "summary": {
+    "steps_total": 8,
+    "steps_green_first_try": 6,
+    "steps_with_doc_defect_found": 2,
+    "doc_fixes_applied": 4,
+    "doc_fix_list": [
+      "import lib 名 rurix_rhi.dll.lib → rurix_rhi.lib（三处；实测双重验证）",
+      "预期输出补全 passes=2 段（与实际 stdout 逐字对齐）",
+      "预期内 stderr note 说明（RXS-0291 SPIR-V lowering 两条；§4 步骤 1 + README）",
+      "harness 进度日志走 stderr / PowerShell NativeCommandError 样式注（§6 + README）"
+    ],
+    "minimal_integration_active_wall_s": 1.29,
+    "minimal_integration_note": "最小集成主链（步骤 3~5：emit 0.76 + cl 0.21 + run 0.32）活动墙钟 1.29s；一键脚本全链 1.04s；含形态 B/C 验证臂的全走通 ≈ 2.2 min（步骤 7/8 各约 62s，bistro 场景装载主导）——远小于 #49 判据 <1 天",
+    "post_fix_reverify": "文档修正后 CI 门 ci/g31_renderer_docs_smoke.py --gate g31.waveC.docs 复跑全绿（文档锚 + 示例重建真跑），修正面零回读旧文档"
+  },
+  "discipline": "数字全来自真实命令输出（上表 wall_s 为实测 Get-Date 差值）；卡点/文档缺陷如实登记不冒充一次通过；修正落盘后经 CI 门复验；既有锚/注册表 0-byte；本件为 milestones/ 记录件（非 evidence/ 路由面，check_schemas 零消费）",
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 C Task C2 渲染器文档与示例）"
+}

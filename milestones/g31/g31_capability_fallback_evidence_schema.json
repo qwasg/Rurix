@@ -1,0 +1,331 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/capability_fallback_evidence/v1",
+ "title": "G31+ 波 C Task C3 设备兼容矩阵与能力降级链证据(ci/g31_capability_fallback_smoke.py --gate g31.waveC.capability 产)",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "anchor",
+  "capability_report",
+  "matrix_check",
+  "unit_tests",
+  "chain_resolution",
+  "upscale_switch",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.capability_fallback_evidence.v1"
+  },
+  "subject": {
+   "const": "g31_capability_fallback"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.waveC.capability"
+  },
+  "wave": {
+   "const": "G31+.C"
+  },
+  "anchor": {
+   "type": "object",
+   "required": [
+    "todo_row",
+    "amd_intel_anchor",
+    "registry_path",
+    "normative_resolver"
+   ],
+   "properties": {
+    "todo_row": {
+     "const": "G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #50"
+    },
+    "amd_intel_anchor": {
+     "const": "G-MB1-6"
+    },
+    "registry_path": {
+     "const": "milestones/g31/g31_compatibility_matrix.json"
+    },
+    "normative_resolver": {
+     "const": "src/rurix-render/src/capability_matrix.rs"
+    }
+   }
+  },
+  "capability_report": {
+   "type": "object",
+   "required": [
+    "state",
+    "device_count",
+    "primary_device",
+    "upscale",
+    "report_path"
+   ],
+   "properties": {
+    "state": {
+     "const": "measured"
+    },
+    "device_count": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "primary_device": {
+     "type": "object",
+     "required": [
+      "device_name",
+      "vendor_id",
+      "device_id",
+      "features_all_true_count",
+      "max_per_stage_descriptor_sampled_images",
+      "max_per_stage_descriptor_storage_buffers",
+      "device_local_heap_bytes",
+      "vram_budget_bytes"
+     ],
+     "properties": {
+      "device_name": {
+       "type": "string",
+       "minLength": 1
+      },
+      "vendor_id": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      },
+      "device_id": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      },
+      "features_all_true_count": {
+       "const": 10
+      },
+      "max_per_stage_descriptor_sampled_images": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      },
+      "max_per_stage_descriptor_storage_buffers": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      },
+      "device_local_heap_bytes": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      },
+      "vram_budget_bytes": {
+       "type": "integer",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "upscale": {
+     "type": "object",
+     "required": [
+      "dlss_sr",
+      "fsr_3_1_5",
+      "tsr_device"
+     ],
+     "properties": {
+      "dlss_sr": {
+       "type": "boolean"
+      },
+      "fsr_3_1_5": {
+       "type": "boolean"
+      },
+      "tsr_device": {
+       "type": "boolean"
+      }
+     }
+    },
+    "report_path": {
+     "type": "string"
+    }
+   }
+  },
+  "matrix_check": {
+   "type": "object",
+   "required": [
+    "nvidia_cell_all_green",
+    "amd_intel_cells_dev_env_degrade",
+    "chains_table_closed_set",
+    "cell_count"
+   ],
+   "properties": {
+    "nvidia_cell_all_green": {
+     "const": true
+    },
+    "amd_intel_cells_dev_env_degrade": {
+     "const": true
+    },
+    "chains_table_closed_set": {
+     "const": true
+    },
+    "cell_count": {
+     "const": 3
+    }
+   }
+  },
+  "unit_tests": {
+   "type": "object",
+   "required": [
+    "suite",
+    "passed",
+    "failed"
+   ],
+   "properties": {
+    "suite": {
+     "const": "cargo test -p rurix-render --lib capability_matrix"
+    },
+    "passed": {
+     "type": "integer",
+     "minimum": 12
+    },
+    "failed": {
+     "const": 0
+    }
+   }
+  },
+  "chain_resolution": {
+   "type": "object",
+   "required": [
+    "request",
+    "decisions",
+    "digest",
+    "digest_reproduced"
+   ],
+   "properties": {
+    "request": {
+     "const": "FeatureRequest::full(upscale=dlss_sr hzb=on restir=restir_high gi=on framegen=x3 textures=textures)"
+    },
+    "decisions": {
+     "type": "array",
+     "minItems": 6,
+     "maxItems": 6,
+     "items": {
+      "type": "object",
+      "required": [
+       "chain",
+       "requested",
+       "selected",
+       "degraded"
+      ],
+      "properties": {
+       "chain": {
+        "enum": [
+         "upscale",
+         "hzb",
+         "restir",
+         "gi",
+         "framegen",
+         "texture_sampling"
+        ]
+       },
+       "requested": {
+        "type": "string",
+        "minLength": 1
+       },
+       "selected": {
+        "type": "string",
+        "minLength": 1
+       },
+       "degraded": {
+        "type": "boolean"
+       }
+      }
+     }
+    },
+    "digest": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digest_reproduced": {
+     "const": true
+    }
+   }
+  },
+  "upscale_switch": {
+   "type": "object",
+   "required": [
+    "scene",
+    "tier",
+    "frames",
+    "warmup",
+    "backends"
+   ],
+   "properties": {
+    "scene": {
+     "const": "bistro-interior"
+    },
+    "tier": {
+     "const": 100
+    },
+    "frames": {
+     "const": 16
+    },
+    "warmup": {
+     "const": 4
+    },
+    "backends": {
+     "type": "array",
+     "minItems": 3,
+     "maxItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "backend",
+       "runs",
+       "digest_reproducible",
+       "frame_ms_production_mean"
+      ],
+      "properties": {
+       "backend": {
+        "enum": [
+         "dlss_sr",
+         "fsr_3_1_5",
+         "tsr_device"
+        ]
+       },
+       "runs": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+         "type": "object",
+         "required": [
+          "last_frame_digest",
+          "frame_ms_production_mean"
+         ],
+         "properties": {
+          "last_frame_digest": {
+           "type": "string",
+           "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "frame_ms_production_mean": {
+           "type": "number",
+           "exclusiveMinimum": 0
+          }
+         }
+        }
+       },
+       "digest_reproducible": {
+        "const": true
+       },
+       "frame_ms_production_mean": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       }
+      }
+     }
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

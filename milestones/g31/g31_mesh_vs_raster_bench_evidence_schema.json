@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_mesh_vs_raster_bench M61 ③ mesh HW vs VS 光栅 measured 对照门裁决件",
+  "description": "G31+ 波 C Task C16（ci/g31_mesh_vs_raster_bench.py --gate g31.waveC.meshbench 产；RFC-0034 重判表三项闭集之③「mesh shader HW 管线性能差 measured 证据」唯一新面；G31_PLUS_COMMERCIAL_RENDERER_TODO §3.1 #24；重判登记表 milestones/g31/g31_rejudgment_windows.json M61 窗消费面）。判据闭集：①GLSL 四源经 glslangValidator 现编（bench_common 段与 harness bin tri_vert_ndc 逐字同源）；②harness release 构建；③device 真跑三臂（vs_fetch device-local VB 取数 = 现光栅路径形态 / vs_procedural 解释性臂 / mesh_procedural mesh 阶段 64 lane/wg）同一确定性三角形集像素 digest 位级全等（结构证据：无深度/无混合+恒色 fragment ⇒ 重叠写序不影响终图）；④逐臂 GPU timestamp measured 健全（median/mean/min/max 有限正数、samples==frames、timestampPeriod>0；如实登记不设通过线——G6 无硬门纪律）；⑤双跑逐臂像素 digest 位级一致（影像确定性）；⑥RURIX_VK_VALIDATION=1 双跑 validation 静默。PASS-only 闭集 schema——PASS 才落 evidence/g31_mesh_vs_raster_bench_<ts>.json，FAIL 诊断件留 .tmp 工作区不污染路由面。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "workload",
+    "arms",
+    "arms_run2",
+    "digest_all_equal",
+    "double_run_digest_bitexact",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.mesh_vs_raster_bench_gate_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_mesh_vs_raster_bench"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveC.meshbench"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.C"
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "triangles", "frames", "warmup", "triangle_regime"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 64},
+        "height": {"type": "integer", "minimum": 64},
+        "triangles": {"type": "integer", "minimum": 64},
+        "frames": {"type": "integer", "minimum": 8},
+        "warmup": {"type": "integer", "minimum": 1},
+        "triangle_regime": {"type": "string"}
+      }
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vs_fetch", "vs_procedural", "mesh_procedural"],
+      "properties": {
+        "vs_fetch": {"$ref": "#/definitions/arm"},
+        "vs_procedural": {"$ref": "#/definitions/arm"},
+        "mesh_procedural": {"$ref": "#/definitions/arm"}
+      }
+    },
+    "arms_run2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vs_fetch", "vs_procedural", "mesh_procedural"],
+      "properties": {
+        "vs_fetch": {"$ref": "#/definitions/arm_run2"},
+        "vs_procedural": {"$ref": "#/definitions/arm_run2"},
+        "mesh_procedural": {"$ref": "#/definitions/arm_run2"}
+      }
+    },
+    "digest_all_equal": {
+      "type": "boolean",
+      "const": true,
+      "description": "跑 1 三臂像素 digest 位级全等（同一三角形集真上屏结构证据；分叉即对拍面破坏判红）"
+    },
+    "double_run_digest_bitexact": {
+      "type": "boolean",
+      "const": true,
+      "description": "双跑逐臂像素 digest 位级一致（影像确定性；时序数字双跑各自如实登记不要求位级——真实 GPU 时序噪声面）"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu_ms_median", "gpu_ms_mean", "gpu_ms_min", "gpu_ms_max", "wall_ms_median", "samples", "pixel_digest"],
+      "properties": {
+        "gpu_ms_median": {"type": "number", "exclusiveMinimum": 0, "description": "GPU timestamp 主口径逐帧中位（render pass 区间;如实登记不设通过线）"},
+        "gpu_ms_mean": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_ms_min": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_ms_max": {"type": "number", "exclusiveMinimum": 0},
+        "wall_ms_median": {"type": "number", "exclusiveMinimum": 0, "description": "壁钟副口径（submit+waitIdle,含 host 税）"},
+        "samples": {"type": "integer", "minimum": 8},
+        "pixel_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "arm_run2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu_ms_median", "gpu_ms_mean", "gpu_ms_min", "gpu_ms_max", "pixel_digest"],
+      "properties": {
+        "gpu_ms_median": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_ms_mean": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_ms_min": {"type": "number", "exclusiveMinimum": 0},
+        "gpu_ms_max": {"type": "number", "exclusiveMinimum": 0},
+        "pixel_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

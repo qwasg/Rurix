@@ -1,0 +1,98 @@
+//@ spec: RXS-0405 L3 device 面（G31+ 波 B Task B1 HZB 遮挡剔除生产接线——主射线腿）
+// G31+ 波 B Task B1 HZB 生产接线——主射线 pass（门 `g31.waveB.hzb`；G30 承接锚
+// G27 行「生产接线窗」+ RFC-0044 §5.8 两阶段第二段承接项兑现；消费面 =
+// kernels/g27_hzb_{reduce,test}.rx 两基元 0-byte 进车道）。
+//
+// ## 架构（g14_3_primary.rx 拆散腿先例同模 + 实例感知全局下标）
+// 逐像素 jitter 主射线对**初剔后 TLAS**（TLAS 实例 mask 由 host 两阶段调度逐帧
+// 维护：上一帧金字塔初剔 + 本帧重建重测闭环，被剔实例 mask=0x00 ⇒ 主射线零遍历
+// 其 BLAS——剔除消费点）做最近命中 ray query，写 hitinfo（t + **全局三角形
+// 下标** pg）供 shade pass 消费。实例分解 = bistro 逐 mesh 节点 BLAS（world-baked
+// 三角形汤的节点段逐字节同序——tris/mats SSBO 与单 BLAS 面位级同 buffer）；
+// pg = prim + inst_base[inst]（inst = committed_instance_index() = TLAS 槽位序，
+// g31_dyn_scene 实例分派同律；全量可见时 pg ≡ 单 BLAS 面 prim 逐位同值）。
+// 阴影射线不在本 pass（shade 走**全量 TLAS**——被剔实例仍投阴影，遮挡物阴影
+// 正确性面；RXS-0297 单 TLAS 签名纪律 ⇒ 双 TLAS 分工必须拆 pass）。
+// miss：t=0 / pg=0（t=0 恒 miss 语义 = g14_3_primary 逐字——相机在几何外,
+// tmin=0 无自交；shade 侧 hit_f = (t>0) 门重建同律）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐像素独立顺序求值,禁 atomic；输出直写无跨像素交互；固定输入双跑位级一致。
+// 全 f32；分支判定 min/max 算术门白名单形（big=1e30 门放大器,M96/M100 同律）+
+// has_committed 短 selection 臂。
+//
+// ## 参数面（host bin `g31_window_present` HZB 车道逐字同源）
+//   params: 48 f32 与 kernels/g14_3_direct_gi.rx 参数面逐字同布局（本 pass 仅
+//     [1]=width [2]=height [3]=jitter_x [4]=jitter_y [6]=ray_tmax [9..25]=inv_vp
+//     消费——主射线反投影；其余槽位直通不读）。
+//   inst_base: 1 f32/实例（该实例全局三角形下标基底 = 逐节点段前缀和,host 装配
+//     期预算；< 2^24 f32 精确域）。
+//   out_t: 1 f32/px（committed_t；miss=0）。
+//   out_pg: 1 f32/px（pg 全局三角形下标 as f32；miss=0）。
+#[numthreads(8, 8, 1)]
+kernel fn g31_hzb_primary(
+    tlas: AccelStruct,
+    t: ThreadCtx<2>,
+    inst_base: View<global, f32>,
+    params: View<global, f32>,
+    out_t: ViewMut<global, f32>,
+    out_pg: ViewMut<global, f32>,
+) {
+    // 2D 车道索引（8×8 局部组；dispatch = ceil(w/8)×ceil(h/8)×1，g14_3_primary
+    // 同一字面）。越界组不产写——与 1D 形态 `i < pixel_count` 门同覆盖域。
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[1] as usize;
+    let height = params[2] as usize;
+    let jx = params[3];
+    let jy = params[4];
+    let ray_tmax = params[6];
+    let big: f32 = 1e30;
+    if px < width && py < height {
+        let i = py * width + px;
+        // ── ① jitter 主射线（g14_3_direct_gi/g14_3_primary ①段逐字）──
+        let sx = (px as f32) + 0.5 + jx;
+        let sy = (py as f32) + 0.5 + jy;
+        let ndx = 2.0 * (sx / (width as f32)) - 1.0;
+        let ndy = 1.0 - 2.0 * (sy / (params[2] as f32));
+        let n4x = (params[9] * ndx + params[10] * ndy) + params[12];
+        let n4y = (params[13] * ndx + params[14] * ndy) + params[16];
+        let n4z = (params[17] * ndx + params[18] * ndy) + params[20];
+        let n4w = (params[21] * ndx + params[22] * ndy) + params[24];
+        let f4x = ((params[9] * ndx + params[10] * ndy) + params[11]) + params[12];
+        let f4y = ((params[13] * ndx + params[14] * ndy) + params[15]) + params[16];
+        let f4z = ((params[17] * ndx + params[18] * ndy) + params[19]) + params[20];
+        let f4w = ((params[21] * ndx + params[22] * ndy) + params[23]) + params[24];
+        let near_x = n4x / n4w;
+        let near_y = n4y / n4w;
+        let near_z = n4z / n4w;
+        let d0x = f4x / f4w - near_x;
+        let d0y = f4y / f4w - near_y;
+        let d0z = f4z / f4w - near_z;
+        let dl = (d0x * d0x + d0y * d0y + d0z * d0z).sqrt();
+        let gate_dl = (dl * big).min(1.0).max(0.0);
+        let dl_safe = dl + (1.0 - gate_dl);
+        let dx = gate_dl * d0x / dl_safe;
+        let dy = gate_dl * d0y / dl_safe;
+        let dz = gate_dl * d0z / dl_safe;
+        // ── ② 主 ray query（最近命中；初剔后 TLAS；closest-hit 语义——禁
+        //    first-hit；空体循环 = M96 白名单形）──
+        let mut rq = ray_query_initialize(tlas, (near_x, near_y, near_z), 0.0, (dx, dy, dz), ray_tmax);
+        while rq.proceed() {
+        }
+        let mut th = 0.0;
+        let mut pg = 0usize;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            // 实例分派：BLAS 内 prim → 全局三角形下标（inst_base 前缀和表;
+            // g31_dyn_scene `pg = prim + inst × base` 同律的变 stride 推广）。
+            let inst = rq.committed_instance_index();
+            pg = (rq.committed_primitive_index() as usize) + (inst_base[inst as usize] as usize);
+        } else {
+            th = 0.0;
+            pg = 0usize;
+        }
+        out_t[i] = th;
+        out_pg[i] = pg as f32;
+    }
+}

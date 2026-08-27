@@ -164,6 +164,13 @@ int rurix_basis_encode_container(const uint8_t *rgba, uint32_t width,
 int rurix_basis_transcode(const uint8_t *data, size_t len, int src_kind,
                           int target, RurixBasisBuf *out, uint32_t *out_width,
                           uint32_t *out_height) {
+  return rurix_basis_transcode_level(data, len, src_kind, target, 0, out,
+                                     out_width, out_height);
+}
+
+int rurix_basis_transcode_level(const uint8_t *data, size_t len, int src_kind,
+                                int target, uint32_t level, RurixBasisBuf *out,
+                                uint32_t *out_width, uint32_t *out_height) {
   if (!out) {
     return 1;
   }
@@ -200,11 +207,14 @@ int rurix_basis_transcode(const uint8_t *data, size_t len, int src_kind,
     if (t.get_levels() == 0) {
       return 12;
     }
+    if (level >= t.get_levels()) {
+      return 17;
+    }
     if (!t.start_transcoding()) {
       return 13;
     }
     basist::ktx2_image_level_info info;
-    if (!t.get_image_level_info(info, 0, 0, 0)) {
+    if (!t.get_image_level_info(info, level, 0, 0)) {
       return 14;
     }
     w = info.m_orig_width;
@@ -216,7 +226,7 @@ int rurix_basis_transcode(const uint8_t *data, size_t len, int src_kind,
       return 15;
     }
     basisu::uint8_vec buf(static_cast<size_t>(total_blocks) * bytes_per_block);
-    if (!t.transcode_image_level(0, 0, 0, buf.data(), total_blocks, fmt, 0, 0, 0)) {
+    if (!t.transcode_image_level(level, 0, 0, buf.data(), total_blocks, fmt, 0, 0, 0)) {
       return 16;
     }
     if (out_width) *out_width = w;
@@ -226,6 +236,10 @@ int rurix_basis_transcode(const uint8_t *data, size_t len, int src_kind,
 
   if (src_kind != RURIX_BASIS_SRC_BASIS) {
     return 4;
+  }
+  if (level != 0) {
+    /* 在树 .basis 产物恒单级(m_mip_gen=false 钳制);level 参数面仅 KTX2。 */
+    return 5;
   }
 
   basist::basisu_transcoder t;

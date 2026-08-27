@@ -1,0 +1,84 @@
+//@ spec: RFC-0048 §3/§4.1（G31+ 波 C Task C15；RXS-0408 拟案锚——spec-first PR-1 转正面）
+// G31+ 波 C Task C15 — RT pipeline + SBT 宿主车道首例 kernel（slab 双材质分派）。
+//
+// ## 车道定位（RFC-0048 §1/§4.5）
+// 生产 RayQuery compute 车道（RXS-0357 谱系）0-byte 不破坏；本 kernel = 独立
+// witness 车道语义锚：raygen ×1 + miss ×1 + closesthit ×2（triangles 双 hit
+// group，(instance, geometry) → group_index 装配期静态映射），SBT record 携
+// slab 双层材质参数（rc, ab, albedo_rgb）经 `#[shader_record]` 只读消费，
+// 分派语义在 group_index 不在 schema 差异（两组同 schema 不同槽值）。
+//
+// ## 公式面（RFC-0046 §1 修法 A 逐字同源；三处单源）
+//   tc = 1 − rc；denom = 1 − rc·ab；
+//   R = rc + tc·tc·ab / max(denom, 1e-30)；hit_rgb = albedo × R
+// 镜像语料发射器（vulkan_codegen emit_g31_rt_slab_*）与 RayQuery 对拍臂
+// （kernels/g31_rt_slab_rayquery.rx）逐字同式；CI 静态机核三处字面一致。
+//
+// ## PR-2/PR-3 接线点（诚实边界——本波未接线，RFC-0048 §6）
+// - trace_ray 调用点：compiler-known 自由函数未注册（实测：调用即 RX1001
+//   unresolved；helper fn 携 AccelStruct 即 RX3013 位置违例）——mir_build
+//   intrinsic + resolve lang-item 注册归 PR-2。
+// - payload 往返（raygen↔hit/miss body 层绑定）与 launch_id/launch_size
+//   builtins 消费归 PR-2/PR-3；raygen 体当前 = 合法成形（payload 零初始化 +
+//   storage image 写），追踪接线后 payload 由 hit/miss 覆写。
+// - `--target vulkan` RT 阶段 codegen 缺位（实测退出码 2「no compute kernel
+//   fn found」）归 PR-3；本 kernel 兑现面 = --emit=check 0 诊断 +
+//   --emit=rt-manifest 结构绿（类型面/装配事实源为真 toolchain 见证）。
+
+struct RayPayload {
+    r: f32,
+    g: f32,
+    b: f32,
+}
+
+struct SlabRec {
+    rc: f32,
+    ab: f32,
+    albedo_r: f32,
+    albedo_g: f32,
+    albedo_b: f32,
+}
+
+raygen fn rg(tlas: AccelStruct, out_img: TextureRw2D<f32>, #[payload] p: &mut RayPayload) {
+    let _ = tlas;
+    // PR-2 接线点：trace_ray(tlas, origin, t_min, dir, t_max)（固定五参签名，
+    // 递归恒 1，SBT 寻址装配期静态，RXS-0245 修订行 / RFC-0048 §4.1）。
+    // PR-3 接线点：launch_id/launch_size builtins → 逐像素 origin/dir
+    // （相机公式与 RayQuery 臂逐字同源：uv = id/size；centered = uv*2−1；
+    // origin = (cx, cy, −1)；dir = (0, 0, 1)；t ∈ [0, 100]）。
+    p.r = 0.0;
+    p.g = 0.0;
+    p.b = 0.0;
+    out_img.store((0u32, 0u32), (p.r, p.g, p.b, 1.0));
+}
+
+miss fn ms(#[payload] p: &mut RayPayload) {
+    // 背景色（与 RayQuery 臂 miss 常量逐字同源）。
+    p.r = 0.05;
+    p.g = 0.05;
+    p.b = 0.08;
+}
+
+#[hit_group(slab_a)]
+closesthit fn ch_a(#[payload] p: &mut RayPayload, #[shader_record] rec: &SlabRec) {
+    // slab 双层闭式反照率（RFC-0046 §1 修法 A 同式；分母安全化）。
+    let tc = 1.0 - rec.rc;
+    let denom = 1.0 - rec.rc * rec.ab;
+    let r = rec.rc + tc * tc * rec.ab / denom.max(1e-30);
+    p.r = rec.albedo_r * r;
+    p.g = rec.albedo_g * r;
+    p.b = rec.albedo_b * r;
+}
+
+#[hit_group(slab_b)]
+closesthit fn ch_b(#[payload] p: &mut RayPayload, #[shader_record] rec: &SlabRec) {
+    // 同形不同组：装配期 (instance, geometry) → group_index 静态映射决定分派。
+    let tc = 1.0 - rec.rc;
+    let denom = 1.0 - rec.rc * rec.ab;
+    let r = rec.rc + tc * tc * rec.ab / denom.max(1e-30);
+    p.r = rec.albedo_r * r;
+    p.g = rec.albedo_g * r;
+    p.b = rec.albedo_b * r;
+}
+
+fn main() {}

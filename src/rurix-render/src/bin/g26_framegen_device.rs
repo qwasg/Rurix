@@ -57,7 +57,7 @@
 
 #![forbid(unsafe_code)]
 
-use rurix_render::temporal::framegen::{mfg_between, FgAccounting, FrameGenParams};
+use rurix_render::temporal::framegen::{FgAccounting, FrameGenParams, mfg_between};
 use rurix_render::temporal::image::ImageF32;
 use rurix_render::temporal::ssim::ssim;
 use rurix_rt::vk;
@@ -103,7 +103,8 @@ fn render_phase(k: f32) -> ImageF32 {
         let fx = (x as f32 + 0.5) / SCENE_W as f32 - k * su;
         let fy = (y as f32 + 0.5) / SCENE_H as f32;
         let base = 0.5
-            + 0.35 * ((fx * 6.0) * std::f32::consts::PI).sin()
+            + 0.35
+                * ((fx * 6.0) * std::f32::consts::PI).sin()
                 * ((fy * 4.0) * std::f32::consts::PI).cos();
         (base + 0.05 * ch as f32).clamp(0.0, 1.0)
     })
@@ -112,7 +113,12 @@ fn render_phase(k: f32) -> ImageF32 {
 /// 恒定平移 mv 场(prev→cur uv 位移;pure_translation 同模)。
 fn const_mv() -> ImageF32 {
     let su = shift_u();
-    ImageF32::from_fn(SCENE_W, SCENE_H, 2, |_, _, ch| if ch == 0 { su } else { 0.0 })
+    ImageF32::from_fn(
+        SCENE_W,
+        SCENE_H,
+        2,
+        |_, _, ch| if ch == 0 { su } else { 0.0 },
+    )
 }
 
 fn max_abs_diff(a: &ImageF32, b: &ImageF32) -> f64 {
@@ -292,7 +298,12 @@ fn run_tier(arm: &Arm, mode_x: u32, pairs: u32, phase_offset: f32) -> TierRun {
 
 /// 序列 digest(逐帧 digest 串接再 sha256;双跑位级判据面)。
 fn run_digest(run: &TierRun) -> String {
-    let joined: String = run.frames.iter().map(sha256_frame).collect::<Vec<_>>().join(",");
+    let joined: String = run
+        .frames
+        .iter()
+        .map(sha256_frame)
+        .collect::<Vec<_>>()
+        .join(",");
     rurix_pkg::sha256::hex_digest(joined.as_bytes())
 }
 
@@ -311,7 +322,12 @@ fn parity_p100(dev: &TierRun, host: &TierRun) -> f64 {
 fn ssim_beats_frame_hold(run: &TierRun, phase_offset: f32) -> (bool, f64) {
     let mut all_ok = true;
     let mut min_margin = f64::INFINITY;
-    for ((frame, &phase), &pj) in run.frames.iter().zip(run.phases.iter()).zip(run.prev_index.iter()) {
+    for ((frame, &phase), &pj) in run
+        .frames
+        .iter()
+        .zip(run.phases.iter())
+        .zip(run.prev_index.iter())
+    {
         let gt = render_phase(phase);
         let hold = render_phase(pj as f32 + phase_offset);
         let s_interp = ssim(frame, &gt);
@@ -655,12 +671,21 @@ fn red_arm_seed_change(args: &Args) -> Result<String, String> {
     let honest = device_arm(args)?;
     let honest_run = run_tier(&Arm::Device(&honest), mode_x, PROBE_PAIRS, 0.0);
     let digest_a = sha256_frame(honest_run.frames.last().expect("至少一帧"));
-    let shifted_run = run_tier(&Arm::Device(&honest), mode_x, PROBE_PAIRS, SEED_PHASE_OFFSET);
+    let shifted_run = run_tier(
+        &Arm::Device(&honest),
+        mode_x,
+        PROBE_PAIRS,
+        SEED_PHASE_OFFSET,
+    );
     let digest_b = sha256_frame(shifted_run.frames.last().expect("至少一帧"));
     if digest_a == digest_b {
         return Err("seed-change 漏检:场景相位偏移后末帧 digest 未变".into());
     }
-    Ok(format!("末帧 digest 可分辨({} ≠ {})", &digest_a[..12], &digest_b[..12]))
+    Ok(format!(
+        "末帧 digest 可分辨({} ≠ {})",
+        &digest_a[..12],
+        &digest_b[..12]
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -721,7 +746,9 @@ fn host_leg() -> (bool, f64) {
     let (_name, mode_x) = TIERS[0];
     let host_run = run_tier(&Arm::Host, mode_x, PROBE_PAIRS, 0.0);
     let (ok, margin) = ssim_beats_frame_hold(&host_run, 0.0);
-    eprintln!("{TAG}: host 参考臂(×2 {PROBE_PAIRS} 对) ssim_beats_frame_hold={ok} min_margin={margin:.6}");
+    eprintln!(
+        "{TAG}: host 参考臂(×2 {PROBE_PAIRS} 对) ssim_beats_frame_hold={ok} min_margin={margin:.6}"
+    );
     (ok, margin)
 }
 

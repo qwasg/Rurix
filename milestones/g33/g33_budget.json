@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "namespace": "g33",
+  "description": "G33 预算面（商业化期 · 波 C 验收批）。全部 measured_local 零 estimated——数字来自 2026-08-26 波 C 验收门（G31+ 波 C Task C18，最终验收）真跑输出：Stage A digest 锚 18/18 canonical 重跑（ci/g31_wave_a_anchor_check.py）+ G16plus M-g 18/18 canonical 复跑（ci/g16_absolute_quality_closure_smoke.py --gate）+ G17-MD-F1 焦点格新鲜 5 样本（诚实红轨迹面维持如实登记于 G33_CONTRACT §8.1③，本条目 = 帧时预算杠非验收轨迹杠）+ 波 A·B·C 28 门 --gate 全量新鲜复跑（26 PASS + 2 诚实红终态如实登记）+ 终验三面+许可面 4/4 绿 + SDK 面增量 soak 1010 帧。阈值口径：验收杠（18/26/2/4/1000）或 在案 measured ×2.0（G30 先例）。",
+  "source_docs": ["milestones/g33/G33_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g33.baseline.stage_a_digest_guard.anchor_count",
+      "description": "波 C 验收 Stage A 18 格 digest 锚 canonical 160 帧重跑位级一致格数（零漂移，期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g33_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g33.baseline.g16_m_g_closure.met_count",
+      "description": "波 C 验收 G16plus M-g 绝对画质收口 canonical 复跑达标格数（不降级，期望 18/18；UE 参照臂按在案锚不重跑）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g33_baseline_g16_m_g_closure.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g33.baseline.focus_cell.frame_ms_production_mean",
+      "description": "波 C 验收 G17-MD-F1 焦点格（bistro-interior/t100/dlss_sr）canonical 160 帧新鲜 frame_ms_production_mean（帧时预算杠 = 在案 3.5767ms ×2.0；诚实红轨迹 ratio 面 = 验收门判据非本预算条目，本日 5 样本中位 0.957894 恶化如实登记于 G33_CONTRACT §8.1③ 不冒充）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.1534,
+      "evidence_file": "evidence/g33_baseline_focus_cell_frame_ms.json",
+      "measured_value": 3.5966237500000005
+    },
+    {
+      "id": "g33.regression.gates_fresh_pass.count",
+      "description": "波 C 验收全量回归门新鲜复跑 PASS 计数（波 A 5/5 + 波 B 4/5 + 波 C 17/18 = 26；两诚实红门见下条）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 26.0,
+      "evidence_file": "evidence/g33_baseline_gates_fresh_pass.json",
+      "measured_value": 26.0
+    },
+    {
+      "id": "g33.regression.gates_honest_red.count",
+      "description": "波 C 验收诚实红终态如实登记计数（ngx_decomp ratio 轨迹面 + waveB texture 跨波工作树机核面；零冒充硬线，期望 2/2 如实登记不删不冒充）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 2.0,
+      "evidence_file": "evidence/g33_baseline_gates_honest_red.json",
+      "measured_value": 2.0
+    },
+    {
+      "id": "g33.wave_c.terminal_faces_green.count",
+      "description": "波 C 验收终验三面+许可面新鲜复跑绿计数（C1 SDK 宿主 digest==锚 / C5 离线可建链 digest==锚 / C2 文档门 / C6 许可门，期望 4/4）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 4.0,
+      "evidence_file": "evidence/g33_baseline_terminal_faces.json",
+      "measured_value": 4.0
+    },
+    {
+      "id": "g33.wave_c.sdk_soak.frames",
+      "description": "波 C 验收 SDK 面增量 soak 帧数（外部 C++ 宿主 canonical 1010+10 帧零崩 exit=0，期望 ≥1000；soak 总账 = 波 A 10010 在案 + C4 故障臂在案 1010 + 本日故障臂 1000 + 本 SDK 面 1010）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 1000.0,
+      "evidence_file": "evidence/g33_baseline_sdk_soak_frames.json",
+      "measured_value": 1010.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

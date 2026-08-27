@@ -94,6 +94,9 @@ UNSAFE_ALLOW_BASELINE = {
 }
 # 本波唯一新增豁免(RFC-0017 §4.C2,unsafe-audit/rurix-physics-sys.md U33 起)。
 PHYSICS_SYS_CARGO = "src/rurix-physics-sys/Cargo.toml"
+# G31+ 波 C Task C1 新增豁免(渲染器 SDK C ABI 实现层 cdylib,
+# unsafe-audit/rurix-renderer-sdk.md U-59 登记;number_ledger v1.189)。
+RENDERER_SDK_CARGO = "src/rurix-renderer-sdk/Cargo.toml"
 
 CARGO_LEGS = [
     ("sys", ["cargo", "test", "-p", "rurix-physics-sys"]),
@@ -187,7 +190,7 @@ def audit_native_names(files: dict[str, str]) -> list[str]:
 def audit_unsafe_allow(tomls: dict[str, str]) -> list[str]:
     """§4.C2/C4:白名单(既有 7 crate + 本波 rurix-physics-sys)外零新增
     `unsafe_code = "allow"`。纯函数。"""
-    allowed = UNSAFE_ALLOW_BASELINE | {PHYSICS_SYS_CARGO}
+    allowed = UNSAFE_ALLOW_BASELINE | {PHYSICS_SYS_CARGO, RENDERER_SDK_CARGO}
     problems: list[str] = []
     for path, text in sorted(tomls.items()):
         if re.search(r'unsafe_code\s*=\s*"allow"', text) and path not in allowed:

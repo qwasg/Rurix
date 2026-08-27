@@ -191,7 +191,11 @@ fn run_l3_device(
         }],
     )?;
     let wall_ns = t0.elapsed().as_nanos() as u64;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 2 {
         return Err(format!("回读路数 {} ≠ 2", rb.len()));
     }
@@ -257,7 +261,11 @@ fn run_m96(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -270,7 +278,13 @@ fn run_m96(
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -414,7 +428,9 @@ fn main() {
 
     // ── 步骤 0:host 预传递(无 device 依赖)──
     let scene = path_trace::m96_cornell_scene();
-    scene.validate().unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
+    scene
+        .validate()
+        .unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
     let gb = fb::gbuffer_prepass(&scene);
     let gb2 = fb::gbuffer_prepass(&scene);
     if gb != gb2 {
@@ -457,8 +473,14 @@ fn main() {
         caps.device_name,
         if validation_on { "on" } else { "off" }
     );
-    let spv_l1_path = args.spv_l1.clone().unwrap_or_else(|| fail("缺 --spv-l1 <l1.spv>"));
-    let spv_l3_path = args.spv_l3.clone().unwrap_or_else(|| fail("缺 --spv-l3 <l3.spv>"));
+    let spv_l1_path = args
+        .spv_l1
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv-l1 <l1.spv>"));
+    let spv_l3_path = args
+        .spv_l3
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv-l3 <l3.spv>"));
     let spv_l1 = load_spv(&spv_l1_path);
     let spv_l3 = load_spv(&spv_l3_path);
     let entry_l1 = vk::entry_point_name(&spv_l1).unwrap_or_else(|| fail("L1 SPV 无 OpEntryPoint"));
@@ -501,12 +523,13 @@ fn main() {
         "{TAG}: L1 device 双跑位级一致={} 结构对拍={} 浮点残差 max|Δ|={:.3e}(信息项)",
         l1_device_bitexact, l1_parity, max_diff
     );
-    let (l3_simple, l3s_wall) = match run_l3_device(&scene, &gb, L3ShadeMode::Simple, &spv_l3, &entry_l3)
+    let (l3_simple, l3s_wall) =
+        match run_l3_device(&scene, &gb, L3ShadeMode::Simple, &spv_l3, &entry_l3) {
+            Ok(v) => v,
+            Err(e) => fail(&format!("L3 simple device: {e}")),
+        };
+    let (l3_simple_b, _) = match run_l3_device(&scene, &gb, L3ShadeMode::Simple, &spv_l3, &entry_l3)
     {
-        Ok(v) => v,
-        Err(e) => fail(&format!("L3 simple device: {e}")),
-    };
-    let (l3_simple_b, _) = match run_l3_device(&scene, &gb, L3ShadeMode::Simple, &spv_l3, &entry_l3) {
         Ok(v) => v,
         Err(e) => fail(&format!("L3 simple device 双跑: {e}")),
     };
@@ -520,7 +543,14 @@ fn main() {
     // ── 步骤 3:装配(golden 双帧 + hit lighting 全链)──
     let mut frames: Vec<fb::ChainFrame> = Vec::new();
     for _ in 0..FRAMES {
-        match fb::assemble(&gb, ChainSwitches::ALL_ON, &l1_dev, &l2_host, &l3_simple, true) {
+        match fb::assemble(
+            &gb,
+            ChainSwitches::ALL_ON,
+            &l1_dev,
+            &l2_host,
+            &l3_simple,
+            true,
+        ) {
             Ok(f) => frames.push(f),
             Err(e) => fail(&format!("golden 装配: {e}")),
         }
@@ -546,7 +576,10 @@ fn main() {
         let served = golden.counters[level.slot()].pixels_served;
         if served == 0 {
             coverage_ok = false;
-            failures.push(format!("{} golden 服务像素数 = 0(级别覆盖不足,强关臂空转)", level.name()));
+            failures.push(format!(
+                "{} golden 服务像素数 = 0(级别覆盖不足,强关臂空转)",
+                level.name()
+            ));
         }
         let c = golden.counters[level.slot()];
         println!(
@@ -610,7 +643,9 @@ fn main() {
             fail(&format!("red-arm {name} 失效(回归不可检测或探针不红)"));
         }
         if !(detectable && sabotage_probe_red) {
-            failures.push(format!("强关臂 {name} 失效(detectable={detectable} probe_red={sabotage_probe_red})"));
+            failures.push(format!(
+                "强关臂 {name} 失效(detectable={detectable} probe_red={sabotage_probe_red})"
+            ));
         }
     }
 
@@ -624,10 +659,23 @@ fn main() {
     }
 
     // ── 步骤 6:L4 not-triggered 登记(显式;不充绿)──
-    let l4_reason = match fb::check_l4_trigger() {
+    // G31+ C12 注:三处入口已按锚字面参数化解锁——cornell 冻结 fixture 无
+    // proxy 集装载(None)⇒ 本登记面维持 not-triggered/typed Err/计数恒零,
+    // 门语义不变(半齐保护;四级链世界见 g31_hlod_l4_far_field harness)。
+    let l4_reason = match fb::check_l4_trigger(None) {
         fb::L4TriggerState::NotTriggered { reason } => reason,
+        fb::L4TriggerState::Ready { .. } => fail("cornell 无 proxy 集装载,L4 触发核验不得 Ready"),
     };
-    let l4_serve_rejected = matches!(fb::l4_serve(), Err(fb::FbError::L4InterfaceNotReady(_)));
+    let l4_no_sample = LegSample {
+        hit: false,
+        t: 0.0,
+        rgb: fb::M98_SKY,
+        work: 0,
+    };
+    let l4_serve_rejected = matches!(
+        fb::l4_serve(None, &l4_no_sample),
+        Err(fb::FbError::L4InterfaceNotReady(_))
+    );
     let l4_counters_zero =
         golden.counters[fb::TraceLevel::L4FarField.slot()] == fb::LevelCounters::default();
     println!("{TAG}: L4 Far Field 登记 not-triggered({l4_reason});服务请求拒={l4_serve_rejected}");
@@ -641,9 +689,14 @@ fn main() {
         .clone()
         .unwrap_or_else(|| fail("缺 --spv-m96 <m96.spv>"));
     let spv_m96 = load_spv(&spv_m96_path);
-    let entry_m96 = vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
-    let m97_band_text = std::fs::read_to_string(&args.m97_band)
-        .unwrap_or_else(|e| fail(&format!("读 M97 深度带 {}: {e}(门序消费锚前置)", args.m97_band)));
+    let entry_m96 =
+        vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
+    let m97_band_text = std::fs::read_to_string(&args.m97_band).unwrap_or_else(|e| {
+        fail(&format!(
+            "读 M97 深度带 {}: {e}(门序消费锚前置)",
+            args.m97_band
+        ))
+    });
     let m97_band = surface_cache::DepthBand::parse(&m97_band_text)
         .unwrap_or_else(|e| fail(&format!("M97 深度带解析: {e}")));
     let m97_anchor = m97_band
@@ -794,7 +847,10 @@ fn main() {
         ("force_off_l2_detectable", force_off_results[1].1),
         ("force_off_l3_detectable", force_off_results[2].1),
         ("silent_demotion_detected", silent_detected),
-        ("l4_not_triggered_registered", l4_serve_rejected && l4_counters_zero),
+        (
+            "l4_not_triggered_registered",
+            l4_serve_rejected && l4_counters_zero,
+        ),
         ("m96_cross_anchor", m96_cross_anchor),
         ("depth_band_within", digests_match && depth_band_within),
         ("validation_zero", true), // vk.rs lane 内 fail-closed:到此即零 ERROR
@@ -828,11 +884,14 @@ fn main() {
         ));
     }
     let transitions_digest = hex(&golden.usage_log_digest());
-    let cause_count = |c: fb::TransitionCause| {
-        golden.transitions.iter().filter(|r| r.cause == c).count()
-    };
+    let cause_count =
+        |c: fb::TransitionCause| golden.transitions.iter().filter(|r| r.cause == c).count();
     let mut digests_json: Vec<String> = vec![
-        format!("\"m96_depth{}\": \"{}\"", fb::M98_MATCHED_DEPTH, hex(&m96_digest)),
+        format!(
+            "\"m96_depth{}\": \"{}\"",
+            fb::M98_MATCHED_DEPTH,
+            hex(&m96_digest)
+        ),
         format!("\"usage_log\": \"{transitions_digest}\""),
     ];
     for m in &measured {

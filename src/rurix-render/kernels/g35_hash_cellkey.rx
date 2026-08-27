@@ -1,0 +1,96 @@
+//@ spec: RFC-0049 §4.10(G35-7 流体空间哈希阶段 1;spec 条款号本期零新设)
+// G35-7 流体 · hash_cellkey —— PBF 预测步 + 逐粒子 cell_key + identity
+// payload(门 g35.wave7.fluids;G35_CONTRACT G-G35-7;src/particles/fluid.rs
+// 契约头字面)。
+//
+// ## 架构(确定性协议:零原子零 shared,逐 invocation 只写自槽)
+// 公式面与 host 金标准 `particles/fluid.rs::hash_cellkey_step` **逐字同源**:
+// 1. PBF 预测步(半隐式 Euler,运算序逐字冻结 = g35_sim.rx 同律):
+//    prev = pos(3 轴保存,velocity 步 (pos−prev)/dt 消费)→
+//    vy = vy + g·dt → px = px + vx·dt → py = py + vy·dt(消费更新后 vy)→
+//    pz = pz + vz·dt。预测位置不 clamp(clamp 归 apply kernel,3 迭代保证
+//    帧末界内);cell 坐标越界经 f32 域 clamp 登记到边界 cell(下述)。
+// 2. cell 语义冻结(RFC-0049 §4.10 F14):cell = floor((p − origin)/cs)
+//    逐轴——f32 `.floor()` 对负商向负无穷取整(负坐标语义显式,截断被否);
+//    floor 后 **f32 域 clamp 到 [0,63]** 再转 usize(负 f32 直转 usize 为
+//    未定义域,禁;越界 clamp 到边界 cell = 如实登记语义,事件计数归 host
+//    金标准登记面,kernel 不计数)。
+// 3. cell_key = ((cz·64 + cy)·64 + cx) as u32 < 64³ = 262144 < 2^24
+//    (24 位键域 ✓ W1 sort 三 kernel 直接消费);payload = 粒子下标 i
+//    (identity——稳定排序 ⇒ sorted_idx 为确定 cell-major 序)。
+// f32 乘加链走标定容差协议(probe 装载期注入 NoContraction 禁驱动 FMA
+// 收缩);cell_key/payload 为 u32 整数流 ⇒ device↔host 零容差位级。
+//
+// ## 参数面(8 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 12,
+// 与 host 金标准 / probe(bin/g35_fluids_device.rs)buffers 下标严格一致)
+//   params[0]=n [1]=dt [2]=gravity_y [3]=origin_x [4]=origin_y [5]=origin_z
+//   [6]=cell_size [7]=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×8) / 1 pos_x / 2 pos_y / 3 pos_z / 4 prev_x /
+//   5 prev_y / 6 prev_z(以上 ViewMut f32×n) / 7 vel_x(View) / 8 vel_y
+//   (ViewMut) / 9 vel_z(View) / 10 cell_key(ViewMut u32×n) / 11 payload
+//   (ViewMut u32×n)。
+//   dispatch = [n, 1, 1](LocalSize 1,1,1 一粒子一 invocation;g14_8 注:
+//   百万工作组×1 线程调度为既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_hash_cellkey(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    pos_x: ViewMut<global, f32>,
+    pos_y: ViewMut<global, f32>,
+    pos_z: ViewMut<global, f32>,
+    prev_x: ViewMut<global, f32>,
+    prev_y: ViewMut<global, f32>,
+    prev_z: ViewMut<global, f32>,
+    vel_x: View<global, f32>,
+    vel_y: ViewMut<global, f32>,
+    vel_z: View<global, f32>,
+    cell_key: ViewMut<global, u32>,
+    payload: ViewMut<global, u32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    let dt = params[1];
+    let g = params[2];
+    let ox = params[3];
+    let oy = params[4];
+    let oz = params[5];
+    let cs = params[6];
+    if i < n {
+        // 运算序逐字冻结(host hash_cellkey_step 同序):prev 保存 → vy →
+        // px → py(新 vy)→ pz。
+        prev_x[i] = pos_x[i];
+        prev_y[i] = pos_y[i];
+        prev_z[i] = pos_z[i];
+        vel_y[i] = vel_y[i] + g * dt;
+        pos_x[i] = pos_x[i] + vel_x[i] * dt;
+        pos_y[i] = pos_y[i] + vel_y[i] * dt;
+        pos_z[i] = pos_z[i] + vel_z[i] * dt;
+        // cell 坐标:floor(负商向负无穷)→ f32 域 clamp [0,63] → usize。
+        let mut fx = ((pos_x[i] - ox) / cs).floor();
+        if fx < 0.0 {
+            fx = 0.0;
+        }
+        if fx > 63.0 {
+            fx = 63.0;
+        }
+        let cx = fx as usize;
+        let mut fy = ((pos_y[i] - oy) / cs).floor();
+        if fy < 0.0 {
+            fy = 0.0;
+        }
+        if fy > 63.0 {
+            fy = 63.0;
+        }
+        let cy = fy as usize;
+        let mut fz = ((pos_z[i] - oz) / cs).floor();
+        if fz < 0.0 {
+            fz = 0.0;
+        }
+        if fz > 63.0 {
+            fz = 63.0;
+        }
+        let cz = fz as usize;
+        cell_key[i] = ((cz * 64usize + cy) * 64usize + cx) as u32;
+        payload[i] = i as u32;
+    }
+}

@@ -971,6 +971,256 @@ def check_evidence_files() -> None:
     g14_m_f_production_caliber_stage_a_schema = load(
         ROOT / "milestones/g14/g14_m_f_production_caliber_stage_a_evidence_schema.json"
     )
+    g31_window_present_schema = load(
+        ROOT / "milestones/g31/g31_window_present_evidence_schema.json"
+    )
+    g31_frame_pipelining_schema = load(
+        ROOT / "milestones/g31/g31_frame_pipelining_evidence_schema.json"
+    )
+    g31_dynamic_scene_schema = load(
+        ROOT / "milestones/g31/g31_dynamic_scene_evidence_schema.json"
+    )
+    g31_framegen_present_schema = load(
+        ROOT / "milestones/g31/g31_framegen_present_evidence_schema.json"
+    )
+    g31_game_loop_schema = load(
+        ROOT / "milestones/g31/g31_game_loop_evidence_schema.json"
+    )
+    # G31+ 波 A 验收门（A6）两前缀纯追加（重放幂等面；与既有 g31_* 全族互不包含）
+    g31_wave_a_anchor_check_schema = load(
+        ROOT / "milestones/g31/g31_wave_a_anchor_check_evidence_schema.json"
+    )
+    g31_wave_a_soak_schema = load(
+        ROOT / "milestones/g31/g31_wave_a_soak_evidence_schema.json"
+    )
+    # G31+ 波 B Task B2 ReSTIR 车道集成门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_restir_wiring_schema = load(
+        ROOT / "milestones/g31/g31_restir_wiring_evidence_schema.json"
+    )
+    g31_slab_wiring_schema = load(
+        ROOT / "milestones/g31/g31_slab_wiring_evidence_schema.json"
+    )
+    g31_slab_wiring_gate_schema = load(
+        ROOT / "milestones/g31/g31_slab_wiring_gate_evidence_schema.json"
+    )
+    # G31+ 波 B Task B1 HZB 遮挡剔除生产接线门前缀纯追加（重放幂等面）
+    g31_hzb_wiring_schema = load(
+        ROOT / "milestones/g31/g31_hzb_wiring_evidence_schema.json"
+    )
+    # G31+ 波 B Task B5 蒙皮/骨骼动画进生产帧门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_skinning_wiring_schema = load(
+        ROOT / "milestones/g31/g31_skinning_wiring_evidence_schema.json"
+    )
+    # G31+ 波 C Task C9 NGX 分解 profiling 门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_ngx_decomposition_schema = load(
+        ROOT / "milestones/g31/g31_ngx_decomposition_evidence_schema.json"
+    )
+    # G31+ 波 C Task C1 渲染器 SDK 稳定 API 面前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_renderer_sdk_schema = load(
+        ROOT / "milestones/g31/g31_renderer_sdk_evidence_schema.json"
+    )
+    # G31+ 波 C Task C5 渲染器 SDK 分发打包门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_sdk_dist_schema = load(
+        ROOT / "milestones/g31/g31_sdk_dist_evidence_schema.json"
+    )
+    # G31+ 波 C Task C4 运行时健壮性 + 故障注入门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_robustness_schema = load(
+        ROOT / "milestones/g31/g31_robustness_evidence_schema.json"
+    )
+    # G31+ 波 B Task B4 纹理采样管线进生产场景门前缀纯追加（重放幂等面；gate
+    # 长前缀先匹配）
+    g31_texture_sampling_schema = load(
+        ROOT / "milestones/g31/g31_texture_sampling_evidence_schema.json"
+    )
+    g31_texture_sampling_gate_schema = load(
+        ROOT / "milestones/g31/g31_texture_sampling_gate_evidence_schema.json"
+    )
+    # G34 全特性合流 G34-1 统一车道门前缀纯追加（重放幂等面；gate 长前缀
+    # 先匹配——g34_unified_lane_gate_ 先于 g34_unified_lane_）
+    g34_unified_lane_schema = load(
+        ROOT / "milestones/g34/g34_unified_lane_evidence_schema.json"
+    )
+    g34_unified_lane_gate_schema = load(
+        ROOT / "milestones/g34/g34_unified_lane_gate_evidence_schema.json"
+    )
+    # G34 全特性合流 G34-2 HZB 统一车道门前缀纯追加（重放幂等面；仅门裁决件
+    # 注册——HZB harness 真跑件不注册 check_schemas,数字经门裁决件蒸馏登记；
+    # g34_ 族前缀分岔:unified_lane/skin_unified/hzb_unified 首段 u/s/h 分岔
+    # 互不包含）
+    g34_hzb_unified_gate_schema = load(
+        ROOT / "milestones/g34/g34_hzb_unified_gate_evidence_schema.json"
+    )
+    # G34 全特性合流 G34-3 蒙皮统一车道门前缀纯追加（重放幂等面；gate 长前缀
+    # 先匹配——g34_skin_unified_gate_ 先于 g34_skin_unified_；与 g34_unified_lane_
+    # 族首段 s/u 分岔全串互不包含）
+    g34_skin_unified_schema = load(
+        ROOT / "milestones/g34/g34_skin_unified_evidence_schema.json"
+    )
+    g34_skin_unified_gate_schema = load(
+        ROOT / "milestones/g34/g34_skin_unified_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-2 粒子核心门前缀纯追加（重放幂等面；仅门裁决件
+    # 注册——probe 真跑件留 .tmp 不注册，数字经门裁决件蒸馏登记；前缀
+    # g35_particle_core_ 与既有 g19_~g30_ 元组/g31_/g34_ 各族及 gpu
+    # fallthrough 全串互不包含）
+    g35_particle_core_gate_schema = load(
+        ROOT / "milestones/g35/g35_particle_core_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-3 粒子渲染接线门前缀纯追加（重放幂等面；仅门
+    # 裁决件注册——lane 真跑件（rurix.g35.particle_lane_run.v1）留 .tmp 不
+    # 注册，数字经门裁决件蒸馏登记；前缀 g35_render_ 与同族
+    # g35_particle_core_/g35_primitives_ 及既有 g19_~g30_ 元组/g31_/g34_
+    # 各族与 gpu fallthrough 全串互不包含）
+    g35_render_gate_schema = load(
+        ROOT / "milestones/g35/g35_render_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-1 基元库门前缀纯追加（重放幂等面；仅门裁决件
+    # 注册——probe 真跑件（rurix.g35.primitives_probe.v1）留 .tmp 不注册,
+    # 数字经门裁决件蒸馏登记；g35_primitives_ 与既有 g34_/g31_ 全族及 gpu
+    # fallthrough 前缀互不包含）
+    g35_primitives_gate_schema = load(
+        ROOT / "milestones/g35/g35_primitives_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-8 作者面与 SDK 门前缀纯追加（重放幂等面；仅门
+    # 裁决件注册——probe 真跑件（rurix.g35.authoring_probe.v1 与红臂
+    # rurix.g35.authoring_probe_red.v1）留 .tmp 不注册；g35_authoring_ 与
+    # g35_particle_core_/g35_primitives_ 等族内九支首段分岔互不包含
+    # （milestones/g35/CI_GATES.md §3 前缀分岔分析），与既有 g19_~g30_ 元组/
+    # g31_/g34_ 各族及 gpu fallthrough 全串互不包含）
+    g35_authoring_gate_schema = load(
+        ROOT / "milestones/g35/g35_authoring_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-7 流体统一物理门前缀纯追加（重放幂等面；仅门
+    # 裁决件注册——probe 真跑件（rurix.g35.fluids_probe.v1）留 .tmp 不注册,
+    # 数字经门裁决件蒸馏登记；前缀 g35_fluids_ 与 g35_primitives_/
+    # g35_particle_core_ 在 g35_ 后首段分岔,与既有 g19_~g30_ 元组/g31_/
+    # g34_ 各族及 gpu fallthrough 全串互不包含）
+    g35_fluids_gate_schema = load(
+        ROOT / "milestones/g35/g35_fluids_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-6 事件/数据通道门前缀纯追加（重放幂等面；仅门
+    # 裁决件注册——probe 真跑件（rurix.g35.events_probe.v1 与红臂
+    # rurix.g35.events_red_arm.v1）留 .tmp 不注册,数字经门裁决件蒸馏登记；
+    # g35_events_ 与 g35_particle_core_/g35_primitives_ 首段分岔互不包含，
+    # 与既有 g34_/g31_ 全族及 gpu fallthrough 亦互不包含）
+    g35_events_gate_schema = load(
+        ROOT / "milestones/g35/g35_events_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-5 碰撞与力场门前缀纯追加（重放幂等面；仅门裁决
+    # 件注册——probe 真跑件〔rurix.g35.collision_probe.v1〕留 .tmp 不注册，
+    # 数字经门裁决件蒸馏登记；前缀 g35_collision_ 与既有 g35_particle_core_/
+    # g35_primitives_ 同族及 g19_~g30_ 元组/g31_/g34_ 各族与 gpu fallthrough
+    # 全串互不包含）
+    g35_collision_gate_schema = load(
+        ROOT / "milestones/g35/g35_collision_gate_evidence_schema.json"
+    )
+    # G35 GPU 粒子系统 G35-9 确定性回放/回滚门前缀纯追加（重放幂等面；仅门
+    # 裁决件注册——probe 真跑件〔rurix.g35.replay_record.v1/replay_replay.v1/
+    # replay_rollback.v1/红臂 rurix.g35.replay_red_arm.v1〕与 journal/digest
+    # 链/检查点文件留 .tmp 不注册，数字经门裁决件蒸馏登记；前缀分岔注意：
+    # g35_replay_ 与同族 g35_render_ 共享 "g35_re" 后于 n/p 分岔（render/
+    # replay）互不为对方前缀；与 g35_particle_core_/g35_primitives_/
+    # g35_fluids_/g35_events_/g35_collision_ 首段分岔及 g19_~g30_ 元组/
+    # g31_/g34_ 各族与 gpu fallthrough 全串互不包含）
+    g35_replay_gate_schema = load(
+        ROOT / "milestones/g35/g35_replay_gate_evidence_schema.json"
+    )
+    # G31+ 波 C Task C2 渲染器文档与示例门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_renderer_docs_schema = load(
+        ROOT / "milestones/g31/g31_renderer_docs_evidence_schema.json"
+    )
+    # G31+ #58 簇 DAG LOD 生产接线门前缀纯追加（重放幂等面；与既有 g31_* 全族
+    # 及 gpu fallthrough 互不包含）
+    g31_cluster_lod_schema = load(
+        ROOT / "milestones/g31/g31_cluster_lod_evidence_schema.json"
+    )
+    # G31+ #95/#68/#99 WP cell + HLOD 生产接线门前缀纯追加（重放幂等面；与
+    # 既有 g31_* 全族及 gpu fallthrough 互不包含）
+    g31_wp_hlod_schema = load(
+        ROOT / "milestones/g31/g31_wp_hlod_evidence_schema.json"
+    )
+    # G31+ 波 C Task C3 设备兼容矩阵与能力降级链门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_capability_fallback_schema = load(
+        ROOT / "milestones/g31/g31_capability_fallback_evidence_schema.json"
+    )
+
+    # G31+ 波 C Task C6 vendor 许可合规终审 evidence schema（三处纯追加；
+    # 前缀路由 g31_vendor_license_ 与既有 g31_* 全族及 gpu fallthrough 互不包含）
+    g31_vendor_license_schema = load(
+        ROOT / "milestones/g31/g31_vendor_license_evidence_schema.json"
+    )
+    # G31+ 波 C Task C8 支持渠道与版本政策门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_support_policy_schema = load(
+        ROOT / "milestones/g31/g31_support_policy_evidence_schema.json"
+    )
+    # G31+ 波 C Task C7 性能剖析与调试工具面前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_profiling_schema = load(
+        ROOT / "milestones/g31/g31_profiling_evidence_schema.json"
+    )
+    # G31+ 波 C Task C10 RD-027 毒径守护门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    # G31+ 波 C Task C11 cluster 流送 P4 四行门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含——p4 头唯一无同族分岔）
+    g31_p4_streaming_schema = load(
+        ROOT / "milestones/g31/g31_p4_streaming_evidence_schema.json"
+    )
+    # G31+ 波 C Task C15 RT pipeline 宿主车道门两前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含——`g31_rt_pipeline_` r 头族第六字符 t 唯一；
+    # `g31_ser_gain_estimate_` s 头族第四字符 e 唯一，与 g31_slab_/g31_skinning_/
+    # g31_support_/g31_sdk_ 全串互不包含）
+    g31_rt_pipeline_schema = load(
+        ROOT / "milestones/g31/g31_rt_pipeline_evidence_schema.json"
+    )
+    g31_ser_gain_estimate_schema = load(
+        ROOT / "milestones/g31/g31_ser_gain_estimate_evidence_schema.json"
+    )
+    g31_rd027_poison_guard_schema = load(
+        ROOT / "milestones/g31/g31_rd027_poison_guard_evidence_schema.json"
+    )
+    # G31+ 波 C Task C17 阻塞项新鲜探针门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含——b 头族 g31_baseline_ skip 路由
+    # 第六字符分岔 a/l）
+    g31_blocked_probes_schema = load(
+        ROOT / "milestones/g31/g31_blocked_probes_evidence_schema.json"
+    )
+    # G31+ 波 C Task C16 M61 ③ measured 对照门 + 重判窗批量执行门双 schema 纯追加
+    # （重放幂等面；与既有 g31_* 全族及 gpu fallthrough 互不包含——m 头族
+    # g31_m98_l4_ 第六字符分岔 9/e〔mesh_ 全串唯一〕，r 头族 rejudgment_ 段唯一）
+    g31_mesh_vs_raster_schema = load(
+        ROOT / "milestones/g31/g31_mesh_vs_raster_bench_evidence_schema.json"
+    )
+    g31_rejudgment_windows_schema = load(
+        ROOT / "milestones/g31/g31_rejudgment_windows_evidence_schema.json"
+    )
+    # G31+ 波 C Task C12 HLOD L4 档门前缀纯追加（重放幂等面；与既有
+    # g31_* 全族及 gpu fallthrough 互不包含）
+    g31_hlod_l4_schema = load(
+        ROOT / "milestones/g31/g31_hlod_l4_evidence_schema.json"
+    )
+    # G31+ 波 C Task C13 SVT 四行门/harness 双 schema 纯追加（重放幂等面）
+    g31_svt_schema = load(
+        ROOT / "milestones/g31/g31_svt_evidence_schema.json"
+    )
+    g31_svt_gate_schema = load(
+        ROOT / "milestones/g31/g31_svt_gate_evidence_schema.json"
+    )
+    # G31+ 波 C Task C14 KTX2 三行门/harness 双 schema 纯追加（重放幂等面）
+    g31_ktx2_ab_schema = load(
+        ROOT / "milestones/g31/g31_ktx2_ab_evidence_schema.json"
+    )
+    g31_ktx2_gate_schema = load(
+        ROOT / "milestones/g31/g31_ktx2_gate_evidence_schema.json"
+    )
     g14_wave6_exit_schema = load(
         ROOT / "milestones/g14/g14_wave6_exit_evidence_schema.json"
     )
@@ -2346,6 +2596,259 @@ def check_evidence_files() -> None:
     g14_m_f_production_caliber_stage_a_validator = (
         jsonschema.Draft7Validator(g14_m_f_production_caliber_stage_a_schema)
         if g14_m_f_production_caliber_stage_a_schema is not None
+        else None
+    )
+    g31_window_present_validator = (
+        jsonschema.Draft7Validator(g31_window_present_schema)
+        if g31_window_present_schema is not None
+        else None
+    )
+    g31_frame_pipelining_validator = (
+        jsonschema.Draft7Validator(g31_frame_pipelining_schema)
+        if g31_frame_pipelining_schema is not None
+        else None
+    )
+    g31_dynamic_scene_validator = (
+        jsonschema.Draft7Validator(g31_dynamic_scene_schema)
+        if g31_dynamic_scene_schema is not None
+        else None
+    )
+    g31_framegen_present_validator = (
+        jsonschema.Draft7Validator(g31_framegen_present_schema)
+        if g31_framegen_present_schema is not None
+        else None
+    )
+    g31_game_loop_validator = (
+        jsonschema.Draft7Validator(g31_game_loop_schema)
+        if g31_game_loop_schema is not None
+        else None
+    )
+    # G31+ 波 A 验收门（A6）两前缀纯追加（重放幂等面）
+    g31_wave_a_anchor_check_validator = (
+        jsonschema.Draft7Validator(g31_wave_a_anchor_check_schema)
+        if g31_wave_a_anchor_check_schema is not None
+        else None
+    )
+    g31_wave_a_soak_validator = (
+        jsonschema.Draft7Validator(g31_wave_a_soak_schema)
+        if g31_wave_a_soak_schema is not None
+        else None
+    )
+    g31_restir_wiring_validator = (
+        jsonschema.Draft7Validator(g31_restir_wiring_schema)
+        if g31_restir_wiring_schema is not None
+        else None
+    )
+    g31_slab_wiring_validator = (
+        jsonschema.Draft7Validator(g31_slab_wiring_schema)
+        if g31_slab_wiring_schema is not None
+        else None
+    )
+    g31_slab_wiring_gate_validator = (
+        jsonschema.Draft7Validator(g31_slab_wiring_gate_schema)
+        if g31_slab_wiring_gate_schema is not None
+        else None
+    )
+    g31_hzb_wiring_validator = (
+        jsonschema.Draft7Validator(g31_hzb_wiring_schema)
+        if g31_hzb_wiring_schema is not None
+        else None
+    )
+    g31_skinning_wiring_validator = (
+        jsonschema.Draft7Validator(g31_skinning_wiring_schema)
+        if g31_skinning_wiring_schema is not None
+        else None
+    )
+    g31_ngx_decomposition_validator = (
+        jsonschema.Draft7Validator(g31_ngx_decomposition_schema)
+        if g31_ngx_decomposition_schema is not None
+        else None
+    )
+    g31_renderer_sdk_validator = (
+        jsonschema.Draft7Validator(g31_renderer_sdk_schema)
+        if g31_renderer_sdk_schema is not None
+        else None
+    )
+    g31_sdk_dist_validator = (
+        jsonschema.Draft7Validator(g31_sdk_dist_schema)
+        if g31_sdk_dist_schema is not None
+        else None
+    )
+    g31_robustness_validator = (
+        jsonschema.Draft7Validator(g31_robustness_schema)
+        if g31_robustness_schema is not None
+        else None
+    )
+    g31_texture_sampling_validator = (
+        jsonschema.Draft7Validator(g31_texture_sampling_schema)
+        if g31_texture_sampling_schema is not None
+        else None
+    )
+    g31_texture_sampling_gate_validator = (
+        jsonschema.Draft7Validator(g31_texture_sampling_gate_schema)
+        if g31_texture_sampling_gate_schema is not None
+        else None
+    )
+    g34_unified_lane_validator = (
+        jsonschema.Draft7Validator(g34_unified_lane_schema)
+        if g34_unified_lane_schema is not None
+        else None
+    )
+    g34_unified_lane_gate_validator = (
+        jsonschema.Draft7Validator(g34_unified_lane_gate_schema)
+        if g34_unified_lane_gate_schema is not None
+        else None
+    )
+    g34_hzb_unified_gate_validator = (
+        jsonschema.Draft7Validator(g34_hzb_unified_gate_schema)
+        if g34_hzb_unified_gate_schema is not None
+        else None
+    )
+    g34_skin_unified_validator = (
+        jsonschema.Draft7Validator(g34_skin_unified_schema)
+        if g34_skin_unified_schema is not None
+        else None
+    )
+    g34_skin_unified_gate_validator = (
+        jsonschema.Draft7Validator(g34_skin_unified_gate_schema)
+        if g34_skin_unified_gate_schema is not None
+        else None
+    )
+    g35_particle_core_gate_validator = (
+        jsonschema.Draft7Validator(g35_particle_core_gate_schema)
+        if g35_particle_core_gate_schema is not None
+        else None
+    )
+    g35_render_gate_validator = (
+        jsonschema.Draft7Validator(g35_render_gate_schema)
+        if g35_render_gate_schema is not None
+        else None
+    )
+    g35_primitives_gate_validator = (
+        jsonschema.Draft7Validator(g35_primitives_gate_schema)
+        if g35_primitives_gate_schema is not None
+        else None
+    )
+    g35_authoring_gate_validator = (
+        jsonschema.Draft7Validator(g35_authoring_gate_schema)
+        if g35_authoring_gate_schema is not None
+        else None
+    )
+    g35_fluids_gate_validator = (
+        jsonschema.Draft7Validator(g35_fluids_gate_schema)
+        if g35_fluids_gate_schema is not None
+        else None
+    )
+    g35_events_gate_validator = (
+        jsonschema.Draft7Validator(g35_events_gate_schema)
+        if g35_events_gate_schema is not None
+        else None
+    )
+    g35_collision_gate_validator = (
+        jsonschema.Draft7Validator(g35_collision_gate_schema)
+        if g35_collision_gate_schema is not None
+        else None
+    )
+    g35_replay_gate_validator = (
+        jsonschema.Draft7Validator(g35_replay_gate_schema)
+        if g35_replay_gate_schema is not None
+        else None
+    )
+    g31_renderer_docs_validator = (
+        jsonschema.Draft7Validator(g31_renderer_docs_schema)
+        if g31_renderer_docs_schema is not None
+        else None
+    )
+    g31_cluster_lod_validator = (
+        jsonschema.Draft7Validator(g31_cluster_lod_schema)
+        if g31_cluster_lod_schema is not None
+        else None
+    )
+    g31_wp_hlod_validator = (
+        jsonschema.Draft7Validator(g31_wp_hlod_schema)
+        if g31_wp_hlod_schema is not None
+        else None
+    )
+    g31_capability_fallback_validator = (
+        jsonschema.Draft7Validator(g31_capability_fallback_schema)
+        if g31_capability_fallback_schema is not None
+        else None
+    )
+
+    # G31+ 波 C Task C6（三处纯追加；与既有 g31_* 全族互不包含）
+    g31_vendor_license_validator = (
+        jsonschema.Draft7Validator(g31_vendor_license_schema)
+        if g31_vendor_license_schema is not None
+        else None
+    )
+    g31_support_policy_validator = (
+        jsonschema.Draft7Validator(g31_support_policy_schema)
+        if g31_support_policy_schema is not None
+        else None
+    )
+    g31_profiling_validator = (
+        jsonschema.Draft7Validator(g31_profiling_schema)
+        if g31_profiling_schema is not None
+        else None
+    )
+    g31_p4_streaming_validator = (
+        jsonschema.Draft7Validator(g31_p4_streaming_schema)
+        if g31_p4_streaming_schema is not None
+        else None
+    )
+    g31_rt_pipeline_validator = (
+        jsonschema.Draft7Validator(g31_rt_pipeline_schema)
+        if g31_rt_pipeline_schema is not None
+        else None
+    )
+    g31_ser_gain_estimate_validator = (
+        jsonschema.Draft7Validator(g31_ser_gain_estimate_schema)
+        if g31_ser_gain_estimate_schema is not None
+        else None
+    )
+    g31_rd027_poison_guard_validator = (
+        jsonschema.Draft7Validator(g31_rd027_poison_guard_schema)
+        if g31_rd027_poison_guard_schema is not None
+        else None
+    )
+    g31_blocked_probes_validator = (
+        jsonschema.Draft7Validator(g31_blocked_probes_schema)
+        if g31_blocked_probes_schema is not None
+        else None
+    )
+    g31_mesh_vs_raster_validator = (
+        jsonschema.Draft7Validator(g31_mesh_vs_raster_schema)
+        if g31_mesh_vs_raster_schema is not None
+        else None
+    )
+    g31_rejudgment_windows_validator = (
+        jsonschema.Draft7Validator(g31_rejudgment_windows_schema)
+        if g31_rejudgment_windows_schema is not None
+        else None
+    )
+    g31_hlod_l4_validator = (
+        jsonschema.Draft7Validator(g31_hlod_l4_schema)
+        if g31_hlod_l4_schema is not None
+        else None
+    )
+    g31_svt_validator = (
+        jsonschema.Draft7Validator(g31_svt_schema)
+        if g31_svt_schema is not None
+        else None
+    )
+    g31_svt_gate_validator = (
+        jsonschema.Draft7Validator(g31_svt_gate_schema)
+        if g31_svt_gate_schema is not None
+        else None
+    )
+    g31_ktx2_ab_validator = (
+        jsonschema.Draft7Validator(g31_ktx2_ab_schema)
+        if g31_ktx2_ab_schema is not None
+        else None
+    )
+    g31_ktx2_gate_validator = (
+        jsonschema.Draft7Validator(g31_ktx2_gate_schema)
+        if g31_ktx2_gate_schema is not None
         else None
     )
     g14_wave6_exit_validator = (
@@ -4922,6 +5425,475 @@ def check_evidence_files() -> None:
                 if _gv is None:
                     continue
                 validator = _gv
+        elif (
+            f.name.startswith("g31_window_present")
+            and g31_window_present_validator is not None
+        ):
+            # G31+ 波 A Task A1 真窗口 present 证据 →
+            # milestones/g31/g31_window_present_evidence_schema.json
+            # （ci/g31_window_present_smoke.py --gate g31.waveA.present 产）。
+            validator = g31_window_present_validator
+        elif (
+            f.name.startswith("g31_game_loop_")
+            and g31_game_loop_validator is not None
+        ):
+            # G31+ 波 A Task A3 游戏循环最小面 + device 侧显示编码证据 →
+            # milestones/g31/g31_game_loop_evidence_schema.json
+            # （ci/g31_game_loop_smoke.py --gate g31.waveA.gameloop 产）。
+            validator = g31_game_loop_validator
+        elif (
+            f.name.startswith("g31_frame_pipelining_")
+            and g31_frame_pipelining_validator is not None
+        ):
+            # G31+ 波 A Task A2 帧流水化 A/B 证据 →
+            # milestones/g31/g31_frame_pipelining_evidence_schema.json
+            # （ci/g31_frame_pipelining_smoke.py --gate g31.waveA.pipelining 产）。
+            validator = g31_frame_pipelining_validator
+        elif (
+            f.name.startswith("g31_dynamic_scene_")
+            and g31_dynamic_scene_validator is not None
+        ):
+            # G31+ 波 A Task A4 动态场景 refit/rebuild 对照证据 →
+            # milestones/g31/g31_dynamic_scene_evidence_schema.json
+            # （ci/g31_dynamic_scene_smoke.py --gate g31.waveA.dynscene 产）。
+            validator = g31_dynamic_scene_validator
+        elif (
+            f.name.startswith("g31_framegen_present")
+            and g31_framegen_present_validator is not None
+        ):
+            # G31+ 波 A Task A5 FG/MFG 帧生成生产接线证据 →
+            # milestones/g31/g31_framegen_present_evidence_schema.json
+            # （ci/g31_framegen_present_smoke.py --gate g31.waveA.framegen 产）。
+            validator = g31_framegen_present_validator
+        elif (
+            f.name.startswith("g31_wave_a_anchor_check_")
+            and g31_wave_a_anchor_check_validator is not None
+        ):
+            # G31+ 波 A 验收门（A6）零降级回归锚核验证据 →
+            # milestones/g31/g31_wave_a_anchor_check_evidence_schema.json
+            # （ci/g31_wave_a_anchor_check.py --gate 产）。
+            validator = g31_wave_a_anchor_check_validator
+        elif (
+            f.name.startswith("g31_wave_a_soak_")
+            and g31_wave_a_soak_validator is not None
+        ):
+            # G31+ 波 A 验收门（A6）soak 证据 →
+            # milestones/g31/g31_wave_a_soak_evidence_schema.json
+            # （ci/g31_wave_a_soak.py --gate 产）。
+            validator = g31_wave_a_soak_validator
+        elif (
+            f.name.startswith("g31_slab_wiring_gate_")
+            and g31_slab_wiring_gate_validator is not None
+        ):
+            # G31+ 波 B Task B3 slab 接线门裁决证据 →
+            # milestones/g31/g31_slab_wiring_gate_evidence_schema.json
+            # （ci/g31_slab_wiring_smoke.py --gate g31.waveB.slab 产；长前缀先匹配）。
+            validator = g31_slab_wiring_gate_validator
+        elif (
+            f.name.startswith("g31_slab_wiring_")
+            and g31_slab_wiring_validator is not None
+        ):
+            # G31+ 波 B Task B3 slab 材质侧表生产接线证据 →
+            # milestones/g31/g31_slab_wiring_evidence_schema.json
+            # （ci/g31_slab_wiring_smoke.py --gate g31.waveB.slab 产）。
+            validator = g31_slab_wiring_validator
+        elif (
+            f.name.startswith("g31_texture_sampling_gate_")
+            and g31_texture_sampling_gate_validator is not None
+        ):
+            # G31+ 波 B Task B4 纹理采样接线门裁决证据 →
+            # milestones/g31/g31_texture_sampling_gate_evidence_schema.json
+            # （ci/g31_texture_sampling_smoke.py --gate g31.waveB.texture 产；长前缀先匹配）。
+            validator = g31_texture_sampling_gate_validator
+        elif (
+            f.name.startswith("g31_texture_sampling_")
+            and g31_texture_sampling_validator is not None
+        ):
+            # G31+ 波 B Task B4 纹理采样生产接线 harness 证据（--textures on 腿）→
+            # milestones/g31/g31_texture_sampling_evidence_schema.json
+            # （ci/g31_texture_sampling_smoke.py --gate g31.waveB.texture 产）。
+            validator = g31_texture_sampling_validator
+        elif (
+            f.name.startswith("g34_unified_lane_gate_")
+            and g34_unified_lane_gate_validator is not None
+        ):
+            # G34 全特性合流 G34-1 统一车道门裁决证据 →
+            # milestones/g34/g34_unified_lane_gate_evidence_schema.json
+            # （ci/g34_unified_lane_smoke.py --gate g34.wave1.unified 产；长前缀先匹配）。
+            validator = g34_unified_lane_gate_validator
+        elif (
+            f.name.startswith("g34_unified_lane_")
+            and g34_unified_lane_validator is not None
+        ):
+            # G34 全特性合流 G34-1 统一车道 harness 证据（g34_full_lane 真跑腿）→
+            # milestones/g34/g34_unified_lane_evidence_schema.json
+            # （ci/g34_unified_lane_smoke.py --gate g34.wave1.unified 产）。
+            validator = g34_unified_lane_validator
+        elif (
+            f.name.startswith("g34_hzb_unified_gate_")
+            and g34_hzb_unified_gate_validator is not None
+        ):
+            # G34 全特性合流 G34-2 HZB 统一车道门裁决证据 →
+            # milestones/g34/g34_hzb_unified_gate_evidence_schema.json
+            # （ci/g34_hzb_unified_smoke.py --gate g34.wave2.hzb 产）。仅门裁决件
+            # 路由：HZB harness 真跑件（rurix.g34.hzb_unified_evidence.v1）留
+            # .tmp 不注册,数字经门裁决件蒸馏登记；baseline 对照腿归档用
+            # g34_unified_lane_g34hzb_ 前缀走上方 g34_unified_lane_ 既有路由。
+            # 前缀分岔分析：g34_ 族 unified_lane/skin_unified/hzb_unified 首段
+            # u/s/h 分岔互不包含,与既有 g31_hzb_wiring_ 族亦互不包含。
+            validator = g34_hzb_unified_gate_validator
+        elif (
+            f.name.startswith("g34_skin_unified_gate_")
+            and g34_skin_unified_gate_validator is not None
+        ):
+            # G34 全特性合流 G34-3 蒙皮统一车道门裁决证据 →
+            # milestones/g34/g34_skin_unified_gate_evidence_schema.json
+            # （ci/g34_skin_unified_smoke.py --gate g34.wave2.skin 产；长前缀先匹配）。
+            validator = g34_skin_unified_gate_validator
+        elif (
+            f.name.startswith("g34_skin_unified_")
+            and g34_skin_unified_validator is not None
+        ):
+            # G34 全特性合流 G34-3 蒙皮统一车道 harness 证据（g34_full_lane --skin on
+            # 真跑腿归档）→ milestones/g34/g34_skin_unified_evidence_schema.json
+            # （ci/g34_skin_unified_smoke.py --gate g34.wave2.skin 产；skin 门对照腿
+            # baseline/full_noskin 归档用 g34_unified_lane_g34skin_ 前缀走上方
+            # g34_unified_lane_ 既有路由——s/u 首段分岔全串互不包含）。
+            validator = g34_skin_unified_validator
+        elif (
+            f.name.startswith("g35_particle_core_")
+            and g35_particle_core_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-2 粒子核心门裁决证据（含标定纪元件——
+            # g35_budget evidence_file 指向门裁决件 results.trimmed_mean 镜像槽，
+            # budget_eval 通用路消费）→
+            # milestones/g35/g35_particle_core_gate_evidence_schema.json
+            # （ci/g35_particle_core_smoke.py --gate g35.wave2.particle_core 产；
+            # probe 真跑件〔rurix.g35.particle_core_probe.v1〕留 .tmp 不入
+            # evidence/ 不注册；与 g19_~g30_ 元组/g31_/g34_ 各族前缀互不包含）。
+            validator = g35_particle_core_gate_validator
+        elif (
+            f.name.startswith("g35_render_")
+            and g35_render_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-3 粒子渲染接线门裁决证据（含 MV 标定纪元件
+            # ——g35_budget g35.render.mv_parity_px evidence_file 指向门裁决件
+            # results.trimmed_mean 镜像槽，budget_eval 通用路消费）→
+            # milestones/g35/g35_render_gate_evidence_schema.json
+            # （ci/g35_render_wiring_smoke.py --gate g35.wave3.render 产；lane
+            # 真跑件〔rurix.g35.particle_lane_run.v1〕留 .tmp 不入 evidence/ 不
+            # 注册；前缀分岔分析：g35_render_ 与 g35_particle_core_/
+            # g35_primitives_ 首段分岔互不包含，与既有 g19_~g30_ 元组/g31_/
+            # g34_ 各族及 gpu fallthrough 全串互不包含）。
+            validator = g35_render_gate_validator
+        elif (
+            f.name.startswith("g35_primitives_")
+            and g35_primitives_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-1 基元库门裁决证据 →
+            # milestones/g35/g35_primitives_gate_evidence_schema.json
+            # （ci/g35_primitives_smoke.py --gate g35.wave1.primitives 产）。仅门
+            # 裁决件路由：probe 真跑件（rurix.g35.primitives_probe.v1）留 .tmp
+            # 不注册,数字经门裁决件蒸馏登记。前缀分岔分析：g35_primitives_ 与
+            # 既有 g34_ 族（unified_lane/skin_unified/hzb_unified）及 g31_* 全族
+            # 首段分岔互不包含,与 gpu fallthrough 亦互不包含。
+            validator = g35_primitives_gate_validator
+        elif (
+            f.name.startswith("g35_authoring_")
+            and g35_authoring_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-8 作者面与 SDK 门裁决证据 →
+            # milestones/g35/g35_authoring_gate_evidence_schema.json
+            # （ci/g35_authoring_smoke.py --gate g35.wave8.authoring 产；纯 host
+            # 门,无 kernels/frame_ms 面）。仅门裁决件路由：probe 真跑件
+            # （rurix.g35.authoring_probe.v1 / 红臂 rurix.g35.authoring_probe_red.v1）
+            # 留 .tmp 不入 evidence/ 不注册。前缀分岔分析：g35_authoring_ 与族内
+            # g35_primitives_/g35_particle_core_/g35_events_/g35_collision_/
+            # g35_fluids_ 等九支在 g35_ 后首段（authoring vs primitives/particle/
+            # events/collision/fluids/render/sort_oit/replay）分岔互不包含
+            # （CI_GATES.md §3 字面），与既有 g19_~g30_ 元组/g31_/g34_ 各族及
+            # gpu fallthrough 全串互不包含,既有路由 0-byte。
+            validator = g35_authoring_gate_validator
+        elif (
+            f.name.startswith("g35_fluids_")
+            and g35_fluids_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-7 流体统一物理门裁决证据（含标定纪元件——
+            # g35_budget g35.fluids.parity_p100 evidence_file 指向门裁决件
+            # results.trimmed_mean 镜像槽，budget_eval 通用路消费）→
+            # milestones/g35/g35_fluids_gate_evidence_schema.json
+            # （ci/g35_fluids_smoke.py --gate g35.wave7.fluids 产；probe 真跑件
+            # 〔rurix.g35.fluids_probe.v1〕留 .tmp 不入 evidence/ 不注册）。
+            # 前缀分岔分析：g35_fluids_ 与 g35_primitives_/g35_particle_core_
+            # 在 g35_ 后首段（fluids/primitives/particle）分岔互不包含,与既有
+            # g19_~g30_ 元组/g31_/g34_ 各族及 gpu fallthrough 全串互不包含。
+            validator = g35_fluids_gate_validator
+        elif (
+            f.name.startswith("g35_events_")
+            and g35_events_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-6 事件/数据通道 + particle_view 双向桥门
+            # 裁决证据（含标定纪元件——g35_budget g35.events.parity_p100
+            # evidence_file 指向门裁决件 results.trimmed_mean 镜像槽，
+            # budget_eval 通用路消费）→
+            # milestones/g35/g35_events_gate_evidence_schema.json
+            # （ci/g35_events_smoke.py --gate g35.wave6.events 产；probe 真跑件
+            # 〔rurix.g35.events_probe.v1/红臂 rurix.g35.events_red_arm.v1〕留
+            # .tmp 不入 evidence/ 不注册；前缀分岔分析：g35_events_ 与
+            # g35_particle_core_/g35_primitives_ 首段分岔互不包含,与既有
+            # g19_~g30_ 元组/g31_/g34_ 各族及 gpu fallthrough 亦互不包含）。
+            validator = g35_events_gate_validator
+        elif (
+            f.name.startswith("g35_collision_")
+            and g35_collision_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-5 碰撞与力场门裁决证据（含标定纪元件——
+            # g35_budget g35.collision.parity_p100 evidence_file 指向门裁决件
+            # results.trimmed_mean 镜像槽，budget_eval 通用路消费）→
+            # milestones/g35/g35_collision_gate_evidence_schema.json
+            # （ci/g35_collision_smoke.py --gate g35.wave5.collision 产；probe
+            # 真跑件〔rurix.g35.collision_probe.v1〕留 .tmp 不入 evidence/ 不
+            # 注册；前缀 g35_collision_ 与 g35_particle_core_/g35_primitives_
+            # 同族及 g19_~g30_ 元组/g31_/g34_ 各族全串互不包含）。
+            validator = g35_collision_gate_validator
+        elif (
+            f.name.startswith("g35_replay_")
+            and g35_replay_gate_validator is not None
+        ):
+            # G35 GPU 粒子系统 G35-9 确定性回放/回滚门裁决证据（本门全位级：
+            # 整数/digest 域零容差，无 f32 budget 条目——不产 g35_budget
+            # 标定件）→ milestones/g35/g35_replay_gate_evidence_schema.json
+            # （ci/g35_replay_smoke.py --gate g35.wave9.replay 产；probe 真跑
+            # 件〔record/replay/rollback/红臂四腿〕与 journal/digest 链/检查
+            # 点文件留 .tmp 不入 evidence/ 不注册；前缀分岔分析：g35_replay_
+            # 与同族 g35_render_ 共享 "g35_re" 后于 n/p 分岔（render/replay）
+            # 互不包含，与 g35_particle_core_/g35_primitives_/g35_fluids_/
+            # g35_events_/g35_collision_ 首段分岔及 g19_~g30_ 元组/g31_/g34_
+            # 各族全串互不包含）。
+            validator = g35_replay_gate_validator
+        elif f.name.startswith("g31_baseline_"):
+            # G31 波 A 验收 baseline 快检件（results.trimmed_mean 通用 measured entry，
+            # budget_eval eval_entry 通用路消费）——无映射前缀跳过，g19~g30 baseline 同律。
+            continue
+        elif f.name.startswith("g32_baseline_"):
+            # G32 画面完整期波 B 验收 baseline 快检件（g31_baseline_ 同律：
+            # results.trimmed_mean 通用 measured entry，budget_eval eval_entry
+            # 通用路消费）——无映射前缀跳过。
+            continue
+        elif f.name.startswith("g33_baseline_"):
+            # G33 商业化期波 C 验收 baseline 快检件（g31_baseline_ 同律：
+            # results.trimmed_mean 通用 measured entry，budget_eval eval_entry
+            # 通用路消费）——无映射前缀跳过。
+            continue
+        elif (
+            f.name.startswith("g31_restir_wiring_")
+            and g31_restir_wiring_validator is not None
+        ):
+            # G31+ 波 B Task B2 ReSTIR 高档 reservoir 车道集成证据 →
+            # milestones/g31/g31_restir_wiring_evidence_schema.json
+            # （ci/g31_restir_wiring_smoke.py --gate g31.waveB.restir 产）。
+            validator = g31_restir_wiring_validator
+        elif (
+            f.name.startswith("g31_hzb_wiring_")
+            and g31_hzb_wiring_validator is not None
+        ):
+            # G31+ 波 B Task B1 HZB 遮挡剔除生产接线门证据 →
+            # milestones/g31/g31_hzb_wiring_evidence_schema.json
+            # （ci/g31_hzb_wiring_smoke.py --gate g31.waveB.hzb 产）。
+            validator = g31_hzb_wiring_validator
+        elif (
+            f.name.startswith("g31_skinning_wiring_")
+            and g31_skinning_wiring_validator is not None
+        ):
+            # G31+ 波 B Task B5 蒙皮/骨骼动画进生产帧证据 →
+            # milestones/g31/g31_skinning_wiring_evidence_schema.json
+            # (ci/g31_skinning_wiring_smoke.py --gate g31.waveB.skinning 产)。
+            validator = g31_skinning_wiring_validator
+        elif (
+            f.name.startswith("g31_ngx_decomposition_")
+            and g31_ngx_decomposition_validator is not None
+        ):
+            # G31+ 波 C Task C9 NGX 分解 profiling 证据 →
+            # milestones/g31/g31_ngx_decomposition_evidence_schema.json
+            # （ci/g31_ngx_decomposition_smoke.py --gate g31.waveC.ngx_decomp 产）。
+            validator = g31_ngx_decomposition_validator
+        elif (
+            f.name.startswith("g31_renderer_sdk_")
+            and g31_renderer_sdk_validator is not None
+        ):
+            # G31+ 波 C Task C1 渲染器 SDK 稳定 API 面证据 →
+            # milestones/g31/g31_renderer_sdk_evidence_schema.json
+            # （ci/g31_renderer_sdk_smoke.py --gate g31.waveC.sdk 产）。
+            validator = g31_renderer_sdk_validator
+        elif (
+            f.name.startswith("g31_sdk_dist_")
+            and g31_sdk_dist_validator is not None
+        ):
+            # G31+ 波 C Task C5 渲染器 SDK 分发打包门证据 →
+            # milestones/g31/g31_sdk_dist_evidence_schema.json
+            # （ci/g31_sdk_dist_smoke.py --gate g31.waveC.dist 产）。
+            validator = g31_sdk_dist_validator
+        elif (
+            f.name.startswith("g31_robustness_")
+            and g31_robustness_validator is not None
+        ):
+            # G31+ 波 C Task C4 运行时健壮性 + 故障注入门证据 →
+            # milestones/g31/g31_robustness_evidence_schema.json
+            # （ci/g31_robustness_smoke.py --gate g31.waveC.robustness 产）。
+            validator = g31_robustness_validator
+        elif (
+            f.name.startswith("g31_renderer_docs_")
+            and g31_renderer_docs_validator is not None
+        ):
+            # G31+ 波 C Task C2 渲染器文档与示例门证据 →
+            # milestones/g31/g31_renderer_docs_evidence_schema.json
+            # （ci/g31_renderer_docs_smoke.py --gate g31.waveC.docs 产）。
+            validator = g31_renderer_docs_validator
+        elif (
+            f.name.startswith("g31_capability_fallback_")
+            and g31_capability_fallback_validator is not None
+        ):
+            # G31+ 波 C Task C3 设备兼容矩阵与能力降级链证据 →
+            # milestones/g31/g31_capability_fallback_evidence_schema.json
+            # （ci/g31_capability_fallback_smoke.py --gate g31.waveC.capability 产）。
+            validator = g31_capability_fallback_validator
+        elif (
+            f.name.startswith("g31_support_policy_")
+            and g31_support_policy_validator is not None
+        ):
+            # G31+ 波 C Task C8 支持渠道与版本政策门证据 →
+            # milestones/g31/g31_support_policy_evidence_schema.json
+            # （ci/g31_support_policy_smoke.py --gate g31.waveC.support 产）。
+            validator = g31_support_policy_validator
+        elif (
+            f.name.startswith("g31_vendor_license_")
+            and g31_vendor_license_validator is not None
+        ):
+            # G31+ 波 C Task C6 vendor 许可合规终审门裁决证据 →
+            # milestones/g31/g31_vendor_license_evidence_schema.json
+            # （ci/g31_vendor_license_smoke.py --gate g31.waveC.license 产）。
+            validator = g31_vendor_license_validator
+        elif (
+            f.name.startswith("g31_profiling_")
+            and g31_profiling_validator is not None
+        ):
+            # G31+ 波 C Task C7 性能剖析与调试工具面门裁决证据 →
+            # milestones/g31/g31_profiling_evidence_schema.json
+            # （ci/g31_profiling_smoke.py --gate g31.waveC.profiling 产）。
+            validator = g31_profiling_validator
+        elif (
+            f.name.startswith("g31_rd027_poison_guard_")
+            and g31_rd027_poison_guard_validator is not None
+        ):
+            # G31+ 波 C Task C10 RD-027 PT 毒径回归守护门证据 →
+            # milestones/g31/g31_rd027_poison_guard_evidence_schema.json
+            # （ci/g31_rd027_poison_guard.py --gate g31.waveC.rd027 产）。
+            validator = g31_rd027_poison_guard_validator
+        elif (
+            f.name.startswith("g31_p4_streaming_")
+            and g31_p4_streaming_validator is not None
+        ):
+            # G31+ 波 C Task C11 cluster 流送 P4 四行门裁决证据 →
+            # milestones/g31/g31_p4_streaming_evidence_schema.json
+            # （ci/g31_p4_streaming_smoke.py --gate g31.waveC.p4stream 产）。
+            validator = g31_p4_streaming_validator
+        elif (
+            f.name.startswith("g31_ser_gain_estimate_")
+            and g31_ser_gain_estimate_validator is not None
+        ):
+            # G31+ 波 C Task C15 SER 收益 measured 预估窗件 →
+            # milestones/g31/g31_ser_gain_estimate_evidence_schema.json
+            # （ci/g31_rt_pipeline_smoke.py --gate g31.waveC.rtpipeline 产；
+            # RD-040 RT-PIPELINE-SBT 分项锚 evidence/*ser_gain_estimate*.json 消费面；
+            # 置于 g31_rt_pipeline_ 前——两前缀全串互不包含,序仅为可读性）。
+            validator = g31_ser_gain_estimate_validator
+        elif (
+            f.name.startswith("g31_rt_pipeline_")
+            and g31_rt_pipeline_validator is not None
+        ):
+            # G31+ 波 C Task C15 RT pipeline + SBT 宿主车道门裁决证据 →
+            # milestones/g31/g31_rt_pipeline_evidence_schema.json
+            # （ci/g31_rt_pipeline_smoke.py --gate g31.waveC.rtpipeline 产）。
+            validator = g31_rt_pipeline_validator
+        elif (
+            f.name.startswith("g31_hlod_l4_")
+            and g31_hlod_l4_validator is not None
+        ):
+            # G31+ 波 C Task C12 HLOD L4 门裁决证据 →
+            # milestones/g31/g31_hlod_l4_evidence_schema.json
+            # （ci/g31_hlod_l4_smoke.py --gate g31.waveC.hlodl4 产）。
+            validator = g31_hlod_l4_validator
+        elif (
+            f.name.startswith("g31_svt_gate_")
+            and g31_svt_gate_validator is not None
+        ):
+            # G31+ 波 C Task C13 SVT 门裁决证据 →
+            # milestones/g31/g31_svt_gate_evidence_schema.json
+            # （ci/g31_svt_smoke.py --gate g31.waveC.svt 产）。
+            validator = g31_svt_gate_validator
+        elif (
+            f.name.startswith("g31_svt_harness_")
+            and g31_svt_validator is not None
+        ):
+            # G31+ 波 C Task C13 SVT harness 真跑证据 →
+            # milestones/g31/g31_svt_evidence_schema.json。
+            validator = g31_svt_validator
+        elif (
+            f.name.startswith("g31_ktx2_gate_")
+            and g31_ktx2_gate_validator is not None
+        ):
+            # G31+ 波 C Task C14 KTX2 三行门裁决证据 →
+            # milestones/g31/g31_ktx2_gate_evidence_schema.json
+            # （ci/g31_ktx2_smoke.py --gate g31.waveC.ktx2 产;长前缀先匹配）。
+            validator = g31_ktx2_gate_validator
+        elif (
+            f.name.startswith("g31_ktx2_ab_")
+            and g31_ktx2_ab_validator is not None
+        ):
+            # G31+ 波 C Task C14 KTX2 A/B measured harness 证据 →
+            # milestones/g31/g31_ktx2_ab_evidence_schema.json
+            # （ci/g31_ktx2_smoke.py --gate g31.waveC.ktx2 产）。
+            validator = g31_ktx2_ab_validator
+        elif (
+            f.name.startswith("g31_blocked_probes_")
+            and g31_blocked_probes_validator is not None
+        ):
+            # G31+ 波 C Task C17 阻塞项新鲜探针门裁决证据 →
+            # milestones/g31/g31_blocked_probes_evidence_schema.json
+            # （ci/g31_blocked_probes_smoke.py --gate g31.waveC.blockedprobes 产）。
+            validator = g31_blocked_probes_validator
+        elif (
+            f.name.startswith("g31_mesh_vs_raster_")
+            and g31_mesh_vs_raster_validator is not None
+        ):
+            # G31+ 波 C Task C16 M61 ③ mesh HW vs VS 光栅 measured 对照门裁决证据 →
+            # milestones/g31/g31_mesh_vs_raster_bench_evidence_schema.json
+            # （ci/g31_mesh_vs_raster_bench.py --gate g31.waveC.meshbench 产）。
+            validator = g31_mesh_vs_raster_validator
+        elif (
+            f.name.startswith("g31_rejudgment_windows_")
+            and g31_rejudgment_windows_validator is not None
+        ):
+            # G31+ 波 C Task C16 重判窗批量执行门裁决证据 →
+            # milestones/g31/g31_rejudgment_windows_evidence_schema.json
+            # （ci/g31_rejudgment_smoke.py --gate g31.waveC.rejudgment 产）。
+            validator = g31_rejudgment_windows_validator
+        elif (
+            f.name.startswith("g31_cluster_lod_")
+            and g31_cluster_lod_validator is not None
+        ):
+            # G31+ #58 簇 DAG LOD 生产接线门裁决证据 →
+            # milestones/g31/g31_cluster_lod_evidence_schema.json
+            # （ci/g31_cluster_lod_smoke.py --gate g31.wave58.cluster_lod 产）。
+            validator = g31_cluster_lod_validator
+        elif (
+            f.name.startswith("g31_wp_hlod_")
+            and g31_wp_hlod_validator is not None
+        ):
+            # G31+ #95/#68/#99 WP cell + HLOD 生产接线门裁决证据 →
+            # milestones/g31/g31_wp_hlod_evidence_schema.json
+            # （ci/g31_wp_hlod_smoke.py --gate g31.wave95.wp_hlod 产）。
+            validator = g31_wp_hlod_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

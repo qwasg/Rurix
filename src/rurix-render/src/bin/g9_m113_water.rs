@@ -30,10 +30,10 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::world::water::{
+    GeometryPathClaim, GeometryToken, OCEAN_GRID_N, OceanPipeline, ShallowWaveSim, WaterError,
     assert_geometry_paths_disjoint, buoyancy_query, canonical_shallow, canonical_spectrum,
     cdlod_tier, decode_spectrum, encode_spectrum, max_abs_diff, ocean_digest, reference_dft_height,
-    shallow_digest, spectrum_signature, tile_blend_weight, verify_spectrum, GeometryPathClaim,
-    GeometryToken, OceanPipeline, ShallowWaveSim, WaterError, OCEAN_GRID_N,
+    shallow_digest, spectrum_signature, tile_blend_weight, verify_spectrum,
 };
 use std::path::PathBuf;
 
@@ -145,7 +145,9 @@ fn red_arm_invalid_spectrum() -> Result<(), String> {
     let neg = (-1.0f64).to_le_bytes();
     raw[14..22].copy_from_slice(&neg); // wind_speed 字段(magic4+ver2+wind_dir8 之后)
     match decode_spectrum(&raw) {
-        Err(WaterError::InvalidSpectrumParam { field: "wind_speed" }) => {}
+        Err(WaterError::InvalidSpectrumParam {
+            field: "wind_speed",
+        }) => {}
         other => return Err(format!("负风速资产未拒录: {other:?}")),
     }
     // 非法 fetch(0)注入。
@@ -170,7 +172,8 @@ fn red_arm_shallow_oob() -> Result<(), String> {
         Err(WaterError::ShallowOutOfBoundsWrite { .. }) => {}
         other => return Err(format!("越界写未检出: {other:?}")),
     }
-    sim.poke(8, 8, 1.0).map_err(|e| format!("界内写被误拒: {e}"))?;
+    sim.poke(8, 8, 1.0)
+        .map_err(|e| format!("界内写被误拒: {e}"))?;
     Ok(())
 }
 
@@ -178,10 +181,15 @@ fn red_arm_shallow_oob() -> Result<(), String> {
 fn red_arm_geometry_shared() -> Result<(), String> {
     let ocean = OceanPipeline::new(canonical_spectrum(), 8).map_err(|e| e.to_string())?;
     let injected = GeometryPathClaim {
-        tokens: vec![GeometryToken::ShallowPingPongGrid, GeometryToken::OceanSpectrumTile],
+        tokens: vec![
+            GeometryToken::ShallowPingPongGrid,
+            GeometryToken::OceanSpectrumTile,
+        ],
     };
     match assert_geometry_paths_disjoint(&ocean.geometry_claim(), &injected) {
-        Err(WaterError::GeometryPathShared { token: "ocean_spectrum_tile" }) => {}
+        Err(WaterError::GeometryPathShared {
+            token: "ocean_spectrum_tile",
+        }) => {}
         other => return Err(format!("互斥违反未检出: {other:?}")),
     }
     // sabotage:真实双管线声明必须互斥通过。
@@ -221,9 +229,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -254,8 +264,11 @@ fn main() {
     }
 
     // ── 步骤 3:大洋管线 IFFT 三贴图 + host DFT 参考逐值对拍 ──
-    let pipe = OceanPipeline::new(spectrum, OCEAN_GRID_N).unwrap_or_else(|e| fail(&format!("大洋管线: {e}")));
-    let frame = pipe.evaluate(1.5).unwrap_or_else(|e| fail(&format!("大洋求值: {e}")));
+    let pipe = OceanPipeline::new(spectrum, OCEAN_GRID_N)
+        .unwrap_or_else(|e| fail(&format!("大洋管线: {e}")));
+    let frame = pipe
+        .evaluate(1.5)
+        .unwrap_or_else(|e| fail(&format!("大洋求值: {e}")));
     let refr = reference_dft_height(&spectrum, OCEAN_GRID_N, 1.5)
         .unwrap_or_else(|e| fail(&format!("DFT 参考: {e}")));
     let diff = max_abs_diff(&frame.height, &refr).unwrap_or_else(|e| fail(&format!("对拍: {e}")));
@@ -287,7 +300,8 @@ fn main() {
     }
 
     // ── 步骤 5:双管线分离断言 + 共享 closure 输入面 ──
-    let disjoint_ok = assert_geometry_paths_disjoint(&pipe.geometry_claim(), &shallow.geometry_claim()).is_ok();
+    let disjoint_ok =
+        assert_geometry_paths_disjoint(&pipe.geometry_claim(), &shallow.geometry_claim()).is_ok();
     if !disjoint_ok {
         failures.push("双管线几何路径互斥断言失败".into());
     }
@@ -310,7 +324,8 @@ fn main() {
     // ── 步骤 7:双跑位级一致 ──
     let frame2 = pipe.evaluate(1.5).expect("f2");
     let d1 = ocean_digest(&frame);
-    let double_run_ok = d1 == ocean_digest(&frame2) && shallow_digest(&shallow) == shallow_digest(&canonical_shallow());
+    let double_run_ok = d1 == ocean_digest(&frame2)
+        && shallow_digest(&shallow) == shallow_digest(&canonical_shallow());
     if !double_run_ok {
         failures.push("双跑位级不一致".into());
     }
@@ -350,7 +365,9 @@ fn main() {
             let frozen = json_str(t, key).unwrap_or_else(|| fail(&format!("冻结带缺 {key}")));
             if frozen != actual {
                 golden_ok = false;
-                failures.push(format!("golden 漂移: {key}(frozen={frozen} actual={actual})"));
+                failures.push(format!(
+                    "golden 漂移: {key}(frozen={frozen} actual={actual})"
+                ));
             }
         }
     }
@@ -398,8 +415,14 @@ fn main() {
         ("double_run_bit_equal", double_run_ok),
         ("golden_frozen_equal", golden_ok || args.freeze),
     ];
-    let checks_json: Vec<String> = checks.iter().map(|(n, ok)| format!("\"{n}\": {ok}")).collect();
-    let failures_json: Vec<String> = failures.iter().map(|f| format!("\"{}\"", json_escape(f))).collect();
+    let checks_json: Vec<String> = checks
+        .iter()
+        .map(|(n, ok)| format!("\"{n}\": {ok}"))
+        .collect();
+    let failures_json: Vec<String> = failures
+        .iter()
+        .map(|f| format!("\"{}\"", json_escape(f)))
+        .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
     let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(

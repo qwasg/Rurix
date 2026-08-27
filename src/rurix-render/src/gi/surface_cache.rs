@@ -131,8 +131,7 @@ impl ScConfig {
     /// fail-closed 配置校验(配置域外一律 typed Err;「可配上限 fail-closed」
     /// 判据承载)。
     pub fn validate(&self) -> Result<(), ScError> {
-        if self.max_cards_per_mesh == 0 || self.max_cards_per_mesh > M97_HARD_MAX_CARDS_PER_MESH
-        {
+        if self.max_cards_per_mesh == 0 || self.max_cards_per_mesh > M97_HARD_MAX_CARDS_PER_MESH {
             return Err(ScError::InvalidConfig(format!(
                 "max_cards_per_mesh {} 越域 [1, {M97_HARD_MAX_CARDS_PER_MESH}]",
                 self.max_cards_per_mesh
@@ -335,10 +334,7 @@ fn class_axes(class: u32) -> ([f32; 3], [f32; 3]) {
 }
 
 /// 三角几何法线(单位)与面积(2×面积 = |cross|)。退化三角 typed Err。
-fn tri_normal_area(
-    positions: &[[f32; 3]],
-    idx: [u32; 3],
-) -> Result<(Vec3, f32), ScError> {
+fn tri_normal_area(positions: &[[f32; 3]], idx: [u32; 3]) -> Result<(Vec3, f32), ScError> {
     let a = Vec3::from_array(positions[idx[0] as usize]);
     let b = Vec3::from_array(positions[idx[1] as usize]);
     let c = Vec3::from_array(positions[idx[2] as usize]);
@@ -400,7 +396,9 @@ pub fn parameterize(
         }
     }
     if let Some(t) = mesh_of_tri.iter().position(|&m| m == u32::MAX) {
-        return Err(ScError::InvalidScene(format!("三角 {t} 未被任何 mesh 覆盖")));
+        return Err(ScError::InvalidScene(format!(
+            "三角 {t} 未被任何 mesh 覆盖"
+        )));
     }
 
     // 逐三角法线/面积(一次计算,聚类/锥/面积共用)。
@@ -442,11 +440,7 @@ pub fn parameterize(
         };
         if order.len() as u32 > config.max_cards_per_mesh {
             let mut by_area = order.clone();
-            by_area.sort_by(|a, b| {
-                area_of(*b)
-                    .total_cmp(&area_of(*a))
-                    .then_with(|| a.cmp(b))
-            });
+            by_area.sort_by(|a, b| area_of(*b).total_cmp(&area_of(*a)).then_with(|| a.cmp(b)));
             let kept: Vec<u32> = by_area[..config.max_cards_per_mesh as usize].to_vec();
             let dropped: Vec<u32> = by_area[config.max_cards_per_mesh as usize..].to_vec();
             for d in dropped {
@@ -758,13 +752,7 @@ pub fn pack_texel_card(set: &CardSet) -> Vec<f32> {
 pub fn pack_tri_to_card(set: &CardSet) -> Vec<f32> {
     set.tri_to_card
         .iter()
-        .map(|&c| {
-            if c == TRI_NO_CARD {
-                -1.0
-            } else {
-                c as f32
-            }
-        })
+        .map(|&c| if c == TRI_NO_CARD { -1.0 } else { c as f32 })
         .collect()
 }
 
@@ -1038,7 +1026,10 @@ impl DepthBand {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n  \"schema\": \"rurix.g9m97.depth_band.v1\",\n");
-        s.push_str(&format!("  \"frozen_at_utc\": \"{}\",\n", self.frozen_at_utc));
+        s.push_str(&format!(
+            "  \"frozen_at_utc\": \"{}\",\n",
+            self.frozen_at_utc
+        ));
         s.push_str(&format!("  \"device_name\": \"{}\",\n", self.device_name));
         s.push_str(&format!("  \"scene\": \"{}\",\n", self.scene));
         s.push_str(&format!(
@@ -1120,9 +1111,7 @@ impl DepthBand {
                     + start;
                 Ok(body[start..end].to_string())
             };
-            let depth: u32 = field("depth")?
-                .parse()
-                .map_err(|_| err("depth 非数值"))?;
+            let depth: u32 = field("depth")?.parse().map_err(|_| err("depth 非数值"))?;
             let cache_digest = field("cache_digest")?;
             let render_digest = field("render_digest")?;
             let m96_digest = field("m96_digest")?;
@@ -1227,7 +1216,11 @@ fn capture_texel_host<B: crate::rt::bvh::BlasSet + ?Sized>(
         let mut first = true;
         for b in 0..depth as usize {
             let bb = sb + b * m97_rng::DIMS_PER_BOUNCE;
-            let ray_tmax = if b == 0 { card.margin * 2.0 } else { scene.t_max };
+            let ray_tmax = if b == 0 {
+                card.margin * 2.0
+            } else {
+                scene.t_max
+            };
             let hit = tlas.intersect(blases, &Ray { origin, dir: d });
             let Some(hit) = hit.filter(|h| h.t <= ray_tmax) else {
                 if b == 0 {
@@ -1361,7 +1354,12 @@ pub fn capture_host(
 /// 直接光辐照度数值积分锚(确定性网格求积;光源 quad g×g 单元中心采样):
 /// `E = Le_lum · Σ_cells cos_s·cos_l/dist²·dA_cell`(无遮蔽假设——单测锚用
 /// 开放位形)。返回照度标量(单通道;Le 各向同性白)。
-pub fn quadrature_irradiance(light: &path_trace::PtLightQuad, p: [f32; 3], n: [f32; 3], grid: u32) -> f64 {
+pub fn quadrature_irradiance(
+    light: &path_trace::PtLightQuad,
+    p: [f32; 3],
+    n: [f32; 3],
+    grid: u32,
+) -> f64 {
     let lp00 = Vec3::from_array(light.p00);
     let le1 = Vec3::from_array(light.e1);
     let le2 = Vec3::from_array(light.e2);
@@ -1450,8 +1448,13 @@ mod tests {
     #[test]
     fn parameterize_card_frames_and_projection_exact() {
         let (scene, meshes) = cornell();
-        let a = parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-            .expect("参数化");
+        let a = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
         for c in &a.cards {
             let n = Vec3::from_array(c.normal);
             let au = Vec3::from_array(c.axis_u);
@@ -1459,11 +1462,12 @@ mod tests {
             // 正交单位 + 法线精确 ±轴。
             assert!((n.length() - 1.0).abs() < 1e-6);
             assert!(n.dot(au).abs() < 1e-6 && n.dot(av).abs() < 1e-6);
-            assert!((n.dot(au.cross(av)).abs() - 1.0).abs() < 1e-6, "面内轴叉积 = ±法线");
             assert!(
-                c.normal
-                    .iter()
-                    .all(|&v| v == 0.0 || v == 1.0 || v == -1.0),
+                (n.dot(au.cross(av)).abs() - 1.0).abs() < 1e-6,
+                "面内轴叉积 = ±法线"
+            );
+            assert!(
+                c.normal.iter().all(|&v| v == 0.0 || v == 1.0 || v == -1.0),
                 "精确 ±轴法线"
             );
             // 平面性:覆盖顶点法向坐标逐字一致(Cornell 全面片平面)。
@@ -1480,7 +1484,11 @@ mod tests {
                 }
             }
             // 锥 cutoff ≈ 1(全平行;归一化 f32 舍入内)。
-            assert!((c.cone_cutoff - 1.0).abs() < 1e-6, "锥 cutoff = {}", c.cone_cutoff);
+            assert!(
+                (c.cone_cutoff - 1.0).abs() < 1e-6,
+                "锥 cutoff = {}",
+                c.cone_cutoff
+            );
         }
     }
 
@@ -1542,8 +1550,13 @@ mod tests {
             "Card 烘焙记录 32B ABI 漂移"
         );
         let (scene, meshes) = cornell();
-        let a = parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-            .expect("参数化");
+        let a = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
         let card = &a.cards[0];
         let rec = CardBakeRecord::of_card(7, card);
         assert_eq!(rec.triangle_offset, 7);
@@ -1551,10 +1564,7 @@ mod tests {
         // 编码字段序:offset(u32 LE) | count(u32 LE) | aabb 6×f32 LE。
         let enc = rec.encode_le();
         assert_eq!(&enc[0..4], &7u32.to_le_bytes());
-        assert_eq!(
-            &enc[4..8],
-            &(card.tris.len() as u32).to_le_bytes()
-        );
+        assert_eq!(&enc[4..8], &(card.tris.len() as u32).to_le_bytes());
         assert_eq!(&enc[8..12], &card.aabb_min[0].to_le_bytes());
         assert_eq!(&enc[28..32], &card.aabb_max[2].to_le_bytes());
     }
@@ -1563,8 +1573,13 @@ mod tests {
     #[test]
     fn atlas_page_rxpl_v2_roundtrip_and_tamper_reject() {
         let (scene, meshes) = cornell();
-        let mut a = parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-            .expect("参数化");
+        let mut a = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
         let (page, bytes) =
             build_atlas_page(&mut a, &scene.positions, &scene.indices).expect("图集页");
         // 合法 v2 页:major=2 + 冻结解码往返无损(复用 M91 ABI,不私定)。
@@ -1599,8 +1614,13 @@ mod tests {
     #[test]
     fn pack_layouts_and_rng_stream() {
         let (scene, meshes) = cornell();
-        let a = parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-            .expect("参数化");
+        let a = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
         let cards = pack_cards(&a);
         assert_eq!(cards.len(), a.cards.len() * CARD_STRIDE);
         // 首 Card 字段锚:origin/axis/normal/size/res/texel_base/margin。
@@ -1663,8 +1683,13 @@ mod tests {
     #[test]
     fn hole_injection_marks_coverage() {
         let (scene, meshes) = cornell();
-        let a = parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-            .expect("参数化");
+        let a = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
         let mut t2c = pack_tri_to_card(&a);
         let mut cov = vec![1.0f32; a.total_texels as usize];
         // 地板 Card(mesh 0,+y 类;相机可见 + 直接光直射,与 harness 受害 Card 同源)。
@@ -1711,22 +1736,46 @@ mod tests {
         let back = DepthBand::parse(&text).expect("roundtrip");
         assert_eq!(band, back);
         // 正例:三 digest 全等 + 带内 ⇒ Ok。
-        back.check(2, &"ab".repeat(32), &"cd".repeat(32), &"ef".repeat(32), 0.049)
-            .expect("带内放行");
+        back.check(
+            2,
+            &"ab".repeat(32),
+            &"cd".repeat(32),
+            &"ef".repeat(32),
+            0.049,
+        )
+        .expect("带内放行");
         // RED:任一 digest 分叉 ⇒ 拒。
         assert!(
-            back.check(2, &"00".repeat(32), &"cd".repeat(32), &"ef".repeat(32), 0.01)
-                .is_err()
+            back.check(
+                2,
+                &"00".repeat(32),
+                &"cd".repeat(32),
+                &"ef".repeat(32),
+                0.01
+            )
+            .is_err()
         );
         // RED:越带 ⇒ 拒。
         assert!(
-            back.check(2, &"ab".repeat(32), &"cd".repeat(32), &"ef".repeat(32), 0.051)
-                .is_err()
+            back.check(
+                2,
+                &"ab".repeat(32),
+                &"cd".repeat(32),
+                &"ef".repeat(32),
+                0.051
+            )
+            .is_err()
         );
         // RED:缺条目 ⇒ 拒(fail-closed 不静默放行)。
         assert!(
-            back.check(1, &"ab".repeat(32), &"cd".repeat(32), &"ef".repeat(32), 0.001)
-                .is_err()
+            back.check(
+                1,
+                &"ab".repeat(32),
+                &"cd".repeat(32),
+                &"ef".repeat(32),
+                0.001
+            )
+            .is_err()
         );
         // RED:坏 schema / 条目缺键 / 带非正 ⇒ 拒。
         assert!(DepthBand::parse("{\"schema\": \"bogus\"}").is_err());
@@ -1743,7 +1792,8 @@ mod tests {
         let (scene, meshes) = cornell();
         let cfg = ScConfig::default();
         let a = parameterize(&scene.positions, &scene.indices, &meshes, &cfg).expect("参数化");
-        let stream = m97_rng::generate_stream(a.total_texels as usize, cfg.samples_per_texel, 2, M97_SEED);
+        let stream =
+            m97_rng::generate_stream(a.total_texels as usize, cfg.samples_per_texel, 2, M97_SEED);
         let (r1, c1) = capture_host(&scene, &a, 2, &stream).expect("capture");
         let (r2, c2) = capture_host(&scene, &a, 2, &stream).expect("capture");
         assert_eq!(r1, r2, "host oracle 同 seed 双跑位级一致");
@@ -1753,7 +1803,8 @@ mod tests {
         // 辐射度有限非负。
         assert!(r1.iter().all(|v| v.is_finite() && *v >= 0.0));
         // 能量 sane:深度 2 ≥ 深度 1 ≥ 0(多反弹只加能量,Lambert 正性)。
-        let s1 = m97_rng::generate_stream(a.total_texels as usize, cfg.samples_per_texel, 1, M97_SEED);
+        let s1 =
+            m97_rng::generate_stream(a.total_texels as usize, cfg.samples_per_texel, 1, M97_SEED);
         let (r_d1, _) = capture_host(&scene, &a, 1, &s1).expect("capture d1");
         let e1: f64 = r_d1.iter().map(|&v| f64::from(v)).sum();
         let e2: f64 = r1.iter().map(|&v| f64::from(v)).sum();
@@ -1784,8 +1835,12 @@ mod tests {
         };
         let a = parameterize(&scene.positions, &scene.indices, &meshes, &cfg).expect("参数化");
         let depth = 1;
-        let stream =
-            m97_rng::generate_stream(a.total_texels as usize, cfg.samples_per_texel, depth, M97_SEED);
+        let stream = m97_rng::generate_stream(
+            a.total_texels as usize,
+            cfg.samples_per_texel,
+            depth,
+            M97_SEED,
+        );
         let (r, c) = capture_host(&scene, &a, depth, &stream).expect("capture");
         assert!(c.iter().all(|&v| v == 1.0));
         // 地板 Card 中心 texel(res 8 × 8 的中心 4 texel 之一)。
@@ -1831,11 +1886,14 @@ mod tests {
         assert_ne!(a, cache_product_digest(&rad2, &cov));
         // 图集页 digest = 字节直哈希(与 cardset canonical 域互异)。
         let (scene, meshes) = cornell();
-        let mut set =
-            parameterize(&scene.positions, &scene.indices, &meshes, &ScConfig::default())
-                .expect("参数化");
-        let (_p, bytes) =
-            build_atlas_page(&mut set, &scene.positions, &scene.indices).expect("页");
+        let mut set = parameterize(
+            &scene.positions,
+            &scene.indices,
+            &meshes,
+            &ScConfig::default(),
+        )
+        .expect("参数化");
+        let (_p, bytes) = build_atlas_page(&mut set, &scene.positions, &scene.indices).expect("页");
         assert_ne!(atlas_page_digest(&bytes), set.digest());
     }
 

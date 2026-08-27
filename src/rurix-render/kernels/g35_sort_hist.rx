@@ -1,0 +1,52 @@
+//@ spec: RFC-0049 §4.2(G35-1 sort 基元 pass 阶段 1;spec 条款号本期零新设)
+// G35-1 24 位键稳定 LSD radix sort · 每 pass 阶段 1/3 —— 段数字直方图(门
+// g35.wave1.primitives;G35_CONTRACT §4 契约,src/particles/mod.rs 契约头
+// 字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽)
+// 公式面与 host 金标准 `particles/primitives.rs::sort_hist` **逐字同源**:
+// 线程 s 先清零本段行 hist[s·256 .. (s+1)·256)(host 零初始化同值),再段内
+// 串行计数 d = (key / dpow) % 256 ⇒ hist[s·256 + d] += 1。段外线程界外守卫
+// 直落(lo ≥ n ⇒ hi = n < lo,计数循环零次,行 = 全零与 host 同值)。
+// 无 shared memory / 无原子 / 无 lookback(Vulkan 前进保证缺位,保守分段臂
+// 即生产形态,RFC-0049 §9 Q1);digit 取位 = usize 除/模精确算术(语言面无
+// 位运算,g34_unified_gi.rx 图集 unpack 先例);纯 u32/usize 整数算术零浮点
+// ⇒ device↔host **零容差位级**(mod.rs 整数域协议;域前提:keys < 2^24、
+// 单行计数 ≤ 256)。
+//
+// ## 参数面(4 f32;n ≤ 2^24 f32 精确)
+//   params[0]=n(元素数) [1]=nseg(段数 = dispatch x)
+//   [2]=dpow(digit 幂:1/256/65536——f32 精确域) [3]=reserved(恒 0)。
+//   keys: u32/元素;hist: u32 × nseg·256(行主:段 s 行 × 256 digit)。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1;g14_8 注:百万工作组×1 线程
+//   调度为既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sort_hist(
+    tc: ThreadCtx<1>,
+    keys: View<global, u32>,
+    params: View<global, f32>,
+    hist: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let dpow = params[2] as usize;
+    if s < nseg {
+        let mut c = 0usize;
+        while c < 256usize {
+            hist[s * 256usize + c] = 0u32;
+            c = c + 1usize;
+        }
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            let d = (keys[i] as usize / dpow) % 256usize;
+            hist[s * 256usize + d] = hist[s * 256usize + d] + 1u32;
+            i = i + 1usize;
+        }
+    }
+}

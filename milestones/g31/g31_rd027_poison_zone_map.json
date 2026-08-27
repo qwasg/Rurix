@@ -1,0 +1,422 @@
+{
+ "schema_version": 1,
+ "kind": "g31_rd027_poison_zone_map",
+ "rd_ref": "RD-027",
+ "generated_utc": "2026-08-26T15:55:31Z",
+ "generator": "spike/rd027-pt-poison/run_e8_zone.py --write-map (G31+ 波C Task C10;E8 全网格实测,非外推)",
+ "environment": {
+  "driver_version": "620.02",
+  "nvml_version": "13.620.02",
+  "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+  "compute_capability": "8.9",
+  "driver_model": "WDDM",
+  "clocks": {
+   "locked": false,
+   "sm_clock_mhz": 210,
+   "mem_clock_mhz": 405,
+   "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+  },
+  "thermal": {
+   "temp_start_c": 36,
+   "temp_end_c": 36,
+   "steady_state": false
+  },
+  "isolation_check": {
+   "other_compute_processes": 34
+  },
+  "cuda_driver_version": "13.2",
+  "tdr": {
+   "tdr_delay": "not_set(os_default)",
+   "tdr_level": "not_set(os_default)"
+  },
+  "hags_enabled": true,
+  "os_build": "Windows 10.0.28120",
+  "ptxas_version": "Cuda compilation tools, release 13.3, V13.3.33"
+ },
+ "basis": {
+  "entry": "apps/ruridrop/src/offline.rx(tmp copytree + params.rx 锚定补丁,原树 0-byte)",
+  "rend_w": 1280,
+  "rend_h": 720,
+  "rend_frames": 1,
+  "n_particles": 131072,
+  "grid_dim": 64,
+  "substeps": 4,
+  "spp_batch_rule": "min(spp,32)(SPP % SPP_BATCH == 0)",
+  "data_dependency": "需 4 子步 sim 后粒子分布(G3.1 E4 SUBSTEPS=0 不触发在案)",
+  "opt_default": "ptxas -O3 AOT cubin(驱动 620.02 JIT 腿同类变换同挂,G3.1 E0b)",
+  "timeout_s": 60,
+  "judgment_margin": "绿档实测 ~1s 量级,判定线余量 ≥30×"
+ },
+ "single_artifact": {
+  "distinct_ptx_digests": 1,
+  "ptx_sha256": "85d597dd22e2d05f511a0cf8b2a27823bee78cf58523862eb06ccc67c738e315",
+  "confirmed": true,
+  "note": "参数经 launch 标量下发(RXS-0191),挂/不挂纯由运行期实参 + sim 后数据定"
+ },
+ "cells_default_opt": [
+  {
+   "spp": 8,
+   "bounces": 1,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.53,
+   "frame_digest": "bae8ca04deec4d39cf73438d55608722ba3a88d30c5318aa63abe9d5e9ec88b3"
+  },
+  {
+   "spp": 32,
+   "bounces": 1,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.52,
+   "frame_digest": "2b255c20744199c4d4b2ee4d87b300bb21753d22c2988ba9302870fad850873b"
+  },
+  {
+   "spp": 64,
+   "bounces": 1,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.53,
+   "frame_digest": "06a3b055f9ba3c3b23ccf0a5bd88811585c45f51bba59af37621450fafb9171d"
+  },
+  {
+   "spp": 128,
+   "bounces": 1,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.53,
+   "frame_digest": "4e343323f1d66967dbe526ec3e116a0cced80fcca44c410b70582fe8b5318ecc"
+  },
+  {
+   "spp": 256,
+   "bounces": 1,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.68,
+   "frame_digest": "bd8de545179302cd371def6ea3ce5454818e2b41ec621cbb5445b37a75eaf158"
+  },
+  {
+   "spp": 8,
+   "bounces": 2,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.46,
+   "frame_digest": "f61a7a2a8f359e688c367fd068d700433a16a94ce9d02ba270f3e2fa780477ae"
+  },
+  {
+   "spp": 32,
+   "bounces": 2,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.47,
+   "frame_digest": "7d4a8df432464b1e1603d4a60b74f344c3ad5dd22dbb3871bf6ce8c12fe8f019"
+  },
+  {
+   "spp": 64,
+   "bounces": 2,
+   "opt_leg": "default",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.55,
+   "frame_digest": "82f3eea1970c52eb0fcea72807d355dd7fcc58370771b0f556f518eb808825af"
+  },
+  {
+   "spp": 128,
+   "bounces": 2,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.28,
+   "frame_digest": null
+  },
+  {
+   "spp": 256,
+   "bounces": 2,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.26,
+   "frame_digest": null
+  },
+  {
+   "spp": 8,
+   "bounces": 3,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.26,
+   "frame_digest": null
+  },
+  {
+   "spp": 32,
+   "bounces": 3,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.28,
+   "frame_digest": null
+  },
+  {
+   "spp": 64,
+   "bounces": 3,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.3,
+   "frame_digest": null
+  },
+  {
+   "spp": 128,
+   "bounces": 3,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.28,
+   "frame_digest": null
+  },
+  {
+   "spp": 256,
+   "bounces": 3,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.23,
+   "frame_digest": null
+  },
+  {
+   "spp": 8,
+   "bounces": 4,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.26,
+   "frame_digest": null
+  },
+  {
+   "spp": 32,
+   "bounces": 4,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.3,
+   "frame_digest": null
+  },
+  {
+   "spp": 64,
+   "bounces": 4,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.25,
+   "frame_digest": null
+  },
+  {
+   "spp": 128,
+   "bounces": 4,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.28,
+   "frame_digest": null
+  },
+  {
+   "spp": 256,
+   "bounces": 4,
+   "opt_leg": "default",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.23,
+   "frame_digest": null
+  }
+ ],
+ "cells_guardrail_O0": [
+  {
+   "spp": 8,
+   "bounces": 3,
+   "opt_leg": "O0",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.68,
+   "frame_digest": "7a004451bb25d3c8df09c03867b263a920a18d0dbc3627fef2da73e5d109a95e"
+  },
+  {
+   "spp": 8,
+   "bounces": 4,
+   "opt_leg": "O0",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.82,
+   "frame_digest": "47555cfb1f81fda5cd324ca583605fd1e9c5513b2ebf3b85ac835db90785ec10"
+  },
+  {
+   "spp": 256,
+   "bounces": 2,
+   "opt_leg": "O0",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 5.6,
+   "frame_digest": "b5fd856f58eb6b7aa11ca7ab3dd16f3b483b5635b1222b3d1cd596d73d1230d2"
+  },
+  {
+   "spp": 32,
+   "bounces": 2,
+   "opt_leg": "O0",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 1.08,
+   "frame_digest": "7d4a8df432464b1e1603d4a60b74f344c3ad5dd22dbb3871bf6ce8c12fe8f019"
+  }
+ ],
+ "zone_summary": {
+  "green_combos": [
+   [
+    8,
+    1
+   ],
+   [
+    8,
+    2
+   ],
+   [
+    32,
+    1
+   ],
+   [
+    32,
+    2
+   ],
+   [
+    64,
+    1
+   ],
+   [
+    64,
+    2
+   ],
+   [
+    128,
+    1
+   ],
+   [
+    256,
+    1
+   ]
+  ],
+  "poison_combos": [
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    4
+   ],
+   [
+    32,
+    3
+   ],
+   [
+    32,
+    4
+   ],
+   [
+    64,
+    3
+   ],
+   [
+    64,
+    4
+   ],
+   [
+    128,
+    2
+   ],
+   [
+    128,
+    3
+   ],
+   [
+    128,
+    4
+   ],
+   [
+    256,
+    2
+   ],
+   [
+    256,
+    3
+   ],
+   [
+    256,
+    4
+   ]
+  ],
+  "rule_observed": "bounces==1: 全测 spp(8~256) 绿;bounces==2: spp≤64 绿 / spp≥128 毒;bounces==3: 全测 spp(8~256) 毒;bounces==4: 全测 spp(8~256) 毒(实测网格闭集,未测组合 = unmapped,fail-closed 按毒处理)"
+ },
+ "discriminator": {
+  "combo": [
+   8,
+   3
+  ],
+  "O1_leg": {
+   "combo": [
+    8,
+    3
+   ],
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.23
+  },
+  "O0_leg": {
+   "spp": 8,
+   "bounces": 3,
+   "opt_leg": "O0",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.68,
+   "frame_digest": "7a004451bb25d3c8df09c03867b263a920a18d0dbc3627fef2da73e5d109a95e"
+  },
+  "verdict_reconfirmed": "O0 完成 / O1+ 挂 绿挂分界复确认;归因维持 nvidia_optimizing_backends(G3.1 spike verdict,M1′ 机理)"
+ },
+ "cross_opt_digest_check": {
+  "combo": [
+   32,
+   2
+  ],
+  "default_digest": "7d4a8df432464b1e1603d4a60b74f344c3ad5dd22dbb3871bf6ce8c12fe8f019",
+  "O0_digest": "7d4a8df432464b1e1603d4a60b74f344c3ad5dd22dbb3871bf6ce8c12fe8f019",
+  "identical": true
+ },
+ "hang_signature": {
+  "samples": 70,
+  "util_pct_mean": 99.9,
+  "power_w_mean": 61.8,
+  "sm_clock_mhz_mean": 2745.0
+ },
+ "guardrail": {
+  "kind": "RURIXC_PTXAS_OPT=0(MR-0011;AOT cubin 腿)",
+  "verified_combos": [
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    4
+   ],
+   [
+    256,
+    2
+   ]
+  ],
+  "jit_leg_limit": "驱动 JIT fallback 腿无对应优化档开关,护栏不覆盖(如实限界)"
+ },
+ "rebaseline_discipline": "driver/ptxas/GPU 变更后 digest 漂移 = 门卫诚实红;按本生成器全网格重测蒸馏本图,禁手改 cells/digest(measured-first)"
+}

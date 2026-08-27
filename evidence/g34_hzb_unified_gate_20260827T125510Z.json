@@ -1,0 +1,139 @@
+{
+  "schema": "rurix.g34.hzb_unified_gate_evidence.v1",
+  "subject": "g34_hzb_unified",
+  "symbolic_gate_key": "g34.wave2.hzb",
+  "wave": "G34.2",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编五件（g34_unified_primary/g34_unified_shade/g31_hzb_pack/g27_hzb_reduce/g27_hzb_test）+ spirv-val=绿；冻结 tracked 双 kernel（g27 两件）vs HEAD 0-byte=True 工作树干净=True；G31/G34 期 untracked 七面 sha256 快照在档=True（g31_hzb_pack.rx 为 untracked 冻结源——diff-vs-HEAD 不适用,快照面承载;如实登记不冒充）"
+    },
+    {
+      "id": "culling_pixel_neutral",
+      "status": "PASS",
+      "detail": "--hzb on vs RURIX_HZB_ALL_VISIBLE=1 全集渲染实验臂 digest_seq 逐帧位级一致=True（mismatch=0/74；剔除不改变可见像素 = 两阶段闭环正确性结构判据）"
+    },
+    {
+      "id": "hzb_host_parity",
+      "status": "PASS",
+      "detail": "probe 帧 hzb.parity:mips 位级=True verdict 全等=True fp=0 （mips=12 n_rects=962 occluded=349；pyramid/verdict digest vs host 互核）"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "--hzb on 双跑 digest_seq 位级一致=True（74 帧）render_digest 一致=True（确定性门）"
+    },
+    {
+      "id": "culling_effective_measured",
+      "status": "PASS",
+      "detail": "剔除真实发生:tested=65183 occluded_p1=22407（零剔除即空接线冒充判红）flipped_p2=0 闭环(额外提交/全量兜底帧)=116/0；frame_ms measured:hzb_on=21.7526ms baseline=6.4717ms（on/baseline=3.3612；如实登记不设通过线,G6 无硬门纪律,measured_local）"
+    },
+    {
+      "id": "stage_a_anchor_replay",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device bench 复跑:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体加性扩展 0-byte 机器证明）"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "primary_spv": {
+      "path": ".tmp/g34_gates/hzb/g34_unified_primary.spv",
+      "sha256": "sha256:224e265d204282c6758fd68eae92de4029f212037071ef06f517622d6142d778"
+    },
+    "shade_spv": {
+      "path": ".tmp/g34_gates/hzb/g34_unified_shade.spv",
+      "sha256": "sha256:112c75fbce2c74e4008c9e601020d6ca17c9f9428f73851c17c8e3da7340eec6"
+    },
+    "pack_spv": {
+      "path": ".tmp/g34_gates/hzb/g31_hzb_pack.spv",
+      "sha256": "sha256:a422fd81c57f3db221437f65b70b95922ef1fa46ac3ac8e2aefb423651a72062"
+    },
+    "reduce_spv": {
+      "path": ".tmp/g34_gates/hzb/g27_hzb_reduce.spv",
+      "sha256": "sha256:b7e1a7cf5aac3aa3797254b781b3973484f4d88c5944423f9a23d62e3ead2ff5"
+    },
+    "test_spv": {
+      "path": ".tmp/g34_gates/hzb/g27_hzb_test.spv",
+      "sha256": "sha256:8de08fa3f587eae50a3f80a4b5399f76c2d65458f76ae5914019aa1ada718a39"
+    },
+    "spirv_val_all": true,
+    "mother_tracked_0byte": true,
+    "frozen_snapshot": {
+      "src/rurix-render/kernels/g34_unified_gi.rx": "sha256:9ee8cecbb3f4d6410c6e1f1ded909c322db662f43b30c35517c86c884f82a703",
+      "src/rurix-render/kernels/g34_unified_shade.rx": "sha256:49ff1bad7295ce728bdc4311e0c245a51ea509e31c161d7d7a0edd6141ba99dc",
+      "src/rurix-render/kernels/g34_unified_primary.rx": "sha256:469d8195e93311ac1cc28273937f1888618e3134aa788f26a64c56506cd72fec",
+      "src/rurix-render/kernels/g31_hzb_pack.rx": "sha256:6303fe5dabf4ec4e6e746ee9c2e55802c649bba9994bcfce10c9478fdf2b5a8a",
+      "src/rurix-render/src/bin/g34_full_lane/g34_2_hzb.rs": "sha256:742f21cf56474689438ca0039620172df8a21f539dc9448a1fab94eeee202d66",
+      "src/rurix-render/src/bin/g34_full_lane.rs": "sha256:e3211881531297403227e01c88333c6d8c4abf1a00be8dda27a3ed75e21e2957",
+      "src/rurix-render/src/bin/g31_window_present.rs": "sha256:fc1e36fa0888dc70fae27a84615d19c79d3f4326a63bc27b6f14c6709b76dc45"
+    }
+  },
+  "culling": {
+    "neutrality": {
+      "trajectory": "orbit",
+      "frames": 64,
+      "warmup": 10,
+      "seq_len": 74,
+      "hzb_vs_allvis_seq_bitexact": true,
+      "mismatch_count": 0
+    },
+    "occlusion": {
+      "instances": 1187,
+      "mips": 12,
+      "tested": 65183,
+      "occluded_p1": 22407,
+      "flipped_p2": 0,
+      "closure_extra_submits": 116,
+      "closure_full_fallback_frames": 0,
+      "all_visible_arm": false
+    }
+  },
+  "parity": {
+    "mips": 12,
+    "n_rects": 962,
+    "mips_bitexact": true,
+    "verdict_equal": true,
+    "false_positives": 0,
+    "occluded": 349,
+    "pyramid_digest": "sha256:94cfc59bfbe9c26f29df8edc039fe0d1b1492bafca20c23d2dee9306f8408815",
+    "host_pyramid_digest": "sha256:94cfc59bfbe9c26f29df8edc039fe0d1b1492bafca20c23d2dee9306f8408815",
+    "verdict_digest": "sha256:b757882d4e98244d3c1e6f2412c79007e82430596b300552ddcdacf086acecbc",
+    "host_verdict_digest": "sha256:b757882d4e98244d3c1e6f2412c79007e82430596b300552ddcdacf086acecbc"
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "frames": 74,
+    "render_digest_a": "sha256:5d117fb25d79cd8bcc9921b8294052c93ba8de38bba847978f7913f4597b4109",
+    "render_digest_b": "sha256:5d117fb25d79cd8bcc9921b8294052c93ba8de38bba847978f7913f4597b4109"
+  },
+  "frame_ms": {
+    "hzb_on_mean": 21.752617,
+    "baseline_mean": 6.471711,
+    "on_over_baseline": 3.3611848551333643,
+    "scene_gpu_ms_mean": 1.924936,
+    "hzb_gpu_ms_mean": -1.0,
+    "measured": "measured_local",
+    "frames_per_run": 64,
+    "note": "bistro-interior 1080p orbit --hidden release 同机同窗 measured_local:hzb_on=21.7526ms baseline(--full 无 --hzb)=6.4717ms；如实登记不设通过线（G6 无硬门纪律）;hzb_gpu_ms_mean=-1.0 表 harness stats 面未登记该分项（如实登记）"
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "harness_evidence": [
+    "evidence\\g34_unified_lane_g34hzb_baseline_20260827T125510Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T125510Z",
+  "notes": "G34 全特性合流 G34-2 HZB 接统一车道（G31 波 B Task B1 生产接线面逐字同律 + G34 统一车道合流）：剔除对象粒度 = TLAS 实例（bistro 逐 mesh 节点 BLAS 分解 + 动态实例尾槽恒可见不参剔——A4 核验对象,剔除计数面 = 静态节点如实登记）;消费点 = 主射线 pass 的 TLAS 实例 mask（g34_unified_primary 相机射线走初剔后表 0,g34_unified_shade 阴影射线走全量表 1——被剔实例仍投阴影,RXS-0297 单 TLAS 签名纪律 ⇒ 拆 pass）;双 TLAS 逐帧 refit + 帧内金字塔轮换（上帧金字塔初剔 p1 → 本帧真深度〔g34_unified_shade ④b 段 out_depth_hz,vp 行 2/3 另算真 ZO NDC,与 U_SCENE_DEPTH 两路并存互不染指〕逐级归约平铺重建 → 上帧被剔集重测 p2）+ RFC-0044 §5.8 两阶段闭环第二段（应见集 = p1 可见 ∪ p2 翻回,未渲者掩码并集同帧重渲,≤4 迭代未收敛全掩码兜底 = 零剔除精确收敛）;g31_hzb_pack/g27_hzb_reduce/g27_hzb_test 冻结消费 + geometry/{hzb,cull}.rs host 金标准只读 0-byte。九类判据蒸馏六 facts：SPV 面（五件现编 + g27 双 kernel tracked 0-byte + untracked 七面快照——g31_hzb_pack.rx untracked 现实快照面承载如实登记）/ 剔除像素中性（hzb_a vs RURIX_HZB_ALL_VISIBLE=1 位级——剔除零假阳性 ⇒ 闭环后画面与全集渲染位级一致）/ host 金标准对拍（mips 逐级位级 + 判定序列逐字节 + 零假阳性独立复核）/ 确定性双跑位级 / 剔除真实发生（occluded_p1≥1 零剔除即空接线冒充判红）+ frame_ms 对照（不设通过线 G6 无硬门纪律 measured_local）/ Stage A 锚复跑零漂移。HZB 腿 harness 真跑件留 .tmp——harness 真跑件不注册 check_schemas,数字经门裁决件蒸馏登记;baseline 对照腿归档 g34_unified_lane_g34hzb_ 前缀复用既有路由。facts: kernels_spv_valid=PASS; culling_pixel_neutral=PASS; hzb_host_parity=PASS; determinism_double_run=PASS; culling_effective_measured=PASS; stage_a_anchor_replay=PASS"
+}

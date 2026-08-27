@@ -101,7 +101,9 @@ impl std::fmt::Display for FbError {
         match self {
             FbError::InvalidConfig(m) => write!(f, "配置非法: {m}"),
             FbError::SilentFallback(m) => write!(f, "静默回退检出(无计数降级即 RED): {m}"),
-            FbError::L4InterfaceNotReady(m) => write!(f, "L4 Far Field 接口未就绪(not-triggered): {m}"),
+            FbError::L4InterfaceNotReady(m) => {
+                write!(f, "L4 Far Field 接口未就绪(not-triggered): {m}")
+            }
             FbError::DepthBand(m) => write!(f, "深度容差带: {m}"),
         }
     }
@@ -476,7 +478,12 @@ pub fn light_sample(scene: &PtScene, u: f32, v: f32) -> [f32; 3] {
 }
 
 /// 点光源近似着色(未阴影;L1 档):rgb = albedo × emission × core(q=中心)。
-pub fn shade_point_unshadowed(albedo: [f32; 3], p: [f32; 3], n: [f32; 3], scene: &PtScene) -> [f32; 3] {
+pub fn shade_point_unshadowed(
+    albedo: [f32; 3],
+    p: [f32; 3],
+    n: [f32; 3],
+    scene: &PtScene,
+) -> [f32; 3] {
     let core = point_light_core(p, n, light_center(scene), scene);
     let em = scene.light.emission;
     [
@@ -558,7 +565,12 @@ pub fn scene_tri(scene: &PtScene, i: usize) -> ([f32; 3], [f32; 3], [f32; 3]) {
 
 /// L2 暴力最近命中(host 解析场景求值;返回 (最近 (t, 三角号), 三角测试数))。
 /// 全量扫描无早退 ⇒ 测试数 = 三角数,确定性计数面。
-pub fn l2_closest_hit(scene: &PtScene, o: [f32; 3], d: [f32; 3], t_max: f32) -> (Option<(f32, u32)>, u64) {
+pub fn l2_closest_hit(
+    scene: &PtScene,
+    o: [f32; 3],
+    d: [f32; 3],
+    t_max: f32,
+) -> (Option<(f32, u32)>, u64) {
     let mut best: Option<(f32, u32)> = None;
     let mut tests = 0u64;
     for i in 0..scene.indices.len() {
@@ -632,10 +644,16 @@ pub fn l2_leg_host(scene: &PtScene, origins: &[f32], dirs: &[f32]) -> Vec<LegSam
         let core = point_light_core(p, n, q, scene);
         // 阴影光线(原点沿着色法线偏移,t_sh = dist − 2ε,M96 同式)。
         let wv = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-        let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2]).sqrt().max(TINY);
+        let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2])
+            .sqrt()
+            .max(TINY);
         let wi = [wv[0] / dist, wv[1] / dist, wv[2] / dist];
         let t_sh = (dist - 2.0 * RAY_EPS).max(RAY_EPS);
-        let so = [p[0] + n[0] * RAY_EPS, p[1] + n[1] * RAY_EPS, p[2] + n[2] * RAY_EPS];
+        let so = [
+            p[0] + n[0] * RAY_EPS,
+            p[1] + n[1] * RAY_EPS,
+            p[2] + n[2] * RAY_EPS,
+        ];
         let (vis, sh_tests) = l2_shadow_vis(scene, so, wi, t_sh);
         tests += sh_tests;
         let albedo = tri_albedo(scene, tri);
@@ -730,12 +748,20 @@ pub fn gbuffer_prepass(scene: &PtScene) -> GBuffer {
                 cam.origin[1] + d[1] * t,
                 cam.origin[2] + d[2] * t,
             ];
-            let v = [p[0] - cam.origin[0], p[1] - cam.origin[1], p[2] - cam.origin[2]];
+            let v = [
+                p[0] - cam.origin[0],
+                p[1] - cam.origin[1],
+                p[2] - cam.origin[2],
+            ];
             depth[i] = v[0] * cam.forward[0] + v[1] * cam.forward[1] + v[2] * cam.forward[2];
             nrm[i * 3..i * 3 + 3].copy_from_slice(&n);
             let albedo = tri_albedo(scene, tri);
             alb[i * 3..i * 3 + 3].copy_from_slice(&albedo);
-            let o = [p[0] + n[0] * RAY_EPS, p[1] + n[1] * RAY_EPS, p[2] + n[2] * RAY_EPS];
+            let o = [
+                p[0] + n[0] * RAY_EPS,
+                p[1] + n[1] * RAY_EPS,
+                p[2] + n[2] * RAY_EPS,
+            ];
             sec_o[i * 3..i * 3 + 3].copy_from_slice(&o);
             let base = m98_rng::pixel_base(i);
             let sd = cosine_dir(n, stream[base], stream[base + 1]);
@@ -744,7 +770,9 @@ pub fn gbuffer_prepass(scene: &PtScene) -> GBuffer {
             let q = light_center(scene);
             let core = point_light_core(p, n, q, scene);
             let wv = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-            let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2]).sqrt().max(TINY);
+            let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2])
+                .sqrt()
+                .max(TINY);
             let wi = [wv[0] / dist, wv[1] / dist, wv[2] / dist];
             let t_sh = (dist - 2.0 * RAY_EPS).max(RAY_EPS);
             let (vis, _) = l2_shadow_vis(scene, o, wi, t_sh);
@@ -781,11 +809,23 @@ pub fn l1_march_host(scene: &PtScene, gb: &GBuffer, pixel: usize) -> LegSample {
     let cam = &scene.camera;
     let w = gb.width as f32;
     let h = gb.height as f32;
-    let o = [gb.sec_o[pixel * 3], gb.sec_o[pixel * 3 + 1], gb.sec_o[pixel * 3 + 2]];
-    let d = [gb.sec_d[pixel * 3], gb.sec_d[pixel * 3 + 1], gb.sec_d[pixel * 3 + 2]];
+    let o = [
+        gb.sec_o[pixel * 3],
+        gb.sec_o[pixel * 3 + 1],
+        gb.sec_o[pixel * 3 + 2],
+    ];
+    let d = [
+        gb.sec_d[pixel * 3],
+        gb.sec_d[pixel * 3 + 1],
+        gb.sec_d[pixel * 3 + 2],
+    ];
     // 世界 → 屏幕投影(与 kernel 同式:z = v·f;sx = (v·r)/(z·tan))。
     let project = |p: [f32; 3]| -> (f32, f32, f32) {
-        let v = [p[0] - cam.origin[0], p[1] - cam.origin[1], p[2] - cam.origin[2]];
+        let v = [
+            p[0] - cam.origin[0],
+            p[1] - cam.origin[1],
+            p[2] - cam.origin[2],
+        ];
         let z = v[0] * cam.forward[0] + v[1] * cam.forward[1] + v[2] * cam.forward[2];
         let x = v[0] * cam.right[0] + v[1] * cam.right[1] + v[2] * cam.right[2];
         let y = v[0] * cam.up[0] + v[1] * cam.up[1] + v[2] * cam.up[2];
@@ -843,12 +883,13 @@ pub fn l1_march_host(scene: &PtScene, gb: &GBuffer, pixel: usize) -> LegSample {
         };
     }
     let hi = hit_idx as usize;
-    let n = flip_normal(
-        [gb.nrm[hi * 3], gb.nrm[hi * 3 + 1], gb.nrm[hi * 3 + 2]],
-        d,
-    );
+    let n = flip_normal([gb.nrm[hi * 3], gb.nrm[hi * 3 + 1], gb.nrm[hi * 3 + 2]], d);
     let albedo = [gb.alb[hi * 3], gb.alb[hi * 3 + 1], gb.alb[hi * 3 + 2]];
-    let p = [o[0] + d[0] * hit_t, o[1] + d[1] * hit_t, o[2] + d[2] * hit_t];
+    let p = [
+        o[0] + d[0] * hit_t,
+        o[1] + d[1] * hit_t,
+        o[2] + d[2] * hit_t,
+    ];
     LegSample {
         hit: true,
         t: hit_t,
@@ -900,10 +941,16 @@ pub fn l3_leg_host(scene: &PtScene, gb: &GBuffer, mode: L3ShadeMode) -> Vec<LegS
         };
         let core = point_light_core(p, n, q, scene);
         let wv = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
-        let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2]).sqrt().max(TINY);
+        let dist = (wv[0] * wv[0] + wv[1] * wv[1] + wv[2] * wv[2])
+            .sqrt()
+            .max(TINY);
         let wi = [wv[0] / dist, wv[1] / dist, wv[2] / dist];
         let t_sh = (dist - 2.0 * RAY_EPS).max(RAY_EPS);
-        let so = [p[0] + n[0] * RAY_EPS, p[1] + n[1] * RAY_EPS, p[2] + n[2] * RAY_EPS];
+        let so = [
+            p[0] + n[0] * RAY_EPS,
+            p[1] + n[1] * RAY_EPS,
+            p[2] + n[2] * RAY_EPS,
+        ];
         let (vis, sh_tests) = l2_shadow_vis(scene, so, wi, t_sh);
         let albedo = tri_albedo(scene, tri);
         let em = scene.light.emission;
@@ -928,35 +975,242 @@ pub fn l3_leg_host(scene: &PtScene, gb: &GBuffer, mode: L3ShadeMode) -> Vec<LegS
 }
 
 // ---------------------------------------------------------------------------
-// L4 Far Field(HLOD 接口未就绪 ⇒ SKIP=not-triggered 登记,禁静默当绿)
+// L4 Far Field(G31+ 波 C Task C12:M98-l4 承接锚两半全齐 —— HLOD proxy 追踪
+// device 腿 `kernels/g31_hlod_l4_proxy_trace.rx` + L4 计数器接入选档面;锚
+// 「+」合取改判 ⇒ 三级链 → 四级链。半齐保护:proxy 集未装载(None/空集)时
+// 三处入口维持 fail-closed,不冒充)
 // ---------------------------------------------------------------------------
+
+/// L4 proxy(HLOD 远场代理)图元:轴对齐盒 + 烘焙出射辐射度(离线烘焙产物语义,
+/// 运行时只读消费;RXS-0364 运行时零合并字面不变——本结构无任何合并/重建入口)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct L4Proxy {
+    /// 包围盒下界(世界空间)。
+    pub aabb_min: [f32; 3],
+    /// 包围盒上界(世界空间)。
+    pub aabb_max: [f32; 3],
+    /// 烘焙出射辐射度(线性 RGB;远场 proxy 命中即取——着色 = 纯数据搬运,
+    /// 零算术 ⇒ device/host 位级相等由「同选择决策 + 同输入位型」蕴含)。
+    pub radiance: [f32; 3],
+}
+
+/// L4 proxy 集(远场代理场景表示;构造期 fail-closed 校验:有限/min<max/辐射
+/// 非负有限)。空集 = 接口未装载态(触发核验/服务请求维持 fail-closed)。
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct L4ProxySet {
+    /// proxy 图元列(构造后只读)。
+    pub proxies: Vec<L4Proxy>,
+}
+
+impl L4ProxySet {
+    /// 构造并核验(逐图元:坐标有限、min<max 逐轴严格、辐射非负有限)。
+    pub fn new(proxies: Vec<L4Proxy>) -> std::result::Result<Self, FbError> {
+        for (i, p) in proxies.iter().enumerate() {
+            for a in 0..3 {
+                if !p.aabb_min[a].is_finite() || !p.aabb_max[a].is_finite() {
+                    return Err(FbError::InvalidConfig(format!(
+                        "proxy {i} 包围盒非有限(轴 {a})"
+                    )));
+                }
+                if p.aabb_min[a] >= p.aabb_max[a] {
+                    return Err(FbError::InvalidConfig(format!(
+                        "proxy {i} 包围盒 min ≥ max(轴 {a})"
+                    )));
+                }
+                if !p.radiance[a].is_finite() || p.radiance[a] < 0.0 {
+                    return Err(FbError::InvalidConfig(format!(
+                        "proxy {i} 辐射度非负有限违反(轴 {a})"
+                    )));
+                }
+            }
+        }
+        Ok(Self { proxies })
+    }
+
+    /// 图元数。
+    pub fn len(&self) -> usize {
+        self.proxies.len()
+    }
+
+    /// 空集判定(接口未装载态)。
+    pub fn is_empty(&self) -> bool {
+        self.proxies.is_empty()
+    }
+}
 
 /// L4 触发条件核验结果(显式结构;RXS-0359 L5)。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum L4TriggerState {
-    /// HLOD 接口未就绪(G9.5 M111 资产/接口面未落地)⇒ 登记
-    /// SKIP=not-triggered(条件未触发只表示决策已记录,不是成功)。
+    /// HLOD proxy 集未装载(None 或空集)⇒ 登记 SKIP=not-triggered(条件未
+    /// 触发只表示决策已记录,不是成功)。
     NotTriggered {
         /// 未就绪原因(evidence 字面)。
         reason: &'static str,
     },
+    /// 接口面就绪且 proxy 集已装载(G31+ C12 两半全齐 ⇒ 解锁;非空 proxy 数
+    /// 随行登记)。
+    Ready {
+        /// 就绪接口面(evidence 字面)。
+        interface: &'static str,
+        /// 装载 proxy 数。
+        proxies: u32,
+    },
 }
 
-/// L4 触发条件核验器(fail-closed):HLOD 接口类型在本仓不存在(G9.5 M111)
-/// ⇒ 恒 [`L4TriggerState::NotTriggered`];任何 L4 服务请求经 [`l4_serve`]
-/// typed Err 显式拒绝。
-pub fn check_l4_trigger() -> L4TriggerState {
-    L4TriggerState::NotTriggered {
-        reason: "HLOD 接口未就绪(G9.5 M111 资产/接口面未落地):L4 Far Field 登记 SKIP=not-triggered,不充绿",
+/// L4 触发条件核验器(两半全齐后按锚字面解锁):proxy 集已装载(非空)⇒
+/// [`L4TriggerState::Ready`];未装载(None/空集)⇒ 维持 fail-closed
+/// [`L4TriggerState::NotTriggered`](半齐保护,不冒充)。
+pub fn check_l4_trigger(proxies: Option<&L4ProxySet>) -> L4TriggerState {
+    match proxies {
+        Some(set) if !set.is_empty() => L4TriggerState::Ready {
+            interface: "G31+ C12:HLOD proxy 追踪 device 腿(kernels/g31_hlod_l4_proxy_trace.rx)+ L4 计数器接入选档面",
+            proxies: set.len() as u32,
+        },
+        _ => L4TriggerState::NotTriggered {
+            reason: "HLOD proxy 集未装载(None 或空集):L4 Far Field 登记 SKIP=not-triggered,不充绿",
+        },
     }
 }
 
-/// L4 消费接口(冻结面;RXS-0359 L1「本条款只冻结消费接口」):接口未就绪
-/// ⇒ 恒 fail-closed [`FbError::L4InterfaceNotReady`],禁静默当绿。
-pub fn l4_serve() -> Result<LegSample, FbError> {
-    Err(FbError::L4InterfaceNotReady(
-        "L4 Far Field 服务被请求,但 HLOD 接口未就绪(G9.5 M111)——登记 not-triggered,拒绝静默服务".into(),
-    ))
+/// L4 消费接口(RXS-0359 L1 冻结消费接口面;两半全齐后按锚字面解锁):
+/// proxy 集已装载 ⇒ 服务该腿样本(`sample` 为 L4 device/host 腿逐像素求值
+/// 结果,纯数据移交);未装载 ⇒ 维持 fail-closed
+/// [`FbError::L4InterfaceNotReady`](半齐保护,禁静默当绿)。
+pub fn l4_serve(proxies: Option<&L4ProxySet>, sample: &LegSample) -> Result<LegSample, FbError> {
+    match proxies {
+        Some(set) if !set.is_empty() => Ok(*sample),
+        _ => Err(FbError::L4InterfaceNotReady(
+            "L4 Far Field 服务被请求,但 HLOD proxy 集未装载(None 或空集)——登记 not-triggered,拒绝静默服务"
+                .into(),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// L4 proxy 追踪(host 镜像;与 kernel `g31_hlod_l4_proxy_trace.rx` 逐字同源)
+// ---------------------------------------------------------------------------
+
+/// L4 无命中哨兵(best_t 初值;须大于平行门卫路径最大 t ≈ 场景跨度/1e-30,
+/// 本仓构造场景跨度 ≤ 1e4 ⇒ t ≤ 1e34 < 1e38 成立)。
+pub const L4_NO_HIT: f32 = 1e38;
+
+/// 平行门卫 + 轴逆(host/kernel 逐字同源):|d| > 1e-6 ⇒ 1/d;否则 ±1e-30
+/// 保号替代(射线与该轴 slab 面平行:盒内 ⇒ ±巨值区间恒含,盒外 ⇒ 同号巨值
+/// 恒不含,命中判定不变;全 min/max 算术门,零分支)。阈值 1e-6 的纪律:
+/// 小于则除法噪声带(OpFDiv 2.5 ULP)在近平行角放大至可翻判定——1e-6 使
+/// 全部近平行分量走门卫精确面,|d| ≥ 1e-6 的判定边界噪声 ≤ 场景跨度×1e6
+/// ×3e-7 ≈ 数百场景单位以下(契约场景 proxy 厚度 ≥ 400,远离判定边界)。
+pub fn l4_axis_inv(d: f32) -> f32 {
+    let keep = ((d.abs() - 1e-6) * BIG).min(1.0).max(0.0);
+    let sgn = 1.0 - 2.0 * ((0.0 - d) * BIG).min(1.0).max(0.0);
+    let dg = d * keep + sgn * 1e-30 * (1.0 - keep);
+    1.0 / dg
+}
+
+/// 单射线 vs proxy 集最近命中(host 镜像;kernel 逐字同源公式面):逐 proxy
+/// slab 求交(t 区间含 [0,∞) 端点判定 = `tf ≥ max(tn, 0)`,擦边 tf == tk 判
+/// miss,双端同律),最近命中**分支锁存**(严格更小 t ⇒ 先见先赢,同 t 不翻;
+/// 禁算术 blend——哨兵 1e38 与 tk 量级悬殊,blend 被重结合/fma 时
+/// (tk − best_t) 灾难性抵消 ⇒ 首命中锁存归零〔device 实测〕,分支赋值零
+/// 运算 ⇒ 锁存位级由构造保证)。全量扫描无早退 ⇒ `work` = proxy 数(确定性
+/// 计数面,L2 同律)。返回腿样本(命中 ⇒ proxy 烘焙辐射度 + t;未命中 ⇒
+/// [`M98_SKY`] + t=0)与命中 proxy 下标(未命中 = 0,以 `LegSample.hit` 区分)。
+pub fn l4_trace_ray(o: [f32; 3], d: [f32; 3], proxies: &L4ProxySet) -> (LegSample, u32) {
+    let inv = [l4_axis_inv(d[0]), l4_axis_inv(d[1]), l4_axis_inv(d[2])];
+    let mut best_hit = 0.0f32;
+    let mut best_t = L4_NO_HIT;
+    let mut best_idx = 0.0f32;
+    for (k, p) in proxies.proxies.iter().enumerate() {
+        let mut tn = -BIG;
+        let mut tf = BIG;
+        for a in 0..3 {
+            let ta = (p.aabb_min[a] - o[a]) * inv[a];
+            let tb = (p.aabb_max[a] - o[a]) * inv[a];
+            tn = tn.max(ta.min(tb));
+            tf = tf.min(ta.max(tb));
+        }
+        let tk = tn.max(0.0);
+        let hitk = ((tf - tk) * BIG).min(1.0).max(0.0);
+        let nearer = ((best_t - tk) * BIG).min(1.0).max(0.0);
+        let cond = hitk * nearer;
+        if cond >= 0.5 {
+            best_t = tk;
+            best_idx = k as f32;
+            best_hit = 1.0;
+        }
+    }
+    let idx = best_idx as u32;
+    let hit = best_hit >= 0.5;
+    let rgb = if hit {
+        proxies.proxies[idx as usize].radiance
+    } else {
+        M98_SKY
+    };
+    (
+        LegSample {
+            hit,
+            t: if hit { best_t } else { 0.0 },
+            rgb,
+            work: proxies.len() as u32,
+        },
+        idx,
+    )
+}
+
+/// L4 腿批量(host 镜像;逐像素消费 GBuffer 二次射线,与 device kernel 对拍
+/// 同一输入面)。返回 (腿样本列, 逐像素命中 proxy 下标列)。
+pub fn l4_leg_host(gb: &GBuffer, proxies: &L4ProxySet) -> (Vec<LegSample>, Vec<u32>) {
+    let pixel_count = (gb.width * gb.height) as usize;
+    let mut samples = Vec::with_capacity(pixel_count);
+    let mut indices = Vec::with_capacity(pixel_count);
+    for i in 0..pixel_count {
+        let o = [gb.sec_o[i * 3], gb.sec_o[i * 3 + 1], gb.sec_o[i * 3 + 2]];
+        let d = [gb.sec_d[i * 3], gb.sec_d[i * 3 + 1], gb.sec_d[i * 3 + 2]];
+        let (s, idx) = l4_trace_ray(o, d, proxies);
+        samples.push(s);
+        indices.push(idx);
+    }
+    (samples, indices)
+}
+
+/// L4 kernel 参数打包(5 f32;与 `kernels/g31_hlod_l4_proxy_trace.rx` 头注
+/// 逐字同源):[0]=pixel_count [1]=proxy_count [2..5]=天空常量 RGB。
+pub fn pack_l4_params(pixel_count: u32, proxy_count: u32) -> Vec<f32> {
+    let p = vec![
+        pixel_count as f32,
+        proxy_count as f32,
+        M98_SKY[0],
+        M98_SKY[1],
+        M98_SKY[2],
+    ];
+    debug_assert_eq!(p.len(), 5);
+    p
+}
+
+/// L4 proxy 缓冲打包(10 f32/proxy:min3‖max3‖radiance3‖pad;kernel SSBO
+/// 布局逐字同源)。
+pub fn pack_l4_proxies(proxies: &L4ProxySet) -> Vec<f32> {
+    let mut out = Vec::with_capacity(proxies.len() * 10);
+    for p in &proxies.proxies {
+        out.extend_from_slice(&p.aabb_min);
+        out.extend_from_slice(&p.aabb_max);
+        out.extend_from_slice(&p.radiance);
+        out.push(0.0);
+    }
+    out
+}
+
+/// L4 档接入面(选档扩展;`None` = 三级链旧世界,行为位级不变——既有
+/// [`assemble`]/[`audit`] 全部经 `None` 委托,cornell golden 零漂移)。
+#[derive(Debug, Clone, Copy)]
+pub struct L4Leg<'a> {
+    /// proxy 集(远场代理几何 + 烘焙辐射度;非空——空集接入即
+    /// [`FbError::InvalidConfig`] 空接线冒充 fail-closed)。
+    pub proxies: &'a L4ProxySet,
+    /// L4 腿样本(device 或 host 镜像;长度 = 像素数)。
+    pub samples: &'a [LegSample],
+    /// L4 档开关(逐级独立开关第四级;关 = ForcedOff 转移记录 + L3 截断)。
+    pub enabled: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -965,9 +1219,35 @@ pub fn l4_serve() -> Result<LegSample, FbError> {
 
 /// 单像素选档(纯函数;返回 (服务级别, 该像素转移记录))。
 /// 链序 L1→L2→L3;L3 启用即终端服务(命中着色/未命中天空);全不可用 ⇒
-/// None(Unserved 终端)。L4 永不在结果中(接口未就绪)。
+/// None(Unserved 终端)。L4 经 [`select_pixel_l4`] 四级面接入;本旧签名 =
+/// `None` 委托(L4 不在结果中,三级链旧世界位级不变;生产面全走四级面,
+/// 本委托仅供单测合成腿复核三级契约)。
+#[cfg(test)]
 fn select_pixel(
     switches: &ChainSwitches,
+    l1: &LegSample,
+    l2: &LegSample,
+    l3: &LegSample,
+    pixel: u32,
+) -> Result<(Option<TraceLevel>, Vec<TransitionRecord>), FbError> {
+    select_pixel_l4(switches, None, l1, l2, l3, pixel)
+}
+
+/// 单像素四级选档(G31+ C12 选档扩展;`l4 = None` ⇒ 与三级链旧世界逐位
+/// 一致)。L4 升级点两处(锚定 RXS-0359 选档契约的远场语义):
+/// - L3 命中但 t > [`M98_VIEW_DIST`](原 L4 触发字面):`l4` 启用 ⇒ 记录
+///   L3→L4(OutOfRange)并服务 L4;`l4` 强关 ⇒ 记录 ForcedOff 后维持
+///   fail-closed [`FbError::L4InterfaceNotReady`];`l4 = None` ⇒ 旧字面
+///   fail-closed 不变。
+/// - L3 未命中(二次射线逸出近场):`l4` 启用 ⇒ 记录 L3→L4(Miss)并服务
+///   L4(proxy 命中 ⇒ 烘焙辐射度,未命中 ⇒ 天空,flag=4 终端);`l4` 强关
+///   ⇒ 记录 ForcedOff 后 L3 截断终端天空(旧三级语义);`l4 = None` ⇒
+///   L3 终端天空旧字面不变。
+/// L1/L2/L3 全关且 `l4` 启用 ⇒ L4 兜底服务;`l4` 强关/None ⇒ Unserved
+/// 终端(旧字面)。
+fn select_pixel_l4(
+    switches: &ChainSwitches,
+    l4: Option<&L4Leg<'_>>,
     l1: &LegSample,
     l2: &LegSample,
     l3: &LegSample,
@@ -1001,17 +1281,62 @@ fn select_pixel(
         };
         if s.hit && in_range {
             if *level == TraceLevel::L3Hwrt && s.t > M98_VIEW_DIST {
-                // 视距外 ⇒ 本应升级 L4;接口未就绪 ⇒ fail-closed(禁静默当绿)。
-                return Err(FbError::L4InterfaceNotReady(format!(
-                    "像素 {pixel} L3 命中 t={} 超视距 {M98_VIEW_DIST},应升级 L4 但接口未就绪",
-                    s.t
-                )));
+                // 视距外 ⇒ 升级 L4(两半全齐后按锚字面解锁;未装载/强关维持
+                // fail-closed,禁静默当绿)。
+                return match l4 {
+                    Some(l) if l.enabled => {
+                        records.push(TransitionRecord {
+                            pixel,
+                            from: TraceLevel::L3Hwrt,
+                            to: TraceLevel::L4FarField,
+                            cause: TransitionCause::OutOfRange,
+                        });
+                        Ok((Some(TraceLevel::L4FarField), records))
+                    }
+                    Some(_) => {
+                        records.push(TransitionRecord {
+                            pixel,
+                            from: TraceLevel::L3Hwrt,
+                            to: TraceLevel::L4FarField,
+                            cause: TransitionCause::ForcedOff,
+                        });
+                        Err(FbError::L4InterfaceNotReady(format!(
+                            "像素 {pixel} L3 命中 t={} 超视距 {M98_VIEW_DIST},应升级 L4 但 L4 档被强关",
+                            s.t
+                        )))
+                    }
+                    None => Err(FbError::L4InterfaceNotReady(format!(
+                        "像素 {pixel} L3 命中 t={} 超视距 {M98_VIEW_DIST},应升级 L4 但接口未就绪",
+                        s.t
+                    ))),
+                };
             }
             return Ok((Some(*level), records));
         }
         if *level == TraceLevel::L3Hwrt {
-            // L3 终端:未命中 = 天空服务(不转移)。
-            return Ok((Some(TraceLevel::L3Hwrt), records));
+            // L3 未命中:二次射线逸出近场 ⇒ 升级 L4(远场 proxy 档);强关 ⇒
+            // 记录后 L3 截断终端;None ⇒ L3 终端天空(不转移,旧字面)。
+            return match l4 {
+                Some(l) if l.enabled => {
+                    records.push(TransitionRecord {
+                        pixel,
+                        from: TraceLevel::L3Hwrt,
+                        to: TraceLevel::L4FarField,
+                        cause: TransitionCause::Miss,
+                    });
+                    Ok((Some(TraceLevel::L4FarField), records))
+                }
+                Some(_) => {
+                    records.push(TransitionRecord {
+                        pixel,
+                        from: TraceLevel::L3Hwrt,
+                        to: TraceLevel::L4FarField,
+                        cause: TransitionCause::ForcedOff,
+                    });
+                    Ok((Some(TraceLevel::L3Hwrt), records))
+                }
+                None => Ok((Some(TraceLevel::L3Hwrt), records)),
+            };
         }
         records.push(TransitionRecord {
             pixel,
@@ -1024,9 +1349,12 @@ fn select_pixel(
             },
         });
     }
-    // L1/L2/L3 全关 ⇒ Unserved 终端(显式;最后一条记录 to=L3 的 ForcedOff
-    // 之后无链内下级,终端天空由装配层写入)。
-    Ok((None, records))
+    // L1/L2/L3 全关:l4 启用 ⇒ L4 兜底服务;否则 Unserved 终端(显式;最后
+    // 一条记录 to=L4 的 ForcedOff 之后无链内下级,终端天空由装配层写入)。
+    match l4 {
+        Some(l) if l.enabled => Ok((Some(TraceLevel::L4FarField), records)),
+        _ => Ok((None, records)),
+    }
 }
 
 /// 腿样本取值(按级别)。
@@ -1049,9 +1377,31 @@ fn leg_of<'a>(
 ///
 /// 合成语义:主未命中像素 ⇒ 天空常量直出(flag=0,不入链);链内像素 ⇒
 /// rgb = 主直接光 + 主 albedo × 选档腿辐射度(Unserved ⇒ 腿辐射度 = 天空)。
+/// 本旧签名 = [`assemble_l4`] 的 `None` 委托(三级链旧世界位级不变)。
 pub fn assemble(
     gb: &GBuffer,
     switches: ChainSwitches,
+    l1: &[LegSample],
+    l2: &[LegSample],
+    l3: &[LegSample],
+    log_transitions: bool,
+) -> Result<ChainFrame, FbError> {
+    assemble_l4(gb, switches, None, l1, l2, l3, log_transitions)
+}
+
+/// 四级装配(G31+ C12;`l4 = None` ⇒ 与三级链旧世界逐位一致)。L4 服务
+/// 像素 ⇒ flag=4,rgb = 主直接光 + 主 albedo × L4 腿辐射度(腿 miss 辐射度
+/// = [`M98_SKY`] 双端同律);L4 计数面(启用时)= attempted(链内像素数)/
+/// proxy 命中数/服务像素数/耗时代理合计——第三处 fail-closed 入口(L4 槽位
+/// 恒零)在 proxy 集装载且启用时被真实计数替换(锚字面解锁);`l4 = None`
+/// 或强关 ⇒ L4 槽位维持全零显式(半齐保护不冒充)。
+///
+/// 空接线冒充 fail-closed:接入 `Some` 但 proxy 集为空 ⇒
+/// [`FbError::InvalidConfig`](禁静默当绿);腿样本长度不符同律。
+pub fn assemble_l4(
+    gb: &GBuffer,
+    switches: ChainSwitches,
+    l4: Option<L4Leg<'_>>,
     l1: &[LegSample],
     l2: &[LegSample],
     l3: &[LegSample],
@@ -1066,6 +1416,20 @@ pub fn assemble(
             )));
         }
     }
+    if let Some(l) = &l4 {
+        if l.samples.len() != pixel_count {
+            return Err(FbError::InvalidConfig(format!(
+                "l4 腿样本数 {} ≠ 像素数 {pixel_count}",
+                l.samples.len()
+            )));
+        }
+        if l.proxies.is_empty() {
+            return Err(FbError::InvalidConfig(
+                "L4 接入面 proxy 集为空(空接线冒充 fail-closed)".into(),
+            ));
+        }
+    }
+    let l4r = l4.as_ref();
     let mut rgb = vec![0.0f32; pixel_count * 3];
     let mut flags = vec![FLAG_UNSERVED; pixel_count];
     let mut counters = [LevelCounters::default(); 4];
@@ -1075,11 +1439,20 @@ pub fn assemble(
             rgb[i * 3..i * 3 + 3].copy_from_slice(&M98_SKY);
             continue;
         }
-        let (served, records) = select_pixel(&switches, &l1[i], &l2[i], &l3[i], i as u32)?;
+        let (served, records) =
+            select_pixel_l4(&switches, l4r, &l1[i], &l2[i], &l3[i], i as u32)?;
         if log_transitions {
             transitions.extend_from_slice(&records);
         }
         let leg_rgb = match served {
+            Some(TraceLevel::L4FarField) => {
+                flags[i] = TraceLevel::L4FarField.flag();
+                // l4r 启用才可达此分支(选档契约);样本 miss 辐射度 = SKY。
+                match l4r {
+                    Some(l) if l.enabled => l.samples[i].rgb,
+                    _ => M98_SKY,
+                }
+            }
             Some(level) => {
                 flags[i] = level.flag();
                 leg_of(level, l1, l2, l3, i).rgb
@@ -1112,6 +1485,27 @@ pub fn assemble(
                 flags.iter().filter(|&&f| f == level.flag()).count() as u64;
         }
     }
+    // L4 计数面(第三处入口解锁):启用 ⇒ 真实计数;强关/None ⇒ 全零显式。
+    if let Some(l) = l4r {
+        if l.enabled {
+            let slot = TraceLevel::L4FarField.slot();
+            counters[slot].rays_attempted = chain_pixels;
+            for i in 0..pixel_count {
+                if !gb.primary_hit[i] {
+                    continue;
+                }
+                let s = &l.samples[i];
+                if s.hit {
+                    counters[slot].rays_hit += 1;
+                }
+                counters[slot].work_count += u64::from(s.work);
+            }
+            counters[slot].pixels_served = flags
+                .iter()
+                .filter(|&&f| f == TraceLevel::L4FarField.flag())
+                .count() as u64;
+        }
+    }
     let frame = ChainFrame {
         width: gb.width,
         height: gb.height,
@@ -1120,17 +1514,32 @@ pub fn assemble(
         counters,
         transitions,
     };
-    audit(&frame, gb, &switches, l1, l2, l3)?;
+    audit_l4(&frame, gb, &switches, l4r, l1, l2, l3)?;
     Ok(frame)
 }
 
 /// 禁静默回退审计(fail-closed;RXS-0359 L4):独立重算期望转移集合(逐像素
 /// 重走选档契约)与帧转移日志逐条比对——任何实际发生但未记录的级别变化 =
-/// [`FbError::SilentFallback`];计数面 served 与 flags 复核一致。
+/// [`FbError::SilentFallback`];计数面 served 与 flags 复核一致。本旧签名
+/// = [`audit_l4`] 的 `None` 委托。
 pub fn audit(
     frame: &ChainFrame,
     gb: &GBuffer,
     switches: &ChainSwitches,
+    l1: &[LegSample],
+    l2: &[LegSample],
+    l3: &[LegSample],
+) -> Result<(), FbError> {
+    audit_l4(frame, gb, switches, None, l1, l2, l3)
+}
+
+/// 四级禁静默回退审计(G31+ C12;`l4 = None` ⇒ 与三级链旧世界逐位一致;
+/// L4 计数面 served 复核同律)。
+pub fn audit_l4(
+    frame: &ChainFrame,
+    gb: &GBuffer,
+    switches: &ChainSwitches,
+    l4: Option<&L4Leg<'_>>,
     l1: &[LegSample],
     l2: &[LegSample],
     l3: &[LegSample],
@@ -1147,7 +1556,7 @@ pub fn audit(
             }
             continue;
         }
-        let (served, records) = select_pixel(switches, &l1[i], &l2[i], &l3[i], i as u32)?;
+        let (served, records) = select_pixel_l4(switches, l4, &l1[i], &l2[i], &l3[i], i as u32)?;
         let flag = served.map_or(FLAG_UNSERVED, |l| l.flag());
         if frame.flags[i] != flag {
             return Err(FbError::SilentFallback(format!(
@@ -1165,17 +1574,28 @@ pub fn audit(
         )));
     }
     for level in TraceLevel::SELECTABLE {
-        let served = frame
-            .flags
-            .iter()
-            .filter(|&&f| f == level.flag())
-            .count() as u64;
+        let served = frame.flags.iter().filter(|&&f| f == level.flag()).count() as u64;
         if switches.enabled(level) && frame.counters[level.slot()].pixels_served != served {
             return Err(FbError::SilentFallback(format!(
                 "{} 计数面 pixels_served={} ≠ flags 重算 {served}",
                 level.name(),
                 frame.counters[level.slot()].pixels_served
             )));
+        }
+    }
+    if let Some(l) = l4 {
+        if l.enabled {
+            let served = frame
+                .flags
+                .iter()
+                .filter(|&&f| f == TraceLevel::L4FarField.flag())
+                .count() as u64;
+            if frame.counters[TraceLevel::L4FarField.slot()].pixels_served != served {
+                return Err(FbError::SilentFallback(format!(
+                    "l4_far_field 计数面 pixels_served={} ≠ flags 重算 {served}",
+                    frame.counters[TraceLevel::L4FarField.slot()].pixels_served
+                )));
+            }
         }
     }
     Ok(())
@@ -1260,7 +1680,10 @@ impl M98DepthBand {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n  \"schema\": \"rurix.g9m98.depth_band.v1\",\n");
-        s.push_str(&format!("  \"frozen_at_utc\": \"{}\",\n", self.frozen_at_utc));
+        s.push_str(&format!(
+            "  \"frozen_at_utc\": \"{}\",\n",
+            self.frozen_at_utc
+        ));
         s.push_str(&format!("  \"device_name\": \"{}\",\n", self.device_name));
         s.push_str(&format!("  \"scene\": \"{}\",\n", self.scene));
         s.push_str(&format!(
@@ -1271,8 +1694,14 @@ impl M98DepthBand {
             "  \"freeze_rule\": \"band_rel_dev = measured_rel_dev * {:.1}(规则冻结于 gi::fallback_chain::M98_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)\",\n",
             M98_BAND_MARGIN
         ));
-        s.push_str(&format!("  \"matched_depth\": \"{}\",\n", M98_MATCHED_DEPTH));
-        s.push_str(&format!("  \"m96_golden_spp\": \"{}\",\n", M98_M96_GOLDEN_SPP));
+        s.push_str(&format!(
+            "  \"matched_depth\": \"{}\",\n",
+            M98_MATCHED_DEPTH
+        ));
+        s.push_str(&format!(
+            "  \"m96_golden_spp\": \"{}\",\n",
+            M98_M96_GOLDEN_SPP
+        ));
         s.push_str(&format!("  \"seed_chain\": \"{}\",\n", M98_SEED));
         s.push_str("  \"entries\": [\n");
         for (i, e) in self.entries.iter().enumerate() {
@@ -1422,6 +1851,145 @@ pub fn pack_l3_params(scene: &PtScene, mode: L3ShadeMode) -> Vec<f32> {
 }
 
 // ---------------------------------------------------------------------------
+// canonical 远场契约场景(G31+ C12;构造远场契约——近场真几何 + 远场 HLOD
+// proxy 五件,全部冻结常量,harness 与单测同一事实源;measured 冻结禁手写)
+// ---------------------------------------------------------------------------
+
+/// 契约场景 quad 推入(两三角同材质;绕向 = 几何法线,与
+/// `path_trace::push_quad` 同一三角化序 (a,b,c),(a,c,d))。
+#[allow(clippy::too_many_arguments)]
+fn ff_push_quad(
+    positions: &mut Vec<[f32; 3]>,
+    indices: &mut Vec<[u32; 3]>,
+    materials: &mut Vec<path_trace::MaterialKind>,
+    a: [f32; 3],
+    b: [f32; 3],
+    c: [f32; 3],
+    d: [f32; 3],
+    m: path_trace::MaterialKind,
+) {
+    let base = positions.len() as u32;
+    positions.extend_from_slice(&[a, b, c, d]);
+    indices.push([base, base + 1, base + 2]);
+    indices.push([base, base + 2, base + 3]);
+    materials.push(m);
+    materials.push(m);
+}
+
+/// canonical 远场契约场景(`m98_l4_far_field`):近场 = 地板 y=0(x,z∈[0,2],
+/// 开放空间——二次射线可逸出至远场)+ 中央盒([0.72,0,0.72]~[1.28,0.55,1.28],
+/// L1/L2 近距互击面)+ 顶置光源 quad(y=1.2,与发光三角逐字一致,validate
+/// 机核);远场 = HLOD proxy 五件(天顶远板 + ±x/±z 四面远墙,最近面均
+/// > [`M98_VIEW_DIST`],二次射线逸出近场后由 L4 proxy 档服务)。相机俯视
+/// 地板/盒(64×64,fov 50;主命中像素占多数)。冻结常量——golden/单测
+/// 同一口径;层数/位置/辐射度为契约属性,禁手写改动。
+pub fn m98_l4_far_field_scene() -> (PtScene, L4ProxySet) {
+    use path_trace::MaterialKind;
+    let mut positions: Vec<[f32; 3]> = Vec::new();
+    let mut indices: Vec<[u32; 3]> = Vec::new();
+    let mut materials: Vec<MaterialKind> = Vec::new();
+    // 地板 y=0(法线 +y,灰 0.7)。
+    ff_push_quad(
+        &mut positions,
+        &mut indices,
+        &mut materials,
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 2.0],
+        [2.0, 0.0, 2.0],
+        [2.0, 0.0, 0.0],
+        MaterialKind::Lambert { albedo: [0.7, 0.7, 0.7] },
+    );
+    // 中央盒(灰 0.6;六面 12 三角,绕向朝外;L1/L2 近距互击面)。
+    let [x0, y0, z0] = [0.72, 0.0, 0.72];
+    let [x1, y1, z1] = [1.28, 0.55, 1.28];
+    let gray = MaterialKind::Lambert { albedo: [0.6, 0.6, 0.6] };
+    for (a, b, c, d) in [
+        ([x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]), // −y
+        ([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]), // +y
+        ([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]), // −z
+        ([x0, y0, z1], [x0, y1, z1], [x1, y1, z1], [x1, y0, z1]), // +z
+        ([x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]), // −x
+        ([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]), // +x
+    ] {
+        ff_push_quad(&mut positions, &mut indices, &mut materials, a, b, c, d, gray);
+    }
+    // 光源 quad(y=1.2,法线 −y;emission 8;与发光两三角逐字一致)。
+    let lp00 = [0.7, 1.2, 0.7];
+    let le1 = [0.6, 0.0, 0.0];
+    let le2 = [0.0, 0.0, 0.6];
+    let light = path_trace::PtLightQuad {
+        p00: lp00,
+        e1: le1,
+        e2: le2,
+        emission: [8.0, 8.0, 8.0],
+    };
+    let lp10 = [lp00[0] + le1[0], lp00[1], lp00[2]];
+    let lp01 = [lp00[0], lp00[1], lp00[2] + le2[2]];
+    let lp11 = [lp10[0], lp10[1], lp01[2]];
+    ff_push_quad(
+        &mut positions,
+        &mut indices,
+        &mut materials,
+        lp00,
+        lp10,
+        lp11,
+        lp01,
+        MaterialKind::Emission {
+            albedo: [0.5, 0.5, 0.5],
+            emission: light.emission,
+        },
+    );
+    let camera = path_trace::PtCamera::look_at(
+        [1.0, 1.6, -1.1],
+        [1.0, 0.25, 1.0],
+        [0.0, 1.0, 0.0],
+        50.0,
+        64,
+        64,
+    );
+    let scene = PtScene {
+        name: "m98_l4_far_field",
+        positions,
+        indices,
+        materials,
+        light,
+        camera,
+        t_max: 100.0,
+    };
+    // 远场 HLOD proxy 五件(最近面均 > M98_VIEW_DIST=1000;天顶远板捕捉
+    // 近垂直逸出射线,四面远墙捕捉低仰角逸出射线;辐射度为契约烘焙属性)。
+    let proxies = L4ProxySet::new(vec![
+        L4Proxy {
+            aabb_min: [-900.0, 1300.0, -900.0],
+            aabb_max: [900.0, 1700.0, 900.0],
+            radiance: [0.10, 0.14, 0.20],
+        },
+        L4Proxy {
+            aabb_min: [1500.0, 0.0, -500.0],
+            aabb_max: [2100.0, 900.0, 500.0],
+            radiance: [0.18, 0.10, 0.06],
+        },
+        L4Proxy {
+            aabb_min: [-2100.0, 0.0, -500.0],
+            aabb_max: [-1500.0, 900.0, 500.0],
+            radiance: [0.06, 0.16, 0.08],
+        },
+        L4Proxy {
+            aabb_min: [-500.0, 0.0, 1500.0],
+            aabb_max: [500.0, 900.0, 2100.0],
+            radiance: [0.15, 0.12, 0.05],
+        },
+        L4Proxy {
+            aabb_min: [-500.0, 0.0, -2100.0],
+            aabb_max: [500.0, 900.0, -1500.0],
+            radiance: [0.08, 0.08, 0.14],
+        },
+    ])
+    .expect("canonical proxy 集合法");
+    (scene, proxies)
+}
+
+// ---------------------------------------------------------------------------
 // 单测(RXS-0359 锚定;host 面——选档契约 / 转移日志 / 静默回退审计 / L4
 // not-triggered / L2 金标准对拍 / 数值锚 / 容差带 fail-closed / 强关可检测)
 // ---------------------------------------------------------------------------
@@ -1497,15 +2065,25 @@ mod tests {
             rgb: [1.0, 0.5, 0.25],
             work: 7,
         };
-        let (served, recs) =
-            select_pixel(&ChainSwitches::ALL_ON, &mk(true, 0.3), &mk(true, 0.4), &mk(true, 9.0), 5)
-                .expect("选档");
+        let (served, recs) = select_pixel(
+            &ChainSwitches::ALL_ON,
+            &mk(true, 0.3),
+            &mk(true, 0.4),
+            &mk(true, 9.0),
+            5,
+        )
+        .expect("选档");
         assert_eq!(served, Some(TraceLevel::L1ScreenTrace));
         assert!(recs.is_empty(), "L1 直服务无转移");
         // L1 未命中 ⇒ 转移 L1→L2(Miss);L2 命中 t=0.8(≤1.0)⇒ 服务 L2。
-        let (served, recs) =
-            select_pixel(&ChainSwitches::ALL_ON, &mk(false, 0.0), &mk(true, 0.8), &mk(true, 9.0), 5)
-                .expect("选档");
+        let (served, recs) = select_pixel(
+            &ChainSwitches::ALL_ON,
+            &mk(false, 0.0),
+            &mk(true, 0.8),
+            &mk(true, 9.0),
+            5,
+        )
+        .expect("选档");
         assert_eq!(served, Some(TraceLevel::L2Swrt));
         assert_eq!(
             recs,
@@ -1517,17 +2095,27 @@ mod tests {
             }]
         );
         // L1 miss + L2 命中 t=1.7(>1.0)⇒ OutOfRange 转移;L3 服务。
-        let (served, recs) =
-            select_pixel(&ChainSwitches::ALL_ON, &mk(false, 0.0), &mk(true, 1.7), &mk(true, 1.7), 6)
-                .expect("选档");
+        let (served, recs) = select_pixel(
+            &ChainSwitches::ALL_ON,
+            &mk(false, 0.0),
+            &mk(true, 1.7),
+            &mk(true, 1.7),
+            6,
+        )
+        .expect("选档");
         assert_eq!(served, Some(TraceLevel::L3Hwrt));
         assert_eq!(recs.len(), 2);
         assert_eq!(recs[1].cause, TransitionCause::OutOfRange);
         assert_eq!(recs[1].to, TraceLevel::L3Hwrt);
         // L3 miss ⇒ L3 终端服务(天空),无 L4 转移(L4 not-triggered)。
-        let (served, recs) =
-            select_pixel(&ChainSwitches::ALL_ON, &mk(false, 0.0), &mk(false, 0.0), &mk(false, 0.0), 7)
-                .expect("选档");
+        let (served, recs) = select_pixel(
+            &ChainSwitches::ALL_ON,
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            7,
+        )
+        .expect("选档");
         assert_eq!(served, Some(TraceLevel::L3Hwrt));
         assert_eq!(recs.len(), 2);
     }
@@ -1572,8 +2160,7 @@ mod tests {
         let gb = gbuffer_prepass(&scene);
         let (l1, l2, l3) = legs(&gb);
         // 正例:生产路径(记录开)⇒ 装配 + 审计过。
-        let frame = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true)
-            .expect("正例装配");
+        let frame = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true).expect("正例装配");
         audit(&frame, &gb, &ChainSwitches::ALL_ON, &l1, &l2, &l3).expect("正例审计");
         assert!(!frame.transitions.is_empty(), "cornell 存在级别转移");
         // 负例臂①(静默回退注入):同一选档结果但转移日志被抑 ⇒ 审计必拒。
@@ -1585,8 +2172,8 @@ mod tests {
         // 直接审计面:手工伪造缺日志帧 ⇒ 必拒。
         let mut forged = frame.clone();
         forged.transitions.clear();
-        let e = audit(&forged, &gb, &ChainSwitches::ALL_ON, &l1, &l2, &l3)
-            .expect_err("缺日志帧必拒");
+        let e =
+            audit(&forged, &gb, &ChainSwitches::ALL_ON, &l1, &l2, &l3).expect_err("缺日志帧必拒");
         assert!(matches!(e, FbError::SilentFallback(_)));
     }
 
@@ -1594,11 +2181,14 @@ mod tests {
     #[test]
     fn l4_not_triggered_registration_fail_closed() {
         // 触发条件核验器:HLOD 接口未就绪 ⇒ NotTriggered(显式结构,非绿色)。
-        let st = check_l4_trigger();
-        let L4TriggerState::NotTriggered { reason } = st;
+        let st = check_l4_trigger(None);
+        let L4TriggerState::NotTriggered { reason } = st else {
+            panic!("proxy 未装载必须 NotTriggered,实际 {st:?}");
+        };
         assert!(reason.contains("HLOD"), "登记原因须含 HLOD 未就绪字面");
         // L4 服务请求 ⇒ fail-closed typed Err(禁静默当绿)。
-        match l4_serve() {
+        let no_sample = LegSample { hit: false, t: 0.0, rgb: [0.0; 3], work: 0 };
+        match l4_serve(None, &no_sample) {
             Err(FbError::L4InterfaceNotReady(_)) => {}
             other => panic!("L4 服务必须 typed Err,实际 {other:?}"),
         }
@@ -1679,14 +2269,24 @@ mod tests {
         // 手算锚:命中点 (0.5, 0.0, 0.5),法线 +y;光源中心 (0.5,0.995,0.5),
         // dist=0.995 ⇒ dist2=0.990025;cos_s=1,cos_l=1;area=0.09。
         let scene = cornell();
-        let core = point_light_core([0.5, 0.0, 0.5], [0.0, 1.0, 0.0], light_center(&scene), &scene);
+        let core = point_light_core(
+            [0.5, 0.0, 0.5],
+            [0.0, 1.0, 0.0],
+            light_center(&scene),
+            &scene,
+        );
         let expect = 0.09f32 / (path_trace::PT_PI * 0.990_025);
         assert!(
             (core - expect).abs() / expect < 1e-5,
             "core {core} vs 手算 {expect}"
         );
         // 背光面法线 ⇒ cos_s=0 ⇒ core=0。
-        let back = point_light_core([0.5, 0.0, 0.5], [0.0, -1.0, 0.0], light_center(&scene), &scene);
+        let back = point_light_core(
+            [0.5, 0.0, 0.5],
+            [0.0, -1.0, 0.0],
+            light_center(&scene),
+            &scene,
+        );
         assert_eq!(back, 0.0);
         // 光源中心锚:(p00 + 0.5e1 + 0.5e2) = (0.5, 0.995, 0.5)。
         assert_eq!(light_center(&scene), [0.5, 0.995, 0.5]);
@@ -1722,8 +2322,8 @@ mod tests {
         let scene = cornell();
         let gb = gbuffer_prepass(&scene);
         let (l1, l2, l3) = legs(&gb);
-        let golden = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true)
-            .expect("golden 装配");
+        let golden =
+            assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true).expect("golden 装配");
         // golden 必须真实消费全部三级(否则强关臂空转 = 降级链失效)。
         for level in TraceLevel::SELECTABLE {
             assert!(
@@ -1733,9 +2333,30 @@ mod tests {
             );
         }
         for (name, sw) in [
-            ("l1", ChainSwitches { l1: false, l2: true, l3: true }),
-            ("l2", ChainSwitches { l1: true, l2: false, l3: true }),
-            ("l3", ChainSwitches { l1: true, l2: true, l3: false }),
+            (
+                "l1",
+                ChainSwitches {
+                    l1: false,
+                    l2: true,
+                    l3: true,
+                },
+            ),
+            (
+                "l2",
+                ChainSwitches {
+                    l1: true,
+                    l2: false,
+                    l3: true,
+                },
+            ),
+            (
+                "l3",
+                ChainSwitches {
+                    l1: true,
+                    l2: true,
+                    l3: false,
+                },
+            ),
         ] {
             let off = assemble(&gb, sw, &l1, &l2, &l3, true).expect("强关装配");
             assert_ne!(
@@ -1751,8 +2372,7 @@ mod tests {
             );
         }
         // 双跑位级一致。
-        let again = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true)
-            .expect("双跑装配");
+        let again = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true).expect("双跑装配");
         assert_eq!(golden, again, "装配双跑位级一致");
         assert_eq!(golden.usage_log_digest(), again.usage_log_digest());
     }
@@ -1763,8 +2383,7 @@ mod tests {
         let scene = cornell();
         let gb = gbuffer_prepass(&scene);
         let (l1, l2, l3) = legs(&gb);
-        let frame = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true)
-            .expect("装配");
+        let frame = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true).expect("装配");
         let chain_px = gb.primary_hit.iter().filter(|&&b| b).count() as u64;
         for level in TraceLevel::SELECTABLE {
             let c = frame.counters[level.slot()];
@@ -1774,8 +2393,14 @@ mod tests {
             assert!(c.hit_rate() > 0.0 && c.hit_rate() <= 1.0);
         }
         // L4 行:零计数 + not-triggered 登记(不充绿)。
-        assert_eq!(frame.counters[TraceLevel::L4FarField.slot()], LevelCounters::default());
-        assert!(matches!(check_l4_trigger(), L4TriggerState::NotTriggered { .. }));
+        assert_eq!(
+            frame.counters[TraceLevel::L4FarField.slot()],
+            LevelCounters::default()
+        );
+        assert!(matches!(
+            check_l4_trigger(None),
+            L4TriggerState::NotTriggered { .. }
+        ));
     }
 
     //@ spec: RXS-0359
@@ -1812,14 +2437,27 @@ mod tests {
         band.check("chain_simple", &"11".repeat(32), &"22".repeat(32), 0.4)
             .expect("带界");
         // digest 不符 ⇒ Err。
-        assert!(band.check("chain_simple", &"44".repeat(32), &"22".repeat(32), 0.2).is_err());
-        assert!(band.check("chain_simple", &"11".repeat(32), &"55".repeat(32), 0.2).is_err());
+        assert!(
+            band.check("chain_simple", &"44".repeat(32), &"22".repeat(32), 0.2)
+                .is_err()
+        );
+        assert!(
+            band.check("chain_simple", &"11".repeat(32), &"55".repeat(32), 0.2)
+                .is_err()
+        );
         // 越带 ⇒ Err;NaN ⇒ Err;缺条目 ⇒ Err。
-        assert!(band.check("chain_simple", &"11".repeat(32), &"22".repeat(32), 0.41).is_err());
-        assert!(band
-            .check("chain_simple", &"11".repeat(32), &"22".repeat(32), f64::NAN)
-            .is_err());
-        assert!(band.check("nope", &"11".repeat(32), &"22".repeat(32), 0.1).is_err());
+        assert!(
+            band.check("chain_simple", &"11".repeat(32), &"22".repeat(32), 0.41)
+                .is_err()
+        );
+        assert!(
+            band.check("chain_simple", &"11".repeat(32), &"22".repeat(32), f64::NAN)
+                .is_err()
+        );
+        assert!(
+            band.check("nope", &"11".repeat(32), &"22".repeat(32), 0.1)
+                .is_err()
+        );
         // 解析 fail-closed:schema 失配/重复条目/空条目/非 hex。
         assert!(M98DepthBand::parse("{}").is_err());
         let dup = text.replace("chain_hit_lighting", "chain_simple");
@@ -1846,5 +2484,326 @@ mod tests {
         let s = l3_leg_host(&scene, &gb, L3ShadeMode::Simple);
         let hl = l3_leg_host(&scene, &gb, L3ShadeMode::HitLighting);
         assert!(s.iter().zip(hl.iter()).any(|(x, y)| x.rgb != y.rgb));
+    }
+
+    // -----------------------------------------------------------------------
+    // G31+ C12 L4 Far Field 档(host 面;RXS-0359 锚定扩展)
+    // -----------------------------------------------------------------------
+
+    fn ff_world() -> (PtScene, L4ProxySet, GBuffer) {
+        let (scene, proxies) = m98_l4_far_field_scene();
+        scene.validate().expect("远场契约场景校验");
+        let gb = gbuffer_prepass(&scene);
+        (scene, proxies, gb)
+    }
+
+    fn ff_legs(gb: &GBuffer, scene: &PtScene) -> (Vec<LegSample>, Vec<LegSample>, Vec<LegSample>) {
+        (
+            l1_leg_host(scene, gb),
+            l2_leg_host(scene, &gb.sec_o, &gb.sec_d),
+            l3_leg_host(scene, gb, L3ShadeMode::Simple),
+        )
+    }
+
+    //@ spec: RXS-0359
+    #[test]
+    fn l4_proxy_set_fail_closed_validation() {
+        let good = L4Proxy {
+            aabb_min: [0.0; 3],
+            aabb_max: [1.0; 3],
+            radiance: [0.1, 0.2, 0.3],
+        };
+        assert_eq!(L4ProxySet::new(vec![good]).unwrap().len(), 1);
+        // min ≥ max ⇒ Err;非有限 ⇒ Err;辐射负/非有限 ⇒ Err。
+        let mut bad = good;
+        bad.aabb_min[1] = 2.0;
+        assert!(L4ProxySet::new(vec![bad]).is_err());
+        let mut bad = good;
+        bad.aabb_max[0] = f32::NAN;
+        assert!(L4ProxySet::new(vec![bad]).is_err());
+        let mut bad = good;
+        bad.radiance[2] = -0.5;
+        assert!(L4ProxySet::new(vec![bad]).is_err());
+        let mut bad = good;
+        bad.radiance[0] = f32::INFINITY;
+        assert!(L4ProxySet::new(vec![bad]).is_err());
+        // 空集合法(= 接口未装载态)。
+        assert!(L4ProxySet::new(vec![]).unwrap().is_empty());
+    }
+
+    //@ spec: RXS-0359
+    #[test]
+    fn l4_trace_host_deterministic_and_proxy_coverage() {
+        let (_scene, proxies, gb) = ff_world();
+        let (a, ia) = l4_leg_host(&gb, &proxies);
+        let (b, ib) = l4_leg_host(&gb, &proxies);
+        assert_eq!(a, b, "L4 host 镜像双跑位级一致");
+        assert_eq!(ia, ib, "proxy 下标列双跑一致");
+        // 确定性计数面:work = proxy 数(全量扫描)。
+        assert!(a.iter().all(|s| s.work == 5));
+        // 构造契约:五件 proxy 逐件 ≥1 像素命中(投影覆盖非空)。
+        let chain: Vec<usize> = (0..a.len()).filter(|&i| gb.primary_hit[i]).collect();
+        for k in 0..proxies.len() {
+            let n = chain.iter().filter(|&&i| a[i].hit && ia[i] as usize == k).count();
+            assert!(n >= 1, "proxy {k} 投影覆盖为空(契约破坏)");
+        }
+        // 命中 ⇒ t > M98_VIEW_DIST(远场语义)+ 辐射度 = proxy 烘焙值;
+        // 未命中 ⇒ SKY + t=0。
+        for (i, s) in a.iter().enumerate() {
+            if s.hit {
+                assert!(s.t > M98_VIEW_DIST, "L4 命中 t={} 须超视距", s.t);
+                assert_eq!(s.rgb, proxies.proxies[ia[i] as usize].radiance);
+            } else {
+                assert_eq!(s.t, 0.0);
+                assert_eq!(s.rgb, M98_SKY);
+            }
+        }
+        // 链内像素 L4 几何命中率 ∈ (0,1](逸出射线部分被 proxy 覆盖)。
+        let hits = chain.iter().filter(|&&i| a[i].hit).count();
+        assert!(hits > 0, "远场契约须有 proxy 命中");
+    }
+
+    //@ spec: RXS-0359
+    #[test]
+    fn l4_selector_escalation_and_forced_off_semantics() {
+        let (_scene, proxies, _gb) = ff_world();
+        let mk = |hit: bool, t: f32| LegSample {
+            hit,
+            t,
+            rgb: [0.3, 0.2, 0.1],
+            work: 5,
+        };
+        let samples = vec![mk(true, 1500.0)];
+        let leg_on = L4Leg {
+            proxies: &proxies,
+            samples: &samples,
+            enabled: true,
+        };
+        let leg_off = L4Leg {
+            enabled: false,
+            ..leg_on
+        };
+        // L3 miss + L4 启用 ⇒ 服务 L4 + Miss 转移记录。
+        let (served, recs) = select_pixel_l4(
+            &ChainSwitches::ALL_ON,
+            Some(&leg_on),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            0,
+        )
+        .expect("选档");
+        assert_eq!(served, Some(TraceLevel::L4FarField));
+        assert_eq!(recs.len(), 3, "L1→L2→L3→L4 三转移(L1/L2 miss + L3 miss)");
+        assert_eq!(recs[2].from, TraceLevel::L3Hwrt);
+        assert_eq!(recs[2].to, TraceLevel::L4FarField);
+        assert_eq!(recs[2].cause, TransitionCause::Miss);
+        // L3 miss + L4 强关 ⇒ L3 截断终端 + ForcedOff 记录(旧三级语义)。
+        let (served, recs) = select_pixel_l4(
+            &ChainSwitches::ALL_ON,
+            Some(&leg_off),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            0,
+        )
+        .expect("选档");
+        assert_eq!(served, Some(TraceLevel::L3Hwrt));
+        assert_eq!(recs[2].cause, TransitionCause::ForcedOff);
+        assert_eq!(recs[2].to, TraceLevel::L4FarField);
+        // L3 miss + None ⇒ L3 终端天空,零 L4 记录(旧字面不变)。
+        let (served, recs) = select_pixel(
+            &ChainSwitches::ALL_ON,
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            0,
+        )
+        .expect("选档");
+        assert_eq!(served, Some(TraceLevel::L3Hwrt));
+        assert_eq!(recs.len(), 2);
+        // L3 命中 t > VIEW_DIST + L4 启用 ⇒ OutOfRange 转移服务 L4。
+        let (served, recs) = select_pixel_l4(
+            &ChainSwitches::ALL_ON,
+            Some(&leg_on),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(true, 1500.0),
+            0,
+        )
+        .expect("选档");
+        assert_eq!(served, Some(TraceLevel::L4FarField));
+        assert_eq!(recs[2].cause, TransitionCause::OutOfRange);
+        // 同情形 + None ⇒ 旧字面 fail-closed Err 维持。
+        assert!(matches!(
+            select_pixel(
+                &ChainSwitches::ALL_ON,
+                &mk(false, 0.0),
+                &mk(false, 0.0),
+                &mk(true, 1500.0),
+                0,
+            ),
+            Err(FbError::L4InterfaceNotReady(_))
+        ));
+        // 同情形 + L4 强关 ⇒ ForcedOff 记录 + fail-closed Err(禁静默当绿)。
+        match select_pixel_l4(
+            &ChainSwitches::ALL_ON,
+            Some(&leg_off),
+            &mk(false, 0.0),
+            &mk(false, 0.0),
+            &mk(true, 1500.0),
+            0,
+        ) {
+            Err(FbError::L4InterfaceNotReady(_)) => {}
+            other => panic!("强关视距外命中必须 fail-closed,实际 {other:?}"),
+        }
+        // 全关 + L4 启用 ⇒ L4 兜底服务。
+        let all_off = ChainSwitches {
+            l1: false,
+            l2: false,
+            l3: false,
+        };
+        let (served, recs) =
+            select_pixel_l4(&all_off, Some(&leg_on), &mk(true, 0.3), &mk(true, 0.4), &mk(true, 0.4), 0)
+                .expect("选档");
+        assert_eq!(served, Some(TraceLevel::L4FarField));
+        assert_eq!(recs.len(), 3);
+        assert!(recs.iter().all(|r| r.cause == TransitionCause::ForcedOff));
+        // 全关 + None ⇒ Unserved 终端(旧字面)。
+        let (served, _) =
+            select_pixel(&all_off, &mk(true, 0.3), &mk(true, 0.4), &mk(true, 0.4), 0).expect("选档");
+        assert_eq!(served, None);
+    }
+
+    //@ spec: RXS-0359
+    #[test]
+    fn l4_assemble_four_tier_counters_audit_and_arms() {
+        let (scene, proxies, gb) = ff_world();
+        let (l1, l2, l3) = ff_legs(&gb, &scene);
+        let (l4s, _idx) = l4_leg_host(&gb, &proxies);
+        let leg_on = L4Leg {
+            proxies: &proxies,
+            samples: &l4s,
+            enabled: true,
+        };
+        // golden 四级链:双跑位级 + 审计过 + L4 计数面真实非空。
+        let golden = assemble_l4(&gb, ChainSwitches::ALL_ON, Some(leg_on), &l1, &l2, &l3, true)
+            .expect("四级 golden 装配");
+        let again = assemble_l4(&gb, ChainSwitches::ALL_ON, Some(leg_on), &l1, &l2, &l3, true)
+            .expect("四级双跑装配");
+        assert_eq!(golden, again, "四级装配双跑位级一致");
+        audit_l4(&golden, &gb, &ChainSwitches::ALL_ON, Some(&leg_on), &l1, &l2, &l3)
+            .expect("四级审计");
+        let c4 = golden.counters[TraceLevel::L4FarField.slot()];
+        let chain_px = gb.primary_hit.iter().filter(|&&b| b).count() as u64;
+        assert_eq!(c4.rays_attempted, chain_px, "L4 attempted = 链内像素");
+        assert!(c4.rays_hit > 0, "L4 proxy 命中非空");
+        assert!(c4.pixels_served > 0, "L4 服务像素非空(逸出射线存在)");
+        assert_eq!(c4.work_count, chain_px * 5, "L4 work = 全量扫描计数");
+        assert!(c4.hit_rate() > 0.0 && c4.hit_rate() <= 1.0);
+        // 切换次数:至 L4 转移(Miss 因)非空;禁静默回退审计重算一致。
+        let to_l4 = golden
+            .transitions
+            .iter()
+            .filter(|r| r.to == TraceLevel::L4FarField)
+            .count() as u64;
+        assert_eq!(to_l4, c4.pixels_served, "至 L4 转移数 = L4 服务像素数");
+        // 级别覆盖充分性:golden 必须真实消费全部四级(否则强关臂空转)。
+        for level in TraceLevel::ALL {
+            assert!(
+                golden.counters[level.slot()].pixels_served > 0,
+                "{} golden 服务像素数必须 > 0",
+                level.name()
+            );
+        }
+        // 静默回退注入(抑日志)⇒ 审计必 fail-closed SilentFallback。
+        match assemble_l4(&gb, ChainSwitches::ALL_ON, Some(leg_on), &l1, &l2, &l3, false) {
+            Err(FbError::SilentFallback(_)) => {}
+            other => panic!("四级静默注入必须拒,实际 {other:?}"),
+        }
+        // 强关 L4:digest 必分叉 + ForcedOff 记录 + L4 槽位归零 + sabotage
+        // 探针(golden vs golden)必判不可检测(能红证明)。
+        let leg_off = L4Leg {
+            enabled: false,
+            ..leg_on
+        };
+        let off = assemble_l4(&gb, ChainSwitches::ALL_ON, Some(leg_off), &l1, &l2, &l3, true)
+            .expect("强关 L4 装配");
+        assert_ne!(
+            golden.product_digest(),
+            off.product_digest(),
+            "强关 L4 后产物 digest 仍同 golden = RED(回归不可检测)"
+        );
+        assert!(off
+            .transitions
+            .iter()
+            .any(|r| r.to == TraceLevel::L4FarField && r.cause == TransitionCause::ForcedOff));
+        assert_eq!(
+            off.counters[TraceLevel::L4FarField.slot()],
+            LevelCounters::default(),
+            "强关 L4 槽位全零显式"
+        );
+        // sabotage 探针(golden vs golden)必判「不可检测」(能红证明:
+        // 检出 = digest 分叉 ∧ ForcedOff 记录;同帧自比两者皆无)。
+        let probe_detectable = golden.product_digest() != golden.product_digest()
+            && golden
+                .transitions
+                .iter()
+                .any(|r| r.cause == TransitionCause::ForcedOff);
+        assert!(!probe_detectable, "golden vs golden 必须判不可检测(能红证明)");
+        // 旧三级链(None):L4 槽位恒零 + 逸出像素 L3 终端天空 ⇒ 与四级
+        // golden digest 分叉(proxy 贡献真实进入画面)。
+        let legacy = assemble(&gb, ChainSwitches::ALL_ON, &l1, &l2, &l3, true).expect("三级装配");
+        assert_eq!(
+            legacy.counters[TraceLevel::L4FarField.slot()],
+            LevelCounters::default()
+        );
+        assert_ne!(
+            golden.product_digest(),
+            legacy.product_digest(),
+            "L4 on vs L3 截断 digest 须分叉(proxy 贡献进画面)"
+        );
+        // 空接线冒充 fail-closed:Some + 空 proxy 集 ⇒ InvalidConfig。
+        let empty_set = L4ProxySet::default();
+        let leg_empty = L4Leg {
+            proxies: &empty_set,
+            samples: &l4s,
+            enabled: true,
+        };
+        assert!(matches!(
+            assemble_l4(&gb, ChainSwitches::ALL_ON, Some(leg_empty), &l1, &l2, &l3, true),
+            Err(FbError::InvalidConfig(_))
+        ));
+    }
+
+    //@ spec: RXS-0359
+    #[test]
+    fn l4_pack_layout_and_axis_inv_anchor() {
+        let (_scene, proxies, _gb) = ff_world();
+        let packed = pack_l4_proxies(&proxies);
+        assert_eq!(packed.len(), 50, "10 f32/proxy × 5");
+        // 首件布局:min3‖max3‖radiance3‖pad。
+        assert_eq!(&packed[0..3], &[-900.0, 1300.0, -900.0]);
+        assert_eq!(&packed[6..9], &[0.10, 0.14, 0.20]);
+        assert_eq!(packed[9], 0.0);
+        let params = pack_l4_params(4096, 5);
+        assert_eq!(params, vec![4096.0, 5.0, M98_SKY[0], M98_SKY[1], M98_SKY[2]]);
+        // 平行门卫数值锚:正常分量 1/d;零/微分量 ±1e-30 保号替代(判定不变)。
+        assert_eq!(l4_axis_inv(2.0), 0.5);
+        assert_eq!(l4_axis_inv(-4.0), -0.25);
+        assert_eq!(l4_axis_inv(0.0), 1e30, "+0 ⇒ 1/(+1e-30)");
+        assert_eq!(l4_axis_inv(-0.0), 1e30, "−0 与 +0 同走 +1e-30(平行判定无关号)");
+        assert_eq!(l4_axis_inv(-1e-25), -1e30, "负微分量保号替代");
+        assert_eq!(l4_axis_inv(1e-25), 1e30, "正微分量保号替代");
+        assert_eq!(l4_axis_inv(1e-7), 1e30, "1e-6 门卫带内走精确面");
+        assert_eq!(l4_axis_inv(-1e-7), -1e30, "负向门卫带内保号");
+        assert_eq!(l4_axis_inv(1e-5), 1e5, "门卫带外真实取逆");
+        // 门卫判定不变式:平行盒内 ⇒ 区间恒含;平行盒外 ⇒ 同号恒不含。
+        let o_inside = l4_trace_ray([1.0, 0.5, 1.0], [0.0, 1.0, 0.0], &proxies);
+        assert!(o_inside.0.hit, "垂直射线自场景内必中天顶远板");
+        assert_eq!(o_inside.1, 0, "天顶远板下标 0");
+        let miss = l4_trace_ray([1.0, 0.5, 1.0], [0.0, -1.0, 0.0], &proxies);
+        assert!(!miss.0.hit, "朝地射线不中 proxy");
+        assert_eq!(miss.0.rgb, M98_SKY);
     }
 }

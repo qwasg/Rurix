@@ -30,7 +30,9 @@
 
 use rurix_pkg::sha256;
 
-use crate::material::side_table::{BurleyProfile, LobeExtension, MaterialSideTable, SideTableError};
+use crate::material::side_table::{
+    BurleyProfile, LobeExtension, MaterialSideTable, SideTableError,
+};
 
 // ---------------------------------------------------------------------------
 // 冻结常量面
@@ -91,7 +93,9 @@ pub type Result<T> = std::result::Result<T, SkinError>;
 /// 0),退化纯漫反射**)。
 pub fn burley_color_kernel(falloff: f32) -> Result<[f32; SSS_KERNEL_TAPS]> {
     if !falloff.is_finite() || falloff < 0.0 {
-        return Err(SkinError::NonFiniteValue { stage: "burley kernel" });
+        return Err(SkinError::NonFiniteValue {
+            stage: "burley kernel",
+        });
     }
     let mut k = [0.0f32; SSS_KERNEL_TAPS];
     let half = SSS_KERNEL_TAPS / 2;
@@ -126,7 +130,11 @@ pub fn depth_kernel(delta: f32) -> f32 {
 
 /// Burley 屏单 pass 求值(颜色 kernel 卷积 × 深度 kernel 门控;RGB 逐通道
 /// falloff)。`signal` = 漫反射着色输入(纯漫反射基线同源)。
-pub fn eval_skin_sss(signal: &[[f32; 3]], depth: &[f32], profile: &BurleyProfile) -> Result<Vec<[f32; 3]>> {
+pub fn eval_skin_sss(
+    signal: &[[f32; 3]],
+    depth: &[f32],
+    profile: &BurleyProfile,
+) -> Result<Vec<[f32; 3]>> {
     if signal.len() != depth.len() {
         return Err(SkinError::NotCanonical("signal/depth 长度不符"));
     }
@@ -160,7 +168,11 @@ pub fn eval_skin_sss(signal: &[[f32; 3]], depth: &[f32], profile: &BurleyProfile
         }
         // 逐通道保能量归一(无邻近样本时回落自身)。
         for c in 0..3 {
-            o[c] = if wsum[c] > 0.0 { acc[c] / wsum[c] } else { signal[i][c] };
+            o[c] = if wsum[c] > 0.0 {
+                acc[c] / wsum[c]
+            } else {
+                signal[i][c]
+            };
         }
     }
     Ok(out)
@@ -175,9 +187,10 @@ pub fn eval_pure_diffuse(signal: &[[f32; 3]]) -> Vec<[f32; 3]> {
 /// 不等即 profile 未生效 RED。返回逐位相等布尔(harness/单测判据面)。
 pub fn zero_falloff_degrades_to_diffuse(out: &[[f32; 3]], diffuse: &[[f32; 3]]) -> bool {
     out.len() == diffuse.len()
-        && out.iter().zip(diffuse.iter()).all(|(a, b)| {
-            (0..3).all(|c| a[c].to_bits() == b[c].to_bits())
-        })
+        && out
+            .iter()
+            .zip(diffuse.iter())
+            .all(|(a, b)| (0..3).all(|c| a[c].to_bits() == b[c].to_bits()))
 }
 
 /// profile 生效机核(L4 对偶):非零 profile 输出必须与纯漫反射有可见差异
@@ -276,9 +289,9 @@ pub fn eval_skin_entry(
     };
     match ext {
         Some(LobeExtension::Burley(p)) => eval_skin_sss(signal, depth, p),
-        Some(LobeExtension::Marschner(_)) => {
-            Err(SkinError::SideTable(SideTableError::NotCanonical("皮肤槽误挂 Marschner 扩展")))
-        }
+        Some(LobeExtension::Marschner(_)) => Err(SkinError::SideTable(
+            SideTableError::NotCanonical("皮肤槽误挂 Marschner 扩展"),
+        )),
         None => Ok(eval_pure_diffuse(signal)),
     }
 }
@@ -306,20 +319,33 @@ pub fn canonical_skin_patch() -> (Vec<[f32; 3]>, Vec<f32>) {
     for i in 0..SKIN_PATCH_SAMPLES {
         let t = i as f32 / (SKIN_PATCH_SAMPLES - 1) as f32;
         let lamber = (t * std::f32::consts::PI).sin() * 0.7 + 0.3;
-        let impulse = if i == SKIN_PATCH_SAMPLES / 2 { 0.8 } else { 0.0 };
+        let impulse = if i == SKIN_PATCH_SAMPLES / 2 {
+            0.8
+        } else {
+            0.0
+        };
         signal.push([
             lamber * 0.9 + impulse,
             lamber * 0.7 + impulse * 0.9,
             lamber * 0.55 + impulse * 0.7,
         ]);
-        depth.push(t * 0.6 + if i >= SKIN_PATCH_SAMPLES / 2 { 0.05 } else { 0.0 });
+        depth.push(
+            t * 0.6
+                + if i >= SKIN_PATCH_SAMPLES / 2 {
+                    0.05
+                } else {
+                    0.0
+                },
+        );
     }
     (signal, depth)
 }
 
 /// canonical 扩散 profile(皮肤典型 RGB falloff 0.8/0.5/0.25)。
 pub fn canonical_skin_profile() -> BurleyProfile {
-    BurleyProfile { falloff_rgb: [0.8, 0.5, 0.25] }
+    BurleyProfile {
+        falloff_rgb: [0.8, 0.5, 0.25],
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +361,9 @@ mod tests {
     #[test]
     fn zero_falloff_degrades_to_pure_diffuse() {
         let (signal, depth) = canonical_skin_patch();
-        let zero = BurleyProfile { falloff_rgb: [0.0, 0.0, 0.0] };
+        let zero = BurleyProfile {
+            falloff_rgb: [0.0, 0.0, 0.0],
+        };
         let out = eval_skin_sss(&signal, &depth, &zero).unwrap();
         let diffuse = eval_pure_diffuse(&signal);
         assert!(zero_falloff_degrades_to_diffuse(&out, &diffuse));
@@ -347,8 +375,14 @@ mod tests {
     //@ spec: RXS-0373
     #[test]
     fn diffusion_radius_monotonic_in_falloff() {
-        let r1 = diffusion_radius(&BurleyProfile { falloff_rgb: [0.2, 0.2, 0.2] }).unwrap();
-        let r2 = diffusion_radius(&BurleyProfile { falloff_rgb: [0.6, 0.6, 0.6] }).unwrap();
+        let r1 = diffusion_radius(&BurleyProfile {
+            falloff_rgb: [0.2, 0.2, 0.2],
+        })
+        .unwrap();
+        let r2 = diffusion_radius(&BurleyProfile {
+            falloff_rgb: [0.6, 0.6, 0.6],
+        })
+        .unwrap();
         let r3 = diffusion_radius(&canonical_skin_profile()).unwrap();
         assert!(r2 > r1, "扩散半径未随 falloff 增大: {r1} -> {r2}");
         assert!(r3 > 0.0);
@@ -361,7 +395,8 @@ mod tests {
         let baseline = eval_skin_entry(&signal, &depth, 0, None).unwrap();
         let default_tbl = MaterialSideTable::new();
         let with_default = eval_skin_entry(&signal, &depth, 0, Some(&default_tbl)).unwrap();
-        assert_default_table_invariant(&image_digest(&baseline), &image_digest(&with_default)).unwrap();
+        assert_default_table_invariant(&image_digest(&baseline), &image_digest(&with_default))
+            .unwrap();
     }
 
     //@ spec: RXS-0373

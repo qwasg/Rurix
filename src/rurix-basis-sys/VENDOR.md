@@ -35,10 +35,11 @@
 |---|---|
 | `rurix_basis_version` | 返回静态版本 C 字符串(== 上表 pin 字面) |
 | `rurix_basis_encode_container` | RGBA8 → KTX2(UASTC)或真实 `.basis`(ETC1S);mode 与 swizzle_rg 参数 |
-| `rurix_basis_transcode` | 容器 → GPU 块字节(BC4/BC5/BC7/ASTC 4×4,真 transcode) |
+| `rurix_basis_transcode` | 容器 → GPU 块字节(BC4/BC5/BC7/ASTC 4×4,真 transcode);level 0 |
+| `rurix_basis_transcode_level` | 同上但 mip level 参数化(G31+ 波 C Task C14):KTX2 路径 `level ∈ [0, levels)` 越界 rc=17;`.basis` 路径 `level != 0` rc=5(fail-closed) |
 | `rurix_basis_buf_free` | 释放 encoder/transcoder 堆缓冲(配对 new[]/delete[]) |
 
-Rust 侧 safe 包装见 `src/lib.rs`;unsafe 登记 U44~U46。
+Rust 侧 safe 包装见 `src/lib.rs`;unsafe 登记 U44~U46 + U60。
 
 ## 4. SBOM / NOTICE
 

@@ -1,0 +1,43 @@
+//@ spec: RFC-0049 §4.1(G35-1 scan 基元阶段 1;spec 条款号本期零新设)
+// G35-P 分段稳定 exclusive scan · 阶段 1/3 —— 段和(门 g35.wave1.primitives
+// 及 g35.wave2.particle_core 共享消费面;G35_CONTRACT §4 契约,
+// src/particles/mod.rs 契约头字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽)
+// 公式面与 host 金标准 `particles/scan.rs::seg_sums` **逐字同源**:线程 s
+// 串行累加段 [s·256, min((s+1)·256, n)) ⇒ seg_sums[s]。段外线程界外守卫
+// 直落(lo ≥ n ⇒ hi = n < lo,循环零次,acc = 0 与 host 同值)。
+// 无 shared memory / 无原子 / 无 lookback(Vulkan 前进保证缺位,保守臂即
+// 生产形态,RFC-0049 §9 Q1);纯 u32/usize 整数算术零浮点 ⇒ device↔host
+// **零容差位级**(mod.rs 整数域协议;域前提:单值 < 2^24、总和 < 2^32)。
+//
+// ## 参数面(4 f32;n ≤ 2^24 f32 精确)
+//   params[0]=n(元素数) [1]=nseg(段数 = dispatch x) [2..4)=reserved(恒 0)。
+//   values: u32/元素;seg_sums: u32/段。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1;g14_8 注:百万工作组×1 线程
+//   调度为既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_scan_seg_sum(
+    tc: ThreadCtx<1>,
+    values: View<global, u32>,
+    params: View<global, f32>,
+    seg_sums: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut acc = 0u32;
+        let mut i = lo;
+        while i < hi {
+            acc = acc + values[i];
+            i = i + 1usize;
+        }
+        seg_sums[s] = acc;
+    }
+}

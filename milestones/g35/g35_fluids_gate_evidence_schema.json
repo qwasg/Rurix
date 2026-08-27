@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-7 流体统一物理门裁决证据(ci/g35_fluids_smoke.py --gate 产)",
+  "description": "G35-7 流体统一物理门 g35.wave7.fluids 的 smoke 裁决证据:① kernels_spv_valid(rurixc 现编 9 kernel = 6 新〔g35_hash_cellkey/g35_hash_clear/g35_hash_cellrange/g35_xpbd_density/g35_xpbd_apply/g35_xpbd_velocity〕+ 3 sort 消费面〔g35_sort_hist/g35_sort_spine/g35_sort_scatter,W1 冻结面消费不修改〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档)② neighbor_sets_bitexact(cell_key/sorted_keys/sorted_idx/cell_start/cell_end 五整数流 device↔host 逐帧 memcmp 零容差位级——邻居结构位级 ⇒ 27-cell 固定序邻居集位级;host grid↔朴素 O(n²) 邻居集相等单测互核在 cargo test 面)③ hash_cell_floor_semantics(cell = floor((p−origin)/cs) 逐轴负坐标向负无穷 + 越界 clamp 到边界 cell 语义见证:negative_floor_events ≥ 1 且 clamp_events ≥ 1〔dam-break 触地帧预测位置必越下界 = 夹具咬合〕且整数流位级——RFC-0049 §4.10 F14 / G35_CONTRACT v1.1 增补 fact)④ xpbd_parity_within_budget(pos_x/y/z、vel_x/y/z、ρ、λ 八 f32 流逐帧 max abs diff 聚合 p100 ≤ 冻结容差——milestones/g35/g35_budget.json g35.fluids.parity_p100 程序读禁手写:threshold = measured × 2.0 标定冻结,measured = 0 时 threshold = 0;缺条目时标定腿先跑程序写入)⑤ density_error_measured(device ρ 流密度误差 measured 登记:mean|ρ/ρ0−1| 与正约束违反 mean(max(ρ/ρ0−1,0)) 首/末帧;压缩夹具首帧正约束违反必 > 0 咬合;收敛方向性断言归 fluid.rs 单测,登记不设死值)⑥ determinism_double_run(同 seed 全链双跑 digest 位级一致;digest = pos/vel/ρ/λ/cell_key/sorted/cell 区间字节 sha256 逐帧链式)⑦ red_arm_effective(--red-arm rho0-tamper ρ0 ×1.05 篡改双跑 digest 必异——digest 判据对约束求解敏感性证明)⑧ frame_ms_measured(device 19 dispatch 链〔cellkey + sort 3-pass 9 + clear + cellrange + [density+apply]×3 + velocity〕逐帧墙钟均值 measured_local 诚实登记,含 run_compute 逐 dispatch 会话重建开销,非帧率对标)。MPM 评估窗不实现(G2P/P2G 散射需原子或图着色与确定性协议冲突待裁,RFC-0049 §4.10 既有登记引用,notes 承载)。results.trimmed_mean = f32 measured p100 镜像(ci/budget_eval.py 通用路 evidence_file 消费面)。三态:无 Vulkan loader/设备 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "fluid_protocol",
+    "integer_parity",
+    "f32_parity",
+    "results",
+    "floor_semantics",
+    "density",
+    "determinism",
+    "red_arm",
+    "frame_ms",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.fluids_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_fluids" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave7.fluids" },
+    "wave": { "type": "string", "const": "G35.7" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "neighbor_sets_bitexact",
+              "hash_cell_floor_semantics",
+              "xpbd_parity_within_budget",
+              "density_error_measured",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_cellkey_spv",
+        "hash_clear_spv",
+        "hash_cellrange_spv",
+        "xpbd_density_spv",
+        "xpbd_apply_spv",
+        "xpbd_velocity_spv",
+        "sort_hist_spv",
+        "sort_spine_spv",
+        "sort_scatter_spv",
+        "spirv_val_all",
+        "frozen_consumed_snapshot"
+      ],
+      "properties": {
+        "hash_cellkey_spv": { "$ref": "#/definitions/spv_entry" },
+        "hash_clear_spv": { "$ref": "#/definitions/spv_entry" },
+        "hash_cellrange_spv": { "$ref": "#/definitions/spv_entry" },
+        "xpbd_density_spv": { "$ref": "#/definitions/spv_entry" },
+        "xpbd_apply_spv": { "$ref": "#/definitions/spv_entry" },
+        "xpbd_velocity_spv": { "$ref": "#/definitions/spv_entry" },
+        "sort_hist_spv": { "$ref": "#/definitions/spv_entry" },
+        "sort_spine_spv": { "$ref": "#/definitions/spv_entry" },
+        "sort_scatter_spv": { "$ref": "#/definitions/spv_entry" },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(kernels/g35_sort_hist.rx / g35_sort_spine.rx / g35_sort_scatter.rx / particles/mod.rs / particles/primitives.rs——G35-7 消费不修改承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "fluid_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "n", "seed", "dt", "cell_size", "rho0", "mass", "gravity_y", "grid", "iter"],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 32 },
+        "n": { "type": "integer", "minimum": 512 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "dt": { "type": "number", "exclusiveMinimum": 0 },
+        "cell_size": { "type": "number", "exclusiveMinimum": 0, "description": "= SPH 平滑半径 h(冻结相等,RFC-0049 §4.10)" },
+        "rho0": { "type": "number", "exclusiveMinimum": 0 },
+        "mass": { "type": "number", "exclusiveMinimum": 0 },
+        "gravity_y": { "type": "number" },
+        "grid": { "type": "integer", "const": 64, "description": "v1 密集网格每轴 cell 数冻结(cell_id < 64³ = 262144 < 2^24 键域)" },
+        "iter": { "type": "integer", "const": 3, "description": "XPBD 固定迭代冻结(禁自适应早停)" }
+      }
+    },
+    "integer_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bitexact", "streams"],
+      "properties": {
+        "bitexact": { "type": "boolean", "description": "五整数流(cell_key/sorted_keys/sorted_idx/cell_start/cell_end)全帧 memcmp 零容差位级才许 true" },
+        "streams": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "type": "string", "enum": ["cell_key", "sorted_keys", "sorted_idx", "cell_start", "cell_end"] }
+        }
+      }
+    },
+    "f32_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured_p100", "threshold", "budget_entry", "calibrated_this_run", "within", "stream_max"],
+      "properties": {
+        "measured_p100": { "type": "number", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0, "description": "= measured × 2.0 标定冻结(程序产禁手写;measured = 0 时 = 0 零容差零条目)" },
+        "budget_entry": { "type": "string", "const": "g35.fluids.parity_p100" },
+        "calibrated_this_run": { "type": "boolean", "description": "true = 本次 --gate 标定腿程序写入 g35_budget;false = 既有冻结条目程序读" },
+        "within": { "type": "boolean" },
+        "stream_max": { "type": "object", "description": "逐流 max abs diff(pos_x/y/z、vel_x/y/z、rho、lambda 八 f32 流)" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number", "minimum": 0, "description": "= f32_parity.measured_p100 镜像(ci/budget_eval.py 通用路 doc.results.trimmed_mean 消费面;g35_budget evidence_file 指向本件)" }
+      }
+    },
+    "floor_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["negative_floor_events", "clamp_events"],
+      "properties": {
+        "negative_floor_events": { "type": "integer", "minimum": 0, "description": "逐粒子逐轴 floor((p−origin)/cs) < 0 事件累计(host 登记语义;≥ 1 才许 fact PASS——负坐标向负无穷取整域见证)" },
+        "clamp_events": { "type": "integer", "minimum": 0, "description": "逐粒子逐轴 floor 越 [0,63] clamp 事件累计(≥ 1 才许 fact PASS——越界 clamp 到边界 cell 如实登记语义见证)" }
+      }
+    },
+    "density": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean_abs_err_first", "mean_abs_err_last", "pos_constraint_first", "pos_constraint_last", "measured"],
+      "properties": {
+        "mean_abs_err_first": { "type": "number", "minimum": 0, "description": "device ρ 流首帧 mean|ρ/ρ0−1|(measured 登记)" },
+        "mean_abs_err_last": { "type": "number", "minimum": 0 },
+        "pos_constraint_first": { "type": "number", "exclusiveMinimum": 0, "description": "首帧正约束违反 mean(max(ρ/ρ0−1,0))——压缩夹具必 > 0(咬合前提)" },
+        "pos_constraint_last": { "type": "number", "minimum": 0, "description": "末帧正约束违反(登记不设收敛死值;方向性断言归 fluid.rs 单测)" },
+        "measured": { "type": "string", "const": "measured_local" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "同 seed 全链双跑 digest 位级一致才许 true(digest = pos/vel/ρ/λ/cell_key/sorted/cell 区间字节 sha256 逐帧链式)" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "detected", "rho0_green", "rho0_red", "digest_green", "digest_red"],
+      "properties": {
+        "arm": { "type": "string", "const": "rho0-tamper" },
+        "detected": { "type": "boolean", "description": "ρ0 篡改(×1.05)双跑 digest 必异才许 true(digest 判据对约束求解敏感性证明)" },
+        "rho0_green": { "type": "number", "exclusiveMinimum": 0 },
+        "rho0_red": { "type": "number", "exclusiveMinimum": 0 },
+        "digest_green": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_chain_mean_ms", "frames_per_run", "measured", "note"],
+      "properties": {
+        "device_chain_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frames_per_run": { "type": "integer", "minimum": 32 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "description": "probe 真跑 evidence 件(绿臂/红臂/标定腿,.tmp 工作区路径登记)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

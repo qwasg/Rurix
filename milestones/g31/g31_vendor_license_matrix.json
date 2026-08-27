@@ -1,0 +1,473 @@
+{
+  "schema": "rurix.g31.vendor_license_matrix.v1",
+  "title": "G31+ 波 C Task C6 vendor 许可合规终审——全 vendor 面商用再分发许可矩阵（G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #53 兑现面）",
+  "created_by": "ci/g31_vendor_license_smoke.py（门 g31.waveC.license）+ docs/renderer/vendor_license_matrix.md（人读渲染面，字面以本 JSON 为准）",
+  "audit_date": "2026-08-25",
+  "distribution_scope": "commercial_redistribution（商业化分发口径 = 再分发许可合规）",
+  "status_enum": ["cleared", "conditional", "pending_owner", "blocked"],
+  "status_semantics": {
+    "cleared": "商用再分发当前面无阻塞；义务已登记且当前分发面满足或不触发",
+    "conditional": "当前分发面有未闭合义务/条件——conditions + obligations + gaps 逐项登记",
+    "pending_owner": "需 owner 法律面动作（agent 不冒充 owner 接受；G13 范式留痕）",
+    "blocked": "阻塞——disposition 处置登记"
+  },
+  "owner_action_policy": "OSI 批准许可（MIT / Apache-2.0 / 双许可）沿 G13 §2 FSR MIT 先例 = 零障碍确认，无需 owner 逐项动作；非 OSI 自定义许可（NVIDIA RTX SDKs LICENSE / NVIDIA CUDA EULA）须 owner 法律面接受留痕——DLSS/Streamline/NGX/NRD 面 owner 2026-08-18 已接受在案（milestones/g13/design/vendor_upscale_license_clearance.md §1，本矩阵引用不复制）；NVIDIA CUDA EULA Attachment A 面 = 白名单机制清结（ci/check_redistribution.py + src/rurixup/src/bundle.rs audit_redistribution，M5.4 起在案）。本批新核项全为 OSI 许可或既有机制面 → 零新 owner 动作（pending_owner=0 如实登记）。",
+  "items": [
+    {
+      "id": "streamline_ngx_dlss",
+      "name": "NVIDIA Streamline SDK + NGX（DLSS SR）",
+      "category": "external_sdk_runtime_loaded",
+      "version": "Streamline 2.10.3 + NGX（nvngx_dlss.dll 签名专有）",
+      "pin": "external/streamline-2.10.3（gitignored 外部缓存；zip sha256=8564646ca6dd7c3960370d05b06054549563f499bfb93d160b46b7494a47bb3c；DLL 逐件 digest 见 milestones/g13/g13_vendor_sdk_registry.json）",
+      "license": "NVIDIA RTX SDKs LICENSE（自定义非 OSI）",
+      "license_family": "custom_non_osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "许可文本随 external/streamline-2.10.3 缓存（不入 git）；协议文体转引 G12.3 评估报告 §3 + G13 清结档 §2",
+      "upstream_url": "https://github.com/NVIDIA-RTX/Streamline",
+      "clearance": "reference_g13",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed_per_owner_acceptance（owner 2026-08-18 法律面接受 NVIDIA RTX SDKs LICENSE，G13 §1 在案）",
+      "obligations": [
+        "按 NVIDIA RTX SDKs LICENSE 条款执行使用/再分发/归属（G13 §3 边界：清结 = 接受留痕非法律意见，逐条义务按许可字面执行）",
+        "当前零再分发：SDK 二进制不入 git（external/ gitignored）且不入发布 bundle（release.yml 资产清单无 vendor 件）",
+        "商用捆绑 NGX/SL DLL 时：随附许可文本与 NVIDIA 归属声明，维持 g13_vendor_sdk_registry.json digest 登记"
+      ],
+      "current_distribution_face": "运行时装载（RURIX_STREAMLINE_SDK_DIR / external/ 默认路径），feature vendor-upscale 默认 off；当前发布 bundle v1.0.1-dist.2 零 vendor 组件",
+      "sbom_faces": [
+        {"kind": "external_sdk_registry", "path": "milestones/g13/g13_vendor_sdk_registry.json", "contains": "streamline"}
+      ],
+      "evidence_refs": [
+        "milestones/g13/design/vendor_upscale_license_clearance.md",
+        "milestones/g13/g13_vendor_sdk_registry.json",
+        "milestones/g12/design/nrd_vendor_denoise_evaluation.md"
+      ],
+      "owner_action": "owner_accepted_g13_2026-08-18"
+    },
+    {
+      "id": "fsr_fidelityfx",
+      "name": "AMD FidelityFX SDK（FSR 3.1.5）",
+      "category": "external_sdk_runtime_loaded",
+      "version": "FidelityFX SDK 2.0.0 / FSR upscaler 3.1.5",
+      "pin": "external/fidelityfx-sdk-2.0.0（gitignored；zip sha256=2c353f94a20a233e033a15c0ddfecaa93500846fc399f13e753f0ac27b9f63dd；双 DLL digest 见 g13 登记）",
+      "license": "MIT（OSI 批准）",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "external/fidelityfx-sdk-2.0.0/license.md（g13_vendor_sdk_registry.json license 字段登记）",
+      "upstream_url": "https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK",
+      "clearance": "reference_g13",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（MIT 零障碍确认，G13 §2 在案）",
+      "obligations": [
+        "著作权声明与许可声明保留（MIT 字面）——商用捆绑 amd_fidelityfx_*_dx12.dll 时随附 license.md",
+        "当前零再分发（同 streamline 面）"
+      ],
+      "current_distribution_face": "运行时装载（RURIX_FSR_SDK_DIR / external/ 默认路径），D3D12 臂；当前发布 bundle 零 vendor 组件",
+      "sbom_faces": [
+        {"kind": "external_sdk_registry", "path": "milestones/g13/g13_vendor_sdk_registry.json", "contains": "fidelityfx"}
+      ],
+      "evidence_refs": [
+        "milestones/g13/design/vendor_upscale_license_clearance.md",
+        "milestones/g13/g13_vendor_sdk_registry.json"
+      ],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "nrd",
+      "name": "NVIDIA NRD（RD040-nrd 面）",
+      "category": "external_sdk_reference_only",
+      "version": "未接入（0-byte 维持）",
+      "pin": "未 vendor（RD-040 backfill 三条件另判）",
+      "license": "NVIDIA RTX SDKs LICENSE（自定义非 OSI，与 DLSS 同一协议面）",
+      "license_family": "custom_non_osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "G12.3 评估报告 §3 登记字面",
+      "upstream_url": "https://github.com/NVIDIA-RTX/NRD",
+      "clearance": "reference_g13",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed_per_owner_acceptance（与 DLSS 同批清结，G13 §2 在案）；当前 0-byte 未接入 → 零再分发面",
+      "obligations": ["接入触发时按 NVIDIA RTX SDKs LICENSE 字面执行；维持评估不接线（RD-040）"],
+      "current_distribution_face": "未接入、未分发",
+      "sbom_faces": [
+        {"kind": "not_applicable_not_integrated", "path": "", "contains": ""}
+      ],
+      "evidence_refs": [
+        "milestones/g13/design/vendor_upscale_license_clearance.md",
+        "milestones/g12/design/nrd_vendor_denoise_evaluation.md"
+      ],
+      "owner_action": "owner_accepted_g13_2026-08-18"
+    },
+    {
+      "id": "joltc_53",
+      "name": "JoltC（SecondHalfGames，rurix-physics-sys 5.3 基线 C ABI 面）",
+      "category": "native_vendored",
+      "version": "main @ 2026-05-14",
+      "pin": "commit 2982004387a9e36ca89525a87d983709d3666da7",
+      "license": "MIT OR Apache-2.0 双许可",
+      "license_family": "osi",
+      "license_texts_in_tree": [
+        "src/rurix-physics-sys/vendor/JoltC/LICENSE-MIT",
+        "src/rurix-physics-sys/vendor/JoltC/LICENSE-APACHE"
+      ],
+      "external_license_ref": "",
+      "upstream_url": "https://github.com/SecondHalfGames/JoltC",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（MIT/Apache-2.0 均允许商用再分发）",
+      "obligations": [
+        "保留著作权与许可声明（MIT；Apache-2.0 §4.1/§4.4）——嵌 Jolt 的二进制分发时随附声明",
+        "当前发布 bundle 无 Jolt 组件 → 义务未触发；引擎/物理面分发时随附（GAP-01 同处置）"
+      ],
+      "current_distribution_face": "静态链入 rurix-physics-sys（feature jolt 默认 on）产物；当前发布 bundle（rx.exe/rurixup.exe/rurix_rt_cabi.lib）不含物理面",
+      "sbom_faces": [
+        {"kind": "vendor_registry", "path": "src/rurix-physics-sys/VENDOR.md", "contains": "JoltC"}
+      ],
+      "evidence_refs": ["src/rurix-physics-sys/VENDOR.md"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "joltphysics_53",
+      "name": "JoltPhysics 5.3.0（jrouwe，rurix-physics-sys 引擎本体）",
+      "category": "native_vendored",
+      "version": "5.3.0",
+      "pin": "commit 0373ec0dd762e4bc2f6acdb08371ee84fa23c6db（JoltC submodule 钉住）",
+      "license": "MIT",
+      "license_family": "osi",
+      "license_texts_in_tree": [
+        "src/rurix-physics-sys/vendor/JoltC/JoltPhysics/LICENSE"
+      ],
+      "external_license_ref": "",
+      "upstream_url": "https://github.com/jrouwe/JoltPhysics",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（MIT 允许商用再分发）",
+      "obligations": ["保留著作权与许可声明（MIT）——嵌 Jolt 的二进制分发时随附"],
+      "current_distribution_face": "同 joltc_53（生产默认后端 BackendKind::Jolt）",
+      "sbom_faces": [
+        {"kind": "vendor_registry", "path": "src/rurix-physics-sys/VENDOR.md", "contains": "JoltPhysics"}
+      ],
+      "evidence_refs": ["src/rurix-physics-sys/VENDOR.md"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "joltc_56",
+      "name": "JoltC（rurix-physics-sys56 5.6 评估线 C ABI 面）",
+      "category": "native_vendored",
+      "version": "main @ 2026-05-14（与 5.3 基线同一 commit）",
+      "pin": "commit 2982004387a9e36ca89525a87d983709d3666da7",
+      "license": "MIT OR Apache-2.0 双许可",
+      "license_family": "osi",
+      "license_texts_in_tree": [
+        "src/rurix-physics-sys56/vendor/JoltC/LICENSE-MIT",
+        "src/rurix-physics-sys56/vendor/JoltC/LICENSE-APACHE"
+      ],
+      "external_license_ref": "",
+      "upstream_url": "https://github.com/SecondHalfGames/JoltC",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed",
+      "obligations": ["保留著作权与许可声明；评估线 feature jolt56 默认 off，不升格生产默认（RXS-0377）"],
+      "current_distribution_face": "评估臂，默认不编译进分发产物",
+      "sbom_faces": [
+        {"kind": "vendor_registry", "path": "src/rurix-physics-sys56/VENDOR56.md", "contains": "JoltC"}
+      ],
+      "evidence_refs": ["src/rurix-physics-sys56/VENDOR56.md"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "joltphysics_56",
+      "name": "JoltPhysics 5.6.0（rurix-physics-sys56 评估线引擎本体）",
+      "category": "native_vendored",
+      "version": "5.6.0",
+      "pin": "tag v5.6.0 = commit e77f175595e64cb44218cc9d9d56fc365ad0e36a",
+      "license": "MIT",
+      "license_family": "osi",
+      "license_texts_in_tree": [
+        "src/rurix-physics-sys56/vendor/JoltC/JoltPhysics/LICENSE"
+      ],
+      "external_license_ref": "",
+      "upstream_url": "https://github.com/jrouwe/JoltPhysics",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed",
+      "obligations": ["保留著作权与许可声明；评估线默认 off"],
+      "current_distribution_face": "评估臂，默认不编译进分发产物",
+      "sbom_faces": [
+        {"kind": "vendor_registry", "path": "src/rurix-physics-sys56/VENDOR56.md", "contains": "JoltPhysics"}
+      ],
+      "evidence_refs": ["src/rurix-physics-sys56/VENDOR56.md"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "basis_universal",
+      "name": "basis_universal（BinomialLLC，纹理 UASTC/ETC1S/KTX2 codec）",
+      "category": "native_vendored",
+      "version": "1.16.4",
+      "pin": "tag 1.16.4 @ commit 900e40fb5d2502927360fe2f31762bdbb624455f（版本串 basis_universal/1.16.4+g900e40fb5d25；source digest a9a6ac43…55ab87 / LICENSE digest c71d239d…f35d0ab4，见 src/rurix-basis-sys/SBOM.md）",
+      "license": "Apache-2.0",
+      "license_family": "osi",
+      "license_texts_in_tree": [
+        "src/rurix-basis-sys/vendor/basis_universal/LICENSE",
+        "src/rurix-basis-sys/vendor/basis_universal/LICENSES/Apache-2.0.txt",
+        "src/rurix-basis-sys/NOTICE"
+      ],
+      "external_license_ref": "",
+      "upstream_url": "https://github.com/BinomialLLC/basis_universal",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（Apache-2.0 允许商用再分发，含专利授权 §3）",
+      "obligations": [
+        "随分发件给许可文本（Apache-2.0 §4.1）+ 保留版权/归属声明（§4.4；NOTICE 已落 src/rurix-basis-sys/NOTICE）",
+        "修改文件带显著声明（§4.2）——vendor 为无 patch 原版快照（VENDOR.md §1 登记）",
+        "当前发布 bundle 无 rurix-asset/rxcook 组件 → 义务未触发；纹理管线面分发时随附"
+      ],
+      "current_distribution_face": "静态链入 rurix-basis-sys → rurix-asset/rxcook 产物；当前发布 bundle 不含",
+      "sbom_faces": [
+        {"kind": "crate_sbom", "path": "src/rurix-basis-sys/SBOM.md", "contains": "basis_universal"}
+      ],
+      "evidence_refs": [
+        "src/rurix-basis-sys/VENDOR.md",
+        "src/rurix-basis-sys/SBOM.md",
+        "src/rurix-basis-sys/NOTICE"
+      ],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "rurix_basis_shim",
+      "name": "rurix_basis_shim（旧过渡 shim，Rurix 自有代码）",
+      "category": "informational_transitional",
+      "version": "已停用（不参与编译）",
+      "pin": "src/rurix-basis-sys/vendor/rurix_basis_shim/（保留仅供历史参考）",
+      "license": "MIT OR Apache-2.0（Rurix 自有，仓根双许可同模）",
+      "license_family": "osi",
+      "license_texts_in_tree": ["LICENSE-MIT", "LICENSE-APACHE"],
+      "external_license_ref": "",
+      "upstream_url": "",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（自有代码；且不编译不链接不分发）",
+      "obligations": ["无第三方义务；旧版本串 rurix-basis-transitional/0.1.0 禁止再出现（SBOM.md 登记）"],
+      "current_distribution_face": "不编译、不链接、不分发",
+      "sbom_faces": [
+        {"kind": "not_applicable_not_compiled", "path": "", "contains": ""}
+      ],
+      "evidence_refs": ["src/rurix-basis-sys/VENDOR.md", "src/rurix-basis-sys/NOTICE"],
+      "owner_action": "not_required_own_code"
+    },
+    {
+      "id": "taichi_aot_runtime",
+      "name": "Taichi AOT 运行时（taichi_c_api.dll，TiRT FFI）",
+      "category": "external_runtime_loaded_user_provided",
+      "version": "用户自备（G6.5 spike 画像）",
+      "pin": "无 vendor——RURIX_TAICHI_C_API_DLL 绝对路径运行时装载（LoadLibrary/GetProcAddress，fail-closed 不搜默认路径）",
+      "license": "Apache-2.0（上游 taichi-dev/taichi）",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "上游 https://github.com/taichi-dev/taichi/blob/master/LICENSE（deep-research/r10.md 登记 Apache-2.0）；树内零 vendor 零复制",
+      "upstream_url": "https://github.com/taichi-dev/taichi",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "当前面零再分发（spike 评估面，feature taichi-tirt 默认 off，DLL 用户自备）→ 无阻塞",
+      "obligations": [
+        "未来若捆绑 Taichi 运行时 DLL 分发：随附 Apache-2.0 许可文本与归属声明保留（GAP-01 同处置链）",
+        "spike 面维持评估不接线（uc09-taichi-spike，非生产默认）"
+      ],
+      "current_distribution_face": "运行时装载用户自备 DLL；不分发",
+      "sbom_faces": [
+        {"kind": "not_applicable_user_provided", "path": "", "contains": ""}
+      ],
+      "evidence_refs": [
+        "src/rurix-rt/Cargo.toml",
+        "apps/uc09-taichi-spike/Cargo.toml",
+        "deep-research/r10.md"
+      ],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "nvidia_libdevice",
+      "name": "NVIDIA libdevice（libdevice.10.bc，CUDA 数学函数库 bitcode）",
+      "category": "nvidia_cuda_eula_attachment_a",
+      "version": "随本机 CUDA Toolkit（运行期 CUDA_PATH 定位）",
+      "pin": "无 vendor——toolchain::locate_libdevice 运行期定位，不入产物（check_redistribution 断言 2）",
+      "license": "NVIDIA CUDA EULA（Attachment A：NVIDIA Common Device Math Functions Library 可再分发）",
+      "license_family": "custom_non_osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "deep-research/r6.md §分发面登记（CUDA EULA §2.6 Attachment A）",
+      "upstream_url": "https://docs.nvidia.com/cuda/eula/",
+      "clearance": "existing_mechanism",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed_attachment_a（Attachment A 白名单明确可再分发）；当前面零再分发 = 嵌入 PTX 无 __nv_* 符号 + 源无 .bc 打包（ci/check_redistribution.py 机器复核在案）",
+      "obligations": [
+        "若未来捆绑：限 Attachment A 白名单最小集（audit_redistribution 机器门禁，完整 Toolkit/驱动/Nsight 永不捆绑，许可红线 r6）",
+        "EULA 通用条件遵守（deep-research/r6.md 登记）"
+      ],
+      "current_distribution_face": "运行期系统 CUDA Toolkit 定位；当前发布 bundle nvidia-redist 分区为空",
+      "sbom_faces": [
+        {"kind": "release_sbom_mechanism", "path": "src/rurixup/src/sbom.rs", "contains": "licenseConcluded"},
+        {"kind": "redistribution_guard", "path": "ci/check_redistribution.py", "contains": "libdevice"}
+      ],
+      "evidence_refs": [
+        "ci/check_redistribution.py",
+        "src/rurixup/src/bundle.rs",
+        "deep-research/r6.md"
+      ],
+      "owner_action": "existing_mechanism_attachment_a"
+    },
+    {
+      "id": "nvidia_cublas",
+      "name": "NVIDIA cuBLAS runtime（cublas64_*.dll / cublasLt64_*.dll）",
+      "category": "nvidia_cuda_eula_attachment_a",
+      "version": "随系统 CUDA Toolkit（M8.2 动态加载）",
+      "pin": "无 vendor——CUBLAS_DLL_CANDIDATES 动态加载系统 DLL（check_redistribution 断言 3c 白名单机核）",
+      "license": "NVIDIA CUDA EULA（Attachment A：CUDA BLAS Library 可再分发）",
+      "license_family": "custom_non_osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "deep-research/r6.md §分发面登记",
+      "upstream_url": "https://docs.nvidia.com/cuda/eula/",
+      "clearance": "existing_mechanism",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed_attachment_a（按需附带限白名单形态）；当前面零捆绑（仓库无 DLL/导入库，check_redistribution 断言 3a/3b 机核在案）",
+      "obligations": ["同 libdevice 面（Attachment A 白名单 + EULA 通用条件）"],
+      "current_distribution_face": "系统 DLL 动态加载；当前发布 bundle 不含",
+      "sbom_faces": [
+        {"kind": "redistribution_guard", "path": "ci/check_redistribution.py", "contains": "cublas"}
+      ],
+      "evidence_refs": [
+        "ci/check_redistribution.py",
+        "src/rurixup/src/bundle.rs",
+        "deep-research/r6.md"
+      ],
+      "owner_action": "existing_mechanism_attachment_a"
+    },
+    {
+      "id": "rust_rowan",
+      "name": "rowan（rust-analyzer 无损语法树，Rust crate）",
+      "category": "rust_crate_embedded_in_distribution",
+      "version": "0.15.1",
+      "pin": "Cargo.lock（rurixc [dependencies] rowan = \"0.15.1\"）",
+      "license": "MIT OR Apache-2.0",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "crates.io/cargo registry 缓存（未 vendor；crate 元数据 MIT OR Apache-2.0）",
+      "upstream_url": "https://crates.io/crates/rowan",
+      "clearance": "this_matrix",
+      "redistribution_status": "conditional",
+      "commercial_redistribution": "allowed（MIT/Apache-2.0）——**义务未闭合**：rowan 编译进 rx.exe（v1.0.1-dist.2 已分发），MIT/Apache 声明保留义务要求随分发件携带第三方声明，当前发布资产零许可文本/零第三方声明 → GAP-01",
+      "obligations": [
+        "保留 rowan 著作权与许可声明（MIT 字面 / Apache-2.0 §4.4）",
+        "处置链 = GAP-01：发布 bundle 随附许可文本 + 第三方声明（归 C5 #52 分发打包/SBOM 扩展面）"
+      ],
+      "current_distribution_face": "静态编译进 rx.exe（rurixc 依赖链），随 v1.0.1-dist.1/.2 已对外分发",
+      "sbom_faces": [
+        {"kind": "release_sbom_component_covers_binary", "path": "src/rurixup/src/sbom.rs", "contains": "licenseConcluded"}
+      ],
+      "evidence_refs": [
+        "src/rurixc/Cargo.toml",
+        "Cargo.lock",
+        ".github/workflows/release.yml"
+      ],
+      "owner_action": "not_required_osi",
+      "conditions": ["GAP-01 闭合（分发件随附许可文本与第三方声明）后方转 cleared"],
+      "gaps": ["GAP-01"]
+    },
+    {
+      "id": "rust_rapier3d",
+      "name": "rapier3d（+ 传递闭包 nalgebra/parry3d/simba/glam 等，Rust crate）",
+      "category": "rust_crate_optional_feature_off",
+      "version": "=0.33.0",
+      "pin": "Cargo.lock（rurix-physics rapier3d = { version = \"=0.33.0\", default-features = false, features = [\"dim3\",\"f32\",\"std\"], optional = true }）",
+      "license": "Apache-2.0（rapier3d；传递闭包为 MIT/Apache-2.0 族）",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "crates.io/cargo registry 缓存（未 vendor）",
+      "upstream_url": "https://crates.io/crates/rapier3d",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "allowed（Apache-2.0）；feature rapier 默认 off 不在当前分发面 → 义务未触发",
+      "obligations": ["rapier feature 产物分发时：随附 Apache-2.0 声明（GAP-01 同处置链）"],
+      "current_distribution_face": "可选第二后端（G6.4，默认 off）；当前发布 bundle 不含物理面",
+      "sbom_faces": [
+        {"kind": "not_applicable_feature_off", "path": "", "contains": ""}
+      ],
+      "evidence_refs": ["src/rurix-physics/Cargo.toml", "Cargo.lock"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "rust_cc_build",
+      "name": "cc（Rust 构建期 C/C++ 编译驱动 crate）",
+      "category": "rust_crate_buildtime_only",
+      "version": "1.x",
+      "pin": "Cargo.lock（rurix-basis-sys / rurix-d3d12 / uc04-demo [build-dependencies] cc = \"1\"）",
+      "license": "MIT OR Apache-2.0",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "crates.io/cargo registry 缓存",
+      "upstream_url": "https://crates.io/crates/cc",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "不适用——构建期工具不链接进分发产物，零再分发面",
+      "obligations": ["无（不进产物）"],
+      "current_distribution_face": "构建期专用，不进任何分发产物",
+      "sbom_faces": [
+        {"kind": "not_applicable_buildtime", "path": "", "contains": ""}
+      ],
+      "evidence_refs": ["Cargo.lock"],
+      "owner_action": "not_required_osi"
+    },
+    {
+      "id": "rust_cmake_build",
+      "name": "cmake（Rust 构建期 CMake 驱动 crate）",
+      "category": "rust_crate_buildtime_only",
+      "version": "0.1.x",
+      "pin": "Cargo.lock（rurix-physics-sys / rurix-physics-sys56 [build-dependencies] cmake = \"0.1\"）",
+      "license": "MIT OR Apache-2.0",
+      "license_family": "osi",
+      "license_texts_in_tree": [],
+      "external_license_ref": "crates.io/cargo registry 缓存",
+      "upstream_url": "https://crates.io/crates/cmake",
+      "clearance": "this_matrix",
+      "redistribution_status": "cleared",
+      "commercial_redistribution": "不适用——构建期工具不进产物",
+      "obligations": ["无（不进产物）"],
+      "current_distribution_face": "构建期专用，不进任何分发产物",
+      "sbom_faces": [
+        {"kind": "not_applicable_buildtime", "path": "", "contains": ""}
+      ],
+      "evidence_refs": ["Cargo.lock"],
+      "owner_action": "not_required_osi"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "GAP-01",
+      "title": "发布 bundle 未随附许可文本与第三方声明",
+      "description": "release.yml 资产清单 = 3 二进制（rx.exe/rurixup.exe/rurix_rt_cabi.lib）+ bundle.json/channel_manifest/sbom.spdx/sbom.cdx/signing_manifest/gate_decision/SHA256SUMS——零 LICENSE/NOTICE 件。Rurix 本体 MIT OR Apache-2.0 双许可文本（仓根 LICENSE-MIT/LICENSE-APACHE）与 rx.exe 内嵌 rowan（MIT OR Apache-2.0）的声明保留义务均未随分发件闭合。",
+      "severity": "formal_gap（权利方含 owner 自身与 rowan 上游；MIT/Apache 声明保留为许可条件）",
+      "owner_wave": "G31+ 波 C Task C5（#52 渲染器 SDK 分发打包 + SBOM/签名扩展）或后续分发链波次",
+      "status": "open"
+    },
+    {
+      "id": "GAP-02",
+      "title": "release.yml 组件许可单标 Apache-2.0 与 workspace 双许可字面不一致",
+      "description": "release.yml --component 三段 license=Apache-2.0，Cargo workspace.package license=\"MIT OR Apache-2.0\"。保守单标不减损被许可方权利（双许可取其一即合规授权），但与 Cargo 元数据/SBOM licenseConcluded 字面不一致。",
+      "severity": "consistency_note",
+      "owner_wave": "G31+ 波 C Task C5 或后续分发链波次",
+      "status": "open"
+    },
+    {
+      "id": "GAP-03",
+      "title": "SBOM 粒度 = 组件级，未列内嵌第三方库",
+      "description": "rurixup sbom.rs 对 bundle 每组件产 licenseConcluded（RXS-0138 组件齐备在案），但 SPDX/CycloneDX 未展开二进制内嵌的第三方库（如 rx.exe 内 rowan）。组件齐备判据当前面成立；内嵌库级展开归 C5 SBOM 扩展面。",
+      "severity": "granularity_note",
+      "owner_wave": "G31+ 波 C Task C5（#52 SBOM 扩展）",
+      "status": "open"
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "cleared": 15,
+    "conditional": 1,
+    "pending_owner": 0,
+    "blocked": 0,
+    "note": "blocked=0：全 vendor 面无阻塞项；conditional=1（rust_rowan，GAP-01 义务未闭合）；pending_owner=0：本批新核项全 OSI/既有机制面，零新 owner 动作（非 OSI 面 = G13 owner 2026-08-18 在案 + Attachment A 白名单机制在案）"
+  }
+}

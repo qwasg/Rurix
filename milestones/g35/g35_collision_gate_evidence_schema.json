@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-5 粒子碰撞与力场门裁决证据(ci/g35_collision_smoke.py --gate 产)",
+  "description": "G35-5 碰撞与力场门 g35.wave5.collision 的 smoke 裁决证据:① kernels_spv_valid(rurixc 现编 2 新 kernel〔g35_sim_collide = AccelStruct 同帧 ray query 碰撞 + 力场,g35_sim_collide_depth = 深度缓冲对照臂/off 档〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档〔g35_sim.rx 变体参照/rt/bvh.rs TriBvh 金标准/particles mod.rs+core.rs,消费不修改〕)② collision_parity_vs_host(ray_query 绿臂 7 f32 流〔pos_x/y/z、vel_x/y/z、age〕device↔host 逐帧 max abs diff 聚合 p100 ≤ 冻结容差——milestones/g35/g35_budget.json g35.collision.parity_p100 程序读禁手写:threshold = measured × 2.0 标定冻结〔ray query t 值 RT core vs host ULP 级差,g34 先例〕;flags 整数流零容差位级;hit 流失配计数诚实登记;命中样本量非零防空转)③ same_frame_semantics_witness(同帧语义机器见证:障碍方块第 32 帧突移,host gold〔k 帧查 k 帧场景〕vs static〔方块不动〕首异帧 == 32 = 突移当帧即响应;late〔k 帧查 k−1 帧场景 = Niagara GPU RT 碰撞一帧延迟模型〕在突移帧与 static 位级一致 = 延迟模型当帧无响应,判别器双向有效;device 侧方块顶命中登记 1+committed_primitive_index ∈ 方块三角段于突移帧非零)④ fallback_chain_explicit(F12 显式降级链:--collision ray_query|depth_buffer|off 三档 CLI 闭集,闭集外 typed 退 2;ray_query 档 TLAS 能力缺失〔--force-no-tlas 注入演示〕→ typed 错误 E_G35_COLLISION_NO_TLAS_CAPABILITY 退 3 fail-closed 禁静默换臂;三臂 digest 两两互异 = 档位真实非别名)⑤ force_fields_parity(力场 v1 闭集 gravity+wind+drag:off 臂〔纯力场+积分〕device↔host p100 ≤ 同容差 + host 解析语义判 wind_x/z>0 漂移为正、drag 速率低于无阻尼对照、off 档命中恒零;方向/单位与 rurix-physics WorldDesc.gravity y-up 约定对齐,渲染 crate 不引物理 crate)⑥ determinism_double_run(ray_query 绿臂同 seed 全链双跑 digest 位级一致;digest = 7 f32 流‖flags‖hit 逐帧 sha256 链式)⑦ red_arm_effective(--red-arm tamper-e:device 红链 e×1.5 篡改注入 vs host 冻结 e——digest 必异 + 红链对拍 measured 必须 > 冻结容差 = 篡改必检出)⑧ frame_ms_measured(device 逐帧派发墙钟均值 measured_local 诚实登记,含 run_ray_query_effects 每帧重建 instance/device/AS 会话开销,非帧率对标)。results.trimmed_mean = 绿臂 measured p100 镜像(ci/budget_eval.py 通用路 evidence_file 消费面)。三态:无 Vulkan loader/设备 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "scene",
+    "collision_parity",
+    "results",
+    "same_frame_witness",
+    "fallback_chain",
+    "force_fields",
+    "determinism",
+    "red_arm",
+    "frame_ms",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.collision_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_collision" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave5.collision" },
+    "wave": { "type": "string", "const": "G35.5" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "collision_parity_vs_host",
+              "same_frame_semantics_witness",
+              "fallback_chain_explicit",
+              "force_fields_parity",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collide_spv", "collide_depth_spv", "spirv_val_all", "frozen_consumed_snapshot"],
+      "properties": {
+        "collide_spv": { "$ref": "#/definitions/spv_entry" },
+        "collide_depth_spv": { "$ref": "#/definitions/spv_entry" },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(kernels/g35_sim.rx〔碰撞 kernel = sim 独立变体,原件 0-byte 承诺〕/ src/rurix-render/src/rt/bvh.rs〔TriBvh host 金标准射线求交参照〕/ particles/mod.rs / particles/core.rs——G35-5 消费不修改承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tri_count", "floor_tris", "slope_tris", "box_tris", "box_move_frame", "frames", "cap", "seed", "dt"],
+      "properties": {
+        "tri_count": { "type": "integer", "const": 12 },
+        "floor_tris": { "type": "integer", "const": 2 },
+        "slope_tris": { "type": "integer", "const": 2 },
+        "box_tris": { "type": "integer", "const": 8, "description": "可动方块 8 三角(顶/底/±x 面;三角汤下标段 [4,12) = 见证判据消费面)" },
+        "box_move_frame": { "type": "integer", "const": 32, "description": "方块突移帧(同帧见证锚)" },
+        "frames": { "type": "integer", "minimum": 64 },
+        "cap": { "type": "integer", "minimum": 256 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "dt": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "collision_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured_p100", "threshold", "budget_entry", "calibrated_this_run", "within", "flags_bitexact", "hit_mismatch_total", "hits_total_host", "stream_max"],
+      "properties": {
+        "measured_p100": { "type": "number", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0, "description": "= measured × 2.0 标定冻结(程序产禁手写;ray query t 值 RT core vs host ULP 级差协议)" },
+        "budget_entry": { "type": "string", "const": "g35.collision.parity_p100" },
+        "calibrated_this_run": { "type": "boolean" },
+        "within": { "type": "boolean" },
+        "flags_bitexact": { "type": "boolean", "description": "存活 flags 整数流全帧 memcmp 零容差位级才许 true" },
+        "hit_mismatch_total": { "type": "integer", "minimum": 0, "description": "hit 流 device↔host 失配计数诚实登记(命中判在 t 边界对 ULP 敏感;宏观失配必然放大进 f32 p100 被 ② 捕获)" },
+        "hits_total_host": { "type": "integer", "minimum": 1, "description": "绿臂 host 命中总数(样本量门:≥1 防判据空转)" },
+        "stream_max": { "type": "object", "description": "逐流 max abs diff(pos_x/y/z、vel_x/y/z、age 七 f32 流)" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number", "minimum": 0, "description": "= collision_parity.measured_p100 镜像(ci/budget_eval.py 通用路 doc.results.trimmed_mean 消费面;g35_budget evidence_file 指向本件)" }
+      }
+    },
+    "same_frame_witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicable", "host_div_static_frame", "late_same_at_move_frame", "gold_late_differ_at_move_frame", "box_hits_move_frame_host", "box_hits_move_frame_device", "niagara_contrast_note"],
+      "properties": {
+        "applicable": { "type": "boolean" },
+        "host_div_static_frame": { "type": "integer", "description": "host gold vs static 首异帧(须 == box_move_frame = 突移当帧即响应)" },
+        "late_same_at_move_frame": { "type": "boolean", "description": "late(k 帧查 k−1 帧场景)在突移帧与 static 位级一致才许 true(延迟模型当帧无响应)" },
+        "gold_late_differ_at_move_frame": { "type": "boolean", "description": "gold 与 late 在突移帧可分辨才许 true(判别器有效性)" },
+        "box_hits_move_frame_host": { "type": "integer", "minimum": 0 },
+        "box_hits_move_frame_device": { "type": "integer", "minimum": 0, "description": "device hit 流 1+committed_primitive_index ∈ 方块三角段 [5,13) 于突移帧计数(≥1 = device 同帧响应机器事实)" },
+        "niagara_contrast_note": { "type": "string" }
+      }
+    },
+    "fallback_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cli_closed_set", "no_tlas_typed_error", "no_tlas_exit_code", "unknown_arm_exit_code", "arms_digest_distinct", "digest_ray_query", "digest_depth_buffer", "digest_off"],
+      "properties": {
+        "cli_closed_set": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "string", "enum": ["ray_query", "depth_buffer", "off"] }
+        },
+        "no_tlas_typed_error": { "type": "string", "const": "E_G35_COLLISION_NO_TLAS_CAPABILITY" },
+        "no_tlas_exit_code": { "type": "integer", "description": "--collision ray_query --force-no-tlas 实测退出码(判据:== 3 typed fail-closed,禁静默换臂)" },
+        "unknown_arm_exit_code": { "type": "integer", "description": "--collision 闭集外取值实测退出码(判据:== 2)" },
+        "arms_digest_distinct": { "type": "boolean", "description": "三臂 digest 两两互异才许 true(档位真实非别名)" },
+        "digest_ray_query": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_depth_buffer": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_off": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "force_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parity_measured_p100", "within", "wind_dx_positive", "wind_dz_positive", "drag_speed_decay", "off_arm_hits", "semantics_note"],
+      "properties": {
+        "parity_measured_p100": { "type": "number", "minimum": 0, "description": "off 臂(纯力场+积分)device↔host p100(≤ 同一冻结容差)" },
+        "within": { "type": "boolean" },
+        "wind_dx_positive": { "type": "boolean" },
+        "wind_dz_positive": { "type": "boolean" },
+        "drag_speed_decay": { "type": "boolean" },
+        "off_arm_hits": { "type": "integer", "minimum": 0, "maximum": 0, "description": "off 档命中恒零(降级链第三档语义)" },
+        "semantics_note": { "type": "string", "description": "与 rurix-physics 方向/单位对齐登记(y-up、gravity 负 y、wind 常量加速度、drag 线性阻尼;只对齐不依赖)" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "ray_query 绿臂同 seed 全链双跑 digest 位级一致才许 true(digest = 7 f32 流‖flags‖hit 逐帧 sha256 链式)" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "detected", "e_frozen", "e_tampered", "red_f32_max_abs_diff", "exceeds_threshold", "digest_green", "digest_red"],
+      "properties": {
+        "arm": { "type": "string", "const": "tamper-e" },
+        "detected": { "type": "boolean", "description": "device 红链(e×1.5 注入)digest 必异于绿链才许 true" },
+        "e_frozen": { "type": "number" },
+        "e_tampered": { "type": "number" },
+        "red_f32_max_abs_diff": { "type": "number", "minimum": 0 },
+        "exceeds_threshold": { "type": "boolean", "description": "红链对拍 measured > 冻结容差才许 true(篡改必被 parity 判据检出)" },
+        "digest_green": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_chain_mean_ms", "frames_per_run", "measured", "note"],
+      "properties": {
+        "device_chain_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frames_per_run": { "type": "integer", "minimum": 64 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "description": "probe 真跑 evidence 件(标定腿/绿臂/off 臂/depth 臂/红臂/no-tlas 腿,.tmp 工作区路径登记)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

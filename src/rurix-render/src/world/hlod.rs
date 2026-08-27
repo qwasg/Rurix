@@ -28,9 +28,7 @@
 
 use rurix_pkg::sha256;
 
-use super::partition::{
-    CellEvent, CellEventKind, CellHlodRef, PartitionError, PersistentWorld,
-};
+use super::partition::{CellEvent, CellEventKind, CellHlodRef, PartitionError, PersistentWorld};
 
 // ---------------------------------------------------------------------------
 // 错误面(typed Err,fail-closed;本文件严禁 UB)
@@ -63,7 +61,11 @@ impl std::fmt::Display for HlodError {
                 write!(f, "运行时零合并断言: {op} 调用尝试即拒绝(RED)")
             }
             HlodError::MissingHlodRef { cell } => write!(f, "cell {cell} 无 HLOD 层级引用"),
-            HlodError::LevelOutOfRange { cell, level, levels } => {
+            HlodError::LevelOutOfRange {
+                cell,
+                level,
+                levels,
+            } => {
                 write!(f, "cell {cell} 请求 level {level} 越界(烘焙层数 {levels})")
             }
             HlodError::DigestMismatch { cell } => {
@@ -413,11 +415,7 @@ impl HlodRuntime {
     /// 运行时不得合并/重建/简化几何——本探测口为唯一入口,任何调用一律
     /// fail-closed typed Err;返回值永为 Err(函数存在的意义 = RED 臂可调用、
     /// 必被拒)。
-    pub fn request_runtime_merge(
-        &self,
-        op: &'static str,
-        _cells: &[u32],
-    ) -> Result<()> {
+    pub fn request_runtime_merge(&self, op: &'static str, _cells: &[u32]) -> Result<()> {
         Err(HlodError::RuntimeMergeForbidden { op })
     }
 }
@@ -487,7 +485,8 @@ mod tests {
             .expect("canonical 场景有驻留 HLOD cell");
         let run = |rt: &mut HlodRuntime| -> Vec<SelectionRecord> {
             for (f, d) in canonical_distance_path(32).iter().enumerate() {
-                rt.select(&world, hlod_cell, *d, &thresholds, f as u32).unwrap();
+                rt.select(&world, hlod_cell, *d, &thresholds, f as u32)
+                    .unwrap();
             }
             rt.records().to_vec()
         };
@@ -509,9 +508,10 @@ mod tests {
         }
         // 序列必须真的发生切换(近 Full、远 Hlod/Culled)。
         assert!(a.iter().any(|r| r.content == SelectedContent::Full));
-        assert!(a
-            .iter()
-            .any(|r| matches!(r.content, SelectedContent::Hlod { .. } | SelectedContent::Culled)));
+        assert!(a.iter().any(|r| matches!(
+            r.content,
+            SelectedContent::Hlod { .. } | SelectedContent::Culled
+        )));
     }
 
     /// RXS-0364 L3(RED 锚):运行时合并调用尝试即断言拒绝——简化/合批/重建
@@ -575,7 +575,9 @@ mod tests {
             .unwrap();
         assert!(matches!(
             rt2.apply_cell_events(&[ev(3, 2, CellEventKind::CellLoadBegin)]),
-            Err(HlodError::EventLog(PartitionError::FrameNonMonotonic { .. }))
+            Err(HlodError::EventLog(
+                PartitionError::FrameNonMonotonic { .. }
+            ))
         ));
     }
 

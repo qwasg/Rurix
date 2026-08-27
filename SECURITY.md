@@ -38,3 +38,11 @@ Rurix 的安全模型核心是**编译期拦截资源生命周期错误**与**st
 - `unsafe` 边界(PYD / C ABI / DLPack / cublas FFI)的内存安全缺陷。
 - 发布链路签名 / SBOM / 许可白名单审计的绕过。
 - 包管理(lockfile + vendor + checksum)的供应链问题。
+
+## 渲染器面(Rurix 渲染器 SDK)
+
+渲染器面安全政策全文 = [`docs/renderer/support_policy.md`](docs/renderer/support_policy.md) §3(本段为入口指针,渲染器特有面不复制;渠道/时间线/披露纪律同上文)。渲染器面特有报告要素:
+
+- **驱动交互**:Vulkan 能力链协商 / device lost / 驱动 TDR 边界问题——附 `RURIX_VK_VALIDATION=1` 全程输出。
+- **shader 供应链**:canonical SPV 四件套 / 分发 fatbin 的篡改,或确定性 digest 锚的绕过。
+- **vendor SDK**:DLSS Streamline / FSR FidelityFX / BasisU / Jolt 动态加载链(装载劫持、再分发白名单面越界)。

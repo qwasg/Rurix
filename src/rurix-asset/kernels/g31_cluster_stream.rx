@@ -1,0 +1,399 @@
+//@ spec: 零新条款（G31+ 波 C Task C11 运行时行为门；语义源 = RD-039 cluster
+// 流送 P4-2/P4-3 + geometry/cull.rs 冻结金标准 0-byte 消费，沿 G27/G28 体例）。
+// G31+ 波 C Task C11 cluster 流送 P4-2 device kernel —— 剔除 pass 产 cluster
+// 缺页请求 → device 请求缓冲；驻留约束 LOD cut 回退渲染决定；页池内容消费校验。
+//
+// ## 架构（单 dispatch、1 invocation/簇、LocalSize 1,1,1 × [cluster_count,1,1]）
+// 每簇复算 host 金标准 `geometry/cull.rs::cluster_cull` 三关 + LOD cut **字面**
+// （视锥 AABB 正顶点 → 包围球 → 背面锥 → 自身误差 < 阈 ∧ 父级误差 ≥ 阈），
+// 随后接 P4 驻留面：
+//   ① 选中簇页查 `page_state`（host 驻留调度的页表镜像，0 = 缺页）；
+//   ② 缺页 ⇒ 原子追加缺页请求（resource, page, importance, cluster）进
+//      `req_records`——**剔除 pass 产 cluster 缺页请求的 device 缓冲面**；
+//      importance = 选中簇投影直径量化 [0,65535]（近处/大屏占比优先，
+//      P4-4 优先级源，host `screen_importance` 同律）；
+//   ③ 沿父链上行至最近驻留祖先-or-自身（root 页钉住 ⇒ 必然终止；定界循环
+//      ≤ max_depth），产渲染决定（instance, render, selected, fell_back）
+//      进 `render_records`——跨链一致性合并（祖先-后代去重）在 host 读回后
+//      按 `streaming::cluster::lod_cut_with_residency` 同律归一（对拍面 =
+//      归一后集合全等）；
+//   ④ 消费校验：渲染簇页槽首字 `pool_words[(state-1)*words_per_page]` 混入
+//      `checksum[0]`（顺序无关原子加——上传页内容真实进 device 消费链的
+//      证据；`checksum[1]` = 首字直和复核）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承；g27_hzb_test.rx 同）
+// 逐簇独立求值、跨 invocation 交互仅原子计数器（fetch_add Scope::Gpu）；
+// 原子追加序**不锚定**——host 读回后稳定排序归一再入 digest（顺序不敏感）；
+// checksum 经加法交换律顺序无关；定界循环（parent walk ≤ max_depth）；
+// 边界守卫 `if i < cluster_count`；f32→usize 前 clamp 非负。
+//
+// ## 参数面（host bin `g31_cluster_stream` 逐字同源；f32 下标）
+//   params[0..24)  6 视锥平面 ×4（Gribb-Hartmann，host 自 VP 提取）
+//   params[24..27) cam_pos
+//   params[27]     proj_factor = m11·H·0.5
+//   params[28]     error_threshold_px
+//   params[29]     cluster_count
+//   params[30]     max_depth（父链回退定界）
+//   params[31]     request_capacity（req_records 记录数上限）
+//   params[32]     words_per_page（= 32768，128KB 页槽 u32 字数）
+//   params[33..40) reserved（恒 0）
+//   instances_f32: 18/实例 [3×4 行主 12 | aabb_min 3 | aabb_max 3]
+//   instance_range: 2/实例 [cluster_offset, cluster_count]
+//   cluster_f32:  10/簇 [center 3 | radius | cone_axis 3 | cone_cutoff | error | parent_error]
+//   cluster_u32:   4/簇 [resource | page | parent(0xFFFFFFFF=NO_PARENT) | instance]
+//   resource_page_base: 1/资源（全局页号基址；全局页 = base + page）
+//   page_state: 1/全局页（0 = 缺页，>0 = 驻留槽号+1）
+//   pool_words: 驻留页池（capacity × words_per_page；payload = RXPL v2 映像）
+//   req_counters: [0]=emitted [1]=overflow（原子）；req_records 4 u32/记录
+//   render_counters: [0]=chains [1]=fallback_chains（原子）；render_records 4 u32/记录
+//   checksum: [0]=Σ mix(render, word0) [1]=Σ word0（原子）
+#[numthreads(1, 1, 1)]
+kernel fn g31_cluster_stream(
+    t: ThreadCtx<1>,
+    params: View<global, f32>,
+    instances_f32: View<global, f32>,
+    instance_range: View<global, u32>,
+    cluster_f32: View<global, f32>,
+    cluster_u32: View<global, u32>,
+    resource_page_base: View<global, u32>,
+    page_state: View<global, u32>,
+    pool_words: View<global, u32>,
+    req_counters: AtomicView<global, u32, (2,)>,
+    req_records: ViewMut<global, u32>,
+    render_counters: AtomicView<global, u32, (2,)>,
+    render_records: ViewMut<global, u32>,
+    checksum: AtomicView<global, u32, (2,)>,
+) {
+    let i = t.global_id();
+    let cluster_count = params[29] as usize;
+    if i < cluster_count {
+        let ub = i * 4;
+        let inst = cluster_u32[ub + 3] as usize;
+        let rb = inst * 2;
+        let coff = instance_range[rb] as usize;
+        let ccnt = instance_range[rb + 1] as usize;
+        // 簇段隶属守卫（全局簇表按实例簇段拼接；越段 = 数据面破损不产出）。
+        if i >= coff {
+            if i < coff + ccnt {
+                let ib = inst * 18;
+                // ── 关 0:实例 AABB 正顶点视锥（host instance_cull 字面）──
+                let ilo_x = instances_f32[ib + 12];
+                let ilo_y = instances_f32[ib + 13];
+                let ilo_z = instances_f32[ib + 14];
+                let ihi_x = instances_f32[ib + 15];
+                let ihi_y = instances_f32[ib + 16];
+                let ihi_z = instances_f32[ib + 17];
+                let mut inst_ok = 1u32;
+                {
+                    let nx = params[0];
+                    let ny = params[1];
+                    let nz = params[2];
+                    let nd = params[3];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                {
+                    let nx = params[4];
+                    let ny = params[5];
+                    let nz = params[6];
+                    let nd = params[7];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                {
+                    let nx = params[8];
+                    let ny = params[9];
+                    let nz = params[10];
+                    let nd = params[11];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                {
+                    let nx = params[12];
+                    let ny = params[13];
+                    let nz = params[14];
+                    let nd = params[15];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                {
+                    let nx = params[16];
+                    let ny = params[17];
+                    let nz = params[18];
+                    let nd = params[19];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                {
+                    let nx = params[20];
+                    let ny = params[21];
+                    let nz = params[22];
+                    let nd = params[23];
+                    let mut px = ilo_x;
+                    let mut py = ilo_y;
+                    let mut pz = ilo_z;
+                    if nx >= 0.0 { px = ihi_x; }
+                    if ny >= 0.0 { py = ihi_y; }
+                    if nz >= 0.0 { pz = ihi_z; }
+                    if nx * px + ny * py + nz * pz + nd < 0.0 { inst_ok = 0u32; }
+                }
+                if inst_ok != 0u32 {
+                    // ── 世界化（host world_sphere 字面：球心仿射精确 +
+                    //    半径按 3×3 列范数最大者缩放）──
+                    let m00 = instances_f32[ib];
+                    let m01 = instances_f32[ib + 1];
+                    let m02 = instances_f32[ib + 2];
+                    let m03 = instances_f32[ib + 3];
+                    let m10 = instances_f32[ib + 4];
+                    let m11 = instances_f32[ib + 5];
+                    let m12 = instances_f32[ib + 6];
+                    let m13 = instances_f32[ib + 7];
+                    let m20 = instances_f32[ib + 8];
+                    let m21 = instances_f32[ib + 9];
+                    let m22 = instances_f32[ib + 10];
+                    let m23 = instances_f32[ib + 11];
+                    let fb = i * 10;
+                    let ox = cluster_f32[fb];
+                    let oy = cluster_f32[fb + 1];
+                    let oz = cluster_f32[fb + 2];
+                    let cx = m00 * ox + m01 * oy + m02 * oz + m03;
+                    let cy = m10 * ox + m11 * oy + m12 * oz + m13;
+                    let cz = m20 * ox + m21 * oy + m22 * oz + m23;
+                    let s0 = (m00 * m00 + m10 * m10 + m20 * m20).sqrt();
+                    let s1 = (m01 * m01 + m11 * m11 + m21 * m21).sqrt();
+                    let s2 = (m02 * m02 + m12 * m12 + m22 * m22).sqrt();
+                    let mut scale = s0;
+                    if s1 > scale { scale = s1; }
+                    if s2 > scale { scale = s2; }
+                    let radius = cluster_f32[fb + 3] * scale;
+                    // ── 关 1:包围球视锥（host contains_sphere 字面）──
+                    let mut sph_ok = 1u32;
+                    {
+                        let nx = params[0];
+                        let ny = params[1];
+                        let nz = params[2];
+                        let nd = params[3];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    {
+                        let nx = params[4];
+                        let ny = params[5];
+                        let nz = params[6];
+                        let nd = params[7];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    {
+                        let nx = params[8];
+                        let ny = params[9];
+                        let nz = params[10];
+                        let nd = params[11];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    {
+                        let nx = params[12];
+                        let ny = params[13];
+                        let nz = params[14];
+                        let nd = params[15];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    {
+                        let nx = params[16];
+                        let ny = params[17];
+                        let nz = params[18];
+                        let nd = params[19];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    {
+                        let nx = params[20];
+                        let ny = params[21];
+                        let nz = params[22];
+                        let nd = params[23];
+                        if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { sph_ok = 0u32; }
+                    }
+                    if sph_ok != 0u32 {
+                        let cam_x = params[24];
+                        let cam_y = params[25];
+                        let cam_z = params[26];
+                        let proj_factor = params[27];
+                        let err_thr = params[28];
+                        // ── 关 2:背面锥（host 字面：锥顶点 = 球心；cutoff ≥ 1
+                        //    禁用；近距/退化轴不剔）──
+                        let cutoff = cluster_f32[fb + 7];
+                        let mut cone_ok = 1u32;
+                        if cutoff < 1.0 {
+                            let vx = cx - cam_x;
+                            let vy = cy - cam_y;
+                            let vz = cz - cam_z;
+                            let dist = (vx * vx + vy * vy + vz * vz).sqrt();
+                            if dist > 0.000001 {
+                                let ax = cluster_f32[fb + 4];
+                                let ay = cluster_f32[fb + 5];
+                                let az = cluster_f32[fb + 6];
+                                let wx = m00 * ax + m01 * ay + m02 * az;
+                                let wy = m10 * ax + m11 * ay + m12 * az;
+                                let wz = m20 * ax + m21 * ay + m22 * az;
+                                let alen = (wx * wx + wy * wy + wz * wz).sqrt();
+                                if alen >= 0.000000000001 {
+                                    let inv = 1.0 / alen;
+                                    let view_x = vx / dist;
+                                    let view_y = vy / dist;
+                                    let view_z = vz / dist;
+                                    let dota = view_x * (wx * inv) + view_y * (wy * inv) + view_z * (wz * inv);
+                                    if dota >= cutoff {
+                                        cone_ok = 0u32;
+                                    }
+                                }
+                            }
+                        }
+                        if cone_ok != 0u32 {
+                            // ── 关 3:LOD cut（host projected_error_px 判定
+                            //    等价面：e ≤ 0 → 0；dist ≤ e → 大 sentinel 代
+                            //    +∞（判定不变式：sentinel ≥ 任意阈值上限））──
+                            let dx = cx - cam_x;
+                            let dy = cy - cam_y;
+                            let dz = cz - cam_z;
+                            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+                            let self_e = cluster_f32[fb + 8] * scale;
+                            let parent_e = cluster_f32[fb + 9] * scale;
+                            let mut self_px = 0.0;
+                            if self_e > 0.0 {
+                                if dist > self_e {
+                                    self_px = self_e * proj_factor / dist;
+                                } else {
+                                    self_px = 1000000000.0;
+                                }
+                            }
+                            let mut parent_px = 0.0;
+                            if parent_e > 0.0 {
+                                if dist > parent_e {
+                                    parent_px = parent_e * proj_factor / dist;
+                                } else {
+                                    parent_px = 1000000000.0;
+                                }
+                            }
+                            if self_px < err_thr {
+                                if parent_px >= err_thr {
+                                    // ── P4-2/P4-3:驻留查询 + 缺页请求 + 父链回退 ──
+                                    let resource = cluster_u32[ub];
+                                    let page = cluster_u32[ub + 1];
+                                    let gpage = (resource_page_base[resource as usize] + page) as usize;
+                                    let state = page_state[gpage];
+                                    if state == 0u32 {
+                                        // 缺页 ⇒ 请求缓冲原子追加（importance =
+                                        // 投影直径量化 [0,65535]，host
+                                        // screen_importance 同律）。
+                                        let mut dia_px = 1000000000.0;
+                                        if dist > radius {
+                                            dia_px = 2.0 * radius * proj_factor / dist;
+                                        }
+                                        let dia_c = dia_px.max(0.0).min(65535.0);
+                                        let importance = (dia_c + 0.5) as u32;
+                                        let rslot = req_counters.fetch_add(0, 1u32, Scope::Gpu) as usize;
+                                        let rcap = params[31] as usize;
+                                        if rslot < rcap {
+                                            let w = rslot * 4;
+                                            req_records[w] = resource;
+                                            req_records[w + 1] = page;
+                                            req_records[w + 2] = importance;
+                                            req_records[w + 3] = i as u32;
+                                        } else {
+                                            let _of = req_counters.fetch_add(1, 1u32, Scope::Gpu);
+                                        }
+                                    }
+                                    // 父链回退：最近驻留祖先-or-自身（root 钉住
+                                    // ⇒ 定界内必然终止；max_depth 防御回绕）。
+                                    let max_depth = params[30] as usize;
+                                    let mut render = i;
+                                    let mut cur = i;
+                                    let mut depth = 0usize;
+                                    let mut walking = 1u32;
+                                    if state != 0u32 {
+                                        walking = 0u32;
+                                    }
+                                    while walking != 0u32 {
+                                        let pb = cur * 4;
+                                        let parent = cluster_u32[pb + 2];
+                                        if parent == 4294967295u32 {
+                                            render = cur;
+                                            walking = 0u32;
+                                        } else {
+                                            let pi = parent as usize;
+                                            let p_resource = cluster_u32[pi * 4];
+                                            let p_page = cluster_u32[pi * 4 + 1];
+                                            let p_gpage = (resource_page_base[p_resource as usize] + p_page) as usize;
+                                            if page_state[p_gpage] != 0u32 {
+                                                render = pi;
+                                                walking = 0u32;
+                                            } else {
+                                                cur = pi;
+                                                depth = depth + 1;
+                                                if depth >= max_depth {
+                                                    // 定界兜底（契约上不可达：
+                                                    // root 钉住；达界 = 数据面
+                                                    // 破损,按当前节点产出不静默）。
+                                                    render = cur;
+                                                    walking = 0u32;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // 渲染决定 + 消费校验（页槽首字进 checksum）。
+                                    let rb2 = render * 4;
+                                    let r_resource = cluster_u32[rb2];
+                                    let r_page = cluster_u32[rb2 + 1];
+                                    let r_gpage = (resource_page_base[r_resource as usize] + r_page) as usize;
+                                    let r_state = page_state[r_gpage];
+                                    let mut w0 = 0u32;
+                                    if r_state != 0u32 {
+                                        let wpp = params[32] as usize;
+                                        let slot = (r_state - 1u32) as usize;
+                                        w0 = pool_words[slot * wpp];
+                                    }
+                                    let mixv = ((render as u32) + 1u32) * 2654435761u32;
+                                    let _c0 = checksum.fetch_add(0, mixv ^ w0, Scope::Gpu);
+                                    let _c1 = checksum.fetch_add(1, w0, Scope::Gpu);
+                                    let mut fell = 0u32;
+                                    if render != i {
+                                        fell = 1u32;
+                                    }
+                                    let _fc = render_counters.fetch_add(1, fell, Scope::Gpu);
+                                    let rslot = render_counters.fetch_add(0, 1u32, Scope::Gpu) as usize;
+                                    let w = rslot * 4;
+                                    render_records[w] = inst as u32;
+                                    render_records[w + 1] = render as u32;
+                                    render_records[w + 2] = i as u32;
+                                    render_records[w + 3] = fell;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

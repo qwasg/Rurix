@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "namespace": "g35",
+  "description": "G35 预算面。开工期 entries 空数组 = 零 estimated 占位纪律：f32 流(pos/vel/age/XPBD 约束)host 对拍容差条目(threshold = measured × 2.0 协议冻结 k,方向 max)由各波门脚本标定腿真跑程序产,禁手写(G34 g34.unified_lane.host_parity_tol 先例);整数流(pid/flags/scan/sort 键与序/事件槽位)零容差位级不入 budget 条目(门 facts 直判);device 双跑位级不入 budget 条目。",
+  "source_docs": [
+    "milestones/g35/G35_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "g35.particle_core.f32_parity_p100",
+      "description": "G35-2 粒子核心 f32 流 device↔host 对拍容差冻结带(pos_x/y/z、vel_x/y/z、age、life 八 f32 流逐帧 max abs diff 聚合全帧 p100;整数流 pid/flags/scan/args 走零容差位级不入本条目;sim/emit SPV 装载期注入 NoContraction 禁驱动 FMA 收缩后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_particle_core_smoke.py --gate g35.wave2.particle_core 标定腿〔g35_particle_core_device 同 seed 双跑位级一致面〕;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g35_particle_core_gate_20260827T103639Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g35.collision.parity_p100",
+      "description": "G35-5 碰撞与力场 7 f32 流(pos_x/y/z、vel_x/y/z、age)device↔host 对拍容差冻结带(ray_query 臂逐帧 max abs diff 聚合全帧 p100;flags 整数流走零容差位级不入本条目;两 kernel SPV 装载期注入 NoContraction 禁驱动 FMA 收缩后标定;ray query t 值 RT core vs host ULP 级差为本条目根因,g34 先例;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_collision_smoke.py --gate g35.wave5.collision 标定腿〔g35_collision_device --collision ray_query --report-max-diff〕;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 1.00433826e-05,
+      "evidence_file": "evidence/g35_collision_gate_20260827T113120Z.json",
+      "measured_value": 5.0216913e-06
+    },
+    {
+      "id": "g35.events.parity_p100",
+      "description": "G35-6 事件通道 f32 流 device↔host 对拍容差冻结带(B 组 pos/vel/age/life 八流全帧 p100 + GPU 死亡事件 payload〔死亡帧积分后 pos.xyz+vel.xy〕+ 双源发射段单独聚合,取三面 max;整数流 flags/scan/death_flags/death_scan/ev_meta/ev_count/src_meta/spawn_counts/pid/args 走零容差位级不入本条目;sim/emit/event_spawn SPV 装载期注入 NoContraction 禁驱动 FMA 收缩后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_events_smoke.py --gate g35.wave6.events 标定腿〔g35_events_device 同 seed 双跑位级一致面〕;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g35_events_gate_20260827T113510Z.json",
+      "measured_value": 0.0
+    },
+    {
+      "id": "g35.fluids.parity_p100",
+      "description": "G35-7 流体 f32 流 device↔host 对拍容差冻结带(pos_x/y/z、vel_x/y/z、ρ、λ 八 f32 流逐帧 max abs diff 聚合全帧 p100;整数流 cell_key/sorted_keys/sorted_idx/cell_start/cell_end 走零容差位级不入本条目;cellkey/density/apply/velocity SPV 装载期注入 NoContraction 禁驱动 FMA 收缩后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;标定真跑 = ci/g35_fluids_smoke.py --gate g35.wave7.fluids 标定腿〔g35_fluids_device 同 seed 双跑位级一致面〕;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 0.0073242188,
+      "evidence_file": "evidence/g35_fluids_gate_20260827T114153Z.json",
+      "measured_value": 0.0036621094
+    },
+    {
+      "id": "g35.render.mv_parity_px",
+      "description": "G35-3 粒子渲染 MV 见证容差冻结带(--mv-witness 单粒子恒速静态相机腿:readback U_MV_OUT 命中像素〔winner ≠ 0〕device MV 与解析期望 mv = project_curr(pos) − project_prev(pos − vel·dt) 逐像素误差换像素域 max;sim/emit/splat/resolve SPV 注入 NoContraction 后标定;threshold = measured × 2.0 协议冻结 k,measured = 0 时 threshold = 0 零容差零条目,方向 max;另有 2.0 px 名义硬顶归 fact particle_mv_parity_2px 判读器;标定真跑 = ci/g35_render_wiring_smoke.py --gate g35.wave3.render MV 见证腿;evidence_file = 门裁决件 results.trimmed_mean 镜像槽,budget_eval 通用路消费;标定程序可复跑)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "px",
+      "threshold": 0.0,
+      "evidence_file": "evidence/g35_render_gate_20260827T115018Z.json",
+      "measured_value": 0.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

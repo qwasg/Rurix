@@ -1,0 +1,375 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G34 全特性合流 G34-1 harness evidence（g34_full_lane 真跑面）",
+  "description": "evidence/g34_unified_lane_*.json（或 --evidence 指定路径）。G34 全特性合流 G34-1 合流地基门 g34.wave1.unified：harness = src/rurix-render/src/bin/g34_full_lane.rs——统一 kernel kernels/g34_unified_gi.rx（母版 g14_3_direct_gi 语义 + fork A 图集采样块 + fork B 实例分派块合一;纹理缺省 tritex 全 −1 / 动态缺省单实例 ⇒ 各自 == 母版位级,--static-camera 锚格模式全链 TSR digest == g14_3_stage_a_digest_anchor 承载）经 UnifiedDescs::G34Full 27 SSBO 形态进统一四 pass TSR 车道 + device 显示编码 + swapchain 真窗口呈现。合并语义 = 贴图材质三角 采样 albedo ×（mod×R_slot）（slab 槽映射面,texmeta 装配期预乘）/ 非贴图三角 常量 albedo（× R_slot 若 slab 映射,scene.albedo 预调制）——host 装配期预调制承载,kernel 采样块与 fork A 逐字同式。SPV 处置分叉：textures on = NoContraction 注入（B4 对拍锚前提）,textures off = 原始 SPV（母版处置同字面,缺省面位级锚承载）。对拍 = parity 帧 host 金标准（host TriBvh/Tlas 实例化追踪 + g31_tex_host_sample 同 op 序 + G13.4 shade_pixel 逐字直接光,合并语义同步实现）vs device scene HDR（TSR 前瞬时位）逐像素逐通道绝对差,p100 ≤ 冻结容差（milestones/g34/g34_budget.json g34.unified_lane.host_parity_tol 程序读禁手写;容差结构依据 = RT core vs host Möller–Trumbore t 值 ULP 级算术差 ⇒ 命中点/辐照传递差,目标近位级,threshold = measured × 2.0 标定冻结）;bitexact 像素占比如实登记（非门判据）。动态实例位置核验 = A4 范式 host 投影（轨迹点 + 8 角点经 vp_j 投影）vs scene color 纯绿谱检测,每 10 帧 fail-closed。digest_seq = 逐帧 BGRA8 打包帧 sha256（G31BGRA-1 前缀）：确定性双跑位级一致门 + 逐特性贡献 digest 区分门的判定对象。口径：real_render_frame_ms（五 pass 渲染墙钟,post-warmup 均值;含 BGRA8 强制回读 render_includes_forced_readback=true 登记;纹理/slab 装配 = 装配期一次性 eval_ms 单列不混帧口径）/ present_frame_ms / digest_frame_ms / stats.encode_gpu_ms。--headless-smoke 无窗口退化仅供自检逻辑用不计真门。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "trajectory",
+    "frames",
+    "warmup",
+    "frames_completed",
+    "exit_reason",
+    "resize_eras",
+    "resolution",
+    "internal_resolution",
+    "real_render_frame_ms",
+    "real_render_fps",
+    "present_frame_ms",
+    "present_overhead_ms",
+    "encode_frame_ms",
+    "digest_frame_ms",
+    "render_digest",
+    "digest",
+    "digest_seq",
+    "ev100_seq",
+    "camera_poses",
+    "ev100_ramp",
+    "headless",
+    "window",
+    "contracts",
+    "render_includes_forced_readback",
+    "spv",
+    "features",
+    "textures",
+    "slab",
+    "dyn",
+    "host_parity",
+    "stats",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g34.unified_lane_evidence.v1" },
+    "gate": { "type": "string", "const": "g34.wave1.unified" },
+    "scene": { "type": "string", "const": "bistro-interior" },
+    "tier": { "type": "integer", "enum": [50, 67, 100] },
+    "backend": { "type": "string", "const": "tsr_device" },
+    "trajectory": { "type": ["string", "null"], "enum": ["orbit", "dolly", null] },
+    "frames": { "type": "integer", "minimum": 1 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "frames_completed": { "type": "integer", "minimum": 0 },
+    "exit_reason": { "type": "string", "enum": ["frames_done", "user_close"] },
+    "resize_eras": { "type": "integer", "minimum": 0 },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "internal_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "real_render_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+    "real_render_fps": { "type": "number", "exclusiveMinimum": 0 },
+    "present_frame_ms": { "type": ["number", "null"] },
+    "present_overhead_ms": { "type": ["number", "null"] },
+    "encode_frame_ms": { "type": "number", "minimum": 0 },
+    "digest_frame_ms": { "type": "number", "minimum": 0 },
+    "render_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest_seq": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "逐帧 BGRA8 打包帧 digest 序列（auto-move 面长度 == frames_completed;--static-camera 锚格模式 = 空序列,锚格判定对象 = render_digest）"
+    },
+    "ev100_seq": { "type": "array", "items": { "type": "number" } },
+    "camera_poses": {
+      "type": "array",
+      "items": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "type": "number" } }
+    },
+    "ev100_ramp": { "type": "null" },
+    "headless": { "type": "boolean" },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["visible", "channel_order", "extent", "frames_presented", "swapchain_rebuilds"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "channel_order": { "type": "string", "enum": ["bgra8_unorm", "rgba8_unorm"] },
+        "extent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["w", "h"],
+          "properties": {
+            "w": { "type": "integer", "minimum": 1 },
+            "h": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "frames_presented": { "type": "integer", "minimum": 1 },
+        "swapchain_rebuilds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "g10_contract", "g10_camera", "g10_lighting", "consistency", "delta_note", "encode_spv"],
+      "properties": {
+        "production": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest"],
+          "properties": {
+            "path": { "type": "string" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "consistency": { "type": "string", "const": "pass" },
+        "delta_note": { "type": "string" },
+        "encode_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
+    "render_includes_forced_readback": { "type": "boolean", "const": true },
+    "spv": { "type": "object" },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["textures", "slab", "dyn", "full", "static_camera"],
+      "properties": {
+        "textures": { "type": "boolean" },
+        "slab": { "type": "boolean" },
+        "dyn": { "type": "boolean" },
+        "full": { "type": "boolean" },
+        "static_camera": { "type": "boolean" }
+      }
+    },
+    "textures": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["census", "mapping_law", "mapped_materials", "tex_tris", "atlas", "linlut_digest", "slab_premod_slots", "probe", "spv_scene"],
+      "properties": {
+        "census": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["materials_total", "with_base_color_texture", "with_normal_texture", "with_metallic_roughness_texture", "primitives_total", "primitives_with_texcoord0", "primitives_with_tangent"],
+          "properties": {
+            "materials_total": { "type": "integer", "const": 70 },
+            "with_base_color_texture": { "type": "integer", "const": 70 },
+            "with_normal_texture": { "type": "integer", "const": 70 },
+            "with_metallic_roughness_texture": { "type": "integer", "const": 0 },
+            "primitives_total": { "type": "integer", "const": 2062 },
+            "primitives_with_texcoord0": { "type": "integer", "const": 2062 },
+            "primitives_with_tangent": { "type": "integer", "const": 0 }
+          }
+        },
+        "mapping_law": { "type": "string" },
+        "mapped_materials": { "type": "integer", "const": 12 },
+        "tex_tris": { "type": "integer", "minimum": 1 },
+        "atlas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "tile", "format", "digest"],
+          "properties": {
+            "width": { "type": "integer", "const": 8192 },
+            "height": { "type": "integer", "const": 6144 },
+            "tile": { "type": "integer", "const": 2048 },
+            "format": { "type": "string", "const": "u32_packed_rgba8" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "linlut_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "slab_premod_slots": { "type": "integer", "minimum": 0, "description": "G34 合并语义：texmeta mod × R_slot 预调制槽计数（slab off = 0 与 fork A 逐位同值;slab on = 纹理×slab 映射交集槽数）" },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["probe_count", "eval_ms", "ssbo", "sampler_leg"],
+          "properties": {
+            "probe_count": { "type": "integer", "const": 288 },
+            "eval_ms": { "type": "number", "minimum": 0 },
+            "ssbo": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["p100", "bitexact", "double_run_bitexact", "device_digest", "host_digest"],
+              "properties": {
+                "p100": { "type": "number", "minimum": 0 },
+                "bitexact": { "type": "boolean", "const": true },
+                "double_run_bitexact": { "type": "boolean", "const": true },
+                "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            },
+            "sampler_leg": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["max_lsb_diff", "bound_lsb", "bitexact"],
+              "properties": {
+                "max_lsb_diff": { "type": "integer", "minimum": 0, "maximum": 1 },
+                "bound_lsb": { "type": "integer", "const": 1 },
+                "bitexact": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "spv_scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "no_contraction_injected"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "no_contraction_injected": { "type": "boolean", "const": true }
+          }
+        }
+      }
+    },
+    "slab": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["asset_path", "abi_digest", "mapped_materials", "slab_tris", "parity_p100", "eval_ms", "arm", "tex_premod_slots", "device_digest", "host_digest"],
+      "properties": {
+        "asset_path": { "type": "string" },
+        "abi_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "mapped_materials": { "type": "integer", "const": 5 },
+        "slab_tris": { "type": "integer", "minimum": 1 },
+        "parity_p100": { "type": "number", "minimum": 0 },
+        "eval_ms": { "type": "number", "minimum": 0 },
+        "arm": { "type": "string", "const": "device" },
+        "tex_premod_slots": { "type": "integer", "minimum": 0 },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "dyn": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["dyn_tris", "dyn_tri_base", "action", "verify_every", "tol_centroid_px", "tol_aabb_px", "min_count_area_ratio", "verify_frames", "verify_count", "all_pass"],
+      "properties": {
+        "dyn_tris": { "type": "integer", "const": 12 },
+        "dyn_tri_base": { "type": "integer", "minimum": 1 },
+        "action": { "type": "string", "const": "refit" },
+        "verify_every": { "type": "integer", "const": 10 },
+        "tol_centroid_px": { "type": "number" },
+        "tol_aabb_px": { "type": "number" },
+        "min_count_area_ratio": { "type": "number" },
+        "verify_frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["frame", "pred_px", "pred_aabb", "obs_px", "obs_aabb", "obs_count", "centroid_delta_px", "aabb_delta_px", "pass"],
+            "properties": {
+              "frame": { "type": "integer", "minimum": 1 },
+              "pred_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "pred_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "obs_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_count": { "type": "integer", "minimum": 0 },
+              "centroid_delta_px": { "type": "number" },
+              "aabb_delta_px": { "type": "number" },
+              "pass": { "type": "boolean", "const": true }
+            }
+          }
+        },
+        "verify_count": { "type": "integer", "minimum": 1 },
+        "all_pass": { "type": "boolean", "const": true }
+      }
+    },
+    "host_parity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["frame", "tol", "tol_source", "frozen_measured", "color_p100", "color_p50", "color_mean_abs", "bitexact_px", "total_px", "bitexact_ratio", "depth_p100", "in_tol", "host_render_ms", "basis"],
+      "properties": {
+        "frame": { "type": "integer", "minimum": 1 },
+        "tol": { "type": "number", "exclusiveMinimum": 0 },
+        "tol_source": { "type": "string" },
+        "frozen_measured": { "type": ["number", "null"] },
+        "color_p100": { "type": "number", "minimum": 0 },
+        "color_p50": { "type": "number", "minimum": 0 },
+        "color_mean_abs": { "type": "number", "minimum": 0 },
+        "bitexact_px": { "type": "integer", "minimum": 0 },
+        "total_px": { "type": "integer", "const": 2073600 },
+        "bitexact_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "depth_p100": { "type": "number", "minimum": 0 },
+        "in_tol": { "type": "boolean", "const": true },
+        "host_render_ms": { "type": "number", "minimum": 0 },
+        "basis": { "type": "string" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["render_cv", "render_min_ms", "render_max_ms", "scene_gpu_ms", "encode_gpu_ms", "present_cv", "present_min_ms", "present_max_ms"],
+      "properties": {
+        "render_cv": { "type": "number" },
+        "render_min_ms": { "type": "number" },
+        "render_max_ms": { "type": "number" },
+        "scene_gpu_ms": { "type": "number", "minimum": 0 },
+        "encode_gpu_ms": { "type": "number", "minimum": 0 },
+        "present_cv": { "type": ["number", "null"] },
+        "present_min_ms": { "type": ["number", "null"] },
+        "present_max_ms": { "type": ["number", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "headless": { "const": false } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "object" },
+          "present_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+          "present_overhead_ms": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "headless": { "const": true } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "null" },
+          "present_frame_ms": { "type": "null" },
+          "present_overhead_ms": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

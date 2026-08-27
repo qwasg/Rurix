@@ -1,0 +1,570 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/profiling_evidence/v1",
+ "title": "G31+ 波 C Task C7 性能剖析与调试工具面门裁决件（ci/g31_profiling_smoke.py --gate g31.waveC.profiling 产；G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #54「性能剖析与调试工具面」兑现载体——PASS-only 闭集 schema；真跑工作件留 .tmp 工作区不进 evidence/ 路由面）",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "anchor",
+  "surface",
+  "runs",
+  "profiles",
+  "zero_drift",
+  "annotations",
+  "tool_probe",
+  "capture_compat",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.profiling_evidence.v1"
+  },
+  "subject": {
+   "const": "g31_profiling"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.waveC.profiling"
+  },
+  "wave": {
+   "const": "G31+.C"
+  },
+  "anchor": {
+   "type": "object",
+   "required": [
+    "todo_row",
+    "anchor_text",
+    "accept"
+   ],
+   "properties": {
+    "todo_row": {
+     "const": "G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #54"
+    },
+    "anchor_text": {
+     "const": "外部用户可自助定位帧内热点"
+    },
+    "accept": {
+     "const": "GPU 时间戳/pass 级 profiler 对外暴露 + Nsight 标注 + 帧捕获兼容（RenderDoc）"
+    }
+   }
+  },
+  "surface": {
+   "type": "object",
+   "required": [
+    "cli",
+    "bins",
+    "profile_output_schema",
+    "stats",
+    "g31_passes",
+    "g14_passes"
+   ],
+   "properties": {
+    "cli": {
+     "const": "--profile-json <path>"
+    },
+    "bins": {
+     "type": "array",
+     "minItems": 2,
+     "maxItems": 2,
+     "items": {
+      "enum": [
+       "g31_window_present",
+       "g14_3_pipeline_perf"
+      ]
+     }
+    },
+    "profile_output_schema": {
+     "const": "milestones/g31/g31_profile_output_schema.json"
+    },
+    "stats": {
+     "const": "mean/p50/p99/min/max"
+    },
+    "g31_passes": {
+     "type": "array",
+     "minItems": 5,
+     "maxItems": 5,
+     "items": {
+      "enum": [
+       "g14_3_direct_gi",
+       "g14_mv",
+       "g14_8_tsr_resample",
+       "g14_8_tsr_resolve",
+       "g31_display_encode"
+      ]
+     }
+    },
+    "g14_passes": {
+     "type": "array",
+     "minItems": 4,
+     "maxItems": 4,
+     "items": {
+      "enum": [
+       "g14_3_direct_gi",
+       "g14_mv",
+       "g14_8_tsr_resample",
+       "g14_8_tsr_resolve"
+      ]
+     }
+    }
+   }
+  },
+  "runs": {
+   "type": "object",
+   "required": [
+    "g31_frames",
+    "g14_frames",
+    "g31_off",
+    "g31_on",
+    "g14_off",
+    "g14_on"
+   ],
+   "properties": {
+    "g31_frames": {
+     "type": "object",
+     "required": [
+      "frames",
+      "warmup",
+      "mode"
+     ],
+     "properties": {
+      "frames": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "warmup": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "mode": {
+       "type": "string",
+       "minLength": 1
+      }
+     }
+    },
+    "g14_frames": {
+     "type": "object",
+     "required": [
+      "frames",
+      "warmup",
+      "mode"
+     ],
+     "properties": {
+      "frames": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "warmup": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "mode": {
+       "type": "string",
+       "minLength": 1
+      }
+     }
+    },
+    "g31_off": {
+     "type": "object",
+     "required": [
+      "digest",
+      "render_digest",
+      "real_render_frame_ms"
+     ],
+     "properties": {
+      "digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "render_digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "real_render_frame_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "g31_on": {
+     "type": "object",
+     "required": [
+      "digest",
+      "render_digest",
+      "real_render_frame_ms"
+     ],
+     "properties": {
+      "digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "render_digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "real_render_frame_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "g14_off": {
+     "type": "object",
+     "required": [
+      "last_frame_digest",
+      "frame_ms_production_mean"
+     ],
+     "properties": {
+      "last_frame_digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "frame_ms_production_mean": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    },
+    "g14_on": {
+     "type": "object",
+     "required": [
+      "last_frame_digest",
+      "frame_ms_production_mean"
+     ],
+     "properties": {
+      "last_frame_digest": {
+       "type": "string",
+       "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "frame_ms_production_mean": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      }
+     }
+    }
+   }
+  },
+  "profiles": {
+   "type": "object",
+   "required": [
+    "g31",
+    "g14"
+   ],
+   "properties": {
+    "g31": {
+     "type": "object",
+     "required": [
+      "path",
+      "frames_measured",
+      "gpu_sum_mean_ms",
+      "render_wall_mean_ms",
+      "cpu_seg_sum_mean_ms",
+      "host_residual_mean_ms",
+      "identity_ok",
+      "debug_labels_active",
+      "annotated_pass_count",
+      "assembly_ms",
+      "scene_gpu_mean_ms",
+      "schema_valid"
+     ],
+     "properties": {
+      "path": {
+       "type": "string",
+       "minLength": 1
+      },
+      "frames_measured": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "gpu_sum_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "render_wall_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "cpu_seg_sum_mean_ms": {
+       "type": "number"
+      },
+      "host_residual_mean_ms": {
+       "type": "number"
+      },
+      "identity_ok": {
+       "const": true
+      },
+      "debug_labels_active": {
+       "const": true
+      },
+      "annotated_pass_count": {
+       "const": 5
+      },
+      "assembly_ms": {
+       "type": "number",
+       "minimum": 0
+      },
+      "scene_gpu_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "schema_valid": {
+       "const": true
+      }
+     }
+    },
+    "g14": {
+     "type": "object",
+     "required": [
+      "path",
+      "frames_measured",
+      "gpu_sum_mean_ms",
+      "render_wall_mean_ms",
+      "cpu_seg_sum_mean_ms",
+      "host_residual_mean_ms",
+      "identity_ok",
+      "debug_labels_active",
+      "annotated_pass_count",
+      "assembly_ms",
+      "scene_gpu_mean_ms",
+      "schema_valid"
+     ],
+     "properties": {
+      "path": {
+       "type": "string",
+       "minLength": 1
+      },
+      "frames_measured": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "gpu_sum_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "render_wall_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "cpu_seg_sum_mean_ms": {
+       "type": "number"
+      },
+      "host_residual_mean_ms": {
+       "type": "number"
+      },
+      "identity_ok": {
+       "const": true
+      },
+      "debug_labels_active": {
+       "const": true
+      },
+      "annotated_pass_count": {
+       "const": 4
+      },
+      "assembly_ms": {
+       "type": "number",
+       "minimum": 0
+      },
+      "scene_gpu_mean_ms": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "schema_valid": {
+       "const": true
+      }
+     }
+    }
+   }
+  },
+  "zero_drift": {
+   "type": "object",
+   "required": [
+    "g31_digest_identical",
+    "g31_render_digest_identical",
+    "g14_digest_identical",
+    "method"
+   ],
+   "properties": {
+    "g31_digest_identical": {
+     "const": true
+    },
+    "g31_render_digest_identical": {
+     "const": true
+    },
+    "g14_digest_identical": {
+     "const": true
+    },
+    "method": {
+     "type": "string",
+     "minLength": 1
+    }
+   }
+  },
+  "annotations": {
+   "type": "object",
+   "required": [
+    "extension",
+    "entry_points",
+    "site",
+    "absent_behavior",
+    "g31_active",
+    "g14_active"
+   ],
+   "properties": {
+    "extension": {
+     "const": "VK_EXT_debug_utils"
+    },
+    "entry_points": {
+     "const": "vkCmdBeginDebugUtilsLabelEXT/vkCmdEndDebugUtilsLabelEXT"
+    },
+    "site": {
+     "type": "string",
+     "minLength": 1
+    },
+    "absent_behavior": {
+     "type": "string",
+     "minLength": 1
+    },
+    "g31_active": {
+     "const": true
+    },
+    "g14_active": {
+     "const": true
+    }
+   }
+  },
+  "tool_probe": {
+   "type": "object",
+   "required": [
+    "renderdoc",
+    "nsight_graphics"
+   ],
+   "properties": {
+    "renderdoc": {
+     "type": "object",
+     "required": [
+      "state",
+      "path",
+      "probe"
+     ],
+     "properties": {
+      "state": {
+       "enum": [
+        "present",
+        "absent"
+       ]
+      },
+      "path": {
+       "type": "string"
+      },
+      "probe": {
+       "type": "string",
+       "minLength": 1
+      }
+     }
+    },
+    "nsight_graphics": {
+     "type": "object",
+     "required": [
+      "state",
+      "path",
+      "probe"
+     ],
+     "properties": {
+      "state": {
+       "enum": [
+        "present",
+        "absent"
+       ]
+      },
+      "path": {
+       "type": "string"
+      },
+      "probe": {
+       "type": "string",
+       "minLength": 1
+      }
+     }
+    }
+   }
+  },
+  "capture_compat": {
+   "type": "object",
+   "required": [
+    "method",
+    "validation_error_count_total",
+    "blocklist_hits",
+    "blocklist",
+    "audited_files",
+    "present_path",
+    "rdc_path",
+    "rdc_bytes",
+    "dev_env_degrade",
+    "note"
+   ],
+   "properties": {
+    "method": {
+     "enum": [
+      "real_capture",
+      "static_checklist_no_renderdoc"
+     ]
+    },
+    "validation_error_count_total": {
+     "const": 0
+    },
+    "blocklist_hits": {
+     "const": 0
+    },
+    "blocklist": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "string",
+      "minLength": 1
+     }
+    },
+    "audited_files": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "string",
+      "minLength": 1
+     }
+    },
+    "present_path": {
+     "type": "string",
+     "minLength": 1
+    },
+    "rdc_path": {
+     "type": "string"
+    },
+    "rdc_bytes": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "dev_env_degrade": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "minLength": 1
+     }
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

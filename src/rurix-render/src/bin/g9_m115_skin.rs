@@ -33,16 +33,16 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::display::skin::{
-    build_preintegrated_lut, canonical_skin_patch, canonical_skin_profile, diffusion_radius,
-    eval_lut_fallback, eval_pure_diffuse, eval_skin_entry, eval_skin_sss, image_digest,
-    profile_has_visible_effect, tier_quality_diff, zero_falloff_degrades_to_diffuse, LUT_DIM,
-    SKIN_PATCH_SAMPLES,
+    LUT_DIM, SKIN_PATCH_SAMPLES, build_preintegrated_lut, canonical_skin_patch,
+    canonical_skin_profile, diffusion_radius, eval_lut_fallback, eval_pure_diffuse,
+    eval_skin_entry, eval_skin_sss, image_digest, profile_has_visible_effect, tier_quality_diff,
+    zero_falloff_degrades_to_diffuse,
 };
 use rurix_render::material::closure::MaterialParams;
 use rurix_render::material::side_table::{
+    BurleyProfile, LobeExtension, MaterialSideTable, SideTableError,
     assert_default_table_invariant, check_closure_face_untouched, closure_32b_layout_digest,
-    decode_side_table, encode_side_table, side_table_signature, verify_side_table, BurleyProfile,
-    LobeExtension, MaterialSideTable, SideTableError,
+    decode_side_table, encode_side_table, side_table_signature, verify_side_table,
 };
 use std::path::PathBuf;
 
@@ -151,7 +151,8 @@ fn parse_args() -> Args {
 /// canonical 侧表(槽 0 = 皮肤 Burley profile;材质表长 1)。
 fn canonical_side_table() -> MaterialSideTable {
     let mut t = MaterialSideTable::new();
-    t.insert(0, LobeExtension::Burley(canonical_skin_profile()), 1).expect("insert");
+    t.insert(0, LobeExtension::Burley(canonical_skin_profile()), 1)
+        .expect("insert");
     t
 }
 
@@ -159,14 +160,17 @@ fn canonical_side_table() -> MaterialSideTable {
 fn red_arm_zero_falloff_not_diffuse() -> Result<(), String> {
     let (signal, depth) = canonical_skin_patch();
     // 正例:全零 profile 必须退化为纯漫反射(逐位)。
-    let zero = BurleyProfile { falloff_rgb: [0.0, 0.0, 0.0] };
+    let zero = BurleyProfile {
+        falloff_rgb: [0.0, 0.0, 0.0],
+    };
     let out_zero = eval_skin_sss(&signal, &depth, &zero).map_err(|e| e.to_string())?;
     let diffuse = eval_pure_diffuse(&signal);
     if !zero_falloff_degrades_to_diffuse(&out_zero, &diffuse) {
         return Err("全零 profile 未退化纯漫反射(正例臂失败)".into());
     }
     // 检测面:未退化的输出(非零 profile)经同一机核必须判「未退化」(RED 可判)。
-    let out_sss = eval_skin_sss(&signal, &depth, &canonical_skin_profile()).map_err(|e| e.to_string())?;
+    let out_sss =
+        eval_skin_sss(&signal, &depth, &canonical_skin_profile()).map_err(|e| e.to_string())?;
     if zero_falloff_degrades_to_diffuse(&out_sss, &diffuse) {
         return Err("非零 profile 无可见差异(profile 未生效,漏检)".into());
     }
@@ -179,15 +183,19 @@ fn red_arm_zero_falloff_not_diffuse() -> Result<(), String> {
 /// RED 臂:注入缺省侧表输出仍变(修订行零漂移违反)。
 fn red_arm_default_table_alters() -> Result<(), String> {
     let (signal, depth) = canonical_skin_patch();
-    let baseline = image_digest(&eval_skin_entry(&signal, &depth, 0, None).map_err(|e| e.to_string())?);
+    let baseline =
+        image_digest(&eval_skin_entry(&signal, &depth, 0, None).map_err(|e| e.to_string())?);
     let default_tbl = MaterialSideTable::new();
-    let with_default =
-        image_digest(&eval_skin_entry(&signal, &depth, 0, Some(&default_tbl)).map_err(|e| e.to_string())?);
+    let with_default = image_digest(
+        &eval_skin_entry(&signal, &depth, 0, Some(&default_tbl)).map_err(|e| e.to_string())?,
+    );
     assert_default_table_invariant(&baseline, &with_default)
         .map_err(|e| format!("缺省侧表零漂移正例失败: {e}"))?;
     // sabotage:缺省路径输出被篡改(带 profile 输出冒充缺省输出)必须判 RED。
-    let sabotaged =
-        image_digest(&eval_skin_entry(&signal, &depth, 0, Some(&canonical_side_table())).map_err(|e| e.to_string())?);
+    let sabotaged = image_digest(
+        &eval_skin_entry(&signal, &depth, 0, Some(&canonical_side_table()))
+            .map_err(|e| e.to_string())?,
+    );
     match assert_default_table_invariant(&baseline, &sabotaged) {
         Err(SideTableError::DefaultSideTableAltersOutput) => Ok(()),
         other => Err(format!("缺省侧表输出仍变注入未检出: {other:?}")),
@@ -198,7 +206,10 @@ fn red_arm_default_table_alters() -> Result<(), String> {
 fn red_arm_slot_overreach() -> Result<(), String> {
     let mut t = MaterialSideTable::new();
     match t.insert(7, LobeExtension::Burley(canonical_skin_profile()), 1) {
-        Err(SideTableError::UnknownMaterialSlot { slot: 7, table_len: 1 }) => {}
+        Err(SideTableError::UnknownMaterialSlot {
+            slot: 7,
+            table_len: 1,
+        }) => {}
         other => return Err(format!("槽越权未拒: {other:?}")),
     }
     // sabotage:界内槽必须可注册。
@@ -218,7 +229,9 @@ fn red_arm_reserved_bits() -> Result<(), String> {
     let mut f = MaterialParams::default().pack();
     f.rough_metal_ao_flags |= 0x0800_0000; // flags bit3(未分配)
     match check_closure_face_untouched(&f) {
-        Err(SideTableError::FieldOverreach { field: "flags_unassigned_bits" }) => {}
+        Err(SideTableError::FieldOverreach {
+            field: "flags_unassigned_bits",
+        }) => {}
         other => return Err(format!("flags 未分配位段消费未检出: {other:?}")),
     }
     // sabotage:未触冻结面必须过检。
@@ -258,9 +271,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -290,7 +305,9 @@ fn main() {
     // ── 步骤 3:侧表资产化(roundtrip + 签名) ──
     let table = canonical_side_table();
     let bytes = encode_side_table(&table);
-    let table_ok = decode_side_table(&bytes, 1).map(|d| d == table).unwrap_or(false);
+    let table_ok = decode_side_table(&bytes, 1)
+        .map(|d| d == table)
+        .unwrap_or(false);
     let sig = side_table_signature(&table);
     let sig_ok = verify_side_table(&table, &sig).is_ok();
     if !table_ok || !sig_ok {
@@ -302,7 +319,10 @@ fn main() {
     let sss = eval_skin_entry(&signal, &depth, 0, Some(&table))
         .unwrap_or_else(|e| fail(&format!("SSS 求值: {e}")));
     let sss_d = image_digest(&sss);
-    let r_small = diffusion_radius(&BurleyProfile { falloff_rgb: [0.2, 0.2, 0.2] }).unwrap_or(0.0);
+    let r_small = diffusion_radius(&BurleyProfile {
+        falloff_rgb: [0.2, 0.2, 0.2],
+    })
+    .unwrap_or(0.0);
     let r_big = diffusion_radius(&canonical_skin_profile()).unwrap_or(0.0);
     let radius_ok = r_big > r_small && r_small > 0.0;
     if !radius_ok {
@@ -317,8 +337,8 @@ fn main() {
         .collect();
     let lut_out = eval_lut_fallback(&signal, &lut, &curv, &ndx)
         .unwrap_or_else(|e| fail(&format!("LUT 档: {e}")));
-    let (tier_max, tier_mean) = tier_quality_diff(&sss, &lut_out)
-        .unwrap_or_else(|e| fail(&format!("画质差: {e}")));
+    let (tier_max, tier_mean) =
+        tier_quality_diff(&sss, &lut_out).unwrap_or_else(|e| fail(&format!("画质差: {e}")));
     let tier_diff_ok = tier_max > 0.0 && tier_mean > 0.0;
     if !tier_diff_ok {
         failures.push("两档画质差为空( LUT 档未生效)".into());
@@ -335,8 +355,14 @@ fn main() {
     }
 
     // ── 步骤 7:全零衰减退化纯漫反射(正例) ──
-    let zero_out = eval_skin_sss(&signal, &depth, &BurleyProfile { falloff_rgb: [0.0, 0.0, 0.0] })
-        .expect("zero");
+    let zero_out = eval_skin_sss(
+        &signal,
+        &depth,
+        &BurleyProfile {
+            falloff_rgb: [0.0, 0.0, 0.0],
+        },
+    )
+    .expect("zero");
     let zero_degrade_ok = zero_falloff_degrades_to_diffuse(&zero_out, &eval_pure_diffuse(&signal));
     if !zero_degrade_ok {
         failures.push("全零衰减未退化纯漫反射".into());
@@ -389,7 +415,9 @@ fn main() {
             let frozen = json_str(t, key).unwrap_or_else(|| fail(&format!("冻结带缺 {key}")));
             if frozen != actual {
                 golden_ok = false;
-                failures.push(format!("golden 漂移: {key}(frozen={frozen} actual={actual})"));
+                failures.push(format!(
+                    "golden 漂移: {key}(frozen={frozen} actual={actual})"
+                ));
             }
         }
     }
@@ -428,7 +456,10 @@ fn main() {
     let checks: [(&str, bool); 13] = [
         ("conformance_corpus_anchored", corpus_ok),
         ("closure_32b_size_and_face_untouched", size_ok && face_ok),
-        ("closure_32b_layout_digest_frozen_equal", golden_ok || args.freeze),
+        (
+            "closure_32b_layout_digest_frozen_equal",
+            golden_ok || args.freeze,
+        ),
         ("side_table_asset_roundtrip", table_ok && sig_ok),
         ("burley_single_pass_dual_kernel", true),
         ("diffusion_radius_response_golden", radius_ok),
@@ -437,11 +468,23 @@ fn main() {
         ("zero_falloff_degrades_pure_diffuse", zero_degrade_ok),
         ("double_run_bit_equal", double_run_ok),
         ("golden_frozen_equal", golden_ok || args.freeze),
-        ("red_arm_zero_falloff_and_default_table", red_zero_ok && red_default_ok),
-        ("red_arm_slot_overreach_and_reserved_bits", red_slot_ok && red_reserved_ok),
+        (
+            "red_arm_zero_falloff_and_default_table",
+            red_zero_ok && red_default_ok,
+        ),
+        (
+            "red_arm_slot_overreach_and_reserved_bits",
+            red_slot_ok && red_reserved_ok,
+        ),
     ];
-    let checks_json: Vec<String> = checks.iter().map(|(n, ok)| format!("\"{n}\": {ok}")).collect();
-    let failures_json: Vec<String> = failures.iter().map(|f| format!("\"{}\"", json_escape(f))).collect();
+    let checks_json: Vec<String> = checks
+        .iter()
+        .map(|(n, ok)| format!("\"{n}\": {ok}"))
+        .collect();
+    let failures_json: Vec<String> = failures
+        .iter()
+        .map(|f| format!("\"{}\"", json_escape(f)))
+        .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
     let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(

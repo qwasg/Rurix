@@ -1,0 +1,238 @@
+{
+  "schema": "rurix.g35.authoring_gate_evidence.v1",
+  "subject": "g35_authoring",
+  "symbolic_gate_key": "g35.wave8.authoring",
+  "wave": "G35.8",
+  "facts": [
+    {
+      "id": "asset_schema_fail_closed",
+      "status": "PASS",
+      "detail": "十种非法(缺字段/多字段/类型错×2/闭集外枚举×3/嵌套缺字段/域违约×2)逐一 typed 退出码 3 + kind 精确匹配:10/10(违例: 无;十字段闭集 RFC-0049 §3 冻结,禁默认值兜底)"
+    },
+    {
+      "id": "curve_eval_deterministic",
+      "status": "PASS",
+      "detail": "emit_curve 求值互核(库实现 vs probe 独立参考实现逐帧全等 + 双求值确定)= True;A(const)头样本 [24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24] B(step)头样本 [16, 16, 16, 16, 16, 16, 16, 16, 48, 48, 48, 48]"
+    },
+    {
+      "id": "hot_reload_semantics",
+      "status": "PASS",
+      "detail": "重载生效(digest 异基线)=True 下一帧生效(重载帧 emit==48==asset2 曲线求值)=True 旧粒子不瞬移(冻结运算序单步重放 bitwise)=True(边界幸存核验 768)"
+    },
+    {
+      "id": "pid_continuity_across_reload",
+      "status": "PASS",
+      "detail": "pid 唯一=True 幸存段 ⊆ 上帧集=True 发射段精确区间=True 跨重载水位单调 pids_issued=1344(钳制 rejected=0 如实登记,F7)"
+    },
+    {
+      "id": "sdk_abi_surface_frozen",
+      "status": "PASS",
+      "detail": "RFC-0049 §4.11 冻结四签名源级字面在档=True(缺=无);dumpbin /exports:4 新符号全在=True 既有 9 rxsdk_* 全在=True;stable_snapshot --check exit=0(用户面 sdk.rx 导出集/ABI 1.0.0 0-byte 机器证明——rxsdk_* 为内部实现面加性,用户面薄转发+MINOR 1.1.0 待收口批,API_VERSIONING.md §6 登记)"
+    },
+    {
+      "id": "sdk_handle_fail_closed",
+      "status": "PASS",
+      "detail": "cargo test -p rurix-renderer-sdk --features sdk-device exit=0;粒子面单测 ok 在案=['particles_handle_and_input_fail_closed', 'particles_lifecycle_tick_and_stats'](悬空句柄 ST_HANDLE/空指针与资产违例与 key 闭集外 ST_INPUT/会话回收连带悬空/tick 精确账目 24×n;degrade=无)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "同 seed 同资产全链双跑 digest 位级一致=True(digest_a=sha256:0857a6f0ac810d15…;逐帧 n‖pid‖8 f32 流‖args 链式 sha256)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "field-tamper 双面:值篡改 digest 必异 detected=True(green=sha256:866ac818ba78a8b0… red=sha256:90a324b2c0678278…)+ schema 篡改 typed 检出=True kind='UnknownField'"
+    }
+  ],
+  "verdict": "PASS",
+  "asset_protocol": {
+    "field_closed_set": [
+      "name",
+      "pos",
+      "spread",
+      "vel_base",
+      "vel_spread",
+      "life_base",
+      "gravity_y",
+      "emit_curve",
+      "render",
+      "blend"
+    ],
+    "sample_a": "campfire_sparks_a",
+    "sample_b": "ember_burst_b",
+    "fail_closed_cases": [
+      {
+        "case": "missing_life_base",
+        "kind_expected": "MissingField",
+        "kind_seen": "MissingField",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "unknown_field_drag",
+        "kind_expected": "UnknownField",
+        "kind_seen": "UnknownField",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "type_pos_scalar",
+        "kind_expected": "Type",
+        "kind_seen": "Type",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "type_name_number",
+        "kind_expected": "Type",
+        "kind_seen": "Type",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "enum_render_out",
+        "kind_expected": "EnumOutOfSet",
+        "kind_seen": "EnumOutOfSet",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "enum_blend_out",
+        "kind_expected": "EnumOutOfSet",
+        "kind_seen": "EnumOutOfSet",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "enum_curve_kind_out",
+        "kind_expected": "EnumOutOfSet",
+        "kind_seen": "EnumOutOfSet",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "curve_const_missing_value",
+        "kind_expected": "MissingField",
+        "kind_seen": "MissingField",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "step_len_mismatch",
+        "kind_expected": "Domain",
+        "kind_seen": "Domain",
+        "exit_code": 3,
+        "ok": true
+      },
+      {
+        "case": "step_not_increasing",
+        "kind_expected": "Domain",
+        "kind_seen": "Domain",
+        "exit_code": 3,
+        "ok": true
+      }
+    ],
+    "cases_total": 10,
+    "cases_ok": 10
+  },
+  "curve_eval": {
+    "crosscheck_ok": true,
+    "samples_a": [
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24
+    ],
+    "samples_b": [
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  "hot_reload": {
+    "reload_at": 32,
+    "effective_digest_diff": true,
+    "next_frame_effective": true,
+    "old_particles_continuous": true,
+    "boundary_survivors_checked": 768,
+    "continuity_checked": 46831,
+    "digest_baseline": "sha256:866ac818ba78a8b0860335dea091cb936d5c7f6f51df77b91b3ef5d7efcbf066",
+    "digest_reload": "sha256:0857a6f0ac810d15e8be000069db29427712c2e60d50e9acf8caf79846cdb819"
+  },
+  "pid_continuity": {
+    "unique": true,
+    "survivor_subset": true,
+    "emit_range_exact": true,
+    "pids_issued": 1344,
+    "rejected_total": 0
+  },
+  "sdk": {
+    "impl_crate": "src/rurix-renderer-sdk",
+    "frozen_signatures_present": true,
+    "symbols_present": true,
+    "symbol_check_method": "dumpbin",
+    "particles_symbols": [
+      "rxsdk_particles_emitter_create",
+      "rxsdk_particles_emitter_set_param",
+      "rxsdk_particles_emitter_destroy",
+      "rxsdk_particles_stats"
+    ],
+    "existing_exports_present": true,
+    "existing_export_count": 9,
+    "cargo_test_exit": 0,
+    "particles_tests_seen": [
+      "particles_handle_and_input_fail_closed",
+      "particles_lifecycle_tick_and_stats"
+    ],
+    "stable_snapshot_check_exit": 0,
+    "abi_version_unchanged": "1.0.0",
+    "user_face_minor_bump": "deferred_to_closeout"
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "digest_a": "sha256:0857a6f0ac810d15e8be000069db29427712c2e60d50e9acf8caf79846cdb819",
+    "digest_b": "sha256:0857a6f0ac810d15e8be000069db29427712c2e60d50e9acf8caf79846cdb819"
+  },
+  "red_arm": {
+    "arm": "field-tamper",
+    "detected": true,
+    "digest_green": "sha256:866ac818ba78a8b0860335dea091cb936d5c7f6f51df77b91b3ef5d7efcbf066",
+    "digest_red": "sha256:90a324b2c06782783ce76fef5cb870f2241367e03494e6304d2bd51d023bf818",
+    "schema_tamper_detected": true,
+    "schema_tamper_kind": "UnknownField"
+  },
+  "tri_state": {
+    "degrade": [],
+    "note": "本门纯 host(资产解析/曲线求值/热重载/pid 连续全 host 纯函数;probe 无 device 依赖无 required-features)——host 面永可跑,--gate 不占 GPU 锁;三态形骸保留:唯一可能降级项 = SDK 单测 vulkan loader 缺席跳过面(仅 loader 探测零 GPU 工作),届时 SKIP 退 0 不冒充 PASS、RURIX_REQUIRE_REAL=1 翻硬 FAIL(九门三态同律)。"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/authoring/probe_green.json",
+    ".tmp/g35_gates/authoring/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "本门纯 host(无 GPU 锁;SDK 单测仅 vulkan loader 探测)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T121831Z",
+  "notes": "G35-8 数据驱动作者面与 SDK:声明式 emitter 资产(JSON v1 十字段闭集 RFC-0049 §3 冻结,src/rurix-render/src/particles/emitter_asset.rs 库面最小 JSON 子集解析〔g14_3_lane_body bin-local 先例同型子集,零外部 crate〕+ fail-closed typed 错误七类闭集)+ 参数化映射(EmitterAsset::to_desc → particles::core::EmitterDesc 六标量域;emit_count_at 曲线求值 = const 恒值取整/step 阶梯查表,纯函数)+ 热重载(EmitterRuntime::reload = 纯参数面替换,池/pid/帧钟连续不重置,下一帧生效;判据 = digest 必异 + 旧粒子冻结运算序单步重放 bitwise 不瞬移)+ SDK C ABI 加性(RFC-0049 §4.11 冻结四签名 rxsdk_particles_* 落实现层 src/rurix-renderer-sdk mod sdk〔feature sdk-device〕:u64 句柄 BTreeMap 表 + i32 状态码复用既有闭集 0/2/3 + 单线程 apartment;v1 SDK 粒子臂 = host 臂——每 emitter 独立池 cap=4096 随 rxsdk_renderer_render_frame 每成功帧 tick 一帧,stats 写 alive_total;device 车道接线归收口批)。既有导出/句柄语义 0-byte(stable_snapshot --check 机器证明:用户面 sdk.rx 导出集与 ABI_VERSION_PACKED 1.0.0 本批不动);用户面 rurix_renderer_particles_* 薄转发 + 生成头再生 + MINOR 1.0.0→1.1.0 + 快照重 bless 登记为待 G35 收口批(g31.waveC 门族五面 1.0.0/9 导出字面须同批更新方保门可复跑绿,apps/g31-renderer-sdk/API_VERSIONING.md §6 如实登记禁伪造)。本门无 kernels_spv_valid/frame_ms 面(纯 host 无 kernel 无 device 帧时);evidence 恒落 evidence/(G35 族同律,verdict 如实)。"
+}

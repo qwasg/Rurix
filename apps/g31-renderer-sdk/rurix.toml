@@ -1,0 +1,8 @@
+# G31+ 波 C Task C1 渲染器 SDK 应用包清单(G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #48)。
+# 形态抄 apps/uc05-rhi/rurix.toml。src/sdk.rx = `rurix_renderer.dll` 唯一源
+# (#[export(c)] 薄转发 → rurix-renderer-sdk cdylib rxsdk_* 实现层);host/ 下
+# C++ 控制台宿主为嵌入宿主、在应用主语言判据审计边界之外(RFC-0014 §9.2 同口径)。
+[package]
+name = "g31-renderer-sdk"
+version = "1.0.0"
+build = "declarative"

@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 6.0
+ },
+ "notes": "G32 画面完整期波 B RD-045 观察窗零漂移 digest 臂数实测（base/slab/textures 三臂跨日锚 MATCH + hzb/skin/demo200 三臂新窗双跑位级一致 = 6/6 臂零漂移；Stage A 18/18 另列 stage_a_digest_guard 条）（源 milestones/g31/g31_waveb_rd045_observation_results.json）"
+}

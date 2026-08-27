@@ -39,21 +39,22 @@
 
 #![forbid(unsafe_code)]
 
-use rurix_render::oit::algorithms::{
-    image_digest, quality_error, sorted_fallback, OitAlgorithm,
-};
-use rurix_render::oit::measure::{run_benchmark, BenchmarkRun};
-use rurix_render::oit::scene::{canonical_scene, BENCHMARK_LAYERS};
+use rurix_render::oit::algorithms::{OitAlgorithm, image_digest, quality_error, sorted_fallback};
+use rurix_render::oit::measure::{BenchmarkRun, run_benchmark};
+use rurix_render::oit::scene::{BENCHMARK_LAYERS, canonical_scene};
 use rurix_render::oit::selection::{
-    check_exact_tier_memory, request_exact_tier_memory, select_default_tier,
-    validate_selection_commit, BenchmarkDataRef, OitError, OitTier, SelectionCommit,
+    BenchmarkDataRef, OitError, OitTier, SelectionCommit, check_exact_tier_memory,
+    request_exact_tier_memory, select_default_tier, validate_selection_commit,
 };
 use std::path::PathBuf;
 
 const TAG: &str = "G9_M120_OIT";
 const CORPUS_FILES: &[(&str, &str)] = &[
     ("accept/oit_benchmark_harness_minimal.rx", "RXS-0371"),
-    ("reject/oit_default_tier_without_benchmark_data.rx", "RXS-0371"),
+    (
+        "reject/oit_default_tier_without_benchmark_data.rx",
+        "RXS-0371",
+    ),
 ];
 
 fn fail(msg: &str) -> ! {
@@ -251,19 +252,22 @@ fn deterministic_equal(a: &BenchmarkRun, b: &BenchmarkRun) -> bool {
     a.truth_digest_per_level == b.truth_digest_per_level
         && a.scene_digest_per_level == b.scene_digest_per_level
         && a.measurements.len() == b.measurements.len()
-        && a.measurements.iter().zip(b.measurements.iter()).all(|(x, y)| {
-            x.algorithm == y.algorithm
-                && x.overdraw_layers == y.overdraw_layers
-                && x.storage_bytes == y.storage_bytes
-                && x.aux_bytes == y.aux_bytes
-                && x.quality_max_abs == y.quality_max_abs
-                && x.quality_mean_abs == y.quality_mean_abs
-                && x.quality_pixels_over_eps == y.quality_pixels_over_eps
-                && x.fragments_kept == y.fragments_kept
-                && x.fragments_tail == y.fragments_tail
-                && x.fragments_dropped == y.fragments_dropped
-                && x.image_digest == y.image_digest
-        })
+        && a.measurements
+            .iter()
+            .zip(b.measurements.iter())
+            .all(|(x, y)| {
+                x.algorithm == y.algorithm
+                    && x.overdraw_layers == y.overdraw_layers
+                    && x.storage_bytes == y.storage_bytes
+                    && x.aux_bytes == y.aux_bytes
+                    && x.quality_max_abs == y.quality_max_abs
+                    && x.quality_mean_abs == y.quality_mean_abs
+                    && x.quality_pixels_over_eps == y.quality_pixels_over_eps
+                    && x.fragments_kept == y.fragments_kept
+                    && x.fragments_tail == y.fragments_tail
+                    && x.fragments_dropped == y.fragments_dropped
+                    && x.image_digest == y.image_digest
+            })
 }
 
 fn main() {
@@ -302,9 +306,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -362,7 +368,9 @@ fn main() {
 
     // ── 步骤 6:测量敏感性(WBOIT 深档近似误差 > 0;sabotage 真值自比 = 0) ──
     let deep = *BENCHMARK_LAYERS.last().expect("档位非空");
-    let wboit_deep = run.find(&OitAlgorithm::WeightedBlended, deep).expect("wboit 深档");
+    let wboit_deep = run
+        .find(&OitAlgorithm::WeightedBlended, deep)
+        .expect("wboit 深档");
     let sensitivity_ok = wboit_deep.quality_max_abs > 0.0 && wboit_deep.quality_pixels_over_eps > 0;
     let scene_check = canonical_scene(32, 32, 16);
     let truth_a = sorted_fallback(&scene_check);
@@ -410,13 +418,18 @@ fn main() {
                 ("fragments_tail", m.fragments_tail.to_string()),
                 ("quality_max_abs", f32_hex(m.quality_max_abs)),
                 ("quality_mean_abs", f64_hex(m.quality_mean_abs)),
-                ("quality_pixels_over_eps", m.quality_pixels_over_eps.to_string()),
+                (
+                    "quality_pixels_over_eps",
+                    m.quality_pixels_over_eps.to_string(),
+                ),
             ] {
                 let key = format!("{base}_{suffix}");
                 let frozen = json_str(t, &key).unwrap_or_else(|| fail(&format!("冻结带缺 {key}")));
                 if frozen != val {
                     frozen_ok = false;
-                    failures.push(format!("measurements 漂移: {key}(冻结 {frozen} ≠ 实测 {val})"));
+                    failures.push(format!(
+                        "measurements 漂移: {key}(冻结 {frozen} ≠ 实测 {val})"
+                    ));
                 }
             }
         }
@@ -488,7 +501,10 @@ fn main() {
         ("double_run_deterministic_bit_equal", double_run_ok),
         ("linked_list_exact_tier_diff_zero", exact_diff_zero),
         ("sorted_fallback_always_reachable", fallback_ok),
-        ("quality_measurement_sensitive", sensitivity_ok && sabotage_ok),
+        (
+            "quality_measurement_sensitive",
+            sensitivity_ok && sabotage_ok,
+        ),
         ("selection_without_data_red_arm", selection_arm_ok),
         ("exact_tier_unbounded_memory_red_arm", memory_arm_ok),
         ("measurements_frozen_equal", frozen_ok || args.freeze),

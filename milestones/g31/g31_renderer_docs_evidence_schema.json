@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 C Task C2 渲染器文档与示例门 evidence（ci/g31_renderer_docs_smoke.py --gate g31.waveC.docs 产）",
+  "description": "渲染器文档与示例门（G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #49）PASS 态 facts 闭集 schema。判据闭集七 facts：①docs_present_with_anchors 三文档在树 + 关键节锚逐字在场 ②on_record_numbers_present 关键在案 measured 数字逐字在场（防文档腐化）③example_sources_present 示例三件 + 关键符号 ④walkthrough_record_valid 走通记录在案（8 步 + 修正面 + 真实时间戳）⑤example_build_emit_dll rurixc --emit=dll 三件产出 + 生成头导出集 == 4 符号 ⑥example_compile_and_run_real cl.exe 编译链接 + 真跑 rc=0 + 输出标记逐字 ⑦frozen_docs_untouched 00~13 号根冻结规划文档 git 面零改动。evidence 纪律：PASS 才落 evidence/g31_renderer_docs_<ts>.json；FAIL 诊断件落 .tmp/g31_gates/renderer_docs/ 工作区不污染 evidence/ 路由面（fail-closed：evidence/ 无件 = 门未过）。三态：缺 rurixc/clang/MSVC/Vulkan GPU → DEV_ENV_DEGRADE SKIP 退 0 不冒充；RURIX_REQUIRE_REAL=1 翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "docs",
+    "example",
+    "walkthrough",
+    "frozen_docs",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.renderer_docs_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_renderer_docs" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveC.docs" },
+    "wave": { "type": "string", "const": "G31+.C" },
+    "facts": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "docs_present_with_anchors",
+              "on_record_numbers_present",
+              "example_sources_present",
+              "walkthrough_record_valid",
+              "example_build_emit_dll",
+              "example_compile_and_run_real",
+              "frozen_docs_untouched"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["integration_guide", "feature_matrix", "performance_tuning"],
+      "properties": {
+        "integration_guide": { "$ref": "#/definitions/doc_entry" },
+        "feature_matrix": { "$ref": "#/definitions/doc_entry" },
+        "performance_tuning": { "$ref": "#/definitions/doc_entry" }
+      }
+    },
+    "example": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dir", "sources", "emit_products", "header_exports", "run_marker", "run_rc"],
+      "properties": {
+        "dir": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "string" }
+        },
+        "emit_products": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dll", "import_lib", "header"],
+          "properties": {
+            "dll": { "type": "string" },
+            "import_lib": { "type": "string" },
+            "header": { "type": "string" }
+          }
+        },
+        "header_exports": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "enum": ["uc05_run_graph", "uc05_graph_pass_count", "uc05_gfx_run_frame", "uc05_gfx_pass_count"]
+          }
+        },
+        "run_marker": { "type": "string", "const": "RURIX_MINIMAL_HOST_OK passes=2 frames=4 pixel=0x00000000" },
+        "run_rc": { "type": "integer", "const": 0 }
+      }
+    },
+    "walkthrough": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "steps", "doc_fixes_applied", "timestamp_iso"],
+      "properties": {
+        "path": { "type": "string", "const": "milestones/g31/g31_renderer_docs_walkthrough.json" },
+        "steps": { "type": "integer", "const": 8 },
+        "doc_fixes_applied": { "type": "integer", "minimum": 1 },
+        "timestamp_iso": { "type": "string", "pattern": "^20\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$" }
+      }
+    },
+    "frozen_docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checked", "violations", "method"],
+      "properties": {
+        "checked": { "type": "integer", "const": 10 },
+        "violations": { "type": "integer", "const": 0 },
+        "method": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "gpu", "rustc", "base_commit"],
+      "properties": {
+        "os": { "type": "string" },
+        "gpu": { "type": "string" },
+        "rustc": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "doc_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "headings_present", "headings_required", "numbers_present", "numbers_required"],
+      "properties": {
+        "path": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 1000 },
+        "headings_present": { "type": "integer", "minimum": 1 },
+        "headings_required": { "type": "integer", "minimum": 1 },
+        "numbers_present": { "type": "integer", "minimum": 0 },
+        "numbers_required": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

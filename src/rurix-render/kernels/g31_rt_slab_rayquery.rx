@@ -1,0 +1,74 @@
+//@ spec: RXS-0297, RXS-0298, RXS-0299（compute RayQuery 面;RFC-0048 §4.7 对拍臂）
+// G31+ 波 C Task C15 — RT pipeline 宿主车道对拍臂（RayQuery compute 面，
+// 真 .rx → SPIR-V 经 rurixc --target vulkan 编译，RXS-0297~0300 谱系）。
+//
+// ## 对拍协议（RFC-0048 §4.7 逐字）
+// 与 RT pipeline 臂（kernels/g31_rt_slab_hit.rx 语义 + 镜像语料执行面）同场景
+// 同材质同相机同公式：
+// - 相机：uv = (i % w, i / w) / (w, h)；centered = uv*2 − 1；
+//   origin = (cx, cy, −1)；dir = (0, 0, 1)；t ∈ [0, 100]（逐像素独立）。
+// - 材质：mats SSBO 5 f32/槽 × 2 槽（rc, ab, albedo_rgb；与 RT 臂 SBT record
+//   同一 host 字节源）；committed_instance_index() → 槽位（实例 0 = 左三角
+//   slab_a，实例 1 = 右三角 slab_b，装配期静态映射镜像）。
+// - slab 求值（RFC-0046 §1 修法 A 同式）：tc = 1 − rc；
+//   denom = 1 − rc·ab；R = rc + tc·tc·ab / max(denom, 1e-30)；
+//   hit_rgb = albedo × R；miss 背景 = (0.05, 0.05, 0.08)。
+//
+// ## 确定性协议（承 RXS-0357 L2 同律 / RFC-0048 §4.6）
+// 逐像素独立、输出直写、禁 atomic、全 f32；固定输入双跑位级一致；
+// 分支判定 = min/max 算术门 + 短 selection 臂（committed 提取臂 ≤4 语句，
+// g9_m98_hwrt 已机验白名单形）。
+//
+// ## 参数面（host 单源生成一次原字节上传，device 不重算）
+//   params: [0]=pixel_count [1]=width [2]=height [3..=7]=reserved（恒 0）；
+//   mats: 5 f32/槽 × 2 槽；out_rgb: 3 f32/px。dispatch = [pixel_count, 1, 1]。
+kernel fn g31_rt_slab_rayquery(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    mats: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let w = params[1];
+    let h = params[2];
+    if i < pixel_count {
+        let px = (i as f32) % w;
+        let py = ((i as f32) - px) / w;
+        let cx = (px / w) * 2.0 - 1.0;
+        let cy = (py / h) * 2.0 - 1.0;
+        // ── 主 ray query（最近命中；空体循环 = M96 已机验白名单形）──
+        let mut rq = ray_query_initialize(tlas, (cx, cy, 0.0 - 1.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+        while rq.proceed() {
+        }
+        // committed 提取 = 短臂（S3 守卫；重计算在下方算术段）。
+        let mut hit_f = 1.0;
+        let mut inst = 0u32;
+        if rq.has_committed() {
+            inst = rq.committed_instance_index();
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            inst = 0u32;
+        }
+        // ── 材质槽（算术段；miss 时 inst=0 保底，贡献经 hit_f 门恒 0）──
+        let mb = (inst as usize) * 5;
+        let rc = mats[mb];
+        let ab = mats[mb + 1];
+        let al_r = mats[mb + 2];
+        let al_g = mats[mb + 3];
+        let al_b = mats[mb + 4];
+        // slab 双层闭式反照率（RFC-0046 §1 修法 A 同式）。
+        let tc = 1.0 - rc;
+        let denom = 1.0 - rc * ab;
+        let r = rc + tc * tc * ab / denom.max(1e-30);
+        let leg_r = al_r * r;
+        let leg_g = al_g * r;
+        let leg_b = al_b * r;
+        // miss ⇒ 背景常量（hit_f 门）；hit ⇒ albedo × R。
+        out_rgb[i * 3] = 0.05 * (1.0 - hit_f) + leg_r * hit_f;
+        out_rgb[i * 3 + 1] = 0.05 * (1.0 - hit_f) + leg_g * hit_f;
+        out_rgb[i * 3 + 2] = 0.08 * (1.0 - hit_f) + leg_b * hit_f;
+    }
+}

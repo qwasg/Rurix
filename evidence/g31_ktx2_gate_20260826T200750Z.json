@@ -1,0 +1,96 @@
+{
+  "schema": "rurix.g31.ktx2_gate_evidence.v1",
+  "subject": "g31_ktx2",
+  "symbolic_gate_key": "g31.waveC.ktx2",
+  "wave": "G31.C",
+  "facts": [
+    {
+      "id": "ktx2_1_container_parse",
+      "status": "PASS",
+      "detail": "cargo test basis-sys=绿 asset=绿；CI 独立 Python 解析器重解析 dump 件（uri=Paris_Table_03_BaseColor.dds,levels=12）跨实现互核=绿；harness parse_crosscheck={'files_parsed': 12, 'ok': True}"
+    },
+    {
+      "id": "ktx2_2_transcoder_integration",
+      "status": "PASS",
+      "detail": "对拍（bcdec 全 8 mode 独立解码,premultiplied-aware）:UASTC rgb_max=4≤48 alpha_max=4≤16 mean_max=0.3973≤2.0；ETC1S 参照 rgb_max=110≤160 mean_max=2.8369≤8.0 alpha=0；fail-closed(level 越界 rc=17/.basis rc=5/垃圾容器)+双编码位级+pin 字面 经 cargo test 承载=绿"
+    },
+    {
+      "id": "ktx2_3_transcode_ab_measured",
+      "status": "PASS",
+      "detail": "12 槽 measured:DDS=19576888B UASTC全链=39153744B（2.000×）ETC1S全链=2813379B（0.144×）；转码 L0 合计 uastc=215.211ms etc1s=83.993ms;manifest digest 互核 12/12;ratio CI 重算互核=绿"
+    },
+    {
+      "id": "ktx2_integration_regression",
+      "status": "PASS",
+      "detail": "vendor --verify=绿 vendor/0-byte=True G11.3 0-byte=True B4 frozen(HEAD 在案) 0-byte=True g22/g29 判档 0-byte=True M83 门复跑=绿（evidence\\g8_m83_texture_transcode_20260826T201009Z.json）；B4 在飞面登记[?? src/rurix-render/kernels/g31_texture_gi.rx; ?? src/rurix-render/kernels/g31_texture_probe.rx; ?? src/rurix-render/src/bin/g31_window_present.rs]（本任务零触碰,非 0-byte 判据）"
+    }
+  ],
+  "verdict": "PASS",
+  "ktx2_1": {
+    "host_tests_green": true,
+    "real_fixture_fields_match": true,
+    "multilevel_transcode_bitexact": true,
+    "double_read_bitexact": true,
+    "fail_closed_arms": 8,
+    "ci_independent_reparse_match": true,
+    "dumped_levels": 12,
+    "dumped_uri": "Paris_Table_03_BaseColor.dds"
+  },
+  "ktx2_2": {
+    "host_tests_green": true,
+    "uastc_rgb_max_masked": 4,
+    "uastc_rgb_bound": 48,
+    "uastc_alpha_max": 4,
+    "alpha_bound": 16,
+    "etc1s_rgb_max_measured": 110,
+    "etc1s_rgb_mean_max_measured": 2.836888,
+    "level_param_fail_closed_green": true,
+    "garbage_fail_closed_green": true,
+    "vendor_pin_match": true,
+    "encode_double_run_bitexact": true
+  },
+  "ktx2_3": {
+    "textures_measured": 12,
+    "dds_file_bytes": 19576888,
+    "dds_l0_bytes": 14681344,
+    "ktx2_uastc_full_bytes": 39153744,
+    "etc1s_full_bytes": 2813379,
+    "ratio_uastc_full_vs_dds": 1.9999983654194682,
+    "ratio_etc1s_full_vs_dds": 0.14370920444556867,
+    "uastc_transcode_l0_ms": 215.211,
+    "etc1s_transcode_l0_ms": 83.993,
+    "uastc_encode_ms": 96718.636,
+    "etc1s_encode_ms": 38463.955,
+    "ci_ratio_recompute_match": true,
+    "rgba8_digest_manifest_match": 12,
+    "policy": {
+      "dds_when": "Windows-first 单机/闭集资产分发（现压测闭集 + SDK bundle 纹理面）：DDS BCn 直传 GPU 零转码成本;禁 zstd 在树约束下 UASTC-KTX2 体积 measured 2.00× 于 DDS——维持 G11.3 DDS 链",
+      "ktx2_etc1s_when": "跨平台分发或带宽/体积预算门成立时：ETC1S（BasisU 家族）体积 measured 0.144×（≈6.96× 收益）;代价 = 有损（maxΔ110/meanΔ≤2.9 measured）+ 离线编码 ~38.4s/12 槽 + 运行时转码 ~85ms/12 槽 L0",
+      "ktx2_uastc_when": "目标平台无 BC7（ASTC-only 移动面）且要求视觉无损（maxΔ4 measured）的跨平台中间档;体积 2× 于 BC1 DDS,Windows-only 面不成立",
+      "sdk_bundle_note": "C5 分发面联动：SDK bundle 16 组件纹理面维持 DDS BCn（Windows-first 闭集,与本 measured 结论一致）;跨平台/下载分发需求成立时按本表 ETC1S 面评估接入,UASTC-KTX2 作高质量跨平台中间档登记"
+    }
+  },
+  "integration": {
+    "vendor_verify_green": true,
+    "vendor_tree_0byte": true,
+    "g11_3_manifest_0byte": true,
+    "b4_frozen_0byte": true,
+    "b4_inflight_registered": true,
+    "b4_inflight_status": "?? src/rurix-render/kernels/g31_texture_gi.rx; ?? src/rurix-render/kernels/g31_texture_probe.rx; ?? src/rurix-render/src/bin/g31_window_present.rs",
+    "g22_g29_disposition_0byte": true,
+    "m83_gate_green": true,
+    "m83_gate_evidence": "evidence\\g8_m83_texture_transcode_20260826T201009Z.json"
+  },
+  "harness_evidence": [
+    "evidence\\g31_ktx2_ab_harness_20260826T200750Z.json"
+  ],
+  "environment": {
+    "gpu": "host-only 门（GPU 非必需;CPU 编码/转码 measured_local）",
+    "cpu_note": "本机 measured_local（RTX 4070 Ti 主机 CPU）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T200750Z",
+  "notes": "G31+ 波 C Task C14 KTX2 三行立项窗兑现（TODO #37-#39;RD-041 分项）。KTX2-1 = src/rurix-asset/src/ktx2.rs parse_ktx2（host safe Rust;头/KV/level index/supercompression 元数据 + mip 布局;真实 encoder 件逐字段互核 + 最小合成件 write_ktx2_multilevel〔真实负载 + spec 容器,KTXwriter 如实登记,禁手写二进制冒充〕+ 确定性双读 + fail-closed 臂;CI 独立 Python 第二实现重解析互核）。KTX2-2 = rurix-basis-sys 既有 vendor 桥 + rurix_basis_transcode_level mip 参数化新面（unsafe-audit U60;level 越界 rc=17/.basis rc=5 fail-closed）→ BC7/ASTC 转码;bcdec 独立参考解码对拍 = BC7 **全 8 mode 覆盖**（本任务补齐 mode 0/1/2/3/4/7——原仅 5/6,真实 UASTC→BC7 命中 0-3/7,decode 覆盖差曾对拍假红 255,机制锚 punchthrough_alpha_roundtrip_semantics 在案）;premultiplied-aware 口径（透明像素 RGB 自由域,alpha 量化界 16/语义翻转判红）。KTX2-3 = bistro 12 槽 A/B measured:DDS 19,576,888B vs UASTC-KTX2 全链 39,153,744B（2.00×,禁 zstd 在树约束下无体积收益）vs ETC1S 全链 2,813,379B（0.144× ≈ 6.96× 收益）;转码 L0 合计 219.8ms/84.6ms;质量 UASTC maxΔ4（视觉无损）/ETC1S maxΔ110 meanΔ≤2.9（有损）——政策面:Windows-first 闭集维持 DDS（G22 判档 measured 复核成立）,跨平台/带宽门用 ETC1S,UASTC-KTX2 = 高质量跨平台中间档;C5 SDK bundle 纹理面维持 DDS + 跨平台场景登记 BasisU 面。"
+}

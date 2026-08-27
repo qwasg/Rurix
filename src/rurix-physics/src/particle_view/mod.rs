@@ -314,6 +314,7 @@ pub fn rigid_body_ref(body: BodyId) -> PhysicsParticleRef {
     PhysicsParticleRef::RigidBody(RigidBodyStableId(body.to_bits()))
 }
 
+pub mod external_adapter;
 pub mod rigid_body_adapter;
 
 #[cfg(feature = "physics-character")]

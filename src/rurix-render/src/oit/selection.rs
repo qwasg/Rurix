@@ -80,7 +80,10 @@ impl std::fmt::Display for OitError {
             OitError::ExactTierUnboundedMemory => {
                 write!(f, "精确档内存无界增长请求(RED)")
             }
-            OitError::ExactTierMemoryExceeded { declared_cap, observed } => {
+            OitError::ExactTierMemoryExceeded {
+                declared_cap,
+                observed,
+            } => {
                 write!(f, "精确档内存超界: 声明 {declared_cap} 观测 {observed}")
             }
             OitError::ExactTierSceneScopeRejected => {
@@ -164,7 +167,10 @@ pub enum ExactTierMemoryPolicy {
 
 /// 精确档内存策略请求面:任何「无界增长」表达在本类型系统外——请求入口按
 /// 调用侧意图参数化,`unbounded = true` ⇒ typed Err(RED 锚)。
-pub fn request_exact_tier_memory(unbounded: bool, cap_bytes: u64) -> Result<ExactTierMemoryPolicy, OitError> {
+pub fn request_exact_tier_memory(
+    unbounded: bool,
+    cap_bytes: u64,
+) -> Result<ExactTierMemoryPolicy, OitError> {
     if unbounded {
         return Err(OitError::ExactTierUnboundedMemory);
     }
@@ -218,7 +224,10 @@ mod tests {
     #[test]
     fn selection_fail_closed_not_measured_yet() {
         // 仅测量不定档:选型入口一律 typed Err。
-        assert!(matches!(select_default_tier(), Err(OitError::NotMeasuredYet)));
+        assert!(matches!(
+            select_default_tier(),
+            Err(OitError::NotMeasuredYet)
+        ));
     }
 
     //@ spec: RXS-0371

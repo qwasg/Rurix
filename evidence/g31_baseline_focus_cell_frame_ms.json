@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 3.5560468750000007
+ },
+ "notes": "G31 波 A 验收 G17-MD-F1 焦点格 fresh frame_ms_production_mean（在案 3.5767ms）（源 g31_wave_a_anchor_check_20260825T215125Z.json digest=sha256:7d19cfe06d0b973a062677f6fe2c70cec592cddf9f2004989e4035b3163061e9）"
+}

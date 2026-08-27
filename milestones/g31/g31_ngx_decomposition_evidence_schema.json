@@ -1,0 +1,344 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/ngx_decomposition_evidence/v1",
+ "title": "G31+ 波 C Task C9 NGX 分解 profiling 证据（ci/g31_ngx_decomposition_smoke.py --gate g31.waveC.ngx_decomp 产）",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "cell",
+  "anchor",
+  "canonical_rerun",
+  "segments",
+  "x2_crosscheck",
+  "ue_comparison",
+  "rejudge_evaluation",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.ngx_decomposition_evidence.v1"
+  },
+  "subject": {
+   "const": "g31_ngx_decomposition"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.waveC.ngx_decomp"
+  },
+  "wave": {
+   "const": "G31+.C"
+  },
+  "cell": {
+   "const": "bistro-interior/t100/dlss_sr"
+  },
+  "anchor": {
+   "type": "object",
+   "required": [
+    "g30_handover_row",
+    "anchor_text",
+    "on_record_frame_ms",
+    "on_record_ratio",
+    "ue_warm_median_ms_on_record"
+   ],
+   "properties": {
+    "g30_handover_row": {
+     "type": "string"
+    },
+    "anchor_text": {
+     "type": "string"
+    },
+    "on_record_frame_ms": {
+     "const": 3.5767
+    },
+    "on_record_ratio": {
+     "const": 0.960479
+    },
+    "ue_warm_median_ms_on_record": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    }
+   }
+  },
+  "canonical_rerun": {
+   "type": "object",
+   "required": [
+    "frames",
+    "warmup",
+    "frame_ms_production_mean",
+    "last_frame_digest",
+    "stage_a_anchor_digest",
+    "digest_zero_drift",
+    "fresh_ratio",
+    "ratio_not_worsened"
+   ],
+   "properties": {
+    "frames": {
+     "const": 160
+    },
+    "warmup": {
+     "const": 10
+    },
+    "frame_ms_production_mean": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "last_frame_digest": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "stage_a_anchor_digest": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digest_zero_drift": {
+     "type": "boolean"
+    },
+    "fresh_ratio": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "ratio_not_worsened": {
+     "type": "boolean"
+    }
+   }
+  },
+  "segments": {
+   "type": "object",
+   "required": [
+    "ngx_in_stream_ms",
+    "ngx_submit_sync_tax_ms",
+    "scene_render_ms",
+    "host_residual_ms"
+   ],
+   "properties": {
+    "ngx_in_stream_ms": {
+     "type": "object",
+     "required": [
+      "median",
+      "mean",
+      "method"
+     ],
+     "properties": {
+      "median": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "mean": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "method": {
+       "type": "string"
+      }
+     }
+    },
+    "ngx_submit_sync_tax_ms": {
+     "type": "object",
+     "required": [
+      "median",
+      "mean",
+      "pre_eval_gpu_median",
+      "method"
+     ],
+     "properties": {
+      "median": {
+       "type": "number",
+       "minimum": 0
+      },
+      "mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "pre_eval_gpu_median": {
+       "type": "number",
+       "minimum": 0
+      },
+      "method": {
+       "type": "string"
+      }
+     }
+    },
+    "scene_render_ms": {
+     "type": "object",
+     "required": [
+      "mean",
+      "scene_mean",
+      "mv_mean",
+      "pack_mean",
+      "method"
+     ],
+     "properties": {
+      "mean": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "scene_mean": {
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "mv_mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "pack_mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "method": {
+       "type": "string"
+      }
+     }
+    },
+    "host_residual_ms": {
+     "type": "object",
+     "required": [
+      "median",
+      "mean",
+      "sl_book_mean",
+      "record_mean",
+      "evaluate_cpu_mean",
+      "method"
+     ],
+     "properties": {
+      "median": {
+       "type": "number"
+      },
+      "mean": {
+       "type": "number"
+      },
+      "sl_book_mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "record_mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "evaluate_cpu_mean": {
+       "type": "number",
+       "minimum": 0
+      },
+      "method": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
+  "x2_crosscheck": {
+   "type": "object",
+   "required": [
+    "submit_wait_x1_median_ms",
+    "submit_wait_x2_median_ms",
+    "marginal_median_ms",
+    "ts_direct_median_ms",
+    "abs_diff_ms",
+    "agree",
+    "method"
+   ],
+   "properties": {
+    "submit_wait_x1_median_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "submit_wait_x2_median_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "marginal_median_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "ts_direct_median_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "abs_diff_ms": {
+     "type": "number",
+     "minimum": 0
+    },
+    "agree": {
+     "type": "boolean"
+    },
+    "method": {
+     "type": "string"
+    }
+   }
+  },
+  "ue_comparison": {
+   "type": "object",
+   "required": [
+    "ue_warm_median_ms",
+    "rurix_fresh_frame_ms",
+    "delta_ms",
+    "dominant_source",
+    "analysis"
+   ],
+   "properties": {
+    "ue_warm_median_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "rurix_fresh_frame_ms": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "delta_ms": {
+     "type": "number"
+    },
+    "dominant_source": {
+     "enum": [
+      "ngx_in_stream_inseparable",
+      "ngx_submit_sync_tax",
+      "scene_render",
+      "host_residual_separable",
+      "mixed_host_segments"
+     ]
+    },
+    "analysis": {
+     "type": "string"
+    }
+   }
+  },
+  "rejudge_evaluation": {
+   "type": "object",
+   "required": [
+    "ratio_ge_1_achieved",
+    "fresh_ratio",
+    "conclusion",
+    "basis"
+   ],
+   "properties": {
+    "ratio_ge_1_achieved": {
+     "type": "boolean"
+    },
+    "fresh_ratio": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "conclusion": {
+     "enum": [
+      "rejudge_not_triggered_honest_red_maintained",
+      "rejudge_triggered_ratio_ge_1"
+     ]
+    },
+    "basis": {
+     "type": "string"
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

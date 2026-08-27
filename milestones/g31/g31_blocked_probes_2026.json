@@ -1,0 +1,306 @@
+{
+  "schema": "rurix.g31.blocked_probes_2026.v1",
+  "window": "G31+ 波 C Task C17 — TODO 阻塞项全量新鲜探针 + 如实登记（探针 agent：只读探测 + 只追加登记；零冒充——任何阻塞项不得标 closed/resolved；锚字面 0-byte 不回写）",
+  "started_utc": "2026-08-26T19:04:45Z",
+  "host": "RTX 4070 Ti + Vulkan（本机真跑/真检索；无 AMD/Intel 卡、无 HDR 显示链——探针对象非缺陷）",
+  "probes": [
+    {
+      "probe_id": "P01",
+      "todo_ref": "#11",
+      "subject": "BistroExterior 场景转换臂（G10-N6，tail_six 行）",
+      "anchor_literal": "FBX2glTF 上游修复在树或替代臂 + 源资产同窗齐备",
+      "anchor_source": "milestones/g30/g30_campaign_handover_registry.json tail_six G10-N6 行（g24 检索面逐字沿用禁缩面）",
+      "method": "三工具 PATH 新鲜实测（which/where.exe）+ BistroExterior 源资产 multiglob 三检索根逐根态登记",
+      "commands": [
+        "where.exe fbx2gltf FBX2glTF assimp blender",
+        "glob **/*BistroExterior* @ K:/rurix-ext（root ok）",
+        "glob **/*BistroExterior* @ external（root ok）",
+        "Test-Path assets（root_missing_or_unreachable）"
+      ],
+      "results": {
+        "tools_path": {"fbx2gltf|FBX2glTF": false, "assimp": false, "blender": false},
+        "source_asset_hits": 0,
+        "root_states": {"K:/rurix-ext": "ok", "assets": "root_missing_or_unreachable", "external": "ok"}
+      },
+      "verdict": "blocked-dev-env",
+      "status_maintained_literal": "维持双场景闭集（BistroInterior + CornellBox 兜底字面 0-byte）——锚两半（工具臂 + 源资产）全缺",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P02",
+      "todo_ref": "#15",
+      "subject": "RD-045 间歇 digest 漂移 backfill 三件（观察窗复核）",
+      "anchor_literal": "backfill 三件全齐方可 close",
+      "anchor_source": "milestones/g31/g31_waveb_rd045_observation_results.json（波 B 观察窗 6/6 零漂移 + 三件 0/3 在案）+ registry/deferred.json RD-045",
+      "method": "引用波 B 观察窗件 + 新鲜 digest 抽查 1 轮（base arm orbit 64+10 对波 B 锚）+ 三件面快检（①件指定落点存在性 + ③件 rfcs 文件名闭集）",
+      "commands": [
+        "target\\release\\g31_window_present.exe --frames 64 --warmup 10 --hidden --auto-move orbit --evidence .tmp/g31_blocked_probes/rd045_spot_orbit_64p10.json（RURIX_VK_VALIDATION=1，exit=0，PASS）",
+        "Test-Path evidence/g26_rd045_root_cause_confirmation.json → False",
+        "rfcs/ 文件名闭集 rd045|digest-drift|determinism-defect → 0 命中"
+      ],
+      "results": {
+        "spot_run_digest": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+        "anchor_digest_waveb_base": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+        "digest_match": true,
+        "drift": false,
+        "frames_completed": 74,
+        "validation_silent": true,
+        "three_piece_faces": {"piece1_root_cause_file": "absent", "piece3_rfc_filename_set": "0 hits", "piece2_by_piece1": "①未齐②无法确证"}
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "maintain-open-with-extended-zero-recurrence——累计观察面 +1 轮（G19.3 12/12 + G19~G29 十一期 soak + G26.3 6/6 + 波 A soak/锚检 + 波 B 6/6 + Stage A 18/18×2 + 本抽查 1/1 中锚零漂移）；三件 0/3 维持（F5：观察零漂移不充①件）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P03",
+      "todo_ref": "#17",
+      "subject": "HDR 输出管线（M118-hdr-cal，tail_six 行）",
+      "anchor_literal": "显示链变化 + HDR 资产需求成立",
+      "anchor_source": "milestones/g30/g30_campaign_handover_registry.json tail_six M118-hdr-cal 行（g24 probe 常量逐字）",
+      "method": "vulkaninfo 新鲜跑 → 三 token（HDR10_ST2084/BT2020_LINEAR/HDR10_HLG）grep 探测",
+      "commands": [
+        "vulkaninfo > .tmp/g31_blocked_probes/vulkaninfo.log（exit=0，111474B）",
+        "grep VK_COLOR_SPACE_HDR10_ST2084_EXT|VK_COLOR_SPACE_BT2020_LINEAR_EXT|VK_COLOR_SPACE_HDR10_HLG_EXT → 0 命中"
+      ],
+      "results": {
+        "tool_available": true,
+        "VK_COLOR_SPACE_HDR10_ST2084_EXT": "absent",
+        "VK_COLOR_SPACE_BT2020_LINEAR_EXT": "absent",
+        "VK_COLOR_SPACE_HDR10_HLG_EXT": "absent",
+        "surface_color_spaces_observed": ["COLOR_SPACE_SRGB_NONLINEAR_KHR ×5 formats"]
+      },
+      "verdict": "blocked-dev-env",
+      "status_maintained_literal": "maintain-SDR（三 token 全 absent——本机显示链不支持，与 G30 在案逐字一致）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P04",
+      "todo_ref": "#18",
+      "subject": "AMD 真卡 present 验收（G-MB1-6，MB1 唯一存续尾门）+ 平台 surface 余量（RD-032 history）",
+      "anchor_literal": "获得 AMD 硬件后按 DoD 补证据",
+      "anchor_source": "registry/deferred.json RD-032 / milestones/mb1/MB1_CONTRACT.md + milestones/g31/g31_compatibility_matrix.json amd/intel 格（dev_env_degrade 字面）",
+      "method": "vulkaninfo 物理设备枚举（vendorID 0x1002 AMD / 0x8086 Intel 在机性）",
+      "commands": [
+        "vulkaninfo 设备面：GPU id = 0 (NVIDIA GeForce RTX 4070 Ti) 唯一物理设备；vendorID=0x10de deviceID=0x2782 apiVersion=1.4.351(4211039) driverVersion=620.2.0.0(2600501248)"
+      ],
+      "results": {
+        "physical_devices": 1,
+        "nvidia_rtx_4070_ti": true,
+        "amd_device_present": false,
+        "intel_device_present": false,
+        "c3_matrix_cells": "amd-desktop / intel-desktop 格 dev_env_degrade 字面维持（g31_compatibility_matrix.json）"
+      },
+      "verdict": "blocked-dev-env",
+      "status_maintained_literal": "maintain-open（AMD 缺硬件；G-MB1-6 尾门与 C3 兼容矩阵两格 dev_env_degrade 如实维持，不冒充 measured）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P05",
+      "todo_ref": "#19",
+      "subject": "EA1 冷启动 A 段 measured（干净 Win11 VM 分发验证，RD-033）",
+      "anchor_literal": "owner 备齐 VM 环境（用户提供干净 VM 环境窗）",
+      "anchor_source": "registry/deferred.json RD-033 / milestones/g24/g24_legacy_rd_registry.json RD-033 行",
+      "method": "Hyper-V 面（vmms/vmcompute/Hyper-V VM store/Get-VM cmdlet）+ VMware 面（服务/安装目录/inventory/.vmx 文件在盘性）探测",
+      "commands": [
+        "Get-Service vmms → 不在；Get-VM → cmdlet 缺；C:\\ProgramData\\Microsoft\\Windows\\Hyper-V\\Virtual Machines → 0 件",
+        "Get-Service VMware* → VMware NAT Service Running + VmwareAutostartService Stopped；C:\\Program Files (x86)\\VMware\\VMware Workstation 已装（vmrun.exe/vmware.exe 在装不在 PATH）",
+        "%APPDATA%\\VMware\\inventory.vmls → vmlist2.config = F:\\Windows 11 x64.vmx（DisplayName \"Windows 11 x64\"，state=locked）+ kali 项（文件缺=失效登记）",
+        "Test-Path F:\\Windows 11 x64.vmx → True（8889B，vmx+s001~s017 vmdk 在盘，最后活动 2026-07-18）"
+      ],
+      "results": {
+        "hyperv_vmms_present": false,
+        "hyperv_vm_store_items": 0,
+        "vmware_workstation_installed": true,
+        "registered_win11_vm": {"path": "F:\\Windows 11 x64.vmx", "on_disk": true, "last_activity": "2026-07-18", "state": "locked"},
+        "clean_state_verified": false,
+        "ea1_segment_a_measured_run": false
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "maintain-open（owner-dependent 字面维持）——新鲜事实如实登记：Win11 x64 VMware VM 文件在机（2026-07-18 最后活动，先于 G24/G30『缺 VM 环境』登记窗）但「干净」状态未经开机核验 + EA1 冷启动 A 段 measured 未执行 → 锚（owner 备齐干净 VM 窗 + A 段 measured 跑）未成立；候选 VM 待 owner 窗核验，不冒充环境齐备",
+      "anchor_unchanged": true,
+      "signals": ["vm_candidate_discovered：F:\\Windows 11 x64.vmx 在盘——owner 窗候选如实登记（非锚兑现）"]
+    },
+    {
+      "probe_id": "P06",
+      "todo_ref": "#30",
+      "subject": "OMM（Opacity Micro-Map，RD-040 五分项之一）",
+      "anchor_literal": "alpha-tested 植被场景入压测（与 #11 BistroExterior 联动）",
+      "anchor_source": "milestones/g21/g21_rd040_subitem_registry.json OMM 行 + milestones/g31/g31_oit_evaluation_window.json（B7 已核 70/70 材质 OPAQUE）",
+      "method": "压测闭集新鲜机核复核（bistro-interior 派生 gltf alphaMode/BLEND/MASK/KHR_materials_transmission 计数）+ #11 联动锚复核",
+      "commands": [
+        "PowerShell regex 计数 @ K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf → OPAQUE=70 BLEND=0 MASK=0 transmission=0 alphaMode_total=70"
+      ],
+      "results": {
+        "bistro_alphaMode_OPAQUE": 70,
+        "bistro_alphaMode_BLEND": 0,
+        "bistro_alphaMode_MASK": 0,
+        "bistro_KHR_materials_transmission": 0,
+        "matches_b7_record": true,
+        "todo11_anchor": "未命中维持（P01）"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "maintain-defer（现压测闭集零 alpha-tested 主导面——B7 70/70 OPAQUE 新鲜复核一致；锚系于 #11 BistroExterior 未命中维持）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P07",
+      "todo_ref": "#40",
+      "subject": "Work Graphs GPU 侧调度（RD-041 分项）",
+      "anchor_literal": "WG present 翻转时复评启动",
+      "anchor_source": "milestones/g22/g22_work_graphs_probe_results.json（在案 absent）+ milestones/g30/g30_campaign_handover_registry.json RD-041-svt-ktx2-wg 行",
+      "method": "vulkaninfo 驱动扩展 token 新鲜探测（G22 work_graphs_probe 范式）+ DGC 三扩展互核",
+      "commands": [
+        "grep VK_AMDX_shader_enqueue @ vulkaninfo.log → 0 命中",
+        "grep VK_EXT_device_generated_commands|VK_NV_device_generated_commands|VK_NV_device_generated_commands_compute @ vulkaninfo.log → 3 token 全 present"
+      ],
+      "results": {
+        "VK_AMDX_shader_enqueue": false,
+        "work_graphs_verdict": "not-available",
+        "VK_EXT_device_generated_commands": true,
+        "VK_NV_device_generated_commands": true,
+        "VK_NV_device_generated_commands_compute": true,
+        "dgc_verdict": "available",
+        "matches_g22_record": true
+      },
+      "verdict": "blocked-dev-env",
+      "status_maintained_literal": "not-available 实测维持（驱动扩展 absent）+ DGC available 互核（dgc.rs M102 现面载体 0-byte）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P08",
+      "todo_ref": "#41",
+      "subject": "RD-034 DXIL ray-tracing 腿（spirv-cross 拒 raygen）",
+      "anchor_literal": "spirv-cross SPV_KHR_ray_tracing 消费路径 或 LLVM A 路解锁（探针 exit 语义反转时复评）",
+      "anchor_source": "registry/deferred.json RD-034（G28.3 探针新鲜 maintain-blocked 在案，g28_m_d_rd034_upstream_recheck 范式）",
+      "method": "blocked 恒跑探针真跑（退出码判定，非 grep）——步骤 68 mesh B 链 + 步骤 69 RT blocked 探针",
+      "commands": [
+        "py -3 ci/meshrt_probe_smoke.py → exit=0（步骤 68 PASS：mesh B 链绿 spirv-cross ms_6_5 + dxc 2900B DXIL；步骤 69 PASS：RT blocked 探针新鲜 spirv-cross 如期拒 raygen）"
+      ],
+      "results": {
+        "probe_exit_code": 0,
+        "step68_mesh_bchain": "green（2900B DXIL——与 G21.3 在案同字节量）",
+        "step69_rt_blocked_probe": "fresh（exit 语义未反转——spirv-cross HLSL 后端仍无 SPV_KHR_ray_tracing 消费路径）",
+        "upstream_llvm_face": "#90504 Open 维持（P09 联动）"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "maintain-blocked（blocked 证据新鲜；RD-034 open 维持，backfill_condition 0-byte 不回写）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P09",
+      "todo_ref": "#42",
+      "subject": "DXIL 系列 RD-011/012/014/015（上游 LLVM #90504/#57928 演进跟踪）",
+      "anchor_literal": "RD-011：上游 merge 本 PR（llvm#205546 PSV 版本派生修复）+ release + D-205 pin bump；RD-015：#90504+#57928 merge + release + D-205 pin bump；RD-012：RD-034 解锁时同窗收口；RD-014：任一上游 pin bump 需求出现",
+      "anchor_source": "registry/deferred.json RD-011/012/014/015 + milestones/g24/g24_legacy_rd_registry.json",
+      "method": "上游新鲜核（GitHub issue/PR 页面 WebFetch ×3，2026-08-26）+ 本地工具链版本探测（Vulkan SDK 1.3.296.0 面）",
+      "commands": [
+        "fetch github.com/llvm/llvm-project/issues/90504 → Open（Planning；blocked-by 链在案）",
+        "fetch github.com/llvm/llvm-project/issues/57928 → Closed as completed 2026-08-13（PR #212892 merged，commit 1026c71c22bda8c1d0cb6a15c63ae1cf5c401240）",
+        "fetch github.com/llvm/llvm-project/pull/205546 → Open（2026-06-24 提交至今未 merge）",
+        "spirv-cross --version → Git commit: vulkan-sdk-1.3.290.0-44-g65d73934（2024-10-04）",
+        "dxc --version → dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+        "glslangValidator --version → Glslang Version: 11:15.0.0"
+      ],
+      "results": {
+        "llvm_90504_state": "open",
+        "llvm_57928_state": "closed-as-completed-2026-08-13",
+        "llvm_pr_205546_state": "open",
+        "local_toolchain": {"spirv_cross": "vulkan-sdk-1.3.290.0-44-g65d73934", "dxc": "1.8.0.4739", "glslang": "11:15.0.0"},
+        "rd014_pin_surface": "0-byte 无漂移（Vulkan SDK 1.3.296.0 面同在案）"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "RD-011/012/014/015 全 maintain-open——RD-011 专属 PR #205546 未 merge；RD-015 backfill 半命中（#57928 merged）半未命中（#90504 open + release + pin bump 未齐）；RD-012 RT 分量由 RD-034 承载维持；RD-014 pin 面 0-byte",
+      "anchor_unchanged": true,
+      "signals": ["RD-015 reeval_anchor「LLVM 上游任一 issue 关闭」字面新鲜命中（#57928 closed-as-completed 2026-08-13，先于 G30 2026-08-25 登记窗未被捕获）→ 重判程序启动信号如实登记；条目维持 open 不冒充 close，重判窗归后续 M-d 程序（锚字面 0-byte 不回写）"]
+    },
+    {
+      "probe_id": "P10",
+      "todo_ref": "#45",
+      "subject": "物理观察轨 RD-042/043/044 + M125-adopt3 + M127",
+      "anchor_literal": "各自 reeval_anchor 字面（g23_rd044_subitem_registry / g23_jolt_adoption_registry / g23_research_track_registry；g30 尾锚窗常量 pattern 表逐字沿用禁缩面）",
+      "anchor_source": "milestones/g23/g23_{research_track,rd044_subitem,jolt_adoption}_registry.json + evidence/g30_m_a_tail_anchor_rejudgment_closure_20260825T102516Z.json pattern 表",
+      "method": "常量 pattern 表检索（grep/glob/dir 三面 22 pattern：RD-042×2 + RD-043×3 + RD-044×6 + M125×6 + M127×5）",
+      "commands": [
+        "grep differentiable|autodiff @ src/,apps/ → 0 命中（RD-042）",
+        "grep wgrapier @ src/,apps/ + glob rfcs/*wgrapier* + glob rfcs/*gpu*rigid* → 0 命中（RD-043）",
+        "grep character_cloth|destructible @ src/rurix-physics/src,apps/ + glob apps/**/*cloth* + grep mpm_bake @ src/,apps/ + glob assets/**/*mpm*（assets 根缺）+ grep rapier_fast_path|rapier_fastpath @ src/,apps/ + glob evidence/*rapier_fastpath_adoption* → 0 命中（RD-044）",
+        "grep rurix_physics_sys56|JPC56_|JPH56 @ src/rurix-physics/src,apps/ → raw 3 件 == 在案基线（world.rs / bin/g9_m125_jolt56_ab.rs / ab_eval.rs）排除后净 0；glob apps/**/*jolt56* + grep jolt_53_defect|jolt53_workaround + glob evidence/*jolt_53_defect* + glob evidence/*jolt_56_ab_overband* + grep ab_overband → 全 0（M125 三类全空）",
+        "dir corpus|assets/corpus|assets/neural|conformance/neural 全缺 + grep neural_deform @ src/,apps/ → 0 命中（M127 两半 NONE）"
+      ],
+      "results": {
+        "rd042_hits": 0, "rd043_hits": 0, "rd044_hits": 0,
+        "m125_net_hits": 0, "m125_baseline_raw_hits": 3,
+        "m127_two_halves": "NONE",
+        "assets_root_state": "root_missing_or_unreachable"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "RD-042/RD-043/RD-044 维持 open + M125 maintain-5.3（三类需求证据全空）+ M127 maintain 研究子轨——22 pattern 全零命中，检索面逐字沿用禁缩面",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P11",
+      "todo_ref": "#46",
+      "subject": "SAFE-GPU 平台立项评估（G30 改锚 defer-to-G31+）",
+      "anchor_literal": "独立期资源窗 + 平台需求方（外部采纳生态）出现时立项评估",
+      "anchor_source": "milestones/g30/g30_campaign_handover_registry.json tail_six SAFE-GPU 行（G30 判据字面）",
+      "method": "期面核验（G31_CONTRACT in_scope 无 safe_gpu 立项；G31 = 实时呈现期非 SAFE-GPU 独立期 ⇒ 资源窗不成立如实登记）+ 平台需求方检索三面",
+      "commands": [
+        "grep safe_gpu|SAFE-GPU|safe-gpu @ milestones/g31/G31_CONTRACT.md → 0 命中（in_scope 无立项）",
+        "glob docs/**/*platform*demand* → 0；glob docs/**/*safe*gpu* → 0；grep 平台需求方|外部采纳生态 @ docs/ → 0"
+      ],
+      "results": {
+        "independent_period_resource_window": false,
+        "platform_demand_doc_hits": 0,
+        "g31_period_literal": "实时呈现期（active_scope = g31_wave_a_realtime_present 系）"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "defer 维持（defer-to-G31+ 字面——独立期资源窗不成立 + 平台需求方未出现，两半均未成立）",
+      "anchor_unchanged": true,
+      "signals": []
+    },
+    {
+      "probe_id": "P12",
+      "todo_ref": "#47",
+      "subject": "legacy 十一条历史清册跟踪",
+      "anchor_literal": "milestones/g24/g24_legacy_rd_registry.json 逐条 backfill 核验（引用不复制）",
+      "anchor_source": "milestones/g24/g24_legacy_rd_registry.json（M-d 唯一消费面）",
+      "method": "registry 逐条引用核验（11 RD 条 + SAFE-GPU 承接池行 disposition 闭集 + summary「零 close」字面机核）+ 本窗新鲜机核面交叉（RD-011/014/015 工具链面 = P09、RD-033 VM 面 = P05、RD-034 探针 = P08、RD-027 = C10 门在案 g31.waveC.rd027、RD-036 = C1 门在案 g31.waveC.sdk fact rd036_subset_v1_compliant）",
+      "commands": [
+        "json 解析 g24_legacy_rd_registry.json：12 行 = 11 RD 条（RD-007/011/012/014/015/026/027/030/032/033/036，「十一条」字面）+ SAFE-GPU 承接池行（非 RD 条目）——disposition = maintain-open ×10 + maintain-inherited ×1（RD-007）+ defer-to-G25+ ×1（SAFE-GPU）；summary 含「零 close」字面"
+      ],
+      "results": {
+        "entries": 12,
+        "rd_entries": 11,
+        "zero_close_literal": true,
+        "disposition_closed_set_match": true,
+        "preexisting_count_note": "summary 字面「maintain-open 9」与实际重算 10 存在在案计数出入——既往数据质量事件如实登记（0-byte 不回写，与 G30 在案重复行注记同律）",
+        "fresh_cross_faces": "RD-011 PR #205546 open / RD-014 pin 0-byte / RD-015 命中信号归 P09 / RD-033 VM 候选待 owner 窗 / RD-034 探针新鲜 / RD-027 C10 门 / RD-036 C1 门——无一 backfill 字面成立"
+      },
+      "verdict": "open-maintained",
+      "status_maintained_literal": "零 close 维持（引用不复制——各条 backfill 字面无一成立，诚实清册不冒充）",
+      "anchor_unchanged": true,
+      "signals": []
+    }
+  ],
+  "summary": {
+    "probes_total": 12,
+    "verdict_closed_set": ["open-maintained", "blocked-dev-env"],
+    "open_maintained": 8,
+    "blocked_dev_env": 4,
+    "closed_or_resolved": 0,
+    "zero_masquerade": true,
+    "anchor_hit_signals": 2,
+    "anchor_hit_signals_detail": "P09 RD-015 reeval_anchor 字面命中（llvm#57928 closed-as-completed 2026-08-13 → 重判程序启动信号，条目维持 open）+ P05 Win11 VM 候选在盘（owner 窗核验前非锚兑现）",
+    "anchors_all_unchanged": true
+  },
+  "discipline": "零冒充：12 探针无一项被标 closed/resolved；探针命令全部真实执行（输出原文入 commands/results）；检索面按 g30/g23 字面逐字沿用禁缩面；既有锚/注册表/deferred 不可变字段 0-byte 不回写，deferred history 只追加汇总行指向本件；tail_six/legacy 面引用不复制",
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 C Task C17 阻塞项新鲜探针）"
+}

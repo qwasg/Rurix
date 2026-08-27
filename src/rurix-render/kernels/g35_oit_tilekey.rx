@@ -1,0 +1,96 @@
+//@ spec: RFC-0049 §4.8(G35-4 半透明双臂 · 排序臂复合键;spec 条款号本期零新设)
+// G35-4 半透明排序臂 · tilekey —— 逐粒子 tile 复合键 + payload(门
+// g35.wave4.sort_oit;host 金标准 = particles/oit_arms.rs::oit_tilekey
+// **逐字同源**;投影式 = g35_render_splat.rx ①② 段逐字同式)。
+//
+// ## 架构(G35-4 sorted 臂 pass 组第 2 步,先于 W1 sort 3-pass)
+// 线程 = 粒子槽位 s(B 组压缩+发射后前缀);守卫 s < args[7](meta 槽,
+// g35_render_splat 同律;dispatch = DispatchSpec::Indirect{args,0})。
+// 1. **复合键冻结**:key = tile_id·4096 + dk;tile = 16px 内部分辨率网格,
+//    tile_id = (cpy/16)·tiles_x + cpx/16(cpx/cpy = 粒子中心像素 floor 归属
+//    ——**tile 归属 = 中心像素单键 v1 冻结**:粒子只在中心归属 tile 像素域
+//    合成,rpx ≤ 3 < 16 ⇒ 跨 tile 截断带 ≤ 3px 如实登记);dk = 4095 −
+//    depth12(反键,RFC-0049 §4.3 F4 律的 12 位段化:radix 升序 = tile 内
+//    far→near painter's),depth12 = floor(clamp(d_view/d_max,0,1)·4095)。
+// 2. **溢出键**:屏外/被剔(w 门 cw ≤ 1e-6 / 视深门 d_view ≤ 1e-6 / 中心
+//    像素出屏)一律 key = tile_cnt·4096(溢出 tile;合成侧像素 tile_id <
+//    tile_cnt 恒不取,排序后全落尾)。
+// 3. **键域论证**(< 2^24):tile_cnt ≤ 4095 硬域(lane 拒跑守卫)⇒ 溢出键
+//    ≤ 4095·4096 = 16 773 120 < 2^24 = 16 777 216;最大合法键 = tile_cnt·
+//    4096 − 1 < 溢出键。门腿构型 bistro t50 内部 960×540 ⇒ tiles 60×34 =
+//    2040(t100 1920×1080 ⇒ 8160 越域拒跑如实登记)。
+// 4. **红臂**(params[67] ≥ 0.5;--red-arm key-invert 协议破坏注入):
+//    dk = depth12(去掉 4095− 翻转)⇒ 升序 = near→far 翻序,近远见证必检出。
+// payload[s] = s(slot,合成侧读 B 组流)。逐槽单写者、零原子、u32 乘加
+// (非位运算域)⇒ 固定输入双跑位级一致。
+//
+// ## 参数面(P_OIT_PARAMS 96 f32;单源 = bin/g35_particle_lane.rs
+// `g35l_pack_oit_params` 头注;[0..64) = P_PARAMS_RENDER 64 f32 逐字镜像)
+//   params[0]=iw [1]=ih [2]=r_world [4]=d_max [7]=p11
+//   [8..24)=vp_j(行主序) [24..40)=vp(未抖;行 3 = 视深 w)
+//   [64]=tiles_x [65]=tiles_y [66]=tile_cnt [67]=red_flag [68..96)=reserved。
+//   SSBO 序:0 params(View f32×96) / 1 args(View u32×8,读 [7] meta 槽) /
+//   2 b_pos_x / 3 b_pos_y / 4 b_pos_z(View f32×cap,B 组前缀) /
+//   5 keys(ViewMut u32×cap) / 6 payload(ViewMut u32×cap)。
+//   dispatch = DispatchSpec::Indirect{res=args,offset=0}(LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_oit_tilekey(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    args: View<global, u32>,
+    b_pos_x: View<global, f32>,
+    b_pos_y: View<global, f32>,
+    b_pos_z: View<global, f32>,
+    keys: ViewMut<global, u32>,
+    payload: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let total = args[7] as usize;
+    if s < total {
+        let iwf = params[0];
+        let ihf = params[1];
+        let d_max = params[4];
+        let tiles_x = params[64] as usize;
+        let tile_cnt = params[66] as u32;
+        let red = params[67];
+        let px_ = b_pos_x[s];
+        let py_ = b_pos_y[s];
+        let pz_ = b_pos_z[s];
+        // 溢出键默认(屏外/被剔;头注 ② 段)。
+        let mut key = tile_cnt * 4096u32;
+        // ── ① 本帧 jitter 等价投影(splat ① 段逐字同式;w 门)──
+        let cx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+        let cy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+        let cw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+        if cw > 0.000001 {
+            let ndx = cx / cw;
+            let ndy = cy / cw;
+            let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
+            let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
+            // 视深 = 未抖 vp 行 3 齐次 w(splat ② 段同式)。
+            let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+            if d_view > 0.000001 {
+                if cxf >= 0.0 && cxf < iwf && cyf >= 0.0 && cyf < ihf {
+                    let cpx = cxf.floor() as usize;
+                    let cpy = cyf.floor() as usize;
+                    let tile_id = ((cpy / 16usize) * tiles_x + cpx / 16usize) as u32;
+                    let mut t = d_view / d_max;
+                    if t < 0.0 {
+                        t = 0.0;
+                    }
+                    if t > 1.0 {
+                        t = 1.0;
+                    }
+                    let d12 = (t * 4095.0).floor() as u32;
+                    let mut dk = 4095u32 - d12;
+                    if red >= 0.5 {
+                        dk = d12; // 红臂:键反转篡改(翻序检出面)
+                    }
+                    key = tile_id * 4096u32 + dk;
+                }
+            }
+        }
+        keys[s] = key;
+        payload[s] = s as u32;
+    }
+}

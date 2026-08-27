@@ -1,0 +1,176 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/robustness_evidence/v1",
+ "title": "G31+ 波 C Task C4 运行时健壮性 + 故障注入门证据（ci/g31_robustness_smoke.py 产）",
+ "type": "object",
+ "required": [
+  "schema",
+  "gate",
+  "generated_utc",
+  "binary",
+  "thresholds",
+  "injection_arms",
+  "baseline_leg",
+  "window_storm_leg",
+  "soak_fault_leg",
+  "dispositions",
+  "verdict",
+  "notes"
+ ],
+ "properties": {
+  "schema": { "const": "rurix.g31.robustness_evidence.v1" },
+  "gate": { "const": "g31.waveC.robustness" },
+  "generated_utc": { "type": "string" },
+  "binary": { "type": "string" },
+  "thresholds": {
+   "type": "object",
+   "required": [
+    "probe_frames",
+    "probe_inject_index",
+    "tdr_wait_cap_s",
+    "storm_burst_ops",
+    "soak_fault_frames",
+    "soak_fault_period",
+    "soak_min_resize_ops",
+    "soak_min_min_cycles"
+   ],
+   "properties": {
+    "probe_frames": { "const": 40 },
+    "probe_inject_index": { "const": 8 },
+    "tdr_wait_cap_s": { "const": 300.0 },
+    "storm_burst_ops": { "const": 121 },
+    "soak_fault_frames": { "const": 1000 },
+    "soak_fault_period": { "const": 25 },
+    "soak_min_resize_ops": { "const": 35 },
+    "soak_min_min_cycles": { "const": 5 }
+   }
+  },
+  "injection_arms": {
+   "type": "object",
+   "required": [
+    "device_lost_acquire",
+    "device_lost_submit",
+    "device_lost_present",
+    "tdr",
+    "budget"
+   ],
+   "properties": {
+    "device_lost_acquire": { "$ref": "#/definitions/device_lost_arm" },
+    "device_lost_submit": { "$ref": "#/definitions/device_lost_arm" },
+    "device_lost_present": { "$ref": "#/definitions/device_lost_arm" },
+    "tdr": {
+     "type": "object",
+     "required": ["probe", "injection_env", "frame", "observed", "wall_s", "hang_free"],
+     "properties": {
+      "probe": { "const": "tdr" },
+      "injection_env": { "type": "string" },
+      "frame": { "type": "integer", "minimum": 0 },
+      "observed": { "type": "boolean" },
+      "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+      "hang_free": { "type": "boolean" }
+     }
+    },
+    "budget": {
+     "type": "object",
+     "required": ["probe", "injection_env", "frame", "observed", "wall_s"],
+     "properties": {
+      "probe": { "const": "budget" },
+      "injection_env": { "type": "string" },
+      "frame": { "type": "integer", "minimum": 0 },
+      "observed": { "type": "boolean" },
+      "wall_s": { "type": "number", "exclusiveMinimum": 0 }
+     }
+    }
+   }
+  },
+  "baseline_leg": {
+   "type": "object",
+   "required": ["frames", "warmup", "wall_s", "exit_zero", "evidence_ok", "leak_ledger_zero", "digest", "note"],
+   "properties": {
+    "frames": { "const": 64 },
+    "warmup": { "const": 4 },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "exit_zero": { "type": "boolean" },
+    "evidence_ok": { "type": "boolean" },
+    "leak_ledger_zero": { "type": "boolean" },
+    "digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "note": { "type": "string" }
+   }
+  },
+  "window_storm_leg": {
+   "type": "object",
+   "required": ["window_storm", "frames", "warmup", "wall_s", "exit_zero", "resize_ops", "resize_eras", "validation_silent", "leak_ledger_zero"],
+   "properties": {
+    "window_storm": { "const": 121 },
+    "frames": { "const": 32 },
+    "warmup": { "const": 4 },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "exit_zero": { "type": "boolean" },
+    "resize_ops": { "type": "integer", "minimum": 121 },
+    "resize_eras": { "type": "integer", "minimum": 1 },
+    "validation_silent": { "type": "boolean" },
+    "leak_ledger_zero": { "type": "boolean" }
+   }
+  },
+  "soak_fault_leg": {
+   "type": "object",
+   "required": [
+    "storm_period",
+    "frames",
+    "warmup",
+    "wall_s",
+    "exit_zero",
+    "frames_completed",
+    "resize_ops",
+    "min_cycles",
+    "min_skips",
+    "resize_eras",
+    "evidence_ok",
+    "validation_silent",
+    "leak_ledger_zero"
+   ],
+   "properties": {
+    "storm_period": { "const": 25 },
+    "frames": { "type": "integer", "minimum": 1000 },
+    "warmup": { "const": 10 },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "exit_zero": { "type": "boolean" },
+    "frames_completed": { "type": "integer", "minimum": 1000 },
+    "resize_ops": { "type": "integer", "minimum": 35 },
+    "min_cycles": { "type": "integer", "minimum": 5 },
+    "min_skips": { "type": "integer", "minimum": 5 },
+    "resize_eras": { "type": "integer", "minimum": 0 },
+    "evidence_ok": { "type": "boolean" },
+    "validation_silent": { "type": "boolean" },
+    "leak_ledger_zero": { "type": "boolean" }
+   }
+  },
+  "dispositions": {
+   "type": "object",
+   "required": ["device_lost", "tdr", "budget", "window_storm"],
+   "properties": {
+    "device_lost": { "type": "string" },
+    "tdr": { "type": "string" },
+    "budget": { "type": "string" },
+    "window_storm": { "type": "string" }
+   }
+  },
+  "verdict": { "enum": ["PASS", "FAIL"] },
+  "notes": { "type": "array", "items": { "type": "string" } }
+ },
+ "definitions": {
+  "device_lost_arm": {
+   "type": "object",
+   "required": ["probe", "injection_env", "frame", "observed", "wall_s", "cascade_present_poisoned", "cascade_resize_poisoned"],
+   "properties": {
+    "probe": { "enum": ["device-lost-acquire", "device-lost-submit", "device-lost-present"] },
+    "injection_env": { "type": "string" },
+    "frame": { "type": "integer", "minimum": 0 },
+    "observed": { "type": "boolean" },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "cascade_present_poisoned": { "type": "boolean" },
+    "cascade_resize_poisoned": { "type": "boolean" }
+   }
+  }
+ }
+}

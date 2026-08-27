@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G34 全特性合流 G34-2 HZB 接统一车道门裁决证据（ci/g34_hzb_unified_smoke.py --gate 产）",
+  "description": "G34 全特性合流 G34-2 HZB 接统一车道门 g34.wave2.hzb 的 smoke 裁决证据（PASS-only 闭集：verdict/facts.status 枚举只 PASS——FAIL 诊断件落 .tmp/g34_gates/hzb/ 工作区不进 evidence/ 路由面，fail-closed：evidence/ 无件 = 门未过，不冒充）。九类判据蒸馏六 facts：① kernels_spv_valid = 五 SPV 现编（rurixc 编 kernels/g34_unified_primary.rx〔G34-2 加性主射线,初剔后 TLAS 表 0〕/g34_unified_shade.rx〔④b 段 out_depth_hz 真深度,阴影射线全量表 1〕/g31_hzb_pack.rx〔平铺打包 glue〕/g27_hzb_reduce.rx/g27_hzb_test.rx〔G27 M-a 本体 0-byte 冻结消费〕+ spirv-val 全绿）+ g27 双 kernel tracked vs HEAD 0-byte 机核 + G31/G34 期 untracked 冻结面 sha256 快照在档（g31_hzb_pack.rx 为 untracked 冻结源，diff-vs-HEAD 不适用——快照面承载如实登记不冒充）② culling_pixel_neutral = 剔除像素中性（--hzb on 腿 vs RURIX_HZB_ALL_VISIBLE=1 全集渲染实验臂 digest_seq 逐帧位级一致 mismatch=0——RFC-0044 §5.8 两阶段闭环第二段正确性结构判据：剔除零假阳性 ⇒ 闭环后画面与全集渲染位级一致，剔除不改变可见像素；G31 B1 culling_neutrality 同律）③ hzb_host_parity = probe 帧 host 金标准对拍（车道平铺金字塔 vs HzbPyramid::build 逐级位级 mips_bitexact + p1 判定序列 vs test_rect 逐字节 verdict_equal + exact_rect_occluded 独立复核零假阳性 false_positives=0；geometry/{hzb,cull}.rs 冻结面只读消费，harness fail-fast 硬门，本门登记面复核）④ determinism_double_run = 确定性双跑（hzb_a vs hzb_b digest_seq 逐帧位级 + render_digest 一致）⑤ culling_effective_measured = 剔除真实发生 + frame_ms 对照（occluded_p1 合计 ≥1——零剔除即空接线冒充判红，G31 B1 occlusion_culling_active 同律；tested/flipped_p2/closure_extra_submits/closure_full_fallback_frames 计数如实登记；hzb on vs baseline〔--full 无 --hzb 统一车道腿〕real_render_frame_ms 对照不设通过线——G6 无硬门纪律，measured_local 诚实登记；动态实例恒可见不参剔如实登记，剔除计数面 = 静态节点）⑥ stage_a_anchor_replay = Stage A 锚复跑零漂移（g14_3_pipeline_perf canonical 160 帧 bistro-interior/t100/tsr_device 末帧 digest == 在案锚——共享体加性扩展对既有面 0-byte 的机器证明）。harness 真跑件（rurix.g34.hzb_unified_evidence.v1 字面）不注册 check_schemas，全留 .tmp 工作区，数字经门裁决件蒸馏登记；baseline 对照腿归档用 g34_unified_lane_g34hzb_ 前缀复用 g34_unified_lane_ 既有路由。三态：无 Vulkan/设备/场景资产/SPV 编译失败 → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "culling",
+    "parity",
+    "determinism",
+    "frame_ms",
+    "regression_anchor",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g34.hzb_unified_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g34_hzb_unified" },
+    "symbolic_gate_key": { "type": "string", "const": "g34.wave2.hzb" },
+    "wave": { "type": "string", "const": "G34.2" },
+    "facts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "culling_pixel_neutral",
+              "hzb_host_parity",
+              "determinism_double_run",
+              "culling_effective_measured",
+              "stage_a_anchor_replay"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_spv", "shade_spv", "pack_spv", "reduce_spv", "test_spv", "spirv_val_all", "mother_tracked_0byte", "frozen_snapshot"],
+      "properties": {
+        "primary_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "shade_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "pack_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "reduce_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "test_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "spirv_val_all": { "type": "boolean", "const": true, "description": "五 SPV rurixc 现编 + spirv-val 全绿才许 true（PASS-only 面）" },
+        "mother_tracked_0byte": { "type": "boolean", "const": true, "description": "冻结 tracked 双 kernel（g27_hzb_reduce/g27_hzb_test）vs HEAD 提交面 + 工作树 0-byte 才许 true；g31_hzb_pack.rx 为 G31 期 untracked 冻结源（diff-vs-HEAD 不适用）→ frozen_snapshot 快照面承载" },
+        "frozen_snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "src/rurix-render/kernels/g34_unified_gi.rx",
+            "src/rurix-render/kernels/g34_unified_shade.rx",
+            "src/rurix-render/kernels/g34_unified_primary.rx",
+            "src/rurix-render/kernels/g31_hzb_pack.rx",
+            "src/rurix-render/src/bin/g34_full_lane/g34_2_hzb.rs",
+            "src/rurix-render/src/bin/g34_full_lane.rs",
+            "src/rurix-render/src/bin/g31_window_present.rs"
+          ],
+          "properties": {
+            "src/rurix-render/kernels/g34_unified_gi.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/kernels/g34_unified_shade.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/kernels/g34_unified_primary.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/kernels/g31_hzb_pack.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/src/bin/g34_full_lane/g34_2_hzb.rs": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/src/bin/g34_full_lane.rs": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/src/bin/g31_window_present.rs": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "description": "G31/G34 期 untracked 冻结面（工作树 untracked，diff-vs-HEAD 不适用）——G34-2 sha256 快照 = 后续波漂移守护基线（含 g31_hzb_pack.rx untracked 冻结源；g31_window_present.rs 0-byte 承诺面——其门为回归锚）"
+        }
+      }
+    },
+    "culling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["neutrality", "occlusion"],
+      "properties": {
+        "neutrality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["trajectory", "frames", "warmup", "seq_len", "hzb_vs_allvis_seq_bitexact", "mismatch_count"],
+          "properties": {
+            "trajectory": { "type": "string", "const": "orbit" },
+            "frames": { "type": "integer", "minimum": 1 },
+            "warmup": { "type": "integer", "minimum": 0 },
+            "seq_len": { "type": "integer", "minimum": 1 },
+            "hzb_vs_allvis_seq_bitexact": { "type": "boolean", "const": true, "description": "--hzb on 腿 vs RURIX_HZB_ALL_VISIBLE=1 全集渲染实验臂 digest_seq 逐帧位级一致才许 true（剔除不改变可见像素 = 两阶段闭环正确性结构判据）" },
+            "mismatch_count": { "type": "integer", "const": 0 }
+          }
+        },
+        "occlusion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["instances", "mips", "tested", "occluded_p1", "flipped_p2", "closure_extra_submits", "closure_full_fallback_frames", "all_visible_arm"],
+          "properties": {
+            "instances": { "type": "integer", "minimum": 1, "description": "剔除对象粒度 = TLAS 实例（bistro 逐 mesh 节点 BLAS 分解 + 动态实例尾槽恒可见不参剔）" },
+            "mips": { "type": "integer", "minimum": 1 },
+            "tested": { "type": "integer", "minimum": 1 },
+            "occluded_p1": { "type": "integer", "minimum": 1, "description": "p1 被剔合计 ≥1 才许（零剔除即空接线冒充判红；PASS-only 面）" },
+            "flipped_p2": { "type": "integer", "minimum": 0, "description": "p2 上帧被剔集本帧金字塔重测翻回计数（两阶段闭环第二段）" },
+            "closure_extra_submits": { "type": "integer", "minimum": 0 },
+            "closure_full_fallback_frames": { "type": "integer", "minimum": 0, "description": "闭环 ≤4 迭代未收敛全掩码兜底帧计数（= 零剔除精确收敛；如实登记）" },
+            "all_visible_arm": { "type": "boolean", "const": false, "description": "本块数字来自 hzb_a 生产腿（非 ALL_VISIBLE 实验臂）机核" }
+          }
+        }
+      }
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mips", "n_rects", "mips_bitexact", "verdict_equal", "false_positives", "occluded", "pyramid_digest", "host_pyramid_digest", "verdict_digest", "host_verdict_digest"],
+      "properties": {
+        "mips": { "type": "integer", "minimum": 1 },
+        "n_rects": { "type": "integer", "minimum": 1 },
+        "mips_bitexact": { "type": "boolean", "const": true, "description": "车道平铺金字塔 vs host HzbPyramid::build 逐级位级全等才许 true（to_bits 零容差协议）" },
+        "verdict_equal": { "type": "boolean", "const": true, "description": "p1 判定序列 vs host test_rect 逐 rect 逐字节全等才许 true" },
+        "false_positives": { "type": "integer", "const": 0, "description": "device 判 Occluded ⇒ exact_rect_occluded 独立复核必同判（零假阳性硬不变量）" },
+        "occluded": { "type": "integer", "minimum": 0 },
+        "pyramid_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_pyramid_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "verdict_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_verdict_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "frames", "render_digest_a", "render_digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "const": true, "description": "hzb_a vs hzb_b 同参双跑 digest_seq 逐帧位级一致才许 true（确定性门）" },
+        "frames": { "type": "integer", "minimum": 1 },
+        "render_digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "render_digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hzb_on_mean", "baseline_mean", "on_over_baseline", "scene_gpu_ms_mean", "hzb_gpu_ms_mean", "measured", "frames_per_run", "note"],
+      "properties": {
+        "hzb_on_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "baseline_mean": { "type": "number", "exclusiveMinimum": 0, "description": "baseline = --full 无 --hzb 统一车道腿（rurix.g34.unified_lane_evidence.v1 面）同机同窗对照" },
+        "on_over_baseline": { "type": "number", "exclusiveMinimum": 0, "description": "如实登记不设通过线（G6 无硬门纪律）" },
+        "scene_gpu_ms_mean": { "type": "number", "minimum": -1 },
+        "hzb_gpu_ms_mean": { "type": "number", "minimum": -1, "description": "-1.0 = harness stats 面未登记该分项（如实登记）" },
+        "measured": { "type": "string", "const": "measured_local" },
+        "frames_per_run": { "type": "integer", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
+    "regression_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "const": true, "description": "bench 复跑 == 在案锚才许 true（Stage A 锚零漂移；共享体加性扩展 0-byte 机器证明）" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "归档件 = baseline 对照腿（g34_unified_lane_g34hzb_ 前缀复用 g34_unified_lane_ 既有路由）；HZB 腿 harness 真跑件不注册 check_schemas，全留 .tmp 工作区，数字经门裁决件蒸馏登记"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

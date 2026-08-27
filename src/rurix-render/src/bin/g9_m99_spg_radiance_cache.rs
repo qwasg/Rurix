@@ -46,7 +46,9 @@ use rurix_render::gi::spg_rc::{self, HistoryPath, ProbeTraceOut, RcCounters, Spg
 use rurix_render::gi::surface_cache;
 use rurix_render::temporal::image::ImageF32;
 use rurix_rt::render_exec::{self, KernelWave};
-use rurix_rt::vk::{self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc};
+use rurix_rt::vk::{
+    self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc,
+};
 
 const TAG: &str = "G9_M99_SPG";
 
@@ -153,7 +155,11 @@ fn run_probe_device(
             groups: [valid as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 2 {
         return Err(format!("回读路数 {} ≠ 2", rb.len()));
     }
@@ -228,7 +234,11 @@ fn run_m96(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -241,7 +251,13 @@ fn run_m96(
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -295,7 +311,12 @@ fn mean_probe_variance(traced: &[ProbeTraceOut], grid: &SpgGrid) -> f64 {
 
 /// 细分触发 cell(level>0)内逐像素相对误差均值(对 M96 golden;关自适应
 /// 收敛特征偏离度量)。
-fn triggered_cell_err(frame: &spg_rc::SpgRcFrame, m96: &PtImage, grid: &SpgGrid, gb: &fb::GBuffer) -> f64 {
+fn triggered_cell_err(
+    frame: &spg_rc::SpgRcFrame,
+    m96: &PtImage,
+    grid: &SpgGrid,
+    gb: &fb::GBuffer,
+) -> f64 {
     let bw = gb.width.div_ceil(spg_rc::M99_BASE_CELL);
     let (mut s, mut m) = (0.0f64, 0u64);
     for i in 0..(gb.width * gb.height) as usize {
@@ -401,7 +422,10 @@ fn red_arm_private_reproject() -> bool {
     let (_f0, c0) = frame_pipeline(&gb, &grid, &traced, None, &mv, HistoryPath::TemporalBase);
     let (rad_dep, rad_nrm) = {
         let tm = spg_rc::probe_tile_maps(&gb, &grid, &traced);
-        (spg_rc::tiles_depth_image(tw, th, &tm.dep), spg_rc::tiles_nrm_image(tw, th, &tm.nrm))
+        (
+            spg_rc::tiles_depth_image(tw, th, &tm.dep),
+            spg_rc::tiles_nrm_image(tw, th, &tm.nrm),
+        )
     };
     // 正例:temporal 公共底座历史复用 ⇒ 审计过。
     let (_f1, c1) = frame_pipeline(
@@ -424,9 +448,7 @@ fn red_arm_private_reproject() -> bool {
     );
     let injected = spg_rc::audit_history_paths(&[c0, c1_bad], &[false, true]);
     let detected = matches!(injected, Err(spg_rc::SpgError::PrivateReprojection(_)));
-    println!(
-        "{TAG}: RED 臂 private-reproject(注入拒={detected} 正例过={ok})"
-    );
+    println!("{TAG}: RED 臂 private-reproject(注入拒={detected} 正例过={ok})");
     ok && detected
 }
 
@@ -442,7 +464,9 @@ fn main() {
 
     // ── 步骤 0:host 预传递(无 device 依赖)──
     let scene = path_trace::m96_cornell_scene();
-    scene.validate().unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
+    scene
+        .validate()
+        .unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
     let gb = fb::gbuffer_prepass(&scene);
     let gb2 = fb::gbuffer_prepass(&scene);
     if gb != gb2 {
@@ -490,9 +514,13 @@ fn main() {
         caps.device_name,
         if validation_on { "on" } else { "off" }
     );
-    let spv_m99_path = args.spv_m99.clone().unwrap_or_else(|| fail("缺 --spv-m99 <m99.spv>"));
+    let spv_m99_path = args
+        .spv_m99
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv-m99 <m99.spv>"));
     let spv_m99 = load_spv(&spv_m99_path);
-    let entry_m99 = vk::entry_point_name(&spv_m99).unwrap_or_else(|| fail("M99 SPV 无 OpEntryPoint"));
+    let entry_m99 =
+        vk::entry_point_name(&spv_m99).unwrap_or_else(|| fail("M99 SPV 无 OpEntryPoint"));
     let work = std::path::PathBuf::from(&args.work_dir);
     std::fs::create_dir_all(&work).unwrap_or_else(|e| fail(&format!("建 work-dir: {e}")));
     let mut failures: Vec<String> = Vec::new();
@@ -541,7 +569,10 @@ fn main() {
     let (_f0, c0) = frame_pipeline(&gb, &grid_ad, &dev_on, None, &mv, HistoryPath::TemporalBase);
     let (dep_img, nrm_img) = {
         let tm = spg_rc::probe_tile_maps(&gb, &grid_ad, &dev_on);
-        (spg_rc::tiles_depth_image(tw, th, &tm.dep), spg_rc::tiles_nrm_image(tw, th, &tm.nrm))
+        (
+            spg_rc::tiles_depth_image(tw, th, &tm.dep),
+            spg_rc::tiles_nrm_image(tw, th, &tm.nrm),
+        )
     };
     let mut frames: Vec<(spg_rc::SpgRcFrame, spg_rc::CacheFrame)> = Vec::new();
     for _ in 0..2 {
@@ -560,7 +591,9 @@ fn main() {
     }
     let golden = frames[0].0.clone();
     // 历史路径审计(门内):两帧均经公共底座。
-    if spg_rc::audit_history_paths(&[frames[0].1.clone(), frames[1].1.clone()], &[true, true]).is_err() {
+    if spg_rc::audit_history_paths(&[frames[0].1.clone(), frames[1].1.clone()], &[true, true])
+        .is_err()
+    {
         failures.push("golden 帧历史路径审计失败".into());
     }
     // 缓存计数面:首帧 miss+insert 非空;golden 帧 hit 非空;世界级恒零。
@@ -600,9 +633,14 @@ fn main() {
         .clone()
         .unwrap_or_else(|| fail("缺 --spv-m96 <m96.spv>"));
     let spv_m96 = load_spv(&spv_m96_path);
-    let entry_m96 = vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
-    let m97_band_text = std::fs::read_to_string(&args.m97_band)
-        .unwrap_or_else(|e| fail(&format!("读 M97 深度带 {}: {e}(门序消费锚前置)", args.m97_band)));
+    let entry_m96 =
+        vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
+    let m97_band_text = std::fs::read_to_string(&args.m97_band).unwrap_or_else(|e| {
+        fail(&format!(
+            "读 M97 深度带 {}: {e}(门序消费锚前置)",
+            args.m97_band
+        ))
+    });
     let m97_band = surface_cache::DepthBand::parse(&m97_band_text)
         .unwrap_or_else(|e| fail(&format!("M97 深度带解析: {e}")));
     let m97_anchor = m97_band
@@ -610,10 +648,11 @@ fn main() {
         .unwrap_or_else(|e| fail(&format!("M97 深度带缺锚条目: {e}")))
         .m96_digest
         .clone();
-    let (m96_img, m96_digest) = match run_m96(&scene, spg_rc::M99_MATCHED_DEPTH, &spv_m96, &entry_m96) {
-        Ok(v) => v,
-        Err(e) => fail(&format!("M96 对照腿: {e}")),
-    };
+    let (m96_img, m96_digest) =
+        match run_m96(&scene, spg_rc::M99_MATCHED_DEPTH, &spv_m96, &entry_m96) {
+            Ok(v) => v,
+            Err(e) => fail(&format!("M96 对照腿: {e}")),
+        };
     let m96_cross_anchor = hex(&m96_digest) == m97_anchor;
     println!(
         "{TAG}: M96 depth={} digest={} 门序锚(M97 带)={}",
@@ -631,8 +670,22 @@ fn main() {
     }
 
     // ── 步骤 6:三档产物(spg_adaptive golden / spg_uniform / product_is_off)──
-    let (frame_uni, _c_uni) = frame_pipeline(&gb, &grid_uni, &dev_uni, None, &mv, HistoryPath::TemporalBase);
-    let (frame_off, _c_off) = frame_pipeline(&gb, &grid_ad, &dev_off, None, &mv, HistoryPath::TemporalBase);
+    let (frame_uni, _c_uni) = frame_pipeline(
+        &gb,
+        &grid_uni,
+        &dev_uni,
+        None,
+        &mv,
+        HistoryPath::TemporalBase,
+    );
+    let (frame_off, _c_off) = frame_pipeline(
+        &gb,
+        &grid_ad,
+        &dev_off,
+        None,
+        &mv,
+        HistoryPath::TemporalBase,
+    );
     let tier_frames: Vec<(&str, spg_rc::SpgRcFrame)> = vec![
         ("spg_adaptive", golden.clone()),
         ("spg_uniform", frame_uni.clone()),
@@ -747,7 +800,12 @@ fn main() {
             failures.push("M97 门序锚条目与冻结带漂移".into());
         }
         for m in &measured {
-            match band.check(&m.tier, &m.product_digest, &m.m96_digest, m.measured_rel_dev) {
+            match band.check(
+                &m.tier,
+                &m.product_digest,
+                &m.m96_digest,
+                m.measured_rel_dev,
+            ) {
                 Ok(()) => {}
                 Err(e) => {
                     digests_match = false;
@@ -764,8 +822,14 @@ fn main() {
     // ── 步骤 9:evidence(rurix.g9m99.spg_rc.v1)──
     let checks: [(&str, bool); 11] = [
         ("double_run_bitexact", double_run_bitexact),
-        ("spg_adaptive_subdivision_non_trivial", grid_ad.probes.len() > grid_uni.probes.len()),
-        ("subdivide_cause_counts_non_empty", grid_ad.cause_counts.iter().all(|&c| c > 0)),
+        (
+            "spg_adaptive_subdivision_non_trivial",
+            grid_ad.probes.len() > grid_uni.probes.len(),
+        ),
+        (
+            "subdivide_cause_counts_non_empty",
+            grid_ad.cause_counts.iter().all(|&c| c > 0),
+        ),
         ("cache_counters_per_frame", cache_counters_ok),
         ("temporal_base_audit_pass", true), // 步骤 3 审计失败已入 failures;到此即过
         ("private_reproject_detected", private_arm_ok),

@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 18.0
+ },
+ "notes": "G31 波 A 验收 Stage A 18 格 digest 锚 canonical 160 帧重跑零漂移格数实测（matched=18/18）（源 g31_wave_a_anchor_check_20260825T215125Z.json digest=sha256:7d19cfe06d0b973a062677f6fe2c70cec592cddf9f2004989e4035b3163061e9）"
+}

@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_dynamic_scene refit vs rebuild measured + 对拍/确定性证据",
+  "description": "G31+ 波 A Task A4 动态场景更新通路证据：同机同窗 bistro-interior 1080p t100 tsr_device --dyn-demo（动态纯发光立方体，脚本化轨迹 = 帧号确定性 f32 函数：三轴正弦平移 + Ry 匀速 yaw；逐帧实例变换 host 写——write_transforms 槽位级 diff 仅动态槽 64B——+ TLAS refit/rebuild），同轨迹同帧数两策略臂（refit 优先 / rebuild 回退）各 ≥100 帧 + warmup 10 多轮真跑，frame_ms 统计自 bench_receipt.frame_ms 全列（末一样本含末帧 digest tail，两臂同形同价；核验帧 scene color 回读税计入 tail，两臂同形）。判据闭集：①两臂 digest 位级一致（refit 正确性——同内容不同 TLAS 动作位级同图）；②同臂双跑位级一致（RXS-0357 L2 固定 seed 确定性）；③动态臂 digest ≠ 静态 bench digest（动 vs 不动——防确定性的坏内容）；④静态 bench digest == g14_3_stage_a_digest_anchor（0-byte 回归锚）；⑤位置核验全帧通过（host 解析投影 vs device scene color 检测，质心 ≤2.5px / AABB ≤4.0px）；⑥clean shutdown（rc=0 + BENCH PASS + receipt 新鲜 + stderr 无 validation/leak 字样）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "tier",
+    "backend",
+    "seed",
+    "frames_measured",
+    "warmup",
+    "runs_per_arm",
+    "trajectory",
+    "arms",
+    "digest_bitexact_across_actions",
+    "digest_bitexact_double_run",
+    "dyn_neq_static_digest",
+    "static_anchor_digest",
+    "static_anchor_match",
+    "position_verify",
+    "clean_shutdown",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.dynamic_scene_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_dynamic_scene"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveA.dynscene"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31.A"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "bistro-interior"
+    },
+    "tier": {
+      "type": "integer",
+      "enum": [50, 67, 100]
+    },
+    "backend": {
+      "type": "string",
+      "const": "tsr_device"
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "frames_measured": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "warmup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runs_per_arm": {
+      "type": "integer",
+      "minimum": 2,
+      "description": "每臂 ≥2 轮（双跑位级判据的消费面；跨轮中位数入 stats）"
+    },
+    "trajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "amp",
+        "freq",
+        "yaw_rate",
+        "origin",
+        "cube_half",
+        "emission",
+        "instance_write_bytes_per_frame"
+      ],
+      "properties": {
+        "amp": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "freq": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "yaw_rate": {"type": "number"},
+        "origin": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "cube_half": {"type": "number"},
+        "emission": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "instance_write_bytes_per_frame": {
+          "type": "integer",
+          "description": "逐帧实例缓冲 host 写字节（write_transforms 槽位级 diff：1 动态槽 × 64B；静态槽 0 触碰——禁全量场景重传面的量化兑现）"
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tlas_action",
+          "frame_ms_mean",
+          "frame_ms_p50",
+          "frame_ms_p99",
+          "frame_ms_min",
+          "frame_ms_max",
+          "frame_ms_production_mean",
+          "last_frame_digest",
+          "verify_frames_pass",
+          "verify_frames_total",
+          "verify_centroid_max_px",
+          "verify_aabb_max_px",
+          "receipts"
+        ],
+        "properties": {
+          "tlas_action": {
+            "type": "string",
+            "enum": ["refit", "rebuild"]
+          },
+          "frame_ms_mean": {"type": "number", "description": "多轮 median（单轮均值）；含末帧 digest tail 与核验帧回读税——两臂同形同价"},
+          "frame_ms_p50": {"type": "number"},
+          "frame_ms_p99": {"type": "number"},
+          "frame_ms_min": {"type": "number"},
+          "frame_ms_max": {"type": "number"},
+          "frame_ms_production_mean": {"type": "number", "description": "生产口径（frame − tail）"},
+          "last_frame_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "verify_frames_pass": {"type": "integer", "minimum": 0},
+          "verify_frames_total": {"type": "integer", "minimum": 1},
+          "verify_centroid_max_px": {"type": "number", "description": "全臂全轮核验帧质心偏差最大值（host 解析投影 vs device 检测）"},
+          "verify_aabb_max_px": {"type": "number"},
+          "receipts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "digest_bitexact_across_actions": {
+      "type": "boolean",
+      "description": "refit 与 rebuild 臂全部轮次 last_frame_digest 位级一致才许 true（同轨迹同内容不同 TLAS 动作位级同图——refit 正确性硬门）"
+    },
+    "digest_bitexact_double_run": {
+      "type": "boolean",
+      "description": "同臂同轨迹双跑 digest 位级一致（逐臂；固定 seed RXS-0357 L2）"
+    },
+    "dyn_neq_static_digest": {
+      "type": "boolean",
+      "description": "动态臂 digest ≠ 同窗静态 bench digest（动 vs 不动必异——防确定性的坏内容硬门）"
+    },
+    "static_anchor_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "同窗静态 bench（--dyn-demo 缺席）last_frame_digest 实测值"
+    },
+    "static_anchor_match": {
+      "type": "boolean",
+      "description": "静态 bench digest == milestones/g14/g14_3_stage_a_digest_anchor.json bistro-interior_t100_tsr_device 锚（A4 落地静态面 0-byte 回归硬门）"
+    },
+    "position_verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames_total", "frames_pass", "centroid_max_px", "aabb_max_px", "tolerance_centroid_px", "tolerance_aabb_px"],
+      "properties": {
+        "frames_total": {"type": "integer", "minimum": 1},
+        "frames_pass": {"type": "integer", "minimum": 0},
+        "centroid_max_px": {"type": "number"},
+        "aabb_max_px": {"type": "number"},
+        "tolerance_centroid_px": {"type": "number"},
+        "tolerance_aabb_px": {"type": "number"}
+      }
+    },
+    "clean_shutdown": {
+      "type": "boolean",
+      "description": "全部真跑 rc=0 + BENCH PASS + receipt 新鲜 + stderr 无 validation/leak 字样"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

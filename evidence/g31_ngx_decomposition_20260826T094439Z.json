@@ -1,0 +1,82 @@
+{
+  "schema": "rurix.g31.ngx_decomposition_evidence.v1",
+  "subject": "g31_ngx_decomposition",
+  "symbolic_gate_key": "g31.waveC.ngx_decomp",
+  "wave": "G31+.C",
+  "cell": "bistro-interior/t100/dlss_sr",
+  "anchor": {
+    "g30_handover_row": "g30_campaign_handover_registry.json campaign_period_rows G30 期行（G17-MD-F1）",
+    "anchor_text": "NGX 分解 profiling 或 UE 侧插桩（宿主差可分离 measured 证据，RFC-0032 重判条件同源）；新证出现只追加重判",
+    "on_record_frame_ms": 3.5767,
+    "on_record_ratio": 0.960479,
+    "ue_warm_median_ms_on_record": 3.4353499999999997
+  },
+  "canonical_rerun": {
+    "frames": 160,
+    "warmup": 10,
+    "frame_ms_production_mean": 3.504630625,
+    "last_frame_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+    "stage_a_anchor_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+    "digest_zero_drift": true,
+    "fresh_ratio": 0.9802316898945662,
+    "ratio_not_worsened": true
+  },
+  "segments": {
+    "ngx_in_stream_ms": {
+      "median": 1.8365,
+      "mean": 1.9136062500000002,
+      "method": "vkCmdWriteTimestamp 三槽围 evaluate（ts1 evaluate 前 BOTTOM / ts2 evaluate 后 BOTTOM）× timestampPeriod（props blob@720 实采）；RURIX_G31_NGX_TS=1 探针轮逐帧 post-warmup 中位/均值"
+    },
+    "ngx_submit_sync_tax_ms": {
+      "median": 0.153,
+      "mean": 0.15645,
+      "pre_eval_gpu_median": 0.0,
+      "method": "submit_wait 墙钟（evaluate CPU 返回 → vkEndCommandBuffer + vkQueueSubmit + vkQueueWaitIdle + reset）− cmd GPU（ts2−ts0）——提交-同步固定税；pre_eval GPU 子项 = acquire barrier ×3 段（ts1−ts0）"
+    },
+    "scene_render_ms": {
+      "mean": 0.9816884,
+      "scene_mean": 0.9497012,
+      "mv_mean": 0.03198720000000003,
+      "pack_mean": 0.154003,
+      "method": "DeviceFrameTelemetry 逐 pass GPU timestamp（pass0 g14_3_direct_gi + pass1 g14_mv post-warmup 均值；pack pass GPU 均值经 stderr DLSS_RESIDENT 行单列）"
+    },
+    "host_residual_ms": {
+      "median": 0.35846599999999973,
+      "mean": 0.36455159999999986,
+      "sl_book_mean": 0.00594375,
+      "record_mean": 0.0083875,
+      "evaluate_cpu_mean": 0.07215625,
+      "method": "frame_ms_production − scene_render_ms − mv_ms − upscale 墙钟逐帧残差（receipt 逐帧列对齐）；残差内含 pack GPU + 帧参数上传 + 三 pass submit/fence + jitter；upscale 内 SL 簿记/录制/evaluate CPU 经 dlss-ext 行单列"
+    }
+  },
+  "x2_crosscheck": {
+    "submit_wait_x1_median_ms": 2.0389999999999997,
+    "submit_wait_x2_median_ms": 4.058,
+    "marginal_median_ms": 2.019,
+    "ts_direct_median_ms": 1.8365,
+    "abs_diff_ms": 0.1825000000000001,
+    "agree": true,
+    "method": "RURIX_G31_DLSS_EVAL_X2=1 同 cmd 第二次 slEvaluateFeature——submit_wait 边际 = NGX 单次 in-stream 净成本（G17.3 RURIX_G17_DLSS_EVAL_X2 同型）；与 GPU 时间戳直测互核"
+  },
+  "ue_comparison": {
+    "ue_warm_median_ms": 3.4353499999999997,
+    "rurix_fresh_frame_ms": 3.504630625,
+    "delta_ms": 0.0692806250000002,
+    "dominant_source": "host_residual_separable",
+    "analysis": "Rurix 新鲜 frame=3.5046ms vs UE 暖态 3.4353ms → Δ=+0.0693ms。NGX in-stream（TS 直测 1.837ms / X2 边际 2.019ms 互核）= 双边同 GPU 同 NGX 310.5.2 网络同一 cubin 族执行（G15plus-II 在案 NGXCubinVulkan vs UE 臂 NGXCubinD3D12 同族），物理不可分离且等量，不构成差源；Rurix 侧可分离宿主段包络 = 提交-同步税 0.153 + SL 簿记/录制/evaluate CPU 0.086 + 车道宿主残差 0.365 ≈ 0.604ms ≥ |Δ|——差完全落在宿主可分离段包络内（逐帧孤立 submit+waitIdle 提交边界 vs UE 帧内 in-stream evaluate 集成形态的宿主构成差），主源 = host_residual_separable。"
+  },
+  "rejudge_evaluation": {
+    "ratio_ge_1_achieved": false,
+    "fresh_ratio": 0.9802316898945662,
+    "conclusion": "rejudge_not_triggered_honest_red_maintained",
+    "basis": "新鲜 ratio=0.980232 < 1.00——ratio ≥1.00 重判条件未命中，维持 G30 终判 17/18 诚实红；分解证据落档 = 承接锚兑现形态（宿主差可分离 measured 证据：NGX in-stream 1.837ms 不可分离等量非差源，Δ=+0.0693ms 全落宿主可分离段包络 ≈0.604ms 内）；在案行 0-byte 不回写，新证出现只追加重判程序不变。"
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T094439Z",
+  "notes": "G31+ 波 C Task C9 NGX 分解 profiling（G30 承接锚 G17-MD-F1 行兑现；提前至波 B 同窗）：dlss_sr 臂宿主差可分离四段分解——① NGX in-stream（evaluate 纯 GPU，GPU 时间戳三槽直测 + X2 边际互核）② NGX 提交-同步税（submit_wait 墙钟 − cmd GPU；pre_eval acquire barrier 子项）③ scene 渲染段（逐 pass GPU timestamp + pack 单列）④ 其余宿主段（逐帧残差 + SL 簿记/录制/evaluate CPU 单列）。判据：①canonical 复跑 digest == 在案锚（既有口径零破坏）②fresh ratio ≥ 在案 0.960479 不恶化 ③四段全 measured（n≥100）④TS vs X2 互核容差内 ⑤cmd GPU ≤ 提交墙钟 + 两墙钟面一致 ⑥UE 差主源定位在档 ⑦重判结论与 ratio 一致。facts: canonical_digest_zero_drift=PASS; canonical_ratio_not_worsened=PASS; four_segments_measured=PASS; ts_x2_crosscheck_agree=PASS; upscale_wall_consistency=PASS; ue_delta_localized=PASS; rejudge_conclusion_registered=PASS"
+}

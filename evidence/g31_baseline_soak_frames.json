@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 10010.0
+ },
+ "notes": "G31 波 A 验收 soak 主腿 frames_presented（wall=556.928s 零崩/validation 静默/leak 零/digest_seq 双跑位级一致）（源 g31_wave_a_soak_20260825T223024Z.json digest=sha256:52eb92acee9d7d43348ef4a06f292228b999acd73698c9f183177a1f58f539f7）"
+}

@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_ser_gain_estimate SER（Shader Execution Reordering）收益 measured 预估窗件",
+  "description": "G31+ 波 C Task C15 SER workload 兑现面（RD-040 RT-PIPELINE-SBT 分项锚 `evidence/*ser_gain_estimate*.json` 消费面；RFC-0048 §4.8；ci/g31_rt_pipeline_smoke.py --gate g31.waveC.rtpipeline 产，harness bin g31_rt_slab_lane --out 直出）。字段闭集：workload 形态（hand-emitted HitObject raygen NV 双臂 reorder off/on、64 竖条×2 三角形=128 BLAS×128 实例逐条交替 slab_a/b SBT record、canvas 全命中棋盘式 2-way 分歧）+ capability 三 token 现势探测 + measurement（时延 measured 对照 min-of-repeats）+ correctness（reorder 不改画面双臂位级 + 逐臂双跑位级 + stack）+ caveats（微基准口径如实登记，收益比不外推生产）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "workload",
+    "capability",
+    "measurement",
+    "correctness",
+    "caveats",
+    "evidence_level"
+  ],
+  "properties": {
+    "schema": {"type": "string", "const": "rurix.g31.ser_gain_estimate.v1"},
+    "subject": {"type": "string", "const": "g31_ser_gain_estimate"},
+    "workload": {"type": "string", "minLength": 32},
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ext_nv", "feature_reorder", "feature_reordering_hint", "source"],
+      "properties": {
+        "ext_nv": {"type": "boolean", "const": true},
+        "feature_reorder": {"type": "boolean", "const": true},
+        "feature_reordering_hint": {"type": "boolean"},
+        "source": {"type": "string", "minLength": 8}
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispatches_per_arm", "repeats", "rays_per_arm", "time_ms_noreorder", "time_ms_reorder", "speedup_ratio", "batch_ms"],
+      "properties": {
+        "dispatches_per_arm": {"type": "integer", "minimum": 1},
+        "repeats": {"type": "integer", "minimum": 1},
+        "rays_per_arm": {"type": "integer", "minimum": 1},
+        "time_ms_noreorder": {"type": "number", "exclusiveMinimum": 0.0},
+        "time_ms_reorder": {"type": "number", "exclusiveMinimum": 0.0},
+        "speedup_ratio": {"type": "number", "exclusiveMinimum": 0.0},
+        "batch_ms": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"type": "number", "exclusiveMinimum": 0.0}
+        }
+      }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pixels_bitexact_across_arms", "double_run_bitexact", "stack_required", "stack_configured"],
+      "properties": {
+        "pixels_bitexact_across_arms": {"type": "boolean", "const": true, "description": "reorder 不得改画面（双臂最终帧位级一致）"},
+        "double_run_bitexact": {"type": "boolean", "const": true},
+        "stack_required": {"type": "integer", "minimum": 0},
+        "stack_configured": {"type": "integer", "minimum": 0}
+      }
+    },
+    "caveats": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"type": "string", "minLength": 8}
+    },
+    "evidence_level": {"type": "string", "const": "measured_local"}
+  }
+}

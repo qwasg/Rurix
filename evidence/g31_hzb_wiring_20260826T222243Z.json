@@ -1,0 +1,81 @@
+{
+  "schema": "rurix.g31.hzb_wiring_smoke_evidence.v1",
+  "subject": "g31_hzb_wiring",
+  "symbolic_gate_key": "g31.waveB.hzb",
+  "wave": "G31+.B",
+  "scene_id": "bistro-interior",
+  "gate_maintenance": {
+    "state": "pass",
+    "verdict": "PASS",
+    "mips_bitexact": true,
+    "verdict_sequence_equal": true,
+    "zero_false_positive": true,
+    "device_double_run_bitexact": true,
+    "tamper_red_arm_detected": true,
+    "geometry_frozen_0byte": true,
+    "evidence": "evidence/g27_m_a_hzb_device_kernel_20260826T222141Z.json"
+  },
+  "wired_parity": {
+    "mips_bitexact": true,
+    "verdict_sequence_equal": true,
+    "false_positives": 0,
+    "pyramid_digest_equal_host": true,
+    "verdict_digest_equal_host": true,
+    "pyramid_digest": "sha256:2e5b3abfd724edd50032a8583e3912f07f463e642c24538d8a50a0da61d880bd",
+    "verdict_digest": "sha256:682eb714b1c8c5fc2b101b005743c076be1577722d0ae20f865ea8fa03cc3ff5"
+  },
+  "culling_neutrality": {
+    "trajectory": "orbit",
+    "frames": 8,
+    "warmup": 2,
+    "seq_len": 10,
+    "on_vs_all_visible_seq_bitexact": true,
+    "mismatch_count": 0
+  },
+  "on_off_relation": {
+    "on_digest": "sha256:de3bf766334ba006a1567d1b8faa75e385b82809003ec66f6d62218a70714c0f",
+    "off_digest": "sha256:e8d731a68ab684601b428f0c39640cf6763aea337b62d14e98f4235f507c628f",
+    "digest_seq_bitexact": false,
+    "mismatch_frames": 10,
+    "seq_len": 10,
+    "structural_note": "分解/双 TLAS 结构 ULP 噪声 ⇒ on/off digest_seq 位级全等结构上不可达,mismatch 计数如实登记不设通过线;剔除像素中性由 culling_neutrality（on vs ALL_VISIBLE=1 位级一致）钉死"
+  },
+  "occlusion": {
+    "tested_p1": 8799,
+    "occluded_p1": 3549,
+    "offscreen": 3061,
+    "retested_p2": 1879,
+    "flipped_p2": 0,
+    "closure_frames": 9,
+    "closure_extra_submits": 26,
+    "closure_full_fallbacks": 0,
+    "visible_mean": 632.0,
+    "culling_active": true
+  },
+  "frame_ms_compare": {
+    "off_mean": 4.469288,
+    "on_mean": 12.188352,
+    "on_over_off": 2.7271350604391573,
+    "frames": 100,
+    "warmup": 10,
+    "note": "bistro-interior 1080p 静态相机 --hidden release 同机同窗 measured_local:off=4.4693ms on=12.1884ms（on/off=2.7271;各 100 帧 warmup 10;hzb_gpu_ms=2.5225 scene_gpu_ms=1.6367 closure_extra_gpu_ms=1.2733 hzb_host_ms=0.1767）;如实登记不设通过线（G6 无硬门纪律）"
+  },
+  "off_static_anchor": {
+    "path": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+    "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "zero_drift": true,
+    "program_produced_first_run": false
+  },
+  "frozen_surfaces": {
+    "geometry_files_0byte_vs_g26_closed": true,
+    "g27_kernels_0byte_vs_g27_closed": true
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T222243Z",
+  "notes": "G31+ 波 B Task B1 HZB 遮挡剔除生产接线（两阶段闭环第二段）：bistro 逐 mesh 节点 BLAS 分解（1186 实例）+ 双 TLAS（初剔表 0 相机射线/全量表 1 阴影射线）+ 帧内金字塔 轮换（上帧金字塔初剔 → 本帧真深度〔depth_hz = g31_hzb_shade ④b 段 vp 行 2/3 真 ZO NDC〕重建 → 上帧被剔集重测）+ 误剔闭环重渲（≤4 迭代未收敛全掩码兜底 = 精确收敛）；g27_hzb_reduce/g27_hzb_test 本体 0-byte 冻结消费（bin 侧 NoContraction 注入,SPV 文件 0-byte）。判据：①G27 门维持复跑（六 facts 全 PASS）②接线态 probe 对拍（pyramid/verdict digest vs host 金标准位级全等 + fp=0）③剔除像素中性门（on vs RURIX_HZB_ALL_VISIBLE=1 digest_seq 逐帧位级一致,mismatch=0）④生产双跑位级=True（schema 闭集外内部硬门,本字段登记）⑤on/off 关系如实登记（结构 ULP 噪声,mismatch 计数不设通过线）⑥on/off frame_ms measured（off=4.4693ms on=12.1884ms,如实登记不设通过线）⑦off 面 Stage A 锚零漂移（锚在案复用非新订,program_produced_first_run=false）⑧geometry 三文件 vs g26-closed + g27 两 kernel vs g27-closed 0-byte 机核 ⑨剔除真实发生（occluded_p1≥1,零剔除即空接线冒充判红）。facts: g27_gate_maintenance=PASS; wired_parity_probe=PASS; culling_neutrality=PASS; determinism_double_run=PASS; on_off_relation=PASS; frame_ms_measured=PASS; off_static_anchor_zero_drift=PASS; frozen_surfaces_0byte=PASS; occlusion_culling_active=PASS"
+}

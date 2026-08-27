@@ -1,0 +1,387 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 A Task A5 FG/MFG 帧生成生产接线 evidence（--fg x2|x3 面）",
+  "description": "evidence/g31_framegen_present.json（或 --evidence 指定路径）。G31+ 波 A Task A5 FG/MFG 生产接线门 g31.waveA.framegen（G30 承接锚 G13-N7 行兑现）：harness = src/rurix-render/src/bin/g31_window_present.rs --auto-move <orbit|dolly> --fg <x2|x3>（G26 device kernel kernels/g26_framegen.rx 链接入呈现车道——生产五 pass 0-byte + kernels/g31_mv_negate.rx MV 取反 glue + fg kernel + g31_display_encode 复用，八/十 pass；present 序 = 生成帧 t 升序 → 真帧；MV = g14_mv 相机 MV 经取反 glue 逐元素 IEEE 取反后直通馈入（prev/cur/−mv/t 与 host 金标准逐字同语义，含 t=0.5 near tie-break），运动物体 MV 缺口为 A4 已登记项如实登记不冒充；--fg 闭集 = --auto-move + tier=100 + 非 headless）。双口径（G13-N7 字面纪律）：real_render_frame_ms/real_render_fps 只由真渲帧构成（生成帧禁入计数；单提交墙钟含 FG GPU 段，telemetry 分列 stats.render5_gpu_ms/stats.fg_gpu_ms）；presented_fps = presented_frames ÷ (real_render_seconds + present_seconds) 独立新口径永不混算；caliber_identities 恒等式组本 schema 钉 const true（schema 层互斥/恒等校验）；wired_parity = 接线态对拍（probe 帧 host 金标准 temporal::framegen::interpolate 复算，p100 ≤ G26 冻结容差程序读 + SSIM(device,hostref) > SSIM(frame-hold,hostref)，in_tol/ssim_beats_frame_hold 钉 const true）；digest_seq = 逐真渲帧 BGRA8 sha256（fg on/off 同轨迹位级一致 = FG 不回污染渲染车道机核门）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "trajectory",
+    "frames",
+    "warmup",
+    "frames_completed",
+    "exit_reason",
+    "resize_eras",
+    "resolution",
+    "internal_resolution",
+    "fg_mode",
+    "fg_factor",
+    "inserted_per_pair",
+    "real_frames",
+    "generated_frames",
+    "presented_frames",
+    "real_render_frame_ms",
+    "real_render_seconds",
+    "real_render_fps",
+    "present_frame_ms",
+    "present_seconds",
+    "presented_fps",
+    "encode_frame_ms",
+    "digest_frame_ms",
+    "render_digest",
+    "digest",
+    "digest_seq",
+    "ev100_seq",
+    "camera_poses",
+    "ev100_ramp",
+    "headless",
+    "window",
+    "contracts",
+    "render_includes_forced_readback",
+    "spv",
+    "wired_parity",
+    "caliber_identities",
+    "stats",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.framegen_present_evidence.v1" },
+    "gate": { "type": "string", "const": "g31.waveA.framegen" },
+    "scene": { "type": "string", "const": "bistro-interior" },
+    "tier": { "type": "integer", "const": 100, "description": "--fg 闭集限 tier=100（kernel 要求 prev/cur/mv 同栅格，MV 产出于 internal 分辨率）" },
+    "backend": { "type": "string", "const": "tsr_device" },
+    "trajectory": { "type": "string", "enum": ["orbit", "dolly"] },
+    "frames": { "type": "integer", "minimum": 1 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "frames_completed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "实际真渲帧数（== frames+warmup 全量完成；ESC 提前退出时 < 之且 exit_reason=user_close）"
+    },
+    "exit_reason": { "type": "string", "enum": ["frames_done", "user_close"] },
+    "resize_eras": { "type": "integer", "minimum": 0 },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "internal_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "fg_mode": { "type": "string", "enum": ["x2", "x3"] },
+    "fg_factor": { "type": "integer", "enum": [2, 3], "description": "presented/real 倍率（x2=2, x3=3；off 面不出本 schema）" },
+    "inserted_per_pair": { "type": "integer", "enum": [1, 2], "description": "每对真渲帧插入生成帧数（== fg_factor − 1）" },
+    "real_frames": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "post-warmup 真渲帧计数（唯一允许进入真实渲染帧率口径的计数）"
+    },
+    "generated_frames": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "post-warmup FG 生成帧计数（独立登记面，禁计入真实渲染帧率）"
+    },
+    "presented_frames": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "post-warmup present 帧计数（恒等式 == real_frames + generated_frames，caliber_identities 钉死）"
+    },
+    "real_render_frame_ms": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "真渲帧单提交墙钟（post-warmup 均值；含 BGRA8 强制回读段与 FG GPU 段——telemetry 分列 stats.render5_gpu_ms/stats.fg_gpu_ms 如实登记；不含 present）"
+    },
+    "real_render_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "post-warmup 真渲总墙钟（秒；real_render_fps = real_frames ÷ 本值，恒等式钉死）"
+    },
+    "real_render_fps": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "真实渲染帧率（口径 0-byte：只含真渲帧/真渲耗时，生成帧禁入；与 presented_fps 并列输出永不混算）"
+    },
+    "present_frame_ms": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "纯 present 腿逐 presented 帧墙钟（post-warmup 均值；真帧/生成帧同腿）"
+    },
+    "present_seconds": {
+      "type": "number",
+      "minimum": 0,
+      "description": "post-warmup present 总墙钟（秒；presented_fps = presented_frames ÷ (real_render_seconds + 本值)，恒等式钉死）"
+    },
+    "presented_fps": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "presented 帧率（独立新登记面：真渲 + 生成 ÷ 渲染+present 全部墙钟；禁止混入真实渲染帧率口径）"
+    },
+    "encode_frame_ms": { "type": "number", "minimum": 0 },
+    "digest_frame_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "逐真渲帧 BGRA8 sha256 税（post-warmup 均值；单列不混渲染/presented 口径；生成帧不 digest）"
+    },
+    "render_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "末帧 TSR 输出 digest（G10EXRD-1 口径，末帧一次性 f32 回读）"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "末真渲帧 device BGRA8 打包帧 digest（G31BGRA-1 口径；== digest_seq 末项）"
+    },
+    "digest_seq": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "逐真渲帧 BGRA8 打包帧 digest 序列（每真渲帧一项，含 warmup；长度 == frames_completed）：fg on/off 同轨迹位级一致 = FG 不回污染渲染车道机核门 + 同档双跑位级一致确定性门 + 异轨迹不同门"
+    },
+    "ev100_seq": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "number" }
+    },
+    "camera_poses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": { "type": "number" }
+      }
+    },
+    "ev100_ramp": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": {
+        "a": { "type": "number" },
+        "b": { "type": "number" }
+      }
+    },
+    "headless": { "type": "boolean", "const": false, "description": "--fg 与 --headless-smoke 互斥（A5 登记面 = 真窗口 present 双口径）" },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible", "channel_order", "extent", "frames_presented", "swapchain_rebuilds"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "channel_order": { "type": "string", "enum": ["bgra8_unorm", "rgba8_unorm"] },
+        "extent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["w", "h"],
+          "properties": {
+            "w": { "type": "integer", "minimum": 1 },
+            "h": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "frames_presented": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "窗口实际 present 计数（含 warmup；== 1 + (frames_completed − 1) × fg_factor，resize_eras=0 全量完成面）"
+        },
+        "swapchain_rebuilds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "g10_contract", "g10_camera", "g10_lighting", "consistency", "delta_note", "encode_spv", "framegen_spv"],
+      "properties": {
+        "production": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest"],
+          "properties": {
+            "path": { "type": "string" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "consistency": { "type": "string", "const": "pass" },
+        "delta_note": { "type": "string" },
+        "encode_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "framegen_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "description": "G26 FG kernel SPV provenance（源 = kernels/g26_framegen.rx 0-byte；.tmp 构建产物）"
+        }
+      }
+    },
+    "render_includes_forced_readback": { "type": "boolean", "const": true },
+    "spv": {
+      "type": "object",
+      "description": "统一四 pass 车道 provenance（g14_3 unified_provenance_json 同型；encode/fg SPV 经 contracts 分列）",
+      "additionalProperties": true
+    },
+    "wired_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probe_frame", "p100", "per_gen_p100", "frozen_floor", "floor_source", "g26_measured_anchor", "val_ulp_err", "max_bound", "excess", "excess_ratio", "in_bound", "mvn_max_abs_plus_mv", "ssim_device_vs_hostref", "ssim_frame_hold_vs_hostref", "ssim_beats_frame_hold", "t_values", "note"],
+      "properties": {
+        "probe_frame": { "type": "integer", "minimum": 2, "description": "接线态对拍帧号（1 基；post-warmup 首个 gen 活跃帧）" },
+        "p100": { "type": "number", "minimum": 0, "description": "device 生成帧 vs host 金标准复算逐插入帧逐像素最大绝对差 p100（实测事实登记面；1080p HDR 生产帧上 kernel/host 双方正确 f32 实现的固有算术差 ~1e-3，不作绝对容差门——诊断实证 max|lane−run_compute|=0 位级接线零缺陷）" },
+        "per_gen_p100": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "number", "minimum": 0 }
+        },
+        "frozen_floor": { "type": "number", "exclusiveMinimum": 0, "description": "逐像素 L1 结构界的地板项 = G26 冻结容差（g26_budget 标定条目 threshold 程序读或 --fg-tol 显式；禁手写）" },
+        "floor_source": { "type": "string" },
+        "g26_measured_anchor": { "type": ["number", "null"], "description": "G26 标定 measured 锚（程序读面；--fg-tol 显式时 null）" },
+        "val_ulp_err": { "type": "number", "exclusiveMinimum": 0, "description": "值项保守界（≈8×ULP(1.0)：lerp/exp/遮挡混合链舍入，f32 结构推导非手写阈）" },
+        "max_bound": { "type": "number", "exclusiveMinimum": 0, "description": "逐像素 L1 结构界全帧最大值（事实登记；bound = frozen_floor + rangeA16+rangeB16 采样 16-texel 邻域逐通道极差 + val_ulp_err×scale + 混合交叉项）" },
+        "excess": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0,
+          "description": "全帧 max(0, |dev−host| − bound)——硬门恒 0（harness 判红面：结构缺陷 tie-break/缓冲/MV 符号/t 错误产生 0.1~15 量级差异必超界）"
+        },
+        "excess_ratio": { "type": "number", "minimum": 0, "maximum": 1, "description": "全帧 max(|dev−host| / bound) ≤ 1（硬门）" },
+        "in_bound": { "type": "boolean", "const": true, "description": "excess == 0（schema 层钉死）" },
+        "mvn_max_abs_plus_mv": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0,
+          "description": "device 侧 MVN 与 −MV 回读全帧直比对 max|mvn+mv|（MV 通路位级硬门恒 0：g31_mv_negate 取反为 IEEE 精确运算，任何非零 = stale/错绑缺陷）"
+        },
+        "ssim_device_vs_hostref": { "type": "number", "description": "min_k SSIM(device 生成帧, host 金标准复算帧)" },
+        "ssim_frame_hold_vs_hostref": { "type": "number", "description": "max_k SSIM(frame-hold=复制 prev, host 金标准复算帧)" },
+        "ssim_beats_frame_hold": { "type": "boolean", "const": true, "description": "SSIM(device,hostref) 严格胜 SSIM(frame-hold,hostref)（harness 判红面）" },
+        "t_values": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "number" },
+          "description": "逐插入帧 t_temporal = i/(n+1)（host mfg_between 同式 f32 位级；device 直通馈入同 t）"
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "caliber_identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["presented_eq_real_plus_generated", "real_fps_recompute_ok", "real_fps_isolated_from_generated_ok", "presented_fps_recompute_ok", "digest_seq_len_eq_real_frames_total"],
+      "properties": {
+        "presented_eq_real_plus_generated": { "type": "boolean", "const": true, "description": "presented_frames == real_frames + generated_frames（双口径计数恒等式）" },
+        "real_fps_recompute_ok": { "type": "boolean", "const": true, "description": "real_render_fps == real_frames ÷ real_render_seconds（重算恒等）" },
+        "real_fps_isolated_from_generated_ok": { "type": "boolean", "const": true, "description": "generated_frames 扰动 +997 后 real_render_fps 不变（口径互斥机核：生成帧禁入真实渲染帧率）" },
+        "presented_fps_recompute_ok": { "type": "boolean", "const": true, "description": "presented_fps == presented_frames ÷ (real_render_seconds + present_seconds)（重算恒等）" },
+        "digest_seq_len_eq_real_frames_total": { "type": "boolean", "const": true, "description": "digest_seq 长度 == frames_completed（真渲帧计数钉死面）" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["render_cv", "render_min_ms", "render_max_ms", "encode_gpu_ms", "fg_gpu_ms", "render5_gpu_ms", "present_cv", "present_min_ms", "present_max_ms"],
+      "properties": {
+        "render_cv": { "type": "number" },
+        "render_min_ms": { "type": "number" },
+        "render_max_ms": { "type": "number" },
+        "encode_gpu_ms": { "type": "number", "minimum": 0 },
+        "fg_gpu_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "FG pass GPU 耗时合计（telemetry g26_framegen_fg* + g31_display_encode_fg*；post-warmup 均值；单提交墙钟内 FG 段的分列登记面）"
+        },
+        "render5_gpu_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "生产五 pass GPU 耗时合计（telemetry；post-warmup 均值；real_render_frame_ms 内生产段的分列登记面）"
+        },
+        "present_cv": { "type": ["number", "null"] },
+        "present_min_ms": { "type": ["number", "null"] },
+        "present_max_ms": { "type": ["number", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "fg_mode": { "const": "x2" } }, "required": ["fg_mode"] },
+      "then": {
+        "properties": {
+          "fg_factor": { "const": 2 },
+          "inserted_per_pair": { "const": 1 },
+          "wired_parity": {
+            "properties": {
+              "per_gen_p100": { "minItems": 1, "maxItems": 1 },
+              "t_values": { "minItems": 1, "maxItems": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "fg_mode": { "const": "x3" } }, "required": ["fg_mode"] },
+      "then": {
+        "properties": {
+          "fg_factor": { "const": 3 },
+          "inserted_per_pair": { "const": 2 },
+          "wired_parity": {
+            "properties": {
+              "per_gen_p100": { "minItems": 2, "maxItems": 2 },
+              "t_values": { "minItems": 2, "maxItems": 2 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

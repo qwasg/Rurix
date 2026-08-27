@@ -1,0 +1,201 @@
+//@ spec: RFC-0049 §4.8(G35-4 半透明双臂 · WBOIT 定点累加;spec 条款号本期零新设)
+// G35-4 半透明 WBOIT 臂 · accum —— 每粒子每覆盖像素 u32 定点原子累加(门
+// g35.wave4.sort_oit;host 金标准 = particles/oit_arms.rs::
+// wboit_accum_particle **逐字同源**;投影/包围盒/调色/软深度 =
+// g35_render_splat.rx ①②③ 段 / g35_render_resolve.rx ②③ 段同式)。
+//
+// ## 架构(wboit 臂 pass 组第 2 步,先于 g35_oit_wboit_resolve;
+// dispatch = DispatchSpec::Indirect{args,0},splat 同律零回读)
+// 线程 = 粒子槽位 s;守卫 s < args[7]。投影 w 门/视深门 + 包围盒(splat
+// ①② 段同式,clamp 屏内、整盒离屏判空直落)后,逐像素零分支体(圆形测试
+// gate 代数化,blend_sorted 同律;硬拒由 soft clamp 0 涵盖——α = 0 ⇒
+// delta = floor(0) = 0,fetch_add 0 幂等):
+// - **Q 格式冻结**(RFC-0049 §4.8 F5):SCALE = 4096(Q12);舍入 = floor;
+//   **饱和 = 加前检查 clamp**:delta = floor(x·4096) 先 clamp 到 65535
+//   (= 2^16−1;q.min(65535.0),clamp 触发经 sat_gate = ((q−65535)·1e30)
+//   clamp [0,1] as u32 计入饱和计数器——零分支可交换)。
+// - **结构性防回绕论证**("clamp 到 u32::MAX" 语义的不可达顶证明):单像素
+//   累加次数 ≤ total ≤ cap ≤ 65536 = 2^16(lane 拒跑守卫)⇒ 累加和 ≤
+//   2^16·(2^16−1) = 2^32 − 2^16 < u32::MAX ⇒ u32 fetch_add 恒不越顶;
+//   整数加法可交换可结合 ⇒ 与片元到达序无关 ⇒ 双跑位级确定。
+// - **权函数 w(z) 冻结**(参照 = src/oit/algorithms.rs run_weighted nvpro
+//   oitWeighted 权重式;对齐:dist_weight/alpha_weight 两因子逐字同形,
+//   尾除 3000 = dist_weight clamp 上界归一进 Q12 加数预算;host 参照臂为
+//   f32 浮点近似档,本臂定点化数值面进 evidence 不进硬门):
+//   depth_z = d_view·10;dist_w = clamp(0.03/(1e-5+(depth_z/200)^4),
+//   1e-2, 3e3);premult = col·α;aw = min(1, max(premult.r,g,b,α)·40+0.01)²;
+//   w = aw·dist_w/3000。
+// - **累加式**:acc[i·4+{0,1,2}] += floor(col_{r,g,b}·α·w·4096) clamp;
+//   acc[i·4+3] += floor(α·w·4096) clamp;sat[0] += 饱和事件数(累计计数器,
+//   逐帧不清零——单调登记语义,evidence 消费)。
+// 唯一原子 = acc/sat fetch_add(u32,Scope::Gpu,可交换);无 shared;
+// f32/u32/usize 域零位运算。
+//
+// ## 参数面(P_OIT_PARAMS 96 f32;单源 = bin/g35_particle_lane.rs
+// `g35l_pack_oit_params` 头注;声明序 = 绑定序,SSBO 数 = 10)
+//   params[0]=iw [1]=ih [2]=r_world [3]=soft_range [7]=p11
+//   [8..24)=vp_j [24..40)=vp(未抖;行 3 = 视深 w)。
+//   SSBO 序:0 params(View f32×96) / 1 args(View u32×8,读 [7]) /
+//   2 b_pos_x / 3 b_pos_y / 4 b_pos_z / 5 b_age / 6 b_life(View f32×cap) /
+//   7 scene_depth(View f32×px) / 8 acc(AtomicView u32×4px;形状标注
+//   8294400 = 1080p·4 上界,SPIR-V runtime array 以绑定长度为准) /
+//   9 sat(AtomicView u32×4;[0] = 饱和事件累计,[1..4) 备用恒 0)。
+//   dispatch = DispatchSpec::Indirect{res=args,offset=0}(LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_oit_wboit_accum(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    args: View<global, u32>,
+    b_pos_x: View<global, f32>,
+    b_pos_y: View<global, f32>,
+    b_pos_z: View<global, f32>,
+    b_age: View<global, f32>,
+    b_life: View<global, f32>,
+    scene_depth: View<global, f32>,
+    acc: AtomicView<global, u32, (8294400,)>,
+    sat: AtomicView<global, u32, (4,)>,
+) {
+    let s = tc.global_id();
+    let total = args[7] as usize;
+    if s < total {
+        let iw = params[0] as usize;
+        let iwf = params[0];
+        let ihf = params[1];
+        let r_world = params[2];
+        let soft_range = params[3];
+        let p11 = params[7];
+        let big: f32 = 1e30;
+        let px_ = b_pos_x[s];
+        let py_ = b_pos_y[s];
+        let pz_ = b_pos_z[s];
+        // ── ① 投影(splat ①② 段逐字同式;w 门/视深门)──
+        let ccx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+        let ccy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+        let ccw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+        if ccw > 0.000001 {
+            let ndx = ccx / ccw;
+            let ndy = ccy / ccw;
+            let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
+            let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
+            let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+            if d_view > 0.000001 {
+                let mut rpx = r_world * 0.5 * ihf * p11 / d_view;
+                if rpx > 3.0 {
+                    rpx = 3.0;
+                }
+                if rpx < 0.5 {
+                    rpx = 0.5;
+                }
+                let mut x0f = (cxf - rpx).floor();
+                let mut x1f = (cxf + rpx).floor();
+                let mut y0f = (cyf - rpx).floor();
+                let mut y1f = (cyf + rpx).floor();
+                if x0f < 0.0 {
+                    x0f = 0.0;
+                }
+                if y0f < 0.0 {
+                    y0f = 0.0;
+                }
+                if x1f > iwf - 1.0 {
+                    x1f = iwf - 1.0;
+                }
+                if y1f > ihf - 1.0 {
+                    y1f = ihf - 1.0;
+                }
+                if x1f >= x0f && y1f >= y0f {
+                    // ── ② 每粒子常量:同域 d_p(splat ③ 段)+ 调色
+                    //    (resolve ② 段)+ 权重 dist 因子 ──
+                    let qz =
+                        ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
+                    let qw =
+                        ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
+                    let qw_abs = qw.max(0.0 - qw);
+                    let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
+                    let qw_safe = qw + (1.0 - gate_w);
+                    let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
+                    let age = b_age[s];
+                    let life = b_life[s];
+                    let mut t = age / life.max(0.000001);
+                    if t < 0.0 {
+                        t = 0.0;
+                    }
+                    if t > 1.0 {
+                        t = 1.0;
+                    }
+                    let base_r = 1.0 + (1.0 - 1.0) * t;
+                    let base_g = 0.9 + (0.3 - 0.9) * t;
+                    let base_b = 0.7 + (0.05 - 0.7) * t;
+                    let fade = 1.0 - t;
+                    let col_r = base_r * 8.0 * fade;
+                    let col_g = base_g * 8.0 * fade;
+                    let col_b = base_b * 8.0 * fade;
+                    let depth_z = d_view * 10.0;
+                    let q_ = depth_z / 200.0;
+                    let q2_ = q_ * q_;
+                    let q4_ = q2_ * q2_;
+                    let dist_w = (0.03 / (0.00001 + q4_)).max(0.01).min(3000.0);
+                    let rq2 = rpx * rpx;
+                    let x0 = x0f as usize;
+                    let x1 = x1f as usize;
+                    let y0 = y0f as usize;
+                    let y1 = y1f as usize;
+                    // ── ③ 逐像素零分支体(gate 代数化;i = y·iw+x < iw·ih
+                    //    由包围盒 clamp 不变量保证)──
+                    let mut y = y0;
+                    while y <= y1 {
+                        let mut x = x0;
+                        while x <= x1 {
+                            let i = y * iw + x;
+                            let fdx = (x as f32) - cxf;
+                            let fdy = (y as f32) - cyf;
+                            let circle_gate = (((rq2 - (fdx * fdx + fdy * fdy)) * big) + 1.0)
+                                .min(1.0)
+                                .max(0.0);
+                            let soft = ((scene_depth[i] - d_p) / soft_range).min(1.0).max(0.0);
+                            let alpha = fade * soft * circle_gate;
+                            let pr = col_r * alpha;
+                            let pg = col_g * alpha;
+                            let pb = col_b * alpha;
+                            let aw_in = pr.max(pg).max(pb).max(alpha);
+                            let aw = (aw_in * 40.0 + 0.01).min(1.0);
+                            let w = aw * aw * dist_w / 3000.0;
+                            // Q12 floor + 加前 clamp 饱和(零分支)。
+                            let mut q_r = (col_r * alpha * w * 4096.0).floor();
+                            if q_r < 0.0 {
+                                q_r = 0.0;
+                            }
+                            let mut q_g = (col_g * alpha * w * 4096.0).floor();
+                            if q_g < 0.0 {
+                                q_g = 0.0;
+                            }
+                            let mut q_b = (col_b * alpha * w * 4096.0).floor();
+                            if q_b < 0.0 {
+                                q_b = 0.0;
+                            }
+                            let mut q_w = (alpha * w * 4096.0).floor();
+                            if q_w < 0.0 {
+                                q_w = 0.0;
+                            }
+                            let sat_n = (((q_r - 65535.0) * big).min(1.0).max(0.0)
+                                + ((q_g - 65535.0) * big).min(1.0).max(0.0)
+                                + ((q_b - 65535.0) * big).min(1.0).max(0.0)
+                                + ((q_w - 65535.0) * big).min(1.0).max(0.0))
+                                as u32;
+                            let dr = q_r.min(65535.0) as u32;
+                            let dg = q_g.min(65535.0) as u32;
+                            let db = q_b.min(65535.0) as u32;
+                            let dw = q_w.min(65535.0) as u32;
+                            let _o0 = acc.fetch_add(i * 4usize, dr, Scope::Gpu);
+                            let _o1 = acc.fetch_add(i * 4usize + 1usize, dg, Scope::Gpu);
+                            let _o2 = acc.fetch_add(i * 4usize + 2usize, db, Scope::Gpu);
+                            let _o3 = acc.fetch_add(i * 4usize + 3usize, dw, Scope::Gpu);
+                            let _o4 = sat.fetch_add(0usize, sat_n, Scope::Gpu);
+                            x = x + 1usize;
+                        }
+                        y = y + 1usize;
+                    }
+                }
+            }
+        }
+    }
+}

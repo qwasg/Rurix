@@ -1,0 +1,272 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_skinning_wiring 蒙皮/骨骼动画进生产帧 接线证据",
+  "description": "G31+ 波 B Task B5（G31_PLUS_COMMERCIAL_RENDERER_TODO §1.3 #10 行；RD-041 backfill「蒙皮 WPO MV 在动态资产面出现时」触发面）蒙皮/骨骼动画进生产帧证据：同机同窗 bistro-interior 1080p t100 tsr_device --skin-demo（3 骨两段臂 + 关节融合套蒙皮角色，脚本化骨骼动画 = 帧号确定性 f32 函数：root 三轴正弦位移 + 肩/肘 z 摆 world-from-bind；骨骼 palette cur/prev 双表逐帧 buffer_uploads 上传；device LBS 蒙皮 pass（kernels/g31_skin.rx）写 tris SSBO 角色段 + prev 顶点表；FrameUpdate::blas_refit 桥（vkCmdCopyBuffer 蒙皮段 → 角色 BLAS 顶点缓冲 + 原地 UPDATE build + consume barrier，创建期 updatable 打标 ALLOW_UPDATE）；scene kernel（g31_skin_scene.rx = g31_dyn_scene 镜像 + inst/prim/bary 命中信息通道）当帧命中蒙皮几何 + 形变阴影；MV kernel（g31_skin_mv.rx = g14_mv 镜像 + RD-041 类 3 蒙皮 MV 覆盖臂：prev 顶点 bary 插值 → prev_vp 投影）进 TSR 历史链）。判据闭集：①同轨迹双跑 last_frame_digest 位级一致（RXS-0357 L2 固定 seed 确定性）；②skin 臂 digest ≠ 静态 bench digest（动 vs 不动——防确定性的坏内容）；③静态 bench digest == g14_3_stage_a_digest_anchor（静态面 0-byte 回归锚）；④skin_verify 全帧通过（位置 = host skin_vertex 蒙皮全顶点投影并集掩码 vs device 命中通道 inst==1 地面真值质心/AABB；MV = 检测像素域 dev 中位数 vs host 逐顶点中位数逐分量 ≤2px + 窗级聚合真动门 max host ≥1.0px（动画冻结必红,低动相位逐帧不误伤）+ 高动帧条件 ratio 门 dev ≥0.5×host + 静态区无污染门 ≤1.5px）；⑤M92 双臂对拍门（host 金标准 vs device）接线态复跑 PASS（定点域逐顶点容差 0 + 法向锥位级 + 包围体包含 100% + 静态帧零 AS 构建 + 双跑位级——验证件本体语义零破坏）；⑥device/host 蒙皮逐顶点对拍 max_abs=0（RURIX_SKIN_DEBUG_TRIS 诊断臂真跑收割）；⑦clean shutdown（rc=0 + BENCH PASS + receipt 新鲜 + stderr 无 validation/leak 字样）。measured 对照 = skin_on（角色 + 骨骼逐帧更新）vs skin_off（同窗静态 bench）frame_ms 同机同窗对照 + skin/scene/mv GPU 三分解（stderr SKIN_GPU_MS 行 + receipt 列），数字来自真实命令输出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "tier",
+    "backend",
+    "seed",
+    "frames_measured",
+    "warmup",
+    "runs_per_arm",
+    "character",
+    "arms",
+    "digest_bitexact_double_run",
+    "skin_neq_static_digest",
+    "static_anchor_digest",
+    "static_anchor_match",
+    "position_verify",
+    "mv_channel",
+    "device_host_skinning_bitexact",
+    "m92_gate",
+    "measured",
+    "clean_shutdown",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.skinning_wiring_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_skinning_wiring"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveB.skinning"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31.B"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "bistro-interior"
+    },
+    "tier": {
+      "type": "integer",
+      "enum": [50, 67, 100]
+    },
+    "backend": {
+      "type": "string",
+      "const": "tsr_device"
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "frames_measured": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "warmup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runs_per_arm": {
+      "type": "integer",
+      "minimum": 2,
+      "description": "skin 臂 ≥2 轮（双跑位级判据消费面；跨轮中位数入 stats）"
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bone_count",
+        "tri_count",
+        "vertex_count",
+        "emission",
+        "albedo",
+        "detection",
+        "animation",
+        "bone_upload_bytes_per_frame"
+      ],
+      "properties": {
+        "bone_count": {"type": "integer", "const": 3},
+        "tri_count": {"type": "integer", "const": 36},
+        "vertex_count": {"type": "integer", "const": 108},
+        "emission": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "albedo": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "detection": {
+          "type": "string",
+          "description": "角色像素检测真值面 = 命中信息通道 inst==1（ray query 提交实例下标;非谱近似）"
+        },
+        "animation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root_amp", "root_freq", "root_amp2", "root_freq2", "root_phase2", "swing_amp", "swing_freq", "swing_amp2", "swing_freq2", "swing_phase2", "elbow_amp", "elbow_freq", "elbow_amp2", "elbow_freq2", "elbow_phase2", "upper_len", "origin"],
+          "properties": {
+            "root_amp": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "root_freq": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "root_amp2": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "root_freq2": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "root_phase2": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "swing_amp": {"type": "number"},
+            "swing_freq": {"type": "number"},
+            "swing_amp2": {"type": "number"},
+            "swing_freq2": {"type": "number"},
+            "swing_phase2": {"type": "number"},
+            "elbow_amp": {"type": "number"},
+            "elbow_freq": {"type": "number"},
+            "elbow_amp2": {"type": "number"},
+            "elbow_freq2": {"type": "number"},
+            "elbow_phase2": {"type": "number"},
+            "upper_len": {"type": "number"},
+            "origin": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+          }
+        },
+        "bone_upload_bytes_per_frame": {
+          "type": "integer",
+          "description": "骨骼 palette cur/prev 双表 + skin params 逐帧上传字节（3 骨 × 48B × 2 + 64B = 352B;骨骼矩阵逐帧上传面的量化兑现）"
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arm",
+          "frame_ms_mean",
+          "frame_ms_p50",
+          "frame_ms_p99",
+          "frame_ms_min",
+          "frame_ms_max",
+          "frame_ms_production_mean",
+          "last_frame_digest",
+          "verify_frames_pass",
+          "verify_frames_total",
+          "receipts"
+        ],
+        "properties": {
+          "arm": {
+            "type": "string",
+            "enum": ["skin_anim", "static_off"]
+          },
+          "frame_ms_mean": {"type": "number", "description": "多轮 median（单轮均值）；含末帧 digest tail 与核验帧回读税——两臂同形同价"},
+          "frame_ms_p50": {"type": "number"},
+          "frame_ms_p99": {"type": "number"},
+          "frame_ms_min": {"type": "number"},
+          "frame_ms_max": {"type": "number"},
+          "frame_ms_production_mean": {"type": "number", "description": "生产口径（frame − tail）"},
+          "last_frame_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "verify_frames_pass": {"type": "integer", "minimum": 0},
+          "verify_frames_total": {"type": "integer", "minimum": 0},
+          "receipts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "digest_bitexact_double_run": {
+      "type": "boolean",
+      "description": "skin 臂同轨迹双跑 digest 位级一致（固定 seed RXS-0357 L2;全 GPU 链——蒙皮 pass + BLAS refit + scene + MV + TSR——确定性）"
+    },
+    "skin_neq_static_digest": {
+      "type": "boolean",
+      "description": "skin 臂 digest ≠ 同窗静态 bench digest（动 vs 不动必异——防确定性的坏内容硬门）"
+    },
+    "static_anchor_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "同窗静态 bench（--skin-demo 缺席,canonical 160 帧）last_frame_digest 实测值"
+    },
+    "static_anchor_match": {
+      "type": "boolean",
+      "description": "静态 bench digest == milestones/g14/g14_3_stage_a_digest_anchor.json bistro-interior_t100_tsr_device 锚（B5 落地静态面 0-byte 回归硬门）"
+    },
+    "position_verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames_total", "frames_pass", "centroid_max_px", "aabb_max_px", "mv_median_max_px", "mv_static_max_px", "mv_host_motion_max_px", "tolerance_centroid_px", "tolerance_aabb_px", "tolerance_mv_median_px", "tolerance_mv_static_px"],
+      "properties": {
+        "frames_total": {"type": "integer", "minimum": 1},
+        "frames_pass": {"type": "integer", "minimum": 0},
+        "centroid_max_px": {"type": "number"},
+        "aabb_max_px": {"type": "number"},
+        "mv_median_max_px": {"type": "number", "description": "全核验帧 dev/host MV 逐分量中位数差最大值"},
+        "mv_static_max_px": {"type": "number", "description": "全核验帧静态区 MV 中位数模长最大值（覆盖臂无污染门）"},
+        "mv_host_motion_max_px": {"type": "number", "description": "全核验帧 host 逐顶点 MV 模长中位数最大值（窗级聚合真动门消费形,≥1.0px;动画冻结 ⇒ 全帧 ≈0 必红,低动相位逐帧不误伤）"},
+        "tolerance_centroid_px": {"type": "number"},
+        "tolerance_aabb_px": {"type": "number"},
+        "tolerance_mv_median_px": {"type": "number"},
+        "tolerance_mv_static_px": {"type": "number"}
+      }
+    },
+    "mv_channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class1_camera", "class2_rigid_instance", "class3_skinned", "tsr_history_consumed", "smearing_mitigation_note"],
+      "properties": {
+        "class1_camera": {"type": "string"},
+        "class2_rigid_instance": {"type": "string", "description": "类 2 刚性实例 MV 状态（A4 登记缺口维持/接通——如实登记）"},
+        "class3_skinned": {"type": "string"},
+        "tsr_history_consumed": {"type": "boolean"},
+        "smearing_mitigation_note": {"type": "string", "description": "A4 运动物体 TSR 历史拖影缺口的蒙皮类缓解证据/边界（做到多少如实登记）"}
+      }
+    },
+    "device_host_skinning_bitexact": {
+      "type": "boolean",
+      "description": "RURIX_SKIN_DEBUG_TRIS 诊断臂真跑:device 蒙皮输出（tris 角色段回读）vs host skin_vertex 逐顶点 max_abs == 0（NoContraction + 同式同序的位级对拍）"
+    },
+    "m92_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "run_digest", "double_run_bitexact", "vertex_bitexact", "cone_bitexact", "static_frame_zero_as_build", "as_update_counted", "evidence_path"],
+      "properties": {
+        "state": {"type": "string", "enum": ["PASS", "FAIL", "SKIP"]},
+        "run_digest": {"type": "string"},
+        "double_run_bitexact": {"type": "boolean"},
+        "vertex_bitexact": {"type": "boolean"},
+        "cone_bitexact": {"type": "boolean"},
+        "static_frame_zero_as_build": {"type": "boolean"},
+        "as_update_counted": {"type": "boolean"},
+        "evidence_path": {"type": "string"}
+      }
+    },
+    "measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skin_on_frame_ms_mean", "skin_off_frame_ms_mean", "delta_frame_ms", "skin_pass_gpu_ms_mean", "scene_gpu_ms_mean", "mv_gpu_ms_mean", "note"],
+      "properties": {
+        "skin_on_frame_ms_mean": {"type": "number"},
+        "skin_off_frame_ms_mean": {"type": "number"},
+        "delta_frame_ms": {"type": "number", "description": "蒙皮角色 + 骨骼逐帧更新全特征成本（skin_on − skin_off,同窗同机）"},
+        "skin_pass_gpu_ms_mean": {"type": "number", "description": "蒙皮 compute pass GPU 段均值（stderr SKIN_GPU_MS 行真跑收割）"},
+        "scene_gpu_ms_mean": {"type": "number"},
+        "mv_gpu_ms_mean": {"type": "number"},
+        "note": {"type": "string"}
+      }
+    },
+    "clean_shutdown": {
+      "type": "boolean",
+      "description": "全部真跑 rc=0 + BENCH PASS + receipt 新鲜 + stderr 无 validation/leak 字样"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

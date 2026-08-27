@@ -1,0 +1,136 @@
+//@ spec: RFC-0049 §4.6(G35-3 粒子渲染接线 resolve;spec 条款号本期零新设)
+// G35-P 粒子渲染 · resolve —— 每线程一像素:赢家读取 + 程序化调色 + 软粒子
+// 合成写 scene color + 粒子 MV 覆写(门 g35.wave3.render;G35_CONTRACT §4
+// 契约;RFC-0049 §4.6 v0.2 F11 修法 = mv 冻结式 + u64 max 赢家像素归属)。
+//
+// ## 架构(G35-3 渲染 pass 组第 10 步,后于 g35_render_splat 先于 TSR)
+// 线程 = 像素 i;守卫 i < px_count。winner = vis[i](u64;0 = 空哨兵直落,
+// g35_splat_clear 清零面):
+// 1. slot = (winner & 16777215)(低 24 位;g35_render_splat 打包镜像),
+//    读 B 组 pos/vel/age/life 四流(压缩+发射后前缀,槽位 < args total)。
+// 2. **程序化调色**(纯函数,系数冻结本注):t = clamp(age/life, 0, 1),
+//    base = mix(暖白 (1.0,0.9,0.7), 橙红 (1.0,0.3,0.05), t)(逐通道
+//    a+(b−a)·t),强度衰减 color = base · 8.0 · (1−t)(scene-linear HDR;
+//    8.0 = 冻结发光强度系数)。
+// 3. **软粒子 alpha**(v1 简化冻结):soft = clamp((scene_depth[i] − d_p)
+//    / soft_range, 0, 1),alpha = (1−t) · soft。d_p = 生产字面深度域
+//    (未抖 vp 行 0/1 + |w|≤1e-8 → 1.0 门,g35_render_splat ③ 段逐字同式;
+//    域 quirk 如实登记同彼头注——该域沿视射线为常量,soft 为屏幕域衰减
+//    而非距离渐隐,evidence depth_domain 字段同一字面)。
+// 4. **合成**(单赢家单写者 = 确定):scene_color[i] = scene_color[i]·(1−alpha)
+//    + color·alpha(逐通道;资源 = U_SCENE_COLOR,TSR resample 上游消费)。
+// 5. **粒子 MV 覆写**(RFC-0049 §4.6 F11 冻结式;单位 = uv 偏移,
+//    mv = prev_uv − cur_uv 与 kernels/g14_mv.rx 输出同约定):
+//    cur = vp_j·[pos,1] → uv_c;prev = prev_vp_j·[pos − vel·dt, 1] → uv_p;
+//    mv = uv_p − uv_c 写 U_MV_OUT[i](覆写相机 MV;任一 w 门失效 → (0,0),
+//    g14_mv w 门同语义)。首帧 prev_vp_j = vp_j(host 打包面),相机项经
+//    prev VP 自然含。
+// 无 shared / 无原子(winner 只读);u64 域仅 & 掩码(visbuffer 先例);
+// f32/u32 域零位运算。逐像素独立单写者 ⇒ 固定输入双跑位级一致。
+//
+// ## 参数面(P_PARAMS_RENDER 64 f32 共享布局,单源 = bin/g35_particle_lane.rs
+// `pack_render_params` 头注;声明序 = 绑定序,SSBO 数 = 13)
+//   params[0]=iw [1]=ih [2]=r_world(本 kernel 不消费) [3]=soft_range
+//   [4]=d_max(不消费) [5]=dt [6]=px_count [7]=p11(不消费)
+//   [8..24)=vp_j [24..40)=vp(未抖;行 0/1 = 生产字面深度域)
+//   [40..56)=prev_vp_j [56..64)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×64) / 1 vis(View u64×px,splat 赢家) /
+//   2 b_pos_x / 3 b_pos_y / 4 b_pos_z / 5 b_vel_x / 6 b_vel_y / 7 b_vel_z /
+//   8 b_age / 9 b_life(View f32×cap) / 10 scene_depth(View f32×px) /
+//   11 scene_color(ViewMut f32×3px,U_SCENE_COLOR) / 12 mv_out(ViewMut
+//   f32×2px,U_MV_OUT)。
+//   dispatch = [px_count, 1, 1](LocalSize 1,1,1;百万工作组既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_render_resolve(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    vis: View<global, u64>,
+    b_pos_x: View<global, f32>,
+    b_pos_y: View<global, f32>,
+    b_pos_z: View<global, f32>,
+    b_vel_x: View<global, f32>,
+    b_vel_y: View<global, f32>,
+    b_vel_z: View<global, f32>,
+    b_age: View<global, f32>,
+    b_life: View<global, f32>,
+    scene_depth: View<global, f32>,
+    scene_color: ViewMut<global, f32>,
+    mv_out: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let px_count = params[6] as usize;
+    if i < px_count {
+        let winner = vis[i];
+        if winner != 0u64 {
+            let slot = (winner & 16777215u64) as usize;
+            let px_ = b_pos_x[slot];
+            let py_ = b_pos_y[slot];
+            let pz_ = b_pos_z[slot];
+            let vx_ = b_vel_x[slot];
+            let vy_ = b_vel_y[slot];
+            let vz_ = b_vel_z[slot];
+            let age = b_age[slot];
+            let life = b_life[slot];
+            // ── ② 程序化调色(t = 寿命进度;系数冻结头注)──
+            let mut t = age / life.max(0.000001);
+            if t < 0.0 {
+                t = 0.0;
+            }
+            if t > 1.0 {
+                t = 1.0;
+            }
+            let base_r = 1.0 + (1.0 - 1.0) * t;
+            let base_g = 0.9 + (0.3 - 0.9) * t;
+            let base_b = 0.7 + (0.05 - 0.7) * t;
+            let fade = 1.0 - t;
+            let col_r = base_r * 8.0 * fade;
+            let col_g = base_g * 8.0 * fade;
+            let col_b = base_b * 8.0 * fade;
+            // ── ③ 软粒子(d_p = 生产字面深度域,splat ③ 段逐字同式)──
+            let big: f32 = 1e30;
+            let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
+            let qw = ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
+            let qw_abs = qw.max(0.0 - qw);
+            let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
+            let qw_safe = qw + (1.0 - gate_w);
+            let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
+            let mut soft = (scene_depth[i] - d_p) / params[3];
+            if soft < 0.0 {
+                soft = 0.0;
+            }
+            if soft > 1.0 {
+                soft = 1.0;
+            }
+            let alpha = fade * soft;
+            // ── ④ 合成(单赢家单写者;scene-linear HDR)──
+            scene_color[i * 3] = scene_color[i * 3] * (1.0 - alpha) + col_r * alpha;
+            scene_color[i * 3 + 1] = scene_color[i * 3 + 1] * (1.0 - alpha) + col_g * alpha;
+            scene_color[i * 3 + 2] = scene_color[i * 3 + 2] * (1.0 - alpha) + col_b * alpha;
+            // ── ⑤ 粒子 MV(mv = prev_uv − cur_uv;w 门失效 → (0,0))──
+            let ccx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+            let ccy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+            let ccw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+            let dt = params[5];
+            let ppx = px_ - vx_ * dt;
+            let ppy = py_ - vy_ * dt;
+            let ppz = pz_ - vz_ * dt;
+            let pcx = ((params[40] * ppx + params[41] * ppy) + params[42] * ppz) + params[43];
+            let pcy = ((params[44] * ppx + params[45] * ppy) + params[46] * ppz) + params[47];
+            let pcw = ((params[52] * ppx + params[53] * ppy) + params[54] * ppz) + params[55];
+            let mut mvx = 0.0;
+            let mut mvy = 0.0;
+            if ccw > 0.00000001 {
+                if pcw > 0.00000001 {
+                    let cur_u = 0.5 * (ccx / ccw + 1.0);
+                    let cur_v = 0.5 * (1.0 - ccy / ccw);
+                    let prev_u = 0.5 * (pcx / pcw + 1.0);
+                    let prev_v = 0.5 * (1.0 - pcy / pcw);
+                    mvx = prev_u - cur_u;
+                    mvy = prev_v - cur_v;
+                }
+            }
+            mv_out[i * 2] = mvx;
+            mv_out[i * 2 + 1] = mvy;
+        }
+    }
+}

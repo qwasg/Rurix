@@ -153,7 +153,24 @@ pub fn cook_to(out_root: &Path, workspace: &Path, plan: &CookPlan) -> Result<Bui
     // --- geom pages（消费 gltf 导入的真实 mesh；uv_sphere 旁路已移除）---
     let mesh = merge_imported_meshes(&imported.meshes)?;
     let dag = build_dag(&mesh);
-    let _rxgb = write_dag(&dag);
+    // G31+ #58：RXGB 簇 DAG 产物落盘转正（此前 `let _rxgb = write_dag(&dag)`
+    // 算出即弃——生产消费簇 DAG 的资产链断点）。产物进 artifacts/digests/
+    // node_keys 与 manifest（双构建 byte-equal 覆盖面同扩）。
+    let rxgb = write_dag(&dag);
+    let rxgb_dig = canon::hex_digest(&rxgb);
+    fs::write(art_dir.join("geom_dag.rxgb"), &rxgb)?;
+    artifacts.insert("artifact.geom_dag".into(), rxgb);
+    artifact_digests.insert("artifact.geom_dag".into(), rxgb_dig.clone());
+    node_keys.insert(
+        "artifact.geom_dag".into(),
+        artifact_key(
+            &rxgb_dig,
+            TOOL_GEOM_PAGES,
+            &plan.geom_tool_version,
+            "", // recipe 不进 geom 节点 key（geom_pages 同律）
+            &plan.profile_tag,
+        ),
+    );
     let pages = pack_cluster_dag(&dag)
         .map_err(|e| AssetError::new(ErrorKind::VerifyFailed, format!("pack: {e}")))?;
     let pages_bytes = concatenate_pages(&pages);

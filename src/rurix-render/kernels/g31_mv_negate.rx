@@ -1,0 +1,33 @@
+//@ spec: RFC-0043 §1(G31+ 波 A Task A5 生产接线 glue;spec 条款号本期零新设)
+// G31+ 波 A Task A5 MV 取反 glue kernel(门 `g31.waveA.framegen` 接线面)——
+// g14_mv 相机 MV 场(host `temporal::common::compute_camera_mv` 同式
+// m(x) = prev_uv(x) − x)逐元素取反,产出 host 金标准
+// `temporal::framegen::interpolate` 约定形 mv_fg(x) = x − prev_uv(x) = −m(x),
+// 供 `kernels/g26_framegen.rx` 直通馈入(prev/cur/−mv/t 与 host 逐字同语义,
+// 含 t=0.5 near 选臂 tie-break——prev/cur 对调 swap 馈入的 tie 翻转缺陷面由
+// 本直通形消除)。**G26 kernel 本体与 host 金标准面 0-byte**(本 kernel 为
+// 新增 glue,不改写任何既有 kernel/host 面)。
+//
+// ## 确定性协议(RXS-0357 L2 同律继承)
+// 逐元素独立顺序求值,禁 atomic,输出直写无跨元素交互,全 f32;IEEE 取反 =
+// 符号位翻转精确运算(零数值误差);`0.0 − x` 形(与一元取反同值:0.0 − (−0.0)
+// = +0.0;MV 场无 NaN);边界守卫 `if i < element_count`;固定输入双跑位级一致。
+//
+// ## 参数面(host bin `g31_window_present::g31_mvn_pack_params` 逐字同源;16 f32)
+//   params[0]=element_count(= 2·pixel_count;mv 2 f32/px 展平逐元素)
+//   [1..16]=reserved(恒 0)。
+//   in_mv: element_count f32(g14_mv out_mv 同布局,行主序 (y·w+x)·2+ch);
+//   out_mv: 同长取反结果。dispatch = [element_count, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g31_mv_negate(
+    tc: ThreadCtx<1>,
+    in_mv: View<global, f32>,
+    params: View<global, f32>,
+    out_mv: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    if i < n {
+        out_mv[i] = 0.0 - in_mv[i];
+    }
+}

@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 B Task B4 纹理采样接线门裁决证据（ci/g31_texture_sampling_smoke.py --gate 产）",
+  "description": "G31+ 波 B Task B4 纹理采样管线进生产场景门 g31.waveB.texture 的 smoke 裁决证据：① 资产面盘点与映射闭集核验（census：albedo 贴图 70/70、normal 70/70、rough-metal 0/70 登记、TEXCOORD_0 2062/2062、TANGENT 0/2062 登记；top-12 三角数降序映射律法经 CI 独立重算 gltf accessor 三角数互核；12/12 槽 rgba8_digest == G11.3 manifest 登记互核）② SSBO 探针腿位级对拍（harness --textures on evidence textures.probe.ssbo.p100 == 0.0 位级硬门 + device 双臂双跑位级一致 + device_digest == host_digest + 双 on 腿 digest 稳定）③ sampler 腿结构容差对拍（真 GPU 纹理对象 image/view/sampler 经 sampler.rs SamplerDesc→VkSampler 硬件 sample_lod vs host srgb 域参考：max_lsb_diff ≤ 1 结构容差——硬件过滤权重量化 ≤2^-8 ⇒ 8-bit 翻转 ≤1 LSB @ quantum 1/255，位级一致 = 更强终态；nonconstant_slots ≥ 1 防空接线冒充）④ G11.3 DDS 确定性锚复跑不破坏（target/release/g11_3_dds_dump 复解码 12 映射纹理 rgba8_digest == manifest 登记 12/12 + manifest 与 rurix-asset 链 0-byte 机核）⑤ 纹理 kernel SPV 面（rurixc 现编 g31_texture_{gi,probe}.rx + spirv-val 通过 + 母版 kernels/g14_3_direct_gi.rx 与 spec/ + src/rurix-asset/ + material/ + graph/types.rs 0-byte 机核）⑥ bistro 生产场景演示（top-12 映射贴图采样真跑：textures off 双跑 digest_seq 位级一致回归面 + on 双跑位级一致确定性门 + on≠off 至少一帧接线真实生效门 + tex_tris ≥ 1 + census 跨端互核）⑦ textures off 回归锚（g14_3_pipeline_perf canonical 160 帧 bistro-interior/t100/tsr_device 末帧 digest == milestones/g14/g14_3_stage_a_digest_anchor.json 在案锚——共享体改动对既有逐三角 albedo/emission 面 0-byte 的机器证明）⑧ textures on/off frame_ms measured（同机同窗 orbit 轨迹 --hidden 1920×1080 release 真跑；纹理装配/探针 = 装配期一次性 eval_ms 单列不混帧口径；measured_local 诚实登记）。三态：无 Vulkan loader/设备/场景资产/SPV → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下 DEV_ENV 降级翻硬 FAIL（禁 mock 充真跑）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "probe_parity",
+    "g11_3_rerun",
+    "frozen_0byte",
+    "demo",
+    "regression_anchor",
+    "frame_ms",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.texture_sampling_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_texture_sampling" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveB.texture" },
+    "wave": { "type": "string", "const": "G31.B" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "asset_inventory_and_mapping_valid",
+              "ssbo_probe_parity_bitexact",
+              "sampler_leg_parity_bound",
+              "g11_3_anchor_rerun_green",
+              "texture_kernels_spv_valid",
+              "bistro_texture_demo",
+              "textures_off_regression_anchor",
+              "textures_on_off_frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "probe_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ssbo_p100",
+        "ssbo_bitexact",
+        "ssbo_double_run_bitexact",
+        "device_digest",
+        "host_digest",
+        "sampler_max_lsb",
+        "sampler_bound_lsb",
+        "sampler_bitexact",
+        "sampler_digest",
+        "nonconstant_slots"
+      ],
+      "properties": {
+        "ssbo_p100": { "type": "number", "minimum": 0, "description": "SSBO 探针腿 device vs host 位级硬门面（== 0.0 才许 PASS）" },
+        "ssbo_bitexact": { "type": "boolean", "description": "位级一致才许 true" },
+        "ssbo_double_run_bitexact": { "type": "boolean", "description": "device 双臂双跑位级一致才许 true" },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sampler_max_lsb": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "sampler_bound_lsb": { "type": "integer", "const": 1 },
+        "sampler_bitexact": { "type": "boolean", "description": "位级一致（更强终态；非门判据）" },
+        "sampler_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "nonconstant_slots": { "type": "integer", "minimum": 1, "description": "探针输出非全等槽计数 ≥1（防空接线冒充）" }
+      }
+    },
+    "g11_3_rerun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries_reproduced", "entries_total", "decoder", "manifest_path", "chain_0byte_clean"],
+      "properties": {
+        "entries_reproduced": { "type": "integer", "description": "g11_3_dds_dump 复解码 rgba8_digest == manifest 命中数（== entries_total 才许 PASS）" },
+        "entries_total": { "type": "integer", "const": 12 },
+        "decoder": { "type": "string", "const": "target/release/g11_3_dds_dump.exe" },
+        "manifest_path": { "type": "string", "const": "milestones/g11/g11_3_dds_transcode_manifest.json" },
+        "chain_0byte_clean": { "type": "boolean", "description": "src/rurix-asset/ + manifest vs HEAD 0-byte 且工作树干净才许 true" }
+      }
+    },
+    "frozen_0byte": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "vs_head_0byte", "worktree_clean"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "minItems": 5,
+          "items": { "type": "string" },
+          "description": "0-byte 面闭集（母版 kernel / spec / rurix-asset / material / graph/types.rs / G11.3 manifest）"
+        },
+        "vs_head_0byte": { "type": "boolean", "description": "git diff --quiet HEAD -- paths 全 0-byte 才许 true" },
+        "worktree_clean": { "type": "boolean", "description": "git status --porcelain -- paths 空才许 true" }
+      }
+    },
+    "demo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene_id",
+        "trajectory",
+        "mapped_materials",
+        "tex_tris",
+        "off_double_run_bitexact",
+        "on_double_run_bitexact",
+        "on_ne_off",
+        "census_crosscheck"
+      ],
+      "properties": {
+        "scene_id": { "type": "string", "const": "bistro-interior" },
+        "trajectory": { "type": "string", "const": "orbit" },
+        "mapped_materials": { "type": "integer", "const": 12 },
+        "tex_tris": { "type": "integer", "minimum": 1 },
+        "off_double_run_bitexact": { "type": "boolean", "description": "textures off 双跑 digest_seq 位级一致才许 true（回归/确定性面）" },
+        "on_double_run_bitexact": { "type": "boolean", "description": "textures on 双跑 digest_seq 位级一致才许 true（确定性门）" },
+        "on_ne_off": { "type": "boolean", "description": "on digest_seq ≠ off digest_seq 至少一帧才许 true（接线真实生效门，防空接线冒充）" },
+        "census_crosscheck": { "type": "boolean", "description": "harness census == CI 独立重算 gltf 计数才许 true（跨端互核）" }
+      }
+    },
+    "regression_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "description": "fresh == anchor 位级一致才许 true（Stage A 锚零漂移）" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_mean", "delta_pct_on_vs_off", "probe_eval_ms", "measured", "frames_per_run", "runs"],
+      "properties": {
+        "off_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "on_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "delta_pct_on_vs_off": { "type": "number", "description": "(on − off)/off ×100（诚实登记；纹理采样税 = 图集/LUT 读取 + 双线性算术）" },
+        "probe_eval_ms": { "type": "number", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "frames_per_run": { "type": "integer", "minimum": 1 },
+        "runs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string" },
+      "description": "harness 真跑 evidence 归档件（off×2 走 rurix.g31.game_loop_evidence.v1 面 + on×2 走 rurix.g31.texture_sampling_evidence.v1 面）"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,77 @@
+//@ spec: RFC-0049 §4.3(G35-2 粒子核心运行时 emit;spec 条款号本期零新设)
+// G35-P 粒子核心 · 确定性发射 —— 随机带单源 + persistent ID + scan 槽位零
+// 回读(门 g35.wave2.particle_core;G35_CONTRACT §4 契约,src/particles/
+// mod.rs 契约头字面)。
+//
+// ## 架构(确定性协议;G35-P v1 帧序第 4 步)
+// 公式面与 host 金标准 `particles/core.rs::emit_step` **逐字同源**:v1 简化
+// dispatch [emit_count,1,1] 线程 = 粒子(emit_count 小):线程 j < emit_count:
+//   slot = seg_offsets[alive_slot] + j —— alive_total 由 device 直读 scan
+//   spine 总和槽(**零回读**,反打 Niagara 动态计数回读约束的关键槽位);
+//   pid = pid_base + j(persistent ID,host 递增维护 u32);
+//   随机带单源纪律(G28 RFC-0045 §1.2 同律):PCG32 只在 host 出现
+//   (particles/mod.rs rand_table),device 经 SSBO 只读消费
+//   r_k = rand_table[(pid·7919 + k) % 65536](RAND_K=7919/RAND_TABLE_LEN=
+//   65536;usize 乘加即使 32 位回绕 mod 2^32 亦不改 mod 65536 值——65536
+//   整除 2^32,与 host 64 位 usize 精确算术同值);槽位表:0/1/2 = pos xyz,
+//   3/4/5 = vel xyz,6 = life。9 流初始化写 B 组:
+//   px = ex + (r0·2−1)·spread_x(py/pz 同,槽 1/2);
+//   vx = bvx + (r3·2−1)·vspread_x(vy/vz 同,槽 4/5);
+//   age = 0;life = life_base·(0.5 + 0.5·r6);pid 流 = pid。
+// 无 shared / 无原子 / 无超越函数 / 无位运算。pid 为 u32 整数流零容差位级;
+// pos/vel/life f32 流走标定容差(probe 装载期对本 SPV 注入 NoContraction 禁
+// 驱动 FMA 收缩,g14_3_lane_body 同律)。
+//
+// ## 参数面(16 f32;⚠pid_base 走 f32 参数面,精确域 pid_base + emit_count
+// < 2^24(f32 整数精确域;host emit_step assert 同断言);声明序 = 绑定序,
+// SSBO 数 = 12,与 host 金标准 / probe 下标严格一致)
+//   params[0]=emit_count [1]=pid_base [2..5)=emitter pos(ex,ey,ez)
+//   [5..8)=spread [8..11)=vel_base [11..14)=vel_spread [14]=life_base
+//   [15]=alive_slot(= nseg_curr,seg_offsets 总和槽下标)。
+//   SSBO 序:0 params(View f32×16) / 1 seg_offsets(View u32×(nseg+1),
+//   g35_scan_spine 产物,读 [alive_slot] 槽) / 2 rand_table(View f32×65536) /
+//   3..12) B 组 9 流 ViewMut(3 b_pos_x / 4 b_pos_y / 5 b_pos_z / 6 b_vel_x /
+//   7 b_vel_y / 8 b_vel_z / 9 b_age / 10 b_life(f32×cap) / 11 b_pid(u32×cap))。
+//   dispatch = [emit_count, 1, 1](LocalSize 1,1,1;emit_count = 0 时 host 跳
+//   过本 dispatch)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_emit(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    seg_offsets: View<global, u32>,
+    rand_table: View<global, f32>,
+    b_pos_x: ViewMut<global, f32>,
+    b_pos_y: ViewMut<global, f32>,
+    b_pos_z: ViewMut<global, f32>,
+    b_vel_x: ViewMut<global, f32>,
+    b_vel_y: ViewMut<global, f32>,
+    b_vel_z: ViewMut<global, f32>,
+    b_age: ViewMut<global, f32>,
+    b_life: ViewMut<global, f32>,
+    b_pid: ViewMut<global, u32>,
+) {
+    let j = tc.global_id();
+    let emit_count = params[0] as usize;
+    if j < emit_count {
+        let alive_slot = params[15] as usize;
+        let slot = seg_offsets[alive_slot] as usize + j;
+        let pid = params[1] as usize + j;
+        // 随机带消费律(host emit_step 同式;槽位表 0..6)。
+        let r0 = rand_table[(pid * 7919usize + 0usize) % 65536usize];
+        let r1 = rand_table[(pid * 7919usize + 1usize) % 65536usize];
+        let r2 = rand_table[(pid * 7919usize + 2usize) % 65536usize];
+        let r3 = rand_table[(pid * 7919usize + 3usize) % 65536usize];
+        let r4 = rand_table[(pid * 7919usize + 4usize) % 65536usize];
+        let r5 = rand_table[(pid * 7919usize + 5usize) % 65536usize];
+        let r6 = rand_table[(pid * 7919usize + 6usize) % 65536usize];
+        b_pos_x[slot] = params[2] + (r0 * 2.0 - 1.0) * params[5];
+        b_pos_y[slot] = params[3] + (r1 * 2.0 - 1.0) * params[6];
+        b_pos_z[slot] = params[4] + (r2 * 2.0 - 1.0) * params[7];
+        b_vel_x[slot] = params[8] + (r3 * 2.0 - 1.0) * params[11];
+        b_vel_y[slot] = params[9] + (r4 * 2.0 - 1.0) * params[12];
+        b_vel_z[slot] = params[10] + (r5 * 2.0 - 1.0) * params[13];
+        b_age[slot] = 0.0;
+        b_life[slot] = params[14] * (0.5 + 0.5 * r6);
+        b_pid[slot] = pid as u32;
+    }
+}

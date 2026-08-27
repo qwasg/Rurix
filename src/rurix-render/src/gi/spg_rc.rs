@@ -803,10 +803,9 @@ pub fn filter_radiance_3x3(
                     let t = (dep[q] - dep[r]).abs()
                         / (M99_FILTER_DEPTH_REL_TOL * dep[q].max(dep[r]).max(0.05));
                     let wd = 1.0 / (1.0 + t * t);
-                    let dot = (nrm[q][0] * nrm[r][0]
-                        + nrm[q][1] * nrm[r][1]
-                        + nrm[q][2] * nrm[r][2])
-                        .max(0.0);
+                    let dot =
+                        (nrm[q][0] * nrm[r][0] + nrm[q][1] * nrm[r][1] + nrm[q][2] * nrm[r][2])
+                            .max(0.0);
                     let wn = dot.powi(M99_FILTER_NORMAL_EXP);
                     let w = wd * wn;
                     acc[0] += rad[r][0] * w;
@@ -868,7 +867,9 @@ pub struct CacheFrame {
 
 /// tile 图打包为 ImageF32(3ch;temporal 底座接口形)。
 pub fn tiles_to_image(tw: u32, th: u32, tiles: &[[f32; 3]]) -> ImageF32 {
-    ImageF32::from_fn(tw, th, 3, |x, y, c| tiles[(y * tw + x) as usize][c as usize])
+    ImageF32::from_fn(tw, th, 3, |x, y, c| {
+        tiles[(y * tw + x) as usize][c as usize]
+    })
 }
 
 /// 1ch/3ch 辅助打包(深度/法线 tile 图 → ImageF32;历史验证输入)。
@@ -1081,7 +1082,12 @@ impl SpgRcFrame {
 
 /// 装配一帧(纯函数;逐像素 rgb = direct + albedo × tile radiance〔tile =
 /// 4 px 最细级〕;主未命中像素直出 0)。
-pub fn assemble(gb: &GBuffer, tile_rad: &[[f32; 3]], counters: RcCounters, grid: &SpgGrid) -> Result<SpgRcFrame, SpgError> {
+pub fn assemble(
+    gb: &GBuffer,
+    tile_rad: &[[f32; 3]],
+    counters: RcCounters,
+    grid: &SpgGrid,
+) -> Result<SpgRcFrame, SpgError> {
     let tw = gb.width.div_ceil(M99_FILTER_CELL);
     let th = gb.height.div_ceil(M99_FILTER_CELL);
     if tile_rad.len() != (tw * th) as usize {
@@ -1203,7 +1209,10 @@ impl M99SpgRcBand {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n  \"schema\": \"rurix.g9m99.spg_rc_band.v1\",\n");
-        s.push_str(&format!("  \"frozen_at_utc\": \"{}\",\n", self.frozen_at_utc));
+        s.push_str(&format!(
+            "  \"frozen_at_utc\": \"{}\",\n",
+            self.frozen_at_utc
+        ));
         s.push_str(&format!("  \"device_name\": \"{}\",\n", self.device_name));
         s.push_str(&format!("  \"scene\": \"{}\",\n", self.scene));
         s.push_str(&format!(
@@ -1214,8 +1223,14 @@ impl M99SpgRcBand {
             "  \"freeze_rule\": \"band_rel_dev = measured_rel_dev * {:.1}(规则冻结于 gi::spg_rc::M99_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)\",\n",
             M99_BAND_MARGIN
         ));
-        s.push_str(&format!("  \"matched_depth\": \"{}\",\n", M99_MATCHED_DEPTH));
-        s.push_str(&format!("  \"m96_golden_spp\": \"{}\",\n", M99_M96_GOLDEN_SPP));
+        s.push_str(&format!(
+            "  \"matched_depth\": \"{}\",\n",
+            M99_MATCHED_DEPTH
+        ));
+        s.push_str(&format!(
+            "  \"m96_golden_spp\": \"{}\",\n",
+            M99_M96_GOLDEN_SPP
+        ));
         s.push_str(&format!("  \"seed_chain\": \"{}\",\n", M99_SEED));
         s.push_str(&format!(
             "  \"product_is_variance_ratio\": \"{:e}\",\n",
@@ -1284,7 +1299,10 @@ impl M99SpgRcBand {
             }
             let product_digest = field("product_digest")?;
             let m96_digest = field("m96_digest")?;
-            for (nm, d) in [("product_digest", &product_digest), ("m96_digest", &m96_digest)] {
+            for (nm, d) in [
+                ("product_digest", &product_digest),
+                ("m96_digest", &m96_digest),
+            ] {
                 if d.len() != 64 || !d.chars().all(|c| c.is_ascii_hexdigit()) {
                     return Err(err(&format!("{nm} 非 64 位 hex")));
                 }
@@ -1343,7 +1361,12 @@ pub fn pack_probes(grid: &SpgGrid) -> Vec<f32> {
 }
 
 /// kernel 参数打包(21 f32;与 `kernels/g9_m99_spg_probe.rx` 头注逐字同源)。
-pub fn pack_probe_params(scene: &PtScene, probe_count: u32, spp: u32, product_is: bool) -> Vec<f32> {
+pub fn pack_probe_params(
+    scene: &PtScene,
+    probe_count: u32,
+    spp: u32,
+    product_is: bool,
+) -> Vec<f32> {
     let l = &scene.light;
     let ln = l.normal();
     let mut p = Vec::with_capacity(21);
@@ -1387,8 +1410,14 @@ mod tests {
     #[test]
     fn subdivide_cause_closed_set_and_names() {
         // 判据闭集三字面冻结(evidence 键)。
-        assert_eq!(SubdivideCause::DepthDiscontinuity.name(), "depth_discontinuity");
-        assert_eq!(SubdivideCause::NormalDiscontinuity.name(), "normal_discontinuity");
+        assert_eq!(
+            SubdivideCause::DepthDiscontinuity.name(),
+            "depth_discontinuity"
+        );
+        assert_eq!(
+            SubdivideCause::NormalDiscontinuity.name(),
+            "normal_discontinuity"
+        );
         assert_eq!(SubdivideCause::RadianceVariance.name(), "radiance_variance");
         // 纯函数判据三元:深度/法线/方差独立评估(一 cell 可同触发多判据)。
         let st = CellStats {
@@ -1409,10 +1438,7 @@ mod tests {
         };
         assert_eq!(subdivide_triggers(&st), [false, false, true]);
         // 全不触发 ⇒ 不细分;有效像素不足 ⇒ 不细分(显式)。
-        let st = CellStats {
-            lum_var: 0.0,
-            ..st
-        };
+        let st = CellStats { lum_var: 0.0, ..st };
         assert_eq!(subdivide_triggers(&st), [false; 3]);
         assert_eq!(subdivide_triggers(&CellStats::default()), [false; 3]);
     }
@@ -1427,7 +1453,11 @@ mod tests {
         assert_eq!(uni.probes.len(), 16);
         assert!(uni.level_map.iter().all(|&l| l == 0));
         assert!(uni.cause_counts.iter().all(|&c| c == 0));
-        assert!(uni.probes.iter().all(|p| p.level == 0 && p.cell[2] == M99_BASE_CELL));
+        assert!(
+            uni.probes
+                .iter()
+                .all(|p| p.level == 0 && p.cell[2] == M99_BASE_CELL)
+        );
         // 开自适应 ⇒ 增量细分:cornell 盒棱/阴影边界 cell 必触发(level>0),
         // probe 数 > 16,判据闭集计数非空;双跑位级一致。
         let ad = build_spg_grid(&gb, true);
@@ -1441,7 +1471,10 @@ mod tests {
         for (i, &hit) in gb.primary_hit.iter().enumerate() {
             if hit {
                 let pi = ad.pixel_probe[i];
-                assert!(pi != u32::MAX && ad.probes[pi as usize].valid, "像素 {i} 无有效 probe");
+                assert!(
+                    pi != u32::MAX && ad.probes[pi as usize].valid,
+                    "像素 {i} 无有效 probe"
+                );
             }
         }
     }
@@ -1473,7 +1506,10 @@ mod tests {
         );
         // sabotage 探针:开 vs 开 方差比 = 1 ⇒ 不得误检(能红证明的对偶)。
         let ratio_same = var(&on) / var(&on).max(1e-30);
-        assert!(ratio_same < M99_PRODUCT_IS_VAR_RATIO_MIN, "on/on 比 = 1 不误检");
+        assert!(
+            ratio_same < M99_PRODUCT_IS_VAR_RATIO_MIN,
+            "on/on 比 = 1 不误检"
+        );
         // 确定性:同流双跑位级一致。
         let on2 = trace_probes_host(&scene, &grid, &stream, M99_PROBE_SPP, true).expect("追踪");
         assert_eq!(on, on2, "同输入双跑位级一致");
@@ -1503,7 +1539,10 @@ mod tests {
         // 中心 (1,1) 邻域:8 个权重 1 + 脉冲权重 1/82 ⇒ 吸入 = (82/82)/(8+1/82)=1/8.0122。
         let got = out2[5][0];
         let expect = 1.0 / (8.0 + 1.0 / 82.0);
-        assert!((got - expect).abs() < 1e-4, "深度断裂权重锚定: {got} vs {expect}");
+        assert!(
+            (got - expect).abs() < 1e-4,
+            "深度断裂权重锚定: {got} vs {expect}"
+        );
         // 无效中心输出保持零(G8 同语义)。
         let mut valid3 = valid.clone();
         valid3[5] = false;
@@ -1522,8 +1561,17 @@ mod tests {
         let nrm0 = tiles_nrm_image(tw, th, &vec![[0.0f32, 1.0, 0.0]; 8]);
         let mv = ImageF32::new(tw, th, 2); // 零 MV 场(静态相机)
         // 首帧:无历史 ⇒ 全 miss+insert,无验证语义(history_validated=false 显式)。
-        let f0 = screen_cache_frame(tw, th, &cur, &dep0, &nrm0, None, &mv, HistoryPath::TemporalBase)
-            .expect("首帧");
+        let f0 = screen_cache_frame(
+            tw,
+            th,
+            &cur,
+            &dep0,
+            &nrm0,
+            None,
+            &mv,
+            HistoryPath::TemporalBase,
+        )
+        .expect("首帧");
         assert_eq!(f0.counters.screen_misses, 8);
         assert_eq!(f0.counters.screen_inserts, 8);
         assert_eq!(f0.counters.screen_hits, 0);
@@ -1564,7 +1612,19 @@ mod tests {
             "私写重投影注入必拒: {audited:?}"
         );
         // 形状非法 fail-closed。
-        assert!(screen_cache_frame(tw, th, &cur[..4], &dep0, &nrm0, None, &mv, HistoryPath::TemporalBase).is_err());
+        assert!(
+            screen_cache_frame(
+                tw,
+                th,
+                &cur[..4],
+                &dep0,
+                &nrm0,
+                None,
+                &mv,
+                HistoryPath::TemporalBase
+            )
+            .is_err()
+        );
     }
 
     //@ spec: RXS-0360
@@ -1638,13 +1698,33 @@ mod tests {
         let parsed = M99SpgRcBand::parse(&text).expect("解析");
         assert_eq!(parsed, band, "序列化往返全等");
         // 正例:check 过。
-        parsed.check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 0.75).expect("带内");
-        parsed.check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 1.5).expect("带上界含");
+        parsed
+            .check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 0.75)
+            .expect("带内");
+        parsed
+            .check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 1.5)
+            .expect("带上界含");
         // 篡改 digest 必拒;越带必拒;缺条目必拒;NaN 必拒。
-        assert!(parsed.check("spg_adaptive", &"c".repeat(64), &"a".repeat(64), 0.75).is_err());
-        assert!(parsed.check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 1.51).is_err());
-        assert!(parsed.check("nope", &"b".repeat(64), &"a".repeat(64), 0.1).is_err());
-        assert!(parsed.check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), f64::NAN).is_err());
+        assert!(
+            parsed
+                .check("spg_adaptive", &"c".repeat(64), &"a".repeat(64), 0.75)
+                .is_err()
+        );
+        assert!(
+            parsed
+                .check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), 1.51)
+                .is_err()
+        );
+        assert!(
+            parsed
+                .check("nope", &"b".repeat(64), &"a".repeat(64), 0.1)
+                .is_err()
+        );
+        assert!(
+            parsed
+                .check("spg_adaptive", &"b".repeat(64), &"a".repeat(64), f64::NAN)
+                .is_err()
+        );
         // 坏 schema/坏 hex 必拒。
         assert!(M99SpgRcBand::parse("{\"schema\": \"nope\"}").is_err());
         let bad = text.replace(&"b".repeat(64), &"z".repeat(64));
@@ -1656,9 +1736,11 @@ mod tests {
     fn m96_anchor_consumed_from_m97_band() {
         // 门序消费锚(D2-Q7):M97 冻结带 m96_cornell 深度 2 条目 digest 可读,
         // 与 M99 门序锚口径一致(本条 host 侧锚;harness 侧再对 M96 实跑 digest)。
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../milestones/g9/g9_m97_depth_band.json");
-        let text = std::fs::read_to_string(path)
-            .expect("M97 冻结带存在(G9.4 波内已就位)");
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../milestones/g9/g9_m97_depth_band.json"
+        );
+        let text = std::fs::read_to_string(path).expect("M97 冻结带存在(G9.4 波内已就位)");
         let band = surface_cache::DepthBand::parse(&text).expect("M97 带解析");
         let e = band.entry(M99_MATCHED_DEPTH).expect("深度 2 条目");
         assert_eq!(e.m96_digest.len(), 64, "M96 digest 64 位 hex");

@@ -1,0 +1,30 @@
+//@ spec: RFC-0049 §4.6(G35-3 粒子渲染接线 splat 清屏;spec 条款号本期零新设)
+// G35-P 粒子渲染 · winner 缓冲逐像素清零 —— splat 赢家竞争的帧首基态(门
+// g35.wave3.render;G35_CONTRACT §4 契约,src/particles/mod.rs 契约头字面)。
+//
+// ## 架构(G35-3 渲染 pass 组第 8 步,先于 g35_render_splat)
+// winner 缓冲 = u64/px(打包 = key24<<40 | slot24,g35_render_splat 头注),
+// `0u64` = 空像素哨兵(g35_render_resolve 消费面判 `winner != 0`)。本 kernel
+// 每 invocation 清一像素:winner[g] = 0u64——非原子 ViewMut<global,u64> 直
+// store(splat pass 在后,帧内屏障计划保证清零先于 fetch_max 竞争;跨线程
+// 零交互 ⇒ 固定输入双跑位级一致)。无 shared / 无原子 / 零浮点。
+//
+// ## 参数面(与 g35_render_splat/g35_render_resolve 共享 P_PARAMS_RENDER
+// 64 f32 布局,本 kernel 只消费 [6];布局单源 = bin/g35_particle_lane.rs
+// `pack_render_params` 头注)
+//   params[6]=px_count(内部分辨率 iw·ih;f32 精确域 < 2^24)。
+//   winner: u64 × px_count(splat 赢家缓冲)。
+//   dispatch = [px_count, 1, 1](LocalSize 1,1,1;g14_8 注:百万工作组×1
+//   线程调度为既证形态——g35_scan_seg_sum 同律)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_splat_clear(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    winner: ViewMut<global, u64>,
+) {
+    let g = tc.global_id();
+    let px_count = params[6] as usize;
+    if g < px_count {
+        winner[g] = 0u64;
+    }
+}

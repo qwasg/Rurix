@@ -1,0 +1,464 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G34 全特性合流 G34-3 蒙皮真窗口统一车道 harness evidence（g34_full_lane --skin on 真跑面）",
+  "description": "evidence/g34_skin_unified_*.json（或 --evidence 指定路径）。G34-3 蒙皮角色进真窗口统一车道门 g34.wave2.skin：harness = src/rurix-render/src/bin/g34_full_lane.rs --full --slab-table <asset> --skin on --auto-move orbit（蒙皮×纹理×slab×动态实例四特性同开;蒙皮段全量收 src/bin/g34_full_lane/g34_skin_section.rs 独立 include 区段）。车道 = G34Full 27 SSBO 加性扩蒙皮七件（27=hit 命中信息通道 4f32/px,28=REST 绑定姿态,29=WT 权重,30/31=palette 双表逐帧上传,32=PREV 蒙皮 prev 顶点表,33=SKIN_PARAMS 64B）+ encode 两件 = 36 资源六 pass（g31_skin 0-byte 复用 → FrameUpdate::blas_refit 桥〔角色 BLAS 2 逐帧 UPDATE〕→ kernels/g34_unified_gi_skin.rx〔G34-1 统一 kernel + out_hit + 角色实例分派 params[43]/[44]〕→ kernels/g34_unified_mv.rx〔g31_skin_mv 镜像 + 类 2 刚性实例臂 params[40..54],A4 登记缺口本腿顺手接通〕→ TSR 双 pass → device 显示编码）+ 逐帧 tlas_update refit（3 实例表,动态槽位级增量 64B）+ swapchain 真窗口呈现;顺序入口 inflight=1（FIF 流水面拒 tlas_update/blas_refit,A2 同律）。核验三面（每 10 帧 fail-closed）：① 蒙皮 device/host 逐顶点对拍（tris 角色段回读 vs host skin_vertex,max_abs == 0 位级门——G31 B5 在案口径,NoContraction 注入前提）② 位置核验（host 蒙皮投影并集掩码 vs hit 通道 inst==2 地面真值检测,质心 ≤4.0px/AABB ≤6.0px/计数 ≥ max(200,0.75×掩码)——B5 在案口径）③ MV 通道（类 3 蒙皮 dev/host 逐分量中位差 ≤2.0px + 窗级聚合真动门 max host ≥1.0px + 高动帧条件 ratio 门 dev ≥0.5×host——B5 在案口径;类 1 静态区相机 MV 一致性 ≤2.0px——auto-move 动相机下 B5「静态区 ≤1.5px 绝对门」的诚实重述;类 2 刚性实例 hit 通道 inst==1 像素 dev/host ≤2.0px,核验激活帧 ≥1）。digest_seq = 逐帧 BGRA8 打包帧 sha256（G31BGRA-1 前缀）：确定性双跑位级 + skin≠静态/skin≠无skin全特性区分门判定对象。host_parity = null 诚实登记（蒙皮腿对拍 = ① 逐顶点臂承载;G34-1 冻结容差标定面 = 非蒙皮腿在案,不混口径）。三态：无 Vulkan/设备/场景资产/SPV → skipped_dev_env 退 0（不冒充 PASS;RURIX_REQUIRE_REAL=1 翻 FAIL）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "trajectory",
+    "frames",
+    "warmup",
+    "frames_completed",
+    "exit_reason",
+    "resize_eras",
+    "resolution",
+    "internal_resolution",
+    "real_render_frame_ms",
+    "real_render_fps",
+    "present_frame_ms",
+    "present_overhead_ms",
+    "encode_frame_ms",
+    "digest_frame_ms",
+    "render_digest",
+    "digest",
+    "digest_seq",
+    "ev100_seq",
+    "camera_poses",
+    "ev100_ramp",
+    "headless",
+    "window",
+    "contracts",
+    "render_includes_forced_readback",
+    "spv",
+    "features",
+    "textures",
+    "slab",
+    "dyn",
+    "skin",
+    "host_parity",
+    "stats",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g34.skin_unified_evidence.v1" },
+    "gate": { "type": "string", "const": "g34.wave2.skin" },
+    "scene": { "type": "string", "const": "bistro-interior" },
+    "tier": { "type": "integer", "enum": [50, 67, 100] },
+    "backend": { "type": "string", "const": "tsr_device" },
+    "trajectory": { "type": ["string", "null"], "enum": ["orbit", "dolly", null] },
+    "frames": { "type": "integer", "minimum": 1 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "frames_completed": { "type": "integer", "minimum": 0 },
+    "exit_reason": { "type": "string", "enum": ["frames_done", "user_close"] },
+    "resize_eras": { "type": "integer", "minimum": 0 },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "internal_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "real_render_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+    "real_render_fps": { "type": "number", "exclusiveMinimum": 0 },
+    "present_frame_ms": { "type": ["number", "null"] },
+    "present_overhead_ms": { "type": ["number", "null"] },
+    "encode_frame_ms": { "type": "number", "minimum": 0 },
+    "digest_frame_ms": { "type": "number", "minimum": 0 },
+    "render_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest_seq": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "逐帧 BGRA8 打包帧 digest 序列（auto-move 面长度 == frames_completed;蒙皮闭集恒 auto-move,非空）"
+    },
+    "ev100_seq": { "type": "array", "items": { "type": "number" } },
+    "camera_poses": {
+      "type": "array",
+      "items": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "type": "number" } }
+    },
+    "ev100_ramp": { "type": "null" },
+    "headless": { "type": "boolean", "const": false },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["visible", "channel_order", "extent", "frames_presented", "swapchain_rebuilds"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "channel_order": { "type": "string", "enum": ["bgra8_unorm", "rgba8_unorm"] },
+        "extent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["w", "h"],
+          "properties": {
+            "w": { "type": "integer", "minimum": 1 },
+            "h": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "frames_presented": { "type": "integer", "minimum": 1 },
+        "swapchain_rebuilds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "g10_contract", "g10_camera", "g10_lighting", "consistency", "delta_note", "encode_spv"],
+      "properties": {
+        "production": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest"],
+          "properties": {
+            "path": { "type": "string" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "consistency": { "type": "string", "const": "pass" },
+        "delta_note": { "type": "string" },
+        "encode_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
+    "render_includes_forced_readback": { "type": "boolean", "const": true },
+    "spv": { "type": "object" },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["textures", "slab", "dyn", "full", "static_camera", "skin"],
+      "properties": {
+        "textures": { "type": "boolean", "const": true },
+        "slab": { "type": "boolean", "const": true },
+        "dyn": { "type": "boolean", "const": true },
+        "full": { "type": "boolean", "const": true },
+        "static_camera": { "type": "boolean", "const": false },
+        "skin": { "type": "boolean", "const": true }
+      }
+    },
+    "textures": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["census", "mapping_law", "mapped_materials", "tex_tris", "atlas", "linlut_digest", "slab_premod_slots", "probe", "spv_scene"],
+      "properties": {
+        "census": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["materials_total", "with_base_color_texture", "with_normal_texture", "with_metallic_roughness_texture", "primitives_total", "primitives_with_texcoord0", "primitives_with_tangent"],
+          "properties": {
+            "materials_total": { "type": "integer", "const": 70 },
+            "with_base_color_texture": { "type": "integer", "const": 70 },
+            "with_normal_texture": { "type": "integer", "const": 70 },
+            "with_metallic_roughness_texture": { "type": "integer", "const": 0 },
+            "primitives_total": { "type": "integer", "const": 2062 },
+            "primitives_with_texcoord0": { "type": "integer", "const": 2062 },
+            "primitives_with_tangent": { "type": "integer", "const": 0 }
+          }
+        },
+        "mapping_law": { "type": "string" },
+        "mapped_materials": { "type": "integer", "const": 12 },
+        "tex_tris": { "type": "integer", "minimum": 1 },
+        "atlas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "tile", "format", "digest"],
+          "properties": {
+            "width": { "type": "integer", "const": 8192 },
+            "height": { "type": "integer", "const": 6144 },
+            "tile": { "type": "integer", "const": 2048 },
+            "format": { "type": "string", "const": "u32_packed_rgba8" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "linlut_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "slab_premod_slots": { "type": "integer", "minimum": 0 },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["probe_count", "eval_ms", "ssbo", "sampler_leg"],
+          "properties": {
+            "probe_count": { "type": "integer", "const": 288 },
+            "eval_ms": { "type": "number", "minimum": 0 },
+            "ssbo": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["p100", "bitexact", "double_run_bitexact", "device_digest", "host_digest"],
+              "properties": {
+                "p100": { "type": "number", "minimum": 0 },
+                "bitexact": { "type": "boolean", "const": true },
+                "double_run_bitexact": { "type": "boolean", "const": true },
+                "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            },
+            "sampler_leg": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["max_lsb_diff", "bound_lsb", "bitexact"],
+              "properties": {
+                "max_lsb_diff": { "type": "integer", "minimum": 0, "maximum": 1 },
+                "bound_lsb": { "type": "integer", "const": 1 },
+                "bitexact": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "spv_scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "no_contraction_injected"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "no_contraction_injected": { "type": "boolean", "const": true }
+          }
+        }
+      }
+    },
+    "slab": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["asset_path", "abi_digest", "mapped_materials", "slab_tris", "parity_p100", "eval_ms", "arm", "tex_premod_slots", "device_digest", "host_digest"],
+      "properties": {
+        "asset_path": { "type": "string" },
+        "abi_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "mapped_materials": { "type": "integer", "const": 5 },
+        "slab_tris": { "type": "integer", "minimum": 1 },
+        "parity_p100": { "type": "number", "minimum": 0 },
+        "eval_ms": { "type": "number", "minimum": 0 },
+        "arm": { "type": "string", "const": "device" },
+        "tex_premod_slots": { "type": "integer", "minimum": 0 },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "dyn": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["dyn_tris", "dyn_tri_base", "action", "verify_every", "tol_centroid_px", "tol_aabb_px", "min_count_area_ratio", "verify_frames", "verify_count", "all_pass"],
+      "properties": {
+        "dyn_tris": { "type": "integer", "const": 12 },
+        "dyn_tri_base": { "type": "integer", "minimum": 1 },
+        "action": { "type": "string", "const": "refit" },
+        "verify_every": { "type": "integer", "const": 10 },
+        "tol_centroid_px": { "type": "number" },
+        "tol_aabb_px": { "type": "number" },
+        "min_count_area_ratio": { "type": "number" },
+        "verify_frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["frame", "pred_px", "pred_aabb", "obs_px", "obs_aabb", "obs_count", "centroid_delta_px", "aabb_delta_px", "pass"],
+            "properties": {
+              "frame": { "type": "integer", "minimum": 1 },
+              "pred_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "pred_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "obs_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_count": { "type": "integer", "minimum": 0 },
+              "centroid_delta_px": { "type": "number" },
+              "aabb_delta_px": { "type": "number" },
+              "pass": { "type": "boolean", "const": true }
+            }
+          }
+        },
+        "verify_count": { "type": "integer", "minimum": 1 },
+        "all_pass": { "type": "boolean", "const": true }
+      }
+    },
+    "skin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character", "tolerance", "vertex_parity", "verify_frames", "verify_count", "all_pass", "motion_gate", "mv_gap", "skin_gpu_ms"],
+      "properties": {
+        "character": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bone_count", "tri_count", "vertex_count", "origin", "emission", "albedo", "char_tri_base", "char_inst", "blas_index", "spv_skin", "spv_mv"],
+          "properties": {
+            "bone_count": { "type": "integer", "const": 3 },
+            "tri_count": { "type": "integer", "const": 36 },
+            "vertex_count": { "type": "integer", "const": 108 },
+            "origin": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+            "emission": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+            "albedo": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+            "char_tri_base": { "type": "integer", "minimum": 1 },
+            "char_inst": { "type": "integer", "const": 2 },
+            "blas_index": { "type": "integer", "const": 2 },
+            "spv_skin": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string" },
+                "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            },
+            "spv_mv": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string" },
+                "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            }
+          }
+        },
+        "tolerance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["vertex_max_abs", "centroid_px", "aabb_px", "mv_median_px", "min_count_ratio", "mv_host_motion_min_px", "mv_dev_ratio_min", "static_mv_consistency_px", "rigid_mv_px", "rigid_min_count"],
+          "properties": {
+            "vertex_max_abs": { "type": "number", "const": 0.0, "description": "① 逐顶点 device/host 对拍位级门（B5 在案口径：max_abs == 0）" },
+            "centroid_px": { "type": "number", "const": 4.0 },
+            "aabb_px": { "type": "number", "const": 6.0 },
+            "mv_median_px": { "type": "number", "const": 2.0 },
+            "min_count_ratio": { "type": "number", "const": 0.75 },
+            "mv_host_motion_min_px": { "type": "number", "const": 1.0 },
+            "mv_dev_ratio_min": { "type": "number", "const": 0.5 },
+            "static_mv_consistency_px": { "type": "number", "const": 2.0, "description": "类 1 静态区相机 MV 一致性（auto-move 动相机下 B5 静态绝对门的诚实重述）" },
+            "rigid_mv_px": { "type": "number", "const": 2.0, "description": "类 2 刚性实例 MV dev/host 逐分量中位差（A4 缺口接通面核验容差）" },
+            "rigid_min_count": { "type": "integer", "const": 50 }
+          }
+        },
+        "vertex_parity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["frames", "max_abs_max", "all_bitexact"],
+          "properties": {
+            "frames": { "type": "integer", "minimum": 1 },
+            "max_abs_max": { "type": "number", "const": 0.0, "description": "① 全核验帧逐顶点 max_abs 窗级最大 == 0 才许通过（位级门）" },
+            "all_bitexact": { "type": "boolean", "const": true }
+          }
+        },
+        "verify_frames": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["frame", "vertex_max_abs", "pred_px", "pred_aabb", "obs_px", "obs_aabb", "obs_count", "centroid_delta_px", "aabb_delta_px", "mv_dev_median_px", "mv_host_median_px", "mv_median_delta_px", "mv_host_motion_px", "mv_dev_motion_px", "static_mv_dev_px", "static_mv_host_px", "static_mv_delta_px", "rigid_count", "rigid_mv_dev_px", "rigid_mv_host_px", "rigid_mv_delta_px", "pass"],
+            "properties": {
+              "frame": { "type": "integer", "minimum": 1 },
+              "vertex_max_abs": { "type": "number", "const": 0.0 },
+              "pred_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "pred_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "obs_aabb": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+              "obs_count": { "type": "integer", "minimum": 1 },
+              "centroid_delta_px": { "type": "number", "maximum": 4.0 },
+              "aabb_delta_px": { "type": "number", "maximum": 6.0 },
+              "mv_dev_median_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "mv_host_median_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "mv_median_delta_px": {
+                "type": "array", "minItems": 2, "maxItems": 2,
+                "items": { "type": "number", "maximum": 2.0 },
+                "description": "类 3 蒙皮 MV dev/host 逐分量中位差（B5 在案 ≤2.0px 口径）"
+              },
+              "mv_host_motion_px": { "type": "number" },
+              "mv_dev_motion_px": { "type": "number" },
+              "static_mv_dev_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "static_mv_host_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "static_mv_delta_px": {
+                "type": "array", "minItems": 2, "maxItems": 2,
+                "items": { "type": "number", "maximum": 2.0 }
+              },
+              "rigid_count": { "type": "integer", "minimum": 0 },
+              "rigid_mv_dev_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": ["number", "string"] } },
+              "rigid_mv_host_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": ["number", "string"] } },
+              "rigid_mv_delta_px": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": ["number", "string"] } },
+              "pass": { "type": "boolean", "const": true }
+            }
+          }
+        },
+        "verify_count": { "type": "integer", "minimum": 1 },
+        "all_pass": { "type": "boolean", "const": true },
+        "motion_gate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host_motion_max_px", "threshold_px"],
+          "properties": {
+            "host_motion_max_px": { "type": "number", "minimum": 1.0, "description": "窗级聚合真动门：核验窗内 max host_motion ≥ 1.0px 才许通过" },
+            "threshold_px": { "type": "number", "const": 1.0 }
+          }
+        },
+        "mv_gap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class1_camera", "class2_rigid", "class3_skinned", "class1_delta_max_px", "class2_delta_max_px", "class3_delta_max_px", "rigid_active_frames", "note"],
+          "properties": {
+            "class1_camera": { "type": "string" },
+            "class2_rigid": { "type": "string" },
+            "class3_skinned": { "type": "string" },
+            "class1_delta_max_px": { "type": "number", "maximum": 2.0 },
+            "class2_delta_max_px": { "type": "number", "maximum": 2.0, "description": "类 2 刚性 MV 核验激活帧逐分量中位差窗级最大（A4 缺口接通面 measured）" },
+            "class3_delta_max_px": { "type": "number", "maximum": 2.0 },
+            "rigid_active_frames": { "type": "integer", "minimum": 1 },
+            "note": { "type": "string" }
+          }
+        },
+        "skin_gpu_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mean", "min"],
+          "properties": {
+            "mean": { "type": "number", "exclusiveMinimum": 0 },
+            "min": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "host_parity": { "type": "null", "description": "蒙皮腿 = null 诚实登记（对拍面 = ① 逐顶点臂承载;G34-1 冻结容差标定面 = 非蒙皮腿在案,不混口径）" },
+    "stats": { "type": "object" },
+    "notes": { "type": "string" }
+  }
+}

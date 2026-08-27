@@ -417,9 +417,7 @@ impl BlasSet for BlasCache {
 // ---------------------------------------------------------------------------
 
 use crate::geometry::cull::VisibleCluster;
-use crate::geometry::visible_cluster_set::{
-    Consumer, ProvenanceError, RtFeed, VisibleClusterSet,
-};
+use crate::geometry::visible_cluster_set::{Consumer, ProvenanceError, RtFeed, VisibleClusterSet};
 
 /// RT 腿消费锚(G9.3 M95):当帧 BLAS 拼装的输入数组 = [`RtFeed`]
 /// ([`VisibleClusterSet::feed_rt`] 产物)**直接派生**——本函数是 RT 消费方
@@ -951,9 +949,7 @@ mod tests {
     // G9.3 M95(RXS-0352):RT 腿 as_manager 消费锚(结构断言 + RED)
     // -----------------------------------------------------------------------
 
-    use crate::geometry::visible_cluster_set::{
-        VisibleClusterEntry, compute_provenance_digest,
-    };
+    use crate::geometry::visible_cluster_set::{VisibleClusterEntry, compute_provenance_digest};
 
     /// 手构两元素可见集(与 visbuffer 单测同型;cluster 0 静态 + cluster 1 蒙皮)。
     fn two_entry_set(serial: u64) -> crate::geometry::visible_cluster_set::VisibleClusterSet {

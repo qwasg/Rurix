@@ -1,0 +1,303 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix.g35.events_gate_evidence.v1",
+  "title": "G35-6 事件/数据通道 + particle_view GPU↔host 双向桥门裁决证据(g35.wave6.events;ci/g35_events_smoke.py --gate 产;host→GPU 事件队列 EVENT_CAP=1024 稳定溢出裁剪 + GPU 事件驱动二次发射零回读 + GpuParticleSnapshot/ExternalParticlesAdapter 双向桥;facts=8 闭集)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "frame_protocol",
+    "event_protocol",
+    "overflow",
+    "spawn_parity",
+    "zero_readback",
+    "bridge_roundtrip",
+    "f32_parity",
+    "results",
+    "determinism",
+    "red_arm",
+    "frame_ms",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "rurix.g35.events_gate_evidence.v1" },
+    "subject": { "const": "g35_events" },
+    "symbolic_gate_key": { "const": "g35.wave6.events" },
+    "wave": { "const": "G35.6" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "enum": [
+              "kernels_spv_valid",
+              "event_overflow_payload_stable",
+              "event_spawn_parity",
+              "gpu_secondary_emission_zero_readback",
+              "particle_view_bridge_roundtrip",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "verdict": { "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_collect_spv",
+        "event_spawn_spv",
+        "sim_spv",
+        "compact_spv",
+        "emit_spv",
+        "indirect_args_spv",
+        "scan_seg_sum_spv",
+        "scan_spine_spv",
+        "scan_seg_apply_spv",
+        "spirv_val_all",
+        "frozen_consumed_snapshot"
+      ],
+      "properties": {
+        "event_collect_spv": { "$ref": "#/definitions/spv_entry" },
+        "event_spawn_spv": { "$ref": "#/definitions/spv_entry" },
+        "sim_spv": { "$ref": "#/definitions/spv_entry" },
+        "compact_spv": { "$ref": "#/definitions/spv_entry" },
+        "emit_spv": { "$ref": "#/definitions/spv_entry" },
+        "indirect_args_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_sum_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_spine_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_apply_spv": { "$ref": "#/definitions/spv_entry" },
+        "spirv_val_all": { "type": "boolean" },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "minProperties": 10,
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(sha256:[0-9a-f]{64}|MISSING)$"
+          }
+        }
+      }
+    },
+    "frame_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frames",
+        "cap",
+        "seed",
+        "dt",
+        "burst",
+        "emit_schedule",
+        "host_event_schedule",
+        "n_final",
+        "alive_final",
+        "pids_issued"
+      ],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 64 },
+        "cap": { "type": "integer", "minimum": 16384, "multipleOf": 256 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "dt": { "type": "number", "exclusiveMinimum": 0 },
+        "burst": { "type": "integer", "minimum": 1 },
+        "emit_schedule": { "type": "string", "minLength": 1 },
+        "host_event_schedule": { "type": "string", "minLength": 1 },
+        "n_final": { "type": "integer", "minimum": 0 },
+        "alive_final": { "type": "integer", "minimum": 0 },
+        "pids_issued": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "event_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_cap", "layout", "trim_order", "merge_order"],
+      "properties": {
+        "event_cap": { "const": 1024 },
+        "layout": { "type": "string", "minLength": 1 },
+        "trim_order": { "type": "string", "minLength": 1 },
+        "merge_order": { "const": "host_first_gpu_after" }
+      }
+    },
+    "overflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "trim_dual_order_stable", "death_overflow_frames"],
+      "properties": {
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["frame", "pushed", "kept", "overflow"],
+            "properties": {
+              "frame": { "type": "integer", "minimum": 0 },
+              "pushed": { "type": "integer", "minimum": 0 },
+              "kept": { "type": "integer", "minimum": 0, "maximum": 1024 },
+              "overflow": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "trim_dual_order_stable": { "type": "boolean" },
+        "death_overflow_frames": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "spawn_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "src_meta_bitexact",
+        "counts_match",
+        "pid_range_exact",
+        "integer_streams_bitexact"
+      ],
+      "properties": {
+        "src_meta_bitexact": { "type": "boolean" },
+        "counts_match": { "type": "boolean" },
+        "pid_range_exact": { "type": "boolean" },
+        "integer_streams_bitexact": { "type": "boolean" }
+      }
+    },
+    "zero_readback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ev_count_match",
+        "spawn_counts_match",
+        "secondary_frames",
+        "gpu_accepted_total",
+        "host_accepted_total"
+      ],
+      "properties": {
+        "ev_count_match": { "type": "boolean" },
+        "spawn_counts_match": { "type": "boolean" },
+        "secondary_frames": { "type": "integer", "minimum": 0 },
+        "gpu_accepted_total": { "type": "integer", "minimum": 0 },
+        "host_accepted_total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "bridge_roundtrip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshot_ok", "snapshot_checked", "adapter_tests", "adapter_tests_rc"],
+      "properties": {
+        "snapshot_ok": { "type": "boolean" },
+        "snapshot_checked": { "type": "integer", "minimum": 0 },
+        "adapter_tests": { "type": "string", "minLength": 1 },
+        "adapter_tests_rc": { "type": "integer" }
+      }
+    },
+    "f32_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measured_p100",
+        "spawn_seg_max",
+        "threshold",
+        "budget_entry",
+        "calibrated_this_run",
+        "within",
+        "stream_max"
+      ],
+      "properties": {
+        "measured_p100": { "type": "number" },
+        "spawn_seg_max": { "type": "number" },
+        "threshold": { "type": "number" },
+        "budget_entry": { "const": "g35.events.parity_p100" },
+        "calibrated_this_run": { "type": "boolean" },
+        "within": { "type": "boolean" },
+        "stream_max": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "detected", "tamper_frame", "digest_green", "digest_red"],
+      "properties": {
+        "arm": { "const": "payload-tamper" },
+        "detected": { "type": "boolean" },
+        "tamper_frame": { "type": "integer", "minimum": -1 },
+        "digest_green": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_chain_mean_ms", "frames_per_run", "measured", "note"],
+      "properties": {
+        "device_chain_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frames_per_run": { "type": "integer", "minimum": 1 },
+        "measured": { "const": "measured_local" },
+        "note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "os", "rustc", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string", "minLength": 1 },
+        "os": { "type": "string", "minLength": 1 },
+        "rustc": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z$" },
+    "notes": { "type": "string", "minLength": 1 }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

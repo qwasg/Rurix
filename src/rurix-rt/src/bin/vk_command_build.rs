@@ -355,7 +355,9 @@ fn run_red_inject() {
     }
     match assert_zero_readback_since(baseline) {
         Err(e @ CommandBuildError::ReadbackDetected { .. }) => {
-            fail(&format!("全链路零 CPU 回读违例(RED 注入生效,device 链路真跑): {e}"));
+            fail(&format!(
+                "全链路零 CPU 回读违例(RED 注入生效,device 链路真跑): {e}"
+            ));
         }
         other => {
             println!("VK_CB: RED-BROKEN 注入未记账回读未检出({other:?})——计数面失效率");
@@ -384,8 +386,8 @@ fn spawn_leg(exe: &std::path::Path, args: &[&str], expect_red_fail: bool) -> (i3
         Ok(o) => o,
         Err(e) => fail(&format!("子进程 {:?} 启动失败: {e}", args)),
     };
-    let text = String::from_utf8_lossy(&out.stdout).into_owned()
-        + &String::from_utf8_lossy(&out.stderr);
+    let text =
+        String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
     print!("{text}");
     let rc = out.status.code().unwrap_or(-1);
     if expect_red_fail {
@@ -476,8 +478,8 @@ fn main() {
         &ParameterPage::from_words(&DISPATCH_WORDS),
     )
     .expect("dispatch 参照");
-    let ref_draw = build_reference(&draw_layout, &ParameterPage::from_words(&DRAW_WORDS))
-        .expect("draw 参照");
+    let ref_draw =
+        build_reference(&draw_layout, &ParameterPage::from_words(&DRAW_WORDS)).expect("draw 参照");
     let ref_draw_indexed = build_reference(
         &draw_indexed_layout,
         &ParameterPage::from_words(&DRAW_INDEXED_WORDS),
@@ -487,7 +489,12 @@ fn main() {
         fail("host 参照字宽与终止 token 元数不符(内部不一致)");
     }
     let digest_ref = fnv1a64(
-        &[ref_dispatch.as_slice(), ref_draw.as_slice(), ref_draw_indexed.as_slice()].concat(),
+        &[
+            ref_dispatch.as_slice(),
+            ref_draw.as_slice(),
+            ref_draw_indexed.as_slice(),
+        ]
+        .concat(),
     );
     println!("CB_HOST_REF_DIGEST: 0x{digest_ref:016x}");
 
@@ -583,8 +590,14 @@ fn main() {
         checks.push(("production_zero_readback", true));
         checks.push(("verification_readback_accounted", verification_total > 0));
 
-        digests.push(("dispatch".into(), format!("0x{:016x}", fnv1a64(&da.bytes[..12]))));
-        digests.push(("draw".into(), format!("0x{:016x}", fnv1a64(&dr.bytes[..16]))));
+        digests.push((
+            "dispatch".into(),
+            format!("0x{:016x}", fnv1a64(&da.bytes[..12])),
+        ));
+        digests.push((
+            "draw".into(),
+            format!("0x{:016x}", fnv1a64(&dr.bytes[..16])),
+        ));
         digests.push((
             "draw_indexed".into(),
             format!("0x{:016x}", fnv1a64(&di.bytes[..20])),
@@ -604,9 +617,7 @@ fn main() {
             // RED 臂同环境 SKIP:主腿已 executed 不应发生;按失效率判 FAIL。
             fail("RED 臂 SKIP 与主腿 executed 状态矛盾");
         }
-        let red_ok = rc == 1
-            && text.contains("零 CPU 回读违例")
-            && text.contains("RED 注入生效");
+        let red_ok = rc == 1 && text.contains("零 CPU 回读违例") && text.contains("RED 注入生效");
         checks.push(("red_injected_readback_detected", red_ok));
         if !red_ok {
             fail(&format!("RED 臂失效:注入未记账回读未翻硬红(rc={rc})"));

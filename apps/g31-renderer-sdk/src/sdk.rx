@@ -1,0 +1,194 @@
+// 渲染器 SDK stable API 面(G31+ 波 C Task C1,G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #48;
+// spec/export_c.md RXS-0250~0255 子集 v1 全合规)。
+//
+// **本文件是 `rurix_renderer.dll` 的唯一源**——`rurixc --emit=dll` 以
+// `#[export(c)]` host fn 为 MIR 收集根(免 main,RXS-0252),同一份 C 映射既产
+// link.exe `/EXPORT:` 参数又产内建头 `rurix_renderer.h`(RXS-0253 单一事实源;
+// 头**自始生成、不手写**,CI 再生成逐字节比对守卫 RXS-0254)。export_c codegen
+// 复用面 = EI1.2 既有机制(RD-009 closed)第三消费方(uc05 embed.rx / 本面)。
+//
+// **薄转发架构**:每个 `rurix_renderer_*` 导出体仅逐字转发到实现层
+// `rurix-renderer-sdk` cdylib 的 `rxsdk_*` 同名符号(u64 句柄表 + i32 状态码;
+// `#[link(name = "rurix_renderer_sdk")]` 经 RXS-0195 链接段追加 import lib)。
+// 宿主(C/C++)只见 C ABI 标量与裸指针,不见任何 Rurix 类型——渲染会话、生产
+// 车道、Vulkan 设备生命周期全部封闭在实现层句柄表内。
+//
+// **subset v1 合规(RXS-0251/0255)**:签名仅 u32/u64/i32/f32/f64 标量 +
+// `*const u8`/`*const f32`/`*mut f64`/`*mut u8`/`*mut u32` 裸指针;无 repr(C)
+// struct 按值、无回调、无数组按值、无跨堆所有权(RD-036 超界四项逐项不触——
+// 判档不成立登记见 milestones/g31/CI_GATES.md §2.9 与 registry/deferred.json
+// RD-036 history)。导出体**无 panic 面 by-construction**:纯转发调用 + 返回,
+// 错误面全经 i32 状态码(RD-026 无 Result 面纪律)。
+//
+// **语义化版本(政策 = apps/g31-renderer-sdk/API_VERSIONING.md 单一事实源)**:
+// `rurix_renderer_abi_version()` 返回打包版本 `major << 16 | minor << 8 | patch`;
+// v1 = 1.0.0(0x00010000)。同一 MAJOR 内只增不破坏(新增导出走 MINOR);破坏性
+// 变更走 RFC + MAJOR 递进并存旧 MAJOR DLL(镜像 RXS-0180 L2 同 edition 纪律)。
+//
+// 状态码闭集(实现层同一字面):0 = 成功;2 = 句柄无效/状态错序/双 destroy;
+// 3 = 输入越界(长度/容量/tier 闭集/契约 digest 不等/指针空);4 = 资产面缺失
+// (契约/gltf/SPV);5 = device/能力链缺失(Vulkan loader/ray query 链);6 =
+// 渲染执行失败(含输出非有限);7 = validation ERROR 计数非零。
+
+#[link(name = "rurix_renderer_sdk")]
+extern "C" {
+    fn rxsdk_abi_version() -> u32;
+    fn rxsdk_caps_probe() -> u64;
+    fn rxsdk_renderer_create(backend: u32) -> u64;
+    fn rxsdk_renderer_destroy(r: u64) -> i32;
+    fn rxsdk_renderer_load_scene(
+        r: u64,
+        contract: *const u8,
+        clen: u32,
+        gltf: *const u8,
+        glen: u32,
+        scene: *const u8,
+        slen: u32,
+        tier: u32,
+        spv_dir: *const u8,
+        sdlen: u32,
+    ) -> i32;
+    fn rxsdk_renderer_set_camera(
+        r: u64,
+        eye: *const f32,
+        fwd: *const f32,
+        up: *const f32,
+        fov_y_rad: f32,
+        near: f32,
+        far: f32,
+    ) -> i32;
+    fn rxsdk_renderer_set_exposure_ev100(r: u64, ev100: f32) -> i32;
+    fn rxsdk_renderer_render_frame(
+        r: u64,
+        readback: u32,
+        out_frame_ms: *mut f64,
+        out_digest: *mut u8,
+        digest_cap: u32,
+        out_digest_len: *mut u32,
+    ) -> i32;
+    fn rxsdk_renderer_present(r: u64) -> i32;
+}
+
+/// ABI 版本(打包 u32;宿主据此做 MAJOR 兼容裁决——政策见 API_VERSIONING.md)。
+#[export(c)]
+pub fn rurix_renderer_abi_version() -> u32 {
+    let v = unsafe { rxsdk_abi_version() };
+    v
+}
+
+/// 能力探测(不建会话的轻量面):bit0 = Vulkan loader 可用;完整能力链(ray
+/// query 四扩展等)协商归 create/load_scene fail-closed(v1 登记口径)。
+#[export(c)]
+pub fn rurix_renderer_caps_probe() -> u64 {
+    let v = unsafe { rxsdk_caps_probe() };
+    v
+}
+
+/// 创建渲染会话(backend 闭集:0 = auto〔v1 唯一后端 = Vulkan〕)。
+/// 返回:u64 不透明句柄;`0` = 失败(device 面缺失;完整能力链协商归
+/// load_scene 车道创建期 fail-closed)。
+#[export(c)]
+pub fn rurix_renderer_create(backend: u32) -> u64 {
+    let v = unsafe { rxsdk_renderer_create(backend) };
+    v
+}
+
+/// 关闭会话(资源逆序回收;无效/双 destroy = 状态码 2 确定性拒不崩)。
+#[export(c)]
+pub fn rurix_renderer_destroy(r: u64) -> i32 {
+    let v = unsafe { rxsdk_renderer_destroy(r) };
+    v
+}
+
+/// 场景提交(资产/契约路径):bistro 生产契约严格解析 + digest 门 == FROZEN +
+/// gltf 场景装配 + canonical SPV 四件套(g14_3_direct_gi / g14_mv /
+/// g14_8_tsr_{resample,resolve},由 `spv_dir` 目录拼名)+ 统一四 pass TSR 车道
+/// 创建(能力链 fail-closed)。成功 → 帧序自 0 起。
+///
+/// - `contract`/`gltf`/`scene`/`spv_dir`:宿主提供的 `(ptr, len)` 字节串
+///   (UTF-8 路径/场景 ID,无 NUL 要求;调用方前置条件:非空、`len ∈ (0,4096]`、
+///   指向 `len` 字节有效可读主机内存且调用期存活——documented unsafe FFI
+///   边界,RXS-0251 §4.A6,codegen 不引入隐式解引用检查)。
+/// - `tier`:内部分辨率档(须 ∈ 契约 tier_sequence 闭集;100 = 全分辨率)。
+///
+/// 返回:0 = 成功;3 = 输入越界(含契约 digest ≠ 冻结锚);4 = 资产缺失;
+/// 5 = device/能力链缺失;2 = 句柄无效/状态错序。
+#[export(c)]
+pub fn rurix_renderer_load_scene(
+    r: u64,
+    contract: *const u8,
+    clen: u32,
+    gltf: *const u8,
+    glen: u32,
+    scene: *const u8,
+    slen: u32,
+    tier: u32,
+    spv_dir: *const u8,
+    sdlen: u32,
+) -> i32 {
+    let v = unsafe {
+        rxsdk_renderer_load_scene(
+            r, contract, clen, gltf, glen, scene, slen, tier, spv_dir, sdlen,
+        )
+    };
+    v
+}
+
+/// 参数更新·相机(全量替换 CameraSpec:eye/forward/up 三元组 + fov_y_rad +
+/// near/far;与契约相机同结构,经逐帧 build_vp + jittered_vp 同一 192B 帧参数
+/// uniform 通路生效——G31 游戏循环同一通道)。
+///
+/// - `eye`/`fwd`/`up`:宿主提供的 `const float*` 各 3 元素(调用方前置条件:
+///   非空、指向 3 个有限 f32 有效可读内存且调用期存活)。
+/// - `fov_y_rad` ∈ (0, π);`0 < near < far`。
+#[export(c)]
+pub fn rurix_renderer_set_camera(
+    r: u64,
+    eye: *const f32,
+    fwd: *const f32,
+    up: *const f32,
+    fov_y_rad: f32,
+    near: f32,
+    far: f32,
+) -> i32 {
+    let v = unsafe { rxsdk_renderer_set_camera(r, eye, fwd, up, fov_y_rad, near, far) };
+    v
+}
+
+/// 参数更新·曝光(ev100 域;exposure = 2^(−ev100) 经 128B TSR 参数逐帧生效)。
+#[export(c)]
+pub fn rurix_renderer_set_exposure_ev100(r: u64, ev100: f32) -> i32 {
+    let v = unsafe { rxsdk_renderer_set_exposure_ev100(r, ev100) };
+    v
+}
+
+/// 帧循环:渲染一帧(与生产 bench 腿逐字同式的确定性序列——halton jitter /
+/// 首帧 reset / TSR 历史链)。`readback != 0` → 本帧回读 TSR 输出算
+/// `frame_content_digest` 写入宿主缓冲(`out_digest` 容量须 ≥ 71 字节
+/// [`sha256:` + 64 hex];实写长度经 `out_digest_len` 回,无 NUL)。
+/// `out_frame_ms` = 本帧 host 墙钟毫秒(回读帧含回读税,诚实口径)。
+///
+/// 返回:0 = 成功;2 = 句柄无效/状态错序;3 = 出参空/容量越界;6 = 渲染执行
+/// 失败(含输出非有限);7 = validation ERROR 计数非零。
+#[export(c)]
+pub fn rurix_renderer_render_frame(
+    r: u64,
+    readback: u32,
+    out_frame_ms: *mut f64,
+    out_digest: *mut u8,
+    digest_cap: u32,
+    out_digest_len: *mut u32,
+) -> i32 {
+    let v = unsafe {
+        rxsdk_renderer_render_frame(r, readback, out_frame_ms, out_digest, digest_cap, out_digest_len)
+    };
+    v
+}
+
+/// present 句柄(v1 = 离屏会话呈现完成计数 + 成功;真窗口 swapchain present
+/// 归后续 MINOR 加性——语义登记不冒充,见 API_VERSIONING.md)。
+#[export(c)]
+pub fn rurix_renderer_present(r: u64) -> i32 {
+    let v = unsafe { rxsdk_renderer_present(r) };
+    v
+}

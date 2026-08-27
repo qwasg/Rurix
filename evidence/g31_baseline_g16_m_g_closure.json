@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 18.0
+ },
+ "notes": "G31 波 A 验收 G16plus M-g canonical 复跑达标格数实测（18/18 verdict=达标，UE 臂在案锚不重跑）（源 g16_m_g_absolute_quality_closure_20260825T215544Z.json digest=sha256:118e4e43e6d6c8e2089a67213d3563fd2635afc9350891e83c31509a330de965）"
+}

@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 C Task C8 支持渠道与版本政策门 evidence（ci/g31_support_policy_smoke.py --gate g31.waveC.support 产）",
+  "description": "支持渠道与版本政策门（G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #55）PASS 态 facts 闭集 schema。判据闭集七 facts：①docs_present_with_anchors 两文档（support_policy/release_checklist）在树 + 关键节锚与在案字面逐字在场（防文档腐化）②referenced_ci_scripts_exist 文档引用的全部 ci/*.py 脚本名机器提取闭集逐一真实在树 ③referenced_surfaces_exist 文档引用的关键仓内面（API_VERSIONING.md/SECURITY.md/10_GOVERNANCE.md/AGENTS.md/sdk.rx/lib.rs/stable_api.snapshot/bless_log.md/channels stable.json/deferred.json/g31_compatibility_matrix.json/vendor_upscale_license_clearance.md/CI_GATES.md/姊妹文档四件/ci stable_snapshot.py/src rurix-basis-sys）真实在树 ④version_policy_matches_stable_snapshot 版本政策五面同一字面（stable_snapshot.py renderer_sdk_api 段 + lib.rs ABI_VERSION_PACKED 程序读 1.0.0 + snapshot abi_version=1.0.0/export_count=9 + API_VERSIONING.md 字面 + 政策文档字面）⑤security_response_mirrored 镜像 SECURITY.md 四要素（25890346@qq.com/Report a vulnerability/3 个工作日/协调公开）+ 渲染器特有面（驱动交互/shader 供应链/vendor SDK）+ SECURITY.md 与 SECURITY.en.md 双件渲染器增补段锚 ⑥pending_items_honestly_marked 待建立/在飞登记（C5 分发/C6 许可/C7 profiler/G-MB1-6 AMD·Intel 格/商业 SLA 未建立）⑦frozen_docs_untouched 00~14 号根冻结规划文档 15 件 git 面零改动。全门 host 恒跑面，无 DEV_ENV_DEGRADE 降级。evidence 纪律：PASS 才落 evidence/g31_support_policy_<ts>.json；FAIL 诊断件落 .tmp/g31_gates/support_policy/ 工作区不污染 evidence/ 路由面（fail-closed：evidence/ 无件 = 门未过）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "docs",
+    "references",
+    "version_policy",
+    "security",
+    "frozen_docs",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.support_policy_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_support_policy" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveC.support" },
+    "wave": { "type": "string", "const": "G31+.C" },
+    "facts": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "docs_present_with_anchors",
+              "referenced_ci_scripts_exist",
+              "referenced_surfaces_exist",
+              "version_policy_matches_stable_snapshot",
+              "security_response_mirrored",
+              "pending_items_honestly_marked",
+              "frozen_docs_untouched"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["support_policy", "release_checklist"],
+      "properties": {
+        "support_policy": { "$ref": "#/definitions/doc_entry" },
+        "release_checklist": { "$ref": "#/definitions/doc_entry" }
+      }
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ci_scripts_found", "ci_scripts_missing", "surfaces_found", "surfaces_missing"],
+      "properties": {
+        "ci_scripts_found": { "type": "integer", "minimum": 20 },
+        "ci_scripts_missing": { "type": "integer", "const": 0 },
+        "surfaces_found": { "type": "integer", "minimum": 19 },
+        "surfaces_missing": { "type": "integer", "const": 0 }
+      }
+    },
+    "version_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stable_snapshot_section", "lib_abi_version", "snapshot_abi_version", "snapshot_export_count", "policy_doc_version_literal"],
+      "properties": {
+        "stable_snapshot_section": { "type": "string", "const": "renderer_sdk_api" },
+        "lib_abi_version": { "type": "string", "const": "1.0.0" },
+        "snapshot_abi_version": { "type": "string", "const": "1.0.0" },
+        "snapshot_export_count": { "type": "integer", "const": 9 },
+        "policy_doc_version_literal": { "type": "string", "const": "1.0.0" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security_md_anchor_present", "security_en_anchor_present", "policy_mirror_tokens_present", "policy_mirror_tokens_required"],
+      "properties": {
+        "security_md_anchor_present": { "type": "boolean", "const": true },
+        "security_en_anchor_present": { "type": "boolean", "const": true },
+        "policy_mirror_tokens_present": { "type": "integer", "minimum": 4 },
+        "policy_mirror_tokens_required": { "type": "integer", "const": 4 }
+      }
+    },
+    "frozen_docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checked", "violations", "method"],
+      "properties": {
+        "checked": { "type": "integer", "const": 15 },
+        "violations": { "type": "integer", "const": 0 },
+        "method": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "rustc", "base_commit"],
+      "properties": {
+        "os": { "type": "string" },
+        "rustc": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "doc_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "headings_present", "headings_required", "numbers_present", "numbers_required"],
+      "properties": {
+        "path": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 1000 },
+        "headings_present": { "type": "integer", "minimum": 1 },
+        "headings_required": { "type": "integer", "minimum": 1 },
+        "numbers_present": { "type": "integer", "minimum": 0 },
+        "numbers_required": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -79,6 +79,38 @@ def eval_g9_metric(entry: dict) -> None:
         err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
 
 
+def eval_g34_host_parity_tol(entry: dict) -> None:
+    """G34-1 特例:统一车道 host 对拍容差条目从 harness 证据 host_parity.color_p100 取实测。
+
+    证据(g34_unified_lane_full_a_calibration.json,rurix.g34.unified_lane_evidence.v1)
+    为 harness 真跑件而非 trimmed_mean 单值形态;标定登记 measured_value 与证据
+    位级互核(标定真跑程序产,禁手写漂移),再对 threshold(= measured × 2.0 协议
+    冻结 k)按 direction=max 判定。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    hp = doc.get("host_parity") or {}
+    value = hp.get("color_p100")
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        err(f"{eid}: evidence host_parity.color_p100 缺失或非数值")
+        return
+    registered = entry.get("measured_value")
+    if not isinstance(registered, (int, float)) or isinstance(registered, bool) or float(value) != float(registered):
+        err(f"{eid}: 登记 measured_value={registered!r} 与证据 color_p100={value!r} 不一致(标定程序产禁手写漂移)")
+        return
+    threshold = entry.get("threshold")
+    direction = entry.get("direction", "max")
+    ok = value <= threshold if direction == "max" else value >= threshold
+    if ok:
+        PASSES.append(f"{eid}: PASS — {value} {entry.get('unit', '')} vs {direction} {threshold}")
+    else:
+        err(f"{eid}: FAIL — {value} 违反 {direction} {threshold}")
+
+
 def eval_lsp_latency(entry: dict) -> None:
     """M6.5 特例(契约 G-M6-2):单 entry 表达 LSP 三类交互延迟,逐交互对子阈值判定。
 
@@ -355,6 +387,12 @@ def eval_entry(entry: dict, strict: bool) -> None:
         # parity.cells 提取，threshold = measured/窗 max × 2.0 程序产宽上界守护；
         # 不改 g14/g15/g16_budget）。
         eval_g17_dual_end_cell(entry)
+        return
+    if eid == "g34.unified_lane.host_parity_tol":
+        # G34-1 统一车道 host 金标准对拍容差条目(threshold = measured × 2.0 程序
+        # 产冻结;evidence = harness 真跑件,实测取 host_parity.color_p100 并与
+        # 登记 measured_value 位级互核)→ 专用判读面。
+        eval_g34_host_parity_tol(entry)
         return
     value = measured_value(entry)
     if value is None:

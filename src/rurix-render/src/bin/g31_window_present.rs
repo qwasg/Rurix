@@ -1,0 +1,7008 @@
+// Assisted-by: Kimi-K3（G31+ 波 A Task A1/A3/A5）
+//! G31+ 波 A 生产管线 swapchain 真窗口呈现 + 游戏循环最小面（A1 门 `g31.waveA.present`;
+//! A3 门 `g31.waveA.gameloop`——Task A3 = device 侧显示编码 + 输入→相机逐帧 uniform +
+//! 窗口事件健壮性 + `--auto-move` 确定性门）+ FG/MFG 帧生成生产接线（A5 门
+//! `g31.waveA.framegen`——Task A5 = `--fg <off|x2|x3>`:G26 device kernel
+//! `kernels/g26_framegen.rx` 链接入呈现车道,真帧/生成帧序列 present + 双口径分离
+//! 登记 + 接线态对拍门维持;G30 承接锚 G13-N7 行兑现）。
+//!
+//! ## A5 FG 接线面（G26 kernel 本体与 host 金标准面 0-byte）
+//!
+//! 1. **车道内链接**：fg on 时车道由五 pass 扩为 8/10 pass——生产五 pass（0-byte
+//!    语义,真实渲染帧 digest 与 fg off 位级一致为机核门）后追加 `g31_mv_negate`
+//!    （MV 取反 glue)+ `g26_framegen`（读 prev/cur TSR 输出 parity 双缓冲 +
+//!    取反后 MV）+ 复用 `g31_display_encode` 将生成帧编码 BGRA8;present 序 =
+//!    生成帧（t 升序）→ 真帧。
+//! 2. **MV 约定换算（取反 glue 直通,禁改 G26/G14 kernel）**：g14_mv 输出
+//!    `m(x) = prev_uv(x) − x`(temporal::common::compute_camera_mv 同式);host
+//!    金标准 `framegen::interpolate` 约定 `prev_uv = cur_uv − mv` 即需 `-m`。
+//!    新增 glue kernel `kernels/g31_mv_negate.rx` 对 MV 场逐元素 IEEE 取反
+//!    （零数值误差）,g26_framegen 以 `(prev, cur, −m, t)` **直通馈入——与 host
+//!    逐字同语义**（含 t=0.5 near 选臂 tie-break;prev/cur 对调 swap 馈入的
+//!    tie 翻转缺陷由直通形消除,t 任意值无 1ULP wobble）。
+//!    MV 仅含相机运动 + 静态场景深度重投影——**运动物体 MV 缺口为 A4 已登记项,
+//!    如实登记不冒充**（bistro 静态场景面;dyn 实例场景 FG 不接）。
+//! 3. **栅格约束**：kernel 要求 prev/cur/mv 同栅格;MV 产出于 internal 分辨率,
+//!    TSR 输出在输出分辨率——`--fg` 闭集限 `--tier 100`（两栅格相等同律）+ 须随
+//!    `--auto-move`（FG 登记面 = 确定性轨迹）。
+//! 4. **双口径分离（G13-N7 字面纪律）**：`real_render_frame_ms/real_render_fps`
+//!    只由真渲帧构成（生成帧禁入计数;单提交墙钟含 FG GPU 段——telemetry 分列
+//!    `stats.render5_gpu_ms`/`stats.fg_gpu_ms` 如实登记）;`presented_fps` =
+//!    presented 帧 ÷（渲染 + present 墙钟）独立新口径,与真实渲染帧率并列输出
+//!    永不混算;`caliber_identities` 恒等式组（presented = real + generated、
+//!    real fps 重算、real fps 对 generated 扰动隔离、presented fps 重算）schema
+//!    层钉 const true。
+//! 5. **接线态对拍门**：probe 帧（post-warmup 首生成帧）回读 prev/cur f32 + MV +
+//!    生成帧 f32,host 金标准 `interpolate(prev, cur, −mv, t)` 复算对拍——
+//!    p100 ≤ G26 冻结容差（`milestones/g26/g26_budget.json`
+//!    `g26.framegen_device.host_device_maxdiff_tol` threshold 程序读,禁手写）
+//!    + SSIM(device, hostref) > SSIM(frame-hold, hostref),结果进 evidence
+//!    `wired_parity`;G26 合成 GT 对拍门（p100 + SSIM + 双跑位级）由
+//!    `ci/g31_framegen_present_smoke.py` 接线态复跑维持。
+//!
+//! ## 职责闭集
+//!
+//! 1. **生产管线真跑**：以 bistro-interior 契约跑 G14.3 统一四 pass TSR 车道（Mega：
+//!    scene `g14_3_direct_gi` → mv `g14_mv` → TSR `g14_8_tsr_{resample,resolve}`，
+//!    `DeviceFrameSession` AS 常驻 + 逐帧 192B/160B/128B 参数上传 + 逐帧 fence 全
+//!    同步）——实现与 `g14_3_pipeline_perf` 逐字共享
+//!    （`include!("g14_3_lane/g14_3_lane_body.rs")`，digest 锚定逻辑 0-byte 不动;
+//!    共享体 0-byte——A3 的第五 pass/车道面全部落本文件,bench/契约锚面零触碰）。
+//! 2. **A3 device 侧显示编码**（A1 host 编码瓶颈消除位）：TSR 输出**驻留 device**
+//!    （零逐帧 f32 回读），第五 pass `g31_display_encode`（kernels/
+//!    g31_display_encode.rx——ACES 1.3 RRT+ODT f32 移植 + BT.1886 γ2.4 编码 +
+//!    8-bit 量化 + BGRA/RGBA 打包,矩阵/样条系数由 host
+//!    `aces13::aces13_device_encode_params` 同一 f64 参考实现现算上传）链内直写
+//!    BGRA8 SSBO;host 仅回读 8.3MB BGRA8（A1 = 24.9MB f32 + 逐像素 f64 编码）
+//!    供 present 拷贝/digest。
+//! 3. **契约链**：生产契约（digest 门 == FROZEN）+ G10 语料三件套转引一致性核验
+//!    （逐字段相等,不等即 RED）;sun/sky/ev100 delta 如实登记不消费。
+//! 4. **游戏循环最小面**：win32 输入（WASD/QE 平移 + mouse/方向键视角 + `-`/`=`
+//!    曝光 ±0.25 ev）逐帧更新相机/曝光 → 经既有 192B 帧参数 + 128B TSR 参数
+//!    uniform 通路进生产车道;WM_SIZE resize → swapchain 重建 + 渲染 extent 联动
+//!    （车道按新 extent 重建,TSR 历史 reset）;最小化跳过渲染/present 不消费帧
+//!    预算;ESC/WM_CLOSE 干净退出（资源逆序拆除,validation 静默）。
+//! 5. **`--auto-move <orbit|dolly>`**（非交互 CI 面）：确定性脚本轨迹逐帧驱动
+//!    相机（f64 参数化,帧号唯一事实源;`--ev100-ramp a b` 可加确定性曝光坡）,
+//!    逐帧 BGRA8 digest 序列进 evidence（schema
+//!    `milestones/g31/g31_game_loop_evidence_schema.json`）——同轨迹双跑位级
+//!    一致（确定性门）,异轨迹 digest 序列必须不同（防"确定性的坏内容"）。
+//! 6. **present 口径独立登记**：`real_render_frame_ms`（生产管线五 pass 渲染耗时,
+//!    **不含 present**;含 present 强制的 BGRA8 回读段——如实登记
+//!    `render_includes_forced_readback=true`）/ `present_frame_ms` /
+//!    `present_overhead_ms`（= encode(host≈0,device 编码 GPU 耗时分列
+//!    `stats.encode_gpu_ms`) + present 腿）/ `digest_frame_ms`（auto-move 逐帧
+//!    sha256 税,单列不混渲染口径）多口径分离,**真实渲染帧率口径禁混 present
+//!    开销**。
+//!
+//! ## 用法
+//!
+//! ```text
+//! g31_window_present [--frames 120] [--warmup 10] [--tier 100]
+//!     [--contract <c.json>] [--g10-dir milestones/g10/corpus] [--gltf <scene.gltf>]
+//!     [--spv-scene <a.spv>] [--spv-mv <b.spv>] [--spv-resample <c.spv>] [--spv-resolve <d.spv>]
+//!     [--spv-encode <e.spv>] [--evidence <path>] [--expect-digest <sha256:…>]
+//!     [--hidden] [--headless-smoke] [--auto-move <orbit|dolly> [--ev100-ramp <a> <b>]]
+//!     [--fg <off|x2|x3> [--spv-framegen <f.spv>] [--fg-tol <F>]]
+//!     [--slab-table <asset.json> [--slab-arm <device|host>] [--spv-slab <s.spv>]
+//!      [--dump-last-frame <raw.bin>]]
+//!     [--hzb <off|on> [--spv-hzb-primary <a>] [--spv-hzb-shade <b>]
+//!      [--spv-hzb-pack <c>] [--spv-hzb-reduce <r.spv>] [--spv-hzb-test <t.spv>]]
+//!     [--fault-probe <device-lost-acquire|device-lost-submit|device-lost-present|tdr|budget>]
+//!     [--window-storm <n>] [--storm-soak <period>]
+//! ```
+//!
+//! C4（G31+ 波 C Task C4 运行时健壮性 + 故障注入,门 `g31.waveC.robustness`）:
+//! `--fault-probe` = 注入观察臂（机制面 env 双层门控:`RURIX_G31_FAULT_DEVICE_LOST=
+//! <point>@<idx>` present 会话三点 DEVICE_LOST 覆写 → poisoned 锁存 + 级联确定性;
+//! `RURIX_G31_FAULT_FENCE_TIMEOUT=<n>` 持久帧 fence 有界等待第 n 次覆写 VK_TIMEOUT
+//! → TDR-suspected 确定性 Err 不挂死;`RURIX_G31_FAULT_BUDGET_BYTES=<n>` heap budget
+//! 钳制 → OOM-suspected 确定性 Err fail-closed）,命中打印 G31_FAULT_PROBE 单行退 0,
+//! 全程未触发 fail-closed 判红;`--window-storm <n>` = 爆发 resize 臂（n 次程序化
+//! 半↔原 extent 真 swapchain/staging 重建）;`--storm-soak <period>` = 周期故障臂
+//! （每 period 帧 resize toggle,每 period×8 帧最小化/恢复 WM_SIZE 同通路注入）。
+//! 全臂与 --fg/--hzb/--slab-table/--textures 互斥（登记面 = 生产五 pass 现状车道）,
+//! 默认关零行为变更。
+//!
+//! `--hzb on`（G31+ 波 B Task B1 HZB 遮挡剔除生产接线,门 `g31.waveB.hzb`）:
+//! bistro 逐 mesh 节点 BLAS 分解 + 双 TLAS（初剔/全量阴影）+ g27_hzb_reduce/
+//! g27_hzb_test 两 kernel 0-byte 进剔除链（帧内金字塔轮换:上帧金字塔初剔 →
+//! 本帧重建重测）+ 误剔/出新闭环重渲（剔除零假阳性 ⇒ 画面与 hzb off 位级一致,
+//! digest_seq on/off 逐帧对拍为门）;evidence schema
+//! `rurix.g31.hzb_wiring_evidence.v1`。闭集约束:与 --fg/--slab-table 互斥,
+//! 须 --tier 100;--spv-hzb-* 须随 --hzb on。
+//!
+//! `--slab-table`（G31+ 波 B Task B3 slab 材质侧表生产接线,门 `g31.waveB.slab`）:
+//! 资产文件驱动的 16 槽 slab 侧表（G29 M-b ABI 升级面）加载 → kernels/g29_slab.rx
+//! （0-byte 冻结）device 逐槽求值 vs material/slab.rs host 金标准对拍（parity_p100
+//! 登记,有限性一等断言先于聚合）→ 映射材质逐三角 albedo × R_slot 预调制进既有
+//! mats SSBO 面（生产 kernel/管线 0-byte;非映射材质走既有单层面 0-byte）;evidence
+//! schema `rurix.g31.slab_wiring_evidence.v1`。闭集约束:须随 --auto-move（确定性
+//! 轨迹登记面）,与 --fg 互斥;--slab-arm/--spv-slab/--dump-last-frame 须随
+//! --slab-table;--slab-arm host = host 参考臂渲染（跨臂像素对拍由 smoke 裁决）。
+//!
+//! `--fg`（A5）闭集约束：须随 `--auto-move` + `--tier 100` + frames+warmup ≥ 2;
+//! `--fg-tol` 缺省时程序读 milestones/g26/g26_budget.json 冻结标定条目（fail-closed）。
+//!
+//! `--headless-smoke` = 无窗口退化路径（仅供自检逻辑用,**不计真门**;evidence
+//! `headless=true`,present 口径 null）。三态：无 Vulkan/设备/场景资产/窗口创建失败
+//! → `skipped_dev_env`（退 0 非 fake pass;`RURIX_REQUIRE_REAL=1` 翻 FAIL 退 1）。
+#![forbid(unsafe_code)]
+// 共享体含本 bin 未消费面（render/bench 腿、dlss/fsr 双臂、EXR/PNG 出图、G16+ GI 臂等）
+// ——dead_code 豁免如实登记;本 bin 消费面 = 契约解析/scene 装配/统一四 pass TSR 车道/
+// 帧参数/jitter/digest/JSON 解析。
+#![allow(dead_code)]
+
+include!("g14_3_lane/g14_3_lane_body.rs");
+
+use rurix_render::display::aces13::aces13_device_encode_params;
+use rurix_render::geometry::cull::Frustum;
+use rurix_render::geometry::hzb::{DepthConvention, HzbPyramid, Occlusion, exact_rect_occluded};
+use rurix_render::temporal::framegen::{FrameGenParams, interpolate};
+use rurix_render::temporal::ssim::ssim;
+
+const GTAG: &str = "[g31_window_present]";
+/// A1 门键（默认面 evidence `gate` 字段字面）。
+const G31_GATE: &str = "g31.waveA.present";
+/// A3 游戏循环门键（`--auto-move` 面 evidence `gate` 字段字面）。
+const G31_GAMELOOP_GATE: &str = "g31.waveA.gameloop";
+/// A5 FG 接线门键（`--fg x2|x3` 面 evidence `gate` 字段字面）。
+const G31_FRAMEGEN_GATE: &str = "g31.waveA.framegen";
+/// G10 语料目录默认（contract_params_bistro_interior.json + camera/lighting 三件套）。
+const G31_DEFAULT_G10_DIR: &str = "milestones/g10/corpus";
+/// A1 evidence schema 字面（milestones/g31/g31_window_present_evidence_schema.json 同字面）。
+const G31_SCHEMA: &str = "rurix.g31.window_present_evidence.v1";
+/// A3 游戏循环 evidence schema 字面（milestones/g31/g31_game_loop_evidence_schema.json 同字面）。
+const G31_GAMELOOP_SCHEMA: &str = "rurix.g31.game_loop_evidence.v1";
+/// A5 FG 接线 evidence schema 字面（milestones/g31/g31_framegen_present_evidence_schema.json 同字面）。
+const G31_FRAMEGEN_SCHEMA: &str = "rurix.g31.framegen_present_evidence.v1";
+/// A3 device 编码 kernel 默认 SPV（源 = kernels/g31_display_encode.rx;`.tmp` 构建产物,
+/// CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_ENCODE: &str = ".tmp/g14_gates/m_c/g31_display_encode.spv";
+/// A5 FG kernel 默认 SPV（源 = kernels/g26_framegen.rx——G26 kernel 本体 0-byte;
+/// `.tmp` 构建产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_FRAMEGEN: &str = ".tmp/g14_gates/m_c/g26_framegen.spv";
+/// A5 MV 取反 glue kernel 默认 SPV（源 = kernels/g31_mv_negate.rx;`.tmp` 构建
+/// 产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_MVN: &str = ".tmp/g14_gates/m_c/g31_mv_negate.spv";
+/// A5 冻结容差事实源（G26 标定 budget;`--fg-tol` 缺省时程序读,fail-closed）。
+const G31_G26_BUDGET: &str = "milestones/g26/g26_budget.json";
+/// A5 冻结容差条目标识（threshold = measured × 2.0 程序产;条目字面 G26 钉死）。
+const G31_FG_TOL_ENTRY: &str = "g26.framegen_device.host_device_maxdiff_tol";
+/// B3 slab 接线门键（--slab-table 面 evidence `gate` 字段字面）。
+const G31_SLAB_GATE: &str = "g31.waveB.slab";
+/// B3 slab 接线 evidence schema 字面（milestones/g31/g31_slab_wiring_evidence_schema.json 同字面）。
+const G31_SLAB_SCHEMA: &str = "rurix.g31.slab_wiring_evidence.v1";
+/// B3 slab device 求值 kernel 默认 SPV（源 = kernels/g29_slab.rx——G29 M-a 本体
+/// 0-byte 冻结消费;`.tmp` 构建产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_SLAB: &str = ".tmp/g14_gates/m_c/g29_slab.spv";
+/// B4 纹理采样接线门键（--textures on 面 evidence `gate` 字段字面）。
+const G31_TEXTURE_GATE: &str = "g31.waveB.texture";
+/// B4 纹理采样接线 evidence schema 字面（milestones/g31/
+/// g31_texture_sampling_evidence_schema.json 同字面）。
+const G31_TEXTURE_SCHEMA: &str = "rurix.g31.texture_sampling_evidence.v1";
+/// B4 生产场景 kernel 纹理变体默认 SPV（源 = kernels/g31_texture_gi.rx——
+/// g14_3_direct_gi.rx 逐字 fork + 贴图采样 albedo 面;`.tmp` 构建产物,
+/// CI 门脚本保障编译;母版 kernel/SPV 0-byte,off 面 = 回归锚）。
+const G31_DEFAULT_SPV_TEXTURE: &str = ".tmp/g31_gates/texture/g31_texture_gi.spv";
+/// B4 探针 kernel 默认 SPV（源 = kernels/g31_texture_probe.rx——生产采样块
+/// 隔离对拍面;`.tmp` 构建产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_TEXTURE_PROBE: &str = ".tmp/g31_gates/texture/g31_texture_probe.spv";
+/// C13 SVT 接线门键（--svt on 面 evidence `gate` 字段字面）。
+const G31_SVT_GATE: &str = "g31.waveC.svt";
+/// C13 SVT 接线 evidence schema 字面（milestones/g31/g31_svt_evidence_schema.json 同字面）。
+const G31_SVT_SCHEMA: &str = "rurix.g31.svt_evidence.v1";
+/// C13 SVT 生产 kernel 默认 SPV（源 = kernels/g31_svt_gi.rx——g31_texture_gi.rx
+/// 逐字 fork + 页表间接采样/miss 记录/fallback;`.tmp` 构建产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_SVT: &str = ".tmp/g31_gates/svt/g31_svt_gi.spv";
+/// C13 SVT 探针 kernel 默认 SPV（源 = kernels/g31_svt_probe.rx;同上）。
+const G31_DEFAULT_SPV_SVT_PROBE: &str = ".tmp/g31_gates/svt/g31_svt_probe.spv";
+
+/// A3 车道追加资源下标（Mega 22 资源 0..=21 之后;Split 形态的 U_HIT_* 占用
+/// 22..=24 与本面互斥——本 bin 恒 Mega,bistro quads=0）。
+const G31_U_ENC_PARAMS: u32 = 22;
+const G31_U_ENC_OUT: u32 = 23;
+const G31_U_RESOURCE_COUNT: usize = 24;
+
+/// A3 encode pass 屏障计划（保守超集逐字声明同律：读 TSR out_color 双 parity
+/// 并集 + 编码参数 + BGRA8 输出;readback 触达由执行器隐式超集覆盖）。
+const G31_U_PLAN_ENCODE: &[(u32, TargetState)] = &[
+    (U_OUT_COLOR[0], TargetState::StorageReadWrite),
+    (U_OUT_COLOR[1], TargetState::StorageReadWrite),
+    (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_ENC_OUT, TargetState::StorageReadWrite),
+];
+
+// ---------------------------------------------------------------------------
+// B4 纹理采样面：资源下标（textures off 时车道 24 资源 0-byte 现状——on 追加
+// 24..=28 五件 SSBO 侧表;与 fg/hzb/slab 各面互斥,下标无撞面）、屏障计划、
+// 纹理变体描述组。
+// ---------------------------------------------------------------------------
+
+/// B4 追加资源下标（textures on 才存在;24=逐三角 UV〔6 f32/tri〕,25=texmeta
+/// 头+槽表,26=逐三角槽索引〔−1 = 常量面〕,27=u32 打包 RGBA8 图集,28=256
+/// 项 srgb→linear LUT）。
+const G31_U_TEX_UV: u32 = 24;
+const G31_U_TEX_META: u32 = 25;
+const G31_U_TEX_TRITEX: u32 = 26;
+const G31_U_TEX_ATLAS: u32 = 27;
+const G31_U_TEX_LINLUT: u32 = 28;
+/// B4 纹理车道资源数（24 既有 + 5 追加）。
+const G31_U_RESOURCE_COUNT_TEX: usize = 29;
+
+// ---------------------------------------------------------------------------
+// C13 SVT 面：资源下标（svt off 时车道 0-byte 现状——on 在 B4 五件后再追加
+// 29..=33 五件;须随 --textures on,与 fg/hzb/slab 闭集互斥同律）、屏障计划、
+// readback 下标。
+// ---------------------------------------------------------------------------
+
+/// C13 追加资源下标（svt on 才存在;29=页表〔1024² u32〕,30=物理瓦片池
+/// 〔pool_tiles×130² u32〕,31=miss 请求缓冲〔1 f32/px〕,32=svtmeta〔8 f32〕,
+/// 33=fallback 表〔槽数×4 f32〕）。
+const G31_U_SVT_PAGETABLE: u32 = 29;
+const G31_U_SVT_POOL: u32 = 30;
+const G31_U_SVT_REQ: u32 = 31;
+const G31_U_SVT_META: u32 = 32;
+const G31_U_SVT_FALLBACK: u32 = 33;
+/// C13 SVT 车道资源数（B4 29 + 5 追加）。
+const G31_U_RESOURCE_COUNT_SVT: usize = 34;
+/// C13 readback 下标（svt on 面;0..=4 与 textures 面逐字同源,5 = miss 请求缓冲）。
+const G31_RB_SVT_REQ: u32 = 5;
+
+/// C13 SVT 变体 scene pass 屏障计划（G31_U_PLAN_SCENE_TEX 触达超集 + C13 五件——
+/// 保守超集同律）。
+const G31_U_PLAN_SCENE_SVT: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_TEX_UV, TargetState::StorageReadWrite),
+    (G31_U_TEX_META, TargetState::StorageReadWrite),
+    (G31_U_TEX_TRITEX, TargetState::StorageReadWrite),
+    (G31_U_TEX_ATLAS, TargetState::StorageReadWrite),
+    (G31_U_TEX_LINLUT, TargetState::StorageReadWrite),
+    (G31_U_SVT_PAGETABLE, TargetState::StorageReadWrite),
+    (G31_U_SVT_POOL, TargetState::StorageReadWrite),
+    (G31_U_SVT_REQ, TargetState::StorageReadWrite),
+    (G31_U_SVT_META, TargetState::StorageReadWrite),
+    (G31_U_SVT_FALLBACK, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+];
+
+/// B4 纹理变体 scene pass 屏障计划（U_PLAN_SCENE 触达超集 + B4 五件——
+/// 保守超集同律;读侧 SSBO 与写侧 out 同域 StorageReadWrite）。
+const G31_U_PLAN_SCENE_TEX: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_TEX_UV, TargetState::StorageReadWrite),
+    (G31_U_TEX_META, TargetState::StorageReadWrite),
+    (G31_U_TEX_TRITEX, TargetState::StorageReadWrite),
+    (G31_U_TEX_ATLAS, TargetState::StorageReadWrite),
+    (G31_U_TEX_LINLUT, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+];
+
+// ---------------------------------------------------------------------------
+// A5 FG 接线面：资源下标（fg off 时车道 24 资源 0-byte;fg x2 追加 24..=28,
+// x3 再追加 29..=31）、屏障计划、档位闭集、冻结容差读取、kernel 参数打包。
+// ---------------------------------------------------------------------------
+
+/// A5 FG 追加资源下标（fg on 才存在;24/25 = MV 取反 glue 参数/输出,26..=28 =
+/// FG1 参数/输出 f32/BGRA8,29..=31 = FG2 同构 x3）。
+const G31_U_MVN_PARAMS: u32 = 24;
+const G31_U_MVN: u32 = 25;
+const G31_U_FG1_PARAMS: u32 = 26;
+const G31_U_FG1_OUT: u32 = 27;
+const G31_U_FG1_BGRA: u32 = 28;
+const G31_U_FG2_PARAMS: u32 = 29;
+const G31_U_FG2_OUT: u32 = 30;
+const G31_U_FG2_BGRA: u32 = 31;
+
+/// A5 readback 下标（fg on 面;0..=4 与 fg off 逐字同源：0/1=OUT_COLOR f32,
+/// 2=MV,3=DEPTH,4=cur BGRA8;x2: 5=FG1_BGRA,6=FG1_OUT f32;x3: 5=FG1_BGRA,
+/// 6=FG2_BGRA,7=FG1_OUT,8=FG2_OUT）。
+const G31_RB_BGRA: u32 = 4;
+
+/// A5 MV 取反 pass 屏障计划（保守超集同律：读 MV_OUT + 参数,写 MVN）。
+const G31_U_PLAN_MVN: &[(u32, TargetState)] = &[
+    (U_MV_OUT, TargetState::StorageReadWrite),
+    (G31_U_MVN_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_MVN, TargetState::StorageReadWrite),
+];
+/// A5 fg1 pass 屏障计划（kernel 读 prev/cur out_color 双 parity 并集 + 取反
+/// MV + 参数,写 FG1_OUT）。
+const G31_U_PLAN_FG1: &[(u32, TargetState)] = &[
+    (U_OUT_COLOR[0], TargetState::StorageReadWrite),
+    (U_OUT_COLOR[1], TargetState::StorageReadWrite),
+    (G31_U_MVN, TargetState::StorageReadWrite),
+    (G31_U_FG1_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_FG1_OUT, TargetState::StorageReadWrite),
+];
+/// A5 fg1 编码 pass 屏障计划（读 FG1_OUT + 编码参数,写 FG1_BGRA）。
+const G31_U_PLAN_ENC_FG1: &[(u32, TargetState)] = &[
+    (G31_U_FG1_OUT, TargetState::StorageReadWrite),
+    (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_FG1_BGRA, TargetState::StorageReadWrite),
+];
+/// A5 fg2 pass 屏障计划（x3）。
+const G31_U_PLAN_FG2: &[(u32, TargetState)] = &[
+    (U_OUT_COLOR[0], TargetState::StorageReadWrite),
+    (U_OUT_COLOR[1], TargetState::StorageReadWrite),
+    (G31_U_MVN, TargetState::StorageReadWrite),
+    (G31_U_FG2_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_FG2_OUT, TargetState::StorageReadWrite),
+];
+/// A5 fg2 编码 pass 屏障计划（x3）。
+const G31_U_PLAN_ENC_FG2: &[(u32, TargetState)] = &[
+    (G31_U_FG2_OUT, TargetState::StorageReadWrite),
+    (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_FG2_BGRA, TargetState::StorageReadWrite),
+];
+
+/// A5 FG 档闭集（off = 车道 0-byte 现状;x2 = 每帧对插 1 帧;x3 = 插 2 帧）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum G31Fg {
+    Off,
+    X2,
+    X3,
+}
+
+impl G31Fg {
+    /// presented/real 倍率（off=1, x2=2, x3=3）。
+    fn factor(self) -> u32 {
+        match self {
+            G31Fg::Off => 1,
+            G31Fg::X2 => 2,
+            G31Fg::X3 => 3,
+        }
+    }
+    /// 每对真渲帧插入帧数（x2=1, x3=2;host `mfg_inserted_frames` 同值）。
+    fn inserted(self) -> u32 {
+        self.factor() - 1
+    }
+    fn name(self) -> &'static str {
+        match self {
+            G31Fg::Off => "off",
+            G31Fg::X2 => "x2",
+            G31Fg::X3 => "x3",
+        }
+    }
+}
+
+/// A5 FG readback 布局（x2/x3 下标差异面;lane 创建期定,逐帧子集选路用）。
+#[derive(Debug, Clone, Copy)]
+struct G31FgLayout {
+    rb_fg1_bgra: u32,
+    rb_fg2_bgra: u32,
+    rb_fg1_out: u32,
+    rb_fg2_out: u32,
+    /// MVN 取反结果回读（probe 帧 device 侧 MV 内容直比对面）。
+    rb_mvn: u32,
+}
+
+impl G31FgLayout {
+    fn of(fg: G31Fg) -> Self {
+        match fg {
+            G31Fg::X2 => Self {
+                rb_fg1_bgra: 5,
+                rb_fg2_bgra: u32::MAX,
+                rb_fg1_out: 6,
+                rb_fg2_out: u32::MAX,
+                rb_mvn: 7,
+            },
+            G31Fg::X3 => Self {
+                rb_fg1_bgra: 5,
+                rb_fg2_bgra: 6,
+                rb_fg1_out: 7,
+                rb_fg2_out: 8,
+                rb_mvn: 9,
+            },
+            G31Fg::Off => Self {
+                rb_fg1_bgra: u32::MAX,
+                rb_fg2_bgra: u32::MAX,
+                rb_fg1_out: u32::MAX,
+                rb_fg2_out: u32::MAX,
+                rb_mvn: u32::MAX,
+            },
+        }
+    }
+}
+
+/// A5 冻结容差程序读（`--fg-tol` 缺省面;milestones/g26/g26_budget.json 标定
+/// 条目 threshold + measured_value,fail-closed 禁手写阈）。返回
+/// (threshold, measured_value, tol_source 登记串)。
+fn g31_fg_frozen_tol(budget_path: &str) -> Result<(f64, f64, String), String> {
+    let doc = json_parse(
+        &std::fs::read_to_string(budget_path).map_err(|e| format!("读 {budget_path}: {e}"))?,
+    )?;
+    let entries = doc
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| format!("{budget_path} 缺 entries 数组"))?;
+    for e in entries {
+        if e.get("id").and_then(|v| v.as_str()) == Some(G31_FG_TOL_ENTRY) {
+            let thr = e
+                .get("threshold")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| format!("{G31_FG_TOL_ENTRY} 缺 threshold"))?;
+            let meas = e
+                .get("measured_value")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| format!("{G31_FG_TOL_ENTRY} 缺 measured_value"))?;
+            return Ok((
+                thr,
+                meas,
+                format!("{}#{}", budget_path.replace('\\', "/"), G31_FG_TOL_ENTRY),
+            ));
+        }
+    }
+    Err(format!(
+        "{budget_path} 缺标定条目 {G31_FG_TOL_ENTRY}（G26 标定腿未落档,fail-closed）"
+    ))
+}
+
+/// A5 FG kernel 参数面打包（与 g26_framegen.rx 参数面逐字同源;16 f32 位级
+/// 编码——pixel_count/width/height/t/inv_sigma2/red_bias=0/reserved 恒 0）。
+/// `t` = t_temporal = i/(n+1)（取反 glue 直通面,host mfg_between 同式位级）。
+fn g31_fg_pack_params(pixel_count: u32, w: u32, h: u32, t: f32, inv_sigma2: f32) -> Vec<f32> {
+    let mut v = vec![
+        pixel_count as f32,
+        w as f32,
+        h as f32,
+        t,
+        inv_sigma2,
+        0.0,
+    ];
+    v.resize(16, 0.0);
+    v
+}
+
+/// A5 MV 取反 glue 参数面打包（与 g31_mv_negate.rx 参数面逐字同源;16 f32——
+/// element_count = 2·pixel_count,reserved 恒 0）。
+fn g31_mvn_pack_params(element_count: u32) -> Vec<f32> {
+    let mut v = vec![element_count as f32];
+    v.resize(16, 0.0);
+    v
+}
+
+/// G31 三态 skip（g14 `dev_env_or_fail` 同语义;schema 字面独立——G31 口径不混 G14）。
+fn g31_dev_env_or_fail(what: &str, err: &str) -> ! {
+    if require_real() {
+        fail(&format!(
+            "{what} 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: {err}"
+        ));
+    }
+    println!(
+        "{{\"schema\":\"rurix.g31.window_present.skip.v1\",\"state\":\"skipped_dev_env\",\"what\":{},\"reason\":{}}}",
+        jstr(what),
+        jstr(err)
+    );
+    std::process::exit(0)
+}
+
+/// post-warmup 测量面稳态统计（mean/sd/cv/min/max;程序产禁手写阈,G14.3 同式）。
+fn g31_stats(v: &[f64]) -> (f64, f64, f64, f64, f64) {
+    let n = v.len() as f64;
+    let mean = v.iter().sum::<f64>() / n;
+    let var = v.iter().map(|x| (x - mean) * (x - mean)).sum::<f64>() / n;
+    let sd = var.sqrt();
+    let min = v.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = v.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    (mean, sd, sd / mean, min, max)
+}
+
+/// C7:percentile（升序 + 线性插值;n=1 直返,调用方保证非空）。
+fn g31_pct(sorted: &[f64], q: f64) -> f64 {
+    if sorted.len() == 1 {
+        return sorted[0];
+    }
+    let rank = q / 100.0 * (sorted.len() - 1) as f64;
+    let lo = rank.floor() as usize;
+    let hi = rank.ceil() as usize;
+    let frac = rank - lo as f64;
+    sorted[lo] * (1.0 - frac) + sorted[hi] * frac
+}
+
+/// C7:段统计组（mean/p50/p99/min/max,均 ms;--profile-json 各段共用）。
+fn g31_seg_stats(v: &[f64]) -> (f64, f64, f64, f64, f64) {
+    let mut s = v.to_vec();
+    s.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mean = s.iter().sum::<f64>() / s.len() as f64;
+    (
+        mean,
+        g31_pct(&s, 50.0),
+        g31_pct(&s, 99.0),
+        s[0],
+        s[s.len() - 1],
+    )
+}
+
+/// C7:--profile-json 组装（机器可读逐 pass 分解 + CPU 段 + 帧统计 mean/p50/p99 +
+/// 恒等式字段 + debug label 态;恒等式容差字面与 docs/renderer/profiling_debugging.md
+/// 及 ci/g31_profiling_smoke.py 同一事实源——改动三面同步）。返回 JSON 文本。
+#[allow(clippy::too_many_arguments)]
+fn g31_profile_json(
+    frames_rec: &[G31ProfileFrame],
+    scene_id: &str,
+    tier: u32,
+    out_w: u32,
+    out_h: u32,
+    in_w: u32,
+    in_h: u32,
+    warmup: u32,
+    headless: bool,
+    debug_labels_active: bool,
+    render_digest: &str,
+    t_asm: std::time::Instant,
+) -> Result<String, String> {
+    if frames_rec.is_empty() {
+        return Err("--profile-json: post-warmup 测量帧为空（--frames ≥ 1 才产 profile）".into());
+    }
+    // 逐帧 pass 名序一致（同车道同图;漂移 = 内部不一致 fail-closed 不冒充）。
+    let canon: Vec<String> = frames_rec[0].passes.iter().map(|p| p.0.clone()).collect();
+    for (k, f) in frames_rec.iter().enumerate() {
+        let same = f.passes.len() == canon.len()
+            && f
+                .passes
+                .iter()
+                .zip(canon.iter())
+                .all(|((n, _), c)| n == c);
+        if !same {
+            return Err(format!(
+                "--profile-json: 帧 {k} pass 名序漂移（车道内部不一致）"
+            ));
+        }
+    }
+    let seg_json = |name: &str, unit: &str, series: &[f64]| -> String {
+        let (mean, p50, p99, mn, mx) = g31_seg_stats(series);
+        format!(
+            "{{\"name\":{},\"unit\":{},\"mean_ms\":{mean:.6},\"p50_ms\":{p50:.6},\"p99_ms\":{p99:.6},\"min_ms\":{mn:.6},\"max_ms\":{mx:.6}}}",
+            jstr(name),
+            jstr(unit)
+        )
+    };
+    let series = |pick: &dyn Fn(&G31ProfileFrame) -> f64| -> Vec<f64> {
+        frames_rec.iter().map(|f| pick(f)).collect()
+    };
+    let mut pj = String::new();
+    pj.push('{');
+    pj.push_str("\"schema\":\"rurix.g31.profile_output.v1\",");
+    pj.push_str("\"bin\":\"g31_window_present\",");
+    pj.push_str(&format!(
+        "\"scene\":{},\"tier\":{tier},\"backend\":\"tsr_device\",",
+        jstr(scene_id)
+    ));
+    pj.push_str(&format!(
+        "\"frames_measured\":{},\"warmup\":{warmup},",
+        frames_rec.len()
+    ));
+    pj.push_str(&format!(
+        "\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},\"internal_resolution\":{{\"w\":{in_w},\"h\":{in_h}}},\"headless\":{headless},"
+    ));
+    pj.push_str(&format!("\"render_digest\":{},", jstr(render_digest)));
+    // ── 逐 pass GPU 段（telemetry 声明序）──
+    pj.push_str("\"gpu_passes\":[");
+    for (i, name) in canon.iter().enumerate() {
+        if i > 0 {
+            pj.push(',');
+        }
+        let s: Vec<f64> = frames_rec.iter().map(|f| f.passes[i].1).collect();
+        pj.push_str(&seg_json(name, "gpu_timestamp_ms", &s));
+    }
+    pj.push_str("],");
+    // ── CPU 段（telemetry 三分项 + host 回读转换）──
+    pj.push_str("\"cpu_segments\":[");
+    pj.push_str(&seg_json(
+        "cpu_record",
+        "host_wall_ms",
+        &series(&|f| f.cpu_record_ms),
+    ));
+    pj.push(',');
+    pj.push_str(&seg_json(
+        "cpu_submit",
+        "host_wall_ms",
+        &series(&|f| f.cpu_submit_ms),
+    ));
+    pj.push(',');
+    pj.push_str(&seg_json(
+        "cpu_fence_wait",
+        "host_wall_ms",
+        &series(&|f| f.cpu_fence_wait_ms),
+    ));
+    pj.push(',');
+    pj.push_str(&seg_json(
+        "readback_convert",
+        "host_wall_ms",
+        &series(&|f| f.readback_convert_ms),
+    ));
+    pj.push_str("],");
+    // ── 帧段（host 墙钟;render 含 BGRA8 强制回读,present headless 恒 0）──
+    pj.push_str("\"frame_segments\":[");
+    pj.push_str(&seg_json(
+        "render_wall",
+        "host_wall_ms",
+        &series(&|f| f.render_wall_ms),
+    ));
+    pj.push(',');
+    pj.push_str(&seg_json(
+        "present_wall",
+        "host_wall_ms",
+        &series(&|f| f.present_wall_ms),
+    ));
+    pj.push(',');
+    pj.push_str(&seg_json("digest", "host_wall_ms", &series(&|f| f.digest_ms)));
+    pj.push_str("],");
+    // ── 恒等式字段（分解和≈帧墙钟;容差字面 = 门/文档同一事实源）──
+    let gpu_sum = series(&|f| f.passes.iter().map(|p| p.1).sum::<f64>());
+    let cpu_sum = series(&|f| {
+        f.cpu_record_ms + f.cpu_submit_ms + f.cpu_fence_wait_ms + f.readback_convert_ms
+    });
+    let rw = series(&|f| f.render_wall_ms);
+    let residual: Vec<f64> = frames_rec
+        .iter()
+        .map(|f| {
+            f.render_wall_ms
+                - (f.cpu_record_ms + f.cpu_submit_ms + f.cpu_fence_wait_ms + f.readback_convert_ms)
+        })
+        .collect();
+    let (gs_mean, _, gs_p99, _, _) = g31_seg_stats(&gpu_sum);
+    let (cs_mean, _, _, _, _) = g31_seg_stats(&cpu_sum);
+    let (rw_mean, _, _, _, _) = g31_seg_stats(&rw);
+    let (res_mean, _, res_p99, res_min, res_max) = g31_seg_stats(&residual);
+    pj.push_str(&format!(
+        "\"identity\":{{\"gpu_sum_mean_ms\":{gs_mean:.6},\"gpu_sum_p99_ms\":{gs_p99:.6},\"render_wall_mean_ms\":{rw_mean:.6},\"cpu_seg_sum_mean_ms\":{cs_mean:.6},\"host_residual_mean_ms\":{res_mean:.6},\"host_residual_p99_ms\":{res_p99:.6},\"host_residual_min_ms\":{res_min:.6},\"host_residual_max_ms\":{res_max:.6},\"gpu_sum_le_render_wall_tol_ms\":0.10,\"host_residual_tol_ms\":2.00,\"rule\":\"gpu_sum_mean<=render_wall_mean+0.10 && -0.10<=host_residual_mean<=2.00\"}},"
+    ));
+    // ── debug label 态（VK_EXT_debug_utils 逐 pass 标注面;absent = 零开销跳过）──
+    pj.push_str(&format!(
+        "\"debug_labels\":{{\"active\":{debug_labels_active},\"annotated_pass_count\":{},\"extension\":\"VK_EXT_debug_utils\",\"note\":{}}},",
+        if debug_labels_active { canon.len() } else { 0 },
+        jstr("vkCmdBegin/EndDebugUtilsLabelEXT 逐 pass 标注（pass 名）;扩展 absent = 零开销跳过 fail-silent")
+    ));
+    // profiler 开销如实登记（组装段实测——本行前的全部统计/拼装;写盘段在其后）。
+    let asm_ms = t_asm.elapsed().as_secs_f64() * 1000.0;
+    pj.push_str(&format!("\"profiler_overhead\":{{\"assembly_ms\":{asm_ms:.6},\"note\":{}}},", jstr("profiler 开销 = host 簿记（逐帧 Vec 推送）+ 本 JSON 组装段（assembly_ms 实测;写盘段在其后）;渲染语义零变更——digest 锚 on/off 位级一致由 ci/g31_profiling_smoke.py 门检")));
+    pj.push_str(&format!("\"notes\":{}", jstr("gpu_passes = DeviceFrameTelemetry 逐 pass GPU timestamp（声明序;×timestampPeriod 驱动实采）;cpu_segments = telemetry cpu_record/submit/fence_wait 三分项 + host readback_convert;frame_segments = host 墙钟（render_wall 含 BGRA8 8.3MB 强制回读税,present_wall headless 恒 0,digest 税单列不入渲染口径）;identity = 分解和≈帧墙钟恒等式（gpu_sum 为逐 pass GPU 合计,host_residual = render_wall − cpu 四段和;容差字段同 ci/g31_profiling_smoke.py）;默认关,开启零渲染语义变更")));
+    pj.push('}');
+    Ok(pj)
+}
+
+/// 文件 sha256(`sha256:` 前缀;provenance 登记面)。
+fn g31_file_sha(path: &str) -> Result<String, String> {
+    let b = std::fs::read(path).map_err(|e| format!("读 {path}: {e}"))?;
+    Ok(format!("sha256:{}", sha256_hex(&b)))
+}
+
+/// JSON 数值字段精确相等（f64 位级;转引核验面——同字面十进制的 f64 解析位级同值）。
+fn g31_json_num_eq(name: &str, a: &Json, b: &Json) -> Result<(), String> {
+    match (a.as_f64(), b.as_f64()) {
+        (Some(x), Some(y)) if x == y => Ok(()),
+        (Some(x), Some(y)) => Err(format!("转引不等 {name}: {x} ≠ {y}")),
+        _ => Err(format!("转引字段 {name} 非数值")),
+    }
+}
+
+/// 数值数组逐元素精确相等。
+fn g31_json_vec_eq(name: &str, a: &Json, b: &Json, n: usize) -> Result<(), String> {
+    let (Some(av), Some(bv)) = (a.as_array(), b.as_array()) else {
+        return Err(format!("转引字段 {name} 非数组"));
+    };
+    if av.len() != n || bv.len() != n {
+        return Err(format!(
+            "转引数组 {name} 长度 {} / {} ≠ {n}",
+            av.len(),
+            bv.len()
+        ));
+    }
+    for (i, (x, y)) in av.iter().zip(bv.iter()).enumerate() {
+        g31_json_num_eq(&format!("{name}[{i}]"), x, y)?;
+    }
+    Ok(())
+}
+
+/// G10 语料三件套 ↔ 生产契约 bistro-interior 场景行**转引一致性核验**（相机/点光/
+/// emissive 逐字段精确相等;不等即 Err 翻红）。返回登记用 JSON 片段（paths + sha256 +
+/// delta note）。
+fn g31_g10_corpus_gate(scene_row: &Json, g10_dir: &str) -> Result<String, String> {
+    let contract_path = format!("{g10_dir}/contract_params_bistro_interior.json");
+    let camera_path = format!("{g10_dir}/camera_bistro_interior.json");
+    let lighting_path = format!("{g10_dir}/lighting_bistro_interior.json");
+    let contract_sha = g31_file_sha(&contract_path)?;
+    let camera_sha = g31_file_sha(&camera_path)?;
+    let lighting_sha = g31_file_sha(&lighting_path)?;
+    let g10_contract = json_parse(
+        &std::fs::read_to_string(&contract_path).map_err(|e| format!("读 {contract_path}: {e}"))?,
+    )?;
+    let g10_camera = json_parse(
+        &std::fs::read_to_string(&camera_path).map_err(|e| format!("读 {camera_path}: {e}"))?,
+    )?;
+    let g10_lighting = json_parse(
+        &std::fs::read_to_string(&lighting_path).map_err(|e| format!("读 {lighting_path}: {e}"))?,
+    )?;
+
+    let row_cam = scene_row.get("camera").ok_or("场景行缺 camera")?;
+    let row_lig = scene_row.get("lighting").ok_or("场景行缺 lighting")?;
+    let c_cam = g10_contract.get("camera").ok_or("g10 契约缺 camera")?;
+
+    // ── 相机:g10 契约 ↔ 生产行(position/quat/fov/near/far/resolution 逐字段)──
+    g31_json_vec_eq(
+        "camera.position",
+        c_cam.get("position").unwrap(),
+        row_cam.get("position").unwrap(),
+        3,
+    )?;
+    g31_json_vec_eq(
+        "camera.orientation_quat",
+        c_cam.get("orientation_quat").unwrap(),
+        row_cam.get("orientation_quat").unwrap(),
+        4,
+    )?;
+    for k in ["fov_y_deg", "near", "far"] {
+        g31_json_num_eq(
+            &format!("camera.{k}"),
+            c_cam.get(k).unwrap(),
+            row_cam.get(k).unwrap(),
+        )?;
+    }
+    g31_json_num_eq(
+        "camera.resolution.w",
+        c_cam
+            .get("resolution")
+            .and_then(|r| r.get("w"))
+            .ok_or("g10 契约缺 resolution.w")?,
+        row_cam
+            .get("resolution")
+            .and_then(|r| r.get("w"))
+            .ok_or("生产行缺 resolution.w")?,
+    )?;
+    g31_json_num_eq(
+        "camera.resolution.h",
+        c_cam
+            .get("resolution")
+            .and_then(|r| r.get("h"))
+            .ok_or("g10 契约缺 resolution.h")?,
+        row_cam
+            .get("resolution")
+            .and_then(|r| r.get("h"))
+            .ok_or("生产行缺 resolution.h")?,
+    )?;
+    // camera_*.json(eye/target/up 形式):eye == position、fov/resolution 一致。
+    g31_json_vec_eq(
+        "camera_file.eye",
+        g10_camera.get("eye").ok_or("camera 文件缺 eye")?,
+        row_cam.get("position").unwrap(),
+        3,
+    )?;
+    g31_json_num_eq(
+        "camera_file.fov_y_deg",
+        g10_camera
+            .get("fov_y_deg")
+            .ok_or("camera 文件缺 fov_y_deg")?,
+        row_cam.get("fov_y_deg").unwrap(),
+    )?;
+    let cam_res = g10_camera
+        .get("resolution")
+        .and_then(|v| v.as_array())
+        .ok_or("camera 文件缺 resolution")?;
+    g31_json_num_eq(
+        "camera_file.resolution[0]",
+        cam_res.first().ok_or("camera resolution 空")?,
+        row_cam.get("resolution").and_then(|r| r.get("w")).unwrap(),
+    )?;
+    g31_json_num_eq(
+        "camera_file.resolution[1]",
+        cam_res.get(1).ok_or("camera resolution 缺 h")?,
+        row_cam.get("resolution").and_then(|r| r.get("h")).unwrap(),
+    )?;
+
+    // ── 点光:g10 lighting point_lights ↔ 生产行 point_lights(逐灯 position/color/
+    //    intensity_cd 精确相等,顺序一致)──
+    let g_points = g10_lighting
+        .get("point_lights")
+        .and_then(|v| v.as_array())
+        .ok_or("g10 lighting 缺 point_lights")?;
+    let r_points = row_lig
+        .get("point_lights")
+        .and_then(|v| v.as_array())
+        .ok_or("生产行缺 point_lights")?;
+    if g_points.len() != r_points.len() {
+        return Err(format!(
+            "点光数不等:g10 {} ≠ 生产行 {}",
+            g_points.len(),
+            r_points.len()
+        ));
+    }
+    for (i, (g, r)) in g_points.iter().zip(r_points.iter()).enumerate() {
+        g31_json_vec_eq(
+            &format!("point_lights[{i}].position"),
+            g.get("position").unwrap(),
+            r.get("position").unwrap(),
+            3,
+        )?;
+        g31_json_vec_eq(
+            &format!("point_lights[{i}].color_linear_rgb"),
+            g.get("color_linear_rgb").unwrap(),
+            r.get("color_linear_rgb").unwrap(),
+            3,
+        )?;
+        g31_json_num_eq(
+            &format!("point_lights[{i}].intensity_cd"),
+            g.get("intensity_cd").unwrap(),
+            r.get("intensity_cd").unwrap(),
+        )?;
+    }
+
+    // ── emissive:g10 emissive_surfaces ↔ 生产行 emissive_materials(按 material_index
+    //    配对,le_linear_rgb / area_m2 精确相等)──
+    let g_em = g10_lighting
+        .get("emissive_surfaces")
+        .and_then(|v| v.as_array())
+        .ok_or("g10 lighting 缺 emissive_surfaces")?;
+    let r_em = row_lig
+        .get("emissive_materials")
+        .and_then(|v| v.as_array())
+        .ok_or("生产行缺 emissive_materials")?;
+    if g_em.len() != r_em.len() {
+        return Err(format!(
+            "emissive 数不等:g10 {} ≠ 生产行 {}",
+            g_em.len(),
+            r_em.len()
+        ));
+    }
+    for (i, g) in g_em.iter().enumerate() {
+        let mi = g
+            .get("material_index")
+            .and_then(|v| v.as_u64())
+            .ok_or("g10 emissive 缺 material_index")?;
+        let r = r_em
+            .iter()
+            .find(|r| r.get("material_index").and_then(|v| v.as_u64()) == Some(mi))
+            .ok_or_else(|| format!("生产行缺 material_index={mi} 的 emissive"))?;
+        g31_json_vec_eq(
+            &format!("emissive[{mi}].le_linear_rgb"),
+            g.get("le_linear_rgb").unwrap(),
+            r.get("le_linear_rgb").unwrap(),
+            3,
+        )?;
+        g31_json_num_eq(
+            &format!("emissive[{mi}].area_m2"),
+            g.get("area_m2").ok_or("g10 emissive 缺 area_m2")?,
+            r.get("area_m2").ok_or("生产行 emissive 缺 area_m2")?,
+        )?;
+        let _ = i;
+    }
+
+    // ── delta 如实登记(G10 契约 sun/sky/ev100 ≠ 生产行;生产行为消费面,delta 不消费)──
+    let g_sun = g10_contract
+        .get("lighting")
+        .and_then(|l| l.get("sun"))
+        .and_then(|s| s.get("intensity_lux"))
+        .and_then(|v| v.as_f64())
+        .ok_or("g10 契约缺 sun.intensity_lux")?;
+    let g_sky = g10_contract
+        .get("lighting")
+        .and_then(|l| l.get("sky"))
+        .and_then(|s| s.get("intensity"))
+        .and_then(|v| v.as_f64())
+        .ok_or("g10 契约缺 sky.intensity")?;
+    let g_ev = g10_contract
+        .get("lighting")
+        .and_then(|l| l.get("exposure"))
+        .and_then(|s| s.get("ev100"))
+        .and_then(|v| v.as_f64())
+        .ok_or("g10 契约缺 exposure.ev100")?;
+    let r_sun = row_lig
+        .get("sun_intensity_lux")
+        .and_then(|v| v.as_f64())
+        .ok_or("生产行缺 sun_intensity_lux")?;
+    let r_sky = row_lig
+        .get("sky_intensity")
+        .and_then(|v| v.as_f64())
+        .ok_or("生产行缺 sky_intensity")?;
+    let r_ev = scene_row
+        .get("exposure")
+        .and_then(|e| e.get("ev100"))
+        .and_then(|v| v.as_f64())
+        .ok_or("生产行缺 exposure.ev100")?;
+
+    Ok(format!(
+        "\"g10_contract\":{{\"path\":{},\"sha256\":{}}},\"g10_camera\":{{\"path\":{},\"sha256\":{}}},\"g10_lighting\":{{\"path\":{},\"sha256\":{}}},\"consistency\":\"pass\",\"delta_note\":{}",
+        jstr(&contract_path.replace('\\', "/")),
+        jstr(&contract_sha),
+        jstr(&camera_path.replace('\\', "/")),
+        jstr(&camera_sha),
+        jstr(&lighting_path.replace('\\', "/")),
+        jstr(&lighting_sha),
+        jstr(&format!(
+            "G10 契约 sun_intensity_lux={g_sun}/sky_intensity={g_sky}/ev100={g_ev} 与生产行 sun/sky={r_sun}/{r_sky}、ev100={r_ev} 差异如实登记不消费——生产内容模型锚(直接光 quad/point/emissive + ev100 标定)为消费面,差异面 = G10.5a 取景校准登记值"
+        )),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// A3：五 pass 车道（统一四 pass + device 显示编码）描述组与车道状态机
+// （共享体 0-byte——本区全部落本 bin;资源 0..=21/pass 0..=3/屏障/readback 0..=3
+// 与 unified_lane_descs 逐字同源,追加资源 22/23 + pass 4 + 屏障计划 + readback 4）。
+// ---------------------------------------------------------------------------
+
+/// A3 五 pass 描述组（Vec 面——session 切片消费;`unified_lane_descs` 产物逐
+/// 项克隆追加,既有项 0-byte）。A5:fg on 时追加 FG 资源/pass/屏障/readback
+/// （fg off = 24 资源 + 5 pass + 5 readback 现状 0-byte）。
+struct G31Descs<'x> {
+    resources: Vec<ResourceDesc<'x>>,
+    passes: Vec<Pass<'x>>,
+    barriers: Vec<&'static [(u32, TargetState)]>,
+    readbacks: Vec<Readback>,
+}
+
+/// A5 FG 描述组输入面（spv/参数字节 era 常量——t 逐 gen 不同故分两静态参数
+/// 缓冲;fg off 时本面不构造）。
+struct G31FgAssets<'x> {
+    mode: G31Fg,
+    spv_bytes: &'x [u8],
+    mvn_spv_bytes: &'x [u8],
+    dispatch: [u32; 3],
+    mvn_dispatch: [u32; 3],
+    mvn_params_bytes: &'x [u8],
+    params1_bytes: &'x [u8],
+    params2_bytes: &'x [u8],
+}
+
+/// A3 五 pass 描述组装配：统一四 pass（Mega）+ encode（pass4 读
+/// `U_OUT_COLOR[parity]`——逐帧 binding_overrides 换 parity,初始绑定 = parity 0;
+/// dispatch 自 encode SPV LocalSize 派生,SPV 单一事实源同律）。A5:fg on 追加
+/// pass5 mvn（g31_mv_negate,MV 逐元素取反 glue,绑定静态）+ pass6 fg1
+/// （g26_framegen 直通馈入 prev/cur/−mv/t,初始绑定 parity 0,逐帧 override
+/// 换 parity）+ pass7 enc_fg1（绑定静态,复用 encode SPV/参数）+（x3）pass8
+/// fg2 + pass9 enc_fg2;readback 追加 FG BGRA8 + FG f32（f32 路仅 probe 帧
+/// 子集消费）。
+#[allow(clippy::too_many_arguments)]
+fn g31_lane_descs<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    enc_spv: &'x [u8],
+    enc_dispatch: [u32; 3],
+    enc_params_bytes: &'x [u8],
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+    fg: Option<G31FgAssets<'x>>,
+) -> G31Descs<'x> {
+    let (resources, passes, barriers, readbacks) = unified_lane_descs(assets, bits, iw, ih, ow, oh);
+    let opc = (ow * oh) as u64;
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let mut resources = resources.to_vec();
+    debug_assert_eq!(resources.len(), U_RESOURCE_COUNT);
+    // 22 = 编码参数（ACES 矩阵/样条 f32 块,创建期一次上传;逐帧曝光走 TSR
+    // 参数面不经本 buffer——本面静态,resize 随车道重建）。
+    resources.push(ResourceDesc::Buffer(BufferDesc {
+        size: enc_params_bytes.len() as u64,
+        usage: storage,
+        data: Some(enc_params_bytes),
+        device_local: true,
+    }));
+    // 23 = BGRA8 打包输出（1 u32/px;present 拷贝/digest 唯一消费面）。
+    resources.push(ResourceDesc::Buffer(BufferDesc {
+        size: opc * 4,
+        usage: storage,
+        data: None,
+        device_local: true,
+    }));
+    debug_assert_eq!(resources.len(), G31_U_RESOURCE_COUNT);
+    let mut passes = passes.to_vec();
+    passes.push(Pass::Compute(ComputePass {
+        name: "g31_display_encode",
+        spirv: enc_spv,
+        entry: None,
+        dispatch: DispatchSpec::Direct(enc_dispatch),
+        bindings: Bindings {
+            storage_buffers: vec![U_OUT_COLOR[0], G31_U_ENC_PARAMS, G31_U_ENC_OUT],
+            ..Bindings::default()
+        },
+    }));
+    let mut barriers = barriers.to_vec();
+    barriers.push(G31_U_PLAN_ENCODE);
+    let mut readbacks = readbacks.to_vec();
+    readbacks.push(Readback::Buffer {
+        res: G31_U_ENC_OUT,
+        offset: 0,
+        size: opc * 4,
+    });
+    if let Some(fga) = fg {
+        debug_assert_ne!(fga.mode, G31Fg::Off);
+        let buf = |size: u64| {
+            ResourceDesc::Buffer(BufferDesc {
+                size,
+                usage: storage,
+                data: None,
+                device_local: true,
+            })
+        };
+        let init = |bytes: &'x [u8]| {
+            ResourceDesc::Buffer(BufferDesc {
+                size: bytes.len() as u64,
+                usage: storage,
+                data: Some(bytes),
+                device_local: true,
+            })
+        };
+        // 24/25 = MV 取反 glue 参数（静态）/ 取反 MV 输出（2 f32/px）。
+        resources.push(init(fga.mvn_params_bytes));
+        resources.push(buf(opc * 8));
+        // 26..=28 = FG1 参数（静态）/ FG1 输出 f32 / FG1 BGRA8。
+        resources.push(init(fga.params1_bytes));
+        resources.push(buf(opc * 12));
+        resources.push(buf(opc * 4));
+        passes.push(Pass::Compute(ComputePass {
+            name: "g31_mv_negate",
+            spirv: fga.mvn_spv_bytes,
+            entry: None,
+            dispatch: DispatchSpec::Direct(fga.mvn_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![U_MV_OUT, G31_U_MVN_PARAMS, G31_U_MVN],
+                ..Bindings::default()
+            },
+        }));
+        passes.push(Pass::Compute(ComputePass {
+            name: "g26_framegen_fg1",
+            spirv: fga.spv_bytes,
+            entry: None,
+            dispatch: DispatchSpec::Direct(fga.dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![
+                    U_OUT_COLOR[1],
+                    U_OUT_COLOR[0],
+                    G31_U_MVN,
+                    G31_U_FG1_PARAMS,
+                    G31_U_FG1_OUT,
+                ],
+                ..Bindings::default()
+            },
+        }));
+        passes.push(Pass::Compute(ComputePass {
+            name: "g31_display_encode_fg1",
+            spirv: enc_spv,
+            entry: None,
+            dispatch: DispatchSpec::Direct(enc_dispatch),
+            bindings: Bindings {
+                storage_buffers: vec![G31_U_FG1_OUT, G31_U_ENC_PARAMS, G31_U_FG1_BGRA],
+                ..Bindings::default()
+            },
+        }));
+        barriers.push(G31_U_PLAN_MVN);
+        barriers.push(G31_U_PLAN_FG1);
+        barriers.push(G31_U_PLAN_ENC_FG1);
+        // readback 入列序（G31FgLayout 下标同源）：FG_BGRA 全部 → FG_OUT 全部
+        // → MVN;fg1 块只入 FG1_BGRA,FG1_OUT 待 x3 块后统一入列。
+        readbacks.push(Readback::Buffer {
+            res: G31_U_FG1_BGRA,
+            offset: 0,
+            size: opc * 4,
+        });
+        if fga.mode == G31Fg::X3 {
+            // 29..=31 = FG2 参数/输出 f32/BGRA8（x3 第二插入帧）。
+            resources.push(init(fga.params2_bytes));
+            resources.push(buf(opc * 12));
+            resources.push(buf(opc * 4));
+            passes.push(Pass::Compute(ComputePass {
+                name: "g26_framegen_fg2",
+                spirv: fga.spv_bytes,
+                entry: None,
+                dispatch: DispatchSpec::Direct(fga.dispatch),
+                bindings: Bindings {
+                    storage_buffers: vec![
+                        U_OUT_COLOR[1],
+                        U_OUT_COLOR[0],
+                        G31_U_MVN,
+                        G31_U_FG2_PARAMS,
+                        G31_U_FG2_OUT,
+                    ],
+                    ..Bindings::default()
+                },
+            }));
+            passes.push(Pass::Compute(ComputePass {
+                name: "g31_display_encode_fg2",
+                spirv: enc_spv,
+                entry: None,
+                dispatch: DispatchSpec::Direct(enc_dispatch),
+                bindings: Bindings {
+                    storage_buffers: vec![G31_U_FG2_OUT, G31_U_ENC_PARAMS, G31_U_FG2_BGRA],
+                    ..Bindings::default()
+                },
+            }));
+            barriers.push(G31_U_PLAN_FG2);
+            barriers.push(G31_U_PLAN_ENC_FG2);
+            readbacks.push(Readback::Buffer {
+                res: G31_U_FG2_BGRA,
+                offset: 0,
+                size: opc * 4,
+            });
+        }
+        // FG_OUT f32 全部（probe 帧子集消费;序 = fg1,fg2）。
+        readbacks.push(Readback::Buffer {
+            res: G31_U_FG1_OUT,
+            offset: 0,
+            size: opc * 12,
+        });
+        if fga.mode == G31Fg::X3 {
+            readbacks.push(Readback::Buffer {
+                res: G31_U_FG2_OUT,
+                offset: 0,
+                size: opc * 12,
+            });
+        }
+        // 末位 = MVN 取反结果回读（probe 帧 device 侧 MV 内容直比对面;布局
+        // 下标见 G31FgLayout::of）。
+        readbacks.push(Readback::Buffer {
+            res: G31_U_MVN,
+            offset: 0,
+            size: opc * 8,
+        });
+    }
+    G31Descs {
+        resources,
+        passes,
+        barriers,
+        readbacks,
+    }
+}
+
+/// B4 纹理变体描述组（--textures on 面;`g31_lane_descs` fg=None 形态产物逐项
+/// 克隆 + scene pass 换 g31_texture_gi 变体〔绑定面 = 既有 7 路 + B4 五件
+/// SSBO,声明序与 kernels/g31_texture_gi.rx 签名逐字同源〕+ 资源追加 24..=28
+/// + scene 屏障换 G31_U_PLAN_SCENE_TEX——既有资源/pass/屏障/readback 各面
+/// 0-byte,off 面不构造）。
+#[allow(clippy::too_many_arguments)]
+fn g31_lane_descs_tex<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    enc_spv: &'x [u8],
+    enc_dispatch: [u32; 3],
+    enc_params_bytes: &'x [u8],
+    tex_spv: &'x [u8],
+    tex: &'x G31TexAssets,
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> G31Descs<'x> {
+    let mut d = g31_lane_descs(
+        assets,
+        bits,
+        enc_spv,
+        enc_dispatch,
+        enc_params_bytes,
+        iw,
+        ih,
+        ow,
+        oh,
+        None,
+    );
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    d.resources.push(init(&tex.texuv_bytes)); // G31_U_TEX_UV
+    d.resources.push(init(&tex.texmeta_bytes)); // G31_U_TEX_META
+    d.resources.push(init(&tex.tritex_bytes)); // G31_U_TEX_TRITEX
+    d.resources.push(init(&tex.atlas_bytes)); // G31_U_TEX_ATLAS
+    d.resources.push(init(&tex.linlut_bytes)); // G31_U_TEX_LINLUT
+    debug_assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEX);
+    d.passes[0] = Pass::Compute(ComputePass {
+        name: "g31_texture_gi",
+        spirv: tex_spv,
+        entry: None,
+        dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+        bindings: Bindings {
+            accel_structs: vec![0],
+            storage_buffers: vec![
+                U_TRIS,
+                U_MATS,
+                U_QUADS,
+                U_POINTS,
+                U_SCENE_PARAMS,
+                G31_U_TEX_UV,
+                G31_U_TEX_META,
+                G31_U_TEX_TRITEX,
+                G31_U_TEX_ATLAS,
+                G31_U_TEX_LINLUT,
+                U_SCENE_COLOR,
+                U_SCENE_DEPTH,
+            ],
+            ..Bindings::default()
+        },
+    });
+    d.barriers[0] = G31_U_PLAN_SCENE_TEX;
+    d
+}
+
+/// C13 SVT 变体描述组（--svt on 面;`g31_lane_descs_tex` 产物逐项克隆 +
+/// scene pass 换 g31_svt_gi 变体〔绑定面 = B4 纹理面减 atlas 直绑 + C13 五件,
+/// 声明序与 kernels/g31_svt_gi.rx 签名逐字同源〕+ 资源追加 29..=33 + scene
+/// 屏障换 G31_U_PLAN_SCENE_SVT + readback 追加 miss 请求缓冲（下标 5）——
+/// 既有资源/pass/屏障/readback 各面 0-byte,svt off 面不构造）。
+///
+/// pagetable/pool 二件 = host-visible（G14.10d 判定规则:逐帧
+/// `FrameUpdate.buffer_uploads` 目标 ⇒ device_local:false）;pagetable 初态
+/// 字节 = 流送状态当前页表影（era 重建再同步面）,pool 初态字节 = host 池
+/// 影（全驻留臂 = 全瓦片集,冷臂 = 全零——页表全空 ⇒ 池永不被未驻留读）。
+#[allow(clippy::too_many_arguments)]
+fn g31_lane_descs_svt<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    enc_spv: &'x [u8],
+    enc_dispatch: [u32; 3],
+    enc_params_bytes: &'x [u8],
+    svt_spv: &'x [u8],
+    tex: &'x G31TexAssets,
+    svt: &'x G31SvtAssets,
+    pagetable_bytes: &'x [u8],
+    pool_bytes: &'x [u8],
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> G31Descs<'x> {
+    let mut d = g31_lane_descs_tex(
+        assets,
+        bits,
+        enc_spv,
+        enc_dispatch,
+        enc_params_bytes,
+        svt_spv,
+        tex,
+        iw,
+        ih,
+        ow,
+        oh,
+    );
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let host_init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: false,
+        })
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let ipc = (iw as u64) * (ih as u64);
+    d.resources.push(host_init(pagetable_bytes)); // G31_U_SVT_PAGETABLE（逐帧上传面）
+    d.resources.push(host_init(pool_bytes)); // G31_U_SVT_POOL（逐帧上传面）
+    d.resources.push(ResourceDesc::Buffer(BufferDesc {
+        size: ipc * 4,
+        usage: storage,
+        data: None,
+        device_local: true,
+    })); // G31_U_SVT_REQ（kernel 全屏直写,帧间零状态）
+    d.resources.push(init(&svt.svtmeta_bytes)); // G31_U_SVT_META
+    d.resources.push(init(&svt.fallback_bytes)); // G31_U_SVT_FALLBACK
+    debug_assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_SVT);
+    d.passes[0] = Pass::Compute(ComputePass {
+        name: "g31_svt_gi",
+        spirv: svt_spv,
+        entry: None,
+        dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+        bindings: Bindings {
+            accel_structs: vec![0],
+            storage_buffers: vec![
+                U_TRIS,
+                U_MATS,
+                U_QUADS,
+                U_POINTS,
+                U_SCENE_PARAMS,
+                G31_U_TEX_UV,
+                G31_U_TEX_META,
+                G31_U_TEX_TRITEX,
+                G31_U_TEX_LINLUT,
+                G31_U_SVT_META,
+                G31_U_SVT_FALLBACK,
+                G31_U_SVT_PAGETABLE,
+                G31_U_SVT_POOL,
+                G31_U_SVT_REQ,
+                U_SCENE_COLOR,
+                U_SCENE_DEPTH,
+            ],
+            ..Bindings::default()
+        },
+    });
+    d.barriers[0] = G31_U_PLAN_SCENE_SVT;
+    d.readbacks.push(Readback::Buffer {
+        res: G31_U_SVT_REQ,
+        offset: 0,
+        size: ipc * 4,
+    });
+    debug_assert_eq!(d.readbacks.len() as u32, G31_RB_SVT_REQ + 1);
+    d
+}
+
+/// A3 逐帧回读模式（常态 = BGRA8 8.3MB;末帧追加 f32 out_color 供
+/// render_digest——与 bench 末帧回读同律;None = 零回读,headless 中间帧面）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum G31Readback {
+    None,
+    Bgra,
+    BgraAndColor,
+}
+
+/// A3 一帧产物（五 pass GPU 分段 + BGRA8/f32 回读 + 校验计数）。A5:fg on 追加
+/// FG pass GPU 分段 + 生成帧 BGRA8（时序升序）+ probe 帧 f32 三路回读。
+struct G31FrameRec {
+    scene_gpu_ns: f64,
+    mv_gpu_ns: f64,
+    resample_gpu_ns: f64,
+    resolve_gpu_ns: f64,
+    encode_gpu_ns: f64,
+    /// A5:FG pass GPU 合计（fg1/fg2 kernel + 各自 encode;fg off 恒 0）。
+    fg_gpu_ns: f64,
+    cpu_record_ns: u64,
+    cpu_submit_ns: u64,
+    cpu_fence_wait_ns: u64,
+    validation_error_count: u64,
+    /// 所有权账本外 object/allocation 数（成功帧必须为 0——资源无泄漏机核面,
+    /// 逐帧断言不累积到退出才查）。
+    leaked_object_count: u64,
+    leaked_allocation_count: u64,
+    bgra8: Option<Vec<u8>>,
+    /// A5:本帧生成帧 BGRA8（时序升序;gen 非活跃帧 = 空）。
+    gen_bgra8: Vec<Vec<u8>>,
+    out_color: Option<Vec<f32>>,
+    /// A5 probe 帧三路：prev f32 / MV f32 / 生成帧 f32（时序升序;非 probe = 空）。
+    probe_prev_color: Option<Vec<f32>>,
+    probe_mv: Option<Vec<f32>>,
+    probe_gen_out: Vec<Vec<f32>>,
+    /// A5 probe 帧 MVN 取反结果（device 侧 MV 内容直比对面;非 probe = None）。
+    probe_mvn: Option<Vec<f32>>,
+    readback_convert_ms: f64,
+    /// B1 HZB 决策/调度块（--hzb on 面;off = None,既有面 0-byte）。
+    hzb: Option<G31HzbFrameRec>,
+    /// C13 SVT miss 请求缓冲回读（--svt on 面 = iw·ih f32;off = None,既有面 0-byte）。
+    svt_requests: Option<Vec<u8>>,
+    /// C7 profiler 面：本帧全量逐 pass GPU 计时（telemetry 声明序;(pass 名, ns)）。
+    /// 五段提取面 0-byte——既有字段全部同值维持,本列为 --profile-json 唯一消费面。
+    pass_gpu_ns: Vec<(String, f64)>,
+}
+
+/// C7 profiler 逐帧记录（--profile-json 收集面;post-warmup 测量窗与 render_ms 同口径）。
+struct G31ProfileFrame {
+    /// 全量逐 pass GPU 毫秒（telemetry 声明序）。
+    passes: Vec<(String, f64)>,
+    cpu_record_ms: f64,
+    cpu_submit_ms: f64,
+    cpu_fence_wait_ms: f64,
+    readback_convert_ms: f64,
+    render_wall_ms: f64,
+    present_wall_ms: f64,
+    digest_ms: f64,
+}
+
+/// C13 SVT 逐帧状态（--svt on 面;车道创建期挂载,逐帧流送闭环消费面）。
+struct G31SvtLaneState {
+    /// 次帧上传段（页表写段 + 瓦片上传段;主循环 consume 产出,prepare_update 消费）。
+    pending: Vec<(StableResourceId, u64, Vec<u8>)>,
+    /// miss 请求缓冲字节数（iw·ih·4;rec_from_output 校验面）。
+    req_bytes: usize,
+}
+
+/// C13 SVT 逐帧流送统计（evidence 面;svt on 才消费,off = 全零默认）。
+#[derive(Default)]
+struct G31SvtStats {
+    /// 逐帧 miss 像素数（= fallback 像素数;请求缓冲非零项计数）。
+    miss_px: Vec<u32>,
+    /// 逐帧去重 miss 页数。
+    unique_pages: Vec<u32>,
+    /// 逐帧新入池瓦片数。
+    loaded: Vec<u32>,
+    /// 逐帧驱逐瓦片数。
+    evicted: Vec<u32>,
+    miss_px_total: u64,
+    requested_pages_total: u64,
+    tiles_loaded_total: u64,
+    tiles_evicted_total: u64,
+    io_bytes_total: u64,
+    /// fallback 像素 >0 的帧数。
+    fallback_frames: u32,
+}
+
+/// A3 五 pass 车道状态机（parity/历史门/prev_vp_j 与 UnifiedTsrLane 逐字同律;
+/// 差异 = 五 pass 描述组 + encode binding parity 轮换 + BGRA8 回读面）。A5:
+/// fg 档 + readback 布局入状态机（fg pass binding parity 轮换同律追加）。C13:
+/// svt 档 + 逐帧上传段/miss 请求回读路入状态机。
+struct G31TsrLane<'a> {
+    session: DeviceFrameSession<'a>,
+    parity: usize,
+    has_history_state: bool,
+    prev_vp_j: Option<Mat4>,
+    fg: G31Fg,
+    fg_layout: G31FgLayout,
+    /// scene pass telemetry 名（B4:textures on = "g31_texture_gi" 变体,off =
+    /// "g14_3_direct_gi"——descs 声明面直取,telemetry 按名提取同律）。
+    scene_pass_name: &'a str,
+    /// C13 SVT 状态（svt on = Some;off = None,既有面 0-byte）。
+    svt: Option<G31SvtLaneState>,
+}
+
+impl<'a> G31TsrLane<'a> {
+    fn create(
+        descs: &'a G31Descs<'a>,
+        accel_structs: &[AccelStructDesc<'a>],
+        fg: G31Fg,
+    ) -> Result<Self, String> {
+        if !vk::vulkan_available() {
+            return Err("vulkan loader 不可用".into());
+        }
+        let scene_pass_name = match descs.passes.first() {
+            Some(Pass::Compute(cp)) => cp.name,
+            _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
+        };
+        // frame_slots=2（与 UnifiedTsrLane inflight=1 创建面逐字同——顺序全同步
+        // 口径;FIF 流水化非本任务面,g31_frame_pipelining 门覆盖）。
+        let session = DeviceFrameSession::new_with_accel_structs(
+            &descs.resources,
+            &descs.passes,
+            &descs.barriers,
+            &descs.readbacks,
+            2,
+            accel_structs,
+        )?;
+        Ok(Self {
+            session,
+            parity: 0,
+            has_history_state: false,
+            prev_vp_j: None,
+            fg,
+            fg_layout: G31FgLayout::of(fg),
+            scene_pass_name,
+            svt: None,
+        })
+    }
+
+    /// C13 SVT 状态挂载（svt on 车道创建后一次性;req_bytes = iw·ih·4）。
+    fn set_svt(&mut self, req_bytes: usize) {
+        self.svt = Some(G31SvtLaneState {
+            pending: Vec::new(),
+            req_bytes,
+        });
+    }
+
+    /// C13 次帧上传段写入（主循环 consume 产出;prepare_update 全量消费并清空）。
+    fn set_svt_pending(&mut self, pending: Vec<(StableResourceId, u64, Vec<u8>)>) {
+        if let Some(s) = self.svt.as_mut() {
+            s.pending = pending;
+        }
+    }
+
+    /// A5 本帧生成是否活跃（fg on 且有 prev 真渲帧对——首帧/resize era 首帧
+    /// 无 prev,跳过生成不消费;FG pass 仍随固定图执行但输出面不读不 present,
+    /// 真实渲染帧内容零影响）。
+    fn gen_active(&self, reset: bool) -> bool {
+        self.fg != G31Fg::Off && !reset && self.has_history_state
+    }
+
+    /// 本帧 FrameUpdate + provenance 组装（三小件参数打包 + parity 轮换
+    /// resample/resolve/encode 三 pass binding_overrides + readback 子集;
+    /// 与 UnifiedTsrLane::prepare_update 同律,追加 pass4 一项）。A5:fg on
+    /// 追加 fg pass parity override（prev/cur 双缓冲绑定轮换）+ readback 子集
+    /// 组合（cur BGRA8 → 生成帧 BGRA8 → cur f32 → probe 三路）。
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_update(
+        &self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        eps: f32,
+        quad_count: usize,
+        point_count: usize,
+        inv_vp: &Mat4,
+        vp: &Mat4,
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        readback: G31Readback,
+        probe: bool,
+    ) -> Result<(SubmissionProvenance, FrameUpdate), String> {
+        let scene_params =
+            pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
+        // mv 参数面:inv_cur = vp_j 逆(host Mat4::inverse 伴随法);prev = 上帧
+        // vp_j;首帧 has_prev=0,kernel 门直写零——与统一车道逐字同律。
+        let inv_cur = vp_j
+            .inverse()
+            .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
+        let prev = self.prev_vp_j.unwrap_or(*vp_j);
+        let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
+        let has_history = !reset && self.has_history_state;
+        let tsr_params = pack_tsr_params(iw, ih, ow, oh, jitter, exposure, has_history, false);
+        let p = self.parity;
+        let mut uploads: Vec<(StableResourceId, u64, Vec<u8>)> = vec![
+            (
+                StableResourceId(u64::from(U_SCENE_PARAMS) + 1),
+                0,
+                bytes_f32(&scene_params),
+            ),
+            (
+                StableResourceId(u64::from(U_MV_PARAMS) + 1),
+                0,
+                bytes_f32(&mv_params),
+            ),
+            (
+                StableResourceId(u64::from(U_TSR_PARAMS) + 1),
+                0,
+                bytes_f32(&tsr_params),
+            ),
+        ];
+        // C13 SVT:次帧上传段合入（页表写段 + 瓦片上传段;主循环 consume 产出）。
+        if let Some(s) = self.svt.as_ref() {
+            uploads.extend(s.pending.iter().cloned());
+        }
+        let bindings_resample = Bindings {
+            storage_buffers: vec![
+                U_SCENE_COLOR,
+                U_SCENE_DEPTH,
+                U_TSR_PARAMS,
+                U_CUR_RGB,
+                U_LUMA[p],
+                U_DEPTH_HI[p],
+            ],
+            ..Bindings::default()
+        };
+        let bindings_resolve = Bindings {
+            storage_buffers: vec![
+                U_CUR_RGB,
+                U_LUMA[p],
+                U_DEPTH_HI[p],
+                U_MV_OUT,
+                U_REACTIVE,
+                U_OUT_COLOR[1 - p],
+                U_DEPTH_HI[1 - p],
+                U_LUMA[1 - p],
+                U_OUT_SIGN[1 - p],
+                U_OUT_SCORE[1 - p],
+                U_TSR_PARAMS,
+                U_OUT_COLOR[p],
+                U_OUT_SIGN[p],
+                U_OUT_SCORE[p],
+            ],
+            ..Bindings::default()
+        };
+        // encode 读本帧 resolve 写出的 U_OUT_COLOR[p](parity 轮换同律)。
+        let bindings_encode = Bindings {
+            storage_buffers: vec![U_OUT_COLOR[p], G31_U_ENC_PARAMS, G31_U_ENC_OUT],
+            ..Bindings::default()
+        };
+        let mut binding_overrides = vec![
+            (2, bindings_resample),
+            (3, bindings_resolve),
+            (4, bindings_encode),
+        ];
+        // A5:fg pass parity override——取反 glue 直通馈入:kernel(prev:=
+        // U_OUT_COLOR[1−p](上帧 prev),cur:=U_OUT_COLOR[p](本帧 cur),mv:=
+        // G31_U_MVN(g14 相机 MV 取反后 = host 约定形),t:=t_temporal（参数创建
+        // 期定)）≡ host interpolate(prev, cur, −mv_g14, t) 逐字同语义（文件头
+        // A5 §2;encode_fg/mvn 绑定静态不轮换）。
+        if self.fg != G31Fg::Off {
+            binding_overrides.push((
+                6,
+                Bindings {
+                    storage_buffers: vec![
+                        U_OUT_COLOR[1 - p],
+                        U_OUT_COLOR[p],
+                        G31_U_MVN,
+                        G31_U_FG1_PARAMS,
+                        G31_U_FG1_OUT,
+                    ],
+                    ..Bindings::default()
+                },
+            ));
+            if self.fg == G31Fg::X3 {
+                binding_overrides.push((
+                    8,
+                    Bindings {
+                        storage_buffers: vec![
+                            U_OUT_COLOR[1 - p],
+                            U_OUT_COLOR[p],
+                            G31_U_MVN,
+                            G31_U_FG2_PARAMS,
+                            G31_U_FG2_OUT,
+                        ],
+                        ..Bindings::default()
+                    },
+                ));
+            }
+        }
+        // A5 readback 子集组合（序即解析序）：cur BGRA8 → 生成帧 BGRA8（gen 活跃
+        // 才回读）→ cur f32（末帧/probe）→ probe 三路（prev f32 + MV + 生成 f32）。
+        let gen_active = self.gen_active(reset);
+        let mut subset: Vec<u32> = Vec::new();
+        if readback != G31Readback::None {
+            subset.push(G31_RB_BGRA);
+            // C13 SVT:miss 请求缓冲逐帧回读（消费序 = BGRA 之后,probe/末帧路之前）。
+            if self.svt.is_some() {
+                subset.push(G31_RB_SVT_REQ);
+            }
+            if gen_active {
+                subset.push(self.fg_layout.rb_fg1_bgra);
+                if self.fg == G31Fg::X3 {
+                    subset.push(self.fg_layout.rb_fg2_bgra);
+                }
+            }
+            if readback == G31Readback::BgraAndColor || probe {
+                subset.push(p as u32);
+            }
+            if probe {
+                subset.push(1 - p as u32);
+                subset.push(2);
+                subset.push(self.fg_layout.rb_fg1_out);
+                if self.fg == G31Fg::X3 {
+                    subset.push(self.fg_layout.rb_fg2_out);
+                }
+                subset.push(self.fg_layout.rb_mvn);
+            }
+        }
+        let update = FrameUpdate {
+            tlas_update: None,
+            buffer_uploads: uploads,
+            binding_overrides,
+            push_constant_overrides: vec![],
+            readback_subset: Some(subset),
+            blas_refit: None, // G31+ 波 B Task B5 字段面:本车道无 BLAS refit(0-byte 默认)
+        };
+        let prov = self.session.next_provenance_with_update(&update)?;
+        Ok((prov, update))
+    }
+
+    /// 一帧产物组装（telemetry 五 pass 提取 + BGRA8/f32 回读 + 尺寸校验）。A5:
+    /// 回读按 prepare_update 子集同序解析;FG pass telemetry 按名提取合计。
+    fn rec_from_output(
+        &self,
+        mut out: DeviceFrameOutput,
+        readback: G31Readback,
+        gen_active: bool,
+        probe: bool,
+        ow: u32,
+        oh: u32,
+    ) -> Result<G31FrameRec, String> {
+        let gpu = |name: &str| -> Result<f64, String> {
+            out.telemetry
+                .passes
+                .iter()
+                .find(|pp| pp.name == name)
+                .map(|pp| pp.gpu_ns)
+                .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))
+        };
+        let scene_gpu_ns = gpu(self.scene_pass_name)?;
+        let mv_gpu_ns = gpu("g14_mv")?;
+        let resample_gpu_ns = gpu("g14_8_tsr_resample")?;
+        let resolve_gpu_ns = gpu("g14_8_tsr_resolve")?;
+        let encode_gpu_ns = gpu("g31_display_encode")?;
+        let mut fg_gpu_ns = 0.0;
+        if self.fg != G31Fg::Off {
+            fg_gpu_ns +=
+                gpu("g31_mv_negate")? + gpu("g26_framegen_fg1")? + gpu("g31_display_encode_fg1")?;
+            if self.fg == G31Fg::X3 {
+                fg_gpu_ns += gpu("g26_framegen_fg2")? + gpu("g31_display_encode_fg2")?;
+            }
+        }
+        let t_convert = std::time::Instant::now();
+        let bgra_px = (ow * oh * 4) as usize;
+        let f32_px = (ow * oh * 3) as usize;
+        let mv_px = (ow * oh * 2) as usize;
+        let mut idx = 0usize;
+        let take_rb = |out: &mut DeviceFrameOutput, idx: &mut usize| -> Result<Vec<u8>, String> {
+            if *idx >= out.readbacks.len() {
+                return Err(format!(
+                    "A5 回读路数 {} 少于子集消费序 {idx}",
+                    out.readbacks.len()
+                ));
+            }
+            let b = std::mem::take(&mut out.readbacks[*idx]);
+            *idx += 1;
+            Ok(b)
+        };
+        let (
+            bgra8,
+            gen_bgra8,
+            out_color,
+            probe_prev_color,
+            probe_mv,
+            probe_gen_out,
+            probe_mvn,
+            svt_requests,
+        ) = if readback == G31Readback::None {
+            if !out.readbacks.is_empty() {
+                return Err(format!(
+                    "A3 零回读面回读路数 {} ≠ 0",
+                    out.readbacks.len()
+                ));
+            }
+            (None, Vec::new(), None, None, None, Vec::new(), None, None)
+        } else {
+            let b = take_rb(&mut out, &mut idx)?;
+            if b.len() != bgra_px {
+                return Err(format!(
+                    "A3 BGRA8 回读字节 {} ≠ {}x{}x4",
+                    b.len(),
+                    ow,
+                    oh
+                ));
+            }
+            // C13 SVT:miss 请求缓冲（消费序 = BGRA 之后;svt on 才有此路）。
+            let svt_requests = if let Some(s) = self.svt.as_ref() {
+                let r = take_rb(&mut out, &mut idx)?;
+                if r.len() != s.req_bytes {
+                    return Err(format!(
+                        "C13 SVT 请求缓冲回读字节 {} ≠ {}",
+                        r.len(),
+                        s.req_bytes
+                    ));
+                }
+                Some(r)
+            } else {
+                None
+            };
+            let mut gen_bgra8: Vec<Vec<u8>> = Vec::new();
+            if gen_active {
+                let want_gen = self.fg.inserted() as usize;
+                for _ in 0..want_gen {
+                    let g = take_rb(&mut out, &mut idx)?;
+                    if g.len() != bgra_px {
+                        return Err(format!(
+                            "A5 生成帧 BGRA8 回读字节 {} ≠ {}x{}x4",
+                            g.len(),
+                            ow,
+                            oh
+                        ));
+                    }
+                    gen_bgra8.push(g);
+                }
+            }
+            let out_color = if readback == G31Readback::BgraAndColor || probe {
+                let data = read_f32(&take_rb(&mut out, &mut idx)?);
+                if data.len() != f32_px {
+                    return Err("A3 f32 回读字节数与输出分辨率不符".into());
+                }
+                Some(data)
+            } else {
+                None
+            };
+            let (probe_prev_color, probe_mv, probe_gen_out, probe_mvn) = if probe {
+                let prev = read_f32(&take_rb(&mut out, &mut idx)?);
+                if prev.len() != f32_px {
+                    return Err("A5 probe prev f32 回读字节数与输出分辨率不符".into());
+                }
+                let mv = read_f32(&take_rb(&mut out, &mut idx)?);
+                if mv.len() != mv_px {
+                    return Err("A5 probe MV 回读字节数与输出分辨率不符".into());
+                }
+                let mut gens = Vec::new();
+                for _ in 0..self.fg.inserted() {
+                    let g = read_f32(&take_rb(&mut out, &mut idx)?);
+                    if g.len() != f32_px {
+                        return Err("A5 probe 生成帧 f32 回读字节数与输出分辨率不符".into());
+                    }
+                    gens.push(g);
+                }
+                let mvn = read_f32(&take_rb(&mut out, &mut idx)?);
+                if mvn.len() != mv_px {
+                    return Err("A5 probe MVN 回读字节数与输出分辨率不符".into());
+                }
+                (Some(prev), Some(mv), gens, Some(mvn))
+            } else {
+                (None, None, Vec::new(), None)
+            };
+            if idx != out.readbacks.len() {
+                return Err(format!(
+                    "A5 回读消费序 {idx} ≠ 实到路数 {}",
+                    out.readbacks.len()
+                ));
+            }
+            (
+                Some(b),
+                gen_bgra8,
+                out_color,
+                probe_prev_color,
+                probe_mv,
+                probe_gen_out,
+                probe_mvn,
+                svt_requests,
+            )
+        };
+        let readback_convert_ms = t_convert.elapsed().as_secs_f64() * 1000.0;
+        // C7 profiler 面:全量逐 pass GPU 计时（telemetry 声明序直拷）。
+        let pass_gpu_ns: Vec<(String, f64)> = out
+            .telemetry
+            .passes
+            .iter()
+            .map(|pp| (pp.name.clone(), pp.gpu_ns))
+            .collect();
+        Ok(G31FrameRec {
+            scene_gpu_ns,
+            mv_gpu_ns,
+            resample_gpu_ns,
+            resolve_gpu_ns,
+            encode_gpu_ns,
+            fg_gpu_ns,
+            cpu_record_ns: out.telemetry.cpu_record_ns,
+            cpu_submit_ns: out.telemetry.cpu_submit_ns,
+            cpu_fence_wait_ns: out.telemetry.cpu_fence_wait_ns,
+            validation_error_count: out.telemetry.validation_error_count,
+            leaked_object_count: out.telemetry.leaked_object_count,
+            leaked_allocation_count: out.telemetry.leaked_allocation_count,
+            bgra8,
+            gen_bgra8,
+            out_color,
+            probe_prev_color,
+            probe_mv,
+            probe_gen_out,
+            probe_mvn,
+            readback_convert_ms,
+            hzb: None,
+            svt_requests,
+            pass_gpu_ns,
+        })
+    }
+
+    /// 一帧：三小件参数上传 → 五 pass GPU 链内执行（TSR 输出驻留 device,
+    /// encode 链内直写 BGRA8;A5 fg on 追加 FG pass 链内生成 + 编码）→ 可选
+    /// BGRA8(/f32/probe 三路）回读。
+    #[allow(clippy::too_many_arguments)]
+    fn frame(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        eps: f32,
+        quad_count: usize,
+        point_count: usize,
+        inv_vp: &Mat4,
+        vp: &Mat4,
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        readback: G31Readback,
+        probe: bool,
+    ) -> Result<G31FrameRec, String> {
+        let gen_active = self.gen_active(reset);
+        let (prov, update) = self.prepare_update(
+            iw, ih, ow, oh, jitter, eps, quad_count, point_count, inv_vp, vp, vp_j, exposure,
+            reset, readback, probe,
+        )?;
+        let out = self.session.execute_with_frame_update(&prov, &update)?;
+        let rec = self.rec_from_output(out, readback, gen_active, probe, ow, oh)?;
+        self.prev_vp_j = Some(*vp_j);
+        self.has_history_state = true;
+        self.parity = 1 - self.parity;
+        Ok(rec)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// G31+ 波 B Task B1 HZB 遮挡剔除生产接线面（--hzb <off|on>;G30 承接锚 G27 行
+// 「生产接线窗」+ RFC-0044 §5.8 两阶段第二段（F10 补项）兑现;G31_PLUS
+// COMMERCIAL_RENDERER_TODO §1.2 #6 行）。
+//
+// ## 架构（单 TLAS 签名纪律〔RXS-0297〕下的双 TLAS 拆散分工）
+// - **剔除对象粒度 = TLAS 实例**（bistro 逐 mesh 节点 BLAS 分解,仅 --hzb on
+//   面;tris/mats SSBO 与单 BLAS 生产面位级同 buffer——节点段为装配序连续段,
+//   g31_hzb_primary 经 inst_base 前缀和表把 (inst, prim) 映回全局下标,着色
+//   数学与 Mega 面逐位同式）。
+// - **消费点 = 主射线 pass 的 TLAS 实例 mask**（被剔实例 mask=0x00 ⇒ ray query
+//   零遍历其 BLAS = 「跳过 primary pass 对应射线工作」的 RT 车道兑现形;
+//   kernels/g31_hzb_primary.rx 相机射线走初剔后 TLAS;kernels/g31_hzb_shade.rx
+//   阴影射线走全量 TLAS——被剔实例仍投阴影,遮挡物阴影正确性面）。
+// - **金字塔构建进剔除链**（kernels/g27_hzb_reduce.rx 0-byte 冻结消费）:
+//   本帧**真深度**（depth_hz 专用面 = g31_hzb_shade ④b 段由 vp 行 2/3 另算的
+//   真 ZO NDC——U_SCENE_DEPTH 沿用 g14_3_shade_reduce 参数行 25..32 生产字面
+//   供 MV/TSR,两路并存互不染指;剔除链语义对真实深度成立,近面内几何
+//   z_ndc<0 合法入塔）逐级 dispatch 归约 + g31_hzb_pack.rx glue 平铺进单
+//   SSBO;**帧间金字塔轮换** = 每帧先初剔后重建（test_p1 读上帧平铺,
+//   reduce/pack 覆写为本帧,test_p2 读本帧）。
+// - **两阶段闭环第二段**（RFC-0044 §5.8 字面「上帧金字塔初剔 + 本帧重建重测」):
+//   逐帧单提交内 pass 序 [primary→shade→mv→tsr×2→encode→test_p1(全实例 rect
+//   vs 上帧金字塔)→reduce×(L−1)+pack×L(本帧重建)→test_p2(上帧被剔集 vs 本帧
+//   金字塔)];collect 后 host 结算本帧应见集 = p1 可见 ∪ p2 翻回——应见集中
+//   有本帧未渲染者 ⇒ **闭环重渲**（同帧参数 + 掩码并集二次提交,迭代 ≤4 仍
+//   未收敛 ⇒ 全掩码兜底重渲=精确收敛;漏剔合法零害、误剔必被重测翻回并
+//   补渲——剔除零假阳性 ⇒ 闭环后画面与分解车道全集渲染位级一致,由
+//   RURIX_HZB_ALL_VISIBLE 登记实验臂 digest_seq 逐帧对拍承载）。
+// - **host 金标准面对拍**（geometry/{hzb,cull}.rs 只读消费 0-byte）:
+//   生产路径消费 cull::Frustum 视锥面（离屏拒绝）+ hzb::HzbPyramid::build /
+//   test_rect / exact_rect_occluded（probe 帧接线态对拍:车道金字塔 vs host
+//   逐级位级全等 + p1 判定序列逐字节全等 + 零假阳性独立复核）。
+// ---------------------------------------------------------------------------
+
+/// B1 HZB 接线门键（--hzb on 面 evidence `gate` 字段字面）。
+const G31_HZB_GATE: &str = "g31.waveB.hzb";
+/// B1 HZB 接线 evidence schema 字面（milestones/g31/g31_hzb_wiring_evidence_schema.json 同字面）。
+const G31_HZB_SCHEMA: &str = "rurix.g31.hzb_wiring_evidence.v1";
+/// B1 主射线 kernel 默认 SPV（源 = kernels/g31_hzb_primary.rx;`.tmp` 构建产物,CI 门脚本保障编译）。
+const G31_DEFAULT_SPV_HZB_PRIMARY: &str = ".tmp/g14_gates/m_c/g31_hzb_primary.spv";
+/// B1 着色 kernel 默认 SPV（源 = kernels/g31_hzb_shade.rx）。
+const G31_DEFAULT_SPV_HZB_SHADE: &str = ".tmp/g14_gates/m_c/g31_hzb_shade.spv";
+/// B1 平铺打包 glue kernel 默认 SPV（源 = kernels/g31_hzb_pack.rx）。
+const G31_DEFAULT_SPV_HZB_PACK: &str = ".tmp/g14_gates/m_c/g31_hzb_pack.spv";
+/// B1 金字塔归约 kernel 默认 SPV（源 = kernels/g27_hzb_reduce.rx——G27 M-a 本体 0-byte 冻结消费）。
+const G31_DEFAULT_SPV_HZB_REDUCE: &str = ".tmp/g14_gates/m_c/g27_hzb_reduce.spv";
+/// B1 遮挡测试 kernel 默认 SPV（源 = kernels/g27_hzb_test.rx——G27 M-a 本体 0-byte 冻结消费）。
+const G31_DEFAULT_SPV_HZB_TEST: &str = ".tmp/g14_gates/m_c/g27_hzb_test.spv";
+/// B1 闭环重渲迭代上限（未收敛 ⇒ 全掩码兜底重渲 = 精确收敛;如实登记）。
+const G31_HZB_CLOSURE_MAX: u32 = 4;
+/// B1 深度约定（车道深度 = ZO NDC 小值近/miss=1.0 远 ⇒ standard-Z;
+/// g27 kernel 约定位 conv=1.0,host `DepthConvention::StandardZ` 同律）。
+const G31_HZB_CONV_FLAG: f32 = 1.0;
+
+/// B1 HZB 档闭集（off = 车道 0-byte 现状;on = 两阶段遮挡剔除接线）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum G31Hzb {
+    Off,
+    On,
+}
+
+/// B1 逐实例初剔分类（host;生产剔除链第一关 = cull::Frustum 视锥面只读消费,
+/// 第二关 = HZB 遮挡测试进 device test 流）。
+enum G31HzbClass {
+    /// 视锥外（离屏/相机后）——像素中性直接剔,不进 test 流。
+    Offscreen,
+    /// 在屏：rect（uv 闭区间,±半像素 jitter 保守裕量外扩）+ 最近深度。
+    Rect {
+        uv_min: [f32; 2],
+        uv_max: [f32; 2],
+        nearest: f32,
+    },
+}
+
+/// B1 逐实例初剔分类器（逐节点 AABB;host 确定性 f32）。
+/// - 视锥面 = `cull::Frustum::from_view_proj` + `intersects_aabb`（冻结金标准
+///   面只读消费;主射线采样域恒在视口锥内 ⇒ 离屏剔除像素中性,结构依据:
+///   采样点 sx∈[px,px+1) 恒落视口 ⇒ ndc 恒 ∈[−1,1],w≤0 角点 = 近面穿越/
+///   相机后 ⇒ 全屏 rect + nearest=0 超保守可见处理——近面骑跨实例永不误剔）。
+/// - rect 像素域 = g27_hzb_test.rx 域前提字面（0 ≤ u_min < u_max ≤ 1）保障:
+///   外扩后 clamp;退化（u_max ≤ u_min）⇒ 全屏 + nearest=−∞ 超保守可见。
+/// - nearest = 8 角点 z_ndc 最小值（z_ndc 对视深单调 ⇒ min 在角点取得——保守
+///   最近深度严格成立）。**只钳上界 1.0（远平面外 ⇒ 天空 1.0 不致误剔）,不钳
+///   下界**：车道深度 = 光线命中 z_ndc,近面内几何（z_ndc<0,枝形吊灯链/天窗梁
+///   实测 −0.98 量级）合法存在于金字塔;若把 nearest 钳 0 ⇒ 实例自身金字塔纹素
+///   (−0.98) 严格小于钳后 nearest ⇒ standard-Z「nearest>farthest ⇒ 剔」自我
+///   遮挡误剔（实测 14767 像素黑洞）;保负值 ⇒ 自身纹素 ≥ nearest 恒成立,严格
+///   不等式自遮挡结构上不可达,g27 冻结 kernel 纯 f32 选择/比较语义域外安全。
+fn g31_hzb_classify(
+    vp: &Mat4,
+    iw: u32,
+    ih: u32,
+    groups: &[SceneNodeGroup],
+) -> Vec<G31HzbClass> {
+    // 登记实验臂（ci/g31_hzb_wiring_smoke.py 剔除像素中性门消费）:
+    // RURIX_HZB_ALL_VISIBLE=1 ⇒ 全实例恒可见(无视锥/无剔除 ⇒ 掩码恒全 0xFF)
+    // ——同一分解车道渲染全集;--hzb on 常态臂 vs 本臂 digest_seq 逐帧位级
+    // 一致 ⇒ 「剔除不改变可见像素」机核门成立(可见集一致性结构判据)。
+    if std::env::var("RURIX_HZB_ALL_VISIBLE").ok().as_deref() == Some("1") {
+        return groups
+            .iter()
+            .map(|_| G31HzbClass::Rect {
+                uv_min: [0.0, 0.0],
+                uv_max: [1.0, 1.0],
+                nearest: f32::NEG_INFINITY,
+            })
+            .collect();
+    }
+    let frustum = Frustum::from_view_proj(&vp.m);
+    let (w0, h0) = (iw as f32, ih as f32);
+    let (du, dv) = (0.5 / w0, 0.5 / h0);
+    let mut out = Vec::with_capacity(groups.len());
+    for g in groups {
+        // 相机面骑跨预审（先于视锥面）：w ≤ 0 角点存在 ⇒ 平面法视锥判定失真
+        // （相机后角点投影镜像,可把一个部分在锥内的 AABB 误判全外——bistro
+        // 近相机薄板实例实测误剔即此类）⇒ 不信任该 verdict：全部 w ≤ 0 ⇒
+        // 相机后,像素中性直接剔;部分 w > 0 ⇒ 骑跨 ⇒ 超保守恒可见（全屏 rect +
+        // nearest 0）。全部 w > 0 ⇒ 投影处处良定义,视锥面判定可信。
+        let mut cs = [[0.0f32; 4]; 8];
+        let (mut any_back, mut any_front) = (false, false);
+        let mut k = 0usize;
+        for &x in &[g.aabb_min[0], g.aabb_max[0]] {
+            for &y in &[g.aabb_min[1], g.aabb_max[1]] {
+                for &z in &[g.aabb_min[2], g.aabb_max[2]] {
+                    let c = vp.transform_vec4([x, y, z, 1.0]);
+                    if c[3] <= 1e-6 {
+                        any_back = true;
+                    } else {
+                        any_front = true;
+                    }
+                    cs[k] = c;
+                    k += 1;
+                }
+            }
+        }
+        if any_back {
+            if any_front {
+                // 相机面骑跨：视锥/投影均不可信 ⇒ 超保守恒可见（全屏 + −∞;
+                // −∞ ⇒ standard-Z「nearest>farthest」恒假,无天空帧亦永不误剔）。
+                out.push(G31HzbClass::Rect {
+                    uv_min: [0.0, 0.0],
+                    uv_max: [1.0, 1.0],
+                    nearest: f32::NEG_INFINITY,
+                });
+            } else {
+                // 整体相机后：前向主射线永不可达 ⇒ 像素中性剔。
+                out.push(G31HzbClass::Offscreen);
+            }
+            continue;
+        }
+        if !frustum.intersects_aabb(g.aabb_min, g.aabb_max) {
+            out.push(G31HzbClass::Offscreen);
+            continue;
+        }
+        let (mut u_min, mut v_min, mut u_max, mut v_max, mut nearest) =
+            (f32::INFINITY, f32::INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY, f32::INFINITY);
+        for c in &cs {
+            let inv_w = 1.0 / c[3];
+            let u = (c[0] * inv_w + 1.0) * 0.5;
+            let v = (1.0 - c[1] * inv_w) * 0.5;
+            let zz = (c[2] * inv_w).min(1.0);
+            u_min = u_min.min(u);
+            u_max = u_max.max(u);
+            v_min = v_min.min(v);
+            v_max = v_max.max(v);
+            nearest = nearest.min(zz);
+        }
+        let umin = (u_min - du).clamp(0.0, 1.0);
+        let umax = (u_max + du).clamp(0.0, 1.0);
+        let vmin = (v_min - dv).clamp(0.0, 1.0);
+        let vmax = (v_max + dv).clamp(0.0, 1.0);
+        if umax <= umin || vmax <= vmin {
+            // 退化 rect（视锥相交但投影域塌缩;结构罕见）⇒ 超保守恒可见（−∞）。
+            out.push(G31HzbClass::Rect {
+                uv_min: [0.0, 0.0],
+                uv_max: [1.0, 1.0],
+                nearest: f32::NEG_INFINITY,
+            });
+            continue;
+        }
+        out.push(G31HzbClass::Rect {
+            uv_min: [umin, vmin],
+            uv_max: [umax, vmax],
+            nearest,
+        });
+    }
+    out
+}
+
+/// B1 车道 SPV/常量字节所有者（desc 数组借用源;借用纪律 = bits → descs →
+/// session 声明序 drop 逆序,车道面同模）。
+struct G31HzbBits {
+    spv_primary: Vec<u8>,
+    spv_shade: Vec<u8>,
+    spv_reduce: Vec<u8>,
+    spv_test: Vec<u8>,
+    spv_pack: Vec<u8>,
+    /// pass 名（telemetry 逐 pass 唯一键;kernel 身份由 SPV provenance 登记——
+    /// reduce/test = g27 本体 0-byte,pack/primary/shade = g31 加性件）。
+    name_primary: String,
+    name_shade: String,
+    name_test_p1: String,
+    name_test_p2: String,
+    reduce_names: Vec<String>,
+    pack_names: Vec<String>,
+    primary_dispatch: [u32; 3],
+    shade_dispatch: [u32; 3],
+    test_dispatch: [u32; 3],
+    reduce_dispatch: Vec<[u32; 3]>,
+    pack_dispatch: Vec<[u32; 3]>,
+    /// mip 逐級 (w,h)（mip0 = 内部分辨率;直至 1×1）。
+    levels: Vec<(u32, u32)>,
+    /// 平铺金字塔逐級纹素偏移（前缀和;g27_hzb_test mip_table offset 段同源）。
+    flat_offsets: Vec<u32>,
+    flat_texels: usize,
+    mip_table_bytes: Vec<u8>,
+    reduce_params_bytes: Vec<Vec<u8>>,
+    pack_params_bytes: Vec<Vec<u8>>,
+    /// 平铺金字塔初值 = 全 1.0f32（standard-Z 最远 ⇒ 首帧前全 Visible 保守初值,
+    /// 空金字塔假阳性构造性不可达）。
+    flat_init_bytes: Vec<u8>,
+    /// 逐实例全局三角形下标基底（前缀和;g31_hzb_primary inst_base 面）。
+    inst_base_bytes: Vec<u8>,
+}
+
+impl G31HzbBits {
+    fn load(
+        spv_primary: &str,
+        spv_shade: &str,
+        spv_reduce: &str,
+        spv_test: &str,
+        spv_pack: &str,
+        iw: u32,
+        ih: u32,
+        groups: &[SceneNodeGroup],
+    ) -> Self {
+        let to_bytes = |words: &[u32]| -> Vec<u8> {
+            words.iter().flat_map(|w| w.to_le_bytes()).collect()
+        };
+        let pw = load_spv(spv_primary);
+        let sw = load_spv(spv_shade);
+        // HZB 两 kernel（g27 本体 0-byte）注入 NoContraction（mv kernel 同律 bin
+        // 侧后处理,SPV 文件 0-byte 不动）——G27 零容差协议「conv 乘法门保位级」
+        // 的语义域 = [0,1] 正值闭集;生产车道深度可含负值（近平面内侧几何
+        // z_ndc<0）,驱动乘加收缩面在负值域产生 1-ULP 门差〔lerp 两步舍入〕,
+        // NoContraction 禁驱动 FMA 收缩/重关联,保门形逐 op IEEE 位级。
+        let rw = spv_inject_no_contraction(&load_spv(spv_reduce));
+        let tw = spv_inject_no_contraction(&load_spv(spv_test));
+        let kw = load_spv(spv_pack);
+        let (px, py, _) = spv_local_size(&pw);
+        let (sx, sy, _) = spv_local_size(&sw);
+        // mip 拓扑 = host `HzbPyramid::build` 逐字（非 2 幂 ceil 减半 max 1,
+        // 直至 1×1）。
+        let mut levels: Vec<(u32, u32)> = vec![(iw, ih)];
+        while levels.last().unwrap().0 > 1 || levels.last().unwrap().1 > 1 {
+            let (w, h) = *levels.last().unwrap();
+            levels.push((w.div_ceil(2).max(1), h.div_ceil(2).max(1)));
+        }
+        let mut flat_offsets = Vec::with_capacity(levels.len());
+        let mut acc = 0u32;
+        for &(w, h) in &levels {
+            flat_offsets.push(acc);
+            acc += w * h;
+        }
+        let flat_texels = acc as usize;
+        // mip 表（3 f32/級 [offset,w,h];g27_hzb_test 参数面逐字同源）。
+        let mut mip_table: Vec<f32> = Vec::with_capacity(levels.len() * 3);
+        for (k, &(w, h)) in levels.iter().enumerate() {
+            mip_table.push(flat_offsets[k] as f32);
+            mip_table.push(w as f32);
+            mip_table.push(h as f32);
+        }
+        // reduce 参数（級 k=1..L−1:g27_hzb_reduce 8 f32 参数面逐字同源;
+        // conv = standard-Z 1.0——车道深度 ZO NDC 小值近）。
+        let mut reduce_params_bytes = Vec::with_capacity(levels.len() - 1);
+        let mut reduce_dispatch = Vec::with_capacity(levels.len() - 1);
+        for k in 1..levels.len() {
+            let (nw, nh) = levels[k];
+            let (pw2, ph2) = levels[k - 1];
+            let p = [
+                (nw * nh) as f32,
+                nw as f32,
+                nh as f32,
+                pw2 as f32,
+                ph2 as f32,
+                G31_HZB_CONV_FLAG,
+                0.0,
+                0.0,
+            ];
+            reduce_params_bytes.push(bytes_f32(&p));
+            reduce_dispatch.push([nw * nh, 1, 1]);
+        }
+        // pack 参数（級 k=0..L−1:[count, dst_offset, 0..]）。
+        let mut pack_params_bytes = Vec::with_capacity(levels.len());
+        let mut pack_dispatch = Vec::with_capacity(levels.len());
+        for (k, &(w, h)) in levels.iter().enumerate() {
+            let p = [
+                (w * h) as f32,
+                flat_offsets[k] as f32,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ];
+            pack_params_bytes.push(bytes_f32(&p));
+            pack_dispatch.push([w * h, 1, 1]);
+        }
+        let flat_init: Vec<f32> = vec![1.0f32; flat_texels];
+        // inst_base = 逐实例三角形段前缀和（< 2^24 f32 精确域;bistro 总量 ≪）。
+        let mut inst_base: Vec<f32> = Vec::with_capacity(groups.len());
+        for g in groups {
+            inst_base.push(g.tri_offset as f32);
+        }
+        let n_inst = groups.len().max(1) as u32;
+        Self {
+            spv_primary: to_bytes(&pw),
+            spv_shade: to_bytes(&sw),
+            spv_reduce: to_bytes(&rw),
+            spv_test: to_bytes(&tw),
+            spv_pack: to_bytes(&kw),
+            name_primary: "g31_hzb_primary".to_owned(),
+            name_shade: "g31_hzb_shade".to_owned(),
+            name_test_p1: "g27_hzb_test_p1".to_owned(),
+            name_test_p2: "g27_hzb_test_p2".to_owned(),
+            reduce_names: (1..levels.len())
+                .map(|k| format!("g27_hzb_reduce_l{k}"))
+                .collect(),
+            pack_names: (0..levels.len())
+                .map(|k| format!("g31_hzb_pack_l{k}"))
+                .collect(),
+            primary_dispatch: [iw.div_ceil(px), ih.div_ceil(py), 1],
+            shade_dispatch: [iw.div_ceil(sx), ih.div_ceil(sy), 1],
+            test_dispatch: [n_inst, 1, 1],
+            reduce_dispatch,
+            pack_dispatch,
+            levels,
+            flat_offsets,
+            flat_texels,
+            mip_table_bytes: bytes_f32(&mip_table),
+            reduce_params_bytes,
+            pack_params_bytes,
+            flat_init_bytes: bytes_f32(&flat_init),
+            inst_base_bytes: bytes_f32(&inst_base),
+        }
+    }
+}
+
+/// B1 车道资源/回读下标面（hzb on 才存在;fg 互斥 ⇒ 24 起编与 A5 区间无冲突）。
+#[derive(Debug, Clone)]
+struct G31HzbIds {
+    hit_t: u32,
+    hit_pg: u32,
+    depth_hz: u32,
+    inst_base: u32,
+    flat: u32,
+    mip_table: u32,
+    stage: Vec<u32>,
+    reduce_params: Vec<u32>,
+    pack_params: Vec<u32>,
+    rects_p1: u32,
+    params_p1: u32,
+    verdicts_p1: u32,
+    rects_p2: u32,
+    params_p2: u32,
+    verdicts_p2: u32,
+    rb_verdicts_p1: u32,
+    rb_verdicts_p2: u32,
+    rb_flat: u32,
+}
+
+/// B1 车道描述组（Mega 四 pass 0..=21 资源 0-byte 面 + encode 22/23 + HZB 追加
+/// 面 24+;pass 终序 = primary→shade→mv→resample→resolve→encode→test_p1→
+/// reduce×(L−1)→pack×L→test_p2——「先初剔（读上帧平铺)后重建（覆写本帧）再
+/// 重测（读本帧平铺)」的帧内金字塔轮换调度字面;Mega scene pass 本体 0-byte
+/// 不进 HZB 车道,primary/shade 双 pass 替换之）。
+#[allow(clippy::too_many_arguments)]
+fn g31_lane_descs_hzb<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    enc_spv: &'x [u8],
+    enc_dispatch: [u32; 3],
+    enc_params_bytes: &'x [u8],
+    hz: &'x G31HzbBits,
+    n_instances: usize,
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> (
+    Vec<ResourceDesc<'x>>,
+    Vec<Pass<'x>>,
+    Vec<Vec<(u32, TargetState)>>,
+    Vec<Readback>,
+    G31HzbIds,
+) {
+    let (resources, passes, barriers, readbacks) = unified_lane_descs(assets, bits, iw, ih, ow, oh);
+    let ipc = (iw * ih) as u64;
+    let opc = (ow * oh) as u64;
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let mut resources = resources.to_vec();
+    let mut readbacks = readbacks.to_vec();
+    // unified 四 pass 解构：mega scene 不进 HZB 车道（0-byte 不触）;mv/resample/
+    // resolve 逐字保留（pass 对象与屏障计划同序搬运）。
+    let [mega_scene, mv_pass, resample_pass, resolve_pass] = passes;
+    let [plan_mega, plan_mv, plan_resample, plan_resolve] = barriers;
+    let _ = (mega_scene, plan_mega);
+    let buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let host_buf = |size: u64| {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: storage,
+            data: None,
+            device_local: false,
+        })
+    };
+    // 22/23 = 编码参数 + BGRA8 输出（A3 面逐字同）。
+    resources.push(init(enc_params_bytes));
+    resources.push(buf(opc * 4));
+    let mut next = G31_U_RESOURCE_COUNT as u32;
+    macro_rules! take {
+        ($r:expr) => {{
+            let id = next;
+            next += 1;
+            resources.push($r);
+            id
+        }};
+    }
+    let n_rect_bytes = (n_instances.max(1) * 5 * 4) as u64;
+    let n_verd_bytes = (n_instances.max(1) * 4) as u64;
+    let hit_t = take!(buf(ipc * 4));
+    let hit_pg = take!(buf(ipc * 4));
+    // HZB 真深度面（g31_hzb_shade ④b 段写出 = 真 ZO NDC;剔除链金字塔 mip0
+    // 专用源——U_SCENE_DEPTH 沿用生产字面供 MV/TSR,两路并存互不染指）。
+    let depth_hz = take!(buf(ipc * 4));
+    let inst_base = take!(init(&hz.inst_base_bytes));
+    let flat = take!(init(&hz.flat_init_bytes));
+    let mip_table = take!(init(&hz.mip_table_bytes));
+    let mut stage = Vec::with_capacity(hz.levels.len() - 1);
+    let mut reduce_params = Vec::with_capacity(hz.levels.len() - 1);
+    for k in 1..hz.levels.len() {
+        let (w, h) = hz.levels[k];
+        stage.push(take!(buf((w * h) as u64 * 4)));
+        reduce_params.push(take!(init(&hz.reduce_params_bytes[k - 1])));
+    }
+    let mut pack_params = Vec::with_capacity(hz.levels.len());
+    for k in 0..hz.levels.len() {
+        pack_params.push(take!(init(&hz.pack_params_bytes[k])));
+    }
+    let rects_p1 = take!(host_buf(n_rect_bytes));
+    let params_p1 = take!(host_buf(8 * 4));
+    let verdicts_p1 = take!(buf(n_verd_bytes));
+    let rects_p2 = take!(host_buf(n_rect_bytes));
+    let params_p2 = take!(host_buf(8 * 4));
+    let verdicts_p2 = take!(buf(n_verd_bytes));
+    let _ = next;
+    let ids = G31HzbIds {
+        hit_t,
+        hit_pg,
+        depth_hz,
+        inst_base,
+        flat,
+        mip_table,
+        stage,
+        reduce_params,
+        pack_params,
+        rects_p1,
+        params_p1,
+        verdicts_p1,
+        rects_p2,
+        params_p2,
+        verdicts_p2,
+        rb_verdicts_p1: 5,
+        rb_verdicts_p2: 6,
+        rb_flat: 7,
+    };
+    let mut out_passes: Vec<Pass<'x>> = Vec::with_capacity(7 + 2 * hz.levels.len());
+    let mut out_barriers: Vec<Vec<(u32, TargetState)>> =
+        Vec::with_capacity(7 + 2 * hz.levels.len());
+    // ── pass 0:primary（初剔后 TLAS = AS 表 0;读 inst_base/params,写 hitinfo）──
+    out_passes.push(Pass::Compute(ComputePass {
+        name: &hz.name_primary,
+        spirv: &hz.spv_primary,
+        entry: None,
+        dispatch: DispatchSpec::Direct(hz.primary_dispatch),
+        bindings: Bindings {
+            accel_structs: vec![0],
+            storage_buffers: vec![inst_base, U_SCENE_PARAMS, hit_t, hit_pg],
+            ..Bindings::default()
+        },
+    }));
+    out_barriers.push(vec![
+        (inst_base, TargetState::ShaderRead),
+        (U_SCENE_PARAMS, TargetState::ShaderRead),
+        (hit_t, TargetState::StorageWrite),
+        (hit_pg, TargetState::StorageWrite),
+    ]);
+    // ── pass 1:shade（全量 TLAS = AS 表 1;阴影射线零剔除 ⇒ 与 Mega 面同域）──
+    out_passes.push(Pass::Compute(ComputePass {
+        name: &hz.name_shade,
+        spirv: &hz.spv_shade,
+        entry: None,
+        dispatch: DispatchSpec::Direct(hz.shade_dispatch),
+        bindings: Bindings {
+            accel_structs: vec![1],
+            storage_buffers: vec![
+                hit_t,
+                hit_pg,
+                U_TRIS,
+                U_MATS,
+                U_QUADS,
+                U_POINTS,
+                U_SCENE_PARAMS,
+                U_SCENE_COLOR,
+                U_SCENE_DEPTH,
+                depth_hz,
+            ],
+            ..Bindings::default()
+        },
+    }));
+    out_barriers.push(vec![
+        (hit_t, TargetState::ShaderRead),
+        (hit_pg, TargetState::ShaderRead),
+        (U_TRIS, TargetState::ShaderRead),
+        (U_MATS, TargetState::ShaderRead),
+        (U_QUADS, TargetState::ShaderRead),
+        (U_POINTS, TargetState::ShaderRead),
+        (U_SCENE_PARAMS, TargetState::ShaderRead),
+        (U_SCENE_COLOR, TargetState::StorageWrite),
+        (U_SCENE_DEPTH, TargetState::StorageWrite),
+        (depth_hz, TargetState::StorageWrite),
+    ]);
+    // ── pass 2..4:mv/resample/resolve（unified 逐字搬运）+ pass 5:encode（A3 同）──
+    out_passes.push(mv_pass);
+    out_barriers.push(plan_mv.to_vec());
+    out_passes.push(resample_pass);
+    out_barriers.push(plan_resample.to_vec());
+    out_passes.push(resolve_pass);
+    out_barriers.push(plan_resolve.to_vec());
+    out_passes.push(Pass::Compute(ComputePass {
+        name: "g31_display_encode",
+        spirv: enc_spv,
+        entry: None,
+        dispatch: DispatchSpec::Direct(enc_dispatch),
+        bindings: Bindings {
+            storage_buffers: vec![U_OUT_COLOR[0], G31_U_ENC_PARAMS, G31_U_ENC_OUT],
+            ..Bindings::default()
+        },
+    }));
+    out_barriers.push(G31_U_PLAN_ENCODE.to_vec());
+    // ── pass 6:test_p1（全实例 rect vs 上帧金字塔——「上帧金字塔初剔」字面）──
+    out_passes.push(Pass::Compute(ComputePass {
+        name: &hz.name_test_p1,
+        spirv: &hz.spv_test,
+        entry: None,
+        dispatch: DispatchSpec::Direct(hz.test_dispatch),
+        bindings: Bindings {
+            storage_buffers: vec![flat, mip_table, rects_p1, params_p1, verdicts_p1],
+            ..Bindings::default()
+        },
+    }));
+    out_barriers.push(vec![
+        (flat, TargetState::ShaderRead),
+        (mip_table, TargetState::ShaderRead),
+        (rects_p1, TargetState::ShaderRead),
+        (params_p1, TargetState::ShaderRead),
+        (verdicts_p1, TargetState::StorageWrite),
+    ]);
+    // ── pass 7..:reduce×(L−1)（級 k:src = 上級〔k=1 = depth_hz 真深度,余 =
+    //    stage k−1〕→ stage k;g27_hzb_reduce 0-byte 冻结消费）──
+    for k in 1..hz.levels.len() {
+        let src = if k == 1 { depth_hz } else { ids.stage[k - 2] };
+        out_passes.push(Pass::Compute(ComputePass {
+            name: &hz.reduce_names[k - 1],
+            spirv: &hz.spv_reduce,
+            entry: None,
+            dispatch: DispatchSpec::Direct(hz.reduce_dispatch[k - 1]),
+            bindings: Bindings {
+                storage_buffers: vec![src, ids.reduce_params[k - 1], ids.stage[k - 1]],
+                ..Bindings::default()
+            },
+        }));
+        out_barriers.push(vec![
+            (src, TargetState::ShaderRead),
+            (ids.reduce_params[k - 1], TargetState::ShaderRead),
+            (ids.stage[k - 1], TargetState::StorageWrite),
+        ]);
+    }
+    // ── pack×L（級 0 = depth_hz 真深度原字节平铺〔host mip0 拷贝同语义——
+    //    剔除链须真 ZO NDC 域;U_SCENE_DEPTH 生产字面留 MV/TSR 不染指〕,級 k≥1
+    //    = stage k;g31_hzb_pack 纯拷贝 glue）──
+    for k in 0..hz.levels.len() {
+        let src = if k == 0 { depth_hz } else { ids.stage[k - 1] };
+        out_passes.push(Pass::Compute(ComputePass {
+            name: &hz.pack_names[k],
+            spirv: &hz.spv_pack,
+            entry: None,
+            dispatch: DispatchSpec::Direct(hz.pack_dispatch[k]),
+            bindings: Bindings {
+                storage_buffers: vec![src, ids.pack_params[k], flat],
+                ..Bindings::default()
+            },
+        }));
+        out_barriers.push(vec![
+            (src, TargetState::ShaderRead),
+            (ids.pack_params[k], TargetState::ShaderRead),
+            (flat, TargetState::StorageWrite),
+        ]);
+    }
+    // ── 末 pass:test_p2（上帧被剔集 vs 本帧金字塔——「本帧重建重测」字面）──
+    out_passes.push(Pass::Compute(ComputePass {
+        name: &hz.name_test_p2,
+        spirv: &hz.spv_test,
+        entry: None,
+        dispatch: DispatchSpec::Direct(hz.test_dispatch),
+        bindings: Bindings {
+            storage_buffers: vec![flat, mip_table, rects_p2, params_p2, verdicts_p2],
+            ..Bindings::default()
+        },
+    }));
+    out_barriers.push(vec![
+        (flat, TargetState::ShaderRead),
+        (mip_table, TargetState::ShaderRead),
+        (rects_p2, TargetState::ShaderRead),
+        (params_p2, TargetState::ShaderRead),
+        (verdicts_p2, TargetState::StorageWrite),
+    ]);
+    // ── 回读表：0..=3 = unified 面（OUT_COLOR f32 双 parity/MV/DEPTH）;
+    //    4 = BGRA8（A3 面逐字同——G31_RB_BGRA 下标锚）;5/6 = p1/p2 判定（逐帧
+    //    决策面）;7 = 平铺金字塔（probe 对拍面）。──
+    readbacks.push(Readback::Buffer {
+        res: G31_U_ENC_OUT,
+        offset: 0,
+        size: opc * 4,
+    });
+    readbacks.push(Readback::Buffer {
+        res: verdicts_p1,
+        offset: 0,
+        size: n_verd_bytes,
+    });
+    readbacks.push(Readback::Buffer {
+        res: verdicts_p2,
+        offset: 0,
+        size: n_verd_bytes,
+    });
+    readbacks.push(Readback::Buffer {
+        res: flat,
+        offset: 0,
+        size: (hz.flat_texels * 4) as u64,
+    });
+    // 8 = depth_hz 真深度回读（probe 对拍面:host 金标准金字塔构建源——剔除链
+    // 深度域 = 真 ZO NDC,与设备平铺 mip0 位级同源）。
+    readbacks.push(Readback::Buffer {
+        res: depth_hz,
+        offset: 0,
+        size: ipc * 4,
+    });
+    (resources, out_passes, out_barriers, readbacks, ids)
+}
+
+/// B1 一帧 HZB 决策/调度产物（evidence 计数面 + probe 对拍面;生产五段 GPU/
+/// 回读面由 G31FrameRec 既有字段承载）。
+struct G31HzbFrameRec {
+    /// 本帧 p1 实测 rect 数（在屏实例）。
+    tested_p1: u32,
+    /// p1 判遮挡数（初剔剔除量）。
+    occluded_p1: u32,
+    /// 视锥面离屏直剔数（像素中性第一关）。
+    offscreen: u32,
+    /// p2 重测数（上帧终判被剔集）。
+    retested_p2: u32,
+    /// p2 翻回数（误遮挡重测检出 = 闭环补渲对象）。
+    flipped_p2: u32,
+    /// 闭环重渲追加提交数（0 = 稳态;>0 = 误剔/出新补渲真实发生）。
+    closure_extra_submits: u32,
+    /// 迭代上限耗尽 ⇒ 全掩码兜底重渲（精确收敛;如实登记）。
+    closure_full_fallback: bool,
+    /// 本帧终判可见实例数（下一帧渲染掩码面）。
+    visible_final: u32,
+    /// 本帧 HZB pass GPU 合计（test×2 + reduce + pack;全提交累计）。
+    hzb_gpu_ns: f64,
+    /// 闭环重渲追加的生产链 GPU（非末次提交的六段合计;如实分列不混口径）。
+    closure_extra_gpu_ns: f64,
+    /// host 侧剔除决策耗时（分类/掩码/闭环保守;毫秒）。
+    host_ms: f64,
+    /// probe 预备帧回读（深度 + 平铺金字塔;非 probe_pre = None）。
+    probe_depth: Option<Vec<f32>>,
+    probe_flat: Option<Vec<f32>>,
+    /// 本帧 p1 判定字节序（末次提交;probe 对拍消费）。
+    verdicts_p1: Vec<u8>,
+    /// 本帧 p1 rect 流（5 f32/rect）+ 实例号列（probe 对拍 host 复算输入面）。
+    rects_p1: Vec<f32>,
+    rects_inst_p1: Vec<u32>,
+}
+
+/// B1 车道状态机（顺序入口——逐帧 host 决策在环,FIF 流水面天然不适用,
+/// A2 约束〔FIF 拒 tlas_update〕同律登记;两阶段调度 + 闭环重渲全记录）。
+struct G31HzbLane<'a> {
+    session: DeviceFrameSession<'a>,
+    parity: usize,
+    has_history_state: bool,
+    prev_vp_j: Option<Mat4>,
+    ids: G31HzbIds,
+    groups: Vec<SceneNodeGroup>,
+    /// 下一帧渲染掩码（host 决策面;0xFF = 可见 / 0x00 = 剔除）。
+    masks: Vec<u8>,
+    /// TLAS[0] 当前上传态（等价重更跳过——静态相机稳态零 TLAS 税）。
+    uploaded_masks: Vec<u8>,
+    /// 上帧终判被剔集（本帧 test_p2 重测对象;rect 流 5 f32/rect + 实例号列）。
+    prev_p2_rects: Vec<f32>,
+    prev_p2_inst: Vec<u32>,
+    /// 本帧 p1 流（决策/对拍消费;5 f32/rect + 实例号列）。
+    last_rects_p1: Vec<f32>,
+    last_rects_inst: Vec<u32>,
+    n_levels: usize,
+}
+
+impl<'a> G31HzbLane<'a> {
+    fn create(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        accel_structs: &[AccelStructDesc<'a>],
+        ids: G31HzbIds,
+        groups: Vec<SceneNodeGroup>,
+        n_levels: usize,
+    ) -> Result<Self, String> {
+        if !vk::vulkan_available() {
+            return Err("vulkan loader 不可用".into());
+        }
+        if groups.is_empty() {
+            return Err("HZB 面场景零可剔除实例（节点分组为空,fail-closed 不冒充）".into());
+        }
+        // frame_slots=2（顺序全同步既有面逐字同;FIF 流水面拒 tlas_update,
+        // A2 约束登记——逐帧 host 决策在环本就顺序）。
+        let session = DeviceFrameSession::new_with_accel_structs(
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            2,
+            accel_structs,
+        )?;
+        let n = groups.len();
+        Ok(Self {
+            session,
+            parity: 0,
+            has_history_state: false,
+            prev_vp_j: None,
+            ids,
+            groups,
+            masks: vec![0xFF; n],
+            uploaded_masks: vec![0xFF; n],
+            prev_p2_rects: Vec::new(),
+            prev_p2_inst: Vec::new(),
+            last_rects_p1: Vec::new(),
+            last_rects_inst: Vec::new(),
+            n_levels,
+        })
+    }
+
+    /// 单次提交（两阶段调度的一拍）：参数三小件 + rect 双流 + 掩码 TLAS 更新
+    /// （等价跳过）+ parity 三 pass 绑定轮换 + 回读子集。
+    #[allow(clippy::too_many_arguments)]
+    fn submit_once(
+        &mut self,
+        scene_params: &[f32],
+        mv_params: &[f32],
+        tsr_params: &[f32],
+        n_p1: u32,
+        rects_p2: &[f32],
+        n_p2: u32,
+        masks: &[u8],
+        readback: G31Readback,
+        probe_pre: bool,
+        iw: u32,
+        ih: u32,
+    ) -> Result<DeviceFrameOutput, String> {
+        let params_p1 = [
+            n_p1 as f32,
+            self.n_levels as f32,
+            iw as f32,
+            ih as f32,
+            G31_HZB_CONV_FLAG,
+            0.0,
+            0.0,
+            0.0,
+        ];
+        let params_p2 = [
+            n_p2 as f32,
+            self.n_levels as f32,
+            iw as f32,
+            ih as f32,
+            G31_HZB_CONV_FLAG,
+            0.0,
+            0.0,
+            0.0,
+        ];
+        let ids = &self.ids;
+        let mut uploads: Vec<(StableResourceId, u64, Vec<u8>)> = vec![
+            (
+                StableResourceId(u64::from(U_SCENE_PARAMS) + 1),
+                0,
+                bytes_f32(scene_params),
+            ),
+            (
+                StableResourceId(u64::from(U_MV_PARAMS) + 1),
+                0,
+                bytes_f32(mv_params),
+            ),
+            (
+                StableResourceId(u64::from(U_TSR_PARAMS) + 1),
+                0,
+                bytes_f32(tsr_params),
+            ),
+        ];
+        // rect 流空段不上传（执行器 fail-closed 拒空段;kernel 以 params[0]=n 门
+        // 守卫,缓冲陈旧段永不被消费——n=0 拍跳过上传零语义差）。
+        if !self.last_rects_p1.is_empty() {
+            uploads.push((
+                StableResourceId(u64::from(ids.rects_p1) + 1),
+                0,
+                bytes_f32(&self.last_rects_p1),
+            ));
+        }
+        uploads.push((
+            StableResourceId(u64::from(ids.params_p1) + 1),
+            0,
+            bytes_f32(&params_p1),
+        ));
+        if !rects_p2.is_empty() {
+            uploads.push((
+                StableResourceId(u64::from(ids.rects_p2) + 1),
+                0,
+                bytes_f32(rects_p2),
+            ));
+        }
+        uploads.push((
+            StableResourceId(u64::from(ids.params_p2) + 1),
+            0,
+            bytes_f32(&params_p2),
+        ));
+        // 掩码 TLAS 更新（等价跳过：静态相机稳态逐帧同掩码 ⇒ 零 TLAS 税;
+        // 掩码变化 ⇒ Rebuild——mask 字段在实例缓冲内,write_transforms 同律覆盖）。
+        let tlas_update = if masks != self.uploaded_masks.as_slice() {
+            let insts: Vec<RayQueryTransformedInstanceDesc> = masks
+                .iter()
+                .enumerate()
+                .map(|(i, &m)| RayQueryTransformedInstanceDesc {
+                    blas: i as u32,
+                    custom_index: i as u32,
+                    mask: m,
+                    sbt_record_offset: 0,
+                    transform: vk::RAY_QUERY_IDENTITY_TRANSFORM,
+                })
+                .collect();
+            Some((0u32, insts, TlasBuildAction::Refit))
+        } else {
+            None
+        };
+        let p = self.parity;
+        let binding_overrides = vec![
+            (
+                3u32,
+                Bindings {
+                    storage_buffers: vec![
+                        U_SCENE_COLOR,
+                        U_SCENE_DEPTH,
+                        U_TSR_PARAMS,
+                        U_CUR_RGB,
+                        U_LUMA[p],
+                        U_DEPTH_HI[p],
+                    ],
+                    ..Bindings::default()
+                },
+            ),
+            (
+                4u32,
+                Bindings {
+                    storage_buffers: vec![
+                        U_CUR_RGB,
+                        U_LUMA[p],
+                        U_DEPTH_HI[p],
+                        U_MV_OUT,
+                        U_REACTIVE,
+                        U_OUT_COLOR[1 - p],
+                        U_DEPTH_HI[1 - p],
+                        U_LUMA[1 - p],
+                        U_OUT_SIGN[1 - p],
+                        U_OUT_SCORE[1 - p],
+                        U_TSR_PARAMS,
+                        U_OUT_COLOR[p],
+                        U_OUT_SIGN[p],
+                        U_OUT_SCORE[p],
+                    ],
+                    ..Bindings::default()
+                },
+            ),
+            (
+                5u32,
+                Bindings {
+                    storage_buffers: vec![U_OUT_COLOR[p], G31_U_ENC_PARAMS, G31_U_ENC_OUT],
+                    ..Bindings::default()
+                },
+            ),
+        ];
+        // 回读子集（序即解析序）：BGRA8 → f32 末帧/probe → probe_pre 深度+平铺
+        // → p1/p2 判定（逐帧恒在,决策面）。
+        let mut subset: Vec<u32> = Vec::new();
+        if readback != G31Readback::None {
+            subset.push(G31_RB_BGRA);
+            if readback == G31Readback::BgraAndColor {
+                subset.push(p as u32);
+            }
+        }
+        if probe_pre {
+            // probe 深度面 = depth_hz 真深度（回读下标 8;剔除链深度域与设备
+            // 平铺 mip0 位级同源——3 = U_SCENE_DEPTH 生产字面不供剔除链消费）。
+            subset.push(8);
+            subset.push(ids.rb_flat);
+        }
+        subset.push(ids.rb_verdicts_p1);
+        subset.push(ids.rb_verdicts_p2);
+        let update = FrameUpdate {
+            tlas_update,
+            buffer_uploads: uploads,
+            binding_overrides,
+            push_constant_overrides: vec![],
+            readback_subset: Some(subset),
+            blas_refit: None, // G31+ 波 B Task B5 字段面:本车道无 BLAS refit(0-byte 默认)
+        };
+        let prov = self.session.next_provenance_with_update(&update)?;
+        let out = self.session.execute_with_frame_update(&prov, &update)?;
+        if update.tlas_update.is_some() {
+            self.uploaded_masks = masks.to_vec();
+        }
+        Ok(out)
+    }
+
+    /// 一帧：初剔分类（host）→ 提交（两阶段 pass 序）→ collect 结算应见集 →
+    /// 误剔/出新闭环重渲（迭代上限 + 全掩码兜底）→ 终判掩码/被剔集滚动。
+    #[allow(clippy::too_many_arguments)]
+    fn frame(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        eps: f32,
+        quad_count: usize,
+        point_count: usize,
+        inv_vp: &Mat4,
+        vp: &Mat4,
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        readback: G31Readback,
+        probe_pre: bool,
+    ) -> Result<G31FrameRec, String> {
+        let t_host = std::time::Instant::now();
+        // ── ① 初剔分类（视锥面 + rect 流;cull::Frustum 冻结金标准只读消费）──
+        let class = g31_hzb_classify(vp, iw, ih, &self.groups);
+        let n = self.groups.len();
+        let mut rects: Vec<f32> = Vec::with_capacity(n * 5);
+        let mut rect_inst: Vec<u32> = Vec::with_capacity(n);
+        let mut offscreen = 0u32;
+        for (i, c) in class.iter().enumerate() {
+            match c {
+                G31HzbClass::Offscreen => offscreen += 1,
+                G31HzbClass::Rect {
+                    uv_min,
+                    uv_max,
+                    nearest,
+                } => {
+                    rect_inst.push(i as u32);
+                    rects.extend_from_slice(&[uv_min[0], uv_min[1], uv_max[0], uv_max[1], *nearest]);
+                }
+            }
+        }
+        self.last_rects_p1 = rects.clone();
+        self.last_rects_inst = rect_inst.clone();
+        let n_p1 = rect_inst.len() as u32;
+        // ── ② 帧参数三小件（与 off 车道同一打包面逐字同源）──
+        let scene_params =
+            pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
+        let inv_cur = vp_j
+            .inverse()
+            .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
+        let prev = self.prev_vp_j.unwrap_or(*vp_j);
+        let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
+        let has_history = !reset && self.has_history_state;
+        let tsr_params = pack_tsr_params(iw, ih, ow, oh, jitter, exposure, has_history, false);
+        // host 决策面耗时 = 初剔分类 + rect 流打包段（逐提交闭环保守面为 µs 级,
+        // 不重复计 GPU 提交段）。
+        let host_ms = t_host.elapsed().as_secs_f64() * 1000.0;
+
+        // ── ③ 两阶段提交 + 闭环重渲循环 ──
+        let mut rendered = self.masks.clone();
+        let mut p2_rects = self.prev_p2_rects.clone();
+        let mut p2_inst = self.prev_p2_inst.clone();
+        let mut closure_extra_submits = 0u32;
+        let mut closure_full_fallback = false;
+        let mut hzb_gpu_ns = 0.0f64;
+        let mut prod_gpu_total_ns = 0.0f64;
+        // 主提交 p1 判定面（probe 对拍消费——「上帧金字塔初剔」字面;闭环重拍的
+        // p1 读本帧重建金字塔属第二阶段调度,不进对拍面）。
+        let mut v1_main: Option<Vec<u8>> = None;
+        // 末次提交面（循环出口赋值）:判定/遥测/回读归属。
+        let (out_last, v1_last, v2_last, p2_inst_last);
+        loop {
+            let n_p2 = p2_inst.len() as u32;
+            let out = self.submit_once(
+                &scene_params,
+                &mv_params,
+                &tsr_params,
+                n_p1,
+                &p2_rects,
+                n_p2,
+                &rendered,
+                readback,
+                probe_pre,
+                iw,
+                ih,
+            )?;
+            let (v1, v2) = g31_hzb_parse_verdicts(&out, readback, probe_pre, n_p1, n_p2)?;
+            if v1_main.is_none() {
+                v1_main = Some(v1.clone());
+            }
+            let prod_ns = g31_hzb_prod_gpu_ns(&out)?;
+            prod_gpu_total_ns += prod_ns;
+            hzb_gpu_ns += g31_hzb_aux_gpu_ns(&out);
+            // 应见集结算：p1 可见 ∪ p2 翻回（offscreen 恒剔）。
+            let mut correct = vec![0u8; n];
+            for (j, &inst) in rect_inst.iter().enumerate() {
+                if v1[j] == 0 {
+                    correct[inst as usize] = 0xFF;
+                }
+            }
+            for (j, &inst) in p2_inst.iter().enumerate() {
+                if v2[j] == 0 {
+                    correct[inst as usize] = 0xFF;
+                }
+            }
+            let need = (0..n).any(|i| correct[i] == 0xFF && rendered[i] == 0);
+            if !need {
+                out_last = out;
+                v1_last = v1;
+                v2_last = v2;
+                p2_inst_last = p2_inst;
+                break;
+            }
+            // 闭环：并集掩码重渲（并集内每一员要么应见、要么被并集内他员遮挡
+            // ⇒ 超集渲染像素安全;金字塔逐次更完备 ⇒ 遮挡集单调扩 ⇒ 不振荡）。
+            for (i, c) in correct.iter().enumerate() {
+                if *c == 0xFF {
+                    rendered[i] = 0xFF;
+                }
+            }
+            // 下一拍重测集 = 在屏且仍被剔（并集外）。
+            p2_rects = Vec::new();
+            p2_inst = Vec::new();
+            for (j, &inst) in rect_inst.iter().enumerate() {
+                if rendered[inst as usize] == 0 {
+                    p2_inst.push(inst);
+                    p2_rects.extend_from_slice(&rects[j * 5..j * 5 + 5]);
+                }
+            }
+            closure_extra_submits += 1;
+            if closure_extra_submits >= G31_HZB_CLOSURE_MAX {
+                // 迭代上限耗尽 ⇒ 全掩码兜底重渲（= 零剔除精确收敛,必终止）。
+                rendered = vec![0xFF; n];
+                p2_rects = Vec::new();
+                p2_inst = Vec::new();
+                closure_full_fallback = true;
+                let out2 = self.submit_once(
+                    &scene_params,
+                    &mv_params,
+                    &tsr_params,
+                    n_p1,
+                    &p2_rects,
+                    0,
+                    &rendered,
+                    readback,
+                    probe_pre,
+                    iw,
+                    ih,
+                )?;
+                let (v1b, v2b) = g31_hzb_parse_verdicts(&out2, readback, probe_pre, n_p1, 0)?;
+                prod_gpu_total_ns += g31_hzb_prod_gpu_ns(&out2)?;
+                hzb_gpu_ns += g31_hzb_aux_gpu_ns(&out2);
+                out_last = out2;
+                v1_last = v1b;
+                v2_last = v2b;
+                p2_inst_last = p2_inst;
+                break;
+            }
+        }
+
+        // ── ④ 终判滚动：下帧渲染掩码 = 本帧应见集（末次提交判定面）;
+        //    下帧 p2 重测集 = 本帧终判被剔（在屏且应见集外）。──
+        let mut visible_final = vec![0u8; n];
+        for (j, &inst) in rect_inst.iter().enumerate() {
+            if v1_last[j] == 0 {
+                visible_final[inst as usize] = 0xFF;
+            }
+        }
+        for (j, &inst) in p2_inst_last.iter().enumerate() {
+            if v2_last[j] == 0 {
+                visible_final[inst as usize] = 0xFF;
+            }
+        }
+        let mut next_p2_rects: Vec<f32> = Vec::new();
+        let mut next_p2_inst: Vec<u32> = Vec::new();
+        for (j, &inst) in rect_inst.iter().enumerate() {
+            if visible_final[inst as usize] == 0 {
+                next_p2_inst.push(inst);
+                next_p2_rects.extend_from_slice(&rects[j * 5..j * 5 + 5]);
+            }
+        }
+        self.masks = visible_final;
+        self.prev_p2_rects = next_p2_rects;
+        self.prev_p2_inst = next_p2_inst;
+
+        // ── ⑤ 产物组装（遥测 = 末次提交;HZB/闭环追加 GPU 分列;判定面 = 主提交）──
+        let prod_last_ns = g31_hzb_prod_gpu_ns(&out_last)?;
+        let closure_extra_ns = prod_gpu_total_ns - prod_last_ns;
+        let verdicts_p1_rec = v1_main.clone().unwrap_or_else(|| v1_last.clone());
+        let rec = self.rec_from_output_hz(
+            out_last,
+            readback,
+            probe_pre,
+            ow,
+            oh,
+            prod_gpu_total_ns,
+            hzb_gpu_ns,
+            G31HzbFrameRec {
+                tested_p1: n_p1,
+                occluded_p1: 0, // 占位——由 rec_from_output_hz 统计口径填入（见下）
+                offscreen,
+                retested_p2: 0,
+                flipped_p2: 0,
+                closure_extra_submits,
+                closure_full_fallback,
+                visible_final: self.masks.iter().filter(|&&m| m == 0xFF).count() as u32,
+                hzb_gpu_ns,
+                closure_extra_gpu_ns: closure_extra_ns,
+                host_ms,
+                probe_depth: None,
+                probe_flat: None,
+                verdicts_p1: verdicts_p1_rec.clone(),
+                rects_p1: self.last_rects_p1.clone(),
+                rects_inst_p1: self.last_rects_inst.clone(),
+            },
+            &verdicts_p1_rec,
+            &p2_inst_last,
+            &v2_last,
+        )?;
+        self.prev_vp_j = Some(*vp_j);
+        self.has_history_state = true;
+        self.parity = 1 - self.parity;
+        Ok(rec)
+    }
+
+    /// 末次提交产物组装（G31FrameRec 既有面 + hzb 块;遥测按 pass 名提取）。
+    #[allow(clippy::too_many_arguments)]
+    fn rec_from_output_hz(
+        &self,
+        mut out: DeviceFrameOutput,
+        readback: G31Readback,
+        probe_pre: bool,
+        ow: u32,
+        oh: u32,
+        prod_gpu_total_ns: f64,
+        hzb_gpu_ns: f64,
+        mut hz: G31HzbFrameRec,
+        v1_last: &[u8],
+        p2_inst_last: &[u32],
+        v2_last: &[u8],
+    ) -> Result<G31FrameRec, String> {
+        let gpu = |name: &str| -> Result<f64, String> {
+            out.telemetry
+                .passes
+                .iter()
+                .find(|pp| pp.name == name)
+                .map(|pp| pp.gpu_ns)
+                .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))
+        };
+        let scene_gpu_ns = gpu("g31_hzb_primary")? + gpu("g31_hzb_shade")?;
+        let mv_gpu_ns = gpu("g14_mv")?;
+        let resample_gpu_ns = gpu("g14_8_tsr_resample")?;
+        let resolve_gpu_ns = gpu("g14_8_tsr_resolve")?;
+        let encode_gpu_ns = gpu("g31_display_encode")?;
+        let t_convert = std::time::Instant::now();
+        let bgra_px = (ow * oh * 4) as usize;
+        let f32_px = (ow * oh * 3) as usize;
+        let mut idx = 0usize;
+        let take_rb = |out: &mut DeviceFrameOutput, idx: &mut usize| -> Result<Vec<u8>, String> {
+            if *idx >= out.readbacks.len() {
+                return Err(format!(
+                    "B1 回读路数 {} 少于子集消费序 {idx}",
+                    out.readbacks.len()
+                ));
+            }
+            let b = std::mem::take(&mut out.readbacks[*idx]);
+            *idx += 1;
+            Ok(b)
+        };
+        let (bgra8, out_color) = if readback == G31Readback::None {
+            (None, None)
+        } else {
+            let b = take_rb(&mut out, &mut idx)?;
+            if b.len() != bgra_px {
+                return Err(format!("B1 BGRA8 回读字节 {} ≠ {}x{}x4", b.len(), ow, oh));
+            }
+            let oc = if readback == G31Readback::BgraAndColor {
+                let data = read_f32(&take_rb(&mut out, &mut idx)?);
+                if data.len() != f32_px {
+                    return Err("B1 f32 回读字节数与输出分辨率不符".into());
+                }
+                Some(data)
+            } else {
+                None
+            };
+            (Some(b), oc)
+        };
+        let (probe_depth, probe_flat) = if probe_pre {
+            let d = read_f32(&take_rb(&mut out, &mut idx)?);
+            let f = read_f32(&take_rb(&mut out, &mut idx)?);
+            (Some(d), Some(f))
+        } else {
+            (None, None)
+        };
+        // 判定两路（逐帧恒在子集末两位）。
+        let _ = take_rb(&mut out, &mut idx)?; // verdicts_p1 字节（已在 frame() 解析消费）
+        let _ = take_rb(&mut out, &mut idx)?; // verdicts_p2
+        if idx != out.readbacks.len() {
+            return Err(format!(
+                "B1 回读消费序 {idx} ≠ 实到路数 {}",
+                out.readbacks.len()
+            ));
+        }
+        hz.occluded_p1 = v1_last.iter().filter(|&&b| b == 1).count() as u32;
+        hz.retested_p2 = p2_inst_last.len() as u32;
+        hz.flipped_p2 = v2_last.iter().filter(|&&b| b == 0).count() as u32;
+        hz.probe_depth = probe_depth;
+        hz.probe_flat = probe_flat;
+        hz.hzb_gpu_ns = hzb_gpu_ns;
+        let _ = prod_gpu_total_ns;
+        let readback_convert_ms = t_convert.elapsed().as_secs_f64() * 1000.0;
+        // C7 profiler 面:全量逐 pass GPU 计时（telemetry 声明序直拷）。
+        let pass_gpu_ns: Vec<(String, f64)> = out
+            .telemetry
+            .passes
+            .iter()
+            .map(|pp| (pp.name.clone(), pp.gpu_ns))
+            .collect();
+        Ok(G31FrameRec {
+            scene_gpu_ns,
+            mv_gpu_ns,
+            resample_gpu_ns,
+            resolve_gpu_ns,
+            encode_gpu_ns,
+            fg_gpu_ns: 0.0,
+            cpu_record_ns: out.telemetry.cpu_record_ns,
+            cpu_submit_ns: out.telemetry.cpu_submit_ns,
+            cpu_fence_wait_ns: out.telemetry.cpu_fence_wait_ns,
+            validation_error_count: out.telemetry.validation_error_count,
+            leaked_object_count: out.telemetry.leaked_object_count,
+            leaked_allocation_count: out.telemetry.leaked_allocation_count,
+            bgra8,
+            gen_bgra8: Vec::new(),
+            out_color,
+            probe_prev_color: None,
+            probe_mv: None,
+            probe_gen_out: Vec::new(),
+            probe_mvn: None,
+            readback_convert_ms,
+            hzb: Some(hz),
+            svt_requests: None, // B1 HZB 面与 C13 SVT 闭集互斥（恒 None）
+            pass_gpu_ns,
+        })
+    }
+}
+
+/// B1 生产链六段 GPU（primary+shade+mv+resample+resolve+encode;末次提交口径
+/// 由 rec_from_output_hz 逐名提取,本面供闭环追加量分列）。
+fn g31_hzb_prod_gpu_ns(out: &DeviceFrameOutput) -> Result<f64, String> {
+    let mut sum = 0.0;
+    for name in [
+        "g31_hzb_primary",
+        "g31_hzb_shade",
+        "g14_mv",
+        "g14_8_tsr_resample",
+        "g14_8_tsr_resolve",
+        "g31_display_encode",
+    ] {
+        sum += out
+            .telemetry
+            .passes
+            .iter()
+            .find(|p| p.name == name)
+            .map(|p| p.gpu_ns)
+            .ok_or_else(|| format!("telemetry 缺 {name} pass 行"))?;
+    }
+    Ok(sum)
+}
+
+/// B1 HZB 辅助 pass GPU 合计（g27_hzb_reduce_l*/g27_hzb_test_p*/g31_hzb_pack_l*
+/// 前缀族;缺行 = 0 容差〔辅助面不全不冒充,主链六段缺失才 fail〕）。
+fn g31_hzb_aux_gpu_ns(out: &DeviceFrameOutput) -> f64 {
+    out.telemetry
+        .passes
+        .iter()
+        .filter(|p| {
+            p.name.starts_with("g27_hzb_reduce_l")
+                || p.name.starts_with("g27_hzb_test_p")
+                || p.name.starts_with("g31_hzb_pack_l")
+        })
+        .map(|p| p.gpu_ns)
+        .sum()
+}
+
+/// B1 判定回读解析（子集序 = 末两位;f32 恒 ∈ {0.0,1.0} 门输出 ⇒ >0.5 判读
+/// 字节,g27 harness 同律）。返回 (p1 字节列, p2 字节列)（各取前 n 项）。
+fn g31_hzb_parse_verdicts(
+    out: &DeviceFrameOutput,
+    readback: G31Readback,
+    probe_pre: bool,
+    n_p1: u32,
+    n_p2: u32,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
+    let base = match readback {
+        G31Readback::None => 0,
+        G31Readback::Bgra => 1,
+        G31Readback::BgraAndColor => 2,
+    } + if probe_pre { 2 } else { 0 };
+    let rbs = &out.readbacks;
+    if rbs.len() != base + 2 {
+        return Err(format!(
+            "B1 判定回读路数 {} ≠ {}（readback={readback:?} probe_pre={probe_pre}）",
+            rbs.len(),
+            base + 2
+        ));
+    }
+    let v1f = read_f32(&rbs[base]);
+    let v2f = read_f32(&rbs[base + 1]);
+    if (v1f.len() as u32) < n_p1 || (v2f.len() as u32) < n_p2 {
+        return Err("B1 判定回读长度小于本拍 rect 数".into());
+    }
+    let to_bytes = |v: &[f32], n: u32| -> Vec<u8> {
+        v.iter()
+            .take(n as usize)
+            .map(|&x| u8::from(x > 0.5))
+            .collect()
+    };
+    Ok((to_bytes(&v1f, n_p1), to_bytes(&v2f, n_p2)))
+}
+
+/// B1 车道形态分派（off = A3 五 pass 车道 0-byte;Hzb = B1 两阶段剔除车道）。
+enum G31AnyLane<'a> {
+    Off(G31TsrLane<'a>),
+    Hzb(G31HzbLane<'a>),
+}
+
+/// B1 接线态对拍结果（evidence `hzb.parity` 组装面;判据 = RFC-0044 §1.2 同构
+/// 口径的接线态复跑:逐级位级全等 + 判定序列逐字节全等 + 零假阳性独立复核）。
+struct G31HzbWiredParity {
+    mips: usize,
+    n_rects: u32,
+    mips_bitexact: bool,
+    verdict_equal: bool,
+    false_positives: u32,
+    occluded: u32,
+    pyramid_digest: String,
+    host_pyramid_digest: String,
+    verdict_digest: String,
+    host_verdict_digest: String,
+}
+
+/// B1 probe 帧 host 金标准复算对拍（hzb.rs 冻结面只读消费;深度/平铺 =
+/// device 回读原字节）。判据三面：
+/// ① 车道平铺金字塔 vs host `HzbPyramid::build` 逐级位级全等（to_bits;零容差
+///    协议 §1.1——纯 min/max 选择归约 + 纯拷贝 pack glue ⇒ 位级蕴含）;
+/// ② p1 判定序列 vs host `test_rect` 逐 rect 逐字节全等（同一金字塔〔上帧
+///    深度〕+ 同一 rect 流 ⇒ 生产语义字面——上帧金字塔初剔的对拍）;
+/// ③ 零假阳性硬不变量：device 判 Occluded ⇒ `exact_rect_occluded`（对上帧
+///    深度——device 消费的金字塔同源）必同判。
+#[allow(clippy::too_many_arguments)]
+fn g31_hzb_wired_parity(
+    depth_data: &[f32],
+    flat_data: &[f32],
+    iw: u32,
+    ih: u32,
+    levels: &[(u32, u32)],
+    flat_offsets: &[u32],
+    rects: &[f32],
+    verdicts: &[u8],
+) -> Result<G31HzbWiredParity, String> {
+    if depth_data.len() != (iw * ih) as usize {
+        return Err(format!(
+            "probe 深度回读 {} ≠ {}x{}",
+            depth_data.len(),
+            iw,
+            ih
+        ));
+    }
+    let depth_img = ImageF32 {
+        w: iw,
+        h: ih,
+        c: 1,
+        data: depth_data.to_vec(),
+    };
+    let host = HzbPyramid::build(&depth_img, DepthConvention::StandardZ);
+    // ① 逐级位级（平铺偏移逐級比;零容差）。
+    let mut mips_bitexact = host.mips.len() == levels.len();
+    if host.mips.len() != levels.len() {
+        eprintln!(
+            "[g31_window_present]: HZB 对拍① 级数不等 host={} lane={}",
+            host.mips.len(),
+            levels.len()
+        );
+    }
+    if mips_bitexact {
+        'levels: for (k, m) in host.mips.iter().enumerate() {
+            let off = flat_offsets[k] as usize;
+            if (m.w, m.h) != levels[k] || off + m.data.len() > flat_data.len() {
+                mips_bitexact = false;
+                break;
+            }
+            for (j, v) in m.data.iter().enumerate() {
+                if flat_data[off + j].to_bits() != v.to_bits() {
+                    // 归因面：首失配点上级 footprint 四纹素位型（红路径诊断）。
+                    let (mw, _mh) = (m.w as usize, m.h as usize);
+                    let (lx, ly) = (j % mw, j / mw);
+                    let (pw, ph) = (levels[k - 1].0 as usize, levels[k - 1].1 as usize);
+                    let poff = flat_offsets[k - 1] as usize;
+                    let mut fpv = Vec::new();
+                    for &(cx, cy) in &[(lx * 2, ly * 2), (lx * 2 + 1, ly * 2), (lx * 2, ly * 2 + 1), (lx * 2 + 1, ly * 2 + 1)] {
+                        let (ccx, ccy) = (cx.min(pw - 1), cy.min(ph - 1));
+                        fpv.push(flat_data[poff + ccy * pw + ccx]);
+                    }
+                    eprintln!(
+                        "[g31_window_present]: HZB 对拍① 首失配 level={k} j={j}（{},{} 内）dev={:08x} host={:08x}（dev_f={} host_f={}）footprint_bits={:?}",
+                        m.w,
+                        m.h,
+                        flat_data[off + j].to_bits(),
+                        v.to_bits(),
+                        flat_data[off + j],
+                        v,
+                        fpv.iter().map(|x| format!("{:08x}", x.to_bits())).collect::<Vec<_>>()
+                    );
+                    mips_bitexact = false;
+                    break 'levels;
+                }
+            }
+        }
+    }
+    // ② 判定序列逐字节。
+    let host_seq: Vec<u8> = rects
+        .chunks_exact(5)
+        .map(|r| match host.test_rect([r[0], r[1]], [r[2], r[3]], r[4]) {
+            Occlusion::Occluded => 1u8,
+            Occlusion::Visible => 0u8,
+        })
+        .collect();
+    let verdict_equal = host_seq.as_slice() == verdicts;
+    if !verdict_equal {
+        // 归因面：② 首差点位（红路径诊断）。
+        let mut shown = 0usize;
+        for (j, (&h, &d)) in host_seq.iter().zip(verdicts.iter()).enumerate() {
+            if h != d && shown < 4 {
+                let r = &rects[j * 5..j * 5 + 5];
+                eprintln!(
+                    "[g31_window_present]: HZB 对拍② 首差 j={j} dev={d} host={h} rect=[{:.6},{:.6},{:.6},{:.6}] nearest={:.6}",
+                    r[0], r[1], r[2], r[3], r[4]
+                );
+                shown += 1;
+            }
+        }
+        eprintln!(
+            "[g31_window_present]: HZB 对拍② 差异计数 {}",
+            host_seq
+                .iter()
+                .zip(verdicts.iter())
+                .filter(|(a, b)| a != b)
+                .count()
+        );
+    }
+    // ③ 零假阳性独立复核（对上帧深度——device 初剔消费的金字塔同源）。
+    let mut fp = 0u32;
+    let mut occ = 0u32;
+    for (j, &b) in verdicts.iter().enumerate() {
+        if b == 1 {
+            occ += 1;
+            let r = &rects[j * 5..j * 5 + 5];
+            if !exact_rect_occluded(
+                &depth_img,
+                DepthConvention::StandardZ,
+                [r[0], r[1]],
+                [r[2], r[3]],
+                r[4],
+            ) {
+                fp += 1;
+            }
+        }
+    }
+    // digest（F11 字面同律:判定字节序 ‖ 金字塔逐级 f32 LE）。
+    let mut pyr_bytes = Vec::with_capacity(flat_data.len() * 4);
+    for v in flat_data {
+        pyr_bytes.extend_from_slice(&v.to_le_bytes());
+    }
+    let mut host_pyr_bytes = Vec::new();
+    for m in &host.mips {
+        for v in &m.data {
+            host_pyr_bytes.extend_from_slice(&v.to_le_bytes());
+        }
+    }
+    let mut vtrace = verdicts.to_vec();
+    vtrace.extend_from_slice(&pyr_bytes);
+    let mut htrace = host_seq.clone();
+    htrace.extend_from_slice(&host_pyr_bytes);
+    Ok(G31HzbWiredParity {
+        mips: host.mips.len(),
+        n_rects: verdicts.len() as u32,
+        mips_bitexact,
+        verdict_equal,
+        false_positives: fp,
+        occluded: occ,
+        pyramid_digest: format!("sha256:{}", sha256_hex(&pyr_bytes)),
+        host_pyramid_digest: format!("sha256:{}", sha256_hex(&host_pyr_bytes)),
+        verdict_digest: format!("sha256:{}", sha256_hex(&vtrace)),
+        host_verdict_digest: format!("sha256:{}", sha256_hex(&htrace)),
+    })
+}
+
+
+// ---------------------------------------------------------------------------
+// A5 接线态对拍探针：probe 帧回读 prev/cur f32 + MV + 生成帧 f32,host 金标准
+// `temporal::framegen::interpolate`（0-byte 消费面）以 −mv 复算对拍——p100 ≤
+// G26 冻结容差 + SSIM(device, hostref) > SSIM(frame-hold, hostref)。
+// ---------------------------------------------------------------------------
+
+/// A5 接线态对拍结果（evidence `wired_parity` 组装面）。
+struct G31WiredParity {
+    /// device vs host 金标准逐像素最大绝对差（实测事实登记面）。
+    p100: f64,
+    per_gen_p100: Vec<f64>,
+    /// 逐像素结构界最大值（事实登记）。
+    max_bound: f64,
+    /// 全帧 max(0, |dev−host| − bound)——硬门:恒 0（任何结构缺陷必超界）。
+    excess: f64,
+    /// 全帧 max(|dev−host| / bound)——硬门:≤ 1。
+    excess_ratio: f64,
+    in_bound: bool,
+    /// device 侧 MVN 与 −MV 回读直比对 max|mvn+mv|（MV 通路位级硬门:恒 0;
+    /// probe 帧回读组装期填入）。
+    mvn_max_abs_plus_mv: f64,
+    ssim_device_vs_hostref: f64,
+    ssim_frame_hold_vs_hostref: f64,
+    ssim_beats_frame_hold: bool,
+    t_values: Vec<f32>,
+}
+
+/// A5 接线态对拍结构界——值项保守界（≈8×ULP(1.0):lerp 三段 + exp + 遮挡
+/// 混合链舍入,f32 结构推导非手写阈）。
+const G31_PROBE_VAL_ULP_ERR: f64 = 2.0e-6;
+
+/// A5 探针采样 16-texel 邻域极差（与 host image.rs::sample_bilinear 同一坐标/
+/// clamp 形;(x0−1..=x0+2)×(y0−1..=y0+2) 逐通道 max−min——坐标 ULP 舍入跨纹素
+/// 边界翻转（fx/fy 在 0/1 界两侧跳变,采样落入相邻 texel 对）的全覆盖 hull:
+/// 设备/host 坐标算术差（FMA 收缩等,≪1px）下任一侧采样值恒在 hull 内）。
+fn g31_probe_tap_range16(img: &ImageF32, u: f32, v: f32, ch: u32) -> f32 {
+    let xf = u * img.w as f32 - 0.5;
+    let yf = v * img.h as f32 - 0.5;
+    let x0 = xf.floor() as i32;
+    let y0 = yf.floor() as i32;
+    let cx = |xx: i32| xx.clamp(0, img.w as i32 - 1) as u32;
+    let cy = |yy: i32| yy.clamp(0, img.h as i32 - 1) as u32;
+    let mut mx = f32::NEG_INFINITY;
+    let mut mn = f32::INFINITY;
+    for dy in -1i32..=2 {
+        for dx in -1i32..=2 {
+            let t = img.get(cx(x0 + dx), cy(y0 + dy), ch);
+            mx = mx.max(t);
+            mn = mn.min(t);
+        }
+    }
+    mx - mn
+}
+
+/// A5 接线态对拍复算：device 生成帧（取反 glue 直通馈入面）vs host 金标准
+/// `interpolate(prev, cur, −mv, t_temporal)`（t_i = i/(n+1) 与 device 参数面
+/// 同一 f32 位级传参）。frame-hold = 复制 prev 真渲帧（G26 判据同义）。
+///
+/// 判据面（L1 敏感性分析结构界,非手写阈）：
+/// G26 冻结绝对容差（128×72 单位域合成场景标定）在 1080p HDR 生产帧上物理
+/// 不适用——诊断实证（probe 帧 run_compute 三方比对 max|lane−run_compute|=0
+/// 位级,接线零缺陷）：kernel/host 双方正确 f32 实现的算术差（设备侧 FMA
+/// 收缩/坐标积舍入）经两种机制放大——①坐标舍入跨纹素边界翻转采样（值跳变
+/// = 边界两侧 texel 差）②w_cons 混合交叉项（d2 扰动经 1/σ² 放大)。故硬门 =
+/// 逐像素结构界
+/// `bound(x,ch) = frozen_floor + (rangeA16 + rangeB16) + VAL_ULP_ERR×scale
+///              + 0.5×|a−b|×w×min(1,δlog)×e`
+/// （frozen_floor = G26 标定 threshold 程序读;rangeA16/B16 = a/b 采样 16-texel
+/// 邻域逐通道极差,坐标翻转全覆盖;δlog = inv_sigma2×Σ_ch(2|s_ch|(rA+rB)+
+/// (rA+rB)²) 为 d2 扰动上界,混合交叉项 = |∂out/∂w|×|Δw| 保守形——全部因子
+/// f32/公式结构推导）。结构缺陷（tie-break/缓冲/MV 符号/t 错误）产生 0.1~15
+/// 量级差异必超界;p100 作实测事实登记。
+#[allow(clippy::too_many_arguments)]
+fn g31_wired_parity_probe(
+    prev: &[f32],
+    cur: &[f32],
+    mv: &[f32],
+    dev_gens: &[Vec<f32>],
+    w: u32,
+    h: u32,
+    frozen_floor: f64,
+) -> Result<G31WiredParity, String> {
+    let prev_img = ImageF32 {
+        w,
+        h,
+        c: 3,
+        data: prev.to_vec(),
+    };
+    let cur_img = ImageF32 {
+        w,
+        h,
+        c: 3,
+        data: cur.to_vec(),
+    };
+    // MV 约定换算：g14 m(x) = prev_uv − x → host 面 mv = −m（device 侧由
+    // g31_mv_negate 逐元素取反兑现同值;文件头 A5 §2）。
+    let mv_neg = ImageF32 {
+        w,
+        h,
+        c: 2,
+        data: mv.iter().map(|v| -v).collect(),
+    };
+    let n = dev_gens.len() as u32;
+    if !(1..=2).contains(&n) {
+        return Err(format!("A5 probe 生成帧数 {n} 越闭集 1..=2"));
+    }
+    let params = FrameGenParams {
+        inserted_per_pair: n,
+        ..FrameGenParams::default()
+    };
+    let inv_s2 = f64::from(1.0f32 / (params.consistency_sigma * params.consistency_sigma));
+    let (wf, hf) = (w as f32, h as f32);
+    let mut p100 = 0.0f64;
+    let mut per_gen_p100 = Vec::new();
+    let mut t_values = Vec::new();
+    let mut max_bound = 0.0f64;
+    let mut excess = 0.0f64;
+    let mut excess_ratio = 0.0f64;
+    let mut ssim_device_min = f64::INFINITY;
+    let mut ssim_hold_max = f64::NEG_INFINITY;
+    for (k, dev) in dev_gens.iter().enumerate() {
+        let t = (k as u32 + 1) as f32 / (n + 1) as f32;
+        t_values.push(t);
+        let host = interpolate(&prev_img, &cur_img, &mv_neg, t, &params);
+        let dev_img = ImageF32 {
+            w,
+            h,
+            c: 3,
+            data: dev.clone(),
+        };
+        let cell = dev
+            .iter()
+            .zip(host.data.iter())
+            .map(|(&x, &y)| (x - y).abs() as f64)
+            .fold(0.0, f64::max);
+        p100 = p100.max(cell);
+        per_gen_p100.push(cell);
+        // 逐像素结构界核验（host 采样坐标/a/b/16-texel 极差/混合交叉项复算面）。
+        for y in 0..h {
+            for x in 0..w {
+                let px = (y * w + x) as usize;
+                let u = (x as f32 + 0.5) / wf;
+                let v = (y as f32 + 0.5) / hf;
+                let mvx = mv_neg.data[px * 2];
+                let mvy = mv_neg.data[px * 2 + 1];
+                let (ua, va) = (u - t * mvx, v - t * mvy);
+                let (ub, vb) = (u + (1.0 - t) * mvx, v + (1.0 - t) * mvy);
+                let a = prev_img.sample_bilinear3(ua, va);
+                let b = cur_img.sample_bilinear3(ub, vb);
+                // 三通道先行量:d2/w_cons(host 同式)与逐通道 s/16-texel 极差。
+                let mut d2 = 0.0f64;
+                let mut s = [0.0f64; 3];
+                let mut ra = [0.0f32; 3];
+                let mut rb = [0.0f32; 3];
+                for ch in 0..3 {
+                    s[ch] = f64::from((a[ch] - b[ch]).abs());
+                    d2 += s[ch] * s[ch];
+                    ra[ch] = g31_probe_tap_range16(&prev_img, ua, va, ch as u32);
+                    rb[ch] = g31_probe_tap_range16(&cur_img, ub, vb, ch as u32);
+                }
+                let w_cons = (-d2 * inv_s2).exp();
+                // d2 扰动上界(L1:|(s+δ)²−s²| ≤ 2|s|·|δ|+|δ|²,|δ_ch| ≤ ra_ch+rb_ch)。
+                let mut d2_perturb = 0.0f64;
+                for ch in 0..3 {
+                    let rr = f64::from(ra[ch] + rb[ch]);
+                    d2_perturb += 2.0 * s[ch] * rr + rr * rr;
+                }
+                let dlog = (inv_s2 * d2_perturb).min(1.0);
+                for ch in 0..3 {
+                    let scale = (a[ch].abs()).max(b[ch].abs()).max(1.0);
+                    // 混合交叉项:|∂out/∂w| = |lin−near| ≤ 0.5|s_ch|(t=0.5 最劣
+                    // 闭式;|Δw| ≤ w·min(1,δlog)·e^min(1,δlog) 保守形)。
+                    let cross = 0.5
+                        * s[ch]
+                        * w_cons
+                        * dlog
+                        * std::f64::consts::E.powf(dlog);
+                    let bound = frozen_floor
+                        + f64::from(ra[ch] + rb[ch])
+                        + G31_PROBE_VAL_ULP_ERR * f64::from(scale)
+                        + cross;
+                    let d = (dev[px * 3 + ch] - host.data[px * 3 + ch]).abs() as f64;
+                    excess = excess.max(d - bound);
+                    excess_ratio = excess_ratio.max(d / bound);
+                    max_bound = max_bound.max(bound);
+                }
+            }
+        }
+        let s_dev = ssim(&dev_img, &host);
+        let s_hold = ssim(&prev_img, &host);
+        ssim_device_min = ssim_device_min.min(s_dev);
+        ssim_hold_max = ssim_hold_max.max(s_hold);
+    }
+    Ok(G31WiredParity {
+        p100,
+        per_gen_p100,
+        max_bound,
+        excess: excess.max(0.0),
+        excess_ratio,
+        in_bound: excess <= 0.0,
+        mvn_max_abs_plus_mv: 0.0,
+        ssim_device_vs_hostref: ssim_device_min,
+        ssim_frame_hold_vs_hostref: ssim_hold_max,
+        ssim_beats_frame_hold: ssim_device_min > ssim_hold_max,
+        t_values,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// A3 游戏循环面：相机（yaw/pitch 参数化,初始 = 契约相机）+ 输入应用 +
+// auto-move 确定性轨迹 + BGRA8 digest。
+// ---------------------------------------------------------------------------
+
+/// 游戏循环相机（契约 CameraSpec ↔ yaw/pitch 参数化互转;`forward` 约定 =
+/// (cos p·sin y, sin p, −cos p·cos y),与契约四元数 forward=q·(0,0,−1) 同系;
+/// up0 恒取契约值,roll=0 最小面）。
+#[derive(Debug, Clone, Copy)]
+struct G31Camera {
+    eye: [f32; 3],
+    yaw: f32,
+    pitch: f32,
+    up0: [f32; 3],
+    fov_y_rad: f32,
+    near: f32,
+    far: f32,
+}
+
+impl G31Camera {
+    fn from_spec(c: &CameraSpec) -> Self {
+        let f = c.forward;
+        let pitch = f[1].clamp(-1.0, 1.0).asin();
+        let yaw = f[0].atan2(-f[2]);
+        Self {
+            eye: c.eye,
+            yaw,
+            pitch,
+            up0: c.up0,
+            fov_y_rad: c.fov_y_rad,
+            near: c.near,
+            far: c.far,
+        }
+    }
+
+    fn forward(&self) -> [f32; 3] {
+        [
+            self.pitch.cos() * self.yaw.sin(),
+            self.pitch.sin(),
+            -self.pitch.cos() * self.yaw.cos(),
+        ]
+    }
+
+    fn spec(&self) -> CameraSpec {
+        CameraSpec {
+            eye: self.eye,
+            forward: self.forward(),
+            up0: self.up0,
+            fov_y_rad: self.fov_y_rad,
+            near: self.near,
+            far: self.far,
+        }
+    }
+}
+
+/// 交互输入应用（W/S/A/D 平移 + Q/E 降升 + mouse/方向键视角 + `-`/`=` 曝光
+/// ±0.25 ev 边沿触发;dt = 上帧墙钟秒, clamp 防挂起大跳）。VK 码:W=0x57
+/// A=0x41 S=0x53 D=0x44 Q=0x51 E=0x45 方向键 0x25..=0x28 OEM_MINUS=0xBD
+/// OEM_PLUS=0xBB。
+fn g31_apply_input(
+    cam: &mut G31Camera,
+    ev100: &mut f64,
+    input: &vk::ExternalInputFrame,
+    prev_keys: &mut [u64; 4],
+    dt: f32,
+) {
+    let speed = 2.5 * dt;
+    let f = cam.forward();
+    let fxz = (f[0] * f[0] + f[2] * f[2]).sqrt().max(1e-6);
+    let fwd = [f[0] / fxz, 0.0, f[2] / fxz];
+    let right = [-fwd[2], 0.0, fwd[0]];
+    if input.key(0x57) {
+        for c in 0..3 {
+            cam.eye[c] += fwd[c] * speed;
+        }
+    }
+    if input.key(0x53) {
+        for c in 0..3 {
+            cam.eye[c] -= fwd[c] * speed;
+        }
+    }
+    if input.key(0x41) {
+        for c in 0..3 {
+            cam.eye[c] -= right[c] * speed;
+        }
+    }
+    if input.key(0x44) {
+        for c in 0..3 {
+            cam.eye[c] += right[c] * speed;
+        }
+    }
+    if input.key(0x51) {
+        cam.eye[1] -= speed;
+    }
+    if input.key(0x45) {
+        cam.eye[1] += speed;
+    }
+    cam.yaw += input.mouse_dx as f32 * 0.003;
+    cam.pitch = (cam.pitch - input.mouse_dy as f32 * 0.003).clamp(-1.55, 1.55);
+    if input.key(0x25) {
+        cam.yaw -= 1.5 * dt;
+    }
+    if input.key(0x27) {
+        cam.yaw += 1.5 * dt;
+    }
+    if input.key(0x26) {
+        cam.pitch = (cam.pitch + 1.5 * dt).clamp(-1.55, 1.55);
+    }
+    if input.key(0x28) {
+        cam.pitch = (cam.pitch - 1.5 * dt).clamp(-1.55, 1.55);
+    }
+    // 曝光边沿调整（逐帧 uniform 通路真实工作面:ev100 → exposure → TSR 128B
+    // 参数逐帧上传;边沿触发防按住连跳）。
+    let prev_minus = (prev_keys[0xBD / 64] >> (0xBD % 64)) & 1 != 0;
+    let prev_plus = (prev_keys[0xBB / 64] >> (0xBB % 64)) & 1 != 0;
+    if input.key(0xBD) && !prev_minus {
+        *ev100 += 0.25;
+    }
+    if input.key(0xBB) && !prev_plus {
+        *ev100 -= 0.25;
+    }
+    *ev100 = (*ev100).clamp(-8.0, 8.0);
+    *prev_keys = input.keys;
+}
+
+// ---------------------------------------------------------------------------
+// G31+ 波 C Task C4 故障注入探针面（--fault-probe 臂;机制 = env 注入（rt 层
+// OnceLock 读取）,验证 = 本参数面——双层门控,默认关零行为变更）
+// ---------------------------------------------------------------------------
+
+/// `--fault-probe` 闭集（探针规格;device-lost 三点 = present 会话面,
+/// tdr/budget = render_exec 持久帧面）。
+const G31_FAULT_PROBES: [&str; 5] = [
+    "device-lost-acquire",
+    "device-lost-submit",
+    "device-lost-present",
+    "tdr",
+    "budget",
+];
+
+/// 探针命中打印面（单行机读;observed=false 即红,退出码 1）。
+fn g31_probe_emit(line: &str, ok: bool) -> ! {
+    eprintln!("{GTAG}: G31_FAULT_PROBE {line}");
+    if ok {
+        std::process::exit(0);
+    }
+    eprintln!("{GTAG}: FAIL fault-probe 观察面不符（期望确定性错误类,实测见上）");
+    std::process::exit(1);
+}
+
+/// lane 帧错误探针（tdr/budget 臂）:错误类匹配 → 打印退 0;非本探针面 →
+/// 返回交原 fail 路。device-lost 三点不经此面（present 站拦截）。
+fn g31_probe_lane_failure(spec: &str, fi: u32, err: &str) {
+    let (ok, expect) = match spec {
+        "tdr" => (
+            err.contains("bounded-wait 超时") && err.contains("TDR-suspected"),
+            "fence 有界等待超时面（TDR-suspected 确定性 Err,进程不挂死）",
+        ),
+        "budget" => (
+            err.contains("budget 违约") && err.contains("OOM-suspected"),
+            "显存 budget 违约面（OOM-suspected 确定性 Err,fail-closed）",
+        ),
+        _ => return,
+    };
+    let esc = err.replace(['\\', '"'], "'");
+    g31_probe_emit(
+        &format!(
+            "{{\"probe\":\"{spec}\",\"site\":\"lane.frame\",\"frame\":{fi},\"observed\":{ok},\"expect\":\"{expect}\",\"error\":\"{esc}\"}}"
+        ),
+        ok,
+    );
+}
+
+/// present 站错误探针（device-lost 三点臂）:错误类 + poisoned 级联确定性
+/// （锁存后第二次 present 与 resize 均须确定性 `Err` 含 poisoned——禁 UB
+/// 级联的实演面）全绿 → 打印退 0。
+fn g31_probe_present_failure(
+    spec: &str,
+    fi: u32,
+    err: &str,
+    w: &mut vk::ExternalImagePresent,
+    px: &[u8],
+) {
+    let point = match spec.strip_prefix("device-lost-") {
+        Some(p) => p,
+        None => return,
+    };
+    let op = match point {
+        "acquire" => "vkAcquireNextImageKHR",
+        "submit" => "vkQueueSubmit",
+        "present" => "vkQueuePresentKHR",
+        _ => return,
+    };
+    let first_ok = err.contains("VK_ERROR_DEVICE_LOST")
+        && err.contains(op)
+        && err.contains("poisoned");
+    // 级联面①:poisoned 锁存后第二次 present → 确定性 Err（非 UB 非 panic）。
+    let cascade_present = match w.present_rgba8(px) {
+        Err(e) => e.contains("poisoned"),
+        Ok(()) => false,
+    };
+    // 级联面②:poisoned 锁存后 resize → 确定性 Err。
+    let (cw, ch) = w.extent();
+    let cascade_resize = match w.resize(cw, ch) {
+        Err(e) => e.contains("poisoned"),
+        Ok(_) => false,
+    };
+    let ok = first_ok && cascade_present && cascade_resize;
+    let esc = err.replace(['\\', '"'], "'");
+    g31_probe_emit(
+        &format!(
+            "{{\"probe\":\"{spec}\",\"site\":\"present\",\"frame\":{fi},\"observed\":{first_ok},\"cascade_present_poisoned\":{cascade_present},\"cascade_resize_poisoned\":{cascade_resize},\"expect\":\"device-lost poisoned 锁存 + 级联确定性（RXS-0077 同律,禁 UB 级联）\",\"error\":\"{esc}\"}}"
+        ),
+        ok,
+    );
+}
+
+/// `--auto-move` 确定性脚本轨迹（帧号唯一事实源,f64 参数化;返回
+/// (yaw, pitch, eye)——绝对位姿非增量,双跑位级一致性的承载面）。
+/// - `orbit`：绕初始眼位水平小圆（r=0.35m）+ 正弦摆头（±0.30 rad）;
+/// - `dolly`：沿初始前视 XZ 往复 0.50m + 反向摆头（−0.20 rad 幅）。
+/// 双轨迹全参数不同源——异轨迹 digest 序列不同的正向构造（防"确定性的坏
+/// 内容",G14.10f 教训面）。
+fn g31_auto_move_pose(name: &str, cam0: &G31Camera, fi: u32, total: u32) -> (f32, f32, [f32; 3]) {
+    let t = f64::from(fi) / f64::from(total.max(1));
+    let tau = std::f64::consts::TAU;
+    match name {
+        "orbit" => {
+            let a = tau * t;
+            let eye = [
+                (f64::from(cam0.eye[0]) + 0.35 * a.sin()) as f32,
+                (f64::from(cam0.eye[1]) + 0.05 * (2.0 * a).sin()) as f32,
+                (f64::from(cam0.eye[2]) + 0.35 * (a.cos() - 1.0)) as f32,
+            ];
+            let yaw = (f64::from(cam0.yaw) + 0.30 * a.sin()) as f32;
+            (yaw, cam0.pitch, eye)
+        }
+        "dolly" => {
+            let a = tau * t;
+            let f = cam0.forward();
+            let fxz = (f[0] * f[0] + f[2] * f[2]).sqrt().max(1e-6);
+            let d = 0.50 * (std::f64::consts::PI * t).sin();
+            let eye = [
+                (f64::from(cam0.eye[0]) + f64::from(f[0] / fxz) * d) as f32,
+                (f64::from(cam0.eye[1]) + 0.03 * a.sin()) as f32,
+                (f64::from(cam0.eye[2]) + f64::from(f[2] / fxz) * d) as f32,
+            ];
+            let yaw = (f64::from(cam0.yaw) - 0.20 * a.sin()) as f32;
+            (yaw, cam0.pitch, eye)
+        }
+        other => fail(&format!("--auto-move 轨迹 {other} 越闭集(orbit|dolly)")),
+    }
+}
+
+/// A3 BGRA8 帧内容 digest（payload = `G31BGRA-1\0` + w/h LE + 打包字节;
+/// 与 `frame_content_digest` 同模版本前缀纪律,digest 算法 = rurix_pkg
+/// sha256 单一事实源）。A1 host 编码域 digest 语义由本面接替（device
+/// BGRA8 域,如实登记不冒充同值）。
+fn g31_bgra_digest(w: u32, h: u32, bytes: &[u8]) -> String {
+    let mut payload = b"G31BGRA-1\0".to_vec();
+    payload.extend_from_slice(&w.to_le_bytes());
+    payload.extend_from_slice(&h.to_le_bytes());
+    payload.extend_from_slice(bytes);
+    format!("sha256:{}", sha256_hex(&payload))
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut frames: u32 = 120;
+    let mut warmup: u32 = 10;
+    let mut tier: u32 = 100;
+    let mut contract_path = DEFAULT_CONTRACT.to_owned();
+    let mut g10_dir = G31_DEFAULT_G10_DIR.to_owned();
+    let mut gltf_path = String::new();
+    let mut spv_scene = DEFAULT_SPV_SCENE.to_owned();
+    let mut spv_mv = DEFAULT_SPV_MV.to_owned();
+    let mut spv_resample = DEFAULT_SPV_RESAMPLE.to_owned();
+    let mut spv_resolve = DEFAULT_SPV_RESOLVE.to_owned();
+    let mut spv_encode = G31_DEFAULT_SPV_ENCODE.to_owned();
+    let mut spv_framegen = G31_DEFAULT_SPV_FRAMEGEN.to_owned();
+    let mut spv_mvn = G31_DEFAULT_SPV_MVN.to_owned();
+    let mut fg = G31Fg::Off;
+    let mut fg_tol: Option<f64> = None;
+    let mut slab_table: Option<String> = None;
+    let mut slab_arm = "device".to_owned();
+    let mut spv_slab = G31_DEFAULT_SPV_SLAB.to_owned();
+    // B1 HZB 接线面（--hzb on;kernel SPV 五件默认路径 = `.tmp` 构建产物,
+    // CI 门脚本保障编译;g27 两件本体 0-byte 冻结消费）。
+    let mut hzb = G31Hzb::Off;
+    let mut spv_hzb_primary = G31_DEFAULT_SPV_HZB_PRIMARY.to_owned();
+    let mut spv_hzb_shade = G31_DEFAULT_SPV_HZB_SHADE.to_owned();
+    let mut spv_hzb_pack = G31_DEFAULT_SPV_HZB_PACK.to_owned();
+    let mut spv_hzb_reduce = G31_DEFAULT_SPV_HZB_REDUCE.to_owned();
+    let mut spv_hzb_test = G31_DEFAULT_SPV_HZB_TEST.to_owned();
+    // B4 纹理采样接线面（--textures on;生产场景 kernel 纹理变体 + 探针 kernel
+    // SPV 两件默认路径 = `.tmp` 构建产物,CI 门脚本保障编译;母版 kernel/
+    // 车道 0-byte,off = 回归锚）。
+    let mut textures = false;
+    let mut spv_texture = G31_DEFAULT_SPV_TEXTURE.to_owned();
+    let mut spv_texture_probe = G31_DEFAULT_SPV_TEXTURE_PROBE.to_owned();
+    // C13 SVT 派生臂面（--svt on 须随 --textures on;SPV 两件默认路径 = `.tmp`
+    // 构建产物,CI 门脚本保障编译;--svt-pool-tiles 0 = 全驻留锚臂,N ≥ 1 =
+    // 冷启动小池压力臂）。
+    let mut svt_on = false;
+    let mut svt_pool_tiles: u32 = 0;
+    let mut spv_svt = G31_DEFAULT_SPV_SVT.to_owned();
+    let mut spv_svt_probe = G31_DEFAULT_SPV_SVT_PROBE.to_owned();
+    let mut dump_last_frame: Option<String> = None;
+    let mut evidence_path = String::new();
+    // C7 profiler 输出面（None = 默认关,全零消费）。
+    let mut profile_json: Option<String> = None;
+    let mut expect_digest: Option<String> = None;
+    let mut hidden = false;
+    let mut headless = false;
+    let mut auto_move: Option<String> = None;
+    let mut ev100_ramp: Option<(f64, f64)> = None;
+    // C4 故障注入/窗口风暴臂（参数面门控默认关;机制面 env 由 CI/调用方设置,
+    // rt 层 OnceLock 读取——双层门控,常态逐字节零行为变更）。
+    let mut fault_probe: Option<String> = None;
+    let mut window_storm: u32 = 0;
+    let mut storm_soak: u32 = 0;
+    // G31+ #58 簇 DAG LOD（off 默认 = 既有面 0-byte;leaf = 全叶逐位对拍锚;
+    // on = 装配期误差 cut 出帧 + 主循环逐帧 host cut 统计——出帧几何冻结于
+    // 装配 cut,逐帧 AS 更新归 C/E 阶段,统计 sidecar 如实登记不冒充）。
+    let mut cluster_lod_mode = String::from("off");
+    let mut cluster_pack = String::new();
+    let mut cluster_error_px: f32 = 1.0;
+    let mut cluster_stats_out: Option<String> = None;
+    // G31+ #95/#68/#99 WP cell + HLOD（off 默认 = 既有面 0-byte;full = 全 Full
+    // 逐位对拍锚;on = 装配期互斥选层出帧 + 主循环逐帧 tick/选层/warmup 切换
+    // 统计——出帧几何冻结于装配选层,统计 sidecar = #99 popping 指标事实源,
+    // 如实登记不冒充）。--wp-red-arm = 四 RED 臂子模式（机核能红独立证明）。
+    let mut wp_hlod_mode = String::from("off");
+    let mut wp_pack = String::new();
+    let mut wp_threshold_l0: f64 = 1.0;
+    let mut wp_radius: f32 = 64.0;
+    let mut wp_warmup: u32 = 4;
+    let mut wp_budget_cells: u32 = 4;
+    let mut wp_stats_out: Option<String> = None;
+    let mut wp_red_arm: Option<String> = None;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--frames" => {
+                frames = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--frames 非 u32"))
+            }
+            "--warmup" => {
+                warmup = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--warmup 非 u32"))
+            }
+            "--tier" => {
+                tier = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--tier 非 u32"))
+            }
+            "--contract" => contract_path = take_arg(&args, &mut i),
+            "--g10-dir" => g10_dir = take_arg(&args, &mut i),
+            "--gltf" => gltf_path = take_arg(&args, &mut i),
+            "--spv-scene" => spv_scene = take_arg(&args, &mut i),
+            "--spv-mv" => spv_mv = take_arg(&args, &mut i),
+            "--spv-resample" => spv_resample = take_arg(&args, &mut i),
+            "--spv-resolve" => spv_resolve = take_arg(&args, &mut i),
+            "--spv-encode" => spv_encode = take_arg(&args, &mut i),
+            "--spv-framegen" => spv_framegen = take_arg(&args, &mut i),
+            "--spv-mvn" => spv_mvn = take_arg(&args, &mut i),
+            "--fg" => {
+                fg = match take_arg(&args, &mut i).as_str() {
+                    "off" => G31Fg::Off,
+                    "x2" => G31Fg::X2,
+                    "x3" => G31Fg::X3,
+                    other => fail(&format!("--fg 档 {other} 越闭集(off|x2|x3)")),
+                }
+            }
+            "--fg-tol" => {
+                fg_tol = Some(
+                    take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--fg-tol 非 f64")),
+                )
+            }
+            "--slab-table" => slab_table = Some(take_arg(&args, &mut i)),
+            "--slab-arm" => slab_arm = take_arg(&args, &mut i),
+            "--spv-slab" => spv_slab = take_arg(&args, &mut i),
+            "--hzb" => {
+                hzb = match take_arg(&args, &mut i).as_str() {
+                    "off" => G31Hzb::Off,
+                    "on" => G31Hzb::On,
+                    other => fail(&format!("--hzb 档 {other} 越闭集(off|on)")),
+                }
+            }
+            "--spv-hzb-primary" => spv_hzb_primary = take_arg(&args, &mut i),
+            "--spv-hzb-shade" => spv_hzb_shade = take_arg(&args, &mut i),
+            "--spv-hzb-pack" => spv_hzb_pack = take_arg(&args, &mut i),
+            "--spv-hzb-reduce" => spv_hzb_reduce = take_arg(&args, &mut i),
+            "--spv-hzb-test" => spv_hzb_test = take_arg(&args, &mut i),
+            "--textures" => {
+                textures = match take_arg(&args, &mut i).as_str() {
+                    "off" => false,
+                    "on" => true,
+                    other => fail(&format!("--textures 档 {other} 越闭集(off|on)")),
+                }
+            }
+            "--spv-texture" => spv_texture = take_arg(&args, &mut i),
+            "--svt" => {
+                svt_on = match take_arg(&args, &mut i).as_str() {
+                    "off" => false,
+                    "on" => true,
+                    other => fail(&format!("--svt 档 {other} 越闭集(off|on)")),
+                }
+            }
+            "--svt-pool-tiles" => {
+                svt_pool_tiles = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--svt-pool-tiles 非 u32"))
+            }
+            "--spv-svt" => spv_svt = take_arg(&args, &mut i),
+            "--spv-svt-probe" => spv_svt_probe = take_arg(&args, &mut i),
+            "--spv-texture-probe" => spv_texture_probe = take_arg(&args, &mut i),
+            "--dump-last-frame" => dump_last_frame = Some(take_arg(&args, &mut i)),
+            "--evidence" => evidence_path = take_arg(&args, &mut i),
+            // C7 profiler 输出面（逐 pass GPU/CPU 段 + mean/p50/p99 机器可读 JSON;
+            // 默认关 = 零收集零写盘零渲染语义变更;开启仅加 host 侧簿记）。
+            "--profile-json" => profile_json = Some(take_arg(&args, &mut i)),
+            "--expect-digest" => expect_digest = Some(take_arg(&args, &mut i)),
+            "--hidden" => hidden = true,
+            "--headless-smoke" => headless = true,
+            "--auto-move" => auto_move = Some(take_arg(&args, &mut i)),
+            "--ev100-ramp" => {
+                let a: f64 = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--ev100-ramp a 非 f64"));
+                let b: f64 = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--ev100-ramp b 非 f64"));
+                ev100_ramp = Some((a, b));
+            }
+            "--fault-probe" => fault_probe = Some(take_arg(&args, &mut i)),
+            "--window-storm" => {
+                window_storm = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--window-storm 非 u32"))
+            }
+            "--storm-soak" => {
+                storm_soak = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--storm-soak 非 u32"))
+            }
+            // G31+ #58：簇 DAG LOD 四参数（模式/簇包/阈值/逐帧统计 sidecar）。
+            "--cluster-lod" => cluster_lod_mode = take_arg(&args, &mut i),
+            "--cluster-pack" => cluster_pack = take_arg(&args, &mut i),
+            "--cluster-error-px" => {
+                cluster_error_px = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--cluster-error-px 非 f32"))
+            }
+            "--cluster-stats-out" => cluster_stats_out = Some(take_arg(&args, &mut i)),
+            // G31+ #95/#68/#99：WP cell + HLOD 参数（模式/cell 包/L0 阈值/
+            // 距离环/预热帧/流送预算/逐帧统计 sidecar/RED 臂子模式）。
+            "--wp-hlod" => wp_hlod_mode = take_arg(&args, &mut i),
+            "--wp-pack" => wp_pack = take_arg(&args, &mut i),
+            "--wp-threshold-l0" => {
+                wp_threshold_l0 = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-threshold-l0 非 f64"))
+            }
+            "--wp-radius" => {
+                wp_radius = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-radius 非 f32"))
+            }
+            "--wp-warmup" => {
+                wp_warmup = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-warmup 非 u32"))
+            }
+            "--wp-budget-cells" => {
+                wp_budget_cells = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-budget-cells 非 u32"))
+            }
+            "--wp-stats-out" => wp_stats_out = Some(take_arg(&args, &mut i)),
+            "--wp-red-arm" => wp_red_arm = Some(take_arg(&args, &mut i)),
+            other => fail(&format!("未知参数 {other}")),
+        }
+        i += 1;
+    }
+    if frames == 0 {
+        fail("--frames 必须 ≥1");
+    }
+    if let Some(name) = auto_move.as_deref() {
+        if !matches!(name, "orbit" | "dolly") {
+            fail(&format!("--auto-move 轨迹 {name} 越闭集(orbit|dolly)"));
+        }
+    }
+    // G31+ #58 --cluster-lod 闭集校验（fail-closed，不静默降级）：模式闭集 +
+    // 簇包必填 + 与 --hzb/--textures/--slab-table 互斥（cut 重排三角汤 ⇒
+    // 节点段基址/UV 同序/slab 预调制序假设破坏,组合面归后续波）。
+    let cluster_opt = match cluster_lod_mode.as_str() {
+        "off" => ClusterLodOpt::off(),
+        m @ ("leaf" | "on") => {
+            if cluster_pack.is_empty() {
+                fail("--cluster-lod leaf|on 要求 --cluster-pack <RXCP>（g31_cluster_lod_bake 产物）");
+            }
+            if hzb == G31Hzb::On || textures || slab_table.is_some() {
+                fail("--cluster-lod 不与 --hzb on/--textures on/--slab-table 同跑（cut 重排三角汤,节点段/UV/slab 序假设破坏;组合面归后续波,fail-closed）");
+            }
+            if !(cluster_error_px.is_finite() && cluster_error_px > 0.0) {
+                fail("--cluster-error-px 必须为正有限 f32");
+            }
+            ClusterLodOpt {
+                mode: if m == "leaf" {
+                    ClusterLodMode::Leaf
+                } else {
+                    ClusterLodMode::On
+                },
+                pack_path: cluster_pack.clone(),
+                threshold_px: cluster_error_px,
+                // 窗口臂驻留压力面归 bench 臂（E 判据在 g14_3 收口）。
+                resident_pages: 0,
+            }
+        }
+        other => fail(&format!("--cluster-lod {other}：只接受 off|leaf|on")),
+    };
+    if cluster_stats_out.is_some() && cluster_opt.mode == ClusterLodMode::Off {
+        fail("--cluster-stats-out 须随 --cluster-lod leaf|on（统计面无 cut 无意义）");
+    }
+    // G31+ #95/#68 --wp-hlod 闭集校验（fail-closed，不静默降级）：模式闭集 +
+    // cell 包必填 + 与 --cluster-lod/--hzb/--textures/--slab-table 互斥
+    //（两套几何重组各自重排三角汤/节点段序假设破坏,组合面归后续波）。
+    let wp_opt = match wp_hlod_mode.as_str() {
+        "off" => WpHlodOpt::off(),
+        m @ ("full" | "on") => {
+            if wp_pack.is_empty() {
+                fail("--wp-hlod full|on 要求 --wp-pack <RXWH>（g31_wp_hlod_bake 产物）");
+            }
+            if cluster_opt.mode != ClusterLodMode::Off {
+                fail("--wp-hlod 不与 --cluster-lod 同跑（两套几何重组各自重排三角汤;组合面归后续波,fail-closed）");
+            }
+            if hzb == G31Hzb::On || textures || slab_table.is_some() {
+                fail("--wp-hlod 不与 --hzb on/--textures on/--slab-table 同跑（cell 重组三角汤,节点段/UV/slab 序假设破坏;组合面归后续波,fail-closed）");
+            }
+            if !(wp_threshold_l0.is_finite() && wp_threshold_l0 > 0.0) {
+                fail("--wp-threshold-l0 必须为正有限 f64");
+            }
+            if !(wp_radius.is_finite() && wp_radius > 0.0) {
+                fail("--wp-radius 必须为正有限 f32");
+            }
+            if wp_warmup == 0 {
+                fail("--wp-warmup 必须 ≥1（预热协议:切换请求 → 原子翻转间隔）");
+            }
+            WpHlodOpt {
+                mode: if m == "full" { WpHlodMode::Full } else { WpHlodMode::On },
+                pack_path: wp_pack.clone(),
+                threshold_l0: wp_threshold_l0,
+                loading_radius_m: wp_radius,
+                inner_radius_m: (wp_radius * 0.25).max(1.0),
+                budget_cells: wp_budget_cells.max(1),
+                warmup_frames: wp_warmup,
+            }
+        }
+        other => fail(&format!("--wp-hlod {other}：只接受 off|full|on")),
+    };
+    if wp_stats_out.is_some() && wp_opt.mode == WpHlodMode::Off {
+        fail("--wp-stats-out 须随 --wp-hlod full|on（统计面无选层无意义）");
+    }
+    // G31+ #68/#95 四 RED 臂子模式（host 机核能红独立证明;无 GPU 依赖,检出
+    // 即 exit 0——门脚本子进程消费面）：
+    // ① tamper-digest = cell 包字节篡改 → 读取期 digest 自核验必拒;
+    // ② event-order = 乱序 cell 事件（Resident 无 LoadBegin）→ 状态机必拒;
+    // ③ double-draw = 同帧同 cell 重复选层 → 互斥机核必拒;
+    // ④ runtime-merge = 运行时合并请求 → RXS-0364 L3 零合并锚恒拒。
+    if let Some(arm) = wp_red_arm.as_deref() {
+        if wp_opt.mode == WpHlodMode::Off {
+            fail("--wp-red-arm 须随 --wp-hlod full|on（RED 臂 = 机核注入检测面）");
+        }
+        use rurix_render::world::hlod::{HlodRuntime, ScreenSizeThresholds};
+        use rurix_render::world::partition::{CellEvent, CellEventKind};
+        let detected = match arm {
+            "tamper-digest" => {
+                let mut bytes = std::fs::read(&wp_pack)
+                    .unwrap_or_else(|e| fail(&format!("RED 臂读包: {e}")));
+                let last = bytes.len() - 1;
+                bytes[last] ^= 1;
+                let tmp = std::env::temp_dir()
+                    .join(format!("g31_wp_red_tamper_{}.rxwh", std::process::id()));
+                std::fs::write(&tmp, &bytes)
+                    .unwrap_or_else(|e| fail(&format!("RED 臂写临时包: {e}")));
+                let r = read_wp_hlod_pack(&tmp);
+                let _ = std::fs::remove_file(&tmp);
+                match r {
+                    Err(e) => {
+                        eprintln!("{GTAG}: RED 臂 tamper-digest 检出: {e}");
+                        true
+                    }
+                    Ok(_) => false,
+                }
+            }
+            "event-order" => {
+                let mut rt = HlodRuntime::new();
+                match rt.apply_cell_events(&[CellEvent {
+                    frame: 0,
+                    cell: 0,
+                    kind: CellEventKind::CellResident,
+                }]) {
+                    Err(e) => {
+                        eprintln!("{GTAG}: RED 臂 event-order 检出: {e}");
+                        true
+                    }
+                    Ok(()) => false,
+                }
+            }
+            "double-draw" => {
+                // 正常装载 cell 0 → 同帧重复选层（双绘注入）→ 互斥机核必拒。
+                let pack = read_wp_hlod_pack(Path::new(&wp_pack))
+                    .unwrap_or_else(|e| fail(&format!("RED 臂读包: {e}")));
+                let world = wp_build_world(&pack);
+                let Some(ci) = pack.cells.iter().position(|c| c.is_some()) else {
+                    fail("RED 臂:包内无非空 cell");
+                };
+                let mut rt = HlodRuntime::new();
+                rt.apply_cell_events(&[
+                    CellEvent { frame: 0, cell: ci as u32, kind: CellEventKind::CellLoadBegin },
+                    CellEvent { frame: 0, cell: ci as u32, kind: CellEventKind::CellResident },
+                ])
+                .unwrap_or_else(|e| fail(&format!("RED 臂装载: {e}")));
+                let th = ScreenSizeThresholds::new(
+                    (0..pack.levels).map(|i| 1.0 / 16f64.powi(i as i32)).collect(),
+                )
+                .unwrap_or_else(|e| fail(&format!("RED 臂阈值表: {e}")));
+                rt.select(&world, ci as u32, 10.0, &th, 1)
+                    .unwrap_or_else(|e| fail(&format!("RED 臂首选层: {e}")));
+                rt.select(&world, ci as u32, 10.0, &th, 1)
+                    .unwrap_or_else(|e| fail(&format!("RED 臂重复选层: {e}")));
+                match rt.assert_mutually_exclusive() {
+                    Err(e) => {
+                        eprintln!("{GTAG}: RED 臂 double-draw 检出: {e}");
+                        true
+                    }
+                    Ok(()) => false,
+                }
+            }
+            "runtime-merge" => {
+                let rt = HlodRuntime::new();
+                match rt.request_runtime_merge("wp_red_arm_merge", &[0, 1]) {
+                    Err(e) => {
+                        eprintln!("{GTAG}: RED 臂 runtime-merge 检出（零合并锚）: {e}");
+                        true
+                    }
+                    Ok(()) => false,
+                }
+            }
+            other => fail(&format!(
+                "--wp-red-arm {other}：只接受 tamper-digest|event-order|double-draw|runtime-merge"
+            )),
+        };
+        if detected {
+            println!("{GTAG}: WP_RED_ARM_DETECTED arm={arm}");
+            std::process::exit(0);
+        }
+        eprintln!("{GTAG}: FAIL RED 臂 {arm} 未检出（机核失效）");
+        std::process::exit(1);
+    }
+    if ev100_ramp.is_some() && auto_move.is_none() {
+        fail("--ev100-ramp 须随 --auto-move(交互面用 -/= 键)");
+    }
+    // B3 slab 闭集约束（fail-fast 如实拒跑,不静默降级）。
+    let spv_slab_explicit = args.iter().any(|a| a == "--spv-slab");
+    let slab_arm_explicit = args.iter().any(|a| a == "--slab-arm");
+    if let Some(st) = slab_table.as_deref() {
+        if auto_move.is_none() {
+            fail("--slab-table 须随 --auto-move（B3 登记面 = 确定性轨迹 digest_seq;静态无轨迹面非本任务口径）");
+        }
+        if fg != G31Fg::Off {
+            fail("--slab-table 与 --fg 互斥（B3 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if !matches!(slab_arm.as_str(), "device" | "host") {
+            fail(&format!("--slab-arm {slab_arm} 越闭集(device|host)"));
+        }
+        if !std::path::Path::new(st).is_file() {
+            fail(&format!("--slab-table 资产缺失: {st}（fail-closed 不静默回退）"));
+        }
+    } else {
+        if slab_arm_explicit {
+            fail("--slab-arm 须随 --slab-table");
+        }
+        if spv_slab_explicit {
+            fail("--spv-slab 须随 --slab-table");
+        }
+        if dump_last_frame.is_some() {
+            fail("--dump-last-frame 须随 --slab-table（B3 跨臂像素对拍面）");
+        }
+    }
+    // A5 FG 闭集约束（fail-fast 如实拒跑,不静默降级）。
+    if fg != G31Fg::Off {
+        if auto_move.is_none() {
+            fail("--fg 须随 --auto-move（A5 FG 登记面 = 确定性轨迹;交互面 FG 非本任务口径）");
+        }
+        if tier != 100 {
+            fail("--fg 须 --tier 100（kernel 要求 prev/cur/mv 同栅格,MV 产出于 internal 分辨率;tier<100 的 MV 重采样非本任务面,如实拒跑不冒充）");
+        }
+        if warmup + frames < 2 {
+            fail("--fg 须 frames+warmup ≥ 2（生成帧需 prev/cur 真渲帧对）");
+        }
+        if headless {
+            fail("--fg 与 --headless-smoke 互斥（A5 登记面 = 真窗口 present 双口径;无窗退化不记 FG 门）");
+        }
+    }
+    // B1 HZB 闭集约束（fail-fast 如实拒跑,不静默降级）。
+    let spv_hzb_explicit = args.iter().any(|a| a.starts_with("--spv-hzb"));
+    if hzb == G31Hzb::On {
+        if fg != G31Fg::Off {
+            fail("--hzb on 与 --fg 互斥（B1 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if slab_table.is_some() {
+            fail("--hzb on 与 --slab-table 互斥（B1/B3 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if tier != 100 {
+            fail("--hzb on 须 --tier 100（B1 登记面 = bistro 1080p 内部分辨率金字塔拓扑;其它 tier 面非本任务口径,如实拒跑不冒充）");
+        }
+    } else if spv_hzb_explicit {
+        fail("--spv-hzb-* 须随 --hzb on（hzb off 面 = 车道 0-byte,SPV 覆盖位无消费面）");
+    }
+    // B4 纹理采样闭集约束（fail-fast 如实拒跑,不静默降级）。
+    let spv_tex_explicit = args.iter().any(|a| a.starts_with("--spv-texture"));
+    if textures {
+        if auto_move.is_none() {
+            fail("--textures on 须随 --auto-move（B4 登记面 = 确定性轨迹 digest_seq;静态无轨迹面非本任务口径）");
+        }
+        if fg != G31Fg::Off {
+            fail("--textures on 与 --fg 互斥（B4 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if hzb == G31Hzb::On {
+            fail("--textures on 与 --hzb on 互斥（B4/B1 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if slab_table.is_some() {
+            fail("--textures on 与 --slab-table 互斥（B4/B3 组合面非本任务口径,如实拒跑不冒充）");
+        }
+        if tier != 100 {
+            fail("--textures on 须 --tier 100（B4 登记面 = bistro 1080p 同机同窗 on/off 对照;其它 tier 面非本任务口径,如实拒跑不冒充）");
+        }
+    } else if spv_tex_explicit {
+        fail("--spv-texture* 须随 --textures on（textures off 面 = 车道 0-byte,SPV 覆盖位无消费面）");
+    }
+    // C13 SVT 派生臂闭集约束（fail-fast 如实拒跑,不静默降级）。
+    let svt_spv_explicit = args
+        .iter()
+        .any(|a| a.starts_with("--spv-svt") || a.starts_with("--svt-pool-tiles"));
+    if svt_on {
+        if !textures {
+            fail("--svt on 须随 --textures on（C13 派生臂 = B4 纹理面在案消费的 SVT 升级;无纹理面即零消费,如实拒跑不冒充）");
+        }
+    } else if svt_spv_explicit {
+        fail("--spv-svt*/--svt-pool-tiles 须随 --svt on（svt off 面 = 车道 0-byte,SPV/池覆盖位无消费面）");
+    }
+    // C4 故障注入/窗口风暴闭集约束（fail-fast 如实拒跑,不静默降级）。
+    if let Some(spec) = fault_probe.as_deref() {
+        if !G31_FAULT_PROBES.contains(&spec) {
+            fail(&format!(
+                "--fault-probe {spec} 越闭集({})",
+                G31_FAULT_PROBES.join("|")
+            ));
+        }
+        if spec.starts_with("device-lost-") && headless {
+            fail("--fault-probe device-lost-* 面 = present 会话,与 --headless-smoke 互斥（无窗口无 present 站,如实拒跑不冒充）");
+        }
+    }
+    if window_storm > 0 || storm_soak > 0 || fault_probe.is_some() {
+        let arm = if fault_probe.is_some() {
+            "--fault-probe"
+        } else if window_storm > 0 {
+            "--window-storm"
+        } else {
+            "--storm-soak"
+        };
+        if window_storm > 0 && storm_soak > 0 {
+            fail("--window-storm 与 --storm-soak 互斥（爆发/周期两臂分开登记,不混口径）");
+        }
+        if fault_probe.is_some() && (window_storm > 0 || storm_soak > 0) {
+            fail("--fault-probe 与 --window-storm/--storm-soak 互斥（探针/风暴分开登记,不混口径）");
+        }
+        if fg != G31Fg::Off || hzb == G31Hzb::On || slab_table.is_some() || textures {
+            fail(&format!(
+                "{arm} 与 --fg/--hzb/--slab-table/--textures 互斥（C4 登记面 = 生产五 pass 现状车道;组合面非本任务口径,如实拒跑不冒充）"
+            ));
+        }
+        if headless && (window_storm > 0 || storm_soak > 0) {
+            fail(&format!(
+                "{arm} 面 = 真窗口 present 会话,与 --headless-smoke 互斥（无窗退化不记 C4 门）"
+            ));
+        }
+    }
+    // A5 冻结容差：--fg-tol 优先,缺省程序读 G26 budget 标定条目（fail-closed）。
+    let (fg_tol_v, fg_tol_measured, fg_tol_source) = if fg != G31Fg::Off {
+        match fg_tol {
+            Some(t) => (t, f64::NAN, "--fg-tol 命令行显式".to_owned()),
+            None => match g31_fg_frozen_tol(G31_G26_BUDGET) {
+                Ok(v) => v,
+                Err(e) => fail(&format!("A5 冻结容差读取: {e}")),
+            },
+        }
+    } else {
+        (0.0, f64::NAN, String::new())
+    };
+
+    // ① 生产契约(digest 门 == FROZEN;G14.3 同模拒出图纪律)。
+    let scene_id = "bistro-interior";
+    let (pre, _) = prelude(
+        scene_id,
+        tier,
+        frames,
+        false,
+        &contract_path,
+        expect_digest.as_deref(),
+    );
+    let contract = &pre.contract;
+    let (out_w, out_h, seed) = (pre.out_w, pre.out_h, pre.seed);
+
+    // ② G10 语料转引一致性核验(不等即 RED 拒跑;轨迹基位 = 契约相机,先验后跑)。
+    let srow = contract_scene_row(&contract.raw, scene_id).unwrap_or_else(|e| fail(&e));
+    let g10_fragment = match g31_g10_corpus_gate(srow, &g10_dir) {
+        Ok(f) => f,
+        Err(e) => fail(&format!("G10 语料转引一致性核验 RED: {e}")),
+    };
+    eprintln!(
+        "{GTAG}: 契约链就绪 contract_digest={} g10 转引一致性=pass",
+        contract.digest
+    );
+
+    // ③ 场景装配（B1:--hzb on 面走 assemble_scene_ex 追加逐节点分组——SceneData
+    //    各字段与 off 面逐位同值,节点分组 = 纯记录面;剔除对象粒度 = TLAS 实例
+    //    粒度 = 逐 mesh 节点）。
+    if gltf_path.is_empty() {
+        // 缺省 glTF 路径（A1 既有面——契约场景 → 默认资产映射;--gltf 显式优先）。
+        gltf_path = default_gltf(scene_id).to_owned();
+    }
+    let mut hzb_groups: Vec<SceneNodeGroup> = Vec::new();
+    // B4 UV sink（textures on 面 = 6 f32/tri 装配产出;off = 空 vec 零消费）。
+    let mut tri_uv: Vec<f32> = Vec::new();
+    let mut scene = match if hzb == G31Hzb::On {
+        assemble_scene_ex(&contract.raw, scene_id, Path::new(&gltf_path), Some(&mut hzb_groups), None)
+    } else if textures {
+        assemble_scene_uv(&contract.raw, scene_id, Path::new(&gltf_path), &mut tri_uv)
+    } else {
+        assemble_scene(&contract.raw, scene_id, Path::new(&gltf_path))
+    } {
+        Ok(s) => s,
+        Err(e) => g31_dev_env_or_fail("scene_assets", &e),
+    };
+    if hzb == G31Hzb::On && hzb_groups.is_empty() {
+        fail("HZB 面场景零可剔除实例（节点分组为空,fail-closed 不冒充）");
+    }
+    // ③.4 G31+ #58 簇 LOD 施加点（off 直通零改动;leaf/on 时以**契约初始相机**
+    //     在初始内部分辨率下 cut 重建三角汤——出帧几何本会话冻结;主循环逐帧
+    //     cut 统计见下,簇包保留复用）。
+    let cluster_ctx: Option<(ClusterLodReport, ClusterPack)> = {
+        let init_in_w = ((out_w as u64 * u64::from(tier)) / 100).max(1) as u32;
+        let init_in_h = ((out_h as u64 * u64::from(tier)) / 100).max(1) as u32;
+        let (s2, ctx) = apply_cluster_lod(scene, &cluster_opt, init_in_w, init_in_h);
+        scene = s2;
+        if let Some((r, _)) = &ctx {
+            eprintln!(
+                "{GTAG}: cluster-lod mode={} threshold_px={} blocks={} clusters={}/{} tris out={}/{} ({:.1}%)",
+                r.mode,
+                r.threshold_px,
+                r.blocks,
+                r.cut_clusters,
+                r.total_clusters,
+                r.out_tris,
+                r.src_tris,
+                100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
+            );
+        }
+        ctx
+    };
+    // ③.4b G31+ #95/#68 WP/HLOD 施加点（off 直通零改动;full/on 时以契约初始
+    //     相机做 cell 流送 + 互斥选层重建三角汤——出帧几何本会话冻结;主循环
+    //     逐帧 tick/选层/warmup 切换统计见下,上下文保留复用。#68 代理 GPU
+    //     绘制腿 = 代理三角随重建进 BLAS 出帧）。
+    let mut wp_ctx: Option<(WpHlodReport, WpHlodContext)> = {
+        let (s2, ctx) = apply_wp_hlod(scene, &wp_opt);
+        scene = s2;
+        if let Some((r, _)) = &ctx {
+            eprintln!(
+                "{GTAG}: wp-hlod mode={} cells full/hlod/culled/pending={}/{}/{}/{} (resident={}/{}) tris: src={} passthrough={} full={} proxy={} out={} ({:.1}%) ticks={} stall_frames={} selection_digest={}",
+                r.mode,
+                r.cells_full,
+                r.cells_hlod,
+                r.cells_culled,
+                r.cells_pending,
+                r.cells_resident,
+                r.cells_nonempty,
+                r.src_tris,
+                r.passthrough_tris,
+                r.full_tris,
+                r.proxy_tris,
+                r.out_tris,
+                100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
+                r.assemble_ticks,
+                r.budget_stall_frames,
+                &r.selection_digest[..16],
+            );
+        }
+        ctx
+    };
+    // ③.5 B3 slab 侧表生产接线（--slab-table 面;非 slab 路径 0-byte——资产加载
+    //     + 16 槽 host/device 双臂求值对拍 + 逐三角 albedo 预调制,全部仅 slab
+    //     模式消费;kernels/g29_slab.rx 与 material/slab.rs 0-byte 冻结消费）。
+    let mut slab_report: Option<(SlabSideTableAsset, SlabEval, usize)> = None;
+    if let Some(st) = slab_table.as_deref() {
+        let asset = match slab_load_asset(st) {
+            Ok(a) => a,
+            Err(e) => fail(&format!("slab 侧表资产加载: {e}")),
+        };
+        if asset.scene_id != scene_id {
+            fail(&format!(
+                "slab 资产 scene_id={} ≠ 生产场景 {scene_id}（资产-场景绑定 fail-closed）",
+                asset.scene_id
+            ));
+        }
+        let eval = match slab_evaluate(&asset, &spv_slab) {
+            Ok(v) => v,
+            Err(e) => g31_dev_env_or_fail("slab_device_eval", &e),
+        };
+        let arm_r = slab_arm_r(&eval, &slab_arm);
+        let n_slab = slab_apply(&mut scene, &asset, &arm_r);
+        eprintln!(
+            "{GTAG}: slab 接线 arm={} slots=16 mapped_mats={} slab_tris={} parity_p100={:.6e} eval_ms={:.3} abi={}",
+            slab_arm,
+            asset.material_slots.len(),
+            n_slab,
+            eval.parity_p100,
+            eval.eval_ms,
+            asset.abi_digest,
+        );
+        slab_report = Some((asset, eval, n_slab));
+    }
+    // ③.6 B4 纹理采样生产接线（--textures on 面;非 textures 路径 0-byte——
+    //     资产加载（top-12 律法 + BC1/BC3 解码 + 图集烘焙 + G11.3 manifest
+    //     互核）+ 探针双臂对拍（SSBO 腿位级硬门 + sampler 腿结构容差）+
+    //     生产场景 kernel 纹理变体 SPV 装载（NoContraction 注入 = 驱动 FMA
+    //     收缩禁面,SPV 文件 0-byte 后处理）,全部仅 textures on 消费;
+    //     kernels/g14_3_direct_gi.rx 母版与车道 off 面 0-byte 回归锚）。
+    let mut tex_report: Option<(G31TexAssets, G31TexProbeReport)> = None;
+    let mut tex_spv_bytes: Vec<u8> = Vec::new();
+    if textures {
+        let assets = match g31_tex_load(&scene, Path::new(&gltf_path), &tri_uv) {
+            Ok(a) => a,
+            Err(e) => g31_dev_env_or_fail("texture_assets", &e),
+        };
+        let probes = g31_tex_probes(assets.slots.len());
+        let report = match g31_tex_probe_evaluate(&assets, &probes, &spv_texture_probe) {
+            Ok(r) => r,
+            Err(e) => g31_dev_env_or_fail("texture_probe", &e),
+        };
+        if !report.ssbo_bitexact {
+            fail(&format!(
+                "B4 probe SSBO 腿 device vs host 非位级一致（p100={:.6e} > 0.0 硬门;NoContraction/采样链缺陷即红）",
+                report.ssbo_p100
+            ));
+        }
+        if !report.ssbo_double_run_bitexact {
+            fail("B4 probe SSBO 腿 device 双跑非位级一致（确定性门红）");
+        }
+        if report.sampler_max_lsb > 1 {
+            fail(&format!(
+                "B4 sampler 腿硬件采样 vs host 参考 max_lsb={} > 1（结构容差界红;硬件过滤精度越界）",
+                report.sampler_max_lsb
+            ));
+        }
+        if report.nonconstant_slots == 0 {
+            fail("B4 映射纹理探针输出全常量（空接线冒充即红,fail-closed）");
+        }
+        let spv_words = spv_inject_no_contraction(&load_spv(&spv_texture));
+        tex_spv_bytes = spv_words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        eprintln!(
+            "{GTAG}: B4 纹理接线 mapped={} tex_tris={} atlas={}x{} probes={} ssbo_p100={:.6e}（位级={} 双跑={}） sampler_max_lsb={}（位级={}） nonconstant_slots={} eval_ms={:.3}",
+            assets.slots.len(),
+            assets.tex_tris,
+            assets.atlas_w,
+            assets.atlas_h,
+            report.probe_count,
+            report.ssbo_p100,
+            report.ssbo_bitexact,
+            report.ssbo_double_run_bitexact,
+            report.sampler_max_lsb,
+            report.sampler_bitexact,
+            report.nonconstant_slots,
+            report.eval_ms,
+        );
+        tex_report = Some((assets, report));
+    }
+    // ③.7 C13 SVT 生产接线（--svt on 派生臂面;非 svt 路径 0-byte——瓦片集
+    //     构建（SVT-3 border 复制）+ 流送状态初态（全驻留锚臂/冷启动小池臂）+
+    //     探针双臂对拍（①全驻留 SVT vs 整图直采位级硬门〔SVT-1/3〕②部分驻留
+    //     请求位级 + host 消费闭环重跑全 hit〔SVT-2〕）+ 生产 kernel SPV 装载
+    //     （NoContraction 注入,B4 同律）,全部仅 svt on 消费）。
+    let mut svt_report: Option<(G31SvtAssets, G31SvtProbeReport)> = None;
+    let mut svt_spv_bytes: Vec<u8> = Vec::new();
+    if svt_on {
+        let Some((tassets, _)) = tex_report.as_ref() else {
+            fail("C13 SVT 须 B4 纹理资产面在案（--textures on 闭集已保证,防御性复核）");
+        };
+        let sassets = match g31_svt_build(tassets, svt_pool_tiles) {
+            Ok(a) => a,
+            Err(e) => fail(&format!("C13 SVT 资产装配: {e}")),
+        };
+        let sprobes = g31_svt_probes(tassets);
+        let srep = match g31_svt_probe_evaluate(&sassets, tassets, &sprobes, &spv_svt_probe) {
+            Ok(r) => r,
+            Err(e) => g31_dev_env_or_fail("svt_probe", &e),
+        };
+        if !srep.full_bitexact_vs_direct || !srep.full_bitexact_vs_svt_host {
+            fail(&format!(
+                "C13 SVT 全驻留臂非位级一致（vs 直采={} vs host_svt={} p100={:.6e};SVT-1 页表间接/SVT-3 border 链缺陷即红）",
+                srep.full_bitexact_vs_direct, srep.full_bitexact_vs_svt_host, srep.full_p100_vs_direct
+            ));
+        }
+        if !srep.full_double_run_bitexact {
+            fail("C13 SVT 全驻留臂 device 双跑非位级一致（确定性门红）");
+        }
+        if srep.partial_miss_probes == 0 {
+            fail("C13 SVT 部分驻留臂零 miss 探针（反馈链空转冒充即红,fail-closed）");
+        }
+        if !srep.partial_req_bitexact || !srep.partial_out_bitexact {
+            fail("C13 SVT 部分驻留臂 device vs host 非位级一致（SVT-2 请求编码/fallback 链缺陷即红）");
+        }
+        if !srep.closed_loop_all_hit || !srep.closed_loop_bitexact_vs_full {
+            fail("C13 SVT 闭环重跑未全 hit 或输出 ≠ 全驻留臂（请求-驻留闭环缺陷即红）");
+        }
+        let spv_words = spv_inject_no_contraction(&load_spv(&spv_svt));
+        svt_spv_bytes = spv_words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        eprintln!(
+            "{GTAG}: C13 SVT 接线 pages={} pool_tiles={}（全驻留={}） probes={}（边界 {}） full_p100={:.6e}（位级={} 双跑={}） partial_miss={} 闭环 loaded={} evicted={} io={}B eval_ms={:.3}",
+            sassets.tile_set.page_total(),
+            sassets.pool_tiles,
+            sassets.full_residency,
+            srep.probe_count,
+            srep.boundary_probe_count,
+            srep.full_p100_vs_direct,
+            srep.full_bitexact_vs_direct,
+            srep.full_double_run_bitexact,
+            srep.partial_miss_probes,
+            srep.closed_loop_loaded,
+            srep.closed_loop_evicted,
+            srep.closed_loop_io_bytes,
+            srep.eval_ms,
+        );
+        svt_report = Some((sassets, srep));
+    }
+    let eps = scene_eps(&scene.positions);
+    eprintln!(
+        "{GTAG}: 装配 scene={scene_id} tris={} quads={} points={} output={out_w}x{out_h} eps={eps:.6} auto_move={:?}",
+        scene.tri_count,
+        scene.quads.len(),
+        scene.points.len(),
+        auto_move.as_deref(),
+    );
+
+    // ④ 真窗口 present 会话先于车道创建(channel_order 决定编码参数 bgra 位;
+    //    headless-smoke = 无窗口退化,仅供自检逻辑不计真门)。
+    let mut window: Option<vk::ExternalImagePresent> = if headless {
+        None
+    } else {
+        match vk::ExternalImagePresent::create(
+            out_w,
+            out_h,
+            "rurix g31 game loop (bistro-interior 1080p;WASD/QE+mouse 视角,-/= 曝光,ESC 退出)",
+            !hidden,
+        ) {
+            Ok(w) => Some(w),
+            Err(e) => g31_dev_env_or_fail("window_present", &e),
+        }
+    };
+    let bgra = window
+        .as_ref()
+        .map(|w| w.channel_order() == "bgra8_unorm")
+        .unwrap_or(true);
+    if let Some(w) = window.as_ref() {
+        eprintln!(
+            "{GTAG}: 窗口就绪 {}x{} channel_order={} visible={}",
+            w.extent().0,
+            w.extent().1,
+            w.channel_order(),
+            !hidden
+        );
+    }
+
+    // ⑤ 游戏循环初态(相机 = 契约位姿;曝光 = 契约 ev100;extent 无关资源一次打包)。
+    let mut assets = lane_assets(&scene, pre.in_w, pre.in_h);
+    let cam0 = G31Camera::from_spec(&scene.camera);
+    let mut cam = cam0;
+    let mut ev100 = f64::from(scene.ev100);
+    let jitter_base = (seed % JITTER_WINDOW_MOD) as u32;
+
+    // ⑥ era 循环(era = 一个 extent 生命周期;resize → 车道按新 extent 重建,
+    //    TSR 历史 reset;最小化跳过不消费帧预算;ESC/close 干净退出)。
+    let total = warmup + frames;
+    let mut fi = 0u32;
+    let mut exit_reason = "frames_done";
+    let mut resize_eras = 0u32;
+    let mut render_ms: Vec<f64> = Vec::new();
+    let mut present_ms: Vec<f64> = Vec::new();
+    // C7 profiler 收集面（--profile-json on 才消费;post-warmup 与 render_ms 同窗;
+    // debug label 活跃态随 era 车道重建刷新;Option 面——era 循环必赋值,终读 unwrap_or）。
+    let mut profile_frames: Vec<G31ProfileFrame> = Vec::new();
+    let mut debug_labels_active: Option<bool> = None;
+    // 初值占位读（era 循环首迭代即覆写,终读 unwrap_or——unused_assignments 静默面）。
+    let _ = debug_labels_active;
+    let mut digest_ms: Vec<f64> = Vec::new();
+    let mut encode_gpu_ms: Vec<f64> = Vec::new();
+    let mut fg_gpu_ms: Vec<f64> = Vec::new();
+    let mut render5_gpu_ms: Vec<f64> = Vec::new();
+    let mut digest_seq: Vec<String> = Vec::new();
+    let mut ev100_seq: Vec<f64> = Vec::new();
+    let mut pose_seq: Vec<[f64; 5]> = Vec::new();
+    let mut render_digest = String::new();
+    let mut presented_digest = String::new();
+    let mut prev_keys = [0u64; 4];
+    let mut last_frame_wall: Option<std::time::Instant> = None;
+    // C4 窗口风暴驱动态（--window-storm/--storm-soak 臂;默认关 = 全零零消费）。
+    let mut storm_resize_ops: u64 = 0;
+    let mut storm_min_cycles: u64 = 0;
+    let mut storm_min_skips: u64 = 0;
+    let mut storm_restore_pending = false;
+    let mut storm_burst_done = false;
+    // 最后一次故障注入帧号:resize toggle/最小化触发后 fi 不推进（era 重建
+    // break / 最小化 continue 均回到同帧）,同帧守卫防重复触发死循环。
+    let mut storm_last_fault_fi: u32 = u32::MAX;
+    // A5 双口径账目(post-warmup 测量窗;real/presented 类型面分离,生成帧禁入
+    // real 计数) + 接线态对拍结果(probe 帧一次)。
+    let mut real_frames: u64 = 0;
+    let mut generated_frames: u64 = 0;
+    let mut presented_frames: u64 = 0;
+    let mut real_render_seconds: f64 = 0.0;
+    let mut present_seconds: f64 = 0.0;
+    let mut wired_parity: Option<(G31WiredParity, u32)> = None;
+    // B1 HZB 决策/调度记账面（hzb on 才消费;计数 = 全帧〔含 warmup——闭环正确性
+    // 证据面〕,ms 序列 = post-warmup〔测量口径,与 real_render 同窗〕）。
+    let mut hzb_tested: u64 = 0;
+    let mut hzb_occluded: u64 = 0;
+    let mut hzb_offscreen: u64 = 0;
+    let mut hzb_retested: u64 = 0;
+    let mut hzb_flipped: u64 = 0;
+    let mut hzb_visible_sum: u64 = 0;
+    let mut hzb_closure_frames: u64 = 0;
+    let mut hzb_closure_submits: u64 = 0;
+    let mut hzb_fallbacks: u64 = 0;
+    let mut hzb_gpu_ms: Vec<f64> = Vec::new();
+    let mut hzb_scene_gpu_ms: Vec<f64> = Vec::new();
+    let mut hzb_host_ms: Vec<f64> = Vec::new();
+    let mut hzb_closure_gpu_ms: Vec<f64> = Vec::new();
+    /// B1 probe 预备帧（probe_fi−1）回读暂存:（深度, 平铺金字塔）。
+    let mut hzb_pre_data: Option<(Vec<f32>, Vec<f32>)> = None;
+    let mut hzb_wired_parity: Option<(G31HzbWiredParity, u32)> = None;
+    /// B1 mip 拓扑元信息（probe 对拍消费;era 创建期刷新）。
+    let mut hzb_levels_meta: Vec<(u32, u32)> = Vec::new();
+    let mut hzb_flat_offsets_meta: Vec<u32> = Vec::new();
+    // A5 probe 帧号:post-warmup 首生成帧(warmup=0 时 fi=1,首帧无 prev 不可探)。
+    let probe_fi = if fg != G31Fg::Off || hzb == G31Hzb::On {
+        Some(warmup.max(1))
+    } else {
+        None
+    };
+    // B1 evidence 元信息面（hzb on 时代理;跨 era 重建时刷新——CI 腿 resize_eras=0）。
+    let mut hzb_meta_json = String::new();
+    // C13 SVT 流送状态面（svt on 才消费;svt off = None/空件零消费,既有面 0-byte）:
+    // 流送状态机（页表 host 影 + LRU 池 + 瓦片集"盘"面）+ host 池影（era 重建
+    // 再同步源 + 瓦片上传应用面）+ era 首态克隆对（descs 借用面——era 内不变,
+    // 与逐帧推进的活状态分离避借用冲突）+ 逐帧流送统计（evidence 面）。
+    let mut svt_stream: Option<svt::SvtStreaming> = None;
+    let mut svt_pool_image: Vec<u8> = Vec::new();
+    let mut svt_era_pt: Vec<u8> = Vec::new();
+    let mut svt_era_pool: Vec<u8> = Vec::new();
+    let mut svt_stats = G31SvtStats::default();
+    // G31+ #58 逐帧 cut 统计收集面（--cluster-lod leaf|on 才消费;off 空 vec
+    // 零消费。每 16 帧对 cut 做覆盖性机核采样,fail-closed）。
+    let mut cluster_frame_stats: Vec<ClusterFrameStat> = Vec::new();
+    let mut cluster_stat_ms_total = 0.0f64;
+    // G31+ #95/#99 逐帧 WP/HLOD 统计收集面（--wp-hlod full|on 才消费;off 空
+    // vec 零消费。逐帧 tick 流送 + 互斥选层 + warmup 原子翻转状态机——#99
+    // popping 指标事实源）。
+    let mut wp_frame_stats: Vec<WpFrameStat> = Vec::new();
+    let mut wp_stat_ms_total = 0.0f64;
+    if svt_on {
+        let Some((sassets, _)) = svt_report.as_ref() else {
+            fail("C13 SVT 报告缺失（流送初态面不完整判红）");
+        };
+        let stream = match g31_svt_streaming_init(sassets) {
+            Ok(s) => s,
+            Err(e) => fail(&format!("C13 SVT 流送初态: {e}")),
+        };
+        svt_pool_image = if sassets.full_residency {
+            sassets.tile_set.payloads_bytes()
+        } else {
+            vec![0u8; sassets.pool_tiles as usize * svt::SVT_PHYS_TILE_BYTES]
+        };
+        svt_stream = Some(stream);
+    }
+    'eras: loop {
+        let (ew, eh) = window
+            .as_ref()
+            .map(|w| w.extent())
+            .unwrap_or((out_w, out_h));
+        let in_w = ((ew as u64 * u64::from(tier)) / 100).max(1) as u32;
+        let in_h = ((eh as u64 * u64::from(tier)) / 100).max(1) as u32;
+        // extent 联动资源尺寸(internal = floor(输出×tier%),双向 floor 同口径)。
+        assets.out_color_size = (in_w as u64) * (in_h as u64) * 12;
+        assets.out_depth_size = (in_w as u64) * (in_h as u64) * 4;
+        let bits = UnifiedLaneBits::load(
+            &spv_scene,
+            &spv_mv,
+            &spv_resample,
+            &spv_resolve,
+            in_w,
+            in_h,
+            ew,
+            eh,
+            false,
+        );
+        let enc_words = load_spv(&spv_encode);
+        let (ex, ey, _) = spv_local_size(&enc_words);
+        let enc_dispatch = [ew.div_ceil(ex), eh.div_ceil(ey), 1];
+        let enc_spv_bytes: Vec<u8> = enc_words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let enc_params = aces13_device_encode_params(ew, eh, bgra);
+        let enc_params_bytes = bytes_f32(&enc_params);
+        // A5 FG era 常量面(fg on 才装配;fg off = None,车道 0-byte 现状):
+        // kernel SPV 两件(g26_framegen + g31_mv_negate glue) + dispatch =
+        // [ew·eh,1,1]/[2·ew·eh,1,1](LocalSize 1,1,1 单像素/单元素线程同律) +
+        // 逐 gen 静态参数(t = t_temporal = i/(n+1) 直通,host mfg_between 同式
+        // f32 位级;inv_sigma2 = 1/(σ·σ) 金标准默认 σ=0.1 同式预算——
+        // FrameGenParams::default() 单一事实源)。
+        let (fg_words, mvn_words) = if fg != G31Fg::Off {
+            (load_spv(&spv_framegen), load_spv(&spv_mvn))
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        let fg_spv_bytes: Vec<u8> = fg_words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let mvn_spv_bytes: Vec<u8> = mvn_words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let fg_sigma = FrameGenParams::default().consistency_sigma;
+        let fg_inv_sigma2 = 1.0f32 / (fg_sigma * fg_sigma);
+        let fg_n = fg.inserted();
+        let mvn_params = g31_mvn_pack_params(2 * ew * eh);
+        let mvn_params_bytes = bytes_f32(&mvn_params);
+        let fg_params1 = g31_fg_pack_params(ew * eh, ew, eh, 1.0f32 / (fg_n + 1) as f32, fg_inv_sigma2);
+        let fg_params1_bytes = bytes_f32(&fg_params1);
+        let fg_params2 = if fg == G31Fg::X3 {
+            g31_fg_pack_params(ew * eh, ew, eh, 2.0f32 / (fg_n + 1) as f32, fg_inv_sigma2)
+        } else {
+            Vec::new()
+        };
+        let fg_params2_bytes = bytes_f32(&fg_params2);
+        let fg_assets = if fg != G31Fg::Off {
+            Some(G31FgAssets {
+                mode: fg,
+                spv_bytes: &fg_spv_bytes,
+                mvn_spv_bytes: &mvn_spv_bytes,
+                dispatch: [ew * eh, 1, 1],
+                mvn_dispatch: [2 * ew * eh, 1, 1],
+                mvn_params_bytes: &mvn_params_bytes,
+                params1_bytes: &fg_params1_bytes,
+                params2_bytes: &fg_params2_bytes,
+            })
+        } else {
+            None
+        };
+        // B1 HZB era 常量面(hzb on 才装配;off = None/空件零消费,既有面 0-byte):
+        // kernel SPV 五件(g31_hzb_{primary,shade,pack} 加性件 + g27_hzb_{reduce,
+        // test} G27 M-a 本体 0-byte 冻结消费) + mip 拓扑/静态参数/平铺初值(全 1.0
+        // = standard-Z 最远 ⇒ 首帧前全 Visible)/inst_base 逐实例前缀和。
+        let hzb_bits = if hzb == G31Hzb::On {
+            Some(G31HzbBits::load(
+                &spv_hzb_primary,
+                &spv_hzb_shade,
+                &spv_hzb_reduce,
+                &spv_hzb_test,
+                &spv_hzb_pack,
+                in_w,
+                in_h,
+                &hzb_groups,
+            ))
+        } else {
+            None
+        };
+        // B1 逐节点 BLAS 引用 + 创建期实例表(hzb on 面;节点段 = 装配序连续段,
+        // 与单 BLAS 面位级同 buffer;实例 mask 初值全 0xFF,逐帧掩码经
+        // tlas_update 写槽位)。
+        let hzb_blas_refs: Vec<&[f32]> = hzb_groups
+            .iter()
+            .map(|g| {
+                let lo = g.tri_offset as usize * 9;
+                let hi = lo + g.tri_count as usize * 9;
+                &assets.tris[lo..hi]
+            })
+            .collect();
+        let hzb_insts: Vec<RayQueryInstanceDesc> = (0..hzb_groups.len() as u32)
+            .map(|i| RayQueryInstanceDesc {
+                blas: i,
+                custom_index: i,
+                mask: 0xFF,
+                sbt_record_offset: 0,
+            })
+            .collect();
+        let blas_refs: [&[f32]; 1] = [&assets.tris];
+        // B1 HZB 车道描述组(body 级所有者;session 借用面);off 面 descs 同级
+        // 托底（条件建造,借用序 = 所有者先于借用者）。
+        let hzb_descs = hzb_bits.as_ref().map(|hb| {
+            let (r, p, b, rb, ids) = g31_lane_descs_hzb(
+                &assets,
+                &bits,
+                &enc_spv_bytes,
+                enc_dispatch,
+                &enc_params_bytes,
+                hb,
+                hzb_groups.len(),
+                in_w,
+                in_h,
+                ew,
+                eh,
+            );
+            (r, p, b, rb, ids)
+        });
+        let hzb_bar_refs: Vec<&[(u32, TargetState)]> = hzb_descs
+            .as_ref()
+            .map(|(_, _, b, _, _)| b.iter().map(|x| x.as_slice()).collect())
+            .unwrap_or_default();
+        let off_descs = if hzb != G31Hzb::On {
+            Some(g31_lane_descs(
+                &assets,
+                &bits,
+                &enc_spv_bytes,
+                enc_dispatch,
+                &enc_params_bytes,
+                in_w,
+                in_h,
+                ew,
+                eh,
+                fg_assets,
+            ))
+        } else {
+            None
+        };
+        // B4 纹理变体描述组（textures on 面;闭集互斥 ⇒ hzb/fg/slab 恒 off,
+        // off_descs 面同级托底,借用序 = 所有者先于借用者）。
+        let tex_descs = if textures {
+            let Some((tassets, _)) = tex_report.as_ref() else {
+                fail("B4 纹理报告缺失（descs 面不完整判红）");
+            };
+            Some(g31_lane_descs_tex(
+                &assets,
+                &bits,
+                &enc_spv_bytes,
+                enc_dispatch,
+                &enc_params_bytes,
+                &tex_spv_bytes,
+                tassets,
+                in_w,
+                in_h,
+                ew,
+                eh,
+            ))
+        } else {
+            None
+        };
+        // C13 SVT 变体描述组（svt on 面;era 首态克隆对 = 流送状态/host 池影
+        // 当前值——era 重建再同步面;era 内克隆不变,与逐帧推进的活状态分离）。
+        let svt_descs = if svt_on {
+            let Some((tassets, _)) = tex_report.as_ref() else {
+                fail("C13 SVT 须 B4 纹理报告在案（descs 面不完整判红）");
+            };
+            let Some((sassets, _)) = svt_report.as_ref() else {
+                fail("C13 SVT 报告缺失（descs 面不完整判红）");
+            };
+            let Some(stream) = svt_stream.as_ref() else {
+                fail("C13 SVT 流送状态缺失（descs 面不完整判红）");
+            };
+            svt_era_pt = stream.page_table_bytes();
+            svt_era_pool = svt_pool_image.clone();
+            Some(g31_lane_descs_svt(
+                &assets,
+                &bits,
+                &enc_spv_bytes,
+                enc_dispatch,
+                &enc_params_bytes,
+                &svt_spv_bytes,
+                tassets,
+                sassets,
+                &svt_era_pt,
+                &svt_era_pool,
+                in_w,
+                in_h,
+                ew,
+                eh,
+            ))
+        } else {
+            None
+        };
+        let mut lane = if let Some((hz_res, hz_pass, _, hz_rb, hz_ids)) = hzb_descs.as_ref() {
+            let hb = hzb_bits.as_ref().unwrap();
+            // 双 TLAS:表 0 = 初剔后(逐帧掩码),表 1 = 全量(阴影射线零剔除)。
+            // 两 desc 引用同 BLAS 表/实例表(只读双借,创建期各自建 AS)。
+            let hzb_accel = [
+                AccelStructDesc {
+                    scene: RayQuerySceneDesc {
+                        blas_triangles: &hzb_blas_refs,
+                        instances: &hzb_insts,
+                    },
+                    transforms: None,
+                    updatable_blas: &[], // B1 全静态 BLAS（B5 字段面 0-byte 默认）
+                },
+                AccelStructDesc {
+                    scene: RayQuerySceneDesc {
+                        blas_triangles: &hzb_blas_refs,
+                        instances: &hzb_insts,
+                    },
+                    transforms: None,
+                    updatable_blas: &[],
+                },
+            ];
+            // evidence 元信息面刷新(mip 拓扑/平铺量/实例数)。
+            hzb_levels_meta = hb.levels.clone();
+            hzb_flat_offsets_meta = hb.flat_offsets.clone();
+            let dims: Vec<String> = hb
+                .levels
+                .iter()
+                .map(|&(w, h)| format!("[{w},{h}]"))
+                .collect();
+            hzb_meta_json = format!(
+                "{{\"instances\":{},\"levels\":{},\"level_dims\":[{}],\"flat_texels\":{},\"conv\":\"standard_z\"}}",
+                hzb_groups.len(),
+                hb.levels.len(),
+                dims.join(","),
+                hb.flat_texels
+            );
+            match G31HzbLane::create(
+                hz_res,
+                hz_pass,
+                &hzb_bar_refs,
+                hz_rb,
+                &hzb_accel,
+                hz_ids.clone(),
+                hzb_groups.clone(),
+                hb.levels.len(),
+            ) {
+                Ok(l) => G31AnyLane::Hzb(l),
+                Err(e) => g31_dev_env_or_fail("device_lane", &e),
+            }
+        } else {
+            // B4/C13:textures on = 纹理变体描述组,svt on = SVT 变体描述组
+            // （闭集互斥 ⇒ off_descs 恒 Some 但不消费;五 pass 与 off 面同图,
+            // 仅 scene pass/资源/屏障替换）。
+            let descs = svt_descs
+                .as_ref()
+                .or(tex_descs.as_ref())
+                .unwrap_or_else(|| off_descs.as_ref().unwrap());
+            let accel_structs = [AccelStructDesc {
+                scene: RayQuerySceneDesc {
+                    blas_triangles: &blas_refs,
+                    instances: &assets.instances,
+                },
+                transforms: None,
+                updatable_blas: &[], // B5 字段面 0-byte 默认（全静态）
+            }];
+            match G31TsrLane::create(descs, &accel_structs, fg) {
+                Ok(mut l) => {
+                    // C13 SVT:逐帧状态挂载（请求缓冲字节数 = in_w·in_h·4）。
+                    if svt_on {
+                        l.set_svt((in_w as usize) * (in_h as usize) * 4);
+                    }
+                    G31AnyLane::Off(l)
+                }
+                Err(e) => g31_dev_env_or_fail("device_lane", &e),
+            }
+        };
+        // C7:debug label 活跃态簿记（era 车道重建刷新;profile-json 消费）。
+        debug_labels_active = Some(match &lane {
+            G31AnyLane::Off(l) => l.session.debug_labels_active(),
+            G31AnyLane::Hzb(l) => l.session.debug_labels_active(),
+        });
+        eprintln!(
+            "{GTAG}: era 就绪 extent={ew}x{eh} internal={in_w}x{in_h}（车道:{}{},resize_eras={resize_eras}）",
+            if hzb == G31Hzb::On {
+                "hzb_primary→hzb_shade→mv→resample→resolve→display_encode→hzb_test_p1→hzb_reduce×L−1→hzb_pack×L→hzb_test_p2（HZB 两阶段剔除 on".to_owned()
+            } else {
+                "scene→mv→resample→resolve→display_encode".to_owned()
+            },
+            match fg {
+                G31Fg::Off => "（五 pass,fg off）".to_owned(),
+                G31Fg::X2 => "→mv_negate→fg1→enc_fg1（八 pass,fg x2）".to_owned(),
+                G31Fg::X3 => "→mv_negate→fg1→enc_fg1→fg2→enc_fg2（十 pass,fg x3）".to_owned(),
+            }
+        );
+        let mut resized = false;
+        let mut era_first = true;
+        while fi < total {
+            // ── 窗口事件面(输入/resize/最小化/关闭;每帧首段泵)──
+            if let Some(w) = window.as_mut() {
+                let input = w.poll_input();
+                if input.close_requested {
+                    exit_reason = "user_close";
+                    break 'eras;
+                }
+                if input.minimized {
+                    // 最小化/alt-tab:跳过渲染/present 不消费帧预算(消息泵保持,
+                    // 恢复后续跑;8ms 轮询避免空转)。
+                    // C4 storm 面:注入臂触发的最小化在跳过面实跑一轮后即恢复
+                    // (恢复 WM_SIZE 与 OS 消息面同通路;跳过次数实记)。
+                    if storm_restore_pending {
+                        storm_min_skips += 1;
+                        w.storm_wm_size(ew, eh, false);
+                        storm_restore_pending = false;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(8));
+                    continue;
+                }
+                if let Some((nw, nh)) = input.resize_pending {
+                    if (nw, nh) != (ew, eh) {
+                        if let Err(e) = w.resize(nw, nh) {
+                            fail(&format!("窗口 resize {nw}x{nh}: {e}"));
+                        }
+                        if w.extent() != (ew, eh) {
+                            resized = true;
+                            resize_eras += 1;
+                            break;
+                        }
+                    }
+                }
+                if auto_move.is_none() {
+                    let dt = last_frame_wall
+                        .map(|t| t.elapsed().as_secs_f32())
+                        .unwrap_or(1.0 / 60.0)
+                        .clamp(0.001, 0.2);
+                    g31_apply_input(&mut cam, &mut ev100, &input, &mut prev_keys, dt);
+                }
+            }
+            // ── C4 窗口风暴驱动（--window-storm 爆发臂 / --storm-soak 周期臂;
+            //    默认关 = 本块全跳零消费。程序化 resize 走 swapchain  era 重建
+            //    真通路;最小化/恢复走 WM_SIZE 同通路注入,跳过面实跑后恢复）──
+            if window_storm > 0 && !storm_burst_done {
+                storm_burst_done = true;
+                let Some(w) = window.as_mut() else {
+                    fail("--window-storm 须真窗口会话（headless 已 fail-fast,防御性复核）");
+                };
+                let (aw, ah) = ((ew / 2).max(64), (eh / 2).max(64));
+                for k in 0..window_storm {
+                    // 交替 半 extent ↔ 原 extent:真 win32 尺寸变更(SetWindowPos,
+                    // 用户拖拽同通路)→ 同步 WM_SIZE 立即泵出消化 ⇒ 每次皆真
+                    // swapchain/staging 重建(extent 逐次真实变化)。
+                    let (tw, th) = if k % 2 == 0 { (aw, ah) } else { (ew, eh) };
+                    w.storm_set_window_size(tw, th);
+                    let inp = w.poll_input();
+                    if let Some((nw, nh)) = inp.resize_pending {
+                        if let Err(e) = w.resize(nw, nh) {
+                            fail(&format!("window-storm 第 {} 次 resize {nw}x{nh}: {e}", k + 1));
+                        }
+                    }
+                    storm_resize_ops += 1;
+                }
+                if w.extent() != (ew, eh) {
+                    resized = true;
+                    resize_eras += 1;
+                    break;
+                }
+            }
+            if storm_soak > 0 && fi > 0 && fi % storm_soak == 0 && storm_last_fault_fi != fi {
+                storm_last_fault_fi = fi;
+                let Some(w) = window.as_mut() else {
+                    fail("--storm-soak 须真窗口会话（headless 已 fail-fast,防御性复核）");
+                };
+                if fi % (storm_soak * 8) == 0 {
+                    // 最小化/恢复循环（alt-tab 等效面:非全屏 exclusive 下 alt-tab
+                    // 不失效 swapchain,最小化 = 唯一塌零/失效源——波 A 在案）。
+                    w.storm_wm_size(0, 0, true);
+                    storm_restore_pending = true;
+                    storm_min_cycles += 1;
+                    continue; // 下一轮 poll 见 minimized → 跳过面实跑 → 恢复
+                }
+                // 周期 resize toggle:基准（窗口创建 extent = out_w×out_h)↔
+                // 半基准固定两面往返（非逐次减半——extent 在两面间确定性摆动）。
+                // 真 win32 尺寸变更 → 下一轮 poll 经 A3 resize_pending 面消化
+                // (resize → swapchain/staging/era 全真重建)。
+                let (bw, bh) = (out_w, out_h);
+                let (aw, ah) = ((bw / 2).max(64), (bh / 2).max(64));
+                let (tw, th) = if (ew, eh) == (bw, bh) {
+                    (aw, ah)
+                } else {
+                    (bw, bh)
+                };
+                w.storm_set_window_size(tw, th);
+                storm_resize_ops += 1;
+                continue;
+            }
+            last_frame_wall = Some(std::time::Instant::now());
+            // ── auto-move 确定性轨迹(帧号唯一事实源,绝对位姿)──
+            if let Some(name) = auto_move.as_deref() {
+                let (yaw, pitch, eye) = g31_auto_move_pose(name, &cam0, fi, total);
+                cam.yaw = yaw;
+                cam.pitch = pitch;
+                cam.eye = eye;
+                if let Some((a, b)) = ev100_ramp {
+                    let t = f64::from(fi) / f64::from(total.max(1));
+                    ev100 = a + (b - a) * t;
+                }
+            }
+            // ── 逐帧相机 → vp(192B 帧参数 uniform 通路真实工作面)──
+            let spec = cam.spec();
+            // G31+ #58 逐帧 host cut 统计（相机逐帧变化 → cut 逐帧重算的
+            // measured 面;在 t_render 计时之外,不污染 real_render_frame_ms
+            // 口径。出帧几何冻结于装配期 cut,如实登记不冒充）。
+            if let Some((_, pack)) = &cluster_ctx {
+                let t_stat = std::time::Instant::now();
+                let stat = cluster_lod_frame_stat(
+                    pack,
+                    &spec,
+                    in_w,
+                    in_h,
+                    cluster_opt.threshold_px,
+                    fi,
+                    fi % 16 == 0,
+                );
+                cluster_stat_ms_total += t_stat.elapsed().as_secs_f64() * 1e3;
+                cluster_frame_stats.push(stat);
+            }
+            // G31+ #95/#99 逐帧 WP/HLOD 状态推进（相机逐帧变化 → 距离环流送
+            // tick + 互斥选层 + warmup 原子翻转协议的 measured 面;在 t_render
+            // 计时之外。出帧几何冻结于装配期选层,如实登记不冒充）。
+            if let Some((_, ctx)) = wp_ctx.as_mut() {
+                let t_stat = std::time::Instant::now();
+                let stat = wp_hlod_frame_tick(ctx, spec.eye);
+                wp_stat_ms_total += t_stat.elapsed().as_secs_f64() * 1e3;
+                wp_frame_stats.push(stat);
+            }
+            let vp = build_vp(&spec, in_w, in_h);
+            let inv_vp = vp.inverse().unwrap_or_else(|| fail("view-proj 必须可逆"));
+            let exposure = 2.0f32.powf(-(ev100 as f32));
+            let j = [
+                halton(jitter_base + fi + 1, 2) - 0.5,
+                halton(jitter_base + fi + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let last = fi + 1 == total;
+            let rb_mode = if last {
+                G31Readback::BgraAndColor
+            } else if window.is_some() || auto_move.is_some() {
+                G31Readback::Bgra
+            } else {
+                G31Readback::None
+            };
+            let reset = fi == 0 || era_first;
+            era_first = false;
+            // A5 probe 帧（FG 面）:post-warmup 首个 gen 活跃帧触发接线态对拍回读
+            // (era 首帧无 prev 不可探,顺延至下一 gen 活跃帧;一次性)。B1 HZB 面:
+            // probe_pre = probe_fi−1（上帧平铺金字塔 + 深度回读臂）,probe_fi 本帧
+            // p1 判定 + host 金标准复算（两帧成对,一次性）。
+            let probe = match (&lane, probe_fi) {
+                (G31AnyLane::Off(l), Some(pf)) => {
+                    fi >= pf && l.gen_active(reset) && wired_parity.is_none()
+                }
+                _ => false,
+            };
+            let hzb_pre_frame = (hzb == G31Hzb::On
+                && matches!(probe_fi, Some(pf) if fi + 1 == pf)
+                && hzb_pre_data.is_none())
+                || (hzb == G31Hzb::On && last && std::env::var("RURIX_G31_DUMP_F32").ok().as_deref() == Some("1"));
+            let hzb_cmp_frame = hzb == G31Hzb::On
+                && matches!(probe_fi, Some(pf) if fi == pf)
+                && hzb_wired_parity.is_none();
+
+            let t_render = std::time::Instant::now();
+            let rec = match match &mut lane {
+                G31AnyLane::Off(l) => l.frame(
+                    in_w,
+                    in_h,
+                    ew,
+                    eh,
+                    j,
+                    eps,
+                    scene.quads.len(),
+                    scene.points.len(),
+                    &inv_vp,
+                    &vp,
+                    &vp_j,
+                    exposure,
+                    reset,
+                    rb_mode,
+                    probe,
+                ),
+                G31AnyLane::Hzb(l) => l.frame(
+                    in_w,
+                    in_h,
+                    ew,
+                    eh,
+                    j,
+                    eps,
+                    scene.quads.len(),
+                    scene.points.len(),
+                    &inv_vp,
+                    &vp,
+                    &vp_j,
+                    exposure,
+                    reset,
+                    rb_mode,
+                    hzb_pre_frame,
+                ),
+            } {
+                Ok(r) => r,
+                Err(e) => {
+                    // C4 探针面(tdr/budget 臂;命中打印退 0,非探针面直通 fail)。
+                    if let Some(spec) = fault_probe.as_deref() {
+                        g31_probe_lane_failure(spec, fi, &e);
+                    }
+                    fail(&format!("帧 {fi} 车道: {e}"));
+                }
+            };
+            let render_el = t_render.elapsed().as_secs_f64() * 1000.0;
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "帧 {fi} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            if rec.leaked_object_count != 0 || rec.leaked_allocation_count != 0 {
+                fail(&format!(
+                    "帧 {fi} leak 账本非零 object={} allocation={}（资源无泄漏机核判红）",
+                    rec.leaked_object_count, rec.leaked_allocation_count
+                ));
+            }
+
+            // ── C13 SVT 逐帧请求-驻留闭环（svt on 面;帧 N miss 请求 → host
+            //    consume（LRU 池 + 页表影 + 瓦片"盘"读取）→ 帧 N+1 上传段;
+            //    host 池影同步应用,era 重建再同步源）──
+            if svt_on {
+                let Some(req_bytes) = rec.svt_requests.as_ref() else {
+                    fail(&format!("帧 {fi} SVT 请求缓冲回读缺失（svt on 面证据不完整判红）"));
+                };
+                let Some(stream) = svt_stream.as_mut() else {
+                    fail(&format!("帧 {fi} SVT 流送状态缺失（防御性复核）"));
+                };
+                let Some((sassets, _)) = svt_report.as_ref() else {
+                    fail(&format!("帧 {fi} SVT 报告缺失（防御性复核）"));
+                };
+                let req = read_f32(req_bytes);
+                let plan = match stream.consume(&req) {
+                    Ok(p) => p,
+                    Err(e) => fail(&format!("帧 {fi} SVT 请求消费: {e}")),
+                };
+                // host 池影应用（瓦片上传段;与次帧 device 上传同源字节面）。
+                let mut pending: Vec<(StableResourceId, u64, Vec<u8>)> =
+                    Vec::with_capacity(plan.page_table_writes.len() + plan.tile_uploads.len());
+                for &(page_id, entry) in &plan.page_table_writes {
+                    pending.push((
+                        StableResourceId(u64::from(G31_U_SVT_PAGETABLE) + 1),
+                        u64::from(page_id) * 4,
+                        entry.to_le_bytes().to_vec(),
+                    ));
+                }
+                for &(slot, page_id) in &plan.tile_uploads {
+                    let payload = match sassets.tile_set.page_payload(page_id) {
+                        Ok(p) => p,
+                        Err(e) => fail(&format!("帧 {fi} SVT 瓦片集读取: {e}")),
+                    };
+                    let tile_bytes: Vec<u8> =
+                        payload.iter().flat_map(|v| v.to_le_bytes()).collect();
+                    let off = slot as usize * svt::SVT_PHYS_TILE_BYTES;
+                    svt_pool_image[off..off + svt::SVT_PHYS_TILE_BYTES]
+                        .copy_from_slice(&tile_bytes);
+                    pending.push((
+                        StableResourceId(u64::from(G31_U_SVT_POOL) + 1),
+                        slot as u64 * svt::SVT_PHYS_TILE_BYTES as u64,
+                        tile_bytes,
+                    ));
+                }
+                if let G31AnyLane::Off(l) = &mut lane {
+                    l.set_svt_pending(pending);
+                }
+                // 逐帧统计（evidence 面;只进 evidence 不进硬门,RFC-0016 §4.0-4 同律）。
+                svt_stats.miss_px.push(plan.miss_pixels);
+                svt_stats.unique_pages.push(plan.unique_pages);
+                svt_stats.loaded.push(plan.loaded);
+                svt_stats.evicted.push(plan.evicted);
+                svt_stats.miss_px_total += u64::from(plan.miss_pixels);
+                svt_stats.requested_pages_total += u64::from(plan.unique_pages);
+                svt_stats.tiles_loaded_total += u64::from(plan.loaded);
+                svt_stats.tiles_evicted_total += u64::from(plan.evicted);
+                svt_stats.io_bytes_total += plan.io_bytes;
+                if plan.miss_pixels > 0 {
+                    svt_stats.fallback_frames += 1;
+                }
+            }
+
+            // ── B1 HZB 逐帧决策面记账 + 接线态对拍（hzb on 面;probe 两帧成对:
+            //    预备帧回读上帧平铺金字塔 + 深度,本帧 p1 判定序列 host 复算）──
+            if let Some(hzrec) = rec.hzb.as_ref() {
+                hzb_tested += u64::from(hzrec.tested_p1);
+                hzb_occluded += u64::from(hzrec.occluded_p1);
+                hzb_offscreen += u64::from(hzrec.offscreen);
+                hzb_retested += u64::from(hzrec.retested_p2);
+                hzb_flipped += u64::from(hzrec.flipped_p2);
+                hzb_visible_sum += u64::from(hzrec.visible_final);
+                if hzrec.closure_extra_submits > 0 || hzrec.closure_full_fallback {
+                    hzb_closure_frames += 1;
+                    hzb_closure_submits += u64::from(hzrec.closure_extra_submits) + 1;
+                    if hzrec.closure_full_fallback {
+                        hzb_fallbacks += 1;
+                    }
+                }
+                if fi >= warmup {
+                    hzb_gpu_ms.push(hzrec.hzb_gpu_ns / 1e6);
+                    hzb_scene_gpu_ms.push(rec.scene_gpu_ns / 1e6);
+                    hzb_host_ms.push(hzrec.host_ms);
+                    hzb_closure_gpu_ms.push(hzrec.closure_extra_gpu_ns / 1e6);
+                }
+                if hzb_pre_frame {
+                    let (Some(d), Some(f)) =
+                        (hzrec.probe_depth.as_ref(), hzrec.probe_flat.as_ref())
+                    else {
+                        fail(&format!("帧 {fi} HZB probe 预备回读缺失"));
+                    };
+                    hzb_pre_data = Some((d.clone(), f.clone()));
+                }
+                if hzb_cmp_frame {
+                    let Some((d, f)) = hzb_pre_data.as_ref() else {
+                        fail(&format!("帧 {fi} HZB probe 预备数据缺失（对拍面不完整判红）"));
+                    };
+                    let wp = match g31_hzb_wired_parity(
+                        d,
+                        f,
+                        in_w,
+                        in_h,
+                        &hzb_levels_meta,
+                        &hzb_flat_offsets_meta,
+                        &hzrec.rects_p1,
+                        &hzrec.verdicts_p1,
+                    ) {
+                        Ok(w) => w,
+                        Err(e) => fail(&format!("帧 {fi} HZB 接线态对拍复算: {e}")),
+                    };
+                    if !wp.mips_bitexact {
+                        // 现场取证 dump（depth/flat 原字节;离线归因面,仅在红路径）。
+                        let dump = |name: &str, v: &[f32]| {
+                            let b: Vec<u8> = v.iter().flat_map(|x| x.to_le_bytes()).collect();
+                            let _ = std::fs::write(format!(".tmp/g31_gates/hzb/{name}"), &b);
+                        };
+                        dump("probe_depth.bin", d);
+                        dump("probe_flat.bin", f);
+                        eprintln!(
+                            "{GTAG}: HZB probe 现场 dump → .tmp/g31_gates/hzb/probe_{{depth,flat}}.bin"
+                        );
+                        fail(&format!(
+                            "帧 {fi} HZB 接线态对拍：车道平铺金字塔 vs host HzbPyramid::build 非逐级位级全等（①零容差破坏）"
+                        ));
+                    }
+                    if !wp.verdict_equal {
+                        fail(&format!(
+                            "帧 {fi} HZB 接线态对拍：p1 判定序列与 host test_rect 非逐 rect 全等（②破坏）"
+                        ));
+                    }
+                    if wp.false_positives != 0 {
+                        fail(&format!(
+                            "帧 {fi} HZB 接线态对拍：假阳性 {}（③硬不变量破坏,exact_rect_occluded 独立复核检出）",
+                            wp.false_positives
+                        ));
+                    }
+                    eprintln!(
+                        "{GTAG}: 帧 {} HZB 接线态对拍 mips={} 位级全等 + p1 判定 {} rect 逐字节全等 + 零假阳性（剔除 {}）+ digest {}",
+                        fi + 1,
+                        wp.mips,
+                        wp.n_rects,
+                        wp.occluded,
+                        &wp.verdict_digest[..23]
+                    );
+                    hzb_wired_parity = Some((wp, fi));
+                }
+            }
+
+            // ── A5 接线态对拍(probe 帧一次性;host 金标准复算,p100/SSIM 判红即
+            //    fail——对拍门接线态维持机核面)──
+            if probe {
+                let (Some(prev_c), Some(mv_d), Some(cur_c), Some(mvn_d)) = (
+                    rec.probe_prev_color.as_ref(),
+                    rec.probe_mv.as_ref(),
+                    rec.out_color.as_ref(),
+                    rec.probe_mvn.as_ref(),
+                ) else {
+                    fail(&format!("帧 {fi} probe 回读四路缺失"));
+                };
+                // device 侧 MVN 内容直比对（位级 == −MV 回读;非零即 MV 通路
+                // 缺陷硬门——取反为 IEEE 精确运算,任何非零 = stale/错绑）。
+                let mvn_diff = mvn_d
+                    .iter()
+                    .zip(mv_d.iter())
+                    .map(|(&x, &y)| (x + y).abs() as f64)
+                    .fold(0.0, f64::max);
+                if mvn_diff != 0.0 {
+                    fail(&format!(
+                        "帧 {fi} probe MVN vs −MV 直比对 max|mvn+mv|={mvn_diff:.6e} ≠ 0（MV 通路位级硬门判红）"
+                    ));
+                }
+                if rec.probe_gen_out.len() != fg.inserted() as usize {
+                    fail(&format!(
+                        "帧 {fi} probe 生成帧路数 {} ≠ {}",
+                        rec.probe_gen_out.len(),
+                        fg.inserted()
+                    ));
+                }
+                let mut wp = match g31_wired_parity_probe(
+                    prev_c,
+                    cur_c,
+                    mv_d,
+                    &rec.probe_gen_out,
+                    ew,
+                    eh,
+                    fg_tol_v,
+                ) {
+                    Ok(w) => w,
+                    Err(e) => fail(&format!("帧 {fi} 接线态对拍复算: {e}")),
+                };
+                wp.mvn_max_abs_plus_mv = mvn_diff;
+                if !wp.in_bound {
+                    fail(&format!(
+                        "帧 {fi} 接线态对拍 excess={:.6e} > 0（逐像素 ULP 结构界含 G26 冻结地板 {:.6e},ratio={:.6};{}）",
+                        wp.excess, fg_tol_v, wp.excess_ratio, fg_tol_source
+                    ));
+                }
+                if !wp.ssim_beats_frame_hold {
+                    fail(&format!(
+                        "帧 {fi} 接线态 SSIM(device,hostref)={:.10} 未严格胜 frame-hold={:.10}",
+                        wp.ssim_device_vs_hostref, wp.ssim_frame_hold_vs_hostref
+                    ));
+                }
+                eprintln!(
+                    "{GTAG}: 帧 {} 接线态对拍 p100={:.6e} ≤ bound(max={:.6e};excess={:.3e} ratio={:.4}) ssim_dev={:.10} > ssim_hold={:.10}（host 金标准复算,{}）",
+                    fi + 1,
+                    wp.p100,
+                    wp.max_bound,
+                    wp.excess,
+                    wp.excess_ratio,
+                    wp.ssim_device_vs_hostref,
+                    wp.ssim_frame_hold_vs_hostref,
+                    fg_tol_source
+                );
+                wired_parity = Some((wp, fi));
+            }
+
+            // ── present(device 已编码;host 仅拷贝/present——A1 逐像素编码段消除,
+            //    encode host 墙钟恒 0,device 编码 GPU 耗时经 telemetry 单列)。
+            //    A5:present 序 = 生成帧(t 时序升序)→ 真帧(真帧/生成帧序列,
+            //    生成帧禁入真实渲染帧率口径,逐 present 墙钟入 presented 口径)──
+            let mut pres_el = 0.0f64;
+            if let Some(w) = window.as_mut() {
+                let Some(px) = rec.bgra8.as_ref() else {
+                    fail(&format!("帧 {fi} 窗口面缺 BGRA8 回读"));
+                };
+                for g in &rec.gen_bgra8 {
+                    let t_one = std::time::Instant::now();
+                    if let Err(e) = w.present_rgba8(g) {
+                        fail(&format!("帧 {fi} 生成帧窗口 present: {e}"));
+                    }
+                    let el = t_one.elapsed().as_secs_f64() * 1000.0;
+                    pres_el += el;
+                    if fi >= warmup {
+                        present_ms.push(el);
+                        present_seconds += el / 1000.0;
+                        presented_frames += 1;
+                    }
+                }
+                let t_one = std::time::Instant::now();
+                if let Err(e) = w.present_rgba8(px) {
+                    // C4 探针面(device-lost 三点臂;命中打印退 0,非探针面直通 fail)。
+                    if let Some(spec) = fault_probe.as_deref() {
+                        g31_probe_present_failure(spec, fi, &e, w, px);
+                    }
+                    fail(&format!("帧 {fi} 窗口 present: {e}"));
+                }
+                let el = t_one.elapsed().as_secs_f64() * 1000.0;
+                pres_el += el;
+                if fi >= warmup {
+                    present_ms.push(el);
+                    present_seconds += el / 1000.0;
+                    presented_frames += 1;
+                }
+            }
+
+            // ── digest(auto-move 逐帧序列;default 末帧;税单列不混渲染口径)──
+            let t_dig = std::time::Instant::now();
+            if auto_move.is_some() {
+                let Some(px) = rec.bgra8.as_ref() else {
+                    fail(&format!("帧 {fi} auto-move 面缺 BGRA8 回读"));
+                };
+                digest_seq.push(g31_bgra_digest(ew, eh, px));
+                ev100_seq.push(ev100);
+                pose_seq.push([
+                    f64::from(cam.eye[0]),
+                    f64::from(cam.eye[1]),
+                    f64::from(cam.eye[2]),
+                    f64::from(cam.yaw),
+                    f64::from(cam.pitch),
+                ]);
+            }
+            if last {
+                let Some(px) = rec.bgra8.as_ref() else {
+                    fail("末帧缺 BGRA8 回读".into());
+                };
+                presented_digest = g31_bgra_digest(ew, eh, px);
+                if let Some(dp) = dump_last_frame.as_deref() {
+                    // B3 跨臂像素对拍面:BGRA8 raw dump（w/h u32 LE 头 + 打包字节;
+                    // device 臂 vs host 参考臂逐字节对拍由 smoke 裁决）。
+                    let mut buf = Vec::with_capacity(8 + px.len());
+                    buf.extend_from_slice(&ew.to_le_bytes());
+                    buf.extend_from_slice(&eh.to_le_bytes());
+                    buf.extend_from_slice(px);
+                    std::fs::write(dp, &buf)
+                        .unwrap_or_else(|e| fail(&format!("--dump-last-frame 写 {dp}: {e}")));
+                }
+                let Some(out_data) = rec.out_color.as_ref() else {
+                    fail("末帧缺 f32 out_color 回读".into());
+                };
+                // TEMP 像素归因 dump（毕后删除;env 门控,常态零消费）。
+                if std::env::var("RURIX_G31_DUMP_F32").ok().as_deref() == Some("1") {
+                    let b: Vec<u8> = out_data.iter().flat_map(|v| v.to_le_bytes()).collect();
+                    let _ = std::fs::write(".tmp/g31_gates/hzb/last_f32.bin", &b);
+                    if let Some(hz) = rec.hzb.as_ref()
+                        && let Some(d) = hz.probe_depth.as_ref()
+                    {
+                        let bd: Vec<u8> = d.iter().flat_map(|v| v.to_le_bytes()).collect();
+                        let _ = std::fs::write(".tmp/g31_gates/hzb/last_depth.bin", &bd);
+                    }
+                }
+                if !out_data.iter().all(|v| v.is_finite()) {
+                    fail("末帧 TSR 输出非有限");
+                }
+                render_digest = frame_content_digest(ew, eh, 3, out_data);
+            }
+            let dig_el = t_dig.elapsed().as_secs_f64() * 1000.0;
+
+            if fi >= warmup {
+                render_ms.push(render_el);
+                digest_ms.push(dig_el);
+                encode_gpu_ms.push(rec.encode_gpu_ns / 1e6);
+                // C7 profiler 收集（--profile-json on 才消费;与 render_ms 同窗）。
+                if profile_json.is_some() {
+                    profile_frames.push(G31ProfileFrame {
+                        passes: rec
+                            .pass_gpu_ns
+                            .iter()
+                            .map(|(n, ns)| (n.clone(), ns / 1e6))
+                            .collect(),
+                        cpu_record_ms: rec.cpu_record_ns as f64 / 1e6,
+                        cpu_submit_ms: rec.cpu_submit_ns as f64 / 1e6,
+                        cpu_fence_wait_ms: rec.cpu_fence_wait_ns as f64 / 1e6,
+                        readback_convert_ms: rec.readback_convert_ms,
+                        render_wall_ms: render_el,
+                        present_wall_ms: pres_el,
+                        digest_ms: dig_el,
+                    });
+                }
+                // A5 双口径账目:real 只计真渲帧(生成帧禁入);单提交墙钟含 FG
+                // GPU 段——telemetry 分列 render5/fg GPU 段如实登记。
+                real_frames += 1;
+                real_render_seconds += render_el / 1000.0;
+                generated_frames += rec.gen_bgra8.len() as u64;
+                if fg != G31Fg::Off {
+                    fg_gpu_ms.push(rec.fg_gpu_ns / 1e6);
+                    render5_gpu_ms.push(
+                        (rec.scene_gpu_ns
+                            + rec.mv_gpu_ns
+                            + rec.resample_gpu_ns
+                            + rec.resolve_gpu_ns
+                            + rec.encode_gpu_ns)
+                            / 1e6,
+                    );
+                }
+            }
+            if fi == 0 || (fi + 1) % 20 == 0 || fi + 1 == total {
+                eprintln!(
+                    "{GTAG}: 帧 {}/{total} render={render_el:.3}ms(gpu_encode={:.3}ms{}) present={pres_el:.3}ms digest={dig_el:.3}ms",
+                    fi + 1,
+                    rec.encode_gpu_ns / 1e6,
+                    if fg != G31Fg::Off {
+                        format!(" gpu_fg={:.3}ms gen={}", rec.fg_gpu_ns / 1e6, rec.gen_bgra8.len())
+                    } else {
+                        String::new()
+                    },
+                );
+            }
+            fi += 1;
+        }
+        if fi >= total || !resized {
+            break 'eras;
+        }
+        // resize 触发的 era 更替:车道/资源在新 extent 重建(TSR 历史 reset)。
+    }
+
+    let frames_done = fi;
+    // C4 面:探针臂跑完全程未触发 = 红（env 未武装/注入点未达——不冒充）;
+    // 风暴臂计数汇总（机读单行,CI 门解析进 evidence;默认关臂零输出）。
+    if let Some(spec) = fault_probe.as_deref() {
+        fail(&format!(
+            "--fault-probe {spec} 全程 {frames_done} 帧未触发注入错误（env 注入机制未武装或注入点越帧预算;fail-closed 不冒充）"
+        ));
+    }
+    if window_storm > 0 || storm_soak > 0 {
+        eprintln!(
+            "{GTAG}: storm resize_ops={storm_resize_ops} min_cycles={storm_min_cycles} min_skips={storm_min_skips} resize_eras={resize_eras} window_storm={window_storm} storm_soak={storm_soak}"
+        );
+    }
+    // ⑦ 多口径稳态统计(post-warmup;程序产禁手写阈)+ evidence。
+    let (r_mean, _, r_cv, r_min, r_max) = g31_stats(&render_ms);
+    let (p_mean, _, p_cv, p_min, p_max) = if headless || present_ms.iter().all(|v| *v == 0.0) {
+        (0.0, 0.0, 0.0, 0.0, 0.0)
+    } else {
+        g31_stats(&present_ms)
+    };
+    let (eg_mean, _, _, _, _) = if encode_gpu_ms.is_empty() {
+        (0.0, 0.0, 0.0, 0.0, 0.0)
+    } else {
+        g31_stats(&encode_gpu_ms)
+    };
+    let (dg_mean, _, _, _, _) = if digest_ms.is_empty() {
+        (0.0, 0.0, 0.0, 0.0, 0.0)
+    } else {
+        g31_stats(&digest_ms)
+    };
+    let encode_host_ms = 0.0f64; // device 编码后 host 编码墙钟恒 0(如实登记)
+    let overhead_mean = encode_host_ms + p_mean;
+    let counts = window.as_ref().map(|w| w.counts());
+
+    let (window_json, p_mean_json, overhead_json) = if headless {
+        ("null".to_owned(), "null".to_owned(), "null".to_owned())
+    } else {
+        let c = counts.unwrap_or(rurix_rt::vk::ExternalPresentCounts {
+            frames_presented: 0,
+            swapchain_rebuilds: 0,
+        });
+        let (fw, fh) = window.as_ref().map(|w| w.extent()).unwrap_or((0, 0));
+        (
+            format!(
+                "{{\"visible\":{},\"channel_order\":{},\"extent\":{{\"w\":{fw},\"h\":{fh}}},\"frames_presented\":{},\"swapchain_rebuilds\":{}}}",
+                !hidden,
+                jstr(if bgra { "bgra8_unorm" } else { "rgba8_unorm" }),
+                c.frames_presented,
+                c.swapchain_rebuilds
+            ),
+            format!("{p_mean:.6}"),
+            format!("{overhead_mean:.6}"),
+        )
+    };
+    let pstat = |v: f64| -> String {
+        if headless {
+            "null".to_owned()
+        } else {
+            format!("{v:.6}")
+        }
+    };
+    let encode_spv_json = format!(
+        "{{\"path\":{},\"sha256\":{}}}",
+        jstr(&spv_encode.replace('\\', "/")),
+        jstr(&g31_file_sha(&spv_encode).unwrap_or_else(|e| fail(&e)))
+    );
+    // A5 FG 双口径统计与恒等式组(fg off 面不消费)。
+    let (fgg_mean, _, _, _, _) = if fg_gpu_ms.is_empty() {
+        (0.0, 0.0, 0.0, 0.0, 0.0)
+    } else {
+        g31_stats(&fg_gpu_ms)
+    };
+    let (r5g_mean, _, _, _, _) = if render5_gpu_ms.is_empty() {
+        (0.0, 0.0, 0.0, 0.0, 0.0)
+    } else {
+        g31_stats(&render5_gpu_ms)
+    };
+    let real_render_fps = if real_render_seconds > 0.0 {
+        real_frames as f64 / real_render_seconds
+    } else {
+        0.0
+    };
+    let presented_fps = if real_render_seconds + present_seconds > 0.0 {
+        presented_frames as f64 / (real_render_seconds + present_seconds)
+    } else {
+        0.0
+    };
+    // A5 恒等式组(FgAccounting F9 同模;schema 层钉 const true——任何口径混算
+    // 或计数面脱节都会翻 false 触发 schema 判红)。
+    let id_presented = presented_frames == real_frames + generated_frames;
+    let id_real_recompute = real_render_seconds > 0.0
+        && real_render_fps == real_frames as f64 / real_render_seconds;
+    let id_real_isolated = {
+        let perturbed = if real_render_seconds > 0.0 {
+            real_frames as f64 / real_render_seconds
+        } else {
+            0.0
+        };
+        let _ = generated_frames + 997; // 扰动面:real fps 公式与 generated 无关
+        perturbed == real_render_fps
+    };
+    let id_presented_recompute = real_render_seconds + present_seconds > 0.0
+        && presented_fps == presented_frames as f64 / (real_render_seconds + present_seconds);
+    let id_digest_seq_len = digest_seq.len() as u64 == u64::from(frames_done);
+    let framegen_spv_json = format!(
+        "{{\"path\":{},\"sha256\":{}}}",
+        jstr(&spv_framegen.replace('\\', "/")),
+        jstr(&g31_file_sha(&spv_framegen).unwrap_or_else(|e| fail(&e)))
+    );
+    let wired_parity_json = if fg != G31Fg::Off {
+        let Some((wp, pf)) = wired_parity.as_ref() else {
+            fail("A5 接线态对拍未执行（提前退出或未达 gen 活跃帧）——FG 门登记面不完整判红");
+        };
+        let per_gen: Vec<String> = wp.per_gen_p100.iter().map(|v| format!("{v:.15e}")).collect();
+        let tvals: Vec<String> = wp.t_values.iter().map(|v| format!("{v}")).collect();
+        format!(
+            "{{\"probe_frame\":{},\"p100\":{:.15e},\"per_gen_p100\":[{}],\"frozen_floor\":{:.15e},\"floor_source\":{},\"g26_measured_anchor\":{},\"val_ulp_err\":{:.1e},\"max_bound\":{:.15e},\"excess\":{:.15e},\"excess_ratio\":{:.6},\"in_bound\":{},\"mvn_max_abs_plus_mv\":{:.15e},\"ssim_device_vs_hostref\":{:.12},\"ssim_frame_hold_vs_hostref\":{:.12},\"ssim_beats_frame_hold\":{},\"t_values\":[{}],\"note\":{}}}",
+            pf + 1,
+            wp.p100,
+            per_gen.join(","),
+            fg_tol_v,
+            jstr(&fg_tol_source),
+            if fg_tol_measured.is_nan() {
+                "null".to_owned()
+            } else {
+                format!("{fg_tol_measured:.15e}")
+            },
+            G31_PROBE_VAL_ULP_ERR,
+            wp.max_bound,
+            wp.excess,
+            wp.excess_ratio,
+            wp.in_bound,
+            wp.mvn_max_abs_plus_mv,
+            wp.ssim_device_vs_hostref,
+            wp.ssim_frame_hold_vs_hostref,
+            wp.ssim_beats_frame_hold,
+            tvals.join(","),
+            jstr("接线态对拍:device 生成帧(取反 glue 直通馈入:g14 相机 MV 经 g31_mv_negate 逐元素 IEEE 取反 + prev/cur/t 与 host 同语义)vs host 金标准 temporal::framegen::interpolate(prev, cur, −mv, t)复算;MVN vs −MV 全帧位级直比对(mvn_max_abs_plus_mv 恒 0,MV 通路硬门)。判据面:G26 冻结绝对容差(128×72 单位域合成场景标定)在 1080p HDR 生产帧上物理不适用——诊断实证(probe 帧 run_compute 三方比对 max|lane−run_compute|=0 位级,接线零缺陷):kernel/host 双方正确 f32 实现的算术差经①坐标舍入跨纹素边界翻转采样②w_cons 混合交叉项两机制放大;硬门 = 逐像素 L1 结构界 bound = frozen_floor(G26 标定 threshold 程序读) + (rangeA16+rangeB16 采样 16-texel 邻域逐通道极差,坐标翻转全覆盖) + val_ulp_err×scale + 0.5×|a−b|×w×min(1,δlog)×e^(δlog)(混合交叉项,δlog = inv_sigma2×d2 扰动上界),excess = 全帧 max(0,|dev−host|−bound) 恒 0 为绿;结构缺陷(tie-break/缓冲/MV 符号/t 错误)产生 0.1~15 量级差异必超界。SSIM 对照锚 = host 金标准复算帧(device≈hostref 则继承金标准 SSIM 胜 frame-hold 性质);G26 合成 GT 解析对拍门(绝对容差适用面;p100 ≤ 3.576e-7 冻结锚 + SSIM + 双跑位级)由 ci/g31_framegen_present_smoke.py 接线态复跑维持")
+        )
+    } else {
+        "null".to_owned()
+    };
+    // ── G31+ #58 逐帧 cut 统计 sidecar（--cluster-lod leaf|on 才消费;独立
+    //    JSON 文件不动既有五臂 evidence schema。measured 如实登记不设通过线）──
+    if let Some((rep, _)) = &cluster_ctx {
+        let n = cluster_frame_stats.len().max(1) as f64;
+        let mean_tris =
+            cluster_frame_stats.iter().map(|s| s.cut_tris as f64).sum::<f64>() / n;
+        let (min_tris, max_tris) = cluster_frame_stats.iter().fold((u64::MAX, 0u64), |a, s| {
+            (a.0.min(s.cut_tris), a.1.max(s.cut_tris))
+        });
+        eprintln!(
+            "{GTAG}: cluster-lod 逐帧 cut 统计 frames={} cut_tris mean={:.0} min={} max={} assembled_out={} stat_ms_total={:.1}（出帧几何冻结于装配 cut;逐帧 AS 更新归 C/E 阶段）",
+            cluster_frame_stats.len(),
+            mean_tris,
+            if min_tris == u64::MAX { 0 } else { min_tris },
+            max_tris,
+            rep.out_tris,
+            cluster_stat_ms_total,
+        );
+        if let Some(path) = &cluster_stats_out {
+            let mut sj = String::with_capacity(4096 + cluster_frame_stats.len() * 64);
+            sj.push_str(&format!(
+                "{{\"schema\":\"rurix.g31.cluster_lod_stats.v1\",\"mode\":{},\"threshold_px\":{},\"blocks\":{},\"total_clusters\":{},\"src_tris\":{},\"passthrough_tris\":{},\"assembled_cut\":{{\"clusters\":{},\"leaf_clusters\":{},\"coarse_tris\":{},\"out_tris\":{}}},\"frame_stats_note\":\"逐帧 host cut 重算 measured(相机驱动;每 16 帧覆盖性机核采样);出帧几何冻结于装配期 cut,逐帧 AS 更新归 C/E 阶段——如实登记不冒充\",\"stat_ms_total\":{:.3},\"frames\":[",
+                jstr(rep.mode),
+                rep.threshold_px,
+                rep.blocks,
+                rep.total_clusters,
+                rep.src_tris,
+                rep.passthrough_tris,
+                rep.cut_clusters,
+                rep.cut_leaf_clusters,
+                rep.coarse_tris,
+                rep.out_tris,
+                cluster_stat_ms_total,
+            ));
+            for (k, s) in cluster_frame_stats.iter().enumerate() {
+                if k > 0 {
+                    sj.push(',');
+                }
+                sj.push_str(&format!(
+                    "{{\"frame\":{},\"cut_clusters\":{},\"cut_leaf_clusters\":{},\"cut_tris\":{}}}",
+                    s.frame, s.cut_clusters, s.cut_leaf_clusters, s.cut_tris
+                ));
+            }
+            sj.push_str("]}");
+            if let Some(parent) = Path::new(path).parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            std::fs::write(path, sj.as_bytes())
+                .unwrap_or_else(|e| fail(&format!("cluster 统计 sidecar 写盘 {path}: {e}")));
+            eprintln!("{GTAG}: cluster-lod 统计 sidecar → {path}");
+        }
+    }
+    // ── G31+ #95/#99 逐帧 WP/HLOD 统计 sidecar（--wp-hlod full|on 才消费;
+    //    独立 JSON 文件不动既有五臂 evidence schema。#99 popping 指标闭集 =
+    //    切换事件表 + 逐帧翻转数/三角跳变;warmup 协议机核 = flip−request ==
+    //    warmup 逐事件 fail-closed 断言。measured 如实登记不设通过线）──
+    if let Some((rep, ctx)) = &wp_ctx {
+        // warmup 原子翻转协议机核（逐事件断言;破坏即拒——#68 互斥切换协议
+        // 判据的窗口臂机器证明）。
+        for e in &ctx.switch_events {
+            if e.flip_frame - e.request_frame != ctx.warmup_frames {
+                fail(&format!(
+                    "wp-hlod warmup 协议破坏: cell {} 切换 {}→{} 间隔 {} ≠ warmup {}",
+                    e.cell,
+                    e.from,
+                    e.to,
+                    e.flip_frame - e.request_frame,
+                    ctx.warmup_frames
+                ));
+            }
+        }
+        let total_switches: u64 = wp_frame_stats.iter().map(|s| u64::from(s.switches)).sum();
+        let max_switches = wp_frame_stats.iter().map(|s| s.switches).max().unwrap_or(0);
+        let delta_max = wp_frame_stats.iter().map(|s| s.switch_delta_tris).max().unwrap_or(0);
+        let (tris_min, tris_max) = wp_frame_stats.iter().fold((u64::MAX, 0u64), |a, s| {
+            (a.0.min(s.out_tris), a.1.max(s.out_tris))
+        });
+        eprintln!(
+            "{GTAG}: wp-hlod 逐帧统计 frames={} switches={} max/frame={} delta_tris_max={} out_tris=[{},{}] stat_ms_total={:.1}（出帧几何冻结于装配选层;popping 指标 = #99 事实源）",
+            wp_frame_stats.len(),
+            total_switches,
+            max_switches,
+            delta_max,
+            if tris_min == u64::MAX { 0 } else { tris_min },
+            tris_max,
+            wp_stat_ms_total,
+        );
+        if let Some(path) = &wp_stats_out {
+            let mut sj = String::with_capacity(4096 + wp_frame_stats.len() * 96);
+            sj.push_str(&format!(
+                "{{\"schema\":\"rurix.g31.wp_hlod_stats.v1\",\"mode\":{},\"cells_total\":{},\"cells_nonempty\":{},\"levels\":{},\"warmup_frames\":{},\"src_tris\":{},\"passthrough_tris\":{},\"assembled\":{{\"full\":{},\"hlod\":{},\"culled\":{},\"pending\":{},\"out_tris\":{},\"proxy_tris\":{},\"selection_digest\":{},\"assemble_ticks\":{},\"budget_stall_frames\":{}}},\"popping\":{{\"total_switches\":{},\"max_switches_per_frame\":{},\"switch_delta_tris_max\":{},\"warmup_protocol_verified\":true}},\"frame_stats_note\":\"逐帧 host tick/选层/warmup 切换状态机 measured(相机驱动距离环流送;原子翻转协议逐事件机核);出帧几何冻结于装配期选层,逐帧 AS 更新归 #77/#89 合流窗——如实登记不冒充\",\"stat_ms_total\":{:.3},\"switch_events\":[",
+                jstr(rep.mode),
+                rep.cells_total,
+                rep.cells_nonempty,
+                ctx.pack.levels,
+                ctx.warmup_frames,
+                rep.src_tris,
+                rep.passthrough_tris,
+                rep.cells_full,
+                rep.cells_hlod,
+                rep.cells_culled,
+                rep.cells_pending,
+                rep.out_tris,
+                rep.proxy_tris,
+                jstr(&rep.selection_digest),
+                rep.assemble_ticks,
+                rep.budget_stall_frames,
+                total_switches,
+                max_switches,
+                delta_max,
+                wp_stat_ms_total,
+            ));
+            for (k, e) in ctx.switch_events.iter().enumerate() {
+                if k > 0 {
+                    sj.push(',');
+                }
+                sj.push_str(&format!(
+                    "{{\"cell\":{},\"from\":{},\"to\":{},\"request_frame\":{},\"flip_frame\":{},\"tris_before\":{},\"tris_after\":{}}}",
+                    e.cell,
+                    jstr(&e.from),
+                    jstr(&e.to),
+                    e.request_frame,
+                    e.flip_frame,
+                    e.tris_before,
+                    e.tris_after
+                ));
+            }
+            sj.push_str("],\"frames\":[");
+            for (k, s) in wp_frame_stats.iter().enumerate() {
+                if k > 0 {
+                    sj.push(',');
+                }
+                sj.push_str(&format!(
+                    "{{\"frame\":{},\"resident\":{},\"pending_load\":{},\"full\":{},\"hlod\":{},\"culled\":{},\"switches\":{},\"switch_delta_tris\":{},\"out_tris\":{},\"budget_stall\":{}}}",
+                    s.frame,
+                    s.resident_cells,
+                    s.pending_load,
+                    s.full_cells,
+                    s.hlod_cells,
+                    s.culled_cells,
+                    s.switches,
+                    s.switch_delta_tris,
+                    s.out_tris,
+                    s.budget_stall
+                ));
+            }
+            sj.push_str("]}");
+            if let Some(parent) = Path::new(path).parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            std::fs::write(path, sj.as_bytes())
+                .unwrap_or_else(|e| fail(&format!("wp-hlod 统计 sidecar 写盘 {path}: {e}")));
+            eprintln!("{GTAG}: wp-hlod 统计 sidecar → {path}");
+        }
+    }
+    let mut ev = String::with_capacity(8192);
+    ev.push('{');
+    if textures {
+        // ── B4 纹理采样接线 schema(g31.waveB.texture;A3 游戏循环全字段 +
+        //    textures 接线块;--textures on 闭集已保证 auto_move/tier=100/非 fg/
+        //    非 hzb/非 slab)──
+        let Some((tassets, treport)) = tex_report.as_ref() else {
+            fail("B4 纹理报告缺失（evidence 面不完整判红）");
+        };
+        let name = auto_move.as_deref().unwrap();
+        // C13 SVT 派生臂面:schema/gate 字面切换（svt on = g31.waveC.svt 面,
+        // textures 块全字段继承 + svt 块追加;svt off = B4 面逐字不变）。
+        ev.push_str(&format!(
+            "\"schema\":{},",
+            jstr(if svt_on { G31_SVT_SCHEMA } else { G31_TEXTURE_SCHEMA })
+        ));
+        ev.push_str(&format!(
+            "\"gate\":{},",
+            jstr(if svt_on { G31_SVT_GATE } else { G31_TEXTURE_GATE })
+        ));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!("\"trajectory\":{},", jstr(name)));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"frames_completed\":{frames_done},"));
+        ev.push_str(&format!("\"exit_reason\":{},", jstr(exit_reason)));
+        ev.push_str(&format!("\"resize_eras\":{resize_eras},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_overhead_ms\":{overhead_json},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"digest_frame_ms\":{dg_mean:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str("\"digest_seq\":[");
+        for (k, d) in digest_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&jstr(d));
+        }
+        ev.push_str("],");
+        ev.push_str("\"ev100_seq\":[");
+        for (k, v) in ev100_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("{v}"));
+        }
+        ev.push_str("],");
+        ev.push_str("\"camera_poses\":[");
+        for (k, p) in pose_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!(
+                "[{},{},{},{},{}]",
+                p[0], p[1], p[2], p[3], p[4]
+            ));
+        }
+        ev.push_str("],");
+        ev.push_str(&format!(
+            "\"ev100_ramp\":{},",
+            match ev100_ramp {
+                Some((a, b)) => format!("{{\"a\":{a},\"b\":{b}}}"),
+                None => "null".to_owned(),
+            }
+        ));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_scene, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        // ── B4 textures 接线块（资产盘点 + 映射律法 + 图集/LUT + 探针双臂 +
+        //    kernel 变体 provenance + 缺面登记）──
+        let c = &tassets.census;
+        let mut ms_rows = String::new();
+        for (i, s) in tassets.slots.iter().enumerate() {
+            if i > 0 {
+                ms_rows.push(',');
+            }
+            let manifest_src = match &s.manifest_source_digest {
+                Some(d) => jstr(d),
+                None => "null".to_owned(),
+            };
+            let manifest_rgba8 = match &s.manifest_rgba8_digest {
+                Some(d) => jstr(d),
+                None => "null".to_owned(),
+            };
+            let digest_match = match &s.manifest_rgba8_digest {
+                Some(d) => *d == s.rgba8_digest,
+                None => false,
+            };
+            ms_rows.push_str(&format!(
+                "{{\"slot\":{i},\"material_index\":{},\"material_name\":{},\"tris\":{},\"texture_uri\":{},\"width\":{},\"height\":{},\"dds_format\":{},\"manifest_source_digest\":{},\"rgba8_digest\":{},\"manifest_rgba8_digest\":{},\"manifest_digest_match\":{digest_match},\"origin_x\":{},\"origin_y\":{},\"mod_r\":{:.9e},\"mod_g\":{:.9e},\"mod_b\":{:.9e}}}",
+                s.material_index,
+                jstr(&s.material_name),
+                s.tris,
+                jstr(&s.texture_uri),
+                s.width,
+                s.height,
+                jstr(&s.dds_format),
+                manifest_src,
+                jstr(&s.rgba8_digest),
+                manifest_rgba8,
+                s.origin_x,
+                s.origin_y,
+                s.mod_rgb[0],
+                s.mod_rgb[1],
+                s.mod_rgb[2],
+            ));
+        }
+        let manifest_matched = tassets
+            .slots
+            .iter()
+            .filter(|s| {
+                s.manifest_rgba8_digest
+                    .as_ref()
+                    .map(|d| *d == s.rgba8_digest)
+                    .unwrap_or(false)
+            })
+            .count();
+        ev.push_str(&format!(
+            "\"textures\":{{\"census\":{{\"materials_total\":{},\"with_base_color_texture\":{},\"with_normal_texture\":{},\"with_metallic_roughness_texture\":{},\"primitives_total\":{},\"primitives_with_texcoord0\":{},\"primitives_with_tangent\":{}}},\"mapping_law\":{},\"mapped_materials\":{},\"tex_tris\":{},\"material_slots\":[{}],\"atlas\":{{\"width\":{},\"height\":{},\"tile\":{},\"format\":\"u32_packed_rgba8\",\"digest\":{}}},\"linlut_digest\":{},\"g11_3_manifest\":{{\"path\":\"milestones/g11/g11_3_dds_transcode_manifest.json\",\"entries_matched\":{},\"entries_total\":{}}},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"eval_ms\":{:.6},\"ssbo\":{{\"p100\":{:.15e},\"bitexact\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{}}},\"sampler_leg\":{{\"max_lsb_diff\":{},\"bound_lsb\":1,\"bitexact\":{},\"digest\":{},\"host_digest\":{},\"structural_basis\":{}}}}},\"spv_texture\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_texture_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
+            c.materials_total,
+            c.with_base_color_texture,
+            c.with_normal_texture,
+            c.with_metallic_roughness_texture,
+            c.primitives_total,
+            c.primitives_with_texcoord0,
+            c.primitives_with_tangent,
+            jstr("逐材质三角数降序 top-12（并列时 material_index 升序）;其余材质走既有逐三角 albedo/emission 常量面 0-byte"),
+            tassets.slots.len(),
+            tassets.tex_tris,
+            ms_rows,
+            tassets.atlas_w,
+            tassets.atlas_h,
+            2048,
+            jstr(&tassets.atlas_digest),
+            jstr(&tassets.linlut_digest),
+            manifest_matched,
+            tassets.slots.len(),
+            jstr("24/槽 = 16 网格((j*37+k*11)%256+0.5)/256,((j*101+k*13)%256+0.5)/256 + 4 精确边缘(0/0.5/1−2^-23) + 4 wrap 域(1.25/2.5/3.75/1.5/−0.25/1.3333334/2.0/−0.75);确定性闭集,与 ci/g31_texture_sampling_smoke.py 判读器同源"),
+            treport.probe_count,
+            treport.eval_ms,
+            treport.ssbo_p100,
+            treport.ssbo_bitexact,
+            treport.ssbo_double_run_bitexact,
+            jstr(&treport.ssbo_device_digest),
+            jstr(&treport.ssbo_host_digest),
+            treport.sampler_max_lsb,
+            treport.sampler_bitexact,
+            jstr(&treport.sampler_digest),
+            jstr(&treport.sampler_host_digest),
+            jstr("硬件线性过滤权重量化（实现近似,subtexel ≤2^-8 档）⇒ srgb 域 8-bit 量化（quantum 1/255）翻转 ≤1 LSB;host 参考 = 同式双线性（texel=n/255.0f UNORM 精确）+ (x·255+0.5).floor() 量化镜像;位级一致 = 更强终态"),
+            jstr(&spv_texture.replace('\\', "/")),
+            jstr(&g31_file_sha(&spv_texture).unwrap_or_else(|e| fail(&e))),
+            jstr(&spv_texture_probe.replace('\\', "/")),
+            jstr(&g31_file_sha(&spv_texture_probe).unwrap_or_else(|e| fail(&e))),
+            jstr("缺面如实登记:① sampler 对象不进 compute 生产车道——RXS-0223 §4.0-2 阶段矩阵（Texture2D/Sampler/TextureRw2D 阶段列 = fragment/vertex/raygen,compute kernel 零 image 绑定,spec 面 0-byte 纪律不扩阶段）;sampler.rs 面消费点 = 装配期 sampler 求值腿（真 image/view/SamplerDesc→VkSampler 硬件采样对拍）,生产车道采样 = SSBO 图集 + 手动双线性（G26 framegen 生产先例同律）;② normal 贴图在树 70/70（BC5）但 glTF 零 TANGENT 属性（primitives_with_tangent=0）——切线空间缺失,法线贴图着色面登记后续;③ rough-metal 贴图 0/70（无 metallicRoughnessTexture,仅 factor 常量;生产着色模型 = Lambert 直接光,无 rough/metal 消费槽）"),
+        ));
+        // ── C13 SVT 接线块（svt on 面;页表/瓦片集/池预算/探针双臂/逐帧流送
+        //    统计/SPV provenance/缺面登记——svt off = 整块缺省,既有面 0-byte）──
+        if svt_on {
+            let Some((sassets, srep)) = svt_report.as_ref() else {
+                fail("C13 SVT 报告缺失（evidence 面不完整判红）");
+            };
+            let Some(stream) = svt_stream.as_ref() else {
+                fail("C13 SVT 流送状态缺失（evidence 面不完整判红）");
+            };
+            let ts = &sassets.tile_set;
+            let frames_done_u = u64::from(frames_done);
+            let total_px = frames_done_u
+                .saturating_mul((out_w as u64) * (out_h as u64));
+            let miss_rate = if total_px > 0 {
+                svt_stats.miss_px_total as f64 / total_px as f64
+            } else {
+                0.0
+            };
+            // 收敛帧 = 末个 miss>0 帧之次帧（全零 miss 后缀起点;无则 null）。
+            let converged_frame = match svt_stats.miss_px.iter().rposition(|&m| m > 0) {
+                Some(k) if k + 1 < svt_stats.miss_px.len() => format!("{}", k + 1),
+                Some(_) => "null".to_owned(),
+                None => "0".to_owned(),
+            };
+            let seq_u32 = |v: &[u32]| -> String {
+                let mut s = String::from("[");
+                for (k, x) in v.iter().enumerate() {
+                    if k > 0 {
+                        s.push(',');
+                    }
+                    s.push_str(&format!("{x}"));
+                }
+                s.push(']');
+                s
+            };
+            ev.push_str(&format!(
+                "\"svt\":{{\"virtual_dim\":{},\"tile_dim\":{},\"border\":{},\"phys_tile_dim\":{},\"page_table_dim\":{},\"page_table_entries\":{},\"active_pages_x\":{},\"active_pages_y\":{},\"active_pages\":{},\"tile_set_digest\":{},\"page_table_digest_final\":{},\"pool_tiles\":{},\"full_residency\":{},\"phys_tile_bytes\":{},\"fallback_digest\":{},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"boundary_probe_count\":{},\"eval_ms\":{:.6},\"full_residency_arm\":{{\"p100_vs_direct\":{:.15e},\"bitexact_vs_direct\":{},\"bitexact_vs_svt_host\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{},\"boundary_max_abs\":{:.15e}}},\"partial_residency_arm\":{{\"law\":{},\"miss_probes\":{},\"req_bitexact\":{},\"out_bitexact\":{},\"closed_loop_loaded\":{},\"closed_loop_evicted\":{},\"closed_loop_io_bytes\":{},\"closed_loop_all_hit\":{},\"closed_loop_bitexact_vs_full\":{}}}}},\"streaming\":{{\"frames\":{},\"miss_px_total\":{},\"requested_pages_total\":{},\"tiles_loaded_total\":{},\"tiles_evicted_total\":{},\"io_bytes_total\":{},\"io_per_frame_bytes\":{},\"miss_rate\":{:.9e},\"fallback_frames\":{},\"converged_frame\":{},\"miss_px_seq\":{},\"unique_pages_seq\":{},\"loaded_seq\":{},\"evicted_seq\":{}}},\"spv_svt\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_svt_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
+                svt::SVT_VIRTUAL_DIM,
+                svt::SVT_TILE_DIM,
+                svt::SVT_BORDER,
+                svt::SVT_PHYS_DIM,
+                svt::SVT_PAGE_TABLE_DIM,
+                svt::SVT_PAGE_COUNT,
+                ts.pages_x,
+                ts.pages_y,
+                ts.page_total(),
+                jstr(&ts.digest),
+                jstr(&stream.page_table_digest()),
+                sassets.pool_tiles,
+                sassets.full_residency,
+                svt::SVT_PHYS_TILE_BYTES,
+                jstr(&format!("sha256:{}", sha256_hex(&sassets.fallback_bytes))),
+                jstr("32/槽 = B4 24/槽基座（16 网格 + 4 精确边缘 + 4 wrap 域）+ 8 页界聚焦（128m/w×128m/h 双线性跨页 straddle + 左界 wrap straddle;pow2 槽 ⇒ UV 商 f32 精确）;确定性闭集,与 ci/g31_svt_smoke.py 判读器同源"),
+                srep.probe_count,
+                srep.boundary_probe_count,
+                srep.eval_ms,
+                srep.full_p100_vs_direct,
+                srep.full_bitexact_vs_direct,
+                srep.full_bitexact_vs_svt_host,
+                srep.full_double_run_bitexact,
+                jstr(&srep.full_device_digest),
+                jstr(&srep.full_host_digest),
+                srep.boundary_max_abs,
+                jstr("page_id % 3 == 2 未驻留（恒等槽映射,池容 = 活动页数零驱逐噪声）;host 消费后重跑全 hit"),
+                srep.partial_miss_probes,
+                srep.partial_req_bitexact,
+                srep.partial_out_bitexact,
+                srep.closed_loop_loaded,
+                srep.closed_loop_evicted,
+                srep.closed_loop_io_bytes,
+                srep.closed_loop_all_hit,
+                srep.closed_loop_bitexact_vs_full,
+                frames_done,
+                svt_stats.miss_px_total,
+                svt_stats.requested_pages_total,
+                svt_stats.tiles_loaded_total,
+                svt_stats.tiles_evicted_total,
+                svt_stats.io_bytes_total,
+                if frames_done_u > 0 {
+                    svt_stats.io_bytes_total / frames_done_u
+                } else {
+                    0
+                },
+                miss_rate,
+                svt_stats.fallback_frames,
+                converged_frame,
+                seq_u32(&svt_stats.miss_px),
+                seq_u32(&svt_stats.unique_pages),
+                seq_u32(&svt_stats.loaded),
+                seq_u32(&svt_stats.evicted),
+                jstr(&spv_svt.replace('\\', "/")),
+                jstr(&g31_file_sha(&spv_svt).unwrap_or_else(|e| fail(&e))),
+                jstr(&spv_svt_probe.replace('\\', "/")),
+                jstr(&g31_file_sha(&spv_svt_probe).unwrap_or_else(|e| fail(&e))),
+                jstr("缺面如实登记:① 各向异性跨瓦片 = 生产采样闭集双线性唯一过滤面（border=1 恰覆盖 2×2 footprint,aniso/mip 需求不成立——G22 SVT-3 行「border texel 复制/各向异性跨瓦片」之前者落地,后者按现消费面登记 N/A）;② 虚拟地址空间 128K² 满尺寸页表分配,活动区 = bistro 图集 3072 页（图集外恒未驻留,采样域限定图集面）;③ sampler feedback 硬件回读（TODO #85 观察行）未接——UAV 反馈缓冲面为本期合法形态"),
+            ));
+        }
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "B4 纹理采样管线进生产场景面(G31+ 波 B Task B4;G31_PLUS_COMMERCIAL_RENDERER_TODO §1.2 #9):--textures on = 生产场景 kernel 纹理变体(kernels/g31_texture_gi.rx = g14_3_direct_gi.rx 逐字 fork + 贴图采样 albedo;母版 kernel/SPV 0-byte,off 面 = Stage A 回归锚);内容模型从逐三角常量 albedo 升级为贴图采样 albedo(tritex ≥ 0 槽:REPEAT wrap + G26 sample_bilinear 逐字双线性 + 256 项 srgb→linear LUT(零 pow 位级锚) × mod(factor×(1−metallic)——texture_mean_albedo 策略的逐像素泛化;tritex < 0 走既有常量面 0-byte);资产链 = gltf → top-12 律法 → DDS BC1/BC3 bin-local 解码(bcdec 镜像,逐槽 rgba8 digest == G11.3 manifest 互核) → u32 打包图集/texmeta/tritex/UV 四 SSBO 侧表扩展(mats SSBO 0-byte) + LUT SSBO;探针双臂对拍 = SSBO 腿(g31_texture_probe.rx vk::run_compute 单 dispatch,NoContraction 注入驱动 FMA 收缩禁面)device vs host 位级硬门 p100=0.0 + sampler 腿(真 GPU 纹理对象 image/view/sampler 经 sampler.rs SamplerDesc→VkSampler,vk::sampling_shaders_spv 硬件 sample_lod)vs host srgb 域参考结构容差 ≤1 LSB;digest_seq = 逐帧 BGRA8 打包帧 sha256(G31BGRA-1 前缀,device 编码域;确定性双跑位级一致为门,on≠off 为接线真实生效门);real_render_frame_ms = 五 pass 渲染墙钟(含 BGRA8 强制回读,render_includes_forced_readback=true;纹理装配/探针 = 装配期一次性,eval_ms 单列不混帧口径)"
+        )));
+        ev.push('}');
+    } else if slab_table.is_some() {
+        // ── B3 slab 接线 schema(g31.waveB.slab;A3 游戏循环全字段 + slab 接线块;
+        //    --slab-table 闭集已保证 auto_move/非 fg)──
+        let Some((asset, eval, n_slab)) = slab_report.as_ref() else {
+            fail("B3 slab 报告缺失（evidence 面不完整判红）");
+        };
+        let name = auto_move.as_deref().unwrap();
+        ev.push_str(&format!("\"schema\":{},", jstr(G31_SLAB_SCHEMA)));
+        ev.push_str(&format!("\"gate\":{},", jstr(G31_SLAB_GATE)));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!("\"trajectory\":{},", jstr(name)));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"frames_completed\":{frames_done},"));
+        ev.push_str(&format!("\"exit_reason\":{},", jstr(exit_reason)));
+        ev.push_str(&format!("\"resize_eras\":{resize_eras},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_overhead_ms\":{overhead_json},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"digest_frame_ms\":{dg_mean:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str("\"digest_seq\":[");
+        for (k, d) in digest_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&jstr(d));
+        }
+        ev.push_str("],");
+        ev.push_str("\"ev100_seq\":[");
+        for (k, v) in ev100_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("{v}"));
+        }
+        ev.push_str("],");
+        ev.push_str("\"camera_poses\":[");
+        for (k, p) in pose_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!(
+                "[{},{},{},{},{}]",
+                p[0], p[1], p[2], p[3], p[4]
+            ));
+        }
+        ev.push_str("],");
+        ev.push_str(&format!(
+            "\"ev100_ramp\":{},",
+            match ev100_ramp {
+                Some((a, b)) => format!("{{\"a\":{a},\"b\":{b}}}"),
+                None => "null".to_owned(),
+            }
+        ));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_scene, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        // ── slab 接线块（16 槽 ABI + 双臂求值对拍 + 逐三角施加面）──
+        let mut ms_rows = String::new();
+        for (i, (mi, slot)) in asset.material_slots.iter().enumerate() {
+            if i > 0 {
+                ms_rows.push(',');
+            }
+            ms_rows.push_str(&format!(
+                "{{\"material_index\":{mi},\"slot\":{slot},\"device_r\":{:.9e},\"host_r\":{:.15e}}}",
+                f64::from(eval.device_r[*slot as usize]),
+                eval.host_r[*slot as usize],
+            ));
+        }
+        ev.push_str(&format!(
+            "\"slab\":{{\"table_path\":{},\"table_sha256\":{},\"asset_scene_id\":{},\"abi_digest\":{},\"n_slots\":16,\"slot_abi\":\"[rc f32 LE, ab f32 LE] × 16（G29 M-b 生成律 rc_k=k/15·0.95、ab_k=(15−k)/15 同源）\",\"arm\":{},\"spv_slab\":{{\"path\":{},\"sha256\":{}}},\"parity_p100\":{:.15e},\"eval_ms\":{:.6},\"device_digest\":{},\"host_digest\":{},\"mapped_materials\":{},\"slab_tris\":{},\"material_slots\":[{}],\"finiteness_first_class\":true,\"semantics\":{}}},",
+            jstr(&asset.path.replace('\\', "/")),
+            jstr(&g31_file_sha(&asset.path).unwrap_or_else(|e| fail(&e))),
+            jstr(&asset.scene_id),
+            jstr(&asset.abi_digest),
+            jstr(&slab_arm),
+            jstr(&spv_slab.replace('\\', "/")),
+            jstr(&g31_file_sha(&spv_slab).unwrap_or_else(|e| fail(&e))),
+            eval.parity_p100,
+            eval.eval_ms,
+            jstr(&eval.device_digest),
+            jstr(&eval.host_digest),
+            asset.material_slots.len(),
+            n_slab,
+            ms_rows,
+            jstr("albedo_final[c] = albedo_dir[c] × R_slot（f32 乘;R = 双层 slab 闭式 total_reflectance;emission 0-byte;非映射材质走既有逐三角 albedo/emission 单层面 0-byte;parity_p100 = 逐槽 |device f32 − host f64| 最大值,G29 M-b 逐槽对拍口径,有限性一等断言先于聚合）"),
+        ));
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "B3 slab 材质侧表生产接线面(G31+ 波 B Task B3;RD-041-slab 行 g31_anchor 生产接线窗兑现):--slab-table 资产文件驱动(G29 M-b bin-local 16 槽侧表的资产化升级;schema/域/槽序/ABI digest 闭集校验篡改即拒)场景中 Substrate 类双层 slab 材质经 kernels/g29_slab.rx(device 臂;G29 M-a 本体 0-byte 冻结消费,dispatch [16,1,1] 逐槽单 invocation)或 material/slab.rs::total_reflectance(host 参考臂金标准 f64 直调 0-byte)侧表 16 槽查表求值,逐三角 albedo 预调制(albedo×R_slot f32)后进既有 mats SSBO 面——生产 kernel/管线 0-byte,非 slab 材质走既有单层面 0-byte;parity_p100 = device vs host 逐槽对拍(G29 M-b 口径;冻结容差 milestones/g29/g29_budget.json g29.slab_device.host_device_reflectance_tol 程序读, measured p100=1.192e-7 恰一 ULP);digest_seq = 逐帧 BGRA8 打包帧 sha256(G31BGRA-1 前缀,device 编码域;确定性双跑位级一致为门,on≠off 为接线真实生效门);real_render_frame_ms = 五 pass 渲染墙钟(含 BGRA8 强制回读,render_includes_forced_readback=true;slab 求值 = 装配期一次性,eval_ms 单列不混帧口径)"
+        )));
+        ev.push('}');
+    } else if fg != G31Fg::Off {
+        // ── A5 FG 接线 schema(g31.waveA.framegen;双口径分离 + 恒等式组 +
+        //    接线态对拍;--fg 闭集已保证 auto_move/tier=100/非 headless)──
+        let name = auto_move.as_deref().unwrap();
+        ev.push_str(&format!("\"schema\":{},", jstr(G31_FRAMEGEN_SCHEMA)));
+        ev.push_str(&format!("\"gate\":{},", jstr(G31_FRAMEGEN_GATE)));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!("\"trajectory\":{},", jstr(name)));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"frames_completed\":{frames_done},"));
+        ev.push_str(&format!("\"exit_reason\":{},", jstr(exit_reason)));
+        ev.push_str(&format!("\"resize_eras\":{resize_eras},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"fg_mode\":{},", jstr(fg.name())));
+        ev.push_str(&format!(
+            "\"fg_factor\":{},\"inserted_per_pair\":{},",
+            fg.factor(),
+            fg.inserted()
+        ));
+        ev.push_str(&format!(
+            "\"real_frames\":{real_frames},\"generated_frames\":{generated_frames},\"presented_frames\":{presented_frames},"
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"real_render_seconds\":{real_render_seconds:.9},"));
+        ev.push_str(&format!("\"real_render_fps\":{real_render_fps:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_seconds\":{present_seconds:.9},"));
+        ev.push_str(&format!("\"presented_fps\":{presented_fps:.6},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"digest_frame_ms\":{dg_mean:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str("\"digest_seq\":[");
+        for (k, d) in digest_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&jstr(d));
+        }
+        ev.push_str("],");
+        ev.push_str("\"ev100_seq\":[");
+        for (k, v) in ev100_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("{v}"));
+        }
+        ev.push_str("],");
+        ev.push_str("\"camera_poses\":[");
+        for (k, p) in pose_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!(
+                "[{},{},{},{},{}]",
+                p[0], p[1], p[2], p[3], p[4]
+            ));
+        }
+        ev.push_str("],");
+        ev.push_str(&format!(
+            "\"ev100_ramp\":{},",
+            match ev100_ramp {
+                Some((a, b)) => format!("{{\"a\":{a},\"b\":{b}}}"),
+                None => "null".to_owned(),
+            }
+        ));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str(&format!(",\"framegen_spv\":{framegen_spv_json}"));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_scene, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        ev.push_str(&format!("\"wired_parity\":{wired_parity_json},"));
+        ev.push_str(&format!(
+            "\"caliber_identities\":{{\"presented_eq_real_plus_generated\":{},\"real_fps_recompute_ok\":{},\"real_fps_isolated_from_generated_ok\":{},\"presented_fps_recompute_ok\":{},\"digest_seq_len_eq_real_frames_total\":{}}},",
+            id_presented, id_real_recompute, id_real_isolated, id_presented_recompute, id_digest_seq_len
+        ));
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"encode_gpu_ms\":{eg_mean:.6},\"fg_gpu_ms\":{fgg_mean:.6},\"render5_gpu_ms\":{r5g_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "A5 FG/MFG 生产接线面(G30 承接锚 G13-N7 行兑现):--fg x2/x3 将 G26 device kernel g26_framegen.rx 链接入呈现车道(八/十 pass:生产五 pass 0-byte + g31_mv_negate 取反 glue + fg kernel + display_encode 复用),present 序 = 生成帧(t 升序)→ 真帧;MV 馈入 = g14_mv 相机 MV 经 g31_mv_negate 逐元素 IEEE 取反(零数值误差)后直通(prev/cur/−mv/t 与 host 金标准逐字同语义,含 t=0.5 near tie-break)——MV 仅含相机运动+静态场景深度重投影,运动物体 MV 缺口为 A4 已登记项如实登记不冒充(bistro 静态场景面,dyn 实例场景 FG 不接);--fg 闭集 = --auto-move + tier=100(MV 与 out_color 同栅格;tier<100 MV 重采样非本任务面)。双口径(G13-N7 字面纪律):real_render_frame_ms/real_render_fps 只由真渲帧构成(生成帧禁入计数;单提交墙钟含 FG GPU 段,telemetry 分列 stats.render5_gpu_ms/stats.fg_gpu_ms);presented_fps = presented_frames ÷ (real_render_seconds + present_seconds) 独立新口径,与真实渲染帧率并列输出永不混算;caliber_identities 恒等式组 schema 层钉 const true。digest_seq = 逐真渲帧 BGRA8 sha256(G31BGRA-1;fg on/off 同轨迹位级一致 = FG 不回污染渲染车道机核门);digest_frame_ms = 真渲帧 sha256 税单列。wired_parity = 接线态对拍(probe 帧 host 金标准复算;p100 ≤ G26 冻结容差程序读 + SSIM(device,hostref) > SSIM(frame-hold,hostref));G26 合成 GT 对拍门(p100 + SSIM + 双跑位级)由 ci/g31_framegen_present_smoke.py 接线态复跑维持"
+        )));
+        ev.push('}');
+    } else if hzb == G31Hzb::On {
+        // ── B1 HZB 接线 schema(g31.waveB.hzb;A3 游戏循环全字段 + hzb 接线块;
+        //    trajectory = auto_move 名或 "static"〔静态相机测量腿〕)──
+        let Some((wp, pf)) = hzb_wired_parity.as_ref() else {
+            fail("B1 接线态对拍未执行（提前退出或未达 probe 帧）——HZB 门登记面不完整判红");
+        };
+        let (hzg_mean, _, _, _, _) = if hzb_gpu_ms.is_empty() {
+            (0.0, 0.0, 0.0, 0.0, 0.0)
+        } else {
+            g31_stats(&hzb_gpu_ms)
+        };
+        let (hzs_mean, _, _, _, _) = if hzb_scene_gpu_ms.is_empty() {
+            (0.0, 0.0, 0.0, 0.0, 0.0)
+        } else {
+            g31_stats(&hzb_scene_gpu_ms)
+        };
+        let (hzh_mean, _, _, _, _) = if hzb_host_ms.is_empty() {
+            (0.0, 0.0, 0.0, 0.0, 0.0)
+        } else {
+            g31_stats(&hzb_host_ms)
+        };
+        let (hzc_mean, _, _, _, _) = if hzb_closure_gpu_ms.is_empty() {
+            (0.0, 0.0, 0.0, 0.0, 0.0)
+        } else {
+            g31_stats(&hzb_closure_gpu_ms)
+        };
+        let visible_mean = if frames_done > 0 {
+            hzb_visible_sum as f64 / f64::from(frames_done)
+        } else {
+            0.0
+        };
+        ev.push_str(&format!("\"schema\":{},", jstr(G31_HZB_SCHEMA)));
+        ev.push_str(&format!("\"gate\":{},", jstr(G31_HZB_GATE)));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!(
+            "\"trajectory\":{},",
+            jstr(auto_move.as_deref().unwrap_or("static"))
+        ));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"frames_completed\":{frames_done},"));
+        ev.push_str(&format!("\"exit_reason\":{},", jstr(exit_reason)));
+        ev.push_str(&format!("\"resize_eras\":{resize_eras},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_overhead_ms\":{overhead_json},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"digest_frame_ms\":{dg_mean:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str("\"digest_seq\":[");
+        for (k, d) in digest_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&jstr(d));
+        }
+        ev.push_str("],");
+        ev.push_str("\"ev100_seq\":[");
+        for (k, v) in ev100_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("{v}"));
+        }
+        ev.push_str("],");
+        ev.push_str("\"camera_poses\":[");
+        for (k, p) in pose_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("[{},{},{},{},{}]", p[0], p[1], p[2], p[3], p[4]));
+        }
+        ev.push_str("],");
+        ev.push_str(&format!(
+            "\"ev100_ramp\":{},",
+            match ev100_ramp {
+                Some((a, b)) => format!("{{\"a\":{a},\"b\":{b}}}"),
+                None => "null".to_owned(),
+            }
+        ));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        // 契约链 + 编码 SPV + HZB kernel 五件 provenance（g27 两件 0-byte
+        // 冻结消费——sha256 为内容面,.tmp 构建产物）。
+        let hzb_spv_sha = |p: &str| {
+            format!(
+                "{{\"path\":{},\"sha256\":{}}}",
+                jstr(&p.replace('\\', "/")),
+                jstr(&g31_file_sha(p).unwrap_or_else(|e| fail(&e)))
+            )
+        };
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str(&format!(
+            ",\"hzb_spv\":{{\"primary\":{},\"shade\":{},\"pack\":{},\"reduce\":{},\"test\":{}}}",
+            hzb_spv_sha(&spv_hzb_primary),
+            hzb_spv_sha(&spv_hzb_shade),
+            hzb_spv_sha(&spv_hzb_pack),
+            hzb_spv_sha(&spv_hzb_reduce),
+            hzb_spv_sha(&spv_hzb_test)
+        ));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_hzb_primary, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        // ── hzb 接线块（拓扑元信息 + 剔除计数 + 两阶段闭环 + 接线态对拍）──
+        ev.push_str(&format!(
+            "\"hzb\":{{\"mode\":\"on\",\"meta\":{},\"occlusion\":{{\"tested_p1\":{},\"occluded_p1\":{},\"offscreen\":{},\"retested_p2\":{},\"flipped_p2\":{},\"closure_frames\":{},\"closure_extra_submits\":{},\"closure_full_fallbacks\":{},\"visible_mean\":{:.6}}},\"parity\":{{\"probe_frame\":{},\"mips\":{},\"n_rects\":{},\"mips_bitexact\":{},\"verdict_sequence_equal\":{},\"false_positives\":{},\"occluded\":{},\"pyramid_digest\":{},\"host_pyramid_digest\":{},\"pyramid_digest_equal_host\":{},\"verdict_digest\":{},\"host_verdict_digest\":{},\"verdict_digest_equal_host\":{}}}}},",
+            hzb_meta_json,
+            hzb_tested,
+            hzb_occluded,
+            hzb_offscreen,
+            hzb_retested,
+            hzb_flipped,
+            hzb_closure_frames,
+            hzb_closure_submits,
+            hzb_fallbacks,
+            visible_mean,
+            pf + 1,
+            wp.mips,
+            wp.n_rects,
+            wp.mips_bitexact,
+            wp.verdict_equal,
+            wp.false_positives,
+            wp.occluded,
+            jstr(&wp.pyramid_digest),
+            jstr(&wp.host_pyramid_digest),
+            wp.pyramid_digest == wp.host_pyramid_digest,
+            jstr(&wp.verdict_digest),
+            jstr(&wp.host_verdict_digest),
+            wp.verdict_digest == wp.host_verdict_digest,
+        ));
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"scene_gpu_ms\":{hzs_mean:.6},\"hzb_gpu_ms\":{hzg_mean:.6},\"closure_extra_gpu_ms\":{hzc_mean:.6},\"hzb_host_ms\":{hzh_mean:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "B1 HZB 遮挡剔除生产接线面(G31+ 波 B Task B1;G30 承接锚 G27 行「生产接线窗」+ RFC-0044 §5.8 两阶段第二段〔F10 补项〕兑现;G31_PLUS_COMMERCIAL_RENDERER_TODO §1.2 #6 行):--hzb on = bistro 逐 mesh 节点 BLAS 分解(1186 实例;tris/mats SSBO 与单 BLAS 生产面位级同 buffer,g31_hzb_primary 经 inst_base 前缀和把 (inst,prim) 映回全局下标) + 双 TLAS(表 0 = 初剔后〔逐帧实例掩码 tlas_update〕供相机射线,表 1 = 全量零剔除供阴影射线——遮挡物阴影正确性面,RXS-0297 单 TLAS 签名纪律下拆 pass 兑现) + 帧内金字塔轮换(pass 序 = primary→shade→mv→tsr×2→encode→test_p1〔全实例 rect vs 上帧金字塔=「上帧金字塔初剔」字面〕→g27_hzb_reduce×(L−1)+g31_hzb_pack×L〔本帧重建,g27 两 kernel 0-byte 冻结消费〕→test_p2〔上帧被剔集 vs 本帧金字塔=「本帧重建重测」字面〕) + 闭环重渲(collect 结算应见集 = p1 可见 ∪ p2 翻回;应见而有未渲者 ⇒ 掩码并集同帧重渲,迭代 ≤4 未收敛 ⇒ 全掩码兜底=零剔除精确收敛——漏剔合法零害/误剔必翻回补渲,剔除零假阳性 ⇒ 闭环后画面与分解车道全集渲染位级一致,由 RURIX_HZB_ALL_VISIBLE 登记实验臂 digest_seq 逐帧对拍机核门承载;on vs off 关系 = 分解/双 TLAS 结构 ULP 噪声(全可见实验臂同 digest 钉死剔除中性,位级全等结构上不可达,如实登记);剔除链深度域 = 真 ZO NDC(depth_hz 专用面 = g31_hzb_shade ④b 段 vp 行 2/3 另算——U_SCENE_DEPTH 沿用 g14_3_shade_reduce 参数行 25..32 生产字面供 MV/TSR 两路并存;近面内几何 z_ndc<0 合法入塔,nearest 只钳上界 1.0 保负值 ⇒ 严格不等式自遮挡结构上不可达);host 金标准面只读消费 0-byte(geometry/{hzb,cull}.rs:Frustum 视锥离屏第一关 + probe 帧 HzbPyramid::build/test_rect/exact_rect_occluded 复算对拍——hzb.parity 三块硬门 harness fail-fast);深度约定 = standard-Z(小值近/miss=1.0 远,conv=1.0);real_render_frame_ms = 生产链渲染墙钟(含 BGRA8 强制回读 + 逐帧判定小回读〔2×N×4B〕,render_includes_forced_readback=true;闭环重渲墙钟含内——closure_extra_gpu_ms 单列强加 GPU 段);stats.scene_gpu_ms = primary+shade 末次提交 GPU;hzb_gpu_ms = 剔除链 GPU(test×2+reduce+pack 全提交累计);hzb_host_ms = host 初剔分类段;measurement 对照腿 = --hzb off/on 同窗静态相机 ≥100 帧(由 ci/g31_hzb_wiring_smoke.py 裁决)"
+        )));
+        ev.push('}');
+    } else if auto_move.is_some() {
+        // ── A3 游戏循环 schema(g31.waveA.gameloop)──
+        let name = auto_move.as_deref().unwrap();
+        ev.push_str(&format!("\"schema\":{},", jstr(G31_GAMELOOP_SCHEMA)));
+        ev.push_str(&format!("\"gate\":{},", jstr(G31_GAMELOOP_GATE)));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!("\"trajectory\":{},", jstr(name)));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"frames_completed\":{frames_done},"));
+        ev.push_str(&format!("\"exit_reason\":{},", jstr(exit_reason)));
+        ev.push_str(&format!("\"resize_eras\":{resize_eras},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_overhead_ms\":{overhead_json},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"digest_frame_ms\":{dg_mean:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str("\"digest_seq\":[");
+        for (k, d) in digest_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&jstr(d));
+        }
+        ev.push_str("],");
+        ev.push_str("\"ev100_seq\":[");
+        for (k, v) in ev100_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!("{v}"));
+        }
+        ev.push_str("],");
+        ev.push_str("\"camera_poses\":[");
+        for (k, p) in pose_seq.iter().enumerate() {
+            if k > 0 {
+                ev.push(',');
+            }
+            ev.push_str(&format!(
+                "[{},{},{},{},{}]",
+                p[0], p[1], p[2], p[3], p[4]
+            ));
+        }
+        ev.push_str("],");
+        ev.push_str(&format!(
+            "\"ev100_ramp\":{},",
+            match ev100_ramp {
+                Some((a, b)) => format!("{{\"a\":{a},\"b\":{b}}}"),
+                None => "null".to_owned(),
+            }
+        ));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_scene, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "A3 游戏循环面:digest_seq = 逐帧 BGRA8 打包帧 sha256(G31BGRA-1 前缀;device 编码域——A1 host f64 编码域 digest 语义不冒充同值);轨迹 orbit/dolly 全参数 f64 帧号驱动,双跑位级一致为确定性门,异轨迹 digest_seq 不同为相机真实生效门(防确定性的坏内容);ev100_seq 逐帧曝光(auto-move --ev100-ramp 坡 / 契约值),经 128B TSR 参数逐帧 uniform 上传;real_render_frame_ms = 五 pass 渲染墙钟(含 BGRA8 8.3MB 强制回读,render_includes_forced_readback=true;不含 present);encode_frame_ms = host 编码墙钟恒 0(device 编码;GPU 耗时分列 stats.encode_gpu_ms);digest_frame_ms = 逐帧 sha256 税单列;camera_poses = [x,y,z,yaw,pitch]×帧;--headless-smoke 无窗口退化仅供自检不计真门"
+        )));
+        ev.push('}');
+    } else {
+        // ── A1 默认面 schema(g31.waveA.present;顶层键闭集 0-byte)──
+        ev.push_str(&format!("\"schema\":{},", jstr(G31_SCHEMA)));
+        ev.push_str(&format!("\"gate\":{},", jstr(G31_GATE)));
+        ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
+        ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
+        ev.push_str(&format!("\"frames\":{frames},\"warmup\":{warmup},"));
+        ev.push_str(&format!("\"resolution\":{{\"w\":{out_w},\"h\":{out_h}}},"));
+        ev.push_str(&format!(
+            "\"internal_resolution\":{{\"w\":{},\"h\":{}}},",
+            (out_w as u64 * u64::from(tier) / 100).max(1),
+            (out_h as u64 * u64::from(tier) / 100).max(1)
+        ));
+        ev.push_str(&format!("\"real_render_frame_ms\":{r_mean:.6},"));
+        ev.push_str(&format!("\"present_frame_ms\":{p_mean_json},"));
+        ev.push_str(&format!("\"present_overhead_ms\":{overhead_json},"));
+        ev.push_str(&format!("\"encode_frame_ms\":{encode_host_ms:.6},"));
+        ev.push_str(&format!("\"render_digest\":{},", jstr(&render_digest)));
+        ev.push_str(&format!("\"digest\":{},", jstr(&presented_digest)));
+        ev.push_str(&format!("\"headless\":{headless},"));
+        ev.push_str(&format!("\"window\":{window_json},"));
+        ev.push_str("\"contracts\":{\"production\":");
+        ev.push_str(&format!(
+            "{{\"path\":{},\"digest\":{}}},",
+            jstr(&contract_path.replace('\\', "/")),
+            jstr(&contract.digest)
+        ));
+        ev.push_str(&g10_fragment);
+        ev.push_str(&format!(",\"encode_spv\":{encode_spv_json}"));
+        ev.push_str("},");
+        ev.push_str("\"render_includes_forced_readback\":true,");
+        ev.push_str(&format!(
+            "\"spv\":{},",
+            unified_provenance_json(&spv_scene, &spv_mv, &spv_resample, &spv_resolve)
+        ));
+        ev.push_str(&format!(
+            "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
+            pstat(p_cv),
+            pstat(p_min),
+            pstat(p_max)
+        ));
+        ev.push_str(&format!("\"notes\":{}", jstr(
+            "real_render_frame_ms = 生产管线五 pass 渲染耗时(不含 present;含 present 强制的 BGRA8 8.3MB 回读段——生产帧本零回读,强制回读税如实登记 render_includes_forced_readback=true);present_frame_ms = acquire→copy→present→idle 纯 present 腿;present_overhead_ms = encode(=0:A3 device 侧显示编码落地,ACES1.3 RRT+ODT f32 移植 + BT.1886 于第五 pass 链内完成,GPU 耗时分列 stats.encode_gpu_ms;digest 语义 = device BGRA8 域 G31BGRA-1,A1 host f64 编码域 digest 不冒充同值)+present 腿;真实渲染帧率口径禁混 present 开销;游戏循环最小面:WASD/QE 平移 + mouse/方向键视角 + -/= 曝光(逐帧 192B/128B uniform 通路)+ WM_SIZE resize extent 联动 + 最小化跳过 + ESC/关闭干净退出;--headless-smoke 无窗口退化仅供自检逻辑用不计真门(present 口径 null)"
+        )));
+        ev.push('}');
+    }
+    let evidence = ev;
+    if evidence_path.is_empty() {
+        evidence_path = if svt_on {
+            "evidence/g31_svt.json".to_owned()
+        } else if textures {
+            "evidence/g31_texture_sampling.json".to_owned()
+        } else if slab_table.is_some() {
+            "evidence/g31_slab_wiring.json".to_owned()
+        } else if fg != G31Fg::Off {
+            "evidence/g31_framegen_present.json".to_owned()
+        } else if auto_move.is_some() {
+            "evidence/g31_game_loop.json".to_owned()
+        } else {
+            "evidence/g31_window_present.json".to_owned()
+        };
+    }
+    if let Some(parent) = Path::new(&evidence_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .unwrap_or_else(|e| fail(&format!("evidence 目录: {e}")));
+        }
+    }
+    std::fs::write(&evidence_path, format!("{evidence}\n"))
+        .unwrap_or_else(|e| fail(&format!("evidence 写入: {e}")));
+    eprintln!("{GTAG}: evidence → {}", evidence_path.replace('\\', "/"));
+
+    // ── C7 profiler 输出面（--profile-json;机器可读逐 pass 分解独立落盘——
+    //    evidence 面 0-byte,默认关 = 零收集零写盘）──
+    if let Some(pj_path) = profile_json.as_deref() {
+        let t_prof = std::time::Instant::now();
+        let labels_active = debug_labels_active.unwrap_or(false);
+        let pj = match g31_profile_json(
+            &profile_frames,
+            scene_id,
+            tier,
+            out_w,
+            out_h,
+            (out_w as u64 * u64::from(tier) / 100).max(1) as u32,
+            (out_h as u64 * u64::from(tier) / 100).max(1) as u32,
+            warmup,
+            headless,
+            labels_active,
+            &render_digest,
+            t_prof,
+        ) {
+            Ok(s) => s,
+            Err(e) => fail(&e),
+        };
+        if let Some(parent) = Path::new(pj_path).parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent)
+                    .unwrap_or_else(|e| fail(&format!("profile 目录: {e}")));
+            }
+        }
+        std::fs::write(pj_path, format!("{pj}\n"))
+            .unwrap_or_else(|e| fail(&format!("profile 写入: {e}")));
+        let write_ms = t_prof.elapsed().as_secs_f64() * 1000.0;
+        eprintln!(
+            "{GTAG}: profile → {}（{} 帧逐 pass 分解;assembly+write={write_ms:.3}ms,debug_labels={labels_active}）",
+            pj_path.replace('\\', "/"),
+            profile_frames.len()
+        );
+    }
+
+    let fps = 1000.0 / r_mean;
+    if svt_on {
+        let Some((sassets, srep)) = svt_report.as_ref() else {
+            fail("C13 SVT 报告缺失（PASS 行面）");
+        };
+        println!(
+            "{GTAG}: PASS gate={} scene={scene_id} tier={tier} backend=tsr_device textures=on svt=on pool_tiles={} full_residency={} pages={} probes={} full_p100={:.6e} partial_miss={} closed_loop_loaded={} miss_rate={:.6e} io_bytes={} fallback_frames={} frames={frames_done} warmup={warmup} exit={exit_reason} resize_eras={resize_eras} real_render_frame_ms={r_mean:.6} fps={fps:.3} present_frame_ms={} encode_gpu_ms={eg_mean:.6} digest={} headless={headless} evidence={}",
+            G31_SVT_GATE,
+            sassets.pool_tiles,
+            sassets.full_residency,
+            sassets.tile_set.page_total(),
+            srep.probe_count,
+            srep.full_p100_vs_direct,
+            srep.partial_miss_probes,
+            srep.closed_loop_loaded,
+            svt_stats.miss_px_total as f64 / (frames_done.max(1) as f64 * (out_w as f64) * (out_h as f64)),
+            svt_stats.io_bytes_total,
+            svt_stats.fallback_frames,
+            p_mean_json,
+            jstr(&presented_digest),
+            evidence_path.replace('\\', "/"),
+        );
+        return;
+    }
+    if textures {
+        let Some((tassets, treport)) = tex_report.as_ref() else {
+            fail("B4 纹理报告缺失（PASS 行面）");
+        };
+        println!(
+            "{GTAG}: PASS gate={} scene={scene_id} tier={tier} backend=tsr_device textures=on mapped={} tex_tris={} probes={} ssbo_p100={:.6e} sampler_max_lsb={} frames={frames_done} warmup={warmup} exit={exit_reason} resize_eras={resize_eras} real_render_frame_ms={r_mean:.6} fps={fps:.3} present_frame_ms={} encode_gpu_ms={eg_mean:.6} digest={} headless={headless} evidence={}",
+            G31_TEXTURE_GATE,
+            tassets.slots.len(),
+            tassets.tex_tris,
+            treport.probe_count,
+            treport.ssbo_p100,
+            treport.sampler_max_lsb,
+            p_mean_json,
+            jstr(&presented_digest),
+            evidence_path.replace('\\', "/"),
+        );
+        return;
+    }
+    if slab_table.is_some() {
+        let Some((_, eval, n_slab)) = slab_report.as_ref() else {
+            fail("B3 slab 报告缺失（PASS 行面）");
+        };
+        println!(
+            "{GTAG}: PASS gate={} scene={scene_id} tier={tier} backend=tsr_device slab_arm={} slab_tris={} slab_parity_p100={:.6e} slab_eval_ms={:.3} frames={frames_done} warmup={warmup} exit={exit_reason} resize_eras={resize_eras} real_render_frame_ms={r_mean:.6} fps={fps:.3} present_frame_ms={} encode_gpu_ms={eg_mean:.6} digest={} headless={headless} evidence={}",
+            G31_SLAB_GATE,
+            slab_arm,
+            n_slab,
+            eval.parity_p100,
+            eval.eval_ms,
+            p_mean_json,
+            jstr(&presented_digest),
+            evidence_path.replace('\\', "/"),
+        );
+        return;
+    }
+    if fg != G31Fg::Off {
+        let Some((wp, _)) = wired_parity.as_ref() else {
+            fail("A5 接线态对拍缺失（PASS 行面）");
+        };
+        println!(
+            "{GTAG}: PASS gate={} scene={scene_id} tier={tier} backend=tsr_device fg={} frames={frames_done} warmup={warmup} exit={exit_reason} resize_eras={resize_eras} real_frames={real_frames} generated_frames={generated_frames} presented_frames={presented_frames} real_render_frame_ms={r_mean:.6} real_render_fps={real_render_fps:.3} present_frame_ms={} presented_fps={presented_fps:.3} present_seconds={present_seconds:.6} encode_ms={encode_host_ms:.6} encode_gpu_ms={eg_mean:.6} fg_gpu_ms={fgg_mean:.6} render5_gpu_ms={r5g_mean:.6} wired_parity_p100={:.6e} digest={} headless={headless} evidence={}",
+            G31_FRAMEGEN_GATE,
+            fg.name(),
+            p_mean_json,
+            wp.p100,
+            jstr(&presented_digest),
+            evidence_path.replace('\\', "/"),
+        );
+        return;
+    }
+    println!(
+        "{GTAG}: PASS scene={scene_id} tier={tier} backend=tsr_device frames={frames_done} warmup={warmup} exit={exit_reason} resize_eras={resize_eras} real_render_frame_ms={r_mean:.6} fps={fps:.3} present_frame_ms={} present_overhead_ms={} encode_ms={encode_host_ms:.6} encode_gpu_ms={eg_mean:.6} digest={} headless={headless} evidence={}",
+        p_mean_json,
+        overhead_json,
+        jstr(&presented_digest),
+        evidence_path.replace('\\', "/"),
+    );
+}

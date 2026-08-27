@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-9 确定性回放/回滚门裁决证据(ci/g35_replay_smoke.py --gate 产)",
+  "description": "G35-9 确定性回放/回滚门 g35.wave9.replay 的 smoke 裁决证据——兑现「确定性 GPU 粒子」总口径的回放半部(反打 Niagara:网络不复制粒子本体、GPU 模拟不可回放)。八 facts 闭集:① kernels_spv_valid(rurixc 现编 7 kernel 消费面〔g35_sim/g35_particle_compact/g35_emit/g35_indirect_args + scan 三件,W1/W2 冻结面只消费不修改〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档)② journal_record_replay_bitexact(录制腿产 journal〔v1 冻结布局:header 88 B = magic \"G35J\" + version u32=1 + seed u64 + cap u32 + frames u32 + dt f32 + gravity_y f32 + emitter EmitterDesc 全字段 f32×14;逐帧记录 4 B = emit_count u32;全域小端手写 to_le_bytes〕→ 回放腿仅凭 journal 重建输入 GPU 重仿真,逐帧 digest 与录制链位级全等,首异帧 = -1;digest = 全流字节 sha256 逐帧链式,g35_particle_core_device 同式)③ checkpoint_restore_bitexact(录制腿每 K=16 帧帧开始前 readback 九流+pid_base+n_curr 存检查点〔\"G35C\" v1〕;回滚腿从检查点 k=16 上传恢复 device 缓冲,恢复帧自身 digest 与录制链位级全等——digest 链种子 = 录制链 digest[k−1])④ rollback_resim_bitexact(恢复后重仿真至帧 j=48,逐帧 digest 与录制链位级全等且 digest[j] 全等——网络回滚语义 = 检查点 + 输入重放)⑤ first_divergence_frame_witness(红臂篡改 journal 帧 32 emit_count +1 → 回放 digest 链首异帧精确 == 32——分歧可定位见证,确定性系统独有性质)⑥ determinism_double_run(同 journal 输入 GPU 重仿真双跑 digest 链位级一致)⑦ red_arm_effective(journal-tamper 臂检出:篡改后链尾 digest 必异——digest 判据对输入敏感性证明)⑧ frame_ms_measured(device 7 dispatch 链逐帧墙钟均值 measured_local 诚实登记,含 run_compute 逐 dispatch 会话重建开销,非帧率对标)。本门全位级(整数/digest 域零容差),无 f32 budget 条目(f32 容差面归 g35.wave2 门;digest 已按字节覆盖 f32 流);host 金标准平行对拍维持(整数流零容差,各腿 host_parallel_bitexact 登记)。三态:无 Vulkan loader/设备 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "journal_layout",
+    "record",
+    "replay",
+    "rollback",
+    "red_arm",
+    "frame_ms",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.replay_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_replay" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave9.replay" },
+    "wave": { "type": "string", "const": "G35.9" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "journal_record_replay_bitexact",
+              "checkpoint_restore_bitexact",
+              "rollback_resim_bitexact",
+              "first_divergence_frame_witness",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sim_spv",
+        "compact_spv",
+        "emit_spv",
+        "indirect_args_spv",
+        "scan_seg_sum_spv",
+        "scan_spine_spv",
+        "scan_seg_apply_spv",
+        "spirv_val_all",
+        "frozen_consumed_snapshot"
+      ],
+      "properties": {
+        "sim_spv": { "$ref": "#/definitions/spv_entry" },
+        "compact_spv": { "$ref": "#/definitions/spv_entry" },
+        "emit_spv": { "$ref": "#/definitions/spv_entry" },
+        "indirect_args_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_sum_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_spine_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_apply_spv": { "$ref": "#/definitions/spv_entry" },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(七 kernel .rx + particles/mod.rs + core.rs + scan.rs——G35-9 消费不修改承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "journal_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "magic",
+        "version",
+        "byte_order",
+        "header_bytes",
+        "record_bytes",
+        "header_fields",
+        "record_fields",
+        "journal_path",
+        "journal_bytes",
+        "journal_sha256",
+        "frames",
+        "cap",
+        "seed",
+        "dt",
+        "emit_schedule",
+        "checkpoint_interval"
+      ],
+      "properties": {
+        "magic": { "type": "string", "const": "G35J" },
+        "version": { "type": "integer", "const": 1 },
+        "byte_order": { "type": "string", "const": "little_endian" },
+        "header_bytes": { "type": "integer", "const": 88 },
+        "record_bytes": { "type": "integer", "const": 4 },
+        "header_fields": {
+          "type": "string",
+          "const": "magic[4]=\"G35J\" version:u32=1 seed:u64 cap:u32 frames:u32 dt:f32 gravity_y:f32 emitter{pos[3],spread[3],vel_base[3],vel_spread[3],life_base,gravity_y}:f32x14"
+        },
+        "record_fields": { "type": "string", "const": "emit_count:u32" },
+        "journal_path": { "type": "string" },
+        "journal_bytes": { "type": "integer", "minimum": 0 },
+        "journal_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "frames": { "type": "integer", "minimum": 64 },
+        "cap": { "type": "integer", "minimum": 256 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "dt": { "type": "number", "exclusiveMinimum": 0 },
+        "emit_schedule": { "type": "string", "const": "min(64 + frame*17 % 192, cap - n_curr)" },
+        "checkpoint_interval": { "type": "integer", "const": 16 }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest_final", "checkpoint_frames", "host_parallel_bitexact", "n_final", "pids_issued"],
+      "properties": {
+        "digest_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "checkpoint_frames": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "录制腿检查点帧序列(帧开始前捕获;K=16 ⇒ 64 帧 = [0,16,32,48])"
+        },
+        "host_parallel_bitexact": { "type": "boolean", "description": "host 金标准平行整数流(flags/scan_out/seg_offsets/pid/args)全帧零容差位级才许 true" },
+        "n_final": { "type": "integer", "minimum": 0 },
+        "pids_issued": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_replay_bitexact",
+        "first_divergence",
+        "determinism_double_run",
+        "digest_recorded_final",
+        "digest_replay_final",
+        "digest_run2_final",
+        "host_parallel_bitexact"
+      ],
+      "properties": {
+        "record_replay_bitexact": { "type": "boolean", "description": "仅凭 journal 重建输入 GPU 重仿真,逐帧 digest 与录制链位级全等才许 true" },
+        "first_divergence": { "type": "integer", "minimum": -1, "description": "-1 = 全帧全等;≥0 = 首异帧下标(位级全等门 PASS 必为 -1)" },
+        "determinism_double_run": { "type": "boolean", "description": "同 journal 输入双跑 digest 链位级一致才许 true" },
+        "digest_recorded_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_replay_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_run2_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_parallel_bitexact": { "type": "boolean" }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "k",
+        "to",
+        "checkpoint_frame",
+        "restore_frame_digest_match",
+        "resim_bitexact",
+        "digest_at_j_match",
+        "frames_resimmed",
+        "digest_recorded_at_j",
+        "digest_resim_at_j",
+        "host_parallel_bitexact"
+      ],
+      "properties": {
+        "k": { "type": "integer", "const": 16, "description": "回滚腿冻结:从检查点 k=16 恢复" },
+        "to": { "type": "integer", "const": 48, "description": "回滚腿冻结:重仿真至帧 j=48" },
+        "checkpoint_frame": { "type": "integer", "minimum": -1, "description": "实际消费的检查点帧(-1 = 腿未执行)" },
+        "restore_frame_digest_match": { "type": "boolean", "description": "恢复帧自身 digest 与录制链位级全等才许 true(checkpoint_restore_bitexact)" },
+        "resim_bitexact": { "type": "boolean", "description": "重仿真帧 k..=j 逐帧 digest 与录制链位级全等才许 true" },
+        "digest_at_j_match": { "type": "boolean", "description": "digest[j] 与录制链位级全等才许 true" },
+        "frames_resimmed": { "type": "integer", "minimum": 0, "description": "= j − k + 1(k=16 j=48 ⇒ 33;0 = 腿未执行)" },
+        "digest_recorded_at_j": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_resim_at_j": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_parallel_bitexact": { "type": "boolean" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm",
+        "tamper",
+        "tampered_frame",
+        "expected_divergence",
+        "detected",
+        "first_divergence",
+        "digest_recorded_final",
+        "digest_tampered_final"
+      ],
+      "properties": {
+        "arm": { "type": "string", "const": "journal-tamper" },
+        "tamper": { "type": "string", "const": "emit_count+1" },
+        "tampered_frame": { "type": "integer", "const": 32 },
+        "expected_divergence": { "type": "integer", "const": 32 },
+        "detected": { "type": "boolean", "description": "篡改后回放 digest 链与录制链必异才许 true" },
+        "first_divergence": { "type": "integer", "minimum": -1, "description": "首异帧;见证 fact 要求精确 == 32(分歧可定位)" },
+        "digest_recorded_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_tampered_final": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_mean_ms", "replay_mean_ms", "rollback_mean_ms", "measured", "note"],
+      "properties": {
+        "record_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "replay_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "rollback_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string" },
+      "description": "probe 真跑 evidence 件(record/replay/rollback/red 四腿,.tmp 工作区路径登记;journal/digest 链/检查点文件同留 .tmp)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

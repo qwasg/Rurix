@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G34 全特性合流 G34-1 统一车道门裁决证据（ci/g34_unified_lane_smoke.py --gate 产）",
+  "description": "G34 全特性合流 G34-1 合流地基门 g34.wave1.unified 的 smoke 裁决证据：① 统一 kernel SPV 面（rurixc 现编 kernels/g34_unified_{gi,shade}.rx + spirv-val 双绿;母版五 kernel + g31_window_present.rs vs HEAD 0-byte 机核——其五门为回归锚）② 缺省面 == 母版位级（g34_full_lane --static-camera 全特性缺省关 canonical 160 帧 render_digest == milestones/g14/g14_3_stage_a_digest_anchor.json bistro-interior_t100_tsr_device 格——纹理缺省 tritex 全 −1 + 动态缺省单实例 ⇒ 全链 TSR 位级锚;SPV 处置 = 母版同字面零注入面）③ 合并语义 host 金标准对拍（--full 三特性同开 parity 帧 device scene HDR vs host 合并语义渲染 p100 ≤ 冻结容差——milestones/g34/g34_budget.json g34.unified_lane.host_parity_tol 程序读禁手写,threshold = measured × 2.0 标定冻结;bitexact 像素占比如实登记）④ 确定性双跑（--full 双跑 digest_seq 74 帧位级一致）⑤ 动态实例位置核验（A4 范式 host 投影：轨迹点 + 8 角点经 vp_j 投影 vs scene color 纯绿谱检测,verify_frames 全 pass）⑥ 逐特性贡献 digest 区分（full vs 关纹理/关 slab/关动态 digest_seq 逐帧全异——各特性真实生效,合并画面 ≠ 单开画面属预期如实登记）⑦ Stage A 锚复跑零漂移（g14_3_pipeline_perf canonical 160 帧 bistro-interior/t100/tsr_device 末帧 digest == 在案锚——共享体加性扩展对既有面 0-byte 的机器证明）⑧ frame_ms measured（同机同窗 orbit --hidden 1920×1080 release;baseline/full 对照,纹理/slab 装配 = 装配期一次性 eval_ms 单列不混帧口径）。三态：无 Vulkan/设备/场景资产/SPV → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "default_face_anchor",
+    "host_parity",
+    "determinism",
+    "dyn_verify",
+    "per_feature",
+    "regression_anchor",
+    "frame_ms",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g34.unified_lane_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g34_unified_lane" },
+    "symbolic_gate_key": { "type": "string", "const": "g34.wave1.unified" },
+    "wave": { "type": "string", "const": "G34.1" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "default_faces_bitexact_anchor",
+              "merged_semantics_host_parity",
+              "determinism_double_run",
+              "dyn_position_verified",
+              "per_feature_digest_discrimination",
+              "stage_a_anchor_replay",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gi_spv", "shade_spv", "spirv_val_gi", "spirv_val_shade", "mother_tracked_0byte", "g31_era_snapshot"],
+      "properties": {
+        "gi_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "shade_spv": { "type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": { "path": { "type": "string" }, "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "spirv_val_gi": { "type": "boolean", "const": true },
+        "spirv_val_shade": { "type": "boolean", "const": true },
+        "mother_tracked_0byte": { "type": "boolean", "description": "母版 tracked 双 kernel（g14_3_direct_gi/g14_3_shade_reduce）vs HEAD 提交面 + 工作树 0-byte 才许 true" },
+        "g31_era_snapshot": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "src/rurix-render/kernels/g31_texture_gi.rx",
+            "src/rurix-render/kernels/g31_dyn_scene.rx",
+            "src/rurix-render/kernels/g31_hzb_shade.rx",
+            "src/rurix-render/src/bin/g31_window_present.rs"
+          ],
+          "properties": {
+            "src/rurix-render/kernels/g31_texture_gi.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/kernels/g31_dyn_scene.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/kernels/g31_hzb_shade.rx": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "src/rurix-render/src/bin/g31_window_present.rs": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          },
+          "description": "G31+ 战役全量未提交面（工作树 untracked,diff-vs-HEAD 不适用）——G34-1 sha256 快照 = 后续波漂移守护基线（其五门 = 回归锚,g31_window_present.rs 0-byte 承诺面）"
+        }
+      }
+    },
+    "default_face_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup", "spv_policy"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "description": "缺省面 == 母版位级（全链 TSR digest == 锚）才许 true" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 },
+        "spv_policy": { "type": "string", "description": "textures off 缺省面 = 原始 SPV 零注入（母版处置同字面）；textures on = NoContraction 注入（B4 对拍锚前提）" }
+      }
+    },
+    "host_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame", "color_p100", "frozen_tol", "frozen_tol_entry", "in_tol", "bitexact_ratio", "color_p50", "color_mean_abs", "depth_p100", "host_render_ms"],
+      "properties": {
+        "frame": { "type": "integer", "minimum": 1 },
+        "color_p100": { "type": "number", "minimum": 0 },
+        "frozen_tol": { "type": "number", "exclusiveMinimum": 0 },
+        "frozen_tol_entry": { "type": "string", "const": "g34.unified_lane.host_parity_tol" },
+        "in_tol": { "type": "boolean", "description": "color_p100 ≤ frozen_tol 才许 true（硬门）" },
+        "bitexact_ratio": { "type": "number", "minimum": 0, "maximum": 1, "description": "位级像素占比如实登记（非门判据）" },
+        "color_p50": { "type": "number", "minimum": 0 },
+        "color_mean_abs": { "type": "number", "minimum": 0 },
+        "depth_p100": { "type": "number", "minimum": 0 },
+        "host_render_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "frames", "render_digest_a", "render_digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "--full 双跑 digest_seq 逐帧位级一致才许 true（确定性门）" },
+        "frames": { "type": "integer", "minimum": 1 },
+        "render_digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "render_digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "dyn_verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verify_count", "all_pass", "dyn_tris", "dyn_tri_base", "action"],
+      "properties": {
+        "verify_count": { "type": "integer", "minimum": 1 },
+        "all_pass": { "type": "boolean", "description": "verify_frames 全 pass（A4 范式 host 投影核验）才许 true" },
+        "dyn_tris": { "type": "integer", "const": 12 },
+        "dyn_tri_base": { "type": "integer", "minimum": 1 },
+        "action": { "type": "string", "const": "refit" }
+      }
+    },
+    "per_feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["full_last_digest", "notex_last_digest", "noslab_last_digest", "nodyn_last_digest", "baseline_last_digest", "full_ne_notex", "full_ne_noslab", "full_ne_nodyn", "full_ne_baseline"],
+      "properties": {
+        "full_last_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "notex_last_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "noslab_last_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "nodyn_last_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "baseline_last_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "full_ne_notex": { "type": "boolean", "description": "full digest_seq ≠ 关纹理腿至少一帧才许 true（纹理贡献真实生效）" },
+        "full_ne_noslab": { "type": "boolean", "description": "full digest_seq ≠ 关 slab 腿至少一帧才许 true（slab 贡献真实生效）" },
+        "full_ne_nodyn": { "type": "boolean", "description": "full digest_seq ≠ 关动态腿至少一帧才许 true（动态贡献真实生效）" },
+        "full_ne_baseline": { "type": "boolean", "description": "full digest_seq ≠ 基线腿至少一帧才许 true（合并画面 ≠ 单开/全关画面属预期如实登记）" }
+      }
+    },
+    "regression_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "description": "bench 复跑 == 在案锚才许 true（Stage A 锚零漂移）" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_mean", "full_mean", "full_scene_gpu_mean", "tex_eval_ms", "slab_eval_ms", "measured", "frames_per_run"],
+      "properties": {
+        "baseline_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "full_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "full_scene_gpu_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "tex_eval_ms": { "type": "number", "minimum": 0 },
+        "slab_eval_ms": { "type": "number", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "frames_per_run": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 7,
+      "items": { "type": "string" },
+      "description": "harness 真跑 evidence 归档件（anchor + baseline + full×2 + notex + noslab + nodyn；rurix.g34.unified_lane_evidence.v1 面）"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

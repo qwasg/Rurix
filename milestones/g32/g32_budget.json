@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "namespace": "g32",
+  "description": "G32 预算面（画面完整期 · 波 B 验收批）。全部 measured_local 零 estimated——数字来自 2026-08-26 波 B 验收门真跑输出：Stage A digest 锚 18/18 canonical 重跑（ci/g31_wave_a_anchor_check.py 范式）+ G16plus M-g 18/18 canonical 复跑（ci/g16_absolute_quality_closure_smoke.py --gate）+ G17-MD-F1 焦点格新鲜真跑（保守取门跑新鲜值；诚实红轨迹面恶化如实登记于 G32_CONTRACT §8.1③，本条目 = 帧时预算杠非验收轨迹杠）+ 组合矩阵 5 臂 + 互斥 12 拒 + demo 210 帧 + RD-045 窗 6 臂（milestones/g31/g31_waveb_combo_matrix.json / g31_waveb_rd045_observation_results.json）。阈值口径：验收杠（18/5/12/200/6）或 在案 measured ×2.0（G30 先例）。",
+  "source_docs": ["milestones/g32/G32_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g32.baseline.stage_a_digest_guard.anchor_count",
+      "description": "波 B 验收 Stage A 18 格 digest 锚 canonical 160 帧重跑位级一致格数（零漂移，期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g32_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g32.baseline.g16_m_g_closure.met_count",
+      "description": "波 B 验收 G16plus M-g 绝对画质收口 canonical 复跑达标格数（不降级，期望 18/18；UE 参照臂按在案锚不重跑）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g32_baseline_g16_m_g_closure.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g32.baseline.focus_cell.frame_ms_production_mean",
+      "description": "波 B 验收 G17-MD-F1 焦点格（bistro-interior/t100/dlss_sr）canonical 160 帧新鲜 frame_ms_production_mean（帧时预算杠 = 在案 3.5767ms ×2.0；诚实红轨迹 ratio 面 = 验收门判据非本预算条目，本日 fresh 样本恶化如实登记于 G32_CONTRACT §8.1③ 不冒充）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.1534,
+      "evidence_file": "evidence/g32_baseline_focus_cell_frame_ms.json",
+      "measured_value": 3.9232218750000016
+    },
+    {
+      "id": "g32.wave_b.combo_matrix.arms_green",
+      "description": "波 B 验收特性组合矩阵可组合臂真跑绿件数（C0/C1a/C1b/C2/C3 全臂双跑 digest 位级一致 + 帧率 measured，期望 5/5）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 5.0,
+      "evidence_file": "evidence/g32_baseline_combo_arms_green.json",
+      "measured_value": 5.0
+    },
+    {
+      "id": "g32.wave_b.mutex_reject.count",
+      "description": "波 B 验收互斥组合 fail-closed 拒跑核验数（exit=1 拒跑零冒充可组合，期望 12/12）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 12.0,
+      "evidence_file": "evidence/g32_baseline_mutex_reject.json",
+      "measured_value": 12.0
+    },
+    {
+      "id": "g32.wave_b.demo.frames_presented",
+      "description": "波 B 游戏画面 demo 定版臂真窗口 present 帧数（--textures on + orbit ≥200 帧双跑位级 + 帧率双口径，期望 ≥200）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 200.0,
+      "evidence_file": "evidence/g32_baseline_demo_frames.json",
+      "measured_value": 210.0
+    },
+    {
+      "id": "g32.wave_b.rd045_window.zero_drift_arms",
+      "description": "波 B 验收 RD-045 观察窗零漂移 digest 臂数（波 B 各臂 digest 锚全中/双跑位级，期望 6/6；三件盘点 0/3 维持不冒充）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 6.0,
+      "evidence_file": "evidence/g32_baseline_rd045_zero_drift_arms.json",
+      "measured_value": 6.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

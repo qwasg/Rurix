@@ -1,0 +1,43 @@
+//@ spec: RFC-0049 §4.1(G35-1 scan 基元阶段 3;spec 条款号本期零新设)
+// G35-P 分段稳定 exclusive scan · 阶段 3/3 —— 段内应用(门
+// g35.wave1.primitives 及 g35.wave2.particle_core 共享消费面;
+// src/particles/mod.rs 契约头字面)。
+//
+// ## 架构
+// 公式面与 host 金标准 `particles/scan.rs::seg_apply` **逐字同源**:线程 s
+// 以 seg_offsets[s] 为基址,段内串行 running 前缀 ⇒
+// out_scan[i] = 全局 exclusive scan(i 序 = 粒子下标序,稳定压缩/发射
+// 槽位的确定序之源——禁原子抢槽协议的兑现面)。
+// 无 shared / 无原子;纯 u32/usize 整数算术 ⇒ device↔host 零容差位级。
+//
+// ## 参数面(4 f32)
+//   params[0]=n [1]=nseg [2..4)=reserved(恒 0)。
+//   values: u32/元素;seg_offsets: u32 × (nseg+1)(阶段 2 产物);
+//   out_scan: u32/元素。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_scan_seg_apply(
+    tc: ThreadCtx<1>,
+    values: View<global, u32>,
+    seg_offsets: View<global, u32>,
+    params: View<global, f32>,
+    out_scan: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut running = seg_offsets[s];
+        let mut i = lo;
+        while i < hi {
+            out_scan[i] = running;
+            running = running + values[i];
+            i = i + 1usize;
+        }
+    }
+}

@@ -58,8 +58,14 @@ pub fn interpolate(
     t: f32,
     params: &FrameGenParams,
 ) -> ImageF32 {
-    assert!(prev.c == 3 && prev.same_shape(cur), "prev/cur 须 3 通道同尺寸");
-    assert!(mv.c == 2 && mv.w == cur.w && mv.h == cur.h, "mv 须 2 通道同栅格");
+    assert!(
+        prev.c == 3 && prev.same_shape(cur),
+        "prev/cur 须 3 通道同尺寸"
+    );
+    assert!(
+        mv.c == 2 && mv.w == cur.w && mv.h == cur.h,
+        "mv 须 2 通道同栅格"
+    );
     assert!(t > 0.0 && t < 1.0, "t 必须 ∈ (0,1)（端点即真渲帧本身）");
     let (w, h) = (cur.w, cur.h);
     let inv_sigma2 = 1.0 / (params.consistency_sigma * params.consistency_sigma);
@@ -97,7 +103,10 @@ pub fn mfg_between(
     params: &FrameGenParams,
 ) -> Vec<ImageF32> {
     let n = params.inserted_per_pair;
-    assert!((1..=3).contains(&n), "inserted_per_pair 闭集 1..=3（×2/×3/×4）");
+    assert!(
+        (1..=3).contains(&n),
+        "inserted_per_pair 闭集 1..=3（×2/×3/×4）"
+    );
     (1..=n)
         .map(|i| interpolate(prev, cur, mv, i as f32 / (n + 1) as f32, params))
         .collect()
@@ -152,7 +161,8 @@ mod tests {
             let fx = (x as f32 + 0.5) / w as f32;
             let fy = (y as f32 + 0.5) / h as f32;
             let base = 0.5
-                + 0.35 * ((fx * 6.0 + phase) * std::f32::consts::PI).sin()
+                + 0.35
+                    * ((fx * 6.0 + phase) * std::f32::consts::PI).sin()
                     * ((fy * 4.0) * std::f32::consts::PI).cos();
             (base + 0.05 * ch as f32).clamp(0.0, 1.0)
         })
@@ -181,7 +191,8 @@ mod tests {
                 let fx = (x as f32 + 0.5) / w as f32 - k * shift_u;
                 let fy = (y as f32 + 0.5) / h as f32;
                 let base = 0.5
-                    + 0.35 * ((fx * 6.0) * std::f32::consts::PI).sin()
+                    + 0.35
+                        * ((fx * 6.0) * std::f32::consts::PI).sin()
                         * ((fy * 4.0) * std::f32::consts::PI).cos();
                 (base + 0.05 * ch as f32).clamp(0.0, 1.0)
             })
@@ -239,8 +250,14 @@ mod tests {
             real_render_seconds: 1.0,
             generation_seconds: 0.1,
         };
-        assert!((acc.real_render_fps() - 10.0).abs() < 1e-12, "真实渲染帧率禁计生成帧");
-        assert!((acc.presented_fps() - 20.0 / 1.1).abs() < 1e-9, "presented 独立口径");
+        assert!(
+            (acc.real_render_fps() - 10.0).abs() < 1e-12,
+            "真实渲染帧率禁计生成帧"
+        );
+        assert!(
+            (acc.presented_fps() - 20.0 / 1.1).abs() < 1e-9,
+            "presented 独立口径"
+        );
         assert_eq!(acc.presented_frames(), 20);
     }
 

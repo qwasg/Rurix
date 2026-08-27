@@ -32,12 +32,10 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::display::post_chain::{
-    canonical_hdr_frame, frame_digest, ExposureState, HdrProbe, PostChainError, PostProcessChain,
-    Stage,
+    ExposureState, HdrProbe, PostChainError, PostProcessChain, Stage, canonical_hdr_frame,
+    frame_digest,
 };
-use rurix_render::display::view_transform::{
-    DisplayParams, OutputEncoding, ViewTransformRegistry,
-};
+use rurix_render::display::view_transform::{DisplayParams, OutputEncoding, ViewTransformRegistry};
 use std::path::PathBuf;
 
 const TAG: &str = "G9_M119_POST";
@@ -168,7 +166,11 @@ fn red_arm_order_swap() -> Result<(), String> {
     let width = 32usize;
 
     let mut normal = make_chain(plugin, &params, 0);
-    let d_normal = frame_digest(&normal.process(1, &frame, width).map_err(|e| e.to_string())?);
+    let d_normal = frame_digest(
+        &normal
+            .process(1, &frame, width)
+            .map_err(|e| e.to_string())?,
+    );
 
     // 交换 bloom↔tonemap。
     let swapped = make_chain(plugin, &params, 0);
@@ -217,7 +219,13 @@ fn red_arm_implicit_clamp() -> Result<(), String> {
     let frame = canonical_hdr_frame();
     let clamped: Vec<[f64; 3]> = frame
         .iter()
-        .map(|p| [p[0].clamp(0.0, 1.0), p[1].clamp(0.0, 1.0), p[2].clamp(0.0, 1.0)])
+        .map(|p| {
+            [
+                p[0].clamp(0.0, 1.0),
+                p[1].clamp(0.0, 1.0),
+                p[2].clamp(0.0, 1.0),
+            ]
+        })
         .collect();
     match HdrProbe::from_pixels(&clamped).check_for_implicit_clamp("bloom") {
         Err(PostChainError::ImplicitSdrClamp { .. }) => Ok(()),
@@ -265,9 +273,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -297,7 +307,9 @@ fn main() {
     let plugin_ids = ["aces13", "aces20", "agx", "neutral"];
     let mut chain_digests: Vec<(&str, [u8; 32])> = Vec::new();
     for id in plugin_ids {
-        let plugin = reg.get(id).unwrap_or_else(|e| fail(&format!("取插件 {id}: {e}")));
+        let plugin = reg
+            .get(id)
+            .unwrap_or_else(|e| fail(&format!("取插件 {id}: {e}")));
         let mut chain = make_chain(plugin, &params, 0);
         let out = chain
             .process(1, &frame, width)
@@ -470,9 +482,7 @@ fn main() {
     }
     println!("{json}");
     if failures.is_empty() {
-        println!(
-            "{TAG}: PASS 五级显式排序 + HDR 线性域探针 + 曝光帧间持久(host 确定性面)"
-        );
+        println!("{TAG}: PASS 五级显式排序 + HDR 线性域探针 + 曝光帧间持久(host 确定性面)");
         std::process::exit(0);
     }
     fail(&format!("{failures:?}"));

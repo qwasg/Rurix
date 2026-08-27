@@ -227,11 +227,7 @@ fn validate_input(input: &ClusterSkinInput<'_>, palette: &SkinPalette) -> Result
 /// 单顶点 LBS:`p' = Σ_k w_k·(M_{b_k}·p)`,累加序 = 权重行序(冻结);
 /// 仅 `+`/`×`(IEEE 逐位确定)。调用前必经 [`validate_input`](由
 /// [`skin_cluster`] 统一执行)。
-pub fn skin_vertex(
-    pos: [f32; 3],
-    weights: &[(u32, f32)],
-    palette: &SkinPalette,
-) -> [f32; 3] {
+pub fn skin_vertex(pos: [f32; 3], weights: &[(u32, f32)], palette: &SkinPalette) -> [f32; 3] {
     let mut out = [0.0f32; 3];
     for &(b, w) in weights {
         let m = &palette.bones[b as usize];
@@ -533,7 +529,11 @@ pub struct TierError {
 
 impl std::fmt::Display for TierError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "更新率周期 {} 不在规范闭集 {{1, 2, 3, 4}} 内", self.period)
+        write!(
+            f,
+            "更新率周期 {} 不在规范闭集 {{1, 2, 3, 4}} 内",
+            self.period
+        )
     }
 }
 
@@ -912,11 +912,7 @@ mod tests {
     ];
 
     fn translate(x: f32, y: f32, z: f32) -> BoneTransform {
-        [
-            [1.0, 0.0, 0.0, x],
-            [0.0, 1.0, 0.0, y],
-            [0.0, 0.0, 1.0, z],
-        ]
+        [[1.0, 0.0, 0.0, x], [0.0, 1.0, 0.0, y], [0.0, 0.0, 1.0, z]]
     }
 
     /// z 轴旋转 90°(定点精确:0/±1 元素)。
@@ -952,21 +948,21 @@ mod tests {
     #[test]
     fn lbs_skinning_fixed_point_golden() {
         // 定点化输入域(1/256 栅格):全部中间量 f32 精确 ⇒ 逐顶点容差 0。
-        let vertices: Vec<[f32; 3]> = [
-            [1.0, 0.5, -0.25],
-            [2.0, -1.0, 0.75],
-            [0.0, 0.0, 0.0],
-        ]
-        .into_iter()
-        .map(|v| v.map(quantize_fixed))
-        .collect();
+        let vertices: Vec<[f32; 3]> = [[1.0, 0.5, -0.25], [2.0, -1.0, 0.75], [0.0, 0.0, 0.0]]
+            .into_iter()
+            .map(|v| v.map(quantize_fixed))
+            .collect();
         let weights: Vec<Vec<(u32, f32)>> = vec![
             vec![(0, 0.5), (1, 0.5)],
             vec![(0, 0.75), (1, 0.25)],
             vec![(1, 1.0)],
         ]
         .into_iter()
-        .map(|row| row.into_iter().map(|(b, w)| (b, quantize_fixed(w))).collect())
+        .map(|row| {
+            row.into_iter()
+                .map(|(b, w)| (b, quantize_fixed(w)))
+                .collect()
+        })
         .collect();
         let palette = SkinPalette {
             bones: vec![translate(1.0, 2.0, 3.0), rot_z_90()],
@@ -998,8 +994,7 @@ mod tests {
     #[test]
     fn lbs_skinning_deterministic_double_run() {
         let vertices: Vec<[f32; 3]> = vec![[0.125, -2.5, 1.0], [3.25, 0.0, -0.5]];
-        let weights: Vec<Vec<(u32, f32)>> =
-            vec![vec![(0, 0.625), (1, 0.375)], vec![(1, 1.0)]];
+        let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0, 0.625), (1, 0.375)], vec![(1, 1.0)]];
         let palette = SkinPalette {
             bones: vec![rot_z_90(), translate(-1.0, 0.5, 2.0)],
         };
@@ -1023,7 +1018,9 @@ mod tests {
         let vertices: Vec<[f32; 3]> = vec![[0.0; 3]];
         // 权重和 > 1 ⇒ typed Err(保守界前提破坏)。
         let bad_sum = vec![vec![(0u32, 0.75f32), (1, 0.5)]];
-        let palette = SkinPalette { bones: vec![IDENTITY, IDENTITY] };
+        let palette = SkinPalette {
+            bones: vec![IDENTITY, IDENTITY],
+        };
         let input = skin_input(&vertices, &bad_sum, &[0, 1], 0.0, ([0.0; 3], [0.0; 3]));
         assert!(matches!(
             skin_cluster(&input, &palette),
@@ -1039,7 +1036,9 @@ mod tests {
         // 骨骼越出 palette ⇒ typed Err。
         let oob = vec![vec![(1u32, 1.0f32)]];
         let input = skin_input(&vertices, &oob, &[1], 0.0, ([0.0; 3], [0.0; 3]));
-        let one_bone = SkinPalette { bones: vec![IDENTITY] };
+        let one_bone = SkinPalette {
+            bones: vec![IDENTITY],
+        };
         assert_eq!(
             skin_cluster(&input, &one_bone),
             Err(SkinError::BoneOutOfPalette { bone: 1 })
@@ -1074,9 +1073,15 @@ mod tests {
         let aabb = ([0.0, 0.0, 0.0], [1.0, 1.0, 0.5]);
         // 姿态序列:含 90° 旋转(角点位移 √2·|c| 级)与 ±50 大平移的极端组合。
         let poses: Vec<SkinPalette> = vec![
-            SkinPalette { bones: vec![IDENTITY, IDENTITY] },
-            SkinPalette { bones: vec![rot_z_90(), translate(50.0, -50.0, 25.0)] },
-            SkinPalette { bones: vec![translate(-100.0, 0.0, 0.0), rot_z_90()] },
+            SkinPalette {
+                bones: vec![IDENTITY, IDENTITY],
+            },
+            SkinPalette {
+                bones: vec![rot_z_90(), translate(50.0, -50.0, 25.0)],
+            },
+            SkinPalette {
+                bones: vec![translate(-100.0, 0.0, 0.0), rot_z_90()],
+            },
         ];
         for (pi, palette) in poses.iter().enumerate() {
             let input = skin_input(&vertices, &weights, &[0, 1], 0.125, aabb);
@@ -1094,7 +1099,9 @@ mod tests {
         // (闭区间包含判定不得漏)。
         let vertices: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]];
         let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0, 1.0)], vec![(0, 1.0)]];
-        let palette = SkinPalette { bones: vec![IDENTITY] };
+        let palette = SkinPalette {
+            bones: vec![IDENTITY],
+        };
         let input = skin_input(&vertices, &weights, &[0], 0.0, ([0.0; 3], [1.0; 3]));
         let skinned = skin_cluster(&input, &palette).expect("合法输入");
         let bound = conservative_skinned_aabb(&input, &palette).expect("包围体");
@@ -1108,7 +1115,9 @@ mod tests {
         // RED 臂:人为缩小包围体 variant 必须被包含核验检出(fail-closed)。
         let vertices: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]];
         let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0, 1.0)], vec![(0, 1.0)]];
-        let palette = SkinPalette { bones: vec![translate(4.0, 0.0, 0.0)] };
+        let palette = SkinPalette {
+            bones: vec![translate(4.0, 0.0, 0.0)],
+        };
         let input = skin_input(&vertices, &weights, &[0], 0.0, ([0.0; 3], [1.0; 3]));
         let skinned = skin_cluster(&input, &palette).expect("合法输入");
         let bound = conservative_skinned_aabb(&input, &palette).expect("包围体");
@@ -1178,11 +1187,7 @@ mod tests {
         ([f32; 3], [f32; 3]),
     ) {
         let vertices: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
-        let weights: Vec<Vec<(u32, f32)>> = vec![
-            vec![(0, 1.0)],
-            vec![(0, 1.0)],
-            vec![(0, 1.0)],
-        ];
+        let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0, 1.0)], vec![(0, 1.0)], vec![(0, 1.0)]];
         let bones = vec![0u32];
         let aabb = ([0.0, 0.0, 0.0], [1.0, 1.0, 0.0]);
         (vertices, weights, bones, aabb)
@@ -1211,17 +1216,27 @@ mod tests {
         let refits0 = blas.stats().refits;
 
         // 帧 0(近距全速):蒙皮 + refit ⇒ refits +1、builds +0;版本 0→1。
-        let pose_a = SkinPalette { bones: vec![translate(1.0, 0.0, 0.0)] };
+        let pose_a = SkinPalette {
+            bones: vec![translate(1.0, 0.0, 0.0)],
+        };
         driver
             .drive_frame(
                 0,
-                &[SkinnedClusterFrame { input: &input, distance_m: 5.0, blas: handle }],
+                &[SkinnedClusterFrame {
+                    input: &input,
+                    distance_m: 5.0,
+                    blas: handle,
+                }],
                 &pose_a,
                 0.5,
                 &mut blas,
             )
             .expect("帧 0 更新");
-        assert_eq!(blas.stats().refits - refits0, 1, "更新帧 refit 计数非空可机核");
+        assert_eq!(
+            blas.stats().refits - refits0,
+            1,
+            "更新帧 refit 计数非空可机核"
+        );
         assert_eq!(blas.stats().blas_builds - builds0, 0, "更新帧零全量构建");
         assert_eq!(driver.cache.slots[0].version, 1);
         let frame0_positions = driver.cache.slots[0].positions.clone();
@@ -1233,26 +1248,40 @@ mod tests {
         driver
             .drive_frame(
                 1,
-                &[SkinnedClusterFrame { input: &input, distance_m: 5.0, blas: handle }],
+                &[SkinnedClusterFrame {
+                    input: &input,
+                    distance_m: 5.0,
+                    blas: handle,
+                }],
                 &pose_a,
                 0.5,
                 &mut blas,
             )
             .expect("静态帧");
         assert_eq!(blas.stats().refits - r1, 0, "静态帧零 refit");
-        assert_eq!(blas.stats().blas_builds - b1, 0, "静态帧零 AS 构建(非零即 RED)");
+        assert_eq!(
+            blas.stats().blas_builds - b1,
+            0,
+            "静态帧零 AS 构建(非零即 RED)"
+        );
         assert_eq!(driver.cache.slots[0].positions, frame0_positions);
         assert_eq!(driver.cache.slots[0].version, 1);
         assert_eq!(driver.stats.static_skips, 1);
 
         // 姿态变化 + 远距(1/4 档)帧 2:非静态但降级帧 ⇒ 顶点逐位不变、
         // 包围体按未更新帧数放大、零 refit。
-        let pose_b = SkinPalette { bones: vec![translate(2.0, 0.0, 0.0)] };
+        let pose_b = SkinPalette {
+            bones: vec![translate(2.0, 0.0, 0.0)],
+        };
         let r2 = blas.stats().refits;
         driver
             .drive_frame(
                 2,
-                &[SkinnedClusterFrame { input: &input, distance_m: 50.0, blas: handle }],
+                &[SkinnedClusterFrame {
+                    input: &input,
+                    distance_m: 50.0,
+                    blas: handle,
+                }],
                 &pose_b,
                 0.5,
                 &mut blas,
@@ -1276,7 +1305,11 @@ mod tests {
         driver
             .drive_frame(
                 4,
-                &[SkinnedClusterFrame { input: &input, distance_m: 50.0, blas: handle }],
+                &[SkinnedClusterFrame {
+                    input: &input,
+                    distance_m: 50.0,
+                    blas: handle,
+                }],
                 &pose_b,
                 0.5,
                 &mut blas,
@@ -1307,12 +1340,18 @@ mod tests {
         let handle = blas.get_or_build(&vertices, &indices, DynamicPolicy::Static);
         let input = skin_input(&vertices, &weights, &bones, 0.0, aabb);
         let mut driver = SkinningDriver::new(1);
-        let pose = SkinPalette { bones: vec![IDENTITY] };
+        let pose = SkinPalette {
+            bones: vec![IDENTITY],
+        };
         // Static 策略蒙皮簇:refit 被策略透传 ⇒ typed Err(AS 更新必须可计数)。
         assert_eq!(
             driver.drive_frame(
                 0,
-                &[SkinnedClusterFrame { input: &input, distance_m: 5.0, blas: handle }],
+                &[SkinnedClusterFrame {
+                    input: &input,
+                    distance_m: 5.0,
+                    blas: handle
+                }],
                 &pose,
                 0.5,
                 &mut blas,
@@ -1338,8 +1377,14 @@ mod tests {
         assert_eq!(bone_rotation_angle(&IDENTITY), 0.0);
         assert_eq!(bone_rotation_angle(&translate(3.0, -2.0, 1.0)), 0.0);
         // 90° 旋转:trace 1 ⇒ acos(0) = π/2(位级锚定)。
-        assert_eq!(bone_rotation_angle(&rot_z_90()), std::f32::consts::FRAC_PI_2);
-        assert_eq!(bone_rotation_angle(&rot_x_90()), std::f32::consts::FRAC_PI_2);
+        assert_eq!(
+            bone_rotation_angle(&rot_z_90()),
+            std::f32::consts::FRAC_PI_2
+        );
+        assert_eq!(
+            bone_rotation_angle(&rot_x_90()),
+            std::f32::consts::FRAC_PI_2
+        );
         // 非刚性:缩放(列范数 2)⇒ 保守 π。
         let scaled = [
             [2.0, 0.0, 0.0, 0.0],
@@ -1362,8 +1407,7 @@ mod tests {
         // 定点域法向 golden:rot_x_90 将 (0,0,1) → (0,−1,0)(位级锚定)。
         let vertices: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]];
         let normals: Vec<[f32; 3]> = vec![[0.0, 0.0, 1.0], [0.0, 0.0, 1.0]];
-        let weights: Vec<Vec<(u32, f32)>> =
-            vec![vec![(0, 1.0)], vec![(0, 0.5), (1, 0.5)]];
+        let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0, 1.0)], vec![(0, 0.5), (1, 0.5)]];
         let palette = SkinPalette {
             bones: vec![rot_x_90(), IDENTITY],
         };
@@ -1413,7 +1457,9 @@ mod tests {
             half_angle: 0.0,
         };
         let poses: Vec<SkinPalette> = vec![
-            SkinPalette { bones: vec![IDENTITY, IDENTITY] },
+            SkinPalette {
+                bones: vec![IDENTITY, IDENTITY],
+            },
             SkinPalette {
                 bones: vec![rot_z_90(), translate(50.0, -50.0, 25.0)],
             },
@@ -1435,7 +1481,10 @@ mod tests {
             // 夹角恰 π/2 —— 边界闭域必须通过(不依赖 slack 的精确位)。
             if pi == 2 {
                 assert_eq!(cone.half_angle, std::f32::consts::FRAC_PI_2);
-                assert_eq!(skinned_n[0].map(f32::to_bits), [0.0f32, -1.0, 0.0].map(f32::to_bits));
+                assert_eq!(
+                    skinned_n[0].map(f32::to_bits),
+                    [0.0f32, -1.0, 0.0].map(f32::to_bits)
+                );
             }
         }
     }
@@ -1460,7 +1509,9 @@ mod tests {
             "缩小半径 2.0(蒙皮位移 4.0)必须 RED"
         );
         // 锥:旋转姿态下半角 π/2;缩小至 π/8 ⇒ v0 法向 (0,−1,0) 夹角 π/2 越界。
-        let rot_palette = SkinPalette { bones: vec![rot_x_90()] };
+        let rot_palette = SkinPalette {
+            bones: vec![rot_x_90()],
+        };
         let skinned_n = skin_normals(&input, &normals, &rot_palette).expect("法向");
         let rest_cone = NormalCone {
             axis: [0.0, 0.0, 1.0],
@@ -1512,7 +1563,11 @@ mod tests {
             assert!(is_fixed_point(c.bound_inflation));
             assert_eq!(c.weights.len(), c.vertices.len());
             assert_eq!(c.normals.len(), c.vertices.len());
-            assert!(c.weights.iter().all(|r| r.len() == c.max_influences as usize));
+            assert!(
+                c.weights
+                    .iter()
+                    .all(|r| r.len() == c.max_influences as usize)
+            );
         }
         for p in &f.poses {
             for b in &p.bones {

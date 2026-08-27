@@ -1,0 +1,136 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/vendor_license_evidence/v1",
+ "title": "G31+ 波 C Task C6 vendor 许可合规终审门裁决证据（ci/g31_vendor_license_smoke.py --gate g31.waveC.license 产；PASS-only 闭集 schema，FAIL 诊断件留 .tmp 工作区不进 evidence/ 路由面）",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "matrix_path",
+  "matrix_sha256",
+  "summary",
+  "gaps",
+  "checks",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.vendor_license_evidence.v1"
+  },
+  "subject": {
+   "const": "g31_vendor_license"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.waveC.license"
+  },
+  "wave": {
+   "const": "G31+.C"
+  },
+  "matrix_path": {
+   "const": "milestones/g31/g31_vendor_license_matrix.json"
+  },
+  "matrix_sha256": {
+   "type": "string",
+   "pattern": "^sha256:[0-9a-f]{64}$"
+  },
+  "summary": {
+   "type": "object",
+   "required": [
+    "total",
+    "cleared",
+    "conditional",
+    "pending_owner",
+    "blocked"
+   ],
+   "properties": {
+    "total": {
+     "const": 16
+    },
+    "cleared": {
+     "const": 15
+    },
+    "conditional": {
+     "const": 1
+    },
+    "pending_owner": {
+     "const": 0
+    },
+    "blocked": {
+     "const": 0
+    }
+   }
+  },
+  "gaps": {
+   "type": "array",
+   "minItems": 3,
+   "maxItems": 3,
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "enum": [
+       "GAP-01",
+       "GAP-02",
+       "GAP-03"
+      ]
+     },
+     "status": {
+      "const": "open"
+     }
+    }
+   }
+  },
+  "checks": {
+   "type": "object",
+   "required": [
+    "matrix_structure_valid",
+    "vendor_coverage_complete",
+    "license_texts_on_tree",
+    "g13_clearance_referenced",
+    "sbom_reconciliation",
+    "obligations_and_gaps_registered",
+    "summary_counts_honest"
+   ],
+   "properties": {
+    "matrix_structure_valid": {
+     "type": "boolean"
+    },
+    "vendor_coverage_complete": {
+     "type": "boolean"
+    },
+    "license_texts_on_tree": {
+     "type": "boolean"
+    },
+    "g13_clearance_referenced": {
+     "type": "boolean"
+    },
+    "sbom_reconciliation": {
+     "type": "boolean"
+    },
+    "obligations_and_gaps_registered": {
+     "type": "boolean"
+    },
+    "summary_counts_honest": {
+     "type": "boolean"
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

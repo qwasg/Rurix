@@ -1,0 +1,77 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/wave_a_soak_evidence/v1",
+ "title": "G31+ 波 A 验收门 soak 证据（ci/g31_wave_a_soak.py 产）",
+ "type": "object",
+ "required": [
+  "schema",
+  "gate",
+  "generated_utc",
+  "binary",
+  "thresholds",
+  "main_leg",
+  "determinism_probe",
+  "verdict",
+  "notes"
+ ],
+ "properties": {
+  "schema": { "const": "rurix.g31.wave_a_soak_evidence.v1" },
+  "gate": { "const": "g31.waveA.soak" },
+  "generated_utc": { "type": "string" },
+  "binary": { "type": "string" },
+  "thresholds": {
+   "type": "object",
+   "required": ["min_frames", "min_wall_s", "rule"],
+   "properties": {
+    "min_frames": { "const": 10000 },
+    "min_wall_s": { "const": 1800 },
+    "rule": { "const": "frames_or_wall_first_reached" }
+   }
+  },
+  "main_leg": {
+   "type": "object",
+   "required": [
+    "frames",
+    "warmup",
+    "trajectory",
+    "hidden",
+    "wall_s",
+    "frames_presented",
+    "real_render_frame_ms",
+    "present_frame_ms",
+    "digest",
+    "evidence_ok",
+    "validation_silent",
+    "leak_ledger_zero"
+   ],
+   "properties": {
+    "frames": { "type": "integer", "minimum": 10000 },
+    "warmup": { "type": "integer" },
+    "trajectory": { "enum": ["orbit", "dolly"] },
+    "hidden": { "type": "boolean" },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "frames_presented": { "type": "integer", "minimum": 10000 },
+    "real_render_frame_ms": { "type": ["number", "null"] },
+    "present_frame_ms": { "type": ["number", "null"] },
+    "digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "evidence_ok": { "type": "boolean" },
+    "validation_silent": { "type": "boolean" },
+    "leak_ledger_zero": { "type": "boolean" }
+   }
+  },
+  "determinism_probe": {
+   "type": "object",
+   "required": ["frames", "warmup", "runs", "digest_seq_bit_exact", "first_drift_index", "last_digest"],
+   "properties": {
+    "frames": { "type": "integer" },
+    "warmup": { "type": "integer" },
+    "runs": { "const": 2 },
+    "digest_seq_bit_exact": { "type": "boolean" },
+    "first_drift_index": { "type": "integer" },
+    "last_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+   }
+  },
+  "verdict": { "enum": ["PASS", "FAIL"] },
+  "notes": { "type": "array", "items": { "type": "string" } }
+ }
+}

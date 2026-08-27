@@ -289,9 +289,7 @@ pub fn link_shader_library(
     let mut selected: Vec<&LibraryUnit> = Vec::with_capacity(topology.units.len());
     for name in &topology.units {
         let Some(u) = by_name.get(name.as_str()) else {
-            return Err(LinkError::MissingUnit {
-                unit: name.clone(),
-            });
+            return Err(LinkError::MissingUnit { unit: name.clone() });
         };
         selected.push(u);
     }
@@ -516,7 +514,11 @@ pub fn to_manifest_json(record: &LinkManifestRecord) -> String {
                 json_escape(&m.unit),
                 json_escape(&m.symbol),
                 sha256::hex(&m.interface_hash),
-                if k + 1 == record.members.len() { "" } else { "," },
+                if k + 1 == record.members.len() {
+                    ""
+                } else {
+                    ","
+                },
             ));
         }
         s.push_str("  ]\n");
@@ -689,10 +691,16 @@ pub fn to_audit_json(report: &VariantAuditReport) -> String {
         json_escape(compiler_version)
     ));
     s.push_str("  \"edition\": \"Rx0\",\n");
-    s.push_str(&format!("  \"total_enumerated\": {},\n", report.total_enumerated));
+    s.push_str(&format!(
+        "  \"total_enumerated\": {},\n",
+        report.total_enumerated
+    ));
     s.push_str(&format!("  \"total_pruned\": {},\n", report.total_pruned));
     s.push_str(&format!("  \"total_emitted\": {},\n", report.total_emitted));
-    s.push_str(&format!("  \"total_ddc_hits\": {},\n", report.total_ddc_hits));
+    s.push_str(&format!(
+        "  \"total_ddc_hits\": {},\n",
+        report.total_ddc_hits
+    ));
     s.push_str(&format!("  \"total_budget\": {},\n", report.total_budget));
     if report.dead_variants.is_empty() {
         s.push_str("  \"dead_variants\": [],\n");
@@ -866,7 +874,10 @@ mod tests {
             crate::reflection::interface_hash_of(&units2[0].exports[0].interface_canonical);
         units2[1].exports[0].requires = reqs_fix;
         let b = link_shader_library(&units2, &topo).unwrap();
-        assert_ne!(a.interface_hash, b.interface_hash, "接口微扰 interface hash 必翻");
+        assert_ne!(
+            a.interface_hash, b.interface_hash,
+            "接口微扰 interface hash 必翻"
+        );
         assert_ne!(a.artifact_digest, b.artifact_digest);
         // 拓扑微扰(变体 key 替换)→ 产物 digest 翻,interface hash 不动(接口集未变)。
         let mut topo2 = sample_topology();

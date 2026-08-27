@@ -204,7 +204,11 @@ fn y_to_j(y: f64, p: &JmhParams) -> f64 {
 
 fn rgb_to_aab(rgb: Vec3, p: &JmhParams) -> Vec3 {
     let rgb_m = color::vmul(rgb, &p.rgb_to_cam16_c);
-    let rgb_a = [pacrc_fwd(rgb_m[0]), pacrc_fwd(rgb_m[1]), pacrc_fwd(rgb_m[2])];
+    let rgb_a = [
+        pacrc_fwd(rgb_m[0]),
+        pacrc_fwd(rgb_m[1]),
+        pacrc_fwd(rgb_m[2]),
+    ];
     color::vmul(rgb_a, &p.cone_response_to_aab)
 }
 
@@ -230,7 +234,11 @@ fn jmh_to_aab(jmh: Vec3, p: &JmhParams) -> Vec3 {
 
 fn aab_to_rgb(aab: Vec3, p: &JmhParams) -> Vec3 {
     let rgb_a = color::vmul(aab, &p.aab_to_cone_response);
-    let rgb_m = [pacrc_inv(rgb_a[0]), pacrc_inv(rgb_a[1]), pacrc_inv(rgb_a[2])];
+    let rgb_m = [
+        pacrc_inv(rgb_a[0]),
+        pacrc_inv(rgb_a[1]),
+        pacrc_inv(rgb_a[2]),
+    ];
     color::vmul(rgb_m, &p.cam16_c_to_rgb)
 }
 
@@ -260,7 +268,11 @@ fn init_jmh_params(prims: &color::Primaries) -> JmhParams {
         f_l_n * y_w / rgb_w[1],
         f_l_n * y_w / rgb_w[2],
     ];
-    let rgb_wc = [d_rgb[0] * rgb_w[0], d_rgb[1] * rgb_w[1], d_rgb[2] * rgb_w[2]];
+    let rgb_wc = [
+        d_rgb[0] * rgb_w[0],
+        d_rgb[1] * rgb_w[1],
+        d_rgb[2] * rgb_w[2],
+    ];
     let rgb_aw = [
         pacrc_fwd(rgb_wc[0]),
         pacrc_fwd(rgb_wc[1]),
@@ -328,7 +340,11 @@ fn lerp(a: f64, b: f64, t: f64) -> f64 {
 }
 
 fn lerp3(a: Vec3, b: Vec3, t: f64) -> Vec3 {
-    [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]
+    [
+        lerp(a[0], b[0], t),
+        lerp(a[1], b[1], t),
+        lerp(a[2], b[2], t),
+    ]
 }
 
 fn midpoint_i(a: usize, b: usize) -> usize {
@@ -404,8 +420,14 @@ struct OdtParams {
 
 /// CTL `clamp_AP0_to_AP1` 逐字。
 fn clamp_ap0_to_ap1(aces: Vec3, lo: f64, hi: f64) -> Vec3 {
-    let ap0_to_ap1 = color::mmul(&color::rgb_to_xyz(&color::AP0), &color::xyz_to_rgb(&color::AP1));
-    let ap1_to_ap0 = color::mmul(&color::rgb_to_xyz(&color::AP1), &color::xyz_to_rgb(&color::AP0));
+    let ap0_to_ap1 = color::mmul(
+        &color::rgb_to_xyz(&color::AP0),
+        &color::xyz_to_rgb(&color::AP1),
+    );
+    let ap1_to_ap0 = color::mmul(
+        &color::rgb_to_xyz(&color::AP1),
+        &color::xyz_to_rgb(&color::AP0),
+    );
     let ap1 = color::vmul(aces, &ap0_to_ap1);
     let clamped = [
         ap1[0].clamp(lo, hi),
@@ -653,7 +675,11 @@ fn interpolation_weight(h: f64, h_lo: f64) -> f64 {
 }
 
 fn compute_focus_j(cusp_j: f64, mid_j: f64, limit_j_max: f64) -> f64 {
-    lerp(cusp_j, mid_j, (CUSP_MID_BLEND - cusp_j / limit_j_max).min(1.0))
+    lerp(
+        cusp_j,
+        mid_j,
+        (CUSP_MID_BLEND - cusp_j / limit_j_max).min(1.0),
+    )
 }
 
 /// CTL `init_HueDependentGamutParams` 逐字。
@@ -719,7 +745,10 @@ fn generate_unit_cube_cusp_corners(corner: usize) -> Vec3 {
 fn build_limiting_cusp_corners_tables(
     params: &JmhParams,
     peak_luminance: f64,
-) -> ([[f64; 3]; TOTAL_CORNER_COUNT], [[f64; 3]; TOTAL_CORNER_COUNT]) {
+) -> (
+    [[f64; 3]; TOTAL_CORNER_COUNT],
+    [[f64; 3]; TOTAL_CORNER_COUNT],
+) {
     let mut rgb_corners = [[0.0f64; 3]; TOTAL_CORNER_COUNT];
     let mut jmh_corners = [[0.0f64; 3]; TOTAL_CORNER_COUNT];
     let mut temp_rgb = [[0.0f64; 3]; CUSP_CORNER_COUNT];
@@ -749,7 +778,10 @@ fn build_limiting_cusp_corners_tables(
 }
 
 /// CTL `find_reach_corners_table` 逐字。
-fn find_reach_corners_table(params_reach: &JmhParams, p: &OdtParams) -> [[f64; 3]; TOTAL_CORNER_COUNT] {
+fn find_reach_corners_table(
+    params_reach: &JmhParams,
+    p: &OdtParams,
+) -> [[f64; 3]; TOTAL_CORNER_COUNT] {
     let mut temp_jmh = [[0.0f64; 3]; CUSP_CORNER_COUNT];
     let mut jmh_corners = [[0.0f64; 3]; TOTAL_CORNER_COUNT];
     let limit_a = j_to_achromatic_n(p.limit_j_max, params_reach.inv_cz);
@@ -824,7 +856,11 @@ fn extract_sorted_cube_hues(
 
 /// CTL `round` 逐字(四舍五入向整)。
 fn ctl_round(x: f64) -> f64 {
-    if x < 0.0 { (x - 0.5).trunc() } else { (x + 0.5).trunc() }
+    if x < 0.0 {
+        (x - 0.5).trunc()
+    } else {
+        (x + 0.5).trunc()
+    }
 }
 
 /// CTL `build_hue_sample_interval` 逐字。
@@ -908,7 +944,12 @@ fn find_display_cusp_for_hue(
     params: &JmhParams,
 ) -> [f64; 2] {
     let mut upper_corner = 1usize;
-    for (i, corner) in jmh_corners.iter().enumerate().skip(1).take(TOTAL_CORNER_COUNT - 1) {
+    for (i, corner) in jmh_corners
+        .iter()
+        .enumerate()
+        .skip(1)
+        .take(TOTAL_CORNER_COUNT - 1)
+    {
         if corner[2] > hue {
             upper_corner = i;
             break;
@@ -981,7 +1022,12 @@ fn make_uniform_hue_gamut_table(
         "reach/limit 角点色相冲撞(count={count} < {MAX_SORTED_CORNERS}),CTL 未定义面——停手核查"
     );
     let hue_table = build_hue_table(&sorted_hues);
-    let cusp_table = build_cusp_table(&hue_table, &limiting_rgb_corners, &limiting_jmh_corners, limit_params);
+    let cusp_table = build_cusp_table(
+        &hue_table,
+        &limiting_rgb_corners,
+        &limiting_jmh_corners,
+        limit_params,
+    );
     (cusp_table, hue_table)
 }
 
@@ -1052,8 +1098,7 @@ fn generate_gamma_test_data(
         let test_j = lerp(jm_cusp[0], limit_j_max, *pos);
         let slope_gain = get_focus_gain(test_j, analytical_threshold, limit_j_max, focus_dist);
         let j_intersect = solve_j_intersect(test_j, jm_cusp[1], focus_j, limit_j_max, slope_gain);
-        let slope =
-            compute_compression_vector_slope(j_intersect, focus_j, limit_j_max, slope_gain);
+        let slope = compute_compression_vector_slope(j_intersect, focus_j, limit_j_max, slope_gain);
         let j_cusp = solve_j_intersect(jm_cusp[0], jm_cusp[1], focus_j, limit_j_max, slope_gain);
         data.test_jmh[test_index] = [test_j, jm_cusp[1], hue];
         data.j_intersect_source[test_index] = j_intersect;
@@ -1084,7 +1129,8 @@ fn evaluate_gamma_fit(
             data.slopes[test_index],
             data.j_intersect_cusp[test_index],
         );
-        let approx_limit_j = data.j_intersect_source[test_index] + data.slopes[test_index] * approx_limit_m;
+        let approx_limit_j =
+            data.j_intersect_source[test_index] + data.slopes[test_index] * approx_limit_m;
         let approximate_jmh = [approx_limit_j, approx_limit_m, data.test_jmh[test_index][2]];
         let new_limit_rgb = jmh_to_rgb(approximate_jmh, limit_params);
         if !outside_hull(new_limit_rgb, luminance_limit) {
@@ -1304,7 +1350,10 @@ mod tests {
         let w = p.to_display_linear([64.0, 64.0, 64.0]);
         assert!(w.iter().all(|v| *v <= 1.0 && *v > 0.9), "超白: {w:?}");
         // 确定性双调用逐位一致。
-        assert_eq!(p.to_display_linear([1.0, 0.5, 0.25]), p.to_display_linear([1.0, 0.5, 0.25]));
+        assert_eq!(
+            p.to_display_linear([1.0, 0.5, 0.25]),
+            p.to_display_linear([1.0, 0.5, 0.25])
+        );
         // 单调性。
         let a = p.to_display_linear([0.09, 0.09, 0.09]);
         let m = p.to_display_linear([0.36, 0.36, 0.36]);

@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_rejudgment_windows 重判窗批量执行门裁决件",
+  "description": "G31+ 波 C Task C16（ci/g31_rejudgment_smoke.py --gate g31.waveC.rejudgment 产；G31_PLUS_COMMERCIAL_RENDERER_TODO §3 #24/#26/#27/#28/#29 + §4 #43 六窗重判批量执行；判档登记表 = milestones/g31/g31_rejudgment_windows.json 六窗逐行唯一消费面）。判据闭集：①登记表结构（六窗 id 闭集 + 逐窗 anchor_literal/anchor_source/method/items/verdict/verdict_detail/evidence/followup 九字段非空）；②verdict 三值闭集（triggered/not-triggered/partial）+ summary.window_verdicts 与逐窗 verdict 一致；③证据指针完整性（逐窗 evidence 全指针在盘实文件）；④M61 ③ measured 新鲜面（g31_mesh_vs_raster_bench 门件在盘 + schema 校验 + digest_all_equal/double_run 位级 + 逐臂 median 有限正数 + vs_fetch vs mesh_procedural parity 差登记）；⑤deferred.json history 只追加（RD-039/RD-040/RD-026 各 2026-08-26 Task C16 行 + status/backfill_condition 字面 0-byte 抽查）；⑥RFC-0034 重判记录只追加（G31+ C16 行在 + G18.5/G20.3/G27.2 三行原行在）；⑦锚文件 0-byte（g20 差距闭集/g21 分项 registry/g27 重判/g28 重判 四件 tracked 锚 git porcelain 干净 + TODO 在飞未跟踪件登记面）；⑧窗内一致性（partial 窗逐 items 半命中半未命中结构 + M61 verdict_detail 含 maintain-no-go 字面）。PASS-only 闭集 schema——PASS 才落 evidence/g31_rejudgment_windows_<ts>.json，FAIL 诊断件留 .tmp 工作区不污染路由面。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "windows_checked",
+    "window_verdicts",
+    "mesh_bench_measured",
+    "deferred_history",
+    "rfc0034_table",
+    "anchor_files_0byte",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.rejudgment_windows_gate_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_rejudgment_windows"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveC.rejudgment"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.C"
+    },
+    "windows_checked": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {"type": "string"}
+    },
+    "window_verdicts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "M61-mesh-shader",
+        "RD-039-backfill-subitems",
+        "SMRT",
+        "WORLD-RC-evolution",
+        "NRD-vendor-denoise",
+        "RD-026-stdgpu"
+      ],
+      "properties": {
+        "M61-mesh-shader": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]},
+        "RD-039-backfill-subitems": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]},
+        "SMRT": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]},
+        "WORLD-RC-evolution": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]},
+        "NRD-vendor-denoise": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]},
+        "RD-026-stdgpu": {"type": "string", "enum": ["triggered", "not-triggered", "partial"]}
+      }
+    },
+    "mesh_bench_measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence",
+        "schema_valid",
+        "digest_all_equal",
+        "double_run_digest_bitexact",
+        "vs_fetch_median_ms",
+        "mesh_procedural_median_ms",
+        "parity_delta_pct"
+      ],
+      "properties": {
+        "evidence": {"type": "string", "pattern": "^evidence/g31_mesh_vs_raster_bench_[0-9]{8}T[0-9]{6}Z\\.json$"},
+        "schema_valid": {"type": "boolean", "const": true},
+        "digest_all_equal": {"type": "boolean", "const": true, "description": "三臂像素 digest 位级全等（同一三角形集真上屏结构证据）"},
+        "double_run_digest_bitexact": {"type": "boolean", "const": true},
+        "vs_fetch_median_ms": {"type": "number", "exclusiveMinimum": 0},
+        "mesh_procedural_median_ms": {"type": "number", "exclusiveMinimum": 0},
+        "parity_delta_pct": {"type": "number", "description": "mesh vs vs_fetch median 差百分比（如实登记;正 = mesh 快,负 = mesh 慢;不设通过线）"}
+      }
+    },
+    "deferred_history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["RD-039", "RD-040", "RD-026", "status_0byte", "backfill_literal_0byte"],
+      "properties": {
+        "RD-039": {"type": "boolean", "const": true, "description": "RD-039 history 2026-08-26 Task C16 行只追加在案"},
+        "RD-040": {"type": "boolean", "const": true},
+        "RD-026": {"type": "boolean", "const": true},
+        "status_0byte": {"type": "boolean", "const": true, "description": "三行 status 维持（open/open/open 未翻）"},
+        "backfill_literal_0byte": {"type": "boolean", "const": true, "description": "backfill_condition 字面抽查锚句仍在（0-byte 不回写）"}
+      }
+    },
+    "rfc0034_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["c16_row_appended", "prior_rows_intact"],
+      "properties": {
+        "c16_row_appended": {"type": "boolean", "const": true, "description": "RFC-0034 重判记录 G31+ C16 行只追加在案"},
+        "prior_rows_intact": {"type": "boolean", "const": true, "description": "G18.5/G20.3/G27.2 三行原行字面仍在（0-byte）"}
+      }
+    },
+    "anchor_files_0byte": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tracked_anchors_clean", "todo_registered"],
+      "properties": {
+        "tracked_anchors_clean": {"type": "boolean", "const": true, "description": "g20/g21/g27/g28 四件 tracked 锚 git porcelain 干净"},
+        "todo_registered": {"type": "boolean", "const": true, "description": "TODO 在飞未跟踪件登记面（本任务零触碰;在树在案）"}
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

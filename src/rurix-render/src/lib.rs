@@ -13,6 +13,11 @@
 //!   → [`display`]
 //! - G9.5 OIT benchmark harness 测量面(RFC-0025 §4.K,RXS-0371,仅测量不定档)
 //!   → [`oit`]
+//! - G31+ 波 C 设备兼容矩阵与能力降级链系统化(G31_PLUS §5 #50) →
+//!   [`capability_matrix`](六链降级闭集 fail-closed 裁决 + 登记表 digest)
+//! - G35 GPU 粒子系统(RFC-0049,对标并超越 UE5 Niagara 五轴) → [`particles`]
+//!   (确定性 GPU 粒子 host 金标准:分段稳定 scan/排序基元/池与发射;
+//!   device 面 = kernels/g35_*.rx)
 //!
 //! 架构纪律(RFC-0016 跨章一致性约定):
 //! - 渲染器是库不进语言(06 §8.3);host 侧全 safe(`forbid(unsafe_code)`)纯 Rust 可单测;
@@ -23,12 +28,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod capability_matrix;
 pub mod display;
 pub mod geometry;
 pub mod gi;
 pub mod graph;
 pub mod material;
 pub mod oit;
+pub mod particles;
 pub mod rt;
 pub mod shadow;
 pub mod streaming;

@@ -1,0 +1,53 @@
+//@ spec: RFC-0049 §4.8(G35-4 半透明双臂 · WBOIT resolve;spec 条款号本期零新设)
+// G35-4 半透明 WBOIT 臂 · resolve —— 定点和归一化合成写 U_SCENE_COLOR(门
+// g35.wave4.sort_oit;host 金标准 = particles/oit_arms.rs::
+// wboit_resolve_pixel **逐字同源**)。
+//
+// ## 架构(wboit 臂 pass 组末步,后于 g35_oit_wboit_accum 先于 TSR)
+// 线程 = 像素 i;守卫 i < px_count。acc = g35_oit_wboit_accum Q12 定点和
+// (i·4 + {0=r,1=g,2=b,3=w});acc_w == 0 = 空像素直落(背景不动)。
+// **resolve 冻结式**(参照 = src/oit/algorithms.rs run_weighted nvpro 臂
+// `c = accum.rgb/max(accum.a,1e-5);px = c·(1−reveal) + bg·reveal`):
+//   sum_w = acc_w/4096(Q12 反量化);c_ch = (acc_ch/4096)/max(sum_w,1e-5);
+//   α_out = min(1, sum_w);C = C·(1−α_out) + c·α_out。
+// **α_out 替代登记**(诚实面):nvpro reveal = ∏(1−α) 连乘在定点整数域不可
+// 交换故不可原子化,以 min(1, Σw·α) 替代冻结——近似档口径,视觉差 measured
+// 登记不进硬门(RFC-0049 §4.8 双臂语义不同不设互拍容差硬门)。
+// acc 只读(清零归帧首 g35_splat_clear 0-byte 消费 pass,acc 视作 u64×2px
+// 清零——bin 头注登记);每像素独立单写者 ⇒ 固定输入双跑位级一致(acc 为
+// 可交换整数和 ⇒ 全链顺序无关位级,RFC-0049 §4.8 臂 B)。
+// 无 shared / 无原子;f32/u32/usize 域零位运算。
+//
+// ## 参数面(P_OIT_PARAMS 96 f32;单源 = bin/g35_particle_lane.rs
+// `g35l_pack_oit_params` 头注;本 kernel 只消费 [6];声明序 = 绑定序,
+// SSBO 数 = 3)
+//   params[6]=px_count。
+//   SSBO 序:0 params(View f32×96) / 1 acc(View u32×4px,accum 产物) /
+//   2 scene_color(ViewMut f32×3px,U_SCENE_COLOR)。
+//   dispatch = [px_count, 1, 1](LocalSize 1,1,1;百万工作组既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_oit_wboit_resolve(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    acc: View<global, u32>,
+    scene_color: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let px_count = params[6] as usize;
+    if i < px_count {
+        let a_w = acc[i * 4usize + 3usize];
+        if a_w > 0u32 {
+            let sum_w = a_w as f32 / 4096.0;
+            let denom = sum_w.max(0.00001);
+            let cr = (acc[i * 4usize] as f32 / 4096.0) / denom;
+            let cg = (acc[i * 4usize + 1usize] as f32 / 4096.0) / denom;
+            let cb = (acc[i * 4usize + 2usize] as f32 / 4096.0) / denom;
+            let alpha = sum_w.min(1.0);
+            scene_color[i * 3usize] = scene_color[i * 3usize] * (1.0 - alpha) + cr * alpha;
+            scene_color[i * 3usize + 1usize] =
+                scene_color[i * 3usize + 1usize] * (1.0 - alpha) + cg * alpha;
+            scene_color[i * 3usize + 2usize] =
+                scene_color[i * 3usize + 2usize] * (1.0 - alpha) + cb * alpha;
+        }
+    }
+}

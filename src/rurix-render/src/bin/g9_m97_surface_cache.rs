@@ -112,9 +112,7 @@ fn run_capture(
     spv: &[u32],
     entry: &str,
 ) -> Result<(Vec<f32>, Vec<f32>, [u8; 32]), String> {
-    scene
-        .validate()
-        .map_err(|e| format!("场景校验: {e}"))?;
+    scene.validate().map_err(|e| format!("场景校验: {e}"))?;
     let tris = scene.blas_triangles();
     let (blas_refs, instances) = scene_desc_of(&tris);
     let scene_desc = RayQuerySceneDesc {
@@ -160,7 +158,11 @@ fn run_capture(
             groups: [total as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 2 {
         return Err(format!("回读路数 {} ≠ 2", rb.len()));
     }
@@ -214,7 +216,11 @@ fn run_render(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 2 {
         return Err(format!("回读路数 {} ≠ 2", rb.len()));
     }
@@ -272,7 +278,11 @@ fn run_m96(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -285,7 +295,13 @@ fn run_m96(
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -366,8 +382,7 @@ fn load_spv(path: &str) -> Vec<u32> {
 }
 
 /// 离线腿(host):参数化 + 图集页 + RED 私定格式臂。返回 (set, page_bytes)。
-fn offline_leg(
-) -> Result<(path_trace::PtScene, CardSet, Vec<u8>, [u8; 32], [u8; 32]), String> {
+fn offline_leg() -> Result<(path_trace::PtScene, CardSet, Vec<u8>, [u8; 32], [u8; 32]), String> {
     let scene = path_trace::m96_cornell_scene();
     scene.validate().map_err(|e| format!("场景校验: {e}"))?;
     let meshes = surface_cache::m97_cornell_meshes();
@@ -380,8 +395,9 @@ fn offline_leg(
     if set != set2 {
         return Err("Card 参数化双跑分叉(确定性协议违例)".into());
     }
-    let (_page, page_bytes) = surface_cache::build_atlas_page(&mut set, &scene.positions, &scene.indices)
-        .map_err(|e| format!("图集页构建: {e}"))?;
+    let (_page, page_bytes) =
+        surface_cache::build_atlas_page(&mut set, &scene.positions, &scene.indices)
+            .map_err(|e| format!("图集页构建: {e}"))?;
     let cardset_d = set.digest();
     let page_d = surface_cache::atlas_page_digest(&page_bytes);
     println!(
@@ -398,8 +414,7 @@ fn offline_leg(
 fn red_arm_abi_tamper(page_bytes: &[u8]) -> bool {
     let mut tampered = page_bytes.to_vec();
     tampered[104] ^= 0x01; // section_digest 篡改
-    let tamper_rejected =
-        rurix_geom_pages::logical_v2::decode_logical_page_v2(&tampered).is_err();
+    let tamper_rejected = rurix_geom_pages::logical_v2::decode_logical_page_v2(&tampered).is_err();
     let mut private_fmt = page_bytes.to_vec();
     private_fmt[0..4].copy_from_slice(b"SCAT"); // 私定魔数
     let private_rejected = matches!(
@@ -409,7 +424,11 @@ fn red_arm_abi_tamper(page_bytes: &[u8]) -> bool {
     let ok = tamper_rejected && private_rejected;
     println!(
         "{TAG}: RED 臂 abi-tamper(digest 篡改拒={tamper_rejected} 私定魔数拒={private_rejected})→ {}",
-        if ok { "检出(RED 有效)" } else { "未检出(漏检)" }
+        if ok {
+            "检出(RED 有效)"
+        } else {
+            "未检出(漏检)"
+        }
     );
     ok
 }
@@ -425,8 +444,7 @@ fn main() {
     let args = parse_args();
 
     // ── 步骤 0:离线腿(host;无 device 依赖)──
-    let (scene, set, page_bytes, cardset_d, page_d) =
-        offline_leg().unwrap_or_else(|e| fail(&e));
+    let (scene, set, page_bytes, cardset_d, page_d) = offline_leg().unwrap_or_else(|e| fail(&e));
 
     // --red-arm abi-tamper:纯 host 臂(私定图集格式 variant 装配期拒)。
     if args.red_arm.as_deref() == Some("abi-tamper") {
@@ -464,8 +482,10 @@ fn main() {
         .unwrap_or_else(|| fail("缺 --spv-render <r.spv>"));
     let spv_capture = load_spv(&spv_capture_path);
     let spv_render = load_spv(&spv_render_path);
-    let entry_capture = vk::entry_point_name(&spv_capture).unwrap_or_else(|| fail("capture SPV 无 OpEntryPoint"));
-    let entry_render = vk::entry_point_name(&spv_render).unwrap_or_else(|| fail("render SPV 无 OpEntryPoint"));
+    let entry_capture =
+        vk::entry_point_name(&spv_capture).unwrap_or_else(|| fail("capture SPV 无 OpEntryPoint"));
+    let entry_render =
+        vk::entry_point_name(&spv_render).unwrap_or_else(|| fail("render SPV 无 OpEntryPoint"));
     println!("{TAG}: kernel entry capture=`{entry_capture}` render=`{entry_render}`");
     let work = std::path::PathBuf::from(&args.work_dir);
     std::fs::create_dir_all(&work).unwrap_or_else(|e| fail(&format!("建 work-dir: {e}")));
@@ -478,29 +498,40 @@ fn main() {
     };
     let mut failures: Vec<String> = Vec::new();
     let mut double_run_bitexact = true;
-    let mut per_depth: std::collections::BTreeMap<u32, (Vec<f32>, Vec<f32>, [u8; 32], Vec<f32>, Vec<f32>, [u8; 32])> =
-        Default::default();
+    let mut per_depth: std::collections::BTreeMap<
+        u32,
+        (Vec<f32>, Vec<f32>, [u8; 32], Vec<f32>, Vec<f32>, [u8; 32]),
+    > = Default::default();
     for &depth in &depths {
-        let (rad_a, cov_a, d_a) = match run_capture(&scene, &set, depth, &spv_capture, &entry_capture)
-        {
-            Ok(v) => v,
-            Err(e) => fail(&format!("capture depth={depth}: {e}")),
-        };
-        let (_rad_b, _cov_b, d_b) = match run_capture(&scene, &set, depth, &spv_capture, &entry_capture)
-        {
-            Ok(v) => v,
-            Err(e) => fail(&format!("capture 双跑 depth={depth}: {e}")),
-        };
+        let (rad_a, cov_a, d_a) =
+            match run_capture(&scene, &set, depth, &spv_capture, &entry_capture) {
+                Ok(v) => v,
+                Err(e) => fail(&format!("capture depth={depth}: {e}")),
+            };
+        let (_rad_b, _cov_b, d_b) =
+            match run_capture(&scene, &set, depth, &spv_capture, &entry_capture) {
+                Ok(v) => v,
+                Err(e) => fail(&format!("capture 双跑 depth={depth}: {e}")),
+            };
         if d_a != d_b {
             double_run_bitexact = false;
             failures.push(format!("capture depth={depth} 双跑 digest 分叉"));
         }
         if !cov_a.iter().all(|&v| v == 1.0) {
-            failures.push(format!("capture depth={depth} 完整图集覆盖破坏(存在 0 覆盖 texel)"));
+            failures.push(format!(
+                "capture depth={depth} 完整图集覆盖破坏(存在 0 覆盖 texel)"
+            ));
         }
         let t2c = surface_cache::pack_tri_to_card(&set);
         let (rgb, flags, d_r) = match run_render(
-            &scene, &set, &rad_a, &cov_a, &t2c, true, &spv_render, &entry_render,
+            &scene,
+            &set,
+            &rad_a,
+            &cov_a,
+            &t2c,
+            true,
+            &spv_render,
+            &entry_render,
         ) {
             Ok(v) => v,
             Err(e) => fail(&format!("render depth={depth}: {e}")),
@@ -538,7 +569,14 @@ fn main() {
     println!("{TAG}: 空洞注入 card={victim_id} 挖洞三角 {holed} 枚");
     // GREEN 臂:回退 ambient ⇒ 漏光像素计数 = 0,能量差 measured。
     let (rgb_green, flags_green, _) = match run_render(
-        &scene, &set, &rad_arm, &cov_holed, &t2c_holed, true, &spv_render, &entry_render,
+        &scene,
+        &set,
+        &rad_arm,
+        &cov_holed,
+        &t2c_holed,
+        true,
+        &spv_render,
+        &entry_render,
     ) {
         Ok(v) => v,
         Err(e) => fail(&format!("GREEN 臂 render: {e}")),
@@ -558,7 +596,14 @@ fn main() {
     let energy_loss_rel = (e_full - e_holed) / e_full;
     // RED 臂:回退关闭变体 ⇒ 漏光检测必检出(漏光像素计数 > 0)。
     let (rgb_red, flags_red, _) = match run_render(
-        &scene, &set, &rad_arm, &cov_holed, &t2c_holed, false, &spv_render, &entry_render,
+        &scene,
+        &set,
+        &rad_arm,
+        &cov_holed,
+        &t2c_holed,
+        false,
+        &spv_render,
+        &entry_render,
     ) {
         Ok(v) => v,
         Err(e) => fail(&format!("RED 臂 render: {e}")),
@@ -621,9 +666,14 @@ fn main() {
         .clone()
         .unwrap_or_else(|| fail("缺 --spv-m96 <m96.spv>"));
     let spv_m96 = load_spv(&spv_m96_path);
-    let entry_m96 = vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
-    let m96_band_text = std::fs::read_to_string(&args.m96_band)
-        .unwrap_or_else(|e| fail(&format!("读 M96 容差带 {}: {e}(D2-Q7 门序锚前置)", args.m96_band)));
+    let entry_m96 =
+        vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
+    let m96_band_text = std::fs::read_to_string(&args.m96_band).unwrap_or_else(|e| {
+        fail(&format!(
+            "读 M96 容差带 {}: {e}(D2-Q7 门序锚前置)",
+            args.m96_band
+        ))
+    });
     let m96_band = ToleranceBand::parse(&m96_band_text)
         .unwrap_or_else(|e| fail(&format!("M96 容差带解析: {e}")));
     let m96_anchor = m96_band
@@ -686,8 +736,8 @@ fn main() {
     } else {
         let band_text = std::fs::read_to_string(&args.band)
             .unwrap_or_else(|e| fail(&format!("读深度容差带 {}: {e}", args.band)));
-        let band = DepthBand::parse(&band_text)
-            .unwrap_or_else(|e| fail(&format!("深度容差带解析: {e}")));
+        let band =
+            DepthBand::parse(&band_text).unwrap_or_else(|e| fail(&format!("深度容差带解析: {e}")));
         if hex(&cardset_d) != band.cardset_digest {
             digests_match = false;
             failures.push(format!(
@@ -759,8 +809,14 @@ fn main() {
         format!("\"atlas_page\": \"{}\"", hex(&page_d)),
     ];
     for m in &measured {
-        digests_json.push(format!("\"cache_depth{}\": \"{}\"", m.depth, m.cache_digest));
-        digests_json.push(format!("\"render_depth{}\": \"{}\"", m.depth, m.render_digest));
+        digests_json.push(format!(
+            "\"cache_depth{}\": \"{}\"",
+            m.depth, m.cache_digest
+        ));
+        digests_json.push(format!(
+            "\"render_depth{}\": \"{}\"",
+            m.depth, m.render_digest
+        ));
         digests_json.push(format!("\"m96_depth{}\": \"{}\"", m.depth, m.m96_digest));
     }
     let band_json: Vec<String> = measured

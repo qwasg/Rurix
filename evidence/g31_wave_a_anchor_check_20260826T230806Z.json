@@ -1,0 +1,245 @@
+{
+ "schema": "rurix.g31.wave_a_anchor_check_evidence.v1",
+ "gate": "g31.waveA.anchor_check",
+ "generated_utc": "2026-08-26T23:08:06Z",
+ "binary": "target\\release\\g14_3_pipeline_perf.exe",
+ "canonical": {
+  "frames": 160,
+  "warmup": 10,
+  "cells": 18
+ },
+ "anchor_file": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+ "stage_a_digest": {
+  "matched": 18,
+  "total": 18,
+  "zero_drift": true
+ },
+ "cells": [
+  {
+   "cell": "cornell-box_t50_tsr_device",
+   "fresh_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+   "anchor_digest": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.2719881250000001,
+   "g14_budget_measured_ms": 0.327853,
+   "wall_s": 0.449
+  },
+  {
+   "cell": "cornell-box_t50_dlss_sr",
+   "fresh_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+   "anchor_digest": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.5988206250000002,
+   "g14_budget_measured_ms": 0.773863,
+   "wall_s": 2.859
+  },
+  {
+   "cell": "cornell-box_t50_fsr_3_1_5",
+   "fresh_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+   "anchor_digest": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.628846875,
+   "g14_budget_measured_ms": 0.695258,
+   "wall_s": 0.695
+  },
+  {
+   "cell": "cornell-box_t67_tsr_device",
+   "fresh_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+   "anchor_digest": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.33442249999999996,
+   "g14_budget_measured_ms": 0.377174,
+   "wall_s": 0.376
+  },
+  {
+   "cell": "cornell-box_t67_dlss_sr",
+   "fresh_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+   "anchor_digest": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.8375174999999997,
+   "g14_budget_measured_ms": 0.770549,
+   "wall_s": 5.044
+  },
+  {
+   "cell": "cornell-box_t67_fsr_3_1_5",
+   "fresh_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+   "anchor_digest": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.7132100000000001,
+   "g14_budget_measured_ms": 0.752759,
+   "wall_s": 0.737
+  },
+  {
+   "cell": "cornell-box_t100_tsr_device",
+   "fresh_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+   "anchor_digest": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.5392625000000004,
+   "g14_budget_measured_ms": 0.552683,
+   "wall_s": 0.425
+  },
+  {
+   "cell": "cornell-box_t100_dlss_sr",
+   "fresh_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+   "anchor_digest": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.9742099999999999,
+   "g14_budget_measured_ms": 1.022708,
+   "wall_s": 4.921
+  },
+  {
+   "cell": "cornell-box_t100_fsr_3_1_5",
+   "fresh_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+   "anchor_digest": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 0.8648575,
+   "g14_budget_measured_ms": 0.905096,
+   "wall_s": 0.76
+  },
+  {
+   "cell": "bistro-interior_t50_tsr_device",
+   "fresh_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+   "anchor_digest": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 1.0815668750000005,
+   "g14_budget_measured_ms": 1.717006,
+   "wall_s": 61.693
+  },
+  {
+   "cell": "bistro-interior_t50_dlss_sr",
+   "fresh_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+   "anchor_digest": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 1.5475393750000004,
+   "g14_budget_measured_ms": 2.153226,
+   "wall_s": 63.616
+  },
+  {
+   "cell": "bistro-interior_t50_fsr_3_1_5",
+   "fresh_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+   "anchor_digest": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 1.0612524999999995,
+   "g14_budget_measured_ms": 1.525111,
+   "wall_s": 61.806
+  },
+  {
+   "cell": "bistro-interior_t67_tsr_device",
+   "fresh_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+   "anchor_digest": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 1.347089375,
+   "g14_budget_measured_ms": 1.946352,
+   "wall_s": 61.612
+  },
+  {
+   "cell": "bistro-interior_t67_dlss_sr",
+   "fresh_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+   "anchor_digest": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 2.0331931250000013,
+   "g14_budget_measured_ms": 2.680257,
+   "wall_s": 63.673
+  },
+  {
+   "cell": "bistro-interior_t67_fsr_3_1_5",
+   "fresh_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+   "anchor_digest": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 1.3800649999999992,
+   "g14_budget_measured_ms": 1.815522,
+   "wall_s": 61.973
+  },
+  {
+   "cell": "bistro-interior_t100_tsr_device",
+   "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 2.1439293750000004,
+   "g14_budget_measured_ms": 2.671348,
+   "wall_s": 61.689
+  },
+  {
+   "cell": "bistro-interior_t100_dlss_sr",
+   "fresh_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+   "anchor_digest": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 3.5966237500000005,
+   "g14_budget_measured_ms": 4.195032,
+   "wall_s": 63.983
+  },
+  {
+   "cell": "bistro-interior_t100_fsr_3_1_5",
+   "fresh_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+   "anchor_digest": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+   "digest_match": true,
+   "fresh_frame_ms_production_mean": 2.3196618749999987,
+   "g14_budget_measured_ms": 2.884431,
+   "wall_s": 62.06
+  }
+ ],
+ "focus_cell": {
+  "cell": "bistro-interior_t100_dlss_sr",
+  "fresh_frame_ms_production_mean": 3.5966237500000005,
+  "on_record_frame_ms": 3.5767,
+  "ue_median_ms_on_record": 3.4353499999999997,
+  "fresh_ratio": 0.9551596827441289,
+  "on_record_ratio": 0.960479,
+  "honest_red_not_worsened": false
+ },
+ "wave_a_gates_inventory": [
+  {
+   "gate": "g31.waveA.present",
+   "prefix": "g31_window_present",
+   "latest": "g31_window_present.json",
+   "present": true
+  },
+  {
+   "gate": "g31.waveA.pipelining",
+   "prefix": "g31_frame_pipelining_",
+   "latest": "g31_frame_pipelining_20260826T220043Z.json",
+   "present": true
+  },
+  {
+   "gate": "g31.waveA.gameloop",
+   "prefix": "g31_game_loop_",
+   "latest": "g31_game_loop_tex_off_b_20260826T223804Z.json",
+   "present": true
+  },
+  {
+   "gate": "g31.waveA.dynscene",
+   "prefix": "g31_dynamic_scene_",
+   "latest": "g31_dynamic_scene_20260826T221531Z.json",
+   "present": true
+  },
+  {
+   "gate": "g31.waveA.framegen",
+   "prefix": "g31_framegen_present",
+   "latest": "g31_framegen_present_x3.json",
+   "present": true
+  }
+ ],
+ "wall_s_total": 578.4,
+ "verdict": "FAIL",
+ "notes": [
+  "[1/18] cornell-box_t50_tsr_device digest MATCH frame_ms=0.2719881250000001（wall 0s）",
+  "[2/18] cornell-box_t50_dlss_sr digest MATCH frame_ms=0.5988206250000002（wall 3s）",
+  "[3/18] cornell-box_t50_fsr_3_1_5 digest MATCH frame_ms=0.628846875（wall 1s）",
+  "[4/18] cornell-box_t67_tsr_device digest MATCH frame_ms=0.33442249999999996（wall 0s）",
+  "[5/18] cornell-box_t67_dlss_sr digest MATCH frame_ms=0.8375174999999997（wall 5s）",
+  "[6/18] cornell-box_t67_fsr_3_1_5 digest MATCH frame_ms=0.7132100000000001（wall 1s）",
+  "[7/18] cornell-box_t100_tsr_device digest MATCH frame_ms=0.5392625000000004（wall 0s）",
+  "[8/18] cornell-box_t100_dlss_sr digest MATCH frame_ms=0.9742099999999999（wall 5s）",
+  "[9/18] cornell-box_t100_fsr_3_1_5 digest MATCH frame_ms=0.8648575（wall 1s）",
+  "[10/18] bistro-interior_t50_tsr_device digest MATCH frame_ms=1.0815668750000005（wall 62s）",
+  "[11/18] bistro-interior_t50_dlss_sr digest MATCH frame_ms=1.5475393750000004（wall 64s）",
+  "[12/18] bistro-interior_t50_fsr_3_1_5 digest MATCH frame_ms=1.0612524999999995（wall 62s）",
+  "[13/18] bistro-interior_t67_tsr_device digest MATCH frame_ms=1.347089375（wall 62s）",
+  "[14/18] bistro-interior_t67_dlss_sr digest MATCH frame_ms=2.0331931250000013（wall 64s）",
+  "[15/18] bistro-interior_t67_fsr_3_1_5 digest MATCH frame_ms=1.3800649999999992（wall 62s）",
+  "[16/18] bistro-interior_t100_tsr_device digest MATCH frame_ms=2.1439293750000004（wall 62s）",
+  "[17/18] bistro-interior_t100_dlss_sr digest MATCH frame_ms=3.5966237500000005（wall 64s）",
+  "[18/18] bistro-interior_t100_fsr_3_1_5 digest MATCH frame_ms=2.3196618749999987（wall 62s）",
+  "焦点格 bistro-interior_t100_dlss_sr: fresh frame_ms=3.5966237500000005ms（在案 3.5767ms） fresh ratio=0.95516（在案 0.960479，ue_median=3.4353499999999997ms） → 恶化如实 RED"
+ ]
+}

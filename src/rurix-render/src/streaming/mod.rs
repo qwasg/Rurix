@@ -26,6 +26,9 @@ mod feedback;
 mod pool;
 mod resource;
 
+pub mod cluster;
+pub mod svt;
+
 pub use engine::{StreamingEngine, TickReport};
 pub use feedback::{FEEDBACK_BASE_GEOMETRY_LOD, FEEDBACK_BASE_TEXTURE_MISS, FeedbackBuilder};
 pub use pool::{InsertOutcome, PagePool};

@@ -548,9 +548,7 @@ impl IntrinsicVisitor<'_> {
                     Some(Res::Def(d)) if res.lang_items.is_ray_query_initialize(*d)
                         || res.lang_items.is_ray_query_initialize_first_hit(*d)
                 ),
-                None => {
-                    name == "ray_query_initialize" || name == "ray_query_initialize_first_hit"
-                }
+                None => name == "ray_query_initialize" || name == "ray_query_initialize_first_hit",
             };
             if is_rq_init {
                 self.caps.insert(CapabilityId::RtRayQuery);

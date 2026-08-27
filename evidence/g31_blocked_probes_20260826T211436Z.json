@@ -1,0 +1,162 @@
+{
+  "schema": "rurix.g31.blocked_probes_smoke_evidence.v1",
+  "subject": "g31_blocked_probes",
+  "symbolic_gate_key": "g31.waveC.blockedprobes",
+  "wave": "G31+.C",
+  "registration": {
+    "probes_path": "milestones/g31/g31_blocked_probes_2026.json",
+    "probes_total": 12,
+    "verdicts_in_closed_set": true,
+    "zero_masquerade": true,
+    "anchors_all_unchanged": true,
+    "closed_or_resolved": 0
+  },
+  "live_rechecks": {
+    "legs_run": 10,
+    "legs_skipped_dev_env": 0,
+    "flips_registered": 0,
+    "legs": [
+      {
+        "leg": "tools_bistro",
+        "state": "ok",
+        "tools": {
+          "fbx2gltf": false,
+          "FBX2glTF": false,
+          "assimp": false,
+          "blender": false
+        },
+        "root_states": {
+          "K:/rurix-ext": "ok",
+          "external": "ok",
+          "assets": "root_missing_or_unreachable"
+        },
+        "bistro_exterior_hits": 0
+      },
+      {
+        "leg": "vulkan",
+        "state": "ok",
+        "VK_COLOR_SPACE_HDR10_ST2084_EXT": false,
+        "VK_COLOR_SPACE_BT2020_LINEAR_EXT": false,
+        "VK_COLOR_SPACE_HDR10_HLG_EXT": false,
+        "VK_AMDX_shader_enqueue": false,
+        "VK_EXT_device_generated_commands": true,
+        "VK_NV_device_generated_commands": true,
+        "VK_NV_device_generated_commands_compute": true,
+        "amd_device_present": false,
+        "intel_device_present": false,
+        "device_name": "NVIDIA GeForce RTX 4070 Ti"
+      },
+      {
+        "leg": "vm",
+        "state": "ok",
+        "hyperv_vmms_present": false,
+        "hyperv_vm_store_items": 0,
+        "vmware_workstation_installed": true,
+        "registered_win11_vmx_on_disk": true
+      },
+      {
+        "leg": "omm",
+        "state": "ok",
+        "alphaMode_OPAQUE": 70,
+        "alphaMode_BLEND": 0,
+        "alphaMode_MASK": 0,
+        "KHR_materials_transmission": 0
+      },
+      {
+        "leg": "patterns",
+        "state": "ok",
+        "grep_hits": {
+          "rd042:differentiable": 0,
+          "rd042:autodiff": 0,
+          "rd043:wgrapier": 0,
+          "rd044:character_cloth|destructible": 0,
+          "rd044:mpm_bake": 0,
+          "rd044:rapier_fast_path|rapier_fastpath": 0,
+          "m125:rurix_physics_sys56|JPC56_|JPH56": {
+            "raw": 3,
+            "net": 0
+          },
+          "m125:jolt_53_defect|jolt53_workaround": 0,
+          "m125:ab_overband": 0,
+          "m127:neural_deform": 0
+        },
+        "glob_hits": {
+          "rd043:rfcs/*wgrapier*": 0,
+          "rd043:rfcs/*gpu*rigid*": 0,
+          "rd044:apps/**/*cloth*": 0,
+          "rd044:assets/**/*mpm*": 0,
+          "rd044:evidence/*rapier_fastpath_adoption*": 0,
+          "m125:apps/**/*jolt56*": 0,
+          "m125:evidence/*jolt_53_defect*": 0,
+          "m125:evidence/*jolt_56_ab_overband*": 0
+        }
+      },
+      {
+        "leg": "safegpu",
+        "state": "ok",
+        "g31_contract_safe_gpu_hits": 0,
+        "docs_root": true,
+        "glob:docs/**/*platform*demand*": 0,
+        "glob:docs/**/*safe*gpu*": 0,
+        "docs_token_hits": 0
+      },
+      {
+        "leg": "legacy",
+        "state": "ok",
+        "entries": 12,
+        "rd_entries": 11,
+        "dispositions_in_closed_set": true,
+        "zero_close_literal": true,
+        "preexisting_summary_count_note": true
+      },
+      {
+        "leg": "toolchain",
+        "state": "ok",
+        "versions": {
+          "spirv-cross": {
+            "found": true,
+            "contains_registered": true
+          },
+          "dxc": {
+            "found": true,
+            "contains_registered": true
+          },
+          "glslangValidator": {
+            "found": true,
+            "contains_registered": true
+          }
+        }
+      },
+      {
+        "leg": "meshrt_probe",
+        "state": "ok",
+        "exit": 0,
+        "step68_green": true,
+        "step69_blocked_fresh": true
+      },
+      {
+        "leg": "rd045_faces",
+        "state": "ok",
+        "piece1_root_cause_file_absent": true,
+        "piece3_rfc_filename_hits": 0
+      }
+    ]
+  },
+  "device_leg": {
+    "leg": "rd045_digest",
+    "state": "ok",
+    "exit": 0,
+    "digest": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+    "digest_match_anchor": true,
+    "frames_completed": 74,
+    "validation_silent": true
+  },
+  "signals": [],
+  "environment": {
+    "os": "nt-win32",
+    "python_version": "3.12.1",
+    "host": "RTX 4070 Ti + Vulkan"
+  },
+  "timestamp": "2026-08-26T21:14:36Z",
+  "notes": "G31+ 波 C Task C17:12 探针 verdict ∈ {open-maintained, blocked-dev-env} 闭集机核 + 零冒充(无一项标 closed/resolved)+ 活体复核翻转 = 锚命中信号合法绿(F10 门态映射);门 FAIL 只留程序未诚实执行"
+}

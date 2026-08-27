@@ -1,0 +1,42 @@
+//@ spec: RFC-0049 §4.2(G35-1 sort 基元 pass 阶段 2;spec 条款号本期零新设)
+// G35-1 24 位键稳定 LSD radix sort · 每 pass 阶段 2/3 —— digit-major spine
+// (门 g35.wave1.primitives;src/particles/mod.rs 契约头字面)。
+//
+// ## 架构
+// 公式面与 host 金标准 `particles/primitives.rs::sort_spine` **逐字同源**:
+// 单 invocation 对 hist 做 digit-major 双层串行 exclusive scan ⇒
+// off[d·nseg + s] = digit d、段 s 的稳定散射基址(digit 升序 × 段升序 =
+// LSD radix 稳定序之源;单线程 = 确定性天然全序)。nseg ≤ 4096(NSEG_MAX,
+// 1M 粒子域)× 256 digit 串行循环为 v1 冻结形态(g35_scan_spine.rx 同律;
+// Onesweep/decoupled-lookback 评估窗登记不实现,RFC-0049 §9 Q1)。
+// 纯 u32/usize 整数算术 ⇒ device↔host 零容差位级(mod.rs 整数域协议;
+// 域前提:总计数 = n < 2^32)。
+//
+// ## 参数面(4 f32)
+//   params[0]=n [1]=nseg [2]=dpow(本阶段不消费,链路同构保留) [3]=reserved(恒 0)。
+//   hist: u32 × nseg·256(阶段 1 产物,行主:段 s 行 × 256 digit);
+//   off: u32 × 256·nseg(digit-major:digit d 行 × nseg 段)。
+//   dispatch = [1, 1, 1](LocalSize 1,1,1;单 invocation 守卫 g < 1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sort_spine(
+    tc: ThreadCtx<1>,
+    hist: View<global, u32>,
+    params: View<global, f32>,
+    off: ViewMut<global, u32>,
+) {
+    let g = tc.global_id();
+    let nseg = params[1] as usize;
+    if g < 1usize {
+        let mut acc = 0u32;
+        let mut d = 0usize;
+        while d < 256usize {
+            let mut s = 0usize;
+            while s < nseg {
+                off[d * nseg + s] = acc;
+                acc = acc + hist[s * 256usize + d];
+                s = s + 1usize;
+            }
+            d = d + 1usize;
+        }
+    }
+}

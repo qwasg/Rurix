@@ -1,0 +1,329 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/profile_output/v1",
+ "title": "G31+ 波 C Task C7 profiler 输出面（g31_window_present / g14_3_pipeline_perf `--profile-json <path>` 产；逐 pass GPU ms + CPU 段 + 帧统计 mean/p50/p99 + 分解恒等式字段 + debug label 态 + profiler 开销登记——机器可读，默认关，开启零渲染语义变更）",
+ "type": "object",
+ "required": [
+  "schema",
+  "bin",
+  "scene",
+  "tier",
+  "backend",
+  "frames_measured",
+  "warmup",
+  "resolution",
+  "internal_resolution",
+  "headless",
+  "render_digest",
+  "gpu_passes",
+  "cpu_segments",
+  "frame_segments",
+  "identity",
+  "debug_labels",
+  "profiler_overhead",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.profile_output.v1"
+  },
+  "bin": {
+   "enum": [
+    "g31_window_present",
+    "g14_3_pipeline_perf"
+   ]
+  },
+  "scene": {
+   "type": "string",
+   "minLength": 1
+  },
+  "tier": {
+   "enum": [
+    50,
+    67,
+    100
+   ]
+  },
+  "backend": {
+   "type": "string",
+   "minLength": 1
+  },
+  "frames_measured": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "warmup": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "inflight": {
+   "type": "integer",
+   "minimum": 1,
+   "maximum": 3
+  },
+  "resolution": {
+   "type": "object",
+   "required": [
+    "w",
+    "h"
+   ],
+   "properties": {
+    "w": {
+     "type": "integer",
+     "exclusiveMinimum": 0
+    },
+    "h": {
+     "type": "integer",
+     "exclusiveMinimum": 0
+    }
+   }
+  },
+  "internal_resolution": {
+   "type": "object",
+   "required": [
+    "w",
+    "h"
+   ],
+   "properties": {
+    "w": {
+     "type": "integer",
+     "exclusiveMinimum": 0
+    },
+    "h": {
+     "type": "integer",
+     "exclusiveMinimum": 0
+    }
+   }
+  },
+  "headless": {
+   "type": "boolean"
+  },
+  "render_digest": {
+   "type": "string",
+   "pattern": "^sha256:[0-9a-f]{64}$"
+  },
+  "gpu_passes": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "unit",
+     "mean_ms",
+     "p50_ms",
+     "p99_ms",
+     "min_ms",
+     "max_ms"
+    ],
+    "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1
+     },
+     "unit": {
+      "const": "gpu_timestamp_ms"
+     },
+     "mean_ms": {
+      "type": "number"
+     },
+     "p50_ms": {
+      "type": "number"
+     },
+     "p99_ms": {
+      "type": "number"
+     },
+     "min_ms": {
+      "type": "number"
+     },
+     "max_ms": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "cpu_segments": {
+   "type": "array",
+   "minItems": 4,
+   "maxItems": 4,
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "unit",
+     "mean_ms",
+     "p50_ms",
+     "p99_ms",
+     "min_ms",
+     "max_ms"
+    ],
+    "properties": {
+     "name": {
+      "enum": [
+       "cpu_record",
+       "cpu_submit",
+       "cpu_fence_wait",
+       "readback_convert"
+      ]
+     },
+     "unit": {
+      "const": "host_wall_ms"
+     },
+     "mean_ms": {
+      "type": "number"
+     },
+     "p50_ms": {
+      "type": "number"
+     },
+     "p99_ms": {
+      "type": "number"
+     },
+     "min_ms": {
+      "type": "number"
+     },
+     "max_ms": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "frame_segments": {
+   "type": "array",
+   "minItems": 3,
+   "maxItems": 3,
+   "items": {
+    "type": "object",
+    "required": [
+     "name",
+     "unit",
+     "mean_ms",
+     "p50_ms",
+     "p99_ms",
+     "min_ms",
+     "max_ms"
+    ],
+    "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1
+     },
+     "unit": {
+      "const": "host_wall_ms"
+     },
+     "mean_ms": {
+      "type": "number"
+     },
+     "p50_ms": {
+      "type": "number"
+     },
+     "p99_ms": {
+      "type": "number"
+     },
+     "min_ms": {
+      "type": "number"
+     },
+     "max_ms": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "identity": {
+   "type": "object",
+   "required": [
+    "gpu_sum_mean_ms",
+    "gpu_sum_p99_ms",
+    "render_wall_mean_ms",
+    "cpu_seg_sum_mean_ms",
+    "host_residual_mean_ms",
+    "host_residual_p99_ms",
+    "host_residual_min_ms",
+    "host_residual_max_ms",
+    "gpu_sum_le_render_wall_tol_ms",
+    "host_residual_tol_ms",
+    "rule"
+   ],
+   "properties": {
+    "gpu_sum_mean_ms": {
+     "type": "number"
+    },
+    "gpu_sum_p99_ms": {
+     "type": "number"
+    },
+    "render_wall_mean_ms": {
+     "type": "number"
+    },
+    "cpu_seg_sum_mean_ms": {
+     "type": "number"
+    },
+    "host_residual_mean_ms": {
+     "type": "number"
+    },
+    "host_residual_p99_ms": {
+     "type": "number"
+    },
+    "host_residual_min_ms": {
+     "type": "number"
+    },
+    "host_residual_max_ms": {
+     "type": "number"
+    },
+    "gpu_sum_le_render_wall_tol_ms": {
+     "const": 0.1
+    },
+    "host_residual_tol_ms": {
+     "const": 2.0
+    },
+    "rule": {
+     "const": "gpu_sum_mean<=render_wall_mean+0.10 && -0.10<=host_residual_mean<=2.00"
+    }
+   }
+  },
+  "debug_labels": {
+   "type": "object",
+   "required": [
+    "active",
+    "annotated_pass_count",
+    "extension",
+    "note"
+   ],
+   "properties": {
+    "active": {
+     "type": "boolean"
+    },
+    "annotated_pass_count": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "extension": {
+     "const": "VK_EXT_debug_utils"
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1
+    }
+   }
+  },
+  "profiler_overhead": {
+   "type": "object",
+   "required": [
+    "assembly_ms",
+    "note"
+   ],
+   "properties": {
+    "assembly_ms": {
+     "type": "number",
+     "minimum": 0
+    },
+    "note": {
+     "type": "string",
+     "minLength": 1
+    }
+   }
+  },
+  "notes": {
+   "type": "string",
+   "minLength": 30
+  }
+ }
+}

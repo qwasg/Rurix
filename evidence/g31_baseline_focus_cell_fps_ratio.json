@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 0.9660586940378841
+ },
+ "notes": "G31 波 A 验收焦点格 fresh ratio（在案 0.960479 下界，诚实红不恶化）（源 g31_wave_a_anchor_check_20260825T215125Z.json digest=sha256:7d19cfe06d0b973a062677f6fe2c70cec592cddf9f2004989e4035b3163061e9）"
+}

@@ -1,0 +1,80 @@
+{
+  "schema": "rurix.g31.mesh_vs_raster_bench_gate_evidence.v1",
+  "subject": "g31_mesh_vs_raster_bench",
+  "symbolic_gate_key": "g31.waveC.meshbench",
+  "wave": "G31+.C",
+  "workload": {
+    "width": 1920,
+    "height": 1080,
+    "triangles": 262144,
+    "frames": 60,
+    "warmup": 10,
+    "triangle_regime": "确定性 PCG 哈希散布小三角形(cell=8px 右三角;Nanite 域小三角形档;重叠恒色写序无关)"
+  },
+  "arms": {
+    "vs_fetch": {
+      "gpu_ms_median": 0.234304,
+      "gpu_ms_mean": 0.234297,
+      "gpu_ms_min": 0.233568,
+      "gpu_ms_max": 0.234912,
+      "wall_ms_median": 0.2987,
+      "samples": 60,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    },
+    "vs_procedural": {
+      "gpu_ms_median": 0.23416,
+      "gpu_ms_mean": 0.234171,
+      "gpu_ms_min": 0.23344,
+      "gpu_ms_max": 0.234816,
+      "wall_ms_median": 0.3019,
+      "samples": 60,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    },
+    "mesh_procedural": {
+      "gpu_ms_median": 0.234144,
+      "gpu_ms_mean": 0.234367,
+      "gpu_ms_min": 0.23312,
+      "gpu_ms_max": 0.248992,
+      "wall_ms_median": 0.30345,
+      "samples": 60,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    }
+  },
+  "arms_run2": {
+    "vs_fetch": {
+      "gpu_ms_median": 0.234288,
+      "gpu_ms_mean": 0.234243,
+      "gpu_ms_min": 0.233344,
+      "gpu_ms_max": 0.234944,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    },
+    "vs_procedural": {
+      "gpu_ms_median": 0.234128,
+      "gpu_ms_mean": 0.234143,
+      "gpu_ms_min": 0.233312,
+      "gpu_ms_max": 0.234976,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    },
+    "mesh_procedural": {
+      "gpu_ms_median": 0.233984,
+      "gpu_ms_mean": 0.234025,
+      "gpu_ms_min": 0.233216,
+      "gpu_ms_max": 0.234688,
+      "pixel_digest": "sha256:9bff99c8bcae049f33ef092fbce82aa879bddd1808d5d9cd1a5c6ced73e99972"
+    }
+  },
+  "digest_all_equal": true,
+  "double_run_digest_bitexact": true,
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": 2600501248,
+    "vendor_id": 4318,
+    "api_version": 4211039,
+    "timestamp_period_ns": 1,
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T214521Z",
+  "notes": "G31+ 波 C Task C16 M61 ③ measured 对照(RFC-0034 重判表三项闭集之③):单会话三臂——vs_fetch(device-local vertex buffer 取数 = 现光栅路径形态)/ vs_procedural(同管线形态隔离取数成本,解释性臂)/ mesh_procedural(mesh 阶段 64 lane/wg 每 lane 1 三角形);同一确定性三角形集 ⇒ 三臂像素 digest 位级全等对拍(结构证据)+ GPU timestamp 逐帧 measured(TOP/BOTTOM 包 render pass;median/mean/min/max 如实登记不设通过线——G6 无硬门纪律)。主对照 = vs_fetch vs mesh_procedural。判据:①glslang 现编 ②host 构建 ③真跑+对拍 ④measured 健全 ⑤双跑 digest 位级=True ⑥validation 静默。facts: shader_compile=PASS; harness_build=PASS; device_run_digest_parity=PASS; measured_sane=PASS; determinism_double_run=PASS; validation_silent=PASS"
+}

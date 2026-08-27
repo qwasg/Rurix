@@ -1,0 +1,98 @@
+{
+  "schema": "rurix.g31.renderer_sdk_evidence.v1",
+  "subject": "g31_renderer_sdk",
+  "symbolic_gate_key": "g31.waveC.sdk",
+  "wave": "G31+.C",
+  "api": {
+    "abi_version_packed": "0x00010000",
+    "semver": "1.0.0",
+    "export_count": 9,
+    "version_policy": "apps/g31-renderer-sdk/API_VERSIONING.md",
+    "breaking_change_policy": "MAJOR 破坏性变更走 RFC + 新旧 MAJOR DLL 并存;MINOR 同 MAJOR 内只增不破坏(镜像 RXS-0180 L2);PATCH 语义不变修复"
+  },
+  "host_run": {
+    "host": "apps/g31-renderer-sdk/host/renderer_sdk_host.cpp(C++ 控制台,include 生成头 + 链 rurix_renderer.lib/rurix_renderer_sdk.lib)",
+    "scene": "bistro-interior",
+    "tier": 100,
+    "frames": 160,
+    "warmup": 10,
+    "abi_seen": "0x00010000",
+    "caps": 1,
+    "frame_ms_mean": 2.1572,
+    "frame_ms_p50": 2.0561,
+    "frame_samples": 160,
+    "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "stage_a_anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "digest_matches_stage_a_anchor": true,
+    "params_update_ok": true,
+    "present_ok": true,
+    "exit_code": 0
+  },
+  "stable_snapshot": {
+    "section": "renderer_sdk_api",
+    "export_count": 9,
+    "abi_version": "1.0.0",
+    "check_pass": true,
+    "bless_log_row": "tests/stable/bless_log.md 2026-08-25"
+  },
+  "rd036": {
+    "subset_v1_compliant": true,
+    "disposition": "maintain_open",
+    "upcall_trigger": false,
+    "external_fixed_abi_trigger": false
+  },
+  "regression": {
+    "export_c_smoke_exit": 0
+  },
+  "facts": [
+    {
+      "id": "header_generated_and_idempotent",
+      "status": "PASS",
+      "detail": "--emit=dll 三件齐=True 声明集==期望 9 导出=True 幂等=True 无绝对路径=True 篡改再生成 RED=True"
+    },
+    {
+      "id": "api_version_semver_policy",
+      "status": "PASS",
+      "detail": "API_VERSIONING.md 在树且含 MAJOR/MINOR/PATCH/1.0.0/破坏性变更走 RFC 字面;abi 字面 0x00010000(semver 1.0.0)"
+    },
+    {
+      "id": "host_integration_ok",
+      "status": "PASS",
+      "detail": "RXSDK_HOST_OK=True abi=0x00010000 caps=1 params_ok=True present_ok=True rc=0"
+    },
+    {
+      "id": "digest_matches_stage_a_anchor",
+      "status": "PASS",
+      "detail": "canonical 160+10 末帧 digest sha256:c1d28ad73783cc3c… vs Stage A 锚 bistro-interior_t100_tsr_device sha256:c1d28ad73783cc3c… 位级 MATCH(SDK 面 ≡ 生产管线)"
+    },
+    {
+      "id": "frame_time_measured",
+      "status": "PASS",
+      "detail": "post-warmup 帧时 mean=2.1572ms p50=2.0561ms n=160(要求 n==160 且均 >0;回读帧含回读税诚实口径)"
+    },
+    {
+      "id": "stable_snapshot_extended",
+      "status": "PASS",
+      "detail": "stable_snapshot --check exit=0;renderer_sdk_api 段 export_count=9 abi_version=1.0.0(bless_log 2026-08-25 行;RD-008 history 同日行处置登记)"
+    },
+    {
+      "id": "rd036_subset_v1_compliant",
+      "status": "PASS",
+      "detail": "sdk.rx 9 导出签名全落 subset v1 闭集(标量+*mut/*const 标量+unit)——RD-036 超界四项逐项不触,判档不成立维持 open(deferred.json 2026-08-25 行)"
+    },
+    {
+      "id": "uc05_export_c_regression_green",
+      "status": "PASS",
+      "detail": "ci/export_c_smoke.py(RURIX_REQUIRE_REAL=1)复跑 exit=0(EI1 export_c codegen 面零回归;UC-05 面由同 codegen 承载)"
+    }
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "sdk_build_profile": "release(rurix-renderer-sdk cdylib;.rx rurix_renderer.dll 经 rurixc debug 编译器发射)",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T205708Z",
+  "notes": "G31+ 波 C Task C1 渲染器 SDK 稳定 API 面(G31_PLUS §5 #48):两层 DLL 架构——.rx stable API 面(sdk.rx 9 个 #[export(c)] 薄转发,export_c codegen 产 rurix_renderer.dll + import lib + 生成头)+ 实现层 rurix-renderer-sdk cdylib(rxsdk_* u64 句柄会话面,薄封装 G14.3 统一四 pass TSR 生产车道 include! 共享体,U-59 注册)。外部 C++ 宿主全链真跑:初始化(能力协商)→ bistro 契约场景提交 → canonical 160+10 帧循环(末帧 digest 对拍 Stage A 锚 bistro-interior_t100_tsr_device)→ 参数更新见证(相机/曝光合法面+非法面拒+续渲)→ present 句柄 → 关闭。stable 快照 renderer_sdk_api 段纳入守卫(RD-008 机制延伸,处置登记 deferred.json 2026-08-25);RD-036 判档不成立维持 open(签名面 subset v1 机核)。facts: header_generated_and_idempotent=PASS; api_version_semver_policy=PASS; host_integration_ok=PASS; digest_matches_stage_a_anchor=PASS; frame_time_measured=PASS; stable_snapshot_extended=PASS; rd036_subset_v1_compliant=PASS; uc05_export_c_regression_green=PASS"
+}

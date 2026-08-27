@@ -280,7 +280,10 @@ impl ExecutionSet {
         }
         let mut members: Vec<ExecutionSetMember> = Vec::with_capacity(spec.members.len());
         for (i, m) in spec.members.iter().enumerate() {
-            if members.iter().any(|x: &ExecutionSetMember| x.name == m.name) {
+            if members
+                .iter()
+                .any(|x: &ExecutionSetMember| x.name == m.name)
+            {
                 return Err(ExecSetError::DuplicateMember {
                     name: m.name.clone(),
                 });
@@ -516,7 +519,10 @@ mod tests {
                 text.contains("capability.runtime_snapshot_mismatch"),
                 "诊断须沿 RXS-0313 symbolic key: {text}"
             );
-            assert!(text.contains("submit.execution_set"), "须点名缺失 ID: {text}");
+            assert!(
+                text.contains("submit.execution_set"),
+                "须点名缺失 ID: {text}"
+            );
         }
         assert!(
             select_execution_set_path(DgcBackend::Vulkan, ExecutionSetRequest::Auto, &[]).is_err()
@@ -554,7 +560,11 @@ mod tests {
         assert!(err.to_string().contains("不可表达"));
         // NVPTX:执行面不承诺。
         assert!(matches!(
-            select_execution_set_path(DgcBackend::Nvptx, ExecutionSetRequest::Auto, &["submit.execution_set"]),
+            select_execution_set_path(
+                DgcBackend::Nvptx,
+                ExecutionSetRequest::Auto,
+                &["submit.execution_set"]
+            ),
             Err(ExecSetError::GpuIndexSwitchInexpressible {
                 backend: DgcBackend::Nvptx
             })

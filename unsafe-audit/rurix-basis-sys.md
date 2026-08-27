@@ -20,6 +20,7 @@
 | U44 | encoder 入口(`rurix_basis_encode_bc7_rgba8` / `bc1` / `astc4x4`) | lib.rs `encode_with` | 调用前:`rgba` 指针在调用期内有效且长度 ≥ `w*h*4`,`w/h>0`;`out` 指向栈上 `RurixBasisBuf` POD;失败时 shim 不留下需调用方释放的非配对指针(仍统一 `buf_free` 兜底);成功后缓冲所有权经 U46 移交;编码线程=1、无可重入共享可变全局 |
 | U45 | 版本串 / `extern "C"` 声明面(`rurix_basis_version` + 头文件镜像) | ffi.rs 全文;lib.rs `version_string` | `version` 返回静态只读 C 字符串,非 null,生命周期=进程,UTF-8 字面 == `VENDOR_VERSION` / VENDOR.md pin;`extern "C"` 签名与 `rurix_basis_shim.h` 字段序/类型一致;`RurixBasisBuf` 布局 = 指针+usize(单测锚定) |
 | U46 | 跨 FFI 内存视图(encoder 堆缓冲 → Rust `Vec`) | lib.rs `take_buf` / 失败路径 `buf_free` | `data` 指向 C++ `new[]` 的 `len` 字节;在 `buf_free` 前只读拷贝进 Rust `Vec`(**禁止** `from_raw_parts` 跨分配器接管);随后恰好一次 `rurix_basis_buf_free`(`delete[]`);失败路径同样 free;无双释放/无 UAF |
+| U60 | level 参数化 transcode 入口(`rurix_basis_transcode_level`;G31+ 波 C Task C14 KTX2 三行) | ffi.rs 声明;lib.rs `transcode_level`;ffi/rurix_basis_wrap.{h,cpp} | 调用前:`container` 在调用期内有效且长度 == `len`;`out`/`out_width`/`out_height` 指向栈上 POD;`level` 越界由 wrap fail-closed(KTX2 rc=17 / `.basis` rc=5,不写非 null `data`);成功后缓冲所有权经 U46 移交;`level=0` 与既有 `transcode` 入口位级一致(单测锚定);线程恒 1、无可重入共享可变全局 |
 
 ## 销毁纪律
 

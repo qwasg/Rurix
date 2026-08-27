@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 3.5966237500000005
+ },
+ "notes": "G33 商业化期波 C 验收 G17-MD-F1 焦点格（bistro-interior/t100/dlss_sr）canonical 160 帧新鲜 frame_ms_production_mean——取门跑新鲜保守值（g31_wave_a_anchor_check_20260826T230806Z）；本日 5 样本 3.512540/3.539031/3.586359/3.587437/3.596624ms，中位 3.586359ms → 中位 ratio 0.957894 < 在案 0.960479（诚实红轨迹面维持，digest 五跑全 == 在案锚 sha256:55ea0c2b…）；预算杠 = 在案 3.5767ms ×2.0 = 7.1534ms 远未触及"
+}

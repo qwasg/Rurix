@@ -1,0 +1,219 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-2 粒子核心运行时门裁决证据(ci/g35_particle_core_smoke.py --gate 产)",
+  "description": "G35-2 粒子核心运行时门 g35.wave2.particle_core 的 smoke 裁决证据:① kernels_spv_valid(rurixc 现编 7 kernel = 4 新〔g35_sim/g35_particle_compact/g35_emit/g35_indirect_args〕+ 3 scan 消费面〔g35_scan_seg_sum/g35_scan_spine/g35_scan_seg_apply,消费不修改〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档)② integer_streams_bitexact(pid/flags/scan_out/seg_offsets/args 五整数流 device↔host 逐帧 memcmp 零容差位级,G35-P v1 帧序 sim→scan→compact→emit→indirect_args 全链)③ f32_parity_within_budget(pos_x/y/z、vel_x/y/z、age、life 八 f32 流逐帧 max abs diff 聚合 p100 ≤ 冻结容差——milestones/g35/g35_budget.json g35.particle_core.f32_parity_p100 程序读禁手写:threshold = measured × 2.0 标定冻结,measured = 0 时 threshold = 0;缺条目时标定腿先跑程序写入)④ pid_persistent_unique(每帧无重复 pid + 幸存段 ⊆ 上帧集 + 新发射段 == [pid_base, pid_base+emit) 精确区间——persistent ID 机器事实)⑤ indirect_args_zero_readback(device args 8 槽 == host 平行金标准推得 + args[7] == alive_total+emit_count 恒等式——host 不读回 device 计数只对拍验证,零回读链)⑥ determinism_double_run(同 seed 全链双跑 digest 位级一致;digest = 所有流字节 sha256 逐帧链式)⑦ red_arm_effective(--red-arm seed-change 换 seed 双跑 digest 必异——digest 判据对流内容敏感性证明)⑧ frame_ms_measured(device 7 dispatch 链逐帧墙钟均值 measured_local 诚实登记,含 run_compute 逐 dispatch 会话重建开销,非帧率对标)。results.trimmed_mean = f32 measured p100 镜像(ci/budget_eval.py 通用路 evidence_file 消费面)。三态:无 Vulkan loader/设备 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "frame_protocol",
+    "integer_parity",
+    "f32_parity",
+    "results",
+    "pid_persistence",
+    "indirect_args",
+    "determinism",
+    "red_arm",
+    "frame_ms",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.particle_core_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_particle_core" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave2.particle_core" },
+    "wave": { "type": "string", "const": "G35.2" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "integer_streams_bitexact",
+              "f32_parity_within_budget",
+              "pid_persistent_unique",
+              "indirect_args_zero_readback",
+              "determinism_double_run",
+              "red_arm_effective",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sim_spv",
+        "compact_spv",
+        "emit_spv",
+        "indirect_args_spv",
+        "scan_seg_sum_spv",
+        "scan_spine_spv",
+        "scan_seg_apply_spv",
+        "spirv_val_all",
+        "frozen_consumed_snapshot"
+      ],
+      "properties": {
+        "sim_spv": { "$ref": "#/definitions/spv_entry" },
+        "compact_spv": { "$ref": "#/definitions/spv_entry" },
+        "emit_spv": { "$ref": "#/definitions/spv_entry" },
+        "indirect_args_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_sum_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_spine_spv": { "$ref": "#/definitions/spv_entry" },
+        "scan_seg_apply_spv": { "$ref": "#/definitions/spv_entry" },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(kernels/g35_scan_seg_sum.rx / g35_scan_spine.rx / g35_scan_seg_apply.rx / particles/mod.rs / particles/scan.rs——G35-2 消费不修改承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "frame_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "cap", "seed", "dt", "emit_schedule", "n_final", "alive_final", "pids_issued"],
+      "properties": {
+        "frames": { "type": "integer", "minimum": 64 },
+        "cap": { "type": "integer", "minimum": 256 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "dt": { "type": "number", "exclusiveMinimum": 0 },
+        "emit_schedule": { "type": "string", "const": "min(64 + frame*17 % 192, cap - n_curr)" },
+        "n_final": { "type": "integer", "minimum": 1 },
+        "alive_final": { "type": "integer", "minimum": 0 },
+        "pids_issued": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "integer_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bitexact", "streams"],
+      "properties": {
+        "bitexact": { "type": "boolean", "description": "五整数流(flags/scan_out/seg_offsets/pid/args)全帧 memcmp 零容差位级才许 true" },
+        "streams": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "type": "string", "enum": ["flags", "scan_out", "seg_offsets", "pid", "args"] }
+        }
+      }
+    },
+    "f32_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured_p100", "threshold", "budget_entry", "calibrated_this_run", "within", "stream_max"],
+      "properties": {
+        "measured_p100": { "type": "number", "minimum": 0 },
+        "threshold": { "type": "number", "minimum": 0, "description": "= measured × 2.0 标定冻结(程序产禁手写;measured = 0 时 = 0 零容差零条目)" },
+        "budget_entry": { "type": "string", "const": "g35.particle_core.f32_parity_p100" },
+        "calibrated_this_run": { "type": "boolean", "description": "true = 本次 --gate 标定腿程序写入 g35_budget;false = 既有冻结条目程序读" },
+        "within": { "type": "boolean" },
+        "stream_max": { "type": "object", "description": "逐流 max abs diff(pos_x/y/z、vel_x/y/z、age、life 八 f32 流)" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number", "minimum": 0, "description": "= f32_parity.measured_p100 镜像(ci/budget_eval.py 通用路 doc.results.trimmed_mean 消费面;g35_budget evidence_file 指向本件)" }
+      }
+    },
+    "pid_persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unique", "survivor_subset", "emit_range_exact"],
+      "properties": {
+        "unique": { "type": "boolean", "description": "每帧 device pid 流无重复才许 true" },
+        "survivor_subset": { "type": "boolean", "description": "每帧幸存段 [0..alive) ⊆ 上帧 pid 集才许 true" },
+        "emit_range_exact": { "type": "boolean", "description": "每帧新发射段 == [pid_base, pid_base+emit) 精确区间才许 true" }
+      }
+    },
+    "indirect_args": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_match", "identity_alive_plus_emit", "args_last"],
+      "properties": {
+        "device_match": { "type": "boolean", "description": "device args 8 槽全帧 == host 平行金标准推得才许 true(零回读链)" },
+        "identity_alive_plus_emit": { "type": "boolean", "description": "args[7] == alive_total + emit_count 恒等式全帧成立才许 true" },
+        "args_last": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "同 seed 全链双跑 digest 位级一致才许 true(digest = 所有流字节 sha256 逐帧链式)" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "detected", "digest_green", "digest_red"],
+      "properties": {
+        "arm": { "type": "string", "const": "seed-change" },
+        "detected": { "type": "boolean", "description": "换 seed 双跑 digest 必异才许 true(digest 判据敏感性证明)" },
+        "digest_green": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_chain_mean_ms", "frames_per_run", "measured", "note"],
+      "properties": {
+        "device_chain_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frames_per_run": { "type": "integer", "minimum": 64 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "description": "probe 真跑 evidence 件(绿臂/红臂/标定腿,.tmp 工作区路径登记)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

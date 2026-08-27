@@ -1,0 +1,120 @@
+//@ spec: RFC-0049 §4.9(G35-6 事件/数据通道 event_collect;spec 条款号本期
+// 零新设)
+// G35-6 事件通道 · 死亡事件收集 —— death_flags 派生 + 稳定 scan 槽位
+// scatter 压入 GPU 事件缓冲(门 g35.wave6.events;G35_CONTRACT §4 契约,
+// src/particles/events.rs 冻结协议头字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽;G35-6 帧序两相)
+// 公式面与 host 金标准 `particles/events.rs::event_collect_step` **逐字
+// 同源**。两相经 params[2] 分派(单 kernel 双 dispatch;buffers 绑定面
+// 恒定):
+//   相 0(death_flags 派生):线程 = 段,段内串行 i ∈ [s·256,
+//   min((s+1)·256, n)):death_flags[i] = 1 − alive_flags[i](池不变量:
+//   池内粒子上帧皆活 ⇒ 本帧死亡 = sim 后 flags==0);相 0 之后 host 依
+//   G35-P v1 帧序**复用 W2 三 scan kernel**(g35_scan_seg_sum/spine/
+//   seg_apply,消费不修改)对 death_flags 求稳定死亡槽(death_scan +
+//   death_offsets,稳定序 = 粒子下标序)。
+//   相 1(scatter + 计数):线程 s==0 写 ev_count[0] = min(
+//   death_offsets[nseg], EVENT_CAP)(kept)、ev_count[1] =
+//   death_offsets[nseg](death_total 原值)——**溢出如实登记禁静默丢**;
+//   线程 = 段,段内串行:death_flags[i] != 0 ⇒ dst = death_scan[i],
+//   dst < EVENT_CAP 者写事件(死亡槽 ≥ EVENT_CAP 者不写 = 溢出钳制,
+//   保留集 = 稳定 scan 序前 EVENT_CAP 项,确定)。
+// 事件布局冻结(events.rs 头注):meta u32×3/事件
+//   [dst·3+0]=producer_id(死亡粒子 pid) [dst·3+1]=slot(死亡槽 dst)
+//   [dst·3+2]=kind(恒 1 = EVENT_KIND_DEATH);payload f32×5/事件
+//   [dst·5+0..3)=积分后 pos.xyz [dst·5+3..5)=vel.xy(vel_z 不入载荷)。
+// 本 kernel 纯搬运/纯整数零 f32 算术(payload 写 = load/store 原位型)⇒
+// meta/count/death_flags 整数流 device↔host 零容差位级;payload 位型随
+// sim f32 流走标定容差(搬运面不引入新差)。无 shared / 无原子 / 无位
+// 运算(u32/usize 除模精确算术)。
+//
+// ## 参数面(8 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 14,
+// 与 host 金标准 / probe(bin/g35_events_device.rs)buffers 下标严格一致)
+//   params[0]=n [1]=nseg [2]=phase(0=death_flags 派生 / 1=scatter+计数)
+//   [3]=event_cap(=1024 冻结,f32 精确) [4..8)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×8) / 1 flags(View u32×cap,存活 flags,
+//   相 0 消费) / 2 death_flags(ViewMut u32×cap,相 0 写、相 1 读) /
+//   3 death_scan(View u32×cap,W2 scan 产物,相 1) / 4 death_offsets
+//   (View u32×(nseg+1),W2 spine 产物,相 1 读总和槽) / 5 a_pos_x /
+//   6 a_pos_y / 7 a_pos_z / 8 a_vel_x / 9 a_vel_y(View f32×cap,sim 后
+//   A 组) / 10 a_pid(View u32×cap) / 11 ev_meta(ViewMut u32×3·1024) /
+//   12 ev_payload(ViewMut f32×5·1024) / 13 ev_count(ViewMut u32×2)。
+//   dispatch:相 0 = [nseg, 1, 1](nseg = 0 跳过);相 1 = [max(nseg,1),
+//   1, 1](恒跑——s==0 计数写与 nseg 无关,空池帧 ev_count 归零)。
+//   LocalSize 1,1,1。
+#[numthreads(1, 1, 1)]
+kernel fn g35_event_collect(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    flags: View<global, u32>,
+    death_flags: ViewMut<global, u32>,
+    death_scan: View<global, u32>,
+    death_offsets: View<global, u32>,
+    a_pos_x: View<global, f32>,
+    a_pos_y: View<global, f32>,
+    a_pos_z: View<global, f32>,
+    a_vel_x: View<global, f32>,
+    a_vel_y: View<global, f32>,
+    a_pid: View<global, u32>,
+    ev_meta: ViewMut<global, u32>,
+    ev_payload: ViewMut<global, f32>,
+    ev_count: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let phase = params[2] as usize;
+    let cap_ev = params[3] as usize;
+    if phase < 1usize {
+        // 相 0:death_flags = 1 − alive_flags(段内串行,下标序)。
+        if s < nseg {
+            let lo = s * 256usize;
+            let mut hi = lo + 256usize;
+            if hi > n {
+                hi = n;
+            }
+            let mut i = lo;
+            while i < hi {
+                death_flags[i] = 1u32 - flags[i];
+                i = i + 1usize;
+            }
+        }
+    } else {
+        // 相 1:计数(s==0,与 nseg 无关恒写)+ scatter(段内串行)。
+        if s < 1usize {
+            let total = death_offsets[nseg];
+            let capw = cap_ev as u32;
+            let mut kept = total;
+            if kept > capw {
+                kept = capw;
+            }
+            ev_count[0] = kept;
+            ev_count[1] = total;
+        }
+        if s < nseg {
+            let lo = s * 256usize;
+            let mut hi = lo + 256usize;
+            if hi > n {
+                hi = n;
+            }
+            let mut i = lo;
+            while i < hi {
+                if death_flags[i] != 0u32 {
+                    let dst = death_scan[i] as usize;
+                    if dst < cap_ev {
+                        ev_meta[dst * 3usize] = a_pid[i];
+                        ev_meta[dst * 3usize + 1usize] = dst as u32;
+                        ev_meta[dst * 3usize + 2usize] = 1u32;
+                        ev_payload[dst * 5usize] = a_pos_x[i];
+                        ev_payload[dst * 5usize + 1usize] = a_pos_y[i];
+                        ev_payload[dst * 5usize + 2usize] = a_pos_z[i];
+                        ev_payload[dst * 5usize + 3usize] = a_vel_x[i];
+                        ev_payload[dst * 5usize + 4usize] = a_vel_y[i];
+                    }
+                }
+                i = i + 1usize;
+            }
+        }
+    }
+}

@@ -1,0 +1,453 @@
+//@ spec: RXS-0369
+// G31+ 波 A Task A3 device 侧显示编码 kernel（RFC-0025 §4.I 输出变换的 GPU
+// 兑现面）：TSR 输出（scene-linear Rec.709 f32×3/px，已含逐帧 exposure）→
+// ACES 1.3 RRT + ODT.Rec709_100nits_dim（显示线性 [0,1]）→ BT.1886 γ2.4 逆
+// EOTF 编码 → 8-bit 量化 → BGRA8/RGBA8 打包 u32/px 直写 SSBO（swapchain
+// present 腿唯一消费面；host 逐像素编码瓶颈的消除位——A1 host f64 逐像素
+// 实测 ~2.9s/帧@1080p debug）。
+//
+// ## 单源纪律
+// 公式单源 = host `display::aces13`（RRT.a1.0.3 + ODT a1.0.3 逐字移植）+
+// `display::color`（矩阵推导/BT.1886/hue/YC/饱和度）。全部矩阵与样条系数
+// 由 host `aces13::aces13_device_encode_params` 以**同一私有 f64 参考实现**
+// 现算后经 params SSBO 上传（本 kernel 零转写数值常量；仅有的字面量 =
+// CTL 固有常量 0.05/0.08/0.82/0.03/135/0.96 段内联项、π 族、log2/exp2
+// 换算因子与 atan2 逼近系数——逐项见下「f32 移植偏差登记」）。
+//
+// ## f32 移植偏差登记（相对 host f64 参考面；ULP~1e-3 量级,双跑位级确定性
+// 不受影响——同一 SPV 同一输入同一 GPU 恒同输出）
+// 1. 全 f32（host 参考 f64）；矩阵/样条系数 f64→f32 收窄一次（host 导出侧）。
+// 2. log10(x) = log2(x)·0.30103（1/log2(10) f32 截断）；pow10(y) =
+//    exp2(y·3.3219281)（vulkan backend log10 未映射的组合表达,见
+//    rurixc/vulkan_codegen.rs glsl_ext_op 注释）。
+// 3. rgb_2_hue 的 atan2 = Rajan 有理逼近 atan(z) ≈ π/4·z − z·(z−1)·
+//    (0.2447 + 0.0663·z)（|z|≤1,max |err| ≤ 0.0015 rad ≈ 0.086°；hue 误差
+//    经 cubic_basis_shaper(宽 135°) 衰减为 red modifier 权重的二阶小量）。
+// 4. rgb_2_yc chroma 平方根内表达式 f32 舍入可微负 → max(·,0) 守卫（f64
+//    参考面数学恒 ≥0,守卫不改数学域行为）。
+// 5. cinema_black 字面 0.02：host 走 pow10(log10(0.02)) 迂回,f64 结果与
+//    0.02 差 1 ulp,f32 化后两者逐位同值 ⇒ 零差。
+// 6. BT.1886(Lw=1,Lb=0) 逆 EOTF 退化形 v^(1/2.4)（a=1,b=0 代数化简,与
+//    host bt1886_inv(v,2.4,1,0) 同式）。
+// 7. 量化 = floor(v·255 + 0.5)（host `(v*255).round()` 非负域 half-away
+//    同语义;非有限输入由 TSR 链上游门拦,本 kernel 不重复判）。
+//
+// ## 确定性协议（RXS-0357 L2 继承）
+// 逐像素独立顺序求值,禁 atomic/跨像素交互;固定输入（同一场景同一帧参数）
+// 双跑位级一致。jitter/历史链与本 kernel 无关（消费 TSR 已完成输出）。
+//
+// ## 参数面（params: f32 SSBO；host `aces13_device_encode_params` 逐字同源）
+//   [0]=w [1]=h [2]=bgra_flag(1.0=BGR 字节序/0.0=RGB) [3]=reserved
+//   [4..=12] rec709_to_ap0 行主 [13..=21] ap0_to_ap1 [22..=30] ap1_to_ap0
+//   [31..=39] rrt_sat(0.96) [40..=48] odt_sat(0.93) [49..=57] ap1_to_xyz
+//   [58..=66] xyz_to_ap1 [67..=75] d60_to_d65_cat [76..=84] xyz_to_rec709
+//   [85..=90] c5 coefs_low [91..=96] c5 coefs_high
+//   [97..=102] c5 min/mid/max (x,y) [103] c5 slope_low [104] c5 slope_high
+//   [105..=114] c9 coefs_low [115..=124] c9 coefs_high
+//   [125..=130] c9 min/mid/max (x,y) [131] c9 slope_low [132] c9 slope_high
+//   [133..=135] reserved（恒 0）
+//   in_color: 3 f32/px（TSR out_color[parity] 驻留直读,零 host 往返）；
+//   out_packed: 1 u32/px（字节序 [b0,b1,b2,255] 小端；通道映射随 bgra_flag）。
+#[numthreads(8, 8, 1)]
+kernel fn g31_display_encode(
+    t: ThreadCtx<2>,
+    in_color: View<global, f32>,
+    params: View<global, f32>,
+    out_packed: ViewMut<global, u32>,
+) {
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[0] as usize;
+    let height = params[1] as usize;
+    if px < width && py < height {
+        let i = py * width + px;
+        let r0 = in_color[i * 3];
+        let g0 = in_color[i * 3 + 1];
+        let b0 = in_color[i * 3 + 2];
+
+        // ── IDT 等价段:scene-linear Rec.709 → AP0（vmul 行向量×矩阵）──
+        let ar = r0 * params[4] + g0 * params[7] + b0 * params[10];
+        let ag = r0 * params[5] + g0 * params[8] + b0 * params[11];
+        let ab = r0 * params[6] + g0 * params[9] + b0 * params[12];
+
+        // ── RRT glow 模块（饱和度/YC 于 glow 前输入求值,host 同序）──
+        let maxc = ar.max(ag).max(ab);
+        let minc = ar.min(ag).min(ab);
+        let sat = (maxc.max(0.0000000001) - minc.max(0.0000000001)) / maxc.max(0.01);
+        let chroma = (ab * (ab - ag) + ag * (ag - ar) + ar * (ar - ab))
+            .max(0.0)
+            .sqrt();
+        let yc = (ab + ag + ar + 1.75 * chroma) / 3.0;
+        let sx = (sat - 0.4) / 0.2;
+        let tsig = (1.0 - (sx / 2.0).abs()).max(0.0);
+        let mut sgn = 0.0;
+        if sx < 0.0 {
+            sgn = 0.0 - 1.0;
+        } else if sx > 0.0 {
+            sgn = 1.0;
+        }
+        let sig = (1.0 + sgn * (1.0 - tsig * tsig)) / 2.0;
+        let glow_gain = 0.05 * sig;
+        let mut glow = 0.0;
+        if yc <= 2.0 / 3.0 * 0.08 {
+            glow = glow_gain;
+        } else if yc >= 2.0 * 0.08 {
+            glow = 0.0;
+        } else {
+            glow = glow_gain * (0.08 / yc - 0.5);
+        }
+        let added = 1.0 + glow;
+        let mut ar2 = ar * added;
+        let ag2 = ag * added;
+        let ab2 = ab * added;
+
+        // ── RRT red modifier（hue 于 glow 后求值;中性色 hw=0,host NaN 语义;
+        //    vulkan W1 子集无一元 not——中性判正写, hue 计算落 else 臂）──
+        let mut hw = 0.0;
+        if ar2 == ag2 && ag2 == ab2 {
+            hw = 0.0;
+        } else {
+            let yy = 1.7320508 * (ag2 - ab2);
+            let xx = 2.0 * ar2 - ag2 - ab2;
+            let ax = xx.abs();
+            let ay = yy.abs();
+            let mx = ax.max(ay);
+            let mut hue = 0.0;
+            if mx > 0.0 {
+                let z = ax.min(ay) / mx;
+                // Rajan atan 有理逼近（|z|≤1;max |err|≤0.0015 rad）。
+                let at = 0.78539816 * z - z * (z - 1.0) * (0.2447 + 0.0663 * z);
+                let mut ang = at;
+                if ay > ax {
+                    ang = 1.5707963 - at;
+                }
+                if xx < 0.0 {
+                    ang = 3.1415927 - ang;
+                }
+                if yy < 0.0 {
+                    ang = 0.0 - ang;
+                }
+                hue = ang * 57.29578;
+                if hue < 0.0 {
+                    hue = hue + 360.0;
+                }
+            }
+            // center_hue(hue, 0.0) 回卷 [-180,180]。
+            let mut centered = hue;
+            if centered < 0.0 - 180.0 {
+                centered = centered + 360.0;
+            }
+            if centered > 180.0 {
+                centered = centered - 360.0;
+            }
+            // cubic_basis_shaper(centered, 135)（knots ±67.5/±33.75/0;列选择
+            // 四种其余 0;host `j < 4` 门于 kc∈(0,4) 恒真——区间即 (±67.5)）。
+            if centered > 0.0 - 67.5 && centered < 67.5 {
+                let kc = (centered + 67.5) * 4.0 / 135.0;
+                let jf = kc.floor();
+                let tf = kc - jf;
+                let mut y = 0.0;
+                if jf < 0.5 {
+                    y = tf * tf * tf * (1.0 / 6.0);
+                } else if jf < 1.5 {
+                    y = tf * tf * tf * (0.0 - 3.0 / 6.0)
+                        + tf * tf * (3.0 / 6.0)
+                        + tf * (3.0 / 6.0)
+                        + 1.0 / 6.0;
+                } else if jf < 2.5 {
+                    y = tf * tf * tf * (3.0 / 6.0)
+                        + tf * tf * (0.0 - 6.0 / 6.0)
+                        + 4.0 / 6.0;
+                } else {
+                    y = tf * tf * tf * (0.0 - 1.0 / 6.0)
+                        + tf * tf * (3.0 / 6.0)
+                        + tf * (0.0 - 3.0 / 6.0)
+                        + 1.0 / 6.0;
+                }
+                hw = y * 1.5;
+            }
+        }
+        ar2 = ar2 + hw * sat * (0.03 - ar2) * (1.0 - 0.82);
+
+        // ── ACES → 渲染空间（clamp≥0 → AP0→AP1 → clamp[0,HALF_MAX] → desat 0.96）──
+        let cr = ar2.max(0.0);
+        let cg = ag2.max(0.0);
+        let cb = ab2.max(0.0);
+        let pr = (cr * params[13] + cg * params[16] + cb * params[19])
+            .max(0.0)
+            .min(65504.0);
+        let pg = (cr * params[14] + cg * params[17] + cb * params[20])
+            .max(0.0)
+            .min(65504.0);
+        let pb = (cr * params[15] + cg * params[18] + cb * params[21])
+            .max(0.0)
+            .min(65504.0);
+        let dr = pr * params[31] + pg * params[34] + pb * params[37];
+        let dg = pr * params[32] + pg * params[35] + pb * params[38];
+        let db = pr * params[33] + pg * params[36] + pb * params[39];
+
+        // ── c5 分段样条色调尺度（逐通道;N=4 双段,log 域）──
+        let c5_lminx = params[97].log2() * 0.30103;
+        let c5_lmidx = params[99].log2() * 0.30103;
+        let c5_lmaxx = params[101].log2() * 0.30103;
+        let c5_lminy = params[98].log2() * 0.30103;
+        let c5_lmaxy = params[102].log2() * 0.30103;
+        // R 通道。
+        let lx_r = dr.max(0.00006103515625).log2() * 0.30103;
+        let mut logy_r = 0.0;
+        if lx_r <= c5_lminx {
+            logy_r = lx_r * params[103] + (c5_lminy - params[103] * c5_lminx);
+        } else if lx_r < c5_lmidx {
+            let kc = 3.0 * (lx_r - c5_lminx) / (c5_lmidx - c5_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[85 + j];
+            let cf1 = params[85 + j + 1];
+            let cf2 = params[85 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_r = tf * tf * b0 + tf * b1 + b2;
+        } else if lx_r < c5_lmaxx {
+            let kc = 3.0 * (lx_r - c5_lmidx) / (c5_lmaxx - c5_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[91 + j];
+            let cf1 = params[91 + j + 1];
+            let cf2 = params[91 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_r = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy_r = lx_r * params[104] + (c5_lmaxy - params[104] * c5_lmaxx);
+        }
+        let or_ = (logy_r * 3.3219281).exp2();
+        // G 通道。
+        let lx_g = dg.max(0.00006103515625).log2() * 0.30103;
+        let mut logy_g = 0.0;
+        if lx_g <= c5_lminx {
+            logy_g = lx_g * params[103] + (c5_lminy - params[103] * c5_lminx);
+        } else if lx_g < c5_lmidx {
+            let kc = 3.0 * (lx_g - c5_lminx) / (c5_lmidx - c5_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[85 + j];
+            let cf1 = params[85 + j + 1];
+            let cf2 = params[85 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_g = tf * tf * b0 + tf * b1 + b2;
+        } else if lx_g < c5_lmaxx {
+            let kc = 3.0 * (lx_g - c5_lmidx) / (c5_lmaxx - c5_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[91 + j];
+            let cf1 = params[91 + j + 1];
+            let cf2 = params[91 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_g = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy_g = lx_g * params[104] + (c5_lmaxy - params[104] * c5_lmaxx);
+        }
+        let og_ = (logy_g * 3.3219281).exp2();
+        // B 通道。
+        let lx_b = db.max(0.00006103515625).log2() * 0.30103;
+        let mut logy_b = 0.0;
+        if lx_b <= c5_lminx {
+            logy_b = lx_b * params[103] + (c5_lminy - params[103] * c5_lminx);
+        } else if lx_b < c5_lmidx {
+            let kc = 3.0 * (lx_b - c5_lminx) / (c5_lmidx - c5_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[85 + j];
+            let cf1 = params[85 + j + 1];
+            let cf2 = params[85 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_b = tf * tf * b0 + tf * b1 + b2;
+        } else if lx_b < c5_lmaxx {
+            let kc = 3.0 * (lx_b - c5_lmidx) / (c5_lmaxx - c5_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[91 + j];
+            let cf1 = params[91 + j + 1];
+            let cf2 = params[91 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy_b = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy_b = lx_b * params[104] + (c5_lmaxy - params[104] * c5_lmaxx);
+        }
+        let ob_ = (logy_b * 3.3219281).exp2();
+
+        // ── 渲染空间 → OCES（AP1→AP0）──
+        let xr = or_ * params[22] + og_ * params[25] + ob_ * params[28];
+        let xg = or_ * params[23] + og_ * params[26] + ob_ * params[29];
+        let xb = or_ * params[24] + og_ * params[27] + ob_ * params[30];
+
+        // ── ODT:OCES → AP1 → c9 色调尺度（N=8 双段）──
+        let qr = xr * params[13] + xg * params[16] + xb * params[19];
+        let qg = xr * params[14] + xg * params[17] + xb * params[20];
+        let qb = xr * params[15] + xg * params[18] + xb * params[21];
+        let c9_lminx = params[125].log2() * 0.30103;
+        let c9_lmidx = params[127].log2() * 0.30103;
+        let c9_lmaxx = params[129].log2() * 0.30103;
+        let c9_lminy = params[126].log2() * 0.30103;
+        let c9_lmaxy = params[130].log2() * 0.30103;
+        // R 通道。
+        let kx_r = qr.max(0.00006103515625).log2() * 0.30103;
+        let mut logy2_r = 0.0;
+        if kx_r <= c9_lminx {
+            logy2_r = kx_r * params[131] + (c9_lminy - params[131] * c9_lminx);
+        } else if kx_r < c9_lmidx {
+            let kc = 7.0 * (kx_r - c9_lminx) / (c9_lmidx - c9_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[105 + j];
+            let cf1 = params[105 + j + 1];
+            let cf2 = params[105 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_r = tf * tf * b0 + tf * b1 + b2;
+        } else if kx_r < c9_lmaxx {
+            let kc = 7.0 * (kx_r - c9_lmidx) / (c9_lmaxx - c9_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[115 + j];
+            let cf1 = params[115 + j + 1];
+            let cf2 = params[115 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_r = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy2_r = kx_r * params[132] + (c9_lmaxy - params[132] * c9_lmaxx);
+        }
+        let sr = (logy2_r * 3.3219281).exp2();
+        // G 通道。
+        let kx_g = qg.max(0.00006103515625).log2() * 0.30103;
+        let mut logy2_g = 0.0;
+        if kx_g <= c9_lminx {
+            logy2_g = kx_g * params[131] + (c9_lminy - params[131] * c9_lminx);
+        } else if kx_g < c9_lmidx {
+            let kc = 7.0 * (kx_g - c9_lminx) / (c9_lmidx - c9_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[105 + j];
+            let cf1 = params[105 + j + 1];
+            let cf2 = params[105 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_g = tf * tf * b0 + tf * b1 + b2;
+        } else if kx_g < c9_lmaxx {
+            let kc = 7.0 * (kx_g - c9_lmidx) / (c9_lmaxx - c9_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[115 + j];
+            let cf1 = params[115 + j + 1];
+            let cf2 = params[115 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_g = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy2_g = kx_g * params[132] + (c9_lmaxy - params[132] * c9_lmaxx);
+        }
+        let sg = (logy2_g * 3.3219281).exp2();
+        // B 通道。
+        let kx_b = qb.max(0.00006103515625).log2() * 0.30103;
+        let mut logy2_b = 0.0;
+        if kx_b <= c9_lminx {
+            logy2_b = kx_b * params[131] + (c9_lminy - params[131] * c9_lminx);
+        } else if kx_b < c9_lmidx {
+            let kc = 7.0 * (kx_b - c9_lminx) / (c9_lmidx - c9_lminx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[105 + j];
+            let cf1 = params[105 + j + 1];
+            let cf2 = params[105 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_b = tf * tf * b0 + tf * b1 + b2;
+        } else if kx_b < c9_lmaxx {
+            let kc = 7.0 * (kx_b - c9_lmidx) / (c9_lmaxx - c9_lmidx);
+            let j = kc.floor() as usize;
+            let tf = kc - j as f32;
+            let cf0 = params[115 + j];
+            let cf1 = params[115 + j + 1];
+            let cf2 = params[115 + j + 2];
+            let b0 = 0.5 * cf0 - cf1 + 0.5 * cf2;
+            let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;
+            let b2 = 0.5 * cf0;
+            logy2_b = tf * tf * b0 + tf * b1 + b2;
+        } else {
+            logy2_b = kx_b * params[132] + (c9_lmaxy - params[132] * c9_lmaxx);
+        }
+        let sb = (logy2_b * 3.3219281).exp2();
+
+        // ── 亮度 → 线性码值（CINEMA_WHITE=48,cinema_black=0.02）──
+        let lr = (sr - 0.02) / 47.98;
+        let lg = (sg - 0.02) / 47.98;
+        let lb = (sb - 0.02) / 47.98;
+
+        // ── dim surround（AP1→XYZ→xyY,Y^0.9811,→XYZ→AP1）──
+        let x1 = lr * params[49] + lg * params[52] + lb * params[55];
+        let y1 = lr * params[50] + lg * params[53] + lb * params[56];
+        let z1 = lr * params[51] + lg * params[54] + lb * params[57];
+        let mut divisor = x1 + y1 + z1;
+        if divisor == 0.0 {
+            divisor = 0.0000000001;
+        }
+        let xyx = x1 / divisor;
+        let xyy = y1 / divisor;
+        let y2 = y1.max(0.0).powf(0.9811);
+        let yden = xyy.max(0.0000000001);
+        let x2 = xyx * y2 / yden;
+        let z2 = (1.0 - xyx - xyy) * y2 / yden;
+        let dr2 = x2 * params[58] + y2 * params[61] + z2 * params[64];
+        let dg2 = x2 * params[59] + y2 * params[62] + z2 * params[65];
+        let db2 = x2 * params[60] + y2 * params[63] + z2 * params[66];
+
+        // ── ODT desat 0.93 → AP1→XYZ → D60→D65 CAT → Rec.709 → 色域钳 ──
+        let er = dr2 * params[40] + dg2 * params[43] + db2 * params[46];
+        let eg = dr2 * params[41] + dg2 * params[44] + db2 * params[47];
+        let eb = dr2 * params[42] + dg2 * params[45] + db2 * params[48];
+        let x3 = er * params[49] + eg * params[52] + eb * params[55];
+        let y3 = er * params[50] + eg * params[53] + eb * params[56];
+        let z3 = er * params[51] + eg * params[54] + eb * params[57];
+        let x4 = x3 * params[67] + y3 * params[70] + z3 * params[73];
+        let y4 = x3 * params[68] + y3 * params[71] + z3 * params[74];
+        let z4 = x3 * params[69] + y3 * params[72] + z3 * params[75];
+        let fr = (x4 * params[76] + y4 * params[79] + z4 * params[82])
+            .max(0.0)
+            .min(1.0);
+        let fg = (x4 * params[77] + y4 * params[80] + z4 * params[83])
+            .max(0.0)
+            .min(1.0);
+        let fb = (x4 * params[78] + y4 * params[81] + z4 * params[84])
+            .max(0.0)
+            .min(1.0);
+
+        // ── BT.1886 γ2.4 逆 EOTF（Lw=1/Lb=0 退化形 v^(1/2.4)）+ 8-bit 量化 ──
+        let qr8 = (fr.powf(0.41666666) * 255.0 + 0.5).floor() as u32;
+        let qg8 = (fg.powf(0.41666666) * 255.0 + 0.5).floor() as u32;
+        let qb8 = (fb.powf(0.41666666) * 255.0 + 0.5).floor() as u32;
+        // 打包（算术装配,u32 乘加;alpha 恒 255 于最高字节）。
+        let mut packed = 4278190080u32;
+        if params[2] > 0.5 {
+            packed = packed + qb8 + qg8 * 256u32 + qr8 * 65536u32;
+        } else {
+            packed = packed + qr8 + qg8 * 256u32 + qb8 * 65536u32;
+        }
+        out_packed[i] = packed;
+    }
+}

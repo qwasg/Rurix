@@ -1,0 +1,45 @@
+[package]
+name = "rurix-renderer-sdk"
+description = "Rurix 渲染器 SDK C ABI 实现层(G31+ 波 C Task C1,G31_PLUS §5 #48)——rxsdk_* 会话面(u64 不透明句柄表,镜像 rurix-rt-cabi U25 纪律)薄封装 G14.3 统一四 pass TSR 生产车道(g14_3_lane_body.rs 经 include! 逐字第三消费方共享,bin 双消费方先例);.rx stable API 面(apps/g31-renderer-sdk/src/sdk.rx)经 #[link] extern 绑定本 cdylib,export_c codegen 产 rurix_renderer.dll + 生成头(单一事实源)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+# cdylib = .rx --emit=dll 链接段经 #[link(name = "rurix_renderer_sdk")] 消费其
+# import lib(rurix_renderer_sdk.dll.lib 复制为 rurix_renderer_sdk.lib,ci 脚本面);
+# rlib = cargo test/workspace 单测消费(先例 rurix-rt-cabi)。
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 统一四 pass TSR 车道共享体(include!)的 crate 面:与 g14_3_pipeline_perf /
+# g31_window_present 两 bin 同一依赖形态。**特征面纪律**:vendor-upscale 不随
+# 依赖边无条件启用——经本 crate `sdk-device` feature 转发(见下 [features];
+# 否则特征统一会把 rurix-rt/vendor-upscale 拉进全仓常驻 clippy 特征集,
+# rurix-rt 该特征面预存 lint 面不属于本任务 0-byte 范围)。
+rurix-render = { path = "../rurix-render" }
+rurix-rt = { path = "../rurix-rt" }
+image-io = { path = "../image-io" }
+# 共享体 sha256_hex 面（frame_content_digest 同源;M25 ABI hash 与 M31 同源 SHA-256）。
+rurix-pkg = { path = "../rurix-pkg" }
+
+[features]
+default = []
+# sdk-device:device 执行面(rurix-rt/vulkan + vendor_upscale + rurix-render
+# vendor-upscale;车道共享体 include! 与 rxsdk_* 面的全部内容随本 feature 编译)。
+# 默认关闭:常驻回归网(cargo build/test/clippy --workspace,CI 特征集不含本
+# feature)编译空骨架绿——与 rurix-render bins `required-features` 跳过同律;
+# 门(ci/g31_renderer_sdk_smoke.py)与真跑构建显式 `--features sdk-device`。
+sdk-device = ["rurix-render/vendor-upscale", "rurix-rt/vendor-upscale"]
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;镜像 rurix-rt-cabi FFI 边界例外写法):
+# 本 crate 是渲染器 SDK C ABI 边界,经裁决最小开 unsafe(C ABI extern "C" 导出 +
+# 调用方指针契约借用 + !Send 句柄跨线程存表豁免 + Box::leak 会话资源 'static 化
+# 与销毁回收),注册见 unsafe-audit/rurix-renderer-sdk.md(U-59)。仍强制每 unsafe
+# 块携 `// SAFETY:`(clippy undocumented_unsafe_blocks = deny)。其余新 crate 维持 deny。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

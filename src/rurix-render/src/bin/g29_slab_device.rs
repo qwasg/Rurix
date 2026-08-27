@@ -199,11 +199,7 @@ impl DeviceSlab {
     /// 单 dispatch 全样本;返回输出缓冲(1 f32/样本 R + red_bias)。
     fn run(&self, samples: &[f32], n: usize) -> Vec<f32> {
         let params = pack_params(n, self.red_bias);
-        let mut bufs = vec![
-            bytes_f32(samples),
-            bytes_f32(&params),
-            vec![0u8; n * 4],
-        ];
+        let mut bufs = vec![bytes_f32(samples), bytes_f32(&params), vec![0u8; n * 4]];
         vk::run_compute(
             &self.spv,
             &self.entry,
@@ -542,9 +538,7 @@ fn side_table_leg(args: &Args) -> ! {
     // ── 侧表 + 逐槽白炉互核变体(每槽 ab=1;host 单源生成,device 不重算)──
     let table = side_table_samples();
     let host = host_reference(&table);
-    let furnace: Vec<f32> = (0..N_SLOTS)
-        .flat_map(|k| [table[k * 2], 1.0f32])
-        .collect();
+    let furnace: Vec<f32> = (0..N_SLOTS).flat_map(|k| [table[k * 2], 1.0f32]).collect();
     let furnace_host = host_reference(&furnace);
 
     let out_a = dev.run(&table, N_SLOTS);

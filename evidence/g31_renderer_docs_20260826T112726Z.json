@@ -1,0 +1,109 @@
+{
+  "schema": "rurix.g31.renderer_docs_evidence.v1",
+  "subject": "g31_renderer_docs",
+  "symbolic_gate_key": "g31.waveC.docs",
+  "wave": "G31+.C",
+  "facts": [
+    {
+      "id": "docs_present_with_anchors",
+      "status": "PASS",
+      "detail": "integration_guide=10/10; feature_matrix=8/8; performance_tuning=7/7"
+    },
+    {
+      "id": "on_record_numbers_present",
+      "status": "PASS",
+      "detail": "integration_guide=7/7; feature_matrix=18/18; performance_tuning=13/13"
+    },
+    {
+      "id": "example_sources_present",
+      "status": "PASS",
+      "detail": "minimal_host.cpp ok; build.ps1 ok; README.md ok"
+    },
+    {
+      "id": "walkthrough_record_valid",
+      "status": "PASS",
+      "detail": "8 步全绿 + 修正面 + ISO 时间戳在案"
+    },
+    {
+      "id": "example_build_emit_dll",
+      "status": "PASS",
+      "detail": "emit rc=0 三件=齐 生成头导出集=['uc05_gfx_pass_count', 'uc05_gfx_run_frame', 'uc05_graph_pass_count', 'uc05_run_graph']（期望 ['uc05_gfx_pass_count', 'uc05_gfx_run_frame', 'uc05_graph_pass_count', 'uc05_run_graph']）"
+    },
+    {
+      "id": "example_compile_and_run_real",
+      "status": "PASS",
+      "detail": "cl 编译链接 rc=0 + 真跑 rc=0 + 标记逐字 'RURIX_MINIMAL_HOST_OK passes=2 frames=4 pixel=0x00000000'"
+    },
+    {
+      "id": "frozen_docs_untouched",
+      "status": "PASS",
+      "detail": "00~13 号根冻结规划文档 10 件零改动（git status --porcelain 机核）"
+    }
+  ],
+  "docs": {
+    "integration_guide": {
+      "path": "docs/renderer/integration_guide.md",
+      "bytes": 14892,
+      "headings_present": 10,
+      "headings_required": 10,
+      "numbers_present": 7,
+      "numbers_required": 7
+    },
+    "feature_matrix": {
+      "path": "docs/renderer/feature_matrix.md",
+      "bytes": 10826,
+      "headings_present": 8,
+      "headings_required": 8,
+      "numbers_present": 18,
+      "numbers_required": 18
+    },
+    "performance_tuning": {
+      "path": "docs/renderer/performance_tuning.md",
+      "bytes": 9510,
+      "headings_present": 7,
+      "headings_required": 7,
+      "numbers_present": 13,
+      "numbers_required": 13
+    }
+  },
+  "example": {
+    "dir": "docs/renderer/examples/minimal_host",
+    "sources": [
+      "README.md",
+      "build.ps1",
+      "minimal_host.cpp"
+    ],
+    "emit_products": {
+      "dll": ".tmp/g31_gates/renderer_docs/rurix_rhi.dll",
+      "import_lib": ".tmp/g31_gates/renderer_docs/rurix_rhi.lib",
+      "header": ".tmp/g31_gates/renderer_docs/rurix_rhi.h"
+    },
+    "header_exports": [
+      "uc05_gfx_pass_count",
+      "uc05_gfx_run_frame",
+      "uc05_graph_pass_count",
+      "uc05_run_graph"
+    ],
+    "run_marker": "RURIX_MINIMAL_HOST_OK passes=2 frames=4 pixel=0x00000000",
+    "run_rc": 0
+  },
+  "walkthrough": {
+    "path": "milestones/g31/g31_renderer_docs_walkthrough.json",
+    "steps": 8,
+    "doc_fixes_applied": 4,
+    "timestamp_iso": "2026-08-26T11:14:56Z"
+  },
+  "frozen_docs": {
+    "checked": 10,
+    "violations": 0,
+    "method": "git status --porcelain 非 ?? 状态命中冻结清单即违例（00~13 号根规划文档）"
+  },
+  "environment": {
+    "os": "windows",
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T112726Z",
+  "notes": "G31+ 波 C Task C2 渲染器文档与示例门（G31_PLUS §5 #49 兑现面）：三文档节锚 + 在案 measured 数字逐字防腐化 + 示例三件符号面 + walkthrough 记录在案 + rurixc --emit=dll 三件 + 生成头导出集 4 符号 + cl 编译链接真跑标记逐字（RXS-0277 清色不变量）+ 冻结 根规划文档零触碰。三态：缺工具链/GPU → DEV_ENV_DEGRADE SKIP 退 0 不冒充；RURIX_REQUIRE_REAL=1 翻硬 FAIL。facts: docs_present_with_anchors=PASS; on_record_numbers_present=PASS; example_sources_present=PASS; walkthrough_record_valid=PASS; example_build_emit_dll=PASS; example_compile_and_run_real=PASS; frozen_docs_untouched=PASS"
+}

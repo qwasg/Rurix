@@ -1,0 +1,199 @@
+{
+ "schema": "rurix.g31.rd027_poison_guard_evidence.v1",
+ "gate": "g31.waveC.rd027",
+ "generated_utc": "2026-08-26T21:13:00Z",
+ "environment": {
+  "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+  "driver_version": "620.02",
+  "cuda_driver_version": "13.2",
+  "ptxas_version": "Cuda compilation tools, release 13.3, V13.3.33",
+  "os_build": "Windows 10.0.28120"
+ },
+ "zone_map": {
+  "path": "milestones/g31/g31_rd027_poison_zone_map.json",
+  "generated_utc": "2026-08-26T15:55:31Z",
+  "distinct_ptx_digests": 1,
+  "green_combos": [
+   [
+    8,
+    1
+   ],
+   [
+    8,
+    2
+   ],
+   [
+    32,
+    1
+   ],
+   [
+    32,
+    2
+   ],
+   [
+    64,
+    1
+   ],
+   [
+    64,
+    2
+   ],
+   [
+    128,
+    1
+   ],
+   [
+    256,
+    1
+   ]
+  ],
+  "poison_combos": [
+   [
+    8,
+    3
+   ],
+   [
+    8,
+    4
+   ],
+   [
+    32,
+    3
+   ],
+   [
+    32,
+    4
+   ],
+   [
+    64,
+    3
+   ],
+   [
+    64,
+    4
+   ],
+   [
+    128,
+    2
+   ],
+   [
+    128,
+    3
+   ],
+   [
+    128,
+    4
+   ],
+   [
+    256,
+    2
+   ],
+   [
+    256,
+    3
+   ],
+   [
+    256,
+    4
+   ]
+  ]
+ },
+ "static_fail_closed": {
+  "params": {
+   "spp": 32,
+   "spp_batch": 32,
+   "bounces": 2,
+   "rend_frames": 8
+  },
+  "zone_class": "green",
+  "stub_anchor_present": true,
+  "allowed": true
+ },
+ "legs": {
+  "boundary_prod": {
+   "name": "boundary_prod",
+   "spp": 32,
+   "bounces": 2,
+   "opt_leg": "default",
+   "expect": "completed",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.531,
+   "timeout_s": 60,
+   "render_ok": true,
+   "digest": "7d4a8df432464b1e1603d4a60b74f344c3ad5dd22dbb3871bf6ce8c12fe8f019",
+   "digest_match": true,
+   "canary_ok": null
+  },
+  "boundary_low": {
+   "name": "boundary_low",
+   "spp": 8,
+   "bounces": 2,
+   "opt_leg": "default",
+   "expect": "completed",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.515,
+   "timeout_s": 60,
+   "render_ok": true,
+   "digest": "f61a7a2a8f359e688c367fd068d700433a16a94ce9d02ba270f3e2fa780477ae",
+   "digest_match": true,
+   "canary_ok": null
+  },
+  "poison_b3_o0": {
+   "name": "poison_b3_o0",
+   "spp": 8,
+   "bounces": 3,
+   "opt_leg": "O0",
+   "expect": "completed",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 0.773,
+   "timeout_s": 60,
+   "render_ok": true,
+   "digest": "7a004451bb25d3c8df09c03867b263a920a18d0dbc3627fef2da73e5d109a95e",
+   "digest_match": true,
+   "canary_ok": null
+  },
+  "poison_256_o0": {
+   "name": "poison_256_o0",
+   "spp": 256,
+   "bounces": 2,
+   "opt_leg": "O0",
+   "expect": "completed",
+   "classification": "completed",
+   "exit_code": 0,
+   "wall_s": 5.548,
+   "timeout_s": 60,
+   "render_ok": true,
+   "digest": "b5fd856f58eb6b7aa11ca7ab3dd16f3b483b5635b1222b3d1cd596d73d1230d2",
+   "digest_match": true,
+   "canary_ok": null
+  },
+  "poison_confirm": {
+   "name": "poison_confirm",
+   "spp": 8,
+   "bounces": 3,
+   "opt_leg": "default",
+   "expect": "hang_timeout",
+   "classification": "hang_timeout",
+   "exit_code": 124,
+   "wall_s": 60.318,
+   "timeout_s": 60,
+   "render_ok": false,
+   "digest": null,
+   "digest_match": null,
+   "canary_ok": true
+  }
+ },
+ "verdict": "PASS",
+ "notes": [
+  "静态 fail-closed: params={'spp': 32, 'spp_batch': 32, 'bounces': 2, 'rend_frames': 8} zone=green allowed=True stub=True",
+  "boundary_prod: completed exit=0 wall=0.5s digest=7d4a8df432464b1e",
+  "boundary_low: completed exit=0 wall=0.5s digest=f61a7a2a8f359e68",
+  "poison_b3_o0: completed exit=0 wall=0.8s digest=7a004451bb25d3c8",
+  "poison_256_o0: completed exit=0 wall=5.5s digest=b5fd856f58eb6b7a",
+  "poison_confirm: hang_timeout exit=124 wall=60.3s digest=—",
+  "canary: completed exit=0 wall=0.4s digest=7d4a8df432464b1e"
+ ]
+}

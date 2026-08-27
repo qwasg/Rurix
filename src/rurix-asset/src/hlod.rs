@@ -216,6 +216,108 @@ pub fn hlod_asset_digest(asset: &HlodAsset) -> [u8; 32] {
     canon::digest_bytes(&encode_hlod_asset(asset))
 }
 
+// ---------------------------------------------------------------------------
+// G31+ #67/#97 HLOD 质量烘焙(跨 Component 合并 + QEM 简化——UE5 WP HLOD
+// Merged/Simplified 型对齐;既有 [`bake_hlod`] stride 抽面 0-byte 不动,
+// M111 golden 锚维持,本函数为加性第二烘焙器)
+// ---------------------------------------------------------------------------
+
+/// 合并层 proxy 的 Component 名(RXHL v1 结构兼容——合并层 proxies 长度 1,
+/// 运行时选层面零改动;`source_triangles` = 合并前总三角数)。
+pub const HLOD_MERGED_COMPONENT: &str = "__merged__";
+
+/// 质量烘焙(G31+ #67/#97):
+/// - **L0 = 全量几何**(逐 Component canonical 序,与 [`bake_hlod`] L0 逐位
+///   同值——运行时 Full/HLOD 互斥切换协议(RXS-0364 三态)零改动);
+/// - **L ≥ 1 = 跨 Component 合并 → 位置 bits 精确焊接 → QEM 简化到
+///   `总三角 / 2^level`**(rurix-geom-build `qem::simplify_free_mesh` 事实源
+///   直调:最优位置收缩 + fold-over 拒绝,替代 stride 抽面的无误差控制欠采样
+///   ——「不要用 stride 抽面冒充远处降复杂度」调研结论字面兑现);
+/// - 产物结构 = 既有 RXHL v1(合并层单 proxy `__merged__`);双构建 hash
+///   相等/声明序扰动免疫/几何扰动分叉三判据与既有烘焙器同锚(单测)。
+pub fn bake_hlod_merged(input: &HlodBakeInput) -> Result<HlodAsset> {
+    validate_input(input)?;
+    // Component 分发序 canonical 化(声明序扰动免疫,与 bake_hlod 同律)。
+    let mut comps: Vec<&ComponentGeometry> = input.components.iter().collect();
+    comps.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut sorted_tris: Vec<Vec<[f32; 9]>> = Vec::with_capacity(comps.len());
+    for c in &comps {
+        let mut tris = c.triangles.clone();
+        tris.sort_by_cached_key(tri_sort_key);
+        sorted_tris.push(tris);
+    }
+    // L0:全量(逐 Component,bake_hlod L0 同形)。
+    let mut levels = Vec::with_capacity(input.levels as usize);
+    let l0_proxies: Vec<HlodComponentProxy> = comps
+        .iter()
+        .zip(&sorted_tris)
+        .map(|(c, tris)| HlodComponentProxy {
+            component: c.name.clone(),
+            source_triangles: tris.len() as u32,
+            proxy_triangles: tris.clone(),
+        })
+        .collect();
+    levels.push(HlodLevel {
+        level: 0,
+        proxies: l0_proxies,
+    });
+    if input.levels > 1 {
+        // 跨 Component 合并(canonical 序拼接)→ 位置 bits 精确焊接。
+        let total: usize = sorted_tris.iter().map(Vec::len).sum();
+        let mut weld: std::collections::HashMap<[u32; 3], u32> =
+            std::collections::HashMap::with_capacity(total * 3);
+        let mut positions: Vec<[f32; 3]> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        for tris in &sorted_tris {
+            for t in tris {
+                for k in 0..3 {
+                    let p = [t[k * 3], t[k * 3 + 1], t[k * 3 + 2]];
+                    let key = p.map(f32::to_bits);
+                    let next = positions.len() as u32;
+                    let id = *weld.entry(key).or_insert_with(|| {
+                        positions.push(p);
+                        next
+                    });
+                    indices.push(id);
+                }
+            }
+        }
+        // 逐层 QEM 简化(自上一层产物继续减半——层间累进,总代价 O(n)级)。
+        let mut cur_pos = positions;
+        let mut cur_idx = indices;
+        for level in 1..input.levels {
+            let target = (total >> level).max(1);
+            let (np, ni, _err) =
+                rurix_geom_build::qem::simplify_free_mesh(&cur_pos, &cur_idx, target);
+            cur_pos = np;
+            cur_idx = ni;
+            let proxy_triangles: Vec<[f32; 9]> = cur_idx
+                .chunks_exact(3)
+                .map(|t| {
+                    let mut out = [0.0f32; 9];
+                    for k in 0..3 {
+                        let p = cur_pos[t[k] as usize];
+                        out[k * 3..k * 3 + 3].copy_from_slice(&p);
+                    }
+                    out
+                })
+                .collect();
+            levels.push(HlodLevel {
+                level,
+                proxies: vec![HlodComponentProxy {
+                    component: HLOD_MERGED_COMPONENT.to_string(),
+                    source_triangles: total as u32,
+                    proxy_triangles,
+                }],
+            });
+        }
+    }
+    Ok(HlodAsset {
+        cell_name: input.cell_name.clone(),
+        levels,
+    })
+}
+
 /// 确定性 demo 输入(cell 几何资产 fixture:harness/单测/工具三方正例同一事实
 /// 源;4 Component × 384 三角,LCG 位级确定)。
 pub fn demo_bake_input() -> HlodBakeInput {
@@ -254,6 +356,112 @@ mod tests {
 
     fn hex(d: &[u8; 32]) -> String {
         d.iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    /// 连贯网格 demo 输入(合并简化质量面需要共享边拓扑——demo_bake_input
+    /// 的随机三角汤无共享边,QEM 无可收缩边;本 fixture = 球面四象限分片
+    /// 4 Component,跨 Component 共享边界,合并后可充分简化)。
+    fn merged_demo_input(levels: u32) -> HlodBakeInput {
+        let mesh = rurix_geom_build::TriMesh::uv_sphere(1.0, 24, 24);
+        let mut comps: Vec<Vec<[f32; 9]>> = vec![Vec::new(); 4];
+        for f in 0..mesh.triangle_count() {
+            let t = mesh.triangle(f);
+            let mut flat = [0.0f32; 9];
+            let mut cx = 0.0f32;
+            let mut cz = 0.0f32;
+            for k in 0..3 {
+                let p = mesh.positions[t[k] as usize];
+                flat[k * 3..k * 3 + 3].copy_from_slice(&p);
+                cx += p[0];
+                cz += p[2];
+            }
+            let q = usize::from(cx >= 0.0) + 2 * usize::from(cz >= 0.0);
+            comps[q].push(flat);
+        }
+        HlodBakeInput {
+            cell_name: "cell_sphere".to_string(),
+            levels,
+            components: comps
+                .into_iter()
+                .enumerate()
+                .map(|(i, triangles)| ComponentGeometry {
+                    name: format!("quad_{i}"),
+                    triangles,
+                })
+                .collect(),
+        }
+    }
+
+    /// G31+ #67/#97:质量烘焙三判据(双构建/声明序免疫/几何扰动分叉)与
+    /// 合并简化性质(L0 全量逐位 == 既有烘焙器 L0;L≥1 单 proxy 合并 +
+    /// 三角数按 2^level 递减;stride 抽面对照登记)。
+    #[test]
+    fn merged_bake_invariants_and_quality() {
+        let input = merged_demo_input(4);
+        let a = bake_hlod_merged(&input).expect("bake 1");
+        let b = bake_hlod_merged(&input).expect("bake 2");
+        assert_eq!(hlod_asset_digest(&a), hlod_asset_digest(&b), "双构建漂移");
+        // 声明序扰动免疫。
+        let mut perturbed = input.clone();
+        perturbed.components.reverse();
+        for c in perturbed.components.iter_mut() {
+            c.triangles.reverse();
+        }
+        assert_eq!(
+            hlod_asset_digest(&bake_hlod_merged(&perturbed).unwrap()),
+            hlod_asset_digest(&a),
+            "声明序扰动必须免疫"
+        );
+        // 几何扰动分叉。
+        let mut geo = input.clone();
+        geo.components[0].triangles[0][0] += 0.25;
+        assert_ne!(
+            hlod_asset_digest(&bake_hlod_merged(&geo).unwrap()),
+            hlod_asset_digest(&a),
+            "几何扰动必须分叉"
+        );
+        // L0 = 全量,与既有 stride 烘焙器 L0 逐位同值(互斥切换协议 0 改动)。
+        let stride = bake_hlod(&input).expect("stride 对照");
+        assert_eq!(a.levels[0], stride.levels[0], "L0 全量面与既有烘焙器不一致");
+        // L≥1:单 __merged__ proxy + 三角数按 2^level 目标递减(±簇化余量)。
+        let total: usize = input.components.iter().map(|c| c.triangles.len()).sum();
+        for l in 1..4usize {
+            let lv = &a.levels[l];
+            assert_eq!(lv.proxies.len(), 1, "合并层须单 proxy");
+            assert_eq!(lv.proxies[0].component, HLOD_MERGED_COMPONENT);
+            let n = lv.proxies[0].proxy_triangles.len();
+            let target = total >> l;
+            assert!(
+                n <= target + target / 4 + 8,
+                "L{l} 三角数 {n} 未接近目标 {target}"
+            );
+            assert!(n >= 1);
+            // 质量粗判:简化产物顶点仍在单位球邻域(QEM 不飞点;stride 抽面
+            // 无此保证面——它只是欠采样)。
+            for t in &lv.proxies[0].proxy_triangles {
+                for k in 0..3 {
+                    let r = (t[k * 3] * t[k * 3] + t[k * 3 + 1] * t[k * 3 + 1]
+                        + t[k * 3 + 2] * t[k * 3 + 2])
+                        .sqrt();
+                    assert!((r - 1.0).abs() < 0.25, "L{l} 顶点飞出球面邻域 r={r}");
+                }
+            }
+        }
+        // 对照登记(#67 数据面:stride 抽面同层三角数相近但为无误差控制
+        // 欠采样——空间连贯性无保证;打印如实)。
+        println!(
+            "[hlod_merged_vs_stride] total={total} merged L1..3 = {:?} ; stride L1..3 = {:?}",
+            (1..4)
+                .map(|l| a.levels[l].proxies[0].proxy_triangles.len())
+                .collect::<Vec<_>>(),
+            (1..4)
+                .map(|l| stride.levels[l]
+                    .proxies
+                    .iter()
+                    .map(|p| p.proxy_triangles.len())
+                    .sum::<usize>())
+                .collect::<Vec<_>>(),
+        );
     }
 
     /// RXS-0364:双构建 hash 相等——同输入两次独立烘焙产物字节/digest 逐位一致。

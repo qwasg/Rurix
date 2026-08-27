@@ -45,7 +45,9 @@ use rurix_render::gi::multi_light::{self as ml, LowTierMode, MlOutput};
 use rurix_render::gi::path_trace::{self, PtConfig, PtImage, PtScene};
 use rurix_render::gi::surface_cache;
 use rurix_rt::render_exec::{self, KernelWave};
-use rurix_rt::vk::{self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc};
+use rurix_rt::vk::{
+    self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc,
+};
 
 const TAG: &str = "G9_M100_ML";
 
@@ -148,7 +150,11 @@ fn run_m100_device(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -156,7 +162,13 @@ fn run_m100_device(
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -169,7 +181,12 @@ fn run_m100_device(
 }
 
 /// M96 golden 腿:任意 PtScene megakernel 实跑(spp/深度由 cfg)→ (PtImage, digest)。
-fn run_m96(scene: &PtScene, cfg: &PtConfig, spv: &[u32], entry: &str) -> Result<(PtImage, [u8; 32]), String> {
+fn run_m96(
+    scene: &PtScene,
+    cfg: &PtConfig,
+    spv: &[u32],
+    entry: &str,
+) -> Result<(PtImage, [u8; 32]), String> {
     cfg.validate().map_err(|e| format!("M96 配置校验: {e}"))?;
     let cam = &scene.camera;
     let pixel_count = (cam.width * cam.height) as usize;
@@ -204,7 +221,11 @@ fn run_m96(scene: &PtScene, cfg: &PtConfig, spv: &[u32], entry: &str) -> Result<
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -217,7 +238,13 @@ fn run_m96(scene: &PtScene, cfg: &PtConfig, spv: &[u32], entry: &str) -> Result<
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -306,7 +333,9 @@ fn main() {
 
     // ── 步骤 0:host 预传递(无 device 依赖)──
     let scene = ml::m100_multi_light_scene();
-    scene.validate().unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
+    scene
+        .validate()
+        .unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
     let pixel_count = (scene.camera.width * scene.camera.height) as usize;
     let stream = ml::m100_rng::generate_stream(pixel_count, ml::M100_SPP, ml::M100_SEED);
     let host_ref = ml::trace_direct_host(&scene, &stream, ml::M100_SPP, LowTierMode::Reference)
@@ -327,7 +356,9 @@ fn main() {
     );
     let mut failures: Vec<String> = Vec::new();
     if !pbrt_anchor_ok {
-        failures.push("pbrt 导出与锚定语料漂移(conformance/gi/scenes/m100_multi_light_low.pbrt)".into());
+        failures.push(
+            "pbrt 导出与锚定语料漂移(conformance/gi/scenes/m100_multi_light_low.pbrt)".into(),
+        );
     }
 
     // ── 步骤 1:device 门(三态)──
@@ -347,9 +378,13 @@ fn main() {
         caps.device_name,
         if validation_on { "on" } else { "off" }
     );
-    let spv_m100_path = args.spv_m100.clone().unwrap_or_else(|| fail("缺 --spv-m100 <m100.spv>"));
+    let spv_m100_path = args
+        .spv_m100
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv-m100 <m100.spv>"));
     let spv_m100 = load_spv(&spv_m100_path);
-    let entry_m100 = vk::entry_point_name(&spv_m100).unwrap_or_else(|| fail("M100 SPV 无 OpEntryPoint"));
+    let entry_m100 =
+        vk::entry_point_name(&spv_m100).unwrap_or_else(|| fail("M100 SPV 无 OpEntryPoint"));
     let work = std::path::PathBuf::from(&args.work_dir);
     std::fs::create_dir_all(&work).unwrap_or_else(|e| fail(&format!("建 work-dir: {e}")));
 
@@ -375,13 +410,21 @@ fn main() {
     println!(
         "{TAG}: device 双跑位级一致={device_bitexact} host 残差 max|Δ|={max_diff:.3e}(信息项)"
     );
-    let dev_skip = match run_m100_device(&scene, LowTierMode::SkipVerificationInjected, &spv_m100, &entry_m100)
-    {
+    let dev_skip = match run_m100_device(
+        &scene,
+        LowTierMode::SkipVerificationInjected,
+        &spv_m100,
+        &entry_m100,
+    ) {
         Ok(v) => v,
         Err(e) => fail(&format!("M100 device(skip): {e}")),
     };
-    let dev_subset = match run_m100_device(&scene, LowTierMode::LightSubsetInjected, &spv_m100, &entry_m100)
-    {
+    let dev_subset = match run_m100_device(
+        &scene,
+        LowTierMode::LightSubsetInjected,
+        &spv_m100,
+        &entry_m100,
+    ) {
         Ok(v) => v,
         Err(e) => fail(&format!("M100 device(subset): {e}")),
     };
@@ -422,9 +465,14 @@ fn main() {
         .clone()
         .unwrap_or_else(|| fail("缺 --spv-m96 <m96.spv>"));
     let spv_m96 = load_spv(&spv_m96_path);
-    let entry_m96 = vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
-    let m97_band_text = std::fs::read_to_string(&args.m97_band)
-        .unwrap_or_else(|e| fail(&format!("读 M97 深度带 {}: {e}(门序消费锚前置)", args.m97_band)));
+    let entry_m96 =
+        vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
+    let m97_band_text = std::fs::read_to_string(&args.m97_band).unwrap_or_else(|e| {
+        fail(&format!(
+            "读 M97 深度带 {}: {e}(门序消费锚前置)",
+            args.m97_band
+        ))
+    });
     let m97_band = surface_cache::DepthBand::parse(&m97_band_text)
         .unwrap_or_else(|e| fail(&format!("M97 深度带解析: {e}")));
     let m97_anchor = m97_band
@@ -442,11 +490,10 @@ fn main() {
     // 门序消费锚:cornell 同深度实跑 digest 与 M97 冻结带条目逐字相等。
     let cornell = path_trace::m96_cornell_scene();
     cornell.validate().expect("cornell 校验");
-    let (_cornell_img, cornell_digest) =
-        match run_m96(&cornell, &cfg_m96, &spv_m96, &entry_m96) {
-            Ok(v) => v,
-            Err(e) => fail(&format!("M96 cornell 门序锚腿: {e}")),
-        };
+    let (_cornell_img, cornell_digest) = match run_m96(&cornell, &cfg_m96, &spv_m96, &entry_m96) {
+        Ok(v) => v,
+        Err(e) => fail(&format!("M96 cornell 门序锚腿: {e}")),
+    };
     let m96_cross_anchor = hex(&cornell_digest) == m97_anchor;
     println!(
         "{TAG}: M96 cornell depth={} digest={} 门序锚(M97 带)={}",
@@ -507,7 +554,9 @@ fn main() {
     );
     if args.red_arm.as_deref() == Some("skip-verification") {
         if skip_detectable {
-            println!("{TAG}: PASS red-arm skip-verification(独立检出:跳验证偏置 + 计数缺空 + 探针能红)");
+            println!(
+                "{TAG}: PASS red-arm skip-verification(独立检出:跳验证偏置 + 计数缺空 + 探针能红)"
+            );
             std::process::exit(0);
         }
         fail("red-arm skip-verification 失效(偏置不足/计数面破坏/探针不红)");
@@ -539,7 +588,9 @@ fn main() {
         fail("red-arm light-subset 失效(偏离不可检测或探针不红)");
     }
     if !subset_detectable {
-        failures.push(format!("灯子集臂失效(rel_dev={subset_rel:.6e} 或计数面/探针破坏)"));
+        failures.push(format!(
+            "灯子集臂失效(rel_dev={subset_rel:.6e} 或计数面/探针破坏)"
+        ));
     }
     if let Some(arm) = &args.red_arm {
         fail(&format!("unknown --red-arm {arm}"));
@@ -574,8 +625,8 @@ fn main() {
     } else {
         let band_text = std::fs::read_to_string(&args.band)
             .unwrap_or_else(|e| fail(&format!("读容差带 {}: {e}", args.band)));
-        let band = ml::M100Band::parse(&band_text)
-            .unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
+        let band =
+            ml::M100Band::parse(&band_text).unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
         if m97_anchor != band.m96_anchor_digest {
             digests_match = false;
             failures.push("M97 门序锚条目与冻结带漂移".into());
@@ -600,10 +651,16 @@ fn main() {
 
     // ── 步骤 8:evidence(rurix.g9m100.multi_light_low.v1)──
     let checks: [(&str, bool); 11] = [
-        ("double_run_bitexact", device_bitexact && host_ref == host_ref2),
+        (
+            "double_run_bitexact",
+            device_bitexact && host_ref == host_ref2,
+        ),
         ("pbrt_fixture_anchor", pbrt_anchor_ok),
         ("verification_ray_zero_skip", zero_skip_ok),
-        ("per_light_verification_non_empty", c_ref.per_light_fired.iter().all(|&f| f > 0)),
+        (
+            "per_light_verification_non_empty",
+            c_ref.per_light_fired.iter().all(|&f| f > 0),
+        ),
         ("skip_verification_bias_detectable", skip_detectable),
         ("light_subset_deviation_detectable", subset_detectable),
         ("restir_not_triggered_registered", restir_rejected),

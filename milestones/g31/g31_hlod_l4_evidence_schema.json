@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_hlod_l4 HLOD L4 Far Field 档(M98-l4 两半合取兑现)门证据",
+  "description": "G31+ 波 C Task C12:M98-l4 承接锚「HLOD proxy 追踪 device 腿 + L4 计数器接入」合取两半兑现——①device 腿:kernels/g31_hlod_l4_proxy_trace.rx 纯 compute(不消费 TLAS,L1 同构面)对 canonical 远场契约场景(m98_l4_far_field:近场开放空间 + 远场 HLOD proxy 五件全超视距)真跑,对 host 镜像(gi::fallback_chain::l4_leg_host 逐字同源)结构域精确对拍(hit flags/proxy 下标/扫描计数逐像素)+ rgb 位级全等(烘焙辐射度纯数据搬运)+ t 残差信息项(OpFDiv 2.5 ULP 口径,G7.5b 先例);②L4 计数器接入:L4 槽位真实计数(attempted/proxy 命中/服务像素/扫描耗时)+ 可见 proxy 数(逐像素下标回读去重 = proxies_total 逐件 ≥1)+ 切换次数(至 L4 转移按因分列)+ 覆盖率(hit_rate)进 evidence 面;三处 fail-closed 入口按锚字面解锁(check_l4_trigger=Ready / l4_serve=Ok / 计数非零),半齐保持 fail-closed(空 proxy 集 ⇒ NotTriggered/Err/InvalidConfig 空接线冒充判红)。判据闭集:g9.p0.m98.tracing_fallback_chain 门维持复跑全绿(L1-L3 链 0-byte 行为机器证明)+ host 19 单测 + device 双跑位级 + golden 双跑位级 + 四级覆盖全消费 + on/off(L3 截断)digest 必分叉(off==legacy 截断等价位级)+ 静默注入/强关/篡改/空集四 RED 臂独立检出 + frame_ms measured 如实登记不设通过线 + m98 双 kernel/深度带/承接锚 0-byte 机核。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "gate_maintenance",
+    "host_tests",
+    "device_leg_parity",
+    "determinism_double_run",
+    "l4_counters",
+    "unlock_entries",
+    "on_off_relation",
+    "red_arms",
+    "proxy_coverage",
+    "frame_ms_measured",
+    "frozen_surfaces",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.hlod_l4_smoke_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_hlod_l4"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveC.hlodl4"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.C"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "m98_l4_far_field"
+    },
+    "gate_maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "verdict", "checks_all_true", "device_executed", "evidence"],
+      "properties": {
+        "state": {"type": "string", "const": "pass"},
+        "verdict": {"type": "string", "const": "PASS"},
+        "checks_all_true": {"type": "boolean", "const": true, "description": "g9.p0.m98.tracing_fallback_chain 复跑 checks 14/14 全 true(六档深度带内 + M96 门序锚 + L4 not-triggered 登记维持 = L1-L3 链 0-byte 行为机器证明)"},
+        "device_executed": {"type": "boolean", "const": true},
+        "evidence": {"type": "string", "description": "g9 门维持腿 evidence 路径(复跑产)"}
+      }
+    },
+    "host_tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fallback_chain_tests_pass", "test_count"],
+      "properties": {
+        "fallback_chain_tests_pass": {"type": "boolean", "const": true},
+        "test_count": {"type": "integer", "const": 19, "description": "gi::fallback_chain 单测全量(14 既有锚定 + G31+ C12 L4 五件新批)"}
+      }
+    },
+    "device_leg_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structural_exact", "rgb_bitexact", "t_residual_max_abs", "t_residual_rel_max"],
+      "properties": {
+        "structural_exact": {"type": "boolean", "const": true, "description": "hit flags/proxy 下标/扫描计数逐像素精确(整数判定域硬判据)"},
+        "rgb_bitexact": {"type": "boolean", "const": true, "description": "rgb 位级全等(烘焙辐射度纯数据搬运硬判据)"},
+        "t_residual_max_abs": {"type": "number", "minimum": 0, "description": "t 绝对残差信息项(OpFDiv 2.5 ULP 口径,非判据)"},
+        "t_residual_rel_max": {"type": "number", "minimum": 0, "description": "t 相对残差信息项(判读口径,非判据)"}
+      }
+    },
+    "determinism_double_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_leg_bitexact", "golden_bitexact", "device_golden_eq_host_golden"],
+      "properties": {
+        "device_leg_bitexact": {"type": "boolean", "const": true},
+        "golden_bitexact": {"type": "boolean", "const": true},
+        "device_golden_eq_host_golden": {"type": "boolean", "const": true, "description": "device 腿 golden == host 镜像 golden 全帧位级(结构对拍 + rgb 位级蕴含装配位级)"}
+      }
+    },
+    "l4_counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rays_attempted",
+        "rays_hit",
+        "pixels_served",
+        "work_count",
+        "hit_rate",
+        "transitions_to_l4",
+        "transitions_to_l4_miss",
+        "transitions_to_l4_out_of_range",
+        "proxies_visible",
+        "proxies_total",
+        "coverage",
+        "per_proxy_hits"
+      ],
+      "properties": {
+        "rays_attempted": {"type": "integer", "minimum": 1},
+        "rays_hit": {"type": "integer", "minimum": 1},
+        "pixels_served": {"type": "integer", "minimum": 1},
+        "work_count": {"type": "integer", "minimum": 1},
+        "hit_rate": {"type": "number", "exclusiveMinimum": 0},
+        "transitions_to_l4": {"type": "integer", "minimum": 1, "description": "切换次数(至 L4 转移合计)= pixels_served"},
+        "transitions_to_l4_miss": {"type": "integer", "minimum": 0},
+        "transitions_to_l4_out_of_range": {"type": "integer", "minimum": 0},
+        "proxies_visible": {"type": "integer", "minimum": 1, "description": "可见 proxy 数(逐像素下标回读去重)"},
+        "proxies_total": {"type": "integer", "const": 5},
+        "coverage": {"type": "number", "exclusiveMinimum": 0, "description": "覆盖率(hit_rate:逸出射线中 proxy 几何命中占比)"},
+        "per_proxy_hits": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 5, "maxItems": 5}
+      }
+    },
+    "unlock_entries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trigger_ready", "serve_ok", "counters_non_zero", "half_missing_fail_closed"],
+      "properties": {
+        "trigger_ready": {"type": "boolean", "const": true, "description": "入口①解锁:check_l4_trigger(Some(非空集)) = Ready{proxies:5}"},
+        "serve_ok": {"type": "boolean", "const": true, "description": "入口②解锁:l4_serve(Some(非空集)) = Ok(腿样本)"},
+        "counters_non_zero": {"type": "boolean", "const": true, "description": "入口③解锁:L4 槽位真实计数非零"},
+        "half_missing_fail_closed": {"type": "boolean", "const": true, "description": "半齐保护:空 proxy 集 ⇒ NotTriggered + Err + InvalidConfig(空接线冒充判红,不冒充)"}
+      }
+    },
+    "on_off_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_digest",
+        "off_digest",
+        "legacy_digest",
+        "digest_differs",
+        "off_forced_off_records",
+        "off_l4_served",
+        "legacy_l4_served",
+        "off_eq_legacy_product",
+        "note"
+      ],
+      "properties": {
+        "on_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "off_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "legacy_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "digest_differs": {"type": "boolean", "const": true, "description": "L4 on vs off(L3 截断)产物 digest 必分叉(proxy 贡献真实进入画面)"},
+        "off_forced_off_records": {"type": "integer", "minimum": 1},
+        "off_l4_served": {"type": "integer", "const": 0},
+        "legacy_l4_served": {"type": "integer", "const": 0},
+        "off_eq_legacy_product": {"type": "boolean", "const": true, "description": "off(L4 强关)== legacy(None 旧三级)产物 digest 位级相等(截断语义等价)"},
+        "note": {"type": "string"}
+      }
+    },
+    "red_arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["silent_demotion", "force_off_l4", "tamper_proxy", "empty_proxy"],
+      "properties": {
+        "silent_demotion": {"type": "boolean", "const": true},
+        "force_off_l4": {"type": "boolean", "const": true},
+        "tamper_proxy": {"type": "boolean", "const": true},
+        "empty_proxy": {"type": "boolean", "const": true}
+      }
+    },
+    "proxy_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_proxy_min_hit", "device_indices_equal_host", "all_levels_served"],
+      "properties": {
+        "per_proxy_min_hit": {"type": "integer", "minimum": 1, "description": "host 参考投影覆盖核验:逐件 proxy 命中像素数最小值 ≥1(远场 proxy 投影覆盖非空)"},
+        "device_indices_equal_host": {"type": "boolean", "const": true},
+        "all_levels_served": {"type": "boolean", "const": true, "description": "golden 真实消费全部四级(L1/L2/L3/L4 served 全 > 0,级别覆盖充分性)"}
+      }
+    },
+    "frame_ms_measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["l4_device_dispatch_ms", "frame_on_ms", "frame_off_ms", "on_over_off", "frames", "note"],
+      "properties": {
+        "l4_device_dispatch_ms": {"type": "number", "exclusiveMinimum": 0},
+        "frame_on_ms": {"type": "number", "exclusiveMinimum": 0},
+        "frame_off_ms": {"type": "number", "exclusiveMinimum": 0},
+        "on_over_off": {"type": "number", "exclusiveMinimum": 0},
+        "frames": {"type": "integer", "minimum": 8},
+        "note": {"type": "string"}
+      }
+    },
+    "frozen_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["m98_kernels_0byte", "g9_depth_band_0byte", "handover_anchors_0byte"],
+      "properties": {
+        "m98_kernels_0byte": {"type": "boolean", "const": true, "description": "kernels/g9_m98_screen_trace.rx + g9_m98_hwrt.rx 工作树 0-byte"},
+        "g9_depth_band_0byte": {"type": "boolean", "const": true, "description": "milestones/g9/g9_m98_depth_band.json 工作树 0-byte"},
+        "handover_anchors_0byte": {"type": "boolean", "const": true, "description": "milestones/g30/g30_campaign_handover_registry.json + milestones/g27/G27_P2_DECISIONS.md 工作树 0-byte(原始锚不回写)"}
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

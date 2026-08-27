@@ -1,0 +1,331 @@
+//@ spec: 零新条款（G31+ #77 簇剔除 device kernel 化门；语义源 =
+// geometry/cull.rs 三关 + visible_cluster_set::select_lod_cut_grouped 组共享
+// 判定球 + geometry/hzb.rs test_rect 保守遮挡,全部 host 冻结金标准 0-byte
+// 消费,沿 G27/C11 体例）。
+//
+// ## 架构（单 dispatch、1 invocation/输入项、LocalSize 1,1,1 × [input_count,1,1]）
+// 两阶段遮挡剔除的 device 腿（Haar & Aaltonen 2015 / Nanite 两遍语义）：
+//   pass1（mode=0）：全簇 → 视锥球 → 背面锥 → 组共享球 LOD cut →
+//     上帧金字塔 rect 保守测试 → 可见/遮挡两列表原子追加；
+//   pass2（mode=1）：输入 = pass1 遮挡列表 → 本帧金字塔重测 →
+//     新露出簇追加可见列表（仍遮挡 = 真剔除,不产出）。
+// 判定码逐输入项写 `decisions[j]`（固定槽位,顺序无关对拍面）：
+//   0 = 视锥剔;1 = 背面锥剔;2 = LOD 非 cut;3 = HZB 遮挡;4 = 可见。
+//
+// ## 组共享球 LOD cut（B4/#58 语义;与 host select_lod_cut_grouped 字面同式）
+// self/parent 判定球逐簇双份（lod_f32 8/簇）;投影距离取球面最近点
+// `max(dist(cam, lod_center) − lod_radius, 0)`;e ≤ 0 → 0px 恒过、
+// e = +∞(sentinel ≥ 1e9) → 大 sentinel 恒过父检。合成夹具 identity 变换
+// （scale = 1）——实例变换面归生产接线波,金标准同参对拍。
+//
+// ## HZB rect 测试（host HzbPyramid::test_rect 字面;reverse-Z farther = min）
+// rect 像素跨度 → 最低「跨度 ≤ 2 纹素」mip → ≤2×2 纹素窗 farther 归约 →
+// 被测球最近深度更远 ⇒ 遮挡。金字塔逐级扁平上传（hzb_meta 3 u32/级 =
+// offset/w/h）。近平面骑跨（viewz − r ≤ znear）保守判可见不测。
+//
+// ## 确定性协议（C11 同律）
+// 逐项独立求值;原子追加序不锚定——host 读回排序归一后对拍;判定码
+// 固定槽位序无关;边界守卫 `j < input_count`。
+//
+// ## 参数面（host bin `g31_cluster_cull_device` 逐字同源;f32 下标）
+//   params[0..24)  6 视锥平面 ×4
+//   params[24..27) cam_pos
+//   params[27]     proj_factor = m11·H·0.5（误差 px 投影）
+//   params[28]     error_threshold_px
+//   params[29]     input_count
+//   params[30]     mode（0 = pass1 全簇;1 = pass2 遮挡重测）
+//   params[31]     uv_half_kx = 0.5·m00（ndc→uv x 半径系数）
+//   params[32]     uv_half_ky = 0.5·m11
+//   params[33]     znear
+//   params[34]     hzb_level_count
+//   params[35]     visible_capacity（列表槽上限;越界丢弃计 overflow）
+//   params[36..52) VP 行主 16（rect 中心投影）
+//   params[52..64) view 行主 3×4（视深 viewz = −(row2·p)）
+//   cluster_f32: 10/簇 [center 3 | radius | cone_axis 3 | cone_cutoff | error | parent_error]
+//   lod_f32:      8/簇 [self_lod cx cy cz r | parent_lod cx cy cz r]
+//   input_ids:    u32/项（pass1 = 0..n 恒等;pass2 = pass1 遮挡列表）
+//   hzb_data:     f32 扁平金字塔（逐级连接）
+//   hzb_meta:     u32 3/级 [offset, w, h]
+//   counters:     [0]=visible [1]=occluded [2]=overflow（原子）
+//   decisions:    u32/项（判定码,固定槽位）
+//   vis_ids:      u32 可见簇列表（原子追加）
+//   occ_ids:      u32 遮挡簇列表（原子追加;mode=1 时仍写——真剔除审计面）
+#[numthreads(1, 1, 1)]
+kernel fn g31_cluster_cull(
+    t: ThreadCtx<1>,
+    params: View<global, f32>,
+    cluster_f32: View<global, f32>,
+    lod_f32: View<global, f32>,
+    input_ids: View<global, u32>,
+    hzb_data: View<global, f32>,
+    hzb_meta: View<global, u32>,
+    counters: AtomicView<global, u32, (3,)>,
+    decisions: ViewMut<global, u32>,
+    vis_ids: ViewMut<global, u32>,
+    occ_ids: ViewMut<global, u32>,
+) {
+    let j = t.global_id();
+    let input_count = params[29] as usize;
+    if j < input_count {
+        let i = input_ids[j] as usize;
+        let fb = i * 10;
+        let cx = cluster_f32[fb];
+        let cy = cluster_f32[fb + 1];
+        let cz = cluster_f32[fb + 2];
+        let radius = cluster_f32[fb + 3];
+        let cam_x = params[24];
+        let cam_y = params[25];
+        let cam_z = params[26];
+        let mut decision = 4u32;
+        // ── 关 1:包围球视锥（host contains_sphere 字面;6 平面依次）──
+        {
+            let nx = params[0];
+            let ny = params[1];
+            let nz = params[2];
+            let nd = params[3];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        {
+            let nx = params[4];
+            let ny = params[5];
+            let nz = params[6];
+            let nd = params[7];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        {
+            let nx = params[8];
+            let ny = params[9];
+            let nz = params[10];
+            let nd = params[11];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        {
+            let nx = params[12];
+            let ny = params[13];
+            let nz = params[14];
+            let nd = params[15];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        {
+            let nx = params[16];
+            let ny = params[17];
+            let nz = params[18];
+            let nd = params[19];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        {
+            let nx = params[20];
+            let ny = params[21];
+            let nz = params[22];
+            let nd = params[23];
+            if nx * cx + ny * cy + nz * cz + nd < (0.0 - radius) { decision = 0u32; }
+        }
+        // ── 关 2:背面锥（host 字面:锥顶点 = 球心;cutoff ≥ 1 禁用）──
+        if decision == 4u32 {
+            let cutoff = cluster_f32[fb + 7];
+            if cutoff < 1.0 {
+                let vx = cx - cam_x;
+                let vy = cy - cam_y;
+                let vz = cz - cam_z;
+                let dist = (vx * vx + vy * vy + vz * vz).sqrt();
+                if dist > 0.000001 {
+                    let ax = cluster_f32[fb + 4];
+                    let ay = cluster_f32[fb + 5];
+                    let az = cluster_f32[fb + 6];
+                    let alen = (ax * ax + ay * ay + az * az).sqrt();
+                    if alen >= 0.000000000001 {
+                        let inv = 1.0 / alen;
+                        let view_x = vx / dist;
+                        let view_y = vy / dist;
+                        let view_z = vz / dist;
+                        let dota = view_x * (ax * inv) + view_y * (ay * inv) + view_z * (az * inv);
+                        if dota >= cutoff {
+                            decision = 1u32;
+                        }
+                    }
+                }
+            }
+        }
+        // ── 关 3:组共享球 LOD cut（select_lod_cut_grouped 字面同式:球面
+        //    最近点投影;identity 变换 scale = 1）──
+        if decision == 4u32 {
+            let proj_factor = params[27];
+            let err_thr = params[28];
+            let self_e = cluster_f32[fb + 8];
+            let parent_e = cluster_f32[fb + 9];
+            let lb = i * 8;
+            let mut self_px = 0.0;
+            if self_e > 0.0 {
+                if self_e >= 1000000000.0 {
+                    self_px = 1000000000.0;
+                } else {
+                    let sx = lod_f32[lb];
+                    let sy = lod_f32[lb + 1];
+                    let sz = lod_f32[lb + 2];
+                    let sr = lod_f32[lb + 3];
+                    let dx = sx - cam_x;
+                    let dy = sy - cam_y;
+                    let dz = sz - cam_z;
+                    let mut dsurf = (dx * dx + dy * dy + dz * dz).sqrt() - sr;
+                    if dsurf < 0.0 { dsurf = 0.0; }
+                    if dsurf > self_e {
+                        self_px = self_e * proj_factor / dsurf;
+                    } else {
+                        self_px = 1000000000.0;
+                    }
+                }
+            }
+            let mut parent_px = 0.0;
+            if parent_e > 0.0 {
+                if parent_e >= 1000000000.0 {
+                    parent_px = 1000000000.0;
+                } else {
+                    let px_ = lod_f32[lb + 4];
+                    let py_ = lod_f32[lb + 5];
+                    let pz_ = lod_f32[lb + 6];
+                    let pr_ = lod_f32[lb + 7];
+                    let dx = px_ - cam_x;
+                    let dy = py_ - cam_y;
+                    let dz = pz_ - cam_z;
+                    let mut dsurf = (dx * dx + dy * dy + dz * dz).sqrt() - pr_;
+                    if dsurf < 0.0 { dsurf = 0.0; }
+                    if dsurf > parent_e {
+                        parent_px = parent_e * proj_factor / dsurf;
+                    } else {
+                        parent_px = 1000000000.0;
+                    }
+                }
+            }
+            let mut in_cut = 0u32;
+            if self_px < err_thr {
+                if parent_px >= err_thr {
+                    in_cut = 1u32;
+                }
+            }
+            if in_cut == 0u32 {
+                decision = 2u32;
+            }
+        }
+        // ── 关 4:HZB rect 保守遮挡（HzbPyramid::test_rect 字面;reverse-Z
+        //    farther = min;近平面骑跨保守可见不测）──
+        if decision == 4u32 {
+            let znear = params[33];
+            // 视深（view 行主 3×4;RH looking −z ⇒ viewz = −(row2·p)）。
+            let vz_row_x = params[60];
+            let vz_row_y = params[61];
+            let vz_row_z = params[62];
+            let vz_row_w = params[63];
+            let viewz = 0.0 - (vz_row_x * cx + vz_row_y * cy + vz_row_z * cz + vz_row_w);
+            let near_z = viewz - radius;
+            if near_z > znear {
+                // rect 中心 = VP 投影球心（w > 0 前提由 near_z > znear 保证）。
+                let m0 = params[36] * cx + params[37] * cy + params[38] * cz + params[39];
+                let m1 = params[40] * cx + params[41] * cy + params[42] * cz + params[43];
+                let mw = params[48] * cx + params[49] * cy + params[50] * cz + params[51];
+                if mw > 0.000001 {
+                    let ndc_x = m0 / mw;
+                    let ndc_y = m1 / mw;
+                    let u = ndc_x * 0.5 + 0.5;
+                    let v = 0.5 - ndc_y * 0.5;
+                    // uv 半径（保守:分母取球面最近深度）。
+                    let hu = radius * params[31] / near_z;
+                    let hv = radius * params[32] / near_z;
+                    let mut u0 = u - hu;
+                    let mut v0 = v - hv;
+                    let mut u1 = u + hu;
+                    let mut v1 = v + hv;
+                    if u0 < 0.0 { u0 = 0.0; }
+                    if v0 < 0.0 { v0 = 0.0; }
+                    if u1 > 1.0 { u1 = 1.0; }
+                    if v1 > 1.0 { v1 = 1.0; }
+                    // 被测球最近深度（reverse-Z 域:znear/viewz,近 = 1）。
+                    let nearest_depth = znear / near_z;
+                    // mip0 像素 rect（host test_rect 字面:floor/ceil + clamp）。
+                    let w0 = hzb_meta[1] as f32;
+                    let h0 = hzb_meta[2] as f32;
+                    let mut x0f = (u0 * w0).floor();
+                    if x0f > (w0 - 1.0) { x0f = w0 - 1.0; }
+                    if x0f < 0.0 { x0f = 0.0; }
+                    let mut y0f = (v0 * h0).floor();
+                    if y0f > (h0 - 1.0) { y0f = h0 - 1.0; }
+                    if y0f < 0.0 { y0f = 0.0; }
+                    let mut x1f = (u1 * w0).ceil();
+                    if x1f < 1.0 { x1f = 1.0; }
+                    if x1f > w0 { x1f = w0; }
+                    let mut y1f = (v1 * h0).ceil();
+                    if y1f < 1.0 { y1f = 1.0; }
+                    if y1f > h0 { y1f = h0; }
+                    let x0 = x0f as usize;
+                    let y0 = y0f as usize;
+                    let x1 = (x1f as usize) - 1;
+                    let y1 = (y1f as usize) - 1;
+                    let mut span = x1 - x0 + 1;
+                    let span_y = y1 - y0 + 1;
+                    if span_y > span { span = span_y; }
+                    // 最低「跨度 ≤ 2」mip（host while (span >> mip) > 2 字面）。
+                    let mut mip = 0usize;
+                    let mut sp = span;
+                    while sp > 2 {
+                        sp = sp / 2;
+                        mip = mip + 1;
+                    }
+                    let levels = params[34] as usize;
+                    if mip > levels - 1 { mip = levels - 1; }
+                    let mb = mip * 3;
+                    let moff = hzb_meta[mb] as usize;
+                    let mw_ = hzb_meta[mb + 1] as usize;
+                    let mh_ = hzb_meta[mb + 2] as usize;
+                    // 位移经 2^mip 除法（.rx 无 >> 运算子;usize 除法同语义）。
+                    let mut shift = 1usize;
+                    let mut k = 0usize;
+                    while k < mip {
+                        shift = shift * 2;
+                        k = k + 1;
+                    }
+                    let mut mx0 = x0 / shift;
+                    let mut my0 = y0 / shift;
+                    let mut mx1 = x1 / shift;
+                    let mut my1 = y1 / shift;
+                    if mx1 > mw_ - 1 { mx1 = mw_ - 1; }
+                    if my1 > mh_ - 1 { my1 = mh_ - 1; }
+                    if mx0 > mx1 { mx0 = mx1; }
+                    if my0 > my1 { my0 = my1; }
+                    // farther(min for reverse-Z)归约 ≤2×2 窗。
+                    let mut farthest = hzb_data[moff + my0 * mw_ + mx0];
+                    let mut my = my0;
+                    while my <= my1 {
+                        let mut mx = mx0;
+                        while mx <= mx1 {
+                            let dv = hzb_data[moff + my * mw_ + mx];
+                            if dv < farthest { farthest = dv; }
+                            mx = mx + 1;
+                        }
+                        my = my + 1;
+                    }
+                    // reverse-Z is_farther(a,b) = a < b。
+                    if nearest_depth < farthest {
+                        decision = 3u32;
+                    }
+                }
+            }
+        }
+        decisions[j] = decision;
+        let cap = params[35] as usize;
+        if decision == 4u32 {
+            let slot = counters.fetch_add(0, 1u32, Scope::Gpu) as usize;
+            if slot < cap {
+                vis_ids[slot] = i as u32;
+            } else {
+                let _of = counters.fetch_add(2, 1u32, Scope::Gpu);
+            }
+        }
+        if decision == 3u32 {
+            let slot = counters.fetch_add(1, 1u32, Scope::Gpu) as usize;
+            if slot < cap {
+                occ_ids[slot] = i as u32;
+            } else {
+                let _of = counters.fetch_add(2, 1u32, Scope::Gpu);
+            }
+        }
+    }
+}

@@ -36,11 +36,15 @@ unsafe extern "C" {
         swizzle_rg: i32,
         out: *mut RurixBasisBuf,
     ) -> i32;
-    pub fn rurix_basis_transcode(
+    // `rurix_basis_transcode`(level 0 旧入口)C 符号在 wrap 侧保留(C 消费面,
+    // 见 VENDOR.md §3);Rust 侧统一经 `rurix_basis_transcode_level`(level=0 同义),
+    // 故此处不再重复声明(避免死声明面)。
+    pub fn rurix_basis_transcode_level(
         data: *const u8,
         len: usize,
         src_kind: i32,
         target: i32,
+        level: u32,
         out: *mut RurixBasisBuf,
         out_width: *mut u32,
         out_height: *mut u32,

@@ -78,7 +78,10 @@ impl std::fmt::Display for DecalError {
                 write!(f, "过绘制计数 {count} 越界预算 {budget}(RED)")
             }
             DecalError::DensityDegradationMissing { cluster_max, bound } => {
-                write!(f, "cluster 密度 {cluster_max} 超上界 {bound} 未受界降级(RED)")
+                write!(
+                    f,
+                    "cluster 密度 {cluster_max} 超上界 {bound} 未受界降级(RED)"
+                )
             }
             DecalError::SvtDependencyDetected { field } => {
                 write!(f, "SVT/RVT 依赖注入: {field}(零 SVT 断言违反,RED)")
@@ -153,7 +156,11 @@ pub fn design_time_seat() -> FrameGraphDecalSeat {
             DBufferChannel::MaterialAttributes,
             DBufferChannel::OptionalThird,
         ],
-        barrier_layout: BarrierLayoutDesc { gbuffer_writes: 4, dbuffer_writes: 3, composite_reads: 3 },
+        barrier_layout: BarrierLayoutDesc {
+            gbuffer_writes: 4,
+            dbuffer_writes: 3,
+            composite_reads: 3,
+        },
     }
 }
 
@@ -218,10 +225,16 @@ impl DecalVolume {
             || !self.albedo.iter().all(|v| v.is_finite())
             || !self.mask.is_finite()
         {
-            return Err(DecalError::BadDecalVolume { id: self.id, why: "非有限值" });
+            return Err(DecalError::BadDecalVolume {
+                id: self.id,
+                why: "非有限值",
+            });
         }
         if self.extent.iter().any(|e| *e <= 0.0) {
-            return Err(DecalError::BadDecalVolume { id: self.id, why: "零/负半长" });
+            return Err(DecalError::BadDecalVolume {
+                id: self.id,
+                why: "零/负半长",
+            });
         }
         Ok(())
     }
@@ -232,7 +245,10 @@ impl DecalVolume {
 pub fn project_decal(decal: &DecalVolume, point: [f32; 3]) -> Result<Option<f32>> {
     decal.validate()?;
     if !point.iter().all(|v| v.is_finite()) {
-        return Err(DecalError::BadDecalVolume { id: decal.id, why: "投影点非有限" });
+        return Err(DecalError::BadDecalVolume {
+            id: decal.id,
+            why: "投影点非有限",
+        });
     }
     let mut inside = true;
     let mut dz = 0.0f32;
@@ -292,15 +308,22 @@ pub fn assign_decals(decals: &[DecalVolume], degrade: bool) -> Result<ClusterAss
         let mut hi = [0u32; 3];
         for ax in 0..3 {
             let cell = EXTENT[ax] / DECAL_CLUSTER_DIM[ax] as f32;
-            let a = ((d.center[ax] - d.extent[ax]) / cell).floor().clamp(0.0, DECAL_CLUSTER_DIM[ax] as f32 - 1.0);
-            let b = ((d.center[ax] + d.extent[ax]) / cell).floor().clamp(0.0, DECAL_CLUSTER_DIM[ax] as f32 - 1.0);
+            let a = ((d.center[ax] - d.extent[ax]) / cell)
+                .floor()
+                .clamp(0.0, DECAL_CLUSTER_DIM[ax] as f32 - 1.0);
+            let b = ((d.center[ax] + d.extent[ax]) / cell)
+                .floor()
+                .clamp(0.0, DECAL_CLUSTER_DIM[ax] as f32 - 1.0);
             lo[ax] = a as u32;
             hi[ax] = b as u32;
         }
         for z in lo[2]..=hi[2] {
             for y in lo[1]..=hi[1] {
                 for x in lo[0]..=hi[0] {
-                    let idx = (x + y * DECAL_CLUSTER_DIM[0] + z * DECAL_CLUSTER_DIM[0] * DECAL_CLUSTER_DIM[1]) as usize;
+                    let idx = (x
+                        + y * DECAL_CLUSTER_DIM[0]
+                        + z * DECAL_CLUSTER_DIM[0] * DECAL_CLUSTER_DIM[1])
+                        as usize;
                     per_cluster[idx].push(d.id);
                 }
             }
@@ -315,19 +338,34 @@ pub fn assign_decals(decals: &[DecalVolume], degrade: bool) -> Result<ClusterAss
         }
         total_evals += list.len() as u32;
     }
-    Ok(ClusterAssignment { per_cluster, degraded, total_evals })
+    Ok(ClusterAssignment {
+        per_cluster,
+        degraded,
+        total_evals,
+    })
 }
 
 /// 受界降级与过绘制机核(L4):任一 cluster 超上界未降级即
 /// `Err(DensityDegradationMissing)`(RED);过绘制计数越界即
 /// `Err(OverdrawBudgetExceeded)`(RED)。
 pub fn verify_assignment(a: &ClusterAssignment) -> Result<()> {
-    let cluster_max = a.per_cluster.iter().map(|l| l.len() as u32).max().unwrap_or(0);
+    let cluster_max = a
+        .per_cluster
+        .iter()
+        .map(|l| l.len() as u32)
+        .max()
+        .unwrap_or(0);
     if cluster_max > MAX_DECALS_PER_CLUSTER {
-        return Err(DecalError::DensityDegradationMissing { cluster_max, bound: MAX_DECALS_PER_CLUSTER });
+        return Err(DecalError::DensityDegradationMissing {
+            cluster_max,
+            bound: MAX_DECALS_PER_CLUSTER,
+        });
     }
     if a.total_evals > DECAL_OVERDRAW_BUDGET {
-        return Err(DecalError::OverdrawBudgetExceeded { count: a.total_evals, budget: DECAL_OVERDRAW_BUDGET });
+        return Err(DecalError::OverdrawBudgetExceeded {
+            count: a.total_evals,
+            budget: DECAL_OVERDRAW_BUDGET,
+        });
     }
     Ok(())
 }
@@ -418,7 +456,11 @@ pub fn composite(db: &DBuffer, base_albedo: [f32; 3]) -> Vec<[f32; 3]> {
 
 /// 前向回退档(L3):无 DBuffer 的低端 profile——逐像素直接求值(与双段同一
 /// 求值函数同一衰减闭集 ⇒ 语义等价判据 = 逐位相等)。
-pub fn decal_forward_pass(decals: &[DecalVolume], assignment: &ClusterAssignment, base_albedo: [f32; 3]) -> Result<Vec<[f32; 3]>> {
+pub fn decal_forward_pass(
+    decals: &[DecalVolume],
+    assignment: &ClusterAssignment,
+    base_albedo: [f32; 3],
+) -> Result<Vec<[f32; 3]>> {
     let db = write_dbuffer(decals, assignment)?;
     Ok(composite(&db, base_albedo))
 }
@@ -440,11 +482,16 @@ pub fn assert_tier_equivalence(dbuffer_out: &[[f32; 3]], forward_out: &[[f32; 3]
 
 /// 双段断言(RED 臂校验面):旁路直写注入(不经 DBuffer 中间表示的篡改路径)
 /// 与双段输出不一致即 [`DecalError::TwoStageViolation`]。
-pub fn assert_two_stage(two_stage_out: &[[f32; 3]], bypass_out: &[[f32; 3]], expect_bypass_differs: bool) -> Result<()> {
+pub fn assert_two_stage(
+    two_stage_out: &[[f32; 3]],
+    bypass_out: &[[f32; 3]],
+    expect_bypass_differs: bool,
+) -> Result<()> {
     let equal = two_stage_out.len() == bypass_out.len()
-        && two_stage_out.iter().zip(bypass_out.iter()).all(|(a, b)| {
-            (0..3).all(|c| a[c].to_bits() == b[c].to_bits())
-        });
+        && two_stage_out
+            .iter()
+            .zip(bypass_out.iter())
+            .all(|(a, b)| (0..3).all(|c| a[c].to_bits() == b[c].to_bits()));
     if expect_bypass_differs && equal {
         return Err(DecalError::TwoStageViolation);
     }
@@ -483,7 +530,9 @@ pub fn assert_decal_zero_svt(desc: &DecalDependencyDesc) -> Result<()> {
         return Err(DecalError::SvtDependencyDetected { field: "uses_rvt" });
     }
     if desc.uses_sampler_feedback {
-        return Err(DecalError::SvtDependencyDetected { field: "uses_sampler_feedback" });
+        return Err(DecalError::SvtDependencyDetected {
+            field: "uses_sampler_feedback",
+        });
     }
     Ok(())
 }
@@ -499,7 +548,11 @@ pub fn canonical_decals() -> Vec<DecalVolume> {
             id: 100 + i,
             center: [16.0 + i as f32 * 24.0, 16.0 + i as f32 * 8.0, 48.0],
             extent: [6.0, 6.0, 4.0],
-            falloff: if i % 2 == 0 { DecalFalloff::Linear } else { DecalFalloff::Smoothstep },
+            falloff: if i % 2 == 0 {
+                DecalFalloff::Linear
+            } else {
+                DecalFalloff::Smoothstep
+            },
             normal: [0.0, 0.0, 1.0],
             albedo: [0.2 + i as f32 * 0.1, 0.3, 0.5],
             mask: 0.25,
@@ -609,9 +662,18 @@ mod tests {
     fn zero_svt_red() {
         assert!(assert_decal_zero_svt(&DecalDependencyDesc::default()).is_ok());
         for desc in [
-            DecalDependencyDesc { uses_svt: true, ..Default::default() },
-            DecalDependencyDesc { uses_rvt: true, ..Default::default() },
-            DecalDependencyDesc { uses_sampler_feedback: true, ..Default::default() },
+            DecalDependencyDesc {
+                uses_svt: true,
+                ..Default::default()
+            },
+            DecalDependencyDesc {
+                uses_rvt: true,
+                ..Default::default()
+            },
+            DecalDependencyDesc {
+                uses_sampler_feedback: true,
+                ..Default::default()
+            },
         ] {
             assert!(matches!(
                 assert_decal_zero_svt(&desc),

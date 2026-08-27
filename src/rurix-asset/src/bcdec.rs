@@ -1,9 +1,11 @@
 //! 独立 BCn / ASTC 校验解码器(仅解码;供 M83 tolerance 对拍,避免 vendor 自证)。
 //!
-//! 覆盖真实 `basis_universal` UASTC→transcode 产出的 BC7 **mode 5 + mode 6**
-//! (实测:常色块 → mode 6,渐变/normal 块 → mode 5)、BC4(单通道)、
-//! BC5(双 BC4 = XY)。ASTC 4×4 为**结构校验**(块模式分类 + void-extent 判别),
-//! 非全量像素解码 —— 见 VENDOR.md 诚实边界。
+//! 覆盖真实 `basis_universal` UASTC→transcode 产出空间的 BC7 **全 8 mode**
+//! (UASTC 模式与 BC7 mode 0-7 一一映射;bistro 实纹理对拍实测命中 0/1/2/3/5/6/7——
+//! mode 0-3/7 覆盖为 G31+ 波 C Task C14 追加,布局镜像 vendor
+//! `unpack_bc7_mode0_2` / `unpack_bc7_mode1_3_7` / `unpack_bc7_mode4_5` 语义)、
+//! BC4(单通道)、BC5(双 BC4 = XY)。ASTC 4×4 为**结构校验**(块模式分类 +
+//! void-extent 判别),非全量像素解码 —— 见 VENDOR.md 诚实边界。
 //!
 //! 本文件不引用 `rurix-basis-sys`:独立实现是 tolerance 断言可信的前提。
 //! //@ spec: RXS-0334
@@ -52,6 +54,8 @@ fn get_bits(block: &[u8], start: usize, n: usize) -> u32 {
 
 /// BC7 4-bit 权重表(== 上游 `g_bc7_weights4` 字面)。
 const BC7_W4: [i32; 16] = [0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64];
+/// BC7 3-bit 权重表(== 上游 `g_bc7_weights3` 字面)。
+const BC7_W3: [i32; 8] = [0, 9, 18, 27, 37, 46, 55, 64];
 /// BC7 2-bit 权重表(== 上游 `g_bc7_weights2` 字面)。
 const BC7_W2: [i32; 4] = [0, 21, 43, 64];
 
@@ -73,12 +77,301 @@ fn decode_bc7_block(block: &[u8], out: &mut [[u8; 4]; 16]) {
     match bc7_mode(block) {
         Some(6) => decode_bc7_mode6(block, out),
         Some(5) => decode_bc7_mode5(block, out),
-        // 其它 mode 未覆盖:标记为透明黑,使 tolerance 断言必然超限(不静默充绿)。
+        Some(4) => decode_bc7_mode4(block, out),
+        Some(7) => decode_bc7_mode7(block, out),
+        Some(m @ (0..=3)) => decode_bc7_mode0_3(block, out, m),
+        // 不可达(一元前缀必中 0..=7):保底透明黑(不静默充绿)。
         _ => {
             for t in out.iter_mut() {
                 *t = [0, 0, 0, 0];
             }
         }
+    }
+}
+
+/// BC7 端点 dequant(镜像 vendor `bc7_dequant` 双形):
+/// 带 p-bit — val=(v<<1)|pbit 后按 total_bits=bits+1 复制扩展到 8-bit;
+/// 无 p-bit — 按 bits 复制扩展到 8-bit。
+fn bc7_dequant(v: u8, pbit: Option<u8>, bits: usize) -> u8 {
+    let (mut val, total) = match pbit {
+        Some(p) => (((v << 1) | p) as u32, bits + 1),
+        None => (v as u32, bits),
+    };
+    val <<= 8 - total;
+    val |= val >> total;
+    val.min(255) as u8
+}
+
+/// BC7 mode 0/1/2/3(多子集面;布局镜像 vendor
+/// `unpack_bc7_mode0_2` / `unpack_bc7_mode1_3_7`):
+/// - mode 0: 3 子集,part 4b,RGB 444 + 逐端点 p-bit(6),3-bit 权重(3 anchor);
+/// - mode 1: 2 子集,part 6b,RGB 666 + 共享 p-bit(2,按端点对),3-bit 权重(2 anchor);
+/// - mode 2: 3 子集,part 6b,RGB 555 无 p-bit,2-bit 权重(3 anchor);
+/// - mode 3: 2 子集,part 6b,RGB 777 + 逐端点 p-bit(4),2-bit 权重(2 anchor)。
+/// alpha 恒 255(RGB-only mode)。
+fn decode_bc7_mode0_3(block: &[u8], out: &mut [[u8; 4]; 16], mode: u32) {
+    let (subsets, part_bits, weight_bits, endpoint_bits, pbit_per_endpoint, pbit_shared) =
+        match mode {
+            0 => (3usize, 4usize, 3usize, 4usize, true, false),
+            1 => (2, 6, 3, 6, false, true),
+            2 => (3, 6, 2, 5, false, false),
+            _ => (2, 6, 2, 7, true, false),
+        };
+    let mut pos = (mode + 1) as usize;
+    let part = get_bits(block, pos, part_bits) as usize;
+    pos += part_bits;
+    let n_ep = subsets * 2;
+    let mut ep = [[0u8; 3]; 6];
+    for c in 0..3 {
+        for e in ep.iter_mut().take(n_ep) {
+            e[c] = get_bits(block, pos, endpoint_bits) as u8;
+            pos += endpoint_bits;
+        }
+    }
+    let n_pbits = if pbit_per_endpoint {
+        n_ep
+    } else if pbit_shared {
+        subsets
+    } else {
+        0
+    };
+    let mut pbits = [0u8; 6];
+    for p in pbits.iter_mut().take(n_pbits) {
+        *p = get_bits(block, pos, 1) as u8;
+        pos += 1;
+    }
+    // anchor 集合:子集 0 anchor = 0;子集 1 anchor 按子集数取表;
+    // 子集 2 anchor 仅 3 子集 mode 取 third_2。
+    let a1 = if subsets == 3 {
+        BC7_ANCHOR_THIRD_1[part] as usize
+    } else {
+        BC7_ANCHOR_SECOND_SUBSET[part] as usize
+    };
+    let a2 = if subsets == 3 {
+        BC7_ANCHOR_THIRD_2[part] as usize
+    } else {
+        usize::MAX
+    };
+    let wtab: &[i32] = if weight_bits == 3 { &BC7_W3 } else { &BC7_W2 };
+    let mut widx = [0u32; 16];
+    for (i, slot) in widx.iter_mut().enumerate() {
+        let n = if i == 0 || i == a1 || i == a2 {
+            weight_bits - 1
+        } else {
+            weight_bits
+        };
+        *slot = get_bits(block, pos, n);
+        pos += n;
+    }
+    debug_assert_eq!(pos, 128);
+    // 端点 dequant(RGB;alpha 恒 255)。
+    let mut e = [[0u8; 4]; 6];
+    for (i, item) in e.iter_mut().enumerate().take(n_ep) {
+        let pb = if pbit_per_endpoint {
+            Some(pbits[i])
+        } else if pbit_shared {
+            Some(pbits[i >> 1])
+        } else {
+            None
+        };
+        for c in 0..3 {
+            item[c] = bc7_dequant(ep[i][c], pb, endpoint_bits);
+        }
+        item[3] = 255;
+    }
+    // 逐子集调色板。
+    let mut pal = [[[0u8; 4]; 8]; 3];
+    for (s, ps) in pal.iter_mut().enumerate().take(subsets) {
+        for (i, item) in ps.iter_mut().enumerate().take(wtab.len()) {
+            *item = lerp_w(e[s * 2], e[s * 2 + 1], wtab[i]);
+        }
+    }
+    let ptab: &[u8] = if subsets == 3 {
+        &BC7_PARTITION3
+    } else {
+        &BC7_PARTITION2
+    };
+    for i in 0..16 {
+        let s = ptab[part * 16 + i] as usize;
+        out[i] = pal[s][widx[i] as usize];
+    }
+}
+
+/// BC7 mode 4:1 子集,2-bit rotation + 1-bit index_mode + RGB 555/A 66
+/// (无 p-bit);color/alpha 权重精度按 index_mode 互换(2↔3 bit,首读集随
+/// index_mode 切换;镜像 vendor `unpack_bc7_mode4_5` mode=4 分支)。
+fn decode_bc7_mode4(block: &[u8], out: &mut [[u8; 4]; 16]) {
+    let mut pos = 5usize; // mode 4 前缀占 5 bit
+    let rotation = get_bits(block, pos, 2);
+    pos += 2;
+    let index_mode = get_bits(block, pos, 1) as usize;
+    pos += 1;
+    // 端点:[c][e] 序,RGB 5 bit / A 6 bit。
+    let mut ep = [[0u8; 4]; 2];
+    for c in 0..4 {
+        for e in ep.iter_mut() {
+            let n = if c == 3 { 6 } else { 5 };
+            e[c] = get_bits(block, pos, n) as u8;
+            pos += n;
+        }
+    }
+    // color 权重精度 = index_mode ? 3 : 2;alpha = index_mode ? 2 : 3。
+    let cbits = if index_mode == 1 { 3 } else { 2 };
+    let abits = if index_mode == 1 { 2 } else { 3 };
+    let mut cidx = [0u32; 16];
+    let mut aidx = [0u32; 16];
+    // 首读集:index_mode=0 → color;index_mode=1 → alpha(各 anchor 仅 i==0 减 1 bit)。
+    for i in 0..16 {
+        let n = (if index_mode == 1 { abits } else { cbits }) - usize::from(i == 0);
+        let v = get_bits(block, pos, n);
+        pos += n;
+        if index_mode == 1 {
+            aidx[i] = v;
+        } else {
+            cidx[i] = v;
+        }
+    }
+    for i in 0..16 {
+        let n = (if index_mode == 1 { cbits } else { abits }) - usize::from(i == 0);
+        let v = get_bits(block, pos, n);
+        pos += n;
+        if index_mode == 1 {
+            cidx[i] = v;
+        } else {
+            aidx[i] = v;
+        }
+    }
+    debug_assert_eq!(pos, 128);
+    let mut e = [[0u8; 4]; 2];
+    for i in 0..2 {
+        for c in 0..4 {
+            e[i][c] = bc7_dequant(ep[i][c], None, if c == 3 { 6 } else { 5 });
+        }
+    }
+    let ctab: &[i32] = if cbits == 3 { &BC7_W3 } else { &BC7_W2 };
+    let atab: &[i32] = if abits == 3 { &BC7_W3 } else { &BC7_W2 };
+    let mut cpal = [[0u8; 4]; 8];
+    for (i, item) in cpal.iter_mut().enumerate().take(ctab.len()) {
+        *item = lerp_w(e[0], e[1], ctab[i]);
+    }
+    let mut apal = [0u8; 8];
+    for (i, item) in apal.iter_mut().enumerate().take(atab.len()) {
+        let w = atab[i];
+        let v = (i32::from(e[0][3]) * (64 - w) + i32::from(e[1][3]) * w + 32) >> 6;
+        *item = v.clamp(0, 255) as u8;
+    }
+    for i in 0..16 {
+        let c = cpal[cidx[i] as usize];
+        let mut t = [c[0], c[1], c[2], apal[aidx[i] as usize]];
+        match rotation {
+            1 => t.swap(0, 3),
+            2 => t.swap(1, 3),
+            3 => t.swap(2, 3),
+            _ => {}
+        }
+        out[i] = t;
+    }
+}
+
+/// BC7 二子集划分表(64×16;镜像 vendor `g_bc7_partition2` 字面,
+/// basis_universal 1.16.4 transcoder/basisu_transcoder.cpp L11453-11463)。
+#[rustfmt::skip]
+const BC7_PARTITION2: [u8; 64 * 16] = [
+    0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1, 0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1, 0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1, 0,0,0,1,0,0,1,1,0,0,1,1,0,1,1,1, 0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,1, 0,0,1,1,0,1,1,1,0,1,1,1,1,1,1,1, 0,0,0,1,0,0,1,1,0,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,1,0,0,1,1,0,1,1,1,
+    0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1, 0,0,1,1,0,1,1,1,1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,1,0,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,1, 0,0,0,1,0,1,1,1,1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1, 0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1, 0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,
+    0,0,0,0,1,0,0,0,1,1,1,0,1,1,1,1, 0,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,1,0,0,0,1,1,1,0, 0,1,1,1,0,0,1,1,0,0,0,1,0,0,0,0, 0,0,1,1,0,0,0,1,0,0,0,0,0,0,0,0, 0,0,0,0,1,0,0,0,1,1,0,0,1,1,1,0, 0,0,0,0,0,0,0,0,1,0,0,0,1,1,0,0, 0,1,1,1,0,0,1,1,0,0,1,1,0,0,0,1,
+    0,0,1,1,0,0,0,1,0,0,0,1,0,0,0,0, 0,0,0,0,1,0,0,0,1,0,0,0,1,1,0,0, 0,1,1,0,0,1,1,0,0,1,1,0,0,1,1,0, 0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0, 0,0,0,1,0,1,1,1,1,1,1,0,1,0,0,0, 0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0, 0,1,1,1,0,0,0,1,1,0,0,0,1,1,1,0, 0,0,1,1,1,0,0,1,1,0,0,1,1,1,0,0,
+    0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1, 0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1, 0,1,0,1,1,0,1,0,0,1,0,1,1,0,1,0, 0,0,1,1,0,0,1,1,1,1,0,0,1,1,0,0, 0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0, 0,1,0,1,0,1,0,1,1,0,1,0,1,0,1,0, 0,1,1,0,1,0,0,1,0,1,1,0,1,0,0,1, 0,1,0,1,1,0,1,0,1,0,1,0,0,1,0,1,
+    0,1,1,1,0,0,1,1,1,1,0,0,1,1,1,0, 0,0,0,1,0,0,1,1,1,1,0,0,1,0,0,0, 0,0,1,1,0,0,1,0,0,1,0,0,1,1,0,0, 0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,0, 0,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0, 0,1,1,1,1,0,0,1,1,0,0,0,0,1,1,0, 0,1,1,0,0,1,1,0,1,0,0,1,1,0,0,1, 0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,
+    0,1,0,0,1,1,1,0,0,1,0,0,0,0,0,0, 0,0,1,0,0,1,1,1,0,0,1,0,0,0,0,0, 0,0,0,0,0,0,1,0,0,1,1,1,0,0,1,0, 0,0,0,0,0,1,0,0,1,1,1,0,0,1,0,0, 0,1,1,0,1,1,0,0,1,0,0,1,0,0,1,1, 0,0,1,1,0,1,1,0,1,1,0,0,1,0,0,1, 0,1,1,0,0,0,1,1,1,0,0,1,1,1,0,0, 0,0,1,1,1,0,0,1,1,1,0,0,0,1,1,0,
+    0,1,1,0,1,1,0,0,1,1,0,0,1,0,0,1, 0,1,1,0,0,0,1,1,0,0,1,1,1,0,0,1, 0,1,1,1,1,1,1,0,1,0,0,0,0,0,0,1, 0,0,0,1,1,0,0,0,1,1,1,0,0,1,1,1, 0,0,0,0,1,1,1,1,0,0,1,1,0,0,1,1, 0,0,1,1,0,0,1,1,1,1,1,1,0,0,0,0, 0,0,1,0,0,0,1,0,1,1,1,0,1,1,1,0, 0,1,0,0,0,1,0,0,0,1,1,1,0,1,1,1,
+];
+
+/// BC7 二子集第二 anchor 索引表(64;镜像 vendor
+/// `g_bc7_table_anchor_index_second_subset` 字面,L11477)。
+#[rustfmt::skip]
+const BC7_ANCHOR_SECOND_SUBSET: [u8; 64] = [
+    15,15,15,15,15,15,15,15, 15,15,15,15,15,15,15,15,
+    15, 2, 8, 2, 2, 8, 8,15,  2, 8, 2, 2, 8, 8, 2, 2,
+    15,15, 6, 8, 2, 8,15,15,  2, 8, 2, 2, 2,15,15, 6,
+     6, 2, 6, 8,15,15, 2, 2, 15,15,15,15,15, 2, 2,15,
+];
+
+/// BC7 三子集划分表(64×16;镜像 vendor `g_bc7_partition3` 字面,L11465-11475)。
+#[rustfmt::skip]
+const BC7_PARTITION3: [u8; 64 * 16] = [
+    0,0,1,1,0,0,1,1,0,2,2,1,2,2,2,2, 0,0,0,1,0,0,1,1,2,2,1,1,2,2,2,1, 0,0,0,0,2,0,0,1,2,2,1,1,2,2,1,1, 0,2,2,2,0,0,2,2,0,0,1,1,0,1,1,1, 0,0,0,0,0,0,0,0,1,1,2,2,1,1,2,2, 0,0,1,1,0,0,1,1,0,0,2,2,0,0,2,2, 0,0,2,2,0,0,2,2,1,1,1,1,1,1,1,1, 0,0,1,1,2,2,1,1,2,2,1,1,2,2,1,1,
+    0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2, 0,0,0,0,1,1,1,1,1,1,1,1,2,2,2,2, 0,0,1,2,0,0,1,2,0,0,1,2,0,0,1,2, 0,1,1,2,0,1,1,2,0,1,1,2,0,1,1,2, 0,1,2,2,0,1,2,2,0,1,2,2,0,1,2,2, 0,1,1,1,0,1,1,2,1,2,2,1,2,2,2,0, 0,0,1,1,2,2,0,0,2,2,0,0,2,2,2,0, 0,1,2,2,1,1,2,2,1,2,2,2,1,2,2,2,
+    0,0,0,1,0,0,1,1,0,1,1,2,1,1,2,2, 0,1,1,1,0,0,1,2,0,0,1,2,2,0,0,0, 0,0,0,0,0,1,1,2,2,1,1,2,2,1,1,2, 0,0,2,2,0,0,2,2,0,0,2,2,1,1,1,1, 0,1,1,1,0,1,1,1,0,2,2,2,0,2,2,2, 0,0,0,1,0,0,0,1,2,2,2,1,2,2,2,1, 0,1,1,0,1,2,2,1,1,2,2,1,2,2,1,1, 0,1,1,0,0,1,1,0,0,2,2,1,0,2,2,1,
+    0,1,2,2,0,1,2,2,0,0,1,1,0,0,0,0, 0,0,1,2,0,1,2,1,1,2,2,2,2,2,2,2, 0,1,1,0,1,2,2,1,1,2,2,1,0,1,1,0, 0,0,0,1,1,2,2,1,1,2,2,1,1,2,2,1, 0,0,2,2,1,1,0,2,1,1,0,2,0,0,2,2, 0,1,1,0,0,1,1,0,2,0,0,2,2,2,2,2, 0,0,0,0,2,0,0,0,2,2,1,1,2,2,2,1, 0,1,1,0,0,2,2,1,1,2,2,0,0,1,1,1,
+    0,0,0,0,0,0,0,2,1,1,2,2,1,2,2,2, 0,2,2,2,0,0,2,2,0,0,1,2,0,0,1,1, 0,0,1,1,0,0,1,2,0,0,2,2,0,2,2,2, 0,1,2,0,1,2,0,1,2,0,0,1,2,0,1,2, 0,1,1,1,1,1,1,1,0,1,1,1,0,0,0,0, 0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0, 0,1,2,0,2,0,1,2,1,2,0,1,0,1,2,0, 0,1,1,2,2,0,0,1,2,2,0,0,1,2,2,1,
+    0,0,1,1,1,1,2,2,2,2,0,0,0,0,1,1, 0,1,0,1,0,1,0,1,2,2,2,2,2,2,2,2, 0,0,0,0,0,0,0,0,2,1,2,1,2,1,2,1, 0,0,2,2,1,1,2,2,0,0,2,2,1,1,2,2, 0,0,2,2,0,0,1,1,0,0,2,2,0,0,1,1, 0,2,2,2,0,1,2,2,1,0,2,2,0,1,2,2, 0,1,0,1,2,2,2,2,2,2,2,2,0,1,0,1, 0,0,0,2,1,2,1,2,1,2,1,2,1,2,1,2,
+    0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2, 0,2,2,2,0,1,1,1,0,2,2,2,0,1,1,1, 0,0,0,2,1,1,1,2,0,0,0,2,1,1,1,2, 0,0,0,0,2,1,1,2,2,1,1,2,1,1,1,2, 0,2,2,2,0,1,1,1,0,1,1,1,0,2,2,2, 0,1,1,0,0,2,2,2,1,2,0,0,1,1,0,2, 0,1,1,0,1,1,0,0,1,1,0,2,2,2,2,2, 0,0,0,0,0,0,0,0,2,1,1,2,2,1,1,2,
+    0,1,1,0,0,1,1,0,2,2,2,2,2,2,2,2, 0,0,2,2,0,0,1,1,0,0,2,2,0,0,2,2, 0,1,1,2,2,1,1,2,2,1,1,0,0,2,2,2, 0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,2, 0,0,0,2,0,0,0,1,0,0,0,2,0,0,0,1, 0,2,2,2,1,2,2,2,0,2,2,2,1,2,2,2, 0,1,0,1,2,2,2,2,2,2,2,2,2,2,2,2, 0,1,1,1,2,0,1,1,2,2,0,1,2,2,2,0,
+];
+
+/// BC7 三子集 anchor 表(64×2;镜像 vendor
+/// `g_bc7_table_anchor_index_third_subset_{1,2}` 字面,L11479-11487)。
+#[rustfmt::skip]
+const BC7_ANCHOR_THIRD_1: [u8; 64] = [
+     3, 3,15,15, 8, 3,15,15,  8, 8, 6, 6, 6, 5, 3, 3,
+     3, 3, 8,15, 3, 3, 6,10,  5, 8, 8, 6, 8, 5,15,15,
+     8,15, 3, 5, 6,10, 8,15, 15, 3,15, 5,15,15,15,15,
+     3,15, 5, 5, 5, 8, 5,10,  5,10, 8,13,15,12, 3, 3,
+];
+#[rustfmt::skip]
+const BC7_ANCHOR_THIRD_2: [u8; 64] = [
+    15, 8, 8, 3,15,15, 3, 8, 15,15,15,15,15,15,15, 8,
+    15, 8,15, 3,15, 8,15, 8,  3,15, 6,10,15,15,10, 8,
+    15, 3,15,10,10, 8, 9,10,  6,15, 8,15, 3, 6, 6, 8,
+    15, 3,15,15,15,15,15,15, 15,15,15,15, 3,15,15, 8,
+];
+
+/// BC7 mode 7:二子集 6-bit partition + RGBA 5555 端点(逐端点 p-bit)+
+/// 2-bit 权重(双 anchor)。布局镜像 vendor `unpack_bc7_mode1_3_7`(mode=7 分支)。
+fn decode_bc7_mode7(block: &[u8], out: &mut [[u8; 4]; 16]) {
+    let mut pos = 8usize; // mode 7 前缀占 8 bit(0000000 1)
+    let part = get_bits(block, pos, 6) as usize;
+    pos += 6;
+    // 端点:[c][e] 序(R0..R3,G0..G3,B0..B3,A0..A3),各 5 bit。
+    let mut ep = [[0u8; 4]; 4];
+    for c in 0..4 {
+        for e in 0..4 {
+            ep[e][c] = get_bits(block, pos, 5) as u8;
+            pos += 5;
+        }
+    }
+    let mut pbits = [0u8; 4];
+    for p in pbits.iter_mut() {
+        *p = get_bits(block, pos, 1) as u8;
+        pos += 1;
+    }
+    // 权重:16×2 bit,anchor(i==0 与 i==anchor2[part])为 1 bit。
+    let anchor2 = BC7_ANCHOR_SECOND_SUBSET[part] as usize;
+    let mut widx = [0u32; 16];
+    for (i, slot) in widx.iter_mut().enumerate() {
+        let n = if i == 0 || i == anchor2 { 1 } else { 2 };
+        *slot = get_bits(block, pos, n);
+        pos += n;
+    }
+    debug_assert_eq!(pos, 128);
+    // 端点 dequant(5+1 → 8-bit)。
+    let mut e = [[0u8; 4]; 4];
+    for i in 0..4 {
+        for c in 0..4 {
+            e[i][c] = bc7_dequant(ep[i][c], Some(pbits[i]), 5);
+        }
+    }
+    // 逐子集调色板(2-bit 权重插值)。
+    let mut pal = [[[0u8; 4]; 4]; 2];
+    for s in 0..2 {
+        for (i, item) in pal[s].iter_mut().enumerate() {
+            *item = lerp_w(e[s * 2], e[s * 2 + 1], BC7_W2[i]);
+        }
+    }
+    for i in 0..16 {
+        let s = BC7_PARTITION2[part * 16 + i] as usize;
+        out[i] = pal[s][widx[i] as usize];
     }
 }
 
@@ -584,7 +877,8 @@ impl DdsFormat {
         }
     }
 
-    fn block_bytes(self) -> usize {
+    /// 每 4×4 块字节数(BC1/BC4=8,BC3/BC5/BC7=16;G31+ 波 C Task C14 公开面)。
+    pub fn block_bytes(self) -> usize {
         match self {
             DdsFormat::Bc1 | DdsFormat::Bc4 => 8,
             DdsFormat::Bc3 | DdsFormat::Bc5 | DdsFormat::Bc7 => 16,
@@ -660,14 +954,17 @@ pub fn decode_dds(bytes: &[u8]) -> Result<DdsImage, String> {
             return Err(format!(
                 "DDS FourCC 未入消费闭集: {}",
                 String::from_utf8_lossy(other)
-            ))
+            ));
         }
     };
     let bb = format.block_bytes();
     let need = (width.div_ceil(4) as usize) * (height.div_ceil(4) as usize) * bb;
-    let blocks = bytes
-        .get(data_off..data_off + need)
-        .ok_or_else(|| format!("DDS 体截断: 需 {need} 字节(mip 0), 存 {}", bytes.len().saturating_sub(data_off)))?;
+    let blocks = bytes.get(data_off..data_off + need).ok_or_else(|| {
+        format!(
+            "DDS 体截断: 需 {need} 字节(mip 0), 存 {}",
+            bytes.len().saturating_sub(data_off)
+        )
+    })?;
     let rgba8 = match format {
         DdsFormat::Bc1 => decode_bc1_rgba8(blocks, width, height),
         DdsFormat::Bc3 => decode_bc3_rgba8(blocks, width, height),

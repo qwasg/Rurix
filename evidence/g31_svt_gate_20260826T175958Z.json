@@ -1,0 +1,96 @@
+{
+  "schema": "rurix.g31.svt_gate_evidence.v1",
+  "subject": "g31_svt",
+  "symbolic_gate_key": "g31.waveC.svt",
+  "wave": "G31.C",
+  "facts": [
+    {
+      "id": "svt1_page_table_indirection",
+      "status": "PASS",
+      "detail": "128K² 虚拟地址空间页表 1024²（活动区 3072 页）+ 物理瓦片池预算:全驻留 SVT vs 直采 p100=0.0（位级硬门 0.0）+ 恒等页表 digest CI 独立重算互核（True）+ streaming::svt host 单测绿=True"
+    },
+    {
+      "id": "svt2_gpu_feedback_closed_loop",
+      "status": "PASS",
+      "detail": "部分驻留 miss=136 请求 device==host 位级=True → host consume loaded=66 io=4461600B → 重跑全 hit=True == 全驻留=True；生产小池臂 tiles_loaded_total=57736（闭环真跑）"
+    },
+    {
+      "id": "svt3_tile_border_filtering",
+      "status": "PASS",
+      "detail": "130² 带边物理瓦片（border texel 复制,页所属槽 wrap 律）:边界聚焦 96 探针 boundary_max_abs=0.0（位级 0.0）；各向异性跨瓦片 = 双线性闭集 N/A 登记在案"
+    },
+    {
+      "id": "svt4_terrain_consumer_m116",
+      "status": "PASS",
+      "detail": "维持 defer 如实登记:M116 锚核验需求不成立——terrain.rs 零 SVT 依赖断言在树（assert_zero_svt_dependency=True SvtDependencyDetected=True）+ cargo test world::terrain 绿=True（含 zero_svt_dependency_red 臂）;terrain.rs 并发在飞改动=True（他务判档,本任务零触碰以 C13 文件清单面登记）;basis = heightfield + 材质层 id（4 层闭集）最小语义,模块零纹理/图像消费面（结构性:M40/41/42 G8 no-go 维持,D4 D17）——不冒充接线"
+    },
+    {
+      "id": "svt_integration_streaming",
+      "status": "PASS",
+      "detail": "全驻留 == B4 锚逐帧位级=True；小池 256 臂:双跑位级=True miss_rate=1.750497e-01 io=3902953600B（律法互核=True） fallback 帧=74 零 fallback 帧=0（对拍=True） ≠全驻留=True"
+    }
+  ],
+  "verdict": "PASS",
+  "svt1": {
+    "virtual_dim": 131072,
+    "page_table_dim": 1024,
+    "active_pages": 3072,
+    "p100_vs_direct": 0.0,
+    "bitexact_vs_direct": true,
+    "identity_page_table_digest": "sha256:b33e3c3f62f5b1880588ec0b6425f43a65e4ae5a70abe018025717d097843993",
+    "identity_recompute_match": true,
+    "host_tests_green": true
+  },
+  "svt2": {
+    "miss_probes": 136,
+    "req_bitexact": true,
+    "out_bitexact": true,
+    "closed_loop_loaded": 66,
+    "closed_loop_io_bytes": 4461600,
+    "closed_loop_all_hit": true,
+    "closed_loop_bitexact_vs_full": true,
+    "production_tiles_loaded": 57736
+  },
+  "svt3": {
+    "phys_tile_dim": 130,
+    "border": 1,
+    "boundary_probe_count": 96,
+    "boundary_max_abs": 0.0,
+    "aniso_registration": true
+  },
+  "svt4": {
+    "disposition": "maintain-defer",
+    "terrain_modified_vs_head_registered": true,
+    "zero_svt_assert_present": true,
+    "terrain_tests_green": true,
+    "basis": "M116 地形面 = heightfield（M04 页格式资产）+ 材质层 id（4 层闭集）最小语义,模块零纹理/图像/采样消费面（结构性）;D4 D17 零 SVT 依赖断言（M40/41/42 G8 no-go 维持）——地形 SVT 需求不成立,维持 defer 如实登记不冒充接线;terrain.rs 并发在飞改动归他务判档,本任务零触碰（C13 文件清单面）,不以 0-byte-vs-HEAD 冒充（全树多波次 WIP 共享面差分不可归因）"
+  },
+  "integration": {
+    "b4_anchor_bitexact": true,
+    "small_pool_double_run_bitexact": true,
+    "small_pool_frames_completed": 74,
+    "small_pool_miss_rate": 0.1750497372,
+    "small_pool_io_bytes": 3902953600,
+    "small_pool_io_law_match": true,
+    "small_pool_fallback_frames": 74,
+    "zero_fallback_frames": 0,
+    "zero_fallback_frames_bitexact": true,
+    "small_ne_full": true,
+    "full_residency_pool_tiles": 3072,
+    "small_pool_tiles": 256
+  },
+  "harness_evidence": [
+    "evidence\\g31_texture_sampling_harness_svtanchor_20260826T175958Z.json",
+    "evidence\\g31_svt_harness_full_20260826T175958Z.json",
+    "evidence\\g31_svt_harness_small_a_20260826T175958Z.json",
+    "evidence\\g31_svt_harness_small_b_20260826T175958Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T175958Z",
+  "notes": "G31+ 波 C Task C13 SVT 四行（RD-041 分项,TODO #33-#36）:SVT-1 虚拟纹理页表（streaming/svt.rs host 管理面 + 1024² u32 页表 SSBO + 128² 虚拟瓦片/130² 带边物理池,128K² 虚拟地址空间满尺寸分配,活动区 = bistro 图集 3072 页）/ SVT-2 GPU 反馈 pass（kernels/g31_svt_gi.rx 采样 miss → out_req 1 f32/px 请求缓冲〔0=无 miss,页表网格序页号+1,禁 atomic 逐像素直写〕→ host SvtStreaming::consume〔BTreeSet 去重排序确定性 + LRU 池 + 页表影〕→ 次帧 FrameUpdate.buffer_uploads 页表写段+瓦片上传段,请求-驻留闭环逐帧真跑）/ SVT-3 瓦片边界过滤（border texel 复制——页所属槽 REPEAT wrap 律 rem_euclid,双线性 2×2 footprint 单瓦片自足;探针全驻留 SVT vs 整图直采位级硬门,边界聚焦 96 探针误差=0;各向异性跨瓦片 = 生产采样闭集双线性唯一过滤面,需求不成立登记 N/A）/ SVT-4 按 M116 锚核验需求不成立维持 defer（terrain.rs 零 SVT 断言 0-byte,不冒充接线）。整合真跑:B4 锚臂（--textures on 无 SVT 面 = 全驻留锚 0-byte）vs SVT 全驻留臂（--svt-pool-tiles 0）逐帧 digest_seq 位级一致;强制小池 256 臂流送全程无崩,fallback = 槽均值低 mip 等效合法面（hit 门融合 1·x+0·y IEEE 精确 ⇒ 全驻留零扰动）,miss 率/IO 量 measured,确定性双跑位级一致。B4 纹理面回归不破坏（--textures on 无 SVT 面 = 锚臂在案）。"
+}

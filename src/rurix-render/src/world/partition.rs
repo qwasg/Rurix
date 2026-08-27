@@ -587,11 +587,7 @@ pub fn world_digest(world: &PersistentWorld) -> Result<[u8; 32]> {
 
 /// Data Layer 激活语义查询:**只预留不接线**——任何调用一律 fail-closed
 /// typed `Err`(RXS-0363 L1 D4 D4;v2 才实现激活语义,避免 schema 二次迁移)。
-pub fn data_layer_active(
-    _world: &PersistentWorld,
-    _cell: u32,
-    _layer: u32,
-) -> Result<bool> {
+pub fn data_layer_active(_world: &PersistentWorld, _cell: u32, _layer: u32) -> Result<bool> {
     Err(PartitionError::DataLayerNotWired)
 }
 
@@ -653,7 +649,11 @@ impl StreamingSource {
             && self.loading_radius_m > 0.0
             && self.inner_radius_m >= 0.0
             && self.inner_radius_m <= self.loading_radius_m;
-        if ok { Ok(()) } else { Err(PartitionError::BadSourceRing) }
+        if ok {
+            Ok(())
+        } else {
+            Err(PartitionError::BadSourceRing)
+        }
     }
 }
 
@@ -817,14 +817,10 @@ pub struct StreamCounters {
 /// 返回 (cell, 最近源距离², 是否落在某源内环),按确定性加载优先级排序(内环
 /// 常驻优先,次按最近距离²,再次 cell id 升序)。求解按源距离环包围盒直取
 /// (O(环) 非 O(世界);dense 矩形网格坐标 ↔ 下标闭式换算)。
-pub fn target_cells(
-    world: &PersistentWorld,
-    sources: &[StreamingSource],
-) -> Vec<(u32, f64, bool)> {
+pub fn target_cells(world: &PersistentWorld, sources: &[StreamingSource]) -> Vec<(u32, f64, bool)> {
     let ex = (world.grid_max.x - world.grid_min.x) as i64 + 1;
     let mut acc: Vec<(u32, f64, bool)> = Vec::new();
-    let mut merged: std::collections::HashMap<u32, (f64, bool)> =
-        std::collections::HashMap::new();
+    let mut merged: std::collections::HashMap<u32, (f64, bool)> = std::collections::HashMap::new();
     let multi = sources.len() > 1;
     for s in sources {
         let r = s.loading_radius_m as f64;
@@ -847,8 +843,8 @@ pub fn target_cells(
                 if d2 > r * r {
                     continue;
                 }
-                let idx = ((cy - world.grid_min.y) as i64 * ex
-                    + (cx0 - world.grid_min.x) as i64) as u32;
+                let idx =
+                    ((cy - world.grid_min.y) as i64 * ex + (cx0 - world.grid_min.x) as i64) as u32;
                 let ri = s.inner_radius_m as f64;
                 let inner = d2 <= ri * ri;
                 if multi {
@@ -1008,7 +1004,8 @@ impl PartitionRuntime {
             let cell = self.pending[i];
             let actors = self.cell_actor_cost[cell as usize];
             let mem = self.cell_mem_bytes[cell as usize];
-            let cells_ok = ev.streaming_cells_this_frame < self.budget.max_streaming_cells_per_frame;
+            let cells_ok =
+                ev.streaming_cells_this_frame < self.budget.max_streaming_cells_per_frame;
             let actors_ok = ev.actors_spawned_this_frame as u64 + actors as u64
                 <= self.budget.max_actors_to_spawn_per_frame as u64;
             let mem_ok = self.resident_memory_bytes + mem <= self.budget.memory_budget_bytes();
@@ -1419,7 +1416,10 @@ mod tests {
             c.bounds_max[0] = hi[0];
             c.bounds_max[1] = hi[1];
         }
-        assert_ne!(world_digest(&world).unwrap(), world_digest(&resized).unwrap());
+        assert_ne!(
+            world_digest(&world).unwrap(),
+            world_digest(&resized).unwrap()
+        );
         // 篡改包围盒(与派生值不符)必拒。
         let mut tampered = canonical_world();
         tampered.cells[0].bounds_max[0] += 1.0;
@@ -1537,7 +1537,10 @@ mod tests {
             let ev2 = rt2.tick(f as u32, std::slice::from_ref(s)).unwrap();
             assert_eq!(ev2, frames[f]);
         }
-        assert_eq!(event_log_digest(rt.events()), event_log_digest(rt2.events()));
+        assert_eq!(
+            event_log_digest(rt.events()),
+            event_log_digest(rt2.events())
+        );
         validate_event_log(rt.events()).expect("事件序列合法");
     }
 

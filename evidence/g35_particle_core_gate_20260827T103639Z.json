@@ -1,0 +1,176 @@
+{
+  "schema": "rurix.g35.particle_core_gate_evidence.v1",
+  "subject": "g35_particle_core",
+  "symbolic_gate_key": "g35.wave2.particle_core",
+  "wave": "G35.2",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 7 kernel(4 新 g35_sim/g35_particle_compact/g35_emit/g35_indirect_args + 3 scan 消费面)+ spirv-val=绿;冻结消费面(scan 三 kernel/particles/mod.rs/scan.rs)sha256 快照在档=True(G35-2 消费不修改承诺,漂移守护基线)"
+    },
+    {
+      "id": "integer_streams_bitexact",
+      "status": "PASS",
+      "detail": "五整数流(flags/scan_out/seg_offsets/pid/args)device↔host 逐帧 memcmp 零容差位级 = True(64 帧,cap=65536;problems=[])"
+    },
+    {
+      "id": "f32_parity_within_budget",
+      "status": "PASS",
+      "detail": "八 f32 流全帧 p100 measured=0.0 ≤ 冻结容差 0.0(g35.particle_core.f32_parity_p100 本次标定腿程序产;threshold = measured × 2.0;逐流 max={'pos_x': 0.0, 'pos_y': 0.0, 'pos_z': 0.0, 'vel_x': 0.0, 'vel_y': 0.0, 'vel_z': 0.0, 'age': 0.0, 'life': 0.0};NoContraction 注入面 = ['g35_sim', 'g35_emit'])"
+    },
+    {
+      "id": "pid_persistent_unique",
+      "status": "PASS",
+      "detail": "persistent ID 机器事实:每帧唯一=True 幸存段 ⊆ 上帧集=True 新发射段精确区间=True(pids_issued=9952)"
+    },
+    {
+      "id": "indirect_args_zero_readback",
+      "status": "PASS",
+      "detail": "indirect args 零回读链:device args 8 槽 == host 平行推得=True + args[7] == alive+emit 恒等式=True(末帧 args=[9608, 1, 1, 57648, 1, 0, 0, 9608];host 不读回 device 计数只对拍验证)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "同 seed 全链双跑 digest 位级一致=True(digest_a=sha256:0afcedd2eeddde40…;所有流字节 sha256 逐帧链式)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "RED 臂 seed-change:换 seed 双跑 digest 必异 detected=True(green=sha256:0afcedd2eeddde40… red=sha256:33091fa5001c8a5c…)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "device 7 dispatch 链逐帧墙钟均值 454.381456 ms(measured_local 诚实登记;含 run_compute 逐 dispatch instance/device 会话重建开销,登记语义非帧率对标)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "sim_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_sim.spv",
+      "sha256": "sha256:39ad22d3b042e5c78f18a2a37acc00ce827e1fc4f2cb4865cdeb7ae2754c9867"
+    },
+    "compact_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_particle_compact.spv",
+      "sha256": "sha256:12cb319df7b9ba907b624e7f6f2cdfbc8db55c0a8f17479327244944b584a097"
+    },
+    "emit_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_emit.spv",
+      "sha256": "sha256:042b4346bb6734e92067bf889705f73c8e3ddf06e6d8ee7e0b6c5234ec1d413e"
+    },
+    "indirect_args_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_indirect_args.spv",
+      "sha256": "sha256:2498ebb929766c0ff30ac909a6f2c9aa29aecf210acc3e4828a2468e7f11f49c"
+    },
+    "scan_seg_sum_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_scan_seg_sum.spv",
+      "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be"
+    },
+    "scan_spine_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_scan_spine.spv",
+      "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4"
+    },
+    "scan_seg_apply_spv": {
+      "path": ".tmp/g35_gates/particle_core/g35_scan_seg_apply.spv",
+      "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939"
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_scan_seg_sum.rx": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc",
+      "src/rurix-render/kernels/g35_scan_spine.rx": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7",
+      "src/rurix-render/kernels/g35_scan_seg_apply.rx": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7",
+      "src/rurix-render/src/particles/mod.rs": "sha256:06a2175c4936e31d0859ecb05095290ec1de9793703cd63762677321e8f341b3",
+      "src/rurix-render/src/particles/scan.rs": "sha256:8a9c790dd00146361fce12599dcb0fa05e4d1166c7e61c7440b68825cc5bc71b"
+    }
+  },
+  "frame_protocol": {
+    "frames": 64,
+    "cap": 65536,
+    "seed": 42,
+    "dt": 0.016666668,
+    "emit_schedule": "min(64 + frame*17 % 192, cap - n_curr)",
+    "n_final": 9608,
+    "alive_final": 9433,
+    "pids_issued": 9952
+  },
+  "integer_parity": {
+    "bitexact": true,
+    "streams": [
+      "flags",
+      "scan_out",
+      "seg_offsets",
+      "pid",
+      "args"
+    ]
+  },
+  "f32_parity": {
+    "measured_p100": 0.0,
+    "threshold": 0.0,
+    "budget_entry": "g35.particle_core.f32_parity_p100",
+    "calibrated_this_run": true,
+    "within": true,
+    "stream_max": {
+      "pos_x": 0.0,
+      "pos_y": 0.0,
+      "pos_z": 0.0,
+      "vel_x": 0.0,
+      "vel_y": 0.0,
+      "vel_z": 0.0,
+      "age": 0.0,
+      "life": 0.0
+    }
+  },
+  "results": {
+    "trimmed_mean": 0.0
+  },
+  "pid_persistence": {
+    "unique": true,
+    "survivor_subset": true,
+    "emit_range_exact": true
+  },
+  "indirect_args": {
+    "device_match": true,
+    "identity_alive_plus_emit": true,
+    "args_last": [
+      9608,
+      1,
+      1,
+      57648,
+      1,
+      0,
+      0,
+      9608
+    ]
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "digest_a": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "digest_b": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd"
+  },
+  "red_arm": {
+    "arm": "seed-change",
+    "detected": true,
+    "digest_green": "sha256:0afcedd2eeddde401e6a7c056442d853716923417ed2470379d9fed53ccd64bd",
+    "digest_red": "sha256:33091fa5001c8a5c5283f479650db0e2ec73b16f5dc6a865fbe9a3a89e8800c8"
+  },
+  "frame_ms": {
+    "device_chain_mean_ms": 454.381456,
+    "frames_per_run": 64,
+    "measured": "measured_local",
+    "note": "device 7 dispatch 链逐帧墙钟均值(vk::run_compute 每 dispatch 重建 instance/device,该会话开销如实计入;登记语义非帧率对标,生产车道届时走 DeviceFrameSession 持久车道 + DispatchSpec::Indirect)"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/particle_core/probe_calibration.json",
+    ".tmp/g35_gates/particle_core/probe_green.json",
+    ".tmp/g35_gates/particle_core/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T103639Z",
+  "notes": "G35-2 粒子核心运行时:SoA 9 流粒子池 ping-pong(读 A 写 B 帧末交换)+ 确定性发射(随机带单源 rand_table(seed) device 只读消费 rand_table[(pid·7919+slot)%65536],persistent ID = pid_base+j host u32 递增维护,f32 参数面精确域 < 2^24)+ 半隐式 Euler 积分(运算序逐字冻结 vy→px→py〔新 vy〕→pz→age;drag v1 恒 0 登记)+ 稳定压缩(禁原子抢槽,槽位一律经 G35-1 分段稳定 scan 三 kernel〔消费不修改〕,稳定序 = 下标序)+ indirect args 零回读链(device 直读 scan 总和槽合成 dispatch{total,1,1}/draw{6·total,1,0,0}/meta 槽,host 平行金标准 n_next = alive+emit 只对拍验证)。host 金标准 = particles/core.rs(sim_step/compact_step/emit_step/indirect_args/frame 与 4 kernel 逐字同源);probe = bin/g35_particle_core_device.rs(vk::run_compute 逐 kernel,buffers Vec<Vec<u8>> 跨 kernel 复用;sim/emit SPV 装载期注入 NoContraction〔g14_3_lane_body bin-local 同律复制〕禁驱动 FMA 收缩,compact 纯搬运/indirect_args 纯整数不注入)。整数流零容差位级 + f32 流标定容差(threshold = measured×2.0 程序产禁手写)+ 同 seed 双跑位级 + seed-change RED 臂 + frame_ms measured_local 登记。results.trimmed_mean = f32 measured p100 镜像(budget_eval 通用路 evidence_file 消费面)。"
+}

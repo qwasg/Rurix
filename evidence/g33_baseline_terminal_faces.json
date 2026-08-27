@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 4.0
+ },
+ "notes": "G33 商业化期波 C 验收终验三面+许可面新鲜复跑绿计数：①C1 SDK 宿主真跑 digest==Stage A 锚 sha256:c1d28ad73783cc3c… + 帧时 mean=2.1572ms（g31.waveC.sdk PASS，evidence/g31_renderer_sdk_20260826T205708Z.json）②C5 离线可建链 digest==锚 + 帧时 mean=2.0648ms + 签名/SBOM/红臂四路（g31.waveC.dist PASS，evidence/g31_sdk_dist_20260826T205842Z.json）③C2 文档门示例真跑（g31.waveC.docs PASS，evidence/g31_renderer_docs_20260826T205521Z.json）④C6 许可门 16 项 cleared 15/conditional 1（g31.waveC.license PASS，evidence/g31_vendor_license_20260826T205856Z.json）= 4/4"
+}

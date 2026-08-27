@@ -33,15 +33,18 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::world::atmosphere::{
-    canonical_scene, canonical_weather_map, verify_weather_map, AtmosphereError, FrameEvidence,
-    FroxelVolume, InjectLight, LightKind, ScatterIntegrator, TemporalChain, FROXEL_DEPTH_SLICES,
+    AtmosphereError, FROXEL_DEPTH_SLICES, FrameEvidence, FroxelVolume, InjectLight, LightKind,
+    ScatterIntegrator, TemporalChain, canonical_scene, canonical_weather_map, verify_weather_map,
 };
 use std::path::PathBuf;
 
 const TAG: &str = "G9_M112_ATMO";
 const CORPUS_FILES: &[(&str, &str)] = &[
     ("accept/atmosphere_froxel_fog_minimal.rx", "RXS-0365"),
-    ("reject/atmosphere_weather_map_signature_tampered.rx", "RXS-0365"),
+    (
+        "reject/atmosphere_weather_map_signature_tampered.rx",
+        "RXS-0365",
+    ),
 ];
 
 fn fail(msg: &str) -> ! {
@@ -141,7 +144,11 @@ fn parse_args() -> Args {
 }
 
 /// 场景输出 digest(密度场 + 散射积分逐像素序列;golden 对照事实源)。
-fn scene_digest(vol: &FroxelVolume, scatter: &ScatterIntegrator, lights: &[InjectLight]) -> [u8; 32] {
+fn scene_digest(
+    vol: &FroxelVolume,
+    scatter: &ScatterIntegrator,
+    lights: &[InjectLight],
+) -> [u8; 32] {
     let mut buf = Vec::new();
     for d in &vol.density {
         buf.extend_from_slice(&d.to_le_bytes());
@@ -250,9 +257,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -341,14 +350,13 @@ fn main() {
     let mut golden_ok = true;
     if !args.freeze {
         let t = band_text.as_deref().expect("PASS 模式冻结带必读");
-        let frozen = json_str(t, "scene_digest")
-            .unwrap_or_else(|| fail("冻结带缺 scene_digest"));
+        let frozen = json_str(t, "scene_digest").unwrap_or_else(|| fail("冻结带缺 scene_digest"));
         if frozen != hex(&d1) {
             golden_ok = false;
             failures.push("golden 漂移: scene_digest".into());
         }
-        let frozen_density = json_str(t, "density_z0")
-            .unwrap_or_else(|| fail("冻结带缺 density_z0"));
+        let frozen_density =
+            json_str(t, "density_z0").unwrap_or_else(|| fail("冻结带缺 density_z0"));
         if frozen_density != format!("{:.6}", z0) {
             golden_ok = false;
             failures.push("golden 漂移: density_z0".into());
@@ -391,7 +399,10 @@ fn main() {
         ("golden_frozen_equal", golden_ok || args.freeze),
         ("red_arm_grid_tamper", red_grid_ok),
         ("red_arm_zero_scatter", red_scatter_ok),
-        ("red_arm_weather_and_temporal", red_weather_ok && red_temporal_ok),
+        (
+            "red_arm_weather_and_temporal",
+            red_weather_ok && red_temporal_ok,
+        ),
     ];
     let checks_json: Vec<String> = checks
         .iter()
@@ -452,9 +463,7 @@ fn main() {
     }
     println!("{json}");
     if failures.is_empty() {
-        println!(
-            "{TAG}: PASS Froxel 统一基础设施 + 雾前端 + 计数面 + 双 RED 臂(host 确定性面)"
-        );
+        println!("{TAG}: PASS Froxel 统一基础设施 + 雾前端 + 计数面 + 双 RED 臂(host 确定性面)");
         std::process::exit(0);
     }
     fail(&format!("{failures:?}"));

@@ -14,8 +14,12 @@
 //!
 //! 与工业实现的已知差距(P0 取舍,正确性不变量不受影响):
 //! - 分组用簇邻接共享边加权贪心,非 meshopt_partitionClusters 的完整图分区;
-//! - 简化用最短边贪心收缩(端点保持),非 QEM 最优位置收缩;
-//! - 未做 link-condition 拓扑校验,极端输入可能产生 fold-over(误差上界仍保守);
+//! - **默认**简化用最短边贪心收缩(端点保持),非 QEM 最优位置收缩——
+//!   G31+ #66 起 [`qem`] 提供 QEM 加性第二实现(经 [`dag::SimplifyKind::Qem`]
+//!   显式选用;默认面 0-byte,m90 DAG digest golden 不漂移,替换事实源走
+//!   #66 立项对照臂纪律);
+//! - link-condition 拓扑校验未做;QEM 腿含 fold-over 拒绝(法线翻转检测),
+//!   最短边腿极端输入可能产生 fold-over(误差上界仍保守);
 //! - Ritter 包围球非最优球(偏大 ~20% 以内,剔除保守方向);
 //! - 跨层顶点焊接按精确位置相等,「不同 id 同位置」的输入顶点会被合并
 //!   (内置生成器已规避;外接网格建议先焊接)。
@@ -25,16 +29,19 @@
 pub mod cluster;
 pub mod cull_ref;
 pub mod dag;
+pub mod lod_bounds;
 pub mod mesh;
+pub mod qem;
 pub mod serialize;
 mod vecmath;
 
 pub use cluster::{Cluster, MAX_TRIS, MAX_VERTS, clusterize};
 pub use cull_ref::{CullStats, CullView, Mat4, cull_clusters, lod_cut_select};
 pub use dag::{
-    ClasBakeInput, ClusterDag, ClusterDagV2, ClusterSkinMeta, DagAsset, DagError, DagLevel,
-    DagNode, MAX_BONE_INFLUENCES, SkinWeights, SkinnedClusterData, build_asset_dag, build_dag,
-    build_dag_v2, canonical_bytes, clas_bake_input_of, derive_skin_metadata,
+    ClasBakeInput, ClusterDag, ClusterDagV2, ClusterSkinMeta, DagAsset, DagBuildParams, DagError,
+    DagLevel, DagNode, MAX_BONE_INFLUENCES, SimplifyKind, SkinWeights, SkinnedClusterData,
+    build_asset_dag, build_asset_dag_kind, build_asset_dag_params, build_dag, build_dag_kind,
+    build_dag_params, build_dag_v2, canonical_bytes, clas_bake_input_of, derive_skin_metadata,
     skinned_cluster_runtime_data, validate_monotonicity,
 };
 pub use mesh::{TriMesh, build_face_adjacency};

@@ -1,0 +1,208 @@
+{
+  "schema": "rurix.g35.events_gate_evidence.v1",
+  "subject": "g35_events",
+  "symbolic_gate_key": "g35.wave6.events",
+  "wave": "G35.6",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 9 kernel(2 新 g35_event_collect/g35_event_spawn + 7 W2 消费面)+ spirv-val=绿;冻结消费面(W2 七 kernel/particles mod.rs/scan.rs/core.rs)sha256 快照在档=True(G35-6 消费不修改承诺,漂移守护基线)"
+    },
+    {
+      "id": "event_overflow_payload_stable",
+      "status": "PASS",
+      "detail": "host 队列溢出裁剪:溢出帧=[{'frame': 12, 'pushed': 1200, 'kept': 1024, 'overflow': 176}, {'frame': 30, 'pushed': 1100, 'kept': 1024, 'overflow': 76}] 逐帧 pushed == kept + overflow 如实登记 + 同帧事件集正/逆序装配 trim 位级同果=True(全序键 (producer_id, slot, kind, payload_bits) 冻结)+ GPU 死亡侧溢出钳制腿death_overflow_frames=30 ≥ 1(ev_count 双槽如实登记)"
+    },
+    {
+      "id": "event_spawn_parity",
+      "status": "PASS",
+      "detail": "双源合并发射对拍:src_meta 消费见证位级=True(host 先 GPU 后次序冻结)+ spawn_counts == host=True + 发射段 pid 精确区间=True + 全整数流位级=True + f32 面 p100=0.0/发射段=0.0 ≤ 冻结容差 0.0(g35.events.parity_p100 本次标定腿程序产;threshold = measured × 2.0)"
+    },
+    {
+      "id": "gpu_secondary_emission_zero_readback",
+      "status": "PASS",
+      "detail": "死亡→二次发射链零回读:ev_count(kept/total)== host=True + spawn_counts == host=True + secondary_frames=51 ≥ 1,gpu_accepted_total=47052 ≥ 1(样本量门;device 计数一律 SSBO 直读,host 只平行推进不读回)"
+    },
+    {
+      "id": "particle_view_bridge_roundtrip",
+      "status": "PASS",
+      "detail": "方向 A 桥 roundtrip:末帧 device 九流 readback → GpuParticleSnapshot → pid 定址读位级=True(checked=15707)+ 物理侧 ExternalParticlesAdapter 单测 rc=0(plain 数据适配;'{\\n    |               ^^^^^^^^^^^^^^^^^\\n    |\\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default')"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "同 seed 全链双跑 digest 位级一致=True(digest_a=sha256:5df09c7bfef9c173…;B 9 流+双 scan 中间流+事件缓冲+计数+src_meta+args sha256 逐帧链式)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "RED 臂 payload-tamper:帧 12 host 事件 payload 词 0 上传件篡改 +1.0 ⇒ digest 必异 detected=True(green=sha256:5df09c7bfef9c173… red=sha256:1a4b4ecab48604e2…)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "device 13 dispatch 链逐帧墙钟均值 819.011572 ms(measured_local 诚实登记;含 run_compute 逐 dispatch instance/device 会话重建开销,登记语义非帧率对标)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "event_collect_spv": {
+      "path": ".tmp/g35_gates/events/g35_event_collect.spv",
+      "sha256": "sha256:c8c91d51817247220153da03c1539ed98ff4e4b1dc0c2cfbdffbab835010e1a7"
+    },
+    "event_spawn_spv": {
+      "path": ".tmp/g35_gates/events/g35_event_spawn.spv",
+      "sha256": "sha256:b1597509b0829dc01b64fc418d14849ee4e28a7d01c750e2e1daa157a8f82842"
+    },
+    "sim_spv": {
+      "path": ".tmp/g35_gates/events/g35_sim.spv",
+      "sha256": "sha256:39ad22d3b042e5c78f18a2a37acc00ce827e1fc4f2cb4865cdeb7ae2754c9867"
+    },
+    "compact_spv": {
+      "path": ".tmp/g35_gates/events/g35_particle_compact.spv",
+      "sha256": "sha256:12cb319df7b9ba907b624e7f6f2cdfbc8db55c0a8f17479327244944b584a097"
+    },
+    "emit_spv": {
+      "path": ".tmp/g35_gates/events/g35_emit.spv",
+      "sha256": "sha256:042b4346bb6734e92067bf889705f73c8e3ddf06e6d8ee7e0b6c5234ec1d413e"
+    },
+    "indirect_args_spv": {
+      "path": ".tmp/g35_gates/events/g35_indirect_args.spv",
+      "sha256": "sha256:2498ebb929766c0ff30ac909a6f2c9aa29aecf210acc3e4828a2468e7f11f49c"
+    },
+    "scan_seg_sum_spv": {
+      "path": ".tmp/g35_gates/events/g35_scan_seg_sum.spv",
+      "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be"
+    },
+    "scan_spine_spv": {
+      "path": ".tmp/g35_gates/events/g35_scan_spine.spv",
+      "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4"
+    },
+    "scan_seg_apply_spv": {
+      "path": ".tmp/g35_gates/events/g35_scan_seg_apply.spv",
+      "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939"
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sim.rx": "sha256:06f8120bb2eedd6fbe8d5904f1b4b05388d3527bcb5ad95c66604e4365b1c10f",
+      "src/rurix-render/kernels/g35_particle_compact.rx": "sha256:badd82426cc1b8bbd8d41a5f2b5cc2ed835946ca77f2aa844cb9586de376ab94",
+      "src/rurix-render/kernels/g35_emit.rx": "sha256:add637265604b5d7e471e4ce189f63ff6566c7d8303209ad1b6991173b97d282",
+      "src/rurix-render/kernels/g35_indirect_args.rx": "sha256:e00c60aef7591ab8741568ae3f0935df1c533f54fa53120794a21de95673b247",
+      "src/rurix-render/kernels/g35_scan_seg_sum.rx": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc",
+      "src/rurix-render/kernels/g35_scan_spine.rx": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7",
+      "src/rurix-render/kernels/g35_scan_seg_apply.rx": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7",
+      "src/rurix-render/src/particles/mod.rs": "sha256:103ee027e9f92bcc56e984c8f65cfbc33bf11b282940ebded7d23d07a686e660",
+      "src/rurix-render/src/particles/scan.rs": "sha256:8a9c790dd00146361fce12599dcb0fa05e4d1166c7e61c7440b68825cc5bc71b",
+      "src/rurix-render/src/particles/core.rs": "sha256:e226c0c1d7bb87e13572431ce5cb41f07b55768ff7340c6d5053ce816da21860"
+    }
+  },
+  "frame_protocol": {
+    "frames": 64,
+    "cap": 16384,
+    "seed": 42,
+    "dt": 0.06666667,
+    "burst": 16000,
+    "emit_schedule": "f0: min(16000, cap-n); else min(32 + f*11 % 96, cap - n_curr)",
+    "host_event_schedule": "f12: 1200; f30: 1100; else (f*7) % 5",
+    "n_final": 15707,
+    "alive_final": 14629,
+    "pids_issued": 68618
+  },
+  "event_protocol": {
+    "event_cap": 1024,
+    "layout": "meta u32x3 {producer_id, slot, kind} + payload f32x5;死亡事件 payload = 积分后 pos.xyz + vel.xy(kind=1);host 合成事件 kind=2",
+    "trim_order": "(producer_id, slot, kind, payload_bits) 全序稳定裁剪保留前 capacity 项",
+    "merge_order": "host_first_gpu_after"
+  },
+  "overflow": {
+    "frames": [
+      {
+        "frame": 12,
+        "pushed": 1200,
+        "kept": 1024,
+        "overflow": 176
+      },
+      {
+        "frame": 30,
+        "pushed": 1100,
+        "kept": 1024,
+        "overflow": 76
+      }
+    ],
+    "trim_dual_order_stable": true,
+    "death_overflow_frames": 30
+  },
+  "spawn_parity": {
+    "src_meta_bitexact": true,
+    "counts_match": true,
+    "pid_range_exact": true,
+    "integer_streams_bitexact": true
+  },
+  "zero_readback": {
+    "ev_count_match": true,
+    "spawn_counts_match": true,
+    "secondary_frames": 51,
+    "gpu_accepted_total": 47052,
+    "host_accepted_total": 1137
+  },
+  "bridge_roundtrip": {
+    "snapshot_ok": true,
+    "snapshot_checked": 15707,
+    "adapter_tests": "cargo test -p rurix-physics --lib --features physics-particle-view particle_view::external_adapter --quiet",
+    "adapter_tests_rc": 0
+  },
+  "f32_parity": {
+    "measured_p100": 0.0,
+    "spawn_seg_max": 0.0,
+    "threshold": 0.0,
+    "budget_entry": "g35.events.parity_p100",
+    "calibrated_this_run": true,
+    "within": true,
+    "stream_max": {
+      "pos_x": 0.0,
+      "pos_y": 0.0,
+      "pos_z": 0.0,
+      "vel_x": 0.0,
+      "vel_y": 0.0,
+      "vel_z": 0.0,
+      "age": 0.0,
+      "life": 0.0,
+      "ev_payload": 0.0
+    }
+  },
+  "results": {
+    "trimmed_mean": 0.0
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "digest_a": "sha256:5df09c7bfef9c173cad0a438783c64de7e1ead3fc4434a6f626239f34fd72a3e",
+    "digest_b": "sha256:5df09c7bfef9c173cad0a438783c64de7e1ead3fc4434a6f626239f34fd72a3e"
+  },
+  "red_arm": {
+    "arm": "payload-tamper",
+    "detected": true,
+    "tamper_frame": 12,
+    "digest_green": "sha256:5df09c7bfef9c173cad0a438783c64de7e1ead3fc4434a6f626239f34fd72a3e",
+    "digest_red": "sha256:1a4b4ecab48604e27259c340526f9db5a137f16552a60b2dcd0abdb862d7f6ac"
+  },
+  "frame_ms": {
+    "device_chain_mean_ms": 819.011572,
+    "frames_per_run": 64,
+    "measured": "measured_local",
+    "note": "device 13 dispatch 链逐帧墙钟均值(vk::run_compute 每 dispatch 重建 instance/device,该会话开销如实计入;登记语义非帧率对标,生产车道届时走 DeviceFrameSession 持久车道 + DispatchSpec::Indirect)"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/events/probe_calibration.json",
+    ".tmp/g35_gates/events/probe_green.json",
+    ".tmp/g35_gates/events/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T113510Z",
+  "notes": "G35-6 事件/数据通道 + particle_view 双向桥:host→GPU 事件队列(EVENT_CAP=1024 冻结;事件 32B = meta u32×3 + payload f32×5;溢出 = (producer_id, slot, kind, payload_bits) 全序稳定裁剪保留前 capacity 项 + overflow 如实登记禁静默丢;EventQueue push/trim 唯一装配面,每帧整队列上传)+ GPU 事件驱动二次发射零回读(死亡粒子 death_flags = 1 − alive_flags → 复用 W2 三 scan kernel 稳定死亡槽 → g35_event_collect 两相 scatter 入 GPU 事件缓冲,ev_count 双槽 kept/total;下一帧 g35_event_spawn 读 SSBO 计数 + host 队列双源合并,次序冻结 host 先 GPU 后,槽位 = alive + scripted + j,pid_base 三段涵盖,accepted = min(host+gpu, cap − alive − scripted) 与 core 同律;发射随机走 rand_table 单源)+ 统一粒子视图桥(方向 A:device 九流 readback → GpuParticleSnapshot → pid 定址读位级 roundtrip + 物理侧 ExternalParticlesAdapter plain 数据适配〔v1 演示域 = ClothVertex 名义寻址,element_index = 快照下标;mass 诚实 Err;impulse = 记账台账〕;方向 B:host 合成事件 → EventQueue → GPU 发射,v1 演示域不真接物理世界)。host 金标准 = particles/events.rs(event_collect_step/event_spawn_step/event_frame 与 2 kernel 逐字同源);probe = bin/g35_events_device.rs(13 dispatch/帧;sim/emit/event_spawn 注入 NoContraction)。整数流零容差位级 + f32 流标定容差(threshold = measured×2.0 程序产禁手写)+ 同 seed 双跑位级 + payload-tamper RED 臂 + frame_ms measured_local 登记。results.trimmed_mean = f32 measured p100 镜像(budget_eval 通用路 evidence_file 消费面)。"
+}

@@ -627,9 +627,7 @@ impl ProdScene {
                     }
                     let area = ProdLight::tri_area(*e1, *e2);
                     if !(area.is_finite() && area > 0.0) {
-                        return Err(PtError::InvalidScene(format!(
-                            "三角网格光 {li} 面积非正"
-                        )));
+                        return Err(PtError::InvalidScene(format!("三角网格光 {li} 面积非正")));
                     }
                     let t = tris[0];
                     let idx = self.indices[t];
@@ -639,7 +637,11 @@ impl ProdScene {
                         Vec3::from_array(self.positions[idx[2] as usize]),
                     ];
                     let lv0 = Vec3::from_array(*v0);
-                    let expected = [lv0, lv0 + Vec3::from_array(*e1), lv0 + Vec3::from_array(*e2)];
+                    let expected = [
+                        lv0,
+                        lv0 + Vec3::from_array(*e1),
+                        lv0 + Vec3::from_array(*e2),
+                    ];
                     // 顶点一致 = 相对容差 1e-5(G12.4 M163 面:三角网格光 e1/e2
                     // 由烘焙顶点差分派生,f32 截断使 v0+(v1−v0) ≠ v1 位级——
                     // quad 臂位级逐字面 0-byte 不动)。
@@ -665,7 +667,10 @@ impl ProdScene {
                         )));
                     }
                     // 发光三角材质 emission 与光源 emission 逐字一致。
-                    if let MaterialKind::Emission { emission: em_tri, .. } = &self.materials[t] {
+                    if let MaterialKind::Emission {
+                        emission: em_tri, ..
+                    } = &self.materials[t]
+                    {
                         if em_tri != emission {
                             return Err(PtError::InvalidScene(format!(
                                 "三角网格光 {li} 光源/材质 emission 不逐字一致"
@@ -1651,9 +1656,7 @@ fn trace_path_prod<B: BlasSet + ?Sized>(
                 for (li, l) in scene.lights.iter().enumerate() {
                     let area = match l {
                         ProdLight::Quad(q) => Some(q.area()),
-                        ProdLight::Tri { e1, e2, .. } => {
-                            Some(ProdLight::tri_area(*e1, *e2))
-                        }
+                        ProdLight::Tri { e1, e2, .. } => Some(ProdLight::tri_area(*e1, *e2)),
                         ProdLight::Point { .. } => None,
                     };
                     if let Some(area) = area {

@@ -1,0 +1,98 @@
+{
+  "schema": "rurix.g31.hlod_l4_smoke_evidence.v1",
+  "subject": "g31_hlod_l4",
+  "symbolic_gate_key": "g31.waveC.hlodl4",
+  "wave": "G31+.C",
+  "scene_id": "m98_l4_far_field",
+  "gate_maintenance": {
+    "state": "pass",
+    "verdict": "PASS",
+    "checks_all_true": true,
+    "device_executed": true,
+    "evidence": "evidence/g9_m98_tracing_fallback_chain_20260826T163449Z.json"
+  },
+  "host_tests": {
+    "fallback_chain_tests_pass": true,
+    "test_count": 19
+  },
+  "device_leg_parity": {
+    "structural_exact": true,
+    "rgb_bitexact": true,
+    "t_residual_max_abs": 1809.7332,
+    "t_residual_rel_max": 1.0
+  },
+  "determinism_double_run": {
+    "device_leg_bitexact": true,
+    "golden_bitexact": true,
+    "device_golden_eq_host_golden": true
+  },
+  "l4_counters": {
+    "rays_attempted": 2176,
+    "rays_hit": 1000,
+    "pixels_served": 1813,
+    "work_count": 10880,
+    "hit_rate": 0.4595588,
+    "transitions_to_l4": 1813,
+    "transitions_to_l4_miss": 1813,
+    "transitions_to_l4_out_of_range": 0,
+    "proxies_visible": 5,
+    "proxies_total": 5,
+    "coverage": 0.4595588,
+    "per_proxy_hits": [
+      739,
+      65,
+      44,
+      55,
+      97
+    ]
+  },
+  "unlock_entries": {
+    "trigger_ready": true,
+    "serve_ok": true,
+    "counters_non_zero": true,
+    "half_missing_fail_closed": true
+  },
+  "on_off_relation": {
+    "on_digest": "eb654637cffd494b56230e55dd213492d73af14b0072cca65e94d0e207b765d7",
+    "off_digest": "862830fd7a8c7712f617a8160e64a29d9aac27f624c1490c1f1f2932fcdb39a4",
+    "legacy_digest": "862830fd7a8c7712f617a8160e64a29d9aac27f624c1490c1f1f2932fcdb39a4",
+    "digest_differs": true,
+    "off_forced_off_records": 1813,
+    "off_l4_served": 0,
+    "legacy_l4_served": 0,
+    "off_eq_legacy_product": true,
+    "note": "L4 on(四级链)vs off(L4 强关=L3 截断):digest 必分叉 = proxy 贡献真实进入画面;off == legacy(None 旧三级)产物位级 = 截断语义等价;ForcedOff 记录随行"
+  },
+  "red_arms": {
+    "silent_demotion": true,
+    "force_off_l4": true,
+    "tamper_proxy": true,
+    "empty_proxy": true
+  },
+  "proxy_coverage": {
+    "per_proxy_min_hit": 44,
+    "device_indices_equal_host": true,
+    "all_levels_served": true
+  },
+  "frame_ms_measured": {
+    "l4_device_dispatch_ms": 58.50184,
+    "frame_on_ms": 3.561091,
+    "frame_off_ms": 3.247922,
+    "on_over_off": 1.0964213426307652,
+    "frames": 32,
+    "note": "canonical 远场契约 64×64 --release 同机同窗 measured_local:L4 纯派发=58.5018ms 帧管 on=3.5611ms off=3.2479ms(on/off=1.0964;各 32 帧;帧管 = GBuffer+host 三腿+L4 镜像+装配 host 壁钟 + kernel 纯派发独立口径);如实登记不设通过线(G6 无硬门纪律)"
+  },
+  "frozen_surfaces": {
+    "m98_kernels_0byte": true,
+    "g9_depth_band_0byte": true,
+    "handover_anchors_0byte": true
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T163449Z",
+  "notes": "G31+ 波 C Task C12 HLOD L4 Far Field 档(M98-l4 承接锚两半合取兑现):①device 腿 = kernels/g31_hlod_l4_proxy_trace.rx 纯 compute(不消费 TLAS,L1 同构面)+ host 镜像 gi::fallback_chain::l4_trace_ray/l4_leg_host 逐字同源;②L4 计数器接入 = L4 槽位真实计数 + 可见 proxy 数 + 切换次数 + 覆盖率进 evidence 面,三处 fail-closed 入口按锚字面解锁(proxy 集装载 ⇒ Ready/Ok/非零;空集 ⇒ NotTriggered/Err/InvalidConfig 半齐不冒充)。判据:①host 19 单测 ②g9.p0.m98 复跑全绿(L1-L3 链 0-byte 行为机器证明)③device/host 结构域精确对拍 + rgb 位级(t 残差信息项)④device/golden 双跑位级 + device==host golden ⑤L4 计数面真实非空 ⑥三入口解锁 + 半齐 fail-closed ⑦on/off 分叉 + off==legacy 截断等价 ⑧四 RED 臂独立检出=True ⑨投影覆盖逐件 ≥1 + 四级全消费 ⑩frame_ms measured(L4 纯派发=58.5018ms 帧管 on=3.5611ms off=3.2479ms,如实登记不设通过线)⑪m98 双 kernel/深度带/承接锚 0-byte ⑫契约四级覆盖充分性。facts: host_tests_anchored=PASS; g9_gate_maintenance=PASS; device_leg_parity=PASS; determinism_double_run=PASS; l4_counters_wired=PASS; unlock_entries=PASS; on_off_relation=PASS; red_arms_detected=PASS; proxy_coverage_verified=PASS; frame_ms_measured=PASS; frozen_surfaces_0byte=PASS; scene_contract_four_tier=PASS"
+}

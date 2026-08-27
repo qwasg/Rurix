@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 2.0
+ },
+ "notes": "G33 商业化期波 C 验收诚实红终态如实登记计数（零冒充硬线）：①g31.waveC.ngx_decomp 复跑 FAIL = canonical_ratio_not_worsened 单 fact 红（fresh ratio 0.957606 < 在案 0.960479；digest 零漂移 + 四段分解 + 互核全 PASS）②g31.waveB.texture 复跑 FAIL = 两 0-byte/工作树机核 fact 红（根因 = 波 C 自身未 commit 加性交付物落 src/rurix-asset 整 crate 代理面 + spec/release.md C5 同条修订；B4 真冻结面逐件 0-byte 实测维持 + 渲染实质 6/8 facts 全 PASS）——均如实登记不冒充 PASS（.tmp 诊断件与 evidence 双件 append-only 留存）"
+}

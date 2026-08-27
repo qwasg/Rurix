@@ -1,0 +1,97 @@
+//@ spec: RXS-0405 L3 device 面（G31+ 波 B Task B4 纹理采样探针臂；门 `g31.waveB.texture`）
+// G31+ 波 B Task B4 纹理采样**探针 kernel** —— 装配期一次性求值面（B3 slab
+// 侧表求值同构体例）：逐探针 (slot, u, v) 单 invocation（dispatch [N,1,1]），
+// 采样块与 kernels/g31_texture_gi.rx 生产采样段**逐字同形**（同 f32 操作序 ⇒
+// 探针臂 = 生产采样链的隔离对拍面；host 参考 = bin g14_3_lane_body::
+// g31_tex_host_sample 同 op 序，位级对拍 p100 判据 = 0.0 硬门）。
+//
+// ## 采样语义（与生产 kernel 同字面）
+// REPEAT wrap（fract 域回绕 + 边界纹素回绕，pow2 尺寸装配期 fail-closed
+// 限定 ⇒ 回绕坐标 f32 精确）→ G26 sample_bilinear 逐字双线性（floor 未钳
+// frac）→ u8 精确索引 256 项 srgb→linear LUT（零 pow 面）→ × mod（
+// baseColorFactor.rgb × (1−metallicFactor) 装配期预算）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐探针独立顺序求值，禁 atomic；全 f32（u32 纹素 unpack 经 usize 精确
+// 算术，图集地址积经 usize 乘法——>2^24 texel 故 f32 寻址禁用）；固定
+// 输入双跑位级一致；输出 digest 跨双跑位级一致门（CI 裁决面）。
+//
+// ## 参数面
+//   probes: 3 f32/probe [slot, u, v]（slot 整数值 f32 精确域）；
+//   texmeta/atlas/linlut: 与 g31_texture_gi.rx 逐字同布局（同一 host 装配面）；
+//   params: [0]=probe_count [1..8]=reserved（恒 0）；
+//   out: 3 f32/probe [lin_r×mod_r, lin_g×mod_g, lin_b×mod_b]。
+#[numthreads(1, 1, 1)]
+kernel fn g31_texture_probe(
+    t: ThreadCtx<1>,
+    probes: View<global, f32>,
+    texmeta: View<global, f32>,
+    atlas: View<global, u32>,
+    linlut: View<global, f32>,
+    params: View<global, f32>,
+    out: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let probe_count = params[0] as usize;
+    if i < probe_count {
+        // ── 采样块（与 kernels/g31_texture_gi.rx 生产采样段逐字同形）──
+        let slot = probes[i * 3].max(0.0) as usize;
+        let uu0 = probes[i * 3 + 1];
+        let vv0 = probes[i * 3 + 2];
+        let sb = 8 + slot * 8;
+        let ox = texmeta[sb];
+        let oy = texmeta[sb + 1];
+        let tw = texmeta[sb + 2];
+        let th2 = texmeta[sb + 3];
+        let mod_r = texmeta[sb + 4];
+        let mod_g = texmeta[sb + 5];
+        let mod_b = texmeta[sb + 6];
+        let aw = texmeta[0];
+        let uu = uu0 - uu0.floor();
+        let vv = vv0 - vv0.floor();
+        let xf = uu * tw - 0.5;
+        let yf = vv * th2 - 0.5;
+        let bxf = xf.floor();
+        let byf = yf.floor();
+        let fx = xf - bxf;
+        let fy = yf - byf;
+        let inv_tw = 1.0 / tw;
+        let inv_th = 1.0 / th2;
+        let x0 = bxf - (bxf * inv_tw).floor() * tw;
+        let y0 = byf - (byf * inv_th).floor() * th2;
+        let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * tw;
+        let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * th2;
+        let a00 = ((oy + y0) as usize) * (aw as usize) + ((ox + x0) as usize);
+        let a10 = ((oy + y0) as usize) * (aw as usize) + ((ox + x1) as usize);
+        let a01 = ((oy + y1) as usize) * (aw as usize) + ((ox + x0) as usize);
+        let a11 = ((oy + y1) as usize) * (aw as usize) + ((ox + x1) as usize);
+        let p00 = atlas[a00] as usize;
+        let p10 = atlas[a10] as usize;
+        let p01 = atlas[a01] as usize;
+        let p11 = atlas[a11] as usize;
+        let p00_r = linlut[p00 % 256usize];
+        let p00_g = linlut[(p00 / 256usize) % 256usize];
+        let p00_b = linlut[(p00 / 65536usize) % 256usize];
+        let p10_r = linlut[p10 % 256usize];
+        let p10_g = linlut[(p10 / 256usize) % 256usize];
+        let p10_b = linlut[(p10 / 65536usize) % 256usize];
+        let p01_r = linlut[p01 % 256usize];
+        let p01_g = linlut[(p01 / 256usize) % 256usize];
+        let p01_b = linlut[(p01 / 65536usize) % 256usize];
+        let p11_r = linlut[p11 % 256usize];
+        let p11_g = linlut[(p11 / 256usize) % 256usize];
+        let p11_b = linlut[(p11 / 65536usize) % 256usize];
+        let t0r = p00_r * (1.0 - fx) + p10_r * fx;
+        let b0r = p01_r * (1.0 - fx) + p11_r * fx;
+        let samp_r = (t0r * (1.0 - fy) + b0r * fy) * mod_r;
+        let t0g = p00_g * (1.0 - fx) + p10_g * fx;
+        let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+        let samp_g = (t0g * (1.0 - fy) + b0g * fy) * mod_g;
+        let t0b = p00_b * (1.0 - fx) + p10_b * fx;
+        let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+        let samp_b = (t0b * (1.0 - fy) + b0b * fy) * mod_b;
+        out[i * 3] = samp_r;
+        out[i * 3 + 1] = samp_g;
+        out[i * 3 + 2] = samp_b;
+    }
+}

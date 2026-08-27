@@ -183,11 +183,24 @@ pub fn encode_container(
     take_buf(buf)
 }
 
-/// 真实容器 → GPU 块字节(真 transcode,非重打包)。
+/// 真实容器 → GPU 块字节(真 transcode,非重打包)。level 0。
 pub fn transcode(
     container: &[u8],
     src: SrcKind,
     target: TargetFormat,
+) -> Result<Transcoded, BasisError> {
+    transcode_level(container, src, target, 0)
+}
+
+/// 真实容器 → GPU 块字节(mip level 参数化;G31+ 波 C Task C14 KTX2 三行)。
+///
+/// KTX2 路径 `level ∈ [0, levels)`,越界确定性 `Err`(wrap rc=17);
+/// `.basis` 路径在树产物恒单级,`level != 0` 确定性 `Err`(rc=5)。
+pub fn transcode_level(
+    container: &[u8],
+    src: SrcKind,
+    target: TargetFormat,
+    level: u32,
 ) -> Result<Transcoded, BasisError> {
     if container.is_empty() {
         return Err(BasisError::InvalidDims);
@@ -198,14 +211,16 @@ pub fn transcode(
     };
     let mut w: u32 = 0;
     let mut h: u32 = 0;
-    // SAFETY: (U44)`container` 在调用期间有效且长度 == len;`out`/`w`/`h` 均指向本栈 POD;
+    // SAFETY: (U60)`container` 在调用期间有效且长度 == len;`out`/`w`/`h` 均指向本栈 POD;
+    // `level` 越界由 wrap fail-closed(rc=17/5),不写非 null data;
     // 失败时 wrap 不写非 null data;成功后由 `take_buf` 接管所有权。
     let rc = unsafe {
-        ffi::rurix_basis_transcode(
+        ffi::rurix_basis_transcode_level(
             container.as_ptr(),
             container.len(),
             src.raw(),
             target.raw(),
+            level,
             &mut buf,
             &mut w,
             &mut h,
@@ -324,6 +339,32 @@ mod tests {
         let junk = vec![0u8; 256];
         assert!(transcode(&junk, SrcKind::Basis, TargetFormat::Bc7Rgba).is_err());
         assert!(transcode(&junk, SrcKind::Ktx2, TargetFormat::Bc7Rgba).is_err());
+    }
+
+    #[test]
+    fn transcode_level_zero_matches_legacy_entry() {
+        let rgba = gradient(16, 16);
+        let ktx2 = encode_container(&rgba, 16, 16, ContainerMode::UastcKtx2, false).unwrap();
+        let a = transcode(&ktx2, SrcKind::Ktx2, TargetFormat::Bc7Rgba).unwrap();
+        let b = transcode_level(&ktx2, SrcKind::Ktx2, TargetFormat::Bc7Rgba, 0).unwrap();
+        assert_eq!(a, b, "level=0 参数化入口须与既有入口位级一致");
+    }
+
+    #[test]
+    fn transcode_level_out_of_range_fail_closed() {
+        let rgba = gradient(16, 16);
+        let ktx2 = encode_container(&rgba, 16, 16, ContainerMode::UastcKtx2, false).unwrap();
+        // 在树 KTX2 产物恒单级:level 1 越界 → 确定性 Err(rc=17),不崩不 panic。
+        let e1 = transcode_level(&ktx2, SrcKind::Ktx2, TargetFormat::Bc7Rgba, 1);
+        let e2 = transcode_level(&ktx2, SrcKind::Ktx2, TargetFormat::Bc7Rgba, 1);
+        assert!(e1.is_err(), "KTX2 level 越界须确定性 Err");
+        assert_eq!(e1, e2, "同输入两次失败须确定性一致: {e1:?} vs {e2:?}");
+        let basis = encode_container(&rgba, 16, 16, ContainerMode::Etc1sBasis, false).unwrap();
+        let b1 = transcode_level(&basis, SrcKind::Basis, TargetFormat::Bc7Rgba, 1);
+        assert!(b1.is_err(), ".basis level != 0 须确定性 Err(rc=5)");
+        // 垃圾容器 level 0 亦 fail-closed。
+        let junk = vec![0u8; 256];
+        assert!(transcode_level(&junk, SrcKind::Ktx2, TargetFormat::Bc7Rgba, 0).is_err());
     }
 
     #[test]

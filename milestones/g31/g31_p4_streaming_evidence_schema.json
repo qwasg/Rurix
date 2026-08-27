@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_p4_streaming cluster 流送 P4 四行 + 整合真跑门裁决件",
+  "description": "G31+ 波 C Task C11（ci/g31_p4_streaming_smoke.py --gate g31.waveC.p4stream 产；RD-039 cluster 流送 P4 四行承接面；G31_PLUS_COMMERCIAL_RENDERER_TODO §3 #20~#23；milestones/g20/g20_cluster_streaming_p4_gap.json + milestones/g27/g27_cluster_p4_rejudgment.json 差距闭集消费面）。判据闭集：①P4-1 页磁盘布局与驻留池（RXPD major=2 加性新面真实页集 ≥8 页落盘、bistro 派生 ≥4 网格、池容量 < 全集、root 钉住、LRU 逐出真实发生）；②P4-2 GPU 请求反馈链（剔除 pass device 请求缓冲真产缺页请求 ≥1、host 驻留调度消费闭环：异步读 → 上传 → 页表更新 → 次帧 device 消费校验、末帧零缺页）；③P4-3 LOD cut 与驻留联动（回退帧 ≥1、device vs host 金标准逐帧渲染集全等、覆盖不变量逐帧、全驻留参考零回退 + 双跑位级）；④P4-4 异步 IO 优先级链（优先级倒置探针：高优先级先驻留 measured、真实磁盘读字节计量）；⑤整合真跑（强制小驻留池 bistro 派生轨迹全程无崩、hold 段收敛位级、零回退帧 digest 与全驻留参考逐帧位级、缺页率/回退率/IO 量 measured）；⑥冻结旧面 0-byte 机核（G8 页 ABI v1 文件族 + streaming v1 四文件 + geometry 三文件 + geom_build.rs）。PASS-only 闭集 schema——PASS 才落 evidence/g31_p4_streaming_<ts>.json，FAIL 诊断件留 .tmp 工作区不污染路由面。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "p4_1_page_pool",
+    "p4_2_request_loop",
+    "p4_3_fallback_parity",
+    "p4_4_io_priority",
+    "integration",
+    "frozen_surfaces",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.p4_streaming_smoke_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_p4_streaming"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveC.p4stream"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.C"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "bistro-interior-derived"
+    },
+    "p4_1_page_pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "meshes",
+        "clusters",
+        "pages",
+        "triangles",
+        "page_set_digest",
+        "pool_slots",
+        "pool_less_than_total",
+        "root_pages",
+        "evicted_total",
+        "lru_eviction_observed",
+        "pages_within_contract"
+      ],
+      "properties": {
+        "meshes": {"type": "integer", "minimum": 4},
+        "clusters": {"type": "integer", "minimum": 100},
+        "pages": {"type": "integer", "minimum": 8},
+        "triangles": {"type": "integer", "minimum": 1000},
+        "page_set_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "pool_slots": {"type": "integer", "minimum": 2},
+        "pool_less_than_total": {"type": "boolean", "const": true},
+        "root_pages": {"type": "integer", "minimum": 1},
+        "evicted_total": {"type": "integer", "minimum": 1},
+        "lru_eviction_observed": {"type": "boolean", "const": true},
+        "pages_within_contract": {"type": "boolean", "const": true, "description": "全页 ≤128KB 契约（v2 段感知装箱 + 机核兜底；超页即 PackError fail-closed）"}
+      }
+    },
+    "p4_2_request_loop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_requests_total",
+        "io_submitted",
+        "io_completed",
+        "pages_loaded_total",
+        "resident_growth_observed",
+        "checksum_consumes_upload",
+        "miss_frames",
+        "final_frame_miss_zero"
+      ],
+      "properties": {
+        "device_requests_total": {"type": "integer", "minimum": 1, "description": "剔除 pass device 请求缓冲真产缺页请求（零请求即空接线冒充判红）"},
+        "io_submitted": {"type": "integer", "minimum": 1},
+        "io_completed": {"type": "integer", "minimum": 1},
+        "pages_loaded_total": {"type": "integer", "minimum": 1},
+        "resident_growth_observed": {"type": "boolean", "const": true, "description": "页表更新真发生（驻留数逐帧增长序列）"},
+        "checksum_consumes_upload": {"type": "boolean", "const": true, "description": "device 消费校验：渲染簇页槽首字 checksum 非零且随驻留演化（上传页内容真实进 device 消费链）"},
+        "miss_frames": {"type": "integer", "minimum": 1},
+        "final_frame_miss_zero": {"type": "boolean", "const": true, "description": "请求-驻留闭环：末帧缺页清零（hold 收敛段结构判据）"}
+      }
+    },
+    "p4_3_fallback_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback_frames",
+        "parity_all_frames",
+        "cover_all_frames",
+        "reference_zero_fallback",
+        "reference_double_run_bitexact"
+      ],
+      "properties": {
+        "fallback_frames": {"type": "integer", "minimum": 1, "description": "回退真实发生（零回退即压力未达冒充判红）"},
+        "parity_all_frames": {"type": "boolean", "const": true, "description": "回退正确性对拍：device 归一渲染集 vs host 金标准逐帧全等"},
+        "cover_all_frames": {"type": "boolean", "const": true, "description": "覆盖不变量逐帧（每条选中链恰一渲染祖先——禁空洞/禁重复覆盖）"},
+        "reference_zero_fallback": {"type": "boolean", "const": true, "description": "全驻留参考臂零缺页零回退（对拍基准纯净性）"},
+        "reference_double_run_bitexact": {"type": "boolean", "const": true}
+      }
+    },
+    "p4_4_io_priority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probe_ok",
+        "probe_first_is_high_priority",
+        "probe_order",
+        "probe_bytes_read",
+        "io_read_bytes_total"
+      ],
+      "properties": {
+        "probe_ok": {"type": "boolean", "const": true},
+        "probe_first_is_high_priority": {"type": "boolean", "const": true, "description": "优先级倒置正确性 measured：开工闸前 [低×3,高×1] 入队，单 worker 高优先级先完成（先驻留）"},
+        "probe_order": {
+          "type": "array",
+          "minItems": 4,
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "probe_bytes_read": {"type": "integer", "minimum": 1},
+        "io_read_bytes_total": {"type": "integer", "minimum": 1, "description": "真实磁盘读字节计量（防内存预载替身）"}
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orbit_frames",
+        "hold_frames",
+        "frames_completed",
+        "last2_bitexact",
+        "hold_bitexact_frames",
+        "zero_fallback_frames_bitexact",
+        "miss_frames",
+        "fallback_frames",
+        "evicted_total",
+        "io_bytes_total",
+        "upload_bytes_total",
+        "pool_slots",
+        "total_pages"
+      ],
+      "properties": {
+        "orbit_frames": {"type": "integer", "minimum": 12},
+        "hold_frames": {"type": "integer", "minimum": 6},
+        "frames_completed": {"type": "integer", "minimum": 18, "description": "流送全程无崩（orbit+hold 全帧完成）"},
+        "last2_bitexact": {"type": "boolean", "const": true, "description": "末 2 帧 digest 与全驻留参考位级一致（驻留完整帧位级——结构容差兑现面）"},
+        "hold_bitexact_frames": {"type": "integer", "minimum": 2},
+        "zero_fallback_frames_bitexact": {"type": "boolean", "const": true, "description": "零回退帧 digest 与全驻留参考逐帧位级一致（回退帧允许 LOD 差——容差结构依据 = 一致性 cut 语义）"},
+        "miss_frames": {"type": "integer", "minimum": 1},
+        "fallback_frames": {"type": "integer", "minimum": 1},
+        "evicted_total": {"type": "integer", "minimum": 1},
+        "io_bytes_total": {"type": "integer", "minimum": 1},
+        "upload_bytes_total": {"type": "integer", "minimum": 1},
+        "pool_slots": {"type": "integer", "minimum": 2},
+        "total_pages": {"type": "integer", "minimum": 8}
+      }
+    },
+    "frozen_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geom_pages_v1_files_0byte",
+        "streaming_v1_files_0byte",
+        "geometry_files_0byte",
+        "geom_build_v1_0byte"
+      ],
+      "properties": {
+        "geom_pages_v1_files_0byte": {"type": "boolean", "const": true, "description": "rurix-geom-pages v1 面七文件（logical/logical_v2/memory/disk/codec/expand/expand_v2.rs）工作树 0-byte——G8 页 ABI 旧面不动（扩展 = 加性 disk_v2.rs 新文件）"},
+        "streaming_v1_files_0byte": {"type": "boolean", "const": true, "description": "streaming 既有四文件（pool/engine/feedback/resource.rs）工作树 0-byte（扩展 = 加性 cluster.rs + mod.rs 一行模块声明）"},
+        "geometry_files_0byte": {"type": "boolean", "const": true, "description": "geometry 三文件（hzb/cull/visbuffer.rs）工作树 0-byte（cull 金标准只消费不改动）"},
+        "geom_build_v1_0byte": {"type": "boolean", "const": true, "description": "rurix-asset geom_build.rs（v1 装箱）工作树 0-byte（v2 段感知修复 = geom_build_v2.rs 加性面内）"}
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

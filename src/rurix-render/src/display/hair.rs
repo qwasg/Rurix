@@ -36,8 +36,10 @@
 
 use rurix_pkg::sha256;
 
-use crate::material::side_table::{LobeExtension, MarschnerParams, MaterialSideTable, SideTableError};
-use crate::oit::selection::{exact_tier_scope, ExactTierScope};
+use crate::material::side_table::{
+    LobeExtension, MarschnerParams, MaterialSideTable, SideTableError,
+};
+use crate::oit::selection::{ExactTierScope, exact_tier_scope};
 
 // ---------------------------------------------------------------------------
 // 冻结常量面
@@ -59,8 +61,7 @@ pub const CANON_CARD_MAX_M: f32 = 60.0;
 /// 股替换聚类尺寸(每股簇 strand 数;烘焙属性)。
 pub const STRAND_CLUSTER_SIZE: u32 = 8;
 /// strand 档承接锚(G9_ACCEPTANCE_MAP §3 M114 行登记字面)。
-pub const STRAND_TIER_ANCHOR: &str =
-    "M120 精确档 benchmark 裁决数据落地后重判,兜底 G9.7 穷举";
+pub const STRAND_TIER_ANCHOR: &str = "M120 精确档 benchmark 裁决数据落地后重判,兜底 G9.7 穷举";
 
 // ---------------------------------------------------------------------------
 // 错误面(typed Err,fail-closed)
@@ -86,7 +87,10 @@ impl std::fmt::Display for HairError {
         match self {
             HairError::LobeNotWired { lobe } => write!(f, "单瓣置零无差异({lobe} 瓣未接通,RED)"),
             HairError::StrandTierRequiresExactOit { requested } => {
-                write!(f, "strand 档必须 linked-list 精确 OIT,请求 {requested}(排序依赖缺失,RED)")
+                write!(
+                    f,
+                    "strand 档必须 linked-list 精确 OIT,请求 {requested}(排序依赖缺失,RED)"
+                )
             }
             HairError::NonFiniteValue { stage } => write!(f, "{stage} 含非有限值"),
             HairError::NotCanonical(why) => write!(f, "not canonical: {why}"),
@@ -126,10 +130,17 @@ fn gauss01(beta: f32, x: f32) -> f32 {
 /// (θ_i + θ_r)/2;方位角 N_R = gauss01(AZ_R_WIDTH, φ)(峰 0)/ N_TT =
 /// gauss01(AZ_TT_WIDTH, φ − π) × medulla 衰减 / N_TRT = gauss01(AZ_TRT_WIDTH, φ);
 /// 瓣值 = 权重 × M_p × N_p,Σ权重 = 1 ⇒ 逐样本总瓣能 ≤ 1)。
-pub fn marschner_lobes(params: &MarschnerParams, theta_i: f32, theta_r: f32, phi: f32) -> Result<HairLobes> {
+pub fn marschner_lobes(
+    params: &MarschnerParams,
+    theta_i: f32,
+    theta_r: f32,
+    phi: f32,
+) -> Result<HairLobes> {
     params.validate()?;
     if ![theta_i, theta_r, phi].iter().all(|v| v.is_finite()) {
-        return Err(HairError::NonFiniteValue { stage: "marschner angles" });
+        return Err(HairError::NonFiniteValue {
+            stage: "marschner angles",
+        });
     }
     let theta_h = (theta_i + theta_r) * 0.5;
     let m_r = gauss01(params.width_r, theta_h - params.shift_r);
@@ -182,9 +193,15 @@ pub fn marschner_lobes_zeroed(
 
 /// 单瓣接线机核(L2):完整三瓣与置零变体的扫描 digest 必须不同——相同即管线
 /// 未接通(`Err(LobeNotWired)`,RED)。
-pub fn assert_lobe_wired(full_digest: &[u8; 32], zeroed_digest: &[u8; 32], lobe: ZeroLobe) -> Result<()> {
+pub fn assert_lobe_wired(
+    full_digest: &[u8; 32],
+    zeroed_digest: &[u8; 32],
+    lobe: ZeroLobe,
+) -> Result<()> {
     if full_digest == zeroed_digest {
-        return Err(HairError::LobeNotWired { lobe: lobe.as_str() });
+        return Err(HairError::LobeNotWired {
+            lobe: lobe.as_str(),
+        });
     }
     Ok(())
 }
@@ -215,13 +232,20 @@ pub fn lobe_digests(sweep: &[HairLobes]) -> ([u8; 32], [u8; 32], [u8; 32]) {
         tb.extend_from_slice(&l.tt.to_le_bytes());
         trb.extend_from_slice(&l.trt.to_le_bytes());
     }
-    (sha256::digest(&rb), sha256::digest(&tb), sha256::digest(&trb))
+    (
+        sha256::digest(&rb),
+        sha256::digest(&tb),
+        sha256::digest(&trb),
+    )
 }
 
 /// 瓣能量守恒机核(L1):逐样本总瓣能 ≤ 1(归一化形状 × Σ权重=1 ⇒ 上界 1);
 /// 返回扫描最大总瓣能(measured 冻结面)。
 pub fn max_total_lobe_energy(sweep: &[HairLobes]) -> f32 {
-    sweep.iter().map(|l| l.r + l.tt + l.trt).fold(0.0f32, f32::max)
+    sweep
+        .iter()
+        .map(|l| l.r + l.tt + l.trt)
+        .fold(0.0f32, f32::max)
 }
 
 // ---------------------------------------------------------------------------
@@ -271,14 +295,19 @@ impl TierSwitchTable {
 
 /// canonical 切换距离表。
 pub fn canonical_switch_table() -> TierSwitchTable {
-    TierSwitchTable { strand_max_m: CANON_STRAND_MAX_M, card_max_m: CANON_CARD_MAX_M }
+    TierSwitchTable {
+        strand_max_m: CANON_STRAND_MAX_M,
+        card_max_m: CANON_CARD_MAX_M,
+    }
 }
 
 /// 距离选档(闭集;确定性)。
 pub fn tier_for_distance(table: &TierSwitchTable, distance_m: f32) -> Result<HairTier> {
     table.validate()?;
     if !distance_m.is_finite() || distance_m < 0.0 {
-        return Err(HairError::NonFiniteValue { stage: "tier distance" });
+        return Err(HairError::NonFiniteValue {
+            stage: "tier distance",
+        });
     }
     Ok(if distance_m < table.strand_max_m {
         HairTier::Strand
@@ -329,7 +358,9 @@ pub fn request_strand_translucency(path: TranslucencyPath) -> Result<()> {
                 .map_err(|_| HairError::NotCanonical("精确档作用域核验失败"))?;
             Ok(())
         }
-        other => Err(HairError::StrandTierRequiresExactOit { requested: other.as_str() }),
+        other => Err(HairError::StrandTierRequiresExactOit {
+            requested: other.as_str(),
+        }),
     }
 }
 
@@ -359,7 +390,12 @@ pub fn bake_strand_replacement(strand_count: u32) -> Result<StrandReplacementMap
     let mut card = 0u32;
     while begin < strand_count {
         let end = (begin + STRAND_CLUSTER_SIZE).min(strand_count);
-        entries.push(ReplacementEntry { strand_begin: begin, strand_end: end, card_id: card, atlas_tile: card });
+        entries.push(ReplacementEntry {
+            strand_begin: begin,
+            strand_end: end,
+            card_id: card,
+            atlas_tile: card,
+        });
         begin = end;
         card += 1;
     }
@@ -456,12 +492,15 @@ pub fn register_strand_tier(measurements_text: Option<&str>) -> StrandTierRegist
 /// 毛发求值入口(侧表通道):槽命中 Marschner 扩展 ⇒ 三瓣求值;未命中 ⇒
 /// `Err(NotCanonical)`(毛发材质必须显式携带 Marschner 参数集——无静默默认
 /// 瓣,防侧表缺省冒充毛发着色)。
-pub fn hair_params_from_side_table(table: &MaterialSideTable, slot: u32) -> Result<MarschnerParams> {
+pub fn hair_params_from_side_table(
+    table: &MaterialSideTable,
+    slot: u32,
+) -> Result<MarschnerParams> {
     match table.lookup(slot) {
         Some(LobeExtension::Marschner(p)) => Ok(*p),
-        Some(LobeExtension::Burley(_)) => {
-            Err(HairError::SideTable(SideTableError::NotCanonical("毛发槽误挂 Burley 扩展")))
-        }
+        Some(LobeExtension::Burley(_)) => Err(HairError::SideTable(SideTableError::NotCanonical(
+            "毛发槽误挂 Burley 扩展",
+        ))),
         None => Err(HairError::NotCanonical("毛发槽缺 Marschner 参数集")),
     }
 }
@@ -565,8 +604,14 @@ mod tests {
         assert_eq!(tier_for_distance(&table, 30.0).unwrap(), HairTier::Card);
         assert_eq!(tier_for_distance(&table, 300.0).unwrap(), HairTier::Mesh);
         // card/mesh ⇒ 默认半透明路径。
-        assert_eq!(tier_translucency_path(HairTier::Card), TranslucencyPath::DefaultTranslucent);
-        assert_eq!(tier_translucency_path(HairTier::Mesh), TranslucencyPath::DefaultTranslucent);
+        assert_eq!(
+            tier_translucency_path(HairTier::Card),
+            TranslucencyPath::DefaultTranslucent
+        );
+        assert_eq!(
+            tier_translucency_path(HairTier::Mesh),
+            TranslucencyPath::DefaultTranslucent
+        );
         // strand ⇒ 精确 linked-list;请求排序 fallback / 默认半透明 ⇒ RED。
         assert!(request_strand_translucency(TranslucencyPath::ExactLinkedList).is_ok());
         assert!(matches!(
@@ -599,7 +644,8 @@ mod tests {
         assert!(!reg.m120.measurements_present);
         assert_eq!(reg.anchor, STRAND_TIER_ANCHOR);
         // 测量带在场 ⇒ 如实记录可得性,仍 not-triggered。
-        let text = "{\"host\": {\"device\": \"host-only(x)\"}, \"linked_list_4_image_digest\": \"aa\"}";
+        let text =
+            "{\"host\": {\"device\": \"host-only(x)\"}, \"linked_list_4_image_digest\": \"aa\"}";
         let reg2 = register_strand_tier(Some(text));
         assert_eq!(reg2.status, StrandTierStatus::NotTriggered);
         assert!(!reg2.counts_as_green);
@@ -612,7 +658,8 @@ mod tests {
     #[test]
     fn side_table_consumption() {
         let mut t = MaterialSideTable::new();
-        t.insert(0, LobeExtension::Marschner(canonical_marschner()), 1).unwrap();
+        t.insert(0, LobeExtension::Marschner(canonical_marschner()), 1)
+            .unwrap();
         let p = hair_params_from_side_table(&t, 0).unwrap();
         assert_eq!(p, canonical_marschner());
         // 缺参数集 ⇒ 拒(无静默默认瓣)。

@@ -1,0 +1,108 @@
+{
+  "schema": "rurix.g31.waveb_rd045_observation.v1",
+  "window": "G31+ 波 B 验收门 Task B8 — RD-045 观察窗复核（仿 G26.3 新鲜窗范式：波 B 各臂 digest 锚全中零漂移核验，结果只追加登记）",
+  "started_utc": "2026-08-26T09:30:00Z",
+  "host": "RTX 4070 Ti + Vulkan（本机真跑，release，RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1）",
+  "arms": [
+    {
+      "arm": "base_gameloop_orbit_64+10",
+      "anchor_digest": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+      "anchor_source": "B3 门 slab_off 在案（g31_game_loop_slab_off_a/b_20260826T001204Z）+ B4 门 tex_off 在案（g31_game_loop_tex_off_a/b_20260826T082640Z）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 4,
+      "evidence": [".tmp/g31_gates/waveB_matrix/base_a.json", ".tmp/g31_gates/waveB_matrix/base_b.json"]
+    },
+    {
+      "arm": "slab_device_orbit_64+10",
+      "anchor_digest": "sha256:7359fd905e0d8a380246449ad8e563fed12661b18942b903fce53bdde379439b",
+      "anchor_source": "B3 门 harness_on_device_a 在案（g31_slab_wiring_harness_on_device_a_20260826T001204Z.json）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 3,
+      "evidence": [".tmp/g31_gates/waveB_matrix/slab_a.json", ".tmp/g31_gates/waveB_matrix/slab_b.json"]
+    },
+    {
+      "arm": "textures_on_orbit_64+10",
+      "anchor_digest": "sha256:81d330150f60a6277ed6da37b6e74275ac0a2268c45de1cc7554796d6216c5c2",
+      "anchor_source": "B4 门 harness_on_a/b 在案（g31_texture_sampling_harness_on_a/b_20260826T082640Z.json）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 4,
+      "evidence": [".tmp/g31_gates/waveB_matrix/tex_a.json", ".tmp/g31_gates/waveB_matrix/tex_b.json"]
+    },
+    {
+      "arm": "hzb_on_orbit_64+10",
+      "anchor_digest": "sha256:6acc15081205973b84e5a213dc4127a518fcc6f9c0fbeb22733bb18643e4cea2",
+      "anchor_source": "新窗锚（B1 门在案窗 = 8+2 剔除中性窗/100 帧静态对照窗，不同窗长轨迹不冒充同窗）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 2,
+      "evidence": [".tmp/g31_gates/waveB_matrix/hzb_a.json", ".tmp/g31_gates/waveB_matrix/hzb_b.json"]
+    },
+    {
+      "arm": "skin_demo_bench_64+10",
+      "anchor_digest": "sha256:d57645c9d57e230160b0de5498b2a24135aba135efc252e2a236decca8c34c6e",
+      "anchor_source": "新窗锚（B5 门在案窗 = 100+10，不同窗长不冒充同窗）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 2,
+      "evidence": [
+        ".tmp/g31_gates/waveB_matrix/skin_a/bistro-interior/tier100/tsr_device/bench_receipt.json",
+        ".tmp/g31_gates/waveB_matrix/skin_b/bistro-interior/tier100/tsr_device/bench_receipt.json"
+      ]
+    },
+    {
+      "arm": "demo_textures_orbit_200+10",
+      "anchor_digest": "sha256:cf3532f442df8f6e644be85571dcd090129acb248d321d18b0670eaf5e2ca6ca",
+      "anchor_source": "新窗锚（demo 定版臂首跑窗）",
+      "runs": 2,
+      "hits": 2,
+      "drift": false,
+      "cumulative_runs_bitexact": 2,
+      "evidence": [".tmp/g31_gates/waveB_matrix/demo200_a.json", ".tmp/g31_gates/waveB_matrix/demo200_b.json"]
+    }
+  ],
+  "stage_a_anchor_guard": {
+    "cells": 18,
+    "matched": 18,
+    "zero_drift": true,
+    "runs_today": 2,
+    "evidence": [
+      "evidence/g31_wave_a_anchor_check_20260826T094943Z.json",
+      "evidence/g31_wave_a_anchor_check_20260826T100312Z.json"
+    ],
+    "note": "双跑 18/18 digest MATCH（确定性面零漂移）；焦点格 frame_ms 抖动属性能面非 digest 面，另案登记于 G32_CONTRACT §8.1③"
+  },
+  "summary": {
+    "digest_arms": 6,
+    "arms_zero_drift": 6,
+    "stage_a_cells_zero_drift": "18/18 ×2 跑",
+    "zero_drift": true
+  },
+  "backfill_inventory": {
+    "piece1_root_cause_located": {
+      "met": false,
+      "basis": "指定落点根因确证记录不存在（树内实测；evidence/g26_rd045_root_cause_confirmation.json 维持缺）——F5 防冒充硬线：观察窗零漂移不充①件",
+      "input_surface": "designated_confirmation_file_only（F5：不含观察窗结果）"
+    },
+    "piece2_production_fix": {
+      "met": false,
+      "basis": "①根因未确证 → 修复无法确证；G14.10 结构性缓解在案（registry/deferred.json RD-045 history 2026-08-22 行）——缓解事实 ≠ 确证修复，不充②件"
+    },
+    "piece3_full_rfc_evaluation": {
+      "met": false,
+      "basis": "rfcs/ 主题检索零命中维持（rd045/digest-drift/determinism-defect 文件名闭集）；RFC-0043 §3 只定重判程序不自动构成③件"
+    },
+    "met_count": 0
+  },
+  "disposition": "maintain-open-with-extended-zero-recurrence",
+  "disposition_basis": "三件盘点 0/3 未全齐（①根因确证记录缺 + ②修复无法确证 + ③Full RFC 评估缺）——波 B 观察窗零漂移只进累计观察面（F5：不充①件），maintain-open + history 只追加扩窗登记，不冒充 close",
+  "cumulative_observation": "G19.3 12/12 + G19~G25 七期 soak 全零失败 + G26.3 6/6 + G31 波 A soak 10010 帧 digest_seq 双跑位级 + 波 A 锚检 18/18 + 本窗波 B 6/6 臂 + Stage A 18/18 ×2 跑",
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 B 验收门 Task B8）"
+}

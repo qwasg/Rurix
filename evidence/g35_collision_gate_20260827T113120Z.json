@@ -1,0 +1,167 @@
+{
+  "schema": "rurix.g35.collision_gate_evidence.v1",
+  "subject": "g35_collision",
+  "symbolic_gate_key": "g35.wave5.collision",
+  "wave": "G35.5",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 2 kernel(g35_sim_collide〔AccelStruct 同帧 ray query〕/g35_sim_collide_depth〔深度对照臂/off 档〕)+ spirv-val=绿;冻结消费面(g35_sim.rx 变体参照/rt/bvh.rs/particles mod.rs+core.rs)sha256 快照在档=True(G35-5 消费不修改承诺,漂移守护基线)"
+    },
+    {
+      "id": "collision_parity_vs_host",
+      "status": "PASS",
+      "detail": "ray_query 绿臂 7 f32 流全帧 p100 measured=5.0216913e-06 ≤ 冻结容差 1.00433826e-05(g35.collision.parity_p100 本次标定腿程序产;threshold = measured × 2.0;RT core t 值 ULP 级差协议)+ flags 位级=True + hit 失配诚实登记=0 + 命中样本=986(≥1 防空转);逐流 max={'pos_x': 5.0216913e-06, 'pos_y': 1.8402934e-06, 'pos_z': 3.5762787e-07, 'vel_x': 1.9073486e-06, 'vel_y': 1.4305115e-06, 'vel_z': 0.0, 'age': 0.0}"
+    },
+    {
+      "id": "same_frame_semantics_witness",
+      "status": "PASS",
+      "detail": "同帧见证:host gold vs static 首异帧=32(须 == 突移帧 32);late(Niagara 一帧延迟模型)突移帧与 static 位级一致=True;gold/late 可分辨=True;方块顶命中 host=9 device=9(device hit 流 1+primitive_index ∈ 方块三角段,同帧响应机器事实)"
+    },
+    {
+      "id": "fallback_chain_explicit",
+      "status": "PASS",
+      "detail": "F12 显式降级链:--force-no-tlas typed 退出码=3(须 3)typed_error='E_G35_COLLISION_NO_TLAS_CAPABILITY'(须 E_G35_COLLISION_NO_TLAS_CAPABILITY);闭集外 --collision bogus 退出码=2(须 2);三臂 digest 两两互异=True(禁静默换臂 + 档位真实非别名)"
+    },
+    {
+      "id": "force_fields_parity",
+      "status": "PASS",
+      "detail": "力场 v1 闭集(gravity/wind/drag):off 臂 p100=0.0 ≤ 1.00433826e-05;wind_dx_positive=True wind_dz_positive=True drag_speed_decay=True;off 档命中=0(须 0);方向/单位与 rurix-physics WorldDesc.gravity y-up 约定对齐(只对齐不依赖)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "ray_query 绿臂同 seed 全链双跑 digest 位级一致=True(digest_a=sha256:3f20f9d844764129…;7 f32 流‖flags‖hit 逐帧 sha256 链式)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "RED 臂 tamper-e:device 红链 e×1.5 篡改注入 detected=True;红链对拍 measured=9.959938 > 冻结容差 1.00433826e-05(篡改必被 parity 判据检出);digest green/red 必异=True"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "device 逐帧派发墙钟均值 95.275242 ms(measured_local 诚实登记;含 run_ray_query_effects 每帧重建 instance/device/AS 的会话开销——同帧语义 probe 形态,登记语义非帧率对标)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "collide_spv": {
+      "path": ".tmp/g35_gates/collision/g35_sim_collide.spv",
+      "sha256": "sha256:06b428196239332a887bdc724820859e40169f266fdc3bc6a4e57399d8454478"
+    },
+    "collide_depth_spv": {
+      "path": ".tmp/g35_gates/collision/g35_sim_collide_depth.spv",
+      "sha256": "sha256:525fab0948dd26d6e1942345dbe944dd4de95010416998efcfe62cd56ea4c2d4"
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sim.rx": "sha256:06f8120bb2eedd6fbe8d5904f1b4b05388d3527bcb5ad95c66604e4365b1c10f",
+      "src/rurix-render/src/rt/bvh.rs": "sha256:807cfebeae82d939c4322534cd11f62b9f973a1640dd278fb6752104f857c99e",
+      "src/rurix-render/src/particles/mod.rs": "sha256:103ee027e9f92bcc56e984c8f65cfbc33bf11b282940ebded7d23d07a686e660",
+      "src/rurix-render/src/particles/core.rs": "sha256:e226c0c1d7bb87e13572431ce5cb41f07b55768ff7340c6d5053ce816da21860"
+    }
+  },
+  "scene": {
+    "tri_count": 12,
+    "floor_tris": 2,
+    "slope_tris": 2,
+    "box_tris": 8,
+    "box_move_frame": 32,
+    "frames": 64,
+    "cap": 512,
+    "seed": 42,
+    "dt": 0.016666668
+  },
+  "collision_parity": {
+    "measured_p100": 5.0216913e-06,
+    "threshold": 1.00433826e-05,
+    "budget_entry": "g35.collision.parity_p100",
+    "calibrated_this_run": true,
+    "within": true,
+    "flags_bitexact": true,
+    "hit_mismatch_total": 0,
+    "hits_total_host": 986,
+    "stream_max": {
+      "pos_x": 5.0216913e-06,
+      "pos_y": 1.8402934e-06,
+      "pos_z": 3.5762787e-07,
+      "vel_x": 1.9073486e-06,
+      "vel_y": 1.4305115e-06,
+      "vel_z": 0.0,
+      "age": 0.0
+    }
+  },
+  "results": {
+    "trimmed_mean": 5.0216913e-06
+  },
+  "same_frame_witness": {
+    "applicable": true,
+    "host_div_static_frame": 32,
+    "late_same_at_move_frame": true,
+    "gold_late_differ_at_move_frame": true,
+    "box_hits_move_frame_host": 9,
+    "box_hits_move_frame_device": 9,
+    "niagara_contrast_note": "对照:Niagara GPU RT 碰撞读上一帧末加速结构(异步一帧延迟)——本波同帧语义 = 第 k 帧查询消费第 k 帧障碍变换重建的 TLAS;late 腿(k 帧查 k−1 帧场景)即该延迟模型的 host 复刻,在突移帧与 static 位级一致 = 延迟模型当帧无响应,判别器双向有效"
+  },
+  "fallback_chain": {
+    "cli_closed_set": [
+      "ray_query",
+      "depth_buffer",
+      "off"
+    ],
+    "no_tlas_typed_error": "E_G35_COLLISION_NO_TLAS_CAPABILITY",
+    "no_tlas_exit_code": 3,
+    "unknown_arm_exit_code": 2,
+    "arms_digest_distinct": true,
+    "digest_ray_query": "sha256:3f20f9d8447641299481fcf1cf462cbe9fc8926e90eb58b0e51dbb8dc390f1ad",
+    "digest_depth_buffer": "sha256:1b876588f550430f0d1aaa49ee4b71f49edbb8d237f02da99137e722ed2e1384",
+    "digest_off": "sha256:775f631c1f862b5f46b84af9ecbc5a5ab2af2f225a6460678c1fb6da8f0ba5ea"
+  },
+  "force_fields": {
+    "parity_measured_p100": 0.0,
+    "within": true,
+    "wind_dx_positive": true,
+    "wind_dz_positive": true,
+    "drag_speed_decay": true,
+    "off_arm_hits": 0,
+    "semantics_note": "力场 v1 闭集顺序冻结:vel += (g+wind)·dt;vel ×= (1−drag·dt);再碰撞查询。y-up 右手系,gravity_y 与 rurix_physics::types::WorldDesc::gravity=[0,−9.81,0] 同向同单位(m/s²),wind = 常量加速度(LinearForce 语义),drag = 线性阻尼(1/s)——语义对齐登记,渲染 crate 不引物理 crate"
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "digest_a": "sha256:3f20f9d8447641299481fcf1cf462cbe9fc8926e90eb58b0e51dbb8dc390f1ad",
+    "digest_b": "sha256:3f20f9d8447641299481fcf1cf462cbe9fc8926e90eb58b0e51dbb8dc390f1ad"
+  },
+  "red_arm": {
+    "arm": "tamper-e",
+    "detected": true,
+    "e_frozen": 0.5,
+    "e_tampered": 0.75,
+    "red_f32_max_abs_diff": 9.959938,
+    "exceeds_threshold": true,
+    "digest_green": "sha256:3f20f9d8447641299481fcf1cf462cbe9fc8926e90eb58b0e51dbb8dc390f1ad",
+    "digest_red": "sha256:b60b2de58933e0d3cbf60ca08015e1cdd3f6ff14e5039bae5a282a8bc94fb266"
+  },
+  "frame_ms": {
+    "device_chain_mean_ms": 95.275242,
+    "frames_per_run": 64,
+    "measured": "measured_local",
+    "note": "device 逐帧派发墙钟均值(ray_query 臂 run_ray_query_effects 每帧重建 instance/device/BLAS/TLAS = 同帧语义 probe 形态,该会话开销如实计入;登记语义非帧率对标,生产车道届时走持久场景 + TLAS refit/update)"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/collision/probe_calibration.json",
+    ".tmp/g35_gates/collision/probe_green.json",
+    ".tmp/g35_gates/collision/probe_depth.json",
+    ".tmp/g35_gates/collision/probe_off.json",
+    ".tmp/g35_gates/collision/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T113120Z",
+  "notes": "G35-5 碰撞与力场:同帧 TLAS ray query 碰撞(第 k 帧粒子碰撞查询的 TLAS = 第 k 帧场景状态,probe 每帧以当帧障碍变换合成三角汤经 run_ray_query_effects 重建场景;反打 Niagara GPU RT 碰撞异步一帧延迟)+ 深度缓冲对照臂(固定正交俯视深度图 SSBO host 合成上传;法线 +y 简化,屏幕空间局限〔垂直侧面/悬空底面/多层几何不可表达〕头注如实登记 = 对照教育臂非生产档)+ 显式降级链 --collision ray_query|depth_buffer|off(fail-closed 禁静默换臂:能力缺失 typed 退 3,闭集外 typed 退 2)+ 力场 v1 闭集(gravity_y + wind_xyz 常量 + 线性阻尼 drag;顺序冻结 vel += (g+wind)·dt → vel ×= (1−drag·dt) → 碰撞查询)。碰撞响应冻结式(RFC-0049 §4.7,host/device 逐字同源):射线 = pos → pos+vel·dt(dir = vel 不归一,t 域 (0,dt));c = pos+vel·t;n = committed primitive 顶点叉积(TriBvh face_normal 同式同序,命中面 SSBO 镜像按 committed_primitive_index 取顶点;朝向翻转使 n·vel<0);pos' = c + n·eps(eps=1e-3 冻结);v_n = dot(vel,n)·n;v_t = vel−v_n;vel' = mu_t·v_t − e·v_n(e=0.5/mu_t=0.8 冻结缺省 params 可调);age 照常;未命中/零方向守卫走原 sim 积分。host 金标准 = particles/collision.rs(apply_fields/collide_step〔TriBvh〕/depth_collide_step 与两 kernel 逐字同源);probe = bin/g35_collision_device.rs(两 SPV 装载期注入 NoContraction 禁驱动 FMA 收缩,g35_particle_core 同律)。7 f32 流标定容差(threshold = measured×2.0 程序产禁手写,RT core t 值 ULP 级差根因)+ flags 整数流零容差位级 + hit 流失配诚实登记 + 同 seed 双跑位级 + tamper-e RED 臂 + frame_ms measured_local 登记。results.trimmed_mean = 绿臂 measured p100 镜像(budget_eval 通用路 evidence_file 消费面)。"
+}

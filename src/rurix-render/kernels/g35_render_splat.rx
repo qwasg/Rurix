@@ -1,0 +1,171 @@
+//@ spec: RFC-0049 §4.6(G35-3 粒子渲染接线 billboard splat;spec 条款号本期零新设)
+// G35-P 粒子渲染 · billboard splat —— 每线程一粒子,u64 fetch_max 赢家像素
+// 竞争(门 g35.wave3.render;G35_CONTRACT §4 契约;打包惯用法 =
+// apps/uc06-renderer/kernels/visbuffer_sw_u64.rx 先例)。
+//
+// ## 架构(G35-3 渲染 pass 组第 9 步;dispatch = DispatchSpec::Indirect{args,0}
+// 消费 g35_indirect_args 产物 {total,1,1}——生产零回读链兑现,host 不读回
+// device 计数)
+// 线程 = 粒子槽位 s(压缩+发射后 B 组前缀);守卫 s < args[7](meta 槽 =
+// total,View u32 直读;indirect groupCount 已等于 total,守卫为防御性冗余)。
+// 1. 投影:clip_j = vp_j·[pos,1](本帧 jitter 等价投影,params[8..24));
+//    w 门 cw_j ≤ 1e-6 → 整粒子剔除(近平面/相机后,--occlusion-witness
+//    相机后已知墙构型的拒绝路径)。
+// 2. 屏幕包围盒:中心像素 cxf/cyf(NDC→像素,uv 原点左上与 g14_mv.rx 同
+//    约定);半径投影 rpx = r_world·0.5·ih·p11/d_view(p11 = 投影阵 [1][1]
+//    = f,host 打包;d_view = 未抖 vp 行 3 齐次 w = 视深),clamp ≤ 3(=
+//    7×7 像素上限)并 clamp 到屏内;整盒离屏经 x1<x0/y1<y0 判空直落。
+// 3. 逐像素硬拒(冻结判据,域注意):d_p > scene_depth[px] 则跳过。
+//    **深度域如实登记**:U_SCENE_DEPTH 生产字面 = 未抖 vp 参数行 25..32
+//    (= vp 行 0/1,clip.x/clip.y)——g34_unified_gi.rx ⑦ 段注「生产字面」
+//    与 g34_full_lane host 金标准 z_quirk 两路并存登记面;真 ZO NDC 路由面
+//    归 g34_unified_shade.rx ④b(HZB 车道形态,本 Mega 车道无此资源)。
+//    本 kernel 拒绝判据与存储域**同域**:d_p = (vp行0·pos)/(vp行1·pos)
+//    (params[24..40) 未抖 vp,|w|≤1e-8 → 1.0 门与母版 ④ 段逐字同式)。
+//    该域沿视射线为常量(不携带命中距离信息)⇒ 同域比较为屏幕域序判而非
+//    距离遮挡——如实登记,距离遮挡门待真深度资源进车道(evidence
+//    depth_domain 字段同一字面;RFC-0049 §4.6 原文深度源 = out_depth_hz
+//    真深度,Mega 车道缺此面的降级实现)。
+// 4. 圆形 mask:像素中心到粒子中心距² > rpx² 跳过(quad 内圆形衰减的
+//    赢家竞争面;色彩衰减归 g35_render_resolve)。
+// 5. 赢家打包(冻结):key = 16777215 − depth_key24(d_view, d_max)(24 位
+//    反深度,近大远小 ⇒ fetch_max 取最近粒子;depth_key24 =
+//    floor(clamp(d/d_max,0,1)·16777215) host 同式,particles/mod.rs 契约;
+//    d_max = 远平面口径 host 打包);packed = (key as u64)<<40 | slot
+//    (slot < cap ≤ 2^20 < 2^24 掩码域)。fetch_max(px, packed, Scope::Gpu)
+//    ——同 key 高 slot 胜出 = 确定性平局裁决(槽位序 = scan 稳定序)。
+//    注:key=0(d_view ≥ d_max 满量程)且 slot=0 的打包值 = 0u64 与空哨兵
+//    重合,该粒子像素被 resolve 视为空——概率角点如实登记(cap 内 slot 0
+//    同时贴远平面),生产 d_max = far 域内不触发。
+// 无 shared;唯一原子 = winner fetch_max(u64 域,Scope::Gpu);f32/u32 域
+// 零位运算(u64 域 <<;| 惯用法 = visbuffer_sw_u64 先例)。固定输入双跑
+// 位级一致:fetch_max 可交换幂等 + 平局由 slot 序全序裁决,与线程调度无关。
+//
+// ## 参数面(P_PARAMS_RENDER 64 f32 共享布局,单源 = bin/g35_particle_lane.rs
+// `pack_render_params` 头注;声明序 = 绑定序,SSBO 数 = 7)
+//   params[0]=iw [1]=ih [2]=r_world [3]=soft_range [4]=d_max(far)
+//   [5]=dt [6]=px_count [7]=p11(投影阵 [1][1] = f = 1/tan(fov_y/2))
+//   [8..24)=vp_j(本帧 jitter 等价投影,行主序 m[r][c] → [8+r*4+c])
+//   [24..40)=vp(未抖;行 0/1 = 生产字面深度域,行 3 = 视深 w)
+//   [40..56)=prev_vp_j(上帧 jitter 等价投影;本 kernel 不消费,resolve 面)
+//   [56..64)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×64) / 1 args(View u32×8,g35_indirect_args
+//   产物,读 [7] meta 槽) / 2 b_pos_x / 3 b_pos_y / 4 b_pos_z(View f32×cap,
+//   B 组压缩+发射后前缀) / 5 scene_depth(View f32×px,U_SCENE_DEPTH 语义) /
+//   6 winner(AtomicView u64×px;形状标注 2073600 = 1080p 生产面上界,
+//   SPIR-V 侧 runtime array 实际以绑定缓冲长度为准)。
+//   dispatch = DispatchSpec::Indirect{res=args,offset=0}(LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_render_splat(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    args: View<global, u32>,
+    b_pos_x: View<global, f32>,
+    b_pos_y: View<global, f32>,
+    b_pos_z: View<global, f32>,
+    scene_depth: View<global, f32>,
+    winner: AtomicView<global, u64, (2073600,)>,
+) {
+    let s = tc.global_id();
+    let total = args[7] as usize;
+    if s < total {
+        let iw = params[0] as usize;
+        let ih = params[1] as usize;
+        let iwf = params[0];
+        let ihf = params[1];
+        let r_world = params[2];
+        let d_max = params[4];
+        let p11 = params[7];
+        let px_ = b_pos_x[s];
+        let py_ = b_pos_y[s];
+        let pz_ = b_pos_z[s];
+        // ── ① 本帧 jitter 等价投影(vp_j 行主序;w 门 = 近平面/相机后剔除)──
+        let cx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+        let cy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+        let cw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+        if cw > 0.000001 {
+            // ── ② 屏幕中心/半径(NDC→像素,uv 原点左上;半径经视深投影)──
+            let ndx = cx / cw;
+            let ndy = cy / cw;
+            let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
+            let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
+            // 视深 = 未抖 vp 行 3 齐次 w(RH 前向距离;depth_key24 消费域)。
+            let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+            if d_view > 0.000001 {
+                let mut rpx = r_world * 0.5 * ihf * p11 / d_view;
+                if rpx > 3.0 {
+                    rpx = 3.0;
+                }
+                if rpx < 0.5 {
+                    rpx = 0.5;
+                }
+                // 屏内 clamp 包围盒(整盒离屏 ⇒ x1f < x0f 判空;负域先判后转)。
+                let mut x0f = (cxf - rpx).floor();
+                let mut x1f = (cxf + rpx).floor();
+                let mut y0f = (cyf - rpx).floor();
+                let mut y1f = (cyf + rpx).floor();
+                if x0f < 0.0 {
+                    x0f = 0.0;
+                }
+                if y0f < 0.0 {
+                    y0f = 0.0;
+                }
+                if x1f > iwf - 1.0 {
+                    x1f = iwf - 1.0;
+                }
+                if y1f > ihf - 1.0 {
+                    y1f = ihf - 1.0;
+                }
+                if x1f >= x0f && y1f >= y0f {
+                    // ── ③ 生产字面深度域 d_p(未抖 vp 行 0/1;|w|≤1e-8 → 1.0
+                    //    门与母版 ④ 段逐字同式——同域拒绝判据)──
+                    let big: f32 = 1e30;
+                    let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
+                    let qw = ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
+                    let qw_abs = qw.max(0.0 - qw);
+                    let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
+                    let qw_safe = qw + (1.0 - gate_w);
+                    let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
+                    // ── ⑤ 赢家键(反深度 24 位;host depth_key24 同式)──
+                    let mut t = d_view / d_max;
+                    if t < 0.0 {
+                        t = 0.0;
+                    }
+                    if t > 1.0 {
+                        t = 1.0;
+                    }
+                    let dk = (t * 16777215.0).floor() as u32;
+                    let key = 16777215u32 - dk;
+                    let slot32 = s as u32;
+                    let packed = ((key as u64) << 40u64) | (slot32 as u64);
+                    let rq2 = rpx * rpx;
+                    // ── ④ 逐像素:硬拒(同域)→ 圆形 mask → fetch_max ──
+                    let x0 = x0f as usize;
+                    let x1 = x1f as usize;
+                    let y0 = y0f as usize;
+                    let y1 = y1f as usize;
+                    let mut y = y0;
+                    while y <= y1 {
+                        let mut x = x0;
+                        while x <= x1 {
+                            let i = y * iw + x;
+                            if i < iw * ih {
+                                if d_p > scene_depth[i] {
+                                    // 硬拒:粒子在存储域序后(同域判据,头注登记)。
+                                } else {
+                                    let fdx = (x as f32) - cxf;
+                                    let fdy = (y as f32) - cyf;
+                                    if fdx * fdx + fdy * fdy <= rq2 {
+                                        let _old = winner.fetch_max(i, packed, Scope::Gpu);
+                                    }
+                                }
+                            }
+                            x = x + 1usize;
+                        }
+                        y = y + 1usize;
+                    }
+                }
+            }
+        }
+    }
+}

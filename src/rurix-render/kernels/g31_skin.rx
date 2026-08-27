@@ -1,0 +1,122 @@
+//@ spec: RXS-0353 L1 device 生产面(G31+ 波 B Task B5 蒙皮/骨骼动画进生产帧)
+// G31+ 波 B Task B5 蒙皮 compute kernel —— cluster 无关的生产 LBS 蒙皮:
+// 逐顶点 p′ = Σ_k w_k·(M_{b_k}·p)(固定 4 影响骨,零权 padding 位级中性;
+// 累加序 = 权重行序,仅 +/×——与 geometry/skinning.rs host Kerbl 参照
+// `skin_vertex` 同式同序;M92 手编 SPV 双腿对拍纪律的生产 .rx 承接面)。
+//
+// ## 与 M92 验证件的关系(诚实声明)
+// M92(g9_m92_skinning_device.rs + skin_kernel.rs 手编 SPV)= 定点输入域容差 0
+// 对拍门(保守包围体/档位更新率/AS 计数面);本 kernel = 生产管线车道件
+// (rurixc 编译;浮点输入域;包围体/档位归 SkinningDriver host 面不进本 kernel)。
+// 双跑位级确定性 = 固定输入同一 SPV 逐像素独立求值(RXS-0357 L2 同律)。
+//
+// ## 帧链路面(G31+ 波 B Task B5 生产接线)
+// pass0(本 kernel)→ 输出写 tris SSBO 追加区(角色段,世界空间蒙皮顶点;
+// 与 BLAS 顶点缓冲逐字节同形)+ prev 顶点表(上一帧 palette 同式求值,MV
+// 通道消费)→ render_exec `blas_refit` 桥(vkCmdCopyBuffer → 角色 BLAS
+// UPDATE build)→ scene pass ray query 命中蒙皮几何。骨骼 palette 逐帧
+// buffer_uploads 上传(cur/prev 双表;首帧 has_prev=0 ⇒ prev=cur 零 MV
+// 语义,与 g14_mv has_prev 门同字面)。
+//
+// ## 确定性协议(RXS-0357 L2)
+// 逐顶点独立顺序求值,禁 atomic;输出直写无跨顶点交互;固定输入双跑位级一致。
+// 全 f32;骨骼下标经 f32 精确整数值域(≤2^24)装载后 `as usize` 还原。
+//
+// ## 参数面(host bin `pack_skin_params` 逐字同源;16 f32)
+//   params[0]=n_vertices [1]=has_prev(>0.5 ⇒ prev palette 真求值;
+//             否则 out_prev = out_cur 直写——首帧零 MV 语义)
+//   [2]=tri_base(角色段在 tris SSBO 的三角形下标基底;顶点写偏移 =
+//        (tri_base*3 + vid))
+//   [3]=n_bones(登记/诊断面;kernel 本体不消费)
+//   [4..16]=reserved(恒 0)。
+//   in_rest: 3 f32/顶点(绑定姿态世界空间;角色局部表,与 tris 追加区创建期
+//            内容逐字节同);
+//   in_wt: 8 f32/顶点 [b0,b1,b2,b3(骨骼下标,f32 精确整数),w0..w3](行定长 4,
+//          零权 padding——M92 fixture 零权位级中性同律);
+//   in_pal_cur/in_pal_prev: 12 f32/骨 行主 3×4(world-from-bind;绑定姿态 =
+//          恒等骨约定,蒙皮 = M·p 直乘,无逆绑定矩阵面——如实登记本简化);
+//   out_tris: 9 f32/三角形(整表视图;本 kernel 仅写 [tri_base*9, +tri*9) 段);
+//   out_prev: 3 f32/顶点(上一帧 palette 求值;MV 通道 per-顶点 prev 位置源)。
+#[numthreads(1, 1, 1)]
+kernel fn g31_skin(
+    t: ThreadCtx<1>,
+    in_rest: View<global, f32>,
+    in_wt: View<global, f32>,
+    in_pal_cur: View<global, f32>,
+    in_pal_prev: View<global, f32>,
+    params: View<global, f32>,
+    out_tris: ViewMut<global, f32>,
+    out_prev: ViewMut<global, f32>,
+) {
+    let vid = t.global_id();
+    let n_vertices = params[0] as usize;
+    if vid < n_vertices {
+        let rb = vid * 3;
+        let px = in_rest[rb];
+        let py = in_rest[rb + 1];
+        let pz = in_rest[rb + 2];
+        let wb = vid * 8;
+        // cur/prev 双 palette 同式求值(host `skin_vertex` 行序:
+        // t_i = ((m0·px + m1·py) + m2·pz) + m3;acc_i += w·t_i——仅 +/×)。
+        let mut cx = 0.0;
+        let mut cy = 0.0;
+        let mut cz = 0.0;
+        let mut qx = 0.0;
+        let mut qy = 0.0;
+        let mut qz = 0.0;
+        let mut k = 0usize;
+        while k < 4 {
+            let bone = in_wt[wb + k] as usize;
+            let w = in_wt[wb + 4 + k];
+            let pb = bone * 12;
+            // cur palette 行主 3×4:m[row][col] = in_pal_cur[pb + row*4 + col]。
+            let c00 = in_pal_cur[pb];
+            let c01 = in_pal_cur[pb + 1];
+            let c02 = in_pal_cur[pb + 2];
+            let c03 = in_pal_cur[pb + 3];
+            let c10 = in_pal_cur[pb + 4];
+            let c11 = in_pal_cur[pb + 5];
+            let c12 = in_pal_cur[pb + 6];
+            let c13 = in_pal_cur[pb + 7];
+            let c20 = in_pal_cur[pb + 8];
+            let c21 = in_pal_cur[pb + 9];
+            let c22 = in_pal_cur[pb + 10];
+            let c23 = in_pal_cur[pb + 11];
+            cx = cx + w * (((c00 * px + c01 * py) + c02 * pz) + c03);
+            cy = cy + w * (((c10 * px + c11 * py) + c12 * pz) + c13);
+            cz = cz + w * (((c20 * px + c21 * py) + c22 * pz) + c23);
+            let p00 = in_pal_prev[pb];
+            let p01 = in_pal_prev[pb + 1];
+            let p02 = in_pal_prev[pb + 2];
+            let p03 = in_pal_prev[pb + 3];
+            let p10 = in_pal_prev[pb + 4];
+            let p11 = in_pal_prev[pb + 5];
+            let p12 = in_pal_prev[pb + 6];
+            let p13 = in_pal_prev[pb + 7];
+            let p20 = in_pal_prev[pb + 8];
+            let p21 = in_pal_prev[pb + 9];
+            let p22 = in_pal_prev[pb + 10];
+            let p23 = in_pal_prev[pb + 11];
+            qx = qx + w * (((p00 * px + p01 * py) + p02 * pz) + p03);
+            qy = qy + w * (((p10 * px + p11 * py) + p12 * pz) + p13);
+            qz = qz + w * (((p20 * px + p21 * py) + p22 * pz) + p23);
+            k = k + 1;
+        }
+        // 首帧门(has_prev ≤ 0.5):prev = cur(g14_mv 首帧零图同语义——门内
+        // prev palette 占位值不被消费)。
+        let gate = (params[1] - 0.5).max(0.0) * 1e30;
+        let has = gate.min(1.0);
+        let ox = has * qx + (1.0 - has) * cx;
+        let oy = has * qy + (1.0 - has) * cy;
+        let oz = has * qz + (1.0 - has) * cz;
+        // 角色段写面:顶点下标 = tri_base*3 + vid(tri soup 3 顶点/三角形)。
+        let tri_base = params[2] as usize;
+        let ob = (tri_base * 3 + vid) * 3;
+        out_tris[ob] = cx;
+        out_tris[ob + 1] = cy;
+        out_tris[ob + 2] = cz;
+        out_prev[rb] = ox;
+        out_prev[rb + 1] = oy;
+        out_prev[rb + 2] = oz;
+    }
+}

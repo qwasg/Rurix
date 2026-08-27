@@ -584,8 +584,7 @@ fn main() {
     // 且本进程请求装载层时,主腿 device 创建必被误报——显式 DEV_ENV_DEGRADE 登记
     // (非静默换腿:能力面 main_leg_supported 不变,主腿在 validation=off 真跑)。
     let validation_on = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
-    let main_leg_layer_lag =
-        main_leg_ok && validation_on && report.main_leg_blocked_by_layer_lag();
+    let main_leg_layer_lag = main_leg_ok && validation_on && report.main_leg_blocked_by_layer_lag();
     if main_leg_layer_lag {
         println!(
             "CLAS_MAIN: DEV_ENV_DEGRADE validation-layer-header-lag(val_layer={} < 1.4, \

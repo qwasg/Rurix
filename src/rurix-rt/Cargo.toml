@@ -140,6 +140,13 @@ required-features = ["vulkan"]
 name = "vk_rt_incremental"
 required-features = ["vulkan"]
 
+# G31+ 波 C Task C15 RT pipeline + SBT 宿主车道 harness(RFC-0048;门
+# g31.waveC.rtpipeline):slab 双材质 SBT 分派 RT 臂(镜像语料,非 .rx 编译)
+# + RayQuery compute 对拍臂(真 .rx 编译)+ SER reorder workload 臂。
+[[bin]]
+name = "g31_rt_slab_lane"
+required-features = ["vulkan"]
+
 # G8.3 M04 几何页 device 解码 harness(RXS-0342;门 g8.p0.m04.page_format_abi):
 # 消费 rurixc 产 geom_page_decode.spv + RXPM image,compute 整数域展开回读 digest。
 [[bin]]
@@ -192,6 +199,24 @@ required-features = ["vulkan"]
 # 重建确定性;capability fail-closed + D3D12 诚实降级登记(host 面引用进 checks)。
 [[bin]]
 name = "vk_execution_set"
+required-features = ["vulkan"]
+
+# G31+ 波 C Task C3 统一设备能力探测聚合 harness(设备兼容矩阵与能力降级链
+# 系统化;门 g31.waveC.capability):vk::probe_device_capability 逐物理设备聚合
+# (vendor/device id、RT/RayQuery、mesh shader、descriptor 面上限、显存 budget)
+# + DLSS/FSR 双臂 session 真建可用性 + TSR 自研恒可用面 → 单一 capability
+# report JSON(rurix.g31.capability_report.v1)。
+[[bin]]
+name = "vk_capability_report"
+required-features = ["vendor-upscale"]
+
+# G31+ 波 C Task C16 M61 ③ measured 对照 harness(RFC-0034 重判表三项闭集之③;
+# 门 g31.waveC.meshbench 由 ci/g31_mesh_vs_raster_bench.py 承载):单会话三臂
+# (vs_fetch 取数 / vs_procedural / mesh_procedural)同一确定性三角形集 ⇒ 像素
+# digest 逐臂对拍 + GPU timestamp 逐帧 measured(如实登记不设通过线);SPV 由
+# CI 驱动经 glslangValidator 现编;mesh feature 缺失 → SKIP 三态。
+[[bin]]
+name = "g31_mesh_vs_raster_bench"
 required-features = ["vulkan"]
 
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API

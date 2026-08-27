@@ -1,0 +1,250 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_restir_wiring ReSTIR 高档 reservoir 车道集成证据",
+  "description": "G31+ 波 B Task B2：kernels/g28_restir.rx（本体 0-byte）接进生产 direct GI 多灯采样链——bistro-interior 契约 lighting JSON point_lights（管线 direct GI pass 现有灯表，I_rgb=color×intensity_cd 同口径标量投影）喂入 reservoir 采样高档车道（--restir on，M=16 + 空间重用加性臂直调冻结 merge），--restir off（默认档）= MegaLights 式均匀选灯语义镜像（RIS M=1 代数恒等）。判据闭集：①G28 门维持（fixture 20000 trial y 整数锚全等 + p100 ≤ 冻结容差 + 无偏 3σ + device 双跑位级，接线态复跑全绿）；②车道双臂各自 y 整数锚/p100/3σ/双跑位级全绿；③方差对照 measured（var(off)/var(on) >1 方向硬门，数值如实登记）+ dispatch 墙钟 ms 双臂 measured 登记（不设伪造通过线）；④空间重用加性臂聚合 3σ + 逐点 5σ + 双跑位级；⑤off 面静态锚零漂移（首跑程序产追加，复跑位级期望）+ gi/ 两文件 vs g27-closed 与 kernel vs g28-closed 三处 0-byte 机核。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "seed",
+    "n_trials",
+    "light_table",
+    "gate_maintenance",
+    "arms",
+    "spatial_reuse_arm",
+    "variance_reduction",
+    "frame_ms_compare",
+    "determinism",
+    "off_static_anchor",
+    "frozen_surfaces",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.restir_wiring_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_restir_wiring"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveB.restir"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.B"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "bistro-interior"
+    },
+    "seed": {
+      "type": "integer",
+      "description": "车道夹具冻结 seed（bin 侧 SEED 字面同源；独立 G28/M100 流）"
+    },
+    "n_trials": {
+      "type": "integer",
+      "minimum": 20000,
+      "description": "车道窗长（与 G28 锚同格 20000 trial）"
+    },
+    "light_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_lights", "digest", "contract", "source"],
+      "properties": {
+        "n_lights": {"type": "integer", "minimum": 2},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "contract": {"type": "string"},
+        "source": {"type": "string"}
+      }
+    },
+    "gate_maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "y_anchor_all_equal",
+        "dec_consumed_all_equal",
+        "p100_vs_host",
+        "tol",
+        "in_tol",
+        "unbiased_3sigma_pass",
+        "device_double_run_bitexact",
+        "harness_digest"
+      ],
+      "properties": {
+        "state": {"type": "string", "const": "pass"},
+        "y_anchor_all_equal": {"type": "boolean", "const": true},
+        "dec_consumed_all_equal": {"type": "boolean", "const": true},
+        "p100_vs_host": {"type": "number", "description": "G28 fixture 20000 trial 逐 trial estimate 绝对差 p100（接线态复跑实测）"},
+        "tol": {"type": "number", "description": "g28_budget 冻结容差（threshold = measured × 2.0 程序产条目）"},
+        "in_tol": {"type": "boolean", "const": true},
+        "unbiased_3sigma_pass": {"type": "boolean", "const": true},
+        "device_double_run_bitexact": {"type": "boolean", "const": true},
+        "harness_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier",
+          "m_candidates",
+          "mean",
+          "reference",
+          "variance",
+          "dev",
+          "bound_3sigma",
+          "unbiased_3sigma_pass",
+          "y_anchor_all_equal",
+          "dec_consumed_all_equal",
+          "p100_vs_host",
+          "in_tol",
+          "digest",
+          "double_run_bitexact",
+          "dispatch_ms"
+        ],
+        "properties": {
+          "tier": {"type": "string", "enum": ["off", "on"]},
+          "m_candidates": {"type": "integer", "enum": [1, 16]},
+          "mean": {"type": "number"},
+          "reference": {"type": "number"},
+          "variance": {"type": "number"},
+          "dev": {"type": "number"},
+          "bound_3sigma": {"type": "number"},
+          "unbiased_3sigma_pass": {"type": "boolean"},
+          "y_anchor_all_equal": {"type": "boolean"},
+          "dec_consumed_all_equal": {"type": "boolean"},
+          "p100_vs_host": {"type": "number"},
+          "in_tol": {"type": "boolean"},
+          "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "double_run_bitexact": {"type": "boolean"},
+          "dispatch_ms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mean", "min", "max", "runs"],
+            "properties": {
+              "mean": {"type": "number"},
+              "min": {"type": "number"},
+              "max": {"type": "number"},
+              "runs": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
+      }
+    },
+    "spatial_reuse_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grid",
+        "n_points",
+        "n_trials",
+        "aggregate_3sigma",
+        "per_point_5sigma_all_within",
+        "worst_dev_over_sigma",
+        "variance_gain",
+        "double_run_bitexact",
+        "digest"
+      ],
+      "properties": {
+        "grid": {"type": "string", "const": "8x8"},
+        "n_points": {"type": "integer", "const": 64},
+        "n_trials": {"type": "integer", "minimum": 20000},
+        "aggregate_3sigma": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mean", "reference", "dev", "bound_3sigma", "pass"],
+          "properties": {
+            "mean": {"type": "number"},
+            "reference": {"type": "number"},
+            "dev": {"type": "number"},
+            "bound_3sigma": {"type": "number"},
+            "pass": {"type": "boolean"}
+          }
+        },
+        "per_point_5sigma_all_within": {"type": "boolean"},
+        "worst_dev_over_sigma": {"type": "number"},
+        "variance_gain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "mean", "max", "no_pass_line"],
+          "properties": {
+            "min": {"type": "number"},
+            "mean": {"type": "number"},
+            "max": {"type": "number"},
+            "no_pass_line": {"type": "boolean", "const": true}
+          }
+        },
+        "double_run_bitexact": {"type": "boolean"},
+        "digest": {"type": "string"}
+      }
+    },
+    "variance_reduction": {
+      "type": "number",
+      "exclusiveMinimum": 1.0,
+      "description": "var(off)/var(on) measured（>1 = 高档臂方差严格低于默认档——方向硬门；数值如实登记）"
+    },
+    "frame_ms_compare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_mean", "on_over_off", "note"],
+      "properties": {
+        "off_mean": {"type": "number", "exclusiveMinimum": 0},
+        "on_mean": {"type": "number", "exclusiveMinimum": 0},
+        "on_over_off": {"type": "number", "exclusiveMinimum": 0},
+        "note": {"type": "string"}
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_double_run_bitexact", "off_double_run_bitexact"],
+      "properties": {
+        "on_double_run_bitexact": {"type": "boolean", "const": true},
+        "off_double_run_bitexact": {"type": "boolean", "const": true}
+      }
+    },
+    "off_static_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "zero_drift", "program_produced_first_run"],
+      "properties": {
+        "path": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "zero_drift": {"type": "boolean", "const": true},
+        "program_produced_first_run": {"type": "boolean"}
+      }
+    },
+    "frozen_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gi_files_0byte_vs_g27_closed", "g28_kernel_0byte_vs_g28_closed"],
+      "properties": {
+        "gi_files_0byte_vs_g27_closed": {"type": "boolean", "const": true},
+        "g28_kernel_0byte_vs_g28_closed": {"type": "boolean", "const": true}
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

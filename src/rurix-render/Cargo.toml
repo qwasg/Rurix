@@ -81,6 +81,19 @@ name = "g9_m98_fallback_chain"
 path = "src/bin/g9_m98_fallback_chain.rs"
 required-features = ["vulkan"]
 
+# G31+ 波 C Task C12 HLOD L4 Far Field 档 device harness(RXS-0359 四级链 L4
+# 档;门 g31.waveC.hlodl4;G30 承接锚 M98-l4 行两半合取兑现面):canonical 远场
+# 契约场景(fallback_chain::m98_l4_far_field_scene;近场开放空间 + 远场 HLOD
+# proxy 五件全超视距)+ L4 proxy 追踪 device kernel 真跑
+# (kernels/g31_hlod_l4_proxy_trace.rx,纯 compute L1 同构面不消费 TLAS)+
+# device/host 镜像结构域精确对拍 + rgb 位级 + L4 计数器接入(可见 proxy 数/
+# 切换次数/覆盖率)+ 三处 fail-closed 入口解锁核验 + L4 on/off(L3 截断)
+# 对照 + 静默注入/强关/篡改/空集四 RED 臂 + frame_ms measured 如实登记。
+[[bin]]
+name = "g31_hlod_l4_far_field"
+path = "src/bin/g31_hlod_l4_far_field.rs"
+required-features = ["vulkan"]
+
 # G9.4 M99 屏幕级 SPG 自适应细分 + Radiance Cache 双级 device harness
 # (RXS-0360;门 g9.p1.m99.spg_radiance_cache):probe 第一反弹 kernel
 # (kernels/g9_m99_spg_probe.rx,product IS×MIS,U30 run_ray_query_effects)真跑;
@@ -290,6 +303,30 @@ name = "g14_3_pipeline_perf"
 path = "src/bin/g14_3_pipeline_perf.rs"
 required-features = ["vendor-upscale"]
 
+# G31+ 波 A Task A1 生产管线 swapchain 真窗口呈现接线(门 g31.waveA.present):
+# g14_3_lane_body 逐字共享(include!)跑统一四 pass TSR 车道(bistro-interior 1080p),
+# 每帧 TSR 输出经 DisplayPipeline SDR+aces13 编码 → vk::ExternalImagePresent 真窗口
+# present;real_render/present/overhead 三口径独立登记(渲染帧率禁混 present 开销);
+# --frames N 自动退出(CI 便),--headless-smoke 无窗口退化仅供自检不计真门。
+[[bin]]
+name = "g31_window_present"
+path = "src/bin/g31_window_present.rs"
+required-features = ["vendor-upscale"]
+
+# G34 全特性合流 G34-1 合流地基 harness(门 g34.wave1.unified):统一 kernel
+# kernels/g34_unified_gi.rx(母版 g14_3_direct_gi 语义 + fork A 图集采样块 +
+# fork B 实例分派块合一,两缺省面各自 == 母版位级)经 UnifiedDescs::G34Full
+# 27 SSBO 形态进统一四 pass TSR 车道 + device 显示编码 + 真窗口呈现;
+# 合并语义(贴图 = 采样×(mod×R_slot)/非贴图 = 常量×(R_slot 若 slab 映射))
+# host 装配期预调制 + host 金标准(TriBvh/Tlas 实例化追踪)parity 帧对拍
+# (容差 = g34_budget 标定冻结程序读) + A4 范式动态位置核验 fail-closed +
+# 确定性双跑 digest + 逐特性 digest 区分;g31_window_present.rs 0-byte 不动
+# (其五门 = 回归锚,--static-camera 锚格模式 = Stage A 锚格全链位级对拍面)。
+[[bin]]
+name = "g34_full_lane"
+path = "src/bin/g34_full_lane.rs"
+required-features = ["vendor-upscale"]
+
 # G19.2 M-a FG/MFG 帧生成独立层 host 参考臂 probe(RFC-0036;门
 # g19.p0.m_a.frame_generation_host_realization):temporal/framegen host 实现
 # (mv 双向 warp + 遮挡感知混合 + MFG ×2/×3/×4)对解析式 GT 全帧率序列——
@@ -384,6 +421,101 @@ required-features = ["vulkan"]
 [[bin]]
 name = "g29_slab_device"
 path = "src/bin/g29_slab_device.rs"
+required-features = ["vulkan"]
+
+# G31+ 波 B Task B2 ReSTIR 高档 reservoir 车道集成 harness（门 g31.waveB.restir；
+# G30 收官承接锚 M100-high 行 g31_anchor「M100 车道集成窗」第三件兑现面；RFC-0038
+# out-of-scope 锚车道集成项）：接入点 = 生产管线 direct GI pass 现有灯光表
+#（bistro-interior 契约 lighting JSON point_lights，I_rgb = color×intensity_cd
+# 同口径标量投影）→ host 随机带单源预生成（RFC-0045 §1.2 同律）→
+# kernels/g28_restir.rx（本体 0-byte）经 vk::run_compute 单 dispatch 真跑。
+# --restir off（默认档）= MegaLights 式均匀选灯语义镜像（RIS M=1 代数恒等），
+# --restir on = 高档 reservoir（M=16 + 空间重用加性臂直调冻结 merge）；双臂
+# 20000 trial y 整数锚 + p100 ≤ G28 冻结容差 + 无偏 3σ + 方差/dispatch ms
+# measured 对照 + 固定 seed 双跑位级；gi/ 两文件 + kernel 三处 0-byte 归 CI。
+[[bin]]
+name = "g31_restir_wiring"
+path = "src/bin/g31_restir_wiring.rs"
+required-features = ["vulkan"]
+
+# G35-1 GPU 粒子基元 device probe harness(门 g35.wave1.primitives;RFC-0049 §4):
+# 分段稳定 scan 三 kernel + 24 位键 3-pass 稳定 radix sort + compact_u32
+# (kernels/g35_scan_*.rx + g35_sort_*.rx + g35_compact_u32.rx,rurixc --target
+# vulkan 产 SPV,vk::run_compute 车道复用)与 host 金标准 particles/{scan,
+# primitives} 整数域**零容差位级**对拍 + device 双跑位级 + tamper RED 臂 +
+# 三态纪律(无设备 skipped_dev_env 退 0,RURIX_REQUIRE_REAL=1 翻硬红)。
+[[bin]]
+name = "g35_primitives_device"
+path = "src/bin/g35_primitives_device.rs"
+required-features = ["vulkan"]
+
+# G35-2 粒子核心运行时 device probe harness(门 g35.wave2.particle_core;
+# RFC-0049 §4):SoA 池 ping-pong + 确定性发射(随机带单源 + persistent ID)
+# + 半隐式 Euler 积分 + 稳定压缩(scan 消费,禁原子抢槽)+ indirect args
+# 零回读链(kernels/g35_{emit,sim,particle_compact,indirect_args}.rx)多帧
+# 帧循环:整数流零容差 + f32 流标定容差(g35_budget 程序产)+ 固定 seed
+# 双跑位级 + RED 臂 + 三态纪律。
+[[bin]]
+name = "g35_particle_core_device"
+path = "src/bin/g35_particle_core_device.rs"
+required-features = ["vulkan"]
+
+# G35-3 粒子渲染接线 harness(门 g35.wave3.render;RFC-0049 §4):新 bin 消费
+# g14_3_lane_body 共享体(include! 逐字共享,共享体 0-byte)+ bin 局部追加粒子
+# 资源/pass(sim→scan×3→compact→emit→args→splat_clear→splat→resolve 插入
+# mv 与 TSR 之间;splat = u64 fetch_max 赢家像素 depth24<<40|slot24 +
+# DispatchSpec::Indirect 消费 args 缓冲零回读;resolve 写 scene color 软粒子
+# 合成 + 粒子 MV[project_curr(pos)−project_prev(pos−vel·dt)]);
+# --particles off 面 = 母版五 pass 位级(Stage A 锚),on/off digest 判别 +
+# 双跑位级 + MV 见证 + barrier 计划机核审计 + 三态纪律。
+[[bin]]
+name = "g35_particle_lane"
+path = "src/bin/g35_particle_lane.rs"
+required-features = ["vendor-upscale"]
+
+# G35-5 粒子碰撞与力场 device probe harness(门 g35.wave5.collision;
+# RFC-0049 §4):同帧 TLAS ray query 碰撞 kernel(g35_sim_collide.rx,
+# AccelStruct 形参,run_ray_query_effects 车道)vs host TriBvh 金标准对拍
+# + 同帧语义判别(当帧障碍位移当帧响应,反打 Niagara 一帧延迟)+ 显式降级
+# 链 ray_query→depth_buffer→off + 力场(重力/风/阻尼)与 rurix-physics
+# field 语义对齐 + 双跑位级 + RED 臂 + 三态纪律。
+[[bin]]
+name = "g35_collision_device"
+path = "src/bin/g35_collision_device.rs"
+required-features = ["vulkan"]
+
+# G35-6 事件/数据通道 + particle_view 双向桥 device probe harness(门
+# g35.wave6.events;RFC-0049 §4):host→GPU 事件队列(溢出 = 生产者稳定序
+# 保留前 capacity 项 + overflow 计数)驱动 indirect spawn(事件净荷对拍)
+# + GPU 粒子回读子集 → particle_view 统一视图桥(GPU↔host 互通判别,反打
+# Niagara 静默失败)+ 双跑位级 + RED 臂 + 三态纪律。
+[[bin]]
+name = "g35_events_device"
+path = "src/bin/g35_events_device.rs"
+required-features = ["vulkan"]
+
+# G35-7 流体统一物理 device probe harness(门 g35.wave7.fluids;RFC-0049
+# §4):count-sort 空间哈希(分段三阶段零原子,cell floor 语义冻结)邻居
+# 搜索 + XPBD 密度约束求解(FleX 式)vs host 金标准对拍 + 邻居集位级 +
+# 密度误差 measured 登记 + 双跑位级 + RED 臂 + 三态纪律。
+[[bin]]
+name = "g35_fluids_device"
+path = "src/bin/g35_fluids_device.rs"
+required-features = ["vulkan"]
+
+# G35-8 作者面资产 host probe(门 g35.wave8.authoring):emitter 资产字段
+# 闭集解析 fail-closed + 参数化映射 + 热重载语义(纯 host 确定性面,无
+# device 依赖故无 required-features)。
+[[bin]]
+name = "g35_authoring_probe"
+path = "src/bin/g35_authoring_probe.rs"
+
+# G35-9 确定性回放/回滚 device probe harness(门 g35.wave9.replay;
+# RFC-0049 §4):粒子输入 journal 录制 → 回放重仿真位级一致 + 回滚 N 帧
+# 重仿真位级一致(GPU 全链)+ 篡改 journal RED 臂 + 三态纪律。
+[[bin]]
+name = "g35_replay_device"
+path = "src/bin/g35_replay_device.rs"
 required-features = ["vulkan"]
 
 [lints]

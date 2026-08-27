@@ -13,6 +13,12 @@ ABI 保证**,RXS-0180 L3)计算为确定性快照,镜像 UI/MIR/PTX/DXIL golden 
   - spec_clauses   : spec/*.md 全部 `### RXS-####` 条款 ID(排序;稳定语言面)
   - error_codes    : registry/error_codes.json entries 的 id → message_key(排序;
                      错误码 ID/含义冻结,10 §6)
+  - renderer_sdk_api : 渲染器 SDK stable C ABI 面(G31+ 波 C Task C1 加性扩展;
+                     apps/g31-renderer-sdk/src/sdk.rx 全部 #[export(c)] 导出签名
+                     规范化(名字 + 参数类型序 + 返回类型,排序)+ ABI 语义化版本
+                     (src/rurix-renderer-sdk/src/lib.rs ABI_VERSION_PACKED 程序读);
+                     RD-008 机制的渲染器面延伸——处置登记见 registry/deferred.json
+                     RD-008 history 2026-08-25 行,不冒充 RD-008 语言面条款)
 
 用法: py -3 ci/stable_snapshot.py [--check]
   默认 / --check : 重算当前 stable 面,与入库 tests/stable/stable_api.snapshot 比对;
@@ -38,11 +44,23 @@ SPEC_DIR = ROOT / "spec"
 ERROR_CODES = ROOT / "registry" / "error_codes.json"
 MANIFEST_RS = ROOT / "src" / "rurix-pkg" / "src" / "manifest.rs"
 RX_MAIN_RS = ROOT / "src" / "rx" / "src" / "main.rs"
+RENDERER_SDK_RX = ROOT / "apps" / "g31-renderer-sdk" / "src" / "sdk.rx"
+RENDERER_SDK_LIB = ROOT / "src" / "rurix-renderer-sdk" / "src" / "lib.rs"
 
 CLAUSE_RE = re.compile(r"^###\s+(RXS-\d{4})\b", re.MULTILINE)
 VALID_EDITIONS_RE = re.compile(r"VALID_EDITIONS:\s*&\[&str\]\s*=\s*&\[(.*?)\]", re.DOTALL)
 EDITION_LIT_RE = re.compile(r'"([^"]+)"')
 USAGE_RE = re.compile(r"rx\s+<([a-z|]+)>")
+# 渲染器 SDK 面(G31+ 波 C Task C1):#[export(c)] 导出签名捕获(属性行与
+# `pub fn` 之间只允许注释/空行——与 sdk.rx 书写纪律互锁;签名体跨行经 DOTALL)。
+EXPORT_C_RE = re.compile(
+    r"#\[export\(c\)\]\s*pub fn\s+(\w+)\s*\((.*?)\)\s*(?:->\s*([^\{]+?))?\s*\{",
+    re.DOTALL,
+)
+ABI_VERSION_RE = re.compile(
+    r"ABI_VERSION_PACKED:\s*u32\s*=\s*\(\s*(\d+)\s*<<\s*16\s*\)\s*\|\s*"
+    r"\(\s*(\d+)\s*<<\s*8\s*\)\s*\|\s*(\d+)"
+)
 
 
 def fail(msg: str) -> None:
@@ -93,6 +111,46 @@ def collect_rx_subcommands() -> list[str]:
     return sorted(subs)
 
 
+def collect_renderer_sdk_api() -> dict:
+    """渲染器 SDK stable C ABI 面(G31+ 波 C Task C1 加性扩展,RD-008 机制渲染器面
+    延伸):sdk.rx `#[export(c)]` 导出签名规范化(名字 + 参数类型序 + 返回类型,
+    排序——存在性 + 含义锚,与语言面同律,非字节布局冻结)+ ABI 语义化版本
+    (实现层 ABI_VERSION_PACKED 程序读,API_VERSIONING.md 同一字面)。"""
+    if not RENDERER_SDK_RX.is_file():
+        fail(f"缺 {RENDERER_SDK_RX.relative_to(ROOT)}(渲染器 SDK stable API 面源)")
+    text = RENDERER_SDK_RX.read_text(encoding="utf-8")
+    exports: list[str] = []
+    for m in EXPORT_C_RE.finditer(text):
+        name, params, ret = m.group(1), m.group(2), m.group(3)
+        ptypes = []
+        for p in params.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            if ":" not in p:
+                fail(f"sdk.rx 导出 {name} 参数失类型标注: {p!r}")
+            ptypes.append(re.sub(r"\s+", " ", p.split(":", 1)[1].strip()))
+        sig = f"{name}({', '.join(ptypes)})"
+        if ret:
+            sig += f" -> {re.sub(r'\s+', ' ', ret.strip())}"
+        exports.append(sig)
+    if not exports:
+        fail("sdk.rx 未解析到任何 #[export(c)] 导出(渲染器 SDK 面为空)")
+    if not RENDERER_SDK_LIB.is_file():
+        fail(f"缺 {RENDERER_SDK_LIB.relative_to(ROOT)}(渲染器 SDK 实现层 ABI 版本源)")
+    vm = ABI_VERSION_RE.search(RENDERER_SDK_LIB.read_text(encoding="utf-8"))
+    if not vm:
+        fail(f"未在 {RENDERER_SDK_LIB.relative_to(ROOT)} 找到 ABI_VERSION_PACKED 打包版本常量")
+    abi_version = f"{vm.group(1)}.{vm.group(2)}.{vm.group(3)}"
+    return {
+        "source": "apps/g31-renderer-sdk/src/sdk.rx",
+        "impl_version_source": "src/rurix-renderer-sdk/src/lib.rs",
+        "abi_version": abi_version,
+        "export_count": len(exports),
+        "exports": sorted(exports),
+    }
+
+
 def compute_surface() -> dict:
     editions = collect_editions()
     return {
@@ -100,7 +158,9 @@ def compute_surface() -> dict:
         "subject": "rurix_stable_api_surface",
         "note": (
             "RD-008 stable 面快照(G2.5 语言 1.0 激活,RFC-0008)。锚定稳定语言面的存在性+含义,"
-            "非二进制 ABI 保证(RXS-0180 L3)。变更须经 RURIX_BLESS=1 重 bless + tests/stable/bless_log.md 追加。"
+            "非二进制 ABI 保证(RXS-0180 L3);renderer_sdk_api 段 = G31+ 波 C Task C1 加性扩展"
+            "(渲染器 SDK stable C ABI 面,RD-008 机制延伸,处置登记见 registry/deferred.json "
+            "RD-008 history 2026-08-25 行)。变更须经 RURIX_BLESS=1 重 bless + tests/stable/bless_log.md 追加。"
         ),
         "edition_anchor": editions[0],
         "editions": editions,
@@ -109,6 +169,7 @@ def compute_surface() -> dict:
         "spec_clauses": collect_spec_clauses(),
         "error_code_count": len(collect_error_codes()),
         "error_codes": collect_error_codes(),
+        "renderer_sdk_api": collect_renderer_sdk_api(),
     }
 
 
@@ -152,7 +213,14 @@ def main() -> int:
         except json.JSONDecodeError:
             old = {}
         diffs = []
-        for key in ("editions", "rx_cli_subcommands", "spec_clauses", "error_codes", "edition_anchor"):
+        for key in (
+            "editions",
+            "rx_cli_subcommands",
+            "spec_clauses",
+            "error_codes",
+            "edition_anchor",
+            "renderer_sdk_api",
+        ):
             if old.get(key) != surface.get(key):
                 diffs.append(key)
         fail(

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g28_m_b_restir_spatial_reuse_arm",
+  "symbolic_gate_key": "g28.p0.m_b.restir_spatial_reuse_arm",
+  "matrix_row": "G28.2",
+  "wave": "G28.2",
+  "numeric_step": 482,
+  "source_ref": "G28_CONTRACT §4.2 M-b;rfcs/0045-lighting-device-realization.md §2;G28_ACCEPTANCE_MAP §1 M-b 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "aggregate_unbiased_3sigma",
+      "status": "PASS",
+      "detail": "聚合硬门:逐 trial 64 点均值序列的 20000-trial 均值 10.95157247296 vs exact_direct 64 点均值 10.95511240722;dev=0.00353993426 < 3σ_mean+1e-9=0.01028394012;窗长口径=20000 trial(downgraded=False,单跑 0.798s)"
+    },
+    {
+      "id": "per_point_5sigma_structural",
+      "status": "PASS",
+      "detail": "逐点 5σ 结构兜底:all_within=True;worst dev/σ=2.7484 @p63(5σ×64 族假红 ≈ 3.7e-5 可忽略)"
+    },
+    {
+      "id": "per_point_3sigma_diagnostic_registered",
+      "status": "PASS",
+      "detail": "64 行全量入 evidence/g28_restir_spatial_arm.json;within_3sigma=64/64(3σ×64 族期望假红 ≈ 0.17,多重比较口径已注明,非门面)"
+    },
+    {
+      "id": "variance_gain_registered",
+      "status": "PASS",
+      "detail": "var(no-reuse)/var(reuse) measured 登记:min=0.898875 mean=2.06349 max=2.73347;no-pass-line(收益/无收益/负收益均如实登记,RFC-0045 §2.4 ②)"
+    },
+    {
+      "id": "double_run_bitexact",
+      "status": "PASS",
+      "detail": "固定 seed 全网格两跑 estimate 矩阵(reuse+no-reuse)位级相等"
+    },
+    {
+      "id": "host_frozen_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g27-closed -- restir_reservoir.rs+multi_light.rs 0-byte(提交面 + 工作树双面;空间臂全 bin-local 冻结文件零触碰)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260826T002310Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G28.2 M-b:空间重用加性臂兑现(bin-local 纯 host)——8×8 网格 × 64 灯,流 (t·64+p)·4+3;gather 合并前快照闭集 + von Neumann 4 邻字面固定序 + 受点重评快照变换后直调冻结 merge(m_cap=60,零合并判定复刻);聚合 3σ 硬门 + 逐点 5σ 结构兜底 + 逐点 3σ 诊断表 64 行全量登记(非门面,多重比较口径注明)+ 方差再收益 min/mean/max measured 登记不设通过线 + 双跑位级 + gi/ 两文件 0-byte(vs g27-closed);全量臂产物 evidence/g28_restir_spatial_arm.json"
+}

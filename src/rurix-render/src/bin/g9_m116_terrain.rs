@@ -29,12 +29,12 @@
 
 #![forbid(unsafe_code)]
 
-use rurix_render::world::partition::{CellMeta, CellCoord, PersistentWorld};
+use rurix_render::world::partition::{CellCoord, CellMeta, PersistentWorld};
 use rurix_render::world::terrain::{
+    AssetDependencyDesc, ForeignGridDesc, IndirectDrawBatch, TerrainError, ToroidalRing,
     assert_chunk_eq_cell, assert_no_second_grid, assert_zero_cpu_submit,
-    assert_zero_svt_dependency, build_chunks_from_cells, build_indirect_draws,
-    canonical_chunks, canonical_heightfield, scene_digest, verify_seam, AssetDependencyDesc,
-    ForeignGridDesc, IndirectDrawBatch, TerrainError, ToroidalRing,
+    assert_zero_svt_dependency, build_chunks_from_cells, build_indirect_draws, canonical_chunks,
+    canonical_heightfield, scene_digest, verify_seam,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -184,26 +184,53 @@ fn canonical_assets() -> BTreeMap<u32, rurix_render::world::terrain::Heightfield
 /// RED 臂:第二套分格注入。
 fn red_arm_second_grid() -> Result<(), String> {
     let world = mini_world();
-    match assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 32.0, origin_m: [0.0, 0.0] }) {
+    match assert_no_second_grid(
+        &world,
+        &ForeignGridDesc {
+            cell_size_m: 32.0,
+            origin_m: [0.0, 0.0],
+        },
+    ) {
         Err(TerrainError::SecondGridDetected { .. }) => {}
         other => return Err(format!("独立边长分格未拒: {other:?}")),
     }
-    match assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 64.0, origin_m: [8.0, 0.0] }) {
+    match assert_no_second_grid(
+        &world,
+        &ForeignGridDesc {
+            cell_size_m: 64.0,
+            origin_m: [8.0, 0.0],
+        },
+    ) {
         Err(TerrainError::SecondGridDetected { .. }) => {}
         other => return Err(format!("偏移原点分格未拒: {other:?}")),
     }
     // sabotage 探针(能红证明):同族网格合法。
-    assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 64.0, origin_m: [192.0, 0.0] })
-        .map_err(|e| format!("同族网格被误拒: {e}"))?;
+    assert_no_second_grid(
+        &world,
+        &ForeignGridDesc {
+            cell_size_m: 64.0,
+            origin_m: [192.0, 0.0],
+        },
+    )
+    .map_err(|e| format!("同族网格被误拒: {e}"))?;
     Ok(())
 }
 
 /// RED 臂:SVT 依赖注入。
 fn red_arm_svt_inject() -> Result<(), String> {
     for desc in [
-        AssetDependencyDesc { uses_svt: true, ..Default::default() },
-        AssetDependencyDesc { uses_rvt: true, ..Default::default() },
-        AssetDependencyDesc { uses_sampler_feedback: true, ..Default::default() },
+        AssetDependencyDesc {
+            uses_svt: true,
+            ..Default::default()
+        },
+        AssetDependencyDesc {
+            uses_rvt: true,
+            ..Default::default()
+        },
+        AssetDependencyDesc {
+            uses_sampler_feedback: true,
+            ..Default::default()
+        },
     ] {
         match assert_zero_svt_dependency(&desc) {
             Err(TerrainError::SvtDependencyDetected { .. }) => {}
@@ -225,7 +252,8 @@ fn red_arm_lod_gap_unstitched() -> Result<(), String> {
         other => return Err(format!("LOD 差>1 未缝合注入未拒: {other:?}")),
     }
     // sabotage:走缝合路径的同族高度场必须裂缝=0。
-    let report = verify_seam(&chunks[0], &chunks[1], true).map_err(|e| format!("合法缝合被误拒: {e}"))?;
+    let report =
+        verify_seam(&chunks[0], &chunks[1], true).map_err(|e| format!("合法缝合被误拒: {e}"))?;
     if !report.stitch_invoked || report.crack_pixels != 0 {
         return Err(format!("缝合报告异常: {report:?}"));
     }
@@ -246,12 +274,18 @@ fn red_arm_stitch_crack() -> Result<(), String> {
 
 /// RED 臂:CPU 侧逐 chunk 提交注入。
 fn red_arm_cpu_submit() -> Result<(), String> {
-    let bad = IndirectDrawBatch { records: vec![], cpu_per_chunk_submits: 3 };
+    let bad = IndirectDrawBatch {
+        records: vec![],
+        cpu_per_chunk_submits: 3,
+    };
     match assert_zero_cpu_submit(&bad) {
         Err(TerrainError::CpuPerChunkSubmit { count: 3 }) => {}
         other => return Err(format!("CPU 逐 chunk 提交注入未拒: {other:?}")),
     }
-    let good = IndirectDrawBatch { records: vec![], cpu_per_chunk_submits: 0 };
+    let good = IndirectDrawBatch {
+        records: vec![],
+        cpu_per_chunk_submits: 0,
+    };
     assert_zero_cpu_submit(&good).map_err(|e| format!("零提交被误拒: {e}"))?;
     Ok(())
 }
@@ -288,9 +322,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -363,7 +399,11 @@ fn main() {
     }
     // 页迟到 → 父级 LOD 占位。
     let r3 = ring
-        .recenter(CellCoord { x: 0, y: 0 }, &std::collections::BTreeSet::from([0u32, 1]), &world)
+        .recenter(
+            CellCoord { x: 0, y: 0 },
+            &std::collections::BTreeSet::from([0u32, 1]),
+            &world,
+        )
         .unwrap_or_else(|e| fail(&format!("toroidal 迟到: {e}")));
     let placeholder_ok = r3.placeholders >= 1;
     if !placeholder_ok {
@@ -373,7 +413,8 @@ fn main() {
     // ── 步骤 6:场景输出双跑位级一致 + golden 带对照 ──
     let seams = [seam.clone(), seam0.clone()];
     let d1 = scene_digest(&batch, &seams);
-    let batch2 = build_indirect_draws(&chunks, [32.0, 32.0, 10.0], &PLANES, world.cell_size_m).expect("b2");
+    let batch2 =
+        build_indirect_draws(&chunks, [32.0, 32.0, 10.0], &PLANES, world.cell_size_m).expect("b2");
     let d2 = scene_digest(&batch2, &seams);
     let double_run_ok = d1 == d2;
     if !double_run_ok {
@@ -419,7 +460,8 @@ fn main() {
             golden_ok = false;
             failures.push("golden 漂移: scene_digest".into());
         }
-        let frozen_records = json_str(t, "indirect_records").unwrap_or_else(|| fail("冻结带缺 indirect_records"));
+        let frozen_records =
+            json_str(t, "indirect_records").unwrap_or_else(|| fail("冻结带缺 indirect_records"));
         if frozen_records != batch.records.len().to_string() {
             golden_ok = false;
             failures.push("golden 漂移: indirect_records".into());
@@ -457,15 +499,27 @@ fn main() {
         ("full_compute_lod_cull_indirect", batch.records.len() == 3),
         ("cpu_zero_per_chunk_submit", zero_cpu_ok),
         ("stitch_continuity_crack_zero", seam_ok && seam0_ok),
-        ("toroidal_reuse_and_placeholder", toroidal_ok && placeholder_ok),
+        (
+            "toroidal_reuse_and_placeholder",
+            toroidal_ok && placeholder_ok,
+        ),
         ("double_run_bit_equal", double_run_ok),
         ("golden_frozen_equal", golden_ok || args.freeze),
-        ("red_arm_second_grid_and_svt", red_second_grid_ok && red_svt_ok),
+        (
+            "red_arm_second_grid_and_svt",
+            red_second_grid_ok && red_svt_ok,
+        ),
         ("red_arm_lod_gap_and_crack", red_lod_gap_ok && red_crack_ok),
         ("red_arm_cpu_submit", red_cpu_ok),
     ];
-    let checks_json: Vec<String> = checks.iter().map(|(n, ok)| format!("\"{n}\": {ok}")).collect();
-    let failures_json: Vec<String> = failures.iter().map(|f| format!("\"{}\"", json_escape(f))).collect();
+    let checks_json: Vec<String> = checks
+        .iter()
+        .map(|(n, ok)| format!("\"{n}\": {ok}"))
+        .collect();
+    let failures_json: Vec<String> = failures
+        .iter()
+        .map(|f| format!("\"{}\"", json_escape(f)))
+        .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
     let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(

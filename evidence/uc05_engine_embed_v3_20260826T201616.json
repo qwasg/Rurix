@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_engine_embed_v3",
+  "milestone": "G4.2 PR-D / G-G4-3 (RFC-0015 §4.A7; RXS-0277)",
+  "step": 78,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "generated_header_not_handwritten": true,
+    "coexistence": true,
+    "zero_rs_audit": true,
+    "emit_dll_artifacts": true,
+    "header_idempotent": true,
+    "tamper_regen_red": true,
+    "harness_build": true,
+    "three_party_equal": true,
+    "red_three_ways": true
+  },
+  "embed_v3_ok": true,
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-08-26T20:16:16+08:00",
+  "embed_cases": [
+    "64x64:rx=0:d3d_raster=0:d3d_mesh=0",
+    "256x256:rx=0:d3d_raster=0:d3d_mesh=0"
+  ]
+}

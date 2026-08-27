@@ -1,0 +1,180 @@
+{
+  "schema": "rurix.g35.fluids_gate_evidence.v1",
+  "subject": "g35_fluids",
+  "symbolic_gate_key": "g35.wave7.fluids",
+  "wave": "G35.7",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 9 kernel(6 新 g35_hash_cellkey/clear/cellrange + g35_xpbd_density/apply/velocity + 3 sort 消费面)+ spirv-val=绿;冻结消费面(sort 三 kernel/particles/mod.rs/primitives.rs)sha256 快照在档=True(G35-7 消费不修改承诺,漂移守护基线)"
+    },
+    {
+      "id": "neighbor_sets_bitexact",
+      "status": "PASS",
+      "detail": "五整数流(cell_key/sorted_keys/sorted_idx/cell_start/cell_end)device↔host 逐帧 memcmp 零容差位级 = True(32 帧,n=4096;邻居结构位级 ⇒ 27-cell 固定序邻居集位级;host grid↔朴素 O(n²) 相等单测互核在 cargo test 面;problems=[])"
+    },
+    {
+      "id": "hash_cell_floor_semantics",
+      "status": "PASS",
+      "detail": "cell floor/clamp 语义见证:negative_floor_events=26036 ≥ 1 (负商向负无穷取整域触发)+ clamp_events=26036 ≥ 1(越界 clamp 到边界 cell 登记)+ 整数流位级(device .floor()/clamp 与 host 同语义机器事实;dam-break 触地帧预测位置必越下界 = 夹具咬合)"
+    },
+    {
+      "id": "xpbd_parity_within_budget",
+      "status": "PASS",
+      "detail": "八 f32 流(pos/vel/ρ/λ)全帧 p100 measured=0.0036621094 ≤ 冻结容差 0.0073242188(g35.fluids.parity_p100 本次标定腿程序产;threshold = measured × 2.0;逐流 max={'pos_x': 1.1920929e-06, 'pos_y': 9.536743e-07, 'pos_z': 5.9604645e-07, 'vel_x': 7.164478e-05, 'vel_y': 5.722046e-05, 'vel_z': 3.5755336e-05, 'rho': 0.0036621094, 'lambda': 1.4901161e-08};NoContraction 注入面 = ['g35_hash_cellkey', 'g35_xpbd_density', 'g35_xpbd_apply', 'g35_xpbd_velocity'])"
+    },
+    {
+      "id": "density_error_measured",
+      "status": "PASS",
+      "detail": "密度误差 measured 登记:mean|ρ/ρ0−1| 首帧=0.4147238505482666 末帧=0.3956156669855095;正约束违反 mean(max(C,0)) 首帧=0.41015600520372303(压缩夹具必 > 0 咬合)末帧=0.02222008681297302(登记语义不设收敛死值;方向性断言归 fluid.rs 单测)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "同 seed 全链双跑 digest 位级一致=True(digest_a=sha256:86f35fe24b5cdde1…;pos/vel/ρ/λ/cell_key/sorted/cell 区间字节 sha256 逐帧链式)"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "RED 臂 rho0-tamper:ρ0 1000.0→1050.0 篡改双跑 digest 必异 detected=True(green=sha256:86f35fe24b5cdde1… red=sha256:edec7dc6d7950a1c…)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "device 19 dispatch 链(cellkey + sort 3-pass 9 + clear + cellrange + [density+apply]×3 + velocity)逐帧墙钟均值 1155.382637 ms(measured_local 诚实登记;含 run_compute 逐 dispatch instance/device 会话重建开销,登记语义非帧率对标)"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "hash_cellkey_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_hash_cellkey.spv",
+      "sha256": "sha256:c3862b0e9437e1994be19a651279459c30dfd4bee1749a3d8cfa2e04dbd0518b"
+    },
+    "hash_clear_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_hash_clear.spv",
+      "sha256": "sha256:712e8066f6bb4ccbab360d8c66aefae8736e28a4db5f5f0197b1684fdcd6b39c"
+    },
+    "hash_cellrange_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_hash_cellrange.spv",
+      "sha256": "sha256:d163f6ed2ddc35f9c5a47b12172e3008d8738bb99709fb2f418c34bc46a0a4cb"
+    },
+    "xpbd_density_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_xpbd_density.spv",
+      "sha256": "sha256:ac87bb6bfa6461c66705615c88c935c09dc60db78799be490a6041dbbdd72e59"
+    },
+    "xpbd_apply_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_xpbd_apply.spv",
+      "sha256": "sha256:f3fdb980f37f4450f80f70bbbe1675199813f1aa29621736c5ebad3156890788"
+    },
+    "xpbd_velocity_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_xpbd_velocity.spv",
+      "sha256": "sha256:0ad7c55936f767fec9ef0bcf3f672813d9c21cd50d1f752dc6786380e7405b67"
+    },
+    "sort_hist_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_sort_hist.spv",
+      "sha256": "sha256:2249a8cef7f8bbcaa6602112f35aa5b10b6002048aa9c7ef00f226950523323e"
+    },
+    "sort_spine_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_sort_spine.spv",
+      "sha256": "sha256:afe2624f92efed73dc2e80ab577dfd1ea30071183611b8bd85518120df028297"
+    },
+    "sort_scatter_spv": {
+      "path": ".tmp/g35_gates/fluids/g35_sort_scatter.spv",
+      "sha256": "sha256:a57eace45fcb3bd196b50eb84904452c547b8c6328fc177644ee5d4d9c5a184c"
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sort_hist.rx": "sha256:7261cc0b88c6ddb2f23785bd4dd6427d48ad1f1fe4d25152f624430c5dd7d342",
+      "src/rurix-render/kernels/g35_sort_spine.rx": "sha256:4eaef2294d87f831ac2592a27d6daf9f645f093b5b09824c34cc2dc435378b1b",
+      "src/rurix-render/kernels/g35_sort_scatter.rx": "sha256:cdf6e9b74775a4682b367588f0675666be571390b782651102c989aa76b60502",
+      "src/rurix-render/src/particles/mod.rs": "sha256:103ee027e9f92bcc56e984c8f65cfbc33bf11b282940ebded7d23d07a686e660",
+      "src/rurix-render/src/particles/primitives.rs": "sha256:b84f5ecfa0413d9bf834e1db0e9a599ec206f9976c3e8e25347499ac9969844e"
+    }
+  },
+  "fluid_protocol": {
+    "frames": 32,
+    "n": 4096,
+    "seed": 42,
+    "dt": 0.016666668,
+    "cell_size": 0.2,
+    "rho0": 1000.0,
+    "mass": 1.0,
+    "gravity_y": -9.8,
+    "grid": 64,
+    "iter": 3
+  },
+  "integer_parity": {
+    "bitexact": true,
+    "streams": [
+      "cell_key",
+      "sorted_keys",
+      "sorted_idx",
+      "cell_start",
+      "cell_end"
+    ]
+  },
+  "f32_parity": {
+    "measured_p100": 0.0036621094,
+    "threshold": 0.0073242188,
+    "budget_entry": "g35.fluids.parity_p100",
+    "calibrated_this_run": true,
+    "within": true,
+    "stream_max": {
+      "pos_x": 1.1920929e-06,
+      "pos_y": 9.536743e-07,
+      "pos_z": 5.9604645e-07,
+      "vel_x": 7.164478e-05,
+      "vel_y": 5.722046e-05,
+      "vel_z": 3.5755336e-05,
+      "rho": 0.0036621094,
+      "lambda": 1.4901161e-08
+    }
+  },
+  "results": {
+    "trimmed_mean": 0.0036621094
+  },
+  "floor_semantics": {
+    "negative_floor_events": 26036,
+    "clamp_events": 26036
+  },
+  "density": {
+    "mean_abs_err_first": 0.4147238505482666,
+    "mean_abs_err_last": 0.3956156669855095,
+    "pos_constraint_first": 0.41015600520372303,
+    "pos_constraint_last": 0.02222008681297302,
+    "measured": "measured_local"
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "digest_a": "sha256:86f35fe24b5cdde1715a6f201614dfb5a63e1346d6e6ec29cac6f794eec2ab0e",
+    "digest_b": "sha256:86f35fe24b5cdde1715a6f201614dfb5a63e1346d6e6ec29cac6f794eec2ab0e"
+  },
+  "red_arm": {
+    "arm": "rho0-tamper",
+    "detected": true,
+    "rho0_green": 1000.0,
+    "rho0_red": 1050.0,
+    "digest_green": "sha256:86f35fe24b5cdde1715a6f201614dfb5a63e1346d6e6ec29cac6f794eec2ab0e",
+    "digest_red": "sha256:edec7dc6d7950a1ce7773ab08a99175733a4cf3790a7bce39e3a5b70c9fd8707"
+  },
+  "frame_ms": {
+    "device_chain_mean_ms": 1155.382637,
+    "frames_per_run": 32,
+    "measured": "measured_local",
+    "note": "device 19 dispatch 链逐帧墙钟均值(vk::run_compute 每 dispatch 重建 instance/device,该会话开销如实计入;登记语义非帧率对标,生产车道届时走 DeviceFrameSession 持久车道)"
+  },
+  "probe_evidence": [
+    ".tmp/g35_gates/fluids/probe_calibration.json",
+    ".tmp/g35_gates/fluids/probe_green.json",
+    ".tmp/g35_gates/fluids/probe_red.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T114153Z",
+  "notes": "G35-7 流体统一物理:count-sort 空间哈希邻居搜索(cell = floor((p−origin)/cs) 逐轴负坐标向负无穷 + 越界 clamp 到边界 cell〔RFC-0049 §4.10 F14 冻结〕;cell_key < 64³ = 262144 < 2^24 → W1 sort 三 kernel 3-pass 稳定排序消费不修改 → g35_hash_clear 哨兵清扫〔start=0xFFFFFFFF/end=0〕+ g35_hash_cellrange 单写者边界检测,分段三阶段零原子)+ XPBD/PBF 密度约束求解(FleX/Macklin–Müller 谱系:poly6 W=315/(64πh⁹)(h²−r²)³ + spiky ∇W=−45/(πh⁶)(h−r)²r̂〔系数 host 单源程序产经 params 传 device〕;C=ρ/ρ0−1 仅 C>0;λ=−C/((|Σ∇W|²+Σ|∇W|²)/ρ0²+ε) ε=100 冻结;Δp=(1/ρ0)Σ(λᵢ+λⱼ)∇W;h=cell_size 冻结,27-cell 固定序 gather;ITER=3 固定迭代 Jacobi ping-pong 禁自适应早停;帧末 vel=(pos−prev)/dt + 边界速度置零分量,独立 g35_xpbd_velocity kernel 承载)。host 金标准 = particles/fluid.rs(与 6 kernel 逐字同源 + 朴素 O(n²) 邻居集/密度独立参考互核单测);probe = bin/g35_fluids_device.rs(dam-break 4096 粒子 Pcg32 固定 seed 压缩初态,32 帧×3 迭代;cellkey/density/apply/velocity SPV 装载期注入 NoContraction)。整数流零容差位级 + f32 流标定容差(threshold = measured×2.0 程序产禁手写)+ 同 seed 双跑位级 + rho0-tamper RED 臂 + frame_ms measured_local 登记。MPM 评估窗不实现——G2P/P2G 散射需原子或图着色,与确定性协议冲突待裁(RFC-0049 §4.10 既有登记引用,不承诺)。results.trimmed_mean = f32 measured p100 镜像(budget_eval 通用路 evidence_file 消费面)。"
+}

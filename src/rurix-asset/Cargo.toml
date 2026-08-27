@@ -75,5 +75,53 @@ name = "g12_4_ue_pt_parity_render"
 path = "src/bin/g12_4_ue_pt_parity_render.rs"
 required-features = ["vulkan"]
 
+# G31+ 波 C Task C11 cluster 流送 P4 四行 harness（RD-039 分项；门
+# g31.waveC.p4stream；G31_PLUS_COMMERCIAL_RENDERER_TODO §3 #20~#23）：bistro
+# glTF 严格导入子集 → build_asset_dag 簇 DAG → pack_cluster_dag_v2 RXPL v2 装箱
+# → RXPD major=2 页集落盘（rurix-geom-pages disk_v2 加性新面）→ kernels/
+# g31_cluster_stream.rx（rurixc 产 SPV + bin 侧 NoContraction 注入，SPV 0-byte）
+# 经 vk::run_compute 逐帧真跑——剔除 pass 产缺页请求（device 请求缓冲读回）→
+# host 驻留调度（streaming::cluster PriorityIoPool 异步优先级读 + StreamingEngine
+# 三预算 LRU 驻留池）→ 页表/页池镜像上传 → 次帧 device 消费校验闭环；reference
+# 全驻留双臂 ×2 双跑位级 + stream 强制小池冷启动压力臂（缺页/回退/IO measured，
+# host 金标准逐帧对拍 + hold 段收敛位级）。
+[[bin]]
+name = "g31_cluster_stream"
+path = "src/bin/g31_cluster_stream.rs"
+required-features = ["vulkan"]
+
+# G31+ 波 C Task C14 KTX2 三行 A/B measured harness(门 g31.waveC.ktx2;TODO #39;
+# RD-041 分项):bistro 12 槽 DDS 面 vs KTX2-UASTC vs ETC1S `.basis` 参照腿——
+# 分发体积/转码耗时/质量对拍同机 measured_local;纯 host,GPU 非必需。
+[[bin]]
+name = "g31_ktx2_ab"
+path = "src/bin/g31_ktx2_ab.rs"
+
+# G31+ #58 簇 DAG LOD 离线 bake（三步文件交接第 2 步）：RXCS 装配 dump
+#（g14_3_pipeline_perf --dump-scene 产）→ 分块焊接 → build_asset_dag 事实源
+# 构建 → 逐簇继承属性 → RXCP 簇包（生产车道 --cluster-lod 消费）。纯 host，
+# GPU 非必需；--double-build 确定性自校验臂。
+[[bin]]
+name = "g31_cluster_lod_bake"
+path = "src/bin/g31_cluster_lod_bake.rs"
+
+# G31+ #77 簇剔除 device kernel 化 + 簇级两阶段 HZB harness：合成夹具
+#（uv_sphere quality DAG × K 副本 + 移动墙 disocclusion）→ kernels/
+# g31_cluster_cull.rx（三关 + 组共享球 LOD cut + HZB rect 保守测试）两
+# dispatch（上帧初剔 + 本帧重测）→ host 金标准对拍（判定序列全等/可见集
+# 全等/exact 裁判零假阳性/双跑位级）+ tamper RED 臂。
+[[bin]]
+name = "g31_cluster_cull_device"
+path = "src/bin/g31_cluster_cull_device.rs"
+required-features = ["vulkan"]
+
+# G31+ #95/#68 WP cell HLOD 离线 bake（三步文件交接第 2 步）：RXCS 装配 dump
+# → XZ cell 网格（边长 = 资产属性）→ 逐 cell 跨组件合并 + QEM 链
+#（hlod::bake_hlod_merged 事实源直调，#67/#97 字面）→ RXHL 资产字节 + digest
+# → RXWH cell 包（生产车道 --wp-hlod 消费）。纯 host；--double-build 自校验臂。
+[[bin]]
+name = "g31_wp_hlod_bake"
+path = "src/bin/g31_wp_hlod_bake.rs"
+
 [lints]
 workspace = true

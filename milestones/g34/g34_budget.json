@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "namespace": "g34",
+  "description": "G34 预算面。G34-1 合流地基：host 金标准对拍容差条目由本波标定真跑程序产（threshold = measured × 2.0 冻结 k，禁手写）。",
+  "source_docs": ["milestones/g34/g34_unified_lane_evidence_schema.json"],
+  "entries": [
+    {
+      "id": "g34.unified_lane.host_parity_tol",
+      "description": "G34 统一车道 host 金标准对拍容差冻结带（bistro-interior 1080p tier100 orbit 轨迹 post-warmup 首测量帧,合并语义 host 渲染〔host TriBvh/Tlas 实例化追踪 + g31_tex_host_sample 同 op 序采样 + G13.4 shade_pixel 逐字直接光;贴图三角 = 采样×(mod×R_slot)/非贴图 = 常量×(R_slot 若 slab 映射)〕vs device scene HDR〔TSR 前瞬时位〕逐像素逐通道绝对差 p100;容差结构依据 = RT core vs host Möller–Trumbore t 值 ULP 级算术差 ⇒ 命中点/辐照传递差,目标近位级;threshold = measured × 2.0 协议冻结 k,方向 max;标定真跑 = ci/g34_unified_lane_smoke.py --gate g34.wave1.unified 标定腿〔g34_full_lane --full 双跑 p100 位级同值〕,bitexact 像素占比 29.17% 如实登记非门判据;三特性同开面 = 纹理+slab+动态实例;标定程序可复跑）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "f32_absdiff",
+      "threshold": 7.937317714095116e-04,
+      "evidence_file": "evidence/g34_unified_lane_full_a_calibration.json",
+      "measured_value": 3.968658857047558e-04
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

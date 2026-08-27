@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "namespace": "g31",
+  "description": "G31 预算面（实时呈现期 · 波 A 验收批）。全部 measured_local 零 estimated——数字来自 2026-08-25 波 A 验收门真跑输出：Stage A digest 锚 18/18 canonical 重跑（ci/g31_wave_a_anchor_check.py）+ G16plus M-g 18/18 canonical 复跑（ci/g16_absolute_quality_closure_smoke.py --gate）+ G17-MD-F1 焦点格新鲜真跑 + 波 A 五门 evidence 盘点 + soak 10010 帧（ci/g31_wave_a_soak.py）。阈值口径：验收杠（18/5/10000）或 在案 measured ×2.0（G30 先例）。",
+  "source_docs": ["milestones/g31/G31_CONTRACT.md"],
+  "entries": [
+    {
+      "id": "g31.baseline.stage_a_digest_guard.anchor_count",
+      "description": "波 A 验收 Stage A 18 格 digest 锚 canonical 160 帧重跑位级一致格数（零漂移，期望 18/18）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g31_baseline_stage_a_digest_guard.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g31.baseline.g16_m_g_closure.met_count",
+      "description": "波 A 验收 G16plus M-g 绝对画质收口 canonical 复跑达标格数（不降级，期望 18/18；UE 参照臂按在案锚不重跑）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 18.0,
+      "evidence_file": "evidence/g31_baseline_g16_m_g_closure.json",
+      "measured_value": 18.0
+    },
+    {
+      "id": "g31.baseline.focus_cell.frame_ms_production_mean",
+      "description": "波 A 验收 G17-MD-F1 焦点格（bistro-interior/t100/dlss_sr）canonical 160 帧新鲜 frame_ms_production_mean（诚实红不恶化；阈值 = 在案 3.5767ms ×2.0）",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 7.1534,
+      "evidence_file": "evidence/g31_baseline_focus_cell_frame_ms.json",
+      "measured_value": 3.5560468750000007
+    },
+    {
+      "id": "g31.baseline.focus_cell.fps_ratio",
+      "description": "波 A 验收焦点格新鲜 ratio（ue_median 3.43535ms / fresh frame_ms；诚实红维持下界 = 在案 0.960479，低于即 RED 如实登记）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ratio",
+      "threshold": 0.960479,
+      "evidence_file": "evidence/g31_baseline_focus_cell_fps_ratio.json",
+      "measured_value": 0.9660586940378841
+    },
+    {
+      "id": "g31.wave_a.gates_evidence.count",
+      "description": "波 A 五门最新 evidence 在档计数（present/pipelining/gameloop/dynscene/framegen 前缀闭集盘点，期望 5/5）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 5.0,
+      "evidence_file": "evidence/g31_baseline_wave_a_gates.json",
+      "measured_value": 5.0
+    },
+    {
+      "id": "g31.wave_a.soak.frames_presented",
+      "description": "波 A 验收 soak 主腿真窗口 present 帧数（≥10000 帧或 ≥30min 墙钟取先达——本腿帧数先达；零崩 + validation 静默 + leak 账本零 + digest_seq 双跑位级一致）",
+      "direction": "min",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "count",
+      "threshold": 10000.0,
+      "evidence_file": "evidence/g31_baseline_soak_frames.json",
+      "measured_value": 10010.0
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": []
+}

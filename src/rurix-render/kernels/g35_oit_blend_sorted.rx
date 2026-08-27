@@ -1,0 +1,136 @@
+//@ spec: RFC-0049 §4.8(G35-4 半透明双臂 · 排序臂串行合成;spec 条款号本期零新设)
+// G35-4 半透明排序臂 · blend_sorted —— 每像素 tile 区间固定序串行合成写
+// U_SCENE_COLOR(门 g35.wave4.sort_oit;host 金标准 = particles/oit_arms.rs
+// ::oit_blend_pixel **逐字同源**;投影/调色/软深度三式 = g35_render_splat.rx
+// ①②③ 段 / g35_render_resolve.rx ②③ 段同式)。
+//
+// ## 架构(sorted 臂 pass 组末步 = 位级确定基准臂;后于 tilerange 先于 TSR)
+// 线程 = 像素 i;守卫 i < px_count。tile_id = (y/16)·tiles_x + x/16;迭代
+// 区间 j ∈ [tile_start[g], tile_end[g])(**升序 = 反键 radix 稳定序 =
+// far→near painter's**;哨兵空区间 [0xFFFFFFFF, 0) while 零次直落):
+// 1. slot = payload[j],读 B 组 pos/age/life 五流(压缩+发射后前缀)。
+// 2. **循环体零分支 gate 代数化**(SPIR-V 结构化控制流承载——while 内深
+//    嵌套 if 被 spirv-val 判非结构化退出,故 w 门/视深门/圆形覆盖测试折算
+//    乘法因子;gate 门式 = splat ③ 段 gate_w 先例):
+//    `alpha = fade·soft·cw_gate·dv_gate·circle_gate`;安全分母
+//    `cw_safe = cw·gate + (1−gate)` 恒正防 NaN(gate_w 先例的乘法收紧变体,
+//    如实登记);圆形判据 gate = ((rpx²−dist²)·1e30 + 1) clamp [0,1]
+//    (dist² ≤ rpx² 含等边界保留)。
+// 3. **硬拒涵盖登记**:d_p > scene_depth 时 soft = clamp(负值) = 0 ⇒ α = 0
+//    无效合成——blend 无 winner 竞争,与 splat 显式硬拒分支语义等价(同域
+//    深度 quirk 如实登记同 splat ③ 段头注:沿视射线常量 ⇒ 屏幕域序判)。
+// 4. 程序化调色(resolve ② 段同式:暖白→橙红 ×8×(1−t))+ 软粒子
+//    soft = clamp((scene_depth−d_p)/soft_range, 0, 1)(resolve ③ 段同式)。
+// 5. **固定序串行合成**:C = C·(1−α) + c·α(逐通道 over)——每像素独立
+//    单写者 + 区间升序全序(radix 稳定序 = tile 段 × 反深度段 × slot 段内
+//    下标序)⇒ 固定输入双跑位级一致(RFC-0049 §4.8 臂 A 位级确定基准)。
+// **tile 归属截断登记**:粒子只在中心归属 tile 像素域合成(tilekey 单键 v1
+// 冻结),rpx ≤ 3 < 16 ⇒ 跨 tile 截断带 ≤ 3px 如实登记。
+// 无 shared / 无原子;f32/u32/usize 域零位运算。
+//
+// ## 参数面(P_OIT_PARAMS 96 f32;单源 = bin/g35_particle_lane.rs
+// `g35l_pack_oit_params` 头注;声明序 = 绑定序,SSBO 数 = 11)
+//   params[0]=iw [1]=ih [2]=r_world [3]=soft_range [6]=px_count [7]=p11
+//   [8..24)=vp_j [24..40)=vp(未抖) [64]=tiles_x [66]=tile_cnt。
+//   SSBO 序:0 params(View f32×96) / 1 payload(View u32×cap,3-pass 产物
+//   payload_b) / 2 tile_start / 3 tile_end(View u32×(tile_cnt+1)) /
+//   4 b_pos_x / 5 b_pos_y / 6 b_pos_z / 7 b_age / 8 b_life(View f32×cap) /
+//   9 scene_depth(View f32×px) / 10 scene_color(ViewMut f32×3px,
+//   U_SCENE_COLOR)。
+//   dispatch = [px_count, 1, 1](LocalSize 1,1,1;百万工作组既证形态)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_oit_blend_sorted(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    payload: View<global, u32>,
+    tile_start: View<global, u32>,
+    tile_end: View<global, u32>,
+    b_pos_x: View<global, f32>,
+    b_pos_y: View<global, f32>,
+    b_pos_z: View<global, f32>,
+    b_age: View<global, f32>,
+    b_life: View<global, f32>,
+    scene_depth: View<global, f32>,
+    scene_color: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let px_count = params[6] as usize;
+    if i < px_count {
+        let iw = params[0] as usize;
+        let iwf = params[0];
+        let ihf = params[1];
+        let r_world = params[2];
+        let soft_range = params[3];
+        let p11 = params[7];
+        let tiles_x = params[64] as usize;
+        let x = i % iw;
+        let y = i / iw;
+        let g = (y / 16usize) * tiles_x + x / 16usize;
+        let big: f32 = 1e30;
+        let sd = scene_depth[i];
+        let mut cr = scene_color[i * 3];
+        let mut cg = scene_color[i * 3 + 1];
+        let mut cb = scene_color[i * 3 + 2];
+        let e = tile_end[g] as usize;
+        let mut j = tile_start[g] as usize;
+        while j < e {
+            let slot = payload[j] as usize;
+            let px_ = b_pos_x[slot];
+            let py_ = b_pos_y[slot];
+            let pz_ = b_pos_z[slot];
+            // ── ② 投影(splat ①② 段同式;gate 代数化)──
+            let ccx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+            let ccy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+            let ccw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+            let cw_gate = ((ccw - 0.000001) * big).min(1.0).max(0.0);
+            let cw_safe = ccw * cw_gate + (1.0 - cw_gate);
+            let ndx = ccx / cw_safe;
+            let ndy = ccy / cw_safe;
+            let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
+            let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
+            let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+            let dv_gate = ((d_view - 0.000001) * big).min(1.0).max(0.0);
+            let dv_safe = d_view * dv_gate + (1.0 - dv_gate);
+            let rpx = (r_world * 0.5 * ihf * p11 / dv_safe).min(3.0).max(0.5);
+            let fdx = (x as f32) - cxf;
+            let fdy = (y as f32) - cyf;
+            let circle_gate = (((rpx * rpx - (fdx * fdx + fdy * fdy)) * big) + 1.0)
+                .min(1.0)
+                .max(0.0);
+            // ── ③ 生产字面深度域 d_p(splat ③ 段逐字同式)──
+            let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
+            let qw = ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
+            let qw_abs = qw.max(0.0 - qw);
+            let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
+            let qw_safe = qw + (1.0 - gate_w);
+            let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
+            // ── ④ 调色(resolve ② 段同式)+ 软 α ──
+            let age = b_age[slot];
+            let life = b_life[slot];
+            let mut t = age / life.max(0.000001);
+            if t < 0.0 {
+                t = 0.0;
+            }
+            if t > 1.0 {
+                t = 1.0;
+            }
+            let base_r = 1.0 + (1.0 - 1.0) * t;
+            let base_g = 0.9 + (0.3 - 0.9) * t;
+            let base_b = 0.7 + (0.05 - 0.7) * t;
+            let fade = 1.0 - t;
+            let col_r = base_r * 8.0 * fade;
+            let col_g = base_g * 8.0 * fade;
+            let col_b = base_b * 8.0 * fade;
+            let soft = ((sd - d_p) / soft_range).min(1.0).max(0.0);
+            let alpha = fade * soft * cw_gate * dv_gate * circle_gate;
+            // ── ⑤ 固定序串行 over ──
+            cr = cr * (1.0 - alpha) + col_r * alpha;
+            cg = cg * (1.0 - alpha) + col_g * alpha;
+            cb = cb * (1.0 - alpha) + col_b * alpha;
+            j = j + 1usize;
+        }
+        scene_color[i * 3] = cr;
+        scene_color[i * 3 + 1] = cg;
+        scene_color[i * 3 + 2] = cb;
+    }
+}

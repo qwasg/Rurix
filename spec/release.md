@@ -382,7 +382,9 @@ ToolchainRegistry::install(&ChannelManifest, &BundleManifest, bundle_json)
 
 ```
 RURIX_HOME ::= env RURIX_HOME | %USERPROFILE%\.rurix        // 根(测试缝 + 多用户)
-  toolchains\<version>\{ bin\<exe>, bin\lib\<lib>, nvidia\<redist> }   // 版本目录
+  toolchains\<version>\{ bin\<exe|dll>, bin\lib\<lib>, nvidia\<redist>,   // 版本目录
+                         include\<.h>, spv\<.spv>, manifests\<.json>,      // (SDK 面,G31+ C5)
+                         docs\<.md>, examples\<.cpp> }
   tmp\.staging-<version>-<nonce>\                            // 与 toolchains\ 同卷(rename 原子)
   toolchains.json                                           // 注册表(schema v2)
 component_rel_path(&Component) -> String                     // 干名 → 相对路径(确定性)
@@ -392,7 +394,7 @@ MaterializeReceipt ::= { version, tree_digest, install_path, component_count, id
 
 **Legality**:
 
-- **组件干名 → 相对路径**为确定性规则(不给 `Component` 加 path 字段,组件面仅数件):NVIDIA 再分发分区 → `nvidia/<name>`;语言本体 `*.lib` → `bin/lib/<name>`(刻意对齐 `driver.rs` `current_exe().parent().join("lib")` 探测语义);其余语言本体(`*.exe` 等)→ `bin/<name>`。
+- **组件干名 → 相对路径**为确定性规则(不给 `Component` 加 path 字段,组件面仅数件):NVIDIA 再分发分区 → `nvidia/<name>`;语言本体 `*.lib` → `bin/lib/<name>`(刻意对齐 `driver.rs` `current_exe().parent().join("lib")` 探测语义);语言本体 SDK 面纯追加(G31+ 波 C Task C5 渲染器 SDK 分发——既有 `*.exe`/`*.lib`/再分区路径 0-byte):`*.h` → `include/<name>`、`*.spv` → `spv/<name>`、`*.json` → `manifests/<name>`、`*.md` → `docs/<name>`、`*.cpp` → `examples/<name>`;其余语言本体(`*.exe`/`*.dll` 等)→ `bin/<name>`。
 - **版本目录仅经「staging 全量校验 → 同卷单次 rename」诞生**:任一校验失败 → staging 不落 `toolchains\`、注册表 **0-byte**(无部分安装态,对齐 RXS-0135 原子性全有或全无)。
 - **tree_digest 双向独立复算不变量**:`tree_digest` = 对每组件 `(rel_path, sha256)` 的规范化内容树哈希(复用 `rurix-pkg::content_tree::hash_entries`,RXS-0090/0093);**从 bundle.json 可预算**(`tree_digest_from_bundle`)、**从磁盘经 `collect_dir` 重哈希可复算**(`tree_digest_from_dir`),二者对同一内容树**必相等**。
 - **逐组件 sha256 复核**:staging 每组件回读磁盘字节,其 SHA-256 必 == bundle 声明 `Component::sha256`,否则 `InstallError::ComponentDigestMismatch`(拒装、清 staging)。

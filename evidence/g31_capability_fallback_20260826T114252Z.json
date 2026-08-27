@@ -1,0 +1,147 @@
+{
+  "schema": "rurix.g31.capability_fallback_evidence.v1",
+  "subject": "g31_capability_fallback",
+  "symbolic_gate_key": "g31.waveC.capability",
+  "wave": "G31+.C",
+  "anchor": {
+    "todo_row": "G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #50",
+    "amd_intel_anchor": "G-MB1-6",
+    "registry_path": "milestones/g31/g31_compatibility_matrix.json",
+    "normative_resolver": "src/rurix-render/src/capability_matrix.rs"
+  },
+  "capability_report": {
+    "state": "measured",
+    "device_count": 1,
+    "primary_device": {
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "vendor_id": 4318,
+      "device_id": 10114,
+      "features_all_true_count": 10,
+      "max_per_stage_descriptor_sampled_images": 1048576,
+      "max_per_stage_descriptor_storage_buffers": 1048576,
+      "device_local_heap_bytes": 12576620544,
+      "vram_budget_bytes": 11771314176
+    },
+    "upscale": {
+      "dlss_sr": true,
+      "fsr_3_1_5": true,
+      "tsr_device": true
+    },
+    "report_path": ".tmp/g31_gates/capability/capability_report_fresh.json"
+  },
+  "matrix_check": {
+    "nvidia_cell_all_green": true,
+    "amd_intel_cells_dev_env_degrade": true,
+    "chains_table_closed_set": true,
+    "cell_count": 3
+  },
+  "unit_tests": {
+    "suite": "cargo test -p rurix-render --lib capability_matrix",
+    "passed": 12,
+    "failed": 0
+  },
+  "chain_resolution": {
+    "request": "FeatureRequest::full(upscale=dlss_sr hzb=on restir=restir_high gi=on framegen=x3 textures=textures)",
+    "decisions": [
+      {
+        "chain": "upscale",
+        "requested": "dlss_sr",
+        "selected": "dlss_sr",
+        "degraded": false
+      },
+      {
+        "chain": "hzb",
+        "requested": "on",
+        "selected": "on",
+        "degraded": false
+      },
+      {
+        "chain": "restir",
+        "requested": "restir_high",
+        "selected": "restir_high",
+        "degraded": false
+      },
+      {
+        "chain": "gi",
+        "requested": "on",
+        "selected": "on",
+        "degraded": false
+      },
+      {
+        "chain": "framegen",
+        "requested": "x3",
+        "selected": "x3",
+        "degraded": false
+      },
+      {
+        "chain": "texture_sampling",
+        "requested": "textures",
+        "selected": "textures",
+        "degraded": false
+      }
+    ],
+    "digest": "sha256:838d55c6afae0bfac6d36430f7ef8846b8e8c14102fae82231ae0932185df349",
+    "digest_reproduced": true
+  },
+  "upscale_switch": {
+    "scene": "bistro-interior",
+    "tier": 100,
+    "frames": 16,
+    "warmup": 4,
+    "backends": [
+      {
+        "backend": "dlss_sr",
+        "runs": [
+          {
+            "last_frame_digest": "sha256:a61cdb4d0bc143d1a7ba5c22b79e09a86e864ba1483db5df9c5ef5a2ca4ecd06",
+            "frame_ms_production_mean": 3.5182687500000003
+          },
+          {
+            "last_frame_digest": "sha256:a61cdb4d0bc143d1a7ba5c22b79e09a86e864ba1483db5df9c5ef5a2ca4ecd06",
+            "frame_ms_production_mean": 3.54124375
+          }
+        ],
+        "digest_reproducible": true,
+        "frame_ms_production_mean": 3.54124375
+      },
+      {
+        "backend": "fsr_3_1_5",
+        "runs": [
+          {
+            "last_frame_digest": "sha256:ca07ff13db36fcb002e44de6e90e8278f76340e34e9b775a808371c4c6ccc55c",
+            "frame_ms_production_mean": 2.39764375
+          },
+          {
+            "last_frame_digest": "sha256:ca07ff13db36fcb002e44de6e90e8278f76340e34e9b775a808371c4c6ccc55c",
+            "frame_ms_production_mean": 2.477931249999999
+          }
+        ],
+        "digest_reproducible": true,
+        "frame_ms_production_mean": 2.477931249999999
+      },
+      {
+        "backend": "tsr_device",
+        "runs": [
+          {
+            "last_frame_digest": "sha256:ad37cec55ab46d06ad27c53477beea8f3bc42e060330b0564d93eb5c04db58ec",
+            "frame_ms_production_mean": 2.0665125000000004
+          },
+          {
+            "last_frame_digest": "sha256:ad37cec55ab46d06ad27c53477beea8f3bc42e060330b0564d93eb5c04db58ec",
+            "frame_ms_production_mean": 2.6010375000000003
+          }
+        ],
+        "digest_reproducible": true,
+        "frame_ms_production_mean": 2.6010375000000003
+      }
+    ]
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local；AMD/Intel 格 DEV_ENV_DEGRADE 如实登记）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T114252Z",
+  "notes": "G31+ 波 C Task C3 设备兼容矩阵与能力降级链系统化（G31_PLUS §5 #50 兑现；#18 G-MB1-6 尾门锚）：① 统一探测面 vk_capability_report 真跑聚合（逐物理设备 vendor/device id + RT/RayQuery + mesh shader + descriptor 面上限 + 显存 budget + DLSS/FSR session 真建 + TSR 自研恒可用）② 六链降级闭集 fail-closed（规范裁决 = capability_matrix.rs，单测 mock 每链缺失面；本脚本 Python 镜像三向锚定复算新鲜报告）③ 兼容矩阵 NVIDIA Ada 实测格全绿 + AMD/Intel 格 DEV_ENV_DEGRADE 如实登记（获得硬件后 按同一探测面补测）④ 真机 DLSS↔FSR↔TSR 切换真跑双跑 digest 可重现。facts: capability_report_measured=PASS; nvidia_ada_cell_all_green=PASS; amd_intel_cells_dev_env_degrade=PASS; fallback_chains_closed_set=PASS; fail_closed_unit_tests_green=PASS; chain_resolution_on_fresh_report=PASS; upscale_switch_measured=PASS"
+}

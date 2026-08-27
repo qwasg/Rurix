@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 5.0
+ },
+ "notes": "G32 画面完整期波 B 验收组合矩阵可组合臂真跑绿件数（C0 base orbit / C1a textures on orbit / C1b skin-demo 跨 harness / C2 slab-table orbit / C3 hzb on orbit——全臂双跑 digest 位级一致 + exit=frames_done）（源 milestones/g31/g31_waveb_combo_matrix.json + .tmp/g31_gates/waveB_matrix/）"
+}

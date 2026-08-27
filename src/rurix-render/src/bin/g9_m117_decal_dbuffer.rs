@@ -28,10 +28,10 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::world::decal::{
-    assert_decal_zero_svt, assert_dbuffer_placeholder, assert_tier_equivalence, assert_two_stage,
+    DECAL_OVERDRAW_BUDGET, DecalDependencyDesc, DecalError, MAX_DECALS_PER_CLUSTER,
+    assert_dbuffer_placeholder, assert_decal_zero_svt, assert_tier_equivalence, assert_two_stage,
     assign_decals, canonical_decals, composite, decal_forward_pass, dense_decals, design_time_seat,
-    image_digest, seat_digest, verify_assignment, write_dbuffer, DecalDependencyDesc, DecalError,
-    DECAL_OVERDRAW_BUDGET, MAX_DECALS_PER_CLUSTER,
+    image_digest, seat_digest, verify_assignment, write_dbuffer,
 };
 use std::path::PathBuf;
 
@@ -207,16 +207,26 @@ fn red_arm_dbuffer_bypass() -> Result<(), String> {
 /// RED 臂:SVT 依赖注入(L5 同构)。
 fn red_arm_svt_inject() -> Result<(), String> {
     for desc in [
-        DecalDependencyDesc { uses_svt: true, ..Default::default() },
-        DecalDependencyDesc { uses_rvt: true, ..Default::default() },
-        DecalDependencyDesc { uses_sampler_feedback: true, ..Default::default() },
+        DecalDependencyDesc {
+            uses_svt: true,
+            ..Default::default()
+        },
+        DecalDependencyDesc {
+            uses_rvt: true,
+            ..Default::default()
+        },
+        DecalDependencyDesc {
+            uses_sampler_feedback: true,
+            ..Default::default()
+        },
     ] {
         match assert_decal_zero_svt(&desc) {
             Err(DecalError::SvtDependencyDetected { .. }) => {}
             other => return Err(format!("SVT 依赖 {desc:?} 未拒: {other:?}")),
         }
     }
-    assert_decal_zero_svt(&DecalDependencyDesc::default()).map_err(|e| format!("零依赖被误拒: {e}"))?;
+    assert_decal_zero_svt(&DecalDependencyDesc::default())
+        .map_err(|e| format!("零依赖被误拒: {e}"))?;
     Ok(())
 }
 
@@ -252,9 +262,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -281,15 +293,18 @@ fn main() {
     }
     let seat_d = seat_digest(&seat);
     // 贴花数为零时占位仍成立(设计期冻结)。
-    let zero_assignment = assign_decals(&[], true).unwrap_or_else(|e| fail(&format!("零贴花分派: {e}")));
-    let zero_seat_ok = assert_dbuffer_placeholder(&seat).is_ok() && zero_assignment.total_evals == 0;
+    let zero_assignment =
+        assign_decals(&[], true).unwrap_or_else(|e| fail(&format!("零贴花分派: {e}")));
+    let zero_seat_ok =
+        assert_dbuffer_placeholder(&seat).is_ok() && zero_assignment.total_evals == 0;
     if !zero_seat_ok {
         failures.push("零贴花占位不成立".into());
     }
 
     // ── 步骤 3:cluster 化 + 过绘制计数器非空 ──
     let decals = canonical_decals();
-    let assignment = assign_decals(&decals, true).unwrap_or_else(|e| fail(&format!("cluster 分派: {e}")));
+    let assignment =
+        assign_decals(&decals, true).unwrap_or_else(|e| fail(&format!("cluster 分派: {e}")));
     let bounded_ok = verify_assignment(&assignment).is_ok();
     if !bounded_ok {
         failures.push("cluster 受界校验失败".into());
@@ -300,7 +315,8 @@ fn main() {
     }
 
     // ── 步骤 4:双段语义 + 两档语义等价 golden ──
-    let db = write_dbuffer(&decals, &assignment).unwrap_or_else(|e| fail(&format!("DBuffer 写: {e}")));
+    let db =
+        write_dbuffer(&decals, &assignment).unwrap_or_else(|e| fail(&format!("DBuffer 写: {e}")));
     let out_db = composite(&db, [0.8, 0.8, 0.8]);
     let out_fwd = decal_forward_pass(&decals, &assignment, [0.8, 0.8, 0.8])
         .unwrap_or_else(|e| fail(&format!("前向档: {e}")));
@@ -394,19 +410,34 @@ fn main() {
     // ── 步骤 9:evidence(rurix.g9m117.decal_dbuffer.v1) ──
     let checks: [(&str, bool); 11] = [
         ("conformance_corpus_anchored", corpus_ok),
-        ("dbuffer_placeholder_present", placeholder_ok && zero_seat_ok),
+        (
+            "dbuffer_placeholder_present",
+            placeholder_ok && zero_seat_ok,
+        ),
         ("cluster_bounded_intersection", bounded_ok),
         ("overdraw_counter_nonempty", overdraw_nonempty),
         ("two_stage_dbuffer_semantics", true),
         ("two_tier_equivalence_golden", tier_equiv_ok),
         ("double_run_bit_equal", double_run_ok),
         ("golden_frozen_equal", golden_ok || args.freeze),
-        ("red_arm_placeholder_and_svt", red_placeholder_ok && red_svt_ok),
-        ("red_arm_density_and_overdraw", red_density_ok && red_overdraw_ok),
+        (
+            "red_arm_placeholder_and_svt",
+            red_placeholder_ok && red_svt_ok,
+        ),
+        (
+            "red_arm_density_and_overdraw",
+            red_density_ok && red_overdraw_ok,
+        ),
         ("red_arm_dbuffer_bypass", red_bypass_ok),
     ];
-    let checks_json: Vec<String> = checks.iter().map(|(n, ok)| format!("\"{n}\": {ok}")).collect();
-    let failures_json: Vec<String> = failures.iter().map(|f| format!("\"{}\"", json_escape(f))).collect();
+    let checks_json: Vec<String> = checks
+        .iter()
+        .map(|(n, ok)| format!("\"{n}\": {ok}"))
+        .collect();
+    let failures_json: Vec<String> = failures
+        .iter()
+        .map(|f| format!("\"{}\"", json_escape(f)))
+        .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
     let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(

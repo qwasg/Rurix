@@ -1,0 +1,54 @@
+{
+  "schema": "rurix.g31.rejudgment_windows_gate_evidence.v1",
+  "subject": "g31_rejudgment_windows",
+  "symbolic_gate_key": "g31.waveC.rejudgment",
+  "wave": "G31+.C",
+  "windows_checked": [
+    "M61-mesh-shader",
+    "RD-039-backfill-subitems",
+    "SMRT",
+    "WORLD-RC-evolution",
+    "NRD-vendor-denoise",
+    "RD-026-stdgpu"
+  ],
+  "window_verdicts": {
+    "M61-mesh-shader": "not-triggered",
+    "RD-039-backfill-subitems": "partial",
+    "SMRT": "partial",
+    "WORLD-RC-evolution": "partial",
+    "NRD-vendor-denoise": "not-triggered",
+    "RD-026-stdgpu": "not-triggered"
+  },
+  "mesh_bench_measured": {
+    "evidence": "evidence/g31_mesh_vs_raster_bench_20260826T200434Z.json",
+    "schema_valid": true,
+    "digest_all_equal": true,
+    "double_run_digest_bitexact": true,
+    "vs_fetch_median_ms": 0.2344,
+    "mesh_procedural_median_ms": 0.234176,
+    "parity_delta_pct": 0.09556313993174147
+  },
+  "deferred_history": {
+    "RD-039": true,
+    "RD-040": true,
+    "RD-026": true,
+    "status_0byte": true,
+    "backfill_literal_0byte": true
+  },
+  "rfc0034_table": {
+    "c16_row_appended": true,
+    "prior_rows_intact": true
+  },
+  "anchor_files_0byte": {
+    "tracked_anchors_clean": true,
+    "todo_registered": true
+  },
+  "environment": {
+    "gpu": "host 纯文件机核面(无 GPU 腿;measured 数字转引 bench 门件 RTX 4070 Ti measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T200640Z",
+  "notes": "G31+ 波 C Task C16 重判窗批量执行门(六窗 verdict 与证据指针完整性机核):判档登记表 milestones/g31/g31_rejudgment_windows.json 六窗逐行——verdicts: M61-mesh-shader=not-triggered; RD-039-backfill-subitems=partial; SMRT=partial; WORLD-RC-evolution=partial; NRD-vendor-denoise=not-triggered; RD-026-stdgpu=not-triggered;M61 ③ measured:vs_fetch=0.2344ms vs mesh=0.2342ms(parity +0.096%,如实登记)。facts: registry_structure=PASS; verdict_enum=PASS; evidence_pointers_exist=PASS; mesh_bench_evidence_fresh=PASS; deferred_history_appended=PASS; rfc0034_row_appended=PASS; anchor_files_0byte=PASS; window_items_consistency=PASS"
+}

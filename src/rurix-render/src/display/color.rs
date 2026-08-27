@@ -142,13 +142,21 @@ pub fn rgb_to_xyz(c: &Primaries) -> Mat3 {
         + c.green[0] * (y * (c.red[1] - 1.0) + c.red[1] * (x + z)))
         / d;
     [
-        [sr * c.red[0], sr * c.red[1], sr * (1.0 - c.red[0] - c.red[1])],
+        [
+            sr * c.red[0],
+            sr * c.red[1],
+            sr * (1.0 - c.red[0] - c.red[1]),
+        ],
         [
             sg * c.green[0],
             sg * c.green[1],
             sg * (1.0 - c.green[0] - c.green[1]),
         ],
-        [sb * c.blue[0], sb * c.blue[1], sb * (1.0 - c.blue[0] - c.blue[1])],
+        [
+            sb * c.blue[0],
+            sb * c.blue[1],
+            sb * (1.0 - c.blue[0] - c.blue[1]),
+        ],
     ]
 }
 
@@ -200,8 +208,7 @@ pub fn sat_adjust_matrix(sat: f64, rgb2y: Vec3) -> Mat3 {
 
 /// CTL `moncurve_f`（前向监视器曲线；gamma=2.4/offs=0.055 即 sRGB EOTF 解码）。
 pub fn moncurve_fwd(x: f64, gamma: f64, offs: f64) -> f64 {
-    let fs = ((gamma - 1.0) / offs)
-        * (offs * gamma / ((gamma - 1.0) * (1.0 + offs))).powf(gamma);
+    let fs = ((gamma - 1.0) / offs) * (offs * gamma / ((gamma - 1.0) * (1.0 + offs))).powf(gamma);
     let xb = offs / (gamma - 1.0);
     if x >= xb {
         ((x + offs) / (1.0 + offs)).powf(gamma)
@@ -213,8 +220,7 @@ pub fn moncurve_fwd(x: f64, gamma: f64, offs: f64) -> f64 {
 /// CTL `moncurve_r` / v2.0 `moncurve_inv`（逆向 = 线性→信号，sRGB 编码）。
 pub fn moncurve_inv(y: f64, gamma: f64, offs: f64) -> f64 {
     let yb = (offs * gamma / ((gamma - 1.0) * (1.0 + offs))).powf(gamma);
-    let rs = ((gamma - 1.0) / offs).powf(gamma - 1.0)
-        * ((1.0 + offs) / gamma).powf(gamma);
+    let rs = ((gamma - 1.0) / offs).powf(gamma - 1.0) * ((1.0 + offs) / gamma).powf(gamma);
     if y >= yb {
         (1.0 + offs) * y.powf(1.0 / gamma) - offs
     } else {

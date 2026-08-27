@@ -1,0 +1,46 @@
+{
+  "schema": "rurix.g31.vendor_license_evidence.v1",
+  "subject": "g31_vendor_license",
+  "symbolic_gate_key": "g31.waveC.license",
+  "wave": "G31+.C",
+  "matrix_path": "milestones/g31/g31_vendor_license_matrix.json",
+  "matrix_sha256": "sha256:71c6971130045f3d5201eb8af15a019c785967c32cbe20bbc3fc1e01d425424b",
+  "summary": {
+    "total": 16,
+    "cleared": 15,
+    "conditional": 1,
+    "pending_owner": 0,
+    "blocked": 0
+  },
+  "gaps": [
+    {
+      "id": "GAP-01",
+      "status": "open"
+    },
+    {
+      "id": "GAP-02",
+      "status": "open"
+    },
+    {
+      "id": "GAP-03",
+      "status": "open"
+    }
+  ],
+  "checks": {
+    "matrix_structure_valid": true,
+    "vendor_coverage_complete": true,
+    "license_texts_on_tree": true,
+    "g13_clearance_referenced": true,
+    "sbom_reconciliation": true,
+    "obligations_and_gaps_registered": true,
+    "summary_counts_honest": true
+  },
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a",
+    "device_section_state": "not_applicable（host 纯 host 门：矩阵/SBOM/许可文本全为文件面机核）"
+  },
+  "timestamp": "20260826T130827Z",
+  "notes": "全腿绿"
+}

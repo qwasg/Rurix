@@ -1,0 +1,47 @@
+//@ spec: RFC-0049 §4.3(G35-2 粒子核心运行时 indirect args;spec 条款号本期
+// 零新设)
+// G35-P 粒子核心 · indirect args 零回读链 —— dispatch/draw 参数 device 端
+// 合成(门 g35.wave2.particle_core;G35_CONTRACT §4 契约,src/particles/
+// mod.rs 契约头字面)。
+//
+// ## 架构(确定性协议;G35-P v1 帧序第 5 步)
+// 公式面与 host 金标准 `particles/core.rs::indirect_args` **逐字同源**:单
+// invocation(g35_scan_spine 同模,守卫 g < 1):
+//   total = seg_offsets[nseg](scan spine 存活总数槽,device 直读**零回读**)
+//           + emit_count;
+//   args_out[0..3) = {total, 1, 1}(dispatch 参数 groupCount);
+//   args_out[3..7) = {total·6, 1, 0, 0}(draw 参数 vertexCount = 6·total /
+//   instanceCount = 1 / firstVertex = 0 / firstInstance = 0);
+//   args_out[7] = total(meta 槽——host 平行金标准 n_next 对拍面 = 零回读链
+//   验证 fact:host 不读回 device 计数,只对拍验证)。
+// 纯 u32 整数算术零浮点 ⇒ device↔host 零容差位级(mod.rs 整数域协议;
+// total ≤ cap ≤ 2^20 ⇒ total·6 < 2^32 无回绕)。
+//
+// ## 参数面(4 f32;声明序 = 绑定序,SSBO 数 = 3,与 host 金标准 / probe
+// 下标严格一致)
+//   params[0]=emit_count [1]=nseg_curr [2..4)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×4) / 1 seg_offsets(View u32×(nseg+1),
+//   g35_scan_spine 产物) / 2 args_out(ViewMut u32×8)。
+//   dispatch = [1, 1, 1](LocalSize 1,1,1;单 invocation 守卫 g < 1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_indirect_args(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    seg_offsets: View<global, u32>,
+    args_out: ViewMut<global, u32>,
+) {
+    let g = tc.global_id();
+    if g < 1usize {
+        let emit_count = params[0] as u32;
+        let nseg = params[1] as usize;
+        let total = seg_offsets[nseg] + emit_count;
+        args_out[0] = total;
+        args_out[1] = 1u32;
+        args_out[2] = 1u32;
+        args_out[3] = total * 6u32;
+        args_out[4] = 1u32;
+        args_out[5] = 0u32;
+        args_out[6] = 0u32;
+        args_out[7] = total;
+    }
+}

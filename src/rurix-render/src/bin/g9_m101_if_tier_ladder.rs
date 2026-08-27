@@ -46,7 +46,9 @@ use rurix_render::gi::path_trace::{self, PtConfig, PtImage};
 use rurix_render::gi::surface_cache;
 use rurix_render::rt::as_manager::{AsStats, BlasCache, DynamicPolicy};
 use rurix_rt::render_exec::{self, KernelWave};
-use rurix_rt::vk::{self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc};
+use rurix_rt::vk::{
+    self, RayQueryBufferDesc, RayQueryDispatchDesc, RayQueryInstanceDesc, RayQuerySceneDesc,
+};
 
 const TAG: &str = "G9_M101_IF";
 
@@ -124,8 +126,16 @@ fn run_oct_device(
     let probes_b = bytes_f32(&it::pack_probe_positions(grid));
     let mats_b = bytes_f32(&path_trace::pack_mats(scene));
     let tris_b = bytes_f32(&tris);
-    let params_irr = bytes_f32(&it::pack_oct_params(scene, probe_count as u32, OctTraceMode::Irradiance));
-    let params_vis = bytes_f32(&it::pack_oct_params(scene, probe_count as u32, OctTraceMode::Visibility));
+    let params_irr = bytes_f32(&it::pack_oct_params(
+        scene,
+        probe_count as u32,
+        OctTraceMode::Irradiance,
+    ));
+    let params_vis = bytes_f32(&it::pack_oct_params(
+        scene,
+        probe_count as u32,
+        OctTraceMode::Visibility,
+    ));
     let irr_texels = OctTraceMode::Irradiance.texels() as usize;
     let vis_texels = OctTraceMode::Visibility.texels() as usize;
     // 两 dispatch 各自的输出缓冲尺寸按本 dispatch texel 数定(非本 mode 缓冲
@@ -239,7 +249,11 @@ fn run_m96(
             groups: [pixel_count as u32, 1, 1],
         }],
     )?;
-    let rb = out.readbacks.into_iter().next().ok_or("单 dispatch 缺回读")?;
+    let rb = out
+        .readbacks
+        .into_iter()
+        .next()
+        .ok_or("单 dispatch 缺回读")?;
     if rb.len() != 3 {
         return Err(format!("回读路数 {} ≠ 3", rb.len()));
     }
@@ -252,7 +266,13 @@ fn run_m96(
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -375,7 +395,9 @@ fn main() {
 
     // ── 步骤 0:host 预传递(无 device 依赖)──
     let scene = path_trace::m96_cornell_scene();
-    scene.validate().unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
+    scene
+        .validate()
+        .unwrap_or_else(|e| fail(&format!("场景校验: {e}")));
     let gb = fb::gbuffer_prepass(&scene);
     let mut failures: Vec<String> = Vec::new();
     // 共享内核同一函数实例断言(D2-Q5 机器锚)。
@@ -393,7 +415,9 @@ fn main() {
     let rot1 = grid.rotate_update();
     let rotation_ok = rot0.len() == it::M101_L1_UPDATE_BUDGET as usize
         && rot1.len() == it::M101_L1_UPDATE_BUDGET as usize
-        && rot0.iter().all(|a| !rot1.contains(a) || rot1.len() as u64 * 2 > grid.probe_count() as u64);
+        && rot0
+            .iter()
+            .all(|a| !rot1.contains(a) || rot1.len() as u64 * 2 > grid.probe_count() as u64);
     println!(
         "{TAG}: host 预传递 pixels={} probes={} 共享内核单实例={} AsStats(calm)={:?} 轮换帧0={} 帧1={}",
         gb.width * gb.height,
@@ -430,9 +454,13 @@ fn main() {
         caps.device_name,
         if validation_on { "on" } else { "off" }
     );
-    let spv_m101_path = args.spv_m101.clone().unwrap_or_else(|| fail("缺 --spv-m101 <m101.spv>"));
+    let spv_m101_path = args
+        .spv_m101
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv-m101 <m101.spv>"));
     let spv_m101 = load_spv(&spv_m101_path);
-    let entry_m101 = vk::entry_point_name(&spv_m101).unwrap_or_else(|| fail("M101 SPV 无 OpEntryPoint"));
+    let entry_m101 =
+        vk::entry_point_name(&spv_m101).unwrap_or_else(|| fail("M101 SPV 无 OpEntryPoint"));
     let work = std::path::PathBuf::from(&args.work_dir);
     std::fs::create_dir_all(&work).unwrap_or_else(|e| fail(&format!("建 work-dir: {e}")));
 
@@ -535,9 +563,14 @@ fn main() {
         .clone()
         .unwrap_or_else(|| fail("缺 --spv-m96 <m96.spv>"));
     let spv_m96 = load_spv(&spv_m96_path);
-    let entry_m96 = vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
-    let m97_band_text = std::fs::read_to_string(&args.m97_band)
-        .unwrap_or_else(|e| fail(&format!("读 M97 深度带 {}: {e}(门序消费锚前置)", args.m97_band)));
+    let entry_m96 =
+        vk::entry_point_name(&spv_m96).unwrap_or_else(|| fail("M96 SPV 无 OpEntryPoint"));
+    let m97_band_text = std::fs::read_to_string(&args.m97_band).unwrap_or_else(|e| {
+        fail(&format!(
+            "读 M97 深度带 {}: {e}(门序消费锚前置)",
+            args.m97_band
+        ))
+    });
     let m97_band = surface_cache::DepthBand::parse(&m97_band_text)
         .unwrap_or_else(|e| fail(&format!("M97 深度带解析: {e}")));
     let m97_anchor = m97_band
@@ -545,7 +578,8 @@ fn main() {
         .unwrap_or_else(|e| fail(&format!("M97 深度带缺锚条目: {e}")))
         .m96_digest
         .clone();
-    let (m96_img, m96_digest) = match run_m96(&scene, it::M101_MATCHED_DEPTH, &spv_m96, &entry_m96) {
+    let (m96_img, m96_digest) = match run_m96(&scene, it::M101_MATCHED_DEPTH, &spv_m96, &entry_m96)
+    {
         Ok(v) => v,
         Err(e) => fail(&format!("M96 对照腿: {e}")),
     };
@@ -586,15 +620,21 @@ fn main() {
     let maps_srgb: Vec<ProbeOctMaps> = maps_dev
         .iter()
         .map(|m| ProbeOctMaps {
-            irr: m.irr.iter().map(|&rgb| it::apply_domain(rgb, EncodeDomain::SrgbInjected)).collect(),
+            irr: m
+                .irr
+                .iter()
+                .map(|&rgb| it::apply_domain(rgb, EncodeDomain::SrgbInjected))
+                .collect(),
             vis: m.vis.clone(),
         })
         .collect();
     let frame_srgb = it::eval_tier(IfTier::L1ClipmapVolume, &scene, &gb, &grid, &maps_srgb)
         .unwrap_or_else(|e| fail(&format!("SRGB 注入评估: {e}")));
     let frame_l1_golden = &tier_frames[1];
-    let srgb_rel = path_trace::rel_dev(&frame_srgb.rgb, &frame_l1_golden.rgb).expect("rel_dev 计算");
-    let srgb_sabotage = path_trace::rel_dev(&frame_l1_golden.rgb, &frame_l1_golden.rgb).expect("rel_dev 计算");
+    let srgb_rel =
+        path_trace::rel_dev(&frame_srgb.rgb, &frame_l1_golden.rgb).expect("rel_dev 计算");
+    let srgb_sabotage =
+        path_trace::rel_dev(&frame_l1_golden.rgb, &frame_l1_golden.rgb).expect("rel_dev 计算");
     let srgb_detectable = srgb_rel >= it::M101_SRGB_REL_DEV_MIN
         && frame_srgb.product_digest() != frame_l1_golden.product_digest()
         && srgb_sabotage < it::M101_SRGB_REL_DEV_MIN;
@@ -611,7 +651,9 @@ fn main() {
         fail("red-arm srgb-encode 失效(编码域错误不可检测或探针不红)");
     }
     if !srgb_detectable {
-        failures.push(format!("SRGB 编码注入臂失效(rel_dev={srgb_rel:.6e} 或 digest 未分叉或探针误检)"));
+        failures.push(format!(
+            "SRGB 编码注入臂失效(rel_dev={srgb_rel:.6e} 或 digest 未分叉或探针误检)"
+        ));
     }
     if let Some(arm) = &args.red_arm {
         fail(&format!("unknown --red-arm {arm}"));
@@ -638,14 +680,19 @@ fn main() {
     } else {
         let band_text = std::fs::read_to_string(&args.band)
             .unwrap_or_else(|e| fail(&format!("读容差带 {}: {e}", args.band)));
-        let band = it::M101Band::parse(&band_text)
-            .unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
+        let band =
+            it::M101Band::parse(&band_text).unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
         if m97_anchor != band.m96_anchor_digest {
             digests_match = false;
             failures.push("M97 门序锚条目与冻结带漂移".into());
         }
         for m in &measured {
-            match band.check(&m.tier, &m.product_digest, &m.m96_digest, m.measured_rel_dev) {
+            match band.check(
+                &m.tier,
+                &m.product_digest,
+                &m.m96_digest,
+                m.measured_rel_dev,
+            ) {
                 Ok(()) => {}
                 Err(e) => {
                     digests_match = false;
@@ -665,7 +712,12 @@ fn main() {
         ("shared_kernel_single_instance", shared_kernel_ok),
         ("vis_device_host_parity", vis_parity),
         ("rotation_amortization_non_empty", rotation_ok),
-        ("budget_row_per_tier_present", IfTier::ALL.iter().all(|t| it::tier_def(*t).as_budget.max_refits > 0)),
+        (
+            "budget_row_per_tier_present",
+            IfTier::ALL
+                .iter()
+                .all(|t| it::tier_def(*t).as_budget.max_refits > 0),
+        ),
         ("as_stats_consumed_calm_no_demote", calm_ok),
         ("forced_demote_with_records", demote_ok),
         ("selector_double_run_bitexact", selector_double_run),

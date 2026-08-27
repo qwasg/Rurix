@@ -1656,7 +1656,15 @@ fn emit_assign(
             t_max,
             first_hit,
         } => emit_ray_query_initialize(
-            b, body, place, *tlas_local, origin, t_min, dir, t_max, *first_hit,
+            b,
+            body,
+            place,
+            *tlas_local,
+            origin,
+            t_min,
+            dir,
+            t_max,
+            *first_hit,
         ),
         Rvalue::RayQueryMethod { op, rq_local } => {
             emit_ray_query_method(b, body, place, *op, *rq_local)
@@ -2658,7 +2666,13 @@ fn assemble(b: &mut Builder, entry_name: &str, local_size: (u32, u32, u32)) -> V
     emit(
         &mut m,
         OP_EXECUTION_MODE,
-        &[b.main_id, EXEC_MODE_LOCAL_SIZE, local_size.0, local_size.1, local_size.2],
+        &[
+            b.main_id,
+            EXEC_MODE_LOCAL_SIZE,
+            local_size.0,
+            local_size.1,
+            local_size.2,
+        ],
     );
     // decorations。
     m.extend_from_slice(&b.decorations);
@@ -2733,7 +2747,13 @@ fn assemble_ray_query(b: &mut Builder, entry_name: &str, local_size: (u32, u32, 
     emit(
         &mut m,
         OP_EXECUTION_MODE,
-        &[b.main_id, EXEC_MODE_LOCAL_SIZE, local_size.0, local_size.1, local_size.2],
+        &[
+            b.main_id,
+            EXEC_MODE_LOCAL_SIZE,
+            local_size.0,
+            local_size.1,
+            local_size.2,
+        ],
     );
     m.extend_from_slice(&b.decorations);
     m.extend_from_slice(&b.types_globals);
@@ -3685,6 +3705,279 @@ pub fn m50_incremental_corpus() -> Vec<(&'static str, Vec<u32>)> {
         ("m50_anyhit", emit_m50_anyhit()),
         ("m50_intersection", emit_m50_intersection()),
         ("m50_callable", emit_m50_callable()),
+    ]
+}
+
+// ═══════════════ G31+ 波 C Task C15:RT pipeline 宿主车道镜像语料(RFC-0048 §6) ═══════════════
+//
+// **hand-emitted 镜像语料**——与 kernels/g31_rt_slab_hit.rx 公式面逐字同源
+// (slab 三常量 1e-30 / rc·ab 项 / albedo 乘法序 + 背景常量 0.05/0.05/0.08 +
+// 相机公式 uv=id/size*2−1/origin z=−1/dir +z/t∈[0,100]),**非 .rx 编译产物,
+// 不充 .rx codegen 绿**(RFC-0048 §6 诚实边界;PR-3 转正即替换)。raygen 面复用
+// m50_incremental_corpus() 的 m50_raygen/m50_callable(ExecuteCallable(0) +
+// TraceRay + ImageWrite 契约不变),本批只增 slab miss/closesthit 与 SER 三件。
+//
+// SER 常量(SPV_NV_shader_invocation_reorder;VK_NV_ray_tracing_invocation_reorder
+// 臂——本机 NVIDIA 实测 NV+EXT 双 available,SER workload 走 NV 变体,EXT 同
+// 语义不同 opcode 在案登记 RFC-0048 §4.8)。
+const CAP_SHADER_INVOCATION_REORDER_NV: u32 = 5383;
+const EXT_NV_SHADER_INVOCATION_REORDER: &str = "SPV_NV_shader_invocation_reorder";
+const OP_TYPE_HIT_OBJECT_NV: u16 = 5281;
+const OP_HIT_OBJECT_TRACE_RAY_NV: u16 = 5260;
+const OP_HIT_OBJECT_EXECUTE_SHADER_NV: u16 = 5264;
+const OP_REORDER_THREAD_WITH_HIT_OBJECT_NV: u16 = 5279;
+
+/// slab 双材质 miss:背景 (0.05, 0.05, 0.08, 1)(与 kernel miss 常量逐字同源)。
+pub fn emit_g31_rt_slab_miss() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let c_rg = b.constant(float, 0.05f32.to_bits());
+    let c_b = b.constant(float, 0.08f32.to_bits());
+    let c_a = b.constant(float, 1.0f32.to_bits());
+    let miss_color = b.const_composite(v4float, &[c_rg, c_rg, c_b, c_a]);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    emit(&mut b.body, OP_STORE, &[payload, miss_color]);
+    b.finish(EXEC_MODEL_MISS_KHR, false)
+}
+
+/// slab 双材质 closesthit:ShaderRecordBufferKHR `{rc, ab, albedo_r, albedo_g,
+/// albedo_b}`(5×f32,offsets 0/4/8/12/16;与 runtime packer 同律)→ slab 闭式
+/// 反照率 R = rc + tc²·ab / max(denom, 1e-30)(tc=1−rc,denom=1−rc·ab;分母安全
+/// 化经 OpSelect〔denom > 1e-30 ? denom : 1e-30〕= `denom.max(1e-30)` 逐字镜像)
+/// → payload = (albedo·R, 1.0)。
+pub fn emit_g31_rt_slab_closesthit() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let bool_ty = b.type_result(OP_TYPE_BOOL, &[]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let rec_ty = b.type_result(OP_TYPE_STRUCT, &[float, float, float, float, float]);
+    b.decorate(rec_ty, DECORATION_BLOCK, &[]);
+    for (m, off) in [0u32, 4, 8, 12, 16].iter().enumerate() {
+        b.member_decorate(rec_ty, m as u32, DECORATION_OFFSET, &[*off]);
+    }
+    let ptr_rec = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, rec_ty]);
+    let rec = b.global_var(ptr_rec, STORAGE_SHADER_RECORD_BUFFER_KHR, true);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    let ptr_f = b.type_result(OP_TYPE_POINTER, &[STORAGE_SHADER_RECORD_BUFFER_KHR, float]);
+    let c0 = b.constant(uint, 0);
+    let c1 = b.constant(uint, 1);
+    let c2 = b.constant(uint, 2);
+    let c3 = b.constant(uint, 3);
+    let c4 = b.constant(uint, 4);
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let float_eps = b.constant(float, 1e-30f32.to_bits());
+    // 逐字段 load(rc/ab/ar/ag/ab_)。
+    let load_field = |b: &mut ExtBuilder, idx: u32| -> u32 {
+        let a = b.id();
+        emit(&mut b.body, OP_ACCESS_CHAIN, &[ptr_f, a, rec, idx]);
+        let v = b.id();
+        emit(&mut b.body, OP_LOAD, &[float, v, a]);
+        v
+    };
+    let rc = load_field(&mut b, c0);
+    let ab = load_field(&mut b, c1);
+    let ar = load_field(&mut b, c2);
+    let ag = load_field(&mut b, c3);
+    let ab_ = load_field(&mut b, c4);
+    // tc = 1 − rc;denom = 1 − rc·ab;denom_safe = max(denom, 1e-30)。
+    let tc = b.id();
+    emit(&mut b.body, OP_FSUB, &[float, tc, float_1, rc]);
+    let rcab = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, rcab, rc, ab]);
+    let denom = b.id();
+    emit(&mut b.body, OP_FSUB, &[float, denom, float_1, rcab]);
+    let is_gt = b.id();
+    emit(
+        &mut b.body,
+        OP_FORDGREATERTHAN,
+        &[bool_ty, is_gt, denom, float_eps],
+    );
+    let denom_safe = b.id();
+    emit(
+        &mut b.body,
+        OP_SELECT,
+        &[float, denom_safe, is_gt, denom, float_eps],
+    );
+    // R = rc + (tc·tc·ab) / denom_safe。
+    let tc2 = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, tc2, tc, tc]);
+    let num = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, num, tc2, ab]);
+    let frac = b.id();
+    emit(&mut b.body, OP_FDIV, &[float, frac, num, denom_safe]);
+    let r = b.id();
+    emit(&mut b.body, OP_FADD, &[float, r, rc, frac]);
+    // payload = (ar·R, ag·R, ab_·R, 1.0)。
+    let pr = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, pr, ar, r]);
+    let pg = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, pg, ag, r]);
+    let pb = b.id();
+    emit(&mut b.body, OP_FMUL, &[float, pb, ab_, r]);
+    let color = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v4float, color, pr, pg, pb, float_1],
+    );
+    emit(&mut b.body, OP_STORE, &[payload, color]);
+    b.finish(EXEC_MODEL_CLOSEST_HIT_KHR, false)
+}
+
+/// SER workload raygen(NV 变体):HitObject 流——相机与 slab raygen 逐字同源;
+/// `OpHitObjectTraceRayNV`(命中记录进 hit object,不即着色)→ `reorder=true`
+/// 臂插 `OpReorderThreadWithHitObjectNV`(GPU 按命中着色器/记录局部性重排)→
+/// `OpHitObjectExecuteShaderNV`(执行记录的 hit/miss 着色)→ payload 写 storage
+/// image。`reorder=false` 臂除缺省 reorder 外逐指令同构(A/B 对拍同基底)。
+pub fn emit_g31_ser_raygen(reorder: bool) -> Vec<u32> {
+    let mut b = ExtBuilder::new(
+        vec![CAP_RAY_TRACING_KHR, CAP_SHADER_INVOCATION_REORDER_NV],
+        vec![EXT_RAY_TRACING, EXT_NV_SHADER_INVOCATION_REORDER],
+    );
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v2uint = b.type_result(OP_TYPE_VECTOR, &[uint, 2]);
+    let v3uint = b.type_result(OP_TYPE_VECTOR, &[uint, 3]);
+    let v2int = b.type_result(OP_TYPE_VECTOR, &[int, 2]);
+    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
+    let v3float = b.type_result(OP_TYPE_VECTOR, &[float, 3]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let uint_0 = b.constant(uint, 0);
+    let ray_flags = b.constant(uint, RAY_FLAG_OPAQUE);
+    let cull_mask = b.constant(uint, CULL_MASK_ALL);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let float_2 = b.constant(float, 2.0f32.to_bits());
+    let float_n1 = b.constant(float, (-1.0f32).to_bits());
+    let float_100 = b.constant(float, 100.0f32.to_bits());
+    let two_v2 = b.const_composite(v2float, &[float_2, float_2]);
+    let one_v2 = b.const_composite(v2float, &[float_1, float_1]);
+    let dir = b.const_composite(v3float, &[float_0, float_0, float_1]);
+    let zero_v4 = b.const_composite(v4float, &[float_0, float_0, float_0, float_0]);
+    let ptr_in_v3uint = b.type_result(OP_TYPE_POINTER, &[STORAGE_INPUT, v3uint]);
+    let launch_id = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_id, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_ID_KHR]);
+    let launch_size = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_size, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_SIZE_KHR]);
+    let accel_ty = b.type_result(OP_TYPE_ACCELERATION_STRUCTURE_KHR, &[]);
+    let ptr_uc_accel = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, accel_ty]);
+    let tlas = b.global_var(ptr_uc_accel, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(tlas, DECORATION_DESCRIPTOR_SET, &[0]);
+    b.decorate(tlas, DECORATION_BINDING, &[0]);
+    let image_ty = b.type_result(
+        OP_TYPE_IMAGE,
+        &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8],
+    );
+    let ptr_uc_image = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, image_ty]);
+    let out_image = b.global_var(ptr_uc_image, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(out_image, DECORATION_DESCRIPTOR_SET, &[1]);
+    b.decorate(out_image, DECORATION_BINDING, &[0]);
+    let ptr_payload = b.type_result(OP_TYPE_POINTER, &[STORAGE_RAY_PAYLOAD_KHR, v4float]);
+    let payload = b.global_var(ptr_payload, STORAGE_RAY_PAYLOAD_KHR, true);
+    // HitObject(Function storage;变量须落函数首块首指令位)。
+    let hit_ty = b.type_result(OP_TYPE_HIT_OBJECT_NV, &[]);
+    let ptr_hit_fn = b.type_result(OP_TYPE_POINTER, &[STORAGE_FUNCTION, hit_ty]);
+    let hit_obj = b.id();
+    emit(
+        &mut b.body,
+        OP_VARIABLE,
+        &[ptr_hit_fn, hit_obj, STORAGE_FUNCTION],
+    );
+
+    // ── 相机(与 slab raygen 逐字同源)──
+    let li = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, li, launch_id]);
+    let li_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, li_xy, li, li, 0, 1],
+    );
+    let li_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, li_f, li_xy]);
+    let ls = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, ls, launch_size]);
+    let ls_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, ls_xy, ls, ls, 0, 1],
+    );
+    let ls_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, ls_f, ls_xy]);
+    let uv = b.id();
+    emit(&mut b.body, OP_FDIV, &[v2float, uv, li_f, ls_f]);
+    let scaled = b.id();
+    emit(&mut b.body, OP_FMUL, &[v2float, scaled, uv, two_v2]);
+    let centered = b.id();
+    emit(&mut b.body, OP_FSUB, &[v2float, centered, scaled, one_v2]);
+    let ox = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, ox, centered, 0]);
+    let oy = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, oy, centered, 1]);
+    let origin = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v3float, origin, ox, oy, float_n1],
+    );
+    // payload = 0;acc = load tlas;HitObjectTraceRay(命中记录进 hit object;
+    // 操作数序 = [hit_obj, acc, flags, mask, sbt0, sbt0, miss0, origin, tmin,
+    // dir, tmax, payload]——spirv.core.grammar.json OpHitObjectTraceRayNV 逐字)。
+    emit(&mut b.body, OP_STORE, &[payload, zero_v4]);
+    let acc = b.id();
+    emit(&mut b.body, OP_LOAD, &[accel_ty, acc, tlas]);
+    emit(
+        &mut b.body,
+        OP_HIT_OBJECT_TRACE_RAY_NV,
+        &[
+            hit_obj, acc, ray_flags, cull_mask, uint_0, uint_0, uint_0, origin, float_0, dir,
+            float_100, payload,
+        ],
+    );
+    // reorder 臂:GPU 按命中着色器/记录局部性重排(A/B 唯一指令差)。
+    if reorder {
+        emit(
+            &mut b.body,
+            OP_REORDER_THREAD_WITH_HIT_OBJECT_NV,
+            &[hit_obj],
+        );
+    }
+    // 执行记录的 hit/miss 着色(payload 落色)。
+    emit(
+        &mut b.body,
+        OP_HIT_OBJECT_EXECUTE_SHADER_NV,
+        &[hit_obj, payload],
+    );
+    let pv = b.id();
+    emit(&mut b.body, OP_LOAD, &[v4float, pv, payload]);
+    let img = b.id();
+    emit(&mut b.body, OP_LOAD, &[image_ty, img, out_image]);
+    let coord = b.id();
+    emit(&mut b.body, OP_BITCAST, &[v2int, coord, li_xy]);
+    emit(&mut b.body, OP_IMAGE_WRITE, &[img, coord, pv]);
+    b.finish(EXEC_MODEL_RAY_GENERATION_KHR, false)
+}
+
+/// Task C15 镜像语料(供 rurix-rt build.rs 嵌入;raygen/callable 复用 M50 语料
+/// 经 `m50_incremental_spv()`,不在本语料重复)。
+pub fn g31_rt_slab_corpus() -> Vec<(&'static str, Vec<u32>)> {
+    vec![
+        ("g31_rt_slab_miss", emit_g31_rt_slab_miss()),
+        ("g31_rt_slab_closesthit", emit_g31_rt_slab_closesthit()),
+        ("g31_ser_raygen_noreorder", emit_g31_ser_raygen(false)),
+        ("g31_ser_raygen_reorder", emit_g31_ser_raygen(true)),
     ]
 }
 

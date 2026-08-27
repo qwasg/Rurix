@@ -91,7 +91,10 @@ fn words(s: &str) -> Vec<u32> {
 /// 常量——影响行与簇骨集循环在 Rust 侧**完全展开**,kernel 本体零循环零
 /// phi,控制流 = 两个 OpSelectionMerge 守卫段)。
 pub fn m92_skin_spv(influences: u32, cluster_bones: u32) -> Vec<u32> {
-    assert!(influences >= 1 && cluster_bones >= 1, "kernel 行宽/骨集非空");
+    assert!(
+        influences >= 1 && cluster_bones >= 1,
+        "kernel 行宽/骨集非空"
+    );
     // ── id 布局(类型/常量/全局 < 100;函数体自 100 起)──
     let id_ext: u32 = 1; // GLSL.std.450 import
     let t_void = 2;
@@ -195,7 +198,11 @@ pub fn m92_skin_spv(influences: u32, cluster_bones: u32) -> Vec<u32> {
     }
     inst(&mut typ, 43, &[t_f32, c_f32_zero, 0.0f32.to_bits()]);
     inst(&mut typ, 43, &[t_f32, c_f32_half, 0.5f32.to_bits()]);
-    inst(&mut typ, 43, &[t_f32, c_f32_pi, std::f32::consts::PI.to_bits()]);
+    inst(
+        &mut typ,
+        43,
+        &[t_f32, c_f32_pi, std::f32::consts::PI.to_bits()],
+    );
 
     // ── 函数体 ──
     let mut body: Vec<u32> = Vec::new();
@@ -356,7 +363,11 @@ pub fn m92_skin_spv(influences: u32, cluster_bones: u32) -> Vec<u32> {
         // palette 行主 3×4:m[row][col] = palette[pb + row*4 + col]。
         let mut m = [0u32; 12];
         for (j, slot) in m.iter_mut().enumerate() {
-            let idx = if j == 0 { pb } else { iadd!(pb, c_u32(j as u32)) };
+            let idx = if j == 0 {
+                pb
+            } else {
+                iadd!(pb, c_u32(j as u32))
+            };
             *slot = buf_load_f32!(4, idx);
         }
         // 位置行:t_i = m[4i]·px + m[4i+1]·py + m[4i+2]·pz + m[4i+3](host 同序)。
@@ -382,11 +393,19 @@ pub fn m92_skin_spv(influences: u32, cluster_bones: u32) -> Vec<u32> {
         }
     }
     for (j, &a) in acc.iter().enumerate() {
-        let idx = if j == 0 { base3 } else { iadd!(base3, c_u32(j as u32)) };
+        let idx = if j == 0 {
+            base3
+        } else {
+            iadd!(base3, c_u32(j as u32))
+        };
         buf_store_f32!(7, idx, a);
     }
     for (j, &a) in nacc.iter().enumerate() {
-        let idx = if j == 0 { base3 } else { iadd!(base3, c_u32(j as u32)) };
+        let idx = if j == 0 {
+            base3
+        } else {
+            iadd!(base3, c_u32(j as u32))
+        };
         buf_store_f32!(8, idx, a);
     }
     inst(&mut body, 249, &[l_merge1]);
@@ -413,7 +432,11 @@ pub fn m92_skin_spv(influences: u32, cluster_bones: u32) -> Vec<u32> {
         let pb = imul!(bone, c_u32(12));
         let mut m = [0u32; 12];
         for (q, slot) in m.iter_mut().enumerate() {
-            let idx = if q == 0 { pb } else { iadd!(pb, c_u32(q as u32)) };
+            let idx = if q == 0 {
+                pb
+            } else {
+                iadd!(pb, c_u32(q as u32))
+            };
             *slot = buf_load_f32!(4, idx);
         }
         // 角点:x 外、y 中、z 内(host 序);cx/cy/cz = lo/hi 二择(构建期)。
@@ -620,7 +643,14 @@ pub fn decode_vec3s(bytes: &[u8], n: usize) -> Vec<[f32; 3]> {
 /// 包围体块解码(14 f32:AABB lo/hi + 球 center/r + 锥 axis/half)。
 pub fn decode_bound(bytes: &[u8]) -> DeviceBound {
     assert_eq!(bytes.len(), M92_BOUND_WORDS * 4, "包围体块字节数失配");
-    let f = |i: usize| f32::from_le_bytes([bytes[4 * i], bytes[4 * i + 1], bytes[4 * i + 2], bytes[4 * i + 3]]);
+    let f = |i: usize| {
+        f32::from_le_bytes([
+            bytes[4 * i],
+            bytes[4 * i + 1],
+            bytes[4 * i + 2],
+            bytes[4 * i + 3],
+        ])
+    };
     DeviceBound {
         aabb: ([f(0), f(1), f(2)], [f(3), f(4), f(5)]),
         sphere: ([f(6), f(7), f(8)], f(9)),
@@ -817,12 +847,7 @@ mod tests {
         for row in 0..3usize {
             for col in 0..4usize {
                 let off = (row * 4 + col) * 4;
-                let got = f32::from_le_bytes([
-                    mat[off],
-                    mat[off + 1],
-                    mat[off + 2],
-                    mat[off + 3],
-                ]);
+                let got = f32::from_le_bytes([mat[off], mat[off + 1], mat[off + 2], mat[off + 3]]);
                 assert_eq!(got, (row * 4 + col) as f32);
             }
         }

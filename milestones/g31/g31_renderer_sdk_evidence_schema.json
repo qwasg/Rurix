@@ -1,0 +1,244 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/renderer_sdk_evidence/v1",
+ "title": "G31+ 波 C Task C1 渲染器 SDK 稳定 API 面证据（ci/g31_renderer_sdk_smoke.py --gate g31.waveC.sdk 产）",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "api",
+  "host_run",
+  "stable_snapshot",
+  "rd036",
+  "regression",
+  "facts",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.renderer_sdk_evidence.v1"
+  },
+  "subject": {
+   "const": "g31_renderer_sdk"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.waveC.sdk"
+  },
+  "wave": {
+   "const": "G31+.C"
+  },
+  "api": {
+   "type": "object",
+   "required": [
+    "abi_version_packed",
+    "semver",
+    "export_count",
+    "version_policy",
+    "breaking_change_policy"
+   ],
+   "properties": {
+    "abi_version_packed": {
+     "const": "0x00010000"
+    },
+    "semver": {
+     "const": "1.0.0"
+    },
+    "export_count": {
+     "const": 9
+    },
+    "version_policy": {
+     "const": "apps/g31-renderer-sdk/API_VERSIONING.md"
+    },
+    "breaking_change_policy": {
+     "type": "string",
+     "minLength": 30
+    }
+   }
+  },
+  "host_run": {
+   "type": "object",
+   "required": [
+    "host",
+    "scene",
+    "tier",
+    "frames",
+    "warmup",
+    "abi_seen",
+    "caps",
+    "frame_ms_mean",
+    "frame_ms_p50",
+    "frame_samples",
+    "last_frame_digest",
+    "stage_a_anchor_digest",
+    "digest_matches_stage_a_anchor",
+    "params_update_ok",
+    "present_ok",
+    "exit_code"
+   ],
+   "properties": {
+    "host": {
+     "type": "string"
+    },
+    "scene": {
+     "const": "bistro-interior"
+    },
+    "tier": {
+     "const": 100
+    },
+    "frames": {
+     "const": 160
+    },
+    "warmup": {
+     "const": 10
+    },
+    "abi_seen": {
+     "const": "0x00010000"
+    },
+    "caps": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "frame_ms_mean": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "frame_ms_p50": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "frame_samples": {
+     "const": 160
+    },
+    "last_frame_digest": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "stage_a_anchor_digest": {
+     "const": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02"
+    },
+    "digest_matches_stage_a_anchor": {
+     "type": "boolean"
+    },
+    "params_update_ok": {
+     "type": "boolean"
+    },
+    "present_ok": {
+     "type": "boolean"
+    },
+    "exit_code": {
+     "const": 0
+    }
+   }
+  },
+  "stable_snapshot": {
+   "type": "object",
+   "required": [
+    "section",
+    "export_count",
+    "abi_version",
+    "check_pass",
+    "bless_log_row"
+   ],
+   "properties": {
+    "section": {
+     "const": "renderer_sdk_api"
+    },
+    "export_count": {
+     "const": 9
+    },
+    "abi_version": {
+     "const": "1.0.0"
+    },
+    "check_pass": {
+     "type": "boolean"
+    },
+    "bless_log_row": {
+     "type": "string"
+    }
+   }
+  },
+  "rd036": {
+   "type": "object",
+   "required": [
+    "subset_v1_compliant",
+    "disposition",
+    "upcall_trigger",
+    "external_fixed_abi_trigger"
+   ],
+   "properties": {
+    "subset_v1_compliant": {
+     "type": "boolean"
+    },
+    "disposition": {
+     "const": "maintain_open"
+    },
+    "upcall_trigger": {
+     "const": false
+    },
+    "external_fixed_abi_trigger": {
+     "const": false
+    }
+   }
+  },
+  "regression": {
+   "type": "object",
+   "required": [
+    "export_c_smoke_exit"
+   ],
+   "properties": {
+    "export_c_smoke_exit": {
+     "const": 0
+    }
+   }
+  },
+  "facts": {
+   "type": "array",
+   "minItems": 8,
+   "maxItems": 8,
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "status",
+     "detail"
+    ],
+    "properties": {
+     "id": {
+      "enum": [
+       "header_generated_and_idempotent",
+       "api_version_semver_policy",
+       "host_integration_ok",
+       "digest_matches_stage_a_anchor",
+       "frame_time_measured",
+       "stable_snapshot_extended",
+       "rd036_subset_v1_compliant",
+       "uc05_export_c_regression_green"
+      ]
+     },
+     "status": {
+      "enum": [
+       "PASS",
+       "FAIL"
+      ]
+     },
+     "detail": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string"
+  }
+ }
+}

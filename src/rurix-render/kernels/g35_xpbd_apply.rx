@@ -1,0 +1,140 @@
+//@ spec: RFC-0049 §4.10(G35-7 XPBD/PBF 密度约束半步 2;spec 条款号本期零新设)
+// G35-7 流体 · xpbd_apply —— 同序 gather 邻居 λ 产位置修正 Δp + 世界 AABB
+// clamp(门 g35.wave7.fluids;src/particles/fluid.rs 契约头字面)。
+//
+// ## 架构(确定性协议:Jacobi ping-pong,禁 Gauss-Seidel 原子竞写)
+// 公式面与 host 金标准 `particles/fluid.rs::xpbd_apply_step` **逐字同源**:
+// - Δp_i = (1/ρ0)·Σ_j (λ_i + λ_j)·∇W(p_i − p_j)(spiky 梯度,系数经
+//   params 单源传入 = g35_xpbd_density.rx 同源;累加式冻结
+//   `fs = (li + lambda[j])·sgc; dx += fs·rx`;j=i 自项 r²=0 跳过);
+// - **读 pos_in 写 pos_out**(Jacobi ping-pong,迭代间由 probe/host 交换
+//   缓冲角色)——读写分离 ⇒ 跨 invocation 零竞态,与线程调度无关;
+// - 边界冻结式:pos_out = clamp(pos_in + Δp, origin, origin + 64·cs) 逐轴
+//   (上界表达式冻结 `o + 64.0·h`;clamp 序冻结 `.max(lo).min(hi)`;速度
+//   置零分量归 g35_xpbd_velocity.rx 承载)。
+// - 27-cell 固定序 gather 结构与 g35_xpbd_density.rx 逐字同构(oz→oy→ox
+//   升序 × sorted 区间升序;cell 中心 = 本 dispatch 当前位置重算)。
+// f32 走标定容差协议(probe 装载期注入 NoContraction)。
+//
+// ## 参数面(8 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 11)
+//   params[0]=n [1]=origin_x [2]=origin_y [3]=origin_z [4]=h(=cell_size 冻结)
+//   [5]=rho0 [6]=spiky_grad_coef [7]=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×8) / 1 pos_in_x / 2 pos_in_y / 3 pos_in_z
+//   (View f32×n,上迭代位置) / 4 lambda(View f32×n) / 5 sorted_idx
+//   (View u32×n) / 6 cell_start(View u32×262144) / 7 cell_end(View
+//   u32×262144) / 8 pos_out_x / 9 pos_out_y / 10 pos_out_z(ViewMut f32×n)。
+//   dispatch = [n, 1, 1](LocalSize 1,1,1 一粒子一 invocation)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_xpbd_apply(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    pos_in_x: View<global, f32>,
+    pos_in_y: View<global, f32>,
+    pos_in_z: View<global, f32>,
+    lambda: View<global, f32>,
+    sorted_idx: View<global, u32>,
+    cell_start: View<global, u32>,
+    cell_end: View<global, u32>,
+    pos_out_x: ViewMut<global, f32>,
+    pos_out_y: ViewMut<global, f32>,
+    pos_out_z: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    let ox = params[1];
+    let oy = params[2];
+    let oz = params[3];
+    let h = params[4];
+    let rho0 = params[5];
+    let spiky = params[6];
+    if i < n {
+        let h2 = h * h;
+        let bx1 = ox + 64.0 * h;
+        let by1 = oy + 64.0 * h;
+        let bz1 = oz + 64.0 * h;
+        let pix = pos_in_x[i];
+        let piy = pos_in_y[i];
+        let piz = pos_in_z[i];
+        let li = lambda[i];
+        // cell 坐标(floor + f32 域 clamp;g35_hash_cellkey.rx 同式)。
+        let mut fx = ((pix - ox) / h).floor();
+        if fx < 0.0 {
+            fx = 0.0;
+        }
+        if fx > 63.0 {
+            fx = 63.0;
+        }
+        let cx = fx as usize;
+        let mut fy = ((piy - oy) / h).floor();
+        if fy < 0.0 {
+            fy = 0.0;
+        }
+        if fy > 63.0 {
+            fy = 63.0;
+        }
+        let cy = fy as usize;
+        let mut fz = ((piz - oz) / h).floor();
+        if fz < 0.0 {
+            fz = 0.0;
+        }
+        if fz > 63.0 {
+            fz = 63.0;
+        }
+        let cz = fz as usize;
+        let mut dx = 0.0;
+        let mut dy = 0.0;
+        let mut dz = 0.0;
+        // 27-cell 固定序 gather(g35_xpbd_density.rx 逐字同构)。
+        let mut oz_c = 0usize;
+        while oz_c < 3usize {
+            let zz = cz + oz_c;
+            if zz >= 1usize && zz <= 64usize {
+                let ncz = zz - 1usize;
+                let mut oy_c = 0usize;
+                while oy_c < 3usize {
+                    let yy = cy + oy_c;
+                    if yy >= 1usize && yy <= 64usize {
+                        let ncy = yy - 1usize;
+                        let mut ox_c = 0usize;
+                        while ox_c < 3usize {
+                            let xx = cx + ox_c;
+                            if xx >= 1usize && xx <= 64usize {
+                                let ncx = xx - 1usize;
+                                let c = (ncz * 64usize + ncy) * 64usize + ncx;
+                                let mut s = cell_start[c] as usize;
+                                let e = cell_end[c] as usize;
+                                while s < e {
+                                    let j = sorted_idx[s] as usize;
+                                    let rx = pix - pos_in_x[j];
+                                    let ry = piy - pos_in_y[j];
+                                    let rz = piz - pos_in_z[j];
+                                    let r2 = rx * rx + ry * ry + rz * rz;
+                                    if r2 < h2 && r2 > 0.0 {
+                                        let r = r2.sqrt();
+                                        let hr = h - r;
+                                        let sgc = spiky * (hr * hr) / r;
+                                        let fs = (li + lambda[j]) * sgc;
+                                        dx = dx + fs * rx;
+                                        dy = dy + fs * ry;
+                                        dz = dz + fs * rz;
+                                    }
+                                    s = s + 1usize;
+                                }
+                            }
+                            ox_c = ox_c + 1usize;
+                        }
+                    }
+                    oy_c = oy_c + 1usize;
+                }
+            }
+            oz_c = oz_c + 1usize;
+        }
+        // Δp = (1/ρ0)Σ(λᵢ+λⱼ)∇W;clamp 序冻结 .max(lo).min(hi)。
+        let px2 = pix + dx / rho0;
+        let py2 = piy + dy / rho0;
+        let pz2 = piz + dz / rho0;
+        pos_out_x[i] = px2.max(ox).min(bx1);
+        pos_out_y[i] = py2.max(oy).min(by1);
+        pos_out_z[i] = pz2.max(oz).min(bz1);
+    }
+}

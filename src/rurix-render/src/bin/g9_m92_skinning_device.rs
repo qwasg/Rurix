@@ -126,7 +126,11 @@ fn run_pose_on_device(
     for (ci, p) in packs.iter().enumerate() {
         let base = (ci as u32) * 10;
         passes.push(Pass::Compute(ComputePass {
-            name: if ci == 0 { "m92_skin_c0" } else { "m92_skin_c1" },
+            name: if ci == 0 {
+                "m92_skin_c0"
+            } else {
+                "m92_skin_c1"
+            },
             spirv: spv,
             entry: Some("main"),
             dispatch: DispatchSpec::Direct([p.n_vertices, 1, 1]),
@@ -229,7 +233,10 @@ fn main() {
     );
 
     let fixture = m92_fixture();
-    let spv = spv_bytes(&skin_kernel::m92_skin_spv(M92_INFLUENCES, M92_CLUSTER_BONES));
+    let spv = spv_bytes(&skin_kernel::m92_skin_spv(
+        M92_INFLUENCES,
+        M92_CLUSTER_BONES,
+    ));
     let mut failures: Vec<String> = Vec::new();
 
     // ── 步骤 1:双腿(两趟完整运行)× 全姿态:device kernel 真跑 + host 参照对拍 ──
@@ -271,13 +278,11 @@ fn main() {
                 let dev_nrm = skin_kernel::decode_vec3s(&out[ci][1], c.vertices.len());
                 let dev_bound = skin_kernel::decode_bound(&out[ci][2]);
                 // 逐顶点对拍(定点域容差 0 = 位级全等;RXS-0353 L1 核心句)。
-                if let Err(e) =
-                    bitexact_compare(&format!("P{pi}C{ci} 位置"), &dev_pos, &host_pos)
+                if let Err(e) = bitexact_compare(&format!("P{pi}C{ci} 位置"), &dev_pos, &host_pos)
                 {
                     fail(&e);
                 }
-                if let Err(e) =
-                    bitexact_compare(&format!("P{pi}C{ci} 法向"), &dev_nrm, &host_nrm)
+                if let Err(e) = bitexact_compare(&format!("P{pi}C{ci} 法向"), &dev_nrm, &host_nrm)
                 {
                     fail(&e);
                 }
@@ -606,8 +611,7 @@ fn main() {
                 let host_pos = skin_cluster(&float_input, &pose2).expect("host 浮点蒙皮");
                 for (d, h) in dev_pos.iter().zip(host_pos.iter()) {
                     for k in 0..3 {
-                        float_max_abs =
-                            float_max_abs.max(f64::from((d[k] - h[k]).abs()));
+                        float_max_abs = float_max_abs.max(f64::from((d[k] - h[k]).abs()));
                         float_max_ulp = float_max_ulp.max(ulp_diff(d[k], h[k]));
                     }
                 }
@@ -711,11 +715,7 @@ fn main() {
         println!(
             "G9_M92_SKIN: PASS run_digest={} validation={}",
             hex(&run_digests[0]),
-            if validation_on {
-                "on(error=0)"
-            } else {
-                "off"
-            }
+            if validation_on { "on(error=0)" } else { "off" }
         );
         std::process::exit(0);
     }

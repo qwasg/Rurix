@@ -7,7 +7,7 @@
 //!
 //! 零新 RX 码:扩 RX3012 / RX3013 / RX3017(与 mesh 入口标注同族)。
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use rurix_pkg::sha256;
 
@@ -961,6 +961,36 @@ pub fn build_rt_manifest_json(file: &crate::ast::SourceFile, src: &str) -> Resul
         return Err("rt-manifest: hit_groups[] must be non-empty".into());
     }
 
+    // required capabilities 隐式推导(RXS-0311 映射表 / RXS-0322 shader_record →
+    // rt.sbt_user_data;「漏推导即实现 bug」——不得恒 ["rt.pipeline"]):
+    // stage 映射(raygen/miss/closesthit → rt.pipeline,本 builder 入场前提即含) +
+    // 组内 anyhit/intersection/callable 各阶段映射 + 任一阶段 fn 携带
+    // `#[shader_record]` 形参 → rt.sbt_user_data。排序 ID 表(BTreeSet 字典序)。
+    let mut caps: BTreeSet<&'static str> = BTreeSet::new();
+    caps.insert("rt.pipeline");
+    if groups.values().any(|g| g.has_anyhit) {
+        caps.insert("rt.any_hit");
+    }
+    if groups.values().any(|g| g.has_intersection) {
+        caps.insert("rt.intersection.procedural");
+    }
+    if !callables.is_empty() {
+        caps.insert("rt.callable");
+    }
+    fn any_shader_record_param(items: &[Item]) -> bool {
+        items.iter().any(|it| match &it.kind {
+            ItemKind::Fn(f) => {
+                f.stage.is_some() && f.params.iter().any(|p| param_has_shader_record(&p.attrs))
+            }
+            ItemKind::Mod(m) => any_shader_record_param(&m.items),
+            _ => false,
+        })
+    }
+    if any_shader_record_param(&file.items) {
+        caps.insert("rt.sbt_user_data");
+    }
+    let caps_json: Vec<String> = caps.iter().map(|c| format!("\"{c}\"")).collect();
+
     let payload_hash = payload_fields
         .as_ref()
         .map(|f| hex32(&record_schema_hash(f)))
@@ -1015,11 +1045,12 @@ pub fn build_rt_manifest_json(file: &crate::ast::SourceFile, src: &str) -> Resul
          \"hit_groups\": [\n{hit_json}\n  ],\n  \
          \"callables\": [{}],\n  \
          \"payload_schema_hash\": \"{payload_hash}\",\n  \
-         \"required_capabilities\": [\"rt.pipeline\"],\n  \
+         \"required_capabilities\": [{}],\n  \
          \"recursion\": 1,\n  \
          \"interface_hash\": \"{interface_hash}\"\n}}\n",
         miss_json.join(", "),
         call_json.join(", "),
+        caps_json.join(", "),
     ))
 }
 
@@ -1118,5 +1149,50 @@ mod tests {
              fn main() {}",
         );
         assert!(c.contains(&3013), "{c:?}");
+    }
+
+    //@ spec: RXS-0322, RXS-0323
+    #[test]
+    fn manifest_required_capabilities_derives_sbt_user_data() {
+        // RXS-0311 隐式推导映射:任一阶段 fn 携带 `#[shader_record]` 形参 →
+        // rt.sbt_user_data 必入 manifest required_capabilities(「漏推导即实现 bug」
+        // 防线;G31+ 波 C Task C15 修复同落)。
+        let src = "struct P { c: f32 }\n\
+             struct Rec { rc: f32, ab: f32 }\n\
+             raygen fn rg(tlas: AccelStruct, #[payload] p: &mut P) { let _ = (tlas, p); }\n\
+             miss fn ms(#[payload] p: &mut P) { let _ = p; }\n\
+             #[hit_group(mat_a)]\n\
+             closesthit fn ch(#[payload] p: &mut P, #[shader_record] r: &Rec) { let _ = (p, r); }\n\
+             fn main() {}";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        let json = super::build_rt_manifest_json(cx.ast(), src).expect("manifest json");
+        assert!(json.contains("\"rt.pipeline\""), "{json}");
+        assert!(json.contains("\"rt.sbt_user_data\""), "{json}");
+        // 排序 ID 表(BTreeSet 字典序):rt.pipeline 在 rt.sbt_user_data 前。
+        let ip = json.find("\"rt.pipeline\"").unwrap();
+        let is = json.find("\"rt.sbt_user_data\"").unwrap();
+        assert!(ip < is, "{json}");
+    }
+
+    //@ spec: RXS-0323
+    #[test]
+    fn manifest_required_capabilities_without_record_stays_pipeline_only() {
+        // 无 shader_record / 无 anyhit / 无 intersection / 无 callable →
+        // 恰 ["rt.pipeline"](不膨胀)。
+        let src = "struct P { c: f32 }\n\
+             raygen fn rg(tlas: AccelStruct, #[payload] p: &mut P) { let _ = (tlas, p); }\n\
+             miss fn ms(#[payload] p: &mut P) { let _ = p; }\n\
+             #[hit_group(tri_main)]\n\
+             closesthit fn ch(#[payload] p: &mut P) { let _ = p; }\n\
+             fn main() {}";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        let json = super::build_rt_manifest_json(cx.ast(), src).expect("manifest json");
+        assert!(
+            json.contains("\"required_capabilities\": [\"rt.pipeline\"]"),
+            "{json}"
+        );
+        assert!(!json.contains("rt.sbt_user_data"), "{json}");
     }
 }

@@ -836,8 +836,8 @@ pub fn shadow_tris_from_visible_set(
         let slot = skin_slot_of[e.cluster as usize];
         let position_of = |local: u32| {
             if slot != u32::MAX {
-                skin.expect("skin_slot_of 指派槽位时 skin cache 必须在场").slots
-                    [slot as usize]
+                skin.expect("skin_slot_of 指派槽位时 skin cache 必须在场")
+                    .slots[slot as usize]
                     .positions[local as usize]
             } else {
                 vertices[(c.vertex_offset + local) as usize]

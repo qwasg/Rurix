@@ -30,8 +30,22 @@ fn main() {
         });
 
     let lights = fixture_lights(64);
-    let rep1 = variance_experiment(&lights, M_CANDIDATES, N_TRIALS, TEMPORAL_FRAMES, M_CAP, SEED);
-    let rep2 = variance_experiment(&lights, M_CANDIDATES, N_TRIALS, TEMPORAL_FRAMES, M_CAP, SEED);
+    let rep1 = variance_experiment(
+        &lights,
+        M_CANDIDATES,
+        N_TRIALS,
+        TEMPORAL_FRAMES,
+        M_CAP,
+        SEED,
+    );
+    let rep2 = variance_experiment(
+        &lights,
+        M_CANDIDATES,
+        N_TRIALS,
+        TEMPORAL_FRAMES,
+        M_CAP,
+        SEED,
+    );
     let double_run_bitexact = rep1 == rep2;
 
     // 无偏 3σ 检验（σ_mean = sqrt(var/n)）
@@ -71,10 +85,14 @@ fn main() {
          \"double_run_bitexact\":{double_run_bitexact},\
          \"notes\":\"ReSTIR 高档 reservoir host 参考臂：WRS/RIS 无偏权 + 时域 M-cap 合并；等验证预算 measured 方差对照；M100 低档面 0-byte\"}}",
         rep1.reference,
-        rep1.uniform_mean, rep1.uniform_var,
-        rep1.ris_mean, rep1.ris_var,
-        rep1.ris_temporal_mean, rep1.ris_temporal_var,
-        rep1.variance_reduction, rep1.temporal_reduction,
+        rep1.uniform_mean,
+        rep1.uniform_var,
+        rep1.ris_mean,
+        rep1.ris_var,
+        rep1.ris_temporal_mean,
+        rep1.ris_temporal_var,
+        rep1.variance_reduction,
+        rep1.temporal_reduction,
     );
     if let Some(parent) = std::path::Path::new(&out_path).parent() {
         let _ = std::fs::create_dir_all(parent);

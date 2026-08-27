@@ -34,14 +34,14 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::display::hair::{
-    assert_lobe_wired, bake_strand_replacement, canonical_marschner, canonical_sweep,
+    HairError, HairLobes, HairTier, STRAND_TIER_ANCHOR, StrandTierStatus, TranslucencyPath,
+    ZeroLobe, assert_lobe_wired, bake_strand_replacement, canonical_marschner, canonical_sweep,
     canonical_switch_table, hair_params_from_side_table, lobe_digests, marschner_lobes_zeroed,
     max_total_lobe_energy, register_strand_tier, replacement_digest, request_strand_translucency,
-    tier_for_distance, tier_translucency_path, HairError, HairLobes, HairTier,
-    StrandTierStatus, TranslucencyPath, ZeroLobe, STRAND_TIER_ANCHOR,
+    tier_for_distance, tier_translucency_path,
 };
 use rurix_render::material::side_table::{
-    side_table_signature, verify_side_table, LobeExtension, MaterialSideTable, SideTableError,
+    LobeExtension, MaterialSideTable, SideTableError, side_table_signature, verify_side_table,
 };
 use std::path::PathBuf;
 
@@ -159,7 +159,10 @@ fn combined_digest(sweep: &[HairLobes]) -> [u8; 32] {
 }
 
 /// 置零扫描(harness 面;与模块单测同形态)。
-fn sweep_zeroed(params: &rurix_render::material::side_table::MarschnerParams, zero: ZeroLobe) -> Vec<HairLobes> {
+fn sweep_zeroed(
+    params: &rurix_render::material::side_table::MarschnerParams,
+    zero: ZeroLobe,
+) -> Vec<HairLobes> {
     let mut out = Vec::new();
     let mut ti = -0.6f32;
     while ti <= 0.6f32 {
@@ -177,7 +180,8 @@ fn sweep_zeroed(params: &rurix_render::material::side_table::MarschnerParams, ze
 /// canonical 侧表(槽 0 = 毛发 Marschner 参数集;材质表长 1)。
 fn canonical_side_table() -> MaterialSideTable {
     let mut t = MaterialSideTable::new();
-    t.insert(0, LobeExtension::Marschner(canonical_marschner()), 1).expect("insert");
+    t.insert(0, LobeExtension::Marschner(canonical_marschner()), 1)
+        .expect("insert");
     t
 }
 
@@ -187,7 +191,8 @@ fn red_arm_lobe_tt_zeroed() -> Result<(), String> {
     let full_d = combined_digest(&canonical_sweep(&p));
     for zero in [ZeroLobe::R, ZeroLobe::Tt, ZeroLobe::Trt] {
         let zd = combined_digest(&sweep_zeroed(&p, zero));
-        assert_lobe_wired(&full_d, &zd, zero).map_err(|e| format!("{} 瓣置零无差异: {e}", zero.as_str()))?;
+        assert_lobe_wired(&full_d, &zd, zero)
+            .map_err(|e| format!("{} 瓣置零无差异: {e}", zero.as_str()))?;
     }
     // sabotage:置零前后 digest 相同必须判管线未接通 RED。
     match assert_lobe_wired(&full_d, &full_d, ZeroLobe::Tt) {
@@ -199,7 +204,9 @@ fn red_arm_lobe_tt_zeroed() -> Result<(), String> {
 /// RED 臂:strand 档排序依赖缺失(请求排序 fallback / 默认半透明路径)。
 fn red_arm_strand_sorted_fallback() -> Result<(), String> {
     match request_strand_translucency(TranslucencyPath::SortedFallback) {
-        Err(HairError::StrandTierRequiresExactOit { requested: "sorted_fallback" }) => {}
+        Err(HairError::StrandTierRequiresExactOit {
+            requested: "sorted_fallback",
+        }) => {}
         other => return Err(format!("strand 排序 fallback 未拒: {other:?}")),
     }
     match request_strand_translucency(TranslucencyPath::DefaultTranslucent) {
@@ -221,14 +228,21 @@ fn red_arm_side_table_overreach() -> Result<(), String> {
     }
     let mut wrong = MaterialSideTable::new();
     wrong
-        .insert(0, LobeExtension::Burley(rurix_render::material::side_table::BurleyProfile { falloff_rgb: [0.5, 0.3, 0.2] }), 1)
+        .insert(
+            0,
+            LobeExtension::Burley(rurix_render::material::side_table::BurleyProfile {
+                falloff_rgb: [0.5, 0.3, 0.2],
+            }),
+            1,
+        )
         .map_err(|e| format!("burley 注册: {e}"))?;
     match hair_params_from_side_table(&wrong, 0) {
         Err(HairError::SideTable(_)) => {}
         other => return Err(format!("误挂 Burley 扩展未拒: {other:?}")),
     }
     // sabotage:合法 Marschner 槽必须可取。
-    hair_params_from_side_table(&canonical_side_table(), 0).map_err(|e| format!("合法槽被误拒: {e}"))?;
+    hair_params_from_side_table(&canonical_side_table(), 0)
+        .map_err(|e| format!("合法槽被误拒: {e}"))?;
     Ok(())
 }
 
@@ -262,9 +276,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -287,7 +303,9 @@ fn main() {
     let table = canonical_side_table();
     let sig = side_table_signature(&table);
     let table_ok = verify_side_table(&table, &sig).is_ok()
-        && hair_params_from_side_table(&table, 0).map(|p| p == canonical_marschner()).unwrap_or(false);
+        && hair_params_from_side_table(&table, 0)
+            .map(|p| p == canonical_marschner())
+            .unwrap_or(false);
     if !table_ok {
         failures.push("侧表通道消费失败".into());
     }
@@ -378,7 +396,9 @@ fn main() {
             let frozen = json_str(t, key).unwrap_or_else(|| fail(&format!("冻结带缺 {key}")));
             if frozen != actual {
                 golden_ok = false;
-                failures.push(format!("golden 漂移: {key}(frozen={frozen} actual={actual})"));
+                failures.push(format!(
+                    "golden 漂移: {key}(frozen={frozen} actual={actual})"
+                ));
             }
         }
     }
@@ -417,7 +437,10 @@ fn main() {
     let checks: [(&str, bool); 12] = [
         ("conformance_corpus_anchored", corpus_ok),
         ("side_table_channel_consumed", table_ok),
-        ("marschner_three_lobes_per_lobe_golden", golden_ok || args.freeze),
+        (
+            "marschner_three_lobes_per_lobe_golden",
+            golden_ok || args.freeze,
+        ),
         ("lobe_energy_conservation", energy_ok),
         ("geometry_three_tiers_closed", tiers_ok),
         ("strand_replacement_bake_deterministic", bake_ok),
@@ -425,11 +448,20 @@ fn main() {
         ("m120_measurements_availability_recorded", m120_data_ok),
         ("double_run_bit_equal", double_run_ok),
         ("golden_frozen_equal", golden_ok || args.freeze),
-        ("red_arm_lobe_zeroed_and_strand_sorted", red_lobe_ok && red_strand_ok),
+        (
+            "red_arm_lobe_zeroed_and_strand_sorted",
+            red_lobe_ok && red_strand_ok,
+        ),
         ("red_arm_side_table_overreach", red_table_ok),
     ];
-    let checks_json: Vec<String> = checks.iter().map(|(n, ok)| format!("\"{n}\": {ok}")).collect();
-    let failures_json: Vec<String> = failures.iter().map(|f| format!("\"{}\"", json_escape(f))).collect();
+    let checks_json: Vec<String> = checks
+        .iter()
+        .map(|(n, ok)| format!("\"{n}\": {ok}"))
+        .collect();
+    let failures_json: Vec<String> = failures
+        .iter()
+        .map(|f| format!("\"{}\"", json_escape(f)))
+        .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
     let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(

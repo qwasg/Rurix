@@ -1,0 +1,92 @@
+{
+  "schema": "rurix.g31.support_policy_evidence.v1",
+  "subject": "g31_support_policy",
+  "symbolic_gate_key": "g31.waveC.support",
+  "wave": "G31+.C",
+  "facts": [
+    {
+      "id": "docs_present_with_anchors",
+      "status": "PASS",
+      "detail": "support_policy=节 18/18 字面 19/19; release_checklist=节 10/10 字面 16/16"
+    },
+    {
+      "id": "referenced_ci_scripts_exist",
+      "status": "PASS",
+      "detail": "文档引用 ci 脚本 27 件全部在树"
+    },
+    {
+      "id": "referenced_surfaces_exist",
+      "status": "PASS",
+      "detail": "引用面 19 件全部在树"
+    },
+    {
+      "id": "version_policy_matches_stable_snapshot",
+      "status": "PASS",
+      "detail": "五面同一字面（1.0.0 / 9 导出 / renderer_sdk_api 段）"
+    },
+    {
+      "id": "security_response_mirrored",
+      "status": "PASS",
+      "detail": "镜像四要素 + 渲染器三特有面 + SECURITY 双件增补段锚全在场"
+    },
+    {
+      "id": "pending_items_honestly_marked",
+      "status": "PASS",
+      "detail": "C5/C6/C7/G-MB1-6/SLA 待建立在飞登记全在场"
+    },
+    {
+      "id": "frozen_docs_untouched",
+      "status": "PASS",
+      "detail": "00~14 号根冻结规划文档 15 件零改动（git status --porcelain 机核）"
+    }
+  ],
+  "docs": {
+    "support_policy": {
+      "path": "docs/renderer/support_policy.md",
+      "bytes": 11885,
+      "headings_present": 18,
+      "headings_required": 18,
+      "numbers_present": 19,
+      "numbers_required": 19
+    },
+    "release_checklist": {
+      "path": "docs/renderer/release_checklist.md",
+      "bytes": 6608,
+      "headings_present": 10,
+      "headings_required": 10,
+      "numbers_present": 16,
+      "numbers_required": 16
+    }
+  },
+  "references": {
+    "ci_scripts_found": 27,
+    "ci_scripts_missing": 0,
+    "surfaces_found": 19,
+    "surfaces_missing": 0
+  },
+  "version_policy": {
+    "stable_snapshot_section": "renderer_sdk_api",
+    "lib_abi_version": "1.0.0",
+    "snapshot_abi_version": "1.0.0",
+    "snapshot_export_count": 9,
+    "policy_doc_version_literal": "1.0.0"
+  },
+  "security": {
+    "security_md_anchor_present": true,
+    "security_en_anchor_present": true,
+    "policy_mirror_tokens_present": 4,
+    "policy_mirror_tokens_required": 4
+  },
+  "frozen_docs": {
+    "checked": 15,
+    "violations": 0,
+    "method": "git status --porcelain 非 ?? 状态命中冻结清单即违例（00~14 号根规划文档 15 件）"
+  },
+  "environment": {
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T130851Z",
+  "notes": "G31+ 波 C Task C8 支持渠道与版本政策门（G31_PLUS §5 #55 兑现面）：两文档节锚 + 在案 字面防腐化 + 引用 ci 脚本/仓内面存在性机器核验 + 版本政策五面同一字面（lib.rs 程序读 1.0.0 ≡ snapshot abi_version/export_count=9 ≡ API_VERSIONING.md ≡ 政策文档）+ 安全响应 镜像 SECURITY.md 四要素与渲染器三特有面 + SECURITY 双件增补段锚 + 待建立/在飞诚实登记 + 00~14 冻结文档零触碰。全门 host 恒跑面，无 DEV_ENV_DEGRADE 降级。facts: docs_present_with_anchors=PASS; referenced_ci_scripts_exist=PASS; referenced_surfaces_exist=PASS; version_policy_matches_stable_snapshot=PASS; security_response_mirrored=PASS; pending_items_honestly_marked=PASS; frozen_docs_untouched=PASS"
+}

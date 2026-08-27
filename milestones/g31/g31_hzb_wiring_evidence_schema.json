@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_hzb_wiring HZB 遮挡剔除生产接线 + 两阶段闭环第二段门证据",
+  "description": "G31+ 波 B Task B1：g27_hzb_reduce/g27_hzb_test（本体 0-byte）接进生产管线——bistro 逐 mesh 节点 BLAS 分解（1186 实例）+ 双 TLAS（初剔表 0 供相机射线/全量表 1 供阴影射线）+ 帧内金字塔轮换（上帧金字塔初剔 → 本帧真深度重建 → 上帧被剔集重测）+ 误剔闭环重渲。判据闭集：①G27 门维持（mips 位级全等 + 800 rect 判定序列全等 + 零假阳性 + 双跑位级 + tamper RED + 冻结面 0-byte，接线态复跑全绿）；②接线态对拍（probe 帧 hzb.parity 三块：pyramid/verdict digest 与 host 金标准位级全等 + false_positives=0）；③剔除像素中性门（可见集一致性：--hzb on vs RURIX_HZB_ALL_VISIBLE=1 全集渲染臂 digest_seq 逐帧位级一致——剔除不改变可见像素）；④on/off 关系如实登记（分解/双 TLAS 结构 ULP 噪声，位级全等结构上不可达，mismatch 计数登记不设通过线）；⑤measured 对照（bistro 1080p 静态相机 off/on 各 ≥100 帧 real_render_frame_ms，数字来自真实命令输出，如实登记不设通过线——G6 无硬门纪律）；⑥off 面静态锚零漂移（首跑程序产追加，复跑位级期望）+ geometry 三文件 vs g26-closed 与 g27 两 kernel vs g27-closed 0-byte 机核。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "gate_maintenance",
+    "wired_parity",
+    "culling_neutrality",
+    "on_off_relation",
+    "occlusion",
+    "frame_ms_compare",
+    "off_static_anchor",
+    "frozen_surfaces",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.hzb_wiring_smoke_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_hzb_wiring"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveB.hzb"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.B"
+    },
+    "scene_id": {
+      "type": "string",
+      "const": "bistro-interior"
+    },
+    "gate_maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "verdict",
+        "mips_bitexact",
+        "verdict_sequence_equal",
+        "zero_false_positive",
+        "device_double_run_bitexact",
+        "tamper_red_arm_detected",
+        "geometry_frozen_0byte",
+        "evidence"
+      ],
+      "properties": {
+        "state": {"type": "string", "const": "pass"},
+        "verdict": {"type": "string", "const": "PASS"},
+        "mips_bitexact": {"type": "boolean", "const": true},
+        "verdict_sequence_equal": {"type": "boolean", "const": true},
+        "zero_false_positive": {"type": "boolean", "const": true},
+        "device_double_run_bitexact": {"type": "boolean", "const": true},
+        "tamper_red_arm_detected": {"type": "boolean", "const": true},
+        "geometry_frozen_0byte": {"type": "boolean", "const": true},
+        "evidence": {"type": "string", "description": "G27 门维持腿 evidence 路径（接线态复跑产）"}
+      }
+    },
+    "wired_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mips_bitexact",
+        "verdict_sequence_equal",
+        "false_positives",
+        "pyramid_digest_equal_host",
+        "verdict_digest_equal_host",
+        "pyramid_digest",
+        "verdict_digest"
+      ],
+      "properties": {
+        "mips_bitexact": {"type": "boolean", "const": true},
+        "verdict_sequence_equal": {"type": "boolean", "const": true},
+        "false_positives": {"type": "integer", "const": 0},
+        "pyramid_digest_equal_host": {"type": "boolean", "const": true},
+        "verdict_digest_equal_host": {"type": "boolean", "const": true},
+        "pyramid_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "verdict_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "culling_neutrality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trajectory",
+        "frames",
+        "warmup",
+        "seq_len",
+        "on_vs_all_visible_seq_bitexact",
+        "mismatch_count"
+      ],
+      "properties": {
+        "trajectory": {"type": "string", "const": "orbit"},
+        "frames": {"type": "integer", "minimum": 8},
+        "warmup": {"type": "integer", "minimum": 2},
+        "seq_len": {"type": "integer", "minimum": 10},
+        "on_vs_all_visible_seq_bitexact": {
+          "type": "boolean",
+          "const": true,
+          "description": "剔除像素中性机核门：--hzb on vs RURIX_HZB_ALL_VISIBLE=1 全集渲染臂 digest_seq 逐帧位级一致（剔除不改变可见像素 = 可见集一致性结构判据）"
+        },
+        "mismatch_count": {"type": "integer", "const": 0}
+      }
+    },
+    "on_off_relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "on_digest",
+        "off_digest",
+        "digest_seq_bitexact",
+        "mismatch_frames",
+        "seq_len",
+        "structural_note"
+      ],
+      "properties": {
+        "on_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "off_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "digest_seq_bitexact": {
+          "type": "boolean",
+          "description": "on/off digest_seq 位级全等与否（分解/双 TLAS 结构 ULP 噪声 ⇒ false 为预期登记态;剔除中性由 culling_neutrality 钉死）"
+        },
+        "mismatch_frames": {"type": "integer", "minimum": 0},
+        "seq_len": {"type": "integer", "minimum": 10},
+        "structural_note": {"type": "string"}
+      }
+    },
+    "occlusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tested_p1",
+        "occluded_p1",
+        "offscreen",
+        "retested_p2",
+        "flipped_p2",
+        "closure_frames",
+        "closure_extra_submits",
+        "closure_full_fallbacks",
+        "visible_mean",
+        "culling_active"
+      ],
+      "properties": {
+        "tested_p1": {"type": "integer", "minimum": 1},
+        "occluded_p1": {"type": "integer", "minimum": 1, "description": "剔除真实发生（>0 硬判据——零剔除即空接线冒充）"},
+        "offscreen": {"type": "integer", "minimum": 0},
+        "retested_p2": {"type": "integer", "minimum": 0},
+        "flipped_p2": {"type": "integer", "minimum": 0},
+        "closure_frames": {"type": "integer", "minimum": 0},
+        "closure_extra_submits": {"type": "integer", "minimum": 0},
+        "closure_full_fallbacks": {"type": "integer", "minimum": 0},
+        "visible_mean": {"type": "number", "exclusiveMinimum": 0},
+        "culling_active": {"type": "boolean", "const": true}
+      }
+    },
+    "frame_ms_compare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_mean", "on_over_off", "frames", "warmup", "note"],
+      "properties": {
+        "off_mean": {"type": "number", "exclusiveMinimum": 0},
+        "on_mean": {"type": "number", "exclusiveMinimum": 0},
+        "on_over_off": {"type": "number", "exclusiveMinimum": 0},
+        "frames": {"type": "integer", "minimum": 100},
+        "warmup": {"type": "integer", "minimum": 1},
+        "note": {"type": "string"}
+      }
+    },
+    "off_static_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "zero_drift", "program_produced_first_run"],
+      "properties": {
+        "path": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "zero_drift": {"type": "boolean", "const": true},
+        "program_produced_first_run": {"type": "boolean"}
+      }
+    },
+    "frozen_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "geometry_files_0byte_vs_g26_closed",
+        "g27_kernels_0byte_vs_g27_closed"
+      ],
+      "properties": {
+        "geometry_files_0byte_vs_g26_closed": {"type": "boolean", "const": true},
+        "g27_kernels_0byte_vs_g27_closed": {"type": "boolean", "const": true}
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,56 @@
+//@ spec: RFC-0049 §4.8(G35-4 半透明双臂 · 排序臂 tile 区间;spec 条款号本期零新设)
+// G35-4 半透明排序臂 · tilerange —— 排序键流 tile 段区间边界检测(门
+// g35.wave4.sort_oit;host 金标准 = particles/oit_arms.rs::oit_tile_ranges
+// **逐字同源**;形态先例 = kernels/g35_hash_cellrange.rx)。
+//
+// ## 架构(确定性协议:单写者 = 确定,零原子;sorted 臂 pass 组第 12 步,
+// 后于 W1 sort 3-pass 先于 blend)
+// **与 g35_hash_cellrange.rx 的分岔(不可直用理由)**:cellrange 按**完整键**
+// 分组(keys[i] ≠ keys[i±1]),本臂区间域 = **tile 段** = keys[i]/4096
+// (复合键高位 tile_id;同 tile 内 depth 段各异仍须归同一区间)——故自写
+// 同形 kernel,分组判据换 usize 除段。逐 sorted 位置 i:
+//   i == 0 ∨ keys[i−1]/4096 ≠ keys[i]/4096 ⇒ tile_start[keys[i]/4096] = i;
+//   i == n−1 ∨ keys[i+1]/4096 ≠ keys[i]/4096 ⇒ tile_end[keys[i]/4096] = i+1。
+// 每 tile 的 start/end 各恰一写者(排序后同段连续 ⇒ 边界唯一)⇒ 与线程调度
+// 无关;未触 tile 保持 g35_hash_clear.rx 清扫哨兵(start=0xFFFFFFFF,end=0,
+// 0-byte 消费面)= 空区间 while 零次直落。溢出 tile(tile_cnt)条目落尾亦
+// 得区间——blend 侧像素 tile_id < tile_cnt 恒不取。纯 u32/usize 整数面 ⇒
+// device↔host 零容差位级(mod.rs 整数域协议;键域 < 2^24 由 g35_oit_tilekey
+// 构造保证)。
+//
+// ## 参数面(4 f32——0-byte 复用 sort params p0 缓冲,只消费 [0];
+//   n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 4)
+//   params[0]=n(= 本帧 total) [1]=nseg [2]=dpow [3]=reserved(本 kernel
+//   [1..4) 不消费——与 g35_sort_hist p0 腿共享上传,布局单源 bin 头注)。
+//   SSBO 序:0 params(View f32×4) / 1 sorted_keys(View u32×cap,3-pass
+//   产物 keys_b) / 2 tile_start(ViewMut u32×(tile_cnt+1)) /
+//   3 tile_end(ViewMut u32×(tile_cnt+1))。
+//   dispatch = [cap, 1, 1](Direct 上界,守卫 i < n;LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_oit_tilerange(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    sorted_keys: View<global, u32>,
+    tile_start: ViewMut<global, u32>,
+    tile_end: ViewMut<global, u32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    if i < n {
+        let g = sorted_keys[i] as usize / 4096usize;
+        if i == 0usize {
+            tile_start[g] = i as u32;
+        } else {
+            if sorted_keys[i - 1usize] as usize / 4096usize != g {
+                tile_start[g] = i as u32;
+            }
+        }
+        if i == n - 1usize {
+            tile_end[g] = (i + 1usize) as u32;
+        } else {
+            if sorted_keys[i + 1usize] as usize / 4096usize != g {
+                tile_end[g] = (i + 1usize) as u32;
+            }
+        }
+    }
+}

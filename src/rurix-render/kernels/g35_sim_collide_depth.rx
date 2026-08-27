@@ -1,0 +1,131 @@
+//@ spec: RFC-0049 §4.7(G35-5 粒子碰撞与力场;spec 条款号本期零新设)
+// G35-P 粒子碰撞 · sim_collide_depth —— 力场 + 深度缓冲碰撞**对照臂**(门
+// g35.wave5.collision;显式降级链 --collision 第二档 depth_buffer 与第三档
+// off 的 device 承载体;kernels/g35_sim.rx 0-byte 不动)。
+//
+// ## 架构(对照教育臂非生产档;屏幕空间局限如实登记)
+// 公式面与 host 金标准 `particles/collision.rs::depth_collide_step` **逐字
+// 同源**:① 力场(g35_sim_collide.rx 同段逐字:vel += (g+wind)·dt;
+// vel ×= (1−drag·dt))② 积分候选点 q = pos + vel·dt ③ q.xz 投固定正交
+// 俯视深度图(host 合成上传:逐格俯视最高地形 y;域外 = miss;负域先判
+// 再转 usize——ConvertFToU 负域未定义,host 同守卫)④ q.y < 格高 h →
+// **同式响应、法线取 +y 简化**:c = (qx, h, qz);pos' = c + n·eps
+// (eps = 0.001 冻结);v_n = (0, vy, 0);v_t = (vx, 0, vz);vel' =
+// (mu_t·vx, 0 − e·vy, mu_t·vz);age 照常。未命中 pos = q。
+// **局限登记**(头注如实):俯视单层高度场不可表达垂直侧面/悬空底面/多层
+// 几何——侧向逼近被错误弹到格顶;斜面上 +y 非真实法线;深度图分辨率
+// 阶梯化。故本档为对照教育臂,生产碰撞走 ray_query 档(g35_sim_collide.rx
+// 同帧 TLAS)。**res == 0 = 显式 off 档**(降级链第三档):跳过全部投影/
+// 响应,纯力场 + 积分(host DepthGrid{res:0} 同义)。
+// 逐粒子独立、无原子、随机零消费;f32 流走标定容差协议(g35_budget
+// g35.collision.parity_p100;probe 装载期注入 NoContraction)。
+//
+// ## 参数面(16 f32;声明序 = 绑定序,SSBO 数 = 12,与 probe
+// bin/g35_collision_device.rs buffers 下标严格一致;run_compute 车道原位
+// 读改写)
+//   params[0]=n_curr [1]=nseg [2]=dt [3]=gravity_y [4]=wind_x [5]=wind_y
+//   [6]=wind_z [7]=drag [8]=e [9]=mu_t [10]=grid_x0 [11]=grid_z0
+//   [12]=cell [13]=res [14..16)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×16) / 1 depth(View f32×res²,行主序
+//   iz·res + ix,格值 = 俯视最高地形 y,miss 格 = −1e30 哨兵) /
+//   2 pos_x / 3 pos_y / 4 pos_z / 5 vel_x / 6 vel_y / 7 vel_z / 8 age
+//   (以上 ViewMut f32×n 原位) / 9 life(View f32×n) / 10 flags(ViewMut
+//   u32×n) / 11 hit(ViewMut u32×n,0 = miss,1 = 深度响应——无三角语义)。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1;段串行 = host 下标序同序,
+//   g35_sim_collide.rx 同律头注冻结;nseg = ceil(n/256))。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sim_collide_depth(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    depth: View<global, f32>,
+    pos_x: ViewMut<global, f32>,
+    pos_y: ViewMut<global, f32>,
+    pos_z: ViewMut<global, f32>,
+    vel_x: ViewMut<global, f32>,
+    vel_y: ViewMut<global, f32>,
+    vel_z: ViewMut<global, f32>,
+    age: ViewMut<global, f32>,
+    life: View<global, f32>,
+    flags: ViewMut<global, u32>,
+    hit: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let dt = params[2];
+    let g = params[3];
+    let wx = params[4];
+    let wy = params[5];
+    let wz = params[6];
+    let drag = params[7];
+    let e = params[8];
+    let mu_t = params[9];
+    let gx0 = params[10];
+    let gz0 = params[11];
+    let cell = params[12];
+    let res = params[13] as usize;
+    let kd = 1.0 - drag * dt;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            // ── ① 力场(g35_sim_collide.rx / host apply_fields 逐字同段)──
+            let mut vx = vel_x[i] + wx * dt;
+            let mut vy = vel_y[i] + (g + wy) * dt;
+            let mut vz = vel_z[i] + wz * dt;
+            vx = vx * kd;
+            vy = vy * kd;
+            vz = vz * kd;
+            // ── ② 积分候选点(host depth_collide_step 同序)──
+            let qx = pos_x[i] + vx * dt;
+            let qy = pos_y[i] + vy * dt;
+            let qz = pos_z[i] + vz * dt;
+            let mut done = 0u32;
+            if res > 0usize {
+                // ── ③ 俯视投影(域外 = miss;负域先判再转 usize)──
+                let fx = (qx - gx0) / cell;
+                let fz = (qz - gz0) / cell;
+                if fx >= 0.0 && fz >= 0.0 {
+                    let ix = fx as usize;
+                    let iz = fz as usize;
+                    if ix < res && iz < res {
+                        let h = depth[iz * res + ix];
+                        if qy < h {
+                            // ── ④ 同式响应,法线 +y 简化(host 逐字)──
+                            pos_x[i] = qx;
+                            pos_y[i] = h + 0.001;
+                            pos_z[i] = qz;
+                            vel_x[i] = mu_t * vx;
+                            vel_y[i] = 0.0 - e * vy;
+                            vel_z[i] = mu_t * vz;
+                            hit[i] = 1u32;
+                            done = 1u32;
+                        }
+                    }
+                }
+            }
+            if done != 1u32 {
+                pos_x[i] = qx;
+                pos_y[i] = qy;
+                pos_z[i] = qz;
+                vel_x[i] = vx;
+                vel_y[i] = vy;
+                vel_z[i] = vz;
+                hit[i] = 0u32;
+            }
+            // age 照常 + 存活 flags(g35_sim 同律)。
+            let na = age[i] + dt;
+            age[i] = na;
+            if na < life[i] {
+                flags[i] = 1u32;
+            } else {
+                flags[i] = 0u32;
+            }
+            i = i + 1usize;
+        }
+    }
+}

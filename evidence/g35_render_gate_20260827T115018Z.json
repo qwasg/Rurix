@@ -1,0 +1,212 @@
+{
+  "schema": "rurix.g35.render_gate_evidence.v1",
+  "subject": "g35_render_wiring",
+  "symbolic_gate_key": "g35.wave3.render",
+  "wave": "G35.3",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 15 kernel(车道五件 + 粒子七件〔W1/W2 冻结消费面〕+ 渲染三件g35_splat_clear/g35_render_splat/g35_render_resolve)+ spirv-val=绿;冻结消费面(粒子七 kernel/g14_3_lane_body.rs/particles mod+core)sha256 快照在档=True(G35-3 0-byte 纪律漂移守护基线)"
+    },
+    {
+      "id": "off_face_stage_a_anchor_match",
+      "status": "PASS",
+      "detail": "off 面锚格(--static-camera 160 帧 warmup 10)render_digest=sha256:c1d28ad73783cc3c… == 锚 sha256:c1d28ad73783cc3c…(bistro-interior_t100_tsr_device;off = 母版零追加的机器证明)=True"
+    },
+    {
+      "id": "on_off_digest_discrimination",
+      "status": "PASS",
+      "detail": "同轨迹 orbit on/off 双面 digest 必异:on=sha256:4857b6d4a953e95e… off=sha256:0309bb9b153f6790…(粒子渲染真接线判别)"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "FAIL",
+      "detail": "on 面同参数双跑位级:render_digest 等=True + digest_seq_sha 等=False(u64 fetch_max 平局 slot 序全序裁决,与调度无关)"
+    },
+    {
+      "id": "particle_mv_parity_2px",
+      "status": "PASS",
+      "detail": "MV 见证:hit_px=13 slot_zero=True max_err_px=0.0 ≤ 冻结容差 0.0(g35.render.mv_parity_px 本次标定腿程序产;threshold = measured × 2.0) ∧ ≤ 2.0 px 硬顶(mv = project_curr(pos) − project_prev(pos − vel·dt))"
+    },
+    {
+      "id": "barrier_plan_audit",
+      "status": "PASS",
+      "detail": "bin 内机核审计:11 pass(粒子 10 + encode)双 parity bindings ⊆ 屏障计划资源集 all=True;splat 的 args indirect 资源在计划内;IndirectRead 转换 = 执行器隐式补全登记面"
+    },
+    {
+      "id": "soft_depth_occlusion_witness",
+      "status": "PASS",
+      "detail": "遮挡见证(粒子置相机后已知墙后,投影 w 门确定性拒绝):winner_nonzero_px=0 scene_color 位级等=True render_digest 等=True;深度域 quirk(生产字面 = clip.x/clip.y 屏幕域序判非距离遮挡)evidence depth_domain 如实登记"
+    },
+    {
+      "id": "indirect_splat_zero_readback",
+      "status": "PASS",
+      "detail": "splat dispatch = DispatchSpec::Indirect{res:args,offset:0}(生产零回读链:host 金标准平行推得 dispatch 计数只对拍不读回;production_readback_particle_buffers=False)"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "on 面逐帧墙钟均值 63.224898 ms + 粒子 10 pass GPU 段和 20.481644 ms(measured_local 诚实登记,非帧率对标门)"
+    }
+  ],
+  "verdict": "FAIL",
+  "kernels": {
+    "lane": {
+      "g14_3_direct_gi": {
+        "path": ".tmp/g35_gates/render/g14_3_direct_gi.spv",
+        "sha256": "sha256:970e13b9b13e66fe5c5f72f94ca0473d4e0771158af56bfb33f8891b7670da36"
+      },
+      "g14_mv": {
+        "path": ".tmp/g35_gates/render/g14_mv.spv",
+        "sha256": "sha256:0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc"
+      },
+      "g14_8_tsr_resample": {
+        "path": ".tmp/g35_gates/render/g14_8_tsr_resample.spv",
+        "sha256": "sha256:6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d"
+      },
+      "g14_8_tsr_resolve": {
+        "path": ".tmp/g35_gates/render/g14_8_tsr_resolve.spv",
+        "sha256": "sha256:4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732"
+      },
+      "g31_display_encode": {
+        "path": ".tmp/g35_gates/render/g31_display_encode.spv",
+        "sha256": "sha256:c4a7adf3649add55106522a09cd37c2401630811761eec68409cf40fec1b2469"
+      }
+    },
+    "particle": {
+      "g35_sim": {
+        "path": ".tmp/g35_gates/render/g35_sim.spv",
+        "sha256": "sha256:39ad22d3b042e5c78f18a2a37acc00ce827e1fc4f2cb4865cdeb7ae2754c9867"
+      },
+      "g35_scan_seg_sum": {
+        "path": ".tmp/g35_gates/render/g35_scan_seg_sum.spv",
+        "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be"
+      },
+      "g35_scan_spine": {
+        "path": ".tmp/g35_gates/render/g35_scan_spine.spv",
+        "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4"
+      },
+      "g35_scan_seg_apply": {
+        "path": ".tmp/g35_gates/render/g35_scan_seg_apply.spv",
+        "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939"
+      },
+      "g35_particle_compact": {
+        "path": ".tmp/g35_gates/render/g35_particle_compact.spv",
+        "sha256": "sha256:12cb319df7b9ba907b624e7f6f2cdfbc8db55c0a8f17479327244944b584a097"
+      },
+      "g35_emit": {
+        "path": ".tmp/g35_gates/render/g35_emit.spv",
+        "sha256": "sha256:042b4346bb6734e92067bf889705f73c8e3ddf06e6d8ee7e0b6c5234ec1d413e"
+      },
+      "g35_indirect_args": {
+        "path": ".tmp/g35_gates/render/g35_indirect_args.spv",
+        "sha256": "sha256:2498ebb929766c0ff30ac909a6f2c9aa29aecf210acc3e4828a2468e7f11f49c"
+      }
+    },
+    "render": {
+      "g35_splat_clear": {
+        "path": ".tmp/g35_gates/render/g35_splat_clear.spv",
+        "sha256": "sha256:0bb661859630930b2a098a2e760171de626bb8bd1a0fd5e69069d92771acdfb9"
+      },
+      "g35_render_splat": {
+        "path": ".tmp/g35_gates/render/g35_render_splat.spv",
+        "sha256": "sha256:34715f382656820c8197de76d7c136e78dc104a820f95639233086ec86069e09"
+      },
+      "g35_render_resolve": {
+        "path": ".tmp/g35_gates/render/g35_render_resolve.spv",
+        "sha256": "sha256:41848ce612feed9beb95fa4fbbb5d635274f73a395bac7f16b6f3abb36e6bb11"
+      }
+    },
+    "spirv_val_all": true,
+    "frozen_consumed_snapshot": {
+      "src/rurix-render/kernels/g35_sim.rx": "sha256:06f8120bb2eedd6fbe8d5904f1b4b05388d3527bcb5ad95c66604e4365b1c10f",
+      "src/rurix-render/kernels/g35_scan_seg_sum.rx": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc",
+      "src/rurix-render/kernels/g35_scan_spine.rx": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7",
+      "src/rurix-render/kernels/g35_scan_seg_apply.rx": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7",
+      "src/rurix-render/kernels/g35_particle_compact.rx": "sha256:badd82426cc1b8bbd8d41a5f2b5cc2ed835946ca77f2aa844cb9586de376ab94",
+      "src/rurix-render/kernels/g35_emit.rx": "sha256:add637265604b5d7e471e4ce189f63ff6566c7d8303209ad1b6991173b97d282",
+      "src/rurix-render/kernels/g35_indirect_args.rx": "sha256:e00c60aef7591ab8741568ae3f0935df1c533f54fa53120794a21de95673b247",
+      "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "sha256:4a5af830ba15cec57ac3e92866816b0c6c1836367f1d42615c7d74df5048de7c",
+      "src/rurix-render/src/particles/mod.rs": "sha256:103ee027e9f92bcc56e984c8f65cfbc33bf11b282940ebded7d23d07a686e660",
+      "src/rurix-render/src/particles/core.rs": "sha256:e226c0c1d7bb87e13572431ce5cb41f07b55768ff7340c6d5053ce816da21860"
+    }
+  },
+  "anchor": {
+    "path": "milestones/g14/g14_3_stage_a_digest_anchor.json",
+    "cell": "bistro-interior_t100_tsr_device",
+    "expected": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "measured": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true
+  },
+  "discrimination": {
+    "trajectory": "orbit",
+    "on_digest": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+    "off_digest": "sha256:0309bb9b153f679007882fb124f66baf06b2082c7739f1aa4970ebf9ba1b7e10",
+    "differs": true
+  },
+  "determinism": {
+    "double_run_bitexact": false,
+    "digest_a": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+    "digest_b": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+    "digest_seq_sha_a": "sha256:66c009e0c7c41bceb4298cf0927026a93b5265ffeedd28d6fb60908188499b37",
+    "digest_seq_sha_b": "sha256:66769a48d57ccb77217d0cf4a3dd2e549a067871b4cd69ed62c413d768e3b0ad"
+  },
+  "mv_parity": {
+    "hit_px": 13,
+    "slot_zero": true,
+    "measured_px": 0.0,
+    "threshold": 0.0,
+    "hard_cap_px": 2.0,
+    "budget_entry": "g35.render.mv_parity_px",
+    "calibrated_this_run": true,
+    "within": true
+  },
+  "results": {
+    "trimmed_mean": 0.0
+  },
+  "barrier_audit": {
+    "all_bindings_subset": true,
+    "passes_total": 11,
+    "passes_ok": 11,
+    "indirect_note": "splat 的 args IndirectRead 转换由执行器隐式补全承载(render_exec pass_requirements_with 对 DispatchSpec::Indirect 首位推导);显式计划列 args StorageReadWrite(kernel 读 args[7] 守卫面),双屏障链覆盖两类访问"
+  },
+  "occlusion": {
+    "winner_nonzero_px": 0,
+    "scene_color_bitexact_with_off": true,
+    "render_digest_match_off": true,
+    "config": "单粒子置相机后方 2.0m(bistro 室内相机身后已知墙后;splat 投影 w 门 + 同域深度拒绝双路径)——深度域 quirk 登记见 depth_domain 字段",
+    "depth_domain": "U_SCENE_DEPTH 生产字面 = 未抖 vp 参数行 25..32(vp 行 0/1,clip.x/clip.y;g34_unified_gi.rx ⑦ 段「生产字面」注,真 ZO NDC 归 g34_unified_shade.rx ④b HZB 车道形态)——本波硬拒/软粒子与存储域同域实现;该域沿视射线为常量 ⇒ 同域比较为屏幕域序判而非距离遮挡,如实登记;遮挡见证取相机后已知墙后构型(投影 w 门确定性拒绝路径)"
+  },
+  "zero_readback": {
+    "splat_dispatch": "DispatchSpec::Indirect{res:args,offset:0}",
+    "production_readback_particle_buffers": false
+  },
+  "frame_ms": {
+    "real_render_frame_ms": 63.224898,
+    "particle_gpu_mean_ms": 20.481644,
+    "frames_measured": 48,
+    "measured": "measured_local",
+    "note": "on 面逐帧墙钟均值(prepare+execute+回读;末帧含回读转换)+ 粒子 10 pass GPU timestamp 段和;登记语义非帧率对标,帧率门归 G31 波 A 锚"
+  },
+  "mesh_particles": {
+    "wired_instances": 1,
+    "note": "mesh 粒子 TLAS 见证臂 = bin --mesh-particles N(A4 unified_lane_descs_dyn + g31_dyn_scene + 逐帧 tlas_update Refit inflight=1;wired = 1 实例——g31_dyn_scene 分派映射 pg = prim + inst·dyn_tri_base 为单动态实例语义,N > 1 的其余实例如实 not_wired 登记于 bin evidence mesh_particles.not_wired_reason;ray query 场景自动获得光追阴影登记面)。本门 facts 闭集不含 mesh 臂(见证臂非门判据,能力面登记)"
+  },
+  "run_evidence": [
+    ".tmp/g35_gates/render/lane_off_anchor.json",
+    ".tmp/g35_gates/render/lane_off_orbit.json",
+    ".tmp/g35_gates/render/lane_on_a.json",
+    ".tmp/g35_gates/render/lane_on_b.json",
+    ".tmp/g35_gates/render/lane_mv_witness.json",
+    ".tmp/g35_gates/render/lane_occlusion.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T115018Z",
+  "notes": "G35-3 粒子渲染接线:共享车道体 g14_3_lane_body.rs 0-byte(include! 逐字共享,sha256 快照在档),一切经 bin/g35_particle_lane.rs 局部追加——off 面 = 母版 Mega 22 资源四 pass 位级(Stage A 锚机器证明);on 面 = mv(pass1)与 tsr resample 之间插 10 粒子 pass(sim→scan_seg_sum→scan_spine→scan_seg_apply→particle_compact→emit→indirect_args→splat_clear→splat→resolve)+ 尾追 display encode,粒子资源 22..=53 追加(params 五件 + 九流 A/B 18 件 + flags/scan_out/seg_sums/seg_offsets + args〔BufferUsage.indirect〕+ rand_table + winner u64);FrameUpdate 重映射 = bin 自持 prepare 按插入后下标 (12,13,14) 构造 TSR/encode overrides + 粒子 5 pass A/B parity overrides(共享体 (2,3) 硬编码不消费)。splat = 每线程一粒子 u64 fetch_max 赢家(key = 16777215 − depth_key24(d_view,far) 反深度<<40|slot,同 key 高 slot 胜出全序平局)+ DispatchSpec::Indirect{args,0} 零回读;resolve = 程序化调色(暖白→橙红×(1−t)×8.0)+ 软粒子 alpha = (1−t)·soft + 粒子 MV mv = project_curr(pos) − project_prev(pos − vel·dt) 覆写相机 MV(g14_mv uv 偏移同约定)。深度域 quirk 如实登记:U_SCENE_DEPTH 生产字面 = 未抖 vp 行 0/1(clip.x/clip.y)沿视射线常量 ⇒ 硬拒/软粒子为同域屏幕序判非距离遮挡(真深度资源进 Mega 车道前的降级实现,RFC-0049 §4.6 原文深度源 = out_depth_hz);遮挡见证因此取相机后已知墙后构型(投影 w 门确定性拒绝路径)。host 金标准 particles::core::frame 平行镜像驱动 n_curr/emit 参数面(整数流零容差,NoContraction 注入面 W2 实测位级同源)。results.trimmed_mean = MV measured px 镜像(ci/budget_eval.py 通用路 evidence_file 消费面)。"
+}

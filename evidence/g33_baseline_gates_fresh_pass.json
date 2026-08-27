@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 26.0
+ },
+ "notes": "G33 商业化期波 C 验收全量回归门新鲜复跑 PASS 计数：波 A 5/5（present/pipelining/gameloop/dynscene/framegen）+ 波 B 4/5（hzb/restir/slab/skinning；texture 诚实红见 g33.regression.gates_honest_red）+ 波 C 17/18（sdk/docs/capability/robustness/dist/license/profiling/support/rd027/p4stream/hlodl4/svt/ktx2/rtpipeline/meshbench/rejudgment/blockedprobes；ngx_decomp 诚实红）= 26（2026-08-26 全门 --gate 新鲜复跑真实输出）"
+}

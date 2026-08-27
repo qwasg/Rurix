@@ -1,0 +1,130 @@
+//@ spec: RXS-0404(G31+ 波 B Task B5 蒙皮 MV 通道;RD-041 三类速度设计生产面)
+// G31+ 波 B Task B5 蒙皮 MV kernel —— `kernels/g14_mv.rx` 逐字镜像(相机 MV
+// 数学面/参数面/has_prev 门全字面继承)+ **蒙皮角色像素 MV 覆盖臂**(RD-041
+// 三类速度设计的类 3 = 蒙皮逐顶点形变;类 1 = 相机/静态 = 镜像面原式;
+// 类 2 刚性实例经实例变换的 MV 面 = A4 动态车道登记缺口,本车道不含刚性
+// 动态实例,缺口维持登记——不冒充接通)。
+//
+// ## 覆盖臂语义(蒙皮角色像素,逐像素独立)
+// 主射线命中信息(in_hit 4 f32/px,g31_skin_scene 同帧先行写)= [inst, prim,
+// bary_u, bary_v](miss = inst −1 哨兵;静态实例 = 0;蒙皮角色 = params[35]):
+//   prev_world = (1−u−v)·P0 + u·P1 + v·P2(Pk = in_prev[prim·9+k·3..] =
+//   上一帧 palette 蒙皮求值的该图元三顶点世界位置,g31_skin 同帧写;
+//   逐分量 ((w0·P0 + w1·P1) + w2·P2) 左结合,host 参照臂同序)
+//   prev_clip = prev_vp · [prev_world, 1](相机臂同一 prev_vp 同一左结合序)
+//   pcw ≤ 1e-8 → mv = (0,0)(相机臂同字面)
+//   mv = (0.5·(pcx/pcw + 1) − u, 0.5·(1 − pcy/pcw) − v)
+// 其余像素(静态/ miss)= 镜像面相机 MV 原式逐字不变。
+// TSR resolve 消费 out_mv 的通道语义与 g14_mv 逐位同(uv 偏移)——蒙皮角色
+// 像素的历史重投影落到上一帧蒙皮位置,A4 登记的运动物体 TSR 历史拖影缺口
+// 在蒙皮类对象上结构性消除(帧间形变小时;大幅形变帧的历史信任仍由 TSR
+// 既有置信/钳制面承载——如实登记,不改 TSR kernel 0-byte)。
+//
+// ## 确定性协议(RXS-0357 L2 继承)
+// 逐像素独立顺序求值,禁 atomic;输出直写无跨像素交互;固定输入双跑位级一致。
+// 全 f32;w 门经 min/max 算术门兑现(host continue 同语义——mv 保持 0 初值面)。
+//
+// ## 参数面(host bin `pack_mv_params` 逐字同源 + [35] 扩面;40 f32)
+//   params[0]=width [1]=height
+//   [2..18]=inv_cur(行主序 m[r][c] → [2+r*4+c];host 预算逆矩阵)
+//   [18..34]=prev_vp(同布局)
+//   [34]=has_prev(<0.5 时 mv 恒 (0,0)——host 首帧 `None => ImageF32::new`
+//        零图同语义的显式门;prev_vp/in_prev 占位值不被消费)
+//   [35]=char_inst(蒙皮角色实例下标 as f32;静态车道不消费本 kernel,
+//        该槽在静态 40 f32 参数面恒 0 = reserved——镜像面 0-byte)
+//   [36..40]=reserved(恒 0)。
+//   in_depth: 1 f32/px(scene session 驻留直读——零 host 往返);
+//   in_hit: 4 f32/px(g31_skin_scene 命中信息通道;inst 哨兵 −1 = miss);
+//   in_prev: 3 f32/顶点(蒙皮角色上一帧蒙皮顶点表;prim 为 BLAS 内图元
+//            下标,顶点基 = prim·3——角色局部表,无 tri_base 偏移);
+//   out_mv: 2 f32/px uv 偏移(TSR resolve in_mv 输入同约定)。
+#[numthreads(8, 8, 1)]
+kernel fn g31_skin_mv(
+    t: ThreadCtx<2>,
+    in_depth: View<global, f32>,
+    params: View<global, f32>,
+    in_hit: View<global, f32>,
+    in_prev: View<global, f32>,
+    out_mv: ViewMut<global, f32>,
+) {
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[0] as usize;
+    let height = params[1] as usize;
+    if px < width && py < height {
+        let i = py * width + px;
+        let wf = params[0];
+        let hf = params[1];
+        let u = ((px as f32) + 0.5) / wf;
+        let v = ((py as f32) + 0.5) / hf;
+        let ndx = 2.0 * u - 1.0;
+        let ndy = 1.0 - 2.0 * v;
+        let ndz = in_depth[i];
+        // world4 = inv_cur · [ndx, ndy, ndz, 1](左结合同序)。
+        let w4x = ((params[2] * ndx + params[3] * ndy) + params[4] * ndz) + params[5];
+        let w4y = ((params[6] * ndx + params[7] * ndy) + params[8] * ndz) + params[9];
+        let w4z = ((params[10] * ndx + params[11] * ndy) + params[12] * ndz) + params[13];
+        let w4w = ((params[14] * ndx + params[15] * ndy) + params[16] * ndz) + params[17];
+        let mut mvx = 0.0;
+        let mut mvy = 0.0;
+        let w4w_abs = w4w.max(0.0 - w4w);
+        // has_prev 门(params[34]):首帧无上一帧 vp → mv 恒 (0,0),与 host
+        // 首帧零图逐位同语义(门外不消费 inv_cur/prev_vp/in_prev 占位值)。
+        if params[34] > 0.5 {
+            if w4w_abs >= 0.00000001 {
+                let wx = w4x / w4w;
+                let wy = w4y / w4w;
+                let wz = w4z / w4w;
+                // prev_clip = prev_vp · [wx, wy, wz, 1](左结合同序)。
+                let pcx = ((params[18] * wx + params[19] * wy) + params[20] * wz) + params[21];
+                let pcy = ((params[22] * wx + params[23] * wy) + params[24] * wz) + params[25];
+                let pcw = ((params[30] * wx + params[31] * wy) + params[32] * wz) + params[33];
+                if pcw > 0.00000001 {
+                    let prev_u = 0.5 * (pcx / pcw + 1.0);
+                    let prev_v = 0.5 * (1.0 - pcy / pcw);
+                    mvx = prev_u - u;
+                    mvy = prev_v - v;
+                }
+            }
+            // ── 蒙皮角色像素覆盖臂(RD-041 类 3):inst == char_inst ⇒
+            // prev 蒙皮顶点 bary 插值 → prev_vp 投影(相机臂结果被覆盖;
+            // pcw 门与相机臂同字面)──
+            let hinst = in_hit[i * 4];
+            if hinst == params[35] {
+                let prim = in_hit[i * 4 + 1] as usize;
+                let bu = in_hit[i * 4 + 2];
+                let bv = in_hit[i * 4 + 3];
+                let w0 = (1.0 - bu) - bv;
+                let vb = prim * 9;
+                let p0x = in_prev[vb];
+                let p0y = in_prev[vb + 1];
+                let p0z = in_prev[vb + 2];
+                let p1x = in_prev[vb + 3];
+                let p1y = in_prev[vb + 4];
+                let p1z = in_prev[vb + 5];
+                let p2x = in_prev[vb + 6];
+                let p2y = in_prev[vb + 7];
+                let p2z = in_prev[vb + 8];
+                let qx = ((w0 * p0x + bu * p1x) + bv * p2x);
+                let qy = ((w0 * p0y + bu * p1y) + bv * p2y);
+                let qz = ((w0 * p0z + bu * p1z) + bv * p2z);
+                let qcx = ((params[18] * qx + params[19] * qy) + params[20] * qz) + params[21];
+                let qcy = ((params[22] * qx + params[23] * qy) + params[24] * qz) + params[25];
+                let qcw = ((params[30] * qx + params[31] * qy) + params[32] * qz) + params[33];
+                if qcw > 0.00000001 {
+                    let prev_u = 0.5 * (qcx / qcw + 1.0);
+                    let prev_v = 0.5 * (1.0 - qcy / qcw);
+                    mvx = prev_u - u;
+                    mvy = prev_v - v;
+                } else {
+                    // 角色像素 prev 投影失效 ⇒ mv = (0,0)(相机臂 w 门同字面;
+                    // 不残留相机臂结果——对象 MV 与相机 MV 不可混域)。
+                    mvx = 0.0;
+                    mvy = 0.0;
+                }
+            }
+        }
+        out_mv[i * 2] = mvx;
+        out_mv[i * 2 + 1] = mvy;
+    }
+}

@@ -151,13 +151,27 @@ pub fn rurix_home() -> Result<PathBuf, InstallError> {
 /// 不给 Component 加 path 字段——组件面仅数件,规则一屏可审):
 /// - NVIDIA 再分发分区 → `nvidia/<name>`;
 /// - 语言本体 `*.lib` → `bin/lib/<name>`(刻意对齐 driver.rs `current_exe().parent().join("lib")` 探测语义);
-/// - 其余语言本体(`*.exe` 等)→ `bin/<name>`。
+/// - 语言本体 SDK 面扩展(G31+ 波 C Task C5 渲染器 SDK 分发,纯追加——既有
+///   `*.exe`/`*.lib`/再分区路径 0-byte):`*.h` → `include/<name>`、`*.spv` →
+///   `spv/<name>`、`*.json` → `manifests/<name>`、`*.md` → `docs/<name>`、
+///   `*.cpp` → `examples/<name>`;
+/// - 其余语言本体(`*.exe`/`*.dll` 等)→ `bin/<name>`。
 pub fn component_rel_path(comp: &Component) -> String {
     match comp.partition {
         Partition::NvidiaRedist => format!("nvidia/{}", comp.name),
         Partition::LanguageCore => {
             if comp.name.ends_with(".lib") {
                 format!("bin/lib/{}", comp.name)
+            } else if comp.name.ends_with(".h") {
+                format!("include/{}", comp.name)
+            } else if comp.name.ends_with(".spv") {
+                format!("spv/{}", comp.name)
+            } else if comp.name.ends_with(".json") {
+                format!("manifests/{}", comp.name)
+            } else if comp.name.ends_with(".md") {
+                format!("docs/{}", comp.name)
+            } else if comp.name.ends_with(".cpp") {
+                format!("examples/{}", comp.name)
             } else {
                 format!("bin/{}", comp.name)
             }
@@ -467,33 +481,31 @@ mod tests {
     }
 
     //@ spec: RXS-0214
-    // 组件干名 → 相对路径确定性规则:*.exe→bin/、*.lib→bin/lib/、NvidiaRedist→nvidia/。
+    // 组件干名 → 相对路径确定性规则:*.exe→bin/、*.lib→bin/lib/、NvidiaRedist→nvidia/;
+    // SDK 面纯追加(G31+ 波 C Task C5):*.h→include/、*.spv→spv/、*.json→manifests/、
+    // *.md→docs/、*.cpp→examples/(既有三类路径 0-byte,*.dll 随「其余」落 bin/)。
     #[test]
     fn component_rel_path_deterministic_rule() {
-        let exe = Component {
-            name: "rx.exe".into(),
+        let mk = |name: &str, part: Partition| Component {
+            name: name.into(),
             version: "1".into(),
             license: "L".into(),
-            partition: Partition::LanguageCore,
+            partition: part,
             sha256: "00".into(),
         };
-        let lib = Component {
-            name: "rurix_rt_cabi.lib".into(),
-            version: "1".into(),
-            license: "L".into(),
-            partition: Partition::LanguageCore,
-            sha256: "00".into(),
-        };
-        let nv = Component {
-            name: "libdevice.10.bc".into(),
-            version: "1".into(),
-            license: "L".into(),
-            partition: Partition::NvidiaRedist,
-            sha256: "00".into(),
-        };
+        let exe = mk("rx.exe", Partition::LanguageCore);
+        let lib = mk("rurix_rt_cabi.lib", Partition::LanguageCore);
+        let nv = mk("libdevice.10.bc", Partition::NvidiaRedist);
         assert_eq!(component_rel_path(&exe), "bin/rx.exe");
         assert_eq!(component_rel_path(&lib), "bin/lib/rurix_rt_cabi.lib");
         assert_eq!(component_rel_path(&nv), "nvidia/libdevice.10.bc");
+        // G31+ 波 C Task C5 SDK 面扩展(纯追加,既有上行断言 0-byte)。
+        assert_eq!(component_rel_path(&mk("rurix_renderer.dll", Partition::LanguageCore)), "bin/rurix_renderer.dll");
+        assert_eq!(component_rel_path(&mk("rurix_renderer.h", Partition::LanguageCore)), "include/rurix_renderer.h");
+        assert_eq!(component_rel_path(&mk("g14_mv.spv", Partition::LanguageCore)), "spv/g14_mv.spv");
+        assert_eq!(component_rel_path(&mk("bundle_contract.json", Partition::LanguageCore)), "manifests/bundle_contract.json");
+        assert_eq!(component_rel_path(&mk("integration_guide.md", Partition::LanguageCore)), "docs/integration_guide.md");
+        assert_eq!(component_rel_path(&mk("renderer_sdk_host.cpp", Partition::LanguageCore)), "examples/renderer_sdk_host.cpp");
     }
 
     //@ spec: RXS-0214

@@ -150,22 +150,14 @@ fn segmented_spline_c5_fwd(x: f64, c: &SplineC5) -> f64 {
         let knot_coord = (N_KNOTS_LOW - 1.0) * (logx - log_min_x) / (log_mid_x - log_min_x);
         let j = knot_coord as usize;
         let t = knot_coord - j as f64;
-        let cf = [
-            c.coefs_low[j],
-            c.coefs_low[j + 1],
-            c.coefs_low[j + 2],
-        ];
+        let cf = [c.coefs_low[j], c.coefs_low[j + 1], c.coefs_low[j + 2]];
         let basis = color::vmul(cf, &SPLINE_M);
         t * t * basis[0] + t * basis[1] + basis[2]
     } else if logx >= log_mid_x && logx < log_max_x {
         let knot_coord = (N_KNOTS_HIGH - 1.0) * (logx - log_mid_x) / (log_max_x - log_mid_x);
         let j = knot_coord as usize;
         let t = knot_coord - j as f64;
-        let cf = [
-            c.coefs_high[j],
-            c.coefs_high[j + 1],
-            c.coefs_high[j + 2],
-        ];
+        let cf = [c.coefs_high[j], c.coefs_high[j + 1], c.coefs_high[j + 2]];
         let basis = color::vmul(cf, &SPLINE_M);
         t * t * basis[0] + t * basis[1] + basis[2]
     } else {
@@ -241,22 +233,14 @@ fn segmented_spline_c9_fwd(x: f64, c: &SplineC9) -> f64 {
         let knot_coord = (N_KNOTS_LOW - 1.0) * (logx - log_min_x) / (log_mid_x - log_min_x);
         let j = knot_coord as usize;
         let t = knot_coord - j as f64;
-        let cf = [
-            c.coefs_low[j],
-            c.coefs_low[j + 1],
-            c.coefs_low[j + 2],
-        ];
+        let cf = [c.coefs_low[j], c.coefs_low[j + 1], c.coefs_low[j + 2]];
         let basis = color::vmul(cf, &SPLINE_M);
         t * t * basis[0] + t * basis[1] + basis[2]
     } else if logx >= log_mid_x && logx < log_max_x {
         let knot_coord = (N_KNOTS_HIGH - 1.0) * (logx - log_mid_x) / (log_max_x - log_mid_x);
         let j = knot_coord as usize;
         let t = knot_coord - j as f64;
-        let cf = [
-            c.coefs_high[j],
-            c.coefs_high[j + 1],
-            c.coefs_high[j + 2],
-        ];
+        let cf = [c.coefs_high[j], c.coefs_high[j + 1], c.coefs_high[j + 2]];
         let basis = color::vmul(cf, &SPLINE_M);
         t * t * basis[0] + t * basis[1] + basis[2]
     } else {
@@ -296,8 +280,14 @@ struct Aces13Mats {
 impl Aces13Mats {
     fn new() -> Self {
         let rec709_to_ap0 = color::rgb_to_rgb(&color::REC709, &color::AP0);
-        let ap0_to_ap1 = color::mmul(&color::rgb_to_xyz(&color::AP0), &color::xyz_to_rgb(&color::AP1));
-        let ap1_to_ap0 = color::mmul(&color::rgb_to_xyz(&color::AP1), &color::xyz_to_rgb(&color::AP0));
+        let ap0_to_ap1 = color::mmul(
+            &color::rgb_to_xyz(&color::AP0),
+            &color::xyz_to_rgb(&color::AP1),
+        );
+        let ap1_to_ap0 = color::mmul(
+            &color::rgb_to_xyz(&color::AP1),
+            &color::xyz_to_rgb(&color::AP0),
+        );
         let ap1_to_xyz = color::rgb_to_xyz(&color::AP1);
         let ap1_rgb2y: Vec3 = [ap1_to_xyz[0][1], ap1_to_xyz[1][1], ap1_to_xyz[2][1]];
         Self {
@@ -421,6 +411,79 @@ impl super::view_transform::ViewTransform for Aces13 {
     }
 }
 
+/// G31（波 A Task A3）device 侧显示编码参数导出：本模块私有单源数学
+/// （[`Aces13Mats`] + [`RRT_PARAMS`] + [`odt_48nits_params`] 的 f64 参考
+/// 实现）→ f32 参数块，供 `kernels/g31_display_encode.rx` 经 SSBO 上传
+/// 消费（布局与该 kernel 文件头参数面逐字同源，两侧同一常量序；kernel
+/// 侧零转写数值常量）。f64→f32 收窄仅在此发生一次（GPU f32 移植与 host
+/// f64 参考面的 ULP 级差如实登记于 kernel 文件头「f32 移植偏差登记」）。
+/// 纯确定性：同（w,h,bgra）输入位级同输出。
+///
+/// 返回 136 f32 = 544B：[0]=w [1]=h [2]=bgra_flag [3] reserved；[4..=84]
+/// 九矩阵行主各 9；[85..=104] c5 双 coefs6+三端点+slope 双；[105..=132]
+/// c9 双 coefs10+三端点+slope 双；[133..=135] reserved（恒 0）。
+pub fn aces13_device_encode_params(width: u32, height: u32, bgra: bool) -> Vec<f32> {
+    let mats = Aces13Mats::new();
+    let c9 = odt_48nits_params();
+    let mut v: Vec<f32> = vec![
+        width as f32,
+        height as f32,
+        if bgra { 1.0 } else { 0.0 },
+        0.0,
+    ];
+    let push_m3 = |v: &mut Vec<f32>, m: &Mat3| {
+        for row in m.iter() {
+            for cell in row.iter() {
+                v.push(*cell as f32);
+            }
+        }
+    };
+    push_m3(&mut v, &mats.rec709_to_ap0);
+    push_m3(&mut v, &mats.ap0_to_ap1);
+    push_m3(&mut v, &mats.ap1_to_ap0);
+    push_m3(&mut v, &mats.rrt_sat);
+    push_m3(&mut v, &mats.odt_sat);
+    push_m3(&mut v, &mats.ap1_to_xyz);
+    push_m3(&mut v, &mats.xyz_to_ap1);
+    push_m3(&mut v, &mats.d60_to_d65_cat);
+    push_m3(&mut v, &mats.xyz_to_rec709);
+    for x in RRT_PARAMS.coefs_low {
+        v.push(x as f32);
+    }
+    for x in RRT_PARAMS.coefs_high {
+        v.push(x as f32);
+    }
+    v.extend_from_slice(&[
+        RRT_PARAMS.min_point[0] as f32,
+        RRT_PARAMS.min_point[1] as f32,
+        RRT_PARAMS.mid_point[0] as f32,
+        RRT_PARAMS.mid_point[1] as f32,
+        RRT_PARAMS.max_point[0] as f32,
+        RRT_PARAMS.max_point[1] as f32,
+        RRT_PARAMS.slope_low as f32,
+        RRT_PARAMS.slope_high as f32,
+    ]);
+    for x in c9.coefs_low {
+        v.push(x as f32);
+    }
+    for x in c9.coefs_high {
+        v.push(x as f32);
+    }
+    v.extend_from_slice(&[
+        c9.min_point[0] as f32,
+        c9.min_point[1] as f32,
+        c9.mid_point[0] as f32,
+        c9.mid_point[1] as f32,
+        c9.max_point[0] as f32,
+        c9.max_point[1] as f32,
+        c9.slope_low as f32,
+        c9.slope_high as f32,
+    ]);
+    debug_assert_eq!(v.len(), 133);
+    v.resize(136, 0.0);
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,7 +530,10 @@ mod tests {
         let m = p.to_display_linear([0.36, 0.36, 0.36]);
         assert!(a[0] < g[0] && g[0] < m[0]);
         // 确定性:同输入双调用逐位一致。
-        assert_eq!(p.to_display_linear([1.0, 0.5, 0.25]), p.to_display_linear([1.0, 0.5, 0.25]));
+        assert_eq!(
+            p.to_display_linear([1.0, 0.5, 0.25]),
+            p.to_display_linear([1.0, 0.5, 0.25])
+        );
     }
 
     //@ spec: RXS-0369

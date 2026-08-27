@@ -1,0 +1,110 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/rd027_poison_guard_evidence/v1",
+ "title": "G31+ 波 C Task C10 RD-027 PT 毒径回归守护门证据（ci/g31_rd027_poison_guard.py 产）",
+ "description": "RD-027(registry/deferred.json open)毒区参数面回归守护:毒区图(milestones/g31/g31_rd027_poison_zone_map.json,E8 全网格实测蒸馏)为 fail-closed 分类事实源;门 = ① 生产档 params.rx 静态 fail-closed(分类非 green 即红,毒区/未测绘组合确定性拒)② 边界绿腿默认档真跑(必须终止 + digest == 毒区图基线)③ 毒区组合护栏腿(RURIXC_PTXAS_OPT=0,MR-0011)真跑(必须终止 + digest 正确)④ 毒确认腿(默认档有界超时必须 hang_timeout,证毒区仍毒;完成 = 毒区漂移诚实红促重测/回填评估)。全部 GPU 运行经 bench/proc_guard 硬超时(超时=诚实红 124,R-606 零裸 launch)+ 挂起后金丝雀门;三态纪律(device/ptxas/rx 缺失 → DEV_ENV_DEGRADE SKIP 退 0,RURIX_REQUIRE_REAL=1 翻硬 FAIL)。",
+ "type": "object",
+ "required": [
+  "schema",
+  "gate",
+  "generated_utc",
+  "environment",
+  "zone_map",
+  "static_fail_closed",
+  "legs",
+  "verdict",
+  "notes"
+ ],
+ "properties": {
+  "schema": { "const": "rurix.g31.rd027_poison_guard_evidence.v1" },
+  "gate": { "const": "g31.waveC.rd027" },
+  "generated_utc": { "type": "string" },
+  "environment": {
+   "type": "object",
+   "required": ["gpu_name", "driver_version", "cuda_driver_version", "ptxas_version"],
+   "properties": {
+    "gpu_name": { "type": "string" },
+    "driver_version": { "type": "string" },
+    "cuda_driver_version": { "type": "string" },
+    "ptxas_version": { "type": "string" },
+    "os_build": { "type": "string" }
+   }
+  },
+  "zone_map": {
+   "type": "object",
+   "required": ["path", "generated_utc", "distinct_ptx_digests", "green_combos", "poison_combos"],
+   "properties": {
+    "path": { "const": "milestones/g31/g31_rd027_poison_zone_map.json" },
+    "generated_utc": { "type": "string" },
+    "distinct_ptx_digests": { "const": 1 },
+    "green_combos": { "type": "array", "items": { "$ref": "#/definitions/combo" } },
+    "poison_combos": { "type": "array", "items": { "$ref": "#/definitions/combo" } }
+   }
+  },
+  "static_fail_closed": {
+   "type": "object",
+   "required": ["params", "zone_class", "stub_anchor_present", "allowed"],
+   "properties": {
+    "params": {
+     "type": "object",
+     "required": ["spp", "spp_batch", "bounces", "rend_frames"],
+     "properties": {
+      "spp": { "type": "integer", "minimum": 0 },
+      "spp_batch": { "type": "integer", "minimum": 1 },
+      "bounces": { "type": "integer", "minimum": 0 },
+      "rend_frames": { "type": "integer", "minimum": 0 }
+     }
+    },
+    "zone_class": { "enum": ["green", "poison", "unmapped"] },
+    "stub_anchor_present": { "type": "boolean" },
+    "allowed": { "type": "boolean" }
+   }
+  },
+  "legs": {
+   "type": "object",
+   "required": ["boundary_prod", "boundary_low", "poison_b3_o0", "poison_256_o0", "poison_confirm"],
+   "properties": {
+    "boundary_prod": { "$ref": "#/definitions/leg" },
+    "boundary_low": { "$ref": "#/definitions/leg" },
+    "poison_b3_o0": { "$ref": "#/definitions/leg" },
+    "poison_256_o0": { "$ref": "#/definitions/leg" },
+    "poison_confirm": { "$ref": "#/definitions/leg" }
+   }
+  },
+  "verdict": { "enum": ["PASS", "FAIL"] },
+  "notes": { "type": "array", "items": { "type": "string" } }
+ },
+ "definitions": {
+  "combo": {
+   "type": "array",
+   "items": [
+    { "type": "integer", "minimum": 1 },
+    { "type": "integer", "minimum": 0 }
+   ],
+   "minItems": 2,
+   "maxItems": 2
+  },
+  "leg": {
+   "type": "object",
+   "required": [
+    "name", "spp", "bounces", "opt_leg", "expect", "classification",
+    "exit_code", "wall_s", "timeout_s", "render_ok"
+   ],
+   "properties": {
+    "name": { "type": "string" },
+    "spp": { "type": "integer", "minimum": 1 },
+    "bounces": { "type": "integer", "minimum": 0 },
+    "opt_leg": { "enum": ["default", "O0"] },
+    "expect": { "enum": ["completed", "hang_timeout"] },
+    "classification": { "enum": ["completed", "hang_timeout", "error"] },
+    "exit_code": { "type": "integer" },
+    "wall_s": { "type": "number", "exclusiveMinimum": 0 },
+    "timeout_s": { "const": 60 },
+    "render_ok": { "type": "boolean" },
+    "digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "digest_match": { "type": ["boolean", "null"] },
+    "canary_ok": { "type": ["boolean", "null"] }
+   }
+  }
+ }
+}

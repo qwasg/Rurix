@@ -280,8 +280,7 @@ fn run_loop(scene: &OitScene, is64: bool) -> AlgoOutput {
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then(frags[a].seq.cmp(&frags[b].seq))
         });
-        let keep_idx: std::collections::BTreeSet<usize> =
-            order.iter().take(cap).copied().collect();
+        let keep_idx: std::collections::BTreeSet<usize> = order.iter().take(cap).copied().collect();
         let mut kept: Vec<Entry> = Vec::with_capacity(cap);
         let mut tail: Vec<Entry> = Vec::new();
         for (i, f) in frags.iter().enumerate() {
@@ -380,11 +379,15 @@ fn run_weighted(scene: &OitScene) -> AlgoOutput {
             // nvpro 权重:distWeight = clamp(0.03/(1e-5 + (depthZ/200)^4), 1e-2, 3e3),
             // depthZ = -viewZ·10;alphaWeight = min(1, max(r,g,b,a)·40 + 0.01)²。
             let depth_z = f.depth * 10.0;
-            let dist_weight =
-                (0.03f32 / (1e-5 + (depth_z / 200.0).powi(4))).clamp(1e-2, 3e3);
-            let premult = [f.rgba[0] * f.rgba[3], f.rgba[1] * f.rgba[3], f.rgba[2] * f.rgba[3]];
-            let alpha_weight = (1.0f32.min(premult[0].max(premult[1]).max(premult[2]).max(f.rgba[3]) * 40.0 + 0.01))
-                .powi(2);
+            let dist_weight = (0.03f32 / (1e-5 + (depth_z / 200.0).powi(4))).clamp(1e-2, 3e3);
+            let premult = [
+                f.rgba[0] * f.rgba[3],
+                f.rgba[1] * f.rgba[3],
+                f.rgba[2] * f.rgba[3],
+            ];
+            let alpha_weight = (1.0f32
+                .min(premult[0].max(premult[1]).max(premult[2]).max(f.rgba[3]) * 40.0 + 0.01))
+            .powi(2);
             let w = alpha_weight * dist_weight;
             for i in 0..3 {
                 accum[i] += premult[i] * w;
@@ -445,7 +448,10 @@ pub fn quality_error(out: &[[f32; 3]], truth: &[[f32; 3]], eps: f32) -> (f32, f6
     let mut sum = 0.0f64;
     let mut count = 0u32;
     for (a, b) in out.iter().zip(truth.iter()) {
-        let d = (a[0] - b[0]).abs().max((a[1] - b[1]).abs()).max((a[2] - b[2]).abs());
+        let d = (a[0] - b[0])
+            .abs()
+            .max((a[1] - b[1]).abs())
+            .max((a[2] - b[2]).abs());
         max_abs = max_abs.max(d);
         sum += d as f64;
         if d > eps {
@@ -497,7 +503,10 @@ mod tests {
         let truth = sorted_fallback(&deep);
         let w = run_algorithm(OitAlgorithm::WeightedBlended, &deep);
         let (max_abs, _, count) = quality_error(&w.rgb, &truth.rgb, 1e-4);
-        assert!(max_abs > 1e-3 && count > 0, "WBOIT 近似误差可测: max={max_abs} n={count}");
+        assert!(
+            max_abs > 1e-3 && count > 0,
+            "WBOIT 近似误差可测: max={max_abs} n={count}"
+        );
         let s = run_algorithm(OitAlgorithm::Simple, &deep);
         let (smax, _, scount) = quality_error(&s.rgb, &truth.rgb, 1e-4);
         assert!(smax > 0.0 && scount > 0, "simple 溢出误差可测: {smax}");
@@ -518,6 +527,9 @@ mod tests {
         assert_eq!(w2.storage_bytes, w.storage_bytes);
         let ll = run_algorithm(OitAlgorithm::LinkedList, &scene2);
         let ll1 = run_algorithm(OitAlgorithm::LinkedList, &scene);
-        assert!(ll.storage_bytes > ll1.storage_bytes, "linked-list 内存随 fragment 增长");
+        assert!(
+            ll.storage_bytes > ll1.storage_bytes,
+            "linked-list 内存随 fragment 增长"
+        );
     }
 }

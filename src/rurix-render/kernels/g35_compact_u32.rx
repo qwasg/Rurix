@@ -1,0 +1,45 @@
+//@ spec: RFC-0049 §4.2(G35-1 compact 基元;spec 条款号本期零新设)
+// G35-1 flags 压缩基元 —— scan 槽位稳定散射(门 g35.wave1.primitives;
+// src/particles/mod.rs 契约头字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽)
+// 公式面与 host 金标准 `particles/primitives.rs::compact_u32` **逐字同源**:
+// 线程 s 段内串行 if flags[i] ≠ 0 { out[scan[i]] = values[i] },槽位 =
+// 分段稳定 exclusive scan(g35_scan_seg_sum/spine/seg_apply 三 kernel 产,
+// host 同源 scan.rs::exclusive_scan_segmented)推导,顺序 = 元素下标序,
+// 与线程调度无关(scan 单射 ⇒ 写域 disjoint)。段外线程界外守卫直落。
+// 无 shared / 无原子;纯 u32/usize 整数算术 ⇒ device↔host **零容差位级**
+// (mod.rs 整数域协议;域前提:flags ∈ {0,1})。
+//
+// ## 参数面(4 f32;n ≤ 2^24 f32 精确)
+//   params[0]=n [1]=nseg [2..4)=reserved(恒 0)。
+//   values/flags: u32/元素;scan: u32/元素(scan 三 kernel 全链产物);
+//   out: u32 × Σflags(压缩目标;容量 = scan 总和槽,host 侧派发面保证)。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_compact_u32(
+    tc: ThreadCtx<1>,
+    values: View<global, u32>,
+    flags: View<global, u32>,
+    scan: View<global, u32>,
+    params: View<global, f32>,
+    out: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            if flags[i] != 0u32 {
+                out[scan[i] as usize] = values[i];
+            }
+            i = i + 1usize;
+        }
+    }
+}

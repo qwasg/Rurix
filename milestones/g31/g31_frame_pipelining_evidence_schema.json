@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_frame_pipelining A/B evidence",
+  "description": "G31+ 波 A Task A2 帧流水化(submit/collect 分离)A/B measured 证据:同机同窗 bistro-interior 1080p t100 tsr_device,--inflight 1(顺序全同步回归锚)vs 2 vs 3 各 ≥100 帧 + warmup 10;frame_ms 统计自 bench_receipt.frame_ms 全列(末一样本含末帧 digest tail——is_finite 全帧校验 + sha256 约 90ms,各臂同形同价,非流水排水 artifact;流水臂排水段 collect 等待墙钟并入末一样本,Σframe_ms ≈ 测量段全墙钟诚实吞吐口径)。digest 判据 = 各臂 last_frame_digest 位级一致(且逐帧 flip-trace 序列位级一致、帧序严格 FIFO、进程干净退出)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "scene_id",
+    "tier",
+    "backend",
+    "seed",
+    "frames_measured",
+    "warmup",
+    "runs_per_arm",
+    "arms",
+    "digest_bitexact_all_arms",
+    "frame_order_strict_fifo",
+    "clean_shutdown",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.frame_pipelining_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_frame_pipelining"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveA.pipelining"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31.A"
+    },
+    "scene_id": {
+      "type": "string",
+      "enum": ["cornell-box", "bistro-interior"]
+    },
+    "tier": {
+      "type": "integer",
+      "enum": [50, 67, 100]
+    },
+    "backend": {
+      "type": "string",
+      "const": "tsr_device"
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "frames_measured": {
+      "type": "integer",
+      "minimum": 100
+    },
+    "warmup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runs_per_arm": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "inflight",
+          "frame_slots",
+          "frame_ms_mean",
+          "frame_ms_p50",
+          "frame_ms_p99",
+          "frame_ms_min",
+          "frame_ms_max",
+          "frame_ms_production_mean",
+          "last_frame_digest",
+          "receipts"
+        ],
+        "properties": {
+          "inflight": {
+            "type": "integer",
+            "enum": [1, 2, 3]
+          },
+          "frame_slots": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "frame_ms_mean": {
+            "type": "number",
+            "description": "多轮 median(单轮 = 该轮均值);含末帧 digest tail 与排水并入"
+          },
+          "frame_ms_p50": {
+            "type": "number"
+          },
+          "frame_ms_p99": {
+            "type": "number"
+          },
+          "frame_ms_min": {
+            "type": "number"
+          },
+          "frame_ms_max": {
+            "type": "number"
+          },
+          "frame_ms_production_mean": {
+            "type": "number",
+            "description": "生产口径(frame − tail;末帧 digest tail 已剥离)"
+          },
+          "last_frame_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "receipts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "digest_bitexact_all_arms": {
+      "type": "boolean",
+      "description": "全部臂(及逐帧 flip-trace 序列)digest 位级一致才许 true——硬门"
+    },
+    "frame_order_strict_fifo": {
+      "type": "boolean",
+      "description": "flip-trace 帧号严格 0..N−1(FIFO collect 保序)才许 true"
+    },
+    "clean_shutdown": {
+      "type": "boolean",
+      "description": "全部真跑 rc=0 + BENCH PASS + receipt 新鲜 + stderr 无 validation/leak 字样(fence/池 Drop 单点销毁面)"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

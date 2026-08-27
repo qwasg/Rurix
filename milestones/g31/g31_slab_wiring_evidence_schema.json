@@ -1,0 +1,344 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 B Task B3 slab 材质侧表生产接线 harness evidence（--slab-table 面）",
+  "description": "evidence/g31_slab_wiring.json（或 --evidence 指定路径）。G31+ 波 B Task B3 slab 材质 closure/侧表转正门 g31.waveB.slab：harness = src/rurix-render/src/bin/g31_window_present.rs --auto-move <orbit|dolly> --slab-table <asset.json> [--slab-arm <device|host>]（g14_3_lane_body 逐字共享统一四 pass TSR 车道 0-byte；RD-041-slab 行 g31_anchor 生产接线窗兑现）。slab 面 = 资产文件驱动的 16 槽侧表（G29 M-b bin-local 件的资产化升级；schema/域/槽序/ABI digest 闭集校验篡改即拒）→ kernels/g29_slab.rx（G29 M-a 本体 0-byte 冻结消费，dispatch [16,1,1] 逐槽单 invocation，修法 A max(denom,1e-30)）device 逐槽求值 vs material/slab.rs::total_reflectance（host 金标准 f64 直调 0-byte）逐槽对拍 parity_p100（G29 M-b 口径，有限性一等断言先于聚合；冻结容差 = milestones/g29/g29_budget.json g29.slab_device.host_device_reflectance_tol 程序读，measured p100=1.192092895507812e-07 恰一 ULP、threshold=2.384185791015624e-07）→ 映射材质逐三角 albedo × R_slot（f32 乘，能量守恒缩放；emission 0-byte）预调制进既有 mats SSBO 面——生产 kernel/管线 0-byte，非映射材质走既有逐三角 albedo/emission 单层面 0-byte（MaterialClosure 32B / graph/types.rs 零触碰）。digest_seq = 逐帧 BGRA8 打包帧 sha256（G31BGRA-1 前缀，device 编码域）：确定性双跑位级一致门 + slab on≠off 接线真实生效门的判定对象；device 臂 vs host 参考臂跨臂像素对拍（--dump-last-frame BGRA8 raw，结构容差口径：R 扰动 ≤ 冻结容差 ⇒ albedo 相对扰动 ≤ 2.4e-7 ⇒ 8-bit 量化翻转 ≤ 1 LSB 且占比 ≪0.1%）由 ci/g31_slab_wiring_smoke.py 裁决。口径：real_render_frame_ms（五 pass 渲染墙钟，post-warmup 均值；含 BGRA8 强制回读 render_includes_forced_readback=true 登记；slab 求值 = 装配期一次性 slab.eval_ms 单列不混帧口径）/ present_frame_ms / present_overhead_ms / digest_frame_ms / stats.encode_gpu_ms。--headless-smoke 无窗口退化仅供自检逻辑用不计真门。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "trajectory",
+    "frames",
+    "warmup",
+    "frames_completed",
+    "exit_reason",
+    "resize_eras",
+    "resolution",
+    "internal_resolution",
+    "real_render_frame_ms",
+    "present_frame_ms",
+    "present_overhead_ms",
+    "encode_frame_ms",
+    "digest_frame_ms",
+    "render_digest",
+    "digest",
+    "digest_seq",
+    "ev100_seq",
+    "camera_poses",
+    "ev100_ramp",
+    "headless",
+    "window",
+    "contracts",
+    "render_includes_forced_readback",
+    "spv",
+    "slab",
+    "stats",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.slab_wiring_evidence.v1" },
+    "gate": { "type": "string", "const": "g31.waveB.slab" },
+    "scene": { "type": "string", "const": "bistro-interior" },
+    "tier": { "type": "integer", "enum": [50, 67, 100] },
+    "backend": { "type": "string", "const": "tsr_device" },
+    "trajectory": { "type": "string", "enum": ["orbit", "dolly"] },
+    "frames": { "type": "integer", "minimum": 1 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "frames_completed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "实际渲染帧数（== frames+warmup 全量完成；ESC 提前退出时 < 之且 exit_reason=user_close）"
+    },
+    "exit_reason": { "type": "string", "enum": ["frames_done", "user_close"] },
+    "resize_eras": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "WM_SIZE 触发的 extent 重建 era 计数（resize → swapchain 重建 + 渲染 extent 联动 + TSR 历史 reset）"
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "internal_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "real_render_frame_ms": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "生产管线五 pass 渲染墙钟（post-warmup 均值；不含 present；含 BGRA8 8.3MB 强制回读段——render_includes_forced_readback=true 登记；slab 装配期一次性求值税不入本口径，见 slab.eval_ms）"
+    },
+    "present_frame_ms": {
+      "type": ["number", "null"],
+      "description": "纯 present 腿（acquire→copy→present→idle）post-warmup 均值；headless=true 时 null"
+    },
+    "present_overhead_ms": {
+      "type": ["number", "null"],
+      "description": "present 相对生产的额外开销 = encode（host=0，device 编码）+ present 腿；headless=true 时 null"
+    },
+    "encode_frame_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "host 编码墙钟（device 编码落地后恒 0；device 编码 GPU 耗时分列 stats.encode_gpu_ms）"
+    },
+    "digest_frame_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "auto-move 逐帧 BGRA8 sha256 税（post-warmup 均值；单列不混渲染/present 口径）"
+    },
+    "render_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "末帧 TSR 输出 digest（G10EXRD-1 口径，末帧一次性 f32 回读，与 g14_3 bench 末帧 digest 同算法）"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "末帧 device BGRA8 打包帧 digest（G31BGRA-1 口径；== digest_seq 末项）"
+    },
+    "digest_seq": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "逐帧 BGRA8 打包帧 digest 序列（每渲染帧一项，含 warmup；长度 == frames_completed）：确定性双跑位级一致门 + slab on≠off 接线真实生效门的判定对象"
+    },
+    "ev100_seq": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "number" },
+      "description": "逐帧 ev100（--ev100-ramp 坡或契约值；经 128B TSR 参数逐帧 uniform 上传，长度 == frames_completed）"
+    },
+    "camera_poses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": { "type": "number" }
+      },
+      "description": "逐帧相机位姿 [x,y,z,yaw,pitch]（轨迹审计面，长度 == frames_completed）"
+    },
+    "ev100_ramp": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": {
+        "a": { "type": "number" },
+        "b": { "type": "number" }
+      },
+      "description": "--ev100-ramp a b 确定性曝光坡（未给 = null）"
+    },
+    "headless": { "type": "boolean" },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["visible", "channel_order", "extent", "frames_presented", "swapchain_rebuilds"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "channel_order": { "type": "string", "enum": ["bgra8_unorm", "rgba8_unorm"] },
+        "extent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["w", "h"],
+          "properties": {
+            "w": { "type": "integer", "minimum": 1 },
+            "h": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "frames_presented": { "type": "integer", "minimum": 1 },
+        "swapchain_rebuilds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "g10_contract", "g10_camera", "g10_lighting", "consistency", "delta_note", "encode_spv"],
+      "properties": {
+        "production": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest"],
+          "properties": {
+            "path": { "type": "string" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "consistency": { "type": "string", "const": "pass" },
+        "delta_note": { "type": "string" },
+        "encode_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
+    "render_includes_forced_readback": { "type": "boolean", "const": true },
+    "spv": {
+      "type": "object",
+      "description": "统一四 pass 车道 provenance（g14_3 unified_provenance_json 同型：四 kernel SPV 路径 + sha256 全登记；encode SPV 经 contracts.encode_spv 登记）",
+      "additionalProperties": true
+    },
+    "slab": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_path",
+        "table_sha256",
+        "asset_scene_id",
+        "abi_digest",
+        "n_slots",
+        "slot_abi",
+        "arm",
+        "spv_slab",
+        "parity_p100",
+        "eval_ms",
+        "device_digest",
+        "host_digest",
+        "mapped_materials",
+        "slab_tris",
+        "material_slots",
+        "finiteness_first_class",
+        "semantics"
+      ],
+      "properties": {
+        "table_path": { "type": "string", "description": "slab 侧表资产路径（rurix.g31.slab_side_table_asset.v1）" },
+        "table_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "asset_scene_id": { "type": "string", "const": "bistro-interior", "description": "资产-场景绑定（fail-closed 互核面）" },
+        "abi_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "16 槽 × [rc f32 LE, ab f32 LE] 128 字节 ABI digest（加载期重算互核，篡改即拒）"
+        },
+        "n_slots": { "type": "integer", "const": 16 },
+        "slot_abi": { "type": "string", "description": "槽布局/生成律字面（G29 M-b 同源）" },
+        "arm": { "type": "string", "enum": ["device", "host"], "description": "渲染臂：device = g29_slab.rx 逐槽求值施加；host = host 金标准 f64→f32 参考臂" },
+        "spv_slab": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "parity_p100": {
+          "type": "number",
+          "minimum": 0,
+          "description": "逐槽 |device f32 − host f64| 绝对差最大值（G29 M-b 逐槽对拍口径；门判 ≤ 冻结容差 2.384185791015624e-07 由 smoke 裁决）"
+        },
+        "eval_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "侧表 device 求值墙钟（装配期一次性；单列不混帧口径）"
+        },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "16 槽 device R f32 输出缓冲 digest（确定性双跑位级一致面）" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "16 槽 host R f64 金标准 digest" },
+        "mapped_materials": { "type": "integer", "minimum": 1 },
+        "slab_tris": { "type": "integer", "minimum": 1, "description": "slab 预调制三角计数（接线真实生效面；0 = 空接线即红）" },
+        "material_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["material_index", "slot", "device_r", "host_r"],
+            "properties": {
+              "material_index": { "type": "integer", "minimum": 0 },
+              "slot": { "type": "integer", "minimum": 0, "maximum": 15 },
+              "device_r": { "type": "number", "minimum": 0, "maximum": 1 },
+              "host_r": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "finiteness_first_class": { "type": "boolean", "const": true, "description": "判据⓪有限性一等断言先于聚合（RFC-0046 §1.4 F3 同律；任一非有限 fail-closed 不到本字段）" },
+        "semantics": { "type": "string" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["render_cv", "render_min_ms", "render_max_ms", "encode_gpu_ms", "present_cv", "present_min_ms", "present_max_ms"],
+      "properties": {
+        "render_cv": { "type": "number" },
+        "render_min_ms": { "type": "number" },
+        "render_max_ms": { "type": "number" },
+        "encode_gpu_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "device 显示编码 pass GPU 耗时（telemetry g31_display_encode；post-warmup 均值）"
+        },
+        "present_cv": { "type": ["number", "null"] },
+        "present_min_ms": { "type": ["number", "null"] },
+        "present_max_ms": { "type": ["number", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "headless": { "const": false } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "object" },
+          "present_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+          "present_overhead_ms": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "headless": { "const": true } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "null" },
+          "present_frame_ms": { "type": "null" },
+          "present_overhead_ms": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

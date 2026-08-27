@@ -394,19 +394,19 @@ mod tests {
         let bytes = build_reference(&layout, &ParameterPage::from_words(&[3, 1, 0, 0]))
             .expect("draw(3,1,0,0) 合法");
         assert_eq!(bytes.len(), 16, "VkDrawIndirectCommand 16B");
-        assert_eq!(
-            bytes,
-            vec![3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        );
+        assert_eq!(bytes, vec![3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let layout = IndirectCmdLayout::assemble(&[
             DgcToken::BindVertexBuffer,
             DgcToken::BindIndexBuffer,
             DgcToken::DrawIndexed,
         ])
         .unwrap();
-        let bytes =
-            build_reference(&layout, &ParameterPage::from_words(&[6, 1, 0, 0, 0])).unwrap();
-        assert_eq!(bytes.len(), 20, "VkDrawIndexedIndirectCommand 20B(状态 token 零载荷)");
+        let bytes = build_reference(&layout, &ParameterPage::from_words(&[6, 1, 0, 0, 0])).unwrap();
+        assert_eq!(
+            bytes.len(),
+            20,
+            "VkDrawIndexedIndirectCommand 20B(状态 token 零载荷)"
+        );
     }
 
     /// 构建产物确定性(RXS-0354 L3):同输入双构建逐字节相等;参数微扰必改字节;
@@ -445,11 +445,8 @@ mod tests {
         let baseline = readback_baseline();
         // 全链路:host 侧不存在任何 readback 记账调用点(by construction)。
         let node = dispatch_node();
-        let stream = build_reference(
-            node.layout(),
-            &ParameterPage::from_words(&[1, 1, 1]),
-        )
-        .unwrap();
+        let stream =
+            build_reference(node.layout(), &ParameterPage::from_words(&[1, 1, 1])).unwrap();
         assert_eq!(stream.len(), 12);
         let mut g = Graph::new();
         let out = g.color_target("draw_out");

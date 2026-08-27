@@ -1,0 +1,147 @@
+{
+  "schema": "rurix.g34.skin_unified_gate_evidence.v1",
+  "subject": "g34_skin_unified",
+  "symbolic_gate_key": "g34.wave2.skin",
+  "wave": "G34.2",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 g34_unified_gi_skin/g34_unified_mv/g31_skin（0-byte 复用）三件 + spirv-val=绿；母版 tracked 双 kernel vs HEAD 0-byte=True 工作树干净=True；G31/G34 期 untracked 十面 sha256 快照在档=True（其门为回归锚;共享车道体 = 加性扩展允许面）"
+    },
+    {
+      "id": "skin_vertex_bitexact",
+      "status": "PASS",
+      "detail": "① 蒙皮 device/host 逐顶点对拍:全 7 核验帧 max_abs == 0.0 位级（B5 在案口径;窗级 max_abs_max=0.0）"
+    },
+    {
+      "id": "skin_position_verified",
+      "status": "PASS",
+      "detail": "② 位置核验:host 蒙皮投影掩码 vs hit 通道 inst==2 地面真值——质心 ≤4.0px/AABB ≤6.0px/计数门 全 7 核验帧 pass（B5 在案口径）"
+    },
+    {
+      "id": "skin_mv_wired",
+      "status": "PASS",
+      "detail": "③ 类 3 蒙皮 MV dev/host 逐分量中位差 ≤2.0px（窗级 max=0.888px）+ 窗级真动门 max host=41.656px ≥1.0px + 类 1 静态区相机 MV 一致性 ≤2.0px（窗级 max=0.025px;auto-move 动相机下 B5 静态绝对门诚实重述）"
+    },
+    {
+      "id": "rigid_mv_wired",
+      "status": "PASS",
+      "detail": "类 2 刚性实例 MV（A4 登记缺口统一车道蒙皮腿顺手接通）:hit 通道 inst==1 像素 dev/host 逐分量中位差 ≤2.0px,核验激活帧=7,窗级 max=1.766px"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "--skin on 双跑 digest_seq 位级一致=True（74 帧）render_digest 一致=True（确定性门）"
+    },
+    {
+      "id": "per_feature_digest_discrimination",
+      "status": "PASS",
+      "detail": "逐特性贡献区分:skin≠baseline（静态）=True skin≠full_noskin（无蒙皮全特性）=True（蒙皮贡献真实生效,防暗接线冒充）"
+    },
+    {
+      "id": "stage_a_anchor_replay",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device bench 复跑:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体加性扩展 0-byte 机器证明）"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "同机同窗 measured:skin_on=7.5494ms skin_off(full)=6.6420ms baseline=4.7721ms；skin_gpu=0.0033ms scene_gpu=1.0192ms（蒙皮逐帧更新成本分项登记）"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "gi_skin_spv": {
+      "path": ".tmp/g34_gates/skin/g34_unified_gi_skin.spv",
+      "sha256": "sha256:260e4c5d332a18e59993026fc53fe1821f0b855638e6ffadbb860386f984a1a6"
+    },
+    "mv_spv": {
+      "path": ".tmp/g34_gates/skin/g34_unified_mv.spv",
+      "sha256": "sha256:df49af7892926d8358409ed530e664bdaf3f284db7567c464c54ac34714486f9"
+    },
+    "skin_spv": {
+      "path": ".tmp/g34_gates/skin/g31_skin.spv",
+      "sha256": "sha256:625030ad948467bae2dd1bdc4754ade40f10338d781c958704292bb42bc944d3"
+    },
+    "spirv_val_all": true,
+    "mother_tracked_0byte": true,
+    "frozen_snapshot": {
+      "src/rurix-render/kernels/g34_unified_gi.rx": "sha256:9ee8cecbb3f4d6410c6e1f1ded909c322db662f43b30c35517c86c884f82a703",
+      "src/rurix-render/kernels/g34_unified_shade.rx": "sha256:49ff1bad7295ce728bdc4311e0c245a51ea509e31c161d7d7a0edd6141ba99dc",
+      "src/rurix-render/kernels/g31_skin.rx": "sha256:09e3af93a31965e90799cec6e780f4f6ae337bd93b143449aa815b36d8a5fe23",
+      "src/rurix-render/kernels/g31_skin_scene.rx": "sha256:87288286c54384d3fc7ffaa82379fd14bae8fb020f0ea3d770f61ca2d410e99b",
+      "src/rurix-render/kernels/g31_skin_mv.rx": "sha256:2a4a45589f93c17d33bc15f944fe99e0fe7f26ec0d5b1bdfedaa95b12c080aef",
+      "src/rurix-render/kernels/g31_texture_gi.rx": "sha256:40bcb7d34dfd424a9b8501d1750c5567038a80577d9a9b7bc91f82cfa053a06c",
+      "src/rurix-render/kernels/g31_dyn_scene.rx": "sha256:f4d99dd569891a32d486355c367e2f88e94a88a177b1dd94fbef7497584eefd3",
+      "src/rurix-render/kernels/g31_hzb_shade.rx": "sha256:1209d5cda7ded1519c5ba1e5fa78eabada19eb9267d4029323a76908a03cc782",
+      "src/rurix-render/kernels/g14_mv.rx": "sha256:5133668b8d2a76f17db2a4bc8de32612e0008ec315f340b1c2b02ad4b37dde0e",
+      "src/rurix-render/src/bin/g31_window_present.rs": "sha256:5132735ae869dfef779cdf26060067ad79ac979f06f8443c3a2ff2200ef162a6"
+    }
+  },
+  "skin_vertex_parity": {
+    "frames": 7,
+    "max_abs_max": 0.0,
+    "all_bitexact": true
+  },
+  "skin_verify": {
+    "verify_count": 7,
+    "all_pass": true,
+    "centroid_tol_px": 4.0,
+    "aabb_tol_px": 6.0,
+    "motion_max_px": 41.656113,
+    "char_tri_base": 1046621,
+    "verify_frames_file": "harness evidence skin.verify_frames（evidence\\g34_skin_unified_skin_a_20260827T084533Z.json）"
+  },
+  "mv_gap": {
+    "class2_rigid": "wired+verified（g34_unified_mv 刚性臂:局部 bary 插值 → prev_dyn_xf 变换 → prev_vp 投影;hit 通道 inst==1 像素 dev/host 中位差核验）",
+    "class2_delta_max_px": 1.766453,
+    "rigid_active_frames": 7,
+    "class1_delta_max_px": 0.024521,
+    "class3_delta_max_px": 0.888299,
+    "note": "RD-041 三类速度设计在 G34-3 统一车道蒙皮腿全接线——类 2 刚性实例 MV = A4 登记缺口顺手接通面（本腿 TSR 历史链生效）;非蒙皮腿维持 g14_mv 0-byte + 缺口登记（不冒充全局面接通）"
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "frames": 74,
+    "render_digest_a": "sha256:21c562b2406c8e7d4ac8712016921cf8ba8dfe240928e4dc3f1f24fc1f2dfee7",
+    "render_digest_b": "sha256:21c562b2406c8e7d4ac8712016921cf8ba8dfe240928e4dc3f1f24fc1f2dfee7"
+  },
+  "per_feature": {
+    "skin_last_digest": "sha256:a61b04deb6092ec51119c72c150179a51f94c6af8f661409e34c47f410293e77",
+    "baseline_last_digest": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+    "full_noskin_last_digest": "sha256:6648db65e78ef26a6f5a4e4046eee6f5a735340580110d48986b4a8716022a46",
+    "skin_ne_baseline": true,
+    "skin_ne_full_noskin": true
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "frame_ms": {
+    "skin_on_mean": 7.549427,
+    "skin_off_mean": 6.641995,
+    "skin_gpu_ms_mean": 0.003259,
+    "skin_scene_gpu_ms_mean": 1.019226,
+    "measured": "measured_local",
+    "frames_per_run": 64
+  },
+  "harness_evidence": [
+    "evidence\\g34_skin_unified_skin_a_20260827T084533Z.json",
+    "evidence\\g34_skin_unified_skin_b_20260827T084533Z.json",
+    "evidence\\g34_unified_lane_g34skin_full_noskin_20260827T084533Z.json",
+    "evidence\\g34_unified_lane_g34skin_baseline_20260827T084533Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T084533Z",
+  "notes": "G34 全特性合流 G34-3 蒙皮角色进真窗口统一车道：蒙皮×纹理×slab×动态实例四特性同开——G34Full 27 SSBO 加性扩蒙皮七件（hit 通道/REST/WT/palette 双表/PREV/SKIN_PARAMS）= 36 资源六 pass（g31_skin 0-byte 复用 → blas_refit 桥角色 BLAS 2 逐帧 UPDATE → g34_unified_gi_skin〔G34-1 统一 kernel + out_hit + 角色实例分派〕→ g34_unified_mv〔g31_skin_mv 镜像 + 类 2 刚性实例臂——A4 登记 缺口统一车道蒙皮腿顺手接通,hit 通道 inst==1 像素 dev/host ≤2px 核验〕→ TSR 双 pass → display_encode）+ 逐帧 tlas_update refit 3 实例表;顺序入口 inflight=1。核验三面 = ① 逐顶点对拍 max_abs == 0 位级门（B5 在案口径）② 位置核验（质心 ≤4px/AABB ≤6px/计数门,B5 在案口径）③ MV 通道（类 3 ≤2px + 窗级真动门;类 1 静态区相机 MV 一致性 ≤2px——auto-move 动相机下 B5 静态绝对门诚实重述;类 2 ≤2px）;确定性双跑位级 + skin≠静态/skin≠无skin全特性区分 + frame_ms measured（skin on/off）。host 金标准全场景对拍 = null 诚实登记（蒙皮腿对拍 = ① 逐顶点臂承载;G34-1 冻结容差标定面 = 非蒙皮腿在案不混口径）。非蒙皮腿维持 g14_mv 0-byte + 类 2 缺口登记（不冒充全局面接通）。g31_window_present.rs/g14_mv/g31_skin_mv/g34_unified_gi.rx 0-byte——其门为回归锚。"
+}

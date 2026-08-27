@@ -1,0 +1,59 @@
+//@ spec: RFC-0049 §4.2(G35-1 sort 基元 pass 阶段 3;spec 条款号本期零新设)
+// G35-1 24 位键稳定 LSD radix sort · 每 pass 阶段 3/3 —— 段内串行稳定散射
+// (门 g35.wave1.primitives;src/particles/mod.rs 契约头字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽)
+// 公式面与 host 金标准 `particles/primitives.rs::sort_scatter` **逐字同源**:
+// 线程 s 先清零本段 scratch 行(host 逐段行清零同源),再段内串行
+// d = (key / dpow) % 256、idx = off[d·nseg + s] + scratch[s·256 + d]、
+// scratch += 1,keys/payload 双流散射。目标槽 = spine 基址 + 段内 running
+// 计数,顺序 = 段序 × 段内下标序 ⇒ 稳定且与线程调度无关(disjoint 写域:
+// 段 s 只写 off 划定的本段 digit 区间,跨线程零交叠)。段外线程界外守卫
+// 直落。无 shared / 无原子;digit 取位 = usize 除/模精确算术(语言面无
+// 位运算);纯 u32/usize 整数算术 ⇒ device↔host **零容差位级**(mod.rs
+// 整数域协议)。
+//
+// ## 参数面(4 f32;n ≤ 2^24 f32 精确)
+//   params[0]=n [1]=nseg [2]=dpow(1/256/65536——f32 精确域) [3]=reserved(恒 0)。
+//   keys_in/payload_in: u32/元素;off: u32 × 256·nseg(阶段 2 产物,
+//   digit-major);scratch: u32 × nseg·256(行主,本 kernel 自清零);
+//   keys_out/payload_out: u32/元素(稳定散射目标,pass 间 ping-pong 由
+//   host 侧缓冲交换承载,bin/g35_primitives_device.rs 契约)。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sort_scatter(
+    tc: ThreadCtx<1>,
+    keys_in: View<global, u32>,
+    payload_in: View<global, u32>,
+    off: View<global, u32>,
+    params: View<global, f32>,
+    scratch: ViewMut<global, u32>,
+    keys_out: ViewMut<global, u32>,
+    payload_out: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let dpow = params[2] as usize;
+    if s < nseg {
+        let mut c = 0usize;
+        while c < 256usize {
+            scratch[s * 256usize + c] = 0u32;
+            c = c + 1usize;
+        }
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            let d = (keys_in[i] as usize / dpow) % 256usize;
+            let idx = (off[d * nseg + s] + scratch[s * 256usize + d]) as usize;
+            scratch[s * 256usize + d] = scratch[s * 256usize + d] + 1u32;
+            keys_out[idx] = keys_in[i];
+            payload_out[idx] = payload_in[i];
+            i = i + 1usize;
+        }
+    }
+}

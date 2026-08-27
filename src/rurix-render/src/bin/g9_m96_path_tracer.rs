@@ -39,8 +39,8 @@
 //! ```
 
 use rurix_render::gi::path_trace::{
-    self, BandEntry, M96_BAND_MARGIN, M96_PBRT_REF_SPP, M96_PBRT_SEED, M96_SEED,
-    M96_SPP_SEQUENCE, PtConfig, PtImage, PtScene, ToleranceBand,
+    self, BandEntry, M96_BAND_MARGIN, M96_PBRT_REF_SPP, M96_PBRT_SEED, M96_SEED, M96_SPP_SEQUENCE,
+    PtConfig, PtImage, PtScene, ToleranceBand,
 };
 use rurix_rt::render_exec::{self, KernelWave};
 use rurix_rt::vk::{
@@ -104,10 +104,13 @@ fn read_u32(b: &[u8]) -> Vec<u32> {
 // ---------------------------------------------------------------------------
 
 /// 单场景单 spp 单配置 device 真跑 → PtImage(回读装配)。
-fn run_device(scene: &PtScene, cfg: &PtConfig, spv: &[u32], entry: &str) -> Result<PtImage, String> {
-    scene
-        .validate()
-        .map_err(|e| format!("场景校验: {e}"))?;
+fn run_device(
+    scene: &PtScene,
+    cfg: &PtConfig,
+    spv: &[u32],
+    entry: &str,
+) -> Result<PtImage, String> {
+    scene.validate().map_err(|e| format!("场景校验: {e}"))?;
     cfg.validate().map_err(|e| format!("配置校验: {e}"))?;
     let cam = &scene.camera;
     let pixel_count = (cam.width * cam.height) as usize;
@@ -160,7 +163,13 @@ fn run_device(scene: &PtScene, cfg: &PtConfig, spv: &[u32], entry: &str) -> Resu
         width: cam.width,
         height: cam.height,
         rgb: read_f32(&rb[0]),
-        sum_lum: read_f32(&rb[1].chunks_exact(8).map(|c| &c[..4]).collect::<Vec<_>>().concat()),
+        sum_lum: read_f32(
+            &rb[1]
+                .chunks_exact(8)
+                .map(|c| &c[..4])
+                .collect::<Vec<_>>()
+                .concat(),
+        ),
         sumsq_lum: read_f32(
             &rb[1]
                 .chunks_exact(8)
@@ -191,7 +200,11 @@ fn run_device_double(
 // ---------------------------------------------------------------------------
 
 /// pbrt 运行一次(cwd = work_dir;输出 EXR 文件名由场景文件内 Film 声明)。
-fn run_pbrt(pbrt: &std::path::Path, work: &std::path::Path, scene_file: &std::path::Path) -> Result<(), String> {
+fn run_pbrt(
+    pbrt: &std::path::Path,
+    work: &std::path::Path,
+    scene_file: &std::path::Path,
+) -> Result<(), String> {
     let r = std::process::Command::new(pbrt)
         .arg("--nthreads")
         .arg("0")
@@ -214,7 +227,11 @@ fn run_pbrt(pbrt: &std::path::Path, work: &std::path::Path, scene_file: &std::pa
 }
 
 /// imgtool EXR → PFM。
-fn exr_to_pfm(imgtool: &std::path::Path, exr: &std::path::Path, pfm: &std::path::Path) -> Result<(), String> {
+fn exr_to_pfm(
+    imgtool: &std::path::Path,
+    exr: &std::path::Path,
+    pfm: &std::path::Path,
+) -> Result<(), String> {
     let r = std::process::Command::new(imgtool)
         .arg("convert")
         .arg(exr)
@@ -264,7 +281,10 @@ fn pbrt_render(
     let scene_path = std::fs::canonicalize(&scene_path)
         .map_err(|e| format!("canonicalize {}: {e}", scene_path.display()))?;
     let scene_str = scene_path.display().to_string();
-    let scene_str = scene_str.strip_prefix(r"\\?\").unwrap_or(&scene_str).to_string();
+    let scene_str = scene_str
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&scene_str)
+        .to_string();
     run_pbrt(pbrt, work, std::path::Path::new(&scene_str))?;
     let stem = path_trace::pbrt_scene_filename(scene.name, spp).replace(".pbrt", "");
     let exr = work.join(format!("{stem}.exr"));
@@ -282,9 +302,7 @@ fn pbrt_render(
 }
 
 /// pbrt provisioning 探测(版本行 + commit + exe sha256;缺一即 DEV_ENV_DEGRADE)。
-fn pbrt_provenance(
-    pbrt: &std::path::Path,
-) -> Result<(String, String, String), String> {
+fn pbrt_provenance(pbrt: &std::path::Path) -> Result<(String, String, String), String> {
     // pbrt-v4 无 --version 子命令;无参运行首行横幅 = `pbrt version 4 (built …)`。
     let ver = std::process::Command::new(pbrt)
         .output()
@@ -450,9 +468,12 @@ fn main() {
         caps.device_name,
         if validation_on { "on" } else { "off" }
     );
-    let spv_path = args.spv.clone().unwrap_or_else(|| fail("缺 --spv <kernel.spv>"));
-    let spv_bytes = std::fs::read(&spv_path)
-        .unwrap_or_else(|e| fail(&format!("读 {spv_path}: {e}")));
+    let spv_path = args
+        .spv
+        .clone()
+        .unwrap_or_else(|| fail("缺 --spv <kernel.spv>"));
+    let spv_bytes =
+        std::fs::read(&spv_path).unwrap_or_else(|e| fail(&format!("读 {spv_path}: {e}")));
     if spv_bytes.len() % 4 != 0 {
         fail("SPIR-V 字节数非 4 对齐");
     }
@@ -495,7 +516,10 @@ fn main() {
         }
         if !img.samples.iter().all(|&n| n == spp) {
             sample_count_ok = false;
-            failures.push(format!("{} spp={spp} 逐像素 sample count ≠ spp", scene.name));
+            failures.push(format!(
+                "{} spp={spp} 逐像素 sample count ≠ spp",
+                scene.name
+            ));
         }
         if !img.rgb.iter().all(|v| v.is_finite() && *v >= 0.0) {
             failures.push(format!("{} spp={spp} 输出非有限/负", scene.name));
@@ -530,14 +554,20 @@ fn main() {
                     "{TAG}: RED 臂 {name} digest={} vs golden={} → {}",
                     hex(&d),
                     hex(&golden_digest),
-                    if detected { "检出(RED 有效)" } else { "未检出(漏检)" }
+                    if detected {
+                        "检出(RED 有效)"
+                    } else {
+                        "未检出(漏检)"
+                    }
                 );
                 detected
             }
             Err(e) => fail(&format!("RED 臂 {name} device 执行: {e}")),
         }
     };
-    let red_seed = arm("seed-change", &|c| c.seed = M96_SEED ^ 0xABCD_EF01_2345_6789);
+    let red_seed = arm("seed-change", &|c| {
+        c.seed = M96_SEED ^ 0xABCD_EF01_2345_6789
+    });
     let red_no_rr = arm("no-rr", &|c| c.switches.rr = false);
     let red_no_mis = arm("no-mis", &|c| c.switches.mis = false);
     for (name, ok) in [
@@ -594,10 +624,16 @@ fn main() {
         _ => skip("无 pbrt provisioning(--pbrt/--imgtool 未给;DEV_ENV_DEGRADE 登记,不充绿)"),
     };
     if !pbrt_exe.is_file() {
-        skip(&format!("pbrt 不存在({})(DEV_ENV_DEGRADE)", pbrt_exe.display()));
+        skip(&format!(
+            "pbrt 不存在({})(DEV_ENV_DEGRADE)",
+            pbrt_exe.display()
+        ));
     }
     if !imgtool_exe.is_file() {
-        skip(&format!("imgtool 不存在({})(DEV_ENV_DEGRADE)", imgtool_exe.display()));
+        skip(&format!(
+            "imgtool 不存在({})(DEV_ENV_DEGRADE)",
+            imgtool_exe.display()
+        ));
     }
     let (pbrt_version, pbrt_commit, pbrt_exe_sha) = match pbrt_provenance(&pbrt_exe) {
         Ok(v) => v,
@@ -665,8 +701,8 @@ fn main() {
     } else {
         let band_text = std::fs::read_to_string(&args.band)
             .unwrap_or_else(|e| fail(&format!("读容差带 {}: {e}", args.band)));
-        let band = ToleranceBand::parse(&band_text)
-            .unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
+        let band =
+            ToleranceBand::parse(&band_text).unwrap_or_else(|e| fail(&format!("容差带解析: {e}")));
         for m in &measured {
             match band.entry(&m.scene, m.spp) {
                 Ok(e) => {
@@ -715,12 +751,7 @@ fn main() {
         .collect();
     let digests_json: Vec<String> = measured
         .iter()
-        .map(|m| {
-            format!(
-                "\"{}_spp{}\": \"{}\"",
-                m.scene, m.spp, m.golden_digest
-            )
-        })
+        .map(|m| format!("\"{}_spp{}\": \"{}\"", m.scene, m.spp, m.golden_digest))
         .collect();
     let curves_json: Vec<String> = measured
         .iter()

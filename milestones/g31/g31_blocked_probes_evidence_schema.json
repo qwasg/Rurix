@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_blocked_probes TODO 阻塞项全量新鲜探针门裁决件",
+  "description": "G31+ 波 C Task C17（ci/g31_blocked_probes_smoke.py --gate g31.waveC.blockedprobes 产；探针登记件 milestones/g31/g31_blocked_probes_2026.json 消费面）。判据闭集：①登记件机器核验（12 探针齐备 + 逐项 verdict ∈ {open-maintained, blocked-dev-env} 闭集 + 零冒充机核〔无一项被标 closed/resolved〕+ 逐项 anchor_unchanged=true + summary 计数重算一致）；②活体复核 host 恒跑腿（三工具/BistroExterior、vulkaninfo 五 token+设备枚举、VM 面、OMM 材质计数、物理观察轨 22 pattern、SAFE-GPU 三面、legacy 零 close、本地工具链版本、RD-034 blocked 探针、RD-045 三件面）——阻塞→解锁翻转 = 锚命中重判信号（合法门绿，F10 门态映射分支捕获非透传），门 FAIL 只留程序未诚实执行；③device 腿三态（RD-045 digest 抽查对波 B 锚；DEV_ENV_DEGRADE 退 0 不冒充 PASS，RURIX_REQUIRE_REAL=1 翻硬 FAIL，digest 漂移 = 诚实红）。PASS-only 闭集 schema——PASS 才落 evidence/g31_blocked_probes_<ts>.json，FAIL 诊断件留 .tmp 工作区不污染路由面。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "registration",
+    "live_rechecks",
+    "device_leg",
+    "signals",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.blocked_probes_smoke_evidence.v1"
+    },
+    "subject": {
+      "type": "string",
+      "const": "g31_blocked_probes"
+    },
+    "symbolic_gate_key": {
+      "type": "string",
+      "const": "g31.waveC.blockedprobes"
+    },
+    "wave": {
+      "type": "string",
+      "const": "G31+.C"
+    },
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "probes_path",
+        "probes_total",
+        "verdicts_in_closed_set",
+        "zero_masquerade",
+        "anchors_all_unchanged",
+        "closed_or_resolved"
+      ],
+      "properties": {
+        "probes_path": {"type": "string", "const": "milestones/g31/g31_blocked_probes_2026.json"},
+        "probes_total": {"type": "integer", "const": 12},
+        "verdicts_in_closed_set": {"type": "boolean", "const": true, "description": "12 探针逐项 verdict ∈ {open-maintained, blocked-dev-env} 闭集"},
+        "zero_masquerade": {"type": "boolean", "const": true, "description": "零冒充机核：无一项被标 closed/resolved"},
+        "anchors_all_unchanged": {"type": "boolean", "const": true, "description": "逐项 anchor_unchanged=true（锚字面 0-byte 不回写）"},
+        "closed_or_resolved": {"type": "integer", "const": 0}
+      }
+    },
+    "live_rechecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legs_run", "legs_skipped_dev_env", "flips_registered", "legs"],
+      "properties": {
+        "legs_run": {"type": "integer", "minimum": 1},
+        "legs_skipped_dev_env": {"type": "integer", "minimum": 0},
+        "flips_registered": {"type": "integer", "minimum": 0, "description": "翻转/锚命中信号数（合法门绿分支，F10 门态映射）"},
+        "legs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["leg", "state"],
+            "properties": {
+              "leg": {"type": "string"},
+              "state": {"type": "string", "enum": ["ok", "skipped_dev_env"]}
+            }
+          }
+        }
+      }
+    },
+    "device_leg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["leg", "state"],
+      "properties": {
+        "leg": {"type": "string", "const": "rd045_digest"},
+        "state": {"type": "string", "enum": ["ok", "skipped_dev_env"], "description": "三态：ok=digest 对锚命中；skipped_dev_env=GPU/产物缺如实登记不冒充（error 态不落 PASS 件）"},
+        "digest": {"type": "string"},
+        "digest_match_anchor": {"type": "boolean"},
+        "frames_completed": {"type": ["integer", "null"]},
+        "validation_silent": {"type": "boolean"},
+        "exit": {"type": "integer"},
+        "reason": {"type": "string"}
+      }
+    },
+    "signals": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "锚命中/翻转信号登记（合法门绿分支——信号 ≠ close，条目维持 open）"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

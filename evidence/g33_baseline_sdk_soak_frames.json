@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 1010.0
+ },
+ "notes": "G33 商业化期波 C 验收 SDK 面增量 soak 实测：外部 C++ 宿主 renderer_sdk_host.exe（C1 构建件）canonical 1010+10 帧零崩 exit=0（token RXSDK_HOST_LOAD_OK/DIGEST/PARAMS_OK/PRESENT_OK/HOST_OK 全要素；非法面确定性拒 rc==3 见证通路），RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1（2026-08-26 真跑输出）；soak 总账 = 波 A 10010 帧在案（g31_wave_a_soak_20260825T223024Z.json）+ C4 故障臂在案 1010 帧 + 本日故障臂新鲜 1000 帧（g31_robustness_20260826T212406Z.json）+ 本 SDK 面 1010 帧"
+}

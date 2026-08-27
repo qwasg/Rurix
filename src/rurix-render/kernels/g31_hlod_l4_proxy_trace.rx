@@ -1,0 +1,131 @@
+//@ spec: RXS-0359
+// G31+ 波 C Task C12 HLOD L4 Far Field proxy 追踪 device kernel(M98-l4
+// 承接锚第一半:HLOD proxy 追踪 device 腿;门 `g31.waveC.hlodl4`)。
+//
+// ## 语义(RXS-0359 L1 四级链 L4 档;G20/G27 M98-l4 重判锚)
+// 远场 HLOD proxy 追踪:逐像素单 invocation,自 GBuffer 预传递的二次射线
+// (原点/方向为**输入**,host 预传递与 RNG 流同纪律)对 proxy 集(轴对齐
+// 盒 + 烘焙出射辐射度,离线烘焙产物语义的只读消费面;RXS-0364 运行时零
+// 合并字面不变——本内核无任何合并/重建入口)做最近命中求交——逐 proxy
+// slab 求交(t 区间端点判定 `tf ≥ max(tn, 0)`,擦边 tf == tk 判 miss,
+// host 同律),最近命中算术锁存(严格更小 t 先见先赢,同 t 不翻)。命中
+// 着色 = proxy 烘焙辐射度直取(纯数据搬运,零算术 ⇒ device/host 位级
+// 相等由「同选择决策 + 同输入位型」蕴含);未命中 = 天空常量(params
+// 传入,与 host `M98_SKY` 逐字同值)。全量扫描无早退 ⇒ 耗时计数面 =
+// proxy 数(out_state[2];确定性代理,L2 同律,口径显式登记)。
+// 与 GI RayQuery 射线流**不共享**同一射线流(D2-Q9):本内核无
+// AccelStruct 形参,经纯 compute 执行面(vk::run_compute)派发,不消费
+// TLAS(L1 同构面——proxy 集合小,暴力扫描即生产语义)。
+//
+// ## 确定性协议(承 RXS-0357 L2 同律)
+// - 无 RNG 消费;逐像素独立顺序执行,禁 atomic;输出直写无跨 invocation
+//   交互;全部 f32;分支判定一律 min/max 算术门(`(x·big).min(1).max(0)`,
+//   M96 已机验白名单形);平行门卫(零/微分量 ±1e-30 保号替代)与 host
+//   `gi::fallback_chain::l4_axis_inv` 逐字同源。
+// - host 镜像 = `gi::fallback_chain::l4_trace_ray` / `l4_leg_host`(逐字
+//   同源,harness 对拍腿:hit flags/proxy 下标/扫描计数 = 整数判定域精确
+//   硬判据,rgb = 纯数据搬运位级硬判据,t = 除法残差信息项〔Vulkan
+//   OpFDiv 2.5 ULP 口径,G7.5b「FMA 残差不进判据」先例〕)。
+//
+// ## 参数面(host `gi::fallback_chain::pack_l4_params` 逐字同源;f32 位级编码)
+//   params[0]=pixel_count [1]=proxy_count [2..5]=天空常量 RGB(M98_SKY)
+//   proxies: 10 f32/proxy [min3‖max3‖radiance3‖pad](host
+//   `pack_l4_proxies` 逐字同源);
+//   rays_o/rays_d: 3 f32/px 二次射线(世界空间,单位方向);
+//   out_rgb: 3 f32/px 命中 proxy 烘焙辐射度(未命中 = 天空常量);
+//   out_state: 4 f32/px [hit, t(miss=0), work=proxy_count, proxy_index]。
+kernel fn g31_hlod_l4_proxy_trace(
+    t: ThreadCtx<1>,
+    rays_o: View<global, f32>,
+    rays_d: View<global, f32>,
+    proxies: View<global, f32>,
+    params: View<global, f32>,
+    out_rgb: ViewMut<global, f32>,
+    out_state: ViewMut<global, f32>,
+) {
+    let i = t.global_id();
+    let pixel_count = params[0] as usize;
+    let proxy_count = params[1] as usize;
+    let sky_r = params[2];
+    let sky_g = params[3];
+    let sky_b = params[4];
+    let big: f32 = 1e30;
+    if i < pixel_count {
+        let ox = rays_o[i * 3];
+        let oy = rays_o[i * 3 + 1];
+        let oz = rays_o[i * 3 + 2];
+        let dx = rays_d[i * 3];
+        let dy = rays_d[i * 3 + 1];
+        let dz = rays_d[i * 3 + 2];
+        // ── 平行门卫 + 轴逆(host `l4_axis_inv` 逐字同源):|d| > 1e-6 ⇒
+        // 1/d;否则 ±1e-30 保号替代(平行:盒内 ±巨值恒含/盒外同号恒不含,
+        // 命中判定不变;全算术门零分支;1e-6 阈值使近平行分量走门卫精确面,
+        // 除法噪声带不翻判定)──
+        let keepx = ((dx.abs() - 1e-6) * big).min(1.0).max(0.0);
+        let sgnx = 1.0 - 2.0 * ((0.0 - dx) * big).min(1.0).max(0.0);
+        let invx = 1.0 / (dx * keepx + sgnx * 1e-30 * (1.0 - keepx));
+        let keepy = ((dy.abs() - 1e-6) * big).min(1.0).max(0.0);
+        let sgny = 1.0 - 2.0 * ((0.0 - dy) * big).min(1.0).max(0.0);
+        let invy = 1.0 / (dy * keepy + sgny * 1e-30 * (1.0 - keepy));
+        let keepz = ((dz.abs() - 1e-6) * big).min(1.0).max(0.0);
+        let sgnz = 1.0 - 2.0 * ((0.0 - dz) * big).min(1.0).max(0.0);
+        let invz = 1.0 / (dz * keepz + sgnz * 1e-30 * (1.0 - keepz));
+        // ── 逐 proxy slab 求交 + 最近命中锁存(全量扫描无早退)──
+        // 锁存 = 分支纯赋值(禁算术 blend:1e38 哨兵与 tk 量级悬殊,blend 被
+        // 重结合/fma 时 (tk − best_t) 灾难性抵消 ⇒ 首命中锁存归零〔实测〕;
+        // 分支赋值零运算 ⇒ 锁存位级由构造保证;nearer 门 (best_t − tk)·big
+        // 只取符号,哨兵 1e38 对判定无害)。
+        let mut best_hit = 0.0;
+        let mut best_t = 1e38;
+        let mut best_idx = 0.0;
+        let mut k = 0usize;
+        while k < proxy_count {
+            let base = k * 10;
+            // x 轴
+            let tax = (proxies[base] - ox) * invx;
+            let tbx = (proxies[base + 3] - ox) * invx;
+            let mut tn = (0.0 - big).max(tax.min(tbx));
+            let mut tf = big.min(tax.max(tbx));
+            // y 轴
+            let tay = (proxies[base + 1] - oy) * invy;
+            let tby = (proxies[base + 4] - oy) * invy;
+            tn = tn.max(tay.min(tby));
+            tf = tf.min(tay.max(tby));
+            // z 轴
+            let taz = (proxies[base + 2] - oz) * invz;
+            let tbz = (proxies[base + 5] - oz) * invz;
+            tn = tn.max(taz.min(tbz));
+            tf = tf.min(taz.max(tbz));
+            let tk = tn.max(0.0);
+            let hitk = ((tf - tk) * big).min(1.0).max(0.0);
+            let nearer = ((best_t - tk) * big).min(1.0).max(0.0);
+            let cond = hitk * nearer;
+            if cond >= 0.5 {
+                best_t = tk;
+                best_idx = k as f32;
+                best_hit = 1.0;
+            }
+            k = k + 1usize;
+        }
+        // ── 命中着色(烘焙辐射度直取;miss ⇒ 天空常量)──
+        // t 写出 = 单乘 best_t·best_hit(best_hit ∈ {0,1} 精确;单乘无收缩伙伴,
+        // 实测位级全等)。
+        let t_out = best_t * best_hit;
+        out_state[i * 4] = best_hit;
+        out_state[i * 4 + 1] = t_out;
+        out_state[i * 4 + 2] = proxy_count as f32;
+        out_state[i * 4 + 3] = best_idx;
+        // rgb = 分支选择纯数据搬运(禁算术 blend——重结合/FMA 收缩会破坏与
+        // host 镜像的位级相等;两路均无运算 ⇒ 位级相等由构造保证)。
+        let bi = (best_idx as usize) * 10;
+        if best_hit >= 0.5 {
+            out_rgb[i * 3] = proxies[bi + 6];
+            out_rgb[i * 3 + 1] = proxies[bi + 7];
+            out_rgb[i * 3 + 2] = proxies[bi + 8];
+        } else {
+            out_rgb[i * 3] = sky_r;
+            out_rgb[i * 3 + 1] = sky_g;
+            out_rgb[i * 3 + 2] = sky_b;
+        }
+    }
+}

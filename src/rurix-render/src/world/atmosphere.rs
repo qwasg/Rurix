@@ -70,7 +70,10 @@ impl std::fmt::Display for AtmosphereError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AtmosphereError::GridDimTampered { got, tiers } => {
-                write!(f, "froxel 网格维度篡改: {got:?} 不在 canonical 档 {tiers:?}(RED)")
+                write!(
+                    f,
+                    "froxel 网格维度篡改: {got:?} 不在 canonical 档 {tiers:?}(RED)"
+                )
             }
             AtmosphereError::WeatherMapTampered { why } => {
                 write!(f, "weather map 资产篡改: {why}(RED)")
@@ -191,10 +194,14 @@ pub struct FogFrontend {
 impl FogFrontend {
     pub fn write_density(&self, volume: &mut FroxelVolume) -> Result<()> {
         if !self.base_density.is_finite() || self.base_density < 0.0 {
-            return Err(AtmosphereError::NonFiniteValue { stage: "fog_base_density" });
+            return Err(AtmosphereError::NonFiniteValue {
+                stage: "fog_base_density",
+            });
         }
         if !self.falloff_m.is_finite() || self.falloff_m <= 0.0 {
-            return Err(AtmosphereError::NonFiniteValue { stage: "fog_falloff" });
+            return Err(AtmosphereError::NonFiniteValue {
+                stage: "fog_falloff",
+            });
         }
         let dim = volume.dim;
         let slices = volume.depth_slices;
@@ -248,7 +255,9 @@ impl ScatterIntegrator {
             });
         }
         if !step_size_m.is_finite() || step_size_m <= 0.0 {
-            return Err(AtmosphereError::NonFiniteValue { stage: "scatter_step" });
+            return Err(AtmosphereError::NonFiniteValue {
+                stage: "scatter_step",
+            });
         }
         Ok(Self {
             max_steps,
@@ -273,11 +282,15 @@ impl ScatterIntegrator {
             .map(|l| l.radiance[0] + l.radiance[1] + l.radiance[2])
             .sum();
         if light_total <= 0.0 {
-            return Err(AtmosphereError::ZeroScatteringContribution { stage: "lights_zero" });
+            return Err(AtmosphereError::ZeroScatteringContribution {
+                stage: "lights_zero",
+            });
         }
         let density_total: f32 = volume.density.iter().sum();
         if density_total <= 0.0 {
-            return Err(AtmosphereError::ZeroScatteringContribution { stage: "density_zero" });
+            return Err(AtmosphereError::ZeroScatteringContribution {
+                stage: "density_zero",
+            });
         }
         // 简化单散射(Beer-Lambert 消光 + 均匀单散射反照率 0.9):
         let albedo = 0.9f32;
@@ -291,7 +304,8 @@ impl ScatterIntegrator {
         ];
         for _ in 0..self.max_steps {
             // 最近 voxel 密度采样(简化:按位置线性索引到 z-slice)。
-            let z_slice = ((pos[2] / self.step_size_m).max(0.0) as u32).min(volume.depth_slices - 1);
+            let z_slice =
+                ((pos[2] / self.step_size_m).max(0.0) as u32).min(volume.depth_slices - 1);
             let x_vox = ((pos[0] / self.step_size_m).max(0.0) as u32).min(volume.dim[0] - 1);
             let y_vox = ((pos[1] / self.step_size_m).max(0.0) as u32).min(volume.dim[1] - 1);
             let idx =
@@ -347,10 +361,15 @@ impl FrameEvidence {
             });
         }
         if self.light_count == 0 {
-            return Err(AtmosphereError::ZeroScatteringContribution { stage: "light_count_zero" });
+            return Err(AtmosphereError::ZeroScatteringContribution {
+                stage: "light_count_zero",
+            });
         }
         if self.scatter_steps == 0 {
-            return Err(AtmosphereError::ScatterStepsOutOfRange { got: 0, max: MAX_SCATTER_STEPS });
+            return Err(AtmosphereError::ScatterStepsOutOfRange {
+                got: 0,
+                max: MAX_SCATTER_STEPS,
+            });
         }
         Ok(())
     }
@@ -390,13 +409,13 @@ impl TemporalChain {
                 return Err(AtmosphereError::TemporalChainBroken {
                     frame,
                     why: "首帧无历史未初始化(复用脏帧)",
-                })
+                });
             }
             Some(prev) if frame != prev + 1 => {
                 return Err(AtmosphereError::TemporalChainBroken {
                     frame,
                     why: "帧号非连续",
-                })
+                });
             }
             _ => {}
         }
@@ -417,7 +436,12 @@ impl Default for TemporalChain {
 // ---------------------------------------------------------------------------
 
 /// canonical golden 场景:64×64×64 Froxel 网格 + 高度雾前端 + 方向光注入。
-pub fn canonical_scene() -> (FroxelVolume, FogFrontend, Vec<InjectLight>, ScatterIntegrator) {
+pub fn canonical_scene() -> (
+    FroxelVolume,
+    FogFrontend,
+    Vec<InjectLight>,
+    ScatterIntegrator,
+) {
     let vol = FroxelVolume::new([64, 64, 64], FROXEL_DEPTH_SLICES).expect("canonical grid");
     let fog = FogFrontend {
         base_density: 0.05,
@@ -541,7 +565,10 @@ mod tests {
         let out = scatter
             .integrate(&vol, &lights, [32.0, 32.0, 0.0], [0.0, 0.0, 1.0])
             .unwrap();
-        assert!(out.iter().all(|v| v.is_finite() && *v > 0.0), "正常散射非零");
+        assert!(
+            out.iter().all(|v| v.is_finite() && *v > 0.0),
+            "正常散射非零"
+        );
     }
 
     /// RXS-0365 L3:weather map 资产化 + 签名篡改拒录(RED 锚)。

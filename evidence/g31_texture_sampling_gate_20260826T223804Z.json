@@ -1,0 +1,121 @@
+{
+  "schema": "rurix.g31.texture_sampling_gate_evidence.v1",
+  "subject": "g31_texture_sampling",
+  "symbolic_gate_key": "g31.waveB.texture",
+  "wave": "G31.B",
+  "facts": [
+    {
+      "id": "asset_inventory_and_mapping_valid",
+      "status": "PASS",
+      "detail": "harness 面:census == CI 独立重算互核 + top-12 律法逐行互核 + 12/12 manifest digest 互核+ 图集 8192×6144/LUT digest 形态 + mapped=12 tex_tris=697878"
+    },
+    {
+      "id": "ssbo_probe_parity_bitexact",
+      "status": "PASS",
+      "detail": "SSBO 腿 p100=0.0（位级硬门 0.0）bitexact=True 双跑=True device==host digest=True；跨腿 digest 稳定=True"
+    },
+    {
+      "id": "sampler_leg_parity_bound",
+      "status": "PASS",
+      "detail": "sampler 腿 max_lsb=1 ≤ 1（结构容差:硬件过滤权重量化 ≤2^-8 ⇒ 8-bit 翻转 ≤1 LSB）bitexact=False；nonconstant_slots ≥ 1 由 harness fail-closed 承载（空接线冒充即拒跑）"
+    },
+    {
+      "id": "g11_3_anchor_rerun_green",
+      "status": "FAIL",
+      "detail": "g11_3_dds_dump 复解码 12/12 互核；链 0-byte（src/rurix-asset + manifest）=False"
+    },
+    {
+      "id": "texture_kernels_spv_valid",
+      "status": "FAIL",
+      "detail": "rurixc 现编 g31_texture_{gi,probe}.rx + spirv-val=绿;git diff --quiet HEAD -- spec/ rurix-asset/ 母版 kernel material/ graph/types.rs G11.3 manifest 0-byte=False;工作树干净=False"
+    },
+    {
+      "id": "bistro_texture_demo",
+      "status": "PASS",
+      "detail": "bistro top-12 贴图采样真跑:off 双跑位级=True on 双跑位级=True on≠off=True；tex_tris=697878 mapped=12 census 跨端互核=True"
+    },
+    {
+      "id": "textures_off_regression_anchor",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体 0-byte 机器证明）"
+    },
+    {
+      "id": "textures_on_off_frame_ms_measured",
+      "status": "PASS",
+      "detail": "同机同窗 measured:off=3.4590ms on=3.7910ms（Δ=+9.60%）；纹理装配/探针 eval_ms=2023.033（单列不混帧口径）"
+    }
+  ],
+  "verdict": "FAIL",
+  "probe_parity": {
+    "ssbo_p100": 0.0,
+    "ssbo_bitexact": true,
+    "ssbo_double_run_bitexact": true,
+    "device_digest": "sha256:80f932d00ce2c3d4b2f0584ae0489f61d528a4c2a4d4360246269b64269c26c5",
+    "host_digest": "sha256:80f932d00ce2c3d4b2f0584ae0489f61d528a4c2a4d4360246269b64269c26c5",
+    "sampler_max_lsb": 1,
+    "sampler_bound_lsb": 1,
+    "sampler_bitexact": false,
+    "sampler_digest": "sha256:d602892e8bcdd344d4317867a9b42d8071d5a299b9e7bcaa3d82432d0b08a423",
+    "nonconstant_slots": 1
+  },
+  "g11_3_rerun": {
+    "entries_reproduced": 12,
+    "entries_total": 12,
+    "decoder": "target/release/g11_3_dds_dump.exe",
+    "manifest_path": "milestones/g11/g11_3_dds_transcode_manifest.json",
+    "chain_0byte_clean": false
+  },
+  "frozen_0byte": {
+    "paths": [
+      "spec",
+      "src/rurix-asset",
+      "src/rurix-render/kernels/g14_3_direct_gi.rx",
+      "src/rurix-render/src/material",
+      "src/rurix-render/src/graph/types.rs",
+      "milestones/g11/g11_3_dds_transcode_manifest.json"
+    ],
+    "vs_head_0byte": false,
+    "worktree_clean": false
+  },
+  "demo": {
+    "scene_id": "bistro-interior",
+    "trajectory": "orbit",
+    "mapped_materials": 12,
+    "tex_tris": 697878,
+    "off_double_run_bitexact": true,
+    "on_double_run_bitexact": true,
+    "on_ne_off": true,
+    "census_crosscheck": true
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "frame_ms": {
+    "off_mean": 3.45902,
+    "on_mean": 3.791028,
+    "delta_pct_on_vs_off": 9.598325537290897,
+    "probe_eval_ms": 2023.0325,
+    "measured": "measured_local",
+    "frames_per_run": 64,
+    "runs": 2
+  },
+  "harness_evidence": [
+    "evidence\\g31_game_loop_tex_off_a_20260826T223804Z.json",
+    "evidence\\g31_game_loop_tex_off_b_20260826T223804Z.json",
+    "evidence\\g31_texture_sampling_harness_on_a_20260826T223804Z.json",
+    "evidence\\g31_texture_sampling_harness_on_b_20260826T223804Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T223804Z",
+  "notes": "G31+ 波 B Task B4 纹理采样管线进生产场景：内容模型从逐三角常量 albedo 升级为贴图采样 albedo（top-12 三角数降序映射律法;其余材质走既有常量面 0-byte）。资产链 = bistro gltf → DDS BC1/BC3 bin-local 真实解码（bcdec 镜像,逐槽 rgba8_digest == G11.3 manifest 互核）→ u32 打包 RGBA8 图集（8192×6144）+ texmeta/tritex/逐三角 UV 四 SSBO 侧表扩展（mats SSBO 0-byte）+ 256 项 srgb→linear LUT。生产场景 kernel = kernels/g31_texture_gi.rx（g14_3_direct_gi.rx 逐字 fork + 贴图采样;母版 0-byte,off 面 = Stage A 回归锚）:tritex ≥ 0 槽 REPEAT wrap + G26 sample_bilinear 逐字双线性 + LUT × mod(factor×(1−metallic))。探针双臂 = SSBO 腿（g31_texture_probe.rx vk::run_compute,NoContraction 注入）device vs host 位级硬门 p100=0.0 + sampler 腿（真 GPU 纹理对象 image/view/sampler 经 sampler.rs SamplerDesc→VkSampler,vk::sampling_shaders_spv 硬件 sample_lod）vs host srgb 域参考 ≤1 LSB 结构容差。缺面如实登记:sampler 对象不进 compute 生产车道（RXS-0223 §4.0-2 阶段矩阵,spec 0-byte 纪律）/normal 贴图在树但 glTF 零 TANGENT（法线贴图着色面后续）/rough-metal 贴图 0/70（无 metallicRoughnessTexture 且 Lambert 无消费槽）"
+}

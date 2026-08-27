@@ -360,29 +360,27 @@ fn main() {
                         };
                         let left = px(&out.pixels_gpu, W / 8, H / 2);
                         let right = px(&out.pixels_gpu, 7 * W / 8, H / 2);
-                        let switch_observed =
-                            left == [255, 0, 0, 255] && right == [0, 0, 255, 255];
+                        let switch_observed = left == [255, 0, 0, 255] && right == [0, 0, 255, 255];
                         checks.push(("device_index_switch_observed", switch_observed));
                         if !switch_observed {
                             fail(&format!(
                                 "索引切换证据缺失:左={left:?} 右={right:?}(期望 [255,0,0,255]/[0,0,255,255])"
                             ));
                         }
-                        digests.push((
-                            "gpu".into(),
-                            format!("0x{:016x}", fnv1a64(&out.pixels_gpu)),
-                        ));
-                        digests.push((
-                            "cpu".into(),
-                            format!("0x{:016x}", fnv1a64(&out.pixels_cpu)),
-                        ));
+                        digests
+                            .push(("gpu".into(), format!("0x{:016x}", fnv1a64(&out.pixels_gpu))));
+                        digests
+                            .push(("cpu".into(), format!("0x{:016x}", fnv1a64(&out.pixels_cpu))));
                         digests.push((
                             "rebuild".into(),
                             format!("0x{:016x}", fnv1a64(&out.pixels_rebuild)),
                         ));
                         println!(
                             "ES_DIGESTS: gpu={} cpu={} rebuild={} preprocess_size={} maxPipelineCount={}",
-                            digests[0].1, digests[1].1, digests[2].1, out.preprocess_size,
+                            digests[0].1,
+                            digests[1].1,
+                            digests[2].1,
+                            out.preprocess_size,
                             out.max_indirect_pipeline_count
                         );
                     }

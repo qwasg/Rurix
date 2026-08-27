@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix.g31.wp_hlod_evidence.v1",
+  "title": "G31+ #95/#68/#99 WP cell + HLOD 生产接线门裁决证据（ci/g31_wp_hlod_smoke.py --gate g31.wave95.wp_hlod 产）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "src_tris",
+    "bake",
+    "full_anchor",
+    "window_arms",
+    "mixed_arm",
+    "determinism",
+    "switch_protocol",
+    "red_arms",
+    "quality_diff",
+    "frame_ms",
+    "commands",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "rurix.g31.wp_hlod_evidence.v1" },
+    "gate": { "const": "g31.wave95.wp_hlod" },
+    "scene": { "const": "bistro-interior" },
+    "tier": { "type": "integer", "minimum": 1 },
+    "backend": { "const": "tsr_device" },
+    "src_tris": { "type": "integer", "minimum": 1 },
+    "bake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cells_total",
+        "cells_nonempty",
+        "cell_size_m",
+        "levels",
+        "cell_tris_min",
+        "cell_tris_max",
+        "passthrough_tris",
+        "proxy_tris_per_level",
+        "pack_sha256",
+        "double_build_equal",
+        "bake_ms"
+      ],
+      "properties": {
+        "cells_total": { "type": "integer", "minimum": 1 },
+        "cells_nonempty": { "type": "integer", "minimum": 1 },
+        "cell_size_m": { "type": "number", "exclusiveMinimum": 0 },
+        "levels": { "type": "integer", "minimum": 2, "maximum": 8 },
+        "cell_tris_min": { "type": "integer", "minimum": 1 },
+        "cell_tris_max": { "type": "integer", "minimum": 1 },
+        "passthrough_tris": { "type": "integer", "minimum": 0 },
+        "proxy_tris_per_level": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "pack_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "double_build_equal": { "const": true },
+        "bake_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "full_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_digest", "full_digest", "bitexact"],
+      "properties": {
+        "off_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "full_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "bitexact": { "const": true }
+      }
+    },
+    "window_arms": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "threshold_l0",
+          "cells_full",
+          "cells_hlod",
+          "cells_culled",
+          "cells_pending",
+          "out_tris",
+          "ratio",
+          "proxy_tris",
+          "selection_digest"
+        ],
+        "properties": {
+          "threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+          "cells_full": { "type": "integer", "minimum": 0 },
+          "cells_hlod": { "type": "integer", "minimum": 0 },
+          "cells_culled": { "type": "integer", "minimum": 0 },
+          "cells_pending": { "type": "integer", "minimum": 0 },
+          "out_tris": { "type": "integer", "minimum": 1 },
+          "ratio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+          "proxy_tris": { "type": "integer", "minimum": 0 },
+          "selection_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "mixed_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_l0", "cells_full", "cells_hlod", "mutually_exclusive_mixed"],
+      "properties": {
+        "threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+        "cells_full": { "type": "integer", "minimum": 1 },
+        "cells_hlod": { "type": "integer", "minimum": 1 },
+        "mutually_exclusive_mixed": { "const": true }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm_threshold_l0",
+        "double_run_digest_equal",
+        "selection_digest_prefix_equal"
+      ],
+      "properties": {
+        "arm_threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+        "double_run_digest_equal": { "const": true },
+        "selection_digest_prefix_equal": { "const": true }
+      }
+    },
+    "switch_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "threshold_l0",
+        "warmup_frames",
+        "frames",
+        "total_switches",
+        "max_switches_per_frame",
+        "switch_delta_tris_max",
+        "warmup_protocol_verified",
+        "events"
+      ],
+      "properties": {
+        "threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+        "warmup_frames": { "type": "integer", "minimum": 1 },
+        "frames": { "type": "integer", "minimum": 2 },
+        "total_switches": { "type": "integer", "minimum": 1 },
+        "max_switches_per_frame": { "type": "integer", "minimum": 1 },
+        "switch_delta_tris_max": { "type": "integer", "minimum": 0 },
+        "warmup_protocol_verified": { "const": true },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cell",
+              "from",
+              "to",
+              "request_frame",
+              "flip_frame",
+              "tris_before",
+              "tris_after"
+            ],
+            "properties": {
+              "cell": { "type": "integer", "minimum": 0 },
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "request_frame": { "type": "integer", "minimum": 0 },
+              "flip_frame": { "type": "integer", "minimum": 1 },
+              "tris_before": { "type": "integer", "minimum": 0 },
+              "tris_after": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "red_arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tamper_digest", "event_order", "double_draw", "runtime_merge"],
+      "properties": {
+        "tamper_digest": { "const": true },
+        "event_order": { "const": true },
+        "double_draw": { "const": true },
+        "runtime_merge": { "const": true }
+      }
+    },
+    "quality_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_l0", "err_max", "err_p95", "regions_over_1", "note"],
+      "properties": {
+        "threshold_l0": { "type": "number", "exclusiveMinimum": 0 },
+        "err_max": { "type": "number", "minimum": 0 },
+        "err_p95": { "type": "number", "minimum": 0 },
+        "regions_over_1": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_mean", "note"],
+      "properties": {
+        "off_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "on_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

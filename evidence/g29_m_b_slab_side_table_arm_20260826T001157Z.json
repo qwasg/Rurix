@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "subject": "g29_m_b_slab_side_table_arm",
+  "symbolic_gate_key": "g29.p0.m_b.slab_side_table_arm",
+  "matrix_row": "G29.2",
+  "wave": "G29.2",
+  "numeric_step": 498,
+  "source_ref": "G29_CONTRACT §4.2 M-b;rfcs/0046-material-device-integration.md §2;G29_ACCEPTANCE_MAP §1 M-b 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "finiteness_first_class",
+      "status": "PASS",
+      "detail": "判据⓪:全槽(主表 16 + 白炉变体 16)is_finite=True,断言先于聚合执行=True(硬 FAIL 先行,RFC-0046 §2.3 F3 同律)"
+    },
+    {
+      "id": "per_slot_parity_p100",
+      "status": "PASS",
+      "detail": "state=pass;逐槽对拍 p100=3.677547821823168e-08 ≤ tol=2.384186e-07(M-a 同源容差(budget 在档条目 threshold=2.384185791015624e-07,measured=1.192092895507812e-07,×2.0 冻结 k 程序产));16 槽 device 逐槽求值 vs host total_reflectance 直调"
+    },
+    {
+      "id": "per_slot_furnace_dev_registered",
+      "status": "PASS",
+      "detail": "16 槽逐槽白炉互核(每槽 ab=1 变体 host/device 双端重算)dev 全量登记:host dev max=0.0 device dev max=5.960464478e-08(如实登记面;侧表槽值非 2 幂网格值,host 位级 0 论证不适用,照实登记)"
+    },
+    {
+      "id": "double_run_bitexact",
+      "status": "PASS",
+      "detail": "固定输入双跑(主表 + 白炉变体两组 dispatch)输出缓冲 digest 位级相等"
+    },
+    {
+      "id": "material_closure_frozen",
+      "status": "PASS",
+      "detail": "git diff --quiet g28-closed -- graph/types.rs + src/material 0-byte(提交面 + 工作树双面;MaterialClosure 32B 布局与 reserved 拓扑位零触碰,reserved RED 守卫本体同受机核保护)"
+    },
+    {
+      "id": "no_production_side_table_conflation",
+      "status": "PASS",
+      "detail": "声明性机核(F8):检索 src/rurix-render/src/bin/g29_slab_device.rs 对 pattern 常量表 ('material::side_table', 'side_table::', 'MaterialSideTable') 零命中——bin-local SSBO(bin 内合成不落资产)与 material/ 生产资产侧表设施(RFC-0025 通道)零挂接,禁其编解码/digest 设施"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260826T001157Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G29.2 M-b:侧表供参加性臂兑现(bin-local device 腿)——16 材质槽 slab 参数侧表(bin 内合成独立 SSBO,rc_k=k/15·0.95、ab_k=(15−k)/15,0.95 有意规避 denom→0 角点区 F5;host 单源生成原字节上传,device 不重算槽参数);kernel 复用 g29_slab.rx 逐槽求值 + host total_reflectance 直调对拍(p100 ≤ M-a 同源容差)+ 判据⓪全槽有限性一等断言先行(F3 同律)+ 逐槽白炉互核(每槽 ab=1 变体 host/device 双端重算 dev 逐槽登记)+ 双跑位级 + graph/types.rs 与 material/ 整目录 0-byte(vs g28-closed;MaterialClosure 32B 零触碰)+ 防混淆声明机核(bin 源码零挂接生产侧表设施);全量臂产物 evidence/g29_slab_side_table_arm.json;RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

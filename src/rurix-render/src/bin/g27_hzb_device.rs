@@ -362,8 +362,12 @@ fn rect_window(
 ) -> (usize, u32, u32, u32, u32) {
     let base = &mips[0];
     let (w0, h0) = (base.w as f32, base.h as f32);
-    let x0 = (uv_min[0].clamp(0.0, 1.0) * w0).floor().clamp(0.0, w0 - 1.0) as u32;
-    let y0 = (uv_min[1].clamp(0.0, 1.0) * h0).floor().clamp(0.0, h0 - 1.0) as u32;
+    let x0 = (uv_min[0].clamp(0.0, 1.0) * w0)
+        .floor()
+        .clamp(0.0, w0 - 1.0) as u32;
+    let y0 = (uv_min[1].clamp(0.0, 1.0) * h0)
+        .floor()
+        .clamp(0.0, h0 - 1.0) as u32;
     let x1 = (uv_max[0].clamp(0.0, 1.0) * w0).ceil().clamp(1.0, w0) as u32 - 1;
     let y1 = (uv_max[1].clamp(0.0, 1.0) * h0).ceil().clamp(1.0, h0) as u32 - 1;
     let span = (x1 - x0 + 1).max(y1 - y0 + 1);
@@ -598,8 +602,13 @@ fn plan_tamper(
             let img = &mips[mip];
             for ty in my0..=my1 {
                 for tx in mx0..=mx1 {
-                    let val =
-                        |wx: u32, wy: u32| if wx == tx && wy == ty { inject } else { img.get(wx, wy, 0) };
+                    let val = |wx: u32, wy: u32| {
+                        if wx == tx && wy == ty {
+                            inject
+                        } else {
+                            img.get(wx, wy, 0)
+                        }
+                    };
                     let mut far = val(mx0, my0);
                     for wy in my0..=my1 {
                         for wx in mx0..=mx1 {
@@ -831,7 +840,10 @@ fn main() {
             problems.push(format!("{} 判定序列与 host 非逐 rect 全等(②)", r.conv));
         }
         if r.false_positives > 0 {
-            problems.push(format!("{} 假阳性 {}(③硬不变量)", r.conv, r.false_positives));
+            problems.push(format!(
+                "{} 假阳性 {}(③硬不变量)",
+                r.conv, r.false_positives
+            ));
         }
         if !r.double_run_bitexact {
             problems.push(format!("{} device 双跑非位级一致(④)", r.conv));

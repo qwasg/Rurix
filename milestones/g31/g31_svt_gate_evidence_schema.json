@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 C Task C13 SVT 稀疏虚拟纹理接线门裁决证据（ci/g31_svt_smoke.py --gate 产）",
+  "description": "G31+ 波 C Task C13 SVT 四行（RD-041 分项，TODO #33-#36）门 g31.waveC.svt 的 smoke 裁决证据：① SVT-1 虚拟纹理页表（128K² = 131072² 虚拟地址空间 1024×1024 u32 页表 → bistro 图集活动区 3072 页 → 物理瓦片池容量预算；探针全驻留 SVT vs host 整图直采位级硬门 p100=0.0 + 恒等页表 digest CI 独立重算互核 + streaming::svt host 单测绿）② SVT-2 GPU 反馈 pass（部分驻留探针 miss 请求缓冲 device vs host 位级 + host SvtStreaming::consume 闭环重跑全 hit == 全驻留位级 + 生产小池臂逐帧请求-驻留真跑 tiles_loaded ≥ 1）③ SVT-3 瓦片边界过滤（130² 带边物理瓦片 border texel 复制——页所属槽 REPEAT wrap 律；边界聚焦 96 探针 boundary_max_abs == 0.0 位级；各向异性跨瓦片 = 生产采样闭集双线性唯一过滤面，aniso 需求不成立如实登记 N/A）④ SVT-4 地形/贴花消费方（按 M116 锚核验需求不成立维持 defer 如实登记：terrain.rs 零 SVT 依赖断言在树 + cargo test world::terrain 绿含 zero_svt_dependency_red 臂 + 高度场/材质层 id 最小语义零纹理采样消费面——不冒充接线；terrain.rs 并发在飞改动归他务判档如实登记，本任务零触碰以 C13 文件清单面承载，不以 0-byte-vs-HEAD 冒充）⑤ 整合真跑（B4 锚臂 --textures on vs SVT 全驻留臂逐帧 digest_seq 位级一致 + 强制小池 256 臂流送全程 frames_completed 全量无崩 + fallback 帧如实登记 + 条件式错图机核〔miss_px==0 帧 ⇒ digest == 全驻留同帧位级〕+ miss 率/IO 量 measured〔io_bytes == tiles_loaded × 67600 重算互核〕+ 小池双跑位级一致 + 小池 ≠ 全驻留至少一帧流送真实生效门）。三态：无 Vulkan loader/设备/场景资产/SPV → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下 DEV_ENV 降级翻硬 FAIL（禁 mock 充真跑）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "svt1",
+    "svt2",
+    "svt3",
+    "svt4",
+    "integration",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.svt_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_svt" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveC.svt" },
+    "wave": { "type": "string", "const": "G31.C" },
+    "facts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "svt1_page_table_indirection",
+              "svt2_gpu_feedback_closed_loop",
+              "svt3_tile_border_filtering",
+              "svt4_terrain_consumer_m116",
+              "svt_integration_streaming"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "svt1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["virtual_dim", "page_table_dim", "active_pages", "p100_vs_direct", "bitexact_vs_direct", "identity_page_table_digest", "identity_recompute_match", "host_tests_green"],
+      "properties": {
+        "virtual_dim": { "type": "integer", "const": 131072 },
+        "page_table_dim": { "type": "integer", "const": 1024 },
+        "active_pages": { "type": "integer", "const": 3072 },
+        "p100_vs_direct": { "type": "number", "minimum": 0, "description": "全驻留 SVT vs 直采位级硬门面（== 0.0 才许 PASS）" },
+        "bitexact_vs_direct": { "type": "boolean", "description": "位级一致才许 true" },
+        "identity_page_table_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "identity_recompute_match": { "type": "boolean", "description": "CI 独立重算恒等页表 digest == harness 登记才许 true" },
+        "host_tests_green": { "type": "boolean", "description": "cargo test streaming::svt 全绿才许 true" }
+      }
+    },
+    "svt2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["miss_probes", "req_bitexact", "out_bitexact", "closed_loop_loaded", "closed_loop_io_bytes", "closed_loop_all_hit", "closed_loop_bitexact_vs_full", "production_tiles_loaded"],
+      "properties": {
+        "miss_probes": { "type": "integer", "minimum": 1 },
+        "req_bitexact": { "type": "boolean", "description": "device 请求缓冲 == host 请求队列位级才许 true" },
+        "out_bitexact": { "type": "boolean" },
+        "closed_loop_loaded": { "type": "integer", "minimum": 1 },
+        "closed_loop_io_bytes": { "type": "integer", "minimum": 1 },
+        "closed_loop_all_hit": { "type": "boolean", "description": "消费后重跑全 hit 才许 true" },
+        "closed_loop_bitexact_vs_full": { "type": "boolean", "description": "闭环输出 == 全驻留臂位级才许 true" },
+        "production_tiles_loaded": { "type": "integer", "minimum": 1, "description": "生产小池臂全程入池瓦片数 ≥1（请求-驻留闭环真跑证据）" }
+      }
+    },
+    "svt3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phys_tile_dim", "border", "boundary_probe_count", "boundary_max_abs", "aniso_registration"],
+      "properties": {
+        "phys_tile_dim": { "type": "integer", "const": 130 },
+        "border": { "type": "integer", "const": 1 },
+        "boundary_probe_count": { "type": "integer", "const": 96 },
+        "boundary_max_abs": { "type": "number", "minimum": 0, "description": "边界聚焦探针最大误差（== 0.0 位级才许 PASS）" },
+        "aniso_registration": { "type": "boolean", "description": "各向异性跨瓦片 N/A 登记字面在案才许 true（生产采样闭集 = 双线性唯一过滤面）" }
+      }
+    },
+    "svt4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "terrain_modified_vs_head_registered", "zero_svt_assert_present", "terrain_tests_green", "basis"],
+      "properties": {
+        "disposition": { "type": "string", "const": "maintain-defer" },
+        "terrain_modified_vs_head_registered": { "type": "boolean", "description": "world/terrain.rs 并发在飞改动状态如实登记（他务判档,非门判据;本任务零触碰以 C13 文件清单面承载,不以 0-byte-vs-HEAD 冒充——全树多波次 WIP 共享面差分不可归因）" },
+        "zero_svt_assert_present": { "type": "boolean", "description": "assert_zero_svt_dependency + SvtDependencyDetected 字面在树才许 true" },
+        "terrain_tests_green": { "type": "boolean", "description": "cargo test world::terrain 全绿才许 true" },
+        "basis": { "type": "string", "description": "M116 锚需求不成立 basis 字面（heightfield + 材质层 id 最小语义零纹理采样消费面）" }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "b4_anchor_bitexact",
+        "small_pool_double_run_bitexact",
+        "small_pool_frames_completed",
+        "small_pool_miss_rate",
+        "small_pool_io_bytes",
+        "small_pool_io_law_match",
+        "small_pool_fallback_frames",
+        "zero_fallback_frames",
+        "zero_fallback_frames_bitexact",
+        "small_ne_full",
+        "full_residency_pool_tiles",
+        "small_pool_tiles"
+      ],
+      "properties": {
+        "b4_anchor_bitexact": { "type": "boolean", "description": "SVT 全驻留臂 digest_seq == B4 --textures on 臂逐帧位级一致才许 true（全驻留锚 0-byte 面）" },
+        "small_pool_double_run_bitexact": { "type": "boolean", "description": "小池臂双跑 digest_seq 位级一致才许 true（确定性门）" },
+        "small_pool_frames_completed": { "type": "integer", "minimum": 1, "description": "小池臂 frames_completed 全量（流送全程无崩）" },
+        "small_pool_miss_rate": { "type": "number", "minimum": 0, "description": "miss 率 measured（> 0 = 真流送证据）" },
+        "small_pool_io_bytes": { "type": "integer", "minimum": 1 },
+        "small_pool_io_law_match": { "type": "boolean", "description": "io_bytes == tiles_loaded × 67600 重算互核才许 true" },
+        "small_pool_fallback_frames": { "type": "integer", "minimum": 0 },
+        "zero_fallback_frames": { "type": "integer", "minimum": 0, "description": "miss_px==0 帧数（条件式错图机核作用域;0 亦如实登记）" },
+        "zero_fallback_frames_bitexact": { "type": "boolean", "description": "∀ miss_px==0 帧 digest == 全驻留同帧位级（零帧 = 真空真;任一非零帧不符即 false）" },
+        "small_ne_full": { "type": "boolean", "description": "小池 ≠ 全驻留至少一帧（fallback 真实生效门,防空接线冒充）" },
+        "full_residency_pool_tiles": { "type": "integer", "const": 3072 },
+        "small_pool_tiles": { "type": "integer", "const": 256 }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string" },
+      "description": "harness 真跑 evidence 归档件（B4 锚臂走 rurix.g31.texture_sampling_evidence.v1 面 + SVT 全驻留/小池双臂走 rurix.g31.svt_evidence.v1 面）"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

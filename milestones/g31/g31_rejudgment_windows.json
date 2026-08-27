@@ -1,0 +1,236 @@
+{
+  "schema": "rurix.g31.rejudgment_windows.v1",
+  "subject": "g31_rejudgment_windows",
+  "wave": "G31+.C",
+  "task": "C16 重判窗批量执行（G31_PLUS_COMMERCIAL_RENDERER_TODO §3 #24/#26/#27/#28/#29 + §4 #43；agent 完全自主 D-406 v4.x；评审 agent 面 = 锚字面核验 + 只追加登记，代码改动最小）",
+  "windows": [
+    {
+      "id": "M61-mesh-shader",
+      "todo_ref": "#24",
+      "title": "mesh shader HW 光栅第三路径（RD-039 分项 M61；RFC-0034 评估程序）",
+      "anchor_literal": "三项闭集全齐方启动（RFC-0034 重判表只追加）：①HZB device 化落地 ②cluster P4 差距闭集清零 ③mesh shader HW 管线性能差 measured 证据；原 backfill 字面（多厂商扩展行为收敛且性能差有 measured 证据时评估）0-byte 不回写",
+      "anchor_source": "rfcs/0034-virtualized-geometry-p3-mesh-shader.md 重判记录（G18.5/G20.3/G27.2 三行在案）+ registry/deferred.json RD-039 backfill_condition + G9.7~G14.1 承接锚链",
+      "method": "逐项机器核验：①在案证据复核（G27 M-a 门绿件 + 波 B B1 接线门维持复跑绿）；②C11 门裁决件 P4-1~P4-4 facts 全 PASS = g20 差距闭集四行清零字面核验；③本任务真跑——新 measured 对照底座（vk_g31_mesh_bench.rs 单会话三臂 + bin + glslang 现编）：vs_fetch（device-local VB 取数 = 现光栅路径形态）vs mesh_procedural（mesh 阶段 64 lane/wg）主对照 + vs_procedural 解释性臂，同一确定性三角形集像素 digest 三臂对拍 + GPU timestamp 逐帧 measured（如实登记不设通过线）",
+      "items": [
+        {
+          "item": "① HZB device 化",
+          "state": "hit",
+          "basis": "G27.2 已命中（kernels/g27_hzb_reduce.rx + g27_hzb_test.rx device kernel 真跑对拍，门 g27.p0.m_a.hzb_device_kernel）；波 B Task B1 生产接线门 g31.waveB.hzb 维持复跑六 facts 全 PASS（evidence/g31_hzb_wiring_20260826T062758Z.json gate_maintenance.state=pass）"
+        },
+        {
+          "item": "② cluster P4 差距闭集清零",
+          "state": "hit",
+          "basis": "C11 门 g31.waveC.p4stream 六 facts 全 PASS（evidence/g31_p4_streaming_20260826T175845Z.json）：P4-1 页磁盘布局与驻留池 / P4-2 GPU 请求反馈链 / P4-3 LOD cut 与驻留联动 / P4-4 异步 IO 优先级链——g20_cluster_streaming_p4_gap.json 四行差距闭集全落地 = 清零字面成立（RD-039 P4 长线其余分项〔超显存 P4 运行时等〕不在本闭集字面不预支）"
+        },
+        {
+          "item": "③ mesh shader HW 管线性能差 measured 证据",
+          "state": "hit-measured-parity",
+          "basis": "本任务真跑（门 g31.waveC.meshbench 六 facts 全 PASS，evidence/g31_mesh_vs_raster_bench_20260826T200434Z.json，RTX 4070 Ti measured_local）：N=262144 档 vs_fetch 0.2344ms vs mesh_procedural 0.2342ms（median，各 60 帧）；N=1048576 复测档 vs_fetch 0.9065ms vs mesh_procedural 0.9057ms（各 30 帧）——性能差 = 零（两负载档 parity，差 ≤0.09% 在时序噪声内）；三臂像素 digest 位级全等 + 双跑 digest 位级 = 同一三角形集经两条 HW 路径真上屏的结构证据"
+        }
+      ],
+      "verdict": "not-triggered",
+      "verdict_detail": "三项闭集 3/3 齐备 ⇒ 按 RFC-0034 重判表只追加程序执行改判评估；评估结论 = **maintain-no-go**：㈠ 性能差 measured = 零（双负载档 parity）——第三光栅路径零性能收益正当性；㈡ 多厂商扩展行为收敛 = 单卡（NVIDIA Ada）不可证（原 backfill 字面 0-byte 维持，不冒充多厂商收敛）；㈢ 真实消费方 = 零（VS 光栅唯一 fallback 与既有 SW/HW 光栅路径够用，无生产消费方举证第三路径需求）。VS 光栅唯一 fallback 维持（字面 0-byte）；承接锚顺延 = 多厂商扩展行为收敛证据 或 真实消费方出现 或 性能差翻正（剔除/放大类 mesh 原生负载面）时按只追加程序再判",
+      "evidence": [
+        "evidence/g31_mesh_vs_raster_bench_20260826T200434Z.json",
+        "evidence/g31_hzb_wiring_20260826T062758Z.json",
+        "evidence/g31_p4_streaming_20260826T175845Z.json",
+        "milestones/g20/g20_cluster_streaming_p4_gap.json",
+        "milestones/g27/g27_cluster_p4_rejudgment.json",
+        "rfcs/0034-virtualized-geometry-p3-mesh-shader.md"
+      ],
+      "followup": "RFC-0034 重判记录只追加 G31+ C16 行（本批同窗）；RD-039 history 只追加；实施面 = 无（maintain-no-go 零实现痕迹维持）"
+    },
+    {
+      "id": "RD-039-backfill-subitems",
+      "todo_ref": "#26",
+      "title": "RD-039 backfill 逐项：Foliage/骨骼虚拟几何、曲面细分位移、Assemblies 全功能、Mega Geometry 簇级 BLAS",
+      "anchor_literal": "逐项独立判档（10 §3）：Foliage/骨骼在动态资产面出现时（联动 RD-040 蒙皮 MV）；Mega Geometry 在 RT 与虚拟几何合流需求出现时（曲面细分位移/Assemblies 全功能 = backfill 字面未列锚分项）",
+      "anchor_source": "registry/deferred.json RD-039 backfill_condition（0-byte 不回写）+ G31_PLUS_COMMERCIAL_RENDERER_TODO §3.1 #26 行",
+      "method": "逐项需求证据成立性核验（在案证据复核，无新鲜真跑需求——本窗 = 判档登记面，实施归后续期）：动态资产面 = 波 B Task B5 蒙皮骨骼动画进生产 measured 件；RT 面 = 波 B B1 HZB + 波 C C12 L4 proxy 门件；虚拟几何面 = 波 C C11 cluster 流送门件；植被/曲面细分/Assemblies 需求面 = 树内+压测闭集检索",
+      "items": [
+        {
+          "item": "骨骼（Skinning）虚拟几何",
+          "state": "triggered",
+          "basis": "动态资产面字面命中：波 B Task B5 蒙皮骨骼动画进生产（evidence/g31_skinning_wiring_20260826T041617Z.json——3 骨骼 36 三角形角色进生产帧真跑 measured，蒙皮后顶点缓冲 + BLAS refit 通路 + RD-041 类 3 蒙皮 MV 通道 wired + 位置核验 20/20 帧 + device/host 蒙皮逐顶点对拍 max_abs=0）；RD-040 蒙皮 MV 联动面同窗兑现"
+        },
+        {
+          "item": "Foliage 虚拟几何",
+          "state": "not-triggered",
+          "basis": "植被动态资产面未出现：压测闭集维持 BistroInterior+CornellBox 双场景（TODO #11 BistroExterior 转换臂维持 defer——fbx2gltf/assimp/blender 三工具 PATH 全缺 + 源资产零命中在案）；零植被资产入压测清单"
+        },
+        {
+          "item": "曲面细分位移",
+          "state": "not-triggered",
+          "basis": "backfill_condition 逐项字面未列锚（五句锚字面覆盖 HZB/mesh shader/cluster P4/Foliage·骨骼/Mega Geometry，曲面细分位移无锚可攀）；树内零需求证据——不牵强攀附"
+        },
+        {
+          "item": "Assemblies 全功能（嵌套+跨 assembly 去重）",
+          "state": "not-triggered",
+          "basis": "backfill_condition 逐项字面未列锚；生产资产面零 assembly 嵌套/跨 assembly 去重需求证据（bistro 派生簇 DAG 单级烘焙在案）"
+        },
+        {
+          "item": "Mega Geometry 簇级 BLAS",
+          "state": "not-triggered",
+          "basis": "锚字面 = RT 与虚拟几何**合流**需求出现：RT 面（生产 ray query 车道全驻留 AS）与虚拟几何面（C11 cluster 流送 = 光栅 VisBuffer 面驻留流送）各自在生产落地，但**合流需求未字面成立**——RT 车道消费全量常驻 BLAS/TLAS 与 cluster 流送车道零交集（场景未超显存：bistro 派生 89 页全量可驻，强制小池为测试构造非需求）；无『RT 需对簇级流送几何求交』硬需求证据"
+        }
+      ],
+      "verdict": "partial",
+      "verdict_detail": "5 分项 1 命中（骨骼 = 动态资产面字面命中）；命中项**开实施窗判档登记**——骨骼虚拟几何实施窗开（本任务只判档登记，实施归后续期：骨骼蒙皮资产进虚拟几何簇化面 = 后续期立项程序，消费面 = B5 蒙皮骨骼生产通路 + M92 device 蒙皮件在案）；其余 4 分项维持（Foliage/曲面细分/Assemblies/Mega Geometry 各自锚字面未命中）；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
+      "evidence": [
+        "evidence/g31_skinning_wiring_20260826T041617Z.json",
+        "evidence/g31_hzb_wiring_20260826T062758Z.json",
+        "evidence/g31_hlod_l4_20260826T164629Z.json",
+        "evidence/g31_p4_streaming_20260826T175845Z.json",
+        "G31_PLUS_COMMERCIAL_RENDERER_TODO.md"
+      ],
+      "followup": "骨骼虚拟几何实施窗 = 后续期立项程序（本窗判档登记唯一产出）；Foliage 窗联动 TODO #11 BistroExterior 转换臂；Mega Geometry 窗 = 场景超显存 且 RT∩cluster 流送合流硬需求同窗"
+    },
+    {
+      "id": "SMRT",
+      "todo_ref": "#27",
+      "title": "SMRT 阴影贴图射线追踪（RD-040 分项；软阴影完整版）",
+      "anchor_literal": "多灯动态场景资产入压测清单 + shadow page 采样车道出现（合取两半）",
+      "anchor_source": "milestones/g21/g21_rd040_subitem_registry.json SMRT 行 reeval_anchor（0-byte 不回写）+ G31_PLUS_COMMERCIAL_RENDERER_TODO §3.2 #27 行",
+      "method": "两半布尔合取核验（在案证据复核）：半①多灯动态场景资产面 = 波 B B2 ReSTIR 多灯车道门件（bistro 生产灯表 4 点光源 + 方向光 + emissive）+ A4 动态场景/B5 蒙皮骨骼动态角色入压测面；半②shadow page 采样车道 = 树内 shadow/ 模块族 + 生产车道阴影路径检索",
+      "items": [
+        {
+          "item": "① 多灯动态场景资产入压测清单",
+          "state": "hit",
+          "basis": "bistro-interior 生产灯表（4 点光源 + 方向光 + emissive，evidence/g31_restir_wiring_20260826T002545Z.json light_table 在案）+ 动态资产（A4 --dyn-demo refit/rebuild 双臂 + B5 蒙皮骨骼动画角色）入压测面（soak/bench/锚检清单在案）——多灯动态场景资产面成立"
+        },
+        {
+          "item": "② shadow page 采样车道出现",
+          "state": "miss",
+          "basis": "VSM clipmap 页管线（shadow/vsm.rs + page_cache.rs mark/alloc/invalidate host 面齐）**未进生产采样车道**——生产车道阴影 = shadow_scatter ray query 面（TODO #104 在案：g14 shadow_scatter『不是这条页管线』；vsm_page_mark_project 曾『编进 SPV 无人 dispatch』）；SMRT 所需 VSM page × RT 采样联动车道树内零实现（g28 manifest src/rurix-render/src/shadow/*smrt*.rs 零命中复核维持）"
+        }
+      ],
+      "verdict": "partial",
+      "verdict_detail": "合取两半 1/2：半①命中半②未命中 ⇒ 锚字面未全齐，**maintain-defer**（VSM clipmap 现生产档维持——为现生产阴影档不代表 SMRT 采样车道出现；不以多灯动态资产面单独启动，G21 终判先例：单半命中不得构成改判硬线）",
+      "evidence": [
+        "evidence/g31_restir_wiring_20260826T002545Z.json",
+        "evidence/g31_dynamic_scene_20260825T213448Z.json",
+        "evidence/g31_skinning_wiring_20260826T041617Z.json",
+        "milestones/g21/g21_rd040_subitem_registry.json",
+        "milestones/g28/g28_m52_rd040_workload_rejudgment.json"
+      ],
+      "followup": "半②窗 = VSM 页管线生产采样车道接线（TODO #104 VSM 页失效/clipmap 生产接线 = 同族前置面，后续期立项程序）；两半同窗时按只追加程序重判"
+    },
+    {
+      "id": "WORLD-RC-evolution",
+      "todo_ref": "#28",
+      "title": "世界辐射缓存演进（RD-040 分项 M99-clipmap 后续：持久化/跨帧失效精化）",
+      "anchor_literal": "世界级持久 GI 需求场景出现（大世界流送 + GI 联动窗）",
+      "anchor_source": "milestones/g21/g21_rd040_subitem_registry.json WORLD-RC 行 reeval_anchor（0-byte 不回写）+ G31_PLUS_COMMERCIAL_RENDERER_TODO §3.2 #28 行",
+      "method": "两半核验：半①大世界流送面 = 波 C C11 cluster 流送门件（驻留池强制小于全集真实 IO 流送）；半②GI 联动窗 = 波 B B6 GI 默认档 measured 权衡窗决策件复核",
+      "items": [
+        {
+          "item": "① 大世界流送面",
+          "state": "hit",
+          "basis": "C11 cluster 流送 P4 四行落地（evidence/g31_p4_streaming_20260826T175845Z.json——驻留池 44 < 全集 89 页、LRU 逐出 57 真实发生、io 84 完成/3739156B measured）= 大世界流送面生产落地（虚拟几何驻留流送车道）"
+        },
+        {
+          "item": "② GI 联动窗",
+          "state": "miss",
+          "basis": "B6 GI 默认档决策 = maintain_default_off（milestones/g31/g31_gi_default_tier_decision.json——on 臂帧时 ×3.64~3.93 击穿上案预算格 ×2.6 + 对 UE Lumen parity 在案诚实红未闭；re_trigger_condition 锚定 G32：parity 闭环 + 帧时入预算同窗）；GI 维持 off ⇒ 大世界流送 × GI **联动**需求窗未成立（无『流送大世界需持久 GI』需求证据；M99-clipmap G11 已兑现承接维持）"
+        }
+      ],
+      "verdict": "partial",
+      "verdict_detail": "合取两半 1/2：大世界流送面命中、GI 联动窗未成立 ⇒ 锚字面未全齐，**maintain-defer**（G11 世界级 clipmap 承接兑现维持，演进分项〔持久化/跨帧失效精化〕无新需求证据不预支；不以流送面单独启动）",
+      "evidence": [
+        "evidence/g31_p4_streaming_20260826T175845Z.json",
+        "milestones/g31/g31_gi_default_tier_decision.json",
+        "milestones/g21/g21_rd040_subitem_registry.json"
+      ],
+      "followup": "联动窗 = G32 GI 重判窗（B6 re_trigger_condition 字面：parity 闭环 + 预算入格）与大世界流送消费面（流送场景 GI 需求证据）同窗时按只追加程序重判"
+    },
+    {
+      "id": "NRD-vendor-denoise",
+      "todo_ref": "#29",
+      "title": "NRD vendor 降噪集成（RD-040 分项；UpscaleBackend 同构输入契约面）",
+      "anchor_literal": "自研降噪画质差距 measured 检出（G25 终审窗或后续画质门）",
+      "anchor_source": "milestones/g21/g21_rd040_subitem_registry.json NRD 行 reeval_anchor（0-byte 不回写）+ G31_PLUS_COMMERCIAL_RENDERER_TODO §3.2 #29 行",
+      "method": "自研降噪面现势核验：canonical measured 面 = G12.3 M162 门（hf_drop 噪声谱高频能量下降标定 + mean_energy 能量守恒容差，budget 条目 g12.pt.denoise_hf_drop_min/denoise_mean_energy_tol 在案）+ G18 M-a 加性 profile（g18_light_transport_depth 链）在案绿复核；画质差距 artifact 检索 = evidence/*denoise_quality_gap* + g25~g31 各期 NRD/降噪画质差距件 + G25 终审窗记录",
+      "items": [
+        {
+          "item": "自研降噪面现势",
+          "state": "green-on-record",
+          "basis": "M162 门在案绿（evidence/g12_m162_denoise_pipeline_tsr_20260818T014752Z.json 等六件：not_worse_than_anchor=true、hf_drop measured=6.860881983345e-1 → 阈 3.430440991672e-1、mean_energy p100=6.356283008940e-3 → 容差 1.271256601788e-2、双 kernel 全档 device 真跑 + RED 三臂）；G18 M-a 加性 profile 在案（默认臂 Stage A 18/18 零漂移维持）"
+        },
+        {
+          "item": "画质差距 measured 检出",
+          "state": "miss",
+          "basis": "差距 artifact 零命中：evidence/*denoise_quality_gap*.json 零命中（g28 manifest 复核维持）+ evidence/g2[59-9]/g3[01]_*nrd*/denoise 画质差距件零命中 + G25 终审窗记录零降噪差距行（milestones/g25 全目录 grep 零命中）+ g29~g31 波次零新增；canonical 对照面（M162）= 改进口径 measured（噪声谱下降+能量守恒），非差距口径——差距未检出 = 诚实登记不冒充"
+        }
+      ],
+      "verdict": "not-triggered",
+      "verdict_detail": "锚字面未命中：自研降噪面在案绿（M162 标定面 + G18 加性 profile），画质差距 measured 检出零命中 ⇒ **maintain-defer**（NRD/vendor 集成窗不开；G12.3 评估报告在案 = 评估不接线面维持；temporal 底座 0-byte 纪律维持）",
+      "evidence": [
+        "evidence/g12_m162_denoise_pipeline_tsr_20260818T014752Z.json",
+        "milestones/g12/design/nrd_vendor_denoise_evaluation.md",
+        "milestones/g21/g21_rd040_subitem_registry.json",
+        "milestones/g28/g28_m52_rd040_workload_rejudgment.json"
+      ],
+      "followup": "窗 = 后续画质门 measured 差距检出（如 denoised vs 收敛参照 SSIM/FLIP 差距面立项，或 M162 门画质锚恶化）；检出即按只追加程序重判（接入经 UpscaleBackend 同构输入契约，不改 temporal 底座）"
+    },
+    {
+      "id": "RD-026-stdgpu",
+      "todo_ref": "#43",
+      "title": "RD-026 std::gpu 首期外宿主编排面（AsyncBuffer/Event/多 stream 重叠/宽元素/Result/跨包/argv）",
+      "anchor_literal": "单源 .rx 游戏应用需求成立时判档（出现『需宿主侧流序分配 AsyncBuffer / Event 编排 / 多 stream 重叠 / 更宽元素类型 / Result 错误面 / 跨包 .rx 复用 / argv 分派』的硬需求时按 10 §3 判档接通）",
+      "anchor_source": "registry/deferred.json RD-026 backfill_condition（0-byte 不回写）+ G31_PLUS_COMMERCIAL_RENDERER_TODO §4 #43 行",
+      "method": "需求成立性判档：本战役游戏循环面（波 A Task A3）宿主形态核验——harness 驱动 vs .rx 单源；子集外硬需求七面（AsyncBuffer/Event/多 stream/宽元素/Result/跨包/argv）逐项检索本战役产出面",
+      "items": [
+        {
+          "item": "单源 .rx 游戏应用需求",
+          "state": "miss",
+          "basis": "波 A Task A3 游戏循环最小面 = **Rust host 驱动**（src/rurix-render/src/bin/g31_window_present.rs：--auto-move orbit/dolly 确定性轨迹 + 逐帧 uniform + resize/alt-tab 健壮，门 g31.waveA.gameloop 绿在案）——非 .rx 单源宿主应用；ruridrop/blackhole 各自泵面维持不进生产管线（TODO §1.1 #3 在案）；std::gpu 子集外七面硬需求本战役零出现（A3 逐帧相机 uniform 走既有 render_exec 面，不触 AsyncBuffer/Event/多 stream 重叠/宽元素/Result/跨包/argv 任一项）"
+        }
+      ],
+      "verdict": "not-triggered",
+      "verdict_detail": "锚字面未命中：游戏循环面以 Rust host harness 兑现（非 .rx 单源游戏应用），子集外宿主编排硬需求未成立 ⇒ **maintain-open**（RD-026 维持 open 待硬需求按 10 §3 判档接通；G24.3 历史清册行在案同判）",
+      "evidence": [
+        "evidence/g31_game_loop_20260826T014058Z.json",
+        "milestones/g24/g24_legacy_rd_registry.json",
+        "G31_PLUS_COMMERCIAL_RENDERER_TODO.md"
+      ],
+      "followup": "窗 = .rx 单源游戏/应用宿主需求成立（如生产游戏循环迁 .rx 单源面 + 子集外编排硬需求同窗）；成立即按 10 §3 判档接通（触运行时语义/类型系统面预期 Full RFC 增补 RFC-0009 §4 本体）"
+    }
+  ],
+  "summary": {
+    "triggered": ["RD-039-backfill-subitems/骨骼虚拟几何（分项级命中——开实施窗判档登记，实施归后续期）"],
+    "partial": ["M61-mesh-shader（3/3 齐备改判程序执行 = maintain-no-go）", "RD-039-backfill-subitems（1/5）", "SMRT（1/2）", "WORLD-RC-evolution（1/2）"],
+    "not_triggered": ["M61-mesh-shader（改判结论）", "NRD-vendor-denoise", "RD-026-stdgpu"],
+    "window_verdicts": {
+      "M61-mesh-shader": "not-triggered",
+      "RD-039-backfill-subitems": "partial",
+      "SMRT": "partial",
+      "WORLD-RC-evolution": "partial",
+      "NRD-vendor-denoise": "not-triggered",
+      "RD-026-stdgpu": "not-triggered"
+    },
+    "note": "六窗 verdict 逐行 = windows[].verdict（triggered / not-triggered / partial 三值闭集；M61 = 三项闭集齐备改判程序执行完毕结论 maintain-no-go 记 not-triggered，分项齐备事实入 items；partial = 合取部分命中窗维持 defer/open；summary.triggered 行 = 分项级命中唯一面）"
+  },
+  "deferred_history_appended": [
+    "registry/deferred.json RD-039 history 2026-08-26 行（M61 改判程序 + backfill 逐项判档 + C11 P4 承接同窗）",
+    "registry/deferred.json RD-040 history 2026-08-26 行（SMRT/世界辐射缓存演进/NRD 三窗判档）",
+    "registry/deferred.json RD-026 history 2026-08-26 行（A3 Rust host 非 .rx 单源判档）"
+  ],
+  "rfc_table_appended": "rfcs/0034-virtualized-geometry-p3-mesh-shader.md 重判记录 2026-08-26 G31+ C16 行（只追加；G18.5/G20.3/G27.2 三行 0-byte）",
+  "anchor_files_0byte": [
+    "milestones/g20/g20_cluster_streaming_p4_gap.json",
+    "milestones/g21/g21_rd040_subitem_registry.json",
+    "milestones/g27/g27_cluster_p4_rejudgment.json",
+    "milestones/g28/g28_m52_rd040_workload_rejudgment.json",
+    "G31_PLUS_COMMERCIAL_RENDERER_TODO.md",
+    "registry/deferred.json status/backfill_condition 全行字面"
+  ],
+  "gate_evidence": "evidence/g31_rejudgment_windows_<ts>.json（ci/g31_rejudgment_smoke.py --gate g31.waveC.rejudgment 产；六窗 verdict 与证据指针完整性机核）",
+  "mesh_bench_gate_evidence": "evidence/g31_mesh_vs_raster_bench_20260826T200434Z.json",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti（本机单卡 measured_local；driver_version=2600501248 vendor_id=4318 api_version=4211039 timestampPeriod=1ns——bench 实测面）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "timestamp": "20260826T200434Z",
+  "notes": "触发即触发的字面判不牵强攀附：骨骼 = 唯一分项级命中（动态资产面 = 蒙皮骨骼动画进生产 measured 件在案）；M61 = 本战役唯一新鲜真跑面（③ measured 对照底座新面落地，双负载档 parity 数字真实）；SMRT/WORLD-RC = 合取半命中如实登记 partial 不以半齐冒充；NRD/RD-026 = 锚字面零命中维持；重判表原始行与各承接锚 registry 0-byte 不回写（只追加行除外）。编号段零消费（CI_step/RFC/RXS/RD/U/SG/MR/D/RX_error 全段维持——改判评估面零新语义面；unsafe 面 = vk.rs 块级豁免内 SAFETY 注释齐，0 新 U 号〔mesh 管线在既有 graphics FFI 边界内，run_mesh_offscreen 先例〕）。"
+}

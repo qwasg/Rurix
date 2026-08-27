@@ -1,0 +1,35 @@
+//@ spec: RXS-0405 L3 device 面（G31+ 波 B Task B1 HZB 生产接线——金字塔平铺打包 glue）
+// G31+ 波 B Task B1 HZB 生产接线——平铺打包 pass（门 `g31.waveB.hzb`）。
+//
+// ## 架构（g31_mv_negate.rx 逐元素 glue 先例同模）
+// g27_hzb_test.rx（0-byte 冻结消费）输入面 = 金字塔全 mips **单 SSBO 平铺** +
+// 逐 mip offset/尺寸表;而 g27_hzb_reduce.rx（0-byte）逐级输出为独立 buffer
+// （kernel 参数面无输出偏移槽,逐级独立 dispatch 语义字面）。本 glue 把
+// 「上级 mip 缓冲」逐元素位拷贝进「平铺金字塔缓冲的 offset 段」——纯搬运,
+// 零算术（f32 位型不变 ⇒ 平铺金字塔与逐级缓冲位级同值,对拍零容差面不受
+// 本 glue 影响）。mip0 段 = U_SCENE_DEPTH 原字节（host 金标准
+// `HzbPyramid::build` mip0 = 深度拷贝逐字同语义）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐元素独立、禁 atomic、输出直写、零浮点运算（纯拷贝）⇒ 固定输入双跑位级
+// 一致平凡成立;边界守卫 `if i < count`。
+//
+// ## 参数面（host bin `g31_window_present` HZB 车道逐字同源;8 f32）
+//   params[0]=count（本 mip 纹素数） [1]=dst_offset（平铺内起始纹素下标）
+//   [2..8]=reserved（恒 0）。
+//   src: 1 f32/纹素 源 mip（行主序）；dst: 平铺金字塔（全 mips 拼接）。
+//   dispatch = [count, 1, 1]（LocalSize 1,1,1——g27_hzb_reduce 同车道形态）。
+#[numthreads(1, 1, 1)]
+kernel fn g31_hzb_pack(
+    tc: ThreadCtx<1>,
+    src: View<global, f32>,
+    params: View<global, f32>,
+    dst: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let count = params[0] as usize;
+    let off = params[1] as usize;
+    if i < count {
+        dst[off + i] = src[i];
+    }
+}

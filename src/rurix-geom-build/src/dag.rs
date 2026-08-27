@@ -152,6 +152,16 @@ pub struct ClusterDag {
     pub triangle_indices: Vec<u8>,
     /// 层表(0 = 叶层,末层 = 顶层/根)。
     pub levels: Vec<DagLevel>,
+    /// 叶层三角形 → 源网格三角形 id(与叶层三角形导出序平行,
+    /// `len = levels[0].triangle_count`;叶簇第 t 个三角形的源 id =
+    /// `leaf_source_tris[record.triangle_offset / 3 + t]`——叶层先导出、
+    /// 偏移自 0 连续,故 `triangle_offset / 3` 即叶层三角序号)。
+    ///
+    /// G31+ #58 消费面(生产管线 LOD cut 属性回查:逐三角 albedo/emission/
+    /// tri_mat 按源 id 继承)。**RXGB v1 序列化与 [`canonical_bytes`] 均不含
+    /// 本表(0-byte 不动;m90 digest golden 不漂移)**;`read_dag` 产物本表
+    /// 为空——属性回查仅内存直构面可用。
+    pub leaf_source_tris: Vec<u32>,
 }
 
 // ———— G9.2 M90:v2 深化记录面(RXS-0345;v1 64B ClusterRecord 0-byte 不动)————
@@ -382,31 +392,106 @@ struct LevelMesh {
     clusters: Vec<Vec<u32>>,
     /// 簇自身误差(叶层 = 0)。
     errors: Vec<f32>,
+    /// 簇的生成组号(G31+ #98 边界交替:上一层同组产物 = 同胞。叶层无生成
+    /// 组——逐簇唯一哨兵(自身 id),任意对互为非同胞 ⇒ 偏置权对全部对同乘
+    /// 常数,排序序不变 ≡ 纯共享边加权,legacy 语义 0-漂移)。
+    source_group: Vec<u32>,
 }
 
-/// 组子网格(合并 + 边界锁定的载体)。
+/// 组子网格(合并 + 边界锁定的载体;`pub(crate)`——QEM 加性简化器
+/// [`crate::qem`] 同接口消费,G31+ #66 参照臂纪律)。
 #[derive(Clone)]
-struct SubMesh {
-    positions: Vec<[f32; 3]>,
-    tris: Vec<[u32; 3]>,
+pub(crate) struct SubMesh {
+    pub(crate) positions: Vec<[f32; 3]>,
+    pub(crate) tris: Vec<[u32; 3]>,
     /// 顶点被组外三角形引用 → 锁定(不许被收缩移除)。
-    locked: Vec<bool>,
+    pub(crate) locked: Vec<bool>,
     /// 面含组边界边(该边被组外三角形共享)→ 收缩禁令标记。
     /// 收缩只改写内部顶点,边界边端点永不移动/合并,故标记全程有效。
-    face_on_boundary: Vec<bool>,
+    pub(crate) face_on_boundary: Vec<bool>,
+}
+
+/// 组内简化器选择(G31+ #66 加性闭集;默认 = 既有事实源)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SimplifyKind {
+    /// 最短边贪心收缩(端点保持;既有事实源——m90 DAG digest golden 锚,
+    /// [`build_dag`] 恒走本档,0-byte)。
+    #[default]
+    ShortestEdge,
+    /// QEM 最优位置收缩([`crate::qem`];fold-over 拒绝 + 锁定端逐位保持。
+    /// **移动内部顶点** ⇒ 粗簇顶点不再命中叶层蒙皮反查——骨骼资产禁用
+    /// (见 [`build_asset_dag_kind`] fail-closed)。生产簇包 bake 消费面)。
+    Qem,
+}
+
+/// DAG 构建参数(G31+ #66/#98 加性闭集;[`Default`] = 既有事实源逐位 0-byte)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DagBuildParams {
+    /// 组内简化器。
+    pub simplify: SimplifyKind,
+    /// 每组目标簇数(既有事实源 = 4;Nanite 口径 8–32——组越大简化自由度
+    /// 越高、stuck 越少,代价 = 流送/兜底粒度变粗)。
+    pub group_size: usize,
+    /// 非同胞边权偏置(Nanite「边界交替」:上一层同组(同胞)簇对合并权 ×1、
+    /// 非同胞 ×16——上层组边界优先并入新组内部,锁定边逐层轮换获得简化
+    /// 机会。false = 既有纯共享边加权)。
+    pub sibling_bias: bool,
+}
+
+impl Default for DagBuildParams {
+    fn default() -> Self {
+        Self {
+            simplify: SimplifyKind::ShortestEdge,
+            group_size: GROUP_SIZE,
+            sibling_bias: false,
+        }
+    }
+}
+
+impl DagBuildParams {
+    /// 生产簇包质量档(G31+ #66/#98:QEM + 8 簇/组 + 边界交替;
+    /// g31_cluster_lod_bake 默认档)。
+    pub fn quality() -> Self {
+        Self {
+            simplify: SimplifyKind::Qem,
+            group_size: 8,
+            sibling_bias: true,
+        }
+    }
 }
 
 /// 网格 → 簇层级 DAG(报告1 §5 P0→P3 的离线半;验收:任意输入得 DAG +
 /// 每簇误差包围球 + 层级统计)。**v1 既有面 0-byte 不动**;G9.2 typed `Err`
 /// 拒录变体见 [`build_dag_v2`](同一产物,失败经 `DagError` 返回而非 panic)。
 pub fn build_dag(mesh: &TriMesh) -> ClusterDag {
+    build_dag_params(mesh, &DagBuildParams::default())
+}
+
+/// [`build_dag`] 的简化器参数化变体(G31+ #66 加性面:`ShortestEdge` 与
+/// [`build_dag`] 逐位同产物;`Qem` = 质量升级臂,单调/覆盖/确定性不变量
+/// 同一套导出与单测锚)。
+pub fn build_dag_kind(mesh: &TriMesh, kind: SimplifyKind) -> ClusterDag {
+    build_dag_params(
+        mesh,
+        &DagBuildParams {
+            simplify: kind,
+            ..DagBuildParams::default()
+        },
+    )
+}
+
+/// [`build_dag`] 的全参数化变体(G31+ #66/#98;`Default` 参数与 [`build_dag`]
+/// 逐位同产物)。
+pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
     let tris = mesh.triangles();
     let raw = clusterize_tris(&mesh.positions, &tris);
+    let n_raw = raw.len();
     let mut level = LevelMesh {
         positions: mesh.positions.clone(),
         tris,
         clusters: raw.iter().map(|c| c.tris.clone()).collect(),
-        errors: vec![0.0; raw.len()],
+        errors: vec![0.0; n_raw],
+        source_group: (0..n_raw as u32).collect(),
     };
     let mut levels: Vec<LevelMesh> = Vec::new();
     // 每层簇 → (组号, 组误差);顶层无此项(根 parent_error = MAX)。
@@ -428,16 +513,20 @@ pub fn build_dag(mesh: &TriMesh) -> ClusterDag {
                 edge_faces.entry((a, b)).or_default().push(f as u32);
             }
         }
-        let groups = group_clusters(&level, &edge_faces);
+        let groups = group_clusters(&level, &edge_faces, params);
         let mut next = LevelMesh::default();
         let mut links: Vec<Vec<u32>> = Vec::new();
         let mut g_of = vec![(0u32, 0.0f32); level.clusters.len()];
-        // 精确位置焊接(端点收缩保证坐标逐位来自本层已有顶点)。
+        // 精确位置焊接(端点收缩保证坐标逐位来自本层已有顶点;QEM 腿新位置
+        // 仅组内部顶点——组边界锁定逐位不动,跨组焊接键唯一性维持)。
         let mut weld: HashMap<[u32; 3], u32> = HashMap::new();
         for (gi, g) in groups.iter().enumerate() {
             let sub = extract_group(&level, g, &edge_faces);
             let target = (sub.tris.len() / 2).max(1);
-            let (sm, own_err) = simplify_group(&sub, target);
+            let (sm, own_err) = match params.simplify {
+                SimplifyKind::ShortestEdge => simplify_group(&sub, target),
+                SimplifyKind::Qem => crate::qem::simplify_group_qem(&sub, target),
+            };
             let member_max = g
                 .iter()
                 .map(|&c| level.errors[c as usize])
@@ -466,6 +555,7 @@ pub fn build_dag(mesh: &TriMesh) -> ClusterDag {
                 }
                 next.clusters.push(tri_ids);
                 next.errors.push(gerr);
+                next.source_group.push(gi as u32);
                 links.push(g.clone());
             }
         }
@@ -497,10 +587,43 @@ pub fn build_dag_v2(mesh: &TriMesh) -> Result<ClusterDag, DagError> {
 /// typed `Err` 拒录;内部不变量断言转译为 `DagError::NonMonotonicInput`——
 /// builder 失败一律 typed `Err`,无 panic 泄漏(FLS:本 spec 无 UB 节)。
 pub fn build_asset_dag(asset: &DagAsset) -> Result<ClusterDagV2, DagError> {
+    build_asset_dag_kind(asset, SimplifyKind::ShortestEdge)
+}
+
+/// [`build_asset_dag`] 的简化器参数化变体(G31+ #66)。骨骼资产 + `Qem` =
+/// typed `Err` 拒录(QEM 移动内部顶点 ⇒ 粗簇顶点位置不再命中叶层蒙皮
+/// 反查表 ⇒ 三字段不可得——fail-closed 不静默降档)。
+pub fn build_asset_dag_kind(
+    asset: &DagAsset,
+    kind: SimplifyKind,
+) -> Result<ClusterDagV2, DagError> {
+    build_asset_dag_params(
+        asset,
+        &DagBuildParams {
+            simplify: kind,
+            ..DagBuildParams::default()
+        },
+    )
+}
+
+/// [`build_asset_dag`] 的全参数化变体(G31+ #66/#98;拒录语义同
+/// [`build_asset_dag_kind`])。
+pub fn build_asset_dag_params(
+    asset: &DagAsset,
+    params: &DagBuildParams,
+) -> Result<ClusterDagV2, DagError> {
+    if params.simplify == SimplifyKind::Qem && asset.skinned.is_some() {
+        return Err(DagError::SkinMetadataMissing {
+            cluster: 0,
+            detail: "QEM 简化器移动内部顶点,蒙皮叶层反查不可得——骨骼资产须走 ShortestEdge",
+        });
+    }
     // 叶层反查上下文(RAII;panic 路径同摘)。
     let _ctx = MeshContextGuard::install(&asset.mesh);
     // 内部 panic 级不变量断言(病态输入/中间态)→ typed Err 转译(不静默、不 clamp)。
-    let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_dag(&asset.mesh)));
+    let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        build_dag_params(&asset.mesh, params)
+    }));
     let dag = match built {
         Ok(d) => d,
         Err(payload) => {
@@ -820,10 +943,19 @@ pub fn canonical_bytes(dag: &ClusterDag) -> Vec<u8> {
 }
 
 /// 簇分组(meshopt_partitionClusters 目标的简化版):簇邻接按**共享边计数**
-/// 加权,贪心生长 ≤4 簇/组——共享边越多,合并后组内边越多、被锁定的组边界
-/// 越少、简化越充分。种子顺序用 Morton 码(确定性空间序);同权按中心距离、
-/// id 决胜(全确定性)。
-fn group_clusters(level: &LevelMesh, edge_faces: &HashMap<(u32, u32), Vec<u32>>) -> Vec<Vec<u32>> {
+/// 加权,贪心生长 ≤ `params.group_size` 簇/组——共享边越多,合并后组内边
+/// 越多、被锁定的组边界越少、简化越充分。种子顺序用 Morton 码(确定性空间
+/// 序);同权按中心距离、id 决胜(全确定性)。
+///
+/// G31+ #98 边界交替(`params.sibling_bias`,Nanite `ClusterDAG.cpp` 边权
+/// `NumSharedEdges × (bSiblings ? 1 : 16) + 4` 逐字对齐):非同胞(上一层
+/// 不同组产物)簇对权 ×16——上层组边界(非同胞相邻处)优先并入新组内部,
+/// 锁定边逐层轮换获得简化机会,根治「树形方案边界永锁积累碎面」。
+fn group_clusters(
+    level: &LevelMesh,
+    edge_faces: &HashMap<(u32, u32), Vec<u32>>,
+    params: &DagBuildParams,
+) -> Vec<Vec<u32>> {
     let n = level.clusters.len();
     if n == 0 {
         return Vec::new();
@@ -863,6 +995,17 @@ fn group_clusters(level: &LevelMesh, edge_faces: &HashMap<(u32, u32), Vec<u32>>)
             }
         }
     }
+    // 边界交替权重(Nanite 字面):同胞 ×1、非同胞 ×16,+4 常数底;
+    // legacy(sibling_bias = false)= 纯共享边计数,序语义 0-漂移。
+    let eff_weight = |m: u32, cand: u32, shared: u32| -> u64 {
+        if params.sibling_bias {
+            let siblings =
+                level.source_group[m as usize] == level.source_group[cand as usize];
+            u64::from(shared) * if siblings { 1 } else { 16 } + 4
+        } else {
+            u64::from(shared)
+        }
+    };
     let order = morton_order(&centers);
     let mut assigned = vec![false; n];
     let mut groups = Vec::new();
@@ -872,23 +1015,24 @@ fn group_clusters(level: &LevelMesh, edge_faces: &HashMap<(u32, u32), Vec<u32>>)
         }
         assigned[seed as usize] = true;
         let mut group = vec![seed];
-        while group.len() < GROUP_SIZE {
-            // (候选, 共享边数, 中心距离):权重降序 → 距离升序 → id 升序。
-            let mut best: Option<(u32, u32, f32)> = None;
+        while group.len() < params.group_size {
+            // (候选, 有效权, 中心距离):权重降序 → 距离升序 → id 升序。
+            let mut best: Option<(u32, u64, f32)> = None;
             for &m in &group {
                 for (&cand, &w) in &adj[m as usize] {
                     if assigned[cand as usize] {
                         continue;
                     }
+                    let we = eff_weight(m, cand, w);
                     let d = vdist(centers[cand as usize], centers[m as usize]);
                     let better = match best {
                         None => true,
                         Some((bid, bw, bd)) => {
-                            w > bw || (w == bw && (d < bd || (d == bd && cand < bid)))
+                            we > bw || (we == bw && (d < bd || (d == bd && cand < bid)))
                         }
                     };
                     if better {
-                        best = Some((cand, w, d));
+                        best = Some((cand, we, d));
                     }
                 }
             }
@@ -1229,6 +1373,11 @@ fn export(
                 for &v in &lv.tris[f as usize] {
                     dag.triangle_indices.push(map[&v]);
                 }
+                // 叶层(li == 0):本层三角 id 即源网格三角 id(clusterize 划分元素),
+                // 按导出序平行登记(粗层三角为简化产物,无源 id)。
+                if li == 0 {
+                    dag.leaf_source_tris.push(f);
+                }
             }
             let (center, radius) = bounding_sphere(&local_verts);
             let tri_list: Vec<[u32; 3]> = ctris.iter().map(|&f| lv.tris[f as usize]).collect();
@@ -1363,11 +1512,13 @@ mod tests {
         let tris = mesh.triangles();
         let raw = clusterize_tris(&mesh.positions, &tris);
         assert!(raw.len() >= 2, "测试需要 ≥2 簇");
+        let n_raw = raw.len();
         let level = LevelMesh {
             positions: mesh.positions.clone(),
             tris,
             clusters: raw.iter().map(|c| c.tris.clone()).collect(),
-            errors: vec![0.0; raw.len()],
+            errors: vec![0.0; n_raw],
+            source_group: (0..n_raw as u32).collect(),
         };
         let g0 = vec![0u32];
         let g1: Vec<u32> = (1..raw.len() as u32).collect();
@@ -1407,6 +1558,110 @@ mod tests {
                 "组1 丢失共享顶点"
             );
         }
+    }
+
+    /// G31+ #66:QEM 加性简化器全 DAG 不变量(与既有事实源同一套锚:叶覆盖/
+    /// 单调/层递减/根哨兵/双构建确定性)+ 两简化器压缩力对照登记。
+    #[test]
+    fn qem_full_dag_invariants_and_comparison() {
+        let mesh = TriMesh::uv_sphere(1.0, 32, 32);
+        let dag = build_dag_kind(&mesh, SimplifyKind::Qem);
+        // 叶覆盖恰一次。
+        let total: u32 = dag.leaf_ids().map(|i| dag.record(i).triangle_count).sum();
+        assert_eq!(total as usize, mesh.triangle_count());
+        // 单调机核(逐边 typed 核验直调)。
+        validate_monotonicity(&dag).expect("QEM DAG 单调");
+        // 层三角数严格递减 + 根哨兵。
+        for w in dag.levels.windows(2) {
+            assert!(w[1].triangle_count < w[0].triangle_count, "层三角形数未递减");
+        }
+        for id in dag.top_level_ids() {
+            assert_eq!(dag.record(id).parent_error.to_bits(), f32::MAX.to_bits());
+        }
+        // 双构建确定性(canonical 字节相等)。
+        let dag2 = build_dag_kind(&mesh, SimplifyKind::Qem);
+        assert_eq!(canonical_bytes(&dag), canonical_bytes(&dag2), "QEM 双构建漂移");
+        // 默认面 0-语义:build_dag == build_dag_kind(ShortestEdge) 逐位。
+        let se = build_dag(&mesh);
+        let se2 = build_dag_kind(&mesh, SimplifyKind::ShortestEdge);
+        assert_eq!(
+            canonical_bytes(&se),
+            canonical_bytes(&se2),
+            "ShortestEdge 参数化包装破坏默认面 0-byte"
+        );
+        // 压缩力对照登记(#66 参照臂数据面;不设通过线,打印如实)。
+        let root_tris = |d: &ClusterDag| -> u32 {
+            d.top_level_ids().map(|i| d.record(i).triangle_count).sum()
+        };
+        println!(
+            "[qem_vs_shortest] uv_sphere_32: qem levels={} root_tris={} max_err={:.6}; shortest levels={} root_tris={} max_err={:.6}; qem_stuck_groups={}",
+            dag.level_count(),
+            root_tris(&dag),
+            dag.records.iter().map(|r| r.error).fold(0.0f32, f32::max),
+            se.level_count(),
+            root_tris(&se),
+            se.records.iter().map(|r| r.error).fold(0.0f32, f32::max),
+            crate::qem::take_stuck_count(),
+        );
+    }
+
+    /// G31+ #98:质量档(QEM + 8 簇/组 + 边界交替)全 DAG 不变量 + stuck
+    /// 对照登记(组更大 + 边界交替 ⇒ 简化自由度更高,stuck 应显著下降)。
+    #[test]
+    fn quality_params_dag_invariants_and_stuck_comparison() {
+        let mesh = TriMesh::uv_sphere(1.0, 32, 32);
+        let _ = crate::qem::take_stuck_count();
+        let legacy_qem = build_dag_kind(&mesh, SimplifyKind::Qem);
+        let stuck_legacy = crate::qem::take_stuck_count();
+        let quality = build_dag_params(&mesh, &DagBuildParams::quality());
+        let stuck_quality = crate::qem::take_stuck_count();
+        // 全套不变量。
+        let total: u32 = quality
+            .leaf_ids()
+            .map(|i| quality.record(i).triangle_count)
+            .sum();
+        assert_eq!(total as usize, mesh.triangle_count());
+        validate_monotonicity(&quality).expect("质量档 DAG 单调");
+        for w in quality.levels.windows(2) {
+            assert!(w[1].triangle_count < w[0].triangle_count);
+        }
+        // 双构建确定性。
+        let quality2 = build_dag_params(&mesh, &DagBuildParams::quality());
+        let _ = crate::qem::take_stuck_count();
+        assert_eq!(canonical_bytes(&quality), canonical_bytes(&quality2));
+        // 对照登记(#98 参照臂数据面;stuck 下降为方向性断言——组 8 + 边界
+        // 交替的简化自由度收益)。
+        println!(
+            "[quality_vs_legacy] uv_sphere_32: quality(qem/8/bias) levels={} stuck={} ; legacy(qem/4) levels={} stuck={}",
+            quality.level_count(),
+            stuck_quality,
+            legacy_qem.level_count(),
+            stuck_legacy,
+        );
+        assert!(
+            stuck_quality < stuck_legacy,
+            "质量档 stuck 未下降: {stuck_quality} ≥ {stuck_legacy}"
+        );
+    }
+
+    /// G31+ #66:骨骼资产 + QEM = typed Err 拒录(fail-closed 不静默降档)。
+    #[test]
+    fn qem_skinned_asset_rejected() {
+        let mesh = TriMesh::uv_sphere(1.0, 8, 8);
+        let n = mesh.positions.len();
+        let asset = DagAsset {
+            mesh,
+            skinned: Some(SkinWeights {
+                vertex_influences: (0..n).map(|_| vec![(0u32, 1.0f32)]).collect(),
+                joint_count: 2,
+            }),
+        };
+        assert!(matches!(
+            build_asset_dag_kind(&asset, SimplifyKind::Qem),
+            Err(DagError::SkinMetadataMissing { .. })
+        ));
+        // 同资产 ShortestEdge 照常通过(拒录面仅 QEM×蒙皮组合)。
+        build_asset_dag_kind(&asset, SimplifyKind::ShortestEdge).expect("蒙皮资产走既有简化器");
     }
 
     #[test]

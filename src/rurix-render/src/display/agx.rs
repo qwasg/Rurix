@@ -102,7 +102,10 @@ impl AgX {
     fn agx_core(v: [f64; 3]) -> [f64; 3] {
         let mut val = color::vmul(v, &AGX_INSET);
         for c in val.iter_mut() {
-            *c = c.max(f64::MIN_POSITIVE).log2().clamp(AGX_MIN_EV, AGX_MAX_EV);
+            *c = c
+                .max(f64::MIN_POSITIVE)
+                .log2()
+                .clamp(AGX_MIN_EV, AGX_MAX_EV);
             *c = (*c - AGX_MIN_EV) / (AGX_MAX_EV - AGX_MIN_EV);
         }
         [
@@ -118,7 +121,9 @@ impl AgX {
         const LW: [f64; 3] = [0.2126, 0.7152, 0.0722];
         let mut out = [0.0f64; 3];
         for i in 0..3 {
-            out[i] = (v[i] * look.slope[i] + look.offset[i]).max(0.0).powf(look.power[i]);
+            out[i] = (v[i] * look.slope[i] + look.offset[i])
+                .max(0.0)
+                .powf(look.power[i]);
         }
         let luma = out[0] * LW[0] + out[1] * LW[1] + out[2] * LW[2];
         for c in out.iter_mut() {
@@ -168,7 +173,10 @@ mod tests {
         let m = p.to_display_linear([0.36, 0.36, 0.36]);
         assert!(a[0] < g[0] && g[0] < m[0]);
         // 确定性。
-        assert_eq!(p.to_display_linear([1.0, 0.5, 0.25]), p.to_display_linear([1.0, 0.5, 0.25]));
+        assert_eq!(
+            p.to_display_linear([1.0, 0.5, 0.25]),
+            p.to_display_linear([1.0, 0.5, 0.25])
+        );
     }
 
     //@ spec: RXS-0369

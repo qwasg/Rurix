@@ -1,0 +1,244 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-3 粒子渲染接线门裁决证据(ci/g35_render_wiring_smoke.py --gate 产)",
+  "description": "G35-3 粒子渲染接线门 g35.wave3.render 的 smoke 裁决证据:① kernels_spv_valid(rurixc 现编 15 kernel = 车道五件〔g14_3_direct_gi/g14_mv/g14_8_tsr_resample/g14_8_tsr_resolve/g31_display_encode〕+ 粒子七件〔W1/W2 冻结消费面〕+ 渲染三件〔g35_splat_clear/g35_render_splat/g35_render_resolve〕+ spirv-val 全绿 + 冻结消费面 sha256 快照在档——共享车道体 g14_3_lane_body.rs 0-byte 纪律漂移守护)② off_face_stage_a_anchor_match(--particles off --static-camera 160 帧 warmup 10 render_digest 位级 == milestones/g14/g14_3_stage_a_digest_anchor.json cell bistro-interior_t100_tsr_device——off 面 = 母版零追加的机器证明)③ on_off_digest_discrimination(同轨迹 orbit on/off 双面 render_digest 必异——粒子渲染真接线判别防镂空 pass)④ determinism_double_run(on 面同参数双跑 render_digest + digest_seq_sha 位级一致——u64 fetch_max 平局由 slot 序全序裁决与调度无关)⑤ particle_mv_parity_2px(--mv-witness 单粒子恒速静态相机:U_MV_OUT 命中像素与解析期望 mv = project_curr(pos) − project_prev(pos − vel·dt) 最大像素误差 ≤ 冻结容差〔milestones/g35/g35_budget.json g35.render.mv_parity_px 程序读禁手写,threshold = measured × 2.0 标定冻结〕∧ ≤ 2.0 px 硬顶 ∧ 命中 ≥ 1 ∧ slot 恒 0)⑥ barrier_plan_audit(bin 内机核审计 11 pass〔粒子 10 + encode〕双 parity bindings ⊆ 屏障计划资源集 + splat 的 indirect args 资源在计划内;IndirectRead 转换 = 执行器 pass_requirements_with 隐式补全登记面)⑦ soft_depth_occlusion_witness(粒子置相机后已知墙后〔投影 w 门确定性拒绝〕:winner 全零 + scene color 与 off 面位级等 + render_digest 等;深度域 quirk〔U_SCENE_DEPTH 生产字面 = clip.x/clip.y 沿视射线常量 ⇒ 同域比较为屏幕域序判非距离遮挡〕depth_domain 字段如实登记)⑧ indirect_splat_zero_readback(splat dispatch = DispatchSpec::Indirect{res:args,offset:0} + 生产帧循环零粒子缓冲回读——host 金标准平行推得只对拍不读回)⑨ frame_ms_measured(on 面逐帧墙钟均值 + 粒子 10 pass GPU 段和 measured_local 诚实登记非帧率对标)。results.trimmed_mean = MV measured px 镜像(ci/budget_eval.py 通用路 evidence_file 消费面)。三态:无 Vulkan loader/设备/资产 → DEV_ENV_DEGRADE 退 0(不冒充 PASS,不落本证据);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "anchor",
+    "discrimination",
+    "determinism",
+    "mv_parity",
+    "results",
+    "barrier_audit",
+    "occlusion",
+    "zero_readback",
+    "frame_ms",
+    "mesh_particles",
+    "run_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.render_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_render_wiring" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave3.render" },
+    "wave": { "type": "string", "const": "G35.3" },
+    "facts": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "off_face_stage_a_anchor_match",
+              "on_off_digest_discrimination",
+              "determinism_double_run",
+              "particle_mv_parity_2px",
+              "barrier_plan_audit",
+              "soft_depth_occlusion_witness",
+              "indirect_splat_zero_readback",
+              "frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "particle", "render", "spirv_val_all", "frozen_consumed_snapshot"],
+      "properties": {
+        "lane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g14_3_direct_gi", "g14_mv", "g14_8_tsr_resample", "g14_8_tsr_resolve", "g31_display_encode"],
+          "properties": {
+            "g14_3_direct_gi": { "$ref": "#/definitions/spv_entry" },
+            "g14_mv": { "$ref": "#/definitions/spv_entry" },
+            "g14_8_tsr_resample": { "$ref": "#/definitions/spv_entry" },
+            "g14_8_tsr_resolve": { "$ref": "#/definitions/spv_entry" },
+            "g31_display_encode": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "particle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_sim", "g35_scan_seg_sum", "g35_scan_spine", "g35_scan_seg_apply", "g35_particle_compact", "g35_emit", "g35_indirect_args"],
+          "properties": {
+            "g35_sim": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_seg_sum": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_spine": { "$ref": "#/definitions/spv_entry" },
+            "g35_scan_seg_apply": { "$ref": "#/definitions/spv_entry" },
+            "g35_particle_compact": { "$ref": "#/definitions/spv_entry" },
+            "g35_emit": { "$ref": "#/definitions/spv_entry" },
+            "g35_indirect_args": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "render": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["g35_splat_clear", "g35_render_splat", "g35_render_resolve"],
+          "properties": {
+            "g35_splat_clear": { "$ref": "#/definitions/spv_entry" },
+            "g35_render_splat": { "$ref": "#/definitions/spv_entry" },
+            "g35_render_resolve": { "$ref": "#/definitions/spv_entry" }
+          }
+        },
+        "spirv_val_all": { "type": "boolean", "const": true },
+        "frozen_consumed_snapshot": {
+          "type": "object",
+          "description": "冻结消费面 sha256 快照(粒子七 kernel .rx / g14_3_lane_body.rs / particles/mod.rs / particles/core.rs——G35-3 消费不修改 + 共享体 0-byte 承诺在档,漂移守护基线)"
+        }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "cell", "expected", "measured", "match"],
+      "properties": {
+        "path": { "type": "string", "const": "milestones/g14/g14_3_stage_a_digest_anchor.json" },
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "expected": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "measured": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "description": "off 面(--static-camera 160 帧 warmup 10)render_digest 位级 == 锚才许 true(off = 母版零追加的机器证明)" }
+      }
+    },
+    "discrimination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trajectory", "on_digest", "off_digest", "differs"],
+      "properties": {
+        "trajectory": { "type": "string", "const": "orbit" },
+        "on_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "off_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "differs": { "type": "boolean", "description": "同轨迹 on/off 双面 digest 必异才许 true(粒子渲染真接线判别)" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b", "digest_seq_sha_a", "digest_seq_sha_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "on 面同参数双跑 render_digest + digest_seq_sha 双通道位级一致才许 true" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_seq_sha_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_seq_sha_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "mv_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hit_px", "slot_zero", "measured_px", "threshold", "hard_cap_px", "budget_entry", "calibrated_this_run", "within"],
+      "properties": {
+        "hit_px": { "type": "integer", "minimum": 0, "description": "winner ≠ 0 命中像素数(单粒子构型;≥ 1 才许 fact PASS)" },
+        "slot_zero": { "type": "boolean", "description": "全部命中像素赢家 slot == 0(单粒子构型)才许 true" },
+        "measured_px": { "type": "number", "description": "device MV vs 解析期望最大像素误差(mv = project_curr(pos) − project_prev(pos − vel·dt);-1 = 见证腿缺失)" },
+        "threshold": { "type": "number", "description": "= measured × 2.0 标定冻结(程序产禁手写;measured = 0 时 = 0 零容差零条目;-1 = 未标定)" },
+        "hard_cap_px": { "type": "number", "const": 2.0 },
+        "budget_entry": { "type": "string", "const": "g35.render.mv_parity_px" },
+        "calibrated_this_run": { "type": "boolean", "description": "true = 本次 --gate MV 见证腿标定程序写入 g35_budget;false = 既有冻结条目程序读" },
+        "within": { "type": "boolean" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean"],
+      "properties": {
+        "trimmed_mean": { "type": "number", "description": "= mv_parity.measured_px 镜像(ci/budget_eval.py 通用路 doc.results.trimmed_mean 消费面;g35_budget evidence_file 指向本件)" }
+      }
+    },
+    "barrier_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_bindings_subset", "passes_total", "passes_ok", "indirect_note"],
+      "properties": {
+        "all_bindings_subset": { "type": "boolean", "description": "bin 内机核审计:11 pass(粒子 10 + encode)双 parity bindings ⊆ 屏障计划资源集全绿才许 true" },
+        "passes_total": { "type": "integer", "minimum": 0 },
+        "passes_ok": { "type": "integer", "minimum": 0 },
+        "indirect_note": { "type": "string", "description": "splat 的 args IndirectRead 转换委托登记(执行器 pass_requirements_with 对 DispatchSpec::Indirect 首位推导;显式计划列 args StorageReadWrite 覆盖 shader 读)" }
+      }
+    },
+    "occlusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["winner_nonzero_px", "scene_color_bitexact_with_off", "render_digest_match_off", "config", "depth_domain"],
+      "properties": {
+        "winner_nonzero_px": { "type": "integer", "description": "遮挡见证末帧 winner ≠ 0 像素数(0 才许 fact PASS;-1 = 见证腿缺失)" },
+        "scene_color_bitexact_with_off": { "type": "boolean", "description": "on 面(粒子置相机后已知墙后)末帧 U_SCENE_COLOR 与 off 影面位级等才许 true" },
+        "render_digest_match_off": { "type": "boolean", "description": "on/off 双面末帧 render_digest 位级等才许 true" },
+        "config": { "type": "string" },
+        "depth_domain": { "type": "string", "description": "深度域 quirk 诚实登记(U_SCENE_DEPTH 生产字面 = clip.x/clip.y 沿视射线常量 ⇒ 硬拒/软粒子为同域屏幕序判非距离遮挡;真深度资源进 Mega 车道前的降级实现)" }
+      }
+    },
+    "zero_readback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["splat_dispatch", "production_readback_particle_buffers"],
+      "properties": {
+        "splat_dispatch": { "type": "string", "const": "DispatchSpec::Indirect{res:args,offset:0}" },
+        "production_readback_particle_buffers": { "type": "boolean", "const": false }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["real_render_frame_ms", "particle_gpu_mean_ms", "frames_measured", "measured", "note"],
+      "properties": {
+        "real_render_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "particle_gpu_mean_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frames_measured": { "type": "integer", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "note": { "type": "string" }
+      }
+    },
+    "mesh_particles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wired_instances", "note"],
+      "properties": {
+        "wired_instances": { "type": "integer", "const": 1, "description": "mesh 粒子 TLAS 见证臂 wired 实例数(g31_dyn_scene 分派映射为单动态实例语义;N > 1 其余实例 not_wired 如实登记于 bin evidence)" },
+        "note": { "type": "string" }
+      }
+    },
+    "run_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "lane 真跑 evidence 件(off 锚腿/off 轨迹腿/on 双跑/mv 见证/遮挡见证,.tmp 工作区路径登记)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "spv_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

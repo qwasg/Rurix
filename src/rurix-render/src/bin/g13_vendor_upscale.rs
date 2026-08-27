@@ -61,8 +61,8 @@ use rurix_render::temporal::ssim::ssim;
 use rurix_render::temporal::tsr::TsrUpscaler;
 use rurix_render::temporal::upscale::{UpscaleBackend, UpscaleInputs};
 use rurix_rt::vendor_upscale::{
-    DlssVkSession, FsrDx12Session, VendorError, VendorFrameInput, VendorSessionReport,
-    fsr_sdk_dir, streamline_sdk_dir,
+    DlssVkSession, FsrDx12Session, VendorError, VendorFrameInput, VendorSessionReport, fsr_sdk_dir,
+    streamline_sdk_dir,
 };
 use std::path::Path;
 
@@ -212,8 +212,16 @@ impl UpscaleBackend for DlssBackend {
 
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
         let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
+        assert_eq!(
+            (iw, ih),
+            self.in_size,
+            "DLSS adapter 输入分辨率与 session 不符"
+        );
+        assert_eq!(
+            (ow, oh),
+            self.out_size,
+            "DLSS adapter 输出分辨率与 session 不符"
+        );
         let vi = VendorFrameInput {
             color: &inputs.color.data,
             depth: &inputs.depth.data,
@@ -229,7 +237,12 @@ impl UpscaleBackend for DlssBackend {
             .session
             .upscale(&vi)
             .unwrap_or_else(|e| panic!("DLSS upscale 失败: {e}"));
-        ImageF32 { w: ow, h: oh, c: 3, data }
+        ImageF32 {
+            w: ow,
+            h: oh,
+            c: 3,
+            data,
+        }
     }
 
     fn reset_history(&mut self) {
@@ -265,8 +278,16 @@ impl UpscaleBackend for FsrBackend {
 
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
         let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "FSR adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "FSR adapter 输出分辨率与 session 不符");
+        assert_eq!(
+            (iw, ih),
+            self.in_size,
+            "FSR adapter 输入分辨率与 session 不符"
+        );
+        assert_eq!(
+            (ow, oh),
+            self.out_size,
+            "FSR adapter 输出分辨率与 session 不符"
+        );
         let vi = VendorFrameInput {
             color: &inputs.color.data,
             depth: &inputs.depth.data,
@@ -282,7 +303,12 @@ impl UpscaleBackend for FsrBackend {
             .session
             .upscale(&vi)
             .unwrap_or_else(|e| panic!("FSR upscale 失败: {e}"));
-        ImageF32 { w: ow, h: oh, c: 3, data }
+        ImageF32 {
+            w: ow,
+            h: oh,
+            c: 3,
+            data,
+        }
     }
 
     fn reset_history(&mut self) {
@@ -339,7 +365,11 @@ struct ConvergeMetrics {
 fn measure(run: &ConvergeRun, reference: &ImageF32) -> ConvergeMetrics {
     let last = run.outs.last().expect("至少一帧");
     let s = ssim(last, reference);
-    let mses: Vec<f64> = run.outs.iter().map(|o| ImageF32::mse(o, reference)).collect();
+    let mses: Vec<f64> = run
+        .outs
+        .iter()
+        .map(|o| ImageF32::mse(o, reference))
+        .collect();
     let n = mses.len();
     let seg = (n / 4).max(1);
     let first_avg = mses[..seg].iter().sum::<f64>() / seg as f64;
@@ -431,14 +461,17 @@ fn parse_args() -> Args {
         match arg.as_str() {
             "--host-only" => a.host_only = true,
             "--calibrate" => {
-                a.calibrate = Some(it.next().unwrap_or_else(|| fail("--calibrate 需 tsr|dlss|fsr")))
+                a.calibrate = Some(
+                    it.next()
+                        .unwrap_or_else(|| fail("--calibrate 需 tsr|dlss|fsr")),
+                )
             }
-            "--red-arm" => {
-                a.red_arm = Some(it.next().unwrap_or_else(|| fail("--red-arm 需臂名")))
-            }
+            "--red-arm" => a.red_arm = Some(it.next().unwrap_or_else(|| fail("--red-arm 需臂名"))),
             "--validation-probe" => {
-                a.validation_probe =
-                    Some(it.next().unwrap_or_else(|| fail("--validation-probe 需 dlss|fsr")))
+                a.validation_probe = Some(
+                    it.next()
+                        .unwrap_or_else(|| fail("--validation-probe 需 dlss|fsr")),
+                )
             }
             "--frames" => {
                 a.frames = it
@@ -469,8 +502,7 @@ fn validation_on() -> bool {
 /// DLSS 校验覆盖口径(evidence/契约 §8.3 同字面登记;NGX evaluate 段排除)。
 const DLSS_PROBE_COVERAGE: &str = "app_vulkan_surface+sl_proxy_device+sl_bookkeeping";
 /// NGX evaluate 段排除说明(minidump 实测 + vendor 已知不兼容留痕)。
-const DLSS_EVALUATE_EXCLUDED_NOTE: &str =
-    "ngx_evaluate_excluded:NGX slEvaluateFeature 在 VK_LAYER_KHRONOS_validation 在下触发 \
+const DLSS_EVALUATE_EXCLUDED_NOTE: &str = "ngx_evaluate_excluded:NGX slEvaluateFeature 在 VK_LAYER_KHRONOS_validation 在下触发 \
      NVIDIA 驱动内部崩溃(nvoglv64.dll 0xc0000005,SL 异常处理器捕获报 \
      eErrorExceptionHandler;vendor 已知 SL+validation 不兼容类 Streamline issue #84 \
      ack/bug)——evaluate 段未纳入校验层覆盖;DLSS 功能帧经独立无层 session 真跑产出";
@@ -494,7 +526,8 @@ fn validation_probe_leg(backend: &str) -> ! {
                     std::process::exit(0);
                 }
             };
-            let mut session = match DlssVkSession::create(&dir, (IN_W, IN_H), (OUT_W, OUT_H), true) {
+            let mut session = match DlssVkSession::create(&dir, (IN_W, IN_H), (OUT_W, OUT_H), true)
+            {
                 Ok(s) => s,
                 Err(e) => {
                     println!(
@@ -562,7 +595,9 @@ fn validation_probe_leg(backend: &str) -> ! {
                 jstr(state),
                 errors,
                 jstr("full_in_run_d3d12_debug_layer+info_queue"),
-                jstr("D3D12 debug layer + ID3D12InfoQueue ERROR/CORRUPTION 级计数;FFX dispatch 全程在层下真跑"),
+                jstr(
+                    "D3D12 debug layer + ID3D12InfoQueue ERROR/CORRUPTION 级计数;FFX dispatch 全程在层下真跑"
+                ),
             );
             std::process::exit(if errors == 0 { 0 } else { 1 })
         }
@@ -612,7 +647,9 @@ fn json_strs(doc: &str, key: &str) -> Vec<String> {
     let mut out = Vec::new();
     while let Some(rel) = doc[at..].find('"') {
         at += rel + 1;
-        let Some(end) = doc[at..].find('"') else { break };
+        let Some(end) = doc[at..].find('"') else {
+            break;
+        };
         out.push(doc[at..at + end].to_string());
         at += end + 1;
         if !doc[at..].starts_with(',') {
@@ -806,20 +843,32 @@ fn device_leg(args: &Args) -> DeviceLeg {
             eprintln!("{TAG}: 切换帧 {i} 后端 {} 输出无效", backend.name());
         }
     }
-    eprintln!("{TAG}: 三后端运行时切换 {} 帧 ok={switch_ok}", SWITCH_FRAMES);
+    eprintln!(
+        "{TAG}: 三后端运行时切换 {} 帧 ok={switch_ok}",
+        SWITCH_FRAMES
+    );
 
     // ── 各自全序列收敛(切换腿后 session 历史经下一帧 reset 清洗——run_static
     //    首帧 reset=true,语义 0-byte) ──
     let dlss_report = dlss.session.report();
     let dlss_verr = dlss.session.validation_errors();
     let dlss_excluded = dlss.session.validation_excluded();
-    let mut dlss_rep = run_vendor_backend(&mut dlss, &dlss_report, dlss_verr, dlss_excluded, args.frames, args.band_dlss, &reference);
+    let mut dlss_rep = run_vendor_backend(
+        &mut dlss,
+        &dlss_report,
+        dlss_verr,
+        dlss_excluded,
+        args.frames,
+        args.band_dlss,
+        &reference,
+    );
     // DLSS 校验覆盖:RURIX_VK_VALIDATION=1 → 探针子进程结果并入(探针 SKIP/
     // 不可解析 = 门禁完整性强错,coverage 记 probe_failed_unparseable,main 判红)。
     if validation {
         match run_validation_probe("dlss") {
             Some(doc) if json_str(&doc, "state").is_some_and(|s| s == "pass" || s == "fail") => {
-                dlss_rep.validation_errors = json_u64(&doc, "validation_errors").unwrap_or(u64::MAX);
+                dlss_rep.validation_errors =
+                    json_u64(&doc, "validation_errors").unwrap_or(u64::MAX);
                 dlss_rep.validation_excluded_ngx =
                     json_u64(&doc, "validation_excluded_ngx").unwrap_or(0);
                 dlss_rep.validation_excluded_names = json_strs(&doc, "validation_excluded_names");
@@ -837,7 +886,15 @@ fn device_leg(args: &Args) -> DeviceLeg {
     }
     let fsr_report = fsr.session.report();
     let fsr_verr = fsr.session.validation_errors();
-    let mut fsr_rep = run_vendor_backend(&mut fsr, &fsr_report, fsr_verr, (0, Vec::new()), args.frames, args.band_fsr, &reference);
+    let mut fsr_rep = run_vendor_backend(
+        &mut fsr,
+        &fsr_report,
+        fsr_verr,
+        (0, Vec::new()),
+        args.frames,
+        args.band_fsr,
+        &reference,
+    );
     if validation {
         fsr_rep.validation_coverage = "full_in_run_d3d12_debug_layer+info_queue".into();
     }
@@ -1079,15 +1136,18 @@ fn red_arm_mock_passthrough(frames: u32, band_dlss: f64) -> Result<(), String> {
             m.deficit
         ));
     }
-    eprintln!("{TAG}: red-arm mock-passthrough 检出 — {}", reasons.join(";"));
+    eprintln!(
+        "{TAG}: red-arm mock-passthrough 检出 — {}",
+        reasons.join(";")
+    );
     Ok(())
 }
 
 fn red_arm_mv_garbage(frames: u32, band_dlss: f64) -> Result<(), String> {
     // device 臂:静态场景喂垃圾 MV( uv 位移 10.0),DLSS 重投影必须劣化。
     // DLSS 功能面恒 validation=false(校验覆盖归 --validation-probe 独立面)。
-    let mut dlss = DlssBackend::create(false)
-        .map_err(|e| format!("DLSS session 创建失败(DEV_ENV): {e}"))?;
+    let mut dlss =
+        DlssBackend::create(false).map_err(|e| format!("DLSS session 创建失败(DEV_ENV): {e}"))?;
     let reference = render_reference(OUT_W, OUT_H);
     let good = measure(&run_static(&mut dlss, frames), &reference);
     let scale = OUT_W as f32 / IN_W as f32;
@@ -1097,7 +1157,15 @@ fn red_arm_mv_garbage(frames: u32, band_dlss: f64) -> Result<(), String> {
     let mut outs = Vec::new();
     for (i, &j) in jitters.iter().enumerate() {
         let cur = render_input(IN_W, IN_H, scale, j);
-        let inp = inputs_for(&cur, &depth, &garbage_mv, (OUT_W, OUT_H), j, i as u32, i == 0);
+        let inp = inputs_for(
+            &cur,
+            &depth,
+            &garbage_mv,
+            (OUT_W, OUT_H),
+            j,
+            i as u32,
+            i == 0,
+        );
         outs.push(dlss.upscale(&inp));
     }
     let bad_run = ConvergeRun { outs };
@@ -1131,7 +1199,15 @@ fn red_arm_fsr_mv_garbage(frames: u32, band_fsr: f64) -> Result<(), String> {
     let mut outs = Vec::new();
     for (i, &j) in jitters.iter().enumerate() {
         let cur = render_input(IN_W, IN_H, scale, j);
-        let inp = inputs_for(&cur, &depth, &garbage_mv, (OUT_W, OUT_H), j, i as u32, i == 0);
+        let inp = inputs_for(
+            &cur,
+            &depth,
+            &garbage_mv,
+            (OUT_W, OUT_H),
+            j,
+            i as u32,
+            i == 0,
+        );
         outs.push(fsr.upscale(&inp));
     }
     let bad_run = ConvergeRun { outs };
@@ -1244,7 +1320,10 @@ fn main() {
         }
     }
     if leg.dlss.validation_errors != 0 {
-        problems.push(format!("DLSS validation 错误计数 = {}", leg.dlss.validation_errors));
+        problems.push(format!(
+            "DLSS validation 错误计数 = {}",
+            leg.dlss.validation_errors
+        ));
     }
     if leg.dlss.validation_coverage.starts_with("probe_") {
         problems.push(format!(
@@ -1253,7 +1332,10 @@ fn main() {
         ));
     }
     if leg.fsr.validation_errors != 0 {
-        problems.push(format!("FSR validation 错误计数 = {}", leg.fsr.validation_errors));
+        problems.push(format!(
+            "FSR validation 错误计数 = {}",
+            leg.fsr.validation_errors
+        ));
     }
     if leg.fsr.fsr4_ml_available.is_none() || leg.fsr.fsr4_note.is_empty() {
         problems.push("FSR4 ML 回退登记缺失".into());

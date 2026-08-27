@@ -1,0 +1,36 @@
+//@ spec: RFC-0049 §4.1(G35-1 scan 基元阶段 2;spec 条款号本期零新设)
+// G35-P 分段稳定 exclusive scan · 阶段 2/3 —— spine(门 g35.wave1.primitives
+// 及 g35.wave2.particle_core 共享消费面;src/particles/mod.rs 契约头字面)。
+//
+// ## 架构
+// 公式面与 host 金标准 `particles/scan.rs::spine` **逐字同源**:单 invocation
+// 对 seg_sums[0..nseg] 串行 exclusive scan ⇒ seg_offsets[0..nseg);
+// seg_offsets[nseg] = 总和(存活总数槽——g35_indirect_args 零回读消费面,
+// 反打 Niagara 动态 bounds 禁回读约束的关键槽位)。nseg ≤ 4096(NSEG_MAX,
+// 1M 粒子域)串行循环为 v1 冻结形态;确定性 = 单线程天然全序。
+// 纯 u32/usize 整数算术 ⇒ device↔host 零容差位级(mod.rs 整数域协议)。
+//
+// ## 参数面(4 f32)
+//   params[0]=n [1]=nseg [2..4)=reserved(恒 0)。
+//   seg_sums: u32/段;seg_offsets: u32 × (nseg+1)。
+//   dispatch = [1, 1, 1](LocalSize 1,1,1;单 invocation 守卫 s < 1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_scan_spine(
+    tc: ThreadCtx<1>,
+    seg_sums: View<global, u32>,
+    params: View<global, f32>,
+    seg_offsets: ViewMut<global, u32>,
+) {
+    let g = tc.global_id();
+    let nseg = params[1] as usize;
+    if g < 1usize {
+        let mut acc = 0u32;
+        let mut s = 0usize;
+        while s < nseg {
+            seg_offsets[s] = acc;
+            acc = acc + seg_sums[s];
+            s = s + 1usize;
+        }
+        seg_offsets[nseg] = acc;
+    }
+}

@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35-8 作者面与 SDK 门裁决证据(ci/g35_authoring_smoke.py --gate 产)",
+  "description": "G35-8 数据驱动作者面与 SDK 门 g35.wave8.authoring 的 smoke 裁决证据(纯 host 门,无 kernels_spv_valid/frame_ms 面——facts 闭集 8):① asset_schema_fail_closed(emitter 资产 v1 十字段闭集〔RFC-0049 §3 冻结:name/pos/spread/vel_base/vel_spread/life_base/gravity_y/emit_curve/render/blend〕fail-closed——十种非法样例〔缺字段/多字段/类型错×2/闭集外枚举×3/嵌套缺字段/域违约×2〕逐一 typed 退出码 3 + kind 闭集 token 精确匹配,禁默认值兜底)② curve_eval_deterministic(emit_curve 求值 = 每帧 emit_count:const 恒值取整/step 阶梯查表——probe 库实现 vs 独立参考实现逐帧互核 + 双求值确定)③ hot_reload_semantics(重载 = 纯参数面变化:重载轨迹 digest ≠ 无重载基线〔生效〕+ 重载帧 emit == asset2 曲线该帧求值〔下一帧生效〕+ 旧粒子当前 gravity 下冻结运算序单步重放 bitwise 全等〔不瞬移〕)④ pid_continuity_across_reload(每帧无重复 + 幸存段 ⊆ 上帧集 + 新发射段精确区间 + 跨重载 pid_base 单调不重置;发射钳制 accepted = min(requested, cap − n_curr) rejected 如实登记)⑤ sdk_abi_surface_frozen(RFC-0049 §4.11 冻结四签名 rxsdk_particles_{emitter_create,emitter_set_param,emitter_destroy,stats} 源级签名字面在档 + cdylib 符号在档〔dumpbin /exports 或 cargo-test 层核验〕+ 既有 9 rxsdk_* 导出全在〔加性〕+ stable 快照 --check 绿〔用户面 sdk.rx/ABI 版本 0-byte 机器证明;用户面 MINOR 1.1.0 薄转发+重 bless 登记待 G35 收口批,apps/g31-renderer-sdk/API_VERSIONING.md §6〕)⑥ sdk_handle_fail_closed(cargo test -p rurix-renderer-sdk --features sdk-device 全绿 + 粒子面两单测在案:悬空句柄 ST_HANDLE/空指针与资产违例与 key 闭集外 ST_INPUT/会话回收连带悬空/host 臂 tick 精确账目)⑦ determinism_double_run(同 seed 同资产全链双跑轨迹 digest 位级一致;digest = 逐帧 n‖pid‖8 f32 流 bits‖args 链式 sha256)⑧ red_arm_effective(--red-arm field-tamper:资产字段值内存面篡改 → digest 必异 + 资产文本注入闭集外字段 → 解析必 typed Err——篡改必检出双面)。三态形骸:本门纯 host 永可跑,degrade 集常空保留三态纪律形骸(唯一登记项 = SDK 单测 vulkan loader 缺席跳过面);RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "asset_protocol",
+    "curve_eval",
+    "hot_reload",
+    "pid_continuity",
+    "sdk",
+    "determinism",
+    "red_arm",
+    "tri_state",
+    "probe_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.authoring_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_authoring" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave8.authoring" },
+    "wave": { "type": "string", "const": "G35.8" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "asset_schema_fail_closed",
+              "curve_eval_deterministic",
+              "hot_reload_semantics",
+              "pid_continuity_across_reload",
+              "sdk_abi_surface_frozen",
+              "sdk_handle_fail_closed",
+              "determinism_double_run",
+              "red_arm_effective"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "asset_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_closed_set", "sample_a", "sample_b", "fail_closed_cases", "cases_total", "cases_ok"],
+      "properties": {
+        "field_closed_set": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "enum": ["name", "pos", "spread", "vel_base", "vel_spread", "life_base", "gravity_y", "emit_curve", "render", "blend"]
+          },
+          "description": "v1 十字段闭集(RFC-0049 §3 冻结;禁增删)"
+        },
+        "sample_a": { "type": "string", "description": "内嵌契约样例 A 资产名(const/billboard/alpha)" },
+        "sample_b": { "type": "string", "description": "内嵌契约样例 B 资产名(step/mesh/additive)" },
+        "fail_closed_cases": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["case", "kind_expected", "kind_seen", "exit_code", "ok"],
+            "properties": {
+              "case": { "type": "string" },
+              "kind_expected": {
+                "type": "string",
+                "enum": ["Json", "NotObject", "MissingField", "UnknownField", "Type", "EnumOutOfSet", "Domain"]
+              },
+              "kind_seen": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "ok": { "type": "boolean", "description": "exit_code == 3 且 kind_seen == kind_expected 才许 true(typed 退出码闭集)" }
+            }
+          }
+        },
+        "cases_total": { "type": "integer", "const": 10 },
+        "cases_ok": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "curve_eval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crosscheck_ok", "samples_a", "samples_b"],
+      "properties": {
+        "crosscheck_ok": { "type": "boolean", "description": "emit_count_at 库实现 vs probe 独立参考实现全帧全等 + 双求值确定才许 true" },
+        "samples_a": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "samples_b": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "hot_reload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reload_at",
+        "effective_digest_diff",
+        "next_frame_effective",
+        "old_particles_continuous",
+        "boundary_survivors_checked",
+        "continuity_checked",
+        "digest_baseline",
+        "digest_reload"
+      ],
+      "properties": {
+        "reload_at": { "type": "integer", "minimum": 1 },
+        "effective_digest_diff": { "type": "boolean", "description": "重载轨迹 digest ≠ 无重载基线才许 true(重载生效)" },
+        "next_frame_effective": { "type": "boolean", "description": "重载帧 emit == asset2 曲线该帧求值且 ≠ asset1 同帧求值才许 true(下一帧生效语义)" },
+        "old_particles_continuous": { "type": "boolean", "description": "全程(含重载边界帧)幸存粒子当前 gravity 下冻结运算序单步重放 bitwise 全等才许 true(不瞬移)" },
+        "boundary_survivors_checked": { "type": "integer", "minimum": 1, "description": "重载边界帧幸存核验样本量(≥1 防空转)" },
+        "continuity_checked": { "type": "integer", "minimum": 1 },
+        "digest_baseline": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_reload": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "pid_continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unique", "survivor_subset", "emit_range_exact", "pids_issued", "rejected_total"],
+      "properties": {
+        "unique": { "type": "boolean" },
+        "survivor_subset": { "type": "boolean" },
+        "emit_range_exact": { "type": "boolean" },
+        "pids_issued": { "type": "integer", "minimum": 1, "description": "跨重载单调水位(pid 序列连续不重置)" },
+        "rejected_total": { "type": "integer", "minimum": 0, "description": "发射钳制 rejected 累计(accepted = min(requested, cap − n_curr),RFC-0049 §4.4 F7 如实登记)" }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impl_crate",
+        "frozen_signatures_present",
+        "symbols_present",
+        "symbol_check_method",
+        "particles_symbols",
+        "existing_exports_present",
+        "existing_export_count",
+        "cargo_test_exit",
+        "particles_tests_seen",
+        "stable_snapshot_check_exit",
+        "abi_version_unchanged",
+        "user_face_minor_bump"
+      ],
+      "properties": {
+        "impl_crate": { "type": "string", "const": "src/rurix-renderer-sdk" },
+        "frozen_signatures_present": { "type": "boolean", "description": "RFC-0049 §4.11 冻结四签名源级字面(参数名/类型序/返回)全在档才许 true" },
+        "symbols_present": { "type": "boolean", "description": "cdylib 导出符号面 4 新 + 9 既有全在才许 true(dumpbin 路);cargo-test-source 路 = 源级 + 构建面核验如实登记" },
+        "symbol_check_method": { "type": "string", "enum": ["dumpbin", "cargo-test-source"] },
+        "particles_symbols": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "enum": [
+              "rxsdk_particles_emitter_create",
+              "rxsdk_particles_emitter_set_param",
+              "rxsdk_particles_emitter_destroy",
+              "rxsdk_particles_stats"
+            ]
+          }
+        },
+        "existing_exports_present": { "type": "boolean", "description": "既有 9 rxsdk_* 符号(abi_version/caps_probe/renderer_{create,destroy,load_scene,set_camera,set_exposure_ev100,render_frame,present})全在才许 true(加性 0-byte 面)" },
+        "existing_export_count": { "type": "integer", "const": 9 },
+        "cargo_test_exit": { "type": "integer" },
+        "particles_tests_seen": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string" },
+          "description": "粒子面单测名(particles_handle_and_input_fail_closed / particles_lifecycle_tick_and_stats)输出在案"
+        },
+        "stable_snapshot_check_exit": { "type": "integer", "description": "ci/stable_snapshot.py --check 退出码(0 = 用户面 sdk.rx 导出集/ABI 版本 0 漂移机器证明)" },
+        "abi_version_unchanged": { "type": "string", "const": "1.0.0" },
+        "user_face_minor_bump": { "type": "string", "const": "deferred_to_closeout", "description": "rurix_renderer_particles_* 薄转发 + MINOR 1.1.0 + 快照重 bless 待 G35 收口批(waveC 门族五面 1.0.0/9 导出字面须同批更新;API_VERSIONING.md §6 登记)" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "digest_a", "digest_b"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean" },
+        "digest_a": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_b": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "red_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm", "detected", "digest_green", "digest_red", "schema_tamper_detected", "schema_tamper_kind"],
+      "properties": {
+        "arm": { "type": "string", "const": "field-tamper" },
+        "detected": { "type": "boolean", "description": "资产字段值篡改(gravity_y/vel_base 内存面)→ 轨迹 digest 必异才许 true" },
+        "digest_green": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest_red": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "schema_tamper_detected": { "type": "boolean", "description": "资产文本注入闭集外字段 → 解析必 typed Err 才许 true(fail-closed 面)" },
+        "schema_tamper_kind": { "type": "string", "const": "UnknownField" }
+      }
+    },
+    "tri_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["degrade", "note"],
+      "properties": {
+        "degrade": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "降级登记(本门纯 host 常空;唯一可能项 = SDK 单测 vulkan loader 缺席跳过)"
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "probe_evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "type": "string" },
+      "description": "probe 真跑 evidence 件(绿臂/红臂,.tmp 工作区路径登记不入 evidence/)"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

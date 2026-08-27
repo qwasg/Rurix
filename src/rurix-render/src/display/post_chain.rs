@@ -39,9 +39,16 @@ use super::view_transform::{DisplayError, DisplayParams, ViewTransform};
 #[derive(Debug, Clone, PartialEq)]
 pub enum PostChainError {
     /// 隐式 SDR clamp 注入(RED 锚:探针越界)。
-    ImplicitSdrClamp { stage: &'static str, channel: &'static str, value: f64 },
+    ImplicitSdrClamp {
+        stage: &'static str,
+        channel: &'static str,
+        value: f64,
+    },
     /// 节点显式排序被交换/跳级/插级(RED 锚:顺序闭集)。
-    StageOrderViolation { expected: &'static str, got: &'static str },
+    StageOrderViolation {
+        expected: &'static str,
+        got: &'static str,
+    },
     /// 曝光状态跨帧丢失(RED 锚:持久资源帧间丢失)。
     ExposureStateLost { expected_frame: u32 },
     /// 插件级错误(透传 M118)。
@@ -53,7 +60,11 @@ pub enum PostChainError {
 impl std::fmt::Display for PostChainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PostChainError::ImplicitSdrClamp { stage, channel, value } => {
+            PostChainError::ImplicitSdrClamp {
+                stage,
+                channel,
+                value,
+            } => {
                 write!(f, "{stage} 隐式 SDR clamp 越界: {channel}={value}(RED)")
             }
             PostChainError::StageOrderViolation { expected, got } => {
@@ -169,8 +180,13 @@ impl Stage {
         Stage::ColorGrading,
         Stage::OutputTransform,
     ];
-    pub const NAMES: [&'static str; 5] =
-        ["exposure", "bloom", "tonemap", "color_grading", "output_transform"];
+    pub const NAMES: [&'static str; 5] = [
+        "exposure",
+        "bloom",
+        "tonemap",
+        "color_grading",
+        "output_transform",
+    ];
 
     pub fn name(&self) -> &'static str {
         Stage::NAMES[*self as usize]
@@ -258,7 +274,9 @@ impl ExposureState {
     /// 逐帧 adapt:ev_current 向 ev_target 按速率推进(帧间单调有界)。
     pub fn tick(&mut self, frame: u32, new_target: f64) -> Result<()> {
         if frame != self.frame + 1 {
-            return Err(PostChainError::ExposureStateLost { expected_frame: self.frame + 1 });
+            return Err(PostChainError::ExposureStateLost {
+                expected_frame: self.frame + 1,
+            });
         }
         self.frame = frame;
         self.ev_target = new_target;
@@ -295,7 +313,12 @@ impl<'a> PostProcessChain<'a> {
     /// 五级链处理(HDR 线性域 → 输出编码)。HDR 域级(exposure/bloom)输出经
     /// 探针检验;tonemap 起为显示编码域(插件语义保证 [0,1] 合法),只做有限性
     /// 核验。
-    pub fn process(&mut self, frame: u32, pixels: &[[f64; 3]], width: usize) -> Result<Vec<[f64; 3]>> {
+    pub fn process(
+        &mut self,
+        frame: u32,
+        pixels: &[[f64; 3]],
+        width: usize,
+    ) -> Result<Vec<[f64; 3]>> {
         // 1) exposure(histogram + EV;EV 缩放为显式操作非 clamp,仅有限性核验)。
         let after_exp: Vec<[f64; 3]> = pixels
             .iter()
@@ -326,7 +349,9 @@ impl<'a> PostProcessChain<'a> {
             .map(|&px| apply_color_grading(px, self.lut_slope, self.lut_offset))
             .collect();
         if !after_lut.iter().flatten().all(|v| v.is_finite()) {
-            return Err(PostChainError::NonFiniteValue { stage: "color_grading" });
+            return Err(PostChainError::NonFiniteValue {
+                stage: "color_grading",
+            });
         }
 
         // 5) output transform(编码到目标空间)。
@@ -349,11 +374,23 @@ impl<'a> PostProcessChain<'a> {
         width: usize,
     ) -> Result<Vec<[f64; 3]>> {
         match stage {
-            Stage::Exposure => Ok(pixels.iter().map(|&px| apply_exposure(px, self.exposure.ev_current)).collect()),
+            Stage::Exposure => Ok(pixels
+                .iter()
+                .map(|&px| apply_exposure(px, self.exposure.ev_current))
+                .collect()),
             Stage::Bloom => Ok(apply_bloom(pixels, width)),
-            Stage::Tonemap => Ok(pixels.iter().map(|&px| self.plugin.to_display_linear(px)).collect()),
-            Stage::ColorGrading => Ok(pixels.iter().map(|&px| apply_color_grading(px, self.lut_slope, self.lut_offset)).collect()),
-            Stage::OutputTransform => Ok(pixels.iter().map(|&px| super::view_transform::encode_display_linear(px, self.params)).collect()),
+            Stage::Tonemap => Ok(pixels
+                .iter()
+                .map(|&px| self.plugin.to_display_linear(px))
+                .collect()),
+            Stage::ColorGrading => Ok(pixels
+                .iter()
+                .map(|&px| apply_color_grading(px, self.lut_slope, self.lut_offset))
+                .collect()),
+            Stage::OutputTransform => Ok(pixels
+                .iter()
+                .map(|&px| super::view_transform::encode_display_linear(px, self.params))
+                .collect()),
         }
     }
 }
@@ -396,8 +433,8 @@ pub fn frame_digest(pixels: &[[f64; 3]]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::view_transform::{DisplayParams, OutputEncoding, ViewTransformRegistry};
+    use super::*;
 
     fn make_chain<'a>(
         plugin: &'a dyn ViewTransform,
@@ -434,20 +471,39 @@ mod tests {
 
         // 交换 bloom↔tonemap(RED 臂:顺序交换产出必不同)。
         let swapped = make_chain(plugin, &params, 0);
-        let s_exp = swapped.process_stage(Stage::Exposure, &frame, width).unwrap();
-        let s_tone = swapped.process_stage(Stage::Tonemap, &s_exp, width).unwrap();
+        let s_exp = swapped
+            .process_stage(Stage::Exposure, &frame, width)
+            .unwrap();
+        let s_tone = swapped
+            .process_stage(Stage::Tonemap, &s_exp, width)
+            .unwrap();
         let s_bloom = swapped.process_stage(Stage::Bloom, &s_tone, width).unwrap();
-        let s_lut = swapped.process_stage(Stage::ColorGrading, &s_bloom, width).unwrap();
-        let s_out = swapped.process_stage(Stage::OutputTransform, &s_lut, width).unwrap();
+        let s_lut = swapped
+            .process_stage(Stage::ColorGrading, &s_bloom, width)
+            .unwrap();
+        let s_out = swapped
+            .process_stage(Stage::OutputTransform, &s_lut, width)
+            .unwrap();
         let d_swapped = frame_digest(&s_out);
-        assert_ne!(d_normal, d_swapped, "交换 bloom↔tonemap 必须产出不同 digest");
+        assert_ne!(
+            d_normal, d_swapped,
+            "交换 bloom↔tonemap 必须产出不同 digest"
+        );
 
         // 跳过 bloom(RED 臂:跳级产出必不同)。
         let skipped = make_chain(plugin, &params, 0);
-        let k_exp = skipped.process_stage(Stage::Exposure, &frame, width).unwrap();
-        let k_tone = skipped.process_stage(Stage::Tonemap, &k_exp, width).unwrap();
-        let k_lut = skipped.process_stage(Stage::ColorGrading, &k_tone, width).unwrap();
-        let k_out = skipped.process_stage(Stage::OutputTransform, &k_lut, width).unwrap();
+        let k_exp = skipped
+            .process_stage(Stage::Exposure, &frame, width)
+            .unwrap();
+        let k_tone = skipped
+            .process_stage(Stage::Tonemap, &k_exp, width)
+            .unwrap();
+        let k_lut = skipped
+            .process_stage(Stage::ColorGrading, &k_tone, width)
+            .unwrap();
+        let k_out = skipped
+            .process_stage(Stage::OutputTransform, &k_lut, width)
+            .unwrap();
         let d_skipped = frame_digest(&k_out);
         assert_ne!(d_normal, d_skipped, "跳过 bloom 必须产出不同 digest");
     }
@@ -474,7 +530,13 @@ mod tests {
         // 阶段报警。
         let clamped: Vec<[f64; 3]> = frame
             .iter()
-            .map(|p| [p[0].clamp(0.0, 1.0), p[1].clamp(0.0, 1.0), p[2].clamp(0.0, 1.0)])
+            .map(|p| {
+                [
+                    p[0].clamp(0.0, 1.0),
+                    p[1].clamp(0.0, 1.0),
+                    p[2].clamp(0.0, 1.0),
+                ]
+            })
             .collect();
         assert!(
             HdrProbe::from_pixels(&clamped)
@@ -507,7 +569,10 @@ mod tests {
         let mut s3 = ExposureState::init(0, 2.0);
         s3.tick(1, 0.0).unwrap();
         let down_step = 2.0 - s3.ev_current;
-        assert!(up_step > down_step, "adapt 上快于下: up={up_step} down={down_step}");
+        assert!(
+            up_step > down_step,
+            "adapt 上快于下: up={up_step} down={down_step}"
+        );
     }
 
     /// RXS-0370 L4:与 M118 view transform 插件面接线——tonemap 级消费

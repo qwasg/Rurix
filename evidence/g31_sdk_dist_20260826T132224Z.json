@@ -1,0 +1,179 @@
+{
+  "schema": "rurix.g31.sdk_dist_evidence.v1",
+  "subject": "g31_sdk_dist",
+  "symbolic_gate_key": "g31.waveC.dist",
+  "wave": "G31+.C",
+  "bundle": {
+    "version": "sdk-1.0.0",
+    "channel": "stable",
+    "component_count": 16,
+    "components": [
+      "API_VERSIONING.md",
+      "compatibility_matrix.md",
+      "feature_matrix.md",
+      "g13_ue_upscale_parity_contract.json",
+      "g14_3_direct_gi.spv",
+      "g14_8_tsr_resample.spv",
+      "g14_8_tsr_resolve.spv",
+      "g14_mv.spv",
+      "integration_guide.md",
+      "performance_tuning.md",
+      "renderer_sdk_host.cpp",
+      "rurix_renderer.dll",
+      "rurix_renderer.h",
+      "rurix_renderer.lib",
+      "rurix_renderer_sdk.dll",
+      "rurix_renderer_sdk.lib"
+    ],
+    "deterministic_bytes_equal": true,
+    "digest_closure": true
+  },
+  "signing_sbom": {
+    "signed_dlls": [
+      "rurix_renderer.dll",
+      "rurix_renderer_sdk.dll"
+    ],
+    "sbom_spdx_covers": true,
+    "sbom_cdx_covers": true,
+    "vendor_runtime": [
+      {
+        "name": "sl.interposer.dll+nvngx_dlss.dll (Streamline 2.10.3 / NGX)",
+        "license": "NVIDIA-RTX-SDKs-LICENSE(owner 2026-08-18 清结)",
+        "linkage": "dynamic-load-not-bundled",
+        "ref": "milestones/g13/design/vendor_upscale_license_clearance.md"
+      },
+      {
+        "name": "amd_fidelityfx_loader_dx12.dll+amd_fidelityfx_upscaler_dx12.dll (FSR 3.1.5)",
+        "license": "MIT",
+        "linkage": "dynamic-load-not-bundled",
+        "ref": "milestones/g13/design/vendor_upscale_license_clearance.md"
+      },
+      {
+        "name": "basis_universal 1.16.4",
+        "license": "Apache-2.0",
+        "linkage": "static-in-dll",
+        "ref": "src/rurix-basis-sys/SBOM.md"
+      }
+    ]
+  },
+  "install": {
+    "from_dir": {
+      "exit_code": 0,
+      "components": 16,
+      "digest_levels_verified": 4,
+      "layout_verified": true,
+      "registry_v2": true
+    },
+    "switch": {
+      "exit_code": 0,
+      "default": "sdk-1.0.0",
+      "list_verify_exit": 0
+    },
+    "idempotent": {
+      "registered": 1,
+      "registry_bytes_equal": true,
+      "atomic_write_clean": true
+    },
+    "network": {
+      "exit_code": 0,
+      "loopback_only": true,
+      "byte_equal_source": true
+    }
+  },
+  "offline_build": {
+    "example": "renderer_sdk_host.cpp",
+    "cl_exit": 0,
+    "build_seconds": 0.5,
+    "network_isolation": "poisoned_proxy_env",
+    "run_exit": 0,
+    "run_seconds": 62.094,
+    "scene": "bistro-interior",
+    "tier": 100,
+    "frames": 160,
+    "warmup": 10,
+    "frame_ms_mean": 2.0401,
+    "frame_ms_p50": 1.871,
+    "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "digest_matches_stage_a_anchor": true
+  },
+  "red_arms": {
+    "signature": {
+      "release_exit": 2,
+      "failed_gate": "signing"
+    },
+    "hash": {
+      "kind": "integrity",
+      "zero_residue": true
+    },
+    "truncation": {
+      "kind": "network",
+      "zero_residue": true
+    },
+    "manifest_tamper": {
+      "kind": "integrity"
+    },
+    "unreachable": {
+      "kind": "network"
+    },
+    "restore_green": true
+  },
+  "regression": {
+    "rurixup_dist_smoke_exit": 0
+  },
+  "facts": [
+    {
+      "id": "bundle_assembly_ok",
+      "status": "PASS",
+      "detail": "16 组件闭集=True digest 一比一闭环=True 同源两次 release 七产物逐字节一致=True(SDK DLL+生成头+import lib+SPV 四件套+契约+示例工程+文档五件)"
+    },
+    {
+      "id": "signing_sbom_extended",
+      "status": "PASS",
+      "detail": "两 DLL 签名 Valid+timestamped+verified=True;SBOM SPDX 覆盖 16 组件=True CycloneDX 覆盖=True;vendor 运行件对账三件(NGX/Streamline 与 FSR dynamic-load-not-bundled + basis_universal static-in-dll)引文在树=True(许可裁决归 C6,本面仅技术对账)"
+    },
+    {
+      "id": "from_dir_install_ok",
+      "status": "PASS",
+      "detail": "exit=0 components=16 digest_levels=4 布局 include/bin/lib/spv/manifests/docs/examples 齐=True 逐字节==源=True 注册表 v2=True"
+    },
+    {
+      "id": "switch_and_idempotent_ok",
+      "status": "PASS",
+      "detail": "default 切换 exit=0 default=sdk-1.0.0;list --verify exit=0(tree_digest 复算零 corrupted);幂等再装 registered=1 注册表逐字节一致=True;原子写零残渣=True"
+    },
+    {
+      "id": "network_install_ok",
+      "status": "PASS",
+      "detail": "hermetic 环回 HTTP 全链 install GREEN=True(127.0.0.1 随机端口 fixture,零真实外呼)物化 rurix_renderer.dll 逐字节==源=True"
+    },
+    {
+      "id": "offline_build_ok",
+      "status": "PASS",
+      "detail": "干净目录(仅已装 bundle + MSVC 公开工具链,无 rurixc/cargo)cl.exe 编示例 exit=0 耗时 0.5s;毒化代理 env(HTTP_PROXY=127.0.0.1:9)全程零网络依赖"
+    },
+    {
+      "id": "offline_run_digest_ok",
+      "status": "PASS",
+      "detail": "示例真跑 canonical 160+10 末帧 digest sha256:c1d28ad73783cc3c… vs Stage A 锚 sha256:c1d28ad73783cc3c… 位级 MATCH;帧时 mean=2.0401ms p50=1.871ms n=160;耗时 62.1s exit=0"
+    },
+    {
+      "id": "red_arms_closed",
+      "status": "PASS",
+      "detail": "①签名错 release 阻断 failed_gates=[signing]=True;②哈希错 kind=integrity 零半装=True;③截断 kind=network=True;④清单篡改 kind=integrity=True;不可达 kind=network=True;复原绿=True"
+    },
+    {
+      "id": "ea1_regression_green",
+      "status": "PASS",
+      "detail": "ci/rurixup_dist_smoke.py 复跑 exit=0(EA1 前半 --from-dir + 后半 hermetic 环回 HTTP 既有门零破坏;component_rel_path SDK 面扩展对既有组件形态行为不变)"
+    }
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "sdk_build_profile": "release(rurix-renderer-sdk cdylib;.rx rurix_renderer.dll 经 rurixc debug 编译器发射)",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T132224Z",
+  "notes": "G31+ 波 C Task C5 渲染器 SDK 分发打包(G31_PLUS §5 #52):16 组件预编译 bundle(SDK 两层 DLL + 生成头 + import lib ×2 + canonical SPV 四件套 + bistro 生产契约+ 示例工程源 + 文档五件)经 EA1 rurixup 链(channel=stable 既有面,VALID_CHANNELS 0-byte;component_rel_path SDK 面纯追加 *.h/.spv/.json/.md/.cpp 五映射,spec/release.md RXS-0214 同条修订,既有 *.exe/*.lib/nvidia 路径 0-byte)——release 编排(签名两 DLL selftest + SBOM 双视图覆盖 16 组件 + vendor 运行件技术对账三件:NGX/Streamline·FSR dynamic-load-not-bundled / basis_universal static-in-dll,许可裁决归 C6)→ --from-dir 四级校验物化(bin/include/lib/spv/manifests/docs/examples 布局)→ default 切换 + list --verify + 幂等 → hermetic 环回 HTTP 网络 install(零真实外呼)→ 干净目录仅 bundle+MSVC 离线构建示例(毒化代理 env 见证)→ 真跑 canonical 160+10 末帧 digest 对拍 Stage A 锚 MATCH。红臂四路(签名错/哈希错/截断/清单篡改)+ 不可达 + 复原绿闭合。facts: bundle_assembly_ok=PASS; signing_sbom_extended=PASS; from_dir_install_ok=PASS; switch_and_idempotent_ok=PASS; network_install_ok=PASS; offline_build_ok=PASS; offline_run_digest_ok=PASS; red_arms_closed=PASS; ea1_regression_green=PASS"
+}

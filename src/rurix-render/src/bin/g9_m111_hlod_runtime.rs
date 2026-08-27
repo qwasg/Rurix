@@ -31,11 +31,11 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::world::hlod::{
-    canonical_distance_path, canonical_thresholds, selection_log_digest, HlodError, HlodRuntime,
-    ScreenSizeThresholds, SelectedContent,
+    HlodError, HlodRuntime, ScreenSizeThresholds, SelectedContent, canonical_distance_path,
+    canonical_thresholds, selection_log_digest,
 };
 use rurix_render::world::partition::{
-    canonical_budget, canonical_camera_path, canonical_world, PartitionRuntime,
+    PartitionRuntime, canonical_budget, canonical_camera_path, canonical_world,
 };
 use std::path::PathBuf;
 
@@ -207,11 +207,14 @@ fn red_arm_level_perturb() -> Result<(), String> {
     let d_a = selection_log_digest(&a);
     // 扰动:视距序列第 8 帧 +100m ⇒ 层级序列 digest 必分叉。
     let mut rt2 = HlodRuntime::new();
-    let mut prt = PartitionRuntime::new(world.clone(), canonical_budget()).map_err(|e| e.to_string())?;
+    let mut prt =
+        PartitionRuntime::new(world.clone(), canonical_budget()).map_err(|e| e.to_string())?;
     let path = canonical_camera_path(8);
     for (f, s) in path.iter().enumerate() {
-        prt.tick(f as u32, std::slice::from_ref(s)).map_err(|e| e.to_string())?;
-        rt2.apply_cell_events(&prt.drain_events()).map_err(|e| e.to_string())?;
+        prt.tick(f as u32, std::slice::from_ref(s))
+            .map_err(|e| e.to_string())?;
+        rt2.apply_cell_events(&prt.drain_events())
+            .map_err(|e| e.to_string())?;
     }
     let thresholds = canonical_thresholds();
     let hlod_cells: Vec<u32> = rt2
@@ -287,9 +290,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -331,9 +336,12 @@ fn main() {
     }
     // 序列非平凡(含 Full / Hlod / Culled 至少两种)。
     let has_full = log_a.iter().any(|r| r.content == SelectedContent::Full);
-    let has_proxy = log_a
-        .iter()
-        .any(|r| matches!(r.content, SelectedContent::Hlod { .. } | SelectedContent::Culled));
+    let has_proxy = log_a.iter().any(|r| {
+        matches!(
+            r.content,
+            SelectedContent::Hlod { .. } | SelectedContent::Culled
+        )
+    });
     if !(has_full && has_proxy) {
         failures.push("层级序列退化(未发生真实切换)".into());
     }
@@ -419,7 +427,10 @@ fn main() {
         ("sequence_nontrivial", has_full && has_proxy),
         ("golden_frozen_equal", golden_ok || args.freeze),
         ("red_arm_runtime_merge", red_merge_ok),
-        ("red_arm_level_perturb_and_digest", red_perturb_ok && red_digest_ok),
+        (
+            "red_arm_level_perturb_and_digest",
+            red_perturb_ok && red_digest_ok,
+        ),
     ];
     let checks_json: Vec<String> = checks
         .iter()

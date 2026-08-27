@@ -39,12 +39,6 @@ mod error;
 /// (`submit.execution_set`,消费 rurixc 闭集不重定)+ D3D12 诚实降级显式登记。
 /// pso_key 第八段加性扩展归 `pso_cache`(feature `vulkan` 门控,单一事实源)。
 pub mod execution_set;
-/// G9.3 M94 CLAS×RT 合流 host 面(RXS-0351;RFC-0022 §4.3;门 g9.p0.m94.clas_rt_convergence)。
-/// always-on、零 unsafe、零后端调用:ClasBlasKey(可见簇集合内容 digest)单所有者
-/// 当帧拼装管理(静态帧零 AS 构建计数面)+ 装配期可见集/BLAS 一致性核验(错开一簇
-/// RED)+ 双腿装配期选择 fail-closed + host 金标准逐命中参照。device 执行面归 `vk`
-/// (U56 探测/主腿 lane,feature `vulkan` 门控)。
-pub mod rt_clas;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;
 /// render graph 纯 host 自动资源状态推导（G3.5，RXS-0236~0241；RFC-0013 §4.D）。always-on、
@@ -73,6 +67,12 @@ pub mod render_exec;
 /// I4 未声明访问 / I5 写写冲突）+ 纯函数 RAW/WAW/WAR hazard 推导。与 G3.5 `graph`（图形面）
 /// 平行的库面 compute-pass RHI（RFC-0014 §7-2 设计参照非复用）。
 pub mod rhi;
+/// G9.3 M94 CLAS×RT 合流 host 面(RXS-0351;RFC-0022 §4.3;门 g9.p0.m94.clas_rt_convergence)。
+/// always-on、零 unsafe、零后端调用:ClasBlasKey(可见簇集合内容 digest)单所有者
+/// 当帧拼装管理(静态帧零 AS 构建计数面)+ 装配期可见集/BLAS 一致性核验(错开一簇
+/// RED)+ 双腿装配期选择 fail-closed + host 金标准逐命中参照。device 执行面归 `vk`
+/// (U56 探测/主腿 lane,feature `vulkan` 门控)。
+pub mod rt_clas;
 /// G8.2 M50 RT pipeline 增量(RXS-0326/0327;`plan_sbt_v2`/packer/stack/
 /// `run_rt_pipeline_offscreen`;既有 `plan_sbt`/`run_ray_tracing_offscreen` 0-byte)。
 #[cfg(feature = "vulkan")]

@@ -12,9 +12,9 @@
 //! 不作位级比较——wall time 不可位冻,如实登记）。
 
 use super::algorithms::{
-    image_digest, quality_error, run_algorithm, sorted_fallback, AlgoOutput, OitAlgorithm,
+    AlgoOutput, OitAlgorithm, image_digest, quality_error, run_algorithm, sorted_fallback,
 };
-use super::scene::{canonical_scene, OitScene, BENCHMARK_EXTENT, BENCHMARK_LAYERS};
+use super::scene::{BENCHMARK_EXTENT, BENCHMARK_LAYERS, OitScene, canonical_scene};
 
 /// 每算法每档位测量重复次数(min 取值,冻结)。
 pub const BENCHMARK_REPS: u32 = 5;
@@ -69,11 +69,9 @@ impl BenchmarkRun {
                 && !m.frame_ns_samples.is_empty()
                 && m.storage_bytes > 0
                 && m.fragments_total > 0
-        }) && OitAlgorithm::ALL.iter().all(|a| {
-            BENCHMARK_LAYERS
-                .iter()
-                .all(|&l| self.find(a, l).is_some())
-        })
+        }) && OitAlgorithm::ALL
+            .iter()
+            .all(|a| BENCHMARK_LAYERS.iter().all(|&l| self.find(a, l).is_some()))
     }
 
     pub fn find(&self, algo: &OitAlgorithm, layers: u32) -> Option<&Measurement> {

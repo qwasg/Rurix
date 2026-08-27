@@ -33,13 +33,11 @@
 use rurix_render::geometry::gpu_scene::{InstanceRecord, transform_point};
 use rurix_render::geometry::skin_kernel::{self, M92_BOUND_WORDS};
 use rurix_render::geometry::skinning::{NormalCone, SkinPalette, skin_cluster};
+use rurix_render::geometry::visbuffer::{VISBUFFER_CLEAR, VisBufferCpu, visbuffer_diff_host};
+use rurix_render::geometry::visbuffer_swhw_spv as vbspv;
 use rurix_render::geometry::visible_cluster_set::{
     VisibleClusterEntry, VisibleClusterSet, compute_provenance_digest, verify_frame_provenance,
 };
-use rurix_render::geometry::visbuffer::{
-    VISBUFFER_CLEAR, VisBufferCpu, visbuffer_diff_host,
-};
-use rurix_render::geometry::visbuffer_swhw_spv as vbspv;
 use rurix_render::graph::types::visbuffer_unpack;
 use rurix_render::rt::as_manager::rt_blas_input_from_feed;
 use rurix_render::temporal::common::Mat4;
@@ -186,8 +184,11 @@ fn build_scene_with_device_skin(spv: &[u8]) -> Result<Scene, String> {
             [0.0, 0.0, 1.0, 0.0],
         ]],
     };
-    let weights: Vec<Vec<(u32, f32)>> =
-        vec![vec![(0, 1.0), (0, 0.0)], vec![(0, 1.0), (0, 0.0)], vec![(0, 1.0), (0, 0.0)]];
+    let weights: Vec<Vec<(u32, f32)>> = vec![
+        vec![(0, 1.0), (0, 0.0)],
+        vec![(0, 1.0), (0, 0.0)],
+        vec![(0, 1.0), (0, 0.0)],
+    ];
     let bone_indices = [0u32, 0]; // 定长 2(末位首骨重复 padding)
     let normals: Vec<[f32; 3]> = vec![[0.0, 0.0, 1.0]; 3];
     let rest_aabb = ([-1.0f32, 1.0, 0.0], [1.0, 3.0, 0.0]);
@@ -307,9 +308,7 @@ fn build_scene_with_device_skin(spv: &[u8]) -> Result<Scene, String> {
 /// 可见集投影(与 `visbuffer::raster_visible_set` 逐字同式;同时产 host
 /// oracle 与 device 双腿输入:9 f32/三角形屏幕坐标 + (entry_idx, tri) ids)。
 fn project_visible_set(scene: &Scene) -> (Vec<f32>, Vec<u32>, VisBufferCpu) {
-    let vp = Mat4 {
-        m: scene.view_proj,
-    };
+    let vp = Mat4 { m: scene.view_proj };
     let (w_px, h_px) = (VIS_W as f32, VIS_H as f32);
     let mut triangles: Vec<f32> = Vec::new();
     let mut ids: Vec<u32> = Vec::new();
@@ -354,11 +353,7 @@ fn project_visible_set(scene: &Scene) -> (Vec<f32>, Vec<u32>, VisBufferCpu) {
 
 /// 顶点流构建(G7.5b 设计 §4.3 同构;`tamper_ids` = RED 轴:受害三角形
 /// `ids.cluster += 1`,SSBO 输入与 oracle 不动)。
-fn build_vertex_stream(
-    triangles: &[f32],
-    ids: &[u32],
-    tamper_victim: Option<usize>,
-) -> Vec<u8> {
+fn build_vertex_stream(triangles: &[f32], ids: &[u32], tamper_victim: Option<usize>) -> Vec<u8> {
     let n = ids.len() / 2;
     let (half_w, half_h) = (VIS_W as f32 * 0.5, VIS_H as f32 * 0.5);
     let mut out = Vec::with_capacity(n * 3 * HW_VERTEX_STRIDE as usize);
@@ -496,7 +491,8 @@ fn dominant_triangle(oracle: &VisBufferCpu, ids: &[u32]) -> Option<usize> {
         }
     }
     let (key, _) = best?;
-    ids.chunks_exact(2).position(|p| p[0] == key.0 && p[1] == key.1)
+    ids.chunks_exact(2)
+        .position(|p| p[0] == key.0 && p[1] == key.1)
 }
 
 fn coverage_equal(a: &[u64], b: &[u64]) -> bool {
@@ -579,8 +575,7 @@ fn main() {
         scene.set.feed_rt(),
         scene.set.feed_vsm(),
     );
-    let provenance_ok =
-        verify_frame_provenance(&scene.set, &raster, &rt, &vsm).is_ok();
+    let provenance_ok = verify_frame_provenance(&scene.set, &raster, &rt, &vsm).is_ok();
     let rt_input = rt_blas_input_from_feed(&scene.set, &rt);
     let rt_consumed_ok = rt_input.as_ref().is_ok_and(|s| s.len() == 2);
     // 旁路重算 variant(serial 异)⇒ 消费锚必 RED(L4 双世界否决)。
@@ -599,29 +594,21 @@ fn main() {
     let vs_spv = spv_bytes(&vbspv::hw_visbuffer_vs_spv());
     let fs_spv = spv_bytes(&vbspv::hw_visbuffer_fs_spv());
     let vertex_bytes = build_vertex_stream(&triangles, &ids, None);
-    let (sw, hw) = match execute_pair_frame(
-        &sw_spv,
-        &vs_spv,
-        &fs_spv,
-        &triangles,
-        &ids,
-        &vertex_bytes,
-    ) {
-        Ok(o) => o,
-        Err(e) => fail(&format!("双腿执行: {e}")),
-    };
+    let (sw, hw) =
+        match execute_pair_frame(&sw_spv, &vs_spv, &fs_spv, &triangles, &ids, &vertex_bytes) {
+            Ok(o) => o,
+            Err(e) => fail(&format!("双腿执行: {e}")),
+        };
     let diff_pixels = sw.iter().zip(&hw).filter(|(a, b)| a != b).count() as u32;
     let covered = |v: &[u64]| v.iter().filter(|&&w| w != VISBUFFER_CLEAR).count() as u32;
     let sw_covered = covered(&sw);
     let hw_covered = covered(&hw);
     let oracle_eq_sw = coverage_equal(&sw, &oracle.data);
     let oracle_eq_hw = coverage_equal(&hw, &oracle.data);
-    let sw_digest = rurix_pkg::sha256::digest(
-        &sw.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(),
-    );
-    let hw_digest = rurix_pkg::sha256::digest(
-        &hw.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>(),
-    );
+    let sw_digest =
+        rurix_pkg::sha256::digest(&sw.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
+    let hw_digest =
+        rurix_pkg::sha256::digest(&hw.iter().flat_map(|w| w.to_le_bytes()).collect::<Vec<u8>>());
     println!(
         "G9_M95_VB: diff_pixels={diff_pixels} sw_covered={sw_covered} hw_covered={hw_covered} oracle_covered={oracle_covered}"
     );
@@ -712,7 +699,10 @@ fn main() {
     // ── 步骤 6:evidence JSON ──
     let checks: [(&str, bool); 11] = [
         ("sw_hw_diff_zero", diff_pixels == 0),
-        ("sw_hw_coverage_nonzero", sw_covered > 0 && hw_covered == sw_covered),
+        (
+            "sw_hw_coverage_nonzero",
+            sw_covered > 0 && hw_covered == sw_covered,
+        ),
         ("oracle_coverage_equal_sw", oracle_eq_sw),
         ("oracle_coverage_equal_hw", oracle_eq_hw),
         ("skin_device_bitexact", true), // build_scene_with_device_skin 内嵌逐位锚

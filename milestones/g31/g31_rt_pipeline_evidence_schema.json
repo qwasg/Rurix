@@ -1,0 +1,211 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_rt_pipeline RT pipeline + SBT 宿主车道（Full RFC）+ SER workload 门裁决件",
+  "description": "G31+ 波 C Task C15（ci/g31_rt_pipeline_smoke.py --gate g31.waveC.rtpipeline 产；G31_PLUS_COMMERCIAL_RENDERER_TODO §3.2 #31/#32；M52 承接锚 = g30_campaign_handover_registry.json G28 行；RD-040 RT-PIPELINE-SBT 分项 reeval_anchor 消费面；RFC-0048 语义面）。判据闭集 8 facts：①RFC-0048 在树且 Agent Approved + 对抗评审节在案（编号与 number_ledger 实测一致、评审 provenance ≠ 起草字面机核）；②kernels/g31_rt_slab_hit.rx 类型面 --emit=check 0 诊断 + rt-manifest 结构绿（raygen 恰一/miss 1/triangles 双 hit group/record_schema_hash 非空/required_capabilities 恰 {rt.pipeline, rt.sbt_user_data}/recursion=1——RXS-0311 隐式推导修复承载面）；③codegen 缺口诚实登记（--target vulkan 确定性退出码 2「no compute kernel fn」实测 + RFC §6 PR 序在案，不冒充 .rx codegen 绿）；④镜像语料公式面单源静态机核（kernel 源与 emit_g31_* 发射器源 slab 三常量/背景常量/相机公式字面互核 + 四模块 spirv-val 全过，hand-emitted 标注）；⑤device RT 臂 slab 双材质 SBT 分派真跑（2 hit groups × 20B records，双跑位级 + record readback 逐字节 + stack configured ≥ required + validation 静默 + golden 三采样点 vs host f64 参照）；⑥RayQuery 对拍臂真 .rx 编译（g31_rt_slab_rayquery.spv 新鲜编译 + spirv-val）同场景对拍（结构容差：bitexact ∨ (mismatch_ratio ≤ 0.001 ∧ max_lsb ≤ 1)；位级一致 = 更强终态）+ 双跑位级；⑦SER capability 现势三 token + workload 兑现（available：NV 双臂 reorder off/on 画面位级一致 + 双跑位级 + 时延 measured 对照 + evidence/g31_ser_gain_estimate_<ts>.json 落盘；absent：M52 维持 defer 字面登记不冒充）；⑧冻结面 0-byte 机核（RayQuery 生产面 + M50 底座 + RFC-0046 slab 面 + material/ vs g28-closed）。PASS-only 闭集 schema——PASS 才落 evidence/g31_rt_pipeline_<ts>.json，FAIL 诊断件留 .tmp 工作区不污染路由面。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "rfc",
+    "manifest",
+    "codegen_gap",
+    "mirror_corpus",
+    "rt_arm",
+    "rq_arm",
+    "parity",
+    "ser",
+    "frozen_surfaces",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": {"type": "string", "const": "rurix.g31.rt_pipeline_smoke_evidence.v1"},
+    "subject": {"type": "string", "const": "g31_rt_pipeline"},
+    "symbolic_gate_key": {"type": "string", "const": "g31.waveC.rtpipeline"},
+    "wave": {"type": "string", "const": "G31+.C"},
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "rfc_0048_in_tree_and_approved",
+              "rx_rt_kernel_typecheck_and_manifest_green",
+              "codegen_gap_honestly_registered",
+              "mirror_corpus_formula_single_source",
+              "rt_pipeline_slab_dual_material_device_run_hand_emitted_mirror",
+              "rayquery_parity_structural",
+              "ser_capability_and_workload",
+              "frozen_zero_byte"
+            ]
+          },
+          "status": {"type": "string", "enum": ["PASS"]},
+          "detail": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "verdict": {"type": "string", "const": "PASS"},
+    "rfc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "number", "status", "review_findings", "review_provenance_differs"],
+      "properties": {
+        "path": {"type": "string", "const": "rfcs/0048_rt_pipeline_sbt_host_lane.md"},
+        "number": {"type": "integer", "const": 48},
+        "status": {"type": "string", "const": "Agent Approved"},
+        "review_findings": {"type": "integer", "const": 8},
+        "review_provenance_differs": {"type": "boolean", "const": true}
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raygen", "miss_count", "hit_group_count", "group_kind", "required_capabilities", "recursion", "record_schema_hash_nonempty", "anchor_kernel_glob_hit"],
+      "properties": {
+        "raygen": {"type": "string", "const": "rg"},
+        "miss_count": {"type": "integer", "const": 1},
+        "hit_group_count": {"type": "integer", "const": 2},
+        "group_kind": {"type": "string", "const": "triangles"},
+        "required_capabilities": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"type": "string", "enum": ["rt.pipeline", "rt.sbt_user_data"]}
+        },
+        "recursion": {"type": "integer", "const": 1},
+        "record_schema_hash_nonempty": {"type": "boolean", "const": true},
+        "anchor_kernel_glob_hit": {"type": "boolean", "const": true, "description": "RD-040 RT-PIPELINE-SBT 分项 manifest 锚 `src/rurix-render/kernels/*hit*.rx` 命中（kernels/g31_rt_slab_hit.rx 在树）"}
+      }
+    },
+    "codegen_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_code", "message_marker", "registered_honest"],
+      "properties": {
+        "exit_code": {"type": "integer", "const": 2},
+        "message_marker": {"type": "string", "const": "no compute `kernel fn` found"},
+        "registered_honest": {"type": "boolean", "const": true, "description": "RFC-0048 §6 PR 序在案（PR-2 mir_build intrinsic / PR-3 vulkan_codegen RT 腿 / PR-4 车道转正）;.rx→SPIR-V RT codegen 维持 open 如实登记不冒充"}
+      }
+    },
+    "mirror_corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hand_emitted_not_rx_compiled", "formula_literals_match", "spirv_val_modules"],
+      "properties": {
+        "hand_emitted_not_rx_compiled": {"type": "boolean", "const": true},
+        "formula_literals_match": {"type": "boolean", "const": true, "description": "kernel 源 ↔ emit_g31_* 发射器源：slab 三常量 1e-30/rc·ab/albedo 乘法序 + 背景 0.05/0.05/0.08 + 相机公式字面互核（RFC-0048 §9.1 F8 disposition 兑现面）"},
+        "spirv_val_modules": {"type": "integer", "const": 4, "description": "slab_miss/slab_closesthit/ser_raygen_noreorder/ser_raygen_reorder 四模块 spirv-val 全过"}
+      }
+    },
+    "rt_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_state", "hit_group_count", "record_readback_ok", "double_run_bitexact", "stack_ok", "validation_silent", "golden_rt_ok", "pixels_digest"],
+      "properties": {
+        "device_state": {"type": "string", "const": "executed"},
+        "hit_group_count": {"type": "integer", "minimum": 2},
+        "record_readback_ok": {"type": "boolean", "const": true},
+        "double_run_bitexact": {"type": "boolean", "const": true},
+        "stack_ok": {"type": "boolean", "const": true},
+        "validation_silent": {"type": "boolean", "const": true},
+        "golden_rt_ok": {"type": "boolean", "const": true, "description": "左 slab_a/右 slab_b/中央背景三采样点 vs host f64 参照 ≤1 LSB"},
+        "pixels_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "rq_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spv_fresh_compiled", "spirv_val_ok", "entry_nonempty", "double_run_bitexact", "golden_rq_ok"],
+      "properties": {
+        "spv_fresh_compiled": {"type": "boolean", "const": true, "description": "kernels/g31_rt_slab_rayquery.rx 经 rurixc --target vulkan 新鲜编译（真 .rx codegen,RXS-0297~0300 谱系）"},
+        "spirv_val_ok": {"type": "boolean", "const": true},
+        "entry_nonempty": {"type": "boolean", "const": true},
+        "double_run_bitexact": {"type": "boolean", "const": true},
+        "golden_rq_ok": {"type": "boolean", "const": true}
+      }
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bitexact", "mismatch_px", "total_px", "mismatch_ratio", "max_lsb_diff", "in_bound", "ratio_bound", "lsb_bound", "digest_equal"],
+      "properties": {
+        "bitexact": {"type": "boolean"},
+        "mismatch_px": {"type": "integer", "minimum": 0},
+        "total_px": {"type": "integer", "minimum": 1},
+        "mismatch_ratio": {"type": "number", "minimum": 0.0},
+        "max_lsb_diff": {"type": "integer", "minimum": 0, "maximum": 1},
+        "in_bound": {"type": "boolean", "const": true},
+        "ratio_bound": {"type": "number", "const": 0.001},
+        "lsb_bound": {"type": "integer", "const": 1},
+        "digest_equal": {"type": "boolean", "description": "双臂像素 digest 相等（bitexact=更强终态如实登记;false 亦合法须 in_bound=true）"}
+      }
+    },
+    "ser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "tokens", "workload_or_defer"],
+      "properties": {
+        "state": {"type": "string", "enum": ["executed", "absent"]},
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ext_nv", "feature_reorder", "feature_reordering_hint"],
+          "properties": {
+            "ext_nv": {"type": "boolean"},
+            "feature_reorder": {"type": "boolean"},
+            "feature_reordering_hint": {"type": "boolean"}
+          }
+        },
+        "workload_or_defer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {"type": "string", "enum": ["measured_workload", "maintain_defer"]},
+            "time_ms_noreorder": {"type": "number"},
+            "time_ms_reorder": {"type": "number"},
+            "speedup_ratio": {"type": "number"},
+            "pixels_bitexact_across_arms": {"type": "boolean"},
+            "double_run_bitexact": {"type": "boolean"},
+            "dispatches_per_arm": {"type": "integer"},
+            "repeats": {"type": "integer"},
+            "n_instances": {"type": "integer"},
+            "gain_evidence": {"type": "string", "description": "evidence/g31_ser_gain_estimate_<ts>.json 落盘路径（measured_workload 时非空）"}
+          }
+        }
+      }
+    },
+    "frozen_surfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rayquery_production_0byte", "m50_base_0byte", "rfc0046_slab_0byte", "material_vs_g28_closed_0byte"],
+      "properties": {
+        "rayquery_production_0byte": {"type": "boolean", "const": true, "description": "kernels/g9_m98_hwrt.rx + g28_restir.rx + g29_slab.rx 工作树 + vs HEAD 0-byte（RayQuery 生产面不破坏）"},
+        "m50_base_0byte": {"type": "boolean", "const": true, "description": "vk_m50_rt_body.rs + rt_incremental.rs + bin/vk_rt_incremental.rs + ci/g8_rt_pipeline_incremental_smoke.py 工作树 + vs HEAD 0-byte（M50 底座复用不改写）"},
+        "rfc0046_slab_0byte": {"type": "boolean", "const": true, "description": "material/ 整目录 + graph/types.rs vs g28-closed 0-byte（RFC-0046 §1.7 冻结机核同 B3 门律）"},
+        "material_vs_g28_closed_0byte": {"type": "boolean", "const": true}
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "harness 真跑工作件留 .tmp 工作区（.tmp/g31_gates/rtpipeline/g31_rt_pipeline_harness_lane_<ts>.json，不进 evidence/ 路由面）+ SER 收益件 evidence/g31_ser_gain_estimate_<ts>.json（专用 schema 路由）"
+    },
+    "environment": {"type": "object"},
+    "timestamp": {"type": "string"},
+    "notes": {"type": "string"}
+  }
+}

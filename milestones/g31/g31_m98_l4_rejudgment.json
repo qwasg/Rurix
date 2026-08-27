@@ -1,0 +1,90 @@
+{
+  "schema": "rurix.g31.m98_l4_rejudgment.v1",
+  "subject": "g31_m98_l4_rejudgment",
+  "anchor": {
+    "source": "milestones/g30/g30_campaign_handover_registry.json M98-l4 行(原始锚 0-byte 不回写)",
+    "condition_literal": "HLOD proxy 追踪 device 腿 + L4 计数器接入(合取,两半全齐方改判)",
+    "fallback_literal": "维持 L1/L2/L3 三级链 + fail-closed 入口不动(两半未齐时)",
+    "prior_state": "G27.3 M-d 重判窗:两半树内实测 0/2(device 腿零实现 + 三处 fail-closed 入口在位)→ 维持三级链"
+  },
+  "halves": {
+    "device_leg": {
+      "status": "implemented",
+      "kernel": "src/rurix-render/kernels/g31_hlod_l4_proxy_trace.rx",
+      "host_mirror": "src/rurix-render/src/gi/fallback_chain.rs(l4_trace_ray/l4_leg_host/l4_axis_inv 逐字同源)",
+      "harness": "src/rurix-render/src/bin/g31_hlod_l4_far_field.rs",
+      "dispatch": "rurix_rt::vk::run_compute 纯 compute(L1 同构面,不消费 TLAS,D2-Q9 射线流纪律)",
+      "parity": {
+        "structural_exact": true,
+        "rgb_bitexact": true,
+        "t_residual_max_abs": 0.00024414063,
+        "t_residual_rel_max": 1.8625678e-07
+      }
+    },
+    "l4_counters": {
+      "status": "wired",
+      "selector_surface": "gi::fallback_chain::select_pixel_l4/assemble_l4/audit_l4(L4Leg 接入面;None 委托 = 三级链旧世界位级不变)",
+      "telemetry": {
+        "rays_attempted": 2176,
+        "rays_hit": 1000,
+        "pixels_served": 1813,
+        "work_count": 10880,
+        "hit_rate": 0.4595588,
+        "transitions_to_l4": 1813,
+        "transitions_to_l4_miss": 1813,
+        "transitions_to_l4_out_of_range": 0,
+        "proxies_visible": 5,
+        "proxies_total": 5,
+        "coverage": 0.4595588,
+        "per_proxy_hits": [
+          739,
+          65,
+          44,
+          55,
+          97
+        ]
+      }
+    }
+  },
+  "unlock_entries": {
+    "check_l4_trigger": "恒 NotTriggered ⇒ proxy 集装载(非空)⇒ Ready{proxies:5};未装载维持 NotTriggered(半齐保护)",
+    "l4_serve": "恒 Err(L4InterfaceNotReady) ⇒ proxy 集装载 ⇒ Ok(腿样本);未装载维持 Err(禁静默当绿)",
+    "counters_slot": "L4 槽位恒零 ⇒ 启用且装载时真实计数(attempted/hit/served/work);None/强关维持全零显式"
+  },
+  "verdict": "rejudged-four-tier-chain",
+  "verdict_literal": "两半全齐 ⇒ 按承接锚「+」合取字面执行改判:L1/L2/L3 三级链 → L1/L2/L3/L4 四级链(Far Field 档上线);L1-L3 链 0-byte 行为由 g9.p0.m98.tracing_fallback_chain 复跑全绿机器钉死",
+  "on_off": {
+    "on_digest": "eb654637cffd494b56230e55dd213492d73af14b0072cca65e94d0e207b765d7",
+    "off_digest": "862830fd7a8c7712f617a8160e64a29d9aac27f624c1490c1f1f2932fcdb39a4",
+    "legacy_digest": "862830fd7a8c7712f617a8160e64a29d9aac27f624c1490c1f1f2932fcdb39a4",
+    "digest_differs": true,
+    "off_forced_off_records": 1813,
+    "off_l4_served": 0,
+    "legacy_l4_served": 0,
+    "off_eq_legacy_product": true,
+    "note": "L4 on(四级链)vs off(L4 强关=L3 截断):digest 必分叉 = proxy 贡献真实进入画面;off == legacy(None 旧三级)产物位级 = 截断语义等价;ForcedOff 记录随行"
+  },
+  "frame_ms": {
+    "l4_device_dispatch_ms": 60.10762,
+    "frame_on_ms": 3.391716,
+    "frame_off_ms": 3.869725,
+    "on_over_off": 0.8764746848936295,
+    "frames": 32,
+    "note": "canonical 远场契约 64×64 --release 同机同窗 measured_local:L4 纯派发=60.1076ms 帧管 on=3.3917ms off=3.8697ms(on/off=0.8765;各 32 帧;帧管 = GBuffer+host 三腿+L4 镜像+装配 host 壁钟 + kernel 纯派发独立口径);如实登记不设通过线(G6 无硬门纪律)"
+  },
+  "red_arms": {
+    "silent_demotion": true,
+    "force_off_l4": true,
+    "tamper_proxy": true,
+    "empty_proxy": true
+  },
+  "gate_evidence": "evidence/g31_hlod_l4_20260826T213134Z.json",
+  "environment": {
+    "gpu": "RTX 4070 Ti(本机单卡 measured_local)",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T213134Z",
+  "notes": "M98-l4 在 registry/deferred.json 无条目(承接锚链在 G20/G25/G27/G30 campaign handover registries,各期 P2 表原始锚 0-byte 不回写),deferred.json history 追加不适用如实登记;本件 = 改判登记唯一新面(锚定 RFC-0044 §4 重判窗程序 + G27.3 M-d evidence 行)。远场契约场景 = gi::fallback_chain::m98_l4_far_field_scene(构造远场契约,冻结常量);RXS-0396 世界级辐射缓存 ≠ RXS-0359 L4 Far Field 边界维持(本兑现与 GI 世界缓存无关)。"
+}

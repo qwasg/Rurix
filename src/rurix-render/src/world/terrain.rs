@@ -38,9 +38,7 @@ use std::collections::BTreeMap;
 
 use rurix_pkg::sha256;
 
-use super::partition::{
-    derived_cell_bounds_xy, CellCoord, CellPageRef, PersistentWorld,
-};
+use super::partition::{CellCoord, CellPageRef, PersistentWorld, derived_cell_bounds_xy};
 
 // ---------------------------------------------------------------------------
 // 冻结常量面
@@ -154,7 +152,12 @@ pub struct HeightfieldAsset {
 
 impl HeightfieldAsset {
     /// 构造 + 域校验(fail-closed)。
-    pub fn new(page: CellPageRef, lod0_dim: u32, heights: Vec<f32>, material_layers: Vec<u8>) -> Result<Self> {
+    pub fn new(
+        page: CellPageRef,
+        lod0_dim: u32,
+        heights: Vec<f32>,
+        material_layers: Vec<u8>,
+    ) -> Result<Self> {
         if lod0_dim == 0 {
             return Err(TerrainError::NotCanonical("lod0_dim=0"));
         }
@@ -163,15 +166,24 @@ impl HeightfieldAsset {
             return Err(TerrainError::NotCanonical("heights 长度 ≠ lod0_dim²"));
         }
         if material_layers.len() != n {
-            return Err(TerrainError::NotCanonical("material_layers 长度 ≠ lod0_dim²"));
+            return Err(TerrainError::NotCanonical(
+                "material_layers 长度 ≠ lod0_dim²",
+            ));
         }
         if heights.iter().any(|h| !h.is_finite()) {
-            return Err(TerrainError::NonFiniteValue { stage: "heightfield" });
+            return Err(TerrainError::NonFiniteValue {
+                stage: "heightfield",
+            });
         }
         if let Some(&got) = material_layers.iter().find(|&&m| m >= MATERIAL_LAYER_COUNT) {
             return Err(TerrainError::MaterialLayerOutOfRange { got });
         }
-        Ok(Self { page, lod0_dim, heights, material_layers })
+        Ok(Self {
+            page,
+            lod0_dim,
+            heights,
+            material_layers,
+        })
     }
 
     /// 采样(行主序;x/y < lod0_dim 由调用面保证,否则返回 None——不设 UB)。
@@ -225,13 +237,25 @@ pub fn decode_heightfield(bytes: &[u8]) -> Result<HeightfieldAsset> {
     let n = (lod0_dim as usize) * (lod0_dim as usize);
     let mut heights = Vec::with_capacity(n);
     for _ in 0..n {
-        heights.push(f32::from_le_bytes(take(&mut pos, 4)?.try_into().expect("f32")));
+        heights.push(f32::from_le_bytes(
+            take(&mut pos, 4)?.try_into().expect("f32"),
+        ));
     }
     let material_layers = take(&mut pos, n)?.to_vec();
     if pos != bytes.len() {
-        return Err(TerrainError::TrailingBytes { extra: bytes.len() - pos });
+        return Err(TerrainError::TrailingBytes {
+            extra: bytes.len() - pos,
+        });
     }
-    HeightfieldAsset::new(CellPageRef { resource, page_index }, lod0_dim, heights, material_layers)
+    HeightfieldAsset::new(
+        CellPageRef {
+            resource,
+            page_index,
+        },
+        lod0_dim,
+        heights,
+        material_layers,
+    )
 }
 
 /// 资产签名(digest 即完整性;M01/M85 通道口径)。
@@ -242,7 +266,9 @@ pub fn heightfield_signature(asset: &HeightfieldAsset) -> [u8; 32] {
 /// 资产完整性核验(篡改即拒录)。
 pub fn verify_heightfield(asset: &HeightfieldAsset, expected_sig: &[u8; 32]) -> Result<()> {
     if &heightfield_signature(asset) != expected_sig {
-        return Err(TerrainError::AssetTampered { why: "digest 不符" });
+        return Err(TerrainError::AssetTampered {
+            why: "digest 不符"
+        });
     }
     Ok(())
 }
@@ -276,13 +302,22 @@ pub fn build_chunks_from_cells(
         let meta = world
             .cells
             .get(cell as usize)
-            .ok_or(TerrainError::SecondGridDetected { why: "chunk 引用不存在 cell" })?;
+            .ok_or(TerrainError::SecondGridDetected {
+                why: "chunk 引用不存在 cell",
+            })?;
         // 包围盒同族派生核验(chunk 不携带独立 bounds——派生即同一网格族)。
         let (lo, hi) = derived_cell_bounds_xy(world, meta.coord);
         if lo[0] != meta.bounds_min[0] || hi[0] != meta.bounds_max[0] {
-            return Err(TerrainError::SecondGridDetected { why: "cell 包围盒派生失配" });
+            return Err(TerrainError::SecondGridDetected {
+                why: "cell 包围盒派生失配",
+            });
         }
-        out.push(TerrainChunkMeta { cell, coord: meta.coord, heightfield: asset.clone(), lod: 0 });
+        out.push(TerrainChunkMeta {
+            cell,
+            coord: meta.coord,
+            heightfield: asset.clone(),
+            lod: 0,
+        });
     }
     Ok(out)
 }
@@ -294,9 +329,13 @@ pub fn assert_chunk_eq_cell(world: &PersistentWorld, chunks: &[TerrainChunkMeta]
         let meta = world
             .cells
             .get(c.cell as usize)
-            .ok_or(TerrainError::SecondGridDetected { why: "孤儿 chunk(无 cell 身份)" })?;
+            .ok_or(TerrainError::SecondGridDetected {
+                why: "孤儿 chunk(无 cell 身份)",
+            })?;
         if meta.coord != c.coord {
-            return Err(TerrainError::SecondGridDetected { why: "chunk coord 与 cell 网格族不符" });
+            return Err(TerrainError::SecondGridDetected {
+                why: "chunk coord 与 cell 网格族不符",
+            });
         }
     }
     Ok(())
@@ -315,15 +354,21 @@ pub struct ForeignGridDesc {
 /// 才合法;否则 `Err(SecondGridDetected)`。
 pub fn assert_no_second_grid(world: &PersistentWorld, foreign: &ForeignGridDesc) -> Result<()> {
     if !foreign.cell_size_m.is_finite() || foreign.cell_size_m <= 0.0 {
-        return Err(TerrainError::SecondGridDetected { why: "外来网格边长非法" });
+        return Err(TerrainError::SecondGridDetected {
+            why: "外来网格边长非法",
+        });
     }
     if foreign.cell_size_m != world.cell_size_m {
-        return Err(TerrainError::SecondGridDetected { why: "外来网格边长 ≠ cell 边长" });
+        return Err(TerrainError::SecondGridDetected {
+            why: "外来网格边长 ≠ cell 边长",
+        });
     }
     let gx = foreign.origin_m[0] / world.cell_size_m;
     let gy = foreign.origin_m[1] / world.cell_size_m;
     if gx.fract() != 0.0 || gy.fract() != 0.0 {
-        return Err(TerrainError::SecondGridDetected { why: "外来网格原点不落 cell 格点" });
+        return Err(TerrainError::SecondGridDetected {
+            why: "外来网格原点不落 cell 格点",
+        });
     }
     Ok(())
 }
@@ -335,7 +380,9 @@ pub fn assert_no_second_grid(world: &PersistentWorld, foreign: &ForeignGridDesc)
 /// LOD 选择(距离环闭集;确定性)。
 pub fn select_lod(distance_m: f64) -> Result<u32> {
     if !distance_m.is_finite() || distance_m < 0.0 {
-        return Err(TerrainError::NonFiniteValue { stage: "lod distance" });
+        return Err(TerrainError::NonFiniteValue {
+            stage: "lod distance",
+        });
     }
     let mut lod = 0;
     for ring in TERRAIN_LOD_RING_M {
@@ -349,11 +396,15 @@ pub fn select_lod(distance_m: f64) -> Result<u32> {
 /// 视锥剔除(保守包围球 vs 六平面;全 compute 面的 host 确定性参照)。
 pub fn frustum_cull(center: [f32; 3], radius: f32, planes: &[[f32; 4]]) -> Result<bool> {
     if !center.iter().all(|v| v.is_finite()) || !radius.is_finite() || radius < 0.0 {
-        return Err(TerrainError::NonFiniteValue { stage: "frustum cull" });
+        return Err(TerrainError::NonFiniteValue {
+            stage: "frustum cull",
+        });
     }
     for p in planes {
         if !p.iter().all(|v| v.is_finite()) {
-            return Err(TerrainError::NonFiniteValue { stage: "frustum plane" });
+            return Err(TerrainError::NonFiniteValue {
+                stage: "frustum plane",
+            });
         }
         let d = p[0] * center[0] + p[1] * center[1] + p[2] * center[2] + p[3];
         if d < -radius {
@@ -388,7 +439,9 @@ pub struct IndirectDrawBatch {
 /// CPU 侧零逐 chunk 提交断言(L2)。
 pub fn assert_zero_cpu_submit(batch: &IndirectDrawBatch) -> Result<()> {
     if batch.cpu_per_chunk_submits != 0 {
-        return Err(TerrainError::CpuPerChunkSubmit { count: batch.cpu_per_chunk_submits });
+        return Err(TerrainError::CpuPerChunkSubmit {
+            count: batch.cpu_per_chunk_submits,
+        });
     }
     Ok(())
 }
@@ -426,7 +479,10 @@ pub fn build_indirect_draws(
             instance_count: 1,
         });
     }
-    Ok(IndirectDrawBatch { records, cpu_per_chunk_submits: 0 })
+    Ok(IndirectDrawBatch {
+        records,
+        cpu_per_chunk_submits: 0,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -479,13 +535,21 @@ fn sample_height_lod(asset: &HeightfieldAsset, x: u32, y: u32, lod: u32) -> Resu
     let at = |ix: u32, iy: u32| -> Result<f32> {
         let cx = (ix * stride).min(dim - 1);
         let cy = (iy * stride).min(dim - 1);
-        asset.height_at(cx, cy).ok_or(TerrainError::NotCanonical("采样越界"))
+        asset
+            .height_at(cx, cy)
+            .ok_or(TerrainError::NotCanonical("采样越界"))
     };
     let h00 = at(gx, gy)?;
     let h10 = at((gx + 1).min((dim - 1) / stride), gy)?;
     let h01 = at(gx, (gy + 1).min((dim - 1) / stride))?;
-    let h11 = at((gx + 1).min((dim - 1) / stride), (gy + 1).min((dim - 1) / stride))?;
-    Ok(h00 * (1.0 - fx) * (1.0 - fy) + h10 * fx * (1.0 - fy) + h01 * (1.0 - fx) * fy + h11 * fx * fy)
+    let h11 = at(
+        (gx + 1).min((dim - 1) / stride),
+        (gy + 1).min((dim - 1) / stride),
+    )?;
+    Ok(h00 * (1.0 - fx) * (1.0 - fy)
+        + h10 * fx * (1.0 - fy)
+        + h01 * (1.0 - fx) * fy
+        + h11 * fx * fy)
 }
 
 /// 缝合报告(机核产出面)。
@@ -502,7 +566,11 @@ pub struct SeamReport {
 /// 邻级缝合校验(L5 机核):`stitch_enabled=false` 表示注入「未走缝合路径」
 /// 变体——LOD 差 >1 时立即 `Err(LodGapUnstitched)`(RED);缝合路径触发后逐
 /// 采样对拍边缘位置,裂缝 >0 即 `Err(StitchCrackPixels)`(RED)。
-pub fn verify_seam(a: &TerrainChunkMeta, b: &TerrainChunkMeta, stitch_enabled: bool) -> Result<SeamReport> {
+pub fn verify_seam(
+    a: &TerrainChunkMeta,
+    b: &TerrainChunkMeta,
+    stitch_enabled: bool,
+) -> Result<SeamReport> {
     let lod_delta = a.lod.abs_diff(b.lod);
     if lod_delta > 1 && !stitch_enabled {
         return Err(TerrainError::LodGapUnstitched { lod_delta });
@@ -515,7 +583,9 @@ pub fn verify_seam(a: &TerrainChunkMeta, b: &TerrainChunkMeta, stitch_enabled: b
     let ea = stitch_edge_positions(a, 0, fine_lod, coarse_lod)?;
     let eb = stitch_edge_positions(b, 1, fine_lod, coarse_lod)?;
     if ea.len() != eb.len() {
-        return Err(TerrainError::StitchCrackPixels { count: ea.len().abs_diff(eb.len()) as u32 });
+        return Err(TerrainError::StitchCrackPixels {
+            count: ea.len().abs_diff(eb.len()) as u32,
+        });
     }
     let mut crack = 0u32;
     for (pa, pb) in ea.iter().zip(eb.iter()) {
@@ -524,7 +594,11 @@ pub fn verify_seam(a: &TerrainChunkMeta, b: &TerrainChunkMeta, stitch_enabled: b
             crack += 1;
         }
     }
-    let report = SeamReport { lod_delta, stitch_invoked, crack_pixels: crack };
+    let report = SeamReport {
+        lod_delta,
+        stitch_invoked,
+        crack_pixels: crack,
+    };
     if crack > 0 {
         return Err(TerrainError::StitchCrackPixels { count: crack });
     }
@@ -571,7 +645,11 @@ pub struct ToroidalUpdateReport {
 impl ToroidalRing {
     pub fn new(origin: CellCoord) -> Self {
         let dim = TOROIDAL_RING_DIM;
-        Self { dim, origin, slots: vec![SlotState::Empty; (dim * dim) as usize] }
+        Self {
+            dim,
+            origin,
+            slots: vec![SlotState::Empty; (dim * dim) as usize],
+        }
     }
 
     fn slot_coord(&self, idx: u32) -> CellCoord {
@@ -596,7 +674,11 @@ impl ToroidalRing {
             old.insert((c.x, c.y), *s);
         }
         self.origin = new_origin;
-        let mut report = ToroidalUpdateReport { reused: 0, loaded: 0, placeholders: 0 };
+        let mut report = ToroidalUpdateReport {
+            reused: 0,
+            loaded: 0,
+            placeholders: 0,
+        };
         let mut slots = vec![SlotState::Empty; self.slots.len()];
         for (i, slot) in slots.iter_mut().enumerate() {
             let c = self.slot_coord(i as u32);
@@ -651,7 +733,9 @@ pub fn assert_zero_svt_dependency(desc: &AssetDependencyDesc) -> Result<()> {
         return Err(TerrainError::SvtDependencyDetected { field: "uses_rvt" });
     }
     if desc.uses_sampler_feedback {
-        return Err(TerrainError::SvtDependencyDetected { field: "uses_sampler_feedback" });
+        return Err(TerrainError::SvtDependencyDetected {
+            field: "uses_sampler_feedback",
+        });
     }
     Ok(())
 }
@@ -671,14 +755,18 @@ pub fn canonical_heightfield(chunk_x: u32, border_lift: f32) -> HeightfieldAsset
         for x in 0..dim {
             let wx = chunk_x * (dim - 1) + x;
             let wy = y;
-            let h = (wx as f32 * 0.11).sin() * 3.0 + (wy as f32 * 0.07).cos() * 2.0
+            let h = (wx as f32 * 0.11).sin() * 3.0
+                + (wy as f32 * 0.07).cos() * 2.0
                 + if x == 0 { border_lift } else { 0.0 };
             heights.push(h);
             layers.push(((x + y) % u32::from(MATERIAL_LAYER_COUNT)) as u8);
         }
     }
     HeightfieldAsset::new(
-        CellPageRef { resource: 900 + chunk_x, page_index: 0 },
+        CellPageRef {
+            resource: 900 + chunk_x,
+            page_index: 0,
+        },
         dim,
         heights,
         layers,
@@ -775,23 +863,49 @@ mod tests {
         assert_chunk_eq_cell(&world, &chunks).unwrap();
         // 第二套分格注入(边长不符/原点偏移)即 RED。
         assert!(matches!(
-            assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 32.0, origin_m: [0.0, 0.0] }),
+            assert_no_second_grid(
+                &world,
+                &ForeignGridDesc {
+                    cell_size_m: 32.0,
+                    origin_m: [0.0, 0.0]
+                }
+            ),
             Err(TerrainError::SecondGridDetected { .. })
         ));
         assert!(matches!(
-            assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 64.0, origin_m: [8.0, 0.0] }),
+            assert_no_second_grid(
+                &world,
+                &ForeignGridDesc {
+                    cell_size_m: 64.0,
+                    origin_m: [8.0, 0.0]
+                }
+            ),
             Err(TerrainError::SecondGridDetected { .. })
         ));
-        assert!(assert_no_second_grid(&world, &ForeignGridDesc { cell_size_m: 64.0, origin_m: [128.0, 0.0] }).is_ok());
+        assert!(
+            assert_no_second_grid(
+                &world,
+                &ForeignGridDesc {
+                    cell_size_m: 64.0,
+                    origin_m: [128.0, 0.0]
+                }
+            )
+            .is_ok()
+        );
     }
 
     //@ spec: RXS-0367
     #[test]
     fn full_compute_lod_cull_zero_cpu_submit() {
         let chunks = canonical_chunks();
-        let planes = [[1.0, 0.0, 0.0, 4096.0], [-1.0, 0.0, 0.0, 4096.0],
-                      [0.0, 1.0, 0.0, 4096.0], [0.0, -1.0, 0.0, 4096.0],
-                      [0.0, 0.0, 1.0, 4096.0], [0.0, 0.0, -1.0, 4096.0]];
+        let planes = [
+            [1.0, 0.0, 0.0, 4096.0],
+            [-1.0, 0.0, 0.0, 4096.0],
+            [0.0, 1.0, 0.0, 4096.0],
+            [0.0, -1.0, 0.0, 4096.0],
+            [0.0, 0.0, 1.0, 4096.0],
+            [0.0, 0.0, -1.0, 4096.0],
+        ];
         let batch = build_indirect_draws(&chunks, [32.0, 32.0, 10.0], &planes, 64.0).unwrap();
         assert_eq!(batch.records.len(), 3);
         assert_zero_cpu_submit(&batch).unwrap();
@@ -801,8 +915,14 @@ mod tests {
         assert_eq!(select_lod(400.0).unwrap(), 2);
         assert_eq!(select_lod(9999.0).unwrap(), 3);
         // CPU 逐 chunk 提交注入即 RED。
-        let bad = IndirectDrawBatch { records: vec![], cpu_per_chunk_submits: 1 };
-        assert!(matches!(assert_zero_cpu_submit(&bad), Err(TerrainError::CpuPerChunkSubmit { .. })));
+        let bad = IndirectDrawBatch {
+            records: vec![],
+            cpu_per_chunk_submits: 1,
+        };
+        assert!(matches!(
+            assert_zero_cpu_submit(&bad),
+            Err(TerrainError::CpuPerChunkSubmit { .. })
+        ));
     }
 
     //@ spec: RXS-0367
@@ -835,13 +955,23 @@ mod tests {
         let world = mini_world();
         let mut ring = ToroidalRing::new(CellCoord { x: 0, y: 0 });
         let resident = std::collections::BTreeSet::from([0u32, 1, 2]);
-        let r1 = ring.recenter(CellCoord { x: 0, y: 0 }, &resident, &world).unwrap();
+        let r1 = ring
+            .recenter(CellCoord { x: 0, y: 0 }, &resident, &world)
+            .unwrap();
         assert_eq!(r1.loaded, 3);
         // 窗口滚动一格:仍在窗内的 cell 复用,新进窗且未驻留的走父级占位。
-        let r2 = ring.recenter(CellCoord { x: 1, y: 0 }, &resident, &world).unwrap();
+        let r2 = ring
+            .recenter(CellCoord { x: 1, y: 0 }, &resident, &world)
+            .unwrap();
         assert!(r2.reused >= 2);
         assert_eq!(r2.placeholders, 0);
-        let r3 = ring.recenter(CellCoord { x: 4, y: 0 }, &std::collections::BTreeSet::new(), &world).unwrap();
+        let r3 = ring
+            .recenter(
+                CellCoord { x: 4, y: 0 },
+                &std::collections::BTreeSet::new(),
+                &world,
+            )
+            .unwrap();
         assert_eq!(r3.loaded, 0); // 全部页迟到 → 父级占位(网格外为空槽)
     }
 
@@ -850,9 +980,18 @@ mod tests {
     fn zero_svt_dependency_red() {
         assert!(assert_zero_svt_dependency(&AssetDependencyDesc::default()).is_ok());
         for desc in [
-            AssetDependencyDesc { uses_svt: true, ..Default::default() },
-            AssetDependencyDesc { uses_rvt: true, ..Default::default() },
-            AssetDependencyDesc { uses_sampler_feedback: true, ..Default::default() },
+            AssetDependencyDesc {
+                uses_svt: true,
+                ..Default::default()
+            },
+            AssetDependencyDesc {
+                uses_rvt: true,
+                ..Default::default()
+            },
+            AssetDependencyDesc {
+                uses_sampler_feedback: true,
+                ..Default::default()
+            },
         ] {
             assert!(matches!(
                 assert_zero_svt_dependency(&desc),

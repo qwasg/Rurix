@@ -48,8 +48,12 @@ fn main() {
 
     println!(
         "[g22_slab_probe] samples={} max_total={:.9} white_dev={:.2e} mono_violations={} identity_dev={:.2e} lerp_max_step={:.4}",
-        rep1.samples, rep1.max_total, rep1.white_furnace_dev, rep1.monotonic_violations,
-        rep1.series_closed_form_max_dev, lerp_max_step
+        rep1.samples,
+        rep1.max_total,
+        rep1.white_furnace_dev,
+        rep1.monotonic_violations,
+        rep1.series_closed_form_max_dev,
+        lerp_max_step
     );
 
     let payload = format!(
@@ -62,8 +66,12 @@ fn main() {
          \"monotonic_in_base_albedo\":{mono_ok},\"series_identity_1e9\":{identity_ok},\
          \"lerp_continuity\":{lerp_ok},\"double_run_bitexact\":{double_run_bitexact},\
          \"notes\":\"slab 双层能量守恒闭合白炉审计：白炉恒等/能量上界/单调/闭式恒等式/lerp 连续/双跑位级\"}}",
-        rep1.samples, rep1.max_total, rep1.white_furnace_dev,
-        rep1.monotonic_violations, rep1.series_closed_form_max_dev, lerp_max_step,
+        rep1.samples,
+        rep1.max_total,
+        rep1.white_furnace_dev,
+        rep1.monotonic_violations,
+        rep1.series_closed_form_max_dev,
+        lerp_max_step,
     );
     if let Some(parent) = std::path::Path::new(&out_path).parent() {
         let _ = std::fs::create_dir_all(parent);

@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 C Task C14 KTX2 三行 A/B measured harness evidence（g31_ktx2_ab 产）",
+  "description": "G31+ 波 C Task C14 KTX2 三行（RD-041 分项，TODO #37-#39，milestones/g22/g22_ktx2_disposition.json KTX2 立项窗兑现）门 g31.waveC.ktx2 的 A/B measured harness 证据：src/rurix-asset/src/bin/g31_ktx2_ab.rs --dds-dir <bistro derived 目录> --textures <CI 独立重算 top-N 律法 uri 集> --out <本件> [--dump-ktx2 <全链件落盘>]。逐纹理面：① 原始分发面 = DDS 文件实测字节（全链 as-shipped）+ level0 等效字节（ceil(w/4)·ceil(h/4)·block_bytes 算式）；② KTX2-UASTC 分发面 = DDS 真实解码（bcdec decode_dds）→ 确定性 box 滤波全 mip 链 → 逐级真实 basis_universal 1.16.4 UASTC 编码 → write_ktx2_multilevel 组装全链 KTX2（真实负载 + spec 容器；KTXwriter 如实登记 rurix-asset 组装器字面,不冒充上游 encoder）→ 实测字节 + 逐级真 transcode 耗时（同机 measured_local）；③ ETC1S `.basis` 参照腿（BasisU 家族超压缩代表；在树 ETC1S 产 `.basis` 非 KTX2,如实登记）= 逐 level 真实 ETC1S 编码文件集合合计字节（含逐文件容器头开销）+ 转码耗时；④ 质量对拍 = UASTC→BC7 / ETC1S→BC7 回解码（bcdec 全 8 mode 覆盖）vs DDS 解码 RGBA（现行出货像素）premultiplied-aware 口径（透明像素 RGB 自由域,alpha 全幅量化容差；AP-TEX 冻结容差 48 + alpha 量化界 16 判据面）；⑤ KTX2-1 消费证明 = 逐产出件 parse_ktx2 互核（levelCount/尺寸律法/scheme=0/uncompressed==length/KTXwriter 字面）+ 双解析位级一致 + 首张 UASTC 双编码位级一致（确定性面）。全部数字同机 measured_local；容器组装不构造像素/块数据（禁手写二进制冒充）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "codec_version",
+    "texture_set",
+    "bounds",
+    "textures",
+    "totals",
+    "determinism",
+    "parse_crosscheck",
+    "environment",
+    "wall_clock_ms"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.ktx2_ab_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_ktx2_ab" },
+    "codec_version": { "type": "string", "const": "basis_universal/1.16.4+g900e40fb5d25" },
+    "texture_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "count", "uris"],
+      "properties": {
+        "source": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 },
+        "uris": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "\\.dds$" }
+        }
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["color_max_delta_bound", "alpha_delta_bound", "limit"],
+      "properties": {
+        "color_max_delta_bound": { "type": "integer", "const": 48 },
+        "alpha_delta_bound": { "type": "integer", "const": 16 },
+        "limit": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "textures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri", "dds_format", "width", "height", "mip_count_dds", "levels_generated",
+          "rgba8_digest", "dds_file_bytes", "dds_l0_bytes",
+          "ktx2_uastc_full_bytes", "ktx2_uastc_l0_bytes", "ktx2_uastc_digest",
+          "uastc_encode_ms", "uastc_transcode_full_ms", "uastc_transcode_l0_ms",
+          "uastc_rgb_max_masked", "uastc_rgb_mean_masked", "uastc_alpha_max",
+          "uastc_bc7_max_delta_ch",
+          "etc1s_present", "etc1s_full_bytes", "etc1s_l0_bytes",
+          "etc1s_encode_ms", "etc1s_transcode_full_ms", "etc1s_transcode_l0_ms",
+          "etc1s_rgb_max_masked", "etc1s_rgb_mean_masked", "etc1s_alpha_max",
+          "etc1s_bc7_max_delta_ch", "punchthrough_px"
+        ],
+        "properties": {
+          "uri": { "type": "string", "pattern": "\\.dds$" },
+          "dds_format": { "type": "string", "enum": ["bc1", "bc3", "bc4", "bc5", "bc7"] },
+          "width": { "type": "integer", "minimum": 1 },
+          "height": { "type": "integer", "minimum": 1 },
+          "mip_count_dds": { "type": "integer", "minimum": 1 },
+          "levels_generated": { "type": "integer", "minimum": 1 },
+          "rgba8_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "dds_file_bytes": { "type": "integer", "minimum": 1 },
+          "dds_l0_bytes": { "type": "integer", "minimum": 1 },
+          "ktx2_uastc_full_bytes": { "type": "integer", "minimum": 1 },
+          "ktx2_uastc_l0_bytes": { "type": "integer", "minimum": 1 },
+          "ktx2_uastc_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "uastc_encode_ms": { "type": "number", "minimum": 0 },
+          "uastc_transcode_full_ms": { "type": "number", "minimum": 0 },
+          "uastc_transcode_l0_ms": { "type": "number", "minimum": 0 },
+          "uastc_rgb_max_masked": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "uastc_rgb_mean_masked": { "type": "number", "minimum": 0 },
+          "uastc_alpha_max": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "uastc_bc7_max_delta_ch": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+          },
+          "etc1s_present": { "type": "boolean" },
+          "etc1s_full_bytes": { "type": "integer", "minimum": 0 },
+          "etc1s_l0_bytes": { "type": "integer", "minimum": 0 },
+          "etc1s_encode_ms": { "type": "number", "minimum": 0 },
+          "etc1s_transcode_full_ms": { "type": "number", "minimum": 0 },
+          "etc1s_transcode_l0_ms": { "type": "number", "minimum": 0 },
+          "etc1s_rgb_max_masked": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "etc1s_rgb_mean_masked": { "type": "number", "minimum": 0 },
+          "etc1s_alpha_max": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "etc1s_bc7_max_delta_ch": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+          },
+          "punchthrough_px": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dds_file_bytes", "dds_l0_bytes", "ktx2_uastc_full_bytes", "ktx2_uastc_l0_bytes",
+        "uastc_encode_ms", "uastc_transcode_full_ms", "uastc_transcode_l0_ms",
+        "uastc_rgb_max_masked", "uastc_alpha_max",
+        "etc1s_present", "etc1s_full_bytes", "etc1s_l0_bytes",
+        "etc1s_encode_ms", "etc1s_transcode_full_ms", "etc1s_transcode_l0_ms",
+        "etc1s_rgb_max_masked", "etc1s_alpha_max"
+      ],
+      "properties": {
+        "dds_file_bytes": { "type": "integer", "minimum": 1 },
+        "dds_l0_bytes": { "type": "integer", "minimum": 1 },
+        "ktx2_uastc_full_bytes": { "type": "integer", "minimum": 1 },
+        "ktx2_uastc_l0_bytes": { "type": "integer", "minimum": 1 },
+        "uastc_encode_ms": { "type": "number", "minimum": 0 },
+        "uastc_transcode_full_ms": { "type": "number", "minimum": 0 },
+        "uastc_transcode_l0_ms": { "type": "number", "minimum": 0 },
+        "uastc_rgb_max_masked": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "uastc_alpha_max": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "etc1s_present": { "type": "boolean" },
+        "etc1s_full_bytes": { "type": "integer", "minimum": 0 },
+        "etc1s_l0_bytes": { "type": "integer", "minimum": 0 },
+        "etc1s_encode_ms": { "type": "number", "minimum": 0 },
+        "etc1s_transcode_full_ms": { "type": "number", "minimum": 0 },
+        "etc1s_transcode_l0_ms": { "type": "number", "minimum": 0 },
+        "etc1s_rgb_max_masked": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "etc1s_alpha_max": { "type": "integer", "minimum": 0, "maximum": 255 }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uastc_encode_double_run_bitexact", "parse_double_read_bitexact"],
+      "properties": {
+        "uastc_encode_double_run_bitexact": { "type": "boolean", "description": "首张 UASTC level0 双编码逐字节相等才许 true" },
+        "parse_double_read_bitexact": { "type": "boolean", "description": "逐产出件双解析 PartialEq 位级一致才许 true" }
+      }
+    },
+    "parse_crosscheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_parsed", "ok"],
+      "properties": {
+        "files_parsed": { "type": "integer", "minimum": 1 },
+        "ok": { "type": "boolean", "description": "KTX2-1 消费证明逐字段互核全绿才许 true" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measured", "legs"],
+      "properties": {
+        "measured": { "type": "string", "const": "measured_local" },
+        "legs": { "type": "string", "enum": ["uastc+etc1s", "uastc"] }
+      }
+    },
+    "wall_clock_ms": { "type": "number", "exclusiveMinimum": 0 }
+  }
+}

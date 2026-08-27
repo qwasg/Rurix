@@ -1,0 +1,127 @@
+{
+  "schema": "rurix.g35.primitives_gate_evidence.v1",
+  "subject": "g35_primitives",
+  "symbolic_gate_key": "g35.wave1.primitives",
+  "wave": "G35.1",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编七件（scan 三 g35_scan_seg_sum/spine/seg_apply〔冻结面只读消费〕+ sort 三 g35_sort_hist/spine/scatter + g35_compact_u32）+ spirv-val=全绿；kernel 源/SPV sha256 在档"
+    },
+    {
+      "id": "scan_bitexact",
+      "status": "PASS",
+      "detail": "② scan 三 kernel 全链 vs host exclusive_scan_segmented 逐规模位级（scales=[256, 4096, 65536]；整数域零容差协议）"
+    },
+    {
+      "id": "sort_bitexact",
+      "status": "PASS",
+      "detail": "③ sort 全链 vs host sort_pairs_u24 位级 AND vs 独立参考 sort_pairs_reference 互核（scales=[256, 4096, 65536]；防同一错误两处照抄）"
+    },
+    {
+      "id": "sort_stability",
+      "status": "PASS",
+      "detail": "④ 同键 payload 保序全规模 + 咬合前提窗内重复键对 max=106 ≥ 1（payload = 原下标,host 侧验证函数）"
+    },
+    {
+      "id": "compact_bitexact",
+      "status": "PASS",
+      "detail": "⑤ compact vs host compact_u32 逐规模位级（scales=[256, 4096, 65536]；槽位 = 分段稳定 scan 推导）"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "⑥ device 全链双跑逐流 memcmp 逐规模位级一致（scales=[256, 4096, 65536]；确定性门）"
+    },
+    {
+      "id": "red_arm_effective",
+      "status": "PASS",
+      "detail": "⑦ tamper RED 臂:off 缓冲某槽 +1 构造性注入检出 — 'off[16] +1 注入检出:keys 异 812 槽,payload 异 812 槽(n=4096)'（honest 前置臂先绿;判据非摆设机器证明）"
+    },
+    {
+      "id": "throughput_measured",
+      "status": "PASS",
+      "detail": "⑧ throughput measured 登记:keys_per_sec=118499.1 sort_n=65536 sort_ms=553.051（诚实登记不设通过线;probe 车道口径如实标注）"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "scan_seg_sum": {
+      "path": ".tmp/g35_gates/g35_scan_seg_sum.spv",
+      "sha256": "sha256:852897f8f82cb0bff1e4d0c895ce97b4e4e6dcc00d1ae3e1438d91b96f9961be",
+      "source": "src/rurix-render/kernels/g35_scan_seg_sum.rx",
+      "source_sha256": "sha256:30b14cb99c17d03763a63cbc17d2982e2e68530a94b822d86904dbbdead984bc"
+    },
+    "scan_spine": {
+      "path": ".tmp/g35_gates/g35_scan_spine.spv",
+      "sha256": "sha256:071221d0ac03316f7fa4815857b11d55d655ff993d822a3db91bf822eb9737a4",
+      "source": "src/rurix-render/kernels/g35_scan_spine.rx",
+      "source_sha256": "sha256:67c1af8c8dc47472e22f58661e7b4cac669a0efc3498e95a65864f74a8cc53e7"
+    },
+    "scan_seg_apply": {
+      "path": ".tmp/g35_gates/g35_scan_seg_apply.spv",
+      "sha256": "sha256:8cb42388b83d647505501ce97d58d337d63e5b2b0ef9cccfc5772662f15c7939",
+      "source": "src/rurix-render/kernels/g35_scan_seg_apply.rx",
+      "source_sha256": "sha256:352558ff16c83280f65cc6312ccfb9652bd0eaed7c2925ca86d4aa7c3fcc82d7"
+    },
+    "sort_hist": {
+      "path": ".tmp/g35_gates/g35_sort_hist.spv",
+      "sha256": "sha256:2249a8cef7f8bbcaa6602112f35aa5b10b6002048aa9c7ef00f226950523323e",
+      "source": "src/rurix-render/kernels/g35_sort_hist.rx",
+      "source_sha256": "sha256:7261cc0b88c6ddb2f23785bd4dd6427d48ad1f1fe4d25152f624430c5dd7d342"
+    },
+    "sort_spine": {
+      "path": ".tmp/g35_gates/g35_sort_spine.spv",
+      "sha256": "sha256:afe2624f92efed73dc2e80ab577dfd1ea30071183611b8bd85518120df028297",
+      "source": "src/rurix-render/kernels/g35_sort_spine.rx",
+      "source_sha256": "sha256:4eaef2294d87f831ac2592a27d6daf9f645f093b5b09824c34cc2dc435378b1b"
+    },
+    "sort_scatter": {
+      "path": ".tmp/g35_gates/g35_sort_scatter.spv",
+      "sha256": "sha256:a57eace45fcb3bd196b50eb84904452c547b8c6328fc177644ee5d4d9c5a184c",
+      "source": "src/rurix-render/kernels/g35_sort_scatter.rx",
+      "source_sha256": "sha256:cdf6e9b74775a4682b367588f0675666be571390b782651102c989aa76b60502"
+    },
+    "compact_u32": {
+      "path": ".tmp/g35_gates/g35_compact_u32.spv",
+      "sha256": "sha256:af4cd408a5113f2c56cf4b59d6e8ed63ac6985db27ea8fb9c6e0ccf1db0c6403",
+      "source": "src/rurix-render/kernels/g35_compact_u32.rx",
+      "source_sha256": "sha256:fadf91a4b22dcd68743d0e6a9afc8d889dc4266e01f43fcade5ddec6f83924e3"
+    },
+    "spirv_val_all": true
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "scales": [
+      256,
+      4096,
+      65536
+    ]
+  },
+  "throughput": {
+    "keys_per_sec": 118499.1,
+    "sort_n": 65536,
+    "sort_ms": 553.051,
+    "measured": "measured_local(probe 车道 vk::run_compute 逐 dispatch 建/毁 instance+device 含上传/回读;单跑 3 pass 9 dispatch host 墙钟;非生产 DeviceFrameSession 口径)"
+  },
+  "probe": {
+    "green_evidence": ".tmp/g35_gates/probe_green.json",
+    "red_evidence": ".tmp/g35_gates/probe_red.json",
+    "scales": [
+      256,
+      4096,
+      65536
+    ],
+    "stability_duplicate_pairs_max": 106,
+    "red_arm_detail": "off[16] +1 注入检出:keys 异 812 槽,payload 异 812 槽(n=4096)"
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260827T103626Z",
+  "notes": "G35-1 GPU 粒子基元库：24 位键 3-pass 稳定 LSD radix sort（段直方图 g35_sort_hist → digit-major 单串行 spine g35_sort_spine → 段内串行稳定散射 g35_sort_scatter,pass 间 ping-pong = host 侧缓冲交换）+ compact_u32（槽位 = 分段稳定 scan 三 kernel 推导,禁原子抢槽）。host 金标准 particles/primitives.rs 与 device 七 kernel 逐字同源,纯 u32/usize 整数算术零浮点 ⇒ device↔host 零容差位级（mod.rs G35-P v1 整数域协议）；SEG=256 分段、线程=段、段内串行=确定序,无 shared memory / 无原子 / 无 lookback（Vulkan 前进保证缺位,保守分段臂 = 生产形态；Onesweep/decoupled-lookback 评估窗登记不实现,RFC-0049 §9 Q1）。判据 = 规模闭集 {256, 4096, 65536, --scale} 逐档:scan/sort/compact 位级 + 独立参考互核（std 稳定 sort / iter filter,防同一错误两处照抄）+ 同键 payload 保序（咬合前提:窗内重复键对 ≥ 1,固定 seed 夹具确定值）+ device 全链双跑逐流 memcmp + tamper RED 臂（off 缓冲某槽 +1 构造性注入,散射双射保多重集 ⇒ 末端必异,honest 前置臂先绿）+ throughput measured_local 诚实登记不设通过线（probe 车道逐 dispatch 建/毁 instance+device 口径如实标注,非生产 DeviceFrameSession 口径）。scan 三 kernel 与 scan.rs/mod.rs 为 G35-P 冻结面只读消费 0-byte 不动。"
+}

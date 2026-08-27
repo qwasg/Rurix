@@ -47,6 +47,14 @@ int rurix_basis_encode_container(const uint8_t *rgba, uint32_t width, uint32_t h
 int rurix_basis_transcode(const uint8_t *data, size_t len, int src_kind, int target,
                           RurixBasisBuf *out, uint32_t *out_width, uint32_t *out_height);
 
+/* 容器 → GPU 块字节(mip level 参数化;G31+ 波 C Task C14 KTX2 三行)。
+ * level = 0 与 rurix_basis_transcode 同义。KTX2 路径 level ∈ [0, levels),
+ * 越界返回 17;.basis 路径在树产物恒单级,level != 0 返回 5(fail-closed)。
+ * 返回 0 = 成功;非 0 = 失败码(不写 out->data)。 */
+int rurix_basis_transcode_level(const uint8_t *data, size_t len, int src_kind, int target,
+                                uint32_t level, RurixBasisBuf *out,
+                                uint32_t *out_width, uint32_t *out_height);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

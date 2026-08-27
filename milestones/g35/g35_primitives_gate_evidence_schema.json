@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G35 GPU 粒子系统 G35-1 基元库门裁决证据（ci/g35_primitives_smoke.py --gate 产）",
+  "description": "G35-1 GPU 粒子基元库门 g35.wave1.primitives 的 smoke 裁决证据：① kernels_spv_valid（rurixc 现编七件——scan 三件 kernels/g35_scan_{seg_sum,spine,seg_apply}.rx 冻结面只读消费 + sort 三件 kernels/g35_sort_{hist,spine,scatter}.rx + kernels/g35_compact_u32.rx——SPV + spirv-val 全绿；kernel 源与 SPV sha256 在档 = 后续波漂移守护基线）② scan_bitexact（scan 三 kernel 全链 device 输出与 host 金标准 particles/scan.rs::exclusive_scan_segmented 逐规模位级相等——mod.rs 整数域零容差协议）③ sort_bitexact（24 位键 3-pass 稳定 LSD radix sort 全链 device 输出与 host particles/primitives.rs::sort_pairs_u24 位级相等 AND 与独立参考 sort_pairs_reference〔std 稳定 sort〕互核相等——防同一错误两处照抄）④ sort_stability（同键 payload 保序 host 侧验证:payload = 原下标 ⇒ 稳定 ⇔ 同键段 payload 严格递增；判据咬合前提 = 窗内重复键对 ≥ 1）⑤ compact_bitexact（compact_u32 device 输出与 host particles/primitives.rs::compact_u32 位级相等,槽位 = 分段稳定 scan 推导,禁原子抢槽）⑥ determinism_double_run（device 全链双跑逐流 memcmp 位级一致——确定性协议,固定输入双跑位级）⑦ red_arm_effective（--red-arm tamper 构造性注入:pass 0 spine 产 off 缓冲某槽 +1 后 device 输出必异于 host——判据非摆设的机器证明；honest 前置臂必须先绿）⑧ throughput_measured（keys/秒 measured_local 诚实登记不设通过线,probe 车道逐 dispatch 建/毁 instance+device 口径如实标注）。规模闭集 {256, 4096, 65536, --scale}（去重升序）。Onesweep/decoupled-lookback 评估窗登记不实现（Vulkan 前进保证缺位,保守分段臂 = 生产形态,RFC-0049 §9 Q1）。三态：无 Vulkan loader/设备/SDK → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。probe 真跑件（rurix.g35.primitives_probe.v1）留 .tmp 不注册,数字经门裁决件蒸馏登记。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "kernels",
+    "determinism",
+    "throughput",
+    "probe",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g35.primitives_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g35_primitives" },
+    "symbolic_gate_key": { "type": "string", "const": "g35.wave1.primitives" },
+    "wave": { "type": "string", "const": "G35.1" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "kernels_spv_valid",
+              "scan_bitexact",
+              "sort_bitexact",
+              "sort_stability",
+              "compact_bitexact",
+              "determinism_double_run",
+              "red_arm_effective",
+              "throughput_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "kernels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scan_seg_sum", "scan_spine", "scan_seg_apply", "sort_hist", "sort_spine", "sort_scatter", "compact_u32", "spirv_val_all"],
+      "properties": {
+        "scan_seg_sum": { "$ref": "#/definitions/kernel_entry" },
+        "scan_spine": { "$ref": "#/definitions/kernel_entry" },
+        "scan_seg_apply": { "$ref": "#/definitions/kernel_entry" },
+        "sort_hist": { "$ref": "#/definitions/kernel_entry" },
+        "sort_spine": { "$ref": "#/definitions/kernel_entry" },
+        "sort_scatter": { "$ref": "#/definitions/kernel_entry" },
+        "compact_u32": { "$ref": "#/definitions/kernel_entry" },
+        "spirv_val_all": { "type": "boolean", "description": "rurixc 现编七件 + spirv-val 全绿才许 true" }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["double_run_bitexact", "scales"],
+      "properties": {
+        "double_run_bitexact": { "type": "boolean", "description": "device 全链双跑逐流 memcmp 逐规模位级一致才许 true（确定性门）" },
+        "scales": { "type": "array", "items": { "type": "integer" }, "description": "双跑核验规模闭集（{256, 4096, 65536, --scale} 去重升序）" }
+      }
+    },
+    "throughput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keys_per_sec", "sort_n", "sort_ms", "measured"],
+      "properties": {
+        "keys_per_sec": { "type": "number", "description": "最大规模 3-pass 排序全链 keys/秒（诚实登记不设通过线）" },
+        "sort_n": { "type": "integer", "minimum": 0 },
+        "sort_ms": { "type": "number" },
+        "measured": { "type": "string", "description": "measured 口径字面（probe 车道 vk::run_compute 逐 dispatch 建/毁 instance+device 含上传/回读;非生产 DeviceFrameSession 口径）" }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["green_evidence", "red_evidence", "scales", "stability_duplicate_pairs_max", "red_arm_detail"],
+      "properties": {
+        "green_evidence": { "type": "string", "description": "绿臂 probe 真跑件 .tmp 工作区路径（不注册 check_schemas,数字经本裁决件蒸馏登记）" },
+        "red_evidence": { "type": "string" },
+        "scales": { "type": "array", "items": { "type": "integer" } },
+        "stability_duplicate_pairs_max": { "type": "integer", "description": "窗内相邻同键对数最大值（≥1 = 稳定性判据咬合前提;固定 seed 夹具确定值）" },
+        "red_arm_detail": { "type": "string" }
+      }
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "definitions": {
+    "kernel_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "source", "source_sha256"],
+      "properties": {
+        "path": { "type": "string", "description": "rurixc 现编 SPV 工作区路径" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "source": { "type": "string", "description": "kernel 源路径（src/rurix-render/kernels/）" },
+        "source_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

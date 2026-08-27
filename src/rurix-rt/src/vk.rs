@@ -8579,6 +8579,14 @@ unsafe fn present_body(
     result
 }
 
+// ── G31+ 波 A Task A1:外部图像 present 通路(本文件 9000+ 行教训:大改走 include,
+//    vk_m50_rt_body.rs 同型先例;run_graphics_present/vk_present demo 0-byte 不动)──
+include!("vk_g31_present.rs");
+
+// ── G31+ 波 C Task C16:mesh shader HW 路径 vs 现 VS 光栅路径 measured 对照底座
+//    (RFC-0034 重判表三项闭集之③唯一新面;既有 mesh/graphics 执行器全族 0-byte)──
+include!("vk_g31_mesh_bench.rs");
+
 // ── demo 着色器 SPIR-V(build.rs 经 vulkan_codegen 产;android glue + desktop 共享) ──
 /// mb1 Android present demo 三着色器 SPIR-V 字节:`(tri_vs, tri_fs, saxpy)`(小端字流,
 /// `len % 4 == 0`;消费侧转 u32)。`build.rs` 经 `vulkan_codegen`(纯 Rust MIR→SPIR-V)对
@@ -12489,6 +12497,11 @@ struct VkBlasEntry {
     _geom: Box<AccelGeometry>,
     bgi: AccelBuildGeometryInfo,
     range: AccelBuildRangeInfo,
+    /// G31+ 波 B Task B5:顶点可更新面(创建期 `ALLOW_UPDATE` + scratch 按
+    /// build/update 双尺寸取 max + vbuf 附 `TRANSFER_DST`)——仅经
+    /// [`VkAsManager::create_scene_ex`] 的 `updatable_blas` 显式打标的 BLAS
+    /// 置位;静态 BLAS 恒 false(flags=0 基线 0-byte,锚零漂移)。
+    updatable: bool,
 }
 
 /// 场景 BLAS/TLAS **单所有者**(G7.3 W3b,门 G-G7-5「复用既有 AsManager、禁止
@@ -12532,6 +12545,10 @@ pub(crate) struct VkAsManager {
     instance_count: usize,
     generation: u64,
     last_action: TlasBuildAction,
+    /// 实例缓冲 host 影子副本（创建期初始字节；G31+ 波 A Task A4 槽位级增量
+    /// 更新面——`write_transforms` 逐 64B 槽与影子 diff，仅脏槽上传，静态实例
+    /// 槽位零触碰；与 GPU 侧内容恒同步）。
+    instance_shadow: Vec<u8>,
     /// 全量真实分配((memory, 驱动 `VkMemoryRequirements::size`, heap 下标);
     /// 建面序 = 逐 BLAS(vbuf→storage→scratch)→ instance → TLAS storage → TLAS scratch)。
     allocations: Vec<(VkDeviceMemory, u64, u32)>,
@@ -12661,6 +12678,34 @@ impl VkAsManager {
         scene: &RayQuerySceneDesc<'_>,
         transforms: Option<&[[f32; 12]]>,
     ) -> Result<Self, String> {
+        // G31+ 波 B Task B5:既有调用面 0-byte——无可更新 BLAS,等价
+        // `create_scene_ex(..., &[])`(全部 BLAS flags=0 基线不变)。
+        Self::create_scene_ex(fns, device, memprops, scene, transforms, &[])
+    }
+
+    /// [`Self::create_scene`] 扩面(G31+ 波 B Task B5 蒙皮 BLAS refit 通路):
+    /// `updatable_blas` 所列 BLAS 下标按顶点可更新面创建(geometry flags 附
+    /// `ALLOW_UPDATE`——UPDATE 模式 build 的 spec 前提;scratch 按
+    /// max(build, update) 双尺寸取上界;顶点缓冲 usage 附 `TRANSFER_DST`——
+    /// 蒙皮顶点经 `vkCmdCopyBuffer` 从 session SSBO 桥接写入),随后逐帧经
+    /// [`Self::record_blas_refit`] 录 UPDATE build。未列下标与既有
+    /// `create_scene` 面逐字同(flags=0;锚零漂移)。越界下标 → 确定性 `Err`。
+    pub(crate) unsafe fn create_scene_ex(
+        fns: &VkAsFns,
+        device: VkDevice,
+        memprops: &PhysicalDeviceMemoryProperties,
+        scene: &RayQuerySceneDesc<'_>,
+        transforms: Option<&[[f32; 12]]>,
+        updatable_blas: &[u32],
+    ) -> Result<Self, String> {
+        for &u in updatable_blas {
+            if u as usize >= scene.blas_triangles.len() {
+                return Err(format!(
+                    "updatable_blas 下标 {u} 越界(BLAS 数 {})",
+                    scene.blas_triangles.len()
+                ));
+            }
+        }
         if scene.blas_triangles.is_empty() {
             return Err("RayQuery 场景 BLAS 集为空(fail-closed,不建空 AS)".into());
         }
@@ -12724,10 +12769,19 @@ impl VkAsManager {
             instance_count: scene.instances.len(),
             generation: 0,
             last_action: TlasBuildAction::Rebuild,
+            instance_shadow: Vec::new(),
             allocations: Vec::new(),
             tlas_storage_index: 0,
         };
-        match Self::build_scene(&mut m, fns, device, memprops, scene, transforms) {
+        match Self::build_scene(
+            &mut m,
+            fns,
+            device,
+            memprops,
+            scene,
+            transforms,
+            updatable_blas,
+        ) {
             Ok(()) => Ok(m),
             Err(e) => {
                 m.destroy(fns, device);
@@ -12737,6 +12791,9 @@ impl VkAsManager {
     }
 
     /// [`Self::create_scene`] 主体(与原 `rt_body` AS 段逐调用同序;N=1 退化即原序)。
+    ///
+    /// `updatable_blas` = [`Self::create_scene_ex`] 打标面透传(G31+ 波 B Task B5;
+    /// 空调用面与既有 `create_scene` 逐字同,flags=0 基线不变)。
     unsafe fn build_scene(
         m: &mut Self,
         fns: &VkAsFns,
@@ -12744,6 +12801,7 @@ impl VkAsManager {
         memprops: &PhysicalDeviceMemoryProperties,
         scene: &RayQuerySceneDesc<'_>,
         transforms: Option<&[[f32; 12]]>,
+        updatable_blas: &[u32],
     ) -> Result<(), String> {
         let buf_addr = |buffer: VkBuffer| -> u64 {
             let info = BufferDeviceAddressInfo {
@@ -12763,6 +12821,7 @@ impl VkAsManager {
         let mut blas_addrs: Vec<u64> = Vec::with_capacity(scene.blas_triangles.len());
         for (bi, tris) in scene.blas_triangles.iter().enumerate() {
             let prim_count = (tris.len() / 9) as u32;
+            let blas_updatable = updatable_blas.contains(&(bi as u32));
             let mut entry = VkBlasEntry {
                 vbuf: VK_NULL_HANDLE,
                 vmem: VK_NULL_HANDLE,
@@ -12788,12 +12847,21 @@ impl VkAsManager {
                     first_vertex: 0,
                     transform_offset: 0,
                 },
+                updatable: blas_updatable,
             };
             // 顶点缓冲（host-visible + device addr,BLAS 三角形几何输入）。
+            // G31+ 波 B Task B5:updatable BLAS 附 TRANSFER_DST（蒙皮顶点逐帧经
+            // vkCmdCopyBuffer 桥接写入;usage 为能力位,不入 AS 内容——静态面
+            // 不置位,与创建面逐字同）。
             let vbytes: Vec<u8> = tris.iter().flat_map(|f| f.to_le_bytes()).collect();
             let vusage = BUFFER_USAGE_SHADER_DEVICE_ADDRESS
                 | BUFFER_USAGE_ACCEL_STRUCTURE_BUILD_INPUT_READ_ONLY
-                | BUFFER_USAGE_STORAGE_BUFFER;
+                | BUFFER_USAGE_STORAGE_BUFFER
+                | if blas_updatable {
+                    BUFFER_USAGE_TRANSFER_DST
+                } else {
+                    0
+                };
             match Self::mk_buffer(
                 fns,
                 device,
@@ -12835,7 +12903,13 @@ impl VkAsManager {
                 ty: ACCEL_STRUCTURE_TYPE_BOTTOM_LEVEL,
                 // G14plus RFC-0030 §4.8 bisect 探针:临时回退 flags=0 归因
                 // bistro digest 漂移(PREFER_FAST_TRACE 共面 tie-break 嫌疑)。
-                flags: 0,
+                // G31+ 波 B Task B5:updatable BLAS 附 ALLOW_UPDATE(逐帧顶点
+                // refit 的 spec 前提;静态 BLAS 维持 flags=0 基线不变)。
+                flags: if blas_updatable {
+                    BUILD_ACCEL_STRUCTURE_ALLOW_UPDATE_BIT
+                } else {
+                    0
+                },
                 mode: BUILD_ACCEL_STRUCTURE_MODE_BUILD,
                 src_acceleration_structure: VK_NULL_HANDLE,
                 dst_acceleration_structure: VK_NULL_HANDLE,
@@ -12898,7 +12972,16 @@ impl VkAsManager {
                 fns,
                 device,
                 memprops,
-                blas_sizes.build_scratch_size,
+                // G31+ 波 B Task B5:updatable BLAS 的 scratch 须同时容纳
+                // UPDATE build(TLAS 创建面 .max(update) 同律;静态 BLAS 维持
+                // build_scratch_size 原值不变)。
+                if blas_updatable {
+                    blas_sizes
+                        .build_scratch_size
+                        .max(blas_sizes.update_scratch_size)
+                } else {
+                    blas_sizes.build_scratch_size
+                },
                 scratch_usage,
                 false,
                 true,
@@ -12982,6 +13065,9 @@ impl VkAsManager {
             }
         }
         Self::upload(fns, device, m.imem, &ibytes);
+        // G31+ Task A4：槽位级增量更新的影子基准 = 创建期初始上传字节（此后
+        // write_transforms 逐槽 diff，仅脏槽上传）。
+        m.instance_shadow = ibytes;
         let ibuf_addr = buf_addr(m.ibuf);
 
         // ── TLAS 几何 + build sizes ──
@@ -13148,12 +13234,17 @@ impl VkAsManager {
 
     /// 更新 host-visible instance buffer 的显式行主 3×4 transforms。实例拓扑/BLAS 引用
     /// 保持不变，因此下一次可真实录制 UPDATE/refit；数量变化须走 rebuild/new manager。
+    ///
+    /// G31+ 波 A Task A4 槽位级增量语义：逐 64B 槽与 `instance_shadow`（host 影子，
+    /// 与 GPU 侧内容恒同步）diff，**仅内容变化的槽位**经 offset map 上传（动态场景
+    /// 逐帧更新只触动态实例槽位，静态实例槽位零字节触碰；调用方仍传全量实例表，
+    /// 槽位选择由内容 diff 承载——API 面 0-byte）。返回实际上传字节数（诊断/证据面）。
     pub(crate) unsafe fn write_transforms(
         &mut self,
         fns: &VkAsFns,
         device: VkDevice,
         instances: &[RayQueryTransformedInstanceDesc],
-    ) -> Result<(), String> {
+    ) -> Result<u64, String> {
         if instances.len() != self.instance_count {
             return Err(format!(
                 "TLAS transform update instance 数 {} != persistent {}(须 rebuild)",
@@ -13168,7 +13259,8 @@ impl VkAsManager {
         {
             return Err("TLAS transform update 含 NaN/inf(fail-closed)".into());
         }
-        let mut bytes = Vec::with_capacity(instances.len() * std::mem::size_of::<AccelInstance>());
+        let slot_size = std::mem::size_of::<AccelInstance>();
+        let mut bytes = Vec::with_capacity(instances.len() * slot_size);
         for instance in instances {
             let raw = AccelInstance {
                 transform: instance.transform,
@@ -13186,8 +13278,44 @@ impl VkAsManager {
                 std::mem::size_of::<AccelInstance>(),
             ));
         }
-        Self::upload(fns, device, self.imem, &bytes);
-        Ok(())
+        // 影子长度守卫：创建期已初始化（长度 = instance_count×slot_size）；不等长属
+        // 内部不变量破缺，回退整段上传并重置影子（不静默——如实走全量面）。
+        let mut uploaded = 0u64;
+        if self.instance_shadow.len() == bytes.len() {
+            for slot in 0..instances.len() {
+                let lo = slot * slot_size;
+                let hi = lo + slot_size;
+                if self.instance_shadow[lo..hi] != bytes[lo..hi] {
+                    Self::upload_at(fns, device, self.imem, lo as u64, &bytes[lo..hi]);
+                    self.instance_shadow[lo..hi].copy_from_slice(&bytes[lo..hi]);
+                    uploaded += slot_size as u64;
+                }
+            }
+        } else {
+            Self::upload(fns, device, self.imem, &bytes);
+            self.instance_shadow = bytes;
+            uploaded = self.instance_shadow.len() as u64;
+        }
+        Ok(uploaded)
+    }
+
+    /// host-visible+coherent 内存区段写入（offset 对齐 64B 槽界；G31+ Task A4 槽位级
+    /// 增量上传面——与 [`Self::upload`] 同一 map/copy/unmap 事实源，仅 offset 参数化）。
+    unsafe fn upload_at(
+        fns: &VkAsFns,
+        device: VkDevice,
+        mem: VkDeviceMemory,
+        offset: u64,
+        bytes: &[u8],
+    ) {
+        let mut ptr: *mut c_void = std::ptr::null_mut();
+        (fns.map_mem)(device, mem, offset, bytes.len() as u64, 0, &mut ptr);
+        if !ptr.is_null() {
+            // SAFETY: mem host-visible+coherent,[offset, offset+bytes.len()) 为 buffer
+            // 内有效区段（槽界由调用方按 size_of::<AccelInstance>() 派生）;逐字节写入后 unmap。
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr as *mut u8, bytes.len());
+            (fns.unmap_mem)(device, mem);
+        }
     }
 
     fn instance_blas_address(&self, blas: u32) -> Result<u64, String> {
@@ -13226,6 +13354,50 @@ impl VkAsManager {
             generation: self.generation,
             action: self.last_action,
         }
+    }
+
+    /// 逐帧 BLAS 顶点 refit(G31+ 波 B Task B5 蒙皮通路):录制 UPDATE 模式
+    /// build(src=dst=同一 handle,原地 refit;顶点数据 = 调用方先行写入的
+    /// vbuf 新内容,顶点数/拓扑不变——refit 合法域)。`blas_index` 越界或目标
+    /// 非 updatable(创建期 `create_scene_ex` 未打标)→ 确定性 `Err`
+    /// (fail-closed;ALLOW_UPDATE 缺席下 UPDATE build 属 spec 违例,不静默
+    /// 放行)。调用方随后仍须 [`Self::record_consume_barrier`] 建立
+    /// AS_WRITE→AS_READ;generation 记账与 TLAS update 同律。
+    pub(crate) unsafe fn record_blas_refit(
+        &mut self,
+        fns: &VkAsFns,
+        cmd: VkCommandBuffer,
+        blas_index: u32,
+    ) -> Result<TlasGenerationReport, String> {
+        let Some(entry) = self.blases.get_mut(blas_index as usize) else {
+            return Err(format!(
+                "BLAS refit 下标 {blas_index} 越界(BLAS 数 {})",
+                self.blases.len()
+            ));
+        };
+        if !entry.updatable || entry.handle == VK_NULL_HANDLE {
+            return Err(format!(
+                "BLAS[{blas_index}] 非 updatable 创建面(创建期 ALLOW_UPDATE 缺席,fail-closed)"
+            ));
+        }
+        entry.bgi.mode = BUILD_ACCEL_STRUCTURE_MODE_UPDATE;
+        entry.bgi.src_acceleration_structure = entry.handle;
+        entry.bgi.dst_acceleration_structure = entry.handle;
+        let range: *const AccelBuildRangeInfo = &entry.range;
+        (fns.cmd_build_as)(cmd, 1, &entry.bgi, &range);
+        self.generation = self.generation.saturating_add(1);
+        self.last_action = TlasBuildAction::Refit;
+        Ok(self.generation_report())
+    }
+
+    /// BLAS 顶点缓冲句柄(只读暴露;G31+ 波 B Task B5 蒙皮桥接的 copy 目标
+    /// 面——所有权/销毁仍归本 manager,caller 不得 destroy)。
+    pub(crate) fn blas_vertex_buffer(&self, blas_index: u32) -> Result<VkBuffer, String> {
+        self.blases
+            .get(blas_index as usize)
+            .map(|entry| entry.vbuf)
+            .filter(|&b| b != VK_NULL_HANDLE)
+            .ok_or_else(|| format!("BLAS[{blas_index}] 顶点缓冲缺失(建面漏网)"))
     }
 
     /// 录制 TLAS build → 消费 stage 读屏障(`dst_stage` = RT pipeline 路
@@ -16780,7 +16952,33 @@ pub fn m50_incremental_spv() -> M50IncrementalSpv {
     }
 }
 
+/// G31+ 波 C Task C15 RT pipeline 宿主车道镜像语料嵌入(RFC-0048 §6;
+/// **hand-emitted,非 .rx 编译产物,不充 .rx codegen 绿**——PR-3 转正即替换)。
+pub struct G31RtSlabSpv {
+    pub slab_miss: &'static [u8],
+    pub slab_closesthit: &'static [u8],
+    pub ser_raygen_noreorder: &'static [u8],
+    pub ser_raygen_reorder: &'static [u8],
+}
+
+pub fn g31_rt_slab_spv() -> G31RtSlabSpv {
+    G31RtSlabSpv {
+        slab_miss: include_bytes!(concat!(env!("OUT_DIR"), "/g31_rt_slab_miss.spv")),
+        slab_closesthit: include_bytes!(concat!(env!("OUT_DIR"), "/g31_rt_slab_closesthit.spv")),
+        ser_raygen_noreorder: include_bytes!(concat!(
+            env!("OUT_DIR"),
+            "/g31_ser_raygen_noreorder.spv"
+        )),
+        ser_raygen_reorder: include_bytes!(concat!(env!("OUT_DIR"), "/g31_ser_raygen_reorder.spv")),
+    }
+}
+
 include!("vk_m50_rt_body.rs");
+
+// ── G31+ 波 C Task C15:SER(Shader Execution Reordering)workload device 入口
+//    (RFC-0048 §4.8;VK_NV_ray_tracing_invocation_reorder 臂;U30 扩注同界;
+//    既有 vk 全部入口 0-byte)──
+include!("vk_g31_ser_body.rs");
 
 #[cfg(test)]
 mod tests {
@@ -23166,12 +23364,13 @@ impl ClasCapabilityReport {
             self.extension_present,
             self.cluster_acceleration_structure,
             self.missing.join(","),
-            self.validation_layer_spec_version.map_or("none".to_string(), |v| format!(
-                "{}.{}.{}",
-                v >> 22,
-                (v >> 12) & 0x3ff,
-                v & 0xfff
-            )),
+            self.validation_layer_spec_version
+                .map_or("none".to_string(), |v| format!(
+                    "{}.{}.{}",
+                    v >> 22,
+                    (v >> 12) & 0x3ff,
+                    v & 0xfff
+                )),
         )
     }
 }
@@ -23253,8 +23452,10 @@ fn validation_layer_spec_version(gipa: FnGetInstanceProcAddr) -> Option<u32> {
     // Vulkan 1.0 core 全局命令(null instance 取址),两阶段 count/数组调用,缓冲
     // 长度由首轮 count 裁定,不越界;layer_name 为驱动写入的 NUL 结尾 C 串(≤256B)。
     unsafe {
-        let enumerate: FnEnumerateInstanceLayerPropertiesClas =
-            cast_fn(gipa(std::ptr::null_mut(), c"vkEnumerateInstanceLayerProperties".as_ptr()))?;
+        let enumerate: FnEnumerateInstanceLayerPropertiesClas = cast_fn(gipa(
+            std::ptr::null_mut(),
+            c"vkEnumerateInstanceLayerProperties".as_ptr(),
+        ))?;
         let mut count = 0u32;
         if enumerate(&mut count, std::ptr::null_mut()) != VK_SUCCESS || count == 0 {
             return None;
@@ -25943,7 +26144,10 @@ unsafe fn run_execution_set_inner(
         })
         .collect();
     vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
-    let qfi = match qfs.iter().position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0) {
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+    {
         Some(i) => i as u32,
         None => bail!("无 graphics queue family".into()),
     };
@@ -25980,7 +26184,15 @@ unsafe fn run_execution_set_inner(
         bail!("vkCreateDevice 失败(DGC 扩展/feature 启用)".into());
     }
 
-    let mut out = exec_set_body(vk_get_device_proc, device, pd, vk_get_mem, qfi, scene, &dgc_props);
+    let mut out = exec_set_body(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        scene,
+        &dgc_props,
+    );
     if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
         out = Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(fail-closed,L3)".into());
     }
@@ -26047,8 +26259,10 @@ unsafe fn exec_set_body(
         dp!(c"vkGetBufferDeviceAddress", FnGetBufferDeviceAddress);
     let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
     let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
-    let img_mem_req: FnGetImageMemoryRequirements =
-        dp!(c"vkGetImageMemoryRequirements", FnGetImageMemoryRequirements);
+    let img_mem_req: FnGetImageMemoryRequirements = dp!(
+        c"vkGetImageMemoryRequirements",
+        FnGetImageMemoryRequirements
+    );
     let bind_image: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
     let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
     let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
@@ -27046,5 +27260,641 @@ mod m106_exec_set_tests {
         assert_eq!(&stream[16..20], &0u32.to_le_bytes(), "seq0 firstInstance=0");
         assert_eq!(&stream[20..24], &1u32.to_le_bytes(), "seq1 set_index=1");
         assert_eq!(&stream[36..40], &1u32.to_le_bytes(), "seq1 firstInstance=1");
+    }
+}
+
+// ─────────────── G31+ 波 C Task C3:统一设备能力探测聚合面(设备兼容矩阵与能力降级链系统化) ───────────────
+// **U56/U57 探测段同体例**:本段只建 instance,不建 device/queue/命令句柄——探测产物 =
+// safe 能力快照 [`DeviceCapabilityReport`](逐物理设备一份,JSON 经
+// `bin/vk_capability_report` 聚合 DLSS/FSR/TSR 三后端可用性后统一输出,
+// `milestones/g31/g31_compatibility_matrix.json` 的 measured 事实源)。
+//
+// 聚合面(现分散各处的探测逻辑找齐并聚合,不重复造):
+// - 设备身份(vendorID/deviceID/deviceName/deviceType/api/driver):
+//   `VkPhysicalDeviceProperties` 首 276 字节定长段(blob 严格超集,镜像
+//   [`ClasDevicePropsBlob`] 纪律;`PsoPropertiesBlob` 同布局先例)。
+// - 扩展在位闭集:`vkEnumerateDeviceExtensionProperties` 全量枚举(存在性事实),
+//   判据消费面 = VK_KHR_ray_query / VK_KHR_ray_tracing_pipeline /
+//   VK_KHR_acceleration_structure / VK_KHR_deferred_host_operations /
+//   VK_KHR_buffer_device_address / VK_EXT_mesh_shader / VK_EXT_descriptor_buffer /
+//   VK_KHR_synchronization2 / VK_EXT_memory_budget。
+// - feature 链(`vkGetPhysicalDeviceFeatures2` 单链,扩展缺失对应 feature 恒 0,
+//   链式查询合法——spec:不支持扩展的 feature 结构读回 FALSE):rayQuery /
+//   rayTracingPipeline / accelerationStructure / taskShader / meshShader /
+//   descriptorBuffer / timelineSemaphore(1.2 core)/ synchronization2(1.3 core)/
+//   bufferDeviceAddress(1.2 core)/ shaderInt64(1.0 core `VkPhysicalDeviceFeatures`
+//   第 41 字段,0 基——`FEATURE_SAMPLER_ANISOTROPY=19`/
+//   `FEATURE_FRAGMENT_STORES_AND_ATOMICS=26` 两既有锚同序核对)。
+// - descriptor 面上限:`VkPhysicalDeviceLimits`(@ props blob 296;镜像
+//   `PsoPropertiesBlob` "limits@296 align8" 注释实测)——
+//   maxPerStageDescriptorStorageBuffers @ +76 / maxPerStageDescriptorSampledImages
+//   @ +80(vulkan_core.h `VkPhysicalDeviceLimits` 字段序:11×u32 + pad +
+//   2×VkDeviceSize + maxBoundDescriptorSets 起第五项/第六项)。
+// - 显存 budget:`vkGetPhysicalDeviceMemoryProperties`(1.0 core)DEVICE_LOCAL
+//   heap 求和 + `VK_EXT_memory_budget` 在位时 `vkGetPhysicalDeviceMemoryProperties2`
+//   挂 `VkPhysicalDeviceMemoryBudgetPropertiesEXT` 读 heapBudget(缺失 = None 如实)。
+//
+// 既有分散探测面(不重复造,消费关系):`probe_cluster_acceleration_structure`
+// (CLAS NV 面)/ `probe_execution_set_capability`(DGC/ExecutionSet 面)维持各自
+// harness 专用,本段 = 通用生产车道判据面(HZB/ReSTIR/slab/纹理/蒙皮/FG/超分臂
+// 降级链裁决的事实源,rurix-render `capability_matrix` 模块的镜像输入)。
+
+/// `VK_EXT_memory_budget` 设备扩展名(heapBudget/heapUsage 查询面)。
+const EXT_MEMORY_BUDGET: &CStr = c"VK_EXT_memory_budget";
+
+// sType(VK_KHR_timeline_semaphore 扩展号 207 → 1.2 core 收编编号不变;
+// VK_KHR_synchronization2 扩展号 314 → 1.3 core 收编编号不变;
+// VK_KHR_buffer_device_address 扩展号 257 → 1.2 core 收编编号不变;
+// 经 SDK 1.3.296 `vulkan_core.h` 逐值核对)。
+const ST_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES: u32 = 1_000_207_000;
+const ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES: u32 = 1_000_314_007;
+const ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_CAP: u32 = 1_000_257_000;
+const ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2: u32 = 1_000_059_006;
+const ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT: u32 = 1_000_237_000;
+
+/// `VkPhysicalDeviceTimelineSemaphoreFeatures`(1.2 core;单 feature bit)。
+#[repr(C)]
+struct PhysicalDeviceTimelineSemaphoreFeatures {
+    s_type: u32,
+    p_next: *mut c_void,
+    timeline_semaphore: VkBool32,
+}
+
+/// `VkPhysicalDeviceSynchronization2Features`(1.3 core;单 feature bit)。
+#[repr(C)]
+struct PhysicalDeviceSynchronization2Features {
+    s_type: u32,
+    p_next: *mut c_void,
+    synchronization2: VkBool32,
+}
+
+/// `shaderInt64` 在 `VkPhysicalDeviceFeatures` 的 0 基字段序(vulkan_core.h 逐字段数;
+/// 与既有锚 `FEATURE_SAMPLER_ANISOTROPY=19`/`FEATURE_FRAGMENT_STORES_AND_ATOMICS=26`
+/// 同序)。
+const FEATURE_SHADER_INT64: usize = 41;
+
+/// `VkPhysicalDeviceLimits` 在 props blob 内的基址(vulkan_core.h:apiVersion@0 …
+/// pipelineCacheUUID[16]@276 止 @292,limits 含 VkDeviceSize → 8 对齐 @296;
+/// `PsoPropertiesBlob` 注释 "limits@296 align8 兼容" 同源实测)。
+const CAP_LIMITS_BASE: usize = 296;
+/// `maxPerStageDescriptorStorageBuffers` 在 limits 内偏移(11×u32=44 → pad 8 →
+/// 2×VkDeviceSize=16 → maxBoundDescriptorSets@64,其后 samplers/uniform/storage/
+/// sampled 顺排:+68/+72/+76/+80)。
+const CAP_LIMITS_OFF_STORAGE_BUFFERS: usize = 76;
+/// `maxPerStageDescriptorSampledImages` 在 limits 内偏移(同上字段序)。
+const CAP_LIMITS_OFF_SAMPLED_IMAGES: usize = 80;
+
+/// `VkPhysicalDeviceMemoryBudgetPropertiesEXT`(sType/pNext + heapBudget[16] u64
+/// + heapUsage[16] u64;VK_MAX_MEMORY_HEAPS=16)。
+#[repr(C)]
+struct PhysicalDeviceMemoryBudgetPropertiesEXT {
+    s_type: u32,
+    p_next: *mut c_void,
+    heap_budget: [u64; 16],
+    heap_usage: [u64; 16],
+}
+
+/// `VkPhysicalDeviceMemoryProperties2`(1.1 core;head + memoryProperties 同 1.0 布局)。
+#[repr(C)]
+struct PhysicalDeviceMemoryProperties2Cap {
+    s_type: u32,
+    p_next: *mut c_void,
+    memory_properties: PhysicalDeviceMemoryProperties,
+}
+
+/// 同 `vkGetPhysicalDeviceMemoryProperties2` 签名(instance 级取址;1.1 core)。
+type FnGetPhysicalDeviceMemoryProperties2Cap =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceMemoryProperties2Cap);
+
+/// 单物理设备能力快照(G31+ 波 C Task C3 兼容矩阵 measured 事实面;全字段为驱动
+/// 真值,**非 stable**——不进 canonical 产物/golden,沿 RXS-0351 L9 同律)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceCapabilityReport {
+    /// 物理设备名(驱动写入,NUL 结尾)。
+    pub device_name: String,
+    /// `VkPhysicalDeviceProperties::vendorID`(0x10DE=NVIDIA / 0x1002=AMD / 0x8086=Intel)。
+    pub vendor_id: u32,
+    /// `VkPhysicalDeviceProperties::deviceID`。
+    pub device_id: u32,
+    /// `VkPhysicalDeviceProperties::deviceType`(2=discrete 等,原值登记)。
+    pub device_type: u32,
+    /// `VkPhysicalDeviceProperties::apiVersion`(Vulkan 打包值原样)。
+    pub api_version: u32,
+    /// `VkPhysicalDeviceProperties::driverVersion`(打包值原样)。
+    pub driver_version: u32,
+    /// 设备扩展枚举全量名表(字节序排序;存在性事实)。
+    pub extensions: Vec<String>,
+    /// `rayQuery`(VK_KHR_ray_query feature bit;扩展缺失恒 false)。
+    pub ray_query: bool,
+    /// `rayTracingPipeline`。
+    pub ray_tracing_pipeline: bool,
+    /// `accelerationStructure`。
+    pub acceleration_structure: bool,
+    /// `taskShader`(VK_EXT_mesh_shader)。
+    pub task_shader: bool,
+    /// `meshShader`。
+    pub mesh_shader: bool,
+    /// `descriptorBuffer`(VK_EXT_descriptor_buffer)。
+    pub descriptor_buffer: bool,
+    /// `timelineSemaphore`(1.2 core)。
+    pub timeline_semaphore: bool,
+    /// `synchronization2`(1.3 core)。
+    pub synchronization2: bool,
+    /// `bufferDeviceAddress`(1.2 core)。
+    pub buffer_device_address: bool,
+    /// `shaderInt64`(1.0 core 第 41 字段)。
+    pub shader_int64: bool,
+    /// `VK_EXT_memory_budget` 扩展在位(预算查询面)。
+    pub memory_budget_ext: bool,
+    /// `maxPerStageDescriptorSampledImages`(limits 真值)。
+    pub max_per_stage_descriptor_sampled_images: u32,
+    /// `maxPerStageDescriptorStorageBuffers`(limits 真值)。
+    pub max_per_stage_descriptor_storage_buffers: u32,
+    /// DEVICE_LOCAL heap size 求和(显存容量基线,字节)。
+    pub device_local_heap_bytes: u64,
+    /// `heapBudget`(首个 DEVICE_LOCAL heap;扩展缺失 = None 如实登记)。
+    pub vram_budget_bytes: Option<u64>,
+}
+
+impl DeviceCapabilityReport {
+    /// 单设备快照 → 确定性 JSON 对象段(键序固定、UTF-8、LF;无路径/时间戳,
+    /// RXS-0305 同律;供 `bin/vk_capability_report` 聚合 devices[] 数组)。
+    pub fn to_json(&self) -> String {
+        let mut s = String::new();
+        s.push_str("{\n");
+        s.push_str(&format!(
+            "    \"device_name\": \"{}\",\n",
+            cap_json_escape(&self.device_name)
+        ));
+        s.push_str(&format!("    \"vendor_id\": {},\n", self.vendor_id));
+        s.push_str(&format!("    \"device_id\": {},\n", self.device_id));
+        s.push_str(&format!("    \"device_type\": {},\n", self.device_type));
+        s.push_str(&format!("    \"api_version\": {},\n", self.api_version));
+        s.push_str(&format!(
+            "    \"driver_version\": {},\n",
+            self.driver_version
+        ));
+        s.push_str("    \"extensions\": [");
+        for (i, e) in self.extensions.iter().enumerate() {
+            s.push_str(&format!(
+                "{}\"{}\"",
+                if i == 0 { "" } else { ", " },
+                cap_json_escape(e)
+            ));
+        }
+        s.push_str("],\n");
+        s.push_str("    \"features\": {\n");
+        s.push_str(&format!("      \"rayQuery\": {},\n", self.ray_query));
+        s.push_str(&format!(
+            "      \"rayTracingPipeline\": {},\n",
+            self.ray_tracing_pipeline
+        ));
+        s.push_str(&format!(
+            "      \"accelerationStructure\": {},\n",
+            self.acceleration_structure
+        ));
+        s.push_str(&format!("      \"taskShader\": {},\n", self.task_shader));
+        s.push_str(&format!("      \"meshShader\": {},\n", self.mesh_shader));
+        s.push_str(&format!(
+            "      \"descriptorBuffer\": {},\n",
+            self.descriptor_buffer
+        ));
+        s.push_str(&format!(
+            "      \"timelineSemaphore\": {},\n",
+            self.timeline_semaphore
+        ));
+        s.push_str(&format!(
+            "      \"synchronization2\": {},\n",
+            self.synchronization2
+        ));
+        s.push_str(&format!(
+            "      \"bufferDeviceAddress\": {},\n",
+            self.buffer_device_address
+        ));
+        s.push_str(&format!("      \"shaderInt64\": {}\n", self.shader_int64));
+        s.push_str("    },\n");
+        s.push_str("    \"limits\": {\n");
+        s.push_str(&format!(
+            "      \"maxPerStageDescriptorSampledImages\": {},\n",
+            self.max_per_stage_descriptor_sampled_images
+        ));
+        s.push_str(&format!(
+            "      \"maxPerStageDescriptorStorageBuffers\": {}\n",
+            self.max_per_stage_descriptor_storage_buffers
+        ));
+        s.push_str("    },\n");
+        s.push_str("    \"memory\": {\n");
+        s.push_str(&format!(
+            "      \"deviceLocalHeapBytes\": {},\n",
+            self.device_local_heap_bytes
+        ));
+        s.push_str(&format!(
+            "      \"memoryBudgetExt\": {},\n",
+            self.memory_budget_ext
+        ));
+        match self.vram_budget_bytes {
+            Some(b) => s.push_str(&format!("      \"vramBudgetBytes\": {b}\n")),
+            None => s.push_str("      \"vramBudgetBytes\": null\n"),
+        }
+        s.push_str("    }\n");
+        s.push_str("  }");
+        s
+    }
+}
+
+/// JSON 串转义(与 `capability_check::json_escape` 同一防御面;本模块自持有副本)。
+fn cap_json_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// 统一设备能力探测聚合面(G31+ 波 C Task C3):枚举全部物理设备,逐设备产
+/// [`DeviceCapabilityReport`](instance 单点 create/destroy;无 loader/无设备 →
+/// 确定性 `Err`,dev-env degrade 由调用方三态裁决,不冒充)。
+pub fn probe_device_capability() -> Result<Vec<DeviceCapabilityReport>, String> {
+    let gipa = load_vulkan_loader()
+        .ok_or("vulkan loader 不可用(vulkan-1.dll/libvulkan.so 缺失;dev-env degrade)")?;
+    // SAFETY: gipa 经 U26 loader 成功装载;调用的均为 Vulkan 1.0/1.1/1.2 core 已知
+    // ABI 符号(instance 级),句柄线性 create/destroy 配对。
+    unsafe { probe_device_capability_inner(gipa) }
+}
+
+/// [`probe_device_capability`] 的 unsafe 本体(句柄:instance 单点 create/destroy;
+/// 每个 early-return 同走销毁,无泄漏)。
+unsafe fn probe_device_capability_inner(
+    gipa: FnGetInstanceProcAddr,
+) -> Result<Vec<DeviceCapabilityReport>, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-rt-cap-probe".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    if vk_create_instance(&ici, std::ptr::null(), &mut instance) != VK_SUCCESS {
+        return Err("vkCreateInstance 失败".into());
+    }
+    let out = probe_capability_on_instance(gipa, instance);
+    let destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr()));
+    if let Some(di) = destroy_instance {
+        di(instance, std::ptr::null());
+    }
+    out
+}
+
+/// instance 级聚合探测本体(逐物理设备:身份/扩展/feature 链/limits/显存 budget)。
+unsafe fn probe_capability_on_instance(
+    gipa: FnGetInstanceProcAddr,
+    instance: VkInstance,
+) -> Result<Vec<DeviceCapabilityReport>, String> {
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_props: FnGetPhysicalDevicePropertiesClas =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+    let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2")?;
+    let enum_dev_ext: FnEnumerateDeviceExtensionProperties = cast_fn(gipa(
+        instance,
+        c"vkEnumerateDeviceExtensionProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkEnumerateDeviceExtensionProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_get_mem2: Option<FnGetPhysicalDeviceMemoryProperties2Cap> = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties2".as_ptr(),
+    ));
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+
+    let mut reports = Vec::with_capacity(pds.len());
+    for pd in pds {
+        // ── 设备身份(blob 为真实结构 2048B 严格超集,防越界写)──
+        let mut props_blob = ClasDevicePropsBlob {
+            api_version: 0,
+            driver_version: 0,
+            vendor_id: 0,
+            device_id: 0,
+            device_type: 0,
+            device_name: [0; 256],
+            _rest: [0; 2048 - 276],
+        };
+        vk_get_props(pd, &mut props_blob);
+        // SAFETY: device_name 为驱动写入的 NUL 结尾 C 串(定长 256 字段内)。
+        let device_name = CStr::from_ptr(props_blob.device_name.as_ptr())
+            .to_string_lossy()
+            .into_owned();
+
+        // ── 扩展枚举(存在性事实全量,字节序排序)──
+        let mut ext_count = 0u32;
+        enum_dev_ext(pd, std::ptr::null(), &mut ext_count, std::ptr::null_mut());
+        let mut ext_props = vec![
+            ExtensionProperties {
+                extension_name: [0; 256],
+                spec_version: 0,
+            };
+            ext_count as usize
+        ];
+        enum_dev_ext(pd, std::ptr::null(), &mut ext_count, ext_props.as_mut_ptr());
+        let mut extensions: Vec<String> = ext_props
+            .iter()
+            .take(ext_count as usize)
+            .map(|e| {
+                // SAFETY: extension_name 为驱动写入的 NUL 结尾 C 串(≤256 字节)。
+                CStr::from_ptr(e.extension_name.as_ptr())
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        extensions.sort();
+        let has_ext = |name: &CStr| {
+            ext_props.iter().take(ext_count as usize).any(|e| {
+                // SAFETY: 同上 NUL 结尾契约。
+                CStr::from_ptr(e.extension_name.as_ptr()) == name
+            })
+        };
+        let memory_budget_ext = has_ext(EXT_MEMORY_BUDGET);
+
+        // ── feature 链(单链九节点;扩展缺席对应 feature 读回 0,链式查询合法)──
+        let mut feat_tl = PhysicalDeviceTimelineSemaphoreFeatures {
+            s_type: ST_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+            p_next: std::ptr::null_mut(),
+            timeline_semaphore: 0,
+        };
+        let mut feat_sync2 = PhysicalDeviceSynchronization2Features {
+            s_type: ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+            p_next: &mut feat_tl as *mut _ as *mut c_void,
+            synchronization2: 0,
+        };
+        let mut feat_bda = PhysicalDeviceBufferDeviceAddressFeatures {
+            s_type: ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_CAP,
+            p_next: &mut feat_sync2 as *mut _ as *mut c_void,
+            buffer_device_address: 0,
+            buffer_device_address_capture_replay: 0,
+            buffer_device_address_multi_device: 0,
+        };
+        let mut feat_as = PhysicalDeviceAccelerationStructureFeatures {
+            s_type: ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+            p_next: &mut feat_bda as *mut _ as *mut c_void,
+            acceleration_structure: 0,
+            acceleration_structure_capture_replay: 0,
+            acceleration_structure_indirect_build: 0,
+            acceleration_structure_host_commands: 0,
+            descriptor_binding_acceleration_structure_update_after_bind: 0,
+        };
+        let mut feat_rtp = PhysicalDeviceRayTracingPipelineFeatures {
+            s_type: ST_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+            p_next: &mut feat_as as *mut _ as *mut c_void,
+            ray_tracing_pipeline: 0,
+            ray_tracing_pipeline_shader_group_handle_capture_replay: 0,
+            ray_tracing_pipeline_shader_group_handle_capture_replay_mixed: 0,
+            ray_tracing_pipeline_trace_rays_indirect: 0,
+            ray_traversal_primitive_culling: 0,
+        };
+        let mut feat_rq = PhysicalDeviceRayQueryFeatures {
+            s_type: ST_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+            p_next: &mut feat_rtp as *mut _ as *mut c_void,
+            ray_query: 0,
+        };
+        let mut feat_mesh = PhysicalDeviceMeshShaderFeatures {
+            s_type: ST_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+            p_next: &mut feat_rq as *mut _ as *mut c_void,
+            task_shader: 0,
+            mesh_shader: 0,
+            multiview_mesh_shader: 0,
+            primitive_fragment_shading_rate_mesh_shader: 0,
+            mesh_shader_queries: 0,
+        };
+        let mut feat_db = PhysicalDeviceDescriptorBufferFeatures {
+            s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT,
+            p_next: &mut feat_mesh as *mut _ as *mut c_void,
+            descriptor_buffer: 0,
+            descriptor_buffer_capture_replay: 0,
+            descriptor_buffer_image_layout_ignored: 0,
+            descriptor_buffer_push_descriptors: 0,
+        };
+        let mut feats2 = PhysicalDeviceFeatures2 {
+            s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+            p_next: &mut feat_db as *mut _ as *mut c_void,
+            features: std::mem::zeroed(),
+        };
+        vk_get_features2(pd, &mut feats2);
+
+        // ── limits(props blob 显式偏移;布局锚单测钉死)──
+        // SAFETY: props_blob 2048B 严格超集,limits 段 @296 + 偏移 ≤ 80 + 4B
+        // 在真实结构(VkPhysicalDeviceProperties ~824B)范围内;逐字节对齐 u32 读。
+        let max_per_stage_descriptor_storage_buffers = *(props_blob
+            ._rest
+            .as_ptr()
+            .add(CAP_LIMITS_BASE + CAP_LIMITS_OFF_STORAGE_BUFFERS - 276)
+            as *const u32);
+        let max_per_stage_descriptor_sampled_images = *(props_blob
+            ._rest
+            .as_ptr()
+            .add(CAP_LIMITS_BASE + CAP_LIMITS_OFF_SAMPLED_IMAGES - 276)
+            as *const u32);
+
+        // ── 显存(1.0 core heap 求和;budget 扩展在位时 props2 链读 heapBudget)──
+        let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+        vk_get_mem(pd, &mut memprops);
+        let heap_n = (memprops.memory_heap_count as usize).min(16);
+        let mut device_local_heap_bytes = 0u64;
+        let mut first_local_heap: Option<usize> = None;
+        for (i, h) in memprops.memory_heaps.iter().take(heap_n).enumerate() {
+            if h.flags & 0x1 != 0 {
+                device_local_heap_bytes = device_local_heap_bytes.saturating_add(h.size);
+                if first_local_heap.is_none() {
+                    first_local_heap = Some(i);
+                }
+            }
+        }
+        let vram_budget_bytes = if memory_budget_ext {
+            vk_get_mem2.and_then(|get_mem2| {
+                let mut budget = PhysicalDeviceMemoryBudgetPropertiesEXT {
+                    s_type: ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT,
+                    p_next: std::ptr::null_mut(),
+                    heap_budget: [0; 16],
+                    heap_usage: [0; 16],
+                };
+                let mut mp2 = PhysicalDeviceMemoryProperties2Cap {
+                    s_type: ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
+                    p_next: &mut budget as *mut _ as *mut c_void,
+                    memory_properties: std::mem::zeroed(),
+                };
+                get_mem2(pd, &mut mp2);
+                first_local_heap.map(|i| budget.heap_budget[i])
+            })
+        } else {
+            None
+        };
+
+        reports.push(DeviceCapabilityReport {
+            device_name,
+            vendor_id: props_blob.vendor_id,
+            device_id: props_blob.device_id,
+            device_type: props_blob.device_type,
+            api_version: props_blob.api_version,
+            driver_version: props_blob.driver_version,
+            extensions,
+            ray_query: feat_rq.ray_query != 0,
+            ray_tracing_pipeline: feat_rtp.ray_tracing_pipeline != 0,
+            acceleration_structure: feat_as.acceleration_structure != 0,
+            task_shader: feat_mesh.task_shader != 0,
+            mesh_shader: feat_mesh.mesh_shader != 0,
+            descriptor_buffer: feat_db.descriptor_buffer != 0,
+            timeline_semaphore: feat_tl.timeline_semaphore != 0,
+            synchronization2: feat_sync2.synchronization2 != 0,
+            buffer_device_address: feat_bda.buffer_device_address != 0,
+            shader_int64: feats2.features.features[FEATURE_SHADER_INT64] != 0,
+            memory_budget_ext,
+            max_per_stage_descriptor_sampled_images,
+            max_per_stage_descriptor_storage_buffers,
+            device_local_heap_bytes,
+            vram_budget_bytes,
+        });
+    }
+    Ok(reports)
+}
+
+#[cfg(test)]
+mod g31_capability_probe_tests {
+    use super::*;
+
+    /// C3 探测面 FFI 布局锚(blob 严格超集/limits 偏移/feature 字段序/sType 值;
+    /// 经 SDK 1.3.296 `vulkan_core.h` 逐值核对——VkPhysicalDeviceLimits 字段序:
+    /// 11×u32(maxImageDimension1D…maxSamplerAllocationCount)+ pad + 2×VkDeviceSize
+    /// (bufferImageGranularity/sparseAddressSpaceSize)+ maxBoundDescriptorSets@64
+    /// → maxPerStageDescriptor{Samplers,UniformBuffers,StorageBuffers,SampledImages}
+    /// @68/72/76/80;VkPhysicalDeviceFeatures 55×VkBool32 第 41 字段 = shaderInt64
+    /// (与既有锚 FEATURE_SAMPLER_ANISOTROPY=19 / FEATURE_FRAGMENT_STORES_AND_ATOMICS=26
+    /// 同序)。
+    #[test]
+    fn g31_cap_probe_layout_anchors() {
+        assert_eq!(size_of::<ClasDevicePropsBlob>(), 2048);
+        assert_eq!(align_of::<ClasDevicePropsBlob>(), 8);
+        // limits 基址与偏移(props blob _rest 起算 = 绝对偏移 − 276)。
+        assert_eq!(CAP_LIMITS_BASE, 296);
+        assert_eq!(CAP_LIMITS_OFF_STORAGE_BUFFERS, 76);
+        assert_eq!(CAP_LIMITS_OFF_SAMPLED_IMAGES, 80);
+        assert!(CAP_LIMITS_BASE + CAP_LIMITS_OFF_SAMPLED_IMAGES + 4 <= 2048);
+        // shaderInt64 字段序(55 字段 0 基第 41)。
+        assert_eq!(FEATURE_SHADER_INT64, 41);
+        assert!(FEATURE_SHADER_INT64 < PHYSICAL_DEVICE_FEATURE_COUNT);
+        // sType 值锚(扩展号 207/314/257 → core 收编编号不变;059/237 段)。
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+            1_000_207_000
+        );
+        assert_eq!(ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES, 1_000_314_007);
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_CAP,
+            1_000_257_000
+        );
+        assert_eq!(ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2, 1_000_059_006);
+        assert_eq!(
+            ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT,
+            1_000_237_000
+        );
+        // 小结构 size/align 锚(sType@0+pad+pNext@8+bool@16 → 24B align 8)。
+        assert_eq!(size_of::<PhysicalDeviceTimelineSemaphoreFeatures>(), 24);
+        assert_eq!(size_of::<PhysicalDeviceSynchronization2Features>(), 24);
+        assert_eq!(
+            size_of::<PhysicalDeviceMemoryBudgetPropertiesEXT>(),
+            16 + 16 * 8 * 2
+        );
+    }
+
+    /// 报告 JSON 面:键序固定/转义/布尔与 null 形态;双次生成逐字节相等(确定性)。
+    #[test]
+    fn g31_cap_report_json_deterministic() {
+        let report = DeviceCapabilityReport {
+            device_name: "Mock GPU \"X\"".to_owned(),
+            vendor_id: 0x10DE,
+            device_id: 0x2705,
+            device_type: 2,
+            api_version: (1 << 22) | (4 << 12),
+            driver_version: 0x8F3C0,
+            extensions: vec![
+                "VK_KHR_ray_query".to_owned(),
+                "VK_EXT_mesh_shader".to_owned(),
+            ],
+            ray_query: true,
+            ray_tracing_pipeline: true,
+            acceleration_structure: true,
+            task_shader: false,
+            mesh_shader: true,
+            descriptor_buffer: true,
+            timeline_semaphore: true,
+            synchronization2: true,
+            buffer_device_address: true,
+            shader_int64: true,
+            memory_budget_ext: true,
+            max_per_stage_descriptor_sampled_images: 1_048_576,
+            max_per_stage_descriptor_storage_buffers: 1_048_576,
+            device_local_heap_bytes: 12_884_901_888,
+            vram_budget_bytes: Some(10_797_568_000),
+        };
+        let j1 = report.to_json();
+        let j2 = report.to_json();
+        assert_eq!(j1, j2, "双次生成逐字节相等");
+        assert!(j1.contains("\"vendor_id\": 4318"));
+        assert!(
+            j1.contains("\"device_name\": \"Mock GPU \\\"X\\\"\""),
+            "引号转义"
+        );
+        assert!(j1.contains("\"rayQuery\": true"));
+        assert!(j1.contains("\"taskShader\": false"));
+        assert!(j1.contains("\"vramBudgetBytes\": 10797568000"));
+        assert!(j1.contains("\"maxPerStageDescriptorSampledImages\": 1048576"));
+        assert!(!j1.contains('\r'), "LF 行尾零 CR");
+        // null 形态(budget 扩展缺失如实 None)。
+        let mut none_budget = report.clone();
+        none_budget.vram_budget_bytes = None;
+        none_budget.memory_budget_ext = false;
+        let j3 = none_budget.to_json();
+        assert!(j3.contains("\"vramBudgetBytes\": null"));
+        assert!(j3.contains("\"memoryBudgetExt\": false"));
+        // 扩展表空形态(不产 "[,]"/尾逗号)。
+        let mut bare = report.clone();
+        bare.extensions = Vec::new();
+        let j4 = bare.to_json();
+        assert!(j4.contains("\"extensions\": [],"));
     }
 }

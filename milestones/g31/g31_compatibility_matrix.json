@@ -1,0 +1,128 @@
+{
+  "schema": "rurix.g31.compatibility_matrix.v1",
+  "title": "G31+ 波 C Task C3 设备兼容矩阵与能力降级链系统化(G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #50 兑现载体)",
+  "created": "2026-08-25",
+  "wave": "G31+.C",
+  "canonical_doc": "docs/renderer/compatibility_matrix.md(人类可读渲染面;本 JSON = 机器可读规范事实源)",
+  "probe_face": {
+    "report_schema": "rurix.g31.capability_report.v1",
+    "harness": "src/rurix-rt/src/bin/vk_capability_report.rs(required-features vendor-upscale)",
+    "aggregated_probes": [
+      "rurix_rt::vk::probe_device_capability(vk.rs G31 C3 聚合段:逐物理设备身份/扩展/feature 链九节点/descriptor 面上限/显存 heap+budget;U56 探测段同体例不建 device 句柄)",
+      "rurix_rt::vendor_upscale::DlssVkSession::create(320x180→640x360;Streamline 2.10.3 Vulkan interop 臂全链真建;NGX 动态加载 fail-closed)",
+      "rurix_rt::vendor_upscale::FsrDx12Session::create(320x180→640x360;FidelityFX SDK 2.0.0 / FSR 3.1.5 D3D12 臂全链真建)",
+      "TSR 自研恒可用面(kernels/g13_tsr_{resample,resolve}.rx 经 vk::run_compute;需求 = Vulkan compute)"
+    ],
+    "scattered_probe_inventory_note": "既有分散探测面不重复造:vk.rs probe_cluster_acceleration_structure(CLAS NV 面)/ probe_execution_set_capability(DGC/ExecutionSet 面)维持各自 harness 专用;KernelWave W1/W2/W3 capability snapshot 与各 run_* feature 链协商为车道内嵌面;本矩阵消费统一聚合段"
+  },
+  "chain_resolver_normative_source": "src/rurix-render/src/capability_matrix.rs(resolve_chains;fail-closed 单测 mock 覆盖每条链缺失面)",
+  "degradation_chains": [
+    {
+      "chain": "upscale",
+      "ladder": ["dlss_sr", "fsr_3_1_5", "tsr_device"],
+      "requires": "dlss_sr = vendor session 真建事实(Streamline 2.10.3 NGX;NGX 动态加载 fail-closed);fsr_3_1_5 = D3D12 臂 session 真建事实(FSR SDK 2.0.0,厂商中立);tsr_device = 自研恒可用(需求 = Vulkan compute)",
+      "degrade_semantics": "请求档不可用 → 沿梯确定性降档,reason 携带缺失件字面;梯底 tsr_device 恒可选中(by construction 无崩溃/无静默错图)"
+    },
+    {
+      "chain": "hzb",
+      "ladder": ["on", "off"],
+      "requires": "rayQuery + accelerationStructure 双 feature(g31_window_present --hzb on 车道:逐 mesh 节点 BLAS 分解 + kernels/g31_hzb_{primary,shade}.rx 相机射线走 TLAS)",
+      "degrade_semantics": "缺失 → off,高成本如实登记(无遮挡剔除,全量场景渲染成本照实承担;off 画面与 on 位级一致既有面不破坏)"
+    },
+    {
+      "chain": "restir",
+      "ladder": ["restir_high", "megalights_low"],
+      "requires": "effective_vram_bytes ≥ 1073741824(声明阈值 1 GiB,declared 非 measured;reservoir 双带 + offset 表 + 空间重用 8x8 网格快照包络)",
+      "degrade_semantics": "显存不足 → megalights_low(MegaLights 式均匀选灯,RIS M=1 代数恒等语义,g31_restir_wiring --restir off 现状面)"
+    },
+    {
+      "chain": "gi",
+      "ladder": ["on", "off"],
+      "requires": "rayQuery + accelerationStructure 双 feature(kernels/g16_gi_multibounce.rx / g14_3_direct_gi.rx:AccelStruct 形参 + ray_query_initialize)",
+      "degrade_semantics": "缺失 → off(直接光现状语义,如实登记)"
+    },
+    {
+      "chain": "framegen",
+      "ladder": ["x3", "x2", "off"],
+      "requires": "effective_vram_bytes ≥ 536870912(声明阈值 512 MiB,declared 非 measured;prev/cur/mv/out 四 RGBAf32 缓冲 @1080p 约 100MB + 余量;kernels/g26_framegen.rx 纯图像空间 compute)",
+      "degrade_semantics": "显存不足 → off(presented=real 双口径登记面维持,如实登记)"
+    },
+    {
+      "chain": "texture_sampling",
+      "ladder": ["textures", "constant_material"],
+      "requires": "rayQuery + accelerationStructure 双 feature + maxPerStageDescriptorStorageBuffers ≥ 12(kernels/g31_texture_gi.rx:AccelStruct + 基座 7 绑定 + B4 追加 24..=28 五件 SSBO 侧表)",
+      "degrade_semantics": "缺失 → constant_material(textures off 车道现状语义,如实登记)"
+    }
+  ],
+  "cells": [
+    {
+      "cell_id": "nvidia-ada-rtx4070ti",
+      "vendor_id": 4318,
+      "status": "measured",
+      "evidence_level": "measured_local",
+      "measured_at": "2026-08-25",
+      "facts": {
+        "device_name": "NVIDIA GeForce RTX 4070 Ti",
+        "vendor_id": 4318,
+        "device_id": 10114,
+        "device_type": 2,
+        "api_version": 4211039,
+        "driver_version": 2600501248,
+        "ray_query": true,
+        "ray_tracing_pipeline": true,
+        "acceleration_structure": true,
+        "task_shader": true,
+        "mesh_shader": true,
+        "descriptor_buffer": true,
+        "timeline_semaphore": true,
+        "synchronization2": true,
+        "buffer_device_address": true,
+        "shader_int64": true,
+        "memory_budget_ext": true,
+        "max_per_stage_descriptor_sampled_images": 1048576,
+        "max_per_stage_descriptor_storage_buffers": 1048576,
+        "device_local_heap_bytes": 12576620544,
+        "vram_budget_bytes": 11771314176,
+        "dlss_available": true,
+        "fsr_available": true,
+        "tsr_available": true
+      },
+      "full_request_resolution": {
+        "request": "upscale=dlss_sr hzb=on restir=restir_high gi=on framegen=x3 textures=textures(FeatureRequest::full)",
+        "decisions": [
+          {"chain": "upscale", "selected": "dlss_sr", "degraded": false},
+          {"chain": "hzb", "selected": "on", "degraded": false},
+          {"chain": "restir", "selected": "restir_high", "degraded": false},
+          {"chain": "gi", "selected": "on", "degraded": false},
+          {"chain": "framegen", "selected": "x3", "degraded": false},
+          {"chain": "texture_sampling", "selected": "textures", "degraded": false}
+        ],
+        "note": "六链全绿零降级;裁决由 ci/g31_capability_fallback_smoke.py 按镜像律对新鲜报告复算核验(本行 = 2026-08-25 实测格登记)"
+      }
+    },
+    {
+      "cell_id": "amd-desktop",
+      "vendor_id": 4098,
+      "status": "dev_env_degrade",
+      "reason": "AMD 真卡缺硬件(G-MB1-6 尾门 open,MB1 唯一存续尾门);获得硬件后按同一探测面(vk_capability_report + 六链裁决)补测,本格不得以任何 mock/host 模拟冒充 measured",
+      "anchor": "G-MB1-6(获得 AMD 硬件后按 DoD 补证据;G31_PLUS §5 #18/#50)",
+      "facts": null,
+      "full_request_resolution": null
+    },
+    {
+      "cell_id": "intel-desktop",
+      "vendor_id": 32902,
+      "status": "dev_env_degrade",
+      "reason": "Intel 真卡缺硬件(与 AMD 格同一硬件缺口纪律);获得硬件后按同一探测面补测,不冒充",
+      "anchor": "G-MB1-6(同格纪律;多厂商兼容矩阵 = G31_PLUS §5 #50 交付判据 ≥2 厂商真卡全链绿的补齐面)",
+      "facts": null,
+      "full_request_resolution": null
+    }
+  ],
+  "guardrails": [
+    "数字真实:measured 格全字段来自 vk_capability_report 真跑输出;声明阈值如实标注 declared",
+    "AMD/Intel 格 DEV_ENV_DEGRADE 如实登记不冒充 measured;获得硬件后只追加新 measured 行,本表 history 不改写",
+    "降级链闭集六链冻结;链定义变更走 G31+ 波次程序(本表与 capability_matrix.rs 三向互核)",
+    "append-only:本表只增不删不改历史格"
+  ]
+}

@@ -1,0 +1,153 @@
+//@ spec: RFC-0049 §4.10(G35-7 XPBD/PBF 密度约束半步 1;spec 条款号本期零新设)
+// G35-7 流体 · xpbd_density —— 27-cell 固定序 gather 产密度 ρ + 乘子 λ
+// (门 g35.wave7.fluids;src/particles/fluid.rs 契约头字面)。
+//
+// ## 架构(确定性协议:gather-only 零原子零 shared)
+// 公式面与 host 金标准 `particles/fluid.rs::xpbd_density_step` **逐字同源**
+// (核函数系数冻结进头注;数值经 host `poly6_coef`/`spiky_grad_coef` 单源
+// 程序产 params 传入,禁 kernel 内重算——超越函数/求幂双源漂移零风险):
+// - poly6 W(r,h) = 315/(64π h⁹)·(h²−r²)³(r<h;贡献式冻结
+//   `rho += m·(poly6·(d2·(d2·d2)))`,d2 = h²−r²;含自项 j=i 的 W(0));
+// - spiky 梯度 ∇W = −45/(π h⁶)·(h−r)²·r̂(系数含负号;标量式冻结
+//   `sgc = spiky·(hr·hr)/r`,向量 = sgc·(rx,ry,rz);r²=0 梯度项跳过);
+// - C_i = ρ_i/ρ0 − 1(仅 C>0 约束;C≤0 自由表面 λ=0);
+// - λ_i = −C_i/((|Σ∇W|² + Σ|∇W|²)/ρ0² + ε)——Σ|∇W|² 读作 k∈{i}∪N(i) 全
+//   梯度和 = Macklin–Müller PBF 2013 式(11) 全式;ε = 100 冻结字面
+//   (kernel/host 双源同值,禁经 params 篡改);λ 式冻结
+//   `denom = (gx·gx+gy·gy+gz·gz+g2)/(rho0·rho0)+100.0; λ = 0.0−ci/denom`。
+// - 邻域 = 27 cell 固定序(oz→oy→ox 升序;cell 中心 = 本 dispatch 当前位置
+//   的 cell 重算 floor+clamp;区间结构 = 帧首预测位置构建帧内冻结);cell 内
+//   = sorted 区间升序(W1 稳定排序确定序)。h = cell_size 冻结相等 ⇒ r<h 对
+//   全捕获(界内域)。空 cell start=0xFFFFFFFF > end=0 ⇒ 循环零次直落。
+// 逐 invocation 只写自槽 rho[i]/lambda[i] ⇒ 与线程调度无关。f32 走标定容差
+// 协议(probe 装载期注入 NoContraction;.sqrt() 为 IEEE 语义面)。
+//
+// ## 参数面(12 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 9,
+// 与 host 金标准 / probe(bin/g35_fluids_device.rs)buffers 下标严格一致)
+//   params[0]=n [1]=origin_x [2]=origin_y [3]=origin_z [4]=h(=cell_size 冻结)
+//   [5]=rho0 [6]=mass [7]=poly6_coef [8]=spiky_grad_coef [9..12)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×12) / 1 pos_x / 2 pos_y / 3 pos_z(View
+//   f32×n,本迭代当前位置) / 4 sorted_idx(View u32×n) / 5 cell_start
+//   (View u32×262144) / 6 cell_end(View u32×262144) / 7 rho(ViewMut
+//   f32×n) / 8 lambda(ViewMut f32×n)。
+//   dispatch = [n, 1, 1](LocalSize 1,1,1 一粒子一 invocation)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_xpbd_density(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    pos_x: View<global, f32>,
+    pos_y: View<global, f32>,
+    pos_z: View<global, f32>,
+    sorted_idx: View<global, u32>,
+    cell_start: View<global, u32>,
+    cell_end: View<global, u32>,
+    rho: ViewMut<global, f32>,
+    lambda: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    let ox = params[1];
+    let oy = params[2];
+    let oz = params[3];
+    let h = params[4];
+    let rho0 = params[5];
+    let m = params[6];
+    let poly6 = params[7];
+    let spiky = params[8];
+    if i < n {
+        let h2 = h * h;
+        let pix = pos_x[i];
+        let piy = pos_y[i];
+        let piz = pos_z[i];
+        // cell 坐标(floor + f32 域 clamp;g35_hash_cellkey.rx 同式)。
+        let mut fx = ((pix - ox) / h).floor();
+        if fx < 0.0 {
+            fx = 0.0;
+        }
+        if fx > 63.0 {
+            fx = 63.0;
+        }
+        let cx = fx as usize;
+        let mut fy = ((piy - oy) / h).floor();
+        if fy < 0.0 {
+            fy = 0.0;
+        }
+        if fy > 63.0 {
+            fy = 63.0;
+        }
+        let cy = fy as usize;
+        let mut fz = ((piz - oz) / h).floor();
+        if fz < 0.0 {
+            fz = 0.0;
+        }
+        if fz > 63.0 {
+            fz = 63.0;
+        }
+        let cz = fz as usize;
+        let mut rho_acc = 0.0;
+        let mut gx = 0.0;
+        let mut gy = 0.0;
+        let mut gz = 0.0;
+        let mut g2 = 0.0;
+        // 27-cell 固定序 gather(oz→oy→ox 升序;host 同序)。
+        let mut oz_c = 0usize;
+        while oz_c < 3usize {
+            let zz = cz + oz_c;
+            if zz >= 1usize && zz <= 64usize {
+                let ncz = zz - 1usize;
+                let mut oy_c = 0usize;
+                while oy_c < 3usize {
+                    let yy = cy + oy_c;
+                    if yy >= 1usize && yy <= 64usize {
+                        let ncy = yy - 1usize;
+                        let mut ox_c = 0usize;
+                        while ox_c < 3usize {
+                            let xx = cx + ox_c;
+                            if xx >= 1usize && xx <= 64usize {
+                                let ncx = xx - 1usize;
+                                let c = (ncz * 64usize + ncy) * 64usize + ncx;
+                                let mut s = cell_start[c] as usize;
+                                let e = cell_end[c] as usize;
+                                while s < e {
+                                    let j = sorted_idx[s] as usize;
+                                    let rx = pix - pos_x[j];
+                                    let ry = piy - pos_y[j];
+                                    let rz = piz - pos_z[j];
+                                    let r2 = rx * rx + ry * ry + rz * rz;
+                                    if r2 < h2 {
+                                        let d2 = h2 - r2;
+                                        rho_acc = rho_acc + m * (poly6 * (d2 * (d2 * d2)));
+                                        if r2 > 0.0 {
+                                            let r = r2.sqrt();
+                                            let hr = h - r;
+                                            let sgc = spiky * (hr * hr) / r;
+                                            let wx = sgc * rx;
+                                            let wy = sgc * ry;
+                                            let wz = sgc * rz;
+                                            gx = gx + wx;
+                                            gy = gy + wy;
+                                            gz = gz + wz;
+                                            g2 = g2 + (wx * wx + wy * wy + wz * wz);
+                                        }
+                                    }
+                                    s = s + 1usize;
+                                }
+                            }
+                            ox_c = ox_c + 1usize;
+                        }
+                    }
+                    oy_c = oy_c + 1usize;
+                }
+            }
+            oz_c = oz_c + 1usize;
+        }
+        rho[i] = rho_acc;
+        let ci = rho_acc / rho0 - 1.0;
+        if ci > 0.0 {
+            let denom = (gx * gx + gy * gy + gz * gz + g2) / (rho0 * rho0) + 100.0;
+            lambda[i] = 0.0 - ci / denom;
+        } else {
+            lambda[i] = 0.0;
+        }
+    }
+}

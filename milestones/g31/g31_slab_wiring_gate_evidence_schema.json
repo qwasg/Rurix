@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 B Task B3 slab 接线门裁决证据（ci/g31_slab_wiring_smoke.py --gate 产）",
+  "description": "G31+ 波 B Task B3 slab 材质 closure/侧表转正门 g31.waveB.slab 的 smoke 裁决证据：① slab 侧表生产资产 ABI/映射闭集核验（16 槽 f32 位级 == G29 M-b 生成律 + abi_digest 重算互核 + bistro glTF 材质名称/索引互核）② 接线态逐槽对拍（harness --slab-table device 臂 evidence slab.parity_p100 ≤ 冻结容差 2.384185791015624e-07——milestones/g29/g29_budget.json g29.slab_device.host_device_reflectance_tol 程序读禁手写；measured p100=1.192092895507812e-07 恰一 ULP）③ G29 M-a 对拍门接线态复跑全绿（ci/g29_slab_device_kernel_smoke.py --gate 子进程 rc=0：p100 恰一 ULP + 角点 rc=ab=1 device 位级 1.0 + kernel-bias RED 臂 + material/ 0-byte）④ G29 M-b 侧表臂接线态复跑全绿（16 槽逐槽 p100 + MaterialClosure 32B 零触碰机核）⑤ MaterialClosure 32B ABI 核验（cargo test frozen_layout_sizes + graph/types.rs 与 material/ 整目录 vs g28-closed 0-byte 提交面/工作树双面机核）⑥ bistro 生产场景演示（slab 映射五材质：釉面陶瓷/粉刷石膏/清漆木×2/漆面桌台；device 臂确定性双跑 digest_seq 位级一致 + on≠off 接线真实生效 + device vs host 参考臂跨臂像素对拍——结构容差：R 扰动 ≤ 冻结容差 ⇒ albedo 相对扰动 ≤2.4e-7 ⇒ 8-bit 翻转 ≤1 LSB 且占比 ≤0.1%，实测位级一致亦合法更强终态）⑦ slab off 回归锚（g14_3_pipeline_perf canonical 160 帧 bistro-interior/t100/tsr_device 末帧 digest == milestones/g14/g14_3_stage_a_digest_anchor.json 在案锚——共享体改动对既有逐三角 albedo/emission 面 0-byte 的机器证明）⑧ slab on/off frame_ms measured（同机同窗 orbit 轨迹 --hidden 1920×1080 release；slab 求值 = 装配期一次性 eval_ms 单列）。三态：无 Vulkan/设备/场景资产/SPV → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下降级翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "parity",
+    "g29_rerun",
+    "material_closure_abi",
+    "demo",
+    "regression_anchor",
+    "frame_ms",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.slab_wiring_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_slab_wiring" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveB.slab" },
+    "wave": { "type": "string", "const": "G31.B" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "asset_abi_and_mapping_valid",
+              "wired_per_slot_parity_p100",
+              "g29_m_a_rerun_green",
+              "g29_m_b_rerun_green",
+              "material_closure_32b_abi_wired",
+              "bistro_slab_demo",
+              "slab_off_regression_anchor",
+              "slab_on_off_frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wired_p100", "frozen_tol", "frozen_tol_entry", "in_tol", "device_digest", "host_digest"],
+      "properties": {
+        "wired_p100": { "type": "number", "minimum": 0 },
+        "frozen_tol": { "type": "number", "exclusiveMinimum": 0 },
+        "frozen_tol_entry": { "type": "string", "const": "g29.slab_device.host_device_reflectance_tol" },
+        "in_tol": { "type": "boolean", "description": "wired_p100 ≤ frozen_tol 才许 true（硬门）" },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "g29_rerun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["m_a_gate", "m_a_rc", "m_a_evidence", "m_b_gate", "m_b_rc", "m_b_evidence"],
+      "properties": {
+        "m_a_gate": { "type": "string", "const": "g29.p0.m_a.slab_device_kernel" },
+        "m_a_rc": { "type": "integer", "const": 0 },
+        "m_a_evidence": { "type": "string" },
+        "m_b_gate": { "type": "string", "const": "g29.p0.m_b.slab_side_table_arm" },
+        "m_b_rc": { "type": "integer", "const": 0 },
+        "m_b_evidence": { "type": "string" }
+      }
+    },
+    "material_closure_abi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout_test", "frozen_0byte_vs_g28_closed", "worktree_clean"],
+      "properties": {
+        "layout_test": { "type": "string", "description": "cargo test frozen_layout_sizes 结果（MaterialClosure==32/ClusterRecord==64/PageRequest==16）" },
+        "frozen_0byte_vs_g28_closed": { "type": "boolean", "description": "git diff --quiet g28-closed -- graph/types.rs + material/ 整目录 0-byte 才许 true" },
+        "worktree_clean": { "type": "boolean", "description": "git status --porcelain 同面工作树干净才许 true" }
+      }
+    },
+    "demo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene_id",
+        "trajectory",
+        "mapped_materials",
+        "slab_tris",
+        "off_double_run_bitexact",
+        "on_device_double_run_bitexact",
+        "on_ne_off",
+        "cross_arm"
+      ],
+      "properties": {
+        "scene_id": { "type": "string", "const": "bistro-interior" },
+        "trajectory": { "type": "string", "const": "orbit" },
+        "mapped_materials": { "type": "integer", "const": 5 },
+        "slab_tris": { "type": "integer", "minimum": 1 },
+        "off_double_run_bitexact": { "type": "boolean", "description": "slab off 双跑 digest_seq 位级一致才许 true（确定性回归面）" },
+        "on_device_double_run_bitexact": { "type": "boolean", "description": "slab on device 臂双跑 digest_seq 位级一致才许 true（确定性门）" },
+        "on_ne_off": { "type": "boolean", "description": "slab on digest_seq ≠ off digest_seq 至少一帧才许 true（接线真实生效门，防空接线冒充）" },
+        "cross_arm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bitexact", "mismatch_px", "total_px", "mismatch_ratio", "max_lsb_diff", "ratio_bound", "lsb_bound", "in_bound", "structural_basis"],
+          "properties": {
+            "bitexact": { "type": "boolean", "description": "device 臂 vs host 参考臂末帧 BGRA8 逐字节位级一致（更强终态）" },
+            "mismatch_px": { "type": "integer", "minimum": 0 },
+            "total_px": { "type": "integer", "minimum": 1 },
+            "mismatch_ratio": { "type": "number", "minimum": 0 },
+            "max_lsb_diff": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "ratio_bound": { "type": "number", "const": 0.001 },
+            "lsb_bound": { "type": "integer", "const": 1 },
+            "in_bound": { "type": "boolean", "description": "bitexact ∨ (mismatch_ratio ≤ 0.001 ∧ max_lsb_diff ≤ 1) 才许 true（结构容差硬门）" },
+            "structural_basis": { "type": "string" }
+          }
+        }
+      }
+    },
+    "regression_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean", "description": "fresh == anchor 位级一致才许 true（Stage A 锚零漂移）" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_device_mean", "on_host_mean", "delta_pct_device_vs_off", "slab_eval_ms", "measured", "frames_per_run", "runs"],
+      "properties": {
+        "off_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "on_device_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "on_host_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "delta_pct_device_vs_off": { "type": "number", "description": "(on_device − off)/off ×100（诚实登记；结构预期 ≈0——slab 求值装配期一次性,稳态帧路径指令同构）" },
+        "slab_eval_ms": { "type": "number", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "frames_per_run": { "type": "integer", "minimum": 1 },
+        "runs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "type": "string" },
+      "description": "harness 真跑 evidence 归档件（off×2 + on_device×2 + on_host×1；rurix.g31.slab_wiring_evidence.v1 面）"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

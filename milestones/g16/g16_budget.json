@@ -58,7 +58,7 @@
       "skip_reason": null,
       "unit": "1",
       "threshold": 0.0,
-      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_cornell_box_20260824T041832Z.json",
+      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_cornell_box_20260827T103034Z.json",
       "measured_value": 0.0
     },
     {
@@ -69,7 +69,7 @@
       "skip_reason": null,
       "unit": "1",
       "threshold": 0.0,
-      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_cornell_box_20260824T041832Z.json",
+      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_cornell_box_20260827T103034Z.json",
       "measured_value": 0.0
     },
     {
@@ -80,7 +80,7 @@
       "skip_reason": null,
       "unit": "1",
       "threshold": 0.0,
-      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_bistro_interior_20260824T041832Z.json",
+      "evidence_file": "milestones/g16/g16_m_g_calibration_ssim_bistro_interior_20260827T103034Z.json",
       "measured_value": 0.0
     },
     {
@@ -91,7 +91,7 @@
       "skip_reason": null,
       "unit": "1",
       "threshold": 0.0,
-      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_bistro_interior_20260824T041832Z.json",
+      "evidence_file": "milestones/g16/g16_m_g_calibration_flip_bistro_interior_20260827T103034Z.json",
       "measured_value": 0.0
     }
   ],

@@ -1,0 +1,111 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/wave_a_anchor_check_evidence/v1",
+ "title": "G31+ 波 A 验收门零降级回归锚核验证据（ci/g31_wave_a_anchor_check.py 产）",
+ "type": "object",
+ "required": [
+  "schema",
+  "gate",
+  "generated_utc",
+  "binary",
+  "canonical",
+  "anchor_file",
+  "stage_a_digest",
+  "cells",
+  "focus_cell",
+  "wave_a_gates_inventory",
+  "wall_s_total",
+  "verdict",
+  "notes"
+ ],
+ "properties": {
+  "schema": { "const": "rurix.g31.wave_a_anchor_check_evidence.v1" },
+  "gate": { "const": "g31.waveA.anchor_check" },
+  "generated_utc": { "type": "string" },
+  "binary": { "type": "string" },
+  "canonical": {
+   "type": "object",
+   "required": ["frames", "warmup", "cells"],
+   "properties": {
+    "frames": { "const": 160 },
+    "warmup": { "const": 10 },
+    "cells": { "const": 18 }
+   }
+  },
+  "anchor_file": { "type": "string" },
+  "stage_a_digest": {
+   "type": "object",
+   "required": ["matched", "total", "zero_drift"],
+   "properties": {
+    "matched": { "type": "integer", "minimum": 0, "maximum": 18 },
+    "total": { "const": 18 },
+    "zero_drift": { "type": "boolean" }
+   }
+  },
+  "cells": {
+   "type": "array",
+   "minItems": 18,
+   "maxItems": 18,
+   "items": {
+    "type": "object",
+    "required": [
+     "cell",
+     "fresh_digest",
+     "anchor_digest",
+     "digest_match",
+     "fresh_frame_ms_production_mean",
+     "g14_budget_measured_ms",
+     "wall_s"
+    ],
+    "properties": {
+     "cell": { "type": "string" },
+     "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+     "anchor_digest": { "type": ["string", "null"] },
+     "digest_match": { "type": "boolean" },
+     "fresh_frame_ms_production_mean": { "type": "number", "exclusiveMinimum": 0 },
+     "g14_budget_measured_ms": { "type": ["number", "null"] },
+     "wall_s": { "type": "number" }
+    }
+   }
+  },
+  "focus_cell": {
+   "type": "object",
+   "required": [
+    "cell",
+    "fresh_frame_ms_production_mean",
+    "on_record_frame_ms",
+    "ue_median_ms_on_record",
+    "fresh_ratio",
+    "on_record_ratio",
+    "honest_red_not_worsened"
+   ],
+   "properties": {
+    "cell": { "const": "bistro-interior_t100_dlss_sr" },
+    "fresh_frame_ms_production_mean": { "type": "number", "exclusiveMinimum": 0 },
+    "on_record_frame_ms": { "const": 3.5767 },
+    "ue_median_ms_on_record": { "type": "number", "exclusiveMinimum": 0 },
+    "fresh_ratio": { "type": "number", "exclusiveMinimum": 0 },
+    "on_record_ratio": { "const": 0.960479 },
+    "honest_red_not_worsened": { "type": "boolean" }
+   }
+  },
+  "wave_a_gates_inventory": {
+   "type": "array",
+   "minItems": 5,
+   "maxItems": 5,
+   "items": {
+    "type": "object",
+    "required": ["gate", "prefix", "latest", "present"],
+    "properties": {
+     "gate": { "type": "string" },
+     "prefix": { "type": "string" },
+     "latest": { "type": ["string", "null"] },
+     "present": { "type": "boolean" }
+    }
+   }
+  },
+  "wall_s_total": { "type": "number" },
+  "verdict": { "enum": ["PASS", "FAIL"] },
+  "notes": { "type": "array", "items": { "type": "string" } }
+ }
+}

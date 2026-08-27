@@ -1,0 +1,150 @@
+{
+  "schema": "rurix.g31.rt_pipeline_smoke_evidence.v1",
+  "subject": "g31_rt_pipeline",
+  "symbolic_gate_key": "g31.waveC.rtpipeline",
+  "wave": "G31+.C",
+  "facts": [
+    {
+      "id": "rfc_0048_in_tree_and_approved",
+      "status": "PASS",
+      "detail": "RFC-0048 在树 + Agent Approved + 对抗评审 8 findings 全 disposition + 评审 provenance ≠ 起草 + ledger 编号一致"
+    },
+    {
+      "id": "rx_rt_kernel_typecheck_and_manifest_green",
+      "status": "PASS",
+      "detail": "--emit=check 0 诊断 + rt-manifest 结构绿（双 triangles 组/required_capabilities=[rt.pipeline, rt.sbt_user_data]/recursion=1）+ 锚 *hit*.rx 命中"
+    },
+    {
+      "id": "codegen_gap_honestly_registered",
+      "status": "PASS",
+      "detail": "--target vulkan 退出码 2 + 「no compute `kernel fn` found」实测 + RFC §6 PR-2/3/4 序在案（.rx RT codegen 维持 open 不冒充）"
+    },
+    {
+      "id": "mirror_corpus_formula_single_source",
+      "status": "PASS",
+      "detail": "kernel↔发射器公式字面互核绿 + 镜像四模块 spirv-val 全过（4/4）+ hand-emitted 标注在案"
+    },
+    {
+      "id": "rt_pipeline_slab_dual_material_device_run_hand_emitted_mirror",
+      "status": "PASS",
+      "detail": "RT 臂 executed:hit_groups=2 双跑位级 + record readback + stack 0≥0 + validation 静默 + golden 三点全中（digest 4426de4afb9d4d31…）"
+    },
+    {
+      "id": "rayquery_parity_structural",
+      "status": "PASS",
+      "detail": "RQ 臂真 .rx 编译真跑 + 双跑位级 + 对拍 in_bound（bitexact=True mismatch=0/4096 max_lsb=0；双臂 digest 相等=True）"
+    },
+    {
+      "id": "ser_capability_and_workload",
+      "status": "PASS",
+      "detail": "SER executed:NV 双臂 reorder off/on 画面位级 + 双跑位级 + t_off=1.3239ms t_on=2.5554ms ratio=0.518079（measured_local 微基准;caveats 在案）+ gain evidence 落盘"
+    },
+    {
+      "id": "frozen_zero_byte",
+      "status": "PASS",
+      "detail": "RayQuery 生产三 kernel + M50 底座四件 vs HEAD/工作树 0-byte；material/+graph/types.rs vs g28-closed 0-byte"
+    }
+  ],
+  "verdict": "PASS",
+  "rfc": {
+    "path": "rfcs/0048_rt_pipeline_sbt_host_lane.md",
+    "number": 48,
+    "status": "Agent Approved",
+    "review_findings": 8,
+    "review_provenance_differs": true
+  },
+  "manifest": {
+    "raygen": "rg",
+    "miss_count": 1,
+    "hit_group_count": 2,
+    "group_kind": "triangles",
+    "required_capabilities": [
+      "rt.pipeline",
+      "rt.sbt_user_data"
+    ],
+    "recursion": 1,
+    "record_schema_hash_nonempty": true,
+    "anchor_kernel_glob_hit": true
+  },
+  "codegen_gap": {
+    "exit_code": 2,
+    "message_marker": "no compute `kernel fn` found",
+    "registered_honest": true
+  },
+  "mirror_corpus": {
+    "hand_emitted_not_rx_compiled": true,
+    "formula_literals_match": true,
+    "spirv_val_modules": 4
+  },
+  "rt_arm": {
+    "device_state": "executed",
+    "hit_group_count": 2,
+    "record_readback_ok": true,
+    "double_run_bitexact": true,
+    "stack_ok": true,
+    "validation_silent": true,
+    "golden_rt_ok": true,
+    "pixels_digest": "4426de4afb9d4d316fff20f4007444c2ee72783a3ef59f5b8c3ae7a6380e3863"
+  },
+  "rq_arm": {
+    "spv_fresh_compiled": true,
+    "spirv_val_ok": true,
+    "entry_nonempty": true,
+    "double_run_bitexact": true,
+    "golden_rq_ok": true
+  },
+  "parity": {
+    "bitexact": true,
+    "mismatch_px": 0,
+    "total_px": 4096,
+    "mismatch_ratio": 0.0,
+    "max_lsb_diff": 0,
+    "in_bound": true,
+    "ratio_bound": 0.001,
+    "lsb_bound": 1,
+    "digest_equal": true
+  },
+  "ser": {
+    "state": "executed",
+    "tokens": {
+      "ext_nv": true,
+      "feature_reorder": true,
+      "feature_reordering_hint": false
+    },
+    "workload_or_defer": {
+      "kind": "measured_workload",
+      "time_ms_noreorder": 1.3239,
+      "time_ms_reorder": 2.5554,
+      "speedup_ratio": 0.518079,
+      "pixels_bitexact_across_arms": true,
+      "double_run_bitexact": true,
+      "dispatches_per_arm": 40,
+      "repeats": 3,
+      "n_instances": 128,
+      "gain_evidence": "evidence\\g31_ser_gain_estimate_20260826T203853Z.json"
+    }
+  },
+  "frozen_surfaces": {
+    "rayquery_production_0byte": true,
+    "m50_base_0byte": true,
+    "rfc0046_slab_0byte": true,
+    "material_vs_g28_closed_0byte": true
+  },
+  "harness_evidence": [
+    ".tmp\\g31_gates\\rtpipeline\\g31_rt_pipeline_harness_lane_20260826T203853Z.json",
+    "evidence\\g31_ser_gain_estimate_20260826T203853Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a",
+    "vulkaninfo_ser_tokens": {
+      "VK_NV_ray_tracing_invocation_reorder": true,
+      "VK_EXT_ray_tracing_invocation_reorder": true,
+      "rayTracingInvocationReorderReorderingHint": true
+    }
+  },
+  "timestamp": "20260826T203853Z",
+  "notes": "G31+ 波 C Task C15（RFC-0048）：RT pipeline + SBT 宿主车道——slab 双材质经 SBT record 分派双 hit group（镜像语料 hand-emitted 臂,非 .rx 编译,不充 .rx codegen 绿;.rx 语义锚 = kernels/g31_rt_slab_hit.rx typecheck+manifest 真绿,codegen 缺口 RFC §6 PR-2/3/4 维持 open 如实登记）+ RayQuery 对拍臂真 .rx 编译同场景对拍（结构容差;bitexact=True）+ SER workload NV 双臂 measured 对照（state=executed）;M52/RD-040 处置 = deferred.json history 只追加。 |   fact frozen_zero_byte: PASS — RayQuery 生产三 kernel + M50 底座四件 vs HEAD/工作树 0-byte；material/+graph/types.rs vs g28-closed 0-byte | vulkaninfo SER tokens: {'VK_NV_ray_tracing_invocation_reorder': True, 'VK_EXT_ray_tracing_invocation_reorder': True, 'rayTracingInvocationReorderReorderingHint': True} | $ H:\\rurix\\target\\debug\\g31_rt_slab_lane.exe --spv-rq H:\\rurix\\.tmp\\g31_gates\\rtpipeline\\g31_rt_slab_rayquery.spv --width 64 --height 64 --ser-dispatches 40 --ser-repeats 3 --out H:\\rurix\\.tmp\\g31_gates\\rtpipeline\\g31_ser_gain_estimate_20260826T203853Z.json |   fact rt_pipeline_slab_dual_material_device_run_hand_emitted_mirror: PASS — RT 臂 executed:hit_groups=2 双跑位级 + record readback + stack 0≥0 + validation 静默 + golden 三点全中（digest 4426de4afb9d4d31…） |   fact rayquery_parity_structural: PASS — RQ 臂真 .rx 编译真跑 + 双跑位级 + 对拍 in_bound（bitexact=True mismatch=0/4096 max_lsb=0；双臂 digest 相等=True） |   fact ser_capability_and_workload: PASS — SER executed:NV 双臂 reorder off/on 画面位级 + 双跑位级 + t_off=1.3239ms t_on=2.5554ms ratio=0.518079（measured_local 微基准;caveats 在案）+ gain evidence 落盘"
+}

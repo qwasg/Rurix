@@ -18,12 +18,12 @@ use rurix_render::geometry::skinning::{
     ClusterSkinInput, SkinCache, SkinCacheSlot, SkinPalette, SkinnedClusterFrame, SkinningDriver,
     UpdateTier, conservative_skinned_aabb, skin_cluster, verify_bound_containment,
 };
+use rurix_render::geometry::visbuffer::{
+    VisBufferCpu, VisibleSetScene, raster_visible_set, visbuffer_diff_host,
+};
 use rurix_render::geometry::visible_cluster_set::{
     DagNodeRec, MeshDagView, produce_visible_cluster_set, verify_cut_coverage,
     verify_frame_provenance,
-};
-use rurix_render::geometry::visbuffer::{
-    VisibleSetScene, VisBufferCpu, raster_visible_set, visbuffer_diff_host,
 };
 use rurix_render::graph::types::ClusterRecord;
 use rurix_render::rt::as_manager::{BlasCache, DynamicPolicy, rt_blas_input_from_feed};
@@ -117,11 +117,31 @@ fn main() {
         cluster(2.0, f32::INFINITY, 4),
     ];
     let nodes = vec![
-        DagNodeRec { first_child: 0, child_count: 0, level: 0 },
-        DagNodeRec { first_child: 0, child_count: 0, level: 0 },
-        DagNodeRec { first_child: 0, child_count: 0, level: 0 },
-        DagNodeRec { first_child: 0, child_count: 2, level: 1 },
-        DagNodeRec { first_child: 2, child_count: 2, level: 2 },
+        DagNodeRec {
+            first_child: 0,
+            child_count: 0,
+            level: 0,
+        },
+        DagNodeRec {
+            first_child: 0,
+            child_count: 0,
+            level: 0,
+        },
+        DagNodeRec {
+            first_child: 0,
+            child_count: 0,
+            level: 0,
+        },
+        DagNodeRec {
+            first_child: 0,
+            child_count: 2,
+            level: 1,
+        },
+        DagNodeRec {
+            first_child: 2,
+            child_count: 2,
+            level: 2,
+        },
     ];
     let children = vec![0u32, 1, 3, 2];
     let mesh = MeshDagView::new(&records, &nodes, &children).expect("拓扑");
@@ -146,7 +166,11 @@ fn main() {
         .expect("兜底产出");
     let fb_ids: Vec<u32> = fb_set.entries.iter().map(|e| e.cluster).collect();
     check("m93.fallback_cut", fb_ids == vec![2, 3], &mut failures);
-    check("m93.fallback_evidence", fb_set.fallback.len() == 2, &mut failures);
+    check(
+        "m93.fallback_evidence",
+        fb_set.fallback.len() == 2,
+        &mut failures,
+    );
     let restored = produce_visible_cluster_set(&mesh, &inst, &[0], &cam, 8, &[1, 2, 3, 4], &[])
         .expect("转正产出");
     let restored_ids: Vec<u32> = restored.entries.iter().map(|e| e.cluster).collect();
@@ -177,8 +201,7 @@ fn main() {
     // ------------------------------------------------------------------
     // 大底面三角形(z = −100 处覆盖足够屏幕像素,供光栅覆盖冒烟)。
     let vertices: Vec<[f32; 3]> = vec![[-30.0, -30.0, 0.0], [30.0, -30.0, 0.0], [0.0, 30.0, 0.0]];
-    let weights: Vec<Vec<(u32, f32)>> =
-        vec![vec![(0u32, 1.0f32)], vec![(0, 1.0)], vec![(0, 1.0)]];
+    let weights: Vec<Vec<(u32, f32)>> = vec![vec![(0u32, 1.0f32)], vec![(0, 1.0)], vec![(0, 1.0)]];
     let bones = [0u32];
     let skin_input = ClusterSkinInput {
         max_influences: 1,
@@ -215,10 +238,10 @@ fn main() {
     };
     let mut static_frame_zero_as_build = true;
     let frames = [
-        (0u64, 5.0f32, &pose_a),   // 全速更新
-        (1, 5.0, &pose_a),         // 静态(姿态 bit-equal 且档位不变)
-        (2, 50.0, &pose_b),        // 1/4 档降级(2 % 4 ≠ 0)
-        (4, 50.0, &pose_b),        // 1/4 档更新点(4 % 4 == 0)
+        (0u64, 5.0f32, &pose_a), // 全速更新
+        (1, 5.0, &pose_a),       // 静态(姿态 bit-equal 且档位不变)
+        (2, 50.0, &pose_b),      // 1/4 档降级(2 % 4 ≠ 0)
+        (4, 50.0, &pose_b),      // 1/4 档更新点(4 % 4 == 0)
     ];
     for &(f, dist, pose) in &frames {
         let (rb, bb) = (blas.stats().refits, blas.stats().blas_builds);
@@ -239,7 +262,11 @@ fn main() {
             static_frame_zero_as_build = false;
         }
     }
-    check("m92.static_zero_build", static_frame_zero_as_build, &mut failures);
+    check(
+        "m92.static_zero_build",
+        static_frame_zero_as_build,
+        &mut failures,
+    );
     let as_stats = blas.stats();
     check("m92.refit_counted", as_stats.refits == 2, &mut failures);
     check(
@@ -343,7 +370,11 @@ fn main() {
         },
     );
     let diff = visbuffer_diff_host(&leg_a, &leg_b).expect("尺寸一致");
-    check("m95.visbuffer_diff_zero", diff.mismatched == 0, &mut failures);
+    check(
+        "m95.visbuffer_diff_zero",
+        diff.mismatched == 0,
+        &mut failures,
+    );
     check("m95.raster_covered", leg_a.count_valid() > 0, &mut failures);
 
     let vsm_tris = shadow_tris_from_visible_set(

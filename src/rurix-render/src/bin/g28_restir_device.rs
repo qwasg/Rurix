@@ -69,8 +69,8 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::gi::restir_reservoir::{
-    estimate_ris, exact_direct, fixture_lights, target_phat, Pcg32, PointLight, Reservoir,
-    ShadePoint,
+    Pcg32, PointLight, Reservoir, ShadePoint, estimate_ris, exact_direct, fixture_lights,
+    target_phat,
 };
 use rurix_rt::vk;
 
@@ -715,16 +715,8 @@ fn spatial_leg(args: &Args) -> ! {
     let single_run_seconds = t0.elapsed().as_secs_f64();
     let (reuse_b, noreuse_b) = run_spatial(&lights, &pts, N_TRIALS_SPATIAL);
     // ── 双跑位级:全网格 estimate 矩阵(reuse + no-reuse)位级相等 ──
-    let digest_a = format!(
-        "{}:{}",
-        sha256_f64(&reuse_a),
-        sha256_f64(&noreuse_a)
-    );
-    let digest_b = format!(
-        "{}:{}",
-        sha256_f64(&reuse_b),
-        sha256_f64(&noreuse_b)
-    );
+    let digest_a = format!("{}:{}", sha256_f64(&reuse_a), sha256_f64(&noreuse_a));
+    let digest_b = format!("{}:{}", sha256_f64(&reuse_b), sha256_f64(&noreuse_b));
     let bitexact = digest_a == digest_b;
 
     // ── 聚合 3σ 硬门:逐 trial 网格均值序列的 n-trial 均值 vs 64 点参考均值 ──
@@ -767,7 +759,11 @@ fn spatial_leg(args: &Args) -> ! {
         if !within_5 {
             all_within_5 = false;
         }
-        let ratio = if sigma_mean > 0.0 { dev / sigma_mean } else { 0.0 };
+        let ratio = if sigma_mean > 0.0 {
+            dev / sigma_mean
+        } else {
+            0.0
+        };
         if ratio > worst_ratio {
             worst_ratio = ratio;
             worst_point = p;
@@ -862,7 +858,11 @@ fn host_only_leg(args: &Args) -> ! {
     let sigma_mean = (var / f64::from(N_TRIALS)).sqrt();
     let dev = (mean - reference).abs();
     let unbiased = dev < 3.0 * sigma_mean + 1e-9;
-    let state = if unbiased && bands_bitexact { "pass" } else { "fail" };
+    let state = if unbiased && bands_bitexact {
+        "pass"
+    } else {
+        "fail"
+    };
     let line = format!(
         "{{\"schema\":\"rurix.g28restir.harness.v1\",\"mode\":\"host-only\",\"state\":{},\"n_trials\":{N_TRIALS},\"recorder_selfcheck_bitexact\":true,\"host\":{{\"mean\":{:.12e},\"reference\":{:.12e},\"dev\":{:.9e},\"bound_3sigma\":{:.9e},\"unbiased_3sigma\":{}}},\"bands_double_run_bitexact\":{},\"band_digest\":{}}}",
         jstr(state),
@@ -961,10 +961,7 @@ fn main() {
     let p100 = estimate_p100(&out_a, &bands.host_est, N_TRIALS);
     let in_tol = p100 <= args.tol;
     if anchor.y_all_equal && anchor.dec_all_equal && !in_tol {
-        problems.push(format!(
-            "estimate p100={p100:.6e} 超容差 {:.6e}",
-            args.tol
-        ));
+        problems.push(format!("estimate p100={p100:.6e} 超容差 {:.6e}", args.tol));
     }
     // ③ 无偏 3σ 维持(独立直接对解析参考复核,纵深防御并列)。
     let (unbiased, dev_mean, dev_dev, dev_bound) = unbiased_3sigma(&out_a, reference, N_TRIALS);

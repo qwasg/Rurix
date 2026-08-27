@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix.g31.cluster_lod_evidence.v1",
+  "title": "G31+ #58 簇 DAG LOD 生产接线门裁决证据（ci/g31_cluster_lod_smoke.py --gate g31.wave58.cluster_lod 产）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "src_tris",
+    "bake",
+    "leaf_anchor",
+    "cut_arms",
+    "determinism",
+    "window_stats",
+    "quality_diff",
+    "commands",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "rurix.g31.cluster_lod_evidence.v1" },
+    "gate": { "const": "g31.wave58.cluster_lod" },
+    "scene": { "const": "bistro-interior" },
+    "tier": { "type": "integer", "minimum": 1 },
+    "backend": { "const": "tsr_device" },
+    "src_tris": { "type": "integer", "minimum": 1 },
+    "bake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocks",
+        "degraded_blocks",
+        "clusters",
+        "levels_max",
+        "leaf_tris",
+        "root_tris",
+        "passthrough_tris",
+        "pack_sha256",
+        "double_build_equal",
+        "bake_ms"
+      ],
+      "properties": {
+        "blocks": { "type": "integer", "minimum": 1 },
+        "degraded_blocks": { "type": "integer", "minimum": 0 },
+        "clusters": { "type": "integer", "minimum": 1 },
+        "levels_max": { "type": "integer", "minimum": 2 },
+        "leaf_tris": { "type": "integer", "minimum": 1 },
+        "root_tris": { "type": "integer", "minimum": 1 },
+        "passthrough_tris": { "type": "integer", "minimum": 0 },
+        "pack_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "double_build_equal": { "const": true },
+        "bake_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "leaf_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_digest", "leaf_digest", "bitexact"],
+      "properties": {
+        "off_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "leaf_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "bitexact": { "const": true }
+      }
+    },
+    "cut_arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "threshold_px",
+          "out_tris",
+          "ratio",
+          "cut_clusters",
+          "digest",
+          "frame_ms_mean",
+          "scene_gpu_ms_mean"
+        ],
+        "properties": {
+          "threshold_px": { "type": "number", "exclusiveMinimum": 0 },
+          "out_tris": { "type": "integer", "minimum": 1 },
+          "ratio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+          "cut_clusters": { "type": "integer", "minimum": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "frame_ms_mean": { "type": "number", "minimum": 0 },
+          "scene_gpu_ms_mean": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm_threshold_px", "double_run_digest_equal"],
+      "properties": {
+        "arm_threshold_px": { "type": "number", "exclusiveMinimum": 0 },
+        "double_run_digest_equal": { "const": true }
+      }
+    },
+    "window_stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trajectory",
+        "frames",
+        "cut_tris_min",
+        "cut_tris_max",
+        "camera_drives_cut",
+        "note"
+      ],
+      "properties": {
+        "trajectory": { "type": "string" },
+        "frames": { "type": "integer", "minimum": 2 },
+        "cut_tris_min": { "type": "integer", "minimum": 1 },
+        "cut_tris_max": { "type": "integer", "minimum": 1 },
+        "camera_drives_cut": { "const": true },
+        "note": { "type": "string" }
+      }
+    },
+    "quality_diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_px", "err_max", "err_p95", "regions_over_1", "note"],
+      "properties": {
+        "threshold_px": { "type": "number", "exclusiveMinimum": 0 },
+        "err_max": { "type": "number", "minimum": 0 },
+        "err_p95": { "type": "number", "minimum": 0 },
+        "regions_over_1": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" }
+        }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -71,11 +71,7 @@ const TAG: &str = "[g13_tsr_device]";
 const OUT_W: u32 = 1280;
 const OUT_H: u32 = 720;
 /// 三档内部分辨率(50%/67%/100%,统一输出 1280×720;契约 M-b 行字面)。
-const TIERS: [(&str, u32, u32); 3] = [
-    ("50", 640, 360),
-    ("67", 858, 482),
-    ("100", 1280, 720),
-];
+const TIERS: [(&str, u32, u32); 3] = [("50", 640, 360), ("67", 858, 482), ("100", 1280, 720)];
 const CONVERGE_FRAMES: u32 = 32;
 /// bench 协议(M141/M165 冻结):warmup 10 + timed 150 = 3 块 × 50。
 const BENCH_WARMUP: u32 = 10;
@@ -451,7 +447,11 @@ struct ConvergeMetrics {
 fn measure(run: &ConvergeRun, reference: &ImageF32) -> ConvergeMetrics {
     let last = run.outs.last().expect("至少一帧");
     let s = ssim(last, reference);
-    let mses: Vec<f64> = run.outs.iter().map(|o| ImageF32::mse(o, reference)).collect();
+    let mses: Vec<f64> = run
+        .outs
+        .iter()
+        .map(|o| ImageF32::mse(o, reference))
+        .collect();
     let n = mses.len();
     let seg = (n / 4).max(1);
     let first_avg = mses[..seg].iter().sum::<f64>() / seg as f64;
@@ -604,8 +604,16 @@ fn parse_args() -> Args {
 }
 
 fn device_backend(args: &Args) -> Result<TsrDeviceBackend, String> {
-    let spv_a = load_spv(args.spv_resample.as_deref().unwrap_or_else(|| fail("缺 --spv-resample")));
-    let spv_b = load_spv(args.spv_resolve.as_deref().unwrap_or_else(|| fail("缺 --spv-resolve")));
+    let spv_a = load_spv(
+        args.spv_resample
+            .as_deref()
+            .unwrap_or_else(|| fail("缺 --spv-resample")),
+    );
+    let spv_b = load_spv(
+        args.spv_resolve
+            .as_deref()
+            .unwrap_or_else(|| fail("缺 --spv-resolve")),
+    );
     TsrDeviceBackend::create(spv_a, spv_b)
 }
 

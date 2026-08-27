@@ -1,0 +1,40 @@
+{
+  "schema": "rurix.g31.oit_evaluation_window.v1",
+  "window": "G31+ 波 B Task B7 — OIT/半透明评估窗（G31_PLUS_COMMERCIAL_RENDERER_TODO §1.2 #13；触发条件字面 = 游戏画面含玻璃/粒子特效/头发时触发）",
+  "frozen_at_utc": "2026-08-26T06:16:26Z",
+  "oit_harness_inventory": {
+    "module": "src/rurix-render/src/oit/{scene,algorithms,measure,selection}.rs（G9.5 M120；RFC-0025 §4.K；RXS-0371）",
+    "state": "仅测量 harness 态（measure-only）：七算法（simple/linked_list/loop32/loop64/spinlock/interlock/weighted_blended）× 4 档 overdraw（4/16/64/256）canonical 场景，帧时 wall-clock min-of-5 + 内存存储模型 + 对排序真值质量误差",
+    "frozen_measurements": "milestones/g9/g9_m120_oit_measurements.json（2026-08-13 冻结；host 确定性参照——device 帧时腿归后续波，冻结注记字面 = atomics 与 .rx 确定性协议冲突待裁决）",
+    "selection_discipline": "select_default_tier = fail-closed typed Err(NotMeasuredYet)（仅测量不定档，D4 D15）；无 benchmark 数据选型提交判 RED；排序 fallback 永保留（正确性对照 = 真值本体，linked_list 精确档与真值 diff=0 在案）；精确档内存无界增长注入判 RED；精确档作用域 = 毛发 strand 唯一（场景级请求 typed Err 拒绝）",
+    "in_court_evidence": "evidence/g9_m120_oit_benchmark_harness_20260815T030517Z.json（PASS：evidence 非空 + 仅测量不定档 + 精确档 diff=0 + RED 双臂复跑）",
+    "hair_strand_anchor": "G24.2 M-a 重判在案（evidence/g24_m_a_hair_strand_oit_rejudgment_20260824T190255Z.json）：M120 数据半命中 + 需求半未命中（压测闭集契约毛发资产 token 搜索 = NONE）⇒ 裁决 = maintain card/mesh 档；strand 档强制精确 OIT 分项 not-triggered 登记面 0-byte 维持（M114 counts_as_green=false 口径）"
+  },
+  "production_lane_transparency_handling": {
+    "content_model": "现生产车道（g14_3_lane_body 统一四 pass tsr_device 车道 + g31_window_present 真窗口车道）= 逐三角 albedo/emission + point/quad 灯全不透明内容模型：ray query closest-hit 无 alpha 混合面，代码面无 alphaMode/BLEND/MASK 处理（机核 grep 零命中；纹理解码侧仅 DXT1 1-bit alpha 透明槽 → RGB=0 确定性登记口径一处）",
+    "bistro_glass_fate": "bistro-interior 源资产玻璃材质名机核在册（TransparentGlass / Paris_LiquorBottle_01~03_Glass(_Wine) / Paris_Paintings_Glass / MASTER_Glass_Exterior / MASTER_Interior_01_Frozen_Glass / Paris_Cashregister_Glass 等）——派生压测资产（K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf）70/70 材质 alphaMode=OPAQUE：玻璃以不透明实面渲染（瓶盖/橱窗/画框玻璃不透），= 现生产车道半透明处理缺口如实登记",
+    "closed_set_machine_check_fresh": "2026-08-26 本窗真跑机核：bistro-interior 派生 gltf alphaMode 70 行全 OPAQUE、BLEND=0 / MASK=0 / KHR_materials_transmission=0；cornell-box 派生 gltf alphaMode 行=0（glTF 默认 OPAQUE）——压测闭集两场景零半透明面"
+  },
+  "trigger_evaluation": {
+    "trigger_condition_literal": "游戏画面含玻璃/粒子特效/头发时触发（G31_PLUS §1.2 #13）",
+    "verdict": "not_triggered",
+    "verdict_reasoning": [
+      "① 现压测闭集（g13_ue_upscale_parity_contract 双场景 = cornell-box + bistro-interior）机核零半透明面（BLEND/MASK/transmission 全 0）——无半透明主导面，OIT 进生产帧无测量对象",
+      "② 粒子特效面 = 零（G31_PLUS #81 粒子/半透明/WPO 行 [遗漏] 在案，归 #10 触发动态资产面时同窗验收）",
+      "③ 头发面 = 需求半未命中在案（G24.2 M-a：压测闭集毛发资产 token NONE）——strand 档锚未命中维持登记，card/mesh 档走默认半透明路径维持",
+      "④ 选型纪律面：M120 仅测量不定档 fail-closed 在案——即使未来触发，默认档选型须引 benchmark 数据（无数据提交 = RED），device 帧时腿 atomics/确定性协议冲突待裁决——触发前维持测量 harness 态为唯一合法态"
+    ]
+  },
+  "conclusion": "OIT 进生产帧触发条件不成立：现压测闭集无半透明主导面（双场景机核全 OPAQUE），毛发 strand 档锚未命中维持，粒子面零在案。oit/ 维持 G9 M120 测量 harness 态（仅测量不定档 fail-closed），本窗只做现状盘点与缺口登记，不接线、不选型、不改既有面 0-byte",
+  "conditional_wiring_sketch": "触发重判窗（登记不承诺）：压测闭集引入半透明主导面（BLEND/MASK 材质占比入格或玻璃/粒子/毛发资产入闭集契约）⇒ ① 消费 M120 冻结测量数据启动有界近似档（WBOIT 起步，AVBOIT 评估项不承诺，D4 D16）选型提交（benchmark 数据引用齐备面）；② device 帧时腿解锁须先裁 atomics 与 .rx 确定性协议冲突（M120 冻结注记字面承接）；③ 精确 linked-list 档维持毛发 strand 唯一作用域（RXS-0371 L4）；④ 排序 fallback 永保留为最低端档与正确性对照",
+  "discipline": "评估窗只追加登记：oit/ 模块、生产车道、M120 冻结测量、G24.2 重判面全部 0-byte 未改；闭集机核数字来自 2026-08-26 真实命令输出（Select-String 计数）；在案证据只读引用",
+  "evidence_refs": [
+    "milestones/g9/g9_m120_oit_measurements.json（M120 冻结测量面）",
+    "evidence/g9_m120_oit_benchmark_harness_20260815T030517Z.json（M120 门绿件在案）",
+    "evidence/g24_m_a_hair_strand_oit_rejudgment_20260824T190255Z.json（strand 档 maintain card/mesh 在案锚）",
+    "src/rurix-render/src/oit/（measure-only harness 代码面）",
+    "src/rurix-render/src/display/hair.rs（毛发三档 + strand not-triggered 登记面）",
+    "闭集机核（2026-08-26 真跑）：bistro gltf alphaMode 70×OPAQUE / BLEND=0 / MASK=0 / transmission=0；cornell gltf alphaMode 行=0"
+  ],
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 B Task B7 评估窗）"
+}

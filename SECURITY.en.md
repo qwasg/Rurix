@@ -40,3 +40,11 @@ Rurix's security model centers on **intercepting resource-lifetime errors at com
 - Memory-safety defects at `unsafe` boundaries (PYD / C ABI / DLPack / cublas FFI).
 - Bypasses of the release pipeline's signing / SBOM / license-whitelist audit.
 - Supply-chain issues in package management (lockfile + vendor + checksum).
+
+## Renderer surface (Rurix renderer SDK)
+
+The full renderer-surface security policy lives in [`docs/renderer/support_policy.md`](docs/renderer/support_policy.md) §3 (this section is an entry pointer only; channels, timeline, and disclosure rules are the same as above). Renderer-specific report items:
+
+- **Driver interaction**: Vulkan capability-chain negotiation / device lost / driver TDR boundary issues — attach the full `RURIX_VK_VALIDATION=1` output.
+- **Shader supply chain**: tampering with the canonical SPV quartet / distributed fatbins, or bypasses of the deterministic digest anchors.
+- **Vendor SDKs**: DLSS Streamline / FSR FidelityFX / BasisU / Jolt dynamic-loading chains (load hijacking, redistribution whitelist violations).

@@ -116,7 +116,9 @@ fn require_real() -> bool {
 /// DEV_ENV 三态裁决：RURIX_REQUIRE_REAL=1 → FAIL 退 1；否则 SKIP 退 0（非 fake pass）。
 fn dev_env_or_fail(what: &str, err: &str) -> ! {
     if require_real() {
-        fail(&format!("{what} 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: {err}"));
+        fail(&format!(
+            "{what} 不可用（RURIX_REQUIRE_REAL=1，禁 mock 充真跑）: {err}"
+        ));
     }
     println!(
         "{{\"schema\":\"rurix.g13.upscale_parity.skip.v1\",\"state\":\"skipped_dev_env\",\"what\":{},\"reason\":{}}}",
@@ -156,7 +158,11 @@ impl Json {
     }
     fn as_u64(&self) -> Option<u64> {
         match self {
-            Json::Num { raw, integral: true, .. } => raw.parse::<u64>().ok(),
+            Json::Num {
+                raw,
+                integral: true,
+                ..
+            } => raw.parse::<u64>().ok(),
             _ => None,
         }
     }
@@ -349,7 +355,8 @@ impl<'a> JParser<'a> {
                 0x00..=0x1F => return Err("JSON: 未转义控制字符".into()),
                 _ => {
                     // 原始 UTF-8 字节直透（输入经 read_to_string 保证合法 UTF-8）。
-                    let s = std::str::from_utf8(&self.b[self.i - 1..]).map_err(|_| "JSON: UTF-8")?;
+                    let s =
+                        std::str::from_utf8(&self.b[self.i - 1..]).map_err(|_| "JSON: UTF-8")?;
                     let ch = s.chars().next().ok_or("JSON: 字符串截断")?;
                     out.push(ch);
                     self.i += ch.len_utf8() - 1;
@@ -417,7 +424,11 @@ impl<'a> JParser<'a> {
 }
 
 fn json_parse(text: &str) -> Result<Json, String> {
-    let mut p = JParser { b: text.as_bytes(), i: 0, depth: 0 };
+    let mut p = JParser {
+        b: text.as_bytes(),
+        i: 0,
+        depth: 0,
+    };
     let v = p.value()?;
     p.ws();
     if p.i != p.b.len() {
@@ -435,7 +446,9 @@ fn cerr(msg: impl Into<String>) -> String {
 }
 
 fn as_f64(name: &str, v: &Json) -> Result<f64, String> {
-    let x = v.as_f64().ok_or_else(|| cerr(format!("{name}: expected f64")))?;
+    let x = v
+        .as_f64()
+        .ok_or_else(|| cerr(format!("{name}: expected f64")))?;
     if !x.is_finite() {
         return Err(cerr(format!("{name}: NaN/Inf forbidden")));
     }
@@ -443,7 +456,9 @@ fn as_f64(name: &str, v: &Json) -> Result<f64, String> {
 }
 
 fn as_u32(name: &str, v: &Json) -> Result<u32, String> {
-    let x = v.as_u64().ok_or_else(|| cerr(format!("{name}: expected u32")))?;
+    let x = v
+        .as_u64()
+        .ok_or_else(|| cerr(format!("{name}: expected u32")))?;
     if x > u32::MAX as u64 {
         return Err(cerr(format!("{name}: u32 越域 {x}")));
     }
@@ -451,11 +466,14 @@ fn as_u32(name: &str, v: &Json) -> Result<u32, String> {
 }
 
 fn as_u64(name: &str, v: &Json) -> Result<u64, String> {
-    v.as_u64().ok_or_else(|| cerr(format!("{name}: expected u64")))
+    v.as_u64()
+        .ok_or_else(|| cerr(format!("{name}: expected u64")))
 }
 
 fn as_str<'a>(name: &str, v: &'a Json) -> Result<&'a str, String> {
-    let s = v.as_str().ok_or_else(|| cerr(format!("{name}: expected str")))?;
+    let s = v
+        .as_str()
+        .ok_or_else(|| cerr(format!("{name}: expected str")))?;
     if s.is_empty() {
         return Err(cerr(format!("{name}: empty str")));
     }
@@ -463,11 +481,14 @@ fn as_str<'a>(name: &str, v: &'a Json) -> Result<&'a str, String> {
 }
 
 fn as_bool(name: &str, v: &Json) -> Result<bool, String> {
-    v.as_bool().ok_or_else(|| cerr(format!("{name}: expected bool")))
+    v.as_bool()
+        .ok_or_else(|| cerr(format!("{name}: expected bool")))
 }
 
 fn as_f64v(name: &str, v: &Json, n: usize) -> Result<Vec<f64>, String> {
-    let a = v.as_array().ok_or_else(|| cerr(format!("{name}: expected array")))?;
+    let a = v
+        .as_array()
+        .ok_or_else(|| cerr(format!("{name}: expected array")))?;
     if a.len() != n {
         return Err(cerr(format!("{name}: expected f64×{n}")));
     }
@@ -478,7 +499,9 @@ fn as_f64v(name: &str, v: &Json, n: usize) -> Result<Vec<f64>, String> {
 }
 
 fn closed<'a>(name: &str, v: &'a Json, keys: &[&str]) -> Result<&'a Json, String> {
-    let obj = v.as_object().ok_or_else(|| cerr(format!("{name}: expected obj")))?;
+    let obj = v
+        .as_object()
+        .ok_or_else(|| cerr(format!("{name}: expected obj")))?;
     for (k, _) in obj.iter() {
         if !keys.contains(&k.as_str()) {
             return Err(cerr(format!("{name}: schema 外字段注入 {k}")));
@@ -515,16 +538,30 @@ fn parse_scene(idx: usize, s: &Json) -> Result<(), String> {
     if sid != "cornell-box" && sid != "bistro-interior" {
         return Err(cerr(format!("scene_id {sid} 越场景闭集")));
     }
-    as_str("m133_manifest_digest", s.get("m133_manifest_digest").unwrap())?;
+    as_str(
+        "m133_manifest_digest",
+        s.get("m133_manifest_digest").unwrap(),
+    )?;
     as_str("gltf_product_digest", s.get("gltf_product_digest").unwrap())?;
     let cam = s.get("camera").unwrap();
     closed(
         "camera",
         cam,
-        &["position", "orientation_quat", "fov_y_deg", "near", "far", "resolution"],
+        &[
+            "position",
+            "orientation_quat",
+            "fov_y_deg",
+            "near",
+            "far",
+            "resolution",
+        ],
     )?;
     as_f64v("camera.position", cam.get("position").unwrap(), 3)?;
-    let q = as_f64v("camera.orientation_quat", cam.get("orientation_quat").unwrap(), 4)?;
+    let q = as_f64v(
+        "camera.orientation_quat",
+        cam.get("orientation_quat").unwrap(),
+        4,
+    )?;
     let n2: f64 = q.iter().map(|x| x * x).sum();
     if (n2 - 1.0).abs() > UNIT_NORM_TOL {
         return Err(cerr("camera.orientation_quat 非单位"));
@@ -560,7 +597,10 @@ fn parse_scene(idx: usize, s: &Json) -> Result<(), String> {
             "sky_intensity",
         ],
     )?;
-    as_f64("lighting.sun_intensity_lux", lig.get("sun_intensity_lux").unwrap())?;
+    as_f64(
+        "lighting.sun_intensity_lux",
+        lig.get("sun_intensity_lux").unwrap(),
+    )?;
     as_f64("lighting.sky_intensity", lig.get("sky_intensity").unwrap())?;
     for (i, q) in lig
         .get("quad_lights")
@@ -570,7 +610,11 @@ fn parse_scene(idx: usize, s: &Json) -> Result<(), String> {
         .iter()
         .enumerate()
     {
-        closed(&format!("quad_lights[{i}]"), q, &["p00", "e1", "e2", "le_linear_rgb"])?;
+        closed(
+            &format!("quad_lights[{i}]"),
+            q,
+            &["p00", "e1", "e2", "le_linear_rgb"],
+        )?;
         as_f64v("p00", q.get("p00").unwrap(), 3)?;
         as_f64v("e1", q.get("e1").unwrap(), 3)?;
         as_f64v("e2", q.get("e2").unwrap(), 3)?;
@@ -613,7 +657,12 @@ fn parse_scene(idx: usize, s: &Json) -> Result<(), String> {
         closed(
             &format!("emissive_materials[{i}]"),
             m,
-            &["material_name", "material_index", "le_linear_rgb", "area_m2"],
+            &[
+                "material_name",
+                "material_index",
+                "le_linear_rgb",
+                "area_m2",
+            ],
         )?;
         as_str("material_name", m.get("material_name").unwrap())?;
         as_u32("material_index", m.get("material_index").unwrap())?;
@@ -626,8 +675,15 @@ fn parse_scene(idx: usize, s: &Json) -> Result<(), String> {
         }
     }
     let mp = s.get("material_policy").unwrap();
-    closed("material_policy", mp, &["texture_mean_albedo", "white_tex_to_white"])?;
-    as_bool("texture_mean_albedo", mp.get("texture_mean_albedo").unwrap())?;
+    closed(
+        "material_policy",
+        mp,
+        &["texture_mean_albedo", "white_tex_to_white"],
+    )?;
+    as_bool(
+        "texture_mean_albedo",
+        mp.get("texture_mean_albedo").unwrap(),
+    )?;
     as_bool("white_tex_to_white", mp.get("white_tex_to_white").unwrap())?;
     Ok(())
 }
@@ -659,7 +715,9 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
     as_str("contract_id", doc.get("contract_id").unwrap())?;
     as_u32("version", doc.get("version").unwrap())?;
     let tiers_v = doc.get("tier_sequence").unwrap();
-    let tiers_a = tiers_v.as_array().ok_or_else(|| cerr("tier_sequence 非数组"))?;
+    let tiers_a = tiers_v
+        .as_array()
+        .ok_or_else(|| cerr("tier_sequence 非数组"))?;
     if tiers_a.is_empty() {
         return Err(cerr("tier_sequence 空"));
     }
@@ -720,8 +778,14 @@ fn parse_contract(text: &str) -> Result<Contract, String> {
     {
         return Err(cerr("rendering_policy tonemap/denoiser 须 const off"));
     }
-    if as_str("ue_temporal_upscaler", pol.get("ue_temporal_upscaler").unwrap())? != "dlss_plugin" {
-        return Err(cerr("rendering_policy.ue_temporal_upscaler 须 const dlss_plugin"));
+    if as_str(
+        "ue_temporal_upscaler",
+        pol.get("ue_temporal_upscaler").unwrap(),
+    )? != "dlss_plugin"
+    {
+        return Err(cerr(
+            "rendering_policy.ue_temporal_upscaler 须 const dlss_plugin",
+        ));
     }
     if as_str("jitter", pol.get("jitter").unwrap())? != "halton_static" {
         return Err(cerr("rendering_policy.jitter 须 const halton_static"));
@@ -789,17 +853,28 @@ fn parse_lumen_contract(text: &str) -> Result<String, String> {
         ],
     )?;
     if as_str("ue_gi_method", pol.get("ue_gi_method").unwrap())? != "lumen"
-        || as_str("ue_reflection_method", pol.get("ue_reflection_method").unwrap())? != "lumen"
+        || as_str(
+            "ue_reflection_method",
+            pol.get("ue_reflection_method").unwrap(),
+        )? != "lumen"
     {
-        return Err(cerr("rendering_policy ue_gi_method/ue_reflection_method 须 const lumen"));
+        return Err(cerr(
+            "rendering_policy ue_gi_method/ue_reflection_method 须 const lumen",
+        ));
     }
     if as_str("tonemap", pol.get("tonemap").unwrap())? != "off"
         || as_str("denoiser", pol.get("denoiser").unwrap())? != "off"
     {
         return Err(cerr("rendering_policy tonemap/denoiser 须 const off"));
     }
-    if as_str("indirect_derivation", pol.get("indirect_derivation").unwrap())? != "gi_on_minus_gi_off" {
-        return Err(cerr("rendering_policy.indirect_derivation 须 const gi_on_minus_gi_off"));
+    if as_str(
+        "indirect_derivation",
+        pol.get("indirect_derivation").unwrap(),
+    )? != "gi_on_minus_gi_off"
+    {
+        return Err(cerr(
+            "rendering_policy.indirect_derivation 须 const gi_on_minus_gi_off",
+        ));
     }
     let surf_v = doc.get("rurix_gi_surface").unwrap();
     let surf_a = surf_v
@@ -813,7 +888,13 @@ fn parse_lumen_contract(text: &str) -> Result<String, String> {
         surf.push(as_str(&format!("rurix_gi_surface[{i}]"), x)?);
     }
     surf.sort();
-    if surf != ["multibounce_chain", "screen_probe_near_field", "world_cache_far_field"] {
+    if surf
+        != [
+            "multibounce_chain",
+            "screen_probe_near_field",
+            "world_cache_far_field",
+        ]
+    {
         return Err(cerr(format!("rurix_gi_surface 越三锚闭集: {surf:?}")));
     }
     let scenes = doc.get("scenes").unwrap();
@@ -914,7 +995,11 @@ fn lumen_root_type(k: &str) -> &'static str {
 
 fn lumen_policy_type(k: &str) -> &'static str {
     match k {
-        "denoiser" | "indirect_derivation" | "tonemap" | "ue_gi_method" | "ue_reflection_method" => "str",
+        "denoiser"
+        | "indirect_derivation"
+        | "tonemap"
+        | "ue_gi_method"
+        | "ue_reflection_method" => "str",
         _ => "",
     }
 }
@@ -1301,10 +1386,7 @@ impl Gltf {
         };
         let elem_size = comp_size * comps;
         let stride = stride.unwrap_or(elem_size);
-        let off = bv
-            .get("byteOffset")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as usize
+        let off = bv.get("byteOffset").and_then(|v| v.as_u64()).unwrap_or(0) as usize
             + a.get("byteOffset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
         let data = self
             .buffers
@@ -1382,7 +1464,7 @@ fn dds_mean_linear_rgb(bytes: &[u8]) -> Result<[f32; 3], String> {
             return Err(format!(
                 "DDS fourCC {} 非 BC1/BC3（fail-closed 不静默）",
                 String::from_utf8_lossy(other)
-            ))
+            ));
         }
     };
     if w == 0 || h == 0 {
@@ -1501,7 +1583,11 @@ fn f64v3(v: &[f64]) -> [f32; 3] {
 /// 契约四元数（w,x,y,z 序）旋转向量（G12.4 同式逐字）。
 fn quat_rot(quat: &[f64], v: [f64; 3]) -> [f64; 3] {
     let (w, x, y, z) = (quat[0], quat[1], quat[2], quat[3]);
-    let uv = [y * v[2] - z * v[1], z * v[0] - x * v[2], x * v[1] - y * v[0]];
+    let uv = [
+        y * v[2] - z * v[1],
+        z * v[0] - x * v[2],
+        x * v[1] - y * v[0],
+    ];
     let uuv = [
         y * uv[2] - z * uv[1],
         z * uv[0] - x * uv[2],
@@ -1529,11 +1615,7 @@ fn contract_scene_row<'a>(contract: &'a Json, scene_id: &str) -> Result<&'a Json
         .ok_or_else(|| cerr(format!("契约缺场景行 {scene_id}")))
 }
 
-fn assemble_scene(
-    contract: &Json,
-    scene_id: &str,
-    gltf_path: &Path,
-) -> Result<SceneData, String> {
+fn assemble_scene(contract: &Json, scene_id: &str, gltf_path: &Path) -> Result<SceneData, String> {
     let srow = contract_scene_row(contract, scene_id)?;
     let cam = srow.get("camera").unwrap();
     let lig = srow.get("lighting").unwrap();
@@ -1563,7 +1645,11 @@ fn assemble_scene(
         let alb4 = pbr
             .and_then(|p| p.get("baseColorFactor"))
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().map(|x| x.as_f64().unwrap_or(1.0) as f32).collect::<Vec<_>>());
+            .map(|a| {
+                a.iter()
+                    .map(|x| x.as_f64().unwrap_or(1.0) as f32)
+                    .collect::<Vec<_>>()
+            });
         let alb = match alb4 {
             Some(v) if v.len() == 4 => [v[0], v[1], v[2]],
             _ => [1.0, 1.0, 1.0],
@@ -1683,7 +1769,10 @@ fn assemble_scene(
             if mode != 4 {
                 return Err(cerr("非三角形 primitive（mode≠4）fail-closed"));
             }
-            let mat_idx = prim.get("material").and_then(|v| v.as_u64()).map(|x| x as u32);
+            let mat_idx = prim
+                .get("material")
+                .and_then(|v| v.as_u64())
+                .map(|x| x as u32);
             let alb = match mat_idx.and_then(|mi| mats.get(mi as usize)) {
                 Some(rec) => {
                     let k = 1.0 - rec.metallic;
@@ -1749,14 +1838,17 @@ fn assemble_scene(
         .and_then(|v| v.as_array())
         .unwrap_or(&[])
     {
-        let f3 = |k: &str| -> Result<[f32; 3], String> {
-            Ok(f64v3(&as_f64v(k, q.get(k).unwrap(), 3)?))
-        };
+        let f3 =
+            |k: &str| -> Result<[f32; 3], String> { Ok(f64v3(&as_f64v(k, q.get(k).unwrap(), 3)?)) };
         let (p00, e1, e2, le) = (f3("p00")?, f3("e1")?, f3("e2")?, f3("le_linear_rgb")?);
         quads.push(QuadLight { p00, e1, e2, le });
         let p10 = [p00[0] + e1[0], p00[1] + e1[1], p00[2] + e1[2]];
         let p01 = [p00[0] + e2[0], p00[1] + e2[1], p00[2] + e2[2]];
-        let p11 = [p00[0] + e1[0] + e2[0], p00[1] + e1[1] + e2[1], p00[2] + e1[2] + e2[2]];
+        let p11 = [
+            p00[0] + e1[0] + e2[0],
+            p00[1] + e1[1] + e2[1],
+            p00[2] + e1[2] + e2[2],
+        ];
         for (a, b, c) in [(p00, p10, p11), (p00, p11, p01)] {
             let bidx = positions.len() as u32;
             positions.push(a);
@@ -1790,7 +1882,11 @@ fn assemble_scene(
     // 相机（契约四元数 → look_at 同口径：forward = q·(0,0,−1)、up = q·(0,1,0)；
     // right = forward × up0（UE 一致手性，G12.4 波裁决实证面））。
     let pos = as_f64v("camera.position", cam.get("position").unwrap(), 3)?;
-    let quat = as_f64v("camera.orientation_quat", cam.get("orientation_quat").unwrap(), 4)?;
+    let quat = as_f64v(
+        "camera.orientation_quat",
+        cam.get("orientation_quat").unwrap(),
+        4,
+    )?;
     let fov = cam.get("fov_y_deg").and_then(|v| v.as_f64()).unwrap();
     let near = cam.get("near").and_then(|v| v.as_f64()).unwrap();
     let far = cam.get("far").and_then(|v| v.as_f64()).unwrap();
@@ -1899,7 +1995,14 @@ fn visible(bvh: &TriBvh, origin: [f32; 3], dir: [f32; 3], dist: f32, eps: f32) -
     )
 }
 
-fn shade_pixel(scene: &SceneData, bvh: &TriBvh, p: [f32; 3], n_in: [f32; 3], tri: u32, eps: f32) -> [f32; 3] {
+fn shade_pixel(
+    scene: &SceneData,
+    bvh: &TriBvh,
+    p: [f32; 3],
+    n_in: [f32; 3],
+    tri: u32,
+    eps: f32,
+) -> [f32; 3] {
     let albedo = scene.albedo[tri as usize];
     let mut lo = scene.emission[tri as usize];
     let n = n_in;
@@ -2042,7 +2145,11 @@ fn render_frame(
                                     near[2] + dir[2] * hit.t,
                                 ];
                                 let clip = vp_r.transform_vec4([p[0], p[1], p[2], 1.0]);
-                                let z = if clip[3].abs() > 1e-8 { clip[2] / clip[3] } else { 1.0 };
+                                let z = if clip[3].abs() > 1e-8 {
+                                    clip[2] / clip[3]
+                                } else {
+                                    1.0
+                                };
                                 // 双面：法线翻转朝向相机（G12.4 two-sided 同律）。
                                 let mut n = hit.normal;
                                 if dot3(n, dir) > 0.0 {
@@ -2065,8 +2172,18 @@ fn render_frame(
         }
     });
     (
-        ImageF32 { w: iw, h: ih, c: 3, data: color },
-        ImageF32 { w: iw, h: ih, c: 1, data: depth },
+        ImageF32 {
+            w: iw,
+            h: ih,
+            c: 3,
+            data: color,
+        },
+        ImageF32 {
+            w: iw,
+            h: ih,
+            c: 1,
+            data: depth,
+        },
     )
 }
 
@@ -2344,8 +2461,16 @@ impl UpscaleBackend for DlssBackend {
 
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
         let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "DLSS adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "DLSS adapter 输出分辨率与 session 不符");
+        assert_eq!(
+            (iw, ih),
+            self.in_size,
+            "DLSS adapter 输入分辨率与 session 不符"
+        );
+        assert_eq!(
+            (ow, oh),
+            self.out_size,
+            "DLSS adapter 输出分辨率与 session 不符"
+        );
         let vi = VendorFrameInput {
             color: &inputs.color.data,
             depth: &inputs.depth.data,
@@ -2361,7 +2486,12 @@ impl UpscaleBackend for DlssBackend {
             .session
             .upscale(&vi)
             .unwrap_or_else(|e| panic!("DLSS upscale 失败: {e}"));
-        ImageF32 { w: ow, h: oh, c: 3, data }
+        ImageF32 {
+            w: ow,
+            h: oh,
+            c: 3,
+            data,
+        }
     }
 
     fn reset_history(&mut self) {
@@ -2381,8 +2511,8 @@ impl FsrBackend {
     fn create(in_size: (u32, u32), out_size: (u32, u32)) -> Result<Self, String> {
         let dir = fsr_sdk_dir().map_err(|e| e.to_string())?;
         let validation = std::env::var("RURIX_VK_VALIDATION").ok().as_deref() == Some("1");
-        let session =
-            FsrDx12Session::create(&dir, in_size, out_size, validation).map_err(|e| e.to_string())?;
+        let session = FsrDx12Session::create(&dir, in_size, out_size, validation)
+            .map_err(|e| e.to_string())?;
         Ok(Self {
             session,
             in_size,
@@ -2399,8 +2529,16 @@ impl UpscaleBackend for FsrBackend {
 
     fn upscale(&mut self, inputs: &UpscaleInputs) -> ImageF32 {
         let (iw, ih, ow, oh) = inputs.validated();
-        assert_eq!((iw, ih), self.in_size, "FSR adapter 输入分辨率与 session 不符");
-        assert_eq!((ow, oh), self.out_size, "FSR adapter 输出分辨率与 session 不符");
+        assert_eq!(
+            (iw, ih),
+            self.in_size,
+            "FSR adapter 输入分辨率与 session 不符"
+        );
+        assert_eq!(
+            (ow, oh),
+            self.out_size,
+            "FSR adapter 输出分辨率与 session 不符"
+        );
         let vi = VendorFrameInput {
             color: &inputs.color.data,
             depth: &inputs.depth.data,
@@ -2416,7 +2554,12 @@ impl UpscaleBackend for FsrBackend {
             .session
             .upscale(&vi)
             .unwrap_or_else(|e| panic!("FSR upscale 失败: {e}"));
-        ImageF32 { w: ow, h: oh, c: 3, data }
+        ImageF32 {
+            w: ow,
+            h: oh,
+            c: 3,
+            data,
+        }
     }
 
     fn reset_history(&mut self) {
@@ -2485,8 +2628,14 @@ fn hdr_metadata(digest: &str) -> ExrMetadata {
 }
 
 fn write_exr(path: &Path, w: u32, h: u32, rgb: &[f32], digest: &str) -> Result<u64, String> {
-    let img = ExrImage::new(w, h, ExrChannelLayout::Rgb, rgb.to_vec(), hdr_metadata(digest))
-        .map_err(|e| format!("EXR 构造: {e}"))?;
+    let img = ExrImage::new(
+        w,
+        h,
+        ExrChannelLayout::Rgb,
+        rgb.to_vec(),
+        hdr_metadata(digest),
+    )
+    .map_err(|e| format!("EXR 构造: {e}"))?;
     let bytes = encode_exr(&img).map_err(|e| format!("EXR 编码: {e}"))?;
     std::fs::write(path, &bytes).map_err(|e| format!("EXR 落盘: {e}"))?;
     Ok(bytes.len() as u64)
@@ -2528,9 +2677,11 @@ fn take_arg(args: &[String], i: &mut usize) -> String {
 fn contract_leg(path: &str) {
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| fail(&format!("契约读取: {e}")));
     // schema 分派（M-c upscale / M-d lumen 双契约面；fail-closed）。
-    let schema = json_parse(&text)
-        .ok()
-        .and_then(|d| d.get("schema").and_then(|s| s.as_str()).map(|s| s.to_owned()));
+    let schema = json_parse(&text).ok().and_then(|d| {
+        d.get("schema")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_owned())
+    });
     if schema.as_deref() == Some(LUMEN_SCHEMA_ID) {
         match parse_lumen_contract(&text) {
             Ok(d) => println!("{d}"),
@@ -2571,7 +2722,11 @@ fn selftest_leg(path: &str) {
             contract_ok = c.digest == FROZEN_CONTRACT_DIGEST;
         }
     }
-    let state = if tiny_ok && contract_ok { "pass" } else { "fail" };
+    let state = if tiny_ok && contract_ok {
+        "pass"
+    } else {
+        "fail"
+    };
     println!(
         "{{\"schema\":\"rurix.g13.upscale_parity.selftest.v1\",\"state\":{},\"tiny_digest\":{},\"tiny_expected\":{},\"tiny_ok\":{},\"contract_digest\":{},\"contract_frozen\":{},\"contract_ok\":{}}}",
         jstr(state),
@@ -2623,14 +2778,7 @@ fn backend_provenance_json(
             let dlls: Vec<String> = r
                 .dlls
                 .iter()
-                .map(|d| {
-                    format!(
-                        "[{},{},{}]",
-                        jstr(&d.name),
-                        jstr(&d.sha256),
-                        d.bytes
-                    )
-                })
+                .map(|d| format!("[{},{},{}]", jstr(&d.name), jstr(&d.sha256), d.bytes))
                 .collect();
             format!(
                 "{{\"kind\":{},\"gpu\":{},\"engine_version\":{},\"dlls\":[{}]}}",
@@ -2728,7 +2876,10 @@ fn render_leg(
     );
     let eps = scene_eps(&scene.positions);
     let bvh = TriBvh::build(&scene.positions, &scene.indices);
-    eprintln!("{TAG}: BVH 建成（tris={} eps={eps:.6}）", bvh.triangle_count());
+    eprintln!(
+        "{TAG}: BVH 建成（tris={} eps={eps:.6}）",
+        bvh.triangle_count()
+    );
 
     // ④ backend 创建（DEV_ENV 三态：GPU/vendor DLL 缺失 = dev_env degrade）。
     let mut backend = match backend_name {
@@ -2843,12 +2994,8 @@ fn render_leg(
         Backend::Fsr(b) => Some(b.session.report()),
         Backend::Tsr(_) => None,
     };
-    let provenance = backend_provenance_json(
-        &backend,
-        spv_resample,
-        spv_resolve,
-        vendor_report.as_ref(),
-    );
+    let provenance =
+        backend_provenance_json(&backend, spv_resample, spv_resolve, vendor_report.as_ref());
     let join_ms = |v: &[f64]| {
         v.iter()
             .map(|x| format!("{x:.6}"))

@@ -259,6 +259,12 @@ pub fn verify_cut_coverage(mesh: &MeshDagView<'_>, cut: &[u32]) -> Result<(), Cu
 /// 元素标记,见 [`VisibleClusterEntry::visible`])。输出局部簇号**升序**
 /// (canonical 序,双跑逐位一致)。本函数即 L5「运行时误差驱动」证据面:输入
 /// 相机逐帧变化 ⇒ cut 逐帧重算,静态 LOD cut 无法经本函数产生。
+///
+/// **已知限制(G31+ #58 实证;组共享判定见 [`select_lod_cut_grouped`])**:
+/// 判定以**簇自身球心**投影——同组簇 error 共享但球心不同,近距下组内判定
+/// 可能不一致 ⇒ 祖先-后代同选(重叠)/空洞,由 [`verify_cut_coverage`]
+/// fail-closed 兜底拒帧。同心/远距 DAG(既有消费者夹具形态)不触发;真实
+/// 资产近距 cut 应改用组共享判定。
 pub fn select_lod_cut(
     mesh: &MeshDagView<'_>,
     transform: &[[f32; 4]; 3],
@@ -270,6 +276,76 @@ pub fn select_lod_cut(
         let d = dist3(center_w, cam.cam_pos);
         let self_px = cam.projected_error_px(c.error * scale, d);
         let parent_px = cam.projected_error_px(c.parent_error * scale, d);
+        if self_px < cam.error_threshold_px && parent_px >= cam.error_threshold_px {
+            out.push(i as u32);
+        }
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// 组共享 LOD 判定球 cut(G31+ #58/B4;Nanite/BMT 语义——SIGGRAPH 2021 深潜
+// "same input → same output":同一判定的全部消费方共享逐位相同的
+// (LOD 球, 误差),组内判定必然一致,无需簇间通信)
+// ---------------------------------------------------------------------------
+
+/// LOD 判定球(与剔除紧球分离——本球沿 DAG 链**并集嵌套**保单调,可比几何
+/// 紧球大;离线构建产,见 rurix-asset `g31_cluster_lod_bake::derive_lod_bounds`)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LodBounds {
+    /// 球心(对象空间)。
+    pub center: [f32; 3],
+    /// 半径(并集保守方向)。
+    pub radius: f32,
+}
+
+/// 组共享判定球 LOD cut(RXS-0350 L2 同覆盖性契约的加强判据):
+///
+/// - 簇 c 的 **self 判定**输入 = `(self_bounds[c], error[c])`——非叶簇 =
+///   生成组球(= 孩子 LOD 球并集)与组简化误差,**同生成组产物逐位共享**;
+///   叶簇 error = 0 恒过(球不参与)。
+/// - 簇 c 的 **parent 判定**输入 = `(parent_bounds[c], parent_error[c])`——
+///   所属组球与组误差,**与该组全部产物的 self 判定逐位同源** ⇒ 相邻层判定
+///   一致;根 parent_error = +∞ 恒不过。
+/// - 投影距离取**球面最近点** `max(dist(cam, center) − radius, 0)`(球并集
+///   嵌套 ⇒ 父最近点 ≤ 子最近点 ⇒ 投影单调放大;配合误差单调 ⇒ 每条
+///   root→leaf 链判定恰翻转一次 ⇒ cut 无洞无重叠)。
+///
+/// 输出局部簇号升序(canonical);`bounds` 表长必须 ≥ 簇数(fail-closed 由
+/// 调用方保证,本函数 debug 断言)。
+pub fn select_lod_cut_grouped(
+    mesh: &MeshDagView<'_>,
+    self_bounds: &[LodBounds],
+    parent_bounds: &[LodBounds],
+    transform: &[[f32; 4]; 3],
+    cam: &CullCamera,
+) -> Vec<u32> {
+    debug_assert!(self_bounds.len() >= mesh.records.len());
+    debug_assert!(parent_bounds.len() >= mesh.records.len());
+    let project = |b: &LodBounds, error: f32| -> f32 {
+        if error <= 0.0 {
+            return 0.0; // 叶自检恒过
+        }
+        if error.is_infinite() {
+            return f32::INFINITY; // 根父检恒过
+        }
+        // 世界化(cull::world_sphere 同口径:球心仿射精确,半径/误差按最大
+        // 列范数保守缩放)。
+        let scale = {
+            let m = transform;
+            (0..3)
+                .map(|j| m[0][j] * m[0][j] + m[1][j] * m[1][j] + m[2][j] * m[2][j])
+                .fold(0.0f32, f32::max)
+                .sqrt()
+        };
+        let center_w = crate::geometry::gpu_scene::transform_point(transform, b.center);
+        let d_surface = (dist3(center_w, cam.cam_pos) - b.radius * scale).max(0.0);
+        cam.projected_error_px(error * scale, d_surface)
+    };
+    let mut out = Vec::new();
+    for (i, c) in mesh.records.iter().enumerate() {
+        let self_px = project(&self_bounds[i], c.error);
+        let parent_px = project(&parent_bounds[i], c.parent_error);
         if self_px < cam.error_threshold_px && parent_px >= cam.error_threshold_px {
             out.push(i as u32);
         }
@@ -1096,8 +1172,7 @@ mod tests {
             .map(|b| format!("{b:02x}"))
             .collect();
         assert_eq!(
-            hex,
-            "4001bef36ab04af4f0cf65c59315fe9fc7eeea6cf70a41aba4fd2f78d0276f67",
+            hex, "4001bef36ab04af4f0cf65c59315fe9fc7eeea6cf70a41aba4fd2f78d0276f67",
             "provenance digest golden 漂移"
         );
     }
@@ -1166,6 +1241,92 @@ mod tests {
                 assert_eq!(got, bypass.provenance_digest);
             }
         }
+    }
+
+    // ———— G31+ #58/B4 组共享 LOD 判定球 ————
+
+    /// 非同心组 fixture:A0(球心 −100)/A1(球心 −400)同组(error 共享 0.5)、
+    /// 父 P(球心 −300,由组产生)。自心判据下 A0 的 parent 判定(d=100 ⇒
+    /// 2.5px ≥ 1)与 P 的 self 判定(d=300 ⇒ 0.83px < 1)不一致 ⇒ P 与 A0
+    /// 同选(祖先-后代重叠);组共享判据下三方判定输入逐位同源 ⇒ 必然一致。
+    #[test]
+    fn grouped_bounds_fix_percluster_inconsistency() {
+        let records = vec![
+            ClusterRecord {
+                center: [0.0, 0.0, -100.0],
+                radius: 1.0,
+                ..cluster(0.0, 0.5, 0)
+            },
+            ClusterRecord {
+                center: [0.0, 0.0, -400.0],
+                radius: 1.0,
+                ..cluster(0.0, 0.5, 0)
+            },
+            ClusterRecord {
+                center: [0.0, 0.0, -300.0],
+                radius: 2.0,
+                ..cluster(0.5, f32::INFINITY, 0)
+            },
+        ];
+        let nodes = vec![
+            DagNodeRec {
+                first_child: 0,
+                child_count: 0,
+                level: 0,
+            },
+            DagNodeRec {
+                first_child: 0,
+                child_count: 0,
+                level: 0,
+            },
+            DagNodeRec {
+                first_child: 0,
+                child_count: 2,
+                level: 1,
+            },
+        ];
+        let children = vec![0, 1];
+        let mesh = MeshDagView::new(&records, &nodes, &children).expect("拓扑合法");
+        let cam = exact_cam(1000.0, 1.0);
+        let ident = crate::geometry::gpu_scene::IDENTITY_3X4;
+        // 回归对照臂:自心判据在本 fixture 必产祖先-后代同选(fail-closed 兜底
+        // 面 = verify;这是 select_lod_cut 头注「已知限制」的机核证据)。
+        let old = select_lod_cut(&mesh, &ident, &cam);
+        assert!(
+            matches!(
+                verify_cut_coverage(&mesh, &old),
+                Err(CutCoverageError::Overlap { .. })
+            ),
+            "自心判据应触发重叠(对照臂前提): {old:?}"
+        );
+        // 组共享判据:组球 = 成员 LOD 球并集(手工两遍法:center 取中点,
+        // R = max(dist+ri) 精确覆盖)。
+        let sg = LodBounds {
+            center: [0.0, 0.0, -250.0],
+            radius: 151.0,
+        };
+        let leaf_self = LodBounds {
+            center: [0.0; 3],
+            radius: 0.0,
+        }; // 叶 error=0 恒过,球不参与
+        let root_parent = leaf_self; // 根 parent_error=∞ 恒不过,球不参与
+        let self_bounds = [leaf_self, leaf_self, sg];
+        let parent_bounds = [sg, sg, root_parent];
+        // 近距(d_surface = 250−151 = 99 ⇒ 2.53px ≥ 1):全叶。
+        let cut = select_lod_cut_grouped(&mesh, &self_bounds, &parent_bounds, &ident, &cam);
+        verify_cut_coverage(&mesh, &cut).expect("组共享判据 cut 合法");
+        assert_eq!(cut, vec![0, 1], "近距应选全叶");
+        // 远距等价(高阈值 ⇒ 父可容忍):选父。
+        let far = CullCamera {
+            error_threshold_px: 1000.0,
+            ..cam
+        };
+        let cut_far = select_lod_cut_grouped(&mesh, &self_bounds, &parent_bounds, &ident, &far);
+        verify_cut_coverage(&mesh, &cut_far).expect("远距 cut 合法");
+        assert_eq!(cut_far, vec![2], "高阈值应选父");
+        // 双跑逐位一致(确定性)。
+        let again = select_lod_cut_grouped(&mesh, &self_bounds, &parent_bounds, &ident, &cam);
+        assert_eq!(cut, again);
     }
 
     //@ spec: RXS-0352

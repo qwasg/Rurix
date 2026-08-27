@@ -1,0 +1,123 @@
+{
+  "schema": "rurix.g31.restir_wiring_evidence.v1",
+  "subject": "g31_restir_wiring",
+  "symbolic_gate_key": "g31.waveB.restir",
+  "wave": "G31+.B",
+  "scene_id": "bistro-interior",
+  "seed": 12853554842096240677,
+  "n_trials": 20000,
+  "light_table": {
+    "n_lights": 4,
+    "digest": "sha256:d7b7521ef4ae55458f47a7ea0babffa87b84857548c8ab45d62988a9e5566272",
+    "contract": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "source": "bistro-interior lighting.point_lights（生产管线 direct GI pass 现有灯表；I_rgb=color_linear_rgb×intensity_cd 同口径标量投影）"
+  },
+  "gate_maintenance": {
+    "state": "pass",
+    "y_anchor_all_equal": true,
+    "dec_consumed_all_equal": true,
+    "p100_vs_host": 2.831220626831055e-06,
+    "tol": 5.66244125366211e-06,
+    "in_tol": true,
+    "unbiased_3sigma_pass": true,
+    "device_double_run_bitexact": true,
+    "harness_digest": "sha256:ad80cc6bf26c20031dc4c5cbd8a23e0462263010dc394befcac18fdb304541c1"
+  },
+  "arms": [
+    {
+      "tier": "off",
+      "m_candidates": 1,
+      "mean": 0.003751720546989236,
+      "reference": 0.003747546274098568,
+      "variance": 1.789008294937868e-05,
+      "dev": 4.174272891e-06,
+      "bound_3sigma": 8.972478658e-05,
+      "unbiased_3sigma_pass": true,
+      "y_anchor_all_equal": true,
+      "dec_consumed_all_equal": true,
+      "p100_vs_host": 2.328306436538696e-10,
+      "in_tol": true,
+      "digest": "sha256:c66e9f0e5f9c7163550c404629efce731d7f8ada2d6aa4d17d5957a8ff9eec5d",
+      "double_run_bitexact": true,
+      "dispatch_ms": {
+        "mean": 72.7243,
+        "min": 69.004,
+        "max": 102.8142,
+        "runs": 20
+      }
+    },
+    {
+      "tier": "on",
+      "m_candidates": 16,
+      "mean": 0.003754359321622178,
+      "reference": 0.003747546274098568,
+      "variance": 1.129120290518748e-06,
+      "dev": 6.813047524e-06,
+      "bound_3sigma": 2.254116525e-05,
+      "unbiased_3sigma_pass": true,
+      "y_anchor_all_equal": true,
+      "dec_consumed_all_equal": true,
+      "p100_vs_host": 1.749867806211114e-09,
+      "in_tol": true,
+      "digest": "sha256:74048d93135b16c95ab61ad1cb967c45ba1aa6c65cadf532f7c8e555314b34fc",
+      "double_run_bitexact": true,
+      "dispatch_ms": {
+        "mean": 104.59468,
+        "min": 100.2482,
+        "max": 129.9109,
+        "runs": 20
+      }
+    }
+  ],
+  "spatial_reuse_arm": {
+    "grid": "8x8",
+    "n_points": 64,
+    "n_trials": 20000,
+    "aggregate_3sigma": {
+      "mean": 0.002762723283392,
+      "reference": 0.002762698322073,
+      "dev": 2.496131966e-08,
+      "bound_3sigma": 2.125049707e-06,
+      "pass": true
+    },
+    "per_point_5sigma_all_within": true,
+    "worst_dev_over_sigma": 2.286,
+    "variance_gain": {
+      "min": 0.139279,
+      "mean": 1.830431,
+      "max": 3.740604,
+      "no_pass_line": true
+    },
+    "double_run_bitexact": true,
+    "digest": "sha256:a5dbffe72908e526df250d73763c9e0748b90cd2376b62032d745958e50c6e3c:47cee41fb4c53f9fbab0afa6494bc6ef5b347622308bf2d25c9cc3b2f85708ea"
+  },
+  "variance_reduction": 15.844266638020912,
+  "frame_ms_compare": {
+    "off_mean": 72.7243,
+    "on_mean": 104.59468,
+    "on_over_off": 1.4382356378816983,
+    "note": "dispatch+回读墙钟（20000 trial 单批 = 单帧采样批口径；含上传/回读税，双臂同形同价；measured 如实登记不设通过线——G6 无硬门纪律）"
+  },
+  "determinism": {
+    "on_double_run_bitexact": true,
+    "off_double_run_bitexact": true
+  },
+  "off_static_anchor": {
+    "path": "milestones/g31/g31_restir_wiring_off_anchor.json",
+    "digest": "sha256:c66e9f0e5f9c7163550c404629efce731d7f8ada2d6aa4d17d5957a8ff9eec5d",
+    "zero_drift": true,
+    "program_produced_first_run": false
+  },
+  "frozen_surfaces": {
+    "gi_files_0byte_vs_g27_closed": true,
+    "g28_kernel_0byte_vs_g28_closed": true
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T002545Z",
+  "notes": "ReSTIR 车道集成 measured（bistro-interior 契约 point_lights 4 灯，20000 trial × 双臂同批）：off（M=1，MegaLights 语义镜像）var=1.789008e-05 vs on（M=16 reservoir）var=1.129120e-06，variance_reduction=15.844（>1 方向硬门，数值如实登记）；dispatch_ms mean off=72.7243 → on=104.5947（on/off=1.438，如实登记不设通过线）；双臂 y 整数锚 20000/20000 全等 + p100 off=2.328e-10/on=1.750e-09 ≤ G28 冻结容差 5.662e-06 + 双臂无偏 3σ 过 + 双跑位级；空间重用加性臂聚合 3σ dev=2.496e-08 + 逐点 5σ 全过 + 方差再收益 0.139/1.830/3.741 如实登记（no_pass_line）；G28 门维持腿复跑全绿（fixture 20000 trial y 锚 + p100=2.831e-06 + 3σ + 双跑位级）；off 静态锚复跑零漂移；gi/ 两文件 vs g27-closed + kernel vs g28-closed 三处 0-byte 机核绿"
+}

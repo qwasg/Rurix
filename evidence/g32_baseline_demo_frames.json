@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 210.0
+ },
+ "notes": "G32 画面完整期波 B 游戏画面 demo 定版臂真窗口 present 帧数实测（--textures on --auto-move orbit --frames 200 --warmup 10 → frames_completed=210 双跑 exit=frames_done；real_render 5.113/5.431ms + present 1.004/1.013ms 双口径）（源 .tmp/g31_gates/waveB_matrix/demo200_a.json / demo200_b.json + milestones/g31/g31_waveb_combo_matrix.json demo_selection）"
+}

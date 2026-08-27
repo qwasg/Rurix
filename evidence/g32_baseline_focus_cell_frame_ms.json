@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 3.9232218750000016
+ },
+ "notes": "G32 画面完整期波 B 验收 G17-MD-F1 焦点格（bistro-interior/t100/dlss_sr）canonical 160 帧新鲜 frame_ms_production_mean——取门跑新鲜保守值（g31_wave_a_anchor_check_20260826T100312Z）；本日 5 样本 3.5190/3.5674/3.5929/3.7076/3.9232ms（机态方差如实登记于 G32_CONTRACT §8.1③），预算杠 = 在案 3.5767ms ×2.0 = 7.1534ms 远未触及"
+}

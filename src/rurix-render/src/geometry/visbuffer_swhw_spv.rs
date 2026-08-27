@@ -266,7 +266,11 @@ pub fn sw_visbuffer_u64_spv() -> Vec<u32> {
     let base = imul!(tri_idx, c_u32(9));
     let mut t9 = [0u32; 9];
     for (k, slot) in t9.iter_mut().enumerate() {
-        let idx = if k == 0 { base } else { iadd!(base, c_u32(k as u32)) };
+        let idx = if k == 0 {
+            base
+        } else {
+            iadd!(base, c_u32(k as u32))
+        };
         *slot = ld_f32!(v_tris, idx);
     }
     let (ax, ay, az) = (t9[0], t9[1], t9[2]);
@@ -931,7 +935,9 @@ pub fn hw_visbuffer_fs_spv() -> Vec<u32> {
             c_u32_0,
             c_u32_1,
         },
-        [va[0], va[1], va[2], vb[0], vb[1], vb[2], vc[0], vc[1], vc[2]],
+        [
+            va[0], va[1], va[2], vb[0], vb[1], vb[2], vc[0], vc[1], vc[2],
+        ],
         px,
         py,
         pixel,
@@ -941,7 +947,11 @@ pub fn hw_visbuffer_fs_spv() -> Vec<u32> {
     // color = (0,0,0,1) 占位(dummy attachment;VisBuffer 走 SSBO)。
     let col = nid;
     nid += 1;
-    inst(&mut body, 80, &[t_vec4f, col, c_zero, c_zero, c_zero, c_one]);
+    inst(
+        &mut body,
+        80,
+        &[t_vec4f, col, c_zero, c_zero, c_zero, c_one],
+    );
     inst(&mut body, 62, &[v_color, col]);
     inst(&mut body, 253, &[]);
     inst(&mut body, 56, &[]);

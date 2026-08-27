@@ -1,0 +1,42 @@
+//@ spec: RFC-0049 §4.10(G35-7 流体空间哈希 cell 区间清扫;spec 条款号本期零新设)
+// G35-7 流体 · hash_clear —— cell_start/cell_end 帧首清扫(门
+// g35.wave7.fluids;src/particles/fluid.rs 契约头字面)。
+//
+// ## 架构(承载冻结:独立 clear kernel,不并入 cellrange 分支)
+// 语义面与 host 金标准 `particles/fluid.rs::hash_clear` **逐字同源**:
+// cell_start 清 4294967295(0xFFFFFFFF 空哨兵)、cell_end 清 0——空 cell
+// 区间 [0xFFFFFFFF, 0) 在 gather 侧 `while s < e` 循环零次直落(单调安全,
+// 无需 per-cell 有效位)。线程 = 段(SEG=256 段内串行,scan/sort 三 kernel
+// 同形),段外线程界外守卫直落;逐槽单写者 ⇒ 零原子零竞态。纯 u32/usize
+// 整数面 ⇒ device↔host 零容差位级(mod.rs 整数域协议)。
+//
+// ## 参数面(4 f32;声明序 = 绑定序,SSBO 数 = 3)
+//   params[0]=ncell(= 64³ = 262144 密集网格域) [1]=nseg_cells
+//   (= ncell/256 = 1024,dispatch x) [2..4)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×4) / 1 cell_start(ViewMut u32×ncell) /
+//   2 cell_end(ViewMut u32×ncell)。
+//   dispatch = [nseg_cells, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_hash_clear(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    cell_start: ViewMut<global, u32>,
+    cell_end: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let ncell = params[0] as usize;
+    let nseg = params[1] as usize;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > ncell {
+            hi = ncell;
+        }
+        let mut i = lo;
+        while i < hi {
+            cell_start[i] = 4294967295u32;
+            cell_end[i] = 0u32;
+            i = i + 1usize;
+        }
+    }
+}

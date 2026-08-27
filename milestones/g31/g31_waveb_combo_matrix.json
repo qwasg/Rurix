@@ -1,0 +1,117 @@
+{
+  "schema": "rurix.g31.waveb_combo_matrix.v1",
+  "window": "G31+ 波 B Task B8 — 特性组合矩阵核验窗（组合臂真跑 + 互斥 fail-closed 拒绝核验；G31_PLUS_COMMERCIAL_RENDERER_TODO §6 波次线 2 验收面）",
+  "frozen_at_utc": "2026-08-26T09:55:10Z",
+  "host": "RTX 4070 Ti + Vulkan（本机真跑，release 构建，RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1，--hidden 真窗口）",
+  "harnesses": {
+    "window_present": "target/release/g31_window_present.exe（真窗口 present 车道：--hzb/--slab-table/--textures/--fg/--auto-move/--ev100-ramp 闭集面）",
+    "pipeline_perf": "target/release/g14_3_pipeline_perf.exe（bench 车道：--skin-demo/--dyn-demo/--inflight 闭集面）",
+    "cross_harness_note": "--skin-demo/--dyn-demo 不进 window_present 参数闭集（真跑核验 = 未知参数拒跑）；--textures/--hzb/--slab-table/--fg 不进 pipeline_perf 参数闭集——跨 harness『组合』以双真跑同窗登记，不冒充单进程组合"
+  },
+  "composable_arms": [
+    {
+      "arm": "C0_base_gameloop",
+      "command": "g31_window_present --frames 64 --warmup 10 --hidden --auto-move orbit",
+      "runs": 2,
+      "digest": "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9",
+      "double_run_bitexact": true,
+      "cross_anchor": "== B3 门 slab_off 在案 digest + B4 门 tex_off 在案 digest（20260826T001204Z/20260826T082640Z）——跨日零漂移",
+      "real_render_frame_ms": [4.114005, 3.871069],
+      "present_frame_ms": [0.959311, 0.969798],
+      "exit_reason": "frames_done",
+      "verdict": "GREEN",
+      "evidence": [".tmp/g31_gates/waveB_matrix/base_a.json", ".tmp/g31_gates/waveB_matrix/base_b.json"]
+    },
+    {
+      "arm": "C1a_textures_on_orbit",
+      "command": "g31_window_present --frames 64 --warmup 10 --hidden --auto-move orbit --textures on --spv-texture .tmp/g31_gates/texture/g31_texture_gi.spv --spv-texture-probe .tmp/g31_gates/texture/g31_texture_probe.spv",
+      "runs": 2,
+      "digest": "sha256:81d330150f60a6277ed6da37b6e74275ac0a2268c45de1cc7554796d6216c5c2",
+      "double_run_bitexact": true,
+      "cross_anchor": "== B4 门 harness_on_a/b 在案 digest（20260826T082640Z）——跨日零漂移",
+      "real_render_frame_ms": [3.771562, 3.909378],
+      "present_frame_ms": [0.960342, 0.987222],
+      "textures": "mapped=12 tex_tris=697878 probes=288 ssbo_p100=0.0 sampler_max_lsb=1",
+      "exit_reason": "frames_done",
+      "verdict": "GREEN",
+      "evidence": [".tmp/g31_gates/waveB_matrix/tex_a.json", ".tmp/g31_gates/waveB_matrix/tex_b.json"]
+    },
+    {
+      "arm": "C1b_skin_demo（跨 harness 面，如实不冒充单进程组合）",
+      "command": "g14_3_pipeline_perf --bench --scene bistro-interior --tier 100 --backend tsr_device --skin-demo --frames 64 --warmup 10",
+      "runs": 2,
+      "digest": "sha256:d57645c9d57e230160b0de5498b2a24135aba135efc252e2a236decca8c34c6e",
+      "double_run_bitexact": true,
+      "skin_verify": "7/7 帧通过双跑（质心 ≤4px AABB ≤6px MV 中位差 ≤2px 窗级真动 max=1.697px ≥1px）",
+      "frame_ms_mean": [6.042903, 6.628462],
+      "frame_ms_production_mean": [3.473398, 3.961692],
+      "fps": [165.483, 150.865],
+      "verdict": "GREEN",
+      "evidence": [
+        ".tmp/g31_gates/waveB_matrix/skin_a/bistro-interior/tier100/tsr_device/bench_receipt.json",
+        ".tmp/g31_gates/waveB_matrix/skin_b/bistro-interior/tier100/tsr_device/bench_receipt.json"
+      ]
+    },
+    {
+      "arm": "C2_slab_table_orbit",
+      "command": "g31_window_present --frames 64 --warmup 10 --hidden --auto-move orbit --slab-table milestones/g31/g31_slab_side_table_bistro_interior.json --slab-arm device --spv-slab .tmp/g31_gates/slab/g29_slab.spv",
+      "runs": 2,
+      "digest": "sha256:7359fd905e0d8a380246449ad8e563fed12661b18942b903fce53bdde379439b",
+      "double_run_bitexact": true,
+      "cross_anchor": "== B3 门 harness_on_device_a 在案 digest（20260826T001204Z）——跨日零漂移",
+      "real_render_frame_ms": [3.738231, 3.800916],
+      "present_frame_ms": [0.958052, 0.967561],
+      "slab": "slab_tris=238927 parity_p100=3.677548e-8（== B3 门在案 p100）eval_ms 单列",
+      "exit_reason": "frames_done",
+      "verdict": "GREEN",
+      "evidence": [".tmp/g31_gates/waveB_matrix/slab_a.json", ".tmp/g31_gates/waveB_matrix/slab_b.json"]
+    },
+    {
+      "arm": "C3_hzb_on_orbit",
+      "command": "g31_window_present --frames 64 --warmup 10 --hidden --auto-move orbit --hzb on --spv-hzb-primary/.tmp/.../g31_hzb_primary.spv --spv-hzb-shade ... --spv-hzb-pack ... --spv-hzb-reduce .../g27_hzb_reduce.spv --spv-hzb-test .../g27_hzb_test.spv",
+      "runs": 2,
+      "digest": "sha256:6acc15081205973b84e5a213dc4127a518fcc6f9c0fbeb22733bb18643e4cea2",
+      "double_run_bitexact": true,
+      "cross_anchor": "B1 门在案窗 = 8+2 剔除中性窗 / 100 帧静态对照窗（不同窗长/轨迹）——本窗 64+10 orbit digest 为新窗锚如实登记",
+      "real_render_frame_ms": [18.667370, 18.386309],
+      "present_frame_ms": [0.991230, 0.974308],
+      "hzb_cost_note": "orbit 动态相机下剔除闭环重渲工作量高于静态对照（B1 静态 on/off=2.997×）；on≈4.7×base 如实登记不设通过线（G6 无硬门纪律）",
+      "exit_reason": "frames_done",
+      "verdict": "GREEN",
+      "evidence": [".tmp/g31_gates/waveB_matrix/hzb_a.json", ".tmp/g31_gates/waveB_matrix/hzb_b.json"]
+    }
+  ],
+  "mutex_rejections": [
+    {"id": "M1", "argv": "--hzb on --fg x2 --auto-move orbit", "exit": 1, "message": "--hzb on 与 --fg 互斥（B1 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M2", "argv": "--hzb on --slab-table <asset> --auto-move orbit", "exit": 1, "message": "--hzb on 与 --slab-table 互斥（B1/B3 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M3", "argv": "--slab-table <asset>（无 --auto-move）", "exit": 1, "message": "--slab-table 须随 --auto-move（B3 登记面 = 确定性轨迹 digest_seq;静态无轨迹面非本任务口径）"},
+    {"id": "M4", "argv": "--slab-table <asset> --auto-move orbit --fg x2", "exit": 1, "message": "--slab-table 与 --fg 互斥（B3 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M5", "argv": "--fg x2（无 --auto-move）", "exit": 1, "message": "--fg 须随 --auto-move（A5 FG 登记面 = 确定性轨迹;交互面 FG 非本任务口径）"},
+    {"id": "M6", "argv": "g14_3_pipeline_perf --bench --dyn-demo refit --inflight 2", "exit": 1, "message": "--dyn-demo 要求 --inflight 1（A2 约束：FIF 流水入口拒 tlas_update）"},
+    {"id": "M6b", "argv": "g14_3_pipeline_perf --bench --skin-demo --inflight 2", "exit": 1, "message": "--skin-demo 要求 --inflight 1（A2 同律约束：FIF 流水入口拒 blas_refit）"},
+    {"id": "M7", "argv": "--textures on --hzb on --auto-move orbit", "exit": 1, "message": "--textures on 与 --hzb on 互斥（B4/B1 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M8", "argv": "--textures on --fg x2 --auto-move orbit", "exit": 1, "message": "--textures on 与 --fg 互斥（B4 接线面 = 生产五 pass 现状车道;FG 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M9", "argv": "--textures on --slab-table <asset> --auto-move orbit", "exit": 1, "message": "--textures on 与 --slab-table 互斥（B4/B3 组合面非本任务口径,如实拒跑不冒充）"},
+    {"id": "M10", "argv": "g31_window_present --skin-demo …", "exit": 1, "message": "未知参数 --skin-demo（蒙皮 demo 面在 pipeline_perf 车道闭集,不进真窗口车道——闭集面核验）"},
+    {"id": "M11", "argv": "g31_window_present --dyn-demo refit …", "exit": 1, "message": "未知参数 --dyn-demo（动态实例 demo 面在 pipeline_perf 车道闭集——闭集面核验）"}
+  ],
+  "mutex_summary": {"tested": 12, "rejected_exit1": 12, "masquerade_zero": true},
+  "demo_selection": {
+    "arm": "波 B 游戏画面 demo = g31_window_present --textures on --auto-move orbit（真窗口车道最大可组合集：贴图材质 + 生产 GI 直接光车道 + 确定性轨迹动态相机 + swapchain 逐帧 present；HZB 剔除/蒙皮角色/slab 侧表各臂同窗真跑绿件在案——蒙皮角色面跨 harness 登记不冒充单进程组合）",
+    "command": "g31_window_present --frames 200 --warmup 10 --hidden --auto-move orbit --textures on（SPV 同 C1a）",
+    "frames": 200,
+    "warmup": 10,
+    "frames_completed": 210,
+    "runs": 2,
+    "digest": "sha256:cf3532f442df8f6e644be85571dcd090129acb248d321d18b0670eaf5e2ca6ca",
+    "double_run_bitexact": true,
+    "real_render_frame_ms": [5.113096, 5.430845],
+    "real_render_fps": [195.576, 184.133],
+    "present_frame_ms": [1.004388, 1.012562],
+    "encode_gpu_ms": [0.209608, 0.230845],
+    "exit_reason": "frames_done",
+    "evidence": [".tmp/g31_gates/waveB_matrix/demo200_a.json", ".tmp/g31_gates/waveB_matrix/demo200_b.json"]
+  },
+  "discipline": "组合矩阵只追加登记：所有数字来自 2026-08-26 真实命令输出（.tmp/g31_gates/waveB_matrix/*.json + stderr 行）；互斥面全部 fail-closed 拒跑 exit=1 逐字登记,零冒充可组合；可组合臂全部双跑 digest 位级一致；frame_ms 为 measured_local 如实登记不设通过线（G6 无硬门纪律）；既有锚/注册表 0-byte",
+  "assisted_by": "TraeCode:Kimi-K3（G31+ 波 B 验收门 Task B8）"
+}

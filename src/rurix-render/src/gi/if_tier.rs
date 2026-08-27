@@ -311,7 +311,13 @@ fn tri_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
 /// 语义 = 第一反弹出射辐射度估计(NEE×MIS + BSDF 命中发光面×MIS,M96
 /// megakernel shade①②③ 单反弹特例逐字同式;与 M99 probe 公式面同族)。
 /// `dims` = 4 维流样本 [bsdf_r1, bsdf_r2, nee_u, nee_v]。
-pub fn shade_probe_shared(scene: &PtScene, p: [f32; 3], n: [f32; 3], albedo: [f32; 3], dims: [f32; 4]) -> [f32; 3] {
+pub fn shade_probe_shared(
+    scene: &PtScene,
+    p: [f32; 3],
+    n: [f32; 3],
+    albedo: [f32; 3],
+    dims: [f32; 4],
+) -> [f32; 3] {
     let l = &scene.light;
     let ln = l.normal();
     let area = l.area();
@@ -395,9 +401,9 @@ pub const TIER_DISPATCH: [TierShadeDispatch; 4] = [
 /// 共享内核同一函数实例断言(RXS-0362 L2:各档复制实现即 RED——函数指针
 /// 两两相等才过;`fn_addr_eq` 为稳定面)。
 pub fn assert_shared_kernel_instance() -> bool {
-    TIER_DISPATCH.windows(2).all(|w| {
-        std::ptr::fn_addr_eq(w[0].shade, w[1].shade)
-    })
+    TIER_DISPATCH
+        .windows(2)
+        .all(|w| std::ptr::fn_addr_eq(w[0].shade, w[1].shade))
 }
 
 // ---------------------------------------------------------------------------
@@ -885,12 +891,13 @@ pub fn eval_l3_per_pixel(scene: &PtScene, gb: &GBuffer) -> TierFrame {
         let mut acc = [0.0f32; 3];
         for s in 0..M101_TIER_SPP as usize {
             let sb = m101_rng::sample_base(i, s, M101_TIER_SPP);
-            let li = shade_probe_shared(scene, p, n, a, [
-                stream[sb],
-                stream[sb + 1],
-                stream[sb + 2],
-                stream[sb + 3],
-            ]);
+            let li = shade_probe_shared(
+                scene,
+                p,
+                n,
+                a,
+                [stream[sb], stream[sb + 1], stream[sb + 2], stream[sb + 3]],
+            );
             acc[0] += li[0];
             acc[1] += li[1];
             acc[2] += li[2];
@@ -924,12 +931,13 @@ pub fn eval_l0_screen_probe(scene: &PtScene, gb: &GBuffer) -> TierFrame {
         let mut acc = [0.0f32; 3];
         for s in 0..M101_TIER_SPP as usize {
             let sb = m101_rng::sample_base(vi, s, M101_TIER_SPP);
-            let li = shade_probe_shared(scene, probe.pos, probe.normal, probe.albedo, [
-                stream[sb],
-                stream[sb + 1],
-                stream[sb + 2],
-                stream[sb + 3],
-            ]);
+            let li = shade_probe_shared(
+                scene,
+                probe.pos,
+                probe.normal,
+                probe.albedo,
+                [stream[sb], stream[sb + 1], stream[sb + 2], stream[sb + 3]],
+            );
             acc[0] += li[0];
             acc[1] += li[1];
             acc[2] += li[2];
@@ -949,7 +957,8 @@ pub fn eval_l0_screen_probe(scene: &PtScene, gb: &GBuffer) -> TierFrame {
         for tx in 0..tw {
             let t = (ty * tw + tx) as usize;
             let cx = (tx * spg_rc::M99_FILTER_CELL + spg_rc::M99_FILTER_CELL / 2).min(gb.width - 1);
-            let cy = (ty * spg_rc::M99_FILTER_CELL + spg_rc::M99_FILTER_CELL / 2).min(gb.height - 1);
+            let cy =
+                (ty * spg_rc::M99_FILTER_CELL + spg_rc::M99_FILTER_CELL / 2).min(gb.height - 1);
             let pi = grid.pixel_probe[(cy * gb.width + cx) as usize];
             if pi == u32::MAX || !grid.probes[pi as usize].valid {
                 continue;
@@ -981,7 +990,11 @@ pub fn eval_l0_screen_probe(scene: &PtScene, gb: &GBuffer) -> TierFrame {
 /// L1 clipmap 体积 probe 档(体素网格 + oct 图;`maps` = device/host oct 图
 /// 输入——采样与编码域在装配侧;irradiance 沿法线双线性采样 × visibility
 /// 沿 probe→点方向加权(防漏光优先))。
-pub fn eval_l1_clipmap_volume(gb: &GBuffer, grid: &IfVoxelGrid, maps: &[ProbeOctMaps]) -> Result<TierFrame, IfError> {
+pub fn eval_l1_clipmap_volume(
+    gb: &GBuffer,
+    grid: &IfVoxelGrid,
+    maps: &[ProbeOctMaps],
+) -> Result<TierFrame, IfError> {
     if maps.len() != grid.probe_count() {
         return Err(IfError::InvalidConfig(format!(
             "oct 图数 {} ≠ probe 数 {}",
@@ -997,12 +1010,18 @@ pub fn eval_l1_clipmap_volume(gb: &GBuffer, grid: &IfVoxelGrid, maps: &[ProbeOct
         let c = grid.probe_pos(pi);
         let irr = oct::sample_bilinear3(&maps[pi].irr, M101_IRR_RES, n);
         let dv = [p[0] - c[0], p[1] - c[1], p[2] - c[2]];
-        let dl = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]).sqrt().max(TINY);
+        let dl = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2])
+            .sqrt()
+            .max(TINY);
         let dir = [dv[0] / dl, dv[1] / dl, dv[2] / dl];
         // 防漏光:存储遮蔽距离(双线性)+ 余量 ≥ probe→点距离 ⇒ 可见;
         // 遮蔽 probe 贡献压止(visibility 优先语义的消费面)。
         let dist_est = oct::sample_bilinear1(&maps[pi].vis, M101_VIS_RES, dir) * M101_VIS_RANGE;
-        let vis = if dist_est + M101_VIS_EPS >= dl { 1.0 } else { 0.0 };
+        let vis = if dist_est + M101_VIS_EPS >= dl {
+            1.0
+        } else {
+            0.0
+        };
         [irr[0] * vis, irr[1] * vis, irr[2] * vis]
     });
     Ok(TierFrame {
@@ -1020,7 +1039,8 @@ fn spatial_hash_key(p: [f32; 3], n: [f32; 3]) -> u64 {
     let q = |v: f32| -> u64 { ((v / M101_GRID_CELL).floor() as i64) as u64 & 0x3FFF };
     let octant = ((if n[0] >= 0.0 { 1u64 } else { 0 })
         | (if n[1] >= 0.0 { 2 } else { 0 })
-        | (if n[2] >= 0.0 { 4 } else { 0 })) << 42;
+        | (if n[2] >= 0.0 { 4 } else { 0 }))
+        << 42;
     q(p[0]) | (q(p[1]) << 14) | (q(p[2]) << 28) | octant
 }
 
@@ -1043,12 +1063,13 @@ pub fn eval_l2_spatial_hash(scene: &PtScene, gb: &GBuffer) -> TierFrame {
         let mut acc = [0.0f32; 3];
         for s in 0..M101_TIER_SPP as usize {
             let sb = m101_rng::sample_base(i, s, M101_TIER_SPP);
-            let li = shade_probe_shared(scene, p, n, a, [
-                stream[sb],
-                stream[sb + 1],
-                stream[sb + 2],
-                stream[sb + 3],
-            ]);
+            let li = shade_probe_shared(
+                scene,
+                p,
+                n,
+                a,
+                [stream[sb], stream[sb + 1], stream[sb + 2], stream[sb + 3]],
+            );
             acc[0] += li[0];
             acc[1] += li[1];
             acc[2] += li[2];
@@ -1165,7 +1186,10 @@ impl M101Band {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n  \"schema\": \"rurix.g9m101.if_tier_band.v1\",\n");
-        s.push_str(&format!("  \"frozen_at_utc\": \"{}\",\n", self.frozen_at_utc));
+        s.push_str(&format!(
+            "  \"frozen_at_utc\": \"{}\",\n",
+            self.frozen_at_utc
+        ));
         s.push_str(&format!("  \"device_name\": \"{}\",\n", self.device_name));
         s.push_str(&format!("  \"scene\": \"{}\",\n", self.scene));
         s.push_str(&format!(
@@ -1176,8 +1200,14 @@ impl M101Band {
             "  \"freeze_rule\": \"band_rel_dev = measured_rel_dev * {:.1}(规则冻结于 gi::if_tier::M101_BAND_MARGIN;基值 = 冻结批实测,禁手写 P-09)\",\n",
             M101_BAND_MARGIN
         ));
-        s.push_str(&format!("  \"matched_depth\": \"{}\",\n", M101_MATCHED_DEPTH));
-        s.push_str(&format!("  \"m96_golden_spp\": \"{}\",\n", M101_M96_GOLDEN_SPP));
+        s.push_str(&format!(
+            "  \"matched_depth\": \"{}\",\n",
+            M101_MATCHED_DEPTH
+        ));
+        s.push_str(&format!(
+            "  \"m96_golden_spp\": \"{}\",\n",
+            M101_M96_GOLDEN_SPP
+        ));
         s.push_str(&format!("  \"seed_chain\": \"{}\",\n", M101_SEED));
         s.push_str(&format!(
             "  \"srgb_encode_rel_dev\": \"{:e}\",\n",
@@ -1242,7 +1272,10 @@ impl M101Band {
             }
             let product_digest = field("product_digest")?;
             let m96_digest = field("m96_digest")?;
-            for (nm, d) in [("product_digest", &product_digest), ("m96_digest", &m96_digest)] {
+            for (nm, d) in [
+                ("product_digest", &product_digest),
+                ("m96_digest", &m96_digest),
+            ] {
                 if d.len() != 64 || !d.chars().all(|c| c.is_ascii_hexdigit()) {
                     return Err(err(&format!("{nm} 非 64 位 hex")));
                 }
@@ -1348,7 +1381,10 @@ mod tests {
             let r = (1.0 - y * y).max(0.0).sqrt();
             let th = golden * i as f32;
             let d = [r * th.cos(), y, r * th.sin()];
-            for (res, acc) in [(M101_IRR_RES, &mut max_err_irr), (M101_VIS_RES, &mut max_err_vis)] {
+            for (res, acc) in [
+                (M101_IRR_RES, &mut max_err_irr),
+                (M101_VIS_RES, &mut max_err_vis),
+            ] {
                 let (ix, iy) = oct::encode_quant(d, res);
                 let back = oct::decode_quant(ix, iy, res);
                 let dot = (d[0] * back[0] + d[1] * back[1] + d[2] * back[2]).clamp(-1.0, 1.0);
@@ -1356,8 +1392,14 @@ mod tests {
             }
         }
         println!("[m101 oct] max err irr8={max_err_irr:.6e} vis16={max_err_vis:.6e} rad");
-        assert!(max_err_irr <= OCT_ROUNDTRIP_BOUND_IRR, "irr8 往返界: {max_err_irr}");
-        assert!(max_err_vis <= OCT_ROUNDTRIP_BOUND_VIS, "vis16 往返界: {max_err_vis}");
+        assert!(
+            max_err_irr <= OCT_ROUNDTRIP_BOUND_IRR,
+            "irr8 往返界: {max_err_irr}"
+        );
+        assert!(
+            max_err_vis <= OCT_ROUNDTRIP_BOUND_VIS,
+            "vis16 往返界: {max_err_vis}"
+        );
         // 零向量收敛 + 编码域基本锚(±Z 半球往返一致)。
         assert_eq!(oct::encode_unit([0.0, 0.0, 0.0]), [0.0, 0.0]);
         let back = oct::decode_unit(oct::encode_unit([0.3, -0.4, 0.5]));
@@ -1387,7 +1429,11 @@ mod tests {
             let def = tier_def(*t);
             assert_eq!(def.tier, *t);
             assert!(!def.index_kind.is_empty(), "档位定义强制含索引结构字面");
-            let _ = (def.as_budget.max_blas_builds, def.as_budget.max_refits, def.as_budget.max_tlas_rebuilds);
+            let _ = (
+                def.as_budget.max_blas_builds,
+                def.as_budget.max_refits,
+                def.as_budget.max_tlas_rebuilds,
+            );
             if i > 0 {
                 let prev = tier_def(IfTier::ALL[i - 1]);
                 assert!(
@@ -1419,7 +1465,10 @@ mod tests {
         let (served, recs) = select_tier(IfTier::L3PerPixel, &hot, true);
         assert_eq!(served, IfTier::L0ScreenProbe, "终端降档到 L0");
         assert_eq!(recs.len(), 3, "每级一条记录(L3→L2→L1→L0)");
-        assert!(recs.iter().all(|r| r.cause == DemotionCause::AsBudgetExceeded));
+        assert!(
+            recs.iter()
+                .all(|r| r.cause == DemotionCause::AsBudgetExceeded)
+        );
         assert_eq!(recs[0].from, IfTier::L3PerPixel);
         assert_eq!(recs[0].to, IfTier::L2SpatialHash);
         audit_demotions(IfTier::L3PerPixel, &hot, served, &recs).expect("降档审计过");
@@ -1443,7 +1492,10 @@ mod tests {
     #[test]
     fn shared_kernel_single_instance_and_tier_determinism() {
         // 共享内核同一函数实例断言(D2-Q5;各档复制实现即 RED)。
-        assert!(assert_shared_kernel_instance(), "四档共享 probe 着色内核同一实例");
+        assert!(
+            assert_shared_kernel_instance(),
+            "四档共享 probe 着色内核同一实例"
+        );
         // 档间 golden 归因面:四档评估双跑 digest 各自相等(确定性)。
         let scene = cornell();
         let gb = fb::gbuffer_prepass(&scene);
@@ -1456,7 +1508,10 @@ mod tests {
         }
         // L2 缓存计数面:命中+失效非空(同键复用存在)。
         let l2 = eval_l2_spatial_hash(&scene, &gb);
-        assert!(l2.cache_misses > 0 && l2.cache_hits > 0, "L2 缓存命中/失效非空");
+        assert!(
+            l2.cache_misses > 0 && l2.cache_hits > 0,
+            "L2 缓存命中/失效非空"
+        );
     }
 
     //@ spec: RXS-0362
@@ -1510,10 +1565,24 @@ mod tests {
         let text = band.to_json();
         let parsed = M101Band::parse(&text).expect("解析");
         assert_eq!(parsed, band, "序列化往返全等");
-        parsed.check("l3_per_pixel", &"b".repeat(64), &"a".repeat(64), 1.0).expect("带内");
-        assert!(parsed.check("l3_per_pixel", &"c".repeat(64), &"a".repeat(64), 0.5).is_err());
-        assert!(parsed.check("l3_per_pixel", &"b".repeat(64), &"a".repeat(64), 1.01).is_err());
-        assert!(parsed.check("nope", &"b".repeat(64), &"a".repeat(64), 0.1).is_err());
+        parsed
+            .check("l3_per_pixel", &"b".repeat(64), &"a".repeat(64), 1.0)
+            .expect("带内");
+        assert!(
+            parsed
+                .check("l3_per_pixel", &"c".repeat(64), &"a".repeat(64), 0.5)
+                .is_err()
+        );
+        assert!(
+            parsed
+                .check("l3_per_pixel", &"b".repeat(64), &"a".repeat(64), 1.01)
+                .is_err()
+        );
+        assert!(
+            parsed
+                .check("nope", &"b".repeat(64), &"a".repeat(64), 0.1)
+                .is_err()
+        );
         assert!(M101Band::parse("{\"schema\": \"nope\"}").is_err());
     }
 
@@ -1521,7 +1590,10 @@ mod tests {
     #[test]
     fn m96_anchor_consumed_from_m97_band() {
         // 门序消费锚(D2-Q7):M97 冻结带 m96_cornell 深度 2 条目可读。
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../milestones/g9/g9_m97_depth_band.json");
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../milestones/g9/g9_m97_depth_band.json"
+        );
         let text = std::fs::read_to_string(path).expect("M97 冻结带存在");
         let band = surface_cache::DepthBand::parse(&text).expect("M97 带解析");
         let e = band.entry(M101_MATCHED_DEPTH).expect("深度 2 条目");

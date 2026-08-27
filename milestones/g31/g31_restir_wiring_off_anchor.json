@@ -1,0 +1,11 @@
+{
+  "schema": "rurix.g31.restir_wiring_off_anchor.v1",
+  "scene_id": "bistro-interior",
+  "seed": 12853554842096240677,
+  "n_trials": 20000,
+  "m_candidates_off": 1,
+  "light_table_digest": "sha256:d7b7521ef4ae55458f47a7ea0babffa87b84857548c8ab45d62988a9e5566272",
+  "off_digest": "sha256:c66e9f0e5f9c7163550c404629efce731d7f8ada2d6aa4d17d5957a8ff9eec5d",
+  "frozen_at_utc": "2026-08-26T00:20:21Z",
+  "note": "G31+ 波 B Task B2 off 面（--restir off 默认档 = MegaLights 式均匀选灯语义镜像，RIS M=1 代数恒等）静态锚：首跑程序产追加（budget 追加同律），复跑位级期望零漂移，漂移即 RED；bistro-interior 契约 point_lights 灯表 digest 入键（契约灯表变更 ⇒ 锚重订程序，禁静默改写）"
+}

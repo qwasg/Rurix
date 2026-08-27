@@ -1,0 +1,7 @@
+{
+ "schema_version": 1,
+ "results": {
+  "trimmed_mean": 18.0
+ },
+ "notes": "G33 商业化期波 C 验收 Stage A 18 格 digest 锚 canonical 160 帧重跑零漂移格数实测（matched=18/18 MATCH；2026-08-26 本批真跑）（源 evidence/g31_wave_a_anchor_check_20260826T230806Z.json——锚检门本体因焦点格诚实红轨迹面判 FAIL，digest 三面零漂移事实不变）"
+}

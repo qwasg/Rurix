@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "subject": "g27_m_a_hzb_device_kernel",
+  "symbolic_gate_key": "g27.p0.m_a.hzb_device_kernel",
+  "matrix_row": "G27.2",
+  "wave": "G27.2",
+  "numeric_step": 464,
+  "source_ref": "G27_CONTRACT §4.2 M-a;rfcs/0044-geometry-device-realization.md §1;G27_ACCEPTANCE_MAP §1 M-a 行",
+  "host_section_pass": true,
+  "device_section_state": "not_applicable",
+  "required_gates": [],
+  "extra_facts": [
+    {
+      "id": "spv_compile_spirv_val_pass",
+      "status": "PASS",
+      "detail": "g27_hzb_reduce.rx rurixc --target vulkan 产 SPV + spirv-val 通过;g27_hzb_test.rx rurixc --target vulkan 产 SPV + spirv-val 通过"
+    },
+    {
+      "id": "mips_bitexact_all_levels",
+      "status": "PASS",
+      "detail": "device 金字塔 vs host HzbPyramid::build 逐级位级相等(零容差);reverse_z mips=9;standard_z mips=9"
+    },
+    {
+      "id": "rect_verdict_sequence_equal_800x2",
+      "status": "PASS",
+      "detail": "state=pass;800 rect × 双约定判定序列 vs host test_rect 逐 rect 全等;reverse_z occluded=231;standard_z occluded=231"
+    },
+    {
+      "id": "zero_false_positive_vs_exact",
+      "status": "PASS",
+      "detail": "device Occluded ⇒ exact_rect_occluded 同判(独立复核)且剔除数>0;reverse_z fp=0 occluded=231;standard_z fp=0 occluded=231"
+    },
+    {
+      "id": "device_double_run_bitexact",
+      "status": "PASS",
+      "detail": "双臂固定输入全链双跑 digest 位级相等(判定位序列 ‖ 金字塔 f32 LE,F11)"
+    },
+    {
+      "id": "tamper_red_arm_detected",
+      "status": "PASS",
+      "detail": "tamper:检出(注入 mip5 纹素 (2,1) rect#87 命中;臂 A 序列异 4 rect;臂 B 假阳性哨兵检出 2)"
+    },
+    {
+      "id": "geometry_frozen_0byte",
+      "status": "PASS",
+      "detail": "git diff --quiet g26-closed -- hzb.rs cull.rs visbuffer.rs 0-byte(提交面 + 工作树双面)"
+    }
+  ],
+  "subjects": [],
+  "checks": {
+    "all_required_gates_pass": true,
+    "all_extra_facts_pass": true,
+    "all_subjects_pass": true,
+    "aggregate_read_only": true
+  },
+  "evidence_level": "measured_local",
+  "run_url": "",
+  "timestamp": "20260826T222141Z",
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "cargo_version": "cargo 1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "notes": "G27.2 M-a:HZB device kernel 兑现——g27_hzb_reduce.rx + g27_hzb_test.rx 经 vk::run_compute 真跑;g20_hzb_probe 夹具逐字同源 193×117 × 800 rect × 双约定:device 金字塔逐级位级相等(零容差,无标定腿无 budget 条目)+ 判定序列逐 rect 全等 + 零假阳性独立复核 + device 双跑位级 + tamper RED 臂(构造性注入)+ geometry/(hzb+cull+visbuffer)vs g26-closed 0-byte;RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1"
+}

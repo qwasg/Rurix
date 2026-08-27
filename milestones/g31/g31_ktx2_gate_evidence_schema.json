@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G31+ 波 C Task C14 KTX2 三行门裁决证据（ci/g31_ktx2_smoke.py --gate 产）",
+  "description": "G31+ 波 C Task C14 KTX2 三行（RD-041 分项，TODO #37-#39；milestones/g22/g22_ktx2_disposition.json KTX2 立项窗 + milestones/g29/g29_svt_ktx2_rejudgment.json 重判窗兑现）门 g31.waveC.ktx2 的 smoke 裁决证据：① KTX2-1 容器解析（src/rurix-asset/src/ktx2.rs parse_ktx2 host safe Rust——KTX2 头/key-value/level index/supercompression 元数据 + mip 布局；真实 .ktx2 测试件 = 经 basis encoder 产逐字段互核（DFD colorModel=166 实证）+ 最小合成件（write_ktx2_multilevel 真实负载组装,KTXwriter 如实登记,禁手写二进制冒充）+ 确定性双读位级一致 + 截断/篡改/非法 scheme fail-closed 确定性 Err；CI 独立 Python 解析器对 dump 全链件重解析互核——levelCount/尺寸律法/逐级长度/digest 跨实现一致）② KTX2-2 BasisU 转码器集成（rurix-basis-sys 既有 vendor C++ 桥 + rurix_basis_transcode_level mip 参数化新面〔unsafe-audit U60〕→ BC7/ASTC 等 GPU 块格式转码落地；fail-closed DEV_ENV 纪律——vendor 缺 → 确定性 Err 不崩 + 门三态降级不冒充；转码产物与 bcdec 独立参考解码对拍（BC7 全 8 mode 像素面）：premultiplied-aware 口径 UASTC 腿 rgb_masked ≤ AP-TEX 冻结 48（实测 max 4）+ alpha ≤ 16（实测 max 4）,ETC1S 参照腿 measured 登记；ASTC 腿结构判 + 双跑确定性 + 越界/垃圾容器确定性 Err）③ KTX2-3 通用转码收益 A/B measured（bistro 12 槽 DDS 面真实纹理集：原始分发体积 19,576,888B vs KTX2-UASTC 全链 39,153,744B（2.00×,禁 zstd 在树约束下无体积收益）vs ETC1S 全链 2,813,379B（0.144× ≈ 6.96× 体积收益）+ 转码耗时 L0 合计 219.8ms/84.6ms（同机 measured）+ 质量 UASTC 视觉无损（maxΔ4）/ETC1S 有损（maxΔ110 meanΔ≤2.9）→ 收益结论落档：Windows-first 闭集资产维持 DDS（G22 判档 measured 复核成立）,跨平台/带宽预算门场景用 ETC1S,UASTC-KTX2 为高质量跨平台中间档（目标平台无 BC7 时成立）；C5 分发面联动 = SDK bundle 纹理面维持 DDS + 跨平台场景登记 BasisU 面）④ 整合回归（vendor pin 不动 = vendor_basis_universal.py --verify 绿 + vendor/ 0-byte;G11.3 DDS 链 0-byte + manifest digest 互核；B4 纹理面 frozen 路径 0-byte;M83 门复跑绿;g22/g29 判档文件 0-byte）。三态：无 vendor/bistro 资产/构建失败 → DEV_ENV_DEGRADE 退 0（不冒充 PASS）；RURIX_REQUIRE_REAL=1 下 DEV_ENV 降级翻硬 FAIL（禁 mock 充真跑）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "ktx2_1",
+    "ktx2_2",
+    "ktx2_3",
+    "integration",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.ktx2_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_ktx2" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveC.ktx2" },
+    "wave": { "type": "string", "const": "G31.C" },
+    "facts": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "ktx2_1_container_parse",
+              "ktx2_2_transcoder_integration",
+              "ktx2_3_transcode_ab_measured",
+              "ktx2_integration_regression"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "ktx2_1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_tests_green",
+        "real_fixture_fields_match",
+        "multilevel_transcode_bitexact",
+        "double_read_bitexact",
+        "fail_closed_arms",
+        "ci_independent_reparse_match",
+        "dumped_levels",
+        "dumped_uri"
+      ],
+      "properties": {
+        "host_tests_green": { "type": "boolean", "description": "cargo test -p rurix-asset ktx2 + -p rurix-basis-sys 全绿才许 true" },
+        "real_fixture_fields_match": { "type": "boolean", "description": "真实 encoder 件逐字段互核（vkFormat=0/scheme=0/DFD colorModel=166/KTXwriter/mip 布局）才许 true" },
+        "multilevel_transcode_bitexact": { "type": "boolean", "description": "合成多级件 level0 转码 == 真实单级件位级才许 true" },
+        "double_read_bitexact": { "type": "boolean", "description": "同文件双解析位级一致才许 true" },
+        "fail_closed_arms": { "type": "integer", "minimum": 1, "description": "fail-closed 臂数（截断/篡改/保留 scheme/scheme0 长度不符/levelCount 越界/typeSize/确定性同错）" },
+        "ci_independent_reparse_match": { "type": "boolean", "description": "CI 独立 Python 解析器重解析 dump 件 == Rust 面登记（levelCount/逐级长度/digest）才许 true" },
+        "dumped_levels": { "type": "integer", "minimum": 2, "description": "dump 全链件 level 数（多级面证据）" },
+        "dumped_uri": { "type": "string" }
+      }
+    },
+    "ktx2_2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_tests_green",
+        "uastc_rgb_max_masked",
+        "uastc_rgb_bound",
+        "uastc_alpha_max",
+        "alpha_bound",
+        "etc1s_rgb_max_measured",
+        "etc1s_rgb_mean_max_measured",
+        "level_param_fail_closed_green",
+        "garbage_fail_closed_green",
+        "vendor_pin_match",
+        "encode_double_run_bitexact"
+      ],
+      "properties": {
+        "host_tests_green": { "type": "boolean", "description": "cargo test -p rurix-basis-sys 全绿（level 参数化 + 越界 fail-closed + 位级一致锚）才许 true" },
+        "uastc_rgb_max_masked": { "type": "integer", "minimum": 0, "maximum": 255, "description": "UASTC→BC7 回解码 vs DDS 像素 premultiplied-aware max（12 槽最大）" },
+        "uastc_rgb_bound": { "type": "integer", "const": 48, "description": "AP-TEX 冻结容差" },
+        "uastc_alpha_max": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "alpha_bound": { "type": "integer", "const": 16, "description": "alpha 量化界（UASTC mode 7 alpha = 5+1bit 端点；语义翻转 = ≥128 级差必红）" },
+        "etc1s_rgb_max_measured": { "type": "integer", "minimum": 0, "maximum": 255, "description": "ETC1S 参照腿 max measured（有损如实登记,非冻结容差面）" },
+        "etc1s_rgb_mean_max_measured": { "type": "number", "minimum": 0, "description": "ETC1S 参照腿逐纹理 mean 的最大值 measured" },
+        "level_param_fail_closed_green": { "type": "boolean", "description": "KTX2 level 越界 rc=17 / .basis level!=0 rc=5 确定性 Err 才许 true" },
+        "garbage_fail_closed_green": { "type": "boolean", "description": "垃圾/截断容器确定性 Err 不崩才许 true" },
+        "vendor_pin_match": { "type": "boolean", "description": "rurix_basis_version() == VENDOR_VERSION pin 字面才许 true" },
+        "encode_double_run_bitexact": { "type": "boolean", "description": "UASTC 双编码逐字节相等才许 true（确定性面）" }
+      }
+    },
+    "ktx2_3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "textures_measured",
+        "dds_file_bytes",
+        "dds_l0_bytes",
+        "ktx2_uastc_full_bytes",
+        "etc1s_full_bytes",
+        "ratio_uastc_full_vs_dds",
+        "ratio_etc1s_full_vs_dds",
+        "uastc_transcode_l0_ms",
+        "etc1s_transcode_l0_ms",
+        "uastc_encode_ms",
+        "etc1s_encode_ms",
+        "ci_ratio_recompute_match",
+        "rgba8_digest_manifest_match",
+        "policy"
+      ],
+      "properties": {
+        "textures_measured": { "type": "integer", "const": 12, "description": "bistro 12 槽全量 measured（top-12 律法 CI 独立重算互核）" },
+        "dds_file_bytes": { "type": "integer", "minimum": 1 },
+        "dds_l0_bytes": { "type": "integer", "minimum": 1 },
+        "ktx2_uastc_full_bytes": { "type": "integer", "minimum": 1 },
+        "etc1s_full_bytes": { "type": "integer", "minimum": 1 },
+        "ratio_uastc_full_vs_dds": { "type": "number", "exclusiveMinimum": 0, "description": "KTX2-UASTC 全链 / DDS as-shipped（>1 = 无体积收益 measured）" },
+        "ratio_etc1s_full_vs_dds": { "type": "number", "exclusiveMinimum": 0, "description": "ETC1S 全链 / DDS as-shipped（<1 = 体积收益 measured）" },
+        "uastc_transcode_l0_ms": { "type": "number", "minimum": 0 },
+        "etc1s_transcode_l0_ms": { "type": "number", "minimum": 0 },
+        "uastc_encode_ms": { "type": "number", "minimum": 0, "description": "UASTC 离线编码合计（cook 成本面 measured）" },
+        "etc1s_encode_ms": { "type": "number", "minimum": 0 },
+        "ci_ratio_recompute_match": { "type": "boolean", "description": "CI 自原始字节数重算 ratio == harness 登记才许 true" },
+        "rgba8_digest_manifest_match": { "type": "integer", "minimum": 0, "maximum": 12, "description": "12 槽 rgba8_digest == G11.3 manifest 登记互核数（解码面漂移即拒）" },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dds_when", "ktx2_etc1s_when", "ktx2_uastc_when", "sdk_bundle_note"],
+          "properties": {
+            "dds_when": { "type": "string", "description": "何时用 DDS 的政策面字面" },
+            "ktx2_etc1s_when": { "type": "string", "description": "何时用 ETC1S(BasisU 家族)的政策面字面" },
+            "ktx2_uastc_when": { "type": "string", "description": "何时用 UASTC-KTX2 的政策面字面" },
+            "sdk_bundle_note": { "type": "string", "description": "C5 分发面联动结论（SDK bundle 纹理面建议）" }
+          }
+        }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendor_verify_green",
+        "vendor_tree_0byte",
+        "g11_3_manifest_0byte",
+        "b4_frozen_0byte",
+        "b4_inflight_registered",
+        "b4_inflight_status",
+        "g22_g29_disposition_0byte",
+        "m83_gate_green",
+        "m83_gate_evidence"
+      ],
+      "properties": {
+        "vendor_verify_green": { "type": "boolean", "description": "vendor_basis_universal.py --verify 逐文件 digest 复核绿才许 true（pin 不动机器证明）" },
+        "vendor_tree_0byte": { "type": "boolean", "description": "src/rurix-basis-sys/vendor vs HEAD 0-byte + 工作树干净才许 true" },
+        "g11_3_manifest_0byte": { "type": "boolean", "description": "milestones/g11/g11_3_dds_transcode_manifest.json 0-byte 才许 true" },
+        "b4_frozen_0byte": { "type": "boolean", "description": "B4 纹理面 frozen 路径 HEAD 在案面（g14_3_direct_gi.rx/material/graph/types.rs/G11.3 manifest）0-byte 才许 true" },
+        "b4_inflight_registered": { "type": "boolean", "description": "波 B/C 在飞产物（g31_texture_{gi,probe}.rx/g31_window_present.rs,本工作树未提交,HEAD 无基线）本任务零触碰如实登记才许 true——C13 SVT 门 terrain.rs 同例,不以 0-byte-vs-HEAD 冒充（非门判据面）" },
+        "b4_inflight_status": { "type": "string", "description": "在飞面 git status 如实登记串" },
+        "g22_g29_disposition_0byte": { "type": "boolean", "description": "milestones/g22/g22_ktx2_disposition.json + milestones/g29/g29_svt_ktx2_rejudgment.json 0-byte 才许 true（判档字面不回写）" },
+        "m83_gate_green": { "type": "boolean", "description": "ci/g8_texture_transcode_smoke.py --gate g8.p1.m83.texture_transcode 复跑绿才许 true（纹理 cook 链回归）" },
+        "m83_gate_evidence": { "type": "string", "description": "M83 门 evidence 路径" }
+      }
+    },
+    "harness_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "A/B harness evidence 归档件（rurix.g31.ktx2_ab_evidence.v1 面）"
+    },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

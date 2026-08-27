@@ -1,0 +1,117 @@
+{
+ "schema": "rurix.g31.robustness_evidence.v1",
+ "gate": "g31.waveC.robustness",
+ "generated_utc": "2026-08-26T12:32:51Z",
+ "binary": "target\\release\\g31_window_present.exe",
+ "thresholds": {
+  "probe_frames": 40,
+  "probe_inject_index": 8,
+  "tdr_wait_cap_s": 300.0,
+  "storm_burst_ops": 121,
+  "soak_fault_frames": 1000,
+  "soak_fault_period": 25,
+  "soak_min_resize_ops": 35,
+  "soak_min_min_cycles": 5
+ },
+ "injection_arms": {
+  "device_lost_acquire": {
+   "probe": "device-lost-acquire",
+   "injection_env": "RURIX_G31_FAULT_DEVICE_LOST=acquire@8",
+   "frame": 8,
+   "observed": true,
+   "wall_s": 62.029,
+   "cascade_present_poisoned": true,
+   "cascade_resize_poisoned": true
+  },
+  "device_lost_submit": {
+   "probe": "device-lost-submit",
+   "injection_env": "RURIX_G31_FAULT_DEVICE_LOST=submit@8",
+   "frame": 8,
+   "observed": true,
+   "wall_s": 61.728,
+   "cascade_present_poisoned": true,
+   "cascade_resize_poisoned": true
+  },
+  "device_lost_present": {
+   "probe": "device-lost-present",
+   "injection_env": "RURIX_G31_FAULT_DEVICE_LOST=present@8",
+   "frame": 8,
+   "observed": true,
+   "wall_s": 61.761,
+   "cascade_present_poisoned": true,
+   "cascade_resize_poisoned": true
+  },
+  "tdr": {
+   "probe": "tdr",
+   "injection_env": "RURIX_G31_FAULT_FENCE_TIMEOUT=2",
+   "frame": 0,
+   "observed": true,
+   "wall_s": 61.645,
+   "hang_free": true
+  },
+  "budget": {
+   "probe": "budget",
+   "injection_env": "RURIX_G31_FAULT_BUDGET_BYTES=1",
+   "frame": 0,
+   "observed": true,
+   "wall_s": 61.865
+  }
+ },
+ "baseline_leg": {
+  "frames": 64,
+  "warmup": 4,
+  "wall_s": 63.698,
+  "exit_zero": true,
+  "evidence_ok": true,
+  "leak_ledger_zero": true,
+  "digest": "sha256:1df8f75714e08abbe8b34cf4f9e33b563a737b23998e73e93e6813a09fc0dafe",
+  "note": "注入臂全默认关:本腿与 C4 前行为逐字节等价（零行为变更证明面）"
+ },
+ "window_storm_leg": {
+  "window_storm": 121,
+  "frames": 32,
+  "warmup": 4,
+  "wall_s": 63.213,
+  "exit_zero": true,
+  "resize_ops": 121,
+  "resize_eras": 1,
+  "validation_silent": true,
+  "leak_ledger_zero": true
+ },
+ "soak_fault_leg": {
+  "storm_period": 25,
+  "frames": 1000,
+  "warmup": 10,
+  "wall_s": 84.034,
+  "exit_zero": true,
+  "frames_completed": 1010,
+  "resize_ops": 35,
+  "min_cycles": 5,
+  "min_skips": 5,
+  "resize_eras": 35,
+  "evidence_ok": true,
+  "validation_silent": true,
+  "leak_ledger_zero": true,
+  "final_extent": {
+   "w": 960,
+   "h": 540
+  }
+ },
+ "dispositions": {
+  "device_lost": "poisoned 锁存 + 确定性 Err + 干净退出（禁 UB 级联;会话重建恢复路径归后续波,如实登记）",
+  "tdr": "fence 有界等待超时 → TDR-suspected 确定性 Err（不挂死进程;超时面模拟,不真触系统 TDR）",
+  "budget": "budget 违约 → OOM-suspected 确定性 Err fail-closed（不降级不挂死;内部分辨率降级路径归后续波,如实登记）",
+  "window_storm": "程序化 resize/minimize 真通路 era 重建 + 塌零跳过（波 A 面加固,零崩零泄漏为门）"
+ },
+ "verdict": "PASS",
+ "notes": [
+  "探针臂 device-lost-acquire: observed=True frame=8 wall=62.0s",
+  "探针臂 device-lost-submit: observed=True frame=8 wall=61.7s",
+  "探针臂 device-lost-present: observed=True frame=8 wall=61.8s",
+  "探针臂 tdr: observed=True frame=0 wall=61.6s",
+  "探针臂 budget: observed=True frame=0 wall=61.9s",
+  "基线腿: wall=63.7s evidence_ok=True digest=sha256:1df8f75714e08abb…",
+  "窗口风暴臂: resize_ops=121 wall=63.2s 零崩",
+  "soak 故障臂: 1000 帧 resize_ops=35 min_cycles=5 wall=84.0s 零崩零泄漏"
+ ]
+}

@@ -1,0 +1,74 @@
+//@ spec: RFC-0049 §4.10(G35-7 XPBD/PBF 帧末速度步;spec 条款号本期零新设)
+// G35-7 流体 · xpbd_velocity —— PBF 速度更新 + 边界速度置零分量(门
+// g35.wave7.fluids;src/particles/fluid.rs 契约头字面)。
+//
+// ## 架构(承载冻结:独立第六 kernel,不并入 apply 末迭代)
+// 公式面与 host 金标准 `particles/fluid.rs::xpbd_velocity_step` **逐字同源**:
+// - PBF 速度更新(Macklin–Müller 2013):vel = (pos − pos_prev)/dt 逐轴
+//   (pos = 3 迭代修正后的帧末位置,pos_prev = g35_hash_cellkey.rx 预测前
+//   保存的帧首位置);
+// - 边界冻结式(g35_xpbd_apply.rx clamp 的速度半边):pos ≤ lo ∨ pos ≥ hi
+//   ⇒ 该轴速度分量置 0(判序冻结 x-lo → x-hi → y-lo → y-hi → z-lo → z-hi;
+//   apply 已 clamp 保证 pos ∈ [lo,hi],等号即贴界);上界表达式冻结
+//   `o + 64.0·h`。
+// 逐 invocation 只写自槽 vel[i] ⇒ 零竞态。f32 走标定容差协议(probe 装载期
+// 注入 NoContraction)。
+//
+// ## 参数面(8 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 10)
+//   params[0]=n [1]=dt [2]=origin_x [3]=origin_y [4]=origin_z
+//   [5]=h(=cell_size 冻结) [6..8)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×8) / 1 pos_x / 2 pos_y / 3 pos_z(View
+//   f32×n) / 4 prev_x / 5 prev_y / 6 prev_z(View f32×n) / 7 vel_x /
+//   8 vel_y / 9 vel_z(ViewMut f32×n)。
+//   dispatch = [n, 1, 1](LocalSize 1,1,1 一粒子一 invocation)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_xpbd_velocity(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    pos_x: View<global, f32>,
+    pos_y: View<global, f32>,
+    pos_z: View<global, f32>,
+    prev_x: View<global, f32>,
+    prev_y: View<global, f32>,
+    prev_z: View<global, f32>,
+    vel_x: ViewMut<global, f32>,
+    vel_y: ViewMut<global, f32>,
+    vel_z: ViewMut<global, f32>,
+) {
+    let i = tc.global_id();
+    let n = params[0] as usize;
+    let dt = params[1];
+    let ox = params[2];
+    let oy = params[3];
+    let oz = params[4];
+    let h = params[5];
+    if i < n {
+        let bx1 = ox + 64.0 * h;
+        let by1 = oy + 64.0 * h;
+        let bz1 = oz + 64.0 * h;
+        let mut vx = (pos_x[i] - prev_x[i]) / dt;
+        let mut vy = (pos_y[i] - prev_y[i]) / dt;
+        let mut vz = (pos_z[i] - prev_z[i]) / dt;
+        if pos_x[i] <= ox {
+            vx = 0.0;
+        }
+        if pos_x[i] >= bx1 {
+            vx = 0.0;
+        }
+        if pos_y[i] <= oy {
+            vy = 0.0;
+        }
+        if pos_y[i] >= by1 {
+            vy = 0.0;
+        }
+        if pos_z[i] <= oz {
+            vz = 0.0;
+        }
+        if pos_z[i] >= bz1 {
+            vz = 0.0;
+        }
+        vel_x[i] = vx;
+        vel_y[i] = vy;
+        vel_z[i] = vz;
+    }
+}

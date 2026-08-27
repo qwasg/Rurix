@@ -1,0 +1,69 @@
+//@ spec: RFC-0049 §4.3(G35-2 粒子核心运行时 sim;spec 条款号本期零新设)
+// G35-P 粒子核心 · sim —— 半隐式 Euler 积分 + 存活 flags(门
+// g35.wave2.particle_core;G35_CONTRACT §4 契约,src/particles/mod.rs 契约头
+// 字面)。
+//
+// ## 架构(确定性协议;G35-P v1 帧序第 1 步)
+// 公式面与 host 金标准 `particles/core.rs::sim_step` **逐字同源**:线程 = 段,
+// 段内串行 i ∈ [s·256, min((s+1)·256, n_curr)),运算序逐字冻结(host 同序;
+// drag v1 恒 0 登记,不在语句面出现):
+//   vy = vy + g·dt; px = px + vx·dt; py = py + vy·dt(消费更新后 vy =
+//   半隐式 Euler); pz = pz + vz·dt; age = age + dt;
+//   flags[i] = if age < life {1} else {0}。
+// 原位写回 A 组(pos/vel/age ViewMut 读改写)+ 写 flags(scan 三 kernel 消费
+// 面,禁原子抢槽——槽位一律经分段稳定 scan 推导)。无 shared / 无原子;段外
+// 线程界外守卫直落。f32 流走标定容差协议(g35_budget 程序产;probe 装载期对
+// 本 SPV 注入 NoContraction 禁驱动 FMA 收缩,g14_3_lane_body 同律);flags
+// 为 u32 整数流 ⇒ device↔host 零容差位级(mod.rs 整数域协议)。
+//
+// ## 参数面(8 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序,SSBO 数 = 10,
+// 与 host 金标准 / probe(bin/g35_particle_core_device.rs)buffers 下标严格
+// 一致)
+//   params[0]=n_curr [1]=nseg_curr [2]=dt [3]=gravity_y [4..8)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×8) / 1 pos_x / 2 pos_y / 3 pos_z / 4 vel_x /
+//   5 vel_y / 6 vel_z / 7 age(以上 ViewMut f32×cap) / 8 life(View f32×cap) /
+//   9 flags(ViewMut u32×cap)。
+//   dispatch = [nseg_curr, 1, 1](LocalSize 1,1,1;nseg_curr = ceil(n_curr/256),
+//   n_curr 由 host 平行金标准维护——生产车道届时走 DispatchSpec::Indirect)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sim(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    pos_x: ViewMut<global, f32>,
+    pos_y: ViewMut<global, f32>,
+    pos_z: ViewMut<global, f32>,
+    vel_x: ViewMut<global, f32>,
+    vel_y: ViewMut<global, f32>,
+    vel_z: ViewMut<global, f32>,
+    age: ViewMut<global, f32>,
+    life: View<global, f32>,
+    flags: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let dt = params[2];
+    let g = params[3];
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            // 运算序逐字冻结(host sim_step 同序;py 消费更新后 vy)。
+            vel_y[i] = vel_y[i] + g * dt;
+            pos_x[i] = pos_x[i] + vel_x[i] * dt;
+            pos_y[i] = pos_y[i] + vel_y[i] * dt;
+            pos_z[i] = pos_z[i] + vel_z[i] * dt;
+            age[i] = age[i] + dt;
+            if age[i] < life[i] {
+                flags[i] = 1u32;
+            } else {
+                flags[i] = 0u32;
+            }
+            i = i + 1usize;
+        }
+    }
+}

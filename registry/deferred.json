@@ -318,6 +318,11 @@
           "date": "2026-06-30",
           "event": "G2.5 语言 1.0 激活(open→closed,agent 完全自主裁决,AGENTS v3.0 硬规则 1):G2.5 语言 1.0 = 首个 stable 发布触发点(backfill 条件兑现)。经 RFC-0008(edition 机制与 stabilization,agent Approved 2026-06-30)§9 Q-RD008 裁决激活——**定义 stable 面**(稳定语言面的存在性+含义:spec/*.md 全部 RXS 条款 ID 全集(180)+ registry/error_codes.json 错误码 ID/含义(message_key,88,含义冻结 10 §6)+ edition 合法值集(VALID_EDITIONS=['2026'])+ edition_anchor(首个 edition '2026')+ rx CLI 子命令面(src/rx USAGE: bench/build/check/doc/fmt/run/test/vendor))+ **落快照比对**(ci/stable_snapshot.py 确定性重算 + 比对,含 red 自检,反 YAML-only)+ **bless 守卫**(ci/check_guardrails.py check_stable_snapshot_bless 分支,镜像 UI/MIR/PTX/DXIL golden bless;tests/stable/stable_api.snapshot + tests/stable/bless_log.md + RURIX_BLESS=1 路径)+ **agent 自主 bless 首份快照**(tests/stable/bless_log.md 2026-06-30 行,语言 1.0 stable 面基准)。🔒 快照仅锚定 stable 面存在性+含义,不冻结 register/字节布局/工具版本为语言 ABI(spec/edition.md RXS-0180 L3,对齐 RXS-0162/0165 先例);同一 edition 内 stable 面只增不破坏(RXS-0180 L2),破坏性变更经新 edition 隔离。CI 步骤 49 ci/edition_smoke.py 篡改快照 → 比对红 → 复原绿(真实红绿)。Provenance: Assisted-by: cursor:claude-opus-4.8。**G2 契约整体仍 active**,不执行 g2-closed tag / 基准切换 / G2 整体 close-out(属 G2.6,本任务范围外)",
           "evidence": "rfcs/0008-edition-stabilization.md §9 Q-RD008 / spec/edition.md RXS-0180 / ci/stable_snapshot.py / tests/stable/stable_api.snapshot / tests/stable/bless_log.md / milestones/g2/G2_CONTRACT.md §8.7"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G31+ 波 C Task C1 渲染器 SDK 稳定 API 面——stable 快照机制渲染器面加性扩展处置登记（closed 状态 0-byte 维持，机制延伸非再激活）：RD-008 语言面四段（spec_clauses=389 / error_codes=113 / editions=[\"2026\"] / rx_cli_subcommands=8）逐位不变 0-byte；渲染器 SDK C ABI 面（G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #48）作为独立第五段 renderer_sdk_api 加性纳入 ci/stable_snapshot.py 快照比对 + RURIX_BLESS=1 bless + check_stable_snapshot_bless 守卫同一纪律。**取舍登记**：本扩展非「激活 RD-008」（机制 G2.5 已激活 closed，语言面定义 0-byte），而是首个 stable C ABI 嵌入面（apps/g31-renderer-sdk/src/sdk.rx 9 个 #[export(c)] 导出规范化签名 + abi_version=1.0.0）按同机制守卫——破坏性变更因此不可能静默发生（快照漂移硬红 + bless_log 追加留痕）；备选「渲染器面不进语言 stable 快照」（面无人守卫）按任务书字面裁决不取。语义化版本政策 = apps/g31-renderer-sdk/API_VERSIONING.md（MAJOR 破坏走 RFC+新旧并存、MINOR 同 MAJOR 只增、PATCH 语义不变修复）。bless_log.md 2026-08-25 行同批。",
+          "evidence": "ci/stable_snapshot.py / tests/stable/stable_api.snapshot（renderer_sdk_api 段）/ tests/stable/bless_log.md（2026-08-25 行）/ apps/g31-renderer-sdk/src/sdk.rx / apps/g31-renderer-sdk/API_VERSIONING.md / milestones/g31/CI_GATES.md §2.9"
         }
       ]
     },
@@ -468,6 +473,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——上游 merge + D-205 pin bump——LLVM 上游 #90504/#57928 未见 merge 信号（RD-015 同源跟踪面），pin bump 无据;disposition=maintain-open;reeval_anchor=LLVM 上游 merge + pin bump 窗（与 RD-015 联动）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P09，引用不复制）:上游新鲜核（GitHub WebFetch 2026-08-26）——本条目专属 PR llvm#205546（PSV 版本派生修复）维持 Open 未 merge；联动面 #90504 Open 维持、#57928 2026-08-13 closed-as-completed（系 RD-015 跟踪面信号，非本条目 PSV patch 面）；本地工具链面 0-byte（Vulkan SDK 1.3.296.0）⇒ backfill（上游 merge 本 PR + release + D-205 pin bump）未成立，maintain-open",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P09）/ https://github.com/llvm/llvm-project/pull/205546"
         }
       ]
     },
@@ -493,6 +503,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——mesh/task 分量已兑现（RX6008 改接在案）；RT 分量已转 RD-034（G21.3 复查 = 上游仍拒 raygen）——残余面全部由 RD-034 承载;disposition=maintain-open;reeval_anchor=RD-034 解锁时同窗收口（尾项合并评估）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P08/P09，引用不复制）:RT 分量承载面 RD-034 探针新鲜真跑（ci/meshrt_probe_smoke.py exit=0——步骤 68 mesh B 链绿 2900B DXIL + 步骤 69 spirv-cross 如期拒 raygen，exit 语义未反转）⇒ 残余面仍全部由 RD-034 承载，maintain-open；mesh/task 分量已兑现在案 0-byte",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P08/P09）"
         }
       ]
     },
@@ -558,6 +573,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——供应链 pin 跟踪为存续型条目（非一次性 backfill）；本窗 pin 面 0-byte 无漂移;disposition=maintain-open;reeval_anchor=任一上游 pin bump 需求出现（安全公告/功能依赖）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P09，引用不复制）:供应链 pin 面新鲜实测 0-byte 无漂移——spirv-cross Git commit vulkan-sdk-1.3.290.0-44-g65d73934 / dxc dxcompiler.dll 1.8.0.4739 (d9a5e97d0) / glslang 11:15.0.0（Vulkan SDK 1.3.296.0 面同在案）；存续型跟踪维持，无一上游 pin bump 需求信号 ⇒ maintain-open",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P09）"
         }
       ]
     },
@@ -578,6 +598,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——长期上游跟踪；两 issue 未见解决信号（RD-011 联动）;disposition=maintain-open;reeval_anchor=LLVM 上游任一 issue 关闭（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P09，引用不复制）:上游新鲜核（GitHub WebFetch 2026-08-26）——**reeval_anchor「LLVM 上游任一 issue 关闭」字面新鲜命中**：#57928（签名元数据构造）2026-08-13 closed-as-completed（PR #212892 merged，commit 1026c71c22bda8c1d0cb6a15c63ae1cf5c401240；该关闭先于 G30 2026-08-25 登记窗、未被其捕获）→ 重判程序启动信号如实登记；但 backfill 字面半命中半未命中——#90504（后端 ISG1/OSG1 part 生成）维持 Open（Planning）+ 进入 release + D-205 pin bump 均未齐 ⇒ 迁移条件未成立，条目维持 open 不冒充 close；重判窗（B 迁回 A 评估）归后续 M-d 重判程序，锚字面 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P09）/ https://github.com/llvm/llvm-project/issues/57928 / https://github.com/llvm/llvm-project/issues/90504"
         }
       ]
     },
@@ -873,6 +898,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——硬需求按 10 §3 判档接通——G19~G24 渲染主线经 rurix-rt 库面编排，std::gpu 扩面硬需求未出现;disposition=maintain-open;reeval_anchor=宿主编排硬需求成立（第三方消费面）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C16 重判窗批量执行登记（agent 完全自主 D-406 v4.x；TODO §4 #43 行消费面；milestones/g31/g31_rejudgment_windows.json 六窗逐行 = 唯一判档面）：锚「单源 .rx 游戏应用需求成立时判档」字面核验 = **未命中**——本战役游戏循环面（波 A Task A3，门 g31.waveA.gameloop 绿在案）以 **Rust host harness 驱动**兑现（src/rurix-render/src/bin/g31_window_present.rs：--auto-move orbit/dolly 确定性轨迹 + 逐帧 uniform + resize/alt-tab 健壮），非 .rx 单源游戏应用；std::gpu 子集外七面硬需求（AsyncBuffer 宿主绑定/Event/多 stream 重叠/宽元素/Result 错误面/跨包 .rx 复用/argv 分派）本战役逐项零出现（A3 逐帧相机 uniform 走既有 render_exec 面不触任一项）；ruridrop/blackhole 各自泵面维持不进生产管线（TODO §1.1 #3 在案）。disposition=maintain-open（维持 open 待硬需求按 10 §3 判档接通；与 G24.3 历史清册行同判承接），backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_rejudgment_windows.json + evidence/g31_game_loop_20260826T014058Z.json + milestones/g24/g24_legacy_rd_registry.json + ci/g31_rejudgment_smoke.py（--gate g31.waveC.rejudgment）"
         }
       ]
     },
@@ -908,6 +938,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——MR-0011 护栏（RURIXC_PTXAS_OPT）在案存续；PTX 工具链侧无新版本验证窗（CUDA 驱动 pin 0-byte）;disposition=maintain-open;reeval_anchor=CUDA 工具链 pin bump 窗（护栏复测）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C10 毒径定位修复批处置（agent 完全自主 D-406 v3.0）：(一) E8 全网格实测毒区图落盘（spp∈{8,32,64,128,256}×bounces∈{1,2,3,4} 20 格,生产档 720p/N=131072/REND_FRAMES=1/SUBSTEPS=4 sim 后数据,proc_guard 60s 判定线+挂起后金丝雀门）——b1 全 spp 绿;b2 spp≤64 绿/≥128 毒;b3·b4 全 spp 毒;distinct PTX digests=1 单 artifact 复确认;G3.1 事实矩阵五格 (8,2)(32,2) 绿/(8,3)(8,4)(256,2) 挂全复现零漂移。(二) 根因层复确认：判别腿 (8,3) @O1 挂/@O0 完成 = O0→O1 绿挂分界在当前工具链（ptxas 13.3 V13.3.33/driver 620.02）维持,归因 nvidia_optimizing_backends（层③④定罪,M1′ 机理）不动摇;根因修复 = 上游 NVIDIA 本体,本仓不可修（双装载路同挂在案,上游 DRAFT 备包维持 do-NOT-file owner 复核门）。(三) 落档绕行登记：MR-0011 RURIXC_PTXAS_OPT=0 护栏常驻（(8,3)(8,4)(256,2) 护栏腿终止+digest 基线在图）+ 毒区参数面 fail-closed 拒绝（未测绘组合按毒处理）经新门 g31.waveC.rd027 常驻回归（ci/g31_rd027_poison_guard.py：静态 fail-closed 判 params.rx 切片 + 边界绿腿 digest 命中 + 护栏双腿终止 + 毒确认腿 hang_timeout 维持;三态 DEV_ENV_DEGRADE;evidence 经 check_schemas 路由）。**维持 open**（绕行登记非修复确证;backfill_condition 原文 0-byte 不预支——上游修复落地或 owner 另裁护栏档口径后按字面兑现 256spp/4 弹射升档重测回填）",
+          "evidence": "milestones/g31/g31_rd027_poison_zone_map.json / ci/g31_rd027_poison_guard.py / evidence/g31_rd027_poison_guard_20260826*.json / milestones/g31/g31_rd027_poison_guard_evidence_schema.json / milestones/g31/CI_GATES.md §2.17 / build/spike-rd027/campaign.jsonl（E8 逐 run 工件,不入库）"
         }
       ]
     },
@@ -1013,6 +1048,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——win32/Android 已 discharge 在案；余量平台面（其余 surface 后端）无目标平台需求;disposition=maintain-open;reeval_anchor=新目标平台立项（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P04，引用不复制）:vulkaninfo 新鲜物理设备枚举——唯一物理设备 GPU id=0 NVIDIA GeForce RTX 4070 Ti（vendorID=0x10de，api 1.4.351，driver 620.2.0.0），AMD（0x1002）/Intel（0x8086）设备零 ⇒ G-MB1-6 AMD 真卡 present 尾门维持 open（缺硬件）；余量平台面无新目标平台需求维持",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P04）/ .tmp/g31_blocked_probes/vulkaninfo.log"
         }
       ]
     },
@@ -1034,6 +1074,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——owner-dependent（需人备 VM）——agent 侧不可自动化，维持如实;disposition=maintain-open;reeval_anchor=用户提供干净 VM 环境窗（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P05，引用不复制）:VM 环境新鲜探测——Hyper-V 面（vmms 不在 / Get-VM cmdlet 缺 / Hyper-V VM store 0 件）；VMware 面 = Workstation 已装（vmrun.exe 等在装不在 PATH）+ inventory 注册「Windows 11 x64」VM @ F:\\Windows 11 x64.vmx **在盘**（8889B vmx + s001~s017 vmdk，最后活动 2026-07-18，state=locked）——新事实如实登记（该 VM 文件先于 G24/G30『缺 VM 环境』登记窗即在盘）；但「干净 Win11 VM」状态未经开机核验 + EA1 冷启动 A 段 measured 未执行 ⇒ 锚（owner 备齐干净 VM 环境窗 + A 段补测）未成立，maintain-open；候选 VM 待 owner 窗核验，不冒充环境齐备",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P05）"
         }
       ]
     },
@@ -1059,6 +1104,11 @@
           "date": "2026-08-25",
           "event": "G28.3 M-d 上游复查窗登记（agent 完全自主 D-406 v3.0；RFC-0045 §4；断档口径注明：G22~G27 承接留痕在 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：真跑 ci/meshrt_probe_smoke.py 退出码判定（非 grep）——spirv-cross --hlsl 对最小 raygen SPIR-V 仍拒（历史根因 HLSL builtin 5319=LaunchIdKHR 谱系）→ maintain-blocked 分支（blocked 证据新鲜）；backfill ②（LLVM A 路上游 RD-015 #90504/#57928）本期无本地机器检测面——①探针为唯一机器面②以上游 issue 状态为人工复查面如实登记；RD-034 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "evidence/g28_m_d_rd034_upstream_recheck_*.json（探针真跑退出码 + 分支 verdict 入档）"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P08，引用不复制）:blocked 恒跑探针新鲜真跑（退出码判定，非 grep）——py -3 ci/meshrt_probe_smoke.py exit=0：步骤 68 mesh B 链绿（spirv-cross ms_6_5 + dxc 2900B DXIL，与 G21.3 在案同字节量）+ 步骤 69 RT blocked 探针新鲜（spirv-cross 如期拒 raygen，exit 语义未反转——上游 SPV_KHR_ray_tracing 消费路径仍未出现）；联动面 LLVM #90504 维持 Open（P09）⇒ maintain-blocked 分支（blocked 证据新鲜），RD-034 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P08）+ ci/meshrt_probe_smoke.py 真跑输出（C17 探针窗）"
         }
       ]
     },
@@ -1100,6 +1150,11 @@
           "date": "2026-08-24",
           "event": "G24.3 M-d 历史清册重判窗登记（agent 完全自主 D-406 v3.0）:backfill 条件字面核验——判档条件（超界硬需求）未成立——G19~G24 FFI 面（vendor/Jolt/SL）均在 v1 包络内;disposition=maintain-open;reeval_anchor=超界 FFI 需求成立（判档程序）（milestones/g24/g24_legacy_rd_registry.json 闭集行,零 close——backfill 字面无一成立诚实清册不冒充）",
           "evidence": "milestones/g24/g24_legacy_rd_registry.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G31+ 波 C Task C1 渲染器 SDK 稳定 API 面 C ABI v2 判档（agent 完全自主 D-406 v3.0）:backfill 两判据逐项核验均**不成立**——① upcall 硬需求不成立：渲染器 SDK 嵌入面（apps/g31-renderer-sdk/src/sdk.rx 9 个 #[export(c)] 导出）全为宿主→DLL 下调用，帧信息/digest 经宿主缓冲出参轮询承载，无 .rx 侧调起宿主代码需求；② 外部固定 ABI 不成立：本面为 greenfield 新 API（非 ABI 不可改的既有外部 API），两侧协同采用 subset v1 指针化签名（标量 + *const u8/*const f32/*mut f64/*mut u8/*mut u32 + unit）即足。repr(C) struct 按值 / 回调指针 / 数组按值 / 跨堆所有权四项逐项不触（导出签名机器核验入 ci/g31_renderer_sdk_smoke.py --gate g31.waveC.sdk fact rd036_subset_v1_compliant）。disposition=maintain-open;reeval_anchor=超界 FFI 需求成立（判档程序）",
+          "evidence": "apps/g31-renderer-sdk/src/sdk.rx / apps/g31-renderer-sdk/API_VERSIONING.md §4 / ci/g31_renderer_sdk_smoke.py / milestones/g31/CI_GATES.md §2.9"
         }
       ]
     },
@@ -1223,6 +1278,16 @@
           "date": "2026-08-25",
           "event": "G27.3 M-c cluster P4 差距重判登记（agent 完全自主 D-406 v3.0；RFC-0044 §3；断档口径注明：G15~G26 承接留痕在各期 P2 决策表未回写本条目，本行按只追加纪律补齐衔接）：HZB device 化分项本期兑现（kernels/g27_hzb_reduce.rx + g27_hzb_test.rx device kernel 真跑对拍，M-a 门 g27.p0.m_a.hzb_device_kernel 绿件）——表级 reeval_anchor「HZB device 化落地」半边命中，P4-2 依赖面解除事实登记（登记≠该行兑现，「HZB 两阶段」分项第二阶段两 pass 管线零实现维持）；cluster P4 四行逐行 reeval 现面零实现树内实测全维持 open（milestones/g27/g27_cluster_p4_rejudgment.json 四行 disposition + 检索清单）；M61 mesh shader 三项盘点 maintain-no-go 在案（RFC-0034 重判表 G27.2 行）；RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g27/g27_cluster_p4_rejudgment.json + evidence/g27_m_a_hzb_device_kernel_*.json + rfcs/0034 重判表 G27.2 行"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C11 cluster 流送 P4 四行落地（agent 完全自主 D-406 v4.x；TODO §3 #20~#23 兑现面；g20 差距闭集 + g27 重判表 P4-2 依赖解除登记消费面）：P4-1 = RXPD major=2 磁盘面（src/rurix-geom-pages/src/disk_v2.rs 加性新版本面——payload = RXPZ-LZ1(RXPL v2 映像) + v2 域分离 schema_digest + 加性映射行 {(RXPD,2)→(RXPL,2)} + 四类损坏 fail-closed；v1 七文件 0-byte）+ bistro 派生真实页集（严格 glTF 导入 → build_asset_dag → pack_cluster_dag_v2；v2 段感知装箱修复同批——v1 估算不计 v2 段字节 + v1_section_bytes:u16 双界，近边界页实际超 128KB 的 bistro 实证 bug，geom_build.rs 0-byte）+ host 驻留池（PagePool LRU/容量预算/root 钉住 0-byte 复用，逐出真实发生 measured）；P4-2 = kernels/g31_cluster_stream.rx 剔除 pass 产 cluster 缺页请求 → device 请求缓冲 → host 驻留调度消费（streaming/cluster.rs 加性模块：PriorityIoPool 异步读 + ClusterPageResource 异步缓存模式〔M37 ready_raw 同律 fail-closed〕+ StreamingEngine 三预算 0-byte 复用）→ 页表/页池镜像上传 → 次帧 device 消费校验闭环真跑（device 请求 5364 条/io 84 完成/末帧缺页清零 measured）；P4-3 = 驻留约束一致性 cut（缺页 → 最近驻留祖先-or-自身 → 回退级联合并——回退产物祖先的选中后代链并入,渲染集恒为 DAG 合法 cut 禁空洞/禁重复覆盖；无回退零合并,全驻留与生产 cluster_cull 原始选中逐字一致——投影边界祖先/后代共选 = 生产语义既存边界态如实登记不重定,bistro f5 实证）+ device vs host 金标准逐帧对拍全等 + 四联式覆盖不变量逐帧 + 全驻留参考零回退双跑位级；P4-4 = PriorityIoPool 优先级堆（屏幕投影直径量化重要度——近处/大屏占比优先;priority 降序 + seq FIFO tie-break 调度序与墙钟无关）真实磁盘读 + 优先级倒置探针（开工闸前 [低×3,高×1] 单 worker 高优先级先驻留 measured 193747B）。整合真跑 = 门 g31.waveC.p4stream 六 facts 全绿（强制小池 44/89 穿越轨迹 32 帧无崩;hold 位级 6/8 末 2 位级;零回退帧与全驻留参考逐帧位级;缺页帧 26/回退帧 26/逐出 57/io 3739156B/上传 6030896B/真读 4074660B 全 measured_local RTX 4070 Ti）；冻结面机核 = geom-pages v1 七文件 + streaming v1 四文件 + geometry 三文件 + geom_build.rs 工作树 0-byte。RD-039 总体 status 维持 open（P4 长线其余分项——超显存 P4 运行时等——不在本门字面不预支；M61 mesh shader 三项闭集之『P4 清零』前置进展如实登记 ≠ 全清,backfill_condition 0-byte 不回写）",
+          "evidence": "evidence/g31_p4_streaming_20260826T174210Z.json + milestones/g31/CI_GATES.md §2.18 + ci/g31_p4_streaming_smoke.py（--gate g31.waveC.p4stream）+ milestones/g31/g31_p4_streaming_evidence_schema.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C16 重判窗批量执行登记（agent 完全自主 D-406 v4.x；TODO §3 #24/#26 两行消费面；milestones/g31/g31_rejudgment_windows.json 六窗逐行 = 唯一判档面）：(一) M61 mesh shader 第三光栅路径——RFC-0034 三项闭集机器盘点：①HZB device 化 G27 已命中在案 + 波 B B1 接线门维持复跑绿（evidence/g31_hzb_wiring_20260826T062758Z.json）；②cluster P4 差距闭集清零字面成立（C11 门六 facts 全 PASS = g20 四行差距闭集全落地）；③mesh shader HW 性能差 measured 证据**本任务真跑产出**（新对照底座 vk_g31_mesh_bench.rs 单会话三臂 + 门 g31.waveC.meshbench 六 facts 全 PASS：N=262144 档 vs_fetch 0.2344ms vs mesh_procedural 0.2342ms、N=1048576 档 0.9065ms vs 0.9057ms，median 各 60/30 帧 RTX 4070 Ti measured_local；三臂像素 digest 位级全等 + 双跑位级 = 同一三角形集经两条 HW 路径真上屏结构证据）——三项 3/3 齐备 ⇒ 按重判表只追加程序执行改判评估，结论 = **maintain-no-go**：性能差 measured = 零（双负载档 parity ≤0.09%）零性能正当性 + 多厂商扩展行为收敛单卡不可证（原 backfill 字面 0-byte）+ 真实消费方零出现；VS 光栅唯一 fallback 维持，承接锚顺延字面入 RFC-0034 新行。(二) backfill 逐项判档（#26）：骨骼（Skinning）虚拟几何 = **triggered**（动态资产面字面命中——波 B B5 蒙皮骨骼动画进生产 measured 件 + RD-041 类 3 蒙皮 MV 联动面在案）开实施窗判档登记（实施归后续期立项程序，本任务只判档）；Foliage（植被资产面未入压测闭集）/曲面细分位移（backfill 字面未列锚）/Assemblies 全功能（同未列锚）/Mega Geometry 簇级 BLAS（RT∩虚拟几何合流需求未字面成立——RT 车道全驻留 AS 与 cluster 流送光栅面零交集、场景未超显存）四项维持。RD-039 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_rejudgment_windows.json + evidence/g31_mesh_vs_raster_bench_20260826T200434Z.json + evidence/g31_skinning_wiring_20260826T041617Z.json + evidence/g31_hzb_wiring_20260826T062758Z.json + evidence/g31_p4_streaming_20260826T175845Z.json + rfcs/0034-virtualized-geometry-p3-mesh-shader.md 重判记录 2026-08-26 行 + ci/g31_mesh_vs_raster_bench.py + ci/g31_rejudgment_smoke.py（--gate g31.waveC.rejudgment）"
         }
       ]
     },
@@ -1393,6 +1458,21 @@
           "date": "2026-08-25",
           "event": "G28.3 M-c workload 重判登记（agent 完全自主 D-406 v3.0；RFC-0045 §3；断档口径注明：G22~G27 承接留痕在各期 P2/候选表与 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：M100-high 分项本期 M-a/M-b 兑现（kernels/g28_restir.rx device kernel 真跑对拍 + 空间重用加性臂受点重评无偏 3σ——承接锚三件中「device 化/空间重用」两件命中事实登记，第三件 M100 车道集成窗不出现，登记≠车道锚整体兑现）；M52 两半盘点 = capability 现势 available（G21 三 token 在案只读盘点 + 新鲜 vulkaninfo 复测）+ workload 零实现（RT pipeline/SBT 宿主车道 manifest 检索，M50 库面底座不混同）→ maintain-defer 维持；五分项（SMRT/WORLD-RC/NRD/OMM/RT-PIPELINE-SBT）逐锚重判全未命中维持 defer（milestones/g28/g28_m52_rd040_workload_rejudgment.json 逐分项 manifest + 锚映射表）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g28/g28_m52_rd040_workload_rejudgment.json + evidence/g28_m_a_restir_device_kernel_*.json + evidence/g28_m_b_restir_spatial_reuse_arm_*.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P06，引用不复制）:OMM 分项复核——压测闭集新鲜机核 bistro-interior 派生 gltf alphaMode=OPAQUE ×70 / BLEND=0 / MASK=0 / KHR_materials_transmission=0（与 B7 窗 g31_oit_evaluation_window.json 在案 70/70 逐值一致），零 alpha-tested 主导面维持；锚「alpha-tested 植被场景入压测」系于 #11 BistroExterior（P01：三工具 PATH 全缺 + 源资产 0 命中）未命中 ⇒ OMM 维持 defer；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P06）"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C16 重判窗批量执行登记（agent 完全自主 D-406 v4.x；TODO §3 #27/#28/#29 三行消费面；milestones/g31/g31_rejudgment_windows.json 六窗逐行 = 唯一判档面）：(一) SMRT 分项——锚「多灯动态场景资产入压测清单 + shadow page 采样车道出现」合取两半 1/2：半①命中（bistro 生产灯表 4 点光源+方向光+emissive 入压测面 + A4/B5 动态资产面在案）半②未命中（VSM clipmap 页管线未进生产采样车道——生产阴影 = shadow_scatter ray query 面，TODO #104 在案；shadow/*smrt* 树内零实现复核维持）⇒ maintain-defer（VSM clipmap 现生产档维持，单半命中不得构成改判 G21 终判先例硬线）；(二) 世界辐射缓存演进分项——锚「世界级持久 GI 需求场景出现（大世界流送 + GI 联动窗）」合取两半 1/2：大世界流送面命中（C11 cluster 流送驻留池 44<89 真实 IO 流送落地）GI 联动窗未成立（B6 GI 默认档 maintain_default_off 决策在案，re_trigger 锚定 G32）⇒ maintain-defer（G11 世界级 clipmap 承接兑现维持，演进分项无新需求证据不预支）；(三) NRD 分项——锚「自研降噪画质差距 measured 检出」零命中：自研降噪面在案绿（G12.3 M162 标定面 hf_drop/mean_energy + G18 M-a 加性 profile 维持），evidence/*denoise_quality_gap* + g25~g31 各期 NRD/降噪差距 artifact 检索零命中 + G25 终审窗零降噪差距行 ⇒ maintain-defer（评估不接线面 + temporal 底座 0-byte 纪律维持）。RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_rejudgment_windows.json + evidence/g31_restir_wiring_20260826T002545Z.json + milestones/g31/g31_gi_default_tier_decision.json + evidence/g12_m162_denoise_pipeline_tsr_20260818T014752Z.json + milestones/g21/g21_rd040_subitem_registry.json + milestones/g28/g28_m52_rd040_workload_rejudgment.json + ci/g31_rejudgment_smoke.py（--gate g31.waveC.rejudgment）"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G31+ 波 C Task C15 RT-PIPELINE-SBT 分项重判窗兑现登记（agent 完全自主 D-406 v4.x；TODO §3.2 #31/#32；M52 承接锚 = g30_campaign_handover_registry.json G28 行「RT pipeline/SBT 宿主车道出现」）：**承接锚两半命中事实登记**——①hit/miss 着色阶段语义需求成立：src/rurix-render/kernels/g31_rt_slab_hit.rx 在树（RD-040 分项 manifest 锚 `kernels/*hit*.rx` 命中；raygen ×1 + miss ×1 + triangles 双 hit group slab 双材质，--emit=check 0 诊断 + --emit=rt-manifest 结构绿〔required_capabilities 恰 [rt.pipeline, rt.sbt_user_data]——RXS-0311 隐式推导 manifest 构建器漏推导修复同批〕；语义面经 Full RFC-0048（Agent Approved 2026-08-25，D-409 第 1 轮 8 findings 全 disposition）冻结）；②SER 收益 measured 预估窗：evidence/g31_ser_gain_estimate_20260826T203853Z.json（NV 双臂 reorder off/on 真跑，time 1.3239ms vs 2.5554ms，ratio=0.518079，画面双臂位级 + 双跑位级，measured_local 微基准 caveats 在案）。**车道兑现形态诚实边界**：.rx→SPIR-V RT 阶段 codegen 缺位实测（--target vulkan 退出码 2「no compute kernel fn found」）——device 见证 = hand-emitted 镜像语料臂（公式面与 kernel 逐字同源静态机核，不充 .rx codegen 绿）+ RayQuery 对拍臂真 .rx 编译同场景对拍位级一致（mismatch 0/4096）；.rx RT codegen 经 RFC-0048 §6 PR-2/3/4 维持 open 如实登记。M52 维持 defer 字面 0-byte 不回写（capability 现势 available + workload 本波兑现形态 = harness 级 measured 预估窗，SER 语言面 go 须独立 Full RFC 评估，承接锚字面不动）；RD-040 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "rfcs/0048_rt_pipeline_sbt_host_lane.md + milestones/g31/CI_GATES.md §2.19 + ci/g31_rt_pipeline_smoke.py（--gate g31.waveC.rtpipeline）+ evidence/g31_rt_pipeline_20260826T203853Z.json + evidence/g31_ser_gain_estimate_20260826T203853Z.json + milestones/g31/g31_rt_pipeline_evidence_schema.json + milestones/g31/g31_ser_gain_estimate_evidence_schema.json + src/rurix-render/kernels/g31_rt_slab_hit.rx"
         }
       ]
     },
@@ -1433,6 +1513,21 @@
           "date": "2026-08-25",
           "event": "G29.3 M-c/M-d 重判窗登记（agent 完全自主 D-406 v3.0；RFC-0046 §3/§4；断档口径注明：G23~G28 承接留痕在各期 P2 表与 g25 handover rd_eight 行未回写本条目，本行按只追加纪律补齐衔接）：slab 分项本期 M-a/M-b 兑现（kernels/g29_slab.rx device kernel 真跑对拍〔角点 rc=ab=1 分母安全化位级还原 host 分支值〕+ 侧表供参加性臂 16 槽 bin-local 兑现〔MaterialClosure 32B 零触碰〕——「device kernel/侧表集成波」锚兑现登记，生产集成 out-of-scope 维持）；SVT 四行 + KTX2 三行逐锚重判全维持 defer（milestones/g29/g29_svt_ktx2_rejudgment.json 常量 pattern 表 + 锚派生映射七行零实现实测）；Work Graphs VK_AMDX_shader_enqueue 新鲜复测 + DGC 三扩展互核 + FSR 3.1.5 maintain 盘点（三态闭集如实登记）；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
           "evidence": "milestones/g29/g29_svt_ktx2_rejudgment.json + evidence/g29_m_a_slab_device_kernel_*.json + evidence/g29_m_b_slab_side_table_arm_*.json + evidence/g29_m_d_wg_dgc_capability_recheck_*.json"
+        },
+        {
+          "date": "2026-08-25",
+          "event": "G31+ 波 C Task C13 SVT 立项窗兑现（TODO #33-#36；g22_svt_gap.json 立项窗 + g29 重判窗）：SVT-1 虚拟纹理页表落地（streaming/svt.rs host 管理面——128K² = 131072² 虚拟地址空间 1024×1024 u32 页表〔0=未驻留,驻留=物理槽号+1〕→ bistro 图集活动区 3072 页 → 确定性 LRU 物理瓦片池容量预算）;SVT-2 GPU 反馈 pass 落地（kernels/g31_svt_gi.rx 采样 miss → 1 f32/px 请求缓冲 → host SvtStreaming::consume → 次帧 FrameUpdate.buffer_uploads 页表/池上传,请求-驻留闭环逐帧真跑）;SVT-3 瓦片边界过滤落地（130² 带边物理瓦片 border texel 复制——页所属槽 REPEAT wrap 律,探针全驻留 SVT vs 整图直采位级硬门 + 边界聚焦 96 探针误差=0;各向异性跨瓦片 = 生产采样闭集双线性唯一过滤面,需求不成立如实登记 N/A）;SVT-4 按 M116 锚核验需求不成立维持 defer 如实登记（world/terrain.rs 零 SVT 依赖断言 0-byte,不冒充接线）;整合真跑 = SVT 全驻留臂 == B4 --textures on 臂逐帧 digest_seq 位级一致（全驻留锚 0-byte）+ 强制小池 256 臂流送全程无崩/miss 率·IO 量 measured/双跑位级;门 g31.waveC.svt 五 facts（ci/g31_svt_smoke.py）;RD-041 总体 status 维持 open（KTX2/Work Graphs/vendor SDK 等分项存续）,backfill_condition 0-byte 不回写",
+          "evidence": "evidence/g31_svt_gate_*.json + evidence/g31_svt_harness_*.json + ci/g31_svt_smoke.py + src/rurix-render/src/streaming/svt.rs + src/rurix-render/kernels/g31_svt_{gi,probe}.rx + milestones/g31/g31_svt_{,gate_}evidence_schema.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P07，引用不复制）:Work Graphs 分项新鲜复测——vulkaninfo 驱动扩展 token 探测（G22 work_graphs_probe 范式）VK_AMDX_shader_enqueue 维持 absent ⇒ not-available 维持；DGC 互核三扩展（VK_EXT_device_generated_commands + VK_NV_device_generated_commands(+_compute)）全 present ⇒ available 维持（与 g22_work_graphs_probe_results.json 在案逐字一致；dgc.rs M102 现面载体 0-byte）；RD-041 总体 status 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P07）/ .tmp/g31_blocked_probes/vulkaninfo.log"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C14 KTX2 三行立项窗兑现（TODO #37-#39；g22_ktx2_disposition.json 立项窗 + g29 重判窗）：KTX2-1 容器解析落地（src/rurix-asset/src/ktx2.rs parse_ktx2 host safe Rust——KTX2 头/key-value/level index/supercompression 元数据 + mip 布局;真实 .ktx2 测试件 = 经 basis encoder 产逐字段互核〔DFD colorModel=166 实证〕+ 最小合成件 write_ktx2_multilevel〔真实负载 + spec 容器,KTXwriter 如实登记,禁手写二进制冒充〕+ 确定性双读位级一致 + 截断/篡改/非法 scheme fail-closed 确定性 Err;CI 独立 Python 第二实现重解析 dump 全链件跨实现互核）;KTX2-2 BasisU 转码器集成落地（rurix-basis-sys 既有 vendor C++ 桥 + rurix_basis_transcode_level mip 参数化新面〔unsafe-audit U60;KTX2 level 越界 rc=17/.basis level≠0 rc=5 fail-closed DEV_ENV 纪律〕→ BC7/ASTC 转码;bcdec 独立参考解码对拍 = BC7 **全 8 mode 覆盖**〔本任务补齐 mode 0/1/2/3/4/7——原仅 5/6,真实 UASTC→BC7 命中 0-3/7,覆盖差曾对拍假红 255,机制锚 punchthrough_alpha_roundtrip_semantics 在案〕;premultiplied-aware 口径:UASTC 腿 rgb_masked maxΔ4 ≤ AP-TEX 冻结 48 + alpha maxΔ4 ≤ 16,ETC1S 参照腿 maxΔ110 meanΔ≤2.9 measured）;KTX2-3 通用转码收益 A/B measured（bistro 12 槽 DDS 面真实纹理集:DDS as-shipped 19,576,888B vs KTX2-UASTC 全链 39,153,744B〔2.000×,禁 zstd 在树约束下无体积收益〕vs ETC1S 全链 2,813,379B〔0.144× ≈ 6.96× 收益〕+ 转码耗时 L0 合计 215.2ms/84.0ms 同机 measured + 编码合计 96.0s/38.4s + 质量 UASTC 视觉无损/ETC1S 有损 → 政策面落档:Windows-first 闭集资产维持 DDS〔G22 判档 measured 复核成立〕,跨平台/带宽预算门用 ETC1S,UASTC-KTX2 = 高质量跨平台中间档;C5 分发面联动 = SDK bundle 纹理面维持 DDS + 跨平台场景登记 BasisU 面）;门 g31.waveC.ktx2 四 facts 全绿（ci/g31_ktx2_smoke.py;vendor pin 不动 --verify 绿 + vendor/ 0-byte;G11.3 链 0-byte;M83 门复跑绿;g22/g29 判档 0-byte）;RD-041 总体 status 维持 open（Work Graphs/vendor SDK 等分项存续）,backfill_condition 0-byte 不回写",
+          "evidence": "evidence/g31_ktx2_gate_*.json + evidence/g31_ktx2_ab_harness_*.json + ci/g31_ktx2_smoke.py + ci/_patch_g31_ktx2_schemas.py + src/rurix-asset/src/{ktx2.rs,bcdec.rs,bin/g31_ktx2_ab.rs} + src/rurix-basis-sys/{ffi/rurix_basis_wrap.{h,cpp},src/{ffi.rs,lib.rs}} + milestones/g31/g31_ktx2_{ab,gate_}evidence_schema.json + unsafe-audit/rurix-basis-sys.md(U60)"
         }
       ]
     },
@@ -1464,6 +1559,11 @@
           "date": "2026-08-25",
           "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；锚源钉死 = g25 handover rd_eight g26_anchor 字面）：「可微仿真需求场景出现（G23 四轨 maintain-observe 落档）」锚 2 pattern 树内检索（differentiable/autodiff @ src/+apps/，常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
           "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P10，引用不复制）:「可微仿真需求场景出现」锚 2 pattern 新鲜检索（differentiable/autodiff @ src/+apps/，g30 尾锚窗常量 pattern 表逐字沿用禁缩面）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P10）"
         }
       ]
     },
@@ -1495,6 +1595,11 @@
           "date": "2026-08-25",
           "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；锚源钉死 = g25 handover rd_eight g26_anchor 字面）：「GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据」锚 3 pattern 检索（wgrapier @ src/+apps/ + rfcs/*wgrapier*/*gpu*rigid* 立项面，常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
           "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P10，引用不复制）:「GPU 刚体 out_of_scope 翻转程序 + wgrapier 成熟度证据」锚 3 pattern 新鲜检索（wgrapier @ src/+apps/ + rfcs/*wgrapier*/*gpu*rigid* 立项面，常量 pattern 表逐字沿用禁缩面）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P10）"
         }
       ]
     },
@@ -1531,6 +1636,11 @@
           "date": "2026-08-25",
           "event": "G30.2 M-a 尾锚窗同批重判登记（agent 完全自主 D-406 v3.0；RFC-0047 §1.7；检索面显式展开 = milestones/g23/g23_rd044_subitem_registry.json 三分项 reeval_anchor 字面——F8）：JOLT-SOFT（character_cloth|destructible + apps/*cloth* 面）/ TAICHI-MPM（mpm_bake + assets/*mpm* 面）/ RAPIER-FAST（rapier_fastpath + adoption 证据档）六 pattern（常量 pattern 表 + 锚派生映射——F6）零命中 ⇒ 维持 open，backfill_condition 0-byte 不回写；在案 G23.3 重复行如实登记为既往数据质量事件不回写清理",
           "evidence": "evidence/g30_m_a_tail_anchor_rejudgment_closure_*.json + milestones/g25/g25_campaign_handover_registry.json + milestones/g23/g23_rd044_subitem_registry.json"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P10，引用不复制）:三分项 reeval_anchor 六 pattern 新鲜检索（character_cloth|destructible @ src/rurix-physics/src+apps/ + apps/**/*cloth* + mpm_bake @ src/+apps/ + assets/**/*mpm*〔assets 根缺如实登记〕+ rapier_fast_path|rapier_fastpath @ src/+apps/ + evidence/*rapier_fastpath_adoption*，常量 pattern 表逐字沿用禁缩面）零命中；联动面 M125-adopt3 三类需求证据全空（基线三件排除后净 0）+ M127 两半 NONE（corpus 四目录全缺 + neural_deform 0 命中）维持 ⇒ 维持 open，backfill_condition 0-byte 不回写",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P10）"
         }
       ]
     },
@@ -1560,6 +1670,16 @@
           "date": "2026-08-25",
           "event": "G26.3 M-c backfill 三件重判窗兑现登记（agent 完全自主 D-406 v3.0;RFC-0043 §3）:新鲜观察窗 bistro-interior/t50/tsr_device canonical 160 帧口径 6 轮真跑（RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1），逐轮 receipt last_frame_digest 对 G14.12 锚 6/6 全中、零漂移（walls 61.46~65.39s）——累计观察面 = G19.3 12/12 + G19~G25 七期 soak 全零失败 + 本窗 6/6;三件盘点机器实测 0/3（①根因确证记录指定落点 evidence/g26_rd045_root_cause_confirmation.json 不存在——F5 防冒充硬线:观察窗零漂移不充①件;②①未齐修复无法确证,G14.10 结构性缓解事实维持登记;③rfcs/ 主题检索零命中,RFC-0043 §3 只定重判程序不自动构成③件）→ maintain-open 只追加扩窗登记不冒充 close;disposition = maintain-open-with-extended-zero-recurrence",
           "evidence": "milestones/g26/g26_rd045_fresh_window_results.json（6 轮逐轮 digest 轨迹 + 三件盘点）"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 B 验收门（Task B8）观察窗复核登记（仿 G26.3 新鲜窗范式）:波 B 各臂 digest 锚全中零漂移——base orbit 64+10（== B3/B4 门在案锚,累计 4 跑位级）+ slab device 64+10（== B3 门在案锚,3 跑）+ textures on 64+10（== B4 门在案锚,4 跑）+ hzb on 64+10（新窗双跑位级）+ skin-demo 64+10（新窗双跑位级）+ demo textures 200+10（新窗双跑位级）= 6/6 臂零漂移;Stage A digest 锚 18/18 canonical 重跑双跑零漂移（evidence/g31_wave_a_anchor_check_20260826T094943Z/20260826T100312Z）;三件盘点机器实测 0/3 维持（①根因确证记录缺 + ②修复无法确证 + ③Full RFC 评估缺,F5 硬线同源不冒充 close）→ maintain-open 只追加扩窗登记;焦点格 frame_ms 机态抖动属性能面非 digest 面,另案登记于 milestones/g32/G32_CONTRACT.md §8.1③;disposition = maintain-open-with-extended-zero-recurrence",
+          "evidence": "milestones/g31/g31_waveb_rd045_observation_results.json（波 B 6 臂 digest 轨迹 + 三件盘点 + 累计观察面）"
+        },
+        {
+          "date": "2026-08-26",
+          "event": "G31+ 波 C Task C17 阻塞项新鲜探针登记（agent 完全自主 D-406 v3.0；探针件 milestones/g31/g31_blocked_probes_2026.json P02，引用不复制）:波 B 观察窗件复核引用 + 新鲜 digest 抽查 1 轮——base arm orbit 64+10 真跑（g31_window_present，RURIX_VK_VALIDATION=1，74/74 帧 exit=0 validation 静默）末帧 digest sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9 == 波 B 观察窗 base 锚，1/1 中锚零漂移；三件盘点机器面维持 0/3（①根因确证记录 evidence/g26_rd045_root_cause_confirmation.json 维持缺 + ③rfcs/ 主题文件名闭集 0 命中维持 ⇒ ②修复无法确证，F5 硬线：观察零漂移不充①件）→ maintain-open-with-extended-zero-recurrence 只追加扩窗登记，不冒充 close",
+          "evidence": "milestones/g31/g31_blocked_probes_2026.json（P02）/ .tmp/g31_blocked_probes/rd045_spot_orbit_64p10.json"
         }
       ],
       "owner_milestone": "G14(登记;RD-045 间歇漂移修复项存续——G16+ 生产化缺陷修复窗承接)",

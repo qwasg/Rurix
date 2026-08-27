@@ -195,6 +195,18 @@ fn main() {
         let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {name}.spv: {e}"));
     }
+
+    // G31+ 波 C Task C15(RFC-0048 §6):RT pipeline 宿主车道镜像语料(slab 双材质
+    // miss/closesthit + SER raygen NV 双臂)嵌入 `bin/g31_rt_slab_lane`
+    // (`vk::g31_rt_slab_spv` 消费)。**hand-emitted 镜像语料,非 .rx 编译产物,不充
+    // .rx codegen 绿**;raygen/callable 面复用 m50 语料(上文 m50_incremental_corpus
+    // 产物),不在本批重复。降级(vulkan-backend build-dep 缺)→ 空哨兵,harness 据空
+    // SKIP(RURIX_REQUIRE_REAL=1 下翻红,非 fake pass)。
+    for (name, words) in rurixc::vulkan_codegen::g31_rt_slab_corpus() {
+        let spv_out = out_dir.join(format!("{name}.spv"));
+        let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {name}.spv: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

@@ -1,0 +1,159 @@
+{
+  "schema": "rurix.g31.skinning_wiring_evidence.v1",
+  "subject": "g31_skinning_wiring",
+  "symbolic_gate_key": "g31.waveB.skinning",
+  "wave": "G31.B",
+  "scene_id": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "seed": 7312026601,
+  "frames_measured": 100,
+  "warmup": 10,
+  "runs_per_arm": 2,
+  "character": {
+    "bone_count": 3,
+    "tri_count": 36,
+    "vertex_count": 108,
+    "emission": [
+      400.0,
+      0.0,
+      400.0
+    ],
+    "albedo": [
+      0.18,
+      0.18,
+      0.2
+    ],
+    "detection": "命中信息通道 inst==1 地面真值（ray query 提交实例下标；非谱近似）",
+    "animation": {
+      "root_amp": [
+        0.05,
+        0.02,
+        0.05
+      ],
+      "root_freq": [
+        0.05,
+        0.037,
+        0.043
+      ],
+      "root_amp2": [
+        0.03,
+        0.0,
+        0.0
+      ],
+      "root_freq2": [
+        0.13,
+        0.0,
+        0.0
+      ],
+      "root_phase2": [
+        0.7,
+        0.0,
+        0.0
+      ],
+      "swing_amp": 0.2,
+      "swing_freq": 0.07,
+      "swing_amp2": 0.15,
+      "swing_freq2": 0.19,
+      "swing_phase2": 1.3,
+      "elbow_amp": 0.55,
+      "elbow_freq": 0.11,
+      "elbow_amp2": 0.35,
+      "elbow_freq2": 0.23,
+      "elbow_phase2": 2.1,
+      "upper_len": 0.216,
+      "origin": [
+        2.336061,
+        0.7472407,
+        -1.6825298
+      ]
+    },
+    "bone_upload_bytes_per_frame": 352
+  },
+  "arms": [
+    {
+      "arm": "skin_anim",
+      "frame_ms_mean": 5.865469000000001,
+      "frame_ms_p50": 1.9349500000000002,
+      "frame_ms_p99": 44.9021,
+      "frame_ms_min": 1.832,
+      "frame_ms_max": 83.5806,
+      "frame_ms_production_mean": 3.623544999999999,
+      "last_frame_digest": "sha256:aa9e93009eef634587f24b12eff1fadba5c24d1f3c6fbb44ff66e3f9c9e9ec2a",
+      "verify_frames_pass": 20,
+      "verify_frames_total": 20,
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\skinning\\receipts\\bench_skin_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\skinning\\receipts\\bench_skin_rep2.json"
+      ]
+    },
+    {
+      "arm": "static_off",
+      "frame_ms_mean": 2.5454,
+      "frame_ms_p50": 1.9207,
+      "frame_ms_p99": 3.2444,
+      "frame_ms_min": 1.6787,
+      "frame_ms_max": 92.1747,
+      "frame_ms_production_mean": 2.0366012499999995,
+      "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+      "verify_frames_pass": 0,
+      "verify_frames_total": 0,
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\skinning\\static_out\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json"
+      ]
+    }
+  ],
+  "digest_bitexact_double_run": true,
+  "skin_neq_static_digest": true,
+  "static_anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+  "static_anchor_match": true,
+  "position_verify": {
+    "frames_total": 20,
+    "frames_pass": 20,
+    "centroid_max_px": 0.867855,
+    "aabb_max_px": 1.0,
+    "mv_median_max_px": 1.556797,
+    "mv_static_max_px": 1.064732,
+    "mv_host_motion_max_px": 2.524411,
+    "tolerance_centroid_px": 4.0,
+    "tolerance_aabb_px": 6.0,
+    "tolerance_mv_median_px": 2.0,
+    "tolerance_mv_static_px": 1.5
+  },
+  "mv_channel": {
+    "class1_camera": "wired（g31_skin_mv = g14_mv 逐字镜像面；静态/天空像素相机 MV 原式不变）",
+    "class2_rigid_instance": "gap_registered_A4（刚性实例 MV 缺口维持 A4 登记;本车道不含刚性动态实例,不冒充接通）",
+    "class3_skinned": "wired（prev 蒙皮顶点 bary 插值 → prev_vp 投影;RD-041 类 3 逐顶点形变速度）",
+    "tsr_history_consumed": true,
+    "smearing_mitigation_note": "蒙皮角色像素 MV = 逐像素 prev 蒙皮位置重投影（进 TSR resolve in_mv 既有消费面,TSR kernel 0-byte）——A4 登记的运动物体 TSR 历史拖影缺口在蒙皮类对象上结构性缓解;核验证据 = 检测像素域 dev 中位数 vs host 逐顶点中位数逐分量差 ≤2.0px（实测 max 1.557px）+ 窗级聚合真动门（max host 实测 2.524px ≥1.0px;高动帧条件 ratio 门 dev ≥0.5×host）+ 静态区无污染（实测 max 1.065px ≤1.5px）;边界 = 帧间形变小的域（本 demo 核验窗 max host 2.5px/帧实测绿）,大形变帧历史信任仍由 TSR 既有置信/钳制面承载,未量化改写 TSR 行为——做到多少如实登记"
+  },
+  "device_host_skinning_bitexact": true,
+  "m92_gate": {
+    "state": "PASS",
+    "run_digest": "a97667e350290b91b5d814ebe13646db17a822493642aee8811aaa60963f6821",
+    "double_run_bitexact": true,
+    "vertex_bitexact": true,
+    "cone_bitexact": true,
+    "static_frame_zero_as_build": true,
+    "as_update_counted": true,
+    "evidence_path": "H:\\rurix\\.tmp\\g31_gates\\skinning\\m92_evidence.json"
+  },
+  "measured": {
+    "skin_on_frame_ms_mean": 5.865469000000001,
+    "skin_off_frame_ms_mean": 2.5454,
+    "delta_frame_ms": 3.320069000000001,
+    "skin_pass_gpu_ms_mean": 0.00354,
+    "scene_gpu_ms_mean": 0.9794934399999999,
+    "mv_gpu_ms_mean": 0.11041791999999997,
+    "note": "同机同窗对照：skin_on mean=5.8655ms p50=1.9350ms prod=3.6235ms（100+10wu ×2 轮跨轮中位数）vs skin_off mean=2.5454ms p50=1.9207ms prod=2.0366ms（静态 canonical 160+10wu 锚臂,稳态均值与 100 帧窗可比,窗不对称如实登记）；delta=+3.3201ms = 蒙皮角色 + 骨骼逐帧更新全特征成本（蒙皮 pass GPU 0.003540ms + BLAS refit GPU 段（帧墙钟内含,未单列——refit 桥录在 timestamp 区间外,如实登记不拆分）+ palette/参数六小件 host 上传 352B/帧 + 角色内容渲染）;scene GPU 0.9795ms / mv GPU 0.1104ms（含蒙皮 MV 覆盖臂）"
+  },
+  "clean_shutdown": true,
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T225801Z",
+  "notes": "接入面取舍：render_exec 持久车道既有逐帧面 = buffer_uploads + TLAS 实例变换 update（A4,刚体）,无 BLAS 顶点更新面;候选「scene kernel 解析求交免 BLAS」违「进 BLAS」字面且角色不进 TLAS 即不投形变阴影,弃;选用**蒙皮后顶点缓冲 + BLAS refit（UPDATE）通路**——①单所有者纪律守恒（VkAsManager 独占 AS,桥接 = 一条 vkCmdCopyBuffer,无跨所有者显存别名）②全链 GPU 内零 host 回读（生产口径成立）③静态面 0-byte（ALLOW_UPDATE 仅角色 BLAS 打标,静态 BLAS flags=0——静态锚零漂移本件机核）④M92 验证件本体语义零触碰（本车道消费 geometry::skinning host 参照为核验臂,蒙皮数学同式同序）。位置核验 20/20 帧（质心 ≤4.0px AABB ≤6.0px,pred = host skin_vertex 蒙皮全顶点投影并集掩码 vs device 命中通道 inst==1 地面真值;obs 真动 ≥3.0px）;M92 门维持接线态复跑 PASS（run_digest=a97667e350290b91b5d814e…）;device/host 蒙皮逐顶点对拍 max_abs=0（RURIX_SKIN_DEBUG_TRIS 诊断臂真跑收割）;flip-trace 双趟逐帧 digest 位级一致 + 帧序严格;WPO 登记：RD-041 蒙皮/WPO MV 通道接口 = 本件 prev 逐顶点位置表 + bary 插值面（WPO 资产面在 bistro 缺席,顶点级速度通道形态本件冻结,WPO 内容触发时复用同通路）"
+}

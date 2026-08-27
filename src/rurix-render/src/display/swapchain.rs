@@ -18,7 +18,7 @@
 
 use super::color;
 use super::view_transform::{
-    rgb_set_digest, DisplayError, DisplayParams, OutputEncoding, ViewTransform,
+    DisplayError, DisplayParams, OutputEncoding, ViewTransform, rgb_set_digest,
 };
 
 /// 三交换链路径闭集（一等资源,运行时切换）。
@@ -268,7 +268,12 @@ impl DisplayPipeline {
                 for px in encoded {
                     let lin = match path {
                         SwapchainPath::ScRgb => px[1].max(px[0]).max(px[2]) * inv_scale,
-                        _ => color::bt1886_fwd(px[1].max(px[0]).max(px[2]).clamp(0.0, 1.0), 2.4, 1.0, 0.0),
+                        _ => color::bt1886_fwd(
+                            px[1].max(px[0]).max(px[2]).clamp(0.0, 1.0),
+                            2.4,
+                            1.0,
+                            0.0,
+                        ),
                     };
                     let nits = lin * super::view_transform::SDR_REFERENCE_WHITE_NITS;
                     peak = peak.max(nits);
@@ -294,13 +299,17 @@ impl DisplayPipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::display::view_transform::{canonical_hdr_frame, ViewTransformRegistry};
+    use crate::display::view_transform::{ViewTransformRegistry, canonical_hdr_frame};
 
     //@ spec: RXS-0369
     #[test]
     fn path_encoding_legality_closed_set() {
         // 合法三组合。
-        for p in [SwapchainPath::Sdr, SwapchainPath::ScRgb, SwapchainPath::PqRec2020] {
+        for p in [
+            SwapchainPath::Sdr,
+            SwapchainPath::ScRgb,
+            SwapchainPath::PqRec2020,
+        ] {
             assert!(validate_path_encoding(p, p.legal_encoding()).is_ok());
         }
         // 非 HDR 携带 PQ → 专属 typed Err(RED 锚)。
@@ -361,17 +370,33 @@ mod tests {
         let pipe = DisplayPipeline::assemble(SwapchainPath::Sdr, 100.0).unwrap();
         // SDR 交换链 + PQ 编码 → typed Err。
         assert!(matches!(
-            pipe.present_explicit(&frame, plugin, SwapchainPath::Sdr, OutputEncoding::PqSt2084Rec2020),
+            pipe.present_explicit(
+                &frame,
+                plugin,
+                SwapchainPath::Sdr,
+                OutputEncoding::PqSt2084Rec2020
+            ),
             Err(DisplayError::PqOutputOnNonHdrSwapchain { .. })
         ));
         assert!(matches!(
-            pipe.present_explicit(&frame, plugin, SwapchainPath::ScRgb, OutputEncoding::PqSt2084Rec2020),
+            pipe.present_explicit(
+                &frame,
+                plugin,
+                SwapchainPath::ScRgb,
+                OutputEncoding::PqSt2084Rec2020
+            ),
             Err(DisplayError::PqOutputOnNonHdrSwapchain { .. })
         ));
         // PQ 路径 + PQ 编码 → 合法。
-        assert!(pipe
-            .present_explicit(&frame, plugin, SwapchainPath::PqRec2020, OutputEncoding::PqSt2084Rec2020)
-            .is_ok());
+        assert!(
+            pipe.present_explicit(
+                &frame,
+                plugin,
+                SwapchainPath::PqRec2020,
+                OutputEncoding::PqSt2084Rec2020
+            )
+            .is_ok()
+        );
     }
 
     //@ spec: RXS-0369
@@ -380,7 +405,9 @@ mod tests {
         let report = query_hdr_capability();
         assert!(!report.display_hdr_capable);
         match report.calibration {
-            HdrCalibrationStatus::NotTriggered { reason } => assert!(reason.contains("not-triggered")),
+            HdrCalibrationStatus::NotTriggered { reason } => {
+                assert!(reason.contains("not-triggered"))
+            }
         }
         // 强制消费 → fail-closed typed Err。
         assert!(matches!(

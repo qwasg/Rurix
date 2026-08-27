@@ -27,7 +27,9 @@
 
 #![forbid(unsafe_code)]
 
-use rurix_render::temporal::framegen::{FgAccounting, FrameGenParams, interpolate, mfg_inserted_frames};
+use rurix_render::temporal::framegen::{
+    FgAccounting, FrameGenParams, interpolate, mfg_inserted_frames,
+};
 use rurix_render::temporal::image::ImageF32;
 use rurix_render::temporal::ssim::ssim;
 use std::time::Instant;
@@ -57,7 +59,8 @@ fn render_frame(k: f32) -> ImageF32 {
         let bu = u - k * BG_VEL[0];
         let bv = v - k * BG_VEL[1];
         let base = 0.45
-            + 0.30 * ((bu * 5.0) * std::f32::consts::PI).sin()
+            + 0.30
+                * ((bu * 5.0) * std::f32::consts::PI).sin()
                 * ((bv * 3.0) * std::f32::consts::PI).cos()
             + 0.04 * ch as f32;
         // 软边圆盘 sprite（自运动）
@@ -82,7 +85,11 @@ fn mv_field(cur_k: f32, pair_frames: f32) -> ImageF32 {
         let u = (x as f32 + 0.5) / W as f32;
         let v = (y as f32 + 0.5) / H as f32;
         let d = ((u - c[0]) * (u - c[0]) + (v - c[1]) * (v - c[1])).sqrt();
-        let vel = if d <= SPRITE_R + SPRITE_SOFT { SPRITE_VEL } else { BG_VEL };
+        let vel = if d <= SPRITE_R + SPRITE_SOFT {
+            SPRITE_VEL
+        } else {
+            BG_VEL
+        };
         vel[ch as usize] * pair_frames
     })
 }
@@ -185,7 +192,9 @@ fn main() {
     });
 
     // GT 全帧率序列（解析式，一次预渲供全部车道对照）
-    let gt: Vec<ImageF32> = (0..FULL_RATE_FRAMES).map(|k| render_frame(k as f32)).collect();
+    let gt: Vec<ImageF32> = (0..FULL_RATE_FRAMES)
+        .map(|k| render_frame(k as f32))
+        .collect();
 
     // 三档车道 run1
     let lanes: Vec<LaneReport> = [2u32, 3, 4].iter().map(|&m| run_lane(m, &gt)).collect();

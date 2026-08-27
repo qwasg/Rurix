@@ -48,7 +48,11 @@ impl super::view_transform::ViewTransform for Neutral {
 
     fn to_display_linear(&self, hdr_linear: [f64; 3]) -> [f64; 3] {
         let v = Self::pbr_neutral(hdr_linear);
-        [v[0].clamp(0.0, 1.0), v[1].clamp(0.0, 1.0), v[2].clamp(0.0, 1.0)]
+        [
+            v[0].clamp(0.0, 1.0),
+            v[1].clamp(0.0, 1.0),
+            v[2].clamp(0.0, 1.0),
+        ]
     }
 }
 
@@ -74,6 +78,9 @@ mod tests {
         let sw = p.to_display_linear([64.0, 64.0, 64.0]);
         assert!(sw[0] > 0.99 && sw[0] < 1.0, "超白渐近: {sw:?}");
         // 确定性。
-        assert_eq!(p.to_display_linear([1.0, 0.5, 0.25]), p.to_display_linear([1.0, 0.5, 0.25]));
+        assert_eq!(
+            p.to_display_linear([1.0, 0.5, 0.25]),
+            p.to_display_linear([1.0, 0.5, 0.25])
+        );
     }
 }

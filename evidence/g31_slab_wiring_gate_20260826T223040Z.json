@@ -1,0 +1,123 @@
+{
+  "schema": "rurix.g31.slab_wiring_gate_evidence.v1",
+  "subject": "g31_slab_wiring",
+  "symbolic_gate_key": "g31.waveB.slab",
+  "wave": "G31.B",
+  "facts": [
+    {
+      "id": "asset_abi_and_mapping_valid",
+      "status": "PASS",
+      "detail": "资产闭集/schema/16 槽 f32 位级 == M-b 生成律/域/槽序/abi_digest 重算互核/5 材质映射名称·索引互核全绿"
+    },
+    {
+      "id": "wired_per_slot_parity_p100",
+      "status": "PASS",
+      "detail": "接线态逐槽对拍 p100=3.677547821823168e-08 ≤ 冻结容差 2.384185791015624e-07（g29.slab_device.host_device_reflectance_tol 程序读）；双臂 device/host digest 位级一致=True；有限性一等断言=True"
+    },
+    {
+      "id": "g29_m_a_rerun_green",
+      "status": "PASS",
+      "detail": "g29.p0.m_a.slab_device_kernel 接线态复跑 rc=0（evidence g29_m_a_slab_device_kernel_20260826T223038Z.json）"
+    },
+    {
+      "id": "g29_m_b_rerun_green",
+      "status": "PASS",
+      "detail": "g29.p0.m_b.slab_side_table_arm 接线态复跑 rc=0（evidence g29_m_b_slab_side_table_arm_20260826T223039Z.json）"
+    },
+    {
+      "id": "material_closure_32b_abi_wired",
+      "status": "PASS",
+      "detail": "cargo test frozen_layout_sizes 1 passed（MaterialClosure==32/ClusterRecord==64/PageRequest==16 机核断言）；git diff --quiet g28-closed -- graph/types.rs + material/ 0-byte=True;工作树干净=True"
+    },
+    {
+      "id": "bistro_slab_demo",
+      "status": "PASS",
+      "detail": "bistro 五材质 slab 真跑:off 双跑位级=True on 双跑位级=True on≠off=True；跨臂 bitexact=True mismatch=0/2073600（ratio=0.000e+00 ≤ 0.001）max_lsb=0 ≤ 1；slab_tris=238927 mapped=5"
+    },
+    {
+      "id": "slab_off_regression_anchor",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体 0-byte 机器证明）"
+    },
+    {
+      "id": "slab_on_off_frame_ms_measured",
+      "status": "PASS",
+      "detail": "同机同窗 measured:off=3.7650ms on_device=3.7733ms（Δ=+0.22%）on_host=3.7209ms；slab 装配期求值 eval_ms=226.752（单列不混帧口径）"
+    }
+  ],
+  "verdict": "PASS",
+  "parity": {
+    "wired_p100": 3.677547821823168e-08,
+    "frozen_tol": 2.384185791015624e-07,
+    "frozen_tol_entry": "g29.slab_device.host_device_reflectance_tol",
+    "in_tol": true,
+    "device_digest": "sha256:a60443dc9ec5c9e422fb922f7e8bbdaa2ec21dbbe74635293058b631b18c3020",
+    "host_digest": "sha256:075eaa63df0246144938c2cc63b05f9b843f4592bc11817c9fb52e2ec949ac25"
+  },
+  "g29_rerun": {
+    "m_a_gate": "g29.p0.m_a.slab_device_kernel",
+    "m_a_rc": 0,
+    "m_a_evidence": "H:\\rurix\\evidence\\g29_m_a_slab_device_kernel_20260826T223038Z.json",
+    "m_b_gate": "g29.p0.m_b.slab_side_table_arm",
+    "m_b_rc": 0,
+    "m_b_evidence": "H:\\rurix\\evidence\\g29_m_b_slab_side_table_arm_20260826T223039Z.json"
+  },
+  "material_closure_abi": {
+    "layout_test": "cargo test frozen_layout_sizes 1 passed（MaterialClosure==32/ClusterRecord==64/PageRequest==16 机核断言）",
+    "frozen_0byte_vs_g28_closed": true,
+    "worktree_clean": true
+  },
+  "demo": {
+    "scene_id": "bistro-interior",
+    "trajectory": "orbit",
+    "mapped_materials": 5,
+    "slab_tris": 238927,
+    "off_double_run_bitexact": true,
+    "on_device_double_run_bitexact": true,
+    "on_ne_off": true,
+    "cross_arm": {
+      "bitexact": true,
+      "mismatch_px": 0,
+      "total_px": 2073600,
+      "mismatch_ratio": 0.0,
+      "max_lsb_diff": 0,
+      "in_bound": true,
+      "ratio_bound": 0.001,
+      "lsb_bound": 1,
+      "structural_basis": "R 扰动 ≤ 冻结容差 2.384e-7（恰一 ULP 口径 ×2.0）⇒ albedo 相对扰动 ≤2.4e-7 ⇒ HDR 辐射同阶 ⇒ ACES+8-bit 量化（quantum 1/255）翻转概率 ≈6e-5≪0.1% 且 ≤1 LSB；位级一致 = 更强终态"
+    }
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "frame_ms": {
+    "off_mean": 3.765006,
+    "on_device_mean": 3.773252,
+    "on_host_mean": 3.720873,
+    "delta_pct_device_vs_off": 0.21901691524528477,
+    "slab_eval_ms": 226.7517,
+    "measured": "measured_local",
+    "frames_per_run": 64,
+    "runs": 2
+  },
+  "harness_evidence": [
+    "evidence\\g31_game_loop_slab_off_a_20260826T223040Z.json",
+    "evidence\\g31_game_loop_slab_off_b_20260826T223040Z.json",
+    "evidence\\g31_slab_wiring_harness_on_device_a_20260826T223040Z.json",
+    "evidence\\g31_slab_wiring_harness_on_device_b_20260826T223040Z.json",
+    "evidence\\g31_slab_wiring_harness_on_host_20260826T223040Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "4563b0770ac27239d856280c1ec0393a9b4c380a"
+  },
+  "timestamp": "20260826T223040Z",
+  "notes": "G31+ 波 B Task B3 slab 材质 closure/侧表转正：G29 M-b bin-local 16 槽侧表 → 资产文件驱动生产面（milestones/g31/g31_slab_side_table_bistro_interior.json）；kernels/g29_slab.rx 本体 0-byte 经 vk::run_compute dispatch [16,1,1] 接入 shade/材质求值链（装配期逐槽查表求值 → 逐三角 albedo × R_slot 预调制进既有 mats SSBO 面，生产 kernel/管线 0-byte；非 slab 材质走既有单层面 0-byte）；MaterialClosure 32B ABI 不破坏（不经 MaterialClosure）；对拍门接线态复跑 = G29 M-a/M-b 子进程全绿 + 本门逐槽 parity ≤ 冻结容差；demo = bistro 五材质（釉面陶瓷/粉刷石膏/清漆木×2/漆面桌台）slab 真跑 + on≠off 生效门 + 跨臂结构容差对拍 + Stage A 锚格零漂移"
+}

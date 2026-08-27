@@ -1,0 +1,186 @@
+//@ spec: RFC-0049 §4.7(G35-5 粒子碰撞与力场;spec 条款号本期零新设)
+// G35-P 粒子碰撞 · sim_collide —— 力场 + 同帧 TLAS ray query 碰撞(门
+// g35.wave5.collision;G35_CONTRACT §4 契约;sim 的独立变体新文件,
+// kernels/g35_sim.rx 0-byte 不动)。
+//
+// ## 架构(确定性协议;同帧语义)
+// 公式面与 host 金标准 `particles/collision.rs`(apply_fields + collide_step)
+// **逐字同源**,单 dispatch 内联同序:① 力场(顺序冻结:vel += (g+wind)·dt;
+// vel ×= (1−drag·dt))② 碰撞查询(射线 origin = pos,dir = vel 不归一,
+// t 域 (0, dt),t 单位 = 时间)③ 命中响应(冻结式,RFC-0049 §4.7):
+//   c = pos + vel·t;n = committed primitive 三角顶点叉积法线(host TriBvh
+//   face_normal 同式同序:(b−a)×(c−a) 后倒数乘归一 self·(1/l);nd > 0 翻转
+//   使 n·vel < 0);pos' = c + n·eps(eps = 0.001 冻结);v_n = dot(vel,n)·n;
+//   v_t = vel − v_n;vel' = mu_t·v_t − e·v_n(e = 0.5 / mu_t = 0.8 冻结缺省,
+//   params 面可调);age 照常。
+// 未命中 / |vel|² = 0(零方向守卫,HW 零方向未定义,host 同守卫)走原 sim
+// 积分 pos += vel·dt(力场已代 vy += g·dt 步,半隐式 Euler 语义保持)。
+// **同帧语义**:第 k 帧 dispatch 消费的 TLAS = 第 k 帧障碍变换构建(probe
+// 每帧经 run_ray_query_effects 以当帧三角汤重建场景)——对照注释:Niagara
+// GPU RT 碰撞读上一帧末加速结构,异步一帧延迟,障碍突移迟一帧才响应。
+// **命中面 SSBO 镜像**:语言面取不到 committed 三角顶点,tris SSBO 与 TLAS
+// BLAS 逐字节同源,由 committed_primitive_index 索引取顶点重算法线(单
+// BLAS × 单 identity 实例 ⇒ primitiveIndex = tris 下标;g14_3/M96 车道
+// 先例同律)。逐粒子独立、无原子、随机零消费;flags 为 u32 整数流;f32 流
+// 走标定容差协议(g35_budget g35.collision.parity_p100 程序产——ray query
+// t 值 RT core vs host 有 ULP 级差,g34 先例;probe 装载期注入 NoContraction
+// 禁驱动 FMA 收缩,g35_particle_core 同律)。
+//
+// ## 参数面(12 f32;n ≤ 2^24 f32 精确;声明序 = 绑定序:AccelStruct 形参
+// 段在 SSBO 段之前〔绑定推导律〕,binding 0 = TLAS,SSBO 依序 binding 1..)
+//   params[0]=n_curr [1]=nseg [2]=dt [3]=gravity_y [4]=wind_x [5]=wind_y
+//   [6]=wind_z [7]=drag [8]=e [9]=mu_t [10..12)=reserved(恒 0)。
+//   SSBO 序(run_ray_query_effects 车道 Input/Output 分流,in/out 拆分——
+//   与 probe bin/g35_collision_device.rs buffers 下标严格一致):
+//   1 params(View f32×12) / 2 tris(View f32,9/tri,与 BLAS 同源字节)/
+//   3 pos_x_in / 4 pos_y_in / 5 pos_z_in / 6 vel_x_in / 7 vel_y_in /
+//   8 vel_z_in / 9 age_in(以上 View f32×n)/ 10 life(View f32×n)/
+//   11 pos_x_out / 12 pos_y_out / 13 pos_z_out / 14 vel_x_out / 15 vel_y_out /
+//   16 vel_z_out / 17 age_out(以上 ViewMut f32×n)/ 18 flags(ViewMut
+//   u32×n,存活位 age < life)/ 19 hit(ViewMut u32×n,0 = miss,
+//   1 + committed_primitive_index = 命中登记——同帧见证/对照臂消费面)。
+//   dispatch = [nseg, 1, 1](LocalSize 1,1,1;线程 = 段,段内串行
+//   i ∈ [s·256, min((s+1)·256, n)) = host 下标序同序,头注冻结;
+//   nseg = ceil(n/256))。
+#[numthreads(1, 1, 1)]
+kernel fn g35_sim_collide(
+    tlas: AccelStruct,
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    tris: View<global, f32>,
+    pos_x_in: View<global, f32>,
+    pos_y_in: View<global, f32>,
+    pos_z_in: View<global, f32>,
+    vel_x_in: View<global, f32>,
+    vel_y_in: View<global, f32>,
+    vel_z_in: View<global, f32>,
+    age_in: View<global, f32>,
+    life: View<global, f32>,
+    pos_x_out: ViewMut<global, f32>,
+    pos_y_out: ViewMut<global, f32>,
+    pos_z_out: ViewMut<global, f32>,
+    vel_x_out: ViewMut<global, f32>,
+    vel_y_out: ViewMut<global, f32>,
+    vel_z_out: ViewMut<global, f32>,
+    age_out: ViewMut<global, f32>,
+    flags: ViewMut<global, u32>,
+    hit: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    let dt = params[2];
+    let g = params[3];
+    let wx = params[4];
+    let wy = params[5];
+    let wz = params[6];
+    let drag = params[7];
+    let e = params[8];
+    let mu_t = params[9];
+    let kd = 1.0 - drag * dt;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            // ── ① 力场(host apply_fields 逐字同源:加速度段 x→y→z,再
+            //    阻尼段 x→y→z)──
+            let mut vx = vel_x_in[i] + wx * dt;
+            let mut vy = vel_y_in[i] + (g + wy) * dt;
+            let mut vz = vel_z_in[i] + wz * dt;
+            vx = vx * kd;
+            vy = vy * kd;
+            vz = vz * kd;
+            let px = pos_x_in[i];
+            let py = pos_y_in[i];
+            let pz = pos_z_in[i];
+            // ── ② 碰撞查询(零方向守卫;host collide_step 同守卫)──
+            let len2 = (vx * vx + vy * vy) + vz * vz;
+            let mut done = 0u32;
+            if len2 > 0.0 {
+                let mut rq = ray_query_initialize(tlas, (px, py, pz), 0.0, (vx, vy, vz), dt);
+                while rq.proceed() {
+                }
+                if rq.has_committed() {
+                    // ── ③ 冻结响应(host collide_step 逐字同源)──
+                    let th = rq.committed_t();
+                    let prim = rq.committed_primitive_index();
+                    let cx = px + vx * th;
+                    let cy = py + vy * th;
+                    let cz = pz + vz * th;
+                    // 法线 = 命中面 SSBO 镜像顶点叉积(TriBvh face_normal
+                    // 同式同序;单测 kernel_normal_formula_matches_tribvh
+                    // 锚定)。
+                    let tb = (prim as usize) * 9usize;
+                    let ax = tris[tb];
+                    let ay = tris[tb + 1usize];
+                    let az = tris[tb + 2usize];
+                    let e1x = tris[tb + 3usize] - ax;
+                    let e1y = tris[tb + 4usize] - ay;
+                    let e1z = tris[tb + 5usize] - az;
+                    let e2x = tris[tb + 6usize] - ax;
+                    let e2y = tris[tb + 7usize] - ay;
+                    let e2z = tris[tb + 8usize] - az;
+                    let ngx = e1y * e2z - e1z * e2y;
+                    let ngy = e1z * e2x - e1x * e2z;
+                    let ngz = e1x * e2y - e1y * e2x;
+                    let nl = (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+                    let mut inv_nl = 0.0;
+                    if nl > 0.0 {
+                        inv_nl = 1.0 / nl;
+                    }
+                    let mut nx = ngx * inv_nl;
+                    let mut ny = ngy * inv_nl;
+                    let mut nz = ngz * inv_nl;
+                    // 朝向翻转使 n·vel < 0(host 同判同序)。
+                    let mut nd = (nx * vx + ny * vy) + nz * vz;
+                    if nd > 0.0 {
+                        nx = 0.0 - nx;
+                        ny = 0.0 - ny;
+                        nz = 0.0 - nz;
+                        nd = 0.0 - nd;
+                    }
+                    // pos' = c + n·eps(eps = 0.001 冻结)。
+                    pos_x_out[i] = cx + nx * 0.001;
+                    pos_y_out[i] = cy + ny * 0.001;
+                    pos_z_out[i] = cz + nz * 0.001;
+                    // v_n = dot(vel,n)·n;v_t = vel − v_n;
+                    // vel' = mu_t·v_t − e·v_n。
+                    let vnx = nd * nx;
+                    let vny = nd * ny;
+                    let vnz = nd * nz;
+                    let vtx = vx - vnx;
+                    let vty = vy - vny;
+                    let vtz = vz - vnz;
+                    vel_x_out[i] = mu_t * vtx - e * vnx;
+                    vel_y_out[i] = mu_t * vty - e * vny;
+                    vel_z_out[i] = mu_t * vtz - e * vnz;
+                    hit[i] = 1u32 + prim;
+                    done = 1u32;
+                }
+            }
+            if done != 1u32 {
+                // 未命中走原 sim 积分(力场已代重力步;半隐式语义保持)。
+                pos_x_out[i] = px + vx * dt;
+                pos_y_out[i] = py + vy * dt;
+                pos_z_out[i] = pz + vz * dt;
+                vel_x_out[i] = vx;
+                vel_y_out[i] = vy;
+                vel_z_out[i] = vz;
+                hit[i] = 0u32;
+            }
+            // age 照常 + 存活 flags(g35_sim 同律)。
+            let na = age_in[i] + dt;
+            age_out[i] = na;
+            if na < life[i] {
+                flags[i] = 1u32;
+            } else {
+                flags[i] = 0u32;
+            }
+            i = i + 1usize;
+        }
+    }
+}

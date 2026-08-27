@@ -250,14 +250,20 @@ impl PtScene {
         for (t, m) in self.materials.iter().enumerate() {
             match m {
                 MaterialKind::Lambert { albedo } => {
-                    if !albedo.iter().all(|c| c.is_finite() && *c >= 0.0 && *c < 1.0) {
+                    if !albedo
+                        .iter()
+                        .all(|c| c.is_finite() && *c >= 0.0 && *c < 1.0)
+                    {
                         return Err(PtError::InvalidScene(format!(
                             "三角 {t} albedo 越域 [0,1):{albedo:?}"
                         )));
                     }
                 }
                 MaterialKind::Emission { albedo, emission } => {
-                    if !albedo.iter().all(|c| c.is_finite() && *c >= 0.0 && *c < 1.0) {
+                    if !albedo
+                        .iter()
+                        .all(|c| c.is_finite() && *c >= 0.0 && *c < 1.0)
+                    {
                         return Err(PtError::InvalidScene(format!(
                             "三角 {t} 发光面 albedo 越域:{albedo:?}"
                         )));
@@ -418,12 +424,54 @@ fn add_box(
     let [x1, y1, z1] = max;
     // 外法线盒:每面四点按外绕向。
     // −y 底 / +y 顶 / −z 前 / +z 后 / −x 左 / +x 右。
-    quad(positions, indices, [x0, y0, z0], [x0, y0, z1], [x1, y0, z1], [x1, y0, z0]); // −y
-    quad(positions, indices, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]); // +y
-    quad(positions, indices, [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]); // −z
-    quad(positions, indices, [x0, y0, z1], [x0, y1, z1], [x1, y1, z1], [x1, y0, z1]); // +z
-    quad(positions, indices, [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]); // −x
-    quad(positions, indices, [x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]); // +x
+    quad(
+        positions,
+        indices,
+        [x0, y0, z0],
+        [x0, y0, z1],
+        [x1, y0, z1],
+        [x1, y0, z0],
+    ); // −y
+    quad(
+        positions,
+        indices,
+        [x0, y1, z0],
+        [x1, y1, z0],
+        [x1, y1, z1],
+        [x0, y1, z1],
+    ); // +y
+    quad(
+        positions,
+        indices,
+        [x0, y0, z0],
+        [x1, y0, z0],
+        [x1, y1, z0],
+        [x0, y1, z0],
+    ); // −z
+    quad(
+        positions,
+        indices,
+        [x0, y0, z1],
+        [x0, y1, z1],
+        [x1, y1, z1],
+        [x1, y0, z1],
+    ); // +z
+    quad(
+        positions,
+        indices,
+        [x0, y0, z0],
+        [x0, y1, z0],
+        [x0, y1, z1],
+        [x0, y0, z1],
+    ); // −x
+    quad(
+        positions,
+        indices,
+        [x1, y0, z0],
+        [x1, y0, z1],
+        [x1, y1, z1],
+        [x1, y1, z0],
+    ); // +x
 }
 
 /// 冻结 fixture①:Cornell-box 类漫反射场景(单位盒 [0,1]³,正面 z=0 开口,
@@ -502,7 +550,9 @@ pub fn m96_cornell_scene() -> PtScene {
         [0.72, 0.55, 0.68],
     );
     for _ in box_base_tri..indices.len() {
-        materials.push(MaterialKind::Lambert { albedo: [0.60, 0.60, 0.60] });
+        materials.push(MaterialKind::Lambert {
+            albedo: [0.60, 0.60, 0.60],
+        });
     }
     // 光源 quad(天花下挂 y=0.995,法线 −y;emission 12)。
     let lp00 = [0.35, 0.995, 0.35];
@@ -565,8 +615,12 @@ pub fn m96_direct_light_scene() -> PtScene {
         [2.0, 0.0, 2.0],
         [2.0, 0.0, 0.0],
     );
-    materials.push(MaterialKind::Lambert { albedo: [0.7, 0.7, 0.7] });
-    materials.push(MaterialKind::Lambert { albedo: [0.7, 0.7, 0.7] });
+    materials.push(MaterialKind::Lambert {
+        albedo: [0.7, 0.7, 0.7],
+    });
+    materials.push(MaterialKind::Lambert {
+        albedo: [0.7, 0.7, 0.7],
+    });
     // 光源 quad(y=1.2,x,z ∈ [0.7,1.3],法线 −y;emission 8)。
     let lp00 = [0.7, 1.2, 0.7];
     let le1 = [0.6, 0.0, 0.0];
@@ -628,7 +682,10 @@ pub struct PtSwitches {
 
 impl PtSwitches {
     /// 正例臂全开关。
-    pub const REFERENCE: PtSwitches = PtSwitches { mis: true, rr: true };
+    pub const REFERENCE: PtSwitches = PtSwitches {
+        mis: true,
+        rr: true,
+    };
 }
 
 /// 运行配置(冻结协议面)。
@@ -1077,8 +1134,14 @@ pub fn trace_host(scene: &PtScene, cfg: &PtConfig, stream: &[f32]) -> Result<PtI
 /// 渲染输出 canonical digest(SHA-256(out_rgb ‖ Σ/Σ² 统计 ‖ sample count 字节,
 /// 依序拼接);不含路径/mtime/seed——RXS-0357 L2 协议面)。
 pub fn image_digest(img: &PtImage) -> [u8; 32] {
-    let mut pre = Vec::with_capacity(img.rgb.len() * 4 + img.sum_lum.len() * 8 + img.samples.len() * 4);
-    for v in img.rgb.iter().chain(img.sum_lum.iter()).chain(img.sumsq_lum.iter()) {
+    let mut pre =
+        Vec::with_capacity(img.rgb.len() * 4 + img.sum_lum.len() * 8 + img.samples.len() * 4);
+    for v in img
+        .rgb
+        .iter()
+        .chain(img.sum_lum.iter())
+        .chain(img.sumsq_lum.iter())
+    {
         pre.extend_from_slice(&v.to_le_bytes());
     }
     for v in &img.samples {
@@ -1132,7 +1195,10 @@ pub fn pbrt_scene_text(scene: &PtScene, cfg: &PtConfig, seed: u64, out_name: &st
         "LookAt {} {} {}  {} {} {}  0 1 0\n",
         eye[0], eye[1], eye[2], at[0], at[1], at[2]
     ));
-    s.push_str(&format!("Camera \"perspective\" \"float fov\" [{}]\n", fov_deg));
+    s.push_str(&format!(
+        "Camera \"perspective\" \"float fov\" [{}]\n",
+        fov_deg
+    ));
     s.push_str("WorldBegin\n");
     // 逐材质分组导出(同材质连续三角并入一个 trianglemesh)。
     let mut run: Vec<usize> = Vec::new(); // 当前组的三角下标
@@ -1361,9 +1427,7 @@ impl ToleranceBand {
         self.entries
             .iter()
             .find(|e| e.scene == scene && e.spp == spp)
-            .ok_or_else(|| {
-                PtError::PbrtBridge(format!("容差带缺条目 scene={scene} spp={spp}"))
-            })
+            .ok_or_else(|| PtError::PbrtBridge(format!("容差带缺条目 scene={scene} spp={spp}")))
     }
 
     /// 比对(fail-closed):偏差 ≤ 带 且 digest == golden;违例逐条列名。
@@ -1394,7 +1458,10 @@ impl ToleranceBand {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n  \"schema\": \"rurix.g9m96.pbrt_tolerance_band.v1\",\n");
-        s.push_str(&format!("  \"frozen_at_utc\": \"{}\",\n", self.frozen_at_utc));
+        s.push_str(&format!(
+            "  \"frozen_at_utc\": \"{}\",\n",
+            self.frozen_at_utc
+        ));
         s.push_str(&format!("  \"device_name\": \"{}\",\n", self.device_name));
         s.push_str(&format!("  \"pbrt_version\": \"{}\",\n", self.pbrt_version));
         s.push_str(&format!("  \"pbrt_commit\": \"{}\",\n", self.pbrt_commit));
@@ -1473,12 +1540,9 @@ impl ToleranceBand {
                 Ok(body[start..end].to_string())
             };
             let scene = field("scene")?;
-            let spp: u32 = field("spp")?
-                .parse()
-                .map_err(|_| err("spp 非数值"))?;
+            let spp: u32 = field("spp")?.parse().map_err(|_| err("spp 非数值"))?;
             let golden_digest = field("golden_digest")?;
-            if golden_digest.len() != 64 || !golden_digest.chars().all(|c| c.is_ascii_hexdigit())
-            {
+            if golden_digest.len() != 64 || !golden_digest.chars().all(|c| c.is_ascii_hexdigit()) {
                 return Err(err("golden_digest 非 64-hex"));
             }
             let num = |key: &str| -> Result<f64, PtError> {
@@ -1639,7 +1703,11 @@ mod tests {
         }
         // 光源 quad 与发光三角漂移 → InvalidScene(装载面 RED;发光三角 = 22/23)。
         let mut scene = m96_cornell_scene();
-        scene.indices[23] = [scene.indices[23][0], scene.indices[23][2], scene.indices[23][1]];
+        scene.indices[23] = [
+            scene.indices[23][0],
+            scene.indices[23][2],
+            scene.indices[23][1],
+        ];
         assert!(scene.validate().is_err(), "发光三角绕向漂移必拒");
     }
 
@@ -1657,7 +1725,11 @@ mod tests {
         let a = trace_host(&scene, &cfg, &stream).expect("oracle 渲染");
         let b = trace_host(&scene, &cfg, &stream).expect("oracle 渲染");
         assert_eq!(a, b, "host oracle 同 seed 双跑位级一致");
-        assert_eq!(a.samples, vec![16u32; a.pixel_count()], "逐像素 sample count = spp");
+        assert_eq!(
+            a.samples,
+            vec![16u32; a.pixel_count()],
+            "逐像素 sample count = spp"
+        );
         // 直接光场景:全图均值亮度显著为正且有限(光源可见/地板受光)。
         let lum = a.mean_luminance();
         assert!(lum > 0.01 && lum.is_finite(), "直接光场景亮度 {lum}");
@@ -1750,13 +1822,23 @@ mod tests {
         let back = ToleranceBand::parse(&text).expect("roundtrip");
         assert_eq!(band, back);
         // 正例:带内 + digest 全等 ⇒ Ok。
-        back.check("m96_cornell", 16, 0.049, &"ab".repeat(32)).expect("带内放行");
+        back.check("m96_cornell", 16, 0.049, &"ab".repeat(32))
+            .expect("带内放行");
         // RED:digest 分叉 ⇒ 拒。
-        assert!(back.check("m96_cornell", 16, 0.049, &"cd".repeat(32)).is_err());
+        assert!(
+            back.check("m96_cornell", 16, 0.049, &"cd".repeat(32))
+                .is_err()
+        );
         // RED:越带 ⇒ 拒。
-        assert!(back.check("m96_cornell", 16, 0.051, &"ab".repeat(32)).is_err());
+        assert!(
+            back.check("m96_cornell", 16, 0.051, &"ab".repeat(32))
+                .is_err()
+        );
         // RED:缺条目 ⇒ 拒(fail-closed 不静默放行)。
-        assert!(back.check("m96_cornell", 32, 0.001, &"ab".repeat(32)).is_err());
+        assert!(
+            back.check("m96_cornell", 32, 0.001, &"ab".repeat(32))
+                .is_err()
+        );
         // RED:坏 schema ⇒ 拒。
         assert!(ToleranceBand::parse("{\"schema\": \"bogus\"}").is_err());
         // RED:条目缺键 ⇒ 拒。

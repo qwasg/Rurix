@@ -38,11 +38,11 @@
 #![forbid(unsafe_code)]
 
 use rurix_render::display::swapchain::{
-    query_hdr_capability, require_hdr_calibration, DisplayPipeline, SwapchainPath,
+    DisplayPipeline, SwapchainPath, query_hdr_capability, require_hdr_calibration,
 };
 use rurix_render::display::view_transform::{
-    canonical_hdr_frame, golden_input_set, rgb_set_digest, DisplayParams, OutputEncoding,
-    ViewTransformRegistry,
+    DisplayParams, OutputEncoding, ViewTransformRegistry, canonical_hdr_frame, golden_input_set,
+    rgb_set_digest,
 };
 use std::path::PathBuf;
 
@@ -176,7 +176,10 @@ fn plugin_path_digests(
                 peak_luminance_nits: 100.0,
                 encoding: path.legal_encoding(),
             };
-            let out: Vec<[f64; 3]> = input.iter().map(|&px| plugin.transform(px, &params)).collect();
+            let out: Vec<[f64; 3]> = input
+                .iter()
+                .map(|&px| plugin.transform(px, &params))
+                .collect();
             digests[pi] = rgb_set_digest(&out);
         }
         rows.push((plugin.id(), digests));
@@ -244,12 +247,26 @@ fn red_arm_pq_on_non_hdr() -> Result<(), String> {
     let frame = canonical_hdr_frame();
     let pipe = DisplayPipeline::assemble(SwapchainPath::Sdr, 100.0).map_err(|e| e.to_string())?;
     // 负例两臂:SDR+PQ / scRGB+PQ 必须 typed Err。
-    match pipe.present_explicit(&frame, plugin, SwapchainPath::Sdr, OutputEncoding::PqSt2084Rec2020) {
-        Err(rurix_render::display::view_transform::DisplayError::PqOutputOnNonHdrSwapchain { .. }) => {}
+    match pipe.present_explicit(
+        &frame,
+        plugin,
+        SwapchainPath::Sdr,
+        OutputEncoding::PqSt2084Rec2020,
+    ) {
+        Err(rurix_render::display::view_transform::DisplayError::PqOutputOnNonHdrSwapchain {
+            ..
+        }) => {}
         other => return Err(format!("SDR+PQ 未拒(漏检): {}", other.is_ok())),
     }
-    match pipe.present_explicit(&frame, plugin, SwapchainPath::ScRgb, OutputEncoding::PqSt2084Rec2020) {
-        Err(rurix_render::display::view_transform::DisplayError::PqOutputOnNonHdrSwapchain { .. }) => {}
+    match pipe.present_explicit(
+        &frame,
+        plugin,
+        SwapchainPath::ScRgb,
+        OutputEncoding::PqSt2084Rec2020,
+    ) {
+        Err(rurix_render::display::view_transform::DisplayError::PqOutputOnNonHdrSwapchain {
+            ..
+        }) => {}
         other => return Err(format!("scRGB+PQ 未拒(漏检): {}", other.is_ok())),
     }
     // sabotage 探针(能红证明):合法组合全 Ok。
@@ -258,8 +275,13 @@ fn red_arm_pq_on_non_hdr() -> Result<(), String> {
             .map_err(|e| format!("合法组合被误拒: {e}"))?;
     }
     // PQ 路径 + PQ 编码合法。
-    pipe.present_explicit(&frame, plugin, SwapchainPath::PqRec2020, OutputEncoding::PqSt2084Rec2020)
-        .map_err(|e| format!("PQ+PQ 被误拒: {e}"))?;
+    pipe.present_explicit(
+        &frame,
+        plugin,
+        SwapchainPath::PqRec2020,
+        OutputEncoding::PqSt2084Rec2020,
+    )
+    .map_err(|e| format!("PQ+PQ 被误拒: {e}"))?;
     Ok(())
 }
 
@@ -276,7 +298,9 @@ fn red_arm_unregistered_plugin() -> Result<(), String> {
     }
     // sabotage:已注册名可取。
     for id in PLUGIN_IDS {
-        registry.get(id).map_err(|e| format!("内置插件 {id} 取用失败: {e}"))?;
+        registry
+            .get(id)
+            .map_err(|e| format!("内置插件 {id} 取用失败: {e}"))?;
     }
     Ok(())
 }
@@ -289,7 +313,9 @@ fn main() {
         let r = match arm.as_str() {
             "pq-on-non-hdr" => red_arm_pq_on_non_hdr(),
             "unregistered-plugin" => red_arm_unregistered_plugin(),
-            other => fail(&format!("未知 RED 臂: {other}(pq-on-non-hdr|unregistered-plugin)")),
+            other => fail(&format!(
+                "未知 RED 臂: {other}(pq-on-non-hdr|unregistered-plugin)"
+            )),
         };
         match r {
             Ok(()) => {
@@ -308,9 +334,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -331,8 +359,8 @@ fn main() {
 
     // ── 步骤 2:注册表面(四内置并列 + 未注册拒录) ──
     let registry = ViewTransformRegistry::with_builtins();
-    let registry_ok = registry.registered_names() == PLUGIN_IDS.to_vec()
-        && red_arm_unregistered_plugin().is_ok();
+    let registry_ok =
+        registry.registered_names() == PLUGIN_IDS.to_vec() && red_arm_unregistered_plugin().is_ok();
     if !registry_ok {
         failures.push("插件注册表面失效".into());
     }
@@ -344,10 +372,7 @@ fn main() {
     let frame_digest = rgb_set_digest(&frame);
     let matrix = plugin_path_digests(&registry, &input);
     let matrix2 = plugin_path_digests(&registry, &input);
-    let double_run_ok = matrix
-        .iter()
-        .zip(matrix2.iter())
-        .all(|(a, b)| a.1 == b.1);
+    let double_run_ok = matrix.iter().zip(matrix2.iter()).all(|(a, b)| a.1 == b.1);
     if !double_run_ok {
         failures.push("四插件 golden 双跑位级不一致".into());
     }
@@ -489,17 +514,23 @@ fn main() {
     // ── 步骤 10:evidence(rurix.g9m118.display_pipeline.v1) ──
     let checks: [(&str, bool); 9] = [
         ("conformance_corpus_anchored", corpus_ok),
-        ("registry_four_builtins_and_unregistered_rejected", registry_ok),
-        ("four_plugins_golden_double_run_bit_equal", double_run_ok),
         (
-            "four_plugins_golden_frozen_equal",
-            golden_ok || args.freeze,
+            "registry_four_builtins_and_unregistered_rejected",
+            registry_ok,
         ),
+        ("four_plugins_golden_double_run_bit_equal", double_run_ok),
+        ("four_plugins_golden_frozen_equal", golden_ok || args.freeze),
         ("known_differences_recorded", differences_nonempty),
-        ("three_paths_runtime_switch_deterministic", switch_deterministic),
+        (
+            "three_paths_runtime_switch_deterministic",
+            switch_deterministic,
+        ),
         ("hdr_metadata_filled_by_output_transform", metadata_nonempty),
         ("pq_on_non_hdr_swapchain_red_arm", pq_arm_ok),
-        ("hdr_calibration_not_triggered_registered", hdr_not_triggered),
+        (
+            "hdr_calibration_not_triggered_registered",
+            hdr_not_triggered,
+        ),
     ];
     let checks_json: Vec<String> = checks
         .iter()

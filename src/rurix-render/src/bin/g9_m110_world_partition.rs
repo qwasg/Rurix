@@ -72,7 +72,10 @@ const CORPUS_FILES: &[(&str, &str)] = &[
     ("accept/hlod_baking_double_build_minimal.rx", "RXS-0364"),
     ("accept/terrain_chunk_cell_aligned_minimal.rx", "RXS-0367"),
     ("accept/water_dual_pipeline_minimal.rx", "RXS-0366"),
-    ("reject/atmosphere_weather_map_signature_tampered.rx", "RXS-0365"),
+    (
+        "reject/atmosphere_weather_map_signature_tampered.rx",
+        "RXS-0365",
+    ),
     ("reject/cell_event_sequence_out_of_order.rx", "RXS-0363"),
     ("reject/decal_overdraw_budget_exceeded.rx", "RXS-0368"),
     ("reject/hlod_runtime_merge_forbidden.rx", "RXS-0364"),
@@ -150,7 +153,9 @@ fn json_f64(text: &str, key: &str) -> Option<f64> {
     let start = text.find(&needle)? + needle.len();
     let rest = &text[start..];
     let end = rest
-        .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E'))
+        .find(|c: char| {
+            !(c.is_ascii_digit() || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E')
+        })
         .unwrap_or(rest.len());
     rest[..end].parse().ok()
 }
@@ -241,9 +246,7 @@ fn run_canonical_scenario() -> (Vec<wp::FrameBudgetEvidence>, Vec<wp::CellEvent>
     let mut rt = wp::PartitionRuntime::new(world, budget).expect("runtime 装配");
     let mut frames = Vec::with_capacity(CANONICAL_FRAMES as usize);
     for (f, s) in path.iter().enumerate() {
-        let ev = rt
-            .tick(f as u32, std::slice::from_ref(s))
-            .expect("tick");
+        let ev = rt.tick(f as u32, std::slice::from_ref(s)).expect("tick");
         wp::check_frame_budget_consistency(&ev, &budget).expect("逐帧预算一致性");
         frames.push(ev);
     }
@@ -257,7 +260,12 @@ fn camera_path_digest(path: &[wp::StreamingSource]) -> [u8; 32] {
     let mut buf = Vec::with_capacity(path.len() * 17);
     for s in path {
         buf.push(s.kind as u8);
-        for v in [s.position_m[0], s.position_m[1], s.loading_radius_m, s.inner_radius_m] {
+        for v in [
+            s.position_m[0],
+            s.position_m[1],
+            s.loading_radius_m,
+            s.inner_radius_m,
+        ] {
             buf.extend_from_slice(&v.to_le_bytes());
         }
     }
@@ -271,7 +279,11 @@ fn rxhlod_exe() -> PathBuf {
     }
     let exe = std::env::current_exe().expect("current_exe");
     let dir = exe.parent().expect("exe 父目录");
-    let name = if cfg!(windows) { "rxhlod.exe" } else { "rxhlod" };
+    let name = if cfg!(windows) {
+        "rxhlod.exe"
+    } else {
+        "rxhlod"
+    };
     let path = dir.join(name);
     if !path.is_file() {
         fail(&format!(
@@ -365,8 +377,8 @@ fn red_arm_budget() -> Result<(), String> {
         max_actors_to_spawn_per_frame: 1 << 20,
         memory_budget_mb: 4096,
     };
-    let mut ok = wp::PartitionRuntime::new(wp::canonical_world(), generous)
-        .map_err(|e| e.to_string())?;
+    let mut ok =
+        wp::PartitionRuntime::new(wp::canonical_world(), generous).map_err(|e| e.to_string())?;
     for (f, s) in path.iter().enumerate() {
         let ev = ok
             .tick(f as u32, std::slice::from_ref(s))
@@ -521,8 +533,7 @@ fn run_long_soak(min_seconds: u64, min_frames: u64) -> ! {
     let p95_ms = wp::percentile_ns(&tick_samples, 0.95) as f64 / 1e6;
     let p99_ms = wp::percentile_ns(&tick_samples, 0.99) as f64 / 1e6;
     let max_ms = *tick_samples.iter().max().unwrap_or(&0) as f64 / 1e6;
-    let base_commit =
-        std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
+    let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let json = format!(
         "{{\"ok\": true, \"soak\": true, \"soak_subject\": \"host-soak\", \
          \"subject\": \"g9_m110_world_partition_long_soak\", \
@@ -598,9 +609,11 @@ fn main() {
     let mut anchors_json: Vec<String> = Vec::new();
     for (rel, expect) in CORPUS_FILES {
         let path = corpus_dir.join(rel);
-        let anchor = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| t.lines().find(|l| l.contains("//@ spec:")).map(|l| l.to_string()));
+        let anchor = std::fs::read_to_string(&path).ok().and_then(|t| {
+            t.lines()
+                .find(|l| l.contains("//@ spec:"))
+                .map(|l| l.to_string())
+        });
         let ok = anchor
             .as_ref()
             .map(|l| l.contains(&format!("//@ spec: {expect}")))
@@ -625,7 +638,8 @@ fn main() {
     let world_back = wp::decode_world(&world_bytes).expect("世界解码");
     let roundtrip_ok = world_back == world
         && wp::encode_world(&world_back).expect("再编码") == world_bytes
-        && wp::world_digest(&world).expect("digest") == wp::world_digest(&world_back).expect("digest");
+        && wp::world_digest(&world).expect("digest")
+            == wp::world_digest(&world_back).expect("digest");
     // cell 边长为资产属性:仅改 cell_size_m ⇒ digest 分叉。
     let mut resized = wp::canonical_world();
     resized.cell_size_m = 128.0;
@@ -640,8 +654,8 @@ fn main() {
         c.bounds_max[0] = hi[0];
         c.bounds_max[1] = hi[1];
     }
-    let cell_size_asset_ok = wp::world_digest(&resized).expect("digest")
-        != wp::world_digest(&world).expect("digest");
+    let cell_size_asset_ok =
+        wp::world_digest(&resized).expect("digest") != wp::world_digest(&world).expect("digest");
     // 篡改派生包围盒 fail-closed。
     let mut tampered = wp::canonical_world();
     tampered.cells[0].bounds_max[0] += 1.0;
@@ -700,7 +714,11 @@ fn main() {
                     <= wp::canonical_budget().max_actors_to_spawn_per_frame
                 && ev.resident_memory_bytes <= wp::canonical_budget().memory_budget_bytes()
         })
-        && frames.iter().map(|e| e.streaming_cells_this_frame as u64).sum::<u64>() > 0
+        && frames
+            .iter()
+            .map(|e| e.streaming_cells_this_frame as u64)
+            .sum::<u64>()
+            > 0
         && frames.iter().map(|e| e.cells_unloaded as u64).sum::<u64>() > 0;
     if !double_run_ok || !per_frame_nonempty {
         failures.push(format!(
@@ -874,7 +892,9 @@ fn main() {
             wp::canonical_budget().max_streaming_cells_per_frame,
             wp::canonical_budget().max_actors_to_spawn_per_frame,
             wp::canonical_budget().memory_budget_mb,
-            hex(&camera_path_digest(&wp::canonical_camera_path(CANONICAL_FRAMES))),
+            hex(&camera_path_digest(&wp::canonical_camera_path(
+                CANONICAL_FRAMES
+            ))),
             hex(&event_digest),
             events.len(),
             hex(&hlod_digest),
@@ -890,7 +910,10 @@ fn main() {
             std::fs::create_dir_all(parent).ok();
         }
         std::fs::write(&args.band, &band).unwrap_or_else(|e| fail(&format!("写冻结带: {e}")));
-        println!("{TAG}: 冻结带已落盘 {:?}(measured p99 = {p99_ms:.6} ms)", args.band);
+        println!(
+            "{TAG}: 冻结带已落盘 {:?}(measured p99 = {p99_ms:.6} ms)",
+            args.band
+        );
     }
 
     // ── 步骤 10:evidence(rurix.g9m110.world_partition.v1)──
@@ -898,15 +921,24 @@ fn main() {
         ("conformance_corpus_anchored", corpus_ok),
         ("schema_roundtrip_and_cell_frozen", schema_ok),
         ("data_layer_reserved_unwired", data_layer_ok),
-        ("budget_counters_per_frame_nonempty", per_frame_nonempty && double_run_ok),
+        (
+            "budget_counters_per_frame_nonempty",
+            per_frame_nonempty && double_run_ok,
+        ),
         ("budget_violation_queued_demote_red_arm", budget_arm_ok),
-        ("cell_event_sequence_golden_equal", golden_events_ok && golden_events_accepted),
+        (
+            "cell_event_sequence_golden_equal",
+            golden_events_ok && golden_events_accepted,
+        ),
         ("event_out_of_order_red_arm", event_arm_ok),
         (
             "hlod_double_build_hash_equal",
             hlod_double_ok && hlod_check_ok && hlod_wire_ok,
         ),
-        ("soak_hitch_p99_within_measured_threshold", hitch_within && soak_counters_nonempty),
+        (
+            "soak_hitch_p99_within_measured_threshold",
+            hitch_within && soak_counters_nonempty,
+        ),
         ("budget_threshold_provenance", budget_provenance_ok),
     ];
     let checks_json: Vec<String> = checks
@@ -949,8 +981,7 @@ fn main() {
         .map(|f| format!("\"{}\"", json_escape(f)))
         .collect();
     let status = if failures.is_empty() { "pass" } else { "fail" };
-    let base_commit =
-        std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
+    let base_commit = std::env::var("RURIX_BASE_COMMIT").unwrap_or_else(|_| "local".to_string());
     let threshold_json = if threshold_ms.is_finite() {
         format!("{threshold_ms}")
     } else {

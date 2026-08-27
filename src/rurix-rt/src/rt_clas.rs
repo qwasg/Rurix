@@ -361,7 +361,10 @@ impl AssembledBlas {
     /// 回退腿消费面:逐簇(= 逐 BLAS,per-对象分组,L2)9 f32/三角形展开,
     /// 实例槽位序 = 可见集序(恒等变换)。
     pub fn fallback_blas_triangles(&self) -> Vec<Vec<f32>> {
-        self.clusters.iter().map(ClusterGeometry::triangle_soup).collect()
+        self.clusters
+            .iter()
+            .map(ClusterGeometry::triangle_soup)
+            .collect()
     }
 
     /// 拼装 digest(L5 golden 面:键 + 逐簇 op + 模板计划的确定性 digest;
@@ -646,12 +649,7 @@ pub const MISS_RECORD: HitRecord = HitRecord {
 /// 单三角形相交(Möller–Trumbore,**双面**,精确比较零 epsilon——命中边界
 /// 与 device any-hit 同口径;命中须 `t ∈ [t_min, t_max]` 闭区间)。
 /// 命中产 `(t, ())`,未命中/平行/区间外产 `None`。
-fn tri_intersect(
-    ray: &Ray,
-    a: [f32; 3],
-    b: [f32; 3],
-    c: [f32; 3],
-) -> Option<f32> {
+fn tri_intersect(ray: &Ray, a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> Option<f32> {
     let sub = |x: [f32; 3], y: [f32; 3]| [x[0] - y[0], x[1] - y[1], x[2] - y[2]];
     let cross = |x: [f32; 3], y: [f32; 3]| {
         [
@@ -794,12 +792,42 @@ fn tri_cluster(x0: f32, y0: f32, z: f32) -> ClusterGeometry {
 /// 重叠域光线须命中 slot5(t=2)而非 slot0(t=8)。
 pub fn m94_fixture() -> M94Fixture {
     let visible = vec![
-        VisibleClusterEntry { cluster_id: 100, lod_level: 1, skin_version: 0, transform_id: 0 },
-        VisibleClusterEntry { cluster_id: 101, lod_level: 1, skin_version: 0, transform_id: 0 },
-        VisibleClusterEntry { cluster_id: 200, lod_level: 0, skin_version: 0, transform_id: 0 },
-        VisibleClusterEntry { cluster_id: 201, lod_level: 0, skin_version: 0, transform_id: 0 },
-        VisibleClusterEntry { cluster_id: 300, lod_level: 0, skin_version: 0, transform_id: 0 },
-        VisibleClusterEntry { cluster_id: 301, lod_level: 1, skin_version: 0, transform_id: 0 },
+        VisibleClusterEntry {
+            cluster_id: 100,
+            lod_level: 1,
+            skin_version: 0,
+            transform_id: 0,
+        },
+        VisibleClusterEntry {
+            cluster_id: 101,
+            lod_level: 1,
+            skin_version: 0,
+            transform_id: 0,
+        },
+        VisibleClusterEntry {
+            cluster_id: 200,
+            lod_level: 0,
+            skin_version: 0,
+            transform_id: 0,
+        },
+        VisibleClusterEntry {
+            cluster_id: 201,
+            lod_level: 0,
+            skin_version: 0,
+            transform_id: 0,
+        },
+        VisibleClusterEntry {
+            cluster_id: 300,
+            lod_level: 0,
+            skin_version: 0,
+            transform_id: 0,
+        },
+        VisibleClusterEntry {
+            cluster_id: 301,
+            lod_level: 1,
+            skin_version: 0,
+            transform_id: 0,
+        },
     ];
     let clusters = vec![
         quad_cluster(0.0, 0.0, 2.0),
@@ -886,11 +914,17 @@ mod tests {
         // 单簇几何漂移 → 异键。
         let mut d2 = digests.clone();
         d2[3] ^= 1;
-        assert_ne!(k1, ClasBlasKey::of_visible_set(&f.visible, &d2).expect("合法"));
+        assert_ne!(
+            k1,
+            ClasBlasKey::of_visible_set(&f.visible, &d2).expect("合法")
+        );
         // 可见集字段漂移(LOD)→ 异键。
         let mut v2 = f.visible.clone();
         v2[0].lod_level = 0;
-        assert_ne!(k1, ClasBlasKey::of_visible_set(&v2, &digests).expect("合法"));
+        assert_ne!(
+            k1,
+            ClasBlasKey::of_visible_set(&v2, &digests).expect("合法")
+        );
         // 长度失配 → fail-closed。
         assert_eq!(
             ClasBlasKey::of_visible_set(&f.visible, &digests[..5]),

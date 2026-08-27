@@ -1,0 +1,77 @@
+//@ spec: RFC-0049 §4.3(G35-2 粒子核心运行时 compact;spec 条款号本期零新设)
+// G35-P 粒子核心 · 稳定压缩 —— flags/scan 消费,9 流 A→B 稳定搬运(门
+// g35.wave2.particle_core;G35_CONTRACT §4 契约,src/particles/mod.rs 契约头
+// 字面)。
+//
+// ## 架构(确定性协议第一条:禁原子抢槽;G35-P v1 帧序第 3 步)
+// 公式面与 host 金标准 `particles/core.rs::compact_step` **逐字同源**:线程 =
+// 段,段内串行 i ∈ [s·256, min((s+1)·256, n_curr)):
+//   if flags[i] != 0 { dst = scan_out[i]; B[dst] = A[i](9 流逐流) }。
+// dst 一律经分段稳定 exclusive scan(g35_scan_seg_sum/spine/seg_apply 三
+// kernel 产 scan_out)推导 ⇒ 稳定序 = 粒子下标序,与线程调度无关;无 shared /
+// 无原子。本 kernel 纯搬运零算术(f32 只 load/store 不产生新位型)⇒ 9 流
+// device↔host 逐流位级(pid/flags/scan 整数域零容差协议;f32 流经 sim/emit
+// 标定容差,搬运面不引入新差)。
+//
+// ## 参数面(4 f32;声明序 = 绑定序,SSBO 数 = 21,与 host 金标准 / probe
+// (bin/g35_particle_core_device.rs)buffers 下标严格一致)
+//   params[0]=n_curr [1]=nseg_curr [2..4)=reserved(恒 0)。
+//   SSBO 序:0 params(View f32×4) / 1 flags(View u32×cap) /
+//   2 scan_out(View u32×cap) /
+//   3..12) A 组 9 流 View(3 a_pos_x / 4 a_pos_y / 5 a_pos_z / 6 a_vel_x /
+//   7 a_vel_y / 8 a_vel_z / 9 a_age / 10 a_life(f32×cap) / 11 a_pid(u32×cap)) /
+//   12..21) B 组 9 流 ViewMut 同序(12 b_pos_x / 13 b_pos_y / 14 b_pos_z /
+//   15 b_vel_x / 16 b_vel_y / 17 b_vel_z / 18 b_age / 19 b_life / 20 b_pid)。
+//   dispatch = [nseg_curr, 1, 1](LocalSize 1,1,1)。
+#[numthreads(1, 1, 1)]
+kernel fn g35_particle_compact(
+    tc: ThreadCtx<1>,
+    params: View<global, f32>,
+    flags: View<global, u32>,
+    scan_out: View<global, u32>,
+    a_pos_x: View<global, f32>,
+    a_pos_y: View<global, f32>,
+    a_pos_z: View<global, f32>,
+    a_vel_x: View<global, f32>,
+    a_vel_y: View<global, f32>,
+    a_vel_z: View<global, f32>,
+    a_age: View<global, f32>,
+    a_life: View<global, f32>,
+    a_pid: View<global, u32>,
+    b_pos_x: ViewMut<global, f32>,
+    b_pos_y: ViewMut<global, f32>,
+    b_pos_z: ViewMut<global, f32>,
+    b_vel_x: ViewMut<global, f32>,
+    b_vel_y: ViewMut<global, f32>,
+    b_vel_z: ViewMut<global, f32>,
+    b_age: ViewMut<global, f32>,
+    b_life: ViewMut<global, f32>,
+    b_pid: ViewMut<global, u32>,
+) {
+    let s = tc.global_id();
+    let n = params[0] as usize;
+    let nseg = params[1] as usize;
+    if s < nseg {
+        let lo = s * 256usize;
+        let mut hi = lo + 256usize;
+        if hi > n {
+            hi = n;
+        }
+        let mut i = lo;
+        while i < hi {
+            if flags[i] != 0u32 {
+                let dst = scan_out[i] as usize;
+                b_pos_x[dst] = a_pos_x[i];
+                b_pos_y[dst] = a_pos_y[i];
+                b_pos_z[dst] = a_pos_z[i];
+                b_vel_x[dst] = a_vel_x[i];
+                b_vel_y[dst] = a_vel_y[i];
+                b_vel_z[dst] = a_vel_z[i];
+                b_age[dst] = a_age[i];
+                b_life[dst] = a_life[i];
+                b_pid[dst] = a_pid[i];
+            }
+            i = i + 1usize;
+        }
+    }
+}

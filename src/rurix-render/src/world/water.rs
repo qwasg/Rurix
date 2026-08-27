@@ -140,10 +140,14 @@ impl OceanSpectrumAsset {
     /// 装配期域校验(L4:负风速/非法谱参数即拒录)。
     pub fn validate(&self) -> Result<()> {
         if !self.wind_speed.is_finite() || self.wind_speed < 0.0 {
-            return Err(WaterError::InvalidSpectrumParam { field: "wind_speed" });
+            return Err(WaterError::InvalidSpectrumParam {
+                field: "wind_speed",
+            });
         }
         if !self.wind_dir_rad.is_finite() {
-            return Err(WaterError::InvalidSpectrumParam { field: "wind_dir_rad" });
+            return Err(WaterError::InvalidSpectrumParam {
+                field: "wind_dir_rad",
+            });
         }
         if !self.swell.is_finite() || self.swell < 0.0 {
             return Err(WaterError::InvalidSpectrumParam { field: "swell" });
@@ -155,10 +159,14 @@ impl OceanSpectrumAsset {
             return Err(WaterError::InvalidSpectrumParam { field: "depth_m" });
         }
         if !self.choppiness.is_finite() || self.choppiness < 0.0 {
-            return Err(WaterError::InvalidSpectrumParam { field: "choppiness" });
+            return Err(WaterError::InvalidSpectrumParam {
+                field: "choppiness",
+            });
         }
         if !self.tile_size_m.is_finite() || self.tile_size_m <= 0.0 {
-            return Err(WaterError::InvalidSpectrumParam { field: "tile_size_m" });
+            return Err(WaterError::InvalidSpectrumParam {
+                field: "tile_size_m",
+            });
         }
         Ok(())
     }
@@ -170,7 +178,13 @@ pub fn encode_spectrum(a: &OceanSpectrumAsset) -> Vec<u8> {
     w.extend_from_slice(&SPECTRUM_MAGIC);
     w.extend_from_slice(&SPECTRUM_VERSION.to_le_bytes());
     for v in [
-        a.wind_dir_rad, a.wind_speed, a.swell, a.fetch_m, a.depth_m, a.choppiness, a.tile_size_m,
+        a.wind_dir_rad,
+        a.wind_speed,
+        a.swell,
+        a.fetch_m,
+        a.depth_m,
+        a.choppiness,
+        a.tile_size_m,
     ] {
         w.extend_from_slice(&v.to_le_bytes());
     }
@@ -200,7 +214,9 @@ pub fn decode_spectrum(bytes: &[u8]) -> Result<OceanSpectrumAsset> {
         *v = f64::from_le_bytes(take(&mut pos, 8)?.try_into().expect("f64"));
     }
     if pos != bytes.len() {
-        return Err(WaterError::TrailingBytes { extra: bytes.len() - pos });
+        return Err(WaterError::TrailingBytes {
+            extra: bytes.len() - pos,
+        });
     }
     let a = OceanSpectrumAsset {
         wind_dir_rad: vals[0],
@@ -223,7 +239,9 @@ pub fn spectrum_signature(a: &OceanSpectrumAsset) -> [u8; 32] {
 /// 资产完整性核验(篡改即拒录)。
 pub fn verify_spectrum(a: &OceanSpectrumAsset, expected_sig: &[u8; 32]) -> Result<()> {
     if &spectrum_signature(a) != expected_sig {
-        return Err(WaterError::AssetTampered { why: "digest 不符" });
+        return Err(WaterError::AssetTampered {
+            why: "digest 不符"
+        });
     }
     Ok(())
 }
@@ -241,22 +259,40 @@ pub struct C64 {
 
 impl C64 {
     fn add(self, o: C64) -> C64 {
-        C64 { re: self.re + o.re, im: self.im + o.im }
+        C64 {
+            re: self.re + o.re,
+            im: self.im + o.im,
+        }
     }
     fn sub(self, o: C64) -> C64 {
-        C64 { re: self.re - o.re, im: self.im - o.im }
+        C64 {
+            re: self.re - o.re,
+            im: self.im - o.im,
+        }
     }
     fn mul(self, o: C64) -> C64 {
-        C64 { re: self.re * o.re - self.im * o.im, im: self.re * o.im + self.im * o.re }
+        C64 {
+            re: self.re * o.re - self.im * o.im,
+            im: self.re * o.im + self.im * o.re,
+        }
     }
     fn scale(self, s: f64) -> C64 {
-        C64 { re: self.re * s, im: self.im * s }
+        C64 {
+            re: self.re * s,
+            im: self.im * s,
+        }
     }
     fn conj(self) -> C64 {
-        C64 { re: self.re, im: -self.im }
+        C64 {
+            re: self.re,
+            im: -self.im,
+        }
     }
     fn exp_i(theta: f64) -> C64 {
-        C64 { re: theta.cos(), im: theta.sin() }
+        C64 {
+            re: theta.cos(),
+            im: theta.sin(),
+        }
     }
 }
 
@@ -345,7 +381,10 @@ fn gauss_pair(i: usize, j: usize, salt: u64) -> (f64, f64) {
 /// 波数格点(kx,kz)(i,j ∈ 0..n,以 n/2 为中心的谱排布)。
 fn wave_vector(asset: &OceanSpectrumAsset, n: usize, i: usize, j: usize) -> (f64, f64) {
     let dk = 2.0 * std::f64::consts::PI / asset.tile_size_m;
-    ((i as f64 - n as f64 / 2.0) * dk, (j as f64 - n as f64 / 2.0) * dk)
+    (
+        (i as f64 - n as f64 / 2.0) * dk,
+        (j as f64 - n as f64 / 2.0) * dk,
+    )
 }
 
 /// h(k,t) 谱幅(Tessendorf:h0·e^{iωt} + h0*(−k)·e^{−iωt})。
@@ -363,7 +402,8 @@ fn h_of_kt(asset: &OceanSpectrumAsset, n: usize, i: usize, j: usize, t: f64) -> 
     let (ng0, ng1) = gauss_pair(ni, nj, 0xC0FF_EE11);
     let h0m = C64 { re: ng0, im: ng1 }.scale((np / 2.0).sqrt()).conj();
     let omega = (GRAVITY * k * (k * asset.depth_m).tanh()).sqrt();
-    h0.mul(C64::exp_i(omega * t)).add(h0m.mul(C64::exp_i(-omega * t)))
+    h0.mul(C64::exp_i(omega * t))
+        .add(h0m.mul(C64::exp_i(-omega * t)))
 }
 
 /// 大洋帧产出(位移/梯度/Jacobian 三贴图 + 泡沫掩码)。
@@ -428,12 +468,30 @@ impl OceanPipeline {
         // 位移:D(k) = i·k/|k|·h(k),乘 λ。
         let mut gdx = self.spectrum_grid(t, &|kx, kz, h| {
             let k = (kx * kx + kz * kz).sqrt();
-            if k < 1e-9 { C64::default() } else { C64 { re: 0.0, im: kx / k }.mul(h).scale(lambda) }
+            if k < 1e-9 {
+                C64::default()
+            } else {
+                C64 {
+                    re: 0.0,
+                    im: kx / k,
+                }
+                .mul(h)
+                .scale(lambda)
+            }
         });
         ifft_2d(&mut gdx, n);
         let mut gdz = self.spectrum_grid(t, &|kx, kz, h| {
             let k = (kx * kx + kz * kz).sqrt();
-            if k < 1e-9 { C64::default() } else { C64 { re: 0.0, im: kz / k }.mul(h).scale(lambda) }
+            if k < 1e-9 {
+                C64::default()
+            } else {
+                C64 {
+                    re: 0.0,
+                    im: kz / k,
+                }
+                .mul(h)
+                .scale(lambda)
+            }
         });
         ifft_2d(&mut gdz, n);
         // 梯度:i·k·h(k)。
@@ -480,18 +538,32 @@ impl OceanPipeline {
 
     /// 几何路径 token 闭集(双管线分离断言面)。
     pub fn geometry_claim(&self) -> GeometryPathClaim {
-        GeometryPathClaim { tokens: vec![GeometryToken::OceanCdlodMesh, GeometryToken::OceanSpectrumTile] }
+        GeometryPathClaim {
+            tokens: vec![
+                GeometryToken::OceanCdlodMesh,
+                GeometryToken::OceanSpectrumTile,
+            ],
+        }
     }
 
     /// 水面着色 closure 输入(双管线唯一共享面)。
-    pub fn shading_input(&self, frame: &OceanFrame, idx: usize, view: [f32; 3]) -> Result<WaterShadingInput> {
+    pub fn shading_input(
+        &self,
+        frame: &OceanFrame,
+        idx: usize,
+        view: [f32; 3],
+    ) -> Result<WaterShadingInput> {
         if idx >= frame.height.len() {
             return Err(WaterError::NotCanonical("着色采样越界"));
         }
         let g = frame.gradient[idx];
         let inv = (1.0 + g[0] * g[0] + g[1] * g[1]).sqrt();
         Ok(WaterShadingInput {
-            normal: [(-g[0] / inv) as f32, (1.0 / inv) as f32, (-g[1] / inv) as f32],
+            normal: [
+                (-g[0] / inv) as f32,
+                (1.0 / inv) as f32,
+                (-g[1] / inv) as f32,
+            ],
             foam: if frame.foam_mask[idx] { 1.0 } else { 0.0 },
             view,
         })
@@ -514,7 +586,8 @@ pub fn reference_dft_height(asset: &OceanSpectrumAsset, n: usize, t: f64) -> Res
             for j in 0..n {
                 for i in 0..n {
                     let h = h_of_kt(asset, n, i, j, t);
-                    let phase = 2.0 * std::f64::consts::PI
+                    let phase = 2.0
+                        * std::f64::consts::PI
                         * ((i as f64 - n as f64 / 2.0) * x as f64
                             + (j as f64 - n as f64 / 2.0) * y as f64)
                         / n as f64;
@@ -533,7 +606,10 @@ pub fn max_abs_diff(a: &[f64], b: &[f64]) -> Result<f64> {
     if a.len() != b.len() {
         return Err(WaterError::NotCanonical("对拍长度不符"));
     }
-    Ok(a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).fold(0.0, f64::max))
+    Ok(a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max))
 }
 
 /// CDLOD 距离分档(L1;闭集)。
@@ -576,7 +652,11 @@ impl ShallowWaveSim {
         if dim < 4 {
             return Err(WaterError::NotCanonical("浅水网格维 <4"));
         }
-        Ok(Self { dim, height: vec![0.0; dim * dim], velocity: vec![0.0; dim * dim] })
+        Ok(Self {
+            dim,
+            height: vec![0.0; dim * dim],
+            velocity: vec![0.0; dim * dim],
+        })
     }
 
     /// 越界写守卫(L4 RED 锚):一切外部写经本面;越界即 typed Err。
@@ -596,7 +676,10 @@ impl ShallowWaveSim {
 
     fn checked_write(&mut self, idx: usize, v: f32) -> Result<()> {
         if idx >= self.height.len() {
-            return Err(WaterError::ShallowOutOfBoundsWrite { index: idx, extent: self.height.len() });
+            return Err(WaterError::ShallowOutOfBoundsWrite {
+                index: idx,
+                extent: self.height.len(),
+            });
         }
         self.height[idx] = v;
         Ok(())
@@ -609,8 +692,10 @@ impl ShallowWaveSim {
         for y in 1..dim - 1 {
             for x in 1..dim - 1 {
                 let i = y * dim + x;
-                let lap = self.height[i - 1] + self.height[i + 1]
-                    + self.height[i - dim] + self.height[i + dim]
+                let lap = self.height[i - 1]
+                    + self.height[i + 1]
+                    + self.height[i - dim]
+                    + self.height[i + dim]
                     - 4.0 * self.height[i];
                 new_v[i] = self.velocity[i] + SHALLOW_C2_DT * lap;
             }
@@ -628,7 +713,9 @@ impl ShallowWaveSim {
 
     /// 几何路径 token 闭集(双管线分离断言面)。
     pub fn geometry_claim(&self) -> GeometryPathClaim {
-        GeometryPathClaim { tokens: vec![GeometryToken::ShallowPingPongGrid] }
+        GeometryPathClaim {
+            tokens: vec![GeometryToken::ShallowPingPongGrid],
+        }
     }
 
     /// 水面着色 closure 输入(双管线唯一共享面)。
@@ -783,10 +870,15 @@ mod tests {
         let sig = spectrum_signature(&a);
         verify_spectrum(&a, &sig).unwrap();
         // 负风速 ⇒ 装配期拒录(RED)。
-        let bad = OceanSpectrumAsset { wind_speed: -1.0, ..a };
+        let bad = OceanSpectrumAsset {
+            wind_speed: -1.0,
+            ..a
+        };
         assert!(matches!(
             bad.validate(),
-            Err(WaterError::InvalidSpectrumParam { field: "wind_speed" })
+            Err(WaterError::InvalidSpectrumParam {
+                field: "wind_speed"
+            })
         ));
         let mut raw = bytes.clone();
         let neg = (-1.0f64).to_le_bytes();
@@ -798,7 +890,10 @@ mod tests {
         // 篡改签名 ⇒ 拒录。
         let mut t = a;
         t.swell += 0.5;
-        assert!(matches!(verify_spectrum(&t, &sig), Err(WaterError::AssetTampered { .. })));
+        assert!(matches!(
+            verify_spectrum(&t, &sig),
+            Err(WaterError::AssetTampered { .. })
+        ));
     }
 
     //@ spec: RXS-0366
@@ -836,11 +931,16 @@ mod tests {
         assert_geometry_paths_disjoint(&ocean.geometry_claim(), &shallow.geometry_claim()).unwrap();
         // 互斥违反注入(浅水声明大洋 token)即 RED。
         let bad = GeometryPathClaim {
-            tokens: vec![GeometryToken::ShallowPingPongGrid, GeometryToken::OceanCdlodMesh],
+            tokens: vec![
+                GeometryToken::ShallowPingPongGrid,
+                GeometryToken::OceanCdlodMesh,
+            ],
         };
         assert!(matches!(
             assert_geometry_paths_disjoint(&ocean.geometry_claim(), &bad),
-            Err(WaterError::GeometryPathShared { token: "ocean_cdlod_mesh" })
+            Err(WaterError::GeometryPathShared {
+                token: "ocean_cdlod_mesh"
+            })
         ));
     }
 
