@@ -1346,6 +1346,9 @@ fn dds_mean_linear_rgb(bytes: &[u8]) -> Result<[f32; 3], String> {
 // G14.3：g13_4 同型复制子集（bin-local 惯例）
 // ---------------------------------------------------------------------------
 
+// G36：QuadLight/PointLight 派生 Clone（纯 f32 字段面——geo_rebuild 借用重建
+// 的加性承载,零行为变更;CameraSpec Copy 派生同律先例）。
+#[derive(Clone)]
 struct QuadLight {
     p00: [f32; 3],
     e1: [f32; 3],
@@ -1353,6 +1356,7 @@ struct QuadLight {
     le: [f32; 3],
 }
 
+#[derive(Clone)]
 struct PointLight {
     pos: [f32; 3],
     intensity: [f32; 3], // color × intensity_cd（G12.4 同口径：点强 I 即 cd 直给）
@@ -2391,28 +2395,36 @@ fn verify_cluster_pack(pack: &ClusterPack, scene: &SceneData) -> Result<(), Stri
     Ok(())
 }
 
-/// 簇 DAG LOD 施加（--cluster-lod leaf|on）：读簇包 → 校验 → 逐块生产金标准
-/// cut（组共享判定球 `select_lod_cut_grouped` + `verify_cut_coverage` 直调）
-/// → 重建 SceneData。leaf 模式尾断言：重建产物与输入逐位一致（digest 锚机核
-/// 面）。返回簇包供调用方逐帧统计复用（g31 窗口臂;bench/render 臂丢弃）。
+/// cut 选层产物（G36 W1 抽取：apply_cluster_lod 与 apply_geo_combined 共用
+/// 选层机核——选层语义单源,组合面禁旁路复刻;字段 = 原函数局部量逐字）。
 #[allow(dead_code)]
-fn apply_cluster_lod(
-    scene: SceneData,
+struct ClusterSelection {
+    /// 源三角 id（passthrough ∪ cut 叶簇源;升序,零重复已断言）。
+    chosen_src: Vec<u32>,
+    /// cut 粗簇（(block, cluster);出帧尾接序）。
+    coarse: Vec<(usize, u32)>,
+    total_clusters: usize,
+    cut_clusters: usize,
+    cut_leaf_clusters: usize,
+    leaf_tris: usize,
+    fallback_count: usize,
+}
+
+/// 簇 cut 选层（G36 W1 自 apply_cluster_lod 逐字抽取;行为 0-语义漂移——
+/// 逐块生产金标准 cut〔组共享判定球 select_lod_cut_grouped +
+/// verify_cut_coverage 直调〕+ E 驻留压力臂兜底）。
+#[allow(dead_code)]
+fn cluster_lod_select(
+    scene: &SceneData,
+    pack: &ClusterPack,
     opt: &ClusterLodOpt,
     in_w: u32,
     in_h: u32,
-) -> (SceneData, Option<(ClusterLodReport, ClusterPack)>) {
+) -> ClusterSelection {
     use rurix_render::geometry::gpu_scene::IDENTITY_3X4;
     use rurix_render::geometry::visible_cluster_set::{
         MeshDagView, apply_page_fallback, select_lod_cut_grouped, verify_cut_coverage,
     };
-    if opt.mode == ClusterLodMode::Off {
-        return (scene, None);
-    }
-    let pack = read_cluster_pack(Path::new(&opt.pack_path))
-        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包读取: {e}")));
-    verify_cluster_pack(&pack, &scene)
-        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包校验 fail-closed: {e}")));
     let cam = cluster_cull_camera(&scene.camera, in_w, in_h, opt.threshold_px);
 
     // 逐块 cut（块间独立；identity 变换——三角汤已烘焙世界空间）。
@@ -2480,6 +2492,45 @@ fn apply_cluster_lod(
     if chosen_src.windows(2).any(|w| w[0] == w[1]) {
         fail("--cluster-lod cut 源三角重复（覆盖性破坏）");
     }
+    ClusterSelection {
+        chosen_src,
+        coarse,
+        total_clusters,
+        cut_clusters,
+        cut_leaf_clusters,
+        leaf_tris,
+        fallback_count,
+    }
+}
+
+/// 簇 DAG LOD 施加（--cluster-lod leaf|on）：读簇包 → 校验 → 逐块生产金标准
+/// cut（组共享判定球 `select_lod_cut_grouped` + `verify_cut_coverage` 直调）
+/// → 重建 SceneData。leaf 模式尾断言：重建产物与输入逐位一致（digest 锚机核
+/// 面）。返回簇包供调用方逐帧统计复用（g31 窗口臂;bench/render 臂丢弃）。
+/// G36 W1：选层段抽取为 [`cluster_lod_select`]（共用机核）,重建段逐字不动。
+#[allow(dead_code)]
+fn apply_cluster_lod(
+    scene: SceneData,
+    opt: &ClusterLodOpt,
+    in_w: u32,
+    in_h: u32,
+) -> (SceneData, Option<(ClusterLodReport, ClusterPack)>) {
+    if opt.mode == ClusterLodMode::Off {
+        return (scene, None);
+    }
+    let pack = read_cluster_pack(Path::new(&opt.pack_path))
+        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包读取: {e}")));
+    verify_cluster_pack(&pack, &scene)
+        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包校验 fail-closed: {e}")));
+    let ClusterSelection {
+        chosen_src,
+        coarse,
+        total_clusters,
+        cut_clusters,
+        cut_leaf_clusters,
+        leaf_tris,
+        fallback_count,
+    } = cluster_lod_select(&scene, &pack, opt, in_w, in_h);
 
     // 重建 SceneData：源三角（升序）在前，粗簇三角（块序×簇序×簇内序）在后。
     let coarse_tris: usize = coarse
@@ -3202,27 +3253,40 @@ fn wp_build_world(pack: &WpHlodPack) -> rurix_render::world::partition::Persiste
     }
 }
 
-/// WP/HLOD 施加（--wp-hlod full|on）：读 cell 包 → 校验 → 生产机核直调
-/// （PartitionRuntime 稳态流送 + HlodRuntime 事件消费/digest 核验/互斥选层）
-/// → 互斥出帧重建 SceneData。full 模式尾断言：重建产物与输入逐位一致。
-/// 返回上下文供 g31 窗口臂逐帧统计复用（bench/render 臂丢弃）。
+/// WP 选层产物（G36 W1 抽取：apply_wp_hlod 与 apply_geo_combined 共用选层
+/// 机核——生产机核直调链〔PartitionRuntime 稳态流送 + HlodRuntime 事件消费/
+/// digest 核验/互斥选层〕单源,组合面禁旁路复刻;字段 = 原函数局部量逐字）。
 #[allow(dead_code)]
-fn apply_wp_hlod(
-    scene: SceneData,
-    opt: &WpHlodOpt,
-) -> (SceneData, Option<(WpHlodReport, WpHlodContext)>) {
-    use rurix_render::world::hlod::{HlodRuntime, SelectedContent, selection_log_digest};
+struct WpSelection {
+    partition: rurix_render::world::partition::PartitionRuntime,
+    hlod: rurix_render::world::hlod::HlodRuntime,
+    thresholds: rurix_render::world::hlod::ScreenSizeThresholds,
+    /// 逐 cell 稳态选层（None = 未驻留/空 cell）。
+    current: Vec<Option<rurix_render::world::hlod::SelectedContent>>,
+    registered: Vec<bool>,
+    /// 源三角 id（passthrough ∪ Full cell 源;升序,零重复已断言）。
+    chosen_src: Vec<u32>,
+    /// Hlod 代理（(cell, level);出帧尾接序 = cell 升序）。
+    proxy: Vec<(u32, u32)>,
+    cells_full: usize,
+    cells_hlod: usize,
+    cells_culled: usize,
+    cells_pending: usize,
+    radius: f32,
+    assemble_ticks: u32,
+    select_frame: u32,
+}
+
+/// WP cell 流送 + 互斥选层（G36 W1 自 apply_wp_hlod 逐字抽取;行为 0-语义
+/// 漂移——稳态流送 tick 至队列清空 + digest 核验 + screen-size 互斥选层 +
+/// 互斥机核断言 + 源三角零重复断言）。
+#[allow(dead_code)]
+fn wp_hlod_select(scene: &SceneData, pack: &WpHlodPack, opt: &WpHlodOpt) -> WpSelection {
+    use rurix_render::world::hlod::{HlodRuntime, SelectedContent};
     use rurix_render::world::partition::{
         PartitionBudget, PartitionRuntime, SourceKind, StreamingSource,
     };
-    if opt.mode == WpHlodMode::Off {
-        return (scene, None);
-    }
-    let pack = read_wp_hlod_pack(Path::new(&opt.pack_path))
-        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包读取: {e}")));
-    verify_wp_pack(&pack, &scene)
-        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包校验 fail-closed: {e}")));
-    let world = wp_build_world(&pack);
+    let world = wp_build_world(pack);
     let budget = PartitionBudget {
         max_streaming_cells_per_frame: opt.budget_cells.max(1),
         max_actors_to_spawn_per_frame: opt.budget_cells.max(1),
@@ -3337,6 +3401,59 @@ fn apply_wp_hlod(
     if chosen_src.windows(2).any(|w| w[0] == w[1]) {
         fail("--wp-hlod 出帧源三角重复（互斥破坏 = 双绘,fail-closed）");
     }
+    WpSelection {
+        partition,
+        hlod,
+        thresholds,
+        current,
+        registered,
+        chosen_src,
+        proxy,
+        cells_full,
+        cells_hlod,
+        cells_culled,
+        cells_pending,
+        radius,
+        assemble_ticks,
+        select_frame,
+    }
+}
+
+/// WP/HLOD 施加（--wp-hlod full|on）：读 cell 包 → 校验 → 生产机核直调
+/// （PartitionRuntime 稳态流送 + HlodRuntime 事件消费/digest 核验/互斥选层）
+/// → 互斥出帧重建 SceneData。full 模式尾断言：重建产物与输入逐位一致。
+/// 返回上下文供 g31 窗口臂逐帧统计复用（bench/render 臂丢弃）。
+/// G36 W1：选层段抽取为 [`wp_hlod_select`]（共用机核）,重建段逐字不动。
+#[allow(dead_code)]
+fn apply_wp_hlod(
+    scene: SceneData,
+    opt: &WpHlodOpt,
+) -> (SceneData, Option<(WpHlodReport, WpHlodContext)>) {
+    use rurix_render::world::hlod::selection_log_digest;
+    if opt.mode == WpHlodMode::Off {
+        return (scene, None);
+    }
+    let pack = read_wp_hlod_pack(Path::new(&opt.pack_path))
+        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包读取: {e}")));
+    verify_wp_pack(&pack, &scene)
+        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包校验 fail-closed: {e}")));
+    let n_cells = pack.cells.len();
+    let WpSelection {
+        partition,
+        hlod,
+        thresholds,
+        current,
+        registered,
+        chosen_src,
+        proxy,
+        cells_full,
+        cells_hlod,
+        cells_culled,
+        cells_pending,
+        radius,
+        assemble_ticks,
+        select_frame,
+    } = wp_hlod_select(&scene, &pack, opt);
     let full_tris = chosen_src.len() - pack.passthrough.len();
     let proxy_tris: usize = proxy
         .iter()
@@ -3615,7 +3732,739 @@ fn wp_hlod_frame_tick(ctx: &mut WpHlodContext, eye: [f32; 3]) -> WpFrameStat {
 }
 
 // ---------------------------------------------------------------------------
-// G31+ 波 B Task B3 slab 材质侧表生产接线（--slab-table 面；静态面 0-byte——
+// G36 全特性合流 W1/W2 — 逐三角 provenance 与统一几何重建（加性面;门
+// g36.wave1.provenance / g36.wave2.geo_merge）
+//
+// 根因与解除：--cluster-lod / --wp-hlod 重建三角汤（升序源三角 + 尾接代理/
+// 粗簇三角）后,一切按"装配序三角位置"绑定的侧表假设破坏——①B4 逐三角
+// UV/tritex 同序假设;②B1 SceneNodeGroup 节点连续段假设;③dyn/skin 尾接段
+// tri_base 基址假设——此前以闭集互斥 fail-closed 拒组合（"组合面归后续波"）。
+// 本节以 provenance（逐输出三角源出处）为单一事实源解除该互斥：
+//   ① 重建输出 Vec<TriProvenance>（Src(源 id) | 簇粗代理 | WP cell 代理）;
+//   ② 侧表经 gather 重排（Src 按源 id 取值;代理三角 UV=0 + tritex 强制 −1
+//      走既有常量面回退——cluster_albedo/cell 面积加权均值即该回退语义;
+//      代理属性保持简化归 #96 留窗,如实登记不冒充）;
+//   ③ 节点段经 provenance 重导出（升序源序保持节点连续性——源节点段本就是
+//      装配序连续区间;代理尾段按块/cell 成组,AABB 自重建几何精确重算,
+//      "三角 ⊆ AABB 精确包含"不变量维持）;
+//   ④ dyn/skin 尾接段基址 = 重建后 scene.indices.len()（既有计算点已在
+//      apply_* 之后,组合面零改动成立）。
+// W2 组合语义（--cluster-lod × --wp-hlod 同开）：WP cell 互斥选层先行
+// （Full/Hlod/Culled）,簇 cut 只对 Full 域出叶;跨界粗簇（覆盖源跨 Full 与
+// Hlod/Culled cell）回退为叶级源三角出帧（零双绘 + 零空洞;粗簇不与 cell
+// 代理重叠）。覆盖机核：出帧源三角集 ≡ WP Full 域恰一次,fail-closed。
+// 纪律：apply_cluster_lod / apply_wp_hlod 单开路径行为逐字维持（选层机核
+// cluster_lod_select / wp_hlod_select 共用,重建段 0-byte）;组合对拍锚 =
+// leaf×full 极限下重建产物与 off 三角汤逐位一致（本节内 fail-closed）。
+// ---------------------------------------------------------------------------
+
+/// 逐输出三角源出处（W1 单一事实源;重建/侧表 gather/节点段重导出共用）。
+#[allow(dead_code)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum TriProvenance {
+    /// 源三角恒等透传（id = 装配序全局三角号;几何/属性与源逐位一致）。
+    Src(u32),
+    /// 簇 DAG 粗簇代理三角（--cluster-lod on cut 非叶簇）。
+    ClusterCoarse { block: u32, cluster: u32 },
+    /// WP cell HLOD 代理三角（--wp-hlod on 远 cell）。
+    WpProxy { cell: u32, level: u32 },
+}
+
+/// 粗簇覆盖源三角集（DAG 下行至叶,收集 leaf_source_tris;W2 组合面消费——
+/// 粗簇 × WP cell 域跨界判定）。返回升序集（叶覆盖恰一次由簇包校验保证）。
+#[allow(dead_code)]
+fn cluster_covered_sources(b: &ClusterPackBlock, cluster: u32) -> Vec<u32> {
+    let mut out: Vec<u32> = Vec::new();
+    let mut stack = vec![cluster];
+    let mut seen = vec![false; b.records.len()];
+    while let Some(c) = stack.pop() {
+        // 组共享 DAG：子簇多父可达——去重防多路径重复下行（Nanite 组语义:
+        // 同组父簇 children 共享）。
+        if seen[c as usize] {
+            continue;
+        }
+        seen[c as usize] = true;
+        let node = &b.nodes[c as usize];
+        if node.child_count == 0 {
+            let r = &b.records[c as usize];
+            let leaf_base = r.triangle_offset as usize / 3;
+            for t in 0..r.triangle_count as usize {
+                out.push(b.leaf_source_tris[leaf_base + t]);
+            }
+        } else {
+            let s = node.first_child as usize;
+            for k in 0..node.child_count as usize {
+                stack.push(b.children[s + k]);
+            }
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// 统一几何重建（W1 事实源）：identity 源三角（升序）在前 + 簇粗代理尾接
+/// （块序×簇序×簇内序）+ WP cell 代理尾接（cell 升序×层内序）,并输出逐
+/// 三角 provenance。重建循环与 apply_cluster_lod / apply_wp_hlod 重建段
+/// 逐字同构（attrs 语义同源:identity = 源属性位保真;簇粗代理 =
+/// cluster_albedo/emission/mat;cell 代理 = cell albedo/emission 0/mat）。
+#[allow(dead_code)]
+fn geo_rebuild(
+    scene: &SceneData,
+    identity: &[u32],
+    coarse: &[(usize, u32)],
+    cl_pack: Option<&ClusterPack>,
+    wp_proxy: &[(u32, u32)],
+    wp_pack: Option<&WpHlodPack>,
+) -> (SceneData, Vec<TriProvenance>) {
+    let coarse_tris: usize = coarse
+        .iter()
+        .map(|&(bi, c)| {
+            cl_pack.expect("coarse 非空须随簇包").blocks[bi].records[c as usize].triangle_count
+                as usize
+        })
+        .sum();
+    let proxy_tris: usize = wp_proxy
+        .iter()
+        .map(|&(ci, level)| {
+            wp_pack.expect("wp_proxy 非空须随 cell 包").cells[ci as usize]
+                .as_ref()
+                .unwrap()
+                .hlod
+                .levels[level as usize]
+                .len()
+        })
+        .sum();
+    let out_tris = identity.len() + coarse_tris + proxy_tris;
+    let mut positions: Vec<[f32; 3]> = Vec::with_capacity(out_tris * 3);
+    let mut indices: Vec<[u32; 3]> = Vec::with_capacity(out_tris);
+    let mut albedo: Vec<[f32; 3]> = Vec::with_capacity(out_tris);
+    let mut emission: Vec<[f32; 3]> = Vec::with_capacity(out_tris);
+    let mut tri_mat: Vec<u32> = Vec::with_capacity(out_tris);
+    let mut prov: Vec<TriProvenance> = Vec::with_capacity(out_tris);
+    for &src in identity {
+        let t = scene.indices[src as usize];
+        let base = positions.len() as u32;
+        for &vi in &t {
+            positions.push(scene.positions[vi as usize]);
+        }
+        indices.push([base, base + 1, base + 2]);
+        albedo.push(scene.albedo[src as usize]);
+        emission.push(scene.emission[src as usize]);
+        tri_mat.push(scene.tri_mat[src as usize]);
+        prov.push(TriProvenance::Src(src));
+    }
+    for &(bi, c) in coarse {
+        let b = &cl_pack.unwrap().blocks[bi];
+        let r = &b.records[c as usize];
+        for t in 0..r.triangle_count as usize {
+            let ti = r.triangle_offset as usize + 3 * t;
+            let base = positions.len() as u32;
+            for k in 0..3 {
+                let li = b.triangle_indices[ti + k] as usize + r.vertex_offset as usize;
+                positions.push(b.vertices[li]);
+            }
+            indices.push([base, base + 1, base + 2]);
+            albedo.push(b.cluster_albedo[c as usize]);
+            emission.push(b.cluster_emission[c as usize]);
+            tri_mat.push(b.cluster_mat[c as usize]);
+            prov.push(TriProvenance::ClusterCoarse {
+                block: bi as u32,
+                cluster: c,
+            });
+        }
+    }
+    for &(ci, level) in wp_proxy {
+        let cell = wp_pack.unwrap().cells[ci as usize].as_ref().unwrap();
+        for t in &cell.hlod.levels[level as usize] {
+            let base = positions.len() as u32;
+            for k in 0..3 {
+                positions.push([t[k * 3], t[k * 3 + 1], t[k * 3 + 2]]);
+            }
+            indices.push([base, base + 1, base + 2]);
+            albedo.push(cell.albedo);
+            emission.push([0.0; 3]);
+            tri_mat.push(cell.mat);
+            prov.push(TriProvenance::WpProxy { cell: ci, level });
+        }
+    }
+    let emissive_tri_count = emission.iter().filter(|e| **e != [0.0, 0.0, 0.0]).count();
+    // emissive 恒 passthrough ⇒ 灯几何面 0-byte（两包 passthrough 交集律;
+    // 数量必须精确保持——与 apply_* 同一机核判据）。
+    if emissive_tri_count != scene.emissive_tri_count {
+        fail(&format!(
+            "geo_rebuild emissive 三角数漂移: {emissive_tri_count} ≠ {}（emissive 必须恒 passthrough）",
+            scene.emissive_tri_count
+        ));
+    }
+    let rebuilt = SceneData {
+        tri_count: indices.len(),
+        positions,
+        indices,
+        albedo,
+        emission,
+        tri_mat,
+        quads: scene.quads.clone(),
+        points: scene.points.clone(),
+        camera: scene.camera,
+        ev100: scene.ev100,
+        texture_mean_albedo: scene.texture_mean_albedo,
+        emissive_tri_count,
+        gltf_sha256: scene.gltf_sha256.clone(),
+    };
+    (rebuilt, prov)
+}
+
+/// W2 组合统计（evidence/打印面;measured 如实登记不设通过线）。
+#[allow(dead_code)]
+struct GeoCombinedStats {
+    /// identity 出帧源三角数（含两包 passthrough 交集律与跨界回退叶）。
+    identity_tris: usize,
+    /// 出帧粗簇数 / 粗簇三角数（覆盖源 ⊆ WP Full 域者）。
+    coarse_emitted: usize,
+    coarse_tris: usize,
+    /// 跨界粗簇（覆盖源跨 Full 与 Hlod/Culled cell）→ 叶级回退：簇数 / 回退
+    /// 源三角数（细度损失面如实登记——cell 边界簇不粗化,零双绘零空洞）。
+    straddle_clusters: usize,
+    straddle_fallback_tris: usize,
+    /// WP cell 代理三角数。
+    wp_proxy_tris: usize,
+    out_tris: usize,
+}
+
+/// 组合几何管线产物（W1/W2;prov = 侧表 gather/节点段重导出消费面）。
+#[allow(dead_code)]
+struct GeoApplied {
+    prov: Vec<TriProvenance>,
+    cluster: Option<(ClusterLodReport, ClusterPack)>,
+    wp: Option<(WpHlodReport, WpHlodContext)>,
+    combined: Option<GeoCombinedStats>,
+}
+
+/// 统一几何管线（W1/W2 事实源）：--cluster-lod × --wp-hlod 四态分派。
+/// 单开态与 apply_cluster_lod / apply_wp_hlod 重建产物**逐位一致**（同一
+/// 选层机核 + 同构重建循环——leaf/full 锚在本函数内同判据断言）;双开态 =
+/// W2 组合语义（WP 选层先行 → Full 域内簇 cut → 跨界粗簇叶级回退 → 统一
+/// 重建）。返回 GeoApplied（prov 供侧表 gather/节点段重导出消费）。
+#[allow(dead_code)]
+fn apply_geo_combined(
+    scene: SceneData,
+    cl_opt: &ClusterLodOpt,
+    wp_opt: &WpHlodOpt,
+    in_w: u32,
+    in_h: u32,
+) -> (SceneData, Option<GeoApplied>) {
+    use rurix_render::world::hlod::selection_log_digest;
+    let cl_on = cl_opt.mode != ClusterLodMode::Off;
+    let wp_on = wp_opt.mode != WpHlodMode::Off;
+    if !cl_on && !wp_on {
+        return (scene, None);
+    }
+    // ── 单开态：同一选层机核（cluster_lod_select / wp_hlod_select）+ 同构
+    //    重建循环（geo_rebuild）⇒ 与 apply_cluster_lod / apply_wp_hlod 重建
+    //    产物逐位一致（leaf/full 锚同判据在本分支内断言）,并输出真 prov。──
+    if cl_on && !wp_on {
+        let cl_pack = read_cluster_pack(Path::new(&cl_opt.pack_path))
+            .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包读取: {e}")));
+        verify_cluster_pack(&cl_pack, &scene)
+            .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包校验 fail-closed: {e}")));
+        let csel = cluster_lod_select(&scene, &cl_pack, cl_opt, in_w, in_h);
+        let (rebuilt, prov) = geo_rebuild(
+            &scene,
+            &csel.chosen_src,
+            &csel.coarse,
+            Some(&cl_pack),
+            &[],
+            None,
+        );
+        if cl_opt.mode == ClusterLodMode::Leaf {
+            geo_assert_bitexact(&rebuilt, &scene, "--cluster-lod leaf（geo 管线）");
+        }
+        let coarse_tris: usize = csel
+            .coarse
+            .iter()
+            .map(|&(bi, c)| cl_pack.blocks[bi].records[c as usize].triangle_count as usize)
+            .sum();
+        let report = ClusterLodReport {
+            mode: match cl_opt.mode {
+                ClusterLodMode::Leaf => "leaf",
+                ClusterLodMode::On => "on",
+                ClusterLodMode::Off => unreachable!(),
+            },
+            threshold_px: cl_opt.threshold_px,
+            blocks: cl_pack.blocks.len(),
+            total_clusters: csel.total_clusters,
+            cut_clusters: csel.cut_clusters,
+            cut_leaf_clusters: csel.cut_leaf_clusters,
+            src_tris: scene.indices.len(),
+            passthrough_tris: cl_pack.passthrough.len(),
+            leaf_tris: csel.leaf_tris,
+            coarse_tris,
+            out_tris: rebuilt.indices.len(),
+            resident_pages: cl_opt.resident_pages,
+            fallback_count: csel.fallback_count,
+        };
+        return (
+            rebuilt,
+            Some(GeoApplied {
+                prov,
+                cluster: Some((report, cl_pack)),
+                wp: None,
+                combined: None,
+            }),
+        );
+    }
+    if !cl_on && wp_on {
+        let wp_pack = read_wp_hlod_pack(Path::new(&wp_opt.pack_path))
+            .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包读取: {e}")));
+        verify_wp_pack(&wp_pack, &scene)
+            .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包校验 fail-closed: {e}")));
+        let n_cells = wp_pack.cells.len();
+        let wsel = wp_hlod_select(&scene, &wp_pack, wp_opt);
+        let (rebuilt, prov) = geo_rebuild(
+            &scene,
+            &wsel.chosen_src,
+            &[],
+            None,
+            &wsel.proxy,
+            Some(&wp_pack),
+        );
+        if wp_opt.mode == WpHlodMode::Full {
+            if wsel.cells_hlod != 0 || wsel.cells_culled != 0 || wsel.cells_pending != 0 {
+                fail(&format!(
+                    "--wp-hlod full 极限非全 Full: hlod={} culled={} pending={}",
+                    wsel.cells_hlod, wsel.cells_culled, wsel.cells_pending
+                ));
+            }
+            geo_assert_bitexact(&rebuilt, &scene, "--wp-hlod full（geo 管线）");
+        }
+        let wp_proxy_tris: usize = wsel
+            .proxy
+            .iter()
+            .map(|&(ci, level)| {
+                wp_pack.cells[ci as usize].as_ref().unwrap().hlod.levels[level as usize].len()
+            })
+            .sum();
+        let cells_nonempty = wp_pack.cells.iter().filter(|c| c.is_some()).count();
+        let report = WpHlodReport {
+            mode: match wp_opt.mode {
+                WpHlodMode::Full => "full",
+                WpHlodMode::On => "on",
+                WpHlodMode::Off => unreachable!(),
+            },
+            cells_total: n_cells,
+            cells_nonempty,
+            cells_resident: wsel.hlod.resident().len(),
+            cells_full: wsel.cells_full,
+            cells_hlod: wsel.cells_hlod,
+            cells_culled: wsel.cells_culled,
+            cells_pending: wsel.cells_pending,
+            src_tris: scene.indices.len(),
+            passthrough_tris: wp_pack.passthrough.len(),
+            full_tris: wsel.chosen_src.len() - wp_pack.passthrough.len(),
+            proxy_tris: wp_proxy_tris,
+            out_tris: rebuilt.indices.len(),
+            selection_digest: {
+                let d = selection_log_digest(wsel.hlod.records());
+                let mut s = String::with_capacity(64);
+                for b in d {
+                    s.push_str(&format!("{b:02x}"));
+                }
+                s
+            },
+            assemble_ticks: wsel.assemble_ticks,
+            budget_stall_frames: wsel.partition.counters().budget_stall_frames,
+        };
+        let ctx = WpHlodContext {
+            world: wsel.partition.world().clone(),
+            pack: wp_pack,
+            partition: wsel.partition,
+            hlod: wsel.hlod,
+            thresholds: wsel.thresholds,
+            current: wsel.current,
+            pending_switch: vec![None; n_cells],
+            warmup_frames: wp_opt.warmup_frames.max(1),
+            loading_radius_m: wsel.radius,
+            inner_radius_m: wp_opt.inner_radius_m.min(wsel.radius),
+            next_frame: wsel.select_frame + 1,
+            registered: wsel.registered,
+            switch_events: Vec::new(),
+        };
+        return (
+            rebuilt,
+            Some(GeoApplied {
+                prov,
+                cluster: None,
+                wp: Some((report, ctx)),
+                combined: None,
+            }),
+        );
+    }
+    // ── 双开态（W2）：两包各自 fail-closed 校验（均对原装配三角汤）──
+    let cl_pack = read_cluster_pack(Path::new(&cl_opt.pack_path))
+        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包读取: {e}")));
+    verify_cluster_pack(&cl_pack, &scene)
+        .unwrap_or_else(|e| fail(&format!("--cluster-lod 簇包校验 fail-closed: {e}")));
+    let wp_pack = read_wp_hlod_pack(Path::new(&wp_opt.pack_path))
+        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包读取: {e}")));
+    verify_wp_pack(&wp_pack, &scene)
+        .unwrap_or_else(|e| fail(&format!("--wp-hlod cell 包校验 fail-closed: {e}")));
+    let n_src = scene.indices.len();
+    // ① WP cell 互斥选层先行（Full/Hlod/Culled;生产机核直调链）。
+    let wsel = wp_hlod_select(&scene, &wp_pack, wp_opt);
+    // F 域掩码：WP 出帧源三角集（passthrough ∪ Full cell 源）。
+    let mut in_f = vec![false; n_src];
+    for &s in &wsel.chosen_src {
+        in_f[s as usize] = true;
+    }
+    // ② 簇 cut（全场景选层——cut 语义与单开逐字;Full 域过滤在 ③）。
+    let csel = cluster_lod_select(&scene, &cl_pack, cl_opt, in_w, in_h);
+    // ③ 组合。DAG 语义前提（组共享多父 DAG,Nanite 同族）：cut 粗簇的源覆盖
+    //    集经多父路径可**跨簇部分重叠**——粗簇级"源恰一次"非 DAG 承诺面,
+    //    面恰一次由冻结 cut 机制（组共享判定球 + 祖先-后代互斥 + 误差单调）
+    //    承载,与单开 on 模式同一信任基（EXR diff 门在案）。组合规则：
+    //    - identity = cut 叶级源 ∩ F（叶级恰一次,dup check fail-closed）;
+    //    - 粗簇 S_c ⊆ F ⇒ 出帧（面全在 Full 域,与 cell 代理零冲突）;
+    //    - 跨界粗簇（0 < |S_c∩F| < |S_c|）⇒ 不出粗簇,S_c∩F **减去已被出帧
+    //      粗簇覆盖的部分**后叶级回退（防"粗簇面 + 回退叶"同域双绘）;
+    //    - S_c ∩ F = ∅ ⇒ 不出帧（cell 代理/剔除覆盖）。
+    let mut identity: Vec<u32> = csel
+        .chosen_src
+        .iter()
+        .copied()
+        .filter(|&s| in_f[s as usize])
+        .collect();
+    let mut coarse_emitted: Vec<(usize, u32)> = Vec::new();
+    let mut straddle: Vec<(usize, u32)> = Vec::new();
+    let mut straddle_clusters = 0usize;
+    let mut straddle_fallback_tris = 0usize;
+    let mut coarse_tris = 0usize;
+    // 第一趟：emit 判定 + 出帧粗簇覆盖域标记。
+    let mut coarse_dom = vec![false; n_src];
+    for &(bi, c) in &csel.coarse {
+        let covered = cluster_covered_sources(&cl_pack.blocks[bi], c);
+        let n_in = covered.iter().filter(|&&s| in_f[s as usize]).count();
+        if n_in == covered.len() {
+            coarse_tris += cl_pack.blocks[bi].records[c as usize].triangle_count as usize;
+            coarse_emitted.push((bi, c));
+            for &s in &covered {
+                coarse_dom[s as usize] = true;
+            }
+        } else if n_in > 0 {
+            straddle.push((bi, c));
+        }
+        // n_in == 0：覆盖源全在 Hlod/Culled 域——cell 代理/剔除覆盖,不出帧。
+    }
+    // 第二趟：跨界粗簇叶级回退（∩F − 出帧粗簇域 − 已回退,恰一次）。
+    {
+        let mut in_fallback = vec![false; n_src];
+        for &(bi, c) in &straddle {
+            straddle_clusters += 1;
+            for s in cluster_covered_sources(&cl_pack.blocks[bi], c) {
+                let i = s as usize;
+                if in_f[i] && !coarse_dom[i] && !in_fallback[i] {
+                    in_fallback[i] = true;
+                    identity.push(s);
+                    straddle_fallback_tris += 1;
+                }
+            }
+        }
+    }
+    identity.sort_unstable();
+    if identity.windows(2).any(|w| w[0] == w[1]) {
+        fail("geo 组合 identity 源三角重复（覆盖性破坏 = 双绘,fail-closed）");
+    }
+    // ④ 覆盖机核（fail-closed）：① identity 域与出帧粗簇域零交叠（组合面
+    //    新增双绘 = 红）;② identity ∪ 粗簇域 ≡ F（空洞/越域即红）。
+    {
+        let mut ident_mark = vec![false; n_src];
+        for &s in &identity {
+            ident_mark[s as usize] = true;
+        }
+        for i in 0..n_src {
+            if ident_mark[i] && coarse_dom[i] {
+                fail(&format!(
+                    "geo 组合覆盖机核：源三角 {i} 同时被 identity 与出帧粗簇覆盖（双绘）"
+                ));
+            }
+            let covered = ident_mark[i] || coarse_dom[i];
+            if covered != in_f[i] {
+                fail(&format!(
+                    "geo 组合覆盖机核：源三角 {i} 覆盖态 {covered} ≠ WP Full 域 {}（{}）",
+                    in_f[i],
+                    if in_f[i] { "空洞" } else { "越域出帧" }
+                ));
+            }
+        }
+    }
+    // ⑤ 统一重建 + provenance。
+    let (rebuilt, prov) = geo_rebuild(
+        &scene,
+        &identity,
+        &coarse_emitted,
+        Some(&cl_pack),
+        &wsel.proxy,
+        Some(&wp_pack),
+    );
+    // ⑥ 组合对拍锚：leaf × full 极限 = off 三角汤逐位一致（fail-closed）。
+    if cl_opt.mode == ClusterLodMode::Leaf && wp_opt.mode == WpHlodMode::Full {
+        geo_assert_bitexact(&rebuilt, &scene, "geo 组合 leaf×full");
+    }
+    // ⑦ 报告（两特性各自计数如实登记;out_tris = 组合出帧口径）。
+    let wp_proxy_tris: usize = wsel
+        .proxy
+        .iter()
+        .map(|&(ci, level)| {
+            wp_pack.cells[ci as usize].as_ref().unwrap().hlod.levels[level as usize].len()
+        })
+        .sum();
+    let stats = GeoCombinedStats {
+        identity_tris: identity.len(),
+        coarse_emitted: coarse_emitted.len(),
+        coarse_tris,
+        straddle_clusters,
+        straddle_fallback_tris,
+        wp_proxy_tris,
+        out_tris: rebuilt.indices.len(),
+    };
+    let cl_report = ClusterLodReport {
+        mode: match cl_opt.mode {
+            ClusterLodMode::Leaf => "leaf",
+            ClusterLodMode::On => "on",
+            ClusterLodMode::Off => unreachable!(),
+        },
+        threshold_px: cl_opt.threshold_px,
+        blocks: cl_pack.blocks.len(),
+        total_clusters: csel.total_clusters,
+        cut_clusters: csel.cut_clusters,
+        cut_leaf_clusters: csel.cut_leaf_clusters,
+        src_tris: n_src,
+        passthrough_tris: cl_pack.passthrough.len(),
+        leaf_tris: csel.leaf_tris,
+        coarse_tris,
+        out_tris: rebuilt.indices.len(),
+        resident_pages: cl_opt.resident_pages,
+        fallback_count: csel.fallback_count,
+    };
+    let cells_nonempty = wp_pack.cells.iter().filter(|c| c.is_some()).count();
+    let n_cells = wp_pack.cells.len();
+    let wp_report = WpHlodReport {
+        mode: match wp_opt.mode {
+            WpHlodMode::Full => "full",
+            WpHlodMode::On => "on",
+            WpHlodMode::Off => unreachable!(),
+        },
+        cells_total: n_cells,
+        cells_nonempty,
+        cells_resident: wsel.hlod.resident().len(),
+        cells_full: wsel.cells_full,
+        cells_hlod: wsel.cells_hlod,
+        cells_culled: wsel.cells_culled,
+        cells_pending: wsel.cells_pending,
+        src_tris: n_src,
+        passthrough_tris: wp_pack.passthrough.len(),
+        full_tris: wsel.chosen_src.len() - wp_pack.passthrough.len(),
+        proxy_tris: wp_proxy_tris,
+        out_tris: rebuilt.indices.len(),
+        selection_digest: {
+            let d = selection_log_digest(wsel.hlod.records());
+            let mut s = String::with_capacity(64);
+            for b in d {
+                s.push_str(&format!("{b:02x}"));
+            }
+            s
+        },
+        assemble_ticks: wsel.assemble_ticks,
+        budget_stall_frames: wsel.partition.counters().budget_stall_frames,
+    };
+    let ctx = WpHlodContext {
+        world: wsel.partition.world().clone(),
+        pack: wp_pack,
+        partition: wsel.partition,
+        hlod: wsel.hlod,
+        thresholds: wsel.thresholds,
+        current: wsel.current,
+        pending_switch: vec![None; n_cells],
+        warmup_frames: wp_opt.warmup_frames.max(1),
+        loading_radius_m: wsel.radius,
+        inner_radius_m: wp_opt.inner_radius_m.min(wsel.radius),
+        next_frame: wsel.select_frame + 1,
+        registered: wsel.registered,
+        switch_events: Vec::new(),
+    };
+    (
+        rebuilt,
+        Some(GeoApplied {
+            prov,
+            cluster: Some((cl_report, cl_pack)),
+            wp: Some((wp_report, ctx)),
+            combined: Some(stats),
+        }),
+    )
+}
+
+/// 重建产物 vs 源三角汤逐位一致断言（leaf/full/leaf×full 锚共用机核;
+/// 判据与 apply_cluster_lod leaf 锚 / apply_wp_hlod full 锚逐字同）。
+#[allow(dead_code)]
+fn geo_assert_bitexact(rebuilt: &SceneData, scene: &SceneData, tag: &str) {
+    if rebuilt.indices.len() != scene.indices.len() {
+        fail(&format!(
+            "{tag} 三角数漂移: {} ≠ {}",
+            rebuilt.indices.len(),
+            scene.indices.len()
+        ));
+    }
+    for i in 0..rebuilt.indices.len() {
+        let (rt, st) = (rebuilt.indices[i], scene.indices[i]);
+        for k in 0..3 {
+            let rp = rebuilt.positions[rt[k] as usize].map(f32::to_bits);
+            let sp = scene.positions[st[k] as usize].map(f32::to_bits);
+            if rp != sp {
+                fail(&format!("{tag} 三角 {i} 顶点 {k} 位级漂移"));
+            }
+        }
+        if rebuilt.albedo[i].map(f32::to_bits) != scene.albedo[i].map(f32::to_bits)
+            || rebuilt.emission[i].map(f32::to_bits) != scene.emission[i].map(f32::to_bits)
+            || rebuilt.tri_mat[i] != scene.tri_mat[i]
+        {
+            fail(&format!("{tag} 三角 {i} 属性位级漂移"));
+        }
+    }
+}
+
+/// prov 恒等排列判定（leaf×full 极限：全 Src 且 id == 位置 ⇒ 侧表 gather
+/// 产物与源逐位一致——W1 恒等排列锚消费面）。
+#[allow(dead_code)]
+fn geo_prov_is_identity(prov: &[TriProvenance]) -> bool {
+    prov.iter()
+        .enumerate()
+        .all(|(i, p)| matches!(p, TriProvenance::Src(s) if *s as usize == i))
+}
+
+/// 逐三角 UV 侧表 gather（W1：装配序 UV sink〔6 f32/tri〕→ 重建序;Src 按源
+/// id 取值位保真,代理三角 UV = 0〔tritex 强制 −1 常量面回退,UV 不消费——
+/// geo_patch_proxy_tritex 同批施加〕）。恒等排列 ⇒ 产物与源逐位一致。
+#[allow(dead_code)]
+fn gather_tri_uv(prov: &[TriProvenance], src_uv: &[f32]) -> Vec<f32> {
+    let mut out = Vec::with_capacity(prov.len() * 6);
+    for p in prov {
+        match p {
+            TriProvenance::Src(s) => {
+                let b = *s as usize * 6;
+                out.extend_from_slice(&src_uv[b..b + 6]);
+            }
+            _ => out.extend_from_slice(&[0.0; 6]),
+        }
+    }
+    out
+}
+
+/// 代理三角 tritex 强制 −1（W1：g31_tex_load 自重建 tri_mat 派生 tritex——
+/// 代理三角 tri_mat = 簇/cell 众数材质,若映射进图集槽会以 UV=0 采样单 texel
+/// 出错色;强制 −1 走既有常量面路径〔albedo = cluster/cell 面积加权均值,
+/// slab 预调制经 slab_apply 一致施加〕。属性保持简化归 #96 留窗如实登记）。
+/// 返回改写数;同步重建 tritex_bytes 与 tex_tris,全空接线 fail-closed。
+#[allow(dead_code)]
+fn geo_patch_proxy_tritex(tex: &mut G31TexAssets, prov: &[TriProvenance]) -> usize {
+    if tex.tritex.len() != prov.len() {
+        fail(&format!(
+            "geo tritex/prov 长度失配: {} ≠ {}（tritex 须自重建场景派生）",
+            tex.tritex.len(),
+            prov.len()
+        ));
+    }
+    let mut patched = 0usize;
+    for (i, p) in prov.iter().enumerate() {
+        if !matches!(p, TriProvenance::Src(_)) && tex.tritex[i] >= 0.0 {
+            tex.tritex[i] = -1.0;
+            patched += 1;
+        }
+    }
+    if patched > 0 {
+        tex.tex_tris = tex.tritex.iter().filter(|&&s| s >= 0.0).count();
+        if tex.tex_tris == 0 {
+            fail("geo 代理 tritex 补丁后映射三角归零（空接线即红,fail-closed）");
+        }
+        tex.tritex_bytes = bytes_f32(&tex.tritex);
+    }
+    patched
+}
+
+/// 节点段重导出（W1：装配序 SceneNodeGroup〔连续半开区间〕→ 重建序;
+/// Src 段升序保持节点连续性——同节点源三角在重建 identity 前缀内仍相邻;
+/// 代理尾段按 (块)/(cell) 成组。AABB 自重建几何精确重算（三角 ⊆ AABB 精确
+/// 包含维持,HZB 剔除保守方向零假阳性）。恒等排列 ⇒ 产物与源逐段一致
+/// （tri_offset/tri_count 同值;AABB 同派生式逐位）。
+#[allow(dead_code)]
+fn regroup_nodes(
+    prov: &[TriProvenance],
+    src_groups: &[SceneNodeGroup],
+    rebuilt: &SceneData,
+) -> Vec<SceneNodeGroup> {
+    #[derive(PartialEq, Clone, Copy)]
+    enum SegKey {
+        Node(usize),
+        Coarse(u32),
+        Cell(u32),
+    }
+    let mut out: Vec<SceneNodeGroup> = Vec::new();
+    let mut cur_key: Option<SegKey> = None;
+    let mut cur_start = 0usize;
+    let mut cur_min = [f32::INFINITY; 3];
+    let mut cur_max = [f32::NEG_INFINITY; 3];
+    let mut node_cursor = 0usize;
+    let flush =
+        |out: &mut Vec<SceneNodeGroup>, start: usize, end: usize, mn: [f32; 3], mx: [f32; 3]| {
+            if end > start {
+                out.push(SceneNodeGroup {
+                    tri_offset: start as u32,
+                    tri_count: (end - start) as u32,
+                    aabb_min: mn,
+                    aabb_max: mx,
+                });
+            }
+        };
+    for (i, p) in prov.iter().enumerate() {
+        let key = match p {
+            TriProvenance::Src(s) => {
+                let id = *s as usize;
+                while node_cursor < src_groups.len()
+                    && id >= (src_groups[node_cursor].tri_offset
+                        + src_groups[node_cursor].tri_count) as usize
+                {
+                    node_cursor += 1;
+                }
+                if node_cursor >= src_groups.len()
+                    || id < src_groups[node_cursor].tri_offset as usize
+                {
+                    fail(&format!(
+                        "regroup 源三角 {id} 不在任何节点段内（组表与装配序失配）"
+                    ));
+                }
+                SegKey::Node(node_cursor)
+            }
+            TriProvenance::ClusterCoarse { block, .. } => SegKey::Coarse(*block),
+            TriProvenance::WpProxy { cell, .. } => SegKey::Cell(*cell),
+        };
+        if cur_key != Some(key) {
+            flush(&mut out, cur_start, i, cur_min, cur_max);
+            cur_key = Some(key);
+            cur_start = i;
+            cur_min = [f32::INFINITY; 3];
+            cur_max = [f32::NEG_INFINITY; 3];
+        }
+        let t = rebuilt.indices[i];
+        for &vi in &t {
+            let v = rebuilt.positions[vi as usize];
+            for k in 0..3 {
+                cur_min[k] = cur_min[k].min(v[k]);
+                cur_max[k] = cur_max[k].max(v[k]);
+            }
+        }
+    }
+    flush(&mut out, cur_start, prov.len(), cur_min, cur_max);
+    out
+}
 // 以下全部仅 slab 模式消费，非 slab 路径逐字不触。消费冻结面：
 // kernels/g29_slab.rx 本体 0-byte（dispatch [16,1,1] 逐槽单 invocation）+
 // material/slab.rs::total_reflectance host 金标准 f64 直调 0-byte；
@@ -9006,7 +9855,7 @@ fn export_presentation_png(
         .map(|px| [f64::from(px[0]), f64::from(px[1]), f64::from(px[2])])
         .collect();
     let ldr = chain
-        .process(0, &hdr, w as usize)
+        .process(1, &hdr, w as usize)
         .map_err(|e| format!("post_chain: {e}"))?;
     let mut pixels = Vec::with_capacity(ldr.len() * 3);
     for px in &ldr {
@@ -10614,7 +11463,31 @@ fn render_leg(
         Err(e) => dev_env_or_fail("scene_assets", &e),
     };
     // G31+ #58 簇 LOD 施加点（off 直通；leaf/on 时 cut 重建三角汤，下游零改动）。
-    let (scene, cluster_report) = apply_cluster_lod(scene, cluster_lod, in_w, in_h);
+    // G36 W2：与 --wp-hlod 双开走组合管线（互斥解除——WP cell 互斥选层先行 →
+    // Full 域内簇 cut → 跨界粗簇叶级回退;零双绘/覆盖机核 fail-closed）;单开
+    // 维持既有 apply_*（重建产物/报告逐位既有面 0-语义漂移）。
+    let geo_both = cluster_lod.mode != ClusterLodMode::Off && wp_hlod.mode != WpHlodMode::Off;
+    let (scene, cluster_report, wp_report) = if geo_both {
+        let (s, g) = apply_geo_combined(scene, cluster_lod, wp_hlod, in_w, in_h);
+        let g = g.expect("双开必有 GeoApplied");
+        if let Some(st) = &g.combined {
+            eprintln!(
+                "{TAG}: geo 组合（cluster×wp）identity={} coarse={}（{} 簇）straddle_fallback={}（{} 簇）wp_proxy={} out={}",
+                st.identity_tris,
+                st.coarse_tris,
+                st.coarse_emitted,
+                st.straddle_fallback_tris,
+                st.straddle_clusters,
+                st.wp_proxy_tris,
+                st.out_tris,
+            );
+        }
+        (s, g.cluster, g.wp)
+    } else {
+        let (s, c) = apply_cluster_lod(scene, cluster_lod, in_w, in_h);
+        let (s, w) = apply_wp_hlod(s, wp_hlod);
+        (s, c, w)
+    };
     if let Some((r, _)) = &cluster_report {
         eprintln!(
             "{TAG}: cluster-lod mode={} threshold_px={} blocks={} clusters={}/{} tris out={}/{} ({:.1}%)",
@@ -10630,7 +11503,6 @@ fn render_leg(
     }
     // G31+ #95/#68 WP/HLOD 施加点（off 直通；full/on 时互斥选层重建三角汤，
     // 下游零改动——代理三角随重建进 BLAS 出帧）。
-    let (scene, wp_report) = apply_wp_hlod(scene, wp_hlod);
     if let Some((r, _)) = &wp_report {
         eprintln!(
             "{TAG}: wp-hlod mode={} cells full/hlod/culled/pending={}/{}/{}/{} tris out={}/{} ({:.1}%)",
@@ -11818,7 +12690,30 @@ fn bench_leg(
     };
     // G31+ #58 簇 LOD 施加点（off 时原样直通零改动；leaf/on 时 cut 重建三角汤，
     // 下游 pack/BLAS/kernel 全链零改动——cut 产物即"新的三角汤"）。
-    let (scene, cluster_report) = apply_cluster_lod(scene, cluster_lod, in_w, in_h);
+    // G36 W2：与 --wp-hlod 双开走组合管线（互斥解除;单开维持既有 apply_*
+    // 0-语义漂移——见 render_leg 同注）。
+    let geo_both = cluster_lod.mode != ClusterLodMode::Off && wp_hlod.mode != WpHlodMode::Off;
+    let (scene, cluster_report, wp_report) = if geo_both {
+        let (s, g) = apply_geo_combined(scene, cluster_lod, wp_hlod, in_w, in_h);
+        let g = g.expect("双开必有 GeoApplied");
+        if let Some(st) = &g.combined {
+            eprintln!(
+                "{TAG}: geo 组合（cluster×wp）identity={} coarse={}（{} 簇）straddle_fallback={}（{} 簇）wp_proxy={} out={}",
+                st.identity_tris,
+                st.coarse_tris,
+                st.coarse_emitted,
+                st.straddle_fallback_tris,
+                st.straddle_clusters,
+                st.wp_proxy_tris,
+                st.out_tris,
+            );
+        }
+        (s, g.cluster, g.wp)
+    } else {
+        let (s, c) = apply_cluster_lod(scene, cluster_lod, in_w, in_h);
+        let (s, w) = apply_wp_hlod(s, wp_hlod);
+        (s, c, w)
+    };
     if let Some((r, _)) = &cluster_report {
         eprintln!(
             "{TAG}: cluster-lod mode={} threshold_px={} blocks={} clusters={}/{} (leaf_cut={}) tris: src={} passthrough={} leaf_pool={} coarse={} out={} ({:.1}%)",
@@ -11838,8 +12733,7 @@ fn bench_leg(
     }
     // G31+ #95/#68 WP/HLOD 施加点（off 时原样直通零改动;full/on 时互斥选层
     // 重建三角汤,下游全链零改动——代理三角随重建进 BLAS 出帧 = #68 HLOD
-    // 代理 GPU 绘制腿）。
-    let (scene, wp_report) = apply_wp_hlod(scene, wp_hlod);
+    // 代理 GPU 绘制腿;G36 W2 双开时已并入上方组合管线）。
     if let Some((r, _)) = &wp_report {
         eprintln!(
             "{TAG}: wp-hlod mode={} cells full/hlod/culled/pending={}/{}/{}/{} (resident={}/{}) tris: src={} passthrough={} full={} proxy={} out={} ({:.1}%) ticks={} stall_frames={} selection_digest={}",

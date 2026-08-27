@@ -1691,6 +1691,10 @@ struct G34HzbCli {
     hidden: bool,
     auto_move: String,
     slab_table: String,
+    /// G36 W3：geo 组合面（cluster×wp×HZB×纹理×slab×动态六特性组合;
+    /// Off 默认 = 既有面 0-byte——主 bin 闭集裁决先行,本段消费）。
+    cluster_opt: ClusterLodOpt,
+    wp_opt: WpHlodOpt,
 }
 
 /// G34-2 HZB 主流程（main() 早分支唯一消费面;装配段 = main ①..⑤ 同函复用
@@ -1722,6 +1726,8 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
         hidden,
         auto_move,
         slab_table,
+        cluster_opt,
+        wp_opt,
     } = cli;
     // 登记实验臂位（分类器 env 消费面同源读出;evidence hzb.all_visible_arm）。
     let all_visible_arm = std::env::var("RURIX_HZB_ALL_VISIBLE").ok().as_deref() == Some("1");
@@ -1769,6 +1775,75 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
     if hzb_groups.is_empty() {
         fail("HZB 面场景零可剔除实例（节点分组为空,fail-closed 不冒充）");
     }
+
+    // ③.4 G36 W3：geo 组合施加（--cluster-lod/--wp-hlod;off 默认 = 既有面
+    //     0-byte）。cut/选层冻结于装配期契约相机（g31 车道同纪律,逐帧 AS
+    //     更新归 #77/#89 合流窗）。侧表纪律：① UV sink 经 provenance gather
+    //     重排（恒等排列锚 fail-closed）;② 节点段经 regroup_nodes 重导出
+    //     （HZB 剔除粒度扩为"重建节点段 + 粗簇块/cell 代理组",AABB 自重建
+    //     几何精确重算——三角 ⊆ AABB 精确包含维持,剔除保守方向零假阳性）;
+    //     ③ tritex 代理补丁在纹理装配后施加（见 ③.6）。
+    let geo: Option<GeoApplied> = {
+        let (s2, g) = apply_geo_combined(scene, &cluster_opt, &wp_opt, pre.in_w, pre.in_h);
+        scene = s2;
+        if let Some(g) = &g {
+            let gathered = gather_tri_uv(&g.prov, &tri_uv);
+            let regrouped = regroup_nodes(&g.prov, &hzb_groups, &scene);
+            if geo_prov_is_identity(&g.prov) {
+                // W1 恒等排列锚（leaf/full 极限）：gather/regroup 产物与装配
+                // 面逐位一致 fail-closed。
+                if gathered.len() != tri_uv.len()
+                    || gathered
+                        .iter()
+                        .zip(tri_uv.iter())
+                        .any(|(a, b)| a.to_bits() != b.to_bits())
+                {
+                    fail("G36 恒等排列 UV gather 位级漂移（W1 锚,fail-closed）");
+                }
+                if regrouped != hzb_groups {
+                    fail("G36 恒等排列节点段重导出漂移（W1 锚,fail-closed）");
+                }
+            }
+            tri_uv = gathered;
+            hzb_groups = regrouped;
+            if let Some((r, _)) = &g.cluster {
+                eprintln!(
+                    "{GTAG}: [hzb] cluster-lod mode={} clusters={}/{} tris out={}/{} ({:.1}%)",
+                    r.mode,
+                    r.cut_clusters,
+                    r.total_clusters,
+                    r.out_tris,
+                    r.src_tris,
+                    100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
+                );
+            }
+            if let Some((r, _)) = &g.wp {
+                eprintln!(
+                    "{GTAG}: [hzb] wp-hlod mode={} cells full/hlod/culled={}/{}/{} proxy_tris={} selection_digest={}",
+                    r.mode,
+                    r.cells_full,
+                    r.cells_hlod,
+                    r.cells_culled,
+                    r.proxy_tris,
+                    &r.selection_digest[..16],
+                );
+            }
+            if let Some(st) = &g.combined {
+                eprintln!(
+                    "{GTAG}: [hzb] geo 组合 identity={} coarse={}（{} 簇）straddle_fallback={}（{} 簇）wp_proxy={} out={} regrouped_nodes={}",
+                    st.identity_tris,
+                    st.coarse_tris,
+                    st.coarse_emitted,
+                    st.straddle_fallback_tris,
+                    st.straddle_clusters,
+                    st.wp_proxy_tris,
+                    st.out_tris,
+                    hzb_groups.len(),
+                );
+            }
+        }
+        g
+    };
 
     // ③.5 slab 侧表生产接线（main ③.5 逐字同律——HZB 腿 = --full 面,slab
     //     资产必经;16 槽 device/host 双臂对拍 + 逐三角 albedo × R_slot 预调制）。
@@ -1835,6 +1910,17 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
         } else {
             0
         };
+        // G36 W3：代理三角 tritex 强制 −1（geo on 面;代理 UV=0 采样错色防线,
+        // 走常量面回退——cluster/cell 面积加权均值;#96 属性保持简化留窗）。
+        if let Some(g) = geo.as_ref() {
+            let patched = geo_patch_proxy_tritex(&mut assets, &g.prov);
+            if patched > 0 {
+                eprintln!(
+                    "{GTAG}: [hzb] geo 代理 tritex 补丁 patched={patched} tex_tris={}（代理走常量面回退,#96 留窗）",
+                    assets.tex_tris,
+                );
+            }
+        }
         eprintln!(
             "{GTAG}: [hzb] B4 纹理接线 mapped={} tex_tris={} atlas={}x{} probes={} ssbo_p100={:.6e}（位级={} 双跑={}） sampler_max_lsb={} nonconstant_slots={} eval_ms={:.3} slab_premod_slots={}",
             assets.slots.len(),

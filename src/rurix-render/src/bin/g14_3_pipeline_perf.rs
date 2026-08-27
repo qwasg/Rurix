@@ -445,17 +445,17 @@ fn main() {
                 }
             }
             // G31+ #58 --cluster-lod 闭集校验（fail-closed，不静默降级）：
-            // ① 模式字面闭集 off|leaf|on；② leaf/on 要求 --cluster-pack；③ 与
-            // --dyn-demo/--skin-demo 互斥（cut 重排三角汤 ⇒ 动态段基址/蒙皮源
-            // 段假设破坏，合流归后续波）；④ 阈值必须为正有限。
+            // ① 模式字面闭集 off|leaf|on；② leaf/on 要求 --cluster-pack；
+            // ③ 阈值必须为正有限。
+            // G36 W2 互斥解除：与 --dyn-demo/--skin-demo 组合面成立——动态/
+            // 蒙皮尾接段基址在 apply_* 重建**之后**计算（lane_assets_dyn/
+            // lane_assets_skin 消费重建后 scene.indices.len(),基址假设不再
+            // 依赖装配序;原互斥字面留此注释存证,fail 行撤除）。
             let cluster_opt = match cluster_lod_mode.as_str() {
                 "off" => ClusterLodOpt::off(),
                 m @ ("leaf" | "on") => {
                     if cluster_pack.is_empty() {
                         fail("--cluster-lod leaf|on 要求 --cluster-pack <RXCP>（g31_cluster_lod_bake 产物）");
-                    }
-                    if dyn_spec.is_some() || skin_spec.is_some() {
-                        fail("--cluster-lod 不与 --dyn-demo/--skin-demo 同跑（cut 重排三角汤,动态段/蒙皮段基址假设破坏;合流归后续波,fail-closed）");
                     }
                     if !(cluster_error_px.is_finite() && cluster_error_px > 0.0) {
                         fail("--cluster-error-px 必须为正有限 f32");
@@ -477,20 +477,18 @@ fn main() {
                 other => fail(&format!("--cluster-lod {other}：只接受 off|leaf|on")),
             };
             // G31+ #95/#68 --wp-hlod 闭集校验（fail-closed，不静默降级）：
-            // ① 模式字面闭集 off|full|on；② full/on 要求 --wp-pack；③ 与
-            // --cluster-lod/--dyn-demo/--skin-demo 互斥（两套几何重组各自重排
-            // 三角汤,叠加组合面归后续波）；④ 参数域校验。
+            // ① 模式字面闭集 off|full|on；② full/on 要求 --wp-pack；③ 参数
+            // 域校验。
+            // G36 W2 互斥解除：与 --cluster-lod 组合走 apply_geo_combined
+            // （WP cell 互斥选层先行 → Full 域内簇 cut → 跨界粗簇叶级回退;
+            // 零双绘/覆盖机核 fail-closed,leaf×full 极限 == off 逐位锚）;与
+            // --dyn-demo/--skin-demo 组合同 --cluster-lod 行注释（尾接段基址
+            // 后移成立;原互斥字面留此注释存证,fail 行撤除）。
             let wp_opt = match wp_hlod_mode.as_str() {
                 "off" => WpHlodOpt::off(),
                 m @ ("full" | "on") => {
                     if wp_pack.is_empty() {
                         fail("--wp-hlod full|on 要求 --wp-pack <RXWH>（g31_wp_hlod_bake 产物）");
-                    }
-                    if cluster_opt.mode != ClusterLodMode::Off {
-                        fail("--wp-hlod 不与 --cluster-lod 同跑（两套几何重组各自重排三角汤;组合面归后续波,fail-closed）");
-                    }
-                    if dyn_spec.is_some() || skin_spec.is_some() {
-                        fail("--wp-hlod 不与 --dyn-demo/--skin-demo 同跑（cell 重组三角汤,动态段/蒙皮段基址假设破坏;合流归后续波,fail-closed）");
                     }
                     if !(wp_threshold_l0.is_finite() && wp_threshold_l0 > 0.0) {
                         fail("--wp-threshold-l0 必须为正有限 f64");

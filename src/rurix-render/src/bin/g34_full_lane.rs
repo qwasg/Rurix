@@ -58,7 +58,21 @@
 //!     [--full --slab-table <asset.json>]
 //!     [--textures on|off] [--dyn on|off]
 //!     [--static-camera] [--host-tol <F>]
+//!     [--cluster-lod off|leaf|on --cluster-pack <RXCP> [--cluster-error-px 1.0]]
+//!     [--wp-hlod off|full|on --wp-pack <RXWH> [--wp-threshold-l0 1.0]
+//!      [--wp-radius 64] [--wp-budget-cells 4] [--wp-warmup 4]]
 //! ```
+//!
+//! G36 W3 geo 组合面（互斥解除;门 `g36.wave3.unified_geo`）：--cluster-lod ×
+//! --wp-hlod × 纹理×slab×动态（统一主车道）/ × HZB（--hzb on 区段,节点段经
+//! provenance 重导出）组合成立——W1 逐三角 provenance 事实源（侧表 UV gather
+//! 位保真 + 代理 tritex 强制 −1 常量面回退〔#96 属性保持简化留窗〕+ 节点段
+//! AABB 自重建几何精确重算）;leaf×full 极限 = --full 基线 digest_seq 逐帧
+//! 位级一致（恒等排列锚）;host 金标准对拍/动态位置核验/HZB 金字塔位级/零假
+//! 阳性诸硬门维持。geo on 时 evidence schema/gate 切 G36 字面 + "geo" 块追加
+//! （G34 注册 schema 0-byte）;geo × --skin 组合归后续窗（蒙皮区段独立装配面,
+//! g14_3 MegaSkin×geo 已验证——如实拒跑不冒充）。cut/选层冻结于装配期契约
+//! 相机（逐帧 AS 更新归 #77/#89 合流窗,如实登记）。
 //!
 //! 闭集：`--full` = textures on + slab on（须随 --slab-table）+ dyn on 三件
 //! 同开（与显式 --textures off/--dyn off 冲突即拒）；`--full`/任一特性开
@@ -105,6 +119,11 @@ const G34_HOST_TOL_ENTRY: &str = "g34.unified_lane.host_parity_tol";
 /// Stage A 锚格字面（--static-camera 锚格模式对拍面）。
 const G34_ANCHOR_PATH: &str = "milestones/g14/g14_3_stage_a_digest_anchor.json";
 const G34_ANCHOR_CELL: &str = "bistro-interior_t100_tsr_device";
+/// G36 W3：geo 组合面门键/schema 字面（--cluster-lod/--wp-hlod 任一 on 时
+/// evidence 切换;off 默认 = G34 字面 0-byte——G34 harness schema
+/// additionalProperties:false 纪律下组合面另立 schema,不改 G34 注册面）。
+const G36_GATE: &str = "g36.wave3.unified_geo";
+const G36_SCHEMA: &str = "rurix.g36.unified_geo_evidence.v1";
 
 // ---------------------------------------------------------------------------
 // G34 车道资源面：G34Full 27 SSBO（0..=26,共享体 unified_lane_descs_g34 产）
@@ -1322,6 +1341,17 @@ fn main() {
     let mut spv_hzb_pack = G34HZB_DEFAULT_SPV_PACK.to_owned();
     let mut spv_hzb_reduce = G34HZB_DEFAULT_SPV_REDUCE.to_owned();
     let mut spv_hzb_test = G34HZB_DEFAULT_SPV_TEST.to_owned();
+    // G36 W3 geo 组合面（--cluster-lod off|leaf|on × --wp-hlod off|full|on ×
+    // 纹理×slab×动态组合;off 默认 = 既有面 0-byte——W1 provenance 事实源）。
+    let mut cluster_lod_mode = String::from("off");
+    let mut cluster_pack = String::new();
+    let mut cluster_error_px: f32 = 1.0;
+    let mut wp_hlod_mode = String::from("off");
+    let mut wp_pack = String::new();
+    let mut wp_threshold_l0: f64 = 1.0;
+    let mut wp_radius: f32 = 64.0;
+    let mut wp_budget_cells: u32 = 4;
+    let mut wp_warmup: u32 = 4;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -1412,6 +1442,36 @@ fn main() {
             "--spv-hzb-pack" => spv_hzb_pack = take_arg(&args, &mut i),
             "--spv-hzb-reduce" => spv_hzb_reduce = take_arg(&args, &mut i),
             "--spv-hzb-test" => spv_hzb_test = take_arg(&args, &mut i),
+            // G36 W3 geo 组合面参数（g14_3/g31 同名旗标同语义）。
+            "--cluster-lod" => cluster_lod_mode = take_arg(&args, &mut i),
+            "--cluster-pack" => cluster_pack = take_arg(&args, &mut i),
+            "--cluster-error-px" => {
+                cluster_error_px = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--cluster-error-px 非 f32"))
+            }
+            "--wp-hlod" => wp_hlod_mode = take_arg(&args, &mut i),
+            "--wp-pack" => wp_pack = take_arg(&args, &mut i),
+            "--wp-threshold-l0" => {
+                wp_threshold_l0 = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-threshold-l0 非 f64"))
+            }
+            "--wp-radius" => {
+                wp_radius = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-radius 非 f32"))
+            }
+            "--wp-budget-cells" => {
+                wp_budget_cells = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-budget-cells 非 u32"))
+            }
+            "--wp-warmup" => {
+                wp_warmup = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--wp-warmup 非 u32"))
+            }
             other => fail(&format!("未知参数 {other}")),
         }
         i += 1;
@@ -1462,6 +1522,84 @@ fn main() {
     if slab_table.is_some() && !textures && dyn_on {
         // notex 腿合法面（slab+dyn 无纹理）;仅登记,无追加约束。
     }
+    // ── G36 W3 geo 组合面闭集校验（fail-closed,不静默降级）：模式闭集 + 包
+    //    必填 + 参数域（g14_3 同律字面）;geo 开须随 --auto-move + --tier 100
+    //    （特性开同律）,与 --static-camera 锚格互斥（锚格 = 全特性缺省关）。
+    //    互斥解除范围（本波）：geo × 纹理×slab×动态（统一主车道,侧表经 W1
+    //    provenance gather/补丁）+ geo × HZB（HZB 区段经节点段重导出接线）;
+    //    geo × --skin 组合归后续窗（蒙皮区段独立装配面——g14_3 MegaSkin×geo
+    //    组合已验证,本 bin 蒙皮区段接线留窗如实拒跑不冒充）。──
+    let cluster_opt = match cluster_lod_mode.as_str() {
+        "off" => ClusterLodOpt::off(),
+        m @ ("leaf" | "on") => {
+            if cluster_pack.is_empty() {
+                fail("--cluster-lod leaf|on 要求 --cluster-pack <RXCP>（g31_cluster_lod_bake 产物）");
+            }
+            if !(cluster_error_px.is_finite() && cluster_error_px > 0.0) {
+                fail("--cluster-error-px 必须为正有限 f32");
+            }
+            ClusterLodOpt {
+                mode: if m == "leaf" {
+                    ClusterLodMode::Leaf
+                } else {
+                    ClusterLodMode::On
+                },
+                pack_path: cluster_pack.clone(),
+                threshold_px: cluster_error_px,
+                resident_pages: 0,
+            }
+        }
+        other => fail(&format!("--cluster-lod {other}：只接受 off|leaf|on")),
+    };
+    let wp_opt = match wp_hlod_mode.as_str() {
+        "off" => WpHlodOpt::off(),
+        m @ ("full" | "on") => {
+            if wp_pack.is_empty() {
+                fail("--wp-hlod full|on 要求 --wp-pack <RXWH>（g31_wp_hlod_bake 产物）");
+            }
+            if !(wp_threshold_l0.is_finite() && wp_threshold_l0 > 0.0) {
+                fail("--wp-threshold-l0 必须为正有限 f64");
+            }
+            if !(wp_radius.is_finite() && wp_radius > 0.0) {
+                fail("--wp-radius 必须为正有限 f32");
+            }
+            if wp_warmup == 0 {
+                fail("--wp-warmup 必须 ≥1（预热协议:切换请求 → 原子翻转间隔）");
+            }
+            WpHlodOpt {
+                mode: if m == "full" {
+                    WpHlodMode::Full
+                } else {
+                    WpHlodMode::On
+                },
+                pack_path: wp_pack.clone(),
+                threshold_l0: wp_threshold_l0,
+                loading_radius_m: wp_radius,
+                inner_radius_m: (wp_radius * 0.25).max(1.0),
+                budget_cells: wp_budget_cells.max(1),
+                warmup_frames: wp_warmup,
+            }
+        }
+        other => fail(&format!("--wp-hlod {other}：只接受 off|full|on")),
+    };
+    let geo_on = cluster_opt.mode != ClusterLodMode::Off || wp_opt.mode != WpHlodMode::Off;
+    if geo_on {
+        if static_camera {
+            fail("--cluster-lod/--wp-hlod 与 --static-camera 互斥（锚格模式 = 全特性缺省关位级对拍面）");
+        }
+        if auto_move.is_none() {
+            fail("--cluster-lod/--wp-hlod 须随 --auto-move（登记面 = 确定性轨迹 digest_seq;静态无轨迹面非本任务口径）");
+        }
+        if tier != 100 {
+            fail("--cluster-lod/--wp-hlod 须 --tier 100（登记面 = bistro 1080p 同机同窗对照）");
+        }
+        if skin_on {
+            fail("--skin on 与 --cluster-lod/--wp-hlod 组合归后续窗（蒙皮区段独立装配面;g14_3 MegaSkin×geo 组合已验证,本 bin 蒙皮区段接线留窗如实拒跑不冒充）");
+        }
+        if headless {
+            fail("--cluster-lod/--wp-hlod 不与 --headless-smoke 同跑（geo 组合登记面 = 真窗口闭集;headless 退化非本任务口径）");
+        }
+    }
     // ── G34-2 HZB 早分支（--hzb on 闭集裁决 + 段体全量移交独立 include 区段;
     //    非 HZB 面零触碰——两段互斥先裁,--skin 分支后行零感知）──
     if hzb_on {
@@ -1503,6 +1641,10 @@ fn main() {
                 .unwrap_or_else(|| fail("--hzb on 须随 --auto-move（特性闭集裁决先行面兜底）")),
             slab_table: slab_table
                 .unwrap_or_else(|| fail("--hzb on 须随 --slab-table（--full 闭集裁决先行面兜底）")),
+            // G36 W3：geo 组合面移交（cluster×wp×HZB×纹理×slab×动态——HZB
+            // 区段经 regroup_nodes 消费重导出节点段;off 默认 = 既有面 0-byte）。
+            cluster_opt,
+            wp_opt,
         });
     } else if args.iter().any(|a| a.starts_with("--spv-hzb-")) {
         fail("--spv-hzb-* 须随 --hzb on（hzb off 面 = 车道 0-byte,SPV 覆盖位无消费面）");
@@ -1585,6 +1727,71 @@ fn main() {
         Err(e) => dev_env_or_fail("scene_assets", &e),
     };
 
+    // ③.4 G36 W3：geo 组合施加（--cluster-lod/--wp-hlod × 纹理×slab×动态;
+    //     off 默认 = 既有面 0-byte）。cut/选层冻结于装配期契约相机（g31 车道
+    //     同纪律,逐帧 AS 更新归 #77/#89 合流窗;--auto-move 轨迹绕契约位姿,
+    //     LOD 误差口径以契约位姿投影为准如实登记）。UV sink 经 provenance
+    //     gather 重排（恒等排列锚 fail-closed）;tritex 代理补丁在 ③.6 纹理
+    //     装配后施加。
+    let geo: Option<GeoApplied> = {
+        let (s2, g) = apply_geo_combined(scene, &cluster_opt, &wp_opt, pre.in_w, pre.in_h);
+        scene = s2;
+        if let Some(g) = &g {
+            let gathered = gather_tri_uv(&g.prov, &tri_uv);
+            if geo_prov_is_identity(&g.prov) {
+                // W1 恒等排列锚（leaf/full 极限）：gather 产物与装配 sink
+                // 逐位一致 fail-closed。
+                if gathered.len() != tri_uv.len()
+                    || gathered
+                        .iter()
+                        .zip(tri_uv.iter())
+                        .any(|(a, b)| a.to_bits() != b.to_bits())
+                {
+                    fail("G36 恒等排列 UV gather 位级漂移（W1 锚,fail-closed）");
+                }
+            }
+            tri_uv = gathered;
+            if let Some((r, _)) = &g.cluster {
+                eprintln!(
+                    "{GTAG}: cluster-lod mode={} threshold_px={} clusters={}/{} tris out={}/{} ({:.1}%)",
+                    r.mode,
+                    r.threshold_px,
+                    r.cut_clusters,
+                    r.total_clusters,
+                    r.out_tris,
+                    r.src_tris,
+                    100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
+                );
+            }
+            if let Some((r, _)) = &g.wp {
+                eprintln!(
+                    "{GTAG}: wp-hlod mode={} cells full/hlod/culled/pending={}/{}/{}/{} proxy_tris={} ticks={} selection_digest={}",
+                    r.mode,
+                    r.cells_full,
+                    r.cells_hlod,
+                    r.cells_culled,
+                    r.cells_pending,
+                    r.proxy_tris,
+                    r.assemble_ticks,
+                    &r.selection_digest[..16],
+                );
+            }
+            if let Some(st) = &g.combined {
+                eprintln!(
+                    "{GTAG}: geo 组合（cluster×wp）identity={} coarse={}（{} 簇）straddle_fallback={}（{} 簇）wp_proxy={} out={}",
+                    st.identity_tris,
+                    st.coarse_tris,
+                    st.coarse_emitted,
+                    st.straddle_fallback_tris,
+                    st.straddle_clusters,
+                    st.wp_proxy_tris,
+                    st.out_tris,
+                );
+            }
+        }
+        g
+    };
+
     // ③.5 slab 侧表生产接线（--slab-table 面;非 slab 路径 0-byte——资产加载 +
     //     16 槽 host/device 双臂求值对拍 + 逐三角 albedo × R_slot 预调制,全部
     //     仅 slab 模式消费;kernels/g29_slab.rx 与 material/slab.rs 0-byte 冻结
@@ -1657,6 +1864,18 @@ fn main() {
         // 预乘进 texmeta 槽 mod（slab on 面;slab off = 零预乘与 fork A 逐位同值）。
         if let (Some(asset_eval), Some(arm_r)) = (slab_report.as_ref(), slab_arm.as_ref()) {
             tex_premod_slots = g34_slab_premod_texmeta(&mut assets, &asset_eval.0, arm_r);
+        }
+        // G36 W3：代理三角 tritex 强制 −1（geo on 面;代理 UV=0 采样错色防线,
+        // 走常量面回退——cluster/cell 面积加权均值;host 金标准克隆同一补丁后
+        // 数组 ⇒ 两臂一致;#96 属性保持简化留窗如实登记）。
+        if let Some(g) = geo.as_ref() {
+            let patched = geo_patch_proxy_tritex(&mut assets, &g.prov);
+            if patched > 0 {
+                eprintln!(
+                    "{GTAG}: geo 代理 tritex 补丁 patched={patched} tex_tris={}（代理走常量面回退,#96 留窗）",
+                    assets.tex_tris,
+                );
+            }
         }
         eprintln!(
             "{GTAG}: B4 纹理接线 mapped={} tex_tris={} atlas={}x{} probes={} ssbo_p100={:.6e}（位级={} 双跑={}） sampler_max_lsb={} nonconstant_slots={} eval_ms={:.3} slab_premod_slots={}",
@@ -2445,10 +2664,82 @@ fn main() {
         "null".to_owned()
     };
 
+    // G36 W3：geo 组合面 evidence（geo on 时 schema/gate 切换 G36 字面 +
+    // "geo" 块追加——G34 注册 schema additionalProperties:false 纪律下不改
+    // G34 面;off = G34 字面 0-byte）。
+    let geo_json = if let Some(g) = geo.as_ref() {
+        let cl_json = if let Some((r, _)) = &g.cluster {
+            format!(
+                "{{\"mode\":{},\"threshold_px\":{},\"blocks\":{},\"total_clusters\":{},\"cut_clusters\":{},\"cut_leaf_clusters\":{},\"src_tris\":{},\"passthrough_tris\":{},\"coarse_tris\":{},\"out_tris\":{}}}",
+                jstr(r.mode),
+                r.threshold_px,
+                r.blocks,
+                r.total_clusters,
+                r.cut_clusters,
+                r.cut_leaf_clusters,
+                r.src_tris,
+                r.passthrough_tris,
+                r.coarse_tris,
+                r.out_tris,
+            )
+        } else {
+            "null".to_owned()
+        };
+        let wp_json_g = if let Some((r, _)) = &g.wp {
+            format!(
+                "{{\"mode\":{},\"cells_total\":{},\"cells_nonempty\":{},\"cells_full\":{},\"cells_hlod\":{},\"cells_culled\":{},\"cells_pending\":{},\"full_tris\":{},\"proxy_tris\":{},\"out_tris\":{},\"selection_digest\":{},\"assemble_ticks\":{},\"budget_stall_frames\":{}}}",
+                jstr(r.mode),
+                r.cells_total,
+                r.cells_nonempty,
+                r.cells_full,
+                r.cells_hlod,
+                r.cells_culled,
+                r.cells_pending,
+                r.full_tris,
+                r.proxy_tris,
+                r.out_tris,
+                jstr(&r.selection_digest),
+                r.assemble_ticks,
+                r.budget_stall_frames,
+            )
+        } else {
+            "null".to_owned()
+        };
+        let comb_json = if let Some(st) = &g.combined {
+            format!(
+                "{{\"identity_tris\":{},\"coarse_emitted\":{},\"coarse_tris\":{},\"straddle_clusters\":{},\"straddle_fallback_tris\":{},\"wp_proxy_tris\":{},\"out_tris\":{}}}",
+                st.identity_tris,
+                st.coarse_emitted,
+                st.coarse_tris,
+                st.straddle_clusters,
+                st.straddle_fallback_tris,
+                st.wp_proxy_tris,
+                st.out_tris,
+            )
+        } else {
+            "null".to_owned()
+        };
+        let proxy_tris_total = g
+            .prov
+            .iter()
+            .filter(|p| !matches!(p, TriProvenance::Src(_)))
+            .count();
+        format!(
+            "{{\"cluster\":{cl_json},\"wp\":{wp_json_g},\"combined\":{comb_json},\"prov_identity\":{},\"proxy_tris_total\":{proxy_tris_total},\"frozen_at_assembly\":true,\"proxy_texture_fallback\":\"tritex=-1 常量面（#96 属性保持简化留窗）\"}}",
+            geo_prov_is_identity(&g.prov),
+        )
+    } else {
+        "null".to_owned()
+    };
+    let (ev_schema, ev_gate) = if geo.is_some() {
+        (G36_SCHEMA, G36_GATE)
+    } else {
+        (G34_SCHEMA, G34_GATE)
+    };
     let mut ev = String::with_capacity(8192);
     ev.push('{');
-    ev.push_str(&format!("\"schema\":{},", jstr(G34_SCHEMA)));
-    ev.push_str(&format!("\"gate\":{},", jstr(G34_GATE)));
+    ev.push_str(&format!("\"schema\":{},", jstr(ev_schema)));
+    ev.push_str(&format!("\"gate\":{},", jstr(ev_gate)));
     ev.push_str(&format!("\"scene\":{},", jstr(scene_id)));
     ev.push_str(&format!("\"tier\":{tier},\"backend\":\"tsr_device\","));
     ev.push_str(&format!(
@@ -2521,6 +2812,10 @@ fn main() {
     ev.push_str(&format!("\"textures\":{textures_json},"));
     ev.push_str(&format!("\"slab\":{slab_json},"));
     ev.push_str(&format!("\"dyn\":{dyn_json},"));
+    if geo.is_some() {
+        // geo 组合面字段（仅 G36 schema 面追加;G34 面 0-byte）。
+        ev.push_str(&format!("\"geo\":{geo_json},"));
+    }
     ev.push_str(&format!("\"host_parity\":{host_parity_json},"));
     ev.push_str(&format!(
         "\"stats\":{{\"render_cv\":{r_cv:.6},\"render_min_ms\":{r_min:.6},\"render_max_ms\":{r_max:.6},\"scene_gpu_ms\":{sg_mean:.6},\"encode_gpu_ms\":{eg_mean:.6},\"present_cv\":{},\"present_min_ms\":{},\"present_max_ms\":{}}},",
