@@ -111,3 +111,5 @@
 | 收口验收面（守卫七条 + 三锚 + soak 5010 帧） | G-G34-4 | **四面全绿 + 焦点格轨迹诚实红恶化如实登记**（中位 ratio 0.921836，digest 十跑零漂移，预算杠 ×1.92 headroom） | G34_CONTRACT §8.1 ②③④ |
 
 维持面：FG/MFG 合流与 HZB×蒙皮同车道合并 = 后续波立项程序不预支（接口预留在案）；契约 flip（G31~G34 四期 active→closed）与治理波 = 留 owner 按 10_GOVERNANCE 程序；G35（GPU 粒子系统期）四件套 + RFC-0049 立项在飞零实现面（同 commit 如实收入不消费）。
+
+> 勘误（2026-08-27 收口 commit 058f8e68 后追记，只追加）：① 提交面实际收入的 G35 在飞面 = RFC-0049 + milestones/g35 四件套/八 gate schema + 九波 kernels（g35_*.rx 约 30 件）+ harness bins（8 件）+ src/rurix-render/src/particles/ 模块 + ci/g35_* 门脚本与路由补丁各 8 件——上行与 commit ⑤ 段「四件套零实现面」字面系低估，勘正如上；**G35 门证据零收入 = 未验收面不冒充维持**。② 同工作树并行会话活跃事实如实登记：g31_cluster_lod/wp_hlod 等新工作面同窗产出（evidence/g31_cluster_lod_20260827T105329Z.json 产出窗与 G34 焦点格冷却样本组 GPU 负载重叠不可排除）——焦点格中位 ratio 0.921836 的恶化环境态含并行负载因素（digest 十跑零漂移不受影响，诚实红登记不变）；提交后 g35_particle_lane.rs 新修改面留工作树不混入（「异己会话未提交面零混入,git add 按文件名显式择取」先例）。
