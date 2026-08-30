@@ -1,0 +1,80 @@
+{
+ "schema": "rurix.day0829.realism.ao.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "step": "ao_off_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 61.7,
+   "real_render_frame_ms": 4.6717,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "14:26:01"
+  },
+  {
+   "step": "ao_off_full_96f",
+   "rc": 0,
+   "digest": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "vuid": 0,
+   "wall_s": 129.8,
+   "real_render_frame_ms": 7.254202,
+   "expect": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "pass": true,
+   "t": "14:28:11"
+  },
+  {
+   "step": "ao_on_run1",
+   "rc": 0,
+   "digest": "sha256:d4d6735492c12c0beb15773f965ba54d6b7845e63d6da9444e51e5624cfb06f5",
+   "vuid": 0,
+   "wall_s": 129.7,
+   "real_render_frame_ms": 7.519947,
+   "pass": true,
+   "t": "14:30:21"
+  },
+  {
+   "step": "ao_on_run2",
+   "rc": 0,
+   "digest": "sha256:d4d6735492c12c0beb15773f965ba54d6b7845e63d6da9444e51e5624cfb06f5",
+   "vuid": 0,
+   "wall_s": 129.7,
+   "real_render_frame_ms": 7.872772,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "14:32:30"
+  },
+  {
+   "step": "ao_ab_off",
+   "rc": 0,
+   "digest": "sha256:bd1dfd986db6a83d24f019c413bedb1215424b2e0e84d6cc2f759107d14d6332",
+   "vuid": 0,
+   "wall_s": 129.6,
+   "real_render_frame_ms": 7.552001,
+   "pass": true,
+   "t": "14:34:40"
+  },
+  {
+   "step": "ao_ab_on",
+   "rc": 0,
+   "digest": "sha256:f3e8203fb3e16d8c19e9a3bb67b9bb898290a1482469f90b8031fda90f6a628d",
+   "vuid": 0,
+   "wall_s": 129.7,
+   "real_render_frame_ms": 7.641678,
+   "pass": true,
+   "t": "14:36:50"
+  },
+  {
+   "changed_frac": 0.037329,
+   "fullscreen_mean_off": 14.0826,
+   "fullscreen_mean_on": 13.6883,
+   "changed_mean_off": 12.6522,
+   "changed_mean_on": 9.4069,
+   "step": "ao_ab_metrics",
+   "pass": true,
+   "note": "接触遮蔽:掩码变暗 + 全屏 mean 降(遮蔽减能)",
+   "t": "14:36:50"
+  }
+ ]
+}

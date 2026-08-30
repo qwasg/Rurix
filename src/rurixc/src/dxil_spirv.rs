@@ -3367,13 +3367,16 @@ mod ext {
                     Builder::emit(&mut self.code, OP_INOTEQUAL, &[bool_ty, cond, dv.id, zero]);
                     let then_i = then.0 as usize;
                     let else_i = else_.0 as usize;
-                    let merge = structured_merge(self.body, then_i, else_i).ok_or_else(|| {
-                        unmappable(
-                            "ext-control-flow",
-                            "图形扩展白名单仅支持结构化 if(分支须收敛于唯一 merge 块;\
-                             提前 return 不在面内)",
-                        )
-                    })?;
+                    // 回边表恒空:本路 `has_cycle` 预扫描恒拒循环(RXS-0301 L3
+                    // 负面清单),CFG 无环 → 与传参前字节位级等义。
+                    let merge = structured_merge(self.body, then_i, else_i, &Default::default())
+                        .ok_or_else(|| {
+                            unmappable(
+                                "ext-control-flow",
+                                "图形扩展白名单仅支持结构化 if(分支须收敛于唯一 merge 块;\
+                                 提前 return 不在面内)",
+                            )
+                        })?;
                     let merge_lbl = self.block_label[&merge];
                     let then_lbl = self.block_label[&then_i];
                     let else_lbl = self.block_label[&else_i];

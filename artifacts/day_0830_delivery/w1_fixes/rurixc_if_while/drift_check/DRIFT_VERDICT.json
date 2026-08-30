@@ -1,0 +1,17 @@
+﻿{
+    "both_fail":  8,
+    "byte_diff":  0,
+    "rc_mismatch":  0,
+    "total":  98,
+    "note":  "pre/post 两态 target\\debug\\rurixc.exe(--features vulkan-backend)各编 src/rurix-render/kernels + src/rurix-rt/kernels 全部 98 个 .rx 到 .tmp\\ifwhile_drift\\{pre,post};90 个编译成功者 SPV SHA256 位级全同,8 个两态对称失败(PTX 专用/独立编译面外,与本修复无关);冻结 SPV 文件零触碰",
+    "both_fail_list":  [
+                           "rurix-rt/scan.rx",
+                           "rurix-rt/sr_tonemap.rx",
+                           "rurix-rt/reduce.rx",
+                           "rurix-rt/sr_raster_tile.rx",
+                           "rurix-rt/gemm_tile.rx",
+                           "rurix-render/g31_rt_slab_hit.rx",
+                           "rurix-rt/sr_binning.rx",
+                           "rurix-rt/transpose.rx"
+                       ]
+}

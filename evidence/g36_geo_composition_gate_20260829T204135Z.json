@@ -1,0 +1,219 @@
+{
+  "schema": "rurix.g36.geo_composition_gate_evidence.v1",
+  "gate": "g36.wave1.geo_composition",
+  "verdict": "PASS",
+  "facts": [
+    {
+      "id": "builds_green",
+      "status": "PASS"
+    },
+    {
+      "id": "packs_deterministic",
+      "status": "PASS"
+    },
+    {
+      "id": "single_open_zero_drift",
+      "status": "PASS"
+    },
+    {
+      "id": "combined_leafxfull_bitexact",
+      "status": "PASS"
+    },
+    {
+      "id": "combined_mixed_deterministic",
+      "status": "PASS"
+    },
+    {
+      "id": "dyn_skin_composition",
+      "status": "PASS"
+    },
+    {
+      "id": "g34_five_feature_leafxfull",
+      "status": "PASS"
+    },
+    {
+      "id": "g34_mixed_host_parity",
+      "status": "PASS"
+    },
+    {
+      "id": "hzb_six_feature_culling",
+      "status": "PASS"
+    },
+    {
+      "id": "particles_oit_geo_deterministic",
+      "status": "PASS"
+    }
+  ],
+  "scene": "bistro-interior",
+  "tier": 100,
+  "packs": {
+    "rxcp_sha256": "e1c6dbca1eca3160e1051cbdc1fea90149de3ac3d937dea2c33a68b86e241700",
+    "rxcp_double_build_equal": true,
+    "rxwh_sha256": "b1ee7b2fd6457cb2eadff503c1a9b89cd370651f33c5748e3dbc211eece61e24",
+    "rxwh_double_build_equal": true
+  },
+  "single_open": {
+    "off_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "leaf_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "wpfull_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "bitexact": true
+  },
+  "combined": {
+    "leafxfull_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "leafxfull_bitexact": true,
+    "mixed": {
+      "wp_threshold_l0": 0.25,
+      "cluster_error_px": 4.0,
+      "identity_tris": 236894,
+      "coarse_tris": 11524,
+      "coarse_clusters": 1901,
+      "straddle_clusters": 79,
+      "straddle_fallback_tris": 3270,
+      "wp_proxy_tris": 388975,
+      "out_tris": 637393,
+      "src_tris": 1046609,
+      "digest_a": "sha256:25e69de807ab119e74bc9fb76e8f15454111acfd253795a6910877ef010b2d23",
+      "digest_b": "sha256:25e69de807ab119e74bc9fb76e8f15454111acfd253795a6910877ef010b2d23",
+      "deterministic": true
+    }
+  },
+  "dyn_skin": {
+    "cluster_dyn_pass": true,
+    "cluster_skin_pass": true
+  },
+  "g34_lane": {
+    "base_digest_seq_sha": "sha256:908726f303b8b2d77738d3318abfaa8a86d18bb664f5a4604595f43eaf90f937",
+    "leafxfull_digest_seq_sha": "sha256:908726f303b8b2d77738d3318abfaa8a86d18bb664f5a4604595f43eaf90f937",
+    "five_feature_seq_equal": true,
+    "host_parity": {
+      "p100": 0.0002599419,
+      "tol": 0.0007937318,
+      "in_tol": true,
+      "source": "milestones/g34/g34_budget.json g34.unified_lane.host_parity_tol（冻结容差程序读禁手写）"
+    },
+    "hzb": {
+      "regrouped_nodes": 337,
+      "occluded_p1": 58,
+      "pyramid_parity_witnessed": true
+    }
+  },
+  "particles": {
+    "oit": "wboit",
+    "tier": 50,
+    "digest_a": "sha256:860e8cfb56f749309ff609437bed728c870b5849ee80cd76fd85036f5f0fbb6b",
+    "digest_b": "sha256:860e8cfb56f749309ff609437bed728c870b5849ee80cd76fd85036f5f0fbb6b",
+    "deterministic": true,
+    "out_tris": 617026
+  },
+  "windowed_items": [
+    "FIF×动态（--inflight ≥2 × tlas_update/blas_refit）留窗：RFC-0030 §4.3 L2 定义 TLAS instance buffer / BLAS 顶点缓冲为共享 host 写面（在飞帧 ray query 读取中不可改写）——真修复 = 每槽实例/TLAS 副本 + 每槽 AS 描述符集 + provenance 逐槽 AS 代追踪,触冻结确定性协议面须 RFC 修订行（TODO #90 字面维持,如实拒跑不冒充）",
+    "FG 组合（--fg × geo/纹理/slab/HZB）留窗：G34 契约 out-of-scope「FG/MFG 合流归后续波不预支」字面管辖（active 契约越权即违规）;g31_window_present --fg 臂维持既有闭集（冻结 bin,五门回归锚）",
+    "HZB×蒙皮同车道留窗：G34-2/G34-3 并行分区面——合并需新 kernel（g34_unified_primary/shade 掩码双 TLAS × gi_skin hit 通道/蒙皮分派合体）+ host 金标准扩面,归后续波;g14_3 MegaSkin×cluster/wp 组合已在本门 ⑥ 验证",
+    "#96 代理属性保持简化留窗：粗簇/cell 代理三角 tritex 强制 −1 走常量面回退（cluster/cell 面积加权均值;UV/法线经 QEM 属性保持简化后方可贴图采样——meshopt simplifyWithAttributes 族评估窗）",
+    "逐帧 device cut→AS 更新留窗（#77/#89 合流窗）：出帧几何冻结于装配期契约相机 cut/选层（g31 车道同纪律,统计 sidecar 如实登记不冒充逐帧 Nanite）",
+    "g31_window_present 闭集互斥维持（冻结 bin = 五门回归锚）：其 --cluster-lod/--wp-hlod × --hzb/--textures/--slab-table 互斥字面不回写,组合面由 g34_full_lane（窗口）/ g14_3_pipeline_perf（bench）/ g35_particle_lane（粒子）承载"
+  ],
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-render --features vendor-upscale --bin g14_3_pipeline_perf --bin g34_full_lane --bin g35_particle_lane --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g31_cluster_lod_bake --bin g31_wp_hlod_bake --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --dump-scene --scene bistro-interior --out H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcs",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g31_cluster_lod_bake.exe --scene-dump H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcs --out H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --double-build",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g31_wp_hlod_bake.exe --scene-dump H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcs --out H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh --cell-size 4.0 --levels 4 --double-build",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\off",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\leaf --cluster-lod leaf --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\wpfull --wp-hlod full --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\leafxfull --cluster-lod leaf --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod full --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\mixed_a --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\mixed_b --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\cl_dyn --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --dyn-demo refit",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 100 --warmup 10 --out-root H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\cl_skin --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --skin-demo",
+      "exit_code": 0
+    },
+    {
+      "seq": 14,
+      "command": "H:\\rurix\\target\\release\\g34_full_lane.exe --frames 12 --warmup 2 --tier 100 --full --slab-table H:\\rurix\\milestones\\g31\\g31_slab_side_table_bistro_interior.json --auto-move orbit --hidden --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g34_base.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 15,
+      "command": "H:\\rurix\\target\\release\\g34_full_lane.exe --frames 12 --warmup 2 --tier 100 --full --slab-table H:\\rurix\\milestones\\g31\\g31_slab_side_table_bistro_interior.json --auto-move orbit --hidden --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g34_leafxfull.json --cluster-lod leaf --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod full --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 16,
+      "command": "H:\\rurix\\target\\release\\g34_full_lane.exe --frames 12 --warmup 2 --tier 100 --full --slab-table H:\\rurix\\milestones\\g31\\g31_slab_side_table_bistro_interior.json --auto-move orbit --hidden --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g34_mixed.json --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 17,
+      "command": "H:\\rurix\\target\\release\\g34_full_lane.exe --frames 12 --warmup 2 --tier 100 --full --slab-table H:\\rurix\\milestones\\g31\\g31_slab_side_table_bistro_interior.json --auto-move orbit --hidden --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g34_hzb_mixed.json --hzb on --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 18,
+      "command": "H:\\rurix\\target\\release\\g35_particle_lane.exe --frames 24 --warmup 4 --tier 50 --particles on --oit wboit --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g35_geo_a.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 19,
+      "command": "H:\\rurix\\target\\release\\g35_particle_lane.exe --frames 24 --warmup 4 --tier 50 --particles on --oit wboit --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g35_geo_b.json",
+      "exit_code": 0
+    }
+  ],
+  "notes": [
+    "W1 provenance 事实源：TriProvenance（Src|簇粗代理|cell 代理）+ geo_rebuild 统一重建 + 侧表 gather（UV 位保真/代理 tritex 强制 −1 常量面回退）+ regroup_nodes 节点段重导出（AABB 自重建几何精确重算）;选层机核抽取共用（cluster_lod_select/wp_hlod_select）,单开路径 0-语义漂移由本门 ③ 三臂 digest 机核",
+    "W2 组合语义：WP cell 互斥选层先行 → Full 域内簇 cut → 组共享多父 DAG 下粗簇集合化判定（⊆F 出帧/跨界叶级回退差集化/全外域归 cell 代理）;覆盖机核（identity 恰一次 + identity×粗簇域零交叠 + ≡ F 恰等）bin 内嵌 fail-closed",
+    "光线/材质/质感机核：g34 host 金标准对拍（贴图双线性×〔mod×R_slot〕/常量×R_slot/代理常量回退两臂同一补丁后数组）≤ 冻结容差;HZB 金字塔 host/device 位级 + 零假阳性;动态位置核验/蒙皮逐顶点位级/MV 三类硬门维持",
+    "出帧几何冻结于装配期契约相机 cut/选层（#77/#89 合流窗）;粗簇级源覆盖多父可重叠为 DAG 冻结语义（与单开 on 模式同信任基,EXR diff 门在案）,组合面新增双绘由覆盖机核拒绝"
+  ]
+}

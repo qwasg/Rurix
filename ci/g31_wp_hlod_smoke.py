@@ -402,6 +402,7 @@ def main() -> int:
                     rw = run_cmd([
                         str(window), "--frames", str(args.window_frames), "--warmup", "2",
                         "--tier", "100", "--headless-smoke", "--auto-move", "dolly",
+                        "--quality", "off",  # W4 默认翻转免疫:wp-hlod 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
                         "--wp-hlod", "on", "--wp-threshold-l0", str(t0),
                         "--wp-warmup", str(WARMUP_FRAMES),
                     ] + pack_args + [
@@ -500,6 +501,7 @@ def main() -> int:
                 for arm in RED_ARMS:
                     ra = run_cmd([
                         str(window), "--frames", "2", "--tier", "100", "--headless-smoke",
+                        "--quality", "off",  # W4 默认翻转免疫:RED 臂须走 wp 检出路径而非 full 互斥 fail（DEFAULT_FLIP_PLAN §2.5）
                         "--wp-hlod", "on", "--wp-red-arm", arm,
                     ] + pack_args, timeout=1800, env=env)
                     red_rcs[arm] = ra.returncode

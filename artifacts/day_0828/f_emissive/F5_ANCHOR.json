@@ -1,0 +1,5 @@
+{
+ "schema": "rurix.day0828.f_emissive.f5_anchor.v1",
+ "window_full_ten_arm_32f": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+ "note": "--quality full = 十臂（九臂 + --emissive-tex on）;旧九臂 full 锚 9e5f6300 作废登记"
+}

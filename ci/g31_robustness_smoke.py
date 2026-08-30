@@ -184,7 +184,8 @@ def run_probe_arm(spec: str, env_extra: dict[str, str]) -> dict:
     r = run_harness(
         [
             str(BIN), "--frames", str(PROBE_FRAMES), "--warmup", str(PROBE_WARMUP),
-            "--hidden", "--fault-probe", spec,
+            "--hidden", "--quality", "off",  # W4 默认翻转免疫:fault 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
+            "--fault-probe", spec,
         ],
         env_extra=env_extra,
     )
@@ -251,6 +252,7 @@ def run_gate() -> int:
         t0 = time.time()
         r = run_harness([
             str(BIN), "--frames", "64", "--warmup", "4",
+            "--quality", "off",  # W4 默认翻转免疫:本腿语义 = C4 前行为逐字节等价基线（off 形态,DEFAULT_FLIP_PLAN §2.5）
             "--auto-move", "orbit", "--hidden", "--evidence", str(BASELINE_EVIDENCE),
         ])
         wall = time.time() - t0
@@ -286,7 +288,8 @@ def run_gate() -> int:
         r = run_harness([
             str(BIN), "--window-storm", str(STORM_BURST_OPS),
             "--frames", str(STORM_BURST_FRAMES), "--warmup", "4",
-            "--hidden", "--evidence", str(STORM_EVIDENCE),
+            "--hidden", "--quality", "off",  # W4 默认翻转免疫:storm 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
+            "--evidence", str(STORM_EVIDENCE),
         ])
         wall = time.time() - t0
         out = r.stdout + r.stderr
@@ -320,6 +323,7 @@ def run_gate() -> int:
         r = run_harness([
             str(BIN), "--storm-soak", str(SOAK_FAULT_PERIOD),
             "--frames", str(SOAK_FAULT_FRAMES), "--warmup", str(SOAK_FAULT_WARMUP),
+            "--quality", "off",  # W4 默认翻转免疫:storm-soak 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
             "--auto-move", "orbit", "--hidden", "--evidence", str(SOAK_EVIDENCE),
         ], timeout=7200)
         wall = time.time() - t0

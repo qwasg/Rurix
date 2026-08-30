@@ -158,4 +158,32 @@ G-G35-1~G-G35-10 逐字见 front matter `acceptance_gates`。性能/对拍面证
 
 > 结构预期（收口验收批按 G31/G34 契约 §8 行文范式只追加填写）：① 守卫套件七条全跑 → ② 九门新鲜复跑 → ③ 零降级回归锚三面 → ④ soak 登记面 → ⑤ 编号纪律实测 → ⑥ RFC-0049 Agent Approved 核验 → ⑦ 签署。
 
+### §8.1 收口验收记录（2026-08-27 收口验收批,只追加）
+
+**① 守卫套件七条全跑 exit 0**（2026-08-27 收口批新鲜真跑）：check_structure / check_schemas / check_number_ledger / check_guardrails / check_contribution / trace_matrix --check / budget_eval 全部退 0；budget_eval **329 pass, 0 skip**（g35 命名空间 7 条容差条目全 measured 程序产零 estimated：g35.particle_core.f32_parity_p100=0.0〔NoContraction 注入 sim+emit 后 f32 位级〕/ g35.collision.parity_p100=1.004338e-05〔RT core t 值 ULP 级〕/ g35.events.parity_p100=0.0 / g35.fluids.parity_p100=7.324219e-03〔单帧注入协议〕/ g35.render.mv_parity_px / g35.oit.parity_p100=0.0 / g35.oit.wboit_acc_tol=0.0——threshold = measured × 2.0 各门标定腿程序写入）。
+
+**② 九门真跑全 PASS + selftest 新鲜复跑 9/9 退 0**（真跑 = 2026-08-27 验收批当日串行经 gpu_device_lock;selftest = 收口批新鲜复跑）：
+
+| 门 | verdict | evidence |
+|---|---|---|
+| g35.wave1.primitives | PASS 8/8 | evidence/g35_primitives_gate_20260827T103626Z.json（scan/sort/compact 整数域零容差位级 + 稳定序 + 双跑位级 + tamper 红臂 812 槽检出） |
+| g35.wave2.particle_core | PASS 8/8 | evidence/g35_particle_core_gate_20260827T103639Z.json（五整数流 64 帧位级 + **f32 全流 p100=0.0 位级** + pid 持久唯一 + indirect args 零回读恒等式） |
+| g35.wave3.render | PASS 9/9 | evidence/g35_render_gate_20260827T122240Z.json（off 面 == Stage A 锚 c1d28ad7… 位级 + 粒子 MV 对拍 max_err=0.0px ≤ 2px〔#81 兑现〕+ 遮挡见证 + DispatchSpec::Indirect 零回读 + 屏障计划机核审计;**首跑 FAIL 件 g35_render_gate_20260827T115018Z.json 按 append-only 留存**——根因 = 执行器屏障幂等去重 × 全 RW 计划 ⇒ 粒子 pass 间零屏障竞争,修法 = 计划改 StorageWrite 强制真屏障对 + 全缓冲零初始化,全 bin 局部共享体 0-byte） |
+| g35.wave4.sort_oit | PASS 9/9 | evidence/g35_sort_oit_gate_20260827T135322Z.json（sorted 臂位级基准 p100=0.0 + wboit 定点累加整数差=0 饱和事件 0 + 近远见证 changed_px=10 + 三臂 digest 两两互异 + --oit off == 缺省位级 + #13 评估窗 re-trigger 登记消费;t100 tile 键域越界诚实冻结 --tier 50 门腿） |
+| g35.wave5.collision | PASS 8/8 | evidence/g35_collision_gate_20260827T113120Z.json(同帧见证首异帧==突移帧 32 + Niagara 一帧延迟模型对照臂 + 降级链 typed 退出码 3/2 + parity p100=5.02e-06) |
+| g35.wave6.events | PASS 8/8 | evidence/g35_events_gate_20260827T113510Z.json（溢出稳定裁剪如实登记〔pushed 1200/kept 1024/overflow 176〕+ 双源发射位级 + GPU 二次发射零回读 51 帧/47052 粒 + particle_view 桥 roundtrip 位级 15707 粒） |
+| g35.wave7.fluids | PASS 8/8 | evidence/g35_fluids_gate_20260827T114153Z.json（邻居结构五整数流 32 帧位级 + floor/clamp 语义 26036 事件见证 + XPBD p100=3.66e-03 入预算 + 密度残差 0.41→0.022 登记;自由跑协议不可达〔device sqrt 非正确舍入 ULP × 混沌域 Lyapunov 放大〕→ 单帧 host 状态注入协议冻结,如实登记于 evidence parity_protocol） |
+| g35.wave8.authoring | PASS 8/8 | evidence/g35_authoring_gate_20260827T121831Z.json（资产十字段 fail-closed 10/10 + 热重载 pid 连续 46831 粒核验 + SDK 四冻结签名 dumpbin 4 新+9 既有 + stable_snapshot --check exit 0〔用户面 ABI 1.0.0 零破坏机器证明;MINOR 1.1.0 薄转发归后续批,API_VERSIONING.md §6 登记〕） |
+| g35.wave9.replay | PASS 8/8 | evidence/g35_replay_gate_20260827T122849Z.json（journal 344B 重放逐帧位级〔首异帧=-1〕+ 检查点 k=16 回滚重仿真 33 帧 digest[48] 位级 + **篡改帧 32 首异帧精确==32 分歧可定位见证** + 回放链尾 digest 与 G35-2 门链尾一致 = 跨波确定性互核） |
+
+**③ 零降级回归锚三面 PASS**：evidence/g31_wave_a_anchor_check_20260827T125042Z.json——Stage A digest **18/18 canonical 160 帧重跑零漂移** + 焦点格 bistro-interior_t100_dlss_sr fresh ratio **0.991676 ≥ 在案 0.960479**（维持不恶化）+ 五门 evidence 5/5 在档。G35 全期对冻结生产车道**零回归**的机器证明。
+
+**④ soak 登记面**：粒子车道 `--particles on --auto-move orbit` **5010 帧零崩**（RURIX_VK_VALIDATION=1 全程 **VUID 输出 = 0** 静默）,render 均值 64.943ms / 粒子 10 pass GPU 段 8.527ms / 活跃粒子 ~10k 稳态,presented digest sha256:543cd3f0…;harness 件 .tmp/g35_gates/soak/soak_5000.json（登记面无新硬门,G-G35-10 字面）。
+
+**⑤ 编号纪律实测**（收口批 ledger 实测）：CI_step next_free = **525 维持**（九门全 symbolic gate key 未占号）/ RFC next_free = 50（RFC-0049 已 materialize）/ RD next_free = 46（本期零新 RD——F6 pid epoch 走 §9 Q5 重判登记）/ D 共享段零消费。evidence 前缀族 g35_primitives_/g35_particle_core_/g35_render_/g35_sort_oit_/g35_collision_/g35_events_/g35_fluids_/g35_authoring_/g35_replay_ 九路由全部经 _patch_g35_*_schemas.py 三处纯追加驻留 check_schemas（分岔分析 CI_GATES.md §3）。
+
+**⑥ RFC-0049 Agent Approved 核验**：2026-08-27 D-409 一轮 17 findings（5 blocker + 11 high + 1 med）全 disposition（评审 provenance cursor:gpt-5.6-sol-medium ≠ 起草 cursor:claude-fable-5,rfcs/0049 §9.1）后 Agent Approved;§9 Q5（pid epoch 扩宽）重判登记在案;capability_matrix **第七链 particles 加性登记兑现**（gpu_particles→off 主链 + 碰撞臂 ray_query→depth_buffer→off,六链冻结闭集 0-byte 有单测互核,G-G35-10 capability_chain_registered 字面）。
+
+**⑦ 签署**：G-G35-1 ~ G-G35-10 十门全兑现,G35「GPU 粒子系统期」收口。五轴超越验证矩阵全部以机器事实兑现：确定性（九门 determinism_double_run 全位级 + journal 回放/回滚位级 + 首异帧可定位——Niagara GPU sim 结构性做不到）/ 光追集成（ray query 同帧碰撞见证 vs 一帧延迟对照 + mesh 粒子 TLAS 臂 N=1）/ 规模（容量可寻址 1M,吞吐 measured 登记,spine 串行瓶颈如实单列）/ 流体统一物理（count-sort 空间哈希位级 + XPBD 入预算）/ 数据驱动作者面（资产 fail-closed + 热重载 pid 连续 + SDK 加性 ABI 零破坏）。Assisted-by: cursor:claude-fable-5（起草/实现/收口）+ cursor:gpt-5.6-sol-medium（D-409 对抗评审）。
+
 （本区由 G35 收口验收批只追加填写——七守卫/九门复跑/三锚/soak 实测 facts）

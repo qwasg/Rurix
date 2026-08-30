@@ -1,0 +1,32 @@
+{
+ "schema": "rurix.a2.autoexp.curve_analysis.v1",
+ "on": {
+  "file": "luma_on.json",
+  "auto_exposure": true,
+  "frames_total": 250,
+  "first_mean": 0.39680867,
+  "final_mean": 0.40047103,
+  "post_warmup_min": 0.37554305,
+  "post_warmup_max": 0.40063874,
+  "max_frame_step_rel": 0.0042112487108711665,
+  "oscillation_gt_10pct_frames": 0
+ },
+ "off": {
+  "file": "luma_off.json",
+  "auto_exposure": false,
+  "frames_total": 250,
+  "first_mean": 0.13016992,
+  "final_mean": 0.13025406,
+  "post_warmup_min": 0.12515349,
+  "post_warmup_max": 0.13105901,
+  "max_frame_step_rel": 0.0040508700548932955,
+  "oscillation_gt_10pct_frames": 0
+ },
+ "checks": {
+  "no_oscillation_gt_10pct": true,
+  "final_mean_in_band_0p25_0p55": true,
+  "band_full_curve": true,
+  "brighter_than_off": true
+ },
+ "verdict": "PASS"
+}

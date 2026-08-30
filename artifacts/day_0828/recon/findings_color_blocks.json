@@ -1,0 +1,38 @@
+{
+ "schema": "rurix.day0828.recon.color_block_attribution.v1",
+ "date": "2026-08-28",
+ "method": "只读侦察：material_census.py（glTF 材质普查 + DDS mip0 均值镜像 dds_mean_linear_rgb L1303）+ raycast_probe.py/blue_scan.py（契约相机 CPU Möller–Trumbore 逐像素归因,1,046,609 tri）+ probe_pixels.py（tex_on/off raw 像素取证）",
+ "blue_rectangle": {
+  "verdict": "(c) 其他：窗口车道（g31_window_present）对暖色自发光材质的显示异常——非均值 albedo 马赛克、非蓝色 Le",
+  "material_index": 40,
+  "material_name": "Paris_CeilingFan",
+  "tris": 9288,
+  "tris_rank": 28,
+  "in_top12": false,
+  "dds": "Paris_CeilingFan_BaseColor.dds 2048x2048 BC1 mips=12（暖棕,均值 0.0906/0.0465/0.0261）",
+  "contract_le": [0.02230393520866327, 0.01585528684005825, 0.0066437204704917815],
+  "contract_ref": "milestones/g13/g13_ue_upscale_parity_contract.json L103-106（emissive_materials[2] 暖橙）",
+  "evidence": {
+   "raycast": "blue_scan.py：bloom_off.raw（静态契约相机）饱和蓝 2338 px,主簇 x[1348,1686] y[0,197],抽样 41/41 全部命中 material 40",
+   "exr_lane_correct": "quality_base converged.exr @(1500,12) = (0.3569,0.2537,0.1063) 线性 = Le×2^4 精确（暖色正确;presentation_night.png 呈米黄扇叶）",
+   "window_lane_wrong": "bloom_off.raw 同像素 BGRA 字节 [170,62,0] → 显示 (R0,G62,B170) 饱和蓝;墙面等非发光区两车道色相一致 ⇒ 非全局通道交换",
+   "kernel_checked": "g14_3_direct_gi.rx L310-312 emission 读序正确（mats[mb+3..5]）;g31_display_encode.rx = ACES 1.3 RRT+ODT 忠实实现,无法把暖橙翻成饱和蓝;g14_8_tsr_resolve.rx YCoCg 变换数学正确",
+   "scene_kernel_difference": "窗口车道 spv_scene=g14_3_direct_gi.spv(970e13b9,tex_on_ev.json);夜巡 --render 臂 = g18_light_transport_depth.spv(ddb8bce7,quality_base render_receipt.json L17)——树上无 g14_3_direct_gi 的 EXR 产物可切分,翻转级位(场景数据/TSR输入/编码输入)未钉死"
+  },
+  "texture_arm_effect": "tex_on vs tex_off 该区域位级一致（region mean 完全相等,probe_pixels.py）——纹理臂无法修复：发光项 lo=emission 无条件注入（kernel L310-312）,与 baseColor 图集无关;且 mat40 rank28 不在 top-12",
+  "followup": "GPU 日修复窗:RURIX_G31_DUMP_F32=1 环境变量已有 TEMP f32 dump（g31_window_present.rs L6606-6614）,对扇叶像素 dump TSR 输出定位翻转级位",
+  "second_shape_note": "同簇内长斜条+T 形均为吊扇几何（扇叶+吊杆/电机罩）;左上角另一小簇 x[66,76] 为远处第二只吊扇"
+ },
+ "red_blob": {
+  "verdict": "(a) 均值 albedo 马赛克——纹理臂能修,但三材质全部不在 top-12,现 top-12 臂修不到",
+  "materials": [
+   {"index": 51, "name": "Paris_Paintings", "tris": 90, "rank": 56, "role": "画布本体（模糊红色圆斑主体）", "mean_albedo_effective": [0.1599, 0.0938, 0.0591], "dds": "Paris_Paintings_BaseColor.dds 2048² BC1 mips=12（真实画作内容）"},
+   {"index": 50, "name": "Paris_Painting_Metal", "tris": 6500, "rank": 34, "role": "鎏金画框", "mean_albedo_effective": [0.2079, 0.1605, 0.1192]},
+   {"index": 27, "name": "MASTER_Interior_01_Plaster_Red", "tris": 524, "rank": 50, "role": "红墙裙/红灰泥（周边红晕）", "mean_albedo_effective": [0.1353, 0.0405, 0.0299]}
+  ],
+  "evidence": "raycast_probe.py 右墙探针:(1700,380)/(1750,350)/(1820,340) → mat51;(1800,300) → mat50;(1650,356)/(1750,190) → mat27;两车道该区域色相一致（窗口 (32,21,23) vs EXR (0.0025,0.0015,0.0009) 同为红棕）= 正常渲染的均值色块",
+  "texture_arm_effect": "tex_on vs off 该区域基本不变（mean 17.8/13.0/13.0 vs 18.0/13.4/13.5,差异来自邻近 top-12 桌椅上纹理生效）;画/框/红墙全部 rank>12 未映射——全覆盖后可修（画布 DDS 为真实画作纹理）",
+  "related": "红帘 curtainB1(mat14, 26252 tri) = rank 13,恰好被 top-12 切掉,饱和红均值 (0.138,0.015,0.008)——若圆斑实为帘布,同属全覆盖可修面"
+ },
+ "census_validation": {"tris_total": 1046609, "top12_tris": 697878, "matches_tex_on_ev": true}
+}

@@ -27,7 +27,12 @@ PBRT_EXE = ROOT / "external/pbrt-v4/build/Release/pbrt.exe"
 IMGTOOL_EXE = ROOT / "external/pbrt-v4/build/Release/imgtool.exe"
 WORK_DIR = ROOT / ".tmp/g12_gates/pt_prod"
 HARNESS_EVIDENCE = WORK_DIR / "harness_evidence.json"
-G12_ZERO_BASE = "5ae83aa7"  # G12.0 不可变 ref（契约 §7 登记）
+# G37 收官战役卫兵基线升级(day_0829 HANDOVER §G.4 兑现):path_trace.rs 自
+# G12.0 ref 5ae83aa7 后经三次主线合法提交演进(526d4c4e G12.2 / 5388c30f G12.3 /
+# 058f8e68 G31+ 合流),旧基线致卫兵必红;新不可变点 = 058f8e68(升级时点
+# git diff 058f8e68 HEAD -- path_trace.rs + band 双 0-byte 机核在案),其后
+# 纯追加 prod 守护语义不变。PT 功能面完好(selftest PASS + M158 device 14/15)。
+G12_ZERO_BASE = "058f8e68"  # 不可变 ref 谱系:5ae83aa7(G12.0)→058f8e68(G31+ 合流后新基线)
 
 sys.path.insert(0, str(ROOT / "ci"))
 from gpu_device_lock import gpu_device_lock  # noqa: E402,F401
@@ -188,10 +193,10 @@ def harness_args(cal: dict, gate: str, spv: Path) -> list[str]:
 
 
 def m96_frozen_surface_unchanged() -> tuple[bool, str]:
-    """vs G12.0 不可变 ref:m96 容差带/m96 参照器既有面 0-byte。
+    """vs 不可变基线 ref(G12_ZERO_BASE,现 = 058f8e68):m96 容差带/参照器既有面 0-byte。
 
-    path_trace.rs 唯一合法差分 = G12.2 子模块注册块(纯追加行,全部含
-    `prod` 字面;既有行零删除零改写)。"""
+    path_trace.rs 唯一合法差分 = 子模块注册块(纯追加行,全部含
+    `prod` 字面;既有行零删除零改写)。基线谱系见 G12_ZERO_BASE 注释。"""
     r = run(["git", "diff", "--name-only", G12_ZERO_BASE, "--",
              "milestones/g9/g9_m96_pbrt_tolerance_band.json",
              "src/rurix-render/src/gi/path_trace.rs"])

@@ -1,0 +1,23 @@
+{
+ "schema": "rurix.a2b.ae_curve_retest.v1",
+ "caliber": "六臂组合 + --auto-move dolly --frames 240 --present-luma-out（A2 验证面同口径,v2 修复 SPV）",
+ "frames_total": 250,
+ "warmup": 10,
+ "first_mean": 0.33821514,
+ "final_mean": 0.3356209,
+ "min_mean": 0.327429,
+ "max_mean": 0.34861953,
+ "max_frame_step_rel": 0.005131727950380923,
+ "oscillation_gt_10pct_frames": 0,
+ "final_in_wide_band_0p2_0p6": true,
+ "a2_prefix_reference": {
+  "on": {
+   "first": 0.3968,
+   "final": 0.4005,
+   "min": 0.3755,
+   "max": 0.4006,
+   "max_step": 0.0042
+  },
+  "note": "A2 在 bug SPV 下的在案曲线（bug 系统性提亮暗部 ⇒ 修复后同 gain 下 presented mean 预期下移,如实登记非回归）"
+ }
+}

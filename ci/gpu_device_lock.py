@@ -47,6 +47,57 @@ else:  # pragma: no cover - 本仓 CI/本机均 Windows;POSIX 仅为可读性兜
 LOCK_PATH = Path(tempfile.gettempdir()) / "rurix-gpu-device.lock"
 _SENTINEL = b"rurix-gpu-device-lock v1\n"
 
+# G37 收官战役健壮性补面(day_0828 HANDOVER §7 兑现):
+# ① 解锁/写回段偶发 PermissionError → 有限重试,终败不抛(锁随句柄 close 释放);
+# ② stale holder:持有者 pid 已死但锁仍不可得(句柄泄漏面)→ 宽限期后回收锁文件。
+_UNLOCK_RETRIES = 3
+_UNLOCK_RETRY_S = 0.2
+_STALE_GRACE_S = 30.0
+
+
+def _pid_alive(pid: int) -> bool | None:
+    """Windows 下判定 pid 是否存活;非 win32 或探测失败返回 None(不可判)。"""
+    if sys.platform != "win32" or pid <= 0:
+        return None
+    try:
+        import ctypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.windll.kernel32
+        h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if not h:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if kernel32.GetExitCodeProcess(h, ctypes.byref(code)):
+                return code.value == STILL_ACTIVE
+            return None
+        finally:
+            kernel32.CloseHandle(h)
+    except Exception:
+        return None
+
+
+def _holder_line(fh) -> str:
+    """读锁文件末行持有者自述(失败返回空串,只作提示不作判据)。"""
+    try:
+        fh.seek(0)
+        lines = fh.read().decode("utf-8", errors="replace").splitlines()
+        for line in reversed(lines):
+            if line.startswith("holder pid="):
+                return line.strip()
+    except OSError:
+        pass
+    return ""
+
+
+def _holder_pid(holder: str) -> int:
+    try:
+        return int(holder.split("pid=")[1].split()[0])
+    except (IndexError, ValueError):
+        return -1
+
 # 进程内互斥层:msvcrt.locking 仅对同一句柄同区域重锁报错;跨 open(同进程)
 # 反而立即成功 = 不互斥,必须自兜。acquire()=阻塞、acquire(False)=非阻塞试锁。
 _PROCESS_LOCK = threading.Lock()
@@ -99,6 +150,7 @@ def gpu_device_lock(
             fh.write(_SENTINEL)
             fh.flush()
         waited = 0.0
+        stale_since: float | None = None
         while True:
             try:
                 if msvcrt is not None:
@@ -113,35 +165,91 @@ def gpu_device_lock(
                         f"[gpu_device_lock] FAIL: {timeout_s}s 内未得锁(purpose={purpose!r});"
                         f"锁文件 {path} 被其它进程持有——编排者须排 device 时刻表"
                     )
+                # stale holder 检测:持有者 pid 明确已死仍拿不到锁(句柄泄漏面)
+                # → 宽限 _STALE_GRACE_S 后回收锁文件重建。pid 复用/不可判一律不回收。
+                holder = _holder_line(fh)
+                hpid = _holder_pid(holder)
+                alive = _pid_alive(hpid) if hpid > 0 else None
+                now = time.monotonic()
+                if alive is False:
+                    if stale_since is None:
+                        stale_since = now
+                        if not quiet:
+                            print(
+                                f"[gpu_device_lock] holder pid={hpid} dead but lock busy;"
+                                f" grace {_STALE_GRACE_S:.0f}s before reclaim",
+                                flush=True,
+                            )
+                    elif now - stale_since >= _STALE_GRACE_S:
+                        try:
+                            fh.close()
+                            path.unlink()
+                            if not quiet:
+                                print(
+                                    f"[gpu_device_lock] RECLAIM stale lock (dead holder pid={hpid}):"
+                                    f" {path} removed and recreated",
+                                    flush=True,
+                                )
+                        except OSError as e:
+                            if not quiet:
+                                print(
+                                    f"[gpu_device_lock] reclaim failed ({e!r}); keep waiting",
+                                    flush=True,
+                                )
+                        fh = open(path, "r+b") if path.exists() else open(path, "w+b")
+                        fh.seek(0, os.SEEK_END)
+                        if fh.tell() == 0:
+                            fh.seek(0)
+                            fh.write(_SENTINEL)
+                            fh.flush()
+                        stale_since = None
+                else:
+                    stale_since = None
                 time.sleep(poll_s)
                 waited += poll_s
                 if not quiet and waited % 30 < poll_s:
-                    other = ""
-                    try:
-                        fh.seek(0)
-                        fh.readline()  # 哨兵行
-                        other = fh.readline().decode("utf-8", errors="replace").strip()
-                    except OSError:
-                        pass
+                    state = {True: "alive", False: "DEAD", None: "?"}[alive]
                     print(
-                        f"[gpu_device_lock] waiting {waited:.0f}s … current holder: {other or '?'}",
+                        f"[gpu_device_lock] waiting {waited:.0f}s … current holder: "
+                        f"{holder or '?'} (pid {state})",
                         flush=True,
                     )
-        # 持锁:写持有者自述(第二行;不清空文件,锁字节不失效)
-        fh.seek(0, os.SEEK_END)
-        fh.write((holder_desc + "\n").encode("utf-8"))
-        fh.flush()
+        # 持锁:写持有者自述(追加行;不清空文件,锁字节不失效)。写回失败仅提示
+        # 不致命——自述只服务等待者排障,不是互斥判据(day_0828 §7 PermissionError 面)。
+        for _ in range(_UNLOCK_RETRIES):
+            try:
+                fh.seek(0, os.SEEK_END)
+                fh.write((holder_desc + "\n").encode("utf-8"))
+                fh.flush()
+                break
+            except OSError:
+                time.sleep(_UNLOCK_RETRY_S)
         if not quiet:
             print(f"[gpu_device_lock] holder=pid:{os.getpid()} purpose={purpose!r}", flush=True)
         yield
     finally:
         if fh is not None:
+            unlock_err: OSError | None = None
+            if msvcrt is not None:
+                for _ in range(_UNLOCK_RETRIES):
+                    try:
+                        fh.seek(0)
+                        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                        unlock_err = None
+                        break
+                    except OSError as e:
+                        unlock_err = e
+                        time.sleep(_UNLOCK_RETRY_S)
             try:
-                if msvcrt is not None:
-                    fh.seek(0)
-                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
-            finally:
                 fh.close()
+            except OSError:
+                pass
+            if unlock_err is not None and not quiet:
+                print(
+                    f"[gpu_device_lock] WARN unlock retries exhausted ({unlock_err!r});"
+                    " lock released via handle close",
+                    flush=True,
+                )
         _PROCESS_LOCK.release()
         if not quiet:
             print(f"[gpu_device_lock] released purpose={purpose!r}", flush=True)

@@ -1,0 +1,147 @@
+{
+  "schema": "rurix.g34.unified_lane_gate_evidence.v1",
+  "subject": "g34_unified_lane",
+  "symbolic_gate_key": "g34.wave1.unified",
+  "wave": "G34.1",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 g34_unified_{gi,shade}.rx + spirv-val=绿；母版 tracked 双 kernel vs HEAD 0-byte=True 工作树干净=True；G31 期 untracked 四面（g31_texture_gi/g31_dyn_scene/g31_hzb_shade/g31_window_present）sha256 快照 4 件在档=True（共享车道体 = 加性扩展允许面）"
+    },
+    {
+      "id": "default_faces_bitexact_anchor",
+      "status": "PASS",
+      "detail": "缺省面 == 母版位级:--static-camera 锚格腿 render_digest sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（纹理缺省 tritex 全 −1 + 动态缺省单实例 ⇒ 全链 TSR 锚）"
+    },
+    {
+      "id": "merged_semantics_host_parity",
+      "status": "PASS",
+      "detail": "host 金标准对拍 p100=0.0003968658857047558 ≤ 冻结容差 0.0007937317714095116（g34.unified_lane.host_parity_tol 程序读）；bitexact 像素占比 29.19%（如实登记非门判据）；p50=3.637978807091713e-12 depth_p100=26.06591796875"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "--full 双跑 digest_seq 位级一致=True（74 帧）render_digest 一致=True（确定性门）"
+    },
+    {
+      "id": "dyn_position_verified",
+      "status": "PASS",
+      "detail": "动态实例位置核验 verify_frames=7 all_pass=True（A4 范式 host 投影 vs scene color 纯绿谱检测,每 10 帧 fail-closed）"
+    },
+    {
+      "id": "per_feature_digest_discrimination",
+      "status": "PASS",
+      "detail": "逐特性贡献区分:full≠关纹理=True full≠关slab=True full≠关动态=True full≠baseline=True（合并画面 ≠ 单开/全关画面属预期如实登记）"
+    },
+    {
+      "id": "stage_a_anchor_replay",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device bench 复跑:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体加性扩展 0-byte 机器证明）"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "同机同窗 measured:baseline=40.3483ms full=42.7946ms（scene_gpu=11.1142ms）；装配期一次性 tex_eval=3992.407ms slab_eval=551.105ms（单列不混帧口径）"
+    }
+  ],
+  "verdict": "PASS",
+  "kernels": {
+    "gi_spv": {
+      "path": ".tmp/g34_gates/unified/g34_unified_gi.spv",
+      "sha256": "sha256:27a1fc7e120df12847e8e756fd5798d11d2b1f90f0e7b710b184ddee1a74acb2"
+    },
+    "shade_spv": {
+      "path": ".tmp/g34_gates/unified/g34_unified_shade.spv",
+      "sha256": "sha256:5445b9f6c253a8b8e9af7304cc5ff04dac50e8bb3093082901269267b6645d20"
+    },
+    "spirv_val_gi": true,
+    "spirv_val_shade": true,
+    "mother_tracked_0byte": true,
+    "g31_era_snapshot": {
+      "src/rurix-render/kernels/g31_texture_gi.rx": "sha256:6c51b98bbc20680af5724a9f0619424806127f2e54f16e3aef65abf05138dce7",
+      "src/rurix-render/kernels/g31_dyn_scene.rx": "sha256:f4d99dd569891a32d486355c367e2f88e94a88a177b1dd94fbef7497584eefd3",
+      "src/rurix-render/kernels/g31_hzb_shade.rx": "sha256:1209d5cda7ded1519c5ba1e5fa78eabada19eb9267d4029323a76908a03cc782",
+      "src/rurix-render/src/bin/g31_window_present.rs": "sha256:bdd99eee0e92c40c8bfe3219aa86dc744e4c14a59340396dff04eda2bc5e487d"
+    }
+  },
+  "default_face_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10,
+    "spv_policy": "textures off 缺省面 = 原始 SPV 零注入（母版处置同字面）；textures on = NoContraction 注入（B4 对拍锚前提）"
+  },
+  "host_parity": {
+    "frame": 11,
+    "color_p100": 0.0003968658857047558,
+    "frozen_tol": 0.0007937317714095116,
+    "frozen_tol_entry": "g34.unified_lane.host_parity_tol",
+    "in_tol": true,
+    "bitexact_ratio": 0.2919232253,
+    "color_p50": 3.637978807091713e-12,
+    "color_mean_abs": 1.986280111360382e-08,
+    "depth_p100": 26.06591796875,
+    "host_render_ms": 3918.753
+  },
+  "determinism": {
+    "double_run_bitexact": true,
+    "frames": 74,
+    "render_digest_a": "sha256:72a80c578b852d93662c9ca35c3de6e8f0e28ffac497092485a5c34b6aab5bc2",
+    "render_digest_b": "sha256:72a80c578b852d93662c9ca35c3de6e8f0e28ffac497092485a5c34b6aab5bc2"
+  },
+  "dyn_verify": {
+    "verify_count": 7,
+    "all_pass": true,
+    "dyn_tris": 12,
+    "dyn_tri_base": 1046609,
+    "action": "refit"
+  },
+  "per_feature": {
+    "full_last_digest": "sha256:c6f8cb8217cd6a05c0b0ed953437b551d82378e07f3f058eb90d98ca4a420086",
+    "notex_last_digest": "sha256:3995f1c111b833cb8acb85fa9ecc7bcdc781c7bd3019ed069dc462aa9386ae96",
+    "noslab_last_digest": "sha256:fd1e0fdadb0b4dd9e378fd4713a3eaf2dcdf71a8ac7554b5e60f4d3e4d2ec1cf",
+    "nodyn_last_digest": "sha256:73de58308fca2a2f3d844b3e7cd69dc118f95dc3ff6efdb2d851f2d4cedd4fd6",
+    "baseline_last_digest": "sha256:8ddb82a9f0e1a15a2808f1a2ccbd34b651c84cdd242cfc126812c28c843d43ba",
+    "full_ne_notex": true,
+    "full_ne_noslab": true,
+    "full_ne_nodyn": true,
+    "full_ne_baseline": true
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "frame_ms": {
+    "baseline_mean": 40.348297,
+    "full_mean": 42.794588,
+    "full_scene_gpu_mean": 11.114192,
+    "tex_eval_ms": 3992.4075,
+    "slab_eval_ms": 551.1047,
+    "measured": "measured_local",
+    "frames_per_run": 64
+  },
+  "harness_evidence": [
+    "evidence\\g34_unified_lane_anchor_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_baseline_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_full_a_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_full_b_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_notex_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_noslab_20260829T182102Z.json",
+    "evidence\\g34_unified_lane_nodyn_20260829T182102Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81"
+  },
+  "timestamp": "20260829T182102Z",
+  "notes": "G34 全特性合流 G34-1 合流地基：kernels/g34_unified_gi.rx 统一 GI kernel（母版 g14_3_direct_gi 语义 + fork A 图集采样块 + fork B 实例分派块合一;两缺省面各自 == 母版位级——--static-camera 锚格模式全链 TSR digest == g14_3_stage_a_digest_anchor 承载,SPV 处置分叉 = textures off 原始 SPV 零注入〔母版同字面〕/ textures on NoContraction 注入〔B4 对拍锚前提〕如实登记）+ kernels/g34_unified_shade.rx 统一 shade（shade_reduce 语义 + out_depth_hz 恒输出,HZB off 写而不消费成本 measured,HZB 合流接口预留）;合并语义 = 贴图三角 采样×(mod×R_slot)/非贴图 常量×(R_slot 若 slab 映射),host 装配期预调制承载 kernel 零新增面;三特性同开真跑 = 装配期 slab/纹理 双臂对拍 + 逐帧 tlas_update refit + parity 帧 host 金标准对拍 + A4 范式动态位置核验 fail-closed + 逐特性贡献 digest 区分;HZB/FG/skin 合流归后续波（接口预留面见 kernels 头注释）。g31_window_present.rs 0-byte——其五门为回归锚。"
+}

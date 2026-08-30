@@ -347,6 +347,7 @@ def main() -> int:
                 stats_path = WORK_DIR / "window_stats.json"
                 rw = run_cmd([
                     str(window), "--frames", "24", "--warmup", "2", "--tier", "100",
+                    "--quality", "off",  # W4 默认翻转免疫:cluster-lod 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
                     "--headless-smoke", "--auto-move", "dolly",
                     "--cluster-lod", "on", "--cluster-error-px", "2.0",
                 ] + pack_args + [

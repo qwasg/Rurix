@@ -1028,6 +1028,11 @@ def check_evidence_files() -> None:
     g31_sdk_dist_schema = load(
         ROOT / "milestones/g31/g31_sdk_dist_evidence_schema.json"
     )
+    # G37 W5 渲染器 SDK 分发打包门 v2 schema 纯追加(重放幂等面;16→24 组件
+    # 冻结面版本化,v1 schema/路由 0-byte,v2 件走 g31_sdk_dist_v2_ 前缀)
+    g31_sdk_dist_v2_schema = load(
+        ROOT / "milestones/g31/g31_sdk_dist_v2_evidence_schema.json"
+    )
     # G31+ 波 C Task C4 运行时健壮性 + 故障注入门前缀纯追加（重放幂等面；与既有
     # g31_* 全族及 gpu fallthrough 互不包含）
     g31_robustness_schema = load(
@@ -1040,6 +1045,14 @@ def check_evidence_files() -> None:
     )
     g31_texture_sampling_gate_schema = load(
         ROOT / "milestones/g31/g31_texture_sampling_gate_evidence_schema.json"
+    )
+    # G37 W1 texel heap 形态判读器双 schema 纯追加（重放幂等面；加性双形态：
+    # 旧形态 schema/路由 0-byte，heap 件走 g31_texture_sampling_heap_* 前缀）
+    g31_texture_sampling_heap_schema = load(
+        ROOT / "milestones/g31/g31_texture_sampling_heap_evidence_schema.json"
+    )
+    g31_texture_sampling_heap_gate_schema = load(
+        ROOT / "milestones/g31/g31_texture_sampling_heap_gate_evidence_schema.json"
     )
     # G34 全特性合流 G34-1 统一车道门前缀纯追加（重放幂等面；gate 长前缀
     # 先匹配——g34_unified_lane_gate_ 先于 g34_unified_lane_）
@@ -1211,6 +1224,11 @@ def check_evidence_files() -> None:
     g31_blocked_probes_schema = load(
         ROOT / "milestones/g31/g31_blocked_probes_evidence_schema.json"
     )
+    # G37 W1 encode device-vs-host parity 硬门前缀纯追加（重放幂等面；
+    # day_0828 A2b encode_parity_probe 转正，HANDOVER §B.5）
+    g31_encode_parity_schema = load(
+        ROOT / "milestones/g31/g31_encode_parity_evidence_schema.json"
+    )
     # G31+ 波 C Task C16 M61 ③ measured 对照门 + 重判窗批量执行门双 schema 纯追加
     # （重放幂等面；与既有 g31_* 全族及 gpu fallthrough 互不包含——m 头族
     # g31_m98_l4_ 第六字符分岔 9/e〔mesh_ 全串唯一〕，r 头族 rejudgment_ 段唯一）
@@ -1231,6 +1249,13 @@ def check_evidence_files() -> None:
     )
     g31_svt_gate_schema = load(
         ROOT / "milestones/g31/g31_svt_gate_evidence_schema.json"
+    )
+    # G37 W6 svt mutex_registered 互斥登记态 schema 纯追加（重放幂等面；
+    # ci/g31_svt_smoke.py 真跑四腿前探测 --svt on × day_0828 texel heap
+    # fail-closed 互斥字面命中时产，深修归后续波 TODO #33-#36 + day_0828
+    # HANDOVER §12）
+    g31_svt_mutex_registered_schema = load(
+        ROOT / "milestones/g31/g31_svt_mutex_registered_schema.json"
     )
     # G31+ 波 C Task C14 KTX2 三行门/harness 双 schema 纯追加（重放幂等面）
     g31_ktx2_ab_schema = load(
@@ -2692,6 +2717,11 @@ def check_evidence_files() -> None:
         if g31_sdk_dist_schema is not None
         else None
     )
+    g31_sdk_dist_v2_validator = (
+        jsonschema.Draft7Validator(g31_sdk_dist_v2_schema)
+        if g31_sdk_dist_v2_schema is not None
+        else None
+    )
     g31_robustness_validator = (
         jsonschema.Draft7Validator(g31_robustness_schema)
         if g31_robustness_schema is not None
@@ -2705,6 +2735,16 @@ def check_evidence_files() -> None:
     g31_texture_sampling_gate_validator = (
         jsonschema.Draft7Validator(g31_texture_sampling_gate_schema)
         if g31_texture_sampling_gate_schema is not None
+        else None
+    )
+    g31_texture_sampling_heap_validator = (
+        jsonschema.Draft7Validator(g31_texture_sampling_heap_schema)
+        if g31_texture_sampling_heap_schema is not None
+        else None
+    )
+    g31_texture_sampling_heap_gate_validator = (
+        jsonschema.Draft7Validator(g31_texture_sampling_heap_gate_schema)
+        if g31_texture_sampling_heap_gate_schema is not None
         else None
     )
     g34_unified_lane_validator = (
@@ -2844,6 +2884,11 @@ def check_evidence_files() -> None:
         if g31_blocked_probes_schema is not None
         else None
     )
+    g31_encode_parity_validator = (
+        jsonschema.Draft7Validator(g31_encode_parity_schema)
+        if g31_encode_parity_schema is not None
+        else None
+    )
     g31_mesh_vs_raster_validator = (
         jsonschema.Draft7Validator(g31_mesh_vs_raster_schema)
         if g31_mesh_vs_raster_schema is not None
@@ -2867,6 +2912,11 @@ def check_evidence_files() -> None:
     g31_svt_gate_validator = (
         jsonschema.Draft7Validator(g31_svt_gate_schema)
         if g31_svt_gate_schema is not None
+        else None
+    )
+    g31_svt_mutex_registered_validator = (
+        jsonschema.Draft7Validator(g31_svt_mutex_registered_schema)
+        if g31_svt_mutex_registered_schema is not None
         else None
     )
     g31_ktx2_ab_validator = (
@@ -5526,6 +5576,24 @@ def check_evidence_files() -> None:
             # （ci/g31_slab_wiring_smoke.py --gate g31.waveB.slab 产）。
             validator = g31_slab_wiring_validator
         elif (
+            f.name.startswith("g31_texture_sampling_heap_gate_")
+            and g31_texture_sampling_heap_gate_validator is not None
+        ):
+            # G37 W1 texel heap 形态纹理采样接线门裁决证据 →
+            # milestones/g31/g31_texture_sampling_heap_gate_evidence_schema.json
+            # （更新后 ci/g31_texture_sampling_smoke.py --gate g31.waveB.texture 产；
+            # heap 前缀含旧前缀 ⇒ 本路由必须先于 g31_texture_sampling_{gate_,} 两路由）。
+            validator = g31_texture_sampling_heap_gate_validator
+        elif (
+            f.name.startswith("g31_texture_sampling_heap_")
+            and g31_texture_sampling_heap_validator is not None
+        ):
+            # G37 W1 texel heap 形态纹理采样 harness 证据（--textures on 腿,v2 SPV）→
+            # milestones/g31/g31_texture_sampling_heap_evidence_schema.json
+            # （harness 侧 schema/gate 字面沿用 rurix.g31.texture_sampling_evidence.v1 /
+            # g31.waveB.texture——heap 形态经文件名前缀路由承载）。
+            validator = g31_texture_sampling_heap_validator
+        elif (
             f.name.startswith("g31_texture_sampling_gate_")
             and g31_texture_sampling_gate_validator is not None
         ):
@@ -5772,6 +5840,15 @@ def check_evidence_files() -> None:
             # （ci/g31_renderer_sdk_smoke.py --gate g31.waveC.sdk 产）。
             validator = g31_renderer_sdk_validator
         elif (
+            f.name.startswith("g31_sdk_dist_v2_")
+            and g31_sdk_dist_v2_validator is not None
+        ):
+            # G37 W5 渲染器 SDK 分发打包门证据 v2(16→24 组件冻结面版本化)→
+            # milestones/g31/g31_sdk_dist_v2_evidence_schema.json
+            # (升级后 ci/g31_sdk_dist_smoke.py --gate g31.g37w5.dist 产;
+            # v2 前缀含 v1 前缀 ⇒ 本路由必须先于 g31_sdk_dist_ 路由)。
+            validator = g31_sdk_dist_v2_validator
+        elif (
             f.name.startswith("g31_sdk_dist_")
             and g31_sdk_dist_validator is not None
         ):
@@ -5885,6 +5962,16 @@ def check_evidence_files() -> None:
             # milestones/g31/g31_svt_evidence_schema.json。
             validator = g31_svt_validator
         elif (
+            f.name.startswith("g31_svt_mutex_registered_")
+            and g31_svt_mutex_registered_validator is not None
+        ):
+            # G37 W6 SVT 门互斥登记态证据 →
+            # milestones/g31/g31_svt_mutex_registered_schema.json
+            # （ci/g31_svt_smoke.py --gate g31.waveC.svt 互斥字面命中时产——
+            # 非 PASS 非 FAIL 的登记态件，host 金标准腿全绿前置；前缀与
+            # g31_svt_gate_/g31_svt_harness_ 第九字符分岔 g/h/m 互不包含）。
+            validator = g31_svt_mutex_registered_validator
+        elif (
             f.name.startswith("g31_ktx2_gate_")
             and g31_ktx2_gate_validator is not None
         ):
@@ -5908,6 +5995,15 @@ def check_evidence_files() -> None:
             # milestones/g31/g31_blocked_probes_evidence_schema.json
             # （ci/g31_blocked_probes_smoke.py --gate g31.waveC.blockedprobes 产）。
             validator = g31_blocked_probes_validator
+        elif (
+            f.name.startswith("g31_encode_parity_")
+            and g31_encode_parity_validator is not None
+        ):
+            # G37 W1 encode device-vs-host parity 硬门裁决证据 →
+            # milestones/g31/g31_encode_parity_evidence_schema.json
+            # （ci/g31_encode_parity_smoke.py --gate g31.g37w1.encode_parity 产；
+            # 与既有 g31_* 全族前缀互不包含）。
+            validator = g31_encode_parity_validator
         elif (
             f.name.startswith("g31_mesh_vs_raster_")
             and g31_mesh_vs_raster_validator is not None

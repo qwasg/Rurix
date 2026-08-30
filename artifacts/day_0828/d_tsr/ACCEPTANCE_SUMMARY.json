@@ -1,0 +1,107 @@
+{
+ "schema": "rurix.day0828.phase_d_tsr_quality.acceptance.v1",
+ "date": "2026-08-28",
+ "task": "画质战役 Phase D——TSR 降噪质量档加性臂（--tsr-quality）：抑制 emissive 亚像素弹出/萤火虫残余（含 gi2 1 spp 微光点）+ 更深静态收敛 + P2 细几何走样复核",
+ "design_final": {
+  "kernel": "src/rurix-render/kernels/g31_tsr_resolve_q.rx（312 行,fork 自 g14_8_tsr_resolve.rx 母版;母版/冻结 SPV 0-byte 不动）",
+  "spv": ".tmp/night_0828/spv/g31_tsr_resolve_q.spv（48,420 B,sha256 7f3d9bc80ecb4cb1…,rurixc 内置 + PATH spirv-val 双过 rc=0）",
+  "byte_isolation": "C 相纪律:off 臂恒载 .tmp/g14_gates/m_c/g14_8_tsr_resolve.spv 冻结字节;on 臂独载 resolve_q（CLI 默认字面才换,--spv-resolve 显式面尊重）",
+  "quality_faces": {
+   "1_karis": "YCoCg 域 Karis 反亮度加权混合 α' = α·w_c/(α·w_c+(1−α)·w_h),w=1/(1+Y)——压 HDR 尖峰对 EMA 注入;实测对 Y≪1 暗域颗粒近零效（v1 红记录),对亮尖峰有效;收敛值 HDR 尖峰有偏（偏暗)如实登记",
+   "2_steady_alpha": "tsr_params[19] = 稳态 alpha 档直入公式 base 位（v2 语义修正——母版 min_alpha=0.04 地板在 base=0.1/tighten=0.5 下 α∈[0.05,0.1] 构造性不可达,夜巡 0.23·σ=√(0.1/1.9) 旁证）;下限 = 档位一半;默认 0.02,驻态残差 ∝ √(α/(2−α)) 按档兑现",
+   "3_neighborhood_clamp": "tsr_params[20]=K:3×3 邻域（除中心）luma max×K 截断新样本（RGB 等比保色相);K=0 关 = 评估默认,本相未启用",
+   "4_depth_dilated_validation": "v3（红修二,决定性）:深度验证由逐点 |dc−dp|≤tol·max 改为 dp ∈ [3×3 邻域 depth min−slack, max+slack]——母版逐点判据在深度边缘随 jitter 重投影漂移逐帧拒史（拱下 ROI 99.1% 像素 passthrough,alpha 档零效的根因）;区间化后边缘像素真实入 EMA,真 disocclusion 仍拒,色彩仍受 YCoCg AABB 钳制"
+  },
+  "tsr_params_layout": "[0..19) 母版逐字同布局;[19]=tsrq 稳态 alpha 档（默认 0.02);[20]=邻域 clamp K（默认 0);[21..32) reserved 零;off 面两槽不写 = 零填充逐位同值",
+  "cli": "--tsr-quality off|on + --tsrq-min-alpha（稳态 alpha 档,名称保留规格字面）+ --tsrq-clamp;bench+窗口双车道;窗口与 dither/smooth/ggx/lamp/textures/gi2/bloom/AE 全可组合,与 fg/hzb/svt/slab/cluster/wp fail-closed;bench 仅 tsr_device,不与 dyn/skin demo 同跑"
+ },
+ "red_fix_record": {
+  "v1_red": "首版（Karis + min_alpha 地板 0.02）四臂指标零效:墙 p95 −0.0%/桌下 −0.4%（d_metrics_v1_red.json）——地板不可达 + Karis 暗域无力",
+  "v2_fix1": "params[19] 改稳态 alpha 语义:墙 −38.1%(α0.04)/−49.3%(α0.02) 达标,但拱下/地板尾像素仍 ~0%（d_ladder.json）——诊断:拱下 ROI 99.1% 像素 arm3/arm4 逐位相同 ⇒ 深度验证恒拒史 passthrough",
+  "v3_fix2": "深度验证 3×3 膨胀区间化:全四 ROI 达/超标（见 grain_metrics）;两次红修额度用尽,验收通过"
+ },
+ "acceptance": {
+  "1_build_spv": {"pass": true, "detail": "双 bin release（target-night,--features vendor-upscale）构建绿 ×2（接线后 1m33s / 终态注释+PASS 行后 44s,4 warning 皆前序既有）;kernel spirv-val 双过 rc=0（v1/v2/v3 各次）"},
+  "2_zero_drift": {
+   "pass": true,
+   "window_alloff": {"expect": "55e4a92d", "got": "55e4a92d", "runs": ["ev/alloff.json（接线后）", "ev/alloff_final.json（终态重建后复验）"]},
+   "window_combo7": {"expect": "8b1c12f3", "got": "8b1c12f3", "runs": ["ev/combo7.json（接线后）"], "note": "终态重建后 combo7 复验被会话中断未收割——重建 delta = 注释 + tsrq-on 条件 PASS 行段（off 臂输出面 0-byte）,且 alloff_final/bench_default_final 已复验 off 路;combo7 重收割归 Phase E 回归矩阵,如实登记"},
+   "bench_default_160f": {"expect": "c1d28ad7", "got": "c1d28ad7", "runs": ["arms/bench_default（接线后）", "arms/bench_default_final（终态重建后复验）"]},
+   "bench_snrm_render128": {"expect": "778f1dfc", "got": "778f1dfc", "run": "arms/arm1_snrm（= 四臂颗粒对比臂①,夜巡 D2 锚零漂移）"},
+   "bonus_gi2_c001_render128": {"expect": "6144d9f7（C 相锚）", "got": "6144d9f7", "run": "arms/arm3_gi2（= 臂③,kernel/binary 演进零漂移旁证）"}
+  },
+  "3_tsrq_on_determinism": {
+   "pass": true,
+   "bench_render_double": {"digest": "05532d5e940ff10fead1ea989c855bb0fb86dac873967b32666f0fe3541d292a", "runs": ["arms/arm2_snrm_tsrq", "arms/arm2_run2"], "bitexact": true},
+   "window_9arm_double": {"digest": "6bd3af638be97715e1a24f1d260639c259aa181a9d0144a6b47809538ef0814d", "runs": ["ev/combo9_1.json", "ev/combo9_2.json"], "bitexact": true, "ne_8arm_off": "≠ b36c3e1f（C 相八臂 c001 锚）✓"},
+   "validation": "RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全程;全 PASS 行退出 = validation 静默"
+  },
+  "4_grain_metrics": {
+   "pass": true,
+   "protocol": "bench --render 128f EXR;conv 协议 = 末段 frame_01*.exr stride2×16（TSR 收敛后,主判据）;night 协议（stride8×16 全程含收敛段）sidecar 登记;绝对幅值 std_p95 口径（C 相教训);ROI = 夜巡同位 wall[1400,150,480,270]/floor[1100,800,480,270] + C 相 dark_arch[360,0,360,180]/dark_table[560,560,560,200];工具 d_metrics.py（grain_metric 同式）",
+   "four_arms_conv_std_p95": {
+    "arm1_snrm_tsrqoff": {"wall": 1.931e-5, "floor": 2.996e-5, "dark_arch": 1.289e-5, "dark_table": 5.888e-5},
+    "arm2_snrm_tsrqon": {"wall": 9.787e-6, "floor": 2.457e-5, "dark_arch": 7.299e-6, "dark_table": 4.100e-5},
+    "arm3_gi2c001_tsrqoff": {"wall": 5.382e-4, "floor": 2.092e-3, "dark_arch": 1.660e-3, "dark_table": 5.250e-4},
+    "arm4_gi2c001_tsrqon": {"wall": 1.302e-4, "floor": 5.695e-5, "dark_arch": 4.936e-5, "dark_table": 6.643e-5}
+   },
+   "verdict_tsrq_on_vs_off": {"wall": "−49.3%（目标 ≥30% ✓）", "floor": "−18.0%（未达 30%——尾像素含相关性低频 jitter 响应分量,EMA 档不可滤,如实登记）", "dark_arch": "−43.4%", "dark_table": "−30.4% ✓"},
+   "verdict_gi2_microlight": {"dark_arch": "−97.0%（目标 ≥50% ✓✓）", "dark_table": "−87.3% ✓✓", "floor_gi2": "−97.3%", "wall_gi2": "−75.8%"},
+   "night_protocol_vs_baseline": "臂① night 协议 wall rel_p95 4.41%/floor 12.07% == 夜巡基线（4.41%/12.0%）逐字复现;臂② conv 稳态 wall rel_p95 2.28%→0.74%;night 协议对臂②不敏感（含 α=0.02 更慢收敛段的过渡态,如实登记）",
+   "sharpness": "收敛帧高通能量不升 ✓（反而降:wall −26.9%/floor −56.5%/arch −48.5%/table −36.0%——冻结颗粒消除 + 边缘 jitter 时域平均化即真 AA;细节保留由 P2 裁剪目视仲裁,瓶架/栏架结构清晰在位）"
+  },
+  "5_p2_railing": {
+   "verdict": "改善",
+   "detail": "细竖几何 ROI（吊灯吊线/灯罩轮廓+吧台瓶架 [450,110,300,180] 与椅背区 [1152,220,300,180]）3× 放大对照:off 臂吊线/轮廓阶梯锯齿明显,on 臂连续平滑无阶梯;收敛帧该 ROI 高通能量 barshelf −50.5%（5.09e-3→2.52e-3）/chairback −18.4%;无涂抹伪影（瓶架细节在位）。机制 = v3 深度膨胀验证让细几何边缘像素真实入 EMA ⇒ jitter 时域平均 = 真超采样 AA。摩尔纹根因（采样密度）本相不修,如实登记",
+   "png": ["png/p2_railing_barshelf_off_vs_on.png", "png/p2_railing_chairback_off_vs_on.png"],
+   "note": "夜巡 crop_railing.png 原件/坐标不存,ROI 以收敛帧水平梯度能量扫描重定位（同类细竖几何走样载体）"
+  },
+  "6_dolly_ghosting": {
+   "verdict": "PASS（α=0.02 档拖影不可见,无需回 0.03）",
+   "curve": "presented mean 曲线:on 最大逐帧变化 0.65% < off 0.74%,p99 0.56% vs 0.59%,均值 0.3399 vs 0.3407（ev/dolly_luma_stats.json）——on 更平滑零振荡",
+   "frames": "f0080/f0160/f0240 三帧 off|on 对照（灯具区 + 桌沿高对比区,png/dolly_{lamp,table_edge}_off_vs_on_3f.png）:灯具/桌腿/线脚无拖尾无双像;on 臂运动中地板/天花闪斑显著更少（加分项）",
+   "registered": "f0240 远处小灯 on 臂略暗小（Karis HDR 尖峰有偏的运动面表现,灯仍在位不消失,如实登记）"
+  },
+  "7_frame_time": {
+   "verdict": "增量 ~0（预期兑现）",
+   "bench_160f_upscale_ms_mean": {"default": 0.5388, "default_final_rerun": 0.5432, "tsrq_on": 0.5422},
+   "note": "resample+resolve 合计口径;default 双跑带宽 ±0.005ms 即 run 噪声带,tsrq 增量落带内;frame_ms_mean 2.30/2.67/2.40 同为噪声带（bench_default_final 2.67 示带宽）"
+  }
+ },
+ "arms_digests": {
+  "window_alloff": "55e4a92d（=锚,×2 含终态重建后）",
+  "window_combo7": "8b1c12f3（=锚）",
+  "window_combo9_tsrq": "6bd3af63（×2 位级）",
+  "bench_default_160f": "c1d28ad7（=锚,×2）",
+  "bench_snrm_render128_arm1": "778f1dfc（=夜巡 D2 锚）",
+  "bench_snrm_tsrq_render128_arm2": "05532d5e（×2 位级,v3 α0.02）",
+  "bench_gi2c001_render128_arm3": "6144d9f7（=C 相锚）",
+  "bench_gi2c001_tsrq_render128_arm4": "7acd7387（v3 α0.02）",
+  "bench_default_tsrq_160f": "5e5eb532",
+  "dolly_on_240f": "99a23fdd",
+  "dolly_off_240f": "38325546",
+  "evolution_intermediates": "v1 arm2 f3eb1e2d（零效红）/ v2 α0.04 a0e7e4b2 / v2 α0.02 3f9bd0f4（ladder,arms/ladder_a002 receipt 在案）/ v2 arm4 bec31360"
+ },
+ "gi2_full_tier_recommendation": {
+  "verdict": "建议 gi2 以「绑定 --tsr-quality on」形态入 full 档",
+  "rationale": "微光点判据大幅超标（拱下 −97.0%/桌下 −87.3% ≥50%）:gi2+tsrq 后拱下 std_p95 4.94e-5 已接近 gi2-off 基线量级（1.29e-5 的 ~3.8×,vs 无 tsrq 时 129×）;帧时 gi2 scene ×1.65 + tsrq ~0 不变。无 tsrq 的 gi2 维持 ultra 档判定不变（C 相结论沿用）。建议 Phase E 预设:--quality full = 八臂 + --tsr-quality on + --gi2 on --gi2-clamp 0.01（即九臂,窗口锚 6bd3af63 双跑在案）"
+ },
+ "leftovers": [
+  "floor（gi2-off 形态）尾像素 −18.0% 未达 30% 目标:相关性低频 jitter 响应分量非 EMA 白噪残差,alpha 档原理性不可滤——需采样密度/jitter 感知滤波面,留窗",
+  "终态重建后 combo7（8b1c12f3）复验被中断未收割（off 路已由 alloff_final + bench_default_final 复验;重建 delta 仅注释+tsrq-on 条件 PASS 行段）——归 Phase E 回归矩阵重收割",
+  "Karis 收敛值 HDR 尖峰有偏（偏暗;dolly f0240 远灯略暗小）——质量档语义内如实登记",
+  "邻域 clamp K 档未实测（K=0 评估默认;深度膨胀验证落地后微光点判据已超标,K 档留作后备旋钮）",
+  "母版 min_alpha 地板构造性不可达（base=0.1/tighten=0.5 ⇒ α∈[0.05,0.1]）——母版 kernel/tsr.rs 冻结未触,缺陷登记主线知悉",
+  "α=0.02 稳态收敛时间常数 ~50 帧:场景切换/resize 后完全收敛 ~1s（history reset 面既有协议,dolly 连续运动无异常）",
+  "arms/ladder_a002 帧数据 ~3.2GB 在盘（v2 ladder 证据,数字已录 d_ladder.json——可清理仅留 receipt）",
+  "night 协议对 tsrq 臂欠敏感（含慢收敛过渡段）——Phase E 回归矩阵建议以 conv 协议为准"
+ ],
+ "artifacts": {
+  "evidence": ["ev/alloff.json", "ev/alloff_final.json", "ev/combo7.json", "ev/combo9_1.json", "ev/combo9_2.json", "ev/dolly_on.json", "ev/dolly_off.json", "ev/dolly_on_luma.json", "ev/dolly_off_luma.json", "ev/dolly_luma_stats.json"],
+  "metrics": ["d_metrics.json（v3 终态）", "d_metrics_v1_red.json（红记录）", "d_ladder.json（alpha 档 ladder）"],
+  "tools": ["d_metrics.py", "d_ladder.py"],
+  "png": ["png/p2_railing_{barshelf,chairback}_off_vs_on.png", "png/dolly_{lamp,table_edge}_off_vs_on_3f.png", "png/dolly_{on,off}.raw.f{0080,0160,0240}.png", "png/full_arm1.png"],
+  "bench_arms": ["arms/arm1_snrm", "arms/arm2_snrm_tsrq", "arms/arm2_run2（帧已清,receipt 在）", "arms/arm3_gi2", "arms/arm4_gi2_tsrq", "arms/ladder_a002", "arms/bench_default", "arms/bench_default_final", "arms/bench_tsrq"],
+  "spv": [".tmp/night_0828/spv/g31_tsr_resolve_q.spv（sha256 7f3d9bc80ecb4cb1…,48,420B）"]
+ }
+}

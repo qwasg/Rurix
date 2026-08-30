@@ -39,7 +39,7 @@ use rurix_render::graph::types::ClusterRecord;
 use std::collections::HashMap;
 
 use crate::cluster::{backface_cone, bounding_sphere, clusterize_tris};
-use crate::mesh::TriMesh;
+use crate::mesh::{AttrMeshError, AttrTriMesh, TriMesh, TriMeshAttrs};
 use crate::vecmath::vdist;
 
 /// 叶层网格顶点反查表(蒙皮元数据逐簇查权重的确定性源):
@@ -411,6 +411,58 @@ pub(crate) struct SubMesh {
     pub(crate) face_on_boundary: Vec<bool>,
 }
 
+/// 顶点属性平行表(G31+ #96 构建期中间载体;与所伴随的位置表等长——
+/// 层全局属性 / 组局部属性 / 简化产物属性同一形态)。
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SubMeshAttrs {
+    pub(crate) uv: Vec<[f32; 2]>,
+    pub(crate) normal: Option<Vec<[f32; 3]>>,
+}
+
+impl SubMeshAttrs {
+    /// 空表(normal 在场性随模板;增量填充用)。
+    pub(crate) fn empty_like(&self) -> Self {
+        Self {
+            uv: Vec::new(),
+            normal: self.normal.as_ref().map(|_| Vec::new()),
+        }
+    }
+
+    /// 按下标表 gather(组局部属性抽取:`ids[local] = global`)。
+    fn gather(&self, ids: &[u32]) -> Self {
+        Self {
+            uv: ids.iter().map(|&v| self.uv[v as usize]).collect(),
+            normal: self
+                .normal
+                .as_ref()
+                .map(|nm| ids.iter().map(|&v| nm[v as usize]).collect()),
+        }
+    }
+
+    /// 追加一个顶点的属性(与位置表 push 同步调用)。
+    pub(crate) fn push_from(&mut self, src: &SubMeshAttrs, v: usize) {
+        self.uv.push(src.uv[v]);
+        if let (Some(dst), Some(nm)) = (self.normal.as_mut(), src.normal.as_ref()) {
+            dst.push(nm[v]);
+        }
+    }
+}
+
+/// UV 接缝顶点旗标(G31+ #96 保守裂缝纪律):同位置 bits 出现于多个顶点 id
+/// = 属性接缝顶点(上游按位置+属性预拆分的两侧拷贝)。两侧独立收缩会产生
+/// 几何裂缝——属性链一律锁定接缝顶点(逐位保持;meshopt 位置重映射协动
+/// 简化为后续质量档,分界见 #96 交付报告)。
+pub(crate) fn attr_seam_flags(positions: &[[f32; 3]]) -> Vec<bool> {
+    let mut count: HashMap<[u32; 3], u32> = HashMap::with_capacity(positions.len());
+    for p in positions {
+        *count.entry(p.map(f32::to_bits)).or_insert(0) += 1;
+    }
+    positions
+        .iter()
+        .map(|p| count[&p.map(f32::to_bits)] > 1)
+        .collect()
+}
+
 /// 组内简化器选择(G31+ #66 加性闭集;默认 = 既有事实源)。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SimplifyKind {
@@ -483,6 +535,76 @@ pub fn build_dag_kind(mesh: &TriMesh, kind: SimplifyKind) -> ClusterDag {
 /// [`build_dag`] 的全参数化变体(G31+ #66/#98;`Default` 参数与 [`build_dag`]
 /// 逐位同产物)。
 pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
+    build_dag_impl(mesh, None, params).0
+}
+
+/// 簇 DAG 属性链产物(G31+ #96):v1 [`ClusterDag`] 字段面不动 + 与
+/// `base.vertices` 等长平行的顶点属性表——粗簇/代理三角自此带真 UV 供
+/// 纹理采样消费(G36 侧表 gather 对代理三角 tritex=−1 常量回退的退役前提)。
+///
+/// **RXGB v1 序列化与 [`canonical_bytes`] 均不含本表**(0-byte 不动,m90 DAG
+/// digest golden 不漂移)——属性表为内存直构面(与 [`ClusterDag::leaf_source_tris`]
+/// 同待遇);资产化承载(RXGB 扩展段)= 后续窗分界,见 #96 交付报告。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClusterDagAttrs {
+    /// v1 DAG(字段面/字节面与无属性链同构)。
+    pub base: ClusterDag,
+    /// 与 `base.vertices` 等长平行:顶点 UV(粗簇顶点 = 简化链插值产物)。
+    pub vertex_uv: Vec<[f32; 2]>,
+    /// 与 `base.vertices` 等长平行:顶点法线(输入在场才在场)。
+    pub vertex_normal: Option<Vec<[f32; 3]>>,
+}
+
+impl ClusterDagAttrs {
+    /// 簇的局部顶点 UV 切片(与 [`ClusterDag::cluster_vertices`] 同切片口径)。
+    pub fn cluster_uvs(&self, id: u32) -> &[[f32; 2]] {
+        let r = self.base.records[id as usize];
+        &self.vertex_uv[r.vertex_offset as usize..(r.vertex_offset + r.vertex_count) as usize]
+    }
+
+    /// 簇的局部顶点法线切片(法线输入缺席返回 None)。
+    pub fn cluster_normals(&self, id: u32) -> Option<&[[f32; 3]]> {
+        let nm = self.vertex_normal.as_ref()?;
+        let r = self.base.records[id as usize];
+        Some(&nm[r.vertex_offset as usize..(r.vertex_offset + r.vertex_count) as usize])
+    }
+}
+
+/// [`build_dag_params`] 的属性保持变体(G31+ #96 加性入口;既有入口签名/
+/// 默认行为 0-byte 不动)。UV(+可选法线)全链跟随简化:
+/// - **位置面与无属性链同律**——属性不参与选边/定新位置/fold-over 判定,
+///   无接缝输入下 `base` 与 [`build_dag_params`] 产物逐位一致(单测锚);
+/// - 跨组焊接键扩为「位置 + 属性 bits」(接缝顶点不被误并);
+/// - UV 接缝顶点([`attr_seam_flags`])保守锁定——接缝两侧逐位保持无裂缝;
+/// - 退化输入 typed Err([`AttrMeshError`];字段公开可绕过 [`TriMesh::with_attrs`]
+///   校验,本入口再次 fail-closed)。
+pub fn build_dag_attrs(
+    mesh: &AttrTriMesh,
+    params: &DagBuildParams,
+) -> Result<ClusterDagAttrs, AttrMeshError> {
+    crate::mesh::validate_attr_input(
+        &mesh.mesh.positions,
+        &mesh.mesh.indices,
+        &mesh.attrs.uv,
+        mesh.attrs.normal.as_deref(),
+    )?;
+    let (base, tables) = build_dag_impl(&mesh.mesh, Some(&mesh.attrs), params);
+    let (vertex_uv, vertex_normal) = tables.expect("属性链必产属性表");
+    Ok(ClusterDagAttrs {
+        base,
+        vertex_uv,
+        vertex_normal,
+    })
+}
+
+/// DAG 构建单一实现(#96 起属性经 `Option` 线程化:`None` 路径与既有实现
+/// 逐字同路——属性只在收缩执行后插值/焊接键扩位/接缝锁定三点生效,不触碰
+/// 任何位置/拓扑决策,默认产物字节不变由 m90 golden 与单测锚双证)。
+fn build_dag_impl(
+    mesh: &TriMesh,
+    attrs_in: Option<&TriMeshAttrs>,
+    params: &DagBuildParams,
+) -> (ClusterDag, Option<(Vec<[f32; 2]>, Option<Vec<[f32; 3]>>)>) {
     let tris = mesh.triangles();
     let raw = clusterize_tris(&mesh.positions, &tris);
     let n_raw = raw.len();
@@ -493,7 +615,13 @@ pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
         errors: vec![0.0; n_raw],
         source_group: (0..n_raw as u32).collect(),
     };
+    // #96 属性链:与 level.positions 平行的层属性(叶层 = 输入属性)。
+    let mut level_attrs: Option<SubMeshAttrs> = attrs_in.map(|a| SubMeshAttrs {
+        uv: a.uv.clone(),
+        normal: a.normal.clone(),
+    });
     let mut levels: Vec<LevelMesh> = Vec::new();
+    let mut levels_attrs: Vec<SubMeshAttrs> = Vec::new();
     // 每层簇 → (组号, 组误差);顶层无此项(根 parent_error = MAX)。
     let mut group_of: Vec<Vec<(u32, f32)>> = Vec::new();
     // 每层组数(组号全局化用)。
@@ -514,18 +642,37 @@ pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
             }
         }
         let groups = group_clusters(&level, &edge_faces, params);
+        // #96 属性链:UV 接缝顶点(同位置 bits 多 id)本层保守锁定旗标。
+        let seam = level_attrs.as_ref().map(|_| attr_seam_flags(&level.positions));
         let mut next = LevelMesh::default();
+        let mut next_attrs: Option<SubMeshAttrs> =
+            level_attrs.as_ref().map(SubMeshAttrs::empty_like);
         let mut links: Vec<Vec<u32>> = Vec::new();
         let mut g_of = vec![(0u32, 0.0f32); level.clusters.len()];
         // 精确位置焊接(端点收缩保证坐标逐位来自本层已有顶点;QEM 腿新位置
         // 仅组内部顶点——组边界锁定逐位不动,跨组焊接键唯一性维持)。
         let mut weld: HashMap<[u32; 3], u32> = HashMap::new();
+        // 属性链焊接键 = 位置 + UV + 法线 bits(法线缺席补定值 0;锁定顶点
+        // 位置与属性均逐位保持 ⇒ 组边界跨组键一致,接缝拷贝不被误并)。
+        let mut weld_attrs: HashMap<[u32; 8], u32> = HashMap::new();
         for (gi, g) in groups.iter().enumerate() {
-            let sub = extract_group(&level, g, &edge_faces);
+            let (mut sub, local_to_global) = extract_group(&level, g, &edge_faces);
+            let sub_attrs = level_attrs
+                .as_ref()
+                .map(|la| la.gather(&local_to_global));
+            if let Some(seam) = &seam {
+                for (l, &gv) in local_to_global.iter().enumerate() {
+                    if seam[gv as usize] {
+                        sub.locked[l] = true;
+                    }
+                }
+            }
             let target = (sub.tris.len() / 2).max(1);
-            let (sm, own_err) = match params.simplify {
-                SimplifyKind::ShortestEdge => simplify_group(&sub, target),
-                SimplifyKind::Qem => crate::qem::simplify_group_qem(&sub, target),
+            let (sm, sm_attrs, own_err) = match params.simplify {
+                SimplifyKind::ShortestEdge => simplify_group_impl(&sub, target, sub_attrs),
+                SimplifyKind::Qem => {
+                    crate::qem::simplify_group_qem_impl(&sub, target, sub_attrs)
+                }
             };
             let member_max = g
                 .iter()
@@ -543,12 +690,32 @@ pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
                     let mut gt = [0u32; 3];
                     for (k, &v) in t.iter().enumerate() {
                         let pos = sm.positions[v as usize];
-                        let key = pos.map(f32::to_bits);
-                        let nid = next.positions.len() as u32;
-                        gt[k] = *weld.entry(key).or_insert_with(|| {
-                            next.positions.push(pos);
-                            nid
-                        });
+                        gt[k] = match (&sm_attrs, next_attrs.as_mut()) {
+                            (Some(sa), Some(na)) => {
+                                let pb = pos.map(f32::to_bits);
+                                let ub = sa.uv[v as usize].map(f32::to_bits);
+                                let nb = sa
+                                    .normal
+                                    .as_ref()
+                                    .map_or([0u32; 3], |nm| nm[v as usize].map(f32::to_bits));
+                                let key =
+                                    [pb[0], pb[1], pb[2], ub[0], ub[1], nb[0], nb[1], nb[2]];
+                                let nid = next.positions.len() as u32;
+                                *weld_attrs.entry(key).or_insert_with(|| {
+                                    next.positions.push(pos);
+                                    na.push_from(sa, v as usize);
+                                    nid
+                                })
+                            }
+                            _ => {
+                                let key = pos.map(f32::to_bits);
+                                let nid = next.positions.len() as u32;
+                                *weld.entry(key).or_insert_with(|| {
+                                    next.positions.push(pos);
+                                    nid
+                                })
+                            }
+                        };
                     }
                     tri_ids.push(next.tris.len() as u32);
                     next.tris.push(gt);
@@ -565,11 +732,19 @@ pub fn build_dag_params(mesh: &TriMesh, params: &DagBuildParams) -> ClusterDag {
         group_counts.push(groups.len() as u32);
         group_of.push(g_of);
         child_links.push(links);
+        if let Some(la) = level_attrs.take() {
+            levels_attrs.push(la);
+        }
         levels.push(level);
         level = next;
+        level_attrs = next_attrs;
+    }
+    if let Some(la) = level_attrs.take() {
+        levels_attrs.push(la);
     }
     levels.push(level);
-    export(&levels, &group_of, &group_counts, &child_links)
+    let attrs_slice = attrs_in.map(|_| levels_attrs.as_slice());
+    export(&levels, &group_of, &group_counts, &child_links, attrs_slice)
 }
 
 // ———— G9.2 M90 深化 API(RXS-0345;纯追加,v1 面 0-byte)————
@@ -1090,11 +1265,12 @@ fn morton3(x: u32, y: u32, z: u32) -> u32 {
 /// 组内三角形 → 子网格;**组边界顶点锁定 + 组边界边标记**:被组外三角形引用
 /// 的顶点锁定;含「组内外共享边」的面打上 `face_on_boundary`(报告1 §3.1 裂缝
 /// 保护的第一半;另一半见 simplify_group 的收缩禁令)。
+/// 同时返回「局部顶点 → 层全局顶点」映射(#96 属性链按此 gather 组局部属性)。
 fn extract_group(
     level: &LevelMesh,
     group: &[u32],
     edge_faces: &HashMap<(u32, u32), Vec<u32>>,
-) -> SubMesh {
+) -> (SubMesh, Vec<u32>) {
     let mut in_group = vec![false; level.tris.len()];
     for &c in group {
         for &f in &level.clusters[c as usize] {
@@ -1149,12 +1325,15 @@ fn extract_group(
             }
         }
     }
-    SubMesh {
-        positions,
-        tris,
-        locked,
-        face_on_boundary,
-    }
+    (
+        SubMesh {
+            positions,
+            tris,
+            locked,
+            face_on_boundary,
+        },
+        local_to_global,
+    )
 }
 
 /// 最短边贪心收缩(非 QEM——已知简化;误差上界保守、端点保持保焊接)。
@@ -1163,7 +1342,23 @@ fn extract_group(
 /// (`face_on_boundary`)则禁止该收缩——边界边依附的面不死、边界边端点(锁定
 /// 顶点)永不移动/合并,组边界折线在简化前后逐位一致,任意 LOD cut 组合无
 /// 裂缝。方向:锁定端保留,双开取小号端(确定性)。
+///
+/// 生产路径经 [`simplify_group_impl`] 直调(属性 `None`);本包装保持既有
+/// 二元签名供既有单测锚消费。
+#[cfg(test)]
 fn simplify_group(sub: &SubMesh, target: usize) -> (SubMesh, f32) {
+    let (out, _, err) = simplify_group_impl(sub, target, None);
+    (out, err)
+}
+
+/// [`simplify_group`] 单一实现(#96 属性经 `Option` 线程化;`None` 路径逐字
+/// 同路)。端点保持收缩的属性面平凡:keep 端位置不动 ⇒ keep 端属性逐位
+/// 保持,drop 端属性随顶点消亡——属性只参与末端压缩重映射。
+pub(crate) fn simplify_group_impl(
+    sub: &SubMesh,
+    target: usize,
+    attrs: Option<SubMeshAttrs>,
+) -> (SubMesh, Option<SubMeshAttrs>, f32) {
     use std::cmp::Ordering;
     use std::collections::BinaryHeap;
 
@@ -1301,11 +1496,15 @@ fn simplify_group(sub: &SubMesh, target: usize) -> (SubMesh, f32) {
     let mut remap = vec![u32::MAX; nv];
     let mut out_pos = Vec::new();
     let mut out_locked = Vec::new();
+    let mut out_attrs = attrs.as_ref().map(SubMeshAttrs::empty_like);
     for v in 0..nv {
         if alive_v[v] {
             remap[v] = out_pos.len() as u32;
             out_pos.push(sub.positions[v]);
             out_locked.push(sub.locked[v]);
+            if let (Some(oa), Some(a)) = (out_attrs.as_mut(), attrs.as_ref()) {
+                oa.push_from(a, v);
+            }
         }
     }
     let mut out_tris = Vec::new();
@@ -1315,7 +1514,8 @@ fn simplify_group(sub: &SubMesh, target: usize) -> (SubMesh, f32) {
         }
     }
     if out_tris.is_empty() {
-        return (sub.clone(), 0.0);
+        // 端点保持收缩不改写属性表,原属性即入参原值。
+        return (sub.clone(), attrs, 0.0);
     }
     let max_err = vert_err
         .iter()
@@ -1332,6 +1532,7 @@ fn simplify_group(sub: &SubMesh, target: usize) -> (SubMesh, f32) {
             locked: out_locked,
             face_on_boundary,
         },
+        out_attrs,
         max_err,
     )
 }
@@ -1342,13 +1543,23 @@ fn same_tri_set(a: [u32; 3], b: [u32; 3]) -> bool {
 }
 
 /// 汇总导出:扁平 ClusterRecord + 层级关系表 + 顶点/索引数据段 + 层表。
+/// #96 属性链(`levels_attrs = Some`)同步导出与顶点数据段平行的属性表
+/// (RXGB 序列化不消费——内存直构面)。
 fn export(
     levels: &[LevelMesh],
     group_of: &[Vec<(u32, f32)>],
     group_counts: &[u32],
     child_links: &[Vec<Vec<u32>>],
-) -> ClusterDag {
+    levels_attrs: Option<&[SubMeshAttrs]>,
+) -> (ClusterDag, Option<(Vec<[f32; 2]>, Option<Vec<[f32; 3]>>)>) {
+    if let Some(las) = levels_attrs {
+        debug_assert_eq!(las.len(), levels.len(), "层属性表与层表不齐");
+    }
     let mut dag = ClusterDag::default();
+    let mut out_uv: Vec<[f32; 2]> = Vec::new();
+    let mut out_normal: Option<Vec<[f32; 3]>> = levels_attrs
+        .and_then(|las| las.first())
+        .and_then(|la| la.normal.as_ref().map(|_| Vec::new()));
     let top = levels.len() - 1;
     for (li, lv) in levels.iter().enumerate() {
         let record_start = dag.records.len() as u32;
@@ -1364,6 +1575,15 @@ fn export(
                         map.insert(v, map.len() as u8);
                         local_verts.push(lv.positions[v as usize]);
                         dag.vertices.push(lv.positions[v as usize]);
+                        if let Some(las) = levels_attrs {
+                            let la = &las[li];
+                            out_uv.push(la.uv[v as usize]);
+                            if let (Some(dst), Some(nm)) =
+                                (out_normal.as_mut(), la.normal.as_ref())
+                            {
+                                dst.push(nm[v as usize]);
+                            }
+                        }
                     }
                 }
             }
@@ -1444,7 +1664,8 @@ fn export(
         dag.nodes[(top_base + ci) as usize].group = group_seq;
         group_seq = group_seq.saturating_add(1);
     }
-    dag
+    let attr_tables = levels_attrs.map(|_| (out_uv, out_normal));
+    (dag, attr_tables)
 }
 
 #[cfg(test)]
@@ -1529,8 +1750,8 @@ mod tests {
                 edge_faces.entry((a, b)).or_default().push(f as u32);
             }
         }
-        let s0 = extract_group(&level, &g0, &edge_faces);
-        let s1 = extract_group(&level, &g1, &edge_faces);
+        let (s0, _) = extract_group(&level, &g0, &edge_faces);
+        let (s1, _) = extract_group(&level, &g1, &edge_faces);
         let shared: Vec<[u32; 3]> = s0
             .positions
             .iter()
@@ -1662,6 +1883,100 @@ mod tests {
         ));
         // 同资产 ShortestEdge 照常通过(拒录面仅 QEM×蒙皮组合)。
         build_asset_dag_kind(&asset, SimplifyKind::ShortestEdge).expect("蒙皮资产走既有简化器");
+    }
+
+    /// G31+ #96:属性链全 DAG——①v1 字节面与无属性链逐位一致(fixture 锚:
+    /// 属性不反哺位置/拓扑决策;本 fixture 位置唯一无接缝,属性焊接键不裂位置)
+    /// ②属性表与顶点数据段平行 ③投影 UV(位置的仿射函数)全层偏差有界、
+    /// 叶层逐位精确 ④双构建确定性(含属性位)。默认参数与质量档两臂全跑。
+    #[test]
+    fn attr_dag_zero_position_drift_and_uv_bounded() {
+        let mesh = TriMesh::uv_sphere(1.0, 24, 24);
+        let proj_uv = |p: &[f32; 3]| [(p[0] + 1.0) * 0.5, (p[1] + 1.0) * 0.5];
+        let uv: Vec<[f32; 2]> = mesh.positions.iter().map(proj_uv).collect();
+        let amesh = mesh
+            .clone()
+            .with_attrs(crate::mesh::TriMeshAttrs { uv, normal: None })
+            .expect("合法属性网格");
+        for params in [DagBuildParams::default(), DagBuildParams::quality()] {
+            let attr = build_dag_attrs(&amesh, &params).expect("属性链构建");
+            // ① v1 字节面 0-漂移。
+            let plain = build_dag_params(&mesh, &params);
+            assert_eq!(
+                canonical_bytes(&attr.base),
+                canonical_bytes(&plain),
+                "属性链改动了 v1 字节面(simplify={:?})",
+                params.simplify
+            );
+            // ② 平行表 + 簇切片口径。
+            assert_eq!(attr.vertex_uv.len(), attr.base.vertices.len());
+            assert!(attr.vertex_normal.is_none());
+            for id in 0..attr.base.records.len() as u32 {
+                assert_eq!(
+                    attr.cluster_uvs(id).len(),
+                    attr.base.cluster_vertices(id).len()
+                );
+            }
+            // ③ 投影 UV 偏差:叶层逐位精确(误差 0 层);全层有界(收缩点
+            //   线段插值随位移上界累计,uv 梯度 = 0.5/位置单位;凸包内插值
+            //   ⇒ 恒在 [0,1] 盒内)。
+            let leaf = &attr.base.levels[0];
+            let leaf_vert_end = {
+                let last = attr.base.record(leaf.record_start + leaf.record_count - 1);
+                (last.vertex_offset + last.vertex_count) as usize
+            };
+            let mut max_err = 0.0f32;
+            for (i, (v, uvv)) in attr
+                .base
+                .vertices
+                .iter()
+                .zip(&attr.vertex_uv)
+                .enumerate()
+            {
+                let want = proj_uv(v);
+                let e = (uvv[0] - want[0]).abs().max((uvv[1] - want[1]).abs());
+                if i < leaf_vert_end {
+                    assert_eq!(
+                        uvv.map(f32::to_bits),
+                        want.map(f32::to_bits),
+                        "叶层 UV 须逐位等于输入"
+                    );
+                }
+                assert!((-1e-6..=1.0 + 1e-6).contains(&uvv[0]), "UV 出凸包: {uvv:?}");
+                assert!((-1e-6..=1.0 + 1e-6).contains(&uvv[1]), "UV 出凸包: {uvv:?}");
+                max_err = max_err.max(e);
+            }
+            println!(
+                "[attr_dag] simplify={:?} levels={} max_uv_err={max_err:.6}",
+                params.simplify,
+                attr.base.level_count()
+            );
+            assert!(max_err < 0.30, "UV 偏离投影仿射超界: {max_err}");
+            // ④ 双构建确定性(v1 字节 + UV 位)。
+            let attr2 = build_dag_attrs(&amesh, &params).expect("二跑");
+            assert_eq!(canonical_bytes(&attr.base), canonical_bytes(&attr2.base));
+            assert_eq!(
+                attr.vertex_uv
+                    .iter()
+                    .map(|u| u.map(f32::to_bits))
+                    .collect::<Vec<_>>(),
+                attr2
+                    .vertex_uv
+                    .iter()
+                    .map(|u| u.map(f32::to_bits))
+                    .collect::<Vec<_>>(),
+                "UV 双构建漂移"
+            );
+        }
+        // 退化输入 typed Err(绕过 with_attrs 的字面构造由本入口自校)。
+        let bad = AttrTriMesh {
+            mesh: TriMesh::default(),
+            attrs: crate::mesh::TriMeshAttrs::default(),
+        };
+        assert_eq!(
+            build_dag_attrs(&bad, &DagBuildParams::default()).unwrap_err(),
+            AttrMeshError::EmptyMesh
+        );
     }
 
     #[test]

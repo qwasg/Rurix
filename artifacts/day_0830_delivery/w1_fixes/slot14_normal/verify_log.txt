@@ -1,0 +1,13 @@
+PASS fileset_v1 -- 71 件
+PASS fileset_v2 -- 71 件
+PASS bins_69_byte_equal -- 字节差异槽 = [14](预期仅 [14])
+PASS slot14_header_same -- v1=(2048, 2048, 12) v2=(2048, 2048, 12)
+PASS slot14_size_same -- v1=22369632 v2=22369632
+PASS slot14_v2_flat_exact -- v2 == 独立构造平坦参照(RGBA 常值 (127, 127, 128, 255) 全 12 级);sha=sha256:77bc6c00cd9c8b1db272d8f8c0a7f3586d191c04ce402e3d2d2d413f4e62bd7e
+PASS manifest_toplevel_same -- 顶层差异键 = []
+PASS manifest_slot_set_same -- 70 行
+PASS manifest_rows_69_identical -- 行差异槽 = [14](预期仅 [14])
+PASS manifest_slot14_fields -- slot14 行变化字段 = ['mip0_rgba8_sha256', 'output_sha256', 'sanitized']
+PASS manifest_slot14_sha_match_file -- manifest output_sha256 == 实文件 sha
+
+PASS → H:\rurix\artifacts\day_0830_delivery\w1_fixes\slot14_normal\verify_output.json

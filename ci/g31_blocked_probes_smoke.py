@@ -60,7 +60,12 @@ WORK = ROOT / ".tmp" / "g31_blocked_probes"
 
 VERDICT_CLOSED_SET = ("open-maintained", "blocked-dev-env")
 EXPECTED_PROBE_IDS = [f"P{i:02d}" for i in range(1, 13)]
-RD045_ANCHOR_DIGEST = "sha256:060e69a81e26dea4fce8be99d78c9a180fd3b76c8f6747ae548f44d10de28ff9"
+# G37 W4 重收割(默认翻转获批执行,2026-08-30):波 B 锚 060e69a81e26…(旧十臂
+# 展开前默认臂,且其消费二进制已被 day_0828 Phase F 构建事故覆盖 ⇒ 锚本已漂)
+# 作废;新锚 = 翻转后默认臂(--quality 缺省 full 十九臂)orbit 64+10,release 与
+# target-night 双二进制收割同值 + 各自双跑位级(w4_flip/W4_ANCHORS.json /
+# ev/rd045_release_r{1,2}.json 在案)。
+RD045_ANCHOR_DIGEST = "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f"
 HDR_TOKENS = (
     "VK_COLOR_SPACE_HDR10_ST2084_EXT",
     "VK_COLOR_SPACE_BT2020_LINEAR_EXT",

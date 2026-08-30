@@ -1,0 +1,4 @@
+{"step": "w0_alloff_8f", "rc": 0, "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288", "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288", "vuid": 0, "wall_s": 144.6, "pass": true, "real_render_frame_ms": 5.494975, "t": "23:25:31"}
+{"step": "w0_full16_96f", "rc": 0, "digest": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673", "expect": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673", "vuid": 0, "wall_s": 502.2, "pass": true, "real_render_frame_ms": 9.631175, "t": "23:33:53"}
+{"step": "w0_bench_default_160f", "rc": 0, "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02", "expect": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02", "wall_s": 152.2, "pass": true, "t": "23:36:26"}
+{"step": "w0_stagea18", "matched": 18, "total": 18, "pass": true, "t": "00:01:25"}

@@ -1,0 +1,1832 @@
+//@ spec: RXS-0405 L3 device 面（day_0829 真实感战役 realism kernel 链）
+// ## day_0829 真实感战役登记（本文件 = g31_texture_nrm_gi.rx 逐字 fork 演进链）
+// fork 基线 = day_0828 Phase F 后源码（编译产物 *_em.spv bdd23a3a）。母版
+// g31_texture_nrm_gi.rx 与其三 SPV 工件（g31_texture_nrm_gi.spv fd22cb19 /
+// *_gi2.spv 75d08aec / *_em.spv bdd23a3a）自本 fork 起 0-byte 冻结——六臂
+// 全部演进只发生在本文件,每臂验收编译到独立新 SPV(.tmp/night_0829/spv/
+// g31_realism_{f0,ao,soft,refl,nrm,gitex}.spv,链式超集:SPV_k 含臂 1..k 门,
+// 换载"默认字面才换",取 on 集最高臂工件;C 相纪律:新增采样/ray query 站点
+// 令 gate=0 恒等不可依赖,字节隔离不试图恒等)。
+// ## params 扩面([55..72),REAL_PARAMS_LEN=72;host = 窗口 bin 自有
+// pack_frame_params_real,共享体 0-byte):
+//   [55] 臂① --metal-f0 门(F0 取未衰减 baseColor,tri_base 侧表)
+//   [56..60) 臂② --rt-ao 门/半径/强度/样本数
+//   [60..62) 臂⑤ --soft-shadows 门/样本数(半径逐灯 points[pb+6] 既有)
+//   [62..65) 臂③ --rt-reflect 门/rough 上限/radiance clamp
+//   [65..67) 臂④ --normal-maps 门/强度
+//   [67] 臂⑥ --gi2-tex 门;[68] 臂⑦ --transparency 门(G37 W2);
+//   [69] 臂⑧ --gi2-ris 门 [70] ris_m 候选数 [71] --gi2-nee 门(G37 W2
+//   ris_nee,第 8 链位;原 [69..72) 预留槽全数启用,REAL_PARAMS_LEN=72 不变)
+// ## 侧表扩面:tri_base 3 f32/tri 未衰减 baseColor(--metal-f0 off 绑 12B
+// 零哑表,门 off 地址钳 0 保底读——texmeta slot 钳 0 同律)。
+// ## G37 W2 transparency 臂⑦侧表:tri_transp 1 f32/tri(0 = 不透明,(0,1] =
+// 透射率——装配层由 glTF alphaMode==BLEND || baseColorFactor.a<1 判定;签名
+// 尾追 tri_tan 之后成第 7 链位,仅编译 g31_realism_transp.spv〔18 路 View,
+// --transparency on 独载〕;transp on 而 --normal-maps off 时 trinm 绑
+// tri_count×(-1.0) 回退真表〔trinm[prim] 无门保底读同 triem 律〕、tri_tan
+// 绑 16B 零哑表〔nm while 零迭代零读〕)。
+// ## G37 W2 ris_nee 臂⑧侧表:lamp_tbl(灯片表 + 功率 CDF,装配模块
+// g37_w2/g31_ris_lamps.rs 双构建确定性单源;签名尾追 tri_transp 之后成第 8
+// 链位,仅编译 g31_realism_ris.spv〔19 路 View,--gi2-ris/--gi2-nee 任一 on
+// 独载〕)。布局:[0]=灯片数 Q [1]=总功率 [2..4) 预留;[4..4+Q) 功率 CDF
+// (host f64 前缀和归一 → f32,末项强制 1.0,Q ≤ 65536 fail-closed);
+// [4+Q..) 逐灯片 16 f32 = [A(3) e1(3) e2(3) 单位法线(3) 面积 Le(3)]。
+// nee off 而 ris on 时绑 80B 零哑表(header Q=0 + 首记录触达域 [4..20) 保底
+// 读——texmeta slot 钳 0 同律);ris|nee on 而 transp off 时 tri_transp 绑
+// tri_count×0.0 零表(阴影重走段 tri_transp[prim] 无门保底读,trinm 回退律)。
+//
+// ── 以下为 fork 基线头注(day_0828 谱系,逐字保留)──
+// Phase B 统一质量 kernel —— kernels/g18_smooth_nrm.rx 逐字 fork（平滑顶点
+// 法线 params[43] + 半球环境光 params[44..48) + GGX params[48] + 灯提取
+// 半径/贡献门 points[pb+6]/params[49] 五臂全数继承）+ 并入
+// kernels/g31_texture_gi.rx Phase B texel heap 贴图采样面（heap 寻址 + mip
+// 选择 params[50] + LUT + mod + tex_gate 常量面回退）。窗口车道
+// (--smooth-normals on && --textures on) 合流臂换载本 kernel（互斥解除面）；
+// 两母版 kernel 文件 0-byte 不动，各自单臂锚由各自换载路径承载。
+//
+// ## albedo 来源（唯一与 g18_smooth_nrm.rx 的语义差异面）
+// tritex[prim×2] ≥ 0 ⇒ albedo[c] = heap 采样（nearest-mip + bilinear +
+// srgb→linear LUT）× mod[c]；< 0 ⇒ 既有 mats 常量面逐字 0-byte。下游消费
+// （直接光漫反射 albedo·inv_pi·dir、GGX F0 = mix(0.04, albedo, metal)、
+// 环境光 albedo·amb）全部走同一 al_* 选择值——纹理即入高光/补光双面。
+//
+// ## 采样面（与 g31_texture_gi.rx Phase B 段逐字同形）
+// texmeta 槽 [8+k*8..+8] = [0, 0, w_base, h_base, mod_r, mod_g, mod_b,
+// mip_count]；tritex 2 f32/tri [slot, k_tri]；atlas = 一维 texel heap
+// （u32 偏移头表 [slot*13+m] + 逐槽逐级 texel 段）；mip 选择 lod =
+// clamp(floor(log2(th·k_pix·k_tri·w_base)), 0, mips−1)，k_pix = params[50]
+// （host pack_frame_params_tex；th = committed_t() 寄存器现成）；级尺寸
+// 逐级 ×0.5 折半（pow2 精确）；G26 双线性 4 fetch + 256 项 LUT（G/B 底行
+// fx 正确形——day_0828 fx/fy 修正后基线）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐像素独立顺序求值，禁 atomic；分支判定 = branchless gate 乘法门（A1
+// 先例——rurixc 对「if 包 while+if」深嵌套 selection 合并块 codegen 无效，
+// 不用 if 包体形态；本 kernel 新增分支面 = mip 折半 while 循环，形态与
+// 既有灯循环同构）；固定输入双跑位级一致（NoContraction 注入面 = host 侧
+// SPV 后处理，驱动 FMA 收缩禁面）。
+//
+// ## 参数面
+//   tlas/tris/mats/quads/points/params：g18_smooth_nrm.rx 逐字同源
+//   （params 56 f32：[43] 平滑门 [44..48) 环境光 [48] GGX [49] 灯贡献阈
+//   [50] k_pix；day_0828 Phase C GI2 加性臂 [51] 门 [52] frame_idx
+//   [53] firefly clamp [54] gi_scale——[51]=0 关臂 while 零迭代 +0.0
+//   恒等尾加）。
+//   **Phase C SPV 路线隔离登记**：本源码现编译产物 = *_gi2.spv（仅 --gi2 on
+//   车道消费）；gi2-off 合流臂恒载 pre-C 锚定字节 g31_texture_nrm_gi.spv
+//   （8b1c12f3 锚，文件 0-byte 不动）——GI2 段（2 ray query 站点 + sin/cos +
+//   动态循环）令驱动后端对既有代码重编译产 ULP 级扰动经 TSR/AE 反馈放大
+//   （E1 探针证明纯 ALU +0.0 尾加位级恒等成立），字节隔离为保锚强形态；
+//   源码-锚字节 divergence 与 A2b encode v2 同律如实登记。
+//   trinrm: 9 f32/tri 顶点法线侧表（g18_smooth_nrm 同律）；
+//   tri_mr: 2 f32/tri [metallic, roughness]（--ggx off 绑 8B 零哑表，
+//           params[48]=0 门不读）；
+//   texuv/texmeta/tritex/atlas/linlut：g31_texture_gi.rx Phase B 逐字同布局；
+//   triem: 1 f32/tri emissive 槽号侧表（day_0828 Phase F 加性臂——≥0 =
+//          heap emissive 槽〔装配侧 70..73〕，< 0 = mats[mb+3..6) 均值面
+//          逐字回退）。**Phase F SPV 路线隔离登记**：本签名扩展仅编译到
+//          g31_texture_nrm_gi_em.spv（--emissive-tex on 独载，gi2 on/off
+//          均用本工件——GI2 段 params[51] 门控在内）；既有两工件
+//          g31_texture_nrm_gi.spv / *_gi2.spv 0-byte 不动（C 相纪律：新增
+//          采样站点令既有臂 gate=0 恒等失效，字节隔离不试图恒等）。
+//   out_color: 3 f32/px scene-linear HDR；out_depth: 1 f32/px ZO NDC。
+//
+// ## Phase F emissive 贴图臂（day_0828 —— 灯具整体全白修复）
+// 输出合成 emission 从逐材质均值 mats[mb+3..6) 升级为逐像素 emissive 贴图
+// 采样：em_slot = triem[prim]，slot ≥ 0 ⇒ 既有 heap 寻址（同 texuv UV、同
+// lod 公式、同双线性 + linlut）采样该槽 → Le_px_c = sample_c × em_scale_c，
+// em_scale_c = texmeta 该槽 mod 位 [esb+4..7)（装配侧 = 契约 Le_c / 贴图
+// mip0 线性均值——能量守恒标定：屏面均值回到旧常量 Le 口径，灯泡亮点
+// >均值、罩壳 <均值显材质）。emissive 槽 mod 语义 = scale，与 albedo 槽
+// mod（factor·k_metal）两套语义**互不相乘**（albedo tex_gate/mod 不进本臂）。
+// branchless select（tex_gate 同律：slot<0 ⇒ em_gate=0 ⇒ mats 均值面逐字）；
+// miss 像素经 hit_f 门恒 0；GI2 反弹点 emission 仍走 mats 均值直读（间接光
+// 低频，带宽省——如实登记非逐像素）。
+#[numthreads(8, 8, 1)]
+kernel fn g31_texture_nrm_gi(
+    tlas: AccelStruct,
+    t: ThreadCtx<2>,
+    tris: View<global, f32>,
+    mats: View<global, f32>,
+    quads: View<global, f32>,
+    points: View<global, f32>,
+    params: View<global, f32>,
+    trinrm: View<global, f32>,
+    tri_mr: View<global, f32>,
+    texuv: View<global, f32>,
+    texmeta: View<global, f32>,
+    tritex: View<global, f32>,
+    atlas: View<global, u32>,
+    linlut: View<global, f32>,
+    triem: View<global, f32>,
+    tri_base: View<global, f32>,
+    trinm: View<global, f32>,
+    tri_tan: View<global, f32>,
+    // G37 W2 transparency:1 f32/tri 透射率侧表(第 7 链位签名扩展)。
+    tri_transp: View<global, f32>,
+    // G37 W2 ris_nee:灯片表 + 功率 CDF(第 8 链位签名扩展;头注布局)。
+    lamp_tbl: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_depth: ViewMut<global, f32>,
+) {
+    // 2D 车道索引（8×8 局部组；dispatch = ceil(w/8)×ceil(h/8)×1）。
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[1] as usize;
+    let height = params[2] as usize;
+    let jx = params[3];
+    let jy = params[4];
+    let ray_eps = params[5];
+    let ray_tmax = params[6];
+    let quad_count = params[7] as usize;
+    let point_count = params[8] as usize;
+    let inv_pi = params[41];
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let eps2 = ray_eps * ray_eps;
+    if px < width && py < height {
+        let i = py * width + px;
+        // ── ① jitter 主射线（g18_smooth_nrm 逐字同式）──
+        let sx = (px as f32) + 0.5 + jx;
+        let sy = (py as f32) + 0.5 + jy;
+        let ndx = 2.0 * (sx / (width as f32)) - 1.0;
+        let ndy = 1.0 - 2.0 * (sy / (params[2] as f32));
+        let n4x = (params[9] * ndx + params[10] * ndy) + params[12];
+        let n4y = (params[13] * ndx + params[14] * ndy) + params[16];
+        let n4z = (params[17] * ndx + params[18] * ndy) + params[20];
+        let n4w = (params[21] * ndx + params[22] * ndy) + params[24];
+        let f4x = ((params[9] * ndx + params[10] * ndy) + params[11]) + params[12];
+        let f4y = ((params[13] * ndx + params[14] * ndy) + params[15]) + params[16];
+        let f4z = ((params[17] * ndx + params[18] * ndy) + params[19]) + params[20];
+        let f4w = ((params[21] * ndx + params[22] * ndy) + params[23]) + params[24];
+        let near_x = n4x / n4w;
+        let near_y = n4y / n4w;
+        let near_z = n4z / n4w;
+        let d0x = f4x / f4w - near_x;
+        let d0y = f4y / f4w - near_y;
+        let d0z = f4z / f4w - near_z;
+        let dl = (d0x * d0x + d0y * d0y + d0z * d0z).sqrt();
+        let gate_dl = (dl * big).min(1.0).max(0.0);
+        let dl_safe = dl + (1.0 - gate_dl);
+        let dx = gate_dl * d0x / dl_safe;
+        let dy = gate_dl * d0y / dl_safe;
+        let dz = gate_dl * d0z / dl_safe;
+        // ── ② 主 ray query（最近命中；空体循环 = M96 白名单形）──
+        let mut rq = ray_query_initialize(tlas, (near_x, near_y, near_z), 0.0, (dx, dy, dz), ray_tmax);
+        while rq.proceed() {
+        }
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        let mut bu = 0.0;
+        let mut bv = 0.0;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            let bary = rq.committed_barycentric();
+            bu = bary.0;
+            bv = bary.1;
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+            bu = 0.0;
+            bv = 0.0;
+        }
+        // ── G37 W2 transparency 臂⑦:主射线玻璃透射真解（params[68] 门;
+        //    --transparency）──缺陷面:TransparentGlass 类材质被按不透明渲染
+        //    ⇒ 屏幕中央雾状楔形。修 = 命中 tri_transp[prim]>0 三角时沿原方向
+        //    推进重投（命中点 + ray_eps 起,方向不变——工程直线透射,不折射
+        //    如实登记）,逐层累积 tint = 透射率 × tri_base 未衰减 baseColor
+        //    （臂①修伤面同律:mats 均值面被 ×(1−metal)〔玻璃 metal=0.4 ⇒
+        //    ×0.6〕与 BaseColor 灰贴图均值 0.22 双重衰减 ⇒ 双面板 tint≈0.012
+        //    全黑不可用;tri_base 对 tex 三角 = baseColorFactor〔bistro 玻璃
+        //    = [1,1,1] ⇒ tint = 纯透射率 0.85/面〕,逐像素贴图色调透射留窗;
+        //    host 保证 transparency on ⇒ tri_base 恒真表〕）,直至不透明命中/
+        //    穿出/8 层上限;命中态（th/prim/
+        //    bu/bv/hit_f mut 覆写——臂④ nx/ny/nz mut 化同律）= 最终命中 ⇒
+        //    下游采样/直接光/GI2/AO/反射/深度全链在穿透后真实着色点求值
+        //   （玻璃像素深度 = 背景命中深度,TSR 重投随透射主导辐亮如实登记;
+        //    玻璃面自身高光/反射零贡献留窗）;穿出 = miss 语义（天空底色经
+        //    tint 衰减;th/prim 置 0 保底与母版 miss 面同形）。关臂:
+        //    params[68]=0 ⇒ tp_n=0 while 零迭代 tint 恒 1.0（字节隔离律:
+        //    off 面根本不载本 SPV,不依赖恒等）。分支纪律:while 计数门 +
+        //    branchless 越上限跳出 + if 包 ray query 白名单形（灯循环/GI2
+        //    同构;「if 包 while」深嵌套禁形不触——rurixc 已知缺陷另分支
+        //    修复中,不依赖）。
+        let tp_gate = ((params[68] - 0.5) * big).min(1.0).max(0.0);
+        let mut tp_tint_r = 1.0;
+        let mut tp_tint_g = 1.0;
+        let mut tp_tint_b = 1.0;
+        let tp_n = (tp_gate * hit_f * 8.0) as usize;
+        let mut tp_i = 0usize;
+        while tp_i < tp_n {
+            // 当前命中透明度（0 = 不透明 ⇒ 零射线跳出;(0,1] = 透射率 ⇒ 穿透）。
+            let tp_a = tri_transp[prim as usize];
+            let tp_pass = (tp_a * big).min(1.0).max(0.0);
+            // 透明层 tint 累积（透射率 × tri_base 未衰减 baseColorFactor;
+            // 不透明层 ×1 恒等。阴影重走段为纯透射率不带色调,如实登记）。
+            let tp_tb = (prim as usize) * 3;
+            tp_tint_r = tp_tint_r * (tp_pass * (tp_a * tri_base[tp_tb]) + (1.0 - tp_pass));
+            tp_tint_g = tp_tint_g * (tp_pass * (tp_a * tri_base[tp_tb + 1]) + (1.0 - tp_pass));
+            tp_tint_b = tp_tint_b * (tp_pass * (tp_a * tri_base[tp_tb + 2]) + (1.0 - tp_pass));
+            // 推进重投（th 保持「距 near 累积程」参数化 ⇒ 下游 hx/lod 同式）。
+            if tp_pass > 0.0 {
+                let tp_ox = near_x + dx * (th + ray_eps);
+                let tp_oy = near_y + dy * (th + ray_eps);
+                let tp_oz = near_z + dz * (th + ray_eps);
+                let mut tp_rq = ray_query_initialize(tlas, (tp_ox, tp_oy, tp_oz), 0.0, (dx, dy, dz), ray_tmax);
+                while tp_rq.proceed() {
+                }
+                if tp_rq.has_committed() {
+                    th = (th + ray_eps) + tp_rq.committed_t();
+                    prim = tp_rq.committed_primitive_index();
+                    let tp_bary = tp_rq.committed_barycentric();
+                    bu = tp_bary.0;
+                    bv = tp_bary.1;
+                    hit_f = 1.0;
+                } else {
+                    hit_f = 0.0;
+                    th = 0.0;
+                    prim = 0u32;
+                    bu = 0.0;
+                    bv = 0.0;
+                }
+            }
+            // 透明命中 ⇒ +1 续层;不透明/穿出 miss ⇒ 越上限跳出（branchless,
+            // gate 乘积 ∈ {0,1} 精确整数域 cast 安全）。
+            tp_i = tp_i + 1 + ((1.0 - tp_pass * hit_f) * 9.0) as usize;
+        }
+        // 命中点/几何法线/材质（miss 时 prim=0 保底，贡献经 hit_f 门恒 0）。
+        let tb = (prim as usize) * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let nl = (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let gate_nl = (nl * big).min(1.0).max(0.0);
+        let nl_safe = nl + (1.0 - gate_nl);
+        let inv_nl = 1.0 / nl_safe;
+        let hgx_f = gate_nl * (ngx * inv_nl);
+        let hgy_f = gate_nl * (ngy * inv_nl);
+        let hgz_f = gate_nl * (ngz * inv_nl);
+        // ── 平滑顶点法线臂（params[43] > 0.5 = on；g18_smooth_nrm 逐字）──
+        let nb = (prim as usize) * 9;
+        let bw_ = 1.0 - bu - bv;
+        let snx = bw_ * trinrm[nb] + bu * trinrm[nb + 3] + bv * trinrm[nb + 6];
+        let sny = bw_ * trinrm[nb + 1] + bu * trinrm[nb + 4] + bv * trinrm[nb + 7];
+        let snz = bw_ * trinrm[nb + 2] + bu * trinrm[nb + 5] + bv * trinrm[nb + 8];
+        let sl = (snx * snx + sny * sny + snz * snz).sqrt();
+        let gate_sl = (sl * big).min(1.0).max(0.0);
+        let sl_safe = sl + (1.0 - gate_sl);
+        let inv_sl = 1.0 / sl_safe;
+        let hgx_s = gate_sl * (snx * inv_sl);
+        let hgy_s = gate_sl * (sny * inv_sl);
+        let hgz_s = gate_sl * (snz * inv_sl);
+        let gate_sn = ((params[43] - 0.5) * big).min(1.0).max(0.0);
+        let hgx = gate_sn * hgx_s + (1.0 - gate_sn) * hgx_f;
+        let hgy = gate_sn * hgy_s + (1.0 - gate_sn) * hgy_f;
+        let hgz = gate_sn * hgz_s + (1.0 - gate_sn) * hgz_f;
+        // 双面：法线翻转朝向相机。
+        // day_0829 臂④:mut 化——法线贴图扰动段(em 采样后)覆写,off 面不触。
+        let fac0 = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (fac0 * big).min(1.0).max(0.0);
+        let mut nx = flip * hgx;
+        let mut ny = flip * hgy;
+        let mut nz = flip * hgz;
+        let hx = near_x + dx * th;
+        let hy = near_y + dy * th;
+        let hz = near_z + dz * th;
+        let mb = (prim as usize) * 8;
+        // ── Phase B 贴图采样 albedo（g31_texture_gi.rx Phase B 段逐字同形；
+        //    tritex[prim×2] < 0 = mats 常量面 0-byte 回退）──
+        let slotf = tritex[(prim as usize) * 2];
+        let k_tri = tritex[(prim as usize) * 2 + 1];
+        let tex_gate = (slotf + 1.0).min(1.0).max(0.0);
+        let slot = slotf.max(0.0) as usize;
+        let sb = 8 + slot * 8;
+        let tw = texmeta[sb + 2];
+        let th2 = texmeta[sb + 3];
+        let mod_r = texmeta[sb + 4];
+        let mod_g = texmeta[sb + 5];
+        let mod_b = texmeta[sb + 6];
+        let mips = texmeta[sb + 7];
+        let ub = (prim as usize) * 6;
+        let uu0 = bw_ * texuv[ub] + bu * texuv[ub + 2] + bv * texuv[ub + 4];
+        let vv0 = bw_ * texuv[ub + 1] + bu * texuv[ub + 3] + bv * texuv[ub + 5];
+        // mip 选择（miss 像素 th=0 → 钳 0 有效地址保底；k_tri=0 退化面同钳 0）。
+        let sel = ((th * params[50]) * k_tri) * tw;
+        let lodf = sel.max(tiny).log2().floor().max(0.0).min(mips - 1.0);
+        let lod = lodf as usize;
+        // 级尺寸逐级折半（×0.5 pow2 精确；min 1 texel 保底）。
+        let mut mw = tw;
+        let mut mh = th2;
+        let mut li = 0usize;
+        while li < lod {
+            mw = (mw * 0.5).max(1.0);
+            mh = (mh * 0.5).max(1.0);
+            li = li + 1;
+        }
+        let hbase = atlas[slot * 13 + lod] as usize;
+        // REPEAT wrap → G26 双线性 → heap 线性地址（usize 精确域）。
+        let uu = uu0 - uu0.floor();
+        let vv = vv0 - vv0.floor();
+        let xf = uu * mw - 0.5;
+        let yf = vv * mh - 0.5;
+        let bxf = xf.floor();
+        let byf = yf.floor();
+        let fx = xf - bxf;
+        let fy = yf - byf;
+        let inv_tw = 1.0 / mw;
+        let inv_th = 1.0 / mh;
+        let x0 = bxf - (bxf * inv_tw).floor() * mw;
+        let y0 = byf - (byf * inv_th).floor() * mh;
+        let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * mw;
+        let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * mh;
+        let a00 = hbase + (y0 as usize) * (mw as usize) + (x0 as usize);
+        let a10 = hbase + (y0 as usize) * (mw as usize) + (x1 as usize);
+        let a01 = hbase + (y1 as usize) * (mw as usize) + (x0 as usize);
+        let a11 = hbase + (y1 as usize) * (mw as usize) + (x1 as usize);
+        let p00 = atlas[a00] as usize;
+        let p10 = atlas[a10] as usize;
+        let p01 = atlas[a01] as usize;
+        let p11 = atlas[a11] as usize;
+        let p00_r = linlut[p00 % 256usize];
+        let p00_g = linlut[(p00 / 256usize) % 256usize];
+        let p00_b = linlut[(p00 / 65536usize) % 256usize];
+        let p10_r = linlut[p10 % 256usize];
+        let p10_g = linlut[(p10 / 256usize) % 256usize];
+        let p10_b = linlut[(p10 / 65536usize) % 256usize];
+        let p01_r = linlut[p01 % 256usize];
+        let p01_g = linlut[(p01 / 256usize) % 256usize];
+        let p01_b = linlut[(p01 / 65536usize) % 256usize];
+        let p11_r = linlut[p11 % 256usize];
+        let p11_g = linlut[(p11 / 256usize) % 256usize];
+        let p11_b = linlut[(p11 / 65536usize) % 256usize];
+        // top/bot/mix（G/B 底行 fx 正确形——day_0828 fx/fy 修正后基线）× mod。
+        // day_0829 臂①:raw_* = ×mod 前原始双线性值中间量提取(表达式树与
+        // 原 (t·(1−fy)+b·fy)·mod 逐字同序 ⇒ samp_* 位级同值),供 F0 未衰减面复用。
+        let t0r = p00_r * (1.0 - fx) + p10_r * fx;
+        let b0r = p01_r * (1.0 - fx) + p11_r * fx;
+        let raw_r = t0r * (1.0 - fy) + b0r * fy;
+        let samp_r = raw_r * mod_r;
+        let t0g = p00_g * (1.0 - fx) + p10_g * fx;
+        let b0g = p01_g * (1.0 - fx) + p11_g * fx;
+        let raw_g = t0g * (1.0 - fy) + b0g * fy;
+        let samp_g = raw_g * mod_g;
+        let t0b = p00_b * (1.0 - fx) + p10_b * fx;
+        let b0b = p01_b * (1.0 - fx) + p11_b * fx;
+        let raw_b = t0b * (1.0 - fy) + b0b * fy;
+        let samp_b = raw_b * mod_b;
+        // albedo 选择（tex_gate = 1 采样面 / 0 常量面；1·x+0·y IEEE 精确）。
+        let al_r = tex_gate * samp_r + (1.0 - tex_gate) * mats[mb];
+        let al_g = tex_gate * samp_g + (1.0 - tex_gate) * mats[mb + 1];
+        let al_b = tex_gate * samp_b + (1.0 - tex_gate) * mats[mb + 2];
+        // ── Phase F emissive 贴图臂：逐像素 Le（triem[prim] ≥ 0 = emissive 槽
+        //    〔heap 同寻址:同 uu/vv、同 lod 公式〔该槽自身 w_base〕、同双线性
+        //    + linlut〕× texmeta 该槽 mod 位 = em_scale〔能量守恒标定,不乘
+        //    albedo mod〕；< 0 = mats[mb+3..6) 均值面回退。branchless：slot
+        //    钳 0 保底读〔槽 0 元数据/地址恒有效〕,em_gate 选择;miss 像素
+        //    th=0 ⇒ elod 钳 0 有效地址,贡献经 hit_f 门恒 0）──
+        let em_slotf = triem[prim as usize];
+        let em_gate = (em_slotf + 1.0).min(1.0).max(0.0);
+        let em_slot = em_slotf.max(0.0) as usize;
+        let esb = 8 + em_slot * 8;
+        let etw = texmeta[esb + 2];
+        let eth = texmeta[esb + 3];
+        let escl_r = texmeta[esb + 4];
+        let escl_g = texmeta[esb + 5];
+        let escl_b = texmeta[esb + 6];
+        let emips = texmeta[esb + 7];
+        let esel = ((th * params[50]) * k_tri) * etw;
+        let elodf = esel.max(tiny).log2().floor().max(0.0).min(emips - 1.0);
+        let elod = elodf as usize;
+        let mut emw = etw;
+        let mut emh = eth;
+        let mut eli = 0usize;
+        while eli < elod {
+            emw = (emw * 0.5).max(1.0);
+            emh = (emh * 0.5).max(1.0);
+            eli = eli + 1;
+        }
+        let ehb = atlas[em_slot * 13 + elod] as usize;
+        let exf = uu * emw - 0.5;
+        let eyf = vv * emh - 0.5;
+        let ebxf = exf.floor();
+        let ebyf = eyf.floor();
+        let efx = exf - ebxf;
+        let efy = eyf - ebyf;
+        let einv_w = 1.0 / emw;
+        let einv_h = 1.0 / emh;
+        let ex0 = ebxf - (ebxf * einv_w).floor() * emw;
+        let ey0 = ebyf - (ebyf * einv_h).floor() * emh;
+        let ex1 = (ebxf + 1.0) - ((ebxf + 1.0) * einv_w).floor() * emw;
+        let ey1 = (ebyf + 1.0) - ((ebyf + 1.0) * einv_h).floor() * emh;
+        let ea00 = ehb + (ey0 as usize) * (emw as usize) + (ex0 as usize);
+        let ea10 = ehb + (ey0 as usize) * (emw as usize) + (ex1 as usize);
+        let ea01 = ehb + (ey1 as usize) * (emw as usize) + (ex0 as usize);
+        let ea11 = ehb + (ey1 as usize) * (emw as usize) + (ex1 as usize);
+        let ep00 = atlas[ea00] as usize;
+        let ep10 = atlas[ea10] as usize;
+        let ep01 = atlas[ea01] as usize;
+        let ep11 = atlas[ea11] as usize;
+        let ep00_r = linlut[ep00 % 256usize];
+        let ep00_g = linlut[(ep00 / 256usize) % 256usize];
+        let ep00_b = linlut[(ep00 / 65536usize) % 256usize];
+        let ep10_r = linlut[ep10 % 256usize];
+        let ep10_g = linlut[(ep10 / 256usize) % 256usize];
+        let ep10_b = linlut[(ep10 / 65536usize) % 256usize];
+        let ep01_r = linlut[ep01 % 256usize];
+        let ep01_g = linlut[(ep01 / 256usize) % 256usize];
+        let ep01_b = linlut[(ep01 / 65536usize) % 256usize];
+        let ep11_r = linlut[ep11 % 256usize];
+        let ep11_g = linlut[(ep11 / 256usize) % 256usize];
+        let ep11_b = linlut[(ep11 / 65536usize) % 256usize];
+        let et0r = ep00_r * (1.0 - efx) + ep10_r * efx;
+        let eb0r = ep01_r * (1.0 - efx) + ep11_r * efx;
+        let esamp_r = (et0r * (1.0 - efy) + eb0r * efy) * escl_r;
+        let et0g = ep00_g * (1.0 - efx) + ep10_g * efx;
+        let eb0g = ep01_g * (1.0 - efx) + ep11_g * efx;
+        let esamp_g = (et0g * (1.0 - efy) + eb0g * efy) * escl_g;
+        let et0b = ep00_b * (1.0 - efx) + ep10_b * efx;
+        let eb0b = ep01_b * (1.0 - efx) + ep11_b * efx;
+        let esamp_b = (et0b * (1.0 - efy) + eb0b * efy) * escl_b;
+        // emission 选择（em_gate = 1 逐像素贴图面 / 0 mats 均值面）。
+        let em_r = em_gate * esamp_r + (1.0 - em_gate) * mats[mb + 3];
+        let em_g = em_gate * esamp_g + (1.0 - em_gate) * mats[mb + 4];
+        let em_b = em_gate * esamp_b + (1.0 - em_gate) * mats[mb + 5];
+        // ── day_0829 臂④ 法线贴图接线（params[65] 门;--normal-maps）──
+        // BC5 法线 XY 进 heap 新槽(74..143,不过 sRGB LUT:x=(R−127)/127),
+        // Z = sqrt(max(0,1−x²−y²));切线 = tri_tan 4 f32/tri(装配期 UV 导数
+        // 法 + 手性 w,glTF 无 TANGENT ⇒ 烘焙期生成);逐像素 Gram-Schmidt
+        // 正交化 + TBN 扰动平滑法线,强度 params[66];扰动后 n 进直接光/GGX/
+        // 环境光/AO/GI2/反射全链。while 计数门包采样——off/无槽/miss 零采样
+        // 零读,nx/ny/nz 不触。lod = 主命中同公式(k_tri 复用 tritex 密度)。
+        let nm_gate = ((params[65] - 0.5) * big).min(1.0).max(0.0);
+        let nm_slotf = trinm[prim as usize];
+        let nm_sgate = (nm_slotf + 1.0).min(1.0).max(0.0);
+        let nm_n = (nm_gate * hit_f * nm_sgate * tex_gate) as usize;
+        let mut nm_i = 0usize;
+        while nm_i < nm_n {
+            let nm_slot = nm_slotf.max(0.0) as usize;
+            let nm_sb = 8 + nm_slot * 8;
+            let nm_tw = texmeta[nm_sb + 2];
+            let nm_th = texmeta[nm_sb + 3];
+            let nm_mips = texmeta[nm_sb + 7];
+            let nm_sel = ((th * params[50]) * k_tri) * nm_tw;
+            let nm_lodf = nm_sel.max(tiny).log2().floor().max(0.0).min(nm_mips - 1.0);
+            let nm_lod = nm_lodf as usize;
+            let mut nm_mw = nm_tw;
+            let mut nm_mh = nm_th;
+            let mut nm_li = 0usize;
+            while nm_li < nm_lod {
+                nm_mw = (nm_mw * 0.5).max(1.0);
+                nm_mh = (nm_mh * 0.5).max(1.0);
+                nm_li = nm_li + 1;
+            }
+            let nm_hb = atlas[nm_slot * 13 + nm_lod] as usize;
+            let nm_xf = uu * nm_mw - 0.5;
+            let nm_yf = vv * nm_mh - 0.5;
+            let nm_bxf = nm_xf.floor();
+            let nm_byf = nm_yf.floor();
+            let nm_fx = nm_xf - nm_bxf;
+            let nm_fy = nm_yf - nm_byf;
+            let nm_invw = 1.0 / nm_mw;
+            let nm_invh = 1.0 / nm_mh;
+            let nm_x0 = nm_bxf - (nm_bxf * nm_invw).floor() * nm_mw;
+            let nm_y0 = nm_byf - (nm_byf * nm_invh).floor() * nm_mh;
+            let nm_x1 = (nm_bxf + 1.0) - ((nm_bxf + 1.0) * nm_invw).floor() * nm_mw;
+            let nm_y1 = (nm_byf + 1.0) - ((nm_byf + 1.0) * nm_invh).floor() * nm_mh;
+            let nm_a00 = nm_hb + (nm_y0 as usize) * (nm_mw as usize) + (nm_x0 as usize);
+            let nm_a10 = nm_hb + (nm_y0 as usize) * (nm_mw as usize) + (nm_x1 as usize);
+            let nm_a01 = nm_hb + (nm_y1 as usize) * (nm_mw as usize) + (nm_x0 as usize);
+            let nm_a11 = nm_hb + (nm_y1 as usize) * (nm_mw as usize) + (nm_x1 as usize);
+            let nm_p00 = atlas[nm_a00] as usize;
+            let nm_p10 = atlas[nm_a10] as usize;
+            let nm_p01 = atlas[nm_a01] as usize;
+            let nm_p11 = atlas[nm_a11] as usize;
+            // XY 线性解码(linlut 不进——法线为线性数据;x=(byte−127)/127)。
+            let nm_00x = ((nm_p00 % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_00y = (((nm_p00 / 256usize) % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_10x = ((nm_p10 % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_10y = (((nm_p10 / 256usize) % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_01x = ((nm_p01 % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_01y = (((nm_p01 / 256usize) % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_11x = ((nm_p11 % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_11y = (((nm_p11 / 256usize) % 256usize) as f32 - 127.0) * 0.007874015748031496;
+            let nm_t0x = nm_00x * (1.0 - nm_fx) + nm_10x * nm_fx;
+            let nm_b0x = nm_01x * (1.0 - nm_fx) + nm_11x * nm_fx;
+            let nm_x = (nm_t0x * (1.0 - nm_fy) + nm_b0x * nm_fy) * params[66];
+            let nm_t0y = nm_00y * (1.0 - nm_fx) + nm_10y * nm_fx;
+            let nm_b0y = nm_01y * (1.0 - nm_fx) + nm_11y * nm_fx;
+            let nm_y = (nm_t0y * (1.0 - nm_fy) + nm_b0y * nm_fy) * params[66];
+            let nm_z = (1.0 - nm_x * nm_x - nm_y * nm_y).max(0.0).sqrt();
+            // 切线(装配期 UV 导数法) → 逐像素 Gram-Schmidt 正交化 + 手性副切。
+            let tb4 = (prim as usize) * 4;
+            let tan_x0 = tri_tan[tb4];
+            let tan_y0 = tri_tan[tb4 + 1];
+            let tan_z0 = tri_tan[tb4 + 2];
+            let tan_w = tri_tan[tb4 + 3];
+            let tan_dn = tan_x0 * nx + tan_y0 * ny + tan_z0 * nz;
+            let tan_px = tan_x0 - tan_dn * nx;
+            let tan_py = tan_y0 - tan_dn * ny;
+            let tan_pz = tan_z0 - tan_dn * nz;
+            let tan_l = (tan_px * tan_px + tan_py * tan_py + tan_pz * tan_pz).sqrt();
+            let tan_gl = ((tan_l - 0.000001) * big).min(1.0).max(0.0);
+            let tan_ls = tan_l + (1.0 - tan_gl);
+            let tan_x = tan_px / tan_ls;
+            let tan_y = tan_py / tan_ls;
+            let tan_z = tan_pz / tan_ls;
+            let bit_x = (ny * tan_z - nz * tan_y) * tan_w;
+            let bit_y = (nz * tan_x - nx * tan_z) * tan_w;
+            let bit_z = (nx * tan_y - ny * tan_x) * tan_w;
+            let np_x = tan_x * nm_x + bit_x * nm_y + nx * nm_z;
+            let np_y = tan_y * nm_x + bit_y * nm_y + ny * nm_z;
+            let np_z = tan_z * nm_x + bit_z * nm_y + nz * nm_z;
+            let np_l = (np_x * np_x + np_y * np_y + np_z * np_z).sqrt().max(tiny);
+            // 退化切线(tan_gl=0)保持原法线(branchless 选择)。
+            nx = tan_gl * (np_x / np_l) + (1.0 - tan_gl) * nx;
+            ny = tan_gl * (np_y / np_l) + (1.0 - tan_gl) * ny;
+            nz = tan_gl * (np_z / np_l) + (1.0 - tan_gl) * nz;
+            nm_i = nm_i + 1;
+        }
+        // ── D6 GGX 臂逐像素常量面（params[48]>0.5 门；g18_smooth_nrm 逐字——
+        //    F0 消费本 kernel 的 al_*〔采样/常量选择值〕）──
+        let mut metal = 0.0;
+        let mut rough = 0.0;
+        if params[48] > 0.5 {
+            let mrb = (prim as usize) * 2;
+            metal = tri_mr[mrb];
+            rough = tri_mr[mrb + 1];
+        }
+        let rough_c = (rough.max(0.05)).min(1.0);
+        let alpha = rough_c * rough_c;
+        let alpha2 = alpha * alpha;
+        // ── day_0829 臂① 金属 F0 修伤（params[55]>0.5 门;--metal-f0）──
+        // 硬伤:装配期 albedo 已乘 (1−metallic)(texmeta mod = factor·k_metal、
+        // mats 常量面 = b·k)⇒ 金属 al_*≈0 ⇒ F0=mix(0.04,al,metal) 归零、金属
+        // 无高光全黑。修 = F0 改取未衰减 baseColor:tri_base 3 f32/tri 侧表
+        // (tex 三角 = baseColorFactor〔kernel 乘 raw_* 原始采样〕;常量三角 =
+        // tex_mean·factor)——统一式 al_f0 = tb·(tex_gate·raw + 1−tex_gate)。
+        // diffuse/环境光仍走衰减 al_*(金属无漫反射,物理面不动)。门 off ⇒
+        // 地址钳 0 保底读哑表(texmeta slot 钳 0 同律) + branchless 选回 al_*。
+        let f0_gate = ((params[55] - 0.5) * big).min(1.0).max(0.0);
+        let tbb = (((prim as f32) * f0_gate) as usize) * 3;
+        let tb_r = tri_base[tbb];
+        let tb_g = tri_base[tbb + 1];
+        let tb_b = tri_base[tbb + 2];
+        let alf_r = f0_gate * (tb_r * (tex_gate * raw_r + 1.0 - tex_gate)) + (1.0 - f0_gate) * al_r;
+        let alf_g = f0_gate * (tb_g * (tex_gate * raw_g + 1.0 - tex_gate)) + (1.0 - f0_gate) * al_g;
+        let alf_b = f0_gate * (tb_b * (tex_gate * raw_b + 1.0 - tex_gate)) + (1.0 - f0_gate) * al_b;
+        let f0_r = 0.04 * (1.0 - metal) + alf_r * metal;
+        let f0_g = 0.04 * (1.0 - metal) + alf_g * metal;
+        let f0_b = 0.04 * (1.0 - metal) + alf_b * metal;
+        let cos_v = (0.0 - (nx * dx + ny * dy + nz * dz)).max(0.0);
+        // ── ③ 直接光累加（g18_smooth_nrm 逐字：quad 4×4 分层 + GGX 高光 +
+        //    point delta + A1 灯半径/贡献门）──
+        let mut dir_r = 0.0;
+        let mut dir_g = 0.0;
+        let mut dir_b = 0.0;
+        let mut spec_r = 0.0;
+        let mut spec_g = 0.0;
+        let mut spec_b = 0.0;
+        let mut qi = 0usize;
+        while qi < quad_count {
+            let qb = qi * 16;
+            let qp_x = quads[qb];
+            let qp_y = quads[qb + 1];
+            let qp_z = quads[qb + 2];
+            let qe1_x = quads[qb + 3];
+            let qe1_y = quads[qb + 4];
+            let qe1_z = quads[qb + 5];
+            let qe2_x = quads[qb + 6];
+            let qe2_y = quads[qb + 7];
+            let qe2_z = quads[qb + 8];
+            let qle_r = quads[qb + 9];
+            let qle_g = quads[qb + 10];
+            let qle_b = quads[qb + 11];
+            let sample_area = quads[qb + 12] * 0.0625;
+            let qn_x = quads[qb + 13];
+            let qn_y = quads[qb + 14];
+            let qn_z = quads[qb + 15];
+            let mut acc_r = 0.0;
+            let mut acc_g = 0.0;
+            let mut acc_b = 0.0;
+            let mut syq = 0usize;
+            while syq < 4 {
+                let mut sxq = 0usize;
+                while sxq < 4 {
+                    let u = (sxq as f32 + 0.5) * 0.25;
+                    let v = (syq as f32 + 0.5) * 0.25;
+                    let lp_x = qp_x + u * qe1_x + v * qe2_x;
+                    let lp_y = qp_y + u * qe1_y + v * qe2_y;
+                    let lp_z = qp_z + u * qe1_z + v * qe2_z;
+                    let lv_x = lp_x - hx;
+                    let lv_y = lp_y - hy;
+                    let lv_z = lp_z - hz;
+                    let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+                    let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+                    let d2s = d2.max(tiny * tiny);
+                    let d = d2s.sqrt();
+                    let wix = lv_x / d;
+                    let wiy = lv_y / d;
+                    let wiz = lv_z / d;
+                    let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+                    let gate_cs = (cos_s * big).min(1.0).max(0.0);
+                    let cos_l = 0.0 - (qn_x * wix + qn_y * wiy + qn_z * wiz);
+                    let gate_cl = (cos_l * big).min(1.0).max(0.0);
+                    let t_sh = d - 2.0 * ray_eps;
+                    let gate_far = (t_sh * big).min(1.0).max(0.0);
+                    let t_fire = t_sh.max(ray_eps);
+                    let keep_pre = hit_f * gate_d * gate_cs * gate_cl;
+                    let mut blk = 0.0;
+                    if keep_pre > 0.0 {
+                        let mut sq = ray_query_initialize_first_hit(
+                            tlas,
+                            (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                            0.0,
+                            (wix, wiy, wiz),
+                            t_fire,
+                        );
+                        while sq.proceed() {
+                        }
+                        if sq.has_committed() {
+                            blk = 1.0;
+                        } else {
+                            blk = 0.0;
+                        }
+                    }
+                    let vis = 1.0 - gate_far * blk;
+                    let g = (cos_s * cos_l / d2s) * sample_area;
+                    let keep = keep_pre * vis;
+                    acc_r = acc_r + qle_r * g * keep;
+                    acc_g = acc_g + qle_g * g * keep;
+                    acc_b = acc_b + qle_b * g * keep;
+                    // D6 GGX 高光项（params[48]>0.5 均匀分支；g18_smooth_nrm 逐字）。
+                    if params[48] > 0.5 {
+                        let hvx = wix - dx;
+                        let hvy = wiy - dy;
+                        let hvz = wiz - dz;
+                        let hl = (hvx * hvx + hvy * hvy + hvz * hvz).sqrt();
+                        let gate_hl = (hl * big).min(1.0).max(0.0);
+                        let hl_safe = hl + (1.0 - gate_hl);
+                        let inv_hl = 1.0 / hl_safe;
+                        let hnx = gate_hl * (hvx * inv_hl);
+                        let hny = gate_hl * (hvy * inv_hl);
+                        let hnz = gate_hl * (hvz * inv_hl);
+                        let cos_h = (nx * hnx + ny * hny + nz * hnz).max(0.0);
+                        let dd = cos_h * cos_h * (alpha2 - 1.0) + 1.0;
+                        let d_ggx = alpha2 * inv_pi / (dd * dd).max(tiny);
+                        let k_g = alpha * 0.5;
+                        let g1_s = cos_s / (cos_s * (1.0 - k_g) + k_g);
+                        let g1_v = cos_v / (cos_v * (1.0 - k_g) + k_g);
+                        let g_sm = g1_s * g1_v;
+                        let cos_wh = (0.0 - (dx * hnx + dy * hny + dz * hnz)).max(0.0);
+                        let om = 1.0 - cos_wh;
+                        let om2 = om * om;
+                        let sch5 = om2 * om2 * om;
+                        let den = 4.0 * cos_s * cos_v + 0.001;
+                        let dgf = d_ggx * g_sm / den;
+                        spec_r = spec_r + qle_r * g * keep * dgf * (f0_r + (1.0 - f0_r) * sch5);
+                        spec_g = spec_g + qle_g * g * keep * dgf * (f0_g + (1.0 - f0_g) * sch5);
+                        spec_b = spec_b + qle_b * g * keep * dgf * (f0_b + (1.0 - f0_b) * sch5);
+                    }
+                    sxq = sxq + 1;
+                }
+                syq = syq + 1;
+            }
+            dir_r = dir_r + acc_r;
+            dir_g = dir_g + acc_g;
+            dir_b = dir_b + acc_b;
+            qi = qi + 1;
+        }
+        // ── point 灯 delta（A1 半径阴影截断 + 贡献剔除门；g18_smooth_nrm 逐字）──
+        let mut pi_ = 0usize;
+        while pi_ < point_count {
+            let pb = pi_ * 8;
+            let lv_x = points[pb] - hx;
+            let lv_y = points[pb + 1] - hy;
+            let lv_z = points[pb + 2] - hz;
+            let li_r = points[pb + 3];
+            let li_g = points[pb + 4];
+            let li_b = points[pb + 5];
+            let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+            let d2s = d2.max(tiny * tiny);
+            let d = d2s.sqrt();
+            let wix = lv_x / d;
+            let wiy = lv_y / d;
+            let wiz = lv_z / d;
+            let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+            let gate_cs = (cos_s * big).min(1.0).max(0.0);
+            let lr = points[pb + 6];
+            let t_sh = d - (2.0 * ray_eps).max(lr);
+            let gate_far = (t_sh * big).min(1.0).max(0.0);
+            let contrib = li_r.max(li_g).max(li_b) / d2s;
+            let gate_lc = ((contrib - params[49]) * big + 1.0).min(1.0).max(0.0);
+            let keep_pre = hit_f * gate_d * gate_cs * gate_lc;
+            // ── day_0829 臂⑤ 点光软阴影（params[60] 门;--soft-shadows;TODO
+            //    #27 SMRT 方向简化形）──单条灯心阴影射线 → 逐灯半径 lr 圆盘
+            //    采样 N 条(params[61];圆盘 ⊥ 灯心方向,R2 序列 + 帧旋转
+            //    params[52] + 样本 index + 灯序号去相关,TSR 时域收敛半影)。
+            //    门 off ⇒ soft_n=1 且偏移 ×soft_gate=0 ⇒ 单条灯心射线 = 母版
+            //    语义(光度项仍用灯心方向——lr≪d 近似,SMRT 简化形如实登记;
+            //    字节隔离律:off 臂恒载链下位工件,不依赖位级恒等)。
+            //    A1 灯罩豁免同律:t = d_s − max(2·ray_eps, lr)。
+            let soft_gate = ((params[60] - 0.5) * big).min(1.0).max(0.0);
+            let soft_n = (soft_gate * (params[61] - 1.0)).max(0.0) as usize + 1;
+            // 圆盘正交基(⊥ wi;上向选择分支消退化,GI2 同形)。
+            let sp_upsel = ((0.999 - wiy.abs()) * big).min(1.0).max(0.0);
+            let sp_upx = 1.0 - sp_upsel;
+            let sp_upy = sp_upsel;
+            let sp_t1x = sp_upy * wiz;
+            let sp_t1y = 0.0 - sp_upx * wiz;
+            let sp_t1z = sp_upx * wiy - sp_upy * wix;
+            let sp_t1l = (sp_t1x * sp_t1x + sp_t1y * sp_t1y + sp_t1z * sp_t1z).sqrt().max(tiny);
+            let sp_tx = sp_t1x / sp_t1l;
+            let sp_ty = sp_t1y / sp_t1l;
+            let sp_tz = sp_t1z / sp_t1l;
+            let sp_bx = wiy * sp_tz - wiz * sp_ty;
+            let sp_by = wiz * sp_tx - wix * sp_tz;
+            let sp_bz = wix * sp_ty - wiy * sp_tx;
+            let mut blk_sum = 0.0;
+            let mut sp_i = 0usize;
+            while sp_i < soft_n {
+                let sp_fi = params[52] + (sp_i as f32) + (pi_ as f32) * 0.6180339887498949;
+                let sp_t1 = (px as f32) * 0.7548776662466927
+                    + (py as f32) * 0.5698402909980532
+                    + sp_fi * 0.7548776662466927;
+                let sp_u1 = sp_t1 - sp_t1.floor();
+                let sp_t2 = (px as f32) * 0.5698402909980532
+                    + (py as f32) * 0.7548776662466927
+                    + sp_fi * 0.5698402909980532;
+                let sp_u2 = sp_t2 - sp_t2.floor();
+                let sp_r = lr * sp_u1.max(0.0).sqrt() * soft_gate;
+                let sp_phi = 6.283185307179586 * sp_u2;
+                let sp_cx = sp_r * sp_phi.cos();
+                let sp_cy = sp_r * sp_phi.sin();
+                // 采样目标 = 灯心 + 圆盘偏移(off 面 sp_r=0 = 灯心逐字)。
+                let sp_gx = points[pb] + sp_tx * sp_cx + sp_bx * sp_cy;
+                let sp_gy = points[pb + 1] + sp_ty * sp_cx + sp_by * sp_cy;
+                let sp_gz = points[pb + 2] + sp_tz * sp_cx + sp_bz * sp_cy;
+                let sp_vx = sp_gx - hx;
+                let sp_vy = sp_gy - hy;
+                let sp_vz = sp_gz - hz;
+                let sp_d = (sp_vx * sp_vx + sp_vy * sp_vy + sp_vz * sp_vz).sqrt().max(tiny);
+                let sp_wx = sp_vx / sp_d;
+                let sp_wy = sp_vy / sp_d;
+                let sp_wz = sp_vz / sp_d;
+                let sp_tsh = sp_d - (2.0 * ray_eps).max(lr);
+                let sp_tfire = sp_tsh.max(ray_eps);
+                let mut blk = 0.0;
+                // G37 W2 transparency:判遮命中 prim 提取位(纯寄存器,门 off
+                // 面零下游消费——透明判定见下重走段)。
+                let mut tp_sfp = 0u32;
+                if keep_pre > 0.0 {
+                    let mut sq = ray_query_initialize_first_hit(
+                        tlas,
+                        (hx + sp_wx * ray_eps, hy + sp_wy * ray_eps, hz + sp_wz * ray_eps),
+                        0.0,
+                        (sp_wx, sp_wy, sp_wz),
+                        sp_tfire,
+                    );
+                    while sq.proceed() {
+                    }
+                    if sq.has_committed() {
+                        blk = 1.0;
+                        // G37 W2 transparency:提取 first_hit 命中 prim。
+                        tp_sfp = sq.committed_primitive_index();
+                    } else {
+                        blk = 0.0;
+                        tp_sfp = 0u32;
+                    }
+                }
+                // ── G37 W2 transparency:点光阴影透明衰减段（params[68] 门）──
+                // 既有 first_hit 判遮语义下玻璃投全黑硬影。修 = 门 on 且判遮
+                // 命中恰为透明三角（tri_transp[tp_sfp]>0——不透明遮挡面零重走
+                // 零成本,first_hit 任意命中序两向皆语义正确:命中不透明 ⇒ 全遮
+                // 支配,命中透明 ⇒ 重走判真）时,以 closest-hit 自着色点逐层
+                // 重走阴影程:透明层 ×透射率续走,不透明层 ⇒ ×0 全遮,穿出 ⇒
+                // 保持累积;blk 覆写 = 1 − 累积透射率（部分遮 = 玻璃灰影;上限
+                // 8 层）。未判遮/门 off ⇒ 零迭代 blk 不触（字节隔离律）。quad
+                // 灯阴影/GI2 NEE/反射 NEE/AO 射线不接本段（bistro quads=0,
+                // 次级路能量占比小——玻璃对其仍视作不透明,如实登记留窗）。
+                let tp_sfa = tri_transp[tp_sfp as usize];
+                let tp_sfgate = ((tp_sfa * big).min(1.0).max(0.0)) * blk;
+                let tp_sn = (tp_gate * tp_sfgate * 8.0) as usize;
+                let mut tp_str = 1.0;
+                let mut tp_sadv = 0.0;
+                let mut tp_sk = 0usize;
+                while tp_sk < tp_sn {
+                    let tp_sox = hx + sp_wx * (ray_eps + tp_sadv);
+                    let tp_soy = hy + sp_wy * (ray_eps + tp_sadv);
+                    let tp_soz = hz + sp_wz * (ray_eps + tp_sadv);
+                    let mut tp_sq = ray_query_initialize(
+                        tlas,
+                        (tp_sox, tp_soy, tp_soz),
+                        0.0,
+                        (sp_wx, sp_wy, sp_wz),
+                        (sp_tfire - tp_sadv).max(ray_eps),
+                    );
+                    while tp_sq.proceed() {
+                    }
+                    let mut tp_shit = 0.0;
+                    let mut tp_sprim = 0u32;
+                    let mut tp_st = 0.0;
+                    if tp_sq.has_committed() {
+                        tp_shit = 1.0;
+                        tp_sprim = tp_sq.committed_primitive_index();
+                        tp_st = tp_sq.committed_t();
+                    } else {
+                        tp_shit = 0.0;
+                        tp_sprim = 0u32;
+                        tp_st = 0.0;
+                    }
+                    // miss ⇒ prim=0 保底读,经 tp_shit 门零消费（triem 钳 0 同律）。
+                    let tp_swa = tri_transp[tp_sprim as usize];
+                    let tp_spass = ((tp_swa * big).min(1.0).max(0.0)) * tp_shit;
+                    // 透明命中 ×透射率;不透明命中 ×0;miss ×1 保持。
+                    tp_str = tp_str * (tp_spass * tp_swa + (1.0 - tp_shit));
+                    tp_sadv = tp_sadv + (tp_st + ray_eps) * tp_shit;
+                    // 透明命中 +1 续层;不透明/miss ⇒ 越上限跳出。
+                    tp_sk = tp_sk + 1 + ((1.0 - tp_spass) * 9.0) as usize;
+                }
+                // 门 on 且重走面 ⇒ blk = 1 − 累积透射率;其余 blk 不动。
+                let tp_ssel = tp_gate * tp_sfgate;
+                blk = (1.0 - tp_ssel) * blk + tp_ssel * (1.0 - tp_str);
+                blk_sum = blk_sum + blk;
+                sp_i = sp_i + 1;
+            }
+            let vis = 1.0 - gate_far * (blk_sum / (soft_n as f32));
+            let g = cos_s / d2s;
+            let keep = keep_pre * vis;
+            dir_r = dir_r + li_r * g * keep;
+            dir_g = dir_g + li_g * g * keep;
+            dir_b = dir_b + li_b * g * keep;
+            // D6 GGX 高光项（point delta 臂；g18_smooth_nrm 逐字）。
+            if params[48] > 0.5 {
+                let hvx = wix - dx;
+                let hvy = wiy - dy;
+                let hvz = wiz - dz;
+                let hl = (hvx * hvx + hvy * hvy + hvz * hvz).sqrt();
+                let gate_hl = (hl * big).min(1.0).max(0.0);
+                let hl_safe = hl + (1.0 - gate_hl);
+                let inv_hl = 1.0 / hl_safe;
+                let hnx = gate_hl * (hvx * inv_hl);
+                let hny = gate_hl * (hvy * inv_hl);
+                let hnz = gate_hl * (hvz * inv_hl);
+                let cos_h = (nx * hnx + ny * hny + nz * hnz).max(0.0);
+                let dd = cos_h * cos_h * (alpha2 - 1.0) + 1.0;
+                let d_ggx = alpha2 * inv_pi / (dd * dd).max(tiny);
+                let k_g = alpha * 0.5;
+                let g1_s = cos_s / (cos_s * (1.0 - k_g) + k_g);
+                let g1_v = cos_v / (cos_v * (1.0 - k_g) + k_g);
+                let g_sm = g1_s * g1_v;
+                let cos_wh = (0.0 - (dx * hnx + dy * hny + dz * hnz)).max(0.0);
+                let om = 1.0 - cos_wh;
+                let om2 = om * om;
+                let sch5 = om2 * om2 * om;
+                let den = 4.0 * cos_s * cos_v + 0.001;
+                let dgf = d_ggx * g_sm / den;
+                spec_r = spec_r + li_r * g * keep * dgf * (f0_r + (1.0 - f0_r) * sch5);
+                spec_g = spec_g + li_g * g * keep * dgf * (f0_g + (1.0 - f0_g) * sch5);
+                spec_b = spec_b + li_b * g * keep * dgf * (f0_b + (1.0 - f0_b) * sch5);
+            }
+            pi_ = pi_ + 1;
+        }
+        // ── Phase C GI2 加性臂：1 反弹间接光（params[51] 门；day_0828 C 相）──
+        // 采样 = R2/Weyl 低差异序列（gi_rng_study 仿真形态：plastic 常数
+        // a1=1/g、a2=1/g²，g=1.32471795724…；u1/u2 = fract(px·a1+py·a2+…)/
+        // fract(px·a2+py·a1+…) 系数互换 ⇒ 屏空间相关 (−0.11,−0.47)/(−0.47,−0.11)、
+        // chi² 0.05 vs 旧 sin hash 171032）+ 帧序号旋转（params[52]=frame_idx，
+        // Cranley-Patterson 偏移 (n·a1, n·a2)——逐像素时域序列即 R2 点列，
+        // TSR EMA 时域可收敛）；第三维（单灯选择）= R3 Weyl（g3=1.22074408…）。
+        // 反弹命中点：albedo/emission 取 mats 均值面直读（不做二次纹理采样——
+        // 带宽省、间接光低频足够；emissive 三角被反弹射线命中时 emission 直取
+        // = emissive 间接光真通道）；反弹点直接光 = 单点光随机 NEE（u3 均匀选
+        // 1 盏 × point_count 加权无偏，1 条阴影射线，半径截断同 A1 律）；
+        // firefly clamp = 逐通道 clamp 到 params[53]；合成 = Lo += al·gi_scale·
+        // L_bounce（余弦采样 pdf=cos/π 与 Lambert al/π 的 π·cos 相消——与规格
+        // 「albedo·inv_pi·gi_scale·bounce_radiance」等价形，bounce_radiance=π·L）。
+        // 关臂恒等：params[51]=0 ⇒ gi_n=0 while 零迭代 ⇒ gi_r/g/b 恒 +0.0 ⇒
+        // 输出 +0.0 恒等尾加（环境光/GGX 同律）；miss 像素 hit_f=0 同门零成本。
+        // 分支纪律：while 计数门 + branchless gate 乘法（「if 包 while」新形态
+        // 禁用——rurixc selection 合并块 codegen 缺陷绕行；本段 if 形态 =
+        // 既有灯循环内 ray query 同构白名单形）。
+        let gi_gate = ((params[51] - 0.5) * big).min(1.0).max(0.0);
+        let mut gi_r = 0.0;
+        let mut gi_g = 0.0;
+        let mut gi_b = 0.0;
+        let gi_n = (gi_gate * hit_f) as usize;
+        let mut gi_i = 0usize;
+        while gi_i < gi_n {
+            // R2 序列（f32 域：px·a1+py·a2+n·a1 ≤ ~2.5e3 ⇒ fract 粒度 ~1.5e-4，
+            // 采样够用；固定输入双跑位级一致）。
+            let gi_t1 = (px as f32) * 0.7548776662466927
+                + (py as f32) * 0.5698402909980532
+                + params[52] * 0.7548776662466927;
+            let gi_u1 = gi_t1 - gi_t1.floor();
+            let gi_t2 = (px as f32) * 0.5698402909980532
+                + (py as f32) * 0.7548776662466927
+                + params[52] * 0.5698402909980532;
+            let gi_u2 = gi_t2 - gi_t2.floor();
+            let gi_t3 = (px as f32) * 0.8191725133961645
+                + (py as f32) * 0.6710436067037893
+                + params[52] * 0.5497004779019703;
+            let gi_u3 = gi_t3 - gi_t3.floor();
+            // 余弦半球采样（g16 L321-345 同形；基向量 = 平滑法线 n{x,y,z}）。
+            let gi_phi = 6.283185307179586 * gi_u1;
+            let gi_sr = gi_u2.sqrt();
+            let gi_lx = gi_sr * gi_phi.cos();
+            let gi_ly = gi_sr * gi_phi.sin();
+            let gi_lz = (1.0 - gi_u2).max(0.0).sqrt();
+            let gi_upsel = ((0.999 - ny.abs()) * big).min(1.0).max(0.0);
+            let gi_upx = 1.0 - gi_upsel;
+            let gi_upy = gi_upsel;
+            let gi_t1x = gi_upy * nz;
+            let gi_t1y = 0.0 - gi_upx * nz;
+            let gi_t1z = gi_upx * ny - gi_upy * nx;
+            let gi_t1l = (gi_t1x * gi_t1x + gi_t1y * gi_t1y + gi_t1z * gi_t1z).sqrt().max(tiny);
+            let gi_tx = gi_t1x / gi_t1l;
+            let gi_ty = gi_t1y / gi_t1l;
+            let gi_tz = gi_t1z / gi_t1l;
+            let gi_bx = ny * gi_tz - nz * gi_ty;
+            let gi_by = nz * gi_tx - nx * gi_tz;
+            let gi_bz = nx * gi_ty - ny * gi_tx;
+            let gi_dx0 = gi_tx * gi_lx + gi_bx * gi_ly + nx * gi_lz;
+            let gi_dy0 = gi_ty * gi_lx + gi_by * gi_ly + ny * gi_lz;
+            let gi_dz0 = gi_tz * gi_lx + gi_bz * gi_ly + nz * gi_lz;
+            let gi_dl = (gi_dx0 * gi_dx0 + gi_dy0 * gi_dy0 + gi_dz0 * gi_dz0).sqrt().max(tiny);
+            let gi_sdx = gi_dx0 / gi_dl;
+            let gi_sdy = gi_dy0 / gi_dl;
+            let gi_sdz = gi_dz0 / gi_dl;
+            // 反弹射线（最近命中；空体循环 = M96 白名单形）。
+            let gi_ox = hx + gi_sdx * ray_eps;
+            let gi_oy = hy + gi_sdy * ray_eps;
+            let gi_oz = hz + gi_sdz * ray_eps;
+            let mut gi_rq = ray_query_initialize(tlas, (gi_ox, gi_oy, gi_oz), 0.0, (gi_sdx, gi_sdy, gi_sdz), ray_tmax);
+            while gi_rq.proceed() {
+            }
+            let mut gi_hit = 0.0;
+            let mut gi_th = 0.0;
+            let mut gi_prim = 0u32;
+            let mut gi_bu = 0.0;
+            let mut gi_bv = 0.0;
+            if gi_rq.has_committed() {
+                gi_th = gi_rq.committed_t();
+                gi_prim = gi_rq.committed_primitive_index();
+                // day_0829 臂⑥:反弹命中重心（贴图 UV 插值消费;off 面取值
+                // 零消费——纯寄存器,gate 门在采样循环）。
+                let gi_bary = gi_rq.committed_barycentric();
+                gi_bu = gi_bary.0;
+                gi_bv = gi_bary.1;
+                gi_hit = 1.0;
+            } else {
+                gi_hit = 0.0;
+                gi_th = 0.0;
+                gi_prim = 0u32;
+                gi_bu = 0.0;
+                gi_bv = 0.0;
+            }
+            // 反弹命中点/几何法线（miss 时 prim=0 保底，贡献经 gi_hit 门恒 0）。
+            let gi_tb = (gi_prim as usize) * 9;
+            let gi_ax = tris[gi_tb];
+            let gi_ay = tris[gi_tb + 1];
+            let gi_az = tris[gi_tb + 2];
+            let gi_e1x = tris[gi_tb + 3] - gi_ax;
+            let gi_e1y = tris[gi_tb + 4] - gi_ay;
+            let gi_e1z = tris[gi_tb + 5] - gi_az;
+            let gi_e2x = tris[gi_tb + 6] - gi_ax;
+            let gi_e2y = tris[gi_tb + 7] - gi_ay;
+            let gi_e2z = tris[gi_tb + 8] - gi_az;
+            let gi_ngx = gi_e1y * gi_e2z - gi_e1z * gi_e2y;
+            let gi_ngy = gi_e1z * gi_e2x - gi_e1x * gi_e2z;
+            let gi_ngz = gi_e1x * gi_e2y - gi_e1y * gi_e2x;
+            let gi_nl = (gi_ngx * gi_ngx + gi_ngy * gi_ngy + gi_ngz * gi_ngz).sqrt();
+            let gi_gnl = (gi_nl * big).min(1.0).max(0.0);
+            let gi_nls = gi_nl + (1.0 - gi_gnl);
+            let gi_inl = 1.0 / gi_nls;
+            let gi_hnx = gi_gnl * (gi_ngx * gi_inl);
+            let gi_hny = gi_gnl * (gi_ngy * gi_inl);
+            let gi_hnz = gi_gnl * (gi_ngz * gi_inl);
+            let gi_fac = gi_hnx * gi_sdx + gi_hny * gi_sdy + gi_hnz * gi_sdz;
+            let gi_flip = 1.0 - 2.0 * (gi_fac * big).min(1.0).max(0.0);
+            let gi_n2x = gi_flip * gi_hnx;
+            let gi_n2y = gi_flip * gi_hny;
+            let gi_n2z = gi_flip * gi_hnz;
+            let gi_hx = gi_ox + gi_sdx * gi_th;
+            let gi_hy = gi_oy + gi_sdy * gi_th;
+            let gi_hz = gi_oz + gi_sdz * gi_th;
+            // 反弹点材质（mats 均值面直读 + emission 直取——day_0829 臂⑥
+            // --gi2-tex params[67] 门升级:反弹命中点贴图 albedo + 逐像素
+            // emission〔heap 同寻址:重心 UV + 主命中同 lod 公式〔距离 =
+            // gi_th〕+ 双线性 + linlut × mod/escl〕;while 计数门包采样——
+            // off/无槽/miss 零采样零读,mats 均值面逐字回退）。
+            let gi_mb = (gi_prim as usize) * 8;
+            let mut gi_alr = mats[gi_mb];
+            let mut gi_alg = mats[gi_mb + 1];
+            let mut gi_alb = mats[gi_mb + 2];
+            let mut gi_emr = mats[gi_mb + 3];
+            let mut gi_emg = mats[gi_mb + 4];
+            let mut gi_emb = mats[gi_mb + 5];
+            let gitex_gate = ((params[67] - 0.5) * big).min(1.0).max(0.0);
+            let gt_slotf = tritex[(gi_prim as usize) * 2];
+            let gt_ktri = tritex[(gi_prim as usize) * 2 + 1];
+            let gt_tgate = (gt_slotf + 1.0).min(1.0).max(0.0);
+            let gt_n = (gitex_gate * gi_hit * gt_tgate) as usize;
+            let mut gt_i = 0usize;
+            while gt_i < gt_n {
+                // 重心 UV(texuv 逐三角 6 f32;主命中同式)。
+                let gt_ub = (gi_prim as usize) * 6;
+                let gt_bw = 1.0 - gi_bu - gi_bv;
+                let gt_uu0 = gt_bw * texuv[gt_ub] + gi_bu * texuv[gt_ub + 2] + gi_bv * texuv[gt_ub + 4];
+                let gt_vv0 = gt_bw * texuv[gt_ub + 1] + gi_bu * texuv[gt_ub + 3] + gi_bv * texuv[gt_ub + 5];
+                let gt_uu = gt_uu0 - gt_uu0.floor();
+                let gt_vv = gt_vv0 - gt_vv0.floor();
+                // albedo 槽采样(主命中同 lod 公式,距离 = gi_th 反弹程)。
+                let gt_slot = gt_slotf.max(0.0) as usize;
+                let gt_sb = 8 + gt_slot * 8;
+                let gt_tw = texmeta[gt_sb + 2];
+                let gt_th2 = texmeta[gt_sb + 3];
+                let gt_modr = texmeta[gt_sb + 4];
+                let gt_modg = texmeta[gt_sb + 5];
+                let gt_modb = texmeta[gt_sb + 6];
+                let gt_mips = texmeta[gt_sb + 7];
+                let gt_sel = ((gi_th * params[50]) * gt_ktri) * gt_tw;
+                let gt_lodf = gt_sel.max(tiny).log2().floor().max(0.0).min(gt_mips - 1.0);
+                let gt_lod = gt_lodf as usize;
+                let mut gt_mw = gt_tw;
+                let mut gt_mh = gt_th2;
+                let mut gt_li = 0usize;
+                while gt_li < gt_lod {
+                    gt_mw = (gt_mw * 0.5).max(1.0);
+                    gt_mh = (gt_mh * 0.5).max(1.0);
+                    gt_li = gt_li + 1;
+                }
+                let gt_hb = atlas[gt_slot * 13 + gt_lod] as usize;
+                let gt_xf = gt_uu * gt_mw - 0.5;
+                let gt_yf = gt_vv * gt_mh - 0.5;
+                let gt_bxf = gt_xf.floor();
+                let gt_byf = gt_yf.floor();
+                let gt_fx = gt_xf - gt_bxf;
+                let gt_fy = gt_yf - gt_byf;
+                let gt_invw = 1.0 / gt_mw;
+                let gt_invh = 1.0 / gt_mh;
+                let gt_x0 = gt_bxf - (gt_bxf * gt_invw).floor() * gt_mw;
+                let gt_y0 = gt_byf - (gt_byf * gt_invh).floor() * gt_mh;
+                let gt_x1 = (gt_bxf + 1.0) - ((gt_bxf + 1.0) * gt_invw).floor() * gt_mw;
+                let gt_y1 = (gt_byf + 1.0) - ((gt_byf + 1.0) * gt_invh).floor() * gt_mh;
+                let gt_a00 = gt_hb + (gt_y0 as usize) * (gt_mw as usize) + (gt_x0 as usize);
+                let gt_a10 = gt_hb + (gt_y0 as usize) * (gt_mw as usize) + (gt_x1 as usize);
+                let gt_a01 = gt_hb + (gt_y1 as usize) * (gt_mw as usize) + (gt_x0 as usize);
+                let gt_a11 = gt_hb + (gt_y1 as usize) * (gt_mw as usize) + (gt_x1 as usize);
+                let gt_p00 = atlas[gt_a00] as usize;
+                let gt_p10 = atlas[gt_a10] as usize;
+                let gt_p01 = atlas[gt_a01] as usize;
+                let gt_p11 = atlas[gt_a11] as usize;
+                let gt_00r = linlut[gt_p00 % 256usize];
+                let gt_00g = linlut[(gt_p00 / 256usize) % 256usize];
+                let gt_00b = linlut[(gt_p00 / 65536usize) % 256usize];
+                let gt_10r = linlut[gt_p10 % 256usize];
+                let gt_10g = linlut[(gt_p10 / 256usize) % 256usize];
+                let gt_10b = linlut[(gt_p10 / 65536usize) % 256usize];
+                let gt_01r = linlut[gt_p01 % 256usize];
+                let gt_01g = linlut[(gt_p01 / 256usize) % 256usize];
+                let gt_01b = linlut[(gt_p01 / 65536usize) % 256usize];
+                let gt_11r = linlut[gt_p11 % 256usize];
+                let gt_11g = linlut[(gt_p11 / 256usize) % 256usize];
+                let gt_11b = linlut[(gt_p11 / 65536usize) % 256usize];
+                let gt_t0r = gt_00r * (1.0 - gt_fx) + gt_10r * gt_fx;
+                let gt_b0r = gt_01r * (1.0 - gt_fx) + gt_11r * gt_fx;
+                gi_alr = (gt_t0r * (1.0 - gt_fy) + gt_b0r * gt_fy) * gt_modr;
+                let gt_t0g = gt_00g * (1.0 - gt_fx) + gt_10g * gt_fx;
+                let gt_b0g = gt_01g * (1.0 - gt_fx) + gt_11g * gt_fx;
+                gi_alg = (gt_t0g * (1.0 - gt_fy) + gt_b0g * gt_fy) * gt_modg;
+                let gt_t0b = gt_00b * (1.0 - gt_fx) + gt_10b * gt_fx;
+                let gt_b0b = gt_01b * (1.0 - gt_fx) + gt_11b * gt_fx;
+                gi_alb = (gt_t0b * (1.0 - gt_fy) + gt_b0b * gt_fy) * gt_modb;
+                // 逐像素 emission(triem 槽号;slot 钳 0 保底读 + branchless
+                // 选择——主命中 em 采样逐字同形;<0 = mats 直读保持)。
+                let gt_emsf = triem[gi_prim as usize];
+                let gt_emgate = (gt_emsf + 1.0).min(1.0).max(0.0);
+                let gt_emslot = gt_emsf.max(0.0) as usize;
+                let gt_eb = 8 + gt_emslot * 8;
+                let gt_etw = texmeta[gt_eb + 2];
+                let gt_eth = texmeta[gt_eb + 3];
+                let gt_escr = texmeta[gt_eb + 4];
+                let gt_escg = texmeta[gt_eb + 5];
+                let gt_escb = texmeta[gt_eb + 6];
+                let gt_emips = texmeta[gt_eb + 7];
+                let gt_esel = ((gi_th * params[50]) * gt_ktri) * gt_etw;
+                let gt_elodf = gt_esel.max(tiny).log2().floor().max(0.0).min(gt_emips - 1.0);
+                let gt_elod = gt_elodf as usize;
+                let mut gt_emw = gt_etw;
+                let mut gt_emh = gt_eth;
+                let mut gt_eli = 0usize;
+                while gt_eli < gt_elod {
+                    gt_emw = (gt_emw * 0.5).max(1.0);
+                    gt_emh = (gt_emh * 0.5).max(1.0);
+                    gt_eli = gt_eli + 1;
+                }
+                let gt_ehb = atlas[gt_emslot * 13 + gt_elod] as usize;
+                let gt_exf = gt_uu * gt_emw - 0.5;
+                let gt_eyf = gt_vv * gt_emh - 0.5;
+                let gt_ebxf = gt_exf.floor();
+                let gt_ebyf = gt_eyf.floor();
+                let gt_efx = gt_exf - gt_ebxf;
+                let gt_efy = gt_eyf - gt_ebyf;
+                let gt_einvw = 1.0 / gt_emw;
+                let gt_einvh = 1.0 / gt_emh;
+                let gt_ex0 = gt_ebxf - (gt_ebxf * gt_einvw).floor() * gt_emw;
+                let gt_ey0 = gt_ebyf - (gt_ebyf * gt_einvh).floor() * gt_emh;
+                let gt_ex1 = (gt_ebxf + 1.0) - ((gt_ebxf + 1.0) * gt_einvw).floor() * gt_emw;
+                let gt_ey1 = (gt_ebyf + 1.0) - ((gt_ebyf + 1.0) * gt_einvh).floor() * gt_emh;
+                let gt_ea00 = gt_ehb + (gt_ey0 as usize) * (gt_emw as usize) + (gt_ex0 as usize);
+                let gt_ea10 = gt_ehb + (gt_ey0 as usize) * (gt_emw as usize) + (gt_ex1 as usize);
+                let gt_ea01 = gt_ehb + (gt_ey1 as usize) * (gt_emw as usize) + (gt_ex0 as usize);
+                let gt_ea11 = gt_ehb + (gt_ey1 as usize) * (gt_emw as usize) + (gt_ex1 as usize);
+                let gt_ep00 = atlas[gt_ea00] as usize;
+                let gt_ep10 = atlas[gt_ea10] as usize;
+                let gt_ep01 = atlas[gt_ea01] as usize;
+                let gt_ep11 = atlas[gt_ea11] as usize;
+                let gt_e00r = linlut[gt_ep00 % 256usize];
+                let gt_e00g = linlut[(gt_ep00 / 256usize) % 256usize];
+                let gt_e00b = linlut[(gt_ep00 / 65536usize) % 256usize];
+                let gt_e10r = linlut[gt_ep10 % 256usize];
+                let gt_e10g = linlut[(gt_ep10 / 256usize) % 256usize];
+                let gt_e10b = linlut[(gt_ep10 / 65536usize) % 256usize];
+                let gt_e01r = linlut[gt_ep01 % 256usize];
+                let gt_e01g = linlut[(gt_ep01 / 256usize) % 256usize];
+                let gt_e01b = linlut[(gt_ep01 / 65536usize) % 256usize];
+                let gt_e11r = linlut[gt_ep11 % 256usize];
+                let gt_e11g = linlut[(gt_ep11 / 256usize) % 256usize];
+                let gt_e11b = linlut[(gt_ep11 / 65536usize) % 256usize];
+                let gt_et0r = gt_e00r * (1.0 - gt_efx) + gt_e10r * gt_efx;
+                let gt_eb0r = gt_e01r * (1.0 - gt_efx) + gt_e11r * gt_efx;
+                let gt_esr = (gt_et0r * (1.0 - gt_efy) + gt_eb0r * gt_efy) * gt_escr;
+                let gt_et0g = gt_e00g * (1.0 - gt_efx) + gt_e10g * gt_efx;
+                let gt_eb0g = gt_e01g * (1.0 - gt_efx) + gt_e11g * gt_efx;
+                let gt_esg = (gt_et0g * (1.0 - gt_efy) + gt_eb0g * gt_efy) * gt_escg;
+                let gt_et0b = gt_e00b * (1.0 - gt_efx) + gt_e10b * gt_efx;
+                let gt_eb0b = gt_e01b * (1.0 - gt_efx) + gt_e11b * gt_efx;
+                let gt_esb2 = (gt_et0b * (1.0 - gt_efy) + gt_eb0b * gt_efy) * gt_escb;
+                gi_emr = gt_emgate * gt_esr + (1.0 - gt_emgate) * gi_emr;
+                gi_emg = gt_emgate * gt_esg + (1.0 - gt_emgate) * gi_emg;
+                gi_emb = gt_emgate * gt_esb2 + (1.0 - gt_emgate) * gi_emb;
+                gt_i = gt_i + 1;
+            }
+            // ── G37 W2 ris_nee 臂⑧双门(第 8 链位;GI2 反弹 NEE 升级)──
+            // [69] ris 门 = 反弹点 M 候选 RIS 选灯(闭式蓄水池,无跨帧状态,
+            // 全反弹段共 1 条阴影射线;WRS 比较形 u < w/w_sum 与 g28 冻结链
+            // 同源);[70] ris_m 候选数(默认 6,钳 [1,16]);[71] nee 门 =
+            // 44k 灯片功率 CDF 面光 NEE(修 day_0828 HANDOVER §C.11「GI2
+            // 反弹无 quad NEE」缺口本体)。
+            // 能量口径(不双计,组合语义):
+            //   nee on ⇒ ①反弹 ray 直击灯片(表成员谓词 = mats 发射均值任一
+            //   通道 >0,装配侧同谓词)时 emission 直取置零——同一传输积分换
+            //   面光 NEE 估计器,期望不变方差降(合成行 rn_emk 门);②点光域
+            //   中 A1 聚类代表灯(lr>0 数据契约——lane_body「契约灯半径恒
+            //   0.0」冻结注,代表灯 radius ≥ 0.02 pad)让位灯片真域,防同批
+            //   44k emissive 三角被「代表点光 + 面光」双计;契约 delta 灯
+            //   (lr=0)保留。③反射臂 NEE/主命中直接光不动(反弹段独享)。
+            //   ris on ⇒ 既有「均匀选 1 灯 × point_count」整块让位蓄水池
+            //   (计数 ×(1−ris_gate) 零迭代);RIS 无偏式 contribution =
+            //   f(x_sel)·vis·W,W = w_sum/(M·phat_sel),phat = max3(未遮挡
+            //   贡献)(A1 max3 口径)。
+            //   射线预算/反弹:off/off = 1(既有);ris = 1;nee = 2(契约点
+            //   1 + 灯片 1);ris+nee = 1(混合池 β = 0.25/0.75)。
+            // firefly clamp 沿 [53] 既有律(gi_l* 合成处逐通道,新旧通道同
+            // 口径);关门/miss 恒零迭代(字节隔离律:off 面不载本 SPV,不
+            // 依赖 gate=0 恒等)。
+            let ris_gate = ((params[69] - 0.5) * big).min(1.0).max(0.0);
+            let nee_gate = ((params[71] - 0.5) * big).min(1.0).max(0.0);
+            // 单点光随机 NEE（while 计数门 = gi_hit × (point_count>0)——反弹
+            // miss/零点光时零读零射线；u3 均匀选 1 盏 × point_count 加权。
+            // G37 W2 ris_nee:ris on 整块让位蓄水池,计数 ×(1−ris_gate)）。
+            let gi_pcf = point_count as f32;
+            let gi_gpc = (gi_pcf * big).min(1.0).max(0.0);
+            let gi_neen = (gi_hit * gi_gpc * (1.0 - ris_gate)) as usize;
+            let gi_self = (gi_u3 * gi_pcf).min(gi_pcf - 1.0).max(0.0);
+            let gi_psel = gi_self as usize;
+            let mut gi_nee_r = 0.0;
+            let mut gi_nee_g = 0.0;
+            let mut gi_nee_b = 0.0;
+            let mut gi_k = 0usize;
+            while gi_k < gi_neen {
+                let gi_pb = gi_psel * 8;
+                let gi_lvx = points[gi_pb] - gi_hx;
+                let gi_lvy = points[gi_pb + 1] - gi_hy;
+                let gi_lvz = points[gi_pb + 2] - gi_hz;
+                let gi_lir = points[gi_pb + 3];
+                let gi_lig = points[gi_pb + 4];
+                let gi_lib = points[gi_pb + 5];
+                let gi_d2 = gi_lvx * gi_lvx + gi_lvy * gi_lvy + gi_lvz * gi_lvz;
+                let gi_gd = ((gi_d2 - eps2) * big).min(1.0).max(0.0);
+                let gi_d2s = gi_d2.max(tiny * tiny);
+                let gi_d = gi_d2s.sqrt();
+                let gi_wx = gi_lvx / gi_d;
+                let gi_wy = gi_lvy / gi_d;
+                let gi_wz = gi_lvz / gi_d;
+                let gi_cs = (gi_n2x * gi_wx + gi_n2y * gi_wy + gi_n2z * gi_wz).max(0.0);
+                let gi_gcs = (gi_cs * big).min(1.0).max(0.0);
+                let gi_lr2 = points[gi_pb + 6];
+                let gi_tsh = gi_d - (2.0 * ray_eps).max(gi_lr2);
+                let gi_gfar = (gi_tsh * big).min(1.0).max(0.0);
+                let gi_tfire = gi_tsh.max(ray_eps);
+                // G37 W2 ris_nee:nee on ⇒ 代表灯(lr>0)贡献置零让位灯片真
+                // 域(均匀选中 ×point_count 权重下契约灯子和仍无偏——选中
+                // 代表灯的样本作废 = 方差换不双计,如实登记)。
+                let gi_elig = 1.0 - nee_gate * (gi_lr2 * big).min(1.0).max(0.0);
+                let gi_keep = gi_gd * gi_gcs * gi_elig;
+                let mut gi_blk = 0.0;
+                if gi_keep > 0.0 {
+                    let mut gi_sq = ray_query_initialize_first_hit(
+                        tlas,
+                        (gi_hx + gi_wx * ray_eps, gi_hy + gi_wy * ray_eps, gi_hz + gi_wz * ray_eps),
+                        0.0,
+                        (gi_wx, gi_wy, gi_wz),
+                        gi_tfire,
+                    );
+                    while gi_sq.proceed() {
+                    }
+                    if gi_sq.has_committed() {
+                        gi_blk = 1.0;
+                    } else {
+                        gi_blk = 0.0;
+                    }
+                }
+                let gi_vis = 1.0 - gi_gfar * gi_blk;
+                let gi_geo = gi_cs / gi_d2s;
+                let gi_w = gi_keep * gi_vis * gi_geo * gi_pcf;
+                gi_nee_r = gi_nee_r + gi_lir * gi_w;
+                gi_nee_g = gi_nee_g + gi_lig * gi_w;
+                gi_nee_b = gi_nee_b + gi_lib * gi_w;
+                gi_k = gi_k + 1;
+            }
+            // ── G37 W2 ris_nee:混合池蓄水池选灯 + 灯片 CDF 面光 NEE ──
+            // 池语义:点光域(均匀 1/point_count;仅 ris on 参池,nee on 时
+            // 代表灯 phat 置零同 gi_elig 律)与灯片域(功率 CDF 选灯片 ×
+            // 面上均匀点;仅 nee on 且表非空参池)按 β 混合——β =
+            // point_active·(1 − quad_active·0.75) ∈ {0, 0.25, 1}:ris 单开
+            // β=1(纯点域;M=1 时与既有「均匀选 1 ×point_count」估计器数学
+            // 同式)、nee 单开 β=0 且 M=1(经典单样本面光 NEE:contribution
+            // = Le·cosθ_s·|cosθ_l|/d²·area/pdf_k·vis)、双开 β=0.25(灯片
+            // 域主导——44k 灯片 = 夜景反弹主光源)。w = phat/p_src,p_src
+            // 各域自测度(点 = β/point_count 离散;灯片 = (1−β)·pdf_k/area
+            // 面密度),混域候选 RIS 无偏(g21/g28 方差收益在案律)。候选
+            // 循环纯 ALU/表读(无 ray query——while 计数门合法形);选中后
+            // 全反弹段仅 1 条阴影射线(if 包 ray query 白名单形,灯循环同构)。
+            // 随机维 = R2/R3 既有格 + 黄金比共轭 k×0.3819660112501051 独立
+            // 相位(refl 臂同族)+ 候选序号 ×0.6180339887498949 步进(soft
+            // 臂灯序去相关同形);闭式无状态,固定输入双跑位级一致。
+            // 灯片域细则:CDF 采样 = 16 步定长二分(2^16 = 65536 ≥ 表上限,
+            // 装配侧 fail-closed;计数语义 pos = #{k: cdf[k] ≤ u},选中 =
+            // pos 钳 [0,Q−1],pdf_k = cdf[k] − cdf[k−1] f32 差 = 采样测度
+            // 自洽无偏);面上点 = (u,v) 折叠律 u+v ≤ 1;灯片法线双面
+            // |cosθ_l|(emission 直取无朝向判定,口径一致);阴影程 = d −
+            // 2·ray_eps(真面光样本,无 A1 代表灯 lr 豁免球);Le = 逐灯片
+            // mats 均值(Phase F 标定律「贴图均值 == 契约 Le」⇒ 面积分口径
+            // 一致,逐像素 emissive 贴图 NEE 留窗);玻璃对本射线仍不透明
+            // (transp 臂 GI2 NEE 不接线律不变)。host 前置(fail-closed):
+            // ris|nee on ⇒ points 缓冲 ≥ 1 盏真布局(候选读保底;bistro
+            // 契约恒 4 盏)。
+            let rn_qcf = lamp_tbl[0];
+            let rn_qgate = (rn_qcf * big).min(1.0).max(0.0);
+            let rn_quad_act = nee_gate * rn_qgate;
+            let rn_pt_act = ris_gate * gi_gpc;
+            let rn_beta = rn_pt_act * (1.0 - rn_quad_act * 0.75);
+            let rn_pool = rn_quad_act.max(rn_pt_act);
+            let rn_gate = ris_gate.max(nee_gate);
+            let rn_mf = 1.0 + ris_gate * (params[70].max(1.0).min(16.0) - 1.0);
+            let rn_n = (gi_hit * rn_gate * rn_pool * rn_mf) as usize;
+            // 蓄水池登记面(选中候选的未遮挡贡献 rgb/phat/阴影射线参数)。
+            let mut rn_wsum = 0.0;
+            let mut rn_sphat = 0.0;
+            let mut rn_sfr = 0.0;
+            let mut rn_sfg = 0.0;
+            let mut rn_sfb = 0.0;
+            let mut rn_swx = 0.0;
+            let mut rn_swy = 1.0;
+            let mut rn_swz = 0.0;
+            let mut rn_stf = 0.0;
+            let mut rn_sgf = 0.0;
+            let mut rn_j = 0usize;
+            while rn_j < rn_n {
+                let rn_f = params[52] + (rn_j as f32) * 0.6180339887498949;
+                // 五随机维:u_src 域选择+池内序(R3 + √5−2 相位)/u_cdf(R2
+                // + 1×共轭)/u_a、u_b 面上点(R2 双向 + 2×共轭)/u_wrs 蓄水
+                // 池判定(R3 + 3×共轭)。
+                let rn_t0 = (px as f32) * 0.8191725133961645
+                    + (py as f32) * 0.6710436067037893
+                    + (rn_f + 0.2360679774997897) * 0.5497004779019703;
+                let rn_usrc = rn_t0 - rn_t0.floor();
+                let rn_t1 = (px as f32) * 0.7548776662466927
+                    + (py as f32) * 0.5698402909980532
+                    + (rn_f + 0.3819660112501051) * 0.7548776662466927;
+                let rn_ucdf = rn_t1 - rn_t1.floor();
+                let rn_t2 = (px as f32) * 0.7548776662466927
+                    + (py as f32) * 0.5698402909980532
+                    + (rn_f + 0.7639320225002102) * 0.5698402909980532;
+                let rn_ua = rn_t2 - rn_t2.floor();
+                let rn_t3 = (px as f32) * 0.5698402909980532
+                    + (py as f32) * 0.7548776662466927
+                    + (rn_f + 0.7639320225002102) * 0.7548776662466927;
+                let rn_ub = rn_t3 - rn_t3.floor();
+                let rn_t4 = (px as f32) * 0.8191725133961645
+                    + (py as f32) * 0.6710436067037893
+                    + (rn_f + 1.1458980337503153) * 0.5497004779019703;
+                let rn_uwrs = rn_t4 - rn_t4.floor();
+                // 域选择:u_src < β ⇒ 点光候选(β=1 恒点/β=0 恒灯片)。
+                let rn_isq = ((rn_usrc - rn_beta) * big + 1.0).min(1.0).max(0.0);
+                let rn_ispt = 1.0 - rn_isq;
+                // ── 点光候选(均匀;u_src/β 拉伸回 [0,1) 复用)──
+                let rn_bsafe = rn_beta + (1.0 - (rn_beta * big).min(1.0).max(0.0));
+                let rn_pu = (rn_usrc / rn_bsafe).min(0.99999994).max(0.0);
+                let rn_pidx = ((rn_pu * gi_pcf).min((gi_pcf - 1.0).max(0.0)).max(0.0)) as usize;
+                let rn_pb = rn_pidx * 8;
+                let rn_plvx = points[rn_pb] - gi_hx;
+                let rn_plvy = points[rn_pb + 1] - gi_hy;
+                let rn_plvz = points[rn_pb + 2] - gi_hz;
+                let rn_plir = points[rn_pb + 3];
+                let rn_plig = points[rn_pb + 4];
+                let rn_plib = points[rn_pb + 5];
+                let rn_plr = points[rn_pb + 6];
+                let rn_pd2 = rn_plvx * rn_plvx + rn_plvy * rn_plvy + rn_plvz * rn_plvz;
+                let rn_pgd = ((rn_pd2 - eps2) * big).min(1.0).max(0.0);
+                let rn_pd2s = rn_pd2.max(tiny * tiny);
+                let rn_pd = rn_pd2s.sqrt();
+                let rn_pwx = rn_plvx / rn_pd;
+                let rn_pwy = rn_plvy / rn_pd;
+                let rn_pwz = rn_plvz / rn_pd;
+                let rn_pcs = (gi_n2x * rn_pwx + gi_n2y * rn_pwy + gi_n2z * rn_pwz).max(0.0);
+                let rn_pgcs = (rn_pcs * big).min(1.0).max(0.0);
+                let rn_ptsh = rn_pd - (2.0 * ray_eps).max(rn_plr);
+                let rn_pgfar = (rn_ptsh * big).min(1.0).max(0.0);
+                let rn_ptfire = rn_ptsh.max(ray_eps);
+                // 几何 gate × 域激活 × nee 让位律(gi_elig 同式)全折进 f/phat
+                // ⇒ f/phat 比恒纯色度,W 无偏式封闭。
+                let rn_pelig = 1.0 - nee_gate * (rn_plr * big).min(1.0).max(0.0);
+                let rn_pg = rn_pgd * rn_pgcs * rn_pelig * rn_pt_act;
+                let rn_pgeo = rn_pcs / rn_pd2s;
+                let rn_pfr = rn_plir * rn_pgeo * rn_pg;
+                let rn_pfg = rn_plig * rn_pgeo * rn_pg;
+                let rn_pfb = rn_plib * rn_pgeo * rn_pg;
+                let rn_pph = rn_pfr.max(rn_pfg).max(rn_pfb);
+                // w = phat/p,p = β/point_count ⇒ w = phat·point_count/β。
+                let rn_wp = rn_pph * gi_pcf.max(1.0) / rn_bsafe;
+                // ── 灯片候选(CDF 16 步定长二分 + 面上均匀点)──
+                let mut rn_pos = 0.0;
+                let mut rn_stp = 32768.0;
+                let mut rn_bi = 0usize;
+                while rn_bi < 16 {
+                    let rn_cand = rn_pos + rn_stp;
+                    let rn_inr = ((rn_qcf - rn_cand) * big + 1.0).min(1.0).max(0.0);
+                    let rn_cidx = (rn_cand - 1.0).min(rn_qcf - 1.0).max(0.0);
+                    let rn_cv = lamp_tbl[4 + rn_cidx as usize];
+                    let rn_leu = ((rn_ucdf - rn_cv) * big + 1.0).min(1.0).max(0.0);
+                    rn_pos = rn_pos + rn_stp * rn_inr * rn_leu;
+                    rn_stp = rn_stp * 0.5;
+                    rn_bi = rn_bi + 1;
+                }
+                let rn_k = rn_pos.min((rn_qcf - 1.0).max(0.0)).max(0.0);
+                let rn_kpg = (rn_k * big).min(1.0).max(0.0);
+                let rn_cprev = rn_kpg * lamp_tbl[4 + ((rn_k - 1.0).max(0.0)) as usize];
+                let rn_ccur = lamp_tbl[4 + rn_k as usize];
+                let rn_pdfk = (rn_ccur - rn_cprev).max(0.0);
+                let rn_rb = 4 + (rn_qcf as usize) + (rn_k as usize) * 16;
+                let rn_ax = lamp_tbl[rn_rb];
+                let rn_ay = lamp_tbl[rn_rb + 1];
+                let rn_az = lamp_tbl[rn_rb + 2];
+                let rn_e1x = lamp_tbl[rn_rb + 3];
+                let rn_e1y = lamp_tbl[rn_rb + 4];
+                let rn_e1z = lamp_tbl[rn_rb + 5];
+                let rn_e2x = lamp_tbl[rn_rb + 6];
+                let rn_e2y = lamp_tbl[rn_rb + 7];
+                let rn_e2z = lamp_tbl[rn_rb + 8];
+                let rn_lnx = lamp_tbl[rn_rb + 9];
+                let rn_lny = lamp_tbl[rn_rb + 10];
+                let rn_lnz = lamp_tbl[rn_rb + 11];
+                let rn_area = lamp_tbl[rn_rb + 12];
+                let rn_ler = lamp_tbl[rn_rb + 13];
+                let rn_leg = lamp_tbl[rn_rb + 14];
+                let rn_leb = lamp_tbl[rn_rb + 15];
+                // 三角面均匀点(折叠律 u+v ≤ 1)。
+                let rn_fold = ((rn_ua + rn_ub - 1.0) * big).min(1.0).max(0.0);
+                let rn_su = rn_fold * (1.0 - rn_ua) + (1.0 - rn_fold) * rn_ua;
+                let rn_sv = rn_fold * (1.0 - rn_ub) + (1.0 - rn_fold) * rn_ub;
+                let rn_yx = rn_ax + rn_su * rn_e1x + rn_sv * rn_e2x;
+                let rn_yy = rn_ay + rn_su * rn_e1y + rn_sv * rn_e2y;
+                let rn_yz = rn_az + rn_su * rn_e1z + rn_sv * rn_e2z;
+                let rn_qlvx = rn_yx - gi_hx;
+                let rn_qlvy = rn_yy - gi_hy;
+                let rn_qlvz = rn_yz - gi_hz;
+                let rn_qd2 = rn_qlvx * rn_qlvx + rn_qlvy * rn_qlvy + rn_qlvz * rn_qlvz;
+                let rn_qgd = ((rn_qd2 - eps2) * big).min(1.0).max(0.0);
+                let rn_qd2s = rn_qd2.max(tiny * tiny);
+                let rn_qd = rn_qd2s.sqrt();
+                let rn_qwx = rn_qlvx / rn_qd;
+                let rn_qwy = rn_qlvy / rn_qd;
+                let rn_qwz = rn_qlvz / rn_qd;
+                let rn_qcs = (gi_n2x * rn_qwx + gi_n2y * rn_qwy + gi_n2z * rn_qwz).max(0.0);
+                let rn_qgcs = (rn_qcs * big).min(1.0).max(0.0);
+                let rn_qcl = (rn_lnx * rn_qwx + rn_lny * rn_qwy + rn_lnz * rn_qwz).abs();
+                let rn_qtsh = rn_qd - 2.0 * ray_eps;
+                let rn_qgfar = (rn_qtsh * big).min(1.0).max(0.0);
+                let rn_qtfire = rn_qtsh.max(ray_eps);
+                let rn_qpg = (rn_pdfk * big).min(1.0).max(0.0);
+                let rn_qg = rn_qgd * rn_qgcs * rn_qpg * rn_quad_act;
+                let rn_qgeo = rn_qcs * rn_qcl / rn_qd2s;
+                let rn_qfr = rn_ler * rn_qgeo * rn_qg;
+                let rn_qfg = rn_leg * rn_qgeo * rn_qg;
+                let rn_qfb = rn_leb * rn_qgeo * rn_qg;
+                let rn_qph = rn_qfr.max(rn_qfg).max(rn_qfb);
+                // w = phat/p,p = (1−β)·pdf_k/area ⇒ w = phat·area/((1−β)·pdf_k)。
+                let rn_qbsafe = (1.0 - rn_beta) + (1.0 - ((1.0 - rn_beta) * big).min(1.0).max(0.0));
+                let rn_pdfsafe = rn_pdfk + (1.0 - rn_qpg);
+                let rn_wq = rn_qph * rn_area / (rn_qbsafe * rn_pdfsafe);
+                // ── 蓄水池更新(u < w/w_sum 除法比较形,g28 冻结链同源;f32
+                // w_sum 单帧 M ≤ 16 精度域,g28 device 腿同口径如实登记)──
+                let rn_w = rn_isq * rn_wq + rn_ispt * rn_wp;
+                rn_wsum = rn_wsum + rn_w;
+                let rn_wsg = (rn_wsum * big).min(1.0).max(0.0);
+                let rn_wss = rn_wsum + (1.0 - rn_wsg);
+                let rn_take = ((rn_w / rn_wss - rn_uwrs) * big).min(1.0).max(0.0);
+                let rn_keep = 1.0 - rn_take;
+                rn_sphat = rn_take * (rn_isq * rn_qph + rn_ispt * rn_pph) + rn_keep * rn_sphat;
+                rn_sfr = rn_take * (rn_isq * rn_qfr + rn_ispt * rn_pfr) + rn_keep * rn_sfr;
+                rn_sfg = rn_take * (rn_isq * rn_qfg + rn_ispt * rn_pfg) + rn_keep * rn_sfg;
+                rn_sfb = rn_take * (rn_isq * rn_qfb + rn_ispt * rn_pfb) + rn_keep * rn_sfb;
+                rn_swx = rn_take * (rn_isq * rn_qwx + rn_ispt * rn_pwx) + rn_keep * rn_swx;
+                rn_swy = rn_take * (rn_isq * rn_qwy + rn_ispt * rn_pwy) + rn_keep * rn_swy;
+                rn_swz = rn_take * (rn_isq * rn_qwz + rn_ispt * rn_pwz) + rn_keep * rn_swz;
+                rn_stf = rn_take * (rn_isq * rn_qtfire + rn_ispt * rn_ptfire) + rn_keep * rn_stf;
+                rn_sgf = rn_take * (rn_isq * rn_qgfar + rn_ispt * rn_pgfar) + rn_keep * rn_sgf;
+                rn_j = rn_j + 1;
+            }
+            // 选中灯 1 条阴影射线(if 包 ray query 白名单形,灯循环同构)+
+            // RIS 无偏权重 W = w_sum/(M·phat_sel) 合成;全候选 phat=0/块未
+            // 激活 ⇒ rn_sphat=0 门零射线零贡献。
+            let rn_phg = (rn_sphat * big).min(1.0).max(0.0);
+            let mut rn_blk = 0.0;
+            if rn_phg > 0.0 {
+                let mut rn_sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (gi_hx + rn_swx * ray_eps, gi_hy + rn_swy * ray_eps, gi_hz + rn_swz * ray_eps),
+                    0.0,
+                    (rn_swx, rn_swy, rn_swz),
+                    rn_stf,
+                );
+                while rn_sq.proceed() {
+                }
+                if rn_sq.has_committed() {
+                    rn_blk = 1.0;
+                } else {
+                    rn_blk = 0.0;
+                }
+            }
+            let rn_vis = 1.0 - rn_sgf * rn_blk;
+            let rn_phs = rn_sphat + (1.0 - rn_phg);
+            let rn_wris = rn_phg * rn_wsum / (rn_mf * rn_phs);
+            gi_nee_r = gi_nee_r + rn_sfr * rn_vis * rn_wris;
+            gi_nee_g = gi_nee_g + rn_sfg * rn_vis * rn_wris;
+            gi_nee_b = gi_nee_b + rn_sfb * rn_vis * rn_wris;
+            // G37 W2 ris_nee:nee on ⇒ 灯片(表成员谓词 = mats 发射均值任一
+            // 通道 >0,装配侧同谓词——tri_mat==NONE 的 quad 灯尾段两侧同
+            // 排除,bistro quads=0 空集如实登记)被反弹 ray 直击时 emission
+            // 直取置零:该传输路径已由面光 NEE 全覆盖(同一积分换估计器,
+            // 期望不变;gitex 臂逐像素 emission 覆写同被门,两来源一口径)。
+            let rn_isem = (mats[gi_mb + 3].max(mats[gi_mb + 4]).max(mats[gi_mb + 5]) * big)
+                .min(1.0)
+                .max(0.0);
+            let rn_emk = 1.0 - nee_gate * rn_isem;
+            // 反弹辐亮 L = emission + al₂·inv_pi·NEE → firefly clamp → scale。
+            let gi_lr = gi_hit * (gi_emr * rn_emk + gi_alr * inv_pi * gi_nee_r);
+            let gi_lg = gi_hit * (gi_emg * rn_emk + gi_alg * inv_pi * gi_nee_g);
+            let gi_lb = gi_hit * (gi_emb * rn_emk + gi_alb * inv_pi * gi_nee_b);
+            gi_r = gi_r + params[54] * gi_lr.min(params[53]).max(0.0);
+            gi_g = gi_g + params[54] * gi_lg.min(params[53]).max(0.0);
+            gi_b = gi_b + params[54] * gi_lb.min(params[53]).max(0.0);
+            gi_i = gi_i + 1;
+        }
+        // ── day_0829 臂③ 光追镜面/glossy 反射（params[62] 门;--rt-reflect）──
+        // 现反射面 = 解析 GGX 灯高光,场景内容零反射。加性臂:逐像素 1 条反射
+        // 射线——GGX 半矢量重要性采样(tan²θ_h = α²·u/(1−u),围绕平滑法线切
+        // 空间;R2 + params[52] 帧旋转,TSR 时域收敛 glossy 模糊)→ R =
+        // reflect(view, h);命中点着色 = GI2 反弹同形(mats 均值 albedo +
+        // emission 直取 + 单点光 NEE 1 条阴影射线,R3 选灯);miss = 天空底色
+        // (输出行同权 0.55/0.65/0.85);合成 = spec_* += w(rough)·F(F0,cos_vh)
+        // ·L_clamp(params[64])——w = (1−rough/rough_max)²(params[63] 上限门,
+        // 粗糙面零射线零成本),F0 = 臂① alf 并入后的 f0_*(金属映场景主消费
+        // 面)。**有偏近似如实登记**:单样本 GGX 采样无 pdf 归一化权重(工程
+        // 加性形,能量由 clamp + w 控),非无偏估计;粗糙>上限面不发射线。
+        // 关臂:params[62]=0 ⇒ rf_n=0 while 零迭代(字节隔离律同前)。
+        let rf_gate = ((params[62] - 0.5) * big).min(1.0).max(0.0);
+        let rf_rmax = params[63].max(0.05);
+        let rf_w0 = (1.0 - (rough_c / rf_rmax).min(1.0)).max(0.0);
+        let rf_w = rf_w0 * rf_w0;
+        let rf_wgate = ((rf_w - 0.0001) * big).min(1.0).max(0.0);
+        let rf_n = (rf_gate * hit_f * rf_wgate) as usize;
+        let mut rf_or = 0.0;
+        let mut rf_og = 0.0;
+        let mut rf_ob = 0.0;
+        let mut rf_i = 0usize;
+        while rf_i < rf_n {
+            // R2 序列 + 帧旋转(GI2 同族;反射独立相位 = +0.3819660112501051
+            // 黄金比共轭偏移去相关)。
+            let rf_t1 = (px as f32) * 0.7548776662466927
+                + (py as f32) * 0.5698402909980532
+                + (params[52] + 0.3819660112501051) * 0.7548776662466927;
+            let rf_u1 = rf_t1 - rf_t1.floor();
+            let rf_t2 = (px as f32) * 0.5698402909980532
+                + (py as f32) * 0.7548776662466927
+                + (params[52] + 0.3819660112501051) * 0.5698402909980532;
+            let rf_u2 = rf_t2 - rf_t2.floor();
+            let rf_t3 = (px as f32) * 0.8191725133961645
+                + (py as f32) * 0.6710436067037893
+                + params[52] * 0.5497004779019703
+                + 0.2360679774997897;
+            let rf_u3 = rf_t3 - rf_t3.floor();
+            // GGX 半矢量采样(切空间围绕 n{x,y,z};u1 钳离 1 防 tan 爆)。
+            let rf_u1c = rf_u1.min(0.9999);
+            let rf_a2u = alpha2 * rf_u1c / (1.0 - rf_u1c);
+            let rf_cth = (1.0 / (1.0 + rf_a2u)).sqrt();
+            let rf_sth = (1.0 - rf_cth * rf_cth).max(0.0).sqrt();
+            let rf_phi = 6.283185307179586 * rf_u2;
+            let rf_hlx = rf_sth * rf_phi.cos();
+            let rf_hly = rf_sth * rf_phi.sin();
+            // 切空间基(GI2 同形)。
+            let rf_upsel = ((0.999 - ny.abs()) * big).min(1.0).max(0.0);
+            let rf_upx = 1.0 - rf_upsel;
+            let rf_upy = rf_upsel;
+            let rf_t1x = rf_upy * nz;
+            let rf_t1y = 0.0 - rf_upx * nz;
+            let rf_t1z = rf_upx * ny - rf_upy * nx;
+            let rf_t1l = (rf_t1x * rf_t1x + rf_t1y * rf_t1y + rf_t1z * rf_t1z).sqrt().max(tiny);
+            let rf_tx = rf_t1x / rf_t1l;
+            let rf_ty = rf_t1y / rf_t1l;
+            let rf_tz = rf_t1z / rf_t1l;
+            let rf_bx = ny * rf_tz - nz * rf_ty;
+            let rf_by = nz * rf_tx - nx * rf_tz;
+            let rf_bz = nx * rf_ty - ny * rf_tx;
+            let rf_hx = rf_tx * rf_hlx + rf_bx * rf_hly + nx * rf_cth;
+            let rf_hy = rf_ty * rf_hlx + rf_by * rf_hly + ny * rf_cth;
+            let rf_hz = rf_tz * rf_hlx + rf_bz * rf_hly + nz * rf_cth;
+            // R = reflect(d, h)(d = 视线入射方向;cos_vh = −d·h > 0 有效面)。
+            let rf_dh = dx * rf_hx + dy * rf_hy + dz * rf_hz;
+            let rf_rx0 = dx - 2.0 * rf_dh * rf_hx;
+            let rf_ry0 = dy - 2.0 * rf_dh * rf_hy;
+            let rf_rz0 = dz - 2.0 * rf_dh * rf_hz;
+            let rf_rl = (rf_rx0 * rf_rx0 + rf_ry0 * rf_ry0 + rf_rz0 * rf_rz0).sqrt().max(tiny);
+            let rf_rx = rf_rx0 / rf_rl;
+            let rf_ry = rf_ry0 / rf_rl;
+            let rf_rz = rf_rz0 / rf_rl;
+            let rf_rn = rf_rx * nx + rf_ry * ny + rf_rz * nz;
+            let rf_grn = ((rf_rn - 0.0001) * big).min(1.0).max(0.0);
+            let rf_cvh = (0.0 - rf_dh).max(0.0);
+            // Fresnel Schlick(F0 = 臂① alf 并入后 f0_*)。
+            let rf_om = 1.0 - rf_cvh;
+            let rf_om2 = rf_om * rf_om;
+            let rf_sch = rf_om2 * rf_om2 * rf_om;
+            let rf_fr = f0_r + (1.0 - f0_r) * rf_sch;
+            let rf_fg = f0_g + (1.0 - f0_g) * rf_sch;
+            let rf_fb = f0_b + (1.0 - f0_b) * rf_sch;
+            // 反射射线(最近命中,M96 白名单形;R·N ≤ 0 样本作废零贡献仍走
+            // 空查询保 branchless——t_max 钳 eps 令其立即返回)。
+            let rf_tmax = rf_grn * ray_tmax + (1.0 - rf_grn) * ray_eps;
+            let rf_ox = hx + rf_rx * ray_eps;
+            let rf_oy = hy + rf_ry * ray_eps;
+            let rf_oz = hz + rf_rz * ray_eps;
+            let mut rf_rq = ray_query_initialize(tlas, (rf_ox, rf_oy, rf_oz), 0.0, (rf_rx, rf_ry, rf_rz), rf_tmax);
+            while rf_rq.proceed() {
+            }
+            let mut rf_hit = 0.0;
+            let mut rf_th = 0.0;
+            let mut rf_prim = 0u32;
+            if rf_rq.has_committed() {
+                rf_th = rf_rq.committed_t();
+                rf_prim = rf_rq.committed_primitive_index();
+                rf_hit = 1.0;
+            } else {
+                rf_hit = 0.0;
+                rf_th = 0.0;
+                rf_prim = 0u32;
+            }
+            // 命中面几何法线(双面翻转;GI2 反弹同形)。
+            let rf_tb = (rf_prim as usize) * 9;
+            let rf_ax = tris[rf_tb];
+            let rf_ay = tris[rf_tb + 1];
+            let rf_az = tris[rf_tb + 2];
+            let rf_e1x = tris[rf_tb + 3] - rf_ax;
+            let rf_e1y = tris[rf_tb + 4] - rf_ay;
+            let rf_e1z = tris[rf_tb + 5] - rf_az;
+            let rf_e2x = tris[rf_tb + 6] - rf_ax;
+            let rf_e2y = tris[rf_tb + 7] - rf_ay;
+            let rf_e2z = tris[rf_tb + 8] - rf_az;
+            let rf_ngx = rf_e1y * rf_e2z - rf_e1z * rf_e2y;
+            let rf_ngy = rf_e1z * rf_e2x - rf_e1x * rf_e2z;
+            let rf_ngz = rf_e1x * rf_e2y - rf_e1y * rf_e2x;
+            let rf_nl = (rf_ngx * rf_ngx + rf_ngy * rf_ngy + rf_ngz * rf_ngz).sqrt();
+            let rf_gnl = (rf_nl * big).min(1.0).max(0.0);
+            let rf_nls = rf_nl + (1.0 - rf_gnl);
+            let rf_inl = 1.0 / rf_nls;
+            let rf_hnx0 = rf_gnl * (rf_ngx * rf_inl);
+            let rf_hny0 = rf_gnl * (rf_ngy * rf_inl);
+            let rf_hnz0 = rf_gnl * (rf_ngz * rf_inl);
+            let rf_fac = rf_hnx0 * rf_rx + rf_hny0 * rf_ry + rf_hnz0 * rf_rz;
+            let rf_flip = 1.0 - 2.0 * (rf_fac * big).min(1.0).max(0.0);
+            let rf_n2x = rf_flip * rf_hnx0;
+            let rf_n2y = rf_flip * rf_hny0;
+            let rf_n2z = rf_flip * rf_hnz0;
+            let rf_px = rf_ox + rf_rx * rf_th;
+            let rf_py = rf_oy + rf_ry * rf_th;
+            let rf_pz = rf_oz + rf_rz * rf_th;
+            // 命中点材质(mats 均值直读 + emission 直取;GI2 反弹同形)。
+            let rf_mb = (rf_prim as usize) * 8;
+            let rf_alr = mats[rf_mb];
+            let rf_alg = mats[rf_mb + 1];
+            let rf_alb = mats[rf_mb + 2];
+            let rf_emr = mats[rf_mb + 3];
+            let rf_emg = mats[rf_mb + 4];
+            let rf_emb = mats[rf_mb + 5];
+            // 命中点单点光 NEE(GI2 反弹同形;u3 选灯 × point_count 加权)。
+            let rf_pcf = point_count as f32;
+            let rf_gpc = (rf_pcf * big).min(1.0).max(0.0);
+            let rf_neen = (rf_hit * rf_gpc) as usize;
+            let rf_self = (rf_u3 * rf_pcf).min(rf_pcf - 1.0).max(0.0);
+            let rf_psel = rf_self as usize;
+            let mut rf_nee_r = 0.0;
+            let mut rf_nee_g = 0.0;
+            let mut rf_nee_b = 0.0;
+            let mut rf_k = 0usize;
+            while rf_k < rf_neen {
+                let rf_pb = rf_psel * 8;
+                let rf_lvx = points[rf_pb] - rf_px;
+                let rf_lvy = points[rf_pb + 1] - rf_py;
+                let rf_lvz = points[rf_pb + 2] - rf_pz;
+                let rf_lir = points[rf_pb + 3];
+                let rf_lig = points[rf_pb + 4];
+                let rf_lib = points[rf_pb + 5];
+                let rf_d2 = rf_lvx * rf_lvx + rf_lvy * rf_lvy + rf_lvz * rf_lvz;
+                let rf_gd = ((rf_d2 - eps2) * big).min(1.0).max(0.0);
+                let rf_d2s = rf_d2.max(tiny * tiny);
+                let rf_d = rf_d2s.sqrt();
+                let rf_wx = rf_lvx / rf_d;
+                let rf_wy = rf_lvy / rf_d;
+                let rf_wz = rf_lvz / rf_d;
+                let rf_cs = (rf_n2x * rf_wx + rf_n2y * rf_wy + rf_n2z * rf_wz).max(0.0);
+                let rf_gcs = (rf_cs * big).min(1.0).max(0.0);
+                let rf_lr2 = points[rf_pb + 6];
+                let rf_tsh = rf_d - (2.0 * ray_eps).max(rf_lr2);
+                let rf_gfar = (rf_tsh * big).min(1.0).max(0.0);
+                let rf_tfire = rf_tsh.max(ray_eps);
+                let rf_keep = rf_gd * rf_gcs;
+                let mut rf_blk = 0.0;
+                if rf_keep > 0.0 {
+                    let mut rf_sq = ray_query_initialize_first_hit(
+                        tlas,
+                        (rf_px + rf_wx * ray_eps, rf_py + rf_wy * ray_eps, rf_pz + rf_wz * ray_eps),
+                        0.0,
+                        (rf_wx, rf_wy, rf_wz),
+                        rf_tfire,
+                    );
+                    while rf_sq.proceed() {
+                    }
+                    if rf_sq.has_committed() {
+                        rf_blk = 1.0;
+                    } else {
+                        rf_blk = 0.0;
+                    }
+                }
+                let rf_vis = 1.0 - rf_gfar * rf_blk;
+                let rf_geo = rf_cs / rf_d2s;
+                let rf_wt = rf_keep * rf_vis * rf_geo * rf_pcf;
+                rf_nee_r = rf_nee_r + rf_lir * rf_wt;
+                rf_nee_g = rf_nee_g + rf_lig * rf_wt;
+                rf_nee_b = rf_nee_b + rf_lib * rf_wt;
+                rf_k = rf_k + 1;
+            }
+            // 命中辐亮 = emission + al·inv_pi·NEE;miss = 天空底色(输出行同
+            // 权);→ clamp → Fresnel × w 合成。
+            let rf_lr = rf_hit * (rf_emr + rf_alr * inv_pi * rf_nee_r)
+                + (1.0 - rf_hit) * rf_grn * params[42] * 0.55;
+            let rf_lg = rf_hit * (rf_emg + rf_alg * inv_pi * rf_nee_g)
+                + (1.0 - rf_hit) * rf_grn * params[42] * 0.65;
+            let rf_lb = rf_hit * (rf_emb + rf_alb * inv_pi * rf_nee_b)
+                + (1.0 - rf_hit) * rf_grn * params[42] * 0.85;
+            rf_or = rf_or + rf_fr * rf_lr.min(params[64]).max(0.0);
+            rf_og = rf_og + rf_fg * rf_lg.min(params[64]).max(0.0);
+            rf_ob = rf_ob + rf_fb * rf_lb.min(params[64]).max(0.0);
+            rf_i = rf_i + 1;
+        }
+        spec_r = spec_r + rf_w * rf_or;
+        spec_g = spec_g + rf_w * rf_og;
+        spec_b = spec_b + rf_w * rf_ob;
+        // ── day_0829 臂② 短程 RT AO（params[56] 门;--rt-ao）──
+        // 常量半球环境光(params[44..48))无可见性 ⇒ 接触角落/家具底泛亮。修 =
+        // N 条余弦半球短程遮蔽射线(t_max = params[57] 半径,first_hit 足够)
+        // → ao_vis = 1 − strength·occ/N,只乘 al·amb 环境光项(GI2 为真可见
+        // 性间接光不乘;sky_amb 为 miss 像素天空底色,AO 射线自 hit 点发,
+        // hit_f 门天然互斥不乘)。采样 = R2/Weyl 同族序列(GI2 同律),样本
+        // index 进帧旋转项(params[52]=frame_idx,TSR 时域收敛;双跑同帧序 ⇒
+        // 位级一致)。关臂:params[56]=0 ⇒ ao_n=0 while 零迭代 ⇒ ao_vis=1.0
+        // ⇒ ×1.0 尾乘(字节隔离律:off 臂恒载链下位工件,不依赖恒等)。
+        // 分支纪律:while 计数门 + 灯循环同构 if 包 ray query 白名单形。
+        let ao_gate = ((params[56] - 0.5) * big).min(1.0).max(0.0);
+        let ao_n = (ao_gate * hit_f * params[59]) as usize;
+        let mut ao_occ = 0.0;
+        let mut ao_i = 0usize;
+        while ao_i < ao_n {
+            let ao_fi = params[52] + (ao_i as f32);
+            let ao_t1 = (px as f32) * 0.7548776662466927
+                + (py as f32) * 0.5698402909980532
+                + ao_fi * 0.7548776662466927;
+            let ao_u1 = ao_t1 - ao_t1.floor();
+            let ao_t2 = (px as f32) * 0.5698402909980532
+                + (py as f32) * 0.7548776662466927
+                + ao_fi * 0.5698402909980532;
+            let ao_u2 = ao_t2 - ao_t2.floor();
+            // 余弦半球采样(GI2 同形;基向量 = 双面翻转后法线 n{x,y,z})。
+            let ao_phi = 6.283185307179586 * ao_u1;
+            let ao_sr = ao_u2.sqrt();
+            let ao_lx = ao_sr * ao_phi.cos();
+            let ao_ly = ao_sr * ao_phi.sin();
+            let ao_lz = (1.0 - ao_u2).max(0.0).sqrt();
+            let ao_upsel = ((0.999 - ny.abs()) * big).min(1.0).max(0.0);
+            let ao_upx = 1.0 - ao_upsel;
+            let ao_upy = ao_upsel;
+            let ao_t1x = ao_upy * nz;
+            let ao_t1y = 0.0 - ao_upx * nz;
+            let ao_t1z = ao_upx * ny - ao_upy * nx;
+            let ao_t1l = (ao_t1x * ao_t1x + ao_t1y * ao_t1y + ao_t1z * ao_t1z).sqrt().max(tiny);
+            let ao_tx = ao_t1x / ao_t1l;
+            let ao_ty = ao_t1y / ao_t1l;
+            let ao_tz = ao_t1z / ao_t1l;
+            let ao_bx = ny * ao_tz - nz * ao_ty;
+            let ao_by = nz * ao_tx - nx * ao_tz;
+            let ao_bz = nx * ao_ty - ny * ao_tx;
+            let ao_dx0 = ao_tx * ao_lx + ao_bx * ao_ly + nx * ao_lz;
+            let ao_dy0 = ao_ty * ao_lx + ao_by * ao_ly + ny * ao_lz;
+            let ao_dz0 = ao_tz * ao_lx + ao_bz * ao_ly + nz * ao_lz;
+            let ao_dl = (ao_dx0 * ao_dx0 + ao_dy0 * ao_dy0 + ao_dz0 * ao_dz0).sqrt().max(tiny);
+            let ao_sdx = ao_dx0 / ao_dl;
+            let ao_sdy = ao_dy0 / ao_dl;
+            let ao_sdz = ao_dz0 / ao_dl;
+            let mut ao_blk = 0.0;
+            if ao_n > 0 {
+                let mut ao_sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + ao_sdx * ray_eps, hy + ao_sdy * ray_eps, hz + ao_sdz * ray_eps),
+                    0.0,
+                    (ao_sdx, ao_sdy, ao_sdz),
+                    params[57].max(ray_eps),
+                );
+                while ao_sq.proceed() {
+                }
+                if ao_sq.has_committed() {
+                    ao_blk = 1.0;
+                } else {
+                    ao_blk = 0.0;
+                }
+            }
+            ao_occ = ao_occ + ao_blk;
+            ao_i = ao_i + 1;
+        }
+        let ao_nf = (ao_n as f32).max(1.0);
+        let ao_vis = 1.0 - params[58] * (ao_occ / ao_nf);
+        // ── ④ 深度（未抖 vp ZO NDC；g18_smooth_nrm 逐字）──
+        let cz = ((params[25] * hx + params[26] * hy) + params[27] * hz) + params[28];
+        let cw = ((params[29] * hx + params[30] * hy) + params[31] * hz) + params[32];
+        let cw_abs = cw.max(0.0 - cw);
+        let gate_w = ((cw_abs - 0.00000001) * big).min(1.0).max(0.0);
+        let cw_safe = cw + (1.0 - gate_w);
+        let z_hit = gate_w * (cz / cw_safe) + (1.0 - gate_w);
+        // ── 输出（lo = emission + albedo·inv_pi·direct + 环境光 + GGX + GI2
+        //    + 天光；GI2 前逐字 g18_smooth_nrm——al_* 为采样/常量选择值；
+        //    GI2 关臂 gi_* 恒 +0.0 ⇒ al_*·0.0 = +0.0 尾加位级恒等〔spec_* 非
+        //    负 ⇒ x + +0.0 = x 逐位〕；Phase F：emission = em_*〔triem 逐像素
+        //    贴图/均值选择值——本源码仅编译 *_em.spv,既有臂工件 0-byte〕）──
+        let sky_i = params[42];
+        let sky_amb = (1.0 - hit_f) * sky_i;
+        let amb_i = params[44];
+        let hemi = 0.65 + 0.35 * ny;
+        let amb_r = params[45] * hemi * amb_i;
+        let amb_g = params[46] * hemi * amb_i;
+        let amb_b = params[47] * hemi * amb_i;
+        // day_0829 臂②:环境光项 ×ao_vis(关臂 ao_vis=1.0 尾乘;其余项不乘)。
+        // G37 W2 transparency:全像素辐亮 ×tp_tint(视线程玻璃层累积透射;关臂
+        // 恒 1.0 头乘——ao_vis 插乘同律;sky 面同衰减 = 穿出玻璃看天语义)。
+        out_color[i * 3] = tp_tint_r * (hit_f * (em_r + al_r * inv_pi * dir_r + al_r * amb_r * ao_vis + spec_r + al_r * gi_r) + sky_amb * 0.55);
+        out_color[i * 3 + 1] = tp_tint_g * (hit_f * (em_g + al_g * inv_pi * dir_g + al_g * amb_g * ao_vis + spec_g + al_g * gi_g) + sky_amb * 0.65);
+        out_color[i * 3 + 2] = tp_tint_b * (hit_f * (em_b + al_b * inv_pi * dir_b + al_b * amb_b * ao_vis + spec_b + al_b * gi_b) + sky_amb * 0.85);
+        out_depth[i] = hit_f * z_hit + (1.0 - hit_f);
+    }
+}

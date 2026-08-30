@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G37 W1 纹理采样接线门裁决证据（texel heap 形态判读器；ci/g31_texture_sampling_smoke.py --gate 产）",
+  "description": "G37 W1 判读器同步（day_0828 HANDOVER §B.4 / DEFAULT_FLIP_PLAN §1.2 #2 收编）：门 g31.waveB.texture 的 smoke 裁决证据 heap 形态版。八 facts 语义沿用（闭集不变），判读内容同步战役后形态：① 资产盘点 + **top-70 全覆盖映射律法**（12→70；census 闭集不变）+ 70/70 槽 rgba8_digest == G11.3 manifest 互核 + heap 律法（width=min(src,1024)/完整链 mip_count=log2(max)+1/mip_digests 长度/header_entries=70×13/heap_bytes=texels×4）+ **探针步幅 4 计数律法独立重算**（Σ槽 24×抽样级 {0,mips/2,mips−1} 去重；bistro = 5040）② SSBO 腿位级硬门 p100==0.0（不变）③ sampler 腿 ≤1 LSB 结构容差（不变）④ G11.3 复解码 **70/70**（12→70）⑤ SPV 面 = rurixc 现编源 + spirv-val（源码有效性）**+ v2 隔离件在位**（.tmp/night_0828/spv/g31_texture_gi_v2.spv / g31_texture_probe_v2.spv——harness 腿消费件 = 战役锚承载字节）⑥ demo 双跑位级 + on≠off + census 跨端（不变）⑦ Stage A 锚格 160 帧零漂移（不变——bench 面跨重建可对锚）⑧ frame_ms measured（不变）。作废锚治理：旧 tex 臂 presented 锚 6fab598c 已作废（fx/fy 修复 + heap 化 + 静态协议），demo.presented_anchor 钉 PENDING_W4_REHARVEST 占位——heap 臂 presented 锚待 G37 W4 统一重收割后回填字面，本门不消费固定 presented 锚（二进制绑定锚律，HANDOVER §D.18）。三态：DEV_ENV_DEGRADE 退 0 不冒充；RURIX_REQUIRE_REAL=1 翻硬 FAIL。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "facts",
+    "verdict",
+    "probe_parity",
+    "heap",
+    "g11_3_rerun",
+    "frozen_0byte",
+    "demo",
+    "regression_anchor",
+    "frame_ms",
+    "harness_evidence",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.texture_sampling_heap_gate_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_texture_sampling" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveB.texture" },
+    "wave": { "type": "string", "const": "G37.W1" },
+    "facts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "asset_inventory_and_mapping_valid",
+              "ssbo_probe_parity_bitexact",
+              "sampler_leg_parity_bound",
+              "g11_3_anchor_rerun_green",
+              "texture_kernels_spv_valid",
+              "bistro_texture_demo",
+              "textures_off_regression_anchor",
+              "textures_on_off_frame_ms_measured"
+            ]
+          },
+          "status": { "type": "string", "enum": ["PASS", "FAIL"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "verdict": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "probe_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ssbo_p100",
+        "ssbo_bitexact",
+        "ssbo_double_run_bitexact",
+        "device_digest",
+        "host_digest",
+        "sampler_max_lsb",
+        "sampler_bound_lsb",
+        "sampler_bitexact",
+        "sampler_digest",
+        "nonconstant_slots",
+        "probe_count",
+        "probe_count_law_ok"
+      ],
+      "properties": {
+        "ssbo_p100": { "type": "number", "minimum": 0 },
+        "ssbo_bitexact": { "type": "boolean" },
+        "ssbo_double_run_bitexact": { "type": "boolean" },
+        "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "sampler_max_lsb": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "sampler_bound_lsb": { "type": "integer", "const": 1 },
+        "sampler_bitexact": { "type": "boolean" },
+        "sampler_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "nonconstant_slots": { "type": "integer", "minimum": 1 },
+        "probe_count": { "type": "integer", "minimum": 0, "description": "harness 登记探针数（步幅 4 元组；bistro 70 槽全 3 级 = 5040）" },
+        "probe_count_law_ok": { "type": "boolean", "description": "CI 独立重算 Σ槽 24×len(dedup{0,mips/2,mips−1}) == harness probe_count 才许 true" }
+      }
+    },
+    "heap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["form", "cap", "mip_slots", "header_entries", "heap_texels", "heap_bytes", "law_ok"],
+      "properties": {
+        "form": { "type": "string", "const": "texel_heap" },
+        "cap": { "type": "integer", "const": 1024 },
+        "mip_slots": { "type": "integer", "const": 13 },
+        "header_entries": { "type": "integer", "const": 910 },
+        "heap_texels": { "type": "integer", "minimum": 1 },
+        "heap_bytes": { "type": "integer", "minimum": 4 },
+        "law_ok": { "type": "boolean", "description": "header_entries==slots×13 ∧ heap_bytes==heap_texels×4 ∧ 逐槽 width=min(src,1024)/mip 链长律法全过才许 true" }
+      }
+    },
+    "g11_3_rerun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries_reproduced", "entries_total", "decoder", "manifest_path", "chain_0byte_clean"],
+      "properties": {
+        "entries_reproduced": { "type": "integer" },
+        "entries_total": { "type": "integer", "const": 70 },
+        "decoder": { "type": "string", "const": "target/release/g11_3_dds_dump.exe" },
+        "manifest_path": { "type": "string", "const": "milestones/g11/g11_3_dds_transcode_manifest.json" },
+        "chain_0byte_clean": { "type": "boolean" }
+      }
+    },
+    "frozen_0byte": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths", "vs_head_0byte", "worktree_clean"],
+      "properties": {
+        "paths": { "type": "array", "minItems": 5, "items": { "type": "string" } },
+        "vs_head_0byte": { "type": "boolean" },
+        "worktree_clean": { "type": "boolean" }
+      }
+    },
+    "demo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scene_id",
+        "trajectory",
+        "mapped_materials",
+        "tex_tris",
+        "off_double_run_bitexact",
+        "on_double_run_bitexact",
+        "on_ne_off",
+        "census_crosscheck",
+        "presented_anchor"
+      ],
+      "properties": {
+        "scene_id": { "type": "string", "const": "bistro-interior" },
+        "trajectory": { "type": "string", "const": "orbit" },
+        "mapped_materials": { "type": "integer", "const": 70 },
+        "tex_tris": { "type": "integer", "minimum": 1 },
+        "off_double_run_bitexact": { "type": "boolean" },
+        "on_double_run_bitexact": { "type": "boolean" },
+        "on_ne_off": { "type": "boolean" },
+        "census_crosscheck": { "type": "boolean" },
+        "presented_anchor": {
+          "type": "string",
+          "const": "PENDING_W4_REHARVEST",
+          "description": "旧 tex 臂锚 6fab598c 作废（fx/fy 修复+heap 化+静态协议）；heap 臂 presented 锚待 G37 W4 统一重收割回填——占位字面机器钉死，防误消费"
+        }
+      }
+    },
+    "regression_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell", "fresh_digest", "anchor_digest", "match", "frames", "warmup"],
+      "properties": {
+        "cell": { "type": "string", "const": "bistro-interior_t100_tsr_device" },
+        "fresh_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "anchor_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "match": { "type": "boolean" },
+        "frames": { "type": "integer", "const": 160 },
+        "warmup": { "type": "integer", "const": 10 }
+      }
+    },
+    "frame_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["off_mean", "on_mean", "delta_pct_on_vs_off", "probe_eval_ms", "measured", "frames_per_run", "runs"],
+      "properties": {
+        "off_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "on_mean": { "type": "number", "exclusiveMinimum": 0 },
+        "delta_pct_on_vs_off": { "type": "number" },
+        "probe_eval_ms": { "type": "number", "minimum": 0 },
+        "measured": { "type": "string", "const": "measured_local" },
+        "frames_per_run": { "type": "integer", "minimum": 1 },
+        "runs": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "harness_evidence": { "type": "array", "minItems": 4, "items": { "type": "string" } },
+    "environment": { "type": "object" },
+    "timestamp": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

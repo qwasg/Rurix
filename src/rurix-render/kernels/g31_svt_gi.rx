@@ -250,10 +250,10 @@ kernel fn g31_svt_gi(
         let b0r = p01_r * (1.0 - fx) + p11_r * fx;
         let samp_r = hit_f * ((t0r * (1.0 - fy) + b0r * fy) * mod_r) + (1.0 - hit_f) * fallback[fb];
         let t0g = p00_g * (1.0 - fx) + p10_g * fx;
-        let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+        let b0g = p01_g * (1.0 - fx) + p11_g * fx;
         let samp_g = hit_f * ((t0g * (1.0 - fy) + b0g * fy) * mod_g) + (1.0 - hit_f) * fallback[fb + 1];
         let t0b = p00_b * (1.0 - fx) + p10_b * fx;
-        let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+        let b0b = p01_b * (1.0 - fx) + p11_b * fx;
         let samp_b = hit_f * ((t0b * (1.0 - fy) + b0b * fy) * mod_b) + (1.0 - hit_f) * fallback[fb + 2];
         let al_r = tex_gate * samp_r + (1.0 - tex_gate) * mats[mb];
         let al_g = tex_gate * samp_g + (1.0 - tex_gate) * mats[mb + 1];

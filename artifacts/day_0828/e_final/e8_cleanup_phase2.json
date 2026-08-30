@@ -1,0 +1,28 @@
+{
+ "schema": "rurix.day0828.e1.disk_cleanup.phase2.v1",
+ "scope": "e_final/arms/**/frames/（E1 自产渲染腿逐帧 EXR;保 converged.exr+render_receipt）",
+ "freed_bytes": 15936781440,
+ "freed_gib": 14.842,
+ "dirs": [
+  {
+   "dir": "arms\\bench_full_explicit\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "arms\\bench_full_preset_1\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "arms\\bench_full_preset_2\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "arms\\bench_snrm\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "arms\\bench_snrm_tsrq\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  }
+ ]
+}

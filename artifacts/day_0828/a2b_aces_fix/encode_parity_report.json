@@ -1,0 +1,78 @@
+{
+ "schema": "rurix.a2b.encode_parity_probe.v1",
+ "date": "2026-08-28",
+ "inputs": {
+  "tsr_f32": "off_tsr_f32.bin",
+  "presented_raw": "off.raw",
+  "frame": "all-off 臂末帧（契约相机静态；RURIX_G31_DUMP_F32 + --dump-present-raw 同帧）",
+  "width": 1920,
+  "height": 1080,
+  "caliber": "dither off / autoexp off（aeg=1.0）；host = display::aces13 f64 金标准 + BT.1886 v^(1/2.4) + floor(v·255+0.5)"
+ },
+ "parity": {
+  "pixels": 2073600,
+  "exact_match": 2073374,
+  "exact_match_pct": 99.9891,
+  "diff_p50_lsb": 0.0,
+  "diff_p99_lsb": 0.0,
+  "diff_p100_lsb": 1,
+  "pixels_gt_1lsb": 0,
+  "pixels_gt_2lsb": 0,
+  "worst_pixel": {
+   "x": 179,
+   "y": 159,
+   "measured_rgb": [
+    3,
+    0,
+    0
+   ],
+   "predicted_rgb": [
+    2,
+    0,
+    0
+   ]
+  }
+ },
+ "fan_landmark": {
+  "xy": [
+   1500,
+   12
+  ],
+  "measured_rgb": [
+   144,
+   122,
+   77
+  ],
+  "host_predicted_rgb": [
+   144,
+   122,
+   77
+  ],
+  "expected_rgb": [
+   144,
+   122,
+   77
+  ],
+  "within_2lsb": true
+ },
+ "gray_018_design_point": {
+  "host_f64_rgb8": [
+   99,
+   99,
+   99
+  ],
+  "kernel_f32_sim_rgb8": [
+   99,
+   99,
+   99
+  ],
+  "expected": 99,
+  "display_linear": [
+   0.104064,
+   0.104064,
+   0.104064
+  ],
+  "ok": true
+ },
+ "verdict": "PASS"
+}

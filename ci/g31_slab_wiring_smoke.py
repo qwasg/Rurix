@@ -341,6 +341,7 @@ def run_present(
         "--frames", str(frames),
         "--warmup", str(warmup),
         "--hidden",
+        "--quality", "off",  # W4 默认翻转免疫:slab 诊断臂 + 基线腿显式 off（DEFAULT_FLIP_PLAN §2.5）
         "--auto-move", TRAJECTORY,
         "--evidence", str(ev_path),
     ]

@@ -1,0 +1,15 @@
+// 形态5:if 包 while,while 体内含 if。
+kernel fn s5(out: ViewMut<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut acc = 0.0;
+    if i < n {
+        let mut j = 0usize;
+        while j < 8usize {
+            if j < 4usize {
+                acc = acc + 1.0;
+            }
+            j = j + 1;
+        }
+    }
+    out[i] = acc;
+}

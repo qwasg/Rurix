@@ -1,0 +1,13 @@
+{
+ "schema": "rurix.day0828.e1.quality_full_soak.v1",
+ "arm": "--quality full 窗口 32f 静态（九臂预设展开）",
+ "iterations": 13,
+ "stagea_probes": 4,
+ "fails": 0,
+ "wall_s": 1895.0,
+ "budget_s": 1800.0,
+ "zero_failure": true,
+ "digest_constant": true,
+ "anchor": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1",
+ "fail_reason": null
+}

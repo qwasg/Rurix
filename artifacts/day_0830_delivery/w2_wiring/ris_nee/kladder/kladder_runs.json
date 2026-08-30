@@ -1,0 +1,38 @@
+[
+ {
+  "leg": "window",
+  "k": "3",
+  "rc": 0,
+  "digest": "sha256:0771d02a16c9dfa57667998f97e8e922f8a631e184ba3bcd6f8c58198df70457",
+  "vuid": 0
+ },
+ {
+  "leg": "window",
+  "k": "2",
+  "rc": 0,
+  "digest": "sha256:b715fac2769ebcffd80e24033e35f5d4ea28cb44b61d0b7194154bc31d691e2c",
+  "vuid": 0
+ },
+ {
+  "leg": "window",
+  "k": "1.5",
+  "rc": 0,
+  "digest": "sha256:0067c520d7ad49925f2f824462d92792e86202735613ddd3f231471011fc63c8",
+  "vuid": 0
+ },
+ {
+  "leg": "bench_conv",
+  "k": "3",
+  "rc": 0
+ },
+ {
+  "leg": "bench_conv",
+  "k": "2",
+  "rc": 0
+ },
+ {
+  "leg": "bench_conv",
+  "k": "1.5",
+  "rc": 0
+ }
+]

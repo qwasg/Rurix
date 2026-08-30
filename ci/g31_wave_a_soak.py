@@ -153,8 +153,10 @@ def run_gate(frames: int) -> int:
     with gpu_device_lock(purpose="g31 波 A 验收 soak 主腿 + 确定性抽查"):
         # ── 主腿：≥10000 帧长跑（墙钟实记；≥30min 墙钟腿不触达即按帧数先达登记）──
         t0 = time.time()
+        # G37 W6:A 类化补显式 off(门语义 = 波 A soak 稳定性,evidence 判读
+        # 钉死 off 形态字段;@新默认 full soak 由 w6_full_soak.py 独立承载)。
         r = run_harness([
-            str(BIN), "--frames", str(frames), "--warmup", "10",
+            str(BIN), "--frames", str(frames), "--warmup", "10", "--quality", "off",
             "--auto-move", "orbit", "--hidden", "--evidence", str(MAIN_EVIDENCE),
         ])
         wall = time.time() - t0
@@ -191,6 +193,7 @@ def run_gate(frames: int) -> int:
         for path in (DET_RUN1, DET_RUN2):
             rr = run_harness([
                 str(BIN), "--frames", str(DET_FRAMES), "--warmup", str(DET_WARMUP),
+                "--quality", "off",
                 "--auto-move", "orbit", "--hidden", "--evidence", str(path),
             ])
             check(rr.returncode == 0, f"确定性抽查腿非零退出 {rr.returncode}: {(rr.stdout + rr.stderr).strip()[-400:]}")

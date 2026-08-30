@@ -1343,6 +1343,9 @@ fn main() {
     let mut spv_hzb_pack = G34HZB_DEFAULT_SPV_PACK.to_owned();
     let mut spv_hzb_reduce = G34HZB_DEFAULT_SPV_REDUCE.to_owned();
     let mut spv_hzb_test = G34HZB_DEFAULT_SPV_TEST.to_owned();
+    // G37 W3 hzb_skin 面（--hzb on --skin 同开 = 合并车道;段体全量收
+    // g34_full_lane/g34_hzb_skin.rs 独立 include 区段——G36 留窗兑现件）。
+    let mut spv_hzbskin_primary = G34HS_DEFAULT_SPV_PRIMARY_SKIN.to_owned();
     // G36 W3 geo 组合面（--cluster-lod off|leaf|on × --wp-hlod off|full|on ×
     // 纹理×slab×动态组合;off 默认 = 既有面 0-byte——W1 provenance 事实源）。
     let mut cluster_lod_mode = String::from("off");
@@ -1444,6 +1447,8 @@ fn main() {
             "--spv-hzb-pack" => spv_hzb_pack = take_arg(&args, &mut i),
             "--spv-hzb-reduce" => spv_hzb_reduce = take_arg(&args, &mut i),
             "--spv-hzb-test" => spv_hzb_test = take_arg(&args, &mut i),
+            // G37 W3 hzb_skin 面（合并主射线 kernel;--hzb on --skin 同开消费）。
+            "--spv-hzbskin-primary" => spv_hzbskin_primary = take_arg(&args, &mut i),
             // G36 W3 geo 组合面参数（g14_3/g31 同名旗标同语义）。
             "--cluster-lod" => cluster_lod_mode = take_arg(&args, &mut i),
             "--cluster-pack" => cluster_pack = take_arg(&args, &mut i),
@@ -1602,12 +1607,55 @@ fn main() {
             fail("--cluster-lod/--wp-hlod 不与 --headless-smoke 同跑（geo 组合登记面 = 真窗口闭集;headless 退化非本任务口径）");
         }
     }
-    // ── G34-2 HZB 早分支（--hzb on 闭集裁决 + 段体全量移交独立 include 区段;
-    //    非 HZB 面零触碰——两段互斥先裁,--skin 分支后行零感知）──
-    if hzb_on {
-        if skin_on {
-            fail("--hzb on 与 --skin on 互斥（G34-2/G34-3 并行分区面,组合面非本任务口径,如实拒跑不冒充）");
+    // ── G37 W3 hzb_skin 早分支（--hzb on --skin 同开 = 合并车道;G36 W4-W5
+    //    留窗「HZB×蒙皮同车道（新 kernel 合并面）」兑现——原互斥字面撤除,
+    //    段体全量收 g34_full_lane/g34_hzb_skin.rs 独立 include 区段;geo ×
+    //    skin 组合维持留窗,上方 geo 闭集裁决先行已拒）──
+    if !(hzb_on && skin_on) && args.iter().any(|a| a == "--spv-hzbskin-primary") {
+        fail("--spv-hzbskin-primary 须随 --hzb on --skin 同开（合并车道独消费面,单开面零消费）");
+    }
+    if hzb_on && skin_on {
+        if !full {
+            fail("--hzb on --skin 须随 --full（HZB×蒙皮×纹理×slab×动态五特性同开字面,如实拒跑不冒充）");
         }
+        if static_camera {
+            fail("--hzb on --skin 与 --static-camera 互斥（剔除/蒙皮登记面 = 动相机轨迹字面;锚格模式非本任务口径）");
+        }
+        if headless {
+            fail("--hzb on --skin 不与 --headless-smoke 同跑（合并车道真窗口闭集面;headless 退化非本任务口径）");
+        }
+        g34hs_main(G34HsCli {
+            frames,
+            warmup,
+            tier,
+            contract_path,
+            g10_dir,
+            gltf_path,
+            spv_primary_skin: spv_hzbskin_primary,
+            spv_hzb_shade,
+            spv_hzb_pack,
+            spv_hzb_reduce,
+            spv_hzb_test,
+            spv_skin,
+            spv_skin_mv,
+            spv_scene,
+            spv_resample,
+            spv_resolve,
+            spv_encode,
+            spv_slab,
+            spv_texture_probe,
+            evidence_path,
+            expect_digest,
+            hidden,
+            auto_move: auto_move
+                .unwrap_or_else(|| fail("--hzb on --skin 须随 --auto-move（特性闭集裁决先行面兜底）")),
+            slab_table: slab_table
+                .unwrap_or_else(|| fail("--hzb on --skin 须随 --slab-table（--full 闭集裁决先行面兜底）")),
+        });
+    }
+    // ── G34-2 HZB 早分支（--hzb on 单开闭集裁决 + 段体全量移交独立 include
+    //    区段;非 HZB 面零触碰——合并分支先裁,本分支 = --hzb on 单开面）──
+    if hzb_on {
         if !full {
             fail("--hzb on 须随 --full（HZB×纹理×slab×动态四特性同开字面,如实拒跑不冒充）");
         }
@@ -2849,6 +2897,14 @@ fn main() {
 // ---------------------------------------------------------------------------
 include!("g34_full_lane/g34_skin_section.rs");
 // ---------------------------------------------------------------------------
+// G37 W3 hzb_skin——HZB×蒙皮同车道合并面（g37.wave3.hzb_skin）——独立
+// include 区段：合并段全量收 g34_full_lane/g34_hzb_skin.rs（G34HS*/g34hs*
+// 前缀自持符号面;跨区段消费 = G34-2 HZB 骨架件〔G34HzbBits/g34_lane_descs_
+// hzb/分类器/probe 对拍〕+ G34-3 蒙皮件〔g34skin_assets/核验三面 helper〕
+// ——两区段本体 0-byte,主 bin 挂钩面 = 上方 --hzb on --skin 同开早分支 +
+// --spv-hzbskin-primary 旗标解析;G36 W4-W5 留窗兑现件）。
+include!("g34_full_lane/g34_hzb_skin.rs");
+
 // G34-2 HZB 接统一车道（g34.wave2.hzb）——独立 include 区段：HZB 段全量收
 // g34_full_lane/g34_2_hzb.rs（G34Hzb*/g34_hzb*/G34HZB_* 前缀自持符号面;与
 // G34-3 蒙皮同文件并行分区写零交叠——主 bin 挂钩面 = 上方 --hzb 旗标解析 +

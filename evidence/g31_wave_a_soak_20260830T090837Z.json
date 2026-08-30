@@ -1,0 +1,38 @@
+{
+ "schema": "rurix.g31.wave_a_soak_evidence.v1",
+ "gate": "g31.waveA.soak",
+ "generated_utc": "2026-08-30T09:08:37Z",
+ "binary": "target\\release\\g31_window_present.exe",
+ "thresholds": {
+  "min_frames": 10000,
+  "min_wall_s": 1800,
+  "rule": "frames_or_wall_first_reached"
+ },
+ "main_leg": {
+  "frames": 10000,
+  "warmup": 10,
+  "trajectory": "orbit",
+  "hidden": true,
+  "wall_s": 456.502,
+  "frames_presented": 10010,
+  "real_render_frame_ms": 10.299093,
+  "present_frame_ms": 1.402438,
+  "digest": "sha256:1a9afb9bfa245845520287e01155cc93c6e240aebbbc4697515a2ba1d39a659a",
+  "evidence_ok": true,
+  "validation_silent": true,
+  "leak_ledger_zero": true
+ },
+ "determinism_probe": {
+  "frames": 64,
+  "warmup": 4,
+  "runs": 2,
+  "digest_seq_bit_exact": true,
+  "first_drift_index": -1,
+  "last_digest": "sha256:832256b7f82e27370763dc7ac23b0bad94dae0e5bb54f451eedeb946124a6adf"
+ },
+ "verdict": "PASS",
+ "notes": [
+  "soak 主腿: frames=10000+warmup=10 wall=456.5s real_render=10.299093ms present=1.402438ms digest=sha256:1a9afb9bfa245845…",
+  "确定性抽查: 64 帧双跑 digest_seq 位级一致=True（末帧 sha256:832256b7f82e2737…）"
+ ]
+}

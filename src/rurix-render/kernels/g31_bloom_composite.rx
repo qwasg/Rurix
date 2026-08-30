@@ -1,0 +1,72 @@
+//@ spec: RXS-0369（显示链加性面；夜间巡航 D3 bloom 合成腿）
+// bloom 合成：全分辨率 HDR（TSR 输出）+ 半分辨率 bloom（双线性上采样）×
+// strength → 合成 HDR 输出（仍 scene-linear 曝光域，供 display_encode 消费）。
+//
+// 接线语义：bloom on 时本 kernel 输出缓冲替换 display_encode 的 in_color
+// （host 绑定面切换；bloom off = display_encode 直读 TSR 输出，本 kernel
+// 不跑，0-byte）。加性合成 = out = color + bloom·strength（HDR 域，tonemap
+// 前——post_chain 五级序 Exposure→Bloom→Tonemap 字面）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐像素独立顺序求值，禁 atomic；双线性 4 邻域只读；全 f32；固定输入双跑
+// 位级一致。
+//
+// ## 参数面（params: f32 SSBO；host 打包逐字同源；8 f32）
+//   [0]=out_w [1]=out_h（全分辨率）[2]=strength（bloom 加性强度）
+//   [3]=bloom_w [4]=bloom_h（半分辨率）[5..8]=reserved。
+//   in_color: 3 f32/px 全分辨率；in_bloom: 3 f32/px 半分辨率；
+//   out_color: 3 f32/px 全分辨率。
+#[numthreads(8, 8, 1)]
+kernel fn g31_bloom_composite(
+    t: ThreadCtx<2>,
+    in_color: View<global, f32>,
+    in_bloom: View<global, f32>,
+    params: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let out_w = params[0] as usize;
+    let out_h = params[1] as usize;
+    let strength = params[2];
+    let bw = params[3] as usize;
+    let bh = params[4] as usize;
+    if px < out_w && py < out_h {
+        // 双线性上采样 bloom（半分辨率网格对齐：全分辨率像素中心映到半分辨率
+        // (px+0.5)/2−0.5 连续坐标，clamp 边界）。
+        let fx = ((px as f32) + 0.5) * 0.5 - 0.5;
+        let fy = ((py as f32) + 0.5) * 0.5 - 0.5;
+        let x0 = fx.floor();
+        let y0 = fy.floor();
+        let tx = fx - x0;
+        let ty = fy - y0;
+        let mut bx0 = x0 as i32;
+        let mut by0 = y0 as i32;
+        if bx0 < 0 { bx0 = 0; }
+        if by0 < 0 { by0 = 0; }
+        if bx0 >= bw as i32 - 1 { bx0 = bw as i32 - 2; }
+        if by0 >= bh as i32 - 1 { by0 = bh as i32 - 2; }
+        if bx0 < 0 { bx0 = 0; }
+        if by0 < 0 { by0 = 0; }
+        let mut bx1 = bx0 + 1;
+        if bx1 >= bw as i32 { bx1 = bw as i32 - 1; }
+        let mut by1 = by0 + 1;
+        if by1 >= bh as i32 { by1 = bh as i32 - 1; }
+        let i00 = ((by0 as usize) * bw + (bx0 as usize)) * 3;
+        let i10 = ((by0 as usize) * bw + (bx1 as usize)) * 3;
+        let i01 = ((by1 as usize) * bw + (bx0 as usize)) * 3;
+        let i11 = ((by1 as usize) * bw + (bx1 as usize)) * 3;
+        let w00 = (1.0 - tx) * (1.0 - ty);
+        let w10 = tx * (1.0 - ty);
+        let w01 = (1.0 - tx) * ty;
+        let w11 = tx * ty;
+        let o = (py * out_w + px) * 3;
+        let mut c = 0usize;
+        while c < 3 {
+            let bl = in_bloom[i00 + c] * w00 + in_bloom[i10 + c] * w10
+                + in_bloom[i01 + c] * w01 + in_bloom[i11 + c] * w11;
+            out_color[o + c] = in_color[o + c] + bl * strength;
+            c = c + 1;
+        }
+    }
+}

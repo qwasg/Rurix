@@ -1,0 +1,75 @@
+{
+ "schema": "rurix.day0828.f_emissive.acceptance.v1",
+ "date": "2026-08-28",
+ "task": "画质战役 Phase F——灯具 emissive 贴图加性臂（--emissive-tex）：生产质量 kernel emission 从逐材质均值 Le 升级为逐像素 emissive 贴图采样（能量守恒标定），修复灯具整体全白（灯泡/罩内壁过曝保留、罩外壳显材质质感）",
+ "design": {
+  "bake": "PNG 侧车烘焙（仓内无 PNG 解码器）：4 张 2048² RGBA PNG → bake_emissive.py（PIL+numpy 确定性双跑同 sha）→ .rgba8bin（u32 LE [w,h,mips] 头 + 12 级 RGBA8 紧凑）——mip0 源字节零重采样,级 l+1 = sRGB→linear 域 2×2 box 平均（float64 运行链）→ linear→sRGB8 存储（BaseColor DDS mip 语义一致,kernel 采样后过 linlut）;manifest = 源/输出/mip0 三重 sha256 + mip0 逐通道线性均值",
+  "kernel": "g31_texture_nrm_gi.rx +triem 绑定（1 f32/tri emissive 槽号,签名第 14 路 linlut 之后）+ 输出合成 emission 换 em_* 选择值：slot ≥ 0 ⇒ heap 采样（同 texuv UV/同 lod 公式〔该槽自身 w_base〕/同双线性+linlut）× texmeta 该槽 mod 位 = em_scale（emissive 槽 mod 语义 = scale,与 albedo 槽 mod 两套语义互不相乘）;slot < 0 ⇒ mats[mb+3..6) 均值面逐字回退;branchless select（槽钳 0 保底读 + em_gate 选择,rurixc「if 包 while」缺陷绕行同律）;GI2 反弹点 emission 仍 mats 均值直读（如实登记非逐像素）",
+  "host": "g31_rgba8bin_read（头/pow2/完整链/逐级长度/零尾垃圾 fail-closed）+ g31_emissive_append（heap 头表 70×13=910 → 74×13=962 全重排布〔既有偏移 +52,texel 段 0-byte 平移〕+ 4 槽 cap-1024 起级尾接 + texmeta [0]/[2]/逐槽行同步 + slots/slots_rgba8 追加〔追加在 B4 探针之前 ⇒ 探针双臂自动覆盖 74 槽〕+ triem 侧表）;scale_c = 契约 le_linear_rgb_c / manifest mip0 线性均值_c（通道均值 ≤1e-6 ⇒ scale=0 且材质整体回退 + 登记——本场景零回退）;CLI --emissive-tex off|on（默认 off,须随 --textures on 且 --smooth-normals on）+ --emissive-dir（默认 artifacts/day_0828/f_emissive/baked,缺件 fail-closed）;descs = tex_nrm/tex_nrm_bloom 两形态 triem 尾挂（31/39）+ AE 三件顺延 +1（32..34/40..42）+ _EM 屏障计划;SPV 换载 em on → g31_texture_nrm_gi_em.spv（gi2 on/off 都用 em 工件,params[51] 门控在内）",
+  "spv_isolation": "字节隔离（C 相纪律,不试图 gate=0 恒等）：g31_texture_nrm_gi.spv（94124 B,sha256:fd22cb19c563efc7…,0-byte 不动）/ g31_texture_nrm_gi_gi2.spv（124744 B,sha256:75d08aec5ec89f0d…,0-byte 不动）/ 新工件 g31_texture_nrm_gi_em.spv（140540 B,sha256:bdd23a3a14e01cdd…,rurixc 内置 + PATH spirv-val 双过 rc=0）"
+ },
+ "bake_stats": [
+  {"material_index": 38, "material_name": "MASTER_Interior_01_Paris_Lantern", "linear_mean_rgb": [0.09250373992864466, 0.09254488353712752, 0.09250366850103448], "contract_le": [0.09250373992864466, 0.09254488353712752, 0.09250366850103448], "scale_rgb": [1.0, 1.0, 1.0], "tris": 6464},
+  {"material_index": 39, "material_name": "Paris_Ceiling_Lamp", "linear_mean_rgb": [0.022303046620219962, 0.022294407522146363, 0.022303050183191876], "contract_le": [0.022303046620219962, 0.022294407522146363, 0.022303050183191876], "scale_rgb": [1.0, 1.0, 1.0], "tris": 6768},
+  {"material_index": 40, "material_name": "Paris_CeilingFan", "linear_mean_rgb": [0.02230393520866327, 0.01585528684005825, 0.0066437204704917815], "contract_le": [0.02230393520866327, 0.01585528684005825, 0.0066437204704917815], "scale_rgb": [1.0, 1.0, 1.0], "tris": 9288},
+  {"material_index": 59, "material_name": "Paris_Wall_Light_Interior", "linear_mean_rgb": [0.22171508590621858, 0.221896437368776, 0.22171508590621858], "contract_le": [0.22171508590621858, 0.221896437368776, 0.22171508590621858], "scale_rgb": [1.0, 1.0, 1.0], "tris": 21504},
+  {"note": "契约 Le 与贴图 mip0 线性均值逐位相等（契约即由本贴图均值派生,emissiveFactor=[1,1,1]）⇒ scale ≡ 1.0 精确——能量守恒标定为精确恒等;fallback 零材质"}
+ ],
+ "heap_expansion": {
+  "slots": "70 → 74（emissive 槽 70..73）",
+  "header_entries": "910 → 962（74×13）",
+  "heap_bytes": "296,424,240 → 318,794,064（+22,369,824 B = 头表 +52 u32 + 4×1024² 11 级链;cap-1024 起级律同 DDS 槽）",
+  "triem": "1,046,609 tri × 4 B = 4,186,436 B（em_tris = 44,024——A1 侦察 emissive 三角计数精确吻合）"
+ },
+ "f4_verdicts": {
+  "1_build_spv_bake": {"pass": true, "detail": "双 bin release 绿（4 warning 皆前序既有）+ em SPV spirv-val rc=0 + 烘焙 manifest 在案（双跑 sha 恒等）"},
+  "2_zero_drift": {
+   "pass": true,
+   "window_alloff_8f": {"expect": "55e4a92d", "got": "55e4a92d…", "run": "ev/alloff_8f.json"},
+   "nine_explicit_emoff_32f": {"expect": "9e5f6300", "got": "9e5f6300…", "note": "em off 恒载冻结 gi2 字节（evidence spv_texture = *_gi2.spv 佐证）", "run": "ev/nine_explicit_emoff_32f.json"},
+   "bench_default_160f": {"expect": "c1d28ad7", "got": "c1d28ad7…", "run": "arms/bench_default"}
+  },
+  "3_em_arm_determinism": {
+   "pass": true,
+   "anchor": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "detail": "--quality full --emissive-tex on 32f ×2 双跑位级一致 + RURIX_VK_VALIDATION=1 全程静默（VUID=0）;B4 探针双臂扩 74 槽全绿（probe_count 5328,SSBO p100=0.0 位级,sampler ≤1 LSB——emissive 槽过同一硬门）"
+  },
+  "4_visual": {
+   "pass": true,
+   "evidence": "png/crop_ceiling_lamp.png（吊灯罩外壳显编织纹质感+金属吊杆+灯泡底盘仍亮白）/ crop_lantern.png + crop_lantern_2.png（灯笼玻璃罩保持发光,吊链/顶盖脱白显形）/ crop_fan.png（吊扇叶片全白→红木材质+金属立柱,灯球保持亮）/ off_96.png vs on_96.png 全帧 / on_4k.png + crop_4k_ceiling_lamp_native.png（4K 原生裁剪,uhd 契约 fd172120 过门）",
+   "wall_light_deviation": "mat 59 契约相机 0 顶点在框（lamp_screen_rois.json 投影在案）——视觉替补 = 探针双臂覆盖槽 73（SSBO 位级 + sampler ≤1LSB）+ heap 入位 + triem 21,504 tri 登记;Phase B curtainB1 同律如实登记"
+  },
+  "5_metrics": {
+   "pass": true,
+   "ceiling_lamp_shade": {"mean_off": 250.334, "mean_on": 222.382, "frac_lt250_on": 1.0, "criterion": "<250 离开饱和 ✓（罩区 = off 饱和血块 ∩ bbox 上 62% 行,f4_visual_metrics.json 定界在案）"},
+   "ceiling_lamp_bulb": {"mean_on": 253.455, "p99_on": 255.0, "criterion": "≥250 保持亮点 ✓"},
+   "full_frame_mean": {"off": 81.2421, "on": 81.1936, "abs_delta": 0.0485, "criterion": "AE 补偿全图 mean 稳定 ✓"},
+   "frame_ms": {"em_off_32f": 8.406, "em_on_32f": [8.157, 8.227], "em_off_96f": 7.843, "em_on_96f": 7.515, "verdict": "增量 ≈ 0（预期 ~0 达成;32f/96f 两口径均在跑间噪声内）"}
+  },
+  "6_evidence": {"pass": true, "detail": "F4_RUNS.json（8 步全 PASS）+ f4_visual_metrics.json + lamp_screen_rois.json + baked/manifest.json + ev/*.json（evidence 含 emissive 块:槽表/scale/manifest sha/triem 体量）"}
+ },
+ "f5_verdicts": {
+  "1_preset_merge": {"pass": true, "detail": "--quality full 展开 11→12 旗标（+--emissive-tex）;显式重叠 fail-closed 冒烟 PASS（--quality full --emissive-tex on 拒跑）;bench 预设不动（bench 无本臂,g14_3_pipeline_perf.rs 0-byte）"},
+  "2_rebuild_anchors": {
+   "pass": true,
+   "alloff": "55e4a92d ✓ / bench 默认 c1d28ad7 ✓（重建面复验）",
+   "full_new_anchor": "sha256:78113d56…（×2 双跑位级 + 显式十臂+env ambient 位级等价 ×1 = 预设等价证明;与 F4 em 臂锚跨二进制同值——旁证扰动非必然,纪律仍按二进制绑定锚执行）",
+   "old_anchor_retired": "九臂 full 锚 9e5f6300 作废（em 并入预设——语义变更,谱系登记 F5_ANCHOR.json + HANDOVER）"
+  },
+  "3_storm": {"pass": true, "detail": "--quality full --window-storm 3（dolly 30f）rc=0 + resize_eras=1 + VUID=0 + exit=frames_done;风暴后 full == 78113d56 复验 ✓（era 重建含 triem 变体描述组）"},
+  "4_soak": {"pass": true, "detail": "1800.5s ≥ 1800s / 9 迭代零失败 / win digest 恒值 78113d56（9/9）/ VUID 全程 0 / Stage A 探针 2 次全绿（c1d28ad7,it3/it6;it9 探针被时间预算裁,如实登记）——soak/soak_summary.json + soak_log.jsonl;观察项:it7 单迭代 374s（其余 ~130s,digest 稳定,判读为宿主瞬时负载非渲染面异常）"}
+ },
+ "files_changed": {
+  "src/rurix-render/kernels/g31_texture_nrm_gi.rx": "+94 行（头注 Phase F 段 + triem 签名 + emissive 采样块 + 输出合成 em_* 换用;686→780 行;仅编译到 *_em.spv,既有两工件 0-byte）",
+  "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "+419 行（g31_contract_emissive_list + g31_rgba8bin_read + G31EmissiveSlotRow/G31EmissiveAssets + g31_emissive_append;15919→16338 行〔vs e_final/*.e1 快照基线〕;全部 #[allow(dead_code)] 加性,bench 车道零消费）",
+  "src/rurix-render/src/bin/g31_window_present.rs": "+297 行（SPV 常量 + triem/AE 下标与屏障计划 ×6 + 两 descs 变体 triem 支路 + CLI 两旗标/校验/换载 + ③.6 装配接线 + AE _EM 匹配臂 + evidence emissive 块 + PASS 行 + --quality full 展开 +emissive-tex;9403→9700 行〔vs e1 快照基线〕）",
+  "artifacts/day_0828/f_emissive/**": "bake_emissive.py / baked/{4×.rgba8bin,manifest.json} / locate_lamps.py / f4_accept.py / f4_visual.py / f5_accept.py / f5_soak.py / 证据全集"
+ },
+ "known_limits": [
+  "GI2 反弹点 emission 仍 mats 均值直读（间接光低频近似;逐像素反弹采样留窗）",
+  "emissive 采样为无条件执行 + branchless select（非灯具像素亦付 4 fetch;帧时实测增量 ≈0,如实登记结构代价）",
+  "mat 59 壁灯契约相机不可见——视觉验收走探针替补（dolly 轨迹可见性未专项验证,留窗）",
+  "bench 车道无本臂（--textures 本身无 bench 面,Phase B 留窗同源)",
+  "g34_full_lane 编译红为 Phase B 既有 divergence（旧 heap 前形态 API 消费,HANDOVER 在案）——本相未触未修,g35_particle_lane 编译绿复核"
+ ]
+}

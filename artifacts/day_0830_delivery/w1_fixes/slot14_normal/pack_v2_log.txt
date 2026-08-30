@@ -1,0 +1,72 @@
+slot00 mat  7 TransparentGlass.DoubleSided                    1² mips= 1 dds= 1 synth=0
+slot01 mat 41 Paris_Table_03                               2048² mips=12 dds=12 synth=0
+slot02 mat 54 Plates_Ceramic                               2048² mips=12 dds=12 synth=0
+slot03 mat 22 Paris_BarStool                               2048² mips=12 dds=12 synth=0
+slot04 mat 47 Paris_LiquorBottle_02_Glass                     1² mips= 1 dds= 1 synth=0
+slot05 mat  9 Paris_LiquorBottle_01_Caps                   2048² mips=12 dds=12 synth=0
+slot06 mat 55 Paris_Radiator                               2048² mips=12 dds=12 synth=0
+slot07 mat  5 ToffeeJar_Label                              2048² mips=12 dds=12 synth=0
+slot08 mat 63 WickerBasket                                 2048² mips=12 dds=12 synth=0
+slot09 mat 42 Metal_Worn_01                                2048² mips=12 dds=12 synth=0
+slot10 mat  8 Paris_LiquorBottle_01_Glass_Wine                1² mips= 1 dds= 1 synth=0
+slot11 mat 15 Cutlery_chrome                               2048² mips=12 dds=12 synth=0
+slot12 mat 14 curtainB1                                    2048² mips=12 dds=12 synth=0
+slot13 mat 48 Paris_LiquorBottle_01_Glass                     1² mips= 1 dds= 1 synth=0
+WARN: slot14 mat12 Paris_Table_cloth_01 非法常值法线 rg=(53, 53) |x|+|y|=1.165354>1 → 全链替换平坦 (127, 127)（HANDOVER §H 修复律）
+slot14 mat 12 Paris_Table_cloth_01                         2048² mips=12 dds=12 synth=0
+slot15 mat  3 Paris_Coasters_01                            2048² mips=12 dds=12 synth=0
+slot16 mat 59 Paris_Wall_Light_Interior                    2048² mips=12 dds=12 synth=0
+slot17 mat 28 MASTER_Wood_Painted3                         2048² mips=12 dds=12 synth=0
+slot18 mat 25 MASTER_Interior_01_Wood                      2048² mips=12 dds=12 synth=0
+slot19 mat 49 Paris_LiquorBottle_03_Glass                     1² mips= 1 dds= 1 synth=0
+slot20 mat 58 ToffeeJar_Toffee                             2048² mips=12 dds=12 synth=0
+slot21 mat 10 Metal_Chrome1                                2048² mips=12 dds=12 synth=0
+slot22 mat 30 MASTER_Interior_01_Brushed_Metal             2048² mips=12 dds=12 synth=0
+slot23 mat 18 NapkinHolder_01                                 1² mips= 1 dds= 1 synth=0
+slot24 mat 13 curtainA                                     2048² mips=12 dds=12 synth=0
+slot25 mat 16 Cutlery_details                              2048² mips=12 dds=12 synth=0
+slot26 mat 23 Paris_Beertap                                2048² mips=12 dds=12 synth=0
+slot27 mat 40 Paris_CeilingFan                             2048² mips=12 dds=12 synth=0
+slot28 mat  4 ToffeeJar_Metal                              2048² mips=12 dds=12 synth=0
+slot29 mat 53 Plates_Details                               2048² mips=12 dds=12 synth=0
+slot30 mat  1 Paris_Cashregister_Buttons                   2048² mips=12 dds=12 synth=0
+slot31 mat  6 CookieJar_Cookies                            2048² mips=12 dds=12 synth=0
+slot32 mat 39 Paris_Ceiling_Lamp                           2048² mips=12 dds=12 synth=0
+slot33 mat 50 Paris_Painting_Metal                         2048² mips=12 dds=12 synth=0
+slot34 mat 38 MASTER_Interior_01_Paris_Lantern             2048² mips=12 dds=12 synth=0
+slot35 mat 65 MASTER_Bistro_Main_Door                      2048² mips=12 dds=12 synth=0
+slot36 mat 34 MASTER_Interior_01_Paris_Bartrim             2048² mips=12 dds=12 synth=0
+slot37 mat 45 Plants_Metal_Base_01                         2048² mips=12 dds=12 synth=0
+slot38 mat  0 Paris_Cashregister                           2048² mips=12 dds=12 synth=0
+slot39 mat 20 Trolley_Wheels                               2048² mips=12 dds=12 synth=0
+slot40 mat 35 MASTER_Interior_01_White_Plastic                1² mips= 1 dds= 1 synth=0
+slot41 mat 46 Plants_plants.DoubleSided                    2048² mips=12 dds=12 synth=0
+slot42 mat 61 Wall_Lamp                                    2048² mips=12 dds=12 synth=0
+slot43 mat 36 MASTER_Interior_01_Grid1                     2048² mips=12 dds=12 synth=0
+slot44 mat 11 Cloth                                        2048² mips=12 dds=12 synth=0
+slot45 mat 62 Metal_Bronze_01                              2048² mips=12 dds=12 synth=0
+slot46 mat 33 MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER 2048² mips=12 dds=12 synth=0
+slot47 mat 60 Paris_Wall_Bulb_Light                           1² mips= 1 dds= 1 synth=0
+slot48 mat 44 Plastic_02                                   2048² mips=12 dds=12 synth=0
+slot49 mat 27 MASTER_Interior_01_Plaster_Red               2048² mips=12 dds=12 synth=0
+slot50 mat 57 Plastic_01                                   2048² mips=12 dds=12 synth=0
+slot51 mat 26 MASTER_Interior_01_Wooden_stuco              2048² mips=12 dds=12 synth=0
+slot52 mat 19 Trolley_Plastic                              2048² mips=12 dds=12 synth=0
+slot53 mat 21 Trolley_Wood_Painted                         2048² mips=12 dds=12 synth=0
+slot54 mat 66 MASTER_Concrete_Yellow                       2048² mips=12 dds=12 synth=0
+slot55 mat 51 Paris_Paintings                              2048² mips=12 dds=12 synth=0
+slot56 mat 67 MASTER_Concrete_Grooved                      2048² mips=12 dds=12 synth=0
+slot57 mat 69 MASTER_Concrete1                             2048² mips=12 dds=12 synth=0
+slot58 mat 24 MASTER_Interior_01_Plaster                   2048² mips=12 dds=12 synth=0
+slot59 mat 68 MASTER_Concrete                              2048² mips=12 dds=12 synth=0
+slot60 mat 17 Paris_Doormat                                2048² mips=12 dds=12 synth=0
+slot61 mat  2 Paris_Cashregister_Glass                     2048² mips=12 dds=12 synth=0
+slot62 mat 32 MASTER_Interior_01_Frozen_Glass              2048² mips=12 dds=12 synth=0
+slot63 mat 29 MASTER_Interior_01_Grid                      2048² mips=12 dds=12 synth=0
+slot64 mat 43 Wood                                         2048² mips=12 dds=12 synth=0
+slot65 mat 31 MASTER_Interior_01_Plaster2                  2048² mips=12 dds=12 synth=0
+slot66 mat 52 Paris_Paintings_Glass                        2048² mips=12 dds=12 synth=0
+slot67 mat 64 MASTER_Glass_Exterior                        2048² mips=12 dds=12 synth=0
+slot68 mat 56 Rubber_Bar_Mat_01                            2048² mips=12 dds=12 synth=0
+slot69 mat 37 MASTER_Interior_01_Material                     1² mips= 1 dds= 1 synth=0
+packed=70 anomalies=0 → artifacts\day_0829_realism\a4_normalmap\baked_normals_bin_v2\manifest_bin.json

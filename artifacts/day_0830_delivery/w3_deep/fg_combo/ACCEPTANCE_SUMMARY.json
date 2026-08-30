@@ -1,0 +1,83 @@
+{
+  "schema": "rurix.g37w3.fg_combo_acceptance.v1",
+  "window": "G37 W3 fg×quality-full 组合验收(REPORT.md §2.3 口径不变量集)",
+  "arms": {
+    "alloff": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\alloff.json",
+    "full_a": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\full_a.json",
+    "full_b": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\full_b.json",
+    "combo_a": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_a.json",
+    "combo_b": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_b.json",
+    "combo_x3": "H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_x3.json"
+  },
+  "mutex_arms": [
+    "fg×hzb 维持",
+    "fg×slab 维持",
+    "fg×lut 维持",
+    "fg 无轨迹维持",
+    "fg×headless 维持",
+    "散臂微调拒跑(两点式闭集)"
+  ],
+  "g26_frozen_tol": 7.152557373046876e-07,
+  "verdict": "GREEN",
+  "failures": [],
+  "notes": [],
+  "commands": [
+    {
+      "arm": "alloff",
+      "exit_code": 0
+    },
+    {
+      "arm": "full_a",
+      "exit_code": 0
+    },
+    {
+      "arm": "full_b",
+      "exit_code": 0
+    },
+    {
+      "arm": "combo_a",
+      "exit_code": 0
+    },
+    {
+      "arm": "combo_b",
+      "exit_code": 0
+    },
+    {
+      "arm": "combo_x3",
+      "exit_code": 0
+    },
+    {
+      "mutex": "fg×hzb 维持",
+      "exit_code": 1
+    },
+    {
+      "mutex": "fg×slab 维持",
+      "exit_code": 1
+    },
+    {
+      "mutex": "fg×lut 维持",
+      "exit_code": 1
+    },
+    {
+      "mutex": "fg 无轨迹维持",
+      "exit_code": 1
+    },
+    {
+      "mutex": "fg×headless 维持",
+      "exit_code": 1
+    },
+    {
+      "mutex": "散臂微调拒跑(两点式闭集)",
+      "exit_code": 1
+    }
+  ],
+  "measured": {
+    "real_render_frame_ms": 15.871805,
+    "real_render_fps": 63.004808,
+    "presented_fps": 111.401587,
+    "fg_gpu_ms": 3.450864,
+    "render5_gpu_ms": 7.000784,
+    "wired_p100": 0.015350341796875
+  },
+  "discipline": "measured 如实登记不设通过线(G6 无硬门纪律);判读全部独立重算不信旗标;互斥面 exit=1 逐条核验零冒充;digest 门全部位级"
+}

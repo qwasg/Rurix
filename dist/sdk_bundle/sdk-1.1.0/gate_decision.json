@@ -1,0 +1,8 @@
+{
+  "allow_upload": true,
+  "sbom_present": true,
+  "redistribution_audit_pass": true,
+  "channel_manifest_ok": true,
+  "audit_violations": [],
+  "failed_gates": []
+}

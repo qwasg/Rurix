@@ -1,0 +1,38 @@
+{
+  "schema": "rurix.g31.svt_smoke.mutex_registered.v1",
+  "subject": "g31_svt",
+  "symbolic_gate_key": "g31.waveC.svt",
+  "wave": "G31.C",
+  "registered_wave": "G37.W6",
+  "state": "MUTEX_REGISTERED",
+  "mutex_literal": "[g14_3_pipeline_perf]: FAIL --svt on 与 day_0828 Phase B texel heap 纹理形态互斥（SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed 登记,SVT 深修归后续波）",
+  "mutex_probe": {
+    "argv_shape": "g31_window_present --frames 2 --warmup 1 --hidden --quality off --auto-move orbit --textures on --svt on --svt-pool-tiles 0（极小参数短跑;互斥 fail-closed 在 CLI 校验期必现,零 GPU 消耗）",
+    "returncode": 1,
+    "frames": 2,
+    "warmup": 1
+  },
+  "host_golden_legs": {
+    "svt_host_tests_green": true,
+    "terrain_defer_face_ok": true,
+    "assert_zero_svt_dependency_present": true,
+    "svt_dependency_detected_present": true,
+    "identity_page_table_digest": "sha256:b33e3c3f62f5b1880588ec0b6425f43a65e4ae5a70abe018025717d097843993",
+    "identity_digest_deterministic": true
+  },
+  "skipped_device_legs": [
+    "b4anchor",
+    "full",
+    "small_a",
+    "small_b"
+  ],
+  "deep_fix_anchor": "G31_PLUS_COMMERCIAL_RENDERER_TODO #33-#36 SVT 四行（open,SVT 立项窗） + artifacts/day_0828/e_final/HANDOVER.md §12（--svt × texel heap fail-closed 互斥：SVT 页表假设 2048 固定网格与 heap 寻址不同构,深修留窗;现为显式拒跑） + artifacts/day_0830_delivery/w6_final/W6_GATES.json svt 行（W6 首跑实证 rc=1,full/small_a/small_b 三腿同字面必现）",
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81"
+  },
+  "timestamp": "20260830T094427Z",
+  "notes": "G37 W6 svt mutex_registered：day_0828 Phase B texel heap 化起 svt 生产臂结构性不可跑（harness 对 --svt on 无条件 fail-closed,CLI 校验期即拒）——前役门与形态演进不同步的遗留,非本役引入（W6 首跑实证在 deep_fix_anchor）。处置 = 互斥登记态：不冒充 PASS,非 FAIL,三态之外的登记态（先例 = encode parity 门 DEV_ENV_DEGRADE skip doc / blocked_probes maintain 登记面）。host 金标准腿照跑照判全绿在案（红则门 FAIL 不产本件）;device 四腿如实登记跳过。深修（SVT 页表/瓦片集/探针假设适配 heap 形态）归后续波,互斥解除后本门自动回落既有全量判读（0 改动）。"
+}

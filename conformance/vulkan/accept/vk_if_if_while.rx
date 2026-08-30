@@ -1,0 +1,17 @@
+//@ spec: RXS-0203
+// G37 W1 回归语料(day_0828 A1「if 包 while」codegen 缺陷面):嵌套两层 if 包 while。
+// 内外两层 selection merge 与循环 merge 三者不得复用/交错;spirv-val 接受。
+kernel fn if_if_while(out: ViewMut<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut acc = 0.0;
+    if i < n {
+        if i < 128usize {
+            let mut j = 0usize;
+            while j < 4usize {
+                acc = acc + 1.0;
+                j = j + 1;
+            }
+        }
+    }
+    out[i] = acc;
+}

@@ -1,0 +1,55 @@
+{
+ "schema": "rurix.day0828.recon.bluefan_rootcause.v1",
+ "date": "2026-08-28",
+ "symptom": "bistro 契约相机窗口车道 presented 输出中吊扇(material 40 Paris_CeilingFan, 契约暖橙 Le)呈饱和蓝 (R0,G62,B170)；bench/render 车道 EXR 同像素暖橙正确",
+ "verdict": {
+  "root_cause_layer": "g31_display_encode（窗口车道第五 pass device 显示编码 kernel）——scene/mats/TSR 全部无辜",
+  "root_cause": "kernels/g31_display_encode.rx 分段样条(c5 RRT + c9 ODT)基函数手工展开转置错误：写成列向量形 M·cf（b1=−cf0+cf1+0.5·cf2, b2=0.5·cf0），单源 host 参考 aces13.rs 为 CTL 行向量形 cf·M = vmul(cf, SPLINE_M)（b1=cf1−cf0, b2=0.5·(cf0+cf1)）。b0 两种约定恰好同值故难察觉。全 12 处样条块（c5/c9 × R/G/B × low/high 段）同错",
+  "bug_lines": "src/rurix-render/kernels/g31_display_encode.rx L213-214, L224-225, L244-245, L255-256, L275-276, L286-287, L321-322, L332-333, L352-353, L363-364, L383-384, L394-395（12× b1 + 12× b2）",
+  "single_source_ref": "src/rurix-render/src/display/aces13.rs L102 SPLINE_M + L154/L161/L237/L244 vmul(cf,&SPLINE_M)；src/rurix-render/src/display/color.rs L62-68 vmul(v,m)[i]=Σ_j v[j]·m[j][i]（CTL mult_f3_f33 行向量约定）",
+  "mechanism": "错基使每段抛物线错误且节点处 C0 连续性破坏 ⇒ 逐通道色调曲线非单调+段间跳变。中亮饱和色三通道落不同段 ⇒ 色相反转（扇叶 Le×2⁴: AP1 R≈0.31 被压到显示 0、B≈0.11 被抬到 0.38 ⇒ 暖橙→饱和蓝）；深暗部（墙）各通道同段 ⇒ 色相保持但系统性提亮（实测 25 vs 修正后 0）；高亮（灯 ≥ maxPoint）走线性延伸支 ⇒ 正常白 clip。故全画面只有吊扇『看起来』异常。bug 臂灯罩渐变呈同心环带（fan_bug_vs_fixed.png 左半）为非单调曲线的另一直接可见证据"
+ },
+ "artifact_color_table": {
+  "probe": "fan(1500,12)；契约相机静态",
+  "rows": [
+   {"artifact": "arms/quality_base converged.exr (bench TSR-out, g18 kernel)", "fan": "(0.3569,0.2537,0.1063) 线性 = Le×2⁴ 暖橙", "verdict": "正确"},
+   {"artifact": "exr_view 产 baseline_aces/gi_aces/snrm_on_aces/ambient_on_aces.png (Narkowicz fit)", "fan": "(188,166,104) 米黄", "verdict": "正确"},
+   {"artifact": "d3_bloom/bloom_off.raw + bloom_on.raw (窗口 presented BGRA8; receipt channel_order=bgra8_unorm)", "fan": "(0,62,170) 饱和蓝", "verdict": "真异常（非工具误读）"},
+   {"artifact": "d3_bloom/bloom_off.png/bloom_on.png、d2_window/off_ref.png (raw→PNG 转换)", "fan": "(0,62,170)", "verdict": "转换忠实（PIL BGRA 模式正确），蓝来自源"},
+   {"artifact": "hero/hero_base.raw/.png (同窗口车道, dolly 移动相机)", "fan": "契约坐标处黑（相机已移动,不可比）", "verdict": "不可判但同 encode SPV ⇒ 同缺陷"},
+   {"artifact": "hero_full/hero_ultimate (g18_smooth_nrm 臂, dolly)", "fan": "契约坐标灰（相机已移动）", "verdict": "不可判"},
+   {"artifact": "arms/quality_base presentation_night.png (16-bit)", "fan": "zlib 流损坏无法解码（PIL 与手工解码均失败）", "verdict": "旁支缺陷另行登记"},
+   {"artifact": "本日 bluefan_a 复跑 a_default.raw (presented digest==锚 5596a730)", "fan": "(0,62,170)", "verdict": "位级复现夜巡基线"},
+   {"artifact": "本日 bluefan_a RURIX_G31_DUMP_F32 TSR 输出 f32 (encode 唯一输入)", "fan": "(0.35686296,0.25368458,0.10629952) 暖橙 == bench EXR", "verdict": "encode 上游全对 ⇒ 翻转层位=encode"}
+  ]
+ },
+ "evidence_chain": [
+  "① 通道序排除：夜巡全部窗口 receipt channel_order=bgra8_unorm（本日复跑同）；encode kernel L469-475 按 params[2] 打包 BGRA；raw→PNG 脚本 (d2w_png.py) PIL 'BGRA' 模式正确交换 ⇒ 蓝为真 presented 字节，dump/PNG 工具链无罪",
+  "② scene kernel 排除：git diff g18_light_transport_depth.rx vs g14_3_direct_gi.rx 仅 miss 天光项差异（契约 sky=0 ⇒ 数值恒等）；emission 读序两者同 mats[mb+3..5]；rurixc 现编两 kernel sha256 == 盘上 SPV == 双车道 receipt（970e13b9/ddb8bce7）⇒ 无过期/错编 SPV",
+  "③ 场景数据排除：mats 装配为共享代码 g14_3_lane_body.rs（契约 emissive_map L1709-1720 → 逐三角 emission L1822），两 binary 同源；TSR resample/resolve SPV sha256 双车道 receipt 相同",
+  "④ GPU 切层（1 次 8 帧短跑,锁内）：TSR 输出 f32 @fan = (0.35686296,0.25368458,0.10629952) 暖橙（与 bench EXR 一致）而同帧 presented = (0,62,170) 蓝 ⇒ 翻转唯一发生在 g31_display_encode",
+  "⑤ 逐字仿真钉死：kernel-as-written f32 仿真（转置基）fan→(0,62,170) 与实测逐字节相等；wall→(25,13,16) 亦逐字节相等；全帧 2073600 px 99.9918% 位级相等（残差 169 px 集中样条段界,断裂点 ULP 放大所致）",
+  "⑥ 修复验证（仿真）：改正基（cf·M）后 fan→(144,122,77) 暖米黄 == host aces13 f64 金标准 (144,122,77)；0.18 灰→99/255（= ACES 0.104 显示线性设计点,与 aces13.rs 在库测试锚一致）；对照图 fan_bug_vs_fixed.png（左 bug/右 fixed）扇叶蓝→暖、灯罩同心环带消失"
+ ],
+ "fix_recommendation": {
+  "minimal_change": "kernels/g31_display_encode.rx 全 12 处样条块两行改写：`let b1 = 0.0 - cf0 + cf1 + 0.5 * cf2;` → `let b1 = 0.0 - cf0 + cf1;`；`let b2 = 0.5 * cf0;` → `let b2 = 0.5 * cf0 + 0.5 * cf1;`（b0 行不动）",
+  "not_applied_reason": "本侦察红线 src/** 只读；且该 kernel 为收口冻结面——修复=改默认显示路径,须走破锚治理程序",
+  "post_fix_procedure": "rurixc 重编 g31_display_encode.spv → 窗口车道全部 presented digest 锚重定基（5596a730/b02b08b57/12d5dc91/48353e86/2b6efac6 及 soak/Stage A 窗口格锚全部作废）；render_digest 面（f39e9808/cde1b255/c1d28ad7 等 TSR 输出锚）在 encode 上游不受影响",
+  "regression_guard": "建议补 device-vs-host encode 逐像素 parity 门（对拍 display::aces13 host 参考 ±1 LSB,或至少 0.18 灰→99±1 显示地标探针）——A3 收口仅验确定性 digest 未验 host parity,此为漏网通道",
+  "related_note": "bug 臂色调曲线段间跳变会自制渐变带（bug 臂灯罩同心环带可见）——夜巡 P3 色带议题的窗口车道观测中可能混入本缺陷贡献,D1 抖动结论（相对改善）不受影响,修复后建议复测 unique_levels 基线"
+ },
+ "residual_uncertainty": [
+  "全帧仿真残差 169/2073600 px（≤26 LSB,段界处）——numpy f32 与 GPU FMA 运算序 ULP 差经断裂曲线放大,不影响结论；fixed 基下曲线连续该敏感性消失",
+  "presentation_night.png zlib 'incorrect data check' 流损坏——--export-png 写出面独立缺陷,未阻断本案（fan 色由 exr_view 系 PNG 与 EXR 数值双源确认）,建议另立修复",
+  "hero 系列 dolly 相机无法逐像素对拍 fan——同 encode SPV 推定同缺陷,未单独验证",
+  "未跑 --spv-scene g18 窗口 A/B（原计划臂）——④⑤ 已闭环故省去,GPU 预算仅耗 1 次 8 帧短跑"
+ ],
+ "artifacts_produced": [
+  "artifacts/day_0828/recon/bluefan_probe.py + bluefan_probe_report.json（产物×颜色普查）",
+  "artifacts/day_0828/recon/bluefan_encode_sim.py + bluefan_sim_report.json（三臂逐字仿真）",
+  "artifacts/day_0828/recon/bluefan_fullframe_verify.py（全帧对拍 99.9918% 位级）",
+  "artifacts/day_0828/recon/bluefan/a_default.raw + a_default_ev.json + a_default_tsr_f32.bin（GPU 切层证物,presented digest==锚）",
+  "artifacts/day_0828/recon/bluefan/fixed_encode_full.png + fan_bug_vs_fixed.png（修复对照图）",
+  "artifacts/day_0828/recon/spv_check/（rurixc 现编 SPV 新鲜度证物）"
+ ]
+}

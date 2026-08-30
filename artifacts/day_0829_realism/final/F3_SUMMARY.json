@@ -1,0 +1,29 @@
+{
+ "schema": "rurix.day0829.realism.f3_storm_soak.v1",
+ "storm": {
+  "arm": "--quality full(16臂) --window-storm 3（dolly 30f）",
+  "rc": 0,
+  "wall_s": 204.0,
+  "resize_eras": 1,
+  "exit_reason": "frames_done",
+  "vuid_hits": 0,
+  "pass": true,
+  "stderr_tail": [
+   "[g31_window_present]: 帧 34/34 render=4.620ms(gpu_encode=0.033ms) present=0.456ms digest=28.703ms",
+   "[g31_window_present]: storm resize_ops=3 min_cycles=0 min_skips=0 resize_eras=1 window_storm=3 storm_soak=0",
+   "[g31_window_present]: evidence → H:/rurix/artifacts/day_0829_realism/final/ev/f3_storm.json"
+  ]
+ },
+ "soak": {
+  "budget_s": 1800.0,
+  "elapsed_s": 1955.4,
+  "iterations": 9,
+  "anchor32_full16": "sha256:7eb71e54fb204766fe768b9152e3847e9e992ed66092cf3f27e3e074575f2b35",
+  "stagea_probes": 2,
+  "frame_ms_max": 10.703,
+  "fps_budget_ms": 11.11,
+  "fails": 0,
+  "fail_reason": null,
+  "pass": true
+ }
+}

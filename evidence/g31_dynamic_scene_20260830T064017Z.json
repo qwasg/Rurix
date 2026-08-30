@@ -1,0 +1,100 @@
+{
+  "schema": "rurix.g31.dynamic_scene_evidence.v1",
+  "subject": "g31_dynamic_scene",
+  "symbolic_gate_key": "g31.waveA.dynscene",
+  "wave": "G31.A",
+  "scene_id": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "seed": 7312026601,
+  "frames_measured": 100,
+  "warmup": 10,
+  "runs_per_arm": 3,
+  "trajectory": {
+    "amp": [
+      0.35,
+      0.18,
+      0.25
+    ],
+    "freq": [
+      0.021,
+      0.013,
+      0.017
+    ],
+    "yaw_rate": 0.011,
+    "origin": [
+      2.236061,
+      1.4122407,
+      -1.6825298
+    ],
+    "cube_half": 0.06,
+    "emission": [
+      0.0,
+      500.0,
+      0.0
+    ],
+    "instance_write_bytes_per_frame": 64
+  },
+  "arms": [
+    {
+      "tlas_action": "refit",
+      "frame_ms_mean": 4.006133,
+      "frame_ms_p50": 1.90045,
+      "frame_ms_p99": 19.6165,
+      "frame_ms_min": 1.6685,
+      "frame_ms_max": 82.7889,
+      "frame_ms_production_mean": 2.6338209999999997,
+      "last_frame_digest": "sha256:652f7084c84a92583478fb1bd5fd43d13a4a8c7d996020fee40db26a7553000f",
+      "verify_frames_pass": 30,
+      "verify_frames_total": 30,
+      "verify_centroid_max_px": 1.214536,
+      "verify_aabb_max_px": 0.955472,
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_refit_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_refit_rep2.json",
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_refit_rep3.json"
+      ]
+    },
+    {
+      "tlas_action": "rebuild",
+      "frame_ms_mean": 3.787742,
+      "frame_ms_p50": 1.83255,
+      "frame_ms_p99": 15.6212,
+      "frame_ms_min": 1.6949,
+      "frame_ms_max": 84.8289,
+      "frame_ms_production_mean": 2.5200519999999993,
+      "last_frame_digest": "sha256:652f7084c84a92583478fb1bd5fd43d13a4a8c7d996020fee40db26a7553000f",
+      "verify_frames_pass": 30,
+      "verify_frames_total": 30,
+      "verify_centroid_max_px": 1.214536,
+      "verify_aabb_max_px": 0.955472,
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_rebuild_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_rebuild_rep2.json",
+        "H:\\rurix\\.tmp\\g31_gates\\dynscene\\receipts\\bench_dyn_rebuild_rep3.json"
+      ]
+    }
+  ],
+  "digest_bitexact_across_actions": true,
+  "digest_bitexact_double_run": true,
+  "dyn_neq_static_digest": true,
+  "static_anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+  "static_anchor_match": true,
+  "position_verify": {
+    "frames_total": 60,
+    "frames_pass": 60,
+    "centroid_max_px": 1.214536,
+    "aabb_max_px": 0.955472,
+    "tolerance_centroid_px": 2.5,
+    "tolerance_aabb_px": 4.0
+  },
+  "clean_shutdown": true,
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81"
+  },
+  "timestamp": "20260830T064017Z",
+  "notes": "refit vs rebuild measured（同轨迹同帧数 100+10wu ×3 轮，跨轮中位数）：refit mean=4.0061ms p50=1.9004ms p99=19.6165ms prod=2.6338ms；rebuild mean=3.7877ms p50=1.8325ms p99=15.6212ms prod=2.5201ms；p50 差 -3.57%（TLAS 2 实例级——build/refit 均微秒级，差在噪声带内如实登记）；frame_ms 含逐帧 TLAS 更新 + 核验帧 scene color 回读税（tail 如实计量，两臂同形同价）；A2 流水面兼容取舍：动态面走顺序入口（inflight=1）——FIF 流水公共入口 fail-closed 拒 tlas_update（共享 instance buffer host 写面在飞帧不可改写）；未选 per-slot 实例缓冲方案，依据 = ①本波单动态实例 64B/帧写面，顺序入口 TLAS 更新 GPU 段实测微秒级，流水化收益不抵 AS manager 多缓冲改造风险（单所有者纪律面）；②A2 流水红利已由静态面独立兑现；③per-slot 实例缓冲 + 流水合流归后续波（设计面已在 render_exec 登记）。位置核验 60/60 帧（质心 ≤2.5px AABB ≤4.0px；obs 真动判据 ≥3.0px）"
+}

@@ -1,0 +1,20 @@
+[
+ {
+  "step": "d_full16",
+  "rc": 0,
+  "vuid": 0,
+  "wall_s": 204.6
+ },
+ {
+  "step": "d_no_refl",
+  "rc": 0,
+  "vuid": 0,
+  "wall_s": 204.3
+ },
+ {
+  "step": "d_no_nrm",
+  "rc": 0,
+  "vuid": 0,
+  "wall_s": 191.1
+ }
+]

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G37 W6 SVT 门互斥登记态 evidence（g31.waveC.svt mutex_registered）",
+  "description": "evidence/g31_svt_mutex_registered_<utc>.json。ci/g31_svt_smoke.py --gate g31.waveC.svt 真跑四腿前以 probe 短跑（--svt on 极小参数 frames=2/warmup=1）探测到 g31_window_present 无条件 fail-closed 互斥字面（day_0828 Phase B texel heap 纹理形态演进——SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配;g31_window_present.rs CLI 校验期即拒,W6 首跑实证 artifacts/day_0830_delivery/w6_final/W6_GATES.json svt 行）时产。三态（PASS/FAIL/DEV_ENV_DEGRADE）之外的登记态：不冒充 PASS——host 金标准腿（cargo test streaming::svt〔SVT-1/2/3 页表/反馈闭环/border host 金标准〕+ SVT-4 维持 defer 面〔terrain 零 SVT 断言字面 + cargo test world::terrain〕）照跑照判全绿为产件前置,任一红 ⇒ 门整体 FAIL 不产本件（host 面坏了不能靠登记态掩盖）;device 四腿（b4anchor/full/small_a/small_b）结构性不可跑如实登记跳过。深修锚 = G31_PLUS_COMMERCIAL_RENDERER_TODO #33-#36 SVT 四行（open,SVT 立项窗）+ artifacts/day_0828/e_final/HANDOVER.md §12。先例 = encode parity 门 DEV_ENV_DEGRADE skip doc / blocked_probes maintain 登记面。既有 v1 gate/harness schema 0-byte（登记态走本独立新 schema 新路径;互斥未命中时门回落既有全量判读 0 改动）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "registered_wave",
+    "state",
+    "mutex_literal",
+    "mutex_probe",
+    "host_golden_legs",
+    "skipped_device_legs",
+    "deep_fix_anchor",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.svt_smoke.mutex_registered.v1" },
+    "subject": { "type": "string", "const": "g31_svt" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.waveC.svt" },
+    "wave": { "type": "string", "const": "G31.C" },
+    "registered_wave": { "type": "string", "const": "G37.W6" },
+    "state": { "type": "string", "const": "MUTEX_REGISTERED", "description": "三态之外的登记态字面（非 PASS 非 FAIL 非 DEV_ENV_DEGRADE）" },
+    "mutex_literal": { "type": "string", "pattern": "texel heap 纹理形态互斥", "description": "捕获的 harness fail-closed 完整字面行（g31_window_present.rs CLI 校验期 eprintln,W6_GATES.json svt 行同字面;字面不符不入登记态）" },
+    "mutex_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv_shape", "returncode", "frames", "warmup"],
+      "properties": {
+        "argv_shape": { "type": "string", "description": "探测短跑参数形状（极小参数登记面）" },
+        "returncode": { "type": "integer", "minimum": 1, "description": "fail-closed 必非 0（rc=0 不入登记态,detect_svt_mutex 双条件）" },
+        "frames": { "type": "integer", "const": 2 },
+        "warmup": { "type": "integer", "const": 1 }
+      }
+    },
+    "host_golden_legs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "svt_host_tests_green",
+        "terrain_defer_face_ok",
+        "assert_zero_svt_dependency_present",
+        "svt_dependency_detected_present",
+        "identity_page_table_digest",
+        "identity_digest_deterministic"
+      ],
+      "properties": {
+        "svt_host_tests_green": { "type": "boolean", "const": true, "description": "cargo test streaming::svt（SVT-1/2/3 页表/反馈闭环/border 的纯 host 金标准腿）——红则门 FAIL 不产本件" },
+        "terrain_defer_face_ok": { "type": "boolean", "const": true, "description": "SVT-4 维持 defer 面：terrain.rs 零 SVT 断言字面在树 + cargo test world::terrain 绿（含 zero_svt_dependency_red 臂）" },
+        "assert_zero_svt_dependency_present": { "type": "boolean", "const": true },
+        "svt_dependency_detected_present": { "type": "boolean", "const": true },
+        "identity_page_table_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "恒等页表律法 CI 独立重算 digest（纯 python host 面,与 streaming/svt.rs new_full/table_index 同律）" },
+        "identity_digest_deterministic": { "type": "boolean", "const": true, "description": "恒等页表 digest 确定性双算一致" }
+      }
+    },
+    "skipped_device_legs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["b4anchor", "full", "small_a", "small_b"] },
+      "description": "结构性不可跑的 device 四腿（如实登记跳过,不冒充跑过——full/small_a/small_b 直接命中互斥,b4anchor 单腿无 SVT 面判读无消费点归 B4 纹理门辖）"
+    },
+    "deep_fix_anchor": { "type": "string", "pattern": "#33", "description": "深修锚字面：TODO #33-#36 SVT 四行 + day_0828 HANDOVER §12 + W6 首跑实证" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "os", "rustc", "base_commit"],
+      "properties": {
+        "gpu": { "type": "string" },
+        "os": { "type": "string" },
+        "rustc": { "type": "string" },
+        "base_commit": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z$" },
+    "notes": { "type": "string" }
+  }
+}

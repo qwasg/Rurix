@@ -455,6 +455,9 @@ def run_harness(exe: Path, trajectory: str, frames: int, warmup: int, ev_path: P
         "--frames", str(frames),
         "--warmup", str(warmup),
         "--hidden",
+        # G37 W6:A 类化补显式 off(门语义 = 波 A 游戏循环判据,evidence schema
+        # 闭集钉死 off 形态;默认翻转后 full 走 texture 分支 schema 必红)。
+        "--quality", "off",
         "--auto-move", trajectory,
         "--evidence", str(ev_path),
     ]

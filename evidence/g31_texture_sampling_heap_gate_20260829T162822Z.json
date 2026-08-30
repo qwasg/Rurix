@@ -1,0 +1,133 @@
+{
+  "schema": "rurix.g31.texture_sampling_heap_gate_evidence.v1",
+  "subject": "g31_texture_sampling",
+  "symbolic_gate_key": "g31.waveB.texture",
+  "wave": "G37.W1",
+  "facts": [
+    {
+      "id": "asset_inventory_and_mapping_valid",
+      "status": "PASS",
+      "detail": "harness 面:census == CI 独立重算互核 + top-70 全覆盖律法逐行互核 + 70/70 manifest digest 互核+ texel heap 律法（header=910==slots×13/heap_bytes==texels×4/cap-1024 逐槽）+ 探针计数律法 5040==5040（步幅 4:Σ槽 24×抽样级）+ mapped=70 tex_tris=1046609"
+    },
+    {
+      "id": "ssbo_probe_parity_bitexact",
+      "status": "PASS",
+      "detail": "SSBO 腿 p100=0.0（位级硬门 0.0）bitexact=True 双跑=True device==host digest=True；跨腿 digest 稳定=True；探针步幅 4（lod 显式注入,heap 逐级寻址）"
+    },
+    {
+      "id": "sampler_leg_parity_bound",
+      "status": "PASS",
+      "detail": "sampler 腿 max_lsb=1 ≤ 1（结构容差:硬件过滤权重量化 ≤2^-8 ⇒ 8-bit 翻转 ≤1 LSB;heap 档采样源 = 存储基级）bitexact=False；nonconstant_slots ≥ 1 由 harness fail-closed 承载（空接线冒充即拒跑）"
+    },
+    {
+      "id": "g11_3_anchor_rerun_green",
+      "status": "FAIL",
+      "detail": "g11_3_dds_dump 复解码 70/70 互核；链 0-byte（src/rurix-asset + manifest）=False"
+    },
+    {
+      "id": "texture_kernels_spv_valid",
+      "status": "FAIL",
+      "detail": "rurixc 现编 g31_texture_{gi,probe}.rx + spirv-val=绿;v2 隔离件（harness 消费件）在位 + spirv-val=绿;git diff --quiet HEAD -- spec/ rurix-asset/ 母版 kernel material/ graph/types.rs G11.3 manifest 0-byte=False;工作树干净=False"
+    },
+    {
+      "id": "bistro_texture_demo",
+      "status": "PASS",
+      "detail": "bistro 全 70 材质 heap 贴图采样真跑:off 双跑位级=True on 双跑位级=True on≠off=True；tex_tris=1046609 mapped=70 census 跨端互核=True；presented 锚不消费（PENDING_W4_REHARVEST）"
+    },
+    {
+      "id": "textures_off_regression_anchor",
+      "status": "PASS",
+      "detail": "Stage A 锚格 bistro-interior_t100_tsr_device:fresh sha256:c1d28ad73783cc3c… vs 在案 sha256:c1d28ad73783cc3c… 位级 MATCH（共享体 0-byte 机器证明）"
+    },
+    {
+      "id": "textures_on_off_frame_ms_measured",
+      "status": "PASS",
+      "detail": "同机同窗 measured:off=7.9617ms on=6.5999ms（Δ=-17.10%）；纹理装配/探针 eval_ms=13813.505（单列不混帧口径）"
+    }
+  ],
+  "verdict": "FAIL",
+  "probe_parity": {
+    "ssbo_p100": 0.0,
+    "ssbo_bitexact": true,
+    "ssbo_double_run_bitexact": true,
+    "device_digest": "sha256:a6ac7169d9b8c77597e75a356986ed32084529377214081dc639d6179913b4e3",
+    "host_digest": "sha256:a6ac7169d9b8c77597e75a356986ed32084529377214081dc639d6179913b4e3",
+    "sampler_max_lsb": 1,
+    "sampler_bound_lsb": 1,
+    "sampler_bitexact": false,
+    "sampler_digest": "sha256:9f5c0925eb083ab2aa5271951a74b05f9d81091f0ed7d0c662d83070447caf86",
+    "nonconstant_slots": 1,
+    "probe_count": 5040,
+    "probe_count_law_ok": true
+  },
+  "heap": {
+    "form": "texel_heap",
+    "cap": 1024,
+    "mip_slots": 13,
+    "header_entries": 910,
+    "heap_texels": 74106060,
+    "heap_bytes": 296424240,
+    "law_ok": true
+  },
+  "g11_3_rerun": {
+    "entries_reproduced": 70,
+    "entries_total": 70,
+    "decoder": "target/release/g11_3_dds_dump.exe",
+    "manifest_path": "milestones/g11/g11_3_dds_transcode_manifest.json",
+    "chain_0byte_clean": false
+  },
+  "frozen_0byte": {
+    "paths": [
+      "spec",
+      "src/rurix-asset",
+      "src/rurix-render/kernels/g14_3_direct_gi.rx",
+      "src/rurix-render/src/material",
+      "src/rurix-render/src/graph/types.rs",
+      "milestones/g11/g11_3_dds_transcode_manifest.json"
+    ],
+    "vs_head_0byte": false,
+    "worktree_clean": false
+  },
+  "demo": {
+    "scene_id": "bistro-interior",
+    "trajectory": "orbit",
+    "mapped_materials": 70,
+    "tex_tris": 1046609,
+    "off_double_run_bitexact": true,
+    "on_double_run_bitexact": true,
+    "on_ne_off": true,
+    "census_crosscheck": true,
+    "presented_anchor": "PENDING_W4_REHARVEST"
+  },
+  "regression_anchor": {
+    "cell": "bistro-interior_t100_tsr_device",
+    "fresh_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "anchor_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "match": true,
+    "frames": 160,
+    "warmup": 10
+  },
+  "frame_ms": {
+    "off_mean": 7.961667,
+    "on_mean": 6.599916,
+    "delta_pct_on_vs_off": -17.103842700278726,
+    "probe_eval_ms": 13813.5052,
+    "measured": "measured_local",
+    "frames_per_run": 64,
+    "runs": 2
+  },
+  "harness_evidence": [
+    "evidence\\g31_game_loop_tex_off_a_20260829T162822Z.json",
+    "evidence\\g31_game_loop_tex_off_b_20260829T162822Z.json",
+    "evidence\\g31_texture_sampling_heap_on_a_20260829T162822Z.json",
+    "evidence\\g31_texture_sampling_heap_on_b_20260829T162822Z.json"
+  ],
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81"
+  },
+  "timestamp": "20260829T162822Z",
+  "notes": "G37 W1 判读器 heap 形态同步（day_0828 HANDOVER §B.4 交接项兑现）：内容模型 = texel heap 单 SSBO 全 70 材质 100% 三角覆盖（u32 偏移头表 910 项进 buffer 头部,零新增绑定;DDS 源 mip 直搬 cap-1024 档零重采样,~283 MiB）。探针步幅 3→4（[slot,u,v,lod],每槽 24 UV × 抽样级 {0,mips/2,mips−1} 去重 = bistro 5040 探针,SSBO 腿 p100=0.0 位级硬门 + sampler 腿 ≤1 LSB 结构容差不变）。harness 腿 SPV = 战役锚承载 v2 隔离件（g31_texture_{gi,probe}_v2.spv:fx/fy 双线性 5 处修复 + heap 形态）;源码有效性另经 rurixc 现编 + spirv-val 承载。旧 tex 臂 presented 锚 6fab598c 作废(fx/fy 修复+heap 化+静态协议),heap 臂锚待 G37 W4 统一重收割（demo.presented_anchor = PENDING_W4_REHARVEST 占位,schema const 钉死）。缺面沿案:sampler 对象不进 compute 生产车道（RXS-0223 阶段矩阵）/normal 贴图零 TANGENT/rough-metal 0/70/--svt×heap fail-closed 互斥/trilinear 留 flag 后补"
+}

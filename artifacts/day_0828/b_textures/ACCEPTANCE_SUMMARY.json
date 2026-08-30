@@ -1,0 +1,118 @@
+{
+ "schema": "rurix.day0828.phase_b_textures.acceptance.v1",
+ "date": "2026-08-28",
+ "task": "画质战役 Phase B——纹理全覆盖（70 材质 + mip 链,texel heap）+ 统一质量 kernel（纹理×平滑法线互斥解除）+ fx/fy 双线性 bug 修复,修「均值 albedo 马赛克」色块",
+ "design_ref": "artifacts/day_0828/recon/atlas_design.md（方案 C cap-1024 档,§6 施工单全项照办）",
+ "verdicts": {
+  "1_build_and_spirv_val": {
+   "pass": true,
+   "detail": "target-night 双 bin 构建绿（g31_window_present --features vendor-upscale + g14_3_pipeline_perf）;触及 5 kernel 全部 rurixc 现编 + spirv-val 绿（g31_texture_gi_v2.spv / g31_texture_probe_v2.spv / g31_texture_nrm_gi.spv / g31_svt_gi_fyfix.spv / g31_svt_probe_fyfix.spv → .tmp/night_0828/spv/）"
+  },
+  "2_zero_drift_anchors": {
+   "pass": true,
+   "window_alloff": {"expect": "55e4a92d", "got": "55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288", "run": "ev/alloff_1.json"},
+   "bench_default_160f": {"expect": "c1d28ad7", "got": "c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02", "run": "arms/bench_default160"},
+   "bench_default_128f_extra": {"note": "128 帧形态额外复核 == 夜巡 base 锚 beb61a04（同为零漂移证明;c1d28ad7 = 160 帧 Stage A 形态）", "got": "beb61a04e62c5048cdf54d7c34598c2a47c87c6aea62d7c5158aba3646501b6d"},
+   "combo_without_textures": {"note": "六臂组合（RURIX_G18_AMBIENT=0.004,32 帧静态）== A3 g4 锚 693951ac,presented raw dump 与 a3_tuning/g4.raw 逐字节相等（sha256 04b9e750c4f40d29… 双方一致）", "got": "693951acbf92b323ff142024ce5028269b481252de5393a05500263e0fb4ed99"}
+  },
+  "3_tex_single_arm": {
+   "pass": true,
+   "new_anchor": "e6df516c88739bf517f4428ba6fcadb1840049e62380d19af233304152a3b2e7",
+   "double_run_bitexact": true,
+   "probe_p100": 0.0,
+   "probe_count": 5040,
+   "probe_law": "70 槽 × 24 UV × 3 mip 级 {0, mips/2, mips−1}（lod 显式注入,SSBO 腿 host/device 位级）",
+   "sampler_leg_max_lsb": 1,
+   "mapped": 70,
+   "tex_tris": 1046609,
+   "coverage": "100%（top-12 66.7% → 全 70 材质）",
+   "old_anchor_invalidated": "夜巡 tex 臂 6fab598c（dolly 8 帧,12 槽 mip0 网格图集 + fx/fy bug 形态）因 fx/fy 修复 + heap 化 + auto-move 门解除作废,如实登记;tex_off 臂 84c511e7 不受影响（textures off 面 0-byte）",
+   "runs": ["ev/tex_1.json", "ev/tex_2.json"]
+  },
+  "4_combined_arm": {
+   "pass": true,
+   "cmdline": "--smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --textures on --bloom on --dither on --auto-exposure on（env RURIX_G18_AMBIENT=0.004,32 帧静态契约相机）",
+   "kernel": "g31_texture_nrm_gi（合体:平滑法线+GGX+灯提取+环境光+texel heap 纹理采样）",
+   "new_anchor": "8b1c12f34a76fd554496c9bcdcb45c9ba7d90291e10273b3766708521471abec",
+   "double_run_bitexact": true,
+   "validation": "RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全程,PASS 行退出 = validation 静默",
+   "probe_p100": 0.0,
+   "full_frame_png": "png/combo_tex.png（对照 png/combo_off.png == A3 g4 基线逐字节）",
+   "runs": ["ev/combo_tex_1.json", "ev/combo_tex_2.json"]
+  },
+  "5_visual_positions": {
+   "pass": true,
+   "paris_paintings_right_wall": "png/crop_paintings_off_vs_on.png——空白米色画布 → 真实画作内容（抽象红画/鹿素描/金框巴黎街景）",
+   "plaster_red_wall": "png/crop_plaster_red_off_vs_on.png——平坦粉红渐变 → 灰泥斑驳纹理",
+   "curtainB1_deviation": "红帘 curtainB1(mat14)/curtainA(mat13) 契约相机前向投影 0 顶点在框（centroid 方位角 −82°,orbit/dolly 摆头 ±17°/±11° 不可达）——视觉位以 floor_tile_hex 替补（png/crop_floor_tile_off_vs_on.png,均匀灰地板 → 六角花纹瓷砖）;curtainB1 槽位覆盖证据 = slot 12 装入 heap（1024² 11 级,manifest match true,探针 p100=0.0 三 mip 级）+ 纹理内容 png/curtainB1_texture_512.png",
+   "a3_same_angle_baseline": "combo_off.raw == artifacts/day_0828/a3_tuning/g4.raw 逐字节（同角度对照成立）"
+  },
+  "6_color_block_metric": {
+   "pass": true,
+   "method": "RGB>>3 量化恒定色 8 连通域,≥5000 px 域统计（presented dump 全帧,visual_metrics.json）",
+   "off": {"components": 26, "area_px": 282410, "area_frac": 0.136193, "largest": 49462},
+   "on": {"components": 1, "area_px": 6101, "area_frac": 0.002942, "largest": 6101},
+   "area_reduction_pct": 97.84
+  },
+  "7_frame_time": {
+   "pass": true,
+   "combo_with_tex_ms": [7.901825, 8.288131],
+   "combo_without_tex_ms": 7.909013,
+   "delta_mean_ms": 0.186,
+   "delta_pct": 2.35,
+   "gate": "≤ +30% 且 ≤ +1.5ms（窗口口径:real_render_frame_ms 含 8.3MB BGRA 强制回读,run-to-run 离散 ~0.39ms——增量在噪声带内）",
+   "tex_single_vs_alloff_note": "tex 单臂 8.44/7.83 vs all-off 6.03（+2.1ms,+35%）——口径差异登记:单臂对照基线为五 pass 裸车道,验收门口径 = 同组合含/不含 --textures（上行数字）"
+  },
+  "8_vram": {
+   "pass": true,
+   "heap_bytes": 296424240,
+   "heap_mib": 282.69,
+   "heap_texels": 74106060,
+   "header_entries": 910,
+   "expected_design": "~283 MiB cap-1024 档（atlas_design.md §4）",
+   "assertion": "g14_3_lane_body.rs g31_tex_load：heap_bytes ≤ G31_TEX_HEAP_MAX_BYTES = 2 GiB fail-closed 断言在位（maxStorageBufferRange 保守界——本仓无 device limits 查询管道,真查询留交接;4070 Ti 报 4 GiB）"
+  },
+  "9_assets": {
+   "manifest_matched": "70/70 槽 rgba8_digest == G11.3 manifest（源 mip0 全分辨率解码锚不动）",
+   "mip_truncated": 0,
+   "mip_hist": {"11_levels": 53, "5_levels": 17},
+   "per_level_digests": "逐槽逐级 sha256 落 evidence material_slots[].mip_digests"
+  }
+ },
+ "heap_layout": {
+  "form": "一维 texel heap（单 SSBO,u32/texel 打包 RGBA8 R|G<<8|B<<16|A<<24）",
+  "header": "u32 偏移头表进 buffer 头部（零新增绑定）:[slot×13+mip] = 该级 texel 段绝对 u32 下标;70 槽 × 13 mip 槽位 = 910 项;缺级槽位重复末级偏移（kernel lod 已钳 mips−1,冗余保底）",
+  "texels": "逐槽逐级连续段（DDS 源 mip 直搬 cap-1024:2048² 12 级链从 mip1 起 = 1024² 11 级;16² 5 级全链;零重采样）",
+  "texmeta": "头 8 f32 [头表项数, 0, slot_count, 0×5] + 逐槽 8 f32 [0, 0, w_base, h_base, mod_r, mod_g, mod_b, mip_count]",
+  "tritex": "2 f32/tri [slot, k_tri]（k_tri = sqrt(uv_area/world_area) 装配期逐三角;灯面/未映射 = [−1, 0]）",
+  "mip_select": "lod = clamp(floor(log2(th·k_pix·k_tri·w_base)), 0, mips−1);th = committed_t 寄存器;k_pix = 2·tan(fovy/2)/in_h 走 params[50]（pack_frame_params_tex,off 臂 0.0 与零填充逐位同值）;nearest-mip + bilinear 4 fetch;级尺寸逐级 ×0.5 折半（pow2 精确,wrap f32 精确域不破）;probe 对拍 = lod 显式注入绕开 GPU log2 器件差异 ⇒ p100=0.0 位级硬门维持"
+ },
+ "resource_indices": {
+  "tex_single(既有)": "tex 五件 24..28,count 29;AE 尾挂 29..31",
+  "tex_nrm": "tex 五件 24..28 + trinrm 29 + tri_mr 30,count 31;AE 31..33",
+  "tex_bloom": "bloom 八件 24..31（0-byte 复用）+ tex 五件 32..36,count 37;AE 37..39",
+  "tex_nrm_bloom": "bloom 24..31 + tex 32..36 + trinrm 37 + tri_mr 38,count 39;AE 39..41",
+  "rationale": "A2 致密 Vec 尾挂同律:bloom 八件/parity override 静态下标 0-byte 复用 ⇒ tex 五件在 bloom 组合面让位尾挂;非 bloom 面 tex 五件守 24..28（atlas_design §5,SVT 29..33 栈序兼容）"
+ },
+ "fx_fy_fix": {
+  "fixed": ["kernels/g31_texture_gi.rx（G/B 底行 fy→fx）", "kernels/g31_texture_probe.rx", "kernels/g31_svt_gi.rx", "kernels/g31_svt_probe.rx", "host g14_3_lane_body.rs g31_tex_host_sample + g31_svt_host_sample（host/device 成对改,探针 p100=0.0 维持）"],
+  "handover_not_fixed": ["kernels/g34_unified_gi.rx L288/291", "kernels/g34_unified_gi_skin.rx L274/277", "kernels/g34_unified_shade.rx L227/230（他会话 g34/g36 生产面,只登记不代改）"]
+ },
+ "handover": [
+  "g34 三 kernel fx/fy 同源 bug（上行清单,修法 = 底行水平混合 fy→fx ×2/文件,host 镜像如有同步）",
+  "--svt 与 texel heap 形态 fail-closed 互斥（SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1;深修 = 页表虚拟 origin 平移 + tritex 步幅适配,归后续波;g31_svt_{gi,probe}.rx fy 修复已入源码,fyfix SPV 落 night spv 目录仅验证用）",
+  "ci/g31_texture_sampling_smoke.py 判读器同步（heap 形态:probes 步幅 4/texmeta 新布局/uv_law mip 维/v2 SPV 路径;旧 .tmp/g31_gates/texture/*.spv 0-byte 保留供旧二进制,源码-共享 SPV divergence 同 A2b 先例登记）",
+  "maxStorageBufferRange 真设备查询（现为 2 GiB 常量保守断言;vk.rs 不在本波可改清单）",
+  "bench 车道（g14_3_pipeline_perf）无既有 --textures 臂,EXR 指标接线成本高（unified_lane_descs 变体 + evidence schema + 探针面全套）——留窗如实登记,B4 指标以窗口 presented dump 承载（本文件）",
+  "trilinear（8 fetch 级间 lerp）留 flag 后补——首落 nearest-mip + bilinear（mip 间跳变夜景 EV 下可接受）",
+  "旧 tex 臂锚 6fab598c 作废（fx/fy 修复+heap 化+静态协议）;新锚 e6df516c（单臂）/ 8b1c12f3（七臂合流）",
+  "--textures 「须随 --auto-move」硬门解除（重锚协议 = 静态契约相机双跑位级一致,a2b/a3 同款;轨迹面仍兼容）——CI 若有依赖该门的判读器需同步"
+ ],
+ "artifacts": {
+  "evidence": ["ev/alloff_1.json", "ev/tex_1.json", "ev/tex_2.json", "ev/combo_off.json", "ev/combo_tex_1.json", "ev/combo_tex_2.json"],
+  "bench": ["arms/bench_default", "arms/bench_default160"],
+  "png": ["png/combo_off.png", "png/combo_tex.png", "png/crop_paintings_off_vs_on.png", "png/crop_plaster_red_off_vs_on.png", "png/crop_floor_tile_off_vs_on.png", "png/curtainB1_texture_512.png"],
+  "metrics": ["visual_metrics.json", "mat_screen_bbox.json"],
+  "spv": [".tmp/night_0828/spv/g31_texture_gi_v2.spv", ".tmp/night_0828/spv/g31_texture_probe_v2.spv", ".tmp/night_0828/spv/g31_texture_nrm_gi.spv", ".tmp/night_0828/spv/g31_svt_gi_fyfix.spv", ".tmp/night_0828/spv/g31_svt_probe_fyfix.spv"]
+ }
+}

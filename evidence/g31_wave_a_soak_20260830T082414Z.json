@@ -1,0 +1,38 @@
+{
+ "schema": "rurix.g31.wave_a_soak_evidence.v1",
+ "gate": "g31.waveA.soak",
+ "generated_utc": "2026-08-30T08:24:14Z",
+ "binary": "target\\release\\g31_window_present.exe",
+ "thresholds": {
+  "min_frames": 10000,
+  "min_wall_s": 1800,
+  "rule": "frames_or_wall_first_reached"
+ },
+ "main_leg": {
+  "frames": 10000,
+  "warmup": 10,
+  "trajectory": "orbit",
+  "hidden": true,
+  "wall_s": 951.729,
+  "frames_presented": 10010,
+  "real_render_frame_ms": null,
+  "present_frame_ms": null,
+  "digest": null,
+  "evidence_ok": false,
+  "validation_silent": true,
+  "leak_ledger_zero": true
+ },
+ "determinism_probe": {
+  "frames": 64,
+  "warmup": 4,
+  "runs": 2,
+  "digest_seq_bit_exact": true,
+  "first_drift_index": -1,
+  "last_digest": "sha256:02b135460b67c00489f934212b93002eb94a702f8df1caa7ce4951f18392b4b1"
+ },
+ "verdict": "FAIL",
+ "notes": [
+  "soak 主腿: frames=10000+warmup=10 wall=951.7s real_render=Nonems present=Nonems digest=None…",
+  "确定性抽查: 64 帧双跑 digest_seq 位级一致=True（末帧 sha256:02b135460b67c004…）"
+ ]
+}

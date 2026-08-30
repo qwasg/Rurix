@@ -1,0 +1,53 @@
+{
+  "schema": "rurix.g37.hzb_skin_accept_result.v1",
+  "gate": "g37.wave3.hzb_skin",
+  "verdict": "PASS",
+  "facts": [
+    {
+      "id": "kernels_spv_valid",
+      "status": "PASS",
+      "detail": "rurixc 现编 10 件 + spirv-val=绿；母版四件（primary/gi_skin/mv/g31_skin .rx）0-byte 机核=绿（两段式快照:首跑落账 mother_sha.json,复跑比对——新 kernel 新文件纪律）"
+    },
+    {
+      "id": "merged_skin_caliber",
+      "status": "PASS",
+      "detail": "合并腿 skin 门口径:① 逐顶点位级 ② 位置/逐帧门 ③ MV 三类 + 窗级真动 + 类2激活"
+    },
+    {
+      "id": "merged_hzb_caliber",
+      "status": "PASS",
+      "detail": "合并腿 hzb 门口径:parity 三面（mips 位级/判定逐字节/零假阳性 + digest 互核）+ occluded_p1=22407 ≥1"
+    },
+    {
+      "id": "culling_pixel_neutral",
+      "status": "PASS",
+      "detail": "合并腿 vs RURIX_HZB_ALL_VISIBLE=1 全集渲染实验臂 digest_seq 逐帧位级一致=True（74 帧;剔除不改变可见像素——蒙皮/动态尾槽恒可见下中性门同字面成立）"
+    },
+    {
+      "id": "determinism_double_run",
+      "status": "PASS",
+      "detail": "合并腿双跑 digest_seq 位级一致=True（74 帧）render_digest 一致=True"
+    },
+    {
+      "id": "single_open_no_degrade",
+      "status": "PASS",
+      "detail": "同机同窗复跑 --hzb on 单开（parity 三面 + occluded_p1≥1）+ --skin 单开（蒙皮三面聚合旗标）各自在案口径全绿——合并面落地后单开臂不降级机器证明"
+    },
+    {
+      "id": "frame_ms_measured",
+      "status": "PASS",
+      "detail": "frame_ms measured_local:merged=27.4601ms hzb_single=22.4625ms skin_single=7.5599ms（如实登记不设通过线,G6 无硬门纪律）"
+    }
+  ],
+  "frames": 64,
+  "warmup": 10,
+  "legs": {
+    "merged_a": ".tmp\\g34_gates\\hzb_skin\\leg_merged_a.json",
+    "merged_b": ".tmp\\g34_gates\\hzb_skin\\leg_merged_b.json",
+    "allvis": ".tmp\\g34_gates\\hzb_skin\\leg_allvis.json",
+    "hzb_single": ".tmp\\g34_gates\\hzb_skin\\leg_hzb_single.json",
+    "skin_single": ".tmp\\g34_gates\\hzb_skin\\leg_skin_single.json"
+  },
+  "timestamp": "20260830T025015Z",
+  "note": "G37 W3 hzb_skin 合并臂验收（工作区件;门脚本扩合并臂归提案面见 REPORT.md）:判据 = skin 门口径 ∧ hzb 门口径 ∧ 剔除像素中性 ∧ 双跑位级 ∧ 单开臂不降级 ∧ frame_ms 如实登记。harness 真跑件留 .tmp/g34_gates/hzb_skin/。"
+}

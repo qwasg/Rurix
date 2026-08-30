@@ -1,0 +1,79 @@
+{
+ "fan(1500,12)  TSR-out": {
+  "input_linear": [
+   0.356863,
+   0.2536846,
+   0.1062995
+  ],
+  "A_kernel_as_written_RGB8": [
+   0,
+   62,
+   170
+  ],
+  "B_kernel_fixed_basis_RGB8": [
+   144,
+   122,
+   77
+  ],
+  "C_host_f64_reference_RGB8": [
+   144,
+   122,
+   77
+  ],
+  "measured_presented_RGB8": [
+   0,
+   62,
+   170
+  ]
+ },
+ "wall(1700,430) TSR-out": {
+  "input_linear": [
+   0.0018637,
+   0.0005572,
+   0.0004116
+  ],
+  "A_kernel_as_written_RGB8": [
+   25,
+   13,
+   16
+  ],
+  "B_kernel_fixed_basis_RGB8": [
+   0,
+   0,
+   0
+  ],
+  "C_host_f64_reference_RGB8": [
+   0,
+   0,
+   0
+  ],
+  "measured_presented_RGB8": [
+   25,
+   13,
+   16
+  ]
+ },
+ "gray 0.18": {
+  "input_linear": [
+   0.18,
+   0.18,
+   0.18
+  ],
+  "A_kernel_as_written_RGB8": [
+   47,
+   47,
+   47
+  ],
+  "B_kernel_fixed_basis_RGB8": [
+   99,
+   99,
+   99
+  ],
+  "C_host_f64_reference_RGB8": [
+   99,
+   99,
+   99
+  ],
+  "measured_presented_RGB8": null
+ }
+}

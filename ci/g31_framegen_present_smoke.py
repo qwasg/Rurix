@@ -599,6 +599,7 @@ def run_harness(exe: Path, trajectory: str, fg_mode: str, frames: int, warmup: i
         "--frames", str(frames),
         "--warmup", str(warmup),
         "--hidden",
+        "--quality", "off",  # W4 默认翻转免疫:A5 门 = fg base 点（两点式闭集之 all-off 基,DEFAULT_FLIP_PLAN §2.5）
         "--auto-move", trajectory,
         "--fg", fg_mode,
         "--evidence", str(ev_path),

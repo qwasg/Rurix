@@ -43,6 +43,15 @@
 > 各门 evidence 落 `evidence/` 对应前缀件（PASS-only；无件 = 门未过），schema 路由由
 > `ci/check_schemas.py` 机核。门登记表 = `milestones/g31/CI_GATES.md`。
 
+> **G37 商业化收官追加（2026-08-30）**：① 套件追加 `g31.g37w1.encode_parity`
+> （`ci/g31_encode_parity_smoke.py`，ACES encode 共享面收编 v2 的防复发硬门）与
+> `g31.waveC.license`（`ci/g31_vendor_license_smoke.py`，vendor 许可矩阵 + GAP closure 腿）。
+> ② 窗口默认档已翻 `--quality full`（十九臂，W4）：诊断类门调用面已补 `--quality off`
+> （对账表 `artifacts/day_0830_delivery/w4_flip/QUALITY_OFF_SWEEP.md` A 类 18 点）；默认臂门
+> （A1 present / A3 gameloop / A6 soak / RD-045 P02）语义随翻转升级，按 W4 复跑清单以新默认核验。
+> ③ presented 锚 = 二进制绑定锚——发布重建后整批重收割（锚登记 = `w4_flip/W4_ANCHORS.json`），
+> 跨重建可沿用面仅 all-off 与 bench 锚。
+
 ## 3. 签名 / SBOM / 分发链
 
 - [ ] `py -3 ci/release_bundle_smoke.py` —— 发布 bundle 打包冒烟（EA1.2 / RFC-0012，RXS-0218；
@@ -102,3 +111,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-25 | 初版（G31+ 波 C Task C8）：八面操作单（stable ABI 守卫 / 波 A·B·C 十七门 / 签名·SBOM·分发链 / 许可·再分发 / 兼容矩阵 / soak·健壮性 / 文档与政策 / 环境三态），全部条目引用真实 ci 脚本与在案注册表；C5/C6 在飞项明确标注「落地前不以对应形态发布」 |
+| v1.1 | 2026-08-30 | G37 商业化收官同步（W5）：§2 追加 G37 注（encode_parity 与 license 两门进套件 / 默认档翻转后诊断门 off 字面对账与默认臂门新默认复跑口径 / presented 二进制绑定锚整批重收割纪律，W4_ANCHORS 登记）；历史表与 C5/C6 在飞标注字面不回写 |

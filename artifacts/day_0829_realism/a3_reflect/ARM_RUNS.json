@@ -1,0 +1,80 @@
+{
+ "schema": "rurix.day0829.realism.refl.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "step": "refl_off_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 61.7,
+   "real_render_frame_ms": 4.8019,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "15:19:05"
+  },
+  {
+   "step": "refl_off_full_96f",
+   "rc": 0,
+   "digest": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "vuid": 0,
+   "wall_s": 129.8,
+   "real_render_frame_ms": 7.355256,
+   "expect": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "pass": true,
+   "t": "15:21:15"
+  },
+  {
+   "step": "refl_on_run1",
+   "rc": 0,
+   "digest": "sha256:c06ce66317e0235578095b74d8de293618fa751239880ad152519a81d29be50c",
+   "vuid": 0,
+   "wall_s": 130.1,
+   "real_render_frame_ms": 8.933441,
+   "pass": true,
+   "t": "15:23:25"
+  },
+  {
+   "step": "refl_on_run2",
+   "rc": 0,
+   "digest": "sha256:c06ce66317e0235578095b74d8de293618fa751239880ad152519a81d29be50c",
+   "vuid": 0,
+   "wall_s": 130.0,
+   "real_render_frame_ms": 9.393564,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "15:25:35"
+  },
+  {
+   "step": "refl_ab_off",
+   "rc": 0,
+   "digest": "sha256:bd1dfd986db6a83d24f019c413bedb1215424b2e0e84d6cc2f759107d14d6332",
+   "vuid": 0,
+   "wall_s": 130.2,
+   "real_render_frame_ms": 7.501668,
+   "pass": true,
+   "t": "15:27:45"
+  },
+  {
+   "step": "refl_ab_on",
+   "rc": 0,
+   "digest": "sha256:02181e2873eeb105a621c7957ee41785c28f4728aaa42ff49b81df61669b07e9",
+   "vuid": 0,
+   "wall_s": 130.1,
+   "real_render_frame_ms": 8.663057,
+   "pass": true,
+   "t": "15:29:55"
+  },
+  {
+   "changed_frac": 0.004678,
+   "fullscreen_mean_off": 14.0826,
+   "fullscreen_mean_on": 14.2865,
+   "changed_mean_off": 43.0336,
+   "changed_mean_on": 48.6387,
+   "step": "refl_ab_metrics",
+   "pass": true,
+   "note": "反射加性:掩码亮度 on>off + 全屏能量增",
+   "t": "15:29:56"
+  }
+ ]
+}

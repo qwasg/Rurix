@@ -1,0 +1,44 @@
+{
+ "schema": "rurix.day0828.e1.window_anchor_reharvest.v1",
+ "date": "2026-08-28",
+ "event": "D 相终态重建漂移复现与窗口组合臂锚重收割（Phase E1 工作项 2 预案分支兑现）",
+ "root_cause_attribution": {
+  "finding": "窗口纹理合流臂（--textures×--smooth-normals 及其上叠组合）presented digest 为二进制敏感面：终态源码在 E1 编辑在位/摘除两个二进制下 combo7 均位级产出 d89848b9——E1 解析层编辑无罪；漂移源自 D 相终态重建（其 combo7/combo9 复验恰被会话中断未收割,D 相 leftovers 在案）",
+  "evidence_chain": [
+   "e_alloff == 55e4a92d（off 面零漂移,重建无关）",
+   "bench 四臂全 MATCH：default c1d28ad7 / snrm 778f1dfc / snrm+tsrq 05532d5e（冻结 resolve 字节腿）——bench 面（无纹理臂）跨重建稳定",
+   "五 SPV 文件指纹逐一 SAME（含 gi2-off 冻结件 fd22cb19 == pre-C 备份自证）;atlas/linlut/census digest SAME;纹理探针 SSBO device digest a6ac7169 位级 SAME——kernel 字节与 host 装配数据全部无变",
+   "combo7 漂移值 d89848b9 与 C 相「共享 SPV 覆盖」纪律事件同 digest 复现——同类 ULP×TSR/AE 反馈放大机制,扰动源为二进制重建（驱动后端/执行环境敏感）而非本次源码语义",
+   "归因 A/B：de-E1 二进制（终态源码摘除 E1 代码块重建）combo7 == d89848b9 位级 == E1 二进制产值（ev/attrib_combo7_dfinal_bin.json;基线 git HEAD 二进制无战役旗标 rc=1 如实登记 ev/attrib_combo7_baseline_bin.json）"
+  ],
+  "lesson": "窗口纹理合流臂 presented 锚必须视为「二进制绑定锚」——任何重建后整批重收割,不得沿用跨重建旧值;off 锚（55e4a92d）与 bench 锚（Stage A 18 格 + render 腿）非敏感面可跨重建沿用"
+ },
+ "reharvest": {
+  "window_combo9_nine_arm_and_quality_full": {
+   "old": "sha256:6bd3af638be97715e1a24f1d260639c259aa181a9d0144a6b47809538ef0814d",
+   "new": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1",
+   "runs": ["ev/e_combo9_explicit.json（显式九臂+env ambient）", "ev/e_quality_full_1.json（预设,零 env）", "ev/e_quality_full_2.json(+present dump)"],
+   "harvest_protocol": "三跑位级一致（显式 ×1 + 预设 ×2）,validation 全程静默"
+  },
+  "window_combo7_seven_arm": {
+   "old": "sha256:8b1c12f34a76fd554496c9bcdcb45c9ba7d90291e10273b3766708521471abec",
+   "new": "sha256:d89848b953a5ff310c4c98122759a0ce6f5fec8ead61b4f630090e4701b333dc",
+   "runs": ["ev/e_combo7_explicit.json（E1 二进制）", "ev/attrib_combo7_dfinal_bin.json（de-E1 归因二进制）"],
+   "harvest_protocol": "双跑位级一致（且跨 E1/de-E1 两个二进制位级同值 = 强于常规双跑）"
+  },
+  "bench_full_quality_leg_new_anchor": {
+   "new": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "arm": "--render bistro t100 tsr 128f: --smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --gi2 on --gi2-clamp 0.01 --tsr-quality on + ambient 0.004（== --quality full 展开）",
+   "runs": ["arms/bench_full_explicit（显式+env）", "arms/bench_full_preset_1", "arms/bench_full_preset_2（预设自注入 ambient）"],
+   "harvest_protocol": "三跑位级一致（显式 ×1 + 预设 ×2）"
+  },
+  "unchanged_anchors_verified": {
+   "window_alloff": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "bench_default_160f": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "bench_snrm_render128": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+   "bench_snrm_tsrq_render128": "sha256:05532d5e940ff10fead1ea989c855bb0fb86dac873967b32666f0fe3541d292a"
+  }
+ },
+ "preset_equivalence_verdict": "PASS——窗口 --quality full == 显式九臂位级（9e5f6300 三跑）;bench --quality full == 显式质量腿位级（1c12b7fd 三跑;预设 ambient 自注入 == 显式 env 位级等价双证）;fail-closed 冲突面四例拒跑在案（越闭集/窗口 --dither 重叠/bench --lamp-gain 重叠/vendor 后端上行拒）",
+ "obsolete": "6bd3af63（九臂）/ 8b1c12f3（七臂）随 D 终态重建作废——夜巡旧 presented 锚系（b02b08b5/12d5dc91/48353e86/2b6efac6/db7d48f7 等）已于 A2b 作废,本次一并归档 DEFAULT_FLIP_PLAN.md 作废清单"
+}

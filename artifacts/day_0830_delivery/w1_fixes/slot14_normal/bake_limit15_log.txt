@@ -1,0 +1,18 @@
+glTF: K:\rurix_g10_cache\bistro-orca\v5_2\derived\BistroInterior\BistroInterior.gltf  materials=70  with_normalTexture=70
+slot00 mat  7 TransparentGlass.DoubleSided                 1x1 mips= 1 ATI2 meanXY=(127.000,127.000)
+slot01 mat 41 Paris_Table_03                               2048x2048 mips=12 ATI2 meanXY=(127.547,127.159)
+slot02 mat 54 Plates_Ceramic                               2048x2048 mips=12 ATI2 meanXY=(127.000,127.000)
+slot03 mat 22 Paris_BarStool                               2048x2048 mips=12 ATI2 meanXY=(127.539,127.375)
+slot04 mat 47 Paris_LiquorBottle_02_Glass                  1x1 mips= 1 ATI2 meanXY=(127.000,127.000)
+slot05 mat  9 Paris_LiquorBottle_01_Caps                   2048x2048 mips=12 ATI2 meanXY=(127.083,121.127)
+slot06 mat 55 Paris_Radiator                               2048x2048 mips=12 ATI2 meanXY=(128.727,126.654)
+slot07 mat  5 ToffeeJar_Label                              2048x2048 mips=12 ATI2 meanXY=(127.606,127.612)
+slot08 mat 63 WickerBasket                                 2048x2048 mips=12 ATI2 meanXY=(135.924,116.135)
+slot09 mat 42 Metal_Worn_01                                2048x2048 mips=12 ATI2 meanXY=(126.100,125.986)
+slot10 mat  8 Paris_LiquorBottle_01_Glass_Wine             1x1 mips= 1 ATI2 meanXY=(127.000,127.000)
+slot11 mat 15 Cutlery_chrome                               2048x2048 mips=12 ATI2 meanXY=(127.535,127.969)
+slot12 mat 14 curtainB1                                    2048x2048 mips=12 ATI2 meanXY=(124.408,131.302)
+slot13 mat 48 Paris_LiquorBottle_01_Glass                  1x1 mips= 1 ATI2 meanXY=(127.000,127.000)
+WARN: slot14 mat12 Paris_Table_cloth_01 非法常值法线 rg=(53, 53) |x|+|y|=1.165354>1 → 替换平坦 (127, 127)（HANDOVER §H 修复律）
+slot14 mat 12 Paris_Table_cloth_01                         2048x2048 mips=12 ATI2 meanXY=(127.000,127.000)
+baked=15 anomalies=0 → artifacts\day_0830_delivery\w1_fixes\slot14_normal\rebake_png_limit15\manifest.json

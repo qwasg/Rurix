@@ -236,6 +236,10 @@ struct G34HzbBits {
 }
 
 impl G34HzbBits {
+    /// G37 W3 hzb_skin:`char_tri_base` = 蒙皮角色尾槽(Some = 合并车道——
+    /// inst_base 追加角色段基底 + 实例计数 +1;None = 既有 HZB 车道逐字面
+    /// 0-byte,产物字节不变)。
+    #[allow(clippy::too_many_arguments)]
     fn load(
         spv_primary: &str,
         spv_shade: &str,
@@ -248,6 +252,7 @@ impl G34HzbBits {
         dyn_tri_base: usize,
         dyn_on: bool,
         inject_primary_shade: bool,
+        char_tri_base: Option<usize>,
     ) -> Self {
         let to_bytes = |words: &[u32]| -> Vec<u8> {
             words.iter().flat_map(|w| w.to_le_bytes()).collect()
@@ -332,15 +337,21 @@ impl G34HzbBits {
         }
         let flat_init: Vec<f32> = vec![1.0f32; flat_texels];
         // inst_base = 静态逐节点段前缀和(装配序连续段 ⇒ tri_offset 即前缀和)
-        // + 动态槽 dyn_tri_base(fork B 字面同值;< 2^24 f32 精确域)。
-        let mut inst_base: Vec<f32> = Vec::with_capacity(groups.len() + 1);
+        // + 动态槽 dyn_tri_base(fork B 字面同值;< 2^24 f32 精确域)
+        // + G37 W3 hzb_skin 角色尾槽 char_tri_base(Some = 合并车道)。
+        let mut inst_base: Vec<f32> =
+            Vec::with_capacity(groups.len() + 1 + usize::from(char_tri_base.is_some()));
         for g in groups {
             inst_base.push(g.tri_offset as f32);
         }
         if dyn_on {
             inst_base.push(dyn_tri_base as f32);
         }
-        let n_inst = (groups.len() + usize::from(dyn_on)).max(1) as u32;
+        if let Some(cb) = char_tri_base {
+            inst_base.push(cb as f32);
+        }
+        let n_inst = (groups.len() + usize::from(dyn_on) + usize::from(char_tri_base.is_some()))
+            .max(1) as u32;
         Self {
             spv_primary: to_bytes(&pw),
             spv_shade: to_bytes(&sw),
@@ -2083,6 +2094,7 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
             dyn_tri_base,
             true,
             true,
+            None, // G37 W3 hzb_skin:HZB 单开车道无角色尾槽(既有面 0-byte)
         );
         hzb_levels_meta = hz.levels.clone();
         hzb_flat_offsets_meta = hz.flat_offsets.clone();

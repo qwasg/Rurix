@@ -25,13 +25,18 @@
    税单列永不混入渲染帧率口径（performance_tuning §1 同律）。
 4. **统计窗**：post-warmup（`frames_measured == --frames`，与 evidence `real_render_frame_ms`
    / `frame_ms_production_mean` 同窗）；统计组 = mean/p50/p99/min/max（线性插值 percentile）。
-
-## 2. `--profile-json` 快速上手
+5. **默认档口径（G37 W4 翻转后）**：`g31_window_present` `--quality` 缺省已翻 **full
+   （十九臂）**。本文全部窗口命令示例与 §3 在案分解数字为**五 pass `--quality off` 形态**
+   ——复现一律显式给 `--quality off`（门 `g31.waveC.profiling` 三腿调用面已同步该字面，
+   `w4_flip/QUALITY_OFF_SWEEP.md` 对账在案）；默认 full 形态 profiler 照常按 telemetry
+   声明序全量直出（pass 列表更长：realism 链换载 + bloom 四 pass + AE 两微 pass 等），
+   但勿与本文 off 形态在案数字跨形态比。
 
 ### 2.1 真窗口生产车道（g31_window_present）
 
 ```powershell
-.\target\release\g31_window_present.exe --frames 120 --warmup 10 --hidden `
+# --quality off = 本节五段分解口径（G37 W4 翻转后须显式；缺省 full 形态见本节末注）
+.\target\release\g31_window_present.exe --frames 120 --warmup 10 --hidden --quality off `
     --evidence .tmp/ev.json --profile-json .tmp/profile.json
 ```
 
@@ -48,7 +53,9 @@
 
 FG 开（`--fg x2|x3`）追加 `g31_mv_negate`/`g26_framegen_fg*`/`g31_display_encode_fg*`；
 HZB 开（`--hzb on`）为 HZB 车道全 pass 列（`g31_hzb_*`/`g27_hzb_*`）——profiler
-按 telemetry 声明序全量直出，**不需要**先验 pass 表。
+按 telemetry 声明序全量直出，**不需要**先验 pass 表。G37 W4 后缺省 `--quality full`
+（十九臂）同律全量直出（scene 换载 realism 链 + bloom 四 pass + AE 两微 pass 等）；
+上表五段 = `--quality off` 形态，FG/HZB 等诊断组合臂翻转后须显式 `--quality off`。
 
 ### 2.2 bench 车道（g14_3_pipeline_perf）
 
@@ -90,7 +97,8 @@ vendor 双臂（dlss_sr/fsr_3_1_5）/FIF 流水（inflight 2|3）/`--dyn-demo`/`
 
 ## 3. 在案分解数字样例（measured_local，2026-08-26 门复跑件）
 
-`g31_window_present --frames 24 --warmup 6 --hidden`（真窗口；bistro-interior t100）：
+`g31_window_present --frames 24 --warmup 6 --hidden --quality off`（真窗口；bistro-interior
+t100；测量时点默认档即 off——G37 W4 翻转后复现须显式给 `--quality off`，§1.5）：
 
 | 段 | mean_ms | p50_ms | p99_ms |
 |---|---|---|---|
@@ -150,8 +158,9 @@ gpu_sum_mean ≤ render_wall_mean + 0.10      （GPU 忙时不超过帧墙钟—
 ### 6.1 使用要点（RenderDoc 在机窗）
 
 ```powershell
+# --quality off = 门捕获腿同口径（G37 W4 后须显式；捕获缺省 full 十九臂形态亦兼容，pass 列表更长）
 renderdoccmd.exe capture -w -f 8 -c 3 -o .tmp/g31cap -- `
-  .\target\release\g31_window_present.exe --frames 12 --warmup 6 --hidden --evidence .tmp/ev.json
+  .\target\release\g31_window_present.exe --frames 12 --warmup 6 --hidden --quality off --evidence .tmp/ev.json
 ```
 
 帧定界 = swapchain present（`vkQueuePresentKHR` 标准腿）；捕获后 Event Browser
@@ -191,3 +200,12 @@ py -3 ci\g31_profiling_smoke.py --gate g31.waveC.profiling  # 真门（构建 + 
 - Nsight Graphics / RenderDoc 不在机——标注 UI 复核与真捕获两腿待工具在机窗
   （门自动切换口径;静态面已兑现）。
 - p99 尖峰（冷启首帧/末帧 digest 帧）为测量面固有,定位热点以 mean/p50 为主读数。
+
+---
+
+## 修订记录
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.0 | 2026-08-26 | 初版（G31+ 波 C Task C7）：口径纪律/`--profile-json` 两车道/在案分解样例/恒等式/Nsight 标注/RenderDoc 捕获/CI 门/遗留边界 |
+| v1.1 | 2026-08-30 | G37 商业化收官同步（W5）：§1 追加默认档口径条（W4 翻转后窗口缺省 = full 十九臂）；三处窗口命令示例（§2.1 / §3 / §6.1）补显式 `--quality off`（本文在案分解数字为五 pass off 形态，门三腿调用面同字面）；§2.1 追加 full 形态全量直出注 |

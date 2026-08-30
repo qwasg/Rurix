@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G37 W1 encode device-vs-host parity 硬门 evidence（g31.g37w1.encode_parity）",
+  "description": "evidence/g31_encode_parity_<utc>.json（PASS-only；FAIL 诊断件留 .tmp/g31_gates/encode_parity/）。ci/g31_encode_parity_smoke.py --gate g31.g37w1.encode_parity 产。口径 = day_0828 A2b encode_parity_probe.py 转正：同帧 GPU 切层（RURIX_G31_DUMP_F32=1 末帧 TSR 输出 f32〔encode kernel 唯一像素输入,3 f32/px〕+ --dump-present-raw 同帧 presented 字节〔w,h u32 LE 头〕）vs host 预测（display::aces13 f64 金标准逐字向量化——矩阵/样条单源 = artifacts/day_0828/recon/bluefan_encode_sim.py,A2b 交叉验证在案——+ BT.1886 γ2.4 逆 EOTF v^(1/2.4) + floor(v·255+0.5) 量化）。臂 = 显式 --quality off 静态契约相机 8+2（dither off/autoexp off/aeg=1.0 = parity 口径前提,显式旗标 = 默认翻转免疫）。硬门阈值经 thresholds 块 const 钉死（A2b 实测锚 exact 99.9891%/p100=1 LSB/>1LSB=0）。防复发机核：gray_018_design_point 三口径含 ACES 样条转置 bug 形态复刻（transposed_detected 必 true——A2b 根因形态在设计点 47³ ≠ 99³ 必被区分,--selftest 纯 CPU 消费同函数）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "subject",
+    "symbolic_gate_key",
+    "wave",
+    "caliber",
+    "harness",
+    "parity",
+    "gray_018_design_point",
+    "thresholds",
+    "environment",
+    "timestamp",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.encode_parity_smoke_evidence.v1" },
+    "subject": { "type": "string", "const": "g31_encode_parity" },
+    "symbolic_gate_key": { "type": "string", "const": "g31.g37w1.encode_parity" },
+    "wave": { "type": "string", "const": "G37.W1" },
+    "caliber": { "type": "string" },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bin", "frames_completed", "digest", "validation_silent", "encode_spv"],
+      "properties": {
+        "bin": { "type": "string" },
+        "frames_completed": { "type": "integer", "const": 8, "description": "主帧数字面（evidence 实字段 frames=8,warmup=2 独立;G37 批次 0 首跑修正门脚本字段假设后 schema 同步——PASS-only 件恒 8）" },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "末帧 presented digest（登记面非锚断言——presented 锚为二进制绑定锚,HANDOVER §D.18）" },
+        "validation_silent": { "type": "boolean", "const": true },
+        "encode_spv": {
+          "type": "object",
+          "description": "harness contracts.encode_spv 透传（path + sha256 登记面；共享路径重编属合法演进,不 const 锁）",
+          "additionalProperties": true
+        }
+      }
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pixels",
+        "exact_match",
+        "exact_match_pct",
+        "diff_p50_lsb",
+        "diff_p99_lsb",
+        "diff_p100_lsb",
+        "pixels_gt_1lsb",
+        "pixels_gt_2lsb",
+        "worst_pixel"
+      ],
+      "properties": {
+        "pixels": { "type": "integer", "minimum": 1, "description": "对拍像素数（1920×1080 = 2,073,600；0 = 空帧冒充即 FAIL）" },
+        "exact_match": { "type": "integer", "minimum": 0 },
+        "exact_match_pct": { "type": "number", "minimum": 99.9, "description": "精确匹配率（硬门 ≥ 99.9%,A2b 实测 99.9891%）" },
+        "diff_p50_lsb": { "type": "number", "minimum": 0 },
+        "diff_p99_lsb": { "type": "number", "minimum": 0 },
+        "diff_p100_lsb": { "type": "integer", "minimum": 0, "maximum": 1, "description": "逐像素逐通道绝对差最大值（硬门 ≤ 1 LSB）" },
+        "pixels_gt_1lsb": { "type": "integer", "const": 0, "description": ">1 LSB 像素数（硬门 == 0——ACES 类系统性偏差检出位）" },
+        "pixels_gt_2lsb": { "type": "integer", "const": 0 },
+        "worst_pixel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "measured_rgb", "predicted_rgb"],
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 },
+            "measured_rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+            "predicted_rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+          }
+        }
+      }
+    },
+    "gray_018_design_point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_f64_rgb8", "kernel_f32_sim_rgb8", "transposed_bug_sim_rgb8", "ok", "transposed_detected"],
+      "properties": {
+        "host_f64_rgb8": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "const": 99 } },
+        "kernel_f32_sim_rgb8": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "const": 99 } },
+        "transposed_bug_sim_rgb8": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer" },
+          "description": "ACES 样条转置 bug 形态（A2b 根因）f32 仿真复刻值（实测 47³——≠ 99³ 即防复发臂有效）"
+        },
+        "ok": { "type": "boolean", "const": true },
+        "transposed_detected": { "type": "boolean", "const": true, "description": "转置形态与正形在设计点被区分（防复发机核必 true）" }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_match_pct_min", "pixels_gt_1lsb_max", "diff_p100_lsb_max"],
+      "properties": {
+        "exact_match_pct_min": { "type": "number", "const": 99.9 },
+        "pixels_gt_1lsb_max": { "type": "integer", "const": 0 },
+        "diff_p100_lsb_max": { "type": "integer", "const": 1 }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "python_version", "host"],
+      "properties": {
+        "os": { "type": "string" },
+        "python_version": { "type": "string" },
+        "host": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "notes": { "type": "string" }
+  }
+}

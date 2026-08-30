@@ -1,0 +1,72 @@
+{
+  "schema": "rurix.a1.lamp_lights.acceptance.v1",
+  "date": "2026-08-28",
+  "phase": "画质修复战役 Phase A1：灯光提取加性臂（--lamp-lights）",
+  "env": { "RURIX_REQUIRE_REAL": "1", "RURIX_VK_VALIDATION": "1（全部真跑）", "gpu_lock": "ci/gpu_device_lock via artifacts/night_0828/run_render.py（登记进 render_runs.jsonl，tag a1_*）" },
+  "changed_files": {
+    "src/rurix-render/kernels/g18_smooth_nrm.rx": "+~39（文件头⑥⑦说明 + 点光循环：points[pb+6] 半径阴影截断 + params[49] 贡献剔除 branchless 门乘进 keep_pre）",
+    "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "+410（PointLight.radius / pack_points 槽7 / LampOpt+extract_lamp_lights+apply_lamp_lights / pack_frame_params_lamp / UnifiedTsrLane.lamp_contrib / bench+render_leg 接线）",
+    "src/rurix-render/src/bin/g14_3_pipeline_perf.rs": "+91（CLI --lamp-lights/--lamp-gain/--lamp-k/--lamp-contrib/--lamp-stats-out + fail-closed 校验 + 文件头用法）",
+    "src/rurix-render/src/bin/g31_window_present.rs": "+110（CLI 四参数 + fail-closed + 装配施加点 + G31TsrLane.lamp_contrib + PASS 行登记 + 文件头说明）"
+  },
+  "kernel_spv": {
+    "path": ".tmp/night_0828/spv/g18_smooth_nrm.spv",
+    "spirv_val": "PASS（rurixc 内置 + PATH spirv-val 双过）",
+    "note": "首版「if 包 while+if」嵌套形态被 spirv-val 拒（rurixc selection 合并块 codegen 缺陷，块 144→非头 121 分支）；改 branchless gate_lc 乘进 keep_pre——阈值 0 时 gate 恒 1.0 位级恒等，gate=0 时阴影射线跳过且直射+GGX 全乘零（整灯等效 keep=0，非无影灯）"
+  },
+  "extraction": {
+    "stats_json": "artifacts/day_0828/a1_lamp_lights/extract_stats.json",
+    "emissive_tris": 44024,
+    "clusters_total": 13,
+    "clusters_kept": 12,
+    "clusters_dropped": 1,
+    "dropped": { "tris": 1692, "flux_max": 0.057295714 },
+    "cluster_profile": "6× 吊灯（Φ≈0.303, r≈0.39m, 3584 tri）+ 4× 壁灯（Φ≈0.074, r≈0.56m, 1616 tri）+ 1 大合并簇（Φ_r 0.312, r=3.11m, 12672 tri——0.6m 网格 26 邻域把一串近邻灯片合一，radius 如实登记）+ 1 弱簇（Φ 0.057, r=0.95m）；确定性由双跑 digest 位级一致互证"
+  },
+  "acceptance": [
+    { "step": "1 构建", "verdict": "PASS", "detail": "rurixc（target-night debug）现构 + kernel SPV spirv-val 绿 + 双 bin release 重建绿（4 warning 皆前序既有）" },
+    { "step": "2 默认臂零漂移", "verdict": "PASS", "digest": "c1d28ad7", "detail": "bench 160/10 无旗标 last_frame_digest == milestones/g14 Stage A 锚 c1d28ad73783…（位级一致）；scene_gpu 0.929ms" },
+    { "step": "3 smooth on + lamp off", "verdict": "PASS", "digest": "9d660f0d", "detail": "160/10 双跑位级一致（新锚 9d660f0daf27…）；另 8/2 口径 == 昨夜 D2/D6 锚 6b46f70a 位级一致——kernel 演进在 lamp off 下值级恒等，零漂移（强于预期的『新锚登记』）" },
+    { "step": "4 lamp on 确定性+帧时", "verdict": "PASS", "digest": "9f37f8c1", "detail": "gain1/k12/contrib0 160/10 双跑位级一致（9f37f8c1493d…）且 ≠ lamp off；scene_gpu 2.876/2.888ms（off 0.943/0.957ms，Δ≈+1.93ms，16 灯 vs 4 灯阴影射线 ×4）≤ 3ms 目标达标，未触发 --lamp-contrib 控帧档" },
+    { "step": "5 视觉与亮度", "verdict": "PASS", "detail": "render 128 帧：off converged 778f1dfc == 昨夜 D2 128帧锚（零漂移再证）；on g1=35a6ddea / g4=7180d37d / g16=0ba8fd18。亮度（全图 luma）：off mean 0.009847/p5 0.0/p50 0.000311/p99 0.26498 → g1 mean 0.010820(+9.9%)/p5 0.000195/p50 0.001224(×3.9) → g4 mean 0.013734(+39%)/p50 0.003742(×12) → g16 mean 0.025388(×2.58)/p5 0.002524/p50 0.013215(×42)/p99 0.27993(+5.6% 高光不炸)。gain1 <2× 触发扫档协议，g16 越 2×。视觉：死黑餐厅→灯具真实投光（红墙/吧台酒架/桌椅/软影全可读），无漏光伪影；最终定档留 Phase A3" },
+    { "step": "6 窗口车道", "verdict": "PASS", "detail": "全关 presented digest 5596a730 == 昨夜锚（零漂移）；--smooth-normals on --lamp-lights on 双跑 presented digest db7d48f7 位级一致且 ≠ off；全部跑均 RURIX_VK_VALIDATION=1 validation 静默（rc0/无报错）；PASS 行登记 lamp_lights=on lamp_k=12 lamp_gain=1 lamp_contrib=0" },
+    { "step": "6b fail-closed 负路径", "verdict": "PASS", "detail": "①--lamp-lights on 无 --smooth-normals → 拒（bench+窗口双 bin）②--lamp-gain 无 --lamp-lights on → 拒；均 rc=1 消息明确" }
+  ],
+  "digest_table": {
+    "stage_a_default_bench_160": { "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02", "vs": "== 冻结锚" },
+    "snrm_lamp_off_bench_160_x2": { "digest": "sha256:9d660f0daf270c623089324fa58b87dbf2621d5c7af991c597bdff89b6824c97", "vs": "双跑一致（本臂新登记 160 帧口径锚）" },
+    "snrm_lamp_off_bench_8f2w": { "digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385", "vs": "== 昨夜 D2/D6 锚（kernel 演进零漂移）" },
+    "snrm_lamp_on_bench_160_x2": { "digest": "sha256:9f37f8c1493d0644b37db47a762130c4fb0beef113ef61fa3230716299c9d5c3", "vs": "双跑一致 ≠ off" },
+    "render128_off": { "digest": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76", "vs": "== 昨夜 D2 128帧锚" },
+    "render128_on_gain1": { "digest": "sha256:35a6ddea01a966dd30336a39167bd170593619a783a8cc38b1033c7525a1fd9a" },
+    "render128_on_gain4": { "digest": "sha256:7180d37dc1ec024ad812782f5930afe07700c1d4cff63007caa663daf8eec31b" },
+    "render128_on_gain16": { "digest": "sha256:0ba8fd1872d1f6b321ae2d8c8b401e957102f7c37ec4a92e06f9245ae86414a2" },
+    "window_all_off": { "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00", "vs": "== 昨夜窗口锚" },
+    "window_snrm_lamp_on_x2": { "digest": "sha256:db7d48f779b679d4893d53afe8ea04dfe34578ae64fc37a45be3e6ccca558249", "vs": "双跑一致 ≠ off" }
+  },
+  "perf": {
+    "bench_scene_gpu_ms": { "default": 0.929, "snrm_lamp_off": [0.943, 0.957], "snrm_lamp_on_gain1_k12": [2.876, 2.888] },
+    "note": "render 循环里 scene_gpu 30+ms 为逐帧 fence+EXR 回写测量税（昨夜 P6 已登记非生产口径），bench 口径为准"
+  },
+  "luma": {
+    "off": { "mean": 0.009846836450648955, "p5": 0.0, "p50": 0.0003113171485601924, "p99": 0.26497910293340676 },
+    "gain1": { "mean": 0.01081950544760634, "p5": 0.00019451262775502983, "p50": 0.0012242580901598557, "p99": 0.2658738223299682 },
+    "gain4": { "mean": 0.013734288987968234, "p5": 0.0006908034113724716, "p50": 0.0037424256929196415, "p99": 0.26837162072065485 },
+    "gain16": { "mean": 0.02538836266519465, "p5": 0.002524177792724223, "p50": 0.013215391024947166, "p99": 0.27993454748818275 }
+  },
+  "png": {
+    "off": "artifacts/day_0828/a1_lamp_lights/png/lamp_off.png",
+    "gain1": "artifacts/day_0828/a1_lamp_lights/png/lamp_on_g1.png",
+    "gain4": "artifacts/day_0828/a1_lamp_lights/png/lamp_on_g4.png",
+    "gain16": "artifacts/day_0828/a1_lamp_lights/png/lamp_on_g16.png",
+    "view": "exr_view.py --exposure 16 --mode aces"
+  },
+  "known_limits": [
+    "贡献剔除门为 branchless soft-gate：阈值边界 ±1e-30 邻域内 gate 为 (0,1) 过渡值（软阈值，非硬切）；阈值 0 时恒 1.0 位级恒等已由验收 2/3/6 位级锚承载",
+    "大合并簇 radius 3.11m：0.6m 网格 26 邻域把吧台上方一串灯片合一，中心 3.11m 球内遮挡体不投影（阴影射线截断语义）——本视角无可见伪影，K/网格粒度调优留 A3",
+    "GGX on + 被剔除灯：spec 项 ALU 照跑（贡献恒 +0.0）——contrib>0 时省的是阴影射线不是 GGX ALU",
+    "提取灯为各向同性点光近似（Lambert 灯片实际半球发射）：gain 语义即此近似的标定钮，最终档位 A3 拍板",
+    "--lamp-contrib >0 控帧档本轮未实测（scene_gpu 2.88ms 未超 3ms 预算未触发）"
+  ],
+  "rollback": "git checkout -- src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs src/rurix-render/src/bin/g14_3_pipeline_perf.rs src/rurix-render/src/bin/g31_window_present.rs 会连带回退昨夜 D2/D6 未提交改动——A1 单独回退须用本文件 changed_files 清单手工摘除 A1 段；kernel 回退 = 撤销 g18_smooth_nrm.rx A1 段 + 重编 SPV"
+}

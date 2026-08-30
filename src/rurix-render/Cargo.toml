@@ -438,6 +438,45 @@ name = "g31_restir_wiring"
 path = "src/bin/g31_restir_wiring.rs"
 required-features = ["vulkan"]
 
+# G31 W2 VSM 页管线 device 闭环判档 probe(TODO #104/#106 判档配套;报告 =
+# artifacts/day_0830_delivery/w2_wiring/vsm_shadow/REPORT.md):消费冻结 M19
+# 16 帧金标准(shadow/{vsm,page_cache}.rs 本体 0-byte)三腿闭环 —— 逐帧
+# vsm_page_mark_project 位图逐位/逐槽对拍 + 逐帧脏页批次 vsm_depth_raster_mv
+# 重建 vs golden dirty_depth(逐纹素 ≤1e-6 G7.5 冻结口径)+ 逐帧 vsm_sample
+# (+local)采样值位级/digest 对拍;SPV 运行时 --spv-dir 装载(uc06 冻结
+# kernels 的 rurixc 产物,本 bin 无编译面);--selftest 纯 CPU судья自证
+# (绿臂 + 位图翻位/纹素扰动/采样翻转三证伪臂)。
+[[bin]]
+name = "g31_vsm_device_probe"
+path = "src/bin/g31_vsm_device_probe.rs"
+required-features = ["vulkan"]
+
+# G37 W3 异步 compute 三件套判档 probe(TODO #57/#59/#60/#62;设计事实源 =
+# artifacts/day_0830_delivery/w3_deep/async/PLAN.md):三臂 —— ①单队列基线
+# (enable_async=false 重编译,显式 single-queue plan)②双队列臂(compute-only
+# family + 单条 timeline semaphore,消费 plan_submission_segments 段切分 +
+# 值域合法化)③digest 逐字节等价门(硬前置)+ 双跑位级 + GPU 时间戳重叠率
+# evidence(vk::run_async_lanes,G37 W3 async 加性面);--selftest 纯 CPU
+# (段切分/合法化红绿/回落重编译);--judge 输出 M59 重判两态;三态纪律
+# (无设备 skipped_dev_env 退 0,RURIX_REQUIRE_REAL=1 翻硬红)。
+[[bin]]
+name = "g31_async_lanes_probe"
+path = "src/bin/g31_async_lanes_probe.rs"
+required-features = ["vulkan"]
+
+# G37 W3 FIF×动态共存判档 probe(TODO #90;G36 五留窗之一;RFC 草案 =
+# artifacts/day_0830_delivery/w3_deep/fif_dyn/RFC_DRAFT_RFC0030_amendment.md):
+# 三臂 —— A 单槽顺序 tlas_update 基线(现行为)/ B inflight=2 每槽 AS 副本
+# (每槽实例缓冲+TLAS 副本+每槽描述符集,rurix-rt render_exec_g37_fif_dyn 加性
+# 入口 submit_with_frame_update_slot_as)/ C inflight=3 同构;判据 = B/C 与 A
+# 逐帧 digest 逐字节相等 + 三臂双跑位级 + validation=0 + 错槽/跨槽 RED 必拒,
+# 帧时 measured 登记;--selftest 纯 host(槽纪律/槽环隔离/轨迹/kernel);三态
+# 纪律(无设备 skipped_dev_env 退 0,RURIX_REQUIRE_REAL=1 翻硬红)。
+[[bin]]
+name = "g31_fif_dyn_probe"
+path = "src/bin/g31_fif_dyn_probe.rs"
+required-features = ["vulkan"]
+
 # G35-1 GPU 粒子基元 device probe harness(门 g35.wave1.primitives;RFC-0049 §4):
 # 分段稳定 scan 三 kernel + 24 位键 3-pass 稳定 radix sort + compact_u32
 # (kernels/g35_scan_*.rx + g35_sort_*.rx + g35_compact_u32.rx,rurixc --target
@@ -517,6 +556,39 @@ path = "src/bin/g35_authoring_probe.rs"
 name = "g35_replay_device"
 path = "src/bin/g35_replay_device.rs"
 required-features = ["vulkan"]
+
+# G37 W2 visbuffer:#74/#111 VisBuffer + classify/resolve 窗口生产证据臂独立
+# 接线 harness(门面归主 agent 合入波):g14_3_lane_body + g31_visbuffer_arm 双
+# include(臂实现单源,g31_window_present 合入提案消费同一文件)——契约装配
+# bistro → RXCP 簇包 fail-closed 校验 → 相机样本梯 → cut→SW/HW 分箱→SW
+# compute 软光栅 device 真跑(M95 u64 原子腿)→覆盖对拍+双跑位级→合并→
+# classify/resolve → sidecar JSON;三态 skipped_dev_env 退 0。
+[[bin]]
+name = "g31_visbuffer_wiring"
+path = "src/bin/g31_visbuffer_wiring.rs"
+required-features = ["vendor-upscale"]
+
+# G37 W3 逐帧 device cut → AS 更新判档 harness(#77×#89 合流窗;G36 五留窗
+# 「出帧几何冻结于装配期选层」解冻最小判档面):RXCP 全簇固定槽位 refit 竞技场
+# (零面积折叠切换簇进出,B5 blas_refit 冻结通路)+ 固定 dolly 逐帧 host 金标准
+# cut → UPDATE build → ray query 命中流 digest;双跑位级 + cut_tris 单调 +
+# 命中∈已施加 cut 全 fail-closed;--selftest 纯 host 腿;三态 skipped_dev_env。
+[[bin]]
+name = "g31_frame_cut_probe"
+path = "src/bin/g31_frame_cut_probe.rs"
+required-features = ["vendor-upscale"]
+
+# G31 Bistro PT 真值对照器:g14_3_lane_body 装配产物(include! 逐字共享,
+# 共享体 0-byte)接 G12 生产 PT kernel 演进 fork(kernels/g31_pt_gt.rx =
+# 母版 g12_pt_production + trinrm/12f mats/灯半径槽/spec·nrm 门加性扩展,
+# 主线并行编写——本 bin 仅运行时 --spv 装载,不依赖其编译)。--render
+# (match|area 双灯预设 + 双跑位级 + EXR/receipt)/--selftest equiv(fork
+# gates off vs 母版冻结 SPV 逐位等价机核)/--selftest furnace(GGX 白炉
+# 能量守恒带 + metal 单调 + dielectric 带)。
+[[bin]]
+name = "g31_pt_gt"
+path = "src/bin/g31_pt_gt.rs"
+required-features = ["vendor-upscale"]
 
 [lints]
 workspace = true

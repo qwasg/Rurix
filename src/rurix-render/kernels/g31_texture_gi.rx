@@ -30,17 +30,34 @@
 // 注入面 = SPV 文件 0-byte 后处理，驱动 FMA 收缩禁面——bilinear/LUT
 // 链与 host 参考逐 op 位级对拍的前提）。
 //
-// ## 参数面（前 9 项与 g14_3_direct_gi.rx 逐字同源 + B4 采样面 5 项）
-//   tlas/tris/mats/quads/points/params：与母版逐字同（params 48 f32 同布局，
-//   host bin `g14_3_pipeline_perf::pack_frame_params` 单一事实源不变）。
+// ## 参数面（前 9 项与 g14_3_direct_gi.rx 逐字同源 + Phase B texel heap 采样面）
+//   tlas/tris/mats/quads/points/params：与母版逐字同（params 56 f32 同布局，
+//   host bin `g14_3_pipeline_perf::pack_frame_params` 单一事实源不变；
+//   **params[50] = k_pix = 2·tan(fovy/2)/height**——mip 选择像素锥角，
+//   host pack_frame_params_tex 打包，textures off 车道恒 0 与零填充逐位同值）。
 //   texuv: 6 f32/tri TEXCOORD_0（装配期与 tris 同序烘焙）；
-//   texmeta: [0]=atlas_w [1]=atlas_h [2]=slot_count [3..8]=reserved；
-//            槽 k 于 [8+k*8..+8] = [origin_x, origin_y, w, h, mod_r, mod_g, mod_b, 0]；
-//   tritex: 1 f32/tri（槽 k≥0 或 −1 = 常量面；整数值 f32 精确域 ≤2^24）；
-//   atlas: u32/texel 打包 RGBA8（R|G<<8|B<<16|A<<24；host bcdec 镜像解码
-//          BC1/BC3 mip0 → 2048 网格图集，G11.3 manifest rgba8_digest 互核面）；
+//   texmeta: [0]=头表项数（slot_count×13） [1]=0 [2]=slot_count [3..8]=reserved；
+//            槽 k 于 [8+k*8..+8] = [0, 0, w_base, h_base, mod_r, mod_g, mod_b,
+//            mip_count]（day_0828 Phase B heap 化：origin 两槽废弃恒 0；w/h =
+//            存储基级尺寸〔cap-1024 档〕；[sb+7] = 存储 mip 级数）；
+//   tritex: **2 f32/tri [slot, k_tri]**（slot k≥0 或 −1 = 常量面，整数值 f32
+//           精确域 ≤2^24；k_tri = sqrt(uv_area/world_area) 装配期逐三角预算
+//           ——mip 选择 UV 密度项）；
+//   atlas: **一维 texel heap**（u32 打包 RGBA8 R|G<<8|B<<16|A<<24）：头部 =
+//          u32 偏移头表（slot_count×13 项，[k*13+m] = 槽 k mip m texel 段的
+//          绝对 u32 下标；缺级槽位重复末级偏移），随后逐槽逐级连续 texel 段
+//          （DDS 源 mip 直搬 cap-1024 档；G11.3 manifest mip0 digest 互核面
+//          + 逐级 digest 新 evidence 字段）；
 //   linlut: 256 f32 srgb→linear LUT（host srgb_to_linear 逐字同式）；
 //   out_color: 3 f32/px scene-linear HDR；out_depth: 1 f32/px ZO NDC。
+//
+// ## mip 选择（Phase B；nearest-mip + bilinear，4 fetch 不变）
+//   lod = clamp(floor(log2(th·k_pix·k_tri·w_base)), 0, mip_count−1)——th =
+//   committed_t() 主命中距离（寄存器现成）；th·k_pix = 命中距离处单像素世界
+//   尺寸；×k_tri×w_base = 单像素 texel 覆盖数；log2/floor 全 f32（GPU log2
+//   驱动内确定 ⇒ 双跑位级一致门成立；host 对拍面 = 探针臂显式 lod 注入，
+//   绕开 log2 器件差异——p100=0.0 位级硬门继续）。级尺寸经逐级 ×0.5 折半
+//   （pow2 值域精确，min 1 texel 保底）⇒ wrap 回绕 f32 精确域不破。
 #[numthreads(8, 8, 1)]
 kernel fn g31_texture_gi(
     tlas: AccelStruct,
@@ -155,48 +172,64 @@ kernel fn g31_texture_gi(
         let hy = near_y + dy * th;
         let hz = near_z + dz * th;
         let mb = (prim as usize) * 8;
-        // ── B4 贴图采样 albedo（tritex[prim] ≥ 0 槽位面；< 0 = 既有常量面 0-byte；
-        //    采样块与 kernels/g31_texture_probe.rx 逐字同形——探针臂 = 本块隔离
-        //    对拍面，host 参考 = bin g14_3_lane_body::g31_tex_host_sample 同 op 序）──
-        let slotf = tritex[prim as usize];
+        // ── Phase B 贴图采样 albedo（tritex[prim×2] ≥ 0 槽位面；< 0 = 既有常量面
+        //    0-byte；采样块与 kernels/g31_texture_probe.rx 逐字同形〔探针臂 lod
+        //    显式注入，本块 lod 现场推导〕，host 参考 = bin g14_3_lane_body::
+        //    g31_tex_host_sample 同 op 序）──
+        let slotf = tritex[(prim as usize) * 2];
+        let k_tri = tritex[(prim as usize) * 2 + 1];
         let tex_gate = (slotf + 1.0).min(1.0).max(0.0);
         let slot = slotf.max(0.0) as usize;
         let sb = 8 + slot * 8;
-        let ox = texmeta[sb];
-        let oy = texmeta[sb + 1];
         let tw = texmeta[sb + 2];
         let th2 = texmeta[sb + 3];
         let mod_r = texmeta[sb + 4];
         let mod_g = texmeta[sb + 5];
         let mod_b = texmeta[sb + 6];
-        let aw = texmeta[0];
+        let mips = texmeta[sb + 7];
         let bw_ = 1.0 - bu - bv;
         let ub = (prim as usize) * 6;
         let uu0 = bw_ * texuv[ub] + bu * texuv[ub + 2] + bv * texuv[ub + 4];
         let vv0 = bw_ * texuv[ub + 1] + bu * texuv[ub + 3] + bv * texuv[ub + 5];
+        // mip 选择（文件头 §mip；miss 像素 th=0 → max(tiny) → 负 log2 → 钳 0，
+        // 有效地址保底；k_tri=0 退化面同钳 0）。
+        let sel = ((th * params[50]) * k_tri) * tw;
+        let lodf = sel.max(tiny).log2().floor().max(0.0).min(mips - 1.0);
+        let lod = lodf as usize;
+        // 级尺寸逐级折半（×0.5 pow2 精确；min 1 texel 保底——16² 链尾 1×1）。
+        let mut mw = tw;
+        let mut mh = th2;
+        let mut li = 0usize;
+        while li < lod {
+            mw = (mw * 0.5).max(1.0);
+            mh = (mh * 0.5).max(1.0);
+            li = li + 1;
+        }
+        // heap 头表取级基址（u32 绝对 texel 下标；usize 精确域）。
+        let hbase = atlas[slot * 13 + lod] as usize;
         // REPEAT wrap（fract 域回绕；负域 fract = x − floor(x) 同式覆盖）。
         let uu = uu0 - uu0.floor();
         let vv = vv0 - vv0.floor();
         // 双线性（G26 sample_bilinear 逐字：floor 未钳 frac）。
-        let xf = uu * tw - 0.5;
-        let yf = vv * th2 - 0.5;
+        let xf = uu * mw - 0.5;
+        let yf = vv * mh - 0.5;
         let bxf = xf.floor();
         let byf = yf.floor();
         let fx = xf - bxf;
         let fy = yf - byf;
         // wrap 域纹素坐标（bxf ∈ [−1, w−1] 单回绕面；pow2 尺寸 ⇒ inv 精确）。
-        let inv_tw = 1.0 / tw;
-        let inv_th = 1.0 / th2;
-        let x0 = bxf - (bxf * inv_tw).floor() * tw;
-        let y0 = byf - (byf * inv_th).floor() * th2;
-        let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * tw;
-        let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * th2;
-        // 图集线性地址（图集 texel 数 >2^24 ⇒ 积域转 usize 精确；oy+y0/ox+x0
-        // f32 精确域 <2^24 先加后转）。
-        let a00 = ((oy + y0) as usize) * (aw as usize) + ((ox + x0) as usize);
-        let a10 = ((oy + y0) as usize) * (aw as usize) + ((ox + x1) as usize);
-        let a01 = ((oy + y1) as usize) * (aw as usize) + ((ox + x0) as usize);
-        let a11 = ((oy + y1) as usize) * (aw as usize) + ((ox + x1) as usize);
+        let inv_tw = 1.0 / mw;
+        let inv_th = 1.0 / mh;
+        let x0 = bxf - (bxf * inv_tw).floor() * mw;
+        let y0 = byf - (byf * inv_th).floor() * mh;
+        let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * mw;
+        let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * mh;
+        // heap 线性地址（heap texel 数 >2^24 ⇒ 积域转 usize 精确；级内行距 =
+        // 级宽 mw；y0/x0 整数值 f32 精确域先转后积）。
+        let a00 = hbase + (y0 as usize) * (mw as usize) + (x0 as usize);
+        let a10 = hbase + (y0 as usize) * (mw as usize) + (x1 as usize);
+        let a01 = hbase + (y1 as usize) * (mw as usize) + (x0 as usize);
+        let a11 = hbase + (y1 as usize) * (mw as usize) + (x1 as usize);
         // u32 打包纹素 unpack（usize 精确算术；R|G<<8|B<<16|A<<24 布局）。
         let p00 = atlas[a00] as usize;
         let p10 = atlas[a10] as usize;
@@ -216,14 +249,16 @@ kernel fn g31_texture_gi(
         let p11_g = linlut[(p11 / 256usize) % 256usize];
         let p11_b = linlut[(p11 / 65536usize) % 256usize];
         // top/bot/mix（G26 操作序逐字）× mod（factor×(1−metallic) 装配期预算）。
+        // day_0828 Phase B：G/B 底行水平混合 fy→fx 修正（原 fork 笔误，R 通道
+        // 正确形为准；host 镜像同步改，探针 p100=0.0 位级绿维持）。
         let t0r = p00_r * (1.0 - fx) + p10_r * fx;
         let b0r = p01_r * (1.0 - fx) + p11_r * fx;
         let samp_r = (t0r * (1.0 - fy) + b0r * fy) * mod_r;
         let t0g = p00_g * (1.0 - fx) + p10_g * fx;
-        let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+        let b0g = p01_g * (1.0 - fx) + p11_g * fx;
         let samp_g = (t0g * (1.0 - fy) + b0g * fy) * mod_g;
         let t0b = p00_b * (1.0 - fx) + p10_b * fx;
-        let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+        let b0b = p01_b * (1.0 - fx) + p11_b * fx;
         let samp_b = (t0b * (1.0 - fy) + b0b * fy) * mod_b;
         let al_r = tex_gate * samp_r + (1.0 - tex_gate) * mats[mb];
         let al_g = tex_gate * samp_g + (1.0 - tex_gate) * mats[mb + 1];

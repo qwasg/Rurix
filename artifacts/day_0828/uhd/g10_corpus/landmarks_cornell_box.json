@@ -1,0 +1,12 @@
+{
+  "schema": "rurix.g10.application_probe_landmarks.v1",
+  "scene_id": "cornell-box",
+  "spec_ref": "spec/visual_comparison.md RXS-0390 L2（逐值字面冻结）",
+  "landmarks": [
+    [0.0, 0.0, 558.8],
+    [552.8, 0.0, 558.8],
+    [552.8, 548.8, 558.8],
+    [0.0, 548.8, 558.8],
+    [276.4, 274.4, 558.8]
+  ]
+}

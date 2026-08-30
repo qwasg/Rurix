@@ -1,0 +1,16 @@
+{
+ "schema": "rurix.day0828.e1.quality_full_storm.v1",
+ "arm": "--quality full --window-storm 3（dolly 30f）",
+ "rc": 0,
+ "wall_s": 126.9,
+ "resize_eras": 1,
+ "exit_reason": "frames_done",
+ "vuid_hits": 0,
+ "pass": true,
+ "note": "AE 状态 resize 复位 ~12 帧半衰属预期（A2 在案）,登记不判红",
+ "stderr_tail": [
+  "[g31_window_present]: 帧 34/34 render=6.167ms(gpu_encode=0.032ms) present=0.418ms digest=31.584ms",
+  "[g31_window_present]: storm resize_ops=3 min_cycles=0 min_skips=0 resize_eras=1 window_storm=3 storm_soak=0",
+  "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_storm.json"
+ ]
+}

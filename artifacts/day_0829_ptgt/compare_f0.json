@@ -1,0 +1,125 @@
+{
+ "schema": "rurix.day0829.ptgt.compare.v1",
+ "arm": "f0",
+ "pt_gain": 16.0,
+ "inputs": {
+  "pt": {
+   "path": "H:\\rurix\\artifacts\\day_0829_ptgt\\render\\bistro-interior_ptgt_match_spp64.exr",
+   "format": "exr",
+   "w": 960,
+   "h": 540,
+   "pt_gain": 16.0
+  },
+  "raster_off": {
+   "path": "H:\\rurix\\artifacts\\day_0829_ptgt\\raster\\f0off_f32.bin",
+   "format": "bin",
+   "w": 1920,
+   "h": 1080
+  },
+  "raster_on": {
+   "path": "H:\\rurix\\artifacts\\day_0829_ptgt\\raster\\f0on_f32.bin",
+   "format": "bin",
+   "w": 1920,
+   "h": 1080
+  }
+ },
+ "common_grid": [
+  960,
+  540
+ ],
+ "mask_rel_thr": 0.02,
+ "fullscreen": {
+  "mean_luma_pt": 0.025628901537337337,
+  "mean_luma_off": 0.03265555888175356,
+  "mean_luma_on": 0.03392176849020478,
+  "ratio_on_off": 1.0387747033525345,
+  "ratio_pt_off": 0.7848250777192364
+ },
+ "mask": {
+  "mask_frac": 0.4808989197530864,
+  "mask_px": 249298,
+  "total_px": 518400,
+  "mean_pt": 0.02754499297458973,
+  "mean_off": 0.019677025959642915,
+  "mean_on": 0.022146830679483278,
+  "dist_off": 0.007867967014946815,
+  "dist_on": 0.005398162295106451,
+  "closer_to_pt": "on",
+  "margin": 0.08966438009691124
+ },
+ "rois": {
+  "wall": {
+   "base_window_1080p": [
+    1400,
+    150,
+    480,
+    270
+   ],
+   "window": [
+    700,
+    75,
+    240,
+    135
+   ],
+   "mean_pt": 0.06760141245911307,
+   "mean_off": 0.0715730320914415,
+   "mean_on": 0.07747066611081677
+  },
+  "floor": {
+   "base_window_1080p": [
+    1100,
+    800,
+    480,
+    270
+   ],
+   "window": [
+    550,
+    400,
+    240,
+    135
+   ],
+   "mean_pt": 0.013866643602095208,
+   "mean_off": 0.010763537835145692,
+   "mean_on": 0.011159401172170477
+  },
+  "dark_arch": {
+   "base_window_1080p": [
+    360,
+    0,
+    360,
+    180
+   ],
+   "window": [
+    180,
+    0,
+    180,
+    90
+   ],
+   "mean_pt": 0.018914939674158585,
+   "mean_off": 0.003918291405438111,
+   "mean_on": 0.004004819980115482
+  },
+  "dark_table": {
+   "base_window_1080p": [
+    560,
+    560,
+    560,
+    200
+   ],
+   "window": [
+    280,
+    280,
+    280,
+    100
+   ],
+   "mean_pt": 0.007614181517225329,
+   "mean_off": 0.005836678216776529,
+   "mean_on": 0.0059871159942076835
+  }
+ },
+ "percentiles": {
+  "metric": "|on-pt|/max(pt,1e-6) 掩码内",
+  "p50": 0.24867792912856806,
+  "p95": 0.8792429713867778
+ }
+}

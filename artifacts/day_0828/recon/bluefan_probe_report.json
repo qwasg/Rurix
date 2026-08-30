@@ -1,0 +1,478 @@
+{
+ "receipts": {
+  "bloom_off": {
+   "visible": false,
+   "channel_order": "bgra8_unorm",
+   "spv_scene": ".tmp/g14_gates/m_c/g14_3_direct_gi.spv"
+  },
+  "bloom_on": {
+   "visible": false,
+   "channel_order": "bgra8_unorm",
+   "spv_scene": ".tmp/g14_gates/m_c/g14_3_direct_gi.spv"
+  },
+  "hero_base": {
+   "visible": false,
+   "channel_order": "bgra8_unorm",
+   "spv_scene": ".tmp/g14_gates/m_c/g14_3_direct_gi.spv"
+  },
+  "hero_full": {
+   "visible": false,
+   "channel_order": "bgra8_unorm",
+   "spv_scene": ".tmp/night_0828/spv/g18_smooth_nrm.spv"
+  },
+  "hero_ultimate": {
+   "visible": false,
+   "channel_order": "bgra8_unorm",
+   "spv_scene": ".tmp/night_0828/spv/g18_smooth_nrm.spv"
+  }
+ },
+ "raw": {
+  "bloom_off.raw": {
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     170,
+     62,
+     0,
+     255
+    ],
+    "if_BGRA→RGB": [
+     0,
+     62,
+     170
+    ],
+    "if_RGBA→RGB": [
+     170,
+     62,
+     0
+    ]
+   },
+   "wall(1700,430)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     16,
+     13,
+     25,
+     255
+    ],
+    "if_BGRA→RGB": [
+     25,
+     13,
+     16
+    ],
+    "if_RGBA→RGB": [
+     16,
+     13,
+     25
+    ]
+   },
+   "fan_region_mean_file_bytes": [
+    26.1,
+    23.6,
+    23.7,
+    255.0
+   ]
+  },
+  "bloom_on.raw": {
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     170,
+     62,
+     0,
+     255
+    ],
+    "if_BGRA→RGB": [
+     0,
+     62,
+     170
+    ],
+    "if_RGBA→RGB": [
+     170,
+     62,
+     0
+    ]
+   },
+   "wall(1700,430)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     16,
+     13,
+     25,
+     255
+    ],
+    "if_BGRA→RGB": [
+     25,
+     13,
+     16
+    ],
+    "if_RGBA→RGB": [
+     16,
+     13,
+     25
+    ]
+   },
+   "fan_region_mean_file_bytes": [
+    26.5,
+    24.0,
+    24.0,
+    255.0
+   ]
+  },
+  "hero_base.raw": {
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     0,
+     0,
+     0,
+     255
+    ],
+    "if_BGRA→RGB": [
+     0,
+     0,
+     0
+    ],
+    "if_RGBA→RGB": [
+     0,
+     0,
+     0
+    ]
+   },
+   "wall(1700,430)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     17,
+     14,
+     26,
+     255
+    ],
+    "if_BGRA→RGB": [
+     26,
+     14,
+     17
+    ],
+    "if_RGBA→RGB": [
+     17,
+     14,
+     26
+    ]
+   },
+   "fan_region_mean_file_bytes": [
+    20.4,
+    15.2,
+    15.6,
+    255.0
+   ]
+  },
+  "hero_full.raw": {
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     31,
+     32,
+     33,
+     255
+    ],
+    "if_BGRA→RGB": [
+     33,
+     32,
+     31
+    ],
+    "if_RGBA→RGB": [
+     31,
+     32,
+     33
+    ]
+   },
+   "wall(1700,430)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     22,
+     30,
+     19,
+     255
+    ],
+    "if_BGRA→RGB": [
+     19,
+     30,
+     22
+    ],
+    "if_RGBA→RGB": [
+     22,
+     30,
+     19
+    ]
+   },
+   "fan_region_mean_file_bytes": [
+    38.7,
+    33.3,
+    36.2,
+    255.0
+   ]
+  },
+  "hero_ultimate.raw": {
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     31,
+     33,
+     34,
+     255
+    ],
+    "if_BGRA→RGB": [
+     34,
+     33,
+     31
+    ],
+    "if_RGBA→RGB": [
+     31,
+     33,
+     34
+    ]
+   },
+   "wall(1700,430)": {
+    "file_bytes[b0,b1,b2,b3]": [
+     30,
+     33,
+     13,
+     255
+    ],
+    "if_BGRA→RGB": [
+     13,
+     33,
+     30
+    ],
+    "if_RGBA→RGB": [
+     30,
+     33,
+     13
+    ]
+   },
+   "fan_region_mean_file_bytes": [
+    38.7,
+    34.9,
+    35.3,
+    255.0
+   ]
+  }
+ },
+ "png": {
+  "bloom_off.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    0,
+    62,
+    170
+   ],
+   "wall(1700,430)_RGB": [
+    25,
+    13,
+    16
+   ]
+  },
+  "bloom_on.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    0,
+    62,
+    170
+   ],
+   "wall(1700,430)_RGB": [
+    25,
+    13,
+    16
+   ]
+  },
+  "hero_base.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    0,
+    0,
+    0
+   ],
+   "wall(1700,430)_RGB": [
+    26,
+    14,
+    17
+   ]
+  },
+  "hero_full.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    33,
+    32,
+    31
+   ],
+   "wall(1700,430)_RGB": [
+    19,
+    30,
+    22
+   ]
+  },
+  "hero_ultimate.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    34,
+    33,
+    31
+   ],
+   "wall(1700,430)_RGB": [
+    13,
+    33,
+    30
+   ]
+  },
+  "d2w_off_ref.png": {
+   "mode": "RGBA",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    0,
+    62,
+    170
+   ],
+   "wall(1700,430)_RGB": [
+    25,
+    13,
+    16
+   ]
+  },
+  "ultimate_before_after.png": {
+   "size": [
+    1920,
+    2166
+   ],
+   "top_fan(1500,12)_RGB": [
+    0,
+    0,
+    0
+   ],
+   "bottom_fan(1500,h/2+12)_RGB": [
+    33,
+    31,
+    30
+   ]
+  },
+  "window_before_after.png": {
+   "size": [
+    1920,
+    2166
+   ],
+   "top_fan(1500,12)_RGB": [
+    0,
+    0,
+    0
+   ],
+   "bottom_fan(1500,h/2+12)_RGB": [
+    33,
+    32,
+    31
+   ]
+  },
+  "presentation_night.png(quality_base)": {
+   "error": "Error -3 while decompressing data: incorrect data check"
+  },
+  "exr_view:ambient_on_aces.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    188,
+    166,
+    104
+   ],
+   "wall(1700,430)_RGB": [
+    8,
+    2,
+    1
+   ]
+  },
+  "exr_view:baseline_aces.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    188,
+    166,
+    104
+   ],
+   "wall(1700,430)_RGB": [
+    2,
+    0,
+    0
+   ]
+  },
+  "exr_view:gi_aces.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    188,
+    166,
+    104
+   ],
+   "wall(1700,430)_RGB": [
+    2,
+    0,
+    0
+   ]
+  },
+  "exr_view:snrm_on_aces.png": {
+   "mode": "RGB",
+   "size": [
+    1920,
+    1080
+   ],
+   "fan(1500,12)_RGB": [
+    188,
+    166,
+    104
+   ],
+   "wall(1700,430)_RGB": [
+    2,
+    0,
+    0
+   ]
+  }
+ }
+}

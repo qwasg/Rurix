@@ -1,0 +1,139 @@
+{
+ "schema": "rurix.day0828.b_textures.visual_metrics.v1",
+ "crops": {
+  "paris_paintings_right_wall": {
+   "off": {
+    "mean_rgb": [
+     156.35,
+     119.04,
+     102.32
+    ],
+    "std_rgb": [
+     43.71,
+     41.67,
+     36.34
+    ]
+   },
+   "on": {
+    "mean_rgb": [
+     171.27,
+     137.41,
+     122.28
+    ],
+    "std_rgb": [
+     47.47,
+     44.62,
+     42.92
+    ]
+   },
+   "window": [
+    1330,
+    270,
+    590,
+    230
+   ],
+   "png": "artifacts/day_0828/b_textures/png/crop_paintings_off_vs_on.png"
+  },
+  "plaster_red_wall": {
+   "off": {
+    "mean_rgb": [
+     142.16,
+     93.76,
+     77.01
+    ],
+    "std_rgb": [
+     44.96,
+     32.58,
+     27.73
+    ]
+   },
+   "on": {
+    "mean_rgb": [
+     162.92,
+     117.27,
+     99.34
+    ],
+    "std_rgb": [
+     51.37,
+     41.85,
+     37.5
+    ]
+   },
+   "window": [
+    1620,
+    100,
+    280,
+    170
+   ],
+   "png": "artifacts/day_0828/b_textures/png/crop_plaster_red_off_vs_on.png"
+  },
+  "floor_tile_hex_substitute": {
+   "off": {
+    "mean_rgb": [
+     76.4,
+     71.53,
+     67.41
+    ],
+    "std_rgb": [
+     33.14,
+     34.7,
+     35.91
+    ]
+   },
+   "on": {
+    "mean_rgb": [
+     76.52,
+     74.01,
+     71.99
+    ],
+    "std_rgb": [
+     43.81,
+     44.71,
+     45.59
+    ]
+   },
+   "window": [
+    700,
+    700,
+    520,
+    300
+   ],
+   "png": "artifacts/day_0828/b_textures/png/crop_floor_tile_off_vs_on.png"
+  }
+ },
+ "curtain_note": "curtainB1(mat14)/curtainA(mat13) 契约相机前向投影 0 顶点在框（centroid 距相机 ~4.3m,方位角 −82°）;orbit/dolly 轨迹摆头 ±17°/±11° 不可达 ⇒ 三验收位以 floor_tile_hex 替补,curtainB1 槽位覆盖走 heap 装载（slot 映射 + 探针 p100=0.0 三 mip 级）登记",
+ "color_blocks": {
+  "off": {
+   "min_area_px": 5000,
+   "components_ge_min": 26,
+   "area_ge_min_px": 282410,
+   "area_ge_min_frac": 0.136193,
+   "top8_components_px": [
+    49462,
+    42138,
+    18621,
+    14036,
+    11553,
+    9873,
+    9190,
+    8850
+   ]
+  },
+  "on": {
+   "min_area_px": 5000,
+   "components_ge_min": 1,
+   "area_ge_min_px": 6101,
+   "area_ge_min_frac": 0.002942,
+   "top8_components_px": [
+    6101
+   ]
+  },
+  "reduction": {
+   "area_frac_off": 0.136193,
+   "area_frac_on": 0.002942,
+   "area_reduction_pct": 97.84,
+   "count_off": 26,
+   "count_on": 1
+  }
+ }
+}

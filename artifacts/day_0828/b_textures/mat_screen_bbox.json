@@ -1,0 +1,34 @@
+{
+ "curtainB1": {
+  "verts_total": 15748,
+  "verts_in_frame": 0
+ },
+ "MASTER_Interior_01_Plaster_Red": {
+  "verts_total": 823,
+  "verts_in_frame": 236,
+  "bbox_px": [
+   157,
+   36,
+   1285,
+   494
+  ],
+  "median_px": [
+   1018,
+   452
+  ]
+ },
+ "Paris_Paintings": {
+  "verts_total": 118,
+  "verts_in_frame": 34,
+  "bbox_px": [
+   78,
+   164,
+   1874,
+   424
+  ],
+  "median_px": [
+   1164,
+   338
+  ]
+ }
+}

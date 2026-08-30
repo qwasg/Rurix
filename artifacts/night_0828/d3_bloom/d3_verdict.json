@@ -1,0 +1,102 @@
+{
+  "schema": "rurix.night0828.d3_bloom_wiring_verdict.v1",
+  "baseline_anchor": {
+    "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00",
+    "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "source": "d3_phase1_baseline.json（pre-bloom target-night == target/release 23:37 交叉锚）"
+  },
+  "arms": {
+    "off_run1": {
+      "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00",
+      "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+      "real_render_frame_ms": 5.9764,
+      "encode_gpu_ms": 0.105984
+    },
+    "off_run2": {
+      "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00",
+      "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+      "real_render_frame_ms": 7.165838,
+      "encode_gpu_ms": 0.106112
+    },
+    "on_run1": {
+      "digest": "sha256:0e5bb71f762a83d4612e3dfde2dc0ebde3712bd59190fcf42b0559229029e058",
+      "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+      "real_render_frame_ms": 6.84405,
+      "encode_gpu_ms": 0.104448
+    },
+    "on_run2": {
+      "digest": "sha256:0e5bb71f762a83d4612e3dfde2dc0ebde3712bd59190fcf42b0559229029e058",
+      "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+      "real_render_frame_ms": 6.995025,
+      "encode_gpu_ms": 0.105216
+    }
+  },
+  "timing": {
+    "off": {
+      "real_render_frame_ms": 5.9764,
+      "encode_gpu_ms": 0.105984,
+      "per_pass": {
+        "n_frames": 8,
+        "bloom_per_pass_ms": {},
+        "bloom_total_ms": 0,
+        "all_pass_ms": {
+          "g14_3_direct_gi": 1.042644,
+          "g14_mv": 0.034048,
+          "g14_8_tsr_resample": 0.141312,
+          "g14_8_tsr_resolve": 0.391936,
+          "g31_display_encode": 0.106112
+        }
+      }
+    },
+    "on": {
+      "real_render_frame_ms": 6.84405,
+      "encode_gpu_ms": 0.104448,
+      "per_pass": {
+        "n_frames": 8,
+        "bloom_per_pass_ms": {
+          "g31_bloom_bright": 0.059008,
+          "g31_bloom_blur_h": 0.019456,
+          "g31_bloom_blur_v": 0.017024,
+          "g31_bloom_composite": 0.118656
+        },
+        "bloom_total_ms": 0.214144,
+        "all_pass_ms": {
+          "g14_3_direct_gi": 0.960456,
+          "g14_mv": 0.033408,
+          "g14_8_tsr_resample": 0.141056,
+          "g14_8_tsr_resolve": 0.481536,
+          "g31_bloom_bright": 0.059008,
+          "g31_bloom_blur_h": 0.019456,
+          "g31_bloom_blur_v": 0.017024,
+          "g31_bloom_composite": 0.118656,
+          "g31_display_encode": 0.105216
+        }
+      }
+    },
+    "bloom_gpu_increment_ms_measured": 0.214144,
+    "wall_delta_note": "real_render_frame_ms on−off 差值在 8 帧小预算+逐帧 fence 口径下为噪声主导（off 双臂自身 run 间差 ~1.2ms）;可信增量 = 逐 pass telemetry 的 bloom 四段合计 0.214ms（对照生产五段 GPU 链 ~1.72ms ≈ +12%）"
+  },
+  "cli_fail_closed": {
+    "bloom_on_x_fg": true,
+    "bloom_on_x_hzb": true,
+    "bloom_on_x_textures": true,
+    "strength_without_on": true,
+    "closed_set_bogus": true
+  },
+  "checks": {
+    "off_double_run_identical": true,
+    "off_matches_pre_bloom_baseline": true,
+    "on_double_run_identical": true,
+    "on_differs_from_off": true,
+    "on_render_digest_unpolluted": true,
+    "validation_silent_all": true,
+    "all_rc_zero": true,
+    "cli_fail_closed_all": true
+  },
+  "known_gaps": [
+    "bloom 臂无可视 dump 面（--dump-last-frame 属 B3 --slab-table 闭集,与 bloom 互斥）;视觉收益由 bloom_sim.py 仿真（bloom_bloom.png）+ on≠off BGRA digest 承载",
+    "bloom on 面 evidence 沿用 A1 默认 schema（顶层键闭集 0-byte,additionalProperties=false）;bloom 登记面 = PASS 行 bloom=* 片段 + 本 verdict JSON",
+    "组合面未接线（--fg/--hzb/--textures/--svt/--slab-table/--cluster-lod/--wp-hlod 均 fail-closed 互斥）;hzb 车道 bloom 组合归后续波"
+  ],
+  "verdict": "PASS"
+}

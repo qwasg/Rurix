@@ -1,0 +1,69 @@
+{
+ "schema": "rurix.day0828.e1.disk_cleanup.phase1.v1",
+ "scope": "day_0828/**/arms/**/frames/（e_final 在飞批跑除外,收尾补刀）",
+ "kept": "converged.exr + render_receipt.json + 指标 JSON 全保",
+ "freed_bytes": 47810344320,
+ "freed_gib": 44.527,
+ "dirs": [
+  {
+   "dir": "a1_lamp_lights\\arms\\s5_render_off\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "a1_lamp_lights\\arms\\s5_render_on_g1\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "a1_lamp_lights\\arms\\s5_render_on_g16\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "a1_lamp_lights\\arms\\s5_render_on_g4\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_off_render\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_on_c001\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_on_c005\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_on_c015\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_on_render\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "c_gi_r2\\arms\\gi2_on_render2\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "d_tsr\\arms\\arm1_snrm\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "d_tsr\\arms\\arm2_snrm_tsrq\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "d_tsr\\arms\\arm3_gi2\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "d_tsr\\arms\\arm4_gi2_tsrq\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  },
+  {
+   "dir": "d_tsr\\arms\\ladder_a002\\bistro-interior\\tier100\\tsr_device\\frames",
+   "bytes": 3187356288
+  }
+ ]
+}

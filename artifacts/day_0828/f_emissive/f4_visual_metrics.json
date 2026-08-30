@@ -1,0 +1,102 @@
+{
+ "schema": "rurix.day0828.f_emissive.f4_visual_metrics.v1",
+ "protocol": "逐灯具像素集 = 1080p 契约相机窗内 off-luma≥250 饱和血块（同像素集 off/on 对比,判据不自证）;luma = BT.709 8bit",
+ "full_frame": {
+  "mean_off": 81.2421,
+  "mean_on": 81.1936,
+  "abs_delta": 0.0485
+ },
+ "rois": {
+  "ceiling_lamp": {
+   "bbox_px": [
+    1496,
+    84,
+    1652,
+    228
+   ],
+   "blob_px": 1619,
+   "blob_mean_off": 253.636,
+   "blob_mean_on": 251.305,
+   "blob_p99_on": 255.0,
+   "blob_frac_ge250_on": 0.83755,
+   "blob_frac_lt250_on": 0.16245,
+   "split": {
+    "shade": {
+     "rows": [
+      84,
+      173
+     ],
+     "px": 112,
+     "mean_off": 250.334,
+     "mean_on": 222.382,
+     "p99_on": 243.026,
+     "frac_lt250_on": 1.0
+    },
+    "bulb": {
+     "rows": [
+      173,
+      228
+     ],
+     "px": 1507,
+     "mean_off": 253.882,
+     "mean_on": 253.455,
+     "p99_on": 255.0,
+     "frac_lt250_on": 0.1002
+    }
+   }
+  },
+  "lantern": {
+   "bbox_px": [
+    800,
+    204,
+    900,
+    324
+   ],
+   "blob_px": 1845,
+   "blob_mean_off": 254.591,
+   "blob_mean_on": 220.342,
+   "blob_p99_on": 255.0,
+   "blob_frac_ge250_on": 0.7897,
+   "blob_frac_lt250_on": 0.2103
+  },
+  "lantern_2": {
+   "bbox_px": [
+    996,
+    252,
+    1092,
+    348
+   ],
+   "blob_px": 1266,
+   "blob_mean_off": 254.49,
+   "blob_mean_on": 224.701,
+   "blob_p99_on": 255.0,
+   "blob_frac_ge250_on": 0.78436,
+   "blob_frac_lt250_on": 0.21564
+  },
+  "fan": {
+   "bbox_px": [
+    1452,
+    0,
+    1716,
+    132
+   ],
+   "blob_px": 79,
+   "blob_mean_off": 252.358,
+   "blob_mean_on": 244.274,
+   "blob_p99_on": 254.22,
+   "blob_frac_ge250_on": 0.37975,
+   "blob_frac_lt250_on": 0.62025
+  }
+ },
+ "verdict": {
+  "ceiling_lamp_shade_mean_on_lt_250": true,
+  "ceiling_lamp_bulb_region_ge_250": true,
+  "full_mean_stable_lt_2": true,
+  "wall_light_note": "mat 59 契约相机 0 顶点在框（lamp_screen_rois.json）——视觉替补 = 探针双臂覆盖槽 73（SSBO p100=0 位级 + sampler ≤1LSB）+ heap 入位登记,Phase B curtainB1 同律"
+ },
+ "uhd_4k": {
+  "full_mean": 81.6545,
+  "ceiling_lamp_crop_mean": 105.609,
+  "ceiling_lamp_crop_p99": 255.0
+ }
+}

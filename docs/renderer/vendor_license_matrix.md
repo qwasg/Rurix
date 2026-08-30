@@ -82,6 +82,26 @@
 | GAP-02 | release.yml 许可单标 Apache-2.0 vs workspace 双许可字面不一致 | 同 GAP-01 链 | open |
 | GAP-03 | SBOM 组件级粒度未展开内嵌第三方库 | C5 SBOM 扩展面 | open |
 
+## 6. GAP closure 登记（G37 商业化收官 W5，2026-08-29；append-only 追加节）
+
+> 登记纪律：§5 既有行与 JSON `gaps[].status` 字面**不改写**（evidence schema 把 gap status 钉为
+> const `open`、summary 钉为 cleared 15/conditional 1——闭合态以 JSON `gaps[].closure` 追加段
+> 与本节承载）。机器核验 = `ci/g31_vendor_license_smoke.py --gate g31.waveC.license` closure 腿
+> （closed_date/actions/evidence 逐路径在树 + GAP-01 随附面接线 + GAP-02 字面互核 + GAP-03
+> 与 Cargo.lock rowan 版本互核）。
+
+| 缺口 | closure 日期 | 闭合动作 | 产出/证据 | 残余 |
+|---|---|---|---|---|
+| GAP-01 | 2026-08-29 | 第三方声明与许可文本集合落盘（rx.exe 内嵌 rowan 0.15.18 + 传递闭包 countme/hashbrown/memoffset/rustc-hash/text-size，上游源包 LICENSE 逐字随附；rurixup.exe / rurix_rt_cabi.lib 零第三方如实登记；SDK/未来捆绑面义务同链登记）+ release.yml 追加 4 组件进 digest 闭环与资产清单（LICENSE-MIT / LICENSE-APACHE / THIRD_PARTY_NOTICES.md / third_party_embedded.cdx.json） | `dist/licenses/THIRD_PARTY_NOTICES.md`、`.github/workflows/release.yml`、`artifacts/day_0830_delivery/w5_commercial/license_gaps/REPORT.md` | 历史 v1.0.1-dist.1/.2 已发布资产不可追溯补件；对下一次 release run 起效 |
+| GAP-02 | 2026-08-29 | release.yml 三个二进制 `--component` 许可段 `Apache-2.0` → `MIT OR Apache-2.0`（与 `Cargo.toml` workspace 字面逐字一致；SBOM licenseConcluded 同源同字面） | `.github/workflows/release.yml`、`Cargo.toml` | 无（各冒烟夹具单标为夹具自述，不在本 GAP 义务面） |
+| GAP-03 | 2026-08-29 | 内嵌第三方库级 CycloneDX 补充视图落盘并进发布资产（rx.exe → rowan 闭包 6 crate；两二进制零第三方如实登记；SDK 面 basis_universal static-in-dll 同批展开）；组件级生成机制 0-byte 不动 | `dist/sbom/third_party_embedded.cdx.json`、`Cargo.lock` | sbom.rs 生成器自动展开（Cargo.lock 驱动）归后续 src 授权批次 |
+
+- `rust_rowan`（§2.4 #13）条件「GAP-01 闭合后转 cleared」的义务面已兑现（JSON `closure_note` 留痕）；
+  `redistribution_status` 字面维持 conditional 不改写，正式改判 cleared 归下一次矩阵版本化修订
+  （需 evidence schema summary const 同批修订）。
+- 「附带义务未闭前不以对应形态发布」口径（G33 登记语义）：GAP-01~03 随附/字面/展开三义务已在
+  分发编排内闭合，SDK bundle 分发链的许可前置由本节 + closure 腿承载。
+
 ---
 
 *本文件随矩阵 JSON 只追加；判定变更须新行留痕，禁原地改判。*

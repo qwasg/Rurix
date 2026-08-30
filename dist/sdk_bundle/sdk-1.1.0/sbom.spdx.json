@@ -1,0 +1,321 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "rurix-sdk-1.1.0",
+  "documentNamespace": "rurix://sbom/spdx/sdk-1.1.0",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-0",
+      "name": "API_VERSIONING.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e28bda66d25274f15cfe0b0d860b7f2294a444d648b87feea5fb85a609c222ef"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-1",
+      "name": "LICENSE-APACHE",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-2",
+      "name": "LICENSE-MIT",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "82e7f8d9616f953250aecd4b204c2e7b6ac43daad8e5d644b3bbf21ef854771d"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-3",
+      "name": "THIRD_PARTY_NOTICES.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b14bdf90a696671a90f414109764f95fb75a1c0f8a68c3f2f43d76218ec11a94"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-4",
+      "name": "compatibility_matrix.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "99d80e803505d8d0881da55fddf44d18f81eee8b39ad0958a3d4a865ed0b48d5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-5",
+      "name": "feature_matrix.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0ef424422ea3ba87549f63416a5c072463d713b08d1abab35f41d843be4e6c99"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-6",
+      "name": "g13_ue_upscale_parity_contract.json",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c0d650661ac4d984de225c4833ef22086a110566029eea8d78f2c1b658d01697"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-7",
+      "name": "g14_3_direct_gi.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "970e13b9b13e66fe5c5f72f94ca0473d4e0771158af56bfb33f8891b7670da36"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-8",
+      "name": "g14_8_tsr_resample.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-9",
+      "name": "g14_8_tsr_resolve.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-10",
+      "name": "g14_mv.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-11",
+      "name": "g31_display_encode_lut.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9087b743a6fc426e065f2d673b38a04abe0abc2b65da09a3cd89ccb43f335a4b"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-12",
+      "name": "g31_realism_ris.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "622a1c33c18e645c22f91566b4c4e3e3a2871298d6b81007379dedef3425feba"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-13",
+      "name": "g31_realism_transp.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "35983d0f405169ec84bf222f4a12ec8bf8dfd7d471eefb12488eea7dd34c4f8b"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-14",
+      "name": "g34_unified_primary_skin.spv",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7d3ae216762e793908b3394eca2173c82e9559ddf7a7ae235aba8c0a5d3b87f0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-15",
+      "name": "integration_guide.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3dabcc2696a8db6fb3cf7cc2fe9b5847a6b2bb39d85f7311e79b2686cb953ad6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-16",
+      "name": "performance_tuning.md",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "73973c77f3a884f30a0a03bdefdc544cce614497548ca82c523d8c995b9e3771"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-17",
+      "name": "renderer_sdk_host.cpp",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0795e43af3224bfc24e620e4d183f8ec91a9b646bd1f68afa9d052690006d316"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-18",
+      "name": "rurix_renderer.dll",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "dd5e2034942730fd747f6d2ca254d4dc32416b2249404411d176ccbbea873cc5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-19",
+      "name": "rurix_renderer.h",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "63f8e977156bf8893b6a6b5d629e069a5c5b657639b6dd0a6575b14b1c3d8f98"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-20",
+      "name": "rurix_renderer.lib",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "213e40e14b0768366884f7f4757d667bf7e7a5374b86ae1fc097f0ea17633304"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-21",
+      "name": "rurix_renderer_sdk.dll",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1a38dd4d59c26170ac6e894e4b9ffdafe25c5bcb989b32bd740975a650df23e9"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-22",
+      "name": "rurix_renderer_sdk.lib",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "166d039efa22abb051580c14c20d0dd0ffe014916c23f20ac22d53a145027195"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-23",
+      "name": "third_party_embedded.cdx.json",
+      "versionInfo": "sdk-1.1.0",
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "comment": "partition=language-core",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b982a18ac921c6b7fec5aff52c3ed57b24fb2b08ca5bfa68cc9c42c83292bffa"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+error[RX6026]: Vulkan/SPIR-V codegen target unavailable or unsupported: spirv-val rejected emitted SPIR-V: error: line 151: block <ID> 24 branches to the selection construct, but not to the selection header <ID> 14
+  %24 = OpLabel

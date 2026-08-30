@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rurix 渲染器画质优化 — 夜间巡航成果（2026-08-28）</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #171c24; --panel2: #1d232d; --line: #2a3340;
+    --text: #e6e9ee; --dim: #9aa4b2; --accent: #5aa9e6; --good: #4ec98a; --warn: #e6b45a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; line-height: 1.6; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { padding: 28px 0 8px; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: .3px; }
+  .sub { color: var(--dim); margin-top: 8px; font-size: 14px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+  .badge { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; font-size: 12.5px; color: var(--dim); }
+  .badge b { color: var(--good); font-weight: 600; }
+  section { margin-top: 40px; }
+  h2 { font-size: 19px; font-weight: 600; margin-bottom: 6px; }
+  h2 .tag { font-size: 12px; color: var(--accent); font-weight: 500; margin-left: 8px; }
+  .desc { color: var(--dim); font-size: 13.5px; max-width: 900px; margin-bottom: 14px; }
+  .desc code { background: #0a0d12; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 12px; color: #9fd0ff; }
+  .metric { display: inline-block; background: #0a0d12; border: 1px solid var(--line); border-radius: 6px; padding: 2px 9px; font-size: 12px; color: var(--good); margin-left: 6px; }
+  .ba { position: relative; width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #000; user-select: none; touch-action: none; cursor: ew-resize; }
+  .ba img { display: block; width: 100%; height: auto; pointer-events: none; }
+  .ba .after { position: absolute; inset: 0; overflow: hidden; }
+  .ba .after img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ba .handle { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); z-index: 3; }
+  .ba .handle::after { content: "< >"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; color: #111; border-radius: 999px; padding: 6px 9px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .ba .lbl { position: absolute; top: 12px; z-index: 2; background: rgba(10,13,18,.78); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; pointer-events: none; }
+  .ba .lbl.l { left: 12px; color: #ffb3a7; }
+  .ba .lbl.r { right: 12px; color: #a7e6c8; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .card .cap { padding: 9px 13px; font-size: 12.5px; color: var(--dim); border-top: 1px solid var(--line); }
+  .card .cap b { color: var(--text); font-weight: 600; }
+  .card img { display: block; width: 100%; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; }
+  .pair img { width: 100%; display: block; }
+  .pair .b { border-left: 1px solid var(--line); }
+  .paircap { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; color: var(--dim); }
+  .paircap span { padding: 6px 12px; } .paircap span:last-child { text-align: right; color: var(--good); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+  th { background: var(--panel2); font-weight: 600; }
+  td { color: var(--dim); } td b { color: var(--text); }
+  .foot { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
+  .foot code { background: #0a0d12; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Rurix 渲染器画质优化 — 夜间巡航成果</h1>
+  <div class="sub">2026-08-28 00:18 → 08:00 · bistro-interior 1920×1080 · RTX 4070 Ti · 生产实时渲染窗口车道真跑</div>
+  <div class="badges">
+    <span class="badge"><b>6 项改进</b> 全验收</span>
+    <span class="badge"><b>零方向</b> 回退</span>
+    <span class="badge">Stage A <b>18/18</b> 零漂移</span>
+    <span class="badge">双轮独立评审 <b>可合入</b></span>
+    <span class="badge">soak <b>127 迭代 / 2.6h</b> 零失败</span>
+    <span class="badge">全特性栈 <b>~135–196 fps</b></span>
+  </div>
+</header>
+
+<section>
+  <h2>终极对照：全特性栈<span class="tag">拖动中间滑块对比</span></h2>
+  <div class="desc">左 = 全关（基线）；右 = 五臂全开（平滑法线 + GGX 高光 + 半球环境光 + bloom + TPDF 抖动）。同一 dolly 轨迹、同一确定性渲染。</div>
+  <div class="ba" data-ba>
+    <img src="hero/hero_base.png" alt="基线">
+    <div class="after"><img src="hero/hero_ultimate.png" alt="全特性栈"></div>
+    <div class="handle"></div>
+    <div class="lbl l">基线（全关）</div>
+    <div class="lbl r">全特性栈（全开）</div>
+  </div>
+</section>
+
+<section>
+  <h2>材质：平滑顶点法线 + GGX 高光</h2>
+  <div class="desc">生产臂原为逐三角面法线（flat shading）+ 纯 Lambert 漫反射 → 曲面面片感、一切粉笔感。今晚接入 glTF NORMAL 重心插值（消面片）与金属/粗糙度因子驱动的 GGX 高光（釉面/金属质感）。<span class="metric">GGX 仅 +16µs（+1.65%）</span><span class="metric">法线 ~免费</span></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="pair">
+        <img src="snrm_off_col.png" alt="法线 off">
+        <img class="b" src="snrm_on_col.png" alt="法线 on">
+      </div>
+      <div class="paircap"><span>面法线（面片感）</span><span>平滑法线 ✓</span></div>
+      <div class="cap"><b>平滑顶点法线</b> — 圆柱/曲面逐三角面片感消除，颗粒墙面 p95 ↓24%</div>
+    </div>
+    <div class="card">
+      <div class="pair">
+        <img src="d6_ggx/crop_counter_off.png" alt="GGX off">
+        <img class="b" src="d6_ggx/crop_counter_on.png" alt="GGX on">
+      </div>
+      <div class="paircap"><span>纯 Lambert（粉笔）</span><span>+GGX 高光 ✓</span></div>
+      <div class="cap"><b>GGX 高光</b> — 柜台/收银机高光带，20.2% 像素结构化 specular，无 NaN/无腐败</div>
+    </div>
+    <div class="card">
+      <div class="pair">
+        <img src="d6_ggx/crop_floor_off.png" alt="GGX 地板 off">
+        <img class="b" src="d6_ggx/crop_floor_on.png" alt="GGX 地板 on">
+      </div>
+      <div class="paircap"><span>地板（哑光）</span><span>地板（釉面 sheen）✓</span></div>
+      <div class="cap"><b>GGX 地板釉面</b> — 棋盘格地板灯光反射光泽，材质真实感成立</div>
+    </div>
+    <div class="card">
+      <div class="pair">
+        <img src="crop_dark_base.png" alt="环境光 off">
+        <img class="b" src="ambient_on_dark.png" alt="环境光 on">
+      </div>
+      <div class="paircap"><span>无环境光（死黑）</span><span>半球环境光 ✓</span></div>
+      <div class="cap"><b>半球环境光</b> — 拱下/楼梯底死黑→可读细节，均值 +38% 而高光不炸</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>图片效果：Bloom 光晕 + TPDF 抖动</h2>
+  <div class="desc">device 面 bloom 此前完全不存在（灯具 = 生硬白点）；8-bit 量化无抖动 → 渐变色带。今晚补齐 bloom 三 kernel 链（阈值→高斯→合成）与显示编码前的 TPDF 抖动。<span class="metric">bloom +0.21ms</span><span class="metric">抖动 ~免费</span></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="pair">
+        <img src="d3_bloom/bloom_off_lamp.png" alt="bloom off">
+        <img class="b" src="d3_bloom/bloom_on_lamp.png" alt="bloom on">
+      </div>
+      <div class="paircap"><span>灯具（生硬白点）</span><span>+bloom 光晕 ✓</span></div>
+      <div class="cap"><b>Bloom 光晕</b> — 差异精确集中灯具高光区（1.31% 像素，亮度 4.8×），非全屏噪声</div>
+    </div>
+    <div class="card">
+      <div class="pair">
+        <img src="d3_bloom/bloom_off.png" alt="bloom off 全图">
+        <img class="b" src="d3_bloom/bloom_on.png" alt="bloom on 全图">
+      </div>
+      <div class="paircap"><span>全图（无 bloom）</span><span>全图（有 bloom）✓</span></div>
+      <div class="cap"><b>Bloom 全图</b> — 窗口车道九 pass 链真跑，画面尽头灯具光晕可见</div>
+    </div>
+  </div>
+  <div class="desc" style="margin-top:12px">TPDF 抖动（显示编码 8-bit 量化前）：渐变恒定段 25px → 2px，色带消除（量化指标 <code>d1_dither_verify.json</code>；窗口车道 off==改前零回归 + on 生效）。</div>
+</section>
+
+<section>
+  <h2>评估登记（诚实不冒充）</h2>
+  <div class="desc">GI 多反弹臂（<code>--gi on</code>）：暗部补光有效（下图），但 g16 kernel 反弹采样用劣质 sin hash（arcsine 分布+屏空间相关）引入新颗粒，且 scene GPU ×4.4（4.5→19.9ms）跌破 60fps——<b>非净收益，登记为 opt-in 画质档不启用</b>。真解 = GI 换 RNG + 降噪（归后续）。</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="pair">
+        <img src="crop_dark_base.png" alt="GI off">
+        <img class="b" src="crop_dark_gi.png" alt="GI on">
+      </div>
+      <div class="paircap"><span>直接光（死黑）</span><span>+GI 补光（但带噪）</span></div>
+      <div class="cap"><b>GI 评估</b> — 补光有效但噪声+帧时代价 → 登记不启用（诚实红，不冒充绿）</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>验收与回归（多重独立互证）</h2>
+  <table>
+    <tr><th>验证面</th><th>结果</th></tr>
+    <tr><td>Stage A 18 格 digest 锚</td><td><b>全 18 格零漂移</b>（含全部改动的二进制跑默认臂 == 在案锚位级一致）</td></tr>
+    <tr><td>独立评审子 agent ×2</td><td><b>均可安全合入</b>（位级确定性含 ±0 角隅证明 / 治理 / 边界 / BRDF 数值面全 PASS）</td></tr>
+    <tr><td>稳定性 soak</td><td><b>127 迭代 / ~2.6h 零失败</b>（≥1800s 标准数倍），digest 全程稳定（2b6efac6）</td></tr>
+    <tr><td>窗口风暴健壮性</td><td><b>PASS</b>（全特性栈 resize 重建无崩溃、validation 静默）</td></tr>
+    <tr><td>终态确认跑</td><td><b>全绿定盘</b>（digest == 2b6efac6 == 全夜 soak 稳定值，~196fps 全栈）</td></tr>
+    <tr><td>多会话协同</td><td>与 G36 在飞会话双向按文件名择取隔离、互不混入</td></tr>
+  </table>
+</section>
+
+<div class="foot">
+  启用推荐画质组合：<code>g31_window_present --smooth-normals on --ggx on --bloom on --dither on</code> + <code>RURIX_G18_AMBIENT=0.004</code><br>
+  全部改动加性默认 off、冻结面零漂移；回退 = <code>git checkout</code> 5 tracked 文件 + 删 4 新 kernel（备份 <code>night_changes_tracked.patch</code>）。<br>
+  详细文档：<code>SUMMARY.md</code>（总览+后续路线）· <code>NIGHT_LOG.md</code>（逐轮证据）· 本页 = <code>artifacts/night_0828/index.html</code>
+</div>
+
+</div>
+
+<script>
+document.querySelectorAll('[data-ba]').forEach(function (el) {
+  var after = el.querySelector('.after');
+  var handle = el.querySelector('.handle');
+  function setX(clientX) {
+    var r = el.getBoundingClientRect();
+    var x = Math.max(0, Math.min(clientX - r.left, r.width));
+    var pct = (x / r.width * 100);
+    after.style.clipPath = 'inset(0 0 0 ' + pct + '%)';
+    handle.style.left = pct + '%';
+  }
+  var dragging = false;
+  el.addEventListener('pointerdown', function (e) { dragging = true; el.setPointerCapture(e.pointerId); setX(e.clientX); });
+  el.addEventListener('pointermove', function (e) { if (dragging) setX(e.clientX); });
+  el.addEventListener('pointerup', function () { dragging = false; });
+  el.addEventListener('pointercancel', function () { dragging = false; });
+  after.style.clipPath = 'inset(0 0 0 50%)';
+  handle.style.left = '50%';
+});
+</script>
+</body>
+</html>

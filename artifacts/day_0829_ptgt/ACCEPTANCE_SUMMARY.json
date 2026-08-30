@@ -1,0 +1,261 @@
+{
+ "schema": "rurix.day0829.ptgt.acceptance.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "step": "spv_fork",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.0,
+   "pass": true,
+   "t": "22:21:12"
+  },
+  {
+   "step": "spv_frozen",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.0,
+   "pass": true,
+   "t": "22:21:12"
+  },
+  {
+   "step": "spv_sha",
+   "fork": "2367ba3846f49f93f577e93a91f95c3e779fffa57bc700aadcd446e031df7b0a",
+   "frozen": "3dc80d352db433da0efd24c4e95b2024ac0230623c64024755d8fd148507955c",
+   "pass": true,
+   "t": "22:21:12"
+  },
+  {
+   "step": "equiv",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 61.8,
+   "pass": true,
+   "t": "22:22:14"
+  },
+  {
+   "step": "furnace",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 2.0,
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"baseline_spec_off\",\"spec\":false,\"metallic\":0,\"roughness\":1,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":2.1125833482074086}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"spec_m0_r100\",\"spec\":true,\"metallic\":0,\"roughness\":1,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":2.004507125413511}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"spec_m0_r030\",\"spec\":true,\"metallic\":0,\"roughness\":0.3,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":2.1852496902283747}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"spec_m1_r005\",\"spec\":true,\"metallic\":1,\"roughness\":0.05,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":1.3479296857656031}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"spec_m1_r050\",\"spec\":true,\"metallic\":1,\"roughness\":0.5,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":1.6658235697977943}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "furnace_measured",
+   "line": "{\"schema\":\"rurix.g31.pt_gt_furnace.v1\",\"case\":\"spec_m1_r100\",\"spec\":true,\"metallic\":1,\"roughness\":1,\"spp\":256,\"seed\":11400714819323198485,\"tau\":0.24499999,\"mean_luminance\":0.3529930274817161}",
+   "pass": true,
+   "t": "22:22:16"
+  },
+  {
+   "step": "render_match",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 171.2,
+   "pass": true,
+   "t": "22:25:07"
+  },
+  {
+   "step": "receipt_match",
+   "digest": "sha256:5e0164c6a647fe43061395d4f1b2a525c67bf8da164924d3ca25417b82f2b32a",
+   "mean_luminance": 0.0016247648149198708,
+   "lights": {
+    "points": 16,
+    "quads": 0,
+    "tris": 0
+   },
+   "double_run_bitexact": true,
+   "pass": true,
+   "t": "22:25:07"
+  },
+  {
+   "step": "render_area",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 389.5,
+   "pass": true,
+   "t": "22:31:37"
+  },
+  {
+   "step": "receipt_area",
+   "digest": "sha256:b8276d59b8e43a8d35a7f16446727e78956956bc06e16f898ca95cacc0da6fb3",
+   "mean_luminance": 0.0006167035645009576,
+   "lights": {
+    "points": 0,
+    "quads": 0,
+    "tris": 44024
+   },
+   "double_run_bitexact": true,
+   "pass": true,
+   "t": "22:31:37"
+  },
+  {
+   "step": "red_seed_11",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 345.5,
+   "pass": true,
+   "t": "22:37:22"
+  },
+  {
+   "step": "red_seed_22",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 163.4,
+   "pass": true,
+   "t": "22:40:06"
+  },
+  {
+   "step": "red_seed_verdict",
+   "digests": [
+    "sha256:ee7c2f2095d2f02776674f8bdc2b6de4e2524cf51afa4254261f52383c0e9fc4",
+    "sha256:001a6316e29fda18aa00db5dd2c73e4de63bee8e572cad14c709521e6b38b02f"
+   ],
+   "pass": true,
+   "t": "22:40:06"
+  },
+  {
+   "step": "raster_f0off",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 128.6,
+   "pass": true,
+   "t": "22:42:14"
+  },
+  {
+   "step": "raster_f0on",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 189.1,
+   "pass": true,
+   "t": "22:45:23"
+  },
+  {
+   "step": "raster_f0refl",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 328.4,
+   "pass": true,
+   "t": "22:50:52"
+  },
+  {
+   "step": "compare_f0",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.7,
+   "pass": true,
+   "t": "22:50:53"
+  },
+  {
+   "step": "compare_f0_verdict",
+   "mask": {
+    "mask_frac": 0.4808989197530864,
+    "mask_px": 249298,
+    "total_px": 518400,
+    "mean_pt": 0.02754499297458973,
+    "mean_off": 0.019677025959642915,
+    "mean_on": 0.022146830679483278,
+    "dist_off": 0.007867967014946815,
+    "dist_on": 0.005398162295106451,
+    "closer_to_pt": "on",
+    "margin": 0.08966438009691124
+   },
+   "pass": true,
+   "t": "22:50:53"
+  },
+  {
+   "step": "compare_refl",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.6,
+   "pass": true,
+   "t": "22:50:53"
+  },
+  {
+   "step": "compare_refl_verdict",
+   "mask": {
+    "mask_frac": 0.3642515432098765,
+    "mask_px": 188828,
+    "total_px": 518400,
+    "mean_pt": 0.02701846288403406,
+    "mean_off": 0.013062747112736346,
+    "mean_on": 0.013625856309280869,
+    "dist_off": 0.013955715771297715,
+    "dist_on": 0.013392606574753193,
+    "closer_to_pt": "on",
+    "margin": 0.020841644432603133
+   },
+   "pass": true,
+   "t": "22:50:53"
+  },
+  {
+   "step": "png_match",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.7,
+   "pass": true,
+   "t": "22:50:54"
+  },
+  {
+   "step": "png_area",
+   "rc": 0,
+   "vuid": 0,
+   "wall_s": 0.7,
+   "pass": true,
+   "t": "22:50:55"
+  },
+  {
+   "step": "frozen_same",
+   "files": {
+    "src/rurix-render/src/gi/path_trace.rs": {
+     "same": true,
+     "sha256": "278738c84eb95e4d17ede04d18448865f2f42d4b265dc1621fcd5b02d58eccec"
+    },
+    "src/rurix-render/src/gi/path_trace/prod.rs": {
+     "same": true,
+     "sha256": "494c6ce17a3d32658829754d4cad1c146ad42a4a7074b36c761feef833ac65c5"
+    },
+    "src/rurix-render/kernels/g12_pt_production.rx": {
+     "same": true,
+     "sha256": "0783b1c61cfc013588bda80e3fe3d17a8a71cbf60e1f84cbf0d563469a074304"
+    },
+    "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": {
+     "same": true,
+     "sha256": "2c7a96a72482d2c6639b8125cf1be1eb328d9a6ce4201e43a5607c9a4bf79c4b"
+    }
+   },
+   "pass": true,
+   "t": "22:50:55"
+  }
+ ]
+}

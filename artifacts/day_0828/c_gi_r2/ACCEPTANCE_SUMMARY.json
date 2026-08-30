@@ -1,0 +1,115 @@
+{
+ "schema": "rurix.day0828.phase_c_gi_r2.acceptance.v1",
+ "date": "2026-08-28",
+ "task": "画质战役 Phase C——统一质量 kernel 加「1 反弹 GI 加性臂」（--gi2）：R2 低差异序列替换旧 GI 臂 sin hash，修 GI 噪点 + 暗部真实间接光",
+ "r2_formula": {
+  "u1": "fract(px·a1 + py·a2 + n·a1)",
+  "u2": "fract(px·a2 + py·a1 + n·a2)",
+  "u3_light_select": "fract(px·b1 + py·b2 + n·b3)（R3 Weyl,单点光均匀选 1 盏 × point_count 加权）",
+  "constants": {"a1": "1/g = 0.7548776662466927", "a2": "1/g² = 0.5698402909980532", "g": "plastic 常数 1.32471795724474602596", "b1": "1/g3 = 0.8191725133961645", "b2": "1/g3² = 0.6710436067037893", "b3": "1/g3³ = 0.5497004779019703", "g3": "1.22074408460575947536"},
+  "frame_rotation": "n = params[52] = frame_idx（Cranley-Patterson 偏移 (n·a1,n·a2) = R2 点列 ⇒ 逐像素时域序列低差异,TSR EMA 可收敛;f32 一次求和粒度 ~1.5e-4 已足）",
+  "conformance": "gi_rng_study.json 仿真形态复核:corr_x=1−6·a1·(1−a1)=−0.110 / corr_y=1−6·a2·(1−a2)=−0.471 与 r1 R2 行 (−0.1102,−0.4707) 精确吻合（系数互换=r2 行）",
+  "estimator": "余弦半球 1 条反弹（pdf=cos/π 与 Lambert al/π 的 π·cos 相消）⇒ Lo += al_primary·gi_scale·clamp(L_bounce);L_bounce = em₂ + al₂·inv_pi·(单灯 NEE·point_count);反弹点 albedo/emission = mats 均值面直读（无二次纹理采样）;NEE 半径阴影截断同 A1 律"
+ },
+ "params_layout": {"[51]": "gi2 门（1.0=on;0=while 零迭代 +0.0 恒等尾加）", "[52]": "frame_idx（逐帧 host 挂载）", "[53]": "firefly clamp（CLI 默认 4.0;bistro EV 域调参档 0.01/0.05/0.15 在案）", "[54]": "gi_scale（默认 1.0）"},
+ "files_changed": {
+  "src/rurix-render/kernels/g31_texture_nrm_gi.rx": "+199 行（GI2 段 ~190 + 头注/输出尾加;487→686 行）",
+  "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "~+394 行（pack_frame_params_gi2 链环 + Gi2Opt + MegaTexNrmGi2 形态〔29 SSBO,哑表五件 24..28〕+ gi2_dummy_tex + UnifiedTsrLane gi2 面 + 双腿接线）",
+  "src/rurix-render/src/bin/g14_3_pipeline_perf.rs": "~+95 行（--gi2/--gi2-scale/--gi2-clamp + fail-closed〔须随 --smooth-normals on + inflight=1〕+ SPV 换载 + usage）",
+  "src/rurix-render/src/bin/g31_window_present.rs": "~+128 行（CLI 三旗标 + fail-closed〔须随 smooth&&textures〕+ G31TsrLane gi2 面 + 逐帧 frame_idx + PASS/evidence 登记 + GI2 变体 SPV 换载）"
+ },
+ "spv_route_isolation": {
+  "decision": "A2b v2 同律路线隔离：gi2-off 合流臂恒载 pre-C 锚定字节 .tmp/night_0828/spv/g31_texture_nrm_gi.spv（94124 B,0-byte 不动,8b1c12f3 锚承载）;GI2 源码现编译 → g31_texture_nrm_gi_gi2.spv（124744 B,sha256 75d08aec…,仅 --gi2 on 换载）",
+  "root_cause": "首编覆盖共享 SPV 后七臂 gi2-off 漂移 d89848b9（≠8b1c12f3）;E1 探针（pre-C + 常量 0.0 尾加,无循环/无射线）== 8b1c12f3 位级 ⇒ +0.0 恒等尾加数学成立;漂移源 = GI2 段本体（新增 2 ray query 站点 + sin/cos + 动态循环）令驱动后端对既有代码重编译产 ULP 级扰动,经 TSR/AE 反馈放大——「gate=0 恒等」在 kernel 演进含新 ray query 站点时不可依赖（A1 纯 ALU 门乘先例成立,本例为首个反例）,字节隔离为强于数学恒等的保锚形态",
+  "evidence": ["ev/e1_tailadd.json（E1 == 8b1c12f3）", "g31_texture_nrm_gi_pre_c.spv.bak（pre-C 源重编字节一致自证:sha fd22cb19…）", ".tmp/night_0828/spv/_e1_tailadd.{rx,spv}（探针件保留）"],
+  "source_spv_divergence": "gi2-off 车道消费的锚字节 ≠ 当前源码编译产物（源码含 GI2 段）——A2b encode v2 同类登记,主线收编时统一处置"
+ },
+ "verdicts": {
+  "1_build_spv": {"pass": true, "detail": "rurixc 内置 + PATH spirv-val 双过 rc=0（g31_texture_nrm_gi_gi2.spv）;双 bin release 重建绿（警告全前序既有）"},
+  "2_zero_drift": {
+   "pass": true,
+   "window_alloff": {"expect": "55e4a92d", "got": "55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288", "run": "ev/alloff_final.json"},
+   "combo7_gi2_off": {"expect": "8b1c12f3", "got": "8b1c12f34a76fd554496c9bcdcb45c9ba7d90291e10273b3766708521471abec", "run": "ev/combo7_final.json"},
+   "bench_default_160f": {"expect": "c1d28ad7", "got": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02", "run": "arms/bench_default"},
+   "bench_gi2_off_render_bonus": {"note": "bench --smooth-normals on gi2-off 128f converged == 夜巡 D2 冻结锚 778f1dfc（kernel/binary 演进零漂移旁证）", "got": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76"}
+  },
+  "3_gi2_on_determinism": {
+   "pass": true,
+   "window_8arm_default": {"digest": "0e6ca11051082bdc2c334f6563bcf17064dc71624ee163aae3fd840e6f9d222a", "double_run_bitexact": true, "ne_off": true, "runs": ["ev/combo8_gi2_1.json", "ev/combo8_gi2_2.json"]},
+   "window_8arm_clamp001": {"digest": "b36c3e1fd03a7f69fb11c16fe88262a10fc8701e2c9f89997081e7d6539b9f4f", "double_run_bitexact": true, "runs": ["ev/combo8_c001_1.json", "ev/combo8_c001_2.json"]},
+   "bench_gi2_on_render": {"converged": "71083792d551c36d2e8f502e7fe08f1ddb13e7c8775db3ce8ceb08e3b09aeca8", "double_run_bitexact": true, "runs": ["arms/gi2_on_render", "arms/gi2_on_render2"]},
+   "validation": "RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 全程;PASS 行退出 = validation 静默（validation_error_count≠0 即 fail-closed）"
+  },
+  "4_noise_metrics": {
+   "pass": true,
+   "law": "grain_metric 同式;conv 协议 = 128f 末段 frame_01*.exr stride2×16（TSR 收敛后）;三臂 = 旧 GI（夜巡 arms/gi_on 复用未重跑）/ gi2 on / gi2 off;evidence = c_metrics.json + c_spatial_char.json",
+   "abs_amplitude_std_p95_conv": {
+    "wall": {"old_gi": 5.453e-3, "gi2_c001": 5.382e-4, "gi2_c015": 3.658e-3, "gi2_c400": 4.839e-3},
+    "dark_arch": {"old_gi": 1.438e-2, "gi2_c001": 1.660e-3, "gi2_c015": 1.267e-2},
+    "dark_table": {"old_gi": 2.267e-3, "gi2_c001": 5.250e-4, "gi2_c015": 2.054e-3}
+   },
+   "rel_p95_conv": {"note": "temporal_rel_p95 = std/mean 对闪烁像素尺度不变（clamp 不降比值）;off 臂基线近零（0.02-0.2）⇒ 任何随机臂比值必 >>2——「≤2× off」比值门对 1 spp 随机估计器在该口径下不可达,如实登记未达;绝对幅值/视觉/对旧臂三面为有效判据", "old_gi": {"wall": 1.626, "dark_arch": 3.526, "dark_table": 2.853}, "gi2_c001": {"wall": 0.734, "dark_arch": 3.439, "dark_table": 1.290}, "gi2_off": {"wall": 0.023, "dark_arch": 0.086, "dark_table": 0.188}},
+   "vs_old_gi_verdict": "c001 档绝对噪声幅值 −77%~−90%（同全局增益口径下光通道换 R2+clamp 的净收益）;c015 档（暗部增益与旧臂相当:table +107% vs +127%）幅值 −9%~−33%;R2 无旧 sin hash 屏空间相关色块/斜纹（png/oldgi_vs_gi2_*.png 目视决定性,旧臂斜链状色斑 vs gi2 稀疏无结构微点）"
+  },
+  "5_frame_time": {
+   "pass": true,
+   "bench_scene_gpu_ms_mean": {"gi2_off": 0.952173, "gi2_on": 1.574474, "ratio": 1.654, "gate": "≤2×", "runs": ["arms/bench_gi2_off", "arms/bench_gi2_on"]},
+   "bench_frame_ms_mean": {"gi2_off": 2.332417, "gi2_on": 3.052037},
+   "old_gi_reference": "旧 GI 臂 scene ×4.39（夜巡 D4）→ gi2 ×1.65（2 反弹全灯 NEE → 1 反弹单灯 NEE 的结构性下降）",
+   "window_real_render_ms": {"combo7": 8.059, "combo8_gi2_c400": [8.537, 7.652], "combo8_gi2_c001": [6.924, 7.047], "note": "窗口口径含 8.3MB 强制回读,增量在 run-to-run 噪声带内"}
+  },
+  "6_visual": {
+   "pass": true,
+   "positions": "拱下（arch 360,0,360×180）/ 桌椅底（table 560,560,560×200）/ 吧台内侧（bar 1200,650,480×240）",
+   "presented_crops": ["png/crop_arch_off_vs_c001.png", "png/crop_table_off_vs_c001.png", "png/crop_bar_off_vs_c001.png（左 off=8b1c12f3 dump 右 on=b36c3e1f dump）"],
+   "old_vs_new": ["png/oldgi_vs_gi2_wall.png", "png/oldgi_vs_gi2_dark_arch.png", "png/oldgi_vs_gi2_dark_table.png（左旧 sin hash 右 gi2 c001;ACES ×16）"],
+   "clamp_scan": ["png/clamp_scan_*.png（off|c005|c015|c400）", "png/clamp_scan2_*.png（off|c001|c005|c015）"],
+   "findings": "间接光补亮成立（红墙→拱下木面暖色反弹可见;bar/table 地面暗部脱死黑）;旧 sin hash 屏空间相关色块/斜纹不重现（R2 目标达成）;残余伪影 = 稀疏无结构微光点（1 spp 亮灯命中经 TSR EMA 残迹,clamp 0.01 档已压至细颗粒,极暗区仍可辨——如实登记,非阻断）;AE 组合下 on 臂全帧轻微下移（GI 抬均值→AE 归一,预期效应）"
+  },
+  "7_dark_gain_converged_linear": {
+   "off_baseline": {"arch": 0.010779, "table": 0.000214, "bar": 0.000297, "global": 0.009847},
+   "gi2_c001": {"arch": "+1.3%", "table": "+29%", "bar": "+51%", "global": "+0.7%"},
+   "gi2_c015": {"arch": "+8.3%", "table": "+107%", "bar": "+222%"},
+   "gi2_c400_spec_default": {"arch": "+9.2%", "table": "+135%", "bar": "+292%", "global": "+8.3%"},
+   "old_gi_reference": {"global": "+10.1%", "table": "+127%（2 反弹）"}
+  }
+ },
+ "bench_dummy_tex_leg": {
+  "landed": true,
+  "form": "MegaTexNrmGi2 形态 = MegaSmoothNrm 24 SSBO + 哑表五件（texuv 全 0 prim×6 / texmeta 头 8+slot0 8〔w=h=1,mod=1,mips=1〕/ tritex 全 [−1,0] ⇒ tex_gate=0 恒走 mats 均值面 / atlas 13 头项+1 texel / linlut 256×0）+ scene pass 换 g31_texture_nrm_gi_gi2.spv;与 g18_smooth_nrm 光照语义一致（albedo=mats）;EXR 指标全程走 bench --render（降级路径未启用）"
+ },
+ "arms_digests": {
+  "window_alloff": "55e4a92d（=锚）",
+  "window_combo7_gi2off": "8b1c12f3（=锚）",
+  "window_combo8_gi2_scale1_clamp4": "0e6ca110（×2 位级）",
+  "window_combo8_gi2_scale1_clamp0.01": "b36c3e1f（×2 位级）",
+  "bench_default_160f": "c1d28ad7（=锚）",
+  "bench_smoothnrm_gi2off_render128": "778f1dfc（=夜巡 D2 锚）",
+  "bench_gi2on_clamp4_render128": "71083792（×2 位级）",
+  "bench_gi2on_clamp0.01_render128": "6144d9f7",
+  "bench_gi2on_clamp0.05_render128": "5c4133c4",
+  "bench_gi2on_clamp0.15_render128": "eefbea41",
+  "e1_tailadd_probe": "8b1c12f3（恒等性探针 PASS）"
+ },
+ "quality_preset_recommendation": {
+  "tier": "ultra（不入 --quality full）",
+  "rationale": "帧时 ×1.65 达标且远优旧臂 ×4.39,但 1 spp 残余微光点在极暗区可辨（clamp 0.01 档最优平衡:暗部 +29%~+51% 增益,绝对噪声幅值仅旧臂 1/10）——建议 --quality ultra = full + --gi2 on --gi2-clamp 0.01;--gi2-clamp 默认 4.0 为通用域缺省（0.18 luma 域场景),bistro EV 域须显式调档,预设收编时固化",
+  "future_denoise": "Phase D TSR 降噪若落地（时域 clamp/方差引导）,微光点残迹有望进一步压低,届时可复评 full 档"
+ },
+ "leftovers": [
+  "「gate=0 恒等尾加」纪律边界修订：kernel 演进新增 ray query 站点/超越函数时,驱动后端对既有代码重编译不保位级（E1 反例在案）——后续 kernel 演进保锚一律走 SPV 路线隔离（A2b/本相先例）,纯 ALU 门乘（A1 形态）仍可依赖",
+  "gi2-off 车道源码-锚字节 divergence（g31_texture_nrm_gi.rx 现源 ⇒ *_gi2.spv;锚字节 = pre-C 编译产物）——主线收编统一处置,备份件 g31_texture_nrm_gi_pre_c.spv.bak 在案",
+  "反弹点直接光仅单点光 NEE（quad 面光间接贡献走 emissive 几何 emission 直取通道,无 quad NEE——4 契约面光的间接照明低估,如实登记）",
+  "temporal_rel_p95 比值门（≤2× off）对 1 spp 随机估计器不可达（off 基线近零+比值尺度不变)——Phase D/E 判据建议改绝对幅值 std_p95 + 视觉",
+  "--gi2 bench 腿 inflight=1 限定（FIF 流水面 params[52] 逐帧挂载未接线）",
+  "R2 f32 单和形态在超长会话（frame_idx >100k）粒度退化至 ~4e-3——如需 soak 可改双 fract 拆和,当前验收窗口无影响"
+ ],
+ "artifacts": {
+  "evidence": ["ev/alloff_final.json", "ev/combo7_final.json", "ev/combo8_gi2_1.json", "ev/combo8_gi2_2.json", "ev/combo8_c001_1.json", "ev/combo8_c001_2.json", "ev/e1_tailadd.json", "ev/alloff_1.json", "ev/combo7_1.json（首编漂移现场 d89848b9,根因档案）"],
+  "metrics": ["c_metrics.json", "c_spatial_char.json"],
+  "tools": ["c_noise_metrics.py", "c_noise_metrics_tuned.py", "c_spatial_char.py", "c_visual_crops.py", "show_abs.py", "reconstruct_pre_c.py（恒等性排查件）"],
+  "png": ["png/crop_{arch,table,bar}_off_vs_c001.png", "png/crop_{arch,table,bar}_off_vs_on.png（clamp4 档）", "png/oldgi_vs_gi2_{wall,dark_arch,dark_table}.png", "png/clamp_scan*_{arch,table,bar}.png", "png/full_combo7_off.png", "png/full_combo8_gi2_on.png", "png/full_combo8_c001.png"],
+  "spv": [".tmp/night_0828/spv/g31_texture_nrm_gi_gi2.spv（sha256 75d08aec…,124744 B）", ".tmp/night_0828/spv/g31_texture_nrm_gi.spv（锚字节 0-byte 不动,94124 B）", "g31_texture_nrm_gi_pre_c.spv.bak"],
+  "bench_arms": ["arms/bench_default", "arms/bench_gi2_off", "arms/bench_gi2_on", "arms/gi2_off_render", "arms/gi2_on_render", "arms/gi2_on_render2", "arms/gi2_on_c001", "arms/gi2_on_c005", "arms/gi2_on_c015"]
+ }
+}

@@ -1,0 +1,132 @@
+{
+  "schema": "rurix.g13.ue_upscale_parity_contract.v1",
+  "contract_id": "g13_ue_upscale_parity",
+  "version": 1,
+  "tier_sequence": [50, 67, 100],
+  "frame_count": 32,
+  "seed": 7312026601,
+  "calibration_seed": 7312026602,
+  "noise_probe_tier": 67,
+  "rurix_backends": ["tsr_device", "dlss_sr", "fsr_3_1_5"],
+  "ue_dlss_quality_map": { "50": "Performance", "67": "Quality", "100": "DLAA" },
+  "rendering_policy": {
+    "tonemap": "off",
+    "denoiser": "off",
+    "ue_temporal_upscaler": "dlss_plugin",
+    "jitter": "halton_static"
+  },
+  "scenes": [
+    {
+      "scene_id": "cornell-box",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+      "camera": {
+        "position": [278.0, 273.0, -800.0],
+        "orientation_quat": [-0.0, 0.0, 1.0, -0.0],
+        "fov_y_deg": 39.31,
+        "near": 10.0,
+        "far": 3000.0,
+        "resolution": { "w": 512, "h": 512 }
+      },
+      "exposure": { "mode": "manual", "ev100": 0.0 },
+      "lighting": {
+        "quad_lights": [
+          {
+            "p00": [213.0, 548.7, 227.0],
+            "e1": [130.0, 0.0, 0.0],
+            "e2": [0.0, 0.0, 105.0],
+            "le_linear_rgb": [10.0, 9.5, 8.5]
+          }
+        ],
+        "point_lights": [],
+        "emissive_materials": [],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": { "texture_mean_albedo": false, "white_tex_to_white": true }
+    },
+    {
+      "scene_id": "bistro-interior",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:4dae7c0d22cda6922a4541de3b41a0d63d22846c381ee7f06954a264a23f2565",
+      "camera": {
+        "position": [0.05216281, 1.44432855, -1.42984402],
+        "orientation_quat": [0.746508205404612, -0.013931941501891327, -0.665114516358613, -0.01241291257610259],
+        "fov_y_deg": 43.197681669907375,
+        "near": 0.1,
+        "far": 200.0,
+        "resolution": { "w": 1920, "h": 1080 }
+      },
+      "exposure": { "mode": "manual", "ev100": -4.0 },
+      "lighting": {
+        "quad_lights": [],
+        "point_lights": [
+          {
+            "id": "pointLight1",
+            "position": [4.99128818511963, 3.03062701225281, -0.488619118928909],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.0182327231840096
+          },
+          {
+            "id": "pointLight2",
+            "position": [7.98878049850464, 3.07426261901855, 1.01506114006042],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.018232727297410593
+          },
+          {
+            "id": "pointLight3",
+            "position": [4.2630033493042, 3.09528660774231, -4.91985368728638],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.01823272829210542
+          },
+          {
+            "id": "pointLight4",
+            "position": [6.10688591003418, 2.93938684463501, -8.46832180023193],
+            "color_linear_rgb": [1.0002770983638491, 0.9998896404483147, 1.0002772581608164],
+            "intensity_cd": 0.018232712634885177
+          }
+        ],
+        "emissive_materials": [
+          {
+            "material_name": "MASTER_Interior_01_Paris_Lantern",
+            "material_index": 38,
+            "le_linear_rgb": [0.09250373992864466, 0.09254488353712752, 0.09250366850103448],
+            "area_m2": 1.0216790940526566
+          },
+          {
+            "material_name": "Paris_Ceiling_Lamp",
+            "material_index": 39,
+            "le_linear_rgb": [0.022303046620219962, 0.022294407522146363, 0.022303050183191876],
+            "area_m2": 3.2709029255651823
+          },
+          {
+            "material_name": "Paris_CeilingFan",
+            "material_index": 40,
+            "le_linear_rgb": [0.02230393520866327, 0.01585528684005825, 0.0066437204704917815],
+            "area_m2": 2.8216118446875447
+          },
+          {
+            "material_name": "Paris_Wall_Light_Interior",
+            "material_index": 59,
+            "le_linear_rgb": [0.22171508590621858, 0.221896437368776, 0.22171508590621858],
+            "area_m2": 2.6090147497318235
+          }
+        ],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": { "texture_mean_albedo": true, "white_tex_to_white": false }
+    }
+  ],
+  "provenance": {
+    "frozen_by": "ci/g13_ue_upscale_parity_smoke.py（g13.p0.m_c.ue_upscale_parity，G13.4 波；spec RXS-0405 L1 字段闭集）",
+    "frozen_at": "2026-08-19",
+    "scene_source": "M133 清单双场景闭集（milestones/g10/g10_corpus_scene_manifest.json revision 2，digest sha256:d96b4d2f… 转引只读）；gltf_product_digest 与 G12.4 契约同源转引（cornell_box.gltf generated / BistroInterior.gltf CC-BY-4.0 派生面，G12.4 provenance 口径继承）",
+    "camera_source": "逐场景相机位姿值沿用 G10.5 取景校准登记值（milestones/g10/corpus/camera_*.json；G10.5/G11.5b/G12.4 锁定契约面 0-byte 不消费不承接——本契约独立冻结）；分辨率 = G10.5 出图画幅（cornell-box 512×512 / bistro-interior 1920×1080 输出分辨率；内部分辨率 = 输出 × tier%：cornell 256×256/343×343/512×512，bistro 960×540/1286×723/1920×1080——双臂同取 floor(tier%×输出) 同一取整口径；UE DLSS 臂实际内部分辨率以插件 NGX 窗口为准（实测 tier67 bistro = 1281×721，ScaleX=0.667969，名义档对拍口径见 tier_note））",
+    "tier_note": "tier_sequence=[50,67,100]（渲染比例 %）↔ UE DLSS 质量枚举映射 50→Performance / 67→Quality / 100→DLAA（DLSS 插件质量档内部渲染比例名义值面对齐；ue_dlss_quality_map = 契约闭集，DLSS 实际内部比例以插件实现为准——名义档对拍不追求比例字面相等，对拍锚 = 同输出分辨率同档位名义面）；Rurix 臂 tier% 内部分辨率 Halton jitter 32 帧静态收敛序列（RXS-0405 L3）",
+    "lighting_note": "灯面同 G12.4 契约逐字转引（cornell 天花 quad 面光 Le=[10,9.5,8.5]；bistro 4 点光 + 4 emissive 材质面光）；sun/sky = 0.0 显式登记（室内双场景无方向光/天光链接口面）；deferred 臂灯面物理单计数纪律偏差 = G12.4 lighting_note 同型登记（双通道有意同构不冒充物理精确，正确性锚 = M96 冻结面）",
+    "seed_note": "seed=7312026601（固定 seed 位级确定性协议 RXS-0357 L2/RXS-0400 继承）；calibration_seed=7312026602（≠seed；容差标定腿双 seed 方差底实测面，M166/G12.4 同程序纪律）",
+    "exposure_note": "ev100：cornell-box=0.0 / bistro-interior=−4.0（G12.4 同值转引——灯面量级下画面可判读区间实测标定值；度量面经 ×2^(−ev100) 派生尺度链对齐消费，RXS-0392 口径继承）",
+    "assisted_by": "Kimi-K3（G13.4 UE 对拍波）"
+  }
+}

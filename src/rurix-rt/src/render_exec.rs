@@ -1390,11 +1390,14 @@ impl<'a> DeviceFrameSession<'a> {
     /// FrameUpdate 派生态(effective bindings + pre-bump generations;两 provenance
     /// 入口共用同一事实源)。G34-2:`tlas_b` = 第二 TLAS 更新(双 TLAS 车道
     /// 表 1;校验/异槽纪律见 [`validate_tlas_update_b`])——`None` = 既有面
+    /// 0-byte。G37 W3 hzb_skin:`blas_b` = 第二 BLAS refit(表 1 manager 的
+    /// 蒙皮顶点 refit;校验见 [`validate_blas_refit_b`])——`None` = 既有面
     /// 0-byte。
     fn frame_update_state(
         &self,
         update: &FrameUpdate,
         tlas_b: Option<&(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+        blas_b: Option<&BlasRefitUpdate>,
     ) -> Result<(Vec<Bindings>, Vec<u64>), String> {
         let as_count = self.as_count() as u32;
         validate_frame_update(
@@ -1405,6 +1408,7 @@ impl<'a> DeviceFrameSession<'a> {
             update,
         )?;
         validate_tlas_update_b(as_count, update, tlas_b)?;
+        validate_blas_refit_b(self.resources, self.passes, tlas_b, blas_b)?;
         // effective bindings:声明 → binding_overrides → push_constant_overrides。
         let mut effective = self.declared_bindings();
         for &(pi, ref bindings) in &update.binding_overrides {
@@ -1433,6 +1437,8 @@ impl<'a> DeviceFrameSession<'a> {
         }
         // G34-2:第二 TLAS 更新同律记账(校验面已保证与 tlas_update/blas_refit
         // 异槽——各槽内容写各自 bump 一代,代序语义 = 「本帧内容代 +1」)。
+        // G37 W3 hzb_skin:blas_b 校验面已保证与 tlas_b 同槽同现 ⇒ 同槽双写
+        // 归并为一个内容代(blas_refit×tlas_update 同律),本臂零追加 bump。
         if let Some((as_index_b, _, _)) = tlas_b {
             let slot = self.resources.len() + *as_index_b as usize;
             generations[slot] = generations[slot].saturating_add(1);
@@ -1464,7 +1470,21 @@ impl<'a> DeviceFrameSession<'a> {
         update: &FrameUpdate,
         tlas_update_b: Option<&(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
     ) -> Result<SubmissionProvenance, String> {
-        let (effective, generations) = self.frame_update_state(update, tlas_update_b)?;
+        self.next_provenance_with_update_dual_tlas_ex(update, tlas_update_b, None)
+    }
+
+    /// G37 W3 hzb_skin 加性:双 TLAS + 第二 BLAS refit provenance 预推入口——
+    /// `blas_refit_b` = 表 1 manager 的同帧蒙皮顶点 refit(校验/同槽纪律见
+    /// [`validate_blas_refit_b`])。`None` 与
+    /// [`Self::next_provenance_with_update_dual_tlas`] 逐字同路径(既有面 0-byte)。
+    pub fn next_provenance_with_update_dual_tlas_ex(
+        &self,
+        update: &FrameUpdate,
+        tlas_update_b: Option<&(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+        blas_refit_b: Option<&BlasRefitUpdate>,
+    ) -> Result<SubmissionProvenance, String> {
+        let (effective, generations) =
+            self.frame_update_state(update, tlas_update_b, blas_refit_b)?;
         Ok(build_runtime_provenance_ext(
             self.passes,
             &effective,
@@ -1505,8 +1525,30 @@ impl<'a> DeviceFrameSession<'a> {
         update: &FrameUpdate,
         tlas_update_b: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
     ) -> Result<DeviceFrameOutput, String> {
+        self.execute_with_frame_update_dual_tlas_ex(supplied, update, tlas_update_b, None)
+    }
+
+    /// G37 W3 hzb_skin 加性:双 TLAS + 第二 BLAS refit 提交入口——
+    /// `blas_refit_b` = 表 1 manager 的同帧蒙皮顶点 refit(双 TLAS×蒙皮合并
+    /// 车道消费面:主射线表 0 与阴影射线表 1 各持 BLAS 副本,蒙皮角色两副本
+    /// 须同帧 refit;录制面 = `blas_refit` 同律桥接——pass `after_pass` 录完
+    /// 后 copy + UPDATE build + consume barrier,目标 = 表 1 manager)。
+    /// 校验(fail-closed 确定性 Err):须与 `tlas_update_b` 同现同槽(单帧 AS
+    /// 操作归并同一 manager——`blas_refit`×`tlas_update` 同律);目标 BLAS 须
+    /// 创建期 updatable 打标。`None` 与
+    /// [`Self::execute_with_frame_update_dual_tlas`] 逐字同路径(既有面
+    /// 0-byte——命令流/provenance/遥测逐字节不变)。FIF 流水面不开放
+    /// (`blas_refit` 同约束)。
+    pub fn execute_with_frame_update_dual_tlas_ex(
+        &mut self,
+        supplied: &SubmissionProvenance,
+        update: &FrameUpdate,
+        tlas_update_b: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+        blas_refit_b: Option<BlasRefitUpdate>,
+    ) -> Result<DeviceFrameOutput, String> {
         let record_started = std::time::Instant::now();
-        let (effective, generations) = self.frame_update_state(update, tlas_update_b.as_ref())?;
+        let (effective, generations) =
+            self.frame_update_state(update, tlas_update_b.as_ref(), blas_refit_b.as_ref())?;
         let expected = build_runtime_provenance_ext(
             self.passes,
             &effective,
@@ -1549,6 +1591,17 @@ impl<'a> DeviceFrameSession<'a> {
                 b.after_pass,
             )
         });
+        // G37 W3 hzb_skin:第二 BLAS refit 同形解析(校验面已保证与 tlas_b 同槽)。
+        let blas_b = blas_refit_b.map(|b| {
+            (
+                b.as_index,
+                b.blas_index,
+                (b.src.0 - 1) as u32,
+                b.src_offset,
+                b.byte_len,
+                b.after_pass,
+            )
+        });
         let (effective_readbacks, effective_rb_sources) = match &update.readback_subset {
             Some(indices) => (
                 indices
@@ -1567,6 +1620,7 @@ impl<'a> DeviceFrameSession<'a> {
         let needs_rerecord = tlas.is_some()
             || tlas_b.is_some()
             || blas.is_some()
+            || blas_b.is_some()
             || !descriptor_overrides.is_empty()
             || !update.push_constant_overrides.is_empty()
             || rb_shape_stale;
@@ -1575,6 +1629,7 @@ impl<'a> DeviceFrameSession<'a> {
             tlas,
             tlas_b,
             blas,
+            blas_b,
             descriptor_overrides: &descriptor_overrides,
             effective_bindings: &effective,
             effective_readbacks: &effective_readbacks,
@@ -1635,9 +1690,10 @@ impl<'a> DeviceFrameSession<'a> {
         update: &FrameUpdate,
     ) -> Result<FrameTicket, String> {
         let record_started = std::time::Instant::now();
-        // FIF 路无双 TLAS 更新面(tlas_update_b 不开放——G34-2 双 TLAS 车道走
-        // 顺序入口;None = 既有面 0-byte)。
-        let (effective, generations) = self.frame_update_state(update, None)?;
+        // FIF 路无双 TLAS/双 BLAS 更新面(tlas_update_b/blas_b 不开放——G34-2
+        // 双 TLAS 与 G37 hzb_skin 双 BLAS 车道走顺序入口;None = 既有面 0-byte。
+        // 第三参随 hzb_skin 窗 frame_update_state 签名迁移机械适配,行为 0 变)。
+        let (effective, generations) = self.frame_update_state(update, None, None)?;
         let expected = build_runtime_provenance_ext(
             self.passes,
             &effective,
@@ -1692,6 +1748,8 @@ impl<'a> DeviceFrameSession<'a> {
             tlas_b: None,
             // FIF 路 blas_refit 已在上方 fail-closed 拒(恒 None)。
             blas: None,
+            // FIF 路无 blas_refit_b 入口(dual_tlas_ex 顺序独有;恒 None)。
+            blas_b: None,
             descriptor_overrides: &descriptor_overrides,
             effective_bindings: &effective,
             effective_readbacks: &effective_readbacks,
@@ -2546,6 +2604,61 @@ fn validate_tlas_update_b(
     if matches!(&update.blas_refit, Some(b) if b.as_index == *as_index_b) {
         return Err(format!(
             "tlas_update_b: as_index {as_index_b} 与 blas_refit 同槽(单帧单槽单写纪律)"
+        ));
+    }
+    Ok(())
+}
+
+/// G37 W3 hzb_skin 加性:第二 BLAS refit 校验面(与 [`validate_tlas_update_b`]
+/// 同伴调用;`None` 恒过 = 既有面 0-byte)。判据(fail-closed 确定性 Err):
+/// 须与 `tlas_update_b` 同现且同槽(单帧 AS 操作归并同一 manager——
+/// `blas_refit`×`tlas_update` 同槽纪律的表 1 镜像);src 资源 buffer 区段/
+/// byte_len 4 对齐/after_pass 在界(`validate_frame_update` blas 臂同律)。
+fn validate_blas_refit_b(
+    resources: &[ResourceDesc],
+    passes: &[Pass],
+    tlas_b: Option<&(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+    blas_b: Option<&BlasRefitUpdate>,
+) -> Result<(), String> {
+    let Some(b) = blas_b else {
+        return Ok(());
+    };
+    let Some((as_index_b, _, _)) = tlas_b else {
+        return Err("blas_refit_b: 须与 tlas_update_b 同现(表 1 manager 单帧操作归并面)".into());
+    };
+    if b.as_index != *as_index_b {
+        return Err(format!(
+            "blas_refit_b: as_index {} 与 tlas_update_b 的 {as_index_b} 不同槽(单帧 AS 操作归并同一 manager)",
+            b.as_index
+        ));
+    }
+    let index = b.src.0;
+    if index == 0 || index > resources.len() as u64 {
+        return Err(format!(
+            "blas_refit_b: src StableResourceId({index}) 非资源表项(1..={})",
+            resources.len()
+        ));
+    }
+    let Some(ResourceDesc::Buffer(desc)) = resources.get((index - 1) as usize) else {
+        return Err(format!("blas_refit_b: src StableResourceId({index}) 非 buffer"));
+    };
+    if b.byte_len == 0 || !b.byte_len.is_multiple_of(4) {
+        return Err(format!(
+            "blas_refit_b: byte_len {} 非 4 对齐正数(f32 顶点流)",
+            b.byte_len
+        ));
+    }
+    if b.src_offset + b.byte_len > desc.size {
+        return Err(format!(
+            "blas_refit_b: 区段 [{}, +{}) 越出 src buffer size {}",
+            b.src_offset, b.byte_len, desc.size
+        ));
+    }
+    if b.after_pass as usize >= passes.len() {
+        return Err(format!(
+            "blas_refit_b: after_pass {} 越界({} pass)",
+            b.after_pass,
+            passes.len()
         ));
     }
     Ok(())
@@ -5552,6 +5665,10 @@ struct AsFrameOps<'a> {
     /// 0-byte)。录制序 = `tlas_action` → 本件 → 单条 consume barrier(双
     /// update 同域一次序化,与单 update 面命令流逐字节同前缀)。
     tlas_b: Option<(&'a mut VkAsManager, TlasBuildAction)>,
+    /// G37 W3 hzb_skin 加性:第二 BLAS refit(表 1 manager——`tlas_b` 的
+    /// manager 承载;校验面已保证 `tlas_b` 同现同槽;`None` = 无,既有面
+    /// 0-byte)。录制面 = `blas_refit` 同律桥接(pass `after_pass` 后)。
+    blas_refit_b: Option<BlasRefitRecord>,
 }
 
 /// BLAS refit 录制载荷(公网 [`BlasRefitUpdate`] 的 native 解析形;
@@ -6075,6 +6192,73 @@ unsafe fn record_frame_body(
             ops.mgr
                 .record_consume_barrier(ops.fns, cmd, PIPELINE_STAGE_COMPUTE_SHADER);
         }
+        // ── G37 W3 hzb_skin:第二 BLAS refit 桥(表 1 manager——双 TLAS×蒙皮
+        // 合并车道:主射线表 0 与阴影射线表 1 各持 BLAS 副本,蒙皮角色两副本
+        // 同帧 refit;桥接六步与上方 blas_refit 逐字同律,目标 = tlas_b 的
+        // manager;src 同资源同帧双桥时第二次 transit 为幂等无操作)──
+        if let Some(ops) = as_ops.as_mut()
+            && let Some(br) = ops.blas_refit_b
+            && br.after_pass == pi as u32
+        {
+            let Some((mgr_b, _)) = ops.tlas_b.as_mut() else {
+                return Err("BLAS refit_b: 无表 1 manager(校验漏网)".into());
+            };
+            let RtRes::Buf(src_rb) = &rt[br.src_res as usize] else {
+                return Err(format!(
+                    "BLAS refit_b: src 资源 {} 非 buffer(校验漏网)",
+                    br.src_res
+                ));
+            };
+            let vbuf = mgr_b.blas_vertex_buffer(br.blas_index)?;
+            transit!(br.src_res, TargetState::TransferSrc);
+            flush_barriers!(img_barriers, buf_barriers);
+            let pre_copy = BufferMemoryBarrier2 {
+                s_type: ST_BUFFER_MEMORY_BARRIER_2,
+                p_next: std::ptr::null(),
+                src_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
+                src_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
+                dst_stage_mask: STAGE2_TRANSFER,
+                dst_access_mask: ACCESS2_TRANSFER_WRITE,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                buffer: vbuf,
+                offset: 0,
+                size: br.byte_len,
+            };
+            let di = DependencyInfo {
+                s_type: ST_DEPENDENCY_INFO,
+                p_next: std::ptr::null(),
+                dependency_flags: 0,
+                memory_barrier_count: 0,
+                p_memory_barriers: std::ptr::null(),
+                buffer_memory_barrier_count: 1,
+                p_buffer_memory_barriers: &pre_copy,
+                image_memory_barrier_count: 0,
+                p_image_memory_barriers: std::ptr::null(),
+            };
+            (dev.cmd_barrier2)(cmd, &di);
+            let region = VkBufferCopy {
+                src_offset: br.src_offset,
+                dst_offset: 0,
+                size: br.byte_len,
+            };
+            (dev.cmd_copy_buf)(cmd, src_rb.buffer, vbuf, 1, &region);
+            let post_copy = BufferMemoryBarrier2 {
+                src_stage_mask: STAGE2_TRANSFER,
+                src_access_mask: ACCESS2_TRANSFER_WRITE,
+                dst_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
+                dst_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
+                ..pre_copy
+            };
+            let di = DependencyInfo {
+                buffer_memory_barrier_count: 1,
+                p_buffer_memory_barriers: &post_copy,
+                ..di
+            };
+            (dev.cmd_barrier2)(cmd, &di);
+            mgr_b.record_blas_refit(ops.fns, cmd, br.blas_index)?;
+            mgr_b.record_consume_barrier(ops.fns, cmd, PIPELINE_STAGE_COMPUTE_SHADER);
+        }
     }
 
     // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;host-visible
@@ -6253,6 +6437,9 @@ struct PreparedFrameUpdate<'a> {
     /// 下标, src_offset, byte_len, after_pass);录制面在 pass 循环
     /// after_pass 后插入桥接 copy + UPDATE build + consume barrier)。
     blas: Option<(u32, u32, u32, u64, u64, u32)>,
+    /// G37 W3 hzb_skin 加性:第二 BLAS refit(同形;目标 = `tlas_b` 槽
+    /// manager,校验面已保证同现同槽;`None` = 既有面 0-byte)。
+    blas_b: Option<(u32, u32, u32, u64, u64, u32)>,
     /// 需在 submit 前重写 descriptor set 的 pass 下标(binding_overrides 命中)。
     descriptor_overrides: &'a [u32],
     /// 各 pass 本帧 effective bindings(override 已应用)。
@@ -9151,25 +9338,30 @@ unsafe fn submit_persistent_frame(
                         .as_mut()
                         .ok_or("FrameUpdate: AS 操作无 AS 面(校验漏网)")?;
                     let b_slot = tlas_b.map(|(i, _, a)| (i, a));
-                    let (tlas_action, blas_refit) = (
-                        tlas.map(|(_, _, a)| a),
-                        blas.map(|b| {
-                            let (_, blas_index, src_res, src_offset, byte_len, after_pass) = b;
-                            BlasRefitRecord {
-                                blas_index,
-                                src_res,
-                                src_offset,
-                                byte_len,
-                                after_pass,
-                            }
-                        }),
-                    );
-                    let (tlas_action, b_owned) = match b_slot {
-                        Some((bi, ba)) if bi != as_index => (tlas_action, Some((bi, ba))),
+                    let to_record = |b: (u32, u32, u32, u64, u64, u32)| {
+                        let (_, blas_index, src_res, src_offset, byte_len, after_pass) = b;
+                        BlasRefitRecord {
+                            blas_index,
+                            src_res,
+                            src_offset,
+                            byte_len,
+                            after_pass,
+                        }
+                    };
+                    let (tlas_action, blas_refit) =
+                        (tlas.map(|(_, _, a)| a), blas.map(to_record));
+                    // G37 W3 hzb_skin:第二 refit(校验面已保证与 tlas_b 同现
+                    // 同槽——b 槽归并主位时同折主 refit 位,双借面恒自洽)。
+                    let blas_refit_b = up.blas_b.map(to_record);
+                    let (tlas_action, blas_refit, blas_refit_b, b_owned) = match b_slot {
+                        Some((bi, ba)) if bi != as_index => {
+                            (tlas_action, blas_refit, blas_refit_b, Some((bi, ba)))
+                        }
                         // 仅第二更新在案(主位空):归并主位(校验面已拒同帧
-                        // 同槽双写 ⇒ 到本臂 tlas_action 恒 None)。
-                        Some((_, ba)) => (Some(ba), None),
-                        None => (tlas_action, None),
+                        // 同槽双写 ⇒ 到本臂 tlas_action/blas_refit 恒 None,
+                        // blas_refit_b 随槽折入主 refit 位)。
+                        Some((_, ba)) => (Some(ba), blas_refit_b, None, None),
+                        None => (tlas_action, blas_refit, None, None),
                     };
                     if let Some((bi, ba)) = b_owned {
                         let (mgr, mgr_b): (&mut VkAsManager, &mut VkAsManager) =
@@ -9186,6 +9378,7 @@ unsafe fn submit_persistent_frame(
                             tlas_action,
                             blas_refit,
                             tlas_b: Some((mgr_b, ba)),
+                            blas_refit_b,
                         })
                     } else {
                         Some(AsFrameOps {
@@ -9194,6 +9387,7 @@ unsafe fn submit_persistent_frame(
                             tlas_action,
                             blas_refit,
                             tlas_b: None,
+                            blas_refit_b,
                         })
                     }
                 }
@@ -12606,3 +12800,8 @@ mod tests {
         result
     }
 }
+
+// ── G37 W3 #90:FIF×动态共存判档加性面(每槽 AS 副本 opt-in 提交入口;既有
+//    入口/行为 0-byte——vk_g37_async_lanes body-include 先例同律,语义头注见
+//    该文件;RFC-0030 §4.3 L2 修订行草案的实现底稿)──
+include!("render_exec_g37_fif_dyn.rs");

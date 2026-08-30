@@ -1,0 +1,42 @@
+{
+ "anchor_snrm_128f": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+ "runs": [
+  {
+   "tag": "render_off",
+   "rc": 0,
+   "wall_s": 79.3,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 104/128 scene_gpu=17.783ms mv_gpu=0.955ms tsr_gpu=24.108ms frame=163.970ms",
+    "[g14_3_pipeline_perf]: 帧 112/128 scene_gpu=11.205ms mv_gpu=0.454ms tsr_gpu=22.519ms frame=157.397ms",
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=11.186ms mv_gpu=1.007ms tsr_gpu=22.007ms frame=147.857ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=11.193ms mv_gpu=0.541ms tsr_gpu=22.438ms frame=176.360ms"
+   ],
+   "converged_digest": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+   "exr": "artifacts\\night_0828\\d6_ggx\\render_off\\bistro-interior\\tier100\\tsr_device\\converged.exr"
+  },
+  {
+   "tag": "render_on",
+   "rc": 0,
+   "wall_s": 79.02,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 104/128 scene_gpu=11.200ms mv_gpu=0.588ms tsr_gpu=21.224ms frame=142.421ms",
+    "[g14_3_pipeline_perf]: 帧 112/128 scene_gpu=12.478ms mv_gpu=0.673ms tsr_gpu=19.988ms frame=142.266ms",
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=11.195ms mv_gpu=0.577ms tsr_gpu=21.555ms frame=142.451ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=11.199ms mv_gpu=0.584ms tsr_gpu=22.361ms frame=145.552ms"
+   ],
+   "converged_digest": "sha256:ec39557569fd77b13480baa6f0430453c0fe9c5e248f6d717f1222786c4c9316",
+   "exr": "artifacts\\night_0828\\d6_ggx\\render_on\\bistro-interior\\tier100\\tsr_device\\converged.exr"
+  }
+ ],
+ "verdict": {
+  "off_matches_snrm128_anchor": true,
+  "on_differs_from_off": true,
+  "on_converged_digest": "sha256:ec39557569fd77b13480baa6f0430453c0fe9c5e248f6d717f1222786c4c9316",
+  "off_converged_digest": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+  "pngs": {
+   "render_off": "artifacts\\night_0828\\d6_ggx\\ggx_off_aces.png",
+   "render_on": "artifacts\\night_0828\\d6_ggx\\ggx_on_aces.png"
+  }
+ },
+ "all_pass": true
+}

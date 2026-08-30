@@ -1,0 +1,39 @@
+{
+ "steps": [
+  {
+   "step": "cargo_build_pre",
+   "rc": 0,
+   "wall_s": 0.17,
+   "stderr_tail": [
+    "warning: constant `BUILD_ACCEL_STRUCTURE_PREFER_FAST_TRACE_BIT` is never used",
+    "     --> src\\rurix-rt\\src\\vk.rs:10595:7",
+    "      |",
+    "10595 | const BUILD_ACCEL_STRUCTURE_PREFER_FAST_TRACE_BIT: u32 = 0x4;",
+    "      |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+    "",
+    "warning: `rurix-rt` (lib) generated 15 warnings (run `cargo fix --lib -p rurix-rt` to apply 5 suggestions)",
+    "    Finished `release` profile [optimized] target(s) in 0.11s"
+   ]
+  },
+  {
+   "step": "bench_pre_off",
+   "rc": 0,
+   "wall_s": 62.03,
+   "stdout_tail": [
+    "[g14_3_pipeline_perf]: BENCH PASS scene=bistro-interior tier=100 backend=tsr_device warmup=2 frames=8 frame_ms_mean=11.695550 cv=2.233402 fps=85.503 scene_gpu_ms_mean=0.959160 prod_ms_mean=2.449488 tail_ms_mean=9.246063 out=artifacts/night_0828/d2_smooth_nrm/pre_off\\bistro-interior\\tier100\\tsr_device"
+   ],
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.424ms scene_gpu=0.958ms mv_gpu=0.023ms tsr_gpu=0.295ms rec=0.038ms sub=0.027ms fence=1.376ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=80.802ms scene_gpu=0.959ms mv_gpu=0.033ms tsr_gpu=0.532ms rec=0.054ms sub=0.033ms fence=2.920ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d2_smooth_nrm\\pre_off\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "render_digest": null,
+   "scene_gpu_ns_mean": 959160,
+   "frame_ms_mean": 11.69555,
+   "spv_scene": null,
+   "spv_scene_sha256": null
+  }
+ ]
+}

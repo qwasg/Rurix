@@ -1,0 +1,2830 @@
+{
+ "schema": "rurix.day0828.recon.material_census.v1",
+ "gltf": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+ "materials_total": 70,
+ "tris_total": 1046609,
+ "top12_mapping_law": "tris desc, ties material_index asc (tex_on_ev.json)",
+ "top12_indices": [
+  5,
+  7,
+  8,
+  9,
+  15,
+  22,
+  41,
+  42,
+  47,
+  54,
+  55,
+  63
+ ],
+ "top12_tris": 697878,
+ "materials": [
+  {
+   "material_index": 0,
+   "name": "Paris_Cashregister",
+   "tris": 3369,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Cashregister_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.2808365005910867,
+    0.1723011232927159,
+    0.11328754811014918
+   ],
+   "effective_tri_albedo": [
+    0.16850189868073617,
+    0.1033806729486349,
+    0.06797252819084315
+   ]
+  },
+  {
+   "material_index": 1,
+   "name": "Paris_Cashregister_Buttons",
+   "tris": 6912,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Cashregister_Buttons_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.20583843063926574,
+    0.17657272967011522,
+    0.15651439038423903
+   ],
+   "effective_tri_albedo": [
+    0.12350305715666689,
+    0.10594363674961373,
+    0.09390863329764502
+   ]
+  },
+  {
+   "material_index": 2,
+   "name": "Paris_Cashregister_Glass",
+   "tris": 28,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Cashregister_Glass_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.027703773716265662,
+    0.027363192561580953,
+    0.027703773716265662
+   ],
+   "effective_tri_albedo": [
+    0.01662226406463205,
+    0.016417915373851247,
+    0.01662226406463205
+   ]
+  },
+  {
+   "material_index": 3,
+   "name": "Paris_Coasters_01",
+   "tris": 22400,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Coasters_01_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.0367849400598831,
+    0.020818023905165618,
+    0.012384201297751203
+   ],
+   "effective_tri_albedo": [
+    0.022070963816674546,
+    0.012490814219014287,
+    0.007430520704835135
+   ]
+  },
+  {
+   "material_index": 4,
+   "name": "ToffeeJar_Metal",
+   "tris": 7504,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "ToffeeJar_Metal_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.0033379315366707,
+    0.003415182760683933,
+    0.0033379315366707
+   ],
+   "effective_tri_albedo": [
+    0.0020027589021067993,
+    0.002049109636054286,
+    0.0020027589021067993
+   ]
+  },
+  {
+   "material_index": 5,
+   "name": "ToffeeJar_Label",
+   "tris": 32935,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "ToffeeJar_Label_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.13870349375625413,
+    0.1201708524639087,
+    0.11550220989542222
+   ],
+   "effective_tri_albedo": [
+    0.0832220954270153,
+    0.07210251076207118,
+    0.06930132524880656
+   ]
+  },
+  {
+   "material_index": 6,
+   "name": "CookieJar_Cookies",
+   "tris": 6776,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "CookieJar_Cookies_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.7428635456597792,
+    0.35251984004943904,
+    0.12170925976145215
+   ],
+   "effective_tri_albedo": [
+    0.4457181229680561,
+    0.2115119019284816,
+    0.07302555513142762
+   ]
+  },
+  {
+   "material_index": 7,
+   "name": "TransparentGlass.DoubleSided",
+   "tris": 130792,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "TransparentGlass_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.2195261997292692,
+    0.21586050011389932,
+    0.2195261997292692
+   ],
+   "effective_tri_albedo": [
+    0.1317157185290835,
+    0.12951629878171084,
+    0.1317157185290835
+   ]
+  },
+  {
+   "material_index": 8,
+   "name": "Paris_LiquorBottle_01_Glass_Wine",
+   "tris": 28308,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_LiquorBottle_01_Glass_Wine_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.012983032342173016,
+    0.012983032342173016,
+    0.012983032342173016
+   ],
+   "effective_tri_albedo": [
+    0.007789819327918912,
+    0.007789819327918912,
+    0.007789819327918912
+   ]
+  },
+  {
+   "material_index": 9,
+   "name": "Paris_LiquorBottle_01_Caps",
+   "tris": 49714,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_LiquorBottle_01_Caps_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.02682677533230391,
+    0.017188541212303676,
+    0.019391365172041906
+   ],
+   "effective_tri_albedo": [
+    0.016096065039482316,
+    0.010313124624930524,
+    0.01163481898764361
+   ]
+  },
+  {
+   "material_index": 10,
+   "name": "Metal_Chrome1",
+   "tris": 14210,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Metal_Chrome1_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "effective_tri_albedo": [
+    0.599999994039536,
+    0.599999994039536,
+    0.599999994039536
+   ]
+  },
+  {
+   "material_index": 11,
+   "name": "Cloth",
+   "tris": 1250,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Cloth_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.4147409084413171,
+    0.4147233630118787,
+    0.41472068782900845
+   ],
+   "effective_tri_albedo": [
+    0.248844542592742,
+    0.2488340153351835,
+    0.24883241022547734
+   ]
+  },
+  {
+   "material_index": 12,
+   "name": "Paris_Table_cloth_01",
+   "tris": 24088,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Table_cloth_01_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effective_tri_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "material_index": 13,
+   "name": "curtainA",
+   "tris": 11256,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "curtainA_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.19547782724694016,
+    0.02460195522501723,
+    0.01195461854403721
+   ],
+   "effective_tri_albedo": [
+    0.11728669518302554,
+    0.014761172988371268,
+    0.0071727710551672515
+   ]
+  },
+  {
+   "material_index": 14,
+   "name": "curtainB1",
+   "tris": 26252,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "curtainB1_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.2307115804980464,
+    0.024382861713611276,
+    0.01359271847590876
+   ],
+   "effective_tri_albedo": [
+    0.13842694692367977,
+    0.014629716882833595,
+    0.008155631004526346
+   ]
+  },
+  {
+   "material_index": 15,
+   "name": "Cutlery_chrome",
+   "tris": 27978,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Cutlery_chrome_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.8148465722161012,
+    0.8307698767746546,
+    0.8387990117407399
+   ],
+   "effective_tri_albedo": [
+    0.48890793847279707,
+    0.4984619211130188,
+    0.5032794020448126
+   ]
+  },
+  {
+   "material_index": 16,
+   "name": "Cutlery_details",
+   "tris": 10840,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Cutlery_details_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.07818742180518633,
+    0.07618538148130784,
+    0.07818742180518633
+   ],
+   "effective_tri_albedo": [
+    0.04691245261707848,
+    0.045711228434684475,
+    0.04691245261707848
+   ]
+  },
+  {
+   "material_index": 17,
+   "name": "Paris_Doormat",
+   "tris": 30,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Doormat_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.020418296126537564,
+    0.0184427711722549,
+    0.018784762377351265
+   ],
+   "effective_tri_albedo": [
+    0.012250977554220019,
+    0.011065662593425467,
+    0.011270857314444858
+   ]
+  },
+  {
+   "material_index": 18,
+   "name": "NapkinHolder_01",
+   "tris": 11990,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "NapkinHolder_01_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.14123674736298122,
+    0.12693815979704876,
+    0.12356780161159088
+   ],
+   "effective_tri_albedo": [
+    0.08474204757595218,
+    0.07616289512161892,
+    0.07414068023043309
+   ]
+  },
+  {
+   "material_index": 19,
+   "name": "Trolley_Plastic",
+   "tris": 320,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Trolley_Plastic_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.22615289865908653,
+    0.22216805701136969,
+    0.22615289865908653
+   ],
+   "effective_tri_albedo": [
+    0.1356917378474757,
+    0.1333008328825971,
+    0.1356917378474757
+   ]
+  },
+  {
+   "material_index": 20,
+   "name": "Trolley_Wheels",
+   "tris": 2400,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Trolley_Wheels_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.0599325696653157,
+    0.12649498065195325,
+    0.07209547685377099
+   ],
+   "effective_tri_albedo": [
+    0.0359595414419635,
+    0.07589698763720316,
+    0.0432572856825401
+   ]
+  },
+  {
+   "material_index": 21,
+   "name": "Trolley_Wood_Painted",
+   "tris": 180,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Trolley_Wood_Painted_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.038038737766498895,
+    0.06473459162983672,
+    0.043622124117654454
+   ],
+   "effective_tri_albedo": [
+    0.02282324243317081,
+    0.03884075459205383,
+    0.02617327421058457
+   ]
+  },
+  {
+   "material_index": 22,
+   "name": "Paris_BarStool",
+   "tris": 56658,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_BarStool_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.026278250880390985,
+    0.011229149204981945,
+    0.006617468237156687
+   ],
+   "effective_tri_albedo": [
+    0.015766950371604024,
+    0.006737489456058227,
+    0.003970480902850831
+   ]
+  },
+  {
+   "material_index": 23,
+   "name": "Paris_Beertap",
+   "tris": 10200,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Beertap_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.4404161959002481,
+    0.3950697251845908,
+    0.3314480435159266
+   ],
+   "effective_tri_albedo": [
+    0.264249714915064,
+    0.2370418327559556,
+    0.19886882413397183
+   ]
+  },
+  {
+   "material_index": 24,
+   "name": "MASTER_Interior_01_Plaster",
+   "tris": 87,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Plaster_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.34060330128899347,
+    0.35221369804955355,
+    0.33892591600610705
+   ],
+   "effective_tri_albedo": [
+    0.20436197874324236,
+    0.21132821673037505,
+    0.2033555475835085
+   ]
+  },
+  {
+   "material_index": 25,
+   "name": "MASTER_Interior_01_Wood",
+   "tris": 17434,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Wood_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.0704823154170811,
+    0.05468454676831124,
+    0.04335018857619241
+   ],
+   "effective_tri_albedo": [
+    0.04228938883014135,
+    0.03281072773504147,
+    0.026010112887328206
+   ]
+  },
+  {
+   "material_index": 26,
+   "name": "MASTER_Interior_01_Wooden_stuco",
+   "tris": 338,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Wooden_stuco_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.10573102898753999,
+    0.10578304664125118,
+    0.10573102898753999
+   ],
+   "effective_tri_albedo": [
+    0.06343861676231799,
+    0.06346982735423466,
+    0.06343861676231799
+   ]
+  },
+  {
+   "material_index": 27,
+   "name": "MASTER_Interior_01_Plaster_Red",
+   "tris": 524,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Plaster_Red_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.22553797128329026,
+    0.06745112062335512,
+    0.04981306637871871
+   ],
+   "effective_tri_albedo": [
+    0.13532278142566317,
+    0.04047067197197309,
+    0.029887839530322237
+   ]
+  },
+  {
+   "material_index": 28,
+   "name": "MASTER_Wood_Painted3",
+   "tris": 19640,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Wood_Painted3_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.038038737766498895,
+    0.06473459162983672,
+    0.043622124117654454
+   ],
+   "effective_tri_albedo": [
+    0.02282324243317081,
+    0.03884075459205383,
+    0.02617327421058457
+   ]
+  },
+  {
+   "material_index": 29,
+   "name": "MASTER_Interior_01_Grid",
+   "tris": 10,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Grid_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.2195261997292692,
+    0.21586050011389932,
+    0.2195261997292692
+   ],
+   "effective_tri_albedo": [
+    0.1317157185290835,
+    0.12951629878171084,
+    0.1317157185290835
+   ]
+  },
+  {
+   "material_index": 30,
+   "name": "MASTER_Interior_01_Brushed_Metal",
+   "tris": 12514,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Brushed_Metal_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.42593563163931264,
+    0.44715555004469304,
+    0.46914693200181073
+   ],
+   "effective_tri_albedo": [
+    0.2555613764448136,
+    0.26829332736156125,
+    0.28148815640475305
+   ]
+  },
+  {
+   "material_index": 31,
+   "name": "MASTER_Interior_01_Plaster2",
+   "tris": 6,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Plaster2_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.34060330128899347,
+    0.35221369804955355,
+    0.33892591600610705
+   ],
+   "effective_tri_albedo": [
+    0.20436197874324236,
+    0.21132821673037505,
+    0.2033555475835085
+   ]
+  },
+  {
+   "material_index": 32,
+   "name": "MASTER_Interior_01_Frozen_Glass",
+   "tris": 12,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Frozen_Glass_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.2195261997292692,
+    0.21586050011389932,
+    0.2195261997292692
+   ],
+   "effective_tri_albedo": [
+    0.1317157185290835,
+    0.12951629878171084,
+    0.1317157185290835
+   ]
+  },
+  {
+   "material_index": 33,
+   "name": "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER",
+   "tris": 1012,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.09781799487487829,
+    0.09732259201246295,
+    0.10007258926498744
+   ],
+   "effective_tri_albedo": [
+    0.05869079634188633,
+    0.05839355462738996,
+    0.060043552962513395
+   ]
+  },
+  {
+   "material_index": 34,
+   "name": "MASTER_Interior_01_Paris_Bartrim",
+   "tris": 5763,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Paris_Bartrim_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.12980589109194796,
+    0.12159632434117039,
+    0.10860634755258246
+   ],
+   "effective_tri_albedo": [
+    0.07788353388146543,
+    0.07295779387993172,
+    0.06516380788420524
+   ]
+  },
+  {
+   "material_index": 35,
+   "name": "MASTER_Interior_01_White_Plastic",
+   "tris": 2132,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_White_Plastic_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "effective_tri_albedo": [
+    0.599999994039536,
+    0.599999994039536,
+    0.599999994039536
+   ]
+  },
+  {
+   "material_index": 36,
+   "name": "MASTER_Interior_01_Grid1",
+   "tris": 1664,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Grid1_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.01323627086160456,
+    0.01269342771064657,
+    0.01323627086160456
+   ],
+   "effective_tri_albedo": [
+    0.00794176243806842,
+    0.007616056550729222,
+    0.00794176243806842
+   ]
+  },
+  {
+   "material_index": 37,
+   "name": "MASTER_Interior_01_Material",
+   "tris": 2,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Material_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.16679357333829722,
+    0.13118930238365847,
+    0.09614026189027725
+   ],
+   "effective_tri_albedo": [
+    0.10007614300881124,
+    0.07871358064824596,
+    0.05768415656112577
+   ]
+  },
+  {
+   "material_index": 38,
+   "name": "MASTER_Interior_01_Paris_Lantern",
+   "tris": 6464,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "texture_uri": "MASTER_Interior_01_Paris_Lantern_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT5",
+    "bytes": 5592560
+   },
+   "tex_mean_linear_rgb": [
+    0.05608730307317017,
+    0.03847158568432748,
+    0.02103101185771319
+   ],
+   "effective_tri_albedo": [
+    0.03365238150959575,
+    0.023082951181287985,
+    0.012618606989273324
+   ]
+  },
+  {
+   "material_index": 39,
+   "name": "Paris_Ceiling_Lamp",
+   "tris": 6768,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "texture_uri": "Paris_Ceiling_Lamp_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.45458554141302693,
+    0.44896858146361623,
+    0.4478590532881334
+   ],
+   "effective_tri_albedo": [
+    0.2727513221382754,
+    0.2693811462021087,
+    0.2687154293034323
+   ]
+  },
+  {
+   "material_index": 40,
+   "name": "Paris_CeilingFan",
+   "tris": 9288,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "texture_uri": "Paris_CeilingFan_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.09062528331694948,
+    0.04650320405458161,
+    0.02612236676656221
+   ],
+   "effective_tri_albedo": [
+    0.05437516945000095,
+    0.02790192215556829,
+    0.0156734199042359
+   ]
+  },
+  {
+   "material_index": 41,
+   "name": "Paris_Table_03",
+   "tris": 121816,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Table_03_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.0704823154170811,
+    0.05468454676831124,
+    0.04335018857619241
+   ],
+   "effective_tri_albedo": [
+    0.04228938883014135,
+    0.03281072773504147,
+    0.026010112887328206
+   ]
+  },
+  {
+   "material_index": 42,
+   "name": "Metal_Worn_01",
+   "tris": 29630,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Metal_Worn_01_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.37776369648309766,
+    0.3817741028285262,
+    0.37919618845805686
+   ],
+   "effective_tri_albedo": [
+    0.22665821563821167,
+    0.22906445942156492,
+    0.22751771081464886
+   ]
+  },
+  {
+   "material_index": 43,
+   "name": "Wood",
+   "tris": 8,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Wood_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.10573102898753999,
+    0.10578304664125118,
+    0.10573102898753999
+   ],
+   "effective_tri_albedo": [
+    0.06343861676231799,
+    0.06346982735423466,
+    0.06343861676231799
+   ]
+  },
+  {
+   "material_index": 44,
+   "name": "Plastic_02",
+   "tris": 840,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plastic_02_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.22615289865908653,
+    0.22216805701136969,
+    0.22615289865908653
+   ],
+   "effective_tri_albedo": [
+    0.1356917378474757,
+    0.1333008328825971,
+    0.1356917378474757
+   ]
+  },
+  {
+   "material_index": 45,
+   "name": "Plants_Metal_Base_01",
+   "tris": 3834,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plants_Metal_Base_01_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.6172065624196511,
+    0.4452011945162279,
+    0.2086368701452557
+   ],
+   "effective_tri_albedo": [
+    0.37032393377295314,
+    0.267120714056131,
+    0.12518212084358085
+   ]
+  },
+  {
+   "material_index": 46,
+   "name": "Plants_plants.DoubleSided",
+   "tris": 2064,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plants_plants_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT5",
+    "bytes": 5592560
+   },
+   "tex_mean_linear_rgb": [
+    0.11555938123845931,
+    0.1348534589001262,
+    0.05600125615002097
+   ],
+   "effective_tri_albedo": [
+    0.06933562805428806,
+    0.08091207453628653,
+    0.03360075335621911
+   ]
+  },
+  {
+   "material_index": 47,
+   "name": "Paris_LiquorBottle_02_Glass",
+   "tris": 51324,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_LiquorBottle_02_Glass_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effective_tri_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "material_index": 48,
+   "name": "Paris_LiquorBottle_01_Glass",
+   "tris": 24352,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_LiquorBottle_01_Glass_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effective_tri_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "material_index": 49,
+   "name": "Paris_LiquorBottle_03_Glass",
+   "tris": 14336,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_LiquorBottle_03_Glass_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effective_tri_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "material_index": 50,
+   "name": "Paris_Painting_Metal",
+   "tris": 6500,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Painting_Metal_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.34655135637438766,
+    0.2675176130385497,
+    0.1986376042386758
+   ],
+   "effective_tri_albedo": [
+    0.2079308117590257,
+    0.16051056622860072,
+    0.11918256135923318
+   ]
+  },
+  {
+   "material_index": 51,
+   "name": "Paris_Paintings",
+   "tris": 90,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Paintings_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.2665727296344087,
+    0.15632545728757832,
+    0.0985475227938685
+   ],
+   "effective_tri_albedo": [
+    0.15994363619174806,
+    0.09379527344077473,
+    0.05912851308893213
+   ]
+  },
+  {
+   "material_index": 52,
+   "name": "Paris_Paintings_Glass",
+   "tris": 6,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Paintings_Glass_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.027703773716265662,
+    0.027363192561580953,
+    0.027703773716265662
+   ],
+   "effective_tri_albedo": [
+    0.01662226406463205,
+    0.016417915373851247,
+    0.01662226406463205
+   ]
+  },
+  {
+   "material_index": 53,
+   "name": "Plates_Details",
+   "tris": 6972,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plates_Details_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT5",
+    "bytes": 5592560
+   },
+   "tex_mean_linear_rgb": [
+    0.6212614886024238,
+    0.8760196848391989,
+    0.7052045169907349
+   ],
+   "effective_tri_albedo": [
+    0.37275688945844754,
+    0.5256118056820355,
+    0.4231227059910948
+   ]
+  },
+  {
+   "material_index": 54,
+   "name": "Plates_Ceramic",
+   "tris": 99582,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plates_Ceramic_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.6172065624196511,
+    0.6239603916750761,
+    0.5775804404296506
+   ],
+   "effective_tri_albedo": [
+    0.37032393377295314,
+    0.3743762312859522,
+    0.34654826081514295
+   ]
+  },
+  {
+   "material_index": 55,
+   "name": "Paris_Radiator",
+   "tris": 39216,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Radiator_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.4400637529136335,
+    0.3308813211508725,
+    0.2461456607006051
+   ],
+   "effective_tri_albedo": [
+    0.2640382491251959,
+    0.19852879071831728,
+    0.1476873949532207
+   ]
+  },
+  {
+   "material_index": 56,
+   "name": "Rubber_Bar_Mat_01",
+   "tris": 4,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Rubber_Bar_Mat_01_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.010855750275050306,
+    0.0111693303489356,
+    0.015358411501723426
+   ],
+   "effective_tri_albedo": [
+    0.006513450100324875,
+    0.0067015981427869685,
+    0.009215046809490797
+   ]
+  },
+  {
+   "material_index": 57,
+   "name": "Plastic_01",
+   "tris": 468,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Plastic_01_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.22615289865908653,
+    0.22216805701136969,
+    0.22615289865908653
+   ],
+   "effective_tri_albedo": [
+    0.1356917378474757,
+    0.1333008328825971,
+    0.1356917378474757
+   ]
+  },
+  {
+   "material_index": 58,
+   "name": "ToffeeJar_Toffee",
+   "tris": 14248,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "ToffeeJar_Toffee_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "effective_tri_albedo": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "material_index": 59,
+   "name": "Paris_Wall_Light_Interior",
+   "tris": 21504,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "texture_uri": "Paris_Wall_Light_Interior_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.20955965093350482,
+    0.17802378822955958,
+    0.1291136270156817
+   ],
+   "effective_tri_albedo": [
+    0.12573578931103013,
+    0.10681427187663137,
+    0.07746817543983188
+   ]
+  },
+  {
+   "material_index": 60,
+   "name": "Paris_Wall_Bulb_Light",
+   "tris": 924,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Paris_Wall_Bulb_Light_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "effective_tri_albedo": [
+    0.599999994039536,
+    0.599999994039536,
+    0.599999994039536
+   ]
+  },
+  {
+   "material_index": 61,
+   "name": "Wall_Lamp",
+   "tris": 1776,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Wall_Lamp_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.05608730307317017,
+    0.03847158568432748,
+    0.02103101185771319
+   ],
+   "effective_tri_albedo": [
+    0.03365238150959575,
+    0.023082951181287985,
+    0.012618606989273324
+   ]
+  },
+  {
+   "material_index": 62,
+   "name": "Metal_Bronze_01",
+   "tris": 1032,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "Metal_Bronze_01_BaseColor.dds",
+   "dds": {
+    "w": 16,
+    "h": 16,
+    "mips": 5,
+    "fourcc": "DXT5",
+    "bytes": 496
+   },
+   "tex_mean_linear_rgb": [
+    0.6172065624196511,
+    0.4452011945162279,
+    0.2086368701452557
+   ],
+   "effective_tri_albedo": [
+    0.37032393377295314,
+    0.267120714056131,
+    0.12518212084358085
+   ]
+  },
+  {
+   "material_index": 63,
+   "name": "WickerBasket",
+   "tris": 29925,
+   "top12": true,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "WickerBasket_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.4287129812402294,
+    0.40411495549788773,
+    0.37592081732956106
+   ],
+   "effective_tri_albedo": [
+    0.2572277861888093,
+    0.24246897089001998,
+    0.22555248815707413
+   ]
+  },
+  {
+   "material_index": 64,
+   "name": "MASTER_Glass_Exterior",
+   "tris": 6,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Glass_Exterior_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.027703773716265662,
+    0.027363192561580953,
+    0.027703773716265662
+   ],
+   "effective_tri_albedo": [
+    0.01662226406463205,
+    0.016417915373851247,
+    0.01662226406463205
+   ]
+  },
+  {
+   "material_index": 65,
+   "name": "MASTER_Bistro_Main_Door",
+   "tris": 5772,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Bistro_Main_Door_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.06400299185499987,
+    0.09351963192791497,
+    0.06936729646622203
+   ],
+   "effective_tri_albedo": [
+    0.038401794731512395,
+    0.05611177859932858,
+    0.04162037746627194
+   ]
+  },
+  {
+   "material_index": 66,
+   "name": "MASTER_Concrete_Yellow",
+   "tris": 92,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Concrete_Yellow_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.3023815568464847,
+    0.23409664241035413,
+    0.09375519556323043
+   ],
+   "effective_tri_albedo": [
+    0.18142893230555643,
+    0.14045798405088786,
+    0.056253116779113786
+   ]
+  },
+  {
+   "material_index": 67,
+   "name": "MASTER_Concrete_Grooved",
+   "tris": 90,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Concrete_Grooved_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.19554312101967858,
+    0.1846001593988119,
+    0.1822843079101148
+   ],
+   "effective_tri_albedo": [
+    0.1173258714462794,
+    0.11076009453898454,
+    0.10937058365956982
+   ]
+  },
+  {
+   "material_index": 68,
+   "name": "MASTER_Concrete",
+   "tris": 60,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Concrete_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.34060330128899347,
+    0.35221369804955355,
+    0.33892591600610705
+   ],
+   "effective_tri_albedo": [
+    0.20436197874324236,
+    0.21132821673037505,
+    0.2033555475835085
+   ]
+  },
+  {
+   "material_index": 69,
+   "name": "MASTER_Concrete1",
+   "tris": 90,
+   "top12": false,
+   "base_color_factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "metallic": 0.400000005960464,
+   "gltf_emissive_factor": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "texture_uri": "MASTER_Concrete1_BaseColor.dds",
+   "dds": {
+    "w": 2048,
+    "h": 2048,
+    "mips": 12,
+    "fourcc": "DXT1",
+    "bytes": 2796344
+   },
+   "tex_mean_linear_rgb": [
+    0.13084630606617026,
+    0.12990637949357184,
+    0.13022505700186923
+   ],
+   "effective_tri_albedo": [
+    0.07850778285979745,
+    0.0779438269218408,
+    0.07813503342491977
+   ]
+  }
+ ],
+ "blue_candidates": [
+  {
+   "material_index": 30,
+   "name": "MASTER_Interior_01_Brushed_Metal",
+   "tris": 12514,
+   "top12": false,
+   "effective": [
+    0.2555613764448136,
+    0.26829332736156125,
+    0.28148815640475305
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.42593563163931264,
+    0.44715555004469304,
+    0.46914693200181073
+   ],
+   "score": 0.013194829043191802
+  },
+  {
+   "material_index": 15,
+   "name": "Cutlery_chrome",
+   "tris": 27978,
+   "top12": true,
+   "effective": [
+    0.48890793847279707,
+    0.4984619211130188,
+    0.5032794020448126
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.8148465722161012,
+    0.8307698767746546,
+    0.8387990117407399
+   ],
+   "score": 0.004817480931793794
+  },
+  {
+   "material_index": 56,
+   "name": "Rubber_Bar_Mat_01",
+   "tris": 4,
+   "top12": false,
+   "effective": [
+    0.006513450100324875,
+    0.0067015981427869685,
+    0.009215046809490797
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.010855750275050306,
+    0.0111693303489356,
+    0.015358411501723426
+   ],
+   "score": 0.002513448666703828
+  },
+  {
+   "material_index": 33,
+   "name": "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER",
+   "tris": 1012,
+   "top12": false,
+   "effective": [
+    0.05869079634188633,
+    0.05839355462738996,
+    0.060043552962513395
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.09781799487487829,
+    0.09732259201246295,
+    0.10007258926498744
+   ],
+   "score": 0.0013527566206270672
+  },
+  {
+   "material_index": 2,
+   "name": "Paris_Cashregister_Glass",
+   "tris": 28,
+   "top12": false,
+   "effective": [
+    0.01662226406463205,
+    0.016417915373851247,
+    0.01662226406463205
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.027703773716265662,
+    0.027363192561580953,
+    0.027703773716265662
+   ],
+   "score": 0.0
+  },
+  {
+   "material_index": 7,
+   "name": "TransparentGlass.DoubleSided",
+   "tris": 130792,
+   "top12": true,
+   "effective": [
+    0.1317157185290835,
+    0.12951629878171084,
+    0.1317157185290835
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.2195261997292692,
+    0.21586050011389932,
+    0.2195261997292692
+   ],
+   "score": 0.0
+  },
+  {
+   "material_index": 8,
+   "name": "Paris_LiquorBottle_01_Glass_Wine",
+   "tris": 28308,
+   "top12": true,
+   "effective": [
+    0.007789819327918912,
+    0.007789819327918912,
+    0.007789819327918912
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.012983032342173016,
+    0.012983032342173016,
+    0.012983032342173016
+   ],
+   "score": 0.0
+  },
+  {
+   "material_index": 10,
+   "name": "Metal_Chrome1",
+   "tris": 14210,
+   "top12": false,
+   "effective": [
+    0.599999994039536,
+    0.599999994039536,
+    0.599999994039536
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "score": 0.0
+  }
+ ],
+ "red_candidates": [
+  {
+   "material_index": 6,
+   "name": "CookieJar_Cookies",
+   "tris": 6776,
+   "top12": false,
+   "effective": [
+    0.4457181229680561,
+    0.2115119019284816,
+    0.07302555513142762
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.7428635456597792,
+    0.35251984004943904,
+    0.12170925976145215
+   ],
+   "score": 0.23420622103957447
+  },
+  {
+   "material_index": 14,
+   "name": "curtainB1",
+   "tris": 26252,
+   "top12": false,
+   "effective": [
+    0.13842694692367977,
+    0.014629716882833595,
+    0.008155631004526346
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.2307115804980464,
+    0.024382861713611276,
+    0.01359271847590876
+   ],
+   "score": 0.12379723004084617
+  },
+  {
+   "material_index": 45,
+   "name": "Plants_Metal_Base_01",
+   "tris": 3834,
+   "top12": false,
+   "effective": [
+    0.37032393377295314,
+    0.267120714056131,
+    0.12518212084358085
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.6172065624196511,
+    0.4452011945162279,
+    0.2086368701452557
+   ],
+   "score": 0.10320321971682211
+  },
+  {
+   "material_index": 62,
+   "name": "Metal_Bronze_01",
+   "tris": 1032,
+   "top12": false,
+   "effective": [
+    0.37032393377295314,
+    0.267120714056131,
+    0.12518212084358085
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.6172065624196511,
+    0.4452011945162279,
+    0.2086368701452557
+   ],
+   "score": 0.10320321971682211
+  },
+  {
+   "material_index": 13,
+   "name": "curtainA",
+   "tris": 11256,
+   "top12": false,
+   "effective": [
+    0.11728669518302554,
+    0.014761172988371268,
+    0.0071727710551672515
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.19547782724694016,
+    0.02460195522501723,
+    0.01195461854403721
+   ],
+   "score": 0.10252552219465427
+  },
+  {
+   "material_index": 27,
+   "name": "MASTER_Interior_01_Plaster_Red",
+   "tris": 524,
+   "top12": false,
+   "effective": [
+    0.13532278142566317,
+    0.04047067197197309,
+    0.029887839530322237
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.22553797128329026,
+    0.06745112062335512,
+    0.04981306637871871
+   ],
+   "score": 0.09485210945369008
+  },
+  {
+   "material_index": 51,
+   "name": "Paris_Paintings",
+   "tris": 90,
+   "top12": false,
+   "effective": [
+    0.15994363619174806,
+    0.09379527344077473,
+    0.05912851308893213
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.2665727296344087,
+    0.15632545728757832,
+    0.0985475227938685
+   ],
+   "score": 0.06614836275097333
+  },
+  {
+   "material_index": 55,
+   "name": "Paris_Radiator",
+   "tris": 39216,
+   "top12": true,
+   "effective": [
+    0.2640382491251959,
+    0.19852879071831728,
+    0.1476873949532207
+   ],
+   "factor": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "mean": [
+    0.4400637529136335,
+    0.3308813211508725,
+    0.2461456607006051
+   ],
+   "score": 0.06550945840687863
+  }
+ ]
+}

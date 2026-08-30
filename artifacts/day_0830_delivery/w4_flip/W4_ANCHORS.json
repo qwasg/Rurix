@@ -1,0 +1,366 @@
+{
+ "schema": "rurix.day0830.delivery.w4_flip_verify.v2",
+ "fails": 0,
+ "optional_fails": [
+  "s12_fgcombo"
+ ],
+ "verdict": "PASS",
+ "anchors_harvested": {
+  "full19_default_96f": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455",
+  "transparency_solo_96f": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+  "lut_neutral_32f": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+  "lut_warm_32f": "sha256:c6cd1152339f719743d07115ed4f8f43dffb6fc474cbecd7b06fa63b4e79a71d",
+  "ris_nee_solo_96f": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+  "rd045_orbit_64f_full_default": "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f",
+  "tex_arm_orbit_64f": "sha256:ac2e5ff5747e44f7b8d99967579ff5d5a95fd0c0c08075edb8ebf86e9167060e"
+ },
+ "s09_correction": "probe rc=0 + 臂 OK = PASS(sidecar 无 pass 字段,首跑判读 bug 已更正)",
+ "prev_rows": [
+  {
+   "step": "s01_alloff",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 160.3,
+   "log_ok": true,
+   "real_render_frame_ms": 5.57305,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "07:16:37"
+  },
+  {
+   "step": "s02_full19_r1",
+   "rc": 0,
+   "digest": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455",
+   "vuid": 0,
+   "wall_s": 654.2,
+   "log_ok": true,
+   "real_render_frame_ms": 9.750273,
+   "t": "07:27:31"
+  },
+  {
+   "step": "s02_full19_r2",
+   "rc": 0,
+   "digest": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455",
+   "vuid": 0,
+   "wall_s": 650.2,
+   "log_ok": true,
+   "real_render_frame_ms": 10.587947,
+   "double_run_bitexact": true,
+   "t": "07:38:21"
+  },
+  {
+   "step": "s02_full19_verdict",
+   "pass": true,
+   "digest": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455",
+   "t": "07:38:21"
+  },
+  {
+   "step": "s03_bench",
+   "rc": 0,
+   "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "expect": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "wall_s": 154.6,
+   "pass": true,
+   "t": "07:40:56"
+  },
+  {
+   "step": "s04_transp_r1",
+   "rc": 0,
+   "digest": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+   "vuid": 0,
+   "wall_s": 617.6,
+   "log_ok": true,
+   "real_render_frame_ms": 4.248449,
+   "t": "07:51:13"
+  },
+  {
+   "step": "s04_transp_r2",
+   "rc": 0,
+   "digest": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+   "vuid": 0,
+   "wall_s": 581.1,
+   "log_ok": true,
+   "real_render_frame_ms": 4.380651,
+   "double_run_bitexact": true,
+   "t": "08:00:54"
+  },
+  {
+   "step": "s04_transp_verdict",
+   "pass": true,
+   "digest": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+   "t": "08:00:54"
+  },
+  {
+   "step": "s05_lut_neutral_r1",
+   "rc": 0,
+   "digest": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+   "vuid": 0,
+   "wall_s": 62.0,
+   "log_ok": true,
+   "real_render_frame_ms": 4.139103,
+   "t": "08:01:56"
+  },
+  {
+   "step": "s05_lut_neutral_r2",
+   "rc": 0,
+   "digest": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+   "vuid": 0,
+   "wall_s": 71.0,
+   "log_ok": true,
+   "real_render_frame_ms": 4.284116,
+   "double_run_bitexact": true,
+   "t": "08:03:07"
+  },
+  {
+   "step": "s05_lut_neutral_verdict",
+   "pass": true,
+   "digest": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+   "t": "08:03:07"
+  },
+  {
+   "step": "s05_lut_warm_r1",
+   "rc": 0,
+   "digest": "sha256:c6cd1152339f719743d07115ed4f8f43dffb6fc474cbecd7b06fa63b4e79a71d",
+   "vuid": 0,
+   "wall_s": 62.2,
+   "log_ok": true,
+   "real_render_frame_ms": 4.399972,
+   "t": "08:04:09"
+  },
+  {
+   "step": "s05_lut_warm_r2",
+   "rc": 0,
+   "digest": "sha256:c6cd1152339f719743d07115ed4f8f43dffb6fc474cbecd7b06fa63b4e79a71d",
+   "vuid": 0,
+   "wall_s": 62.1,
+   "log_ok": true,
+   "real_render_frame_ms": 4.126325,
+   "double_run_bitexact": true,
+   "t": "08:05:12"
+  },
+  {
+   "step": "s05_lut_warm_verdict",
+   "pass": true,
+   "digest": "sha256:c6cd1152339f719743d07115ed4f8f43dffb6fc474cbecd7b06fa63b4e79a71d",
+   "t": "08:05:12"
+  },
+  {
+   "step": "s05_lut_off",
+   "rc": 0,
+   "digest": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+   "vuid": 0,
+   "wall_s": 62.2,
+   "log_ok": true,
+   "real_render_frame_ms": 4.349488,
+   "t": "08:06:14"
+  },
+  {
+   "step": "s05_verdict",
+   "distinct": true,
+   "warm_shift_r_up_b_down": true,
+   "pass": true,
+   "t": "08:06:14"
+  },
+  {
+   "step": "s06_ris_nee_r1",
+   "rc": 0,
+   "digest": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+   "vuid": 0,
+   "wall_s": 128.5,
+   "log_ok": true,
+   "real_render_frame_ms": 6.775914,
+   "t": "08:08:23"
+  },
+  {
+   "step": "s06_ris_nee_r2",
+   "rc": 0,
+   "digest": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+   "vuid": 0,
+   "wall_s": 129.0,
+   "log_ok": true,
+   "real_render_frame_ms": 7.071382,
+   "double_run_bitexact": true,
+   "t": "08:10:31"
+  },
+  {
+   "step": "s06_ris_nee_verdict",
+   "pass": true,
+   "digest": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+   "t": "08:10:31"
+  },
+  {
+   "step": "s06_base",
+   "rc": 0,
+   "digest": "sha256:c80cb6ae08e1f695866d94210d14e662bedd3bae4136ea4cd69807f3de36ae93",
+   "vuid": 0,
+   "wall_s": 128.7,
+   "log_ok": true,
+   "real_render_frame_ms": 4.707997,
+   "t": "08:12:40"
+  },
+  {
+   "step": "s06_verdict",
+   "on_neq_off": true,
+   "pass": true,
+   "t": "08:12:40"
+  },
+  {
+   "step": "s07_full_storm3",
+   "rc": 0,
+   "digest": "sha256:4e8cb918e057781580eec562e4a16ca01cd8c4c0e17d3220de47ff8fe711a835",
+   "vuid": 0,
+   "wall_s": 261.6,
+   "log_ok": true,
+   "real_render_frame_ms": 3.336277,
+   "pso_runtime_creates": 0,
+   "sessions": 2,
+   "pass": true,
+   "t": "08:17:02"
+  },
+  {
+   "step": "s08_vbw_smoke",
+   "rc": 0,
+   "wall_s": 72.5,
+   "pass": true,
+   "t": "08:18:14"
+  },
+  {
+   "step": "s08_vb_window",
+   "rc": 0,
+   "digest": "sha256:5540ecaed4fd4c1e3e0abea7f937bbb2e200434096a86a772dbb48238d0e0ea8",
+   "vuid": 0,
+   "wall_s": 73.4,
+   "log_ok": true,
+   "real_render_frame_ms": 3.955346,
+   "sidecar": true,
+   "pass": true,
+   "t": "08:19:28"
+  },
+  {
+   "step": "s09_fcp_probe",
+   "rc": 0,
+   "evidence_pass": false,
+   "wall_s": 62.9,
+   "pass": false,
+   "stderr_tail": [
+    "[g31_frame_cut_probe]: 装配就绪 tris=1046609 in=1920x1080 tier=100（LOD 判据分辨率 = 内部分辨率,#58/W2 同口径）",
+    "[g31_frame_cut_probe]: 簇包就绪 blocks=187 clusters=123169 passthrough=44024（gltf sha/覆盖恰一次/叶几何位级 已核）",
+    "[g31_frame_cut_probe]: 会话就绪 arena_tris=2082603 arena_mb=75.0 create_ms=388（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）",
+    "[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）",
+    "[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=27.06（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）",
+    "[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0830_delivery\\w4_flip\\ev\\s09_fcp.json"
+   ],
+   "t": "08:20:31"
+  }
+ ],
+ "rows": [
+  {
+   "step": "s09_verdict_corrected",
+   "note": "probe 判据 = 进程 rc=0(内部 fail-closed)+ 臂 OK;sidecar 为统计面无 pass 字段——首跑实质 PASS,w4_verify.py 字段假设为判读 bug",
+   "probe_rc0_and_arm_ok": true,
+   "pass": true,
+   "t": "08:55:53"
+  },
+  {
+   "step": "s09_fc_window",
+   "rc": 0,
+   "digest": "sha256:5540ecaed4fd4c1e3e0abea7f937bbb2e200434096a86a772dbb48238d0e0ea8",
+   "vuid": 0,
+   "wall_s": 64.9,
+   "real_render_frame_ms": 3.810454,
+   "sidecar": true,
+   "t": "08:56:58"
+  },
+  {
+   "step": "s09_fc_base",
+   "rc": 0,
+   "digest": "sha256:5540ecaed4fd4c1e3e0abea7f937bbb2e200434096a86a772dbb48238d0e0ea8",
+   "vuid": 0,
+   "wall_s": 62.6,
+   "real_render_frame_ms": 3.84815,
+   "additive_regression": true,
+   "t": "08:58:01"
+  },
+  {
+   "step": "s09w_verdict",
+   "pass": true,
+   "t": "08:58:01"
+  },
+  {
+   "step": "s10_rd045_orbit_r1",
+   "rc": 0,
+   "digest": "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f",
+   "vuid": 0,
+   "wall_s": 264.0,
+   "real_render_frame_ms": 10.077786,
+   "t": "09:02:25"
+  },
+  {
+   "step": "s10_rd045_orbit_r2",
+   "rc": 0,
+   "digest": "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f",
+   "vuid": 0,
+   "wall_s": 466.6,
+   "real_render_frame_ms": 9.472808,
+   "double_run_bitexact": true,
+   "t": "09:10:11"
+  },
+  {
+   "step": "s10_rd045_orbit_verdict",
+   "pass": true,
+   "digest": "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f",
+   "t": "09:10:11"
+  },
+  {
+   "step": "s11_texarm_r1",
+   "rc": 0,
+   "digest": "sha256:ac2e5ff5747e44f7b8d99967579ff5d5a95fd0c0c08075edb8ebf86e9167060e",
+   "vuid": 0,
+   "wall_s": 131.6,
+   "real_render_frame_ms": 3.807859,
+   "t": "09:12:23"
+  },
+  {
+   "step": "s11_texarm_r2",
+   "rc": 0,
+   "digest": "sha256:ac2e5ff5747e44f7b8d99967579ff5d5a95fd0c0c08075edb8ebf86e9167060e",
+   "vuid": 0,
+   "wall_s": 269.6,
+   "real_render_frame_ms": 6.107791,
+   "double_run_bitexact": true,
+   "t": "09:16:53"
+  },
+  {
+   "step": "s11_texarm_verdict",
+   "pass": true,
+   "digest": "sha256:ac2e5ff5747e44f7b8d99967579ff5d5a95fd0c0c08075edb8ebf86e9167060e",
+   "t": "09:16:53"
+  },
+  {
+   "step": "s12_fgcombo",
+   "rc": 1,
+   "wall_s": 761.1,
+   "pass": false,
+   "optional": true,
+   "tail": [
+    "[fg_combo_accept] $ H:\\rurix\\target\\release\\g31_window_present.exe --frames 64 --warmup 10 --hidden --auto-move orbit --evidence H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\full_b.json --quality full",
+    "[fg_combo_accept] $ H:\\rurix\\target\\release\\g31_window_present.exe --frames 64 --warmup 10 --hidden --auto-move orbit --evidence H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_a.json --quality full --fg x2",
+    "[fg_combo_accept] $ H:\\rurix\\target\\release\\g31_window_present.exe --frames 64 --warmup 10 --hidden --auto-move orbit --evidence H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_b.json --quality full --fg x2",
+    "[fg_combo_accept] $ H:\\rurix\\target\\release\\g31_window_present.exe --frames 64 --warmup 10 --hidden --auto-move orbit --evidence H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_x3.json --quality full --fg x3",
+    "[gpu_device_lock] released purpose='G37 W3 fg×quality-full 组合验收窗'",
+    "[fg_combo_accept] FAIL (9):",
+    "  - combo_a 非零退出 1: [g14_3_pipeline_perf]: FAIL --bloom on 不与 --fg/--hzb on/--svt on/--slab-table 同跑（组合面未接线,fail-closed）",
+    "  - combo_a 缺 PASS 行",
+    "  - combo_b 非零退出 1: [g14_3_pipeline_perf]: FAIL --bloom on 不与 --fg/--hzb on/--svt on/--slab-table 同跑（组合面未接线,fail-closed）",
+    "  - combo_b 缺 PASS 行",
+    "  - combo_x3 非零退出 1: [g14_3_pipeline_perf]: FAIL --bloom on 不与 --fg/--hzb on/--svt on/--slab-table 同跑（组合面未接线,fail-closed）",
+    "  - combo_x3 缺 PASS 行",
+    "  - combo_a evidence 未在案: H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_a.json",
+    "  - combo_b evidence 未在案: H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_b.json",
+    "  - combo_x3 evidence 未在案: H:\\rurix\\.tmp\\g31_gates\\w3_fg_combo\\combo_x3.json"
+   ],
+   "t": "09:29:34"
+  }
+ ]
+}

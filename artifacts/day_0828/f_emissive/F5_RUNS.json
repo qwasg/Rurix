@@ -1,0 +1,86 @@
+{
+ "schema": "rurix.day0828.f_emissive.f5_runs.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "step": "conflict_smoke",
+   "rc": 1,
+   "pass": true,
+   "t": "21:52:28"
+  },
+  {
+   "step": "f5_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 176.4,
+   "real_render_frame_ms": 5.7494,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "21:55:25"
+  },
+  {
+   "step": "f5_bench_default_160f",
+   "rc": 0,
+   "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "expect": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "wall_s": 149.0,
+   "pass": true,
+   "t": "21:57:54"
+  },
+  {
+   "step": "f5_full_32f_r1",
+   "rc": 0,
+   "digest": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "vuid": 0,
+   "wall_s": 129.0,
+   "real_render_frame_ms": 7.969028,
+   "pass": true,
+   "t": "22:00:03"
+  },
+  {
+   "step": "f5_full_32f_r2",
+   "rc": 0,
+   "digest": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "vuid": 0,
+   "wall_s": 128.9,
+   "real_render_frame_ms": 8.83865,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "22:02:12"
+  },
+  {
+   "step": "f5_ten_explicit_32f",
+   "rc": 0,
+   "digest": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "vuid": 0,
+   "wall_s": 128.8,
+   "real_render_frame_ms": 8.588762,
+   "expect": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "pass": true,
+   "preset_equiv_bitexact": true,
+   "t": "22:04:21"
+  },
+  {
+   "step": "f5_storm3_dolly30f",
+   "rc": 0,
+   "vuid": 0,
+   "resize_eras": 1,
+   "exit_reason": "frames_done",
+   "wall_s": 128.9,
+   "pass": true,
+   "t": "22:06:29"
+  },
+  {
+   "step": "f5_full_poststorm_32f",
+   "rc": 0,
+   "digest": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "vuid": 0,
+   "wall_s": 128.8,
+   "real_render_frame_ms": 8.011659,
+   "expect": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+   "pass": true,
+   "t": "22:08:38"
+  }
+ ]
+}

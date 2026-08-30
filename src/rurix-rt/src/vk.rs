@@ -27898,3 +27898,8 @@ mod g31_capability_probe_tests {
         assert!(j4.contains("\"extensions\": [],"));
     }
 }
+
+// ── G37 W3 async:异步 compute 双队列判档加性面(TODO #57/#59/#60/#62;
+//    body-include 先例 vk_g31_present/vk_g31_mesh_bench 同型;本 include 行为
+//    vk.rs 本体唯一改动,既有函数/结构/常量 0 改写)──
+include!("vk_g37_async_lanes.rs");

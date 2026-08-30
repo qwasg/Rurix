@@ -1,0 +1,52 @@
+{
+ "task": "D6 GGX 高光材质加性臂（--ggx off|on，须随 --smooth-normals on）",
+ "bench_matrix_all_pass": true,
+ "window_regression_all_pass": true,
+ "visual_all_pass": true,
+ "zero_drift": {
+  "default_arm_8f": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+  "snrm_off_8f == pre": true,
+  "snrm_off_128f == 778f1dfc anchor": true,
+  "window off == 5596a730 / on == b02b08b57 / combo == 12d5dc91": [
+   true,
+   true,
+   true
+  ]
+ },
+ "wiring_live": {
+  "on_double_run_bitexact": true,
+  "on != off (8f bench)": true,
+  "on 128f converged": "sha256:ec39557569fd77b13480baa6f0430453c0fe9c5e248f6d717f1222786c4c9316"
+ },
+ "perf": {
+  "scene_gpu_ns off mean": 973356,
+  "scene_gpu_ns on mean": 989432,
+  "ggx_delta_us": 16.1,
+  "delta_pct": 1.65
+ },
+ "visual": "20.18% px changed（全资产 metal=0.4 ⇒ 广域釉面 sheen 符合预期）; diff 结构化贴面（地板 sheen/柜台高光/桌沿）,无 NaN 黑洞/无全屏噪; diff map ×4 + crops 在档",
+ "window_lane_ggx": {
+  "all_pass": true,
+  "off_zero_drift == b02b08b57": true,
+  "on_double_run_bitexact": true,
+  "on_digest": [
+   "sha256:52020f9c4ea6531fc83b82cae416885541b3f4e98bebce7106430c35239da598"
+  ],
+  "on != off": true,
+  "combo(smooth+ggx+bloom+dither)_stable": true,
+  "combo_digest": [
+   "sha256:48353e8663924314381c8a8d657014153bbe4501d3b0303ef14309581cde5b66"
+  ],
+  "validation_silent": true,
+  "frame_ms": {
+   "off": 6.016637,
+   "on_1": 5.550137,
+   "on_2": 5.985412,
+   "combo_1": 7.20835,
+   "combo_2": 6.43175,
+   "visual_off": 5.581137,
+   "visual_on": 5.3618
+  },
+  "visual": "presented off/on 对照 PNG + diff×4 在档（d6w2_off/on.png, d6w2_diff_x4.png）：33.2% px 变化（8 帧 TSR 未全收敛,高光信号广域）,diff 结构化贴面（地板 sheen/柜台面板/拱柱）,无腐败"
+ }
+}

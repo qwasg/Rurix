@@ -1,0 +1,91 @@
+{
+ "schema": "rurix.day0828.e1.final_acceptance.v1",
+ "date": "2026-08-28",
+ "phase": "画质战役 Phase E1 终局合流——--quality 预设 + 全量回归 + soak + hero 对照 + 治理文档",
+ "session_note": "中途会话中断一次（18:33-18:44）;断点恢复后续跑,全部工作项收官。独立评审（review_report.md,17:25-18:05「有条件合入」）两条件均闭环:C-1 六件 EOL 主线归一（采信不重跑）、C-2 blocked_probes 完整复跑 rc=0",
+ "acceptance": {
+  "1_quality_preset": {
+   "pass": true,
+   "window": "--quality off|full：full = 九臂一键展开（--smooth-normals/--ggx/--lamp-lights + gain 4/--textures/--bloom/--dither/--auto-exposure/--tsr-quality/--gi2 + clamp 0.01）,解析层展开先于全部臂校验/SPV 换载",
+   "bench": "full = 质量腿子集（--smooth-normals/--ggx/--lamp-lights + gain 4/--gi2 + clamp 0.01/--tsr-quality）;--textures 无 bench 臂（texel heap 侧表 bench 车道未接线,Phase B 留窗）、--bloom/--dither/--auto-exposure 为窗口 presented 显示链专属——如实注释于 bin 头注 + 展开块",
+   "ambient": "RURIX_G18_AMBIENT 缺席时 full 自注入 0.004（lane_body OnceLock 预设槽——两 bin forbid(unsafe_code) + edition 2024 下 env::set_var 为 unsafe 不可用;env 在位一律优先,含非法字面既有静默关臂语义）",
+   "fail_closed": "展开面旗标（窗口 11/bench 7 字面）与 --quality full 重叠 = 拒跑;四例冒烟在案：--quality ultra 越闭集 / full+--dither 窗口冲突 / full+--lamp-gain bench 冲突 / full@vendor 后端上行拒（e2_equivalence.log 前置）",
+   "files": "g31_window_present.rs（解析+展开+风暴互斥解除）/ g14_3_pipeline_perf.rs（解析+展开）/ g14_3_lane_body.rs（G18_AMBIENT_PRESET OnceLock + 环境光读取 env-缺席回退分支;env-在位路径字面不变）"
+  },
+  "2_preset_equivalence_and_anchors": {
+   "pass": true,
+   "window_full_equivalence": "--quality full == 显式九臂 位级：9e5f6300 ×4 跑（显式+env ×1 / 预设零 env ×2 / 风暴互斥解除重建后复验 ×1）,validation 全程静默",
+   "bench_full_equivalence": "--quality full == 显式质量腿+env ambient 位级：1c12b7fd ×3 跑（显式 ×1 / 预设 ×2）——预设 ambient 自注入 == 显式 env 位级等价双证",
+   "drift_event": "6bd3af63（九臂）/8b1c12f3（七臂）复验漂移 → 归因定案 = D 相终态重建一次性 ULP 扰动（其 combo 复验被中断即本相补验窗口）：三二进制 A/B（E1 编辑在位/摘除/风暴解锁重建）combo7 均位级产出 d89848b9 == C 相「共享 SPV 覆盖」事件同 digest;五 SPV 指纹/atlas/探针 device digest 全 SAME 排除文件与装配面;E1 代码自证无罪。按预案多跑重收割,登记 e2_reanchor_registry.json",
+   "final_anchor_table": {
+    "window_alloff_8f": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288（=A2b 锚,跨重建稳定）",
+    "window_seven_arm_32f": "sha256:d89848b953a5ff310c4c98122759a0ce6f5fec8ead61b4f630090e4701b333dc（重收割,×2 跨二进制位级;旧 8b1c12f3 作废——D 相中断复验在本相补收并裁定漂移）",
+    "window_nine_arm_eq_quality_full_32f": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1（重收割,×4 + soak ×13 = 17 次位级;旧 6bd3af63 作废）",
+    "bench_default_160f": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02（=Stage A 冻结锚）",
+    "bench_snrm_render128": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76（=夜巡锚,lane_body 环境光分支改写后零漂移直证）",
+    "bench_snrm_tsrq_render128": "sha256:05532d5e940ff10fead1ea989c855bb0fb86dac873967b32666f0fe3541d292a（=D 相锚）",
+    "bench_full_quality_leg_render128": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8（新锚,×3 收割;含 ambient 0.004）"
+   },
+   "lesson": "窗口纹理合流臂 presented 锚 = 二进制绑定锚——重建后先复验再消费;E1 期间三个二进制形态全部稳定复现同值（非「任意重建必漂」,D delta 一次性效应）,纪律按最保守形态执行"
+  },
+  "3_stage_a_18_cells": {
+   "pass": true,
+   "result": "18/18 MATCH（e3_stagea18_summary.json,canonical 160f/warmup10 对 milestones/g14/g14_3_stage_a_digest_anchor.json 逐格）",
+   "sequencing": "6 tsr 格隔离单跑先行 + 12 vendor 格批跑（夜巡「vendor 后同批 tsr rc=1」教训固化于 e3_stagea18.py）",
+   "quick_probe_note": "regression_probe.py 6 格快检被全 18 格超集覆盖（同二进制/同口径/同锚,6 格全部含于 18 格且全 MATCH）——快检步骤如实登记为被超集吸收",
+   "observation": "dlss_sr 六格各计 1 次 VUID 命中（rc=0 + digest 全 MATCH;vendor 层消息未触发失败,内容未取样——留观察,fsr/tsr 格全零）"
+  },
+  "4_window_storm": {
+   "pass": true,
+   "result": "--quality full --window-storm 3（dolly 30f + validation=1）：rc=0 / resize_ops=3 / resize_eras=1 / VUID=0 / exit_reason=frames_done（e4_storm_summary.json）",
+   "wiring": "storm×--textures 互斥解除（era 重建走完整四形态变体描述组重建,texel heap 分辨率无关静态侧表）,本跑即新组合验收;--svt×storm 由隐式转显式 fail-closed",
+   "registered": "AE 状态 resize 复位 ~12 帧半衰属预期（A2 在案）,登记不判红"
+  },
+  "5_soak": {
+   "pass": true,
+   "result": "13 迭代 ×（--quality full 窗口 32f 静态真跑）+ 4 次 Stage A 单格探针,wall 1895.0s ≥ 1800s,零失败,win digest 恒值 9e5f6300（13/13）,探针恒 c1d28ad7（4/4）,VUID 全程 0（soak/soak_summary.json + soak_log.jsonl）",
+   "r2_note": "评审提示项（R2 f32 frame_idx >100k 帧退化）不触发——soak 为 32f 短迭代进程,帧计数每迭代归零"
+  },
+  "6_hero": {
+   "pass": true,
+   "triptych": "hero_campaign_before_after.png（①战前生产默认 night hero_base.raw〔死黑/蓝扇叶/色块/噪点〕→ ②Phase A 后 a3_tuning/g4.raw → ③终态 --quality full 新 dump png/full.raw,1920x3386 纵拼带注记）",
+   "closeups": ["closeup_exposure_dead_black.png（餐桌下 560,560,560x200）", "closeup_color_blocks_paintings.png（画作墙 1400,150,480x270）", "closeup_grain_dark_arch.png（拱下 360,0,360x180）", "closeup_blue_fan.png（吊扇 1330,0,400x220）"],
+   "visual_verdict": "目检确认：死黑→可读木桌椅花砖 / 画作墙均值色块→真实画作+鎏金框 / 蓝扇叶→暖卡其+灯罩环带→平滑渐变 / 终态帧纹理+环境光+GI 全在位（9e5f6300 为健康帧的旁证）"
+  },
+  "7_docs": {
+   "pass": true,
+   "todo_v118": "G31_PLUS_COMMERCIAL_RENDERER_TODO.md 修订记录表追加 v1.1.8 行（九臂+ACES 修复+预设+回归/soak+治理登记,照 v1.1.5-7 行文;既有行 0-byte 不回写）",
+   "flip_plan": "DEFAULT_FLIP_PLAN.md（只案不执行：RD-045 P02 腿 060e69a8 处置 + 三处源码-锚字节 divergence v2 隔离件收编步骤表 + 作废锚谱系 + 翻转五步 + 二级回滚 + 风险登记）",
+   "handover": "HANDOVER.md（21 项四类：他区域 bug 3 / CI 门面同步 4 / 已知限制留窗 10 / E1 治理教训 3 + 产出索引）"
+  },
+  "8_disk_cleanup": {
+   "pass": true,
+   "freed_gib_total": 59.369,
+   "phase1": "44.527 GiB——artifacts/day_0828/{a1_lamp_lights,c_gi_r2,d_tsr}/arms/**/frames/ 15 目录逐帧 EXR（含 d_tsr ladder_a002 ~3GiB）,converged.exr + render_receipt + 指标 JSON 全保（e8_cleanup_phase1.json）",
+   "phase2": "14.842 GiB——e_final/arms/**/frames/ 5 目录（E1 自产渲染腿）（e8_cleanup_phase2.json）"
+  },
+  "9_review_closure": {
+   "pass": true,
+   "c1_eol": "六件 EOL-only 文件已由主线归一（git status 已清,采信不重跑）",
+   "c2_rd045": "ci/g31_blocked_probes_smoke.py 完整复跑 rc=0 干净（12 探针闭集零冒充 + 活体 10 腿全 ok + RD-045 数字腿 orbit 64+10 digest==060e69a8 精确匹配 + signals 0;本次解锁段无 PermissionError;evidence evidence/g31_blocked_probes_20260828T105453Z.json;log c2_blocked_probes_rerun.log）"
+  }
+ },
+ "four_problem_fix_summary": {
+  "exposure_dead_black": "修复——A1 灯提取（死黑地板 p50 ×42 脱纯黑）+ A2 自动曝光（presented mean 0.13→0.34 入带零振荡）+ A3 g4 定档;hero ①vs③ 特写在案",
+  "color_blocks": "修复——B 纹理全覆盖（≥5000px 恒定色块 26 块/13.62% → 1 块/0.29%,面积 −97.84%）+ A2b ACES 转置修复（蓝扇叶/灯罩环带/天花杂色纹根除,fan 像素 == host f64 金标准 ±0）",
+  "grain": "修复——C GI2 R2（旧 sin hash GI 屏空间彩斑不重现,暗区 std_p95 −77~−90%）+ D tsrq（gi2 微光点 −87~−97%,墙 −49%;遗留:地板尾像素 −18% 未达 30%,登记）",
+  "blue_fan": "修复——A2b 根因（encode ACES 样条 12 处转置）+ parity 探针防复发;closeup_blue_fan.png 对照在案"
+ },
+ "leftovers_pointer": "全部遗留/交接项归集 HANDOVER.md（21 项）;默认翻转唯一待批事项见 DEFAULT_FLIP_PLAN.md",
+ "artifacts_index": {
+  "equivalence": ["e2_equivalence_summary.json", "e2_equivalence.log", "e2_reanchor_registry.json", "ev/*.json（含归因件 attrib_combo7_dfinal_bin.json/attrib_combo7_baseline_bin.json）"],
+  "stage_a": ["e3_stagea18_summary.json", "e3_stagea18.log", "regression/stagea18/**"],
+  "storm": ["e4_storm_summary.json", "e4_storm.log", "ev/e_storm.json"],
+  "soak": ["soak/soak_summary.json", "soak/soak_log.jsonl", "soak/win_it*.json"],
+  "hero": ["hero_campaign_before_after.png", "closeup_*.png", "png/full.{raw,png}"],
+  "docs": ["DEFAULT_FLIP_PLAN.md", "HANDOVER.md", "review_report.md", "../CAMPAIGN_LOG.md"],
+  "cleanup": ["e8_cleanup_phase1.json", "e8_cleanup_phase2.json"],
+  "tools": ["e2_equivalence.py", "e3_stagea18.py", "e4_storm.py", "e5_soak.py", "e6_hero.py"],
+  "source_backup": ["g31_window_present.rs.e1（风暴解锁前快照）", "g14_3_pipeline_perf.rs.e1", "g14_3_lane_body.rs.e1"]
+ }
+}

@@ -1,0 +1,490 @@
+//@ spec: RXS-0405 L3 device 面（G14.3 M-c 生产 GPU 场景车道）
+// G18 平滑顶点法线加性臂（--smooth-normals on 消费；夜间巡航 D2 方向——修
+// 生产渲染三角形面片感/时域颗粒：flat 面法线 cross(e1,e2) 逐三角不连续 →
+// Halton jitter 时域走样颗粒，TSR 收敛后残留）。
+//
+// 本 kernel = kernels/g18_light_transport_depth.rx 逐字 fork + 以下加性面
+// （母版两文件 0-byte 不动；Stage A 18 格 digest 锚由默认臂零漂移承载）：
+// ① 第 8 个 storage view `trinrm`（9 f32/tri 世界空间顶点法线侧表，顶点序
+//    与 tris 同源；host assemble_scene_nrm 装配面，--smooth-normals off 时
+//    不产不绑——本 kernel 仅 MegaSmoothNrm 描述组车道创建）；
+// ② 命中块取 committed_barycentric()（g34_unified_primary.rx L106 先例：
+//    bu=bary.0、bv=bary.1、bw=1−bu−bv）；
+// ③ params[43] > 0.5 门：on = 重心插值顶点法线（n[c] = bw·n0[c] + bu·n1[c]
+//    + bv·n2[c]，nb = prim×9，g34_unified_shade.rx L175-179 UV 插值同式）
+//    → 母版归一化口径（倒数乘 self·(1/l)，gate 保底同字面）→ 双面翻转；
+//    off（≤0.5）= 母版 flat 字面位级（trinrm 哑表保底读零消费，选择门
+//    gate_sn·s + (1−gate_sn)·f 在 gate_sn=0 时 = flat 臂逐位同值——±0 号
+//    位角隅经下游 max(0) 门吸收，输出位级不变）。
+// 参数面其余槽位与母版逐字同源（params[43] 母版恒 0 保留位；本臂 on 时
+// host pack_frame_params 置 1.0）。
+//
+// 夜间巡航 D6 GGX 高光加性臂（--ggx on 消费，须随 --smooth-normals on）：
+// ④ 第 9 个 storage view `tri_mr`（2 f32/tri [metallic, roughness] 侧表，
+//    逐三角取 glTF pbrMetallicRoughness 材质因子；host assemble_scene_nrm_mr
+//    装配面，--ggx off 时不读不装——车道绑 8B 零哑表，本 kernel 对 tri_mr
+//    的唯一读取经 params[48]>0.5 均匀分支包裹，关臂零触达 ⇒ 哑表 OOB 不
+//    可能）；
+// ⑤ params[48] > 0.5 门：对每盏灯在漫反射累加外叠加 GGX 高光项——半程
+//    向量 h = normalize(wi+wo)（wo = −主射线 dir），D = Trowbridge-Reitz
+//    （α = rough²，rough 钳 [0.05,1] 防奇异），G = Smith（Schlick-GGX G1
+//    乘积，k = α/2），F = Schlick（F0 = mix(0.04, albedo, metallic)，
+//    albedo = mats 面存量口径〔已乘 (1−metallic)〕）；spec = qle·g·keep·
+//    D·G·F/(4·cos_s·cos_v+1e-3)（g 已含 cos_s 入射余弦与灯光几何/面积项，
+//    keep 含阴影 vis 门——沿既有直接光累加结构与 keep 门尾加，不新增阴影
+//    射线）。关臂（params[48]=0）= 均匀分支不执行 ⇒ dir_*/acc_* 累加器与
+//    本 kernel 改前逐位一致（不改既有乘加结合序，无 ±0 新通道）。
+//
+// 画质战役 A1 灯光提取加性臂（--lamp-lights on 消费，须随 --smooth-normals
+// on）：bistro 44k 自发光灯片三角不投光（无 emissive NEE）→ host
+// extract_lamp_lights 聚类成 K 个代表点光 append 进 points 面。kernel 侧
+// 两处加性面（关臂/契约灯参数下位级不变）：
+// ⑥ points[pb+6] = 灯半径 lr（pack_points 第 7 槽——契约灯 host 恒写 0.0）：
+//    阴影射线 t_sh = d − max(2·ray_eps, lr)——lr=0 时 max(2eps,0)=2eps 数值
+//    恒等（max 精确无舍入）⇒ 契约灯阴影面位级不变；提取灯 lr>0 时射线提前
+//    lr 截断——代表点光位于灯罩几何内部，截断即穿出灯罩消自遮蔽（灯罩壳
+//    在 lr 球内不挡光，球外遮挡照常检出）。
+// ⑦ params[49] = 贡献剔除阈值（母版恒 0 保留位）：contrib = max3(li)/d²，
+//    gate_lc = ((contrib − 阈值)·big + 1.0).min(1).max(0) 乘进 keep_pre
+//    （branchless——rurixc 对「if 包 while+if」深嵌套 selection 合并块
+//    codegen 无效〔spirv-val 拒绝〕，故不用 if 包体形态）。gate_lc=0 ⇒
+//    keep_pre=0：阴影射线跳过（既有 keep_pre>0 门）且直射与 GGX 项全乘零
+//    ——整灯等效 keep=0，非只跳阴影射线的无影灯（GGX ALU 照跑零贡献，
+//    +0.0 非负域尾加恒等）。阈值 0 时 contrib ≥ 0 ⇒ +1.0 偏置后 gate 恒
+//    1.0（min(≥1,1)=1.0 精确），keep_pre·1.0 位级恒等——0 阈值不剔任何灯
+//    （>= 边界语义由 +1.0 偏置兑现：diff=0 → gate=1.0）。
+#[numthreads(8, 8, 1)]
+kernel fn g18_smooth_nrm(
+    tlas: AccelStruct,
+    t: ThreadCtx<2>,
+    tris: View<global, f32>,
+    mats: View<global, f32>,
+    quads: View<global, f32>,
+    points: View<global, f32>,
+    params: View<global, f32>,
+    trinrm: View<global, f32>,
+    tri_mr: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_depth: ViewMut<global, f32>,
+) {
+    // 2D 车道索引（8×8 局部组；dispatch = ceil(w/8)×ceil(h/8)×1，host bin
+    // `g14_3_pipeline_perf` 同一字面）。越界组（px ≥ w 或 py ≥ h）不产写——
+    // 与 1D 形态 `i < pixel_count` 门同覆盖域，逐像素数学全式逐字不变。
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[1] as usize;
+    let height = params[2] as usize;
+    let jx = params[3];
+    let jy = params[4];
+    let ray_eps = params[5];
+    let ray_tmax = params[6];
+    let quad_count = params[7] as usize;
+    let point_count = params[8] as usize;
+    let inv_pi = params[41];
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let eps2 = ray_eps * ray_eps;
+    if px < width && py < height {
+        let i = py * width + px;
+        // ── ① jitter 主射线（host unproject 同式：未抖 inv_vp · [ndx,ndy,z,1]）──
+        let sx = (px as f32) + 0.5 + jx;
+        let sy = (py as f32) + 0.5 + jy;
+        let ndx = 2.0 * (sx / (width as f32)) - 1.0;
+        let ndy = 1.0 - 2.0 * (sy / (params[2] as f32));
+        // z=0（near）与 z=1（far）两点反投影（行主序 clip = M·v，逐行
+        // ((m0·x + m1·y) + m2·z) + m3 左结合，host transform_vec4 同序）。
+        let n4x = (params[9] * ndx + params[10] * ndy) + params[12];
+        let n4y = (params[13] * ndx + params[14] * ndy) + params[16];
+        let n4z = (params[17] * ndx + params[18] * ndy) + params[20];
+        let n4w = (params[21] * ndx + params[22] * ndy) + params[24];
+        let f4x = ((params[9] * ndx + params[10] * ndy) + params[11]) + params[12];
+        let f4y = ((params[13] * ndx + params[14] * ndy) + params[15]) + params[16];
+        let f4z = ((params[17] * ndx + params[18] * ndy) + params[19]) + params[20];
+        let f4w = ((params[21] * ndx + params[22] * ndy) + params[23]) + params[24];
+        let near_x = n4x / n4w;
+        let near_y = n4y / n4w;
+        let near_z = n4z / n4w;
+        let d0x = f4x / f4w - near_x;
+        let d0y = f4y / f4w - near_y;
+        let d0z = f4z / f4w - near_z;
+        // dir 归一化（host norm3 同式：l>0 门，l=0 → 零向量）。
+        let dl = (d0x * d0x + d0y * d0y + d0z * d0z).sqrt();
+        let gate_dl = (dl * big).min(1.0).max(0.0);
+        let dl_safe = dl + (1.0 - gate_dl);
+        let dx = gate_dl * d0x / dl_safe;
+        let dy = gate_dl * d0y / dl_safe;
+        let dz = gate_dl * d0z / dl_safe;
+        // ── ② 主 ray query（最近命中；空体循环 = M96 白名单形）──
+        let mut rq = ray_query_initialize(tlas, (near_x, near_y, near_z), 0.0, (dx, dy, dz), ray_tmax);
+        while rq.proceed() {
+        }
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        let mut bu = 0.0;
+        let mut bv = 0.0;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            // 平滑法线臂重心面（committed 语义；g34_unified_primary.rx L106 同式）。
+            let bary = rq.committed_barycentric();
+            bu = bary.0;
+            bv = bary.1;
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+            bu = 0.0;
+            bv = 0.0;
+        }
+        // 命中点/几何法线/材质（miss 时 prim=0 保底，贡献经 hit_f 门恒 0）。
+        let tb = (prim as usize) * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let nl = (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let gate_nl = (nl * big).min(1.0).max(0.0);
+        let nl_safe = nl + (1.0 - gate_nl);
+        // 法线归一化 = host `Vec3::normalize` 倒数乘口径（self·(1/l)，位级同式；
+        // 区别于 bin norm3 的除法口径——主射线 dir 归一化走除法，见上）。
+        let inv_nl = 1.0 / nl_safe;
+        let hgx_f = gate_nl * (ngx * inv_nl);
+        let hgy_f = gate_nl * (ngy * inv_nl);
+        let hgz_f = gate_nl * (ngz * inv_nl);
+        // ── 平滑顶点法线臂（params[43] > 0.5 = on）：重心插值逐顶点法线 →
+        //    母版同一倒数乘归一化口径；off 门 = 上行 flat 字面位级直通。
+        //    哑表（全 0）保底读：sl=0 → gate_sl=0 → hg_s 恒 0 有限值，零 NaN
+        //    通道；插值式 = g34_unified_shade.rx L175-179 UV 同式（bw·v0 +
+        //    bu·v1 + bv·v2 左结合）。──
+        let nb = (prim as usize) * 9;
+        let bw_ = 1.0 - bu - bv;
+        let snx = bw_ * trinrm[nb] + bu * trinrm[nb + 3] + bv * trinrm[nb + 6];
+        let sny = bw_ * trinrm[nb + 1] + bu * trinrm[nb + 4] + bv * trinrm[nb + 7];
+        let snz = bw_ * trinrm[nb + 2] + bu * trinrm[nb + 5] + bv * trinrm[nb + 8];
+        let sl = (snx * snx + sny * sny + snz * snz).sqrt();
+        let gate_sl = (sl * big).min(1.0).max(0.0);
+        let sl_safe = sl + (1.0 - gate_sl);
+        let inv_sl = 1.0 / sl_safe;
+        let hgx_s = gate_sl * (snx * inv_sl);
+        let hgy_s = gate_sl * (sny * inv_sl);
+        let hgz_s = gate_sl * (snz * inv_sl);
+        let gate_sn = ((params[43] - 0.5) * big).min(1.0).max(0.0);
+        let hgx = gate_sn * hgx_s + (1.0 - gate_sn) * hgx_f;
+        let hgy = gate_sn * hgy_s + (1.0 - gate_sn) * hgy_f;
+        let hgz = gate_sn * hgz_s + (1.0 - gate_sn) * hgz_f;
+        // 双面：法线翻转朝向相机（host render_frame two-sided 同律；facing=0 不翻）。
+        let fac0 = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (fac0 * big).min(1.0).max(0.0);
+        let nx = flip * hgx;
+        let ny = flip * hgy;
+        let nz = flip * hgz;
+        let hx = near_x + dx * th;
+        let hy = near_y + dy * th;
+        let hz = near_z + dz * th;
+        let mb = (prim as usize) * 8;
+        let al_r = mats[mb];
+        let al_g = mats[mb + 1];
+        let al_b = mats[mb + 2];
+        // ── D6 GGX 臂逐像素常量面（params[48]>0.5 门）：tri_mr 唯一读取经
+        //    均匀分支包裹（关臂不读 ⇒ 8B 哑表绑定安全）；rough 钳 [0.05,1]
+        //    防 D 奇异；F0 = mix(0.04, albedo, metallic) 逐通道；cos_v =
+        //    n·wo（wo = −主射线 dir，双面翻转后 n 朝相机 ⇒ 值域 [0,1]）。
+        //    关臂时 metal/rough 恒 0 → 下列常量面为有限定值且不被消费（无
+        //    输出写 ⇒ 关臂位级不变）。──
+        let mut metal = 0.0;
+        let mut rough = 0.0;
+        if params[48] > 0.5 {
+            let mrb = (prim as usize) * 2;
+            metal = tri_mr[mrb];
+            rough = tri_mr[mrb + 1];
+        }
+        let rough_c = (rough.max(0.05)).min(1.0);
+        let alpha = rough_c * rough_c;
+        let alpha2 = alpha * alpha;
+        let f0_r = 0.04 * (1.0 - metal) + al_r * metal;
+        let f0_g = 0.04 * (1.0 - metal) + al_g * metal;
+        let f0_b = 0.04 * (1.0 - metal) + al_b * metal;
+        let cos_v = (0.0 - (nx * dx + ny * dy + nz * dz)).max(0.0);
+        // ── ③ 直接光累加（lo 初值 = emission，emissive 主命中无条件项）──
+        let mut dir_r = 0.0;
+        let mut dir_g = 0.0;
+        let mut dir_b = 0.0;
+        // D6 GGX 高光独立累加器（出射辐亮 Lo 域，不经 albedo·inv_pi 漫反射
+        // 耦合——F 已携 F0 色彩；关臂恒 +0.0，输出尾加 x+0.0 非负域恒等 ⇒
+        // 关臂位级不变）。
+        let mut spec_r = 0.0;
+        let mut spec_g = 0.0;
+        let mut spec_b = 0.0;
+        // ── quad 面光 4×4 分层确定性采样（host shade_pixel L1902 同式）──
+        let mut qi = 0usize;
+        while qi < quad_count {
+            let qb = qi * 16;
+            let qp_x = quads[qb];
+            let qp_y = quads[qb + 1];
+            let qp_z = quads[qb + 2];
+            let qe1_x = quads[qb + 3];
+            let qe1_y = quads[qb + 4];
+            let qe1_z = quads[qb + 5];
+            let qe2_x = quads[qb + 6];
+            let qe2_y = quads[qb + 7];
+            let qe2_z = quads[qb + 8];
+            let qle_r = quads[qb + 9];
+            let qle_g = quads[qb + 10];
+            let qle_b = quads[qb + 11];
+            let sample_area = quads[qb + 12] * 0.0625;
+            let qn_x = quads[qb + 13];
+            let qn_y = quads[qb + 14];
+            let qn_z = quads[qb + 15];
+            let mut acc_r = 0.0;
+            let mut acc_g = 0.0;
+            let mut acc_b = 0.0;
+            let mut syq = 0usize;
+            while syq < 4 {
+                let mut sxq = 0usize;
+                while sxq < 4 {
+                    let u = (sxq as f32 + 0.5) * 0.25;
+                    let v = (syq as f32 + 0.5) * 0.25;
+                    let lp_x = qp_x + u * qe1_x + v * qe2_x;
+                    let lp_y = qp_y + u * qe1_y + v * qe2_y;
+                    let lp_z = qp_z + u * qe1_z + v * qe2_z;
+                    let lv_x = lp_x - hx;
+                    let lv_y = lp_y - hy;
+                    let lv_z = lp_z - hz;
+                    let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+                    // host `d2 <= eps² → continue` 门（d2=eps² 边界同字面）。
+                    let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+                    let d2s = d2.max(tiny * tiny);
+                    let d = d2s.sqrt();
+                    let wix = lv_x / d;
+                    let wiy = lv_y / d;
+                    let wiz = lv_z / d;
+                    let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+                    let gate_cs = (cos_s * big).min(1.0).max(0.0);
+                    let cos_l = 0.0 - (qn_x * wix + qn_y * wiy + qn_z * wiz);
+                    let gate_cl = (cos_l * big).min(1.0).max(0.0);
+                    // 阴影射线（host visible 同字面：origin 沿 wl 偏 eps，
+                    // t_max = d−2eps ≤ 0 恒可见不发射；发射形保持经 gate_far 门）。
+                    let t_sh = d - 2.0 * ray_eps;
+                    let gate_far = (t_sh * big).min(1.0).max(0.0);
+                    let t_fire = t_sh.max(ray_eps);
+                    // G14.9 背光 keep 预判跳射线（RFC-0030 §4.4 L2 ①，严格位级不变）：
+                    // keep = hit_f·gate_d·gate_cs·gate_cl·vis——前置四门任一为 0 时
+                    // keep 恒 0，vis 值不被消费（acc 贡献 = qle·g·0 = +0.0 与原逐位
+                    // 同），阴影 ray query 发射可跳过；四门非 0 时行为与原逐字一致。
+                    // G14.9 first-hit 早退（RFC-0030 §4.6 L2）：阴影臂仅消费
+                    // has_committed 存在性布尔——全 opaque 场景 first-hit 与
+                    // closest-hit 存在性等价，图像位级不变；主射线（需最近命中）
+                    // 禁用本内建维持 ray_query_initialize。
+                    let keep_pre = hit_f * gate_d * gate_cs * gate_cl;
+                    let mut blk = 0.0;
+                    if keep_pre > 0.0 {
+                        let mut sq = ray_query_initialize_first_hit(
+                            tlas,
+                            (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                            0.0,
+                            (wix, wiy, wiz),
+                            t_fire,
+                        );
+                        while sq.proceed() {
+                        }
+                        if sq.has_committed() {
+                            blk = 1.0;
+                        } else {
+                            blk = 0.0;
+                        }
+                    }
+                    let vis = 1.0 - gate_far * blk;
+                    // g = cos_s·cos_l/d²·sample_area（host 左结合同序）。
+                    let g = (cos_s * cos_l / d2s) * sample_area;
+                    let keep = keep_pre * vis;
+                    acc_r = acc_r + qle_r * g * keep;
+                    acc_g = acc_g + qle_g * g * keep;
+                    acc_b = acc_b + qle_b * g * keep;
+                    // ── D6 GGX 高光项（params[48]>0.5 均匀分支；关臂不执行
+                    //    ⇒ acc_* 与改前逐位一致）。spec = qle·g·keep·D·G·F/
+                    //    (4·cos_s·cos_v+1e-3)：g 已含 cos_s 与面光几何/面积
+                    //    项，keep 含阴影 vis——同一阴影射线复用，零新增
+                    //    query。h = normalize(wi+wo)（wo = −dir ⇒ wi−d）；
+                    //    hl=0 角隅（wi==d ⇒ cos_s≤0 ⇒ keep=0）经 gate_hl 门
+                    //    恒 0 有限值，贡献 = qle·g·0·… = ±0 无 NaN 通道。──
+                    if params[48] > 0.5 {
+                        let hvx = wix - dx;
+                        let hvy = wiy - dy;
+                        let hvz = wiz - dz;
+                        let hl = (hvx * hvx + hvy * hvy + hvz * hvz).sqrt();
+                        let gate_hl = (hl * big).min(1.0).max(0.0);
+                        let hl_safe = hl + (1.0 - gate_hl);
+                        let inv_hl = 1.0 / hl_safe;
+                        let hnx = gate_hl * (hvx * inv_hl);
+                        let hny = gate_hl * (hvy * inv_hl);
+                        let hnz = gate_hl * (hvz * inv_hl);
+                        let cos_h = (nx * hnx + ny * hny + nz * hnz).max(0.0);
+                        // D = Trowbridge-Reitz：α²·inv_pi/((cos_h²·(α²−1)+1)²)
+                        // （dd ≥ 1−α² ≥ 0.0025 > 0，分母恒正无奇异）。
+                        let dd = cos_h * cos_h * (alpha2 - 1.0) + 1.0;
+                        let d_ggx = alpha2 * inv_pi / (dd * dd).max(tiny);
+                        // G = Smith（Schlick-GGX G1 乘积，k = α/2；k>0 ⇒
+                        // 分母恒正；cos_s=0/cos_v=0 ⇒ G1=0 ⇒ spec=0）。
+                        let k_g = alpha * 0.5;
+                        let g1_s = cos_s / (cos_s * (1.0 - k_g) + k_g);
+                        let g1_v = cos_v / (cos_v * (1.0 - k_g) + k_g);
+                        let g_sm = g1_s * g1_v;
+                        // F = Schlick（cos_wh = wo·h = −d·h；(1−cos_wh)⁵ 经
+                        // 两次平方一次乘）。
+                        let cos_wh = (0.0 - (dx * hnx + dy * hny + dz * hnz)).max(0.0);
+                        let om = 1.0 - cos_wh;
+                        let om2 = om * om;
+                        let sch5 = om2 * om2 * om;
+                        let den = 4.0 * cos_s * cos_v + 0.001;
+                        let dgf = d_ggx * g_sm / den;
+                        spec_r = spec_r + qle_r * g * keep * dgf * (f0_r + (1.0 - f0_r) * sch5);
+                        spec_g = spec_g + qle_g * g * keep * dgf * (f0_g + (1.0 - f0_g) * sch5);
+                        spec_b = spec_b + qle_b * g * keep * dgf * (f0_b + (1.0 - f0_b) * sch5);
+                    }
+                    sxq = sxq + 1;
+                }
+                syq = syq + 1;
+            }
+            dir_r = dir_r + acc_r;
+            dir_g = dir_g + acc_g;
+            dir_b = dir_b + acc_b;
+            qi = qi + 1;
+        }
+        // ── point 灯 delta（g = cos_s/d²；I = color×intensity_cd host 预乘）──
+        // A1 灯光提取加性臂消费面（文件头 ⑥/⑦）：贡献剔除 gate_lc 乘进
+        // keep_pre（branchless 门——本 kernel gate 惯例；rurixc 对「if 包
+        // while+if」深嵌套的 SPIR-V selection 合并块 codegen 无效〔spirv-val
+        // 拒绝〕，if 包体形态不可用）+ points[pb+6] 灯半径截断阴影 t_sh
+        //（契约灯 lr=0 ⇒ max(2eps,0)=2eps 数值恒等）。
+        let mut pi_ = 0usize;
+        while pi_ < point_count {
+            let pb = pi_ * 8;
+            let lv_x = points[pb] - hx;
+            let lv_y = points[pb + 1] - hy;
+            let lv_z = points[pb + 2] - hz;
+            let li_r = points[pb + 3];
+            let li_g = points[pb + 4];
+            let li_b = points[pb + 5];
+            let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+            let d2s = d2.max(tiny * tiny);
+            let d = d2s.sqrt();
+            let wix = lv_x / d;
+            let wiy = lv_y / d;
+            let wiz = lv_z / d;
+            let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+            let gate_cs = (cos_s * big).min(1.0).max(0.0);
+            // A1 ⑥：灯半径阴影截断（pack 槽 7；契约灯 lr=0 ⇒ 位级不变）。
+            let lr = points[pb + 6];
+            let t_sh = d - (2.0 * ray_eps).max(lr);
+            let gate_far = (t_sh * big).min(1.0).max(0.0);
+            let t_fire = t_sh.max(ray_eps);
+            // A1 ⑦：贡献剔除门（contrib = max3(I)/d² >= params[49] 保留——
+            // `+1.0` 偏置使 diff=0 边界 gate=1.0 兑现 >= 语义；阈值 0 时
+            // contrib ≥ 0 ⇒ gate 恒 1.0，keep_pre·1.0 位级恒等）。gate_lc=0
+            // ⇒ keep_pre=0：阴影射线跳过（下方既有 keep_pre>0 门）且直射
+            // 与 GGX 项全乘零——整灯等效 keep=0，非只跳阴影的无影灯。
+            let contrib = li_r.max(li_g).max(li_b) / d2s;
+            let gate_lc = ((contrib - params[49]) * big + 1.0).min(1.0).max(0.0);
+            // G14.9 背光 keep 预判跳射线（quad 臂同律；三门任一为 0 时 vis 不被
+            // 消费，跳过发射位级不变）+ first-hit 早退（阴影臂存在性消费等价）。
+            let keep_pre = hit_f * gate_d * gate_cs * gate_lc;
+            let mut blk = 0.0;
+            if keep_pre > 0.0 {
+                let mut sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                    0.0,
+                    (wix, wiy, wiz),
+                    t_fire,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    blk = 1.0;
+                } else {
+                    blk = 0.0;
+                }
+            }
+            let vis = 1.0 - gate_far * blk;
+            let g = cos_s / d2s;
+            let keep = keep_pre * vis;
+            dir_r = dir_r + li_r * g * keep;
+            dir_g = dir_g + li_g * g * keep;
+            dir_b = dir_b + li_b * g * keep;
+            // ── D6 GGX 高光项（point delta 臂；quad 臂同式同律——g = cos_s/d²
+            //    已含入射余弦，keep 含阴影 vis；关臂不执行 ⇒ dir_* 与改前
+            //    逐位一致。A1：keep 已含 gate_lc——剔除灯 spec 项 +0.0 恒等，
+            //    ALU 照跑零贡献〔非负域尾加恒等〕）。──
+            if params[48] > 0.5 {
+                let hvx = wix - dx;
+                let hvy = wiy - dy;
+                let hvz = wiz - dz;
+                let hl = (hvx * hvx + hvy * hvy + hvz * hvz).sqrt();
+                let gate_hl = (hl * big).min(1.0).max(0.0);
+                let hl_safe = hl + (1.0 - gate_hl);
+                let inv_hl = 1.0 / hl_safe;
+                let hnx = gate_hl * (hvx * inv_hl);
+                let hny = gate_hl * (hvy * inv_hl);
+                let hnz = gate_hl * (hvz * inv_hl);
+                let cos_h = (nx * hnx + ny * hny + nz * hnz).max(0.0);
+                let dd = cos_h * cos_h * (alpha2 - 1.0) + 1.0;
+                let d_ggx = alpha2 * inv_pi / (dd * dd).max(tiny);
+                let k_g = alpha * 0.5;
+                let g1_s = cos_s / (cos_s * (1.0 - k_g) + k_g);
+                let g1_v = cos_v / (cos_v * (1.0 - k_g) + k_g);
+                let g_sm = g1_s * g1_v;
+                let cos_wh = (0.0 - (dx * hnx + dy * hny + dz * hnz)).max(0.0);
+                let om = 1.0 - cos_wh;
+                let om2 = om * om;
+                let sch5 = om2 * om2 * om;
+                let den = 4.0 * cos_s * cos_v + 0.001;
+                let dgf = d_ggx * g_sm / den;
+                spec_r = spec_r + li_r * g * keep * dgf * (f0_r + (1.0 - f0_r) * sch5);
+                spec_g = spec_g + li_g * g * keep * dgf * (f0_g + (1.0 - f0_g) * sch5);
+                spec_b = spec_b + li_b * g * keep * dgf * (f0_b + (1.0 - f0_b) * sch5);
+            }
+            pi_ = pi_ + 1;
+        }
+        // ── ④ 深度（未抖 vp ZO NDC；|w|≤1e-8 → 1.0 host 同字面）──
+        let cz = ((params[25] * hx + params[26] * hy) + params[27] * hz) + params[28];
+        let cw = ((params[29] * hx + params[30] * hy) + params[31] * hz) + params[32];
+        let cw_abs = cw.max(0.0 - cw);
+        let gate_w = ((cw_abs - 0.00000001) * big).min(1.0).max(0.0);
+        let cw_safe = cw + (1.0 - gate_w);
+        let z_hit = gate_w * (cz / cw_safe) + (1.0 - gate_w);
+        // ── 输出（lo = emission + albedo·inv_pi·direct + miss 天光，host 同序）──
+        let sky_i = params[42];
+        let sky_amb = (1.0 - hit_f) * sky_i;
+        // ── 夜间巡航 D5 半球环境光加性臂（params[44]>0 开；=0 关臂与母版位级
+        //    一致——加性项恒 +0.0）。动机：bistro 室内 44k 自发光三角不投光、
+        //    仅 4 点光照明 → 背光面/阴影区死黑（无 GI 无 AO）。半球环境 =
+        //    标准廉价游戏补光：L(n) = sky_rgb·(0.65+0.35·n_y)（天顶 1.0 /
+        //    侧面 0.65 / 地面 0.3 衰减），Lo += albedo·L·intensity（与直接光
+        //    albedo·inv_pi·E 同标度：E_hemi = π·L ⇒ Lo = albedo/π·π·L =
+        //    albedo·L）。ny = 双面翻转后世界法线 y。──
+        let amb_i = params[44];
+        let hemi = 0.65 + 0.35 * ny;
+        let amb_r = params[45] * hemi * amb_i;
+        let amb_g = params[46] * hemi * amb_i;
+        let amb_b = params[47] * hemi * amb_i;
+        // 加性项 `al·amb` 独立尾加（关臂 amb_i=0 ⇒ al·0=+0.0，x+0.0 非负域恒等
+        // ⇒ 与母版 `mats + al·inv_pi·dir` 逐位一致；不改动原乘加结合序）。
+        // D6：`+ spec` 同为非负域 +0.0 恒等尾加（关臂 spec 恒 +0.0；spec 为
+        // 出射辐亮 Lo 域量，不经 albedo·inv_pi 漫反射耦合）。
+        out_color[i * 3] = hit_f * (mats[mb + 3] + al_r * inv_pi * dir_r + al_r * amb_r + spec_r) + sky_amb * 0.55;
+        out_color[i * 3 + 1] = hit_f * (mats[mb + 4] + al_g * inv_pi * dir_g + al_g * amb_g + spec_g) + sky_amb * 0.65;
+        out_color[i * 3 + 2] = hit_f * (mats[mb + 5] + al_b * inv_pi * dir_b + al_b * amb_b + spec_b) + sky_amb * 0.85;
+        out_depth[i] = hit_f * z_hit + (1.0 - hit_f);
+    }
+}

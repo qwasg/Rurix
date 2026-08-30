@@ -1,0 +1,52 @@
+{
+  "schema": "rurix.g31.vendor_license_evidence.v1",
+  "subject": "g31_vendor_license",
+  "symbolic_gate_key": "g31.waveC.license",
+  "wave": "G31+.C",
+  "matrix_path": "milestones/g31/g31_vendor_license_matrix.json",
+  "matrix_sha256": "sha256:ebebe6ffd70159d5983bbc980848763918207d25f504ff5b2533379adb702353",
+  "summary": {
+    "total": 16,
+    "cleared": 15,
+    "conditional": 1,
+    "pending_owner": 0,
+    "blocked": 0
+  },
+  "gaps": [
+    {
+      "id": "GAP-01",
+      "status": "open",
+      "closure_registered": true,
+      "closure_date": "2026-08-29"
+    },
+    {
+      "id": "GAP-02",
+      "status": "open",
+      "closure_registered": true,
+      "closure_date": "2026-08-29"
+    },
+    {
+      "id": "GAP-03",
+      "status": "open",
+      "closure_registered": true,
+      "closure_date": "2026-08-29"
+    }
+  ],
+  "checks": {
+    "matrix_structure_valid": true,
+    "vendor_coverage_complete": true,
+    "license_texts_on_tree": true,
+    "g13_clearance_referenced": true,
+    "sbom_reconciliation": true,
+    "obligations_and_gaps_registered": true,
+    "summary_counts_honest": true
+  },
+  "environment": {
+    "os": "Windows-11-10.0.28120-SP0",
+    "python_version": "3.12.1",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81",
+    "device_section_state": "not_applicable（host 纯 host 门：矩阵/SBOM/许可文本全为文件面机核）"
+  },
+  "timestamp": "20260829T155821Z",
+  "notes": "GAP-01~03 closure 追加段机核绿（NOTICES 随附 + release.yml 4 许可组件接线 + 双许可字面互核 + 内嵌库 SBOM 补充与 Cargo.lock 互核；status 字面 append-only 维持 open，closed 态以 closure 段承载）"
+}

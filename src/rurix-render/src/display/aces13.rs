@@ -484,6 +484,22 @@ pub fn aces13_device_encode_params(width: u32, height: u32, bgra: bool) -> Vec<f
     v
 }
 
+/// 夜间巡航 D1 加性扩展：TPDF 抖动门控面。
+///
+/// 语义 = [`aces13_device_encode_params`] 全量 + 仅覆写 [3]=dither_enable
+/// （1.0=开/0.0=关）。原函数逐字不动（既有调用面 0-byte）；dither 关臂
+/// 与历史输出逐位一致（kernel 侧 dn 恒 0.0，非负域 x+0.0 恒等位级）。
+pub fn aces13_device_encode_params_ex(
+    width: u32,
+    height: u32,
+    bgra: bool,
+    dither_enable: bool,
+) -> Vec<f32> {
+    let mut v = aces13_device_encode_params(width, height, bgra);
+    v[3] = if dither_enable { 1.0 } else { 0.0 };
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

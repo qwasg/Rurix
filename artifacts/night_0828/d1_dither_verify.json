@@ -1,0 +1,39 @@
+{
+  "roi": [
+    1400,
+    150,
+    480,
+    270
+  ],
+  "blocks": 28,
+  "ch_r": {
+    "no_dither": {
+      "unique_levels_mean": 6.035714285714286,
+      "const_runlen_mean_px": 24.687656552290537
+    },
+    "tpdf": {
+      "unique_levels_mean": 7.535714285714286,
+      "const_runlen_mean_px": 1.9459661395425765
+    }
+  },
+  "ch_g": {
+    "no_dither": {
+      "unique_levels_mean": 5.75,
+      "const_runlen_mean_px": 25.843938494356912
+    },
+    "tpdf": {
+      "unique_levels_mean": 6.857142857142857,
+      "const_runlen_mean_px": 2.0282458983019893
+    }
+  },
+  "ch_b": {
+    "no_dither": {
+      "unique_levels_mean": 5.714285714285714,
+      "const_runlen_mean_px": 26.277813410791744
+    },
+    "tpdf": {
+      "unique_levels_mean": 6.75,
+      "const_runlen_mean_px": 2.060601551475743
+    }
+  }
+}

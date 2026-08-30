@@ -1,0 +1,11 @@
+{
+  "label": "lamp_on_gain4",
+  "exr": "artifacts/day_0828/a1_lamp_lights/arms/s5_render_on_g4/bistro-interior/tier100/tsr_device/converged.exr",
+  "width": 1920,
+  "height": 1080,
+  "mean": 0.013734288987968234,
+  "p5": 0.0006908034113724716,
+  "p50": 0.0037424256929196415,
+  "p99": 0.26837162072065485,
+  "max": 10.828949417114258
+}

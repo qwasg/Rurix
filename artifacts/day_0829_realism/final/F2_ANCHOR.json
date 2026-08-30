@@ -1,0 +1,204 @@
+{
+ "schema": "rurix.day0829.realism.f2_anchor.v1",
+ "fails": 0,
+ "full16_anchor": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673",
+ "caliber": "96f/warmup2 presented digest,--quality full 十六臂(soft-shadow-samples 预设 1)",
+ "lineage": "9e5f6300(九臂)→78113d56(十臂 γ1)→de342586(十臂 γ2.5)→本锚(十六臂 realism 并入,语义变更作废前锚)",
+ "rows": [
+  {
+   "step": "f2_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 61.8,
+   "real_render_frame_ms": 6.664275,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "17:02:43"
+  },
+  {
+   "step": "f2_full16_run1",
+   "rc": 0,
+   "digest": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673",
+   "vuid": 0,
+   "wall_s": 204.5,
+   "real_render_frame_ms": 9.922294,
+   "expect_combo_s1": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673",
+   "pass": true,
+   "t": "17:06:08"
+  },
+  {
+   "step": "f2_full16_run2",
+   "rc": 0,
+   "digest": "sha256:5db2e7d72e6b4f3c961d1acdd48d05c60df24e8803a26f4dfdb37665b79bf673",
+   "vuid": 0,
+   "wall_s": 204.2,
+   "real_render_frame_ms": 9.514531,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "17:09:32"
+  },
+  {
+   "step": "f2_bench_default_160f",
+   "rc": 0,
+   "digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "expect": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "wall_s": 61.7,
+   "pass": true,
+   "t": "17:10:33"
+  },
+  {
+   "step": "f2_stagea18",
+   "matched": 18,
+   "total": 18,
+   "pass": true,
+   "t": "17:20:24"
+  }
+ ],
+ "stagea18": [
+  {
+   "cell": "cornell-box_t50_tsr_device",
+   "fresh": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+   "anchor": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.4
+  },
+  {
+   "cell": "cornell-box_t67_tsr_device",
+   "fresh": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+   "anchor": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.4
+  },
+  {
+   "cell": "cornell-box_t100_tsr_device",
+   "fresh": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+   "anchor": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.4
+  },
+  {
+   "cell": "bistro-interior_t50_tsr_device",
+   "fresh": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+   "anchor": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+   "match": true,
+   "rc": 0,
+   "wall_s": 61.5
+  },
+  {
+   "cell": "bistro-interior_t67_tsr_device",
+   "fresh": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+   "anchor": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+   "match": true,
+   "rc": 0,
+   "wall_s": 61.5
+  },
+  {
+   "cell": "bistro-interior_t100_tsr_device",
+   "fresh": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "anchor": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "match": true,
+   "rc": 0,
+   "wall_s": 61.6
+  },
+  {
+   "cell": "cornell-box_t50_dlss_sr",
+   "fresh": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+   "anchor": "sha256:3eb3794d40cdfb59954fcf93607fdff42cc03c6010f90b5db08a49908b745851",
+   "match": true,
+   "rc": 0,
+   "wall_s": 2.8
+  },
+  {
+   "cell": "cornell-box_t50_fsr_3_1_5",
+   "fresh": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+   "anchor": "sha256:db280e555c7fc47d72719997aa8f144ab5579fdf423b773772f94db86cea2041",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.7
+  },
+  {
+   "cell": "cornell-box_t67_dlss_sr",
+   "fresh": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+   "anchor": "sha256:96f83ba4574ac102cbb3007fcef0d3819a76beae909102e7c0f3357c978dcc43",
+   "match": true,
+   "rc": 0,
+   "wall_s": 6.5
+  },
+  {
+   "cell": "cornell-box_t67_fsr_3_1_5",
+   "fresh": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+   "anchor": "sha256:d7bf3ca87024347472a9877866bc9d7d0923332474ba7201fdf18808616c5b23",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.7
+  },
+  {
+   "cell": "cornell-box_t100_dlss_sr",
+   "fresh": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+   "anchor": "sha256:a26130a190b6c174f40aedf839f3b7ae40d2f97c0bf015e91eebdadddaea8d4d",
+   "match": true,
+   "rc": 0,
+   "wall_s": 11.3
+  },
+  {
+   "cell": "cornell-box_t100_fsr_3_1_5",
+   "fresh": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+   "anchor": "sha256:dd5e0841b172c31b1a82c56732c23b576cd6edcb476e614c6b06c20cca04f616",
+   "match": true,
+   "rc": 0,
+   "wall_s": 0.8
+  },
+  {
+   "cell": "bistro-interior_t50_dlss_sr",
+   "fresh": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+   "anchor": "sha256:9636cef0cb8775bed7c16d077816cf5bb8267c0894686b6a7fadaf8ae93feb53",
+   "match": true,
+   "rc": 0,
+   "wall_s": 66.4
+  },
+  {
+   "cell": "bistro-interior_t50_fsr_3_1_5",
+   "fresh": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+   "anchor": "sha256:fed6420fe368303f09f591421c2abf529305ef10d890bbea074b1a9145570272",
+   "match": true,
+   "rc": 0,
+   "wall_s": 61.7
+  },
+  {
+   "cell": "bistro-interior_t67_dlss_sr",
+   "fresh": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+   "anchor": "sha256:d09fa898711eb6b617db7a4cd1440bcac980abce14c139cb618606f4386c6f89",
+   "match": true,
+   "rc": 0,
+   "wall_s": 64.9
+  },
+  {
+   "cell": "bistro-interior_t67_fsr_3_1_5",
+   "fresh": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+   "anchor": "sha256:296edfbc3075980dd1adcebc42c9f401d9121e51bdd42ef9e1664407866da421",
+   "match": true,
+   "rc": 0,
+   "wall_s": 61.9
+  },
+  {
+   "cell": "bistro-interior_t100_dlss_sr",
+   "fresh": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+   "anchor": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+   "match": true,
+   "rc": 0,
+   "wall_s": 65.4
+  },
+  {
+   "cell": "bistro-interior_t100_fsr_3_1_5",
+   "fresh": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+   "anchor": "sha256:4cf67f08944c8d1faa6f96573910783c5f06e614d11ae37f928fc95f34f2d504",
+   "match": true,
+   "rc": 0,
+   "wall_s": 62.0
+  }
+ ]
+}

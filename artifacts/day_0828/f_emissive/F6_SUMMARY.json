@@ -1,0 +1,102 @@
+{
+ "schema": "rurix.day0828.f_emissive.f6_summary.v1",
+ "task": "F6 双形态回正：Phase B 共享装配 API 就地改形（texel heap）跨会话破坏修复",
+ "date": "2026-08-28/29",
+ "violation_registered": {
+  "what": "Phase B 在 g14_3_lane_body.rs（共享 include 体）就地改写共享纹理装配 API：2D 网格图集→一维 texel heap、tritex 步幅 1→2、探针协议 3→4 元组扩 mip 维、g31_dds_decode_rgba8 改名改返回型、G31TexSlot/G31TexAssets 扩字段、G31_TEX_N_MAPPED 12→70、g31_tex_host_sample 6→7 参 + G/B 底行 fy→fx 修正",
+  "impact": "g34_full_lane.exe 编译红 4 处（g34_full_lane.rs:1160 host_sample 参数失配;g34_full_lane.rs:1842/g34_skin_section.rs:1044/g34_2_hzb.rs:1885 tex_probes 签名失配）+ 运行时语义破坏面（g34 系 kernel g34_unified_gi.rx 按原 grid 布局/stride-1 tritex 读数,被其门锚冻结——就算修签名也读错形态）",
+  "fix_route": "双形态并存（加性纪律回正）：原形态函数原名原签名原语义从 HEAD 逐字恢复给 g34 消费面;Phase B heap 形态改名 *_heap/*_mip;我们的调用点（lane_body 内部 + g31_window_present.rs）全部切 heap 命名;g34_full_lane.rs 及其 include 段/g34 系 kernel 零字节触碰"
+ },
+ "rename_map": [
+  {"original_restored": "G31_TEX_N_MAPPED = 12", "heap_form": "G31_TEX_N_MAPPED_HEAP = 70", "kind": "const"},
+  {"original_restored": "struct G31TexSlot（13 字段）", "heap_form": "struct G31TexSlotHeap（+src_width/src_height/mip_count/mip_digests/mip_truncated）", "kind": "struct"},
+  {"original_restored": "struct G31TexAssets（grid atlas）", "heap_form": "struct G31TexAssetsHeap（+heap_header_entries/heap_texels）", "kind": "struct"},
+  {"original_restored": "g31_dds_decode_rgba8（mip0-only）", "heap_form": "g31_dds_decode_rgba8_mips（Phase B 已另名,加性保留）", "kind": "fn"},
+  {"original_restored": "g31_tex_probes(usize) -> Vec<(u32,f32,f32)>", "heap_form": "g31_tex_probes_mip(&[G31TexSlotHeap]) -> Vec<(u32,f32,f32,u32)>", "kind": "fn"},
+  {"original_restored": "g31_tex_host_sample（6 参,grid 寻址,G/B 底行 fy 原式=g34 冻结 kernel 同源）", "heap_form": "g31_tex_host_sample_mip（7 参,heap 头表寻址,fy→fx 修正）", "kind": "fn"},
+  {"original_restored": "g31_tex_load（top-12 + 2D 网格图集 + tritex 步幅 1）", "heap_form": "g31_tex_load_heap（top-70 + texel heap + tritex 步幅 2）", "kind": "fn"},
+  {"original_restored": "g31_tex_probe_device（探针步幅 3）", "heap_form": "g31_tex_probe_device_mip（步幅 4）", "kind": "fn"},
+  {"original_restored": "g31_tex_sampler_leg（3 元组探针）", "heap_form": "g31_tex_sampler_leg_mip（4 元组,仅 lod==0 子集）", "kind": "fn"},
+  {"original_restored": "g31_tex_probe_evaluate（3 元组全链）", "heap_form": "g31_tex_probe_evaluate_mip（4 元组,内链 *_mip）", "kind": "fn"},
+  {"original_restored": "geo_patch_proxy_tritex（tritex 步幅 1）", "heap_form": "geo_patch_proxy_tritex_heap(&mut G31TexAssetsHeap)（步幅 2,当前零调用面编译保留）", "kind": "fn"}
+ ],
+ "restored_functions_verbatim_lines": {
+  "geo_patch_proxy_tritex": 24,
+  "g31_dds_decode_rgba8": 150,
+  "g31_tex_probes": 22,
+  "g31_tex_host_sample": 62,
+  "g31_tex_load": 264,
+  "g31_tex_probe_device": 40,
+  "g31_tex_sampler_leg": 101,
+  "g31_tex_probe_evaluate": 91,
+  "struct G31TexSlot": 17,
+  "struct G31TexAssets": 22,
+  "const G31_TEX_N_MAPPED": 1
+ },
+ "verbatim_check": {
+  "tool": "f6_verify_verbatim.py（fn/struct 体从 `fn NAME(`/`struct NAME {` 至列 0 `}` 提取,vs git show HEAD 同律提取位级比对）",
+  "result": "20/20 verbatim=true（8 恢复 fn + g34_slab_premod_texmeta/g31_tex_linlut/g31_tex_host_sample_srgb 未动复核 + 5 struct + 4 const）",
+  "evidence": "f6_verbatim_check.json"
+ },
+ "heap_side_retargets_names_kept": [
+  "g31_emissive_append(&mut G31TexAssetsHeap)（Phase F 加性臂,内部 G31TexSlotHeap 构造）",
+  "g31_svt_build/g31_svt_probes/g31_svt_probe_device/g31_svt_probe_evaluate → &G31TexAssetsHeap（SVT 臂 = g31_window_present 独消费面,fail-closed 互斥编译保留;svt_probe_evaluate 直采参考 → g31_tex_host_sample_mip(...,0)）"
+ ],
+ "our_call_sites_switched": {
+  "g31_window_present.rs": [
+   "5× 描述组 fn 参数 tex: &'x G31TexAssets → G31TexAssetsHeap",
+   "tex_report: Option<(G31TexAssetsHeap, G31TexProbeReport)>",
+   "g31_tex_load → g31_tex_load_heap",
+   "g31_tex_probes(&assets.slots) → g31_tex_probes_mip(&assets.slots)",
+   "g31_tex_probe_evaluate → g31_tex_probe_evaluate_mip"
+  ],
+  "g14_3_lane_body.rs_internal": [
+   "g31_tex_probe_evaluate_mip 内链 probe_device_mip/host_sample_mip/sampler_leg_mip",
+   "g31_svt_probe_evaluate 直采参考 → g31_tex_host_sample_mip"
+  ],
+  "g34_files_touched": "零字节（g34_full_lane.rs / g34_skin_section.rs / g34_2_hzb.rs / g34 系 kernel 全部不触）"
+ },
+ "compile_matrix": {
+  "cmd": "$env:CARGO_TARGET_DIR=\"H:\\rurix\\target-night\"; cargo build --release -p rurix-render --features vendor-upscale --bins",
+  "rc": 0,
+  "wall": "1m 51s（首轮即绿,红→修 0 次）",
+  "exe_mtime_fresh": {
+   "g34_full_lane.exe": "2026-08-28 23:35:52",
+   "g35_particle_lane.exe": "2026-08-28 23:35:47",
+   "g14_3_pipeline_perf.exe": "2026-08-28 23:35:54",
+   "g31_window_present.exe": "2026-08-28 23:37:11"
+  },
+  "warnings_note": "g34_skin_section 既有 unused 警告（px/py/slab_report/tex_report 赋值未读）——g34 自有面既有形态,F6 不触"
+ },
+ "anchor_reverify": {
+  "env": "RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1,gpu_device_lock 过锁（f6_accept.py）",
+  "rows": [
+   {"arm": "window all-off 8f", "digest8": "55e4a92d", "expect8": "55e4a92d", "vuid": 0, "pass": true},
+   {"arm": "bench 默认 160f last_frame", "digest8": "c1d28ad7", "expect8": "c1d28ad7", "pass": true},
+   {"arm": "window --quality full（十臂）32f", "digest8": "78113d56", "expect8": "78113d56", "vuid": 0, "pass": true}
+  ],
+  "drift": "零漂移（改动对我们的臂 = 纯改名零语义,自证成立）",
+  "evidence": "F6_RUNS.json / ev/f6_alloff_8f.json / arms/bench_default_f6/ / ev/f6_full_32f.json"
+ },
+ "g34_probe": {
+  "cmd": "target-night/release/g34_full_lane.exe --full --slab-table milestones/g31/g31_slab_side_table_bistro_interior.json --frames 74 --warmup 10 --auto-move orbit --hidden --tier 100 --evidence artifacts/day_0828/f_emissive/f6_g34_probe.json",
+  "r1": {"rc": 0, "vuid": 0, "wall_s": 319.5, "digest8": "4a06301c", "render_digest8": "f7deccc1", "digest_seq_len": 84, "exit_reason": "frames_done", "real_render_frame_ms": 45.251343},
+  "r2": {"rc": 0, "vuid": 0, "wall_s": 320.0, "digest8": "4a06301c", "render_digest8": "f7deccc1", "digest_seq_len": 84},
+  "double_run_bitexact": true,
+  "anchor_comparison": "f39e9808 系在案锚 = artifacts/night_baseline render_receipt frame_0009.exr 逐帧 digest（g14_3 render 面,静态锚格）,与 orbit 74f 窗口跑不可比对 → 按任务书登记双跑位级一致性（digest/render_digest/digest_seq 84 帧全量位级同值）",
+  "evidence": "f6_g34_probe.json / f6_g34_probe_r2.json"
+ },
+ "remaining_issues": [
+  "HANDOVER §A.1 g34 三 kernel fx/fy 双线性同源 bug 维持在案（F6 原形态恢复即恢复 host 镜像同错对拍面——g34 门恒绿依赖该同错抵消,主线修须 host+device 同步）",
+  "geo_patch_proxy_tritex_heap 当前零调用面（heap 臂无 geo 接线;编译保留,加性）",
+  "HANDOVER §B.4 ci/g31_texture_sampling_smoke.py 判读器仍按旧形态编面（F6 后旧形态符号已恢复,该门对原形态可用性待主线复核;heap 形态判读器同步仍欠）",
+  "SVT 臂 fail-closed 互斥维持（§C.12 不变;SVT 函数已随 heap struct 走,页表 2048 网格假设 vs heap 深修留窗）"
+ ],
+ "files_changed": [
+  "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs（双形态并存:原形态逐字恢复 + heap 另名）",
+  "src/rurix-render/src/bin/g31_window_present.rs（调用点切 heap 命名,9 处）",
+  "artifacts/day_0828/f_emissive/{f6_accept.py,f6_verify_verbatim.py,F6_RUNS.json,F6_SUMMARY.json,f6_verbatim_check.json,f6_g34_probe*.json,ev/f6_*.json,arms/bench_default_f6/}",
+  "artifacts/day_0828/e_final/HANDOVER.md（§F 追加 F6 条目）"
+ ],
+ "discipline": "g34_full_lane.rs/g34_skin_section.rs/g34_2_hzb.rs/g34 系 kernel/milestones/ci/00_MASTER_INDEX/11_ROADMAP/冻结 SPV 零触碰;未 git commit"
+}

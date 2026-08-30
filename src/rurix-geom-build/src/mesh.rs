@@ -1,7 +1,9 @@
 //! 输入三角网格模型与内置生成器。
 //!
 //! 报告1 §3.1 口径:离线构建输入为「索引 + 位置」,P0 不引入法线/UV 属性
-//! (属性在 P2 顶点获取路径再进入)。生成器产出的网格顶点已按索引共享
+//! (属性在 P2 顶点获取路径再进入)。G31+ #96 起,UV/法线经 [`TriMeshAttrs`]
+//! **加性伴随结构**进入属性保持简化链(新入口 [`TriMesh::with_attrs`];
+//! `TriMesh` 本体与既有构建链 0-byte 不动)。生成器产出的网格顶点已按索引共享
 //! (焊接),供簇化邻接生长与 DAG 组边界判定直接使用;跨层顶点一致性靠
 //! 「端点收缩不改变存活顶点坐标」+ 精确位置焊接维持(见 [`crate::dag`])。
 
@@ -14,6 +16,144 @@ pub struct TriMesh {
     pub indices: Vec<u32>,
 }
 
+/// 顶点属性平行表(G31+ #96 属性保持简化输入面)。
+///
+/// meshopt `simplifyWithAttributes` 顶点属性口径:属性与 [`TriMesh::positions`]
+/// 等长平行;UV 接缝由上游按「位置 + 属性」预拆分顶点承载(同位置不同 UV =
+/// 不同顶点 id,简化链按接缝顶点保守锁定处理,见 [`crate::dag::build_dag_attrs`])。
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TriMeshAttrs {
+    /// 逐顶点 UV(#96 最小属性面,必备;与 positions 等长)。
+    pub uv: Vec<[f32; 2]>,
+    /// 逐顶点法线(可选;与 positions 等长。插值端点逐位拷贝原值,内点
+    /// 插值后重归一化——非单位输入不拒)。
+    pub normal: Option<Vec<[f32; 3]>>,
+}
+
+/// 带属性三角网格(TriMesh + 平行属性表的伴随结构;经 [`TriMesh::with_attrs`]
+/// 校验构造)。字段公开维持仓内离线工具惯例——绕过构造的输入由消费入口
+/// ([`crate::dag::build_dag_attrs`])再次 fail-closed 校验。
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AttrTriMesh {
+    pub mesh: TriMesh,
+    pub attrs: TriMeshAttrs,
+}
+
+/// 属性网格退化输入 typed 错误(G31+ #96 纪律:属性链新入口一律 typed Err,
+/// 既有构造函数的 panic 面不动)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttrMeshError {
+    /// 零三角形(空网格无简化/烘焙语义)。
+    EmptyMesh,
+    /// 索引数非 3 的倍数。
+    IndicesNotTriples { len: usize },
+    /// 三角形索引越界。
+    IndexOutOfBounds { index: u32, vertex_count: usize },
+    /// UV 表与顶点数不齐。
+    UvLengthMismatch { vertices: usize, uv: usize },
+    /// 法线表与顶点数不齐。
+    NormalLengthMismatch { vertices: usize, normals: usize },
+    /// 非有限数值(表名 + 顶点下标)。
+    NonFinite { table: &'static str, index: usize },
+}
+
+impl std::fmt::Display for AttrMeshError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttrMeshError::EmptyMesh => write!(f, "属性网格为空(零三角形)"),
+            AttrMeshError::IndicesNotTriples { len } => {
+                write!(f, "三角形索引数 {len} 非 3 的倍数")
+            }
+            AttrMeshError::IndexOutOfBounds {
+                index,
+                vertex_count,
+            } => {
+                write!(f, "三角形索引 {index} 越界(顶点数 {vertex_count})")
+            }
+            AttrMeshError::UvLengthMismatch { vertices, uv } => {
+                write!(f, "UV 表长度 {uv} 与顶点数 {vertices} 不齐")
+            }
+            AttrMeshError::NormalLengthMismatch { vertices, normals } => {
+                write!(f, "法线表长度 {normals} 与顶点数 {vertices} 不齐")
+            }
+            AttrMeshError::NonFinite { table, index } => {
+                write!(f, "{table}[{index}] 含非有限数值")
+            }
+        }
+    }
+}
+
+impl std::error::Error for AttrMeshError {}
+
+/// 属性网格输入统一校验(#96 三入口共用单一事实源:[`TriMesh::with_attrs`] /
+/// [`crate::dag::build_dag_attrs`] / [`crate::qem::simplify_free_mesh_attrs`];
+/// fail-closed typed Err,不 panic、不静默钳制)。
+pub(crate) fn validate_attr_input(
+    positions: &[[f32; 3]],
+    indices: &[u32],
+    uv: &[[f32; 2]],
+    normal: Option<&[[f32; 3]]>,
+) -> Result<(), AttrMeshError> {
+    if indices.is_empty() {
+        return Err(AttrMeshError::EmptyMesh);
+    }
+    if !indices.len().is_multiple_of(3) {
+        return Err(AttrMeshError::IndicesNotTriples {
+            len: indices.len(),
+        });
+    }
+    let n = positions.len();
+    for &i in indices {
+        if i as usize >= n {
+            return Err(AttrMeshError::IndexOutOfBounds {
+                index: i,
+                vertex_count: n,
+            });
+        }
+    }
+    if uv.len() != n {
+        return Err(AttrMeshError::UvLengthMismatch {
+            vertices: n,
+            uv: uv.len(),
+        });
+    }
+    if let Some(nm) = normal
+        && nm.len() != n
+    {
+        return Err(AttrMeshError::NormalLengthMismatch {
+            vertices: n,
+            normals: nm.len(),
+        });
+    }
+    for (i, p) in positions.iter().enumerate() {
+        if !p.iter().all(|v| v.is_finite()) {
+            return Err(AttrMeshError::NonFinite {
+                table: "positions",
+                index: i,
+            });
+        }
+    }
+    for (i, t) in uv.iter().enumerate() {
+        if !t.iter().all(|v| v.is_finite()) {
+            return Err(AttrMeshError::NonFinite {
+                table: "uv",
+                index: i,
+            });
+        }
+    }
+    if let Some(nm) = normal {
+        for (i, t) in nm.iter().enumerate() {
+            if !t.iter().all(|v| v.is_finite()) {
+                return Err(AttrMeshError::NonFinite {
+                    table: "normal",
+                    index: i,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 impl TriMesh {
     /// 构造并校验(索引数 3 的倍数且不越界;离线工具,坏输入即panic)。
     pub fn new(positions: Vec<[f32; 3]>, indices: Vec<u32>) -> Self {
@@ -21,6 +161,18 @@ impl TriMesh {
         let n = positions.len() as u32;
         assert!(indices.iter().all(|&i| i < n), "三角形索引越界");
         Self { positions, indices }
+    }
+
+    /// 附着顶点属性 → 带属性网格(G31+ #96 新入口;既有构造函数签名不动)。
+    /// 退化输入(空网格/索引非 3 倍数/越界/属性长度不齐/非有限)= typed Err。
+    pub fn with_attrs(self, attrs: TriMeshAttrs) -> Result<AttrTriMesh, AttrMeshError> {
+        validate_attr_input(
+            &self.positions,
+            &self.indices,
+            &attrs.uv,
+            attrs.normal.as_deref(),
+        )?;
+        Ok(AttrTriMesh { mesh: self, attrs })
     }
 
     pub fn triangle_count(&self) -> usize {
@@ -230,6 +382,92 @@ mod tests {
             let (n, _) = face_normal_centroid(&m, f);
             assert!(n[2] > 0.0, "三角形 {f} 法线非 +z");
         }
+    }
+
+    /// G31+ #96:属性扩面新入口——合法附着 + 退化输入 typed Err 五臂
+    /// (空网格/索引越界/UV 不齐/法线不齐/非有限),既有构造 panic 面不动。
+    #[test]
+    fn with_attrs_valid_and_degenerate_typed_err() {
+        let mesh = TriMesh::plane_grid(2, 1.0);
+        let n = mesh.positions.len();
+        let uv: Vec<[f32; 2]> = mesh
+            .positions
+            .iter()
+            .map(|p| [(p[0] + 1.0) * 0.5, (p[1] + 1.0) * 0.5])
+            .collect();
+        // 合法:仅 UV / UV+法线 两态。
+        let am = mesh
+            .clone()
+            .with_attrs(TriMeshAttrs {
+                uv: uv.clone(),
+                normal: None,
+            })
+            .expect("合法 UV 附着");
+        assert_eq!(am.attrs.uv.len(), n);
+        mesh.clone()
+            .with_attrs(TriMeshAttrs {
+                uv: uv.clone(),
+                normal: Some(vec![[0.0, 0.0, 1.0]; n]),
+            })
+            .expect("合法 UV+法线附着");
+        // 空网格。
+        let empty = TriMesh::default().with_attrs(TriMeshAttrs::default());
+        assert_eq!(empty.unwrap_err(), AttrMeshError::EmptyMesh);
+        // 索引越界(字面构造绕过 TriMesh::new 校验——本入口必须自校)。
+        let oob = TriMesh {
+            positions: vec![[0.0; 3]],
+            indices: vec![0, 1, 2],
+        }
+        .with_attrs(TriMeshAttrs {
+            uv: vec![[0.0; 2]],
+            normal: None,
+        });
+        assert!(matches!(
+            oob.unwrap_err(),
+            AttrMeshError::IndexOutOfBounds { index: 1, .. }
+        ));
+        // 索引数非 3 倍数。
+        let not3 = TriMesh {
+            positions: vec![[0.0; 3]; 2],
+            indices: vec![0, 1],
+        }
+        .with_attrs(TriMeshAttrs {
+            uv: vec![[0.0; 2]; 2],
+            normal: None,
+        });
+        assert!(matches!(
+            not3.unwrap_err(),
+            AttrMeshError::IndicesNotTriples { len: 2 }
+        ));
+        // UV 表不齐。
+        let short_uv = mesh.clone().with_attrs(TriMeshAttrs {
+            uv: uv[..n - 1].to_vec(),
+            normal: None,
+        });
+        assert!(matches!(
+            short_uv.unwrap_err(),
+            AttrMeshError::UvLengthMismatch { .. }
+        ));
+        // 法线表不齐。
+        let short_nm = mesh.clone().with_attrs(TriMeshAttrs {
+            uv: uv.clone(),
+            normal: Some(vec![[0.0, 0.0, 1.0]; n - 1]),
+        });
+        assert!(matches!(
+            short_nm.unwrap_err(),
+            AttrMeshError::NormalLengthMismatch { .. }
+        ));
+        // 非有限 UV。
+        let mut nan_uv = uv;
+        nan_uv[0][0] = f32::NAN;
+        let nan = mesh.with_attrs(TriMeshAttrs {
+            uv: nan_uv,
+            normal: None,
+        });
+        assert!(matches!(
+            nan.unwrap_err(),
+            AttrMeshError::NonFinite { table: "uv", index: 0 }
+        ));
     }
 
     #[test]

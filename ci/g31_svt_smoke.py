@@ -41,6 +41,18 @@ B4 纹理采样门范本同构（ci/g31_texture_sampling_smoke.py）。
 三态：无 Vulkan loader/设备/场景资产/SPV → DEV_ENV_DEGRADE 退 0（不冒充
 PASS）；RURIX_REQUIRE_REAL=1 下 DEV_ENV 降级翻硬 FAIL（禁 mock 充真跑）。
 
+G37 W6 svt mutex_registered（三态之外的互斥登记态）：day_0828 Phase B texel
+heap 化起 harness 对 --svt on 无条件 fail-closed（CLI 校验期即拒;结构性互斥,
+W6 首跑实证 artifacts/day_0830_delivery/w6_final/W6_GATES.json svt 行）。真跑
+四腿前以 probe 短跑（--svt on 极小参数）探测互斥字面：命中 ⇒ host 金标准腿
+（streaming::svt/world::terrain 单测 + terrain 零 SVT 断言字面,纯 host/CPU 判）
+照跑照判——全绿则产 mutex_registered evidence（rurix.g31.svt_smoke.
+mutex_registered.v1,独立新 schema 新路径,既有 v1 双 schema 0-byte）退 0
+（非 PASS 非 FAIL,深修归后续波 TODO #33-#36 + day_0828 HANDOVER §12）,
+host 腿红 ⇒ 整体 FAIL（不得靠登记态掩盖）；未命中（将来深修互斥解除）⇒
+既有全量判读 0 改动。先例 = encode parity DEV_ENV_DEGRADE skip doc /
+blocked_probes maintain 登记面。
+
 用法：
   py -3 ci/g31_svt_smoke.py --selftest
   py -3 ci/g31_svt_smoke.py --gate g31.waveC.svt [--frames 64] [--warmup 10]
@@ -72,6 +84,25 @@ SCHEMA_PATH = ROOT / "milestones" / "g31" / "g31_svt_evidence_schema.json"
 GATE_SCHEMA_PATH = ROOT / "milestones" / "g31" / "g31_svt_gate_evidence_schema.json"
 SCHEMA_ID = "rurix.g31.svt_evidence.v1"
 GATE_SCHEMA_ID = "rurix.g31.svt_gate_evidence.v1"
+# ── G37 W6 svt mutex_registered：互斥登记态常量族 ──
+# harness fail-closed 字面锚（g31_window_present.rs CLI 校验期 eprintln,
+# 全字面 =「--svt on 与 day_0828 Phase B texel heap 纹理形态互斥（SVT 假设
+# = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed
+# 登记,SVT 深修归后续波）」;此处取前段稳健子串防标点宽度漂移,其他 fail
+# 字面不命中 = 不入登记态）。
+MUTEX_LITERAL = "--svt on 与 day_0828 Phase B texel heap 纹理形态互斥"
+MUTEX_SCHEMA_PATH = ROOT / "milestones" / "g31" / "g31_svt_mutex_registered_schema.json"
+MUTEX_SCHEMA_ID = "rurix.g31.svt_smoke.mutex_registered.v1"
+MUTEX_REGISTERED_WAVE = "G37.W6"
+MUTEX_DEEP_FIX_ANCHOR = (
+    "G31_PLUS_COMMERCIAL_RENDERER_TODO #33-#36 SVT 四行（open,SVT 立项窗）"
+    " + artifacts/day_0828/e_final/HANDOVER.md §12"
+    "（--svt × texel heap fail-closed 互斥：SVT 页表假设 2048 固定网格与 heap"
+    " 寻址不同构,深修留窗;现为显式拒跑）"
+    " + artifacts/day_0830_delivery/w6_final/W6_GATES.json svt 行（W6 首跑实证"
+    " rc=1,full/small_a/small_b 三腿同字面必现）"
+)
+MUTEX_SKIPPED_LEGS = ["b4anchor", "full", "small_a", "small_b"]
 BISTRO_GLTF = Path("K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf")
 KERNEL_SVT = ROOT / "src" / "rurix-render" / "kernels" / "g31_svt_gi.rx"
 KERNEL_SVT_PROBE = ROOT / "src" / "rurix-render" / "kernels" / "g31_svt_probe.rx"
@@ -312,6 +343,153 @@ def seqs_bitexact(a: list, b: list) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 判读器②：G37 W6 svt mutex_registered 互斥登记态（纯函数面;selftest 消费）
+# ---------------------------------------------------------------------------
+
+
+def detect_svt_mutex(out: str, returncode: int) -> str:
+    """G37 W6 svt mutex_registered：探测 harness --svt on 无条件 fail-closed
+    互斥字面。命中（rc≠0 且字面在输出）返回捕获的完整字面行;未命中返回空串
+    ——将来深修互斥解除后门自动回落既有全量判读（0 改动）。其他 fail 字面
+    （interference 不符）不入登记态。"""
+    if returncode == 0 or MUTEX_LITERAL not in out:
+        return ""
+    for line in out.splitlines():
+        if MUTEX_LITERAL in line:
+            return line.strip()
+    return MUTEX_LITERAL  # 字面在 out 必在某行;防御性兜底
+
+
+def mutex_host_legs_ok(svt_tests_green: bool, terrain_ok: bool) -> bool:
+    """登记态下 host 金标准腿判（纯 host/CPU 面,不依赖 --svt on 真跑）：
+    ① cargo test streaming::svt = SVT-1/2/3 页表/反馈闭环/border 的 host
+    金标准;② SVT-4 维持 defer 面 = terrain 零 SVT 断言字面 + cargo test
+    world::terrain（terrain_judge 同判）。任一红 ⇒ 门整体 FAIL——host 面
+    坏了不能靠登记态掩盖。"""
+    return svt_tests_green is True and terrain_ok is True
+
+
+def build_mutex_registered_doc(
+    mutex_line: str,
+    probe_rc: int,
+    svt_tests_green: bool,
+    terrain_ok: bool,
+    terrain_greps: dict[str, bool],
+    ts: str,
+    env_info: dict,
+) -> dict:
+    """互斥登记件构造（gate 落盘面 + selftest 正红臂共用;host 腿全绿前置
+    由调用方 mutex_host_legs_ok 硬门保证,本函数只装配登记面）。"""
+    identity = identity_page_table_digest()
+    return {
+        "schema": MUTEX_SCHEMA_ID,
+        "subject": SUBJECT,
+        "symbolic_gate_key": GATE_KEY,
+        "wave": WAVE,
+        "registered_wave": MUTEX_REGISTERED_WAVE,
+        "state": "MUTEX_REGISTERED",
+        "mutex_literal": mutex_line,
+        "mutex_probe": {
+            "argv_shape": (
+                "g31_window_present --frames 2 --warmup 1 --hidden --quality off"
+                " --auto-move orbit --textures on --svt on --svt-pool-tiles 0"
+                "（极小参数短跑;互斥 fail-closed 在 CLI 校验期必现,零 GPU 消耗）"
+            ),
+            "returncode": probe_rc,
+            "frames": 2,
+            "warmup": 1,
+        },
+        "host_golden_legs": {
+            "svt_host_tests_green": svt_tests_green,
+            "terrain_defer_face_ok": terrain_ok,
+            "assert_zero_svt_dependency_present": terrain_greps.get(
+                "assert_zero_svt_dependency", False
+            ),
+            "svt_dependency_detected_present": terrain_greps.get(
+                "SvtDependencyDetected", False
+            ),
+            "identity_page_table_digest": identity,
+            "identity_digest_deterministic": identity == identity_page_table_digest(),
+        },
+        "skipped_device_legs": list(MUTEX_SKIPPED_LEGS),
+        "deep_fix_anchor": MUTEX_DEEP_FIX_ANCHOR,
+        "environment": env_info,
+        "timestamp": ts,
+        "notes": (
+            "G37 W6 svt mutex_registered：day_0828 Phase B texel heap 化起"
+            " svt 生产臂结构性不可跑（harness 对 --svt on 无条件 fail-closed,"
+            "CLI 校验期即拒）——前役门与形态演进不同步的遗留,非本役引入"
+            "（W6 首跑实证在 deep_fix_anchor）。处置 = 互斥登记态：不冒充"
+            " PASS,非 FAIL,三态之外的登记态（先例 = encode parity 门"
+            " DEV_ENV_DEGRADE skip doc / blocked_probes maintain 登记面）。"
+            "host 金标准腿照跑照判全绿在案（红则门 FAIL 不产本件）;device"
+            " 四腿如实登记跳过。深修（SVT 页表/瓦片集/探针假设适配 heap 形态）"
+            "归后续波,互斥解除后本门自动回落既有全量判读（0 改动）。"
+        ),
+    }
+
+
+def mutex_doc_schema_errors(doc: dict) -> list[str]:
+    """登记件对新 schema 的 Draft7 自校验（gate 落盘前硬门 + selftest 共用;
+    schema 漂移/登记件缺面即红,不冒充登记态）。"""
+    import jsonschema
+
+    return [
+        f"{'/'.join(str(p) for p in e.path)}: {e.message}"
+        for e in jsonschema.Draft7Validator(
+            json.loads(MUTEX_SCHEMA_PATH.read_text(encoding="utf-8"))
+        ).iter_errors(doc)
+    ]
+
+
+def mutex_registered_exit(
+    mutex_line: str,
+    probe_rc: int,
+    svt_tests_ok: bool,
+    terrain_ok: bool,
+    terrain_greps: dict[str, bool],
+    ts: str,
+) -> int:
+    """G37 W6 svt mutex_registered 终态处置：host 金标准腿红 ⇒ 整体 FAIL;
+    全绿 ⇒ 落盘登记件（自校验硬门）+ 明确登记态字面 + 退 0。"""
+    if not mutex_host_legs_ok(svt_tests_ok, terrain_ok):
+        fail(
+            f"互斥登记态拒入：host 金标准腿红（streaming::svt 绿={svt_tests_ok}"
+            f" / SVT-4 defer 面={terrain_ok}）——host 面坏了不能靠登记态掩盖"
+        )
+        note(f"GATE FAIL {GATE_KEY}（互斥字面命中但 host 金标准腿红）")
+        return 1
+    env_info = {
+        "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+        "os": "windows",
+        "rustc": subprocess.run(
+            ["rustc", "--version"], capture_output=True, text=True
+        ).stdout.strip(),
+        "base_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True
+        ).stdout.strip(),
+    }
+    doc = build_mutex_registered_doc(
+        mutex_line, probe_rc, svt_tests_ok, terrain_ok, terrain_greps, ts, env_info
+    )
+    errs = mutex_doc_schema_errors(doc)
+    if errs:
+        fail("mutex_registered evidence schema 自校验红: " + "; ".join(errs[:3]))
+        return 1
+    path = ROOT / "evidence" / f"g31_svt_mutex_registered_{ts}.json"
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    note(f"evidence: {path.relative_to(ROOT)}")
+    note(f"互斥字面（fail-closed 捕获）: {mutex_line[:200]}")
+    note(
+        f"GATE MUTEX_REGISTERED {GATE_KEY}"
+        "（非 PASS 非 FAIL,三态之外的登记态；--svt on × day_0828 texel heap"
+        " 形态互斥 fail-closed,host 金标准腿全绿在案,device 四腿结构性跳过,"
+        "深修归后续波 TODO #33-#36）"
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # gate 腿
 # ---------------------------------------------------------------------------
 
@@ -340,6 +518,7 @@ def run_present(
         "--frames", str(frames),
         "--warmup", str(warmup),
         "--hidden",
+        "--quality", "off",  # W4 默认翻转免疫:svt/textures 诊断臂显式 off（DEFAULT_FLIP_PLAN §2.5）
         "--auto-move", TRAJECTORY,
         "--evidence", str(ev_path),
         "--textures", "on",
@@ -492,19 +671,37 @@ def run_gate(frames: int, warmup: int) -> int:
         else f"SVT-4 判红: greps={terrain_greps} tests={terrain_tests_ok}（{terrain_tests_tail}）",
     )
 
-    # ── dev-env 降级面（probe 真跑判 skipped_dev_env）──
+    # ── dev-env 降级面（probe 真跑判 skipped_dev_env）+ G37 W6 互斥探测 ──
     env = device_env()
     ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     harness_archives: list[str] = []
     docs: dict[str, dict] = {}
+    mutex_line = ""  # G37 W6 svt mutex_registered：非空 = 互斥登记态
+    mutex_probe_rc = 0
     if not degrade:
         with gpu_device_lock(purpose=f"{TAG} dev-env 探针（svt 全驻留短跑）"):
             rp, probe_doc, _ = run_present("probe", 2, 1, 0, env, timeout=1800)
         probe_out = (rp.stdout or "") + (rp.stderr or "")
-        if '"state":"skipped_dev_env"' in probe_out:
+        # G37 W6 svt mutex_registered：真跑四腿前先探互斥——probe 腿本身即
+        # --svt on 极小短跑（frames=2/warmup=1）,互斥 fail-closed 在 harness
+        # CLI 校验期必现于 stderr。命中字面 ⇒ 登记态（不入 degrade,不冒充
+        # skipped_dev_env;stale evidence 文件不参与判定——只看 rc + 字面）。
+        mutex_line = detect_svt_mutex(probe_out, rp.returncode)
+        if mutex_line:
+            mutex_probe_rc = rp.returncode
+            note(f"互斥字面命中（probe rc={rp.returncode}）→ 走 mutex_registered 登记态")
+        elif '"state":"skipped_dev_env"' in probe_out:
             degrade.append(f"harness skipped_dev_env: {probe_out.strip()[-200:]}")
         elif probe_doc is None:
             degrade.append(f"probe 腿 evidence 缺失: {probe_out.strip()[-200:]}")
+
+    # ── G37 W6 svt mutex_registered：互斥登记态终态处置（真跑四腿前拦截;
+    #    host 金标准腿已在上文照跑照判,红则 FAIL;未命中互斥 ⇒ 下方既有
+    #    全量判读 0 改动）──
+    if mutex_line:
+        return mutex_registered_exit(
+            mutex_line, mutex_probe_rc, svt_tests_ok, terrain_ok, terrain_greps, ts
+        )
 
     integ_detail: dict = {}
     if not degrade:
@@ -921,10 +1118,61 @@ def run_selftest() -> int:
         expect(sp["active_pages"]["const"] == 3072 and sp["phys_tile_bytes"]["const"] == 67600,
                "harness schema 活动区/瓦片字节常量互核")
     expect(len(FACT_IDS) == 5, "facts 闭集 = 5（四行各一 + 整合一）")
+    # ── G37 W6 svt mutex_registered 登记态臂（正例 + 红臂组）──
+    mutex_full_line = (
+        f"[g14_3_pipeline_perf]: FAIL {MUTEX_LITERAL}（SVT 假设 = 2048 网格图集"
+        "/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed 登记,"
+        "SVT 深修归后续波）"
+    )
+    hit = detect_svt_mutex("前导行\n" + mutex_full_line + "\n后续行", 1)
+    expect(hit == mutex_full_line, "GREEN:互斥字面命中捕获完整行（rc=1）")
+    expect(detect_svt_mutex(mutex_full_line, 0) == "", "RED:rc=0 不入登记态")
+    expect(
+        detect_svt_mutex(
+            "[g14_3_pipeline_perf]: FAIL --spv-svt*/--svt-pool-tiles 须随 --svt on"
+            "（svt off 面 = 车道 0-byte,SPV/池覆盖位无消费面）",
+            1,
+        )
+        == "",
+        "RED:互斥字面不符（其他 fail-closed）不入登记态",
+    )
+    expect(mutex_host_legs_ok(True, True), "GREEN:host 金标准腿全绿判")
+    expect(not mutex_host_legs_ok(False, True), "RED:svt host 单测红 ⇒ 登记态整体 FAIL")
+    expect(not mutex_host_legs_ok(True, False), "RED:SVT-4 defer 面红 ⇒ 登记态整体 FAIL")
+    good_greps = {"assert_zero_svt_dependency": True, "SvtDependencyDetected": True}
+    st_env = {"gpu": "selftest", "os": "windows", "rustc": "selftest", "base_commit": "selftest"}
+    mdoc = build_mutex_registered_doc(
+        mutex_full_line, 1, True, True, good_greps, "20260830T000000Z", st_env
+    )
+    expect(not mutex_doc_schema_errors(mdoc), "GREEN:登记件过新 schema Draft7 校验")
+    bad = json.loads(json.dumps(mdoc))
+    bad["state"] = "PASS"
+    expect(bool(mutex_doc_schema_errors(bad)), "RED:登记件冒充 PASS 必红（state const）")
+    bad = json.loads(json.dumps(mdoc))
+    bad["mutex_literal"] = "无关 fail 字面"
+    expect(bool(mutex_doc_schema_errors(bad)), "RED:登记件互斥字面不符必红（pattern）")
+    bad = json.loads(json.dumps(mdoc))
+    bad["host_golden_legs"]["svt_host_tests_green"] = False
+    expect(bool(mutex_doc_schema_errors(bad)), "RED:登记件 host 腿红字面必红（const true）")
+    expect(MUTEX_SCHEMA_PATH.is_file(), "mutex_registered schema 在树")
+    if MUTEX_SCHEMA_PATH.is_file():
+        ms = json.loads(MUTEX_SCHEMA_PATH.read_text(encoding="utf-8"))
+        expect(
+            ms["properties"]["schema"]["const"] == MUTEX_SCHEMA_ID,
+            "mutex schema const 互核",
+        )
+        expect(
+            ms["properties"]["state"]["const"] == "MUTEX_REGISTERED"
+            and ms["properties"]["registered_wave"]["const"] == MUTEX_REGISTERED_WAVE,
+            "mutex schema 登记态/波次 const 互核",
+        )
     if failures:
         print(f"[{TAG}] selftest FAIL ({failures})", file=sys.stderr)
         return 1
-    print(f"[{TAG}] selftest PASS（facts=5；红臂组 + 正例组 + 双 schema 互核）")
+    print(
+        f"[{TAG}] selftest PASS（facts=5；红臂组 + 正例组 + 双 schema 互核"
+        " + G37 W6 mutex_registered 登记态臂）"
+    )
     return 0
 
 

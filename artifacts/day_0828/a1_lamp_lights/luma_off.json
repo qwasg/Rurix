@@ -1,0 +1,11 @@
+{
+  "label": "lamp_off",
+  "exr": "artifacts/day_0828/a1_lamp_lights/arms/s5_render_off/bistro-interior/tier100/tsr_device/converged.exr",
+  "width": 1920,
+  "height": 1080,
+  "mean": 0.009846836450648955,
+  "p5": 0.0,
+  "p50": 0.0003113171485601924,
+  "p99": 0.26497910293340676,
+  "max": 10.823422996139525
+}

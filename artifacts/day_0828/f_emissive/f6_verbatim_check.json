@@ -1,0 +1,146 @@
+{
+ "schema": "rurix.day0828.f_emissive.f6_verbatim.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "kind": "fn",
+   "name": "geo_patch_proxy_tritex",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_dds_decode_rgba8",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_probes",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_host_sample",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_load",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_probe_device",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_sampler_leg",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_probe_evaluate",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g34_slab_premod_texmeta",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_linlut",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "fn",
+   "name": "g31_tex_host_sample_srgb",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "struct",
+   "name": "G31TexSlot",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "struct",
+   "name": "G31TexAssets",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "struct",
+   "name": "G31TexCensus",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "struct",
+   "name": "G31TexProbeReport",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "struct",
+   "name": "G34TexSideTable",
+   "verbatim": true,
+   "cur_found": true,
+   "orig_found": true
+  },
+  {
+   "kind": "const",
+   "name": "G31_TEX_N_MAPPED",
+   "verbatim": true,
+   "cur": "const G31_TEX_N_MAPPED: usize = 12;",
+   "orig": "const G31_TEX_N_MAPPED: usize = 12;"
+  },
+  {
+   "kind": "const",
+   "name": "G31_TEX_TILE",
+   "verbatim": true,
+   "cur": "const G31_TEX_TILE: u32 = 2048;",
+   "orig": "const G31_TEX_TILE: u32 = 2048;"
+  },
+  {
+   "kind": "const",
+   "name": "G31_TEX_GRID_COLS",
+   "verbatim": true,
+   "cur": "const G31_TEX_GRID_COLS: u32 = 4;",
+   "orig": "const G31_TEX_GRID_COLS: u32 = 4;"
+  },
+  {
+   "kind": "const",
+   "name": "G31_TEX_PROBES_PER_SLOT",
+   "verbatim": true,
+   "cur": "const G31_TEX_PROBES_PER_SLOT: usize = 24;",
+   "orig": "const G31_TEX_PROBES_PER_SLOT: usize = 24;"
+  }
+ ]
+}

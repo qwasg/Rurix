@@ -22,7 +22,11 @@
 //!   最短边腿极端输入可能产生 fold-over(误差上界仍保守);
 //! - Ritter 包围球非最优球(偏大 ~20% 以内,剔除保守方向);
 //! - 跨层顶点焊接按精确位置相等,「不同 id 同位置」的输入顶点会被合并
-//!   (内置生成器已规避;外接网格建议先焊接)。
+//!   (内置生成器已规避;外接网格建议先焊接);
+//! - G31+ #96 属性保持简化为加性第二链([`dag::build_dag_attrs`] /
+//!   [`qem::simplify_free_mesh_attrs`]):位置 QEM 主导 + 收缩点线段插值,
+//!   非 meshopt 属性加权四次型(最优属性求解留后续质量档);UV 接缝顶点
+//!   保守锁定(两侧逐位保持,不做位置重映射协动简化)。
 
 #![forbid(unsafe_code)]
 
@@ -38,13 +42,14 @@ mod vecmath;
 pub use cluster::{Cluster, MAX_TRIS, MAX_VERTS, clusterize};
 pub use cull_ref::{CullStats, CullView, Mat4, cull_clusters, lod_cut_select};
 pub use dag::{
-    ClasBakeInput, ClusterDag, ClusterDagV2, ClusterSkinMeta, DagAsset, DagBuildParams, DagError,
-    DagLevel, DagNode, MAX_BONE_INFLUENCES, SimplifyKind, SkinWeights, SkinnedClusterData,
-    build_asset_dag, build_asset_dag_kind, build_asset_dag_params, build_dag, build_dag_kind,
-    build_dag_params, build_dag_v2, canonical_bytes, clas_bake_input_of, derive_skin_metadata,
-    skinned_cluster_runtime_data, validate_monotonicity,
+    ClasBakeInput, ClusterDag, ClusterDagAttrs, ClusterDagV2, ClusterSkinMeta, DagAsset,
+    DagBuildParams, DagError, DagLevel, DagNode, MAX_BONE_INFLUENCES, SimplifyKind, SkinWeights,
+    SkinnedClusterData, build_asset_dag, build_asset_dag_kind, build_asset_dag_params, build_dag,
+    build_dag_attrs, build_dag_kind, build_dag_params, build_dag_v2, canonical_bytes,
+    clas_bake_input_of, derive_skin_metadata, skinned_cluster_runtime_data,
+    validate_monotonicity,
 };
-pub use mesh::{TriMesh, build_face_adjacency};
+pub use mesh::{AttrMeshError, AttrTriMesh, TriMesh, TriMeshAttrs, build_face_adjacency};
 pub use serialize::{RXGB_VERSION, RxgbError, read_dag, write_dag};
 
 // 冻结契约单源转引(64B 簇记录与簇上限;rurix-render graph::types)。

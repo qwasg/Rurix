@@ -2340,8 +2340,9 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
                 );
                 return Ok(());
             }
-            // 结构化 selection merge 块。
-            let merge = structured_merge(body, then_i, else_i).ok_or_else(|| {
+            // 结构化 selection merge 块(回边裁剪经 `b.loop_info`,见
+            // `structured_merge` 文档:if 在循环体内时防绕环假 merge)。
+            let merge = structured_merge(body, then_i, else_i, &b.loop_info).ok_or_else(|| {
                 VulkanCodegenError::unsupported(
                     bb.terminator.span,
                     "Vulkan compute 首期仅支持结构化 if 与 while(分支须收敛于唯一 merge 块;提前 return 属后续分片)",
@@ -2418,8 +2419,23 @@ fn loop_merge_targets(body: &Body, header: usize) -> Option<(usize, usize)> {
 /// 结构化 if 的 merge 块 = 两臂最近共同可达块。不能按 MIR block 下标最小值取：
 /// 嵌套 if 的外层 merge 往往编号更小，会造成多个 header 复用同一 merge，触发
 /// `Block is already a merge block for another header`。
-/// (G7.5b 起 `pub(crate)`:图形扩展路复用同一前向可达交汇算法,RXS-0301 IR 逐字。)
-pub(crate) fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> {
+///
+/// **回边裁剪**(G37 W1:day_0828 A1「if 包 while」缺陷修):可达性遍历排除
+/// `loop_info` 登记的循环回边(latch→header)。否则 if 落在循环体内时 CFG 有环,
+/// else 臂可经「join→latch→header→then 臂」绕整圈把 then 臂内部块(含 then
+/// 目标本身)算进共同可达集;臂内 while 之后再有语句时真 join 的臂内距离被拉长,
+/// 绕环假候选以更小 max 距离胜出 → `OpSelectionMerge` 指向臂内块 → spirv-val 拒
+/// (`branches to the selection construct, but not to the selection header`)。
+/// 真 join 恒可经纯前向路径到达(lower_if 两臂降级尾必 `Goto join`),裁剪只删
+/// 绕环假候选,不删真解;无环 CFG 传空表位级等义。
+/// (G7.5b 起 `pub(crate)`:图形扩展路复用同一前向可达交汇算法,RXS-0301 IR 逐字;
+/// 该路回边预扫描恒拒 → 恒空表。)
+pub(crate) fn structured_merge(
+    body: &Body,
+    then_i: usize,
+    else_i: usize,
+    loop_info: &HashMap<usize, (usize, usize)>,
+) -> Option<usize> {
     let distance = |start: usize| {
         let mut dist = vec![usize::MAX; body.blocks.len()];
         dist[start] = 0;
@@ -2427,6 +2443,13 @@ pub(crate) fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Opt
         while let Some(block) = work.pop() {
             let next_distance = dist[block].saturating_add(1);
             for succ in block_succs(&body.blocks[block]) {
+                // 循环回边(本块 = succ 所记 latch)不入前向遍历。
+                if loop_info
+                    .get(&succ)
+                    .map_or(false, |&(_, latch)| latch == block)
+                {
+                    continue;
+                }
                 if next_distance < dist[succ] {
                     dist[succ] = next_distance;
                     work.push(succ);

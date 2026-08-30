@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Assisted-by: Kimi-K3（G31+ 波 C Task C5 渲染器 SDK 分发打包）
-"""G31+ 波 C Task C5:渲染器 SDK 分发打包门冒烟(g31.waveC.dist;
-G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #52「渲染器 SDK 分发打包:预编译 bundle 进
-rurixup 链 + 签名/SBOM 扩展」兑现面;交付判据 = SDK bundle 一键安装 + 示例工程
-离线可建)。
+# G37 W5 升级:16→24 组件闭集扩面(新 SPV 四件 + 许可义务四件)+ sdk-1.0.0→sdk-1.1.0,
+# 判读随 schema v2(milestones/g31/g31_sdk_dist_v2_evidence_schema.json,门键
+# g31.g37w5.dist,evidence 前缀 g31_sdk_dist_v2_);v1 schema/路由/既有 evidence 0-byte。
+"""G31+ 波 C Task C5:渲染器 SDK 分发打包门冒烟(v1 门键 g31.waveC.dist,G37 W5
+升级后 g31.g37w5.dist;G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #52「渲染器 SDK 分发
+打包:预编译 bundle 进 rurixup 链 + 签名/SBOM 扩展」兑现面;交付判据 = SDK bundle
+一键安装 + 示例工程离线可建)。
+
+G37 W5 扩面(2026-08-30):
+- 新 SPV 四件:g31_realism_transp.spv(工件谱系锚定——transp 链位源快照已被 RIS
+  演进覆盖,自 artifacts/.../w5_commercial/bundle/inputs/ 取件 + sha256 锚硬核对)
+  / g31_realism_ris.spv(源 = kernels/g31_realism.rx RIS 终态,现编)
+  / g31_display_encode_lut.spv / g34_unified_primary_skin.spv(源在树,现编)。
+- 许可义务四件:LICENSE-MIT / LICENSE-APACHE / THIRD_PARTY_NOTICES.md /
+  third_party_embedded.cdx.json(GAP-01~03 闭合件,组件名/license 字面与
+  release.yml 编排段同口径)。
+- 组件 license 字面如实分件(第一方件 = MIT OR Apache-2.0 workspace 口径,GAP-02)。
 
 链路(EA1 分发链复用,RXS-0214~0218 机制面;零新 RXS/RD/CI 数字步骤消费):
   C1 产物(sdk.rx 经 rurixc --emit=dll 产 rurix_renderer.dll/.lib/.h + 实现层
@@ -81,12 +94,12 @@ sys.path.insert(0, str(ROOT / "ci"))
 
 from gpu_device_lock import gpu_device_lock  # noqa: E402
 
-GATE_KEY = "g31.waveC.dist"
-SUBJECT = "g31_sdk_dist"
-WAVE = "G31+.C"
-TAG = "g31_sdk_dist"
-SCHEMA_PATH = ROOT / "milestones" / "g31" / "g31_sdk_dist_evidence_schema.json"
-SCHEMA_ID = "rurix.g31.sdk_dist_evidence.v1"
+GATE_KEY = "g31.g37w5.dist"
+SUBJECT = "g31_sdk_dist_v2"
+WAVE = "G37.W5"
+TAG = "g31_sdk_dist_v2"
+SCHEMA_PATH = ROOT / "milestones" / "g31" / "g31_sdk_dist_v2_evidence_schema.json"
+SCHEMA_ID = "rurix.g31.sdk_dist_evidence.v2"
 ANCHOR_PATH = ROOT / "milestones" / "g14" / "g14_3_stage_a_digest_anchor.json"
 ANCHOR_CELL = "bistro-interior_t100_tsr_device"
 SDK_RX = ROOT / "apps" / "g31-renderer-sdk" / "src" / "sdk.rx"
@@ -103,7 +116,7 @@ DOCS = {
 WORK = ROOT / ".tmp" / "g31_gates" / "sdk_dist"
 STAGE = WORK / "fromdir"
 
-SDK_VERSION = "sdk-1.0.0"
+SDK_VERSION = "sdk-1.1.0"
 SDK_CHANNEL = "stable"
 SCENE, TIER, FRAMES, WARMUP = "bistro-interior", 100, 160, 10
 KERNELS = {
@@ -111,15 +124,48 @@ KERNELS = {
     "g14_mv.spv": ROOT / "src" / "rurix-render" / "kernels" / "g14_mv.rx",
     "g14_8_tsr_resample.spv": ROOT / "src" / "rurix-render" / "kernels" / "g14_8_tsr_resample.rx",
     "g14_8_tsr_resolve.spv": ROOT / "src" / "rurix-render" / "kernels" / "g14_8_tsr_resolve.rx",
+    # G37 W5 新臂 kernel(源在树,现编;transp 链位见 PREBUILT_SPV 工件谱系锚定)。
+    "g31_display_encode_lut.spv": ROOT / "src" / "rurix-render" / "kernels" / "g31_display_encode_lut.rx",
+    "g34_unified_primary_skin.spv": ROOT / "src" / "rurix-render" / "kernels" / "g34_unified_primary_skin.rx",
+    "g31_realism_ris.spv": ROOT / "src" / "rurix-render" / "kernels" / "g31_realism.rx",
+}
+# transp 链位工件谱系锚定:g31_realism.rx 已被 RIS/NEE 演进覆盖(链式超集律,
+# day_0829 HANDOVER §C),transp 快照源不在树 ⇒ 自战役快照取件 + sha256 锚硬核对
+# (缺件 → DEV_ENV_DEGRADE;锚失配 → FAIL fail-closed 不冒充)。
+PREBUILT_SPV = {
+    "g31_realism_transp.spv": (
+        ROOT / "artifacts" / "day_0830_delivery" / "w5_commercial" / "bundle"
+        / "inputs" / "g31_realism_transp.spv",
+        "35983d0f405169ec84bf222f4a12ec8bf8dfd7d471eefb12488eea7dd34c4f8b",
+    ),
+}
+# 许可义务四件(GAP-01~03 闭合;组件名/license 字面与 release.yml 编排段同口径)。
+LICENSE_COMPONENTS = {
+    "LICENSE-MIT": (ROOT / "LICENSE-MIT", "MIT"),
+    "LICENSE-APACHE": (ROOT / "LICENSE-APACHE", "Apache-2.0"),
+    "THIRD_PARTY_NOTICES.md": (ROOT / "dist" / "licenses" / "THIRD_PARTY_NOTICES.md",
+                               "MIT OR Apache-2.0"),
+    "third_party_embedded.cdx.json": (ROOT / "dist" / "sbom" / "third_party_embedded.cdx.json",
+                                      "MIT OR Apache-2.0"),
 }
 SDK_RUNTIME = ["rurix_renderer.dll", "rurix_renderer.lib", "rurix_renderer.h",
                "rurix_renderer_sdk.dll", "rurix_renderer_sdk.lib"]
 EXPECTED_COMPONENTS = sorted(
     SDK_RUNTIME
     + list(KERNELS)
+    + list(PREBUILT_SPV)
     + [CONTRACT.name, HOST_CPP.name, VERSIONING_MD.name]
     + list(DOCS)
+    + list(LICENSE_COMPONENTS)
 )
+
+
+def component_license(name: str) -> str:
+    """组件 license 字面(release.yml 同口径:许可件如实分件,第一方件 workspace
+    双许可 MIT OR Apache-2.0——GAP-02 闭合口径)。纯函数。"""
+    if name in LICENSE_COMPONENTS:
+        return LICENSE_COMPONENTS[name][1]
+    return "MIT OR Apache-2.0"
 SIGNED_DLLS = ["rurix_renderer.dll", "rurix_renderer_sdk.dll"]
 # vendor 运行件技术对账(C6 许可矩阵协同面;本任务只做 SBOM 技术对账——引文在树机核,
 # 许可裁决归 C6)。NGX/FSR 动态装载不捆绑(vendor_upscale.rs LoadLibraryExW 运行时装载,
@@ -227,7 +273,7 @@ def digests_match(a: str, b: str) -> bool:
 
 
 def component_set_ok(names) -> bool:
-    """bundle 组件闭集判据:干名集 == EXPECTED_COMPONENTS(16)。纯函数。"""
+    """bundle 组件闭集判据:干名集 == EXPECTED_COMPONENTS(24,G37 W5 扩面)。纯函数。"""
     return sorted(names) == EXPECTED_COMPONENTS
 
 
@@ -481,7 +527,7 @@ def do_release(rurixup: Path, out_dir: Path, sign_valid: bool = True):
     cmd = [str(rurixup), "release", "--version", SDK_VERSION, "--channel", SDK_CHANNEL,
            "--out-dir", str(out_dir)]
     for name in EXPECTED_COMPONENTS:
-        cmd += ["--component", f"{name}|{SDK_VERSION}|Apache-2.0|core|{STAGE / name}"]
+        cmd += ["--component", f"{name}|{SDK_VERSION}|{component_license(name)}|core|{STAGE / name}"]
     for dll in SIGNED_DLLS:
         st = "Valid|true" if sign_valid else "Unsigned|false"
         cmd += ["--sign", f"{dll}|{st}|selftest"]
@@ -523,6 +569,12 @@ def run_gate() -> int:
     for name, k in KERNELS.items():
         if not k.is_file():
             degrade.append(f"kernel 缺失 {name}: {k}")
+    for name, (src_path, _anchor) in PREBUILT_SPV.items():
+        if not src_path.is_file():
+            degrade.append(f"PREBUILT SPV 缺失 {name}: {src_path}(工件谱系锚定件)")
+    for name, (p, _lic) in LICENSE_COMPONENTS.items():
+        if not p.is_file():
+            degrade.append(f"许可组件缺失 {name}: {p}")
     for name, d in DOCS.items():
         if not d.is_file():
             degrade.append(f"文档缺失 {name}: {d}")
@@ -580,7 +632,7 @@ def run_gate() -> int:
         return 1
     note("emit dll 三件齐(rurix_renderer.dll/.lib/.h;生成头编译器单一事实源)")
 
-    # ── SPV 四件套编译(canonical kernel 面)──
+    # ── SPV 编译(canonical 四件套 + G37 现编三件)──
     for name, ksrc in KERNELS.items():
         out_spv = STAGE / name
         ks = run([str(rurixc), str(ksrc), "--target", "vulkan", "-o", str(out_spv)],
@@ -588,9 +640,20 @@ def run_gate() -> int:
         if ks.returncode != 0 or not out_spv.is_file():
             fail(f"kernel {name} rurixc --target vulkan 编译失败: {(ks.stdout + ks.stderr)[-400:]}")
             return 1
-    note("SPV 四件套编译绿")
+    note(f"SPV 现编 {len(KERNELS)} 件绿(canonical 四件套 + G37 lut/skin/ris)")
 
-    # ── bundle staging(16 组件扁平,干名布局)──
+    # ── PREBUILT SPV(transp 链位工件谱系锚定:sha256 硬核对,失配即红不冒充)──
+    for name, (src_path, anchor) in PREBUILT_SPV.items():
+        data = src_path.read_bytes()
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != anchor:
+            fail(f"PREBUILT {name} 工件谱系锚失配: {actual[:16]}… ≠ {anchor[:16]}…"
+                 "(若 W6 重建已重造该链位,须同步更新 PREBUILT_SPV 锚)")
+            return 1
+        (STAGE / name).write_bytes(data)
+    note(f"PREBUILT SPV {len(PREBUILT_SPV)} 件锚核对绿(transp 35983d0f…)")
+
+    # ── bundle staging(24 组件扁平,干名布局)──
     for src, name in [(dll, "rurix_renderer.dll"), (imp_lib, "rurix_renderer.lib"),
                       (hdr, "rurix_renderer.h"), (sdk_dll, "rurix_renderer_sdk.dll"),
                       (sdk_implib, "rurix_renderer_sdk.lib"), (CONTRACT, CONTRACT.name),
@@ -598,10 +661,12 @@ def run_gate() -> int:
         (STAGE / name).write_bytes(src.read_bytes())
     for name, d in DOCS.items():
         (STAGE / name).write_bytes(d.read_bytes())
+    for name, (p, _lic) in LICENSE_COMPONENTS.items():
+        (STAGE / name).write_bytes(p.read_bytes())
     if not component_set_ok(p.name for p in STAGE.iterdir()):
         fail(f"staging 组件闭集不符: {sorted(p.name for p in STAGE.iterdir())}")
         return 1
-    note(f"staging 16 组件齐({len(list(STAGE.iterdir()))} 件)")
+    note(f"staging 24 组件齐({len(list(STAGE.iterdir()))} 件)")
 
     # ── release ×2(打包确定性;签名面 = 两 DLL selftest 验签状态)──
     r1 = do_release(rurixup, WORK / "rel1")
@@ -636,9 +701,9 @@ def run_gate() -> int:
     set_fact(
         "bundle_assembly_ok",
         det_ok and closure_ok and component_set_ok(bundle_digests),
-        f"16 组件闭集={component_set_ok(bundle_digests)} digest 一比一闭环={closure_ok} "
-        f"同源两次 release 七产物逐字节一致={det_ok}(SDK DLL+生成头+import lib+SPV 四件套"
-        f"+契约+示例工程+文档五件)",
+        f"24 组件闭集={component_set_ok(bundle_digests)} digest 一比一闭环={closure_ok} "
+        f"同源两次 release 七产物逐字节一致={det_ok}(SDK DLL+生成头+import lib+SPV 八件"
+        f"〔canonical 四件套+G37 transp/ris/lut/skin〕+契约+示例工程+文档五件+许可四件)",
     )
 
     # ── 签名/SBOM 扩展面 + vendor 运行件技术对账 ──
@@ -658,10 +723,10 @@ def run_gate() -> int:
     set_fact(
         "signing_sbom_extended",
         sign_ok and spdx_ok and cdx_ok and vendor_refs_ok,
-        f"两 DLL 签名 Valid+timestamped+verified={sign_ok};SBOM SPDX 覆盖 16 组件={spdx_ok} "
+        f"两 DLL 签名 Valid+timestamped+verified={sign_ok};SBOM SPDX 覆盖 24 组件={spdx_ok} "
         f"CycloneDX 覆盖={cdx_ok};vendor 运行件对账三件(NGX/Streamline 与 FSR "
         f"dynamic-load-not-bundled + basis_universal static-in-dll)引文在树={vendor_refs_ok}"
-        "(许可裁决归 C6,本面仅技术对账)",
+        "(许可义务四件已入组件闭集,GAP-01~03;vendor 裁决引文维持 C6 口径)",
     )
 
     # ── GREEN:--from-dir 真实物化(四级校验 + 注册表 v2 + SDK 布局)──
@@ -685,7 +750,7 @@ def run_gate() -> int:
         reg_v2 = (reg_doc.get("schema_version") == 2 and bool(entry)
                   and bool(entry.get("install_path")) and bool(entry.get("tree_digest")))
     from_dir_ok = (install_succeeded(ri.returncode, tdir.is_dir(), reg.is_file())
-                   and s.get("version") == SDK_VERSION and s.get("components") == "16"
+                   and s.get("version") == SDK_VERSION and s.get("components") == "24"
                    and s.get("digest_levels_verified") == "4" and layout_ok and byte_ok and reg_v2)
     set_fact(
         "from_dir_install_ok",
@@ -994,18 +1059,19 @@ def run_gate() -> int:
         "environment": env_info,
         "timestamp": ts,
         "notes": (
-            "G31+ 波 C Task C5 渲染器 SDK 分发打包(G31_PLUS §5 #52):16 组件预编译 bundle"
-            "(SDK 两层 DLL + 生成头 + import lib ×2 + canonical SPV 四件套 + bistro 生产契约"
-            "+ 示例工程源 + 文档五件)经 EA1 rurixup 链(channel=stable 既有面,VALID_CHANNELS "
-            "0-byte;component_rel_path SDK 面纯追加 *.h/.spv/.json/.md/.cpp 五映射,spec/release.md "
-            "RXS-0214 同条修订,既有 *.exe/*.lib/nvidia 路径 0-byte)——release 编排(签名两 DLL "
-            "selftest + SBOM 双视图覆盖 16 组件 + vendor 运行件技术对账三件:NGX/Streamline·FSR "
-            "dynamic-load-not-bundled / basis_universal static-in-dll,许可裁决归 C6)→ "
-            "--from-dir 四级校验物化(bin/include/lib/spv/manifests/docs/examples 布局)→ default "
-            "切换 + list --verify + 幂等 → hermetic 环回 HTTP 网络 install(零真实外呼)→ 干净目录"
-            "仅 bundle+MSVC 离线构建示例(毒化代理 env 见证)→ 真跑 canonical 160+10 末帧 digest "
-            f"对拍 Stage A 锚 {'MATCH' if digest_hit else 'DRIFT'}。红臂四路(签名错/哈希错/截断/"
-            f"清单篡改)+ 不可达 + 复原绿闭合。facts: "
+            "G37 W5 渲染器 SDK 分发打包 v2(G31+ C5 门 16→24 组件冻结面版本化扩面,"
+            "sdk-1.0.0→sdk-1.1.0):24 组件预编译 bundle(SDK 两层 DLL + 生成头 + import "
+            "lib ×2 + canonical SPV 四件套 + G37 新臂 SPV 四件〔transp 工件谱系锚定"
+            "35983d0f/ris/lut/skin 现编〕+ bistro 生产契约 + 示例工程源 + 文档五件 + 许可"
+            "义务四件〔LICENSE-MIT/LICENSE-APACHE/THIRD_PARTY_NOTICES/内嵌第三方 SBOM,"
+            "GAP-01~03 闭合,release.yml 同口径〕)经 EA1 rurixup 链(channel=stable 既有面;"
+            "component_rel_path 既有映射 0-byte,无后缀许可文本件按「其余」律落 bin/)——"
+            "release 编排(签名两 DLL selftest + SBOM 双视图覆盖 24 组件 + vendor 运行件"
+            "技术对账三件)→ --from-dir 四级校验物化 → default 切换 + list --verify + 幂等 "
+            "→ hermetic 环回 HTTP 网络 install(零真实外呼)→ 干净目录仅 bundle+MSVC 离线"
+            "构建示例(毒化代理 env 见证)→ 真跑 canonical 160+10 末帧 digest 对拍 Stage A "
+            f"锚 {'MATCH' if digest_hit else 'DRIFT'}。红臂四路(签名错/哈希错/截断/清单篡改)"
+            f"+ 不可达 + 复原绿闭合。facts: "
             + "; ".join(f["id"] + "=" + f["status"] for f in (facts[fid] for fid in FACT_IDS))
         ),
     }
@@ -1019,7 +1085,7 @@ def run_gate() -> int:
             fail("gate evidence schema 自校验红: " + "/".join(str(p) for p in e.path) + f": {e.message}")
         all_pass = False
     if all_pass:
-        gate_path = ROOT / "evidence" / f"g31_sdk_dist_{ts}.json"
+        gate_path = ROOT / "evidence" / f"g31_sdk_dist_v2_{ts}.json"
     else:
         # FAIL 诊断件落 .tmp 工作区——fail-closed:evidence/ 无件 = 门未过。
         gate_path = WORK / f"gate_fail_{ts}.json"
@@ -1066,7 +1132,7 @@ def run_selftest() -> int:
     expect(not has_kind("RURIXUP_INSTALL_ERROR: kind=integrity\n", "network"), "RED:kind 串扰拒判")
     expect(not has_kind("RURIXUP_INSTALL: version=sdk-1.0.0\n", "network"), "RED:成功摘要被误判含 network token")
     # 红绿臂③:bundle 组件闭集 + digest 闭环 + SBOM 覆盖。
-    expect(component_set_ok(EXPECTED_COMPONENTS), "GREEN:16 组件闭集正例")
+    expect(component_set_ok(EXPECTED_COMPONENTS), "GREEN:24 组件闭集正例")
     expect(not component_set_ok(EXPECTED_COMPONENTS[:-1]), "RED:缺一件必红(闭集判据)")
     expect(not component_set_ok(list(EXPECTED_COMPONENTS) + ["extra.dll"]), "RED:多一件必红")
     expect(digests_match("ab" * 32, "ab" * 32), "GREEN:digest 相等正例")
@@ -1089,6 +1155,23 @@ def run_selftest() -> int:
     expect(rel["renderer_sdk_host.cpp"] == "examples/renderer_sdk_host.cpp", "GREEN:示例源→examples/")
     expect(rel["integration_guide.md"] == "docs/integration_guide.md", "GREEN:文档→docs/")
     expect(not rel["rurix_renderer.lib"].startswith("bin/rurix_renderer.lib"), "RED:.lib 不落 bin/ 干名(EA1 既有律)")
+    # G37 W5 扩面映射(install.rs 既有后缀律 0-byte:新 SPV→spv/,NOTICES→docs/,
+    # cdx→manifests/,无后缀许可文本按「其余」律→bin/——如实登记非理想落位)。
+    expect(rel["g31_realism_transp.spv"] == "spv/g31_realism_transp.spv", "GREEN:G37 SPV→spv/")
+    expect(rel["g31_realism_ris.spv"] == "spv/g31_realism_ris.spv", "GREEN:RIS SPV→spv/")
+    expect(rel["THIRD_PARTY_NOTICES.md"] == "docs/THIRD_PARTY_NOTICES.md", "GREEN:NOTICES→docs/(.md 律)")
+    expect(rel["third_party_embedded.cdx.json"] == "manifests/third_party_embedded.cdx.json",
+           "GREEN:内嵌 SBOM→manifests/(.json 律)")
+    expect(rel["LICENSE-MIT"] == "bin/LICENSE-MIT" and rel["LICENSE-APACHE"] == "bin/LICENSE-APACHE",
+           "GREEN:无后缀许可文本→bin/(「其余」律,install.rs 0-byte 如实登记)")
+    # G37 W5 组件 license 字面(release.yml 同口径)。
+    expect(component_license("LICENSE-MIT") == "MIT"
+           and component_license("LICENSE-APACHE") == "Apache-2.0"
+           and component_license("rurix_renderer.dll") == "MIT OR Apache-2.0",
+           "GREEN:license 字面分件(许可件如实 + 第一方 workspace 双许可)")
+    # PREBUILT 锚形状(64 hex;锚破缺即工件谱系不可核)。
+    expect(all(re.fullmatch(r"[0-9a-f]{64}", a) for _p, a in PREBUILT_SPV.values()),
+           "GREEN:PREBUILT SPV 锚形状 64hex")
     # 红绿臂⑤:宿主 token + digest 对拍 + 三态。
     full = (
         "RXSDK_HOST_ABI=0x00010000\n"
@@ -1123,11 +1206,13 @@ def run_selftest() -> int:
             "schema required 闭集互核(14 字段)",
         )
         expect(gs["properties"]["bundle"]["properties"]["version"]["const"] == SDK_VERSION,
-               "bundle.version const 互核")
-        expect(gs["properties"]["bundle"]["properties"]["component_count"]["const"] == 16,
-               "bundle.component_count const=16 互核")
+               "bundle.version const 互核(sdk-1.1.0)")
+        expect(gs["properties"]["bundle"]["properties"]["component_count"]["const"] == 24,
+               "bundle.component_count const=24 互核")
         comp_enum = gs["properties"]["bundle"]["properties"]["components"]["items"]["enum"]
-        expect(sorted(comp_enum) == EXPECTED_COMPONENTS, "bundle.components 枚举闭集互核(16)")
+        expect(sorted(comp_enum) == EXPECTED_COMPONENTS, "bundle.components 枚举闭集互核(24)")
+        expect(gs["properties"]["install"]["properties"]["from_dir"]["properties"]["components"]["const"] == 24,
+               "from_dir.components const=24 互核")
         expect(gs["properties"]["install"]["properties"]["from_dir"]["properties"]["digest_levels_verified"]["const"] == 4,
                "from_dir.digest_levels_verified const=4 互核")
         expect(gs["properties"]["offline_build"]["properties"]["frames"]["const"] == FRAMES,
@@ -1148,11 +1233,11 @@ def run_selftest() -> int:
         expect(gs["properties"]["facts"]["minItems"] == 9
                and gs["properties"]["facts"]["maxItems"] == 9, "facts 基数 = 9 互核")
     expect(len(FACT_IDS) == 9, "facts 闭集 = 9")
-    expect(len(EXPECTED_COMPONENTS) == 16, "组件闭集 = 16")
+    expect(len(EXPECTED_COMPONENTS) == 24, "组件闭集 = 24(16 v1 + 4 G37 SPV + 4 许可件)")
     if failures:
         print(f"[{TAG}] selftest FAIL ({failures})", file=sys.stderr)
         return 1
-    print(f"[{TAG}] selftest PASS(facts=9;5 红臂组 + 正例组 + schema 互核)")
+    print(f"[{TAG}] selftest PASS(facts=9;5 红臂组 + 正例组 + schema v2 互核,组件闭集 24)")
     return 0
 
 

@@ -1,0 +1,462 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "rurix://schemas/g31/sdk_dist_evidence/v2",
+ "title": "G37 W5 渲染器 SDK 分发打包门证据 v2（ci/g31_sdk_dist_smoke.py --gate g31.g37w5.dist 产；v1 冻结面版本化扩面：16→24 组件〔G37 新 SPV 四件 + 许可义务四件〕+ sdk-1.0.0→sdk-1.1.0；旧 schema g31_sdk_dist_evidence_schema.json 0-byte，既有 g31_sdk_dist_* evidence 继续走 v1 路由）",
+ "type": "object",
+ "required": [
+  "schema",
+  "subject",
+  "symbolic_gate_key",
+  "wave",
+  "bundle",
+  "signing_sbom",
+  "install",
+  "offline_build",
+  "red_arms",
+  "regression",
+  "facts",
+  "environment",
+  "timestamp",
+  "notes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "rurix.g31.sdk_dist_evidence.v2"
+  },
+  "subject": {
+   "const": "g31_sdk_dist_v2"
+  },
+  "symbolic_gate_key": {
+   "const": "g31.g37w5.dist"
+  },
+  "wave": {
+   "const": "G37.W5"
+  },
+  "bundle": {
+   "type": "object",
+   "required": [
+    "version",
+    "channel",
+    "component_count",
+    "components",
+    "deterministic_bytes_equal",
+    "digest_closure"
+   ],
+   "properties": {
+    "version": {
+     "const": "sdk-1.1.0"
+    },
+    "channel": {
+     "const": "stable"
+    },
+    "component_count": {
+     "const": 24
+    },
+    "components": {
+     "type": "array",
+     "minItems": 24,
+     "maxItems": 24,
+     "uniqueItems": true,
+     "items": {
+      "enum": [
+       "API_VERSIONING.md",
+       "LICENSE-APACHE",
+       "LICENSE-MIT",
+       "THIRD_PARTY_NOTICES.md",
+       "compatibility_matrix.md",
+       "feature_matrix.md",
+       "g13_ue_upscale_parity_contract.json",
+       "g14_3_direct_gi.spv",
+       "g14_8_tsr_resample.spv",
+       "g14_8_tsr_resolve.spv",
+       "g14_mv.spv",
+       "g31_display_encode_lut.spv",
+       "g31_realism_ris.spv",
+       "g31_realism_transp.spv",
+       "g34_unified_primary_skin.spv",
+       "integration_guide.md",
+       "performance_tuning.md",
+       "renderer_sdk_host.cpp",
+       "rurix_renderer.dll",
+       "rurix_renderer.h",
+       "rurix_renderer.lib",
+       "rurix_renderer_sdk.dll",
+       "rurix_renderer_sdk.lib",
+       "third_party_embedded.cdx.json"
+      ]
+     }
+    },
+    "deterministic_bytes_equal": {
+     "const": true
+    },
+    "digest_closure": {
+     "const": true
+    }
+   }
+  },
+  "signing_sbom": {
+   "type": "object",
+   "required": [
+    "signed_dlls",
+    "sbom_spdx_covers",
+    "sbom_cdx_covers",
+    "vendor_runtime"
+   ],
+   "properties": {
+    "signed_dlls": {
+     "type": "array",
+     "minItems": 2,
+     "maxItems": 2,
+     "uniqueItems": true,
+     "items": {
+      "enum": [
+       "rurix_renderer.dll",
+       "rurix_renderer_sdk.dll"
+      ]
+     }
+    },
+    "sbom_spdx_covers": {
+     "const": true
+    },
+    "sbom_cdx_covers": {
+     "const": true
+    },
+    "vendor_runtime": {
+     "type": "array",
+     "minItems": 3,
+     "maxItems": 3,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "license",
+       "linkage",
+       "ref"
+      ],
+      "properties": {
+       "name": {
+        "type": "string"
+       },
+       "license": {
+        "type": "string"
+       },
+       "linkage": {
+        "enum": [
+         "dynamic-load-not-bundled",
+         "static-in-dll"
+        ]
+       },
+       "ref": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   }
+  },
+  "install": {
+   "type": "object",
+   "required": [
+    "from_dir",
+    "switch",
+    "idempotent",
+    "network"
+   ],
+   "properties": {
+    "from_dir": {
+     "type": "object",
+     "required": [
+      "exit_code",
+      "components",
+      "digest_levels_verified",
+      "layout_verified",
+      "registry_v2"
+     ],
+     "properties": {
+      "exit_code": {
+       "const": 0
+      },
+      "components": {
+       "const": 24
+      },
+      "digest_levels_verified": {
+       "const": 4
+      },
+      "layout_verified": {
+       "const": true
+      },
+      "registry_v2": {
+       "const": true
+      }
+     }
+    },
+    "switch": {
+     "type": "object",
+     "required": [
+      "exit_code",
+      "default",
+      "list_verify_exit"
+     ],
+     "properties": {
+      "exit_code": {
+       "const": 0
+      },
+      "default": {
+       "const": "sdk-1.1.0"
+      },
+      "list_verify_exit": {
+       "const": 0
+      }
+     }
+    },
+    "idempotent": {
+     "type": "object",
+     "required": [
+      "registered",
+      "registry_bytes_equal",
+      "atomic_write_clean"
+     ],
+     "properties": {
+      "registered": {
+       "const": 1
+      },
+      "registry_bytes_equal": {
+       "const": true
+      },
+      "atomic_write_clean": {
+       "const": true
+      }
+     }
+    },
+    "network": {
+     "type": "object",
+     "required": [
+      "exit_code",
+      "loopback_only",
+      "byte_equal_source"
+     ],
+     "properties": {
+      "exit_code": {
+       "const": 0
+      },
+      "loopback_only": {
+       "const": true
+      },
+      "byte_equal_source": {
+       "const": true
+      }
+     }
+    }
+   }
+  },
+  "offline_build": {
+   "type": "object",
+   "required": [
+    "example",
+    "cl_exit",
+    "build_seconds",
+    "network_isolation",
+    "run_exit",
+    "run_seconds",
+    "scene",
+    "tier",
+    "frames",
+    "warmup",
+    "frame_ms_mean",
+    "frame_ms_p50",
+    "last_frame_digest",
+    "digest_matches_stage_a_anchor"
+   ],
+   "properties": {
+    "example": {
+     "const": "renderer_sdk_host.cpp"
+    },
+    "cl_exit": {
+     "const": 0
+    },
+    "build_seconds": {
+     "type": "number",
+     "minimum": 0
+    },
+    "network_isolation": {
+     "const": "poisoned_proxy_env"
+    },
+    "run_exit": {
+     "const": 0
+    },
+    "run_seconds": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "scene": {
+     "const": "bistro-interior"
+    },
+    "tier": {
+     "const": 100
+    },
+    "frames": {
+     "const": 160
+    },
+    "warmup": {
+     "const": 10
+    },
+    "frame_ms_mean": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "frame_ms_p50": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "last_frame_digest": {
+     "type": "string",
+     "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digest_matches_stage_a_anchor": {
+     "const": true
+    }
+   }
+  },
+  "red_arms": {
+   "type": "object",
+   "required": [
+    "signature",
+    "hash",
+    "truncation",
+    "manifest_tamper",
+    "unreachable",
+    "restore_green"
+   ],
+   "properties": {
+    "signature": {
+     "type": "object",
+     "required": [
+      "release_exit",
+      "failed_gate"
+     ],
+     "properties": {
+      "release_exit": {
+       "const": 2
+      },
+      "failed_gate": {
+       "const": "signing"
+      }
+     }
+    },
+    "hash": {
+     "type": "object",
+     "required": [
+      "kind",
+      "zero_residue"
+     ],
+     "properties": {
+      "kind": {
+       "const": "integrity"
+      },
+      "zero_residue": {
+       "const": true
+      }
+     }
+    },
+    "truncation": {
+     "type": "object",
+     "required": [
+      "kind",
+      "zero_residue"
+     ],
+     "properties": {
+      "kind": {
+       "const": "network"
+      },
+      "zero_residue": {
+       "const": true
+      }
+     }
+    },
+    "manifest_tamper": {
+     "type": "object",
+     "required": [
+      "kind"
+     ],
+     "properties": {
+      "kind": {
+       "const": "integrity"
+      }
+     }
+    },
+    "unreachable": {
+     "type": "object",
+     "required": [
+      "kind"
+     ],
+     "properties": {
+      "kind": {
+       "const": "network"
+      }
+     }
+    },
+    "restore_green": {
+     "const": true
+    }
+   }
+  },
+  "regression": {
+   "type": "object",
+   "required": [
+    "rurixup_dist_smoke_exit"
+   ],
+   "properties": {
+    "rurixup_dist_smoke_exit": {
+     "const": 0
+    }
+   }
+  },
+  "facts": {
+   "type": "array",
+   "minItems": 9,
+   "maxItems": 9,
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "status",
+     "detail"
+    ],
+    "properties": {
+     "id": {
+      "enum": [
+       "bundle_assembly_ok",
+       "signing_sbom_extended",
+       "from_dir_install_ok",
+       "switch_and_idempotent_ok",
+       "network_install_ok",
+       "offline_build_ok",
+       "offline_run_digest_ok",
+       "red_arms_closed",
+       "ea1_regression_green"
+      ]
+     },
+     "status": {
+      "enum": [
+       "PASS",
+       "FAIL"
+      ]
+     },
+     "detail": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "environment": {
+   "type": "object"
+  },
+  "timestamp": {
+   "type": "string"
+  },
+  "notes": {
+   "type": "string",
+   "minLength": 30
+  }
+ }
+}

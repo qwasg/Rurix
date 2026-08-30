@@ -1,0 +1,162 @@
+{
+ "schema": "rurix.day0828.e1.equivalence_battery.v1",
+ "passed": 7,
+ "total": 11,
+ "all_green": false,
+ "runs": [
+  {
+   "tag": "e_alloff",
+   "rc": 0,
+   "wall_s": 175.6,
+   "got": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g31_window_present]: 帧 10/10 render=37.447ms(gpu_encode=0.102ms) present=1.535ms digest=245.001ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_alloff.json"
+   ]
+  },
+  {
+   "tag": "e_combo9_explicit",
+   "rc": 0,
+   "wall_s": 366.6,
+   "got": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1",
+   "expect": "sha256:6bd3af638be97715e1a24f1d260639c259aa181a9d0144a6b47809538ef0814d",
+   "match": false,
+   "vuid_hits": 0,
+   "ambient_env": true,
+   "stderr_tail": [
+    "[g31_window_present]: 帧 34/34 render=20.634ms(gpu_encode=0.106ms) present=1.605ms digest=233.772ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_combo9_explicit.json"
+   ]
+  },
+  {
+   "tag": "e_quality_full_1",
+   "rc": 0,
+   "wall_s": 253.3,
+   "got": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1",
+   "expect": "sha256:6bd3af638be97715e1a24f1d260639c259aa181a9d0144a6b47809538ef0814d",
+   "match": false,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g31_window_present]: 帧 34/34 render=15.009ms(gpu_encode=0.106ms) present=0.973ms digest=90.856ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_quality_full_1.json"
+   ]
+  },
+  {
+   "tag": "e_quality_full_2",
+   "rc": 0,
+   "wall_s": 127.3,
+   "got": "sha256:9e5f6300445748af6cdb9e732c7f35eca7dbe66bbc829a67ca691151d7d12df1",
+   "expect": "sha256:6bd3af638be97715e1a24f1d260639c259aa181a9d0144a6b47809538ef0814d",
+   "match": false,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g31_window_present]: 帧 34/34 render=17.120ms(gpu_encode=0.105ms) present=0.955ms digest=99.254ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_quality_full_2.json"
+   ]
+  },
+  {
+   "tag": "e_combo7_explicit",
+   "rc": 0,
+   "wall_s": 127.2,
+   "got": "sha256:d89848b953a5ff310c4c98122759a0ce6f5fec8ead61b4f630090e4701b333dc",
+   "expect": "sha256:8b1c12f34a76fd554496c9bcdcb45c9ba7d90291e10273b3766708521471abec",
+   "match": false,
+   "vuid_hits": 0,
+   "ambient_env": true,
+   "stderr_tail": [
+    "[g31_window_present]: 帧 34/34 render=17.479ms(gpu_encode=0.109ms) present=1.055ms digest=91.812ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/day_0828/e_final/ev/e_combo7_explicit.json"
+   ]
+  },
+  {
+   "tag": "e_bench_default",
+   "rc": 0,
+   "wall_s": 61.7,
+   "got": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "expect": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 帧 160/170 frame=2.408ms scene_gpu=0.914ms mv_gpu=0.032ms tsr_gpu=0.553ms rec=0.434ms sub=0.123ms fence=2.292ms",
+    "[g14_3_pipeline_perf]: bench 帧 170/170 frame=90.926ms scene_gpu=0.912ms mv_gpu=0.032ms tsr_gpu=0.536ms rec=0.265ms sub=0.065ms fence=3.268ms"
+   ]
+  },
+  {
+   "tag": "e_bench_snrm",
+   "rc": 0,
+   "wall_s": 78.6,
+   "got": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+   "expect": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=5.352ms mv_gpu=0.527ms tsr_gpu=31.322ms frame=146.128ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=5.539ms mv_gpu=0.543ms tsr_gpu=31.348ms frame=143.055ms"
+   ]
+  },
+  {
+   "tag": "e_bench_snrm_tsrq",
+   "rc": 0,
+   "wall_s": 78.0,
+   "got": "sha256:05532d5e940ff10fead1ea989c855bb0fb86dac873967b32666f0fe3541d292a",
+   "expect": "sha256:05532d5e940ff10fead1ea989c855bb0fb86dac873967b32666f0fe3541d292a",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=6.788ms mv_gpu=0.420ms tsr_gpu=32.268ms frame=145.588ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=6.288ms mv_gpu=0.281ms tsr_gpu=12.987ms frame=121.571ms"
+   ]
+  },
+  {
+   "tag": "e_bench_full_explicit",
+   "rc": 0,
+   "wall_s": 81.0,
+   "got": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "expect": null,
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": true,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=38.560ms mv_gpu=1.206ms tsr_gpu=32.343ms frame=191.797ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=33.756ms mv_gpu=1.144ms tsr_gpu=32.463ms frame=185.649ms"
+   ]
+  },
+  {
+   "tag": "e_bench_full_preset_1",
+   "rc": 0,
+   "wall_s": 83.4,
+   "got": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "expect": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=45.088ms mv_gpu=0.768ms tsr_gpu=25.318ms frame=199.130ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=46.830ms mv_gpu=0.891ms tsr_gpu=24.441ms frame=214.725ms"
+   ]
+  },
+  {
+   "tag": "e_bench_full_preset_2",
+   "rc": 0,
+   "wall_s": 78.3,
+   "got": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "expect": "sha256:1c12b7fdaab573218e67113c4fa4de6521a1ed18bb0d38d6098d0c11f2a3ebb8",
+   "match": true,
+   "vuid_hits": 0,
+   "ambient_env": false,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: 帧 120/128 scene_gpu=41.196ms mv_gpu=1.086ms tsr_gpu=24.028ms frame=193.176ms",
+    "[g14_3_pipeline_perf]: 帧 128/128 scene_gpu=43.808ms mv_gpu=0.997ms tsr_gpu=23.932ms frame=202.692ms"
+   ]
+  }
+ ]
+}

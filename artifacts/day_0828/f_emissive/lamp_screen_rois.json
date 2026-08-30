@@ -1,0 +1,137 @@
+{
+ "MASTER_Interior_01_Paris_Lantern": {
+  "material_index": 38,
+  "verts_total": 6688,
+  "verts_in_frame": 6688,
+  "clusters": [
+   {
+    "verts": 1018,
+    "bbox_px": [
+     816,
+     216,
+     888,
+     312
+    ]
+   },
+   {
+    "verts": 1018,
+    "bbox_px": [
+     1008,
+     264,
+     1080,
+     336
+    ]
+   },
+   {
+    "verts": 1018,
+    "bbox_px": [
+     1152,
+     288,
+     1200,
+     360
+    ]
+   },
+   {
+    "verts": 1018,
+    "bbox_px": [
+     528,
+     192,
+     600,
+     288
+    ]
+   },
+   {
+    "verts": 654,
+    "bbox_px": [
+     840,
+     120,
+     888,
+     168
+    ]
+   },
+   {
+    "verts": 654,
+    "bbox_px": [
+     1032,
+     192,
+     1056,
+     216
+    ]
+   }
+  ]
+ },
+ "Paris_Ceiling_Lamp": {
+  "material_index": 39,
+  "verts_total": 5424,
+  "verts_in_frame": 1398,
+  "clusters": [
+   {
+    "verts": 1006,
+    "bbox_px": [
+     1512,
+     96,
+     1632,
+     216
+    ]
+   },
+   {
+    "verts": 190,
+    "bbox_px": [
+     1296,
+     0,
+     1464,
+     48
+    ]
+   },
+   {
+    "verts": 129,
+    "bbox_px": [
+     1536,
+     0,
+     1584,
+     24
+    ]
+   },
+   {
+    "verts": 73,
+    "bbox_px": [
+     0,
+     0,
+     144,
+     24
+    ]
+   }
+  ]
+ },
+ "Paris_CeilingFan": {
+  "material_index": 40,
+  "verts_total": 6592,
+  "verts_in_frame": 351,
+  "clusters": [
+   {
+    "verts": 289,
+    "bbox_px": [
+     1608,
+     0,
+     1704,
+     48
+    ]
+   },
+   {
+    "verts": 62,
+    "bbox_px": [
+     1464,
+     0,
+     1488,
+     48
+    ]
+   }
+  ]
+ },
+ "Paris_Wall_Light_Interior": {
+  "material_index": 59,
+  "verts_total": 17160,
+  "verts_in_frame": 0,
+  "clusters": []
+ }
+}

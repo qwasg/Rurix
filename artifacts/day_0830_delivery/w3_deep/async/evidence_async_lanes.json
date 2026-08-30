@@ -1,0 +1,151 @@
+{
+  "probe": "g31_async_lanes_probe",
+  "mode": "device",
+  "params": { "frames": 120, "warmup": 20, "scale": 8, "elem_count": 230400, "buffers": 13, "light_iters": 64, "heavy_iters": 2048, "gfx_concurrent_iters": 6144 },
+  "caps": {
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "api_version": 4211039,
+    "timeline_semaphore": true,
+    "graphics_family": 0,
+    "graphics_timestamp_bits": 64,
+    "compute_only_family": 2,
+    "compute_only_timestamp_bits": 64,
+    "distinct_compute_family": null,
+    "timestamp_period_ns": 1,
+    "dual_queue_eligible": true
+  },
+  "plan": {
+    "arm_async_on": {
+      "passes": 8,
+      "barriers": 19,
+      "fences": [{ "signal_after": 0, "wait_before": 5, "value": 1, "timeline_points": [1, 2] }, { "signal_after": 0, "wait_before": 6, "value": 2, "timeline_points": [3, 4] }],
+      "segments": [
+        { "queue": "graphics", "passes": [0], "wait": [], "signal": [1, 3] },
+        { "queue": "graphics", "passes": [1], "wait": [], "signal": [] },
+        { "queue": "async_compute", "passes": [2, 3, 4], "wait": [1, 3], "signal": [2, 4] },
+        { "queue": "graphics", "passes": [5], "wait": [2], "signal": [] },
+        { "queue": "graphics", "passes": [6, 7], "wait": [4], "signal": [] }
+      ]
+    },
+    "arm_async_on_legalized": {
+      "span": 3,
+      "segments": [
+        { "queue": "graphics", "passes": [0], "wait_value": null, "signal_value": 1 },
+        { "queue": "graphics", "passes": [1], "wait_value": null, "signal_value": null },
+        { "queue": "async_compute", "passes": [2, 3, 4], "wait_value": 1, "signal_value": 2 },
+        { "queue": "graphics", "passes": [5], "wait_value": 2, "signal_value": null },
+        { "queue": "graphics", "passes": [6, 7], "wait_value": 2, "signal_value": 3 }
+      ]
+    },
+    "arm_async_off": {
+      "passes": 8,
+      "barriers": 18,
+      "fences": [],
+      "segments": [
+        { "queue": "graphics", "passes": [0, 1, 2, 3, 4, 5, 6, 7], "wait": [], "signal": [] }
+      ]
+    }
+  },
+  "fallback": null,
+  "arms": {
+    "single": [{
+      "queue_mode": "single",
+      "sharing_mode": "exclusive",
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "graphics_family": 0,
+      "compute_family": null,
+      "timestamps_valid": true,
+      "timestamp_period_ns": 1,
+      "frames": 120,
+      "digest_first": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "digest_final": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "frame_ms_median_gpu": 1.3951,
+      "frame_ms_median_wall": 1.5547,
+      "gfx_busy_ms_median": 1.3951,
+      "async_busy_ms_median": 0.0000,
+      "overlap_ms_median": 0.0000,
+      "overlap_ratio_median": 0.0000,
+      "final_timeline_value": null
+    }, {
+      "queue_mode": "single",
+      "sharing_mode": "exclusive",
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "graphics_family": 0,
+      "compute_family": null,
+      "timestamps_valid": true,
+      "timestamp_period_ns": 1,
+      "frames": 120,
+      "digest_first": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "digest_final": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "frame_ms_median_gpu": 1.4468,
+      "frame_ms_median_wall": 1.6267,
+      "gfx_busy_ms_median": 1.4468,
+      "async_busy_ms_median": 0.0000,
+      "overlap_ms_median": 0.0000,
+      "overlap_ratio_median": 0.0000,
+      "final_timeline_value": null
+    }],
+    "dual": [{
+      "queue_mode": "dual",
+      "sharing_mode": "concurrent",
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "graphics_family": 0,
+      "compute_family": 2,
+      "timestamps_valid": true,
+      "timestamp_period_ns": 1,
+      "frames": 120,
+      "digest_first": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "digest_final": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "frame_ms_median_gpu": 1.6900,
+      "frame_ms_median_wall": 1.8618,
+      "gfx_busy_ms_median": 1.0985,
+      "async_busy_ms_median": 1.0059,
+      "overlap_ms_median": 0.4893,
+      "overlap_ratio_median": 0.4866,
+      "final_timeline_value": 423
+    }, {
+      "queue_mode": "dual",
+      "sharing_mode": "concurrent",
+      "device_name": "NVIDIA GeForce RTX 4070 Ti",
+      "graphics_family": 0,
+      "compute_family": 2,
+      "timestamps_valid": true,
+      "timestamp_period_ns": 1,
+      "frames": 120,
+      "digest_first": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "digest_final": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+      "frame_ms_median_gpu": 1.6863,
+      "frame_ms_median_wall": 1.8628,
+      "gfx_busy_ms_median": 1.0824,
+      "async_busy_ms_median": 0.9980,
+      "overlap_ms_median": 0.4828,
+      "overlap_ratio_median": 0.4834,
+      "final_timeline_value": 423
+    }]
+  },
+  "equivalence": {
+    "hard_gate": "pass",
+    "digest_single": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+    "digest_dual": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+    "dual_rerun_bitwise_equal": true,
+    "cpu_reference_digest": "a30d4cddd1071d9f1b00413b97beda8d11384ba858e24b78452143a07fbe1139",
+    "matches_cpu_reference": true,
+    "notes": []
+  },
+  "measured": {
+    "time_source": "gpu_timestamp",
+    "frame_ms_median_single": 1.4419,
+    "frame_ms_median_dual": 1.6878,
+    "improvement_pct": -17.057,
+    "improvement_ms": -0.2459,
+    "overlap_ratio_median": 0.4854,
+    "async_busy_ms_median": 1.0035,
+    "noise_single_pct": 3.701,
+    "noise_dual_pct": 0.222
+  },
+  "judge": {
+    "verdict": "no-go",
+    "criteria": "digest 等价硬前置;go = 中位改善 ≥3% ∧ ≥0.15ms ∧ 重叠率 ≥50%;噪声门 <1%;异步段 ≥0.5ms",
+    "reasons": ["噪声门未过(同臂双跑中位差 single=3.70% dual=0.22% ≥1%)——测量无效", "中位改善 -17.06% <3%", "中位改善 -0.246ms <0.15ms", "重叠率中位 0.49 <50%"]
+  }
+}

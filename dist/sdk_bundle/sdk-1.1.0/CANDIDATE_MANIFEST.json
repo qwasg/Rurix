@@ -1,0 +1,49 @@
+{
+  "schema": "rurix.g37.sdk_bundle_candidate.v1",
+  "status": "candidate",
+  "version": "sdk-1.1.0",
+  "channel": "stable",
+  "component_count": 24,
+  "total_bytes": 2364677,
+  "file_count": 31,
+  "timestamp": "20260829T234020Z",
+  "inputs": {
+    "anchored": {
+      "rurix_renderer.dll": "dd5e2034942730fd747f6d2ca254d4dc32416b2249404411d176ccbbea873cc5",
+      "rurix_renderer.lib": "213e40e14b0768366884f7f4757d667bf7e7a5374b86ae1fc097f0ea17633304",
+      "rurix_renderer.h": "63f8e977156bf8893b6a6b5d629e069a5c5b657639b6dd0a6575b14b1c3d8f98",
+      "rurix_renderer_sdk.dll": "1a38dd4d59c26170ac6e894e4b9ffdafe25c5bcb989b32bd740975a650df23e9",
+      "rurix_renderer_sdk.lib": "166d039efa22abb051580c14c20d0dd0ffe014916c23f20ac22d53a145027195",
+      "g14_3_direct_gi.spv": "970e13b9b13e66fe5c5f72f94ca0473d4e0771158af56bfb33f8891b7670da36",
+      "g14_mv.spv": "0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc",
+      "g14_8_tsr_resample.spv": "6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d",
+      "g14_8_tsr_resolve.spv": "4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732",
+      "g31_realism_transp.spv": "35983d0f405169ec84bf222f4a12ec8bf8dfd7d471eefb12488eea7dd34c4f8b",
+      "g31_realism_ris.spv": "622a1c33c18e645c22f91566b4c4e3e3a2871298d6b81007379dedef3425feba",
+      "g31_display_encode_lut.spv": "9087b743a6fc426e065f2d673b38a04abe0abc2b65da09a3cd89ccb43f335a4b",
+      "g34_unified_primary_skin.spv": "7d3ae216762e793908b3394eca2173c82e9559ddf7a7ae235aba8c0a5d3b87f0"
+    },
+    "tree": {
+      "g13_ue_upscale_parity_contract.json": "milestones\\g13\\g13_ue_upscale_parity_contract.json",
+      "renderer_sdk_host.cpp": "apps\\g31-renderer-sdk\\host\\renderer_sdk_host.cpp",
+      "API_VERSIONING.md": "apps\\g31-renderer-sdk\\API_VERSIONING.md",
+      "integration_guide.md": "docs\\renderer\\integration_guide.md",
+      "feature_matrix.md": "docs\\renderer\\feature_matrix.md",
+      "performance_tuning.md": "docs\\renderer\\performance_tuning.md",
+      "compatibility_matrix.md": "docs\\renderer\\compatibility_matrix.md",
+      "LICENSE-MIT": "LICENSE-MIT",
+      "LICENSE-APACHE": "LICENSE-APACHE",
+      "THIRD_PARTY_NOTICES.md": "dist\\licenses\\THIRD_PARTY_NOTICES.md",
+      "third_party_embedded.cdx.json": "dist\\sbom\\third_party_embedded.cdx.json"
+    }
+  },
+  "signing_degradation": "生产 Authenticode(Azure Artifact Signing)经 CI secret + 人工门控,本机不可达;signing_manifest.json 为 self-signed-test 声明面 + 组件 content digest。分发完整性信任根 = SHA256SUMS + rurixup 四级内容寻址(级①锚 channel_manifest digest ②bundle digest ③树 digest ④逐文件 sha256)。",
+  "rebuild_note": "W4/W6 若触发代码重建:重收割 runtime/SPV 工件 → 更新 artifacts/day_0830_delivery/w5_commercial/bundle/inputs/ 快照与 INPUT_ANCHORS.json → 重跑本脚本(--status final)即重打终版;全链验证(MSVC 离线可建 + GPU canonical 真跑)走升级后 ci/g31_sdk_dist_smoke.py --gate g31.g37w5.dist。",
+  "assertions": {
+    "release_deterministic_x2": true,
+    "digest_closure_24": true,
+    "sbom_dual_covers": true,
+    "signing_selftest_declared": true,
+    "install_from_dir_verified": true
+  }
+}

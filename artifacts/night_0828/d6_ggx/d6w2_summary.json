@@ -1,0 +1,131 @@
+{
+ "anchor_on": "sha256:b02b08b57e4e3020097c16f10e6f5c757c05d4a50ad3a6fb138ca2cc50d091f4",
+ "runs": [
+  {
+   "tag": "off",
+   "rc": 0,
+   "wall_s": 61.98,
+   "digest": "sha256:b02b08b57e4e3020097c16f10e6f5c757c05d4a50ad3a6fb138ca2cc50d091f4",
+   "real_render_frame_ms": 6.016637,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=5.443ms(gpu_encode=0.108ms) present=2.642ms digest=0.041ms",
+    "[g31_window_present]: 帧 10/10 render=19.451ms(gpu_encode=0.108ms) present=5.264ms digest=101.467ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_off_ev.json"
+   ]
+  },
+  {
+   "tag": "on_1",
+   "rc": 0,
+   "wall_s": 61.81,
+   "digest": "sha256:52020f9c4ea6531fc83b82cae416885541b3f4e98bebce7106430c35239da598",
+   "real_render_frame_ms": 5.550137,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=3.752ms(gpu_encode=0.108ms) present=1.703ms digest=0.003ms",
+    "[g31_window_present]: 帧 10/10 render=14.812ms(gpu_encode=0.106ms) present=0.997ms digest=96.533ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_on_1_ev.json"
+   ]
+  },
+  {
+   "tag": "on_2",
+   "rc": 0,
+   "wall_s": 61.83,
+   "digest": "sha256:52020f9c4ea6531fc83b82cae416885541b3f4e98bebce7106430c35239da598",
+   "real_render_frame_ms": 5.985412,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=4.899ms(gpu_encode=0.108ms) present=2.124ms digest=0.006ms",
+    "[g31_window_present]: 帧 10/10 render=17.584ms(gpu_encode=0.108ms) present=1.207ms digest=98.030ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_on_2_ev.json"
+   ]
+  },
+  {
+   "tag": "combo_1",
+   "rc": 0,
+   "wall_s": 62.09,
+   "digest": "sha256:48353e8663924314381c8a8d657014153bbe4501d3b0303ef14309581cde5b66",
+   "real_render_frame_ms": 7.20835,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→bloom_bright→bloom_blur_h→bloom_blur_v→bloom_composite→display_encode（九 pass,bloom on）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=4.894ms(gpu_encode=0.106ms) present=2.278ms digest=0.007ms",
+    "[g31_window_present]: 帧 10/10 render=24.460ms(gpu_encode=0.105ms) present=0.977ms digest=96.753ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_combo_1_ev.json"
+   ]
+  },
+  {
+   "tag": "combo_2",
+   "rc": 0,
+   "wall_s": 61.75,
+   "digest": "sha256:48353e8663924314381c8a8d657014153bbe4501d3b0303ef14309581cde5b66",
+   "real_render_frame_ms": 6.43175,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→bloom_bright→bloom_blur_h→bloom_blur_v→bloom_composite→display_encode（九 pass,bloom on）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=10.269ms(gpu_encode=0.106ms) present=3.011ms digest=0.004ms",
+    "[g31_window_present]: 帧 10/10 render=15.446ms(gpu_encode=0.106ms) present=0.997ms digest=95.925ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_combo_2_ev.json"
+   ]
+  },
+  {
+   "tag": "visual_off",
+   "rc": 0,
+   "wall_s": 61.78,
+   "digest": "sha256:b02b08b57e4e3020097c16f10e6f5c757c05d4a50ad3a6fb138ca2cc50d091f4",
+   "real_render_frame_ms": 5.581137,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=4.252ms(gpu_encode=0.109ms) present=1.483ms digest=0.002ms",
+    "[g31_window_present]: 帧 10/10 render=15.790ms(gpu_encode=0.105ms) present=0.972ms digest=99.314ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_visual_off_ev.json"
+   ]
+  },
+  {
+   "tag": "visual_on",
+   "rc": 0,
+   "wall_s": 61.86,
+   "digest": "sha256:52020f9c4ea6531fc83b82cae416885541b3f4e98bebce7106430c35239da598",
+   "real_render_frame_ms": 5.3618,
+   "validation_hits": 0,
+   "stderr_tail": [
+    "[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g18_smooth_nrm)→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）",
+    "[g31_window_present]: 帧 1/10 render=4.911ms(gpu_encode=0.109ms) present=1.842ms digest=0.003ms",
+    "[g31_window_present]: 帧 10/10 render=14.720ms(gpu_encode=0.108ms) present=0.974ms digest=106.445ms",
+    "[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d6_ggx/d6w2_visual_on_ev.json"
+   ]
+  }
+ ],
+ "verdict": {
+  "off_matches_d2w_anchor": true,
+  "on_double_run_bitexact": true,
+  "on_differs_from_off": true,
+  "on_digest": [
+   "sha256:52020f9c4ea6531fc83b82cae416885541b3f4e98bebce7106430c35239da598"
+  ],
+  "combo_runs_green": true,
+  "combo_digest_stable": true,
+  "combo_digest": [
+   "sha256:48353e8663924314381c8a8d657014153bbe4501d3b0303ef14309581cde5b66"
+  ],
+  "validation_silent_all": true,
+  "visual_pngs": {
+   "off": true,
+   "on": true
+  },
+  "frame_ms": {
+   "off": 6.016637,
+   "on_1": 5.550137,
+   "on_2": 5.985412,
+   "combo_1": 7.20835,
+   "combo_2": 6.43175,
+   "visual_off": 5.581137,
+   "visual_on": 5.3618
+  }
+ },
+ "all_pass": true
+}

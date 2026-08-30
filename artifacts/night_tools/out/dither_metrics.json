@@ -1,0 +1,46 @@
+{
+  "source": "H:\\rurix\\artifacts\\night_baseline\\bistro-interior\\tier100\\tsr_device\\converged.exr",
+  "blocks": [
+    {
+      "by": 160,
+      "bx": 1696
+    },
+    {
+      "by": 160,
+      "bx": 1728
+    },
+    {
+      "by": 64,
+      "bx": 288
+    },
+    {
+      "by": 128,
+      "bx": 1792
+    },
+    {
+      "by": 64,
+      "bx": 256
+    },
+    {
+      "by": 32,
+      "bx": 256
+    },
+    {
+      "by": 128,
+      "bx": 1824
+    },
+    {
+      "by": 64,
+      "bx": 224
+    }
+  ],
+  "no_dither": {
+    "unique_levels_mean": 1.1666666666666667,
+    "const_runlen_mean_px": 30.6875
+  },
+  "tpdf_dither": {
+    "unique_levels_mean": 2.875,
+    "const_runlen_mean_px": 1.9695917454021252
+  },
+  "verdict_rule": "unique_levels↑ 且 const_runlen↓ ⇒ 色带消除（视觉复核为准）"
+}

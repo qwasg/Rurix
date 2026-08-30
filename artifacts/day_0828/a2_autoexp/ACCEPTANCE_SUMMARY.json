@@ -1,0 +1,87 @@
+{
+  "schema": "rurix.a2.autoexp.acceptance.v1",
+  "date": "2026-08-28",
+  "phase": "画质修复战役 Phase A2：自动曝光加性臂（--auto-exposure）",
+  "env": {
+    "RURIX_REQUIRE_REAL": "1",
+    "RURIX_VK_VALIDATION": "1（全部真跑;validation_error_count≠0 即 fail 的机核在 bin 内恒开）",
+    "gpu_lock": "ci/gpu_device_lock via artifacts/night_0828/run_render.py（tag a2_*）",
+    "build": "CARGO_TARGET_DIR=target-night cargo build --release -p rurix-render --features vendor-upscale --bin g31_window_present（rc=0,4 warning 皆前序既有）"
+  },
+  "design_deviation": {
+    "spec_form": "规格原案 = encode kernel 新增 storage 绑定 exp_state（off 臂绑 16B 哑 buffer [1,1,1,1]）",
+    "shipped_form": "增益走 encode 参数 buffer reserved 槽 params[133]（host aces13 打包面 0-byte 恒 0）+ kernel `≤0 → 1.0` 恒等守卫;g31_autoexp_state kernel 逐帧 device 写该槽",
+    "why": "默认 encode SPV `.tmp/g14_gates/m_c/g31_display_encode.spv` 被 g34_full_lane.rs / g35_particle_lane.rs（G35/G36 他会话未提交文件,本任务绝不可触）以 3 绑定 pass 声明共享消费——新增绑定会在其 CI 门重编 SPV 或直接消费时破坏他会话车道（描述符布局不匹配）。params[133] 形态绑定数零变化:他会话打包 [133]=0 → 守卫 →×1.0 位级恒等,双向安全。语义/数据流与原案等价（gain 仍为 state kernel 产物、仍施加在 ACES IDT 前）",
+    "spec_log_base": "log/exp 对改用 log2/exp2（几何均值数学恒等;log2/exp2 为本仓 kernel 已证映射面——g31_display_encode 偏差登记②同源）"
+  },
+  "changed_files": {
+    "src/rurix-render/kernels/g31_autoexp_reduce.rx": "新建 50 行（256 线程单 workgroup,i=tid+k·1024 跨步,log2(max(luma,1e-6)) 顺序累加,partials[tid*2]/[+1]）",
+    "src/rurix-render/kernels/g31_autoexp_state.rx": "新建 64 行（单线程串行求和 512 partials → exp2 几何均值 → target=key/avg 钳 [min,max] → EMA（init<0.5 直取）→ state 4f32 + enc_params[133] 写）",
+    "src/rurix-render/kernels/g31_display_encode.rx": "+21/−3（IDT 前 aeg=params[133] ≤0→1.0 守卫乘 r0/g0/b0;文件头 [133] 槽登记）",
+    "src/rurix-render/src/bin/g31_window_present.rs": "≈+615（A2 消费面:12 下标常量四变体族 + 8 静态屏障计划 + g31_ae_pack_params + G31AutoExpAssets + g31_apply_autoexp〔encode 摘出重挂,D3 同模式〕+ 车道 autoexp 字段/setter/override 下标右移 + CLI 7 旗标 + fail-closed 闭集 + era 常量面/LocalSize 复核 + autoexp_gpu_ms 收集 + PASS 行 + 验证面 --present-luma-out/--dump-present-every）",
+    "src/rurix-render/src/display/aces13.rs": "0-byte（未动——[133] 槽 host 侧恒 0 即 off 语义,无需改打包）",
+    "src/rurix-render/src/bin/g14_3_lane/g14_3_lane_body.rs": "0-byte（未动）"
+  },
+  "resource_indices": {
+    "note": "资源表为致密 Vec ⇒ 变体尾挂（D2 trinrm 同律）;序 = state, params, partials",
+    "base": [24, 25, 26],
+    "nrm": [26, 27, 28],
+    "bloom": [32, 33, 34],
+    "nrm_bloom": [34, 35, 36],
+    "pass_graph": "非 bloom:…resolve(3)→reduce(4,parity override)→state(5)→encode(6);bloom:…composite(7)→reduce(8,读 comp_out 静态)→state(9)→encode(10)"
+  },
+  "kernel_spv": {
+    "reduce": ".tmp/night_0828/spv/g31_autoexp_reduce.spv（LocalSize 256,1,1;era 装配期 fail-closed 复核）",
+    "state": ".tmp/night_0828/spv/g31_autoexp_state.spv（LocalSize 1,1,1）",
+    "encode": ".tmp/g14_gates/m_c/g31_display_encode.spv（重编;改前件备份 = artifacts/day_0828/a2_autoexp/g31_display_encode_pre_a2.spv.bak）",
+    "spirv_val": "三件 rurixc 内置 + PATH spirv-val（vulkan-1.3.296.0）双过 rc=0"
+  },
+  "acceptance": [
+    { "step": "1 构建+SPV", "verdict": "PASS", "detail": "cargo release rc=0;三 SPV spirv-val 双过" },
+    { "step": "2 off 锚复验", "verdict": "PASS", "digest": "5596a730", "detail": "全关（无旗标）presented digest == sha256:5596a7308b1d… 昨夜/A1 锚位级一致——重编 encode SPV（params[133] 守卫路径）off 臂零漂移;encode_gpu 0.1069ms 与在案量级同" },
+    { "step": "3 dither 臂回归", "verdict": "PASS", "digest": "e989c6ee", "detail": "--dither on 双跑 presented digest e989c6ee6be4… 位级一致 + ≠ off;且 == 夜间评审在案 dither 锚 e989c6ee（encode 演进对 dither 臂值级恒等,零漂移——强于『新 digest 登记』预期）" },
+    { "step": "4 --auto-exposure on 单臂", "verdict": "PASS", "digest": "fd5ca68c", "detail": "双跑 presented digest fd5ca68cd50b… 位级一致 + ≠ off;autoexp_gpu_ms（reduce+state 合计,PASS 行）0.186/0.193ms;profile 逐 pass:reduce mean 0.193ms（p50 0.156）/ state mean 0.0036ms——期望 <0.1ms 未达,如实登记（单 workgroup 归约驻单 CU,518k 采样;组合臂实测合计 0.111ms）" },
+    { "step": "5 组合臂", "verdict": "PASS", "digest": "a4695558", "detail": "--smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --bloom on --dither on --auto-exposure on:双跑 presented digest a4695558fa8a… 位级一致（十一 pass 图）;RURIX_VK_VALIDATION=1 全程静默（validation_error_count=0 机核 + rc=0）;autoexp_gpu 0.111ms/bloom_gpu 0.188ms" },
+    { "step": "6 适应行为", "verdict": "PASS", "detail": "组合臂 + --auto-move dolly --frames 240（250 帧含 warmup）:presented mean 全程 [0.3755, 0.4006]（终态 0.4005 ∈ [0.25,0.55] 目标带,全曲线在带内）;最大逐帧变化 0.42% ≪ ±10% 振荡线（>10% 帧数 = 0）;off 对照同轨迹 mean [0.1252, 0.1311]（终态 0.1303）⇒ 亮度提升 ~3.1×（显示域）且 dolly 全程稳定持带;on/off digest_seq 双双 250 帧完整、exit=frames_done" }
+  ],
+  "digest_table": {
+    "window_all_off": { "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00", "vs": "== 昨夜/A1 锚（encode SPV 重编后零漂移）" },
+    "window_dither_on_x2": { "digest": "sha256:e989c6ee6be42b4ab970fe85480225963b13447789cec1d55dfeaa10c38363fc", "vs": "双跑一致 ≠ off;== 夜间评审在案 dither 锚" },
+    "window_ae_on_8f_x2": { "digest": "sha256:fd5ca68cd50ba7691f9f7ca3348f5972254b921ca846b956983ba33df45099fa", "vs": "双跑一致 ≠ off（EMA 跨帧反馈 ⇒ 口径 = 双跑一致）" },
+    "window_combo_8f_x2": { "digest": "sha256:a4695558fa8a07aaec99cac222984c9de56292c80f03eeb06d543e51bb106be0", "vs": "双跑一致（六臂全开）" },
+    "dolly240_ae_on": { "digest": "sha256:6ed59446cf997bbc3ed6b376397d8a1433904a4b91d18db21202c27636dcb9dd" },
+    "dolly240_ae_off": { "digest": "sha256:f848b643a1f0d9e2639f33943e042f00cb952ae73f939613eca11036aeb77a8a" }
+  },
+  "perf": {
+    "autoexp_gpu_ms": { "single_arm_pass_mean": { "reduce": 0.193, "state": 0.0036 }, "single_arm_total": [0.186, 0.193, 0.197], "combo_total": [0.111, 0.111] },
+    "encode_gpu_ms": { "off_anchor": 0.107, "ae_on": 0.108, "combo": 0.115 },
+    "combo_fps_8f": "123-130（--hidden 含回读税;夜间同口径全栈 ~196fps 面未复测）",
+    "note": "reduce 单 workgroup 驻单 CU 为耗时主体;<0.1ms 期望未达(0.11-0.19ms),量级与 bloom(0.19-0.21ms)同档,如实登记;优化留窗 = 多 workgroup 两级归约（需第二级 kernel）"
+  },
+  "luma_curve": {
+    "on": { "first": 0.3968, "final": 0.4005, "min": 0.3755, "max": 0.4006, "max_frame_step_rel": 0.0042, "oscillation_gt_10pct_frames": 0 },
+    "off": { "first": 0.1302, "final": 0.1303, "min": 0.1252, "max": 0.1311 },
+    "band_check": "on 全曲线 ∈ [0.25,0.55] ✓（首帧即入带:EMA initialized<0.5 首帧直取 target,无从 1.0 缓升段——设计语义）",
+    "files": ["artifacts/day_0828/a2_autoexp/luma_on.json", "artifacts/day_0828/a2_autoexp/luma_off.json", "artifacts/day_0828/a2_autoexp/curve_analysis.json"]
+  },
+  "png": {
+    "pairs_same_trajectory": [
+      ["png/off.raw.f0000.png", "png/on.raw.f0000.png"],
+      ["png/off.raw.f0080.png", "png/on.raw.f0080.png"],
+      ["png/off.raw.f0160.png", "png/on.raw.f0160.png"],
+      ["png/off.raw.f0240.png", "png/on.raw.f0240.png"],
+      ["png/off.png", "png/on.png"]
+    ],
+    "tools": ["raw2png.py（w/h u32 LE 头 + BGRA8 → PNG）", "curve_analysis.py"]
+  },
+  "known_limits": [
+    "reduce pass 0.11-0.19ms GPU 超出 <0.1ms 期望（单 workgroup 规格形态的结构代价）;两级归约优化留窗",
+    "AE 提亮暴露内容模型底色:墙面程序化渐变 albedo 的饱和色带在正确曝光下全幅可见（off 臂暗部本已存在,非 A2 引入;归 Phase B 纹理全覆盖修复面）——on.raw.f*.png 可见",
+    "EMA 状态驻 device buffer:resize/era 重建即归零再适应（~1/rate≈12 帧半衰,视觉为一次快速再收敛;如实登记非缺陷）",
+    "log 均值对大面积纯黑像素敏感（1e-6 地板拖低几何均值 → target 偏高;本场景钳带 [0.125,32] 内未饱和——dolly 全程 gain 未触 max,曲线稳定为证）",
+    "a2_s6_adapt_off 跑的 render_runs.jsonl 登记行缺失:gpu_device_lock 解锁段 PermissionError（msvcrt LK_UNLCK,ci 基建面非本臂改动;锁随进程退出由 OS 释放,后续跑全部正常）——该跑渲染/evidence/dump 全部完整落盘（ev/adapt_off.json exit=frames_done 250 帧在档）,如实登记;另见等锁期间暴露的 stale holder 记录（pid 6028 'g9.2 impl-c' since 08-09,基建观察面）",
+    "--present-luma-out/--dump-present-every 为验证面旗标（默认关 0-byte;luma 计算/写盘落 digest 税账目,不混渲染口径）",
+    "tier≠100 未实测:reduce pixel_count 域假设 = encode in_color 同域（encode 既有同假设;窗口验收面恒 tier100）"
+  ],
+  "rollback": "A2 单独回退:git checkout -- src/rurix-render/kernels/g31_display_encode.rx + 删两新 kernel + 按本文件 changed_files 从 g31_window_present.rs 手工摘 A2 段（与夜巡/A1 未提交改动同文件耦合,不可整文件 checkout）;SPV 回退 = artifacts/day_0828/a2_autoexp/g31_display_encode_pre_a2.spv.bak 覆回默认路径（或 git 恢复 kernel 后重编）+ 删 .tmp/night_0828/spv/g31_autoexp_{reduce,state}.spv"
+}

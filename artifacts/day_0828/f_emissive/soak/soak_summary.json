@@ -1,0 +1,13 @@
+{
+ "schema": "rurix.day0828.f_emissive.soak.v1",
+ "arm": "--quality full 窗口 32f 静态（十臂预设展开:九臂 + emissive-tex）",
+ "iterations": 9,
+ "stagea_probes": 2,
+ "fails": 0,
+ "wall_s": 1800.5,
+ "budget_s": 1800.0,
+ "zero_failure": true,
+ "digest_constant": true,
+ "anchor": "sha256:78113d56c6ed6d50dc50e68c8c02448b5fa1452c819246492d055b46d21600a7",
+ "fail_reason": null
+}

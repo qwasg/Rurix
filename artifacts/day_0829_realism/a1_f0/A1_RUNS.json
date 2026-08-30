@@ -1,0 +1,139 @@
+{
+ "schema": "rurix.day0829.realism.a1_f0.v1",
+ "fails": 0,
+ "rows": [
+  {
+   "step": "a1_off_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 62.2,
+   "real_render_frame_ms": 5.237025,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "13:48:39"
+  },
+  {
+   "step": "a1_off_full_96f",
+   "rc": 0,
+   "digest": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "vuid": 0,
+   "wall_s": 130.8,
+   "real_render_frame_ms": 7.181182,
+   "expect": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "pass": true,
+   "t": "13:50:50"
+  },
+  {
+   "step": "a1_on_run1",
+   "rc": 0,
+   "digest": "sha256:87d7139ffba304001fe1038e43b0a04e5315823d87f60c5104da1b66dea7db41",
+   "vuid": 0,
+   "wall_s": 191.5,
+   "real_render_frame_ms": 6.901666,
+   "pass": true,
+   "t": "13:54:01"
+  },
+  {
+   "step": "a1_on_run2",
+   "rc": 0,
+   "digest": "sha256:87d7139ffba304001fe1038e43b0a04e5315823d87f60c5104da1b66dea7db41",
+   "vuid": 0,
+   "wall_s": 191.0,
+   "real_render_frame_ms": 7.397356,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "13:57:12"
+  },
+  {
+   "step": "a1_ab_metrics",
+   "changed_frac": 0.998729,
+   "fullscreen_mean_off": 81.3807,
+   "fullscreen_mean_on": 14.7675,
+   "changed_mean_off": 81.2616,
+   "changed_mean_on": 14.564,
+   "pass": false,
+   "note": "diff 掩码 = F0 修伤面(metal>0 像素);判据 = 掩码存在且非全屏 + 掩码亮度 on>off(高光能量恢复)",
+   "t": "13:57:13"
+  },
+  {
+   "step": "a1_ab_noae_off",
+   "rc": 0,
+   "digest": "sha256:bd1dfd986db6a83d24f019c413bedb1215424b2e0e84d6cc2f759107d14d6332",
+   "vuid": 0,
+   "wall_s": 129.4,
+   "real_render_frame_ms": 7.031796,
+   "pass": true,
+   "t": "14:03:17"
+  },
+  {
+   "step": "a1_ab_noae_on",
+   "rc": 0,
+   "digest": "sha256:87d7139ffba304001fe1038e43b0a04e5315823d87f60c5104da1b66dea7db41",
+   "vuid": 0,
+   "wall_s": 190.8,
+   "real_render_frame_ms": 7.015488,
+   "pass": true,
+   "t": "14:06:28"
+  },
+  {
+   "step": "a1_ab_metrics_noae",
+   "changed_frac": 0.106037,
+   "fullscreen_mean_off": 14.0826,
+   "fullscreen_mean_on": 14.7675,
+   "changed_mean_off": 30.9566,
+   "changed_mean_on": 34.9725,
+   "pass": true,
+   "note": "无 AE 定曝光对照:掩码 = F0 修伤面+bloom 光晕;判据 = 掩码 ∈(0,40%) + 掩码亮度恢复 + 全屏能量加性增",
+   "t": "14:06:28"
+  },
+  {
+   "step": "a1_rf2_off_alloff_8f",
+   "rc": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "vuid": 0,
+   "wall_s": 61.8,
+   "real_render_frame_ms": 4.38625,
+   "expect": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "pass": true,
+   "t": "14:16:28"
+  },
+  {
+   "step": "a1_rf2_off_full_96f",
+   "rc": 0,
+   "digest": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "vuid": 0,
+   "wall_s": 129.4,
+   "real_render_frame_ms": 7.023423,
+   "expect": "sha256:de342586e452b903a2df7b744b9f67ad5b95b6bc5e3c17e0257def516ffc7211",
+   "pass": true,
+   "t": "14:18:38"
+  },
+  {
+   "step": "a1_rf2_on_run1",
+   "rc": 0,
+   "digest": "sha256:5fbafab866e2430a1bbe31520f5d9eb22da1109400c72174d28b16ffe4b3ba4d",
+   "vuid": 0,
+   "wall_s": 190.8,
+   "real_render_frame_ms": 7.304969,
+   "pass": true,
+   "stale_binding_digest_gone": true,
+   "t": "14:21:48"
+  },
+  {
+   "step": "a1_rf2_on_run2",
+   "rc": 0,
+   "digest": "sha256:5fbafab866e2430a1bbe31520f5d9eb22da1109400c72174d28b16ffe4b3ba4d",
+   "vuid": 0,
+   "wall_s": 190.9,
+   "real_render_frame_ms": 7.221544,
+   "pass": true,
+   "double_run_bitexact": true,
+   "t": "14:24:59"
+  }
+ ],
+ "ab_rerun_noae_fails": 0,
+ "red_fix_1": "A/B 判据修正:full 含 AE 反馈失真(F0 能量增 → AE 全屏压暗),改无 AE 显式组合对照;锚/双跑/validation 腿首跑已全绿不重跑",
+ "on_rerun_redfix2_fails": 0,
+ "red_fix_2": "realism AE 下标族修正(tri_base 尾挂后 AE 三件顺延 +1;首版 _EM 下标错位 = tri_base 被 reduce 覆写/AE 链失效,full+f0 digest 与无 AE 组合位级相同即症状);既有 em+AE set_autoexp 无 _EM 分支为 Phase F 遗留缺口,de342586 锚内冻结不动,登记 HANDOVER"
+}

@@ -1,0 +1,57 @@
+{
+  "schema": "rurix.night0828.d2_smooth_nrm_evidence.v1",
+  "arm": "D2 平滑顶点法线加性臂（--smooth-normals off|on，默认 off）",
+  "kernel": {
+    "src": "src/rurix-render/kernels/g18_smooth_nrm.rx",
+    "spv": ".tmp/night_0828/spv/g18_smooth_nrm.spv",
+    "spv_bytes": 53388,
+    "spv_sha256": "sha256:53bde7ef64c58dc4415ac5fce4906e51bbda717a65e0e4d5a409170b5f144b8f",
+    "compile": "rurixc --target vulkan + spirv-val accepted",
+    "master_kernels_untouched": [
+      "src/rurix-render/kernels/g18_light_transport_depth.rx",
+      "src/rurix-render/kernels/g14_3_direct_gi.rx"
+    ]
+  },
+  "command": "g14_3_pipeline_perf --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --presentation-profile night [--smooth-normals on] --out-root <tag>",
+  "seed": 7312026601,
+  "jitter_base": 14043,
+  "tri_count": 1046609,
+  "digests": {
+    "pre_change_off_baseline": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "pre_change_cross_check": "== artifacts/night_baseline 128 帧 render 收据 frame_0009 digest（同 seed 第 10 帧 Halton 序列，独立交叉一致）",
+    "post_off_1": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "post_off_2": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "post_on_1": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+    "post_on_2": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385"
+  },
+  "verdict": {
+    "off_double_run_bitexact": true,
+    "off_arm_zero_drift_vs_pre_change": true,
+    "on_double_run_bitexact": true,
+    "on_differs_from_off_wiring_live": true,
+    "all_pass": true
+  },
+  "perf_scene_gpu_ns_mean": {
+    "pre_change_off": [959160, 1088424],
+    "post_off": [1152032, 961048],
+    "post_on": [985636, 960240],
+    "note": "干净跑（off_2/on_1/on_2/pre_1）均聚在 ≈0.96ms；off_1=1.15ms 与 pre_2=1.09ms 为系统干扰离群。on−off 增量 ≈ +0.00~0.03ms@1080p tier100（≤ 噪声带；trinrm 侧表 37.7MB device-local 常驻 + 主命中 9 f32 读/插值/归一化，阴影射线主导的工作量下占比小）。frame_ms_mean≈12ms 为逐帧 fence+末帧回读测量开销口径（非生产帧率）。"
+  },
+  "normal_transform_bit_spec": "host：glTF NORMAL（float VEC3）→ xform_dir（节点世界矩阵上左 3×3，f64 左结合 m[r][0]·x+m[r][1]·y+m[r][2]·z，平移丢弃，与 xform 同矩阵同序）→ f32 cast → norm3 除法口径归一化 → 9 f32/tri 侧表（顶点序 = tris 同源绕序）；kernel：bw·n0+bu·n1+bv·n2 左结合（g34_unified_shade UV 同式）→ 母版倒数乘归一化（self·(1/l)）→ 双面翻转。非均匀缩放逆置变换未接线（bistro = 旋转+平移面，norm3 兜底量级）。",
+  "known_gaps": [
+    "cluster-lod/wp-hlod 组合面 gather 未做——CLI fail-closed 互斥（几何重建后法线侧表与重建三角汤不对齐）",
+    "cornell Split 拆散六 pass 形态未接线（无 trinrm 绑定面）——run 内 fail-closed 兜底",
+    "vendor 双臂（dlss_sr/fsr_3_1_5）未接线——CLI fail-closed",
+    "quad 灯面尾段法线恒 0（bistro quads=0 零触达；kernel gate_sl 门保证零法线恒 0 有限值无 NaN）",
+    "全 128 帧 A/B 与画质指标（temporal_rel/HP 能量）归编排侧统一验收，本面仅 ≤8 帧接线/确定性/零漂移机核"
+  ],
+  "receipts": {
+    "pre_off": "artifacts/night_0828/d2_smooth_nrm/pre_off/bistro-interior/tier100/tsr_device/bench_receipt.json",
+    "post_off_1": "artifacts/night_0828/d2_smooth_nrm/post_off_1/bistro-interior/tier100/tsr_device/bench_receipt.json",
+    "post_off_2": "artifacts/night_0828/d2_smooth_nrm/post_off_2/bistro-interior/tier100/tsr_device/bench_receipt.json",
+    "post_on_1": "artifacts/night_0828/d2_smooth_nrm/post_on_1/bistro-interior/tier100/tsr_device/bench_receipt.json",
+    "post_on_2": "artifacts/night_0828/d2_smooth_nrm/post_on_2/bistro-interior/tier100/tsr_device/bench_receipt.json",
+    "verify_summary": "artifacts/night_0828/d2_smooth_nrm/verify_summary.json",
+    "pre_change_exe_stash": "artifacts/night_0828/d2_smooth_nrm/g14_3_pipeline_perf_pre_d2.exe"
+  }
+}

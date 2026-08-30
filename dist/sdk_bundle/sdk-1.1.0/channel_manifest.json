@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "channel": "stable",
+  "rurix_version": "sdk-1.1.0",
+  "bundle_manifest_sha256": "82d4975f167dc02f2ef18217c28c62ccf9b228d7c53eeae11d377c899ed6778f",
+  "components": [
+    {
+      "name": "API_VERSIONING.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "e28bda66d25274f15cfe0b0d860b7f2294a444d648b87feea5fb85a609c222ef"
+    },
+    {
+      "name": "LICENSE-APACHE",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "LICENSE-MIT",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "82e7f8d9616f953250aecd4b204c2e7b6ac43daad8e5d644b3bbf21ef854771d"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "b14bdf90a696671a90f414109764f95fb75a1c0f8a68c3f2f43d76218ec11a94"
+    },
+    {
+      "name": "compatibility_matrix.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "99d80e803505d8d0881da55fddf44d18f81eee8b39ad0958a3d4a865ed0b48d5"
+    },
+    {
+      "name": "feature_matrix.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "0ef424422ea3ba87549f63416a5c072463d713b08d1abab35f41d843be4e6c99"
+    },
+    {
+      "name": "g13_ue_upscale_parity_contract.json",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "c0d650661ac4d984de225c4833ef22086a110566029eea8d78f2c1b658d01697"
+    },
+    {
+      "name": "g14_3_direct_gi.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "970e13b9b13e66fe5c5f72f94ca0473d4e0771158af56bfb33f8891b7670da36"
+    },
+    {
+      "name": "g14_8_tsr_resample.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d"
+    },
+    {
+      "name": "g14_8_tsr_resolve.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732"
+    },
+    {
+      "name": "g14_mv.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc"
+    },
+    {
+      "name": "g31_display_encode_lut.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "9087b743a6fc426e065f2d673b38a04abe0abc2b65da09a3cd89ccb43f335a4b"
+    },
+    {
+      "name": "g31_realism_ris.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "622a1c33c18e645c22f91566b4c4e3e3a2871298d6b81007379dedef3425feba"
+    },
+    {
+      "name": "g31_realism_transp.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "35983d0f405169ec84bf222f4a12ec8bf8dfd7d471eefb12488eea7dd34c4f8b"
+    },
+    {
+      "name": "g34_unified_primary_skin.spv",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "7d3ae216762e793908b3394eca2173c82e9559ddf7a7ae235aba8c0a5d3b87f0"
+    },
+    {
+      "name": "integration_guide.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "3dabcc2696a8db6fb3cf7cc2fe9b5847a6b2bb39d85f7311e79b2686cb953ad6"
+    },
+    {
+      "name": "performance_tuning.md",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "73973c77f3a884f30a0a03bdefdc544cce614497548ca82c523d8c995b9e3771"
+    },
+    {
+      "name": "renderer_sdk_host.cpp",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "0795e43af3224bfc24e620e4d183f8ec91a9b646bd1f68afa9d052690006d316"
+    },
+    {
+      "name": "rurix_renderer.dll",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "dd5e2034942730fd747f6d2ca254d4dc32416b2249404411d176ccbbea873cc5"
+    },
+    {
+      "name": "rurix_renderer.h",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "63f8e977156bf8893b6a6b5d629e069a5c5b657639b6dd0a6575b14b1c3d8f98"
+    },
+    {
+      "name": "rurix_renderer.lib",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "213e40e14b0768366884f7f4757d667bf7e7a5374b86ae1fc097f0ea17633304"
+    },
+    {
+      "name": "rurix_renderer_sdk.dll",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "1a38dd4d59c26170ac6e894e4b9ffdafe25c5bcb989b32bd740975a650df23e9"
+    },
+    {
+      "name": "rurix_renderer_sdk.lib",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "166d039efa22abb051580c14c20d0dd0ffe014916c23f20ac22d53a145027195"
+    },
+    {
+      "name": "third_party_embedded.cdx.json",
+      "version": "sdk-1.1.0",
+      "partition": "language-core",
+      "sha256": "b982a18ac921c6b7fec5aff52c3ed57b24fb2b08ca5bfa68cc9c42c83292bffa"
+    }
+  ],
+  "sbom": { "spdx": "sbom.spdx.json", "cyclonedx": "sbom.cdx.json" },
+  "signing_manifest": "signing_manifest.json"
+}

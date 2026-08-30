@@ -1,0 +1,9 @@
+{"it": 1, "t_s": 203.7, "win_ok": true, "win_digest_stable": true, "frame_ms": 10.703316, "vuid_hits": 0, "win_wall_s": 203.7}
+{"it": 2, "t_s": 407.0, "win_ok": true, "win_digest_stable": true, "frame_ms": 9.963678, "vuid_hits": 0, "win_wall_s": 203.3}
+{"it": 3, "t_s": 610.4, "win_ok": true, "win_digest_stable": true, "frame_ms": 9.972025, "vuid_hits": 0, "win_wall_s": 203.3, "stagea_ok": true, "stagea_wall_s": 61.8}
+{"it": 4, "t_s": 876.0, "win_ok": true, "win_digest_stable": true, "frame_ms": 10.438909, "vuid_hits": 0, "win_wall_s": 203.8}
+{"it": 5, "t_s": 1079.5, "win_ok": true, "win_digest_stable": true, "frame_ms": 9.541334, "vuid_hits": 0, "win_wall_s": 203.5}
+{"it": 6, "t_s": 1283.1, "win_ok": true, "win_digest_stable": true, "frame_ms": 10.076428, "vuid_hits": 0, "win_wall_s": 203.6, "stagea_ok": true, "stagea_wall_s": 61.7}
+{"it": 7, "t_s": 1548.3, "win_ok": true, "win_digest_stable": true, "frame_ms": 9.718581, "vuid_hits": 0, "win_wall_s": 203.5}
+{"it": 8, "t_s": 1752.0, "win_ok": true, "win_digest_stable": true, "frame_ms": 10.070819, "vuid_hits": 0, "win_wall_s": 203.7}
+{"it": 9, "t_s": 1955.4, "win_ok": true, "win_digest_stable": true, "frame_ms": 10.321294, "vuid_hits": 0, "win_wall_s": 203.4}

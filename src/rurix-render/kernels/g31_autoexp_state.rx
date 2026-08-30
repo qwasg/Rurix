@@ -1,0 +1,64 @@
+//@ spec: RXS-0369（显示链加性面；画质战役 A2 自动曝光第二腿）
+// 自动曝光状态更新 kernel（单线程）：串行求和 512 partials → mean_log →
+// avg_luma = exp2(mean_log)（与 reduce 的 log2 配对，几何均值）→
+// target_gain = key/avg_luma 钳 [min_gain, max_gain] → EMA 状态更新
+// （initialized<0.5 时直取 target，否则 state += (target−state)·rate）→
+// 写 state buffer 并把钳制增益写进 encode 参数 reserved 槽 enc_params[133]
+// （g31_display_encode 消费位——±0 守卫见其 IDT 前增益段；encode 绑定面
+// 零新增 ⇒ g34/g35 等 3 绑定既有消费面不受影响）。
+//
+// ## 状态面（state: 4 f32 SSBO；跨帧持久不清，era/resize 重建时归零再适应）
+//   [0]=gain（EMA 驻态）[1]=initialized（首帧后恒 1.0）
+//   [2]=avg_luma_debug（本帧几何均值，验证面）[3]=frame_count（累计）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// dispatch = [1,1,1] × LocalSize (1,1,1) = 恰一线程；partials 求和 k 升序
+// 串行（与 reduce 分区写序无关——帧内 reduce→state 屏障由 host 计划声明）；
+// EMA 为帧序纯函数 ⇒ 同轨迹双跑位级一致（跨帧反馈 ⇒ 验收口径 = 双跑
+// 一致而非既往锚相等）。codegen 纪律：while 顶层平铺，if 内仅直线写
+// （禁「if 包 while」——A1 在案缺陷绕行形态）。
+//
+// ## 参数面（params: f32 SSBO；host `g31_ae_pack_params` 逐字同源；8 f32）
+//   [0]=pixel_count（reduce 消费，本 kernel 不读）[1]=key [2]=rate
+//   [3]=min_gain [4]=max_gain [5..8)=reserved（恒 0）。
+//   partials: 512 f32（g31_autoexp_reduce 产物）；state: 4 f32（跨帧持久）；
+//   enc_params: g31_display_encode 参数 SSBO（本 kernel 仅写 [133] 增益槽）。
+#[numthreads(1, 1, 1)]
+kernel fn g31_autoexp_state(
+    tc: ThreadCtx<1>,
+    partials: View<global, f32>,
+    params: View<global, f32>,
+    state: ViewMut<global, f32>,
+    enc_params: ViewMut<global, f32>,
+) {
+    let tid = tc.global_id();
+    let mut sum_log = 0.0;
+    let mut cnt = 0.0;
+    let mut k = 0usize;
+    while k < 256 {
+        sum_log = sum_log + partials[k * 2];
+        cnt = cnt + partials[k * 2 + 1];
+        k = k + 1;
+    }
+    let mean_log = sum_log / cnt.max(1.0);
+    let avg_luma = mean_log.exp2();
+    let key = params[1];
+    let rate = params[2];
+    let gain_min = params[3];
+    let gain_max = params[4];
+    let target = (key / avg_luma.max(0.00000001)).max(gain_min).min(gain_max);
+    let prev = state[0];
+    let inited = state[1];
+    let mut gain = prev + (target - prev) * rate;
+    if inited < 0.5 {
+        gain = target;
+    }
+    // dispatch 1 线程语义下 tid 恒 0；守卫为防御性复核（误多派发不叠写）。
+    if tid == 0 {
+        state[0] = gain;
+        state[1] = 1.0;
+        state[2] = avg_luma;
+        state[3] = state[3] + 1.0;
+        enc_params[133] = gain;
+    }
+}

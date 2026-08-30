@@ -1,0 +1,457 @@
+{
+ "schema": "rurix.day0830.w2.kladder.tsrq_clamp_ladder.v1",
+ "judge": "judge_kladder.py(d_ladder.py 复制改造;登记不改任何生产代码/预设)",
+ "caliber": {
+  "protocol": "conv = frames/frame_01*.exr [::2][:16](实取 14 帧),Rec.709 luma 逐像素时域 std 的 ROI p95——d_ladder.py/d_metrics.py 同式",
+  "rois": {
+   "wall": [
+    1400,
+    150,
+    480,
+    270
+   ],
+   "floor": [
+    1100,
+    800,
+    480,
+    270
+   ],
+   "dark_arch": [
+    360,
+    0,
+    360,
+    180
+   ],
+   "dark_table": [
+    560,
+    560,
+    560,
+    200
+   ]
+  },
+  "k_arms_command": "g14_3_pipeline_perf --render 128f(--smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --gi2 on --gi2-clamp 0.01 --tsr-quality on --tsrq-clamp {3|2|1.5});命令在案 ris_nee/REPORT.md §8",
+  "receipt_lane_parity": {
+   "k3": {
+    "scene_spv_sha": true,
+    "resolve_spv_sha": true,
+    "seed": true,
+    "frame_count": true,
+    "exposure": true,
+    "output_size": true
+   },
+   "k2": {
+    "scene_spv_sha": true,
+    "resolve_spv_sha": true,
+    "seed": true,
+    "frame_count": true,
+    "exposure": true,
+    "output_size": true
+   },
+   "k15": {
+    "scene_spv_sha": true,
+    "resolve_spv_sha": true,
+    "seed": true,
+    "frame_count": true,
+    "exposure": true,
+    "output_size": true
+   }
+  },
+  "k0_baseline_registered_gap": {
+   "claim": "EVAL_DENOISE §8 声称 arm4(K=0)d_metrics.json 可直接对照",
+   "finding": "不可直接对照——arm4 实跑臂形 = snrm+gi2c001+tsrq,无 --ggx/--lamp-lights/--lamp-gain(D 相四臂 = snrm 基座 A/B 隔离梯;锚谱系 arm1=夜巡 D2 锚 778f1dfc〔scene SPV=g18_smooth_nrm〕/arm3=C 相锚 6144d9f7);本跑按 §8 命令另含 ggx+lamp-gain 4 两噪声/内容源",
+   "data_evidence": {
+    "converged_global_mean": {
+     "k3": 0.017646655738428555,
+     "k2": 0.01764518976342432,
+     "k15": 0.017641457319704828,
+     "arm4_incase": 0.009757408639741793,
+     "arm1_snrm_incase": 0.009846836450648955
+    },
+    "k3_vs_arm4_pct": 80.85391716150912,
+    "note": "三档较 arm4 全局亮度抬升 = lamp-gain 4 内容签名(A1 在案 off 0.00985→g4 0.0137);跨口径差异非 K 效应"
+   },
+   "cross_caliber_std_p95_ratio_vs_arm4": {
+    "k3": {
+     "wall": 2.93,
+     "floor": 4.33,
+     "dark_arch": 12.6,
+     "dark_table": 8.8
+    },
+    "k2": {
+     "wall": 2.93,
+     "floor": 4.33,
+     "dark_arch": 12.6,
+     "dark_table": 8.78
+    },
+    "k15": {
+     "wall": 2.92,
+     "floor": 4.32,
+     "dark_arch": 12.59,
+     "dark_table": 8.76
+    }
+   },
+   "cross_note": "三档 std_p95 较 arm4 高 3~12× 且三档互差 <1% ⇒ 抬升源 = ggx 1spp 镜面 + 12 灯点光内容差,非 K 效应;E 相 BENCH_QL(e2_equivalence.py)同旗形但挂 ambient 0.004 + warmup 10,在案亦无同口径 K=0 跑",
+   "consequence": "判据改梯内趋势(k3 为参照,K 收紧 3→2→1.5 边际效应)——任务预设分支「口径差如实登记并以三档间趋势判读」"
+  },
+  "registered_gaps": [
+   "EVAL_DENOISE §8 远小灯原型判据 = dolly f0240 远灯 ROI,本跑批无 dolly 腿——以 conv converged.exr(frame_0127,三档同 seed 同 jitter 相位逐像素可比)小连通域替位判读",
+   "无梯内 K=0 bench 跑(§8 设计依赖 arm4 在案,上项口径差致空缺)——「K vs 0 绝对收益」不可判,本判读只证「K∈[1.5,3] 旋钮近惰性」;若未来重开 K 线,须先补同旗形 --tsrq-clamp 0 基线跑",
+   "K<1.5 未测(阶梯定义域外;kernel 原注 K 过小杀合法孤立小灯,更紧档风险单调升)",
+   "窗口腿 K=0 无 ev_k0.json 落盘(= W4 full19 锚 7636f72f 在案);窗口三档 digest 分离仅作 K 接线生效证据,不入画质判据"
+  ],
+  "thresholds_choice": {
+   "lamp_luma_thr": 1.0,
+   "lamp_area_max_px": 300,
+   "lamp_kill_ratio": 0.75,
+   "lamp_dim_ratio": 0.95,
+   "lamp_pass": "梯内 median_drop ≤5.0% ∧ kills=0",
+   "knob_active": "max(dark_arch,dark_table) 梯内降 ≥10.0% ∧ 四 ROI 无一梯内升 >5.0%",
+   "note": "EVAL_DENOISE §8 未给数值阈——本判读选择,登记供复评"
+  }
+ },
+ "selfcheck_arm4_converged": {
+  "ok": true,
+  "fields": {
+   "converged_global_mean": {
+    "got": 0.009757408639741793,
+    "want": 0.009757408639741793
+   },
+   "wall": {
+    "mean": {
+     "got": 0.01988603847572526,
+     "want": 0.01988603847572526
+    },
+    "p50": {
+     "got": 0.0010089525500079617,
+     "want": 0.0010089525500079617
+    }
+   },
+   "floor": {
+    "mean": {
+     "got": 0.00032735215716457594,
+     "want": 0.00032735215716457594
+    },
+    "p50": {
+     "got": 0.0003279800920805428,
+     "want": 0.0003279800920805428
+    }
+   },
+   "dark_arch": {
+    "mean": {
+     "got": 0.010325431277820016,
+     "want": 0.010325431277820016
+    },
+    "p50": {
+     "got": 3.20097208585139e-05,
+     "want": 3.20097208585139e-05
+    }
+   },
+   "dark_table": {
+    "mean": {
+     "got": 0.00023320455136135413,
+     "want": 0.00023320455136135413
+    },
+    "p50": {
+     "got": 5.609122771202237e-05,
+     "want": 5.609122771202237e-05
+    }
+   }
+  }
+ },
+ "bench_wiring_digest_separation": {
+  "k3_vs_k2_differing_frames": 127,
+  "k3_vs_k15_differing_frames": 127,
+  "k2_vs_k15_differing_frames": 127,
+  "of_frames": 128
+ },
+ "frames_used": {
+  "k3": 14,
+  "k2": 14,
+  "k15": 14
+ },
+ "conv_std_p95": {
+  "k3": {
+   "wall": 0.00038170238802957975,
+   "floor": 0.00024667836858891206,
+   "dark_arch": 0.0006219089229325143,
+   "dark_table": 0.0005844972950477871
+  },
+  "k2": {
+   "wall": 0.00038152502639395507,
+   "floor": 0.00024656709498714293,
+   "dark_arch": 0.000621907816110333,
+   "dark_table": 0.0005829829009714552
+  },
+  "k15": {
+   "wall": 0.0003802307587198014,
+   "floor": 0.0002460117639447669,
+   "dark_arch": 0.0006216162658087237,
+   "dark_table": 0.0005817818071972861
+  },
+  "arm4_incase_cross_caliber": {
+   "wall": 0.00013023948217661982,
+   "floor": 5.6945085280156036e-05,
+   "dark_arch": 4.935624928024343e-05,
+   "dark_table": 6.642779784722975e-05
+  }
+ },
+ "within_ladder_drops_vs_k3_pct": {
+  "k2": {
+   "wall": 0.046,
+   "floor": 0.045,
+   "dark_arch": 0.0,
+   "dark_table": 0.259
+  },
+  "k15": {
+   "wall": 0.386,
+   "floor": 0.27,
+   "dark_arch": 0.047,
+   "dark_table": 0.465
+  }
+ },
+ "monotonic_k3_k2_k15": {
+  "wall": true,
+  "floor": true,
+  "dark_arch": true,
+  "dark_table": true
+ },
+ "clamp_engagement_converged": {
+  "frac_px_rel_gt_1pct_k15_vs_k3": 0.018227237654320987,
+  "rel_p999_k15_vs_k3": 0.03743110129245177,
+  "rel_max_k15_vs_k3": 0.488537518452185
+ },
+ "knob_active": {
+  "k2": false,
+  "k15": false
+ },
+ "far_small_lamp_fidelity": {
+  "detection": {
+   "reference": "k3 converged.exr(梯内参照 = 最松档;frame_0127,三档同 seed 同 jitter 相位)",
+   "luma_threshold": 1.0,
+   "area_max_px": 300,
+   "connectivity": 8,
+   "n_components_total": 23,
+   "n_small_lamps": 17,
+   "n_big_emitters_excluded": 6
+  },
+  "per_k": {
+   "k2": {
+    "n_lamps": 17,
+    "median_ratio_vs_k3": 0.9999999918384966,
+    "median_drop_pct": 8.161503362025258e-07,
+    "min_ratio_vs_k3": 0.9999979964650652,
+    "kills_lt_0p75": 0,
+    "dims_lt_0p95": 0,
+    "by_size": {
+     "px_1_4": {
+      "n": 3,
+      "median_ratio": 1.0,
+      "min_ratio": 0.9999979964650652,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     },
+     "px_5_32": {
+      "n": 4,
+      "median_ratio": 1.000000017876836,
+      "min_ratio": 0.9999999864945847,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     },
+     "px_33_300": {
+      "n": 10,
+      "median_ratio": 0.9999999903329259,
+      "min_ratio": 0.9999997887553185,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     }
+    },
+    "pass": true
+   },
+   "k15": {
+    "n_lamps": 17,
+    "median_ratio_vs_k3": 0.9999999635815909,
+    "median_drop_pct": 3.6418409066207857e-06,
+    "min_ratio_vs_k3": 0.9999905340989842,
+    "kills_lt_0p75": 0,
+    "dims_lt_0p95": 0,
+    "by_size": {
+     "px_1_4": {
+      "n": 3,
+      "median_ratio": 1.0,
+      "min_ratio": 0.9999905340989842,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     },
+     "px_5_32": {
+      "n": 4,
+      "median_ratio": 0.9999999798364119,
+      "min_ratio": 0.9999999507902133,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     },
+     "px_33_300": {
+      "n": 10,
+      "median_ratio": 0.9999999493943065,
+      "min_ratio": 0.9999987204812791,
+      "kills_lt_0p75": 0,
+      "dims_lt_0p95": 0
+     }
+    },
+    "pass": true
+   }
+  },
+  "cross_caliber_arm4_same_mask": {
+   "median_arm4_over_k3": 0.9657619714819636,
+   "note": "arm4/k3 ≈ 1/(1.005) 即三档灯核较 arm4 亮 ~0.5%(ggx/灯光内容差方向,与误杀反向)——无 K 误杀迹象的跨口径旁证"
+  },
+  "worst8_by_k15_vs_k3": [
+   {
+    "id": 20,
+    "area": 1,
+    "bbox_xywh": [
+     1041,
+     275,
+     1,
+     1
+    ],
+    "k3_mean_luma": 1.334049772167206,
+    "k2_mean_luma": 1.3340470993518827,
+    "k2_ratio_vs_k3": 0.9999979964650652,
+    "k15_mean_luma": 1.3340371441841126,
+    "k15_ratio_vs_k3": 0.9999905340989842,
+    "arm4_cross_ratio": 0.8846725007266326
+   },
+   {
+    "id": 9,
+    "area": 230,
+    "bbox_xywh": [
+     859,
+     156,
+     3,
+     78
+    ],
+    "k3_mean_luma": 1.3895936697464404,
+    "k2_mean_luma": 1.3895933762021682,
+    "k2_ratio_vs_k3": 0.9999997887553185,
+    "k15_mean_luma": 1.3895918917353256,
+    "k15_ratio_vs_k3": 0.9999987204812791,
+    "arm4_cross_ratio": 0.9982318119329088
+   },
+   {
+    "id": 16,
+    "area": 118,
+    "bbox_xywh": [
+     1040,
+     213,
+     2,
+     60
+    ],
+    "k3_mean_luma": 1.100580395177259,
+    "k2_mean_luma": 1.1005802541611558,
+    "k2_ratio_vs_k3": 0.9999998718711474,
+    "k15_mean_luma": 1.1005798736446994,
+    "k15_ratio_vs_k3": 0.9999995261295205,
+    "arm4_cross_ratio": 0.9972304941321123
+   },
+   {
+    "id": 7,
+    "area": 290,
+    "bbox_xywh": [
+     554,
+     135,
+     5,
+     82
+    ],
+    "k3_mean_luma": 1.3694701098229967,
+    "k2_mean_luma": 1.3694700972780687,
+    "k2_ratio_vs_k3": 0.9999999908395751,
+    "k15_mean_luma": 1.369469940792939,
+    "k15_ratio_vs_k3": 0.9999998765726564,
+    "arm4_cross_ratio": 0.998168441786569
+   },
+   {
+    "id": 19,
+    "area": 69,
+    "bbox_xywh": [
+     1163,
+     241,
+     13,
+     7
+    ],
+    "k3_mean_luma": 1.379787099165156,
+    "k2_mean_luma": 1.3797870802298837,
+    "k2_ratio_vs_k3": 0.9999999862766711,
+    "k15_mean_luma": 1.3797869563365326,
+    "k15_ratio_vs_k3": 0.9999998964850276,
+    "arm4_cross_ratio": 0.9956195825065043
+   },
+   {
+    "id": 15,
+    "area": 106,
+    "bbox_xywh": [
+     1033,
+     198,
+     16,
+     10
+    ],
+    "k3_mean_luma": 1.3876904174651739,
+    "k2_mean_luma": 1.3876904033471953,
+    "k2_ratio_vs_k3": 0.9999999898262766,
+    "k15_mean_luma": 1.3876903275525792,
+    "k15_ratio_vs_k3": 0.999999935207022,
+    "arm4_cross_ratio": 0.9947552915715663
+   },
+   {
+    "id": 13,
+    "area": 15,
+    "bbox_xywh": [
+     1555,
+     194,
+     14,
+     2
+    ],
+    "k3_mean_luma": 1.0396277289056777,
+    "k2_mean_luma": 1.0396277659797668,
+    "k2_ratio_vs_k3": 1.0000000356609275,
+    "k15_mean_luma": 1.0396276777458189,
+    "k15_ratio_vs_k3": 0.9999999507902133,
+    "arm4_cross_ratio": 0.7758299561678865
+   },
+   {
+    "id": 21,
+    "area": 7,
+    "bbox_xywh": [
+     1169,
+     275,
+     1,
+     7
+    ],
+    "k3_mean_luma": 1.0102946234703063,
+    "k2_mean_luma": 1.0102946527685437,
+    "k2_ratio_vs_k3": 1.0000000289996964,
+    "k15_mean_luma": 1.0102945827279772,
+    "k15_ratio_vs_k3": 0.9999999596728241,
+    "arm4_cross_ratio": 0.9968910548421901
+   }
+  ]
+ },
+ "lamp_pass_within_ladder": {
+  "k2": true,
+  "k15": true
+ },
+ "window_leg_wiring_evidence": {
+  "source": "kladder_runs.json(--quality full ×96f presented digest)",
+  "k3": "0771d02a…",
+  "k2": "b715fac2…",
+  "k15": "0067c520…",
+  "k0_full19_anchor": "7636f72f…(W4 s02)",
+  "note": "三档互异且异于 K=0 锚 = K 旋钮窗口链生效;不入画质判据"
+ },
+ "verdict": {
+  "state": "closed",
+  "recommended_k": null,
+  "positive_ks": [],
+  "action": "K 档关死,降噪投资转第 1 级(tsrq v4 方差引导,EVAL_DENOISE §7 路线表)",
+  "basis": "阶梯定义域 K∈[1.5,3] 内旋钮近惰性:四 ROI std_p95 梯内边际降 <1%(远低于 10% 有效阈),clamp 触发面 <0.1% 像素;远小灯梯内无损但也无萤火虫收益——正区间在实测定义域内不存在"
+ }
+}

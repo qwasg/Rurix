@@ -86,6 +86,14 @@ required-features = ["vulkan-backend"]
 name = "compute_w1_vulkan_spirv_val"
 required-features = ["vulkan-backend"]
 
+# G37 W1「if 包 while」codegen 缺陷回归(day_0828 A1 登记,HANDOVER §A.3):
+# structured_merge 回边裁剪修复的四形态语料机验(结构不变量恒跑 + spirv-val 腿),
+# 消费 vulkan_codegen::build_and_emit_vulkan,须 vulkan-backend(#175 教训
+# 「新 test 必登 required-features」,镜像 compute_w1)。
+[[test]]
+name = "compute_if_while_vulkan_spirv_val"
+required-features = ["vulkan-backend"]
+
 [[test]]
 name = "compute_w2_vulkan_spirv_val"
 required-features = ["vulkan-backend"]

@@ -1,0 +1,1980 @@
+{
+ "schema": "rurix.day0829.a4_normalmap.bake_manifest.v1",
+ "gltf": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+ "gltf_sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+ "slot_law": "g31_tex_load_heap top-70 同律:逐材质三角数降序,并列 material_index 升序;三角数=nodes[]序×primitive accessors[indices].count/3（mode==4/indices 强制,无 material 不计）",
+ "bc5_law": "BC5=R/G 两 BC4 块（各 8B:2 端点+16×3bit LE）;标准 D3D/bcdec 表 gt:((8-n)e0+(n-1)e1)//7, le:((6-n)e0+(n-1)e1)//5,idx6=0,idx7=255;整数地板除",
+ "wiring_note": "lane_body bc4_alpha 现行系数族 (8-(n-1))/7 较标准多 +e0/7（BC3-A 休眠面 kernel 不消费）;臂④运行时接线必须用标准表",
+ "png_law": "RGB8: R=X, G=Y, B=128 常量;mip0-only（源 DDS 自带完整 mip 链,运行时接线按 DDS 逐级解码零重采样或 .rgba8bin 容器路线,PNG 非运行时消费件）",
+ "counts": {
+  "materials_total": 70,
+  "with_normal_texture": 70,
+  "slots_ranked": 70,
+  "baked": 70,
+  "anomalies": 0
+ },
+ "limit": null,
+ "entries": [
+  {
+   "slot": 0,
+   "material_index": 7,
+   "material_name": "TransparentGlass.DoubleSided",
+   "tris": 130792,
+   "source_uri": "TransparentGlass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot00_TransparentGlass_DoubleSided.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 1,
+   "material_index": 41,
+   "material_name": "Paris_Table_03",
+   "tris": 121816,
+   "source_uri": "Paris_Table_03_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1d4689004bd019ec5789761138876e877584b634f8c851ef7c6059ecef664cde",
+   "file": "slot01_Paris_Table_03.png",
+   "png_sha256": "sha256:03dc40089cfed7fa9bcbde4f3d691cfdf2a86c41b25219807b22a44d6b54fe7a",
+   "mean_xy": [
+    127.547,
+    127.159
+   ],
+   "min_xy": [
+    119,
+    123
+   ],
+   "max_xy": [
+    137,
+    132
+   ]
+  },
+  {
+   "slot": 2,
+   "material_index": 54,
+   "material_name": "Plates_Ceramic",
+   "tris": 99582,
+   "source_uri": "Plates_Ceramic_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot02_Plates_Ceramic.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 3,
+   "material_index": 22,
+   "material_name": "Paris_BarStool",
+   "tris": 56658,
+   "source_uri": "Paris_BarStool_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:068f012e87dbe65fbf6515900db7c0e9741d3384d43c69672485da25754612d8",
+   "file": "slot03_Paris_BarStool.png",
+   "png_sha256": "sha256:7c86c948fffa5cb9ace130c8c5c923c8a112ebb0e9da2dcbfe7a256381bf7903",
+   "mean_xy": [
+    127.539,
+    127.375
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    254
+   ]
+  },
+  {
+   "slot": 4,
+   "material_index": 47,
+   "material_name": "Paris_LiquorBottle_02_Glass",
+   "tris": 51324,
+   "source_uri": "Paris_LiquorBottle_02_Glass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot04_Paris_LiquorBottle_02_Glass.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 5,
+   "material_index": 9,
+   "material_name": "Paris_LiquorBottle_01_Caps",
+   "tris": 49714,
+   "source_uri": "Paris_LiquorBottle_01_Caps_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fbbabcaf2c591b8e095f5623d1bf876f66633d1c9c3fd9a5064855d722b540d1",
+   "file": "slot05_Paris_LiquorBottle_01_Caps.png",
+   "png_sha256": "sha256:4d629b0505bef76aa0376fbf7f7205383c46a90c30ddc037c1ba30400dc37b31",
+   "mean_xy": [
+    127.083,
+    121.127
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    253,
+    254
+   ]
+  },
+  {
+   "slot": 6,
+   "material_index": 55,
+   "material_name": "Paris_Radiator",
+   "tris": 39216,
+   "source_uri": "Paris_Radiator_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a79fda89d098a0f0b81a808fab681e93d9297ad690595b73d56de1e48c47f152",
+   "file": "slot06_Paris_Radiator.png",
+   "png_sha256": "sha256:ea97c656e6f8fd3a372074770776d31344b8a337397b8e93942095bd7654d17c",
+   "mean_xy": [
+    128.727,
+    126.654
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    254
+   ]
+  },
+  {
+   "slot": 7,
+   "material_index": 5,
+   "material_name": "ToffeeJar_Label",
+   "tris": 32935,
+   "source_uri": "ToffeeJar_Label_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1612c6ad4fab452180950e61c3826a4f2fc1c3b8298f829b88f86a0503d37142",
+   "file": "slot07_ToffeeJar_Label.png",
+   "png_sha256": "sha256:841c25b090887181d24dcf5ac663d4c1669e63eda425c5c80b3c3d3890d26291",
+   "mean_xy": [
+    127.606,
+    127.612
+   ],
+   "min_xy": [
+    110,
+    111
+   ],
+   "max_xy": [
+    144,
+    143
+   ]
+  },
+  {
+   "slot": 8,
+   "material_index": 63,
+   "material_name": "WickerBasket",
+   "tris": 29925,
+   "source_uri": "WickerBasket_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:33f11dfeb29a3e544c1b8e94c44c3d31685909ff3ec7d4fa7d76f8bced5536c9",
+   "file": "slot08_WickerBasket.png",
+   "png_sha256": "sha256:d53a7f825ef3d264c71a6021879a2677f0fd616ec08781bc443ecdc29509298e",
+   "mean_xy": [
+    135.924,
+    116.135
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    252
+   ]
+  },
+  {
+   "slot": 9,
+   "material_index": 42,
+   "material_name": "Metal_Worn_01",
+   "tris": 29630,
+   "source_uri": "Metal_Worn_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:3c690eece4bbc88a6227b739b582e5fada1f2d16cbaf5b355513f92b82786c4f",
+   "file": "slot09_Metal_Worn_01.png",
+   "png_sha256": "sha256:736454d3b2034b43c7bb0146f02c57edf1244d2f748e123b7bb6304bffc6a652",
+   "mean_xy": [
+    126.1,
+    125.986
+   ],
+   "min_xy": [
+    94,
+    92
+   ],
+   "max_xy": [
+    149,
+    154
+   ]
+  },
+  {
+   "slot": 10,
+   "material_index": 8,
+   "material_name": "Paris_LiquorBottle_01_Glass_Wine",
+   "tris": 28308,
+   "source_uri": "Paris_LiquorBottle_01_Glass_Wine_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot10_Paris_LiquorBottle_01_Glass_Wine.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 11,
+   "material_index": 15,
+   "material_name": "Cutlery_chrome",
+   "tris": 27978,
+   "source_uri": "Cutlery_chrome_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1223d4aa14002ddb62e4894fceb6671a7c448db447df08fafef537bcb4cbaeab",
+   "file": "slot11_Cutlery_chrome.png",
+   "png_sha256": "sha256:d12652af6836984943c1d9fafbe203934524feaa203309db782c1716471aff68",
+   "mean_xy": [
+    127.535,
+    127.969
+   ],
+   "min_xy": [
+    115,
+    117
+   ],
+   "max_xy": [
+    136,
+    139
+   ]
+  },
+  {
+   "slot": 12,
+   "material_index": 14,
+   "material_name": "curtainB1",
+   "tris": 26252,
+   "source_uri": "curtainB1_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:7fd5afd433c9c7fb679a9521b4eed85540787609beffd22715c42e12cd20d3c2",
+   "file": "slot12_curtainB1.png",
+   "png_sha256": "sha256:da91e73345d4bd23fa08381c05af9e6e239e8ffc577747f162aeb8023afe0c6a",
+   "mean_xy": [
+    124.408,
+    131.302
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 13,
+   "material_index": 48,
+   "material_name": "Paris_LiquorBottle_01_Glass",
+   "tris": 24352,
+   "source_uri": "Paris_LiquorBottle_01_Glass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot13_Paris_LiquorBottle_01_Glass.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 14,
+   "material_index": 12,
+   "material_name": "Paris_Table_cloth_01",
+   "tris": 24088,
+   "source_uri": "Paris_Table_cloth_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:cee68892ce8414032350389cd24ebcb44753ff9d02441f99bd24819d3e9a520c",
+   "file": "slot14_Paris_Table_cloth_01.png",
+   "png_sha256": "sha256:12c15700ced41cdf3a41da94a608c920e9f2a545fbeab65c833bec1f2ab0afca",
+   "mean_xy": [
+    53.0,
+    53.0
+   ],
+   "min_xy": [
+    53,
+    53
+   ],
+   "max_xy": [
+    53,
+    53
+   ]
+  },
+  {
+   "slot": 15,
+   "material_index": 3,
+   "material_name": "Paris_Coasters_01",
+   "tris": 22400,
+   "source_uri": "Paris_Coasters_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:b7e85daae26b7d143dbe9b15a85891a7644b3e1ba5336525d3bb198f942ad21b",
+   "file": "slot15_Paris_Coasters_01.png",
+   "png_sha256": "sha256:5fbec77189e2c31ccc2334c1e4fc6a4c8626d200d630d985a08f5f3a88c47d31",
+   "mean_xy": [
+    127.231,
+    128.749
+   ],
+   "min_xy": [
+    3,
+    3
+   ],
+   "max_xy": [
+    251,
+    254
+   ]
+  },
+  {
+   "slot": 16,
+   "material_index": 59,
+   "material_name": "Paris_Wall_Light_Interior",
+   "tris": 21504,
+   "source_uri": "Paris_Wall_Light_Interior_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a31e3abe52187f3fd336b19d1de8af201a9c006777f7487658a3e9a656251bfa",
+   "file": "slot16_Paris_Wall_Light_Interior.png",
+   "png_sha256": "sha256:f4ccf29fec27540912cd40c61614461357f79e4611159ac5d12b5c20aa5bce25",
+   "mean_xy": [
+    125.911,
+    127.224
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 17,
+   "material_index": 28,
+   "material_name": "MASTER_Wood_Painted3",
+   "tris": 19640,
+   "source_uri": "MASTER_Wood_Painted3_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:b6a787df4c9d0deb59b8393fbe6234f9dc87273f0e08d94befac4beafc3968b6",
+   "file": "slot17_MASTER_Wood_Painted3.png",
+   "png_sha256": "sha256:c6dd2a1672191d6fe96fa8bb787f1ec1f20d68cf5b90c382f446e64063992468",
+   "mean_xy": [
+    127.063,
+    127.145
+   ],
+   "min_xy": [
+    101,
+    101
+   ],
+   "max_xy": [
+    152,
+    154
+   ]
+  },
+  {
+   "slot": 18,
+   "material_index": 25,
+   "material_name": "MASTER_Interior_01_Wood",
+   "tris": 17434,
+   "source_uri": "MASTER_Interior_01_Wood_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1d4689004bd019ec5789761138876e877584b634f8c851ef7c6059ecef664cde",
+   "file": "slot18_MASTER_Interior_01_Wood.png",
+   "png_sha256": "sha256:03dc40089cfed7fa9bcbde4f3d691cfdf2a86c41b25219807b22a44d6b54fe7a",
+   "mean_xy": [
+    127.547,
+    127.159
+   ],
+   "min_xy": [
+    119,
+    123
+   ],
+   "max_xy": [
+    137,
+    132
+   ]
+  },
+  {
+   "slot": 19,
+   "material_index": 49,
+   "material_name": "Paris_LiquorBottle_03_Glass",
+   "tris": 14336,
+   "source_uri": "Paris_LiquorBottle_03_Glass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot19_Paris_LiquorBottle_03_Glass.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 20,
+   "material_index": 58,
+   "material_name": "ToffeeJar_Toffee",
+   "tris": 14248,
+   "source_uri": "ToffeeJar_Toffee_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:cc35ca92f1cb617427047dfacf4f45eedd73e0b1b50c0fe2c57ef06f010afab5",
+   "file": "slot20_ToffeeJar_Toffee.png",
+   "png_sha256": "sha256:9114f8e45eff87a07fe90ea2991b8d6004b614cc850a6e65059a4e5e4ebd051f",
+   "mean_xy": [
+    127.12,
+    127.031
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    254
+   ]
+  },
+  {
+   "slot": 21,
+   "material_index": 10,
+   "material_name": "Metal_Chrome1",
+   "tris": 14210,
+   "source_uri": "Metal_Chrome1_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:26e923379d2ae9b3d8ddf402213cdf571dd8ac49c5ddaeeaa3cd3c4551a13d3c",
+   "file": "slot21_Metal_Chrome1.png",
+   "png_sha256": "sha256:11ea2919bc2bfbb5b79563215c8f193a82cb15f08ebd1fd150e909f543862bee",
+   "mean_xy": [
+    127.402,
+    126.844
+   ],
+   "min_xy": [
+    124,
+    121
+   ],
+   "max_xy": [
+    131,
+    132
+   ]
+  },
+  {
+   "slot": 22,
+   "material_index": 30,
+   "material_name": "MASTER_Interior_01_Brushed_Metal",
+   "tris": 12514,
+   "source_uri": "MASTER_Interior_01_Brushed_Metal_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot22_MASTER_Interior_01_Brushed_Metal.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 23,
+   "material_index": 18,
+   "material_name": "NapkinHolder_01",
+   "tris": 11990,
+   "source_uri": "NapkinHolder_01_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot23_NapkinHolder_01.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 24,
+   "material_index": 13,
+   "material_name": "curtainA",
+   "tris": 11256,
+   "source_uri": "curtainA_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:c5c4297a4d5bcd67e629ddaafb835a1c3a489e916d40d33aa4815fe4cdb9be46",
+   "file": "slot24_curtainA.png",
+   "png_sha256": "sha256:348da7a8beb78174faccea5646286e3f9fd1e7117a41fbe5b8f142a271ca9210",
+   "mean_xy": [
+    123.641,
+    135.813
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    254
+   ]
+  },
+  {
+   "slot": 25,
+   "material_index": 16,
+   "material_name": "Cutlery_details",
+   "tris": 10840,
+   "source_uri": "Cutlery_details_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:ac348462890bdc17fe2667886e9180c20aa1679587974e6aae365bee427e39e7",
+   "file": "slot25_Cutlery_details.png",
+   "png_sha256": "sha256:b3d550cbc8f5caea2d38f28562d990676da11534900e620603ef770fbca0969f",
+   "mean_xy": [
+    127.238,
+    126.876
+   ],
+   "min_xy": [
+    39,
+    39
+   ],
+   "max_xy": [
+    215,
+    214
+   ]
+  },
+  {
+   "slot": 26,
+   "material_index": 23,
+   "material_name": "Paris_Beertap",
+   "tris": 10200,
+   "source_uri": "Paris_Beertap_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:e1fe107a9543abafc5d3afad7111fba2f63b3f96fa638458c2fe75b9e3699e3b",
+   "file": "slot26_Paris_Beertap.png",
+   "png_sha256": "sha256:609cd7a14ccb5705f6e931161d3b0f45a7182888bc0e737fd31cb96da3926294",
+   "mean_xy": [
+    126.911,
+    127.465
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 27,
+   "material_index": 40,
+   "material_name": "Paris_CeilingFan",
+   "tris": 9288,
+   "source_uri": "Paris_CeilingFan_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:e436130ff3ee789f63334f6b4c03f281e7d019e32965b1503df0778d6160b9f1",
+   "file": "slot27_Paris_CeilingFan.png",
+   "png_sha256": "sha256:9c62b7554d16064db1777cb3e79117d5fe80ad68386d364e53269803a334f29e",
+   "mean_xy": [
+    127.938,
+    124.639
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 28,
+   "material_index": 4,
+   "material_name": "ToffeeJar_Metal",
+   "tris": 7504,
+   "source_uri": "ToffeeJar_Metal_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:26e923379d2ae9b3d8ddf402213cdf571dd8ac49c5ddaeeaa3cd3c4551a13d3c",
+   "file": "slot28_ToffeeJar_Metal.png",
+   "png_sha256": "sha256:11ea2919bc2bfbb5b79563215c8f193a82cb15f08ebd1fd150e909f543862bee",
+   "mean_xy": [
+    127.402,
+    126.844
+   ],
+   "min_xy": [
+    124,
+    121
+   ],
+   "max_xy": [
+    131,
+    132
+   ]
+  },
+  {
+   "slot": 29,
+   "material_index": 53,
+   "material_name": "Plates_Details",
+   "tris": 6972,
+   "source_uri": "Plates_Details_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:b88a5cdf4ff4016416c1fac3d7ea660a13e6471a689e220f23ad158a40260c17",
+   "file": "slot29_Plates_Details.png",
+   "png_sha256": "sha256:ca725cc59a0f07f1c3c94699213a7e791b1d7956fb55c2842c44e0b6633fd103",
+   "mean_xy": [
+    127.231,
+    127.014
+   ],
+   "min_xy": [
+    105,
+    100
+   ],
+   "max_xy": [
+    154,
+    156
+   ]
+  },
+  {
+   "slot": 30,
+   "material_index": 1,
+   "material_name": "Paris_Cashregister_Buttons",
+   "tris": 6912,
+   "source_uri": "Paris_Cashregister_Buttons_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:29c02845ee50d0d4de20035e81448a6b439dd0ee3b067aac3a981625d106ef1d",
+   "file": "slot30_Paris_Cashregister_Buttons.png",
+   "png_sha256": "sha256:5c75ca3638e92384d3e1fa200b6bede98af1e67b568cb18fa8095acaeac1fcfa",
+   "mean_xy": [
+    126.304,
+    129.737
+   ],
+   "min_xy": [
+    5,
+    2
+   ],
+   "max_xy": [
+    250,
+    254
+   ]
+  },
+  {
+   "slot": 31,
+   "material_index": 6,
+   "material_name": "CookieJar_Cookies",
+   "tris": 6776,
+   "source_uri": "CookieJar_Cookies_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:050a6679166908620d56305667622a27cf96cdc82970bdf1491d0e8c4b238a1b",
+   "file": "slot31_CookieJar_Cookies.png",
+   "png_sha256": "sha256:929c22cb0e3a3812f7111fca143fc621a66cbc7283c87167a41a2c6a94e834b8",
+   "mean_xy": [
+    127.631,
+    127.121
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    250
+   ]
+  },
+  {
+   "slot": 32,
+   "material_index": 39,
+   "material_name": "Paris_Ceiling_Lamp",
+   "tris": 6768,
+   "source_uri": "Paris_Ceiling_Lamp_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1b820949ddc1b2d29ec18d43c5719c2f538797d6e2be05bfbe27eaa6dabea9ad",
+   "file": "slot32_Paris_Ceiling_Lamp.png",
+   "png_sha256": "sha256:ee4c19ece8485331c4c236c0df461360460cbbc066543e95f06fd4134022a0fa",
+   "mean_xy": [
+    127.939,
+    126.796
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 33,
+   "material_index": 50,
+   "material_name": "Paris_Painting_Metal",
+   "tris": 6500,
+   "source_uri": "Paris_Painting_Metal_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a6ea0bc6296a2097176fc62958561f611699f29c9c4c160275d437d5cef9b9f1",
+   "file": "slot33_Paris_Painting_Metal.png",
+   "png_sha256": "sha256:cdabedeaae6e8b8ee1f14dbae78614674af5d38f195c29ba8ffd113886cda7f5",
+   "mean_xy": [
+    127.101,
+    129.163
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 34,
+   "material_index": 38,
+   "material_name": "MASTER_Interior_01_Paris_Lantern",
+   "tris": 6464,
+   "source_uri": "MASTER_Interior_01_Paris_Lantern_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:d6a5d1677bfaff1c0330489d1611b3b14f0b766f83585e57cdaf68260b3b016e",
+   "file": "slot34_MASTER_Interior_01_Paris_Lantern.png",
+   "png_sha256": "sha256:e57ad4031faa9b454bfe63c685ca91d63e1b31ccf069abab8a77c9cf415cda9c",
+   "mean_xy": [
+    125.151,
+    125.846
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    253,
+    252
+   ]
+  },
+  {
+   "slot": 35,
+   "material_index": 65,
+   "material_name": "MASTER_Bistro_Main_Door",
+   "tris": 5772,
+   "source_uri": "MASTER_Bistro_Main_Door_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:f4f667f6062b4cb38641c421f2b111c9bfbf0a35649db132577da4416b2ffb69",
+   "file": "slot35_MASTER_Bistro_Main_Door.png",
+   "png_sha256": "sha256:db2533fd58ea3d1fd408a81ac530ea224f0fc66f1504a32ec8e5080a47692557",
+   "mean_xy": [
+    127.334,
+    128.071
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    254
+   ]
+  },
+  {
+   "slot": 36,
+   "material_index": 34,
+   "material_name": "MASTER_Interior_01_Paris_Bartrim",
+   "tris": 5763,
+   "source_uri": "MASTER_Interior_01_Paris_Bartrim_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1fbb99d0886dde48f9db0a4729b2ee47ed99c4788ee55afe52bc409cc53b5280",
+   "file": "slot36_MASTER_Interior_01_Paris_Bartrim.png",
+   "png_sha256": "sha256:22c12fda508df7f98f4ad1603c2b315287062f93f3210f4535dc2fa36dc2e288",
+   "mean_xy": [
+    127.34,
+    130.079
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    251,
+    253
+   ]
+  },
+  {
+   "slot": 37,
+   "material_index": 45,
+   "material_name": "Plants_Metal_Base_01",
+   "tris": 3834,
+   "source_uri": "Plants_Metal_Base_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:2c1b54e3cc8f65d64757b73422d47534feaecef2ca9b5fd27549cd53ac51741f",
+   "file": "slot37_Plants_Metal_Base_01.png",
+   "png_sha256": "sha256:b07b4c6ec2d7cb4c39af2e7c7a148555ac3aa146e856b892aa69eceff51cc96c",
+   "mean_xy": [
+    126.1,
+    125.983
+   ],
+   "min_xy": [
+    94,
+    92
+   ],
+   "max_xy": [
+    149,
+    154
+   ]
+  },
+  {
+   "slot": 38,
+   "material_index": 0,
+   "material_name": "Paris_Cashregister",
+   "tris": 3369,
+   "source_uri": "Paris_Cashregister_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:58d74e2da15dc66dbf01732658cb983ce55f5d830e020eb1143d8f87ad4cc3d8",
+   "file": "slot38_Paris_Cashregister.png",
+   "png_sha256": "sha256:53d71f146a9dd723b7beb912530ca315d04250ff5f84a753d27e979cbbaca6bf",
+   "mean_xy": [
+    124.652,
+    123.087
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    254
+   ]
+  },
+  {
+   "slot": 39,
+   "material_index": 20,
+   "material_name": "Trolley_Wheels",
+   "tris": 2400,
+   "source_uri": "Trolley_Wheels_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:c1965e936dde3df22d8791080a0d10da5bfb900159b5bd915594cc31892aa167",
+   "file": "slot39_Trolley_Wheels.png",
+   "png_sha256": "sha256:f1318cc6595a879668e66d222a092eb69aed045bdc1790964fe1920e922f5041",
+   "mean_xy": [
+    126.746,
+    126.943
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    254
+   ]
+  },
+  {
+   "slot": 40,
+   "material_index": 35,
+   "material_name": "MASTER_Interior_01_White_Plastic",
+   "tris": 2132,
+   "source_uri": "MASTER_Interior_01_White_Plastic_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot40_MASTER_Interior_01_White_Plastic.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 41,
+   "material_index": 46,
+   "material_name": "Plants_plants.DoubleSided",
+   "tris": 2064,
+   "source_uri": "Plants_plants_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:91ec65c56ecb191a950dbc7d4e7767a9839896e4d4b257e8712393233d1004ee",
+   "file": "slot41_Plants_plants_DoubleSided.png",
+   "png_sha256": "sha256:ff24ba0c86fbe337f387abf4d3d88f223ca93180ca235739b0e1c33685aa213e",
+   "mean_xy": [
+    127.43,
+    127.272
+   ],
+   "min_xy": [
+    88,
+    74
+   ],
+   "max_xy": [
+    185,
+    167
+   ]
+  },
+  {
+   "slot": 42,
+   "material_index": 61,
+   "material_name": "Wall_Lamp",
+   "tris": 1776,
+   "source_uri": "Wall_Lamp_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:d6a5d1677bfaff1c0330489d1611b3b14f0b766f83585e57cdaf68260b3b016e",
+   "file": "slot42_Wall_Lamp.png",
+   "png_sha256": "sha256:e57ad4031faa9b454bfe63c685ca91d63e1b31ccf069abab8a77c9cf415cda9c",
+   "mean_xy": [
+    125.151,
+    125.846
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    253,
+    252
+   ]
+  },
+  {
+   "slot": 43,
+   "material_index": 36,
+   "material_name": "MASTER_Interior_01_Grid1",
+   "tris": 1664,
+   "source_uri": "MASTER_Interior_01_Grid1_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:bb828b5c3d6eb4b310b81e98dc1229dfbe0f64234123a4cca9c42d16c2462efa",
+   "file": "slot43_MASTER_Interior_01_Grid1.png",
+   "png_sha256": "sha256:b45eb48811d0eb68004e97a5056d27da0c11e9220092f9e828c712339ab53c8b",
+   "mean_xy": [
+    125.172,
+    127.261
+   ],
+   "min_xy": [
+    2,
+    6
+   ],
+   "max_xy": [
+    245,
+    242
+   ]
+  },
+  {
+   "slot": 44,
+   "material_index": 11,
+   "material_name": "Cloth",
+   "tris": 1250,
+   "source_uri": "Cloth_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:27aa9a2b8e45368ad3ddfe459fb3f6b45df1f3a1516374cf3cacfdbc08a4e57a",
+   "file": "slot44_Cloth.png",
+   "png_sha256": "sha256:35320f8739836005198e74427eb1e8b67acfeb0eb3c26b31ef7cdae362e22edb",
+   "mean_xy": [
+    124.23,
+    125.872
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    255
+   ]
+  },
+  {
+   "slot": 45,
+   "material_index": 62,
+   "material_name": "Metal_Bronze_01",
+   "tris": 1032,
+   "source_uri": "Metal_Bronze_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:2c1b54e3cc8f65d64757b73422d47534feaecef2ca9b5fd27549cd53ac51741f",
+   "file": "slot45_Metal_Bronze_01.png",
+   "png_sha256": "sha256:b07b4c6ec2d7cb4c39af2e7c7a148555ac3aa146e856b892aa69eceff51cc96c",
+   "mean_xy": [
+    126.1,
+    125.983
+   ],
+   "min_xy": [
+    94,
+    92
+   ],
+   "max_xy": [
+    149,
+    154
+   ]
+  },
+  {
+   "slot": 46,
+   "material_index": 33,
+   "material_name": "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER",
+   "tris": 1012,
+   "source_uri": "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:993d5240f64cf853693ae27209ff36dd0b8cd3043132c2a8b01c1ce8fbf25248",
+   "file": "slot46_MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER.png",
+   "png_sha256": "sha256:698ec13531dee92bc9ab5855b659aee8f8420d28a7e5dcf1754e6b7f7062f356",
+   "mean_xy": [
+    127.04,
+    126.892
+   ],
+   "min_xy": [
+    13,
+    20
+   ],
+   "max_xy": [
+    239,
+    233
+   ]
+  },
+  {
+   "slot": 47,
+   "material_index": 60,
+   "material_name": "Paris_Wall_Bulb_Light",
+   "tris": 924,
+   "source_uri": "Paris_Wall_Bulb_Light_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot47_Paris_Wall_Bulb_Light.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 48,
+   "material_index": 44,
+   "material_name": "Plastic_02",
+   "tris": 840,
+   "source_uri": "Plastic_02_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fc28cc31eeb9888ddd8221aacf2c604bc529db5cecbb1b8daaaca1db714aec82",
+   "file": "slot48_Plastic_02.png",
+   "png_sha256": "sha256:19fc5083717935362748839455a8997f8bfd03704f13b4c14552b364d14a08fa",
+   "mean_xy": [
+    127.686,
+    126.941
+   ],
+   "min_xy": [
+    118,
+    118
+   ],
+   "max_xy": [
+    136,
+    135
+   ]
+  },
+  {
+   "slot": 49,
+   "material_index": 27,
+   "material_name": "MASTER_Interior_01_Plaster_Red",
+   "tris": 524,
+   "source_uri": "MASTER_Interior_01_Plaster_Red_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:bfd82aa097a0ba78513dae8c357be339cd94353a7f3b6065bf8b30089ef582f5",
+   "file": "slot49_MASTER_Interior_01_Plaster_Red.png",
+   "png_sha256": "sha256:ee01d2ad2159e7b060c9ae55e170ba6ca00ed94704a6488522a3eff830fe389f",
+   "mean_xy": [
+    126.697,
+    126.691
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 50,
+   "material_index": 57,
+   "material_name": "Plastic_01",
+   "tris": 468,
+   "source_uri": "Plastic_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fc28cc31eeb9888ddd8221aacf2c604bc529db5cecbb1b8daaaca1db714aec82",
+   "file": "slot50_Plastic_01.png",
+   "png_sha256": "sha256:19fc5083717935362748839455a8997f8bfd03704f13b4c14552b364d14a08fa",
+   "mean_xy": [
+    127.686,
+    126.941
+   ],
+   "min_xy": [
+    118,
+    118
+   ],
+   "max_xy": [
+    136,
+    135
+   ]
+  },
+  {
+   "slot": 51,
+   "material_index": 26,
+   "material_name": "MASTER_Interior_01_Wooden_stuco",
+   "tris": 338,
+   "source_uri": "MASTER_Interior_01_Wooden_stuco_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:8656c9c841e05153388711235ebbb1143600e5b62dee35b307422bceb52c7651",
+   "file": "slot51_MASTER_Interior_01_Wooden_stuco.png",
+   "png_sha256": "sha256:b6cd7a31692ca707549d628f2edbafce52a1d2e3c5cd52a14dff7f2758c9a61a",
+   "mean_xy": [
+    127.026,
+    127.326
+   ],
+   "min_xy": [
+    10,
+    79
+   ],
+   "max_xy": [
+    244,
+    170
+   ]
+  },
+  {
+   "slot": 52,
+   "material_index": 19,
+   "material_name": "Trolley_Plastic",
+   "tris": 320,
+   "source_uri": "Trolley_Plastic_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fc28cc31eeb9888ddd8221aacf2c604bc529db5cecbb1b8daaaca1db714aec82",
+   "file": "slot52_Trolley_Plastic.png",
+   "png_sha256": "sha256:19fc5083717935362748839455a8997f8bfd03704f13b4c14552b364d14a08fa",
+   "mean_xy": [
+    127.686,
+    126.941
+   ],
+   "min_xy": [
+    118,
+    118
+   ],
+   "max_xy": [
+    136,
+    135
+   ]
+  },
+  {
+   "slot": 53,
+   "material_index": 21,
+   "material_name": "Trolley_Wood_Painted",
+   "tris": 180,
+   "source_uri": "Trolley_Wood_Painted_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:b6a787df4c9d0deb59b8393fbe6234f9dc87273f0e08d94befac4beafc3968b6",
+   "file": "slot53_Trolley_Wood_Painted.png",
+   "png_sha256": "sha256:c6dd2a1672191d6fe96fa8bb787f1ec1f20d68cf5b90c382f446e64063992468",
+   "mean_xy": [
+    127.063,
+    127.145
+   ],
+   "min_xy": [
+    101,
+    101
+   ],
+   "max_xy": [
+    152,
+    154
+   ]
+  },
+  {
+   "slot": 54,
+   "material_index": 66,
+   "material_name": "MASTER_Concrete_Yellow",
+   "tris": 92,
+   "source_uri": "MASTER_Concrete_Yellow_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:96289cc0605b24ccdf4e0f5abee85551dcdb323ebe375246ff7124d8d3de36f8",
+   "file": "slot54_MASTER_Concrete_Yellow.png",
+   "png_sha256": "sha256:72b312419a6f84f6b69079b1663950893623556fd2987e7055263bbc7e40e133",
+   "mean_xy": [
+    127.241,
+    127.235
+   ],
+   "min_xy": [
+    28,
+    31
+   ],
+   "max_xy": [
+    239,
+    234
+   ]
+  },
+  {
+   "slot": 55,
+   "material_index": 51,
+   "material_name": "Paris_Paintings",
+   "tris": 90,
+   "source_uri": "Paris_Paintings_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:3e7f23e865eb9c8284d45b361e8699ccfed821386fbb2a485acd5e9065e00fc3",
+   "file": "slot55_Paris_Paintings.png",
+   "png_sha256": "sha256:9784c28c3677c2e7dcfdc10e23433e4b87ef2eb8c86f14d64de7011c5d3f260a",
+   "mean_xy": [
+    129.239,
+    125.767
+   ],
+   "min_xy": [
+    37,
+    38
+   ],
+   "max_xy": [
+    213,
+    212
+   ]
+  },
+  {
+   "slot": 56,
+   "material_index": 67,
+   "material_name": "MASTER_Concrete_Grooved",
+   "tris": 90,
+   "source_uri": "MASTER_Concrete_Grooved_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a41889b9445d047d9f8a76d5f76cbfff87dd2178b7ddfb70d56023d3814cf8b5",
+   "file": "slot56_MASTER_Concrete_Grooved.png",
+   "png_sha256": "sha256:84845844532efcd7bf1de0eec1dffb8e310de30b62730accd853cd62561fa917",
+   "mean_xy": [
+    127.025,
+    126.888
+   ],
+   "min_xy": [
+    9,
+    0
+   ],
+   "max_xy": [
+    249,
+    254
+   ]
+  },
+  {
+   "slot": 57,
+   "material_index": 69,
+   "material_name": "MASTER_Concrete1",
+   "tris": 90,
+   "source_uri": "MASTER_Concrete1_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fb91ba9367cc89c5577e1d11d97beec2e408506cf25f04319d11d551027373c1",
+   "file": "slot57_MASTER_Concrete1.png",
+   "png_sha256": "sha256:8d617d946b6b93a8f6f9bc3229efc701223711f67fa69189b6fbdf43772ec98d",
+   "mean_xy": [
+    125.834,
+    127.409
+   ],
+   "min_xy": [
+    33,
+    60
+   ],
+   "max_xy": [
+    199,
+    200
+   ]
+  },
+  {
+   "slot": 58,
+   "material_index": 24,
+   "material_name": "MASTER_Interior_01_Plaster",
+   "tris": 87,
+   "source_uri": "MASTER_Interior_01_Plaster_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:bfd82aa097a0ba78513dae8c357be339cd94353a7f3b6065bf8b30089ef582f5",
+   "file": "slot58_MASTER_Interior_01_Plaster.png",
+   "png_sha256": "sha256:ee01d2ad2159e7b060c9ae55e170ba6ca00ed94704a6488522a3eff830fe389f",
+   "mean_xy": [
+    126.697,
+    126.691
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 59,
+   "material_index": 68,
+   "material_name": "MASTER_Concrete",
+   "tris": 60,
+   "source_uri": "MASTER_Concrete_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:96289cc0605b24ccdf4e0f5abee85551dcdb323ebe375246ff7124d8d3de36f8",
+   "file": "slot59_MASTER_Concrete.png",
+   "png_sha256": "sha256:72b312419a6f84f6b69079b1663950893623556fd2987e7055263bbc7e40e133",
+   "mean_xy": [
+    127.241,
+    127.235
+   ],
+   "min_xy": [
+    28,
+    31
+   ],
+   "max_xy": [
+    239,
+    234
+   ]
+  },
+  {
+   "slot": 60,
+   "material_index": 17,
+   "material_name": "Paris_Doormat",
+   "tris": 30,
+   "source_uri": "Paris_Doormat_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:2541cea4c2d3f15794ce565e8693a120cb779b29f49ab9d17360939a67e02682",
+   "file": "slot60_Paris_Doormat.png",
+   "png_sha256": "sha256:56dca39225699c91430e79f4289ce59ce6343a3d5c2af18ae5efd99a66179756",
+   "mean_xy": [
+    123.564,
+    129.913
+   ],
+   "min_xy": [
+    6,
+    0
+   ],
+   "max_xy": [
+    247,
+    251
+   ]
+  },
+  {
+   "slot": 61,
+   "material_index": 2,
+   "material_name": "Paris_Cashregister_Glass",
+   "tris": 28,
+   "source_uri": "Paris_Cashregister_Glass_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot61_Paris_Cashregister_Glass.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 62,
+   "material_index": 32,
+   "material_name": "MASTER_Interior_01_Frozen_Glass",
+   "tris": 12,
+   "source_uri": "MASTER_Interior_01_Frozen_Glass_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:faa312174606697ea7976c35cd088ff47c9d03489d0213fb5d80a3b89cfa7a1f",
+   "file": "slot62_MASTER_Interior_01_Frozen_Glass.png",
+   "png_sha256": "sha256:9a875149f0851c7a20a6530e71be9e1b7b21cfbeff389844e67440f18ccd9234",
+   "mean_xy": [
+    124.836,
+    124.844
+   ],
+   "min_xy": [
+    32,
+    42
+   ],
+   "max_xy": [
+    215,
+    209
+   ]
+  },
+  {
+   "slot": 63,
+   "material_index": 29,
+   "material_name": "MASTER_Interior_01_Grid",
+   "tris": 10,
+   "source_uri": "MASTER_Interior_01_Grid_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:bb828b5c3d6eb4b310b81e98dc1229dfbe0f64234123a4cca9c42d16c2462efa",
+   "file": "slot63_MASTER_Interior_01_Grid.png",
+   "png_sha256": "sha256:b45eb48811d0eb68004e97a5056d27da0c11e9220092f9e828c712339ab53c8b",
+   "mean_xy": [
+    125.172,
+    127.261
+   ],
+   "min_xy": [
+    2,
+    6
+   ],
+   "max_xy": [
+    245,
+    242
+   ]
+  },
+  {
+   "slot": 64,
+   "material_index": 43,
+   "material_name": "Wood",
+   "tris": 8,
+   "source_uri": "Wood_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:8656c9c841e05153388711235ebbb1143600e5b62dee35b307422bceb52c7651",
+   "file": "slot64_Wood.png",
+   "png_sha256": "sha256:b6cd7a31692ca707549d628f2edbafce52a1d2e3c5cd52a14dff7f2758c9a61a",
+   "mean_xy": [
+    127.026,
+    127.326
+   ],
+   "min_xy": [
+    10,
+    79
+   ],
+   "max_xy": [
+    244,
+    170
+   ]
+  },
+  {
+   "slot": 65,
+   "material_index": 31,
+   "material_name": "MASTER_Interior_01_Plaster2",
+   "tris": 6,
+   "source_uri": "MASTER_Interior_01_Plaster2_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:bfd82aa097a0ba78513dae8c357be339cd94353a7f3b6065bf8b30089ef582f5",
+   "file": "slot65_MASTER_Interior_01_Plaster2.png",
+   "png_sha256": "sha256:ee01d2ad2159e7b060c9ae55e170ba6ca00ed94704a6488522a3eff830fe389f",
+   "mean_xy": [
+    126.697,
+    126.691
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 66,
+   "material_index": 52,
+   "material_name": "Paris_Paintings_Glass",
+   "tris": 6,
+   "source_uri": "Paris_Paintings_Glass_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot66_Paris_Paintings_Glass.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 67,
+   "material_index": 64,
+   "material_name": "MASTER_Glass_Exterior",
+   "tris": 6,
+   "source_uri": "MASTER_Glass_Exterior_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot67_MASTER_Glass_Exterior.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 68,
+   "material_index": 56,
+   "material_name": "Rubber_Bar_Mat_01",
+   "tris": 4,
+   "source_uri": "Rubber_Bar_Mat_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a37d730e7928358dd8ecdd3500ccc56cc4d4a366109fdfa061ae81e92b54b7c5",
+   "file": "slot68_Rubber_Bar_Mat_01.png",
+   "png_sha256": "sha256:37fea1e8e50ea085bfdc2eadfce10fd2491aa6b8e8c7553b0e179297b2a3ad3e",
+   "mean_xy": [
+    127.294,
+    126.884
+   ],
+   "min_xy": [
+    40,
+    39
+   ],
+   "max_xy": [
+    213,
+    212
+   ]
+  },
+  {
+   "slot": 69,
+   "material_index": 37,
+   "material_name": "MASTER_Interior_01_Material",
+   "tris": 2,
+   "source_uri": "MASTER_Interior_01_Material_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot69_MASTER_Interior_01_Material.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  }
+ ],
+ "anomalies": []
+}

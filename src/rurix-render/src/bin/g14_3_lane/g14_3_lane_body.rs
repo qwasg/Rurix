@@ -61,6 +61,18 @@ const DEFAULT_SPV_SCENE: &str = ".tmp/g14_gates/m_c/g14_3_direct_gi.spv";
 const DEFAULT_SPV_GI: &str = ".tmp/g14_gates/m_c/g16_gi_multibounce.spv";
 /// G18 M-a 加性光照纵深 profile（禁动 --gi off 默认臂 SPV/digest 锚）。
 const DEFAULT_SPV_G18_LIGHT: &str = ".tmp/g14_gates/m_c/g18_light_transport_depth.spv";
+/// D2 平滑顶点法线臂 scene kernel SPV（kernels/g18_smooth_nrm.rx 编译产物；
+/// 仅 --smooth-normals on 换载——默认臂 SPV 面 0-byte）。
+#[allow(dead_code)] // D2:g14_3_pipeline_perf 独消费面(g31_window_present 未消费,诚实标注)
+const DEFAULT_SPV_G18_SMOOTH_NRM: &str = ".tmp/night_0828/spv/g18_smooth_nrm.spv";
+/// day_0828 Phase C GI2 臂 scene kernel SPV（kernels/g31_texture_nrm_gi.rx
+/// 现编译产物含 GI2 段——统一质量 kernel，bench 腿绑哑表五件走 mats 均值面；
+/// 仅 --gi2 on 换载，默认/既有臂 SPV 面 0-byte。**路线隔离**（A2b v2 同律）：
+/// g31_texture_nrm_gi.spv 锚定字节承载 gi2-off 合流锚（8b1c12f3）不动，GI2
+/// 变体独立成文件——与 g31_window_present G31_DEFAULT_SPV_TEXTURE_NRM_GI2
+/// 同一文件（gi2-on 车道单一事实源）。）
+#[allow(dead_code)] // Phase C:g14_3_pipeline_perf 独消费面(诚实标注)
+const DEFAULT_SPV_G31_TEXNRM_GI: &str = ".tmp/night_0828/spv/g31_texture_nrm_gi_gi2.spv";
 const G18_PRESENTATION_CONTRACT: &str = "milestones/g18/g18_presentation_contract.json";
 const G18_PRESENTATION_FRAMES_MIN: u32 = 128;
 // G14.9（RFC-0030 §4.5 L1）：TSR 双腿默认切换到 g14_8 调度变体 SPV（8×8 2D
@@ -69,6 +81,15 @@ const G18_PRESENTATION_FRAMES_MIN: u32 = 128;
 // 显式指回旧面做对照）。
 const DEFAULT_SPV_RESAMPLE: &str = ".tmp/g14_gates/m_c/g14_8_tsr_resample.spv";
 const DEFAULT_SPV_RESOLVE: &str = ".tmp/g14_gates/m_c/g14_8_tsr_resolve.spv";
+/// day_0828 Phase D TSR 降噪质量档 resolve 变体（--tsr-quality on 独载腿;
+/// off 臂恒载上行 DEFAULT_SPV_RESOLVE 冻结字节——C 相纪律:保锚字节隔离。
+/// fork 自 g14_8_tsr_resolve.rx 三质量面:① Karis 反亮度加权混合;② 稳态
+/// alpha 档 tsr_params[19] 直入公式 base 位（母版 min_alpha=0.04 地板在
+/// tighten=0.5 下构造性不可达——红修 v2 语义修正,详 kernel 头注〕;③ 深度
+/// 验证 3×3 膨胀区间化（v3——深度边缘像素不再随 jitter 恒拒史〕+ 可选 3×3
+/// 邻域亮度 clamp〔[20]=K,0=关〕）。
+#[allow(dead_code)] // Phase D:g14_3_pipeline_perf/g31_window_present 消费面(诚实标注)
+const DEFAULT_SPV_RESOLVE_Q: &str = ".tmp/night_0828/spv/g31_tsr_resolve_q.spv";
 /// G14.10 相机 MV GPU kernel（RFC-0030 §4.1 授权行；统一四 pass 车道 pass1）。
 const DEFAULT_SPV_MV: &str = ".tmp/g14_gates/m_c/g14_mv.spv";
 /// G31+ 波 A Task A4 动态场景 kernel（g14_3_direct_gi 逐字镜像 + 实例感知分派；
@@ -78,8 +99,12 @@ const DEFAULT_SPV_DYN_SCENE: &str = ".tmp/g14_gates/m_c/g31_dyn_scene.spv";
 const JITTER_WINDOW_MOD: u64 = 65521;
 /// 主射线 t_max（host TriBvh 无界求交面的 device 兑现；1e30 常量族沿 M96/M100）。
 const RAY_TMAX: f32 = 1e30;
-/// 帧参数 SSBO 长度（f32；与 kernels/g14_3_direct_gi.rx 参数面逐字同源）。
-const PARAMS_LEN: usize = 48;
+/// 帧参数 SSBO 长度（f32；[0..42) 与 kernels/g14_3_direct_gi.rx 参数面逐字
+/// 同源，[42]=sky [43]=smooth_nrm [44..48)=ambient [48]=ggx [49..56) 保留恒 0）。
+/// D6：48→56 扩面（GGX 使能位 params[48]）——基线 kernel 只读 [0..42]+[42]，
+/// 尾部追加零不消费；params0_bytes/逐帧上传两侧同由本常量派生，全车道
+/// （含 g31/g34/g35 共享体调用面）长度自洽，Stage A 锚零漂移由 D6 自验承载。
+const PARAMS_LEN: usize = 56;
 
 fn fail(msg: &str) -> ! {
     eprintln!("{TAG}: FAIL {msg}");
@@ -1081,6 +1106,19 @@ fn xform(m: &M4, p: [f32; 3]) -> [f32; 3] {
     ]
 }
 
+/// 方向向量世界变换（M4 上左 3×3 旋转/缩放部分，平移丢弃；法线面专用——
+/// 与 xform 同矩阵同 f64 左结合序，仅省 m[r][3] 平移项。非均匀缩放的逆置
+/// 变换未接线——bistro 节点面 = 旋转+平移，调用侧 norm3 归一化兜底量级；
+/// D2 平滑法线臂消费，off 面不调用 0-byte）。
+fn xform_dir(m: &M4, p: [f32; 3]) -> [f32; 3] {
+    let (x, y, z) = (p[0] as f64, p[1] as f64, p[2] as f64);
+    [
+        (m[0][0] * x + m[0][1] * y + m[0][2] * z) as f32,
+        (m[1][0] * x + m[1][1] * y + m[1][2] * z) as f32,
+        (m[2][0] * x + m[2][1] * y + m[2][2] * z) as f32,
+    ]
+}
+
 struct Gltf {
     root: Json,
     buffers: Vec<Vec<u8>>,
@@ -1224,6 +1262,30 @@ impl Gltf {
         Ok(out)
     }
 
+    /// NORMAL（float VEC3；D2 平滑顶点法线臂消费面——仅 --smooth-normals on
+    /// 经 assemble_scene_nrm 消费，off 路径不调用，既有面 0-byte）。
+    #[allow(dead_code)] // D2:g14_3_pipeline_perf --smooth-normals on 独消费面(g31_window_present 未消费,诚实标注)
+    fn normals(&self, idx: usize) -> Result<Vec<[f32; 3]>, String> {
+        let (count, ctype, comps, stride, data) = self.accessor_bytes(idx)?;
+        if ctype != 5126 || comps != 3 {
+            return Err("NORMAL 须 float VEC3".into());
+        }
+        let mut out = Vec::with_capacity(count);
+        for i in 0..count {
+            let o = i * stride;
+            let f = |k: usize| {
+                f32::from_le_bytes([
+                    data[o + k * 4],
+                    data[o + k * 4 + 1],
+                    data[o + k * 4 + 2],
+                    data[o + k * 4 + 3],
+                ])
+            };
+            out.push([f(0), f(1), f(2)]);
+        }
+        Ok(out)
+    }
+
     fn indices(&self, idx: usize) -> Result<Vec<u32>, String> {
         let (count, ctype, comps, stride, data) = self.accessor_bytes(idx)?;
         if comps != 1 {
@@ -1360,6 +1422,10 @@ struct QuadLight {
 struct PointLight {
     pos: [f32; 3],
     intensity: [f32; 3], // color × intensity_cd（G12.4 同口径：点强 I 即 cd 直给）
+    /// A1 灯光提取加性臂：灯半径（米）——阴影射线 t_max 提前截断量（kernel
+    /// t_sh = d − max(2·eps, r)，消提取代表点光在灯罩几何内部的自遮蔽）。
+    /// 契约灯恒 0.0 ⇒ pack_points 第 7 槽字节与既有零填充位级不变。
+    radius: f32,
 }
 
 // G34：CameraSpec 派生 Copy（纯 f32 字段面——g34_full_lane 帧循环按值复用
@@ -1466,18 +1532,81 @@ fn assemble_scene_uv(
     assemble_scene_ex(contract, scene_id, gltf_path, None, Some(uv_out))
 }
 
+/// D2 平滑顶点法线装配面（--smooth-normals on）：既有装配 + 逐三角顶点法线
+/// 侧表（9 f32/tri 与 tris 同序同源〔n0,n1,n2 绕序〕；世界变换旋转 3×3 部分
+/// 经 xform_dir 变换 + norm3 归一化；quad 灯面尾段恒 0）。SceneData 各字段
+/// 与 off 面逐位同值（法线 = 旁路 sink 纯记录）；off 路径不调用本面——不读
+/// NORMAL、不产侧表，既有装配 0-byte。
+#[allow(dead_code)] // D2:g14_3_pipeline_perf --smooth-normals on 独消费面(g31_window_present 未消费,诚实标注)
+fn assemble_scene_nrm(
+    contract: &Json,
+    scene_id: &str,
+    gltf_path: &Path,
+    nrm_out: &mut Vec<f32>,
+) -> Result<SceneData, String> {
+    assemble_scene_ex_nrm(contract, scene_id, gltf_path, None, None, Some(nrm_out), None)
+}
+
+/// D6 GGX 高光臂装配面（--smooth-normals on --ggx on 消费）：既有装配 + 逐
+/// 三角顶点法线侧表（9 f32/tri，同 assemble_scene_nrm）+ 逐三角金属度/粗糙
+/// 度侧表（2 f32/tri [metallic, roughness]，取所在 primitive 材质
+/// pbrMetallicRoughness 因子〔glTF 规范缺省 metal 1.0/rough 1.0〕；matless
+/// primitive = 介质保守缺省 [0,1]——与既有 albedo None 臂不乘 (1−metallic)
+/// 同律；quad 灯面尾段恒 0）。SceneData 各字段与 off 面逐位同值（MR = 旁路
+/// sink 纯记录）；--ggx off 路径不调用本面——不读 roughnessFactor 进侧表、
+/// 不产侧表，既有装配 0-byte。
+#[allow(dead_code)] // D6:g14_3_pipeline_perf --ggx on 独消费面(诚实标注)
+fn assemble_scene_nrm_mr(
+    contract: &Json,
+    scene_id: &str,
+    gltf_path: &Path,
+    nrm_out: &mut Vec<f32>,
+    mr_out: &mut Vec<f32>,
+) -> Result<SceneData, String> {
+    assemble_scene_ex_nrm(
+        contract,
+        scene_id,
+        gltf_path,
+        None,
+        None,
+        Some(nrm_out),
+        Some(mr_out),
+    )
+}
+
 /// 场景装配全量实现（G31+ 波 B Task B1：`groups = Some` 时逐 mesh 节点追加
 /// [`SceneNodeGroup`] 纯记录面——SceneData 各字段与 `None` 形态逐位同值,
 /// 装配产物 0-byte;零三角形节点不产组,quad 面光几何尾段自立一组〔契约
 /// 照明面几何逐字一致追加段,见下〕。G31+ 波 B Task B4：`uv_out = Some` 时
 /// 逐三角 TEXCOORD_0 追加记录面——SceneData 各字段与 `None` 形态逐位同值,
 /// 装配产物 0-byte;sink 布局 = 6 f32/tri〔uv0,uv1,uv2 顶点序与 tris 同源〕）。
+/// D2：签名 0-byte 保持（g31_window_present/g34_2_hzb/--dump-scene 三调用面
+/// 不触）——法线面委托 [`assemble_scene_ex_nrm`] 的 `nrm_out = None` 形态。
 fn assemble_scene_ex(
+    contract: &Json,
+    scene_id: &str,
+    gltf_path: &Path,
+    groups: Option<&mut Vec<SceneNodeGroup>>,
+    uv_out: Option<&mut Vec<f32>>,
+) -> Result<SceneData, String> {
+    assemble_scene_ex_nrm(contract, scene_id, gltf_path, groups, uv_out, None, None)
+}
+
+/// 装配全量实现 D2 扩面（`nrm_out = Some` 时逐三角顶点法线追加记录面——
+/// SceneData 各字段与 `None` 形态逐位同值，装配产物 0-byte；sink 布局 =
+/// 9 f32/tri〔n0,n1,n2 顶点序与 tris 同源，世界旋转 3×3 变换 + norm3 归一
+/// 化〕，quad 灯面尾段恒 0；off 面不读 NORMAL 不算侧表）。
+/// D6 扩面（`mr_out = Some` 时逐三角 [metallic, roughness] 追加记录面——
+/// 2 f32/tri 与 tris 同序同源，取所在 primitive 材质因子；matless = [0,1]
+/// 介质保守缺省；quad 灯面尾段恒 0；off 面不产侧表 0-byte）。
+fn assemble_scene_ex_nrm(
     contract: &Json,
     scene_id: &str,
     gltf_path: &Path,
     mut groups: Option<&mut Vec<SceneNodeGroup>>,
     mut uv_out: Option<&mut Vec<f32>>,
+    mut nrm_out: Option<&mut Vec<f32>>,
+    mut mr_out: Option<&mut Vec<f32>>,
 ) -> Result<SceneData, String> {
     let srow = contract_scene_row(contract, scene_id)?;
     let cam = srow.get("camera").unwrap();
@@ -1492,9 +1621,12 @@ fn assemble_scene_ex(
     let base = gltf_path.parent().unwrap_or_else(|| Path::new("."));
 
     // 材质表（baseColorFactor/metallic/baseColorTexture 源图索引）。
+    // D6：+= roughness（pbrMetallicRoughness.roughnessFactor，glTF 规范缺省
+    // 1.0）——tri_mr 侧表源；既有字段读取/消费面 0-byte。
     struct MatRec {
         factor: [f32; 3],
         metallic: f32,
+        roughness: f32,
         base_img: Option<usize>,
     }
     let mut mats: Vec<MatRec> = Vec::new();
@@ -1525,6 +1657,10 @@ fn assemble_scene_ex(
             factor: alb,
             metallic: pbr
                 .and_then(|p| p.get("metallicFactor"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1.0) as f32,
+            roughness: pbr
+                .and_then(|p| p.get("roughnessFactor"))
                 .and_then(|v| v.as_f64())
                 .unwrap_or(1.0) as f32,
             base_img: img,
@@ -1679,6 +1815,17 @@ fn assemble_scene_ex(
             } else {
                 None
             };
+            // D2：NORMAL 读取（nrm_out 消费面；off 面不读不算，0-byte）。
+            let nrms: Option<Vec<[f32; 3]>> = if nrm_out.is_some() {
+                let nrm_acc = prim
+                    .get("attributes")
+                    .and_then(|a| a.get("NORMAL"))
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| cerr("primitive 缺 NORMAL（--smooth-normals on 面 fail-closed）"))?;
+                Some(gltf.normals(nrm_acc as usize)?)
+            } else {
+                None
+            };
             for t3 in idx.chunks_exact(3) {
                 let v0 = xform(&w, pos[t3[0] as usize]);
                 let v1 = xform(&w, pos[t3[1] as usize]);
@@ -1696,6 +1843,26 @@ fn assemble_scene_ex(
                         sink.push(uv[vi as usize][0]);
                         sink.push(uv[vi as usize][1]);
                     }
+                }
+                // D2：逐顶点法线 → 世界旋转 3×3（xform_dir）+ norm3 归一化 →
+                // sink（9 f32/tri，顶点序与 tris 同源；off 面不写）。
+                if let (Some(sink), Some(nrm)) = (nrm_out.as_deref_mut(), nrms.as_ref()) {
+                    for &vi in t3 {
+                        let nn = norm3(xform_dir(&w, nrm[vi as usize]));
+                        sink.push(nn[0]);
+                        sink.push(nn[1]);
+                        sink.push(nn[2]);
+                    }
+                }
+                // D6：逐三角 [metallic, roughness] → sink（2 f32/tri，与 tris
+                // 同序同源；matless = [0,1] 介质保守缺省；off 面不写）。
+                if let Some(sink) = mr_out.as_deref_mut() {
+                    let (mt, rg) = match mat_idx.and_then(|mi| mats.get(mi as usize)) {
+                        Some(rec) => (rec.metallic, rec.roughness),
+                        None => (0.0, 1.0),
+                    };
+                    sink.push(mt);
+                    sink.push(rg);
                 }
                 if emi != [0.0, 0.0, 0.0] {
                     emissive_tris += 1;
@@ -1760,6 +1927,18 @@ fn assemble_scene_ex(
             if let Some(sink) = uv_out.as_deref_mut() {
                 sink.extend_from_slice(&[0.0; 6]);
             }
+            // D2：quad 灯面尾段法线恒 0（UV 同律；bistro quads=0 ⇒ 生产臂零
+            // 触达；cornell Split 形态与本臂 CLI 互斥——kernel 侧零法线经
+            // gate_sl 门恒 0 有限值，无 NaN 通道）。
+            if let Some(sink) = nrm_out.as_deref_mut() {
+                sink.extend_from_slice(&[0.0; 9]);
+            }
+            // D6：quad 灯面尾段 MR 恒 0（法线同律；灯面为自发光几何，高光
+            // 臂对其零增益语义——metal=0/rough=0 经 kernel 钳 [0.05,1] 后
+            // F0=0.04 锐高光，但发射项主导，如实登记）。
+            if let Some(sink) = mr_out.as_deref_mut() {
+                sink.extend_from_slice(&[0.0; 2]);
+            }
         }
     }
     // Task B1：quad 尾段闭合即登记（零三角形尾段不产组）。
@@ -1799,6 +1978,8 @@ fn assemble_scene_ex(
                 (col[1] * inten) as f32,
                 (col[2] * inten) as f32,
             ],
+            // A1：契约灯半径恒 0.0（pack 槽 7 字节位级不变——冻结锚零漂移）。
+            radius: 0.0,
         });
     }
 
@@ -1960,19 +2141,390 @@ fn pack_quads(scene: &SceneData) -> Vec<f32> {
     out
 }
 
-/// point 灯面（8 f32/point：[pos 3, intensity 3, 0, 0]）。
+/// point 灯面（8 f32/point：[pos 3, intensity 3, radius, 0]）。A1：第 7 槽
+/// 由零填充改写 radius（契约灯 radius=0.0 ⇒ 字节位级不变；仅 --lamp-lights
+/// on 追加的提取灯 >0——g18_smooth_nrm kernel 阴影 t_sh 截断消费，母版
+/// kernel 不读该槽 0-byte）。
 fn pack_points(scene: &SceneData) -> Vec<f32> {
     let mut out = Vec::with_capacity(scene.points.len().max(1) * 8);
     for p in &scene.points {
         out.extend_from_slice(&p.pos);
         out.extend_from_slice(&p.intensity);
-        out.push(0.0);
+        out.push(p.radius);
         out.push(0.0);
     }
     if scene.points.is_empty() {
         out.push(0.0); // 空集哑元（同上）
     }
     out
+}
+
+// ---------------------------------------------------------------------------
+// 画质战役 A1 灯光提取加性臂（--lamp-lights on；off 默认 = 以下全部零触达）
+//
+// 动机：bistro 44,024 自发光灯片三角不投光（无 emissive NEE，夜航 SUMMARY
+// 根因 #2），仅 4 盏契约点光照明 → 生产渲染死黑+欠曝。本臂 host 侧把
+// emissive 三角确定性聚类成 ≤K 个代表点光 append 进 scene.points（kernel
+// 侧 = g18_smooth_nrm 点光循环既有面 + 半径阴影截断/贡献剔除两加性门），
+// 让灯具真正投光。默认 off = scene 装配/pack/参数面全 0-byte。
+// ---------------------------------------------------------------------------
+
+/// A1 CLI 参数面（bench/render 双腿 + 窗口车道共用；enabled=false = 全默认
+/// 面零触达）。
+struct LampOpt {
+    enabled: bool,
+    /// 灯强度增益（I_c = Φ_c·gain/(4π)；默认 1.0——物理通量直转换）。
+    gain: f32,
+    /// 代表点光上限 K（按峰值通量降序取 top-K，弃簇如实登记；默认 12）。
+    max_k: usize,
+    /// kernel params[49] 贡献剔除阈值（默认 0.0 = 全保留）。
+    contrib: f32,
+    /// 提取统计 JSON 落盘路径（空 = 不写；bench bin --lamp-stats-out）。
+    stats_out: String,
+}
+
+impl LampOpt {
+    fn off() -> Self {
+        LampOpt {
+            enabled: false,
+            gain: 1.0,
+            max_k: 12,
+            contrib: 0.0,
+            stats_out: String::new(),
+        }
+    }
+}
+
+/// day_0828 Phase C GI2 CLI 参数面（bench/render 双腿共用；enabled=false =
+/// 全默认面零触达——MegaTexNrmGi2 形态/哑表五件/params[51..55) 全不创建）。
+#[allow(dead_code)] // Phase C:g14_3_pipeline_perf 独消费面(诚实标注)
+struct Gi2Opt {
+    enabled: bool,
+    /// GI 合成尺度（params[54]；默认 1.0——物理 1 反弹直传）。
+    scale: f32,
+    /// firefly 逐通道 clamp（params[53]；默认 4.0）。
+    clamp: f32,
+}
+
+#[allow(dead_code)] // Phase C:同上
+impl Gi2Opt {
+    fn off() -> Self {
+        Gi2Opt {
+            enabled: false,
+            scale: 1.0,
+            clamp: 4.0,
+        }
+    }
+}
+
+/// day_0828 Phase D TSR 降噪质量档 CLI 参数面（bench/render 双腿共用;
+/// enabled=false = 全默认面零触达——resolve SPV 不换载、tsr_params[19..21)
+/// 不写〔与零填充逐位同值〕）。
+#[allow(dead_code)] // Phase D:g14_3_pipeline_perf 独消费面(诚实标注)
+struct TsrqOpt {
+    enabled: bool,
+    /// 稳态 alpha 档（tsr_params[19] 直入公式 base 位;默认 0.02——母版稳态
+    /// 实测 0.1〔min_alpha 地板不可达〕,静态驻态残差 ∝ √(α/(2−α)) 按档兑现）。
+    min_alpha: f32,
+    /// 3×3 邻域亮度 clamp 系数 K（tsr_params[20];0 = 关,评估臂默认）。
+    clamp: f32,
+}
+
+#[allow(dead_code)] // Phase D:同上
+impl TsrqOpt {
+    fn off() -> Self {
+        TsrqOpt {
+            enabled: false,
+            min_alpha: 0.02,
+            clamp: 0.0,
+        }
+    }
+}
+
+/// A1 提取簇统计（登记面；kept 序 = 峰值通量降序）。
+struct LampCluster {
+    pos: [f32; 3],
+    flux: [f32; 3],
+    radius: f32,
+    tris: usize,
+}
+
+/// A1 提取统计（evidence 登记面）。
+struct LampExtractStats {
+    emissive_tris: usize,
+    clusters_total: usize,
+    clusters_dropped: usize,
+    dropped_tris: usize,
+    /// 弃簇峰值通量最大值（如实登记截断损失上界；无弃簇 = 0.0）。
+    dropped_flux_max: f32,
+    kept: Vec<LampCluster>,
+}
+
+/// A1 灯光提取（纯 host、全确定性——BTreeMap 键序迭代 + 固定邻域序 +
+/// 升序三角并入，双跑位级同产物）：
+/// ① 扫 emission 任一通道 >0 且 tri_mat ≠ SLAB_TRI_NONE（排除 quad 灯尾段）
+///    的三角：面积 = 0.5·|cross(e1,e2)|、质心 = 顶点均值、通量 Φ_c =
+///    π·Le_c·area（Lambert 单面发射体）。
+/// ② 质心量化 0.6m 网格（floor 键 (ix,iy,iz)）→ 26 邻域 union-find 合并
+///    相邻非空格（min-root 规约）——一盏灯跨格合一。
+/// ③ 每簇：峰值通量加权质心 pos（权 = max3(Φ)，全零权簇退化为算术均值）、
+///    Φ_total 逐通道求和、radius = 成员三角顶点到 pos 最大距离 + 0.02m。
+/// ④ 按 max(Φ_r,Φ_g,Φ_b) 降序（并列按质心 x,y,z 字典序）取 top-max_k，
+///    弃簇计数/峰值如实登记。灯强度 I_c = Φ_c·gain/(4π)。
+fn extract_lamp_lights(
+    scene: &SceneData,
+    max_k: usize,
+    gain: f32,
+) -> (Vec<PointLight>, LampExtractStats) {
+    const GRID_M: f32 = 0.6;
+    const RADIUS_PAD_M: f32 = 0.02;
+    // ① emissive 三角扫描（升序三角号——后续全链迭代序确定性根）。
+    struct EmTri {
+        centroid: [f32; 3],
+        flux: [f32; 3],
+        v: [[f32; 3]; 3],
+    }
+    let mut em: Vec<(usize, EmTri)> = Vec::new();
+    for (k, le) in scene.emission.iter().enumerate() {
+        if (le[0] > 0.0 || le[1] > 0.0 || le[2] > 0.0) && scene.tri_mat[k] != SLAB_TRI_NONE {
+            let idx = scene.indices[k];
+            let v0 = scene.positions[idx[0] as usize];
+            let v1 = scene.positions[idx[1] as usize];
+            let v2 = scene.positions[idx[2] as usize];
+            let e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+            let e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+            let cx = [
+                e1[1] * e2[2] - e1[2] * e2[1],
+                e1[2] * e2[0] - e1[0] * e2[2],
+                e1[0] * e2[1] - e1[1] * e2[0],
+            ];
+            let area = 0.5 * (cx[0] * cx[0] + cx[1] * cx[1] + cx[2] * cx[2]).sqrt();
+            let c = [
+                (v0[0] + v1[0] + v2[0]) / 3.0,
+                (v0[1] + v1[1] + v2[1]) / 3.0,
+                (v0[2] + v1[2] + v2[2]) / 3.0,
+            ];
+            em.push((
+                k,
+                EmTri {
+                    centroid: c,
+                    flux: [
+                        std::f32::consts::PI * le[0] * area,
+                        std::f32::consts::PI * le[1] * area,
+                        std::f32::consts::PI * le[2] * area,
+                    ],
+                    v: [v0, v1, v2],
+                },
+            ));
+        }
+    }
+    // ② 网格量化（BTreeMap 键序 = 确定性迭代序）+ 26 邻域 union-find。
+    let mut cells: std::collections::BTreeMap<(i64, i64, i64), Vec<usize>> =
+        std::collections::BTreeMap::new();
+    for (ei, (_, t)) in em.iter().enumerate() {
+        let key = (
+            (t.centroid[0] / GRID_M).floor() as i64,
+            (t.centroid[1] / GRID_M).floor() as i64,
+            (t.centroid[2] / GRID_M).floor() as i64,
+        );
+        cells.entry(key).or_default().push(ei);
+    }
+    let keys: Vec<(i64, i64, i64)> = cells.keys().copied().collect();
+    let key_index: std::collections::BTreeMap<(i64, i64, i64), usize> =
+        keys.iter().enumerate().map(|(i, k)| (*k, i)).collect();
+    let mut parent: Vec<usize> = (0..keys.len()).collect();
+    fn find(parent: &mut Vec<usize>, mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+    for (ci, key) in keys.iter().enumerate() {
+        for dz in -1i64..=1 {
+            for dy in -1i64..=1 {
+                for dx in -1i64..=1 {
+                    if dx == 0 && dy == 0 && dz == 0 {
+                        continue;
+                    }
+                    if let Some(&cj) = key_index.get(&(key.0 + dx, key.1 + dy, key.2 + dz)) {
+                        let (ra, rb) = (find(&mut parent, ci), find(&mut parent, cj));
+                        if ra != rb {
+                            // min-root 规约（并向小根——确定性规范形）。
+                            let (lo, hi) = (ra.min(rb), ra.max(rb));
+                            parent[hi] = lo;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 簇聚合（root 键序迭代；簇内成员 = 格序×格内升序拼接——确定性求和序）。
+    let mut clusters: std::collections::BTreeMap<usize, Vec<usize>> =
+        std::collections::BTreeMap::new();
+    for (ci, key) in keys.iter().enumerate() {
+        let root = find(&mut parent, ci);
+        clusters
+            .entry(root)
+            .or_default()
+            .extend(cells.get(key).unwrap().iter().copied());
+    }
+    // ③ 逐簇统计。
+    struct RawCluster {
+        pos: [f32; 3],
+        flux: [f32; 3],
+        radius: f32,
+        tris: usize,
+    }
+    let mut raw: Vec<RawCluster> = Vec::new();
+    for members in clusters.values() {
+        let mut flux = [0.0f32; 3];
+        let mut wsum = 0.0f32;
+        let mut wc = [0.0f32; 3];
+        let mut csum = [0.0f32; 3];
+        for &ei in members {
+            let t = &em[ei].1;
+            flux[0] += t.flux[0];
+            flux[1] += t.flux[1];
+            flux[2] += t.flux[2];
+            let w = t.flux[0].max(t.flux[1]).max(t.flux[2]);
+            wsum += w;
+            for c in 0..3 {
+                wc[c] += w * t.centroid[c];
+                csum[c] += t.centroid[c];
+            }
+        }
+        let n = members.len() as f32;
+        let pos = if wsum > 0.0 {
+            [wc[0] / wsum, wc[1] / wsum, wc[2] / wsum]
+        } else {
+            // 全零权（退化零面积簇）：算术均值保底——通量 0 排序垫底不入选。
+            [csum[0] / n, csum[1] / n, csum[2] / n]
+        };
+        let mut r2max = 0.0f32;
+        for &ei in members {
+            for v in &em[ei].1.v {
+                let d2 = (v[0] - pos[0]) * (v[0] - pos[0])
+                    + (v[1] - pos[1]) * (v[1] - pos[1])
+                    + (v[2] - pos[2]) * (v[2] - pos[2]);
+                r2max = r2max.max(d2);
+            }
+        }
+        raw.push(RawCluster {
+            pos,
+            flux,
+            radius: r2max.sqrt() + RADIUS_PAD_M,
+            tris: members.len(),
+        });
+    }
+    // ④ 峰值通量降序（并列按质心字典序——total_cmp 全序确定性）。
+    raw.sort_by(|a, b| {
+        let fa = a.flux[0].max(a.flux[1]).max(a.flux[2]);
+        let fb = b.flux[0].max(b.flux[1]).max(b.flux[2]);
+        fb.total_cmp(&fa)
+            .then(a.pos[0].total_cmp(&b.pos[0]))
+            .then(a.pos[1].total_cmp(&b.pos[1]))
+            .then(a.pos[2].total_cmp(&b.pos[2]))
+    });
+    let keep_n = raw.len().min(max_k);
+    let inv_4pi = 1.0f32 / (4.0 * std::f32::consts::PI);
+    let mut lights: Vec<PointLight> = Vec::new();
+    let mut kept: Vec<LampCluster> = Vec::new();
+    for rc in raw.iter().take(keep_n) {
+        lights.push(PointLight {
+            pos: rc.pos,
+            intensity: [
+                rc.flux[0] * gain * inv_4pi,
+                rc.flux[1] * gain * inv_4pi,
+                rc.flux[2] * gain * inv_4pi,
+            ],
+            radius: rc.radius,
+        });
+        kept.push(LampCluster {
+            pos: rc.pos,
+            flux: rc.flux,
+            radius: rc.radius,
+            tris: rc.tris,
+        });
+    }
+    let mut dropped_flux_max = 0.0f32;
+    let mut dropped_tris = 0usize;
+    for rc in raw.iter().skip(keep_n) {
+        dropped_flux_max = dropped_flux_max.max(rc.flux[0].max(rc.flux[1]).max(rc.flux[2]));
+        dropped_tris += rc.tris;
+    }
+    (
+        lights,
+        LampExtractStats {
+            emissive_tris: em.len(),
+            clusters_total: raw.len(),
+            clusters_dropped: raw.len() - keep_n,
+            dropped_tris,
+            dropped_flux_max,
+            kept,
+        },
+    )
+}
+
+/// A1 施加点（仅 --lamp-lights on 调用——off 路径零触达）：提取 → 统计
+/// eprintln + 可选 JSON 落盘 → append 进 scene.points（point_count 参数/
+/// pack_points 面自动随 len 进制）。
+fn apply_lamp_lights(mut scene: SceneData, opt: &LampOpt) -> SceneData {
+    let (lights, stats) = extract_lamp_lights(&scene, opt.max_k, opt.gain);
+    eprintln!(
+        "{TAG}: lamp-lights 提取 emissive_tris={} clusters={} kept={} dropped={}（弃簇通量峰 {:.6}/弃三角 {}）gain={} k={} contrib={}",
+        stats.emissive_tris,
+        stats.clusters_total,
+        stats.kept.len(),
+        stats.clusters_dropped,
+        stats.dropped_flux_max,
+        stats.dropped_tris,
+        opt.gain,
+        opt.max_k,
+        opt.contrib,
+    );
+    for (i, c) in stats.kept.iter().enumerate() {
+        eprintln!(
+            "{TAG}: lamp[{i}] pos=({:.3},{:.3},{:.3}) flux=({:.5},{:.5},{:.5}) radius={:.3} tris={}",
+            c.pos[0], c.pos[1], c.pos[2], c.flux[0], c.flux[1], c.flux[2], c.radius, c.tris,
+        );
+    }
+    if !opt.stats_out.is_empty() {
+        let mut kept_json = String::new();
+        for (i, c) in stats.kept.iter().enumerate() {
+            if i > 0 {
+                kept_json.push(',');
+            }
+            let l = &lights[i];
+            kept_json.push_str(&format!(
+                "{{\"pos\":[{},{},{}],\"flux\":[{},{},{}],\"radius\":{},\"tris\":{},\"intensity\":[{},{},{}]}}",
+                c.pos[0], c.pos[1], c.pos[2], c.flux[0], c.flux[1], c.flux[2], c.radius, c.tris,
+                l.intensity[0], l.intensity[1], l.intensity[2],
+            ));
+        }
+        let json = format!(
+            "{{\"schema\":\"rurix.a1.lamp_lights.extract.v1\",\"grid_cell_m\":0.6,\"radius_pad_m\":0.02,\"gain\":{},\"max_k\":{},\"contrib_threshold\":{},\"emissive_tris\":{},\"clusters_total\":{},\"clusters_kept\":{},\"clusters_dropped\":{},\"dropped_tris\":{},\"dropped_flux_max\":{},\"kept\":[{}]}}",
+            opt.gain,
+            opt.max_k,
+            opt.contrib,
+            stats.emissive_tris,
+            stats.clusters_total,
+            stats.kept.len(),
+            stats.clusters_dropped,
+            stats.dropped_tris,
+            stats.dropped_flux_max,
+            kept_json,
+        );
+        if let Some(parent) = Path::new(&opt.stats_out).parent() {
+            if !parent.as_os_str().is_empty() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+        }
+        std::fs::write(&opt.stats_out, json)
+            .unwrap_or_else(|e| fail(&format!("lamp-stats-out 写入: {e}")));
+    }
+    scene.points.extend(lights);
+    scene
 }
 
 // ---------------------------------------------------------------------------
@@ -4364,6 +4916,8 @@ fn gather_tri_uv(prov: &[TriProvenance], src_uv: &[f32]) -> Vec<f32> {
 /// 出错色;强制 −1 走既有常量面路径〔albedo = cluster/cell 面积加权均值,
 /// slab 预调制经 slab_apply 一致施加〕。属性保持简化归 #96 留窗如实登记）。
 /// 返回改写数;同步重建 tritex_bytes 与 tex_tris,全空接线 fail-closed。
+/// day_0828 F6 双形态回正：本函数 = 原形态（tritex 步幅 1;g34_full_lane 系
+/// 消费面,HEAD 逐字恢复零漂移）;heap 步幅 2 形态 = [`geo_patch_proxy_tritex_heap`]。
 #[allow(dead_code)]
 fn geo_patch_proxy_tritex(tex: &mut G31TexAssets, prov: &[TriProvenance]) -> usize {
     if tex.tritex.len() != prov.len() {
@@ -4382,6 +4936,37 @@ fn geo_patch_proxy_tritex(tex: &mut G31TexAssets, prov: &[TriProvenance]) -> usi
     }
     if patched > 0 {
         tex.tex_tris = tex.tritex.iter().filter(|&&s| s >= 0.0).count();
+        if tex.tex_tris == 0 {
+            fail("geo 代理 tritex 补丁后映射三角归零（空接线即红,fail-closed）");
+        }
+        tex.tritex_bytes = bytes_f32(&tex.tritex);
+    }
+    patched
+}
+
+/// [`geo_patch_proxy_tritex`] 的 day_0828 Phase B heap 形态（tritex 步幅 2
+/// [slot, k_tri]——槽号在偶槽,补丁同步清 k_tri〔代理三角 UV=0 ⇒ 密度项无
+/// 意义面〕;F6 双形态回正改名,当前零调用面编译保留——heap 臂 geo 接线时
+/// 消费）。
+#[allow(dead_code)]
+fn geo_patch_proxy_tritex_heap(tex: &mut G31TexAssetsHeap, prov: &[TriProvenance]) -> usize {
+    if tex.tritex.len() != prov.len() * 2 {
+        fail(&format!(
+            "geo tritex/prov 长度失配: {} ≠ {}×2（tritex 须自重建场景派生,步幅 2）",
+            tex.tritex.len(),
+            prov.len()
+        ));
+    }
+    let mut patched = 0usize;
+    for (i, p) in prov.iter().enumerate() {
+        if !matches!(p, TriProvenance::Src(_)) && tex.tritex[i * 2] >= 0.0 {
+            tex.tritex[i * 2] = -1.0;
+            tex.tritex[i * 2 + 1] = 0.0;
+            patched += 1;
+        }
+    }
+    if patched > 0 {
+        tex.tex_tris = tex.tritex.iter().step_by(2).filter(|&&s| s >= 0.0).count();
         if tex.tex_tris == 0 {
             fail("geo 代理 tritex 补丁后映射三角归零（空接线即红,fail-closed）");
         }
@@ -4796,19 +5381,45 @@ fn g34_slab_premod_texmeta(
 // ---------------------------------------------------------------------------
 
 /// B4 映射材质数（三角数降序 top-N 闭集律法；其余材质走既有常量面 0-byte）。
+/// day_0828 F6 双形态回正：原形态常量原值恢复（g34_full_lane 系经
+/// [`g31_tex_load`] 消费,top-12 律法为其门锚冻结语义）;heap 70 全覆盖档 =
+/// [`G31_TEX_N_MAPPED_HEAP`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 const G31_TEX_N_MAPPED: usize = 12;
-/// B4 图集瓦片边长（texel；每槽一瓦,小纹理只占其左上 w×h 区——寻址 meta
-/// 记录真实 w/h,采样不越界）。
+/// day_0828 Phase B heap 档映射材质数（12→70 全覆盖——bistro-interior 70
+/// 材质全数入 heap，「均值 albedo 马赛克」修复面;仅 [`g31_tex_load_heap`]
+/// 消费）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+const G31_TEX_N_MAPPED_HEAP: usize = 70;
+/// B4 源纹理尺寸上限（pow2 fail-closed 域前提；bistro 全集 ≤2048）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 const G31_TEX_TILE: u32 = 2048;
-/// B4 图集列数（瓦/行）。
+/// day_0828 Phase B 存储基级 cap（>cap 源从对应 DDS 源 mip 起搬——2048² 12 级
+/// 链从 mip1 起 = 1024² 11 级；零重采样，美术原始 mip 直搬；atlas_design.md
+/// §4 cap-1024 档 ≈ 283 MiB）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+const G31_TEX_CAP: u32 = 1024;
+/// day_0828 Phase B heap 头表逐槽 mip 槽位数（cap-1024 → ≤11 级 + 裕量；
+/// kernel 头表寻址字面 13 同源）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+const G31_TEX_MIP_SLOTS: usize = 13;
+/// day_0828 Phase B heap 字节 fail-closed 上限（maxStorageBufferRange 保守
+/// 界：4070 Ti 报 4 GiB，本仓无 device limits 查询管道 ⇒ 2 GiB 常量断言 +
+/// 真查询留交接；cap-1024 档实测 ~283 MiB 远低于界）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+const G31_TEX_HEAP_MAX_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+/// B4 图集列数（day_0828 Phase B heap 化后仅 SVT 旧形态推导消费——SVT 臂已
+/// fail-closed 互斥，编译面保留）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 const G31_TEX_GRID_COLS: u32 = 4;
 /// B4 探针 UV 数/纹理（16 网格 + 4 精确边缘 + 4 wrap 域;确定性闭集律法,
 /// evidence 登记面）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 const G31_TEX_PROBES_PER_SLOT: usize = 24;
+/// day_0828 Phase B 探针 mip 抽样级数/槽（律法 = {0, mips/2, mips−1} 去重；
+/// SSBO 腿 heap 寻址逐级对拍面）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+const G31_TEX_PROBE_MIPS: usize = 3;
 
 /// B4 资产面盘点（glTF 材质/属性计数闭集;evidence 登记面）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
@@ -4823,6 +5434,8 @@ struct G31TexCensus {
 }
 
 /// B4 映射槽（top-N 律法一行;材质名/索引 glTF 互核 + G11.3 manifest 互核面）。
+/// day_0828 F6 双形态回正：原形态原字段恢复（g34_full_lane 系经
+/// [`g31_tex_load`] 消费）;heap 形态 = [`G31TexSlotHeap`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 struct G31TexSlot {
     material_index: u32,
@@ -4842,7 +5455,42 @@ struct G31TexSlot {
     mod_rgb: [f32; 3],
 }
 
+/// B4 映射槽 day_0828 Phase B heap 形态（F6 双形态回正改名）：width/height =
+/// **存储基级**尺寸（cap-1024 档）；src_width/src_height = DDS 源 mip0 尺寸
+/// （manifest 互核域）；rgba8_digest 语义不变 = 源 mip0 全分辨率解码 digest
+/// （G11.3 锚不动）；mip_digests = 逐存储级 rgba8 digest（新 evidence 字段）；
+/// origin_x/origin_y 废弃恒 0（SVT 旧形态编译面保留——SVT 臂已 fail-closed
+/// 互斥）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+struct G31TexSlotHeap {
+    material_index: u32,
+    material_name: String,
+    tris: usize,
+    texture_uri: String,
+    width: u32,
+    height: u32,
+    src_width: u32,
+    src_height: u32,
+    dds_format: String,
+    /// G11.3 manifest 登记的源文件 digest（互核面;manifest 缺条目 = None）。
+    manifest_source_digest: Option<String>,
+    /// 本 bin 解码源 mip0 RGBA8 digest（== manifest rgba8_digest 即 G11.3 链互核绿）。
+    rgba8_digest: String,
+    manifest_rgba8_digest: Option<String>,
+    /// 存储 mip 级数（cap 起级到链尾;texmeta[sb+7] 同源）。
+    mip_count: u32,
+    /// 逐存储级 RGBA8 digest（heap 装入序;新 evidence 字段）。
+    mip_digests: Vec<String>,
+    /// DDS 源链短于完整链（mips < log2(max(w,h))+1）按可用级截断登记。
+    mip_truncated: bool,
+    origin_x: u32,
+    origin_y: u32,
+    mod_rgb: [f32; 3],
+}
+
 /// B4 贴图资产面（装配期一次性构建;SSBO 字节面与 f32/u32 面同源派生）。
+/// day_0828 F6 双形态回正：原形态原字段恢复（atlas = 2D 网格图集;
+/// g34_full_lane 系经 [`g31_tex_load`] 消费）;heap 形态 = [`G31TexAssetsHeap`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 struct G31TexAssets {
     slots: Vec<G31TexSlot>,
@@ -4867,11 +5515,222 @@ struct G31TexAssets {
     eval_ms: f64,
 }
 
+/// B4 贴图资产面 day_0828 Phase B heap 形态（F6 双形态回正改名）：atlas =
+/// **一维 texel heap**（u32 偏移头表 [slot×13+mip] + 逐槽逐级连续 texel
+/// 段）；atlas_w/atlas_h 废弃恒 0（SVT 旧形态编译面保留）；
+/// heap_header_entries/heap_texels 新增登记面。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+struct G31TexAssetsHeap {
+    slots: Vec<G31TexSlotHeap>,
+    census: G31TexCensus,
+    atlas_w: u32,
+    atlas_h: u32,
+    /// texel heap：u32 偏移头表（slot_count×13 项,绝对 texel 下标）+ 逐槽
+    /// 逐级 u32 打包 RGBA8（R|G<<8|B<<16|A<<24）texel 段。
+    atlas: Vec<u32>,
+    atlas_bytes: Vec<u8>,
+    atlas_digest: String,
+    /// heap 头表项数（slot_count × G31_TEX_MIP_SLOTS）。
+    heap_header_entries: usize,
+    /// heap 总 u32 数（头表 + texel 段;×4 = SSBO 字节）。
+    heap_texels: usize,
+    linlut: [f32; 256],
+    linlut_bytes: Vec<u8>,
+    linlut_digest: String,
+    texmeta: Vec<f32>,
+    texmeta_bytes: Vec<u8>,
+    tritex: Vec<f32>,
+    tritex_bytes: Vec<u8>,
+    texuv_bytes: Vec<u8>,
+    /// 逐槽解码 RGBA8（行主序;sampler 腿纹理对象源 + host srgb 域参考面）。
+    slots_rgba8: Vec<Vec<u8>>,
+    tex_tris: usize,
+    eval_ms: f64,
+}
+
+/// DDS BC1（DXT1）/BC3（DXT5）**全 mip 链**解码 → 逐级 RGBA8 行主序
+/// （rurix-asset bcdec::decode_dds 的 bin-local 镜像——G11.3 确定性锚在案
+/// 消费面:逐槽源 mip0 rgba8 digest 与 milestones/g11/
+/// g11_3_dds_transcode_manifest.json 登记值互核,bcdec 行为漂移即红;BC5/BC7
+/// 等闭集外 fail-closed 显式拒绝）。day_0828 Phase B：mip0-only → 逐级解码
+/// （DDS 级段连续存储最大级在前,块数按级折半;dwMipMapCount@28,0 视作 1;
+/// 级体截断 fail-closed）。返回 (width, height, format,
+/// levels[(w,h,rgba8)..])。
+#[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
+fn g31_dds_decode_rgba8_mips(
+    bytes: &[u8],
+) -> Result<(u32, u32, &'static str, Vec<(u32, u32, Vec<u8>)>), String> {
+    if bytes.len() < 128 || &bytes[0..4] != b"DDS " {
+        return Err("非 DDS magic/头截断".into());
+    }
+    let rd = |off: usize| -> Result<u32, String> {
+        let b = bytes
+            .get(off..off + 4)
+            .ok_or_else(|| format!("DDS 头截断 @0x{off:x}"))?;
+        Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    };
+    if rd(4)? != 124 {
+        return Err("DDS header.size ≠ 124".into());
+    }
+    let height = rd(12)?;
+    let width = rd(16)?;
+    if width == 0 || height == 0 {
+        return Err("DDS 尺寸为零".into());
+    }
+    if rd(76)? != 32 {
+        return Err("DDS ddspf.size ≠ 32".into());
+    }
+    let mip_count = rd(28)?.max(1);
+    let fourcc = &bytes[84..88];
+    let mut data_off = 128usize;
+    let (format, block_bytes): (&'static str, usize) = match fourcc {
+        b"DXT1" => ("bc1", 8),
+        b"DXT5" => ("bc3", 16),
+        b"DX10" => {
+            if bytes.len() < 148 {
+                return Err("DDS DX10 扩展头截断".into());
+            }
+            data_off = 148;
+            match rd(128)? {
+                71 | 72 | 73 => ("bc1", 8),
+                77 | 78 | 79 => ("bc3", 16),
+                other => return Err(format!("DXGI 格式未入消费闭集（BC1/BC3 面）: {other}")),
+            }
+        }
+        other => {
+            return Err(format!(
+                "DDS FourCC 未入消费闭集（BC1/BC3 albedo 面）: {}",
+                String::from_utf8_lossy(other)
+            ))
+        }
+    };
+    let rgb565 = |c: u16| -> [u8; 4] {
+        let r = ((c >> 11) & 0x1f) as u8;
+        let g = ((c >> 5) & 0x3f) as u8;
+        let b = (c & 0x1f) as u8;
+        [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2), 255]
+    };
+    // bcdec::decode_bc4_block/bc4_value 逐字镜像（G11.3 确定性锚 = bcdec 行为
+    // 面,非 spec 重述——系数族 (8−(n−1))/(6−(n−1)) 与 bcdec 位级同式）。
+    let bc4_alpha = |blk: &[u8], texels: &mut [[u8; 4]; 16]| {
+        let a0 = i32::from(blk[0]);
+        let a1 = i32::from(blk[1]);
+        let e0 = blk[0];
+        let e1 = blk[1];
+        let mut bits = 0u64;
+        for (i, &b) in blk[2..8].iter().enumerate() {
+            bits |= u64::from(b) << (i * 8);
+        }
+        let gt = e0 > e1;
+        for (i, t) in texels.iter_mut().enumerate() {
+            let idx = ((bits >> (i * 3)) & 0x7) as i32;
+            let v = if gt {
+                match idx {
+                    0 => e0,
+                    1 => e1,
+                    n => (((8 - (n - 1)) * a0 + (n - 1) * a1) / 7).clamp(0, 255) as u8,
+                }
+            } else {
+                match idx {
+                    0 => e0,
+                    1 => e1,
+                    6 => 0,
+                    7 => 255,
+                    n => (((6 - (n - 1)) * a0 + (n - 1) * a1) / 5).clamp(0, 255) as u8,
+                }
+            };
+            t[3] = v;
+        }
+    };
+    // 逐级解码（DDS 级段连续存储;级尺寸 = max(w>>l,1)——bcdec 块解码逐字
+    // 不变,仅外层加级循环 + 级内行距换级宽）。
+    let mut levels: Vec<(u32, u32, Vec<u8>)> = Vec::with_capacity(mip_count as usize);
+    let mut cursor = data_off;
+    for l in 0..mip_count {
+        let lw = (width >> l).max(1);
+        let lh = (height >> l).max(1);
+        let bw = lw.div_ceil(4) as usize;
+        let bh = lh.div_ceil(4) as usize;
+        let need = bw * bh * block_bytes;
+        let blocks = bytes.get(cursor..cursor + need).ok_or_else(|| {
+            format!(
+                "DDS 体截断: mip {l} 需 {need} 字节, 存 {}",
+                bytes.len().saturating_sub(cursor)
+            )
+        })?;
+        cursor += need;
+        let mut out = vec![0u8; (lw as usize) * (lh as usize) * 4];
+        let mut bi = 0usize;
+        for by in 0..bh {
+            for bx in 0..bw {
+                let mut texels = [[0u8; 4]; 16];
+                let cb = if block_bytes == 16 {
+                    bc4_alpha(&blocks[bi..bi + 8], &mut texels);
+                    &blocks[bi + 8..bi + 16]
+                } else {
+                    for t in texels.iter_mut() {
+                        t[3] = 255;
+                    }
+                    &blocks[bi..bi + 8]
+                };
+                let c0 = u16::from_le_bytes([cb[0], cb[1]]);
+                let c1 = u16::from_le_bytes([cb[2], cb[3]]);
+                let idx_bits = u32::from_le_bytes([cb[4], cb[5], cb[6], cb[7]]);
+                let p0 = rgb565(c0);
+                let p1 = rgb565(c1);
+                let mut lut = [[0u8; 4]; 4];
+                lut[0] = p0;
+                lut[1] = p1;
+                // bcdec 镜像:BC1 = c0>c1 四色/否则三色+透明黑;BC3 颜色块恒四色
+                // （c0<=c1 时索引 3 仍为第四插值色,不透明——与 bcdec 逐字同律）。
+                if block_bytes == 16 || c0 > c1 {
+                    for ch in 0..3 {
+                        lut[2][ch] = ((2 * u32::from(p0[ch]) + u32::from(p1[ch])) / 3) as u8;
+                        lut[3][ch] = ((u32::from(p0[ch]) + 2 * u32::from(p1[ch])) / 3) as u8;
+                    }
+                    lut[2][3] = 255;
+                    lut[3][3] = 255;
+                } else {
+                    for ch in 0..3 {
+                        lut[2][ch] = ((u32::from(p0[ch]) + u32::from(p1[ch])) / 2) as u8;
+                    }
+                    lut[2][3] = 255;
+                    lut[3] = [0, 0, 0, 0];
+                }
+                for (i, t) in texels.iter_mut().enumerate() {
+                    let px = lut[((idx_bits >> (2 * i)) & 0x3) as usize];
+                    t[0] = px[0];
+                    t[1] = px[1];
+                    t[2] = px[2];
+                    if block_bytes == 8 {
+                        t[3] = px[3];
+                    }
+                }
+                for ty in 0..4u32 {
+                    for tx in 0..4u32 {
+                        let (x, y) = (bx * 4 + tx as usize, by * 4 + ty as usize);
+                        if x >= lw as usize || y >= lh as usize {
+                            continue;
+                        }
+                        let o = (y * lw as usize + x) * 4;
+                        out[o..o + 4].copy_from_slice(&texels[(ty * 4 + tx) as usize]);
+                    }
+                }
+                bi += block_bytes;
+            }
+        }
+        levels.push((lw, lh, out));
+    }
+    Ok((width, height, format, levels))
+}
+
 /// DDS BC1（DXT1）/BC3（DXT5）mip0 全纹素解码 → RGBA8 行主序（rurix-asset
 /// bcdec::decode_dds 的 bin-local 镜像——G11.3 确定性锚在案消费面:逐槽
 /// rgba8 digest 与 milestones/g11/g11_3_dds_transcode_manifest.json 登记值
 /// 互核,bcdec 行为漂移即红;BC5/BC7 等闭集外 fail-closed 显式拒绝）。
-/// 返回 (width, height, format, rgba8)。
+/// 返回 (width, height, format, rgba8)。day_0828 F6 双形态回正：原形态
+/// 原名恢复（[`g31_tex_load`] 原形态消费;逐级解码形态 =
+/// [`g31_dds_decode_rgba8_mips`]）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_dds_decode_rgba8(bytes: &[u8]) -> Result<(u32, u32, &'static str, Vec<u8>), String> {
     if bytes.len() < 128 || &bytes[0..4] != b"DDS " {
@@ -5037,6 +5896,8 @@ fn g31_tex_linlut() -> [f32; 256] {
 
 /// 探针 UV 闭集律法（24/槽:16 网格 + 4 精确边缘 + 4 wrap 域;确定性,与 CI
 /// smoke 判读器同源镜像——篡改律法即红）。返回 (slot, u, v) 全槽展平列。
+/// day_0828 F6 双形态回正：原形态原签名恢复（g34_full_lane 系消费面）;
+/// mip 维形态 = [`g31_tex_probes_mip`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_probes(n_slots: usize) -> Vec<(u32, f32, f32)> {
     let mut out = Vec::with_capacity(n_slots * G31_TEX_PROBES_PER_SLOT);
@@ -5061,9 +5922,44 @@ fn g31_tex_probes(n_slots: usize) -> Vec<(u32, f32, f32)> {
     out
 }
 
+/// [`g31_tex_probes`] 的 day_0828 Phase B mip 维形态（F6 双形态回正改名）：
+/// 每槽 24 UV × 抽样级 {0, mips/2, mips−1}（去重,mips=1 槽单级）;返回
+/// (slot, u, v, lod) 全槽展平列（lod 显式注入 = heap 逐级寻址对拍面）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_probes_mip(slots: &[G31TexSlotHeap]) -> Vec<(u32, f32, f32, u32)> {
+    let mut out = Vec::with_capacity(slots.len() * G31_TEX_PROBES_PER_SLOT * G31_TEX_PROBE_MIPS);
+    for (k, s) in slots.iter().enumerate() {
+        let mips = s.mip_count.max(1);
+        let mut lods = vec![0u32, mips / 2, mips - 1];
+        lods.dedup();
+        for &lod in &lods {
+            for j in 0..16u32 {
+                let u = (((j * 37 + (k as u32) * 11) % 256) as f32 + 0.5) / 256.0;
+                let v = (((j * 101 + (k as u32) * 13) % 256) as f32 + 0.5) / 256.0;
+                out.push((k as u32, u, v, lod));
+            }
+            // 精确边缘（含边界回绕触发面:x0/x1 跨 0/w 界）。
+            let em1 = 1.0f32 - 2.0f32.powi(-23);
+            out.push((k as u32, 0.0, 0.0, lod));
+            out.push((k as u32, 0.0, 0.5, lod));
+            out.push((k as u32, 0.5, 0.0, lod));
+            out.push((k as u32, em1, em1, lod));
+            // wrap 域（fract 回绕;含负域）。
+            out.push((k as u32, 1.25, 2.5, lod));
+            out.push((k as u32, 3.75, 1.5, lod));
+            out.push((k as u32, -0.25, 1.3333334, lod));
+            out.push((k as u32, 2.0, -0.75, lod));
+        }
+    }
+    out
+}
+
 /// host 采样参考（与 kernels/g31_texture_{gi,probe}.rx 采样块同 op 序——
 /// Rust f32 无收缩 + device NoContraction 注入 ⇒ 位级对拍面）。采样域 =
-/// texmeta/atlas/linlut 三 SSBO 的 host 同源 f32/u32 面。
+/// texmeta/atlas/linlut 三 SSBO 的 host 同源 f32/u32 面。day_0828 F6 双形态
+/// 回正：原形态原签名原 op 序恢复（g34_full_lane 系消费面——其 kernel
+/// g34_unified_gi.rx 为门锚冻结,G/B 底行 fy 系数与之位级同式,不施加 heap
+/// 侧 fy→fx 修正）;heap/mip 形态 = [`g31_tex_host_sample_mip`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_host_sample(
     texmeta: &[f32],
@@ -5119,11 +6015,89 @@ fn g31_tex_host_sample(
     let t0r = p00_r * (1.0 - fx) + p10_r * fx;
     let b0r = p01_r * (1.0 - fx) + p11_r * fx;
     let samp_r = (t0r * (1.0 - fy) + b0r * fy) * mod_r;
+    // G37 W1:fx/fy 双线性同源 bug 修复(day_0828 HANDOVER §A.1)——G/B 底行
+    // 水平混合 fy→fx,与 g34_unified_{gi,gi_skin,shade}.rx kernel 同步改
+    // (host/device 对拍面成对修,防同错互抵恒绿假象)。
     let t0g = p00_g * (1.0 - fx) + p10_g * fx;
-    let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+    let b0g = p01_g * (1.0 - fx) + p11_g * fx;
     let samp_g = (t0g * (1.0 - fy) + b0g * fy) * mod_g;
     let t0b = p00_b * (1.0 - fx) + p10_b * fx;
-    let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+    let b0b = p01_b * (1.0 - fx) + p11_b * fx;
+    let samp_b = (t0b * (1.0 - fy) + b0b * fy) * mod_b;
+    [samp_r, samp_g, samp_b]
+}
+
+/// [`g31_tex_host_sample`] 的 day_0828 Phase B heap/mip 形态（F6 双形态回正
+/// 改名）：heap 寻址（头表 [slot×13+lod] 取级基址）+ lod 显式入参（探针律法
+/// 注入，生产 kernel 的 log2 推导为 device 器件面不入对拍域）+ G/B 底行
+/// fy→fx 修正（heap 系 kernel 同步）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_host_sample_mip(
+    texmeta: &[f32],
+    atlas: &[u32],
+    linlut: &[f32; 256],
+    slot: usize,
+    uu0: f32,
+    vv0: f32,
+    lod: usize,
+) -> [f32; 3] {
+    let sb = 8 + slot * 8;
+    let tw = texmeta[sb + 2];
+    let th2 = texmeta[sb + 3];
+    let mod_r = texmeta[sb + 4];
+    let mod_g = texmeta[sb + 5];
+    let mod_b = texmeta[sb + 6];
+    let mut mw = tw;
+    let mut mh = th2;
+    let mut li = 0usize;
+    while li < lod {
+        mw = (mw * 0.5).max(1.0);
+        mh = (mh * 0.5).max(1.0);
+        li += 1;
+    }
+    let hbase = atlas[slot * G31_TEX_MIP_SLOTS + lod] as usize;
+    let uu = uu0 - uu0.floor();
+    let vv = vv0 - vv0.floor();
+    let xf = uu * mw - 0.5;
+    let yf = vv * mh - 0.5;
+    let bxf = xf.floor();
+    let byf = yf.floor();
+    let fx = xf - bxf;
+    let fy = yf - byf;
+    let inv_tw = 1.0 / mw;
+    let inv_th = 1.0 / mh;
+    let x0 = bxf - (bxf * inv_tw).floor() * mw;
+    let y0 = byf - (byf * inv_th).floor() * mh;
+    let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * mw;
+    let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * mh;
+    let a00 = hbase + (y0 as usize) * (mw as usize) + (x0 as usize);
+    let a10 = hbase + (y0 as usize) * (mw as usize) + (x1 as usize);
+    let a01 = hbase + (y1 as usize) * (mw as usize) + (x0 as usize);
+    let a11 = hbase + (y1 as usize) * (mw as usize) + (x1 as usize);
+    let p00 = atlas[a00] as usize;
+    let p10 = atlas[a10] as usize;
+    let p01 = atlas[a01] as usize;
+    let p11 = atlas[a11] as usize;
+    let p00_r = linlut[p00 % 256usize];
+    let p00_g = linlut[(p00 / 256usize) % 256usize];
+    let p00_b = linlut[(p00 / 65536usize) % 256usize];
+    let p10_r = linlut[p10 % 256usize];
+    let p10_g = linlut[(p10 / 256usize) % 256usize];
+    let p10_b = linlut[(p10 / 65536usize) % 256usize];
+    let p01_r = linlut[p01 % 256usize];
+    let p01_g = linlut[(p01 / 256usize) % 256usize];
+    let p01_b = linlut[(p01 / 65536usize) % 256usize];
+    let p11_r = linlut[p11 % 256usize];
+    let p11_g = linlut[(p11 / 256usize) % 256usize];
+    let p11_b = linlut[(p11 / 65536usize) % 256usize];
+    let t0r = p00_r * (1.0 - fx) + p10_r * fx;
+    let b0r = p01_r * (1.0 - fx) + p11_r * fx;
+    let samp_r = (t0r * (1.0 - fy) + b0r * fy) * mod_r;
+    let t0g = p00_g * (1.0 - fx) + p10_g * fx;
+    let b0g = p01_g * (1.0 - fx) + p11_g * fx;
+    let samp_g = (t0g * (1.0 - fy) + b0g * fy) * mod_g;
+    let t0b = p00_b * (1.0 - fx) + p10_b * fx;
+    let b0b = p01_b * (1.0 - fx) + p11_b * fx;
     let samp_b = (t0b * (1.0 - fy) + b0b * fy) * mod_b;
     [samp_r, samp_g, samp_b]
 }
@@ -5172,6 +6146,9 @@ fn g31_tex_host_sample_srgb(tile: &[u8], w: u32, h: u32, uu0: f32, vv0: f32) -> 
 /// B4 贴图资产装配（--textures on 面;fail-closed 闭集——top-N 律法/glTF 互核/
 /// BC1-BC3 解码/pow2 限定/G11.3 manifest 互核全链任一破即 Err,不静默降级）。
 /// `tri_uv` = assemble_scene_uv 产出的 6 f32/tri（长度 = 三角数 × 6 互核）。
+/// day_0828 F6 双形态回正：原形态原名原语义恢复（top-12 + 2D 网格图集 +
+/// tritex 步幅 1;g34_full_lane 系消费面,HEAD 逐字恢复零漂移）;heap 形态 =
+/// [`g31_tex_load_heap`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_load(
     scene: &SceneData,
@@ -5438,6 +6415,785 @@ fn g31_tex_load(
     })
 }
 
+/// [`g31_tex_load`] 的 day_0828 Phase B heap 形态（F6 双形态回正改名）：
+/// top-70 全覆盖 + 一维 texel heap（u32 偏移头表 [slot×13+mip] + 逐槽逐级
+/// texel 段）+ tritex 步幅 2 [slot, k_tri]——fail-closed 闭集同律。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_load_heap(
+    scene: &SceneData,
+    gltf_path: &Path,
+    tri_uv: &[f32],
+) -> Result<G31TexAssetsHeap, String> {
+    let t0 = std::time::Instant::now();
+    if tri_uv.len() != scene.indices.len() * 6 {
+        return Err(format!(
+            "UV sink 长度 {} ≠ 三角数×6 {}",
+            tri_uv.len(),
+            scene.indices.len() * 6
+        ));
+    }
+    let (gltf, _) = load_gltf(gltf_path)?;
+    let base = gltf_path.parent().unwrap_or_else(|| Path::new("."));
+    // ── ① 资产面盘点（census;glTF 材质/属性计数闭集）──
+    let mats_json = gltf
+        .root
+        .get("materials")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&[]);
+    let mut census = G31TexCensus {
+        materials_total: mats_json.len(),
+        with_base_color_texture: 0,
+        with_normal_texture: 0,
+        with_metallic_roughness_texture: 0,
+        primitives_total: 0,
+        primitives_with_texcoord0: 0,
+        primitives_with_tangent: 0,
+    };
+    let images = gltf.root.get("images").and_then(|v| v.as_array());
+    let textures = gltf.root.get("textures").and_then(|v| v.as_array());
+    let tex_uri = |t: &Json| -> Option<String> {
+        let ti = t.get("index").and_then(|v| v.as_u64())? as usize;
+        let src = textures?.get(ti)?.get("source").and_then(|v| v.as_u64())? as usize;
+        Some(images?.get(src)?.get("uri").and_then(|v| v.as_str())?.to_owned())
+    };
+    let mut mat_base_uri: Vec<Option<String>> = Vec::new();
+    let mut mat_factor: Vec<[f32; 3]> = Vec::new();
+    let mut mat_k: Vec<f32> = Vec::new();
+    for m in mats_json {
+        let pbr = m.get("pbrMetallicRoughness");
+        if pbr.and_then(|p| p.get("baseColorTexture")).is_some() {
+            census.with_base_color_texture += 1;
+        }
+        if pbr
+            .and_then(|p| p.get("metallicRoughnessTexture"))
+            .is_some()
+        {
+            census.with_metallic_roughness_texture += 1;
+        }
+        if m.get("normalTexture").is_some() {
+            census.with_normal_texture += 1;
+        }
+        let alb4 = pbr
+            .and_then(|p| p.get("baseColorFactor"))
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().map(|x| x.as_f64().unwrap_or(1.0) as f32).collect::<Vec<_>>());
+        let factor = match alb4 {
+            Some(v) if v.len() == 4 => [v[0], v[1], v[2]],
+            _ => [1.0, 1.0, 1.0],
+        };
+        let metallic = pbr
+            .and_then(|p| p.get("metallicFactor"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0) as f32;
+        mat_factor.push(factor);
+        mat_k.push(1.0 - metallic);
+        mat_base_uri.push(
+            pbr.and_then(|p| p.get("baseColorTexture"))
+                .and_then(|t| tex_uri(t)),
+        );
+    }
+    for mesh in gltf
+        .root
+        .get("meshes")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&[])
+    {
+        for prim in mesh
+            .get("primitives")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&[])
+        {
+            census.primitives_total += 1;
+            let attrs = prim.get("attributes");
+            if attrs.and_then(|a| a.get("TEXCOORD_0")).is_some() {
+                census.primitives_with_texcoord0 += 1;
+            }
+            if attrs.and_then(|a| a.get("TANGENT")).is_some() {
+                census.primitives_with_tangent += 1;
+            }
+        }
+    }
+    // ── ② top-N 映射律法（逐材质三角数降序,并列时 material_index 升序——
+    //    确定性闭集;其余走既有常量面 0-byte）──
+    let mut tri_count: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
+    for &mi in &scene.tri_mat {
+        if mi != SLAB_TRI_NONE {
+            *tri_count.entry(mi).or_default() += 1;
+        }
+    }
+    let mut rank: Vec<(u32, usize)> = tri_count.into_iter().collect();
+    rank.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let n_map = G31_TEX_N_MAPPED_HEAP.min(rank.len());
+    if n_map == 0 {
+        return Err("场景零可映射材质（--textures on 面 fail-closed）".into());
+    }
+    let picked = &rank[..n_map];
+    // ── ③ G11.3 manifest 互核面装载（在树即核;缺失 = None 登记不 fail——
+    //    派生链登记面缺失与 BC 解码漂移是两档事态,前者如实登记）──
+    let manifest: Option<Vec<(String, String, String)>> = (|| {
+        let text = std::fs::read_to_string(
+            "milestones/g11/g11_3_dds_transcode_manifest.json",
+        )
+        .ok()?;
+        let doc = json_parse(&text).ok()?;
+        let entries = doc.get("entries")?.as_array()?;
+        let mut out = Vec::with_capacity(entries.len());
+        for e in entries {
+            out.push((
+                as_str("source_uri", e.get("source_uri")?).ok()?.to_owned(),
+                as_str("source_digest", e.get("source_digest")?).ok()?.to_owned(),
+                as_str("rgba8_digest", e.get("rgba8_digest")?).ok()?.to_owned(),
+            ));
+        }
+        Some(out)
+    })();
+    // ── ④ 逐槽全链解码 + texel heap 装配（day_0828 Phase B：2D 网格 →
+    //    一维 heap;u32 偏移头表 [slot×13+mip] 进 atlas buffer 头部 = 零新增
+    //    绑定;cap-1024 档 = >cap 源从对应源 mip 起搬,零重采样;G11.3 manifest
+    //    互核锚 = 源 mip0 digest 不动,逐存储级 digest 新增登记）──
+    let header_entries = n_map * G31_TEX_MIP_SLOTS;
+    let mut slots: Vec<G31TexSlotHeap> = Vec::with_capacity(n_map);
+    let mut slots_rgba8: Vec<Vec<u8>> = Vec::with_capacity(n_map);
+    // 逐槽存储级集（(w,h,rgba8) 装入序;先收集后二遍布局——offset 表需总长）。
+    let mut slot_levels: Vec<Vec<(u32, u32, Vec<u8>)>> = Vec::with_capacity(n_map);
+    for &(mi, ntris) in picked.iter() {
+        let uri = mat_base_uri
+            .get(mi as usize)
+            .and_then(|u| u.clone())
+            .ok_or_else(|| {
+                format!("top-{n_map} 律法命中材质 index {mi} 缺 baseColorTexture（fail-closed 不静默）")
+            })?;
+        let raw = std::fs::read(base.join(&uri))
+            .map_err(|e| format!("纹理 {uri} 读取失败: {e}"))?;
+        let (w, h, fmt, levels) = g31_dds_decode_rgba8_mips(&raw)
+            .map_err(|e| format!("纹理 {uri} DDS 解码失败: {e}"))?;
+        if w > G31_TEX_TILE || h > G31_TEX_TILE || !w.is_power_of_two() || !h.is_power_of_two() {
+            return Err(format!(
+                "纹理 {uri} 尺寸 {w}x{h} 越 pow2 ≤ {G31_TEX_TILE} 闭集（wrap 精确域 fail-closed）"
+            ));
+        }
+        // G11.3 锚：源 mip0 全分辨率 digest（manifest rgba8_digest 互核域）。
+        let rgba8_digest = format!("sha256:{}", sha256_hex(&levels[0].2));
+        let manifest_row = manifest.as_ref().and_then(|m| {
+            m.iter().find(|(u, _, _)| *u == uri)
+        });
+        // cap 起级：首个 max(w_l,h_l) ≤ cap 的级（bistro：2048²→mip1=1024²;
+        // 16²→mip0）。链短于起级 = 源链异常 fail-closed。
+        let start = levels
+            .iter()
+            .position(|(lw, lh, _)| *lw <= G31_TEX_CAP && *lh <= G31_TEX_CAP)
+            .ok_or_else(|| {
+                format!("纹理 {uri} 全链无 ≤{}² 级（cap 档源链异常,fail-closed）", G31_TEX_CAP)
+            })?;
+        let stored: Vec<(u32, u32, Vec<u8>)> = levels[start..].to_vec();
+        let mip_count = stored.len() as u32;
+        if mip_count as usize > G31_TEX_MIP_SLOTS {
+            return Err(format!(
+                "纹理 {uri} 存储级数 {mip_count} 越头表槽位 {G31_TEX_MIP_SLOTS}（fail-closed）"
+            ));
+        }
+        let (bw0, bh0) = (stored[0].0, stored[0].1);
+        // 完整链判定（基级到 1×1）;短链按可用级截断登记（bistro 全集完整）。
+        let full_chain = bw0.max(bh0).trailing_zeros() + 1;
+        let mip_truncated = mip_count < full_chain;
+        let mip_digests: Vec<String> = stored
+            .iter()
+            .map(|(_, _, px)| format!("sha256:{}", sha256_hex(px)))
+            .collect();
+        let factor = mat_factor[mi as usize];
+        let kk = mat_k[mi as usize];
+        let name = mats_json
+            .get(mi as usize)
+            .and_then(|m| m.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_owned();
+        slots.push(G31TexSlotHeap {
+            material_index: mi,
+            material_name: name,
+            tris: ntris,
+            texture_uri: uri,
+            width: bw0,
+            height: bh0,
+            src_width: w,
+            src_height: h,
+            dds_format: fmt.to_owned(),
+            manifest_source_digest: manifest_row.map(|(_, s, _)| s.clone()),
+            rgba8_digest,
+            manifest_rgba8_digest: manifest_row.map(|(_, _, d)| d.clone()),
+            mip_count,
+            mip_digests,
+            mip_truncated,
+            origin_x: 0,
+            origin_y: 0,
+            mod_rgb: [factor[0] * kk, factor[1] * kk, factor[2] * kk],
+        });
+        // sampler 腿/host srgb 参考源 = 存储基级 RGBA8。
+        slots_rgba8.push(stored[0].2.clone());
+        slot_levels.push(stored);
+    }
+    // heap 布局二遍：头表偏移（绝对 u32 texel 下标;缺级槽位重复末级偏移——
+    // kernel lod 已钳 mips−1,冗余保底）→ texel 段逐槽逐级连续装入。
+    let mut heap_texels = header_entries;
+    let mut header = vec![0u32; header_entries];
+    for (k, lv) in slot_levels.iter().enumerate() {
+        for (m, (lw, lh, _)) in lv.iter().enumerate() {
+            header[k * G31_TEX_MIP_SLOTS + m] = heap_texels as u32;
+            heap_texels += (*lw as usize) * (*lh as usize);
+        }
+        let last = header[k * G31_TEX_MIP_SLOTS + lv.len() - 1];
+        for m in lv.len()..G31_TEX_MIP_SLOTS {
+            header[k * G31_TEX_MIP_SLOTS + m] = last;
+        }
+    }
+    // fail-closed：heap 字节 ≤ 保守 maxStorageBufferRange 界（文件头常量注）。
+    let heap_bytes = (heap_texels as u64) * 4;
+    if heap_bytes > G31_TEX_HEAP_MAX_BYTES {
+        return Err(format!(
+            "texel heap {heap_bytes} B 越 maxStorageBufferRange 保守界 {G31_TEX_HEAP_MAX_BYTES} B（fail-closed;需降 cap 档或分页）"
+        ));
+    }
+    let mut atlas = vec![0u32; heap_texels];
+    atlas[..header_entries].copy_from_slice(&header);
+    let mut cursor = header_entries;
+    for lv in &slot_levels {
+        for (lw, lh, px) in lv {
+            let n = (*lw as usize) * (*lh as usize);
+            for (t, chunk) in px.chunks_exact(4).enumerate() {
+                atlas[cursor + t] = u32::from(chunk[0])
+                    | (u32::from(chunk[1]) << 8)
+                    | (u32::from(chunk[2]) << 16)
+                    | (u32::from(chunk[3]) << 24);
+            }
+            cursor += n;
+        }
+    }
+    debug_assert_eq!(cursor, heap_texels);
+    // ── ⑤ 侧表 SSBO 面（texmeta/tritex;uv 字节面由 sink 直派生）。texmeta
+    //    头 [0]=头表项数 [1]=0 [2]=slot_count;槽 [sb+7]=mip_count。tritex
+    //    步幅 2 [slot, k_tri]——k_tri = sqrt(uv_area/world_area) 装配期逐
+    //    三角预算（mip 选择 UV 密度项;退化面/常量面 0 → lod0）──
+    let mut texmeta = vec![
+        header_entries as f32,
+        0.0,
+        n_map as f32,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ];
+    for s in &slots {
+        texmeta.extend_from_slice(&[
+            0.0,
+            0.0,
+            s.width as f32,
+            s.height as f32,
+            s.mod_rgb[0],
+            s.mod_rgb[1],
+            s.mod_rgb[2],
+            s.mip_count as f32,
+        ]);
+    }
+    let slot_of = |mi: u32| -> f32 {
+        slots
+            .iter()
+            .position(|s| s.material_index == mi)
+            .map(|p| p as f32)
+            .unwrap_or(-1.0)
+    };
+    let mut tritex = Vec::with_capacity(scene.tri_mat.len() * 2);
+    let mut tex_tris = 0usize;
+    for (t, &mi) in scene.tri_mat.iter().enumerate() {
+        let s = if mi == SLAB_TRI_NONE { -1.0 } else { slot_of(mi) };
+        let k_tri = if s >= 0.0 {
+            tex_tris += 1;
+            let ub = t * 6;
+            let du1 = tri_uv[ub + 2] - tri_uv[ub];
+            let dv1 = tri_uv[ub + 3] - tri_uv[ub + 1];
+            let du2 = tri_uv[ub + 4] - tri_uv[ub];
+            let dv2 = tri_uv[ub + 5] - tri_uv[ub + 1];
+            // ×2 面积（比值内约去;abs 覆盖 UV 镜像绕序）。
+            let uv_area2 = (du1 * dv2 - dv1 * du2).abs();
+            let idx = scene.indices[t];
+            let p0 = scene.positions[idx[0] as usize];
+            let p1 = scene.positions[idx[1] as usize];
+            let p2 = scene.positions[idx[2] as usize];
+            let e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+            let e2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+            let cx = e1[1] * e2[2] - e1[2] * e2[1];
+            let cy = e1[2] * e2[0] - e1[0] * e2[2];
+            let cz = e1[0] * e2[1] - e1[1] * e2[0];
+            let w_area2 = (cx * cx + cy * cy + cz * cz).sqrt();
+            if w_area2 > 0.0 && uv_area2 > 0.0 && uv_area2.is_finite() {
+                (uv_area2 / w_area2).sqrt()
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+        tritex.push(s);
+        tritex.push(k_tri);
+    }
+    if tex_tris == 0 {
+        return Err("映射材质零三角命中（空接线即红,fail-closed）".into());
+    }
+    let linlut = g31_tex_linlut();
+    let atlas_bytes: Vec<u8> = atlas.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let linlut_bytes: Vec<u8> = linlut.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let atlas_digest = format!("sha256:{}", sha256_hex(&atlas_bytes));
+    let linlut_digest = format!("sha256:{}", sha256_hex(&linlut_bytes));
+    let eval_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    Ok(G31TexAssetsHeap {
+        slots,
+        census,
+        atlas_w: 0,
+        atlas_h: 0,
+        atlas,
+        atlas_bytes,
+        atlas_digest,
+        heap_header_entries: header_entries,
+        heap_texels,
+        linlut,
+        linlut_bytes,
+        linlut_digest,
+        texmeta_bytes: bytes_f32(&texmeta),
+        texmeta,
+        tritex_bytes: bytes_f32(&tritex),
+        tritex,
+        texuv_bytes: bytes_f32(tri_uv),
+        slots_rgba8,
+        tex_tris,
+        eval_ms,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// day_0828 Phase F 灯具 emissive 贴图加性臂（--emissive-tex on 面;off 路径
+// 0-byte——本段全部仅 g31_window_present --emissive-tex on 消费。烘焙件 =
+// artifacts/day_0828/f_emissive/bake_emissive.py 产 .rgba8bin（PNG 侧车路线:
+// 仓内无 PNG 解码器）;装配 = 4 张烘焙件追加进既有 texel heap 槽 70..73
+// （头表 70×13→74×13,全 heap 重排布）+ triem 逐三角 emissive 槽号侧表
+// （1 f32/tri;非灯具材质/回退材质 = −1.0）;scale 标定 = 契约 Le_c / 烘焙
+// manifest mip0 线性均值_c 进 texmeta 槽 mod 位（emissive 槽 mod 语义 =
+// scale,与 albedo 槽 mod 两套语义）。追加发生在探针对拍**之前** ⇒ B4 探针
+// 双臂（SSBO 位级硬门 + sampler 腿 ≤1 LSB）自动覆盖 4 个 emissive 槽。
+// ---------------------------------------------------------------------------
+
+/// Phase F 契约 emissive_materials 段解析（scenes[]/lighting/
+/// emissive_materials → (material_index, material_name, le_linear_rgb);
+/// 字段缺失/空段 fail-closed——scale 标定分子事实源）。
+#[allow(dead_code)] // day_0828 Phase F:g31_window_present 独消费面(诚实标注)
+fn g31_contract_emissive_list(srow: &Json) -> Result<Vec<(u32, String, [f64; 3])>, String> {
+    let arr = srow
+        .get("lighting")
+        .and_then(|l| l.get("emissive_materials"))
+        .and_then(|v| v.as_array())
+        .ok_or("契约场景行缺 lighting.emissive_materials（Phase F 消费面,fail-closed）")?;
+    let mut out = Vec::with_capacity(arr.len());
+    for e in arr {
+        let mi = e
+            .get("material_index")
+            .and_then(|v| v.as_u64())
+            .ok_or("emissive_materials 行缺 material_index")? as u32;
+        let name = e
+            .get("material_name")
+            .and_then(|v| v.as_str())
+            .ok_or("emissive_materials 行缺 material_name")?
+            .to_owned();
+        let le = e
+            .get("le_linear_rgb")
+            .and_then(|v| v.as_array())
+            .filter(|a| a.len() == 3)
+            .ok_or("emissive_materials 行缺 le_linear_rgb[3]")?;
+        let le: Vec<f64> = le
+            .iter()
+            .map(|v| v.as_f64().ok_or("le_linear_rgb 非数"))
+            .collect::<Result<_, _>>()?;
+        out.push((mi, name, [le[0], le[1], le[2]]));
+    }
+    if out.is_empty() {
+        return Err("契约 emissive_materials 空（Phase F 臂无消费面,fail-closed）".into());
+    }
+    Ok(out)
+}
+
+/// Phase F 烘焙容器读取（fail-closed 闭集：头 3×u32 LE [w,h,mips] + 逐级
+/// RGBA8 行主序紧凑;pow2 方图 ≤ G31_TEX_TILE、完整链级数、逐级字节长度、
+/// 零尾垃圾全链任一破即 Err）。返回 (w, h, levels[(w,h,rgba8)..])。
+#[allow(dead_code)] // day_0828 Phase F:g31_window_present 独消费面(诚实标注)
+fn g31_rgba8bin_read(path: &Path) -> Result<(u32, u32, Vec<(u32, u32, Vec<u8>)>), String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("读 {}: {e}", path.display()))?;
+    if bytes.len() < 12 {
+        return Err(format!("{} 头截断（<12B）", path.display()));
+    }
+    let rd = |o: usize| u32::from_le_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]]);
+    let (w, h, mips) = (rd(0), rd(4), rd(8));
+    if w == 0 || h == 0 || w != h || !w.is_power_of_two() || w > G31_TEX_TILE {
+        return Err(format!(
+            "{} 尺寸 {w}x{h} 越 pow2 方图 ≤ {G31_TEX_TILE} 闭集（fail-closed）",
+            path.display()
+        ));
+    }
+    let full_chain = w.max(h).trailing_zeros() + 1;
+    if mips != full_chain {
+        return Err(format!(
+            "{} 级数 {mips} ≠ 完整链 {full_chain}（烘焙件必须全链,fail-closed）",
+            path.display()
+        ));
+    }
+    let mut levels: Vec<(u32, u32, Vec<u8>)> = Vec::with_capacity(mips as usize);
+    let mut cursor = 12usize;
+    for l in 0..mips {
+        let lw = (w >> l).max(1);
+        let lh = (h >> l).max(1);
+        let need = (lw as usize) * (lh as usize) * 4;
+        let px = bytes
+            .get(cursor..cursor + need)
+            .ok_or_else(|| {
+                format!(
+                    "{} 体截断: mip {l} 需 {need}B, 存 {}",
+                    path.display(),
+                    bytes.len().saturating_sub(cursor)
+                )
+            })?
+            .to_vec();
+        cursor += need;
+        levels.push((lw, lh, px));
+    }
+    if cursor != bytes.len() {
+        return Err(format!(
+            "{} 尾部越界字节 {}（容器闭集破坏,fail-closed）",
+            path.display(),
+            bytes.len() - cursor
+        ));
+    }
+    Ok((w, h, levels))
+}
+
+/// Phase F emissive 槽登记行（evidence 面）。
+#[allow(dead_code)] // day_0828 Phase F:g31_window_present 独消费面(诚实标注)
+struct G31EmissiveSlotRow {
+    slot: usize,
+    material_index: u32,
+    material_name: String,
+    file: String,
+    source_sha256: String,
+    output_sha256: String,
+    src_width: u32,
+    src_height: u32,
+    stored_width: u32,
+    stored_height: u32,
+    mip_count: u32,
+    le_linear_rgb: [f64; 3],
+    tex_linear_mean_rgb: [f64; 3],
+    scale_rgb: [f32; 3],
+    tris: usize,
+    /// 任一通道均值 ≤1e-6 ⇒ 该材质整体回退 mats 均值路径（triem = −1）。
+    fallback: bool,
+}
+
+/// Phase F emissive 资产面（triem 侧表 + 登记行;heap/texmeta/slots 扩容
+/// 直接 mutate 进 G31TexAssetsHeap——追加须在探针对拍前施加,探针自动覆盖）。
+#[allow(dead_code)] // day_0828 Phase F:g31_window_present 独消费面(诚实标注)
+struct G31EmissiveAssets {
+    triem: Vec<f32>,
+    triem_bytes: Vec<u8>,
+    em_tris: usize,
+    rows: Vec<G31EmissiveSlotRow>,
+    manifest_path: String,
+    manifest_sha256: String,
+    /// heap 追加 u32 数（头表增量 + texel 段;×4 = 字节增量）。
+    appended_texels: usize,
+    eval_ms: f64,
+}
+
+/// Phase F emissive 贴图装配（fail-closed 闭集：manifest 缺件/字段缺失/
+/// sha256 失配/容器破/契约-烘焙材质失配/映射零三角任一破即 Err,不静默降级）。
+/// `em_mats` = 契约 emissive_materials 段 (material_index, material_name,
+/// le_linear_rgb)。追加语义：heap 头表 slots×13 → (slots+N)×13 全 heap 重
+/// 排布（既有偏移 +shift,texel 段字节不动）+ 4 槽 texel 段尾接（cap-1024
+/// 起级律与 DDS 槽同律）;texmeta 头 [0]/[2] 与逐槽行同步;slots/slots_rgba8
+/// 追加（探针/评估两腿自动覆盖）;tritex 0-byte 不触（albedo 映射不变）。
+#[allow(dead_code)] // day_0828 Phase F:g31_window_present 独消费面(诚实标注)
+fn g31_emissive_append(
+    tex: &mut G31TexAssetsHeap,
+    tri_mat: &[u32],
+    em_mats: &[(u32, String, [f64; 3])],
+    dir: &str,
+) -> Result<G31EmissiveAssets, String> {
+    let t0 = std::time::Instant::now();
+    if em_mats.is_empty() {
+        return Err("契约 emissive_materials 空（Phase F 臂无消费面,fail-closed）".into());
+    }
+    // ── ① 烘焙 manifest 装载（fail-closed:缺件即红）──
+    let manifest_path = format!("{dir}/manifest.json");
+    let mtext = std::fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("emissive 烘焙 manifest 缺件 {manifest_path}: {e}（先跑 bake_emissive.py,fail-closed）"))?;
+    let manifest_sha256 = format!("sha256:{}", sha256_hex(mtext.as_bytes()));
+    let mdoc = json_parse(&mtext).map_err(|e| format!("manifest JSON: {e}"))?;
+    let entries = mdoc
+        .get("entries")
+        .and_then(|v| v.as_array())
+        .ok_or("manifest 缺 entries 数组")?;
+    // ── ② 逐契约材质:manifest 行配对 + 容器读取 + 三重 sha 互核 + scale ──
+    struct Pending {
+        row: G31EmissiveSlotRow,
+        stored: Vec<(u32, u32, Vec<u8>)>,
+    }
+    let mut pend: Vec<Pending> = Vec::with_capacity(em_mats.len());
+    for (mi, name, le) in em_mats {
+        let e = entries
+            .iter()
+            .find(|e| e.get("material_index").and_then(|v| v.as_u64()) == Some(u64::from(*mi)))
+            .ok_or_else(|| format!("manifest 缺 material_index={mi}（{name}）行（fail-closed）"))?;
+        let ename = e
+            .get("material_name")
+            .and_then(|v| v.as_str())
+            .ok_or("manifest 行缺 material_name")?;
+        if ename != name {
+            return Err(format!(
+                "manifest 行 {mi} 材质名 {ename} ≠ 契约 {name}（配对失配,fail-closed）"
+            ));
+        }
+        let file = e
+            .get("file")
+            .and_then(|v| v.as_str())
+            .ok_or("manifest 行缺 file")?
+            .to_owned();
+        let out_sha = e
+            .get("output_sha256")
+            .and_then(|v| v.as_str())
+            .ok_or("manifest 行缺 output_sha256")?
+            .to_owned();
+        let src_sha = e
+            .get("source_sha256")
+            .and_then(|v| v.as_str())
+            .ok_or("manifest 行缺 source_sha256")?
+            .to_owned();
+        let mip0_sha = e
+            .get("mip0_rgba8_sha256")
+            .and_then(|v| v.as_str())
+            .ok_or("manifest 行缺 mip0_rgba8_sha256")?;
+        let mean = e
+            .get("linear_mean_rgb")
+            .and_then(|v| v.as_array())
+            .filter(|a| a.len() == 3)
+            .ok_or("manifest 行缺 linear_mean_rgb[3]")?;
+        let mean: Vec<f64> = mean
+            .iter()
+            .map(|v| v.as_f64().ok_or("linear_mean_rgb 非数"))
+            .collect::<Result<_, _>>()?;
+        let path = Path::new(dir).join(&file);
+        let blob = std::fs::read(&path)
+            .map_err(|e2| format!("emissive 烘焙件缺件 {}: {e2}（fail-closed）", path.display()))?;
+        let got_sha = format!("sha256:{}", sha256_hex(&blob));
+        if got_sha != out_sha {
+            return Err(format!(
+                "{} sha256 {got_sha} ≠ manifest {out_sha}（烘焙件漂移,fail-closed）",
+                path.display()
+            ));
+        }
+        let (w, h, levels) = g31_rgba8bin_read(&path)?;
+        let got_mip0 = format!("sha256:{}", sha256_hex(&levels[0].2));
+        if got_mip0 != mip0_sha {
+            return Err(format!(
+                "{} mip0 rgba8 digest ≠ manifest（容器/烘焙链失配,fail-closed）",
+                path.display()
+            ));
+        }
+        // cap 起级（DDS 槽同律:首个 ≤ G31_TEX_CAP 级起搬）。
+        let start = levels
+            .iter()
+            .position(|(lw, lh, _)| *lw <= G31_TEX_CAP && *lh <= G31_TEX_CAP)
+            .ok_or_else(|| format!("{} 全链无 ≤{}² 级（fail-closed）", path.display(), G31_TEX_CAP))?;
+        let stored: Vec<(u32, u32, Vec<u8>)> = levels[start..].to_vec();
+        if stored.len() > G31_TEX_MIP_SLOTS {
+            return Err(format!(
+                "{} 存储级数 {} 越头表槽位 {G31_TEX_MIP_SLOTS}（fail-closed）",
+                path.display(),
+                stored.len()
+            ));
+        }
+        // scale = 契约 Le_c / mip0 线性均值_c（能量守恒标定;通道均值 ≤1e-6 ⇒
+        // scale=0 且材质整体回退均值路径 + 登记）。
+        let mut scale = [0.0f32; 3];
+        let mut fallback = false;
+        for c in 0..3 {
+            if mean[c] <= 1e-6 {
+                scale[c] = 0.0;
+                fallback = true;
+            } else {
+                scale[c] = (le[c] / mean[c]) as f32;
+            }
+        }
+        let tris = tri_mat.iter().filter(|&&m| m == *mi).count();
+        pend.push(Pending {
+            row: G31EmissiveSlotRow {
+                slot: 0, // 槽号下方统一回填
+                material_index: *mi,
+                material_name: name.clone(),
+                file,
+                source_sha256: src_sha,
+                output_sha256: out_sha,
+                src_width: w,
+                src_height: h,
+                stored_width: stored[0].0,
+                stored_height: stored[0].1,
+                mip_count: stored.len() as u32,
+                le_linear_rgb: *le,
+                tex_linear_mean_rgb: [mean[0], mean[1], mean[2]],
+                scale_rgb: scale,
+                tris,
+                fallback,
+            },
+            stored,
+        });
+    }
+    // ── ③ heap 全重排布（头表 slots×13 → (slots+N)×13:既有偏移 +shift,
+    //    texel 段字节 0-byte 平移;新槽 texel 段尾接）──
+    let old_slots = tex.slots.len();
+    let old_hdr = tex.heap_header_entries;
+    if old_hdr != old_slots * G31_TEX_MIP_SLOTS {
+        return Err(format!(
+            "heap 头表项数 {old_hdr} ≠ slots×13 = {}（前置形态破坏,fail-closed）",
+            old_slots * G31_TEX_MIP_SLOTS
+        ));
+    }
+    let new_slots_n = old_slots + pend.len();
+    let new_hdr = new_slots_n * G31_TEX_MIP_SLOTS;
+    let shift = (new_hdr - old_hdr) as u32;
+    let body_len = tex.atlas.len() - old_hdr;
+    let append_texels: usize = pend
+        .iter()
+        .map(|p| p.stored.iter().map(|(lw, lh, _)| (*lw as usize) * (*lh as usize)).sum::<usize>())
+        .sum();
+    let new_total = new_hdr + body_len + append_texels;
+    if (new_total as u64) * 4 > G31_TEX_HEAP_MAX_BYTES {
+        return Err(format!(
+            "emissive 扩容后 heap {}B 越保守界 {G31_TEX_HEAP_MAX_BYTES}B（fail-closed）",
+            new_total * 4
+        ));
+    }
+    let mut new_atlas: Vec<u32> = Vec::with_capacity(new_total);
+    new_atlas.extend(tex.atlas[..old_hdr].iter().map(|v| v + shift));
+    // 新槽头表（偏移接在既有 texel 段之后;缺级槽位重复末级——kernel lod 钳
+    // mips−1 冗余保底,DDS 槽同律）。
+    let mut cur = new_hdr + body_len;
+    for p in &pend {
+        let base_entry = new_atlas.len();
+        for (lw, lh, _) in &p.stored {
+            new_atlas.push(cur as u32);
+            cur += (*lw as usize) * (*lh as usize);
+        }
+        let last = new_atlas[base_entry + p.stored.len() - 1];
+        for _ in p.stored.len()..G31_TEX_MIP_SLOTS {
+            new_atlas.push(last);
+        }
+    }
+    debug_assert_eq!(new_atlas.len(), new_hdr);
+    new_atlas.extend_from_slice(&tex.atlas[old_hdr..]);
+    for p in &pend {
+        for (_, _, px) in &p.stored {
+            for chunk in px.chunks_exact(4) {
+                new_atlas.push(
+                    u32::from(chunk[0])
+                        | (u32::from(chunk[1]) << 8)
+                        | (u32::from(chunk[2]) << 16)
+                        | (u32::from(chunk[3]) << 24),
+                );
+            }
+        }
+    }
+    debug_assert_eq!(new_atlas.len(), new_total);
+    // ── ④ 侧表/登记同步（texmeta 头 [0]/[2] + 逐槽行;slots/slots_rgba8 追加
+    //    ——探针/评估两腿自动覆盖;tritex 不触）──
+    tex.texmeta[0] = new_hdr as f32;
+    tex.texmeta[2] = new_slots_n as f32;
+    let mut rows: Vec<G31EmissiveSlotRow> = Vec::with_capacity(pend.len());
+    for (k, p) in pend.into_iter().enumerate() {
+        let slot = old_slots + k;
+        let mut row = p.row;
+        row.slot = slot;
+        tex.texmeta.extend_from_slice(&[
+            0.0,
+            0.0,
+            row.stored_width as f32,
+            row.stored_height as f32,
+            row.scale_rgb[0],
+            row.scale_rgb[1],
+            row.scale_rgb[2],
+            row.mip_count as f32,
+        ]);
+        let mip_digests: Vec<String> = p
+            .stored
+            .iter()
+            .map(|(_, _, px)| format!("sha256:{}", sha256_hex(px)))
+            .collect();
+        tex.slots.push(G31TexSlotHeap {
+            material_index: row.material_index,
+            material_name: row.material_name.clone(),
+            tris: row.tris,
+            texture_uri: row.file.clone(),
+            width: row.stored_width,
+            height: row.stored_height,
+            src_width: row.src_width,
+            src_height: row.src_height,
+            dds_format: "png-rgba8-baked".to_owned(),
+            // manifest 互核域 = Phase F 烘焙 manifest（G11.3 DDS manifest 无
+            // PNG 条目;行内 dds_format 自述来源,emissive evidence 块注明）。
+            manifest_source_digest: Some(row.source_sha256.clone()),
+            rgba8_digest: format!("sha256:{}", sha256_hex(&p.stored[0].2)),
+            manifest_rgba8_digest: None,
+            mip_count: row.mip_count,
+            mip_digests,
+            mip_truncated: false,
+            origin_x: 0,
+            origin_y: 0,
+            mod_rgb: row.scale_rgb,
+        });
+        tex.slots_rgba8.push(p.stored[0].2.clone());
+        rows.push(row);
+    }
+    tex.heap_header_entries = new_hdr;
+    tex.heap_texels = new_total;
+    tex.atlas = new_atlas;
+    tex.atlas_bytes = tex.atlas.iter().flat_map(|v| v.to_le_bytes()).collect();
+    tex.atlas_digest = format!("sha256:{}", sha256_hex(&tex.atlas_bytes));
+    tex.texmeta_bytes = bytes_f32(&tex.texmeta);
+    // ── ⑤ triem 侧表（1 f32/tri:灯具材质非回退 → 槽号,否则 −1.0）──
+    let slot_of = |mi: u32| -> f32 {
+        rows.iter()
+            .find(|r| r.material_index == mi && !r.fallback)
+            .map(|r| r.slot as f32)
+            .unwrap_or(-1.0)
+    };
+    let mut triem: Vec<f32> = Vec::with_capacity(tri_mat.len());
+    let mut em_tris = 0usize;
+    for &mi in tri_mat {
+        let s = if mi == SLAB_TRI_NONE { -1.0 } else { slot_of(mi) };
+        if s >= 0.0 {
+            em_tris += 1;
+        }
+        triem.push(s);
+    }
+    if em_tris == 0 {
+        return Err("emissive 映射零三角命中（空接线即红,fail-closed）".into());
+    }
+    let triem_bytes = bytes_f32(&triem);
+    Ok(G31EmissiveAssets {
+        triem,
+        triem_bytes,
+        em_tris,
+        rows,
+        manifest_path,
+        manifest_sha256,
+        appended_texels: (new_hdr - old_hdr) + append_texels,
+        eval_ms: t0.elapsed().as_secs_f64() * 1000.0,
+    })
+}
+
 /// B4 探针臂对拍报告（evidence 登记面;SSBO 腿位级硬门 + sampler 腿结构容差）。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 struct G31TexProbeReport {
@@ -5458,6 +7214,8 @@ struct G31TexProbeReport {
 /// B4 探针 SSBO 腿（kernels/g31_texture_probe.rx SPV 经 vk::run_compute 单
 /// dispatch [N,1,1];NoContraction 注入面 = host 侧 SPV 后处理,文件 0-byte——
 /// 与 host 参考同 op 序位级对拍 p100=0 硬门的驱动 FMA 收缩禁面）。
+/// day_0828 F6 双形态回正：原形态原签名恢复（探针步幅 3;g34_full_lane 系经
+/// [`g31_tex_probe_evaluate`] 消费）;mip 形态 = [`g31_tex_probe_device_mip`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_probe_device(
     assets: &G31TexAssets,
@@ -5500,12 +7258,59 @@ fn g31_tex_probe_device(
     Ok((read_f32(&bufs[5]), eval_ms))
 }
 
+/// [`g31_tex_probe_device`] 的 day_0828 Phase B mip 形态（F6 双形态回正
+/// 改名）：探针步幅 3→4（[slot,u,v,lod]——lod 显式注入面）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_probe_device_mip(
+    assets: &G31TexAssetsHeap,
+    probes: &[(u32, f32, f32, u32)],
+    spv_path: &str,
+) -> Result<(Vec<f32>, f64), String> {
+    if !vk::vulkan_available() {
+        return Err("vulkan loader 不可用".into());
+    }
+    let bytes = std::fs::read(spv_path).map_err(|e| format!("读 probe SPV {spv_path}: {e}"))?;
+    if bytes.len() % 4 != 0 {
+        return Err("probe SPIR-V 字节数非 4 对齐".into());
+    }
+    let words: Vec<u32> = bytes
+        .chunks_exact(4)
+        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    let words = spv_inject_no_contraction(&words);
+    let entry = vk::entry_point_name(&words).ok_or("probe SPV 无 OpEntryPoint")?;
+    let mut probe_f: Vec<f32> = Vec::with_capacity(probes.len() * 4);
+    for &(slot, u, v, lod) in probes {
+        probe_f.push(slot as f32);
+        probe_f.push(u);
+        probe_f.push(v);
+        probe_f.push(lod as f32);
+    }
+    let mut params = vec![probes.len() as f32];
+    params.resize(8, 0.0);
+    let mut bufs = vec![
+        bytes_f32(&probe_f),
+        assets.texmeta_bytes.clone(),
+        assets.atlas_bytes.clone(),
+        assets.linlut_bytes.clone(),
+        bytes_f32(&params),
+        vec![0u8; probes.len() * 12],
+    ];
+    let t0 = std::time::Instant::now();
+    vk::run_compute(&words, &entry, &mut bufs, &[], [probes.len() as u32, 1, 1])
+        .map_err(|e| format!("probe SSBO 腿 device dispatch 失败: {e}"))?;
+    let eval_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    Ok((read_f32(&bufs[5]), eval_ms))
+}
+
 /// B4 sampler 腿（真 GPU 纹理对象:image/view 经 vk::GraphicsResource::
 /// Texture2D + sampler 经 sampler.rs SamplerDesc→vk_fields→VkSampler〔
 /// vk.rs sampler_create_info 同一事实源〕;全屏 vertex + sample_lod fragment
 /// 〔vk::sampling_shaders_spv,G3.3 生产在案着色器 0-byte 消费;单层纹理 LOD
 /// 钳到 mip0 = max_lod 0.0〕;逐槽单跑 = 24 探针 quad 各覆 1 像素,回读
-/// RGBA8 附件像素）。返回逐探针 [r,g,b,a]（probes 序）。
+/// RGBA8 附件像素）。返回逐探针 [r,g,b,a]（probes 序）。day_0828 F6 双形态
+/// 回正：原形态原签名恢复（探针步幅 3;g34_full_lane 系经
+/// [`g31_tex_probe_evaluate`] 消费）;mip 形态 = [`g31_tex_sampler_leg_mip`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_sampler_leg(
     assets: &G31TexAssets,
@@ -5609,11 +7414,120 @@ fn g31_tex_sampler_leg(
     Ok(out)
 }
 
+/// [`g31_tex_sampler_leg`] 的 day_0828 Phase B mip 形态（F6 双形态回正
+/// 改名）：硬件腿 = 存储基级单层纹理（max_lod 0）⇒ 仅消费 lod==0 探针子集
+/// （>0 级探针归 SSBO 腿逐级对拍面）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_sampler_leg_mip(
+    assets: &G31TexAssetsHeap,
+    probes: &[(u32, f32, f32, u32)],
+) -> Result<Vec<[u8; 4]>, String> {
+    use rurix_rt::sampler::{Address, Filter, SamplerDesc};
+    use rurix_rt::vk::{GraphicsResource, TextureData};
+
+    let sh = vk::sampling_shaders_spv();
+    if sh.fullscreen_vs.is_empty() || sh.sample_lod_fs.is_empty() {
+        return Err("采样模式着色器为空（build.rs codegen 降级,fail-closed）".into());
+    }
+    let to_words = |bytes: &[u8]| -> Vec<u32> {
+        bytes
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect()
+    };
+    let vs = to_words(sh.fullscreen_vs);
+    let fs = to_words(sh.sample_lod_fs);
+    const W: u32 = 16;
+    const H: u32 = 16;
+    const STRIDE: u32 = 24;
+    let attrs = [(0u32, 109u32, 0u32), (1u32, 103u32, 16u32)]; // pos vec4 + uv vec2
+    // sampler 状态 = bistro glTF sampler 默认 REPEAT 语义面（wrap 域回绕与生产
+    // kernel fract 同语义;线性过滤 + mip0 单层钳 = max_lod 0.0）。
+    let sampler = GraphicsResource::Sampler(SamplerDesc {
+        filter: Filter::Linear,
+        address: Address::Wrap,
+        max_anisotropy: 1,
+        lod_bias: 0.0,
+        min_lod: 0.0,
+        max_lod: 0.0,
+        compare: None,
+    });
+    let mut out = vec![[0u8; 4]; probes.len()];
+    for (k, slot) in assets.slots.iter().enumerate() {
+        // day_0828 Phase B：硬件腿 = 存储基级单层纹理（max_lod 0）⇒ 仅消费
+        // lod==0 探针子集（>0 级探针归 SSBO 腿逐级对拍面）。
+        let idx: Vec<usize> = probes
+            .iter()
+            .enumerate()
+            .filter_map(|(pi, &(s, _, _, lod))| (s as usize == k && lod == 0).then_some(pi))
+            .collect();
+        if idx.is_empty() {
+            continue;
+        }
+        let mut verts = Vec::with_capacity(idx.len() * 6 * STRIDE as usize);
+        for (j, &pi) in idx.iter().enumerate() {
+            let (_, u, v, _) = probes[pi];
+            let px = (j % W as usize) as f32;
+            let py = (j / W as usize) as f32;
+            // 内缩 1/4 像素 quad（像素中心唯一覆盖,邻像素零片段;2^-4/2^-6
+            // 分数 f32 精确）。
+            let x0 = -1.0 + 2.0 * (px + 0.25) / W as f32;
+            let x1 = -1.0 + 2.0 * (px + 0.75) / W as f32;
+            let y0 = -1.0 + 2.0 * (py + 0.25) / H as f32;
+            let y1 = -1.0 + 2.0 * (py + 0.75) / H as f32;
+            let corners = [
+                (x0, y0),
+                (x1, y0),
+                (x0, y1),
+                (x0, y1),
+                (x1, y0),
+                (x1, y1),
+            ];
+            for (cx, cy) in corners {
+                verts.extend_from_slice(&cx.to_le_bytes());
+                verts.extend_from_slice(&cy.to_le_bytes());
+                verts.extend_from_slice(&0.0f32.to_le_bytes());
+                verts.extend_from_slice(&1.0f32.to_le_bytes());
+                verts.extend_from_slice(&u.to_le_bytes());
+                verts.extend_from_slice(&v.to_le_bytes());
+            }
+        }
+        let resources = [
+            GraphicsResource::Texture2D {
+                width: slot.width,
+                height: slot.height,
+                data: TextureData::Rgba8(vec![assets.slots_rgba8[k].clone()]),
+            },
+            sampler.clone(),
+        ];
+        let pxbuf = vk::run_graphics_offscreen_v2(
+            &vs,
+            &fs,
+            &verts,
+            STRIDE,
+            &attrs,
+            W,
+            H,
+            [0.0, 0.0, 0.0, 1.0],
+            &resources,
+        )
+        .map_err(|e| format!("sampler 腿 slot {k}（{}）渲染: {e}", slot.texture_uri))?;
+        for (j, &pi) in idx.iter().enumerate() {
+            let x = j % W as usize;
+            let y = j / W as usize;
+            let o = (y * W as usize + x) * 4;
+            out[pi] = [pxbuf[o], pxbuf[o + 1], pxbuf[o + 2], pxbuf[o + 3]];
+        }
+    }
+    Ok(out)
+}
+
 /// B4 探针双臂对拍装配（host 参考两臂同源:SSBO 腿 = g31_tex_host_sample
 /// f32 位级;sampler 腿 = g31_tex_host_sample_srgb 8-bit 量化域,容差结构
 /// 依据 = 硬件过滤权重量化 ≤2^-8 ⇒ ≤1 LSB @ quantum 1/255,位级一致 =
 /// 更强终态亦合法）。nonconstant_slots = 槽内探针输出非全等计数（防空
-/// 接线冒充面）。
+/// 接线冒充面）。day_0828 F6 双形态回正：原形态原签名恢复（探针步幅 3;
+/// g34_full_lane 系消费面）;mip 形态 = [`g31_tex_probe_evaluate_mip`]。
 #[allow(dead_code)] // G31+ 波 B Task B4:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_tex_probe_evaluate(
     assets: &G31TexAssets,
@@ -5707,6 +7621,109 @@ fn g31_tex_probe_evaluate(
     })
 }
 
+/// [`g31_tex_probe_evaluate`] 的 day_0828 Phase B mip 形态（F6 双形态回正
+/// 改名）：探针含 mip 维——lod 显式注入两腿同源;sampler 腿仅 lod==0 探针
+/// 子集对拍（>0 级探针归 SSBO 腿位级硬门覆盖）。
+#[allow(dead_code)] // day_0828 Phase B:g31_window_present 独消费面(诚实标注)
+fn g31_tex_probe_evaluate_mip(
+    assets: &G31TexAssetsHeap,
+    probes: &[(u32, f32, f32, u32)],
+    spv_path: &str,
+) -> Result<G31TexProbeReport, String> {
+    let t0 = std::time::Instant::now();
+    // ── SSBO 腿（device 双臂双跑 + host f32 参考位级对拍;day_0828 Phase B
+    //    探针含 mip 维——lod 显式注入两腿同源）──
+    let (dev_a, _) = g31_tex_probe_device_mip(assets, probes, spv_path)?;
+    let (dev_b, _) = g31_tex_probe_device_mip(assets, probes, spv_path)?;
+    if let Some(k) = dev_a.iter().position(|x| !x.is_finite()) {
+        return Err(format!(
+            "probe SSBO 腿判据⓪失败: 探针 {} device 输出非有限（有限性一等断言先于聚合,RFC-0046 §1.4 F3 同律）",
+            k / 3
+        ));
+    }
+    let ssbo_double = dev_a == dev_b;
+    let mut host_ref: Vec<f32> = Vec::with_capacity(probes.len() * 3);
+    for &(slot, u, v, lod) in probes {
+        let s = g31_tex_host_sample_mip(
+            &assets.texmeta,
+            &assets.atlas,
+            &assets.linlut,
+            slot as usize,
+            u,
+            v,
+            lod as usize,
+        );
+        host_ref.extend_from_slice(&s);
+    }
+    let mut p100 = 0.0f64;
+    for k in 0..probes.len() * 3 {
+        let d = (f64::from(dev_a[k]) - f64::from(host_ref[k])).abs();
+        if d > p100 {
+            p100 = d;
+        }
+    }
+    let dev_bytes: Vec<u8> = dev_a.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let host_bytes: Vec<u8> = host_ref.iter().flat_map(|v| v.to_le_bytes()).collect();
+    // ── sampler 腿（硬件采样 vs host srgb 域参考;结构容差 ≤1 LSB。
+    //    day_0828 Phase B：硬件腿 = 存储基级单层（max_lod 0）⇒ 仅 lod==0
+    //    探针子集对拍;>0 级探针归 SSBO 腿位级硬门覆盖）──
+    let hw = g31_tex_sampler_leg_mip(assets, probes)?;
+    let mut max_lsb = 0u32;
+    let mut hw_bytes = Vec::with_capacity(probes.len() * 4);
+    let mut hw_host_bytes = Vec::with_capacity(probes.len() * 4);
+    for (pi, &(slot, u, v, lod)) in probes.iter().enumerate() {
+        if lod != 0 {
+            continue;
+        }
+        let s = &assets.slots[slot as usize];
+        let href = g31_tex_host_sample_srgb(&assets.slots_rgba8[slot as usize], s.width, s.height, u, v);
+        for c in 0..4usize {
+            let d = (hw[pi][c] as i32 - href[c] as i32).unsigned_abs();
+            if d > max_lsb {
+                max_lsb = d;
+            }
+        }
+        hw_bytes.extend_from_slice(&hw[pi]);
+        hw_host_bytes.extend_from_slice(&href);
+    }
+    // ── 非全等槽计数（防空接线冒充面:纹理内探针线性输出须非常量;lod==0 子集）──
+    let mut nonconstant = 0usize;
+    for k in 0..assets.slots.len() {
+        let mut seen: Option<[u8; 4]> = None;
+        let mut vary = false;
+        for (pi, &(slot, _, _, lod)) in probes.iter().enumerate() {
+            if slot as usize != k || lod != 0 {
+                continue;
+            }
+            let cur = hw[pi];
+            if let Some(prev) = seen
+                && prev != cur
+            {
+                vary = true;
+            }
+            seen = Some(cur);
+        }
+        if vary {
+            nonconstant += 1;
+        }
+    }
+    let eval_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    Ok(G31TexProbeReport {
+        probe_count: probes.len(),
+        eval_ms,
+        ssbo_p100: p100,
+        ssbo_bitexact: dev_a == host_ref,
+        ssbo_device_digest: format!("sha256:{}", sha256_hex(&dev_bytes)),
+        ssbo_host_digest: format!("sha256:{}", sha256_hex(&host_bytes)),
+        ssbo_double_run_bitexact: ssbo_double,
+        sampler_max_lsb: max_lsb,
+        sampler_bitexact: hw_bytes == hw_host_bytes,
+        sampler_digest: format!("sha256:{}", sha256_hex(&hw_bytes)),
+        sampler_host_digest: format!("sha256:{}", sha256_hex(&hw_host_bytes)),
+        nonconstant_slots: nonconstant,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // G31+ 波 C Task C13 SVT 稀疏虚拟纹理（--textures on --svt on 派生臂；RD-041
 // SVT-1/2/3 行立项窗兑现；TODO #33/#34/#35）。以下全部仅 svt on 消费,
@@ -5722,7 +7739,9 @@ fn g31_tex_probe_evaluate(
 //      1·x+0·y IEEE 精确 ⇒ 全驻留臂与 B4 textures on 位级一致（锚）。
 // ---------------------------------------------------------------------------
 
-/// C13 SVT 资产面（装配期一次性构建;B4 G31TexAssets 消费面派生）。
+/// C13 SVT 资产面（装配期一次性构建;B4 G31TexAssetsHeap 消费面派生——
+/// day_0828 F6 双形态回正:SVT 臂属 g31_window_present 独消费面,随 heap
+/// 形态走;SVT 臂已 fail-closed 互斥,编译面保留）。
 #[allow(dead_code)] // G31+ 波 C Task C13:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 struct G31SvtAssets {
     /// 槽表（B4 slots 的矩形面;瓦片集 wrap 律消费）。
@@ -5745,7 +7764,7 @@ struct G31SvtAssets {
 /// C13 SVT 资产装配（B4 图集面 → 瓦片集 + fallback + svtmeta;fail-closed——
 /// 槽矩形/pow2/图集互核任一破即 Err,不静默降级）。
 #[allow(dead_code)] // G31+ 波 C Task C13:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
-fn g31_svt_build(tex: &G31TexAssets, pool_tiles: u32) -> Result<G31SvtAssets, String> {
+fn g31_svt_build(tex: &G31TexAssetsHeap, pool_tiles: u32) -> Result<G31SvtAssets, String> {
     let t0 = std::time::Instant::now();
     let slot_descs: Vec<svt::SvtSlotDesc> = tex
         .slots
@@ -5894,14 +7913,16 @@ fn g31_svt_host_sample(
     let p11_g = linlut[(p11 / 256usize) % 256usize];
     let p11_b = linlut[(p11 / 65536usize) % 256usize];
     let fb = slot * 4;
+    // day_0828 Phase B：G/B 底行 fy→fx 修正（kernels/g31_svt_{gi,probe}.rx
+    // 同步——host/device 对拍面成对改）。
     let t0r = p00_r * (1.0 - fx) + p10_r * fx;
     let b0r = p01_r * (1.0 - fx) + p11_r * fx;
     let samp_r = hit_f * ((t0r * (1.0 - fy) + b0r * fy) * mod_r) + (1.0 - hit_f) * fallback[fb];
     let t0g = p00_g * (1.0 - fx) + p10_g * fx;
-    let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+    let b0g = p01_g * (1.0 - fx) + p11_g * fx;
     let samp_g = hit_f * ((t0g * (1.0 - fy) + b0g * fy) * mod_g) + (1.0 - hit_f) * fallback[fb + 1];
     let t0b = p00_b * (1.0 - fx) + p10_b * fx;
-    let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+    let b0b = p01_b * (1.0 - fx) + p11_b * fx;
     let samp_b = hit_f * ((t0b * (1.0 - fy) + b0b * fy) * mod_b) + (1.0 - hit_f) * fallback[fb + 2];
     ([samp_r, samp_g, samp_b], req)
 }
@@ -5911,8 +7932,27 @@ fn g31_svt_host_sample(
 //  straddle;pow2 槽 ⇒ UV 商 f32 精确〕;与 ci/g31_svt_smoke.py 判读器同源
 /// 镜像——篡改律法即红）。
 #[allow(dead_code)] // G31+ 波 C Task C13:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
-fn g31_svt_probes(assets: &G31TexAssets) -> Vec<(u32, f32, f32)> {
-    let mut out = g31_tex_probes(assets.slots.len());
+fn g31_svt_probes(assets: &G31TexAssetsHeap) -> Vec<(u32, f32, f32)> {
+    // day_0828 Phase B：B4 基座律法本地内联（g31_tex_probes 已扩 mip 维步幅
+    // 4,SVT 旧形态 = mip0-only 步幅 3——SVT 臂已 fail-closed 互斥,本函数为
+    // 编译面保留,律法字面不动）。
+    let mut out = Vec::with_capacity(assets.slots.len() * (G31_TEX_PROBES_PER_SLOT + 8));
+    for k in 0..assets.slots.len() {
+        for j in 0..16u32 {
+            let u = (((j * 37 + (k as u32) * 11) % 256) as f32 + 0.5) / 256.0;
+            let v = (((j * 101 + (k as u32) * 13) % 256) as f32 + 0.5) / 256.0;
+            out.push((k as u32, u, v));
+        }
+        let em1 = 1.0f32 - 2.0f32.powi(-23);
+        out.push((k as u32, 0.0, 0.0));
+        out.push((k as u32, 0.0, 0.5));
+        out.push((k as u32, 0.5, 0.0));
+        out.push((k as u32, em1, em1));
+        out.push((k as u32, 1.25, 2.5));
+        out.push((k as u32, 3.75, 1.5));
+        out.push((k as u32, -0.25, 1.3333334));
+        out.push((k as u32, 2.0, -0.75));
+    }
     for (k, s) in assets.slots.iter().enumerate() {
         let (tw, th) = (s.width as f32, s.height as f32);
         // 页界 straddle:uu = 128m/w ⇒ xf = 128m−0.5,bxf = 128m−1,fx = 0.5
@@ -5941,7 +7981,7 @@ fn g31_svt_probes(assets: &G31TexAssets) -> Vec<(u32, f32, f32)> {
 #[allow(dead_code)] // G31+ 波 C Task C13:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_svt_probe_device(
     assets: &G31SvtAssets,
-    tex: &G31TexAssets,
+    tex: &G31TexAssetsHeap,
     probes: &[(u32, f32, f32)],
     pagetable_bytes: &[u8],
     pool_bytes: &[u8],
@@ -6020,7 +8060,7 @@ struct G31SvtProbeReport {
 #[allow(dead_code)] // G31+ 波 C Task C13:g31_window_present 独消费面(g14_3_pipeline_perf 未消费,诚实标注)
 fn g31_svt_probe_evaluate(
     assets: &G31SvtAssets,
-    tex: &G31TexAssets,
+    tex: &G31TexAssetsHeap,
     probes: &[(u32, f32, f32)],
     spv_path: &str,
 ) -> Result<G31SvtProbeReport, String> {
@@ -6062,13 +8102,16 @@ fn g31_svt_probe_evaluate(
             return Err("全驻留臂 host 参考出现 miss（页表恒等映射结构性破）".into());
         }
         host_svt.extend_from_slice(&s);
-        let d = g31_tex_host_sample(
+        // day_0828 Phase B：直采参考 = lod 0（SVT 旧形态 mip0-only;SVT 臂已
+        // fail-closed 互斥,编译面保留——F6 双形态回正后走 heap/mip 形态）。
+        let d = g31_tex_host_sample_mip(
             &tex.texmeta,
             &tex.atlas,
             &tex.linlut,
             slot as usize,
             u,
             v,
+            0,
         );
         host_direct.extend_from_slice(&d);
     }
@@ -6183,7 +8226,8 @@ fn g31_svt_probe_evaluate(
 }
 
 /// 逐帧参数（48 f32；与 kernel 参数面逐字同源——行主序矩阵按 m[r][c] →
-/// [9+r*4+c] / [25+r*4+c] 摊平）。
+/// [9+r*4+c] / [25+r*4+c] 摊平）。D2：签名 0-byte 保持（g31_window_present
+/// 两调用面不触）——平滑法线开关面委托 [`pack_frame_params_nrm`]。
 #[allow(clippy::too_many_arguments)]
 fn pack_frame_params(
     iw: u32,
@@ -6194,6 +8238,145 @@ fn pack_frame_params(
     point_count: usize,
     inv_vp: &Mat4,
     vp: &Mat4,
+) -> Vec<f32> {
+    pack_frame_params_nrm(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp, false)
+}
+
+/// 逐帧参数 D2 扩面（`smooth_nrm` = --smooth-normals on 臂开关：params[43]
+/// 母版恒 0 保留位；on 置 1.0 → g18_smooth_nrm kernel gate_sn=1 走重心插值
+/// 面；false 时产物与既有 pack_frame_params 逐位同值，0-byte）。
+/// D6：签名 0-byte 保持（g31_window_present 两调用面不触）——GGX 开关面
+/// 委托 [`pack_frame_params_ggx`] 的 `ggx = false` 形态。
+#[allow(clippy::too_many_arguments)]
+fn pack_frame_params_nrm(
+    iw: u32,
+    ih: u32,
+    jitter: [f32; 2],
+    eps: f32,
+    quad_count: usize,
+    point_count: usize,
+    inv_vp: &Mat4,
+    vp: &Mat4,
+    smooth_nrm: bool,
+) -> Vec<f32> {
+    pack_frame_params_ggx(
+        iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp, smooth_nrm, false,
+    )
+}
+
+/// 逐帧参数 D6 扩面（`ggx` = --ggx on 臂开关：params[48] 恒 0 保留位；on 且
+/// 仅当 smooth_nrm 同 on 时置 1.0 → g18_smooth_nrm kernel GGX 高光臂走
+/// tri_mr 侧表面；ggx=false 时产物与 D6 前 pack_frame_params_nrm 逐位同值
+/// 〔params[48..56) 恒 0 追加〕，0-byte）。
+/// A1：签名 0-byte 保持——灯贡献剔除阈值面委托 [`pack_frame_params_lamp`]
+/// 的 `lamp_contrib = 0.0` 形态（params[49] 写 0.0 与 resize 零填充逐位同值）。
+#[allow(clippy::too_many_arguments)]
+fn pack_frame_params_ggx(
+    iw: u32,
+    ih: u32,
+    jitter: [f32; 2],
+    eps: f32,
+    quad_count: usize,
+    point_count: usize,
+    inv_vp: &Mat4,
+    vp: &Mat4,
+    smooth_nrm: bool,
+    ggx: bool,
+) -> Vec<f32> {
+    pack_frame_params_lamp(
+        iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp, smooth_nrm, ggx, 0.0,
+    )
+}
+
+/// 逐帧参数 A1 扩面（`lamp_contrib` = --lamp-contrib 贡献剔除阈值：
+/// params[49] 恒 0 保留位；仅 smooth_nrm=true 车道写入——基线车道永不触达，
+/// Stage A 锚零风险。0.0（默认）与 resize 零填充逐位同值 ⇒ 既有全臂 0-byte；
+/// >0 时 g18_smooth_nrm kernel 点光循环按 contrib = max3(I)/d² >= 阈值门
+/// 整灯剔除〔--lamp-lights on 控帧钮〕）。
+/// day_0828 Phase B：签名 0-byte 保持（bench/window 两调用面不触）——
+/// 纹理 mip 锥角面委托 [`pack_frame_params_tex`] 的 `tex_kpix = 0.0` 形态
+/// （params[50] 写 0.0 与 resize 零填充逐位同值）。
+#[allow(clippy::too_many_arguments)]
+fn pack_frame_params_lamp(
+    iw: u32,
+    ih: u32,
+    jitter: [f32; 2],
+    eps: f32,
+    quad_count: usize,
+    point_count: usize,
+    inv_vp: &Mat4,
+    vp: &Mat4,
+    smooth_nrm: bool,
+    ggx: bool,
+    lamp_contrib: f32,
+) -> Vec<f32> {
+    pack_frame_params_tex(
+        iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp, smooth_nrm, ggx, lamp_contrib,
+        0.0,
+    )
+}
+
+/// 逐帧参数 day_0828 Phase B 扩面（`tex_kpix` = mip 选择像素锥角
+/// 2·tan(fovy/2)/height_internal：params[50] 恒 0 保留位；仅 --textures on
+/// 车道经 set_tex_kpix 挂载 >0——默认 0.0 与 resize 零填充逐位同值 ⇒ 既有
+/// 全臂 0-byte。kernel 消费面 = g31_texture_gi.rx / g31_texture_nrm_gi.rx
+/// lod = clamp(floor(log2(th·k_pix·k_tri·w_base)), 0, mips−1)）。
+/// day_0828 Phase C：签名 0-byte 保持——GI2 面委托 [`pack_frame_params_gi2`]
+/// 的 `gi2 = false` 形态（params[51..55) 不写与 resize 零填充逐位同值）。
+#[allow(clippy::too_many_arguments)]
+#[allow(dead_code)] // day_0828 Phase C:链环节保留(两 bin 已直迁 gi2 形态,诚实标注)
+fn pack_frame_params_tex(
+    iw: u32,
+    ih: u32,
+    jitter: [f32; 2],
+    eps: f32,
+    quad_count: usize,
+    point_count: usize,
+    inv_vp: &Mat4,
+    vp: &Mat4,
+    smooth_nrm: bool,
+    ggx: bool,
+    lamp_contrib: f32,
+    tex_kpix: f32,
+) -> Vec<f32> {
+    pack_frame_params_gi2(
+        iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp, smooth_nrm, ggx, lamp_contrib,
+        tex_kpix, false, 0.0, 0.0, 0.0,
+    )
+}
+
+/// 画质战役 Phase E1 `--quality full` 预设环境光注入槽（进程内 OnceLock：
+/// 两 bin `#![forbid(unsafe_code)]` + edition 2024 下 `env::set_var` 为
+/// unsafe，预设不可写 env ⇒ 走本槽）。语义 = RURIX_G18_AMBIENT env **缺席**
+/// 时的回退值；env 在位一律优先（含非法字面——保持既有「静默关臂」语义不被
+/// 预设越位）。默认不 set = None 回退分支零行为 ⇒ 既有全臂路径 0-byte 语义。
+#[allow(dead_code)] // 消费面 = pack_frame_params_gi2 + 两 bin --quality full 展开块
+static G18_AMBIENT_PRESET: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
+
+/// 逐帧参数 day_0828 Phase C 扩面（GI2 1 反弹间接光加性臂四槽：params[51]
+/// 门/[52] frame_idx〔R2 时域旋转——逐帧挂载，TSR 收敛面〕/[53] firefly
+/// clamp/[54] gi_scale——恒 0 保留位；仅 --gi2 on 车道写入，gi2=false 时四槽
+/// 不写与 resize 零填充逐位同值 ⇒ 既有全臂 0-byte。kernel 消费面 =
+/// g31_texture_nrm_gi.rx GI2 段独有——其余 kernel 不读 [51..55)，门=0 时
+/// while 零迭代 +0.0 恒等尾加）。
+#[allow(clippy::too_many_arguments)]
+fn pack_frame_params_gi2(
+    iw: u32,
+    ih: u32,
+    jitter: [f32; 2],
+    eps: f32,
+    quad_count: usize,
+    point_count: usize,
+    inv_vp: &Mat4,
+    vp: &Mat4,
+    smooth_nrm: bool,
+    ggx: bool,
+    lamp_contrib: f32,
+    tex_kpix: f32,
+    gi2: bool,
+    gi2_frame: f32,
+    gi2_clamp: f32,
+    gi2_scale: f32,
 ) -> Vec<f32> {
     let mut v = vec![
         (iw * ih) as f32,
@@ -6224,6 +8407,49 @@ fn pack_frame_params(
                 v[42] = f;
             }
         }
+    }
+    // D2 平滑顶点法线臂开关（params[43]；off = 本行不执行，params[0..48)
+    // 与既有面逐位同值）。
+    if smooth_nrm {
+        v[43] = 1.0;
+        // 夜间巡航 D5 半球环境光加性臂（params[44..48)；仅质量车道 + 显式
+        // env 启用——基线车道 smooth_nrm=false 永不触达本块，Stage A 锚零
+        // 风险）。RURIX_G18_AMBIENT=<intensity>（scene-linear 曝光域辐照
+        // 强度）；颜色 = 暖白（1.0,0.85,0.7）·intensity 进 params[45..48)。
+        // 不设/非法 = params[44]=0 ⇒ kernel 关臂位级。Phase E1：env **缺席**
+        // 时回退 G18_AMBIENT_PRESET（--quality full 预设注入槽;env 在位
+        // 一律优先,非法字面保持既有静默关臂语义;槽未 set = 分支零行为）。
+        let ambient: Option<f32> = match std::env::var("RURIX_G18_AMBIENT") {
+            Ok(s) => s.parse::<f32>().ok().filter(|f| f.is_finite() && *f >= 0.0),
+            Err(_) => G18_AMBIENT_PRESET.get().copied(),
+        };
+        if let Some(f) = ambient {
+            v[44] = f;
+            v[45] = 1.0;
+            v[46] = 0.85;
+            v[47] = 0.7;
+        }
+        // D6 GGX 高光臂开关（params[48]；仅 smooth_nrm=true 车道 + ggx=true
+        // 才写——基线车道 smooth_nrm=false 永不触达本块，Stage A 锚零风险；
+        // CLI --ggx on 已 fail-closed 裁「须随 --smooth-normals on」，本行
+        // 为第二重保险）。off = 本行不执行，params[48]=0 ⇒ kernel 关臂位级。
+        if ggx {
+            v[48] = 1.0;
+        }
+        // A1 灯贡献剔除阈值（params[49]；仅 smooth_nrm=true 车道写——默认
+        // 0.0 与零填充逐位同值，>0 仅 --lamp-lights on 控帧钮显式给出）。
+        v[49] = lamp_contrib;
+    }
+    // day_0828 Phase B 纹理 mip 锥角（params[50]；无条件写——默认 0.0 与
+    // 零填充逐位同值 ⇒ 非纹理臂 0-byte；--textures on 车道 host 挂载 >0）。
+    v[50] = tex_kpix;
+    // day_0828 Phase C GI2 四槽（params[51..55)；仅 --gi2 on 车道写——默认
+    // 不执行与零填充逐位同值 ⇒ 既有全臂 0-byte）。
+    if gi2 {
+        v[51] = 1.0;
+        v[52] = gi2_frame;
+        v[53] = gi2_clamp;
+        v[54] = gi2_scale;
     }
     v
 }
@@ -6997,6 +9223,302 @@ fn unified_lane_descs_g34<'x>(
     (resources, passes, barriers, readbacks)
 }
 
+// ---------------------------------------------------------------------------
+// D2 平滑顶点法线臂（夜间巡航 D2，--smooth-normals on 消费）：MegaSmoothNrm
+// 形态——Mega 四 pass 同图 + 第 23 路 SSBO（逐三角顶点法线 9 f32/tri）+
+// scene pass 换 kernels/g18_smooth_nrm.rx 编译产物。off 时本面全部不创建
+// （不产侧表、不增资源、不换 SPV）——默认臂 0-byte。
+// ---------------------------------------------------------------------------
+
+/// D2 追加资源下标（MegaSmoothNrm 形态才存在；22 = 逐三角顶点法线
+/// 〔9 f32/tri，世界旋转后〕——Split 形态 U_HIT_* 占用 22..=24、G34Full
+/// 纹理五件占用 22..=26，形态间互斥下标复用零撞面同律）。
+#[allow(dead_code)] // D2:MegaSmoothNrm 形态独消费面(诚实标注)
+const U_TRINRM: u32 = 22;
+/// D6 追加资源下标（MegaSmoothNrm 形态；23 = 逐三角 [metallic, roughness]
+/// 〔2 f32/tri〕——--ggx off 面绑 8B 零哑表〔kernel params[48]=0 门不读〕，
+/// on 面绑真表；下标挂 trinrm 尾部，与 Split/G34Full 形态互斥同律）。
+#[allow(dead_code)] // D6:MegaSmoothNrm 形态独消费面(诚实标注)
+const U_TRI_MR: u32 = 23;
+/// MegaSmoothNrm 形态资源数（Mega 22 + trinrm + tri_mr 两路）。
+#[allow(dead_code)] // D2:同上
+const U_RESOURCE_COUNT_NRM: usize = 24;
+/// MegaSmoothNrm 形态 scene pass 屏障计划（U_PLAN_SCENE 触达超集 + trinrm
+/// + tri_mr——保守超集同律；读侧 SSBO 与写侧 out 同域 StorageReadWrite）。
+#[allow(dead_code)] // D2:同上
+const U_PLAN_SCENE_NRM: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (U_TRINRM, TargetState::StorageReadWrite),
+    (U_TRI_MR, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+];
+
+/// D2 平滑法线描述组（Mega 同图 + trinrm 一路 + scene pass 换 g18_smooth_nrm
+/// kernel；tris/mats/quads/points 等 22 路与 Mega 面位级同 buffer——法线侧表
+/// = 纯加性第 23 路，创建期一次上传 device-local）。
+/// D6：+= tri_mr 一路（第 24 路；--ggx on = 真表〔2 f32/tri〕，off = 8B 零
+/// 哑表——kernel params[48]=0 门均匀分支不读 ⇒ 哑表零消费零风险；scene pass
+/// 绑定序与 kernels/g18_smooth_nrm.rx 签名逐字同源〔trinrm 后、out 双路前〕）。
+#[allow(dead_code)] // D2:g14_3_pipeline_perf --smooth-normals on 独消费面(诚实标注)
+#[allow(clippy::type_complexity)]
+fn unified_lane_descs_nrm<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    trinrm_bytes: &'x [u8],
+    tri_mr_bytes: &'x [u8],
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> (
+    [ResourceDesc<'x>; U_RESOURCE_COUNT_NRM],
+    [Pass<'x>; 4],
+    [&'static [(u32, TargetState)]; 4],
+    [Readback; 4],
+) {
+    // Mega 面逐项解构（ResourceDesc/Pass 非 Copy——模式移动，与
+    // unified_lane_descs 产物逐位同件零克隆；G34Full 同型先例）。
+    let (
+        [m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16,
+            m17, m18, m19, m20, m21],
+        [_, p1, p2, p3],
+        _b4,
+        rbs,
+    ) = unified_lane_descs(assets, bits, iw, ih, ow, oh);
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let resources = [
+        m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16,
+        m17, m18, m19, m20, m21,
+        init(trinrm_bytes), // U_TRINRM
+        init(tri_mr_bytes), // U_TRI_MR（D6；off 面 = 8B 零哑表）
+    ];
+    let passes = [
+        Pass::Compute(ComputePass {
+            name: "g18_smooth_nrm",
+            spirv: &bits.spv_scene,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    U_TRINRM,
+                    U_TRI_MR,
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        p1,
+        p2,
+        p3,
+    ];
+    let barriers = [U_PLAN_SCENE_NRM, U_PLAN_MV, U_PLAN_RESAMPLE, U_PLAN_RESOLVE];
+    (resources, passes, barriers, rbs)
+}
+
+// ---------------------------------------------------------------------------
+// day_0828 Phase C GI2 加性臂（--gi2 on 消费）：MegaTexNrmGi2 形态——
+// MegaSmoothNrm 24 路 + 哑表五件（tex_gate=0 恒走 mats 均值面 = 与
+// g18_smooth_nrm 光照语义一致）+ scene pass 换 kernels/g31_texture_nrm_gi.rx
+// 统一质量 kernel（GI2 段 params[51..55) 消费面）。off 时本面全部不创建——
+// 默认/既有臂 0-byte。
+// ---------------------------------------------------------------------------
+
+/// Phase C 追加资源下标（MegaTexNrmGi2 形态才存在；24..=28 = 哑表五件，
+/// 绑定序照 kernels/g31_texture_nrm_gi.rx 签名 texuv/texmeta/tritex/atlas/
+/// linlut——与 Split/G34Full 形态互斥下标复用零撞面同律）。
+#[allow(dead_code)] // Phase C:MegaTexNrmGi2 形态独消费面(诚实标注)
+const U_GI2_TEXUV: u32 = 24;
+#[allow(dead_code)] // Phase C:同上
+const U_GI2_TEXMETA: u32 = 25;
+#[allow(dead_code)] // Phase C:同上
+const U_GI2_TRITEX: u32 = 26;
+#[allow(dead_code)] // Phase C:同上
+const U_GI2_ATLAS: u32 = 27;
+#[allow(dead_code)] // Phase C:同上
+const U_GI2_LINLUT: u32 = 28;
+/// MegaTexNrmGi2 形态资源数（MegaSmoothNrm 24 + 哑表五件）。
+#[allow(dead_code)] // Phase C:同上
+const U_RESOURCE_COUNT_TEXNRM_GI2: usize = 29;
+/// MegaTexNrmGi2 形态 scene pass 屏障计划（U_PLAN_SCENE_NRM 触达超集 +
+/// 哑表五件——保守超集同律）。
+#[allow(dead_code)] // Phase C:同上
+const U_PLAN_SCENE_TEXNRM_GI2: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (U_TRINRM, TargetState::StorageReadWrite),
+    (U_TRI_MR, TargetState::StorageReadWrite),
+    (U_GI2_TEXUV, TargetState::StorageReadWrite),
+    (U_GI2_TEXMETA, TargetState::StorageReadWrite),
+    (U_GI2_TRITEX, TargetState::StorageReadWrite),
+    (U_GI2_ATLAS, TargetState::StorageReadWrite),
+    (U_GI2_LINLUT, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+];
+
+/// Phase C GI2 bench 腿哑表五件（kernel gate=0 面的最小合法 buffer：
+/// tritex[prim×2] 全 −1 ⇒ tex_gate=(slotf+1) 钳 0 恒走 mats 常量面〔albedo
+/// 采样值 0·samp + 1·mats IEEE 精确〕；texuv 全 0（prim×6 寻址域全覆盖，
+/// 采样值不消费但读地址须合法）；texmeta 头 8 + slot0 8〔w=h=1、mod=1、
+/// mips=1 ⇒ lod 恒 0、mip 折半 while 零迭代〕；atlas 13 头项全指尾 texel +
+/// 1 texel（slot0 全 mip 槽位 → 下标 13，wrap 后 4 fetch 同址合法）；
+/// linlut 256 项 0（fetch 值全 0，经 tex_gate=0 门不入 albedo）。全部值域
+/// 有限 ⇒ 0·x 无 NaN 污染。）
+#[allow(dead_code)] // Phase C:g14_3_pipeline_perf --gi2 on 独消费面(诚实标注)
+struct Gi2DummyTex {
+    texuv_bytes: Vec<u8>,
+    texmeta_bytes: Vec<u8>,
+    tritex_bytes: Vec<u8>,
+    atlas_bytes: Vec<u8>,
+    linlut_bytes: Vec<u8>,
+}
+
+#[allow(dead_code)] // Phase C:同上
+fn gi2_dummy_tex(tri_count: usize) -> Gi2DummyTex {
+    let texuv = vec![0.0f32; tri_count * 6];
+    let mut texmeta = vec![0.0f32; 16];
+    texmeta[10] = 1.0; // w_base
+    texmeta[11] = 1.0; // h_base
+    texmeta[12] = 1.0; // mod_r
+    texmeta[13] = 1.0; // mod_g
+    texmeta[14] = 1.0; // mod_b
+    texmeta[15] = 1.0; // mip_count
+    let mut tritex = vec![0.0f32; tri_count * 2];
+    let mut k = 0usize;
+    while k < tri_count {
+        tritex[k * 2] = -1.0; // slot=−1（tex_gate=0 常量面）；k_tri=0
+        k += 1;
+    }
+    let mut atlas: Vec<u32> = vec![13u32; 13];
+    atlas.push(0u32); // 尾 texel（4 fetch 同址；RGBA8 打包 0 → linlut[0]）
+    let linlut = vec![0.0f32; 256];
+    Gi2DummyTex {
+        texuv_bytes: bytes_f32(&texuv),
+        texmeta_bytes: bytes_f32(&texmeta),
+        tritex_bytes: bytes_f32(&tritex),
+        atlas_bytes: atlas.iter().flat_map(|x| x.to_le_bytes()).collect(),
+        linlut_bytes: bytes_f32(&linlut),
+    }
+}
+
+/// Phase C GI2 描述组（MegaSmoothNrm 同图 + 哑表五件 24..=28 + scene pass 换
+/// g31_texture_nrm_gi 统一质量 kernel——绑定序与 kernels/g31_texture_nrm_gi.rx
+/// 签名逐字同源〔trinrm/tri_mr 后、tex 五件、out 双路前〕；tris/mats 等
+/// 24 路与 MegaSmoothNrm 面位级同 buffer）。
+#[allow(dead_code)] // Phase C:g14_3_pipeline_perf --gi2 on 独消费面(诚实标注)
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
+fn unified_lane_descs_texnrm_gi2<'x>(
+    assets: &'x LaneAssets,
+    bits: &'x UnifiedLaneBits,
+    trinrm_bytes: &'x [u8],
+    tri_mr_bytes: &'x [u8],
+    dummy: &'x Gi2DummyTex,
+    iw: u32,
+    ih: u32,
+    ow: u32,
+    oh: u32,
+) -> (
+    [ResourceDesc<'x>; U_RESOURCE_COUNT_TEXNRM_GI2],
+    [Pass<'x>; 4],
+    [&'static [(u32, TargetState)]; 4],
+    [Readback; 4],
+) {
+    // MegaSmoothNrm 面逐项解构（产物逐位同件零克隆；G34Full/nrm 同型先例）。
+    let (
+        [n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16,
+            n17, n18, n19, n20, n21, n22, n23],
+        [_, p1, p2, p3],
+        _b4,
+        rbs,
+    ) = unified_lane_descs_nrm(assets, bits, trinrm_bytes, tri_mr_bytes, iw, ih, ow, oh);
+    let storage = BufferUsage {
+        storage: true,
+        ..BufferUsage::default()
+    };
+    let init = |bytes: &'x [u8]| {
+        ResourceDesc::Buffer(BufferDesc {
+            size: bytes.len() as u64,
+            usage: storage,
+            data: Some(bytes),
+            device_local: true,
+        })
+    };
+    let resources = [
+        n0, n1, n2, n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16,
+        n17, n18, n19, n20, n21, n22, n23,
+        init(&dummy.texuv_bytes),   // U_GI2_TEXUV
+        init(&dummy.texmeta_bytes), // U_GI2_TEXMETA
+        init(&dummy.tritex_bytes),  // U_GI2_TRITEX
+        init(&dummy.atlas_bytes),   // U_GI2_ATLAS
+        init(&dummy.linlut_bytes),  // U_GI2_LINLUT
+    ];
+    let passes = [
+        Pass::Compute(ComputePass {
+            name: "g31_texture_nrm_gi",
+            spirv: &bits.spv_scene,
+            entry: None,
+            dispatch: DispatchSpec::Direct(bits.scene_dispatch),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    U_TRINRM,
+                    U_TRI_MR,
+                    U_GI2_TEXUV,
+                    U_GI2_TEXMETA,
+                    U_GI2_TRITEX,
+                    U_GI2_ATLAS,
+                    U_GI2_LINLUT,
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ],
+                ..Bindings::default()
+            },
+        }),
+        p1,
+        p2,
+        p3,
+    ];
+    let barriers = [
+        U_PLAN_SCENE_TEXNRM_GI2,
+        U_PLAN_MV,
+        U_PLAN_RESAMPLE,
+        U_PLAN_RESOLVE,
+    ];
+    (resources, passes, barriers, rbs)
+}
+
 /// 统一车道双形态（G14.10b）：Mega = 既有四 pass（bistro 等通用）；Split =
 /// cornell 拆散六 pass（primary→scatter→reduce→mv→resample→resolve；quad 面光
 /// 16 样本拆散重排——RT 单元延迟隐藏，reduce 固定层序求和与 megakernel 位级
@@ -7053,6 +9575,36 @@ enum UnifiedDescs<'x> {
             [Pass<'x>; 4],
             [&'static [(u32, TargetState)]; 4],
             [Readback; 5],
+        ),
+    ),
+    /// D2 平滑顶点法线形态（--smooth-normals on）：24 SSBO（Mega 22 +
+    /// U_TRINRM 逐三角顶点法线〔9 f32/tri〕+ D6 U_TRI_MR 逐三角
+    /// [metallic, roughness]〔2 f32/tri；--ggx off 面 = 8B 零哑表〕）+
+    /// 四 pass（scene = g18_smooth_nrm kernel——g18 母版语义 + params[43]
+    /// 门重心插值法线 + params[48] 门 GGX 高光臂）+ 4 readback（与 Mega
+    /// 逐字同）；仅 g14_3_pipeline_perf --smooth-normals on 车道创建，
+    /// Mega/Split/MegaDyn/MegaSkin/G34Full 五面逐字不触。
+    #[allow(dead_code)] // D2:g14_3_pipeline_perf --smooth-normals on 独消费面(诚实标注)
+    MegaSmoothNrm(
+        (
+            [ResourceDesc<'x>; U_RESOURCE_COUNT_NRM],
+            [Pass<'x>; 4],
+            [&'static [(u32, TargetState)]; 4],
+            [Readback; 4],
+        ),
+    ),
+    /// day_0828 Phase C GI2 形态（--gi2 on）：29 SSBO（MegaSmoothNrm 24 +
+    /// 哑表五件 24..=28）+ 四 pass（scene = g31_texture_nrm_gi 统一质量
+    /// kernel——GI2 段 params[51..55) 消费面；tex_gate=0 恒走 mats 均值面）
+    /// + 4 readback（与 Mega 逐字同）；仅 g14_3_pipeline_perf --gi2 on 车道
+    /// 创建，其余六面逐字不触。
+    #[allow(dead_code)] // Phase C:g14_3_pipeline_perf --gi2 on 独消费面(诚实标注)
+    MegaTexNrmGi2(
+        (
+            [ResourceDesc<'x>; U_RESOURCE_COUNT_TEXNRM_GI2],
+            [Pass<'x>; 4],
+            [&'static [(u32, TargetState)]; 4],
+            [Readback; 4],
         ),
     ),
 }
@@ -7304,6 +9856,33 @@ struct UnifiedTsrLane<'a> {
     /// FIF 深度（1 = 顺序全同步既有面；2/3 = 真流水，session frame_slots =
     /// max(2, inflight)——inflight=1 与既有 2 槽创建面逐字同）。
     inflight: usize,
+    /// D2 平滑顶点法线臂（MegaSmoothNrm 形态 true → prepare_update 置
+    /// params[43]=1.0；其余形态恒 false，参数面与既有逐位同值 0-byte）。
+    smooth_nrm: bool,
+    /// D6 GGX 高光臂（创建期恒 false；--ggx on 车道创建后经 [`Self::set_ggx`]
+    /// 一次性挂载 → prepare_update 置 params[48]=1.0〔须 smooth_nrm 同 on，
+    /// pack 面第二重保险〕；其余形态/默认臂恒 false，参数面 0-byte）。
+    ggx: bool,
+    /// A1 灯贡献剔除阈值（创建期恒 0.0；--lamp-lights on 车道创建后经
+    /// [`Self::set_lamp_contrib`] 一次性挂载 → prepare_update 置 params[49]；
+    /// 0.0 与零填充逐位同值 ⇒ 既有全臂参数面 0-byte）。
+    lamp_contrib: f32,
+    /// day_0828 Phase C GI2 臂（MegaTexNrmGi2 形态 --gi2 on 车道创建后经
+    /// [`Self::set_gi2`] 一次性挂载 scale/clamp + 逐帧 [`Self::set_gi2_frame`]
+    /// 挂载帧序号（R2 时域旋转）→ prepare_update 置 params[51..55)；off/其余
+    /// 形态恒 false ⇒ 四槽不写与零填充逐位同值，参数面 0-byte）。
+    gi2: bool,
+    gi2_scale: f32,
+    gi2_clamp: f32,
+    gi2_frame: f32,
+    /// day_0828 Phase D TSR 降噪质量档（--tsr-quality on 车道创建后经
+    /// [`Self::set_tsrq`] 一次性挂载 → prepare_update 置 tsr_params[19..21)
+    /// 〔[19]=稳态 alpha 档/[20]=邻域 clamp K〕;off/其余形态恒 false ⇒ 两槽
+    /// 不写与零填充逐位同值,参数面 0-byte——resolve SPV 换载在 CLI 面完成,
+    /// 字节隔离纪律〕）。
+    tsrq: bool,
+    tsrq_min_alpha: f32,
+    tsrq_clamp: f32,
 }
 
 /// G31 FIF 流水在飞帧簿记（`submit_with_frame_update` 产出的票据 + 该帧
@@ -7383,6 +9962,14 @@ impl<'a> UnifiedTsrLane<'a> {
                 Pass::Compute(cp) => cp.name,
                 _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
             },
+            UnifiedDescs::MegaSmoothNrm(d) => match &d.1[0] {
+                Pass::Compute(cp) => cp.name,
+                _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
+            },
+            UnifiedDescs::MegaTexNrmGi2(d) => match &d.1[0] {
+                Pass::Compute(cp) => cp.name,
+                _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
+            },
         };
         let (session, split) = match descs {
             UnifiedDescs::Mega(d) => (
@@ -7446,6 +10033,34 @@ impl<'a> UnifiedTsrLane<'a> {
                 )?,
                 false,
             ),
+            // D2：MegaSmoothNrm = 23 SSBO 四 pass 图（Mega 22 + U_TRINRM）+
+            // scene pass 换 g18_smooth_nrm kernel；split=false——pass 索引/
+            // parity override/回读表与 Mega 逐字同构（仅 scene 绑定多一路）。
+            UnifiedDescs::MegaSmoothNrm(d) => (
+                DeviceFrameSession::new_with_accel_structs(
+                    &d.0,
+                    &d.1,
+                    &d.2,
+                    &d.3,
+                    frame_slots,
+                    accel_structs,
+                )?,
+                false,
+            ),
+            // Phase C：MegaTexNrmGi2 = 29 SSBO 四 pass 图（MegaSmoothNrm 24 +
+            // 哑表五件）+ scene pass 换 g31_texture_nrm_gi；split=false——
+            // pass 索引/parity override/回读表与 Mega 逐字同构。
+            UnifiedDescs::MegaTexNrmGi2(d) => (
+                DeviceFrameSession::new_with_accel_structs(
+                    &d.0,
+                    &d.1,
+                    &d.2,
+                    &d.3,
+                    frame_slots,
+                    accel_structs,
+                )?,
+                false,
+            ),
         };
         Ok(Self {
             session,
@@ -7457,7 +10072,62 @@ impl<'a> UnifiedTsrLane<'a> {
             scene_name,
             pending: VecDeque::new(),
             inflight,
+            // Phase C：GI2 形态 = 统一质量 kernel（平滑法线臂内含——CLI 已裁
+            // 「--gi2 须随 --smooth-normals on」，params[43]=1.0 同置）。
+            smooth_nrm: matches!(
+                descs,
+                UnifiedDescs::MegaSmoothNrm(_) | UnifiedDescs::MegaTexNrmGi2(_)
+            ),
+            ggx: false,
+            lamp_contrib: 0.0,
+            gi2: false,
+            gi2_scale: 0.0,
+            gi2_clamp: 0.0,
+            gi2_frame: 0.0,
+            tsrq: false,
+            tsrq_min_alpha: 0.0,
+            tsrq_clamp: 0.0,
         })
+    }
+
+    /// D6 GGX 高光臂开关挂载（--ggx on 车道创建后一次性；仅 MegaSmoothNrm
+    /// 形态 + tri_mr 真表绑定面调用——其余形态调用 = 参数面置位但 kernel
+    /// 无 tri_mr 绑定/无 GGX 代码，CLI 已裁不可能组合，fail-closed 兜底由
+    /// 调用面承担）。off 车道不调用 ⇒ 参数面 0-byte。
+    fn set_ggx(&mut self, ggx: bool) {
+        self.ggx = ggx;
+    }
+
+    /// A1 灯贡献剔除阈值挂载（--lamp-lights on 车道创建后一次性；off 车道
+    /// 不调用 ⇒ 恒 0.0 参数面 0-byte——0.0 本身亦与零填充逐位同值）。
+    fn set_lamp_contrib(&mut self, contrib: f32) {
+        self.lamp_contrib = contrib;
+    }
+
+    /// Phase C GI2 臂挂载（--gi2 on 车道创建后一次性 scale/clamp；off 车道
+    /// 不调用 ⇒ gi2=false 四槽不写参数面 0-byte）。
+    #[allow(dead_code)] // Phase C:g14_3_pipeline_perf --gi2 on 独消费面(诚实标注)
+    fn set_gi2(&mut self, scale: f32, clamp: f32) {
+        self.gi2 = true;
+        self.gi2_scale = scale;
+        self.gi2_clamp = clamp;
+    }
+
+    /// Phase C GI2 帧序号逐帧挂载（params[52]=frame_idx——R2 时域旋转，TSR
+    /// 收敛面；双跑同帧序 ⇒ 位级一致口径不破。off 车道不调用零消费）。
+    #[allow(dead_code)] // Phase C:同上
+    fn set_gi2_frame(&mut self, frame_idx: f32) {
+        self.gi2_frame = frame_idx;
+    }
+
+    /// Phase D TSR 降噪质量档挂载（--tsr-quality on 车道创建后一次性
+    /// min_alpha/clamp → tsr_params[19..21)；off 车道不调用 ⇒ 两槽不写
+    /// 参数面 0-byte——SPV 换载归 CLI 面,本挂载仅参数槽）。
+    #[allow(dead_code)] // Phase D:g14_3_pipeline_perf --tsr-quality on 独消费面(诚实标注)
+    fn set_tsrq(&mut self, min_alpha: f32, clamp: f32) {
+        self.tsrq = true;
+        self.tsrq_min_alpha = min_alpha;
+        self.tsrq_clamp = clamp;
     }
 
     /// 本帧 FrameUpdate + provenance 组装（顺序/流水两面同一事实源：
@@ -7483,8 +10153,33 @@ impl<'a> UnifiedTsrLane<'a> {
         reset: bool,
         readback_out: bool,
     ) -> Result<(SubmissionProvenance, FrameUpdate), String> {
-        let scene_params =
-            pack_frame_params(iw, ih, jitter, eps, quad_count, point_count, inv_vp, vp);
+        // D2：MegaSmoothNrm 形态 self.smooth_nrm=true → params[43]=1.0；其余
+        // 形态 false ⇒ 参数面与既有逐位同值（0-byte）。
+        // D6：self.ggx=true（--ggx on 车道 set_ggx 挂载）且 smooth_nrm 同 on
+        // → params[48]=1.0；ggx=false 面产物与 D6 前逐位同值（0-byte）。
+        // A1：self.lamp_contrib（--lamp-lights on 车道 set_lamp_contrib 挂载）
+        // → params[49]；默认 0.0 与零填充逐位同值（0-byte）。
+        // Phase C：self.gi2（--gi2 on 车道 set_gi2/set_gi2_frame 挂载）→
+        // params[51..55)；false 面四槽不写与零填充逐位同值（0-byte；
+        // tex_kpix 恒 0.0——bench 哑表面 mip 选择恒 lod 0）。
+        let scene_params = pack_frame_params_gi2(
+            iw,
+            ih,
+            jitter,
+            eps,
+            quad_count,
+            point_count,
+            inv_vp,
+            vp,
+            self.smooth_nrm,
+            self.ggx,
+            self.lamp_contrib,
+            0.0,
+            self.gi2,
+            self.gi2_frame,
+            self.gi2_clamp,
+            self.gi2_scale,
+        );
         // 静态面 0-byte：tlas_update=None + readback_scene=false + 48 f32 参数——
         // 产物 FrameUpdate 与重构前逐字段同（G31+ Task A4 ext 共享体承载扩面）。
         self.prepare_update_ext(
@@ -7533,7 +10228,15 @@ impl<'a> UnifiedTsrLane<'a> {
         let prev = self.prev_vp_j.unwrap_or(*vp_j);
         let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
         let has_history = !reset && self.has_history_state;
-        let tsr_params = pack_tsr_params(iw, ih, ow, oh, jitter, exposure, has_history, false);
+        // Phase D：self.tsrq（--tsr-quality on 车道 set_tsrq 挂载）→
+        // tsr_params[19..21)〔[19]=稳态 alpha 档/[20]=邻域 clamp K〕；false
+        // 面两槽不写与零填充逐位同值（0-byte——冻结 resolve kernel 不读
+        // [19..21)，仅 g31_tsr_resolve_q 变体消费）。
+        let mut tsr_params = pack_tsr_params(iw, ih, ow, oh, jitter, exposure, has_history, false);
+        if self.tsrq {
+            tsr_params[19] = self.tsrq_min_alpha;
+            tsr_params[20] = self.tsrq_clamp;
+        }
         let p = self.parity;
         let uploads: Vec<(StableResourceId, u64, Vec<u8>)> = vec![
             (
@@ -11445,6 +14148,23 @@ fn render_leg(
     cluster_lod: &ClusterLodOpt,
     // G31+ #95/#68：--wp-hlod（off 默认 = 既有面 0-byte；见 bench_leg 同注）。
     wp_hlod: &WpHlodOpt,
+    // D2：--smooth-normals（false 默认 = 既有面 0-byte；true = 装配追加顶点
+    // 法线侧表 + MegaSmoothNrm 车道 + params[43]=1.0，CLI 已裁互斥面）。
+    smooth_normals: bool,
+    // D6：--ggx（false 默认 = 既有面 0-byte；true = 装配追加 tri_mr 侧表
+    // 〔2 f32/tri〕+ params[48]=1.0；CLI 已裁「须随 --smooth-normals on」
+    // 与互斥面——ggx=true 且 smooth_normals=false 组合不可达）。
+    ggx: bool,
+    // A1：--lamp-lights（enabled=false 默认 = 既有面 0-byte；true = 装配后
+    // append 提取代表点光 + params[49]=contrib；CLI 已裁「须随
+    // --smooth-normals on」——lamp on 且 smooth_normals=false 组合不可达）。
+    lamp: &LampOpt,
+    // Phase C：--gi2（enabled=false 默认 = 既有面 0-byte；true = MegaTexNrmGi2
+    // 形态 + 哑表五件 + params[51..55)；CLI 已裁「须随 --smooth-normals on」）。
+    gi2: &Gi2Opt,
+    // Phase D：--tsr-quality（enabled=false 默认 = 既有面 0-byte；true =
+    // tsr_params[19..21) 挂载——resolve SPV 换载在 CLI 面已完成,字节隔离）。
+    tsrq: &TsrqOpt,
 ) {
     let (pre, frames) = prelude(
         scene_id,
@@ -11458,7 +14178,26 @@ fn render_leg(
     let (out_w, out_h, in_w, in_h, seed) = (pre.out_w, pre.out_h, pre.in_w, pre.in_h, pre.seed);
 
     // ③ 场景装配（DEV_ENV 三态：资产缺失 = dev_env degrade）。
-    let scene = match assemble_scene(&contract.raw, scene_id, Path::new(gltf_path)) {
+    // D2：--smooth-normals on 走 assemble_scene_nrm 追加顶点法线侧表（off =
+    // 既有 assemble_scene 逐字，不读 NORMAL、不产侧表，0-byte）。
+    // D6：--ggx on 走 assemble_scene_nrm_mr 再追加 MR 侧表（off = 不读
+    // roughnessFactor 进侧表、不产侧表，0-byte）。
+    let mut nrm_sink: Vec<f32> = Vec::new();
+    let mut mr_sink: Vec<f32> = Vec::new();
+    let scene_res = if smooth_normals && ggx {
+        assemble_scene_nrm_mr(
+            &contract.raw,
+            scene_id,
+            Path::new(gltf_path),
+            &mut nrm_sink,
+            &mut mr_sink,
+        )
+    } else if smooth_normals {
+        assemble_scene_nrm(&contract.raw, scene_id, Path::new(gltf_path), &mut nrm_sink)
+    } else {
+        assemble_scene(&contract.raw, scene_id, Path::new(gltf_path))
+    };
+    let scene = match scene_res {
         Ok(s) => s,
         Err(e) => dev_env_or_fail("scene_assets", &e),
     };
@@ -11516,6 +14255,13 @@ fn render_leg(
             100.0 * r.out_tris as f64 / r.src_tris.max(1) as f64,
         );
     }
+    // A1 灯光提取施加点（--lamp-lights on 才 mutate scene.points；off =
+    // 直通零触达——points 面/pack/参数 count 全 0-byte）。
+    let scene = if lamp.enabled {
+        apply_lamp_lights(scene, lamp)
+    } else {
+        scene
+    };
     let eps = scene_eps(&scene.positions);
     eprintln!(
         "{TAG}: 装配 scene={scene_id} tris={} emissive_tris={} quads={} points={} tex_mean={} internal={in_w}x{in_h} output={out_w}x{out_h} eps={eps:.6}",
@@ -11562,11 +14308,74 @@ fn render_leg(
         let use_split = scene.quads.len() == 1
             && scene.points.is_empty()
             && !spv_scene.replace('\\', "/").contains("g16_gi_multibounce");
+        // D2：平滑法线臂仅 Mega 形态接线（cornell Split 拆散六 pass 车道无
+        // trinrm 绑定面；CLI 已裁 gi/dyn/skin/cluster/wp 互斥，此处形态面
+        // fail-closed 兜底）。
+        if smooth_normals && use_split {
+            fail("--smooth-normals on 仅 Mega 形态已接线（cornell Split 拆散车道无 trinrm 面，fail-closed）");
+        }
         let bits = UnifiedLaneBits::load(
             spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
         );
+        // D2：法线侧表字节面（off = 空 vec 零成本不消费；on = 9 f32/tri 与
+        // 装配三角数互核 fail-closed——cluster/wp 重建面 CLI 已裁互斥）。
+        let nrm_bytes = if smooth_normals {
+            let b = bytes_f32(&nrm_sink);
+            if b.len() != scene.tri_count * 9 * 4 {
+                fail(&format!(
+                    "法线侧表长度 {} ≠ tri_count×9×4 = {}（装配/施加点互核 fail-closed）",
+                    b.len(),
+                    scene.tri_count * 9 * 4
+                ));
+            }
+            b
+        } else {
+            Vec::new()
+        };
+        // D6：MR 侧表字节面（--ggx on = 2 f32/tri 真表互核 fail-closed；
+        // --ggx off 但 smooth-normals on = 8B 零哑表——kernel params[48]=0
+        // 门均匀分支不读，哑表零消费；!smooth_normals = 空 vec 不消费）。
+        let mr_bytes = if ggx {
+            let b = bytes_f32(&mr_sink);
+            if b.len() != scene.tri_count * 2 * 4 {
+                fail(&format!(
+                    "MR 侧表长度 {} ≠ tri_count×2×4 = {}（装配/施加点互核 fail-closed）",
+                    b.len(),
+                    scene.tri_count * 2 * 4
+                ));
+            }
+            b
+        } else if smooth_normals {
+            vec![0u8; 8]
+        } else {
+            Vec::new()
+        };
+        // Phase C：GI2 哑表五件（--gi2 on 才构建；off = 零分配零触达）。
+        let gi2_dummy = if gi2.enabled {
+            Some(gi2_dummy_tex(scene.tri_count))
+        } else {
+            None
+        };
         let descs = if use_split {
             UnifiedDescs::Split(unified_lane_descs_split(&assets, &bits, in_w, in_h, out_w, out_h))
+        } else if gi2.enabled {
+            // Phase C：--gi2 on = MegaTexNrmGi2 形态（统一质量 kernel + 哑表
+            // 五件；CLI 已裁「须随 --smooth-normals on」⇒ nrm/mr 侧表已产）。
+            UnifiedDescs::MegaTexNrmGi2(unified_lane_descs_texnrm_gi2(
+                &assets,
+                &bits,
+                &nrm_bytes,
+                &mr_bytes,
+                gi2_dummy.as_ref().unwrap(),
+                in_w,
+                in_h,
+                out_w,
+                out_h,
+            ))
+        } else if smooth_normals {
+            UnifiedDescs::MegaSmoothNrm(unified_lane_descs_nrm(
+                &assets, &bits, &nrm_bytes, &mr_bytes, in_w, in_h, out_w, out_h,
+            ))
         } else {
             UnifiedDescs::Mega(unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h))
         };
@@ -11584,6 +14393,26 @@ fn render_leg(
             Ok(l) => l,
             Err(e) => dev_env_or_fail("device_lane", &e),
         };
+        // D6：--ggx on → params[48]=1.0（MegaSmoothNrm 形态 + tri_mr 真表
+        // 已绑；off 车道不挂载 ⇒ 参数面 0-byte）。
+        if ggx {
+            lane.set_ggx(true);
+        }
+        // A1：--lamp-lights on → params[49]=contrib（off 车道不挂载 ⇒ 参数
+        // 面 0-byte；contrib=0.0 亦与零填充逐位同值）。
+        if lamp.enabled {
+            lane.set_lamp_contrib(lamp.contrib);
+        }
+        // Phase C：--gi2 on → params[51]=1/[53]=clamp/[54]=scale（off 不挂载
+        // ⇒ 四槽不写参数面 0-byte）；[52]=frame_idx 逐帧挂载见帧循环。
+        if gi2.enabled {
+            lane.set_gi2(gi2.scale, gi2.clamp);
+        }
+        // Phase D：--tsr-quality on → tsr_params[19]=min_alpha/[20]=clamp K
+        // （off 不挂载 ⇒ 两槽不写参数面 0-byte）。
+        if tsrq.enabled {
+            lane.set_tsrq(tsrq.min_alpha, tsrq.clamp);
+        }
         eprintln!(
             "{TAG}: 统一四 pass 车道就绪（scene→mv→resample→resolve 单 session；AS 常驻；场景 SSBO 创建期一次上传；逐帧参数三小件 480B）"
         );
@@ -11598,6 +14427,11 @@ fn render_leg(
                 halton(jitter_base + i + 1, 3) - 0.5,
             ];
             let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            // Phase C：GI2 帧序号逐帧挂载（params[52]——R2 时域旋转；off
+            // 不调用零消费；双跑同帧序 ⇒ 位级一致口径不破）。
+            if gi2.enabled {
+                lane.set_gi2_frame(i as f32);
+            }
             let rec = match lane.frame(
                 in_w,
                 in_h,
@@ -12676,6 +15510,24 @@ fn bench_leg(
     // 施加 WP cell 流送 + HLOD 互斥选层（full = 全 Full 逐位对拍锚；on =
     // screen-size 阈值互斥切换,远 cell 出 QEM 代理层）。
     wp_hlod: &WpHlodOpt,
+    // D2：--smooth-normals（false 默认 = 既有面 0-byte；true = 装配追加顶点
+    // 法线侧表 + MegaSmoothNrm 车道 + params[43]=1.0，CLI 已裁互斥面）。
+    smooth_normals: bool,
+    // D6：--ggx（false 默认 = 既有面 0-byte；true = 装配追加 tri_mr 侧表
+    // 〔2 f32/tri〕+ params[48]=1.0；CLI 已裁「须随 --smooth-normals on」
+    // 与互斥面——ggx=true 且 smooth_normals=false 组合不可达）。
+    ggx: bool,
+    // A1：--lamp-lights（enabled=false 默认 = 既有面 0-byte；true = 装配后
+    // append 提取代表点光 + params[49]=contrib；CLI 已裁「须随
+    // --smooth-normals on」）。
+    lamp: &LampOpt,
+    // Phase C：--gi2（enabled=false 默认 = 既有面 0-byte；true = MegaTexNrmGi2
+    // 形态 + 哑表五件 + params[51..55)；CLI 已裁「须随 --smooth-normals on」
+    // 与 inflight=1）。
+    gi2: &Gi2Opt,
+    // Phase D：--tsr-quality（enabled=false 默认 = 既有面 0-byte；true =
+    // tsr_params[19..21) 挂载——resolve SPV 换载在 CLI 面已完成,字节隔离）。
+    tsrq: &TsrqOpt,
 ) {
     let (pre, _) = prelude(scene_id, tier, frames, false, contract_path, expect_digest);
     let contract = &pre.contract;
@@ -12684,7 +15536,26 @@ fn bench_leg(
         fail("--bench --frames 必须 ≥1");
     }
 
-    let scene = match assemble_scene(&contract.raw, scene_id, Path::new(gltf_path)) {
+    // D2：--smooth-normals on 走 assemble_scene_nrm 追加顶点法线侧表（off =
+    // 既有 assemble_scene 逐字，不读 NORMAL、不产侧表，0-byte）。
+    // D6：--ggx on 走 assemble_scene_nrm_mr 再追加 MR 侧表（off = 不读
+    // roughnessFactor 进侧表、不产侧表，0-byte）。
+    let mut nrm_sink: Vec<f32> = Vec::new();
+    let mut mr_sink: Vec<f32> = Vec::new();
+    let scene_res = if smooth_normals && ggx {
+        assemble_scene_nrm_mr(
+            &contract.raw,
+            scene_id,
+            Path::new(gltf_path),
+            &mut nrm_sink,
+            &mut mr_sink,
+        )
+    } else if smooth_normals {
+        assemble_scene_nrm(&contract.raw, scene_id, Path::new(gltf_path), &mut nrm_sink)
+    } else {
+        assemble_scene(&contract.raw, scene_id, Path::new(gltf_path))
+    };
+    let scene = match scene_res {
         Ok(s) => s,
         Err(e) => dev_env_or_fail("scene_assets", &e),
     };
@@ -12755,6 +15626,13 @@ fn bench_leg(
             &r.selection_digest[..16],
         );
     }
+    // A1 灯光提取施加点（--lamp-lights on 才 mutate scene.points；off =
+    // 直通零触达——render_leg 同律）。
+    let scene = if lamp.enabled {
+        apply_lamp_lights(scene, lamp)
+    } else {
+        scene
+    };
     let eps = scene_eps(&scene.positions);
     eprintln!(
         "{TAG}: bench 装配 scene={scene_id} tris={} quads={} points={} internal={in_w}x{in_h} output={out_w}x{out_h} eps={eps:.6}",
@@ -13729,11 +16607,73 @@ fn bench_leg(
         let use_split = scene.quads.len() == 1
             && scene.points.is_empty()
             && !spv_scene.replace('\\', "/").contains("g16_gi_multibounce");
+        // D2：平滑法线臂仅 Mega 形态接线（cornell Split 拆散车道无 trinrm
+        // 绑定面，fail-closed 兜底；CLI 互斥面已裁）。
+        if smooth_normals && use_split {
+            fail("--smooth-normals on 仅 Mega 形态已接线（cornell Split 拆散车道无 trinrm 面，fail-closed）");
+        }
         let bits = UnifiedLaneBits::load(
             spv_scene, spv_mv, spv_resample, spv_resolve, in_w, in_h, out_w, out_h, use_split,
         );
+        // D2：法线侧表字节面（off = 空 vec 零成本不消费；on = 9 f32/tri 与
+        // 装配三角数互核 fail-closed）。
+        let nrm_bytes = if smooth_normals {
+            let b = bytes_f32(&nrm_sink);
+            if b.len() != scene.tri_count * 9 * 4 {
+                fail(&format!(
+                    "法线侧表长度 {} ≠ tri_count×9×4 = {}（装配/施加点互核 fail-closed）",
+                    b.len(),
+                    scene.tri_count * 9 * 4
+                ));
+            }
+            b
+        } else {
+            Vec::new()
+        };
+        // D6：MR 侧表字节面（--ggx on = 2 f32/tri 真表互核 fail-closed；
+        // --ggx off 但 smooth-normals on = 8B 零哑表——kernel params[48]=0
+        // 门均匀分支不读，哑表零消费；!smooth_normals = 空 vec 不消费）。
+        let mr_bytes = if ggx {
+            let b = bytes_f32(&mr_sink);
+            if b.len() != scene.tri_count * 2 * 4 {
+                fail(&format!(
+                    "MR 侧表长度 {} ≠ tri_count×2×4 = {}（装配/施加点互核 fail-closed）",
+                    b.len(),
+                    scene.tri_count * 2 * 4
+                ));
+            }
+            b
+        } else if smooth_normals {
+            vec![0u8; 8]
+        } else {
+            Vec::new()
+        };
+        // Phase C：GI2 哑表五件（--gi2 on 才构建；off = 零分配零触达）。
+        let gi2_dummy = if gi2.enabled {
+            Some(gi2_dummy_tex(scene.tri_count))
+        } else {
+            None
+        };
         let descs = if use_split {
             UnifiedDescs::Split(unified_lane_descs_split(&assets, &bits, in_w, in_h, out_w, out_h))
+        } else if gi2.enabled {
+            // Phase C：--gi2 on = MegaTexNrmGi2 形态（统一质量 kernel + 哑表
+            // 五件；CLI 已裁「须随 --smooth-normals on」⇒ nrm/mr 侧表已产）。
+            UnifiedDescs::MegaTexNrmGi2(unified_lane_descs_texnrm_gi2(
+                &assets,
+                &bits,
+                &nrm_bytes,
+                &mr_bytes,
+                gi2_dummy.as_ref().unwrap(),
+                in_w,
+                in_h,
+                out_w,
+                out_h,
+            ))
+        } else if smooth_normals {
+            UnifiedDescs::MegaSmoothNrm(unified_lane_descs_nrm(
+                &assets, &bits, &nrm_bytes, &mr_bytes, in_w, in_h, out_w, out_h,
+            ))
         } else {
             UnifiedDescs::Mega(unified_lane_descs(&assets, &bits, in_w, in_h, out_w, out_h))
         };
@@ -13752,6 +16692,27 @@ fn bench_leg(
             Ok(l) => l,
             Err(e) => dev_env_or_fail("device_lane", &e),
         };
+        // D6：--ggx on → params[48]=1.0（MegaSmoothNrm 形态 + tri_mr 真表
+        // 已绑；off 车道不挂载 ⇒ 参数面 0-byte）。
+        if ggx {
+            lane.set_ggx(true);
+        }
+        // A1：--lamp-lights on → params[49]=contrib（off 车道不挂载 ⇒ 参数
+        // 面 0-byte）。
+        if lamp.enabled {
+            lane.set_lamp_contrib(lamp.contrib);
+        }
+        // Phase C：--gi2 on → params[51]=1/[53]=clamp/[54]=scale（off 不挂载
+        // ⇒ 四槽不写参数面 0-byte）；[52]=frame_idx 逐帧挂载见测量循环
+        // （CLI 已裁 inflight=1——顺序循环独达）。
+        if gi2.enabled {
+            lane.set_gi2(gi2.scale, gi2.clamp);
+        }
+        // Phase D：--tsr-quality on → tsr_params[19]=min_alpha/[20]=clamp K
+        // （off 不挂载 ⇒ 两槽不写参数面 0-byte）。
+        if tsrq.enabled {
+            lane.set_tsrq(tsrq.min_alpha, tsrq.clamp);
+        }
         // C7:debug label 活跃态簿记（--profile-json 消费;session 创建期定格）。
         debug_labels_active = lane.session.debug_labels_active();
         eprintln!(
@@ -13907,6 +16868,11 @@ fn bench_leg(
             ];
             let vp_j = jittered_vp(&vp, j, in_w, in_h);
             let readback_out = flip_trace.is_some() || i + 1 == total;
+            // Phase C：GI2 帧序号逐帧挂载（params[52]——R2 时域旋转；off
+            // 不调用零消费；双跑同帧序 ⇒ 位级一致口径不破）。
+            if gi2.enabled {
+                lane.set_gi2_frame(i as f32);
+            }
             let rec = match lane.frame(
                 in_w,
                 in_h,

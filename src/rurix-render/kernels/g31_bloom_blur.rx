@@ -1,0 +1,60 @@
+//@ spec: RXS-0369（显示链加性面；夜间巡航 D3 bloom 第二腿）
+// bloom 半分辨率可分离高斯模糊（9-tap，σ≈2.0；H/V 双 dispatch 由 params[2]
+// 方向位选择）。bloom 能量扩散 = 光晕观感来源。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐像素独立顺序求值，禁 atomic；只读本帧输入缓冲、直写输出缓冲（H→V 两
+// dispatch 间由 host 屏障串联，无跨像素写竞争）；全 f32；固定输入双跑位级
+// 一致。边界 = clamp 取样（edge replicate）。
+//
+// ## 参数面（params: f32 SSBO；host 打包逐字同源；8 f32）
+//   [0]=w [1]=h（本层分辨率）[2]=dir（0.0=水平，1.0=垂直）[3..8]=reserved。
+//   in_bloom / out_bloom: 3 f32/px 同分辨率。
+#[numthreads(8, 8, 1)]
+kernel fn g31_bloom_blur(
+    t: ThreadCtx<2>,
+    in_bloom: View<global, f32>,
+    params: View<global, f32>,
+    out_bloom: ViewMut<global, f32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let w = params[0] as usize;
+    let h = params[1] as usize;
+    let dir_v = params[2] > 0.5;
+    if px < w && py < h {
+        // 9-tap 高斯权（σ≈2.0，归一化；常量字面 = 单源，host 侧同式注释）。
+        // w = [0.028532, 0.067234, 0.124009, 0.179044, 0.202360, 0.179044,
+        //      0.124009, 0.067234, 0.028532]
+        let mut acc_r = 0.0;
+        let mut acc_g = 0.0;
+        let mut acc_b = 0.0;
+        let mut k = 0i32;
+        while k < 9 {
+            let off = k - 4;
+            // 权（按 k 查表，禁动态索引越界——全闭集字面）。
+            let mut wgt = 0.202360;
+            if k == 0 || k == 8 { wgt = 0.028532; }
+            if k == 1 || k == 7 { wgt = 0.067234; }
+            if k == 2 || k == 6 { wgt = 0.124009; }
+            if k == 3 || k == 5 { wgt = 0.179044; }
+            // 采样坐标（dir 选择轴 + clamp）。
+            let mut sx = px as i32;
+            let mut sy = py as i32;
+            if dir_v { sy = py as i32 + off; } else { sx = px as i32 + off; }
+            if sx < 0 { sx = 0; }
+            if sy < 0 { sy = 0; }
+            if sx >= w as i32 { sx = w as i32 - 1; }
+            if sy >= h as i32 { sy = h as i32 - 1; }
+            let idx = ((sy as usize) * w + (sx as usize)) * 3;
+            acc_r = acc_r + in_bloom[idx] * wgt;
+            acc_g = acc_g + in_bloom[idx + 1] * wgt;
+            acc_b = acc_b + in_bloom[idx + 2] * wgt;
+            k = k + 1;
+        }
+        let o = (py * w + px) * 3;
+        out_bloom[o] = acc_r;
+        out_bloom[o + 1] = acc_g;
+        out_bloom[o + 2] = acc_b;
+    }
+}

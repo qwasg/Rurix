@@ -1,0 +1,74 @@
+{
+  "schema": "rurix.g31.frame_pipelining_evidence.v1",
+  "subject": "g31_frame_pipelining",
+  "symbolic_gate_key": "g31.waveA.pipelining",
+  "wave": "G31.A",
+  "scene_id": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "seed": 7312026601,
+  "frames_measured": 100,
+  "warmup": 10,
+  "runs_per_arm": 3,
+  "arms": [
+    {
+      "inflight": 1,
+      "frame_slots": 2,
+      "frame_ms_mean": 2.9051929999999997,
+      "frame_ms_p50": 2.01905,
+      "frame_ms_p99": 2.4908,
+      "frame_ms_min": 1.6326,
+      "frame_ms_max": 91.1287,
+      "frame_ms_production_mean": 2.151057,
+      "last_frame_digest": "sha256:ac30d022d382b93da2f5b51dd07ef26d7d88e7c803efe8775d167a988863913d",
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight1_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight1_rep2.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight1_rep3.json"
+      ]
+    },
+    {
+      "inflight": 2,
+      "frame_slots": 2,
+      "frame_ms_mean": 2.431694,
+      "frame_ms_p50": 1.52555,
+      "frame_ms_p99": 2.1095,
+      "frame_ms_min": 1.2988,
+      "frame_ms_max": 92.6957,
+      "frame_ms_production_mean": 1.6652050000000003,
+      "last_frame_digest": "sha256:ac30d022d382b93da2f5b51dd07ef26d7d88e7c803efe8775d167a988863913d",
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight2_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight2_rep2.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight2_rep3.json"
+      ]
+    },
+    {
+      "inflight": 3,
+      "frame_slots": 3,
+      "frame_ms_mean": 2.45504,
+      "frame_ms_p50": 1.5303499999999999,
+      "frame_ms_p99": 1.8746,
+      "frame_ms_min": 1.3568,
+      "frame_ms_max": 94.6024,
+      "frame_ms_production_mean": 1.675513,
+      "last_frame_digest": "sha256:ac30d022d382b93da2f5b51dd07ef26d7d88e7c803efe8775d167a988863913d",
+      "receipts": [
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight3_rep1.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight3_rep2.json",
+        "H:\\rurix\\.tmp\\g31_gates\\pipelining\\receipts\\bench_inflight3_rep3.json"
+      ]
+    }
+  ],
+  "digest_bitexact_all_arms": true,
+  "frame_order_strict_fifo": true,
+  "clean_shutdown": true,
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "17c1de72fea1d63210dc46ca49c860e2c3a62d81"
+  },
+  "timestamp": "20260830T043941Z",
+  "notes": "frame_ms 统计自 receipt 全列（末一样本含末帧 digest tail，各臂同形同价；流水臂排水段并入末一样本，Σframe_ms ≈ 测量段全墙钟）；A/B 对照（对 inflight=1）：inflight=2 p50 1.5255ms（-24.4%） p99 2.1095ms（-15.3%）；inflight=3 p50 1.5303ms（-24.2%） p99 1.8746ms（-24.7%）；最优臂 inflight=2；digest 锚 sha256:ac30d022d382b93d… 主 A/B 9 轮 + trace 3×28 帧全位级同"
+}

@@ -1,0 +1,119 @@
+{
+  "schema": "rurix.g34.unified_lane_evidence.v1",
+  "gate": "g34.wave1.unified",
+  "scene": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "trajectory": null,
+  "frames": 160,
+  "warmup": 10,
+  "frames_completed": 170,
+  "exit_reason": "frames_done",
+  "resize_eras": 0,
+  "resolution": {
+    "w": 1920,
+    "h": 1080
+  },
+  "internal_resolution": {
+    "w": 1920,
+    "h": 1080
+  },
+  "real_render_frame_ms": 5.546868,
+  "real_render_fps": 180.281914,
+  "present_frame_ms": 3.837179,
+  "present_overhead_ms": 3.837179,
+  "encode_frame_ms": 0.0,
+  "digest_frame_ms": 1.177527,
+  "render_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+  "digest": "sha256:06944710e1db35f443dcc5159e13840a650ab088e57d9404333e7adbcc15dddb",
+  "digest_seq": [],
+  "ev100_seq": [],
+  "camera_poses": [],
+  "ev100_ramp": null,
+  "headless": false,
+  "window": {
+    "visible": false,
+    "channel_order": "bgra8_unorm",
+    "extent": {
+      "w": 1920,
+      "h": 1080
+    },
+    "frames_presented": 170,
+    "swapchain_rebuilds": 0
+  },
+  "contracts": {
+    "production": {
+      "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+      "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+    },
+    "g10_contract": {
+      "path": "milestones/g10/corpus/contract_params_bistro_interior.json",
+      "sha256": "sha256:773473ca4926b4a68807606d5f44a8590bece7b6c97b07a61cc72b5f8a26da57"
+    },
+    "g10_camera": {
+      "path": "milestones/g10/corpus/camera_bistro_interior.json",
+      "sha256": "sha256:cfc0152e21dc473f8acdf3e046ff5efe41bc78e7b590101afcfb2d64916cbbfc"
+    },
+    "g10_lighting": {
+      "path": "milestones/g10/corpus/lighting_bistro_interior.json",
+      "sha256": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce"
+    },
+    "consistency": "pass",
+    "delta_note": "G10 契约 sun_intensity_lux=300/sky_intensity=5/ev100=1 与生产行 sun/sky=0/0、ev100=-4 差异如实登记不消费——生产内容模型锚(直接光 quad/point/emissive + ev100 标定)为消费面,差异面 = G10.5a 取景校准登记值",
+    "encode_spv": {
+      "path": ".tmp/g14_gates/m_c/g31_display_encode.spv",
+      "sha256": "sha256:e7291c7936a08f185614060c48077104e2929280cba9613653c29fd7eca94b2d"
+    }
+  },
+  "render_includes_forced_readback": true,
+  "spv": {
+    "kind": "tsr_device",
+    "lane": "统一 DeviceFrameSession 四 pass（scene→mv→tsr_resample→tsr_resolve）GPU 链内零 host 往返（RFC-0030 §4.5 L2 + §4.3 L3；原两 session host 中转税消除：scene 回读/host mv/TSR 上传全消，测量循环零回读仅末帧回读 TSR 输出）",
+    "spv_mv_no_contraction": "bin 侧后处理：mv kernel 全 FAdd/FSub/FMul 注入 OpDecorate NoContraction（禁驱动 FMA 收缩，GPU mv 与 host compute_camera_mv 严格 IEEE 逐 op 位级对齐；SPV 文件 0-byte 不动，sha256 为文件面）",
+    "spv_scene": ".tmp/g34_gates/unified/g34_unified_gi.spv",
+    "spv_scene_sha256": "sha256:27a1fc7e120df12847e8e756fd5798d11d2b1f90f0e7b710b184ddee1a74acb2",
+    "spv_mv": ".tmp/g14_gates/m_c/g14_mv.spv",
+    "spv_mv_sha256": "sha256:0070934e20116aeba1da5f013192080b1fe1f51763f2b8a6aa333719d5d36abc",
+    "spv_resample": ".tmp/g14_gates/m_c/g14_8_tsr_resample.spv",
+    "spv_resample_sha256": "sha256:6bbc826a159c837e5b7c6d36235693874a84f14a0556c3cabe0234d4ea56d54d",
+    "spv_resolve": ".tmp/g14_gates/m_c/g14_8_tsr_resolve.spv",
+    "spv_resolve_sha256": "sha256:4c23a7a4a9b58309e31ac504a97eb5f7fed7301869c05a9222129618e9463732"
+  },
+  "features": {
+    "textures": false,
+    "slab": false,
+    "dyn": false,
+    "full": false,
+    "static_camera": true
+  },
+  "textures": null,
+  "slab": null,
+  "dyn": null,
+  "host_parity": {
+    "frame": 11,
+    "tol": 0.0007937317714095116,
+    "tol_source": "budget milestones/g34/g34_budget.json 条目 g34.unified_lane.host_parity_tol 程序读",
+    "frozen_measured": 0.0003968658857047558,
+    "color_p100": 0.000284847803413868,
+    "color_p50": 3.637978807091713e-12,
+    "color_mean_abs": 1.103350348867643e-08,
+    "bitexact_px": 538103,
+    "total_px": 2073600,
+    "bitexact_ratio": 0.2595018326,
+    "depth_p100": 1.368408203125,
+    "in_tol": true,
+    "host_render_ms": 3878.291,
+    "basis": "host 金标准（合并语义同步实现：贴图三角 = 图集双线性×（mod×R_slot）;非贴图 = 常量 albedo（× R_slot 若 slab 映射）;动态实例 = host Tlas 实例变换追踪 + 局部空间纯发光体）vs device scene HDR（TSR 前瞬时位）逐像素逐通道绝对差;容差结构依据 = RT core vs host Möller–Trumbore t 值算术差（ULP 级 ⇒ 命中点/辐照传递差,目标近位级）,threshold = measured × 2.0 标定冻结（g34_budget 程序读禁手写）;bitexact 像素占比如实登记（非门判据）"
+  },
+  "stats": {
+    "render_cv": 1.192006,
+    "render_min_ms": 3.6022,
+    "render_max_ms": 37.5693,
+    "scene_gpu_ms": 1.225351,
+    "encode_gpu_ms": 0.169587,
+    "present_cv": 0.388577,
+    "present_min_ms": 1.429,
+    "present_max_ms": 20.0498
+  },
+  "notes": "G34 全特性合流 G34-1 合流地基：kernels/g34_unified_gi.rx 统一 GI kernel（母版 g14_3_direct_gi 语义 + fork A 图集采样块 + fork B 实例分派块合一;两缺省面各自 == 母版位级——--static-camera 锚格模式全链 TSR digest == g14_3_stage_a_digest_anchor 承载）+ kernels/g34_unified_shade.rx 统一 shade（shade_reduce 语义 + out_depth_hz 恒输出,HZB off 写而不消费,HZB 合流接口预留）;合并语义 = 贴图三角 采样×（mod×R_slot）/ 非贴图 常量×（R_slot 若 slab 映射）,host 装配期预调制承载 kernel 零新增面;三特性同开真跑 = 装配期 slab/纹理双臂对拍 + 逐帧 tlas_update refit + parity 帧 host 金标准对拍 + A4 范式动态位置核验 fail-closed;HZB/FG/skin 合流归后续波（接口预留面见 kernels 头注释）。g31_window_present.rs 0-byte——其五门为回归锚。"
+}

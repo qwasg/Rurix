@@ -1,0 +1,458 @@
+//@ spec: RXS-0405 L3 device 面（G34 全特性合流——统一 kernel 车道面 G34-1 合流地基）
+// G34 统一 direct_gi kernel —— `kernels/g14_3_direct_gi.rx`（母版）语义 +
+// `kernels/g31_texture_gi.rx`（fork A：SSBO 图集逐三角贴图采样 albedo 块）+
+// `kernels/g31_dyn_scene.rx`（fork B：committed_instance_index 实例分派 3 行）
+// 两 fork 面合一（门 `g34.wave1.unified`；G34 全特性合流 G34-1 合流地基）。
+//
+// ## 合流结构（两 fork 面互不交叠证明）
+// fork A 扩面 = 主命中重心坐标读取 + albedo 来源块（texmeta/tritex/texuv/atlas/
+// linlut 五 SSBO + 采样 11 行 + tex_gate 选择 3 行）；fork B 扩面 = 主命中
+// committed_instance_index 读取 1 行 + pg 换算 2 行（pg = prim + inst ×
+// dyn_tri_base）。A 不读 inst、B 不读 bary——唯一耦合点 = 三角形下标：合流核
+// 内 A 的 tritex/texuv 下标与 B 的 tris/mats 下标**同源取 pg**（全局三角形
+// 下标）；inst = 0（单实例 TLAS 缺省面）时 pg = prim 逐位退化为 fork A 字面，
+// tritex[pg] < 0（无图集映射缺省面）时 tex_gate = 0、albedo 走 mats 常量面
+// 逐位退化为母版/fork B 字面——两缺省面各自 == 母版位级（详见下）。
+//
+// ## 缺省面 == 母版位级（逐 op 论证）
+// ① 纹理缺省（tritex 全 −1；图集仍绑定 1 纹素哑件 + texmeta 单槽头）：tex_gate
+//    = (slotf + 1.0).min(1).max(0) = 0.0 ∀tri ⇒ al_c = 0.0·samp_c + 1.0·mats[mb+c]
+//    = +0.0 + mats[mb+c] = mats[mb+c]（采样块读出有限值，0.0×有限 = +0.0，
+//    +0.0 + x = x 位级恒等）；采样块地址算术（slot=0 保底读）零副作用——
+//    输出三通道与母版逐位同值。
+// ② 动态缺省（单实例 TLAS + dyn_tri_base = 静态三角数）：committed_instance_
+//    index ≡ 0 ⇒ pg = prim + 0 × base = prim（usize 加法/乘法精确域）——
+//    tris/mats/tritex 下标与母版逐位同值；60 f32 参数面前 48 项与母版逐字同
+//    布局，[42] 仅经 ×0 消费不产数值面。
+// ③ 两缺省同开 = 母版全帧位级（G34-1 门 fact② Stage A 锚格 160 帧全链对拍
+//    承载——TSR 后 digest == g14_3_stage_a_digest_anchor 冻结锚）。
+//
+// ## 合并语义（纹理 × slab 预调制；host 装配期承载，kernel 零新增面）
+// slab = 装配期 albedo × R_slot 预调制（g31 slab 面 0-byte 语义继承）：非贴图
+// slab 材质三角 = 常量 albedo × R_slot（scene.albedo 预调制 → mats SSBO，既有
+// slab_apply 面）；**贴图 slab 材质三角 = 采样 albedo ×（mod × R_slot）**——
+// R_slot 在装配期预乘进 texmeta 槽 mod 三项（mod = baseColorFactor.rgb ×
+// (1−metallicFactor) × R_slot），kernel 采样块与 fork A 逐字同式（samp × mod
+// 单次 f32 乘，操作序不变 ⇒ B4 探针位级对拍锚同构维持）；非 slab 贴图材质
+// R_slot ≡ 1 不预乘（texmeta 与 fork A 逐位同值）。host 金标准（bin
+// g34_full_lane::g34_host_render_frame）同合并语义同步实现——对拍基准。
+//
+// ## 语义（与 G13.4 host `render_frame`/`shade_pixel` 逐字同模——M-d 画质守护
+// 可比性锚；g13_4_ue_upscale_parity_render.rs L1902 语义面镜像）
+// 逐像素单 invocation（ThreadCtx<2> 8×8 车道沿 G14.3 同模）：
+// ① jitter 主射线 = 未抖 inv_vp 反投影（与母版逐字同式）；
+// ② ray query 最近命中 → prim + inst + bary（miss 臂短 selection 置 0，
+//    has_committed 门——NaN 零通道纪律与母版同律）；
+// ③ 实例分派 pg = prim + inst × dyn_tri_base（fork B 逐字；动态实例局部空间
+//    三角形在 SSBO 以 [dyn_tri_base, …) 追加，命中点 h 恒世界空间——t 已经
+//    实例变换；动态实例设计为纯发光体，albedo = 0 ⇒ 直接光贡献恒零，法线
+//    不入输出——fork B 简化面如实继承）；
+// ④ 命中点/几何法线/材质（tris/mats 经 pg；与母版逐字同式）；
+// ⑤ albedo：tritex[pg] ≥ 0 → REPEAT wrap + G26 双线性逐字 + srgb→linear LUT
+//    采样 × mod（fork A 逐字，采样块与 kernels/g31_texture_probe.rx 同形）；
+//    < 0 → mats 常量面（母版逐字）；
+// ⑥ 双面 Lambert 直接光：quad 面光 4×4 分层确定性采样 + point 灯 delta +
+//    逐样本阴影射线（全量 TLAS——动态实例投运动阴影，fork B 正确性面继承）
+//    + emissive 主命中（与母版逐字同式）；
+// ⑦ 深度 = 未抖 vp 参数行 25..32 字面（生产 Mega 面逐字同源，MV/TSR 消费
+//    一致性面；真 ZO NDC 路由面归 g34_unified_shade.rx ④b 段——HZB 消费面
+//    合流接口预留）；miss → color=(0,0,0)、depth=1.0（母版同字面）。
+// 无 GI/天光（契约 sun/sky=0.0；不冒充 GI 帧）。GI 多反弹臂不接线（同母版
+// 纪律——--gi on = fail-closed not-triggered 显式登记）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承 + B4 采样面 + A4 分派面）
+// 逐像素独立顺序求值，禁 atomic；输出直写无跨像素交互；固定输入双跑位级
+// 一致。全 f32（u32 纹素 unpack 经 usize 精确算术，地址积经 usize 乘法——
+// 图集 >2^24 texel 故 f32 寻址域禁用；实例/三角形下标经 usize 精确算术）；
+// 分支判定一律 min/max 算术门（big=1e30 门放大器，M96/M100 白名单形）+
+// `has_committed` 短 selection 臂；除法分母一律 max(tiny²) 保底（tiny=1e-6
+// ≤ ray_eps，kept 样本恒等位级）。NaN 零通道：miss 臂 prim=0/inst=0 保底读
+// + hit_f 门归零。host 侧装配期 NoContraction 注入面 = SPV 文件 0-byte 后
+// 处理（驱动 FMA 收缩禁面——bilinear/LUT 链与 host 参考逐 op 位级对拍前提，
+// B4 同律继承）。
+//
+// ## 参数面（60 f32：fork B 参数面 + fork A 五 SSBO；前 48 与母版逐字同布局，
+//   host bin `g14_3_pipeline_perf::pack_frame_params_dyn` 逐字同源）
+//   params[0]=pixel_count [1]=width [2]=height [3]=jitter_x [4]=jitter_y
+//   [5]=ray_eps [6]=ray_tmax [7]=quad_count [8]=point_count
+//   [9..25]=inv_vp（未抖，行主序 m[r][c] → [9+r*4+c]；主射线反投影）
+//   [25..41]=vp（未抖，同布局；深度 clip 面） [41]=inv_pi（host 位级传入）
+//   [42]=dyn_tri_base（静态场景三角形数；动态实例 prim→全局下标换算基底）
+//   [43..60]=reserved（恒 0）。
+//   tris: 9 f32/tri——[0, dyn_tri_base) 静态场景世界空间三角形汤 +
+//         [dyn_tri_base, …) 动态实例局部空间三角形（与 BLAS 输入逐字节同
+//         buffer 内容）；单实例缺省面 = 仅静态段；
+//   mats: 8 f32/tri [albedo 3, emission 3, 0, 0]，同上分区（slab 预调制面 =
+//         装配期 albedo × R_slot 入本表非贴图三角；动态段 = 纯发光体 albedo=0）；
+//   quads: 16 f32/quad；points: 8 f32/point（与母版逐字同布局）；
+//   texuv: 6 f32/tri TEXCOORD_0（装配期与 tris 同序烘焙；动态段恒 0——
+//          tritex −1 不消费面）；
+//   texmeta: [0]=atlas_w [1]=atlas_h [2]=slot_count [3..8]=reserved；
+//            槽 k 于 [8+k*8..+8] = [origin_x, origin_y, w, h, mod_r, mod_g,
+//            mod_b, 0]（mod = factor×(1−metallic)×R_slot 合并语义装配面）；
+//   tritex: 1 f32/tri（槽 k≥0 或 −1 = 常量面；动态段恒 −1；缺省面全 −1）；
+//   atlas: u32/texel 打包 RGBA8（缺省面 = 1 纹素哑件，采样块保底读零消费）；
+//   linlut: 256 f32 srgb→linear LUT（host srgb_to_linear 逐字同式）；
+//   out_color: 3 f32/px scene-linear HDR；out_depth: 1 f32/px（生产字面深度）。
+#[numthreads(8, 8, 1)]
+kernel fn g34_unified_gi(
+    tlas: AccelStruct,
+    t: ThreadCtx<2>,
+    tris: View<global, f32>,
+    mats: View<global, f32>,
+    quads: View<global, f32>,
+    points: View<global, f32>,
+    params: View<global, f32>,
+    texuv: View<global, f32>,
+    texmeta: View<global, f32>,
+    tritex: View<global, f32>,
+    atlas: View<global, u32>,
+    linlut: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_depth: ViewMut<global, f32>,
+) {
+    // 2D 车道索引（8×8 局部组；dispatch = ceil(w/8)×ceil(h/8)×1，与母版同字面）。
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[1] as usize;
+    let height = params[2] as usize;
+    let jx = params[3];
+    let jy = params[4];
+    let ray_eps = params[5];
+    let ray_tmax = params[6];
+    let quad_count = params[7] as usize;
+    let point_count = params[8] as usize;
+    let inv_pi = params[41];
+    let dyn_tri_base = params[42] as usize;
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let eps2 = ray_eps * ray_eps;
+    if px < width && py < height {
+        let i = py * width + px;
+        // ── ① jitter 主射线（与母版逐字同式）──
+        let sx = (px as f32) + 0.5 + jx;
+        let sy = (py as f32) + 0.5 + jy;
+        let ndx = 2.0 * (sx / (width as f32)) - 1.0;
+        let ndy = 1.0 - 2.0 * (sy / (params[2] as f32));
+        let n4x = (params[9] * ndx + params[10] * ndy) + params[12];
+        let n4y = (params[13] * ndx + params[14] * ndy) + params[16];
+        let n4z = (params[17] * ndx + params[18] * ndy) + params[20];
+        let n4w = (params[21] * ndx + params[22] * ndy) + params[24];
+        let f4x = ((params[9] * ndx + params[10] * ndy) + params[11]) + params[12];
+        let f4y = ((params[13] * ndx + params[14] * ndy) + params[15]) + params[16];
+        let f4z = ((params[17] * ndx + params[18] * ndy) + params[19]) + params[20];
+        let f4w = ((params[21] * ndx + params[22] * ndy) + params[23]) + params[24];
+        let near_x = n4x / n4w;
+        let near_y = n4y / n4w;
+        let near_z = n4z / n4w;
+        let d0x = f4x / f4w - near_x;
+        let d0y = f4y / f4w - near_y;
+        let d0z = f4z / f4w - near_z;
+        let dl = (d0x * d0x + d0y * d0y + d0z * d0z).sqrt();
+        let gate_dl = (dl * big).min(1.0).max(0.0);
+        let dl_safe = dl + (1.0 - gate_dl);
+        let dx = gate_dl * d0x / dl_safe;
+        let dy = gate_dl * d0y / dl_safe;
+        let dz = gate_dl * d0z / dl_safe;
+        // ── ② 主 ray query（最近命中；与母版逐字同式）──
+        let mut rq = ray_query_initialize(tlas, (near_x, near_y, near_z), 0.0, (dx, dy, dz), ray_tmax);
+        while rq.proceed() {
+        }
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        let mut inst = 0u32;
+        // fork A：重心坐标门面 + fork B：实例下标门面（miss 臂不取——uncommitted
+        // 值未定义面，has_committed 短 selection 臂置 0，下游读有效地址，
+        // 输出经 hit_f 门恒 0）。
+        let mut bu = 0.0;
+        let mut bv = 0.0;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            inst = rq.committed_instance_index();
+            let bary = rq.committed_barycentric();
+            bu = bary.0;
+            bv = bary.1;
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+            inst = 0u32;
+            bu = 0.0;
+            bv = 0.0;
+        }
+        // ── fork B 实例分派：BLAS 内 prim → SSBO 全局三角形下标（inst=0 静态
+        // 实例 ⇒ pg=prim 与母版逐位同式；inst≥1 动态实例 ⇒ 追加区）──
+        let pg = (prim as usize) + (inst as usize) * dyn_tri_base;
+        // 命中点/几何法线/材质（miss 时 pg=0 保底，贡献经 hit_f 门恒 0）。
+        let tb = pg * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let nl = (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let gate_nl = (nl * big).min(1.0).max(0.0);
+        let nl_safe = nl + (1.0 - gate_nl);
+        // 法线归一化 = host `Vec3::normalize` 倒数乘口径（self·(1/l)，位级同式；
+        // 区别于 bin norm3 的除法口径——主射线 dir 归一化走除法，见上）。
+        let inv_nl = 1.0 / nl_safe;
+        let hgx = gate_nl * (ngx * inv_nl);
+        let hgy = gate_nl * (ngy * inv_nl);
+        let hgz = gate_nl * (ngz * inv_nl);
+        // 双面：法线翻转朝向相机（host render_frame two-sided 同律；facing=0 不翻）。
+        let fac0 = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (fac0 * big).min(1.0).max(0.0);
+        let nx = flip * hgx;
+        let ny = flip * hgy;
+        let nz = flip * hgz;
+        let hx = near_x + dx * th;
+        let hy = near_y + dy * th;
+        let hz = near_z + dz * th;
+        let mb = pg * 8;
+        // ── fork A 贴图采样 albedo（tritex[pg] ≥ 0 槽位面；< 0 = 母版常量面
+        //    逐字 0-byte；采样块与 kernels/g31_texture_probe.rx 逐字同形，
+        //    host 参考 = bin g14_3_lane_body::g31_tex_host_sample 同 op 序）──
+        let slotf = tritex[pg];
+        let tex_gate = (slotf + 1.0).min(1.0).max(0.0);
+        let slot = slotf.max(0.0) as usize;
+        let sb = 8 + slot * 8;
+        let ox = texmeta[sb];
+        let oy = texmeta[sb + 1];
+        let tw = texmeta[sb + 2];
+        let th2 = texmeta[sb + 3];
+        let mod_r = texmeta[sb + 4];
+        let mod_g = texmeta[sb + 5];
+        let mod_b = texmeta[sb + 6];
+        let aw = texmeta[0];
+        let bw_ = 1.0 - bu - bv;
+        let ub = pg * 6;
+        let uu0 = bw_ * texuv[ub] + bu * texuv[ub + 2] + bv * texuv[ub + 4];
+        let vv0 = bw_ * texuv[ub + 1] + bu * texuv[ub + 3] + bv * texuv[ub + 5];
+        // REPEAT wrap（fract 域回绕；负域 fract = x − floor(x) 同式覆盖）。
+        let uu = uu0 - uu0.floor();
+        let vv = vv0 - vv0.floor();
+        // 双线性（G26 sample_bilinear 逐字：floor 未钳 frac）。
+        let xf = uu * tw - 0.5;
+        let yf = vv * th2 - 0.5;
+        let bxf = xf.floor();
+        let byf = yf.floor();
+        let fx = xf - bxf;
+        let fy = yf - byf;
+        // wrap 域纹素坐标（bxf ∈ [−1, w−1] 单回绕面；pow2 尺寸 ⇒ inv 精确）。
+        let inv_tw = 1.0 / tw;
+        let inv_th = 1.0 / th2;
+        let x0 = bxf - (bxf * inv_tw).floor() * tw;
+        let y0 = byf - (byf * inv_th).floor() * th2;
+        let x1 = (bxf + 1.0) - ((bxf + 1.0) * inv_tw).floor() * tw;
+        let y1 = (byf + 1.0) - ((byf + 1.0) * inv_th).floor() * th2;
+        // 图集线性地址（图集 texel 数 >2^24 ⇒ 积域转 usize 精确；oy+y0/ox+x0
+        // f32 精确域 <2^24 先加后转）。
+        let a00 = ((oy + y0) as usize) * (aw as usize) + ((ox + x0) as usize);
+        let a10 = ((oy + y0) as usize) * (aw as usize) + ((ox + x1) as usize);
+        let a01 = ((oy + y1) as usize) * (aw as usize) + ((ox + x0) as usize);
+        let a11 = ((oy + y1) as usize) * (aw as usize) + ((ox + x1) as usize);
+        // u32 打包纹素 unpack（usize 精确算术；R|G<<8|B<<16|A<<24 布局）。
+        let p00 = atlas[a00] as usize;
+        let p10 = atlas[a10] as usize;
+        let p01 = atlas[a01] as usize;
+        let p11 = atlas[a11] as usize;
+        // srgb→linear LUT（u8 精确索引；零 pow 面 = device/host 位级对拍锚）。
+        let p00_r = linlut[p00 % 256usize];
+        let p00_g = linlut[(p00 / 256usize) % 256usize];
+        let p00_b = linlut[(p00 / 65536usize) % 256usize];
+        let p10_r = linlut[p10 % 256usize];
+        let p10_g = linlut[(p10 / 256usize) % 256usize];
+        let p10_b = linlut[(p10 / 65536usize) % 256usize];
+        let p01_r = linlut[p01 % 256usize];
+        let p01_g = linlut[(p01 / 256usize) % 256usize];
+        let p01_b = linlut[(p01 / 65536usize) % 256usize];
+        let p11_r = linlut[p11 % 256usize];
+        let p11_g = linlut[(p11 / 256usize) % 256usize];
+        let p11_b = linlut[(p11 / 65536usize) % 256usize];
+        // top/bot/mix（G26 操作序逐字）× mod（factor×(1−metallic)×R_slot
+        // 合并语义装配期预算——slab 槽映射面；非 slab 材质 R_slot≡1 不预乘）。
+        let t0r = p00_r * (1.0 - fx) + p10_r * fx;
+        let b0r = p01_r * (1.0 - fx) + p11_r * fx;
+        let samp_r = (t0r * (1.0 - fy) + b0r * fy) * mod_r;
+        let t0g = p00_g * (1.0 - fx) + p10_g * fx;
+        let b0g = p01_g * (1.0 - fy) + p11_g * fy;
+        let samp_g = (t0g * (1.0 - fy) + b0g * fy) * mod_g;
+        let t0b = p00_b * (1.0 - fx) + p10_b * fx;
+        let b0b = p01_b * (1.0 - fy) + p11_b * fy;
+        let samp_b = (t0b * (1.0 - fy) + b0b * fy) * mod_b;
+        let al_r = tex_gate * samp_r + (1.0 - tex_gate) * mats[mb];
+        let al_g = tex_gate * samp_g + (1.0 - tex_gate) * mats[mb + 1];
+        let al_b = tex_gate * samp_b + (1.0 - tex_gate) * mats[mb + 2];
+        // ── ⑥ 直接光累加（lo 初值 = emission，emissive 主命中无条件项；与母版逐字同式）──
+        let mut dir_r = 0.0;
+        let mut dir_g = 0.0;
+        let mut dir_b = 0.0;
+        // ── quad 面光 4×4 分层确定性采样（host shade_pixel L1902 同式）──
+        let mut qi = 0usize;
+        while qi < quad_count {
+            let qb = qi * 16;
+            let qp_x = quads[qb];
+            let qp_y = quads[qb + 1];
+            let qp_z = quads[qb + 2];
+            let qe1_x = quads[qb + 3];
+            let qe1_y = quads[qb + 4];
+            let qe1_z = quads[qb + 5];
+            let qe2_x = quads[qb + 6];
+            let qe2_y = quads[qb + 7];
+            let qe2_z = quads[qb + 8];
+            let qle_r = quads[qb + 9];
+            let qle_g = quads[qb + 10];
+            let qle_b = quads[qb + 11];
+            let sample_area = quads[qb + 12] * 0.0625;
+            let qn_x = quads[qb + 13];
+            let qn_y = quads[qb + 14];
+            let qn_z = quads[qb + 15];
+            let mut acc_r = 0.0;
+            let mut acc_g = 0.0;
+            let mut acc_b = 0.0;
+            let mut syq = 0usize;
+            while syq < 4 {
+                let mut sxq = 0usize;
+                while sxq < 4 {
+                    let u = (sxq as f32 + 0.5) * 0.25;
+                    let v = (syq as f32 + 0.5) * 0.25;
+                    let lp_x = qp_x + u * qe1_x + v * qe2_x;
+                    let lp_y = qp_y + u * qe1_y + v * qe2_y;
+                    let lp_z = qp_z + u * qe1_z + v * qe2_z;
+                    let lv_x = lp_x - hx;
+                    let lv_y = lp_y - hy;
+                    let lv_z = lp_z - hz;
+                    let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+                    // host `d2 <= eps² → continue` 门（d2=eps² 边界同字面）。
+                    let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+                    let d2s = d2.max(tiny * tiny);
+                    let d = d2s.sqrt();
+                    let wix = lv_x / d;
+                    let wiy = lv_y / d;
+                    let wiz = lv_z / d;
+                    let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+                    let gate_cs = (cos_s * big).min(1.0).max(0.0);
+                    let cos_l = 0.0 - (qn_x * wix + qn_y * wiy + qn_z * wiz);
+                    let gate_cl = (cos_l * big).min(1.0).max(0.0);
+                    // 阴影射线（host visible 同字面：origin 沿 wl 偏 eps，
+                    // t_max = d−2eps ≤ 0 恒可见不发射；发射形保持经 gate_far 门）。
+                    let t_sh = d - 2.0 * ray_eps;
+                    let gate_far = (t_sh * big).min(1.0).max(0.0);
+                    let t_fire = t_sh.max(ray_eps);
+                    // G14.9 背光 keep 预判跳射线（RFC-0030 §4.4 L2 ①，严格位级不变）：
+                    // keep = hit_f·gate_d·gate_cs·gate_cl·vis——前置四门任一为 0 时
+                    // keep 恒 0，vis 值不被消费（acc 贡献 = qle·g·0 = +0.0 与原逐位
+                    // 同），阴影 ray query 发射可跳过；四门非 0 时行为与原逐字一致。
+                    // G14.9 first-hit 早退（RFC-0030 §4.6 L2）：阴影臂仅消费
+                    // has_committed 存在性布尔——全 opaque 场景 first-hit 与
+                    // closest-hit 存在性等价，图像位级不变；主射线（需最近命中）
+                    // 禁用本内建维持 ray_query_initialize。
+                    let keep_pre = hit_f * gate_d * gate_cs * gate_cl;
+                    let mut blk = 0.0;
+                    if keep_pre > 0.0 {
+                        let mut sq = ray_query_initialize_first_hit(
+                            tlas,
+                            (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                            0.0,
+                            (wix, wiy, wiz),
+                            t_fire,
+                        );
+                        while sq.proceed() {
+                        }
+                        if sq.has_committed() {
+                            blk = 1.0;
+                        } else {
+                            blk = 0.0;
+                        }
+                    }
+                    let vis = 1.0 - gate_far * blk;
+                    // g = cos_s·cos_l/d²·sample_area（host 左结合同序）。
+                    let g = (cos_s * cos_l / d2s) * sample_area;
+                    let keep = keep_pre * vis;
+                    acc_r = acc_r + qle_r * g * keep;
+                    acc_g = acc_g + qle_g * g * keep;
+                    acc_b = acc_b + qle_b * g * keep;
+                    sxq = sxq + 1;
+                }
+                syq = syq + 1;
+            }
+            dir_r = dir_r + acc_r;
+            dir_g = dir_g + acc_g;
+            dir_b = dir_b + acc_b;
+            qi = qi + 1;
+        }
+        // ── point 灯 delta（g = cos_s/d²；I = color×intensity_cd host 预乘）──
+        let mut pi_ = 0usize;
+        while pi_ < point_count {
+            let pb = pi_ * 8;
+            let lv_x = points[pb] - hx;
+            let lv_y = points[pb + 1] - hy;
+            let lv_z = points[pb + 2] - hz;
+            let li_r = points[pb + 3];
+            let li_g = points[pb + 4];
+            let li_b = points[pb + 5];
+            let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+            let d2s = d2.max(tiny * tiny);
+            let d = d2s.sqrt();
+            let wix = lv_x / d;
+            let wiy = lv_y / d;
+            let wiz = lv_z / d;
+            let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+            let gate_cs = (cos_s * big).min(1.0).max(0.0);
+            let t_sh = d - 2.0 * ray_eps;
+            let gate_far = (t_sh * big).min(1.0).max(0.0);
+            let t_fire = t_sh.max(ray_eps);
+            // G14.9 背光 keep 预判跳射线（quad 臂同律；三门任一为 0 时 vis 不被
+            // 消费，跳过发射位级不变）+ first-hit 早退（阴影臂存在性消费等价）。
+            let keep_pre = hit_f * gate_d * gate_cs;
+            let mut blk = 0.0;
+            if keep_pre > 0.0 {
+                let mut sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                    0.0,
+                    (wix, wiy, wiz),
+                    t_fire,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    blk = 1.0;
+                } else {
+                    blk = 0.0;
+                }
+            }
+            let vis = 1.0 - gate_far * blk;
+            let g = cos_s / d2s;
+            let keep = keep_pre * vis;
+            dir_r = dir_r + li_r * g * keep;
+            dir_g = dir_g + li_g * g * keep;
+            dir_b = dir_b + li_b * g * keep;
+            pi_ = pi_ + 1;
+        }
+        // ── ⑦ 深度（未抖 vp 参数行 25..32 生产字面；|w|≤1e-8 → 1.0 母版同字面；
+        //    真 ZO NDC 路由面归 g34_unified_shade.rx ④b 段——HZB 合流接口预留）──
+        let cz = ((params[25] * hx + params[26] * hy) + params[27] * hz) + params[28];
+        let cw = ((params[29] * hx + params[30] * hy) + params[31] * hz) + params[32];
+        let cw_abs = cw.max(0.0 - cw);
+        let gate_w = ((cw_abs - 0.00000001) * big).min(1.0).max(0.0);
+        let cw_safe = cw + (1.0 - gate_w);
+        let z_hit = gate_w * (cz / cw_safe) + (1.0 - gate_w);
+        // ── 输出（lo = emission + albedo·inv_pi·direct，与母版逐字同序左结合）──
+        out_color[i * 3] = hit_f * (mats[mb + 3] + al_r * inv_pi * dir_r);
+        out_color[i * 3 + 1] = hit_f * (mats[mb + 4] + al_g * inv_pi * dir_g);
+        out_color[i * 3 + 2] = hit_f * (mats[mb + 5] + al_b * inv_pi * dir_b);
+        out_depth[i] = hit_f * z_hit + (1.0 - hit_f);
+    }
+}

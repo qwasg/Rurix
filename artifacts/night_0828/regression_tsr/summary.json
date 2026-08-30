@@ -1,0 +1,38 @@
+[
+  {
+    "cell": "bistro-interior_t50",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba"
+  },
+  {
+    "cell": "bistro-interior_t67",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6"
+  },
+  {
+    "cell": "bistro-interior_t100",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02"
+  },
+  {
+    "cell": "cornell-box_t50",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45"
+  },
+  {
+    "cell": "cornell-box_t67",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:de56f41ec78bfeeafb028ac33408587ca70e706287871bf0fa8f90a00c74e297"
+  },
+  {
+    "cell": "cornell-box_t100",
+    "match": true,
+    "rc": 0,
+    "fresh": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190"
+  }
+]

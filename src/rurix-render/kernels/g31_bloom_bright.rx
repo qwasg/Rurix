@@ -1,0 +1,76 @@
+//@ spec: RXS-0369（显示链加性面；夜间巡航 D3 bloom 第一腿）
+// bloom 亮部提取 + 2× 降采样（软膝阈值 → 半分辨率亮部缓冲）。
+//
+// 设计（UE/Unity mip bloom 最简可信形）：
+// - 输入 = TSR 输出（scene-linear Rec.709 f32×3/px，已含逐帧 exposure——
+//   g14_8_tsr_resample 折叠面），HDR 域阈值，tonemap 前（bloom 属 HDR 域级，
+//   post_chain.rs 五级序 Exposure→Bloom→Tonemap 字面）。
+// - 软膝阈值：w = max(0, luma − threshold) / max(luma, tiny)，color·w；
+//   阈值以下渐隐（膝 = 0.5 固定斜率过渡带，避免硬边）。
+// - 降采样 = 2×2 box（半分辨率每像素 = 全分辨率 2×2 均值，确定性）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 逐像素独立顺序求值，禁 atomic/跨像素交互（2×2 box 只读本帧输入，无写竞争）；
+// 全 f32；固定输入双跑位级一致。
+//
+// ## 参数面（params: f32 SSBO；host 打包逐字同源；8 f32）
+//   [0]=in_w [1]=in_h [2]=threshold（luma 阈，scene-linear 曝光域）
+//   [3]=knee（软膝宽度，0=硬阈）[4..8]=reserved（恒 0）。
+//   in_color: 3 f32/px（全分辨率）；out_bright: 3 f32/px 半分辨率
+//   （out_w=ceil(in_w/2), out_h=ceil(in_h/2)）。
+#[numthreads(8, 8, 1)]
+kernel fn g31_bloom_bright(
+    t: ThreadCtx<2>,
+    in_color: View<global, f32>,
+    params: View<global, f32>,
+    out_bright: ViewMut<global, f32>,
+) {
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let in_w = params[0] as usize;
+    let in_h = params[1] as usize;
+    let threshold = params[2];
+    let knee = params[3].max(0.0001);
+    let out_w = (in_w + 1) / 2;
+    let out_h = (in_h + 1) / 2;
+    if px < out_w && py < out_h {
+        // 2×2 box 源像素（边界 clamp；usize 无 .min 方法，if 钳位同语义）。
+        let mut sx0 = px * 2;
+        if sx0 >= in_w { sx0 = in_w - 1; }
+        let mut sy0 = py * 2;
+        if sy0 >= in_h { sy0 = in_h - 1; }
+        let mut sx1 = px * 2 + 1;
+        if sx1 >= in_w { sx1 = in_w - 1; }
+        let mut sy1 = py * 2 + 1;
+        if sy1 >= in_h { sy1 = in_h - 1; }
+        let mut r = 0.0;
+        let mut g = 0.0;
+        let mut b = 0.0;
+        // 逐源像素累加（4 个固定偏移，顺序求值）。
+        let i00 = (sy0 * in_w + sx0) * 3;
+        let i10 = (sy0 * in_w + sx1) * 3;
+        let i01 = (sy1 * in_w + sx0) * 3;
+        let i11 = (sy1 * in_w + sx1) * 3;
+        r = in_color[i00] + in_color[i10] + in_color[i01] + in_color[i11];
+        g = in_color[i00 + 1] + in_color[i10 + 1] + in_color[i01 + 1] + in_color[i11 + 1];
+        b = in_color[i00 + 2] + in_color[i10 + 2] + in_color[i01 + 2] + in_color[i11 + 2];
+        // 均值。
+        r = r * 0.25;
+        g = g * 0.25;
+        b = b * 0.25;
+        // 软膝阈值（luma Rec.709；膝带内二次过渡）。
+        let luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+        let soft = (luma - threshold + knee).max(0.0);
+        let soft_w = (soft * soft) / (4.0 * knee).max(0.000001);
+        let hard_w = luma - threshold;
+        // w = luma<threshold−knee → 0；>threshold+knee → luma−threshold；膝带 → soft_w。
+        let below = ((threshold - knee - luma) * 1e30).min(1.0).max(0.0); // luma<th−knee → 1
+        let above = ((luma - threshold - knee) * 1e30).min(1.0).max(0.0); // luma>th+knee → 1
+        let mut wgt = (1.0 - below) * (1.0 - above) * soft_w + above * hard_w;
+        wgt = wgt / luma.max(0.000001);
+        let o = (py * out_w + px) * 3;
+        out_bright[o] = r * wgt;
+        out_bright[o + 1] = g * wgt;
+        out_bright[o + 2] = b * wgt;
+    }
+}

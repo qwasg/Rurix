@@ -1,0 +1,130 @@
+{
+  "schema": "rurix.a2b.aces_spline_fix.acceptance.v1",
+  "date": "2026-08-28",
+  "phase": "画质战役 Phase A2b：窗口生产车道 encode kernel ACES 样条转置修复 + presented 锚重定基 + device-vs-host parity 探针",
+  "root_cause_ref": "artifacts/day_0828/recon/bluefan_rootcause.{json,md}（前序 debug 钉死;直接采信）",
+  "env": {
+    "RURIX_REQUIRE_REAL": "1",
+    "RURIX_VK_VALIDATION": "1（全部真跑;validation_error_count≠0 即 fail 机核在 bin 内恒开）",
+    "gpu_lock": "ci/gpu_device_lock via artifacts/night_0828/run_render.py（tag a2b_*）",
+    "build": "CARGO_TARGET_DIR=target-night cargo build --release -p rurix-render --features vendor-upscale --bin g31_window_present（rc=0,4 warning 皆前序既有）",
+    "resume_note": "会话曾中断一次（首次 a2b_bench_default 跑批被杀,锁 append-only 历史留 acquire 行 pid 116824,无 stale 进程;复跑补齐,render_runs.jsonl 首行缺失如实登记）"
+  },
+  "fix": {
+    "file": "src/rurix-render/kernels/g31_display_encode.rx",
+    "blocks_fixed": 12,
+    "change_per_block": "b1: `0.0 - cf0 + cf1 + 0.5 * cf2` → `0.0 - cf0 + cf1`（删转置混入项）;b2: `0.5 * cf0` → `0.5 * cf0 + 0.5 * cf1`（补缺失项）;b0 两约定同值不动",
+    "host_single_source": "aces13.rs vmul(cf,&SPLINE_M) 行向量约定 out[i]=Σ_j v[j]·m[j][i]（SPLINE_M[2][1]=[2][2]=0 ⇒ b1=cf1−cf0, b2=0.5·(cf0+cf1)）——逐系数核对 12/12",
+    "coverage": "c5 RRT + c9 ODT × R/G/B × low/high 全 12 处（git diff 12×2 行对确认,零漏改零它改）"
+  },
+  "spv_governance": {
+    "audit": {
+      "shared_spv": ".tmp/g14_gates/m_c/g31_display_encode.spv（sha256:43b0c255…,A2 期重编件,0-byte 不动）",
+      "shared_consumers_runtime": ["g34_full_lane.rs G34_DEFAULT_SPV_ENCODE 同字面", "g35_particle_lane.rs G35L_DEFAULT_SPV_ENCODE 同字面（他会话在飞）", "g31_window_present.rs（旧 target/release 二进制仍指旧路径）"],
+      "shared_consumers_ci": ["g31_svt/cluster_lod/hzb_wiring/slab_wiring/robustness/blocked_probes/texture_sampling/game_loop/framegen_present/wave_a_soak/wp_hlod", "g34_unified_lane/skin_unified/hzb_unified", "g35_render_wiring", "g36_geo_composition"],
+      "fixed_presented_anchor_gates": [
+        {
+          "gate": "ci/g31_blocked_probes_smoke.py P02 RD-045 腿",
+          "anchor": "RD045_ANCHOR_DIGEST = sha256:060e69a81e26dea4…（硬编码;orbit 64+10 presented digest）",
+          "consumption": "target/release/g31_window_present.exe 默认 SPV 路径（共享件）",
+          "registered_in": ["milestones/g31/g31_waveb_combo_matrix.json", "milestones/g31/g31_blocked_probes_2026.json", "milestones/g31/g31_waveb_rd045_observation_results.json", "registry/deferred.json", "milestones/g32/G32_CONTRACT.md"],
+          "would_break_on_overwrite": true
+        }
+      ],
+      "double_run_only_gates": "其余全部 presented 面断言 = 会话内双跑一致/异臂区分;锚断言全在 render_digest/bench 面（Stage A 18 格锚,encode 上游,不受影响）"
+    },
+    "decision": "route B：不覆盖共享 SPV。修 kernel 源码 + 编译新路径 .tmp/night_0828/spv/g31_display_encode_v2.spv（sha256:e7291c79…,rurixc 内置 + PATH spirv-val 双过 rc=0）+ g31_window_present.rs G31_DEFAULT_SPV_ENCODE 常量指向 v2（本 bin 全臂含 all-off 用修正版）;共享旧 SPV 字节 0-byte,他会话/RD-045 门零影响",
+    "divergence_handover": "kernels/g31_display_encode.rx 源码已修 ⇒ 共享路径 SPV 字节 vs 源码 divergence 成立：①任何门/会话从源码重编共享路径件（如 g31_game_loop_smoke.ensure_encode_spv 在件缺失时）将产出修正字节 ⇒ RD-045 固定 presented 锚 060e69a8 与 g34/g35 会话内 presented 基线翻新,须同步重定基;②target/release 重建后其默认路径转向 v2;主线收编时应统一切 v2 字节 + RD-045 锚重收割"
+  },
+  "bench_zero_impact": {
+    "run": "g14_3_pipeline_perf --bench bistro-interior t100 tsr_device 160/10（tag a2b_bench_default）",
+    "last_frame_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+    "matches_stage_a_anchor": true,
+    "note": "render_digest 面在 encode 上游——修复零影响自证;窗口车道旁证 = off/dither/ae 臂 render_digest == f39e9808…（改前窗口 TSR 面锚）位级一致"
+  },
+  "anchor_rebaseline": {
+    "caliber": "--frames 8 --warmup 2 --hidden 契约相机静态;每臂双跑位级一致才收录;全 GPU 锁内;RURIX_VK_VALIDATION=1 全程静默（rc=0 + bin 内 validation 机核）",
+    "table": {
+      "window_all_off": {
+        "old": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00（作废）",
+        "new": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+        "double_run_bitexact": true
+      },
+      "window_dither_on": {
+        "old": "sha256:e989c6ee6be42b4ab970fe85480225963b13447789cec1d55dfeaa10c38363fc（作废）",
+        "new": "sha256:5abd765fdc713f3f86ab75d5165f76de1fe1078471bbac47ebdab24a51ffb123",
+        "double_run_bitexact": true
+      },
+      "window_autoexp_on": {
+        "old": "sha256:fd5ca68cd50ba7691f9f7ca3348f5972254b921ca846b956983ba33df45099fa（作废）",
+        "new": "sha256:790809aac888d881a1533cd0d4c24c01a2804a7c657f1800e00ab03bf77d0c8c",
+        "double_run_bitexact": true
+      },
+      "window_combo_six": {
+        "flags": "--smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --bloom on --dither on --auto-exposure on",
+        "old": "sha256:a4695558fa8a07aaec99cac222984c9de56292c80f03eeb06d543e51bb106be0（作废）",
+        "new": "sha256:f0c46b8707b51417c8a8bce27e5fe8427f58e842686045358b93e0ebc12f56e1",
+        "double_run_bitexact": true,
+        "validation_silent": true
+      }
+    },
+    "also_invalidated_not_reharvested": "夜巡系 presented 锚（D2 窗 b02b08b57 / 三臂组合 12d5dc91 / 四臂 48353e86 / soak 2b6efac6 / A1 snrm+lamp db7d48f7 / RD-045 060e69a8〔旧 SPV 消费面仍活,见 divergence_handover〕）——非本任务四臂收割面,如实登记作废待各面重收割"
+  },
+  "correctness": {
+    "parity_probe": {
+      "file": "encode_parity_probe.py → encode_parity_report.json",
+      "caliber": "同帧 GPU 切层：RURIX_G31_DUMP_F32 TSR 输出 f32 + --dump-present-raw presented 字节;host = aces13 f64 金标准逐字向量化 + BT.1886 v^(1/2.4) + floor(v·255+0.5)（dither off/aeg=1.0）",
+      "pixels": 2073600,
+      "exact_match_pct": 99.9891,
+      "diff_p100_lsb": 1,
+      "pixels_gt_1lsb": 0,
+      "pixels_gt_2lsb": 0,
+      "verdict": "PASS（CI 门候选交付;本任务不动 ci/）"
+    },
+    "fan_landmark": {
+      "xy": [1500, 12],
+      "before_measured": [0, 62, 170],
+      "after_measured": [144, 122, 77],
+      "expected": [144, 122, 77],
+      "within_2lsb": true,
+      "note": "±0 LSB 逐字节相等"
+    },
+    "ring_bands": {
+      "png": "fan_ring_before_after.png（左=bug 实测/右=修复实测,×2;off_full.png 全帧）",
+      "quant": "灯罩竖直扫描线 x=1655 G 通道非单调折返数 3 → 0（非单调曲线环带消失的量化证据）",
+      "visual": "扇叶饱和蓝→暖米黄;扇毂/灯罩同心环带消失;暗部（天花板梁）修复后更暗 = bug 曾提亮暗部的正确性回归,如实登记"
+    },
+    "gray_018_design_point": {
+      "host_f64": [99, 99, 99],
+      "kernel_f32_sim": [99, 99, 99],
+      "display_linear": 0.104064,
+      "note": "ACES 1.3 0.18 灰 → 显示线性 0.104 设计点 → 8bit 99 双口径成立"
+    }
+  },
+  "ae_curve_retest": {
+    "file": "luma_combo_dolly240.json + ae_curve_retest.json",
+    "caliber": "六臂组合 + --auto-move dolly --frames 240 --present-luma-out（A2 验证面同口径）",
+    "first_mean": 0.33822,
+    "final_mean": 0.33562,
+    "range": [0.32743, 0.34862],
+    "max_frame_step_rel": 0.00513,
+    "oscillation_gt_10pct_frames": 0,
+    "final_in_wide_band_0p2_0p6": true,
+    "vs_a2_on_record": "A2（bug SPV）终态 0.4005 → 修复后 0.3356：bug 系统性提亮暗部被纠正 ⇒ 同 gain 下 presented mean 下移 ~16%,曲线仍平稳持带;定档归 A3",
+    "presented_digest": "sha256:b9f1ef023124c1bbf43a480c2fea017d17586c8617d955be41ccf57fe09f2993"
+  },
+  "changed_files": {
+    "src/rurix-render/kernels/g31_display_encode.rx": "12 处样条块 b1/b2 两行改写（24 行）",
+    "src/rurix-render/src/bin/g31_window_present.rs": "G31_DEFAULT_SPV_ENCODE 常量 → .tmp/night_0828/spv/g31_display_encode_v2.spv + 治理注释"
+  },
+  "artifacts": [
+    "encode_parity_probe.py / encode_parity_report.json（防复发探针,CI 门候选）",
+    "fan_ring_compare.py / fan_ring_before_after.png / off_full.png",
+    "off.raw / off_tsr_f32.bin（同帧 GPU 切层证物）",
+    "off_1/off_2/dither_1/dither_2/ae_1/ae_2/combo_1/combo_2_ev.json（八跑 evidence）",
+    "bench_default/…/bench_receipt.json（Stage A 锚零漂移）",
+    "luma_combo_dolly240.json / ae_curve_analysis.py / ae_curve_retest.json / ae_dolly240_ev.json"
+  ],
+  "rollback": "本臂回退 = git checkout -- src/rurix-render/kernels/g31_display_encode.rx 后手工重放 A2 的 +21/−3 aeg 段（同文件耦合 A2 未提交改动,不可整文件 checkout——A2 改动清单见 a2_autoexp/ACCEPTANCE_SUMMARY.json）+ g31_window_present.rs 常量改回 .tmp/g14_gates/m_c/g31_display_encode.spv + 删 .tmp/night_0828/spv/g31_display_encode_v2.spv + 重建 target-night;更稳妥形态 = 仅常量回指旧共享路径（旧 SPV 字节从未被动过,行为即刻回退）",
+  "verdict": "PASS（全步绿:12 处修复 + spirv-val 双过 + bench 零影响 c1d28ad7 + 四臂双跑位级重定基 + parity p100=1LSB/>2LSB=0 + fan 逐字节 + 0.18→99 + AE 曲线平稳持带）"
+}

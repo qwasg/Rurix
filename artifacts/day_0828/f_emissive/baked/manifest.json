@@ -1,0 +1,280 @@
+{
+ "schema": "rurix.day0828.f_emissive.bake_manifest.v1",
+ "srgb_law": "srgb_to_linear: c<=0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4（仓内 g14_3_lane_body.rs 同式）; 量化 (x*255+0.5).floor()",
+ "mip_law": "mip0=源字节零重采样; 级 l+1 = 级 l 线性域 2x2 box 平均（float64 运行链）→ linear→sRGB8 存储; A 线性平均",
+ "container": ".rgba8bin = u32 LE [w,h,mips] ×3 头 + 逐级 RGBA8 行主序紧凑",
+ "entries": [
+  {
+   "material_index": 38,
+   "material_name": "MASTER_Interior_01_Paris_Lantern",
+   "source": "K:/rurix-ext/g11-assets/bistro-interior-ue/MASTER_Interior_01_Paris_Lantern_Emissive.png",
+   "source_sha256": "sha256:de5005a89c3148264149879ae2325eaf208c58500ae9c9b0ea37c9c416467d75",
+   "file": "MASTER_Interior_01_Paris_Lantern.rgba8bin",
+   "output_sha256": "sha256:5436fc28307ec39c45bf4895fc79c503b00fcf642dc6b2422124d24682b52831",
+   "mip0_rgba8_sha256": "sha256:98a4d18b06fc1b85bdfdd70fadea70fe4b7d89916470732e3f2babe7c324167a",
+   "width": 2048,
+   "height": 2048,
+   "mips": 12,
+   "level_dims": [
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ],
+    [
+     512,
+     512
+    ],
+    [
+     256,
+     256
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     64,
+     64
+    ],
+    [
+     32,
+     32
+    ],
+    [
+     16,
+     16
+    ],
+    [
+     8,
+     8
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "linear_mean_rgb": [
+    0.041578777982494715,
+    0.041525933796425614,
+    0.0415787665686266
+   ],
+   "emissive_gamma": 2.5
+  },
+  {
+   "material_index": 39,
+   "material_name": "Paris_Ceiling_Lamp",
+   "source": "K:/rurix-ext/g11-assets/bistro-interior-ue/Paris_Ceiling_Lamp_Emissive.png",
+   "source_sha256": "sha256:8f2b588edeebabccb00bdc9e320099cb56d60b9e46fd50e6e8386539785c5a55",
+   "file": "Paris_Ceiling_Lamp.rgba8bin",
+   "output_sha256": "sha256:50b7160f494999881d1ed3683fd2d19cf4d52067991a4611c4db290274f365e7",
+   "mip0_rgba8_sha256": "sha256:0f7080e0da90573013a1a89bc7589856606304ca59ea31d44c0a9437cd163cdd",
+   "width": 2048,
+   "height": 2048,
+   "mips": 12,
+   "level_dims": [
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ],
+    [
+     512,
+     512
+    ],
+    [
+     256,
+     256
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     64,
+     64
+    ],
+    [
+     32,
+     32
+    ],
+    [
+     16,
+     16
+    ],
+    [
+     8,
+     8
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "linear_mean_rgb": [
+    0.0074296351103458735,
+    0.007469604947796685,
+    0.007429635113044845
+   ],
+   "emissive_gamma": 2.5
+  },
+  {
+   "material_index": 40,
+   "material_name": "Paris_CeilingFan",
+   "source": "K:/rurix-ext/g11-assets/bistro-interior-ue/Paris_CeilingFan_Emissive.png",
+   "source_sha256": "sha256:ad7eae86e56e08e6f6783804104da85eb20701ca1a883f0362dc07096ce35411",
+   "file": "Paris_CeilingFan.rgba8bin",
+   "output_sha256": "sha256:fef888c37341b3d6aefd62ff5f7faf2231e4272fbe495e27e5679fc2775f4550",
+   "mip0_rgba8_sha256": "sha256:85457b32c723c9b943b040f613f8aab3062d8e2ae3ee205553c3cb99edcc042c",
+   "width": 2048,
+   "height": 2048,
+   "mips": 12,
+   "level_dims": [
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ],
+    [
+     512,
+     512
+    ],
+    [
+     256,
+     256
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     64,
+     64
+    ],
+    [
+     32,
+     32
+    ],
+    [
+     16,
+     16
+    ],
+    [
+     8,
+     8
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "linear_mean_rgb": [
+    0.012083835146955603,
+    0.0051375330037734535,
+    0.000572477260879563
+   ],
+   "emissive_gamma": 2.5
+  },
+  {
+   "material_index": 59,
+   "material_name": "Paris_Wall_Light_Interior",
+   "source": "K:/rurix-ext/g11-assets/bistro-interior-ue/Paris_Wall_Light_Interior_Emissive.png",
+   "source_sha256": "sha256:4d7cac1b12ae72ba4d4c9f96664f46033758cafc5030722848f046d023f742b4",
+   "file": "Paris_Wall_Light_Interior.rgba8bin",
+   "output_sha256": "sha256:1529da80681b50bf368b311ec6ac5ca2ab31aaa71e4bffe8d0baa02e0ce134a3",
+   "mip0_rgba8_sha256": "sha256:30beba65cd328ab504a6ab194d07306cef15679e111338da174c983e98a89f15",
+   "width": 2048,
+   "height": 2048,
+   "mips": 12,
+   "level_dims": [
+    [
+     2048,
+     2048
+    ],
+    [
+     1024,
+     1024
+    ],
+    [
+     512,
+     512
+    ],
+    [
+     256,
+     256
+    ],
+    [
+     128,
+     128
+    ],
+    [
+     64,
+     64
+    ],
+    [
+     32,
+     32
+    ],
+    [
+     16,
+     16
+    ],
+    [
+     8,
+     8
+    ],
+    [
+     4,
+     4
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "linear_mean_rgb": [
+    0.15642239174019246,
+    0.15646195307454414,
+    0.15642239174019246
+   ],
+   "emissive_gamma": 2.5
+  }
+ ]
+}

@@ -323,7 +323,8 @@ def g31_leg(label: str, profile_path: Path | None) -> tuple[subprocess.Completed
     ev_path = WORK / f"g31_{label}_evidence.json"
     argv = [
         str(BIN_G31), "--frames", str(G31_FRAMES), "--warmup", str(G31_WARMUP),
-        "--hidden", "--evidence", str(ev_path),
+        "--hidden", "--quality", "off",  # W4 默认翻转免疫:G31_PASSES 五段闭集判据钉死 off 形态（DEFAULT_FLIP_PLAN §2.5）
+        "--evidence", str(ev_path),
     ]
     if profile_path is not None:
         argv += ["--profile-json", str(profile_path)]
@@ -402,6 +403,7 @@ def run_gate() -> int:
         probe_env.pop("RURIX_REQUIRE_REAL", None)
         rp = run([
             str(BIN_G31), "--frames", "2", "--warmup", "1", "--hidden",
+            "--quality", "off",  # W4 默认翻转免疫:探针与门主腿同 off 形态（DEFAULT_FLIP_PLAN §2.5）
             "--evidence", str(WORK / "dev_env_probe_g31.json"),
         ], timeout=1800, env=probe_env)
         probe_out = (rp.stdout or "") + (rp.stderr or "")
@@ -561,6 +563,7 @@ def run_gate() -> int:
             tools["renderdoc"]["path"], "capture", "-w", "-f", str(G31_WARMUP + 2),
             "-c", "3", "-o", str(rdc_out), "--",
             str(BIN_G31), "--frames", "12", "--warmup", str(G31_WARMUP), "--hidden",
+            "--quality", "off",  # W4 默认翻转免疫:捕获腿与门主腿同 off 形态（DEFAULT_FLIP_PLAN §2.5）
             "--evidence", str(WORK / f"g31_capture_ev_{ts}.json"),
         ], timeout=1800, env=base_env())
         cands = sorted(WORK.glob(f"g31_capture_{ts}*.rdc"))

@@ -1,0 +1,20 @@
+{
+  "upload_permitted": true,
+  "signed_artifacts": ["rurix_renderer.dll", "rurix_renderer_sdk.dll"],
+  "artifacts": [
+    {
+      "name": "rurix_renderer.dll",
+      "status": "Valid",
+      "timestamped": true,
+      "backend": "self-signed-test",
+      "verified": true
+    },
+    {
+      "name": "rurix_renderer_sdk.dll",
+      "status": "Valid",
+      "timestamped": true,
+      "backend": "self-signed-test",
+      "verified": true
+    }
+  ]
+}

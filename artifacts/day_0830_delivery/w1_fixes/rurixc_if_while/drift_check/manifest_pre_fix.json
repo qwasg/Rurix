@@ -1,0 +1,394 @@
+﻿{
+    "rurix-render/g9_m96_path_tracer.rx":  {
+                                               "sha256":  "782C0B5709EE0AFE025B8670F4213DE96EFB0AAD0B1EDE3D764174388EE545D5",
+                                               "rc":  0
+                                           },
+    "rurix-render/g35_sim_collide_depth.rx":  {
+                                                  "sha256":  "525FAB0948DD26D6E1942345DBE944DD4DE95010416998EFCFE62CD56EA4C2D4",
+                                                  "rc":  0
+                                              },
+    "rurix-rt/scan.rx":  {
+                             "sha256":  null,
+                             "rc":  1
+                         },
+    "rurix-render/g35_oit_tilerange.rx":  {
+                                              "sha256":  "4B4E7CB4A86691E1814D418B3A73944CC7342E1CDF817F73BB830FEBA5AD42DA",
+                                              "rc":  0
+                                          },
+    "rurix-render/g31_mv_negate.rx":  {
+                                          "sha256":  "B806DCC05036166330DF95E93B1086A9599EF70CBEE1CBC679E5DDEEA83DC179",
+                                          "rc":  0
+                                      },
+    "rurix-render/g31_bloom_composite.rx":  {
+                                                "sha256":  "739267B10DF8AE671DDFA9CD61898600EF15DA100CFC4FC34CE80A7FD1344D79",
+                                                "rc":  0
+                                            },
+    "rurix-render/g31_dyn_scene.rx":  {
+                                          "sha256":  "E269C42381F30F1497D562A209D0BFD49F3AEE3C0ADC115249E47E2EA503ECF3",
+                                          "rc":  0
+                                      },
+    "rurix-rt/sr_tonemap.rx":  {
+                                   "sha256":  null,
+                                   "rc":  1
+                               },
+    "rurix-render/g14_mv.rx":  {
+                                   "sha256":  "0070934E20116AEBA1DA5F013192080B1FE1F51763F2B8A6AA333719D5D36ABC",
+                                   "rc":  0
+                               },
+    "rurix-rt/geom_page_decode_v2.rx":  {
+                                            "sha256":  "AC7D869DA6288885EAC9F7F35EF06B548DFE5254B71DFBFBAF974B5DB35D1A47",
+                                            "rc":  0
+                                        },
+    "rurix-render/g35_splat_clear.rx":  {
+                                            "sha256":  "0BB661859630930B2A098A2E760171DE626BB8BD1A0FD5E69069D92771ACDFB9",
+                                            "rc":  0
+                                        },
+    "rurix-render/g18_smooth_nrm.rx":  {
+                                           "sha256":  "5BC24ABC867D2FECA03EDC9D2036FA8962501F273C3418B1011E76469446E5C9",
+                                           "rc":  0
+                                       },
+    "rurix-render/g9_m101_probe_oct.rx":  {
+                                              "sha256":  "FFF985D5AB65AE24ADA2D376212D12646801095F7EAB8610FF7D53DF0CFDCAF9",
+                                              "rc":  0
+                                          },
+    "rurix-render/g35_render_splat.rx":  {
+                                             "sha256":  "34715F382656820C8197DE76D7C136E78DC104A820F95639233086EC86069E09",
+                                             "rc":  0
+                                         },
+    "rurix-render/g14_8_tsr_resolve.rx":  {
+                                              "sha256":  "4C23A7A4A9B58309E31AC504A97EB5F7FED7301869C05A9222129618E9463732",
+                                              "rc":  0
+                                          },
+    "rurix-rt/dgc_prepass.rx":  {
+                                    "sha256":  "9599AFDE812F30EE7D8CC8BD513F0A331A33E6293E80888AFCA5C0C3F9E90F62",
+                                    "rc":  0
+                                },
+    "rurix-render/g35_event_collect.rx":  {
+                                              "sha256":  "C8C91D51817247220153DA03C1539ED98FF4E4B1DC0C2CFBDFFBAB835010E1A7",
+                                              "rc":  0
+                                          },
+    "rurix-render/g35_scan_seg_sum.rx":  {
+                                             "sha256":  "852897F8F82CB0BFF1E4D0C895CE97B4E4E6DCC00D1AE3E1438D91B96F9961BE",
+                                             "rc":  0
+                                         },
+    "rurix-render/g31_svt_gi.rx":  {
+                                       "sha256":  "6B3CB663D7C3C9254AA67FA771E165EF2C029E9C6A2136D789ABE2BEBF910AB4",
+                                       "rc":  0
+                                   },
+    "rurix-render/g14_3_shadow_scatter.rx":  {
+                                                 "sha256":  "A05940B32F840CF741EA4CF904F04B07F7BD2B8895DE5B64DE863F7006BAA3C0",
+                                                 "rc":  0
+                                             },
+    "rurix-render/g35_xpbd_apply.rx":  {
+                                           "sha256":  "F3FDB980F37F4450F80F70BBBE1675199813F1AA29621736C5EBAD3156890788",
+                                           "rc":  0
+                                       },
+    "rurix-render/g35_scan_spine.rx":  {
+                                           "sha256":  "071221D0AC03316F7FA4815857B11D55D655FF993D822A3DB91BF822EB9737A4",
+                                           "rc":  0
+                                       },
+    "rurix-render/g14_8_tsr_resample.rx":  {
+                                               "sha256":  "6BBC826A159C837E5B7C6D36235693874A84F14A0556C3CABE0234D4EA56D54D",
+                                               "rc":  0
+                                           },
+    "rurix-render/g35_sort_hist.rx":  {
+                                          "sha256":  "2249A8CEF7F8BBCAA6602112F35AA5B10B6002048AA9C7EF00F226950523323E",
+                                          "rc":  0
+                                      },
+    "rurix-render/g34_unified_gi.rx":  {
+                                           "sha256":  "27A1FC7E120DF12847E8E756FD5798D11D2B1F90F0E7B710B184DDEE1A74ACB2",
+                                           "rc":  0
+                                       },
+    "rurix-render/g31_skin_scene.rx":  {
+                                           "sha256":  "3FAB94EF74D3C75A894B3047FB410507B906EE347EAA12C7569A4FE7A7FEA6FA",
+                                           "rc":  0
+                                       },
+    "rurix-render/g34_unified_gi_skin.rx":  {
+                                                "sha256":  "CFB9EA731F7146D363D8CA982129F20996AE350EA65F08F310DB9E30366301EF",
+                                                "rc":  0
+                                            },
+    "rurix-render/g27_hzb_reduce.rx":  {
+                                           "sha256":  "B7E1A7CF5AAC3AA3797254B781B3973484F4D88C5944423F9A23D62E3EAD2FF5",
+                                           "rc":  0
+                                       },
+    "rurix-render/g26_framegen.rx":  {
+                                         "sha256":  "8919B804EEB5ECF97145073479B18D52BBF574892687AD8BBB600587A807A431",
+                                         "rc":  0
+                                     },
+    "rurix-render/g31_hzb_shade.rx":  {
+                                          "sha256":  "8CA0B982D1B68EEF9E2EE5FA01448ADDD4E52FE072E90007D024E9D46A5E8A4B",
+                                          "rc":  0
+                                      },
+    "rurix-render/g12_pt_denoise.rx":  {
+                                           "sha256":  "1D466DC5E721199E82789C86037F41D1E463901AD75674FF8AC87A89EE1FF3DC",
+                                           "rc":  0
+                                       },
+    "rurix-render/g35_particle_compact.rx":  {
+                                                 "sha256":  "12CB319DF7B9BA907B624E7F6F2CDFBC8DB55C0A8F17479327244944B584A097",
+                                                 "rc":  0
+                                             },
+    "rurix-render/g14_3_primary.rx":  {
+                                          "sha256":  "7C1151D6467402400AF9C67F5ACC4492B2C8060C398A02165BC1C753EDB0DCEA",
+                                          "rc":  0
+                                      },
+    "rurix-render/g31_pt_gt.rx":  {
+                                      "sha256":  "2367BA3846F49F93F577E93A91F95C3E779FFFA57BC700AADCD446E031DF7B0A",
+                                      "rc":  0
+                                  },
+    "rurix-rt/saxpy.rx":  {
+                              "sha256":  "2377339C569BB99F67CC6B6393B1B7C1A213788CAB7E3D951E99966AB379FE49",
+                              "rc":  0
+                          },
+    "rurix-render/g16_gi_multibounce.rx":  {
+                                               "sha256":  "8220F8E2E4D9A7CAAE1F8ECBD4C6592762CD681296808EADB5CEBF6DCCC621EE",
+                                               "rc":  0
+                                           },
+    "rurix-render/g35_event_spawn.rx":  {
+                                            "sha256":  "B1597509B0829DC01B64FC418D14849EE4E28A7D01C750E2E1DAA157A8F82842",
+                                            "rc":  0
+                                        },
+    "rurix-render/g35_render_resolve.rx":  {
+                                               "sha256":  "41848CE612FEED9BEB95FA4FBBB5D635274F73A395BAC7F16B6F3ABB36E6BB11",
+                                               "rc":  0
+                                           },
+    "rurix-render/g31_texture_probe.rx":  {
+                                              "sha256":  "4D388E768E2B17FA565CEF06DF4A8E24095C09F735CDC81AB73C8D561EA16B5B",
+                                              "rc":  0
+                                          },
+    "rurix-render/g18_light_transport_depth.rx":  {
+                                                      "sha256":  "DDB8BCE7D799990FAB2744B0C3552AF2F8A3FE268E08C3C99A0CDF70C97107C2",
+                                                      "rc":  0
+                                                  },
+    "rurix-render/g13_tsr_resample.rx":  {
+                                             "sha256":  "3540A7DC2FBA8A40482F46C9C86001C687625AFFFCD3BACD641C6AD194CF06C9",
+                                             "rc":  0
+                                         },
+    "rurix-render/g35_compact_u32.rx":  {
+                                            "sha256":  "AF4CD408A5113F2C56CF4B59D6E8ED63AC6985DB27EA8FB9C6E0CCF1DB0C6403",
+                                            "rc":  0
+                                        },
+    "rurix-render/g12_pt_production.rx":  {
+                                              "sha256":  "3DC80D352DB433DA0EFD24C4E95B2024AC0230623C64024755D8FD148507955C",
+                                              "rc":  0
+                                          },
+    "rurix-render/g31_tsr_resolve_q.rx":  {
+                                              "sha256":  "7F3D9BC80ECB4CB1639D7C430C0A0ACCEBE3358749FA4188CBEA67711F10DD9F",
+                                              "rc":  0
+                                          },
+    "rurix-render/g35_sim.rx":  {
+                                    "sha256":  "39AD22D3B042E5C78F18A2A37ACC00CE827E1FC4F2CB4865CDEB7AE2754C9867",
+                                    "rc":  0
+                                },
+    "rurix-rt/reduce.rx":  {
+                               "sha256":  null,
+                               "rc":  1
+                           },
+    "rurix-render/g28_restir.rx":  {
+                                       "sha256":  "7AAF7410AC01B3C9A555F79720F60087540487DF05F2056EE71E0453986306B0",
+                                       "rc":  0
+                                   },
+    "rurix-render/g13_tsr_resolve.rx":  {
+                                            "sha256":  "E95D2B4FA4AD64D81A59E31363F7697118B53CAB04DA99903AA5751EB2D34DC2",
+                                            "rc":  0
+                                        },
+    "rurix-render/g14_3_direct_gi.rx":  {
+                                            "sha256":  "970E13B9B13E66FE5C5F72F94CA0473D4E0771158AF56BFB33F8891B7670DA36",
+                                            "rc":  0
+                                        },
+    "rurix-render/g31_display_encode.rx":  {
+                                               "sha256":  "E7291C7936A08F185614060C48077104E2929280CBA9613653C29FD7ECA94B2D",
+                                               "rc":  0
+                                           },
+    "rurix-render/g31_texture_gi.rx":  {
+                                           "sha256":  "16ED5807BAD243C94549ED6B7B06BCBEDAC86CF8B338CB52E354606879BE617F",
+                                           "rc":  0
+                                       },
+    "rurix-rt/sr_raster_tile.rx":  {
+                                       "sha256":  null,
+                                       "rc":  1
+                                   },
+    "rurix-render/g9_m98_screen_trace.rx":  {
+                                                "sha256":  "E56EBC9F6C76307CBF31758E04B7BC305568A629036CA03FFBF4522455A7FF0F",
+                                                "rc":  0
+                                            },
+    "rurix-render/g35_xpbd_density.rx":  {
+                                             "sha256":  "AC87BB6BFA6461C66705615C88C935C09DC60DB78799BE490A6041DBBDD72E59",
+                                             "rc":  0
+                                         },
+    "rurix-render/g31_texture_nrm_gi.rx":  {
+                                               "sha256":  "BDD23A3A14E01CDD325E020C8689ADC26CF7DB55E7088DF70D0D1CA5FF870E25",
+                                               "rc":  0
+                                           },
+    "rurix-render/g14_3_shade_reduce.rx":  {
+                                               "sha256":  "C9D32C7F067100AA5748F24C44EE880A63CE709AB12B8053CDA6FB3585D40402",
+                                               "rc":  0
+                                           },
+    "rurix-render/g27_hzb_test.rx":  {
+                                         "sha256":  "8DE08FA3F587EAE50A3F80A4B5399F76C2D65458F76AE5914019AA1ADA718A39",
+                                         "rc":  0
+                                     },
+    "rurix-render/g34_unified_mv.rx":  {
+                                           "sha256":  "DF49AF7892926D8358409ED530E664BDAF3F284DB7567C464C54AC34714486F9",
+                                           "rc":  0
+                                       },
+    "rurix-render/g35_hash_clear.rx":  {
+                                           "sha256":  "712E8066F6BB4CCBAB360D8C66AEFAE8736E28A4DB5F5F0197B1684FDCD6B39C",
+                                           "rc":  0
+                                       },
+    "rurix-render/g35_sim_collide.rx":  {
+                                            "sha256":  "06B428196239332A887BDC724820859E40169F266FDC3BC6A4E57399D8454478",
+                                            "rc":  0
+                                        },
+    "rurix-rt/geom_page_decode.rx":  {
+                                         "sha256":  "F5D5263CD85412674E297318A95014C5BD67A934FEA64527FB7EB1AE995DCFAB",
+                                         "rc":  0
+                                     },
+    "rurix-render/g31_skin_mv.rx":  {
+                                        "sha256":  "F700907D257F4A336FCA0CCA4BC4F3852914F357CB38DB4648FFB895B357A399",
+                                        "rc":  0
+                                    },
+    "rurix-render/g35_xpbd_velocity.rx":  {
+                                              "sha256":  "0AD7C55936F767FEC9EF0BCF3F672813D9C21CD50D1F752DC6786380E7405B67",
+                                              "rc":  0
+                                          },
+    "rurix-render/g35_indirect_args.rx":  {
+                                              "sha256":  "2498EBB929766C0FF30AC909A6F2C9AA29AECF210ACC3E4828A2468E7F11F49C",
+                                              "rc":  0
+                                          },
+    "rurix-rt/gemm_tile.rx":  {
+                                  "sha256":  null,
+                                  "rc":  1
+                              },
+    "rurix-render/g35_sort_scatter.rx":  {
+                                             "sha256":  "A57EACE45FCB3BD196B50EB84904452C547B8C6328FC177644EE5D4D9C5A184C",
+                                             "rc":  0
+                                         },
+    "rurix-render/g31_bloom_blur.rx":  {
+                                           "sha256":  "F21A1E3A0D3E9AE7C8C13C094434BE2115F038E9266773F629C8739B0FD0287E",
+                                           "rc":  0
+                                       },
+    "rurix-render/g31_hzb_primary.rx":  {
+                                            "sha256":  "ACDBD95079DC39943219A36D11FFEF845ADE90EA170D88DE8ED1289BA2292EA7",
+                                            "rc":  0
+                                        },
+    "rurix-render/g31_bloom_bright.rx":  {
+                                             "sha256":  "24D8B219C8F02CA735C03DCD69A4F475916511A4BDCC8DA9A39FE7D3428EC7AC",
+                                             "rc":  0
+                                         },
+    "rurix-render/g34_unified_primary.rx":  {
+                                                "sha256":  "224E265D204282C6758FD68EAE92DE4029F212037071EF06F517622D6142D778",
+                                                "rc":  0
+                                            },
+    "rurix-render/g35_oit_tilekey.rx":  {
+                                            "sha256":  "91950FF766B818FCD0EE59752D792DB36048602D700173C06B6ED51DC2587E8D",
+                                            "rc":  0
+                                        },
+    "rurix-render/g35_oit_wboit_resolve.rx":  {
+                                                  "sha256":  "86220A7E8789B44DA118189B12CAE184A311B04B63CCE23112A4B5860966E0C4",
+                                                  "rc":  0
+                                              },
+    "rurix-render/g31_autoexp_state.rx":  {
+                                              "sha256":  "7EC16EF9EFBAE6103949C89F8DD908AFAF463309B6D602547F67381399536478",
+                                              "rc":  0
+                                          },
+    "rurix-rt/sr_depth.rx":  {
+                                 "sha256":  "452044E1CF867183200B554F9D093A79C22CD828746D97D8919BC1C6B3F6BE66",
+                                 "rc":  0
+                             },
+    "rurix-render/g9_m98_hwrt.rx":  {
+                                        "sha256":  "C333BD0930BB62EEFC563078480DF0B0EA442E73A4533A5B4D0FDE8E26347567",
+                                        "rc":  0
+                                    },
+    "rurix-render/g35_emit.rx":  {
+                                     "sha256":  "042B4346BB6734E92067BF889705F73C8E3DDF06E6D8EE7E0B6C5234EC1D413E",
+                                     "rc":  0
+                                 },
+    "rurix-render/g9_m99_spg_probe.rx":  {
+                                             "sha256":  "CEA747605FE24A2B3CF0B703091CB8EB1056AE264626347D2CE0E0B23FA01418",
+                                             "rc":  0
+                                         },
+    "rurix-render/g31_rt_slab_hit.rx":  {
+                                            "sha256":  null,
+                                            "rc":  2
+                                        },
+    "rurix-render/g31_realism.rx":  {
+                                        "sha256":  "0B9B7A918069A47427864FE04DA4E12BCE635EC5C3A213435AED92307F387370",
+                                        "rc":  0
+                                    },
+    "rurix-render/g35_oit_wboit_accum.rx":  {
+                                                "sha256":  "1B516F9979470330CBD006FAD2AF5196FE25D7C53C5E1F6BC0D6CFB3F22EA7F0",
+                                                "rc":  0
+                                            },
+    "rurix-rt/sr_binning.rx":  {
+                                   "sha256":  null,
+                                   "rc":  1
+                               },
+    "rurix-render/g31_rt_slab_rayquery.rx":  {
+                                                 "sha256":  "92878BDD36ADC1C23CCC64A04FB0F8B6B5A235B70A7A6406DAAB16817F167768",
+                                                 "rc":  0
+                                             },
+    "rurix-render/g34_unified_shade.rx":  {
+                                              "sha256":  "5445B9F6C253A8B8E9AF7304CC5FF04DAC50E8BB3093082901269267B6645D20",
+                                              "rc":  0
+                                          },
+    "rurix-render/g31_svt_probe.rx":  {
+                                          "sha256":  "4931EA928A9FE2B97556ED3A8D8A626BE6D8731400913E3CCEC0876C75EA5FAF",
+                                          "rc":  0
+                                      },
+    "rurix-render/g35_scan_seg_apply.rx":  {
+                                               "sha256":  "8CB42388B83D647505501CE97D58D337D63E5B2B0EF9CCCFC5772662F15C7939",
+                                               "rc":  0
+                                           },
+    "rurix-render/g31_autoexp_reduce.rx":  {
+                                               "sha256":  "A14587B01509B791BB592556ED55AAA7C221B33EBE1935B33477DC20F46FD79D",
+                                               "rc":  0
+                                           },
+    "rurix-render/g9_m100_multi_light.rx":  {
+                                                "sha256":  "5F0089115FC5AA41AF8330AA1A0D81DA3F985CAF758D1CD986E44B7AA05C7DC9",
+                                                "rc":  0
+                                            },
+    "rurix-render/g35_oit_blend_sorted.rx":  {
+                                                 "sha256":  "6B4AA6E1D01E59BB9271B241F1EB2AA85C26427D0104205F483B48ACF74273A0",
+                                                 "rc":  0
+                                             },
+    "rurix-rt/transpose.rx":  {
+                                  "sha256":  null,
+                                  "rc":  1
+                              },
+    "rurix-render/g35_hash_cellrange.rx":  {
+                                               "sha256":  "D163F6ED2DDC35F9C5A47B12172E3008D8738BB99709FB2F418C34BC46A0A4CB",
+                                               "rc":  0
+                                           },
+    "rurix-render/g31_hlod_l4_proxy_trace.rx":  {
+                                                    "sha256":  "C0CFCE8AB7985F41A22FC1685C50CA57C040A0963A12A7608F0AF1E79FB1495F",
+                                                    "rc":  0
+                                                },
+    "rurix-render/g9_m97_cache_capture.rx":  {
+                                                 "sha256":  "97AD912CFEF408211250F289156709AA21F9A06C84564DD8A4EF55D6AB975121",
+                                                 "rc":  0
+                                             },
+    "rurix-render/g9_m97_cache_render.rx":  {
+                                                "sha256":  "03EACD4537F3185176CE37D34D150B9462B5CF53D680CF322DE3D3C3927A1C9E",
+                                                "rc":  0
+                                            },
+    "rurix-render/g35_sort_spine.rx":  {
+                                           "sha256":  "AFE2624F92EFED73DC2E80AB577DFD1EA30071183611B8BD85518120DF028297",
+                                           "rc":  0
+                                       },
+    "rurix-render/g31_skin.rx":  {
+                                     "sha256":  "625030AD948467BAE2DD1BDC4754ADE40F10338D781C958704292BB42BC944D3",
+                                     "rc":  0
+                                 },
+    "rurix-render/g35_hash_cellkey.rx":  {
+                                             "sha256":  "C3862B0E9437E1994BE19A651279459C30DFD4BEE1749A3D8CFA2E04DBD0518B",
+                                             "rc":  0
+                                         },
+    "rurix-render/g29_slab.rx":  {
+                                     "sha256":  "BA50CBB24D266DE0356C7E4A2C5A86AB2CD6B921E1710CF03054EAFFC843995A",
+                                     "rc":  0
+                                 },
+    "rurix-render/g31_hzb_pack.rx":  {
+                                         "sha256":  "A422FD81C57F3DB221437F65B70B95922EF1FA46AC3AC8E2AEFB423651A72062",
+                                         "rc":  0
+                                     }
+}

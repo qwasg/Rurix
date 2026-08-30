@@ -1,0 +1,159 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "data",
+      "name": "rurix-third-party-embedded-supplement",
+      "version": "1",
+      "description": "Rurix 分发面内嵌第三方库级 SBOM 补充视图（GAP-03 闭合件）：src/rurixup/src/sbom.rs 生成的组件级 SPDX/CycloneDX 双视图之上，展开各发行二进制内嵌的第三方库（矩阵 GAP-03 字面：组件级粒度未列内嵌库，如 rx.exe 内 rowan）。生成机制 0-byte 不动（src/ 禁改纪律），本补充视图随发布资产分发并由 ci/g31_vendor_license_smoke.py closure 腿与 Cargo.lock 互核。"
+    },
+    "properties": [
+      {"name": "rurix:gap", "value": "GAP-03"},
+      {"name": "rurix:date", "value": "2026-08-29"},
+      {"name": "rurix:fact_source", "value": "Cargo.lock（锁定版本 + crates.io 包 checksum 字面）+ milestones/g31/g31_vendor_license_matrix.json + src/rurix-basis-sys/SBOM.md"},
+      {"name": "rurix:hash_semantics", "value": "components[].hashes = crates.io 源码包 checksum（Cargo.lock 逐字），非二进制内嵌片段 digest"},
+      {"name": "rurix:notices", "value": "dist/licenses/THIRD_PARTY_NOTICES.md（GAP-01 闭合件，许可文本逐字随附）"}
+    ]
+  },
+  "components": [
+    {
+      "type": "application",
+      "name": "rx.exe",
+      "version": "1.0.0",
+      "description": "Rurix 语言驱动器（rurixc 依赖链静态编译）；发行面 = 语言工具链 release 三二进制之一（发行版号随 tag / v1.0.1-dist.N，组件字节 digest 以各次 release bundle.json 为准）",
+      "licenses": [{"expression": "MIT OR Apache-2.0"}],
+      "properties": [
+        {"name": "rurix:distribution_face", "value": "language-toolchain-release"},
+        {"name": "rurix:third_party_embedded_count", "value": "6"}
+      ],
+      "components": [
+        {
+          "type": "library",
+          "name": "rowan",
+          "version": "0.15.18",
+          "purl": "pkg:cargo/rowan@0.15.18",
+          "licenses": [{"expression": "MIT OR Apache-2.0"}],
+          "hashes": [{"alg": "SHA-256", "content": "62f509095fc8cc0c8c8564016771d458079c11a8d857e65861f045145c0d3208"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "src/rurixc/Cargo.toml rowan = \"0.15.1\"（需求字面；本版本 = Cargo.lock 解析）"},
+            {"name": "rurix:matrix_item", "value": "rust_rowan"}
+          ]
+        },
+        {
+          "type": "library",
+          "name": "countme",
+          "version": "3.0.1",
+          "purl": "pkg:cargo/countme@3.0.1",
+          "licenses": [{"expression": "MIT OR Apache-2.0"}],
+          "hashes": [{"alg": "SHA-256", "content": "7704b5fdd17b18ae31c4c1da5a2e0305a2bf17b5249300a9ee9ed7b72114c636"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "rowan 传递闭包（Cargo.lock rowan dependencies）"}
+          ]
+        },
+        {
+          "type": "library",
+          "name": "hashbrown",
+          "version": "0.14.5",
+          "purl": "pkg:cargo/hashbrown@0.14.5",
+          "licenses": [{"expression": "MIT OR Apache-2.0"}],
+          "hashes": [{"alg": "SHA-256", "content": "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "rowan 传递闭包（Cargo.lock rowan dependencies）"}
+          ]
+        },
+        {
+          "type": "library",
+          "name": "memoffset",
+          "version": "0.9.1",
+          "purl": "pkg:cargo/memoffset@0.9.1",
+          "licenses": [{"expression": "MIT"}],
+          "hashes": [{"alg": "SHA-256", "content": "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "rowan 传递闭包（Cargo.lock rowan dependencies）；其 autocfg 为构建期依赖不进产物"}
+          ]
+        },
+        {
+          "type": "library",
+          "name": "rustc-hash",
+          "version": "1.1.0",
+          "purl": "pkg:cargo/rustc-hash@1.1.0",
+          "licenses": [{"expression": "Apache-2.0 OR MIT"}],
+          "hashes": [{"alg": "SHA-256", "content": "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "rowan 传递闭包（Cargo.lock rowan dependencies）"}
+          ]
+        },
+        {
+          "type": "library",
+          "name": "text-size",
+          "version": "1.1.1",
+          "purl": "pkg:cargo/text-size@1.1.1",
+          "licenses": [{"expression": "MIT OR Apache-2.0"}],
+          "hashes": [{"alg": "SHA-256", "content": "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-embedded"},
+            {"name": "rurix:introduced_by", "value": "rowan 传递闭包（Cargo.lock rowan dependencies）"}
+          ]
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "name": "rurixup.exe",
+      "version": "1.0.0",
+      "description": "工具链前端；依赖闭包 = rurix-pkg（自有 crate）",
+      "licenses": [{"expression": "MIT OR Apache-2.0"}],
+      "properties": [
+        {"name": "rurix:distribution_face", "value": "language-toolchain-release"},
+        {"name": "rurix:third_party_embedded_count", "value": "0"},
+        {"name": "rurix:third_party_note", "value": "零第三方内嵌（Cargo.lock rurixup dependencies = rurix-pkg 单件自有）"}
+      ],
+      "components": []
+    },
+    {
+      "type": "application",
+      "name": "rurix_rt_cabi.lib",
+      "version": "1.0.0",
+      "description": "运行时 C ABI 静态库（crt-static）；依赖闭包 = image-io + rurix-rt（均自有）",
+      "licenses": [{"expression": "MIT OR Apache-2.0"}],
+      "properties": [
+        {"name": "rurix:distribution_face", "value": "language-toolchain-release"},
+        {"name": "rurix:third_party_embedded_count", "value": "0"},
+        {"name": "rurix:third_party_note", "value": "零第三方内嵌：rurix-rt 对 rurixc 仅 [build-dependencies]（build.rs 产 PTX 为自研语言编译输出，rowan 不进本产物）；rurix-d3d12 可选默认关，其 cc 为构建期"}
+      ],
+      "components": []
+    },
+    {
+      "type": "application",
+      "name": "rurix_renderer_sdk.dll",
+      "version": "sdk-1.0.0",
+      "description": "渲染器 SDK 实现层 cdylib（g31.waveC.dist 16 组件 bundle 面；本条为 SDK bundle 分发前置的内嵌库级展开，组件级 SBOM 由 rurixup release 按次生成）",
+      "licenses": [{"expression": "MIT OR Apache-2.0"}],
+      "properties": [
+        {"name": "rurix:distribution_face", "value": "renderer-sdk-bundle"},
+        {"name": "rurix:third_party_embedded_count", "value": "1"}
+      ],
+      "components": [
+        {
+          "type": "library",
+          "name": "basis_universal",
+          "version": "1.16.4",
+          "purl": "pkg:github/BinomialLLC/basis_universal@900e40fb5d2502927360fe2f31762bdbb624455f",
+          "licenses": [{"expression": "Apache-2.0"}],
+          "properties": [
+            {"name": "rurix:linkage", "value": "static-in-dll（经 rurix-basis-sys）"},
+            {"name": "rurix:matrix_item", "value": "basis_universal"},
+            {"name": "rurix:evidence", "value": "src/rurix-basis-sys/SBOM.md（SPDX + 双 digest）+ src/rurix-basis-sys/NOTICE"}
+          ]
+        }
+      ]
+    }
+  ]
+}

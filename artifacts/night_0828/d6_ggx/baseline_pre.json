@@ -1,0 +1,75 @@
+{
+ "runs": [
+  {
+   "tag": "pre_default_1",
+   "rc": 0,
+   "wall_s": 61.44,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.442ms scene_gpu=0.957ms mv_gpu=0.024ms tsr_gpu=0.295ms rec=0.043ms sub=0.032ms fence=1.394ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=99.131ms scene_gpu=0.960ms mv_gpu=0.033ms tsr_gpu=0.539ms rec=0.066ms sub=0.038ms fence=3.574ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\pre_default_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 985356,
+   "frame_ms_mean": 13.89155
+  },
+  {
+   "tag": "pre_default_2",
+   "rc": 0,
+   "wall_s": 61.3,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.493ms scene_gpu=0.956ms mv_gpu=0.023ms tsr_gpu=0.295ms rec=0.054ms sub=0.043ms fence=1.424ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=87.562ms scene_gpu=0.958ms mv_gpu=0.033ms tsr_gpu=0.534ms rec=0.050ms sub=0.026ms fence=3.597ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\pre_default_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 958508,
+   "frame_ms_mean": 12.425625
+  },
+  {
+   "tag": "pre_snrm_1",
+   "rc": 0,
+   "wall_s": 61.42,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.685ms scene_gpu=1.161ms mv_gpu=0.026ms tsr_gpu=0.294ms rec=0.053ms sub=0.039ms fence=1.619ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=105.085ms scene_gpu=0.962ms mv_gpu=0.033ms tsr_gpu=0.535ms rec=0.060ms sub=0.040ms fence=3.398ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\pre_snrm_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 961632,
+   "frame_ms_mean": 14.64435
+  },
+  {
+   "tag": "pre_snrm_2",
+   "rc": 0,
+   "wall_s": 61.38,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.447ms scene_gpu=0.959ms mv_gpu=0.024ms tsr_gpu=0.294ms rec=0.046ms sub=0.034ms fence=1.393ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=95.977ms scene_gpu=0.960ms mv_gpu=0.034ms tsr_gpu=0.531ms rec=0.021ms sub=0.013ms fence=3.552ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\pre_snrm_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 988632,
+   "frame_ms_mean": 13.5058125
+  }
+ ],
+ "verdict": {
+  "default_double_run_equal": true,
+  "snrm_double_run_equal": true,
+  "default_digest": [
+   "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c"
+  ],
+  "snrm_digest": [
+   "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385"
+  ],
+  "all_rc0": true
+ }
+}

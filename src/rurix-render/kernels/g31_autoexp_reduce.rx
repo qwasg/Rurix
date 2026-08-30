@@ -1,0 +1,50 @@
+//@ spec: RXS-0369（显示链加性面；画质战役 A2 自动曝光第一腿）
+// 自动曝光 log-luma 归约 kernel：读 encode 同源输入 color buffer（TSR 输出
+// 或 bloom composite 输出，f32 RGB 紧凑 3 f32/px——布局与 g31_display_encode
+// in_color 逐字同源），单 workgroup 256 线程跨步采样累加 log2(max(luma,1e-6))
+// 与样本计数，各写 partials[tid*2]/[tid*2+1]（512 f32）。
+//
+// ## 采样协议（A2 规格字面）
+// 线程 tid 采样像素 i = tid + k·256·4（k=0,1,2,…; i < pixel_count）——
+// 256 线程 × 4px 步进 = 每 1024 像素取前 256 个（25% 子采样，行宽非 1024
+// 整倍数时逐行相位滚动 ⇒ 全画面覆盖）。luma = Rec.709（0.2126R+0.7152G+
+// 0.0722B）；log 域取 log2（与 g31_autoexp_state 的 exp2 配对——几何均值与
+// 自然 log/exp 配对数学恒等，log2/exp2 为本仓 kernel 已证映射面，见
+// g31_display_encode f32 移植偏差登记②）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承）
+// 单 workgroup dispatch（gx=1）；线程内顺序累加（k 升序），线程间零交互
+// （无共享内存/无 atomic，partials 槽位按 tid 静态分区独占写）⇒ 固定输入
+// 双跑位级一致。codegen 纪律：while 顶层平铺（禁「if 包 while」——A1 在案
+// rurixc selection 合并块缺陷绕行形态）。
+//
+// ## 参数面（params: f32 SSBO；host `g31_ae_pack_params` 逐字同源；8 f32）
+//   [0]=pixel_count（= 输出 extent w·h，encode in_color 消费同域）
+//   [1]=key [2]=rate [3]=min_gain [4]=max_gain（本 kernel 不消费，
+//   g31_autoexp_state 同 buffer 读取）[5..8)=reserved（恒 0）。
+//   in_color: 3 f32/px；partials: 512 f32（[tid*2]=Σlog2 luma，
+//   [tid*2+1]=样本数）。dispatch = [1, 1, 1]（LocalSize 256,1,1）。
+#[numthreads(256, 1, 1)]
+kernel fn g31_autoexp_reduce(
+    tc: ThreadCtx<1>,
+    in_color: View<global, f32>,
+    params: View<global, f32>,
+    partials: ViewMut<global, f32>,
+) {
+    let tid = tc.global_id();
+    let n = params[0] as usize;
+    let mut sum_log = 0.0;
+    let mut cnt = 0.0;
+    let mut i = tid;
+    while i < n {
+        let r = in_color[i * 3];
+        let g = in_color[i * 3 + 1];
+        let b = in_color[i * 3 + 2];
+        let luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+        sum_log = sum_log + luma.max(0.000001).log2();
+        cnt = cnt + 1.0;
+        i = i + 1024;
+    }
+    partials[tid * 2] = sum_log;
+    partials[tid * 2 + 1] = cnt;
+}

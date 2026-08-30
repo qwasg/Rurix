@@ -1,0 +1,137 @@
+{
+  "schema": "rurix.g31.cluster_lod_evidence.v1",
+  "gate": "g31.wave58.cluster_lod",
+  "scene": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "src_tris": 1046609,
+  "bake": {
+    "blocks": 187,
+    "degraded_blocks": 0,
+    "clusters": 123169,
+    "levels_max": 13,
+    "leaf_tris": 1002585,
+    "root_tris": 17208,
+    "passthrough_tris": 44024,
+    "pack_sha256": "e1c6dbca1eca3160e1051cbdc1fea90149de3ac3d937dea2c33a68b86e241700",
+    "double_build_equal": true,
+    "bake_ms": 803.1
+  },
+  "leaf_anchor": {
+    "off_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "leaf_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "bitexact": true
+  },
+  "cut_arms": [
+    {
+      "threshold_px": 1.0,
+      "out_tris": 1025846,
+      "ratio": 0.9801616458486407,
+      "cut_clusters": 20132,
+      "digest": "sha256:22381c7af049daf4e0b658918f416854a08e2c8cbf4d489a7d007f8fb17d1f14",
+      "frame_ms_mean": 12.710113,
+      "scene_gpu_ms_mean": 1.56608
+    },
+    {
+      "threshold_px": 4.0,
+      "out_tris": 741576,
+      "ratio": 0.7085511399194924,
+      "cut_clusters": 18240,
+      "digest": "sha256:a3f30237f60d39145947c04a99a8cac7a31a76f0bda105876623878aacb05bc4",
+      "frame_ms_mean": 12.5078,
+      "scene_gpu_ms_mean": 0.969956
+    }
+  ],
+  "determinism": {
+    "arm_threshold_px": 4.0,
+    "double_run_digest_equal": true
+  },
+  "window_stats": {
+    "trajectory": "dolly",
+    "frames": 26,
+    "cut_tris_min": 932484,
+    "cut_tris_max": 941257,
+    "camera_drives_cut": true,
+    "note": "逐帧 host cut 重算 measured（每 16 帧覆盖性机核采样）;出帧几何冻结于装配期 cut,逐帧 AS 更新归 C/E 阶段——如实登记不冒充"
+  },
+  "quality_diff": {
+    "threshold_px": 4.0,
+    "err_max": 0.641878,
+    "err_p95": 0.0,
+    "regions_over_1": 0,
+    "note": "off vs on(4px) 收敛帧 HDR 线性域区域 diff（16×16 网格,阈 1.0）;measured 如实登记不设通过线（G6 纪律）"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-render --features vendor-upscale --bin g14_3_pipeline_perf --bin g31_window_present --bin g10_m137_diff_report --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g31_cluster_lod_bake --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --dump-scene --scene bistro-interior --out H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcs",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target\\release\\g31_cluster_lod_bake.exe --scene-dump H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcs --out H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp --double-build",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\off",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\leaf --cluster-lod leaf --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\on1 --cluster-lod on --cluster-error-px 1.0 --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\on4a --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\on4b --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "H:\\rurix\\target\\release\\g31_window_present.exe --frames 24 --warmup 2 --tier 100 --quality off --headless-smoke --auto-move dolly --cluster-lod on --cluster-error-px 2.0 --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp --cluster-stats-out H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\window_stats.json --evidence H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\window_ev.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --render --scene bistro-interior --tier 100 --backend tsr_device --frames 4 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\render_off",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "H:\\rurix\\target\\release\\g14_3_pipeline_perf.exe --render --scene bistro-interior --tier 100 --backend tsr_device --frames 4 --out-root H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\render_on4 --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\bistro.rxcp",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "H:\\rurix\\target\\release\\g10_m137_diff_report.exe --frame-a H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\render_off\\bistro-interior\\tier100\\tsr_device\\converged.exr --frame-b H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\render_on4\\bistro-interior\\tier100\\tsr_device\\converged.exr --out-dir H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\diff --evidence H:\\rurix\\.tmp\\g31_gates\\wave58_cluster_lod\\diff\\report.json --scene-id bistro-interior --camera-id contract --frame-index 0 --threshold 1.0",
+      "exit_code": 0
+    }
+  ],
+  "notes": [
+    "三步文件交接：dump-scene（装配语义单源）→ g31_cluster_lod_bake（build_asset_dag 事实源构建 + 组共享 LOD 判定球派生）→ 生产车道 --cluster-lod 消费（select_lod_cut_grouped + verify_cut_coverage 生产金标准直调）",
+    "emissive 三角与 quad 灯面尾段恒 passthrough（光源几何面 0-byte）;粗簇属性 = 叶后代面积加权均值",
+    "默认 off = 既有面 0-byte（Stage A 锚零漂移;--cluster-lod 为加性闭集开关）",
+    "本门 = TODO #58 生产消费簇 DAG 最小面;逐帧 device cut/AS 更新归 #77（C 阶段）,页流送归 #20-23（E 阶段）"
+  ]
+}

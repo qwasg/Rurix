@@ -1,0 +1,121 @@
+{
+ "pre_default_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+ "pre_snrm_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+ "runs": [
+  {
+   "tag": "post_default_1",
+   "rc": 0,
+   "wall_s": 61.53,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.460ms scene_gpu=0.955ms mv_gpu=0.023ms tsr_gpu=0.294ms rec=0.044ms sub=0.032ms fence=1.390ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=100.321ms scene_gpu=0.957ms mv_gpu=0.034ms tsr_gpu=0.534ms rec=0.091ms sub=0.052ms fence=3.439ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_default_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 958020,
+   "frame_ms_mean": 14.039125
+  },
+  {
+   "tag": "post_default_2",
+   "rc": 0,
+   "wall_s": 61.34,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.466ms scene_gpu=0.955ms mv_gpu=0.023ms tsr_gpu=0.296ms rec=0.055ms sub=0.038ms fence=1.408ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=106.351ms scene_gpu=0.958ms mv_gpu=0.034ms tsr_gpu=0.537ms rec=0.094ms sub=0.053ms fence=3.703ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_default_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 957616,
+   "frame_ms_mean": 14.77005
+  },
+  {
+   "tag": "post_snrm_off_1",
+   "rc": 0,
+   "wall_s": 61.52,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.648ms scene_gpu=0.956ms mv_gpu=0.024ms tsr_gpu=0.293ms rec=0.087ms sub=0.061ms fence=1.480ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=100.889ms scene_gpu=0.959ms mv_gpu=0.034ms tsr_gpu=0.535ms rec=0.086ms sub=0.049ms fence=3.721ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_snrm_off_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 959136,
+   "frame_ms_mean": 14.2733
+  },
+  {
+   "tag": "post_snrm_off_2",
+   "rc": 0,
+   "wall_s": 61.3,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.496ms scene_gpu=0.955ms mv_gpu=0.024ms tsr_gpu=0.293ms rec=0.059ms sub=0.042ms fence=1.416ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=91.554ms scene_gpu=1.190ms mv_gpu=0.033ms tsr_gpu=0.539ms rec=0.103ms sub=0.053ms fence=3.951ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_snrm_off_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 987576,
+   "frame_ms_mean": 12.922387500000001
+  },
+  {
+   "tag": "post_ggx_on_1",
+   "rc": 0,
+   "wall_s": 61.31,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.517ms scene_gpu=0.961ms mv_gpu=0.024ms tsr_gpu=0.295ms rec=0.064ms sub=0.044ms fence=1.433ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=95.159ms scene_gpu=0.963ms mv_gpu=0.034ms tsr_gpu=0.535ms rec=0.063ms sub=0.036ms fence=3.647ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_ggx_on_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:46e0af63003d0525bcab0780a784352013370af0ae6189c12a967866f59b5080",
+   "scene_gpu_ns_mean": 989956,
+   "frame_ms_mean": 13.399575
+  },
+  {
+   "tag": "post_ggx_on_2",
+   "rc": 0,
+   "wall_s": 61.36,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.529ms scene_gpu=0.961ms mv_gpu=0.024ms tsr_gpu=0.298ms rec=0.062ms sub=0.041ms fence=1.438ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=113.143ms scene_gpu=0.962ms mv_gpu=0.033ms tsr_gpu=0.536ms rec=0.058ms sub=0.042ms fence=3.652ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d6_ggx\\post_ggx_on_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:46e0af63003d0525bcab0780a784352013370af0ae6189c12a967866f59b5080",
+   "scene_gpu_ns_mean": 988908,
+   "frame_ms_mean": 15.644525000000002
+  }
+ ],
+ "verdict": {
+  "default_double_run_equal": true,
+  "default_matches_pre": true,
+  "off_double_run_equal": true,
+  "off_matches_pre_snrm": true,
+  "on_double_run_equal": true,
+  "on_differs_from_off": true,
+  "off_scene_gpu_ns_mean": [
+   959136,
+   987576
+  ],
+  "on_scene_gpu_ns_mean": [
+   989956,
+   988908
+  ],
+  "off_frame_ms_mean": [
+   14.2733,
+   12.922387500000001
+  ],
+  "on_frame_ms_mean": [
+   13.399575,
+   15.644525000000002
+  ]
+ },
+ "all_pass": true
+}

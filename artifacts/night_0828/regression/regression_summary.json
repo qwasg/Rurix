@@ -1,0 +1,55 @@
+{
+  "matched": 6,
+  "total": 6,
+  "zero_drift": true,
+  "cells": [
+    {
+      "cell": "bistro-interior_t50_tsr_device",
+      "fresh": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "anchor": "sha256:8baadc1410ab0ab3e960d8a0d9649026b51a9eb0c6cfb966211d948476b138ba",
+      "match": true,
+      "rc": 0,
+      "wall_s": 61.5
+    },
+    {
+      "cell": "bistro-interior_t67_tsr_device",
+      "fresh": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+      "anchor": "sha256:9138c48dc63f34c9f8552e0228316be879b58c08f5f960347b5ac73156fea4a6",
+      "match": true,
+      "rc": 0,
+      "wall_s": 61.7
+    },
+    {
+      "cell": "bistro-interior_t100_tsr_device",
+      "fresh": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+      "anchor": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+      "match": true,
+      "rc": 0,
+      "wall_s": 61.6
+    },
+    {
+      "cell": "cornell-box_t100_tsr_device",
+      "fresh": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+      "anchor": "sha256:4a9f9637e37759f3a4b3b822e9b4174486f9331f69741eacb8299e8e8b71d190",
+      "match": true,
+      "rc": 0,
+      "wall_s": 0.4
+    },
+    {
+      "cell": "cornell-box_t50_tsr_device",
+      "fresh": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+      "anchor": "sha256:c1b9ca686accf0c62b65174ed24ee3e9110047eb4256b081345a9dd45b7f6a45",
+      "match": true,
+      "rc": 0,
+      "wall_s": 0.4
+    },
+    {
+      "cell": "bistro-interior_t100_dlss_sr",
+      "fresh": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+      "anchor": "sha256:55ea0c2ba68011727b4136ecb32c627e36d539bb38a2aadad617bb17cb578d4a",
+      "match": true,
+      "rc": 0,
+      "wall_s": 65.3
+    }
+  ]
+}

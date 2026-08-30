@@ -1,0 +1,105 @@
+{
+ "pre_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+ "pre_scene_gpu_ns_mean": 959160,
+ "runs": [
+  {
+   "tag": "post_off_1",
+   "rc": 0,
+   "wall_s": 62.2,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=2.417ms scene_gpu=1.783ms mv_gpu=0.038ms tsr_gpu=0.286ms rec=0.078ms sub=0.051ms fence=2.278ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=88.853ms scene_gpu=1.838ms mv_gpu=0.036ms tsr_gpu=0.737ms rec=0.064ms sub=0.038ms fence=4.052ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d2_smooth_nrm\\post_off_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 1152032,
+   "frame_ms_mean": 12.72485
+  },
+  {
+   "tag": "post_off_2",
+   "rc": 0,
+   "wall_s": 61.12,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.502ms scene_gpu=0.959ms mv_gpu=0.024ms tsr_gpu=0.292ms rec=0.065ms sub=0.045ms fence=1.426ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=86.283ms scene_gpu=0.962ms mv_gpu=0.034ms tsr_gpu=0.534ms rec=0.086ms sub=0.051ms fence=2.934ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d2_smooth_nrm\\post_off_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+   "scene_gpu_ns_mean": 961048,
+   "frame_ms_mean": 12.27725
+  },
+  {
+   "tag": "post_on_1",
+   "rc": 0,
+   "wall_s": 61.25,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.437ms scene_gpu=0.956ms mv_gpu=0.024ms tsr_gpu=0.292ms rec=0.043ms sub=0.031ms fence=1.386ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=83.878ms scene_gpu=0.960ms mv_gpu=0.033ms tsr_gpu=0.534ms rec=0.038ms sub=0.022ms fence=2.990ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d2_smooth_nrm\\post_on_1\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 985636,
+   "frame_ms_mean": 11.972737500000001
+  },
+  {
+   "tag": "post_on_2",
+   "rc": 0,
+   "wall_s": 61.17,
+   "stderr_tail": [
+    "[g14_3_pipeline_perf]: bench 装配 scene=bistro-interior tris=1046609 quads=0 points=4 internal=1920x1080 output=1920x1080 eps=0.001941",
+    "[g14_3_pipeline_perf]: bench 统一四 pass 车道就绪 warmup=2 frames=8 inflight=1（session 不销毁；测量循环零回读，末帧回读 TSR 输出；flip_trace=false）",
+    "[g14_3_pipeline_perf]: bench 帧 1/10 frame=1.481ms scene_gpu=0.957ms mv_gpu=0.024ms tsr_gpu=0.292ms rec=0.055ms sub=0.039ms fence=1.411ms",
+    "[g14_3_pipeline_perf]: bench 帧 10/10 frame=82.862ms scene_gpu=0.960ms mv_gpu=0.034ms tsr_gpu=0.537ms rec=0.059ms sub=0.040ms fence=3.015ms"
+   ],
+   "receipt": "artifacts\\night_0828\\d2_smooth_nrm\\post_on_2\\bistro-interior\\tier100\\tsr_device\\bench_receipt.json",
+   "last_frame_digest": "sha256:6b46f70a9654be19ee116deffe64b7199052c9e8751220b607c79af3388cd385",
+   "scene_gpu_ns_mean": 960240,
+   "frame_ms_mean": 11.8342125
+  }
+ ],
+ "build": {
+  "rc": 0,
+  "wall_s": 0.17,
+  "stderr_tail": [
+   "warning: value assigned to `svt_era_pool` is never read",
+   "    --> src\\rurix-render\\src\\bin\\g31_window_present.rs:4861:37",
+   "     |",
+   "4861 |     let mut svt_era_pool: Vec<u8> = Vec::new();",
+   "     |                                     ^^^^^^^^^^",
+   "     |",
+   "     = help: maybe it is overwritten before being read?",
+   "",
+   "warning: `rurix-render` (bin \"g31_window_present\") generated 4 warnings",
+   "    Finished `release` profile [optimized] target(s) in 0.10s"
+  ]
+ },
+ "verdict": {
+  "off_double_run_equal": true,
+  "off_matches_pre_baseline": true,
+  "on_double_run_equal": true,
+  "on_differs_from_off": true,
+  "off_scene_gpu_ns_mean": [
+   1152032,
+   961048
+  ],
+  "on_scene_gpu_ns_mean": [
+   985636,
+   960240
+  ],
+  "off_frame_ms_mean": [
+   12.72485,
+   12.27725
+  ],
+  "on_frame_ms_mean": [
+   11.972737500000001,
+   11.8342125
+  ]
+ },
+ "all_pass": true
+}

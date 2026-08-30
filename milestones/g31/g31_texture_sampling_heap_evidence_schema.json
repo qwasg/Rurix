@@ -1,0 +1,437 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G37 W1 纹理采样生产接线 harness evidence（texel heap 形态；--textures on 面）",
+  "description": "evidence/g31_texture_sampling_heap_*.json（更新后 ci/g31_texture_sampling_smoke.py 归档前缀路由；--evidence 指定路径）。day_0828 画质战役 Phase B 形态收编（HANDOVER §B.4 / DEFAULT_FLIP_PLAN §1.2 #2）：内容形态从 top-12 网格图集（8192×6144 tile 2048、探针步幅 3）升级为 **texel heap 单 SSBO 全 70 材质覆盖**——u32 偏移头表 70×13=910 项进 buffer 头部（零新增绑定），DDS 源 mip 直搬 cap-1024 档（2048² 源从 mip1 起 11 级存储、16² 源全 5 级，零重采样），mip 选择 lod=clamp(floor(log2(th·k_pix·k_tri·w_base)),0,mips−1)，tritex 步幅 2 携 k_tri。探针步幅 3→4（[slot,u,v,lod]——lod 显式注入 = heap 逐级寻址对拍面）：每槽 24 UV（16 网格 + 4 精确边缘 + 4 wrap 域）× 抽样级 {0, mips/2, mips−1} 去重（bistro 70 槽全 3 级 ⇒ probe_count = 5040）。SSBO 腿位级硬门 p100=0.0 + sampler 腿结构容差 ≤1 LSB 语义不变。SPV = 战役锚承载 v2 隔离件（.tmp/night_0828/spv/g31_texture_gi_v2.spv / g31_texture_probe_v2.spv，fx/fy 双线性 5 处修复 + heap 形态）。schema/gate 字面 = harness 侧常量（src 禁改面）沿用 rurix.g31.texture_sampling_evidence.v1 / g31.waveB.texture；heap 形态经本 schema 文件 + g31_texture_sampling_heap_ 归档前缀路由承载（加性双形态，旧 schema 与既有 evidence 0-byte）。旧 tex 臂 presented 锚 6fab598c 已作废（fx/fy 修复 + heap 化 + 静态协议）；heap 形态 presented 锚待 G37 W4 统一重收割——本面不消费固定 presented 锚。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate",
+    "scene",
+    "tier",
+    "backend",
+    "trajectory",
+    "frames",
+    "warmup",
+    "frames_completed",
+    "exit_reason",
+    "resize_eras",
+    "resolution",
+    "internal_resolution",
+    "real_render_frame_ms",
+    "present_frame_ms",
+    "present_overhead_ms",
+    "encode_frame_ms",
+    "digest_frame_ms",
+    "render_digest",
+    "digest",
+    "digest_seq",
+    "ev100_seq",
+    "camera_poses",
+    "ev100_ramp",
+    "headless",
+    "window",
+    "contracts",
+    "render_includes_forced_readback",
+    "spv",
+    "textures",
+    "stats",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "type": "string", "const": "rurix.g31.texture_sampling_evidence.v1" },
+    "gate": { "type": "string", "const": "g31.waveB.texture" },
+    "scene": { "type": "string", "const": "bistro-interior" },
+    "tier": { "type": "integer", "enum": [50, 67, 100] },
+    "backend": { "type": "string", "const": "tsr_device" },
+    "trajectory": { "type": "string", "enum": ["orbit", "dolly"] },
+    "frames": { "type": "integer", "minimum": 1 },
+    "warmup": { "type": "integer", "minimum": 0 },
+    "frames_completed": { "type": "integer", "minimum": 0 },
+    "exit_reason": { "type": "string", "enum": ["frames_done", "user_close"] },
+    "resize_eras": { "type": "integer", "minimum": 0 },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "const": 1920 },
+        "h": { "type": "integer", "const": 1080 }
+      }
+    },
+    "internal_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "real_render_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+    "present_frame_ms": { "type": ["number", "null"] },
+    "present_overhead_ms": { "type": ["number", "null"] },
+    "encode_frame_ms": { "type": "number", "minimum": 0 },
+    "digest_frame_ms": { "type": "number", "minimum": 0 },
+    "render_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digest_seq": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "逐帧 BGRA8 打包帧 digest 序列（确定性双跑位级一致门 + on≠off 接线真实生效门判定对象；固定 presented 锚不消费——heap 臂锚待 W4 重收割）"
+    },
+    "ev100_seq": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+    "camera_poses": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "type": "number" } }
+    },
+    "ev100_ramp": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["a", "b"],
+      "properties": { "a": { "type": "number" }, "b": { "type": "number" } }
+    },
+    "headless": { "type": "boolean" },
+    "window": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["visible", "channel_order", "extent", "frames_presented", "swapchain_rebuilds"],
+      "properties": {
+        "visible": { "type": "boolean" },
+        "channel_order": { "type": "string", "enum": ["bgra8_unorm", "rgba8_unorm"] },
+        "extent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["w", "h"],
+          "properties": {
+            "w": { "type": "integer", "minimum": 1 },
+            "h": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "frames_presented": { "type": "integer", "minimum": 1 },
+        "swapchain_rebuilds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "g10_contract", "g10_camera", "g10_lighting", "consistency", "delta_note", "encode_spv"],
+      "properties": {
+        "production": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "digest"],
+          "properties": {
+            "path": { "type": "string" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_camera": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "g10_lighting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "consistency": { "type": "string", "const": "pass" },
+        "delta_note": { "type": "string" },
+        "encode_spv": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
+    "render_includes_forced_readback": { "type": "boolean", "const": true },
+    "spv": { "type": "object", "additionalProperties": true },
+    "emissive": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Phase F --emissive-tex on 时的登记块（本门 tex 单臂 em off = 键缺席；容许字段 = 双形态兼容面，不进本门判据）"
+    },
+    "textures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "census",
+        "mapping_law",
+        "mapped_materials",
+        "tex_tris",
+        "material_slots",
+        "atlas",
+        "mip_law",
+        "linlut_digest",
+        "g11_3_manifest",
+        "probe",
+        "quality_arms",
+        "spv_texture",
+        "spv_texture_probe",
+        "gaps"
+      ],
+      "properties": {
+        "census": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "materials_total",
+            "with_base_color_texture",
+            "with_normal_texture",
+            "with_metallic_roughness_texture",
+            "primitives_total",
+            "primitives_with_texcoord0",
+            "primitives_with_tangent"
+          ],
+          "properties": {
+            "materials_total": { "type": "integer", "const": 70 },
+            "with_base_color_texture": { "type": "integer", "const": 70 },
+            "with_normal_texture": { "type": "integer", "const": 70 },
+            "with_metallic_roughness_texture": { "type": "integer", "const": 0 },
+            "primitives_total": { "type": "integer", "const": 2062 },
+            "primitives_with_texcoord0": { "type": "integer", "const": 2062 },
+            "primitives_with_tangent": { "type": "integer", "const": 0 }
+          }
+        },
+        "mapping_law": { "type": "string", "description": "heap 全覆盖：逐材质三角数降序 top-70 = 全 70 材质（并列时 material_index 升序）" },
+        "mapped_materials": { "type": "integer", "const": 70 },
+        "tex_tris": { "type": "integer", "minimum": 1 },
+        "material_slots": {
+          "type": "array",
+          "minItems": 70,
+          "maxItems": 70,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "slot",
+              "material_index",
+              "material_name",
+              "tris",
+              "texture_uri",
+              "width",
+              "height",
+              "src_width",
+              "src_height",
+              "dds_format",
+              "manifest_source_digest",
+              "rgba8_digest",
+              "manifest_rgba8_digest",
+              "manifest_digest_match",
+              "mip_count",
+              "mip_truncated",
+              "mip_digests",
+              "mod_r",
+              "mod_g",
+              "mod_b"
+            ],
+            "properties": {
+              "slot": { "type": "integer", "minimum": 0, "maximum": 69 },
+              "material_index": { "type": "integer", "minimum": 0 },
+              "material_name": { "type": "string" },
+              "tris": { "type": "integer", "minimum": 1 },
+              "texture_uri": { "type": "string" },
+              "width": { "type": "integer", "minimum": 1, "maximum": 1024, "description": "存储基级宽（cap-1024 律法 = min(src_width, 1024)，pow2）" },
+              "height": { "type": "integer", "minimum": 1, "maximum": 1024 },
+              "src_width": { "type": "integer", "minimum": 1, "maximum": 2048, "description": "DDS 源 mip0 宽（G11.3 manifest 互核域，pow2 ≤2048）" },
+              "src_height": { "type": "integer", "minimum": 1, "maximum": 2048 },
+              "dds_format": { "type": "string", "enum": ["bc1", "bc3"] },
+              "manifest_source_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+              "rgba8_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "本 bin 解码源 mip0 RGBA8 digest（== manifest 登记即 G11.3 链互核绿）" },
+              "manifest_rgba8_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+              "manifest_digest_match": { "type": "boolean" },
+              "mip_count": { "type": "integer", "minimum": 1, "maximum": 13, "description": "存储 mip 级数（完整链 = log2(max(width,height))+1；截断链经 mip_truncated 登记）" },
+              "mip_truncated": { "type": "boolean" },
+              "mip_digests": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 13,
+                "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "description": "逐存储级 RGBA8 digest（heap 装入序；长度 == mip_count 由 smoke 裁决）"
+              },
+              "mod_r": { "type": "number" },
+              "mod_g": { "type": "number" },
+              "mod_b": { "type": "number" }
+            }
+          }
+        },
+        "atlas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["form", "cap", "mip_slots", "header_entries", "heap_texels", "heap_bytes", "format", "digest"],
+          "properties": {
+            "form": { "type": "string", "const": "texel_heap" },
+            "cap": { "type": "integer", "const": 1024 },
+            "mip_slots": { "type": "integer", "const": 13 },
+            "header_entries": { "type": "integer", "const": 910, "description": "70 槽 × 13 mip 槽位（tex 单臂 em off 档；u32 偏移头表进 buffer 头部）" },
+            "heap_texels": { "type": "integer", "minimum": 1 },
+            "heap_bytes": { "type": "integer", "minimum": 4, "description": "== heap_texels × 4（u32 打包 RGBA8；恒等式由 smoke 裁决）" },
+            "format": { "type": "string", "const": "u32_packed_rgba8" },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "mip_law": { "type": "string", "description": "nearest-mip + bilinear；lod=clamp(floor(log2(th·k_pix·k_tri·w_base)),0,mips−1)；DDS 源 mip 直搬 cap-1024 档" },
+        "linlut_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "g11_3_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "entries_matched", "entries_total"],
+          "properties": {
+            "path": { "type": "string", "const": "milestones/g11/g11_3_dds_transcode_manifest.json" },
+            "entries_matched": { "type": "integer", "minimum": 0 },
+            "entries_total": { "type": "integer", "const": 70 }
+          }
+        },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uv_law", "probe_count", "eval_ms", "ssbo", "sampler_leg"],
+          "properties": {
+            "uv_law": { "type": "string", "description": "24/槽（16 网格 + 4 精确边缘 + 4 wrap 域）× 抽样 mip 级 {0, mips/2, mips−1} 去重；步幅 4 [slot,u,v,lod]" },
+            "probe_count": { "type": "integer", "minimum": 24, "description": "Σ_槽 24×抽样级数（律法由 smoke 独立重算互核；bistro 70 槽全 3 级 = 5040）" },
+            "eval_ms": { "type": "number", "minimum": 0 },
+            "ssbo": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["p100", "bitexact", "double_run_bitexact", "device_digest", "host_digest"],
+              "properties": {
+                "p100": { "type": "number", "minimum": 0 },
+                "bitexact": { "type": "boolean" },
+                "double_run_bitexact": { "type": "boolean" },
+                "device_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+              }
+            },
+            "sampler_leg": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["max_lsb_diff", "bound_lsb", "bitexact", "digest", "host_digest", "structural_basis"],
+              "properties": {
+                "max_lsb_diff": { "type": "integer", "minimum": 0, "maximum": 255 },
+                "bound_lsb": { "type": "integer", "const": 1 },
+                "bitexact": { "type": "boolean" },
+                "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "host_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                "structural_basis": { "type": "string" }
+              }
+            }
+          }
+        },
+        "quality_arms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "smooth_normals",
+            "ggx",
+            "lamp_lights",
+            "lamp_gain",
+            "lamp_k",
+            "lamp_contrib",
+            "bloom",
+            "dither",
+            "auto_exposure",
+            "gi2",
+            "gi2_scale",
+            "gi2_clamp"
+          ],
+          "properties": {
+            "smooth_normals": { "type": "boolean" },
+            "ggx": { "type": "boolean" },
+            "lamp_lights": { "type": "boolean" },
+            "lamp_gain": { "type": "number" },
+            "lamp_k": { "type": "integer" },
+            "lamp_contrib": { "type": "number" },
+            "bloom": { "type": "boolean" },
+            "dither": { "type": "boolean" },
+            "auto_exposure": { "type": "boolean" },
+            "gi2": { "type": "boolean" },
+            "gi2_scale": { "type": "number" },
+            "gi2_clamp": { "type": "number" }
+          }
+        },
+        "spv_texture": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "no_contraction_injected"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "no_contraction_injected": { "type": "boolean", "const": true }
+          }
+        },
+        "spv_texture_probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "no_contraction_injected"],
+          "properties": {
+            "path": { "type": "string" },
+            "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "no_contraction_injected": { "type": "boolean", "const": true }
+          }
+        },
+        "gaps": { "type": "string" }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["render_cv", "render_min_ms", "render_max_ms", "encode_gpu_ms", "present_cv", "present_min_ms", "present_max_ms"],
+      "properties": {
+        "render_cv": { "type": "number" },
+        "render_min_ms": { "type": "number" },
+        "render_max_ms": { "type": "number" },
+        "encode_gpu_ms": { "type": "number", "minimum": 0 },
+        "present_cv": { "type": ["number", "null"] },
+        "present_min_ms": { "type": ["number", "null"] },
+        "present_max_ms": { "type": ["number", "null"] }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "headless": { "const": false } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "object" },
+          "present_frame_ms": { "type": "number", "exclusiveMinimum": 0 },
+          "present_overhead_ms": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "headless": { "const": true } }, "required": ["headless"] },
+      "then": {
+        "properties": {
+          "window": { "type": "null" },
+          "present_frame_ms": { "type": "null" },
+          "present_overhead_ms": { "type": "null" }
+        }
+      }
+    }
+  ]
+}

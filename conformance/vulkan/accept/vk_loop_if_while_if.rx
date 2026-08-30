@@ -1,0 +1,26 @@
+//@ spec: RXS-0203
+// G37 W1 回归语料——day_0828 A1「if 包 while」缺陷的**字面触发形态**(修复前
+// spirv-val 拒:`block <ID> branches to the selection construct, but not to the
+// selection header`):while 包 if 包 (while + 后随 if)。外层循环回边使 CFG 有环,
+// structured_merge 若不裁剪回边,else 臂绕环把 then 目标算进共同可达集且以更小
+// max 距离胜出 → OpSelectionMerge 指向 then 臂内块。对应 A1 灯循环内贡献剔除
+// gate(gate 内阴影射线 while + 命中判定 if)的最小化。
+kernel fn loop_if_while_if(out: ViewMut<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut acc = 0.0;
+    let mut li = 0usize;
+    while li < n {
+        if acc < 100.0 {
+            let mut j = 0usize;
+            while j < 4usize {
+                acc = acc + 1.0;
+                j = j + 1;
+            }
+            if acc > 2.0 {
+                acc = acc * 0.5;
+            }
+        }
+        li = li + 1;
+    }
+    out[i] = acc;
+}

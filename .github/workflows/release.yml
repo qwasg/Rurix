@@ -173,17 +173,25 @@ jobs:
           Write-Output "红绿 + evidence/release_pipeline_smoke.json;生产签名(Azure Artifact Signing)经 secret"
           Write-Output "+ 人工门控,本 job 不自动调用(spec/release.md §4 禁区 0-byte)。"
 
-      # ③④ rurixup release 3 组件编排(rx.exe + rurixup.exe + crt-static rurix_rt_cabi.lib)
-      #     + SHA256SUMS(rurixup release 产出,干名字典序确定性,RXS-0218)。
-      - name: rurixup release 3-component orchestration + SHA256SUMS (RXS-0218)
+      # ③④ rurixup release 组件编排:3 二进制(rx.exe + rurixup.exe + crt-static rurix_rt_cabi.lib)
+      #     + 4 许可/声明件(LICENSE-MIT / LICENSE-APACHE / THIRD_PARTY_NOTICES.md / 内嵌第三方
+      #     SBOM 补充——GAP-01 随附义务闭合)+ SHA256SUMS(rurixup release 产出,干名字典序确定性,
+      #     RXS-0218)。二进制许可段 = MIT OR Apache-2.0(== Cargo workspace.package license 字面,
+      #     GAP-02 闭合;2026-08-29 G37 W5,登记 = milestones/g31/g31_vendor_license_matrix.json
+      #     gaps[].closure 追加段;机核 = ci/g31_vendor_license_smoke.py closure 腿)。
+      - name: rurixup release component orchestration + licenses + SHA256SUMS (RXS-0218)
         shell: powershell
         run: |
           $ver = $env:REL_VERSION
           New-Item -ItemType Directory -Force target/release_dist | Out-Null
           & target/release/rurixup.exe release --version $ver `
-            --component "rx.exe|$ver|Apache-2.0|core|target/release/rx.exe" `
-            --component "rurixup.exe|$ver|Apache-2.0|core|target/release/rurixup.exe" `
-            --component "rurix_rt_cabi.lib|$ver|Apache-2.0|core|target/crt-static/release/rurix_rt_cabi.lib" `
+            --component "rx.exe|$ver|MIT OR Apache-2.0|core|target/release/rx.exe" `
+            --component "rurixup.exe|$ver|MIT OR Apache-2.0|core|target/release/rurixup.exe" `
+            --component "rurix_rt_cabi.lib|$ver|MIT OR Apache-2.0|core|target/crt-static/release/rurix_rt_cabi.lib" `
+            --component "LICENSE-MIT|$ver|MIT|core|LICENSE-MIT" `
+            --component "LICENSE-APACHE|$ver|Apache-2.0|core|LICENSE-APACHE" `
+            --component "THIRD_PARTY_NOTICES.md|$ver|MIT OR Apache-2.0|core|dist/licenses/THIRD_PARTY_NOTICES.md" `
+            --component "third_party_embedded.cdx.json|$ver|MIT OR Apache-2.0|core|dist/sbom/third_party_embedded.cdx.json" `
             --sign "rx.exe|Valid|true|selftest" `
             --sign "rurixup.exe|Valid|true|selftest" `
             --sign "rurix_rt_cabi.lib|Valid|true|selftest" `
@@ -194,7 +202,7 @@ jobs:
 
       # ⑤ Release 对象与资产上传:Release/tag 一律 run 内 gh release create + upload 以
       #    github.token(GITHUB_TOKEN 事件不触发新 workflow,天然免二次触发;禁手工推演练 tag)。
-      #    资产 = 3 裸文件 + bundle/channel/SBOM×2/签名/门决策 + SHA256SUMS。
+      #    资产 = 3 裸文件 + 4 许可/声明件(GAP-01 随附义务) + bundle/channel/SBOM×2/签名/门决策 + SHA256SUMS。
       - name: gh release create + upload (run-internal, github.token; RXS-0218 裁决 D)
         shell: powershell
         env:
@@ -205,6 +213,10 @@ jobs:
             'target/release/rx.exe',
             'target/release/rurixup.exe',
             'target/crt-static/release/rurix_rt_cabi.lib',
+            'LICENSE-MIT',
+            'LICENSE-APACHE',
+            'dist/licenses/THIRD_PARTY_NOTICES.md',
+            'dist/sbom/third_party_embedded.cdx.json',
             'target/release_dist/bundle.json',
             'target/release_dist/channel_manifest.json',
             'target/release_dist/sbom.spdx.json',
@@ -213,7 +225,7 @@ jobs:
             'target/release_dist/gate_decision.json',
             'target/release_dist/SHA256SUMS'
           )
-          $notes = "Rurix $ver — 自签测试证书(selftest)非生产信任根;3 组件含 crt-static rurix_rt_cabi.lib(v1.0.0 缺此件,无 Rust 环境含 GPU 面 rx build 必死)。安装前须 owner 合并信任根登记 PR(channels/stable.json)。"
+          $notes = "Rurix $ver — 自签测试证书(selftest)非生产信任根;3 二进制含 crt-static rurix_rt_cabi.lib(v1.0.0 缺此件,无 Rust 环境含 GPU 面 rx build 必死)。随附 LICENSE-MIT/LICENSE-APACHE/THIRD_PARTY_NOTICES.md 与内嵌第三方 SBOM 补充(GAP-01~03 附带义务闭合,2026-08-29)。安装前须 owner 合并信任根登记 PR(channels/stable.json)。"
           $args = @('release','create',$ver,'--title',$ver,'--notes',$notes) + $assets
           if ($env:REL_PRERELEASE -eq 'true') { $args += '--prerelease' }
           & gh @args

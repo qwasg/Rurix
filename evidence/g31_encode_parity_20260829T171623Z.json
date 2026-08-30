@@ -1,0 +1,72 @@
+{
+  "schema": "rurix.g31.encode_parity_smoke_evidence.v1",
+  "subject": "g31_encode_parity",
+  "symbolic_gate_key": "g31.g37w1.encode_parity",
+  "wave": "G37.W1",
+  "caliber": "同帧 GPU 切层：RURIX_G31_DUMP_F32=1 末帧 TSR f32 + --dump-present-raw 同帧 presented 字节;host = display::aces13 f64 金标准逐字向量化（单源 artifacts/day_0828/recon/bluefan_encode_sim.py）+ BT.1886 v^(1/2.4) + floor(v·255+0.5);臂 = 显式 --quality off 静态契约相机 8+2（aeg=1.0/dither off）",
+  "harness": {
+    "bin": "target/release/g31_window_present.exe",
+    "frames_completed": 8,
+    "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+    "validation_silent": true,
+    "encode_spv": {
+      "path": ".tmp/night_0828/spv/g31_display_encode_v2.spv",
+      "sha256": "sha256:e7291c7936a08f185614060c48077104e2929280cba9613653c29fd7eca94b2d"
+    }
+  },
+  "parity": {
+    "pixels": 2073600,
+    "exact_match": 2073374,
+    "exact_match_pct": 99.9891,
+    "diff_p50_lsb": 0.0,
+    "diff_p99_lsb": 0.0,
+    "diff_p100_lsb": 1,
+    "pixels_gt_1lsb": 0,
+    "pixels_gt_2lsb": 0,
+    "worst_pixel": {
+      "x": 179,
+      "y": 159,
+      "measured_rgb": [
+        3,
+        0,
+        0
+      ],
+      "predicted_rgb": [
+        2,
+        0,
+        0
+      ]
+    }
+  },
+  "gray_018_design_point": {
+    "host_f64_rgb8": [
+      99,
+      99,
+      99
+    ],
+    "kernel_f32_sim_rgb8": [
+      99,
+      99,
+      99
+    ],
+    "transposed_bug_sim_rgb8": [
+      47,
+      47,
+      47
+    ],
+    "ok": true,
+    "transposed_detected": true
+  },
+  "thresholds": {
+    "exact_match_pct_min": 99.9,
+    "pixels_gt_1lsb_max": 0,
+    "diff_p100_lsb_max": 1
+  },
+  "environment": {
+    "os": "nt-win32",
+    "python_version": "3.12.1",
+    "host": "RTX 4070 Ti + Vulkan"
+  },
+  "timestamp": "2026-08-29T17:16:23Z",
+  "notes": "G37 W1:encode_parity_probe.py（day_0828 A2b）转正 encode 改动硬门——夜巡确定性 digest不验 host parity,ACES 样条转置 bug 即此漏网通道;本门 device-vs-host 逐像素逐通道对拍（>1LSB=0 硬门）+ 0.18 灰设计点 + 转置形态防复发臂（selftest 纯 CPU 消费）"
+}

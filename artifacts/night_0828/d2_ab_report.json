@@ -1,0 +1,90 @@
+{
+  "off": {
+    "converged_digest": "sha256:cde1b2551e5b2f7777e76adcb72a2d47e851bc737e49f9f526e82c5444f9ba7d",
+    "scene_gpu_ms": 8.609697627118644,
+    "frame_ms_mean": 135.9673711864407
+  },
+  "on": {
+    "converged_digest": "sha256:778f1dfcd2e2c163af79879f8e0e804000674a2db291283b9f42569c03eaac76",
+    "scene_gpu_ms": 9.193515118644068,
+    "frame_ms_mean": 142.57133983050846
+  },
+  "grain": {
+    "wall": {
+      "off": {
+        "frames_used": 16,
+        "roi": [
+          1400,
+          150,
+          480,
+          270
+        ],
+        "temporal_std_mean": 0.0011299009056515345,
+        "temporal_std_p95": 6.249197232530664e-05,
+        "temporal_rel_mean": 0.0103902983039841,
+        "temporal_rel_p95": 0.05840237985802405,
+        "mean_luma": 0.020719120585353006,
+        "converged_highpass_mean": 0.0009048581793314342,
+        "converged_highpass_p95": 0.00021860332504361078,
+        "converged_highpass_rel": 0.21896459403137428
+      },
+      "on": {
+        "frames_used": 16,
+        "roi": [
+          1400,
+          150,
+          480,
+          270
+        ],
+        "temporal_std_mean": 0.0011308642142831514,
+        "temporal_std_p95": 3.7151445718039e-05,
+        "temporal_rel_mean": 0.00900237667834261,
+        "temporal_rel_p95": 0.04410378704830036,
+        "mean_luma": 0.020705982460942813,
+        "converged_highpass_mean": 0.0009076447264695975,
+        "converged_highpass_p95": 0.0002059165024688185,
+        "converged_highpass_rel": 0.22054188116709667
+      }
+    },
+    "floor": {
+      "off": {
+        "frames_used": 16,
+        "roi": [
+          1100,
+          800,
+          480,
+          270
+        ],
+        "temporal_std_mean": 4.3410968886323435e-06,
+        "temporal_std_p95": 2.5731652393964438e-05,
+        "temporal_rel_mean": 0.019600158404181615,
+        "temporal_rel_p95": 0.11994205000652948,
+        "mean_luma": 0.0003046539989939019,
+        "converged_highpass_mean": 8.148423607874666e-06,
+        "converged_highpass_p95": 4.835924366944694e-05,
+        "converged_highpass_rel": 0.04154798500795862
+      },
+      "on": {
+        "frames_used": 16,
+        "roi": [
+          1100,
+          800,
+          480,
+          270
+        ],
+        "temporal_std_mean": 4.355211089998835e-06,
+        "temporal_std_p95": 2.5943648884743818e-05,
+        "temporal_rel_mean": 0.019711372630436465,
+        "temporal_rel_p95": 0.12071401487812908,
+        "mean_luma": 0.00030397086027266905,
+        "converged_highpass_mean": 8.148633552981447e-06,
+        "converged_highpass_p95": 4.8538939380957e-05,
+        "converged_highpass_rel": 0.04153717925313961
+      }
+    }
+  },
+  "stage_a_zero_drift": true,
+  "wiring_live": true,
+  "perf_delta_ms": 0.5838,
+  "perf_ratio": 1.0678
+}

@@ -1,0 +1,17 @@
+{
+  "frames_used": 16,
+  "roi": [
+    1100,
+    800,
+    480,
+    270
+  ],
+  "temporal_std_mean": 4.3410968886323435e-06,
+  "temporal_std_p95": 2.5731652393964438e-05,
+  "temporal_rel_mean": 0.019600158404181615,
+  "temporal_rel_p95": 0.11994205000652948,
+  "mean_luma": 0.0003046539989939019,
+  "converged_highpass_mean": 8.148423607874666e-06,
+  "converged_highpass_p95": 4.835924366944694e-05,
+  "converged_highpass_rel": 0.04154798500795862
+}

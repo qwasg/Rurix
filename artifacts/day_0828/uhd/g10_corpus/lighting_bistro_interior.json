@@ -1,0 +1,184 @@
+{
+  "schema": "rurix.g10.lighting_params.v1",
+  "scene_id": "bistro-interior",
+  "lights": [
+    {
+      "type": "directional",
+      "direction": [
+        -0.3,
+        -1.0,
+        0.2
+      ],
+      "color": [
+        1.0,
+        0.98,
+        0.95,
+        1.0
+      ],
+      "intensity": 300.0
+    }
+  ],
+  "note": "G10.5a 光照校准：sun 强度 3.0→300.0（原始登记值在室内 GI 主导面下中位亮度 0.0027，按本波取景校准义务上调至可判读区间；方向/色相维持原登记）；emissive surfaces 灯种缺口维持 G10.3 登记（Rurix 侧不表达，进差距清单候选）",
+  "point_lights": [
+    {
+      "id": "pointLight1",
+      "node_name": "pointLight1",
+      "position": [
+        4.99128818511963,
+        3.03062701225281,
+        -0.488619118928909
+      ],
+      "color_linear_rgb": [
+        1.0002770983638491,
+        0.9998896404483147,
+        1.0002772581608164
+      ],
+      "intensity_cd": 0.0182327231840096,
+      "emit_direction": [
+        8.275201621091572e-08,
+        -0.9999999999753826,
+        -7.0162755117504905e-06
+      ],
+      "area_m2": 0.8177257462771037,
+      "covers_material_index": 39,
+      "derived_from": "glTF 节点 pointLight1 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_03_2360（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+    },
+    {
+      "id": "pointLight2",
+      "node_name": "pointLight2",
+      "position": [
+        7.98878049850464,
+        3.07426261901855,
+        1.01506114006042
+      ],
+      "color_linear_rgb": [
+        1.0002770983638491,
+        0.9998896404483147,
+        1.0002772581608164
+      ],
+      "intensity_cd": 0.018232727297410593,
+      "emit_direction": [
+        1.265192627913875e-15,
+        -0.9999999999999993,
+        -3.4228542647094395e-08
+      ],
+      "area_m2": 0.8177259307604562,
+      "covers_material_index": 39,
+      "derived_from": "glTF 节点 pointLight2 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_04_2362（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+    },
+    {
+      "id": "pointLight3",
+      "node_name": "pointLight3",
+      "position": [
+        4.2630033493042,
+        3.09528660774231,
+        -4.91985368728638
+      ],
+      "color_linear_rgb": [
+        1.0002770983638491,
+        0.9998896404483147,
+        1.0002772581608164
+      ],
+      "intensity_cd": 0.01823272829210542,
+      "emit_direction": [
+        2.09518964613716e-15,
+        -0.9999999999999996,
+        -3.4228542304081157e-08
+      ],
+      "area_m2": 0.8177259753718705,
+      "covers_material_index": 39,
+      "derived_from": "glTF 节点 pointLight3 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_02_2358（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817726 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+    },
+    {
+      "id": "pointLight4",
+      "node_name": "pointLight4",
+      "position": [
+        6.10688591003418,
+        2.93938684463501,
+        -8.46832180023193
+      ],
+      "color_linear_rgb": [
+        1.0002770983638491,
+        0.9998896404483147,
+        1.0002772581608164
+      ],
+      "intensity_cd": 0.018232712634885177,
+      "emit_direction": [
+        2.647709509001796e-15,
+        -0.9999999999999996,
+        -3.422854635870733e-08
+      ],
+      "area_m2": 0.8177252731557519,
+      "covers_material_index": 39,
+      "derived_from": "glTF 节点 pointLight4 位姿 + 关联灯具 Bistro_Research_Interior_Paris_Ceiling_Light_01_2356（最近质心关联）：Le=[0.022303046620219962, 0.022294407522146363, 0.022303050183191876]（emissiveFactor×emissiveTexture 线性均值） × A=0.817725 m² ⇒ I₀=Le×A（朗伯轴向）；covers_material_index=39（NEE 覆盖面——GI 面 Le 整零排除防双重计数）"
+    }
+  ],
+  "emissive_surfaces": [
+    {
+      "material_index": 38,
+      "material_name": "MASTER_Interior_01_Paris_Lantern",
+      "le_linear_rgb": [
+        0.09250373992864466,
+        0.09254488353712752,
+        0.09250366850103448
+      ],
+      "area_m2": 1.0216790940526566,
+      "texture_ref": {
+        "source_uri": "MASTER_Interior_01_Paris_Lantern_Emissive.dds",
+        "source_digest": "sha256:c673e5e8987a900ba4bec81233e9b92986de1894575b5081ee6e948eced31fa5",
+        "product_digest": "sha256:de5005a89c3148264149879ae2325eaf208c58500ae9c9b0ea37c9c416467d75"
+      }
+    },
+    {
+      "material_index": 39,
+      "material_name": "Paris_Ceiling_Lamp",
+      "le_linear_rgb": [
+        0.022303046620219962,
+        0.022294407522146363,
+        0.022303050183191876
+      ],
+      "area_m2": 3.2709029255651823,
+      "texture_ref": {
+        "source_uri": "Paris_Ceiling_Lamp_Emissive.dds",
+        "source_digest": "sha256:d5f0f503e1a3379673fc957c126649aec987b8487a3ed409196f1f0e55395308",
+        "product_digest": "sha256:8f2b588edeebabccb00bdc9e320099cb56d60b9e46fd50e6e8386539785c5a55"
+      }
+    },
+    {
+      "material_index": 40,
+      "material_name": "Paris_CeilingFan",
+      "le_linear_rgb": [
+        0.02230393520866327,
+        0.01585528684005825,
+        0.0066437204704917815
+      ],
+      "area_m2": 2.8216118446875447,
+      "texture_ref": {
+        "source_uri": "Paris_CeilingFan_Emissive.dds",
+        "source_digest": "sha256:cc0012e99fc7deee659d196b4711b7eab65dab9eb8fa5a2bb24af18b15ba85b5",
+        "product_digest": "sha256:ad7eae86e56e08e6f6783804104da85eb20701ca1a883f0362dc07096ce35411"
+      }
+    },
+    {
+      "material_index": 59,
+      "material_name": "Paris_Wall_Light_Interior",
+      "le_linear_rgb": [
+        0.22171508590621858,
+        0.221896437368776,
+        0.22171508590621858
+      ],
+      "area_m2": 2.6090147497318235,
+      "texture_ref": {
+        "source_uri": "Paris_Wall_Light_Interior_Emissive.dds",
+        "source_digest": "sha256:f6e92d392c405e003e6f46653efc5bfdaaa71b919756c5fe560f33ea020cf4f8",
+        "product_digest": "sha256:4d7cac1b12ae72ba4d4c9f96664f46033758cafc5030722848f046d023f742b4"
+      }
+    }
+  ],
+  "derived": {
+    "by": "milestones/g11/harness/g11_4_light_derive.py",
+    "at": "2026-08-16",
+    "rule": "RXS-0394 L3（I₀=Le×A；朗伯余弦瓣；近场钳制 d²_eff=max(d²,A/π)）",
+    "report": "milestones/g11/g11_4_light_derivation.json"
+  }
+}

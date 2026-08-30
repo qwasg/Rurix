@@ -1,0 +1,6 @@
+{
+  "src/rurix-render/kernels/g34_unified_primary.rx": "sha256:469d8195e93311ac1cc28273937f1888618e3134aa788f26a64c56506cd72fec",
+  "src/rurix-render/kernels/g34_unified_gi_skin.rx": "sha256:62f9a8ceac48a55b783a9dece4d155cee9219b3c879a73effcbc0be8beb78cc4",
+  "src/rurix-render/kernels/g34_unified_mv.rx": "sha256:2823bcb21dcf4b1bdc0e42888e1f4a73710709d7554b37202a3eb23581426aff",
+  "src/rurix-render/kernels/g31_skin.rx": "sha256:09e3af93a31965e90799cec6e780f4f6ae337bd93b143449aa815b36d8a5fe23"
+}

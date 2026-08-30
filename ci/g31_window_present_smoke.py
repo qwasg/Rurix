@@ -363,6 +363,11 @@ def main() -> int:
             "--frames", str(args.frames),
             "--warmup", str(args.warmup),
             "--hidden",
+            # G37 W6:默认翻转后本门 A 类化——门语义 = 波 A present 口径恒等式
+            # (与画质形态无关),evidence schema 闭集钉死 off 形态;full 默认下
+            # evidence 走 texture 分支 schema 必红(W6 首跑实证),补显式 off。
+            # @新默认 soak/风暴由 w6_full_soak.py 与 W4 s07 承载。
+            "--quality", "off",
             "--evidence", str(HARNESS_EVIDENCE),
         ]
         with gpu_device_lock(purpose="g31 waveA window present device 腿"):

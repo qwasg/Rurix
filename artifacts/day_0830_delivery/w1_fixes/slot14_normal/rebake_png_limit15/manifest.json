@@ -1,0 +1,458 @@
+{
+ "schema": "rurix.day0829.a4_normalmap.bake_manifest.v1",
+ "gltf": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+ "gltf_sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+ "slot_law": "g31_tex_load_heap top-70 同律:逐材质三角数降序,并列 material_index 升序;三角数=nodes[]序×primitive accessors[indices].count/3（mode==4/indices 强制,无 material 不计）",
+ "bc5_law": "BC5=R/G 两 BC4 块（各 8B:2 端点+16×3bit LE）;标准 D3D/bcdec 表 gt:((8-n)e0+(n-1)e1)//7, le:((6-n)e0+(n-1)e1)//5,idx6=0,idx7=255;整数地板除",
+ "wiring_note": "lane_body bc4_alpha 现行系数族 (8-(n-1))/7 较标准多 +e0/7（BC3-A 休眠面 kernel 不消费）;臂④运行时接线必须用标准表",
+ "png_law": "RGB8: R=X, G=Y, B=128 常量;mip0-only（源 DDS 自带完整 mip 链,运行时接线按 DDS 逐级解码零重采样或 .rgba8bin 容器路线,PNG 非运行时消费件）",
+ "counts": {
+  "materials_total": 70,
+  "with_normal_texture": 70,
+  "slots_ranked": 70,
+  "baked": 15,
+  "anomalies": 0
+ },
+ "limit": 15,
+ "entries": [
+  {
+   "slot": 0,
+   "material_index": 7,
+   "material_name": "TransparentGlass.DoubleSided",
+   "tris": 130792,
+   "source_uri": "TransparentGlass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot00_TransparentGlass_DoubleSided.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 1,
+   "material_index": 41,
+   "material_name": "Paris_Table_03",
+   "tris": 121816,
+   "source_uri": "Paris_Table_03_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1d4689004bd019ec5789761138876e877584b634f8c851ef7c6059ecef664cde",
+   "file": "slot01_Paris_Table_03.png",
+   "png_sha256": "sha256:03dc40089cfed7fa9bcbde4f3d691cfdf2a86c41b25219807b22a44d6b54fe7a",
+   "mean_xy": [
+    127.547,
+    127.159
+   ],
+   "min_xy": [
+    119,
+    123
+   ],
+   "max_xy": [
+    137,
+    132
+   ]
+  },
+  {
+   "slot": 2,
+   "material_index": 54,
+   "material_name": "Plates_Ceramic",
+   "tris": 99582,
+   "source_uri": "Plates_Ceramic_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:85d18cccfcdd39a35ff125a63ec0e8a71bc8a1255b749aefed6534b4bc4b3bcf",
+   "file": "slot02_Plates_Ceramic.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 3,
+   "material_index": 22,
+   "material_name": "Paris_BarStool",
+   "tris": 56658,
+   "source_uri": "Paris_BarStool_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:068f012e87dbe65fbf6515900db7c0e9741d3384d43c69672485da25754612d8",
+   "file": "slot03_Paris_BarStool.png",
+   "png_sha256": "sha256:7c86c948fffa5cb9ace130c8c5c923c8a112ebb0e9da2dcbfe7a256381bf7903",
+   "mean_xy": [
+    127.539,
+    127.375
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    254
+   ]
+  },
+  {
+   "slot": 4,
+   "material_index": 47,
+   "material_name": "Paris_LiquorBottle_02_Glass",
+   "tris": 51324,
+   "source_uri": "Paris_LiquorBottle_02_Glass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot04_Paris_LiquorBottle_02_Glass.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 5,
+   "material_index": 9,
+   "material_name": "Paris_LiquorBottle_01_Caps",
+   "tris": 49714,
+   "source_uri": "Paris_LiquorBottle_01_Caps_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:fbbabcaf2c591b8e095f5623d1bf876f66633d1c9c3fd9a5064855d722b540d1",
+   "file": "slot05_Paris_LiquorBottle_01_Caps.png",
+   "png_sha256": "sha256:4d629b0505bef76aa0376fbf7f7205383c46a90c30ddc037c1ba30400dc37b31",
+   "mean_xy": [
+    127.083,
+    121.127
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    253,
+    254
+   ]
+  },
+  {
+   "slot": 6,
+   "material_index": 55,
+   "material_name": "Paris_Radiator",
+   "tris": 39216,
+   "source_uri": "Paris_Radiator_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:a79fda89d098a0f0b81a808fab681e93d9297ad690595b73d56de1e48c47f152",
+   "file": "slot06_Paris_Radiator.png",
+   "png_sha256": "sha256:ea97c656e6f8fd3a372074770776d31344b8a337397b8e93942095bd7654d17c",
+   "mean_xy": [
+    128.727,
+    126.654
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    254
+   ]
+  },
+  {
+   "slot": 7,
+   "material_index": 5,
+   "material_name": "ToffeeJar_Label",
+   "tris": 32935,
+   "source_uri": "ToffeeJar_Label_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1612c6ad4fab452180950e61c3826a4f2fc1c3b8298f829b88f86a0503d37142",
+   "file": "slot07_ToffeeJar_Label.png",
+   "png_sha256": "sha256:841c25b090887181d24dcf5ac663d4c1669e63eda425c5c80b3c3d3890d26291",
+   "mean_xy": [
+    127.606,
+    127.612
+   ],
+   "min_xy": [
+    110,
+    111
+   ],
+   "max_xy": [
+    144,
+    143
+   ]
+  },
+  {
+   "slot": 8,
+   "material_index": 63,
+   "material_name": "WickerBasket",
+   "tris": 29925,
+   "source_uri": "WickerBasket_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:33f11dfeb29a3e544c1b8e94c44c3d31685909ff3ec7d4fa7d76f8bced5536c9",
+   "file": "slot08_WickerBasket.png",
+   "png_sha256": "sha256:d53a7f825ef3d264c71a6021879a2677f0fd616ec08781bc443ecdc29509298e",
+   "mean_xy": [
+    135.924,
+    116.135
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    254,
+    252
+   ]
+  },
+  {
+   "slot": 9,
+   "material_index": 42,
+   "material_name": "Metal_Worn_01",
+   "tris": 29630,
+   "source_uri": "Metal_Worn_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:3c690eece4bbc88a6227b739b582e5fada1f2d16cbaf5b355513f92b82786c4f",
+   "file": "slot09_Metal_Worn_01.png",
+   "png_sha256": "sha256:736454d3b2034b43c7bb0146f02c57edf1244d2f748e123b7bb6304bffc6a652",
+   "mean_xy": [
+    126.1,
+    125.986
+   ],
+   "min_xy": [
+    94,
+    92
+   ],
+   "max_xy": [
+    149,
+    154
+   ]
+  },
+  {
+   "slot": 10,
+   "material_index": 8,
+   "material_name": "Paris_LiquorBottle_01_Glass_Wine",
+   "tris": 28308,
+   "source_uri": "Paris_LiquorBottle_01_Glass_Wine_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot10_Paris_LiquorBottle_01_Glass_Wine.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 11,
+   "material_index": 15,
+   "material_name": "Cutlery_chrome",
+   "tris": 27978,
+   "source_uri": "Cutlery_chrome_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:1223d4aa14002ddb62e4894fceb6671a7c448db447df08fafef537bcb4cbaeab",
+   "file": "slot11_Cutlery_chrome.png",
+   "png_sha256": "sha256:d12652af6836984943c1d9fafbe203934524feaa203309db782c1716471aff68",
+   "mean_xy": [
+    127.535,
+    127.969
+   ],
+   "min_xy": [
+    115,
+    117
+   ],
+   "max_xy": [
+    136,
+    139
+   ]
+  },
+  {
+   "slot": 12,
+   "material_index": 14,
+   "material_name": "curtainB1",
+   "tris": 26252,
+   "source_uri": "curtainB1_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:7fd5afd433c9c7fb679a9521b4eed85540787609beffd22715c42e12cd20d3c2",
+   "file": "slot12_curtainB1.png",
+   "png_sha256": "sha256:da91e73345d4bd23fa08381c05af9e6e239e8ffc577747f162aeb8023afe0c6a",
+   "mean_xy": [
+    124.408,
+    131.302
+   ],
+   "min_xy": [
+    0,
+    0
+   ],
+   "max_xy": [
+    255,
+    255
+   ]
+  },
+  {
+   "slot": 13,
+   "material_index": 48,
+   "material_name": "Paris_LiquorBottle_01_Glass",
+   "tris": 24352,
+   "source_uri": "Paris_LiquorBottle_01_Glass_Normal.dds",
+   "width": 1,
+   "height": 1,
+   "mips_raw": 0,
+   "mips_effective": 1,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:4b8431bd4379641037c0214a5707d948951d679462acc59a7a525e30b0aeadb5",
+   "file": "slot13_Paris_LiquorBottle_01_Glass.png",
+   "png_sha256": "sha256:629a1241fe6d5e51b0919c2ba86135341b28d9200f32acf898daf6d4f80aaaed",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ]
+  },
+  {
+   "slot": 14,
+   "material_index": 12,
+   "material_name": "Paris_Table_cloth_01",
+   "tris": 24088,
+   "source_uri": "Paris_Table_cloth_01_Normal.dds",
+   "width": 2048,
+   "height": 2048,
+   "mips_raw": 12,
+   "mips_effective": 12,
+   "fourcc": "ATI2",
+   "dxgi_format": null,
+   "source_sha256": "sha256:cee68892ce8414032350389cd24ebcb44753ff9d02441f99bd24819d3e9a520c",
+   "file": "slot14_Paris_Table_cloth_01.png",
+   "png_sha256": "sha256:c020d024e25be64fc498b50b2613be6d99055167bcc71ada52fac596407ca595",
+   "mean_xy": [
+    127.0,
+    127.0
+   ],
+   "min_xy": [
+    127,
+    127
+   ],
+   "max_xy": [
+    127,
+    127
+   ],
+   "sanitized": {
+    "reason": "illegal_const_normal",
+    "const_rg": [
+     53,
+     53
+    ],
+    "decoded_xy": [
+     -0.582677,
+     -0.582677
+    ],
+    "norm_l1": 1.165354,
+    "norm_l2": 0.82403,
+    "replaced_with_rg": [
+     127,
+     127
+    ],
+    "law": "mip0 整张常值且 ‖xy‖₁>1（(byte−127)/127 解码）⇒ 全链替换平坦 (127,127)（法线=+Z）;HANDOVER §H 登记修法"
+   }
+  }
+ ],
+ "anomalies": []
+}

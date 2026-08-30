@@ -1,0 +1,40 @@
+{
+  "schema": "rurix.day0828.a3_tuning.v1",
+  "date": "2026-08-28",
+  "purpose": "Phase A3 灯光+曝光定档验收（lamp-gain 档位选择 + 全栈组合确认，encode 样条修复后口径）",
+  "arms": {
+    "g4": {
+      "cmd_flags": "--smooth-normals on --ggx on --lamp-lights on --lamp-gain 4 --bloom on --dither on --auto-exposure on (RURIX_G18_AMBIENT=0.004)",
+      "presented_digest": "sha256:693951acbf92b323ff142024ce5028269b481252de5393a05500263e0fb4ed99",
+      "real_render_frame_ms": 9.369656,
+      "fps": 106.728,
+      "luma_8bit": { "mean": 81.04, "p5": 31.13, "p50": 73.63, "p99": 243.84 },
+      "png": "g4.png"
+    },
+    "g16": {
+      "cmd_flags": "同上 --lamp-gain 16",
+      "presented_digest": "sha256:22247d286c383f67f31f3f16b2ad82b186e8d05865dfcf6d29f6aa3d0458ddb0",
+      "real_render_frame_ms": 8.073066,
+      "fps": 123.869,
+      "luma_8bit": { "mean": 83.17, "p5": 26.85, "p50": 73.28, "p99": 232.2 },
+      "png": "g16.png"
+    }
+  },
+  "verdict": {
+    "default_lamp_gain": 4,
+    "rationale": "AE 归一化后两档整体亮度几乎一致（mean 81 vs 83），差异在光照分布：g4 阴影更柔、12 点光近似的多重硬影伪影更隐蔽、p5 暗部可读性略优（31>27）；g16 灯光主导更戏剧化但硬影更显 CG 感，登记为备选档。",
+    "acceptance_vs_plan_a3": {
+      "dark_p5_readable": "PASS（p5 8bit 31 vs 修复前全图近死黑 p5=0）",
+      "mean_target_band": "PASS（presented mean 81/255=0.318 ∈ [0.25,0.55] AE 带；plan 原 0.06-0.12 显示线性带 ≈ 8bit 70-95 亦命中）",
+      "p99_no_blowout": "PASS（243.84 < 255，灯具白 clip 正常）",
+      "scene_gpu_budget": "PASS（bench 口径 scene_gpu 2.88ms ≤ 3ms；窗口全栈 real_render 9.4ms 含回读税 ≈ 107fps）",
+      "anchors": "PASS（默认臂 == Stage A c1d28ad7；窗口 all-off == 55e4a92d 新锚系，A2b 在案）",
+      "visual": "PASS（g4.png/g16.png vs 战前 hero 对照：死黑餐厅→全可读）"
+    }
+  },
+  "known_limitations": [
+    "12 点光近似产生多重硬阴影边界（地板可见影斑重叠），真解 = 面光/PCSS/半影，留窗",
+    "画框/墙面仍为均值 albedo 色块（Phase B 纹理全覆盖治）",
+    "首跑忘设 RURIX_VK_VALIDATION=1 被 fail-closed 拒（rc=1 两跑作废，带 validation 复跑在案）"
+  ]
+}

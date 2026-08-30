@@ -1,0 +1,1 @@
+spirv-val rc=0 (empty output = accepted)

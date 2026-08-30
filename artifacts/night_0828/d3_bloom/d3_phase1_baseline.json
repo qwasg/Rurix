@@ -1,0 +1,40 @@
+{
+  "night_pre": {
+    "exe": "H:\\rurix\\target-night\\release\\g31_window_present.exe",
+    "argv": [
+      "--frames",
+      "8",
+      "--warmup",
+      "2",
+      "--hidden",
+      "--evidence",
+      "H:\\rurix\\artifacts\\night_0828\\d3_bloom\\pre_off_night.json"
+    ],
+    "rc": 0,
+    "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00",
+    "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "real_render_frame_ms": 5.6006,
+    "encode_gpu_ms": 0.105472,
+    "validation_silent": true,
+    "tail": "era 就绪 extent=1920x1080 internal=1920x1080（车道:scene→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）\n[g31_window_present]: 帧 1/10 render=4.905ms(gpu_encode=0.109ms) present=3.528ms digest=0.009ms\n[g31_window_present]: 帧 10/10 render=16.201ms(gpu_encode=0.106ms) present=1.076ms digest=98.635ms\n[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d3_bloom/pre_off_night.json"
+  },
+  "rel_2337": {
+    "exe": "H:\\rurix\\target\\release\\g31_window_present.exe",
+    "argv": [
+      "--frames",
+      "8",
+      "--warmup",
+      "2",
+      "--hidden",
+      "--evidence",
+      "H:\\rurix\\artifacts\\night_0828\\d3_bloom\\pre_off_2337.json"
+    ],
+    "rc": 0,
+    "digest": "sha256:5596a7308b1df26b681ead4d8c321f6c2be5a116ceb98f892aad110da156cd00",
+    "render_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "real_render_frame_ms": 6.03985,
+    "encode_gpu_ms": 0.133632,
+    "validation_silent": true,
+    "tail": " era 就绪 extent=1920x1080 internal=1920x1080（车道:scene→mv→resample→resolve→display_encode（五 pass,fg off）,resize_eras=0）\n[g31_window_present]: 帧 1/10 render=6.483ms(gpu_encode=0.109ms) present=2.404ms digest=0.007ms\n[g31_window_present]: 帧 10/10 render=17.032ms(gpu_encode=0.104ms) present=0.986ms digest=93.937ms\n[g31_window_present]: evidence → H:/rurix/artifacts/night_0828/d3_bloom/pre_off_2337.json"
+  }
+}

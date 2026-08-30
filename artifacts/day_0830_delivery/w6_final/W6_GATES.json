@@ -1,0 +1,217 @@
+{
+ "schema": "rurix.day0830.delivery.w6_gates.v1",
+ "fails": 5,
+ "verdict": "FAIL",
+ "rows": [
+  {
+   "step": "cpu:ci/check_schemas.py",
+   "argv": "py -3 ci/check_schemas.py",
+   "rc": 0,
+   "wall_s": 4.1,
+   "pass": true,
+   "t": "13:31:53"
+  },
+  {
+   "step": "cpu:ci/budget_eval.py",
+   "argv": "py -3 ci/budget_eval.py",
+   "rc": 0,
+   "wall_s": 0.6,
+   "pass": true,
+   "t": "13:31:53"
+  },
+  {
+   "step": "cpu:ci/gpu_device_lock.py",
+   "argv": "py -3 ci/gpu_device_lock.py --selftest",
+   "rc": 0,
+   "wall_s": 3.9,
+   "pass": true,
+   "t": "13:31:57"
+  },
+  {
+   "step": "cpu:ci/g31_encode_parity_smoke.py",
+   "argv": "py -3 ci/g31_encode_parity_smoke.py --selftest",
+   "rc": 0,
+   "wall_s": 0.3,
+   "pass": true,
+   "t": "13:31:58"
+  },
+  {
+   "step": "cpu:ci/g31_texture_sampling_smoke.py",
+   "argv": "py -3 ci/g31_texture_sampling_smoke.py --selftest",
+   "rc": 0,
+   "wall_s": 0.2,
+   "pass": true,
+   "t": "13:31:58"
+  },
+  {
+   "step": "cpu:ci/g31_blocked_probes_smoke.py",
+   "argv": "py -3 ci/g31_blocked_probes_smoke.py --selftest",
+   "rc": 0,
+   "wall_s": 0.2,
+   "pass": true,
+   "t": "13:31:58"
+  },
+  {
+   "step": "cpu:ci/g31_vendor_license_smoke.py",
+   "argv": "py -3 ci/g31_vendor_license_smoke.py --selftest",
+   "rc": 0,
+   "wall_s": 0.2,
+   "pass": true,
+   "t": "13:31:58"
+  },
+  {
+   "step": "gpu:g31_window_present_smoke",
+   "argv": "py -3 ci/g31_window_present_smoke.py --gate g31.waveA.present",
+   "rc": 1,
+   "wall_s": 991.4,
+   "pass": false,
+   "t": "13:48:30",
+   "tail": [
+    "[g31_window_present] $ cargo build -p rurix-render --features vendor-upscale --bin g31_window_present --quiet",
+    "[gpu_device_lock] acquire purpose='g31 waveA window present device 腿' lock=C:\\Users\\苍\\AppData\\Local\\Temp\\rurix-gpu-device.lock",
+    "[gpu_device_lock] holder=pid:57880 purpose='g31 waveA window present device 腿'",
+    "[g31_window_present] $ H:\\rurix\\target\\debug\\g31_window_present.exe --frames 3 --warmup 1 --hidden --evidence H:\\rurix\\.tmp\\g31_gates\\waveA\\harness_evidence.json",
+    "[gpu_device_lock] released purpose='g31 waveA window present device 腿'",
+    "",
+    "[g31_window_present] FAIL (3):",
+    "  - evidence 判据: 闭集外字段 ['camera_poses', 'digest_frame_ms', 'digest_seq', 'emissive', 'ev100_ramp', 'ev100_seq', 'exit_reason', 'frames_completed', 'resize_eras', 'textures', 'trajectory']",
+    "  - evidence 判据: schema ≠ rurix.g31.window_present_evidence.v1: 'rurix.g31.texture_sampling_evidence.v1'",
+    "  - evidence 判据: gate ≠ g31.waveA.present: 'g31.waveB.texture'"
+   ]
+  },
+  {
+   "step": "gpu:g31_frame_pipelining_smoke",
+   "argv": "py -3 ci/g31_frame_pipelining_smoke.py --gate g31.waveA.pipelining",
+   "rc": 0,
+   "wall_s": 831.3,
+   "pass": true,
+   "t": "14:02:21"
+  },
+  {
+   "step": "gpu:g31_game_loop_smoke",
+   "argv": "py -3 ci/g31_game_loop_smoke.py --gate g31.waveA.gameloop",
+   "rc": 1,
+   "wall_s": 1227.2,
+   "pass": false,
+   "t": "14:22:48",
+   "tail": [
+    "  - orbit#1 evidence 判据: 闭集外字段 ['emissive', 'textures']",
+    "  - orbit#1 evidence 判据: schema ≠ rurix.g31.game_loop_evidence.v1: 'rurix.g31.texture_sampling_evidence.v1'",
+    "  - orbit#1 evidence 判据: gate ≠ g31.waveA.gameloop: 'g31.waveB.texture'",
+    "  - orbit#2 evidence 判据: 闭集外字段 ['emissive', 'textures']",
+    "  - orbit#2 evidence 判据: schema ≠ rurix.g31.game_loop_evidence.v1: 'rurix.g31.texture_sampling_evidence.v1'",
+    "  - orbit#2 evidence 判据: gate ≠ g31.waveA.gameloop: 'g31.waveB.texture'",
+    "  - dolly evidence 判据: 闭集外字段 ['emissive', 'textures']",
+    "  - dolly evidence 判据: schema ≠ rurix.g31.game_loop_evidence.v1: 'rurix.g31.texture_sampling_evidence.v1'",
+    "  - dolly evidence 判据: gate ≠ g31.waveA.gameloop: 'g31.waveB.texture'",
+    "  - orbit+ramp evidence 判据: 闭集外字段 ['emissive', 'textures']",
+    "  - orbit+ramp evidence 判据: schema ≠ rurix.g31.game_loop_evidence.v1: 'rurix.g31.texture_sampling_evidence.v1'",
+    "  - orbit+ramp evidence 判据: gate ≠ g31.waveA.gameloop: 'g31.waveB.texture'"
+   ]
+  },
+  {
+   "step": "gpu:g31_dynamic_scene_smoke",
+   "argv": "py -3 ci/g31_dynamic_scene_smoke.py --gate g31.waveA.dynscene",
+   "rc": 0,
+   "wall_s": 1048.7,
+   "pass": true,
+   "t": "14:40:17"
+  },
+  {
+   "step": "gpu:g31_framegen_present_smoke",
+   "argv": "py -3 ci/g31_framegen_present_smoke.py --gate g31.waveA.framegen",
+   "rc": 0,
+   "wall_s": 669.6,
+   "pass": true,
+   "t": "14:51:26"
+  },
+  {
+   "step": "gpu:g31_hzb_wiring_smoke",
+   "argv": "py -3 ci/g31_hzb_wiring_smoke.py --gate g31.waveB.hzb",
+   "rc": 0,
+   "wall_s": 514.1,
+   "pass": true,
+   "t": "15:00:01"
+  },
+  {
+   "step": "gpu:g31_slab_wiring_smoke",
+   "argv": "py -3 ci/g31_slab_wiring_smoke.py --gate g31.waveB.slab",
+   "rc": 0,
+   "wall_s": 450.5,
+   "pass": true,
+   "t": "15:07:31"
+  },
+  {
+   "step": "gpu:g31_svt_smoke",
+   "argv": "py -3 ci/g31_svt_smoke.py --gate g31.waveC.svt",
+   "rc": 1,
+   "wall_s": 128.9,
+   "pass": false,
+   "t": "15:09:40",
+   "tail": [
+    "[g31_svt] GATE FAIL g31.waveC.svt",
+    "",
+    "[g31_svt] FAIL: b4anchor 真跑失败 rc=1: [g31_window_present]: 契约链就绪 contract_digest=sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f g10 转引一致性=pass",
+    "[g14_3_pipeline_perf]: FAIL B4 probe SSBO 腿 device vs host 非位级一致（p100=5.932031e-1 > 0.0 硬门;NoContraction/采样链缺陷即红）",
+    "",
+    "[g31_svt] FAIL: full 真跑失败 rc=1: [g14_3_pipeline_perf]: FAIL --svt on 与 day_0828 Phase B texel heap 纹理形态互斥（SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed 登记,SVT 深修归后续波）",
+    "",
+    "[g31_svt] FAIL: small_a 真跑失败 rc=1: [g14_3_pipeline_perf]: FAIL --svt on 与 day_0828 Phase B texel heap 纹理形态互斥（SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed 登记,SVT 深修归后续波）",
+    "",
+    "[g31_svt] FAIL: small_b 真跑失败 rc=1: [g14_3_pipeline_perf]: FAIL --svt on 与 day_0828 Phase B texel heap 纹理形态互斥（SVT 假设 = 2048 网格图集/texmeta origin/tritex 步幅 1,heap 化未适配——fail-closed 登记,SVT 深修归后续波）",
+    "",
+    "[g31_svt] FAIL: gate evidence schema 自校验红: svt1/p100_vs_direct: -1.0 is less than the minimum of 0; svt2/miss_probes: 0 is less than the minimum of 1; svt2/closed_loop_loaded: 0 is less than the minimum of 1"
+   ]
+  },
+  {
+   "step": "gpu:g31_cluster_lod_smoke",
+   "argv": "py -3 ci/g31_cluster_lod_smoke.py --gate g31.wave58.cluster_lod",
+   "rc": 0,
+   "wall_s": 847.9,
+   "pass": true,
+   "t": "15:23:48"
+  },
+  {
+   "step": "gpu:g31_wp_hlod_smoke",
+   "argv": "py -3 ci/g31_wp_hlod_smoke.py --gate g31.wave95.wp_hlod",
+   "rc": 0,
+   "wall_s": 1004.8,
+   "pass": true,
+   "t": "15:40:33"
+  },
+  {
+   "step": "gpu:g31_profiling_smoke",
+   "argv": "py -3 ci/g31_profiling_smoke.py --gate g31.waveC.profiling",
+   "rc": 1,
+   "wall_s": 410.7,
+   "pass": false,
+   "t": "15:47:23",
+   "tail": [
+    "[gpu_device_lock] released purpose='g31_profiling g31 on/off + g14 on/off 四腿'",
+    "[g31_profiling]   fact profile_schema_compliant: PASS — 双 bin profile JSON 过 g31_profile_output_schema.json Draft7 校验（schema/bin/tolerance const 互核）",
+    "[g31_profiling]   fact pass_decomposition_measured: PASS — g31 五段（scene=0.981327ms）+ g14 四段（scene=0.995183ms）名序全在,frames=24/24,全统计 sane",
+    "[g31_profiling]   fact identity_sum_matches_frame: FAIL — g31: gpu_sum=1.659215 ≤ wall=5.294179+0.10,residual=1.775821ms ∈ [−0.10,2.00];g14: gpu_sum=1.582873 ≤ prod=2.363975+0.10,residual=-0.117433ms",
+    "[g31_profiling]   fact debug_labels_recorded: PASS — g31 active=true annotated=5/5,g14 active=true annotated=4/4（render_exec.rs 逐 pass vkCmdBegin/EndDebugUtilsLabelEXT;Nsight/RenderDoc 可辨识）",
+    "[g31_profiling]   fact profiler_zero_render_drift: PASS — g31 digest+render_digest 双锚位级一致（sha256:f727cef681100114…）,g14 last_frame_digest 位级一致（sha256:101998653e951df2…）",
+    "[g31_profiling]   fact capture_compat_verified: PASS — method=static_checklist_no_renderdoc validation=静默（门腿 rc 全 0,harness 逐帧 validation_error_count==0 fail-closed）blocklist 命中=0（RenderDoc absent 降级登记）",
+    "[g31_profiling]   fact tool_probe_registered: PASS — renderdoc=absent nsight_graphics=absent 双探在档",
+    "[g31_profiling] evidence: .tmp\\g31_gates\\profiling\\gate_fail_20260830T074237Z.json",
+    "[g31_profiling] GATE FAIL g31.waveC.profiling",
+    "",
+    "[g31_profiling] FAIL: gate evidence schema 自校验红: profiles/g14/identity_ok: True was expected"
+   ]
+  },
+  {
+   "step": "gpu:g31_robustness_smoke",
+   "argv": "py -3 ci/g31_robustness_smoke.py --gate g31.waveC.robustness",
+   "rc": 2,
+   "wall_s": 0.1,
+   "pass": false,
+   "t": "15:47:23",
+   "tail": [
+    "usage: g31_robustness_smoke.py [-h] [--gate] [--selftest]",
+    "g31_robustness_smoke.py: error: unrecognized arguments: g31.waveC.robustness"
+   ]
+  }
+ ]
+}

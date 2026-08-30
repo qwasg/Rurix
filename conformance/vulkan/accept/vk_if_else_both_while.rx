@@ -1,0 +1,21 @@
+//@ spec: RXS-0203
+// G37 W1 回归语料(day_0828 A1「if 包 while」codegen 缺陷面):if-else 双臂各含
+// while 循环。两臂各自的循环头/merge 与外层 selection merge 不得交错;spirv-val 接受。
+kernel fn if_else_both_while(out: ViewMut<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut acc = 0.0;
+    if i < n {
+        let mut j = 0usize;
+        while j < 4usize {
+            acc = acc + 1.0;
+            j = j + 1;
+        }
+    } else {
+        let mut k = 0usize;
+        while k < 8usize {
+            acc = acc + 2.0;
+            k = k + 1;
+        }
+    }
+    out[i] = acc;
+}
