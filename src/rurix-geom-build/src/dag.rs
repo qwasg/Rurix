@@ -828,6 +828,65 @@ pub fn build_asset_dag_params(
     })
 }
 
+/// 属性资产链构建错误(G31+ #96 加性面:退化输入域([`AttrMeshError`])与
+/// DAG 构建/单调性域([`DagError`])的并集;Display 逐域转发)。
+#[derive(Debug, Clone, PartialEq)]
+pub enum DagAttrsError {
+    /// 属性输入退化(空网格/索引越界/属性表不齐/非有限)。
+    Attr(AttrMeshError),
+    /// DAG 构建/单调性破坏(资产级入口同域)。
+    Dag(DagError),
+}
+
+impl std::fmt::Display for DagAttrsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DagAttrsError::Attr(e) => write!(f, "{e}"),
+            DagAttrsError::Dag(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for DagAttrsError {}
+
+/// [`build_asset_dag_params`] 的属性保持变体(G31+ #96 加性入口;静态网格
+/// 专用——属性臂无蒙皮语义,蒙皮资产走既有入口)。增值面与资产级入口同律:
+/// 内部 panic 级不变量断言 → typed Err 转译 + `base` 面逐边单调性核验;
+/// 属性面语义 = [`build_dag_attrs`](位置面与无属性链同律,焊接键扩位 +
+/// 接缝保守锁定)。**RXGB 冻结序列化/[`canonical_bytes`] 均不含属性表**
+/// (m90 DAG digest golden 不漂移,见 [`ClusterDagAttrs`])。
+pub fn build_asset_dag_attrs_params(
+    mesh: &AttrTriMesh,
+    params: &DagBuildParams,
+) -> Result<ClusterDagAttrs, DagAttrsError> {
+    // 内部 panic 级不变量断言(病态输入/中间态)→ typed Err 转译
+    // (build_asset_dag_params 同一转译律;退化输入的 typed AttrMeshError
+    // 在 build_dag_attrs 内先验,不进 panic 域)。
+    let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        build_dag_attrs(mesh, params)
+    }));
+    let attrs = match built {
+        Ok(Ok(a)) => a,
+        Ok(Err(e)) => return Err(DagAttrsError::Attr(e)),
+        Err(payload) => {
+            let s: String = match payload.downcast::<String>() {
+                Ok(b) => *b,
+                Err(p) => match p.downcast::<&'static str>() {
+                    Ok(b) => (*b).to_string(),
+                    Err(_) => String::new(),
+                },
+            };
+            let detail: &'static str = match s.as_str() {
+                "monotonic violation" => "monotonic violation",
+                _ => "builder internal assertion",
+            };
+            return Err(DagAttrsError::Dag(DagError::NonMonotonicInput { detail }));
+        }
+    };
+    validate_monotonicity(&attrs.base).map_err(DagAttrsError::Dag)?;
+    Ok(attrs)
+}
+
 /// 逐边单调性机器核验:DAG 每条 parent→child 边 `parent.error ≥ child.error`
 /// (RXS-0345 §1 逐字面;首条破坏边即 typed `Err`,不聚合不静默)。
 pub fn validate_monotonicity(dag: &ClusterDag) -> Result<(), DagError> {
@@ -1976,6 +2035,46 @@ mod tests {
         assert_eq!(
             build_dag_attrs(&bad, &DagBuildParams::default()).unwrap_err(),
             AttrMeshError::EmptyMesh
+        );
+    }
+
+    /// G31+ #96:资产级属性包装(bake 消费面)——产物与直调 build_dag_attrs
+    /// 全等(v1 字节 + UV 位),退化输入走 Attr 域 typed Err。
+    #[test]
+    fn asset_attrs_wrapper_matches_direct_and_rejects_bad() {
+        let mesh = TriMesh::uv_sphere(1.0, 12, 12);
+        let uv: Vec<[f32; 2]> = mesh
+            .positions
+            .iter()
+            .map(|p| [(p[0] + 1.0) * 0.5, (p[2] + 1.0) * 0.5])
+            .collect();
+        let amesh = mesh
+            .with_attrs(crate::mesh::TriMeshAttrs { uv, normal: None })
+            .expect("合法属性网格");
+        let params = DagBuildParams::quality();
+        let a = build_asset_dag_attrs_params(&amesh, &params).expect("包装构建");
+        let b = build_dag_attrs(&amesh, &params).expect("直调构建");
+        assert_eq!(canonical_bytes(&a.base), canonical_bytes(&b.base));
+        assert_eq!(
+            a.vertex_uv
+                .iter()
+                .map(|u| u.map(f32::to_bits))
+                .collect::<Vec<_>>(),
+            b.vertex_uv
+                .iter()
+                .map(|u| u.map(f32::to_bits))
+                .collect::<Vec<_>>(),
+            "包装与直调 UV 漂移"
+        );
+        assert_eq!(a.base.leaf_source_tris, b.base.leaf_source_tris);
+        // 退化输入 → Attr 域 typed Err(fail-closed 不 panic)。
+        let bad = AttrTriMesh {
+            mesh: TriMesh::default(),
+            attrs: crate::mesh::TriMeshAttrs::default(),
+        };
+        assert_eq!(
+            build_asset_dag_attrs_params(&bad, &params).unwrap_err(),
+            DagAttrsError::Attr(AttrMeshError::EmptyMesh)
         );
     }
 

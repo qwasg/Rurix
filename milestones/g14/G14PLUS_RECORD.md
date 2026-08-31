@@ -140,9 +140,14 @@ RD-045 维持 `status=open`，不因 18/18、锚重收割或 soak 零漂移关�
 
 G15 法定输入 = 上述 8+2 行 + 本表 §5 18/18 定盘 + RD-045 仍 open 的观察窗，不得另起无锚差距面。
 
+## 7. 收口后 RFC-0030 修订事件登记（只追加）
+
+- **2026-08-30（G38 窗,G31+ TODO #90「FIF×动态共存」正式化）**：RFC-0030 §4.3 追加 **L2a 行**（FIF×动态,每槽 AS 副本 opt-in）→ **v1.1**。判档前置已兑 = `g31_fif_dyn_probe` 三臂等价门 GPU 双 PASS（Rebuild/Refit,evidence = `artifacts/day_0830_delivery/w3_deep/fif_dyn/evidence_fif_dyn_rebuild.json` / `evidence_fif_dyn_refit.json`,gates 六项全 true）；实现 = 加性 body-include `src/rurix-rt/src/render_exec_g37_fif_dyn.rs`（平行入口 `submit_with_frame_update_slot_as`）,§4.3 L2 既有字面与 `submit_with_frame_update` 拒绝面 0-byte。本档叙事指针登记,判据事实源 = RFC-0030 v1.1 + evidence 件 + G31+ TODO #90 行。
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-22 | 首建（波0 治理立项批）：立项授权双字面 + 波次结构 + 优化清单十项 + 波0 处置档案 + 复测轨迹基线表 |
 | v1.1 | 2026-08-23 | G14.12 收口终审：§5 追加 v_g14plus_md / v_g14plus_soak 18/18 行；§6 达标定盘 + RD-045 观察窗 + G15 承接锚 |
+| v1.2 | 2026-08-30 | §7 收口后修订事件登记：RFC-0030 v1.1（§4.3 L2a 每槽 AS 副本 opt-in 加性行,G31+ TODO #90 判档双 PASS 前置） |

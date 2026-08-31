@@ -139,7 +139,7 @@ B6 measured 权衡（bistro t100，canonical 160+10）：off 生产口径 1.79~1
 | 件 | 修复 | 佐证 |
 |---|---|---|
 | 玻璃隔断雾状楔形（交互预览可见，day_0829 §H 登记「消融证明与画质臂无关」） | `--transparency` 臂收口（资产级透明管线缺失的本体修复；ray 穿透真解） | `w2_wiring/transparency/REPORT.md` |
-| slot14 法线源件损坏（`Paris_Table_cloth_01_Normal.dds` 常值非法法线） | **v2 烘焙**：`baked_normals_bin_v2/`（slot14 替平坦 (127,127) 全 12 级 mip；其余 69 张与 v1 逐字节相等；L1 范数检测律唯一命中 slot14，校验 11/11） | `w1_fixes/slot14_normal/` |
+| slot14 法线源件损坏（`Paris_Table_cloth_01_Normal.dds` 常值非法法线） | **v2 烘焙**：`baked_normals_bin_v2/`（slot14 替平坦 (127,127) 全 12 级 mip；其余 69 张与 v1 逐字节相等；L1 范数检测律唯一命中 slot14，校验 11/11）；**G38 起窗口默认消费 v2**（full19 重锚 a5521e47，day_0830_g38/reanchor 在案） | `w1_fixes/slot14_normal/` |
 | em+AE override 绑定错位（day_0828 Phase F 遗留，旧十臂组合 AE 近似恒等） | `set_autoexp` 补 `_EM` 两分支 + `g31_apply_autoexp` 连号断言 debug→assert 升级（语义变更重锚归 W4） | CAMPAIGN_LOG W1 |
 | ACES encode 源码-字节 divergence（A2b 样条转置修复后共享件未切） | 共享 m_c 件收编 **v2**（`43b0c255`→`e7291c79`，spirv-val 绿）+ 防复发硬门 `ci/g31_encode_parity_smoke.py`（门 `g31.g37w1.encode_parity`，GATE PASS 在案） | `w1_fixes/encode_and_gates/REPORT.md` |
 | rurixc「if 包 while」codegen（OpSelectionMerge 指向臂内块） | `structured_merge` 交汇计算排除 latch→header 回边（vulkan_codegen + dxil_spirv 双面）；98 生产 kernel pre/post 90/90 位级全同、冻结 SPV 零触碰 | `w1_fixes/rurixc_if_while/REPORT.md` |

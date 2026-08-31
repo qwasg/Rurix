@@ -441,6 +441,33 @@ pub struct BlasRefitUpdate {
     pub after_pass: u32,
 }
 
+/// G38 T3 加性:BLAS refit 桥扩展(多 region 脏区段 copy + 桥接 GPU 计时;
+/// [`DeviceFrameSession::execute_with_frame_update_bridge_ext`] 载荷)。
+/// 既有入口不感知本结构——`None`/缺省 = 既有单 region 全量桥逐字不变。
+///
+/// 语义:
+/// - `copy_regions = None`:桥接 copy 为既有单 region
+///   `[src_offset, +byte_len) → [0, +byte_len)`(命令流逐字节不变)。
+/// - `copy_regions = Some(rs)`:一次 `vkCmdCopyBuffer` 带 region 数组,每段
+///   `(off, len)` 拷 `src[src_offset+off ..] → vbuf[off ..]`(src 与 vbuf 同
+///   布局的脏差集;须升序不重叠、4 对齐、落在 `[0, byte_len)` 内——
+///   fail-closed 校验)。**空列表合法** = 本帧无脏字节,跳过桥接 copy 三步
+///   (屏障对 + copy),UPDATE build 照录(vbuf 已与 src 同步,digest 与全量
+///   copy 位级等价)。
+/// - `collect_gpu_timing = true`:桥接段首/copy 后/build 后各写一个 GPU
+///   timestamp(query pool 追加区,**不动既有逐 pass 时戳口径**),结果经
+///   [`DeviceFrameTelemetry::blas_bridge_copy_gpu_ms`]/
+///   [`DeviceFrameTelemetry::blas_bridge_build_gpu_ms`] 返回;query 读取失败
+///   fail-soft `None`(不冒充数值)。`blas_refit` 为 `None` 时本旗标静默无效
+///   (无桥可计时,两字段恒 `None`)。
+#[derive(Debug, Clone, Default)]
+pub struct BlasRefitBridgeExt {
+    /// 脏区段列表((offset,len) 相对 refit 窗;`None` = 既有单 region 全量)。
+    pub copy_regions: Option<Vec<(u64, u64)>>,
+    /// 采集桥接段 GPU 计时(copy/build 两段分解)。
+    pub collect_gpu_timing: bool,
+}
+
 /// 每帧重录更新描述(G7.6 Wave B;**数据驱动、不用闭包**,provenance 可机验;
 /// [`DeviceFrameSession::execute_with_frame_update`] 消费)。
 ///
@@ -959,6 +986,13 @@ pub struct DeviceFrameTelemetry {
     pub leaked_object_count: u64,
     /// 所有权账本外 allocation 数；成功帧必须为 0。
     pub leaked_allocation_count: u64,
+    /// G38 T3 加性:BLAS refit 桥接 copy 段 GPU 毫秒(桥首→copy 后;含桥内
+    /// 屏障对)。仅 [`BlasRefitBridgeExt::collect_gpu_timing`] 开启且本帧带
+    /// `blas_refit` 时 `Some`;query 读取失败 fail-soft `None`(不冒充数值)。
+    pub blas_bridge_copy_gpu_ms: Option<f64>,
+    /// G38 T3 加性:BLAS refit UPDATE build 段 GPU 毫秒(copy 后→consume
+    /// barrier 后)。`Some`/`None` 判据同 `blas_bridge_copy_gpu_ms`。
+    pub blas_bridge_build_gpu_ms: Option<f64>,
 }
 
 /// 持久 session 的一帧结果。
@@ -1376,6 +1410,7 @@ impl<'a> DeviceFrameSession<'a> {
                 self.barriers,
                 self.readbacks,
                 None,
+                None,
             )?
         };
         telemetry.cpu_record_ns += validate_ns;
@@ -1546,7 +1581,38 @@ impl<'a> DeviceFrameSession<'a> {
         tlas_update_b: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
         blas_refit_b: Option<BlasRefitUpdate>,
     ) -> Result<DeviceFrameOutput, String> {
+        self.execute_with_frame_update_inner(supplied, update, tlas_update_b, blas_refit_b, None)
+    }
+
+    /// G38 T3 加性:BLAS refit 桥扩展提交入口——`bridge_ext` = 多 region 脏
+    /// 区段 copy + 桥接 GPU 计时(语义见 [`BlasRefitBridgeExt`])。`None` 与
+    /// [`Self::execute_with_frame_update`] 逐字同路径(既有面 0-byte——命令
+    /// 流/provenance/遥测逐字节不变);`copy_regions` 须与 `update.blas_refit`
+    /// 同现(fail-closed 校验见 [`validate_bridge_ext`])。provenance 面不感知
+    /// regions(copy 子集为执行细节——src 与 vbuf 同布局下任意合法区段集的
+    /// vbuf 终态字节相同,AS 内容代记账仍由 `blas_refit` 承载)。
+    pub fn execute_with_frame_update_bridge_ext(
+        &mut self,
+        supplied: &SubmissionProvenance,
+        update: &FrameUpdate,
+        bridge_ext: Option<&BlasRefitBridgeExt>,
+    ) -> Result<DeviceFrameOutput, String> {
+        self.execute_with_frame_update_inner(supplied, update, None, None, bridge_ext)
+    }
+
+    /// 提交入口共用主体(`execute_with_frame_update_dual_tlas_ex` 原主体整体
+    /// 迁入;`bridge_ext = None` 时与迁入前逐字等价——既有三入口 0-byte)。
+    fn execute_with_frame_update_inner(
+        &mut self,
+        supplied: &SubmissionProvenance,
+        update: &FrameUpdate,
+        tlas_update_b: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+        blas_refit_b: Option<BlasRefitUpdate>,
+        bridge_ext: Option<&BlasRefitBridgeExt>,
+    ) -> Result<DeviceFrameOutput, String> {
         let record_started = std::time::Instant::now();
+        // G38 T3:桥扩展 fail-closed 预校验(任何 GPU 调用前;None 恒过)。
+        validate_bridge_ext(update, bridge_ext)?;
         let (effective, generations) =
             self.frame_update_state(update, tlas_update_b.as_ref(), blas_refit_b.as_ref())?;
         let expected = build_runtime_provenance_ext(
@@ -1646,6 +1712,7 @@ impl<'a> DeviceFrameSession<'a> {
                 self.barriers,
                 self.readbacks,
                 Some(&prepared),
+                bridge_ext,
             )?
         };
         telemetry.cpu_record_ns += validate_ns;
@@ -1787,8 +1854,9 @@ impl<'a> DeviceFrameSession<'a> {
         let FrameTicket { inner, provenance } = ticket;
         // SAFETY: native session 独占 &mut self;票据由本 session submit 产出,
         // slot/fence/staging 均存活;collect_persistent_frame 只等 fence 不 reset。
+        // FIF 路无 blas_refit(fail-closed 已拒)⇒ 桥接计时恒 None。
         let (readbacks, telemetry) =
-            unsafe { collect_persistent_frame(&mut self.native, self.passes, inner)? };
+            unsafe { collect_persistent_frame(&mut self.native, self.passes, inner, None)? };
         Ok(DeviceFrameOutput {
             readbacks,
             provenance,
@@ -2660,6 +2728,53 @@ fn validate_blas_refit_b(
             b.after_pass,
             passes.len()
         ));
+    }
+    Ok(())
+}
+
+/// G38 T3 加性:BLAS refit 桥扩展校验面(fail-closed 确定性 Err;`None` 恒过
+/// = 既有面 0-byte)。判据:`copy_regions` 须与 `update.blas_refit` 同现;每段
+/// (off,len) 4 对齐正段、升序不重叠、落在 refit 窗 `[0, byte_len)` 内(空列表
+/// 合法 = 本帧无脏字节,桥接 copy 跳过)。`collect_gpu_timing` 无校验面
+/// (观测旗标;无桥时静默无效)。host 可测纯函数。
+fn validate_bridge_ext(
+    update: &FrameUpdate,
+    ext: Option<&BlasRefitBridgeExt>,
+) -> Result<(), String> {
+    let Some(e) = ext else {
+        return Ok(());
+    };
+    let Some(regions) = &e.copy_regions else {
+        return Ok(());
+    };
+    let Some(b) = &update.blas_refit else {
+        return Err(
+            "BlasRefitBridgeExt.copy_regions 须与 FrameUpdate.blas_refit 同现(无桥可分段)"
+                .into(),
+        );
+    };
+    let mut prev_end = 0u64;
+    for (i, &(off, len)) in regions.iter().enumerate() {
+        if len == 0 || !off.is_multiple_of(4) || !len.is_multiple_of(4) {
+            return Err(format!(
+                "BlasRefitBridgeExt.copy_regions[{i}] (off={off}, len={len}) 非 4 对齐正段(f32 顶点流)"
+            ));
+        }
+        if off < prev_end {
+            return Err(format!(
+                "BlasRefitBridgeExt.copy_regions[{i}] off={off} 与前段末端 {prev_end} 重叠/乱序(须升序不重叠)"
+            ));
+        }
+        let end = off
+            .checked_add(len)
+            .ok_or_else(|| format!("BlasRefitBridgeExt.copy_regions[{i}] off+len 溢出 u64"))?;
+        if end > b.byte_len {
+            return Err(format!(
+                "BlasRefitBridgeExt.copy_regions[{i}] 末端 {end} 越出 refit 窗 byte_len {}",
+                b.byte_len
+            ));
+        }
+        prev_end = end;
     }
     Ok(())
 }
@@ -5687,6 +5802,20 @@ struct BlasRefitRecord {
     after_pass: u32,
 }
 
+/// G38 T3 加性:BLAS refit 桥录制扩展(公网 [`BlasRefitBridgeExt`] 的 native
+/// 解析形;只作用于**主** refit 臂——`blas_refit_b`〔hzb_skin 表 1〕不开放,
+/// 既有命令流 0-byte)。独立小件而非 [`BlasRefitRecord`]/[`AsFrameOps`] 加
+/// 字段:两结构被 render_exec_g37_fif_dyn.rs 以字面量构造(T2 冻结面),
+/// 加字段即打崩其编译——加性纪律以新类型承载。
+#[derive(Debug, Clone, Copy)]
+struct BridgeRecordExt<'a> {
+    /// 脏区段(off,len)列表(相对 refit 窗,已过 `validate_bridge_ext`;
+    /// `None` = 既有单 region 全量;`Some(&[])` = 跳过桥接 copy 三步)。
+    regions: Option<&'a [(u64, u64)]>,
+    /// 桥接时戳 query 追加区首下标(`Some` = 录 3 点:桥首/copy 后/build 后)。
+    query_base: Option<u32>,
+}
+
 /// 帧命令体录制:[可选上传段] → [可选 TLAS update + consume barrier] → 逐 pass
 /// (plan 逐字回放 → 隐式补全 → pass 本体,timestamp 包裹;pass 后可插 G31+
 /// 波 B BLAS refit 桥) → readback 段。
@@ -5705,8 +5834,27 @@ struct BlasRefitRecord {
 unsafe fn record_frame_body(
     p: &FrameBodyParams<'_>,
     rb_buffers: &mut Vec<Option<(VkBuffer, VkDeviceMemory)>>,
+    cleanup: Option<&mut Cleanup>,
+    as_ops: Option<AsFrameOps<'_>>,
+) -> Result<(), String> {
+    // G38 T3:既有签名恒转发 _ex(bridge = None 命令流逐字节不变;fif_dyn/
+    // 创建期/FIF 流水调用点零改写)。
+    // SAFETY: 契约与本函数逐字同(见上方 Safety 注)。
+    unsafe { record_frame_body_ex(p, rb_buffers, cleanup, as_ops, None) }
+}
+
+/// G38 T3 加性:[`record_frame_body`] 的桥扩展体(`bridge` = BLAS refit 桥的
+/// 多 region 脏区段 + 桥接时戳 query 追加区;`None` = 与既有主体逐字等价)。
+///
+/// # Safety
+/// 同 [`record_frame_body`];`bridge.query_base` 为 `Some` 时 query pool 须含
+/// 追加区 `[base, base+BRIDGE_QUERY_COUNT)`(创建期恒分配)。
+unsafe fn record_frame_body_ex(
+    p: &FrameBodyParams<'_>,
+    rb_buffers: &mut Vec<Option<(VkBuffer, VkDeviceMemory)>>,
     mut cleanup: Option<&mut Cleanup>,
     mut as_ops: Option<AsFrameOps<'_>>,
+    bridge: Option<BridgeRecordExt<'_>>,
 ) -> Result<(), String> {
     let dev = p.dev;
     let cmd = p.cmd;
@@ -6140,57 +6288,101 @@ unsafe fn record_frame_body(
                 ));
             };
             let vbuf = ops.mgr.blas_vertex_buffer(br.blas_index)?;
-            transit!(br.src_res, TargetState::TransferSrc);
-            flush_barriers!(img_barriers, buf_barriers);
-            // vbuf 前态 = ACCEL build 读(初始 build/上一帧 refit;创建期
-            // one-shot submit + fence 已完成)——逐帧稳态自洽。
-            let pre_copy = BufferMemoryBarrier2 {
-                s_type: ST_BUFFER_MEMORY_BARRIER_2,
-                p_next: std::ptr::null(),
-                src_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
-                src_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
-                dst_stage_mask: STAGE2_TRANSFER,
-                dst_access_mask: ACCESS2_TRANSFER_WRITE,
-                src_queue_family_index: QUEUE_FAMILY_IGNORED,
-                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
-                buffer: vbuf,
-                offset: 0,
-                size: br.byte_len,
-            };
-            let di = DependencyInfo {
-                s_type: ST_DEPENDENCY_INFO,
-                p_next: std::ptr::null(),
-                dependency_flags: 0,
-                memory_barrier_count: 0,
-                p_memory_barriers: std::ptr::null(),
-                buffer_memory_barrier_count: 1,
-                p_buffer_memory_barriers: &pre_copy,
-                image_memory_barrier_count: 0,
-                p_image_memory_barriers: std::ptr::null(),
-            };
-            (dev.cmd_barrier2)(cmd, &di);
-            let region = VkBufferCopy {
-                src_offset: br.src_offset,
-                dst_offset: 0,
-                size: br.byte_len,
-            };
-            (dev.cmd_copy_buf)(cmd, src_rb.buffer, vbuf, 1, &region);
-            let post_copy = BufferMemoryBarrier2 {
-                src_stage_mask: STAGE2_TRANSFER,
-                src_access_mask: ACCESS2_TRANSFER_WRITE,
-                dst_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
-                dst_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
-                ..pre_copy
-            };
-            let di = DependencyInfo {
-                buffer_memory_barrier_count: 1,
-                p_buffer_memory_barriers: &post_copy,
-                ..di
-            };
-            (dev.cmd_barrier2)(cmd, &di);
+            // G38 T3:桥接时戳(query 追加区,先 reset 再写——同 cmd 内合法;
+            // 逐 pass 时戳口径上方原样不动)。三点:桥首/copy 后/build 后。
+            let bridge_q = bridge.as_ref().and_then(|b| b.query_base);
+            if let Some(qb) = bridge_q {
+                (dev.cmd_reset_query_pool)(cmd, query_pool, qb, BRIDGE_QUERY_COUNT);
+                (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, qb);
+            }
+            // G38 T3:脏区段列表(None = 既有单 region 全量,命令流逐字节
+            // 不变;Some 空 = 本帧无脏字节,跳过桥接 copy 三步——vbuf 已与
+            // src 同步,UPDATE build 照录,终态与全量 copy 位级等价)。
+            let regions = bridge.as_ref().and_then(|b| b.regions);
+            if regions.is_none_or(|r| !r.is_empty()) {
+                transit!(br.src_res, TargetState::TransferSrc);
+                flush_barriers!(img_barriers, buf_barriers);
+                // vbuf 前态 = ACCEL build 读(初始 build/上一帧 refit;创建期
+                // one-shot submit + fence 已完成)——逐帧稳态自洽。
+                let pre_copy = BufferMemoryBarrier2 {
+                    s_type: ST_BUFFER_MEMORY_BARRIER_2,
+                    p_next: std::ptr::null(),
+                    src_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
+                    src_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
+                    dst_stage_mask: STAGE2_TRANSFER,
+                    dst_access_mask: ACCESS2_TRANSFER_WRITE,
+                    src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    buffer: vbuf,
+                    offset: 0,
+                    size: br.byte_len,
+                };
+                let di = DependencyInfo {
+                    s_type: ST_DEPENDENCY_INFO,
+                    p_next: std::ptr::null(),
+                    dependency_flags: 0,
+                    memory_barrier_count: 0,
+                    p_memory_barriers: std::ptr::null(),
+                    buffer_memory_barrier_count: 1,
+                    p_buffer_memory_barriers: &pre_copy,
+                    image_memory_barrier_count: 0,
+                    p_image_memory_barriers: std::ptr::null(),
+                };
+                (dev.cmd_barrier2)(cmd, &di);
+                match regions {
+                    // 既有单 region 全量桥(逐字保序)。
+                    None => {
+                        let region = VkBufferCopy {
+                            src_offset: br.src_offset,
+                            dst_offset: 0,
+                            size: br.byte_len,
+                        };
+                        (dev.cmd_copy_buf)(cmd, src_rb.buffer, vbuf, 1, &region);
+                    }
+                    // G38 T3:一次 vkCmdCopyBuffer 携脏区段数组(src 与 vbuf
+                    // 同布局:src_offset+off → off;区段合法性已过
+                    // validate_bridge_ext fail-closed)。
+                    Some(rs) => {
+                        let vk_regions: Vec<VkBufferCopy> = rs
+                            .iter()
+                            .map(|&(off, len)| VkBufferCopy {
+                                src_offset: br.src_offset + off,
+                                dst_offset: off,
+                                size: len,
+                            })
+                            .collect();
+                        (dev.cmd_copy_buf)(
+                            cmd,
+                            src_rb.buffer,
+                            vbuf,
+                            vk_regions.len() as u32,
+                            vk_regions.as_ptr(),
+                        );
+                    }
+                }
+                let post_copy = BufferMemoryBarrier2 {
+                    src_stage_mask: STAGE2_TRANSFER,
+                    src_access_mask: ACCESS2_TRANSFER_WRITE,
+                    dst_stage_mask: STAGE2_ACCEL_STRUCTURE_BUILD,
+                    dst_access_mask: ACCESS2_ACCEL_STRUCTURE_READ,
+                    ..pre_copy
+                };
+                let di = DependencyInfo {
+                    buffer_memory_barrier_count: 1,
+                    p_buffer_memory_barriers: &post_copy,
+                    ..di
+                };
+                (dev.cmd_barrier2)(cmd, &di);
+            }
+            if let Some(qb) = bridge_q {
+                (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, qb + 1);
+            }
             ops.mgr.record_blas_refit(ops.fns, cmd, br.blas_index)?;
             ops.mgr
                 .record_consume_barrier(ops.fns, cmd, PIPELINE_STAGE_COMPUTE_SHADER);
+            if let Some(qb) = bridge_q {
+                (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, qb + 2);
+            }
         }
         // ── G37 W3 hzb_skin:第二 BLAS refit 桥(表 1 manager——双 TLAS×蒙皮
         // 合并车道:主射线表 0 与阴影射线表 1 各持 BLAS 副本,蒙皮角色两副本
@@ -6541,6 +6733,10 @@ struct NativePersistentFrame {
     fences: Vec<VkFence>,
     next_slot: usize,
     timestamp_period_ns: f32,
+    /// G38 T3:BLAS refit 桥接时戳 query 追加区首下标(= 创建期逐 pass 区总数
+    /// `passes*2*slots`;追加区恒 [`BRIDGE_QUERY_COUNT`] 个,只在顺序路桥接
+    /// 计时开启帧内 reset+写——既有逐 pass/FIF slot 区间口径不动)。
+    bridge_query_base: u32,
     /// 物理设备内存属性(创建期一次性查询;FrameUpdate 重录的 record_frame_body 入参,
     /// 避免每帧重查)。
     memprops: PhysicalDeviceMemoryProperties,
@@ -8164,12 +8360,15 @@ unsafe fn execute_on_device(
         }
 
         // ── timestamp query pool + 命令池 + 主命令缓冲 ──
+        // G38 T3:池尾追加 BRIDGE_QUERY_COUNT 个桥接时戳 query(既有逐 pass/
+        // FIF slot 区间下标不动;追加区不开启桥接计时时从不 reset/写/读)。
         let qpci = QueryPoolCreateInfo {
             s_type: ST_QUERY_POOL_CREATE_INFO,
             p_next: std::ptr::null(),
             flags: 0,
             query_type: QUERY_TYPE_TIMESTAMP,
-            query_count: (passes.len() as u32) * 2 * (query_slots.max(1) as u32),
+            query_count: (passes.len() as u32) * 2 * (query_slots.max(1) as u32)
+                + BRIDGE_QUERY_COUNT,
             pipeline_statistics: 0,
         };
         let mut query_pool = VK_NULL_HANDLE;
@@ -9093,6 +9292,9 @@ unsafe fn create_persistent_frame(
             fences,
             next_slot: 0,
             timestamp_period_ns: caps.timestamp_period_ns,
+            // G38 T3:桥接时戳追加区首下标(创建期 pool 逐 pass 区总数同式;
+            // persistent 路建面 query_slots 字面 = frame_slots,见上方调用)。
+            bridge_query_base: (passes.len() as u32) * 2 * (frame_slots.max(1) as u32),
             memprops,
             resource_allocations,
             as_state,
@@ -9118,6 +9320,10 @@ unsafe fn create_persistent_frame(
 /// 持久帧 slot fence 有界等待共用超时(submit 的 slot-reuse 等待与 collect 的
 /// 完成等待同一口径;拆分前为 `execute_persistent_frame` 内局部常量,值不变)。
 const PERSISTENT_WAIT_TIMEOUT_NS: u64 = 5_000_000_000;
+
+/// G38 T3:BLAS refit 桥接时戳 query 数(桥首 / copy 后 / build 后三点;
+/// query pool 尾部追加区,不动既有逐 pass 时戳口径)。
+const BRIDGE_QUERY_COUNT: u32 = 3;
 
 /// 持久帧内部票据(G14plus RFC-0030 §4.3 L2:submit/collect 拆分承载体)。
 /// [`submit_persistent_frame`] / [`submit_pipelined_frame`] 产,
@@ -9162,9 +9368,20 @@ unsafe fn execute_persistent_frame(
     barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
     update: Option<&PreparedFrameUpdate<'_>>,
+    bridge_ext: Option<&BlasRefitBridgeExt>,
 ) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
-    let ticket = submit_persistent_frame(native, resources, passes, barriers, readbacks, update)?;
-    collect_persistent_frame(native, passes, ticket)
+    // G38 T3:桥接计时读取判据 = 计时开启 ∧ 本帧带 blas_refit(录制侧写时戳
+    // 的条件同源——写/读同帧一致,免 WAIT_BIT 悬垂)。
+    let bridge_query = match (bridge_ext, update) {
+        (Some(e), Some(up)) if e.collect_gpu_timing && up.blas.is_some() => {
+            Some(native.bridge_query_base)
+        }
+        _ => None,
+    };
+    let ticket = submit_persistent_frame(
+        native, resources, passes, barriers, readbacks, update, bridge_ext,
+    )?;
+    collect_persistent_frame(native, passes, ticket, bridge_query)
 }
 
 /// 持久帧提交半程(顺序路;G14plus §4.3 L2 拆分体):slot-reuse 有界等待 + reset
@@ -9178,6 +9395,7 @@ unsafe fn submit_persistent_frame(
     barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
     update: Option<&PreparedFrameUpdate<'_>>,
+    bridge_ext: Option<&BlasRefitBridgeExt>,
 ) -> Result<PersistentFrameTicket, String> {
     const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
     // 顺序入口与流水票据不可交错(fail-closed):流水在飞帧占用 fence/query 区间/
@@ -9405,7 +9623,17 @@ unsafe fn submit_persistent_frame(
                 .map(|&(r, _, _)| r)
                 .chain(native.frame.imported_indices.iter().copied())
                 .collect();
-            record_frame_body(
+            // G38 T3:桥扩展录制载荷(blas_refit 在案才有意义;None = 既有
+            // 单 region 全量桥 + 无桥接时戳——命令流逐字节不变)。
+            let bridge_query_base = native.bridge_query_base;
+            let bridge_rec = match (bridge_ext, &up.blas) {
+                (Some(e), Some(_)) => Some(BridgeRecordExt {
+                    regions: e.copy_regions.as_deref(),
+                    query_base: e.collect_gpu_timing.then_some(bridge_query_base),
+                }),
+                _ => None,
+            };
+            record_frame_body_ex(
                 &FrameBodyParams {
                     dev: &native.frame.dev,
                     device: native.device,
@@ -9429,6 +9657,7 @@ unsafe fn submit_persistent_frame(
                 &mut effective_rb,
                 None,
                 as_ops,
+                bridge_rec,
             )?;
             if (native.frame.dev.end_cmd)(cmd) != VK_SUCCESS {
                 return Err("FrameUpdate: vkEndCommandBuffer 失败".into());
@@ -9497,6 +9726,7 @@ unsafe fn collect_persistent_frame(
     native: &mut NativePersistentFrame,
     passes: &[Pass<'_>],
     ticket: PersistentFrameTicket,
+    bridge_query: Option<u32>,
 ) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
     const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
     let PersistentFrameTicket {
@@ -9574,6 +9804,35 @@ unsafe fn collect_persistent_frame(
             }
         })
         .collect();
+
+    // G38 T3:桥接时戳追加区读取(仅本帧确实录写过才读——写/读判据在
+    // execute_persistent_frame 同源;逐 pass 口径上方原样不动)。读取失败
+    // fail-soft None(不冒充数值、不拒帧——观测面不设行为门)。
+    let (blas_bridge_copy_gpu_ms, blas_bridge_build_gpu_ms) = match bridge_query {
+        Some(qb) => {
+            let mut bt = [0u64; BRIDGE_QUERY_COUNT as usize];
+            let br = (native.frame.dev.get_query_pool_results)(
+                native.device,
+                native.frame.cleanup.query_pool,
+                qb,
+                BRIDGE_QUERY_COUNT,
+                bt.len() * std::mem::size_of::<u64>(),
+                bt.as_mut_ptr().cast(),
+                std::mem::size_of::<u64>() as u64,
+                QUERY_RESULT_64_BIT | QUERY_RESULT_WAIT_BIT,
+            );
+            if br == VK_SUCCESS {
+                let period = f64::from(native.timestamp_period_ns);
+                (
+                    Some(bt[1].wrapping_sub(bt[0]) as f64 * period / 1e6),
+                    Some(bt[2].wrapping_sub(bt[1]) as f64 * period / 1e6),
+                )
+            } else {
+                (None, None)
+            }
+        }
+        None => (None, None),
+    };
 
     // 回读:顺序路 = 直接 map 资源/共享 rb buffer(拆分前逐字;fence 已等待 +
     // 分配恒 HOST_COHERENT → 免 vkInvalidateMappedMemoryRanges,cached 优选型
@@ -9727,6 +9986,8 @@ unsafe fn collect_persistent_frame(
             outstanding_allocation_count,
             leaked_object_count: 0,
             leaked_allocation_count: 0,
+            blas_bridge_copy_gpu_ms,
+            blas_bridge_build_gpu_ms,
         },
     ))
 }

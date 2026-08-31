@@ -1,0 +1,304 @@
+{
+ "schema": "rurix.day0830.g38.t5.ris_nee_ab.v1",
+ "caliber_note": "raw = presented display-encode 后 u8 口径(8B 头 w/h u32 LE + BGRA8);同路 on/off 对照有效,与 bench EXR f32 不可跨比。verdict 规则:shrink_pct=(base_p95−arm_p95)/base_p95×100,取 dark_arch/dark_table 两 ROI min(保守):≥10%=effective,0..10%=marginal,<0=worse。帧源 = r1 腿 f0064..f0092 尾段 8 张(every=4,TSR 收敛后时域噪声)。",
+ "rois": {
+  "wall": "1400,150,480,270",
+  "floor": "1100,800,480,270",
+  "dark_arch": "360,0,360,180",
+  "dark_table": "560,560,560,200"
+ },
+ "dark_rois": [
+  "dark_arch",
+  "dark_table"
+ ],
+ "tail_frames": {
+  "from": 64,
+  "min": 8
+ },
+ "shrink_effective_pct": 10.0,
+ "arms": {
+  "base": {
+   "frames_used": [
+    "p.raw.f0064",
+    "p.raw.f0068",
+    "p.raw.f0072",
+    "p.raw.f0076",
+    "p.raw.f0080",
+    "p.raw.f0084",
+    "p.raw.f0088",
+    "p.raw.f0092",
+    "p.raw.f0096"
+   ],
+   "noise": {
+    "wall": {
+     "temporal_std_mean": 0.0011620964765949515,
+     "temporal_std_p95": 0.002824754357444368,
+     "temporal_rel_mean": 0.012951588292347329,
+     "temporal_rel_p95": 0.03972242156888489,
+     "mean_luma": 0.10178402092713629
+    },
+    "floor": {
+     "temporal_std_mean": 0.0007742301405693376,
+     "temporal_std_p95": 0.0019181185257084222,
+     "temporal_rel_mean": 0.024241758543982132,
+     "temporal_rel_p95": 0.06750133851700593,
+     "mean_luma": 0.0541861919383254
+    },
+    "dark_arch": {
+     "temporal_std_mean": 0.0006917454994449681,
+     "temporal_std_p95": 0.002322301464026691,
+     "temporal_rel_mean": 0.08972173044280043,
+     "temporal_rel_p95": 0.35355339059327373,
+     "mean_luma": 0.018405180662470745
+    },
+    "dark_table": {
+     "temporal_std_mean": 0.0010596565701164492,
+     "temporal_std_p95": 0.0042896050352389395,
+     "temporal_rel_mean": 0.09449545835776323,
+     "temporal_rel_p95": 0.3706271963728188,
+     "mean_luma": 0.025720660114379085
+    }
+   },
+   "evidence": {
+    "r1": {
+     "digest": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d",
+     "real_render_frame_ms": 10.301408,
+     "render_max_ms": 40.9697
+    },
+    "r2": {
+     "digest": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d",
+     "real_render_frame_ms": 10.082244,
+     "render_max_ms": 39.2171
+    },
+    "double_run_bitexact": true
+   }
+  },
+  "ris": {
+   "frames_used": [
+    "p.raw.f0064",
+    "p.raw.f0068",
+    "p.raw.f0072",
+    "p.raw.f0076",
+    "p.raw.f0080",
+    "p.raw.f0084",
+    "p.raw.f0088",
+    "p.raw.f0092",
+    "p.raw.f0096"
+   ],
+   "noise": {
+    "wall": {
+     "temporal_std_mean": 0.001158174235880569,
+     "temporal_std_p95": 0.002832443726263942,
+     "temporal_rel_mean": 0.012809606266732354,
+     "temporal_rel_p95": 0.03895674498224498,
+     "mean_luma": 0.10202771907595685
+    },
+    "floor": {
+     "temporal_std_mean": 0.0007856576859297108,
+     "temporal_std_p95": 0.0019223590388957952,
+     "temporal_rel_mean": 0.02406947728680273,
+     "temporal_rel_p95": 0.06751744905256993,
+     "mean_luma": 0.05467086507235267
+    },
+    "dark_arch": {
+     "temporal_std_mean": 0.0007111238795407742,
+     "temporal_std_p95": 0.002334200964515883,
+     "temporal_rel_mean": 0.08912740236300057,
+     "temporal_rel_p95": 0.34814318659527627,
+     "mean_luma": 0.018860595833669544
+    },
+    "dark_table": {
+     "temporal_std_mean": 0.0010748691592297696,
+     "temporal_std_p95": 0.004314656589103816,
+     "temporal_rel_mean": 0.09440419524452405,
+     "temporal_rel_p95": 0.3694522653160945,
+     "mean_luma": 0.02604829679116091
+    }
+   },
+   "evidence": {
+    "r1": {
+     "digest": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c",
+     "real_render_frame_ms": 8.63295,
+     "render_max_ms": 19.1214
+    },
+    "r2": {
+     "digest": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c",
+     "real_render_frame_ms": 8.889024,
+     "render_max_ms": 28.4796
+    },
+    "double_run_bitexact": true
+   },
+   "shrink_vs_base_pct": {
+    "temporal_std_p95": {
+     "wall": -0.27,
+     "floor": -0.22,
+     "dark_arch": -0.51,
+     "dark_table": -0.58
+    },
+    "temporal_std_mean": {
+     "wall": 0.34,
+     "floor": -1.48,
+     "dark_arch": -2.8,
+     "dark_table": -1.44
+    }
+   }
+  },
+  "nee": {
+   "frames_used": [
+    "p.raw.f0064",
+    "p.raw.f0068",
+    "p.raw.f0072",
+    "p.raw.f0076",
+    "p.raw.f0080",
+    "p.raw.f0084",
+    "p.raw.f0088",
+    "p.raw.f0092",
+    "p.raw.f0096"
+   ],
+   "noise": {
+    "wall": {
+     "temporal_std_mean": 0.0011114070546765944,
+     "temporal_std_p95": 0.0027297394228763257,
+     "temporal_rel_mean": 0.012680685074022946,
+     "temporal_rel_p95": 0.03985613635916302,
+     "mean_luma": 0.10060866338457193
+    },
+    "floor": {
+     "temporal_std_mean": 0.0007450256067122416,
+     "temporal_std_p95": 0.0018958495725252566,
+     "temporal_rel_mean": 0.024382367052932733,
+     "temporal_rel_p95": 0.06575062223602442,
+     "mean_luma": 0.05284709573684068
+    },
+    "dark_arch": {
+     "temporal_std_mean": 0.0006506511478474713,
+     "temporal_std_p95": 0.0022515075099877433,
+     "temporal_rel_mean": 0.087929572072268,
+     "temporal_rel_p95": 0.3535533905932738,
+     "mean_luma": 0.017530662464025386
+    },
+    "dark_table": {
+     "temporal_std_mean": 0.0010057287623023196,
+     "temporal_std_p95": 0.004185269500993075,
+     "temporal_rel_mean": 0.09359835999870166,
+     "temporal_rel_p95": 0.380050998161499,
+     "mean_luma": 0.024724393146591972
+    }
+   },
+   "evidence": {
+    "r1": {
+     "digest": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656",
+     "real_render_frame_ms": 8.99466,
+     "render_max_ms": 23.4114
+    },
+    "r2": {
+     "digest": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656",
+     "real_render_frame_ms": 9.180309,
+     "render_max_ms": 25.4994
+    },
+    "double_run_bitexact": true
+   },
+   "shrink_vs_base_pct": {
+    "temporal_std_p95": {
+     "wall": 3.36,
+     "floor": 1.16,
+     "dark_arch": 3.05,
+     "dark_table": 2.43
+    },
+    "temporal_std_mean": {
+     "wall": 4.36,
+     "floor": 3.77,
+     "dark_arch": 5.94,
+     "dark_table": 5.09
+    }
+   }
+  },
+  "both": {
+   "frames_used": [
+    "p.raw.f0064",
+    "p.raw.f0068",
+    "p.raw.f0072",
+    "p.raw.f0076",
+    "p.raw.f0080",
+    "p.raw.f0084",
+    "p.raw.f0088",
+    "p.raw.f0092",
+    "p.raw.f0096"
+   ],
+   "noise": {
+    "wall": {
+     "temporal_std_mean": 0.001117522293554651,
+     "temporal_std_p95": 0.002734185689017787,
+     "temporal_rel_mean": 0.01281370213317342,
+     "temporal_rel_p95": 0.040368982946460075,
+     "mean_luma": 0.10079060365932381
+    },
+    "floor": {
+     "temporal_std_mean": 0.0007487127826872865,
+     "temporal_std_p95": 0.0018951884138730306,
+     "temporal_rel_mean": 0.02466919870209904,
+     "temporal_rel_p95": 0.06624413202240861,
+     "mean_luma": 0.053009102402565955
+    },
+    "dark_arch": {
+     "temporal_std_mean": 0.0006613808390580483,
+     "temporal_std_p95": 0.0022728131279120423,
+     "temporal_rel_mean": 0.08972115395144623,
+     "temporal_rel_p95": 0.3535533905932738,
+     "mean_luma": 0.01765191184808628
+    },
+    "dark_table": {
+     "temporal_std_mean": 0.0010079781092419305,
+     "temporal_std_p95": 0.004200094190546067,
+     "temporal_rel_mean": 0.09335118143454822,
+     "temporal_rel_p95": 0.3743142092437266,
+     "mean_luma": 0.02478394135620915
+    }
+   },
+   "evidence": {
+    "r1": {
+     "digest": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd",
+     "real_render_frame_ms": 9.64794,
+     "render_max_ms": 24.6458
+    },
+    "r2": {
+     "digest": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd",
+     "real_render_frame_ms": 10.460198,
+     "render_max_ms": 32.6757
+    },
+    "double_run_bitexact": true
+   },
+   "shrink_vs_base_pct": {
+    "temporal_std_p95": {
+     "wall": 3.21,
+     "floor": 1.2,
+     "dark_arch": 2.13,
+     "dark_table": 2.09
+    },
+    "temporal_std_mean": {
+     "wall": 3.84,
+     "floor": 3.3,
+     "dark_arch": 4.39,
+     "dark_table": 4.88
+    }
+   }
+  }
+ },
+ "variance_verdict": {
+  "ris": {
+   "verdict": "worse",
+   "dark_min_shrink_p95_pct": -0.58,
+   "frame_ms_delta_vs_base": -1.668
+  },
+  "nee": {
+   "verdict": "marginal",
+   "dark_min_shrink_p95_pct": 2.43,
+   "frame_ms_delta_vs_base": -1.307
+  },
+  "both": {
+   "verdict": "marginal",
+   "dark_min_shrink_p95_pct": 2.09,
+   "frame_ms_delta_vs_base": -0.653
+  }
+ }
+}

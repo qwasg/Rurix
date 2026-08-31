@@ -178,14 +178,18 @@ fn main() {
         fail("缺子模式（--contract-digest / --selftest-digest / --render / --bench / --dump-scene）");
     }
     match args[1].as_str() {
-        // G31+ #58 步骤 1/3：装配产物 dump（RXCS v1）——簇 DAG 离线 bake
+        // G31+ #58 步骤 1/3：装配产物 dump（RXCS v1|v2）——簇 DAG 离线 bake
         //（rurix-asset g31_cluster_lod_bake）的唯一装配输入面（装配语义单源，
         // bake 侧禁复刻装配）。纯 host，GPU 非必需。
+        // G31+ #96：默认带 UV 段（v2,装配 TEXCOORD_0 sink——属性保持简化
+        // bake 输入面;装配面对缺 TEXCOORD_0 的资产 fail-closed）;
+        // `--uv off` = 无 UV 资产臂逃生口,产 v1 字节面逐位不变。
         "--dump-scene" => {
             let mut scene_id = String::new();
             let mut contract_path = DEFAULT_CONTRACT.to_owned();
             let mut gltf_path = String::new();
             let mut out_path = String::new();
+            let mut uv_on = true;
             let mut i = 2;
             while i < args.len() {
                 match args[i].as_str() {
@@ -193,6 +197,13 @@ fn main() {
                     "--contract" => contract_path = take_arg(&args, &mut i),
                     "--gltf" => gltf_path = take_arg(&args, &mut i),
                     "--out" => out_path = take_arg(&args, &mut i),
+                    "--uv" => {
+                        uv_on = match take_arg(&args, &mut i).as_str() {
+                            "on" => true,
+                            "off" => false,
+                            other => fail(&format!("--uv {other}：只接受 on|off")),
+                        }
+                    }
                     other => fail(&format!("未知参数 {other}")),
                 }
                 i += 1;
@@ -213,22 +224,29 @@ fn main() {
                 ));
             }
             let mut groups: Vec<SceneNodeGroup> = Vec::new();
+            let mut tri_uv: Vec<f32> = Vec::new();
             let scene = assemble_scene_ex(
                 &contract.raw,
                 &scene_id,
                 Path::new(&gltf_path),
                 Some(&mut groups),
-                None,
+                uv_on.then_some(&mut tri_uv),
             )
             .unwrap_or_else(|e| fail(&format!("场景装配: {e}")));
-            dump_scene_rxcs(&scene, &groups, Path::new(&out_path))
-                .unwrap_or_else(|e| fail(&e));
+            dump_scene_rxcs(
+                &scene,
+                &groups,
+                uv_on.then_some(tri_uv.as_slice()),
+                Path::new(&out_path),
+            )
+            .unwrap_or_else(|e| fail(&e));
             println!(
-                "{TAG}: dump-scene OK scene={scene_id} tris={} groups={} emissive_tris={} quads={} -> {out_path}",
+                "{TAG}: dump-scene OK scene={scene_id} tris={} groups={} emissive_tris={} quads={} rxcs_v={} -> {out_path}",
                 scene.tri_count,
                 groups.len(),
                 scene.emissive_tri_count,
                 scene.quads.len(),
+                if uv_on { 2 } else { 1 },
             );
         }
         "--contract-digest" => {
@@ -564,7 +582,7 @@ fn main() {
             }
             if inflight != 1 && (!bench || backend != "tsr_device") {
                 fail(&format!(
-                    "--inflight {inflight} 仅 --bench --backend tsr_device 已接线（G31+ 波 A Task A2 消费面；其余臂/render 腿未消费,fail-closed）"
+                    "--inflight {inflight} 仅 --bench --backend tsr_device 已接线（G31+ 波 A Task A2 静态臂 + G38 L2a 动态臂〔--dyn-demo〕消费面；其余臂/render 腿未消费,fail-closed）"
                 ));
             }
             if inflight > 1 && warmup + 1 < inflight {
@@ -574,9 +592,12 @@ fn main() {
             }
             // G31+ 波 A Task A4 --dyn-demo 闭集校验（fail-closed，不静默降级）：
             // ① 策略字面闭集 refit|rebuild；② 仅 --bench tsr_device（MegaDyn
-            // 车道唯一接线面）；③ inflight 恒 1（A2 约束：FIF 流水公共入口拒
-            // tlas_update——共享 instance buffer host 写面在飞帧不可改写；动态
-            // 面走顺序入口，per-slot 实例缓冲归后续波）；④ bistro-interior
+            // 车道唯一接线面）；③ inflight 1|2|3——1 = 顺序入口既有面 0-byte；
+            // 2|3 = **G38（RFC-0030 v1.1 §4.3 L2a）每槽 AS 副本 opt-in FIF**
+            // （session AS 表 ×inflight 同构副本组 + 平行入口
+            // submit_with_frame_update_slot_as，逐帧更新/scene 绑定落 base+slot；
+            // AS 面内存 ×S 显式代价，预算门 g31.fif_dyn.slot_as_group_mem_bytes；
+            // --warmup ≥ inflight−1 通则已覆盖填充段）；④ bistro-interior
             // 唯一场景（cornell Split 形态未接线）；⑤ 不与 --gi on /
             // presentation-profile 同跑（dyn kernel = 直接光唯一内容模型）。
             let dyn_spec = match dyn_demo.as_deref() {
@@ -597,9 +618,12 @@ fn main() {
                 if !bench || backend != "tsr_device" {
                     fail("--dyn-demo 仅 --bench --backend tsr_device 已接线（MegaDyn 动态车道唯一消费面；其余臂 fail-closed）");
                 }
-                if inflight != 1 {
-                    fail("--dyn-demo 要求 --inflight 1（A2 约束：FIF 流水入口拒 tlas_update——共享 instance buffer host 写面在飞帧不可改写；动态场景走顺序入口，per-slot 实例缓冲归后续波）");
-                }
+                // G38（RFC-0030 v1.1 §4.3 L2a）：原「--dyn-demo 要求 --inflight 1」
+                // 强制解除——inflight 2|3 走 slot_as 每槽 AS 副本 FIF 路径（lane
+                // 侧 create_with_slot_as 显式建组 + rt 入口槽纪律三判据提交前
+                // fail-closed 复核）；既有拒绝面（submit_with_frame_update 对
+                // tlas_update 的 fail-closed）字面 0-byte 不动，本臂走加性平行
+                // 入口。inflight=1 顺序入口既有面 0-byte。
                 if scene_id != "bistro-interior" {
                     fail("--dyn-demo 仅 bistro-interior 已接线（cornell Split 六 pass 形态未接 MegaDyn 动态车道，fail-closed）");
                 }
@@ -609,17 +633,20 @@ fn main() {
             }
             // G31+ 波 B Task B5 --skin-demo 闭集校验（fail-closed,不静默降级）：
             // ① 仅 --bench tsr_device（MegaSkin 车道唯一接线面）；② inflight
-            // 恒 1（A2 同律约束：FIF 流水入口拒 blas_refit——BLAS 顶点缓冲为
-            // 共享写面,在飞帧 ray query 读取中不可改写）；③ bistro-interior
-            // 唯一场景（cornell Split 形态未接线）；④ 与 --dyn-demo 互斥、不
-            // 与 --gi on / --presentation-profile 同跑（skin scene kernel =
-            // g31_dyn_scene 镜像直接光唯一内容模型）。
+            // 恒 1——**蒙皮 × slot_as 批次 B 留窗**（G38：RFC-0030 v1.1 §4.3
+            // L2a 通路 rt 侧已支持 blas_refit 槽纪律同律，g14_3 接线精确计划 =
+            // artifacts/day_0830_g38/t2_fifdyn/WIRING_PLAN.md §1-A6〔scene
+            // pass=1 override / BlasRefitUpdate.as_index 逐帧 base+slot /
+            // 与 T3 bridge_ext 加性面协调〕；接线前本拒绝面维持,不静默降级）；
+            // ③ bistro-interior 唯一场景（cornell Split 形态未接线）；④ 与
+            // --dyn-demo 互斥、不与 --gi on / --presentation-profile 同跑
+            // （skin scene kernel = g31_dyn_scene 镜像直接光唯一内容模型）。
             let skin_spec = if skin_demo {
                 if !bench || backend != "tsr_device" {
                     fail("--skin-demo 仅 --bench --backend tsr_device 已接线（MegaSkin 蒙皮车道唯一消费面；其余臂 fail-closed）");
                 }
                 if inflight != 1 {
-                    fail("--skin-demo 要求 --inflight 1（A2 同律约束：FIF 流水入口拒 blas_refit——BLAS 顶点缓冲为共享写面,在飞帧 ray query 读取中不可改写；蒙皮车道走顺序入口）");
+                    fail("--skin-demo 要求 --inflight 1（蒙皮 × slot_as 批次 B 留窗：RFC-0030 v1.1 §4.3 L2a 通路 rt 侧已支持〔blas_refit 槽纪律同律〕,g14_3 接线计划 = artifacts/day_0830_g38/t2_fifdyn/WIRING_PLAN.md §1-A6;接线前 fail-closed 维持,蒙皮车道走顺序入口）");
                 }
                 if scene_id != "bistro-interior" {
                     fail("--skin-demo 仅 bistro-interior 已接线（cornell Split 六 pass 形态未接 MegaSkin 蒙皮车道，fail-closed）");

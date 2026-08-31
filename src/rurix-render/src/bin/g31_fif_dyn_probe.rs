@@ -30,9 +30,23 @@
 //! 副本消除跨槽写竞争 ⇒ 语义等价;Rebuild 下 AS 内容 = 纯函数(本帧实例))∧
 //! ② 三臂各自双跑位级一致(重建会话重放)∧ ③ validation ERROR = 0 ∧
 //! ④ 动态见证(逐帧立方体/地面命中皆 >0 + digest 序列非常量 + 哨兵 canary
-//! 零残留)∧ ⑤ 错槽更新/跨槽绑定 device 腿 RED 必拒。帧时 A/B/C measured
+//! 零残留)∧ ⑤ 错槽更新/跨槽绑定 device 腿 RED 必拒 ∧ ⑥ AS 副本组内存账
+//! 登记面成立(G38:逐臂表项数 = 副本数、全表项 >0、双跑账相等——ledger
+//! resource_id 映射漂移即 RED,防 0 字节假账静默过预算门)。帧时 A/B/C measured
 //! **登记不设通过线**(FIF 收益 = CPU submit/fence 解耦,GPU 帧间守卫 barrier
 //! 全序维持——RFC-0030 §4.3 L2 字面)。
+//!
+//! ## 内存登记面(G38,RFC-0030 §4.3 L2a「副本内存成本 evidence 登记」义务)
+//!
+//! evidence v2(`rurix.g31.fif_dyn_probe.v2`)增 `slot_as_mem` 区段:逐臂从
+//! session telemetry 全量 allocation ledger 按 AS 表项 resource_id(=
+//! resources.len()+ai+1,render_exec session ledger 登记式;本 probe 2 资源
+//! ⇒ 基 = 3)过滤求和——A 臂单表项基线 / B 臂 ×2 / C 臂 ×3 副本组,含
+//! `per_slot_bytes` 与 `group_total_bytes`;`results.trimmed_mean` 镜像槽 =
+//! 最大组 group_total_bytes(bytes,ci/budget_eval.py 通用路直读,预算条目
+//! `g31.fif_dyn.slot_as_group_mem_bytes`,标定 = ci/calibrate_fif_budget.py)。
+//! GPU 收割落 `evidence/` 时文件名须用前缀 `g31_fif_dyn_probe_`
+//! (ci/check_schemas.py v2 路由 → milestones/g31/g31_fif_dyn_probe_v2_evidence_schema.json)。
 //!
 //! ## 用法
 //!
@@ -49,9 +63,10 @@
 #![forbid(unsafe_code)]
 
 use rurix_rt::render_exec::{
-    AccelStructDesc, Bindings, BufferDesc, BufferUsage, ComputePass, DeviceFrameSession,
-    DeviceFrameOutput, DispatchSpec, FrameTicket, FrameUpdate, Pass, Readback, ResourceDesc,
-    SlotAsGroup, TargetState, g37_validate_slot_as_frame,
+    AccelStructDesc, AllocationLedgerEntry, Bindings, BufferDesc, BufferUsage, ComputePass,
+    DeviceFrameSession, DeviceFrameOutput, DispatchSpec, FrameTicket, FrameUpdate, Pass,
+    Readback, ResourceDesc, SlotAsGroup, StableAllocationId, StableResourceId, TargetState,
+    g37_validate_slot_as_frame,
 };
 use rurix_rt::vk::{
     self as rvk, RAY_QUERY_IDENTITY_TRANSFORM, RayQueryInstanceDesc, RayQuerySceneDesc,
@@ -575,6 +590,33 @@ struct ArmRun {
     cpu_submit_ms: f64,
     cpu_fence_ms: f64,
     validation_errors: u64,
+    /// AS 副本组内存账(G38 登记面):逐 AS 表项分配字节和,下标 = 表项下标
+    /// = 槽下标(A 臂长 1 / B 臂长 2 / C 臂长 3;首帧 telemetry 采集,
+    /// ledger 项 session 生命周期稳定)。
+    as_mem_bytes: Vec<u64>,
+}
+
+/// AS 副本组内存账过滤求和(纯函数,selftest/单测承载):session telemetry
+/// 全量 allocation ledger 中,AS 表项 `ai` 的分配按 `resource_id ==
+/// resources_len + ai + 1` 登记(render_exec session ledger 登记式——逐表项
+/// 含 instance buffer/BLAS 顶点缓冲/BLAS storage/TLAS storage/scratch 全部
+/// `vkAllocateMemory` 真账);返回逐表项字节和(长度 = entry_count)。
+/// 空账/映射漂移 ⇒ 0 值表项,由 main 侧登记门 fail-closed 拒绝。
+fn slot_as_mem_from_ledger(
+    allocations: &[AllocationLedgerEntry],
+    resources_len: usize,
+    entry_count: usize,
+) -> Vec<u64> {
+    (0..entry_count as u64)
+        .map(|ai| {
+            let want = StableResourceId(resources_len as u64 + ai + 1);
+            allocations
+                .iter()
+                .filter(|a| a.resource_id == Some(want))
+                .map(|a| a.bytes)
+                .sum()
+        })
+        .collect()
 }
 
 fn median(v: &mut Vec<f64>) -> f64 {
@@ -620,7 +662,7 @@ impl TelemetryAcc {
             .push(out.telemetry.cpu_fence_wait_ns as f64 / 1e6);
         self.validation = self.validation.max(out.telemetry.validation_error_count);
     }
-    fn finish(mut self, digests: Vec<String>, wall_ms: f64) -> ArmRun {
+    fn finish(mut self, digests: Vec<String>, wall_ms: f64, as_mem_bytes: Vec<u64>) -> ArmRun {
         ArmRun {
             digests,
             wall_ms,
@@ -630,6 +672,7 @@ impl TelemetryAcc {
             cpu_submit_ms: median(&mut self.cpu_submit),
             cpu_fence_ms: median(&mut self.cpu_fence),
             validation_errors: self.validation,
+            as_mem_bytes,
         }
     }
 }
@@ -808,6 +851,10 @@ fn run_arm(
 
     let mut acc = TelemetryAcc::new();
     let mut digests: Vec<String> = Vec::with_capacity(frames as usize);
+    // AS 副本组内存账(首帧 telemetry 采集一次;ledger 项 session 生命周期
+    // 稳定,resource_id 映射式见 slot_as_mem_from_ledger)。
+    let resources_len = resources.len();
+    let mut as_mem: Vec<u64> = Vec::new();
     let wall_start = std::time::Instant::now();
 
     if slots <= 1 {
@@ -821,6 +868,9 @@ fn run_arm(
                 .execute_with_frame_update(&prov, &update)
                 .map_err(|e| format!("A 帧 {k} 提交: {e}"))?;
             audit_frame("A", k, &out.readbacks[0], n_rays)?;
+            if as_mem.is_empty() {
+                as_mem = slot_as_mem_from_ledger(&out.telemetry.allocations, resources_len, entry_count);
+            }
             digests.push(rurix_pkg::sha256::hex_digest(&out.readbacks[0]));
             acc.push(&out);
         }
@@ -860,7 +910,8 @@ fn run_arm(
             |session: &mut DeviceFrameSession<'_>,
              pending: &mut VecDeque<(u32, FrameTicket)>,
              digests: &mut Vec<String>,
-             acc: &mut TelemetryAcc|
+             acc: &mut TelemetryAcc,
+             as_mem: &mut Vec<u64>|
              -> Result<(), String> {
                 let (fk, ticket) = pending.pop_front().expect("collect 配平(结构保证)");
                 let out = session
@@ -868,6 +919,9 @@ fn run_arm(
                     .map_err(|e| format!("FIF 帧 {fk} collect: {e}"))?;
                 audit_frame(&format!("FIF{slots}"), fk, &out.readbacks[0], n_rays)?;
                 debug_assert_eq!(digests.len() as u32, fk, "FIFO 序 = 帧序");
+                if as_mem.is_empty() {
+                    *as_mem = slot_as_mem_from_ledger(&out.telemetry.allocations, resources_len, entry_count);
+                }
                 digests.push(rurix_pkg::sha256::hex_digest(&out.readbacks[0]));
                 acc.push(&out);
                 Ok(())
@@ -889,11 +943,11 @@ fn run_arm(
                 .map_err(|e| format!("FIF{slots} 帧 {k} submit: {e}"))?;
             pending.push_back((k, ticket));
             if pending.len() == slots {
-                collect_one(&mut session, &mut pending, &mut digests, &mut acc)?;
+                collect_one(&mut session, &mut pending, &mut digests, &mut acc, &mut as_mem)?;
             }
         }
         while !pending.is_empty() {
-            collect_one(&mut session, &mut pending, &mut digests, &mut acc)?;
+            collect_one(&mut session, &mut pending, &mut digests, &mut acc, &mut as_mem)?;
         }
     }
     let wall_ms = wall_start.elapsed().as_secs_f64() * 1e3;
@@ -903,7 +957,7 @@ fn run_arm(
             digests.len()
         ));
     }
-    Ok(acc.finish(digests, wall_ms))
+    Ok(acc.finish(digests, wall_ms, as_mem))
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,6 +1081,42 @@ fn selftest_trajectory() -> Result<(), String> {
     Ok(())
 }
 
+/// AS 内存账过滤求和纯函数红绿臂(G38 登记面;合成 ledger,零 GPU)。
+fn selftest_slot_as_mem() -> Result<(), String> {
+    let e = |rid: Option<u64>, bytes: u64| AllocationLedgerEntry {
+        allocation_id: StableAllocationId(0),
+        resource_id: rid.map(StableResourceId),
+        bytes,
+        heap_index: 0,
+    };
+    // 合成账(resources_len=2 ⇒ AS 表项基 = 3):id 1 = buffer 资源本体不入
+    // AS 账;None = 内部 staging 不入;3 两笔求和;6 = 组外(entry_count=3)不入。
+    let ledger = vec![
+        e(Some(1), 111),
+        e(None, 222),
+        e(Some(3), 100),
+        e(Some(3), 24),
+        e(Some(4), 300),
+        e(Some(5), 500),
+        e(Some(6), 999),
+    ];
+    let got = slot_as_mem_from_ledger(&ledger, 2, 3);
+    if got != [124, 300, 500] {
+        return Err(format!("AS 账过滤求和漂移: {got:?} ≠ [124, 300, 500]"));
+    }
+    let one = slot_as_mem_from_ledger(&ledger, 2, 1);
+    if one != [124] {
+        return Err(format!("单表项臂(A)账漂移: {one:?} ≠ [124]"));
+    }
+    // 空账/映射漂移 ⇒ 0 值表项(形状保持;main 登记门 fail-closed 拒 0——
+    // 此处验证不静默丢表项)。
+    let empty = slot_as_mem_from_ledger(&[], 2, 2);
+    if empty != [0, 0] {
+        return Err(format!("空账形状漂移: {empty:?} ≠ [0, 0]"));
+    }
+    Ok(())
+}
+
 fn selftest_kernels() -> Result<(), String> {
     for (name, words, need_rq) in [
         ("fd_clear", clear_spv(), false),
@@ -1055,11 +1145,12 @@ fn selftest_kernels() -> Result<(), String> {
 }
 
 fn run_selftest() -> i32 {
-    let cases: [(&str, fn() -> Result<(), String>); 4] = [
+    let cases: [(&str, fn() -> Result<(), String>); 5] = [
         ("slot_validator(红绿臂,rt 事实源直调)", selftest_slot_validator),
         ("slot_ring(写面隔离模型)", selftest_slot_ring),
         ("trajectory(双跑位级/可辨性)", selftest_trajectory),
         ("kernels(SPIR-V 结构/几何流)", selftest_kernels),
+        ("slot_as_mem(AS 账过滤求和,G38 登记面)", selftest_slot_as_mem),
     ];
     let mut ok = true;
     for (name, f) in cases {
@@ -1072,7 +1163,7 @@ fn run_selftest() -> i32 {
         }
     }
     if ok {
-        println!("{TAG}: PASS selftest 4/4(纯 host;device 判档归 GPU 验收窗)");
+        println!("{TAG}: PASS selftest 5/5(纯 host;device 判档归 GPU 验收窗)");
         0
     } else {
         1
@@ -1095,6 +1186,16 @@ fn json_escape(s: &str) -> String {
             c => vec![c],
         })
         .collect()
+}
+
+/// slot_as_mem 单臂账 JSON(per_slot_bytes + group_total_bytes)。
+fn mem_json(r: &ArmRun) -> String {
+    let per: Vec<String> = r.as_mem_bytes.iter().map(u64::to_string).collect();
+    format!(
+        "{{ \"per_slot_bytes\": [{}], \"group_total_bytes\": {} }}",
+        per.join(", "),
+        r.as_mem_bytes.iter().sum::<u64>()
+    )
 }
 
 fn arm_json(r: &ArmRun) -> String {
@@ -1200,15 +1301,46 @@ fn main() {
             ));
         }
     }
+    // AS 副本组内存账登记门(G38;RFC-0030 §4.3 L2a「副本内存成本 evidence
+    // 登记」义务的 fail-closed 承载):逐臂表项数 = 副本数 ∧ 全表项 >0
+    // (0 = ledger resource_id 映射漂移,假账不得静默过预算门)∧ 双跑账相等
+    // (分配账 session 生命周期稳定,双跑不等 = 登记值不可信)。
+    let mut slot_as_mem_registered = true;
+    for (name, r1, r2, want) in [
+        ("a_seq", &a1, &a2, 1usize),
+        ("b_fif2", &b1, &b2, 2),
+        ("c_fif3", &c1, &c2, 3),
+    ] {
+        if r1.as_mem_bytes.len() != want || r1.as_mem_bytes.iter().any(|&b| b == 0) {
+            slot_as_mem_registered = false;
+            failures.push(format!(
+                "{name} AS 内存账破缺(表项账 {:?} ≠ {want} 项全非零——ledger resource_id 映射漂移)",
+                r1.as_mem_bytes
+            ));
+        } else if r1.as_mem_bytes != r2.as_mem_bytes {
+            slot_as_mem_registered = false;
+            failures.push(format!(
+                "{name} AS 内存账双跑不等({:?} ≠ {:?}——登记值不可信)",
+                r1.as_mem_bytes, r2.as_mem_bytes
+            ));
+        }
+    }
     let verdict = if failures.is_empty() { "PASS" } else { "RED" };
 
-    // ── evidence sidecar(rurix.g31.fif_dyn_probe.v1)──
+    // ── evidence sidecar(rurix.g31.fif_dyn_probe.v2:v1 + slot_as_mem 登记
+    // 面 + results.trimmed_mean 镜像槽;GPU 收割落 evidence/ 用文件名前缀
+    // g31_fif_dyn_probe_,check_schemas v2 路由)──
+    let mem_trimmed_mean = [&a1, &b1, &c1]
+        .iter()
+        .map(|r| r.as_mem_bytes.iter().sum::<u64>())
+        .max()
+        .unwrap_or(0);
     let fail_json: Vec<String> = failures
         .iter()
         .map(|f| format!("\"{}\"", json_escape(f)))
         .collect();
     let json = format!(
-        "{{\n  \"schema\": \"rurix.g31.fif_dyn_probe.v1\",\n  \"probe\": \"g31_fif_dyn_probe\",\n  \"todo\": 90,\n  \"args\": {{ \"frames\": {}, \"rays\": \"{}x{}\", \"action\": \"{action_name}\" }},\n  \"gates\": {{\n    \"b_eq_a_bytewise\": {},\n    \"c_eq_a_bytewise\": {},\n    \"double_run_bitlevel\": {},\n    \"validation_zero\": {},\n    \"dynamic_witness\": {},\n    \"red_arms_rejected\": true\n  }},\n  \"verdict\": \"{verdict}\",\n  \"failures\": [{}],\n  \"measured_note\": \"帧时为 measured 登记不设通过线;FIF 收益 = CPU record/submit/fence 解耦(GPU 帧间守卫 barrier 全序维持,RFC-0030 §4.3 L2 字面);微场景下 GPU 段近零,收益读数以 cpu_fence_ms 中位与 wall_ms 对照为准\",\n  \"arms\": {{\n    \"a_seq\": {},\n    \"a_seq_rerun\": {},\n    \"b_fif2\": {},\n    \"b_fif2_rerun\": {},\n    \"c_fif3\": {},\n    \"c_fif3_rerun\": {}\n  }}\n}}",
+        "{{\n  \"schema\": \"rurix.g31.fif_dyn_probe.v2\",\n  \"probe\": \"g31_fif_dyn_probe\",\n  \"todo\": 90,\n  \"args\": {{ \"frames\": {}, \"rays\": \"{}x{}\", \"action\": \"{action_name}\" }},\n  \"gates\": {{\n    \"b_eq_a_bytewise\": {},\n    \"c_eq_a_bytewise\": {},\n    \"double_run_bitlevel\": {},\n    \"validation_zero\": {},\n    \"dynamic_witness\": {},\n    \"red_arms_rejected\": true,\n    \"slot_as_mem_registered\": {}\n  }},\n  \"verdict\": \"{verdict}\",\n  \"failures\": [{}],\n  \"measured_note\": \"帧时为 measured 登记不设通过线;FIF 收益 = CPU record/submit/fence 解耦(GPU 帧间守卫 barrier 全序维持,RFC-0030 §4.3 L2 字面);微场景下 GPU 段近零,收益读数以 cpu_fence_ms 中位与 wall_ms 对照为准\",\n  \"slot_as_mem\": {{\n    \"note\": \"AS 副本组内存账(RFC-0030 §4.3 L2a evidence 登记义务):session telemetry 全量 allocation ledger 按 AS 表项 resource_id(= resources.len()+ai+1,本 probe 2 资源 ⇒ 基 = 3)过滤求和;A 臂单表项基线,B×2/C×3 = opt-in 副本组显式代价;首帧采集,双跑账相等经 gates.slot_as_mem_registered 机核\",\n    \"a_seq\": {},\n    \"b_fif2\": {},\n    \"c_fif3\": {}\n  }},\n  \"results\": {{ \"trimmed_mean\": {}, \"unit\": \"bytes\", \"source\": \"slot_as_mem 最大组 group_total_bytes(= FIF3 副本组;ci/budget_eval.py 通用路镜像槽,预算条目 g31.fif_dyn.slot_as_group_mem_bytes,标定 = ci/calibrate_fif_budget.py threshold = measured × 1.5 程序产)\" }},\n  \"arms\": {{\n    \"a_seq\": {},\n    \"a_seq_rerun\": {},\n    \"b_fif2\": {},\n    \"b_fif2_rerun\": {},\n    \"c_fif3\": {},\n    \"c_fif3_rerun\": {}\n  }}\n}}",
         args.frames,
         args.rays_w,
         args.rays_h,
@@ -1219,7 +1351,12 @@ fn main() {
             .iter()
             .all(|r| r.validation_errors == 0),
         uniq.len() >= 2,
+        slot_as_mem_registered,
         fail_json.join(", "),
+        mem_json(&a1),
+        mem_json(&b1),
+        mem_json(&c1),
+        mem_trimmed_mean,
         arm_json(&a1),
         arm_json(&a2),
         arm_json(&b1),
@@ -1242,7 +1379,7 @@ fn main() {
 
     if failures.is_empty() {
         println!(
-            "{TAG}: PASS frames={} action={action_name}(B/C≡A 逐帧 digest 逐字节 + 三臂双跑位级 + validation=0 + 动态见证 + RED 双臂必拒;帧时 A/B/C measured 已登记)",
+            "{TAG}: PASS frames={} action={action_name}(B/C≡A 逐帧 digest 逐字节 + 三臂双跑位级 + validation=0 + 动态见证 + RED 双臂必拒 + AS 内存账登记;帧时 A/B/C measured 已登记,slot_as_group_mem 最大组 {mem_trimmed_mean} bytes)",
             args.frames
         );
     } else {
@@ -1279,5 +1416,10 @@ mod tests {
     #[test]
     fn kernel_streams() {
         selftest_kernels().expect("kernel 结构");
+    }
+
+    #[test]
+    fn slot_as_mem_ledger_sum() {
+        selftest_slot_as_mem().expect("AS 账过滤求和(G38 登记面)");
     }
 }

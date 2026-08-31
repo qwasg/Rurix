@@ -23,13 +23,20 @@
 //!
 //! 用法：
 //!   g31_cluster_lod_bake --scene-dump <scene.rxcs> --out <pack.rxcp> \
-//!     [--min-block-tris 4096] [--threads N] [--double-build]
+//!     [--min-block-tris 4096] [--threads N] [--double-build] [--attrs on]
+//!
+//! G31+ #96 属性臂（--attrs on,默认 off = RXCP v1 字节面逐位不变）：要求
+//! RXCS v2（带 UV 段）输入 fail-closed;焊接键扩 (位置,UV) bits（接缝顶点
+//! 不误并）→ `build_asset_dag_attrs_params`（属性保持简化,RXGB 冻结面/
+//! m90 golden 不涉）→ RXCP v2 = 逐块 vertices 段后追加顶点 UV 平行表
+//! （运行时 gather_tri_uv_attrs 按簇局部索引取 corner UV）。
 
 use std::collections::HashMap;
 use std::path::Path;
 
 use rurix_geom_build::{
-    ClusterDag, DagAsset, DagBuildParams, SimplifyKind, TriMesh, build_asset_dag_params,
+    AttrTriMesh, ClusterDag, DagAsset, DagBuildParams, SimplifyKind, TriMesh, TriMeshAttrs,
+    build_asset_dag_attrs_params, build_asset_dag_params,
 };
 
 const TAG: &str = "[g31_cluster_lod_bake]";
@@ -56,6 +63,9 @@ struct SceneDump {
     tri_mat: Vec<u32>,
     /// (tri_offset, tri_count, is_light_tail)。
     groups: Vec<(u32, u32, bool)>,
+    /// G31+ #96 RXCS v2:逐三角 corner UV（6 f32/tri 与 tris 同序位保真;
+    /// v1 dump = None——属性臂 fail-closed 要求 Some,缺省臂两版都吃）。
+    uv: Option<Vec<[f32; 6]>>,
 }
 
 struct Cur<'a> {
@@ -91,7 +101,7 @@ fn read_scene_dump(path: &Path) -> SceneDump {
         fail("RXCS magic 不符");
     }
     let version = c.u32();
-    if version != 1 {
+    if version != 1 && version != 2 {
         fail(&format!("RXCS 版本不支持: {version}"));
     }
     let n = c.u32() as usize;
@@ -120,6 +130,16 @@ fn read_scene_dump(path: &Path) -> SceneDump {
     for _ in 0..n {
         tri_mat.push(c.u32());
     }
+    // #96 RXCS v2:UV 尾段（6 f32/tri 与 tris 同序;v1 缺席 = None）。
+    let uv = if version == 2 {
+        let mut uv = Vec::with_capacity(n);
+        for _ in 0..n {
+            uv.push([c.f32(), c.f32(), c.f32(), c.f32(), c.f32(), c.f32()]);
+        }
+        Some(uv)
+    } else {
+        None
+    };
     if c.p != bytes.len() {
         fail(&format!("RXCS 尾部冗余字节（pos {} ≠ len {}）", c.p, bytes.len()));
     }
@@ -141,6 +161,7 @@ fn read_scene_dump(path: &Path) -> SceneDump {
         emission,
         tri_mat,
         groups,
+        uv,
     }
 }
 
@@ -148,16 +169,25 @@ fn read_scene_dump(path: &Path) -> SceneDump {
 // 分块 + 焊接
 // ---------------------------------------------------------------------------
 
-/// bake 块：源三角 id 列表（全局）+ 焊接网格。
+/// bake 块：源三角 id 列表（全局）+ 焊接网格（+ #96 属性臂顶点 UV 平行表）。
 struct BakeBlock {
     /// 块内三角 i（= TriMesh 三角序）→ 全局源三角 id。
     src: Vec<u32>,
     mesh: TriMesh,
+    /// #96 属性臂：与 mesh.positions 等长平行的顶点 UV（(位置,UV) bits
+    /// 焊接产物——同位置不同 UV = 接缝拷贝不误并）;缺省臂 = None。
+    uv: Option<Vec<[f32; 2]>>,
 }
 
 /// 分块：节点段序贪心合并 ≥ min_block_tris；尾段组与 emissive 三角进
 /// passthrough。返回 (blocks, passthrough)。
-fn partition_blocks(dump: &SceneDump, min_block_tris: usize) -> (Vec<BakeBlock>, Vec<u32>) {
+/// #96：`attrs = true` 时焊接键 = (位置,UV) bits(调用方已保证 dump.uv 在场),
+/// 缺省臂 = 既有位置 bits 焊接逐字。
+fn partition_blocks(
+    dump: &SceneDump,
+    min_block_tris: usize,
+    attrs: bool,
+) -> (Vec<BakeBlock>, Vec<u32>) {
     let mut passthrough: Vec<u32> = Vec::new();
     let mut blocks: Vec<Vec<u32>> = Vec::new();
     let mut cur: Vec<u32> = Vec::new();
@@ -184,25 +214,61 @@ fn partition_blocks(dump: &SceneDump, min_block_tris: usize) -> (Vec<BakeBlock>,
     let blocks = blocks
         .into_iter()
         .map(|src| {
-            // 位置 bits 精确焊接（与 DAG 跨层焊接同口径;「不同 id 同位置」合并
-            // 已在 rurix-geom-build lib.rs 声明为已知行为）。
-            let mut weld: HashMap<[u32; 3], u32> = HashMap::new();
-            let mut positions: Vec<[f32; 3]> = Vec::new();
-            let mut indices: Vec<u32> = Vec::new();
-            for &t in &src {
-                for v in &dump.tris[t as usize] {
-                    let key = v.map(f32::to_bits);
-                    let next = positions.len() as u32;
-                    let id = *weld.entry(key).or_insert_with(|| {
-                        positions.push(*v);
-                        next
-                    });
-                    indices.push(id);
+            if attrs {
+                // #96 属性臂：(位置,UV) bits 精确焊接——接缝顶点(同位置
+                // 不同 UV)保持独立 id,简化链按接缝保守锁定(crate 面同律)。
+                let dump_uv = dump.uv.as_ref().expect("属性臂须 RXCS v2(调用方已核)");
+                let mut weld: HashMap<[u32; 5], u32> = HashMap::new();
+                let mut positions: Vec<[f32; 3]> = Vec::new();
+                let mut uv: Vec<[f32; 2]> = Vec::new();
+                let mut indices: Vec<u32> = Vec::new();
+                for &t in &src {
+                    let u6 = &dump_uv[t as usize];
+                    for (k, v) in dump.tris[t as usize].iter().enumerate() {
+                        let uvk = [u6[k * 2], u6[k * 2 + 1]];
+                        let key = [
+                            v[0].to_bits(),
+                            v[1].to_bits(),
+                            v[2].to_bits(),
+                            uvk[0].to_bits(),
+                            uvk[1].to_bits(),
+                        ];
+                        let next = positions.len() as u32;
+                        let id = *weld.entry(key).or_insert_with(|| {
+                            positions.push(*v);
+                            uv.push(uvk);
+                            next
+                        });
+                        indices.push(id);
+                    }
                 }
-            }
-            BakeBlock {
-                src,
-                mesh: TriMesh::new(positions, indices),
+                BakeBlock {
+                    src,
+                    mesh: TriMesh::new(positions, indices),
+                    uv: Some(uv),
+                }
+            } else {
+                // 位置 bits 精确焊接（与 DAG 跨层焊接同口径;「不同 id 同位置」合并
+                // 已在 rurix-geom-build lib.rs 声明为已知行为）。
+                let mut weld: HashMap<[u32; 3], u32> = HashMap::new();
+                let mut positions: Vec<[f32; 3]> = Vec::new();
+                let mut indices: Vec<u32> = Vec::new();
+                for &t in &src {
+                    for v in &dump.tris[t as usize] {
+                        let key = v.map(f32::to_bits);
+                        let next = positions.len() as u32;
+                        let id = *weld.entry(key).or_insert_with(|| {
+                            positions.push(*v);
+                            next
+                        });
+                        indices.push(id);
+                    }
+                }
+                BakeBlock {
+                    src,
+                    mesh: TriMesh::new(positions, indices),
+                    uv: None,
+                }
             }
         })
         .collect();
@@ -320,17 +386,24 @@ struct BakedBlock {
     self_lod: Vec<[f32; 4]>,
     /// 逐簇组共享 LOD 判定球（parent = 所属组球）。
     parent_lod: Vec<[f32; 4]>,
+    /// #96 属性臂：与 dag.vertices 等长平行的顶点 UV（build_dag_attrs
+    /// 产物;RXCP v2 逐块 UV 段数据源）。缺省臂 = None。
+    vertex_uv: Option<Vec<[f32; 2]>>,
 }
 
+/// RXCP 写出。#96：`attrs_on = true` ⇒ version 2,逐块 vertices 段后紧邻
+/// 追加顶点 UV 平行表（2 f32/顶点;g14_3_lane_body read_cluster_pack v2
+/// 镜像）;false ⇒ version 1 字节面逐位不变。
 fn write_pack(
     dump: &SceneDump,
     passthrough: &[u32],
     baked: &[BakedBlock],
+    attrs_on: bool,
     path: &Path,
 ) -> Vec<u8> {
     let mut out: Vec<u8> = Vec::new();
     out.extend_from_slice(RXCP_MAGIC);
-    out.extend_from_slice(&1u32.to_le_bytes());
+    out.extend_from_slice(&(if attrs_on { 2u32 } else { 1u32 }).to_le_bytes());
     out.extend_from_slice(dump.gltf_sha256.as_bytes());
     out.extend_from_slice(&(dump.tris.len() as u32).to_le_bytes());
     out.extend_from_slice(&(passthrough.len() as u32).to_le_bytes());
@@ -375,6 +448,25 @@ fn write_pack(
         for v in &dag.vertices {
             for &x in v {
                 out.extend_from_slice(&x.to_bits().to_le_bytes());
+            }
+        }
+        // #96 RXCP v2:顶点 UV 平行表(fail-closed:属性臂每块必有且等长)。
+        if attrs_on {
+            let uv = b
+                .vertex_uv
+                .as_ref()
+                .unwrap_or_else(|| fail("属性臂块缺顶点 UV 表（构建不变量破坏）"));
+            if uv.len() != dag.vertices.len() {
+                fail(&format!(
+                    "属性臂块 UV 表长 {} ≠ 顶点数 {}（平行表不变量破坏）",
+                    uv.len(),
+                    dag.vertices.len()
+                ));
+            }
+            for u in uv {
+                for &x in u {
+                    out.extend_from_slice(&x.to_bits().to_le_bytes());
+                }
             }
         }
         out.extend_from_slice(&dag.triangle_indices);
@@ -427,14 +519,18 @@ fn bake(
     min_block_tris: usize,
     threads: usize,
     kind: &DagBuildParams,
+    attrs_on: bool,
     out: &Path,
 ) -> BakeResult {
-    let (blocks, mut passthrough) = partition_blocks(dump, min_block_tris);
+    let (blocks, mut passthrough) = partition_blocks(dump, min_block_tris, attrs_on);
     // 块间并行构建（块内确定性单线程;结果按块序回收——同输入同输出）。
-    let mut results: Vec<Option<Result<ClusterDag, String>>> = Vec::new();
+    // #96:结果面 = (DAG, 顶点 UV 平行表);缺省臂 UV 恒 None,构建调用与
+    // 既有路径同一事实源(build_asset_dag_params)。
+    type BlockResult = Result<(ClusterDag, Option<Vec<[f32; 2]>>), String>;
+    let mut results: Vec<Option<BlockResult>> = Vec::new();
     results.resize_with(blocks.len(), || None);
     let next = std::sync::atomic::AtomicUsize::new(0);
-    let results_cell: Vec<std::sync::Mutex<Option<Result<ClusterDag, String>>>> =
+    let results_cell: Vec<std::sync::Mutex<Option<BlockResult>>> =
         results.into_iter().map(std::sync::Mutex::new).collect();
     std::thread::scope(|s| {
         for _ in 0..threads.max(1).min(blocks.len().max(1)) {
@@ -444,12 +540,33 @@ fn bake(
                     if i >= blocks.len() {
                         break;
                     }
-                    let r = build_asset_dag_params(
-                        &DagAsset::static_mesh(blocks[i].mesh.clone()),
-                        kind,
-                    )
-                    .map(|v2| v2.base)
-                    .map_err(|e| e.to_string());
+                    let r: BlockResult = if attrs_on {
+                        // #96 属性臂：属性资产级构建（panic 转译 + 单调性核验
+                        // 与既有入口同律;RXGB 冻结面/m90 golden 不涉——
+                        // 属性表为内存直构面,见 rurix-geom-build ClusterDagAttrs）。
+                        build_asset_dag_attrs_params(
+                            &AttrTriMesh {
+                                mesh: blocks[i].mesh.clone(),
+                                attrs: TriMeshAttrs {
+                                    uv: blocks[i]
+                                        .uv
+                                        .clone()
+                                        .expect("属性臂块必带 UV(partition 已产)"),
+                                    normal: None,
+                                },
+                            },
+                            kind,
+                        )
+                        .map(|a| (a.base, Some(a.vertex_uv)))
+                        .map_err(|e| e.to_string())
+                    } else {
+                        build_asset_dag_params(
+                            &DagAsset::static_mesh(blocks[i].mesh.clone()),
+                            kind,
+                        )
+                        .map(|v2| (v2.base, None))
+                        .map_err(|e| e.to_string())
+                    };
                     *results_cell[i].lock().unwrap() = Some(r);
                 }
             });
@@ -470,7 +587,7 @@ fn bake(
             .unwrap()
             .unwrap_or_else(|| fail("块构建结果缺失（调度不变量破坏）"));
         match r {
-            Ok(mut dag) => {
+            Ok((mut dag, vertex_uv)) => {
                 // 叶层源 id 全局化 + 叶覆盖完整性（块内恰一次）。
                 if dag.leaf_source_tris.len() != blocks[i].src.len() {
                     fail(&format!(
@@ -508,6 +625,7 @@ fn bake(
                     attrs,
                     self_lod,
                     parent_lod,
+                    vertex_uv,
                 });
             }
             Err(e) => {
@@ -519,7 +637,7 @@ fn bake(
         }
     }
     passthrough.sort_unstable();
-    let bytes = write_pack(dump, &passthrough, &baked, out);
+    let bytes = write_pack(dump, &passthrough, &baked, attrs_on, out);
     let clusters: usize = baked.iter().map(|b| b.dag.records.len()).sum();
     let leaf_tris: usize = baked.iter().map(|b| b.leaf_src_global.len()).sum();
     let levels_max = baked.iter().map(|b| b.dag.level_count()).max().unwrap_or(0);
@@ -565,6 +683,9 @@ fn main() {
     // 新面无 golden;shortest = 既有事实源对照臂(4 簇/组无偏置),m90 golden
     // 锚在 rxcook/build_dag 默认面)。
     let mut simplifier = DagBuildParams::quality();
+    // G31+ #96:属性臂(默认 off = 既有 RXCP v1 字节面逐位不变;on = 属性
+    // 保持简化 + RXCP v2 簇 UV 表,要求 RXCS v2 输入)。
+    let mut attrs_on = false;
     let mut i = 1;
     while i < args.len() {
         let take = |args: &[String], i: &mut usize| -> String {
@@ -574,6 +695,13 @@ fn main() {
         match args[i].as_str() {
             "--scene-dump" => scene_dump = take(&args, &mut i),
             "--out" => out_path = take(&args, &mut i),
+            "--attrs" => {
+                attrs_on = match take(&args, &mut i).as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => fail(&format!("--attrs {other}：只接受 on|off")),
+                }
+            }
             "--min-block-tris" => {
                 min_block_tris = take(&args, &mut i)
                     .parse()
@@ -608,14 +736,25 @@ fn main() {
         fail("参数闭集缺行（--scene-dump / --out）");
     }
     let dump = read_scene_dump(Path::new(&scene_dump));
+    // #96 属性臂 fail-closed:要求 RXCS v2(带 UV 段)输入。
+    if attrs_on && dump.uv.is_none() {
+        fail(
+            "--attrs on 需 RXCS v2（带 UV 段）输入——本 dump 为 v1 无 UV;\
+             用 g14_3_pipeline_perf --dump-scene 重产（默认即 v2）",
+        );
+    }
     eprintln!(
-        "{TAG}: RXCS 装载 tris={} groups={} sha={}",
+        "{TAG}: RXCS 装载 tris={} groups={} sha={} uv={}",
         dump.tris.len(),
         dump.groups.len(),
         &dump.gltf_sha256[..16],
+        dump.uv.is_some(),
     );
+    if attrs_on {
+        eprintln!("{TAG}: #96 属性臂 on（(位置,UV) 焊接 + build_dag_attrs + RXCP v2 簇 UV 表）");
+    }
     let t0 = std::time::Instant::now();
-    let r = bake(&dump, min_block_tris, threads, &simplifier, Path::new(&out_path));
+    let r = bake(&dump, min_block_tris, threads, &simplifier, attrs_on, Path::new(&out_path));
     let bake_ms = t0.elapsed().as_secs_f64() * 1e3;
     let stuck = rurix_geom_build::qem::take_stuck_count();
     if double_build {
@@ -623,7 +762,7 @@ fn main() {
             "g31_cluster_lod_bake_double_{}.rxcp",
             std::process::id()
         ));
-        let r2 = bake(&dump, min_block_tris, threads, &simplifier, &tmp);
+        let r2 = bake(&dump, min_block_tris, threads, &simplifier, attrs_on, &tmp);
         let equal = r.bytes == r2.bytes;
         let _ = std::fs::remove_file(&tmp);
         let _ = rurix_geom_build::qem::take_stuck_count();

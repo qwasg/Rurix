@@ -1798,7 +1798,14 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
         let (s2, g) = apply_geo_combined(scene, &cluster_opt, &wp_opt, pre.in_w, pre.in_h);
         scene = s2;
         if let Some(g) = &g {
-            let gathered = gather_tri_uv(&g.prov, &tri_uv);
+            // #96 属性臂:v2 资产的代理三角自簇 UV 表/RXHL v2 取真 corner
+            // UV;v1 资产写 0 = 旧语义逐位等价(main ③.4 同律)。
+            let gathered = gather_tri_uv_attrs(
+                &g.prov,
+                &tri_uv,
+                g.cluster.as_ref().map(|(_, p)| p),
+                g.wp.as_ref().map(|(_, ctx)| &ctx.pack),
+            );
             let regrouped = regroup_nodes(&g.prov, &hzb_groups, &scene);
             if geo_prov_is_identity(&g.prov) {
                 // W1 恒等排列锚（leaf/full 极限）：gather/regroup 产物与装配
@@ -1921,13 +1928,19 @@ fn g34_hzb_main(cli: G34HzbCli) -> ! {
         } else {
             0
         };
-        // G36 W3：代理三角 tritex 强制 −1（geo on 面;代理 UV=0 采样错色防线,
-        // 走常量面回退——cluster/cell 面积加权均值;#96 属性保持简化留窗）。
+        // G36 W3/#96：代理三角 tritex 补丁 v2——仅无 UV 数据（v1 资产）的
+        // 代理三角置 −1 走常量面回退;带 UV（v2 资产）的保留 tri_mat 派生
+        // 槽号走图集采样(main ③.6 同律)。
         if let Some(g) = geo.as_ref() {
-            let patched = geo_patch_proxy_tritex(&mut assets, &g.prov);
+            let patched = geo_patch_proxy_tritex_v2(
+                &mut assets,
+                &g.prov,
+                g.cluster.as_ref().map(|(_, p)| p),
+                g.wp.as_ref().map(|(_, ctx)| &ctx.pack),
+            );
             if patched > 0 {
                 eprintln!(
-                    "{GTAG}: [hzb] geo 代理 tritex 补丁 patched={patched} tex_tris={}（代理走常量面回退,#96 留窗）",
+                    "{GTAG}: [hzb] geo 代理 tritex 补丁 patched={patched} tex_tris={}（无 UV 代理走常量面回退;#96 带 UV 代理保留图集采样）",
                     assets.tex_tris,
                 );
             }

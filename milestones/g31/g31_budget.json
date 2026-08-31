@@ -69,6 +69,17 @@
       "threshold": 10000.0,
       "evidence_file": "evidence/g31_baseline_soak_frames.json",
       "measured_value": 10010.0
+    },
+    {
+      "id": "g31.fif_dyn.slot_as_group_mem_bytes",
+      "description": "G38 T2(TODO #90/RFC-0030 §4.3 L2a):FIF×动态每槽 AS 副本组内存上界门——g31_fif_dyn_probe v2 evidence 的 results.trimmed_mean 镜像槽(= slot_as_mem 最大组 group_total_bytes,FIF3 ×3 副本组;逐表项 = instance buffer/BLAS 顶点缓冲/BLAS/TLAS/scratch 真实 vkAllocateMemory 账,session telemetry allocation ledger 按 resource_id 过滤求和)。L2a 字面「副本内存成本(AS 面 ×frame_slots)为 opt-in 显式代价,evidence 登记」的预算门承载;budget_eval 通用路判读(direction=max),threshold = measured × 1.5 程序产禁手写(标定 = ci/calibrate_fif_budget.py 读 evidence/g31_fif_dyn_probe_*.json 回填,幂等可复跑,--check 模式核验)",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "bytes",
+      "threshold": 66816.0,
+      "evidence_file": "artifacts/day_0830_g38/t2_fifdyn/evidence_fif_dyn_rebuild_g38.json",
+      "measured_value": 44544
     }
   ],
   "ratio_assertions": [],

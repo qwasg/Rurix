@@ -80,3 +80,13 @@ src/rurix-physics-sys56/**/*.obj
 # G10 机器局部缓存根配置（RXS-0382 L2 解析序兜底；本机绝对路径不入签名面、不入 git）
 g10_cache_root.local.json
 .cursor/
+
+# G38 RIS/NEE A/B 逐帧 presented 原始转储不入库（2026-08-31 提交清点：8 跑×26 件×7.9MB≈1.6GB）
+# 分析输入面；结论数字已保全入库（t5_risnee/REPORT.md + ab/*/ev.json + lamp_k 阶梯 json）。
+# day_0828 逐帧 EXR 清理同律（converged+receipt 全保）。
+artifacts/day_0830_g38/t5_risnee/ab/**/p.raw*
+
+# DLSS5NR 评估件衍生物不入库（2026-08-31；dlss5nr_vendor_sdk_registry.json
+# blocked_for_redistribution 纪律）：addon64 整体反汇编 46.8MB 为泄露/评估件直接衍生物；
+# PE 导出/字符串元数据 json 登记件保全入库。
+artifacts/day_0830_dlss5nr/probe_static/*.asm

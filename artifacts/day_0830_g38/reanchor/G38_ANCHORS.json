@@ -1,0 +1,188 @@
+{
+ "schema": "rurix.day0830.g38.reanchor.v1",
+ "fails": 0,
+ "optional_fails": [],
+ "verdict": "PASS",
+ "anchors_harvested": {
+  "full19_default_96f": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+  "rd045_orbit_64f_full_default": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d",
+  "transparency_solo_96f": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+  "lut_neutral_32f": "sha256:7b6856df513cb0f27a98e904d9f8ec763cab910458678a62654099faf5a605fc",
+  "lut_warm_32f": "sha256:c6cd1152339f719743d07115ed4f8f43dffb6fc474cbecd7b06fa63b4e79a71d",
+  "ris_nee_solo_96f": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+  "tex_arm_orbit_64f": "sha256:ac2e5ff5747e44f7b8d99967579ff5d5a95fd0c0c08075edb8ebf86e9167060e"
+ },
+ "unaffected_note": "transparency/lut/ris_nee/tex 臂均 --quality off 基(无 normal-maps/lamp-lights),v2 切换零影响——v1/v2 抽验为机器证明;原值自 W4 表誊录。",
+ "lineage": {
+  "full19": "5db2e7d7(16臂)→7636f72f(19臂+翻转)→本表(法线v2消费)",
+  "rd045": "060e69a8(作废)→ef2b5b19→本表(法线v2消费)"
+ },
+ "rows": [
+  {
+   "t": "23:25:42",
+   "step": "n1_alloff_8f",
+   "status": "OK",
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "wall_s": 62.7,
+   "vuid": null,
+   "real_render_frame_ms": 4.915062,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:25:42",
+   "step": "n1_verdict",
+   "status": "OK"
+  },
+  {
+   "t": "23:26:45",
+   "step": "n2_bench_160f",
+   "status": "OK",
+   "got": "sha256:c1d28ad73783cc3c0"
+  },
+  {
+   "t": "23:26:45",
+   "step": "n3_stagea_probe",
+   "status": "OK",
+   "note": "bench 默认格 == Stage A bistro/t100/tsr 格同一口径回执"
+  },
+  {
+   "t": "23:31:10",
+   "step": "h1_full19_96f_r1",
+   "status": "OK",
+   "digest": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+   "wall_s": 265.0,
+   "vuid": null,
+   "real_render_frame_ms": 10.673867,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:35:34",
+   "step": "h1_full19_96f_r2",
+   "status": "OK",
+   "digest": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+   "wall_s": 264.1,
+   "vuid": null,
+   "real_render_frame_ms": 10.327124,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:35:34",
+   "step": "h1_full19_96f_pair",
+   "status": "OK",
+   "double_run_bitexact": true,
+   "digest": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1"
+  },
+  {
+   "t": "23:39:59",
+   "step": "h2_rd045_orbit_tn_r1",
+   "status": "OK",
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d",
+   "wall_s": 264.7,
+   "vuid": null,
+   "real_render_frame_ms": 9.649123,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:44:23",
+   "step": "h2_rd045_orbit_tn_r2",
+   "status": "OK",
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d",
+   "wall_s": 264.7,
+   "vuid": null,
+   "real_render_frame_ms": 10.790242,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:44:23",
+   "step": "h2_rd045_orbit_tn_pair",
+   "status": "OK",
+   "double_run_bitexact": true,
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d"
+  },
+  {
+   "t": "23:48:51",
+   "step": "h2_rd045_orbit_rel_r1",
+   "status": "OK",
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d",
+   "wall_s": 267.2,
+   "vuid": null,
+   "real_render_frame_ms": 10.857166,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:53:17",
+   "step": "h2_rd045_orbit_rel_r2",
+   "status": "OK",
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d",
+   "wall_s": 266.8,
+   "vuid": null,
+   "real_render_frame_ms": 10.625866,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:53:17",
+   "step": "h2_rd045_orbit_rel_pair",
+   "status": "OK",
+   "double_run_bitexact": true,
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d"
+  },
+  {
+   "t": "23:53:17",
+   "step": "h2_dual_binary",
+   "status": "OK",
+   "digest": "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d"
+  },
+  {
+   "t": "23:55:28",
+   "step": "v1_ris_solo_96f",
+   "status": "OK",
+   "digest": "sha256:851a61baf989733817bc4880e96ba1ededbea428e22e27842d0f4dc995e2b9b2",
+   "wall_s": 130.2,
+   "vuid": null,
+   "real_render_frame_ms": 6.129892,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:55:28",
+   "step": "v1_verdict",
+   "status": "OK",
+   "got": "sha256:851a61baf98973381"
+  },
+  {
+   "t": "23:59:35",
+   "step": "v2_transp_solo_96f",
+   "status": "OK",
+   "digest": "sha256:86d66b32323ecd57cb93adcb2917d81d932bcfc399223257dd9af2f60919c577",
+   "wall_s": 247.8,
+   "vuid": null,
+   "real_render_frame_ms": 4.010104,
+   "stderr_tail": null
+  },
+  {
+   "t": "23:59:35",
+   "step": "v2_verdict",
+   "status": "FAIL",
+   "got": "sha256:86d66b32323ecd57c",
+   "expect": "sha256:af1f72643be83bd8f"
+  },
+  {
+   "t": "00:12:18",
+   "step": "v2_transp_solo_96f_retry",
+   "status": "OK",
+   "digest": "sha256:af1f72643be83bd8f683bb47ab9c7da5dfc06329618fe86f61004a984eddaff5",
+   "wall_s": 248.2,
+   "vuid": null,
+   "real_render_frame_ms": 4.11701,
+   "stderr_tail": null
+  },
+  {
+   "t": "00:12:18",
+   "step": "v2_verdict_retry",
+   "status": "OK",
+   "got": "sha256:af1f72643be83bd8f",
+   "expect": "sha256:af1f72643be83bd8f",
+   "note": "首跑 FAIL = 判读器臂形多拼 --ggx on(W4 s04 原形无 ggx),产物无缺陷;本次为正确臂形补验"
+  }
+ ],
+ "v2_correction": "首跑 v2_verdict FAIL = 判读器臂形错(多 --ggx on,W4 s04 原形 = off+smooth+textures+transparency);正确臂形补验 digest == W4 af1f7264 全串 MATCH——不动锚抽验成立。W4 s09/G38 批次1 B6/B7 判读修正同先例。"
+}

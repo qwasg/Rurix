@@ -1,0 +1,110 @@
+{
+ "schema": "rurix.day0830.g38.t5.lamp_k_ladder.v1",
+ "budget_ms": 11.11,
+ "base_clusters_literal": 13,
+ "verdict_note": "提档 = kept>13(0.6m 网格簇总量);go_candidate = 存在 margin≥0 的提档,lamp_k_go_candidate = 预算内最高 kept 档;restir_precondition_confirmed = kept>13 的一切档均超预算(逐盏 K 提档预算内不存在,ReSTIR 开窗条件成立 measured)。预算 11.11ms(90fps);margin = 11.11 − p50。",
+ "steps": [
+  {
+   "tag": "s1_g060_k12_baseline",
+   "grid": "0.6(缺省)",
+   "k_req": 12,
+   "clusters_total": 13,
+   "kept": 12,
+   "frame_ms": {
+    "p50": 10.79805,
+    "max": 26.3246,
+    "mean": 11.055959,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": 0.312,
+   "digest": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455"
+  },
+  {
+   "tag": "s2_g060_k24_falsify",
+   "grid": "0.6",
+   "k_req": 24,
+   "clusters_total": 13,
+   "kept": 13,
+   "frame_ms": {
+    "p50": 11.6374,
+    "max": 27.4525,
+    "mean": 11.756806,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": -0.527,
+   "digest": "sha256:66d7c493154a47b19331840c4f1c204e6fd6ed0c0df2ee040f12872c64b72dfe"
+  },
+  {
+   "tag": "s3_g030_k24",
+   "grid": "0.3",
+   "k_req": 24,
+   "clusters_total": 16,
+   "kept": 16,
+   "frame_ms": {
+    "p50": 10.70205,
+    "max": 27.0825,
+    "mean": 11.206468,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": 0.408,
+   "digest": "sha256:5cbc4fb05d2ab39186ffabceeda6a461a856c1adeb2717c8f2f6b4aaa56b363d"
+  },
+  {
+   "tag": "s4_g030_k48",
+   "grid": "0.3",
+   "k_req": 48,
+   "clusters_total": 16,
+   "kept": 16,
+   "frame_ms": {
+    "p50": 12.0051,
+    "max": 20.5258,
+    "mean": 12.052055,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": -0.895,
+   "digest": "sha256:5cbc4fb05d2ab39186ffabceeda6a461a856c1adeb2717c8f2f6b4aaa56b363d"
+  },
+  {
+   "tag": "s5_g015_k48",
+   "grid": "0.15",
+   "k_req": 48,
+   "clusters_total": 26,
+   "kept": 26,
+   "frame_ms": {
+    "p50": 12.9589,
+    "max": 35.0526,
+    "mean": 13.440676,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": -1.849,
+   "digest": "sha256:527de46f1ce240fa72a645ebb039129439284c5e17b2df1d7c53d12d432edf44"
+  },
+  {
+   "tag": "s6_g015_k96",
+   "grid": "0.15",
+   "k_req": 96,
+   "clusters_total": 26,
+   "kept": 26,
+   "frame_ms": {
+    "p50": 13.06025,
+    "max": 20.7707,
+    "mean": 13.35578,
+    "p50_source": "profile_render_wall"
+   },
+   "budget_margin_ms": -1.95,
+   "digest": "sha256:527de46f1ce240fa72a645ebb039129439284c5e17b2df1d7c53d12d432edf44"
+  }
+ ],
+ "verdict": "go_candidate",
+ "lamp_k_go_candidate": {
+  "tag": "s3_g030_k24",
+  "grid": "0.3",
+  "k_req": 24,
+  "kept": 16,
+  "budget_margin_ms": 0.408
+ },
+ "grid_knob_suspect_not_wired": false,
+ "notes": [
+  "证伪档 kept=13 vs 基线 12:不一致(预期外,须人工核查)"
+ ]
+}

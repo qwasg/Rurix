@@ -1,0 +1,162 @@
+{
+ "schema": "rurix.day0830.g38.t5.run_kladder.v1",
+ "fails": 0,
+ "frames": 96,
+ "warmup": 2,
+ "grid_env_name": "RURIX_G31_LAMP_GRID_M",
+ "grid_env_note": "缺席=0.6 字面;在位 parse f32 非法即 fail(接口约定,主 agent 接线;RURIX_G18_AMBIENT 同律)",
+ "ladder": [
+  {
+   "tag": "s1_g060_k12_baseline",
+   "grid": null,
+   "k": null
+  },
+  {
+   "tag": "s2_g060_k24_falsify",
+   "grid": "0.6",
+   "k": 24
+  },
+  {
+   "tag": "s3_g030_k24",
+   "grid": "0.3",
+   "k": 24
+  },
+  {
+   "tag": "s4_g030_k48",
+   "grid": "0.3",
+   "k": 48
+  },
+  {
+   "tag": "s5_g015_k48",
+   "grid": "0.15",
+   "k": 48
+  },
+  {
+   "tag": "s6_g015_k96",
+   "grid": "0.15",
+   "k": 96
+  }
+ ],
+ "rows": [
+  {
+   "tag": "s1_g060_k12_baseline",
+   "grid_env": null,
+   "k_req": null,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s1_g060_k12_baseline\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s1_g060_k12_baseline\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455",
+   "real_render_frame_ms": 11.055959,
+   "render_min_ms": 9.5063,
+   "render_max_ms": 26.3246,
+   "emissive_tris": 44024,
+   "clusters_total": 13,
+   "kept": 12,
+   "dropped": 1,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=13 kept=12 dropped=1（弃簇通量峰 0.057296/弃三角 1692）gain=4 k=12 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s1_g060_k12_baseline\\prof.json",
+   "wall_s": 261.2,
+   "ok": true
+  },
+  {
+   "tag": "s2_g060_k24_falsify",
+   "grid_env": "0.6",
+   "k_req": 24,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --quality full --lamp-k 24 --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s2_g060_k24_falsify\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s2_g060_k24_falsify\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:66d7c493154a47b19331840c4f1c204e6fd6ed0c0df2ee040f12872c64b72dfe",
+   "real_render_frame_ms": 11.756806,
+   "render_min_ms": 9.4472,
+   "render_max_ms": 27.4525,
+   "emissive_tris": 44024,
+   "clusters_total": 13,
+   "kept": 13,
+   "dropped": 0,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=13 kept=13 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=24 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s2_g060_k24_falsify\\prof.json",
+   "wall_s": 266.4,
+   "ok": true
+  },
+  {
+   "tag": "s3_g030_k24",
+   "grid_env": "0.3",
+   "k_req": 24,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --quality full --lamp-k 24 --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s3_g030_k24\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s3_g030_k24\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:5cbc4fb05d2ab39186ffabceeda6a461a856c1adeb2717c8f2f6b4aaa56b363d",
+   "real_render_frame_ms": 11.206468,
+   "render_min_ms": 9.6799,
+   "render_max_ms": 27.0825,
+   "emissive_tris": 44024,
+   "clusters_total": 16,
+   "kept": 16,
+   "dropped": 0,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=16 kept=16 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=24 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s3_g030_k24\\prof.json",
+   "wall_s": 271.7,
+   "ok": true
+  },
+  {
+   "tag": "s4_g030_k48",
+   "grid_env": "0.3",
+   "k_req": 48,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --quality full --lamp-k 48 --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s4_g030_k48\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s4_g030_k48\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:5cbc4fb05d2ab39186ffabceeda6a461a856c1adeb2717c8f2f6b4aaa56b363d",
+   "real_render_frame_ms": 12.052055,
+   "render_min_ms": 9.8707,
+   "render_max_ms": 20.5258,
+   "emissive_tris": 44024,
+   "clusters_total": 16,
+   "kept": 16,
+   "dropped": 0,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=16 kept=16 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=48 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s4_g030_k48\\prof.json",
+   "wall_s": 268.4,
+   "ok": true
+  },
+  {
+   "tag": "s5_g015_k48",
+   "grid_env": "0.15",
+   "k_req": 48,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --quality full --lamp-k 48 --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s5_g015_k48\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s5_g015_k48\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:527de46f1ce240fa72a645ebb039129439284c5e17b2df1d7c53d12d432edf44",
+   "real_render_frame_ms": 13.440676,
+   "render_min_ms": 11.3821,
+   "render_max_ms": 35.0526,
+   "emissive_tris": 44024,
+   "clusters_total": 26,
+   "kept": 26,
+   "dropped": 0,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=26 kept=26 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=48 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s5_g015_k48\\prof.json",
+   "wall_s": 298.4,
+   "ok": true
+  },
+  {
+   "tag": "s6_g015_k96",
+   "grid_env": "0.15",
+   "k_req": 96,
+   "cmd": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 96 --warmup 2 --hidden --quality full --lamp-k 96 --evidence H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s6_g015_k96\\ev.json --profile-json H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s6_g015_k96\\prof.json",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:527de46f1ce240fa72a645ebb039129439284c5e17b2df1d7c53d12d432edf44",
+   "real_render_frame_ms": 13.35578,
+   "render_min_ms": 11.6692,
+   "render_max_ms": 20.7707,
+   "emissive_tris": 44024,
+   "clusters_total": 26,
+   "kept": 26,
+   "dropped": 0,
+   "lamp_line": "[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=26 kept=26 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=96 contrib=0",
+   "profile_json": "H:\\rurix\\artifacts\\day_0830_g38\\t5_risnee\\kladder\\s6_g015_k96\\prof.json",
+   "wall_s": 263.7,
+   "ok": true
+  }
+ ]
+}

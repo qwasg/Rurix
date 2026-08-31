@@ -19,10 +19,10 @@
 | 面 | 锚 | 口径 |
 |---|---|---|
 | 窗口 all-off | `55e4a92d…`(不变) | 8f/warmup2,--quality off 显式回退档;跨重建稳定 |
-| **窗口 full 十九臂(现行交付默认)** | **`7636f72f486d27d63d65aff83037359b82497d722b9e33d0411d784a490df455`** | 96f/warmup2 缺省参数;帧时 9.75/10.59ms ≤ 11.11ms 预算;谱系 5db2e7d7(十六臂)→本锚 |
+| **窗口 full 十九臂(现行交付默认)** | **`a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1`**(G38 法线 v2 重锚) | 96f/warmup2 缺省参数;谱系 5db2e7d7(十六臂)→ 7636f72f(十九臂+翻转)→ 本锚(法线 v2 消费切换,G38_ANCHORS.json 在案,双跑位级) |
 | bench 默认 160f | `c1d28ad7…`(永不动) | 复验 MATCH |
 | Stage A 18 格 | 全 18 格 MATCH(W0) | g14_3_stage_a_digest_anchor.json 不变 |
-| RD-045 P02 腿 | `ef2b5b19…`(L63 已回写,门复跑 PASS) | orbit 64+10 缺省(=full);release/target-night 双二进制同值 |
+| RD-045 P02 腿 | `066395b0…`(G38 法线 v2 重锚,L68 已回写,门复跑 PASS;谱系 060e69a8→ef2b5b19→本锚) | orbit 64+10 缺省(=full);release/target-night 双二进制同值 |
 | transparency 单开 | `af1f7264…` | --quality off + snrm+tex+transp 96f |
 | RIS/NEE 单开 | `851a61ba…` | --quality off + snrm+tex+gi2+ris+nee 96f |
 | LUT neutral/warm | `7b6856df…`/`c6cd1152…`(neutral == off 位级 = 恒等 LUT 精度证明) | --quality off + lut 32f |
@@ -33,7 +33,7 @@
 - 新 SPV:`g31_realism_transp.spv` 35983d0f(272,032B)/`g31_realism_ris.spv` 622a1c33(315,048B)/`g31_display_encode_lut.spv` 9087b743/`g34_unified_primary_skin.spv` 7d3ae216——全部 spirv-val 绿;母版/既有冻结件 sha 前后 ALL SAME 自证在各 REPORT。
 - encode 共享件 `.tmp/g14_gates/m_c/g31_display_encode.spv`:43b0c255→e7291c79(v2 收编,.pre_g37.bak 备份);g34/g35/g36 消费面门全绿复跑。
 - B4 探针原形态 `.tmp/g31_gates/texture/g31_texture_probe.spv`:8B272122→753C4E83(fx/fy 同源修,sanity = 未修源复编==部署件位级)。
-- 法线烘焙 v2:`artifacts/day_0829_realism/a4_normalmap/baked_normals_bin_v2/`(69 张与 v1 逐字节相等 + slot14 平坦件 77bc6c00);窗口消费路径默认仍 v1——**切 v2 = 语义变更即重锚,留给下一重锚窗**(normal_dir 变量可覆盖,W4 未切以保十九臂锚稳定,如实登记)。
+- 法线烘焙 v2:`artifacts/day_0829_realism/a4_normalmap/baked_normals_bin_v2/`(69 张与 v1 逐字节相等 + slot14 平坦件 77bc6c00);**G38 Wave3 已切默认消费 v2**(g31_window_present.rs normal_dir 字面,语义变更即重锚已执行——full19 新锚 a5521e47/RD-045 新锚 066395b0,day_0829 历史 nrm 单开锚 dca78cbe 谱系作废不回写;G38 CAMPAIGN_LOG 在案)。
 - SDK bundle:`dist/sdk_bundle/sdk-1.1.0/`(24 组件+发布七件+CANDIDATE_MANIFEST;重打脚本 ci/g37_sdk_bundle_repack.py)。
 
 ## D. 门台账(本役新增/复跑,全部 evidence 在 evidence/ 或战役目录)
@@ -64,7 +64,7 @@ py -3 artifacts\day_0830_delivery\w0_baseline\w0_reverify.py   # 注:full16 步�
 py -3 artifacts\day_0830_delivery\w4_flip\w4_verify.py         # (s09 判读修正版见 w4_resume.py)
 # all-off / full 十九臂
 target-night\release\g31_window_present.exe --frames 8 --warmup 2 --hidden --quality off --evidence ev.json   # == 55e4a92d
-target-night\release\g31_window_present.exe --frames 96 --warmup 2 --hidden --evidence ev.json                # == 7636f72f(缺省=full)
+target-night\release\g31_window_present.exe --frames 96 --warmup 2 --hidden --evidence ev.json                # == a5521e47(缺省=full;G38 法线 v2 重锚,旧值 7636f72f 作废)
 # 门矩阵 + soak
 py -3 artifacts\day_0830_delivery\w6_final\w6_gates.py; py -3 ci\g31_wave_a_soak.py
 # bundle 重打(幂等)

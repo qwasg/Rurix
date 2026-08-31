@@ -1781,13 +1781,19 @@ fn main() {
     //     off 默认 = 既有面 0-byte）。cut/选层冻结于装配期契约相机（g31 车道
     //     同纪律,逐帧 AS 更新归 #77/#89 合流窗;--auto-move 轨迹绕契约位姿,
     //     LOD 误差口径以契约位姿投影为准如实登记）。UV sink 经 provenance
-    //     gather 重排（恒等排列锚 fail-closed）;tritex 代理补丁在 ③.6 纹理
-    //     装配后施加。
+    //     gather 重排（恒等排列锚 fail-closed;#96 属性臂:v2 资产的代理三角
+    //     自簇 UV 表/RXHL v2 取真 corner UV,v1 资产写 0 = 旧语义逐位等价）;
+    //     tritex 代理补丁在 ③.6 纹理装配后施加。
     let geo: Option<GeoApplied> = {
         let (s2, g) = apply_geo_combined(scene, &cluster_opt, &wp_opt, pre.in_w, pre.in_h);
         scene = s2;
         if let Some(g) = &g {
-            let gathered = gather_tri_uv(&g.prov, &tri_uv);
+            let gathered = gather_tri_uv_attrs(
+                &g.prov,
+                &tri_uv,
+                g.cluster.as_ref().map(|(_, p)| p),
+                g.wp.as_ref().map(|(_, ctx)| &ctx.pack),
+            );
             if geo_prov_is_identity(&g.prov) {
                 // W1 恒等排列锚（leaf/full 极限）：gather 产物与装配 sink
                 // 逐位一致 fail-closed。
@@ -1915,14 +1921,21 @@ fn main() {
         if let (Some(asset_eval), Some(arm_r)) = (slab_report.as_ref(), slab_arm.as_ref()) {
             tex_premod_slots = g34_slab_premod_texmeta(&mut assets, &asset_eval.0, arm_r);
         }
-        // G36 W3：代理三角 tritex 强制 −1（geo on 面;代理 UV=0 采样错色防线,
-        // 走常量面回退——cluster/cell 面积加权均值;host 金标准克隆同一补丁后
-        // 数组 ⇒ 两臂一致;#96 属性保持简化留窗如实登记）。
+        // G36 W3/#96：代理三角 tritex 补丁 v2——仅无 UV 数据（v1 资产）的
+        // 代理三角置 −1 走常量面回退（cluster/cell 面积加权均值;UV=0 采样
+        // 错色防线维持）;带 UV（v2 资产）的代理三角保留 tri_mat 派生槽号,
+        // 与 Src 三角同一图集采样路径（gather 已供真 corner UV）。host 金
+        // 标准克隆消费补丁后数组（assets.tritex/texuv_bytes）⇒ 两臂一致。
         if let Some(g) = geo.as_ref() {
-            let patched = geo_patch_proxy_tritex(&mut assets, &g.prov);
+            let patched = geo_patch_proxy_tritex_v2(
+                &mut assets,
+                &g.prov,
+                g.cluster.as_ref().map(|(_, p)| p),
+                g.wp.as_ref().map(|(_, ctx)| &ctx.pack),
+            );
             if patched > 0 {
                 eprintln!(
-                    "{GTAG}: geo 代理 tritex 补丁 patched={patched} tex_tris={}（代理走常量面回退,#96 留窗）",
+                    "{GTAG}: geo 代理 tritex 补丁 patched={patched} tex_tris={}（无 UV 代理走常量面回退;#96 带 UV 代理保留图集采样）",
                     assets.tex_tris,
                 );
             }

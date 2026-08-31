@@ -74,6 +74,33 @@ impl FrameCutArmOpt {
     }
 }
 
+/// G38 T3 扩展选项(**新类型**承载——`FrameCutArmOpt` 字段集冻结,窗口 bin
+/// 以 struct 字面量构造;窗口臂经既有 `run_frame_cut_arm` 消费本默认值)。
+#[derive(Clone, Copy)]
+#[allow(dead_code)]
+struct FrameCutArmExtOpt {
+    /// 桥接 copy 模式:false = incr(默认;差集脏槽多 region copy,帧 0 全量
+    /// 单 region)/ true = full(既有恒全量单 region,对照臂)。两态 vbuf 终态
+    /// 位级同 ⇒ digest 序列位级等价(GPU 批次判据)。
+    copy_full: bool,
+    /// 簇粒度降档:竞技场只装 level≥N 的簇(+ 链兜底根),cut 经「level<N →
+    /// 首个 level≥N 祖先」提升映射(生产 `verify_cut_coverage` 提升后复核
+    /// fail-closed)。0 = 现状(既有面 0-byte)。
+    min_level: u32,
+}
+
+#[allow(dead_code)]
+impl FrameCutArmExtOpt {
+    /// 既有入口默认:incr copy(窗口臂自动受益,digest 与 full 位级等价)+
+    /// 无降档。
+    fn default_ext() -> Self {
+        Self {
+            copy_full: false,
+            min_level: 0,
+        }
+    }
+}
+
 /// 竞技场布局（canonical:块序×簇序全簇槽 + passthrough 尾段;帧无关纯函数）。
 #[allow(dead_code)]
 struct FrameCutArena {
@@ -118,6 +145,19 @@ struct FrameCutFrameStat {
     gpu_clear_ms: f64,
     gpu_rq_ms: f64,
     fence_ms: f64,
+    // ── G38 T3 加性字段(既有字段口径不动)──
+    /// 提升后(竞技场施加口径)cut 三角数;min_level=0 时 == cut_tris。
+    /// 单调门仍用 `cut_tris`(提升前 LOD 判据面——提升是表示层映射)。
+    cut_tris_promoted: u64,
+    /// 桥接 copy 区段数(incr = 相邻合并后段数;full/帧 0 全量 = 1;非 refit
+    /// 帧 = 0;incr 零脏槽帧 = 0〔跳 copy〕)。
+    copy_regions: u32,
+    /// 桥接 copy 字节(incr = 脏区段和;full/帧 0 = 竞技场全量)。
+    copy_bytes: u64,
+    /// 桥接 copy 段 GPU 毫秒(query 追加区;fail-soft None)。
+    bridge_copy_gpu_ms: Option<f64>,
+    /// 桥接 UPDATE build 段 GPU 毫秒(含 consume barrier;fail-soft None)。
+    bridge_build_gpu_ms: Option<f64>,
     digest: String,
 }
 
@@ -125,9 +165,33 @@ struct FrameCutFrameStat {
 // 竞技场布局/写槽（host 纯函数;canonical 序 = 确定性协议的一半）
 // ---------------------------------------------------------------------------
 
+/// 无槽哨兵(min-level 降档下 level<N 且非链根的簇不占槽;写入面遇哨兵 =
+/// 逻辑破坏,fail-closed 断言)。
+#[allow(dead_code)]
+const FC_NO_SLOT: u32 = u32::MAX;
+
 /// 布局：逐块逐簇（记录序）分配固定槽,尾接 passthrough。
 #[allow(dead_code)]
 fn frame_cut_arena_layout(blocks: &[ClusterPackBlock], passthrough_len: usize) -> FrameCutArena {
+    frame_cut_arena_layout_ext(blocks, passthrough_len, 0, &[])
+}
+
+/// G38 T3:min-level 降档布局(min_level=0 = 既有全簇布局逐字等价)。
+/// 占槽判据 = `level ≥ min_level` ∨ 链根(`min_parents[ci].is_none()`——
+/// 提升映射的根兜底输出必须有槽);其余簇 slot_base = [`FC_NO_SLOT`] 哨兵,
+/// owner 表不登记(命中图元二分域 = 实际占槽簇)。`min_parents_all` 在
+/// min_level>0 时须与 blocks 等长([`frame_cut_min_parents`] 逐块产物)。
+#[allow(dead_code)]
+fn frame_cut_arena_layout_ext(
+    blocks: &[ClusterPackBlock],
+    passthrough_len: usize,
+    min_level: u32,
+    min_parents_all: &[Vec<Option<u32>>],
+) -> FrameCutArena {
+    assert!(
+        min_level == 0 || min_parents_all.len() == blocks.len(),
+        "min-level 布局需逐块 min_parents(调用面破坏)"
+    );
     let mut slot_base: Vec<Vec<u32>> = Vec::with_capacity(blocks.len());
     let mut owner_base: Vec<u32> = Vec::new();
     let mut owner_cluster: Vec<(u32, u32)> = Vec::new();
@@ -135,6 +199,13 @@ fn frame_cut_arena_layout(blocks: &[ClusterPackBlock], passthrough_len: usize) -
     for (bi, b) in blocks.iter().enumerate() {
         let mut bases = Vec::with_capacity(b.records.len());
         for (ci, r) in b.records.iter().enumerate() {
+            let eligible = min_level == 0
+                || b.nodes[ci].level >= min_level
+                || min_parents_all[bi][ci].is_none();
+            if !eligible {
+                bases.push(FC_NO_SLOT);
+                continue;
+            }
             bases.push(next as u32);
             owner_base.push(next as u32);
             owner_cluster.push((bi as u32, ci as u32));
@@ -152,6 +223,108 @@ fn frame_cut_arena_layout(blocks: &[ClusterPackBlock], passthrough_len: usize) -
         passthrough_base,
         total_tris: next as usize,
     }
+}
+
+/// 逐块父映射(局部号;同组多父取**最小 id**——生产 `apply_page_fallback` 的
+/// `min_parents` 同律,确定性;根 = `None`)。帧无关纯函数,调用方逐块预计算
+/// 一次(提升映射与降档布局共用事实源)。
+#[allow(dead_code)]
+fn frame_cut_min_parents(b: &ClusterPackBlock) -> Vec<Option<u32>> {
+    let mut parent: Vec<Option<u32>> = vec![None; b.records.len()];
+    for (p, n) in b.nodes.iter().enumerate() {
+        let end = n.first_child as usize + n.child_count as usize;
+        for &c in &b.children[n.first_child as usize..end] {
+            let slot = &mut parent[c as usize];
+            *slot = Some(match *slot {
+                None => p as u32,
+                Some(q) => q.min(p as u32),
+            });
+        }
+    }
+    parent
+}
+
+/// G38 T3:脏区段追加(升序追加流;与上一段字节相邻则合并——差集循环槽序
+/// 升序天然满足前置)。host 纯函数,selftest 直测。
+#[allow(dead_code)]
+fn frame_cut_merge_region(regions: &mut Vec<(u64, u64)>, off: u64, len: u64) {
+    match regions.last_mut() {
+        Some(last) if last.0 + last.1 == off => last.1 += len,
+        _ => regions.push((off, len)),
+    }
+}
+
+/// G38 T3:cut 的 min-level 提升映射(生产语义先例 = `apply_page_fallback`
+/// 的「祖先替换 + 支配成员撤出」,resident 判定换成 `level ≥ min_level`):
+/// - cut 内 level<N 成员沿 `min_parents` 上行至**首个** level≥N 祖先
+///   (链上全 <N 时以链根兜底——根如实保留,可能 level<N);
+/// - 替换祖先 children 可达域内的全部 cut 成员同步撤出(叶域 ⊆ 祖先域,
+///   保「无重叠」;含 replacement 间的后代消除);
+/// - 输出升序去重。**覆盖性由调用方以生产 `verify_cut_coverage`(原 DAG 视图)
+///   提升后复核 fail-closed**——本函数不自证。
+/// 确定性:min_parents 最小 id 父 + 标记法撤出(与遍历序无关)+ 尾部排序。
+#[allow(dead_code)]
+fn frame_cut_promote_min_level(
+    b: &ClusterPackBlock,
+    min_parents: &[Option<u32>],
+    cut: &[u32],
+    min_level: u32,
+) -> Vec<u32> {
+    if min_level == 0 {
+        return cut.to_vec();
+    }
+    let children_of = |id: u32| -> &[u32] {
+        let n = &b.nodes[id as usize];
+        &b.children[n.first_child as usize..(n.first_child + n.child_count) as usize]
+    };
+    let mut keep: Vec<u32> = Vec::new();
+    let mut reps: Vec<u32> = Vec::new();
+    let mut rep_mark = vec![false; b.records.len()];
+    for &c in cut {
+        if b.nodes[c as usize].level >= min_level {
+            keep.push(c);
+            continue;
+        }
+        // 上行至首个 level≥N 祖先;链尽(根)兜底。
+        let mut cur = c;
+        loop {
+            match min_parents[cur as usize] {
+                Some(p) => {
+                    cur = p;
+                    if b.nodes[cur as usize].level >= min_level {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+        if !rep_mark[cur as usize] {
+            rep_mark[cur as usize] = true;
+            reps.push(cur);
+        }
+    }
+    if reps.is_empty() {
+        // 全部成员 level≥N:提升为恒等(keep 即原 cut,已升序)。
+        return keep;
+    }
+    // 支配标记:每个 replacement 的 children 可达域(含 replacement 间后代
+    // ——被标者撤出,保留更粗祖先;已标剪枝防组共享链接重复下行)。
+    let mut dominated = vec![false; b.records.len()];
+    for &r in &reps {
+        let mut stack: Vec<u32> = children_of(r).to_vec();
+        while let Some(d) = stack.pop() {
+            if !dominated[d as usize] {
+                dominated[d as usize] = true;
+                stack.extend_from_slice(children_of(d));
+            }
+        }
+    }
+    let mut out: Vec<u32> = Vec::with_capacity(keep.len() + reps.len());
+    out.extend(keep.into_iter().filter(|&c| !dominated[c as usize]));
+    out.extend(reps.into_iter().filter(|&r| !dominated[r as usize]));
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 /// 命中图元 → 所属（块,簇）;passthrough 段返回 None。
@@ -215,6 +388,10 @@ fn frame_cut_full_stream(
     let mut v = vec![0.0f32; arena.total_tris * 9];
     for (bi, b) in blocks.iter().enumerate() {
         for (ci, r) in b.records.iter().enumerate() {
+            // G38 T3:min-level 降档下无槽簇(哨兵)不入竞技场。
+            if arena.slot_base[bi][ci] == FC_NO_SLOT {
+                continue;
+            }
             let base = arena.slot_base[bi][ci] as usize * 9;
             let len = r.triangle_count as usize * 9;
             frame_cut_write_cluster(&mut v[base..base + len], b, ci);
@@ -236,6 +413,11 @@ fn frame_cut_apply_cut(
 ) {
     for (bi, b) in blocks.iter().enumerate() {
         for (ci, r) in b.records.iter().enumerate() {
+            // G38 T3:无槽簇(哨兵)不占竞技场,施加面跳过(cut 提升后
+            // 恒不含无槽簇——写入侧另有 fail-closed 断言)。
+            if arena.slot_base[bi][ci] == FC_NO_SLOT {
+                continue;
+            }
             if !cut[bi][ci] {
                 let base = arena.slot_base[bi][ci] as usize * 9;
                 let len = r.triangle_count as usize * 9;
@@ -260,6 +442,30 @@ fn frame_cut_select(
     threshold_px: f32,
     frame: u32,
 ) -> (Vec<Vec<bool>>, u32, u64) {
+    let (sets, cut_clusters, cut_tris, _) =
+        frame_cut_select_ext(tag, blocks, spec, in_w, in_h, threshold_px, frame, 0, &[]);
+    (sets, cut_clusters, cut_tris)
+}
+
+/// G38 T3:select + min-level 提升(min_level=0 = 既有 `frame_cut_select`
+/// 逐字等价)。生产金标准链不动:`select_lod_cut_grouped`(原 DAG 原样)→
+/// `verify_cut_coverage`(原 cut)→ [`frame_cut_promote_min_level`] →
+/// `verify_cut_coverage`(提升后,同一生产校验,fail-closed)。返回
+/// (提升后逐块布尔集, 提升后簇数, **提升前** cut 三角数〔LOD 判据面,单调门
+/// 消费〕, 提升后 cut 三角数〔竞技场施加口径〕)。
+#[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
+fn frame_cut_select_ext(
+    tag: &str,
+    blocks: &[ClusterPackBlock],
+    spec: &CameraSpec,
+    in_w: u32,
+    in_h: u32,
+    threshold_px: f32,
+    frame: u32,
+    min_level: u32,
+    min_parents_all: &[Vec<Option<u32>>],
+) -> (Vec<Vec<bool>>, u32, u64, u64) {
     use rurix_render::geometry::gpu_scene::IDENTITY_3X4;
     use rurix_render::geometry::visible_cluster_set::{
         MeshDagView, select_lod_cut_grouped, verify_cut_coverage,
@@ -268,6 +474,7 @@ fn frame_cut_select(
     let mut sets = Vec::with_capacity(blocks.len());
     let mut cut_clusters = 0u32;
     let mut cut_tris = 0u64;
+    let mut cut_tris_promoted = 0u64;
     for (bi, b) in blocks.iter().enumerate() {
         let view = MeshDagView::new(&b.records, &b.nodes, &b.children)
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} 块 {bi} DAG 拓扑: {e}")));
@@ -280,15 +487,34 @@ fn frame_cut_select(
         );
         verify_cut_coverage(&view, &cut)
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} 块 {bi} cut 覆盖性: {e}")));
+        for &c in &cut {
+            cut_tris += u64::from(b.records[c as usize].triangle_count);
+        }
+        // min-level 提升(0 = 恒等)+ 提升后生产校验复核(fail-closed)。
+        let cut = if min_level == 0 {
+            cut
+        } else {
+            let promoted =
+                frame_cut_promote_min_level(b, &min_parents_all[bi], &cut, min_level);
+            verify_cut_coverage(&view, &promoted).unwrap_or_else(|e| {
+                fail(&format!(
+                    "{tag}: 帧 {frame} 块 {bi} min-level 提升后覆盖性: {e}(fail-closed)"
+                ))
+            });
+            promoted
+        };
         let mut set = vec![false; b.records.len()];
         for &c in &cut {
             set[c as usize] = true;
-            cut_tris += u64::from(b.records[c as usize].triangle_count);
+            cut_tris_promoted += u64::from(b.records[c as usize].triangle_count);
         }
         cut_clusters += cut.len() as u32;
         sets.push(set);
     }
-    (sets, cut_clusters, cut_tris)
+    if min_level == 0 {
+        cut_tris_promoted = cut_tris;
+    }
+    (sets, cut_clusters, cut_tris, cut_tris_promoted)
 }
 
 // ---------------------------------------------------------------------------
@@ -629,13 +855,18 @@ fn frame_cut_rq_spv() -> Vec<u32> {
 
 /// 单会话跑完整轨迹（创建 → 逐帧 cut→增量→refit→RQ→digest;返回逐帧 digest
 /// 与统计）。`collect` = false 时只收 digest（双跑第二遍）。
+/// G38 T3:`ext` = copy 模式/min-level 降档(双跑两遍同 ext——执行路径进
+/// digest 判据域);`min_parents_all` = min_level>0 时逐块父映射预计算。
 #[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
 fn frame_cut_run_session(
     tag: &str,
     blocks: &[ClusterPackBlock],
     passthrough_stream: &[f32],
     arena: &FrameCutArena,
     opt: &FrameCutArmOpt,
+    ext: &FrameCutArmExtOpt,
+    min_parents_all: &[Vec<Option<u32>>],
     threshold_px: f32,
     samples: &[FrameCutCamSample],
     collect: bool,
@@ -646,7 +877,7 @@ fn frame_cut_run_session(
     // 帧 0 cut 先行（初始竞技场 = 帧 0 已施加;帧 0 refit 桥 = 内容恒等,节拍均匀）。
     let s0 = &samples[0];
     let t0 = std::time::Instant::now();
-    let (cut0, cut0_clusters, cut0_tris) = frame_cut_select(
+    let (cut0, cut0_clusters, cut0_tris, cut0_tris_promoted) = frame_cut_select_ext(
         tag,
         blocks,
         &s0.spec,
@@ -654,6 +885,8 @@ fn frame_cut_run_session(
         s0.in_h,
         threshold_px,
         s0.frame,
+        ext.min_level,
+        min_parents_all,
     );
     let cut0_ms = t0.elapsed().as_secs_f64() * 1e3;
     // 创建期 BLAS = 全簇真几何超集（根 AABB 覆盖一切后续 refit 内容;TLAS 实例
@@ -777,10 +1010,10 @@ fn frame_cut_run_session(
     for (k, s) in samples.iter().enumerate() {
         // ── ① host cut（帧 0 复用先行结果;逐帧覆盖性机核已在 select 内）──
         let t_cut = std::time::Instant::now();
-        let (cut, cut_clusters, cut_tris) = if k == 0 {
-            (cut0.clone(), cut0_clusters, cut0_tris)
+        let (cut, cut_clusters, cut_tris, cut_tris_promoted) = if k == 0 {
+            (cut0.clone(), cut0_clusters, cut0_tris, cut0_tris_promoted)
         } else {
-            frame_cut_select(
+            frame_cut_select_ext(
                 tag,
                 blocks,
                 &s.spec,
@@ -788,6 +1021,8 @@ fn frame_cut_run_session(
                 s.in_h,
                 threshold_px,
                 s.frame,
+                ext.min_level,
+                min_parents_all,
             )
         };
         let cut_ms = if k == 0 {
@@ -796,32 +1031,48 @@ fn frame_cut_run_session(
             t_cut.elapsed().as_secs_f64() * 1e3
         };
 
-        // ── ② 槽位增量（--cut-every 节拍;refit 帧才施加）──
+        // ── ② 槽位增量（--cut-every 节拍;refit 帧才施加)。G38 T3:同一差集
+        //    循环顺带收集桥接脏区段(槽升序天然,相邻槽合并;帧 0 全量 =
+        //    None〔单 region 语义〕,--refit-copy full 对照臂恒 None)──
         let t_delta = std::time::Instant::now();
         let refit_frame = s.frame % opt.cut_every.max(1) == 0;
         let mut uploads: Vec<(StableResourceId, u64, Vec<u8>)> = Vec::new();
         let mut changed_slots = 0u32;
         let mut upload_bytes = 0u64;
+        let mut copy_regions: Option<Vec<(u64, u64)>> = None;
         // 光线每帧上传（相机推进面;确定性 host f32）。
         let ray_bytes = bytes_f32(&frame_cut_rays(&s.spec, opt.res_w, opt.res_h));
         upload_bytes += ray_bytes.len() as u64;
         uploads.push((StableResourceId(1), 0, ray_bytes));
         if refit_frame {
             if let Some(bytes) = frame0_bytes.take() {
-                // 帧 0:全簇超集 → cut0 的单条全量上传（逐槽增量自帧 1 起）。
+                // 帧 0:全簇超集 → cut0 的单条全量上传（逐槽增量自帧 1 起;
+                // 折叠槽计数只数实际占槽簇——min-level 降档下无槽簇不计）。
                 changed_slots = blocks
                     .iter()
                     .enumerate()
-                    .map(|(bi, b)| (0..b.records.len()).filter(|&ci| !cut[bi][ci]).count() as u32)
+                    .map(|(bi, b)| {
+                        (0..b.records.len())
+                            .filter(|&ci| {
+                                arena.slot_base[bi][ci] != FC_NO_SLOT && !cut[bi][ci]
+                            })
+                            .count() as u32
+                    })
                     .sum();
                 upload_bytes += bytes.len() as u64;
                 uploads.push((StableResourceId(3), 0, bytes));
             } else {
+                let mut regions: Vec<(u64, u64)> = Vec::new();
                 for (bi, b) in blocks.iter().enumerate() {
                     for (ci, r) in b.records.iter().enumerate() {
                         if cut[bi][ci] == applied[bi][ci] {
                             continue;
                         }
+                        // 提升映射保证 cut ⊆ 占槽簇;差集簇必有槽(fail-closed)。
+                        assert!(
+                            arena.slot_base[bi][ci] != FC_NO_SLOT,
+                            "差集簇 (块 {bi},簇 {ci}) 无竞技场槽(min-level 提升破坏)"
+                        );
                         changed_slots += 1;
                         let n9 = r.triangle_count as usize * 9;
                         let mut slot = vec![0.0f32; n9];
@@ -830,20 +1081,26 @@ fn frame_cut_run_session(
                         }
                         let bytes = bytes_f32(&slot);
                         upload_bytes += bytes.len() as u64;
-                        uploads.push((
-                            StableResourceId(3),
-                            arena.slot_base[bi][ci] as u64 * 36,
-                            bytes,
-                        ));
+                        let off = arena.slot_base[bi][ci] as u64 * 36;
+                        let len = bytes.len() as u64;
+                        uploads.push((StableResourceId(3), off, bytes));
+                        // 脏区段收集(canonical 槽升序 ⇒ off 单调;相邻合并)。
+                        frame_cut_merge_region(&mut regions, off, len);
                     }
+                }
+                if !ext.copy_full {
+                    // incr 臂:差集脏区段(可空 = 本帧 cut 无变化,桥 copy 跳过,
+                    // UPDATE build 照录——vbuf 与 arena SSBO 位级同步)。
+                    copy_regions = Some(regions);
                 }
             }
             applied = cut.clone();
         }
         let delta_ms = t_delta.elapsed().as_secs_f64() * 1e3;
 
-        // ── ③ 提交（refit 帧:pass0 后桥接 copy 全竞技场 → UPDATE build →
-        //    consume barrier → pass1 RQ 读新 BLAS;B5 冻结通路）──
+        // ── ③ 提交（refit 帧:pass0 后桥接 copy〔incr = 脏区段多 region /
+        //    full = 全竞技场单 region〕→ UPDATE build → consume barrier →
+        //    pass1 RQ 读新 BLAS;B5 冻结通路 + G38 T3 桥扩展加性入口)──
         let update = FrameUpdate {
             tlas_update: None,
             buffer_uploads: uploads,
@@ -861,12 +1118,27 @@ fn frame_cut_run_session(
                 after_pass: 0,
             }),
         };
+        // G38 T3:桥扩展(refit 帧才有桥;copy_regions None = 既有全量单
+        // region 命令流逐字;计时恒开——query 追加区,不动逐 pass 口径)。
+        // stat 登记口径:段数/字节按实际桥 copy 计。
+        let (copy_regions_n, copy_bytes) = if refit_frame {
+            match &copy_regions {
+                None => (1u32, arena_bytes_len),
+                Some(rs) => (rs.len() as u32, rs.iter().map(|&(_, l)| l).sum()),
+            }
+        } else {
+            (0, 0)
+        };
+        let bridge = refit_frame.then(|| rurix_rt::render_exec::BlasRefitBridgeExt {
+            copy_regions,
+            collect_gpu_timing: true,
+        });
         let t_exec = std::time::Instant::now();
         let prov = session
             .next_provenance_with_update(&update)
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {} provenance: {e}", s.frame)));
         let out = session
-            .execute_with_frame_update(&prov, &update)
+            .execute_with_frame_update_bridge_ext(&prov, &update, bridge.as_ref())
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {} 提交: {e}", s.frame)));
         let exec_ms = t_exec.elapsed().as_secs_f64() * 1e3;
         if out.telemetry.validation_error_count != 0 {
@@ -937,6 +1209,11 @@ fn frame_cut_run_session(
                 gpu_clear_ms: gpu_ms(0),
                 gpu_rq_ms: gpu_ms(1),
                 fence_ms: out.telemetry.cpu_fence_wait_ns as f64 / 1e6,
+                cut_tris_promoted,
+                copy_regions: copy_regions_n,
+                copy_bytes,
+                bridge_copy_gpu_ms: out.telemetry.blas_bridge_copy_gpu_ms,
+                bridge_build_gpu_ms: out.telemetry.blas_bridge_build_gpu_ms,
                 digest,
             });
         }
@@ -946,12 +1223,37 @@ fn frame_cut_run_session(
 
 /// 臂编排：双跑（两次独立会话重放全轨迹）→ 逐帧 digest 位级断言 →
 /// cut_tris 单调变化断言。返回首跑统计。
+/// (G38 T3:既有入口 = 扩展默认〔incr copy + min_level 0〕转发——窗口臂
+/// 自动受益增量桥,vbuf 终态位级同 ⇒ digest 不变;窗口 bin 调用面 0 改写。)
 #[allow(dead_code)]
 fn run_frame_cut_arm(
     tag: &str,
     pack: &ClusterPack,
     passthrough_stream: &[f32],
     opt: &FrameCutArmOpt,
+    threshold_px: f32,
+    samples: &[FrameCutCamSample],
+) -> Vec<FrameCutFrameStat> {
+    run_frame_cut_arm_ext(
+        tag,
+        pack,
+        passthrough_stream,
+        opt,
+        &FrameCutArmExtOpt::default_ext(),
+        threshold_px,
+        samples,
+    )
+}
+
+/// G38 T3:扩展臂编排(判据面与既有入口逐字同:双跑位级 + 单调门〔仍以
+/// **提升前** cut_tris 判——LOD 判据面;提升是表示层映射〕)。
+#[allow(dead_code)]
+fn run_frame_cut_arm_ext(
+    tag: &str,
+    pack: &ClusterPack,
+    passthrough_stream: &[f32],
+    opt: &FrameCutArmOpt,
+    ext: &FrameCutArmExtOpt,
     threshold_px: f32,
     samples: &[FrameCutCamSample],
 ) -> Vec<FrameCutFrameStat> {
@@ -975,13 +1277,40 @@ fn run_frame_cut_arm(
         );
         &pack.blocks[..n]
     };
-    let arena = frame_cut_arena_layout(blocks, pack.passthrough.len());
+    // G38 T3:min-level 域校验(超包内最大层 = 误配置,fail-closed)+ 逐块
+    // 父映射预计算(提升映射与降档布局共用;帧无关,一次算全轨迹用)。
+    let min_parents_all: Vec<Vec<Option<u32>>> = if ext.min_level == 0 {
+        Vec::new()
+    } else {
+        let max_level = blocks
+            .iter()
+            .flat_map(|b| b.nodes.iter().map(|n| n.level))
+            .max()
+            .unwrap_or(0);
+        if ext.min_level > max_level {
+            fail(&format!(
+                "--min-level {} 超簇包最大层 {max_level}(误配置,fail-closed)",
+                ext.min_level
+            ));
+        }
+        blocks.iter().map(frame_cut_min_parents).collect()
+    };
+    let arena =
+        frame_cut_arena_layout_ext(blocks, pack.passthrough.len(), ext.min_level, &min_parents_all);
+    if ext.min_level > 0 {
+        eprintln!(
+            "{tag}: min-level 降档臂 N={} arena_tris={}(全簇布局对照 = 逐块逐簇全量;cut 经 level<N→首个 level≥N 祖先提升,提升后生产 verify 复核)",
+            ext.min_level, arena.total_tris,
+        );
+    }
     let (d1, stats) = frame_cut_run_session(
         tag,
         blocks,
         passthrough_stream,
         &arena,
         opt,
+        ext,
+        &min_parents_all,
         threshold_px,
         samples,
         true,
@@ -992,6 +1321,8 @@ fn run_frame_cut_arm(
         passthrough_stream,
         &arena,
         opt,
+        ext,
+        &min_parents_all,
         threshold_px,
         samples,
         false,
@@ -1042,11 +1373,36 @@ fn run_frame_cut_arm(
 
 /// sidecar 落盘 + 汇总打印（独立 JSON,不动既有 evidence schema——#58/#95/W2
 /// visbuffer 同律;out_path 空 = 只打印）。
+/// (G38 T3:既有入口 = 扩展默认转发——窗口臂 sidecar 自动带加性新字段,
+/// 既有字段口径逐字不动。)
 #[allow(dead_code)]
 fn frame_cut_finish(
     tag: &str,
     pack: &ClusterPack,
     opt: &FrameCutArmOpt,
+    threshold_px: f32,
+    stats: &[FrameCutFrameStat],
+) {
+    frame_cut_finish_ext(
+        tag,
+        pack,
+        opt,
+        &FrameCutArmExtOpt::default_ext(),
+        threshold_px,
+        stats,
+    );
+}
+
+/// G38 T3:扩展收口(schema 保持 v1 + **加性**字段:顶层 refit_copy_mode/
+/// min_level,逐帧 cut_tris_promoted/copy_regions/copy_bytes/
+/// bridge_copy_gpu_ms/bridge_build_gpu_ms〔None → null,fail-soft 如实〕;
+/// 既有消费方无 schema 断言〔w4_verify.py 判据 = 进程 rc + 臂 OK〕)。
+#[allow(dead_code)]
+fn frame_cut_finish_ext(
+    tag: &str,
+    pack: &ClusterPack,
+    opt: &FrameCutArmOpt,
+    ext: &FrameCutArmExtOpt,
     threshold_px: f32,
     stats: &[FrameCutFrameStat],
 ) {
@@ -1060,21 +1416,36 @@ fn frame_cut_finish(
         .map(|s| s.exec_ms)
         .sum::<f64>()
         / n_norefit.max(1) as f64;
+    // G38 T3:桥接 GPU 分解均值(refit 帧且 query 有值才计;fail-soft 缺值
+    // 如实不入均)。
+    let bridge_avg = |f: fn(&FrameCutFrameStat) -> Option<f64>| -> Option<f64> {
+        let vals: Vec<f64> = stats.iter().filter(|s| s.refit).filter_map(f).collect();
+        (!vals.is_empty()).then(|| vals.iter().sum::<f64>() / vals.len() as f64)
+    };
+    let copy_avg = bridge_avg(|s| s.bridge_copy_gpu_ms);
+    let build_avg = bridge_avg(|s| s.bridge_build_gpu_ms);
     eprintln!(
-        "{tag}: 逐帧 cut→AS 更新臂 OK frames={} refit_frames={refit_frames} exec_ms(refit均)={exec_refit:.2}{}（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）",
+        "{tag}: 逐帧 cut→AS 更新臂 OK frames={} refit_frames={refit_frames} exec_ms(refit均)={exec_refit:.2}{}{}（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）",
         stats.len(),
         if n_norefit > 0 {
             format!(" exec_ms(非refit均)={exec_norefit:.2}")
         } else {
             String::new()
         },
+        match (copy_avg, build_avg) {
+            (Some(c), Some(b)) => format!(
+                " bridge_gpu(copy均={c:.2}ms build均={b:.2}ms copy_mode={})",
+                if ext.copy_full { "full" } else { "incr" }
+            ),
+            _ => String::new(),
+        },
     );
     if opt.out_path.is_empty() {
         return;
     }
-    let mut sj = String::with_capacity(4096 + stats.len() * 256);
+    let mut sj = String::with_capacity(4096 + stats.len() * 320);
     sj.push_str(&format!(
-        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"determinism_note\":\"固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)\",\"frames_data\":[",
+        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"refit_copy_mode\":\"{}\",\"min_level\":{},\"determinism_note\":\"固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)\",\"frames_data\":[",
         threshold_px,
         opt.res_w,
         opt.res_h,
@@ -1085,13 +1456,19 @@ fn frame_cut_finish(
         opt.blocks_limit,
         pack.blocks.iter().map(|b| b.records.len()).sum::<usize>(),
         pack.passthrough.len(),
+        if ext.copy_full { "full" } else { "incr" },
+        ext.min_level,
     ));
+    // Option<f64> → JSON(null = query 不可用 fail-soft,如实不冒充)。
+    let jopt = |v: Option<f64>| -> String {
+        v.map_or_else(|| "null".to_owned(), |x| format!("{x:.3}"))
+    };
     for (k, s) in stats.iter().enumerate() {
         if k > 0 {
             sj.push(',');
         }
         sj.push_str(&format!(
-            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"digest\":{}}}",
+            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"cut_tris_promoted\":{},\"copy_regions\":{},\"copy_bytes\":{},\"bridge_copy_gpu_ms\":{},\"bridge_build_gpu_ms\":{},\"digest\":{}}}",
             s.frame,
             s.cut_clusters,
             s.cut_tris,
@@ -1105,6 +1482,11 @@ fn frame_cut_finish(
             s.gpu_clear_ms,
             s.gpu_rq_ms,
             s.fence_ms,
+            s.cut_tris_promoted,
+            s.copy_regions,
+            s.copy_bytes,
+            jopt(s.bridge_copy_gpu_ms),
+            jopt(s.bridge_build_gpu_ms),
             jstr(&s.digest),
         ));
     }
@@ -1321,8 +1703,94 @@ fn frame_cut_selftest(tag: &str) {
             fail(&format!("{tag}: selftest {name} kernel 入口名漂移"));
         }
     }
+    // ⑥ G38 T3:min-level 提升映射 + 降档布局 + 脏区段合并(host 纯函数面)。
+    {
+        use rurix_render::geometry::visible_cluster_set::{MeshDagView, verify_cut_coverage};
+        let mp = frame_cut_min_parents(&block);
+        // 父映射:叶 0,1→组 4;叶 2,3→组 5;组 4,5→根 6;根 = None。
+        if mp != vec![Some(4), Some(4), Some(5), Some(5), Some(6), Some(6), None] {
+            fail(&format!("{tag}: selftest min_parents 漂移 {mp:?}"));
+        }
+        let view = MeshDagView::new(&block.records, &block.nodes, &block.children)
+            .unwrap_or_else(|e| fail(&format!("{tag}: selftest DAG 视图: {e}")));
+        // 提升:全叶 cut → N=1 双组;混合 cut {0,1,5} → {4,5}(keep 成员 5 与
+        // 提升祖先 4 共存,0/1 撤出);粗 cut 恒等;N=2 全部兜到根。
+        for (cut_in, n, expect) in [
+            (vec![0u32, 1, 2, 3], 1u32, vec![4u32, 5]),
+            (vec![0, 1, 5], 1, vec![4, 5]),
+            (vec![4, 5], 1, vec![4, 5]),
+            (vec![6], 1, vec![6]),
+            (vec![0, 1, 2, 3], 2, vec![6]),
+        ] {
+            let got = frame_cut_promote_min_level(&block, &mp, &cut_in, n);
+            if got != expect {
+                fail(&format!(
+                    "{tag}: selftest 提升映射漂移 cut={cut_in:?} N={n} got={got:?} expect={expect:?}"
+                ));
+            }
+            verify_cut_coverage(&view, &got).unwrap_or_else(|e| {
+                fail(&format!(
+                    "{tag}: selftest 提升后覆盖性 cut={cut_in:?} N={n}: {e}"
+                ))
+            });
+        }
+        // 降档布局:N=1 ⇒ 槽集 = {组 4,5, 根 6},叶槽哨兵,total = 3+2 pt。
+        let mp_all = vec![mp.clone()];
+        let arena1 = frame_cut_arena_layout_ext(blocks, 2, 1, &mp_all);
+        if arena1.total_tris != 5 || arena1.passthrough_base != 3 {
+            fail(&format!(
+                "{tag}: selftest 降档布局漂移 total={} pt_base={}",
+                arena1.total_tris, arena1.passthrough_base
+            ));
+        }
+        for ci in 0..4 {
+            if arena1.slot_base[0][ci] != FC_NO_SLOT {
+                fail(&format!("{tag}: selftest 降档叶槽 {ci} 应为哨兵"));
+            }
+        }
+        if arena1.slot_base[0][4] != 0 || arena1.slot_base[0][5] != 1 || arena1.slot_base[0][6] != 2
+        {
+            fail(&format!("{tag}: selftest 降档槽基漂移"));
+        }
+        if frame_cut_owner(&arena1, 0) != Some((0, 4))
+            || frame_cut_owner(&arena1, 2) != Some((0, 6))
+            || frame_cut_owner(&arena1, 3).is_some()
+        {
+            fail(&format!("{tag}: selftest 降档 owner 二分漂移"));
+        }
+        // 降档全量流/施加:哨兵槽不写;cut={4,5} 施加后根槽(2)折叠。
+        let pt2: Vec<f32> = (0..18).map(|i| 2.0 + i as f32 * 0.5).collect();
+        let full1 = frame_cut_full_stream(blocks, &pt2, &arena1);
+        if full1.len() != 5 * 9 {
+            fail(&format!("{tag}: selftest 降档全量流长度漂移 {}", full1.len()));
+        }
+        for slot in 0..3 {
+            if full1[slot * 9..(slot + 1) * 9].iter().all(|x| *x == 0.0) {
+                fail(&format!("{tag}: selftest 降档全量流槽 {slot} 未写真几何"));
+            }
+        }
+        let mut cutset = vec![vec![false; 7]];
+        cutset[0][4] = true;
+        cutset[0][5] = true;
+        let mut applied1 = full1.clone();
+        frame_cut_apply_cut(&mut applied1, blocks, &arena1, &cutset);
+        if applied1[0..2 * 9] != full1[0..2 * 9] {
+            fail(&format!("{tag}: selftest 降档施加后 cut 槽漂移"));
+        }
+        if !applied1[2 * 9..3 * 9].iter().all(|x| *x == 0.0) {
+            fail(&format!("{tag}: selftest 降档施加后根槽应零面积折叠"));
+        }
+        // 脏区段合并:相邻并段/间隙分段。
+        let mut regions: Vec<(u64, u64)> = Vec::new();
+        frame_cut_merge_region(&mut regions, 0, 36);
+        frame_cut_merge_region(&mut regions, 36, 72);
+        frame_cut_merge_region(&mut regions, 144, 36);
+        if regions != vec![(0, 108), (144, 36)] {
+            fail(&format!("{tag}: selftest 脏区段合并漂移 {regions:?}"));
+        }
+    }
     eprintln!(
-        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构,全 fail-closed 已过）",
+        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并,全 fail-closed 已过）",
         frames,
         seq.first().unwrap(),
         seq.last().unwrap(),

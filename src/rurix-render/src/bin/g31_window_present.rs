@@ -7189,7 +7189,10 @@ fn main() {
     // --smooth-normals on,fail-closed;烘焙件缺件装配期 fail-closed）。
     let mut normal_maps = false;
     let mut normal_strength: Option<f32> = None;
-    let mut normal_dir = String::from("artifacts/day_0829_realism/a4_normalmap/baked_normals_bin");
+    // G38 Wave3:默认消费面切 v2(slot14 桌布坏件替平坦 (127,127) 全 12 级 mip,
+    // 其余 69 张与 v1 逐字节相等,校验 11/11——w1_fixes/slot14_normal/;manifest
+    // 驱动 sha 校验自洽)。语义变更即重锚:full19 7636f72f 作废,新锚归 G38_ANCHORS。
+    let mut normal_dir = String::from("artifacts/day_0829_realism/a4_normalmap/baked_normals_bin_v2");
     // G37 W2 臂⑦：玻璃透射加性臂（默认 off = 既有面 0-byte/既有 digest 锚零
     // 漂移;on = scene pass 换载 g31_realism_transp.spv〔签名 +tri_transp,新
     // 最高链位〕+ tri_transp 1 f32/tri 透射率侧表〔glTF alphaMode==BLEND ||

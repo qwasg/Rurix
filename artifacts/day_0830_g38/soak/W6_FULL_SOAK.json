@@ -1,0 +1,76 @@
+{
+ "schema": "rurix.day0830.delivery.w6_full_soak.v1",
+ "caliber": "--quality 缺省(=full 十九臂)32f/warmup2 迭代;首迭代自举锚后续位级恒值;Stage A 单格探针 it4/it9",
+ "iterations": 7,
+ "wall_s": 1893.1,
+ "min_wall_s": 1800.0,
+ "fails": 0,
+ "anchor_32f": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+ "frame_ms_max": 10.993381,
+ "budget_ms": 11.111,
+ "frame_ms_within_budget": true,
+ "verdict": "PASS",
+ "rows": [
+  {
+   "it": 1,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.128697,
+   "wall_s": 262.4
+  },
+  {
+   "it": 2,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.022684,
+   "wall_s": 524.5
+  },
+  {
+   "it": 3,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.900541,
+   "wall_s": 785.8
+  },
+  {
+   "it": 4,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.106447,
+   "wall_s": 1047.5
+  },
+  {
+   "probe": "it4",
+   "rc": 0,
+   "match": true
+  },
+  {
+   "it": 5,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.993381,
+   "wall_s": 1370.7
+  },
+  {
+   "it": 6,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 10.897588,
+   "wall_s": 1631.8
+  },
+  {
+   "it": 7,
+   "rc": 0,
+   "vuid": 0,
+   "digest_stable": true,
+   "frame_ms": 9.990475,
+   "wall_s": 1893.1
+  }
+ ]
+}

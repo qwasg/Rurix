@@ -1,5 +1,7 @@
 # RFC-DRAFT — RFC-0030 §4.3 L2 修订行草案:FIF 流水 × 动态 AS 更新的**每槽 AS 副本 opt-in** 语义(G37 W3 深水区起草,未登记;TODO #90)
 
+> **状态更新(2026-08-30,G38 窗)**:已正式登记 → RFC-0030 v1.1(§4.3 L2a 条款行 = 本草案 §3 底稿逐字 + §9.2 v1.1 版本行;判档双 PASS 前置已兑,同目录 evidence_fif_dyn_rebuild.json / evidence_fif_dyn_refit.json)。本草案正文自此为档案面,0-byte 保留。
+
 | 字段 | 值 |
 |---|---|
 | 修订对象 | `rfcs/0030-g14plus-pipeline-structural-optimization.md` **§4.3 L2(FIF=2)** 条款行(RFC-0030 状态 = Agent Approved,v1.0;修订按 §9.2 修订记录追加版本行,正式登记时领 v1.x) |

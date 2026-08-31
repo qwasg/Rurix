@@ -22,14 +22,21 @@ use crate::error::{AssetError, ErrorKind, Result};
 pub const MAX_HLOD_LEVELS: u32 = 8;
 /// 产物资产 magic("RXHL")。
 pub const HLOD_ASSET_MAGIC: [u8; 4] = *b"RXHL";
-/// 产物资产格式版本。
+/// 产物资产格式版本(v1 = 无属性面;无 UV 输入恒走 v1,字节面冻结)。
 pub const HLOD_ASSET_VERSION: u16 = 1;
+/// 产物资产格式版本(G31+ #96 属性臂:每三角 9×f32 位置追加 6×f32 corner
+/// UV;仅全量 UV 输入产出——v1 编码路径 0-byte 保留)。
+pub const HLOD_ASSET_VERSION_ATTRS: u16 = 2;
 
 /// 输入:cell 几何资产的单个 Component(命名 + 三角面集合,每三角 9×f32)。
+/// G31+ #96:`uv` = 与 `triangles` 平行的逐三角 corner UV(6 f32/tri,
+/// 顶点序同源;None = 无属性输入,既有路径 0-byte)。跨 Component 须齐次
+/// (全 Some 或全 None,validate_input fail-closed)。
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentGeometry {
     pub name: String,
     pub triangles: Vec<[f32; 9]>,
+    pub uv: Option<Vec<[f32; 6]>>,
 }
 
 /// 输入:单个 cell 的 HLOD 烘焙请求(逐 Component 分发)。
@@ -42,11 +49,14 @@ pub struct HlodBakeInput {
 }
 
 /// 产物:逐 Component 代理几何(简化抽取后的三角面 + 源三角数留痕)。
+/// G31+ #96:`uv` = 与 `proxy_triangles` 平行的逐三角 corner UV(仅属性臂
+/// 产出;None = v1 形态,编码字节面不变)。
 #[derive(Debug, Clone, PartialEq)]
 pub struct HlodComponentProxy {
     pub component: String,
     pub source_triangles: u32,
     pub proxy_triangles: Vec<[f32; 9]>,
+    pub uv: Option<Vec<[f32; 6]>>,
 }
 
 /// 产物:单个 HLOD 层。
@@ -113,6 +123,8 @@ pub fn validate_input(input: &HlodBakeInput) -> Result<()> {
         ));
     }
     let mut names = std::collections::BTreeSet::new();
+    // #96:UV 齐次性(全 Some 或全 None——bake 产物版本单一确定,禁混合)。
+    let with_uv = input.components[0].uv.is_some();
     for c in &input.components {
         check_name(&c.name)?;
         if !names.insert(c.name.as_str()) {
@@ -135,12 +147,42 @@ pub fn validate_input(input: &HlodBakeInput) -> Result<()> {
                 ));
             }
         }
+        // #96 UV 面校验(fail-closed:齐次 + 平行等长 + 有限)。
+        if c.uv.is_some() != with_uv {
+            return Err(AssetError::new(
+                ErrorKind::Invalid,
+                format!("hlod Component {} UV 在场性与首 Component 不齐(混合输入拒)", c.name),
+            ));
+        }
+        if let Some(uv) = &c.uv {
+            if uv.len() != c.triangles.len() {
+                return Err(AssetError::new(
+                    ErrorKind::Invalid,
+                    format!(
+                        "hlod Component {} UV 行数 {} ≠ 三角数 {}",
+                        c.name,
+                        uv.len(),
+                        c.triangles.len()
+                    ),
+                ));
+            }
+            for u in uv {
+                if !u.iter().all(|v| v.is_finite()) {
+                    return Err(AssetError::new(
+                        ErrorKind::Invalid,
+                        format!("hlod Component {} 含非有限 UV", c.name),
+                    ));
+                }
+            }
+        }
     }
     Ok(())
 }
 
 /// 离线烘焙:逐 Component canonical 排序 → 逐层确定性抽取简化(stride = 2^level,
 /// 至少保留 1 三角)→ 层级资产。纯函数,同输入同输出。
+/// #96 边界:stride 抽面烘焙器不承载属性臂(产物 uv 恒 None,编码恒 v1
+/// ——M111 golden 锚 0-byte;属性臂 = [`bake_hlod_merged`] 独占)。
 pub fn bake_hlod(input: &HlodBakeInput) -> Result<HlodAsset> {
     validate_input(input)?;
     // Component 分发序 canonical 化(按名排序,声明序扰动免疫)。
@@ -172,6 +214,7 @@ pub fn bake_hlod(input: &HlodBakeInput) -> Result<HlodAsset> {
                 component: c.name.clone(),
                 source_triangles: tris.len() as u32,
                 proxy_triangles: proxy,
+                uv: None,
             });
         }
         levels.push(HlodLevel { level, proxies });
@@ -188,10 +231,30 @@ fn write_name(buf: &mut Vec<u8>, s: &str) {
 }
 
 /// 产物 canonical 二进制编码(magic + version + 全字段,LE)。
+/// #96 版本分派:全 proxy 带 UV → v2(每三角 9×f32 位置后追加 6×f32
+/// corner UV);全无 → v1 字节面不变。混合 = bake 构造不变量破坏,
+/// assert 拒(两烘焙器输出恒齐次,validate_input 输入面已 fail-closed)。
 pub fn encode_hlod_asset(asset: &HlodAsset) -> Vec<u8> {
+    let n_total: usize = asset.levels.iter().map(|l| l.proxies.len()).sum();
+    let n_with_uv: usize = asset
+        .levels
+        .iter()
+        .flat_map(|l| &l.proxies)
+        .filter(|p| p.uv.is_some())
+        .count();
+    assert!(
+        n_with_uv == 0 || n_with_uv == n_total,
+        "HlodAsset UV 非齐次({n_with_uv}/{n_total})——bake 构造不变量破坏"
+    );
+    let with_uv = n_total > 0 && n_with_uv == n_total;
+    let version = if with_uv {
+        HLOD_ASSET_VERSION_ATTRS
+    } else {
+        HLOD_ASSET_VERSION
+    };
     let mut buf = Vec::new();
     buf.extend_from_slice(&HLOD_ASSET_MAGIC);
-    buf.extend_from_slice(&HLOD_ASSET_VERSION.to_le_bytes());
+    buf.extend_from_slice(&version.to_le_bytes());
     write_name(&mut buf, &asset.cell_name);
     buf.extend_from_slice(&(asset.levels.len() as u32).to_le_bytes());
     for l in &asset.levels {
@@ -201,9 +264,26 @@ pub fn encode_hlod_asset(asset: &HlodAsset) -> Vec<u8> {
             write_name(&mut buf, &p.component);
             buf.extend_from_slice(&p.source_triangles.to_le_bytes());
             buf.extend_from_slice(&(p.proxy_triangles.len() as u32).to_le_bytes());
-            for t in &p.proxy_triangles {
-                for v in t {
-                    buf.extend_from_slice(&v.to_le_bytes());
+            if with_uv {
+                let uv = p.uv.as_ref().expect("齐次已断言");
+                assert_eq!(
+                    uv.len(),
+                    p.proxy_triangles.len(),
+                    "proxy UV 行数与三角数不齐——bake 构造不变量破坏"
+                );
+                for (t, u) in p.proxy_triangles.iter().zip(uv) {
+                    for v in t {
+                        buf.extend_from_slice(&v.to_le_bytes());
+                    }
+                    for v in u {
+                        buf.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+            } else {
+                for t in &p.proxy_triangles {
+                    for v in t {
+                        buf.extend_from_slice(&v.to_le_bytes());
+                    }
                 }
             }
         }
@@ -235,33 +315,56 @@ pub const HLOD_MERGED_COMPONENT: &str = "__merged__";
 ///   ——「不要用 stride 抽面冒充远处降复杂度」调研结论字面兑现);
 /// - 产物结构 = 既有 RXHL v1(合并层单 proxy `__merged__`);双构建 hash
 ///   相等/声明序扰动免疫/几何扰动分叉三判据与既有烘焙器同锚(单测)。
+/// - **G31+ #96 属性臂**(输入 UV 齐次在场时):canonical 排序键扩 UV bits
+///   (位置重复三角的平行 UV 序与声明序解耦),焊接键 = (位置, UV) bits
+///   (接缝顶点不误并),逐层直调 `qem::simplify_free_mesh_attrs`,代理
+///   三角带 corner UV(编码 = RXHL v2);无 UV 输入路径产物逐位不变(v1)。
 pub fn bake_hlod_merged(input: &HlodBakeInput) -> Result<HlodAsset> {
     validate_input(input)?;
+    // UV 齐次性已由 validate_input 保证(首 Component 即全体)。
+    let with_uv = input.components[0].uv.is_some();
     // Component 分发序 canonical 化(声明序扰动免疫,与 bake_hlod 同律)。
     let mut comps: Vec<&ComponentGeometry> = input.components.iter().collect();
     comps.sort_by(|a, b| a.name.cmp(&b.name));
+    // 逐 Component canonical 序:经索引置换排序(稳定序,产物元素序列与
+    // 直接 sort_by_cached_key(tri_sort_key) 逐位一致);UV 在场时键尾扩
+    // UV bits,缺席补常量零(比较结果与既有键完全同序 ⇒ v1 路径 0-漂移)。
     let mut sorted_tris: Vec<Vec<[f32; 9]>> = Vec::with_capacity(comps.len());
+    let mut sorted_uv: Vec<Option<Vec<[f32; 6]>>> = Vec::with_capacity(comps.len());
     for c in &comps {
-        let mut tris = c.triangles.clone();
-        tris.sort_by_cached_key(tri_sort_key);
-        sorted_tris.push(tris);
+        let mut order: Vec<u32> = (0..c.triangles.len() as u32).collect();
+        order.sort_by_cached_key(|&i| {
+            (
+                tri_sort_key(&c.triangles[i as usize]),
+                c.uv
+                    .as_ref()
+                    .map_or([0u32; 6], |uv| uv[i as usize].map(f32::to_bits)),
+            )
+        });
+        sorted_tris.push(order.iter().map(|&i| c.triangles[i as usize]).collect());
+        sorted_uv.push(
+            c.uv.as_ref()
+                .map(|uv| order.iter().map(|&i| uv[i as usize]).collect()),
+        );
     }
-    // L0:全量(逐 Component,bake_hlod L0 同形)。
+    // L0:全量(逐 Component,bake_hlod L0 同形;#96 UV 平行透传)。
     let mut levels = Vec::with_capacity(input.levels as usize);
     let l0_proxies: Vec<HlodComponentProxy> = comps
         .iter()
-        .zip(&sorted_tris)
-        .map(|(c, tris)| HlodComponentProxy {
+        .zip(sorted_tris.iter().zip(&sorted_uv))
+        .map(|(c, (tris, uv))| HlodComponentProxy {
             component: c.name.clone(),
             source_triangles: tris.len() as u32,
             proxy_triangles: tris.clone(),
+            uv: uv.clone(),
         })
         .collect();
     levels.push(HlodLevel {
         level: 0,
         proxies: l0_proxies,
     });
-    if input.levels > 1 {
+    if input.levels > 1 && !with_uv {
+        // ── 无属性臂(既有路径逐字:位置 bits 焊接 + simplify_free_mesh)──
         // 跨 Component 合并(canonical 序拼接)→ 位置 bits 精确焊接。
         let total: usize = sorted_tris.iter().map(Vec::len).sum();
         let mut weld: std::collections::HashMap<[u32; 3], u32> =
@@ -308,6 +411,81 @@ pub fn bake_hlod_merged(input: &HlodBakeInput) -> Result<HlodAsset> {
                     component: HLOD_MERGED_COMPONENT.to_string(),
                     source_triangles: total as u32,
                     proxy_triangles,
+                    uv: None,
+                }],
+            });
+        }
+    } else if input.levels > 1 {
+        // ── #96 属性臂:焊接键 = (位置, UV) bits(同位置不同 UV = 接缝拷贝,
+        //    不误并;简化链按接缝顶点保守锁定,rurix-geom-build 同律)──
+        let total: usize = sorted_tris.iter().map(Vec::len).sum();
+        let mut weld: std::collections::HashMap<[u32; 5], u32> =
+            std::collections::HashMap::with_capacity(total * 3);
+        let mut positions: Vec<[f32; 3]> = Vec::new();
+        let mut vertex_uv: Vec<[f32; 2]> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        for (tris, uvs) in sorted_tris.iter().zip(&sorted_uv) {
+            let uvs = uvs.as_ref().expect("UV 齐次(validate_input)");
+            for (t, u) in tris.iter().zip(uvs) {
+                for k in 0..3 {
+                    let p = [t[k * 3], t[k * 3 + 1], t[k * 3 + 2]];
+                    let uvk = [u[k * 2], u[k * 2 + 1]];
+                    let key = [
+                        p[0].to_bits(),
+                        p[1].to_bits(),
+                        p[2].to_bits(),
+                        uvk[0].to_bits(),
+                        uvk[1].to_bits(),
+                    ];
+                    let next = positions.len() as u32;
+                    let id = *weld.entry(key).or_insert_with(|| {
+                        positions.push(p);
+                        vertex_uv.push(uvk);
+                        next
+                    });
+                    indices.push(id);
+                }
+            }
+        }
+        // 逐层属性保持 QEM 简化(层间累进,与无属性臂同律;简化产物顶点
+        // UV 平行表 → 代理三角 corner UV 经 uv[indices[k]] 取用)。
+        let mut cur_pos = positions;
+        let mut cur_idx = indices;
+        let mut cur_uv = vertex_uv;
+        for level in 1..input.levels {
+            let target = (total >> level).max(1);
+            let out = rurix_geom_build::qem::simplify_free_mesh_attrs(
+                &cur_pos, &cur_idx, &cur_uv, None, target,
+            )
+            .map_err(|e| {
+                AssetError::new(
+                    ErrorKind::Invalid,
+                    format!("hlod 属性简化 L{level}: {e}"),
+                )
+            })?;
+            cur_pos = out.positions;
+            cur_idx = out.indices;
+            cur_uv = out.uv;
+            let n_out = cur_idx.len() / 3;
+            let mut proxy_triangles: Vec<[f32; 9]> = Vec::with_capacity(n_out);
+            let mut proxy_uv: Vec<[f32; 6]> = Vec::with_capacity(n_out);
+            for t in cur_idx.chunks_exact(3) {
+                let mut tp = [0.0f32; 9];
+                let mut tu = [0.0f32; 6];
+                for k in 0..3 {
+                    tp[k * 3..k * 3 + 3].copy_from_slice(&cur_pos[t[k] as usize]);
+                    tu[k * 2..k * 2 + 2].copy_from_slice(&cur_uv[t[k] as usize]);
+                }
+                proxy_triangles.push(tp);
+                proxy_uv.push(tu);
+            }
+            levels.push(HlodLevel {
+                level,
+                proxies: vec![HlodComponentProxy {
+                    component: HLOD_MERGED_COMPONENT.to_string(),
+                    source_triangles: total as u32,
+                    proxy_triangles,
+                    uv: Some(proxy_uv),
                 }],
             });
         }
@@ -341,6 +519,7 @@ pub fn demo_bake_input() -> HlodBakeInput {
         components.push(ComponentGeometry {
             name: format!("comp_{ci}"),
             triangles,
+            uv: None,
         });
     }
     HlodBakeInput {
@@ -387,9 +566,32 @@ mod tests {
                 .map(|(i, triangles)| ComponentGeometry {
                     name: format!("quad_{i}"),
                     triangles,
+                    uv: None,
                 })
                 .collect(),
         }
+    }
+
+    /// #96 属性臂 fixture:球面四象限分片 + 平面投影 corner UV(与
+    /// merged_demo_input 同几何,UV = (x,z) 仿射投影——简化插值有解析对照)。
+    fn merged_demo_input_uv(levels: u32) -> HlodBakeInput {
+        let mut input = merged_demo_input(levels);
+        for c in input.components.iter_mut() {
+            let uv: Vec<[f32; 6]> = c
+                .triangles
+                .iter()
+                .map(|t| {
+                    let mut u = [0.0f32; 6];
+                    for k in 0..3 {
+                        u[k * 2] = (t[k * 3] + 1.0) * 0.5;
+                        u[k * 2 + 1] = (t[k * 3 + 2] + 1.0) * 0.5;
+                    }
+                    u
+                })
+                .collect();
+            c.uv = Some(uv);
+        }
+        input
     }
 
     /// G31+ #67/#97:质量烘焙三判据(双构建/声明序免疫/几何扰动分叉)与
@@ -462,6 +664,95 @@ mod tests {
                     .sum::<usize>())
                 .collect::<Vec<_>>(),
         );
+    }
+
+    /// G31+ #96:属性臂三判据(双构建/声明序免疫/UV 扰动分叉)+ RXHL v2
+    /// 编码 + 位置面与无属性臂逐位一致(本 fixture UV = 位置仿射投影 ⇒
+    /// 同位置 bits 同 UV bits ⇒ 无接缝 ⇒ crate 契约「位置/拓扑产物逐位
+    /// 一致」可机核)+ 无 UV 输入编码恒 v1(字节面冻结)。
+    #[test]
+    fn merged_bake_uv_arm_invariants() {
+        let input = merged_demo_input_uv(4);
+        let a = bake_hlod_merged(&input).expect("uv bake 1");
+        let b = bake_hlod_merged(&input).expect("uv bake 2");
+        assert_eq!(hlod_asset_digest(&a), hlod_asset_digest(&b), "uv 臂双构建漂移");
+        // 声明序扰动免疫(UV 平行表随三角同置换)。
+        let mut perturbed = input.clone();
+        perturbed.components.reverse();
+        for c in perturbed.components.iter_mut() {
+            c.triangles.reverse();
+            if let Some(uv) = c.uv.as_mut() {
+                uv.reverse();
+            }
+        }
+        assert_eq!(
+            hlod_asset_digest(&bake_hlod_merged(&perturbed).unwrap()),
+            hlod_asset_digest(&a),
+            "uv 臂声明序扰动必须免疫"
+        );
+        // UV 内容扰动必须分叉(UV 进编码字节)。
+        let mut uvmoved = input.clone();
+        uvmoved.components[0].uv.as_mut().unwrap()[0][0] += 0.25;
+        assert_ne!(
+            hlod_asset_digest(&bake_hlod_merged(&uvmoved).unwrap()),
+            hlod_asset_digest(&a),
+            "UV 扰动必须分叉"
+        );
+        // 编码版本:uv 臂 = v2;无 uv = v1(字节面冻结)。
+        let bytes = encode_hlod_asset(&a);
+        assert_eq!(&bytes[..4], &HLOD_ASSET_MAGIC);
+        assert_eq!(bytes[4..6], HLOD_ASSET_VERSION_ATTRS.to_le_bytes());
+        let plain_input = merged_demo_input(4);
+        let plain = bake_hlod_merged(&plain_input).expect("无 uv 对照");
+        let plain_bytes = encode_hlod_asset(&plain);
+        assert_eq!(plain_bytes[4..6], HLOD_ASSET_VERSION.to_le_bytes());
+        // 位置面对拍:本 fixture UV = f(位置) ⇒ (位置,UV) 焊接 ≡ 位置焊接
+        // (无接缝)⇒ 每层位置/拓扑与无属性臂逐位一致(crate 契约锚)。
+        assert_eq!(a.levels.len(), plain.levels.len());
+        for (la, lp) in a.levels.iter().zip(&plain.levels) {
+            assert_eq!(la.proxies.len(), lp.proxies.len());
+            for (pa, pp) in la.proxies.iter().zip(&lp.proxies) {
+                assert_eq!(
+                    pa.proxy_triangles
+                        .iter()
+                        .map(|t| t.map(f32::to_bits))
+                        .collect::<Vec<_>>(),
+                    pp.proxy_triangles
+                        .iter()
+                        .map(|t| t.map(f32::to_bits))
+                        .collect::<Vec<_>>(),
+                    "L{} 位置面与无属性臂漂移",
+                    la.level
+                );
+                // UV 平行表:行数齐 + 有限 + L0 = 输入投影逐位。
+                let uv = pa.uv.as_ref().expect("uv 臂每 proxy 带 UV");
+                assert_eq!(uv.len(), pa.proxy_triangles.len());
+                for (t, u) in pa.proxy_triangles.iter().zip(uv) {
+                    assert!(u.iter().all(|v| v.is_finite()));
+                    if la.level == 0 {
+                        for k in 0..3 {
+                            assert_eq!(
+                                u[k * 2].to_bits(),
+                                ((t[k * 3] + 1.0) * 0.5).to_bits(),
+                                "L0 UV 须逐位等于输入投影"
+                            );
+                            assert_eq!(
+                                u[k * 2 + 1].to_bits(),
+                                ((t[k * 3 + 2] + 1.0) * 0.5).to_bits(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        // 混合 UV 在场性输入 fail-closed。
+        let mut mixed = input.clone();
+        mixed.components[1].uv = None;
+        assert!(bake_hlod_merged(&mixed).is_err(), "混合 UV 输入必须拒");
+        // UV 行数不齐 fail-closed。
+        let mut ragged = input;
+        ragged.components[0].uv.as_mut().unwrap().pop();
+        assert!(bake_hlod_merged(&ragged).is_err(), "UV 行数不齐必须拒");
     }
 
     /// RXS-0364:双构建 hash 相等——同输入两次独立烘焙产物字节/digest 逐位一致。

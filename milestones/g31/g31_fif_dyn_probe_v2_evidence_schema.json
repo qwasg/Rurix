@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "g31_fif_dyn_probe 三臂判档 + AS 副本组内存登记证据 v2(G38,TODO #90)",
+  "description": "G37 W3/G38:FIF 流水 × 动态 AS 更新共存判档 harness(src/rurix-render/src/bin/g31_fif_dyn_probe.rs)直出件 v2。三臂 = A 顺序基线 / B FIF2 每槽 AS 副本 / C FIF3 同构,各双跑;gates 七门 = B≡A 逐帧 digest 逐字节 + C≡A + 三臂双跑位级 + validation=0 + 动态见证 + RED 双臂必拒 + AS 内存账登记面(G38 增)。v2 新增(RFC-0030 §4.3 L2a「副本内存成本 evidence 登记」义务):slot_as_mem 区段——逐臂从 session telemetry 全量 allocation ledger 按 AS 表项 resource_id(= resources.len()+ai+1,render_exec session ledger 登记式;probe 2 资源 ⇒ 基 = 3)过滤求和,A 臂单表项基线 / B×2 / C×3 副本组,per_slot_bytes + group_total_bytes;results.trimmed_mean 镜像槽 = 最大组 group_total_bytes(bytes),供 ci/budget_eval.py 通用路直读(预算条目 g31.fif_dyn.slot_as_group_mem_bytes,标定 = ci/calibrate_fif_budget.py,threshold = measured × 1.5 程序产)。evidence 落 evidence/ 时文件名前缀 = g31_fif_dyn_probe_(check_schemas 路由);v1(rurix.g31.fif_dyn_probe.v1)为 artifacts/day_0830_delivery/w3_deep/fif_dyn/ 判档 sidecar 自 declare 形态,从未注册 schema 文件/路由,不入 evidence/ ——本 v2 为首个注册件,如实登记。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "probe",
+    "todo",
+    "args",
+    "gates",
+    "verdict",
+    "failures",
+    "measured_note",
+    "slot_as_mem",
+    "results",
+    "arms"
+  ],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "rurix.g31.fif_dyn_probe.v2"
+    },
+    "probe": {
+      "type": "string",
+      "const": "g31_fif_dyn_probe"
+    },
+    "todo": {
+      "type": "integer",
+      "const": 90
+    },
+    "args": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frames", "rays", "action"],
+      "properties": {
+        "frames": {"type": "integer", "minimum": 8},
+        "rays": {"type": "string", "pattern": "^[0-9]+x[0-9]+$"},
+        "action": {"type": "string", "enum": ["rebuild", "refit"]}
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "b_eq_a_bytewise",
+        "c_eq_a_bytewise",
+        "double_run_bitlevel",
+        "validation_zero",
+        "dynamic_witness",
+        "red_arms_rejected",
+        "slot_as_mem_registered"
+      ],
+      "properties": {
+        "b_eq_a_bytewise": {"type": "boolean", "description": "B(FIF2)与 A(顺序)逐帧 digest 序列逐字节相等(L2a 确定性协议硬门,Rebuild)"},
+        "c_eq_a_bytewise": {"type": "boolean", "description": "C(FIF3)与 A 逐帧 digest 逐字节相等"},
+        "double_run_bitlevel": {"type": "boolean", "description": "三臂各自双跑(重建会话重放)位级一致"},
+        "validation_zero": {"type": "boolean", "description": "六跑 validation ERROR 全 0(telemetry 实数)"},
+        "dynamic_witness": {"type": "boolean", "description": "digest 序列非常量(逐帧命中见证在 harness 内 fail-closed)"},
+        "red_arms_rejected": {"type": "boolean", "description": "错槽 tlas / 跨槽绑定 device 腿 RED 双臂必拒(拒因字面断言)"},
+        "slot_as_mem_registered": {"type": "boolean", "description": "G38 内存账登记面:逐臂表项数 = 副本数(1/2/3)∧ 全表项 >0(0 = ledger resource_id 映射漂移即假账)∧ 双跑账相等"}
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "RED"]
+    },
+    "failures": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "measured_note": {
+      "type": "string"
+    },
+    "slot_as_mem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note", "a_seq", "b_fif2", "c_fif3"],
+      "properties": {
+        "note": {"type": "string"},
+        "a_seq": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["per_slot_bytes", "group_total_bytes"],
+          "properties": {
+            "per_slot_bytes": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "integer", "minimum": 0}},
+            "group_total_bytes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "b_fif2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["per_slot_bytes", "group_total_bytes"],
+          "properties": {
+            "per_slot_bytes": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 0}},
+            "group_total_bytes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "c_fif3": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["per_slot_bytes", "group_total_bytes"],
+          "properties": {
+            "per_slot_bytes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "integer", "minimum": 0}},
+            "group_total_bytes": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trimmed_mean", "unit", "source"],
+      "properties": {
+        "trimmed_mean": {"type": "integer", "minimum": 0, "description": "镜像槽 = slot_as_mem 最大组 group_total_bytes(FIF3 副本组;budget_eval 通用路直读)"},
+        "unit": {"type": "string", "const": "bytes"},
+        "source": {"type": "string"}
+      }
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a_seq", "a_seq_rerun", "b_fif2", "b_fif2_rerun", "c_fif3", "c_fif3_rerun"],
+      "properties": {
+        "a_seq": {"$ref": "#/definitions/arm"},
+        "a_seq_rerun": {"$ref": "#/definitions/arm"},
+        "b_fif2": {"$ref": "#/definitions/arm"},
+        "b_fif2_rerun": {"$ref": "#/definitions/arm"},
+        "c_fif3": {"$ref": "#/definitions/arm"},
+        "c_fif3_rerun": {"$ref": "#/definitions/arm"}
+      }
+    }
+  },
+  "definitions": {
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wall_ms",
+        "ms_per_frame",
+        "gpu_clear_ms_median",
+        "gpu_rq_ms_median",
+        "cpu_record_ms_median",
+        "cpu_submit_ms_median",
+        "cpu_fence_ms_median",
+        "validation_errors",
+        "digests"
+      ],
+      "properties": {
+        "wall_ms": {"type": "number"},
+        "ms_per_frame": {"type": "number"},
+        "gpu_clear_ms_median": {"type": "number"},
+        "gpu_rq_ms_median": {"type": "number"},
+        "cpu_record_ms_median": {"type": "number"},
+        "cpu_submit_ms_median": {"type": "number"},
+        "cpu_fence_ms_median": {"type": "number"},
+        "validation_errors": {"type": "integer", "minimum": 0},
+        "digests": {
+          "type": "array",
+          "minItems": 8,
+          "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}

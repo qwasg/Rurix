@@ -22,6 +22,13 @@
 //!     [--gltf <path>] [--tier 100] [--error-px 2.0] [--frames 16]
 //!     [--step-m 0.15] [--res 96x54] [--cut-every 1] [--blocks-limit 0]
 //!     [--evidence <sidecar.json>]
+//!     [--refit-copy incr|full] [--min-level N]
+//!
+//! G38 T3 旗标：--refit-copy incr(默认) = 桥接 copy 只搬 cut 差集脏槽
+//! (多 region,相邻合并;帧 0 全量单 region)/ full = 既有恒全量单 region
+//! 对照臂(两态 vbuf 终态位级同 ⇒ 16 帧 digest 序列位级等价,GPU 批次判据);
+//! --min-level N(默认 0 = 现状) = 竞技场只装 level≥N 簇(+链兜底根),cut 经
+//! 「level<N → 首个 level≥N 祖先」提升映射,提升后生产 verify 复核 fail-closed。
 #![forbid(unsafe_code)]
 // 共享体含本 bin 未消费面（bench/render 腿、vendor 双臂、EXR 出图等）——
 // dead_code 豁免如实登记;本 bin 消费面 = 契约装配/簇包读取/frame-cut 臂。
@@ -57,6 +64,9 @@ fn main() {
     let mut blocks_limit: usize = 0;
     let mut evidence = String::new();
     let mut selftest = false;
+    // G38 T3:桥接 copy 模式(incr 默认)与簇粒度降档(0 = 现状)。
+    let mut refit_copy = String::from("incr");
+    let mut min_level: u32 = 0;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -95,6 +105,12 @@ fn main() {
                     .unwrap_or_else(|_| fail("--blocks-limit 非 usize"))
             }
             "--evidence" => evidence = take_arg(&args, &mut i),
+            "--refit-copy" => refit_copy = take_arg(&args, &mut i),
+            "--min-level" => {
+                min_level = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--min-level 非 u32"))
+            }
             "--selftest" => selftest = true,
             other => fail(&format!("未知参数 {other}")),
         }
@@ -120,6 +136,12 @@ fn main() {
     if cut_every == 0 {
         fail("--cut-every 必须 ≥1（1 = 逐帧;>1 = 惰性节拍臂）");
     }
+    // G38 T3:copy 模式闭集(fail-closed;两态均可跑 = 对照旋钮)。
+    let copy_full = match refit_copy.as_str() {
+        "incr" => false,
+        "full" => true,
+        other => fail(&format!("--refit-copy 闭集 incr|full(得 {other})")),
+    };
     let (vw, vh) = {
         let mut it = res.split('x');
         let w: u32 = it
@@ -221,11 +243,20 @@ fn main() {
         monotone_gate: true,
         out_path: evidence,
     };
+    // G38 T3:扩展选项(probe 专用旗标;窗口臂经既有入口消费默认值)。
+    let ext = FrameCutArmExtOpt {
+        copy_full,
+        min_level,
+    };
+    eprintln!(
+        "{FCTAG}: G38 T3 旗标 refit_copy={} min_level={min_level}",
+        if copy_full { "full" } else { "incr" },
+    );
     // passthrough 源三角流须自源装配场景提取（窗口合入 = apply_cluster_lod
     // 施加前锚点同式;probe 场景未经 cut 重建,直接提取）。
     let pt_stream = frame_cut_passthrough_stream(&scene, &pack.passthrough);
-    let stats = run_frame_cut_arm(FCTAG, &pack, &pt_stream, &opt, error_px, &samples);
-    frame_cut_finish(FCTAG, &pack, &opt, error_px, &stats);
+    let stats = run_frame_cut_arm_ext(FCTAG, &pack, &pt_stream, &opt, &ext, error_px, &samples);
+    frame_cut_finish_ext(FCTAG, &pack, &opt, &ext, error_px, &stats);
     println!(
         "{FCTAG}: PASS frames={} res={vw}x{vh} cut_every={cut_every}（逐帧 cut→BLAS refit→RQ 出帧;双跑 digest 位级 + cut_tris 单调 + 命中∈已施加 cut + 哨兵 canary,全 fail-closed 已过）",
         stats.len(),

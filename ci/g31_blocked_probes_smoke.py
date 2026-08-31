@@ -62,10 +62,14 @@ VERDICT_CLOSED_SET = ("open-maintained", "blocked-dev-env")
 EXPECTED_PROBE_IDS = [f"P{i:02d}" for i in range(1, 13)]
 # G37 W4 重收割(默认翻转获批执行,2026-08-30):波 B 锚 060e69a81e26…(旧十臂
 # 展开前默认臂,且其消费二进制已被 day_0828 Phase F 构建事故覆盖 ⇒ 锚本已漂)
-# 作废;新锚 = 翻转后默认臂(--quality 缺省 full 十九臂)orbit 64+10,release 与
+# 作废;W4 锚 = 翻转后默认臂(--quality 缺省 full 十九臂)orbit 64+10,release 与
 # target-night 双二进制收割同值 + 各自双跑位级(w4_flip/W4_ANCHORS.json /
 # ev/rd045_release_r{1,2}.json 在案)。
-RD045_ANCHOR_DIGEST = "sha256:ef2b5b19d85cd59ea48f85cfd65dc3933e4a01e672e0e5a955ecd91fbd799b2f"
+# G38 Wave3 重收割(法线 v2 消费切换,2026-08-30):ef2b5b19…(v1 法线面)作废;
+# 新锚 = 同臂形 @ baked_normals_bin_v2 消费面(slot14 桌布坏件替平坦,语义变更即
+# 重锚),仍为 release 与 target-night 双二进制收割同值 + 各自双跑位级
+# (artifacts/day_0830_g38/reanchor/G38_ANCHORS.json 在案)。
+RD045_ANCHOR_DIGEST = "sha256:066395b0b6d877f546b7082560c093b4c325f39dae446abf3d59a8ad1023d56d"
 HDR_TOKENS = (
     "VK_COLOR_SPACE_HDR10_ST2084_EXT",
     "VK_COLOR_SPACE_BT2020_LINEAR_EXT",

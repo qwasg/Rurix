@@ -23,7 +23,14 @@
 //!
 //! 用法：
 //!   g31_wp_hlod_bake --scene-dump <scene.rxcs> --out <pack.rxwh> \
-//!     [--cell-size 8.0] [--levels 4] [--double-build]
+//!     [--cell-size 8.0] [--levels 4] [--double-build] [--attrs on]
+//!
+//! G31+ #96 属性臂（--attrs on,默认 off = RXWH/RXHL v1 字节面逐位不变）：
+//! 要求 RXCS v2（带 UV 段）输入 fail-closed;ComponentGeometry 带逐三角
+//! corner UV → `bake_hlod_merged` 属性臂（(位置,UV) bits 焊接 +
+//! `simplify_free_mesh_attrs`）→ cell 内 RXHL 资产升 v2（每三角 9×f32
+//! 位置追加 6×f32 corner UV;RXWH 容器 v1 不动——digest = sha256(RXHL
+//! 字节) 语义同源）。
 
 use std::path::Path;
 
@@ -55,6 +62,9 @@ struct SceneDump {
     tri_mat: Vec<u32>,
     /// (tri_offset, tri_count, is_light_tail)。
     groups: Vec<(u32, u32, bool)>,
+    /// G31+ #96 RXCS v2:逐三角 corner UV（6 f32/tri 与 tris 同序位保真;
+    /// v1 dump = None——属性臂 fail-closed 要求 Some,缺省臂两版都吃）。
+    uv: Option<Vec<[f32; 6]>>,
 }
 
 struct Cur<'a> {
@@ -90,7 +100,7 @@ fn read_scene_dump(path: &Path) -> SceneDump {
         fail("RXCS magic 不符");
     }
     let version = c.u32();
-    if version != 1 {
+    if version != 1 && version != 2 {
         fail(&format!("RXCS 版本不支持: {version}"));
     }
     let n = c.u32() as usize;
@@ -119,6 +129,16 @@ fn read_scene_dump(path: &Path) -> SceneDump {
     for _ in 0..n {
         tri_mat.push(c.u32());
     }
+    // #96 RXCS v2:UV 尾段（6 f32/tri 与 tris 同序;v1 缺席 = None）。
+    let uv = if version == 2 {
+        let mut uv = Vec::with_capacity(n);
+        for _ in 0..n {
+            uv.push([c.f32(), c.f32(), c.f32(), c.f32(), c.f32(), c.f32()]);
+        }
+        Some(uv)
+    } else {
+        None
+    };
     if c.p != bytes.len() {
         fail(&format!("RXCS 尾部冗余字节（pos {} ≠ len {}）", c.p, bytes.len()));
     }
@@ -139,6 +159,7 @@ fn read_scene_dump(path: &Path) -> SceneDump {
         emission,
         tri_mat,
         groups,
+        uv,
     }
 }
 
@@ -200,7 +221,13 @@ struct BakeResult {
     proxy_tris_per_level: Vec<usize>,
 }
 
-fn bake(dump: &SceneDump, cell_size_m: f64, levels: u32, out: &Path) -> BakeResult {
+fn bake(
+    dump: &SceneDump,
+    cell_size_m: f64,
+    levels: u32,
+    attrs_on: bool,
+    out: &Path,
+) -> BakeResult {
     // ── 三角归属：passthrough（尾段 + emissive）与 cell 集合 ──
     let n = dump.tris.len();
     let mut passthrough: Vec<u32> = Vec::new();
@@ -263,7 +290,9 @@ fn bake(dump: &SceneDump, cell_size_m: f64, levels: u32, out: &Path) -> BakeResu
                 .partition_point(|&(off, _, _)| off <= t)
                 .saturating_sub(1)
         };
-        let mut comp_map: std::collections::BTreeMap<usize, Vec<[f32; 9]>> =
+        // #96:三角面与 corner UV 平行收集（属性臂 UV 与 triangles 同序;
+        // 缺省臂 UV 表恒空,ComponentGeometry.uv = None 走 v1 编码路径）。
+        let mut comp_map: std::collections::BTreeMap<usize, (Vec<[f32; 9]>, Vec<[f32; 6]>)> =
             std::collections::BTreeMap::new();
         let mut y_min = f32::INFINITY;
         let mut y_max = f32::NEG_INFINITY;
@@ -278,7 +307,13 @@ fn bake(dump: &SceneDump, cell_size_m: f64, levels: u32, out: &Path) -> BakeResu
                 y_min = y_min.min(tri[k][1]);
                 y_max = y_max.max(tri[k][1]);
             }
-            comp_map.entry(seg_of(t)).or_default().push(flat);
+            let entry = comp_map.entry(seg_of(t)).or_default();
+            entry.0.push(flat);
+            if attrs_on {
+                entry
+                    .1
+                    .push(dump.uv.as_ref().expect("属性臂须 RXCS v2(main 已核)")[t as usize]);
+            }
             if dump.emission[t as usize] != [0.0, 0.0, 0.0] {
                 fail(&format!("cell 内 emissive 三角泄漏（源 {t}）——归属不变量破坏"));
             }
@@ -315,9 +350,10 @@ fn bake(dump: &SceneDump, cell_size_m: f64, levels: u32, out: &Path) -> BakeResu
             levels,
             components: comp_map
                 .into_iter()
-                .map(|(seg, triangles)| ComponentGeometry {
+                .map(|(seg, (triangles, uv))| ComponentGeometry {
                     name: format!("seg_{seg}"),
                     triangles,
+                    uv: attrs_on.then_some(uv),
                 })
                 .collect(),
         };
@@ -402,6 +438,8 @@ fn main() {
     let mut cell_size_m: f64 = 8.0;
     let mut levels: u32 = 4;
     let mut double_build = false;
+    // G31+ #96:属性臂(默认 off = 既有 RXWH v1 字节面逐位不变)。
+    let mut attrs_on = false;
     let mut i = 1;
     while i < args.len() {
         let take = |args: &[String], i: &mut usize| -> String {
@@ -411,6 +449,13 @@ fn main() {
         match args[i].as_str() {
             "--scene-dump" => scene_dump = take(&args, &mut i),
             "--out" => out_path = take(&args, &mut i),
+            "--attrs" => {
+                attrs_on = match take(&args, &mut i).as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => fail(&format!("--attrs {other}：只接受 on|off")),
+                }
+            }
             "--cell-size" => {
                 cell_size_m = take(&args, &mut i)
                     .parse()
@@ -436,21 +481,32 @@ fn main() {
         fail("参数闭集缺行（--scene-dump / --out）");
     }
     let dump = read_scene_dump(Path::new(&scene_dump));
+    // #96 属性臂 fail-closed:要求 RXCS v2(带 UV 段)输入。
+    if attrs_on && dump.uv.is_none() {
+        fail(
+            "--attrs on 需 RXCS v2（带 UV 段）输入——本 dump 为 v1 无 UV;\
+             用 g14_3_pipeline_perf --dump-scene 重产（默认即 v2）",
+        );
+    }
     eprintln!(
-        "{TAG}: RXCS 装载 tris={} groups={} sha={}",
+        "{TAG}: RXCS 装载 tris={} groups={} sha={} uv={}",
         dump.tris.len(),
         dump.groups.len(),
         &dump.gltf_sha256[..16],
+        dump.uv.is_some(),
     );
+    if attrs_on {
+        eprintln!("{TAG}: #96 属性臂 on（bake_hlod_merged 属性臂 + RXHL v2 corner UV）");
+    }
     let t0 = std::time::Instant::now();
-    let r = bake(&dump, cell_size_m, levels, Path::new(&out_path));
+    let r = bake(&dump, cell_size_m, levels, attrs_on, Path::new(&out_path));
     let bake_ms = t0.elapsed().as_secs_f64() * 1e3;
     if double_build {
         let tmp = std::env::temp_dir().join(format!(
             "g31_wp_hlod_bake_double_{}.rxwh",
             std::process::id()
         ));
-        let r2 = bake(&dump, cell_size_m, levels, &tmp);
+        let r2 = bake(&dump, cell_size_m, levels, attrs_on, &tmp);
         let equal = r.bytes == r2.bytes;
         let _ = std::fs::remove_file(&tmp);
         if !equal {

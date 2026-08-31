@@ -2912,7 +2912,9 @@ fn main() {
                 let (prov, update) = lane
                     .prepare_update_ext(
                         in_w, in_h, out_w, out_h, j, &vp_j, exposure, reset, last, last,
-                        scene_params, None,
+                        // G38 L2a 末参 = scene_as_override：None = 零 scene AS
+                        // 换槽 override，产物与加参前逐字段同（机械适配 0-byte）。
+                        scene_params, None, None,
                     )
                     .unwrap_or_else(|e| fail(&format!("off 影面帧 {fi}: {e}")));
                 let out = lane

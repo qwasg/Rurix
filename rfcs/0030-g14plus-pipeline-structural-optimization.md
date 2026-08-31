@@ -96,6 +96,8 @@ G14.4 M-d 门实测通过线 0/18 达标（cornell ratio 0.074~0.457 / bistro 0.
 
 **L2（FIF=2）**：加性 API `submit_persistent_frame`（至 vkQueueSubmit 止，含 slot-reuse bounded wait）+ `collect_persistent_frame`（当帧 wait + query + readback 后移）；per-slot cmd/params/descriptor/query/readback 双缓冲；既有 `execute_persistent_frame` = submit+collect 顺序调用等价形态 0-byte 保留（既有消费方零漂移）；数据依赖正确性 = 逐帧 digest 序列与 FIF=1 全等（500 帧压测机核）。
 
+**L2a(FIF×动态,每槽 AS 副本 opt-in;G37 W3 #90 修订行)**:L2 的 per-slot 双缓冲枚举扩展到 AS 面——调用方在 session AS 表显式声明 `frame_slots` 份同构副本组,经加性平行入口(`submit_with_frame_update_slot_as`)逐帧把 `tlas_update`/`blas_refit` 与组内 AS 绑定轮换到 `base + slot` 表项(每表项独立 instance buffer/BLAS 顶点缓冲/BLAS/TLAS/scratch;每槽 AS 描述符集经 per-slot override set 既有基建)。写面按槽分离:host 实例写序于本槽 fence 等待之后,错槽更新/组外更新/跨槽绑定 = 提交前确定性 RED。缺省流水形态的 `tlas_update`/`blas_refit` 拒绝面与守卫 barrier 帧间全序**字面不动**;L2 确定性协议对本臂维持——固定轨迹逐帧 digest 序列与单槽顺序提交逐字节相等(`Rebuild`;判档机核 = `g31_fif_dyn_probe` 三臂等价门),`Refit` 非纯实测时按槽稳定判据显式降档登记。副本内存成本(AS 面 ×frame_slots)为 opt-in 显式代价,evidence 登记;GPU 帧间重叠仍不在承诺面。(加性修订行;2026-08-30)
+
 **L3（生产帧关回读）**：测量循环内 `readback_subset=Some(vec![])`；TSR/vendor 输入直接消费 GPU 驻留数据（§4.5 并 session 后）；循环末锚点帧单次回读做 `last_frame_digest`/is_finite/EXR——digest 语义 = 同一状态机末态不变；生产口径 v2 机核（0<production≤full）维持。
 
 ### 4.4 阴影与主可见性结构面（条件条款——G14.10 后 M-d 复跑仍有未达格才实施）
@@ -168,3 +170,4 @@ Provenance 偏差如实登记：评审者与起草者同模型同会话族，独
 | v0.1 | 2026-08-22 | 初稿（波0 治理批起草） |
 | v0.2 | 2026-08-22 | D-409 第 1 轮修法批（F1~F7 disposition 落实） |
 | v1.0 | 2026-08-22 | 主会话三面一致核对后翻 **Agent Approved** |
+| v1.1 | 2026-08-30 | **§4.3 加性**:L2a 每槽 AS 副本 opt-in 子行正式登记(G37 W3 #90 判档双 PASS 前置已兑——`g31_fif_dyn_probe` 三臂等价门 Rebuild/Refit GPU 双 PASS,evidence = artifacts/day_0830_delivery/w3_deep/fif_dyn/ 双件 gates 全 true;既有 L2 字面与 `submit_with_frame_update` 拒绝面 0-byte,实现 = 加性 body-include `render_exec_g37_fif_dyn.rs` 平行入口 `submit_with_frame_update_slot_as`)。零既有语义改动。 |

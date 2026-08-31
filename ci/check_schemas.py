@@ -980,6 +980,11 @@ def check_evidence_files() -> None:
     g31_dynamic_scene_schema = load(
         ROOT / "milestones/g31/g31_dynamic_scene_evidence_schema.json"
     )
+    # G38 T2 FIF×动态判档 probe v2 schema 纯追加(重放幂等面;TODO #90 /
+    # RFC-0030 §4.3 L2a;v1 为 artifacts sidecar 自 declare 从未注册,v2 首注册)
+    g31_fif_dyn_probe_v2_schema = load(
+        ROOT / "milestones/g31/g31_fif_dyn_probe_v2_evidence_schema.json"
+    )
     g31_framegen_present_schema = load(
         ROOT / "milestones/g31/g31_framegen_present_evidence_schema.json"
     )
@@ -2654,6 +2659,11 @@ def check_evidence_files() -> None:
     g31_dynamic_scene_validator = (
         jsonschema.Draft7Validator(g31_dynamic_scene_schema)
         if g31_dynamic_scene_schema is not None
+        else None
+    )
+    g31_fif_dyn_probe_v2_validator = (
+        jsonschema.Draft7Validator(g31_fif_dyn_probe_v2_schema)
+        if g31_fif_dyn_probe_v2_schema is not None
         else None
     )
     g31_framegen_present_validator = (
@@ -5535,6 +5545,18 @@ def check_evidence_files() -> None:
             # milestones/g31/g31_dynamic_scene_evidence_schema.json
             # （ci/g31_dynamic_scene_smoke.py --gate g31.waveA.dynscene 产）。
             validator = g31_dynamic_scene_validator
+        elif (
+            f.name.startswith("g31_fif_dyn_probe_")
+            and g31_fif_dyn_probe_v2_validator is not None
+        ):
+            # G38 T2 FIF×动态共存判档 probe 直出证据 v2(TODO #90;RFC-0030
+            # §4.3 L2a 每槽 AS 副本 opt-in)→
+            # milestones/g31/g31_fif_dyn_probe_v2_evidence_schema.json
+            # (src/rurix-render/src/bin/g31_fif_dyn_probe.rs --out 产;三臂
+            # 等价七门 + slot_as_mem 内存账 + results.trimmed_mean 镜像槽供
+            # ci/budget_eval.py 通用路判读 g31.fif_dyn.slot_as_group_mem_bytes;
+            # 前缀与既有 g31_* 全族互不包含,v1 从未注册无序律)。
+            validator = g31_fif_dyn_probe_v2_validator
         elif (
             f.name.startswith("g31_framegen_present")
             and g31_framegen_present_validator is not None

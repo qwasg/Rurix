@@ -1,0 +1,197 @@
+{
+ "schema": "rurix.day0830.g38.t5.run_ab.v1",
+ "fails": 0,
+ "frames": 96,
+ "warmup": 2,
+ "dump_every": 4,
+ "explicit_noae_base": [
+  "--quality",
+  "off",
+  "--smooth-normals",
+  "on",
+  "--ggx",
+  "on",
+  "--lamp-lights",
+  "on",
+  "--lamp-gain",
+  "4",
+  "--textures",
+  "on",
+  "--bloom",
+  "on",
+  "--dither",
+  "on",
+  "--tsr-quality",
+  "on",
+  "--gi2",
+  "on",
+  "--gi2-clamp",
+  "0.01",
+  "--emissive-tex",
+  "on",
+  "--metal-f0",
+  "on",
+  "--rt-ao",
+  "on",
+  "--soft-shadows",
+  "on",
+  "--soft-shadow-samples",
+  "1",
+  "--rt-reflect",
+  "on",
+  "--gi2-tex",
+  "on",
+  "--normal-maps",
+  "on",
+  "--transparency",
+  "on"
+ ],
+ "arms": {
+  "base": [],
+  "ris": [
+   "--gi2-ris",
+   "on"
+  ],
+  "nee": [
+   "--gi2-nee",
+   "on"
+  ],
+  "both": [
+   "--gi2-ris",
+   "on",
+   "--gi2-nee",
+   "on"
+  ]
+ },
+ "env_literal": {
+  "RURIX_G18_AMBIENT": "0.004",
+  "RURIX_REQUIRE_REAL": "1",
+  "RURIX_VK_VALIDATION": "1"
+ },
+ "rows": [
+  {
+   "step": "base_r1",
+   "arm": "base",
+   "leg": "r1",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d",
+   "real_render_frame_ms": 10.301408,
+   "render_max_ms": 40.9697,
+   "wall_s": 706.2,
+   "ok": true
+  },
+  {
+   "step": "base_r2",
+   "arm": "base",
+   "leg": "r2",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d",
+   "real_render_frame_ms": 10.082244,
+   "render_max_ms": 39.2171,
+   "wall_s": 722.5,
+   "ok": true
+  },
+  {
+   "step": "base_double_run",
+   "arm": "base",
+   "double_run_bitexact": true,
+   "digest_r1": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d",
+   "digest_r2": "sha256:f2eb4a3c147e80fc3eacd0412e4a281c672ad10aaeb5dacc08f8ca6404907e3d"
+  },
+  {
+   "step": "ris_r1",
+   "arm": "ris",
+   "leg": "r1",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c",
+   "real_render_frame_ms": 8.63295,
+   "render_max_ms": 19.1214,
+   "wall_s": 591.5,
+   "ok": true
+  },
+  {
+   "step": "ris_r2",
+   "arm": "ris",
+   "leg": "r2",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c",
+   "real_render_frame_ms": 8.889024,
+   "render_max_ms": 28.4796,
+   "wall_s": 260.9,
+   "ok": true
+  },
+  {
+   "step": "ris_double_run",
+   "arm": "ris",
+   "double_run_bitexact": true,
+   "digest_r1": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c",
+   "digest_r2": "sha256:efa14e894c57c81f36ddf536fd0408f494719cb5bdce3625752c8a6adfd1e42c"
+  },
+  {
+   "step": "nee_r1",
+   "arm": "nee",
+   "leg": "r1",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656",
+   "real_render_frame_ms": 8.99466,
+   "render_max_ms": 23.4114,
+   "wall_s": 262.3,
+   "ok": true
+  },
+  {
+   "step": "nee_r2",
+   "arm": "nee",
+   "leg": "r2",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656",
+   "real_render_frame_ms": 9.180309,
+   "render_max_ms": 25.4994,
+   "wall_s": 263.9,
+   "ok": true
+  },
+  {
+   "step": "nee_double_run",
+   "arm": "nee",
+   "double_run_bitexact": true,
+   "digest_r1": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656",
+   "digest_r2": "sha256:6790940ce2cbebb070a6f08e9d9dbe135cb6868014c52a61c427ddedd495b656"
+  },
+  {
+   "step": "both_r1",
+   "arm": "both",
+   "leg": "r1",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd",
+   "real_render_frame_ms": 9.64794,
+   "render_max_ms": 24.6458,
+   "wall_s": 263.2,
+   "ok": true
+  },
+  {
+   "step": "both_r2",
+   "arm": "both",
+   "leg": "r2",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd",
+   "real_render_frame_ms": 10.460198,
+   "render_max_ms": 32.6757,
+   "wall_s": 261.5,
+   "ok": true
+  },
+  {
+   "step": "both_double_run",
+   "arm": "both",
+   "double_run_bitexact": true,
+   "digest_r1": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd",
+   "digest_r2": "sha256:da176a4e320e88aa080b3b884f663677cfb3de1ee3da675e9e4dec4f55df31dd"
+  }
+ ]
+}

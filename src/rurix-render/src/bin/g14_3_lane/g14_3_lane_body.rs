@@ -31,8 +31,8 @@ use rurix_rt::render_exec::{
     AccelStructDesc, Bindings, BlasRefitUpdate, BufferDesc, BufferUsage, ComputePass,
     DeviceFrameOutput, DeviceFrameSession, DispatchSpec, FrameTicket, FrameUpdate, Pass,
     RayQueryInstanceDesc, RayQuerySceneDesc, RayQueryTransformedInstanceDesc, Readback,
-    ResourceDesc, StableResourceId, SubmissionProvenance, TargetState, TexFormat, TextureDesc,
-    TextureUsage, TlasBuildAction,
+    ResourceDesc, SlotAsGroup, StableResourceId, SubmissionProvenance, TargetState, TexFormat,
+    TextureDesc, TextureUsage, TlasBuildAction,
 };
 use rurix_rt::vendor_upscale::{
     DlssVkSession, ExternalImageImportDesc, ExternalInputSlot, FsrDx12Session,
@@ -2276,7 +2276,17 @@ fn extract_lamp_lights(
     max_k: usize,
     gain: f32,
 ) -> (Vec<PointLight>, LampExtractStats) {
-    const GRID_M: f32 = 0.6;
+    // G38 T5:聚类网格边长 env 散臂旋钮(RURIX_G18_AMBIENT 同律:缺席 = 0.6 字面
+    // ⇒ 锚面零漂移;在位 = parse f32,非法即 fail 不静默)。lamp-k 阶梯消费
+    // (EVAL_RESTIR §9.4「改参数不改算法」——0.6m 网格 bistro 仅 13 簇,提 K 须收细);
+    // 改默认字面 = full 语义变更即重锚,归阶梯判 GO 后的重锚窗。
+    const GRID_M_DEFAULT: f32 = 0.6;
+    let grid_m: f32 = match std::env::var("RURIX_G31_LAMP_GRID_M") {
+        Ok(s) => s.trim().parse().unwrap_or_else(|_| {
+            fail(&format!("RURIX_G31_LAMP_GRID_M 非 f32 字面: {s}(fail-closed)"))
+        }),
+        Err(_) => GRID_M_DEFAULT,
+    };
     const RADIUS_PAD_M: f32 = 0.02;
     // ① emissive 三角扫描（升序三角号——后续全链迭代序确定性根）。
     struct EmTri {
@@ -2323,9 +2333,9 @@ fn extract_lamp_lights(
         std::collections::BTreeMap::new();
     for (ei, (_, t)) in em.iter().enumerate() {
         let key = (
-            (t.centroid[0] / GRID_M).floor() as i64,
-            (t.centroid[1] / GRID_M).floor() as i64,
-            (t.centroid[2] / GRID_M).floor() as i64,
+            (t.centroid[0] / grid_m).floor() as i64,
+            (t.centroid[1] / grid_m).floor() as i64,
+            (t.centroid[2] / grid_m).floor() as i64,
         );
         cells.entry(key).or_default().push(ei);
     }
@@ -2553,20 +2563,35 @@ fn apply_lamp_lights(mut scene: SceneData, opt: &LampOpt) -> SceneData {
 // C/E 阶段（TODO #77/#20–23）。
 // ---------------------------------------------------------------------------
 
-/// RXCS v1 场景 dump magic（bin-local 交接格式，非冻结格式栈）。
+/// RXCS 场景 dump magic（bin-local 交接格式，非冻结格式栈;v1 = 无 UV 段,
+/// v2 = 尾部追加 6 f32/tri corner UV——G31+ #96 属性保持简化 bake 输入面）。
 const RXCS_MAGIC: &[u8; 4] = b"RXCS";
-/// RXCP v1 簇包 magic（bin-local 交接格式）。
+/// RXCP 簇包 magic（bin-local 交接格式;v1 = 无簇 UV,v2 = 逐块顶点 UV
+/// 平行表——#96 属性臂）。
 const RXCP_MAGIC: &[u8; 4] = b"RXCP";
 
-/// 装配场景 dump（RXCS v1）：tri 汤（9 f32/tri 位保真）+ 逐三角属性 +
+/// 装配场景 dump（RXCS v1|v2）：tri 汤（9 f32/tri 位保真）+ 逐三角属性 +
 /// 节点段表（is_light_tail = quad 灯面尾段标记）。bake 侧唯一装配输入面。
+/// G31+ #96：`tri_uv = Some`（装配 UV sink,6 f32/tri 与 tris 同序）⇒ v2,
+/// 尾部追加 UV 段位保真;`None` ⇒ v1 字节面逐位不变（无 UV 资产臂逃生口）。
 #[allow(dead_code)] // G31+ #58：g14_3 --dump-scene 消费面（g31/g34 include 共享体，诚实标注）
-fn dump_scene_rxcs(scene: &SceneData, groups: &[SceneNodeGroup], path: &Path) -> Result<(), String> {
+fn dump_scene_rxcs(
+    scene: &SceneData,
+    groups: &[SceneNodeGroup],
+    tri_uv: Option<&[f32]>,
+    path: &Path,
+) -> Result<(), String> {
     let n = scene.indices.len();
+    if let Some(uv) = tri_uv
+        && uv.len() != n * 6
+    {
+        return Err(format!("UV sink 长度 {} ≠ 三角数×6 {}", uv.len(), n * 6));
+    }
     let quad_tail_tris = scene.quads.len() * 2;
+    let version: u32 = if tri_uv.is_some() { 2 } else { 1 };
     let mut out: Vec<u8> = Vec::with_capacity(64 + n * (36 + 12 + 12 + 4));
     out.extend_from_slice(RXCS_MAGIC);
-    out.extend_from_slice(&1u32.to_le_bytes());
+    out.extend_from_slice(&version.to_le_bytes());
     out.extend_from_slice(&(n as u32).to_le_bytes());
     out.extend_from_slice(&(groups.len() as u32).to_le_bytes());
     if scene.gltf_sha256.len() != 64 {
@@ -2598,6 +2623,13 @@ fn dump_scene_rxcs(scene: &SceneData, groups: &[SceneNodeGroup], path: &Path) ->
     }
     for &m in &scene.tri_mat {
         out.extend_from_slice(&m.to_le_bytes());
+    }
+    // #96 RXCS v2:UV 段尾接(6 f32/tri 与 tris 同序,装配 sink 位保真;
+    // quad 灯面尾段恒 0 由装配面保证)。
+    if let Some(uv) = tri_uv {
+        for &x in uv {
+            out.extend_from_slice(&x.to_bits().to_le_bytes());
+        }
     }
     std::fs::write(path, &out).map_err(|e| format!("RXCS 写盘失败 {path:?}: {e}"))
 }
@@ -2634,7 +2666,7 @@ struct ClusterPackBlock {
     cluster_parent_lod: Vec<LodBounds>,
 }
 
-/// 簇包（RXCP v1 内存形态）。
+/// 簇包（RXCP v1|v2 内存形态）。
 #[allow(dead_code)]
 struct ClusterPack {
     gltf_sha256: String,
@@ -2643,6 +2675,13 @@ struct ClusterPack {
     /// 恒 passthrough 源三角（emissive + quad 灯面尾段 + 病态小块；升序）。
     passthrough: Vec<u32>,
     blocks: Vec<ClusterPackBlock>,
+    /// G31+ #96 RXCP v2:与 `blocks` 平行的逐块顶点 UV 表(每块与该块
+    /// vertices 等长平行;簇局部切片 = `records[id].vertex_offset..
+    /// +vertex_count`,与顶点切片同口径——粗簇代理三角 corner UV 事实源,
+    /// `gather_tri_uv_attrs` 消费)。v1 = None(无 UV 资产臂,gather 回落
+    /// [0;6] + tritex 补丁维持 −1 常量回退)。挂 pack 级而非 block 级 =
+    /// ClusterPackBlock 字面构造面(frame_cut selftest 夹具)0 改动。
+    blocks_vertex_uv: Option<Vec<Vec<[f32; 2]>>>,
 }
 
 /// LE 读取小游标（bin-local；越界 = typed Err，fail-closed）。
@@ -2674,8 +2713,10 @@ impl<'a> PackCursor<'a> {
     }
 }
 
-/// RXCP v1 簇包读取（fail-closed 边界全校验；布局 = g31_cluster_lod_bake
+/// RXCP v1|v2 簇包读取（fail-closed 边界全校验；布局 = g31_cluster_lod_bake
 /// writer 逐字段镜像——两端同源字段序，破坏即 typed Err）。
+/// G31+ #96：v2 = 逐块 vertices 段后追加顶点 UV 平行表(2 f32/顶点);
+/// v1 输入路径行为逐位不变(cluster_vertex_uv = None)。
 #[allow(dead_code)]
 fn read_cluster_pack(path: &Path) -> Result<ClusterPack, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("RXCP 读取失败 {path:?}: {e}"))?;
@@ -2687,7 +2728,7 @@ fn read_cluster_pack(path: &Path) -> Result<ClusterPack, String> {
         return Err("RXCP magic 不符".into());
     }
     let version = c.u32()?;
-    if version != 1 {
+    if version != 1 && version != 2 {
         return Err(format!("RXCP 版本不支持: {version}"));
     }
     let sha = String::from_utf8(c.take(64)?.to_vec()).map_err(|_| "sha 非 utf8".to_string())?;
@@ -2699,6 +2740,8 @@ fn read_cluster_pack(path: &Path) -> Result<ClusterPack, String> {
     }
     let block_n = c.u32()? as usize;
     let mut blocks = Vec::with_capacity(block_n);
+    // #96 RXCP v2:逐块顶点 UV 表(与 blocks 平行收集;v1 恒空)。
+    let mut blocks_uv: Vec<Vec<[f32; 2]>> = Vec::with_capacity(block_n);
     for _ in 0..block_n {
         let rec_n = c.u32()? as usize;
         let child_n = c.u32()? as usize;
@@ -2741,6 +2784,14 @@ fn read_cluster_pack(path: &Path) -> Result<ClusterPack, String> {
         let mut vertices = Vec::with_capacity(vert_n);
         for _ in 0..vert_n {
             vertices.push(c.f32x3()?);
+        }
+        // #96 RXCP v2:顶点 UV 平行表(writer 在 vertices 段后紧邻写出)。
+        if version == 2 {
+            let mut uv = Vec::with_capacity(vert_n);
+            for _ in 0..vert_n {
+                uv.push([c.f32()?, c.f32()?]);
+            }
+            blocks_uv.push(uv);
         }
         let tri_bytes = c.take(tri_idx_n)?.to_vec();
         let pad = (4 - tri_idx_n % 4) % 4;
@@ -2794,6 +2845,7 @@ fn read_cluster_pack(path: &Path) -> Result<ClusterPack, String> {
         src_tri_count,
         passthrough,
         blocks,
+        blocks_vertex_uv: (version == 2).then_some(blocks_uv),
     })
 }
 
@@ -3299,13 +3351,17 @@ fn cluster_lod_frame_stat(
 #[allow(dead_code)]
 const RXWH_MAGIC: &[u8; 4] = b"RXWH";
 
-/// RXHL v1 资产解码产物（rurix-asset `encode_hlod_asset` 字节的消费面；
+/// RXHL v1|v2 资产解码产物（rurix-asset `encode_hlod_asset` 字节的消费面；
 /// 逐层三角集合——L0 = 逐 Component 全量（本面不消费,Full 用源三角保位级），
 /// L≥1 = 合并层单 `__merged__` proxy）。
 #[allow(dead_code)]
 struct WpHlodLevels {
     /// levels[l] = 该层全部 proxy 三角（9 f32/tri 位保真,proxy 声明序拼接）。
     levels: Vec<Vec<[f32; 9]>>,
+    /// G31+ #96 RXHL v2:与 `levels` 平行的逐三角 corner UV(6 f32/tri
+    /// 位保真,同拼接序;cell 代理三角 UV 事实源——`gather_tri_uv_attrs`
+    /// 消费)。v1 = None(无 UV 资产臂)。
+    levels_uv: Option<Vec<Vec<[f32; 6]>>>,
 }
 
 /// RXWH 单 cell（内存形态）。
@@ -3340,8 +3396,9 @@ struct WpHlodPack {
     cells: Vec<Option<WpHlodCell>>,
 }
 
-/// RXHL v1 解码（rurix-asset `encode_hlod_asset` writer 逐字段镜像;
-/// fail-closed 边界全校验）。
+/// RXHL v1|v2 解码（rurix-asset `encode_hlod_asset` writer 逐字段镜像;
+/// fail-closed 边界全校验）。G31+ #96：v2 = 每三角 9×f32 位置后追加
+/// 6×f32 corner UV;v1 输入路径行为逐位不变(levels_uv = None)。
 #[allow(dead_code)]
 fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String> {
     let mut c = PackCursor { bytes, pos: 0 };
@@ -3352,7 +3409,7 @@ fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String>
         let b = c.take(2)?;
         u16::from_le_bytes([b[0], b[1]])
     };
-    if ver != 1 {
+    if ver != 1 && ver != 2 {
         return Err(format!("RXHL 版本不支持: {ver}"));
     }
     let name_len = {
@@ -3365,6 +3422,7 @@ fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String>
         return Err(format!("RXHL 层数 {n_levels} ≠ 声明 {expect_levels}"));
     }
     let mut levels = Vec::with_capacity(n_levels as usize);
+    let mut uv_levels: Vec<Vec<[f32; 6]>> = Vec::with_capacity(n_levels as usize);
     for li in 0..n_levels {
         let level = c.u32()?;
         if level != li {
@@ -3375,6 +3433,7 @@ fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String>
             return Err(format!("RXHL 层 {li} 零 proxy"));
         }
         let mut tris: Vec<[f32; 9]> = Vec::new();
+        let mut uvs: Vec<[f32; 6]> = Vec::new();
         for _ in 0..n_proxies {
             let pn = {
                 let b = c.take(2)?;
@@ -3389,12 +3448,23 @@ fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String>
                     *v = c.f32()?;
                 }
                 tris.push(t);
+                // #96 v2:corner UV(9 f32 位置后紧邻 6 f32)。
+                if ver == 2 {
+                    let mut u = [0.0f32; 6];
+                    for v in u.iter_mut() {
+                        *v = c.f32()?;
+                    }
+                    uvs.push(u);
+                }
             }
         }
         if tris.is_empty() {
             return Err(format!("RXHL 层 {li} 零三角"));
         }
         levels.push(tris);
+        if ver == 2 {
+            uv_levels.push(uvs);
+        }
     }
     if c.pos != bytes.len() {
         return Err(format!(
@@ -3403,7 +3473,10 @@ fn decode_rxhl(bytes: &[u8], expect_levels: u32) -> Result<WpHlodLevels, String>
             bytes.len()
         ));
     }
-    Ok(WpHlodLevels { levels })
+    Ok(WpHlodLevels {
+        levels,
+        levels_uv: (ver == 2).then_some(uv_levels),
+    })
 }
 
 /// RXWH v1 读取（g31_wp_hlod_bake writer 逐字段镜像;fail-closed 边界全校验 +
@@ -4960,6 +5033,183 @@ fn geo_patch_proxy_tritex_heap(tex: &mut G31TexAssetsHeap, prov: &[TriProvenance
     let mut patched = 0usize;
     for (i, p) in prov.iter().enumerate() {
         if !matches!(p, TriProvenance::Src(_)) && tex.tritex[i * 2] >= 0.0 {
+            tex.tritex[i * 2] = -1.0;
+            tex.tritex[i * 2 + 1] = 0.0;
+            patched += 1;
+        }
+    }
+    if patched > 0 {
+        tex.tex_tris = tex.tritex.iter().step_by(2).filter(|&&s| s >= 0.0).count();
+        if tex.tex_tris == 0 {
+            fail("geo 代理 tritex 补丁后映射三角归零（空接线即红,fail-closed）");
+        }
+        tex.tritex_bytes = bytes_f32(&tex.tritex);
+    }
+    patched
+}
+
+// ---------------------------------------------------------------------------
+// G31+ #96 属性保持简化消费面（G38 T4）：代理三角真 corner UV gather +
+// tritex −1 强制回退退役。既有 gather_tri_uv / geo_patch_proxy_tritex(_heap)
+// 函数体 0 改动编译保留;下述 _attrs/_v2 形态 = g34 车道新消费面——
+// v1 资产（无 UV 段）输入下行为与旧形态**逐位一致**（gather 写 [0;6] +
+// 补丁置 −1 = 旧语义等价）,v2 资产（RXCP 簇 UV 表 / RXHL v2 corner UV）
+// 输入下代理三角带真 UV 走与 Src 三角同一图集采样路径（kernel 0 改动:
+// tritex ≥ 0 即 tex_gate 开,g31_texture_gi.rx 179-183 既有语义）。
+// ---------------------------------------------------------------------------
+
+/// 逐三角 UV 侧表 gather 属性形态（#96）：Src 按源 id 取值位保真（与
+/// [`gather_tri_uv`] 同字面）;代理三角自资产 UV 源取真 corner UV——
+/// ClusterCoarse = 簇包 v2 顶点 UV 平行表按簇局部索引取三元组（与
+/// geo_rebuild 顶点取数同式）,WpProxy = RXHL v2 逐层逐三角 corner UV;
+/// 无 UV 资产臂（v1 包,UV 源 = None）回落 [0;6]（旧语义等价,tritex
+/// 补丁面维持 −1 常量回退）。代理三角段内序 = geo_rebuild 尾接序
+/// （簇内序/层内序连续段——prov 相邻同源计数器还原段内三角号,段界
+/// 即重置;越界 = prov/资产失配 fail-closed）。恒等排列 ⇒ 产物与源逐位一致。
+#[allow(dead_code)] // #96:g34_full_lane / g34_2_hzb 消费面（include 共享体,诚实标注）
+fn gather_tri_uv_attrs(
+    prov: &[TriProvenance],
+    src_uv: &[f32],
+    cl_pack: Option<&ClusterPack>,
+    wp_pack: Option<&WpHlodPack>,
+) -> Vec<f32> {
+    let mut out = Vec::with_capacity(prov.len() * 6);
+    // 代理连续段内三角号（geo_rebuild 尾接不变量:同 (块,簇)/(cell,层) 的
+    // 代理三角恰一段连续出帧,prov 相邻相等即段内推进）。
+    let mut prev: Option<TriProvenance> = None;
+    let mut k = 0usize;
+    for p in prov {
+        match *p {
+            TriProvenance::Src(s) => {
+                let b = s as usize * 6;
+                out.extend_from_slice(&src_uv[b..b + 6]);
+            }
+            TriProvenance::ClusterCoarse { block, cluster } => {
+                k = if prev == Some(*p) { k + 1 } else { 0 };
+                let mut row = [0.0f32; 6];
+                if let Some(cp) = cl_pack
+                    && let Some(uvtab) = cp
+                        .blocks_vertex_uv
+                        .as_ref()
+                        .map(|v| &v[block as usize])
+                {
+                    let b = &cp.blocks[block as usize];
+                    let r = &b.records[cluster as usize];
+                    if k >= r.triangle_count as usize {
+                        fail(&format!(
+                            "gather_tri_uv_attrs 簇代理段内序越界: k={k} ≥ 簇三角数 {}（块 {block} 簇 {cluster};prov 连续段不变量破坏）",
+                            r.triangle_count
+                        ));
+                    }
+                    let ti = r.triangle_offset as usize + 3 * k;
+                    for c in 0..3 {
+                        let li =
+                            b.triangle_indices[ti + c] as usize + r.vertex_offset as usize;
+                        row[c * 2] = uvtab[li][0];
+                        row[c * 2 + 1] = uvtab[li][1];
+                    }
+                }
+                out.extend_from_slice(&row);
+            }
+            TriProvenance::WpProxy { cell, level } => {
+                k = if prev == Some(*p) { k + 1 } else { 0 };
+                let mut row = [0.0f32; 6];
+                if let Some(c) = wp_pack.and_then(|wp| wp.cells[cell as usize].as_ref())
+                    && let Some(uvl) = c.hlod.levels_uv.as_ref()
+                {
+                    let rows = &uvl[level as usize];
+                    if k >= rows.len() {
+                        fail(&format!(
+                            "gather_tri_uv_attrs cell 代理段内序越界: k={k} ≥ 层三角数 {}（cell {cell} L{level};prov 连续段不变量破坏）",
+                            rows.len()
+                        ));
+                    }
+                    row = rows[k];
+                }
+                out.extend_from_slice(&row);
+            }
+        }
+        prev = Some(*p);
+    }
+    out
+}
+
+/// 代理三角 tritex 补丁 v2（#96 退役面）：仅对**无 UV 数据**的代理三角
+/// 置 −1（v1 资产臂——UV=0 采样错色防线维持,走常量面回退）;带 UV 的
+/// 代理三角（v2 资产臂）保留 tri_mat 派生槽号,与 Src 三角同一图集采样
+/// 路径（gather_tri_uv_attrs 已供真 corner UV;众数材质不在 top-N 图集
+/// 者 tritex 本就 −1,常量面兜底不变）。返回改写数;同步重建 tritex_bytes
+/// 与 tex_tris,全空接线 fail-closed（[`geo_patch_proxy_tritex`] 同律）。
+#[allow(dead_code)] // #96:g34_full_lane / g34_2_hzb 消费面（include 共享体,诚实标注）
+fn geo_patch_proxy_tritex_v2(
+    tex: &mut G31TexAssets,
+    prov: &[TriProvenance],
+    cl_pack: Option<&ClusterPack>,
+    wp_pack: Option<&WpHlodPack>,
+) -> usize {
+    if tex.tritex.len() != prov.len() {
+        fail(&format!(
+            "geo tritex/prov 长度失配: {} ≠ {}（tritex 须自重建场景派生）",
+            tex.tritex.len(),
+            prov.len()
+        ));
+    }
+    let mut patched = 0usize;
+    for (i, p) in prov.iter().enumerate() {
+        let has_uv = match *p {
+            TriProvenance::Src(_) => continue,
+            TriProvenance::ClusterCoarse { .. } => {
+                cl_pack.is_some_and(|cp| cp.blocks_vertex_uv.is_some())
+            }
+            TriProvenance::WpProxy { cell, .. } => wp_pack
+                .and_then(|wp| wp.cells[cell as usize].as_ref())
+                .is_some_and(|c| c.hlod.levels_uv.is_some()),
+        };
+        if !has_uv && tex.tritex[i] >= 0.0 {
+            tex.tritex[i] = -1.0;
+            patched += 1;
+        }
+    }
+    if patched > 0 {
+        tex.tex_tris = tex.tritex.iter().filter(|&&s| s >= 0.0).count();
+        if tex.tex_tris == 0 {
+            fail("geo 代理 tritex 补丁后映射三角归零（空接线即红,fail-closed）");
+        }
+        tex.tritex_bytes = bytes_f32(&tex.tritex);
+    }
+    patched
+}
+
+/// [`geo_patch_proxy_tritex_v2`] 的 heap 形态（tritex 步幅 2 [slot, k_tri];
+/// #96 同律:仅无 UV 数据的代理三角置 −1 并清 k_tri,带 UV 者保留槽号与
+/// 密度项〔UV gather 已供真值,k_tri 自重建场景派生有效〕。当前零调用面
+/// 编译保留——heap 臂 geo 接线时消费,[`geo_patch_proxy_tritex_heap`] 同待遇）。
+#[allow(dead_code)]
+fn geo_patch_proxy_tritex_heap_v2(
+    tex: &mut G31TexAssetsHeap,
+    prov: &[TriProvenance],
+    cl_pack: Option<&ClusterPack>,
+    wp_pack: Option<&WpHlodPack>,
+) -> usize {
+    if tex.tritex.len() != prov.len() * 2 {
+        fail(&format!(
+            "geo tritex/prov 长度失配: {} ≠ {}×2（tritex 须自重建场景派生,步幅 2）",
+            tex.tritex.len(),
+            prov.len()
+        ));
+    }
+    let mut patched = 0usize;
+    for (i, p) in prov.iter().enumerate() {
+        let has_uv = match *p {
+            TriProvenance::Src(_) => continue,
+            TriProvenance::ClusterCoarse { .. } => {
+                cl_pack.is_some_and(|cp| cp.blocks_vertex_uv.is_some())
+            }
+            TriProvenance::WpProxy { cell, .. } => wp_pack
+                .and_then(|wp| wp.cells[cell as usize].as_ref())
+                .is_some_and(|c| c.hlod.levels_uv.is_some()),
+        };
+        if !has_uv && tex.tritex[i * 2] >= 0.0 {
             tex.tritex[i * 2] = -1.0;
             tex.tritex[i * 2 + 1] = 0.0;
             patched += 1;
@@ -9883,6 +10133,17 @@ struct UnifiedTsrLane<'a> {
     tsrq: bool,
     tsrq_min_alpha: f32,
     tsrq_clamp: f32,
+    /// G38（RFC-0030 v1.1 §4.3 L2a）：每槽 AS 副本组（opt-in；None = 既有面
+    /// 0-byte）。经 [`Self::create_with_slot_as`] 建，组 [0, inflight)——逐帧
+    /// `tlas_update` 目标与 scene pass AS 绑定轮换到 base + slot 表项。
+    slot_as_group: Option<SlotAsGroup>,
+    /// scene pass（下标 0）创建期绑定组克隆（slot_as 逐帧 AS 换槽 override 的
+    /// 单一事实源——禁在提交面手写绑定列表，防与 descs 双源漂移；非 slot_as
+    /// 车道恒 None 零成本）。
+    scene_bindings: Option<Bindings>,
+    /// slot_as 动态臂在飞票据 FIFO（与静态 `pending` 分列——静态
+    /// submit_frame/collect_frame 字面 0-byte）。
+    pending_dyn: VecDeque<PendingDynFrame>,
 }
 
 /// G31 FIF 流水在飞帧簿记（`submit_with_frame_update` 产出的票据 + 该帧
@@ -9894,6 +10155,19 @@ struct PendingTsrFrame {
     frame_index: u32,
     /// 本帧是否请求回读（bench 末帧/flip-trace 帧 true）。
     readback_out: bool,
+}
+
+/// G38 slot_as 动态臂在飞帧簿记（`submit_with_frame_update_slot_as` 票据 +
+/// 回读意图随票据延迟到 collect；核验帧组装凭帧号纯函数在 collect 侧复算）。
+#[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf --dyn-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
+struct PendingDynFrame {
+    ticket: FrameTicket,
+    /// 提交序帧号（flip-trace digest 行归属 + 核验帧轨迹/相机复算输入）。
+    frame_index: u32,
+    /// 本帧是否请求 TSR 输出回读（bench 末帧/flip-trace 帧 true）。
+    readback_out: bool,
+    /// 动态核验帧（scene color 回读在子集；collect 侧组装 DynVerifyFrame）。
+    readback_scene: bool,
 }
 
 /// 统一车道一帧产物（GPU 分段 = DeviceFrameTelemetry 逐 pass timestamp；
@@ -10087,7 +10361,54 @@ impl<'a> UnifiedTsrLane<'a> {
             tsrq: false,
             tsrq_min_alpha: 0.0,
             tsrq_clamp: 0.0,
+            // G38 L2a：opt-in 面缺省关闭（经 create_with_slot_as 显式建组；
+            // None/空与既有全部车道行为逐位同——0-byte）。
+            slot_as_group: None,
+            scene_bindings: None,
+            pending_dyn: VecDeque::new(),
         })
+    }
+
+    /// G38（RFC-0030 v1.1 §4.3 L2a）每槽 AS 副本 opt-in 创建面：
+    /// `accel_structs` 须为 inflight（≥2）份同构副本（调用方显式构造——每表项
+    /// 独立 instance buffer/BLAS/TLAS/scratch，AS 面内存 ×S 显式代价，预算门
+    /// 条目 g31.fif_dyn.slot_as_group_mem_bytes）；组 [0, inflight)；scene
+    /// pass（下标 0）绑定组自 descs 克隆存档，供逐帧 AS 换槽 override
+    /// （单一事实源，禁提交面手写）。既有 [`Self::create`] 字面 0-byte。
+    #[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf --dyn-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
+    fn create_with_slot_as(
+        descs: &'a UnifiedDescs<'a>,
+        accel_structs: &[AccelStructDesc<'a>],
+        inflight: usize,
+    ) -> Result<Self, String> {
+        if inflight < 2 || accel_structs.len() != inflight {
+            return Err(format!(
+                "slot_as 组：inflight ≥2 且 AS 表须 {inflight} 份同构副本（实得 {}；L2a opt-in 显式条件）",
+                accel_structs.len()
+            ));
+        }
+        // scene pass 绑定组克隆（descs 首 pass；与 create 的 scene_name 门面
+        // 同一闭集——非 compute 首 pass 创建期已拒）。
+        let passes: &[Pass<'a>] = match descs {
+            UnifiedDescs::Mega(d) => &d.1[..],
+            UnifiedDescs::Split(d) => &d.1[..],
+            UnifiedDescs::MegaDyn(d) => &d.1[..],
+            UnifiedDescs::MegaSkin(d) => &d.1[..],
+            UnifiedDescs::G34Full(d) => &d.1[..],
+            UnifiedDescs::MegaSmoothNrm(d) => &d.1[..],
+            UnifiedDescs::MegaTexNrmGi2(d) => &d.1[..],
+        };
+        let scene_bindings = match &passes[0] {
+            Pass::Compute(cp) => cp.bindings.clone(),
+            _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
+        };
+        let mut lane = Self::create(descs, accel_structs, inflight)?;
+        lane.slot_as_group = Some(SlotAsGroup {
+            base: 0,
+            len: inflight as u32,
+        });
+        lane.scene_bindings = Some(scene_bindings);
+        Ok(lane)
     }
 
     /// D6 GGX 高光臂开关挂载（--ggx on 车道创建后一次性；仅 MegaSmoothNrm
@@ -10181,7 +10502,8 @@ impl<'a> UnifiedTsrLane<'a> {
             self.gi2_scale,
         );
         // 静态面 0-byte：tlas_update=None + readback_scene=false + 48 f32 参数——
-        // 产物 FrameUpdate 与重构前逐字段同（G31+ Task A4 ext 共享体承载扩面）。
+        // 产物 FrameUpdate 与重构前逐字段同（G31+ Task A4 ext 共享体承载扩面；
+        // G38 末参 None = 零 scene override，同 0-byte）。
         self.prepare_update_ext(
             iw,
             ih,
@@ -10195,6 +10517,7 @@ impl<'a> UnifiedTsrLane<'a> {
             false,
             scene_params,
             None,
+            None,
         )
     }
 
@@ -10203,6 +10526,10 @@ impl<'a> UnifiedTsrLane<'a> {
     /// readback_scene 追加 U_SCENE_COLOR 回读（MegaDyn readback 表第 5 项，
     /// 下标 4）。静态调用（tlas_update=None, readback_scene=false, 48 f32）
     /// 产物与原 prepare_update 逐字段同——0-byte 保持。
+    /// G38 L2a 加性参数 `scene_as_override`：Some(as_index) 时追加 scene pass
+    /// （下标 0）绑定组 override（accel_structs 换到本槽副本表项——须在构造
+    /// 器内完成：prov 由 update 派生，构造后改绑定必致 provenance 校验 RED）；
+    /// None = 既有全部调用面产物逐字段同（0-byte）。
     #[allow(clippy::too_many_arguments)]
     fn prepare_update_ext(
         &self,
@@ -10218,6 +10545,7 @@ impl<'a> UnifiedTsrLane<'a> {
         readback_scene: bool,
         scene_params: Vec<f32>,
         tlas_update: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+        scene_as_override: Option<u32>,
     ) -> Result<(SubmissionProvenance, FrameUpdate), String> {
         // mv 参数面：inv_cur = vp_j 逆（host `Mat4::inverse` 伴随法——
         // compute_camera_mv 内部同一实现同一输入，位级同源）；prev = 上一帧
@@ -10306,13 +10634,25 @@ impl<'a> UnifiedTsrLane<'a> {
             }
             v
         };
+        let mut binding_overrides = vec![
+            (idx_resample, bindings_resample),
+            (idx_resolve, bindings_resolve),
+        ];
+        if let Some(as_index) = scene_as_override {
+            // G38 L2a 每槽 AS 描述符集：scene pass（0）组内 AS 绑定逐帧轮换到
+            // 本槽副本（绑定组 = 创建期克隆，仅 accel_structs 换槽——per-slot
+            // override set 既有基建承载，零新描述符面）。
+            let mut b = self
+                .scene_bindings
+                .clone()
+                .ok_or("slot_as：scene 绑定组未建（须经 create_with_slot_as）")?;
+            b.accel_structs = vec![as_index];
+            binding_overrides.push((0, b));
+        }
         let update = FrameUpdate {
             tlas_update,
             buffer_uploads: uploads,
-            binding_overrides: vec![
-                (idx_resample, bindings_resample),
-                (idx_resolve, bindings_resolve),
-            ],
+            binding_overrides,
             push_constant_overrides: vec![],
             readback_subset: Some(readback_subset),
             blas_refit: None, // G31+ 波 B Task B5 字段面:本车道无 BLAS refit(0-byte 默认)
@@ -10493,6 +10833,7 @@ impl<'a> UnifiedTsrLane<'a> {
             readback_scene,
             scene_params,
             Some(tlas_update),
+            None,
         )?;
         let out = self.session.execute_with_frame_update(&prov, &update)?;
         let rec = self.rec_from_output(out, readback_out, readback_scene, ow, oh, iw, ih)?;
@@ -10760,6 +11101,91 @@ impl<'a> UnifiedTsrLane<'a> {
         // 回读面不在流水车道；iw/ih 校验收口于 readback_scene=false 恒不消费）。
         let mut rec = self.rec_from_output(out, pending.readback_out, false, ow, oh, 0, 0)?;
         rec.frame_index = pending.frame_index;
+        Ok(rec)
+    }
+
+    /// G38（RFC-0030 v1.1 §4.3 L2a）动态臂 slot_as FIF 提交半程：与
+    /// [`Self::frame_dyn`] 同一构造事实源（prepare_update_ext + scene 换槽
+    /// override），`tlas_update` 目标 = 本槽副本（base + slot；rt 入口槽纪律
+    /// 三判据〔错槽/组外/跨槽绑定〕提交前 fail-closed 复核），票据入
+    /// `pending_dyn`（与静态 `pending` 分列）。host 实例写序钉在本槽 fence
+    /// 之后由 rt 入口承载；帧状态随即推进（与静态 submit_frame 同律）。
+    #[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf --dyn-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
+    #[allow(clippy::too_many_arguments)]
+    fn submit_frame_dyn_slot_as(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        scene_params: Vec<f32>,
+        insts: Vec<RayQueryTransformedInstanceDesc>,
+        action: TlasBuildAction,
+        readback_out: bool,
+        readback_scene: bool,
+        frame_index: u32,
+    ) -> Result<(), String> {
+        let group = self
+            .slot_as_group
+            .ok_or("slot_as 组未建（须经 create_with_slot_as；L2a opt-in）")?;
+        let slot = self.session.next_frame_slot() as u32;
+        let target = group.base + slot;
+        let (prov, update) = self.prepare_update_ext(
+            iw,
+            ih,
+            ow,
+            oh,
+            jitter,
+            vp_j,
+            exposure,
+            reset,
+            readback_out,
+            readback_scene,
+            scene_params,
+            Some((target, insts, action)),
+            Some(target),
+        )?;
+        let ticket = self
+            .session
+            .submit_with_frame_update_slot_as(&prov, &update, &group)?;
+        self.pending_dyn.push_back(PendingDynFrame {
+            ticket,
+            frame_index,
+            readback_out,
+            readback_scene,
+        });
+        self.advance(vp_j);
+        Ok(())
+    }
+
+    /// slot_as 动态臂在飞票据数（FIFO 深度；FIF 循环 collect 触发判据）。
+    #[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf 独消费面(诚实标注)
+    fn pending_dyn_len(&self) -> usize {
+        self.pending_dyn.len()
+    }
+
+    /// G38 slot_as 动态臂收集半程：FIFO 出队最早票据 → `collect` → 与
+    /// [`Self::frame_dyn`] 同一 `rec_from_output` 事实源（readback_scene 随
+    /// 票据——核验帧 scene color 在子集；帧号自票据回填,FIFO 保序）。
+    #[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf 独消费面(诚实标注)
+    fn collect_frame_dyn(
+        &mut self,
+        ow: u32,
+        oh: u32,
+        iw: u32,
+        ih: u32,
+    ) -> Result<UnifiedFrameRec, String> {
+        let p = self.pending_dyn.pop_front().ok_or_else(|| {
+            "slot_as collect: 无在飞票据（提交/收集配平破缺,fail-closed)".to_owned()
+        })?;
+        let out = self.session.collect(p.ticket)?;
+        let mut rec =
+            self.rec_from_output(out, p.readback_out, p.readback_scene, ow, oh, iw, ih)?;
+        rec.frame_index = p.frame_index;
         Ok(rec)
     }
 }
@@ -15731,16 +16157,26 @@ fn bench_leg(
             &assets_dyn.base.tris[..scene_tri_end],
             &assets_dyn.dyn_tris,
         ];
-        let accel_structs = [AccelStructDesc {
-            scene: RayQuerySceneDesc {
-                blas_triangles: &blas_refs,
-                instances: &assets_dyn.base.instances,
-            },
-            transforms: None,
-            // G31+ 波 B Task B5 字段面:静态/厂商车道无顶点可更新 BLAS(0-byte)。
-            updatable_blas: &[],
-        }];
-        let mut lane = match UnifiedTsrLane::create(&descs, &accel_structs, 1) {
+        // G38（RFC-0030 v1.1 §4.3 L2a）：inflight>1 ⇒ AS 表 = inflight 份同构
+        // 副本组（每表项独立 instance buffer/BLAS/TLAS/scratch——内存 ×S 显式
+        // 代价，evidence/预算门登记面）；inflight=1 ⇒ 单表项顺序面 0-byte。
+        let slot_as_copies = if inflight > 1 { inflight as usize } else { 1 };
+        let accel_structs: Vec<AccelStructDesc<'_>> = (0..slot_as_copies)
+            .map(|_| AccelStructDesc {
+                scene: RayQuerySceneDesc {
+                    blas_triangles: &blas_refs,
+                    instances: &assets_dyn.base.instances,
+                },
+                transforms: None,
+                // G31+ 波 B Task B5 字段面:静态/厂商车道无顶点可更新 BLAS(0-byte)。
+                updatable_blas: &[],
+            })
+            .collect();
+        let mut lane = match if inflight > 1 {
+            UnifiedTsrLane::create_with_slot_as(&descs, &accel_structs, inflight as usize)
+        } else {
+            UnifiedTsrLane::create(&descs, &accel_structs, 1)
+        } {
             Ok(l) => l,
             Err(e) => dev_env_or_fail("device_lane", &e),
         };
@@ -15757,6 +16193,263 @@ fn bench_leg(
         );
         let origin = dyn_trajectory_origin(&scene.camera);
         let mut verify_recs: Vec<DynVerifyFrame> = Vec::new();
+        // G38：核验帧组装（顺序/slot_as FIF 两循环**同一事实源**——轨迹/相机
+        // 均帧号纯函数，闭包内由帧号复算，与循环内既有值逐位同源；输入 =
+        // rec.scene_color〔核验帧回读〕+ 帧号）。原顺序循环内联块逐字搬移，
+        // 行为 0 变。
+        let push_verify = |verify_recs: &mut Vec<DynVerifyFrame>,
+                           rec: &UnifiedFrameRec,
+                           i: u32| {
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            let (pos, yaw) = dyn_trajectory(i, origin);
+            let xf = dyn_transform_3x4(pos, yaw);
+            let scene_color = rec
+                .scene_color
+                .as_ref()
+                .unwrap_or_else(|| fail("bench 帧核验面缺 scene color 回读（内部破缺）"));
+            let obs = dyn_detect(scene_color, in_w, in_h);
+            let pred_c = dyn_project(&vp_j, pos, in_w, in_h)
+                .unwrap_or_else(|| fail("轨迹点投影在相机背面（轨迹规格破缺）"));
+            let mut pred_aabb = [
+                f64::INFINITY,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+            ];
+            for k in 0..8 {
+                let lp = [
+                    if k & 1 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
+                    if k & 2 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
+                    if k & 4 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
+                ];
+                // 世界角点 = R·lp + t（xf 行主 3×4）。
+                let wp = [
+                    xf[0] * lp[0] + xf[1] * lp[1] + xf[2] * lp[2] + xf[3],
+                    xf[4] * lp[0] + xf[5] * lp[1] + xf[6] * lp[2] + xf[7],
+                    xf[8] * lp[0] + xf[9] * lp[1] + xf[10] * lp[2] + xf[11],
+                ];
+                let (u, v) = dyn_project(&vp_j, wp, in_w, in_h)
+                    .unwrap_or_else(|| fail("角点投影在相机背面（轨迹规格破缺）"));
+                pred_aabb[0] = pred_aabb[0].min(u);
+                pred_aabb[1] = pred_aabb[1].min(v);
+                pred_aabb[2] = pred_aabb[2].max(u);
+                pred_aabb[3] = pred_aabb[3].max(v);
+            }
+            let (obs_px, obs_aabb, obs_count) = match obs {
+                Some((cx, cy, bb, n)) => ([cx, cy], bb, n),
+                None => ([f64::NAN; 2], [f64::NAN; 4], 0),
+            };
+            let centroid_delta = if obs_count > 0 {
+                ((obs_px[0] - pred_c.0).powi(2) + (obs_px[1] - pred_c.1).powi(2)).sqrt()
+            } else {
+                f64::INFINITY
+            };
+            let aabb_delta = if obs_count > 0 {
+                (obs_aabb[0] - pred_aabb[0])
+                    .abs()
+                    .max((obs_aabb[1] - pred_aabb[1]).abs())
+                    .max((obs_aabb[2] - pred_aabb[2]).abs())
+                    .max((obs_aabb[3] - pred_aabb[3]).abs())
+            } else {
+                f64::INFINITY
+            };
+            let pred_area = (pred_aabb[2] - pred_aabb[0]).max(0.0)
+                * (pred_aabb[3] - pred_aabb[1]).max(0.0);
+            let min_count = 200.0f64.max(DYN_MIN_COUNT_AREA_RATIO * pred_area) as usize;
+            let pass = obs_count >= min_count
+                && centroid_delta <= DYN_TOL_CENTROID_PX
+                && aabb_delta <= DYN_TOL_AABB_PX;
+            verify_recs.push(DynVerifyFrame {
+                frame: i,
+                transform: xf,
+                pred_px: [pred_c.0, pred_c.1],
+                pred_aabb,
+                obs_px,
+                obs_aabb,
+                obs_count,
+                centroid_delta_px: centroid_delta,
+                aabb_delta_px: aabb_delta,
+                pass,
+            });
+        };
+        if lane.inflight > 1 {
+            // ── G38（RFC-0030 v1.1 §4.3 L2a）动态臂 slot_as FIF 流水测量循环：
+            // 骨架与静态 A2 FIF 分支同律（submit(k) 后不等当帧 fence，pending
+            // 满 inflight 即 FIFO collect(k+1−inflight)；测量循环零常态回读；
+            // 排空段墙钟并入末一测量样本，prod = frame − tail 不变式保持）。
+            // 差异恰两处：① 逐帧 tlas_update 与 scene pass AS 绑定落 base+slot
+            // 副本表项（rt 槽纪律三判据提交前 fail-closed）；② 核验帧组装延迟
+            // 到 collect 侧凭帧号复算（push_verify 同一事实源——FIFO 保序，
+            // 帧号随票据）。
+            let fif_depth = lane.inflight;
+            let mut drain_wait_ms = 0.0f64;
+            let mut drain_tail_ms = 0.0f64;
+            for i in 0..total {
+                let t_frame = std::time::Instant::now();
+                let j = [
+                    halton(jitter_base + i + 1, 2) - 0.5,
+                    halton(jitter_base + i + 1, 3) - 0.5,
+                ];
+                let vp_j = jittered_vp(&vp, j, in_w, in_h);
+                // 逐帧实例变换（脚本化轨迹：帧号纯函数——与顺序臂逐位同源）。
+                let (pos, yaw) = dyn_trajectory(i, origin);
+                let xf = dyn_transform_3x4(pos, yaw);
+                let scene_params = pack_frame_params_dyn(
+                    in_w,
+                    in_h,
+                    j,
+                    eps,
+                    scene.quads.len(),
+                    scene.points.len(),
+                    &inv_vp,
+                    &vp,
+                    assets_dyn.dyn_tri_base,
+                );
+                let verify = i >= warmup && (i - warmup) % DYN_VERIFY_EVERY == 0;
+                let readback_out = flip_trace.is_some() || i + 1 == total;
+                if let Err(e) = lane.submit_frame_dyn_slot_as(
+                    in_w,
+                    in_h,
+                    out_w,
+                    out_h,
+                    j,
+                    &vp_j,
+                    exposure,
+                    i == 0,
+                    scene_params,
+                    dyn_frame_instances(xf),
+                    action,
+                    readback_out,
+                    verify,
+                    i,
+                ) {
+                    fail(&format!("bench 帧 {i} 动态 slot_as submit: {e}"));
+                }
+                let rec = if lane.pending_dyn_len() == fif_depth {
+                    Some(match lane.collect_frame_dyn(out_w, out_h, in_w, in_h) {
+                        Ok(r) => r,
+                        Err(e) => fail(&format!(
+                            "bench 动态 slot_as collect（提交序 {}）: {e}",
+                            i + 1 - fif_depth as u32
+                        )),
+                    })
+                } else {
+                    None
+                };
+                let t_tail = std::time::Instant::now();
+                let mut tail_convert_ms = 0.0f64;
+                if let Some(rec) = &rec {
+                    if rec.validation_error_count != 0 {
+                        fail(&format!(
+                            "bench 动态 slot_as validation ERROR 计数 {} ≠ 0",
+                            rec.validation_error_count
+                        ));
+                    }
+                    tail_convert_ms = rec.readback_convert_ms;
+                    if let Some(out_data) = rec.out_color.as_ref() {
+                        if !out_data.iter().all(|v| v.is_finite()) {
+                            fail(&format!(
+                                "bench 帧 {} 动态 slot_as upscale 输出非有限",
+                                rec.frame_index
+                            ));
+                        }
+                        last_digest = frame_content_digest(out_w, out_h, 3, out_data);
+                        if let Some(w) = flip_trace.as_mut() {
+                            use std::io::Write as _;
+                            let fi = rec.frame_index;
+                            writeln!(w, "{{\"frame\":{fi},\"digest\":\"{last_digest}\"}}")
+                                .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                        }
+                    }
+                    // 核验帧（scene color 随票据回读）——凭帧号复算轨迹/相机。
+                    if rec.scene_color.is_some() {
+                        push_verify(&mut verify_recs, rec, rec.frame_index);
+                    }
+                }
+                let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0 + tail_convert_ms;
+                let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+                if i >= warmup {
+                    frame_ms.push(frame_el);
+                    scene_ms.push(rec.as_ref().map_or(0.0, |r| r.scene_gpu_ns / 1e6));
+                    mv_ms.push(rec.as_ref().map_or(0.0, |r| r.mv_gpu_ns / 1e6));
+                    upscale_ms.push(
+                        rec.as_ref()
+                            .map_or(0.0, |r| (r.resample_gpu_ns + r.resolve_gpu_ns) / 1e6),
+                    );
+                    scene_gpu_ns.push(rec.as_ref().map_or(0.0, |r| r.scene_gpu_ns));
+                    cpu_record_ns.push(rec.as_ref().map_or(0.0, |r| r.cpu_record_ns as f64));
+                    cpu_submit_ns.push(rec.as_ref().map_or(0.0, |r| r.cpu_submit_ns as f64));
+                    cpu_fence_wait_ns
+                        .push(rec.as_ref().map_or(0.0, |r| r.cpu_fence_wait_ns as f64));
+                    tail_ms.push(tail_el);
+                    prod_ms.push(frame_el - tail_el);
+                }
+                if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
+                    eprintln!(
+                        "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms（动态 slot_as {} inflight={fif_depth} pending={} 轨迹 x={:.3} y={:.3} z={:.3} yaw={:.3}）",
+                        i + 1,
+                        if spec.refit { "refit" } else { "rebuild" },
+                        lane.pending_dyn_len(),
+                        pos[0],
+                        pos[1],
+                        pos[2],
+                        yaw,
+                    );
+                }
+            }
+            // 排空段：FIFO 收干在飞票据（inflight−1 帧）；末帧 digest 与残余
+            // 核验帧在此落账（FIFO 保序）；墙钟并入末一测量样本（静态 A2 FIF
+            // 分支同律登记口径）。
+            while lane.pending_dyn_len() > 0 {
+                let t_drain = std::time::Instant::now();
+                let rec = match lane.collect_frame_dyn(out_w, out_h, in_w, in_h) {
+                    Ok(r) => r,
+                    Err(e) => fail(&format!("bench 动态 slot_as 排空 collect: {e}")),
+                };
+                drain_wait_ms += t_drain.elapsed().as_secs_f64() * 1000.0;
+                if rec.validation_error_count != 0 {
+                    fail(&format!(
+                        "bench 动态 slot_as validation ERROR 计数 {} ≠ 0",
+                        rec.validation_error_count
+                    ));
+                }
+                let t_tail = std::time::Instant::now();
+                if let Some(out_data) = rec.out_color.as_ref() {
+                    if !out_data.iter().all(|v| v.is_finite()) {
+                        fail(&format!(
+                            "bench 帧 {} 动态 slot_as upscale 输出非有限",
+                            rec.frame_index
+                        ));
+                    }
+                    last_digest = frame_content_digest(out_w, out_h, 3, out_data);
+                    if let Some(w) = flip_trace.as_mut() {
+                        use std::io::Write as _;
+                        let fi = rec.frame_index;
+                        writeln!(w, "{{\"frame\":{fi},\"digest\":\"{last_digest}\"}}")
+                            .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                    }
+                }
+                if rec.scene_color.is_some() {
+                    push_verify(&mut verify_recs, &rec, rec.frame_index);
+                }
+                drain_tail_ms +=
+                    t_tail.elapsed().as_secs_f64() * 1000.0 + rec.readback_convert_ms;
+            }
+            // 排空段墙钟并入末一测量样本（口径见循环头登记）。
+            if let Some(last) = frame_ms.last_mut() {
+                *last += drain_wait_ms + drain_tail_ms;
+            }
+            if let Some(last) = tail_ms.last_mut() {
+                *last += drain_tail_ms;
+            }
+            if let Some(last) = prod_ms.last_mut() {
+                *last += drain_wait_ms;
+            }
+        } else {
         for i in 0..total {
             let t_frame = std::time::Instant::now();
             let j = [
@@ -15815,78 +16508,12 @@ fn bench_leg(
                         .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
                 }
             }
-            // 动态实例位置核验（host 参考臂 = 解析投影：轨迹点 + 8 角点经 vp_j
-            // 投影；device 面 = scene color 纯绿谱检测——TSR 前瞬时位无拖影；
+            // 动态实例位置核验（host 参考臂 = 解析投影 vs device scene color
+            // 纯绿谱检测——TSR 前瞬时位无拖影；组装 = push_verify 同一事实源
+            // 〔G38：顺序/slot_as FIF 共用,原内联块逐字迁入闭包,行为 0 变〕；
             // tail 段测量面如实计入）。
             if verify {
-                let scene_color = rec
-                    .scene_color
-                    .as_ref()
-                    .unwrap_or_else(|| fail("bench 帧核验面缺 scene color 回读（内部破缺）"));
-                let obs = dyn_detect(scene_color, in_w, in_h);
-                let pred_c = dyn_project(&vp_j, pos, in_w, in_h)
-                    .unwrap_or_else(|| fail("轨迹点投影在相机背面（轨迹规格破缺）"));
-                let mut pred_aabb = [
-                    f64::INFINITY,
-                    f64::INFINITY,
-                    f64::NEG_INFINITY,
-                    f64::NEG_INFINITY,
-                ];
-                for k in 0..8 {
-                    let lp = [
-                        if k & 1 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
-                        if k & 2 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
-                        if k & 4 == 0 { -DYN_CUBE_HALF } else { DYN_CUBE_HALF },
-                    ];
-                    // 世界角点 = R·lp + t（xf 行主 3×4）。
-                    let wp = [
-                        xf[0] * lp[0] + xf[1] * lp[1] + xf[2] * lp[2] + xf[3],
-                        xf[4] * lp[0] + xf[5] * lp[1] + xf[6] * lp[2] + xf[7],
-                        xf[8] * lp[0] + xf[9] * lp[1] + xf[10] * lp[2] + xf[11],
-                    ];
-                    let (u, v) = dyn_project(&vp_j, wp, in_w, in_h)
-                        .unwrap_or_else(|| fail("角点投影在相机背面（轨迹规格破缺）"));
-                    pred_aabb[0] = pred_aabb[0].min(u);
-                    pred_aabb[1] = pred_aabb[1].min(v);
-                    pred_aabb[2] = pred_aabb[2].max(u);
-                    pred_aabb[3] = pred_aabb[3].max(v);
-                }
-                let (obs_px, obs_aabb, obs_count) = match obs {
-                    Some((cx, cy, bb, n)) => ([cx, cy], bb, n),
-                    None => ([f64::NAN; 2], [f64::NAN; 4], 0),
-                };
-                let centroid_delta = if obs_count > 0 {
-                    ((obs_px[0] - pred_c.0).powi(2) + (obs_px[1] - pred_c.1).powi(2)).sqrt()
-                } else {
-                    f64::INFINITY
-                };
-                let aabb_delta = if obs_count > 0 {
-                    (obs_aabb[0] - pred_aabb[0])
-                        .abs()
-                        .max((obs_aabb[1] - pred_aabb[1]).abs())
-                        .max((obs_aabb[2] - pred_aabb[2]).abs())
-                        .max((obs_aabb[3] - pred_aabb[3]).abs())
-                } else {
-                    f64::INFINITY
-                };
-                let pred_area = (pred_aabb[2] - pred_aabb[0]).max(0.0)
-                    * (pred_aabb[3] - pred_aabb[1]).max(0.0);
-                let min_count = 200.0f64.max(DYN_MIN_COUNT_AREA_RATIO * pred_area) as usize;
-                let pass = obs_count >= min_count
-                    && centroid_delta <= DYN_TOL_CENTROID_PX
-                    && aabb_delta <= DYN_TOL_AABB_PX;
-                verify_recs.push(DynVerifyFrame {
-                    frame: i,
-                    transform: xf,
-                    pred_px: [pred_c.0, pred_c.1],
-                    pred_aabb,
-                    obs_px,
-                    obs_aabb,
-                    obs_count,
-                    centroid_delta_px: centroid_delta,
-                    aabb_delta_px: aabb_delta,
-                    pass,
-                });
+                push_verify(&mut verify_recs, &rec, i);
             }
             let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0 + rec.readback_convert_ms;
             let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
@@ -15913,6 +16540,7 @@ fn bench_leg(
                     yaw,
                 );
             }
+        }
         }
         // ── 位置核验汇总：dyn_verify.json 落盘（证据保全先于判红）+ fail-closed ──
         let all_pass = !verify_recs.is_empty() && verify_recs.iter().all(|r| r.pass);
@@ -16003,7 +16631,16 @@ fn bench_leg(
             ));
         }
         (
-            "G31+ 波 A Task A4 动态场景车道：MegaDyn 统一四 pass（g31_dyn_scene 实例感知 kernel，committed_instance_index 分派）+ 2 BLAS（静态场景 + 动态纯发光立方体）+ 逐帧 tlas_update（实例变换 host 写槽位级增量——仅动态槽 64B——+ TLAS refit/rebuild）顺序入口（inflight=1，FIF 流水面拒 tlas_update 的 A2 约束登记）".to_owned(),
+            // G38：inflight=1 描述字面 0-byte（receipt 面既有内容逐字保留）；
+            // inflight>1 = slot_as 形态如实登记（L2a）。
+            if lane.inflight > 1 {
+                format!(
+                    "G31+ 波 A Task A4 动态场景车道：MegaDyn 统一四 pass（g31_dyn_scene 实例感知 kernel，committed_instance_index 分派）+ 2 BLAS（静态场景 + 动态纯发光立方体）+ 逐帧 tlas_update（实例变换 host 写槽位级增量——仅动态槽 64B——+ TLAS refit/rebuild）slot_as FIF 流水入口（G38 RFC-0030 v1.1 §4.3 L2a：inflight={}，session AS 表 ×{} 同构副本组 + submit_with_frame_update_slot_as，逐帧更新与 scene AS 绑定落 base+slot 槽副本；确定性判据 = 逐帧 digest 序列与顺序基线逐字节相等）",
+                    lane.inflight, lane.inflight
+                )
+            } else {
+                "G31+ 波 A Task A4 动态场景车道：MegaDyn 统一四 pass（g31_dyn_scene 实例感知 kernel，committed_instance_index 分派）+ 2 BLAS（静态场景 + 动态纯发光立方体）+ 逐帧 tlas_update（实例变换 host 写槽位级增量——仅动态槽 64B——+ TLAS refit/rebuild）顺序入口（inflight=1，FIF 流水面拒 tlas_update 的 A2 约束登记）".to_owned()
+            },
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms 含逐帧 TLAS 更新 GPU 段（fence 内）+ 核验帧 scene color 回读税（tail 如实计量）".to_owned(),
             "G31+ Task A4 口径：动态实例 = 纯发光立方体（albedo=0, emission=[0,500,0]，12 三角形局部空间 BLAS 1），脚本化轨迹 = 帧号确定性 f32 函数（三轴正弦平移 + Ry 匀速 yaw）；位置核验 = host 解析投影（轨迹点 + 8 角点经 vp_j）vs device scene color 谱检测质心/AABB（容差 2.5/4.0px）；digest 面 = TSR 输出末帧（与静态 bench 同语义同管线）".to_owned(),
         )
