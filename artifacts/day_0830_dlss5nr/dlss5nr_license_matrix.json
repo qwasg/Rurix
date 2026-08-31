@@ -1,0 +1,54 @@
+{
+  "schema": "rurix.dlss5nr.license_matrix.v1",
+  "title": "DLSS 5 Neural Rendering 适配面 vendor 许可处置(照 milestones/g31/g31_vendor_license_matrix.json 体例;本文件为 DLSS5 NR 专项登记,不改写 g31 主矩阵)",
+  "audit_date": "2026-08-30",
+  "distribution_scope": "commercial_redistribution(商业化分发口径)",
+  "status_enum": ["cleared", "conditional", "pending_owner", "blocked"],
+  "items": [
+    {
+      "id": "dlss5_nr_leaked_eval",
+      "name": "DLSS 5 Neural Rendering(nvngx_dlssnr.dll,NGX feature 18;RenoDX 社区分发 v3.5)",
+      "category": "leaked_prerelease_evaluation_only",
+      "version": "NGX NR snippet 310.8.0.0(root=Blackwell 原版泄露件 / 40系=Ada 社区补丁破签件)",
+      "pin": "external/dlss5-nr-v3.5(gitignored 本机缓存;双变体 digest 见 artifacts/day_0830_dlss5nr/dlss5nr_vendor_sdk_registry.json)",
+      "license": "NVIDIA 专有(NGX snippet;无官方 SDK 许可授予路径——源件为泄露预发布件,非 NVIDIA-RTX Releases 下载)",
+      "license_family": "proprietary_leaked_no_grant",
+      "license_texts_in_tree": [],
+      "external_license_ref": "无——泄露预发布件不随附任何可接受的再分发许可;NVIDIA RTX SDKs LICENSE(DLSS/NGX 族)owner 2026-08-18 接受面仅覆盖 NVIDIA 官方发布通道 SDK,不覆盖泄露件/破签补丁件",
+      "upstream_url": "无官方通道(RenoDX Discord 社区分发;源头 = NBA 2K27 EA build 泄露)",
+      "clearance": "evaluation_only_local_no_redistribution",
+      "redistribution_status": "blocked",
+      "commercial_redistribution": "prohibited(泄露预发布件 + 破签补丁件,无任何商用/非商用再分发授权;绝对不可入 git/bundle/生产默认)",
+      "obligations": [
+        "evaluation-only:仅本机 external/ 缓存(gitignored)供 Phase 1 探针 + Phase 2/3 评估臂消费",
+        "永不 vendoring、永不再分发、永不进生产默认(feature/lane 默认 off,env opt-in 显式装载,fail-closed)",
+        "探针/评估证据登记 dll sha256 provenance(dlss5nr_vendor_sdk_registry.json 逐件登记),不复制二进制入 git",
+        "若 NVIDIA 未来正式发布 DLSS 5 SDK:届时以官方通道 SDK 替换本泄露件重走 G13 owner 清结程序,本评估件即刻退役"
+      ],
+      "current_distribution_face": "未接入生产、未分发、二进制不入 git;评估臂 feature 默认 off,RURIX_DLSS5NR_SDK_DIR env 显式 opt-in 运行时装载",
+      "disposition": {
+        "verdict": "blocked_for_redistribution",
+        "basis": "泄露 NVIDIA 预发布件 + 社区破签补丁件双重障碍:无 owner 可接受的许可分发路径,商用再分发绝对禁止;仅许可本机评估用途(与 G17 310.6.0 评估臂同纪律,更严)",
+        "owner_action_required": "若拟将 DLSS 5 NR 升格生产/分发面 → 须 owner 法律面动作(等 NVIDIA 官方 SDK 发布 + 官方通道许可清结;agent 不冒充 owner 接受泄露件,G13 范式留痕)",
+        "owner_action_status": "pending_owner(仅当拟升格时触发;当前评估面不触发再分发义务)"
+      },
+      "sbom_faces": [
+        {"kind": "eval_registry", "path": "artifacts/day_0830_dlss5nr/dlss5nr_vendor_sdk_registry.json", "contains": "dlss5_nr_ada_eval"}
+      ],
+      "evidence_refs": [
+        "artifacts/day_0830_dlss5nr/dlss5nr_vendor_sdk_registry.json",
+        "artifacts/day_0830_dlss5nr/PHASE0_REPORT.md",
+        "artifacts/day_0830_dlss5nr/probe_static/"
+      ],
+      "owner_action": "pending_owner_if_promoted"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "cleared": 0,
+    "conditional": 0,
+    "pending_owner": 0,
+    "blocked": 1,
+    "note": "blocked=1:DLSS 5 NR 源件为泄露预发布 + 社区破签补丁件,商用再分发绝对禁止;当前面 = evaluation-only 本机缓存,未接入未分发未入 git → 再分发义务未触发。升格生产须 owner 法律面动作(等 NVIDIA 官方 SDK)。"
+  }
+}

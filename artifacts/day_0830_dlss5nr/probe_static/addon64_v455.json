@@ -1,0 +1,187 @@
+{
+ "file": "H:\\rurix\\external\\dlss5-nr-v4.55\\renodx-dlss5.addon64",
+ "size": 1694720,
+ "pe_diag": [
+  "machine=0x8664 节数=16 导出dll名=renodx-dlss5.addon64 函数数=2 名字数=2"
+ ],
+ "sections": [
+  {
+   "name": ".text",
+   "vaddr": 4096,
+   "size": 1354240,
+   "raw": 1536
+  },
+  {
+   "name": ".rdata",
+   "vaddr": 1359872,
+   "size": 248320,
+   "raw": 1355776
+  },
+  {
+   "name": ".data",
+   "vaddr": 1609728,
+   "size": 19188,
+   "raw": 1604096
+  },
+  {
+   "name": ".pdata",
+   "vaddr": 1630208,
+   "size": 59904,
+   "raw": 1613824
+  },
+  {
+   "name": ".detourc",
+   "vaddr": 1691648,
+   "size": 9216,
+   "raw": 1673728
+  },
+  {
+   "name": ".detourd",
+   "vaddr": 1703936,
+   "size": 512,
+   "raw": 1682944
+  },
+  {
+   "name": ".fptable",
+   "vaddr": 1708032,
+   "size": 512,
+   "raw": 1683456
+  },
+  {
+   "name": ".tls",
+   "vaddr": 1712128,
+   "size": 512,
+   "raw": 1683968
+  },
+  {
+   "name": "_RDATA",
+   "vaddr": 1716224,
+   "size": 1536,
+   "raw": 1684480
+  },
+  {
+   "name": "_guard_c",
+   "vaddr": 1720320,
+   "size": 512,
+   "raw": 1686016
+  },
+  {
+   "name": "_guard_d",
+   "vaddr": 1724416,
+   "size": 512,
+   "raw": 1686528
+  },
+  {
+   "name": "memcmp_",
+   "vaddr": 1728512,
+   "size": 512,
+   "raw": 1687040
+  },
+  {
+   "name": "memcpy_",
+   "vaddr": 1732608,
+   "size": 512,
+   "raw": 1687552
+  },
+  {
+   "name": "memset_",
+   "vaddr": 1736704,
+   "size": 512,
+   "raw": 1688064
+  },
+  {
+   "name": ".rsrc",
+   "vaddr": 1740800,
+   "size": 1024,
+   "raw": 1688576
+  },
+  {
+   "name": ".reloc",
+   "vaddr": 1744896,
+   "size": 5120,
+   "raw": 1689600
+  }
+ ],
+ "exports": [
+  "DESCRIPTION",
+  "NAME"
+ ],
+ "token_hits": {
+  "NVSDK_NGX_D3D12_": [
+   "NVSDK_NGX_D3D12_AllocateParameters",
+   "NVSDK_NGX_D3D12_DestroyParameters",
+   "NVSDK_NGX_D3D12_CreateFeature",
+   "NVSDK_NGX_D3D12_EvaluateFeature",
+   "NVSDK_NGX_D3D12_ReleaseFeature",
+   "NVSDK_NGX_D3D12_Init_Ext",
+   "NVSDK_NGX_D3D12_Shutdown1",
+   "NVSDK_NGX_D3D12_EvaluateFeature_C"
+  ],
+  "NVSDK_NGX_VULKAN_": [],
+  "nvngx_dlssnr": [
+   "; NR is unavailable in this session. Update your NVIDIA driver, or replace nvngx_dlssnr.dll with the reference build (sha256 in the addon README) and restart",
+   ". Place NVIDIA's signed nvngx_dlssnr.dll in that folder and restart the game; NR stays off until then.",
+   "nvngx_dlssnr.dll was not found in ",
+   "signed feature has no GetModuleFileNameW import; the nvngx_dlssnr.dll in the addon folder is not a valid signed NGX runtime - replace it with an official NVIDIA build and restart",
+   "failed to make signed-feature IAT writable; security software may be protecting nvngx_dlssnr.dll - add an exclusion for the game folder and restart",
+   "signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init",
+   "nvngx_dlssnr.dll was loaded but never initialized; leaving it mapped"
+  ],
+  "nvngx_dlss": [
+   "; NR is unavailable in this session. Update your NVIDIA driver, or replace nvngx_dlssnr.dll with the reference build (sha256 in the addon README) and restart",
+   ". Place NVIDIA's signed nvngx_dlssnr.dll in that folder and restart the game; NR stays off until then.",
+   "nvngx_dlssnr.dll was not found in ",
+   "signed feature has no GetModuleFileNameW import; the nvngx_dlssnr.dll in the addon folder is not a valid signed NGX runtime - replace it with an official NVIDIA build and restart",
+   "failed to make signed-feature IAT writable; security software may be protecting nvngx_dlssnr.dll - add an exclusion for the game folder and restart",
+   "signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init",
+   "nvngx_dlssnr.dll was loaded but never initialized; leaving it mapped"
+  ],
+  "DLSSNR.": [
+   "DLSSNR.Width",
+   "DLSSNR.Height",
+   "DLSSNR.InputWidth",
+   "DLSSNR.InputHeight",
+   "DLSSNR.OutputWidth",
+   "DLSSNR.OutputHeight",
+   "DLSSNR.Output.Width",
+   "DLSSNR.Output.Height",
+   "DLSSNR.ScalingRatio",
+   "DLSSNR.Scale",
+   "DLSSNR.Upscaling",
+   "DLSSNR.Hint.Render.Preset"
+  ],
+  "Signature": [
+   "D3D12SerializeRootSignature"
+  ],
+  "signature": [
+   "142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899codec root signature serialization failed: "
+  ],
+  "AppId": [],
+  "ProjectId": [],
+  "sm_89": [],
+  "sm_120": [],
+  "Ada": [],
+  "4070": [],
+  "4080": [
+   "    -0.130256, 1.140805, -0.010548,"
+  ],
+  "4090": [],
+  "40 series": [],
+  "RTX 40": [],
+  "bypass": [],
+  "override": [
+   "Guide overrides (leave at defaults unless diagnostics require them)"
+  ],
+  "SetD": [],
+  "unsigned": [
+   "unsigned "
+  ],
+  "NVSDK_NGX_D3D12_CreateFeature": [
+   "NVSDK_NGX_D3D12_CreateFeature"
+  ],
+  "GetFeatureRequirements": [],
+  "snippet": [
+   "the signed snippet"
+  ]
+ }
+}

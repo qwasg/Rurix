@@ -1,0 +1,32 @@
+{
+ "a": "H:\\rurix\\external\\dlss5-nr-v3.5\\renodx-dlss5 v3\\nvngx_dlssnr.dll",
+ "b": "H:\\rurix\\external\\dlss5-nr-v3.5\\renodx-dlss5 v3\\nvngx_dlssnr 40系专用v1\\nvngx_dlssnr.dll",
+ "size_a": 165840496,
+ "size_b": 165840496,
+ "equal_length": true,
+ "block": 65536,
+ "diff_bytes": 12364628,
+ "diff_ratio": 0.07455735,
+ "dirty_block_count": 267,
+ "total_blocks": 2531,
+ "first_diff_off": 94966,
+ "last_diff_off": 18083536,
+ "diff_segments": [
+  {
+   "byte_start": 65536,
+   "byte_end_excl": 196608
+  },
+  {
+   "byte_start": 327680,
+   "byte_end_excl": 393216
+  },
+  {
+   "byte_start": 655360,
+   "byte_end_excl": 720896
+  },
+  {
+   "byte_start": 851968,
+   "byte_end_excl": 18087936
+  }
+ ]
+}

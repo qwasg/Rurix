@@ -261,6 +261,15 @@ name = "g13_vendor_upscale"
 path = "src/bin/g13_vendor_upscale.rs"
 required-features = ["vendor-upscale"]
 
+# DLSS 5 NR 后置增强 lane harness(artifacts/day_0830_dlss5nr Phase 2):tsr→nr /
+# dlss_sr→nr 两链——上采样器(TSR/DLSS)产目标分辨率 color → NrDx12Session NR 增强。
+# 对冻结 g14_3 车道字面零改动(独立 harness);NR 硬件限定 Blackwell,本机 Ada
+# NR 段 fail-closed。须 feature vendor-upscale。
+[[bin]]
+name = "g13_dlss5_nr_lane"
+path = "src/bin/g13_dlss5_nr_lane.rs"
+required-features = ["vendor-upscale"]
+
 # G13.3 M-b(M168) 自研 TSR device 化 harness(G13_CONTRACT §4.2 M-b 行;门
 # g13.p0.m_b.tsr_device_kernel):tsr.rs host 金标准 → .rx kernel device 面
 # (kernels/g13_tsr_{resample,resolve}.rx,rurixc --target vulkan 产 SPV +

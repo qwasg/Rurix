@@ -1,0 +1,140 @@
+{
+ "file": "H:\\rurix\\external\\dlss5-nr-v3.5\\renodx-dlss5 v3\\renodx-dlss5.addon64",
+ "size": 518656,
+ "pe_diag": [
+  "machine=0x8664 节数=9 导出dll名=renodx-dlss5.addon64 函数数=2 名字数=2"
+ ],
+ "sections": [
+  {
+   "name": ".text",
+   "vaddr": 4096,
+   "size": 361984,
+   "raw": 1024
+  },
+  {
+   "name": ".rdata",
+   "vaddr": 368640,
+   "size": 117248,
+   "raw": 363008
+  },
+  {
+   "name": ".data",
+   "vaddr": 487424,
+   "size": 14244,
+   "raw": 480256
+  },
+  {
+   "name": ".pdata",
+   "vaddr": 503808,
+   "size": 16896,
+   "raw": 486912
+  },
+  {
+   "name": ".detourc",
+   "vaddr": 524288,
+   "size": 8704,
+   "raw": 503808
+  },
+  {
+   "name": ".detourd",
+   "vaddr": 536576,
+   "size": 512,
+   "raw": 512512
+  },
+  {
+   "name": ".fptable",
+   "vaddr": 540672,
+   "size": 512,
+   "raw": 513024
+  },
+  {
+   "name": ".rsrc",
+   "vaddr": 544768,
+   "size": 1024,
+   "raw": 513536
+  },
+  {
+   "name": ".reloc",
+   "vaddr": 548864,
+   "size": 4096,
+   "raw": 514560
+  }
+ ],
+ "exports": [
+  "DESCRIPTION",
+  "NAME"
+ ],
+ "token_hits": {
+  "NVSDK_NGX_D3D12_": [
+   "NVSDK_NGX_D3D12_Init_Ext",
+   "NVSDK_NGX_D3D12_AllocateParameters",
+   "NVSDK_NGX_D3D12_DestroyParameters",
+   "NVSDK_NGX_D3D12_CreateFeature",
+   "NVSDK_NGX_D3D12_EvaluateFeature",
+   "NVSDK_NGX_D3D12_ReleaseFeature",
+   "NVSDK_NGX_D3D12_Shutdown1",
+   "NVSDK_NGX_D3D12_EvaluateFeature_C"
+  ],
+  "NVSDK_NGX_D3D11_": [],
+  "NVSDK_NGX_VULKAN_": [],
+  "NVSDK_NGX_CUDA_": [],
+  "nvngx_dlssnr": [
+   "nvngx_dlssnr.dll was not found beside the addon",
+   "signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init"
+  ],
+  "_nvngx.dll": [],
+  "nvngx.dll": [],
+  "DLSSNR.": [
+   "DLSSNR.Upscaling",
+   "DLSSNR.ScalingRatio",
+   "DLSSNR.Width",
+   "DLSSNR.Height",
+   "DLSSNR.InputWidth",
+   "DLSSNR.InputHeight",
+   "DLSSNR.OutputWidth",
+   "DLSSNR.OutputHeight",
+   "DLSSNR.Output.Width",
+   "DLSSNR.Output.Height",
+   "DLSSNR.Scale",
+   "DLSSNR.Hint.Render.Preset",
+   "DLSSNR.Color",
+   "DLSSNR.Output",
+   "DLSSNR.MVec",
+   "DLSSNR.Depth",
+   "DLSSNR.ColorSubrectBaseX",
+   "DLSSNR.ColorSubrectBaseY",
+   "DLSSNR.ColorSubrectWidth",
+   "DLSSNR.ColorSubrectHeight",
+   "DLSSNR.DepthSubrectBaseX",
+   "DLSSNR.DepthSubrectBaseY",
+   "DLSSNR.DepthSubrectWidth",
+   "DLSSNR.DepthSubrectHeight",
+   "DLSSNR.MVecSubrectBaseX",
+   "DLSSNR.MVecSubrectBaseY",
+   "DLSSNR.MVecSubrectWidth",
+   "DLSSNR.MVecSubrectHeight",
+   "DLSSNR.OutputSubrectBaseX",
+   "DLSSNR.OutputSubrectBaseY",
+   "DLSSNR.OutputSubrectWidth",
+   "DLSSNR.OutputSubrectHeight",
+   "DLSSNR.MVecScaleX",
+   "DLSSNR.MVecScaleY",
+   "DLSSNR.DepthInverted",
+   "DLSSNR.Enabled",
+   "DLSSNR.Reset",
+   "DLSSNR.Intensity",
+   "DLSSNR.LocalToneStrength",
+   "DLSSNR.LocalStructureStrength"
+  ],
+  "NeuralRendering": [],
+  "Snippet": [],
+  "PerfQualityValue": [
+   "PerfQualityValue"
+  ],
+  "sm_89": [],
+  "sm_90": [],
+  "sm_100": [],
+  "sm_120": [],
+  "NGXCore": []
+ }
+}

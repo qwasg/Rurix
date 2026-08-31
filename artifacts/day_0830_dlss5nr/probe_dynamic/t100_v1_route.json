@@ -1,0 +1,28 @@
+{
+  "schema": "rurix.dlss5nr.probe.v1",
+  "verdict": "not_available",
+  "verdict_basis": "core 臂与直驱 snippet 臂 CreateFeature(18) 均失败——NR 本机不可用(见 steps 结果码 + ngx_log fail_diagnostics 原文)",
+  "gpu": "NVIDIA GeForce RTX 4070 Ti",
+  "in_size": [1920, 1080],
+  "out_size": [1920, 1080],
+  "core_dll": {"name": "C:\\Windows\\System32\\DriverStore\\FileRepository\\nv_dispig.inf_amd64_8a2fa7d0a5bfda14\\_nvngx.dll", "sha256": "d28169b37877f4611e51efd2db05371a4f63a433f53ed0383fc9d408c6b16067", "bytes": 1420120},
+  "snippet_dll": {"name": "H:\\rurix\\external/dlss5-nr-v3.5/renodx-dlss5 v3/nvngx_dlssnr 40系专用v1\\nvngx_dlssnr.dll", "sha256": "28bdc080d28686decdb63f6f4246b022274916b80aafdab266fe0fb63b2b9265", "bytes": 165840496},
+  "vtable_selfcheck_ok": true,
+  "snippet_loaded": false,
+  "create_feature_core_ok": false,
+  "create_feature_direct_ok": false,
+  "feature_requirement": null,
+  "steps": [
+    {"step": "GetFeatureRequirements(18)", "result": -1160773614, "result_name": "NotImplemented"},
+    {"step": "NVSDK_NGX_D3D12_Init(4-arg version-only)", "result": 1, "result_name": "Success"},
+    {"step": "GetCapabilityParameters", "result": 1, "result_name": "Success"},
+    {"step": "vtable_selfcheck(Set/Get Width=1920)=OK", "result": 1, "result_name": "Success"},
+    {"step": "AllocateParameters", "result": 1, "result_name": "Success"},
+    {"step": "CreateFeature(18) core arm", "result": -1160773621, "result_name": "UnableToInitializeFeature"},
+    {"step": "CreateFeature(18) direct-snippet arm", "result": -1160773630, "result_name": "PlatformError"},
+    {"step": "signed-route snippet.Init", "result": -1160773631, "result_name": "FeatureNotSupported"},
+    {"step": "CreateFeature(18) signed-route arm", "result": -1160773630, "result_name": "PlatformError"}
+  ],
+  "ngx_log": [
+  ]
+}

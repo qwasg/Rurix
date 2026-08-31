@@ -210,6 +210,14 @@ required-features = ["vulkan"]
 name = "vk_capability_report"
 required-features = ["vendor-upscale"]
 
+# DLSS 5 Neural Rendering(NGX feature 18)D3D12 直驱可用性探针(artifacts/day_0830_dlss5nr
+# Phase 1):驱动侧 NGX core 装载 + snippet 定位 + Init + GetCapabilityParameters(vtable
+# 逆序自检)+ CreateFeature(18) 双臂(core / 直驱 snippet)真跑,产 evidence JSON。
+# 泄露件 evaluation-only,default off,env opt-in;须 feature vendor-upscale。
+[[bin]]
+name = "g13_dlss5_nr_probe"
+required-features = ["vendor-upscale"]
+
 # G31+ 波 C Task C16 M61 ③ measured 对照 harness(RFC-0034 重判表三项闭集之③;
 # 门 g31.waveC.meshbench 由 ci/g31_mesh_vs_raster_bench.py 承载):单会话三臂
 # (vs_fetch 取数 / vs_procedural / mesh_procedural)同一确定性三角形集 ⇒ 像素

@@ -1,0 +1,114 @@
+{
+  "schema": "rurix.dlss5nr.vendor_sdk_registry.v1",
+  "description": "DLSS 5 Neural Rendering(nvngx_dlssnr.dll,NGX feature id 18)适配评估面 provenance 登记(镜像 milestones/g13 + g17 vendor_sdk_registry 体例;vendor 二进制不入 git,以 gitignored external/ 缓存 + 本登记承载)。本条目非正式 SDK 下载——源件为 NBA 2K27 早期访问版泄露的 NVIDIA 专有 NGX snippet(root 变体签名 Valid 但属预发布泄露件),40系变体为社区就地补丁破签件。evaluation-only,永不入 git、永不再分发、永不进生产默认。digest = 2026-08-30 本机实测(Get-FileHash SHA256 + 手写 PE 解析)。",
+  "registered_at": "2026-08-30",
+  "host": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_arch": "Ada Lovelace(sm_89)",
+    "driver_version": "620.02",
+    "os": "Windows-11-10.0.28120"
+  },
+  "source_archive": {
+    "name": "renodx-dlss5 v3.5.rar",
+    "origin_path": "D:/renodx-dlss5 v3.5.rar",
+    "size": 226420643,
+    "unpacked_to": "external/dlss5-nr-v3.5(gitignored)",
+    "provenance": "RenoDX 社区(modder Lecram)DLSS 5 NR 分发包 v3.5;含 root(50系/Blackwell)+ 40系专用v1(Ada 补丁)双 nvngx_dlssnr 变体 + renodx-dlss5.addon64(ReShade 注入件,rurix 不消费仅作 ABI 参照)+ ReShade_Setup_6.8.0_Addon.exe(第三方注入器,rurix 不使用)",
+    "note": "说明图 bb8d51c66ed7c67012f8e79efb5f16c8.png = Lecram 发布贴「v3 内存泄漏修复 / 按 F5 同帧截双图 DLSS5 开关」"
+  },
+  "sdks": {
+    "dlss5_nr_ada_eval": {
+      "version": "nvngx_dlssnr 310.8.0.0(NGX NR snippet;Ada cubin 社区补丁变体)",
+      "path": "external/dlss5-nr-v3.5/renodx-dlss5 v3/nvngx_dlssnr 40系专用v1/nvngx_dlssnr.dll",
+      "purpose": "本机 RTX 4070 Ti(Ada/sm_89)唯一可跑变体——DLSS 5 NR 适配探针+评估臂消费件(Phase 1 起)",
+      "size": 165840496,
+      "sha256": "28bdc080d28686decdb63f6f4246b022274916b80aafdab266fe0fb63b2b9265",
+      "authenticode": "HashMismatch(NVIDIA Corporation 证书链;就地补丁破坏原签名——社区 patch 件确证,非正式签名件)",
+      "file_version": "310.8.0.0",
+      "product_version": "310.8.0.0",
+      "file_description": "NVIDIA DLSSNR - DVS PRODUCTION",
+      "gpu_arch": "sm_89(Ada;全架构扫描无 sm_120/sm_90 残留,补丁纯净)",
+      "integration_arm": "d3d12(Phase 1 探针主臂,复用 FsrDx12Session 基建);vulkan_interop(snippet 导出完整 VULKAN 面,Phase 2/4 最优落点候选,免 VK↔DX12 interop)",
+      "ngx_feature_id": 18,
+      "note": "与 root(Blackwell)变体等长 165840496B,逐字节 diff = 12,364,628B(7.46%)集中 4 区段落于前 18MB cubin fatbin 区(首 off 94966 / 末 off 18083536)——就地 cubin 架构替换补丁确证(sm_120→sm_89),host 代码面同构"
+    },
+    "dlss5_nr_blackwell_ref": {
+      "version": "nvngx_dlssnr 310.8.0.0(NGX NR snippet;原版 Blackwell cubin)",
+      "path": "external/dlss5-nr-v3.5/renodx-dlss5 v3/nvngx_dlssnr.dll",
+      "purpose": "架构参照臂(RTX 50 系 sm_120 原件;本机 Ada 不可跑,仅作 diff 基线+签名参照)",
+      "size": 165840496,
+      "sha256": "e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e",
+      "authenticode": "Valid(CN=NVIDIA Corporation)——但属 NBA 2K27 EA 泄露的预发布件,签名有效不等于授权分发",
+      "file_version": "310.8.0.0",
+      "product_version": "310.8.0.0",
+      "file_description": "NVIDIA DLSSNR - DVS PRODUCTION",
+      "gpu_arch": "sm_120(Blackwell;cubin kernel 全 sm_120:cuda_capture_kernel/cuda_font_kernel/cuda_capture_mv_dilate_kernel 等 9 组)",
+      "integration_arm": "n/a(本机不可跑)",
+      "ngx_feature_id": 18
+    }
+  },
+  "ngx_abi_facts": {
+    "exports_total": 55,
+    "api_faces": ["D3D11", "D3D12", "VULKAN", "CUDA"],
+    "d3d12_entrypoints": [
+      "NVSDK_NGX_D3D12_Init",
+      "NVSDK_NGX_D3D12_Init_Ext",
+      "NVSDK_NGX_D3D12_GetFeatureRequirements",
+      "NVSDK_NGX_D3D12_GetScratchBufferSize",
+      "NVSDK_NGX_D3D12_CreateFeature",
+      "NVSDK_NGX_D3D12_EvaluateFeature",
+      "NVSDK_NGX_D3D12_ReleaseFeature",
+      "NVSDK_NGX_D3D12_Shutdown1",
+      "NVSDK_NGX_D3D12_PopulateParameters_Impl"
+    ],
+    "vulkan_entrypoints": [
+      "NVSDK_NGX_VULKAN_Init",
+      "NVSDK_NGX_VULKAN_Init_Ext",
+      "NVSDK_NGX_VULKAN_Init_Ext2",
+      "NVSDK_NGX_VULKAN_CreateFeature",
+      "NVSDK_NGX_VULKAN_CreateFeature1",
+      "NVSDK_NGX_VULKAN_EvaluateFeature",
+      "NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements",
+      "NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements",
+      "NVSDK_NGX_VULKAN_GetFeatureRequirements",
+      "NVSDK_NGX_VULKAN_ReleaseFeature",
+      "NVSDK_NGX_VULKAN_Shutdown1"
+    ],
+    "meta_entrypoints": [
+      "NVSDK_NGX_GetAPIVersion",
+      "NVSDK_NGX_GetSnippetVersion",
+      "NVSDK_NGX_GetGPUArchitecture",
+      "NVSDK_NGX_GetDriverVersionEx",
+      "NVSDK_NGX_GetApplicationId"
+    ],
+    "nr_param_keys": [
+      "DLSSNR.ScalingRatio",
+      "DLSSNR.Style",
+      "DLSSNR.Color(+Subrect Base/Width/Height)",
+      "DLSSNR.MVec(+Subrect)",
+      "DLSSNR.Depth(+Subrect)",
+      "DLSSNR.Output(+Subrect)",
+      "DLSSNR.ControlMask(+Subrect)",
+      "DLSSNR.UI(+Subrect)",
+      "DLSSNR.UIAlpha(+Subrect)",
+      "DLSSNR.Backbuffer(+Subrect)"
+    ],
+    "ngx_core_locate": "驱动侧 NGX core 经注册表 SOFTWARE\\NVIDIA Corporation\\Global\\NGXCore FullPath 定位(snippet 字符串:'Loaded NGXCore from path (%ls)' / 'error: failed to open registry key ...NGXCore')",
+    "addon64_load_note": "renodx-dlss5.addon64(D3D12 路)字符串证据:'signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init' / 'nvngx_dlssnr.dll was not found beside the addon'——snippet 于 device init 前预载,addon 走 NVSDK_NGX_D3D12_{Init_Ext,AllocateParameters,CreateFeature,EvaluateFeature,EvaluateFeature_C,ReleaseFeature,Shutdown1}",
+    "abi_reference_source": "公开源码 NIGos/dlss5-d3d12-fix(内联 NVSDK_NGX_Parameter vtable 声明 + NR feature id 18 + 参数键实测注释);零复制进 src/,仅作手写 repr(C) FFI 声明核对参照(对齐 vendor_upscale.rs 零外部依赖纪律)"
+  },
+  "v455_addon_investigation": {
+    "source": "renodx-dlss5.addon64 v4.55.zip + ReShade_Setup_6.8.0_Addon.exe(用户 2026-08-31 提供,桌面)",
+    "unpacked_to": "external/dlss5-nr-v4.55(gitignored)",
+    "addon64_bytes": 1694720,
+    "note": "v4.55 addon64(1.6MB,vs v3.5 0.5MB)= NR 启用逻辑升级;不自带 snippet(复用 nvngx_dlssnr.dll)。pe_probe 机制字符串实证:用 NVIDIA 签名 reference build snippet + pre-load(不调其 Init)+ IAT patch(GetModuleFileNameW;VirtualProtect/VirtualProtectEx)+ hook 游戏活跃 DLSS 的 NGX_D3D12_EvaluateFeature(+_C)/slEvaluateFeature = 'replacing the game's DLSS output'。本质 = ReShade 游戏注入 hook,piggyback 游戏已初始化 DLSS 上下文绕过 snippet host 架构门。",
+    "probe_finding": "探针 signed-route 臂实测:两 cubin 变体(签名 Blackwell / Ada 补丁)snippet.Init 均 FeatureNotSupported(0xBAD00001)= host 侧架构门(Init 即拒,换 cubin 不解),与 NIGos/dlss5-d3d12-fix 一手记录逐字一致。40 系可开 NR 经 addon 在游戏里(社区实证);rurix 裸引擎直集成被此软件门挡下。",
+    "disposition": "evaluation-only,blocked_for_redistribution(同 v3.5 纪律;泄露 snippet + 社区 addon 均不入 git/不再分发/不进生产默认)"
+  },
+  "license_disposition": {
+    "status": "blocked_for_redistribution__evaluation_only_local",
+    "reason": "源件为 NBA 2K27 早期访问版泄露的 NVIDIA 专有预发布 NGX NR snippet(root 签名 Valid 但属未授权泄露预发布件);40系变体为社区就地 cubin 补丁破签件(Authenticode HashMismatch)。二者均非 NVIDIA 官方 SDK 发布通道下载件,无 owner 可接受的许可分发路径。",
+    "policy": "evaluation_only:仅本机 external/ 缓存(gitignored)供探针/评估臂消费;永不 vendoring、永不再分发、永不进生产默认、永不入发布 bundle。与 G17 310.6.0 评估臂同纪律但更严(那是正式 SDK 版本差,本条是泄露件)。",
+    "license_matrix_ref": "artifacts/day_0830_dlss5nr/dlss5nr_license_matrix.json(id=dlss5_nr_leaked_eval)"
+  }
+}

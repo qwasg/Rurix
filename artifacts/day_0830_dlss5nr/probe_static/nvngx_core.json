@@ -1,0 +1,138 @@
+{
+ "file": "C:\\WINDOWS\\System32\\DriverStore\\FileRepository\\nv_dispig.inf_amd64_8a2fa7d0a5bfda14\\_nvngx.dll",
+ "size": 1420120,
+ "pe_diag": [
+  "machine=0x8664 节数=7 导出dll名=_nvngx.dll 函数数=75 名字数=75"
+ ],
+ "sections": [
+  {
+   "name": ".text",
+   "vaddr": 4096,
+   "size": 675328,
+   "raw": 1024
+  },
+  {
+   "name": ".rdata",
+   "vaddr": 679936,
+   "size": 172032,
+   "raw": 676352
+  },
+  {
+   "name": ".data",
+   "vaddr": 851968,
+   "size": 107492,
+   "raw": 848384
+  },
+  {
+   "name": ".pdata",
+   "vaddr": 962560,
+   "size": 28672,
+   "raw": 861696
+  },
+  {
+   "name": "_RDATA",
+   "vaddr": 991232,
+   "size": 512,
+   "raw": 890368
+  },
+  {
+   "name": ".rsrc",
+   "vaddr": 995328,
+   "size": 503808,
+   "raw": 890880
+  },
+  {
+   "name": ".reloc",
+   "vaddr": 1499136,
+   "size": 4608,
+   "raw": 1394688
+  }
+ ],
+ "exports": [
+  "NVSDK_NGX_CUDA_AllocateParameters",
+  "NVSDK_NGX_CUDA_CreateFeature",
+  "NVSDK_NGX_CUDA_CreateFeature1",
+  "NVSDK_NGX_CUDA_DestroyParameters",
+  "NVSDK_NGX_CUDA_EvaluateFeature",
+  "NVSDK_NGX_CUDA_GetCapabilityParameters",
+  "NVSDK_NGX_CUDA_GetDeviceCapabilityParameters",
+  "NVSDK_NGX_CUDA_GetFeatureRequirements",
+  "NVSDK_NGX_CUDA_GetParameters",
+  "NVSDK_NGX_CUDA_GetScratchBufferSize",
+  "NVSDK_NGX_CUDA_Init",
+  "NVSDK_NGX_CUDA_Init_Ext",
+  "NVSDK_NGX_CUDA_Init_Ext1",
+  "NVSDK_NGX_CUDA_Init_ProjectID",
+  "NVSDK_NGX_CUDA_ReleaseFeature",
+  "NVSDK_NGX_CUDA_Shutdown",
+  "NVSDK_NGX_CUDA_Shutdown1",
+  "NVSDK_NGX_D3D11_AllocateParameters",
+  "NVSDK_NGX_D3D11_CreateFeature",
+  "NVSDK_NGX_D3D11_DestroyParameters",
+  "NVSDK_NGX_D3D11_EvaluateFeature",
+  "NVSDK_NGX_D3D11_GetCapabilityParameters",
+  "NVSDK_NGX_D3D11_GetDeviceCapabilityParameters",
+  "NVSDK_NGX_D3D11_GetFeatureRequirements",
+  "NVSDK_NGX_D3D11_GetParameters",
+  "NVSDK_NGX_D3D11_GetScratchBufferSize",
+  "NVSDK_NGX_D3D11_Init",
+  "NVSDK_NGX_D3D11_Init_Ext",
+  "NVSDK_NGX_D3D11_Init_ProjectID",
+  "NVSDK_NGX_D3D11_ReleaseFeature",
+  "NVSDK_NGX_D3D11_Shutdown",
+  "NVSDK_NGX_D3D11_Shutdown1",
+  "NVSDK_NGX_D3D12_AllocateParameters",
+  "NVSDK_NGX_D3D12_CreateFeature",
+  "NVSDK_NGX_D3D12_DestroyParameters",
+  "NVSDK_NGX_D3D12_EvaluateFeature",
+  "NVSDK_NGX_D3D12_GetCapabilityParameters",
+  "NVSDK_NGX_D3D12_GetDeviceCapabilityParameters",
+  "NVSDK_NGX_D3D12_GetFeatureRequirements",
+  "NVSDK_NGX_D3D12_GetParameters",
+  "NVSDK_NGX_D3D12_GetScratchBufferSize",
+  "NVSDK_NGX_D3D12_Init",
+  "NVSDK_NGX_D3D12_Init_Ext",
+  "NVSDK_NGX_D3D12_Init_ProjectID",
+  "NVSDK_NGX_D3D12_ReleaseFeature",
+  "NVSDK_NGX_D3D12_Shutdown",
+  "NVSDK_NGX_D3D12_Shutdown1",
+  "NVSDK_NGX_OTA_UPDATES_CheckForUpdate",
+  "NVSDK_NGX_OTA_UPDATES_GetPath",
+  "NVSDK_NGX_OTA_UPDATES_Install",
+  "NVSDK_NGX_OTA_UPDATES_Register",
+  "NVSDK_NGX_OTA_UPDATES_Unregister",
+  "NVSDK_NGX_OTA_UPDATES_Update",
+  "NVSDK_NGX_UpdateFeature",
+  "NVSDK_NGX_VULKAN_AllocateParameters",
+  "NVSDK_NGX_VULKAN_CreateFeature",
+  "NVSDK_NGX_VULKAN_CreateFeature1",
+  "NVSDK_NGX_VULKAN_DestroyParameters",
+  "NVSDK_NGX_VULKAN_EvaluateFeature",
+  "NVSDK_NGX_VULKAN_GetCapabilityParameters",
+  "NVSDK_NGX_VULKAN_GetDeviceCapabilityParameters",
+  "NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements",
+  "NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements",
+  "NVSDK_NGX_VULKAN_GetFeatureRequirements",
+  "NVSDK_NGX_VULKAN_GetParameters",
+  "NVSDK_NGX_VULKAN_GetScratchBufferSize",
+  "NVSDK_NGX_VULKAN_Init",
+  "NVSDK_NGX_VULKAN_Init_Ext",
+  "NVSDK_NGX_VULKAN_Init_Ext2",
+  "NVSDK_NGX_VULKAN_Init_ProjectID",
+  "NVSDK_NGX_VULKAN_Init_ProjectID_Ext",
+  "NVSDK_NGX_VULKAN_ReleaseFeature",
+  "NVSDK_NGX_VULKAN_RequiredExtensions",
+  "NVSDK_NGX_VULKAN_Shutdown",
+  "NVSDK_NGX_VULKAN_Shutdown1"
+ ],
+ "token_hits": {
+  "AllocateParameters": [
+   "NVSDK_NGX_AllocateParameters",
+   "NVSDK_NGX_CUDA_AllocateParameters"
+  ],
+  "GetCapabilityParameters": [
+   "NVSDK_NGX_GetCapabilityParameters",
+   "NVSDK_NGX_CUDA_GetCapabilityParameters"
+  ]
+ }
+}

@@ -1,0 +1,202 @@
+{
+ "file": "H:\\rurix\\external\\dlss5-nr-v4.55\\renodx-dlss5.addon64",
+ "size": 1694720,
+ "pe_diag": [
+  "machine=0x8664 节数=16 导出dll名=renodx-dlss5.addon64 函数数=2 名字数=2"
+ ],
+ "sections": [
+  {
+   "name": ".text",
+   "vaddr": 4096,
+   "size": 1354240,
+   "raw": 1536
+  },
+  {
+   "name": ".rdata",
+   "vaddr": 1359872,
+   "size": 248320,
+   "raw": 1355776
+  },
+  {
+   "name": ".data",
+   "vaddr": 1609728,
+   "size": 19188,
+   "raw": 1604096
+  },
+  {
+   "name": ".pdata",
+   "vaddr": 1630208,
+   "size": 59904,
+   "raw": 1613824
+  },
+  {
+   "name": ".detourc",
+   "vaddr": 1691648,
+   "size": 9216,
+   "raw": 1673728
+  },
+  {
+   "name": ".detourd",
+   "vaddr": 1703936,
+   "size": 512,
+   "raw": 1682944
+  },
+  {
+   "name": ".fptable",
+   "vaddr": 1708032,
+   "size": 512,
+   "raw": 1683456
+  },
+  {
+   "name": ".tls",
+   "vaddr": 1712128,
+   "size": 512,
+   "raw": 1683968
+  },
+  {
+   "name": "_RDATA",
+   "vaddr": 1716224,
+   "size": 1536,
+   "raw": 1684480
+  },
+  {
+   "name": "_guard_c",
+   "vaddr": 1720320,
+   "size": 512,
+   "raw": 1686016
+  },
+  {
+   "name": "_guard_d",
+   "vaddr": 1724416,
+   "size": 512,
+   "raw": 1686528
+  },
+  {
+   "name": "memcmp_",
+   "vaddr": 1728512,
+   "size": 512,
+   "raw": 1687040
+  },
+  {
+   "name": "memcpy_",
+   "vaddr": 1732608,
+   "size": 512,
+   "raw": 1687552
+  },
+  {
+   "name": "memset_",
+   "vaddr": 1736704,
+   "size": 512,
+   "raw": 1688064
+  },
+  {
+   "name": ".rsrc",
+   "vaddr": 1740800,
+   "size": 1024,
+   "raw": 1688576
+  },
+  {
+   "name": ".reloc",
+   "vaddr": 1744896,
+   "size": 5120,
+   "raw": 1689600
+  }
+ ],
+ "exports": [
+  "DESCRIPTION",
+  "NAME"
+ ],
+ "token_hits": {
+  "GetModuleFileNameW": [
+   "GetModuleFileNameW",
+   "signed feature has no GetModuleFileNameW import; the nvngx_dlssnr.dll in the addon folder is not a valid signed NGX runtime - replace it with an official NVIDIA build and restart"
+  ],
+  "VirtualProtect": [
+   "VirtualProtect",
+   "VirtualProtectEx"
+  ],
+  "LoadLibrary": [
+   "LoadLibraryExA",
+   "LoadLibraryExW",
+   "LoadLibraryW"
+  ],
+  "GetProcAddress": [
+   "GetProcAddress"
+  ],
+  "IAT": [
+   "failed to make signed-feature IAT writable; security software may be protecting nvngx_dlssnr.dll - add an exclusion for the game folder and restart"
+  ],
+  "in-memory": [],
+  "in memory": [],
+  "patch": [
+   "void main(uint3 dispatch_id : SV_DispatchThreadID) {",
+   "  const uint2 pixel = dispatch_id.xy;",
+   " | EnableHooks=2: NGX hooks only, Streamline modules left unpatched",
+   "WARNING: Streamline hooks ON (EnableHooks=1). Contested patch site - if the game crashes at boot, set EnableHooks=2 (NGX-only still covers Streamline calls)."
+  ],
+  "cubin": [],
+  "fatbin": [],
+  "Ada": [],
+  "Blackwell": [],
+  "sm_89": [],
+  "sm_120": [],
+  "arch": [
+   ":Jan:January:Feb:February:Mar:March:Apr:April:May:May:Jun:June:Jul:July:Aug:August:Sep:September:Oct:October:Nov:November:Dec:December",
+   " Class Hierarchy Descriptor'",
+   "March"
+  ],
+  "PerfQuality": [
+   "PerfQualityValue"
+  ],
+  "preset": [
+   " preset=H",
+   "). To get upscaling, select a DLSS Balanced/Performance preset in the NVIDIA App and restart. NR continues on the native path.",
+   " preset="
+  ],
+  "EvaluateFeature": [
+   "slEvaluateFeature",
+   "NVSDK_NGX_D3D12_EvaluateFeature",
+   "NVSDK_NGX_D3D12_EvaluateFeature_C"
+  ],
+  "GetFeatureRequirements": [],
+  "reference build": [
+   "; NR is unavailable in this session. Update your NVIDIA driver, or replace nvngx_dlssnr.dll with the reference build (sha256 in the addon README) and restart"
+  ],
+  "README": [
+   "available in this session. Update your NVIDIA driver, or replace nvngx_dlssnr.dll with the reference build (sha256 in the addon README) and restart"
+  ],
+  "Neural Rendering": [
+   "DLSS 5 Neural Rendering",
+   "Generic experimental DLSS Neural Rendering post-pass for DX12 games using NGX or Streamline DLSS",
+   "NR is currently OFF. To turn it on: open the ReShade overlay, go to Add-ons -> DLSS 5 Neural Rendering, and tick 'Enable DLSS Neural Rendering' (or press the NR toggle hotkey in gameplay).",
+   "Enable DLSS Neural Rendering",
+   "NR was switched off (ini, overlay, or the NR toggle hotkey). To turn it on, tick 'Enable DLSS Neural Rendering' above or press the NR toggle key in gameplay. Hook diagnostics below remain valid.",
+   "DLSS Neural Rendering is live and replacing the game's DLSS output."
+  ],
+  "pre-load": [
+   "signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init",
+   "signed NR runtime pre-load failed; will retry lazily on first evaluate"
+  ],
+  "pre-loaded": [
+   "signed NR runtime (nvngx_dlssnr.dll) pre-loaded at device init"
+  ],
+  "writable": [
+   "failed to make signed-feature IAT writable; security software may be protecting nvngx_dlssnr.dll - add an exclusion for the game folder and restart",
+   "). Check the folder exists and is writable, and that disk space is available"
+  ],
+  "thunk": [
+   "[thunk]:"
+  ],
+  "redirect": [],
+  "relocat": [],
+  "mip": [
+   " mip levels; NR consumes and replaces mip 0 only"
+  ],
+  "GetDesc": [],
+  "MipLevels": [],
+  "driver": [
+   "; NR is unavailable in this session. Update your NVIDIA driver, or replace nvngx_dlssnr.dll with the reference build (sha256 in the addon README) and restart",
+   "id not bind to an output. Check 'Latest NR NGX result' below; a non-zero code means the signed NR runtime failed to initialize (driver/runtime version), and ReShade.log names the failing step with a fix."
+  ]
+ }
+}

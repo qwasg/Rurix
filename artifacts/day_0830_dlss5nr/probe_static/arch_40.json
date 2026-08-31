@@ -1,0 +1,126 @@
+{
+ "file": "H:\\rurix\\external\\dlss5-nr-v3.5\\renodx-dlss5 v3\\nvngx_dlssnr 40系专用v1\\nvngx_dlssnr.dll",
+ "size": 165840496,
+ "pe_diag": [
+  "machine=0x8664 节数=7 导出dll名=nvngx_dlssnr.dll 函数数=55 名字数=55"
+ ],
+ "sections": [
+  {
+   "name": ".text",
+   "vaddr": 4096,
+   "size": 699904,
+   "raw": 1024
+  },
+  {
+   "name": ".rdata",
+   "vaddr": 704512,
+   "size": 210944,
+   "raw": 700928
+  },
+  {
+   "name": ".data",
+   "vaddr": 917504,
+   "size": 17279620,
+   "raw": 911872
+  },
+  {
+   "name": ".pdata",
+   "vaddr": 18198528,
+   "size": 34816,
+   "raw": 18092544
+  },
+  {
+   "name": "_RDATA",
+   "vaddr": 18235392,
+   "size": 512,
+   "raw": 18127360
+  },
+  {
+   "name": ".rsrc",
+   "vaddr": 18239488,
+   "size": 147697152,
+   "raw": 18127872
+  },
+  {
+   "name": ".reloc",
+   "vaddr": 165937152,
+   "size": 5120,
+   "raw": 165825024
+  }
+ ],
+ "exports": [
+  "NVSDK_NGX_CUDA_CreateFeature",
+  "NVSDK_NGX_CUDA_CreateFeature1",
+  "NVSDK_NGX_CUDA_EvaluateFeature",
+  "NVSDK_NGX_CUDA_GetFeatureRequirements",
+  "NVSDK_NGX_CUDA_GetScratchBufferSize",
+  "NVSDK_NGX_CUDA_Init",
+  "NVSDK_NGX_CUDA_Init1",
+  "NVSDK_NGX_CUDA_Init_Ext",
+  "NVSDK_NGX_CUDA_Init_Ext1",
+  "NVSDK_NGX_CUDA_PopulateParameters_Impl",
+  "NVSDK_NGX_CUDA_ReleaseFeature",
+  "NVSDK_NGX_CUDA_Shutdown",
+  "NVSDK_NGX_CUDA_Shutdown1",
+  "NVSDK_NGX_D3D11_CreateFeature",
+  "NVSDK_NGX_D3D11_EvaluateFeature",
+  "NVSDK_NGX_D3D11_GetFeatureRequirements",
+  "NVSDK_NGX_D3D11_GetScratchBufferSize",
+  "NVSDK_NGX_D3D11_Init",
+  "NVSDK_NGX_D3D11_Init_Ext",
+  "NVSDK_NGX_D3D11_PopulateParameters_Impl",
+  "NVSDK_NGX_D3D11_ReleaseFeature",
+  "NVSDK_NGX_D3D11_Shutdown",
+  "NVSDK_NGX_D3D11_Shutdown1",
+  "NVSDK_NGX_D3D12_CreateFeature",
+  "NVSDK_NGX_D3D12_EvaluateFeature",
+  "NVSDK_NGX_D3D12_GetFeatureRequirements",
+  "NVSDK_NGX_D3D12_GetScratchBufferSize",
+  "NVSDK_NGX_D3D12_Init",
+  "NVSDK_NGX_D3D12_Init_Ext",
+  "NVSDK_NGX_D3D12_PopulateParameters_Impl",
+  "NVSDK_NGX_D3D12_ReleaseFeature",
+  "NVSDK_NGX_D3D12_Shutdown",
+  "NVSDK_NGX_D3D12_Shutdown1",
+  "NVSDK_NGX_GetAPIVersion",
+  "NVSDK_NGX_GetApplicationId",
+  "NVSDK_NGX_GetDriverVersionEx",
+  "NVSDK_NGX_GetGPUArchitecture",
+  "NVSDK_NGX_GetSnippetVersion",
+  "NVSDK_NGX_SetOverrideStatusCallback",
+  "NVSDK_NGX_SetRuntimeParamsCallback",
+  "NVSDK_NGX_SetTelemetryEvaluateCallback",
+  "NVSDK_NGX_VULKAN_CreateFeature",
+  "NVSDK_NGX_VULKAN_CreateFeature1",
+  "NVSDK_NGX_VULKAN_EvaluateFeature",
+  "NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements",
+  "NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements",
+  "NVSDK_NGX_VULKAN_GetFeatureRequirements",
+  "NVSDK_NGX_VULKAN_GetScratchBufferSize",
+  "NVSDK_NGX_VULKAN_Init",
+  "NVSDK_NGX_VULKAN_Init_Ext",
+  "NVSDK_NGX_VULKAN_Init_Ext2",
+  "NVSDK_NGX_VULKAN_PopulateParameters_Impl",
+  "NVSDK_NGX_VULKAN_ReleaseFeature",
+  "NVSDK_NGX_VULKAN_Shutdown",
+  "NVSDK_NGX_VULKAN_Shutdown1"
+ ],
+ "token_hits": {
+  "sm_50": [],
+  "sm_52": [],
+  "sm_60": [],
+  "sm_70": [],
+  "sm_75": [],
+  "sm_80": [],
+  "sm_86": [],
+  "sm_87": [],
+  "sm_89": [
+   "-arch sm_89 "
+  ],
+  "sm_90": [],
+  "sm_100": [],
+  "sm_120": [],
+  "compute_89": [],
+  "compute_120": []
+ }
+}

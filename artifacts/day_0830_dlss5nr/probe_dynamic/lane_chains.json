@@ -1,0 +1,9 @@
+{
+  "schema": "rurix.dlss5nr.lane.v1",
+  "snippet_present": true,
+  "chains": [
+    {"chain": "tsr→nr", "upscale_stage": {"ok": true, "detail": "tsr 上采样 OK(960x540→1920x1080)", "digest": "e965b39e8fbb48cc"}, "nr_stage": {"ok": false, "detail": "NrDx12Session::create Err: vendor SDK 调用失败: NVSDK_NGX_D3D12_CreateFeature(18) → -1160773621 (UnableToInitializeFeature)——NR 特性硬件限定 Blackwell,本 GPU 不支持", "digest": ""}},
+    {"chain": "dlss_sr→nr", "upscale_stage": {"ok": true, "detail": "dlss_sr 上采样 OK(960x540→1920x1080)", "digest": "17bebf9267d653b3"}, "nr_stage": {"ok": false, "detail": "NrDx12Session::create Err: vendor SDK 调用失败: NVSDK_NGX_D3D12_CreateFeature(18) → -1160773621 (UnableToInitializeFeature)——NR 特性硬件限定 Blackwell,本 GPU 不支持", "digest": ""}}
+  ],
+  "verdict": "nr_unavailable_hw_gated_blackwell"
+}

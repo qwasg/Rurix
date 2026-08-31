@@ -7599,6 +7599,1827 @@ pub fn fsr_sdk_dir() -> Result<PathBuf, VendorError> {
     default_sdk_dir(FSR_SDK_DIR_ENV, "external/fidelityfx-sdk-2.0.0")
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DLSS 5 Neural Rendering(NGX feature id 18)D3D12 直驱评估臂
+// ---------------------------------------------------------------------------
+// 与 DLSS SR(Streamline interposer Vulkan 臂)不同:NR 无 Streamline 封装,直接
+// 经驱动侧 NGX core(`_nvngx.dll`,注册表 SOFTWARE\NVIDIA Corporation\Global\NGXCore
+// 或 DriverStore 扫描定位)手写 repr(C) FFI 驱动——LoadLibraryExW + GetProcAddress
+// 友好 C 名(core 实测导出 NVSDK_NGX_D3D12_{Init,AllocateParameters,
+// GetCapabilityParameters,CreateFeature,EvaluateFeature,ReleaseFeature,
+// DestroyParameters,Shutdown1,GetFeatureRequirements})。snippet(nvngx_dlssnr.dll,
+// 40系 Ada 变体)经 FeatureCommonInfo.PathListInfo 交给 core 定位装载。ABI 声明与
+// NVIDIA DLSS SDK 头(external/dlss5-nr-v3.5/headers_ref,仅参照零复制)逐字核对。
+// 泄露件 evaluation-only,default off,env opt-in,fail-closed(P-01)。
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// DLSS5 NR snippet 目录环境变量(未设 → 默认 `external/dlss5-nr-v3.5` 40系 Ada 变体目录)。
+pub const DLSS5NR_SDK_DIR_ENV: &str = "RURIX_DLSS5NR_SDK_DIR";
+/// NGX core(`_nvngx.dll`)显式路径环境变量(未设 → DriverStore 扫描 nv_disp*.inf* 定位)。
+pub const NVNGX_CORE_DLL_ENV: &str = "RURIX_NVNGX_CORE_DLL";
+/// NGX app data 目录环境变量(NGX 日志/缓存落地,须可写;未设 → `.tmp/dlss5nr_appdata`)。
+pub const DLSS5NR_APPDATA_ENV: &str = "RURIX_DLSS5NR_APPDATA";
+
+/// NGX NeuralRendering feature id(公开 SDK 保留槽 `NVSDK_NGX_Feature_Reserved18`;
+/// DLSS 5 运行时实测即 NR,addon64/NIGos 源码双证)。
+const NGX_NR_FEATURE_ID: u32 = 18;
+/// `NVSDK_NGX_VERSION_API_MACRO`(nvsdk_ngx_defs.h,0x0000015 = 1.5.0)。
+const NGX_VERSION_API: u32 = 0x0000_0015;
+
+/// NGX 结果码 → 名(nvsdk_ngx_defs.h `NVSDK_NGX_Result`;0x1 成功,0xBAD000xx 失败族)。
+fn ngx_result_name(r: i32) -> &'static str {
+    match r as u32 {
+        0x0000_0001 => "Success",
+        0xBAD0_0000 => "Fail",
+        0xBAD0_0001 => "FeatureNotSupported",
+        0xBAD0_0002 => "PlatformError",
+        0xBAD0_0003 => "FeatureAlreadyExists",
+        0xBAD0_0004 => "FeatureNotFound",
+        0xBAD0_0005 => "InvalidParameter",
+        0xBAD0_0006 => "ScratchBufferTooSmall",
+        0xBAD0_0007 => "NotInitialized",
+        0xBAD0_0008 => "UnsupportedInputFormat",
+        0xBAD0_0009 => "RWFlagMissing",
+        0xBAD0_000A => "MissingInput",
+        0xBAD0_000B => "UnableToInitializeFeature",
+        0xBAD0_000C => "OutOfDate",
+        0xBAD0_000D => "OutOfGPUMemory",
+        0xBAD0_000E => "UnsupportedFormat",
+        0xBAD0_000F => "UnableToWriteToAppDataPath",
+        0xBAD0_0010 => "UnsupportedParameter",
+        0xBAD0_0011 => "Denied",
+        0xBAD0_0012 => "NotImplemented",
+        _ => "unrecognised",
+    }
+}
+
+/// `NVSDK_NGX_SUCCEED` 宏语义:高 12 位 != 0xBAD == 成功域。
+fn ngx_succeed(r: i32) -> bool {
+    (r as u32) & 0xFFF0_0000 != 0xBAD0_0000
+}
+
+// ── NGX repr(C) 结构(nvsdk_ngx_defs.h 逐字核对;PE32+ x64 布局) ──────────────
+#[repr(C)]
+struct NgxPathListInfo {
+    /// `wchar_t const* const*`(指向 wide 路径指针数组)。
+    path: *const *const u16,
+    length: u32,
+    _pad: u32,
+}
+const _: () = assert!(size_of::<NgxPathListInfo>() == 16);
+
+#[repr(C)]
+struct NgxLoggingInfo {
+    logging_callback: *mut c_void,
+    minimum_logging_level: u32,
+    disable_other_sinks: u8,
+    _pad: [u8; 3],
+}
+const _: () = assert!(size_of::<NgxLoggingInfo>() == 16);
+
+#[repr(C)]
+struct NgxFeatureCommonInfo {
+    path_list_info: NgxPathListInfo,
+    internal_data: *mut c_void,
+    logging_info: NgxLoggingInfo,
+}
+const _: () = assert!(size_of::<NgxFeatureCommonInfo>() == 40);
+
+#[repr(C)]
+struct NgxApplicationIdentifier {
+    /// `NVSDK_NGX_Application_Identifier_Type`(0 = Application_Id)。
+    identifier_type: u32,
+    _pad: u32,
+    /// union{ProjectIdDescription(24) | u64 ApplicationId};Application_Id 用前 8B。
+    union_data: [u8; 24],
+}
+const _: () = assert!(size_of::<NgxApplicationIdentifier>() == 32);
+
+#[repr(C)]
+struct NgxFeatureDiscoveryInfo {
+    sdk_version: u32,
+    feature_id: u32,
+    identifier: NgxApplicationIdentifier,
+    application_data_path: *const u16,
+    feature_info: *const NgxFeatureCommonInfo,
+}
+const _: () = assert!(size_of::<NgxFeatureDiscoveryInfo>() == 56);
+
+#[repr(C)]
+struct NgxFeatureRequirement {
+    /// bitfield of `NVSDK_NGX_Feature_Support_Result`(0 = Supported)。
+    feature_supported: u32,
+    min_hw_architecture: u32,
+    min_os_version: [u8; 255],
+    _pad: u8,
+}
+const _: () = assert!(size_of::<NgxFeatureRequirement>() == 264);
+
+// ── NGX core 函数指针(app-facing 面;__cdecl == x64 单一 ABI == extern "system") ──
+// core `_nvngx.dll` 导出的 `NVSDK_NGX_D3D12_Init` 实测为 **4 参 version-only** 签名
+// (snippet-build 形态:appId/path/device/version;FeatureCommonInfo 形态是 SDK 静态库
+// 便利面,非 core 裸导出)——5 参 fci 调用把 &FeatureCommonInfo 误落 version 位(R9)→
+// core 见巨值版本 → 报 OutOfDate。故 4 参为主、5 参 fci 为 fallback 双试。
+type FnNgxD3d12Init4 = unsafe extern "system" fn(
+    u64,         // InApplicationId
+    *const u16,  // InApplicationDataPath
+    *mut c_void, // ID3D12Device*
+    u32,         // NVSDK_NGX_Version
+) -> i32;
+type FnNgxD3d12InitFci = unsafe extern "system" fn(
+    u64,                         // InApplicationId
+    *const u16,                  // InApplicationDataPath
+    *mut c_void,                 // ID3D12Device*
+    *const NgxFeatureCommonInfo, // InFeatureInfo
+    u32,                         // NVSDK_NGX_Version
+) -> i32;
+type FnNgxD3d12Shutdown1 = unsafe extern "system" fn(*mut c_void) -> i32;
+type FnNgxAllocParams = unsafe extern "system" fn(*mut *mut c_void) -> i32;
+type FnNgxGetCapParams = unsafe extern "system" fn(*mut *mut c_void) -> i32;
+type FnNgxDestroyParams = unsafe extern "system" fn(*mut c_void) -> i32;
+type FnNgxCreateFeature =
+    unsafe extern "system" fn(*mut c_void, u32, *mut c_void, *mut *mut c_void) -> i32;
+/// EvaluateFeature(cmdList, handle, params, progressCallback=null)。
+type FnNgxEvaluateFeature =
+    unsafe extern "system" fn(*mut c_void, *mut c_void, *mut c_void, *mut c_void) -> i32;
+type FnNgxReleaseFeature = unsafe extern "system" fn(*mut c_void) -> i32;
+type FnNgxGetFeatureReq = unsafe extern "system" fn(
+    *mut c_void,                    // IDXGIAdapter*
+    *const NgxFeatureDiscoveryInfo,
+    *mut NgxFeatureRequirement,
+) -> i32;
+
+// ── NVSDK_NGX_Parameter C++ vtable 槽位(MSVC 同名重载逆序;nvsdk_ngx_params.h
+//    声明序 Set{ull,f,double,uint,int,d3d11,d3d12,void*} 逆序入表 →
+//    Set(uint)=[4] Set(int)=[3] Set(float)=[6] Set(d3d12*)=[1];Get 组同理
+//    Get(uint*)=[12])。经既有 com_fn 单一 SAFETY 点取址。this=首参(x64 rcx)。 ──
+/// # Safety
+/// `p` 为 NGX AllocateParameters/GetCapabilityParameters 返回的有效 Parameter 对象;
+/// `name` NUL 结尾;槽位与 nvsdk_ngx_params.h MSVC 逆序布局核对。
+unsafe fn ngx_param_set_ui(p: *mut c_void, name: *const c_char, v: u32) {
+    // SAFETY: Set(const char*, unsigned int) = vtable[4];p 有效 name NUL 结尾。
+    let f: unsafe extern "system" fn(*mut c_void, *const c_char, u32) = com_fn(p, 4);
+    f(p, name, v);
+}
+/// # Safety
+/// 同 [`ngx_param_set_ui`];Set(const char*, int) = vtable[3]。
+unsafe fn ngx_param_set_i(p: *mut c_void, name: *const c_char, v: i32) {
+    // SAFETY: vtable[3];p 有效 name NUL 结尾。
+    let f: unsafe extern "system" fn(*mut c_void, *const c_char, i32) = com_fn(p, 3);
+    f(p, name, v);
+}
+/// # Safety
+/// 同上;Set(const char*, float) = vtable[6](NrDx12Session::evaluate 消费:MV.Scale/Jitter)。
+unsafe fn ngx_param_set_f(p: *mut c_void, name: *const c_char, v: f32) {
+    // SAFETY: vtable[6];p 有效 name NUL 结尾。
+    let f: unsafe extern "system" fn(*mut c_void, *const c_char, f32) = com_fn(p, 6);
+    f(p, name, v);
+}
+/// # Safety
+/// 同上;Set(const char*, ID3D12Resource*) = vtable[1](evaluate 消费:DLSSNR.Color/Depth/
+/// MVec/Output 资源槽)。`res` 为有效 ID3D12Resource*。
+unsafe fn ngx_param_set_d3d12(p: *mut c_void, name: *const c_char, res: *mut c_void) {
+    // SAFETY: vtable[1];p 有效 name NUL 结尾 res 为 ID3D12Resource*。
+    let f: unsafe extern "system" fn(*mut c_void, *const c_char, *mut c_void) = com_fn(p, 1);
+    f(p, name, res);
+}
+/// # Safety
+/// 同上;Get(const char*, unsigned int*) const = vtable[12]。
+unsafe fn ngx_param_get_ui(p: *mut c_void, name: *const c_char) -> (i32, u32) {
+    let mut out: u32 = 0;
+    // SAFETY: vtable[12];p 有效 name NUL 结尾 &mut out 有效。
+    let f: unsafe extern "system" fn(*mut c_void, *const c_char, *mut u32) -> i32 = com_fn(p, 12);
+    let r = f(p, name, &mut out);
+    (r, out)
+}
+
+// ── NGX 日志回传(app 侧 LoggingCallback → 进程级静态,供 fail_diagnostics 取证;
+//    镜像 G17 M-b sl.log 抓取,但走 NGX 官方回调面) ──────────────────────────
+static NGX_LOG: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// NGX AppLogCallback(`void(const char*, NVSDK_NGX_Logging_Level, NVSDK_NGX_Feature)`)。
+unsafe extern "system" fn ngx_log_cb(msg: *const c_char, _level: u32, _source: u32) {
+    if msg.is_null() {
+        return;
+    }
+    // SAFETY: NGX 契约 msg 为 NUL 结尾多字节串,回调返回前有效;只读拷贝出走。
+    let s = unsafe { std::ffi::CStr::from_ptr(msg) }
+        .to_string_lossy()
+        .trim_end()
+        .to_owned();
+    if let Ok(mut g) = NGX_LOG.lock() {
+        if g.len() < 4096 {
+            g.push(s);
+        }
+    }
+}
+
+fn ngx_log_take() -> Vec<String> {
+    NGX_LOG.lock().map(|mut g| std::mem::take(&mut *g)).unwrap_or_default()
+}
+
+fn to_wide(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// 进程内是否已装载指定 DLL(GetModuleHandleW;探测 snippet 是否被 core 真装载)。
+#[cfg(windows)]
+fn module_loaded(name: &str) -> bool {
+    unsafe extern "system" {
+        fn GetModuleHandleW(name: *const u16) -> *mut c_void;
+    }
+    let w = to_wide(name);
+    // SAFETY: w 为 NUL 结尾 UTF-16;GetModuleHandleW 为 kernel32 稳定 ABI(不增引用计数)。
+    unsafe { !GetModuleHandleW(w.as_ptr()).is_null() }
+}
+#[cfg(not(windows))]
+fn module_loaded(_name: &str) -> bool {
+    false
+}
+
+// ── addon v4.55 机制复现:snippet IAT GetModuleFileNameW hook(诊断 + 白名单路径
+//    重定向)。稳健定位法:按「真 GetModuleFileNameW 指针值」扫 snippet 的 IAT 目录
+//    (数据目录[12]),命中即换 hook——不走脆弱的按名遍历(实测 165MB DLL 越界崩)。 ──
+#[cfg(windows)]
+static REAL_GMFNW: AtomicU64 = AtomicU64::new(0);
+#[cfg(windows)]
+static GMFNW_CALLS: AtomicU64 = AtomicU64::new(0);
+/// hook 命中时返回的白名单/重定向宽路径(NUL 结尾 UTF-16);空 = 纯诊断转发。
+#[cfg(windows)]
+static GMFNW_REDIRECT: std::sync::Mutex<Vec<u16>> = std::sync::Mutex::new(Vec::new());
+
+/// GetModuleFileNameW hook:记录前若干次调用(诊断 snippet Init 期查询面)+ 可选把
+/// hModule=NULL(宿主 EXE 路径)查询重定向为白名单路径(NGX app 白名单门绕过探)。
+#[cfg(windows)]
+unsafe extern "system" fn hook_get_module_filename_w(
+    h_module: *mut c_void,
+    buf: *mut u16,
+    size: u32,
+) -> u32 {
+    type FnGmfnw = unsafe extern "system" fn(*mut c_void, *mut u16, u32) -> u32;
+    let real_addr = REAL_GMFNW.load(Ordering::Relaxed);
+    if real_addr == 0 {
+        return 0;
+    }
+    // SAFETY: real_addr 为安装期存的真 GetModuleFileNameW(kernel32 稳定 ABI)。
+    let real: FnGmfnw = unsafe { std::mem::transmute::<u64, FnGmfnw>(real_addr) };
+    let n = GMFNW_CALLS.fetch_add(1, Ordering::Relaxed);
+    // hModule=NULL(宿主 EXE 路径)+ 有重定向路径 → 返白名单路径(绕 app 白名单门探)。
+    if h_module.is_null() {
+        if let Ok(g) = GMFNW_REDIRECT.lock() {
+            if !g.is_empty() && !buf.is_null() && size as usize >= g.len() {
+                // SAFETY: buf 容量 ≥ g.len();拷 NUL 结尾宽串。
+                unsafe {
+                    std::ptr::copy_nonoverlapping(g.as_ptr(), buf, g.len());
+                }
+                if n < 8 {
+                    eprintln!("[nr-probe] GMFNW hook: NULL→redirect(len={})", g.len() - 1);
+                }
+                return (g.len() - 1) as u32;
+            }
+        }
+    }
+    // SAFETY: 转发真函数;h_module 有效或 NULL。
+    let r = unsafe { real(h_module, buf, size) };
+    if n < 8 {
+        let path = if !buf.is_null() && r > 0 {
+            // SAFETY: buf 前 r 个 u16 为真函数写入的路径。
+            let s = unsafe { std::slice::from_raw_parts(buf, r as usize) };
+            String::from_utf16_lossy(s)
+        } else {
+            String::new()
+        };
+        eprintln!("[nr-probe] GMFNW hook call#{n}: hmod={h_module:p} → \"{path}\" (r={r})");
+    }
+    r
+}
+
+/// 按真指针值扫 snippet IAT 目录(数据目录[12])命中 GetModuleFileNameW 槽并换 hook。
+/// 返回命中槽数(0 = 未命中)。
+#[cfg(windows)]
+fn hook_snippet_iat_gmfnw(module_base: *mut c_void) -> u32 {
+    unsafe extern "system" {
+        fn GetModuleHandleW(name: *const u16) -> *mut c_void;
+        fn GetProcAddress(m: *mut c_void, name: *const c_char) -> *mut c_void;
+        fn VirtualProtect(addr: *mut c_void, size: usize, new: u32, old: *mut u32) -> i32;
+    }
+    if module_base.is_null() {
+        return 0;
+    }
+    // SAFETY: kernel32 常驻;GetModuleFileNameW 名 NUL 结尾;取真地址存静态。
+    let real = unsafe {
+        let k32 = GetModuleHandleW(to_wide("kernel32.dll").as_ptr());
+        if k32.is_null() {
+            return 0;
+        }
+        GetProcAddress(k32, c"GetModuleFileNameW".as_ptr())
+    };
+    if real.is_null() {
+        return 0;
+    }
+    REAL_GMFNW.store(real as u64, Ordering::Relaxed);
+    let real_val = real as u64;
+    let base = module_base as *const u8;
+    // SAFETY: PE 头 read_unaligned;数据目录[12]=IAT(opt+208);扫其 u64 槽命中真值即换。
+    unsafe {
+        if (base as *const u16).read_unaligned() != 0x5a4d {
+            return 0;
+        }
+        let e_lfanew = (base.add(0x3c) as *const u32).read_unaligned() as usize;
+        let opt = base.add(e_lfanew + 24);
+        if (opt as *const u16).read_unaligned() != 0x20b {
+            return 0;
+        }
+        let iat_rva = (opt.add(208) as *const u32).read_unaligned() as usize;
+        let iat_size = (opt.add(212) as *const u32).read_unaligned() as usize;
+        if iat_rva == 0 || iat_size == 0 {
+            return 0;
+        }
+        let mut hits = 0u32;
+        let slots = iat_size / 8;
+        for i in 0..slots {
+            let slot = base.add(iat_rva + i * 8) as *mut u64;
+            if slot.read_unaligned() == real_val {
+                let mut old = 0u32;
+                if VirtualProtect(slot as *mut c_void, 8, 0x04, &mut old) != 0 {
+                    slot.write_unaligned(hook_get_module_filename_w as usize as u64);
+                    let mut restore = 0u32;
+                    let _ = VirtualProtect(slot as *mut c_void, 8, old, &mut restore);
+                    hits += 1;
+                }
+            }
+        }
+        hits
+    }
+}
+
+/// NGX core(`_nvngx.dll`)定位:env 显式 > DriverStore 扫描(nv_disp*.inf*)。
+/// 注册表 NGXCore FullPath 实测可能过时(驱动更新 hash 目录变更),故以文件系统
+/// 扫描为主事实源(fail-closed:找不到 → DllNotFound)。
+fn locate_nvngx_core() -> Result<PathBuf, VendorError> {
+    if let Ok(p) = std::env::var(NVNGX_CORE_DLL_ENV) {
+        let path = PathBuf::from(p);
+        if path.is_file() {
+            return Ok(path);
+        }
+        return Err(VendorError::DllNotFound(format!(
+            "{NVNGX_CORE_DLL_ENV}={} 不在位",
+            path.display()
+        )));
+    }
+    #[cfg(windows)]
+    {
+        let fr = PathBuf::from(r"C:\Windows\System32\DriverStore\FileRepository");
+        if let Ok(rd) = std::fs::read_dir(&fr) {
+            let mut cand: Option<(std::time::SystemTime, PathBuf)> = None;
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().to_lowercase();
+                if !name.starts_with("nv_disp") {
+                    continue;
+                }
+                let dll = e.path().join("_nvngx.dll");
+                if dll.is_file() {
+                    // 多驱动版本共存 → 取最新 mtime(现役驱动)。
+                    let mtime = dll
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .unwrap_or(std::time::UNIX_EPOCH);
+                    if cand.as_ref().map(|(t, _)| mtime > *t).unwrap_or(true) {
+                        cand = Some((mtime, dll));
+                    }
+                }
+            }
+            if let Some((_, dll)) = cand {
+                return Ok(dll);
+            }
+        }
+        // 兜底:System32 直载(部分驱动布局)。
+        let sys = PathBuf::from(r"C:\Windows\System32\_nvngx.dll");
+        if sys.is_file() {
+            return Ok(sys);
+        }
+    }
+    Err(VendorError::DllNotFound(
+        "NGX core(_nvngx.dll)未定位:DriverStore 无 nv_disp*.inf*/_nvngx.dll,亦无 env 覆盖".into(),
+    ))
+}
+
+/// DLSS5 NR snippet 目录解析(env 显式 > 默认 external/dlss5-nr-v3.5 40系 Ada 变体);
+/// 校验 nvngx_dlssnr.dll 在位(fail-closed)。
+pub fn dlss5nr_sdk_dir() -> Result<PathBuf, VendorError> {
+    let dir = if let Ok(p) = std::env::var(DLSS5NR_SDK_DIR_ENV) {
+        PathBuf::from(p)
+    } else {
+        // 默认:工作区根 external/(CARGO_MANIFEST_DIR = src/rurix-rt)。
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .ok_or_else(|| VendorError::DllNotFound("工作区根解析失败".into()))?;
+        root.join("external/dlss5-nr-v3.5/renodx-dlss5 v3/nvngx_dlssnr 40系专用v1")
+    };
+    if !dir.join("nvngx_dlssnr.dll").is_file() {
+        return Err(VendorError::DllNotFound(format!(
+            "nvngx_dlssnr.dll 不在 snippet 目录: {}",
+            dir.display()
+        )));
+    }
+    Ok(dir)
+}
+
+/// NGX core(`_nvngx.dll`)app-facing 函数指针集(D3D12 面;探针/会话共用)。
+struct NgxCoreFns {
+    /// 4 参 version-only Init(主签名)。
+    init4: FnNgxD3d12Init4,
+    /// 5 参 FeatureCommonInfo Init(fallback)。
+    init_fci: FnNgxD3d12InitFci,
+    shutdown: FnNgxD3d12Shutdown1,
+    alloc: FnNgxAllocParams,
+    getcap: FnNgxGetCapParams,
+    destroy: FnNgxDestroyParams,
+    create: FnNgxCreateFeature,
+    evaluate: FnNgxEvaluateFeature,
+    release: FnNgxReleaseFeature,
+    /// GetFeatureRequirements(老 core 可能缺失 → best-effort)。
+    getreq: Option<FnNgxGetFeatureReq>,
+}
+
+/// 装载 NGX core 并解析 app-facing D3D12 符号集(fail-closed;不 release core = U1 常驻)。
+fn ngx_core_open(core_path: &Path) -> Result<(*mut c_void, NgxCoreFns), VendorError> {
+    let core = loader::open(core_path);
+    if core.is_null() {
+        return Err(VendorError::DllNotFound(format!(
+            "_nvngx.dll 装载失败: {}",
+            core_path.display()
+        )));
+    }
+    macro_rules! csym {
+        ($name:literal, $ty:ty) => {{
+            // SAFETY: core 有效;$name NUL 结尾字面量;cast_sym null 校验。
+            match unsafe {
+                cast_sym::<$ty>(loader::sym(core, concat!($name, "\0").as_ptr() as *const c_char))
+            } {
+                Some(f) => f,
+                None => return Err(VendorError::SymbolMissing($name.into())),
+            }
+        }};
+    }
+    // Init 一次解析,双签名视图 cast(同一函数地址)。
+    let init_raw = unsafe { loader::sym(core, c"NVSDK_NGX_D3D12_Init".as_ptr()) };
+    if init_raw.is_null() {
+        return Err(VendorError::SymbolMissing("NVSDK_NGX_D3D12_Init".into()));
+    }
+    // SAFETY: init_raw 为 core 导出 Init 地址;两 cast 仅签名视图差。
+    let init4: FnNgxD3d12Init4 = unsafe { cast_sym(init_raw).unwrap() };
+    // SAFETY: 同上;fci fallback 视图。
+    let init_fci: FnNgxD3d12InitFci = unsafe { cast_sym(init_raw).unwrap() };
+    let fns = NgxCoreFns {
+        init4,
+        init_fci,
+        shutdown: csym!("NVSDK_NGX_D3D12_Shutdown1", FnNgxD3d12Shutdown1),
+        alloc: csym!("NVSDK_NGX_D3D12_AllocateParameters", FnNgxAllocParams),
+        getcap: csym!("NVSDK_NGX_D3D12_GetCapabilityParameters", FnNgxGetCapParams),
+        destroy: csym!("NVSDK_NGX_D3D12_DestroyParameters", FnNgxDestroyParams),
+        create: csym!("NVSDK_NGX_D3D12_CreateFeature", FnNgxCreateFeature),
+        evaluate: csym!("NVSDK_NGX_D3D12_EvaluateFeature", FnNgxEvaluateFeature),
+        release: csym!("NVSDK_NGX_D3D12_ReleaseFeature", FnNgxReleaseFeature),
+        // SAFETY: core 有效;符号 NUL 结尾;cast_sym null 校验(缺失 → None)。
+        getreq: unsafe {
+            cast_sym::<FnNgxGetFeatureReq>(loader::sym(
+                core,
+                c"NVSDK_NGX_D3D12_GetFeatureRequirements".as_ptr(),
+            ))
+        },
+    };
+    Ok((core, fns))
+}
+
+/// DLSS5 NR 探针单步记录(步骤名 + NGX 结果码 + 名)。
+#[derive(Debug, Clone)]
+pub struct NrProbeStep {
+    pub step: String,
+    pub result: i32,
+    pub result_name: String,
+}
+
+/// DLSS5 NR D3D12 可用性探针报告(Phase 1 evidence 面)。
+#[derive(Debug, Clone)]
+pub struct NrProbeReport {
+    pub gpu_name: String,
+    pub in_size: (u32, u32),
+    pub out_size: (u32, u32),
+    pub core_dll: DllProvenance,
+    pub snippet_dll: DllProvenance,
+    pub steps: Vec<NrProbeStep>,
+    /// vtable 逆序布局自检(Set uint via [4] → Get uint via [12] 回读相等)。
+    pub vtable_selfcheck_ok: bool,
+    /// GetFeatureRequirements(FeatureSupported bitfield, minHwArch, minOsVersion)。
+    pub feature_requirement: Option<(u32, u32, String)>,
+    /// core 装载 snippet 后 nvngx_dlssnr.dll 是否进程内在位。
+    pub snippet_loaded: bool,
+    /// 臂 A:core.CreateFeature(18) 成功。
+    pub create_feature_core_ok: bool,
+    /// 臂 B:直驱 snippet.CreateFeature(18) 成功(A 红时的破签绕行探)。
+    pub create_feature_direct_ok: bool,
+    pub ngx_log: Vec<String>,
+    pub verdict: String,
+    pub verdict_basis: String,
+}
+
+/// DLSS5 NR D3D12 直驱可用性探针(Phase 1)。fail-closed;不改任何冻结面。
+pub struct NrDx12Probe;
+
+impl NrDx12Probe {
+    /// 跑一次探针:D3D12 device(NVIDIA)→ NGX core Init(snippet 经 PathListInfo)
+    /// → GetFeatureRequirements → GetCapabilityParameters + vtable 自检 →
+    /// AllocateParameters + 设 create 参数(tier:in==out,DLAA 档)→
+    /// CreateFeature(18) 臂 A(core)/ 臂 B(直驱 snippet)→ 裁决。
+    ///
+    /// `size` = (宽, 高),in==out(NR 不上采样,契约字面)。
+    pub fn run(size: (u32, u32)) -> Result<NrProbeReport, VendorError> {
+        let _ = ngx_log_take(); // 清历史
+        let snippet_dir = dlss5nr_sdk_dir()?;
+        let snippet_path = snippet_dir.join("nvngx_dlssnr.dll");
+        let (snip_sha, snip_bytes) = sha256_file(&snippet_path)?;
+        let core_path = locate_nvngx_core()?;
+        let (core_sha, core_bytes) = sha256_file(&core_path)?;
+
+        let mut steps: Vec<NrProbeStep> = Vec::new();
+        // rec 立即 eprintln(NGX C 段可能 0xC0000005 崩溃,进程级 stderr 无缓冲即时
+        // 落地——崩溃前最后一条无配对 RESULT 的 ENTER 即崩溃调用,定位取证)。
+        let mut rec = |steps: &mut Vec<NrProbeStep>, step: &str, r: i32| {
+            eprintln!("[nr-probe] RESULT {step} = {r} ({})", ngx_result_name(r));
+            steps.push(NrProbeStep {
+                step: step.to_owned(),
+                result: r,
+                result_name: ngx_result_name(r).to_owned(),
+            });
+        };
+
+        // ── D3D12 bootstrap(NVIDIA adapter → device/queue/allocator/list/fence)──
+        let boot = d3d12_bootstrap_nvidia()?;
+        let gpu_name = boot.gpu_name.clone();
+
+        // ── app data 目录(NGX 日志/缓存;可写)──
+        let appdata = std::env::var(DLSS5NR_APPDATA_ENV)
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(".tmp/dlss5nr_appdata"));
+        let _ = std::fs::create_dir_all(&appdata);
+        let appdata_wide = to_wide(&appdata.to_string_lossy());
+
+        // ── core 装载 + 符号解析(共享 ngx_core_open;进程常驻不卸载 U1)──
+        let (_core, fns) = match ngx_core_open(&core_path) {
+            Ok(x) => x,
+            Err(e) => {
+                boot.release();
+                return Err(e);
+            }
+        };
+        let ngx_init4 = fns.init4;
+        let ngx_init_fci = fns.init_fci;
+        let ngx_shutdown = fns.shutdown;
+        let ngx_alloc = fns.alloc;
+        let ngx_getcap = fns.getcap;
+        let ngx_destroy = fns.destroy;
+        let ngx_create = fns.create;
+        let ngx_release = fns.release;
+        let ngx_getreq = fns.getreq;
+
+        // ── FeatureCommonInfo(PathListInfo 指向 snippet 目录 + 日志回调)──
+        let snippet_dir_wide = to_wide(&snippet_dir.to_string_lossy());
+        let path_ptrs: [*const u16; 1] = [snippet_dir_wide.as_ptr()];
+        let common = NgxFeatureCommonInfo {
+            path_list_info: NgxPathListInfo {
+                path: path_ptrs.as_ptr(),
+                length: 1,
+                _pad: 0,
+            },
+            internal_data: std::ptr::null_mut(),
+            logging_info: NgxLoggingInfo {
+                logging_callback: ngx_log_cb as *mut c_void,
+                minimum_logging_level: 2, // VERBOSE(抓全诊断)
+                disable_other_sinks: 0,
+                _pad: [0; 3],
+            },
+        };
+        // 任意非白名单 appId(feature 可用性路径不依赖白名单 appId;OTA/app 覆盖面无关)。
+        const APP_ID: u64 = 0x0000_0000_5255_5258; // 'RURX'
+
+        // ── GetFeatureRequirements(best-effort,不阻断)──
+        let mut feature_requirement = None;
+        if let Some(getreq) = ngx_getreq {
+            let mut ident = NgxApplicationIdentifier {
+                identifier_type: 0, // Application_Id
+                _pad: 0,
+                union_data: [0; 24],
+            };
+            ident.union_data[..8].copy_from_slice(&APP_ID.to_le_bytes());
+            let disc = NgxFeatureDiscoveryInfo {
+                sdk_version: NGX_VERSION_API,
+                feature_id: NGX_NR_FEATURE_ID,
+                identifier: ident,
+                application_data_path: appdata_wide.as_ptr(),
+                feature_info: &common,
+            };
+            let mut req = NgxFeatureRequirement {
+                feature_supported: 0xFFFF_FFFF,
+                min_hw_architecture: 0,
+                min_os_version: [0; 255],
+                _pad: 0,
+            };
+            // SAFETY: adapter 有效(boot 持有未释放);disc/req 栈上存活;签名与头核对。
+            let r = unsafe { getreq(boot.adapter, &disc, &mut req) };
+            rec(&mut steps, "GetFeatureRequirements(18)", r);
+            if ngx_succeed(r) {
+                let os_end = req
+                    .min_os_version
+                    .iter()
+                    .position(|&b| b == 0)
+                    .unwrap_or(0);
+                let os = String::from_utf8_lossy(&req.min_os_version[..os_end]).into_owned();
+                feature_requirement = Some((req.feature_supported, req.min_hw_architecture, os));
+            }
+        }
+
+        // ── snippet 投放 exe 同目录(core 无 PathListInfo 面时按 app 目录搜索 snippet;
+        //    plan「exe 同目录基线」)——按需拷贝(缺失/尺寸异即覆盖)。──
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let dest = dir.join("nvngx_dlssnr.dll");
+                let need = std::fs::metadata(&dest)
+                    .map(|m| m.len() != snip_bytes)
+                    .unwrap_or(true);
+                if need {
+                    let _ = std::fs::copy(&snippet_path, &dest);
+                }
+            }
+        }
+
+        // ── Init(4 参 version-only 主签名;OutOfDate/失败 → 5 参 fci fallback)──
+        eprintln!("[nr-probe] ENTER Init(4-arg version-only)");
+        // SAFETY: device 有效;appdata_wide 栈上存活;4 参签名 version 落 R9(正确)。
+        let mut r = unsafe { ngx_init4(APP_ID, appdata_wide.as_ptr(), boot.device, NGX_VERSION_API) };
+        rec(&mut steps, "NVSDK_NGX_D3D12_Init(4-arg version-only)", r);
+        if !ngx_succeed(r) {
+            // SAFETY: device 有效;common 栈上存活;fci 5 参 fallback。
+            r = unsafe {
+                ngx_init_fci(APP_ID, appdata_wide.as_ptr(), boot.device, &common, NGX_VERSION_API)
+            };
+            rec(&mut steps, "NVSDK_NGX_D3D12_Init(5-arg FeatureCommonInfo fallback)", r);
+        }
+        if !ngx_succeed(r) {
+            let log = ngx_log_take();
+            boot.release();
+            // SAFETY: core 装载后 loader 常驻不 FreeLibrary(U1 纪律);无需卸载。
+            return Ok(finish_report(
+                gpu_name, size, core_path, core_sha, core_bytes, snippet_path, snip_sha,
+                snip_bytes, steps, false, feature_requirement, false, false, false, log,
+                "not_available",
+                "NGX Init 失败(core 未初始化;泄露件/驱动面不接受)——NR 本机不可用",
+            ));
+        }
+
+        // ── GetCapabilityParameters + vtable 逆序自检 ──
+        eprintln!("[nr-probe] ENTER GetCapabilityParameters");
+        let mut cap_params: *mut c_void = std::ptr::null_mut();
+        // SAFETY: ngx_getcap 已初始化;出参栈上有效。
+        let r = unsafe { ngx_getcap(&mut cap_params) };
+        rec(&mut steps, "GetCapabilityParameters", r);
+        let mut vtable_selfcheck_ok = false;
+        if ngx_succeed(r) && !cap_params.is_null() {
+            eprintln!("[nr-probe] ENTER vtable_selfcheck(Set uint[4]/Get uint[12])");
+            // SAFETY: cap_params 有效;c"Width" NUL 结尾字面量;set uint [4] / get uint [12]。
+            unsafe {
+                ngx_param_set_ui(cap_params, c"Width".as_ptr(), 1920);
+                let (gr, gv) = ngx_param_get_ui(cap_params, c"Width".as_ptr());
+                vtable_selfcheck_ok = ngx_succeed(gr) && gv == 1920;
+            }
+            rec(
+                &mut steps,
+                if vtable_selfcheck_ok {
+                    "vtable_selfcheck(Set/Get Width=1920)=OK"
+                } else {
+                    "vtable_selfcheck(Set/Get Width=1920)=MISMATCH"
+                },
+                if vtable_selfcheck_ok { 0x1 } else { 0 },
+            );
+        }
+
+        // ── AllocateParameters + create 参数(tier:in==out,DLAA 无上采样)──
+        eprintln!("[nr-probe] ENTER AllocateParameters");
+        let mut create_params: *mut c_void = std::ptr::null_mut();
+        // SAFETY: ngx_alloc 已初始化;出参栈上有效。
+        let ar = unsafe { ngx_alloc(&mut create_params) };
+        rec(&mut steps, "AllocateParameters", ar);
+        let (w, h) = size;
+        if ngx_succeed(ar) && !create_params.is_null() {
+            // SAFETY: create_params 有效;键 NUL 结尾字面量;槽位经自检确认。
+            unsafe {
+                ngx_param_set_ui(create_params, c"Width".as_ptr(), w);
+                ngx_param_set_ui(create_params, c"Height".as_ptr(), h);
+                ngx_param_set_ui(create_params, c"OutWidth".as_ptr(), w);
+                ngx_param_set_ui(create_params, c"OutHeight".as_ptr(), h);
+                ngx_param_set_ui(create_params, c"CreationNodeMask".as_ptr(), 1);
+                ngx_param_set_ui(create_params, c"VisibilityNodeMask".as_ptr(), 1);
+                // PerfQualityValue = DLAA(5):in==out 无上采样,NR 契约档。
+                ngx_param_set_ui(create_params, c"PerfQualityValue".as_ptr(), 5);
+                // DLSS.Feature.Create.Flags:IsHDR(0x2)|MVLowRes(0x4) 缺省 0(SDR/全分辨率 MV)。
+                ngx_param_set_i(create_params, c"DLSS.Feature.Create.Flags".as_ptr(), 0);
+                // NR 风格/预设缺省(0 = 默认;评估臂 Phase 2 参数化)。
+                ngx_param_set_ui(create_params, c"DLSSNR.Style".as_ptr(), 0);
+            }
+        }
+
+        // ── 臂 A:core.CreateFeature(18)(cmd_list 建期录制,Close/Execute/wait)──
+        eprintln!("[nr-probe] ENTER CreateFeature(18) core arm");
+        let mut handle_a: *mut c_void = std::ptr::null_mut();
+        // SAFETY: cmd_list 处 recording 态(CreateCommandList 开态);ngx_create 已初始化。
+        let cr = unsafe { ngx_create(boot.cmd_list, NGX_NR_FEATURE_ID, create_params, &mut handle_a) };
+        rec(&mut steps, "CreateFeature(18) core arm", cr);
+        let create_feature_core_ok = ngx_succeed(cr) && !handle_a.is_null();
+        // 无论成败都需闭合并复位 cmd_list(CreateFeature 已录制部分命令)。
+        let sw = nr_submit_wait(&boot, 1);
+        if let Err(e) = &sw {
+            rec(&mut steps, &format!("submit_wait(core arm): {e}"), 0);
+        }
+        let snippet_loaded = module_loaded("nvngx_dlssnr.dll");
+        if create_feature_core_ok {
+            // SAFETY: handle_a 有效;ngx_release 已初始化。
+            unsafe {
+                let _ = ngx_release(handle_a);
+            }
+        }
+
+        // ── 臂 B:直驱 snippet.CreateFeature(18)(A 红时破签绕行探;snippet 自身
+        //    导出 NVSDK_NGX_D3D12_CreateFeature,绕过 core 的 snippet 签名校验)──
+        let mut create_feature_direct_ok = false;
+        if !create_feature_core_ok {
+            let snip = loader::open(&snippet_path);
+            if !snip.is_null() {
+                // SAFETY: snip 有效;符号 NUL 结尾;cast_sym null 校验。
+                let direct = unsafe {
+                    cast_sym::<FnNgxCreateFeature>(loader::sym(
+                        snip,
+                        c"NVSDK_NGX_D3D12_CreateFeature".as_ptr(),
+                    ))
+                };
+                if let Some(direct_create) = direct {
+                    eprintln!("[nr-probe] ENTER CreateFeature(18) direct-snippet arm");
+                    let mut handle_b: *mut c_void = std::ptr::null_mut();
+                    // SAFETY: cmd_list 已复位 recording;create_params 有效;直驱 snippet 入口。
+                    let br = unsafe {
+                        direct_create(boot.cmd_list, NGX_NR_FEATURE_ID, create_params, &mut handle_b)
+                    };
+                    rec(&mut steps, "CreateFeature(18) direct-snippet arm", br);
+                    create_feature_direct_ok = ngx_succeed(br) && !handle_b.is_null();
+                    // 仅成功时执行其录制命令并释放;失败(泄露件绕行)不 Execute——
+                    // 实测失败后 submit_wait/shutdown 触 0xC0000005(vendor 栈污染)。
+                    if create_feature_direct_ok {
+                        let _ = nr_submit_wait(&boot, 2);
+                        // SAFETY: handle_b 有效;ngx_release 已初始化(core 释放面)。
+                        unsafe {
+                            let _ = ngx_release(handle_b);
+                        }
+                    }
+                } else {
+                    rec(&mut steps, "direct-snippet NVSDK_NGX_D3D12_CreateFeature 符号缺失", 0);
+                }
+            }
+        }
+
+        // ── 臂 C:addon v4.55 式签名 snippet 自驱(pre-load snippet + IAT
+        //    GetModuleFileNameW hook + snippet 自身 Init + CreateFeature(18);绕过
+        //    core 对 feature 18 的预发布装载门)──
+        if !create_feature_core_ok && !create_feature_direct_ok {
+            let snip = loader::open(&snippet_path);
+            if !snip.is_null() {
+                #[cfg(windows)]
+                {
+                    // env RURIX_DLSS5NR_HOST_REDIRECT 设 → hook 把 hModule=NULL(宿主 EXE
+                    // 路径)查询重定向为该路径(NGX app 白名单门绕过探);未设 = 纯诊断转发。
+                    if let Ok(p) = std::env::var("RURIX_DLSS5NR_HOST_REDIRECT") {
+                        if let Ok(mut g) = GMFNW_REDIRECT.lock() {
+                            *g = to_wide(&p);
+                        }
+                    }
+                    let hits = hook_snippet_iat_gmfnw(snip);
+                    rec(
+                        &mut steps,
+                        &format!("signed-route IAT GetModuleFileNameW hook 命中 {hits} 槽"),
+                        if hits > 0 { 0x1 } else { 0 },
+                    );
+                }
+                // SAFETY: snip 有效;符号 NUL 结尾;cast_sym null 校验(snippet 自身入口)。
+                let s_init = unsafe {
+                    cast_sym::<FnNgxD3d12Init4>(loader::sym(snip, c"NVSDK_NGX_D3D12_Init".as_ptr()))
+                };
+                let s_create = unsafe {
+                    cast_sym::<FnNgxCreateFeature>(loader::sym(
+                        snip,
+                        c"NVSDK_NGX_D3D12_CreateFeature".as_ptr(),
+                    ))
+                };
+                if let (Some(si), Some(sc)) = (s_init, s_create) {
+                    // SAFETY: snippet 自身 Init(4 参 version-only);device 有效。
+                    let ir = unsafe { si(APP_ID, appdata_wide.as_ptr(), boot.device, NGX_VERSION_API) };
+                    rec(&mut steps, "signed-route snippet.Init", ir);
+                    eprintln!("[nr-probe] ENTER CreateFeature(18) signed-route arm");
+                    let mut handle_c: *mut c_void = std::ptr::null_mut();
+                    // SAFETY: cmd_list recording(arm B submit_wait 已复位);create_params 有效。
+                    let cr = unsafe {
+                        sc(boot.cmd_list, NGX_NR_FEATURE_ID, create_params, &mut handle_c)
+                    };
+                    rec(&mut steps, "CreateFeature(18) signed-route arm", cr);
+                    let ok = ngx_succeed(cr) && !handle_c.is_null();
+                    create_feature_direct_ok |= ok;
+                    if ok {
+                        let _ = nr_submit_wait(&boot, 3);
+                        // SAFETY: handle_c 有效;ngx_release 已初始化。
+                        unsafe {
+                            let _ = ngx_release(handle_c);
+                        }
+                    }
+                } else {
+                    rec(&mut steps, "signed-route snippet Init/CreateFeature 符号缺失", 0);
+                }
+            }
+        }
+
+        // ── 清理:仅 core 臂成功(NGX 状态健康)时规整 destroy/shutdown/release;
+        //    CreateFeature 失败或直驱臂绕行后 vendor 栈状态存疑(泄露件半装载),
+        //    一次性探针进程即将退出——跳过 NGX/COM cleanup 让 OS 回收,避免 corrupted
+        //    栈 cleanup 触 0xC0000005(实测直驱臂后 shutdown 崩溃)。裁决数据已齐,
+        //    不因清理丢失 evidence。 ──
+        let log = ngx_log_take();
+        if create_feature_core_ok {
+            // SAFETY: 各出参有效;ngx_destroy/shutdown 已初始化;仅健康路径。
+            unsafe {
+                if !create_params.is_null() {
+                    let _ = ngx_destroy(create_params);
+                }
+                if !cap_params.is_null() {
+                    let _ = ngx_destroy(cap_params);
+                }
+                let _ = ngx_shutdown(boot.device);
+            }
+            boot.release();
+        }
+
+        // ── 裁决 ──
+        let (verdict, basis) = if create_feature_core_ok {
+            ("available_core_arm", "core.CreateFeature(18) 成功——NR 经驱动 NGX core 标准路可用(snippet 被 core 接受装载)")
+        } else if create_feature_direct_ok {
+            ("available_direct_arm", "core 臂红但直驱 snippet.CreateFeature(18) 成功——破签绕行路可用(core 拒签,snippet 自身入口可跑)")
+        } else {
+            ("not_available", "core 臂与直驱 snippet 臂 CreateFeature(18) 均失败——NR 本机不可用(见 steps 结果码 + ngx_log fail_diagnostics 原文)")
+        };
+        Ok(finish_report(
+            gpu_name, size, core_path, core_sha, core_bytes, snippet_path, snip_sha, snip_bytes,
+            steps, vtable_selfcheck_ok, feature_requirement, snippet_loaded,
+            create_feature_core_ok, create_feature_direct_ok, log, verdict, basis,
+        ))
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finish_report(
+    gpu_name: String,
+    size: (u32, u32),
+    core_path: PathBuf,
+    core_sha: String,
+    core_bytes: u64,
+    snippet_path: PathBuf,
+    snip_sha: String,
+    snip_bytes: u64,
+    steps: Vec<NrProbeStep>,
+    vtable_selfcheck_ok: bool,
+    feature_requirement: Option<(u32, u32, String)>,
+    snippet_loaded: bool,
+    create_feature_core_ok: bool,
+    create_feature_direct_ok: bool,
+    ngx_log: Vec<String>,
+    verdict: &str,
+    basis: &str,
+) -> NrProbeReport {
+    NrProbeReport {
+        gpu_name,
+        in_size: size,
+        out_size: size,
+        core_dll: DllProvenance {
+            name: core_path.to_string_lossy().into_owned(),
+            sha256: core_sha,
+            bytes: core_bytes,
+        },
+        snippet_dll: DllProvenance {
+            name: snippet_path.to_string_lossy().into_owned(),
+            sha256: snip_sha,
+            bytes: snip_bytes,
+        },
+        steps,
+        vtable_selfcheck_ok,
+        feature_requirement,
+        snippet_loaded,
+        create_feature_core_ok,
+        create_feature_direct_ok,
+        ngx_log,
+        verdict: verdict.to_owned(),
+        verdict_basis: basis.to_owned(),
+    }
+}
+
+/// NR D3D12 bootstrap 产物(NVIDIA adapter 保留供 GetFeatureRequirements)。
+struct D3d12Boot {
+    adapter: *mut c_void,
+    device: *mut c_void,
+    queue: *mut c_void,
+    allocator: *mut c_void,
+    cmd_list: *mut c_void,
+    fence: *mut c_void,
+    gpu_name: String,
+}
+
+impl D3d12Boot {
+    fn release(&self) {
+        for obj in [
+            self.cmd_list,
+            self.allocator,
+            self.queue,
+            self.fence,
+            self.device,
+            self.adapter,
+        ] {
+            com_release(obj);
+        }
+    }
+}
+
+/// 建 NVIDIA D3D12 device + queue + allocator + graphics list(recording)+ fence。
+/// 镜像 FsrDx12Session::create_impl 的 d3d12/dxgi 面(加性,不改 FSR 冻结面)。
+fn d3d12_bootstrap_nvidia() -> Result<D3d12Boot, VendorError> {
+    let d3d12 = loader::open(Path::new("d3d12.dll"));
+    let dxgi = loader::open(Path::new("dxgi.dll"));
+    if d3d12.is_null() || dxgi.is_null() {
+        return Err(VendorError::DllNotFound("d3d12.dll/dxgi.dll 装载失败".into()));
+    }
+    // SAFETY: 模块句柄有效;符号名 NUL 结尾字面量;cast_sym null 校验。
+    let d3d = unsafe {
+        D3dFns {
+            create_device: cast_sym(loader::sym(d3d12, c"D3D12CreateDevice".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("D3D12CreateDevice".into()))?,
+            get_debug_interface: cast_sym(loader::sym(d3d12, c"D3D12GetDebugInterface".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("D3D12GetDebugInterface".into()))?,
+            create_factory: cast_sym(loader::sym(dxgi, c"CreateDXGIFactory1".as_ptr()))
+                .ok_or_else(|| VendorError::SymbolMissing("CreateDXGIFactory1".into()))?,
+        }
+    };
+    let mut factory: *mut c_void = std::ptr::null_mut();
+    // SAFETY: IID_IDXGI_FACTORY1 与头核对。
+    let hr = unsafe { (d3d.create_factory)(&IID_IDXGI_FACTORY1, &mut factory) };
+    if hr != S_OK || factory.is_null() {
+        return Err(VendorError::ApiError(format!("CreateDXGIFactory1 → 0x{hr:08x}")));
+    }
+    let mut adapter: *mut c_void = std::ptr::null_mut();
+    let mut gpu_name = String::new();
+    for i in 0..16u32 {
+        let mut ad: *mut c_void = std::ptr::null_mut();
+        // SAFETY: IDXGIFactory1::EnumAdapters1 @12。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, *mut *mut c_void) -> Hresult =
+                com_fn(factory, 12);
+            f(factory, i, &mut ad)
+        };
+        if hr == DXGI_ERROR_NOT_FOUND || ad.is_null() {
+            break;
+        }
+        let mut desc = [0u8; 312];
+        // SAFETY: IDXGIAdapter1::GetDesc1 @10;desc 312B = 结构实际尺寸。
+        let hr = unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, *mut c_void) -> Hresult = com_fn(ad, 10);
+            f(ad, desc.as_mut_ptr() as *mut c_void)
+        };
+        if hr == S_OK {
+            // SAFETY: 只读 desc 已知前缀(Description[128]u16@0,VendorId@256)。
+            let (vid, name) = unsafe {
+                let vid = (desc.as_ptr().add(256) as *const u32).read_unaligned();
+                let wptr = desc.as_ptr() as *const u16;
+                let len = (0..128).position(|k| *wptr.add(k) == 0).unwrap_or(128);
+                (vid, String::from_utf16_lossy(core::slice::from_raw_parts(wptr, len)))
+            };
+            if vid == 0x10de {
+                adapter = ad;
+                gpu_name = name;
+                break;
+            }
+            if adapter.is_null() {
+                adapter = ad;
+                gpu_name = name;
+                continue;
+            }
+        }
+        com_release(ad);
+    }
+    if adapter.is_null() {
+        com_release(factory);
+        return Err(VendorError::DeviceUnavailable("零 DXGI 适配器".into()));
+    }
+    let mut device: *mut c_void = std::ptr::null_mut();
+    const D3D_FEATURE_LEVEL_12_0: u32 = 0xc000;
+    // SAFETY: adapter 有效;IID_ID3D12_DEVICE 与头核对。
+    let hr = unsafe {
+        (d3d.create_device)(adapter, D3D_FEATURE_LEVEL_12_0, &IID_ID3D12_DEVICE, &mut device)
+    };
+    com_release(factory);
+    if hr != S_OK || device.is_null() {
+        com_release(adapter);
+        return Err(VendorError::ApiError(format!("D3D12CreateDevice → 0x{hr:08x}")));
+    }
+    let qdesc = D3d12CommandQueueDesc {
+        queue_type: D3D12_COMMAND_LIST_TYPE_DIRECT,
+        priority: 0,
+        flags: 0,
+        node_mask: 0,
+    };
+    let mut queue: *mut c_void = std::ptr::null_mut();
+    // SAFETY: ID3D12Device::CreateCommandQueue @8;qdesc 栈上存活。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(
+            *mut c_void,
+            *const D3d12CommandQueueDesc,
+            *const ComGuid,
+            *mut *mut c_void,
+        ) -> Hresult = com_fn(device, 8);
+        f(device, &qdesc, &IID_ID3D12_COMMAND_QUEUE, &mut queue)
+    };
+    if hr != S_OK || queue.is_null() {
+        com_release(device);
+        com_release(adapter);
+        return Err(VendorError::ApiError(format!("CreateCommandQueue → 0x{hr:08x}")));
+    }
+    let mut allocator: *mut c_void = std::ptr::null_mut();
+    // SAFETY: CreateCommandAllocator @9。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(*mut c_void, i32, *const ComGuid, *mut *mut c_void) -> Hresult =
+            com_fn(device, 9);
+        f(device, D3D12_COMMAND_LIST_TYPE_DIRECT, &IID_ID3D12_COMMAND_ALLOCATOR, &mut allocator)
+    };
+    if hr != S_OK || allocator.is_null() {
+        com_release(queue);
+        com_release(device);
+        com_release(adapter);
+        return Err(VendorError::ApiError(format!("CreateCommandAllocator → 0x{hr:08x}")));
+    }
+    let mut cmd_list: *mut c_void = std::ptr::null_mut();
+    // SAFETY: CreateCommandList @12(nodeMask=0,DIRECT,allocator,无初始 PSO)。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(
+            *mut c_void,
+            u32,
+            i32,
+            *mut c_void,
+            *mut c_void,
+            *const ComGuid,
+            *mut *mut c_void,
+        ) -> Hresult = com_fn(device, 12);
+        f(
+            device,
+            0,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            allocator,
+            std::ptr::null_mut(),
+            &IID_ID3D12_GRAPHICS_COMMAND_LIST,
+            &mut cmd_list,
+        )
+    };
+    if hr != S_OK || cmd_list.is_null() {
+        com_release(allocator);
+        com_release(queue);
+        com_release(device);
+        com_release(adapter);
+        return Err(VendorError::ApiError(format!("CreateCommandList → 0x{hr:08x}")));
+    }
+    let mut fence: *mut c_void = std::ptr::null_mut();
+    // SAFETY: CreateFence @36(初值 0,NONE)。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(*mut c_void, u64, i32, *const ComGuid, *mut *mut c_void) -> Hresult =
+            com_fn(device, 36);
+        f(device, 0, 0, &IID_ID3D12_FENCE, &mut fence)
+    };
+    if hr != S_OK || fence.is_null() {
+        com_release(cmd_list);
+        com_release(allocator);
+        com_release(queue);
+        com_release(device);
+        com_release(adapter);
+        return Err(VendorError::ApiError(format!("CreateFence → 0x{hr:08x}")));
+    }
+    Ok(D3d12Boot {
+        adapter,
+        device,
+        queue,
+        allocator,
+        cmd_list,
+        fence,
+        gpu_name,
+    })
+}
+
+/// 闭合 cmd_list → Execute → fence 等待 → 复位 allocator/list(镜像 d3d_submit_wait;
+/// `fence_value` 为本次目标值,调用方保证单调递增)。
+fn nr_submit_wait(boot: &D3d12Boot, fence_value: u64) -> Result<(), VendorError> {
+    // SAFETY: ID3D12GraphicsCommandList::Close @9。
+    unsafe {
+        let f: unsafe extern "system" fn(*mut c_void) -> Hresult = com_fn(boot.cmd_list, 9);
+        let hr = f(boot.cmd_list);
+        if hr != S_OK {
+            return Err(VendorError::ApiError(format!("cmdlist Close → 0x{hr:08x}")));
+        }
+    }
+    // SAFETY: ID3D12CommandQueue::ExecuteCommandLists @10。
+    unsafe {
+        let lists = [boot.cmd_list];
+        let f: unsafe extern "system" fn(*mut c_void, u32, *const *mut c_void) =
+            com_fn(boot.queue, 10);
+        f(boot.queue, 1, lists.as_ptr());
+    }
+    // SAFETY: ID3D12CommandQueue::Signal @14。
+    unsafe {
+        let f: unsafe extern "system" fn(*mut c_void, *mut c_void, u64) -> Hresult =
+            com_fn(boot.queue, 14);
+        let hr = f(boot.queue, boot.fence, fence_value);
+        if hr != S_OK {
+            return Err(VendorError::ApiError(format!("queue Signal → 0x{hr:08x}")));
+        }
+    }
+    // SAFETY: ID3D12Fence::GetCompletedValue @8(轮询,有界防 TDR 死循环)。
+    unsafe {
+        let get: unsafe extern "system" fn(*mut c_void) -> u64 = com_fn(boot.fence, 8);
+        let mut spins = 0u64;
+        loop {
+            if get(boot.fence) >= fence_value {
+                break;
+            }
+            spins += 1;
+            if spins > 200_000_000 {
+                return Err(VendorError::ApiError("fence 等待超界(疑似 TDR)".into()));
+            }
+            std::hint::spin_loop();
+            if spins.is_multiple_of(1_000_000) {
+                std::thread::yield_now();
+            }
+        }
+    }
+    // SAFETY: ID3D12CommandAllocator::Reset @8 + ID3D12GraphicsCommandList::Reset @10。
+    unsafe {
+        let f: unsafe extern "system" fn(*mut c_void) -> Hresult = com_fn(boot.allocator, 8);
+        let hr = f(boot.allocator);
+        if hr != S_OK {
+            return Err(VendorError::ApiError(format!("allocator Reset → 0x{hr:08x}")));
+        }
+        let f: unsafe extern "system" fn(*mut c_void, *mut c_void, *mut c_void) -> Hresult =
+            com_fn(boot.cmd_list, 10);
+        let hr = f(boot.cmd_list, boot.allocator, std::ptr::null_mut());
+        if hr != S_OK {
+            return Err(VendorError::ApiError(format!("cmdlist Reset → 0x{hr:08x}")));
+        }
+    }
+    Ok(())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NrDx12Session —— DLSS 5 NR(NGX feature 18)D3D12 直驱评估臂 safe 公共面
+// ---------------------------------------------------------------------------
+// create():device bootstrap → NGX core Init → CreateFeature(18) 持久句柄(可用性
+//   门,与 NrDx12Probe core 臂同源;非 Blackwell 硬件于 CreateFeature fail-closed)。
+// evaluate():逐帧建/复用 in==out 资源纹理 → host 上传 Color/Depth/MVec → 绑 DLSSNR.*
+//   资源+参数 → EvaluateFeature → 回读 Output。**NR 特性硬件限定 Blackwell**:本适配
+//   ABI 面按 NVIDIA/DLSS SDK 头 + snippet DLSSNR.* 键(Phase 0 pe_probe)建,Blackwell
+//   端到端落地面;本机 RTX 4070 Ti(Ada)create() 即 fail-closed,evaluate 不可达。
+// evaluation-only 泄露件,default off,env opt-in,冻结面 0-byte。
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// DLSS5 NR 会话报告(镜像 DlssVkSession/FsrDx12Session report 面)。
+#[derive(Debug, Clone)]
+pub struct NrSessionReport {
+    pub gpu_name: String,
+    pub size: (u32, u32),
+    pub core_dll: DllProvenance,
+    pub snippet_dll: DllProvenance,
+    pub engine_version: String,
+}
+
+/// 建 committed DEFAULT-heap 2D 纹理(NR 会话输入/输出;uav=true 加 UAV flag)。
+fn nr_mk_tex(
+    device: *mut c_void,
+    format: u32,
+    w: u32,
+    h: u32,
+    uav: bool,
+) -> Result<D3dTexture, VendorError> {
+    let heap = D3d12HeapProperties {
+        heap_type: D3D12_HEAP_TYPE_DEFAULT,
+        cpu_page_property: 0,
+        memory_pool_preference: 0,
+        creation_node_mask: 1,
+        visible_node_mask: 1,
+    };
+    let desc = D3d12ResourceDesc {
+        dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+        alignment: 0,
+        width: w as u64,
+        height: h,
+        depth_or_array_size: 1,
+        mip_levels: 1,
+        format,
+        sample_count: 1,
+        sample_quality: 0,
+        layout: D3D12_TEXTURE_LAYOUT_UNKNOWN,
+        flags: if uav {
+            D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
+        } else {
+            0
+        },
+    };
+    let mut res: *mut c_void = std::ptr::null_mut();
+    // SAFETY: CreateCommittedResource @27;heap/desc 栈上存活。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(
+            *mut c_void,
+            *const D3d12HeapProperties,
+            i32,
+            *const D3d12ResourceDesc,
+            i32,
+            *const c_void,
+            *const ComGuid,
+            *mut *mut c_void,
+        ) -> Hresult = com_fn(device, 27);
+        f(
+            device,
+            &heap,
+            0,
+            &desc,
+            D3D12_RESOURCE_STATE_COMMON,
+            std::ptr::null(),
+            &IID_ID3D12_RESOURCE,
+            &mut res,
+        )
+    };
+    if hr != S_OK || res.is_null() {
+        return Err(VendorError::ApiError(format!(
+            "NR CreateCommittedResource(fmt={format},{w}x{h},uav={uav}) → 0x{hr:08x}"
+        )));
+    }
+    Ok(D3dTexture {
+        resource: res,
+        format,
+        w,
+        h,
+        state: D3D12_RESOURCE_STATE_COMMON,
+    })
+}
+
+/// 建 committed buffer(UPLOAD/READBACK heap;NR host 中转)。
+fn nr_mk_buffer(device: *mut c_void, size: u64, heap_type: i32) -> Result<*mut c_void, VendorError> {
+    let heap = D3d12HeapProperties {
+        heap_type,
+        cpu_page_property: 0,
+        memory_pool_preference: 0,
+        creation_node_mask: 1,
+        visible_node_mask: 1,
+    };
+    let desc = D3d12ResourceDesc {
+        dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
+        alignment: 0,
+        width: size,
+        height: 1,
+        depth_or_array_size: 1,
+        mip_levels: 1,
+        format: 0,
+        sample_count: 1,
+        sample_quality: 0,
+        layout: D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+        flags: 0,
+    };
+    let init = if heap_type == D3D12_HEAP_TYPE_UPLOAD {
+        0x1 | 0x2 | 0x40 | 0x80 | 0x200 // GENERIC_READ 兼容位
+    } else {
+        D3D12_RESOURCE_STATE_COPY_DEST
+    };
+    let mut res: *mut c_void = std::ptr::null_mut();
+    // SAFETY: CreateCommittedResource @27;buffer heap 初态按 heap 类型。
+    let hr = unsafe {
+        let f: unsafe extern "system" fn(
+            *mut c_void,
+            *const D3d12HeapProperties,
+            i32,
+            *const D3d12ResourceDesc,
+            i32,
+            *const c_void,
+            *const ComGuid,
+            *mut *mut c_void,
+        ) -> Hresult = com_fn(device, 27);
+        f(
+            device,
+            &heap,
+            0,
+            &desc,
+            init,
+            std::ptr::null(),
+            &IID_ID3D12_RESOURCE,
+            &mut res,
+        )
+    };
+    if hr != S_OK || res.is_null() {
+        return Err(VendorError::ApiError(format!(
+            "NR CreateCommittedResource(buffer,{size}B,heap={heap_type}) → 0x{hr:08x}"
+        )));
+    }
+    Ok(res)
+}
+
+/// DLSS5 NR(NGX feature 18)D3D12 直驱会话——safe 公共面(评估臂)。
+pub struct NrDx12Session {
+    boot: D3d12Boot,
+    fns: NgxCoreFns,
+    handle: *mut c_void,
+    params: *mut c_void,
+    size: (u32, u32),
+    color_in: D3dTexture,
+    depth_in: D3dTexture,
+    mv_in: D3dTexture,
+    color_out: D3dTexture,
+    upload: *mut c_void,
+    readback: *mut c_void,
+    fence_value: u64,
+    gpu_name: String,
+    core_dll: DllProvenance,
+    snippet_dll: DllProvenance,
+}
+
+impl NrDx12Session {
+    /// 建 NR 会话:NVIDIA D3D12 device → NGX core Init → AllocateParameters + create
+    /// 参数(in==out,DLAA)→ CreateFeature(18) 持久句柄 → in==out 资源纹理。
+    /// fail-closed(缺 dll/缺符号/CreateFeature 失败均确定性 Err)。
+    ///
+    /// **非 Blackwell 硬件**:CreateFeature(18) 返 UnableToInitializeFeature → Err
+    /// (NR 特性硬件限定 RTX 50;本机 Ada 于此门止步,evaluate 不可达)。
+    pub fn create(size: (u32, u32)) -> Result<Self, VendorError> {
+        let (w, h) = size;
+        if w == 0 || h == 0 {
+            return Err(VendorError::ApiError("NR size 不可为 0".into()));
+        }
+        let snippet_dir = dlss5nr_sdk_dir()?;
+        let snippet_path = snippet_dir.join("nvngx_dlssnr.dll");
+        let (snip_sha, snip_bytes) = sha256_file(&snippet_path)?;
+        let core_path = locate_nvngx_core()?;
+        let (core_sha, core_bytes) = sha256_file(&core_path)?;
+
+        // snippet 投放 exe 同目录(core app-dir 搜索面)。
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(dir) = exe.parent() {
+                let dest = dir.join("nvngx_dlssnr.dll");
+                let need = std::fs::metadata(&dest)
+                    .map(|m| m.len() != snip_bytes)
+                    .unwrap_or(true);
+                if need {
+                    let _ = std::fs::copy(&snippet_path, &dest);
+                }
+            }
+        }
+
+        let boot = d3d12_bootstrap_nvidia()?;
+        let gpu_name = boot.gpu_name.clone();
+        let (_core, fns) = match ngx_core_open(&core_path) {
+            Ok(x) => x,
+            Err(e) => {
+                boot.release();
+                return Err(e);
+            }
+        };
+
+        let appdata = std::env::var(DLSS5NR_APPDATA_ENV)
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(".tmp/dlss5nr_appdata"));
+        let _ = std::fs::create_dir_all(&appdata);
+        let appdata_wide = to_wide(&appdata.to_string_lossy());
+        const APP_ID: u64 = 0x0000_0000_5255_5258;
+
+        // Init(4 参 version-only 主 / 5 参 fci fallback)。
+        // SAFETY: device 有效;appdata_wide 栈上存活;4 参 version 落 R9。
+        let mut r =
+            unsafe { (fns.init4)(APP_ID, appdata_wide.as_ptr(), boot.device, NGX_VERSION_API) };
+        if !ngx_succeed(r) {
+            let snippet_dir_wide = to_wide(&snippet_dir.to_string_lossy());
+            let path_ptrs: [*const u16; 1] = [snippet_dir_wide.as_ptr()];
+            let common = NgxFeatureCommonInfo {
+                path_list_info: NgxPathListInfo {
+                    path: path_ptrs.as_ptr(),
+                    length: 1,
+                    _pad: 0,
+                },
+                internal_data: std::ptr::null_mut(),
+                logging_info: NgxLoggingInfo {
+                    logging_callback: std::ptr::null_mut(),
+                    minimum_logging_level: 0,
+                    disable_other_sinks: 0,
+                    _pad: [0; 3],
+                },
+            };
+            // SAFETY: device 有效;common 栈上存活;fci fallback。
+            r = unsafe {
+                (fns.init_fci)(APP_ID, appdata_wide.as_ptr(), boot.device, &common, NGX_VERSION_API)
+            };
+        }
+        if !ngx_succeed(r) {
+            boot.release();
+            return Err(VendorError::VendorCall(format!(
+                "NVSDK_NGX_D3D12_Init → {} ({})",
+                r,
+                ngx_result_name(r)
+            )));
+        }
+
+        // AllocateParameters + create 参数。
+        let mut params: *mut c_void = std::ptr::null_mut();
+        // SAFETY: fns.alloc 有效;出参栈上有效。
+        let ar = unsafe { (fns.alloc)(&mut params) };
+        if !ngx_succeed(ar) || params.is_null() {
+            // SAFETY: device 有效;shutdown 与 init 配对。
+            unsafe {
+                let _ = (fns.shutdown)(boot.device);
+            }
+            boot.release();
+            return Err(VendorError::VendorCall(format!(
+                "NVSDK_NGX_D3D12_AllocateParameters → {} ({})",
+                ar,
+                ngx_result_name(ar)
+            )));
+        }
+        // SAFETY: params 有效;键 NUL 结尾字面量;槽位经探针自检确认(in==out,DLAA)。
+        unsafe {
+            ngx_param_set_ui(params, c"Width".as_ptr(), w);
+            ngx_param_set_ui(params, c"Height".as_ptr(), h);
+            ngx_param_set_ui(params, c"OutWidth".as_ptr(), w);
+            ngx_param_set_ui(params, c"OutHeight".as_ptr(), h);
+            ngx_param_set_ui(params, c"CreationNodeMask".as_ptr(), 1);
+            ngx_param_set_ui(params, c"VisibilityNodeMask".as_ptr(), 1);
+            ngx_param_set_ui(params, c"PerfQualityValue".as_ptr(), 5); // DLAA
+            ngx_param_set_i(params, c"DLSS.Feature.Create.Flags".as_ptr(), 0);
+            ngx_param_set_ui(params, c"DLSSNR.Style".as_ptr(), 0);
+        }
+
+        // CreateFeature(18)(cmd_list recording → 录制 → submit_wait)。
+        let mut handle: *mut c_void = std::ptr::null_mut();
+        // SAFETY: cmd_list recording;fns.create 有效;params 有效。
+        let cr = unsafe { (fns.create)(boot.cmd_list, NGX_NR_FEATURE_ID, params, &mut handle) };
+        let sw = nr_submit_wait(&boot, 1);
+        if !ngx_succeed(cr) || handle.is_null() {
+            // 失败(如 Ada 硬件 UnableToInitializeFeature):跳过 NGX shutdown(vendor 栈
+            // 存疑,同探针纪律),仅 destroy params 后 Err(资源交 OS 回收避免崩溃)。
+            let _ = sw;
+            boot.release();
+            return Err(VendorError::VendorCall(format!(
+                "NVSDK_NGX_D3D12_CreateFeature(18) → {} ({})——NR 特性硬件限定 Blackwell,本 GPU 不支持",
+                cr,
+                ngx_result_name(cr)
+            )));
+        }
+        sw?;
+
+        // in==out 资源纹理(color RGBA32F / depth R32F / mv RG32F / out RGBA32F+UAV)。
+        let color_in = nr_mk_tex(boot.device, DXGI_FORMAT_R32G32B32A32_FLOAT, w, h, false)?;
+        let depth_in = nr_mk_tex(boot.device, DXGI_FORMAT_R32_FLOAT, w, h, false)?;
+        let mv_in = nr_mk_tex(boot.device, DXGI_FORMAT_R32G32_FLOAT, w, h, false)?;
+        let color_out = nr_mk_tex(boot.device, DXGI_FORMAT_R32G32B32A32_FLOAT, w, h, true)?;
+        let row = |bpp: u64| -> u64 { (bpp * w as u64 + 255) & !255 };
+        let upload_size = row(16) * h as u64 + row(4) * h as u64 + row(8) * h as u64;
+        let readback_size = row(16) * h as u64;
+        let upload = nr_mk_buffer(boot.device, upload_size, D3D12_HEAP_TYPE_UPLOAD)?;
+        let readback = nr_mk_buffer(boot.device, readback_size, D3D12_HEAP_TYPE_READBACK)?;
+
+        Ok(Self {
+            boot,
+            fns,
+            handle,
+            params,
+            size,
+            color_in,
+            depth_in,
+            mv_in,
+            color_out,
+            upload,
+            readback,
+            fence_value: 1,
+            gpu_name,
+            core_dll: DllProvenance {
+                name: core_path.to_string_lossy().into_owned(),
+                sha256: core_sha,
+                bytes: core_bytes,
+            },
+            snippet_dll: DllProvenance {
+                name: snippet_path.to_string_lossy().into_owned(),
+                sha256: snip_sha,
+                bytes: snip_bytes,
+            },
+        })
+    }
+
+    /// 会话报告(provenance + 引擎版本)。
+    pub fn report(&self) -> NrSessionReport {
+        NrSessionReport {
+            gpu_name: self.gpu_name.clone(),
+            size: self.size,
+            core_dll: self.core_dll.clone(),
+            snippet_dll: self.snippet_dll.clone(),
+            engine_version: "nvngx_dlssnr 310.8 (NGX NR snippet) + NGX core".to_owned(),
+        }
+    }
+
+    /// 逐帧 NR 神经渲染 pass(in==out;Color/Depth/MVec 输入 → Output)。
+    ///
+    /// **Blackwell 落地面**:本机 Ada create() 已 fail-closed 不可达此;ABI 按
+    /// NVIDIA/DLSS SDK 头 + snippet DLSSNR.* 键建,Blackwell 端到端待验。
+    /// `out` 长度须 = w*h*3(RGB f32,显示域)。
+    pub fn evaluate(&mut self, input: &VendorFrameInput, out: &mut [f32]) -> Result<(), VendorError> {
+        let (w, h) = self.size;
+        let (wu, hu) = (w as usize, h as usize);
+        assert_eq!(out.len(), wu * hu * 3, "NR out 长度须 = w*h*3");
+        assert_eq!(input.color.len(), wu * hu * 3, "NR color 须 w*h*3");
+        assert_eq!(input.depth.len(), wu * hu, "NR depth 须 w*h");
+        assert_eq!(input.mv.len(), wu * hu * 2, "NR mv 须 w*h*2");
+
+        let row = |bpp: usize| -> usize { (bpp * wu + 255) & !255 };
+        let (rc, rd, rm) = (row(16), row(4), row(8));
+        let off_d = rc * hu;
+        let off_m = off_d + rd * hu;
+
+        // ── host 打包 → upload 缓冲(map,行 256 对齐)──
+        let mut mapped: *mut c_void = std::ptr::null_mut();
+        // SAFETY: ID3D12Resource::Map @8(整资源,读范围空)。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult =
+                com_fn(self.upload, 8);
+            let hr = f(self.upload, 0, std::ptr::null(), &mut mapped);
+            if hr != S_OK || mapped.is_null() {
+                return Err(VendorError::ApiError(format!("NR upload Map → 0x{hr:08x}")));
+            }
+        }
+        // SAFETY: mapped 为 upload_size 可写;逐行写 color(RGBA32F)/depth(R32F)/mv(RG32F)。
+        unsafe {
+            let base = mapped as *mut u8;
+            for y in 0..hu {
+                let dst = base.add(y * rc) as *mut f32;
+                for x in 0..wu {
+                    let s = (y * wu + x) * 3;
+                    *dst.add(x * 4) = input.color[s];
+                    *dst.add(x * 4 + 1) = input.color[s + 1];
+                    *dst.add(x * 4 + 2) = input.color[s + 2];
+                    *dst.add(x * 4 + 3) = 1.0;
+                }
+                let dstd = base.add(off_d + y * rd) as *mut f32;
+                for x in 0..wu {
+                    *dstd.add(x) = input.depth[y * wu + x];
+                }
+                let dstm = base.add(off_m + y * rm) as *mut f32;
+                for x in 0..wu {
+                    *dstm.add(x * 2) = input.mv[(y * wu + x) * 2];
+                    *dstm.add(x * 2 + 1) = input.mv[(y * wu + x) * 2 + 1];
+                }
+            }
+            // ID3D12Resource::Unmap @9。
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.upload, 9);
+            f(self.upload, 0, std::ptr::null());
+        }
+
+        // ── CopyTextureRegion upload→纹理 + barrier 至 NGX 输入态 ──
+        self.copy_upload_to_tex(0, DXGI_FORMAT_R32G32B32A32_FLOAT, rc as u32);
+        self.copy_upload_to_tex_slot(&[
+            (off_d as u64, self.depth_in.resource, DXGI_FORMAT_R32_FLOAT, rd as u32),
+            (off_m as u64, self.mv_in.resource, DXGI_FORMAT_R32G32_FLOAT, rm as u32),
+        ]);
+        self.barrier(self.color_in.resource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        self.barrier(self.depth_in.resource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        self.barrier(self.mv_in.resource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+        self.barrier(self.color_out.resource, D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+        // ── 绑 DLSSNR.* 资源 + 参数(subrect=全帧,MV/jitter/reset)──
+        // SAFETY: params 有效;资源指针有效;键 NUL 结尾;setter 槽位经自检确认。
+        unsafe {
+            ngx_param_set_d3d12(self.params, c"DLSSNR.Color".as_ptr(), self.color_in.resource);
+            ngx_param_set_d3d12(self.params, c"DLSSNR.Depth".as_ptr(), self.depth_in.resource);
+            ngx_param_set_d3d12(self.params, c"DLSSNR.MVec".as_ptr(), self.mv_in.resource);
+            ngx_param_set_d3d12(self.params, c"DLSSNR.Output".as_ptr(), self.color_out.resource);
+            ngx_param_set_ui(self.params, c"DLSSNR.ColorSubrectWidth".as_ptr(), w);
+            ngx_param_set_ui(self.params, c"DLSSNR.ColorSubrectHeight".as_ptr(), h);
+            ngx_param_set_ui(self.params, c"DLSSNR.DepthSubrectWidth".as_ptr(), w);
+            ngx_param_set_ui(self.params, c"DLSSNR.DepthSubrectHeight".as_ptr(), h);
+            ngx_param_set_ui(self.params, c"DLSSNR.MVecSubrectWidth".as_ptr(), w);
+            ngx_param_set_ui(self.params, c"DLSSNR.MVecSubrectHeight".as_ptr(), h);
+            ngx_param_set_ui(self.params, c"DLSSNR.OutputSubrectWidth".as_ptr(), w);
+            ngx_param_set_ui(self.params, c"DLSSNR.OutputSubrectHeight".as_ptr(), h);
+            ngx_param_set_f(self.params, c"MV.Scale.X".as_ptr(), w as f32);
+            ngx_param_set_f(self.params, c"MV.Scale.Y".as_ptr(), h as f32);
+            ngx_param_set_f(self.params, c"Jitter.Offset.X".as_ptr(), input.jitter[0]);
+            ngx_param_set_f(self.params, c"Jitter.Offset.Y".as_ptr(), input.jitter[1]);
+            ngx_param_set_i(self.params, c"Reset".as_ptr(), if input.reset { 1 } else { 0 });
+            ngx_param_set_ui(self.params, c"DLSSNR.Style".as_ptr(), 0);
+        }
+
+        // ── EvaluateFeature ──
+        // SAFETY: cmd_list recording;handle/params 有效;callback null。
+        let er = unsafe {
+            (self.fns.evaluate)(self.boot.cmd_list, self.handle, self.params, std::ptr::null_mut())
+        };
+        if !ngx_succeed(er) {
+            return Err(VendorError::VendorCall(format!(
+                "NVSDK_NGX_D3D12_EvaluateFeature(18) → {} ({})",
+                er,
+                ngx_result_name(er)
+            )));
+        }
+
+        // ── Output → readback ──
+        self.barrier(self.color_out.resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+        self.copy_tex_to_readback(self.color_out.resource, DXGI_FORMAT_R32G32B32A32_FLOAT, rc as u32);
+        self.barrier(self.color_out.resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COMMON);
+        // 输入纹理复位 COMMON(下帧重用)。
+        self.barrier(self.color_in.resource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COMMON);
+        self.barrier(self.depth_in.resource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COMMON);
+        self.barrier(self.mv_in.resource, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COMMON);
+
+        self.fence_value += 1;
+        let fv = self.fence_value;
+        nr_submit_wait(&self.boot, fv)?;
+
+        // ── readback → out(RGBA32F → RGB f32)──
+        let mut mapped: *mut c_void = std::ptr::null_mut();
+        // SAFETY: Map @8。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void, *mut *mut c_void) -> Hresult =
+                com_fn(self.readback, 8);
+            let hr = f(self.readback, 0, std::ptr::null(), &mut mapped);
+            if hr != S_OK || mapped.is_null() {
+                return Err(VendorError::ApiError(format!("NR readback Map → 0x{hr:08x}")));
+            }
+        }
+        // SAFETY: mapped 为 readback_size 可读;逐行 RGBA32F 取 RGB。
+        unsafe {
+            let base = mapped as *const u8;
+            for y in 0..hu {
+                let src = base.add(y * rc) as *const f32;
+                for x in 0..wu {
+                    let d = (y * wu + x) * 3;
+                    out[d] = *src.add(x * 4);
+                    out[d + 1] = *src.add(x * 4 + 1);
+                    out[d + 2] = *src.add(x * 4 + 2);
+                }
+            }
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const c_void) = com_fn(self.readback, 9);
+            f(self.readback, 0, std::ptr::null());
+        }
+        Ok(())
+    }
+
+    /// upload[offset=0] → color_in 的 CopyTextureRegion(RGBA32F)。
+    fn copy_upload_to_tex(&self, offset: u64, format: u32, row_pitch: u32) {
+        self.copy_upload_to_tex_slot(&[(offset, self.color_in.resource, format, row_pitch)]);
+    }
+
+    /// upload[各 offset] → 各纹理的 CopyTextureRegion(placed footprint)。
+    fn copy_upload_to_tex_slot(&self, slots: &[(u64, *mut c_void, u32, u32)]) {
+        for &(offset, res, format, row_pitch) in slots {
+            // 目标纹理 subresource 0:copy_type=1(SUBRESOURCE_INDEX),union 低 u32=0
+            // (placed.offset=0 即 subresource index 0)。
+            let dst = D3d12TextureCopyLocation {
+                p_resource: res,
+                copy_type: 1,
+                placed: D3d12PlacedSubresourceFootprint {
+                    offset: 0,
+                    footprint: D3d12SubresourceFootprint {
+                        format: 0,
+                        width: 0,
+                        height: 0,
+                        depth: 0,
+                        row_pitch: 0,
+                    },
+                },
+            };
+            let src = D3d12TextureCopyLocation {
+                p_resource: self.upload,
+                copy_type: 0, // PLACED_FOOTPRINT
+                placed: D3d12PlacedSubresourceFootprint {
+                    offset,
+                    footprint: D3d12SubresourceFootprint {
+                        format,
+                        width: self.size.0,
+                        height: self.size.1,
+                        depth: 1,
+                        row_pitch,
+                    },
+                },
+            };
+            // dst 需 SUBRESOURCE_INDEX(0):copy_type=1,SubresourceIndex 复用 placed.offset 低位=0。
+            // SAFETY: ID3D12GraphicsCommandList::CopyTextureRegion @16;res/upload 有效。
+            unsafe {
+                let f: unsafe extern "system" fn(
+                    *mut c_void,
+                    *const D3d12TextureCopyLocation,
+                    u32,
+                    u32,
+                    u32,
+                    *const D3d12TextureCopyLocation,
+                    *const c_void,
+                ) = com_fn(self.boot.cmd_list, 16);
+                f(self.boot.cmd_list, &dst, 0, 0, 0, &src, std::ptr::null());
+            }
+        }
+    }
+
+    /// color_out → readback 的 CopyTextureRegion(纹理 subresource 0 → placed footprint)。
+    fn copy_tex_to_readback(&self, res: *mut c_void, format: u32, row_pitch: u32) {
+        let dst = D3d12TextureCopyLocation {
+            p_resource: self.readback,
+            copy_type: 0, // PLACED_FOOTPRINT
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint {
+                    format,
+                    width: self.size.0,
+                    height: self.size.1,
+                    depth: 1,
+                    row_pitch,
+                },
+            },
+        };
+        let src = D3d12TextureCopyLocation {
+            p_resource: res,
+            copy_type: 1, // SUBRESOURCE_INDEX
+            placed: D3d12PlacedSubresourceFootprint {
+                offset: 0,
+                footprint: D3d12SubresourceFootprint {
+                    format: 0,
+                    width: 0,
+                    height: 0,
+                    depth: 0,
+                    row_pitch: 0,
+                },
+            },
+        };
+        // SAFETY: CopyTextureRegion @16;readback/res 有效。
+        unsafe {
+            let f: unsafe extern "system" fn(
+                *mut c_void,
+                *const D3d12TextureCopyLocation,
+                u32,
+                u32,
+                u32,
+                *const D3d12TextureCopyLocation,
+                *const c_void,
+            ) = com_fn(self.boot.cmd_list, 16);
+            f(self.boot.cmd_list, &dst, 0, 0, 0, &src, std::ptr::null());
+        }
+    }
+
+    /// 资源状态转换 barrier(ResourceBarrier @26)。
+    fn barrier(&self, res: *mut c_void, from: i32, to: i32) {
+        let b = D3d12ResourceBarrier {
+            barrier_type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            flags: D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            p_resource: res,
+            subresource: 0xffff_ffff,
+            state_before: from,
+            state_after: to,
+            _pad: 0,
+        };
+        // SAFETY: ID3D12GraphicsCommandList::ResourceBarrier @26;res 有效。
+        unsafe {
+            let f: unsafe extern "system" fn(*mut c_void, u32, *const D3d12ResourceBarrier) =
+                com_fn(self.boot.cmd_list, 26);
+            f(self.boot.cmd_list, 1, &b);
+        }
+    }
+}
+
+impl Drop for NrDx12Session {
+    fn drop(&mut self) {
+        // SAFETY: 句柄/参数/device 由 create 产出且本类型独占;Drop 仅一次;
+        // ReleaseFeature/DestroyParameters/Shutdown1 与 create 配对。
+        unsafe {
+            if !self.handle.is_null() {
+                let _ = (self.fns.release)(self.handle);
+            }
+            if !self.params.is_null() {
+                let _ = (self.fns.destroy)(self.params);
+            }
+            let _ = (self.fns.shutdown)(self.boot.device);
+        }
+        for t in [&self.color_in, &self.depth_in, &self.mv_in, &self.color_out] {
+            com_release(t.resource);
+        }
+        com_release(self.upload);
+        com_release(self.readback);
+        self.boot.release();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
